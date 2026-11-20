@@ -208,6 +208,10 @@ internal static class FullFuzzCheck
             if (n <= ContractUpTo)
                 FuzzSteps.Run(FuzzSteps.Contract, () => EsaContractChecker.CheckAll(subject.Tree, oracles.Contract, where, n <= 24 ? CheckOptions.Thorough : CheckOptions.Sampled));
             List<string> contract = FuzzSteps.Run(FuzzSteps.ContractDigest, () => FuzzContractDigest.Compute(subject.Tree, text, cfg.Seed));
+            // the representative of the longest repeated substring on a tie is implementation-specific by contract (ADR-001 section 7), so it is not in the digests that are compared with Ukkonen and v6; the ESA engines keep one rule
+            // (the lexicographically smallest tied substring), which is compared between the in-memory and the file-backed trees through this line and with the rule itself (work package 1b.9b, the gap of the audit of 1b.8)
+            if (FuzzSteps.Run(FuzzSteps.ContractDigest, () => FuzzDigest.LrsRuleViolation(view)) is { } rule) return new FuzzMismatch($"{engine}:lrs-rule", rule);
+            contract.Add("lrs-representative=" + view.LongestRepeatedSubstring());
             firstContract ??= contract;
             if (!ReferenceEquals(firstContract, contract) && FuzzDigest.Diff(contract, firstContract, engine, "the first in-memory tree") is { } d3)
                 return new FuzzMismatch($"{engine}:contract-digest:{FuzzDigest.LabelOf(contract[0])}", d3);

@@ -8,6 +8,11 @@
    environment: MUTANT_BUILD_LIMIT (s, default 400), MUTANT_TEST_LIMIT (s, default 420), FUZZ_BUDGET_S (default 60), FUZZ_THREADS (default 2), FUZZ_HEAP_LIMIT (default 0xC0000000), HARNESS=0 to skip the harness for survivors."""
 import json, os, re, signal, subprocess, sys
 
+
+def printable(s):
+    """The text of a failure as the harness printed it may hold control characters (the text of a fuzz case): a TSV that carries them is a binary file for git, so they are written as \\xNN escapes."""
+    return re.sub(r'[\x00-\x08\x0b-\x1f\x7f]', lambda m: '\\x%02x' % ord(m.group()), s)
+
 ROOT = sys.argv[1]
 BUILD_LIMIT = int(os.environ.get('MUTANT_BUILD_LIMIT', '400'))
 TEST_LIMIT = int(os.environ.get('MUTANT_TEST_LIMIT', '420'))
@@ -83,7 +88,7 @@ def harness(mid):
     if os.path.exists(rep + '.log'):
         for line in open(rep + '.log'):
             if line.startswith('FAIL '):
-                first = re.sub(r'\s+', ' ', line.strip())[:200]
+                first = printable(re.sub(r'\s+', ' ', line.strip()))[:200]
                 break
     if hung:
         return 'killed(hang, harness)'

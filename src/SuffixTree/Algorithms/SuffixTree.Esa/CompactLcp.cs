@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+
 namespace SuffixTree.Esa;
 
 /// <summary>Storage kind of a <see cref="CompactLcp"/> (ADR-002 section 4; the container kinds of ADR-003).</summary>
@@ -121,11 +123,17 @@ internal sealed unsafe class CompactLcp
         get
         {
             int b = BaseValue(rank);
-            if (b != EscapeValue) return b;
-            int k = FindOverflow(rank);
-            if (k < 0) throw Corrupt($"overflow entry for rank {rank} is missing");
-            return OverflowValueAt(k);
+            return b != EscapeValue ? b : EscapedValue(rank);
         }
+    }
+
+    /// <summary>The value of an escaped entry (the slow arm of the indexer, out of line so that the arm that most reads take stays small enough to be inlined into the pattern descent).</summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private int EscapedValue(int rank)
+    {
+        int k = FindOverflow(rank);
+        if (k < 0) throw Corrupt($"overflow entry for rank {rank} is missing");
+        return OverflowValueAt(k);
     }
 
     /// <summary>The index in the overflow list of <paramref name="rank"/>, or a negative number.</summary>
@@ -263,13 +271,16 @@ internal sealed unsafe class CompactLcp
         return new CompactLcp(kind, length, u8, u16, u32, overflowRank, overflowValue);
     }
 
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void ThrowRankOutside(int rank)
+    {
+        if (IsMapped) throw new InvalidDataException($"the LCP array is read at rank {rank}, but it has {Length} entries: the file is damaged");
+        throw new ArgumentOutOfRangeException(nameof(rank));
+    }
+
     private int BaseValue(int rank)
     {
-        if ((uint)rank >= (uint)Length)
-        {
-            if (IsMapped) throw new InvalidDataException($"the LCP array is read at rank {rank}, but it has {Length} entries: the file is damaged");
-            throw new ArgumentOutOfRangeException(nameof(rank));
-        }
+        if ((uint)rank >= (uint)Length) ThrowRankOutside(rank);
         if (IsMapped) return MappedValue(rank);
         return Kind switch
         {

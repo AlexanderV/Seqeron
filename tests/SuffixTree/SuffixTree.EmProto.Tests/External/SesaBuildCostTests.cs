@@ -24,6 +24,8 @@ public unsafe class SesaBuildCostTests
 
     private static string EnvOr(string name, string fallback) => Environment.GetEnvironmentVariable(name) ?? fallback;
 
+    private static string? s_crcLines;
+
     private static string F(double v) => v.ToString("F4", CultureInfo.InvariantCulture);
 
     private static string Mb(double? v) => v is { } x ? x.ToString("F1", CultureInfo.InvariantCulture) : "na";
@@ -51,6 +53,7 @@ public unsafe class SesaBuildCostTests
         };
         Prod.RssStats s = rss.Stop();
         File.AppendAllText(rows, string.Join('\t', label, variant, row, before, s.MaxRssAnonKb, s.Samples) + "\n");
+        if (s_crcLines is not null) File.AppendAllText(rows, s_crcLines);
         TestContext.Out.WriteLine(row);
         Assert.That(row, Is.Not.Empty);
     }
@@ -68,7 +71,8 @@ public unsafe class SesaBuildCostTests
             Files = EnvOr("G3_RESERVATION", "auto") == "sparse" ? new Prod.MappedFileOptions { Reservation = Prod.ReservationMode.Sparse } : null,
         };
         Prod.SesaBuildResult r = Prod.SesaBuilder.Build(input, target, options);
-        File.WriteAllText(Env("G3_ROWS") + ".crc." + Env("G3_LABEL"), string.Join('\n', r.CrcRows.Select(c => string.Join('\t', c.Kind, c.Bytes, F(c.Seconds), c.Hardware))) + "\n");
+        // the per-section checksum rows go into the rows file itself, behind the row of the run, as comment lines (work package 1b.9b: they were a file per run before, 47 of them in analysis/em)
+        s_crcLines = string.Join('\n', r.CrcRows.Select(c => string.Join('\t', "#crc", Env("G3_LABEL"), c.Kind, c.Bytes, F(c.Seconds), c.Hardware))) + "\n";
         Prod.SesaPhaseSeconds s = r.Seconds;
         Prod.SesaPhaseRss p = r.Rss;
         return string.Join('\t', F(s.Scan), F(s.Create), F(s.Pack), F(s.Ph1), F(s.Ph23), F(s.Ph45), F(s.Bwt), F(s.Psi), F(s.Crc), F(s.Seal), F(s.Total), r.Io.ReadBytes, r.Io.WriteBytes, r.Io.MappedWriteBytes, r.ScratchPeakBytes, r.ArenaPeakBytes, Mb(p.Ph0), Mb(p.Ph1), Mb(p.Ph23), Mb(p.Ph45), Mb(p.Ph6), Mb(p.Seal), Mb(r.RssAnonPeakMb), r.RssVerdict, r.FileSize, r.GrownBytes, r.Reservation, r.OverflowCount, r.LcpKind);

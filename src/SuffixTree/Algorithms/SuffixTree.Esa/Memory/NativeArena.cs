@@ -39,7 +39,16 @@ internal sealed unsafe class NativeArena : IDisposable
     {
         ArgumentOutOfRangeException.ThrowIfNegative(options.GuardBytes);
         _options = options;
+        if (options.GuardBytes > 0) Interlocked.Increment(ref _guardedCreated);
     }
+
+    private static long _guardedCreated;
+
+    /// <summary>
+    /// The number of arenas with guard bands that were created in this process. A counter for the tests of the builder: a pass that is given the guard option and does not hand it on to its arenas shows as a count that does not move while
+    /// the pass runs (the guards poison and fence an arena and change no output of a correct pass, so nothing else makes the hand-over visible).
+    /// </summary>
+    internal static long GuardedCreated => Interlocked.Read(ref _guardedCreated);
 
     ~NativeArena() => FreeAll();
 

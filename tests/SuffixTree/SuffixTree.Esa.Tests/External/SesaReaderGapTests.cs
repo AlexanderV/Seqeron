@@ -174,7 +174,7 @@ public unsafe class SesaReaderGapTests
 
     // ---------------------------------------------------------------- CompactLcp over mapped sections
 
-    private static (byte[] Base, uint[] Pairs) LcpSections(LcpKind kind, int[] values)
+    internal static (byte[] Base, uint[] Pairs) LcpSections(LcpKind kind, int[] values)
     {
         int escape = kind switch { LcpKind.U8 => 255, LcpKind.U16 => 65535, _ => int.MaxValue };
         var pairs = new List<uint>();

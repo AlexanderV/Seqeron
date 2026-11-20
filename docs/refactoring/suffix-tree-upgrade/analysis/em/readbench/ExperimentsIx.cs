@@ -24,6 +24,7 @@ internal static unsafe class ExperimentsIx
     internal static Program.Q Create(string variant, string file, string text)
     {
         if (variant.StartsWith("ix-rx-", StringComparison.Ordinal)) return ExperimentsRaw.Create(variant, file);
+        if (variant is "ix-mem-b" or "ix-mem-p") return ExperimentsRaw.CreateInMemory(variant, text);
         switch (variant)
         {
             case "ix-memory": return new IndexQ(EsaIndex.Build(text, ChildLayoutKind.Tagged));

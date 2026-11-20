@@ -14,6 +14,7 @@ internal static class Program
 {
     private static int Main(string[] args)
     {
+        if (args.Length > 0 && args[0] == "gen") return Generate.Run(args);
         if (args.Length < 3)
         {
             Console.Error.WriteLine("usage: ReadBench <variant> <container> <text> [passes=7] [label] [alphabet=ACGT] [seed=1234]");
@@ -31,6 +32,7 @@ internal static class Program
 #if EXPERIMENTS
         if (variant == "count") return ExperimentsCount.Run(file, textPath);
 #endif
+        if (variant.StartsWith("mt:", StringComparison.Ordinal)) return ThreadBench(variant[3..].Split('+'), file, text, passes, label, alphabet, seed);
         if (variant.Contains('+', StringComparison.Ordinal)) return PairBench(variant.Split('+'), file, text, passes, label, alphabet, seed);
 
         long t0 = Stopwatch.GetTimestamp();
@@ -131,20 +133,25 @@ internal static class Program
         return new TreeQ(Create(variant, file, text));
     }
 
+    /// <summary>
+    /// The three pattern sets of the benchmark definition (BENCHMARK-1b9b.md): present long (count), present short (locate), absent (count). The lengths are 20 / 8 / 24 unless RB_L20 / RB_L8 / RB_L24 say otherwise, the numbers
+    /// 200000 / 20000 / 100000 unless RB_N20 / RB_N8 / RB_N24 do; the absent patterns are drawn uniformly from the alphabet (the argument, or the distinct symbols of the text when it is "@text").
+    /// </summary>
     private static (string[] Twenty, string[] Eight, string[] Absent) Patterns(string text, string alphabet, ulong seed)
     {
         var rng = new Mix(seed);
-        int m20 = int.Parse(Environment.GetEnvironmentVariable("RB_N20") ?? "200000", CultureInfo.InvariantCulture);
-        int m8 = int.Parse(Environment.GetEnvironmentVariable("RB_N8") ?? "20000", CultureInfo.InvariantCulture);
-        int m24 = int.Parse(Environment.GetEnvironmentVariable("RB_N24") ?? "100000", CultureInfo.InvariantCulture);
+        int Env(string name, int fallback) => int.Parse(Environment.GetEnvironmentVariable(name) ?? fallback.ToString(CultureInfo.InvariantCulture), CultureInfo.InvariantCulture);
+        int m20 = Env("RB_N20", 200000), m8 = Env("RB_N8", 20000), m24 = Env("RB_N24", 100000);
+        int l20 = Env("RB_L20", 20), l8 = Env("RB_L8", 8), l24 = Env("RB_L24", 24);
+        if (alphabet == "@text") alphabet = new string(text.Distinct().Order().ToArray());
         string[] twenty = new string[m20];
-        for (int i = 0; i < twenty.Length; i++) twenty[i] = text.Substring(rng.NextInt(text.Length - 20), 20);
+        for (int i = 0; i < twenty.Length; i++) twenty[i] = text.Substring(rng.NextInt(text.Length - l20), l20);
         string[] eight = new string[m8];
-        for (int i = 0; i < eight.Length; i++) eight[i] = text.Substring(rng.NextInt(text.Length - 8), 8);
+        for (int i = 0; i < eight.Length; i++) eight[i] = text.Substring(rng.NextInt(text.Length - l8), l8);
         string[] absent = new string[m24];
         for (int i = 0; i < absent.Length; i++)
         {
-            var chars = new char[24];
+            var chars = new char[l24];
             for (int k = 0; k < chars.Length; k++) chars[k] = alphabet[rng.NextInt(alphabet.Length)];
             absent[i] = new string(chars);
         }
@@ -196,6 +203,95 @@ internal static class Program
             Console.WriteLine(string.Join('\t', "pair", label, variants[i],
                 Median(c[i]).ToString("F0", CultureInfo.InvariantCulture), Median(l[i]).ToString("F0", CultureInfo.InvariantCulture), Median(a[i]).ToString("F0", CultureInfo.InvariantCulture),
                 "ratio_to_first:", Ratio(c), Ratio(l), Ratio(a), "sink=" + sinks[i]));
+        }
+        return 0;
+    }
+
+    /// <summary>
+    /// The four-thread instrument (work package 1b.9b, item 4): several trees (or several access paths to one tree) in ONE process, the same persistent threads for all of them. In every round, for every variant in a rotated order, the
+    /// threads (RB_THREADS, default 4) are released together by a barrier and each runs its slice of the pattern set (count of the present long patterns, locate of the short ones, count of the absent ones) on the tree of the
+    /// variant, the phase repeated RB_REPEAT times (default 3); the throughput is the queries of the phase over the wall time between the release and the last thread to finish. Output: per variant the median over the rounds of the
+    /// three throughputs and the median over the rounds of the per-round ratio to the first variant (the pairing that cancels the drift of the machine). `passes` is the number of rounds.
+    /// </summary>
+    private static int ThreadBench(string[] variants, string file, string text, int rounds, string label, string alphabet, ulong seed)
+    {
+        int threads = int.Parse(Environment.GetEnvironmentVariable("RB_THREADS") ?? "4", CultureInfo.InvariantCulture);
+        int repeat = int.Parse(Environment.GetEnvironmentVariable("RB_REPEAT") ?? "3", CultureInfo.InvariantCulture);
+        var qs = new Q[variants.Length];
+        for (int i = 0; i < qs.Length; i++) qs[i] = CreateQ(variants[i], file, text);
+        (string[] twenty, string[] eight, string[] absent) = Patterns(text, alphabet, seed);
+        string[][] sets = [twenty, eight, absent];
+        int k = qs.Length;
+
+        // the persistent threads: phase = (variant, metric) written by the main thread before the start barrier
+        var start = new Barrier(threads + 1);
+        var end = new Barrier(threads + 1);
+        int phaseVariant = 0, phaseMetric = 0;
+        bool stop = false;
+        long sink = 0;
+        var workers = new Thread[threads];
+        for (int t = 0; t < threads; t++)
+        {
+            int id = t;
+            workers[t] = new Thread(() =>
+            {
+                long local = 0;
+                while (true)
+                {
+                    start.SignalAndWait();
+                    if (Volatile.Read(ref stop))
+                    {
+                        Interlocked.Add(ref sink, local);
+                        return;
+                    }
+                    Q q = qs[Volatile.Read(ref phaseVariant)];
+                    int metric = Volatile.Read(ref phaseMetric);
+                    string[] set = sets[metric];
+                    int from = set.Length / threads * id, to = id == threads - 1 ? set.Length : set.Length / threads * (id + 1);
+                    for (int rep = 0; rep < repeat; rep++)
+                        for (int i = from; i < to; i++) local += metric == 1 ? q.Locate(set[i]) : q.Count(set[i]);
+                    end.SignalAndWait();
+                }
+            }) { IsBackground = true };
+            workers[t].Start();
+        }
+
+        double Phase(int variant, int metric)
+        {
+            phaseVariant = variant;
+            phaseMetric = metric;
+            start.SignalAndWait();
+            long t0 = Stopwatch.GetTimestamp();
+            end.SignalAndWait();
+            return repeat * sets[metric].Length / Seconds(t0);
+        }
+
+        // warm-up by time: every variant, every metric, about one second each
+        for (int v = 0; v < k; v++)
+            for (int metric = 0; metric < 3; metric++)
+            {
+                long w0 = Stopwatch.GetTimestamp();
+                do { _ = Phase(v, metric); } while (Seconds(w0) < 1.0);
+            }
+        var res = new List<double>[k, 3];
+        for (int v = 0; v < k; v++)
+            for (int metric = 0; metric < 3; metric++) res[v, metric] = [];
+        for (int r = 0; r < rounds; r++)
+            for (int j = 0; j < k; j++)
+            {
+                int v = (r + j) % k;
+                for (int metric = 0; metric < 3; metric++) res[v, metric].Add(Phase(v, metric));
+            }
+        Volatile.Write(ref stop, true);
+        start.SignalAndWait();
+        foreach (Thread w in workers) w.Join();
+        GC.KeepAlive(sink);
+        for (int v = 0; v < k; v++)
+        {
+            string Ratio(int metric) => Median(res[v, metric].Select((x, p) => x / res[0, metric][p]).ToList()).ToString("F3", CultureInfo.InvariantCulture);
+            Console.WriteLine(string.Join('\t', "mt", label, threads.ToString(CultureInfo.InvariantCulture), variants[v],
+                Median(res[v, 0]).ToString("F0", CultureInfo.InvariantCulture), Median(res[v, 1]).ToString("F0", CultureInfo.InvariantCulture), Median(res[v, 2]).ToString("F0", CultureInfo.InvariantCulture),
+                "ratio_to_first:", Ratio(0), Ratio(1), Ratio(2)));
         }
         return 0;
     }

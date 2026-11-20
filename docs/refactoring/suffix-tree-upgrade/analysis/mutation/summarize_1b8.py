@@ -77,7 +77,7 @@ with open(os.path.join(HERE, 'summary_1b8.tsv'), 'w') as o:
 with open(os.path.join(HERE, 'fails_1b8.tsv'), 'w') as o:
     o.write('id\tfirst failure of the harness (the minimized text as hex code units at the end of the line)\n')
     for mid in sorted(fails):
-        o.write('%s\t%s\n' % (mid, fails[mid][0]))
+        o.write('%s\t%s\n' % (mid, re.sub(r'[\x00-\x08\x0b-\x1f\x7f]', lambda m: '\\x%02x' % ord(m.group()), fails[mid][0])))
 print('listed', len(listed), 'rows', len(rows))
 for k, v in sorted(counts.items()):
     print(v, k)

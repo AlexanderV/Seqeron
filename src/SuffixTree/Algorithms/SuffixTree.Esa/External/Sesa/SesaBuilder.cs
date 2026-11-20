@@ -410,7 +410,7 @@ internal static class SesaBuilder
             t = Stopwatch.GetTimestamp();
             string buildInfo = BuildInfoText(info, placed.Kind, placed.OverflowCount, options.IncludePsi, childCodec);
             byte[] infoBytes = Encoding.UTF8.GetBytes(buildInfo);
-            if (infoBytes.Length > plan.BuildInfoCapacity) throw new InvalidOperationException($"BUILD_INFO has {infoBytes.Length} bytes, the reserved room is {plan.BuildInfoCapacity}");
+            CheckBuildInfoFits(infoBytes.Length, plan.BuildInfoCapacity);
             WriteSection(container, plan.BuildInfoOffset, infoBytes, options.TextWindowBytes, counters);
             Hook(SesaHooks.InfoWritten);
             container.Complete(fsync: false);
@@ -623,6 +623,13 @@ internal static class SesaBuilder
         }
         _ = infoLength;
         return sections;
+    }
+
+    /// <summary>BUILD_INFO is written into a room of fixed size that the layout reserved before it was known (4,096 bytes); a text that would overrun it would overwrite the next section, so it is refused.</summary>
+    /// <exception cref="InvalidOperationException">The text of <paramref name="length"/> bytes does not fit <paramref name="capacity"/>.</exception>
+    internal static void CheckBuildInfoFits(int length, long capacity)
+    {
+        if (length > capacity) throw new InvalidOperationException($"BUILD_INFO has {length} bytes, the reserved room is {capacity}");
     }
 
     /// <summary>The text of the BUILD_INFO section: everything that is a fact about the output, nothing about the run (no time, no thread count, no sizes), so that the same input gives the same bytes.</summary>

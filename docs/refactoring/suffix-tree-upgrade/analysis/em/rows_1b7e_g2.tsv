@@ -120,3 +120,21 @@ R	E8	genome_100m.g2	sha256_stats	ac81ab800c34d5b3012e2927cb3a25ba21fba20ad4cc7c7
 R	E8	genome_100m.g2	verify_wall_s	5.529757	s	whole verification, 4 threads, LCE cap 65536
 R	E8	genome_100m.g2	verify_all	pass		11 of 11 checks passed; --no-child / --no-hash omit checks (a run for the gate G1 uses neither)
 #verify	genome_100m	exit=0	pass	11 of 11 checks passed; --no-child / --no-hash omit checks (a run for the gate G1 uses neither)
+#crc: #crc label kind bytes seconds hardware (the per-section checksum rows of the builds above; folded from the per-run files rows_*.tsv.crc.<label> by work package 1b.9b)
+#crc	dna_100m.g2	1	25000064	0.0062	True
+#crc	dna_100m.g2	2	8	0.0000	True
+#crc	dna_100m.g2	13	32	0.0000	True
+#crc	dna_100m.g2	3	400000004	0.0997	True
+#crc	dna_100m.g2	6	400000004	0.0871	True
+#crc	dna_100m.g2	12	400000004	0.1105	True
+#crc	dna_100m.g2	11	197	0.0000	True
+#crc	dna_100m.g2	4	100000001	0.0242	True
+#crc	genome_100m.g2	1	37500064	0.0079	True
+#crc	genome_100m.g2	2	10	0.0000	True
+#crc	genome_100m.g2	13	40	0.0000	True
+#crc	genome_100m.g2	3	400000004	0.0840	True
+#crc	genome_100m.g2	6	400000004	0.0797	True
+#crc	genome_100m.g2	12	400000004	0.0861	True
+#crc	genome_100m.g2	11	203	0.0000	True
+#crc	genome_100m.g2	4	100000001	0.0208	True
+#crc	genome_100m.g2	5	11120224	0.0023	True

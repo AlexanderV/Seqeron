@@ -238,7 +238,7 @@ public class FacadeLifetimeTests(SuffixTreeBackend backend)
     }
 }
 
-/// <summary>What <c>Dispose</c> releases in the ESA facade: the pins of the navigation pack, if it was built; a pack that was never built is not built by the disposal.</summary>
+/// <summary>What <c>Dispose</c> releases in the ESA facade: for an in-memory tree nothing a reader can use (the pins of the navigation pack go with the finalizer of the pack); a pack that was never built is not built by the disposal.</summary>
 [TestFixture]
 public class FacadeEsaDisposeTests
 {
@@ -260,24 +260,29 @@ public class FacadeEsaDisposeTests
     }
 
     [Test]
-    public void Dispose_AfterAPackWasBuilt_ReleasesThePinOfTheSuffixArray()
+    public void Dispose_AfterAPackWasBuilt_DoesNotReleaseThePinOfTheSuffixArray_ThatIsLeftToTheFinalizer()
     {
+        // work package 1b.9b: an in-memory tree takes no reader count (the count cost 3-4 % of a search), so nothing that a reader that is still inside a call uses may be released by Dispose: the pin of the pack
+        // is released by the finalizer of the pack's pinned array, when no reader can reach the tree any more (PinnedArrayTests.Finalizer_ReleasesThePin_OfAnObjectThatWasNeverDisposed)
         EsaSuffixTree tree = EsaSuffixTreeFactory.CreateEsa("mississippi");
         _ = tree.FindMaximalExactMatches("ssippix", 2);     // builds the pack
         Assert.That(tree.Index.NavigationBuilt, Is.True);
         Assert.That(PackHoldsHandle(tree.Index), Is.True, "the pack pins the suffix array while it is in use");
         tree.Dispose();
-        Assert.That(PackHoldsHandle(tree.Index), Is.False, "Dispose releases the GC handle of the pack");
+        Assert.That(PackHoldsHandle(tree.Index), Is.True, "Dispose of an in-memory tree releases nothing that a reader in flight reads");
+        Assert.Throws<ObjectDisposedException>(() => tree.FindMaximalExactMatches("ssippix", 2));
     }
 
     [Test]
-    public void Dispose_AfterTheNavigationSurfaceBuiltThePack_ReleasesIt()
+    public void Dispose_AfterTheNavigationSurfaceBuiltThePack_DoesNotReleaseIt_AndTheTreeIsDisposed()
     {
         EsaSuffixTree tree = EsaSuffixTreeFactory.CreateEsa("abracadabra");
         _ = tree.RankOf(3);
         Assert.That(tree.Index.NavigationBuilt, Is.True);
         tree.Dispose();
-        Assert.That(PackHoldsHandle(tree.Index), Is.False);
+        Assert.That(PackHoldsHandle(tree.Index), Is.True);
+        Assert.Throws<ObjectDisposedException>(() => tree.RankOf(3));
+        Assert.Throws<ObjectDisposedException>(() => tree.Contains("abra"));
     }
 
     [Test]

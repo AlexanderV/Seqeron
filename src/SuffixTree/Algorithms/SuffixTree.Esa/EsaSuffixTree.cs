@@ -13,9 +13,11 @@ namespace SuffixTree.Esa;
 /// </summary>
 /// <remarks>
 /// Lifetime: <see cref="Dispose"/> is idempotent; every member of a disposed tree throws <see cref="ObjectDisposedException"/> (before any argument check). Reads are safe for concurrent readers, and so is
-/// a <see cref="Dispose"/> that arrives while another thread is inside a call (work package 1b.8): every public member counts itself as a reader for the length of the call (a count per thread stripe), <see cref="Dispose"/>
-/// raises a flag and the pins of the navigation pack and the mapped container are released by whoever finds the tree disposed and no reader inside, so a call that was in flight when <see cref="Dispose"/> ran completes with
-/// its answer, and a call that starts afterwards throws <see cref="ObjectDisposedException"/>; nothing reads the mapping after it was unmapped. <see cref="Dispose"/> does not wait for the readers (a
+/// a <see cref="Dispose"/> that arrives while another thread is inside a call. For a tree over a container (work package 1b.8) every public member counts itself as a reader for the length of the call (a count per thread stripe),
+/// <see cref="Dispose"/> raises a flag and the pins of the navigation pack and the mapped container are released by whoever finds the tree disposed and no reader inside, so a call that was in flight when <see cref="Dispose"/> ran
+/// completes with its answer, and a call that starts afterwards throws <see cref="ObjectDisposedException"/>; nothing reads the mapping after it was unmapped. For an in-memory tree (work package 1b.9b) there is nothing to wait for:
+/// <see cref="Dispose"/> only raises the flag and releases nothing that a reader uses (the arrays are managed memory, the pins of the navigation pack are released by the finalizer of the pack's pinned array when the tree is
+/// unreachable), so its members check the flag and take no count, and the same two statements hold. <see cref="Dispose"/> does not wait for the readers (a
 /// <see cref="Dispose"/> from inside a visitor of <see cref="Traverse"/> cannot deadlock). The results that read the mapping later (<see cref="Text"/>, <c>ISuffixIndex.Text</c>, the sequence of
 /// <see cref="EnumerateSuffixes"/>) of a file-backed tree count themselves as readers at every access. The
 /// results the contract leaves open are those of the other backends' contract: the order of <see cref="FindAllOccurrences(string)"/> is suffix-array order, the representative of
@@ -120,13 +122,14 @@ public sealed partial class EsaSuffixTree : ISuffixTree, ISuffixTreeNavigation, 
     // ------------------------------------------------------------------ lifetime
 
     /// <summary>
-    /// Ends the life of the tree: new calls throw <see cref="ObjectDisposedException"/>, the calls in flight complete, and the pins of the navigation pack (if it was built; the disposal never builds it) and the
-    /// mapped container are released when the last of them has returned. Idempotent; does not wait.
+    /// Ends the life of the tree: new calls throw <see cref="ObjectDisposedException"/>, the calls in flight complete, and for a tree over a container the pins of the navigation pack (if it was built; the disposal never builds
+    /// it) and the mapped container are released when the last of them has returned; an in-memory tree releases nothing here (its pins go with the finalizer of the pack's pinned array). Idempotent; does not wait.
     /// </summary>
     public void Dispose()
     {
         if (Interlocked.CompareExchange(ref _disposed, 1, 0) != 0) return;
-        ReleaseWhenIdle();
+        // an in-memory tree releases nothing here: what a reader of it uses (the arrays, and the pins of the navigation pack, which go with the finalizer of the pack's pinned array) stays valid until the tree is unreachable
+        if (_file is not null) ReleaseWhenIdle();
     }
 
     /// <summary>
@@ -136,6 +139,12 @@ public sealed partial class EsaSuffixTree : ISuffixTree, ISuffixTreeNavigation, 
     /// </summary>
     private ReadScope Enter()
     {
+        if (_file is null)
+        {
+            // an in-memory tree takes no count: Dispose releases nothing that a call in flight uses (work package 1b.9b), so the call needs the flag and nothing else; the scope still holds the tree, which keeps it reachable for the length of the call
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+            return new ReadScope(this, -1);
+        }
         int stripe = Environment.CurrentManagedThreadId & (Stripes - 1);
         Interlocked.Increment(ref _readers[stripe].Count);
         if (Volatile.Read(ref _disposed) != 0)
@@ -175,7 +184,10 @@ public sealed partial class EsaSuffixTree : ISuffixTree, ISuffixTreeNavigation, 
     /// <summary>The count of one call (a using declaration at the top of every public member).</summary>
     private readonly struct ReadScope(EsaSuffixTree owner, int stripe) : IDisposable
     {
-        public void Dispose() => owner.Leave(stripe);
+        public void Dispose()
+        {
+            if (stripe >= 0) owner.Leave(stripe);
+        }
     }
 
     // ------------------------------------------------------------------ ISuffixTreeSearch

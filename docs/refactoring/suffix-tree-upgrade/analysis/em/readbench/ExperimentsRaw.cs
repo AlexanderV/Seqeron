@@ -342,6 +342,60 @@ internal static unsafe class ExperimentsRaw
         return new RawQ(index, n, sa, cld, tagged, lcpBase, lcp, textPacked, textBytes, f.TextReader.Bits, text, child, check, parts.Length > 6 && parts[6][0] == 'f', f);
     }
 
+    /// <summary>
+    /// The specialised descent over an in-memory index (work package 1b.9b, item 2b): the arrays of the in-memory tree (suffix array, tagged child table, LCP base array) are pinned where they are, the text is either the dense byte
+    /// text (a pinned copy: <c>ix-mem-b</c>) or a packed copy of n x bits / 8 bytes (<c>ix-mem-p</c>), nothing is checked. Variants: <c>ix-mem-b</c> / <c>ix-mem-p</c>; the baseline is <c>ix-memory</c> (the generic descent of the index).
+    /// </summary>
+    internal static Program.Q CreateInMemory(string variant, string text)
+    {
+        EsaIndex index = EsaIndex.Build(text, ChildLayoutKind.Tagged);
+        int n = index.Length;
+        CompactLcp lcp = index.Lcp;
+        if (lcp.Kind != LcpKind.U8) throw new NotSupportedException("the prototype reads an 8-bit LCP base array");
+        s_keep.Add(index);
+        int* sa = (int*)GCHandle.Alloc(index.SuffixArray, GCHandleType.Pinned).AddrOfPinnedObject();
+        byte* lcpBase = (byte*)GCHandle.Alloc(lcp.BaseU8!, GCHandleType.Pinned).AddrOfPinnedObject();
+        object boxed = index.Child.Tagged;
+        var cells = (uint[])typeof(TaggedChild).GetField("_cld", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(boxed)!;
+        uint* tagged = (uint*)GCHandle.Alloc(cells, GCHandleType.Pinned).AddrOfPinnedObject();
+        int sigma = index.Prepared.AlphabetSize;
+        int bits = 1;
+        while ((1 << bits) < sigma) bits++;
+        byte* textBytes = null;
+        byte* textPacked = null;
+        char kind = variant == "ix-mem-b" ? 'b' : 'p';
+        if (kind == 'b')
+        {
+            byte[] bytes = GC.AllocateUninitializedArray<byte>(n + 64, pinned: true);
+            index.Prepared.Bytes.CopyTo(bytes);
+            bytes.AsSpan(n).Clear();
+            s_keep.Add(bytes);
+            textBytes = (byte*)Marshal.UnsafeAddrOfPinnedArrayElement(bytes, 0);
+        }
+        else
+        {
+            long total = (((long)n * bits) + 7) / 8 + 64;
+            byte[] packed = GC.AllocateArray<byte>((int)total, pinned: true);
+            ReadOnlySpan<byte> dense = index.Prepared.Bytes;
+            long bit = 0;
+            for (int i = 0; i < n; i++, bit += bits)
+            {
+                // big-endian bit stream, the first symbol in the top bits of the first byte
+                int room = 8 - (int)(bit & 7) - bits;
+                int byteAt = (int)(bit >> 3);
+                if (room >= 0) packed[byteAt] |= (byte)(dense[i] << room);
+                else
+                {
+                    packed[byteAt] |= (byte)(dense[i] >> -room);
+                    packed[byteAt + 1] |= (byte)(dense[i] << (8 + room));
+                }
+            }
+            s_keep.Add(packed);
+            textPacked = (byte*)Marshal.UnsafeAddrOfPinnedArrayElement(packed, 0);
+        }
+        return new RawQ(index, n, sa, null, tagged, lcpBase, lcp, textPacked, textBytes, bits, kind, 't', 't', false, null!);
+    }
+
     private static byte* TextReader_Pointer(this SesaFile f) => f.Data + f.Parsed.Text.Offset;
 
     private sealed class RawQ : Program.Q
@@ -378,7 +432,7 @@ internal static unsafe class ExperimentsRaw
             _child = child;
             _check = check;
             _code = (check == 'c' ? 0 : 8) + (prefetch ? 4 : 0) + (child == 'p' ? 0 : 2) + (text == 'b' ? 0 : 1);
-            char[] alphabet = index.TextView.Alphabet;
+            char[] alphabet = index.IsMapped ? index.TextView.Alphabet : index.Prepared.Alphabet;
             _map = new int[alphabet[^1] + 1];
             Array.Fill(_map, -1);
             for (int s = 0; s < alphabet.Length; s++) _map[alphabet[s]] = s;

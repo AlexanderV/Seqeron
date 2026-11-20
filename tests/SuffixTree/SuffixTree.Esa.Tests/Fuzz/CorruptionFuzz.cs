@@ -41,6 +41,9 @@ internal enum DamageKind
 
     /// <summary>One entry of the suffix array, the LCP array or the child table replaced by the entry next to it, by its own index, by the index next to it or by itself plus or minus one, sealed: the values that are plausible and wrong (equal depths, a cell that points at itself, an off-by-one).</summary>
     SealedNeighbour,
+
+    /// <summary>Two suffix-array entries exchanged (the array stays a permutation) so that one leaf is exactly as deep as its parent, <c>n - SA[r] + 1 = parentDepth</c>, sealed: the equality case of the corrupt-leaf-depth guard of the navigator and of the contract tree (work package 1b.9b).</summary>
+    SealedLeafDepth,
 }
 
 /// <summary>Counts of the corruption lane, per kind of damage and outcome, thread safe.</summary>
@@ -138,8 +141,9 @@ internal static class CorruptionFuzz
         }
         var rng = new SplitMix64(damageSeed);
         bool psi = rng.NextInt(4) != 0;
-        byte[] clean = SesaTestFile.Image(LcpChildCase.Of(text), psi, codec: (damageSeed & 4) != 0 ? ChildCodec.Tagged : ChildCodec.Packed); // the CHILD codec of the clean file: a bit of the seed that the draws below do not use
-        (byte[] image, string what, EsaValidationLevel? must) = Damage(clean, kind, rng);
+        LcpChildCase cleanCase = LcpChildCase.Of(text);
+        byte[] clean = SesaTestFile.Image(cleanCase, psi, codec: (damageSeed & 4) != 0 ? ChildCodec.Tagged : ChildCodec.Packed); // the CHILD codec of the clean file: a bit of the seed that the draws below do not use
+        (byte[] image, string what, EsaValidationLevel? must) = Damage(clean, kind, rng, cleanCase);
         bool noop = image.AsSpan().SequenceEqual(clean);
         string where = $"{label} n={text.Length} {kind} (damage seed {damageSeed:x16}, psi {psi}): {what}";
         string path = Path.Combine(ctx.WorkDir, "d.sesa");
@@ -196,7 +200,7 @@ internal static class CorruptionFuzz
         return null;
     }
 
-    private static (byte[] Image, string What, EsaValidationLevel? Must) Damage(byte[] clean, DamageKind kind, SplitMix64 rng)
+    private static (byte[] Image, string What, EsaValidationLevel? Must) Damage(byte[] clean, DamageKind kind, SplitMix64 rng, LcpChildCase c)
     {
         byte[] image = (byte[])clean.Clone();
         SesaOracle o = SesaOracle.FromBytes(image);
@@ -257,6 +261,28 @@ internal static class CorruptionFuzz
                 BinaryPrimitives.WriteInt32LittleEndian(image.AsSpan(at + 4), a);
                 SesaTestFile.Reseal(image);
                 return (image, $"entries {r} and {r + 1} of the suffix array exchanged, sealed", EsaValidationLevel.Structure);
+            }
+            case DamageKind.SealedLeafDepth:
+            {
+                int n = c.N;
+                int[] sa = c.Sa;
+                int[] lcp = c.Lcp.ToArray();
+                // a leaf of rank r has the parent depth max(LCP[r], LCP[r + 1]); the leaf is as deep as its parent when its suffix has the length parentDepth - 1, i.e. starts at n + 1 - parentDepth
+                int start = 1 + rng.NextInt(n);
+                for (int k = 0; k < n; k++)
+                {
+                    int r = 1 + ((start - 1 + k) % n);
+                    int parentDepth = Math.Max(lcp[r], r + 1 <= n ? lcp[r + 1] : 0);
+                    int position = n + 1 - parentDepth;
+                    if (parentDepth == 0 || position < 0 || position > n || sa[r] == position) continue;
+                    int other = Array.IndexOf(sa, position);
+                    OracleSection s = o.Get(SesaFormat.KindSa);
+                    BinaryPrimitives.WriteInt32LittleEndian(image.AsSpan((int)s.Offset + (4 * r)), position);
+                    BinaryPrimitives.WriteInt32LittleEndian(image.AsSpan((int)s.Offset + (4 * other)), sa[r]);
+                    SesaTestFile.Reseal(image);
+                    return (image, $"entries {r} and {other} of the suffix array exchanged so that the leaf of rank {r} is as deep as its parent ({n + 1 - position} symbols), sealed", EsaValidationLevel.Structure);
+                }
+                return (image, "no leaf whose depth can be made equal to its parent's", null);
             }
             case DamageKind.TrailingBytes:
             {

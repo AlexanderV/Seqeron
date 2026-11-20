@@ -19,7 +19,7 @@ public class FacadeDisposeRaceTests
 {
     internal const string ChildCategory = "DisposeRaceChild";
     internal const string ResultFileVariable = "ESA_DISPOSE_RACE_OUT";
-    private const int ChildTests = 5;
+    private const int ChildTests = 6;
 
     [Test]
     public void ReadsRacingDispose_OfAFileBackedTree_CompleteOrThrowObjectDisposed_AndNeverTouchTheUnmappedView()
@@ -59,8 +59,8 @@ public class FacadeDisposeRaceTests
 }
 
 /// <summary>
-/// The tests that run in the child process of <see cref="FacadeDisposeRaceTests"/> (explicit: the default run never starts this class itself, a failure or a crash here is the finding). Every test opens a file-backed tree,
-/// lets threads read it, and disposes it while they do.
+/// The tests that run in the child process of <see cref="FacadeDisposeRaceTests"/> (explicit: the default run never starts this class itself, a failure or a crash here is the finding). Every test but one opens a file-backed tree,
+/// lets threads read it, and disposes it while they do; the other one (work package 1b.9b) does the same with an in-memory tree while a collector thread moves memory.
 /// </summary>
 [TestFixture]
 [Category(FacadeDisposeRaceTests.ChildCategory)]
@@ -294,6 +294,110 @@ public class FacadeDisposeRaceChildTests
             Assert.That(() => indexText.CopyTo(0, new char[4]), Throws.TypeOf<ObjectDisposedException>(), "IIndexText.CopyTo");
         });
         Report("RESULT lazy results after Dispose: ObjectDisposedException");
+    }
+
+    // ---------------------------------------------------------------- in-memory trees (work package 1b.9b)
+
+    private static void Junk(int arrays)
+    {
+        // allocations that reuse the memory that a compacting collection freed, filled with a value that is no suffix array entry of any tree here
+        var keep = new int[arrays][];
+        for (int i = 0; i < keep.Length; i++)
+        {
+            keep[i] = new int[1500 + (i % 7 * 100)];
+            Array.Fill(keep[i], int.MaxValue - 7);
+        }
+        GC.KeepAlive(keep);
+    }
+
+    /// <summary>
+    /// The question of 1b.9b: does <c>Dispose</c> of an in-memory tree release anything that a reader which is still inside a call uses? Yes, before this package: the navigation pack pins the suffix array and the LCP base array
+    /// with GC handles and reads them through pointers, and <c>Dispose</c> freed the handles, so a compacting collection could move an array while a reader held its old address; the reader then took garbage for a position and used it
+    /// as an index into the other pinned arrays, which ended the process (3 of 3 runs of this test against the behaviour of <c>e4a0b2da</c>: the test host crashed). The collector thread forces compacting collections and fills the
+    /// freed memory while the readers walk suffix links (the longest common substring, the maximal exact matches, the ranks) and the main thread disposes the tree. A call must complete with the right answer or throw
+    /// <see cref="ObjectDisposedException"/>.
+    /// </summary>
+    [Test]
+    public void ReaderThreads_RacingDispose_OfAnInMemoryTree_CompleteOrThrowObjectDisposed_WhileTheCollectorMovesMemory()
+    {
+        const int rounds = 120;
+        long completed = 0, disposed = 0, wrong = 0;
+        var others = new ConcurrentBag<string>();
+        for (int round = 0; round < rounds; round++)
+        {
+            string text = StringFamilies.RandomDna(1_500 + (round * 13), (ulong)round + 100);
+            string[] patterns = Enumerable.Range(0, 32).Select(i => text.Substring((i * 97) % (text.Length - 30), 4 + (i % 9))).ToArray();
+            string query = string.Concat(text.AsSpan(200, 300), "TTTTT", text.AsSpan(900, 200));
+            using EsaSuffixTree reference = EsaSuffixTree.Build(text);
+            int[] counts = patterns.Select(reference.CountOccurrences).ToArray();
+            string lcs = reference.LongestCommonSubstring(query);
+            var mems = reference.FindMaximalExactMatches(query, 8);
+            long nodes = TraverseCount(reference);
+            Junk(100);
+            EsaSuffixTree tree = EsaSuffixTree.Build(text);
+            _ = tree.LongestCommonSubstring(query); // the pack exists: the readers walk suffix links
+            using var stop = new ManualResetEventSlim();
+            var collector = new Thread(() =>
+            {
+                while (!stop.IsSet)
+                {
+                    Junk(40);
+                    GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, blocking: true, compacting: true);
+                }
+            });
+            var start = new Barrier(ReaderThreads + 1);
+            var threads = Enumerable.Range(0, ReaderThreads).Select(t => new Thread(() =>
+            {
+                start.SignalAndWait();
+                long k = t;
+                while (true)
+                {
+                    int i = (int)(k % patterns.Length);
+                    try
+                    {
+                        bool ok = (k % 6) switch
+                        {
+                            0 => tree.CountOccurrences(patterns[i]) == counts[i],
+                            1 => tree.LongestCommonSubstring(query) == lcs,
+                            2 => tree.FindMaximalExactMatches(query, 8).SequenceEqual(mems),
+                            3 => TraverseCount(tree) == nodes,
+                            4 => ((ISuffixArrayAccess)tree).RankOf(1 + (k % text.Length)) >= 0,
+                            _ => tree.Contains(patterns[i]),
+                        };
+                        if (ok) Interlocked.Increment(ref completed);
+                        else Interlocked.Increment(ref wrong);
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                        Interlocked.Increment(ref disposed);
+                        return;
+                    }
+                    catch (Exception e)
+                    {
+                        others.Add($"round {round}: {e.GetType().Name}: {e.Message}");
+                        return;
+                    }
+                    k += ReaderThreads;
+                }
+            })).ToList();
+            collector.Start();
+            foreach (Thread thread in threads) thread.Start();
+            start.SignalAndWait();
+            SpinFor(round % 7 * 300);
+            tree.Dispose();
+            SpinFor(2_000);
+            foreach (Thread thread in threads) Assert.That(thread.Join(TimeSpan.FromSeconds(120)), Is.True, "a reader did not finish after Dispose (a hang)");
+            stop.Set();
+            collector.Join();
+        }
+
+        Report($"RESULT in-memory race rounds={rounds} threads={ReaderThreads} completed={completed} disposed={disposed} wrong={wrong} other={others.Count}");
+        Assert.Multiple(() =>
+        {
+            Assert.That(wrong, Is.Zero, "a call that completed returned a wrong answer (a read of memory that the collector moved?)");
+            Assert.That(others, Is.Empty, "a call failed with something other than ObjectDisposedException: " + string.Join(" | ", others.Take(3)));
+            Assert.That(disposed, Is.EqualTo(rounds * ReaderThreads), "every reader ends at the disposal");
+        });
     }
 
     [Test]

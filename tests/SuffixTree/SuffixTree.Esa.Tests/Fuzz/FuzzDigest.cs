@@ -411,6 +411,23 @@ internal static class FuzzDigest
 
     internal static string LabelOf(string line) => line[..line.IndexOf('=', StringComparison.Ordinal)];
 
+    /// <summary>
+    /// The rule of the ESA engines for the representative of the longest repeated substring on a tie (ADR-001 section 7 leaves it implementation-specific, so Ukkonen and v6 are not held to it): the lexicographically smallest of the
+    /// tied substrings that <see cref="ISuffixTree.FindAllLongestRepeatedSubstrings"/> lists. Null when the tree keeps it, else the evidence.
+    /// </summary>
+    internal static string? LrsRuleViolation(ISuffixTree tree)
+    {
+        string lrs = tree.LongestRepeatedSubstring();
+        var all = tree.FindAllLongestRepeatedSubstrings();
+        if (all.Count == 0) return lrs.Length == 0 ? null : $"LongestRepeatedSubstring is '{Shorten(lrs)}' but no substring repeats";
+        string smallest = all[0].Substring;
+        foreach (var (substring, _) in all)
+            if (string.CompareOrdinal(substring, smallest) < 0) smallest = substring;
+        return lrs == smallest ? null : $"LongestRepeatedSubstring is '{Shorten(lrs)}', the smallest of the {all.Count} tied substrings is '{Shorten(smallest)}'";
+    }
+
+    private static string Shorten(string s) => s.Length <= 60 ? s : string.Concat(s.AsSpan(0, 57), "...");
+
     private static string ValueOf(string line) => line[(line.IndexOf('=', StringComparison.Ordinal) + 1)..];
 }
 
