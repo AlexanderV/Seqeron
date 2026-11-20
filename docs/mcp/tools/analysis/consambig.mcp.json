@@ -1,0 +1,80 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "toolName": "consambig",
+ "serverName": "Analysis",
+ "version": "1.0.0",
+ "stability": "stable",
+ "methodId": "MotifFinder.GenerateEmbossAmbiguousConsensus",
+ "docRef": "Seqeron.Genomics.Analysis/MotifFinder.AmbiguousConsensus.cs",
+ "description": "Ambiguity-code consensus of an alignment, identical to EMBOSS 6.6.0 'consambig' (1 400 random alignments equal): per column the residue codes are OR-ed (nucleotides A, C, G, T as bits, so R = A|G, V = A|C|G, N = any; amino acids one bit each, B = D|N, Z = E|Q, J = I|L, X = all twenty) and written as the one letter that stands for exactly that set; there is no vote (unlike cons: one deviating base widens the code). A column that contains a gap ('-', '.', '~', or the padding of a shorter row) is written in lower case. An all-gap nucleotide column is 'n'; an amino-acid union that is no letter (A|D) is 'X'; a protein column without any scored residue (all gaps, or only '*') is the NUL character, as in the program. The set type is that of the first sequence (A/C/G/T/U + IUPAC letters = nucleotide) unless residueType 'nucleotide' forces it (residueType 'protein' cannot make a nucleotide-looking set protein, as in the program). Rows are upper-cased, '.'/'~' read as '-', '?' as X; shorter rows are padded with trailing gaps (the program always does).",
+ "inputSchema": {
+  "type": "object",
+  "properties": {
+   "sequences": {
+    "type": "array",
+    "items": {
+     "type": "string"
+    },
+    "description": "At least two aligned sequences (DNA or protein)."
+   },
+   "residueType": {
+    "type": "string",
+    "description": "'auto' (default: type of the first sequence, as the program), 'nucleotide' (forces nucleotide, -snucleotide) or 'protein'.",
+    "default": "auto"
+   }
+  },
+  "required": [
+   "sequences"
+  ]
+ },
+ "outputSchema": {
+  "type": "object",
+  "properties": {
+   "consensus": {
+    "type": "string",
+    "description": "One symbol per alignment column: the IUPAC / amino-acid letter standing for the union of the column; lower case when the column has a gap."
+   }
+  },
+  "required": [
+   "consensus"
+  ]
+ },
+ "errors": [
+  {
+   "code": 1001,
+   "message": "At least two sequences are required"
+  },
+  {
+   "code": 1001,
+   "message": "Invalid alignment character"
+  }
+ ],
+ "examples": [
+  {
+   "name": "Nucleotide alignment with gaps and an ambiguity code",
+   "input": {
+    "sequences": [
+     "AC-GTN",
+     "AC-GTA",
+     "ARGGT-"
+    ]
+   },
+   "output": {
+    "consensus": "AVgGTn"
+   }
+  },
+  {
+   "name": "Protein alignment",
+   "input": {
+    "sequences": [
+     "DI",
+     "NL"
+    ],
+    "residueType": "protein"
+   },
+   "output": {
+    "consensus": "BJ"
+   }
+  }
+ ]
+}

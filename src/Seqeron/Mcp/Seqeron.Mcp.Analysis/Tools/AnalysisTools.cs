@@ -1634,6 +1634,17 @@ public partial class AnalysisTools
         return new ConsensusResult(consensus);
     }
 
+    [McpServerTool(Name = "consambig", Title = "Motifs — EMBOSS consambig Ambiguity Consensus", ReadOnly = true)]
+    [Description("Ambiguity-code consensus of an alignment, identical to EMBOSS 6.6.0 'consambig' (1 400 random alignments equal): per column the residue codes are OR-ed (nucleotides A, C, G, T as bits, so R = A|G, V = A|C|G, N = any; amino acids one bit each, B = D|N, Z = E|Q, J = I|L, X = all twenty) and written as the one letter that stands for exactly that set; there is no vote (unlike cons: one deviating base widens the code). A column that contains a gap ('-', '.', '~', or the padding of a shorter row) is written in lower case. An all-gap nucleotide column is 'n'; an amino-acid union that is no letter (A|D) is 'X'; a protein column without any scored residue (all gaps, or only '*') is the NUL character, as in the program. The set type is that of the first sequence (A/C/G/T/U + IUPAC letters = nucleotide) unless residueType 'nucleotide' forces it (residueType 'protein' cannot make a nucleotide-looking set protein, as in the program). Rows are upper-cased, '.'/'~' read as '-', '?' as X; shorter rows are padded with trailing gaps (the program always does).")]
+    public static ConsensusResult Consambig(
+        [Description("At least two aligned sequences (DNA or protein).")] string[] sequences,
+        [Description("'auto' (default: type of the first sequence, as the program), 'nucleotide' (forces nucleotide, -snucleotide) or 'protein'.")] string residueType = "auto")
+    {
+        if (sequences is null || sequences.Length < 2)
+            throw new ArgumentException("At least two sequences are required", nameof(sequences));
+        return new ConsensusResult(global::Seqeron.Genomics.Analysis.MotifFinder.GenerateEmbossAmbiguousConsensus(sequences, ParseConsensusResidueType(residueType)));
+    }
+
     [McpServerTool(Name = "multiple_alignment_statistics", Title = "Alignment — Multiple Alignment Statistics", ReadOnly = true)]
     [Description("Statistics of a gapped multiple alignment: per-sequence comparison with a reference row or the EMBOSS cons consensus (EMBOSS infoalign: seqLength, alignLength, gap runs, gap length, identities, similarities, differences, % change; verified against infoalign 6.6.0), per-column residue counts / gap fraction / most common residue / ClustalW conservation symbol ('*' identical, ':' strong, '.' weak group; ClustalW 2.1; DNA columns only '*'), gap percent, fully conserved and gap-free columns, and the pairwise percent-identity matrix (distmat uncorrected, identity over columns where neither row has a gap; gapWeight 1 = Biopython DistanceCalculator('identity')). Rows are upper-cased, '.'/'~' read as '-'.")]
     public static MultipleAlignmentStatisticsResult MultipleAlignmentStatistics(

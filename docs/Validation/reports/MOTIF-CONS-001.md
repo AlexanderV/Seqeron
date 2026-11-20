@@ -113,3 +113,4 @@ branches.
   Rosalind "any tied symbol" allowance; consistent with Biopython `.consensus`).
 - **Stage B: PASS.**
 - **End-state: CLEAN** — no defect found; no code/test changes required.
+- **Audit r3 (A3-13d, F147):** EMBOSS `consambig` ported (`MotifFinder.GenerateEmbossAmbiguousConsensus`, MCP `consambig`): 1 400 / 1 400 oracle rows; input normalisation shared with `cons` (`NormalizedAlignmentChars`).

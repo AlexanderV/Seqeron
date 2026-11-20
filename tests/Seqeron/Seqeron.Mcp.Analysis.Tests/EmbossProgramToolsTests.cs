@@ -13,6 +13,17 @@ public class EmbossProgramToolsTests
     private const string TandemSeq = "CAGATTTTCATATTATGCAGAAAATCTACTTCGCCTGATACGAGTCGGTTATCTTCGGATCAGCAGCAGCAGCAGCAGCAGCAGCAGCAGCAGCAGACTGTATAGTCCCACCTGGTGATCCTATGCTTGTGAGTACACGTTAACGTTAACGTTAACGTTAACGTTAacgtNN";
 
     [Test]
+    public void Consambig_UnionOfTheColumnCodes_LowerCaseAtGaps()
+    {
+        // consambig 6.6.0: AC-GTN / AC-GTA / ARGGT- -> AVgGTn; D|N = B, I|L = J for proteins; an all-gap protein column is the NUL character (B09 A3-13d, F147)
+        Assert.That(AnalysisTools.Consambig(["AC-GTN", "AC-GTA", "ARGGT-"]).Consensus, Is.EqualTo("AVgGTn"));
+        Assert.That(AnalysisTools.Consambig(["DI", "NL"], "protein").Consensus, Is.EqualTo("BJ"));
+        Assert.That(AnalysisTools.Consambig(["MK-LA", "MK-LD"]).Consensus, Is.EqualTo("MK\0LX"));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.Consambig(["ACGT"]));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.Consambig(["ACGT", "ACGT"], "rna"));
+    }
+
+    [Test]
     public void FindTandemRepeatsEmboss_Etandem_ReportsScoreIdentityAndConsensus()
     {
         // etandem -minrepeat 2 -maxrepeat 8 -threshold 10: "33 61 96 3 12 100.0 cag" and "26 137 172 6 6 94.4 acgtta"

@@ -206,25 +206,14 @@ public static partial class MotifFinder
             codeOf[labels[i]] = i + 1;
         int matsize = labels.Length + 1;
 
+        var chars = NormalizedAlignmentChars(rows, residueType, nucleotide, nameof(alignedSequences));
         int mlen = rows[0].Length;
-        var chars = new char[nseqs][];
         var codes = new int[nseqs][];
         for (int s = 0; s < nseqs; s++)
         {
-            chars[s] = new char[mlen];
             codes[s] = new int[mlen];
-            // Auto: every sequence is typed on its own when read (ajSeqType → ajSeqSetNuc turns
-            // X into N in a nucleotide-looking sequence only); explicit types apply to all rows.
-            bool rowNucleotide = residueType == ConsensusResidueType.Auto
-                ? IsEmbossNucleotideSequence(rows[s])
-                : nucleotide;
             for (int k = 0; k < mlen; k++)
-            {
-                char c = NormalizeEmbossResidue(
-                    rows[s][k], rowNucleotide, residueType == ConsensusResidueType.Auto, s, k, nameof(alignedSequences));
-                chars[s][k] = c;
-                codes[s][k] = codeOf[c];
-            }
+                codes[s][k] = codeOf[chars[s][k]];
         }
 
         var identical = new float[matsize];
@@ -324,6 +313,29 @@ public static partial class MotifFinder
         }
 
         return consensus.ToString();
+    }
+
+    /// <summary>
+    /// The alignment as the EMBOSS sequence reader hands it to <c>cons</c> / <c>consambig</c>: upper case, gaps <c>.</c> <c>~</c> → <c>-</c>, <c>?</c> → <c>X</c> (<c>N</c> in a nucleotide-typed row), <c>X</c> → <c>N</c> in a nucleotide row.
+    /// Auto: every row is typed on its own (ajSeqType); an explicit type applies to all rows.
+    /// </summary>
+    private static char[][] NormalizedAlignmentChars(List<string> rows, ConsensusResidueType residueType, bool nucleotide, string paramName)
+    {
+        int mlen = rows[0].Length;
+        var chars = new char[rows.Count][];
+        for (int s = 0; s < rows.Count; s++)
+        {
+            chars[s] = new char[mlen];
+            // Auto: every sequence is typed on its own when read (ajSeqType -> ajSeqSetNuc turns
+            // X into N in a nucleotide-looking sequence only); explicit types apply to all rows.
+            bool rowNucleotide = residueType == ConsensusResidueType.Auto
+                ? IsEmbossNucleotideSequence(rows[s])
+                : nucleotide;
+            for (int k = 0; k < mlen; k++)
+                chars[s][k] = NormalizeEmbossResidue(rows[s][k], rowNucleotide, residueType == ConsensusResidueType.Auto, s, k, paramName);
+        }
+
+        return chars;
     }
 
     // ajseqtype.c seqTypeStrNucGap: seqCharNucPure + seqCharNucAmbig + seqCharGap.

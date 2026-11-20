@@ -30,6 +30,7 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "codon_frequencies",
         "compare_genomes",
         "compression_ratio",
+        "consambig",
         "count_kmers",
         "count_kmers_both_strands",
         "create_alphabet_pwm",

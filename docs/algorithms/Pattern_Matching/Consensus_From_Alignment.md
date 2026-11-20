@@ -177,6 +177,10 @@ string consensus = MotifFinder.CreateConsensusFromAlignment(aligned); // "ATGCAA
 - Tests: [MotifFinder_AlignmentConsensus_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/MotifFinder_AlignmentConsensus_Tests.cs) (EMBOSS / Biopython-locked), `Properties/AlignmentConsensusProperties.cs`, `Metamorphic/AlignmentConsensusMetamorphicTests.cs`, `Fuzzing/AlignmentConsensusFuzzTests.cs`
 - Evidence: [MOTIF-CONS-001-Evidence.md](../../../docs/Evidence/MOTIF-CONS-001-Evidence.md)
 
+### 7.x EMBOSS `consambig` (A3-13d, B09 F147)
+
+`MotifFinder.GenerateEmbossAmbiguousConsensus(rows, residueType = Auto, padRaggedRows = true)` / MCP `consambig`: the ambiguity-code consensus of EMBOSS `consambig`. Per column the residue codes are OR-ed (nucleotides A / C / G / T as bits, U = T, X = N; amino acids one bit each, B = D|N, Z = E|Q, J = I|L, X = all twenty) and the union is written as the single letter that stands for exactly that set (nucleotide: `XACMGRSVTWYHKDBN`[union]; protein: the table letter, `X` if there is none, the NUL character for a column without a scored residue); a column with a gap is lower case; an all-gap nucleotide column is `n`. There is no vote: one deviating base widens the code (contrast `cons`, the scoring-matrix plurality consensus above, and `GenerateConsensus`, the majority IUPAC consensus). The set type is that of the first row (`-snucleotide` forces nucleotide; `-sprotein` cannot make a nucleotide-looking set protein), shorter rows are padded with trailing gaps. 1 400 / 1 400 random alignments equal the installed `consambig` 6.6.0 (Evidence MOTIF-CONS-001, audit r3).
+
 ## 8. References
 
 1. Wikipedia contributors. 2026. Consensus sequence. Wikipedia. https://en.wikipedia.org/wiki/Consensus_sequence

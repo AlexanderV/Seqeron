@@ -102,6 +102,7 @@ Servers: `A` = Annotation, `X` = Analysis. `⚠` = guarded / documented-limited 
 | `generate_decipher_consensus` | X | DECIPHER ConsensusSequence (DNA/RNA/protein, gaps, IUPAC input) | `MotifFinder.GenerateDecipherConsensus` |
 | `generate_cavener_consensus` | X | Cavener (1987) degenerate consensus (Biopython degenerate_consensus) | `MotifFinder.GenerateCavenerConsensus` |
 | `generate_emboss_consensus` | X | EMBOSS cons plurality consensus (DNA/protein/auto, gaps, weights, ragged padding) | `MotifFinder.GenerateEmbossConsensus` |
+| `consambig` | X | EMBOSS consambig ambiguity-code consensus (union of the column codes, lower case at gaps) | `MotifFinder.GenerateEmbossAmbiguousConsensus` |
 | `generate_dumb_consensus` | X | Biopython dumb_consensus majority-threshold consensus | `MotifFinder.GenerateDumbConsensus` |
 | `create_pwm` | X | Log-odds PWM from aligned DNA (scalar / per-base / JASPAR pseudocounts, background) | `MotifFinder.CreatePwm` |
 | `scan_with_pwm` | X | Scan a sequence with a PWM | `MotifFinder.ScanWithPwm` |

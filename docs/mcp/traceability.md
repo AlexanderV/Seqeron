@@ -336,6 +336,7 @@
 | seqmatchall | Analysis | GenomicAnalyzer.SeqMatchAll | GenomicAnalyzer.WordMatches.cs | 0/0 | – | – | Build-Ready |
 | fuzzpro | Analysis | GenomicAnalyzer.FindProteinPatternHits | GenomicAnalyzer.ProteinPatterns.cs | 0/0 | – | – | Build-Ready |
 | fuzztran | Analysis | GenomicAnalyzer.FindTranslatedPatternHits | GenomicAnalyzer.ProteinPatterns.cs | 0/0 | – | – | Build-Ready |
+| consambig | Analysis | MotifFinder.GenerateEmbossAmbiguousConsensus | MotifFinder.AmbiguousConsensus.cs | 0/0 | – | – | Build-Ready |
 | alignment_statistics | Alignment | SequenceAligner.CalculateStatistics | Alignment/SequenceAligner.cs#L1064 | 0/0 | – | – | Build-Ready |
 | assemble_de_bruijn | Alignment | SequenceAssembler.AssembleDeBruijn | Alignment/SequenceAssembler.cs#L75 | 0/0 | – | – | Build-Ready |
 | assemble_olc | Alignment | SequenceAssembler.AssembleOLC | Alignment/SequenceAssembler.cs#L48 | 0/0 | – | – | Build-Ready |

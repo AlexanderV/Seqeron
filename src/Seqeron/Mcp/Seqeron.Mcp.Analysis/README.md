@@ -33,6 +33,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `codon_frequencies` | Codon usage frequencies in the specified reading frame (0..2). |
 | `compare_genomes` | End-to-end comparative pipeline: RBH orthologs + synteny + rearrangements + summary stats. |
 | `compression_ratio` | Estimate sequence repetitiveness as the normalized Lempel-Ziv complexity c/(n/log_b(n)). |
+| `consambig` | EMBOSS consambig: per-column union of the residue codes written as one IUPAC / amino-acid letter (lower case at gaps); 1 400 random alignments equal consambig 6.6.0 (B09 A3-13d). |
 | `count_kmers` | Counts every k-mer (substring of length k) occurrence in a sequence; optional `canonical` (jellyfish -C) and `acgtOnly` modes. |
 | `count_kmers_both_strands` | k-mer counts on the forward strand combined with counts on the reverse-complement strand (kPAL balance); optional `acgtOnly` (kPAL: N/IUPAC accepted, non-ACGT windows skipped). |
 | `create_alphabet_pwm` | Build a log-odds position weight matrix over an arbitrary alphabet (protein, RNA, gapped DNA, …) from aligned instances — Biopython motifs.create(instances, alphabet).counts.normalize(pseudocounts).log_odds(background)… |

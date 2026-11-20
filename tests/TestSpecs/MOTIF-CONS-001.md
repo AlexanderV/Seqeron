@@ -200,3 +200,4 @@ In-scope cases: 10. ✅ Covered: 10.
 | E-A2 | per-sequence typing probes (`an`, `a*`, `E-`, `ANGT`, `anGT`) and first-sequence type (`V,x,~` → `n` vs explicit Protein `x`) | ajSeqType / ajSeqSetNuc / ajSeqsetIsNuc |
 | E-A3 | `?` under `-snucleotide` is an unscored X written as N (`USC?TK` → `n`, `???` → `n`; `AWASGdNU` → `w`) | ajSeqTypeCheckIn order, binary |
 | E-A4 | padding = explicit `-` padding (`ACGnnn`); original overload still rejects ragged rows; guards | ajSeqsetFill |
+| A3-13d | `GenerateEmbossAmbiguousConsensus_EqualsConsambig_AllRows`, `WorkedValues_RunOnTheBinary`, `Validation_AndGapOnlyDifferenceFromTheVotingConsensus` | 1 400 consambig 6.6.0 rows (`consambig_oracle.tsv`): per-column union of the residue codes as one IUPAC / amino-acid letter, lower case at a gap, NUL for a protein column without a scored residue, padding, set type of the first row | as specified | A3-13d |

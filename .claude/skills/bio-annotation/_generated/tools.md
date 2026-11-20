@@ -20,6 +20,7 @@
 | `codon_frequencies` | Analysis | `SequenceStatistics.CalculateCodonFrequencies` | [doc](../../../../docs/mcp/tools/analysis/codon_frequencies.md) |
 | `compare_genomes` | Analysis | `ComparativeGenomics.CompareGenomes` | [doc](../../../../docs/mcp/tools/analysis/compare_genomes.md) |
 | `compression_ratio` | Analysis | `SequenceComplexity.EstimateCompressionRatio` | [doc](../../../../docs/mcp/tools/analysis/compression_ratio.md) |
+| `consambig` | Analysis | `MotifFinder.GenerateEmbossAmbiguousConsensus` | [doc](../../../../docs/mcp/tools/analysis/consambig.md) |
 | `count_kmers` | Analysis | `KmerAnalyzer.CountKmers` | [doc](../../../../docs/mcp/tools/analysis/count_kmers.md) |
 | `count_kmers_both_strands` | Analysis | `KmerAnalyzer.CountKmersBothStrands` | [doc](../../../../docs/mcp/tools/analysis/count_kmers_both_strands.md) |
 | `create_alphabet_pwm` | Analysis | `MotifFinder.CreateAlphabetPwm` | [doc](../../../../docs/mcp/tools/analysis/create_alphabet_pwm.md) |

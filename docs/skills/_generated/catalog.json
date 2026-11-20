@@ -616,6 +616,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L1772"
   },
   {
+    "tool": "consambig",
+    "server": "Analysis",
+    "methodId": "MotifFinder.GenerateEmbossAmbiguousConsensus",
+    "docPath": "docs/mcp/tools/analysis/consambig.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.AmbiguousConsensus.cs"
+  },
+  {
     "tool": "count_kmers",
     "server": "Analysis",
     "methodId": "KmerAnalyzer.CountKmers",

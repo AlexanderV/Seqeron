@@ -83,7 +83,7 @@
 | `water_align` | `SequenceAligner.WaterAlign` | [doc](../../mcp/tools/alignment/water_align.md) |
 | `write_alignment` | `EmbossAlignmentWriter.Format` | [doc](../../mcp/tools/alignment/write_alignment.md) |
 
-## Analysis (136 tools)
+## Analysis (137 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -101,6 +101,7 @@
 | `codon_frequencies` | `SequenceStatistics.CalculateCodonFrequencies` | [doc](../../mcp/tools/analysis/codon_frequencies.md) |
 | `compare_genomes` | `ComparativeGenomics.CompareGenomes` | [doc](../../mcp/tools/analysis/compare_genomes.md) |
 | `compression_ratio` | `SequenceComplexity.EstimateCompressionRatio` | [doc](../../mcp/tools/analysis/compression_ratio.md) |
+| `consambig` | `MotifFinder.GenerateEmbossAmbiguousConsensus` | [doc](../../mcp/tools/analysis/consambig.md) |
 | `count_kmers` | `KmerAnalyzer.CountKmers` | [doc](../../mcp/tools/analysis/count_kmers.md) |
 | `count_kmers_both_strands` | `KmerAnalyzer.CountKmersBothStrands` | [doc](../../mcp/tools/analysis/count_kmers_both_strands.md) |
 | `create_alphabet_pwm` | `MotifFinder.CreateAlphabetPwm` | [doc](../../mcp/tools/analysis/create_alphabet_pwm.md) |
