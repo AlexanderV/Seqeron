@@ -10,7 +10,12 @@ public class GenomicAnalyzer_PatternHits_Oracle_Tests
 {
     private sealed record Row(string Sequence, string Pattern, int K, string Forward, string Reverse);
 
-    private static List<Row> ReadOracle()
+    // One parsed copy per fixture (audit A3-15): the oracle was re-read and re-parsed on every call, i.e. in every test.
+    private static readonly Lazy<List<Row>> OracleRows = new(ReadOracleRows);
+
+    private static List<Row> ReadOracle() => OracleRows.Value;
+
+    private static List<Row> ReadOracleRows()
     {
         const string name = "Seqeron.Genomics.Tests.TestData.Analysis.fuzznuc_pattern_oracle.tsv";
         using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(name)

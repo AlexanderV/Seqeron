@@ -12,6 +12,9 @@ namespace Seqeron.Genomics.Tests.Unit.Alignment;
 /// every other aligner, and through the trailing <c>cancellationToken</c> parameter of the <see cref="GenomicAnalyzer"/> scans.
 /// </summary>
 [TestFixture]
+// Audit A3-15: runs alone. The fixture builds 3 M-base suffix trees (~0.5 GB each) and measures how long cancelled calls take to stop; next to seven other workers (LevelOfParallelism 8 on 4 cores) the
+// uninterruptible tree builds took longer than the limit once (flake "the cancelled call did not stop within the limit") and the sum of the fixtures' working sets once ended in an OOM kill.
+[NonParallelizable]
 public class SequenceAligner_Cancellation_Tests
 {
     private static readonly CancellationToken Cancelled = new(true);
@@ -189,8 +192,10 @@ public class SequenceAligner_Cancellation_Tests
         var big = new DnaSequence(Random(3_000_000, 41));
         var other = new DnaSequence(Random(300_000, 42));
         AssertCancelsPromptly(ct => GenomicAnalyzer.FindOpenReadingFrames(big, 30, OrfSearchOptions.Default, ct).Count(), 1);
-        AssertCancelsPromptly(ct => GenomicAnalyzer.FindKnownMotifHits(big, Enumerable.Range(0, 200).Select(i => Random(8, 100 + i)), true, false, 3, ct), 20);
-        AssertCancelsPromptly(ct => GenomicAnalyzer.FindCommonRegions(big, other, 3, ct).Count(), 20);
+        // the suffix tree of a sequence is built once, uninterruptibly (DnaSequence.SuffixTree), on the first call that needs it: the cancelled call stops at the first poll AFTER the build, so the limit is the
+        // generous 120 s (a build of 3 M bases takes seconds), not a latency bound
+        AssertCancelsPromptly(ct => GenomicAnalyzer.FindKnownMotifHits(big, Enumerable.Range(0, 200).Select(i => Random(8, 100 + i)), true, false, 3, ct), 20, limitMs: 120_000);
+        AssertCancelsPromptly(ct => GenomicAnalyzer.FindCommonRegions(big, other, 3, ct).Count(), 20, limitMs: 120_000);
     }
 
     // ------------------------------------------------------------------ A3-5: the pairwise programs, ksw2, T-Coffee DPs, MUSCLE refinement, anchors, distmat (B09 F133)

@@ -12,6 +12,8 @@ namespace Seqeron.Genomics.Tests.Unit.Alignment;
 /// the linear-space program must reproduce every alignment (rows, score, coordinates, order, ties).
 /// </summary>
 [TestFixture]
+// Audit A3-15: runs alone - the allocation measurement of the large inputs peaks at 0.6 GB (measured, LOCAL_RUN.md section 5).
+[NonParallelizable]
 public class SequenceAligner_TopNLinearSpace_Tests
 {
     private static string Key(AlignmentResult r) =>

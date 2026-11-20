@@ -7,6 +7,8 @@
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 [TestFixture]
+// Audit A3-15: runs alone - 0.5 GB peak working set (measured, LOCAL_RUN.md section 5).
+[NonParallelizable]
 public class GenomicAnalyzer_FindCommonRegion_Tests
 {
     #region FindLongestCommonRegion

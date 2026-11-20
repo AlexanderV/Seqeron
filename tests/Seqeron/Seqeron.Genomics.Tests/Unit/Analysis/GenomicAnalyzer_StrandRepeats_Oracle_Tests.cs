@@ -12,7 +12,12 @@ public class GenomicAnalyzer_StrandRepeats_Oracle_Tests
 {
     private sealed record Row(string Sequence, int MinLength, string Maximal, string All, string Pairs, string ForwardPairs);
 
-    private static List<Row> ReadOracle()
+    // One parsed copy per fixture (audit A3-15): the oracle was re-read and re-parsed on every call, i.e. in every test.
+    private static readonly Lazy<List<Row>> OracleRows = new(ReadOracleRows);
+
+    private static List<Row> ReadOracle() => OracleRows.Value;
+
+    private static List<Row> ReadOracleRows()
     {
         const string name = "Seqeron.Genomics.Tests.TestData.Analysis.strand_repeat_oracle.tsv";
         using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(name)

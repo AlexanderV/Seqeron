@@ -16,7 +16,12 @@ public class GenomicAnalyzer_KnownMotifs_Oracle_Tests
 
     private sealed record OracleRow(string Sequence, string Pattern, int[] Forward, int[] Reverse);
 
-    private static List<OracleRow> ReadOracle()
+    // One parsed copy per fixture (audit A3-15): the oracle was re-read and re-parsed on every call, i.e. in every test.
+    private static readonly Lazy<List<OracleRow>> OracleRows = new(ReadOracleRows);
+
+    private static List<OracleRow> ReadOracle() => OracleRows.Value;
+
+    private static List<OracleRow> ReadOracleRows()
     {
         const string name = "Seqeron.Genomics.Tests.TestData.Analysis.known_motif_oracle.tsv";
         using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(name)

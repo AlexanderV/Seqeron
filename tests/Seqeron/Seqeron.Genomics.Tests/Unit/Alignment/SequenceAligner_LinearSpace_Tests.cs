@@ -16,6 +16,8 @@ namespace Seqeron.Genomics.Tests.Unit.Alignment;
 /// EMBOSS 6.6.0 <c>stretcher</c> (Myers-Miller 1988 linear-space global) and <c>matcher</c> (Huang-Miller SIM local).
 /// </summary>
 [TestFixture]
+// Audit A3-15: runs alone - 5 600 x 5 600 affine cases and the memory-limit proofs peak at 2.2 GB (measured, LOCAL_RUN.md section 5); eight such fixtures in parallel are what the 4-core / 16 GB container cannot hold.
+[NonParallelizable]
 public class SequenceAligner_LinearSpace_Tests
 {
     // ---------------------------------------------------------------- reference plumbing

@@ -13,12 +13,19 @@ using System.Diagnostics;
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 [TestFixture]
+// Audit A3-15: runs alone - mega-character oracle inputs, 0.9 GB peak (measured, LOCAL_RUN.md section 5).
+[NonParallelizable]
 public class GenomicAnalyzer_FindOpenReadingFrames_Oracle_Tests
 {
     private sealed record OracleRow(int Table, string StartMode, bool Nested, bool Open, bool ExcludeStop, int MinLength,
         bool Both, string Sequence, string Orfs);
 
-    private static List<OracleRow> ReadOracle()
+    // One parsed copy per fixture (audit A3-15): the oracle was re-read and re-parsed on every call, i.e. in every test.
+    private static readonly Lazy<List<OracleRow>> OracleRows = new(ReadOracleRows);
+
+    private static List<OracleRow> ReadOracle() => OracleRows.Value;
+
+    private static List<OracleRow> ReadOracleRows()
     {
         const string name = "Seqeron.Genomics.Tests.TestData.Analysis.orf_oracle.tsv";
         using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(name)

@@ -10,7 +10,12 @@ public class GenomicAnalyzer_SimilaritySketch_Oracle_Tests
 {
     private sealed record Row(string A, string B, int K, string Kind, int Param, double?[] V);
 
-    private static List<Row> ReadOracle()
+    // One parsed copy per fixture (audit A3-15): the oracle was re-read and re-parsed on every call, i.e. in every test.
+    private static readonly Lazy<List<Row>> OracleRows = new(ReadOracleRows);
+
+    private static List<Row> ReadOracle() => OracleRows.Value;
+
+    private static List<Row> ReadOracleRows()
     {
         const string name = "Seqeron.Genomics.Tests.TestData.Analysis.similarity_sketch_oracle.tsv";
         using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(name)
