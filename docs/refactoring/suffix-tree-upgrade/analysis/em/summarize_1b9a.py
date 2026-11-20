@@ -3,6 +3,7 @@
 For each variant: the median, the minimum and the maximum of count20 / locate8 / absent24 per second over its processes, and the slowdown against the reference variant
 (the median of the throughputs, and the median of the per-round paired ratios: round r of the variant against round r of the reference).
 usage: summarize_1b9a.py <rows file> [reference variant, default memory] [more rows files]"""
+import random
 import statistics
 import sys
 from collections import defaultdict
@@ -14,6 +15,20 @@ def load(path):
         if f[0] == "row" and len(f) >= 7:
             rows.append(dict(round=f[1], variant=f[2], c=float(f[3]), l=float(f[4]), a=float(f[5]), open=float(f[6]), extra=f[8:]))
     return rows
+
+def bootstrap(a, b, key, n=4000, seed=1):
+    """95 % interval of 100 * (1 - median(a) / median(b)) when the processes of both groups are resampled with replacement (the processes are the unit: the spread between them is the noise)."""
+    rng = random.Random(seed)
+    xs = [x[key] for x in a]
+    ys = [y[key] for y in b]
+    out = []
+    for _ in range(n):
+        ma = statistics.median(rng.choices(xs, k=len(xs)))
+        mb = statistics.median(rng.choices(ys, k=len(ys)))
+        out.append((1 - ma / mb) * 100)
+    out.sort()
+    return out[int(0.025 * n)], out[int(0.975 * n) - 1]
+
 
 def main():
     paths = [p for p in sys.argv[1:] if not p.startswith("--")]
@@ -49,6 +64,12 @@ def main():
             else:
                 out += f" {m:10.0f} {slow:8.1f} {pm:8.1f} |"
         print(out.rstrip("|"))
+    print("\n95 % bootstrap interval of slower% (the processes resampled):")
+    for v in sorted(by, key=lambda v: (v != ref, v)):
+        if v == ref or not refrows:
+            continue
+        cis = [bootstrap(by[v], refrows, k) for k in ("c", "l", "a")]
+        print(f"  {v:34s} count20 [{cis[0][0]:6.1f} .. {cis[0][1]:6.1f}]  locate8 [{cis[1][0]:6.1f} .. {cis[1][1]:6.1f}]  absent24 [{cis[2][0]:6.1f} .. {cis[2][1]:6.1f}]")
     print("\nslower% = (1 - median(variant) / median(reference)) * 100 over all processes; paired% = the median over rounds of the same quantity for the processes of one round")
 
 main()

@@ -83,8 +83,34 @@ internal static class Program
         internal override int Locate(string pattern) => tree.FindAllOccurrences(pattern).Count;
     }
 
+    /// <summary>
+    /// A build of SuffixTree.Esa loaded into a context of its own (the dependencies of its directory, except SuffixTree.Core, which stays the one of the harness so that the ISuffixTree of both builds is one type): several
+    /// commits of the in-memory tree in ONE process, with the passes in a rotated order. Variant <c>alc=&lt;path of SuffixTree.Esa.dll&gt;</c> builds the in-memory tree of the text with that build's EsaSuffixTreeFactory.Create.
+    /// </summary>
+    private sealed class BuildContext(string path) : System.Runtime.Loader.AssemblyLoadContext(isCollectible: false)
+    {
+        private readonly string _directory = Path.GetDirectoryName(path)!;
+
+        protected override System.Reflection.Assembly? Load(System.Reflection.AssemblyName name)
+        {
+            if (name.Name == "SuffixTree.Core") return null;
+            string candidate = Path.Combine(_directory, name.Name + ".dll");
+            return File.Exists(candidate) ? LoadFromAssemblyPath(candidate) : null;
+        }
+    }
+
+    private static Q InMemoryOfBuild(string path, string text)
+    {
+        var context = new BuildContext(path);
+        System.Reflection.Assembly assembly = context.LoadFromAssemblyPath(path);
+        Type factory = assembly.GetType("SuffixTree.Esa.EsaSuffixTreeFactory")!;
+        object tree = factory.GetMethod("Create", [typeof(string)])!.Invoke(null, [text])!;
+        return new TreeQ((ISuffixTree)tree);
+    }
+
     private static Q CreateQ(string variant, string file, string text)
     {
+        if (variant.StartsWith("alc=", StringComparison.Ordinal)) return InMemoryOfBuild(variant[4..], text);
 #if EXPERIMENTS
         if (variant.StartsWith("ix-", StringComparison.Ordinal)) return ExperimentsIx.Create(variant, file, text);
 #endif

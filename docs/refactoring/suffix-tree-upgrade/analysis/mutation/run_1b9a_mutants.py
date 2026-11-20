@@ -14,8 +14,10 @@ TEST_LIMIT = int(os.environ.get('MUTANT_TEST_LIMIT', '420'))
 BUDGET = os.environ.get('FUZZ_BUDGET_S', '60')
 THREADS = os.environ.get('FUZZ_THREADS', '2')
 HARNESS = os.environ.get('HARNESS', '1') != '0'
-UNIT = ('FullyQualifiedName~MappedSearchTests|FullyQualifiedName~SesaChildCodecTests|FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SesaReaderIsolationTests|'
-        'FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaAuditTests|FullyQualifiedName~SesaSectionTests')
+# the unit tests that can see a mutant of the read path (the descent, the mapped child table, the reader's views) and those that can see one of the format, the builder and the verifier
+READ_PATH = ('FullyQualifiedName~MappedSearchTests|FullyQualifiedName~SesaChildCodecTests|FullyQualifiedName~SesaReaderTests|FullyQualifiedName~SesaReaderHostileTests|FullyQualifiedName~SesaReaderIsolationTests')
+FORMAT = ('FullyQualifiedName~SesaChildCodecTests|FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaAuditTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaSectionTests')
+READ_FILES = ('MappedSearch.cs', 'ChildLayouts.cs', 'ChildTable.cs', 'SesaFile.cs')
 env = dict(os.environ, PATH=os.environ['PATH'] + ':/root/.dotnet', DOTNET_ROOT='/root/.dotnet', DOTNET_CLI_TELEMETRY_OPTOUT='1', DOTNET_NOLOGO='1', SEQERON_BENCH_DIR='/tmp/stbench')
 mutants_file, out = sys.argv[2], sys.argv[3]
 sl = sys.argv[4] if len(sys.argv) > 4 else ''
@@ -111,7 +113,7 @@ try:
         if b:
             results.append((m['id'], m['desc'], b))
         else:
-            r = unit(proj, UNIT if kind == 'esa' else 'FullyQualifiedName~ContainerVerifyTests')
+            r = unit(proj, (READ_PATH if m['file'].endswith(READ_FILES) else FORMAT) if kind == 'esa' else 'FullyQualifiedName~ContainerVerifyTests')
             if r == 'survived' and kind == 'esa' and HARNESS:
                 r = harness(m['id'])
                 if r == 'survived':

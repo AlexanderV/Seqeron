@@ -156,6 +156,20 @@ public class SesaChildCodecTests
         Assert.That(SesaBuilder.ChildCodecFor(max + 1, ChildCodec.Packed), Is.EqualTo(ChildCodec.Packed));
     }
 
+    [Test]
+    public void TheStage_RefusesTheTaggedCodec_ForATextBeyondItsRanks_BeforeItTouchesAnyFile()
+    {
+        using var dir = new TempDir();
+        long n = TaggedChild.MaxLength + 1L; // 2^30 symbols: the ranks need 31 bits
+        string sparse = dir.File("long.pk");
+        using (var fs = new FileStream(sparse, FileMode.Create)) fs.SetLength(PackedTextFormat.TotalBytes(n, 1));
+        using MappedTextReader reader = MappedTextReader.Open(sparse, n, 1);
+        using MappedOutputFile file = MappedOutputFile.Create(dir.File("child.bin"), 4096);
+        Func<LcpPlacementRequest, LcpPlacement> place = _ => throw new InvalidOperationException("the stage must refuse before it asks for the LCP");
+        LcpChildOptions tagged = LcpChildRun.Options(dir.Sub("t"), LcpChildRun.TinyTuning(1), codec: ChildCodec.Tagged);
+        Assert.That(() => SectionLcpChildBuilder.Build("no-such-suffix-array", 0, reader, file, 128, place, tagged), Throws.TypeOf<NotSupportedException>().With.Message.Contains("30 bits"));
+    }
+
     [TestCase("mississippi")]
     [TestCase("abracadabra")]
     [TestCase("aaaaaaaaaaaaaaaaaaaa")]

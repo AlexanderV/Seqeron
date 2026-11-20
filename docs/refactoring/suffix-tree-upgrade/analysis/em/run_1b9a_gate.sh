@@ -6,7 +6,7 @@
 #     containers              build the containers (and a small one of 1 Mbp for the JIT warm-up of the cold open) of the texts below with the builder of the head (the harness variant `container` of SesaBuildCostTests; the EmProto.Tests project must be built)
 #     m10 | m5 | mprot | m100 the matrix at 10 Mbp of DNA / 10 Mbp over five symbols / 10 Mbp protein-like / 100 Mbp of DNA (ROUNDS_10 default 15, ROUNDS_100 default 7, memory and Checked only at 100 Mbp)
 #     open                    the open cost: warm (25 opens in a JIT-warm process) and cold (page cache dropped before each of 10 processes; a JIT-warm process, the small container warms the code)
-#     inmem <old bin dir>     the in-memory tree of the head against the one of another build (e4a0b2da), 15 rounds, memory only
+#     inmem                   the in-memory tree of the head against the one of another build (OLD_BIN, e4a0b2da built with -p:NoOpen=true), 15 rounds, memory only
 #   texts: DNA_10M, RND5_10M, PROT_10M, DNA_100M (paths in the environment, defaults below); the 100 Mbp container is built with the scaled geometry (G3_SCALE 3000000000), the others with the real one.
 set -u
 W=$(readlink -f -m "$1"); shift
@@ -56,7 +56,7 @@ for STEP in "$@"; do
       for i in $(seq 1 10); do sync; echo 3 > /proc/sys/vm/drop_caches; dotnet "$W/bin/new/SuffixTree.Esa.Bench.dll" opencold "$W/dna_10m.sesa" "$W/small.sesa" >> "$W/rows/open_cold.tsv"; done
       cat "$W/rows/open_cold.tsv" ;;
     inmem)
-      OLD=$1; shift
+      OLD=${OLD_BIN:?OLD_BIN: the harness build of the other commit (e4a0b2da, built with -p:NoOpen=true)}
       "$HERE/run_1b9a_matrix.sh" "$W/rows/inmem_old_new.tsv" 15 "memory@$OLD memory@$W/bin/new" "$W/bin/new" "$W/dna_10m.sesa" "$DNA_10M" ACGT
       python3 "$HERE/summarize_1b9a.py" "$W/rows/inmem_old_new.tsv" memory@old | tee "$W/rows/inmem_old_new.summary.txt" ;;
     *) echo "unknown step $STEP"; exit 2 ;;
