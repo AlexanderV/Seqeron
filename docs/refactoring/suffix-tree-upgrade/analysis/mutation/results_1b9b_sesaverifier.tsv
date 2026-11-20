@@ -1,0 +1,7 @@
+1b9b_V01	VE7: the first eight bytes of a padding gap are not checked	killed(unit tests: 4 failed, first ANonZeroByteInTheFirstEightBytesOfAGap_IsRefusedAtStructure_ForEveryGapOfEveryContainer)
+1b9b_V02	only the first eight bytes of a padding gap are checked	killed(unit tests: 3 failed, first ANonZeroByteInTheFirstEightBytesOfAGap_IsRefusedAtStructure_ForEveryGapOfEveryContainer)
+1b9b_V03	VE9: a PSI primary row below the real one is accepted	killed(unit tests: 3 failed, first ThePsiPrimaryRow_StoredAtAnyRowButTheRealOne_IsRefusedAtStructure("GATTACAGATTACAGGTA"))
+1b9b_V04	a PSI primary row above the real one is accepted	killed(unit tests: 3 failed, first ThePsiPrimaryRow_StoredAtAnyRowButTheRealOne_IsRefusedAtStructure("GATTACAGATTACAGGTA"))
+1b9b_V05	VE12: LRS_DEPTH above the real one is accepted	killed(unit tests: 4 failed, first TheLrsDepthStoredAboveOrBelowTheRealOne_IsRefusedAtStructure("GATTACAGATTACAGGTAGATTACA"))
+1b9b_V06	LRS_DEPTH below the real one is accepted	killed(unit tests: 4 failed, first TheLrsDepthStoredAboveOrBelowTheRealOne_IsRefusedAtStructure("GATTACAGATTACAGGTAGATTACA"))
+1b9b_V07	the verifier keeps the last deepest interval, not the first	killed(unit tests: 22 failed, first AdversarialFamilies_OnATaggedContainer_EveryMember)

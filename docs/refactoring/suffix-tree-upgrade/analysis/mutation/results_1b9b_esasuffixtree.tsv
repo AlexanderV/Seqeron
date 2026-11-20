@@ -1,0 +1,7 @@
+1b9b_F01	an in-memory call does not look at the disposed flag	killed(unit tests: 33 failed, first ReadsRacingDispose_OfAFileBackedTree_CompleteOrThrowObjectDisposed_AndNeverTouchTheUnmappedView)
+1b9b_F02	an in-memory call throws for a tree that is not disposed (the flag test is inverted)	killed(unit tests: 125 failed, first ManyFirstUsers_OfThePack_BuildItOnce_AndAgreeWithTheSequentialAnswer)
+1b9b_F03	a tree over a container takes the in-memory path of Enter (no reader count)	killed(host crash: Fatal error., unit tests)
+1b9b_F04	the scope of an in-memory call leaves stripe 0 (a count that was never raised)	survived (unit tests and harness)
+1b9b_F05	a scope that holds stripe 0 does not leave it (the count of that stripe never falls)	survived (unit tests and harness)
+1b9b_F06	Dispose of an in-memory tree releases the pack at once (the behaviour of e4a0b2da)	killed(unit tests: 2 failed, first Dispose_AfterAPackWasBuilt_DoesNotReleaseThePinOfTheSuffixArray_ThatIsLeftToTheFinalizer)
+1b9b_F07	Dispose of a tree over a container releases nothing	killed(host crash: Fatal error., unit tests)

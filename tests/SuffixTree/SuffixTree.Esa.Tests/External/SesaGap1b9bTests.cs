@@ -40,6 +40,26 @@ public class SesaGap1b9bTests
         Assert.That(NativeArena.GuardedCreated, Is.EqualTo(before));
     }
 
+    [Test]
+    public void TheGuardCounter_CountsEveryGuardedArena_ExactlyUnderConcurrency()
+    {
+        // the passes of a build create their arenas on several threads: a counter that loses updates would make the hand-over of the option invisible in a phase that has only concurrent arenas
+        const int threads = 8, each = 2_000;
+        long before = NativeArena.GuardedCreated;
+        Parallel.For(0, threads, new ParallelOptions { MaxDegreeOfParallelism = threads }, _ =>
+        {
+            for (int i = 0; i < each; i++)
+            {
+                using var arena = new NativeArena(ArenaOptions.Guarded());
+            }
+        });
+        Assert.That(NativeArena.GuardedCreated - before, Is.EqualTo(threads * each));
+        using (new NativeArena(ArenaOptions.Production))
+        {
+            Assert.That(NativeArena.GuardedCreated - before, Is.EqualTo(threads * each), "an arena without guard bands is not counted");
+        }
+    }
+
     // ---------------------------------------------------------------- B118: BUILD_INFO may not overrun its room
 
     [Test]

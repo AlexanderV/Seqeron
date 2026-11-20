@@ -1,0 +1,3 @@
+1b9b_C01	the first l-index may be read one cell past the table	killed(unit tests: 5 failed, first AnEntryThatPointsAtCellCount_IsRefused_InCheckedMode_ForBothCodecs(False,"mississippimississippi"))
+1b9b_C02	the next l-index of a tagged table may be read one cell past it	killed(unit tests: 3 failed, first ACellOutsideTheChildTable_InCheckedMode_IsInvalidData_ForTheNextLIndexOfBothLayouts(True))
+1b9b_C03	the next l-index of a packed table may be read one cell past it	killed(unit tests: 2 failed, first AnEntryThatPointsAtCellCount_IsRefused_InCheckedMode_ForBothCodecs(False,"mississippimississippi"))

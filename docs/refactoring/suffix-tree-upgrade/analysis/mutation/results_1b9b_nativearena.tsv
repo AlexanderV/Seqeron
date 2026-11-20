@@ -1,0 +1,3 @@
+1b9b_A01	the guard counter never moves	killed(unit tests: 1 failed, first TheGuardOption_ReachesThePassOfTheSuffixArray_TheLcpAndChildPass_TheBwtPass_AndThePsiPass)
+1b9b_A02	the guard counter counts every arena	killed(unit tests: 1 failed, first WithoutTheGuardOption_NoPassCreatesAGuardedArena)
+1b9b_A03	the guard counter is not atomic	survived (unit tests and harness)

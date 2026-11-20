@@ -1,0 +1,4 @@
+1b9b_K01	an escaped LCP entry is read as the escape value (the test of the indexer is inverted)	killed(unit tests: 110 failed, first ACellOutsideTheChildTable_InCheckedMode_IsInvalidData_ForTheNextLIndexOfBothLayouts(False))
+1b9b_K02	a rank at the length is read (the range test of the base value)	killed(host crash: Fatal error., unit tests)
+1b9b_K03	a rank outside a mapped LCP array is an argument error, outside a managed one invalid data	killed(unit tests: 7 failed, first CompactLcp_Mapped_ReadsEveryKind_WithItsOverflowList("U8"))
+1b9b_K04	an escaped entry whose overflow pair is at index 0 is reported missing	killed(unit tests: 6 failed, first CompactLcp_Mapped_AnEscapeWithoutItsPair_OrAWordAboveIntMax_IsInvalidData)

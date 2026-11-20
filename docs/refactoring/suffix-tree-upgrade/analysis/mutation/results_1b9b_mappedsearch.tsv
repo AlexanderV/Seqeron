@@ -1,0 +1,7 @@
+1b9b_S01	S03: a 32-bit LCP value up to length + 5 is accepted	killed(unit tests: 1 failed, first A32BitLcpValueAboveTheLength_IsRefusedInCheckedMode_FromLengthPlusOneOn)
+1b9b_S02	a 32-bit LCP value equal to the length is refused	killed(unit tests: 1 failed, first A32BitLcpValueAboveTheLength_IsRefusedInCheckedMode_FromLengthPlusOneOn)
+1b9b_S04	the symbol read keeps the bits that the shift moved out of the 16	killed(unit tests: 48 failed, first AdversarialFamilies_OnATaggedContainer_EveryMember)
+1b9b_S05	the symbol read takes one bit too many	killed(unit tests: 48 failed, first AdversarialFamilies_OnATaggedContainer_EveryMember)
+1b9b_S06	the symbol read starts at the bit offset modulo 4	killed(unit tests: 44 failed, first AdversarialFamilies_OnATaggedContainer_EveryMember)
+1b9b_S07	the symbol read does not turn the big-endian stream around	killed(unit tests: 46 failed, first AdversarialFamilies_OnATaggedContainer_EveryMember)
+1b9b_S03	a 32-bit LCP value is never checked	killed(unit tests: 1 failed, first A32BitLcpValueAboveTheLength_IsRefusedInCheckedMode_FromLengthPlusOneOn)

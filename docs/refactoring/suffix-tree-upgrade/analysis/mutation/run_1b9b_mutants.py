@@ -26,7 +26,7 @@ READ_PATH = ('FullyQualifiedName~MappedSearchTests|FullyQualifiedName~SesaChildC
 FORMAT = ('FullyQualifiedName~SesaChildCodecTests|FullyQualifiedName~SesaBuilderTests|FullyQualifiedName~SesaAuditTests|FullyQualifiedName~SesaVerifierTests|FullyQualifiedName~SesaReaderCorruptionTests|FullyQualifiedName~SesaSectionTests'
           '|FullyQualifiedName~SesaGap1b9bTests|FullyQualifiedName~FacadeLongestRepeatTieTests|FullyQualifiedName~SesaReaderGapTests')
 ARENA = 'FullyQualifiedName~SesaGap1b9bTests|FullyQualifiedName~NativeArenaTests|FullyQualifiedName~ArenaBudgetTests|FullyQualifiedName~SesaBuilderTests'
-FACADE = ('FullyQualifiedName~FacadeEsaDisposeTests|FullyQualifiedName~FacadeLifetimeTests|FullyQualifiedName~FacadeDisposeRaceTests|FullyQualifiedName~FacadeSurfaceTests|FullyQualifiedName~FacadeConcurrencyTests'
+FACADE = ('FullyQualifiedName~FacadeReaderCountTests|FullyQualifiedName~FacadeEsaDisposeTests|FullyQualifiedName~FacadeLifetimeTests|FullyQualifiedName~FacadeDisposeRaceTests|FullyQualifiedName~FacadeSurfaceTests|FullyQualifiedName~FacadeConcurrencyTests'
           '|FullyQualifiedName~FacadeSharedIndexTests')
 INMEMORY = 'FullyQualifiedName~InMemorySearchTests|FullyQualifiedName~EsaMatchingTests|FullyQualifiedName~FacadeKnownAnswerTests|FullyQualifiedName~FacadeDifferentialTests|FullyQualifiedName~FacadeSurfaceTests'
 FILTER_BY_FILE = {'MappedSearch.cs': READ_PATH, 'ChildLayouts.cs': READ_PATH, 'ChildTable.cs': READ_PATH, 'EsaNavigator.cs': READ_PATH, 'EsaSuffixIndex.Tree.cs': READ_PATH, 'SesaFile.cs': READ_PATH,

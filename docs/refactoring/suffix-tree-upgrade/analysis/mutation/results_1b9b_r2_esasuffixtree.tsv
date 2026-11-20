@@ -1,0 +1,1 @@
+1b9b_F05	a scope that holds stripe 0 does not leave it (the count of that stripe never falls)	killed(unit tests: 1 failed, first ADisposedFileBackedTree_ReleasesItsMapping_WhicheverStripeItsCallersCounted)

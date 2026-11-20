@@ -1,0 +1,9 @@
+[
+ {
+  "id": "1b9b_F05",
+  "desc": "a scope that holds stripe 0 does not leave it (the count of that stripe never falls)",
+  "old": "if (stripe >= 0) owner.Leave(stripe);",
+  "new": "if (stripe > 0) owner.Leave(stripe);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs"
+ }
+]

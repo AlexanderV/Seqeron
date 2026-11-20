@@ -1,0 +1,8 @@
+1b9b_B01	B102: the BWT pass gets no guards	killed(unit tests: 1 failed, first TheGuardOption_ReachesThePassOfTheSuffixArray_TheLcpAndChildPass_TheBwtPass_AndThePsiPass)
+1b9b_B02	the PSI pass gets no guards	killed(unit tests: 1 failed, first TheGuardOption_ReachesThePassOfTheSuffixArray_TheLcpAndChildPass_TheBwtPass_AndThePsiPass)
+1b9b_B03	B118: BUILD_INFO may overrun its room by 4 KiB	killed(unit tests: 1 failed, first ABuildInfoThatWouldOverrunItsRoom_IsRefused_OneByteOverTheCapacityIsEnough)
+1b9b_B04	BUILD_INFO may overrun its room by one byte	killed(unit tests: 1 failed, first ABuildInfoThatWouldOverrunItsRoom_IsRefused_OneByteOverTheCapacityIsEnough)
+1b9b_B05	BUILD_INFO that fills its room exactly is refused	killed(unit tests: 1 failed, first ABuildInfoThatWouldOverrunItsRoom_IsRefused_OneByteOverTheCapacityIsEnough)
+1b9b_B06	the room check is not made by the builder	survived (unit tests and harness)
+1b9b_B07	the SA pass gets no guards	killed(unit tests: 1 failed, first TheGuardOption_ReachesThePassOfTheSuffixArray_TheLcpAndChildPass_TheBwtPass_AndThePsiPass)
+1b9b_B08	the LCP and child pass gets no guards	killed(unit tests: 1 failed, first TheGuardOption_ReachesThePassOfTheSuffixArray_TheLcpAndChildPass_TheBwtPass_AndThePsiPass)
