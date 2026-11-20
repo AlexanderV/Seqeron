@@ -56,6 +56,8 @@ namespace Seqeron.Mcp.Alignment;
 [JsonSerializable(typeof(MergerConflictDto[]))]
 [JsonSerializable(typeof(MergerResultDto))]
 [JsonSerializable(typeof(Minimap2ChainsResult))]
+[JsonSerializable(typeof(Minimap2HitDto))]
+[JsonSerializable(typeof(Minimap2HitDto[]))]
 [JsonSerializable(typeof(DotMatcherResult))]
 [JsonSerializable(typeof(MuscleRunResultDto))]
 [JsonSerializable(typeof(MuscleCommandResultDto))]

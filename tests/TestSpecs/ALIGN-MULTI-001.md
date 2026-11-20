@@ -738,3 +738,12 @@ Tests (`Seqeron.Genomics.Tests`, against the installed Debian `poa` 2.0+20060928
 ## Audit A4-2 (B09 F158): resource guards
 
 `SequenceAligner_ResourceLimits_Tests`: `Minimap2Chaining.CollectAnchors` / `Chain` (`MinimapMaxAnchors`), `NucmerClusters.Cluster` (`NucmerMaxClusterMatches`) - documented limit constants (`SequenceAligner.ResourceLimits.cs`), the exception of the `SequenceAligner.ResourceLimit` style raised before the allocation in 64-bit arithmetic, and a low-allocation assertion per limit.
+
+## Audit A4-7 (B09 F165 / F166): minimap2 seeding options, frequent minimizers, primary / secondary hits, long join, RMQ
+
+| ID | Test | Locks |
+|---|---|---|
+| A4-7 | `Minimap2Seeds_Tests.CollectSeeds_EqualsMinimap2_AllGroups` | 1 980 `--print-seeds` runs (`minimap2_seed_oracle.jsonl.gz`, six groups of 330: default frequent minimizers, `-f` / `-U` / `-e` / `--q-occ-frac`, `-H`, `-T`, `-X`, `--for-only` / `--rev-only`): anchors, `RS` repeat length and `mid_occ` equal |
+| A4-7 | `Minimap2Seeds_Tests.FrequentMinimizers_AreHandledLikeTheProgram_NotRefused` | the old `NotSupportedException` is gone: poly-A key dropped, `RepeatLength > 0`, `CollectAnchors` = `CollectSeeds` anchors |
+| A4-7 | `Minimap2Map_Tests.Map_SecondaryChainMarking_EqualsMinimap2` / `Map_ChainingOptions_EqualMinimap2` / `Map_LongJoinRechaining_EqualsMinimap2` / `Map_RmqChaining_EqualsMinimap2` | 1 320 PAF runs (`minimap2_map_oracle.jsonl.gz`, four groups of 330): columns 3 - 12 and `tp cm s1 s2 dv rl` of every line (secondary marking, `-N` / `-p` / mask options, `-r b,B` long join, `--rmq`, `-g -n -m` and the chain scales) |
+| A4-7 | MCP `Minimap2ChainsTests.Minimap2Chains_PafMode_IsThePafLineOfMinimap2`, `..._FrequentMinimizers_...` | the `paf` mode and the new options of `minimap2_chains` |

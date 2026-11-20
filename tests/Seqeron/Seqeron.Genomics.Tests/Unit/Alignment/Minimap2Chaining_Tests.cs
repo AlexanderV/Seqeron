@@ -119,12 +119,11 @@ public class Minimap2Chaining_Tests
     }
 
     [Test]
-    public void CollectAnchors_FrequentMinimizers_AreNotPorted_AndValidation()
+    public void CollectAnchors_Validation()
     {
-        // mid_occ = max(10, the 0.9998 quantile of the occurrence counts + 1): on a 60 kb reference with 3 000 poly-A the poly-A minimizer is the one frequent key (3 000 > 10 occurrences)
+        // the frequent-minimizer handling (A4-7) is tested in Minimap2Seeds_Tests; here the argument checks and a query without a shared k-mer
         var rng = new Random(5);
-        string reference = new string(Enumerable.Range(0, 60_000).Select(_ => "ACGT"[rng.Next(4)]).ToArray()) + new string('A', 3000);
-        Assert.Throws<NotSupportedException>(() => Minimap2Chaining.CollectAnchors([reference], new string('A', 24) + reference[..200]));
+        string reference = new string(Enumerable.Range(0, 6_000).Select(_ => "ACGT"[rng.Next(4)]).ToArray());
         Assert.DoesNotThrow(() => Minimap2Chaining.CollectAnchors([reference], reference.Substring(1000, 300)));
         Assert.Throws<ArgumentOutOfRangeException>(() => Minimap2Chaining.CollectAnchors(["ACGT"], "ACGT", 29, 10));
         Assert.Throws<ArgumentOutOfRangeException>(() => Minimap2Chaining.CollectAnchors(["ACGT"], "ACGT", 15, 256));

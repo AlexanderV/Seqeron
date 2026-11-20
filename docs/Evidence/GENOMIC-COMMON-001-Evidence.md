@@ -154,7 +154,7 @@ Mechanism: `AlignmentCancellation` (SequenceAligner.Cancellation.cs, A2-40); tes
 ## Audit A4-2 (B09 F158): resource guards
 
 `SequenceAligner_ResourceLimits_Tests`: `SeqMatchAll` / `MegaMerge` (`WordMatchMaxMatches`) - documented limit constants (`SequenceAligner.ResourceLimits.cs`), the exception of the `SequenceAligner.ResourceLimit` style raised before the allocation in 64-bit arithmetic, and a low-allocation assertion per limit.
-The programs have no such limits (they die at the allocation: measured OutOfMemory / SIGKILL on the audit inputs); minimap2 drops frequent minimizers (`mid_occ`, `mm_seed_select`), registered A4-7.
+The programs have no such limits (they die at the allocation: measured OutOfMemory / SIGKILL on the audit inputs); minimap2 drops frequent minimizers (`mid_occ`, `mm_seed_select`), ported in A4-7 (the anchor-count guard now only fires when the minimizers that survive that filter are still above `MinimapMaxAnchors`).
 
 ## Audit A4-9 (B09 F164): megamerger edge cases
 

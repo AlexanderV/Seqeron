@@ -321,3 +321,4 @@ Input contract: ProbCons drops gap characters like the program's reader, POA rea
 - **Audit A4-1 (F157):** `Minimap2Chaining.Chain` / `CollectAnchors`, `NucmerClusters.Cluster` poll the ambient cancellation token (mid-run cancel tests); MCP tools take the request token.
 
 - **Audit A4-2 (F158):** resource guards: `Minimap2Chaining.CollectAnchors` / `Chain` (`MinimapMaxAnchors`), `NucmerClusters.Cluster` (`NucmerMaxClusterMatches`).
+- **Audit A4-7 (F165 / F166):** minimap2 seeding options and the mapping stage ported: frequent minimizers (`mid_occ`, `mm_seed_select`, `rl`), `-f` / `-U` / `-e`, `-H`, `-T` (sdust), `-X`, `--for-only` / `--rev-only`; `Minimap2Chaining.Map` (primary / secondary marking, `-r b,B` long join via `mg_lchain_rmq` and the krmq AVL tree, `--rmq`, `dv`, mapq): 1 980 seed cases and 1 320 PAF cases equal the installed minimap2 2.26; MCP `minimap2_chains` gets the options and a `paf` mode. `-c` stays A3-9c2.

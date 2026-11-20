@@ -76,7 +76,7 @@ public sealed record MinimapChain(int Score, IReadOnlyList<int> Anchors);
 /// stop after <c>max_skip</c> non-improving predecessors, the bandwidth and distance limits, the "max-f" shortcut), then the backtracking <c>mg_chain_backtrack</c> with the Z-drop-like peak rule
 /// (<c>max_drop = bandwidth</c>) and the compaction <c>compact_a</c> that orders the chains by the target position of their first anchor. Port line by line; the float arithmetic of the program is kept.
 /// </summary>
-public static class Minimap2Chaining
+public static partial class Minimap2Chaining
 {
     private const int MinInt = int.MinValue;
 
@@ -121,6 +121,13 @@ public static class Minimap2Chaining
                 throw new ArgumentException("The anchors must be sorted by (reverse, target id, target position).", nameof(anchors));
         }
 
+        return ChainCore(ax, ay, o);
+    }
+
+    /// <summary><c>mg_lchain_dp</c> + <c>mg_chain_backtrack</c> + <c>compact_a</c> over the anchor arrays <c>x</c> / <c>y</c> (sorted by <c>x</c>); the chain members are indices into the arrays.</summary>
+    internal static IReadOnlyList<MinimapChain> ChainCore(ulong[] ax, ulong[] ay, MinimapChainOptions o)
+    {
+        int n = ax.Length;
         float penGap = (float)(o.ChainGapScale * 0.01 * o.KmerSize);
         float penSkip = (float)(o.ChainSkipScale * 0.01 * o.KmerSize);
         int bw = o.Bandwidth, maxDistX = Math.Max(o.MaxTargetGap, bw), maxDistY = Math.Max(o.MaxQueryGap, bw), maxDrop = bw;
@@ -209,7 +216,7 @@ public static class Minimap2Chaining
         return a.Select(m => new MinimapAnchor((int)(m.X >> 32 & 0x7fffffff), (m.X >> 63) != 0, (int)(uint)m.X, (int)(uint)m.Y, (int)(m.Y >> 32 & 0xff))).ToList();
     }
 
-    private struct Mm128(ulong x, ulong y)
+    internal struct Mm128(ulong x, ulong y)
     {
         public ulong X = x;
         public ulong Y = y;
@@ -416,12 +423,11 @@ public static class Minimap2Chaining
 
     /// <summary>
     /// The seed hits minimap2 collects for a query against a set of targets with a minimizer index of k-mer size <paramref name="k"/> and window <paramref name="w"/>
-    /// (<c>mm_sketch</c> of <c>sketch.c</c> on every target and on the query, the hash index, <c>mm_seed_mz_flt</c>, <c>mm_collect_matches</c> and <c>collect_seed_hits</c>), sorted as minimap2 sorts them.
+    /// (<c>mm_sketch</c> of <c>sketch.c</c> on every target and on the query, the hash index, <c>mm_seed_mz_flt</c>, <c>mm_collect_matches</c> with <c>mm_seed_select</c> and <c>collect_seed_hits</c>), sorted as minimap2 sorts them.
     /// </summary>
     /// <remarks>
-    /// The frequent-minimizer handling of minimap2 (<c>mm_seed_select</c> and the re-chaining with <c>max_occ</c> for minimizers that occur more than <c>mid_occ</c> times) is not ported: when a matching
-    /// minimizer occurs more than <c>mid_occ</c> times (<c>max(10, the (1 - 2e-4) quantile of the occurrences)</c>) a <see cref="NotSupportedException"/> is thrown. Homopolymer-compressed minimizers, the
-    /// low-complexity masking (<c>sdust</c>, off by default) and the all-vs-all options are not provided. The query is searched on both strands.
+    /// Frequent minimizers (A4-7): a minimizer that occurs more than <c>mid_occ</c> times (<c>max(10, the (1 - 2e-4) quantile of the occurrence counts + 1)</c>) is dropped except for the least frequent ones of a streak of
+    /// frequent minimizers (<c>mm_seed_select</c>, one per 500 query bases, never above 4095 occurrences). The options of <see cref="CollectSeeds"/> (<c>-H</c>, <c>-T</c>, <c>-f</c>, <c>-U</c>, <c>-X</c>, ...) are available there. The query is searched on both strands.
     /// </remarks>
     /// <param name="targets">The target (reference) sequences, A/C/G/T/U (other symbols break the k-mer), any case.</param>
     /// <param name="query">The query sequence.</param>
@@ -433,97 +439,11 @@ public static class Minimap2Chaining
     /// <returns>The anchors, sorted by (reverse, target id, target position).</returns>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="k"/> or <paramref name="w"/> is out of range.</exception>
-    /// <exception cref="NotSupportedException">A minimizer of the query occurs more than <c>mid_occ</c> times in the targets.</exception>
     public static IReadOnlyList<MinimapAnchor> CollectAnchors(IReadOnlyList<string> targets, string query, int k = 15, int w = 10, float queryOccurrenceFraction = 0.01f, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(targets);
-        using var scope = AlignmentCancellation.Enter(cancellationToken);
         ArgumentNullException.ThrowIfNull(query);
-        ArgumentOutOfRangeException.ThrowIfLessThan(k, 1);
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(k, 28);
-        ArgumentOutOfRangeException.ThrowIfLessThan(w, 1);
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(w, 255);
-
-        // index: minimizer hash -> positions (rid << 32 | pos << 1 | strand)
-        var index = new Dictionary<ulong, List<ulong>>();
-        for (int rid = 0; rid < targets.Count; rid++)
-        {
-            ArgumentNullException.ThrowIfNull(targets[rid]);
-            int indexed = 0;
-            foreach (var (x, y) in Sketch(targets[rid], w, k, (uint)rid))
-            {
-                if ((++indexed & 0xFFFF) == 0)
-                    AlignmentCancellation.ThrowIfRequested();
-                if (!index.TryGetValue(x >> 8, out var list))
-                    index[x >> 8] = list = [];
-                list.Add(y);
-            }
-        }
-
-        foreach (var list in index.Values)
-        {
-            AlignmentCancellation.ThrowIfRequested();
-            list.Sort(); // worker_post: radix_sort_64 of the positions of a minimizer (ascending: rid, position, strand)
-        }
-
-        // mid_occ = max(10, (1 - 0.0002) quantile of the occurrence counts + 1)
-        int midOcc = 10;
-        if (index.Count > 0)
-        {
-            var counts = index.Values.Select(l => l.Count).OrderBy(c => c).ToArray();
-            int threshold = counts[(int)((1.0 - 2e-4f) * counts.Length)] + 1;
-            midOcc = Math.Max(threshold, 10);
-        }
-
-        var mv = Sketch(query, w, k, 0);
-        int qlen = query.Length;
-        if (mv.Count > midOcc && queryOccurrenceFraction > 0f)
-        {
-            // mm_seed_mz_flt
-            var drop = new HashSet<ulong>();
-            foreach (var grp in mv.GroupBy(m => m.X))
-                if (grp.Count() > midOcc && grp.Count() > mv.Count * queryOccurrenceFraction)
-                    drop.Add(grp.Key);
-            mv = mv.Where(m => !drop.Contains(m.X)).ToList();
-        }
-
-        // A4-2: count the anchors in 64 bit BEFORE any is stored (the sum of the occurrences of the query's minimizers): a 100 kb poly-A query against itself is 10^10 anchors and a 57 kb tandem repeat 45 million
-        // (5.2 GB, 10.8 s); minimap2 has no such limit but drops frequent minimizers (the registered A4-7)
-        long total = 0;
-        foreach (var (x, _) in mv)
-        {
-            if (index.TryGetValue(x >> 8, out var occurrences))
-                total += occurrences.Count;
-        }
-
-        if (total > SequenceAligner.MinimapMaxAnchors)
-            throw SequenceAligner.ResourceLimit("minimap2 seeding", "stores one anchor (20 bytes) for every occurrence of every query minimizer and four arrays of them for the chaining",
-                $"{total} anchors (the occurrences of {mv.Count} query minimizers in the targets)", SequenceAligner.MinimapMaxAnchors, nameof(SequenceAligner) + "." + nameof(SequenceAligner.MinimapMaxAnchors),
-                "The program has no such limit: it dies at the allocation, and drops the minimizers that occur more than mid_occ times (mm_seed_select)", "use a longer k-mer or window, mask the repeat, or map a shorter query", nameof(query));
-        var anchors = new List<MinimapAnchor>((int)total);
-        int polled = 0;
-        foreach (var (x, y) in mv)
-        {
-            if ((++polled & 255) == 0)
-                AlignmentCancellation.ThrowIfRequested();
-            if (!index.TryGetValue(x >> 8, out var hits))
-                continue;
-            if (hits.Count > midOcc)
-                throw new NotSupportedException($"A minimizer of the query occurs {hits.Count} times in the targets (mid_occ = {midOcc}): minimap2's frequent-minimizer handling is not ported.");
-            uint qPos = (uint)y;
-            int span = (int)(x & 0xff);
-            foreach (ulong r in hits)
-            {
-                int rpos = (int)((uint)r >> 1);
-                int tid = (int)(r >> 32);
-                if ((r & 1) == (qPos & 1))
-                    anchors.Add(new MinimapAnchor(tid, false, rpos, (int)(qPos >> 1), span));
-                else
-                    anchors.Add(new MinimapAnchor(tid, true, rpos, qlen - ((int)(qPos >> 1) + 1 - span) - 1, span));
-            }
-        }
-
-        return SortAnchors(anchors);
+        return CollectSeeds(targets, query, new MinimapSeedOptions { KmerSize = k, WindowSize = w, QueryOccurrenceFraction = queryOccurrenceFraction }, cancellationToken: cancellationToken).Anchors;
     }
 
     /// <summary>
@@ -537,8 +457,7 @@ public static class Minimap2Chaining
     /// <param name="options">Chaining options; <see cref="MinimapChainOptions.KmerSize"/> is replaced by <paramref name="k"/> (null = defaults).</param>
     /// <param name="cancellationToken">Cancellation token (see <see cref="CollectAnchors"/> and <see cref="Chain"/>).</param>
     /// <returns>The chains, ordered by the position of their first anchor.</returns>
-    /// <exception cref="NotSupportedException">See <see cref="CollectAnchors"/>.</exception>
-    public static IReadOnlyList<MinimapChainHit> MapChains(IReadOnlyList<string> targets, string query, int k = 15, int w = 10, MinimapChainOptions? options = null, CancellationToken cancellationToken = default)
+        public static IReadOnlyList<MinimapChainHit> MapChains(IReadOnlyList<string> targets, string query, int k = 15, int w = 10, MinimapChainOptions? options = null, CancellationToken cancellationToken = default)
     {
         using var scope = AlignmentCancellation.Enter(cancellationToken);
         var anchors = CollectAnchors(targets, query, k, w);
@@ -550,7 +469,7 @@ public static class Minimap2Chaining
         }).ToList();
     }
 
-    private static List<(ulong X, ulong Y)> Sketch(string str, int w, int k, uint rid)
+    private static List<(ulong X, ulong Y)> Sketch(string str, int w, int k, uint rid, bool hpc = false)
     {
         var result = new List<(ulong X, ulong Y)>();
         int len = str.Length;
@@ -558,13 +477,16 @@ public static class Minimap2Chaining
             return result;
         ulong shift1 = (ulong)(2 * (k - 1)), mask = (1UL << (2 * k)) - 1;
         ulong[] kmer = [0, 0];
-        int l = 0, bufPos = 0, minPos = 0;
+        int l = 0, bufPos = 0, minPos = 0, kmerSpanHpc = 0;
+        var tq = new int[32]; // tiny_queue_t: the run lengths of the last k homopolymer runs
+        int tqFront = 0, tqCount = 0;
         var bufX = new ulong[w];
         var bufY = new ulong[w];
         Array.Fill(bufX, ulong.MaxValue);
         Array.Fill(bufY, ulong.MaxValue);
         ulong minX = ulong.MaxValue, minY = ulong.MaxValue;
 
+#pragma warning disable S127 // -H: the sketch moves to the end of a homopolymer run (sketch.c is_hpc)
         for (int i = 0; i < len; i++)
         {
             if ((i & 0xFFFF) == 0)
@@ -573,7 +495,35 @@ public static class Minimap2Chaining
             ulong infoX = ulong.MaxValue, infoY = ulong.MaxValue;
             if (c < 4)
             {
-                int kmerSpan = l + 1 < k ? l + 1 : k;
+                int kmerSpan;
+                if (hpc)
+                {
+                    // -H: homopolymer-compressed k-mers (sketch.c is_hpc): $i is put at the end of the current run, the span is the sum of the last k run lengths
+                    int skipLen = 1;
+                    if (i + 1 < len && Nt4(str[i + 1]) == c)
+                    {
+                        for (skipLen = 2; i + skipLen < len; ++skipLen)
+                            if (Nt4(str[i + skipLen]) != c)
+                                break;
+                        i += skipLen - 1;
+                    }
+
+                    tq[(tqCount++ + tqFront) & 0x1f] = skipLen;
+                    kmerSpanHpc += skipLen;
+                    if (tqCount > k)
+                    {
+                        kmerSpanHpc -= tq[tqFront++];
+                        tqFront &= 0x1f;
+                        --tqCount;
+                    }
+
+                    kmerSpan = kmerSpanHpc;
+                }
+                else
+                {
+                    kmerSpan = l + 1 < k ? l + 1 : k;
+                }
+
                 kmer[0] = (kmer[0] << 2 | (uint)c) & mask;
                 kmer[1] = (kmer[1] >> 2) | (3UL ^ (uint)c) << (int)shift1;
                 if (kmer[0] == kmer[1])
@@ -589,6 +539,8 @@ public static class Minimap2Chaining
             else
             {
                 l = 0;
+                tqCount = tqFront = 0;
+                kmerSpanHpc = 0;
             }
 
             bufX[bufPos] = infoX;
@@ -647,6 +599,7 @@ public static class Minimap2Chaining
                 bufPos = 0;
         }
 
+#pragma warning restore S127
         if (minX != ulong.MaxValue)
             result.Add((minX, minY));
         return result;
