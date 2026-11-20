@@ -1218,6 +1218,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L979"
   },
   {
+    "tool": "megamerger",
+    "server": "Analysis",
+    "methodId": "GenomicAnalyzer.MegaMerge",
+    "docPath": "docs/mcp/tools/analysis/megamerger.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.MegaMerger.cs"
+  },
+  {
     "tool": "minimum_free_energy",
     "server": "Analysis",
     "methodId": "RnaSecondaryStructure.CalculateMinimumFreeEnergy",

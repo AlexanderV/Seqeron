@@ -211,3 +211,4 @@
 | S-A2-35 | `StringOverloads_WithN_ReportAnOrdinaryRegionNextToAnNRunUnchanged`, `..._Validation` | string / IUPAC input: N never matches |
 
 | A3-13a | `SeqMatchAll_EqualsSeqmatchall_AllSets`, `SeqMatchAll_OnNucleotides_IsTheMaximalExactMatchModeOfFindCommonRegions`, `SeqMatchAll_WorkedExample_AndArguments` | 330 seqmatchall 6.6.0 sets (`seqmatchall_oracle.tsv`: nucleotide / N / lower case / protein, k 2-12) | matches equal as sets; the N-free nucleotide case equals `FindCommonRegions` MaximalExactMatches | A3-13 |
+| A3-13b | `MegaMerge_EqualsMegamerger_AllCases`, `WorkedValues_RunOnTheBinary`, `Validation` | 600 megamerger 6.6.0 runs (`megamerger_oracle.jsonl`): merged sequence and report text, minimal match set, every start / end / mismatch case, `-prefer`, the empty merge | as specified | A3-13b |

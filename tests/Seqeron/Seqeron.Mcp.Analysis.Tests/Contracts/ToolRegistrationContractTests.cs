@@ -116,6 +116,7 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "longdust_score",
         "mask_approximate_tandem_repeats",
         "mask_low_complexity",
+        "megamerger",
         "minimum_free_energy",
         "mismatch_coaxial_stacking",
         "most_frequent_kmers",

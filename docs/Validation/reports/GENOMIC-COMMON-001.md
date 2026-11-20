@@ -104,3 +104,4 @@ Other tests (M1–M4, S1–S4, C1, C2) assert exact sourced values and cover the
   - `null` arguments → `ArgumentNullException` (was `NullReferenceException`); MCP `find_common_regions` description said "All common regions" (it is the right-maximal per-start set) — corrected; `find_longest_common_region` doc example (`ATGCATGC`/`CATGCAT` → `ATGC`) was wrong (LCS is `ATGCAT`, 0/1, length 6).
 - **End-state:** CLEAN. Build 0 errors; unit/combinatorial/property/metamorphic/fuzz tests of the unit green (247).
 - **Audit r3 (A3-13, F139):** `GenomicAnalyzer.SeqMatchAll` (EMBOSS seqmatchall, MCP `seqmatchall`), 330 / 330 oracle sets equal.
+- **Audit r3 (A3-13b, F149):** EMBOSS `megamerger` ported (`GenomicAnalyzer.MegaMerge`, MCP `megamerger`): 600 / 600 oracle pairs (merged sequence and report); shared `PairWordMatcher` with `seqmatchall`.

@@ -67,6 +67,7 @@ namespace Seqeron.Mcp.Analysis;
 [JsonSerializable(typeof(TranslatedPatternHitItem[]))]
 [JsonSerializable(typeof(FuzztranResult))]
 [JsonSerializable(typeof(ShowAlignResult))]
+[JsonSerializable(typeof(MegaMergerResult))]
 [JsonSerializable(typeof(MotifPositionsResult))]
 [JsonSerializable(typeof(FindKnownMotifsResult))]
 [JsonSerializable(typeof(CommonRegionItem))]

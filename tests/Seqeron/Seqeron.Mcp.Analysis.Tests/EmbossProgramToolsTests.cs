@@ -36,6 +36,19 @@ public class EmbossProgramToolsTests
     }
 
     [Test]
+    public void Megamerger_MergesByWordMatchAnchors_AsTheProgram()
+    {
+        // megamerger a=ACGTACGTAC b=ACGTACGTACGGGGGG -wordsize 4 (B09 A3-13b, F149)
+        var r = AnalysisTools.Megamerger("ACGTACGTAC", "ACGTACGTACGGGGGG", 4, name1: "a", name2: "b");
+        Assert.That(r.MergedSequence, Is.EqualTo("acgtacgtacgggggg"));
+        Assert.That(r.Report, Does.Contain("Matching region a 1-10 : b 1-10\nLength of match: 10\n").And.Contain("Using b 11-16 as the final sequence"));
+        Assert.That(r.Matches.Single(), Is.EqualTo(new WordMatchItem(0, 1, 0, 0, 10)));
+        Assert.That(AnalysisTools.Megamerger("ACGTACGTACGGGGGG", "ACGTACGTAC", 12).MergedSequence, Is.Empty);
+        Assert.Throws<ArgumentException>(() => AnalysisTools.Megamerger("ACGTACGTAC", "ACGTACGTACGGGGGG", 20));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.Megamerger("", "ACGT"));
+    }
+
+    [Test]
     public void FindTandemRepeatsEmboss_Etandem_ReportsScoreIdentityAndConsensus()
     {
         // etandem -minrepeat 2 -maxrepeat 8 -threshold 10: "33 61 96 3 12 100.0 cag" and "26 137 172 6 6 94.4 acgtta"

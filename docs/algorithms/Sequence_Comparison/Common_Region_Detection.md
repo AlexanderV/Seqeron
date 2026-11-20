@@ -176,6 +176,10 @@ CommonRegion r = GenomicAnalyzer.FindLongestCommonRegion(a, b);
 - F15: `PositionInFirst` was one occurrence in suffix-tree DFS order, not the first (e.g. `GA` in `AGGAAGAAGGAGGCCGATTACT` reported 15, first occurrence 2).
 - F16: `FindCommonRegions` was quadratic (substring copies of up to m characters in a per-start binary search); now matching statistics, linear-ish (1 Mbp pair in seconds).
 
+### 7.x EMBOSS `megamerger` (A3-13b, B09 F149)
+
+`GenomicAnalyzer.MegaMerge(sequence1, sequence2, wordSize = 20, preferFirst, name1, name2)` / MCP `megamerger` merges two large overlapping DNA sequences through word-match anchors: the exact word matches (the maximal matches of `SeqMatchAll`) are ordered longest first and reduced to the minimal non-overlapping set (`embWordMatchMin`: keep the longest, drop the matches in its dead zone, truncate those crossing it), and the merged sequence is built from the part before the first match, the matches (lower case), the mismatch regions between matches (the sequence whose mismatch is farther from its ends; upper case) and the part after the last match; the report text of the program is returned as well. 600 / 600 random pairs equal `megamerger` 6.6.0 (merged sequence and report). The dynamic-programming overlap merge of two short sequences is `SequenceAligner.Merger` (EMBOSS `merger`).
+
 ## 8. References
 
 1. Gusfield, Dan. 1997. Algorithms on Strings, Trees and Sequences: Computer Science and Computational Biology. Cambridge University Press. ISBN 0-521-58519-8. (citation retrieved from https://en.wikipedia.org/wiki/Longest_common_substring on 2026-06-13)

@@ -50,36 +50,59 @@ public static partial class GenomicAnalyzer
             cancellationToken.ThrowIfCancellationRequested();
             if (sequences[i].Length <= wordSize)
                 continue; // seqmatchall: length(seq1) must exceed the word size
-            // embWordGetTable: the unknown symbol of the first sequence's type (N for a nucleotide sequence, X otherwise) controls which words enter the table
-            char skip = IsNucleotideWordSequence(sequences[i]) ? 'N' : 'X';
-            string upperI = sequences[i].ToUpperInvariant();
-            // The common case (no skip symbol in the indexed sequence, letters only): every word is in the table and the matches are the maximal exact matches of the canonical suffix-tree
-            // engine. Otherwise the program's own table scan decides (WordTableMatches).
-            bool plain = upperI.All(c => c is >= 'A' and <= 'Z' && c != skip);
-            global::SuffixTree.SuffixTree? tree = null;
-            bool[]? allowed = null;
+            var pair = new PairWordMatcher(sequences[i], wordSize);
             for (int j = i + 1; j < sequences.Count; j++)
             {
                 if (sequences[j].Length < wordSize)
                     continue;
-                IEnumerable<(int PositionInText, int PositionInQuery, int Length)> matches;
-                if (plain)
-                {
-                    tree ??= BuildMaskedTree(sequences[i], BuildLetterMask("ABCDEFGHIJKLMNOPQRSTUVWXYZ"));
-                    matches = tree.FindMaximalExactMatches(LetterQuery(sequences[j], skip: '\0'), wordSize);
-                }
-                else
-                {
-                    allowed ??= WordTableStarts(upperI, wordSize, skip);
-                    matches = WordTableMatches(upperI, sequences[j].ToUpperInvariant(), wordSize, allowed);
-                }
-
-                foreach (var m in matches.OrderBy(m => m.PositionInText).ThenBy(m => m.PositionInQuery))
+                foreach (var m in pair.Matches(sequences[j]).OrderBy(m => m.PositionInText).ThenBy(m => m.PositionInQuery))
                     result.Add(new WordMatch(i, j, m.PositionInText, m.PositionInQuery, m.Length));
             }
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// The matches of the words of one sequence (the indexed one, <c>embWordGetTable</c>) against the other sequences (<c>embWordBuildMatchTable</c>): shared by <see cref="SeqMatchAll"/> and
+    /// <see cref="MegaMerge"/>.
+    /// </summary>
+    private sealed class PairWordMatcher
+    {
+        private readonly string _indexed;
+        private readonly string _upper;
+        private readonly int _k;
+        private readonly char _skip;
+        private readonly bool _plain;
+        private global::SuffixTree.SuffixTree? _tree;
+        private bool[]? _allowed;
+
+        public PairWordMatcher(string indexed, int wordSize)
+        {
+            _indexed = indexed;
+            _k = wordSize;
+            // embWordGetTable: the unknown symbol of the first sequence's type (N for a nucleotide sequence, X otherwise) controls which words enter the table
+            _skip = IsNucleotideWordSequence(indexed) ? 'N' : 'X';
+            _upper = indexed.ToUpperInvariant();
+            // The common case (no skip symbol in the indexed sequence, letters only): every word is in the table and the matches are the maximal exact matches of the canonical suffix-tree
+            // engine. Otherwise the program's own table scan decides (WordTableMatches).
+            _plain = _upper.All(c => c is >= 'A' and <= 'Z' && c != _skip);
+        }
+
+        /// <summary>False when the program's word table of the indexed sequence is empty (sequence shorter than the word, or every word starts inside a run of the skip symbol).</summary>
+        public bool HasTable => _upper.Length >= _k && (_plain || WordTableStarts(_upper, _k, _skip).Any(a => a));
+
+        public IEnumerable<(int PositionInText, int PositionInQuery, int Length)> Matches(string query)
+        {
+            if (_plain)
+            {
+                _tree ??= BuildMaskedTree(_indexed, BuildLetterMask("ABCDEFGHIJKLMNOPQRSTUVWXYZ"));
+                return _tree.FindMaximalExactMatches(LetterQuery(query, skip: '\0'), _k);
+            }
+
+            _allowed ??= WordTableStarts(_upper, _k, _skip);
+            return WordTableMatches(_upper, query.ToUpperInvariant(), _k, _allowed);
+        }
     }
 
     // embWordGetTable's scan: which start positions of the indexed sequence enter the word table. The program only inspects the symbol that enters a window on the right (and the

@@ -83,7 +83,7 @@
 | `water_align` | `SequenceAligner.WaterAlign` | [doc](../../mcp/tools/alignment/water_align.md) |
 | `write_alignment` | `EmbossAlignmentWriter.Format` | [doc](../../mcp/tools/alignment/write_alignment.md) |
 
-## Analysis (138 tools)
+## Analysis (139 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -187,6 +187,7 @@
 | `longdust_score` | `SequenceComplexity.CalculateLongdustScore` | [doc](../../mcp/tools/analysis/longdust_score.md) |
 | `mask_approximate_tandem_repeats` | `RepeatFinder.MaskApproximateTandemRepeats` | [doc](../../mcp/tools/analysis/mask_approximate_tandem_repeats.md) |
 | `mask_low_complexity` | `SequenceComplexity.MaskLowComplexity` | [doc](../../mcp/tools/analysis/mask_low_complexity.md) |
+| `megamerger` | `GenomicAnalyzer.MegaMerge` | [doc](../../mcp/tools/analysis/megamerger.md) |
 | `minimum_free_energy` | `RnaSecondaryStructure.CalculateMinimumFreeEnergy` | [doc](../../mcp/tools/analysis/minimum_free_energy.md) |
 | `mismatch_coaxial_stacking` | `RnaSecondaryStructure.CalculateMismatchCoaxialStacking` | [doc](../../mcp/tools/analysis/mismatch_coaxial_stacking.md) |
 | `most_frequent_kmers` | `KmerAnalyzer.FindMostFrequentKmers` | [doc](../../mcp/tools/analysis/most_frequent_kmers.md) |

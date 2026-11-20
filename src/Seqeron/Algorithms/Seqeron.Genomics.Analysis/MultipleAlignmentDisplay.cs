@@ -348,15 +348,7 @@ public static class MultipleAlignmentDisplay
 
     private static char CharAt(string s, int index) => index >= 0 && index < s.Length ? s[index] : '\0';
 
-    // ajStrAssignSubS(first, last): inclusive; both ends are clipped into [0, length - 1] (ajMathPosI), so a window that lies wholly past the end yields the last character
-    private static string Substring(string s, int first, int last)
-    {
-        if (s.Length == 0)
-            return string.Empty;
-        first = Math.Clamp(first, 0, s.Length - 1);
-        last = Math.Clamp(last, first, s.Length - 1);
-        return s.Substring(first, last - first + 1);
-    }
+    private static string Substring(string s, int first, int last) => EmbossText.Substring(s, first, last);
 
     private static void OutputSeq(StringBuilder sb, string name, char[] seq, int pos, int end, int width, int margin, IReadOnlyList<(int Start, int End)> uppercase)
     {

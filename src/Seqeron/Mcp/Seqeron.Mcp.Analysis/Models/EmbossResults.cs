@@ -40,3 +40,6 @@ public record FuzztranResult(string Pattern, TranslatedPatternHitItem[] Hits);
 
 /// <summary>Result of <c>showalign</c>: the text the program writes (blocks of number line, ruler, reference, rows and consensus).</summary>
 public record ShowAlignResult(string Text);
+
+/// <summary>Result of <c>megamerger</c>: the merged sequence, the program's report and the minimal set of anchoring matches (0-based starts; empty merge = nothing to merge).</summary>
+public record MegaMergerResult(string MergedSequence, string Report, WordMatchItem[] Matches);

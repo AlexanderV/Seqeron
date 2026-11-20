@@ -155,4 +155,24 @@ public partial class AnalysisTools
         };
         return new ShowAlignResult(MultipleAlignmentDisplay.ShowAlign(names, sequences, options));
     }
+
+    [McpServerTool(Name = "megamerger", Title = "Alignment — EMBOSS megamerger", ReadOnly = true)]
+    [Description("EMBOSS 6.6.0 megamerger: merges two large overlapping DNA sequences by exact word matches (600 random related / unrelated pairs equal: merged sequence and report text). All exact matches of wordSize symbols (the maximal matches of seqmatchall) are ordered longest first and reduced to a minimal non-overlapping set: the longest is kept, matches inside its dead zone are dropped, those crossing it are truncated (dropped when shorter than the word), until none is left; the kept matches are ordered by position. The merged sequence = the part before the first match (from the sequence whose overlap starts at its own start; when neither does the longer prefix, upper case), the matches (first sequence, lower case), between matches the region of the sequence whose mismatch is farther from its ends (preferFirst: always the first sequence), upper case, and the part after the last match (the longer remainder in upper case when neither overlap is at an end). The report lists every overlap start / end, mismatch region and choice as the program writes it. A second sequence shorter than the word or without a match gives an empty merge; a first sequence shorter than the word (or without a word free of N) is an error (the program stops with 'No match found'). Note: this merges by anchors; the overlap merge of two short sequences by dynamic programming is the merger tool.")]
+    public static MegaMergerResult Megamerger(
+        [Description("First DNA sequence (letters, any case).")] string sequence1,
+        [Description("Second DNA sequence.")] string sequence2,
+        [Description("Word size (megamerger -wordsize, default 20, at least 2).")] int wordSize = 20,
+        [Description("Use the first sequence over every mismatch region (megamerger -prefer, default false).")] bool preferFirst = false,
+        [Description("Name of the first sequence in the report.")] string name1 = "seq1",
+        [Description("Name of the second sequence in the report.")] string name2 = "seq2",
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrEmpty(sequence1))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence1));
+        if (string.IsNullOrEmpty(sequence2))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence2));
+        var r = GenomicAnalyzer.MegaMerge(sequence1, sequence2, wordSize, preferFirst, name1, name2, cancellationToken);
+        return new MegaMergerResult(r.MergedSequence, r.Report,
+            r.Matches.Select(m => new WordMatchItem(m.Sequence1, m.Sequence2, m.Position1, m.Position2, m.Length)).ToArray());
+    }
 }

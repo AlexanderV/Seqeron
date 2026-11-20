@@ -217,6 +217,9 @@
     <!-- ALIGN-STATS-001 (audit A3-13c, B09 F148): EMBOSS showalign 6.6.0 text output of random alignments with random options (600 cases, JSON lines);
          scripts/analysis/generate_showalign_oracle.py. -->
     <EmbeddedResource Include="TestData\Analysis\showalign_oracle.jsonl" />
+    <!-- GENOMIC-COMMON-001 (audit A3-13b, B09 F149): EMBOSS megamerger 6.6.0 merged sequence + report of 600 related / unrelated DNA pairs (JSON lines);
+         scripts/analysis/generate_megamerger_oracle.py. -->
+    <EmbeddedResource Include="TestData\Analysis\megamerger_oracle.jsonl" />
     <!-- GENOMIC-TANDEM-001 (B09 A3-8): EMBOSS etandem / equicktandem 6.6.0 original-format output on random and planted sequences (1700 + 1300 rows);
          scripts/analysis/generate_emboss_tandem_oracle.py. -->
     <EmbeddedResource Include="TestData\Analysis\emboss_tandem_oracle.tsv" />
