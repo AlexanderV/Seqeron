@@ -1,0 +1,9 @@
+[
+ {
+  "id": "1b9a_F01",
+  "desc": "the codec of the section is not given to the mapped table",
+  "old": "isChecked, parsed.Child.Codec == SesaFormat.ChildCodecTagged));",
+  "new": "isChecked, false));",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFile.cs"
+ }
+]

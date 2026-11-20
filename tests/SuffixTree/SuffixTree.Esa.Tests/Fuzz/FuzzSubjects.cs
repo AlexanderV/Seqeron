@@ -74,7 +74,7 @@ internal sealed class FuzzSubjects : IDisposable
 
     /// <summary>The options of the container builder for a text of <paramref name="n"/> symbols.</summary>
     internal static SesaBuildOptions ContainerOptions(int n, FullFuzzConfig cfg) => n <= TinyBuilderUpTo
-        ? SesaRun.Tiny(cfg.Variant, 1, cfg.Psi) with { MeasureRss = false }
+        ? SesaRun.Tiny(cfg.Variant, 1, cfg.Psi) with { MeasureRss = false, ChildCodec = ChildCodecOf(cfg) }
         : new SesaBuildOptions
         {
             Threads = 1,
@@ -84,7 +84,11 @@ internal sealed class FuzzSubjects : IDisposable
             Period = Periods[cfg.Variant % Periods.Length],
             ExactPeriod = true,
             Seed = (ulong)(cfg.Variant + 1),
+            ChildCodec = ChildCodecOf(cfg),
         };
+
+    /// <summary>The CHILD codec of the container of a case (work package 1b.9a): one case in three writes the packed codec 1, the others the builder's default, the tagged codec 2.</summary>
+    private static ChildCodec? ChildCodecOf(FullFuzzConfig cfg) => cfg.Variant % 3 == 0 ? ChildCodec.Packed : null;
 
     /// <summary>Builds the engines of <paramref name="text"/>; the container lives in <paramref name="workDir"/> only while the trees are opened.</summary>
     internal static FuzzSubjects Build(string text, FullFuzzConfig cfg, MemberCounters counters, string workDir, int v6UpTo)

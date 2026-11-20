@@ -39,6 +39,10 @@ Keep tests discoverable, non-duplicated, and contract-driven across all suffix-t
     (`FacadeConcurrencyTests`, `FacadeSharedIndexTests`: four threads, 20 repetitions, checksums equal to the single-thread run, once-only build of the navigation pack) and the Dispose race (`FacadeDisposeRaceTests`, a child process).
 - `Contract/`, `External/`
   - The index contract (ADR-001) and its conformance suite over the in-memory and the file-backed factories; the container (SESA) builder, the reader, the validation levels and the damaged-file tests.
+    The two codecs of the CHILD section (`SesaChildCodecTests`, work package 1b.9a) and the readers of the container are tested on both; the damaged-file tests alternate them.
+- `Search/`
+  - The pattern descent of the in-memory index against the definitions and the Ukkonen tree (`EsaSearchTests`, `EsaSearchExhaustiveTests`) and the descent over a container (`MappedSearchTests`, 1b.9a: the specialised loop against the in-memory index and the readable reference `EsaIndex.DescendMapped`
+    for every packed width, LCP representation, child codec and pattern length, and on damaged containers between guard pages).
 - `Fuzz/` (category `Fuzz`, `[Explicit]`, time budget from the environment; the S8 CI job runs the same code)
   - The 1a.7 harness (seeded generator families x alphabet sizes x size bands, minimizer, regression corpus `regressions.txt`) and the full differential fuzz of 1b.8 (`FullFuzzRunner`: every engine, every member of the
     interfaces, the container corruption fuzz, the shared-index test; `FullDifferentialFuzzTests` is the budgeted run). The operation coverage list is `docs/refactoring/suffix-tree-upgrade/analysis/s1b/harness_member_coverage.tsv`

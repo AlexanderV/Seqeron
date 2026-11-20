@@ -1,0 +1,37 @@
+[
+ {
+  "id": "1b9a_H01",
+  "desc": "codec 2 is not supported by the header check",
+  "old": "if (codec is not (SesaFormat.ChildCodecPacked or SesaFormat.ChildCodecTagged)) throw",
+  "new": "if (codec is not SesaFormat.ChildCodecPacked) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaHeaderReader.cs"
+ },
+ {
+  "id": "1b9a_H02",
+  "desc": "the codec check lets an undefined codec 3 through",
+  "old": "if (codec is not (SesaFormat.ChildCodecPacked or SesaFormat.ChildCodecTagged)) throw",
+  "new": "if (codec is not (SesaFormat.ChildCodecPacked or SesaFormat.ChildCodecTagged or 3)) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaHeaderReader.cs"
+ },
+ {
+  "id": "1b9a_H03",
+  "desc": "the limit of the tagged ranks is one rank too small",
+  "old": "if (codec == SesaFormat.ChildCodecTagged && textLength > TaggedChild.MaxLength) throw",
+  "new": "if (codec == SesaFormat.ChildCodecTagged && textLength >= TaggedChild.MaxLength) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaHeaderReader.cs"
+ },
+ {
+  "id": "1b9a_H04",
+  "desc": "the limit of the tagged ranks is one rank too large",
+  "old": "if (codec == SesaFormat.ChildCodecTagged && textLength > TaggedChild.MaxLength) throw",
+  "new": "if (codec == SesaFormat.ChildCodecTagged && textLength > TaggedChild.MaxLength + 1L) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaHeaderReader.cs"
+ },
+ {
+  "id": "1b9a_H05",
+  "desc": "the entry of the child table is checked against codec 1 only",
+  "old": "CheckArray(child, \"CHILD\", rows, 4, child.Codec);",
+  "new": "CheckArray(child, \"CHILD\", rows, 4, 1);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaHeaderReader.cs"
+ }
+]

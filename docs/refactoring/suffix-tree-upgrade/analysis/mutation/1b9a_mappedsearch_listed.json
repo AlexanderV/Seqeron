@@ -1,0 +1,282 @@
+[
+ {
+  "id": "1b9a_M01",
+  "desc": "the access mode of the dispatch is swapped",
+  "old": "var lcp = new Lcp8Reader(_lcp.MappedBase, _lcp); return Run<CheckedAccess, Lcp8Reader, PackedCells<CheckedAccess, Lcp8Reader>>",
+  "new": "var lcp = new Lcp8Reader(_lcp.MappedBase, _lcp); return Run<TrustedAccess, Lcp8Reader, PackedCells<TrustedAccess, Lcp8Reader>>",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ },
+ {
+  "id": "1b9a_M02",
+  "desc": "the variant of a trusted file starts at 0 (the Checked loops run)",
+  "old": "(file.IsChecked ? 0 : 6)",
+  "new": "(file.IsChecked ? 0 : 0)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ },
+ {
+  "id": "1b9a_M03",
+  "desc": "a 16-bit LCP file runs the 8-bit loop",
+  "old": "LcpKind.U16 => 1,",
+  "new": "LcpKind.U16 => 0,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ },
+ {
+  "id": "1b9a_M04",
+  "desc": "a tagged child table runs the packed loop",
+  "old": "+ (file.Child.Mapped.IsTagged ? 1 : 0);",
+  "new": "+ 0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ },
+ {
+  "id": "1b9a_M05",
+  "desc": "the packed pattern has one word too few",
+  "old": "+ 63) / 64) + 2;",
+  "new": "+ 63) / 64) + 1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ },
+ {
+  "id": "1b9a_M06",
+  "desc": "the walk accepts a first l-index at the left bound (checked)",
+  "old": "if (TAccess.IsChecked && boundary >= 0 && (boundary <= a || boundary > rb)) ThrowDamaged();\n            int b;",
+  "new": "if (TAccess.IsChecked && boundary >= 0 && (boundary < a || boundary > rb)) ThrowDamaged();\n            int b;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ },
+ {
+  "id": "1b9a_M07",
+  "desc": "the walk refuses an l-index at the right bound (checked)",
+  "old": "if (TAccess.IsChecked && boundary >= 0 && (boundary <= a || boundary > rb)) ThrowDamaged();\n            int b;",
+  "new": "if (TAccess.IsChecked && boundary >= 0 && (boundary <= a || boundary >= rb)) ThrowDamaged();\n            int b;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ },
+ {
+  "id": "1b9a_M08",
+  "desc": "the l-indices that follow the first are not checked",
+  "old": "boundary = cells.Next(a, rb);\n                if (TAccess.IsChecked && boundary >= 0 && (boundary <= a || boundary > rb)) ThrowDamaged();",
+  "new": "boundary = cells.Next(a, rb);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ },
+ {
+  "id": "1b9a_M09",
+  "desc": "the children are not left at the end of the keys of the interval",
+  "old": "if (key > symbol || boundary < 0)",
+  "new": "if (key > symbol)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ },
+ {
+  "id": "1b9a_M10",
+  "desc": "a key that is larger or equal ends the search of the child",
+  "old": "if (key == symbol) break;",
+  "new": "if (key >= symbol) break;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ },
+ {
+  "id": "1b9a_M11",
+  "desc": "a text position below zero is read (the clamp to the text is unsigned)",
+  "old": "int key = (uint)p < (uint)n ? Symbol(text, bits, p) : -1;",
+  "new": "int key = p < n ? Symbol(text, bits, p) : -1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ },
+ {
+  "id": "1b9a_M12",
+  "desc": "the leaf check does not compare the length of the rest with the suffix",
+  "old": "if ((uint)start > (uint)n || m - c > n - start || !Equal(",
+  "new": "if ((uint)start > (uint)n || !Equal(",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ },
+ {
+  "id": "1b9a_M13",
+  "desc": "a leaf at the end of the text is refused",
+  "old": "if ((uint)start > (uint)n || m - c > n - start",
+  "new": "if ((uint)start >= (uint)n || m - c > n - start",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ },
+ {
+  "id": "1b9a_M14",
+  "desc": "the first l-index of a child may lie one past the table (checked)",
+  "old": "if (TAccess.IsChecked && (uint)first > (uint)n) ThrowDamaged();",
+  "new": "if (TAccess.IsChecked && (uint)first > (uint)n + 1) ThrowDamaged();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ },
+ {
+  "id": "1b9a_M15",
+  "desc": "a child as deep as its parent is accepted (checked)",
+  "old": "(childEll <= ell || childEll > n)",
+  "new": "(childEll < ell || childEll > n)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ },
+ {
+  "id": "1b9a_M16",
+  "desc": "a child deeper than the text is accepted (checked)",
+  "old": "(childEll <= ell || childEll > n)",
+  "new": "(childEll <= ell || childEll > n + 1)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ },
+ {
+  "id": "1b9a_M17",
+  "desc": "the edge compare does not check that the stretch lies inside the text",
+  "old": "|| limit - c - 1 > n - (from + 1) || !Equal(",
+  "new": "|| !Equal(",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ },
+ {
+  "id": "1b9a_M18",
+  "desc": "the edge is cut at the longer of the child value and the pattern",
+  "old": "int limit = Math.Min(childEll, m);",
+  "new": "int limit = Math.Max(childEll, m);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ },
+ {
+  "id": "1b9a_M19",
+  "desc": "the edge compare leaves out one symbol",
+  "old": "if (limit > c + 1 && ((uint)from >= (uint)n",
+  "new": "if (limit > c + 2 && ((uint)from >= (uint)n",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ },
+ {
+  "id": "1b9a_M20",
+  "desc": "the edge compare starts at the first symbol of the edge, not behind it",
+  "old": "!Equal(text, bits, from + 1, pat, packed, c + 1, limit - c - 1, ref patternPacked)",
+  "new": "!Equal(text, bits, from, pat, packed, c, limit - c, ref patternPacked)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ },
+ {
+  "id": "1b9a_M21",
+  "desc": "the interval of a match loses its last rank",
+  "old": "        lo = lb;\n        hi = rb;\n        return true;\n    }\n\n    /// <summary>The 64 stream bits",
+  "new": "        lo = lb;\n        hi = rb - 1;\n        return true;\n    }\n\n    /// <summary>The 64 stream bits",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ },
+ {
+  "id": "1b9a_M22",
+  "desc": "the window leaves out the carry byte",
+  "old": "return (w << s) | ((ulong)q[8] >> (8 - s));",
+  "new": "return w << s;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ },
+ {
+  "id": "1b9a_M23",
+  "desc": "the symbol is cut one bit too far down",
+  "old": "(int)(Window(text, bits, i) >> (64 - bits));",
+  "new": "(int)(Window(text, bits, i) >> (63 - bits));",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ },
+ {
+  "id": "1b9a_M24",
+  "desc": "the stretch of a window is one symbol short",
+  "old": "int per = 64 / bits;\n        for (int done = 0; done < length; done += per)",
+  "new": "int per = 63 / bits;\n        for (int done = 0; done < length; done += per)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ },
+ {
+  "id": "1b9a_M25",
+  "desc": "the compared window of the last stretch is one bit short",
+  "old": "if ((x >> (64 - (take * bits))) != 0) return false;",
+  "new": "if ((x >> (63 - (take * bits))) != 0) return false;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ },
+ {
+  "id": "1b9a_M26",
+  "desc": "the second word of a pattern window is read for an aligned offset too",
+  "old": "return s == 0 ? high : high | (packed[w + 1] >> (64 - s));",
+  "new": "return high | (packed[w + 1] >> (64 - s));",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ },
+ {
+  "id": "1b9a_M27",
+  "desc": "a symbol that fits the word exactly is split",
+  "old": "if (room >= 0)\n            {\n                words[w] |= v << room;",
+  "new": "if (room > 0)\n            {\n                words[w] |= v << room;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ },
+ {
+  "id": "1b9a_M28",
+  "desc": "the packed pattern is not cleared before it is filled",
+  "old": "        words.Clear();\n        long bit = 0;",
+  "new": "        long bit = 0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ },
+ {
+  "id": "1b9a_M29",
+  "desc": "the pattern is never packed",
+  "old": "if (!patternPacked)\n        {\n            PackPattern(pattern, packed, bits);",
+  "new": "if (patternPacked)\n        {\n            PackPattern(pattern, packed, bits);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ },
+ {
+  "id": "1b9a_M30",
+  "desc": "the packed pattern lives on the heap from the first word on",
+  "old": "Span<ulong> packed = words <= 128 ? stackalloc ulong[words] : new ulong[words];",
+  "new": "Span<ulong> packed = words <= 1 ? stackalloc ulong[words] : new ulong[words];",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ },
+ {
+  "id": "1b9a_M31",
+  "desc": "the tagged cell is not masked to its rank",
+  "old": "public int First(int lb, int rb, bool lastChild) => (int)(cld[lastChild ? lb : rb] & ValueMask);",
+  "new": "public int First(int lb, int rb, bool lastChild) => (int)cld[lastChild ? lb : rb];",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ },
+ {
+  "id": "1b9a_M32",
+  "desc": "every tagged field with a rank is a next link",
+  "old": "return (cell & KindMask) == NextKind ? (int)(cell & ValueMask) : -1;",
+  "new": "return (cell & KindMask) != 0 ? (int)(cell & ValueMask) : -1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ },
+ {
+  "id": "1b9a_M33",
+  "desc": "the tagged kind is told by one bit",
+  "old": "return (cell & KindMask) == NextKind ?",
+  "new": "return (cell & NextKind) == NextKind ?",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ },
+ {
+  "id": "1b9a_M34",
+  "desc": "the packed walk does not stop at the right bound",
+  "old": "        if (k >= rb) return -1;\n        int lk = lcp[k];\n        if (lcp[k + 1] == lk) return k + 1;\n        int v = cld[k];\n        if (TAccess.IsChecked",
+  "new": "        int lk = lcp[k];\n        if (lcp[k + 1] == lk) return k + 1;\n        int v = cld[k];\n        if (TAccess.IsChecked",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ },
+ {
+  "id": "1b9a_M35",
+  "desc": "the packed walk takes a deeper l-index for the next one",
+  "old": "if (lcp[k + 1] == lk) return k + 1;",
+  "new": "if (lcp[k + 1] >= lk) return k + 1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ },
+ {
+  "id": "1b9a_M36",
+  "desc": "the packed next link is not validated against the table (checked)",
+  "old": "if (TAccess.IsChecked && (uint)v > (uint)n) MappedSearch.ThrowDamaged();\n        return lcp[v] == lk ? v : -1;",
+  "new": "return lcp[v] == lk ? v : -1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ },
+ {
+  "id": "1b9a_M37",
+  "desc": "the packed next link is taken without the LCP test",
+  "old": "return lcp[v] == lk ? v : -1;",
+  "new": "return v;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ },
+ {
+  "id": "1b9a_M38",
+  "desc": "an escaped 8-bit LCP entry is returned as the escape",
+  "old": "return v != byte.MaxValue ? v : lcp[rank];",
+  "new": "return v;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ },
+ {
+  "id": "1b9a_M39",
+  "desc": "an escaped 16-bit LCP entry is returned as the escape",
+  "old": "return v != ushort.MaxValue ? v : lcp[rank];",
+  "new": "return v;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ },
+ {
+  "id": "1b9a_M40",
+  "desc": "a 32-bit LCP value above the table is accepted (checked)",
+  "old": "if (TAccess.IsChecked && (uint)v > (uint)length) MappedSearch.ThrowDamaged();",
+  "new": "if (TAccess.IsChecked && (uint)v > (uint)length + 1) MappedSearch.ThrowDamaged();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ }
+]

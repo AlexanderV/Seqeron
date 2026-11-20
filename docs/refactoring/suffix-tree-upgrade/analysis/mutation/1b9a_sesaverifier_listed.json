@@ -1,0 +1,30 @@
+[
+ {
+  "id": "1b9a_V01",
+  "desc": "the verifier expects the packed layout of a tagged file",
+  "old": "var sink = new ChildCompareSink(cld, n, written, ps.Child.Codec == SesaFormat.ChildCodecTagged);",
+  "new": "var sink = new ChildCompareSink(cld, n, written, false);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs"
+ },
+ {
+  "id": "1b9a_V02",
+  "desc": "the verifier expects a next link without its tag",
+  "old": "if (_tagged) Expect(previous, NextKind | k);",
+  "new": "if (_tagged) Expect(previous, k);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs"
+ },
+ {
+  "id": "1b9a_V03",
+  "desc": "the verifier expects the up kind for the down field",
+  "old": "int kind = lastChild ? DownKind : UpKind;",
+  "new": "int kind = lastChild ? UpKind : DownKind;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs"
+ },
+ {
+  "id": "1b9a_V04",
+  "desc": "the verifier lets a tagged next link of the successor k + 1 go unchecked",
+  "old": "if (previous < 0) return;\n            if (_tagged) Expect(previous, NextKind | k);\n            else if (k != previous + 1) Expect(previous, k);",
+  "new": "if (previous < 0) return;\n            if (_tagged) { if (k != previous + 1) Expect(previous, NextKind | k); }\n            else if (k != previous + 1) Expect(previous, k);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs"
+ }
+]

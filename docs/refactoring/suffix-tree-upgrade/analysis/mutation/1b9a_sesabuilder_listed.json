@@ -1,0 +1,51 @@
+[
+ {
+  "id": "1b9a_B01",
+  "desc": "the default codec is the packed one",
+  "old": "ChildCodec codec = requested ?? (n <= TaggedChild.MaxLength ? ChildCodec.Tagged : ChildCodec.Packed);",
+  "new": "ChildCodec codec = requested ?? ChildCodec.Packed;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs"
+ },
+ {
+  "id": "1b9a_B02",
+  "desc": "the default codec switches one text length too early",
+  "old": "requested ?? (n <= TaggedChild.MaxLength ? ChildCodec.Tagged : ChildCodec.Packed)",
+  "new": "requested ?? (n < TaggedChild.MaxLength ? ChildCodec.Tagged : ChildCodec.Packed)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs"
+ },
+ {
+  "id": "1b9a_B03",
+  "desc": "a text that is too long for the tagged codec is accepted when it is requested",
+  "old": "if (codec == ChildCodec.Tagged && n > TaggedChild.MaxLength) throw new NotSupportedException($\"the tagged child table holds ranks in 30 bits (CHILD codec 2); a text of {n} symbols needs the packed codec (CHILD codec 1)\");\n        return codec;",
+  "new": "return codec;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs"
+ },
+ {
+  "id": "1b9a_B04",
+  "desc": "the stage builds the packed codec whatever was chosen",
+  "old": "                Codec = childCodec,",
+  "new": "                Codec = ChildCodec.Packed,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs"
+ },
+ {
+  "id": "1b9a_B05",
+  "desc": "the section entry says codec 1 whatever was built",
+  "old": "SesaFormat.KindChild => new SesaSection(kind, required, offset, length, rows, 4, childCodec == ChildCodec.Tagged ? SesaFormat.ChildCodecTagged : SesaFormat.ChildCodecPacked, 0, 0, crcs[i]),",
+  "new": "SesaFormat.KindChild => new SesaSection(kind, required, offset, length, rows, 4, SesaFormat.ChildCodecPacked, 0, 0, crcs[i]),",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs"
+ },
+ {
+  "id": "1b9a_B06",
+  "desc": "BUILD_INFO names the layout the other way around",
+  "old": "child=layout A, {(childCodec == ChildCodec.Tagged ? \"tagged\" : \"packed\")}",
+  "new": "child=layout A, {(childCodec == ChildCodec.Tagged ? \"packed\" : \"tagged\")}",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs"
+ },
+ {
+  "id": "1b9a_B07",
+  "desc": "BUILD_INFO is written with the default codec, not the built one",
+  "old": "string buildInfo = BuildInfoText(info, placed.Kind, placed.OverflowCount, options.IncludePsi, childCodec);",
+  "new": "string buildInfo = BuildInfoText(info, placed.Kind, placed.OverflowCount, options.IncludePsi, ChildCodecFor(n, null));",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs"
+ }
+]

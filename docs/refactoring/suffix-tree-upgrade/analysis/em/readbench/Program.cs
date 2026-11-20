@@ -24,9 +24,10 @@ internal static class Program
         string label = args.Length > 4 ? args[4] : "run";
         string alphabet = args.Length > 5 ? args[5] : Environment.GetEnvironmentVariable("RB_ALPHABET") ?? "ACGT";
         ulong seed = args.Length > 6 ? ulong.Parse(args[6], CultureInfo.InvariantCulture) : 1234;
+        if (variant == "open") return OpenBench(file);
+        if (variant == "opencold") return OpenCold(file, textPath);
         string text = File.ReadAllText(textPath, System.Text.Encoding.Latin1);
 
-        if (variant == "open") return OpenBench(file);
 #if EXPERIMENTS
         if (variant == "count") return ExperimentsCount.Run(file, textPath);
 #endif
@@ -193,6 +194,25 @@ internal static class Program
             tree.Dispose();
         }
         Console.WriteLine(string.Join('\t', "open", "header", Median(t).ToString("F6", CultureInfo.InvariantCulture)));
+        return 0;
+#endif
+    }
+
+    /// <summary>
+    /// The first open of a big container in a JIT-warm process: five opens of a small container warm the code, then one open of the big one is timed (Header level; the driver drops the page cache before the process starts, so
+    /// the header page, the packed text's layout and the alphabet are read from the disk). usage: ReadBench opencold &lt;big container&gt; &lt;small container&gt;
+    /// </summary>
+    private static int OpenCold(string big, string small)
+    {
+#if NOOPEN
+        throw new NotSupportedException("this build has no Open");
+#else
+        for (int i = 0; i < 5; i++) EsaSuffixTreeFactory.Open(small).Dispose();
+        long t0 = Stopwatch.GetTimestamp();
+        EsaSuffixTree tree = EsaSuffixTreeFactory.Open(big);
+        double seconds = Seconds(t0);
+        tree.Dispose();
+        Console.WriteLine(string.Join('\t', "opencold", "header", seconds.ToString("F6", CultureInfo.InvariantCulture)));
         return 0;
 #endif
     }

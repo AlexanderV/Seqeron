@@ -1,0 +1,10 @@
+[
+ {
+  "id": "1b9a_A04",
+  "desc": "a container reports the packed codec whatever it holds",
+  "old": "public bool? ChildTagged => _file.Parsed.Child.Codec == SesaFormat.ChildCodecTagged;",
+  "new": "public bool? ChildTagged => false;",
+  "file": "apps/SuffixTree.EmProto/Verify/VerifySources.cs",
+  "project": "emproto"
+ }
+]

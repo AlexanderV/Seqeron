@@ -1,0 +1,26 @@
+[
+ {
+  "id": "1b9a_A01",
+  "desc": "the adapter expects the packed layout of a tagged container",
+  "old": "source.ChildTagged ?? o.ChildTagged);",
+  "new": "o.ChildTagged);",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs",
+  "project": "emproto"
+ },
+ {
+  "id": "1b9a_A02",
+  "desc": "the adapter expects a next link without its tag",
+  "old": "if (tagged) Expect(top.Last, NextTag | (uint)i);",
+  "new": "if (tagged) Expect(top.Last, (uint)i);",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs",
+  "project": "emproto"
+ },
+ {
+  "id": "1b9a_A03",
+  "desc": "the adapter expects the up kind for the down field",
+  "old": "uint kind = lastChild ? DownTag : UpTag;",
+  "new": "uint kind = lastChild ? UpTag : DownTag;",
+  "file": "apps/SuffixTree.EmProto/Verify/OutputVerifier.cs",
+  "project": "emproto"
+ }
+]

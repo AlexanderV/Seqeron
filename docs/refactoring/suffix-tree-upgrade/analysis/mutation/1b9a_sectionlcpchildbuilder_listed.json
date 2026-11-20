@@ -1,0 +1,9 @@
+[
+ {
+  "id": "1b9a_S01",
+  "desc": "the stage accepts the tagged codec for a text beyond its ranks",
+  "old": "if (options.Codec == ChildCodec.Tagged && n > TaggedChild.MaxLength) throw new NotSupportedException(",
+  "new": "if (options.Codec == ChildCodec.Tagged && n > TaggedChild.MaxLength + (1L << 40)) throw new NotSupportedException(",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs"
+ }
+]

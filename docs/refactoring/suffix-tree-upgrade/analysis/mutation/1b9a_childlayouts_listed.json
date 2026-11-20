@@ -1,0 +1,30 @@
+[
+ {
+  "id": "1b9a_C01",
+  "desc": "the tagged cell is not masked in FirstLIndex of the mapped table",
+  "old": "        return _tagged ? cell & TaggedValueMask : cell;",
+  "new": "        return cell;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs"
+ },
+ {
+  "id": "1b9a_C02",
+  "desc": "every tagged field is a next link (mapped table)",
+  "old": "return (cell & TaggedKindMask) == TaggedNext ? (int)(cell & TaggedValueMask) : -1;",
+  "new": "return (cell & TaggedKindMask) != 0 ? (int)(cell & TaggedValueMask) : -1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs"
+ },
+ {
+  "id": "1b9a_C03",
+  "desc": "the tagged next link of the mapped table is not read as tagged",
+  "old": "        if (_tagged)\n        {\n            if (_checked && (uint)k >= (uint)_count) ThrowOutside(k);",
+  "new": "        if (!_tagged)\n        {\n            if (_checked && (uint)k >= (uint)_count) ThrowOutside(k);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs"
+ },
+ {
+  "id": "1b9a_C04",
+  "desc": "a tagged cell outside the section is read in checked mode (the bound of NextLIndex)",
+  "old": "            if (_checked && (uint)k >= (uint)_count) ThrowOutside(k);\n            uint cell = (uint)_cld[k];",
+  "new": "            uint cell = (uint)_cld[k];",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs"
+ }
+]

@@ -1,0 +1,9 @@
+[
+ {
+  "id": "1b9a_T01",
+  "desc": "a mapped tagged table reports the packed layout",
+  "old": "mapped.IsTagged ? ChildLayoutKind.Tagged : ChildLayoutKind.Packed",
+  "new": "ChildLayoutKind.Packed",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ChildTable.cs"
+ }
+]
