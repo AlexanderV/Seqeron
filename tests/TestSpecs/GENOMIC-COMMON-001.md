@@ -224,3 +224,10 @@
 ## Audit A4-2 (B09 F158): resource guards
 
 `SequenceAligner_ResourceLimits_Tests`: `SeqMatchAll` / `MegaMerge` (`WordMatchMaxMatches`) - documented limit constants (`SequenceAligner.ResourceLimits.cs`), the exception of the `SequenceAligner.ResourceLimit` style raised before the allocation in 64-bit arithmetic, and a low-allocation assertion per limit.
+
+## Audit A4-9 (B09 F164): megamerger edge cases
+
+| ID | Test | Locks |
+|---|---|---|
+| A4-9 | `GenomicAnalyzer_MegaMerge_Tests.MegaMerge_EqualsMegamerger_OnTheEdgeCaseRows` | 480 rows (`megamerger_edge_oracle.jsonl`): lower-case-only, one lower / one upper, N runs longer than the word, short / identical / nested sequences, status ok / nomerge / abort |
+

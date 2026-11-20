@@ -209,3 +209,10 @@ In-scope cases: 10. ✅ Covered: 10.
 ## Audit A4-1 (B09 F157): cancellation
 
 `SequenceAligner_Cancellation_Tests` (`PreCancelled_A4_1_...`, one `CancelledWhileRunning_...` test per class) and the MCP `CancellationTokenTests` / `EmbossProgramToolsTests`: `GenerateEmbossAmbiguousConsensus` poll the ambient token (a mid-run cancel stops with `OperationCanceledException` inside the named poll) and the MCP tool takes the request token.
+
+## Audit A4-9 (B09 F164): consambig -sbegin / -send
+
+| ID | Test | Locks |
+|---|---|---|
+| A4-9 | `MotifFinder_AmbiguousConsensus_Tests.GenerateEmbossAmbiguousConsensus_EqualsConsambig_WithSbeginAndSendWhichTheProgramIgnores` | 300 rows (`consambig_range_oracle.tsv`): the program ignores `-sbegin` / `-send`; the port's plain call equals it |
+

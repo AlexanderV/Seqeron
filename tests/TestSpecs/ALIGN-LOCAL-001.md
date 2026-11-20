@@ -226,3 +226,11 @@ Matrix-scored `LocalAlign`/`LocalAlignAffine` (BLOSUM62/PAM250/EDNAFULL, fractio
 ## Audit A4-2 (B09 F158): resource guards
 
 `SequenceAligner_ResourceLimits_Tests`: `DotMatcher.Compute` (`DotMatcherMaxSegments`), `TopNTieOrder.Sim` (`TopNSimMaxVertices`, lazy vertex list: `maxAlignments = int.MaxValue` = every alignment) - documented limit constants (`SequenceAligner.ResourceLimits.cs`), the exception of the `SequenceAligner.ResourceLimit` style raised before the allocation in 64-bit arithmetic, and a low-allocation assertion per limit.
+
+## Audit A4-9 (B09 F164): dotmatcher edge cases
+
+| ID | Test | Locks |
+|---|---|---|
+| A4-9 | `DotMatcher_Tests.Compute_EqualsDotmatcher_OnTheEdgeCaseRows` | 720 rows of the installed dotmatcher (`dotmatcher_edge_oracle.tsv`): lower / mixed case, ambiguity codes, `*`, gap characters, default matrix (the type of the first sequence; a nucleic first sequence with a non-nucleic second one is refused), window >= length (zero terminator beyond the end, up to 8 residues) |
+| A4-9 | `DotMatcher_Tests.WindowEqualToASequence_ScoresTheDiagonalsThatFit_AndALongerWindowReadsZerosBeyondTheEnd` | a 12 / 10 nt pair: w = 10 -> 1:1:10:10, w = 11 -> 1:1:11:11, w = 12 -> none; the nucleic / protein refusal |
+

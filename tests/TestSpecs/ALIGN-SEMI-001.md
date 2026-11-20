@@ -261,3 +261,12 @@ Matrix-scored `SemiGlobalAlign`/`SemiGlobalAlignAffine`: see the table in ALIGN-
 ## Audit A4-1 (B09 F157): cancellation
 
 `SequenceAligner_Cancellation_Tests` (`PreCancelled_A4_1_...`, one `CancelledWhileRunning_...` test per class) and the MCP `CancellationTokenTests` / `EmbossProgramToolsTests`: `SequenceAligner.Merger` poll the ambient token (a mid-run cancel stops with `OperationCanceledException` inside the named poll) and the MCP tool takes the request token.
+
+## Audit A4-8 (B09 F163): gap profiles in linear space
+
+| ID | Test | Locks |
+|---|---|---|
+| A4-8 | `SequenceAligner_GapProfile_Tests.LinearSpace_ForcedRecursion_EqualsTheFullMatrix_RowForRow` | 600 random cases (6 methods x scalar / BLOSUM62, random profiles with free / interior / priced members, base-case sizes 1 - 300): the linear-space result = the full-matrix result |
+| A4-8 | `LinearSpace_ForcedRecursion_Oracle_EqualsBiopython_AllRows` | the 1 000 Biopython rows with base size 1 equal the full-matrix rows and the Biopython score |
+| A4-8 | `LargeInput_AboveTheFullMatrixLimit_IsAlignedByTheLinearSpaceProgram_WithBiopythonScores_AndLinearMemory` | 8 700 x 7 999 (69.6 M cells): Biopython scores 12 242 / 13 824, 125 MB allocated against 835 MB |
+

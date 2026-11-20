@@ -237,3 +237,10 @@
 ## Audit A4-1 (B09 F157): cancellation
 
 `SequenceAligner_Cancellation_Tests` (`PreCancelled_A4_1_...`, one `CancelledWhileRunning_...` test per class) and the MCP `CancellationTokenTests` / `EmbossProgramToolsTests`: `MultipleAlignmentDisplay.ShowAlign` poll the ambient token (a mid-run cancel stops with `OperationCanceledException` inside the named poll) and the MCP tool takes the request token.
+
+## Audit A4-9 (B09 F164): showalign -sbegin / -send
+
+| ID | Test | Locks |
+|---|---|---|
+| A4-9 | `MultipleAlignmentDisplay_ShowAlign_Tests.ShowAlign_EqualsShowalign_WithSbeginAndSend`, `ShowAlign_SequenceRange_WorkedValues` | 400 rows (`showalign_range_oracle.jsonl`): positive, negative, beyond-the-alignment and reversed ranges; the worked values of the 18-column example |
+
