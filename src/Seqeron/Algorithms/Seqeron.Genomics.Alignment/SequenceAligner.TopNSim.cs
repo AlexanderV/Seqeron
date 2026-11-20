@@ -114,6 +114,7 @@ public static partial class SequenceAligner
 
             for (int count = k - 1; count >= 0; count--)
             {
+                AlignmentCancellation.ThrowIfRequested();
                 if (numnode == 0)
                     return; // the program aborts here ("The number of alignments computed is too large")
                 var cur = Findmax(ref numnode);
@@ -287,6 +288,7 @@ public static partial class SequenceAligner
             }
             for (int i = 1; i <= M; i++)
             {
+                AlignmentCancellation.ThrowIfRequested();      // A4-1: one poll per row of the big pass
                 int c = 0;
                 int f = -_q;
                 int ci = i, fi = i;
@@ -514,6 +516,7 @@ public static partial class SequenceAligner
             }
             for (int i = _m1 + 1; i <= _mm; i++)
             {
+                AlignmentCancellation.ThrowIfRequested();
                 int c = 0;
                 int f = -_q;
                 int ci = i, fi = i;
@@ -632,6 +635,7 @@ public static partial class SequenceAligner
             int c, d, e, s;
             for (int i = 1; i <= midi; i++)
             {
+                AlignmentCancellation.ThrowIfRequested();
                 s = _cc[0];
                 _cc[0] = c = t = t - _r;
                 e = t - _q;
@@ -659,6 +663,7 @@ public static partial class SequenceAligner
             t = -te;
             for (int i = M - 1; i >= midi; i--)
             {
+                AlignmentCancellation.ThrowIfRequested();
                 s = _rr[N];
                 _rr[N] = c = t = t - _r;
                 e = t - _q;

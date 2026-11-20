@@ -215,3 +215,7 @@
 ## Audit A4-3 (B09 F153): EMBOSS reader - gap characters and other non-letters
 
 `EmbossGapCharacters_Oracle_Tests` (`emboss_gap_oracle.tsv`, `generate_emboss_gap_oracle.py`): fuzznuc (240), fuzzpro (240) and fuzztran (240; hit coordinates and the sequence length of the GFF header count the cleaned sequence) - the installed EMBOSS 6.6.0 `fuzznuc, fuzzpro, fuzztran` on inputs that contain `- . ~ ? # + _`, digits, blanks, punctuation, `*` and non-ASCII letters equal `FindPatternHits` (string overloads), `FindProteinPatternHits`, `FindTranslatedPatternHits` on every row, and the result of the cleaned input equals the result of the input. The reader rule (one shared `EmbossSequenceReader.Clean` / `CleanGapped`, Infrastructure): only `A-Z a-z *` survive in a plain sequence (`ajseqread.c seqAppend` + `ajseqtype.c ajSeqTypeCheckIn` + `ajstr.c ajStrRemoveGap`); coordinates and lengths count the cleaned sequence. Also `Clean_KeepsLettersAndStar_AndDropsEveryOtherCharacter` (all 256 code points) and `IsNucleotide_IsTheAjSeqIsNucRule_OfEveryPort`.
+
+## Audit A4-1 (B09 F157): cancellation
+
+`SequenceAligner_Cancellation_Tests` (`PreCancelled_A4_1_...`, one `CancelledWhileRunning_...` test per class) and the MCP `CancellationTokenTests` / `EmbossProgramToolsTests`: `FindTranslatedPatternHits`, `FindProteinPatternHits` poll the ambient token (a mid-run cancel stops with `OperationCanceledException` inside the named poll) and the MCP tool takes the request token.

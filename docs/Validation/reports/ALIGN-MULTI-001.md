@@ -317,3 +317,5 @@ Input contract: ProbCons drops gap characters like the program's reader, POA rea
 - **Audit r3 (A3-9c, F151):** minimap2 2.26 seeding and chaining ported (`Minimap2Chaining`, MCP `minimap2_chains`): 450 / 450 chain sets, anchor arrays and PAF chain scores equal; the klib in-place radix sort (unstable) ported; base-level `-c` alignment registered.
 
 - **Audit A4-4 (F156):** option boundaries measured on the programs: `OptionBoundaries_Oracle_Tests` (`option_boundary_oracle.json`, `generate_option_boundary_oracle.py`); the programs accept almost every value the audit listed (only k <= 0 / k > 28 rejected; etandem -threshold int.MinValue is a SIGFPE of the program, not "0 hits").
+
+- **Audit A4-1 (F157):** `Minimap2Chaining.Chain` / `CollectAnchors`, `NucmerClusters.Cluster` poll the ambient cancellation token (mid-run cancel tests); MCP tools take the request token.

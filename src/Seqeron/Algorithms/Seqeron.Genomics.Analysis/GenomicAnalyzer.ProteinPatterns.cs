@@ -80,6 +80,8 @@ public static partial class GenomicAnalyzer
             int length = expansion.Length;
             for (int pos = 0; pos + length <= bits.Length; pos++)
             {
+                if ((pos & 0xFFFF) == 0)
+                    cancellationToken.ThrowIfCancellationRequested();        // A4-1: a long sequence with one expansion has no other poll
                 if (pattern.AnchoredAtStart && pos != 0)
                     break;
                 if (pattern.AnchoredAtEnd && pos + length != bits.Length)
@@ -119,9 +121,10 @@ public static partial class GenomicAnalyzer
     /// <param name="pattern">The protein pattern text.</param>
     /// <param name="frames">The frame selection: 1, 2, 3, -1, -2, -3, F, R or 6 (case-insensitive).</param>
     /// <param name="table">EMBOSS genetic code (0 standard, otherwise an NCBI table number).</param>
+    /// <param name="cancellationToken">Cancellation token, polled per frame and every 65 536 residues of a translation (A4-1).</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <exception cref="ArgumentException">The pattern or the frame selection is invalid, or the table is unknown.</exception>
-    public static IReadOnlyList<TranslatedPatternHit> FindTranslatedPatternHits(string nucleotides, string pattern, string frames = "1", int table = 0)
+    public static IReadOnlyList<TranslatedPatternHit> FindTranslatedPatternHits(string nucleotides, string pattern, string frames = "1", int table = 0, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(nucleotides);
         ArgumentNullException.ThrowIfNull(pattern);
@@ -147,12 +150,13 @@ public static partial class GenomicAnalyzer
         var result = new List<TranslatedPatternHit>();
         foreach (int frame in selected)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             // fuzztran translates only complete codons (the dangling-base residue transeq appends is not searched) and searches the translation as it is (a stop '*' stays)
             string protein = translations[frame].Sequence;
             int complete = Math.Max(0, (length - (Math.Abs(frame) - 1)) / 3);
             if (protein.Length > complete)
                 protein = protein[..complete];
-            foreach (var hit in ProteinPatternHitsCore(protein, parsed, default))
+            foreach (var hit in ProteinPatternHitsCore(protein, parsed, cancellationToken))
             {
                 int s = hit.Position + 1, e = hit.Position + hit.Length;
                 int framenum = Math.Abs(frame);

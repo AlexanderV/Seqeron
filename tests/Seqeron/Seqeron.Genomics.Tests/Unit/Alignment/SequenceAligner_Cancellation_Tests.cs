@@ -323,4 +323,112 @@ public class SequenceAligner_Cancellation_Tests
         var rows = Enumerable.Range(0, 300).Select(i => Random(8000, 400 + i)).ToArray();
         AssertCancelsPromptly(ct => SequenceAligner.WithCancellation(ct, () => MultipleAlignmentStatistics.CalculateDistanceMatrix(rows, new MsaDistanceOptions())), delayMs: 50);
     }
+
+    // ------------------------------------------------------------------ A4-1: the ports added in WP36 - WP38 poll the ambient token (one test per class: cancelled while running, the poll named)
+
+    [Test]
+    public void PreCancelled_A4_1_EveryPortAddedInWp36ToWp38_Throws()
+    {
+        string a = Random(300, 71), b = Random(300, 72);
+        var anchors = new[] { new MinimapAnchor(0, false, 100, 100, 15), new MinimapAnchor(0, false, 120, 120, 15) };
+        var matches = new (long, long, long)[] { (1, 1, 20), (31, 31, 20) };
+        Assert.Multiple(() =>
+        {
+            Assert.Catch<OperationCanceledException>(() => DotMatcher.Compute(a, b, cancellationToken: Cancelled));
+            Assert.Catch<OperationCanceledException>(() => Minimap2Chaining.Chain(anchors, cancellationToken: Cancelled));
+            Assert.Catch<OperationCanceledException>(() => Minimap2Chaining.CollectAnchors([a], b, cancellationToken: Cancelled));
+            Assert.Catch<OperationCanceledException>(() => Minimap2Chaining.MapChains([a], b, cancellationToken: Cancelled));
+            Assert.Catch<OperationCanceledException>(() => NucmerClusters.Cluster(matches, cancellationToken: Cancelled));
+            Assert.Catch<OperationCanceledException>(() => SequenceAligner.Merger(a, b, cancellationToken: Cancelled));
+            Assert.Catch<OperationCanceledException>(() => SequenceAligner.WithCancellation(Cancelled, () => SequenceAligner.LocalAlignAffineTopN(a, b, new ScoringMatrix(5, -4, -10, -4), 3, 0, TopNTieOrder.Sim)));
+            Assert.Catch<OperationCanceledException>(() => GenomicAnalyzer.FindTranslatedPatternHits(a, "L-x-S", "F", 0, Cancelled));
+            Assert.Catch<OperationCanceledException>(() => MultipleAlignmentDisplay.ShowAlign(["a", "b"], [a, b], new ShowAlignOptions { CancellationToken = Cancelled }));
+            Assert.Catch<OperationCanceledException>(() => MotifFinder.GenerateEmbossAmbiguousConsensus([a, b], cancellationToken: Cancelled));
+            Assert.Catch<OperationCanceledException>(() => GenomicAnalyzer.FindNucmerClusters(a, b, 8, cancellationToken: Cancelled));
+        });
+    }
+
+    [Test]
+    public void CancelledWhileRunning_DotMatcher_StopsPromptly()
+    {
+        string a = Random(25000, 73), b = Random(25000, 74);
+        AssertCancelsPromptly(ct => DotMatcher.Compute(a, b, cancellationToken: ct), pollInside: "Diagonal");
+    }
+
+    [Test]
+    public void CancelledWhileRunning_Minimap2Chain_StopsPromptly()
+    {
+        // 1.5 million anchors on one diagonal, 20 apart: about 250 predecessors inside the 5 000-base gap limit for every anchor
+        var anchors = new MinimapAnchor[1_500_000];
+        for (int i = 0; i < anchors.Length; i++)
+            anchors[i] = new MinimapAnchor(0, false, 100 + 20 * i, 100 + 20 * i, 15);
+        AssertCancelsPromptly(ct => Minimap2Chaining.Chain(anchors, cancellationToken: ct), pollInside: "Chain");
+    }
+
+    [Test]
+    public void CancelledWhileRunning_Minimap2CollectAnchors_StopsPromptly()
+    {
+        string target = Random(3_000_000, 75), query = Random(3_000_000, 76);
+        AssertCancelsPromptly(ct => Minimap2Chaining.CollectAnchors([target], query, cancellationToken: ct), delayMs: 300, pollInside: "CollectAnchors");
+    }
+
+    [Test]
+    public void CancelledWhileRunning_NucmerClustersCluster_StopsPromptly()
+    {
+        // 25 000 collinear matches in ONE cluster: the program's own O(c^2) chain dynamic program (300 000 of them did not return in two minutes)
+        var matches = Enumerable.Range(0, 25_000).Select(i => ((long)(1 + 30 * i), (long)(1 + 30 * i), 20L)).ToList();
+        AssertCancelsPromptly(ct => NucmerClusters.Cluster(matches, cancellationToken: ct), pollInside: "ProcessCluster");
+    }
+
+    [Test]
+    public void CancelledWhileRunning_Merger_StopsPromptly()
+    {
+        string a = Random(6000, 77), b = Random(6000, 78);
+        AssertCancelsPromptly(ct => SequenceAligner.Merger(a, b, cancellationToken: ct), pollInside: "MergerPathCalc");
+    }
+
+    [Test]
+    public void CancelledWhileRunning_TopNSim_StopsPromptly()
+    {
+        string a = Random(4000, 79), b = Random(4000, 80);
+        AssertCancelsPromptly(ct => SequenceAligner.WithCancellation(ct, () => SequenceAligner.LocalAlignAffineTopN(a, b, new ScoringMatrix(5, -4, -10, -4), 40, 0, TopNTieOrder.Sim)), pollInside: "SimMatcher");
+    }
+
+    [Test]
+    public void CancelledWhileRunning_MegaMergeMinimalMatchSet_StopsPromptly()
+    {
+        // 20 000 matches that all survive (the same diagonal, 100 apart): every kept match is compared with every later one
+        var list = Enumerable.Range(0, 20_000).Select(i => new GenomicAnalyzer.MegaMatch(100 * i, 100 * i, 30)).ToList();
+        AssertCancelsPromptly(ct => { GenomicAnalyzer.MinimalMatchSet(list, 20, ct); return list; }, pollInside: "MinimalMatchSet");
+    }
+
+    [Test]
+    public void CancelledWhileRunning_FuzztranTranslatedPatternHits_StopsPromptly()
+    {
+        string nt = Random(6_000_000, 81);
+        AssertCancelsPromptly(ct => GenomicAnalyzer.FindTranslatedPatternHits(nt, "L-x-S", "F", 0, ct), delayMs: 300, pollInside: "FindTranslatedPatternHits");
+    }
+
+    [Test]
+    public void CancelledWhileRunning_FuzzproProteinPatternHits_StopsPromptly_InsideThePositionLoop()
+    {
+        string protein = Random(30_000_000, 86, "ACDEFGHIKLMNPQRSTVWY");
+        AssertCancelsPromptly(ct => GenomicAnalyzer.FindProteinPatternHits(protein, "L-x-S", ct), delayMs: 400, pollInside: "ProteinPatternHitsCore");
+    }
+
+    [Test]
+    public void CancelledWhileRunning_ShowAlign_StopsPromptly()
+    {
+        // the consensus of 1.5 million columns is computed first (its own poll), then 1.5 million one-column blocks are written (the poll of Output)
+        string row1 = Random(1_500_000, 82), row2 = Random(1_500_000, 83);
+        AssertCancelsPromptly(ct => MultipleAlignmentDisplay.ShowAlign(["a", "b"], [row1, row2], new ShowAlignOptions { Width = 1, CancellationToken = ct }), delayMs: 1200, pollInside: "Output");
+        AssertCancelsPromptly(ct => MultipleAlignmentDisplay.ShowAlign(["a", "b"], [row1, row2], new ShowAlignOptions { Width = 1, CancellationToken = ct }), delayMs: 100, pollInside: "EmbossConsensusCore");
+    }
+
+    [Test]
+    public void CancelledWhileRunning_Consambig_StopsPromptly()
+    {
+        var rows = Enumerable.Range(0, 60).Select(i => Random(400_000, 90 + i)).ToList();
+        AssertCancelsPromptly(ct => MotifFinder.GenerateEmbossAmbiguousConsensus(rows, cancellationToken: ct), delayMs: 100, pollInside: "GenerateEmbossAmbiguousConsensus");
+    }
 }

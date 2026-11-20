@@ -81,13 +81,14 @@ public partial class AnalysisTools
         [Description("Nucleotide sequence: A/C/G/T plus IUPAC codes such as N (case-insensitive).")] string sequence,
         [Description("The protein pattern (fuzztran -pattern).")] string pattern,
         [Description("Frames to translate (fuzztran -frame): 1 (default), 2, 3, -1, -2, -3, F, R or 6.")] string frame = "1",
-        [Description("EMBOSS genetic code (fuzztran -table): 0 = standard (default), otherwise an NCBI table number.")] int table = 0)
+        [Description("EMBOSS genetic code (fuzztran -table): 0 = standard (default), otherwise an NCBI table number.")] int table = 0,
+        CancellationToken cancellationToken = default)
     {
         var nucleotides = RequireEmbossIupacDna(sequence, nameof(sequence));
         if (string.IsNullOrWhiteSpace(pattern))
             throw new ArgumentException("Pattern cannot be null or empty", nameof(pattern));
         var parsed = ProteinPattern.Parse(pattern);
-        var hits = GenomicAnalyzer.FindTranslatedPatternHits(nucleotides, pattern, frame, table)
+        var hits = GenomicAnalyzer.FindTranslatedPatternHits(nucleotides, pattern, frame, table, cancellationToken)
             .Select(h => new TranslatedPatternHitItem(h.Frame, h.ProteinStart, h.ProteinEnd, h.Translation, h.Position, h.Length, h.EmbossStart, h.EmbossEnd)).ToArray();
         return new FuzztranResult(parsed.ToString(), hits);
     }
@@ -112,7 +113,8 @@ public partial class AnalysisTools
         [Description("Consensus plurality in percent of the total weight (default 50).")] double plurality = 50,
         [Description("Consensus: weight at or below which the letter is lower case (default half the number of sequences).")] double? setCase = null,
         [Description("Consensus: percent of identities required at a position (default 0).")] double identity = 0,
-        [Description("A gap character can be the consensus (default true).")] bool gaps = true)
+        [Description("A gap character can be the consensus (default true).")] bool gaps = true,
+        CancellationToken cancellationToken = default)
     {
         if (names is null || sequences is null || sequences.Length == 0)
             throw new ArgumentException("Names and sequences are required", nameof(sequences));
@@ -152,6 +154,7 @@ public partial class AnalysisTools
             SetCase = (float?)setCase,
             Identity = (float)identity,
             Gaps = gaps,
+            CancellationToken = cancellationToken,
         };
         return new ShowAlignResult(MultipleAlignmentDisplay.ShowAlign(names, sequences, options));
     }

@@ -1,4 +1,5 @@
 using System.Text;
+using Seqeron.Genomics.Alignment;
 using Seqeron.Genomics.Infrastructure;
 
 namespace Seqeron.Genomics.Analysis;
@@ -243,6 +244,8 @@ public static partial class MotifFinder
 
         for (int k = 0; k < mlen; k++)
         {
+            if ((k & 1023) == 0)
+                AlignmentCancellation.ThrowIfRequested();
             char res = nocon;
             Array.Clear(identical);
             Array.Clear(matching);
@@ -355,6 +358,7 @@ public static partial class MotifFinder
         var chars = new char[rows.Count][];
         for (int s = 0; s < rows.Count; s++)
         {
+            AlignmentCancellation.ThrowIfRequested();
             chars[s] = new char[mlen];
             // Auto: every sequence is typed on its own when read (ajSeqType -> ajSeqSetNuc turns
             // X into N in a nucleotide-looking sequence only); explicit types apply to all rows.

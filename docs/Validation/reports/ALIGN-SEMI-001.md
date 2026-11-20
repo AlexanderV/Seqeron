@@ -101,3 +101,5 @@ Exact linear-space alignment (Hirschberg 1975 / Myers-Miller 1988 / Huang-Miller
 - **Audit r3 (A3-13, F139):** `SequenceAligner.Merger` (EMBOSS merger, MCP `merger`), 450 / 450 oracle rows equal; the hypothesis "merger = overlap alignment + consensus" refuted by the source.
 
 - **Audit A4-3 (F153):** the EMBOSS reader drops gap characters and every other non-letter (except `*`) from plain input sequences; one shared `EmbossSequenceReader` (Infrastructure) serves merger: 240 oracle rows each equal (`emboss_gap_oracle.tsv`).
+
+- **Audit A4-1 (F157):** `SequenceAligner.Merger` poll the ambient cancellation token (mid-run cancel tests); MCP tools take the request token.

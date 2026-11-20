@@ -25,12 +25,14 @@ public static class DotMatcher
     /// <param name="windowSize">Window size (<c>-windowsize</c>, default 10; at least 1).</param>
     /// <param name="threshold">Score a window must reach (<c>-threshold</c>, default 23).</param>
     /// <param name="matrix">Scoring matrix (<c>-matrixfile</c>); null = EDNAFULL when the first sequence consists of nucleotide codes only, EBLOSUM62 otherwise. A character that is not a letter of the matrix scores 0. Both sequences are read like EMBOSS reads them (<see cref="EmbossSequenceReader.Clean(string)"/>): gap characters, digits, blanks and every other non-letter except <c>*</c> are removed first and the segment positions count the cleaned sequences.</param>
+    /// <param name="cancellationToken">Cancellation token, polled once per diagonal (A4-1: 100 kb x 100 kb is about 200 000 diagonals and minutes of work).</param>
     /// <returns>The segments (empty when a sequence is not longer than the window, where the program reads beyond the sequence).</returns>
     /// <exception cref="ArgumentNullException">A sequence is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="windowSize"/> &lt; 1.</exception>
     public static IReadOnlyList<DotMatcherSegment> Compute(
-        string sequence1, string sequence2, int windowSize = 10, int threshold = 23, SubstitutionMatrix? matrix = null)
+        string sequence1, string sequence2, int windowSize = 10, int threshold = 23, SubstitutionMatrix? matrix = null, CancellationToken cancellationToken = default)
     {
+        using var scope = AlignmentCancellation.Enter(cancellationToken);
         sequence1 = EmbossSequenceReader.Clean(sequence1);
         sequence2 = EmbossSequenceReader.Clean(sequence2);
         ArgumentOutOfRangeException.ThrowIfLessThan(windowSize, 1);
@@ -52,6 +54,7 @@ public static class DotMatcher
         // one diagonal from (i0, k0): the window sum is updated by one pair per step
         void Diagonal(int i0, int k0)
         {
+            AlignmentCancellation.ThrowIfRequested();
             int i = i0, k = k0, total = 0, starti = 0, startj = 0;
             bool above = false;
             for (int l = 0; l < windowSize; l++)

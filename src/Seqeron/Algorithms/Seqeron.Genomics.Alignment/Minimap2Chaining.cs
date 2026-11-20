@@ -95,12 +95,14 @@ public static class Minimap2Chaining
     /// </summary>
     /// <param name="anchors">The anchors in minimap2's order.</param>
     /// <param name="options">Chaining options (null = minimap2 defaults).</param>
+    /// <param name="cancellationToken">Cancellation token, polled every 64 anchors (A4-1).</param>
     /// <returns>The chains in the order minimap2 stores them (by the target position of the first anchor); empty when no chain reaches the minimum score and anchor count.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="anchors"/> is null.</exception>
     /// <exception cref="ArgumentException">The anchors are not sorted by (reverse, target id, target position).</exception>
-    public static IReadOnlyList<MinimapChain> Chain(IReadOnlyList<MinimapAnchor> anchors, MinimapChainOptions? options = null)
+    public static IReadOnlyList<MinimapChain> Chain(IReadOnlyList<MinimapAnchor> anchors, MinimapChainOptions? options = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(anchors);
+        using var scope = AlignmentCancellation.Enter(cancellationToken);
         var o = options ?? new MinimapChainOptions();
         ValidateOptions(o, nameof(options));
         int n = anchors.Count;
@@ -127,6 +129,8 @@ public static class Minimap2Chaining
         long st = 0, maxIi = -1;
         for (long i = 0; i < n; i++)
         {
+            if ((i & 63) == 0)
+                AlignmentCancellation.ThrowIfRequested();
             long maxJ = -1;
             int maxF = (int)(ay[i] >> 32 & 0xff), nSkip = 0;
             while (st < i && (ax[i] >> 32 != ax[st] >> 32 || ax[i] > ax[st] + (ulong)maxDistX))
@@ -375,6 +379,8 @@ public static class Minimap2Chaining
         var chains = new List<(int Score, List<int> Anchors)>();
         for (int k = z.Length - 1; k >= 0; k--)
         {
+            if ((k & 255) == 0)
+                AlignmentCancellation.ThrowIfRequested();
             if (t[(int)z[k].Y] != 0)
                 continue;
             long endI = BackEnd(maxDrop, z, f, p, t, k);
@@ -420,13 +426,15 @@ public static class Minimap2Chaining
     /// <param name="w">Window size (1-255, <c>-w</c>).</param>
     /// <param name="queryOccurrenceFraction">Query minimizers that occur more than <c>mid_occ</c> times and in more than this fraction of the query's minimizers are dropped (<c>q_occ_frac</c>, 0.01). As in the program every
     /// value is accepted: a zero, negative or NaN fraction switches the filter off (<c>q_occ_frac &gt; 0</c> is false), an infinite one drops nothing (measured: <c>--q-occ-frac nan / -1 / inf</c> give the chains of the default).</param>
+    /// <param name="cancellationToken">Cancellation token, polled every 64 k-mer positions of a sequence and per query minimizer (A4-1).</param>
     /// <returns>The anchors, sorted by (reverse, target id, target position).</returns>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="k"/> or <paramref name="w"/> is out of range.</exception>
     /// <exception cref="NotSupportedException">A minimizer of the query occurs more than <c>mid_occ</c> times in the targets.</exception>
-    public static IReadOnlyList<MinimapAnchor> CollectAnchors(IReadOnlyList<string> targets, string query, int k = 15, int w = 10, float queryOccurrenceFraction = 0.01f)
+    public static IReadOnlyList<MinimapAnchor> CollectAnchors(IReadOnlyList<string> targets, string query, int k = 15, int w = 10, float queryOccurrenceFraction = 0.01f, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(targets);
+        using var scope = AlignmentCancellation.Enter(cancellationToken);
         ArgumentNullException.ThrowIfNull(query);
         ArgumentOutOfRangeException.ThrowIfLessThan(k, 1);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(k, 28);
@@ -438,8 +446,11 @@ public static class Minimap2Chaining
         for (int rid = 0; rid < targets.Count; rid++)
         {
             ArgumentNullException.ThrowIfNull(targets[rid]);
+            int indexed = 0;
             foreach (var (x, y) in Sketch(targets[rid], w, k, (uint)rid))
             {
+                if ((++indexed & 0xFFFF) == 0)
+                    AlignmentCancellation.ThrowIfRequested();
                 if (!index.TryGetValue(x >> 8, out var list))
                     index[x >> 8] = list = [];
                 list.Add(y);
@@ -447,7 +458,10 @@ public static class Minimap2Chaining
         }
 
         foreach (var list in index.Values)
+        {
+            AlignmentCancellation.ThrowIfRequested();
             list.Sort(); // worker_post: radix_sort_64 of the positions of a minimizer (ascending: rid, position, strand)
+        }
 
         // mid_occ = max(10, (1 - 0.0002) quantile of the occurrence counts + 1)
         int midOcc = 10;
@@ -471,8 +485,11 @@ public static class Minimap2Chaining
         }
 
         var anchors = new List<MinimapAnchor>();
+        int polled = 0;
         foreach (var (x, y) in mv)
         {
+            if ((++polled & 255) == 0)
+                AlignmentCancellation.ThrowIfRequested();
             if (!index.TryGetValue(x >> 8, out var hits))
                 continue;
             if (hits.Count > midOcc)
@@ -502,10 +519,12 @@ public static class Minimap2Chaining
     /// <param name="k">k-mer size.</param>
     /// <param name="w">Window size.</param>
     /// <param name="options">Chaining options; <see cref="MinimapChainOptions.KmerSize"/> is replaced by <paramref name="k"/> (null = defaults).</param>
+    /// <param name="cancellationToken">Cancellation token (see <see cref="CollectAnchors"/> and <see cref="Chain"/>).</param>
     /// <returns>The chains, ordered by the position of their first anchor.</returns>
     /// <exception cref="NotSupportedException">See <see cref="CollectAnchors"/>.</exception>
-    public static IReadOnlyList<MinimapChainHit> MapChains(IReadOnlyList<string> targets, string query, int k = 15, int w = 10, MinimapChainOptions? options = null)
+    public static IReadOnlyList<MinimapChainHit> MapChains(IReadOnlyList<string> targets, string query, int k = 15, int w = 10, MinimapChainOptions? options = null, CancellationToken cancellationToken = default)
     {
+        using var scope = AlignmentCancellation.Enter(cancellationToken);
         var anchors = CollectAnchors(targets, query, k, w);
         var chains = Chain(anchors, (options ?? new MinimapChainOptions()) with { KmerSize = k });
         return chains.Select(c =>
@@ -532,6 +551,8 @@ public static class Minimap2Chaining
 
         for (int i = 0; i < len; i++)
         {
+            if ((i & 0xFFFF) == 0)
+                AlignmentCancellation.ThrowIfRequested();
             int c = Nt4(str[i]);
             ulong infoX = ulong.MaxValue, infoY = ulong.MaxValue;
             if (c < 4)

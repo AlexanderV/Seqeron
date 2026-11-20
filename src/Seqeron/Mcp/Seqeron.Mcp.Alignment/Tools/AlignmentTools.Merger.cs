@@ -13,11 +13,12 @@ public partial class AlignmentTools
         [Description("Second sequence (merger -bsequence).")] string sequenceB,
         [Description("Gap opening penalty (-gapopen, 0..100, default 50): a gap of length 1.")] double gapOpen = 50,
         [Description("Gap extension penalty (-gapextend, 0..10, default 5).")] double gapExtend = 5,
-        [Description(MatrixParamDescription)] string? matrix = null)
+        [Description(MatrixParamDescription)] string? matrix = null,
+        CancellationToken cancellationToken = default)
     {
         RequireSequence(sequenceA, nameof(sequenceA));
         RequireSequence(sequenceB, nameof(sequenceB));
-        var r = global::Seqeron.Genomics.Alignment.SequenceAligner.Merger(sequenceA, sequenceB, ResolveMatrix(matrix), gapOpen, gapExtend);
+        var r = global::Seqeron.Genomics.Alignment.SequenceAligner.Merger(sequenceA, sequenceB, ResolveMatrix(matrix), gapOpen, gapExtend, cancellationToken);
         return new MergerResultDto(
             r.MergedSequence, r.Score, r.StartA, r.StartB, r.AlignedA, r.AlignedB,
             r.Conflicts.Select(c => new MergerConflictDto(c.PositionA, c.BaseA.ToString(), c.PositionB, c.BaseB.ToString(), c.Using.ToString())).ToArray(),

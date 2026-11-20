@@ -52,11 +52,13 @@ public static partial class SequenceAligner
     /// <param name="matrix">Scoring matrix (default EDNAFULL).</param>
     /// <param name="gapOpen">Gap opening penalty (<c>-gapopen</c>, 0..100, default 50).</param>
     /// <param name="gapExtend">Gap extension penalty (<c>-gapextend</c>, 0..10, default 5).</param>
+    /// <param name="cancellationToken">Cancellation token, polled per column of the path matrix and per step of the walk (A4-1).</param>
     /// <exception cref="ArgumentNullException">A sequence is null.</exception>
     /// <exception cref="ArgumentException">A sequence is empty.</exception>
     /// <exception cref="ArgumentOutOfRangeException">A penalty is outside the program's range.</exception>
-    public static MergerResult Merger(string sequenceA, string sequenceB, SubstitutionMatrix? matrix = null, double gapOpen = 50, double gapExtend = 5)
+    public static MergerResult Merger(string sequenceA, string sequenceB, SubstitutionMatrix? matrix = null, double gapOpen = 50, double gapExtend = 5, CancellationToken cancellationToken = default)
     {
+        using var scope = AlignmentCancellation.Enter(cancellationToken);
         ArgumentNullException.ThrowIfNull(sequenceA);
         ArgumentNullException.ThrowIfNull(sequenceB);
         sequenceA = EmbossSequenceReader.Clean(sequenceA);
@@ -99,6 +101,7 @@ public static partial class SequenceAligner
 
         for (int xpos = 1; xpos < lenb; xpos++)
         {
+            AlignmentCancellation.ThrowIfRequested();
             double maxb = path[xpos] - (double)gapopen;
             for (int ypos = 1; ypos < lena; ypos++)
             {
@@ -168,8 +171,11 @@ public static partial class SequenceAligner
 
         var m = new StringBuilder();
         var n = new StringBuilder();
+        int steps = 0;
         while (xpos >= 0 && ypos >= 0)
         {
+            if ((++steps & 1023) == 0)
+                AlignmentCancellation.ThrowIfRequested();
             int dir = compass[(long)ypos * lenb + xpos];
             if (dir == 0)
             {

@@ -180,3 +180,5 @@ No code or test change was required this session.
 - **Audit r3 (A3-12a, F146):** fuzznuc with IUPAC codes in the sequence: `FindPatternHits(..., sequenceAmbiguity: true)`, MCP `sequenceAmbiguity`; 1 350 / 1 350 oracle rows (subset rule, classes plain only, exclusions everything unlisted, U = T, reverse = IUPAC revcomp).
 
 - **Audit A4-3 (F153):** the EMBOSS reader drops gap characters and every other non-letter (except `*`) from plain input sequences; one shared `EmbossSequenceReader` (Infrastructure) serves fuzznuc, fuzzpro, fuzztran: 240 oracle rows each equal (`emboss_gap_oracle.tsv`).
+
+- **Audit A4-1 (F157):** `FindTranslatedPatternHits`, `FindProteinPatternHits` poll the ambient cancellation token (mid-run cancel tests); MCP tools take the request token.

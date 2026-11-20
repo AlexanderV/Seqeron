@@ -116,3 +116,5 @@ branches.
 - **Audit r3 (A3-13d, F147):** EMBOSS `consambig` ported (`MotifFinder.GenerateEmbossAmbiguousConsensus`, MCP `consambig`): 1 400 / 1 400 oracle rows; input normalisation shared with `cons` (`NormalizedAlignmentChars`).
 
 - **Audit A4-3 (F153):** the EMBOSS reader drops gap characters and every other non-letter (except `*`) from plain input sequences; one shared `EmbossSequenceReader` (Infrastructure) serves consambig: 240 oracle rows each equal (`emboss_gap_oracle.tsv`).
+
+- **Audit A4-1 (F157):** `GenerateEmbossAmbiguousConsensus` poll the ambient cancellation token (mid-run cancel tests); MCP tools take the request token.

@@ -44,7 +44,7 @@ public static partial class GenomicAnalyzer
             var matches = regions.Where(r => r.IsReverseComplement == reverse)
                 .Select(r => ((long)r.PositionInFirst + 1, reverse ? (long)query.Length - r.PositionInSecond - r.Length + 1 : r.PositionInSecond + 1L, (long)r.Length))
                 .ToList();
-            foreach (var cluster in NucmerClusters.Cluster(matches, options))
+            foreach (var cluster in NucmerClusters.Cluster(matches, options, cancellationToken))
                 result.Add(new StrandedNucmerCluster(reverse, cluster));
         }
 

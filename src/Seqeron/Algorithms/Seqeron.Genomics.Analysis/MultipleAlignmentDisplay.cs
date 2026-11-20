@@ -40,6 +40,9 @@ public enum ShowAlignOrder
 /// <summary>Options of <see cref="MultipleAlignmentDisplay.ShowAlign"/>; the defaults are those of <c>showalign</c> 6.6.0.</summary>
 public sealed record ShowAlignOptions
 {
+    /// <summary>Cancellation token (A4-1): polled per row of the normalisation, per 1 024 columns of the consensus and per block of the display; a cancelled call throws <see cref="OperationCanceledException"/> and returns no text.</summary>
+    public CancellationToken CancellationToken { get; init; }
+
     /// <summary>Scoring matrix (<c>-matrix</c>); null = EDNAFULL for a nucleotide set, EBLOSUM62 for a protein set.</summary>
     public SubstitutionMatrix? Matrix { get; init; }
 
@@ -120,6 +123,7 @@ public static class MultipleAlignmentDisplay
         ArgumentNullException.ThrowIfNull(names);
         ArgumentNullException.ThrowIfNull(rows);
         var o = options ?? new ShowAlignOptions();
+        using var cancelScope = AlignmentCancellation.Enter(o.CancellationToken);
         if (rows.Count == 0)
             throw new ArgumentException("At least one sequence is required.", nameof(rows));
         if (names.Count != rows.Count)
@@ -317,6 +321,7 @@ public static class MultipleAlignmentDisplay
 
         for (int pos = begin; pos <= end; pos += width)
         {
+            AlignmentCancellation.ThrowIfRequested();
             if (o.Number)
             {
                 int imargin = margin;

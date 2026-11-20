@@ -145,4 +145,18 @@ public class EmbossProgramToolsTests
         Assert.That(AnalysisTools.Consambig(["AC1GT CGT", "ACG_TACGT"]).Consensus, Is.EqualTo(AnalysisTools.Consambig(["ACGTCGT", "ACGTACGT"]).Consensus));
         Assert.That(AnalysisTools.SeqMatchAll(["ACGT-ACGTA", "ACGT.ACGTA"], 4).Matches, Is.EqualTo(AnalysisTools.SeqMatchAll(["ACGTACGTA", "ACGTACGTA"], 4).Matches));
     }
+
+    /// <summary>A4-1 (B09 F157): fuzztran, showalign and consambig took no token; they now hand the request token to the ports.</summary>
+    [Test]
+    public void A4_1_FuzztranShowalignConsambig_StopWithACancelledToken()
+    {
+        var cancelled = new CancellationToken(true);
+        Assert.Multiple(() =>
+        {
+            Assert.Catch<OperationCanceledException>(() => AnalysisTools.Fuzztran("ATGAAAGTTCTGGCT", "KV", cancellationToken: cancelled), "fuzztran");
+            Assert.Catch<OperationCanceledException>(() => AnalysisTools.ShowAlign(["a", "b"], ["ACGTACGT", "ACGTACGA"], cancellationToken: cancelled), "showalign");
+            Assert.Catch<OperationCanceledException>(() => AnalysisTools.Consambig(["ACGTACGT", "ACGTACGA"], cancellationToken: cancelled), "consambig");
+        });
+        Assert.That(AnalysisTools.Consambig(["ACGTACGT", "ACGTACGA"], cancellationToken: CancellationToken.None).Consensus, Is.EqualTo("ACGTACGW"));
+    }
 }

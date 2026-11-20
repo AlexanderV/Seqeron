@@ -102,12 +102,14 @@ public static class NucmerClusters
     /// </summary>
     /// <param name="matches">The exact matches: start in the first (reference) and second (query) sequence and the length.</param>
     /// <param name="options">Clustering options (null = nucmer defaults).</param>
+    /// <param name="cancellationToken">Cancellation token, polled per match of every pass (A4-1: one cluster of 300 000 collinear matches is the program's own O(c^2) dynamic program and did not return in two minutes).</param>
     /// <returns>The reported clusters in the order the program prints them.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="matches"/> is null.</exception>
     /// <exception cref="ArgumentException">A match has a non-positive length or two matches coincide.</exception>
-    public static IReadOnlyList<NucmerCluster> Cluster(IEnumerable<(long Start1, long Start2, long Length)> matches, NucmerClusterOptions? options = null)
+    public static IReadOnlyList<NucmerCluster> Cluster(IEnumerable<(long Start1, long Start2, long Length)> matches, NucmerClusterOptions? options = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(matches);
+        using var scope = AlignmentCancellation.Enter(cancellationToken);
         var o = options ?? new NucmerClusterOptions();
         var raw = matches.ToList();
         if (raw.Any(m => m.Length <= 0))
@@ -132,6 +134,7 @@ public static class NucmerClusters
 
         for (int i = 1; i < n; i++)
         {
+            AlignmentCancellation.ThrowIfRequested();
             long iEnd = a[i].Start2 + a[i].Len;
             long iDiag = a[i].Start2 - a[i].Start1;
             for (int j = i + 1; j <= n; j++)
@@ -175,6 +178,7 @@ public static class NucmerClusters
     {
         for (int i = 0; i < count - 1; i++)
         {
+            AlignmentCancellation.ThrowIfRequested();
             var ai = arr[first + i];
             if (!ai.Good)
                 continue;
@@ -261,6 +265,7 @@ public static class NucmerClusters
         {
             for (int i = 0; i < n; i++)
             {
+                AlignmentCancellation.ThrowIfRequested();
                 a[i].SimpleScore = a[i].Len;
                 a[i].SimpleAdj = 0;
                 a[i].SimpleFrom = -1;

@@ -44,4 +44,18 @@ public class CancellationTokenTests
             Assert.That(AlignmentTools.Ksw2Extend(A, B, cancellationToken: cts.Token).Score, Is.EqualTo(AlignmentTools.Ksw2Extend(A, B).Score));
         });
     }
+
+    /// <summary>A4-1 (B09 F157): dotmatcher, minimap2_chains and merger took no token; they now hand the request token to the ports' ambient polls.</summary>
+    [Test]
+    public void A4_1_DotmatcherMinimap2ChainsMerger_StopWithACancelledToken()
+    {
+        const string a = "AAAAACGTACGTTAGCACGTAGCTAGCTAGGATCAGGTCAAGTCAGTCGATTC";
+        string b = a.Replace('G', 'T');
+        Assert.Multiple(() =>
+        {
+            Assert.Catch<OperationCanceledException>(() => AlignmentTools.Dotmatcher(a, b, cancellationToken: Cancelled), "dotmatcher");
+            Assert.Catch<OperationCanceledException>(() => AlignmentTools.Minimap2Chains([a], b, cancellationToken: Cancelled), "minimap2_chains");
+            Assert.Catch<OperationCanceledException>(() => AlignmentTools.Merger(a, b, cancellationToken: Cancelled), "merger");
+        });
+    }
 }

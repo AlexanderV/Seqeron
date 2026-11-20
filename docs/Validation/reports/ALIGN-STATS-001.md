@@ -114,3 +114,5 @@ BLAST+ integer percentages / `BlastPositives` / `pident` text / report line on `
 - **Audit r3 (A3-13c, F148):** EMBOSS `showalign` ported (`MultipleAlignmentDisplay.ShowAlign`, MCP `showalign`): 600 / 600 texts equal; the consensus core of `cons` shared (gap option, case kept).
 
 - **Audit A4-3 (F153):** the EMBOSS reader drops gap characters and every other non-letter (except `*`) from plain input sequences; one shared `EmbossSequenceReader` (Infrastructure) serves showalign: 240 oracle rows each equal (`emboss_gap_oracle.tsv`).
+
+- **Audit A4-1 (F157):** `MultipleAlignmentDisplay.ShowAlign` poll the ambient cancellation token (mid-run cancel tests); MCP tools take the request token.

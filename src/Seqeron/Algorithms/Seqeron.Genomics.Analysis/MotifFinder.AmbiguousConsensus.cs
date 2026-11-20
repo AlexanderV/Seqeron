@@ -1,3 +1,4 @@
+using Seqeron.Genomics.Alignment;
 using Seqeron.Genomics.Infrastructure;
 using System.Text;
 
@@ -49,13 +50,15 @@ public static partial class MotifFinder
     /// <param name="alignedSequences">At least two aligned sequences.</param>
     /// <param name="residueType">Nucleotide, Protein, or Auto (decided from the first sequence as the program does).</param>
     /// <param name="padRaggedRows">Pad rows shorter than the longest with trailing gaps (<c>ajSeqsetFill</c>, what the program does for every aligned set) instead of rejecting them.</param>
+    /// <param name="cancellationToken">Cancellation token, polled per row and every 8 192 columns (A4-1).</param>
     /// <returns>The consensus, one symbol per column.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="alignedSequences"/> is null.</exception>
     /// <exception cref="ArgumentException">Fewer than two sequences (the program dies: "Insufficient sequences"), a null element, unequal lengths without padding, or an invalid character.</exception>
     public static string GenerateEmbossAmbiguousConsensus(
-        IEnumerable<string> alignedSequences, ConsensusResidueType residueType = ConsensusResidueType.Auto, bool padRaggedRows = true)
+        IEnumerable<string> alignedSequences, ConsensusResidueType residueType = ConsensusResidueType.Auto, bool padRaggedRows = true, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(alignedSequences);
+        using var scope = AlignmentCancellation.Enter(cancellationToken);
         if (residueType is not (ConsensusResidueType.Nucleotide or ConsensusResidueType.Protein or ConsensusResidueType.Auto))
             throw new ArgumentOutOfRangeException(nameof(residueType));
 
@@ -84,6 +87,8 @@ public static partial class MotifFinder
         var consensus = new StringBuilder(mlen);
         for (int k = 0; k < mlen; k++)
         {
+            if ((k & 8191) == 0)
+                AlignmentCancellation.ThrowIfRequested();
             int union = 0;
             bool gap = false;
             for (int s = 0; s < chars.Length; s++)

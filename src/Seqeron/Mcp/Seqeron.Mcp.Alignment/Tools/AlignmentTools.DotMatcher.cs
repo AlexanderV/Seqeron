@@ -13,11 +13,12 @@ public partial class AlignmentTools
         [Description("Second sequence (the plot's x axis).")] string sequence2,
         [Description("Window size (dotmatcher -windowsize, default 10).")] int windowSize = 10,
         [Description("Score a window must reach (dotmatcher -threshold, default 23).")] int threshold = 23,
-        [Description(MatrixParamDescription)] string? matrix = null)
+        [Description(MatrixParamDescription)] string? matrix = null,
+        CancellationToken cancellationToken = default)
     {
         RequireSequence(sequence1, nameof(sequence1));
         RequireSequence(sequence2, nameof(sequence2));
-        var segments = global::Seqeron.Genomics.Alignment.DotMatcher.Compute(sequence1, sequence2, windowSize, threshold, ResolveMatrix(matrix));
+        var segments = global::Seqeron.Genomics.Alignment.DotMatcher.Compute(sequence1, sequence2, windowSize, threshold, ResolveMatrix(matrix), cancellationToken);
         return new DotMatcherResult(segments.Select(s => new DotMatcherSegmentDto(s.Start1, s.Start2, s.End1, s.End2)).ToArray());
     }
 }

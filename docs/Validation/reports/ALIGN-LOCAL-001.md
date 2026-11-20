@@ -153,3 +153,5 @@ MCP `water_align` (A3-17). The "at least 90 % reaches the textbook optimum" tole
 - **Audit A2-28d (F152):** EMBOSS `dotmatcher` ported (`DotMatcher.Compute`, MCP `dotmatcher`): 600 / 600 plots equal.
 
 - **Audit A4-3 (F153):** the EMBOSS reader drops gap characters and every other non-letter (except `*`) from plain input sequences; one shared `EmbossSequenceReader` (Infrastructure) serves water, matcher, supermatcher, dotmatcher: 240 oracle rows each equal (`emboss_gap_oracle.tsv`).
+
+- **Audit A4-1 (F157):** `DotMatcher.Compute`, matcher (`TopNTieOrder.Sim`) poll the ambient cancellation token (mid-run cancel tests); MCP tools take the request token.

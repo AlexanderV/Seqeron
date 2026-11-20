@@ -730,3 +730,7 @@ Tests (`Seqeron.Genomics.Tests`, against the installed Debian `poa` 2.0+20060928
 ## Audit A4-4 (B09 F156): option boundaries
 
 `OptionBoundaries_Oracle_Tests` (`option_boundary_oracle.json`, `generate_option_boundary_oracle.py`): 30 minimap2 2.26 option values (`MinimapChainOptions`: chain score + anchors equal to the program's PAF `s1` / `cm`, NaN / infinite / huge scales through the C float-to-int conversion), `KmerSize` outside 1 - 28 refused (`mm_check_opt`, `mm_sketch` assertion), `q_occ_frac` NaN / -1 / inf = filter off, 17 mgaps 3.23 option values (`NucmerClusterOptions`: negative / zero / NaN / infinite / huge values accepted, the C `(long)` conversion = LONG_MIN reproduced).
+
+## Audit A4-1 (B09 F157): cancellation
+
+`SequenceAligner_Cancellation_Tests` (`PreCancelled_A4_1_...`, one `CancelledWhileRunning_...` test per class) and the MCP `CancellationTokenTests` / `EmbossProgramToolsTests`: `Minimap2Chaining.Chain` / `CollectAnchors`, `NucmerClusters.Cluster` poll the ambient token (a mid-run cancel stops with `OperationCanceledException` inside the named poll) and the MCP tool takes the request token.

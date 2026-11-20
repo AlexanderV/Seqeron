@@ -16,8 +16,10 @@ public partial class AlignmentTools
         [Description("Largest distance between two anchors of a chain on both sequences (minimap2 -g, default 5000).")] int maxGap = 5000,
         [Description("Chaining bandwidth (minimap2 -r, first value, default 500).")] int bandwidth = 500,
         [Description("Smallest chain score (minimap2 -m, default 40).")] int minChainScore = 40,
-        [Description("Fewest anchors of a chain (minimap2 -n, default 3).")] int minAnchors = 3)
+        [Description("Fewest anchors of a chain (minimap2 -n, default 3).")] int minAnchors = 3,
+        CancellationToken cancellationToken = default)
     {
+        using var cancelScope = global::Seqeron.Genomics.Alignment.SequenceAligner.BeginCancellationScope(cancellationToken);
         if (targets is null || targets.Length == 0)
             throw new ArgumentException("At least one target sequence is required", nameof(targets));
         foreach (var target in targets)

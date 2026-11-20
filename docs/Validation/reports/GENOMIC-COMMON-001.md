@@ -107,3 +107,5 @@ Other tests (M1–M4, S1–S4, C1, C2) assert exact sourced values and cover the
 - **Audit r3 (A3-13b, F149):** EMBOSS `megamerger` ported (`GenomicAnalyzer.MegaMerge`, MCP `megamerger`): 600 / 600 oracle pairs (merged sequence and report); shared `PairWordMatcher` with `seqmatchall`.
 
 - **Audit A4-3 (F153):** the EMBOSS reader drops gap characters and every other non-letter (except `*`) from plain input sequences; one shared `EmbossSequenceReader` (Infrastructure) serves megamerger, seqmatchall: 240 oracle rows each equal (`emboss_gap_oracle.tsv`).
+
+- **Audit A4-1 (F157):** `MegaMerge` (`MinimalMatchSet`) poll the ambient cancellation token (mid-run cancel tests); MCP tools take the request token.
