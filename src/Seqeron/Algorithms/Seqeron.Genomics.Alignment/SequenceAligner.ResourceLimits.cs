@@ -37,7 +37,7 @@ public static partial class SequenceAligner
     /// <summary><see cref="NucmerClusters.Cluster"/>: matches of ONE cluster (the chain dynamic program of <c>Process_Cluster</c> is O(c^2) per extracted chain and so is the program's: 100 000 matches are about 5 x 10^9 steps, a minute): 100 000. mgaps has no such limit; split the input by query sequence or raise the minimum match length.</summary>
     public const long NucmerMaxClusterMatches = 100_000;
 
-    /// <summary><see cref="GenomicAnalyzer.MegaMerge"/> / <see cref="GenomicAnalyzer.SeqMatchAll"/>: maximal word matches of one sequence pair that are listed (12 bytes in the engine's list, 20 more in the result): 2^22 = 4 194 304. The programs keep every match in memory and have no such limit.</summary>
+    /// <summary><c>GenomicAnalyzer.MegaMerge</c> / <c>GenomicAnalyzer.SeqMatchAll</c>: maximal word matches of one sequence pair that are listed (12 bytes in the engine's list, 20 more in the result): 2^22 = 4 194 304. The programs keep every match in memory and have no such limit.</summary>
     public const long WordMatchMaxMatches = 1L << 22;
 
     /// <summary><see cref="LocalAlignTopN(string, string, ScoringMatrix?, int, int, TopNTieOrder)"/> and the affine overloads with <see cref="TopNTieOrder.Sim"/> (EMBOSS matcher): the K-vertex list holds at most this many candidate start points (a vertex is about 56 bytes): 2^22 = 4 194 304. A larger <c>maxAlignments</c> is allocated lazily, so <c>int.MaxValue</c> asks for "every alignment" exactly as the Waterman-Eggert order accepts it; the program calls <c>calloc(K)</c> up front and dies for such a K.</summary>

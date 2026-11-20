@@ -154,7 +154,7 @@ public static partial class SequenceAligner
     /// <summary>
     /// Waterman-Eggert top-N local alignments (linear gaps) in exact <b>linear space</b> (O(m + n) memory per round instead of
     /// the O(m·n) matrices): the very same alignments, in the same order, with the same ties as
-    /// <see cref="LocalAlignTopN(string, string, ScoringMatrix?, int, int)"/>, which switches to this program by itself above
+    /// <see cref="LocalAlignTopN(string, string, ScoringMatrix?, int, int, TopNTieOrder)"/>, which switches to this program by itself above
     /// <see cref="TopNMaxCells"/> cells; call this method to force it for any size. Cost: one run of the linear-space local
     /// program per reported alignment (plus the final empty round).
     /// </summary>
@@ -188,7 +188,7 @@ public static partial class SequenceAligner
     }
 
     /// <summary>Linear-space Waterman-Eggert top-N with a substitution matrix and (possibly fractional) linear gap scores;
-    /// identical to <see cref="LocalAlignTopN(string, string, MatrixScoring, int, double)"/>.</summary>
+    /// identical to <see cref="LocalAlignTopN(string, string, MatrixScoring, int, double, TopNTieOrder)"/>.</summary>
     public static IReadOnlyList<AlignmentResult> LocalAlignTopNLinearSpace(
         string sequence1, string sequence2, MatrixScoring scoring, int maxAlignments = 10, double minScore = 0,
         long maxFullMatrixCells = LinearSpaceBaseCells) =>
@@ -215,7 +215,7 @@ public static partial class SequenceAligner
     }
 
     /// <summary>Waterman-Eggert top-N local alignments with <b>affine</b> gaps in exact linear space; the same alignments as
-    /// <see cref="LocalAlignAffineTopN(string, string, ScoringMatrix?, int, int)"/> (which switches to this program above
+    /// <see cref="LocalAlignAffineTopN(string, string, ScoringMatrix?, int, int, TopNTieOrder)"/> (which switches to this program above
     /// <see cref="TopNMaxCells"/> cells); see <see cref="LocalAlignTopNLinearSpace(string, string, ScoringMatrix?, int, int, long)"/>.</summary>
     [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static IReadOnlyList<AlignmentResult> LocalAlignAffineTopNLinearSpace(
@@ -239,7 +239,7 @@ public static partial class SequenceAligner
     }
 
     /// <summary>Linear-space affine Waterman-Eggert top-N with a substitution matrix; identical to
-    /// <see cref="LocalAlignAffineTopN(string, string, MatrixScoring, int, double)"/>.</summary>
+    /// <see cref="LocalAlignAffineTopN(string, string, MatrixScoring, int, double, TopNTieOrder)"/>.</summary>
     public static IReadOnlyList<AlignmentResult> LocalAlignAffineTopNLinearSpace(
         string sequence1, string sequence2, MatrixScoring scoring, int maxAlignments = 10, double minScore = 0,
         long maxFullMatrixCells = LinearSpaceBaseCells) =>

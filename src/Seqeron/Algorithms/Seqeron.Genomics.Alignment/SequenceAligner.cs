@@ -1104,7 +1104,7 @@ public static partial class SequenceAligner
     /// <summary>
     /// One cell of the linear-gap local recurrence H(i,j) = max(0, H(i-1,j-1) + s, H(i-1,j) + d, H(i,j-1) + d).
     /// With <paramref name="forbidden"/> the aligned pair (a_i, b_j) may not be used (Waterman-Eggert declumping,
-    /// <see cref="LocalAlignTopN(string, string, ScoringMatrix?, int, int)"/>): the diagonal move is dropped, the gap moves stay.
+    /// <see cref="LocalAlignTopN(string, string, ScoringMatrix?, int, int, TopNTieOrder)"/>): the diagonal move is dropped, the gap moves stay.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static int LocalLinearCell(int[,] score, int i, int j, int sub, int gap, bool forbidden) =>

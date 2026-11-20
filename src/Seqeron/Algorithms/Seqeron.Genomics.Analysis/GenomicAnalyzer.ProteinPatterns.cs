@@ -12,7 +12,7 @@ public readonly record struct ProteinPatternHit(int Position, int Length)
     public int End => Position + Length;
 }
 
-/// <summary>A hit of <see cref="GenomicAnalyzer.FindTranslatedPatternHits(string, string, string, int)"/> (EMBOSS <c>fuzztran</c>).</summary>
+/// <summary>A hit of <see cref="GenomicAnalyzer.FindTranslatedPatternHits(string, string, string, int, CancellationToken)"/> (EMBOSS <c>fuzztran</c>).</summary>
 /// <param name="Frame">Translation frame: 1, 2, 3 forward, -1, -2, -3 reverse (EMBOSS transeq convention).</param>
 /// <param name="ProteinStart">1-based first residue in the translated frame (the program's <c>*start</c> note).</param>
 /// <param name="ProteinEnd">1-based last residue (<c>*end</c>).</param>

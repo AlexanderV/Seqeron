@@ -171,10 +171,17 @@ public static partial class MotifFinder
     /// <summary>
     /// The EMBOSS <c>embConsCalc</c> consensus (<c>nucleus/embcons.c</c>) of already materialised rows, shared by <c>cons</c> and <c>showalign</c>.
     /// </summary>
+    /// <param name="rows">The materialised, equal-length sequence rows (upper / lower case as given; gap characters allowed).</param>
+    /// <param name="residueType">Nucleotide or protein scoring of the rows (<see cref="ConsensusResidueType"/>).</param>
+    /// <param name="plurality"><c>-plurality</c>: minimum positive-match weight (null = half the total weight).</param>
+    /// <param name="identity"><c>-identity</c>: required number of identical residues at a position (0 = off).</param>
+    /// <param name="setcase"><c>-setcase</c>: weight at or below which the consensus letter is lower case (null = half the total weight).</param>
+    /// <param name="weights">One weight per row (null = all 1).</param>
     /// <param name="gaps"><c>embConsCalc</c>'s <c>gaps</c>: gap characters count as a residue (code 0) in the identical / matching weights, so a column can come out as a gap (showalign <c>-gaps</c>, default true there; <c>cons</c> passes false).</param>
     /// <param name="keepCase">Keep the case of the input letters (showalign does not upper-case the set; <c>cons</c> does): the consensus letter is the letter of the winning row.</param>
     /// <param name="writeAsNucleotide"><c>cons</c> writes the consensus through <c>ajSeqSetNuc</c>, which exchanges <c>x</c> for <c>n</c>; showalign shows the raw string.</param>
     /// <param name="matrixOverride">Scoring matrix (showalign <c>-matrix</c>); null = EDNAFULL for a nucleotide set, EBLOSUM62 otherwise.</param>
+    /// <param name="paramName">Parameter name reported by the argument exceptions of the calling program (<c>nameof</c> of its own parameter).</param>
     internal static string EmbossConsensusCore(
         List<string> rows, ConsensusResidueType residueType, float? plurality, int identity, float? setcase, IReadOnlyList<float>? weights,
         bool gaps, bool keepCase, bool writeAsNucleotide, SubstitutionMatrix? matrixOverride, string paramName)

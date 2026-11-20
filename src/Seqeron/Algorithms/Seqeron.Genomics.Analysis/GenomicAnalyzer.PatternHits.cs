@@ -93,7 +93,7 @@ public static partial class GenomicAnalyzer
         return FindPatternHits(sequence, FuzznucPattern.Parse(pattern), maxMismatches, bothStrands, cancellationToken, sequenceAmbiguity);
     }
 
-    /// <summary><see cref="FindPatternHits(string, string, int, bool, CancellationToken)"/> with an already parsed pattern.</summary>
+    /// <summary><see cref="FindPatternHits(string, string, int, bool, CancellationToken, bool)"/> with an already parsed pattern.</summary>
     /// <param name="sequence">Subject nucleotide string.</param>
     /// <param name="pattern">The parsed pattern.</param>
     /// <param name="maxMismatches">Maximum substitutions per hit.</param>
