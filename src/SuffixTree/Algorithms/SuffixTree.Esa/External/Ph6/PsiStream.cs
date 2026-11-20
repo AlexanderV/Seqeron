@@ -39,6 +39,11 @@ internal sealed record PsiStats(int Passes, int SymbolsPerPass, long Windows, lo
 /// </summary>
 internal static unsafe class PsiStream
 {
+    private static long s_liveBlocks;
+
+    /// <summary>Native blocks (two per open pass) that the cursors of all builds hold right now: a leak is a count that does not return to where it was (nothing else in the process can see it; the blocks are raw <see cref="NativeMemory"/>).</summary>
+    internal static long LiveNativeBlocks => Interlocked.Read(ref s_liveBlocks);
+
     /// <summary>
     /// Writes the <c>n + 1</c> little-endian <c>uint</c> entries of Psi into the range <c>[psiOffset, psiOffset + 4 (n + 1))</c> of <paramref name="file"/> (every byte of the range is written) from the BWT file
     /// <paramref name="bwtPath"/> (<c>n + 1</c> bytes), the row of the suffix 0 and the symbol counts of the text. The writers are disposed when it returns; the file is not completed.
@@ -136,6 +141,19 @@ internal static unsafe class PsiStream
         private readonly nuint* _cur;
         private readonly nuint* _end;
 
+        private static nuint* AllocateBlock(int entries)
+        {
+            nuint* block = (nuint*)NativeMemory.AllocZeroed((nuint)Math.Max(1, entries), (nuint)sizeof(nuint));
+            Interlocked.Increment(ref s_liveBlocks);
+            return block;
+        }
+
+        private static void FreeBlock(nuint* block)
+        {
+            NativeMemory.Free(block);
+            Interlocked.Decrement(ref s_liveBlocks);
+        }
+
         internal Cursors(MappedOutputFile file, long origin, long[] start, long[] counts, int lo, int hi, int entriesPerWindow, IoCounters? counters)
         {
             _file = file;
@@ -153,8 +171,8 @@ internal static unsafe class PsiStream
                 _first[s] = _next[s] = start[lo + s];
                 _limit[s] = start[lo + s] + counts[lo + s];
             }
-            _cur = (nuint*)NativeMemory.AllocZeroed((nuint)Math.Max(1, hi - lo), (nuint)sizeof(nuint));
-            _end = (nuint*)NativeMemory.AllocZeroed((nuint)Math.Max(1, hi - lo), (nuint)sizeof(nuint));
+            _cur = AllocateBlock(hi - lo);
+            _end = AllocateBlock(hi - lo);
             file.WriterOpened();
         }
 
@@ -194,8 +212,8 @@ internal static unsafe class PsiStream
         public void Dispose()
         {
             for (int s = 0; s < _views.Length; s++) ReleaseView(s);
-            NativeMemory.Free(_cur);
-            NativeMemory.Free(_end);
+            FreeBlock(_cur);
+            FreeBlock(_end);
             _file.WriterClosed();
         }
 

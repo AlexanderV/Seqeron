@@ -45,6 +45,7 @@ internal sealed class IoCounters
     private long _mappedMaxWindow;
     private long _scratchLive;
     private long _scratchPeak;
+    private long _flushes;
 
     internal long ReadBytes => Interlocked.Read(ref _readBytes);
 
@@ -68,6 +69,9 @@ internal sealed class IoCounters
     /// <summary>The largest <see cref="ScratchLiveBytes"/> that was ever reached.</summary>
     internal long ScratchPeakBytes => Interlocked.Read(ref _scratchPeak);
 
+    /// <summary>Forced writes to storage (fsync) through <see cref="CountedFile.Flush"/>: the calls, not the bytes (an fsync has no byte count; the order of the two fsyncs of the publication of a container is observable here).</summary>
+    internal long Flushes => Interlocked.Read(ref _flushes);
+
     internal void AddRead(long bytes)
     {
         Interlocked.Add(ref _readBytes, bytes);
@@ -79,6 +83,8 @@ internal sealed class IoCounters
         Interlocked.Add(ref _writeBytes, bytes);
         Interlocked.Increment(ref _writeCalls);
     }
+
+    internal void AddFlush() => Interlocked.Increment(ref _flushes);
 
     internal void AddMappedWrite(long bytes) => Interlocked.Add(ref _mappedWriteBytes, bytes);
 
@@ -103,6 +109,7 @@ internal sealed class IoCounters
         Interlocked.Exchange(ref _mappedMaxWindow, 0);
         Interlocked.Exchange(ref _scratchLive, 0);
         Interlocked.Exchange(ref _scratchPeak, 0);
+        Interlocked.Exchange(ref _flushes, 0);
     }
 
     /// <summary>The values now (each read atomically, the set as a whole is not a transaction).</summary>

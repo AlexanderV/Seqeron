@@ -43,7 +43,7 @@ internal sealed record SortOptions
     /// <summary>Receives the explicit I/O and the scratch bytes (null = not counted).</summary>
     internal IoCounters? Counters { get; init; }
 
-    /// <summary>Test hook, called with <c>"partition"</c> before a bucket is split and <c>"leaf"</c> before a leaf is sorted (from the worker's thread); an exception thrown here fails the sort like a failing step.</summary>
+    /// <summary>Test hook, called with <c>"partition"</c> before a bucket is split, <c>"scan"</c> before each chunk of its scan, <c>"handover"</c> before each child is completed and <c>"leaf"</c> before a leaf is sorted (from the worker's thread); an exception thrown here fails the sort like a failing step.</summary>
     internal Action<string>? Trace { get; init; }
 }
 
@@ -278,6 +278,7 @@ internal sealed class BucketSorter
                 chunk = ArrayPool<uint>.Shared.Rent(1 << 14);
                 for (long start = 0; start < m; start += 1 << 14)
                 {
+                    _o.Trace?.Invoke("scan"); // a point at which a test fails the partition after some of the writers hold files
                     int take = (int)Math.Min(1 << 14, m - start);
                     src.Read(start, chunk.AsSpan(0, take));
                     for (int t = 0; t < take; t++)
@@ -311,6 +312,7 @@ internal sealed class BucketSorter
                 {
                     for (int b = 0; b < fan; b++)
                     {
+                        _o.Trace?.Invoke("handover"); // a point at which a test fails the hand-over after some children exist
                         long count = writers[b].Count;
                         IPosSource child = writers[b].Complete();
                         if (count == 0)

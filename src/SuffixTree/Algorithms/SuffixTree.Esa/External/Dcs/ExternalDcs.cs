@@ -60,7 +60,7 @@ internal sealed record ExtDcsOptions
     /// <summary>How the files are created (reservation of the disk space); null = <see cref="ReservationMode.Auto"/>.</summary>
     internal MappedFileOptions? Files { get; init; }
 
-    /// <summary>Test hook, called with <c>"naming"</c> when a sample bucket task begins and <c>"merge"</c> before a level's merge (and, for the sorts of the levels below, as <see cref="SortOptions.Trace"/>); an exception thrown here fails the build like a failing step.</summary>
+    /// <summary>Test hook, called with <c>"naming"</c> when a sample bucket task begins, <c>"merge"</c> before a level's merge, <c>"rank-written"</c> when a level has written its rank file (and, for the sorts of the levels below, as <see cref="SortOptions.Trace"/>); an exception thrown here fails the build like a failing step.</summary>
     internal Action<string>? Trace { get; init; }
 }
 
@@ -232,6 +232,7 @@ internal static class ExternalDcs
             if (scratchOutput) c.Ledger.Add(g.Slots * 4);
             namer.Merge(naming, sink);
             ls.MergeSeconds = Seconds(t0);
+            o.Trace?.Invoke("rank-written");
             return;
         }
 
@@ -249,6 +250,7 @@ internal static class ExternalDcs
             BaseCase(sink.Red, g, ls.DistinctNames + 1, rankPath, scratchOutput, level, c, arena);
             arena.VerifyCanaries();
             ls.BelowSeconds = Seconds(t0);
+            o.Trace?.Invoke("rank-written");
             return;
         }
 
@@ -322,6 +324,7 @@ internal static class ExternalDcs
         File.Delete(saPath);
         c.Ledger.Remove(4 * (reduced + 1));
         ls.BelowSeconds = Seconds(t0);
+        o.Trace?.Invoke("rank-written");
     }
 
     /// <summary>The base case: SA-IS on the reduced string in RAM, the inverse permutation, and the rank file written window by window.</summary>

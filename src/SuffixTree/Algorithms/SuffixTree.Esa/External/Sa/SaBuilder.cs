@@ -111,7 +111,7 @@ internal sealed record SaBuildOptions
     internal double RssAnonCapMb { get; init; } = 320;
 
     /// <summary>
-    /// Test hook, called with <c>"ph1"</c> and <c>"ph23"</c> when a phase begins, <c>"verify"</c> before the rank file check, and <c>"naming"</c>, <c>"merge"</c>, <c>"partition"</c> and <c>"leaf"</c> from the workers; an exception thrown
+    /// Test hook, called with <c>"ph1"</c> and <c>"ph23"</c> when a phase begins, <c>"verify"</c> before the rank file check, and <c>"naming"</c>, <c>"merge"</c>, <c>"rank-written"</c>, <c>"partition"</c>, <c>"scan"</c>, <c>"handover"</c> and <c>"leaf"</c> from the workers; an exception thrown
     /// here fails the build like a failing step.
     /// </summary>
     internal Action<string>? Trace { get; init; }
