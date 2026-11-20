@@ -79,9 +79,9 @@ public static partial class SequenceAligner
     /// <summary>The pair-HMM of <c>proba_pair</c> for one sequence type (<c>ProbabilisticModel</c> with the program's default tables).</summary>
     private sealed class TcProbaModel
     {
-        public readonly int MatrixTypes, InsertStates;
-        public readonly float[] InitialDistribution;
-        public readonly float[,] TransProb;
+        public int MatrixTypes, InsertStates;
+        public float[] InitialDistribution = Array.Empty<float>();
+        public float[,] TransProb = new float[0, 0];
         public readonly float[,] InsProb = new float[256, 5];
         public readonly float[,] MatchProb = new float[256, 256];
 
@@ -111,7 +111,6 @@ public static partial class SequenceAligner
             bool biphasic = kind != TcSeqKind.Dna;
             InsertStates = biphasic ? 2 : 1;
             MatrixTypes = biphasic ? 5 : 3;
-            int n = 2 * InsertStates + 1;
             float[] gapOpen = TcProbaTables.DnaGapOpen, gapExtend = TcProbaTables.DnaGapExtend;
             if (protein)
             {
@@ -151,6 +150,23 @@ public static partial class SequenceAligner
                 }
             }
 
+            Setup(InsertStates, initDistrib, gapOpen, gapExtend, emitSingle, emitPairs);
+        }
+
+        /// <summary>
+        /// The model of ProbCons 1.12 (<c>ProbabilisticModel (initDistrib, gapOpen, gapExtend, emitPairs, emitSingle)</c>, the constructor <see cref="TcProbaModel"/> shares with T-Coffee's
+        /// <c>proba_pair</c>): <paramref name="insertStates"/> pairs of insertion states, emission tables indexed by the character code (0 ... 255).
+        /// </summary>
+        internal TcProbaModel(int insertStates, float[] initDistrib, float[] gapOpen, float[] gapExtend, float[] emitSingle, float[,] emitPairs)
+        {
+            InsertStates = insertStates;
+            MatrixTypes = 2 * insertStates + 1;
+            Setup(insertStates, initDistrib, gapOpen, gapExtend, emitSingle, emitPairs);
+        }
+
+        private void Setup(int insertStates, float[] initDistrib, float[] gapOpen, float[] gapExtend, float[] emitSingle, float[,] emitPairs)
+        {
+            int n = 2 * insertStates + 1;
             var transMat = new float[n, n];
             transMat[0, 0] = 1;
             for (int i = 0; i < InsertStates; i++)
@@ -294,6 +310,8 @@ public static partial class SequenceAligner
         return sorted.Take(n).Select(e => (e.I, e.J, e.W)).ToList();
     }
 
+    internal static float TcProbaTotalProbability(int I, int J, int nmt, int nis, float[] forward, float[] backward) => TcProbaTotal(I, J, nmt, nis, forward, backward);
+
     private static float TcProbaTotal(int I, int J, int nmt, int nis, float[] forward, float[] backward)
     {
         float totalForward = TcLogZero;
@@ -369,7 +387,7 @@ public static partial class SequenceAligner
         return forward;
     }
 
-    private static float[] TcProbaBackward(int I, int J, int nmt, int nis, TcProbaModel m, float[] matchProb, float[][,] insProb)
+    private static float[] TcProbaBackward(int I, int J, int nmt, int nis, TcProbaModel m, float[] matchProb, float[][,] insProb, bool endMatch = true)
     {
         int l = checked((int)(((long)I + 1) * (J + 1) * nmt));
         var backward = new float[l];
@@ -379,7 +397,8 @@ public static partial class SequenceAligner
 
         for (int k = 0; k < nmt; k++)
             backward[nmt * ((I + 1) * (J + 1) - 1) + k] = init[k];
-        backward[nmt * ((I + 1) * (J + 1) - 1) + 0] += matchProb[(I + 1) * (J + 1) - 1];
+        // T-Coffee's copy of the pair-HMM adds the emission of the last cell to the match state's start value; ProbCons 1.12 does not (endMatch = false)
+        if (endMatch) backward[nmt * ((I + 1) * (J + 1) - 1) + 0] += matchProb[(I + 1) * (J + 1) - 1];
 
         int ij = (I + 1) * (J + 1) - 1;
         int i1j = ij + J + 1;

@@ -299,3 +299,7 @@ One input contract for every multiple-alignment entry point: null element -> `Ar
 ## Audit r2 addendum (A2-27b, B09 F126): Biopython Bio.Align text formats
 
 `AlignmentFormats` writes / reads fasta, a2m, clustal, phylip, nexus, stockholm as Biopython 1.88 (210 sets per format written byte for byte; readers equal on every file Biopython reads); MCP `format` / `names` parameters on the pairwise and multiple-alignment tools (canonical writers: `AlignmentFormats` and `EmbossAlignmentWriter`). Registered DOABLE: genomic-coordinate formats, EMBOSS-format readers, `.score_ascii`, 3+ row pair markup (A2-27c).
+
+## Audit r2 addendum (A2-23, B09 F127, WP34): ProbCons 1.12
+
+`SequenceAligner.MultipleAlignProbCons` / `ProbConsRun` / `ProbConsPairs` / `ProbConsTrain`, `ProbConsParameters` and `ProbConsProgram` port ProbCons 1.12 (pair-HMM posteriors shared with T-Coffee's `proba_pair`, consistency transformation, expected-accuracy tree, progressive maximum-expected-accuracy alignment, glibc-`rand` iterative refinement, EM pre-training / training, annotation, all-pairs / Viterbi output, Clustal writer, MSF / Clustal readers); MCP `multiple_align_probcons`, `probcons_command`. Exit code, stdout, stderr and files equal the installed Debian `probcons` 1.12-14 on 407 / 407 command lines. Reproduced program defects: `-go` / `-ge` heap overflow for unequal profiles, gapped MSF input overflow (not in the oracle). Registered DOABLE: none for the algorithm.

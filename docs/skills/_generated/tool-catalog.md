@@ -4,7 +4,7 @@
 
 <!-- BEGIN generated: do not edit by hand -->
 
-## Alignment (63 tools)
+## Alignment (65 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -53,10 +53,12 @@
 | `multiple_align_kalign` | `SequenceAligner.KalignRun` | [doc](../../mcp/tools/alignment/multiple_align_kalign.md) |
 | `multiple_align_mafft` | `SequenceAligner.MultipleAlignMafft` | [doc](../../mcp/tools/alignment/multiple_align_mafft.md) |
 | `multiple_align_muscle` | `SequenceAligner.MultipleAlignMuscle` | [doc](../../mcp/tools/alignment/multiple_align_muscle.md) |
+| `multiple_align_probcons` | `SequenceAligner.ProbConsRun` | [doc](../../mcp/tools/alignment/multiple_align_probcons.md) |
 | `multiple_align_progressive` | `SequenceAligner.MultipleAlignProgressive` | [doc](../../mcp/tools/alignment/multiple_align_progressive.md) |
 | `multiple_align_tcoffee` | `SequenceAligner.MultipleAlignTCoffeeProgram` | [doc](../../mcp/tools/alignment/multiple_align_tcoffee.md) |
 | `muscle_msa_command` | `SequenceAligner.MuscleProfileAlign` | [doc](../../mcp/tools/alignment/muscle_msa_command.md) |
 | `needleall_align` | `SequenceAligner.NeedleAll` | [doc](../../mcp/tools/alignment/needleall_align.md) |
+| `probcons_command` | `ProbConsProgram.Run` | [doc](../../mcp/tools/alignment/probcons_command.md) |
 | `quality_trim_reads` | `SequenceAssembler.QualityTrimReads` | [doc](../../mcp/tools/alignment/quality_trim_reads.md) |
 | `scaffold_contigs` | `SequenceAssembler.Scaffold` | [doc](../../mcp/tools/alignment/scaffold_contigs.md) |
 | `semi_global_align` | `SequenceAligner.SemiGlobalAlign` | [doc](../../mcp/tools/alignment/semi_global_align.md) |

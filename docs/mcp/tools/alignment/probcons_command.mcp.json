@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "probcons_command",
+  "serverName": "Alignment",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ProbConsProgram.Run",
+  "docRef": "Seqeron.Genomics.Alignment/ProbConsProgram.cs",
+  "description": "ProbCons 1.12 as a function of its command line and the text of the files it names (ProbConsProgram.Run): -clustalw, -c / --consistency, -ir / --iterative-refinement, -pre / --pre-training, -pairs, -viterbi, -v / --verbose, -annot FILE, -t / --train FILE, -e / --emissions, -p / --paramfile FILE, -a / --alignment-order, -go / --gap-open, -ge / --gap-extension, -co / --cutoff, with the program's number reading (strtol base 0, strtod prefix), ranges and error texts; input files are FASTA (any of '.', '-' and white space inside the sequence are removed; an empty sequence ends the file), MSF or Clustal alignments (ParseMSF with its quirks: letters upper-cased, gaps kept - the program then overflows a buffer, so gapped alignment input is not verified). Output: the alignment as FASTA (60 columns) or Clustal-like text with the conservation line (stdout), the pairwise alignment files of -pairs / -viterbi (header1-header2.fasta / .aln), the -annot column scores (setw(4) per line), the trained parameter file of -t (%.10f) - and the program's standard-error text byte for byte (heading, parameter set at %.10g, 'Loading sequence file', 'Alignment tree: ...', -v progress). Exit code 1 = the program exits with an error (unknown option, bad value, missing file, unknown character, -e without -t); with no input file the Debian build prints 'Zero sequences delivered to function DoAlign()' and exits with 0. VERIFICATION: exit code, stdout, stderr and files equal the installed Debian probcons 1.12-14 on 407 / 407 committed command lines.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "arguments": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "The command-line arguments of probcons, one per element (for example [\"-clustalw\", \"-c\", \"1\", \"in.fa\"])."
+      },
+      "files": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "string"
+        },
+        "description": "The text of the files the arguments name: file name -> text (sequence files and the -p parameter file)."
+      }
+    },
+    "required": [
+      "arguments"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "exitCode": {
+        "type": "integer",
+        "description": "0 = success, 1 = the program exits with an error."
+      },
+      "stdout": {
+        "type": "string",
+        "description": "The alignment (FASTA with 60 columns, or the Clustal-like text with -clustalw)."
+      },
+      "stderr": {
+        "type": "string",
+        "description": "Everything the program writes to the error stream: heading, parameter set, \"Loading sequence file\", pre-training sets, -v progress, the alignment tree, errors."
+      },
+      "files": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "string"
+        },
+        "description": "The files the program wrote: pairwise alignments (-pairs / -viterbi), the -annot file, the trained parameter file (-t)."
+      }
+    },
+    "required": [
+      "exitCode",
+      "stdout",
+      "stderr",
+      "files"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "arguments is null"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Clustal output with ten refinement passes",
+      "input": {
+        "arguments": [
+          "-clustalw",
+          "-ir",
+          "10",
+          "in.fa"
+        ],
+        "files": {
+          "in.fa": ">a one\nMKVLAAGIVGLLLAQPSTAEEKV\n>b\nMKVLAGIVGLLAQPSTAEEKVLL\n>c\nMKILAAGIAGLLLQPSAEEKV\n>d\nMRVLAAGLVGLLLAQSTAEEK\n"
+        }
+      },
+      "output": {
+        "exitCode": 0,
+        "stdout": "PROBCONS version 1.12 multiple sequence alignment\n\na    MKVLAAGIVGLLLAQPSTAEEK--V\nb    MKVL-AGIVGLLA-QPSTAEEKVLL\nc    MKILAAGIAGLLL-QPS-AEEK--V\nd    MRVLAAGLVGLLL-AQSTAEEK---\n     *::****:.***    ******  :\n",
+        "stderr": "\nPROBCONS version 1.12 - align multiple protein sequences and print to standard output\nWritten by Chuong Do\n\nUsing parameter set:\n    initDistrib[] = { 0.6814756989 8.615339902e-05 8.615339902e-05 0.1591759622 0.1591759622 }\n        gapOpen[] = { 0.0119511066 0.0119511066 0.008008334786 0.008008334786 }\n      gapExtend[] = { 0.3965826333 0.3965826333 0.8988758326 0.8988758326 }\n\nLoading sequence file: in.fa\nAlignment tree: ((a one (c d)) b)\n\n\n",
+        "files": {}
+      }
+    },
+    {
+      "name": "All-pairs Viterbi alignments (probcons -viterbi in.fa)",
+      "input": {
+        "arguments": [
+          "-viterbi",
+          "in.fa"
+        ],
+        "files": {
+          "in.fa": ">a one\nMKVLAAGIVGLLLAQPSTAEEKV\n>b\nMKVLAGIVGLLAQPSTAEEKVLL\n>c\nMKILAAGIAGLLLQPSAEEKV\n>d\nMRVLAAGLVGLLLAQSTAEEK\n"
+        }
+      },
+      "output": {
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": "\nPROBCONS version 1.12 - align multiple protein sequences and print to standard output\nWritten by Chuong Do\n\nUsing parameter set:\n    initDistrib[] = { 0.6814756989 8.615339902e-05 8.615339902e-05 0.1591759622 0.1591759622 }\n        gapOpen[] = { 0.0119511066 0.0119511066 0.008008334786 0.008008334786 }\n      gapExtend[] = { 0.3965826333 0.3965826333 0.8988758326 0.8988758326 }\n\nLoading sequence file: in.fa\n",
+        "files": {
+          "a one-b.fasta": ">a one\nMKVLAAGIVGLLLAQPSTAEEKV--\n>b\nMKVL-AGIVGL-LAQPSTAEEKVLL\n",
+          "a one-c.fasta": ">a one\nMKVLAAGIVGLLLAQPSTAEEKV\n>c\nMKILAAGIAGLLL-QPS-AEEKV\n",
+          "a one-d.fasta": ">a one\nMKVLAAGIVGLLLAQPSTAEEKV\n>d\nMRVLAAGLVGLLLAQ-STAEEK-\n",
+          "b-c.fasta": ">b\nMKVL-AGIVGLLAQPSTAEEKVLL\n>c\nMKILAAGIAGLLLQPS-AEEKV--\n",
+          "b-d.fasta": ">b\nMKVL-AGIVGLLAQPSTAEEKVLL\n>d\nMRVLAAGLVGLLLAQSTAEEK---\n",
+          "c-d.fasta": ">c\nMKILAAGIAGLLLQPSAEEKV\n>d\nMRVLAAGLVGLLLAQSTAEEK\n"
+        }
+      }
+    }
+  ]
+}

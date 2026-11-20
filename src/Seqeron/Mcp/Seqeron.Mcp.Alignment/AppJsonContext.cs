@@ -46,6 +46,8 @@ namespace Seqeron.Mcp.Alignment;
 [JsonSerializable(typeof(ClustalWCommandResultDto))]
 [JsonSerializable(typeof(KalignResultDto))]
 [JsonSerializable(typeof(KalignCommandResultDto))]
+[JsonSerializable(typeof(ProbConsResultDto))]
+[JsonSerializable(typeof(ProbConsCommandResultDto))]
 [JsonSerializable(typeof(Dictionary<string, string>))]
 [JsonSerializable(typeof(MuscleRunResultDto))]
 [JsonSerializable(typeof(MuscleCommandResultDto))]

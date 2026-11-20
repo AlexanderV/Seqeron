@@ -395,6 +395,8 @@
 | semi_global_align | Alignment | SequenceAligner.SemiGlobalAlign | Alignment/SequenceAligner.cs#L873 | 0/0 | – | – | Build-Ready |
 | semi_global_align_affine | Alignment | SequenceAligner.SemiGlobalAlignAffine | Alignment/SequenceAligner.cs#L910 | 0/0 | – | – | Build-Ready |
 | sequence_identity | Alignment | SequenceAssembler.CalculateIdentity | Alignment/SequenceAssembler.cs#L202 | 0/0 | – | – | Build-Ready |
+| multiple_align_probcons | Alignment | SequenceAligner.ProbConsRun | Alignment/SequenceAligner.ProbCons.cs | 0/0 | – | – | Build-Ready |
+| probcons_command | Alignment | ProbConsProgram.Run | Alignment/ProbConsProgram.cs | 0/0 | – | – | Build-Ready |
 | allele_frequencies | Population | PopulationGeneticsAnalyzer.CalculateAlleleFrequencies | Population/PopulationGeneticsAnalyzer.cs#L112 | 0/0 | – | – | Build-Ready |
 | diversity_statistics | Population | PopulationGeneticsAnalyzer.CalculateDiversityStatistics | Population/PopulationGeneticsAnalyzer.cs#L283 | 0/0 | – | – | Build-Ready |
 | estimate_ancestry | Population | PopulationGeneticsAnalyzer.EstimateAncestry | Population/PopulationGeneticsAnalyzer.cs#L919 | 0/0 | – | – | Build-Ready |

@@ -315,6 +315,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.Muscle.cs#L67"
   },
   {
+    "tool": "multiple_align_probcons",
+    "server": "Alignment",
+    "methodId": "SequenceAligner.ProbConsRun",
+    "docPath": "docs/mcp/tools/alignment/multiple_align_probcons.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.ProbCons.cs"
+  },
+  {
     "tool": "multiple_align_progressive",
     "server": "Alignment",
     "methodId": "SequenceAligner.MultipleAlignProgressive",
@@ -341,6 +348,13 @@
     "methodId": "SequenceAligner.NeedleAll",
     "docPath": "docs/mcp/tools/alignment/needleall_align.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.NeedleAll.cs"
+  },
+  {
+    "tool": "probcons_command",
+    "server": "Alignment",
+    "methodId": "ProbConsProgram.Run",
+    "docPath": "docs/mcp/tools/alignment/probcons_command.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/ProbConsProgram.cs"
   },
   {
     "tool": "quality_trim_reads",

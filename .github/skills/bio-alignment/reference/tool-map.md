@@ -119,5 +119,7 @@ These live on the Alignment server but belong to the assembly workflow; listed f
 | [`quality_trim_reads`](../../../../docs/mcp/tools/alignment/quality_trim_reads.md) | `SequenceAssembler.QualityTrimReads` | Quality-based read trimming. |
 | [`merge_contigs`](../../../../docs/mcp/tools/alignment/merge_contigs.md) | `SequenceAssembler.MergeContigs` | Merge overlapping contigs. |
 | [`scaffold_contigs`](../../../../docs/mcp/tools/alignment/scaffold_contigs.md) | `SequenceAssembler.Scaffold` | Order/orient contigs into scaffolds. |
+| [`multiple_align_probcons`](../../../../docs/mcp/tools/alignment/multiple_align_probcons.md) | `SequenceAligner.ProbConsRun` | ProbCons 1.12 MSA (pair-HMM posteriors, consistency transformation, expected-accuracy tree, maximum-expected-accuracy profile alignment, iterative refinement with glibc `rand`); `consistency` / `iterativeRefinement` / `preTraining` / `alignmentOrder` / `cutoff` / `parameters` / `annotate`; equal to the installed program on 407 / 407 command lines. |
+| [`probcons_command`](../../../../docs/mcp/tools/alignment/probcons_command.md) | `ProbConsProgram.Run` | ProbCons 1.12 as a command line (`-clustalw -c -ir -pre -pairs -viterbi -v -annot -t -e -p -a -go -ge -co`, MFA / MSF / Clustal files as text, stdout / stderr / written files byte for byte); equal to the program on 407 / 407 command lines. |
 
 > For k-mer/assembly workflows use **`bio-assembly`**; this skill owns the alignment/similarity subset above.

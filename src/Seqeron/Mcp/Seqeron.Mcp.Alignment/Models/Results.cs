@@ -66,6 +66,23 @@ public record KalignCommandResultDto(
     Dictionary<string, string> Files,
     string[] Messages);
 
+/// <summary>ProbCons 1.12 alignment: rows in output order, the input index of each row, the guide tree the program prints and the optional column annotation.</summary>
+public record ProbConsResultDto(
+    string[] AlignedSequences,
+    string Consensus,
+    int TotalScore,
+    double ExactTotalScore,
+    int[] Order,
+    string GuideTree,
+    int[]? Annotation);
+
+/// <summary>ProbCons 1.12 command: exit code, standard output, standard error, and the files the program wrote (name to text).</summary>
+public record ProbConsCommandResultDto(
+    int ExitCode,
+    string Stdout,
+    string Stderr,
+    Dictionary<string, string> Files);
+
 /// <summary>Multiple sequence alignment result.</summary>
 public record MultipleAlignmentResultDto(
     string[] AlignedSequences,
