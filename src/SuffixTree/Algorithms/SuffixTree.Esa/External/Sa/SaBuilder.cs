@@ -441,7 +441,7 @@ internal static class SaBuilder
             IoSnapshot io2 = counters.Snapshot();
             if (section is null)
             {
-                saFile.Complete(options.SyncOutput);
+                saFile.Complete(options.SyncOutput, counters);
                 CheckLength(saPath!, n);
             }
             RssStats all = whole?.Stop() ?? default;

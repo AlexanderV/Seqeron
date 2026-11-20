@@ -190,8 +190,11 @@ internal sealed class MappedOutputFile : IDisposable
     /// <summary>A writer for the whole file.</summary>
     internal MappedWindowWriter CreateWriter(int windowBytes = MappedWindowWriter.DefaultWindowBytes, IoCounters? counters = null) => CreateWriter(0, Length, windowBytes, counters);
 
-    /// <summary>Declares the file written: every writer must be disposed (each disposal released its window, which the .NET view accessor flushed); with <paramref name="fsync"/> the file is forced to storage. May be repeated.</summary>
-    internal void Complete(bool fsync = true)
+    /// <summary>
+    /// Declares the file written: every writer must be disposed (each disposal released its window, which the .NET view accessor flushed); with <paramref name="fsync"/> the file is forced to storage (and counted as a flush in
+    /// <paramref name="counters"/>, the one thing a test can see of it). May be repeated.
+    /// </summary>
+    internal void Complete(bool fsync = true, IoCounters? counters = null)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         int open = Volatile.Read(ref _writers);
@@ -199,6 +202,7 @@ internal sealed class MappedOutputFile : IDisposable
         if (!fsync) return;
         using var handle = File.OpenHandle(Path, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
         RandomAccess.FlushToDisk(handle);
+        counters?.AddFlush();
     }
 
     public void Dispose()
