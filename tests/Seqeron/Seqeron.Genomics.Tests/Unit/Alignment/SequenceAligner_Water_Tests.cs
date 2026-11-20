@@ -61,22 +61,59 @@ public class SequenceAligner_Water_Tests
         Assert.That(bad, Is.Empty, $"{bad.Count} of {Oracle.Value.Count}: {string.Join(", ", bad.Take(15))}");
     }
 
+    private static bool Dyadic(double v) => Math.Abs((v * 8) - Math.Round(v * 8)) < 1e-9;
+
+    /// <summary>
+    /// The score of the program is the maximum of ITS recurrence (<c>embAlignPathCalcSW</c>): the running maximum <c>ret</c> is taken only over the cells whose row AND column index are at least 1 (the first
+    /// row and column are initialised in separate loops and never enter the maximum), before the floor at zero. <see cref="EmbossReferenceDp.Water"/> is a score-only program written from that C text: it gives
+    /// the printed score of every oracle row with penalties that are multiples of 1/8, and - with the border cells added to the maximum - the textbook local optimum (the next test).
+    /// </summary>
     [Test]
-    public void WaterAlign_Score_NeverExceedsTheEmbossAffineLocalOptimum()
+    public void WaterAlign_Score_EqualsTheIndependentRecurrenceOfTheProgram_OnEveryDyadicOracleRow()
     {
-        int same = 0;
+        var bad = new List<string>();
+        int tested = 0;
+        foreach (var r in Oracle.Value.Where(x => x.Seq1.Length > 1 && x.Seq2.Length > 1 && Dyadic(x.GapOpen) && Dyadic(x.GapExtend)))
+        {
+            tested++;
+            var m = SubstitutionMatrix.Get(r.Matrix);
+            if (Math.Abs(EmbossReferenceDp.Water(r.Seq1, r.Seq2, m, r.GapOpen, r.GapExtend) - SequenceAligner.WaterAlign(r.Seq1, r.Seq2, m, r.GapOpen, r.GapExtend).ExactScore) > 1e-9)
+                bad.Add(r.Id);
+        }
+
+        Assert.That(tested, Is.GreaterThanOrEqualTo(600));
+        Assert.That(bad, Is.Empty, $"{bad.Count} of {tested}: {string.Join(", ", bad.Take(15))}");
+    }
+
+    /// <summary>
+    /// Rows (of the first 250 sample rows) on which water's score differs from the textbook affine local optimum (<c>LocalAlignAffine</c>): exactly the committed ids. In each of them EVERY optimal textbook alignment
+    /// ends in the first row or column (the textbook maximum is the program's with the border cells added, <c>includeBorderCells</c>) or the matrix has no positive cell (the program reports the negative
+    /// maximum of the inner cells, the textbook optimum is 0).
+    /// </summary>
+    private static readonly string[] DifferFromTextbookLocalOptimum = ["23", "51", "69", "240", "292", "305", "405"];
+
+    [Test]
+    public void WaterAlign_Score_IsTheTextbookLocalOptimum_ExceptTheEnumeratedBorderRows()
+    {
+        var differ = new List<string>();
         int total = 0;
-        foreach (var r in Oracle.Value.Where(x => x.GapExtend > 0 && x.GapOpen >= x.GapExtend && Math.Abs((x.GapOpen * 8) - Math.Round(x.GapOpen * 8)) < 1e-9 && Math.Abs((x.GapExtend * 8) - Math.Round(x.GapExtend * 8)) < 1e-9).Take(250))
+        foreach (var r in Oracle.Value.Where(x => x.GapExtend > 0 && x.GapOpen >= x.GapExtend && Dyadic(x.GapOpen) && Dyadic(x.GapExtend)).Take(250))
         {
             total++;
             var m = SubstitutionMatrix.Get(r.Matrix);
             var w = SequenceAligner.WaterAlign(r.Seq1, r.Seq2, m, r.GapOpen, r.GapExtend);
             var l = SequenceAligner.LocalAlignAffine(r.Seq1, r.Seq2, MatrixScoring.Emboss(m, r.GapOpen, r.GapExtend));
-            Assert.That(w.ExactScore, Is.LessThanOrEqualTo(l.ExactScore + 1e-6), r.Id);
-            if (Math.Abs(w.ExactScore - l.ExactScore) < 1e-6)
-                same++;
+            // the textbook optimum is the program's recurrence with the border cells in the maximum
+            Assert.That(EmbossReferenceDp.Water(r.Seq1, r.Seq2, m, r.GapOpen, r.GapExtend, includeBorderCells: true), Is.EqualTo(l.ExactScore).Within(1e-9), r.Id);
+            if (Math.Abs(w.ExactScore - l.ExactScore) > 1e-6)
+            {
+                differ.Add(r.Id);
+                Assert.That(w.ExactScore, Is.LessThan(l.ExactScore), r.Id);
+            }
         }
-        Assert.That(same, Is.GreaterThanOrEqualTo(total * 9 / 10), "EMBOSS reaches the plain affine optimum on at least 90 % of the pairs (its recurrences forbid a few gap-state transitions)");
+
+        Assert.That(total, Is.EqualTo(250));
+        Assert.That(differ, Is.EqualTo(DifferFromTextbookLocalOptimum));
     }
 
     [Test]

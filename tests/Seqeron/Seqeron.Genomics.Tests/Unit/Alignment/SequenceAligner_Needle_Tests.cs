@@ -64,45 +64,74 @@ public class SequenceAligner_Needle_Tests
         Assert.That(bad, Is.Empty, $"{bad.Count} of {Oracle.Value.Count}: {string.Join(", ", bad.Take(15))}");
     }
 
+    private static bool Dyadic(double v) => Math.Abs((v * 8) - Math.Round(v * 8)) < 1e-9;
+
+    /// <summary>
+    /// The score of the program is the score of ITS recurrence (<c>embAlignPathCalcWithEndGapPenalties</c>), not of the textbook one: an independent score-only dynamic program written from the C text
+    /// (<see cref="EmbossReferenceDp.Needle"/>) gives the printed score of every oracle row whose penalties are multiples of 1/8 (exact in plain doubles) - the rows are equal to the oracle in
+    /// <see cref="NeedleAlign_RowsAndScore_AreIdenticalToEmbossOnAllOracleCases"/>, this test says WHY the plain affine optimum is sometimes higher (the next two tests).
+    /// </summary>
     [Test]
-    public void NeedleAlign_DefaultEndGaps_AreFree_ScoreNeverExceedsTheOverlapAffineOptimum()
+    public void NeedleAlign_Score_EqualsTheIndependentRecurrenceOfTheProgram_OnEveryDyadicOracleRow()
     {
-        int same = 0;
+        var bad = new List<string>();
+        int tested = 0;
+        foreach (var r in Oracle.Value.Where(x => x.Seq1.Length > 1 && x.Seq2.Length > 1 && Dyadic(x.GapOpen) && Dyadic(x.GapExtend) && Dyadic(x.EndOpen) && Dyadic(x.EndExtend)))
+        {
+            tested++;
+            double reference = EmbossReferenceDp.Needle(r.Seq1, r.Seq2, SubstitutionMatrix.Get(r.Matrix), r.GapOpen, r.GapExtend, r.EndWeight, r.EndOpen, r.EndExtend);
+            if (Math.Abs(reference - SequenceAligner.NeedleAlign(r.Seq1, r.Seq2, SubstitutionMatrix.Get(r.Matrix), r.GapOpen, r.GapExtend, r.EndWeight, r.EndOpen, r.EndExtend).ExactScore) > 1e-9)
+                bad.Add(r.Id);
+        }
+
+        Assert.That(tested, Is.GreaterThanOrEqualTo(400));
+        Assert.That(bad, Is.Empty, $"{bad.Count} of {tested}: {string.Join(", ", bad.Take(15))}");
+    }
+
+    /// <summary>Rows (of the first 250 / 200 sample rows) on which needle's score is BELOW the plain affine optimum: exactly the committed ids, each reproduced by the program's recurrence (previous test), none by a tolerance.</summary>
+    private static readonly string[] BelowPlainOptimumFreeEnds = ["234"];
+
+    private static readonly string[] BelowPlainOptimumEndWeights = ["234"];
+
+    [Test]
+    public void NeedleAlign_DefaultEndGaps_AreFree_ScoreIsTheOverlapAffineOptimum_ExceptTheEnumeratedRows()
+    {
+        var below = new List<string>();
         int total = 0;
-        foreach (var r in Oracle.Value.Where(x => !x.EndWeight && x.GapExtend > 0 && x.GapOpen >= x.GapExtend && x.Seq1.Length > 1 && x.Seq2.Length > 1 && Math.Abs((x.GapOpen * 8) - Math.Round(x.GapOpen * 8)) < 1e-9 && Math.Abs((x.GapExtend * 8) - Math.Round(x.GapExtend * 8)) < 1e-9).Take(250))
+        foreach (var r in Oracle.Value.Where(x => !x.EndWeight && x.GapExtend > 0 && x.GapOpen >= x.GapExtend && x.Seq1.Length > 1 && x.Seq2.Length > 1 && Dyadic(x.GapOpen) && Dyadic(x.GapExtend)).Take(250))
         {
             total++;
             var m = SubstitutionMatrix.Get(r.Matrix);
             var n = SequenceAligner.NeedleAlign(r.Seq1, r.Seq2, m, r.GapOpen, r.GapExtend);
             var g = SequenceAligner.SemiGlobalAlignAffine(r.Seq1, r.Seq2, MatrixScoring.Emboss(m, r.GapOpen, r.GapExtend), EndGaps.All);
             Assert.That(n.ExactScore, Is.LessThanOrEqualTo(g.ExactScore + 1e-6), r.Id);
-            if (Math.Abs(n.ExactScore - g.ExactScore) < 1e-6)
-                same++;
+            if (n.ExactScore < g.ExactScore - 1e-6)
+                below.Add(r.Id);
         }
-        Assert.That(same, Is.GreaterThanOrEqualTo(total * 9 / 10), "EMBOSS reaches the plain affine optimum on at least 90 % of the pairs (its recurrences forbid a few gap-state transitions)");
+
+        Assert.That(total, Is.EqualTo(235));
+        Assert.That(below, Is.EqualTo(BelowPlainOptimumFreeEnds));
     }
 
     [Test]
-    public void NeedleAlign_EndWeightWithTheGapPenalties_NeverExceedsTheGlobalAffineOptimum()
+    public void NeedleAlign_EndWeightWithTheGapPenalties_IsTheGlobalAffineOptimum_ExceptTheEnumeratedRows()
     {
         // end gaps charged exactly like inner gaps = the plain global Gotoh optimum (EMBOSS needle mis-initialises the boundary of a one-residue sequence: score 0, excluded)
-        int checkedCases = 0;
-        int same = 0;
+        var below = new List<string>();
         int total = 0;
-        foreach (var r in Oracle.Value.Where(x => x.GapExtend > 0 && x.GapOpen >= x.GapExtend && x.Seq1.Length > 1 && x.Seq2.Length > 1 && Math.Abs((x.GapOpen * 8) - Math.Round(x.GapOpen * 8)) < 1e-9 && Math.Abs((x.GapExtend * 8) - Math.Round(x.GapExtend * 8)) < 1e-9).Take(200))
+        foreach (var r in Oracle.Value.Where(x => x.GapExtend > 0 && x.GapOpen >= x.GapExtend && x.Seq1.Length > 1 && x.Seq2.Length > 1 && Dyadic(x.GapOpen) && Dyadic(x.GapExtend)).Take(200))
         {
             total++;
             var m = SubstitutionMatrix.Get(r.Matrix);
             var n = SequenceAligner.NeedleAlign(r.Seq1, r.Seq2, m, r.GapOpen, r.GapExtend, endWeight: true, endOpen: r.GapOpen, endExtend: r.GapExtend);
             var g = SequenceAligner.GlobalAlignAffine(r.Seq1, r.Seq2, MatrixScoring.Emboss(m, r.GapOpen, r.GapExtend));
             Assert.That(n.ExactScore, Is.LessThanOrEqualTo(g.ExactScore + 1e-6), r.Id);
-            if (Math.Abs(n.ExactScore - g.ExactScore) < 1e-6)
-                same++;
-            checkedCases++;
+            if (n.ExactScore < g.ExactScore - 1e-6)
+                below.Add(r.Id);
         }
-        Assert.That(same, Is.GreaterThanOrEqualTo(total * 9 / 10), "EMBOSS reaches the plain affine optimum on at least 90 % of the pairs (its recurrences forbid a few gap-state transitions)");
 
-        Assert.That(checkedCases, Is.GreaterThan(100));
+        Assert.That(total, Is.EqualTo(200));
+        Assert.That(below, Is.EqualTo(BelowPlainOptimumEndWeights));
     }
 
     [Test]

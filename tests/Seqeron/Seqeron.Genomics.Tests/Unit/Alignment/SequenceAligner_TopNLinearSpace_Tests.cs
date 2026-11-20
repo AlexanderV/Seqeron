@@ -203,6 +203,7 @@ public class SequenceAligner_TopNLinearSpace_Tests
         using var reader = new StreamReader(stream);
         reader.ReadLine();
         int rows = 0, matcherRows = 0, matcherEqual = 0;
+        var matcherDiffering = new List<int>();
         var failures = new List<string>();
         string? line;
         while ((line = reader.ReadLine()) is not null)
@@ -235,13 +236,15 @@ public class SequenceAligner_TopNLinearSpace_Tests
                 var em = f[12].Split(',').Select(s => double.Parse(s, CultureInfo.InvariantCulture)).ToArray();
                 matcherRows++;
                 if (actual.Select(r => r.ExactScore).Take(em.Length).SequenceEqual(em) && actual.Count >= em.Length) matcherEqual++;
+                else matcherDiffering.Add(rows + 2);
             }
             rows++;
         }
         Assert.That(rows, Is.GreaterThanOrEqualTo(1000));
         Assert.That(failures, Is.Empty, $"{failures.Count} of {rows}: " + string.Join("\n", failures.Take(3)));
-        Assert.That(matcherRows, Is.GreaterThanOrEqualTo(300));
-        Assert.That(matcherEqual, Is.GreaterThanOrEqualTo((int)(matcherRows * 0.9)), $"{matcherEqual} of {matcherRows} matcher score lists equal");
+        Assert.That(matcherRows, Is.EqualTo(397));
+        Assert.That(matcherEqual, Is.EqualTo(390));
+        Assert.That(matcherDiffering, Is.EqualTo(SequenceAligner_TopN_Tests.MatcherTieRows), "the matcher lists that differ are exactly the tie rows of SequenceAligner_TopN_Tests.MatcherTieRows");
     }
 
     // ----------------------------------------------------------------------- large input (above TopNMaxCells), automatic path

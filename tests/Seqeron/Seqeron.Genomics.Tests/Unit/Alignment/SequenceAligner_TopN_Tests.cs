@@ -119,24 +119,39 @@ public class SequenceAligner_TopN_Tests
         }
     }
 
+    /// <summary>
+    /// The lines (1-based, header = line 1) of <c>topn_oracle.tsv</c> whose EMBOSS matcher score list differs from the Waterman-Eggert list of <see cref="SequenceAligner.LocalAlignTopN(string, string, ScoringMatrix?, int, int)"/>:
+    /// 7 of the 397 rows with a matcher list. The cause is measured, not assumed (<c>scripts/alignment/analyze_topn_matcher_ties.py</c>, EMBOSS 6.6.0 <c>matcher</c> re-run on every row, Evidence F143): the generator proved that every
+    /// matcher round is a legal Waterman-Eggert round (its score is the optimum with the pairs of matcher's OWN earlier rounds forbidden), so two lists can differ only through a TIE - two different alignments of the same optimal
+    /// score in an earlier round, one taken by matcher (the choice is SIM's own) and the other by the Waterman-Eggert reference that <c>LocalAlignTopN</c> equals on every row. In each of
+    /// the 7 rows the first alignment that differs has the same score as ours and comes no later than the first score difference (rounds 2, 2, 1, 2, 1, 2, 1). 195 of the 390 equal rows also break a tie differently without changing
+    /// a score. Matching SIM's tie order needs the SIM program itself (matcher port, audit A2-28d).
+    /// </summary>
+    internal static readonly int[] MatcherTieRows = [46, 487, 502, 787, 793, 865, 1348];
+
     [Test]
-    public void TopN_AgreesWithEmbossMatcherAlternatives()
+    public void TopN_AgreesWithEmbossMatcherAlternatives_ExactlyExceptTheSevenTieRows()
     {
-        // matcher rows are verified in the generator to be a valid Waterman-Eggert sequence (each round optimal, no pair reused).
-        // Tie handling differs between tools (a later round depends on WHICH co-optimal alignment was taken), so the whole score list
-        // is compared and a divergence is only acceptable on a minority of tie-rich rows; the optimum (round 1) always agrees.
+        // matcher rows are verified in the generator to be a valid Waterman-Eggert sequence (each round optimal, no pair reused); the optimum (round 1) always agrees
         int rows = 0, equal = 0;
-        foreach (var r in Oracle.Value.Where(x => x.Emboss != "NA"))
+        var differing = new List<int>();
+        int line = 1;
+        foreach (var r in Oracle.Value)
         {
+            line++;
+            if (r.Emboss == "NA") continue;
             var expected = r.Emboss.Split(',').Select(s => D(s)).ToArray();
             var actual = TopN(r, expected.Length).Select(a => a.ExactScore).ToArray();
             Assert.That(actual.Length, Is.GreaterThanOrEqualTo(1), Describe(r));
             Assert.That(actual[0], Is.EqualTo(expected[0]).Within(1e-9), Describe(r));
             rows++;
             if (actual.SequenceEqual(expected)) equal++;
+            else differing.Add(line);
         }
-        Assert.That(rows, Is.GreaterThanOrEqualTo(300));
-        Assert.That(equal, Is.GreaterThanOrEqualTo((int)(rows * 0.9)), $"{equal} of {rows} matcher score lists equal");
+
+        Assert.That(rows, Is.EqualTo(397));
+        Assert.That(equal, Is.EqualTo(390));
+        Assert.That(differing, Is.EqualTo(MatcherTieRows), "the matcher lists that differ are exactly the committed tie rows");
     }
 
     [Test]

@@ -53,10 +53,10 @@ public class SequenceAligner_Stretcher_Tests
     }
 
     [Test]
-    public void StretcherAlign_Score_NeverExceedsTheEmbossAffineGlobalOptimum()
+    public void StretcherAlign_Score_IsTheEmbossAffineGlobalOptimum_OnEveryOneOfTheFirst300Rows()
     {
-        // the same optimum as the quadratic-space Gotoh program under the EMBOSS gap convention (gapopen + (k - 1) * gapextend)
-        int same = 0;
+        // the same optimum as the quadratic-space Gotoh program under the EMBOSS gap convention (gapopen + (k - 1) * gapextend): stretcher's Myers-Miller program has no forbidden gap-state transition
+        // (measured, A3-14b: 300 of 300 sample rows are equal - no tolerance)
         int total = 0;
         foreach (var r in Oracle.Value.Where(x => x.GapOpen >= x.GapExtend).Take(300))
         {
@@ -64,11 +64,10 @@ public class SequenceAligner_Stretcher_Tests
             var m = SubstitutionMatrix.Get(r.Matrix);
             var s = SequenceAligner.StretcherAlign(r.Seq1, r.Seq2, m, r.GapOpen, r.GapExtend);
             var g = SequenceAligner.GlobalAlignAffine(r.Seq1, r.Seq2, MatrixScoring.Emboss(m, r.GapOpen, r.GapExtend));
-            Assert.That(s.Score, Is.LessThanOrEqualTo(g.Score), r.Id);
-            if (s.Score == g.Score)
-                same++;
+            Assert.That(s.Score, Is.EqualTo(g.Score), r.Id);
         }
-        Assert.That(same, Is.GreaterThanOrEqualTo(total * 9 / 10), "EMBOSS reaches the plain affine optimum on at least 90 % of the pairs (its recurrences forbid a few gap-state transitions)");
+
+        Assert.That(total, Is.EqualTo(300));
     }
 
     [Test]
