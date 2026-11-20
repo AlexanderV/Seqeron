@@ -1,0 +1,3 @@
+B108	PSI gets no window cap	-	survived		267
+B120	the container is not completed	-	survived		258
+B122	the text reader is disposed but not cleared	-	survived		261

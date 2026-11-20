@@ -8,30 +8,6 @@
   "filter": ""
  },
  {
-  "id": "M56",
-  "desc": "Split: the children are pushed first to last",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
-  "old": "for (int i = tasks.Count - 1; i >= 0; i--) owner._pool.Push(tasks[i]);",
-  "new": "for (int i = 0; i < tasks.Count; i++) owner._pool.Push(tasks[i]);",
-  "filter": ""
- },
- {
-  "id": "M70",
-  "desc": "Finish: a bucket of one group has no first length",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
-  "old": "            if (distinct == 1) firstLen = lastLen;\n            uint firstPos",
-  "new": "            uint firstPos",
-  "filter": ""
- },
- {
-  "id": "M76",
-  "desc": "MergeSort: equal prefixes are reordered",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",
-  "old": "if (prefix.Compare(a[mid], v) <= 0) lo = mid + 1;",
-  "new": "if (prefix.Compare(a[mid], v) < 0) lo = mid + 1;",
-  "filter": ""
- },
- {
   "id": "M81",
   "desc": "MergeSort: binary insertion up to seven",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs",

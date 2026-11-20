@@ -1,13 +1,5 @@
 [
  {
-  "id": "A01",
-  "desc": "BaseCase: the inverse permutation skips the first rank",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
-  "old": "for (int k = 1; k <= n; k++) rank[saSpan[k]] = k;",
-  "new": "for (int k = 0; k <= n; k++) rank[saSpan[k] % n] = k;",
-  "filter": ""
- },
- {
   "id": "L14",
   "desc": "BuildLevel: the sort spill has no floor",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",

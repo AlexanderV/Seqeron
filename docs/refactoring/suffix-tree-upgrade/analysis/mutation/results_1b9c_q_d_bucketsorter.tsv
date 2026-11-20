@@ -1,0 +1,6 @@
+H33	RunTasks: the retries are not counted	-	survived		283
+H41	RunTasks: the arena is not checked	-	survived		266
+H55	Partition: a retry does not double the oversample	-	survived		266
+H59	Partition: an empty child is kept	-	survived		270
+H69	Partition: the seed ignores the attempt	-	survived		255
+H71	Partition: the writers expect the whole bucket	-	survived		262

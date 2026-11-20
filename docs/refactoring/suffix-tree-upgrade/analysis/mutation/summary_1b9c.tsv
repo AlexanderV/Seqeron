@@ -1,7 +1,7 @@
 d	B01	killed (earlier audit)	RunStore: a run of exactly the spill size goes to a file
 d	B02	killed (stage 1)	RunStore: the bytes are not accounted
 d	B03	killed (earlier audit)	RunStore: the failed write does not give the bytes back
-d	B04	OPEN	RunStore: the failed write leaves its file
+d	B04	closed by a test	RunStore: the failed write leaves its file
 d	B05	killed (earlier audit)	RunStore: the numbering starts at zero
 d	B06	killed (stage 1)	RunStore: the tag is not in the name
 d	B07	killed (earlier audit)	RunStore: the file is written at offset 8
@@ -33,11 +33,11 @@ d	D10	equivalent	NearestSingerPeriod keeps the first on a tie of ratios (strict 
 d	D11	killed (earlier audit)	SampleCount: residue equal to the rest is not counted
 d	D12	killed (stage 1)	SampleCount: the full blocks are one short
 d	D13	killed (earlier audit)	Pruned: the small periods get fewer rounds
-d	D14	OPEN	Pruned: the large periods get more rounds
+d	D14	closed by a test	Pruned: the large periods get more rounds
 d	D15	killed (earlier audit)	Pruned: the start set lacks the last of the first run
 d	D16	equivalent	Pruned: the multiples start at zero
 d	D17	killed (earlier audit)	Pruned: a removal is kept when the count is still zero
-d	D18	OPEN	Pruned: the best round is the largest
+d	D18	closed by a test	Pruned: the best round is the largest
 d	D19	killed, hang / crash	SingerPrime: any q below the period counts
 d	D20	equivalent	Singer: a zero residue is taken at the end of the range
 d	D21	equivalent	IsPrime: 1 is a prime
@@ -57,7 +57,7 @@ d	E10	killed (stage 1)	BuildRankFile: a merge budget of four
 d	E11	killed (earlier audit)	BuildRankFile: a sort capacity of one
 d	E12	killed (stage 1)	BuildRankFile: a negative run spill
 d	E13	closed by a test	BuildRankFile: no limit on the text length
-d	E14	OPEN	BuildRankFile: the failed rank file is left
+d	E14	closed by a test	BuildRankFile: the failed rank file is left
 d	E15	killed (earlier audit)	BuildRankFile: the scratch bytes are not given back
 d	E16	killed (stage 1)	BuildRankFile: the tagged files of a failed build are left
 d	E17	killed (earlier audit)	BuildRankFile: the scratch root is always removed
@@ -77,7 +77,7 @@ d	L10	killed, hang / crash	BuildLevel: the level below gets the same level numbe
 d	L11	killed (earlier audit)	BuildLevel: the child rank file is not scratch output
 d	L12	killed (stage 1)	BuildLevel: the sort seed ignores the level
 d	L13	killed (earlier audit)	BuildLevel: the sort fan-out is the options fan-out
-d	L14	OPEN	BuildLevel: the sort spill has no floor
+d	L14	equivalent	BuildLevel: the sort spill has no floor
 d	L15	closed by a test	BuildLevel: the sort files carry no tag
 d	L16	equivalent	BuildLevel: the sort shares no ledger
 d	L17	equivalent	BuildLevel: the suffix array file is not completed
@@ -91,15 +91,15 @@ d	L24	closed by a test	BuildLevel: the inversion has no reservation options
 d	L25	killed (earlier audit)	BuildLevel: the inversion read buffer is one entry
 d	L26	killed (stage 1)	BuildLevel: the inversion chunk is the window
 d	L27	killed (earlier audit)	BuildLevel: the inversion has no budget
-d	L28	OPEN	BuildLevel: the naming statistics are not timed
+d	L28	closed by a test	BuildLevel: the naming statistics are not timed
 d	L29	closed by a test	BuildLevel: the touched flag of the rank file is not set
 d	A01	equivalent	BaseCase: the inverse permutation skips the first rank
 d	A02	killed (earlier audit)	BaseCase: the rank starts at zero
 d	A03	killed (stage 1)	BaseCase: an unused slot gets a rank
 d	A04	killed (earlier audit)	BaseCase: the slot is not mapped to the reduced index
-d	A05	OPEN	BaseCase: the chunk is not bounded by the slots
+d	A05	closed by a test	BaseCase: the chunk is not bounded by the slots
 d	A06	killed (earlier audit)	BaseCase: the rank file is not scratch output
-d	A07	OPEN	BaseCase: the reservation is not recorded
+d	A07	closed by a test	BaseCase: the reservation is not recorded
 d	A08	closed by a test	BaseCase: the rank file is not marked as touched
 d	A09	killed (stage 1)	BaseCase: a window of the wrong size
 d	A10	equivalent	BaseCase: the chunk slots are not at least one
@@ -121,7 +121,7 @@ d	N15	killed (earlier audit)	ReducedRamSink: the block does not advance
 d	N16	killed (stage 1)	ReducedRamSink: the first block is the slot
 d	N17	killed (earlier audit)	ReducedRamSink: the string is not zeroed
 d	N18	killed (stage 1)	ReducedRamSink: the separator is written over the class
-d	N19	OPEN	ReducedFileSink: the buffers are one name short
+d	N19	closed by a test	ReducedFileSink: the buffers are one name short
 d	I01	killed (earlier audit)	the empty suffix is not skipped
 d	I02	killed (stage 1)	a reduced position at the length is accepted
 d	I03	killed (earlier audit)	a separator is ranked
@@ -149,7 +149,7 @@ d	R14	killed (stage 1)	Verify: a non-zero unused slot is accepted
 d	R15	killed (earlier audit)	Dispose: the pointer is not released
 d	R16	killed (stage 1)	Dispose: the map is not disposed
 d	R17	killed, hang / crash	Verify after Dispose does not throw
-d	R18	OPEN	Open: the view is not read-only sized
+d	R18	closed by a test	Open: the view is not read-only sized
 d	S01	killed (earlier audit)	Slots forgets the last block
 d	S02	killed (stage 1)	ClassCount: a residue equal to n is not a member
 d	S03	killed (earlier audit)	ClassCount: one member too few
@@ -350,35 +350,35 @@ d	Q84	killed (stage 1)	Build: PH3 fan-out
 d	Q85	killed (earlier audit)	Build: PH3 oversample
 d	Q86	closed by a test	Build: PH3 threads
 d	Q87	killed (earlier audit)	Build: PH3 seed
-d	Q88	OPEN	Build: PH3 scratch directory
+d	Q88	closed by a test	Build: PH3 scratch directory
 d	Q89	killed (earlier audit)	Build: PH3 spill
 d	Q90	equivalent	Build: PH3 ledger
 d	Q91	killed (earlier audit)	Build: PH3 budget
-d	Q92	OPEN	Build: PH3 arena guards
+d	Q92	closed by a test	Build: PH3 arena guards
 d	Q93	killed (earlier audit)	Build: PH3 counters
-d	Q94	OPEN	Build: PH3 trace
+d	Q94	closed by a test	Build: PH3 trace
 d	Q95	killed (earlier audit)	Build: the sink has the PH1 window
 d	Q96	killed (stage 1)	Build: the sink has no counters
-d	Q97	OPEN	Build: the output is not completed
-d	Q98	OPEN	Build: the output is always synced
-d	Q99	equivalent	Build: the output is never synced
-d	Q100	OPEN	Build: the final length is not checked
+d	Q97	closed by a test	Build: the output is not completed
+d	Q98	closed by a test	Build: the output is always synced
+d	Q99	closed by a test	Build: the output is never synced
+d	Q100	closed by a test	Build: the final length is not checked
 d	Q101	equivalent	CheckLength: any length is accepted
-d	Q102	OPEN	Build: the verdict is Within when above the cap
+d	Q102	closed by a test	Build: the verdict is Within when above the cap
 d	Q103	killed (earlier audit)	Build: the verdict is swapped
-d	Q104	OPEN	Build: the RSS figure is in KiB
+d	Q104	closed by a test	Build: the RSS figure is in KiB
 d	Q105	killed (earlier audit)	Build: the PH1 RSS figure is in KiB
-d	Q106	OPEN	Build: the PH3 RSS figure is from PH1
+d	Q106	closed by a test	Build: the PH3 RSS figure is from PH1
 d	Q107	killed (earlier audit)	Build: without RSS sampling the whole sampler runs
 d	Q108	killed (stage 1)	Build: the phase sampler ignores the proc source
 d	Q109	killed (earlier audit)	Build: the PH1 I/O is the whole
 d	Q110	killed (stage 1)	Build: the PH23 I/O is the whole
 d	Q111	killed (earlier audit)	Build: the total I/O is the PH3 difference
-d	Q112	OPEN	Build: the PH1 time includes PH3
+d	Q112	closed by a test	Build: the PH1 time includes PH3
 d	Q113	killed (earlier audit)	Build: the reservation is the rank file one
 d	Q114	killed (stage 1)	Build: the failed suffix array is left
 d	Q115	killed (earlier audit)	Build: the failed rank file is left
-d	Q116	OPEN	Build: the scratch bytes of a failed build are not given back
+d	Q116	closed by a test	Build: the scratch bytes of a failed build are not given back
 d	Q117	killed (earlier audit)	Build: the PH1 directory is not removed
 d	Q118	killed (stage 1)	Build: the PH3 directory is not removed
 d	Q119	killed (earlier audit)	Build: the scratch root is always removed
@@ -388,7 +388,7 @@ d	Q122	killed (stage 1)	Build: the arena peaks are swapped
 d	Q123	killed (earlier audit)	Build: the scratch peak of PH3 is the PH1 one
 d	Q124	killed (stage 1)	Build: the rank file bytes are the suffix array ones
 d	Q125	killed (earlier audit)	Build: the cover kind is not reported
-d	Q126	OPEN	Build: the period is the nominal one
+d	Q126	closed by a test	Build: the period is the nominal one
 d	W01	killed (earlier audit)	SplitMix: the increment
 d	W02	killed (stage 1)	SplitMix: the first shift
 d	W03	killed (earlier audit)	SplitMix: the second multiplier
@@ -465,7 +465,7 @@ d	H61	killed (stage 1)	Partition: the child depth does not advance
 d	H62	killed (earlier audit)	Partition: the source bucket is not disposed
 d	H63	killed (stage 1)	Partition: the children are pushed first to last
 d	H64	closed by a test	Partition: the writers are not disposed
-d	H65	OPEN	Partition: the chunk is not returned
+d	H65	closed by a test	Partition: the chunk is not returned
 d	H66	closed by a test	Partition: the children of a failed hand-over are not disposed
 d	H67	killed (stage 1)	Partition: the scan reads one chunk short
 d	H68	equivalent	Partition: the attempts have no limit
@@ -491,7 +491,7 @@ d	F15	killed (earlier audit)	MergeSort: the split is not in the middle
 d	T01	killed (earlier audit)	RangePositions: the positions start at one
 d	T02	killed (stage 2)	RangePositions: At is shifted
 d	T03	killed (earlier audit)	MemoryPositions: Read ignores the start
-d	T04	OPEN	MemoryPositions: the array is not returned
+d	T04	closed by a test	MemoryPositions: the array is not returned
 d	T05	killed (earlier audit)	PositionFiles: the numbering starts at zero
 d	T06	killed (stage 2)	FilePositions: Read ignores the start
 d	T07	killed (earlier audit)	FilePositions: At reads the entry before
@@ -501,21 +501,21 @@ d	T10	killed (stage 1)	FilePositions: Dispose does not delete the file
 d	T11	killed (earlier audit)	FilePositions: a second Dispose gives the bytes back again
 d	T12	equivalent	PosWriter: the capacity has no floor
 d	T13	killed (earlier audit)	PosWriter: the buffer is flushed one entry late
-d	T14	OPEN	PosWriter: the buffer is flushed instead of grown
+d	T14	closed by a test	PosWriter: the buffer is flushed instead of grown
 d	T15	killed (earlier audit)	PosWriter: the total is not counted
 d	T16	equivalent	PosWriter: a bucket in a file is handed over as memory
 d	T17	killed (earlier audit)	PosWriter: the rest of a file bucket is not flushed
-d	T18	OPEN	PosWriter: the file bucket buffer is not returned
+d	T18	closed by a test	PosWriter: the file bucket buffer is not returned
 d	T19	killed (earlier audit)	PosWriter: Dispose of a completed writer deletes
 d	T20	killed (stage 2)	PosWriter: Dispose does not give the bytes back
 d	T21	killed (earlier audit)	PosWriter: Dispose does not delete the file
-d	T22	OPEN	PosWriter: Dispose does not close the file
+d	T22	closed by a test	PosWriter: Dispose does not close the file
 d	T23	killed (earlier audit)	PosWriter: Grow keeps the buffer size
 d	T24	killed (stage 1)	PosWriter: Grow loses the entries
 d	T25	killed (earlier audit)	PosWriter: the flush offset is the start
 d	T26	killed (stage 1)	PosWriter: the flushed bytes are not accounted
 d	T27	killed (earlier audit)	PosWriter: the written count is not kept
-d	T28	OPEN	PosWriter: the file is opened for append
+d	T28	closed by a test	PosWriter: the file is opened for append
 d	Z01	killed (earlier audit)	the writer covers a window of its own size
 d	Z02	killed (stage 1)	the writer is not counted
 d	Z03	killed (earlier audit)	Write: the entry offset is the byte offset
@@ -558,7 +558,7 @@ d	C34	killed (stage 2)	CompareCore: a suffix of exactly l symbols is the short o
 d	C35	killed (earlier audit)	CompareCore: the rank lookups are not counted
 d	C36	killed (stage 1)	CompareCore: the ranks compare the other way
 d	C37	killed, hang / crash	CompareCore: the second rank is at the wrong offset
-d	C38	OPEN	TiedComparer is the full comparison
+d	C38	equivalent	TiedComparer is the full comparison
 e	d_Y02	killed (earlier audit)	1b7d gap: Scatter: the target is always reserved
 e	V01	killed (earlier audit)	a negative SA offset is accepted
 e	V03	killed (earlier audit)	a section that ends at the end of the file is refused
@@ -575,7 +575,7 @@ e	V02	killed (stage 1)	a file of its own may be longer than the array
 e	V04	killed (stage 1)	a section may end past the file
 e	V06	killed (stage 1)	the bulk is read from offset 0
 e	V08	killed (stage 1)	the overflow list goes to the base offset
-e	V10	OPEN	a failed overflow writer leaves the base writer open
+e	V10	closed by a test	a failed overflow writer leaves the base writer open
 e	V12	killed (stage 1)	the placer is not used
 e	V14	killed (stage 1)	the placer is told no overflow
 e	V16	equivalent	the path mode does not complete the overflow file
@@ -600,7 +600,7 @@ e	G08	killed (stage 1)	the pre-flight asks for the whole length
 e	G10	killed (stage 1)	the pre-flight skips a source that reports 0
 e	G12	killed (stage 1)	the pre-flight asks about the file, not its directory
 e	G14	killed (stage 1)	the file is not made longer
-e	G16	OPEN	the failed mapping does not undo the growth
+e	G16	closed by a test	the failed mapping does not undo the growth
 e	G18	killed (stage 1)	the new mapping is not used
 e	G20	killed (stage 1)	the outcome is always checked
 e	G22	killed (stage 1)	the source of the options is ignored
@@ -628,7 +628,7 @@ e	W41	killed (earlier audit)	the default read is 1 KiB
 e	W43	killed (earlier audit)	the output is not appended
 e	W02	killed (stage 1)	a negative sigma is accepted
 e	W04	killed (stage 1)	sigma 256 is refused
-e	W06	OPEN	a window of 0 is accepted
+e	W06	closed by a test	a window of 0 is accepted
 e	W08	equivalent	a text of too many bits is accepted
 e	W10	killed (stage 1)	the SA range may end past the file
 e	W12	killed (stage 1)	the SA range is not checked
@@ -756,7 +756,7 @@ e	C08	equivalent	table loop leaves the last full word to the tail loop (same val
 e	C10	killed (stage 1)	hardware unrolled step of 31
 e	C12	killed (stage 1)	table path starts from the value, not its complement
 e	C14	killed (stage 1)	Compute starts from 1
-e	C16	OPEN	the arm64 tail reads byte 0
+e	C16	closed by a test	the arm64 tail reads byte 0
 e	K01	equivalent	a negative SA offset is accepted
 e	K03	equivalent	a negative PH4 cap is accepted
 e	K05	killed (earlier audit)	the tagged codec is accepted
@@ -1065,7 +1065,7 @@ e	B250	killed (stage 1)	Threads defaults to 1
 e	B252	killed (stage 1)	the PH6 cap defaults to 128 MiB
 e	B254	killed (stage 1)	the PH1-4 cap defaults to 128 MiB
 e	B256	killed (stage 1)	the period defaults to 512
-e	B258	OPEN	the BWT default read is smaller
+e	B258	closed by a test	the BWT default read is smaller
 e	S01	killed (earlier audit)	views skip a byte
 e	S03	killed (earlier audit)	a range past the end is accepted
 e	S05	killed (earlier audit)	the CRC does not chain across views

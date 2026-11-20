@@ -1,13 +1,5 @@
 [
  {
-  "id": "C26",
-  "desc": "CompareCore: the skip ignores the limit",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",
-  "old": "long s = Math.Min(skip, lim);",
-  "new": "long s = skip;",
-  "filter": ""
- },
- {
   "id": "C38",
   "desc": "TiedComparer is the full comparison",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",

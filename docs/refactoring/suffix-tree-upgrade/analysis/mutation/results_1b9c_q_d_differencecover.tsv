@@ -1,0 +1,4 @@
+D04	Verify: the difference is taken the other way	-	survived		276
+D10	NearestSingerPeriod keeps the first on a tie of ratios (strict becomes non-strict)	-	survived		262
+D16	Pruned: the multiples start at zero	-	survived		267
+D20	Singer: a zero residue is taken at the end of the range	-	survived		266
