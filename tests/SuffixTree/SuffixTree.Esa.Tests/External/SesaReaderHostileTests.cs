@@ -14,7 +14,7 @@ namespace SuffixTree.Esa.Tests.External;
 public class SesaReaderHostileTests
 {
     /// <summary>The image in memory with an inaccessible page before and after the pages that hold it; <paramref name="flush"/> puts its last byte right against the page behind, else its first byte right behind the page before.</summary>
-    private sealed unsafe class Guarded : IDisposable
+    internal sealed unsafe class Guarded : IDisposable
     {
         private const int ProtNone = 0, ProtRead = 1, ProtWrite = 2, MapPrivate = 2, MapAnonymous = 0x20;
 
