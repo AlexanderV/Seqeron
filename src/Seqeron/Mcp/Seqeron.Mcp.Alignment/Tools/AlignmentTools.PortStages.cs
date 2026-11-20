@@ -174,6 +174,56 @@ public partial class AlignmentTools
         _ => throw new ArgumentException($"Unknown pair-wise method '{name}': expected proba_pair, slow_pair, lalign_id_pair, clustalw_pair, biphasic_pair, lalign_rs_s_pair, promo_pair, blastr_pair, fast_pair, exon_pair, exon2_pair, exon3_pair (or clean_slow_pair, hash_pair, subop1_pair, subop2_pair, cfast_pair, which the program refuses)."),
     };
 
+    [McpServerTool(Name = "tcoffee_blast_msa_library", Title = "MSA — T-Coffee blastp_msa Library (from BLAST XML)", ReadOnly = true)]
+    [Description("The library t_coffee -method blastp_msa builds (-lib_only -out_lib) from the XML of the all-against-all BLAST search of the sequences (blastall -p blastp -m7, or BLAST+ -outfmt 5): for every high-scoring pair (Hsp_qseq / Hsp_hseq) the residue pairs of its gap-free alignment columns with the HSP's percent identity (integer, truncated) as the weight, an entry and its mirror, in the printed format of tcoffee_primary_library (0-based positions, sequence index of the first smaller than that of the second, self hits not printed). The BLAST search itself is the external program and is NOT run here: pass its XML in blastXml (one Iteration per sequence in input order; the hits are matched to the sequences by their Hit_def name). VERIFICATION: the library equals the one the installed t_coffee writes on every committed set with a library (70 or more oracle sets, scripts/alignment/generate_tcoffee_external_oracle.py).")]
+    public static TCoffeePrimaryLibraryResult TCoffeeBlastMsaLibrary(
+        [Description("Sequence names exactly as they stand in the BLAST database / query (one per sequence); the hits of the XML are matched by name.")] string[] names,
+        [Description("The sequences (at least one, none empty).")] string[] sequences,
+        [Description("The BLAST XML output (-m7 / -outfmt 5) of the all-against-all search; one Iteration per sequence in input order.")] string blastXml)
+    {
+        if (names is null || sequences is null || sequences.Length == 0)
+            throw new ArgumentException("names and sequences must contain at least one sequence.", nameof(sequences));
+        if (blastXml is null)
+            throw new ArgumentException("blastXml is required.", nameof(blastXml));
+        var items = global::Seqeron.Genomics.Alignment.SequenceAligner.TCoffeeBlastMsaLibraryEntries(names, sequences, blastXml)
+            .Select(e => new TCoffeeLibraryEntryItem(e.SeqA, e.PosA, e.SeqB, e.PosB, e.Weight, e.Count))
+            .ToArray();
+        return new TCoffeePrimaryLibraryResult(items, items.Length);
+    }
+
+    [McpServerTool(Name = "tcoffee_tblastx_library", Title = "MSA — T-Coffee tblastx_msa Library (from BLAST XML)", ReadOnly = true)]
+    [Description("The library t_coffee -method tblastx_msa builds (tc_generic_method.pl -mode=tblastx_msa = seq2tblastx_lib) from the XML of the all-against-all tblastx search of nucleotide sequences: for every hit of a later sequence the nucleotide pairs of every high-scoring pair (the query / hit ranges of the translated frames, minus-strand frames mapped back to the plus strand, weight = the HSP's percent identity, integer truncated), an entry and its mirror, in the printed format of tcoffee_primary_library (0-based positions, first sequence index smaller than the second). The tblastx search is the external program and is NOT run here: pass its XML in blastXml (one Iteration per sequence in input order, sequences identified by their 1-based position as the program numbers them). VERIFICATION: the library equals the one the installed t_coffee writes on every committed tblastx_msa set with a library (scripts/alignment/generate_tcoffee_external_oracle.py).")]
+    public static TCoffeePrimaryLibraryResult TCoffeeTblastxLibrary(
+        [Description("The nucleotide sequences (at least one, none empty).")] string[] sequences,
+        [Description("The tblastx XML output (-m7 / -outfmt 5) of the all-against-all search; one Iteration per sequence in input order.")] string blastXml)
+    {
+        if (sequences is null || sequences.Length == 0)
+            throw new ArgumentException("sequences must contain at least one sequence.", nameof(sequences));
+        if (blastXml is null)
+            throw new ArgumentException("blastXml is required.", nameof(blastXml));
+        var items = global::Seqeron.Genomics.Alignment.SequenceAligner.TCoffeeTblastxLibraryEntries(sequences, blastXml)
+            .Select(e => new TCoffeeLibraryEntryItem(e.SeqA, e.PosA, e.SeqB, e.PosB, e.Weight, e.Count))
+            .ToArray();
+        return new TCoffeePrimaryLibraryResult(items, items.Length);
+    }
+
+    [McpServerTool(Name = "clustalw_guide_tree", Title = "MSA — ClustalW 2.1 Guide-Tree File from Distances", ReadOnly = true)]
+    [Description("The guide-tree file clustalw writes for its neighbour-joining clustering (UnRootedClusterTree::treeFromDistMatrix + ClusterTreeOutput::printPhylipTree / twoWaySplit) of the sequences `names` from their pairwise distances: '(a:d,b:d);' for two sequences (d = half the distance, five significant digits, as the program writes it), else the unrooted tree as three subtrees under the first parenthesis, every node on its own lines, branch lengths with five decimals (the text of the .dnd file). The distances are ClustalW's own (the fractional differences clustalw computes in its pairwise stage; see clustalw_pairwise_align / clustalw_quick_pairwise_align). VERIFICATION: the neighbour-joining and printing routines are the ones multiple_align_clustalw runs; their guide-tree text equals the .dnd files of the installed clustalw 2.1 (committed guide-tree oracle, random DNA sets).")]
+    public static ClustalWGuideTreeResult ClustalWGuideTree(
+        [Description("Sequence names in file order (at least two).")] string[] names,
+        [Description("ClustalW's pairwise distances: a square symmetric matrix with one row and one column per name (diagonal 0).")] double[][] distances)
+    {
+        if (names is null || names.Length < 2)
+            throw new ArgumentException("names must contain at least two sequence names.", nameof(names));
+        if (distances is null || distances.Length != names.Length || distances.Any(row => row is null || row.Length != names.Length))
+            throw new ArgumentException("distances must be a square matrix with one row and one column per name.", nameof(distances));
+        var matrix = new double[names.Length, names.Length];
+        for (int i = 0; i < names.Length; i++)
+            for (int j = 0; j < names.Length; j++)
+                matrix[i, j] = distances[i][j];
+        return new ClustalWGuideTreeResult(global::Seqeron.Genomics.Alignment.SequenceAligner.ClustalWGuideTreeText(names, matrix), names.Length);
+    }
+
     [McpServerTool(Name = "tcoffee_guide_tree", Title = "MSA — T-Coffee Guide Tree", ReadOnly = true)]
     [Description("The guide tree T-Coffee 13.41 builds for a set of sequences with its defaults (-tree_mode nj -distance_matrix_mode ktup): k-tuple similarity distances, the program's neighbour-joining routine and the rooting of its trifurcation into a binary tree. Returns the tree as Newick text (no branch lengths; leaf labels = names, default s0, s1, ...; left subtree = first profile of the merge) and the leaf indices left to right; the progressive merge order of multiple_align_tcoffee is the post-order of this tree. protein omitted = decided from the letters.")]
     public static TCoffeeGuideTreeResult TCoffeeGuideTree(

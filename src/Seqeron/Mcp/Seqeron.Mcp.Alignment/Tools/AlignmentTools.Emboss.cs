@@ -36,6 +36,47 @@ public partial class AlignmentTools
         return ToAlignmentDto(global::Seqeron.Genomics.Alignment.SequenceAligner.StretcherAlign(sequence1, sequence2, ResolveMatrix(matrix), gapOpen, gapExtend));
     }
 
+    [McpServerTool(Name = "needle_align", Title = "Pairwise — Global Alignment (EMBOSS needle, with end-gap penalties)", ReadOnly = true)]
+    [Description("EMBOSS 6.6 needle: global alignment (Needleman-Wunsch with Gotoh's three matrices) in the arithmetic and with the conventions of the program: a gap of length k costs gapOpen + (k-1)*gapExtend (positive penalties, EMBOSS -gapopen / -gapextend, rounded to 16 mantissa bits as EMBOSS does), scores are single-precision floats, and end gaps are FREE unless endWeight (-endweight): then an end gap of length k costs endOpen + (k-1)*endExtend (-endopen / -endextend). Rows (ties included), score and the printed score text are those of the installed needle 6.6.0. Default matrix EDNAFULL (both sequences nucleotide) or EBLOSUM62. exactScore is the single-precision score of the program, score its rounding. VERIFICATION: rows and printed score identical on 887 / 887 committed random DNA / IUPAC / protein pairs (1-200 residues, integer / dyadic / non-dyadic gap penalties, 445 without and 442 with end-gap weights, 10 matrices). Sequences whose matrices would exceed 2^27 = 134 217 728 cells are refused (the program keeps three float matrices and a compass matrix, 16 bytes per cell): use stretcher_align (linear space). Use format / write_alignment (program 'needle') for the EMBOSS output files.")]
+    public static AlignmentResultDto NeedleAlign(
+        [Description("First sequence (-asequence), at least one residue.")] string sequence1,
+        [Description("Second sequence (-bsequence), at least one residue.")] string sequence2,
+        [Description("Optional EMBOSS data matrix (-datafile): EBLOSUM62, EPAM250, EDNAFULL, ... or the NCBI name. Omit for EDNAFULL (nucleotide) / EBLOSUM62 (protein).")] string? matrix = null,
+        [Description("Gap opening penalty (-gapopen, 1 - 100): the cost of a gap of length 1.")] double gapOpen = 10,
+        [Description("Gap extension penalty (-gapextend, 0 - 10): the cost of each further gap position.")] double gapExtend = 0.5,
+        [Description("-endweight: apply the end-gap penalties (default false: end gaps are free).")] bool endWeight = false,
+        [Description("-endopen (1 - 100): cost of an end gap of length 1 (used only with endWeight).")] double endOpen = 10,
+        [Description("-endextend (0 - 10): cost of each further end-gap position (used only with endWeight).")] double endExtend = 0.5,
+        [Description(FormatParamDescription)] string? format = null,
+        [Description(NamesParamDescription)] string[]? names = null,
+        CancellationToken cancellationToken = default)
+    {
+        using var cancelScope = global::Seqeron.Genomics.Alignment.SequenceAligner.BeginCancellationScope(cancellationToken);
+        RequireSequence(sequence1, nameof(sequence1));
+        RequireSequence(sequence2, nameof(sequence2));
+        var r = global::Seqeron.Genomics.Alignment.SequenceAligner.NeedleAlign(sequence1, sequence2, ResolveMatrix(matrix), gapOpen, gapExtend, endWeight, endOpen, endExtend);
+        return FormatPair(ToAlignmentDto(r), format, sequence1.Length, sequence2.Length, names);
+    }
+
+    [McpServerTool(Name = "water_align", Title = "Pairwise — Local Alignment (EMBOSS water)", ReadOnly = true)]
+    [Description("EMBOSS 6.6 water: local alignment (Smith-Waterman with Gotoh's affine gaps) as the program computes and reports it: a gap of length k costs gapOpen + (k-1)*gapExtend (positive penalties, EMBOSS -gapopen / -gapextend, rounded to 16 mantissa bits), single-precision scores, the cell of the best score is the LAST one scanned within the float epsilon of the maximum, and the walk-back follows the program's own rules; rows (ties included), start / end coordinates and score are those of the installed water 6.6.0. startPosition1 / startPosition2 are the 0-based first aligned residues. Needs sequences of at least two residues (shorter input returns the empty alignment, as the program's maximum is undefined for a one-row matrix); more than 2^28 matrix cells are refused. Default matrix EDNAFULL (both sequences nucleotide) or EBLOSUM62. VERIFICATION: rows, start coordinates and printed score identical on 860 / 860 committed random DNA / IUPAC / protein pairs (10 matrices). Use format / write_alignment (program 'water') for the EMBOSS output files.")]
+    public static AlignmentResultDto WaterAlign(
+        [Description("First sequence (-asequence).")] string sequence1,
+        [Description("Second sequence (-bsequence).")] string sequence2,
+        [Description("Optional EMBOSS data matrix (-datafile): EBLOSUM62, EPAM250, EDNAFULL, ... or the NCBI name. Omit for EDNAFULL (nucleotide) / EBLOSUM62 (protein).")] string? matrix = null,
+        [Description("Gap opening penalty (-gapopen, 1 - 100): the cost of a gap of length 1.")] double gapOpen = 10,
+        [Description("Gap extension penalty (-gapextend, 0 - 10): the cost of each further gap position.")] double gapExtend = 0.5,
+        [Description(FormatParamDescription)] string? format = null,
+        [Description(NamesParamDescription)] string[]? names = null,
+        CancellationToken cancellationToken = default)
+    {
+        using var cancelScope = global::Seqeron.Genomics.Alignment.SequenceAligner.BeginCancellationScope(cancellationToken);
+        RequireSequence(sequence1, nameof(sequence1));
+        RequireSequence(sequence2, nameof(sequence2));
+        var r = global::Seqeron.Genomics.Alignment.SequenceAligner.WaterAlign(sequence1, sequence2, ResolveMatrix(matrix), gapOpen, gapExtend);
+        return FormatPair(ToAlignmentDto(r), format, sequence1.Length, sequence2.Length, names);
+    }
+
     [McpServerTool(Name = "write_alignment", Title = "Alignment — Write an alignment file (EMBOSS -aformat)", ReadOnly = true)]
     [Description("Writes an alignment (gapped rows) in an EMBOSS 6.6.0 -aformat output format, byte for byte as the installed programs print it: PAIRWISE formats (exactly two rows; header with program, run date, command line, matrix, gap penalties and Length / Identity / Similarity / Gaps / Score): pair, simple, srspair, srs, markx0, markx1, markx2, markx3, markx10, match, score, sam, tcoffee, unknown, multiple; SEQUENCE-SET formats (any number of rows): fasta, a2m, msf, clustal, mega, meganon, nexus, paup, nexusnon, paupnon, phylip, phylipnon, selex, treecon. The pair formats take the score, the matrix (decides the similarity marks and count), the gap penalties and the program name (needle, water, stretcher, matcher, supermatcher: stretcher prints integer scores). VERIFICATION: 3 303 needle / water / stretcher files (29 formats x 114 alignment sets, faked run dates) and 1 309 seqret files (11 sequence-set formats, 1–9 rows) are identical to the installed EMBOSS 6.6.0. Offsets (residues of the original sequences outside the aligned part) are given per row for the local alignments.")]
     public static WriteAlignmentResult WriteAlignment(
@@ -123,7 +164,7 @@ public partial class AlignmentTools
     }
 
     [McpServerTool(Name = "dual_affine_align", Title = "Pairwise — Dual Affine Gaps (ksw2 / minimap2 style)", ReadOnly = true)]
-    [Description("Pairwise alignment with the TWO-PIECE (dual) affine gap model of ksw2 / minimap2 (ksw2_extd2): a gap of length k scores max(gapOpen1 + k*gapExtend1, gapOpen2 + k*gapExtend2) (a short-gap and a long-gap regime; all four gap numbers are scores <= 0, ksw2's q + k*e cost is gapOpen = -q, gapExtend = -e; defaults = minimap2 -A 2 -B 4 -O 4,24 -E 2,1), Gotoh's O(m n) program with two gap states per direction, mode 'global' (end to end) or 'local' (Smith-Waterman), optional diagonal band (ksw2 w: only the cells |i - j| <= band; a global alignment needs |m - n| <= band). VERIFICATION: 1 600 committed cases (400 global, 400 local, 400 banded global, 400 banded local; scores equal Biopython 1.88 PairwiseAligner with the callable gap score and an independent Waterman-Smith-Beyer program, every alignment re-scores to its score). Z-drop / end-bonus extension alignment is not included (B09.md A2-29b).")]
+    [Description("Pairwise alignment with the TWO-PIECE (dual) affine gap model of ksw2 / minimap2 (ksw2_extd2): a gap of length k scores max(gapOpen1 + k*gapExtend1, gapOpen2 + k*gapExtend2) (a short-gap and a long-gap regime; all four gap numbers are scores <= 0, ksw2's q + k*e cost is gapOpen = -q, gapExtend = -e; defaults = minimap2 -A 2 -B 4 -O 4,24 -E 2,1), Gotoh's O(m n) program with two gap states per direction, mode 'global' (end to end) or 'local' (Smith-Waterman), optional diagonal band (ksw2 w: only the cells |i - j| <= band; a global alignment needs |m - n| <= band). VERIFICATION: 1 600 committed cases (400 global, 400 local, 400 banded global, 400 banded local; scores equal Biopython 1.88 PairwiseAligner with the callable gap score and an independent Waterman-Smith-Beyer program, every alignment re-scores to its score). Z-drop / end-bonus extension alignment is the separate tool ksw2_extend.")]
     public static AlignmentResultDto DualAffineAlign(
         [Description("First sequence.")] string sequence1,
         [Description("Second sequence.")] string sequence2,

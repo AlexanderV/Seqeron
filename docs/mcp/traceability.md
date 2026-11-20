@@ -405,6 +405,11 @@
 | poa_command | Alignment | PoaProgram.Run | Alignment/PoaProgram.cs | 0/0 | – | – | Build-Ready |
 | align_gap_profile | Alignment | SequenceAligner.GlobalAlignAffine(GapScoreProfile) | Alignment/SequenceAligner.GapProfile.cs | 0/0 | – | – | Build-Ready |
 | merger | Alignment | SequenceAligner.Merger | Alignment/SequenceAligner.Merger.cs | 0/0 | – | – | Build-Ready |
+| needle_align | Alignment | SequenceAligner.NeedleAlign | Alignment/SequenceAligner.Needle.cs | 0/0 | – | – | Build-Ready |
+| water_align | Alignment | SequenceAligner.WaterAlign | Alignment/SequenceAligner.Water.cs | 0/0 | – | – | Build-Ready |
+| clustalw_guide_tree | Alignment | SequenceAligner.ClustalWGuideTreeText | Alignment/SequenceAligner.ClustalWTrees.cs | 0/0 | – | – | Build-Ready |
+| tcoffee_blast_msa_library | Alignment | SequenceAligner.TCoffeeBlastMsaLibraryEntries | Alignment/SequenceAligner.TCoffeeBlast.cs | 0/0 | – | – | Build-Ready |
+| tcoffee_tblastx_library | Alignment | SequenceAligner.TCoffeeTblastxLibraryEntries | Alignment/SequenceAligner.TCoffeeBlast.cs | 0/0 | – | – | Build-Ready |
 | allele_frequencies | Population | PopulationGeneticsAnalyzer.CalculateAlleleFrequencies | Population/PopulationGeneticsAnalyzer.cs#L112 | 0/0 | – | – | Build-Ready |
 | diversity_statistics | Population | PopulationGeneticsAnalyzer.CalculateDiversityStatistics | Population/PopulationGeneticsAnalyzer.cs#L283 | 0/0 | – | – | Build-Ready |
 | estimate_ancestry | Population | PopulationGeneticsAnalyzer.EstimateAncestry | Population/PopulationGeneticsAnalyzer.cs#L919 | 0/0 | – | – | Build-Ready |

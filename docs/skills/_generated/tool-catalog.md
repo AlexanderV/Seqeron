@@ -4,7 +4,7 @@
 
 <!-- BEGIN generated: do not edit by hand -->
 
-## Alignment (69 tools)
+## Alignment (74 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -15,6 +15,7 @@
 | `assembly_stats` | `SequenceAssembler.CalculateStats` | [doc](../../mcp/tools/alignment/assembly_stats.md) |
 | `calculate_coverage` | `SequenceAssembler.CalculateCoverage` | [doc](../../mcp/tools/alignment/calculate_coverage.md) |
 | `clustalw_command` | `ClustalWProgram.Run` | [doc](../../mcp/tools/alignment/clustalw_command.md) |
+| `clustalw_guide_tree` | `SequenceAligner.ClustalWGuideTreeText` | [doc](../../mcp/tools/alignment/clustalw_guide_tree.md) |
 | `clustalw_pairwise_align` | `SequenceAligner.ClustalWPairwiseAlign` | [doc](../../mcp/tools/alignment/clustalw_pairwise_align.md) |
 | `clustalw_profile_align` | `SequenceAligner.AlignClustalWProfiles` | [doc](../../mcp/tools/alignment/clustalw_profile_align.md) |
 | `clustalw_quick_pairwise_align` | `SequenceAligner.ClustalWQuickPairwiseAlign` | [doc](../../mcp/tools/alignment/clustalw_quick_pairwise_align.md) |
@@ -60,6 +61,7 @@
 | `multiple_align_progressive` | `SequenceAligner.MultipleAlignProgressive` | [doc](../../mcp/tools/alignment/multiple_align_progressive.md) |
 | `multiple_align_tcoffee` | `SequenceAligner.MultipleAlignTCoffeeProgram` | [doc](../../mcp/tools/alignment/multiple_align_tcoffee.md) |
 | `muscle_msa_command` | `SequenceAligner.MuscleProfileAlign` | [doc](../../mcp/tools/alignment/muscle_msa_command.md) |
+| `needle_align` | `SequenceAligner.NeedleAlign` | [doc](../../mcp/tools/alignment/needle_align.md) |
 | `needleall_align` | `SequenceAligner.NeedleAll` | [doc](../../mcp/tools/alignment/needleall_align.md) |
 | `poa_command` | `PoaProgram.Run` | [doc](../../mcp/tools/alignment/poa_command.md) |
 | `probcons_command` | `ProbConsProgram.Run` | [doc](../../mcp/tools/alignment/probcons_command.md) |
@@ -71,11 +73,14 @@
 | `stretcher_align` | `SequenceAligner.StretcherAlign` | [doc](../../mcp/tools/alignment/stretcher_align.md) |
 | `sum_of_pairs_score` | `SequenceAligner.SumOfPairsScore` | [doc](../../mcp/tools/alignment/sum_of_pairs_score.md) |
 | `supermatcher_align` | `SequenceAligner.Supermatcher` | [doc](../../mcp/tools/alignment/supermatcher_align.md) |
+| `tcoffee_blast_msa_library` | `SequenceAligner.TCoffeeBlastMsaLibraryEntries` | [doc](../../mcp/tools/alignment/tcoffee_blast_msa_library.md) |
 | `tcoffee_guide_tree` | `SequenceAligner.TCoffeeGuideTree` | [doc](../../mcp/tools/alignment/tcoffee_guide_tree.md) |
 | `tcoffee_ktup_similarity` | `SequenceAligner.TCoffeeKtupSimilarity` | [doc](../../mcp/tools/alignment/tcoffee_ktup_similarity.md) |
 | `tcoffee_lalign_top_alignments` | `SequenceAligner.TCoffeeLalignTopAlignments` | [doc](../../mcp/tools/alignment/tcoffee_lalign_top_alignments.md) |
 | `tcoffee_primary_library` | `SequenceAligner.TCoffeePrimaryLibraryEntries` | [doc](../../mcp/tools/alignment/tcoffee_primary_library.md) |
 | `tcoffee_slow_pair_align` | `SequenceAligner.TCoffeeSlowPairAlign` | [doc](../../mcp/tools/alignment/tcoffee_slow_pair_align.md) |
+| `tcoffee_tblastx_library` | `SequenceAligner.TCoffeeTblastxLibraryEntries` | [doc](../../mcp/tools/alignment/tcoffee_tblastx_library.md) |
+| `water_align` | `SequenceAligner.WaterAlign` | [doc](../../mcp/tools/alignment/water_align.md) |
 | `write_alignment` | `EmbossAlignmentWriter.Format` | [doc](../../mcp/tools/alignment/write_alignment.md) |
 
 ## Analysis (136 tools)

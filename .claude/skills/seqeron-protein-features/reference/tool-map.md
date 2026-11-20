@@ -31,6 +31,7 @@ SEG), `ProteinMotifFinder.*` (signal peptide / TM / coiled-coil / domains / moti
 | `predict_coiled_coils` | `ProteinMotifFinder.PredictCoiledCoils` | Coiled-coil regions + score (`windowSize`, `threshold`). | `predict_coiled_coils.md` |
 | `find_protein_domains` | `ProteinMotifFinder.FindDomains` | Protein domain calls. | `find_protein_domains.md` |
 | `find_protein_motifs` | `ProteinMotifFinder.FindCommonMotifs` | Common protein sequence motifs. | `find_protein_motifs.md` |
+| `fuzzpro` | X | EMBOSS fuzzpro (PROSITE-like exact protein pattern search) | `GenomicAnalyzer.FindProteinPatternHits` |
 | `find_motif_by_prosite` | `ProteinMotifFinder.FindMotifByProsite` | Scan a PROSITE pattern in a protein (`prositePattern`, `motifName`). | `find_motif_by_prosite.md` |
 | `prosite_to_regex` | `ProteinMotifFinder.ConvertPrositeToRegex` | Compile a PROSITE pattern to a regex (inspect before scanning). | `prosite_to_regex.md` |
 | `find_protein_low_complexity_regions` | `ProteinMotifFinder.FindLowComplexityRegions` | Protein SEG low-complexity — from the motif engine (`triggerComplexity`/`extensionComplexity` bits). | `find_protein_low_complexity_regions.md` |

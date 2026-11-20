@@ -49,6 +49,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/ClustalWProgram.cs"
   },
   {
+    "tool": "clustalw_guide_tree",
+    "server": "Alignment",
+    "methodId": "SequenceAligner.ClustalWGuideTreeText",
+    "docPath": "docs/mcp/tools/alignment/clustalw_guide_tree.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.ClustalWTrees.cs"
+  },
+  {
     "tool": "clustalw_pairwise_align",
     "server": "Alignment",
     "methodId": "SequenceAligner.ClustalWPairwiseAlign",
@@ -364,6 +371,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.MuscleProgram.cs"
   },
   {
+    "tool": "needle_align",
+    "server": "Alignment",
+    "methodId": "SequenceAligner.NeedleAlign",
+    "docPath": "docs/mcp/tools/alignment/needle_align.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.Needle.cs"
+  },
+  {
     "tool": "needleall_align",
     "server": "Alignment",
     "methodId": "SequenceAligner.NeedleAll",
@@ -441,6 +455,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.Supermatcher.cs"
   },
   {
+    "tool": "tcoffee_blast_msa_library",
+    "server": "Alignment",
+    "methodId": "SequenceAligner.TCoffeeBlastMsaLibraryEntries",
+    "docPath": "docs/mcp/tools/alignment/tcoffee_blast_msa_library.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.TCoffeeBlast.cs"
+  },
+  {
     "tool": "tcoffee_guide_tree",
     "server": "Alignment",
     "methodId": "SequenceAligner.TCoffeeGuideTree",
@@ -474,6 +495,20 @@
     "methodId": "SequenceAligner.TCoffeeSlowPairAlign",
     "docPath": "docs/mcp/tools/alignment/tcoffee_slow_pair_align.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.TCoffeePrimary.cs"
+  },
+  {
+    "tool": "tcoffee_tblastx_library",
+    "server": "Alignment",
+    "methodId": "SequenceAligner.TCoffeeTblastxLibraryEntries",
+    "docPath": "docs/mcp/tools/alignment/tcoffee_tblastx_library.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.TCoffeeBlast.cs"
+  },
+  {
+    "tool": "water_align",
+    "server": "Alignment",
+    "methodId": "SequenceAligner.WaterAlign",
+    "docPath": "docs/mcp/tools/alignment/water_align.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.Water.cs"
   },
   {
     "tool": "write_alignment",

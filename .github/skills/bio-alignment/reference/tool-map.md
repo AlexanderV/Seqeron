@@ -1,7 +1,7 @@
-# bio-alignment tool map (44 tools)
+# bio-alignment tool map (86 tools)
 
 Grouped by sub-task. Each row: **[MCP] tool** · `Method ID` · one-line purpose. Open the linked
-per-tool doc for the full I/O schema — do not guess parameters. Servers: **Alignment** (26), **Core** (15).
+per-tool doc for the full I/O schema — do not guess parameters. Servers: **Alignment** (66), **Core** (18), **Analysis** (2).
 
 ## Pairwise alignment (Alignment server)
 
@@ -36,6 +36,8 @@ per-tool doc for the full I/O schema — do not guess parameters. Servers: **Ali
 | [`kalign_command`](../../../../docs/mcp/tools/alignment/kalign_command.md) | `KalignProgram.Run` | Kalign 3.3.5 as a command line (`--type --gpo --gpe --tgpe -n -i -o -f`, getopt_long_only forms, FASTA files as text); equal to the program on 83 / 83 command lines. |
 | [`multiple_align_mafft`](../../../../docs/mcp/tools/alignment/multiple_align_mafft.md) | `SequenceAligner.MultipleAlignMafft` | MAFFT 7.505 alignment of TWO sequences (stage 1 of the port: BLOSUM / Kimura scoring, `--op` / `--ep` / `--bl`, `--anysymbol`, free end gaps); rows equal the installed program on 884 / 884 pairs; T-Coffee `mafft_pair` uses it. |
 | [`stretcher_align`](../../../../docs/mcp/tools/alignment/stretcher_align.md) | `SequenceAligner.StretcherAlign` | EMBOSS 6.6 stretcher: Myers-Miller linear-space global alignment, integer scores. |
+| [`needle_align`](../../../../docs/mcp/tools/alignment/needle_align.md) | `SequenceAligner.NeedleAlign` | EMBOSS 6.6 needle: Needleman-Wunsch-Gotoh in the program's single-precision arithmetic, `-endweight` / `-endopen` / `-endextend`; rows and score equal the program on 887 / 887 pairs. |
+| [`water_align`](../../../../docs/mcp/tools/alignment/water_align.md) | `SequenceAligner.WaterAlign` | EMBOSS 6.6 water: Smith-Waterman-Gotoh as the program reports it (ties, start coordinates, float score); equal to the program on 860 / 860 pairs. |
 | [`write_alignment`](../../../../docs/mcp/tools/alignment/write_alignment.md) | `EmbossAlignmentWriter.Format` | Writes an alignment in an EMBOSS `-aformat` format (pair, markx, srspair, msf, clustal, mega, nexus, phylip, sam, ...). |
 | [`dual_affine_align`](../../../../docs/mcp/tools/alignment/dual_affine_align.md) | `SequenceAligner.GlobalAlignDualAffine` / `LocalAlignDualAffine` | ksw2 / minimap2-style two-piece affine gaps, global or local, optional band. |
 | [`supermatcher_align`](../../../../docs/mcp/tools/alignment/supermatcher_align.md) | `SequenceAligner.Supermatcher` | EMBOSS 6.6 supermatcher: Rabin-Karp word seeds + banded Smith-Waterman of large sequences. |
@@ -44,11 +46,14 @@ per-tool doc for the full I/O schema — do not guess parameters. Servers: **Ali
 | [`clustalw_pairwise_align`](../../../../docs/mcp/tools/alignment/clustalw_pairwise_align.md) | `SequenceAligner.ClustalWPairwiseAlign` | ClustalW 2.1 full pairwise stage (DNA / protein): local alignment, percent identity, guide-tree distance. |
 | [`clustalw_quick_pairwise_align`](../../../../docs/mcp/tools/alignment/clustalw_quick_pairwise_align.md) | `SequenceAligner.ClustalWQuickPairwiseAlign` | ClustalW 2.1 fast k-tuple pairwise score / distance (-QUICKTREE). |
 | [`clustalw_command`](../../../../docs/mcp/tools/alignment/clustalw_command.md) | `ClustalWProgram.Run` | ClustalW 2.1 as a command line: alignment, profiles, guide-tree files, -OUTORDER, seven output formats, structure masks. |
+| [`clustalw_guide_tree`](../../../../docs/mcp/tools/alignment/clustalw_guide_tree.md) | `SequenceAligner.ClustalWGuideTreeText` | ClustalW 2.1 neighbour-joining guide-tree file (`.dnd`) from pairwise distances. |
 | [`clustalw_profile_align`](../../../../docs/mcp/tools/alignment/clustalw_profile_align.md) | `SequenceAligner.AlignClustalWProfiles` | ClustalW 2.1 profile-profile alignment of two existing alignments (-PROFILE). |
 | [`clustalw_sequences_to_profile`](../../../../docs/mcp/tools/alignment/clustalw_sequences_to_profile.md) | `SequenceAligner.AlignClustalWSequencesToProfile` | ClustalW 2.1 alignment of sequences to an existing profile (-SEQUENCES). |
 | [`tcoffee_slow_pair_align`](../../../../docs/mcp/tools/alignment/tcoffee_slow_pair_align.md) | `SequenceAligner.TCoffeeSlowPairAlign` | T-Coffee slow_pair global pair alignment. |
 | [`tcoffee_lalign_top_alignments`](../../../../docs/mcp/tools/alignment/tcoffee_lalign_top_alignments.md) | `SequenceAligner.TCoffeeLalignTopAlignments` | T-Coffee lalign_id_pair top-N non-intersecting local alignments. |
 | [`tcoffee_primary_library`](../../../../docs/mcp/tools/alignment/tcoffee_primary_library.md) | `SequenceAligner.TCoffeePrimaryLibraryEntries` | T-Coffee primary library (weighted residue pairs). |
+| [`tcoffee_blast_msa_library`](../../../../docs/mcp/tools/alignment/tcoffee_blast_msa_library.md) | `SequenceAligner.TCoffeeBlastMsaLibraryEntries` | T-Coffee `blastp_msa` library from the XML of an all-against-all BLAST search. |
+| [`tcoffee_tblastx_library`](../../../../docs/mcp/tools/alignment/tcoffee_tblastx_library.md) | `SequenceAligner.TCoffeeTblastxLibraryEntries` | T-Coffee `tblastx_msa` library from the XML of an all-against-all tblastx search. |
 | [`tcoffee_guide_tree`](../../../../docs/mcp/tools/alignment/tcoffee_guide_tree.md) | `SequenceAligner.TCoffeeGuideTree` | T-Coffee guide tree (Newick). |
 | [`tcoffee_ktup_similarity`](../../../../docs/mcp/tools/alignment/tcoffee_ktup_similarity.md) | `SequenceAligner.TCoffeeKtupSimilarity` | T-Coffee k-tuple similarity matrix. |
 | [`sum_of_pairs_score`](../../../../docs/mcp/tools/alignment/sum_of_pairs_score.md) | `SequenceAligner.SumOfPairsScore` | Sum-of-pairs score of an alignment (linear / affine, matrix). |

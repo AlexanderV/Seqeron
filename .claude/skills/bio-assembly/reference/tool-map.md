@@ -55,6 +55,7 @@ motif/variant/ORF/RNA/protein on Analysis is `bio-annotation`'s, not listed here
 | Tool | Method ID | Purpose |
 |---|---|---|
 | [`find_repeats`](../../../../docs/mcp/tools/analysis/find_repeats.md) | `GenomicAnalyzer.FindRepeats` | General repeated-region detection. |
+| [`find_all_longest_repeats`](../../../../docs/mcp/tools/analysis/find_all_longest_repeats.md) | `GenomicAnalyzer.FindAllLongestRepeats` | Every longest repeat (all ties), optionally both strands. |
 | [`find_tandem_repeats`](../../../../docs/mcp/tools/analysis/find_tandem_repeats.md) | `GenomicAnalyzer.FindTandemRepeats` | Tandem repeat arrays. |
 | [`find_direct_repeats`](../../../../docs/mcp/tools/analysis/find_direct_repeats.md) | `RepeatFinder.FindDirectRepeats` | Dispersed direct repeats. |
 | [`find_inverted_repeats`](../../../../docs/mcp/tools/analysis/find_inverted_repeats.md) | `RepeatFinder.FindInvertedRepeats` | Inverted repeats (branch-inducing). |

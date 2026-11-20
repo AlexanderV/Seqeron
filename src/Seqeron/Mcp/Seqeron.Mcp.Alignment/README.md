@@ -2,7 +2,7 @@
 
 MCP server — **Pairwise and multiple sequence alignment, overlap/assembly and approximate matching.**
 
-Exposes **43 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+Exposes **74 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
 MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test, with a
 per-tool doc under [`docs/mcp/tools/alignment/`](../../../../docs/mcp/tools/alignment). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
@@ -25,9 +25,10 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `assembly_stats` | Computes assembly statistics (N50, longest contig, total length, assembled-reads accounting) for a precomputed list of contigs. |
 | `calculate_coverage` | Maps each read to its best-matching position on the reference (≥ minOverlap matching bases) and returns per-base coverage depth as an int… |
 | `clustalw_command` | ClustalW 2.1 as a command line: alignment, profiles, guide-tree files (-NEWTREE / -USETREE), -OUTORDER, the seven output formats and the secondary-structure gap-penalty masks; verified byte for byte against clustalw 2.1 (B09 A2-14b / c / e). |
-| `clustalw_pairwise_align` | ClustalW 2.1 full pairwise stage (FullPairwiseAlign) for DNA / protein: affine local alignment, percent identity and guide-tree distance; verified against clustalw 2.1 (B09 A2-36). |
+| `clustalw_guide_tree` | ClustalW 2.1 neighbour-joining guide-tree file (`.dnd`) from pairwise distances (`UnRootedClusterTree::treeFromDistMatrix` + `printPhylipTree`); two sequences give `(a:d,b:d);`. |
+| `clustalw_pairwise_align` | ClustalW 2.1 full pairwise stage (FullPairwiseAlign) for DNA / protein: affine local alignment, percent identity and guide-tree distance; verified against clustalw 2.1. |
 | `clustalw_profile_align` | ClustalW 2.1 profile-profile alignment of two existing alignments (clustalw -PROFILE1 -PROFILE2 -PROFILE); verified on 600 clustalw runs (B09 A2-14). |
-| `clustalw_quick_pairwise_align` | ClustalW 2.1 fast k-tuple pairwise stage (-QUICKTREE): fragment score, percent score and distance (B09 A2-36). |
+| `clustalw_quick_pairwise_align` | ClustalW 2.1 fast k-tuple pairwise stage (-QUICKTREE): fragment score, percent score and distance. |
 | `clustalw_sequences_to_profile` | ClustalW 2.1 alignment of sequences to an existing profile (clustalw -SEQUENCES); verified on 600 clustalw runs (B09 A2-14). |
 | `compute_consensus` | Builds a consensus sequence from a list of pre-aligned reads (same length, '-' / 'N' ignored) by majority vote per column. |
 | `damerau_alignment` | Optimal transposition-aware edit script turning sequence1 into sequence2 (Lowrance & Wagner 1975 trace). |
@@ -64,8 +65,13 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `poa_command` | POA 2.0 as a command line (`-read_fasta -do_global -do_progressive -read_pairscores -fuse_all -hb -hbmin -best -preserve_seqorder -tolower -toupper -pir -clustal -po -printmatrix -v MATRIX`, files as text); equal to the program on 359 / 359 command lines. |
 | `multiple_align_probcons` | ProbCons 1.12 MSA (pair-HMM posteriors, consistency transformation, expected-accuracy tree, maximum-expected-accuracy profile alignment, iterative refinement with glibc `rand`); `consistency` / `iterativeRefinement` / `preTraining` / `alignmentOrder` / `cutoff` / `parameters` / `annotate`; equal to the installed program on 407 / 407 command lines. |
 | `probcons_command` | ProbCons 1.12 as a command line (`-clustalw -c -ir -pre -pairs -viterbi -v -annot -t -e -p -a -go -ge -co`, MFA / MSF / Clustal files as text, stdout / stderr / written files byte for byte); equal to the program on 407 / 407 command lines. |
-| `multiple_align_mafft` | MAFFT 7.505's alignment of TWO sequences ported from the program (stage 1; three or more sequences are refused, B09.md A2-19b): `sequenceType`, `gapOpen` (--op), `offset` (--ep), `blosum` (--bl), `anySymbol`; verified against the installed program (884 / 884 pairs); T-Coffee's `mafft_pair` uses it. |
+| `multiple_align_mafft` | MAFFT 7.505's alignment of TWO sequences ported from the program (stage 1; three or more sequences are refused as unsupported): `sequenceType`, `gapOpen` (--op), `offset` (--ep), `blosum` (--bl), `anySymbol`; verified against the installed program (884 / 884 pairs); T-Coffee's `mafft_pair` uses it. |
 | `stretcher_align` | EMBOSS 6.6 stretcher (Myers-Miller linear-space global alignment, integer scores, `matrix`, `gapOpen`, `gapExtend`); rows and score identical to the installed program on 689 / 689 committed pairs. |
+| `needle_align` | EMBOSS 6.6 needle (Needleman-Wunsch-Gotoh in the program's single-precision arithmetic; `matrix`, `gapOpen`, `gapExtend`, `endWeight` / `endOpen` / `endExtend`); rows and printed score identical to the installed program on 887 / 887 committed pairs. |
+| `water_align` | EMBOSS 6.6 water (Smith-Waterman-Gotoh as the program reports it: ties, start coordinates, single-precision score); identical to the installed program on 860 / 860 committed pairs. |
+| `needleall_align` | EMBOSS 6.6 needleall: every sequence of one set against every sequence of another, each pair as `needle` aligns it (`minScore`, `brief`). |
+| `supermatcher_align` | EMBOSS 6.6 supermatcher: Rabin-Karp word seeds + banded Smith-Waterman local alignment of large sequences. |
+| `ksw2_extend` | The ksw2 / minimap2 extension-alignment functions (`extz`, `extz2`, `extd`, `extd2`): band, Z-drop, end bonus, CIGAR. |
 | `write_alignment` | Writes an alignment in an EMBOSS 6.6.0 `-aformat` format (pair, simple, srspair, srs, markx0-3 / 10, match, score, sam, tcoffee, fasta, a2m, msf, clustal, mega, meganon, nexus, paup, nexusnon, paupnon, phylip, phylipnon, selex, treecon) byte for byte (3 303 needle / water / stretcher files and 1 309 seqret files verified). |
 | `dual_affine_align` | ksw2 / minimap2-style two-piece affine gaps (`gapOpen1/2`, `gapExtend1/2`), global or local, optional band; 1 600 oracle cases (Biopython callable gap score + independent WSB). |
 | `muscle_msa_command` | MUSCLE 3.8.1551 command lines on existing alignments: profile-profile alignment, refinement, SP / profile score, guide tree, window refinement, local alignment (ported from the source; round-2 oracle awaiting). |
@@ -79,12 +85,14 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `merger` | EMBOSS merger: merge two overlapping nucleotide sequences (embAlignPathCalc free-end global alignment, column rule with the windowed quality score, conflict list); `gapOpen`, `gapExtend`, `matrix`; verified against merger 6.6.0 on 450 read pairs (B09 A3-13). |
 | `align_gap_profile` | Pairwise alignment with Biopython's twelve per-direction / per-end gap scores (`{open,extend}_{internal,left,right}_{insertion,deletion}_score` and every aggregate; `gapScores` name -> value, `endGaps` free flags, `mode` global / semi_global / local, linear or affine, scalar or matrix with fractional gaps); on the existing cores; equal to Biopython 1.88 on 998 / 1000 rows (the other two are a documented Biopython linear-NW corner) (B09 A3-10). |
 | `sequence_identity` | Computes percent-identity (fraction in [0,1]) between two equal-length sequences via case-insensitive position-by-position comparison. |
-| `sum_of_pairs_score` | Sum-of-pairs score of a multiple alignment: linear or affine (Altschul 1989) gaps, simple scores or an EMBOSS substitution matrix (B09 A2-36). |
-| `tcoffee_guide_tree` | The T-Coffee 13.41 guide tree (k-tuple distances, neighbour joining, binary rooting) as Newick (B09 A2-36). |
-| `tcoffee_ktup_similarity` | The pairwise k-tuple similarity matrix of the T-Coffee 13.41 guide-tree stage (B09 A2-36). |
-| `tcoffee_lalign_top_alignments` | T-Coffee 13.41 `lalign_id_pair`: the top-N non-intersecting local alignments by Huang-Miller SIM (B09 A2-36). |
-| `tcoffee_primary_library` | The primary library T-Coffee 13.41 builds for sequences and pair-wise methods (residue pairs with weights) (B09 A2-36). |
-| `tcoffee_slow_pair_align` | T-Coffee 13.41 `slow_pair` method: Myers-Miller global alignment with the program's matrices and penalties (B09 A2-36). |
+| `sum_of_pairs_score` | Sum-of-pairs score of a multiple alignment: linear or affine (Altschul 1989) gaps, simple scores or an EMBOSS substitution matrix. |
+| `tcoffee_guide_tree` | The T-Coffee 13.41 guide tree (k-tuple distances, neighbour joining, binary rooting) as Newick. |
+| `tcoffee_ktup_similarity` | The pairwise k-tuple similarity matrix of the T-Coffee 13.41 guide-tree stage. |
+| `tcoffee_lalign_top_alignments` | T-Coffee 13.41 `lalign_id_pair`: the top-N non-intersecting local alignments by Huang-Miller SIM. |
+| `tcoffee_primary_library` | The primary library T-Coffee 13.41 builds for sequences and pair-wise methods (residue pairs with weights). |
+| `tcoffee_blast_msa_library` | The library T-Coffee 13.41 `-method blastp_msa` builds from the XML of an all-against-all BLAST search (the search itself is the external program). |
+| `tcoffee_tblastx_library` | The library T-Coffee 13.41 `-method tblastx_msa` builds from the XML of an all-against-all tblastx search. |
+| `tcoffee_slow_pair_align` | T-Coffee 13.41 `slow_pair` method: Myers-Miller global alignment with the program's matrices and penalties. |
 
 **Protein / matrix multiple alignment (B09 F61, audit A1-14).** Every `multiple_align*` tool except `multiple_align_clustalw` takes `type = dna | protein` and `matrix = BLOSUM62 | PAM250 | EDNAFULL` (additive; `type=protein` defaults to BLOSUM62, EDNAFULL gives IUPAC DNA) and then scores residue pairs with the published substitution table and real-valued (fractional, EMBOSS-style 0.5) gap scores, linear or affine (`gapModel`); `gapOpen` / `gapExtend` are numbers (integers unless a matrix is used). The protein path is the same code as the DNA path (the string / `ProteinSequence` overloads of `SequenceAligner.MultipleAlign*` with `MatrixScoring`); results carry `exactTotalScore` (the real sum of pairs; `totalScore` is it rounded half away from zero) and, for `multiple_align_exact`, `scoreScale`. Verified against independent Python implementations of every method (238 protein / IUPAC-DNA sets, rows equal), Biopython 1.88 pairwise optima, exhaustive enumeration of tiny sets and the `t_coffee` program (160 protein sets for the progressive stage).
 

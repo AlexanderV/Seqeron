@@ -286,6 +286,9 @@ public record TCoffeePrimaryLibraryResult(TCoffeeLibraryEntryItem[] Entries, int
 /// <summary>Guide tree of T-Coffee: Newick text (leaf labels = names or s0, s1, ...) and the leaf indices left to right (the merge order is the post-order of the tree).</summary>
 public record TCoffeeGuideTreeResult(string Newick, int[] LeafOrder);
 
+/// <summary>Result of <c>clustalw_guide_tree</c>: the text of the ClustalW guide-tree (.dnd) file and the number of sequences.</summary>
+public record ClustalWGuideTreeResult(string Tree, int Sequences);
+
 /// <summary>Pairwise k-tuple similarity matrix of T-Coffee's guide-tree stage (percent x 100 as the program stores it).</summary>
 public record TCoffeeKtupSimilarityResult(int[][] Similarity);
 

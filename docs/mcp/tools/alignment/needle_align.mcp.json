@@ -1,0 +1,141 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "toolName": "needle_align",
+ "serverName": "Alignment",
+ "version": "1.0.0",
+ "stability": "stable",
+ "methodId": "SequenceAligner.NeedleAlign",
+ "docRef": "Seqeron.Genomics.Alignment/SequenceAligner.Needle.cs",
+ "description": "EMBOSS 6.6 needle: global alignment (Needleman-Wunsch with Gotoh's three matrices) in the arithmetic and with the conventions of the program: a gap of length k costs gapOpen + (k-1)*gapExtend (positive penalties, EMBOSS -gapopen / -gapextend, rounded to 16 mantissa bits as EMBOSS does), scores are single-precision floats, and end gaps are FREE unless endWeight (-endweight): then an end gap of length k costs endOpen + (k-1)*endExtend (-endopen / -endextend). Rows (ties included), score and the printed score text are those of the installed needle 6.6.0. Default matrix EDNAFULL (both sequences nucleotide) or EBLOSUM62. exactScore is the single-precision score of the program, score its rounding. VERIFICATION: rows and printed score identical on 887 / 887 committed random DNA / IUPAC / protein pairs (1-200 residues, integer / dyadic / non-dyadic gap penalties, 445 without and 442 with end-gap weights, 10 matrices). Sequences whose matrices would exceed 2^27 = 134 217 728 cells are refused (the program keeps three float matrices and a compass matrix, 16 bytes per cell): use stretcher_align (linear space). Use format / write_alignment (program 'needle') for the EMBOSS output files.",
+ "inputSchema": {
+  "type": "object",
+  "properties": {
+   "sequence1": {
+    "type": "string",
+    "description": "First sequence (-asequence), at least one residue."
+   },
+   "sequence2": {
+    "type": "string",
+    "description": "Second sequence (-bsequence), at least one residue."
+   },
+   "matrix": {
+    "type": "string",
+    "description": "Optional EMBOSS data matrix (-datafile): EBLOSUM62, EPAM250, EDNAFULL, ... or the NCBI name. Omit for EDNAFULL (nucleotide) / EBLOSUM62 (protein)."
+   },
+   "gapOpen": {
+    "type": "number",
+    "description": "Gap opening penalty (-gapopen, 1 - 100): the cost of a gap of length 1."
+   },
+   "gapExtend": {
+    "type": "number",
+    "description": "Gap extension penalty (-gapextend, 0 - 10): the cost of each further gap position."
+   },
+   "endWeight": {
+    "type": "boolean",
+    "description": "-endweight: apply the end-gap penalties (default false: end gaps are free)."
+   },
+   "endOpen": {
+    "type": "number",
+    "description": "-endopen (1 - 100): cost of an end gap of length 1 (used only with endWeight)."
+   },
+   "endExtend": {
+    "type": "number",
+    "description": "-endextend (0 - 10): cost of each further end-gap position (used only with endWeight)."
+   },
+   "format": {
+    "type": "string",
+    "description": "Optional output format; the alignment written in that format is returned in the result field 'formatted'. Biopython Bio.Align names: fasta, a2m, clustal, phylip, nexus, stockholm (byte for byte as Bio.Align.write; 'emboss:' + name selects the EMBOSS writer of the same name). EMBOSS -aformat names: pair, simple, srspair, srs, markx0, markx1, markx2, markx3, markx10, match, score, sam, tcoffee (two rows) and msf, mega, meganon, nexusnon, paup, paupnon, phylipnon, selex, treecon (any number of rows; EMBOSS prints the run date: now, UTC). Omit for no formatted text."
+   },
+   "names": {
+    "type": "array",
+    "items": {
+     "type": "string"
+    },
+    "description": "Optional names of the rows for the formatted output (default seq1, seq2, ...)."
+   }
+  },
+  "required": [
+   "sequence1",
+   "sequence2"
+  ]
+ },
+ "outputSchema": {
+  "type": "object",
+  "properties": {
+   "alignedSequence1": {
+    "type": "string",
+    "description": "Row of sequence1."
+   },
+   "alignedSequence2": {
+    "type": "string",
+    "description": "Row of sequence2."
+   },
+   "score": {
+    "type": "integer",
+    "description": "Alignment score (rounded)."
+   },
+   "alignmentType": {
+    "type": "string",
+    "description": "Global (needle) / Local (water)."
+   },
+   "startPosition1": {
+    "type": "integer",
+    "description": "0-based first aligned residue of sequence1."
+   },
+   "startPosition2": {
+    "type": "integer",
+    "description": "0-based first aligned residue of sequence2."
+   },
+   "endPosition1": {
+    "type": "integer",
+    "description": "End of the aligned part in sequence1."
+   },
+   "endPosition2": {
+    "type": "integer",
+    "description": "End of the aligned part in sequence2."
+   },
+   "exactScore": {
+    "type": "number",
+    "description": "The single-precision score of the program."
+   },
+   "formatted": {
+    "type": "string",
+    "description": "The alignment written in the requested format (null when format is omitted)."
+   }
+  },
+  "required": [
+   "alignedSequence1"
+  ]
+ },
+ "errors": [
+  {
+   "code": 1001,
+   "message": "a sequence argument is null or empty / names and matrix have the wrong shape"
+  },
+  {
+   "code": 1002,
+   "message": "a gap penalty is outside the range of the program / unknown matrix"
+  }
+ ],
+ "examples": [
+  {
+   "name": "DNA pair (needle a.fa b.fa)",
+   "input": {
+    "sequence1": "ACGTACGTAGCTAGCTAGCATCGATCGATCGAT",
+    "sequence2": "ACGTACGTAGCTAGATAGCATCGAATCGATCGAT"
+   },
+   "output": {
+    "alignedSequence1": "ACGTACGTAGCTAGCTAGCATCG-ATCGATCGAT",
+    "alignedSequence2": "ACGTACGTAGCTAGATAGCATCGAATCGATCGAT",
+    "score": 146,
+    "alignmentType": "Global",
+    "startPosition1": 0,
+    "startPosition2": 0,
+    "endPosition1": 33,
+    "endPosition2": 34,
+    "exactScore": 146.0,
+    "formatted": null
+   }
+  }
+ ]
+}

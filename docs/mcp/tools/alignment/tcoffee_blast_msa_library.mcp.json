@@ -1,0 +1,120 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "toolName": "tcoffee_blast_msa_library",
+ "serverName": "Alignment",
+ "version": "1.0.0",
+ "stability": "stable",
+ "methodId": "SequenceAligner.TCoffeeBlastMsaLibraryEntries",
+ "docRef": "Seqeron.Genomics.Alignment/SequenceAligner.TCoffeeBlast.cs",
+ "description": "The library t_coffee -method blastp_msa builds (-lib_only -out_lib) from the XML of the all-against-all BLAST search of the sequences (blastall -p blastp -m7, or BLAST+ -outfmt 5): for every high-scoring pair (Hsp_qseq / Hsp_hseq) the residue pairs of its gap-free alignment columns with the HSP's percent identity (integer, truncated) as the weight, an entry and its mirror, in the printed format of tcoffee_primary_library (0-based positions, sequence index of the first smaller than that of the second, self hits not printed). The BLAST search itself is the external program and is NOT run here: pass its XML in blastXml (one Iteration per sequence in input order; the hits are matched to the sequences by their Hit_def name). VERIFICATION: the library equals the one the installed t_coffee writes on every committed set with a library (70 or more oracle sets, scripts/alignment/generate_tcoffee_external_oracle.py).",
+ "inputSchema": {
+  "type": "object",
+  "properties": {
+   "names": {
+    "type": "array",
+    "items": {
+     "type": "string"
+    },
+    "description": "Sequence names exactly as they stand in the BLAST database / query (one per sequence); the hits of the XML are matched by name."
+   },
+   "sequences": {
+    "type": "array",
+    "items": {
+     "type": "string"
+    },
+    "description": "The sequences (at least one, none empty)."
+   },
+   "blastXml": {
+    "type": "string",
+    "description": "The BLAST XML output (-m7 / -outfmt 5) of the all-against-all search; one Iteration per sequence in input order."
+   }
+  },
+  "required": [
+   "names",
+   "sequences",
+   "blastXml"
+  ]
+ },
+ "outputSchema": {
+  "type": "object",
+  "properties": {
+   "entries": {
+    "type": "array",
+    "description": "Library entries: seqA, posA, seqB, posB (0-based), weight, count.",
+    "items": {
+     "type": "object"
+    }
+   },
+   "count": {
+    "type": "integer",
+    "description": "Number of entries."
+   }
+  },
+  "required": [
+   "entries"
+  ]
+ },
+ "errors": [
+  {
+   "code": 1001,
+   "message": "a sequence argument is null or empty / names and matrix have the wrong shape"
+  },
+  {
+   "code": 1002,
+   "message": "a gap penalty is outside the range of the program / unknown matrix"
+  }
+ ],
+ "examples": [
+  {
+   "name": "One HSP of a two-protein BLAST search",
+   "input": {
+    "names": [
+     "a",
+     "b"
+    ],
+    "sequences": [
+     "ACDEF",
+     "ACDF"
+    ],
+    "blastXml": "<BlastOutput><BlastOutput_iterations><Iteration><Iteration_iter-num>1</Iteration_iter-num><Iteration_hits><Hit><Hit_num>1</Hit_num><Hit_def>b</Hit_def><Hit_hsps><Hsp><Hsp_query-from>1</Hsp_query-from><Hsp_hit-from>1</Hsp_hit-from><Hsp_identity>4</Hsp_identity><Hsp_align-len>5</Hsp_align-len><Hsp_qseq>ACDEF</Hsp_qseq><Hsp_hseq>ACD-F</Hsp_hseq></Hsp></Hit_hsps></Hit></Iteration_hits></Iteration><Iteration><Iteration_iter-num>2</Iteration_iter-num><Iteration_hits></Iteration_hits></Iteration></BlastOutput_iterations></BlastOutput>"
+   },
+   "output": {
+    "entries": [
+     {
+      "seqA": 0,
+      "posA": 0,
+      "seqB": 1,
+      "posB": 0,
+      "weight": 80,
+      "count": 0
+     },
+     {
+      "seqA": 0,
+      "posA": 1,
+      "seqB": 1,
+      "posB": 1,
+      "weight": 80,
+      "count": 0
+     },
+     {
+      "seqA": 0,
+      "posA": 2,
+      "seqB": 1,
+      "posB": 2,
+      "weight": 80,
+      "count": 0
+     },
+     {
+      "seqA": 0,
+      "posA": 4,
+      "seqB": 1,
+      "posB": 3,
+      "weight": 80,
+      "count": 0
+     }
+    ],
+    "count": 4
+   }
+  }
+ ]
+}
