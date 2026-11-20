@@ -4,10 +4,11 @@
 
 <!-- BEGIN generated: do not edit by hand -->
 
-## Alignment (67 tools)
+## Alignment (68 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
+| `align_gap_profile` | `SequenceAligner.GlobalAlignAffine(GapScoreProfile)` | [doc](../../mcp/tools/alignment/align_gap_profile.md) |
 | `alignment_statistics` | `SequenceAligner.CalculateStatistics` | [doc](../../mcp/tools/alignment/alignment_statistics.md) |
 | `assemble_de_bruijn` | `SequenceAssembler.AssembleDeBruijn` | [doc](../../mcp/tools/alignment/assemble_de_bruijn.md) |
 | `assemble_olc` | `SequenceAssembler.AssembleOLC` | [doc](../../mcp/tools/alignment/assemble_olc.md) |

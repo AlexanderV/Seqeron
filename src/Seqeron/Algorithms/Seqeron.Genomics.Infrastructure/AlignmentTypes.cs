@@ -138,6 +138,127 @@ public enum EndGaps
 }
 
 /// <summary>
+/// The score of one kind of gap in the Seqeron convention: a gap of length k scores <c>Open + k·Extend</c> in the affine aligners
+/// (<see cref="Open"/> is added once per run), <c>k·Extend</c> in the linear aligners (<see cref="Open"/> is ignored there, as
+/// <see cref="ScoringMatrix.GapOpen"/> is). Both at most 0 (penalties), finite.
+/// </summary>
+/// <param name="Open">Score added once per gap run (affine aligners only); at most 0.</param>
+/// <param name="Extend">Score per gap position; at most 0.</param>
+public readonly record struct GapScore(double Open, double Extend)
+{
+    /// <summary>A free gap (score 0 per position): an end that may overhang without penalty.</summary>
+    public static GapScore Free => new(0, 0);
+
+    /// <summary>
+    /// A gap score from Biopython's convention (<c>open_gap_score</c> = score of the FIRST gap position, <c>extend_gap_score</c> = score of
+    /// each further position): <c>Open = openGapScore − extendGapScore</c>, <c>Extend = extendGapScore</c>.
+    /// </summary>
+    public static GapScore FromBiopython(double openGapScore, double extendGapScore) => new(openGapScore - extendGapScore, extendGapScore);
+}
+
+/// <summary>
+/// Gap scores that differ by gap direction and by position (Biopython <c>PairwiseAligner</c>'s twelve properties
+/// <c>{target,query}_{internal,left,right}_{open,extend}_gap_score</c>): for each of the two gap directions an <b>interior</b>
+/// score, a <b>left (start)</b> score (a gap run that begins the alignment) and a <b>right (end)</b> score (a gap run that ends it).
+/// <list type="bullet">
+/// <item>Direction 1 = a gap in sequence 2 opposite residues of sequence 1 (a Biopython <i>deletion</i>, i.e. a gap in the
+/// <b>query</b>): <see cref="Interior1"/> = <c>query_internal_*</c>, <see cref="Start1"/> = <c>query_left_*</c>, <see cref="End1"/> = <c>query_right_*</c>.</item>
+/// <item>Direction 2 = a gap in sequence 1 opposite residues of sequence 2 (a Biopython <i>insertion</i>, a gap in the <b>target</b>):
+/// <see cref="Interior2"/> = <c>target_internal_*</c>, <see cref="Start2"/> = <c>target_left_*</c>, <see cref="End2"/> = <c>target_right_*</c>.</item>
+/// </list>
+/// A <c>null</c> member means "the scoring's own gap score" (<see cref="ScoringMatrix.GapOpen"/> / <see cref="ScoringMatrix.GapExtend"/>, or
+/// <see cref="MatrixScoring.GapOpen"/> / <see cref="MatrixScoring.GapExtend"/>) — so a profile with every member null is the ordinary
+/// global alignment. <see cref="GapScore.Free"/> in a start / end member is a free overhang: the <see cref="EndGaps"/> policies are the
+/// profiles made only of free and default members (<see cref="FromEndGaps"/>). A gap run is a start run when it begins at the first
+/// alignment column and an end run when it finishes at the last one (a column of the dynamic-programming matrix border); every
+/// other run is interior. Local alignments never start or end in a gap: the profile has no effect on them.
+/// </summary>
+public sealed record GapScoreProfile(
+    GapScore? Interior1 = null, GapScore? Start1 = null, GapScore? End1 = null,
+    GapScore? Interior2 = null, GapScore? Start2 = null, GapScore? End2 = null)
+{
+    /// <summary>The profile of an <see cref="EndGaps"/> policy: <see cref="GapScore.Free"/> for each free end, the scoring's gap score otherwise.</summary>
+    public static GapScoreProfile FromEndGaps(EndGaps free) => new(
+        Start1: free.HasFlag(EndGaps.FreeStart1) ? GapScore.Free : null,
+        End1: free.HasFlag(EndGaps.FreeEnd1) ? GapScore.Free : null,
+        Start2: free.HasFlag(EndGaps.FreeStart2) ? GapScore.Free : null,
+        End2: free.HasFlag(EndGaps.FreeEnd2) ? GapScore.Free : null);
+
+    /// <summary>True when at least one start / end member is <see cref="GapScore.Free"/> (zero open and zero extend).</summary>
+    public bool HasFreeEnd => IsFree(Start1) || IsFree(End1) || IsFree(Start2) || IsFree(End2);
+
+    private static bool IsFree(GapScore? g) => g is { Open: 0, Extend: 0 };
+
+    /// <summary>
+    /// The profile of a Biopython <c>PairwiseAligner</c> from its gap-score properties (name → value, Biopython convention: the
+    /// <c>open</c> scores are the score of the first gap position, the <c>extend</c> scores of each further one). Both name families of Biopython 1.88 are accepted:
+    /// the current <c>[open_|extend_][internal_|left_|right_|end_]{insertion|deletion|gap}_score</c> (insertion = a gap in the target = sequence 1,
+    /// deletion = a gap in the query) and the deprecated <c>[target_|query_][internal_|left_|right_|end_][open_|extend_]gap_score</c> — i.e. the twelve leaves
+    /// <c>{open,extend}_{internal,left,right}_{insertion,deletion}_score</c> (= <c>{target,query}_{internal,left,right}_{open,extend}_gap_score</c>) and every aggregate of the
+    /// property tree (<c>open_gap_score</c>, <c>end_extend_gap_score</c>, <c>left_gap_score</c>, <c>insertion_score</c>, <c>target_gap_score</c>, …; without open / extend both are set).
+    /// More specific names override more general ones; equally specific names are applied in alphabetical order. An aggregate that sets only one of open / extend for a slot
+    /// copies it to the other (<c>open = extend</c>, a linear gap); a slot nobody names stays <c>null</c> (the scoring's own score).
+    /// </summary>
+    /// <remarks>Direction note: Biopython's target is sequence 1, its query sequence 2. <c>insertion</c> / <c>target</c> = a gap in sequence 1 (<see cref="Interior2"/>, <see cref="Start2"/>, <see cref="End2"/>), <c>deletion</c> / <c>query</c> = a gap in sequence 2 (<see cref="Interior1"/>, …).</remarks>
+    /// <param name="properties">Biopython property names and values.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="properties"/> is null.</exception>
+    /// <exception cref="ArgumentException">An unknown name, or a non-finite value.</exception>
+    public static GapScoreProfile FromBiopython(IReadOnlyDictionary<string, double> properties)
+    {
+        ArgumentNullException.ThrowIfNull(properties);
+        // slot index = direction (0 target / insertion, 1 query / deletion) * 3 + position (0 internal, 1 left, 2 right)
+        var open = new double?[6];
+        var extend = new double?[6];
+        var parsed = new List<(string Name, int Specificity, int[] Slots, bool SetOpen, bool SetExtend, double Value)>();
+        foreach (var (name, value) in properties)
+        {
+            if (!double.IsFinite(value))
+                throw new ArgumentException($"Gap score '{name}' must be finite, got {value}.", nameof(properties));
+            var tokens = name.Split('_');
+            if (tokens.Length < 2 || tokens[^1] != "score" || tokens.Distinct().Count() != tokens.Length)
+                throw new ArgumentException($"Unknown Biopython gap-score property '{name}'.", nameof(properties));
+            var body = tokens[..^1];
+            if (body.Any(t => t is not ("target" or "query" or "insertion" or "deletion" or "gap" or "internal" or "left" or "right" or "end" or "open" or "extend")))
+                throw new ArgumentException($"Unknown Biopython gap-score property '{name}'.", nameof(properties));
+            bool target = body.Contains("target") || body.Contains("insertion");
+            bool query = body.Contains("query") || body.Contains("deletion");
+            bool gap = body.Contains("gap");
+            if (!(target || query || gap) || (target && query))
+                throw new ArgumentException($"Unknown Biopython gap-score property '{name}'.", nameof(properties));
+            int[] dirs = [0, 1];
+            if (target) dirs = [0];
+            else if (query) dirs = [1];
+            var positions = new List<int>();
+            if (body.Contains("internal")) positions.Add(0);
+            if (body.Contains("left") || body.Contains("end")) positions.Add(1);
+            if (body.Contains("right") || body.Contains("end")) positions.Add(2);
+            if (positions.Count == 0) positions.AddRange([0, 1, 2]);
+            bool setOpen = !body.Contains("extend"), setExtend = !body.Contains("open");
+            int specificity = body.Count(t => t is not "gap");
+            parsed.Add((name, specificity, dirs.SelectMany(d => positions.Select(p => d * 3 + p)).Distinct().ToArray(), setOpen, setExtend, value));
+        }
+
+        foreach (var item in parsed.OrderBy(x => x.Specificity).ThenBy(x => x.Name, StringComparer.Ordinal))
+            foreach (int slot in item.Slots)
+            {
+                if (item.SetOpen) open[slot] = item.Value;
+                if (item.SetExtend) extend[slot] = item.Value;
+            }
+
+        GapScore? Slot(int s)
+        {
+            if (open[s] is null && extend[s] is null) return null;
+            double o = open[s] ?? extend[s]!.Value, e = extend[s] ?? open[s]!.Value;
+            return GapScore.FromBiopython(o, e);
+        }
+
+        return new GapScoreProfile(
+            Interior1: Slot(3), Start1: Slot(4), End1: Slot(5),
+            Interior2: Slot(0), Start2: Slot(1), End2: Slot(2));
+    }
+}
+
+/// <summary>
 /// Result of pairwise sequence alignment.
 /// </summary>
 /// <param name="AlignedSequence1">Aligned (gapped, '-') segment of sequence 1.</param>

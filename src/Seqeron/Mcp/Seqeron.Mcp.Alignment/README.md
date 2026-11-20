@@ -76,6 +76,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `scaffold_contigs` | Builds scaffolds by joining contigs using paired-end link records, inserting gapCharacter between linked contigs to span the indicated ga… |
 | `semi_global_align` | Semi-global (fitting) pairwise alignment with free end gaps in sequence2. Linear gap model: every gap position scores gapExtend; gapOpen is… |
 | `semi_global_align_affine` | Semi-global (fitting) pairwise alignment with affine gap costs: sequence1 is aligned end to end inside sequence2 (free leading/trailing seq… |
+| `align_gap_profile` | Pairwise alignment with Biopython's twelve per-direction / per-end gap scores (`{open,extend}_{internal,left,right}_{insertion,deletion}_score` and every aggregate; `gapScores` name -> value, `endGaps` free flags, `mode` global / semi_global / local, linear or affine, scalar or matrix with fractional gaps); on the existing cores; equal to Biopython 1.88 on 998 / 1000 rows (the other two are a documented Biopython linear-NW corner) (B09 A3-10). |
 | `sequence_identity` | Computes percent-identity (fraction in [0,1]) between two equal-length sequences via case-insensitive position-by-position comparison. |
 | `sum_of_pairs_score` | Sum-of-pairs score of a multiple alignment: linear or affine (Altschul 1989) gaps, simple scores or an EMBOSS substitution matrix (B09 A2-36). |
 | `tcoffee_guide_tree` | The T-Coffee 13.41 guide tree (k-tuple distances, neighbour joining, binary rooting) as Newick (B09 A2-36). |

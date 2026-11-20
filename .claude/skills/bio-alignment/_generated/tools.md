@@ -6,6 +6,7 @@
 
 | tool | server | Method ID | doc |
 |------|--------|-----------|-----|
+| `align_gap_profile` | Alignment | `SequenceAligner.GlobalAlignAffine(GapScoreProfile)` | [doc](../../../../docs/mcp/tools/alignment/align_gap_profile.md) |
 | `alignment_statistics` | Alignment | `SequenceAligner.CalculateStatistics` | [doc](../../../../docs/mcp/tools/alignment/alignment_statistics.md) |
 | `assemble_de_bruijn` | Alignment | `SequenceAssembler.AssembleDeBruijn` | [doc](../../../../docs/mcp/tools/alignment/assemble_de_bruijn.md) |
 | `assemble_olc` | Alignment | `SequenceAssembler.AssembleOLC` | [doc](../../../../docs/mcp/tools/alignment/assemble_olc.md) |

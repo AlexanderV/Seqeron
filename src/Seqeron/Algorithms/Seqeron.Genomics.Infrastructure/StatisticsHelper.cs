@@ -1552,6 +1552,160 @@ namespace Seqeron.Genomics.Infrastructure
         }
 
         private static bool? Not(bool? a) => a.HasValue ? !a.Value : null;
+
+        /// <summary>
+        /// Quantile function (probit, inverse CDF) of the standard normal distribution: Wichura's algorithm AS 241 (PPND16, J. Royal Statistical Society C 37:477-484, 1988),
+        /// accurate to about 1e-16 relative; equals <c>scipy.stats.norm.ppf</c> / R <c>qnorm</c> (to ≤ 1e-15 relative on the sweep of the unit tests). −∞ for p = 0, +∞ for p = 1.
+        /// </summary>
+        /// <param name="p">Probability in [0, 1].</param>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="p"/> is outside [0, 1] or NaN.</exception>
+        public static double NormalQuantile(double p)
+        {
+            if (!(p >= 0.0 && p <= 1.0))
+                throw new ArgumentOutOfRangeException(nameof(p), p, "Probability must be in [0, 1].");
+            if (p == 0.0) return double.NegativeInfinity;
+            if (p == 1.0) return double.PositiveInfinity;
+            double q = p - 0.5;
+            double r, value;
+            if (Math.Abs(q) <= 0.425)
+            {
+                r = 0.180625 - q * q;
+                value = q * (((((((2.5090809287301226727e3 * r + 3.3430575583588128105e4) * r + 6.7265770927008700853e4) * r + 4.5921953931549871457e4) * r + 1.3731693765509461125e4) * r + 1.9715909503065514427e3) * r + 1.3314166789178437745e2) * r + 3.3871328727963666080)
+                    / (((((((5.2264952788528545610e3 * r + 2.8729085735721942674e4) * r + 3.9307895800092710610e4) * r + 2.1213794301586595867e4) * r + 5.3941960214247511077e3) * r + 6.8718700749205790830e2) * r + 4.2313330701600911252e1) * r + 1.0);
+                return value;
+            }
+
+            r = q < 0 ? p : 1.0 - p;
+            r = Math.Sqrt(-Math.Log(r));
+            if (r <= 5.0)
+            {
+                r -= 1.6;
+                value = (((((((7.74545014278341407640e-4 * r + 2.27238449892691845833e-2) * r + 2.41780725177450611770e-1) * r + 1.27045825245236838258) * r + 3.64784832476320460504) * r + 5.76949722146069140550) * r + 4.63033784615654529590) * r + 1.42343711074968357734)
+                    / (((((((1.05075007164441684324e-9 * r + 5.47593808499534494600e-4) * r + 1.51986665636164571966e-2) * r + 1.48103976427480074590e-1) * r + 6.89767334985100004550e-1) * r + 1.67638483018380384940) * r + 2.05319162663775882187) * r + 1.0);
+            }
+            else
+            {
+                r -= 5.0;
+                value = (((((((2.01033439929228813265e-7 * r + 2.71155556874348757815e-5) * r + 1.24266094738807843860e-3) * r + 2.65321895265761230930e-2) * r + 2.96560571828504891230e-1) * r + 1.78482653991729133580) * r + 5.46378491116411436990) * r + 6.65790464350110377720)
+                    / (((((((2.04426310338993978564e-15 * r + 1.42151175831644588870e-7) * r + 1.84631831751005468180e-5) * r + 7.86869131145613259100e-4) * r + 1.48753612908506148525e-2) * r + 1.36929880922735805310e-1) * r + 5.99832206555887937690e-1) * r + 1.0);
+            }
+
+            return q < 0.0 ? -value : value;
+        }
+
+        /// <summary>
+        /// Root of <paramref name="f"/> in [<paramref name="a"/>, <paramref name="b"/>] by Brent's method, statement for statement the C routine of
+        /// <c>scipy.optimize.brentq</c> (scipy/optimize/Zeros/brentq.c; Brent 1973, <i>Algorithms for Minimization without Derivatives</i>, ch. 4), so that the same bracket gives the
+        /// same root to the last digit: interpolation / extrapolation steps accepted only when short, bisection otherwise; converged when
+        /// |bisection step| &lt; (xtol + rtol·|x|)/2.
+        /// </summary>
+        /// <param name="f">The function; f(a) and f(b) must have different signs.</param>
+        /// <param name="a">Lower bracket end.</param>
+        /// <param name="b">Upper bracket end.</param>
+        /// <param name="xtol">Absolute tolerance (scipy default 2e-12, must be positive).</param>
+        /// <param name="rtol">Relative tolerance (scipy default 4·ε = 8.881784197001252e-16, at least 4·ε).</param>
+        /// <param name="maxIterations">Iteration limit (scipy default 100).</param>
+        /// <returns>The root.</returns>
+        /// <exception cref="ArgumentException">f(a) and f(b) have the same sign (scipy: "f(a) and f(b) must have different signs"), or a tolerance is invalid.</exception>
+        /// <exception cref="InvalidOperationException">No convergence within <paramref name="maxIterations"/> iterations.</exception>
+        public static double BrentRoot(Func<double, double> f, double a, double b, double xtol = 2e-12, double rtol = 8.881784197001252e-16, int maxIterations = 100)
+        {
+            ArgumentNullException.ThrowIfNull(f);
+            if (!(xtol > 0.0)) throw new ArgumentException("xtol must be positive.", nameof(xtol));
+            if (!(rtol >= 8.881784197001252e-16)) throw new ArgumentException("rtol too small (4 * machine epsilon).", nameof(rtol));
+            double xpre = a, xcur = b, xblk = 0.0, fpre = f(xpre), fcur = f(xcur), fblk = 0.0, spre = 0.0, scur = 0.0;
+            if (fpre == 0.0) return xpre;
+            if (fcur == 0.0) return xcur;
+            if (double.IsNegative(fpre) == double.IsNegative(fcur))
+                throw new ArgumentException("f(a) and f(b) must have different signs.");
+            for (int i = 0; i < maxIterations; i++)
+            {
+                if (fpre != 0.0 && fcur != 0.0 && double.IsNegative(fpre) != double.IsNegative(fcur))
+                {
+                    xblk = xpre;
+                    fblk = fpre;
+                    spre = scur = xcur - xpre;
+                }
+
+                if (Math.Abs(fblk) < Math.Abs(fcur))
+                {
+                    xpre = xcur;
+                    xcur = xblk;
+                    xblk = xpre;
+                    fpre = fcur;
+                    fcur = fblk;
+                    fblk = fpre;
+                }
+
+                double delta = (xtol + rtol * Math.Abs(xcur)) / 2.0;
+                double sbis = (xblk - xcur) / 2.0;
+                if (fcur == 0.0 || Math.Abs(sbis) < delta)
+                    return xcur;
+
+                if (Math.Abs(spre) > delta && Math.Abs(fcur) < Math.Abs(fpre))
+                {
+                    double stry;
+                    if (xpre == xblk)
+                    {
+                        stry = -fcur * (xcur - xpre) / (fcur - fpre); // interpolate
+                    }
+                    else
+                    {
+                        double dpre = (fpre - fcur) / (xpre - xcur); // extrapolate
+                        double dblk = (fblk - fcur) / (xblk - xcur);
+                        stry = -fcur * (fblk * dblk - fpre * dpre) / (dblk * dpre * (fblk - fpre));
+                    }
+
+                    if (2.0 * Math.Abs(stry) < Math.Min(Math.Abs(spre), 3.0 * Math.Abs(sbis) - delta))
+                    {
+                        spre = scur; // good short step
+                        scur = stry;
+                    }
+                    else
+                    {
+                        spre = sbis; // bisect
+                        scur = sbis;
+                    }
+                }
+                else
+                {
+                    spre = sbis; // bisect
+                    scur = sbis;
+                }
+
+                xpre = xcur;
+                fpre = fcur;
+                if (Math.Abs(scur) > delta)
+                    xcur += scur;
+                else
+                    xcur += sbis > 0.0 ? delta : -delta;
+                fcur = f(xcur);
+            }
+
+            throw new InvalidOperationException($"Brent's method did not converge in {maxIterations} iterations.");
+        }
+
+        /// <summary>
+        /// Cumulative distribution function P(X ≤ k) of the binomial distribution (<c>scipy.stats.binom.cdf(k, n, p)</c>; a non-integer k is floored), through
+        /// P(X ≤ k) = I_{1−p}(n − k, k + 1) (<see cref="RegularizedIncompleteBeta"/>).
+        /// </summary>
+        /// <param name="k">Number of successes (any real number).</param>
+        /// <param name="trials">Number of trials n ≥ 0.</param>
+        /// <param name="p">Success probability in [0, 1].</param>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="trials"/> &lt; 0 or <paramref name="p"/> outside [0, 1] / NaN.</exception>
+        public static double BinomialCdf(double k, long trials, double p)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(trials);
+            if (!(p >= 0.0 && p <= 1.0))
+                throw new ArgumentOutOfRangeException(nameof(p), p, "Probability must be in [0, 1].");
+            double kf = Math.Floor(k);
+            if (double.IsNaN(kf)) return double.NaN;
+            if (kf < 0.0) return 0.0;
+            if (kf >= trials) return 1.0;
+            if (p == 0.0) return 1.0;
+            if (p == 1.0) return 0.0;
+            return RegularizedIncompleteBeta(1.0 - p, trials - kf, kf + 1.0);
+        }
     }
 
     /// <summary>

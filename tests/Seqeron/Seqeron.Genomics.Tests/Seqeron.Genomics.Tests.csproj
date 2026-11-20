@@ -207,6 +207,13 @@
     <!-- GENOMIC-TANDEM-001 (B09 A3-8): EMBOSS etandem / equicktandem 6.6.0 original-format output on random and planted sequences (1700 + 1300 rows);
          scripts/analysis/generate_emboss_tandem_oracle.py. -->
     <EmbeddedResource Include="TestData\Analysis\emboss_tandem_oracle.tsv" />
+    <!-- ALIGN-SEMI-001 (B09 A3-10): Biopython 1.88 PairwiseAligner score with the twelve per-direction / per-end gap-score properties (1000 rows: global | local, linear | affine,
+         scalar | EDNAFULL | BLOSUM62); scripts/alignment/generate_gap_profile_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\gap_profile_oracle.tsv" />
+    <!-- GENOMIC-SIMILARITY-001 (B09 A3-11): sourmash 4.9.4 ANI with confidence intervals (1120 rows, scripts/analysis/generate_ani_ci_oracle.py) and mash 2.3 dist
+         distance / p-value / shared hashes (400 rows, scripts/analysis/generate_mash_dist_oracle.py). -->
+    <EmbeddedResource Include="TestData\Analysis\ani_ci_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Analysis\mash_dist_oracle.tsv" />
     <!-- GENOMIC-SIMILARITY-001 (B09 F32-F34): exact k-mer Jaccard (percent), literal == Python set == scipy jaccard on presence
          vectors, canonical == Python set over min(w, revcomp w) == sourmash 4.9.4 MinHash(scaled=1); 2086 rows;
          scripts/analysis/generate_similarity_oracle.py. -->

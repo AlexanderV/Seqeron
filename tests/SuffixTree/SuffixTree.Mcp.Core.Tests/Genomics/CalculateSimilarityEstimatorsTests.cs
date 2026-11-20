@@ -60,4 +60,30 @@ public class CalculateSimilarityEstimatorsTests
         Assert.Throws<ArgumentOutOfRangeException>(() => SuffixTreeGenomicsTools.CalculateSimilarity("ACGTACGT", "ACGTACGA", 3, false, null, 0));
         Assert.Throws<ArgumentOutOfRangeException>(() => SuffixTreeGenomicsTools.CalculateSimilarity("ACGTACGT", "ACGTACGA", 40, false, 10));
     }
+
+    [Test]
+    public void CalculateSimilarity_FracMinHash_ReportsSourmashAniEstimatesAndInterval()
+    {
+        // library oracle: 1 120 sourmash 4.9.4 rows (GenomicAnalyzer_AniConfidence_Oracle_Tests); here the tool wiring on a 6 kb related pair
+        var rnd = new Random(2026);
+        string a = new(Enumerable.Range(0, 6000).Select(_ => "ACGT"[rnd.Next(4)]).ToArray());
+        string b = new(a.Select(c => rnd.NextDouble() < 0.03 ? "ACGT"[rnd.Next(4)] : c).ToArray());
+        var plain = SuffixTreeGenomicsTools.CalculateSimilarity(a, b, 21, canonical: true, scaled: 2);
+        var r = SuffixTreeGenomicsTools.CalculateSimilarity(a, b, 21, canonical: true, scaled: 2, estimateAniInterval: true, confidence: 0.99);
+        Assert.Multiple(() =>
+        {
+            Assert.That(plain.AniEstimates!.ContainmentAInB.DistanceLow, Is.Null);
+            var c = r.AniEstimates!.ContainmentAInB;
+            Assert.That(c.DistanceLow, Is.LessThan(c.Distance));
+            Assert.That(c.DistanceHigh, Is.GreaterThan(c.Distance));
+            Assert.That(c.Ani, Is.EqualTo(r.ContainmentAniAInB).Within(1e-12));
+            Assert.That(c.AniLow, Is.EqualTo(1.0 - c.DistanceHigh).Within(1e-15));
+            Assert.That(c.SizeIsInaccurate, Is.False);
+            Assert.That(r.AniEstimates.Jaccard.JaccardError, Is.Not.Null);
+            Assert.That(r.AniEstimates.MaxContainment.Distance, Is.LessThanOrEqualTo(c.Distance + 1e-12));
+        });
+        // the exact and Mash estimators carry no sourmash ANI results
+        Assert.That(SuffixTreeGenomicsTools.CalculateSimilarity("ATGC", "ATGA", 2).AniEstimates, Is.Null);
+        Assert.Throws<ArgumentOutOfRangeException>(() => SuffixTreeGenomicsTools.CalculateSimilarity(a, b, 21, scaled: 2, estimateAniInterval: true, confidence: 1.0));
+    }
 }

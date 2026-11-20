@@ -1,5 +1,12 @@
 [
   {
+    "tool": "align_gap_profile",
+    "server": "Alignment",
+    "methodId": "SequenceAligner.GlobalAlignAffine(GapScoreProfile)",
+    "docPath": "docs/mcp/tools/alignment/align_gap_profile.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.GapProfile.cs"
+  },
+  {
     "tool": "alignment_statistics",
     "server": "Alignment",
     "methodId": "SequenceAligner.CalculateStatistics",

@@ -130,7 +130,33 @@ public record CalculateSimilarityResult(
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     int? DenominatorHashes = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
-    double? MashPValue = null);
+    double? MashPValue = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    AniEstimatesDto? AniEstimates = null);
+
+/// <summary>One sourmash ANI result of calculate_similarity (scaled): distance, interval, ANI and the quality flags.</summary>
+public record AniEstimateDto(
+    double Distance,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    double? DistanceLow,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    double? DistanceHigh,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    double? Ani,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    double? AniLow,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    double? AniHigh,
+    double ProbabilityNothingInCommon,
+    bool ProbabilityExceedsThreshold,
+    bool SizeIsInaccurate,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    double? JaccardError = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    bool? JaccardErrorExceedsThreshold = null);
+
+/// <summary>The four sourmash ANI results of calculate_similarity with scaled: containment_ani both ways, max_containment_ani, jaccard_ani.</summary>
+public record AniEstimatesDto(AniEstimateDto ContainmentAInB, AniEstimateDto ContainmentBInA, AniEstimateDto MaxContainment, AniEstimateDto Jaccard);
 
 /// <summary>
 /// Result of hamming_distance operation.

@@ -6,7 +6,7 @@
  "stability": "stable",
  "methodId": "GenomicAnalyzer.CalculateSimilarity",
  "docRef": "Seqeron.Genomics/GenomicAnalyzer.cs#L707",
- "description": "Calculate similarity between two DNA sequences using the k-mer Jaccard index |A∩B|/|A∪B| of the distinct k-mer sets, as a percentage (0-100 scale; 0 when both sets are empty). Default: the exact index; compares literal (strand-specific) k-mers like a Python set / scipy jaccard; canonical=true uses min(k-mer, reverse complement) as Mash and sourmash do, so a sequence and its reverse complement score 100. sketchSize = s estimates it from a Mash bottom-s MinHash sketch (MurmurHash3-x64-128 seed 42, as 'mash dist'; k <= 32; canonical k-mers are Mash's default); scaled = S from a sourmash FracMinHash sketch (also gives the containment indices and containment ANI). The result always adds jaccardDistance (1 - J), mashDistance (-ln(2J/(1+J))/k) and jaccardAni = (2J/(1+J))^(1/k); the exact and FracMinHash estimators add containmentAInB / containmentBInA / maxContainment and containmentAniAInB / containmentAniBInA (C^(1/k), sourmash containment ANI point estimate); sketches add sharedHashes / denominatorHashes (and mashPValue for a bottom-s sketch). Plain A/C/G/T input only (sequences with N: the Analysis server accepts IUPAC input). Verified against sourmash 4.9.4.",
+ "description": "Calculate similarity between two DNA sequences using the k-mer Jaccard index |A∩B|/|A∪B| of the distinct k-mer sets, as a percentage (0-100 scale; 0 when both sets are empty). Default: the exact index; compares literal (strand-specific) k-mers like a Python set / scipy jaccard; canonical=true uses min(k-mer, reverse complement) as Mash and sourmash do, so a sequence and its reverse complement score 100. sketchSize = s estimates it from a Mash bottom-s MinHash sketch (MurmurHash3-x64-128 seed 42, as 'mash dist'; k <= 32; canonical k-mers are Mash's default); scaled = S from a sourmash FracMinHash sketch (also gives the containment indices and containment ANI). The result always adds jaccardDistance (1 - J), mashDistance (-ln(2J/(1+J))/k) and jaccardAni = (2J/(1+J))^(1/k); the exact and FracMinHash estimators add containmentAInB / containmentBInA / maxContainment and containmentAniAInB / containmentAniBInA (C^(1/k), sourmash containment ANI point estimate); sketches add sharedHashes / denominatorHashes (and mashPValue for a bottom-s sketch). Plain A/C/G/T input only (sequences with N: the Analysis server accepts IUPAC input). Verified against sourmash 4.9.4. With scaled the result also carries aniEstimates: the sourmash ANI results containment_ani (both ways), max_containment_ani and jaccard_ani with distance, probabilityNothingInCommon / probabilityExceedsThreshold, sizeIsInaccurate, the Jaccard-ANI error bound and, with estimateAniInterval = true, the confidence interval of the ANI (Hera et al. 2023; verified against sourmash 4.9.4 on 1 120 rows and mash 2.3 on 400 rows).",
  "inputSchema": {
   "type": "object",
   "properties": {
@@ -38,6 +38,16 @@
    "scaled": {
     "type": "integer",
     "description": "Estimate from a sourmash FracMinHash sketch with this scaled factor (1..4294967295). Cannot be combined with sketchSize."
+   },
+   "estimateAniInterval": {
+    "type": "boolean",
+    "description": "With scaled: compute the confidence interval of the containment ANI (sourmash estimate_ci; default false).",
+    "default": false
+   },
+   "confidence": {
+    "type": "number",
+    "description": "Confidence level of the ANI interval in (0, 1) (default 0.95).",
+    "default": 0.95
    }
   },
   "required": [
@@ -100,6 +110,187 @@
    "mashPValue": {
     "type": "number",
     "description": "bottom-s sketch only"
+   },
+   "aniEstimates": {
+    "type": "object",
+    "properties": {
+     "containmentAInB": {
+      "type": "object",
+      "properties": {
+       "distance": {
+        "type": "number"
+       },
+       "distanceLow": {
+        "type": "number"
+       },
+       "distanceHigh": {
+        "type": "number"
+       },
+       "ani": {
+        "type": "number"
+       },
+       "aniLow": {
+        "type": "number"
+       },
+       "aniHigh": {
+        "type": "number"
+       },
+       "probabilityNothingInCommon": {
+        "type": "number"
+       },
+       "probabilityExceedsThreshold": {
+        "type": "boolean"
+       },
+       "sizeIsInaccurate": {
+        "type": "boolean"
+       },
+       "jaccardError": {
+        "type": "number"
+       },
+       "jaccardErrorExceedsThreshold": {
+        "type": "boolean"
+       }
+      },
+      "required": [
+       "distance",
+       "probabilityNothingInCommon",
+       "probabilityExceedsThreshold",
+       "sizeIsInaccurate"
+      ]
+     },
+     "containmentBInA": {
+      "type": "object",
+      "properties": {
+       "distance": {
+        "type": "number"
+       },
+       "distanceLow": {
+        "type": "number"
+       },
+       "distanceHigh": {
+        "type": "number"
+       },
+       "ani": {
+        "type": "number"
+       },
+       "aniLow": {
+        "type": "number"
+       },
+       "aniHigh": {
+        "type": "number"
+       },
+       "probabilityNothingInCommon": {
+        "type": "number"
+       },
+       "probabilityExceedsThreshold": {
+        "type": "boolean"
+       },
+       "sizeIsInaccurate": {
+        "type": "boolean"
+       },
+       "jaccardError": {
+        "type": "number"
+       },
+       "jaccardErrorExceedsThreshold": {
+        "type": "boolean"
+       }
+      },
+      "required": [
+       "distance",
+       "probabilityNothingInCommon",
+       "probabilityExceedsThreshold",
+       "sizeIsInaccurate"
+      ]
+     },
+     "maxContainment": {
+      "type": "object",
+      "properties": {
+       "distance": {
+        "type": "number"
+       },
+       "distanceLow": {
+        "type": "number"
+       },
+       "distanceHigh": {
+        "type": "number"
+       },
+       "ani": {
+        "type": "number"
+       },
+       "aniLow": {
+        "type": "number"
+       },
+       "aniHigh": {
+        "type": "number"
+       },
+       "probabilityNothingInCommon": {
+        "type": "number"
+       },
+       "probabilityExceedsThreshold": {
+        "type": "boolean"
+       },
+       "sizeIsInaccurate": {
+        "type": "boolean"
+       },
+       "jaccardError": {
+        "type": "number"
+       },
+       "jaccardErrorExceedsThreshold": {
+        "type": "boolean"
+       }
+      },
+      "required": [
+       "distance",
+       "probabilityNothingInCommon",
+       "probabilityExceedsThreshold",
+       "sizeIsInaccurate"
+      ]
+     },
+     "jaccard": {
+      "type": "object",
+      "properties": {
+       "distance": {
+        "type": "number"
+       },
+       "distanceLow": {
+        "type": "number"
+       },
+       "distanceHigh": {
+        "type": "number"
+       },
+       "ani": {
+        "type": "number"
+       },
+       "aniLow": {
+        "type": "number"
+       },
+       "aniHigh": {
+        "type": "number"
+       },
+       "probabilityNothingInCommon": {
+        "type": "number"
+       },
+       "probabilityExceedsThreshold": {
+        "type": "boolean"
+       },
+       "sizeIsInaccurate": {
+        "type": "boolean"
+       },
+       "jaccardError": {
+        "type": "number"
+       },
+       "jaccardErrorExceedsThreshold": {
+        "type": "boolean"
+       }
+      },
+      "required": [
+       "distance",
+       "probabilityNothingInCommon",
+       "probabilityExceedsThreshold",
+       "sizeIsInaccurate"
+      ]
+     }
+    }
    }
   },
   "required": [

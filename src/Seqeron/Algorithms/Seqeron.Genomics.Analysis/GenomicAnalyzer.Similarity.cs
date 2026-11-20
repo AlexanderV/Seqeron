@@ -139,11 +139,11 @@ public static partial class GenomicAnalyzer
     /// <exception cref="ArgumentException">Both <paramref name="sketchSize"/> and <paramref name="scaled"/> are given.</exception>
     /// <exception cref="ArgumentOutOfRangeException">Invalid k, sketch size or scaled.</exception>
     public static SimilarityEstimate CompareSimilarity(
-        DnaSequence sequence1, DnaSequence sequence2, int kmerSize = DefaultKmerSize, bool canonical = false, int? sketchSize = null, long? scaled = null)
+        DnaSequence sequence1, DnaSequence sequence2, int kmerSize = DefaultKmerSize, bool canonical = false, int? sketchSize = null, long? scaled = null, AniOptions? aniOptions = null)
     {
         ArgumentNullException.ThrowIfNull(sequence1);
         ArgumentNullException.ThrowIfNull(sequence2);
-        return CompareSimilarityCore(sequence1.Sequence, sequence2.Sequence, kmerSize, canonical, sketchSize, scaled);
+        return CompareSimilarityCore(sequence1.Sequence, sequence2.Sequence, kmerSize, canonical, sketchSize, scaled, aniOptions);
     }
 
     /// <summary>
@@ -159,14 +159,14 @@ public static partial class GenomicAnalyzer
     /// <exception cref="ArgumentException">Both <paramref name="sketchSize"/> and <paramref name="scaled"/> are given.</exception>
     /// <exception cref="ArgumentOutOfRangeException">Invalid k, sketch size or scaled.</exception>
     public static SimilarityEstimate CompareSimilarity(
-        string sequence1, string sequence2, int kmerSize = DefaultKmerSize, bool canonical = false, int? sketchSize = null, long? scaled = null)
+        string sequence1, string sequence2, int kmerSize = DefaultKmerSize, bool canonical = false, int? sketchSize = null, long? scaled = null, AniOptions? aniOptions = null)
     {
         ArgumentNullException.ThrowIfNull(sequence1);
         ArgumentNullException.ThrowIfNull(sequence2);
-        return CompareSimilarityCore(sequence1, sequence2, kmerSize, canonical, sketchSize, scaled);
+        return CompareSimilarityCore(sequence1, sequence2, kmerSize, canonical, sketchSize, scaled, aniOptions);
     }
 
-    private static SimilarityEstimate CompareSimilarityCore(string a, string b, int kmerSize, bool canonical, int? sketchSize, long? scaled)
+    private static SimilarityEstimate CompareSimilarityCore(string a, string b, int kmerSize, bool canonical, int? sketchSize, long? scaled, AniOptions? aniOptions = null)
     {
         int k = kmerSize;
         if (k < 1)
@@ -192,7 +192,8 @@ public static partial class GenomicAnalyzer
             return new SimilarityEstimate(
                 SimilarityEstimator.FracMinHash, k, canonical, frac.Jaccard, 1.0 - frac.Jaccard, KmerAnalyzer.MashDistanceFromJaccard(frac.Jaccard, k), JaccardToAni(frac.Jaccard, k),
                 frac.ContainmentAInB, frac.ContainmentBInA, frac.MaxContainment, ContainmentToAni(frac.ContainmentAInB, k), ContainmentToAni(frac.ContainmentBInA, k),
-                frac.SharedHashes, frac.UnionHashes, null);
+                frac.SharedHashes, frac.UnionHashes, null,
+                AniEstimates(sa, sb, frac, k, aniOptions ?? new AniOptions()));
         }
 
         var options = new KmerCountingOptions(Canonical: canonical, AcgtOnly: true);
@@ -204,6 +205,23 @@ public static partial class GenomicAnalyzer
             SimilarityEstimator.Exact, k, canonical, jaccard, 1.0 - jaccard, KmerAnalyzer.MashDistance(a, b, k, options), JaccardToAni(jaccard, k),
             containmentAB, containmentBA, Math.Max(containmentAB, containmentBA), ContainmentToAni(containmentAB, k), ContainmentToAni(containmentBA, k),
             null, null, null);
+    }
+
+    // sourmash MinHash.containment_ani / max_containment_ani / jaccard_ani: n_unique_kmers = sketch hashes * scaled (not an exact count), size estimates
+    // checked with size_is_accurate (a sketch whose size estimate is unreliable withholds its ANI).
+    private static SimilarityAniEstimates AniEstimates(FracMinHashSketch sa, FracMinHashSketch sb, FracMinHashComparison frac, int k, AniOptions o)
+    {
+        int la = sa.Hashes.Count, lb = sb.Hashes.Count;
+        double scaled = sa.Scaled;
+        bool inaccurate = !SketchSizeIsAccurate(la, scaled) || !SketchSizeIsAccurate(lb, scaled);
+        AniEstimate Flag(AniEstimate e) => inaccurate ? e with { SizeIsInaccurate = true } : e;
+        AniEstimate Containment(double c, long hashes) => Flag(ContainmentToDistance(c, k, scaled, (long)Math.Round(hashes * scaled), o.Confidence, o.EstimateConfidenceInterval, o.ProbabilityThreshold));
+        long avgKmers = (long)Math.Round((la + lb) / 2.0 * scaled, MidpointRounding.ToEven);
+        return new SimilarityAniEstimates(
+            Containment(frac.ContainmentAInB, la),
+            Containment(frac.ContainmentBInA, lb),
+            Containment(frac.MaxContainment, Math.Min(la, lb)),
+            Flag(JaccardToDistance(frac.Jaccard, k, scaled, avgKmers, o.ProbabilityThreshold, o.JaccardErrorThreshold)));
     }
 
     // sourmash distance_utils.containment_to_distance point estimate: dist = 1 - C^(1/k); ANI = 1 - dist (C = 0 -> 0, C = 1 -> 1).
@@ -257,7 +275,20 @@ public enum SimilarityEstimator
 /// <param name="SharedHashes">Shared sketch hashes (sketch estimators only).</param>
 /// <param name="DenominatorHashes">Union hashes visited (Mash) or the union size (FracMinHash); sketch estimators only.</param>
 /// <param name="MashPValue">Probability of at least this many shared hashes by chance (Mash bottom-s sketch only).</param>
+/// <param name="AniEstimates">FracMinHash only: the sourmash ANI results with distance, confidence interval (when requested) and quality flags
+/// (<see cref="AniOptions"/>); null for the other estimators.</param>
 public sealed record SimilarityEstimate(
     SimilarityEstimator Estimator, int KmerSize, bool Canonical, double Jaccard, double JaccardDistance, double MashDistance, double JaccardAni,
     double? ContainmentAInB, double? ContainmentBInA, double? MaxContainment, double? ContainmentAniAInB, double? ContainmentAniBInA,
-    int? SharedHashes, int? DenominatorHashes, double? MashPValue);
+    int? SharedHashes, int? DenominatorHashes, double? MashPValue, SimilarityAniEstimates? AniEstimates = null);
+
+/// <summary>
+/// The sourmash ANI results of a FracMinHash comparison (<c>containment_ani</c> both ways, <c>max_containment_ani</c>, <c>jaccard_ani</c>), each with the point estimate, the
+/// confidence interval (<see cref="AniOptions.EstimateConfidenceInterval"/>) and the quality flags of sourmash 4.9.4 (<c>sourmash.distance_utils</c>).
+/// </summary>
+/// <param name="ContainmentAInB">A.containment_ani(B).</param>
+/// <param name="ContainmentBInA">B.containment_ani(A).</param>
+/// <param name="MaxContainment">A.max_containment_ani(B).</param>
+/// <param name="Jaccard">A.jaccard_ani(B).</param>
+public sealed record SimilarityAniEstimates(
+    AniEstimate ContainmentAInB, AniEstimate ContainmentBInA, AniEstimate MaxContainment, AniEstimate Jaccard);

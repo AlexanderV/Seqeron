@@ -15,6 +15,9 @@ internal readonly struct PairScoring
     public readonly int GapOpen;
     public readonly int GapExtend;
 
+    /// <summary>The direction- and position-specific gap scores (<see cref="GapScoreProfile"/>) in this model's integer units; null = every gap run scores <see cref="GapOpen"/> / <see cref="GapExtend"/>.</summary>
+    public readonly ScaledGapProfile? Gaps;
+
     /// <summary>Every score of this model is an integer multiple of 1/Scale of the reported (real) score.</summary>
     public readonly int Scale;
 
@@ -54,18 +57,116 @@ internal readonly struct PairScoring
         _dim = 0;
     }
 
-    private PairScoring(int gapOpen, int gapExtend, int scale, int[] table, sbyte[] index, int dim, bool protein, long maxAbs)
+    private PairScoring(int gapOpen, int gapExtend, int scale, int[]? table, sbyte[]? index, int dim, bool protein, long maxAbs,
+        ScaledGapProfile? gaps = null, int match = 0, int mismatch = 0)
     {
         _maxAbs = maxAbs;
         Protein = protein;
-        Match = 0;
-        Mismatch = 0;
+        Match = match;
+        Mismatch = mismatch;
         GapOpen = gapOpen;
         GapExtend = gapExtend;
         Scale = scale;
         _table = table;
         _index = index;
         _dim = dim;
+        Gaps = gaps;
+    }
+
+    // ---- position-dependent gap scores (GapScoreProfile): a vertical run (gap in sequence 2) stays in one matrix column j, a horizontal run
+    // (gap in sequence 1) in one row i, so "start run" = column / row 0 and "end run" = the last column / row. Without a profile: the uniform scores.
+
+    /// <summary>Score per position of a gap in sequence 2 (vertical move) in column <paramref name="j"/> of a matrix with <paramref name="n"/> columns after column 0.</summary>
+    public int XExt(int j, int n) => Gaps is null ? GapExtend : XGap(j, n).Extend;
+
+    /// <summary>Open score of a gap in sequence 2 in column <paramref name="j"/> (see <see cref="XExt"/>).</summary>
+    public int XOpen(int j, int n) => Gaps is null ? GapOpen : XGap(j, n).Open;
+
+    /// <summary>Interior score per position of a gap in sequence 2 (local alignments never start or end in a gap, so only the interior scores apply).</summary>
+    public int XInteriorExt => Gaps is null ? GapExtend : Gaps.Interior1.Extend;
+
+    /// <summary>Interior open score of a gap in sequence 2.</summary>
+    public int XInteriorOpen => Gaps is null ? GapOpen : Gaps.Interior1.Open;
+
+    /// <summary>Interior score per position of a gap in sequence 1.</summary>
+    public int YInteriorExt => Gaps is null ? GapExtend : Gaps.Interior2.Extend;
+
+    /// <summary>Interior open score of a gap in sequence 1.</summary>
+    public int YInteriorOpen => Gaps is null ? GapOpen : Gaps.Interior2.Open;
+
+    /// <summary>Score per position of a gap in sequence 1 (horizontal move) in row <paramref name="i"/> of a matrix with <paramref name="m"/> rows after row 0.</summary>
+    public int YExt(int i, int m) => Gaps is null ? GapExtend : YGap(i, m).Extend;
+
+    /// <summary>Open score of a gap in sequence 1 in row <paramref name="i"/> (see <see cref="YExt"/>).</summary>
+    public int YOpen(int i, int m) => Gaps is null ? GapOpen : YGap(i, m).Open;
+
+    private ScaledGap XGap(int j, int n)
+    {
+        var g = Gaps!;
+        if (j == 0) return g.Start1;
+        return j == n ? g.End1 : g.Interior1;
+    }
+
+    private ScaledGap YGap(int i, int m)
+    {
+        var g = Gaps!;
+        if (i == 0) return g.Start2;
+        return i == m ? g.End2 : g.Interior2;
+    }
+
+    /// <summary>
+    /// The scalar match / mismatch model with a <see cref="GapScoreProfile"/>: every score is scaled to the smallest integer unit that makes the
+    /// match, mismatch and all gap scores integral (fractional gap scores down to 1e-6, as for <see cref="MatrixScoring"/>).
+    /// </summary>
+    public static PairScoring Create(ScoringMatrix scoring, GapScoreProfile profile)
+    {
+        ArgumentNullException.ThrowIfNull(scoring);
+        ArgumentNullException.ThrowIfNull(profile);
+        _ = new PairScoring(scoring); // validates the interior gap scores like the uniform model
+        decimal open = scoring.GapOpen, extend = scoring.GapExtend;
+        var values = ProfileValues(profile, open, extend);
+        var (scale, ints) = ScaleOf(values, scoring);
+        var gaps = ints.Gaps;
+        long maxAbs = Math.Max(Math.Max(Math.Abs((long)scoring.Match), Math.Abs((long)scoring.Mismatch)) * scale, gaps.MaxAbsStep);
+        return new PairScoring((int)ints.Open, (int)ints.Extend, (int)scale, null, null, 0, false, maxAbs, gaps,
+            checked((int)(scoring.Match * scale)), checked((int)(scoring.Mismatch * scale)));
+    }
+
+    /// <summary>The resolved (open, extend) decimals of the interior scores and of the six profile members (null member = interior).</summary>
+    private static decimal[] ProfileValues(GapScoreProfile profile, decimal open, decimal extend)
+    {
+        (decimal O, decimal E) R(GapScore? g, string name)
+        {
+            if (g is not { } v) return (open, extend);
+            // A profile gap is the Biopython pair (first position open + extend, further positions extend): Open itself may be a bonus, but no gap position may score above 0.
+            if (!double.IsFinite(v.Open) || !double.IsFinite(v.Extend) || v.Extend > 0 || v.Open + v.Extend > 0)
+                throw new ArgumentException($"{name} must be finite with Extend <= 0 and Open + Extend <= 0 (a gap position is a penalty), got Open {v.Open}, Extend {v.Extend}.");
+            return ((decimal)v.Open, (decimal)v.Extend);
+        }
+        var i1 = R(profile.Interior1, nameof(GapScoreProfile.Interior1));
+        var s1 = R(profile.Start1, nameof(GapScoreProfile.Start1));
+        var e1 = R(profile.End1, nameof(GapScoreProfile.End1));
+        var i2 = R(profile.Interior2, nameof(GapScoreProfile.Interior2));
+        var s2 = R(profile.Start2, nameof(GapScoreProfile.Start2));
+        var e2 = R(profile.End2, nameof(GapScoreProfile.End2));
+        return [open, extend, i1.O, i1.E, s1.O, s1.E, e1.O, e1.E, i2.O, i2.E, s2.O, s2.E, e2.O, e2.E];
+    }
+
+    private static (long Scale, (long Open, long Extend, ScaledGapProfile Gaps) Ints) ScaleOf(decimal[] values, ScoringMatrix? scalar)
+    {
+        int decimals = 0;
+        while (decimals <= MaxGapDecimals && !values.All(v => IsIntegral(v * Pow10(decimals))))
+            decimals++;
+        if (decimals > MaxGapDecimals)
+            throw new ArgumentException($"Gap scores are resolved to 1e-{MaxGapDecimals}: {string.Join(", ", values)}.");
+        long denominator = Pow10(decimals);
+        long g = denominator;
+        foreach (var v in values) g = Gcd(g, Math.Abs((long)(v * denominator)));
+        long scale = denominator / g;
+        long Q(decimal v) => (long)(v * denominator) / g;
+        ScaledGap G(int k) => new(checked((int)Q(values[k])), checked((int)Q(values[k + 1])));
+        var gaps = new ScaledGapProfile(G(2), G(4), G(6), G(8), G(10), G(12));
+        return (scale, (Q(values[0]), Q(values[1]), gaps));
     }
 
     public static implicit operator PairScoring(ScoringMatrix scoring) => new(scoring);
@@ -91,13 +192,13 @@ internal readonly struct PairScoring
     /// Builds the exact integer model of <paramref name="scoring"/> for the (upper-case) sequences <paramref name="a"/>
     /// and <paramref name="b"/>, validating residues, gap scores and the integer range.
     /// </summary>
-    public static PairScoring Create(MatrixScoring scoring, string a, string b)
+    public static PairScoring Create(MatrixScoring scoring, string a, string b, GapScoreProfile? profile = null)
     {
         var matrix = scoring.Matrix ?? throw new ArgumentException("MatrixScoring.Matrix must not be null.", nameof(scoring));
         ValidateResidues(matrix, a, "sequence1");
         ValidateResidues(matrix, b, "sequence2");
         return Build(scoring, matrix, (long)a.Length + b.Length + 2, 1,
-            $"sequence lengths {a.Length} and {b.Length}");
+            $"sequence lengths {a.Length} and {b.Length}", profile);
     }
 
     /// <summary>
@@ -121,25 +222,19 @@ internal readonly struct PairScoring
             $"{sequences.Count} sequences, the two longest have {longest} and {second} residues");
     }
 
-    private static PairScoring Build(MatrixScoring scoring, SubstitutionMatrix matrix, long pathLength, long pairs, string sizeText)
+    private static PairScoring Build(MatrixScoring scoring, SubstitutionMatrix matrix, long pathLength, long pairs, string sizeText, GapScoreProfile? profile = null)
     {
         decimal open = ToGapDecimal(scoring.GapOpen, nameof(MatrixScoring.GapOpen));
         decimal extend = ToGapDecimal(scoring.GapExtend, nameof(MatrixScoring.GapExtend));
 
-        // Smallest integer scale that makes both gap scores integral (0.5 -> 2, 0.1 -> 10, integers -> 1).
-        int decimals = 0;
-        while (decimals <= MaxGapDecimals && !(IsIntegral(open * Pow10(decimals)) && IsIntegral(extend * Pow10(decimals))))
-            decimals++;
-        if (decimals > MaxGapDecimals)
-            throw new ArgumentException($"Gap scores are resolved to 1e-{MaxGapDecimals}: {scoring.GapOpen}, {scoring.GapExtend}.", nameof(scoring));
+        // Smallest integer scale that makes every gap score integral (0.5 -> 2, 0.1 -> 10, integers -> 1); a profile adds its six members.
+        var values = ProfileValues(profile ?? new GapScoreProfile(), open, extend);
+        var (scale, ints) = ScaleOf(values, null);
+        long gapOpen = ints.Open;
+        long gapExtend = ints.Extend;
+        ScaledGapProfile? scaledGaps = profile is null ? null : ints.Gaps;
 
-        long denominator = Pow10(decimals);
-        long g = Gcd(denominator, Gcd(Math.Abs((long)(open * denominator)), Math.Abs((long)(extend * denominator))));
-        long scale = denominator / g;
-        long gapOpen = (long)(open * denominator) / g;
-        long gapExtend = (long)(extend * denominator) / g;
-
-        long maxAbs = Math.Max((long)matrix.MaxAbsScore * scale, Math.Abs(gapOpen) + Math.Abs(gapExtend));
+        long maxAbs = Math.Max((long)matrix.MaxAbsScore * scale, Math.Max(Math.Abs(gapOpen) + Math.Abs(gapExtend), scaledGaps?.MaxAbsStep ?? 0));
         if (maxAbs * pathLength * pairs >= MaxPathScore)
             throw RangeError(scale, sizeText, nameof(scoring));
 
@@ -154,7 +249,7 @@ internal readonly struct PairScoring
             for (int j = 0; j < dim; j++)
                 table[i * dim + j] = checked((int)(matrix.ScoreAt(i, j) * scale));
 
-        return new PairScoring((int)gapOpen, (int)gapExtend, (int)scale, table, index, dim, !IsNucleotideAlphabet(matrix.Alphabet), maxAbs);
+        return new PairScoring((int)gapOpen, (int)gapExtend, (int)scale, table, index, dim, !IsNucleotideAlphabet(matrix.Alphabet), maxAbs, scaledGaps);
     }
 
     private static ArgumentException RangeError(long scale, string sizeText, string paramName) =>
@@ -211,6 +306,16 @@ internal readonly struct PairScoring
         while (y != 0) (x, y) = (y, x % y);
         return x;
     }
+}
+
+/// <summary>One gap score (open added once per run, score per position) in the integer units of a <see cref="PairScoring"/>.</summary>
+internal readonly record struct ScaledGap(int Open, int Extend);
+
+/// <summary>The six direction / position gap scores of a <see cref="GapScoreProfile"/> in integer units (members already resolved against the interior score).</summary>
+internal sealed record ScaledGapProfile(ScaledGap Interior1, ScaledGap Start1, ScaledGap End1, ScaledGap Interior2, ScaledGap Start2, ScaledGap End2)
+{
+    /// <summary>Largest |score| of one gap position (open + extend) over the six members.</summary>
+    public long MaxAbsStep => new[] { Interior1, Start1, End1, Interior2, Start2, End2 }.Max(g => Math.Abs(g.Open) + Math.Abs(g.Extend));
 }
 
 /// <summary>
@@ -400,6 +505,7 @@ public static partial class SequenceAligner
         // (same rows, same score; see the Linear-space region).
         if (!forceFullMatrix && ExceedsFullMatrixLimit(m, n))
         {
+            RequireFullMatrixForGapProfile(scoring, m, n);
             var big = LinearSpaceAlign(seq1, seq2, scoring, affine: false, local: false, ends, LinearSpaceBaseCells, cancellationToken);
             progress?.Report(1.0);
             return big;
@@ -443,10 +549,16 @@ public static partial class SequenceAligner
         int n = seq2.Length;
         var score = new int[m + 1, n + 1];
 
-        for (int i = 0; i <= m; i++)
-            score[i, 0] = ends.HasFlag(EndGaps.FreeStart1) ? 0 : i * scoring.GapExtend;
+        // Gap score per position of a vertical move in each column (up) / a horizontal move in each row (left): uniform d, or the position-dependent
+        // scores of a GapScoreProfile (start run = column / row 0, end run = last column / row, otherwise interior).
+        var upGap = new int[n + 1];
         for (int j = 0; j <= n; j++)
-            score[0, j] = ends.HasFlag(EndGaps.FreeStart2) ? 0 : j * scoring.GapExtend;
+            upGap[j] = scoring.XExt(j, n);
+
+        for (int i = 0; i <= m; i++)
+            score[i, 0] = ends.HasFlag(EndGaps.FreeStart1) ? 0 : i * upGap[0];
+        for (int j = 0; j <= n; j++)
+            score[0, j] = ends.HasFlag(EndGaps.FreeStart2) ? 0 : j * scoring.YExt(0, m);
 
         // F(i,j) = max(F(i-1,j-1)+S(a_i,b_j), F(i-1,j)+d, F(i,j-1)+d)
         for (int i = 1; i <= m; i++)
@@ -459,14 +571,15 @@ public static partial class SequenceAligner
 
             char c1 = seq1[i - 1];
             var forbiddenRow = new ForbiddenRow(forbidden, rowOffset + i);
+            int leftGap = scoring.YExt(i, m);
             for (int j = 1; j <= n; j++)
             {
                 int matchScore = scoring.Sub(c1, seq2[j - 1]);
 
                 // A forbidden aligned pair (Waterman-Eggert declumping, linear-space top-N) has no diagonal move.
                 int diag = forbiddenRow.Test(colOffset + j) ? ForbiddenPairs.NoDiagonal : score[i - 1, j - 1] + matchScore;
-                int up = score[i - 1, j] + scoring.GapExtend;
-                int left = score[i, j - 1] + scoring.GapExtend;
+                int up = score[i - 1, j] + upGap[j];
+                int left = score[i, j - 1] + leftGap;
 
                 score[i, j] = Math.Max(diag, Math.Max(up, left));
             }
@@ -609,7 +722,10 @@ public static partial class SequenceAligner
         if (local) ends = EndGaps.None;
         scoring.EnsureRange(seq1.Length, seq2.Length);
         if (!forceFullMatrix && ExceedsFullMatrixLimit(seq1.Length, seq2.Length))
+        {
+            RequireFullMatrixForGapProfile(scoring, seq1.Length, seq2.Length);
             return LinearSpaceAlign(seq1, seq2, scoring, affine: true, local, ends, LinearSpaceBaseCells, default);
+        }
         bool freeEnd1 = ends.HasFlag(EndGaps.FreeEnd1);
         bool freeEnd2 = ends.HasFlag(EndGaps.FreeEnd2);
         int m = seq1.Length;
@@ -664,6 +780,14 @@ public static partial class SequenceAligner
         return AffineTraceback(seq1, seq2, mm, xx, yy, scoring, local, ends, ci, cj, state, best);
     }
 
+    /// <summary>A <see cref="GapScoreProfile"/> is only supported by the full-matrix programs (the linear-space program of very large inputs has one gap model).</summary>
+    private static void RequireFullMatrixForGapProfile(PairScoring scoring, int m, int n)
+    {
+        if (scoring.Gaps is not null)
+            throw new ArgumentException(
+                $"Per-direction / per-end gap scores (GapScoreProfile) need the full dynamic-programming matrix: {m} x {n} residues exceed the limit of {LinearSpaceCellThreshold} cells.");
+    }
+
     private static (int[,] M, int[,] X, int[,] Y) AffineNewMatrices(int m, int n) =>
         (new int[m + 1, n + 1], new int[m + 1, n + 1], new int[m + 1, n + 1]);
 
@@ -680,8 +804,11 @@ public static partial class SequenceAligner
     {
         int m = mm.GetLength(0) - 1;
         int n = mm.GetLength(1) - 1;
-        int e = scoring.GapExtend;
-        int oe = scoring.GapOpen + e;
+        // Column 0 (leading gap in sequence 2) and row 0 (leading gap in sequence 1) carry the start-run scores of a GapScoreProfile.
+        int e = scoring.XExt(0, n);
+        int oe = scoring.XOpen(0, n) + e;
+        int ey = scoring.YExt(0, m);
+        int oey = scoring.YOpen(0, m) + ey;
         bool freeStart1 = ends.HasFlag(EndGaps.FreeStart1);
         bool freeStart2 = ends.HasFlag(EndGaps.FreeStart2);
 
@@ -703,7 +830,7 @@ public static partial class SequenceAligner
             xx[0, j] = AffineNegInf;
             yy[0, j] = local || freeStart2
                 ? AffineNegInf
-                : Math.Max(AffineNegInf, Max3(mm[0, j - 1] + oe, yy[0, j - 1] + e, xx[0, j - 1] + oe));
+                : Math.Max(AffineNegInf, Max3(mm[0, j - 1] + oey, yy[0, j - 1] + ey, xx[0, j - 1] + oey));
         }
     }
 
@@ -717,18 +844,27 @@ public static partial class SequenceAligner
     {
         int m = seq1.Length;
         int n = seq2.Length;
-        int e = scoring.GapExtend;
-        int oe = scoring.GapOpen + e;
         int startFloor = local ? 0 : AffineNegInf;
         int bestLocal = 0, bestI = 0, bestJ = 0;
+        // Gap scores of a vertical run per column and of a horizontal run per row: uniform, or the GapScoreProfile's (a local alignment never starts or ends in a gap: interior scores only).
+        var xe = new int[n + 1];
+        var xoe = new int[n + 1];
+        for (int j = 0; j <= n; j++)
+        {
+            xe[j] = local ? scoring.XInteriorExt : scoring.XExt(j, n);
+            xoe[j] = (local ? scoring.XInteriorOpen : scoring.XOpen(j, n)) + xe[j];
+        }
+
         for (int i = 1; i <= m; i++)
         {
             AlignmentCancellation.ThrowIfRequested();
             char c1 = seq1[i - 1];
             var forbiddenRow = new ForbiddenRow(forbidden, rowOffset + i);
+            int ye = local ? scoring.YInteriorExt : scoring.YExt(i, m);
+            int yoe = (local ? scoring.YInteriorOpen : scoring.YOpen(i, m)) + ye;
             for (int j = 1; j <= n; j++)
             {
-                AffineCell(mm, xx, yy, i, j, scoring.Sub(c1, seq2[j - 1]), startFloor, e, oe, forbiddenRow.Test(colOffset + j));
+                AffineCell(mm, xx, yy, i, j, scoring.Sub(c1, seq2[j - 1]), startFloor, xe[j], xoe[j], ye, yoe, forbiddenRow.Test(colOffset + j));
 
                 if (local && mm[i, j] > bestLocal)
                 {
@@ -753,8 +889,6 @@ public static partial class SequenceAligner
     {
         int m = seq1.Length;
         int n = seq2.Length;
-        int e = scoring.GapExtend;
-        int oe = scoring.GapOpen + e;
         bool freeStart1 = ends.HasFlag(EndGaps.FreeStart1);
         bool freeStart2 = ends.HasFlag(EndGaps.FreeStart2);
         int endI = ci;
@@ -791,6 +925,8 @@ public static partial class SequenceAligner
             else if (state == StateGapInSeq2)
             {
                 int cur = xx[ci, cj];
+                int e = local ? scoring.XInteriorExt : scoring.XExt(cj, n);
+                int oe = (local ? scoring.XInteriorOpen : scoring.XOpen(cj, n)) + e;
                 chars1.Add(seq1[ci - 1]);
                 chars2.Add('-');
                 ci--;
@@ -800,6 +936,8 @@ public static partial class SequenceAligner
             else // StateGapInSeq1
             {
                 int cur = yy[ci, cj];
+                int e = local ? scoring.YInteriorExt : scoring.YExt(ci, m);
+                int oe = (local ? scoring.YInteriorOpen : scoring.YOpen(ci, m)) + e;
                 chars1.Add('-');
                 chars2.Add(seq2[cj - 1]);
                 cj--;
@@ -832,13 +970,19 @@ public static partial class SequenceAligner
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void AffineCell(
-        int[,] mm, int[,] xx, int[,] yy, int i, int j, int sub, int startFloor, int e, int oe, bool forbidden)
+        int[,] mm, int[,] xx, int[,] yy, int i, int j, int sub, int startFloor, int e, int oe, bool forbidden) =>
+        AffineCell(mm, xx, yy, i, j, sub, startFloor, e, oe, e, oe, forbidden);
+
+    /// <summary><see cref="AffineCell(int[,], int[,], int[,], int, int, int, int, int, int, bool)"/> with separate gap scores for a gap in sequence 2 (X: <paramref name="ex"/> / <paramref name="oex"/>) and in sequence 1 (Y).</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void AffineCell(
+        int[,] mm, int[,] xx, int[,] yy, int i, int j, int sub, int startFloor, int ex, int oex, int ey, int oey, bool forbidden)
     {
         int m = forbidden
             ? AffineNegInf
             : Math.Max(startFloor, Max3(mm[i - 1, j - 1], xx[i - 1, j - 1], yy[i - 1, j - 1])) + sub;
-        int x = Max3(mm[i - 1, j] + oe, xx[i - 1, j] + e, yy[i - 1, j] + oe);
-        int y = Max3(mm[i, j - 1] + oe, yy[i, j - 1] + e, xx[i, j - 1] + oe);
+        int x = Max3(mm[i - 1, j] + oex, xx[i - 1, j] + ex, yy[i - 1, j] + oex);
+        int y = Max3(mm[i, j - 1] + oey, yy[i, j - 1] + ey, xx[i, j - 1] + oey);
 
         // Clamp unreachable states so repeated penalties never drift towards overflow.
         xx[i, j] = x < AffineNegInf ? AffineNegInf : x;
@@ -927,7 +1071,10 @@ public static partial class SequenceAligner
         scoring.EnsureRange(m, n);
 
         if (!forceFullMatrix && ExceedsFullMatrixLimit(m, n))
+        {
+            RequireFullMatrixForGapProfile(scoring, m, n);
             return LinearSpaceAlign(seq1, seq2, scoring, affine: false, local: true, EndGaps.None, LinearSpaceBaseCells, default);
+        }
 
         var score = new int[m + 1, n + 1];
         int maxScore = 0;
@@ -939,7 +1086,7 @@ public static partial class SequenceAligner
             AlignmentCancellation.ThrowIfRequested();
             for (int j = 1; j <= n; j++)
             {
-                score[i, j] = LocalLinearCell(score, i, j, scoring.Sub(seq1[i - 1], seq2[j - 1]), scoring.GapExtend, forbidden: false);
+                score[i, j] = LocalLinearCell(score, i, j, scoring.Sub(seq1[i - 1], seq2[j - 1]), scoring.XInteriorExt, scoring.YInteriorExt, forbidden: false);
 
                 if (score[i, j] > maxScore)
                 {
@@ -960,9 +1107,14 @@ public static partial class SequenceAligner
     /// <see cref="LocalAlignTopN(string, string, ScoringMatrix?, int, int)"/>): the diagonal move is dropped, the gap moves stay.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static int LocalLinearCell(int[,] score, int i, int j, int sub, int gap, bool forbidden)
+    internal static int LocalLinearCell(int[,] score, int i, int j, int sub, int gap, bool forbidden) =>
+        LocalLinearCell(score, i, j, sub, gap, gap, forbidden);
+
+    /// <summary><see cref="LocalLinearCell(int[,], int, int, int, int, bool)"/> with a separate gap score for a gap in sequence 2 (up) and in sequence 1 (left).</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static int LocalLinearCell(int[,] score, int i, int j, int sub, int gapUp, int gapLeft, bool forbidden)
     {
-        int best = Math.Max(score[i - 1, j] + gap, score[i, j - 1] + gap);
+        int best = Math.Max(score[i - 1, j] + gapUp, score[i, j - 1] + gapLeft);
         if (!forbidden)
             best = Math.Max(best, score[i - 1, j - 1] + sub);
         return Math.Max(0, best);
@@ -991,7 +1143,7 @@ public static partial class SequenceAligner
                 chars2.Add(seq2[j - 1]);
                 i--; j--;
             }
-            else if (score[i, j] == score[i - 1, j] + scoring.GapExtend)
+            else if (score[i, j] == score[i - 1, j] + scoring.XInteriorExt)
             {
                 chars1.Add(seq1[i - 1]);
                 chars2.Add('-');
@@ -1575,7 +1727,7 @@ public static partial class SequenceAligner
                 }
             }
 
-            if (i > 0 && (j == 0 || score[i, j] == score[i - 1, j] + scoring.GapExtend))
+            if (i > 0 && (j == 0 || score[i, j] == score[i - 1, j] + scoring.XExt(j, seq2.Length)))
             {
                 chars1.Add(seq1[i - 1]);
                 chars2.Add('-');

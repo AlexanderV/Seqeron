@@ -115,3 +115,4 @@ None. No code or test change was required.
   `bio-alignment` skill) claimed a 0-1 scale and a wrong example (0.75; real 33.333333333333336) -> corrected (F34); MCP gained `canonical` (F33).
 - Oracle: 2086 rows, Python set == scipy `jaccard` (literal), Python canonical set == sourmash `MinHash(scaled=1)` (canonical). Tests: +8 Genomics, +1 MCP.
 - End-state: FIXED / CLEAN.
+- **Audit r3 (A3-11, F138):** sourmash ANI confidence intervals / quality flags (`AniEstimates`, `ContainmentToDistance`, `JaccardToDistance`) and the `mash dist` comparison (400 rows, no discrepancy); 1120 / 1120 sourmash rows equal.

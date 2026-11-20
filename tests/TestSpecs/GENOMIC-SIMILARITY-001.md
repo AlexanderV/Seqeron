@@ -232,3 +232,7 @@ validate (null, k >= 1) and return `KmerAnalyzer.JaccardSimilarity(a.Sequence, b
 | M-A2-31b | `FracMinHash_MatchesSourmashScaled` | 1980 rows: sourmash 4.9.4 scaled sketches |
 | M-A2-31c | `BottomSketch_MatchesSourmashNumSketch` | 1320 rows: bottom-s sketch (k >= 17) |
 | S-A2-31 | `CalculateSimilarity_Sketch_IsThePercentOfTheEstimate`, `JaccardDistance_IsOneMinusTheIndex_AndStringOverloadsSkipAmbiguousWindows`, `CompareSimilarity_Boundaries_AndValidation` | percent facade, `1 - J`, N windows skipped, J = 0 / 1 boundaries, argument checks |
+
+| A3-11a | `AniEstimates_MatchSourmash_AllRows` | 1120 sourmash rows (`ani_ci_oracle.tsv`): containment_ani x2, max_containment_ani, jaccard_ani with `estimate_ci`, confidence 0.90-0.99 | distance, interval, p_nothing_in_common, flags, jaccard_error equal | A3-11 |
+| A3-11b | `MashDist_DistancePValueAndSharedHashes_MatchMash_AllRows` | 400 mash 2.3 rows (`mash_dist_oracle.tsv`) | shared / denominator exact, distance and p-value at the printed precision | A3-11 |
+| A3-11c | `NormalQuantile_EqualsScipyNormPpf`, `BrentRoot_FindsRoots_AndRefusesAnUnbracketedFunction`, `BinomialCdf_EqualsScipy`, `AniEstimate_WorkedExample_RunOnSourmash` | scipy / sourmash values | equal | A3-11 |

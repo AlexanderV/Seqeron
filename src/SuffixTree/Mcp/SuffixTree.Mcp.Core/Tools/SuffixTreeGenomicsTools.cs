@@ -54,14 +54,16 @@ public class SuffixTreeGenomicsTools
     /// Calculate similarity between two DNA sequences using k-mer Jaccard index.
     /// </summary>
     [McpServerTool(Name = "calculate_similarity", Title = "Genomics — Sequence Similarity", ReadOnly = true)]
-    [Description("Calculate similarity between two DNA sequences using the k-mer Jaccard index |A∩B|/|A∪B| of the distinct k-mer sets, as a percentage (0-100 scale; 0 when both sets are empty). Default: the exact index; compares literal (strand-specific) k-mers like a Python set / scipy jaccard; canonical=true uses min(k-mer, reverse complement) as Mash and sourmash do, so a sequence and its reverse complement score 100. sketchSize = s estimates it from a Mash bottom-s MinHash sketch (MurmurHash3-x64-128 seed 42, as 'mash dist'; k <= 32; canonical k-mers are Mash's default); scaled = S from a sourmash FracMinHash sketch (also gives the containment indices and containment ANI). The result always adds jaccardDistance (1 - J), mashDistance (-ln(2J/(1+J))/k) and jaccardAni = (2J/(1+J))^(1/k); the exact and FracMinHash estimators add containmentAInB / containmentBInA / maxContainment and containmentAniAInB / containmentAniBInA (C^(1/k), sourmash containment ANI point estimate); sketches add sharedHashes / denominatorHashes (and mashPValue for a bottom-s sketch). Plain A/C/G/T input only (sequences with N: the Analysis server accepts IUPAC input). Verified against sourmash 4.9.4.")]
+    [Description("Calculate similarity between two DNA sequences using the k-mer Jaccard index |A∩B|/|A∪B| of the distinct k-mer sets, as a percentage (0-100 scale; 0 when both sets are empty). Default: the exact index; compares literal (strand-specific) k-mers like a Python set / scipy jaccard; canonical=true uses min(k-mer, reverse complement) as Mash and sourmash do, so a sequence and its reverse complement score 100. sketchSize = s estimates it from a Mash bottom-s MinHash sketch (MurmurHash3-x64-128 seed 42, as 'mash dist'; k <= 32; canonical k-mers are Mash's default); scaled = S from a sourmash FracMinHash sketch (also gives the containment indices and containment ANI). The result always adds jaccardDistance (1 - J), mashDistance (-ln(2J/(1+J))/k) and jaccardAni = (2J/(1+J))^(1/k); the exact and FracMinHash estimators add containmentAInB / containmentBInA / maxContainment and containmentAniAInB / containmentAniBInA (C^(1/k), sourmash containment ANI point estimate); sketches add sharedHashes / denominatorHashes (and mashPValue for a bottom-s sketch). With scaled the result also carries aniEstimates: the sourmash ANI results containment_ani (both ways), max_containment_ani and jaccard_ani (sourmash.distance_utils; n_unique_kmers = sketch hashes x scaled) with distance, the probability that two such sketches share nothing by chance (probabilityNothingInCommon / probabilityExceedsThreshold, 1e-3), sizeIsInaccurate (a sketch size estimate off by more than 20 % with probability above 5 % withholds the ANI), the Jaccard-ANI error bound (jaccardError, withheld above 1e-4) and, with estimateAniInterval = true, the confidence interval of the containment ANI at the given confidence (distanceLow / distanceHigh, aniLow / aniHigh; Hera et al. 2023, Brent root search; null when the sketch is too small). Plain A/C/G/T input only (sequences with N: the Analysis server accepts IUPAC input). Verified against sourmash 4.9.4 (1 120 ANI / interval rows) and mash 2.3 (400 distance / p-value rows).")]
     public static CalculateSimilarityResult CalculateSimilarity(
         [Description("The first DNA sequence")] string sequence1,
         [Description("The second DNA sequence")] string sequence2,
         [Description("K-mer size (default: 5)")] int kmerSize = 5,
         [Description("Use canonical (strand-agnostic) k-mers min(w, reverse complement) as Mash/sourmash (default: false)")] bool canonical = false,
         [Description("Estimate the index from a Mash bottom-s MinHash sketch of this size (>= 1; k <= 32). Cannot be combined with scaled.")] int? sketchSize = null,
-        [Description("Estimate from a sourmash FracMinHash sketch with this scaled factor (1..4294967295). Cannot be combined with sketchSize.")] long? scaled = null)
+        [Description("Estimate from a sourmash FracMinHash sketch with this scaled factor (1..4294967295). Cannot be combined with sketchSize.")] long? scaled = null,
+        [Description("With scaled: compute the confidence interval of the containment ANI (sourmash estimate_ci; default false).")] bool estimateAniInterval = false,
+        [Description("Confidence level of the ANI interval in (0, 1) (default 0.95).")] double confidence = 0.95)
     {
         if (string.IsNullOrEmpty(sequence1))
             throw new ArgumentException("Sequence1 cannot be null or empty", nameof(sequence1));
@@ -69,10 +71,21 @@ public class SuffixTreeGenomicsTools
             throw new ArgumentException("Sequence2 cannot be null or empty", nameof(sequence2));
         var dna1 = new global::Seqeron.Genomics.Core.DnaSequence(sequence1);
         var dna2 = new global::Seqeron.Genomics.Core.DnaSequence(sequence2);
-        var e = GenomicAnalyzer.CompareSimilarity(dna1, dna2, kmerSize, canonical, sketchSize, scaled);
+        var e = GenomicAnalyzer.CompareSimilarity(dna1, dna2, kmerSize, canonical, sketchSize, scaled, new AniOptions(estimateAniInterval, confidence));
+        static AniEstimateDto Dto(AniEstimate a)
+        {
+            bool? jaccardExceeds = null;
+            if (a.JaccardError is not null)
+                jaccardExceeds = a.JaccardErrorExceedsThreshold;
+            return new AniEstimateDto(a.Distance, a.DistanceLow, a.DistanceHigh, a.Ani, a.AniLow, a.AniHigh, a.ProbabilityNothingInCommon, a.ProbabilityExceedsThreshold, a.SizeIsInaccurate, a.JaccardError, jaccardExceeds);
+        }
+
+        var ani = e.AniEstimates is { } all
+            ? new AniEstimatesDto(Dto(all.ContainmentAInB), Dto(all.ContainmentBInA), Dto(all.MaxContainment), Dto(all.Jaccard))
+            : null;
         return new CalculateSimilarityResult(
             e.Jaccard * 100.0, e.Estimator.ToString(), e.JaccardDistance, e.MashDistance, e.JaccardAni, e.ContainmentAInB, e.ContainmentBInA, e.MaxContainment,
-            e.ContainmentAniAInB, e.ContainmentAniBInA, e.SharedHashes, e.DenominatorHashes, e.MashPValue);
+            e.ContainmentAniAInB, e.ContainmentAniBInA, e.SharedHashes, e.DenominatorHashes, e.MashPValue, ani);
     }
 
     /// <summary>
