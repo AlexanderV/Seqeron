@@ -225,14 +225,14 @@ public static partial class SequenceAligner
         return (gopOf, gcpOf);
     }
 
-    /// <summary>
-    /// <c>gotoh_pair_wise_lgp</c> (util_dp_gotoh_nw.c L589, "local gap penalties"): a three-state (M, D, I) Gotoh DP whose gap opening and closing penalties are those of <see cref="TcLocalGapPenalties"/> (zero in the first and last row / column), the
-    /// extension is <c>gep</c> x SCORE_K everywhere; the borders hold <c>gep</c> x index (the other two states one lower), <c>dp_max</c> ties go to the first listed state and the traceback starts from the predecessor of the best final state like <c>glocal_pair_wise</c>.
-    /// </summary>
     /// <summary>The limit of <c>gotoh_pair_wise_lgp</c>: eight int matrices (32 bytes per cell).</summary>
     internal static void TcRequireLgpFits(int columns1, int columns2) =>
         RequireTcPairDp("gotoh_pair_wise_lgp", "keeps eight int matrices (the scores and the trace-back pointers of three states)", 32, (long)columns1 + 1, (long)columns2 + 1, "columns");
 
+    /// <summary>
+    /// <c>gotoh_pair_wise_lgp</c> (util_dp_gotoh_nw.c L589, "local gap penalties"): a three-state (M, D, I) Gotoh DP whose gap opening and closing penalties are those of <see cref="TcLocalGapPenalties"/> (zero in the first and last row / column), the
+    /// extension is <c>gep</c> x SCORE_K everywhere; the borders hold <c>gep</c> x index (the other two states one lower), <c>dp_max</c> ties go to the first listed state and the traceback starts from the predecessor of the best final state like <c>glocal_pair_wise</c>.
+    /// </summary>
     private static (List<bool> Present1, List<bool> Present2, int Score) TcGotohLgpMasks(TcGroup g0, TcGroup g1, Func<int, int, int> cost, int gopIn, int gepIn)
     {
         const int M1 = 1, D1 = 2, I1 = 3, N = 4;
