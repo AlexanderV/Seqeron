@@ -301,7 +301,7 @@ public static partial class SequenceAligner
         int n = 1;
         foreach (var s in sequences ?? throw new ArgumentNullException(nameof(sequences)))
         {
-            if (string.IsNullOrWhiteSpace(s)) throw new ArgumentException("A sequence is null or empty.", nameof(sequences));
+            if (s == null || s.All(c => c == ' ' || (c >= '\t' && c <= '\r'))) throw new ArgumentException("A sequence is null or empty.", nameof(sequences));
             list.Add(new PoaSequence("S" + (n++).ToString(CultureInfo.InvariantCulture), null, s));
         }
         var run = PoaRun(list, null, options);
@@ -352,15 +352,38 @@ public static partial class SequenceAligner
             _o = o;
         }
 
+        /// <summary>The characters of <paramref name="s"/> as the bytes of their UTF-8 encoding (one char 0 ... 255 per byte); ASCII text is returned unchanged.</summary>
+        internal static string PoaByteView(string s)
+        {
+            if (s.All(c => c < 0x80)) return s;
+            var bytes = Encoding.UTF8.GetBytes(s);
+            return string.Create(bytes.Length, bytes, static (span, b) => { for (int i = 0; i < b.Length; i++) span[i] = (char)b[i]; });
+        }
+
+        private static string AsciiCase(string s, bool upper)
+            => string.Create(s.Length, (s, upper), static (span, st) =>
+            {
+                for (int i = 0; i < st.s.Length; i++)
+                {
+                    char c = st.s[i];
+                    if (st.upper && c >= 'a' && c <= 'z') c = (char)(c - 32);
+                    else if (!st.upper && c >= 'A' && c <= 'Z') c = (char)(c + 32);
+                    span[i] = c;
+                }
+            });
+
         private static string Trunc31(string s) => s.Length > 31 ? s[..31] : s;
 
         // ----- sequences -----
 
         private PoaLpo MakeSequence(PoaSequence s)
         {
-            string residues = string.Concat(s.Residues.Where(c => !char.IsWhiteSpace(c)));
-            if (_o.Case == PoaCase.Lower) residues = residues.ToLowerInvariant();
-            else if (_o.Case == PoaCase.Upper) residues = residues.ToUpperInvariant();
+            // The program reads BYTES (C `char`): a non-ASCII character is its UTF-8 bytes, each one residue, none of them white space, upper / lower case (C locale) touches ASCII only; the
+            // bytes outside the matrix's symbols become its first symbol (`limit_residues`). Verified against the installed poa: "ACG" + U+017F + "T" aligns as 6 residues (A C G A A T).
+            string residues = PoaByteView(s.Residues);
+            residues = string.Concat(residues.Where(c => !(c == ' ' || (c >= '\t' && c <= '\r'))));
+            if (_o.Case == PoaCase.Lower) residues = AsciiCase(residues, false);
+            else if (_o.Case == PoaCase.Upper) residues = AsciiCase(residues, true);
             return new PoaLpo { Name = Trunc31(s.Name), Title = string.IsNullOrEmpty(s.Title) ? "untitled" : s.Title!, Sequence = residues };
         }
 

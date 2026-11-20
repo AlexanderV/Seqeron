@@ -192,4 +192,25 @@ public class SequenceAligner_ProbCons_Tests
             Assert.Throws<ArgumentException>(() => ProbConsProgram.Parse(["-c", "6"]));
         });
     }
+
+    // B09 A3-1: the program's FASTA reader drops '-' / '.' / white space ("AC-GT" is aligned as "ACGT"); expected rows = installed probcons 1.12-14 on the same text.
+    [Test]
+    public void GapCharactersInTheInput_AreDroppedLikeTheProgramsReader()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceAligner.MultipleAlignProbCons(["ACGTACGT", "AC-GT"]).AlignedSequences, Is.EqualTo(new[] { "ACGTACGT", "----ACGT" }), "probcons g.fa (>a ACGTACGT >b AC-GT)");
+            Assert.That(SequenceAligner.MultipleAlignProbCons(["ACGTACGT", "A.C*GT"]).AlignedSequences, Is.EqualTo(new[] { "ACGTAC-GT", "----AC*GT" }), "'.' is a gap, '*' a residue");
+            Assert.That(SequenceAligner.MultipleAlignProbCons(["ACGT ACGT", "AC GT"]).AlignedSequences, Is.EqualTo(new[] { "ACGTACGT", "----ACGT" }), "blanks are skipped");
+        });
+    }
+
+    [Test]
+    public void AnAllGapSequence_IsRefusedBecauseTheResultNeedsOneRowPerInput()
+    {
+        // the program drops such a record (installed probcons: ">b -----" -> "Alignment tree: a"); the API keeps the 1:1 row contract by refusing it
+        var ex = Assert.Throws<ArgumentException>(() => SequenceAligner.MultipleAlignProbCons(["ACGTACGT", "-----"]));
+        Assert.That(ex!.Message, Does.Contain("Sequence 2").And.Contain("gap"));
+        Assert.Throws<ArgumentException>(() => SequenceAligner.MultipleAlignProbCons(["ACGT", "AC1GT"]), "digits: Unknown character encountered (also in the program)");
+    }
 }

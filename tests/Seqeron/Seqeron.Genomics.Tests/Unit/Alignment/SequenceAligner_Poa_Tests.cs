@@ -130,4 +130,16 @@ public class SequenceAligner_Poa_Tests
             Assert.That(seqs.Select(s => (s.Name, s.Title, s.Residues)), Is.EqualTo(new[] { ("s1", "first title", "MKV LAAGIVG"), ("s2", "untitled", "MKV") }), "a record without residues is dropped");
         });
     }
+
+    // B09 A3-1: the program reads BYTES: a non-ASCII character is its UTF-8 bytes, every byte one residue outside the matrix (-> the first symbol, 'A'); expected = installed poa 2.0 on the same files.
+    [Test]
+    public void NonAsciiCharacters_AreReadAsUtf8BytesLikeTheProgram()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceAligner.MultipleAlignPoa(["ACG\u017fT", "AC\u0131GT"]).AlignedSequences, Is.EqualTo(new[] { "ACGAAT", "ACAAGT" }), "poa -read_fasta u.fa blosum80.mat");
+            var nb = SequenceAligner.MultipleAlignPoa(["AC\u00a0GT", "AC\u0085GTA", "ACGTA"]).AlignedSequences;
+            Assert.That(nb, Is.EqualTo(new[] { "ACAAGT-", "ACAAGTA", "--ACGTA" }), "U+00A0 / U+0085 are two residues each, not white space");
+        });
+    }
 }

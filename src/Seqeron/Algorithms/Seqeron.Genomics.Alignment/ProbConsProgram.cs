@@ -384,7 +384,7 @@ public static class ProbConsProgram
         return l;
     }
 
-    /// <summary><c>MultiSequence::ParseMSF</c> (MSF and Clustal input, with the program's quirks: gaps are kept, letters are upper-cased, a last line without a newline is lost).</summary>
+    /// <summary><c>MultiSequence::ParseMSF</c> (MSF and Clustal input, with the program's quirks: gaps are kept in the record (the program then reads past its sequence arrays: Segmentation fault in 2 of 5 probes, mis-aligned rows otherwise; this port aligns the gap-free sequences, see <c>Load</c> of the engine), letters are upper-cased, a last line without a newline is lost).</summary>
     private static void ParseMsf(Buffer infile, string header, List<string> names, List<string> residues)
     {
         var seqNames = new List<string>();

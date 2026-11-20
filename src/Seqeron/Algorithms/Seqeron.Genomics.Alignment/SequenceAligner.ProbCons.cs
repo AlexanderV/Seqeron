@@ -319,9 +319,9 @@ public static partial class SequenceAligner
     /// ProbCons 1.12's multiple alignment of protein sequences (<c>probcons in.fa</c>): pair-HMM posterior probabilities of every pair, <c>-c</c> rounds of consistency transformation, an expected-accuracy
     /// guide tree, progressive maximum-expected-accuracy alignment and <c>-ir</c> rounds of iterative refinement. See <see cref="ProbConsRun"/> and <see cref="ProbConsOptions"/>.
     /// </summary>
-    /// <param name="sequences">Residues (letters, <c>*</c>, <c>-</c>); case is kept.</param>
+    /// <param name="sequences">Residues (letters, <c>*</c>); case is kept; white space and the gap characters <c>-</c> / <c>.</c> are dropped as the program's FASTA reader does.</param>
     /// <param name="options">The program's parameters (default: the program's defaults).</param>
-    /// <exception cref="ArgumentException">No sequence, an empty sequence, a character the program rejects ("Unknown character encountered") or an option outside the program's range.</exception>
+    /// <exception cref="ArgumentException">No sequence, an empty sequence (or one of gap characters only; the program drops such a record), a character the program rejects ("Unknown character encountered") or an option outside the program's range.</exception>
     public static MultipleAlignmentResult MultipleAlignProbCons(IEnumerable<string> sequences, ProbConsOptions? options = null)
         => ProbConsRun(sequences, options).Alignment;
 
@@ -654,12 +654,20 @@ public static partial class SequenceAligner
             for (int i = 0; i < residues.Count; i++)
             {
                 string r = residues[i] ?? throw new ArgumentException("A sequence is null.", nameof(residues));
-                if (r.Length == 0) throw new ArgumentException($"Sequence {i + 1} has no residues.", nameof(residues));
+                // The program's FASTA reader (`Sequence::Sequence(FileBuffer&, stripGaps = true)`) skips white space and drops the gap characters '-' and '.' (a '.' is read as '-'): the
+                // sequences it aligns are gap-free (verified against the installed probcons: "AC-GT" is aligned as "ACGT", an all-gap record is dropped). A record that is empty after
+                // that is dropped by the program; here it is an error because the result must have one row per input.
+                var sb = new StringBuilder(r.Length);
                 foreach (char ch in r)
                 {
-                    if (!((ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') || ch == '*' || ch == '-'))
+                    if (ch == '-' || ch == '.' || ch == ' ' || (ch >= '\t' && ch <= '\r')) continue;
+                    if (!((ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') || ch == '*'))
                         throw new ArgumentException($"Unknown character encountered: {ch}", nameof(residues));
+                    sb.Append(ch);
                 }
+
+                if (sb.Length == 0) throw new ArgumentException($"Sequence {i + 1} has no residues (empty or only gap characters).", nameof(residues));
+                r = sb.ToString();
 
                 string header = names != null && i < names.Count ? names[i] : "S" + (i + 1).ToString(CultureInfo.InvariantCulture);
                 seqs.Add(PcSeq.FromResidues(r, header, i));

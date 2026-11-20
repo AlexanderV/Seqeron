@@ -240,6 +240,10 @@ with tempfile.TemporaryDirectory() as d:
     for n, txt in pf.items():
         for i in range(4):
             add('paramfile', ['-p', n] + (['-clustalw'] if i == 3 else []), {'in.fa': fasta(fam(3, 7, 10, 70)), n: txt})
+    # P. B09 A3-1: gap characters, '*', lower case, blanks and an all-gap record in FASTA input (the reader drops '-' / '.' and white space; an all-gap record is dropped)
+    for text in ('>a\nACGTACGT\n>b\nAC-GT\n', '>a\nACGTACGT\n>b\nA.C*GT\n', '>a\nACGTACGT\n>b\n-----\n', '>a\nACGT ACGT\n>b\nAC GT\n',
+                 '>a\nacgtACGT\n>b\nAc-gT\n>c\nA.CGTACG\n', '>a\nMKV--LAAG\n>b\n--MKVLAAG\n>c\nMKV*LAAG--\n', '>a\n\t ACGT\n>b\n\tAC.GT\n'):
+        add('gapin', [], {'in.fa': text})
     for ci, (cid, kind, args, files) in enumerate(cases):
         run = os.path.join(d, 'run%d' % ci); os.makedirs(run)
         for nm, txt in files.items():

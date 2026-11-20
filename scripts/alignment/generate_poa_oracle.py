@@ -212,6 +212,12 @@ add('matrix', ['-printmatrix', 'acgt'], {'n1.mat': mats['n1.mat'], 'in.fa': fast
 for i in range(6):
     add('long', [] if i % 2 else ['-do_global'], pf(family(rng, rng.randrange(3, 6), rng.randrange(150, 300), PROT, 0.15, 0.04)))
 # G. errors
+# B09 A3-1: non-ASCII characters (the program reads BYTES: each UTF-8 byte is one residue, outside the matrix's symbols = its first symbol; none is white space)
+add('utf8', [], {'blosum80.mat': B80, 'in.fa': '>a\nACG\u017fT\n>b\nAC\u0131GT\n'})
+add('utf8', [], {'blosum80.mat': B80, 'in.fa': '>a\nAC\u00a0GT\n>b\nAC\u0085GTA\n>c\nACGTA\n'})
+add('utf8', ['-tolower'], {'blosum80.mat': B80, 'in.fa': '>a\nMKV\u00c5LAAG\n>b\nMKVLAAG\n'})
+add('utf8', ['-toupper'], {'blosum80.mat': B80, 'in.fa': '>a\nmkv\u00e5laag\n>b\nmkvlaag\u20ac\n'})
+add('utf8', [], {'blosum80.mat': B80, 'in.fa': '>a\nMKV\U0001f600LAAG\n>b\nMKVLAAG\n'})
 add('error', [], {'blosum80.mat': B80})
 add('error', ['-subset', 'x.txt'], pf(prot(2, 3)))
 add('error', ['-hb'], {'blosum80.mat': B80, 'in.fa': '>s1\n'})
@@ -225,7 +231,7 @@ with tempfile.TemporaryDirectory() as d:
         run = os.path.join(d, 'run%d' % ci)
         os.makedirs(run)
         for nm, txt in files.items():
-            with open(os.path.join(run, nm), 'w', newline='') as f:
+            with open(os.path.join(run, nm), 'w', newline='', encoding='utf-8') as f:
                 f.write(txt)
         before = set(os.listdir(run))
         if kind == 'error' and not args and 'in.fa' not in files:
@@ -243,7 +249,7 @@ with tempfile.TemporaryDirectory() as d:
 
 ver = subprocess.run(['dpkg-query', '-W', binary], capture_output=True, text=True).stdout.strip().replace('\t', ' ')
 os.makedirs(os.path.dirname(out_path), exist_ok=True)
-with open(out_path, 'w', newline='\n') as fh:
+with open(out_path, 'w', newline='\n', encoding='utf-8') as fh:
     fh.write('# ' + ver + '; uname -m ' + os.uname().machine + '\n')
     fh.write('id\tkind\targs\tfiles\trc\tstdout\toutfiles\n')
     for cid, kind, args, files, rc, so, outs in rows:
