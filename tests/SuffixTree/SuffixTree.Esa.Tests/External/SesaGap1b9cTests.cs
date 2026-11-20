@@ -374,4 +374,43 @@ public class SesaGap1b9cTests
             Assert.That(after - before, Is.EqualTo(reads), $"reads of the suffix array with ReadBytes = {readBytes?.ToString() ?? "default"}");
         }
     }
+
+    // ---------------------------------------------------------------- C16: the loops of the arm64 path of the CRC, on a CPU without that instruction
+
+    /// <summary>The two steps of the arm64 path in software (the raw update of the reflected polynomial, bit by bit): the loops around them are the ones under test.</summary>
+    private readonly struct SoftArmCrc : Crc32C.IArmCrcOps
+    {
+        private static uint Bytes(uint crc, ulong value, int count)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                crc ^= (byte)(value >> (8 * i));
+                for (int bit = 0; bit < 8; bit++) crc = (crc & 1) != 0 ? (crc >> 1) ^ 0x82F63B78 : crc >> 1;
+            }
+            return crc;
+        }
+
+        public uint Step64(uint crc, ulong value) => Bytes(crc, value, 8);
+
+        public uint Step8(uint crc, byte value) => Bytes(crc, value, 1);
+    }
+
+    [Test]
+    public unsafe void TheLoopsOfTheArm64PathOfTheCrc_GiveTheValueOfTheTablePath_ForEveryLengthAndStartingValue()
+    {
+        // C16 (the arm64 tail reads byte 0): the instruction exists only on arm64, the loops around it are the code that this machine can run, here with the steps in software
+        byte[] data = new byte[300];
+        new Random(77).NextBytes(data);
+        foreach (int length in Enumerable.Range(0, 42).Concat([63, 64, 65, 127, 200, 299, 300]))
+        {
+            foreach (uint start in new uint[] { 0, 0xDEADBEEF, uint.MaxValue })
+            {
+                fixed (byte* p = data)
+                {
+                    uint got = ~Crc32C.ArmLoops(new SoftArmCrc(), ~start, p, length);
+                    Assert.That(got, Is.EqualTo(Crc32C.AppendTable(start, data.AsSpan(0, length))), $"length {length}, from {start:X8}");
+                }
+            }
+        }
+    }
 }

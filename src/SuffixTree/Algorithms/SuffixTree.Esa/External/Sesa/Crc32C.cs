@@ -101,9 +101,36 @@ internal static unsafe class Crc32C
         }
         else
         {
-            for (; at + 8 <= length; at += 8) c = Crc32.Arm64.ComputeCrc32C(c, BinaryPrimitives.ReadUInt64LittleEndian(new ReadOnlySpan<byte>(data + at, 8)));
-            for (; at < length; at++) c = Crc32.ComputeCrc32C(c, data[at]);
+            c = ArmLoops(new ArmCrcOps(), c, data, length);
         }
         return ~c;
+    }
+
+    /// <summary>The two CRC-32C steps of the arm64 path (raw updates, without the initial and the final inversion).</summary>
+    internal interface IArmCrcOps
+    {
+        uint Step64(uint crc, ulong value);
+
+        uint Step8(uint crc, byte value);
+    }
+
+    private readonly struct ArmCrcOps : IArmCrcOps
+    {
+        public uint Step64(uint crc, ulong value) => Crc32.Arm64.ComputeCrc32C(crc, value);
+
+        public uint Step8(uint crc, byte value) => Crc32.ComputeCrc32C(crc, value);
+    }
+
+    /// <summary>
+    /// The loops of the arm64 path, over the steps of <paramref name="ops"/> (a struct, so that the production call is specialised and inlined): eight bytes at a time, then the tail byte by byte. A test supplies the steps in
+    /// software, so that the loops run, and are checked against the table path, on a CPU that has no such instruction.
+    /// </summary>
+    internal static uint ArmLoops<TOps>(TOps ops, uint c, byte* data, long length)
+        where TOps : struct, IArmCrcOps
+    {
+        long at = 0;
+        for (; at + 8 <= length; at += 8) c = ops.Step64(c, BinaryPrimitives.ReadUInt64LittleEndian(new ReadOnlySpan<byte>(data + at, 8)));
+        for (; at < length; at++) c = ops.Step8(c, data[at]);
+        return c;
     }
 }
