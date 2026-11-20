@@ -1,4 +1,4 @@
-F53	the 40 rounds of the small periods end one period earlier	survived			9
-F54	the large periods get 7 rounds	survived			10
 F55	the run of the start set is one short	killed(17 failed: ThePrunedCover_IsThePrototypesCover_OfTheSameSizeAndTheSameR,ThePrunedCover_IsThePrototypesCover_OfTheSameSizeAndTheSameR,ThePrunedCover_IsThePrototypesCover_OfTheSameSizeAndTheSameR)[only]			10
 F56	a later round of the same size replaces the best	killed(19 failed: ThePrunedCover_IsThePrototypesCover_OfTheSameSizeAndTheSameR,ThePrunedCover_IsThePrototypesCover_OfTheSameSizeAndTheSameR,ThePrunedCover_IsThePrototypesCover_OfTheSameSizeAndTheSameR)[only]			9
+F53	the 40 rounds of the small periods end one period earlier	survived			15
+F54	the large periods get 7 rounds	killed(3 failed: ThePrunedCover_IsThePrototypesCover_OfTheSameSizeAndTheSameR,ThePrunedCover_IsThePrototypesCover_OfTheSameSizeAndTheSameR,ThePrunedCover_IsThePrototypesCover_OfTheSameSizeAndTheSameR)[only]			10

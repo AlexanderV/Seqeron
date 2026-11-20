@@ -3,5 +3,5 @@ F09	no hand-over point in the partition	killed(3 failed: ABuildThatFailsAfterThe
 F10	the children are disposed after a hand-over that succeeded	killed(26 failed: ABuildThatFailsAfterTheRankFile_GivesItsScratchBytesBack_AtT,AnOutputThatChangedItsLengthDuringTheBuild_IsRefused_AndRemo,TheOutputIsSyncedOnce_WithTheOption_AndNeverWithout)[only]			7
 F11	the entry limit of the sort is at the limit	killed(1 failed: ATextAtTheLimitOfThePositions_PassesTheEntryOfPh1AndPh3)[only]			9
 F34	the bound of the leaf capacity is half of it	killed(1 failed: ALeafCapacityAboveTheBound_IsRefusedAtTheEntry_AndTheBoundIt)[only]			10
-F60	the positions of the scans of the partitions are not counted	survived			10
 F61	the chunk of the partition is rented one bit short	killed(3 failed: AFailureInTheHandOverOfTheChildrenOfAPartition_DisposesTheCh,AFailureInTheMiddleOfTheScanOfAPartition_ClosesEveryWriterTh,TheSortCountsTheSecondsOfItsLeavesAndOfItsPartitions)[only]			10
+F60	the positions of the scans of the partitions are not counted	killed(1 failed: ThePartitionOfTheRoot_CountsEveryPositionThatItScans)[only]			10

@@ -6,13 +6,5 @@
   "old": "if (x <= 256) rounds = 40;",
   "new": "if (x <= 255) rounds = 40;",
   "filter": "(FullyQualifiedName~Gap1b9cTests)"
- },
- {
-  "id": "F54",
-  "desc": "the large periods get 7 rounds",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
-  "old": "int rounds = 6;",
-  "new": "int rounds = 7;",
-  "filter": "(FullyQualifiedName~Gap1b9cTests)"
  }
 ]

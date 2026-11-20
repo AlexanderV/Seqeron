@@ -1,1 +1,1 @@
-F32	a sample one record above the capacity is a leaf	survived			8
+F32	a sample one record above the capacity is a leaf	killed(1 failed: ASampleThatExactlyFitsTheBucketCapacity_IsOneLeaf_AndOneMore)[only]			10

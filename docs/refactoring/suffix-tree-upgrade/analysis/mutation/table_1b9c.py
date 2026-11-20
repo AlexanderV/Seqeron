@@ -70,13 +70,28 @@ elif what == 'equivalent':
         for i, a in sorted(ns[k]['EQUIVALENT_1B9C'].items()):
             print('| %s | `%s` | %s | %s |' % ('1b.7d' if k == 'd' else '1b.7e', i, short(pool[(k, i)]['desc'], 80), short(a, 400)))
 elif what == 'fresh':
-    rows = []
+    exec(open(os.path.join(HERE, '1b9c_fresh_fate.py')).read())
+    lst = {}
+    for f in sorted(glob.glob(os.path.join(HERE, '1b9c_f_*_listed.json'))):
+        for m in json.load(open(f)):
+            lst[m['id']] = m
+    p1, p2 = {}, {}
     for f in sorted(glob.glob(os.path.join(HERE, 'results_1b9c_f_*.tsv'))):
         for line in open(f):
             p = line.rstrip('\n').split('\t')
-            rows.append(p)
-    for p in rows:
-        print('| `%s` | %s | %s | %s |' % (p[0], short(p[1], 80), short(' '.join(x for x in p[2:5] if x), 110), p[5]))
+            p1[p[0]] = p[2] if len(p) > 2 else ''
+    for f in sorted(glob.glob(os.path.join(HERE, 'results_1b9c_f2_*.tsv'))):
+        for line in open(f):
+            p = line.rstrip('\n').split('\t')
+            p2[p[0]] = p[2] if len(p) > 2 else ''
+    kills = [i for i in sorted(lst) if i not in FRESH_FATE and p1.get(i, '').startswith('killed')]
+    print('| mutant | what it does | first run: the new tests alone | closed by | the same run after the closing test (final tests, new classes alone) |')
+    print('|---|---|---|---|---|')
+    for i in sorted(FRESH_FATE):
+        now = p1.get(i, '')
+        print('| `%s` | %s | survived%s | %s | %s |' % (i, short(lst[i]['desc'], 80), ', then ' + p2[i].split('(')[0] + ' in the whole default set' if p2.get(i) and not p2[i].startswith('killed') else ('' if not p2.get(i) else ', then killed by the default set'), FRESH_FATE[i], short(now.replace('[only]', ''), 70) if now.startswith('killed') else now))
+    print()
+    print('killed in pass 1 (%d): %s' % (len(kills), ', '.join('`%s`' % i for i in kills)))
 else:
     # the arithmetic per file: summary_1b9c_files.tsv (summarize_1b9c.py)
     rows = [l.rstrip('\n').split('\t') for l in open(os.path.join(HERE, 'summary_1b9c_files.tsv'))]

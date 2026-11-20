@@ -1,9 +1,9 @@
 F16	the rank file is checked when it is not asked for	killed(1 failed: WithVerifyRanks_ASlotOfTheRankFileThatWasDamagedAfterPh1_IsR)[only]			23
 F17	the length of the suffix array file is checked with a smaller-than	killed(1 failed: AnOutputThatChangedItsLengthDuringTheBuild_IsRefused_AndRemo)[only]			13
 F18	PH1 gets no trace	killed(1 failed: TheThreadCountOfTheBuild_ReachesPh1AndPh3_TwoTasksOfEachRunA)[only]			13
-F45	PH1 time is the time of PH3	survived			10
-F46	the entry limit of the build is at the limit	survived			10
 F47	the whole-run RssAnon figure is in 1000 byte units	killed(1 failed: TheRssAnonFigures_AreInMegabytesOfTenToTheSixth_AndTheVerdic)[only]			9
 F48	the fsync of the output is not counted	killed(1 failed: TheOutputIsSyncedOnce_WithTheOption_AndNeverWithout)[only]			10
-F49	the rank file is not booked in the ledger	survived			10
-F62	the PH3 figure of the scratch peak is that of PH1	survived			10
+F45	PH1 time is the time of PH3	killed(1 failed: AWaitInOnePhase_ShowsInTheSecondsOfThatPhaseAlone)[only]			14
+F46	the entry limit of the build is at the limit	killed(1 failed: ATextAtTheLimitOfThePositions_PassesTheEntryOfPh1AndPh3)[only]			11
+F49	the rank file is not booked in the ledger	killed(1 failed: ABuildThatSucceeded_LeavesNoScratchByteInTheAccount_AndPh3Re)[only]			11
+F62	the PH3 figure of the scratch peak is that of PH1	killed(1 failed: ABuildThatSucceeded_LeavesNoScratchByteInTheAccount_AndPh3Re)[only]			10

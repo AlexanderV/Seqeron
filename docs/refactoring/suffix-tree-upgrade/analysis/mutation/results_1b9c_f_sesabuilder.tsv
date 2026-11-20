@@ -4,6 +4,6 @@ F21	the counts of the BWT are compared with themselves	killed(1 failed: ASuffixA
 F22	a container that is shorter than planned is accepted	killed(1 failed: TheLengthOfTheClosedContainer_IsCheckedAgainstThePlan_InBoth)[only]			11
 F23	the message of the length check names the planned length twice	killed(1 failed: TheLengthOfTheClosedContainer_IsCheckedAgainstThePlan_InBoth)[only]			10
 F24	BUILD_INFO is refused only above twice its room	survived			9
-F35	PH6 is run for a build with threads above 1000 only	survived			10
 F36	the BWT scratch file is not given the file options of the build	killed(1 failed: TheFileOptions_ReachTheBwtFile_AndEveryOtherFileOfTheBuildTh)[only]			10
 F59	the BWT default read is two mebibytes	killed(1 failed: TheBwtPass_ReadsTheSuffixArrayInOneMebibyteStepsByDefault_An)[only]			9
+F35	PH6 is run for a build with threads above 1000 only	killed(1 failed: WithoutIncludePsi_NoPsiSectionIsWritten_AtAnyThreadCount_And)[only]			9
