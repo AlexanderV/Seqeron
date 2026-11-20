@@ -25,7 +25,10 @@ public static partial class SequenceAligner
     /// </summary>
     internal static int[][] TcDiagonalsByKtup(string consensus1, string consensus2, int ktup, Func<int, int, int> cost)
     {
-        int l1 = consensus1.Length, l2 = consensus2.Length, nDiag = l1 + l2 - 1;
+        int l1 = consensus1.Length, l2 = consensus2.Length;
+        RequireTcPairDpCells("evaluate_diagonals_with_ktup", "keeps a 3-int row (about 48 bytes) per diagonal (len1 + len2 + 1 of them)", 48, (long)l1 + l2 + 1,
+            string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{l1:N0} x {l2:N0} positions"));
+        int nDiag = l1 + l2 - 1;
         var diag = new int[nDiag + 2][];
         for (int a = 0; a < nDiag + 2; a++) diag[a] = new[] { a, 0, 0 };
         if (ktup >= 1)
@@ -50,6 +53,8 @@ public static partial class SequenceAligner
             {
                 if (!h2.TryGetValue(key, out var offsets2)) continue;
                 foreach (int p1 in offsets1)
+                {
+                    AlignmentCancellation.ThrowIfRequested();       // A5-2: one poll per k-tuple occurrence (a repeat gives offsets1 x offsets2 pairs)
                     foreach (int p2 in offsets2)
                     {
                         var row = diag[p2 - p1 + l1];
@@ -58,6 +63,7 @@ public static partial class SequenceAligner
                         for (int d = 0; d < ktup; d++) score += cost(p1 + d, p2 + d);
                         row[1] += score;
                     }
+                }
             }
         }
 
@@ -147,8 +153,14 @@ public static partial class SequenceAligner
     {
         int nDiag = diag[0];
         int rows = l1 + l2 + 1, cols = nDiag + 2; // the program allocates l1 + l2 + 1 rows: the traceback may step through zero rows below the matrix (diag[nDiag + 1] reads 0)
+        RequireTcPairDpCells("fasta_pair_wise (the banded Gotoh of fast_pair)", "keeps five int matrices of (len1 + len2 + 1) rows x (flagged diagonals + 2) columns", 20, ((long)l1 + l2 + 1) * ((long)nDiag + 2),
+            string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{l1:N0} x {l2:N0} positions with {nDiag:N0} flagged diagonals"), "use the slow_pair or lalign_id_pair primary library (linear space), or -ndiag / -diag_threshold to flag fewer diagonals");
         var C = new int[rows][]; var D = new int[rows][]; var I = new int[rows][]; var LD = new int[rows][]; var trace = new int[rows][];
-        for (int r = 0; r < rows; r++) { C[r] = new int[cols]; D[r] = new int[cols]; I[r] = new int[cols]; LD[r] = new int[cols]; trace[r] = new int[cols]; }
+        for (int r = 0; r < rows; r++)
+        {
+            if ((r & 255) == 0) AlignmentCancellation.ThrowIfRequested();
+            C[r] = new int[cols]; D[r] = new int[cols]; I[r] = new int[cols]; LD[r] = new int[cols]; trace[r] = new int[cols];
+        }
 
         int termGop = tgMode == 0 ? gop : 0, termGep = tgMode == 2 ? 0 : gep;
         int j;
@@ -172,6 +184,7 @@ public static partial class SequenceAligner
         int score = 0, lastI = 0, lastJ = 0;
         for (int i = 1; i <= l1; i++)
         {
+            AlignmentCancellation.ThrowIfRequested();       // A5-2: one poll per row
             C[i][0] = C[i][nDiag + 1] = t = t + termGep;
             I[i][0] = D[i][nDiag + 1] = t + gop;
             for (j = 1; j <= nDiag; j++)

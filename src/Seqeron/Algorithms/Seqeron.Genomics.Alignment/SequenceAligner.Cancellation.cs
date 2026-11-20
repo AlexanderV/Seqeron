@@ -14,18 +14,42 @@ namespace Seqeron.Genomics.Alignment;
 internal static class AlignmentCancellation
 {
     private static readonly AsyncLocal<CancellationToken> Current = new();
+    private static readonly AsyncLocal<Action?> PollProbe = new();
 
     /// <summary>The token of the innermost cancellable scope (<c>default</c> = never cancelled).</summary>
     internal static CancellationToken Token => Current.Value;
 
     /// <summary>Throws <see cref="OperationCanceledException"/> when the scope's token is cancelled (a plain field read when no scope is active).</summary>
-    internal static void ThrowIfRequested() => Current.Value.ThrowIfCancellationRequested();
+    internal static void ThrowIfRequested()
+    {
+        PollProbe.Value?.Invoke();
+        Current.Value.ThrowIfCancellationRequested();
+    }
 
     /// <summary>Polls a local token (a <c>cancellationToken</c> parameter of an overload) and the ambient scope token.</summary>
     internal static void Poll(CancellationToken local)
     {
+        PollProbe.Value?.Invoke();
         local.ThrowIfCancellationRequested();
         Current.Value.ThrowIfCancellationRequested();
+    }
+
+    /// <summary>
+    /// Test seam (audit A5-4): <paramref name="probe"/> runs at the start of EVERY poll of the calling flow (the execution context flows to the worker threads of <c>Parallel.For</c>, other tests are not affected),
+    /// so a test cancels its source at the n-th poll deterministically instead of after a wall-clock delay. Dispose to remove it.
+    /// </summary>
+    internal static IDisposable OnPoll(Action probe)
+    {
+        var previous = PollProbe.Value;
+        PollProbe.Value = probe;
+        return new ProbeScope(previous);
+    }
+
+    private sealed class ProbeScope : IDisposable
+    {
+        private readonly Action? _previous;
+        public ProbeScope(Action? previous) => _previous = previous;
+        public void Dispose() => PollProbe.Value = _previous;
     }
 
     /// <summary>Enters a scope for <paramref name="token"/> (a token that cannot be cancelled keeps the surrounding scope); dispose to leave it.</summary>

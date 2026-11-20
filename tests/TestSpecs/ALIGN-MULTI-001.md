@@ -747,3 +747,13 @@ Tests (`Seqeron.Genomics.Tests`, against the installed Debian `poa` 2.0+20060928
 | A4-7 | `Minimap2Seeds_Tests.FrequentMinimizers_AreHandledLikeTheProgram_NotRefused` | the old `NotSupportedException` is gone: poly-A key dropped, `RepeatLength > 0`, `CollectAnchors` = `CollectSeeds` anchors |
 | A4-7 | `Minimap2Map_Tests.Map_SecondaryChainMarking_EqualsMinimap2` / `Map_ChainingOptions_EqualMinimap2` / `Map_LongJoinRechaining_EqualsMinimap2` / `Map_RmqChaining_EqualsMinimap2` | 1 320 PAF runs (`minimap2_map_oracle.jsonl.gz`, four groups of 330): columns 3 - 12 and `tp cm s1 s2 dv rl` of every line (secondary marking, `-N` / `-p` / mask options, `-r b,B` long join, `--rmq`, `-g -n -m` and the chain scales) |
 | A4-7 | MCP `Minimap2ChainsTests.Minimap2Chains_PafMode_IsThePafLineOfMinimap2`, `..._FrequentMinimizers_...` | the `paf` mode and the new options of `minimap2_chains` |
+
+## Audit A5-1 / A5-2 (B09 F167 / F168): minimap2 query-name hash, T-Coffee pair-DP limits and cancellation
+
+| ID | Test | Locks |
+|---|---|---|
+| A5-1 | `Minimap2Map_Tests.Map_NonAsciiAndNulQueryNames_EqualMinimap2` | group `qname` of `minimap2_map_oracle.jsonl.gz` (330 PAF runs, names with a first byte >= 0x80 (189), 3- / 4-byte UTF-8 characters, U+0000 (99); references with 2 - 4 identical copies of the query): the hash of the name (`__ac_X31_hash_string`: signed `char`, C string) orders equal-score chains like `minimap2 2.26` |
+| A5-2 | `SequenceAligner_TCoffeeLimits_Tests.BiphasicPair_Above2GiB_...` / `FastPair_FlaggedDiagonalBand_IsRefused` / `GotohPairWise_TracebackMatrix_...` / `ViterbiPairWise_IsRefused_...` | `TCoffeePairDpMaxBytes` (2 GiB): one `ArgumentException` of the `ResourceLimit` style per pair DP (`biphasic_pair_wise` 48 bytes per cell, `glocal_pair_wise` 40, `gotoh_pair_wise_lgp` 32, `gotoh_pair_wise` / `_sw` traceback 4, `viterbi_pair_wise` 44, FASTA band 20 per row x flagged diagonal), 64-bit arithmetic (the largest int lengths do not overflow), raised before the allocation (< 64 MB allocated) |
+| A5-2 | `LalignTopAlignments_IntMaxValue_MeansEveryAlignment`, `FracMinHashSketch_KAboveTheSequenceLength_IsAnEmptySketch_NotAnOutOfMemory` | the lazily grown vertex list of `lalign_id_pair`; `KmerAnalyzer.CreateFracMinHashSketch` with `k = int.MaxValue` |
+| A5-2 | `BiphasicPair_Cancels_...`, `GlocalGotohSwAndGotohProfile_Cancel_...`, `FastPair_Cancels_...`, `LgpAndViterbiDpModes_Cancel_...`, `LalignAndSlowPair_Cancel_...` | a pre-cancelled token and a cancellation at the middle poll INSIDE each pair method (`PollCancellation`: the call is run once to record its polls, then cancelled at the poll of the named method: no sleep) |
+

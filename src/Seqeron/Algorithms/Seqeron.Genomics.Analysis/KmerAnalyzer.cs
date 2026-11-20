@@ -1916,7 +1916,8 @@ public static class KmerAnalyzer
         var counts = CountKmers(sequence ?? string.Empty, k, SketchCountingOptions(canonical));
 
         var kept = new Dictionary<ulong, long>();
-        var buffer = new byte[k];
+        // a k above the sequence length has no k-mer: no scratch buffer (new byte[int.MaxValue] was an OutOfMemoryException, B09 audit A5-2)
+        var buffer = counts.Count == 0 ? Array.Empty<byte>() : new byte[k];
         foreach (var (kmer, count) in counts)
         {
             ulong h = KmerHashH1(kmer, buffer, seed);

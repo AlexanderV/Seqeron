@@ -46,13 +46,15 @@ public static partial class SequenceAligner
     }
 
     /// <summary><c>biphasic_pair_wise</c> on a score function of the two 0-based positions (<c>get_dp_cost</c>): the residue masks of the two rows and the score of the best final state.</summary>
-    private static (List<bool> Present1, List<bool> Present2, int Score) TcBiphasicMasks(int I, int J, Func<int, int, int> cost, int gopIn, int gepIn)
+    internal static (List<bool> Present1, List<bool> Present2, int Score) TcBiphasicMasks(int I, int J, Func<int, int, int> cost, int gopIn, int gepIn)
     {
         const int M1 = 1, D1 = 2, D2 = 3, I1 = 4, I2 = 5, N = 6;
+        RequireTcPairDp("biphasic_pair_wise", "keeps twelve int matrices (the scores and the trace-back pointers of five states)", 48, (long)I + 1, (long)J + 1, "positions");
         var m = new int[N][,];
         var t = new int[N][,];
         for (int c = 0; c < N; c++)
         {
+            AlignmentCancellation.ThrowIfRequested();
             m[c] = new int[I + 1, J + 1];
             t[c] = new int[I + 1, J + 1];
             for (int i = 0; i <= I; i++)
@@ -67,6 +69,8 @@ public static partial class SequenceAligner
         for (int j = 1; j <= J; j++) { m[D1][0, j] = gep1 * j; m[D2][0, j] = gep2 * j; }
 
         for (int i = 1; i <= I; i++)
+        {
+            AlignmentCancellation.ThrowIfRequested();       // A5-2: one poll per row
             for (int j = 1; j <= J; j++)
             {
                 int sub = cost(i - 1, j - 1);
@@ -91,6 +95,7 @@ public static partial class SequenceAligner
                     m[state][i, j] = (takeExtend ? extend : open) + gep;
                 }
             }
+        }
 
         int bestFinal = m[M1][I, J], trace = M1;
         foreach (int st in new[] { D1, I1, D2, I2 })
@@ -116,12 +121,13 @@ public static partial class SequenceAligner
     /// <c>glocal_pair_wise</c> (util_dp_gotoh_nw.c L370): four states (M1, D1, I1, M2 = an unmatched pair costing <c>gep</c>, entered with <c>gop</c>) with zero-initialised borders except the listed ones, ties to the first listed key, the traceback
     /// that starts from the predecessor of the best final state, and a pair in state M2 written as two columns (the first row's residue against a gap, then the gap against the second row's residue).
     /// </summary>
-    private static (List<bool> Present1, List<bool> Present2, int Score) TcGlocalMasks(int l1, int l2, Func<int, int, int> cost, int gopIn, int gepIn)
+    internal static (List<bool> Present1, List<bool> Present2, int Score) TcGlocalMasks(int l1, int l2, Func<int, int, int> cost, int gopIn, int gepIn)
     {
         const int M1 = 1, D1 = 2, I1 = 3, M2 = 4, N = 5;
         int gop = gopIn * TcScoreK, gep = gepIn * TcScoreK, tgop = gop, unmatch = gep;
+        RequireTcPairDp("glocal_pair_wise", "keeps ten int matrices (the scores and the trace-back pointers of five states)", 40, (long)l1 + 1, (long)l2 + 1, "positions");
         var m = new int[N][,]; var t = new int[N][,];
-        for (int c = 0; c < N; c++) { m[c] = new int[l1 + 1, l2 + 1]; t[c] = new int[l1 + 1, l2 + 1]; }
+        for (int c = 0; c < N; c++) { AlignmentCancellation.ThrowIfRequested(); m[c] = new int[l1 + 1, l2 + 1]; t[c] = new int[l1 + 1, l2 + 1]; }
         for (int j = 1; j <= l2; j++)
         {
             m[D1][0, j] = gep * j;
@@ -131,6 +137,7 @@ public static partial class SequenceAligner
 
         for (int i = 1; i <= l1; i++)
         {
+            AlignmentCancellation.ThrowIfRequested();       // A5-2: one poll per row
             m[I1][i, 0] = i * gep;
             m[M2][i, 0] = 4 * i * gep;
             m[M1][i, 0] = 2 * i * gep;
@@ -220,6 +227,10 @@ public static partial class SequenceAligner
     /// <c>gotoh_pair_wise_lgp</c> (util_dp_gotoh_nw.c L589, "local gap penalties"): a three-state (M, D, I) Gotoh DP whose gap opening and closing penalties are those of <see cref="TcLocalGapPenalties"/> (zero in the first and last row / column), the
     /// extension is <c>gep</c> x SCORE_K everywhere; the borders hold <c>gep</c> x index (the other two states one lower), <c>dp_max</c> ties go to the first listed state and the traceback starts from the predecessor of the best final state like <c>glocal_pair_wise</c>.
     /// </summary>
+    /// <summary>The limit of <c>gotoh_pair_wise_lgp</c>: eight int matrices (32 bytes per cell).</summary>
+    internal static void TcRequireLgpFits(int columns1, int columns2) =>
+        RequireTcPairDp("gotoh_pair_wise_lgp", "keeps eight int matrices (the scores and the trace-back pointers of three states)", 32, (long)columns1 + 1, (long)columns2 + 1, "columns");
+
     private static (List<bool> Present1, List<bool> Present2, int Score) TcGotohLgpMasks(TcGroup g0, TcGroup g1, Func<int, int, int> cost, int gopIn, int gepIn)
     {
         const int M1 = 1, D1 = 2, I1 = 3, N = 4;
@@ -227,8 +238,9 @@ public static partial class SequenceAligner
         int gop = gopIn * TcScoreK, gep = gepIn * TcScoreK;
         var (gopI, gcpI) = TcLocalGapPenalties(g0, gop);
         var (gopJ, gcpJ) = TcLocalGapPenalties(g1, gop);
+        TcRequireLgpFits(li, lj);
         var m = new int[N][,]; var t = new int[N][,];
-        for (int c = 0; c < N; c++) { m[c] = new int[li + 1, lj + 1]; t[c] = new int[li + 1, lj + 1]; }
+        for (int c = 0; c < N; c++) { AlignmentCancellation.ThrowIfRequested(); m[c] = new int[li + 1, lj + 1]; t[c] = new int[li + 1, lj + 1]; }
         for (int j = 1; j <= lj; j++)
         {
             m[D1][0, j] = gep * j;
@@ -238,6 +250,7 @@ public static partial class SequenceAligner
 
         for (int i = 1; i <= li; i++)
         {
+            AlignmentCancellation.ThrowIfRequested();       // A5-2: one poll per row
             m[I1][i, 0] = i * gep;
             m[D1][i, 0] = m[I1][i, 0] - 1;
             m[M1][i, 0] = m[I1][i, 0] - 1;
@@ -283,10 +296,11 @@ public static partial class SequenceAligner
     /// hold <c>g + h x index</c>, a cell is the best of insertion, substitution, deletion and 0 (<c>best_int</c>: the first strictly greater value wins; 0 restarts the alignment), the best cell is the first one in row-major order with a
     /// strictly larger score. <c>null</c> = no cell scored above 0 (the program empties every row). Otherwise the masks of the local alignment, the 0-based column of each group where it starts and its score.
     /// </summary>
-    private static (List<bool> Al0, List<bool> Al1, int Start0, int Start1, int Score)? TcGotohSwMasks(int l1, int l2, Func<int, int, int> cost, int gopIn, int gepIn, int noMatch)
+    internal static (List<bool> Al0, List<bool> Al1, int Start0, int Start1, int Score)? TcGotohSwMasks(int l1, int l2, Func<int, int, int> cost, int gopIn, int gepIn, int noMatch)
     {
         int g = (gopIn - noMatch) * TcScoreK, h = (gepIn - noMatch) * TcScoreK;
         int len = Math.Max(l1, l2) + 1;
+        RequireTcPairDp("gotoh_pair_wise_sw", "keeps an int trace-back matrix", 4, (long)l1 + 1, (long)l2 + 1, "positions");
         var cc = new int[len]; var dd = new int[len]; var ddg = new int[len];
         var trace = new int[l1 + 1][];
         for (int i = 0; i <= l1; i++) trace[i] = new int[l2 + 1];
@@ -303,6 +317,7 @@ public static partial class SequenceAligner
         t = g;
         for (int i = 1; i <= l1; i++)
         {
+            AlignmentCancellation.ThrowIfRequested();       // A5-2: one poll per row
             var tr = trace[i];
             int s = cc[0];
             cc[0] = t = t + h;

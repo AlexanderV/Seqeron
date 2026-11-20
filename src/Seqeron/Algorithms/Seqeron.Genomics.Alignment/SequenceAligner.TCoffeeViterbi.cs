@@ -34,11 +34,16 @@ public static partial class SequenceAligner
         return prf;
     }
 
+    /// <summary>The limit of <c>viterbi_pair_wise</c>: the match probability (4 bytes) plus five Viterbi floats and five trace-back ints (40 bytes) per cell, 64-bit (the program computes <c>nmt x (I + 1) x (J + 1)</c> in a 32-bit int).</summary>
+    internal static void TcRequireViterbiFits(int columns1, int columns2) =>
+        RequireTcPairDp("viterbi_pair_wise", "keeps the match probability of every cell and five Viterbi floats and five trace-back ints per cell", 44, (long)columns1 + 1, (long)columns2 + 1, "columns");
+
     private static (List<bool> Present1, List<bool> Present2, int Score) TcViterbiMasks(TcDpContext ctx, TcGroup g0, TcGroup g1)
     {
         var m = TcProbaModel.For(TcSeqKind.Protein);
         const int nmt = 5, nis = 2;
         int I = g0.Columns, J = g1.Columns;
+        TcRequireViterbiFits(I, J);
         var prf1 = TcResidueProfile(ctx, g0);
         var prf2 = TcResidueProfile(ctx, g1);
 
@@ -64,6 +69,8 @@ public static partial class SequenceAligner
 
         var matchProb = new float[(I + 1) * (J + 1)];
         for (int i = 1; i <= I; i++)
+        {
+            AlignmentCancellation.ThrowIfRequested();       // A5-2: one poll per row (400 multiplications per cell)
             for (int j = 1; j <= J; j++)
             {
                 float v = 0;
@@ -76,6 +83,7 @@ public static partial class SequenceAligner
 
                 matchProb[i * (J + 1) + j] = v;
             }
+        }
 
         int total = nmt * (I + 1) * (J + 1);
         var viterbi = new float[total];
@@ -85,6 +93,8 @@ public static partial class SequenceAligner
         for (int k = 0; k < nmt; k++) viterbi[k] = m.InitialDistribution[k];
 
         for (int i = 0; i <= I; i++)
+        {
+            AlignmentCancellation.ThrowIfRequested();       // A5-2: one poll per row
             for (int j = 0; j <= J; j++)
             {
                 int ij = nmt * (i * (J + 1) + j), i1j = ij - nmt * (J + 1), ij1 = ij - nmt, i1j1 = ij - nmt * (J + 2);
@@ -123,6 +133,7 @@ public static partial class SequenceAligner
                     }
                 }
             }
+        }
 
         float bestProb = TcLogZero;
         int state = -1;

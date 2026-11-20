@@ -801,8 +801,7 @@ public static partial class SequenceAligner
             _row = new HashSet<int>[M + 1];
             for (int i = 0; i <= M; i++) _row[i] = new HashSet<int>();
 
-            _list = new Vertex[K];
-            for (int i = 0; i < K; i++) _list[i] = new Vertex();
+            _list = new Vertex[Math.Min(K, 64)];        // A5-2: lazily grown (SequenceAligner.TopNSimMaxVertices): -lalign_n_top = int.MaxValue means "every alignment"; the program calloc()s K vertices up front
             _numnode = _lmin = 0;
             _low = _most = null;
 
@@ -879,7 +878,7 @@ public static partial class SequenceAligner
             }
             else
             {
-                _most = _numnode == K ? _low : _list[_numnode++];
+                _most = _numnode == K ? _low : VertexAt(_numnode++);
                 _most!.Score = c;
                 _most.StarI = ci;
                 _most.StarJ = cj;
@@ -903,6 +902,20 @@ public static partial class SequenceAligner
             }
 
             return cost;
+        }
+
+        private Vertex VertexAt(int index)
+        {
+            if (index >= _list.Length)
+            {
+                if (index >= TopNSimMaxVertices)
+                    throw ResourceLimit("T-Coffee lalign_id_pair (Huang-Miller SIM)", "keeps a list of candidate start points (about 56 bytes each)", string.Create(System.Globalization.CultureInfo.InvariantCulture, $"more than {TopNSimMaxVertices:N0} candidates"), TopNSimMaxVertices,
+                        nameof(SequenceAligner) + "." + nameof(TopNSimMaxVertices), "t_coffee allocates -lalign_n_top vertices up front and stops with \"FAILED TO ALLOCATE REQUIRED MEMORY (vmalloc)\" for 2147483647 and for 100000000 (measured under a 4 GB limit)",
+                        "ask for fewer alignments (topAlignments / -lalign_n_top)", "topAlignments");
+                Array.Resize(ref _list, (int)Math.Min(TopNSimMaxVertices, Math.Max(index + 1L, _list.Length * 2L)));
+            }
+
+            return _list[index] ??= new Vertex();
         }
 
         private Vertex FindMax()

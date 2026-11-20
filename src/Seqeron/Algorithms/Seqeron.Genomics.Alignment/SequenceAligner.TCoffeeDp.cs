@@ -645,6 +645,7 @@ public static partial class SequenceAligner
         int gop = gopIn * TcScoreK, gep = gepIn * TcScoreK;
         if (test) { gop = 0; gep = -1; }
         int len = Math.Max(l1, l2) + 1;
+        RequireTcPairDp("gotoh_pair_wise", "keeps an int trace-back matrix", 4, (long)l1 + 1, (long)l2 + 1, "positions");
         var cc = new int[len]; var dd = new int[len]; var ddg = new int[len];
         var trace = new int[l1 + 1][];
         for (int i = 0; i <= l1; i++) trace[i] = new int[l2 + 1];
@@ -775,14 +776,20 @@ public static partial class SequenceAligner
     /// <summary><c>evaluate_diagonals_with_clist</c>: every library entry of a residue of a sequence of group 1 to a sequence of group 2 adds the column score of (residue, partner) - the residue NUMBERS serve as column indices - to its diagonal.</summary>
     private static int[][] TcDiagonalsByLibrary(TcDpContext ctx, int[] l1ids, int[] l2ids, int l1, int l2, Func<int, int, int> cost)
     {
+        RequireTcPairDpCells("evaluate_diagonals_with_clist", "keeps a 3-int row (about 48 bytes) per diagonal (len1 + len2 + 1 of them)", 48, (long)l1 + l2 + 1,
+            string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{l1:N0} x {l2:N0} columns"));
         int nDiag = l1 + l2 - 1;
         var diag = new int[nDiag + 2][];
         for (int a = 0; a < nDiag + 2; a++) diag[a] = new[] { a, 0, 0 };
         foreach (int s1 in l1ids)
             foreach (int s2 in l2ids)
                 for (int r1 = 1; r1 <= ctx.Index.Len[s1]; r1++)
+                {
+                    AlignmentCancellation.ThrowIfRequested();       // A5-2: one poll per residue of the first sequence
                     foreach (var e in ctx.Index.Edges[s1][r1])
                         if (e.Seq == s2) diag[e.Res - r1 + l1][1] += cost(r1 - 1, e.Res - 1);
+                }
+
         TcSortDiagonals(diag, nDiag);
         return diag;
     }

@@ -141,6 +141,7 @@ public static partial class SequenceAligner
         for (int j = 0; j <= l2; j++) { D[0][j] = gep * j; M[0][j] = 2 * gep * j; D[4][j] = 0; }
         for (int i = 1; i <= l1; i++)
         {
+            AlignmentCancellation.ThrowIfRequested();       // A5-2: one poll per row
             I[1][0] = i * gep;
             M[1][0] = 2 * i * gep;
             for (int j = 1; j <= l2; j++)
@@ -354,6 +355,8 @@ public static partial class SequenceAligner
     private static (string, string) TcVeryFastPairRows(string sa, string sb, int a, int b, TcRelaxedState st, TcMatrix mat, int gop)
     {
         int l1 = sa.Length, l2 = sb.Length, nDiag = l1 + l2 - 1;
+        RequireTcPairDpCells("very_fast_pair_wise (evaluate_diagonals_with_clist)", "keeps a 3-int row (about 48 bytes) per diagonal (len1 + len2 + 1 of them)", 48, (long)l1 + l2 + 1,
+            string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{l1:N0} x {l2:N0} positions"));
         Func<int, int, int> cost = (i, j) => mat.Score(sa[i], sb[j]) * TcScoreK - TcScoreK * st.Penalties.NoMatch;
         var diag = new int[nDiag + 2][];
         for (int d = 0; d < nDiag + 2; d++) diag[d] = new[] { d, 0, 0 };
