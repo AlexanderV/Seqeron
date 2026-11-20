@@ -78,7 +78,7 @@
 | `tcoffee_slow_pair_align` | `SequenceAligner.TCoffeeSlowPairAlign` | [doc](../../mcp/tools/alignment/tcoffee_slow_pair_align.md) |
 | `write_alignment` | `EmbossAlignmentWriter.Format` | [doc](../../mcp/tools/alignment/write_alignment.md) |
 
-## Analysis (134 tools)
+## Analysis (136 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -155,6 +155,8 @@
 | `find_tandem_repeats` | `GenomicAnalyzer.FindTandemRepeats` | [doc](../../mcp/tools/analysis/find_tandem_repeats.md) |
 | `find_tandem_repeats_emboss` | `GenomicAnalyzer.FindTandemRepeatsEtandem` | [doc](../../mcp/tools/analysis/find_tandem_repeats_emboss.md) |
 | `flush_coaxial_stacking` | `RnaSecondaryStructure.CalculateFlushCoaxialStacking` | [doc](../../mcp/tools/analysis/flush_coaxial_stacking.md) |
+| `fuzzpro` | `GenomicAnalyzer.FindProteinPatternHits` | [doc](../../mcp/tools/analysis/fuzzpro.md) |
+| `fuzztran` | `GenomicAnalyzer.FindTranslatedPatternHits` | [doc](../../mcp/tools/analysis/fuzztran.md) |
 | `gc_content_profile` | `SequenceStatistics.CalculateGcContentProfile` | [doc](../../mcp/tools/analysis/gc_content_profile.md) |
 | `gc_skew` | `GcSkewCalculator.CalculateGcSkew` | [doc](../../mcp/tools/analysis/gc_skew.md) |
 | `generate_all_kmers` | `KmerAnalyzer.GenerateAllKmers` | [doc](../../mcp/tools/analysis/generate_all_kmers.md) |

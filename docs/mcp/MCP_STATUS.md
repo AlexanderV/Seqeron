@@ -21,7 +21,7 @@
 | Sequence | Seqeron.Mcp.Sequence | 35 | 35/35 | 35/35 | 35/35 | ✅ done |
 | Parsers | Seqeron.Mcp.Parsers | 41 | 41/41 | 41/41 | 41/41 | ✅ done |
 | Alignment | Seqeron.Mcp.Alignment | 69 | 69/69 | 69/69 | 69/69 | ✅ done |
-| Analysis | Seqeron.Mcp.Analysis | 134 | 134/134 | 134/134 | 134/134 | ✅ done |
+| Analysis | Seqeron.Mcp.Analysis | 136 | 136/136 | 136/136 | 136/136 | ✅ done |
 | Annotation | Seqeron.Mcp.Annotation | 97 | 97/97 | 97/97 | 97/97 | ✅ done |
 | Chromosome | Seqeron.Mcp.Chromosome | 32 | 32/32 | 32/32 | 32/32 | ✅ done |
 | Metagenomics | Seqeron.Mcp.Metagenomics | 19 | 19/19 | 19/19 | 19/19 | ✅ done |
@@ -214,7 +214,7 @@
 | 68 | `align_gap_profile` | ☑ | ☑ | ☑ |
 | 69 | `merger` | ☑ | ☑ | ☑ |
 
-### Analysis (Seqeron.Mcp.Analysis) — 134 tools
+### Analysis (Seqeron.Mcp.Analysis) — 136 tools
 
 | # | tool | B | T | D |
 |---:|---|:--:|:--:|:--:|
@@ -351,6 +351,8 @@
 | 131 | `find_pattern_hits` | ☑ | ☑ | ☑ |
 | 132 | `find_tandem_repeats_emboss` | ☑ | ☑ | ☑ |
 | 133 | `seqmatchall` | ☑ | ☑ | ☑ |
+| 134 | `fuzzpro` | ☑ | ☑ | ☑ |
+| 135 | `fuzztran` | ☑ | ☑ | ☑ |
 | 132 | `find_longest_common_region_mismatches` | ☑ | ☑ | ☑ |
 ### Annotation (Seqeron.Mcp.Annotation) — 97 tools
 

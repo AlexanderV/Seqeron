@@ -334,6 +334,8 @@
 | windowed_gc_skew | Analysis | GcSkewCalculator.CalculateWindowedGcSkew | GcSkewCalculator.cs#L147 | 0/0 | – | – | Build-Ready |
 | find_tandem_repeats_emboss | Analysis | GenomicAnalyzer.FindTandemRepeatsEtandem | GenomicAnalyzer.EmbossTandem.cs | 0/0 | – | – | Build-Ready |
 | seqmatchall | Analysis | GenomicAnalyzer.SeqMatchAll | GenomicAnalyzer.WordMatches.cs | 0/0 | – | – | Build-Ready |
+| fuzzpro | Analysis | GenomicAnalyzer.FindProteinPatternHits | GenomicAnalyzer.ProteinPatterns.cs | 0/0 | – | – | Build-Ready |
+| fuzztran | Analysis | GenomicAnalyzer.FindTranslatedPatternHits | GenomicAnalyzer.ProteinPatterns.cs | 0/0 | – | – | Build-Ready |
 | alignment_statistics | Alignment | SequenceAligner.CalculateStatistics | Alignment/SequenceAligner.cs#L1064 | 0/0 | – | – | Build-Ready |
 | assemble_de_bruijn | Alignment | SequenceAssembler.AssembleDeBruijn | Alignment/SequenceAssembler.cs#L75 | 0/0 | – | – | Build-Ready |
 | assemble_olc | Alignment | SequenceAssembler.AssembleOLC | Alignment/SequenceAssembler.cs#L48 | 0/0 | – | – | Build-Ready |

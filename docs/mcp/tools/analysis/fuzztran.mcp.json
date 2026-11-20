@@ -1,0 +1,131 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "toolName": "fuzztran",
+ "serverName": "Analysis",
+ "version": "1.0.0",
+ "stability": "stable",
+ "methodId": "GenomicAnalyzer.FindTranslatedPatternHits",
+ "docRef": "Seqeron.Genomics.Analysis/GenomicAnalyzer.ProteinPatterns.cs",
+ "description": "EMBOSS 6.6.0 fuzztran: translates a nucleotide sequence in the chosen frames (frame 1, 2, 3, -1, -2, -3, F = forward three, R = reverse three, 6 = all; transeq conventions: reverse frame -k is the reverse complement read from its k-th base, dangling bases give X) with an EMBOSS genetic-code table (0 = standard, else the NCBI table number) and searches every translation with a fuzzpro protein pattern (see fuzzpro: letters, x, [ ], { }, repeats, ranges, anchors; exact). Each hit gives the frame, the 1-based protein start / end, the matched residues, the forward-strand nucleotide location (position 0-based, length = 3 per residue) and, for the forward frames, embossStart / embossEnd, the two 1-based numbers the program prints (EMBOSS 6.6.0 prints meaningless numbers for the reverse frames - a defect of its source-feature mapping - which are not reproduced; use position / length). Hits per frame in the order 1, 2, 3, -1, -2, -3, by protein position, then length. Verified against fuzztran 6.6.0 on 760 random DNA / pattern / frame / table cases (all frame selections, tables 0-11, N and lower case; IUPAC codons other than N are resolved by the library's Biopython-style table, EMBOSS's own table differs for 13 codon patterns).",
+ "inputSchema": {
+  "type": "object",
+  "properties": {
+   "sequence": {
+    "type": "string",
+    "description": "Nucleotide sequence: A/C/G/T plus IUPAC codes such as N (case-insensitive)."
+   },
+   "pattern": {
+    "type": "string",
+    "description": "The protein pattern (fuzztran -pattern)."
+   },
+   "frame": {
+    "type": "string",
+    "description": "Frames to translate (fuzztran -frame): 1 (default), 2, 3, -1, -2, -3, F, R or 6.",
+    "default": "1"
+   },
+   "table": {
+    "type": "integer",
+    "description": "EMBOSS genetic code (fuzztran -table): 0 = standard (default), otherwise an NCBI table number.",
+    "default": 0
+   }
+  },
+  "required": [
+   "sequence",
+   "pattern"
+  ]
+ },
+ "outputSchema": {
+  "type": "object",
+  "properties": {
+   "pattern": {
+    "type": "string"
+   },
+   "hits": {
+    "type": "array",
+    "items": {
+     "type": "object",
+     "properties": {
+      "frame": {
+       "type": "integer"
+      },
+      "proteinStart": {
+       "type": "integer"
+      },
+      "proteinEnd": {
+       "type": "integer"
+      },
+      "translation": {
+       "type": "string"
+      },
+      "position": {
+       "type": "integer"
+      },
+      "length": {
+       "type": "integer"
+      },
+      "embossStart": {
+       "type": "integer"
+      },
+      "embossEnd": {
+       "type": "integer"
+      }
+     },
+     "required": [
+      "frame",
+      "proteinStart",
+      "proteinEnd",
+      "translation",
+      "position",
+      "length"
+     ]
+    }
+   }
+  },
+  "required": [
+   "pattern",
+   "hits"
+  ]
+ },
+ "errors": [
+  {
+   "code": 1001,
+   "message": "Sequence cannot be null or empty"
+  },
+  {
+   "code": 1001,
+   "message": "Invalid DNA sequence (A/C/G/T and IUPAC codes only)"
+  },
+  {
+   "code": 1001,
+   "message": "Pattern cannot be null or empty"
+  },
+  {
+   "code": 1001,
+   "message": "frames must be 1, 2, 3, -1, -2, -3, F, R or 6 (fuzztran -frame)."
+  }
+ ],
+ "examples": [
+  {
+   "name": "Forward frame",
+   "input": {
+    "sequence": "ATGAAAGTTCTGGCT",
+    "pattern": "KV"
+   },
+   "output": {
+    "pattern": "KV",
+    "hits": [
+     {
+      "frame": 1,
+      "proteinStart": 2,
+      "proteinEnd": 3,
+      "translation": "KV",
+      "position": 3,
+      "length": 6,
+      "embossStart": 4,
+      "embossEnd": 9
+     }
+    ]
+   }
+  }
+ ]
+}

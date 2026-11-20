@@ -994,6 +994,20 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L980"
   },
   {
+    "tool": "fuzzpro",
+    "server": "Analysis",
+    "methodId": "GenomicAnalyzer.FindProteinPatternHits",
+    "docPath": "docs/mcp/tools/analysis/fuzzpro.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.ProteinPatterns.cs"
+  },
+  {
+    "tool": "fuzztran",
+    "server": "Analysis",
+    "methodId": "GenomicAnalyzer.FindTranslatedPatternHits",
+    "docPath": "docs/mcp/tools/analysis/fuzztran.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.ProteinPatterns.cs"
+  },
+  {
     "tool": "gc_content_profile",
     "server": "Analysis",
     "methodId": "SequenceStatistics.CalculateGcContentProfile",

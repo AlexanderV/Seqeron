@@ -218,6 +218,10 @@
          scripts/analysis/generate_seqmatchall_oracle.py, generate_palindrome_gap0_oracle.py, scripts/alignment/generate_merger_oracle.py. -->
     <EmbeddedResource Include="TestData\Analysis\seqmatchall_oracle.tsv" />
     <EmbeddedResource Include="TestData\Analysis\palindrome_gap0_oracle.tsv" />
+    <!-- GENOMIC-MOTIFS-001 (B09 A3-12): EMBOSS fuzzpro (900 random patterns) and fuzztran (760 DNA / pattern / frame / table cases) 6.6.0;
+         scripts/analysis/generate_fuzzpro_oracle.py, generate_fuzztran_oracle.py. -->
+    <EmbeddedResource Include="TestData\Analysis\fuzzpro_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Analysis\fuzztran_oracle.tsv" />
     <EmbeddedResource Include="TestData\Alignment\merger_oracle.tsv" />
     <!-- GENOMIC-SIMILARITY-001 (B09 F32-F34): exact k-mer Jaccard (percent), literal == Python set == scipy jaccard on presence
          vectors, canonical == Python set over min(w, revcomp w) == sourmash 4.9.4 MinHash(scaled=1); 2086 rows;

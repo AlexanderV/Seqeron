@@ -79,6 +79,8 @@
 | `find_tandem_repeats` | Analysis | `GenomicAnalyzer.FindTandemRepeats` | [doc](../../../../docs/mcp/tools/analysis/find_tandem_repeats.md) |
 | `find_tandem_repeats_emboss` | Analysis | `GenomicAnalyzer.FindTandemRepeatsEtandem` | [doc](../../../../docs/mcp/tools/analysis/find_tandem_repeats_emboss.md) |
 | `flush_coaxial_stacking` | Analysis | `RnaSecondaryStructure.CalculateFlushCoaxialStacking` | [doc](../../../../docs/mcp/tools/analysis/flush_coaxial_stacking.md) |
+| `fuzzpro` | Analysis | `GenomicAnalyzer.FindProteinPatternHits` | [doc](../../../../docs/mcp/tools/analysis/fuzzpro.md) |
+| `fuzztran` | Analysis | `GenomicAnalyzer.FindTranslatedPatternHits` | [doc](../../../../docs/mcp/tools/analysis/fuzztran.md) |
 | `gc_content_profile` | Analysis | `SequenceStatistics.CalculateGcContentProfile` | [doc](../../../../docs/mcp/tools/analysis/gc_content_profile.md) |
 | `gc_skew` | Analysis | `GcSkewCalculator.CalculateGcSkew` | [doc](../../../../docs/mcp/tools/analysis/gc_skew.md) |
 | `generate_all_kmers` | Analysis | `KmerAnalyzer.GenerateAllKmers` | [doc](../../../../docs/mcp/tools/analysis/generate_all_kmers.md) |

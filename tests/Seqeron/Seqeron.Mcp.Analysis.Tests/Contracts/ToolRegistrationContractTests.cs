@@ -89,6 +89,8 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "find_tandem_repeats",
         "find_tandem_repeats_emboss",
         "flush_coaxial_stacking",
+        "fuzzpro",
+        "fuzztran",
         "gc_content_profile",
         "gc_skew",
         "generate_all_kmers",

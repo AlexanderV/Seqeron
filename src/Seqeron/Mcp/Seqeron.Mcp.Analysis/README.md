@@ -75,6 +75,8 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `find_orthologs` | Best-hit ortholog pairs between two genomes by k-mer similarity (one-directional). |
 | `find_palindromes` | Sequences identical to their reverse complement (restriction-site candidates); only A/C/G/T pair, windows with N / IUPAC codes are never reported. |
 | `find_pattern_hits` | EMBOSS fuzznuc pattern language: IUPAC letters, classes `[ACG]`, exclusions `{AG}`, repeats `N(3)`, ranges `A(2,4)`, anchors `<` `>`; `maxMismatches` (-pmismatch), `bothStrands` (-complement), one pattern or a pattern file; verified against fuzznuc 6.6.0 on 3300 random patterns (B09 A2-32). |
+| `fuzzpro` | EMBOSS fuzzpro: exact protein pattern search (letters, `x`, `[ILV]`, `{P}`, `x(3)`, `x(2,4)`, `<` / `>`; B / Z / J ambiguity letters); verified against fuzzpro 6.6.0 on 900 random patterns (B09 A3-12). |
+| `fuzztran` | EMBOSS fuzztran: protein pattern search after translation (`frame` 1 2 3 -1 -2 -3 F R 6, EMBOSS `table`; transeq frame conventions); forward-strand location (and the program's own coordinates for the forward frames); verified against fuzztran 6.6.0 on 760 random cases (B09 A3-12). |
 | `find_promoter_elements_by_matrix` | Scan a DNA sequence with the Bucher (1990) promoter weight matrices from JASPAR POLII (TATA box POL012.1, cap/Inr POL002.1, CCAAT box POL00… |
 | `find_protein_domains` | Detect common protein domains with EXACT PROSITE patterns: zinc finger C2H2 (PS00028), WD-repeats (PS00678), kinase ATP-binding / Walker… |
 | `find_protein_low_complexity_regions` | Low-complexity regions in a protein via the SEG algorithm (Wootton & Federhen 1993): sliding-window Shannon entropy in bits/residue, two-… |

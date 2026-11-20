@@ -51,4 +51,29 @@ public class EmbossProgramToolsTests
         Assert.Throws<ArgumentException>(() => AnalysisTools.SeqMatchAll(["ACGT", ""], 4));
         Assert.Throws<ArgumentOutOfRangeException>(() => AnalysisTools.SeqMatchAll(["ACGT", "ACGT"], 0));
     }
+
+    [Test]
+    public void Fuzzpro_ReportsEveryWindowOfTheProteinPattern()
+    {
+        // fuzzpro -pattern "[AG]-x(2)-[IV]" on MKVLAAGIVGLLLAQPSTAEEKV prints the 1-based windows 5-8 and 6-9
+        var r = AnalysisTools.Fuzzpro("MKVLAAGIVGLLLAQPSTAEEKV", "[AG]-x(2)-[IV]");
+        Assert.That(r.Pattern, Is.EqualTo("[AG]x(2)[IV]"));
+        Assert.That(r.Hits.Select(h => (h.Position, h.Length)).ToArray(), Is.EqualTo(new[] { (4, 4), (5, 4) }));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.Fuzzpro("MKV", "[BA]"));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.Fuzzpro("", "A"));
+    }
+
+    [Test]
+    public void Fuzztran_SearchesTheTranslatedFrames()
+    {
+        // fuzztran -pattern KV on ATGAAAGTTCTGGCT (frame 1 = MKVLA) prints the feature 4 9 with *start 2 *end 3 *translation KV
+        var r = AnalysisTools.Fuzztran("ATGAAAGTTCTGGCT", "KV");
+        var h = r.Hits.Single();
+        Assert.That((h.Frame, h.ProteinStart, h.ProteinEnd, h.Translation, h.Position, h.Length, h.EmbossStart, h.EmbossEnd), Is.EqualTo((1, 2, 3, "KV", 3, 6, (int?)4, (int?)9)));
+        // reverse frames carry the forward-strand location and no program coordinates
+        var rev = AnalysisTools.Fuzztran("GGATTA", "S", "-1").Hits.Single();
+        Assert.That((rev.Frame, rev.Translation, rev.Position, rev.Length, rev.EmbossStart), Is.EqualTo((-1, "S", 0, 3, (int?)null)));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.Fuzztran("ACGT", "A", "7"));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.Fuzztran("ACGT", "[X]"));
+    }
 }

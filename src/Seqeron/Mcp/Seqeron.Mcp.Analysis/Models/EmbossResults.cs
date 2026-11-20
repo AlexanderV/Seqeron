@@ -22,3 +22,18 @@ public record WordMatchItem(int Sequence1, int Sequence2, int Position1, int Pos
 
 /// <summary>Result of <c>seqmatchall</c>: every maximal exact word match of every pair.</summary>
 public record SeqMatchAllResult(WordMatchItem[] Matches);
+
+/// <summary>A hit of <c>fuzzpro</c>: 0-based start and length.</summary>
+public record ProteinPatternHitItem(int Position, int Length);
+
+/// <summary>Result of <c>fuzzpro</c>: the normalised pattern and every matching window.</summary>
+public record FuzzproResult(string Pattern, ProteinPatternHitItem[] Hits);
+
+/// <summary>A hit of <c>fuzztran</c>: frame, protein start / end (1-based), the matched residues, the forward-strand nucleotide location (0-based) and the coordinates the program prints.</summary>
+public record TranslatedPatternHitItem(
+    int Frame, int ProteinStart, int ProteinEnd, string Translation, int Position, int Length,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? EmbossStart = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? EmbossEnd = null);
+
+/// <summary>Result of <c>fuzztran</c>: the normalised pattern and the hits per frame.</summary>
+public record FuzztranResult(string Pattern, TranslatedPatternHitItem[] Hits);
