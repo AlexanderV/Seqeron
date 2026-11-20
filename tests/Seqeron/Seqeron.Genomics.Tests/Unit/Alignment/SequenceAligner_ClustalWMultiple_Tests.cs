@@ -171,7 +171,7 @@ public class SequenceAligner_ClustalWMultiple_Tests
     {
         Assert.Multiple(() =>
         {
-            Assert.That(SequenceAligner.MultipleAlignClustalW(Array.Empty<string>()).AlignedSequences, Is.Empty);
+            Assert.Throws<ArgumentException>(() => SequenceAligner.MultipleAlignClustalW(Array.Empty<string>()), "A3-4: the program refuses an empty input");
             var one = SequenceAligner.MultipleAlignClustalW(new[] { "ACGT" });
             Assert.That(one.AlignedSequences, Is.EqualTo(new[] { "ACGT" }));
             Assert.That(one.TotalScore, Is.Zero);

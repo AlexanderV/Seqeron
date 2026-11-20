@@ -41,8 +41,7 @@ public static partial class SequenceAligner
     public static MultipleAlignmentResult MultipleAlignMuscle(IEnumerable<DnaSequence> sequences, MuscleOptions? options = null, MatrixScoring? scoring = null)
     {
         var list = ToListNoNull(sequences, nameof(sequences));
-        if (list.Count == 0)
-            return MultipleAlignmentResult.Empty;
+        RequireProgramInput(list.Count, "MUSCLE", "No sequences in input file", nameof(sequences));
         var o = (options ?? new MuscleOptions()) with { SequenceType = options?.SequenceType is MuscleSequenceType.Rna ? MuscleSequenceType.Rna : MuscleSequenceType.Dna };
         return MultipleAlignMuscle(list.Select(s => s.Sequence), o, scoring);
     }
@@ -51,8 +50,7 @@ public static partial class SequenceAligner
     public static MultipleAlignmentResult MultipleAlignMuscle(IEnumerable<ProteinSequence> sequences, MuscleOptions? options = null, MatrixScoring? scoring = null)
     {
         var list = ToListNoNull(sequences, nameof(sequences));
-        if (list.Count == 0)
-            return MultipleAlignmentResult.Empty;
+        RequireProgramInput(list.Count, "MUSCLE", "No sequences in input file", nameof(sequences));
         return MultipleAlignMuscle(list.Select(s => s.Sequence), (options ?? new MuscleOptions()) with { SequenceType = MuscleSequenceType.Protein }, scoring);
     }
 
@@ -77,8 +75,7 @@ public static partial class SequenceAligner
     {
         var o = options ?? new MuscleOptions();
         var list = ToListNoNull(sequences, nameof(sequences));
-        if (list.Count == 0)
-            return MultipleAlignmentResult.Empty;
+        RequireProgramInput(list.Count, "MUSCLE", "No sequences in input file", nameof(sequences));
         using var cancelScope = AlignmentCancellation.Enter(o.CancellationToken);
 
         var engine = new MuscleEngine(o, list);

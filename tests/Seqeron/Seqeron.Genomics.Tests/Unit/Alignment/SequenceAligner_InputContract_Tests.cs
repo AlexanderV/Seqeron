@@ -230,4 +230,33 @@ public class SequenceAligner_InputContract_Tests
 
         Assert.That(violations, Is.Empty, "ScoringMatrix? overloads with a MatrixScoring twin need [OverloadResolutionPriority(1)] so that `null` binds to the default scoring");
     }
+
+    // ------------------------------------------------------------------ A3-4 empty LIST
+    // Installed programs on an empty FASTA file: clustalw "No sequences in file. No alignment!", muscle3 "No sequences in input file", t_coffee exit 1, kalign exit 1,
+    // poa exit 1, probcons exit 1 "No sequences read."; mafft exit 0 with an empty output. The ports follow: one message for the six refusing programs, MAFFT returns an empty result.
+    [Test]
+    public void EmptyList_SixProgramPorts_ShareOneMessage_MafftReturnsEmpty()
+    {
+        var empty = Array.Empty<string>();
+        var errors = new (string Program, Action Call)[]
+        {
+            ("ClustalW", () => SequenceAligner.MultipleAlignClustalW(empty)),
+            ("MUSCLE", () => SequenceAligner.MultipleAlignMuscle(empty)),
+            ("t_coffee", () => SequenceAligner.MultipleAlignTCoffeeProgram(empty)),
+            ("Kalign", () => SequenceAligner.MultipleAlignKalign(empty)),
+            ("POA", () => SequenceAligner.MultipleAlignPoa(empty)),
+            ("ProbCons", () => SequenceAligner.MultipleAlignProbCons(empty)),
+        };
+        Assert.Multiple(() =>
+        {
+            foreach (var (program, call) in errors)
+            {
+                var ex = Assert.Throws<ArgumentException>(() => call(), program);
+                Assert.That(ex!.Message, Does.StartWith(program + " cannot align an empty list of sequences: the program refuses an empty input ("), program);
+                Assert.That(ex.Message, Does.Contain("MultipleAlignMafft and the Seqeron aligners").And.Contain("return an empty result."), program);
+            }
+
+            Assert.That(SequenceAligner.MultipleAlignMafft(empty).AlignedSequences, Is.Empty, "mafft: exit 0, empty output");
+        });
+    }
 }

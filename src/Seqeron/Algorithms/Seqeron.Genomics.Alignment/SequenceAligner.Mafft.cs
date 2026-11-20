@@ -71,7 +71,7 @@ public static partial class SequenceAligner
     /// </summary>
     /// <param name="sequences">Exactly two sequences of letters ('-' and '.' are accepted).</param>
     /// <param name="options">Parameters; default = <c>mafft --anysymbol</c>.</param>
-    /// <exception cref="ArgumentException">Fewer than two sequences, an empty sequence, a letter outside the alphabet with <c>AnySymbol = false</c>, an unusable parameter.</exception>
+    /// <exception cref="ArgumentException">An empty sequence among two, a letter outside the alphabet with <c>AnySymbol = false</c>, an unusable parameter.</exception>
     /// <exception cref="NotSupportedException">Three or more sequences (B09.md A2-19b).</exception>
     public static MultipleAlignmentResult MultipleAlignMafft(IEnumerable<string> sequences, MafftOptions? options = null)
     {
@@ -79,10 +79,12 @@ public static partial class SequenceAligner
         var list = new List<string>();
         foreach (var s in sequences ?? throw new ArgumentNullException(nameof(sequences)))
             list.Add(s ?? throw new ArgumentException("A sequence is null.", nameof(sequences)));
+        // Empty input: the program accepts it ("Warning: Only 0 sequence found.", exit status 0, empty output: installed mafft 7.505), so does the port (Kalign, POA and ProbCons refuse it, as their
+        // programs do: see EmptyInputMessage). One sequence: the program writes it back ("Only 1 sequence found" is a warning), here too.
         if (list.Count == 0)
             return MultipleAlignmentResult.Empty;
         if (list.Count == 1)
-            throw new ArgumentException("MAFFT needs at least two sequences ('Only 1 sequence found').", nameof(sequences));
+            return MafftEngine.SingleSequence(list[0], o);
         if (list.Count > 2)
             throw new NotSupportedException("MAFFT's progressive stage for three or more sequences (6-mer distances, guide tree, A__align) is not ported yet (B09.md A2-19b); two sequences are supported.");
         using var cancelScope = AlignmentCancellation.Enter(o.CancellationToken);
@@ -166,6 +168,15 @@ public static partial class SequenceAligner
                     sb.Append(usualP.Contains(ch) ? char.ToUpperInvariant(ch) : 'X');
             }
             return sb.ToString();
+        }
+
+        /// <summary>One sequence: the program writes it back without aligning (installed mafft 7.505, "Warning: Only 1 sequence found."): the residues of the input, gaps removed; the original letters with <c>--anysymbol</c>, otherwise nucleotides in lower and amino acids in upper case.</summary>
+        internal static MultipleAlignmentResult SingleSequence(string sequence, MafftOptions o)
+        {
+            string residues = LoadResidues(sequence, o.AnySymbol);
+            if (!o.AnySymbol)
+                residues = GuessNucleotide(new[] { residues }, o) ? residues.ToLowerInvariant() : residues.ToUpperInvariant();
+            return new MultipleAlignmentResult(new[] { residues }, BuildConsensus(new List<string> { residues }, residues.Length, anySymbol: true), 0) { ExactTotalScore = 0 };
         }
 
         /// <summary>The alignment of a pair; rows carry the original letters (restoreu.c).</summary>

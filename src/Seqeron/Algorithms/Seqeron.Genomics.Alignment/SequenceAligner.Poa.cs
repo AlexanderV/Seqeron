@@ -334,7 +334,7 @@ public static partial class SequenceAligner
     {
         ArgumentNullException.ThrowIfNull(sequences);
         var o = options ?? new PoaOptions();
-        if (sequences.Count == 0) throw new ArgumentException("No input sequences were provided.", nameof(sequences));
+        RequireProgramInput(sequences.Count, "POA", "Error reading sequence file", nameof(sequences));
         using var cancelScope = AlignmentCancellation.Enter(o.CancellationToken);
         var m = matrix ?? PoaScoreMatrix.Parse(PoaDefaultMatrix.Text);
         return new PoaEngine(m, o).Run(sequences);

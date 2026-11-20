@@ -225,7 +225,7 @@ public class SequenceAligner_TCoffeeProgram_Tests
     [Test]
     public void MultipleAlignTCoffeeProgram_DegenerateInputs()
     {
-        Assert.That(SequenceAligner.MultipleAlignTCoffeeProgram(Array.Empty<string>()).AlignedSequences, Is.Empty);
+        Assert.Throws<ArgumentException>(() => SequenceAligner.MultipleAlignTCoffeeProgram(Array.Empty<string>()), "A3-4: the program refuses an empty input");
         Assert.That(SequenceAligner.MultipleAlignTCoffeeProgram(new[] { "ACGT" }).AlignedSequences, Is.EqualTo(new[] { "ACGT" }));
         var two = SequenceAligner.MultipleAlignTCoffeeProgram(new[] { "ACGT", "ACGT" }).AlignedSequences;
         Assert.That(two, Is.EqualTo(new[] { "ACGT", "ACGT" }));

@@ -649,7 +649,7 @@ public static partial class SequenceAligner
 
         private static List<PcSeq> Load(IReadOnlyList<string> residues, IReadOnlyList<string>? names)
         {
-            if (residues.Count == 0) throw new ArgumentException("No sequences read.", nameof(residues));
+            RequireProgramInput(residues.Count, "ProbCons", "ERROR: No sequences read.", nameof(residues));
             var seqs = new List<PcSeq>();
             for (int i = 0; i < residues.Count; i++)
             {

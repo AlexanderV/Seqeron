@@ -25,8 +25,7 @@ public static partial class SequenceAligner
         ArgumentNullException.ThrowIfNull(sequences);
         var o = options ?? new MuscleOptions();
         var list = sequences.ToList();
-        if (list.Count == 0)
-            return new MuscleRunResult();
+        RequireProgramInput(list.Count, "MUSCLE", "No sequences in input file", nameof(sequences));
         var engine = new MuscleEngine(o, list);
         var (rows, nucleotide) = engine.Run();
         MultipleAlignmentResult alignment = MultipleAlignmentResult.Empty;

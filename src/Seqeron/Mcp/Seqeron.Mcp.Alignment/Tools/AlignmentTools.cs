@@ -803,6 +803,7 @@ public partial class AlignmentTools
                 m.Alignment.ExactTotalScore, m.ScoreScale);
         }
 
+        ArgumentNullException.ThrowIfNull(sequences);
         var dnaList = ParseDna(sequences);
         var scoring = new global::Seqeron.Genomics.Infrastructure.ScoringMatrix(match, mismatch, RequireInteger(gapOpen, nameof(gapOpen)), RequireInteger(gapExtend, nameof(gapExtend)));
         var r = global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignExactWithStatistics(dnaList, scoring, options);
@@ -1047,12 +1048,6 @@ public partial class AlignmentTools
             var scoreSub = global::Seqeron.Genomics.Infrastructure.SubstitutionMatrix.TryGet(scoreMatrix ?? "BLOSUM62", out var scoreFound) && !scoreFound.IsNucleotide
                 ? scoreFound
                 : throw new ArgumentException("scoreMatrix must be a protein matrix name: BLOSUM62 (default), PAM250 or any other EMBOSS protein matrix (EBLOSUM45, EPAM120, ...).", nameof(scoreMatrix));
-            if (sequences == null || sequences.Length == 0)
-            {
-                var e = global::Seqeron.Genomics.Infrastructure.MultipleAlignmentResult.Empty;
-                return new MultipleAlignmentResultDto(e.AlignedSequences, e.Consensus, e.TotalScore, e.ExactTotalScore);
-            }
-
             var m = global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignClustalW(
                 sequences, protein, new global::Seqeron.Genomics.Infrastructure.MatrixScoring(scoreSub, scoreGapOpen ?? -9.8, scoreGapExtend ?? -0.2));
             return new MultipleAlignmentResultDto(m.AlignedSequences, m.Consensus, m.TotalScore, m.ExactTotalScore);
@@ -1173,8 +1168,6 @@ public partial class AlignmentTools
             ComputeWeights = computeWeights,
             Stable = stable,
         };
-        if (sequences == null || sequences.Length == 0)
-            return new MuscleRunResultDto([], "", 0, 0, [], [], null, null, null, null, null);
         var r = WrapNotSupported(() => global::Seqeron.Genomics.Alignment.SequenceAligner.MuscleRun(sequences, options));
         var a = r.Alignment;
         return new MuscleRunResultDto(a.AlignedSequences, a.Consensus, a.TotalScore, a.ExactTotalScore, r.Names.ToArray(), r.OutputOrder.ToArray(), r.Tree1, r.Tree2, r.DistanceMatrix1, r.DistanceMatrix2, r.WeightsFile, r.ReferenceBehaviourUndefined);
@@ -1368,12 +1361,7 @@ public partial class AlignmentTools
         CancellationToken cancellationToken = default)
     {
         using var cancelScope = global::Seqeron.Genomics.Alignment.SequenceAligner.BeginCancellationScope(cancellationToken);
-        if (sequences == null || sequences.Length == 0)
-        {
-            var e = global::Seqeron.Genomics.Infrastructure.MultipleAlignmentResult.Empty;
-            return new MultipleAlignmentResultDto(e.AlignedSequences, e.Consensus, e.TotalScore, e.ExactTotalScore);
-        }
-
+        ArgumentNullException.ThrowIfNull(sequences);
         if (genomicTemplates != null && genomicTemplates.Length != sequences.Length)
             throw new ArgumentException("genomicTemplates must have one entry per sequence.", nameof(genomicTemplates));
         if (structureTemplates != null && structureTemplates.Length != sequences.Length)
@@ -1555,15 +1543,17 @@ public partial class AlignmentTools
     private static MultipleAlignmentResultDto RunMsa(
         string[] sequences, int match, int mismatch, int gapOpen, int gapExtend,
         Func<IEnumerable<global::Seqeron.Genomics.Core.DnaSequence>, global::Seqeron.Genomics.Infrastructure.ScoringMatrix?, global::Seqeron.Genomics.Infrastructure.MultipleAlignmentResult> align) =>
-        RunMsa(sequences, match, mismatch, gapOpen, gapExtend, "dna", null, align, null);
+        RunMsa(sequences, match, mismatch, gapOpen, gapExtend, "dna", null, align, null, programPort: true);
 
     private static MultipleAlignmentResultDto RunMsa(
         string[] sequences, int match, int mismatch, double gapOpen, double gapExtend, string? type, string? matrix,
         Func<IEnumerable<global::Seqeron.Genomics.Core.DnaSequence>, global::Seqeron.Genomics.Infrastructure.ScoringMatrix?, global::Seqeron.Genomics.Infrastructure.MultipleAlignmentResult> align,
-        Func<IEnumerable<string>, global::Seqeron.Genomics.Infrastructure.MatrixScoring, global::Seqeron.Genomics.Infrastructure.MultipleAlignmentResult>? alignMatrix)
+        Func<IEnumerable<string>, global::Seqeron.Genomics.Infrastructure.MatrixScoring, global::Seqeron.Genomics.Infrastructure.MultipleAlignmentResult>? alignMatrix,
+        bool programPort = false)
     {
         var (sub, _) = ResolveMsaMatrix(type, matrix);
-        if (sequences == null || sequences.Length == 0)
+        // an empty list: the Seqeron aligners return an empty result, the program ports refuse it as their programs do (audit A3-4: the port throws)
+        if (!programPort && (sequences == null || sequences.Length == 0))
         {
             var e = global::Seqeron.Genomics.Infrastructure.MultipleAlignmentResult.Empty;
             return new MultipleAlignmentResultDto(e.AlignedSequences, e.Consensus, e.TotalScore, e.ExactTotalScore);

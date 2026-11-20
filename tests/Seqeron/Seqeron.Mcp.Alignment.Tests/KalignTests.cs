@@ -82,7 +82,8 @@ public class MafftTests
         Assert.Multiple(() =>
         {
             Assert.Throws<NotSupportedException>(() => AlignmentTools.MultipleAlignMafft(["ACGT", "ACGA", "ACGG"]), "three sequences: the progressive stage is registered (A2-19b)");
-            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignMafft(["ACGT"]));
+            Assert.That(AlignmentTools.MultipleAlignMafft(["ACGT"]).AlignedSequences, Is.EqualTo(new[] { "ACGT" }), "one sequence is written back (A3-4; --anysymbol keeps the letters)");
+            Assert.That(AlignmentTools.MultipleAlignMafft([]).AlignedSequences, Is.Empty, "mafft exits 0 with an empty output (A3-4)");
             Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignMafft(["ACGT", "ACGA"], sequenceType: "rna"));
             Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignMafft(["ACGT", "ACGA"], blosum: 63));
             Assert.Throws<ArgumentNullException>(() => AlignmentTools.MultipleAlignMafft(null!));

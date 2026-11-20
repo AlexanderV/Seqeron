@@ -23,6 +23,23 @@ public static partial class SequenceAligner
         $"{program} cannot align an empty sequence (sequence {index} is empty): the program refuses empty input. " +
         "MultipleAlign, MultipleAlignProgressive, MultipleAlignIterative, MultipleAlignConsistency, MultipleAlignExact and MultipleAlignAnchored accept empty members and return an all-gap row for them.";
 
+    /// <summary>
+    /// The one message of the program ports for an EMPTY LIST of sequences (audit A3-4). Installed programs on an empty FASTA file: <c>clustalw</c> "No sequences in file. No alignment!", <c>muscle3</c>
+    /// "No sequences in input file", <c>t_coffee</c> exit 1 ("The format of the file is not supported"), <c>kalign</c> exit 1 ("No alignment"), <c>poa</c> exit 1 ("Error reading sequence file"),
+    /// <c>probcons</c> exit 1 ("No sequences read."): the ports refuse it with an <see cref="ArgumentException"/>. <c>mafft</c> alone exits 0 with an empty output
+    /// ("Warning: Only 0 sequence found."), so <c>MultipleAlignMafft</c> returns an empty result, as do the Seqeron aligners.
+    /// </summary>
+    internal static string EmptyInputMessage(string program, string programsOwnText) =>
+        $"{program} cannot align an empty list of sequences: the program refuses an empty input ({programsOwnText}). " +
+        "MultipleAlignMafft and the Seqeron aligners (MultipleAlign, MultipleAlignProgressive, MultipleAlignIterative, MultipleAlignConsistency, MultipleAlignExact, MultipleAlignAnchored) return an empty result.";
+
+    /// <summary>Throws the shared <see cref="EmptyInputMessage"/> <see cref="ArgumentException"/> for an empty list.</summary>
+    internal static void RequireProgramInput(int count, string program, string programsOwnText, string paramName)
+    {
+        if (count == 0)
+            throw new ArgumentException(EmptyInputMessage(program, programsOwnText), paramName);
+    }
+
     /// <summary>Materialises <paramref name="sequences"/>; a null element is an <see cref="ArgumentNullException"/> naming its index.</summary>
     internal static List<T> ToListNoNull<T>(IEnumerable<T> sequences, string paramName) where T : class
     {

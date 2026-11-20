@@ -116,7 +116,7 @@ public class SequenceAligner_Mafft_Tests
         Assert.Multiple(() =>
         {
             Assert.That(SequenceAligner.MultipleAlignMafft([]).AlignedSequences, Is.Empty);
-            Assert.Throws<ArgumentException>(() => SequenceAligner.MultipleAlignMafft(["ACGT"]));
+            Assert.That(SequenceAligner.MultipleAlignMafft(["ACGT"]).AlignedSequences, Is.EqualTo(new[] { "ACGT" }), "A3-4: one sequence is written back (mafft 7.505 'Only 1 sequence found' is a warning)");
             Assert.Throws<NotSupportedException>(() => SequenceAligner.MultipleAlignMafft(["ACGT", "ACGA", "ACGG"]));
             Assert.Throws<ArgumentException>(() => SequenceAligner.MultipleAlignMafft(["ACGT", "---"]), "no residues");
             Assert.Throws<ArgumentException>(() => SequenceAligner.MultipleAlignMafft(["ACGT", "AC=GT"]), "'=' stops the program with --anysymbol");
@@ -125,6 +125,23 @@ public class SequenceAligner_Mafft_Tests
             Assert.Throws<ArgumentException>(() => SequenceAligner.MultipleAlignMafft(["ACGT", "ACGA"], new MafftOptions { GapOpen = double.NaN }));
             Assert.Throws<ArgumentNullException>(() => SequenceAligner.MultipleAlignMafft(null!));
             Assert.Throws<OperationCanceledException>(() => SequenceAligner.MultipleAlignMafft(["ACGT", "ACGA"], new MafftOptions { CancellationToken = new CancellationToken(true) }));
+        });
+    }
+
+    // B09 A3-4: a single sequence is written back by the program (installed mafft 7.505 --quiet [--anysymbol] on one record): gaps dropped, plain mode nucleotides lower / amino acids upper case.
+    [TestCase("MKVLAAGI", "MKVLAAGI", "MKVLAAGI")]
+    [TestCase("mkvLAAgi", "MKVLAAGI", "mkvLAAgi")]
+    [TestCase("AC-GT.AC", "acgt.ac", "ACGT.AC")]
+    [TestCase("ACGTNNRYacgt", "acgtnnryacgt", "ACGTNNRYacgt")]
+    [TestCase("AC1GT", "acgt", "AC1GT")]
+    [TestCase("MKV*LA", "MKVLA", "MKV*LA")]
+    [TestCase("----", "", "")]
+    public void SingleSequence_IsWrittenBackLikeTheProgram(string input, string plain, string anySymbol)
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceAligner.MultipleAlignMafft([input], new MafftOptions { AnySymbol = false }).AlignedSequences, Is.EqualTo(new[] { plain }), "mafft --quiet");
+            Assert.That(SequenceAligner.MultipleAlignMafft([input]).AlignedSequences, Is.EqualTo(new[] { anySymbol }), "mafft --quiet --anysymbol");
         });
     }
 }

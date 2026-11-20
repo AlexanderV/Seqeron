@@ -661,7 +661,7 @@ public static partial class SequenceAligner
     public static MultipleAlignmentResult MultipleAlignTCoffeeProgram(IEnumerable<string> sequences, TCoffeeProgramOptions? options = null, MatrixScoring? scoring = null)
     {
         var list = ToListNoNull(sequences, nameof(sequences));
-        if (list.Count == 0) return MultipleAlignmentResult.Empty;
+        RequireProgramInput(list.Count, "t_coffee", "The format of the file is not supported, exit status 1", nameof(sequences));
         using var cancelScope = AlignmentCancellation.Enter(options?.CancellationToken ?? default);
         var rows = TCoffeeProgramRows(list, options);
         // ktup_pair_wise / precomputed_pair_wise / gotoh_pair_wise_sw write rows of different lengths (no alignment of the groups): there is no column to score or to take a consensus of

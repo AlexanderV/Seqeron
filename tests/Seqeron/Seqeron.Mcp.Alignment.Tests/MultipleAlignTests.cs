@@ -189,7 +189,7 @@ public class MultipleAlignTests
             Assert.That(viaTool.AlignedSequences, Is.EqualTo(viaApi.AlignedSequences));
             Assert.That(viaTool.TotalScore, Is.EqualTo(viaApi.TotalScore));
             Assert.That(AlignmentTools.MultipleAlignClustalW(ClustalWSet, distance: "full").AlignedSequences, Is.EqualTo(r.AlignedSequences));
-            Assert.That(AlignmentTools.MultipleAlignClustalW(Array.Empty<string>()).AlignedSequences, Is.Empty);
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignClustalW(Array.Empty<string>()), "A3-4: the program refuses an empty input");
             Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignClustalW(ClustalWSet, distance: "linear"));
             Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignClustalW(new[] { "ACGT", "ACGX" }));
             Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignClustalW(ClustalWSet, gapOpen: -3));
@@ -231,7 +231,7 @@ public class MultipleAlignTests
             Assert.That(viaTool.TotalScore, Is.EqualTo(viaApi.TotalScore));
             Assert.That(viaTool.AlignedSequences.Select(x => x.Replace("-", "")), Is.EqualTo(ClustalWProteinSet));
             Assert.That(AlignmentTools.MultipleAlignClustalW(ClustalWProteinSet, type: "protein", matrix: "gonnet", pwMatrix: "gonnet", distance: "full").AlignedSequences, Is.EqualTo(def.AlignedSequences));
-            Assert.That(AlignmentTools.MultipleAlignClustalW(Array.Empty<string>(), type: "protein").AlignedSequences, Is.Empty);
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignClustalW(Array.Empty<string>(), type: "protein"), "A3-4: the program refuses an empty input");
             Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignClustalW(ClustalWProteinSet, type: "rna"));
             Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignClustalW(ClustalWProteinSet, type: "protein", matrix: "bogus"));
             Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignClustalW(ClustalWProteinSet, type: "protein", pwMatrix: "bogus"));
@@ -368,7 +368,7 @@ public class MultipleAlignTests
             Assert.That(viaToolAll.TotalScore, Is.EqualTo(viaApi.TotalScore));
             Assert.That(AlignmentTools.MultipleAlignMuscle(new[] { "ACGTACGTTAGCTAGC", "ACGTACGTAGCTAGC", "ACGTTCGTTAGCTAGC" }).AlignedSequences.Select(r => r.Replace("-", "")),
                 Is.EqualTo(new[] { "ACGTACGTTAGCTAGC", "ACGTACGTAGCTAGC", "ACGTTCGTTAGCTAGC" }), "type auto: nucleotides");
-            Assert.That(AlignmentTools.MultipleAlignMuscle(Array.Empty<string>()).AlignedSequences, Is.Empty);
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignMuscle(Array.Empty<string>()), "A3-4: the program refuses an empty input");
             Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignMuscle(MuscleSet, maxIters: 0), "at least one iteration");
             Assert.That(AlignmentTools.MultipleAlignMuscle(MuscleSet, "protein", 4).AlignedSequences.Select(r => r.Replace("-", "")), Is.EqualTo(MuscleSet), "iterations >= 3");
             Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignMuscle(MuscleSet, "rna2"));
@@ -653,7 +653,7 @@ public class MultipleAlignTests
             Assert.That(relax0.AlignedSequences.Select(r => r.Replace("-", "")), Is.EqualTo(TCoffeeProgramSet));
             Assert.That(AlignmentTools.MultipleAlignTCoffee(["MKVLAAGIVG", "MKVLAGIVGL", "MRVLAAGIIG"], null, 10, true, "protein").AlignedSequences.Select(r => r.Replace("-", "")),
                 Is.EqualTo(new[] { "MKVLAAGIVG", "MKVLAGIVGL", "MRVLAAGIIG" }));
-            Assert.That(AlignmentTools.MultipleAlignTCoffee(Array.Empty<string>()).AlignedSequences, Is.Empty);
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignTCoffee(Array.Empty<string>()), "A3-4: the program refuses an empty input");
             Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignTCoffee(TCoffeeProgramSet, ["blast_pair"]));
             Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignTCoffee(TCoffeeProgramSet, type: "rna"));
             Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignTCoffee(TCoffeeProgramSet, lalignTopAlignments: 0));

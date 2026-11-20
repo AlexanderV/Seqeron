@@ -277,7 +277,7 @@ public class SequenceAligner_ClustalWProteinMultiple_Tests
         string[] two = ["MKVLAAGIVGLLLA", "MKVLSAGIVALLA"];
         Assert.Multiple(() =>
         {
-            Assert.That(SequenceAligner.MultipleAlignClustalW(Array.Empty<string>(), new ClustalWProteinOptions()).AlignedSequences, Is.Empty);
+            Assert.Throws<ArgumentException>(() => SequenceAligner.MultipleAlignClustalW(Array.Empty<string>(), new ClustalWProteinOptions()), "A3-4: the program refuses an empty input");
             var one = SequenceAligner.MultipleAlignClustalW(new[] { "mkvl" }, new ClustalWProteinOptions());
             Assert.That(one.AlignedSequences, Is.EqualTo(new[] { "MKVL" }));
             Assert.That(one.TotalScore, Is.Zero);

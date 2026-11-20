@@ -71,8 +71,7 @@ public static partial class SequenceAligner
         IEnumerable<DnaSequence> sequences, ClustalWOptions? options = null, ScoringMatrix? scoring = null)
     {
         var seqList = DnaStringsNoNull(sequences, nameof(sequences));
-        if (seqList.Count == 0)
-            return MultipleAlignmentResult.Empty;
+        RequireProgramInput(seqList.Count, "ClustalW", "No sequences in file. No alignment!", nameof(sequences));
 
         var rows = MultipleAlignClustalWCore(seqList.ToArray(), options ?? new ClustalWOptions());
         return BuildClustalWResult(rows, scoring ?? SimpleDna);
@@ -84,8 +83,7 @@ public static partial class SequenceAligner
         IEnumerable<string> sequences, ClustalWOptions? options = null, ScoringMatrix? scoring = null)
     {
         var seqList = ToListNoNull(sequences, nameof(sequences));
-        if (seqList.Count == 0)
-            return MultipleAlignmentResult.Empty;
+        RequireProgramInput(seqList.Count, "ClustalW", "No sequences in file. No alignment!", nameof(sequences));
 
         return BuildClustalWResult(MultipleAlignClustalWCore(seqList.ToArray(), options ?? new ClustalWOptions()), scoring ?? SimpleDna);
     }
@@ -109,8 +107,7 @@ public static partial class SequenceAligner
         IEnumerable<ProteinSequence> sequences, ClustalWProteinOptions? options = null, MatrixScoring? scoring = null)
     {
         var seqList = ToListNoNull(sequences, nameof(sequences));
-        if (seqList.Count == 0)
-            return MultipleAlignmentResult.Empty;
+        RequireProgramInput(seqList.Count, "ClustalW", "No sequences in file. No alignment!", nameof(sequences));
 
         return MultipleAlignClustalW(seqList.Select(s => s.Sequence), options ?? new ClustalWProteinOptions(), scoring);
     }
@@ -148,8 +145,7 @@ public static partial class SequenceAligner
     {
         ArgumentNullException.ThrowIfNull(options);
         var seqList = ToListNoNull(sequences, nameof(sequences));
-        if (seqList.Count == 0)
-            return MultipleAlignmentResult.Empty;
+        RequireProgramInput(seqList.Count, "ClustalW", "No sequences in file. No alignment!", nameof(sequences));
 
         return BuildClustalWProteinResult(MultipleAlignClustalWProteinCore(seqList.ToArray(), options), scoring);
     }

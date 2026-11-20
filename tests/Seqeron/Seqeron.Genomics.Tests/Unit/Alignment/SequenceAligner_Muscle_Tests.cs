@@ -376,7 +376,7 @@ public class SequenceAligner_Muscle_Tests
         Assert.That(Align(two, new MuscleOptions { SequenceType = MuscleSequenceType.Protein, MaxIterations = 2 }),
             Is.EqualTo(Align(two, new MuscleOptions { SequenceType = MuscleSequenceType.Protein, MaxIterations = 1 })));
         Assert.That(Align([Family[0]]), Is.EqualTo(new[] { Family[0] }));
-        Assert.That(SequenceAligner.MultipleAlignMuscle(Array.Empty<string>()).AlignedSequences, Is.Empty);
+        Assert.Throws<ArgumentException>(() => SequenceAligner.MultipleAlignMuscle(Array.Empty<string>()), "A3-4: the program refuses an empty input");
     }
 
     [Test]

@@ -188,6 +188,7 @@ public static partial class SequenceAligner
             }
 
             // kalign_essential_input_check
+            RequireProgramInput(n, "Kalign", "No alignment", "sequences");
             if (n < 2)
                 throw new ArgumentException($"only {n} sequences found.");
             var keep = new List<int>();
