@@ -177,6 +177,44 @@ public class SesaGap1b9cTests
         Assert.That(Between("b3", "hook:" + SesaHooks.LcpChildBuilt), Is.EqualTo(2), "the emission of B3 and the scan of PH5: one guarded arena each");
     }
 
+    // ---------------------------------------------------------------- B124: a container that is longer than planned is refused
+
+    [Test]
+    public void TheLengthOfTheClosedContainer_IsCheckedAgainstThePlan_InBothDirections()
+    {
+        // B124 and the mirror of it (a shorter container is not refused): the check as a function, which no build can reach with a shorter file
+        SesaBuilder.CheckContainerLength(0, 0);
+        SesaBuilder.CheckContainerLength(123_456, 123_456);
+        foreach ((long actual, long planned) in new[] { (4_095L, 4_096L), (4_097L, 4_096L), (0L, 1L), (1L, 0L), (long.MaxValue, 1L), (1L, long.MaxValue) })
+        {
+            Assert.That(() => SesaBuilder.CheckContainerLength(actual, planned), Throws.TypeOf<InvalidOperationException>().With.Message.Contains($"the container has {actual} bytes, expected {planned}"), $"{actual} against {planned}");
+        }
+    }
+
+    [Test]
+    public void AContainerThatIsLongerThanThePlan_IsRefusedBeforeTheChecksums()
+    {
+        // B124 (the length check is "smaller than"): the container is checked against the length that the plan gave it; the hook after BUILD_INFO makes the temporary file one byte longer
+        using var dir = new TempDir();
+        string input = SesaRun.WriteInput(dir, "mississippimississippi");
+        string target = dir.File("index.sesa");
+        var points = new List<string>();
+        SesaBuildOptions options = SesaRun.Tiny(3) with
+        {
+            Hook = point =>
+            {
+                points.Add(point);
+                if (point != SesaHooks.InfoWritten) return;
+                using var f = new FileStream(target + ".tmp", FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
+                f.SetLength(f.Length + 1);
+            },
+        };
+        InvalidOperationException? e = Assert.Throws<InvalidOperationException>(() => SesaBuilder.Build(input, target, options));
+        Assert.That(e!.Message, Does.Contain("the container has").And.Contain("expected"));
+        Assert.That(points, Does.Not.Contain(SesaHooks.Checksummed), "refused before the checksums");
+        Assert.That(File.Exists(target) || File.Exists(target + ".tmp") || Directory.Exists(target + ".tmp.d"), Is.False, "nothing is left");
+    }
+
     // ---------------------------------------------------------------- B94: the counts of the BWT are compared with those of the text
 
     [Test]
@@ -219,9 +257,13 @@ public class SesaGap1b9cTests
         foreach (int threads in new[] { 1, 2, 3, 1_001 })
         {
             using var dir = new TempDir();
-            SesaRun.Outcome without = SesaRun.Build(dir, text, SesaRun.Tiny(3, threads, psi: false), "-n");
+            var points = new List<string>();
+            SesaRun.Outcome without = SesaRun.Build(dir, text, SesaRun.Tiny(3, threads, psi: false) with { Hook = points.Add }, "-n");
             Assert.That(without.Oracle.Find(SesaFormat.KindPsi), Is.Null, $"{threads} threads, no PSI asked: no PSI section");
             Assert.That(without.Result.HasPsi, Is.False, $"{threads} threads: the result says no PSI");
+            Assert.That(without.Result.Bwt, Is.Null, $"{threads} threads: no BWT pass");
+            Assert.That(without.Result.Psi, Is.Null, $"{threads} threads: no PSI pass");
+            Assert.That(points, Does.Not.Contain(SesaHooks.BwtBuilt).And.Not.Contain(SesaHooks.PsiBuilt), $"{threads} threads: no BWT, no PSI");
             SesaRun.Compare(without, $"{threads} threads, no PSI", psi: false);
             SesaRun.Outcome with = SesaRun.Build(dir, text, SesaRun.Tiny(3, threads, psi: true), "-p");
             Assert.That(with.Oracle.Find(SesaFormat.KindPsi), Is.Not.Null, $"{threads} threads, PSI asked: a PSI section");

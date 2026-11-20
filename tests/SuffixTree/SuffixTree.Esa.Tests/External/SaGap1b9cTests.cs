@@ -115,11 +115,17 @@ public class SaGap1b9cTests
         DifferenceCover cover = DifferenceCover.Create(7);
         string scratch = _dir.Sub("scratch");
         var seen = new SortedSet<string>(StringComparer.Ordinal);
+        long smallest = long.MaxValue;
         ExtDcsOptions options = SaTiny.Dcs(scratch, 1, 1) with
         {
             Trace = _ =>
             {
-                foreach (string f in Directory.GetFiles(scratch)) seen.Add(Path.GetFileName(f));
+                foreach (string f in Directory.GetFiles(scratch))
+                {
+                    string name = Path.GetFileName(f);
+                    seen.Add(name);
+                    if (name.Contains("-pos-", StringComparison.Ordinal)) smallest = Math.Min(smallest, new FileInfo(f).Length);
+                }
             },
         };
         string textPath = SaRun.WriteText(_dir, c);
@@ -130,6 +136,7 @@ public class SaGap1b9cTests
         Assert.That(positionFiles, Is.Not.Empty, "the sort of the level below spilled positions to files");
         Assert.That(positionFiles, Has.All.Matches<string>(f => System.Text.RegularExpressions.Regex.IsMatch(f, @"^e3b-[0-9a-f]{8}-L[1-9][0-9]*-pos-[0-9]{8}\.bin$")), string.Join(", ", positionFiles));
         Assert.That(seen.Select(f => f[..12]).Distinct().Count(), Is.EqualTo(1), "every file of the scratch directory carries the one tag of the build: " + string.Join(", ", seen.Take(5)));
+        Assert.That(smallest, Is.GreaterThanOrEqualTo(64), "L14 (the sort spill has no floor): the tiny buffer of the options (16 bytes here) is raised to 64 bytes for the sort of a level, so no position file is smaller");
         Assert.That(Directory.Exists(scratch), Is.False, "nothing is left");
     }
 
@@ -146,6 +153,9 @@ public class SaGap1b9cTests
         private int _seen;
 
         internal bool TimedOut { get; private set; }
+
+        /// <summary>Two tasks were in <see cref="Hit"/> at the same time.</summary>
+        internal bool Met => _both.IsSet;
 
         internal void Hit()
         {
@@ -175,8 +185,8 @@ public class SaGap1b9cTests
             },
         };
         SaRun.Run(_dir, c, options, "-" + threads);
-        ph1 = !inPh1.TimedOut;
-        ph3 = !inPh3.TimedOut;
+        ph1 = inPh1.Met && !inPh1.TimedOut;
+        ph3 = inPh3.Met && !inPh3.TimedOut;
         return ph1 && ph3;
     }
 
@@ -203,6 +213,192 @@ public class SaGap1b9cTests
         long end = NativeArena.GuardedCreated;
         Assert.That(at["ph23"] - at["ph1"], Is.GreaterThan(0), "PH1 creates guarded arenas");
         Assert.That(end - at["ph23"], Is.GreaterThan(0), "PH2 / PH3 creates guarded arenas");
+    }
+
+    // ---------------------------------------------------------------- M18: the merge window check, as a function
+
+    [Test]
+    public void TheMergeWindowCheck_RefusesFewerAndMoreRecordsThanSlots_AndAcceptsExactlyTheNumberOfSlots()
+    {
+        // M18 (a short count of records is accepted): the check as a function; a window that received fewer records than it has slots lost the name of a sample position, one that received more has two records for a slot
+        SampleNamer.CheckWindow(0, 0, 0);
+        SampleNamer.CheckWindow(100, 164, 64);
+        foreach ((long start, long end, long got) in new[] { (100L, 164L, 63L), (100L, 164L, 65L), (0L, 1L, 0L), (0L, 1L, 2L), (7L, 7L, 1L) })
+        {
+            Assert.That(() => SampleNamer.CheckWindow(start, end, got), Throws.TypeOf<InvalidDataException>().With.Message.Contains($"merge window [{start}, {end}) received {got} records"), $"[{start}, {end}) with {got}");
+        }
+    }
+
+    // ---------------------------------------------------------------- M52: a fan-out cap above the number of buckets needed changes nothing
+
+    [Test]
+    public void TheFanOutCapOfTheNaming_DoesNotChangeTheShapeWhenFewerBucketsAreNeeded()
+    {
+        // M52 (the fan-out is the cap only): a root of about 1,300 samples in buckets of 600 needs 5 children; a cap of 64 and a cap of 4,096 give the same tree, so the same leaves and scans
+        SaCase c = SaCase.Of(StringFamilies.RandomDna(3_000, 31));
+        DifferenceCover cover = DifferenceCover.Create(7);
+        string textPath = SaRun.WriteText(_dir, c);
+        using MappedTextReader reader = MappedTextReader.Open(textPath, c.N, c.Bits);
+        var shapes = new List<(long Samples, long Leaves, long Scans, long SplitScans)>();
+        foreach (int cap in new[] { 64, 4_096 })
+        {
+            ExtDcsStats stats = ExternalDcs.BuildRankFile(reader, cover, _dir.File($"r{cap}.bin"), SaTiny.Dcs(_dir.Sub("scratch" + cap), 1, 1) with { BucketCapacity = 600, FanOut = cap });
+            ExtDcsLevelStats l0 = stats.Levels[0];
+            shapes.Add((l0.SampleSize, l0.Leaves, l0.Scans, l0.SplitScans));
+        }
+        Assert.That(shapes[0].Samples, Is.GreaterThan(600).And.LessThan(3 * 600 / 2 * 2), "the root is split into a few buckets");
+        Assert.That(shapes[1], Is.EqualTo(shapes[0]));
+        Assert.That(shapes[0].Leaves, Is.InRange(3, 12), "a handful of leaves, not hundreds");
+    }
+
+    // ---------------------------------------------------------------- L24: every file that PH1 reserves goes through the file options
+
+    [Test]
+    public void TheFileOptions_ReachTheRankFileAndTheSuffixArrayFileOfTheLevelBelow()
+    {
+        // L24 (the inversion has no reservation options): the rank file of a level that is inverted from the sort of the level below, and the suffix array file of that sort, are created through the source of the options
+        SaCase c = SaCase.Of(StringFamilies.Periodic(1_200, 37, 5));
+        string textPath = SaRun.WriteText(_dir, c);
+        using MappedTextReader reader = MappedTextReader.Open(textPath, c.N, c.Bits);
+        var source = new RecordingSource();
+        ExtDcsOptions options = SaTiny.Dcs(_dir.Sub("scratch"), 1, 1) with { BaseCase = 5, Files = new MappedFileOptions { Source = source } };
+        ExtDcsStats stats = ExternalDcs.BuildRankFile(reader, DifferenceCover.Create(7), _dir.File("rank.bin"), options);
+        Assert.That(stats.Levels.Count, Is.GreaterThan(1), "the text goes through the inversion");
+        Assert.That(source.Created.Count(p => p.EndsWith("rank.bin", StringComparison.Ordinal)), Is.EqualTo(1), "the rank file of the caller");
+        Assert.That(source.Created.Count(p => p.EndsWith(".sa", StringComparison.Ordinal)), Is.EqualTo(stats.Levels.Count - 1), "one suffix array file per level below the first");
+        Assert.That(source.Created.Count(p => p.EndsWith(".rank", StringComparison.Ordinal)), Is.EqualTo(stats.Levels.Count - 1), "one rank file per level below the first (the file that its level above is inverted from)");
+    }
+
+    /// <summary>A reservation source that records the path of every file created through it (the platform side of <see cref="MappedFileOptions"/>).</summary>
+    private sealed class RecordingSource : IReservationSource
+    {
+        private readonly List<string> _created = [];
+
+        public bool CanPreallocate => true;
+
+        internal IReadOnlyList<string> Created
+        {
+            get
+            {
+                lock (_created) return [.. _created];
+            }
+        }
+
+        public FileStream CreatePreallocated(string path, long length)
+        {
+            lock (_created) _created.Add(path);
+            return new FileStream(path, FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite);
+        }
+
+        public long AvailableFreeBytes(string directory) => -1;
+    }
+
+    // ---------------------------------------------------------------- H37: the seconds of the leaves and of the partitions
+
+    [Test]
+    public void TheSortCountsTheSecondsOfItsLeavesAndOfItsPartitions()
+    {
+        // H37 (the leaf time is not summed): both are sums of timer ticks of tasks that sort or split thousands of positions
+        SaCase c = SaCase.Of(StringFamilies.RandomDna(20_000, 8));
+        DifferenceCover cover = DifferenceCover.Create(7);
+        string textPath = SaRun.WriteText(_dir, c);
+        using MappedTextReader reader = MappedTextReader.Open(textPath, c.N, c.Bits);
+        using RankTable ranks = RankTable.Open(SaInputs.WriteRankFile(_dir, c, cover), cover, c.N);
+        SortStats stats = BucketSorter.Run(reader, SaTiny.Sort(_dir.Sub("scratch"), 1, 1), new MemorySaSink(c.N + 1), ranks);
+        Assert.That(stats.Leaves, Is.GreaterThan(100));
+        Assert.That(stats.LeafSeconds, Is.GreaterThan(0).And.LessThan(120));
+        Assert.That(stats.PartitionSeconds, Is.GreaterThan(0).And.LessThan(120));
+    }
+
+    // ---------------------------------------------------------------- H02: the upper bound of the leaf capacity, with the allocation turned into an exception
+
+    [Test]
+    public void ALeafCapacityAboveTheBound_IsRefusedAtTheEntry_AndTheBoundItselfIsNot()
+    {
+        // H02 (no upper bound on K): without the entry check the next step allocates a leaf sorter of 8 GB or more, which killed the test host of the audit; a small budget turns that step into an exception, so that the mutant
+        // fails this test instead of the machine. The bound itself passes the entry and is stopped by the budget.
+        SaCase c = SaCase.Of("banana");
+        DifferenceCover cover = DifferenceCover.Create(7);
+        string textPath = SaRun.WriteText(_dir, c);
+        using MappedTextReader reader = MappedTextReader.Open(textPath, c.N, c.Bits);
+        using RankTable ranks = RankTable.Open(SaInputs.WriteRankFile(_dir, c, cover), cover, c.N);
+        SortOptions Options(long k) => SaTiny.Sort(_dir.Sub("scratch"), 1, 1) with { LeafCapacity = k, Budget = new ArenaBudget(1 << 20) };
+        Assert.Throws<ArgumentOutOfRangeException>(() => BucketSorter.Run(reader, Options((int.MaxValue / 2) + 1L), new NoSink(), ranks));
+        Assert.Throws<ArgumentOutOfRangeException>(() => BucketSorter.Run(reader, Options(int.MaxValue), new NoSink(), ranks));
+        Assert.That(() => BucketSorter.Run(reader, Options(int.MaxValue / 2), new MemorySaSink(c.N + 1), ranks), Throws.TypeOf<ArenaBudgetExceededException>(), "the bound is allowed; the budget refuses its buffers");
+    }
+
+    // ---------------------------------------------------------------- M06: a sample that exactly fits the bucket is a leaf
+
+    [Test]
+    public void ASampleThatExactlyFitsTheBucketCapacity_IsOneLeaf_AndOneMoreRecordIsSplit()
+    {
+        // M06 (the root is a leaf one record early): the root of the naming is split when the sample is larger than the capacity of a bucket, not when it is as large
+        DifferenceCover cover = DifferenceCover.Create(7);
+        SaCase c = SaCase.Of(StringFamilies.RandomDna(100, 12));
+        long samples = cover.SampleCount(c.N);
+        string textPath = SaRun.WriteText(_dir, c);
+        using MappedTextReader reader = MappedTextReader.Open(textPath, c.N, c.Bits);
+        ExtDcsLevelStats Level0(long capacity)
+        {
+            ExtDcsStats stats = ExternalDcs.BuildRankFile(reader, cover, _dir.File("r-" + capacity + ".bin"), SaTiny.Dcs(_dir.Sub("scratch-" + capacity), 1, 1) with { BucketCapacity = capacity });
+            return stats.Levels[0];
+        }
+        ExtDcsLevelStats fits = Level0(samples);
+        Assert.That((fits.SampleSize, fits.Leaves, fits.SplitScans), Is.EqualTo((samples, 1L, 0L)), "capacity = sample size: one leaf, no split scan");
+        ExtDcsLevelStats over = Level0(samples - 1);
+        Assert.That(over.SplitScans, Is.GreaterThanOrEqualTo(1), "capacity = sample size - 1: the root is split");
+        Assert.That(over.Leaves, Is.GreaterThan(1));
+    }
+
+    // ---------------------------------------------------------------- N04: the sink of the rank file releases its window
+
+    [Test]
+    public void ThePlainRankFileSink_ReleasesItsWindowAndItsFile_WhenTheBuildIsDone()
+    {
+        // N04 (RankFileSink: the writer is not disposed): the sample names are unique here, so the merge writes the rank file through the sink; its last window must not stay mapped
+        SaCase c = SaCase.Of(StringFamilies.RandomDna(900, 4));
+        string textPath = SaRun.WriteText(_dir, c);
+        using MappedTextReader reader = MappedTextReader.Open(textPath, c.N, c.Bits);
+        string rank = _dir.File("rank.bin");
+        ExtDcsStats stats = ExternalDcs.BuildRankFile(reader, DifferenceCover.Create(7), rank, SaTiny.Dcs(_dir.Sub("scratch"), 1, 1));
+        Assert.That(stats.Levels[0].NamesUnique, Is.True, "the case takes the way of the sink");
+        Assert.That(ProcMaps.Contains(rank) ?? false, Is.False, "the rank file is still mapped");
+        ProcFds.AssertClosed("after the rank file sink", [rank], [_dir.Sub("scratch")]);
+    }
+
+    // ---------------------------------------------------------------- Q82: the optional check of the rank file reads every slot
+
+    [Test]
+    public void WithVerifyRanks_ASlotOfTheRankFileThatWasDamagedAfterPh1_IsRefusedBeforePh3()
+    {
+        // Q82 (the check of the rank file is replaced by reading its length): the hook "verify" fires right before the check; it damages slot 0 (a rank of 0 is outside [1, S + |D|]) and the check must say so
+        SaCase c = SaCase.Of(StringFamilies.RandomDna(500, 9));
+        string scratch = _dir.Sub("scratch");
+        string rankPath = Path.Combine(scratch, "ranks.bin");
+        var steps = new List<string>();
+        SaBuildOptions options = SaTiny.Build(scratch, 1, 1) with
+        {
+            VerifyRanks = true,
+            Trace = step =>
+            {
+                steps.Add(step);
+                if (step != "verify") return;
+                using Microsoft.Win32.SafeHandles.SafeFileHandle handle = File.OpenHandle(rankPath, FileMode.Open, FileAccess.Write, FileShare.ReadWrite);
+                RandomAccess.Write(handle, new byte[4], 0);
+            },
+        };
+        string textPath = SaRun.WriteText(_dir, c);
+        using MappedTextReader reader = MappedTextReader.Open(textPath, c.N, c.Bits);
+        InvalidDataException? e = Assert.Throws<InvalidDataException>(() => SaBuilder.Build(reader, _dir.File("o.sa"), options));
+        Assert.That(e!.Message, Does.Contain("slot 0 holds the rank 0"));
+        Assert.That(steps, Does.Contain("verify").And.Not.Contain("ph23"), "the build stopped before PH2 / PH3");
+        Assert.That(File.Exists(_dir.File("o.sa")) || Directory.Exists(scratch), Is.False, "nothing is left");
+        // without the option there is no check, and no hook
+        steps.Clear();
+        SaBuildOptions plain = SaTiny.Build(scratch, 1, 1) with { Trace = steps.Add };
+        SaBuilder.Build(reader, _dir.File("o2.sa"), plain);
+        Assert.That(steps, Does.Not.Contain("verify"));
     }
 
     // ---------------------------------------------------------------- X04: the shape of a text in memory is checked before its layout

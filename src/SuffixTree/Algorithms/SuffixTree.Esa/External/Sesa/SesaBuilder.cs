@@ -417,7 +417,7 @@ internal static class SesaBuilder
             text.Dispose();
             text = null;
             container.Dispose();
-            if (new FileInfo(tmp).Length != placed.FinalLength) throw new InvalidOperationException($"the container has {new FileInfo(tmp).Length} bytes, expected {placed.FinalLength}");
+            CheckContainerLength(new FileInfo(tmp).Length, placed.FinalLength);
 
             (int Kind, long Offset, long Length)[] ranges = SectionRanges(plan, placed, infoBytes.Length);
             (uint Crc, SesaCrcRow Row)[] sums = SesaChecksums.Compute(tmp, ranges);
@@ -630,6 +630,12 @@ internal static class SesaBuilder
     internal static void CheckBuildInfoFits(int length, long capacity)
     {
         if (length > capacity) throw new InvalidOperationException($"BUILD_INFO has {length} bytes, the reserved room is {capacity}");
+    }
+
+    /// <summary>The container, closed, has exactly the length that the layout planned (a file that is shorter or longer is not the container that the table describes).</summary>
+    internal static void CheckContainerLength(long actual, long planned)
+    {
+        if (actual != planned) throw new InvalidOperationException($"the container has {actual} bytes, expected {planned}");
     }
 
     /// <summary>The text of the BUILD_INFO section: everything that is a fact about the output, nothing about the run (no time, no thread count, no sizes), so that the same input gives the same bytes.</summary>

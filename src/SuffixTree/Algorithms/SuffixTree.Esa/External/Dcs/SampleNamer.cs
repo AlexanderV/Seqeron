@@ -190,13 +190,19 @@ internal sealed class SampleNamer
             Span<uint> span = window.AsSpan((int)(end - start));
             long got = 0;
             foreach ((RunReader reader, uint offset) in readers) got += reader.Drain((uint)end, offset, span, start);
-            if (got != end - start) throw new InvalidDataException($"merge window [{start}, {end}) received {got} records");
+            CheckWindow(start, end, got);
             sink.Accept(start, span);
         }
         long scattered = 0;
         foreach ((RunReader reader, _) in readers) scattered += reader.Scattered;
         if (scattered != s) throw new InvalidDataException($"the runs hold {scattered} records for {s} sample positions");
         arena.VerifyCanaries();
+    }
+
+    /// <summary>The merge window <c>[start, end)</c> must have received exactly one record per slot (fewer: a sample position lost its name; more: two records for one slot).</summary>
+    internal static void CheckWindow(long start, long end, long received)
+    {
+        if (received != end - start) throw new InvalidDataException($"merge window [{start}, {end}) received {received} records");
     }
 
     /// <summary>
