@@ -1,0 +1,4 @@
+1b9a_V01	the verifier expects the packed layout of a tagged file	killed(unit tests: 9 failed, first AdversarialFamilies_OnATaggedContainer_EveryMember)
+1b9a_V02	the verifier expects a next link without its tag	killed(unit tests: 6 failed, first AdversarialFamilies_OnATaggedContainer_EveryMember)
+1b9a_V03	the verifier expects the up kind for the down field	killed(unit tests: 8 failed, first AdversarialFamilies_OnATaggedContainer_EveryMember)
+1b9a_V04	the verifier lets a tagged next link of the successor k + 1 go unchecked	killed(unit tests: 6 failed, first AdversarialFamilies_OnATaggedContainer_EveryMember)

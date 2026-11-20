@@ -1,0 +1,7 @@
+1b9a_B01	the default codec is the packed one	killed(unit tests: 34 failed, first EveryEntryOfTheTable_IsAsChosen_ForEveryWidthOfTheLcp)
+1b9a_B02	the default codec switches one text length too early	killed(unit tests: 1 failed, first TheBuilder_ChoosesTheCodec_FromTheRequestAndTheLengthOfTheText)
+1b9a_B03	a text that is too long for the tagged codec is accepted when it is requested	killed(unit tests: 1 failed, first TheBuilder_ChoosesTheCodec_FromTheRequestAndTheLengthOfTheText)
+1b9a_B04	the stage builds the packed codec whatever was chosen	killed(unit tests: 29 failed, first EveryEntryOfTheTable_IsAsChosen_ForEveryWidthOfTheLcp)
+1b9a_B05	the section entry says codec 1 whatever was built	killed(unit tests: 30 failed, first EveryEntryOfTheTable_IsAsChosen_ForEveryWidthOfTheLcp)
+1b9a_B06	BUILD_INFO names the layout the other way around	killed(unit tests: 7 failed, first TheBuildInfo_IsTheFixedTextOfTheOutput_WithNoTimestampAndNoParameterOfTheRun)
+1b9a_B07	BUILD_INFO is written with the default codec, not the built one	killed(unit tests: 7 failed, first TheBuildInfo_IsTheFixedTextOfTheOutput_WithNoTimestampAndNoParameterOfTheRun)

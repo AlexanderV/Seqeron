@@ -1,0 +1,5 @@
+1b9a_H01	codec 2 is not supported by the header check	killed(unit tests: 12 failed, first AdversarialFamilies_OnATaggedContainer_EveryMember)
+1b9a_H02	the codec check lets an undefined codec 3 through	killed(unit tests: 3 failed, first AnUnknownChildCodec_IsNotSupported_AtTheHeaderLevel(3))
+1b9a_H03	the limit of the tagged ranks is one rank too small	killed(unit tests: 1 failed, first TheTaggedCodec_NeedsRanksThatFitThirtyBits_TheHeaderCheckSaysSo)
+1b9a_H04	the limit of the tagged ranks is one rank too large	killed(unit tests: 1 failed, first TheTaggedCodec_NeedsRanksThatFitThirtyBits_TheHeaderCheckSaysSo)
+1b9a_H05	the entry of the child table is checked against codec 1 only	killed(unit tests: 11 failed, first AdversarialFamilies_OnATaggedContainer_EveryMember)

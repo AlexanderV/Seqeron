@@ -1,0 +1,1 @@
+1b9a_C04	a tagged cell outside the section is read in checked mode (the bound of NextLIndex)	killed(unit tests: 1 failed, first ACellOutsideTheChildTable_InCheckedMode_IsInvalidData_ForTheNextLIndexOfBothLayouts(True))

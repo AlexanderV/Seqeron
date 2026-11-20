@@ -54,10 +54,12 @@ counts = {}
 rows = []
 for mid, (fname, desc) in listed.items():
     r1 = round1.get(mid, 'NOT RUN')
-    if r1.startswith('killed(unit tests'):
+    if r1.startswith('killed(') and 'unit tests' in r1:
         status = 'killed by the unit tests of the new code in round 1: ' + r1
     elif r1.startswith('killed'):
         status = 'killed by the harness in round 1'
+    elif mid in later and later[mid][1].startswith('killed(') and 'unit tests' in later[mid][1]:
+        status = 'killed by the unit tests after a test was added or the mutant was re-written (round %s): %s' % (later[mid][0][1:], later[mid][1])
     elif mid in later and later[mid][1].startswith('killed'):
         status = 'killed by the harness after an extension (round %s)' % later[mid][0][1:]
     elif mid in unit and unit[mid].startswith('killed'):
@@ -76,10 +78,11 @@ with open(os.path.join(HERE, 'summary_1b9a.tsv'), 'w') as o:
     o.write('id\tfile\tdescription\tround 1\tfinal status\n')
     for r in rows:
         o.write('\t'.join(x.replace('\t', ' ').replace('\n', ' ') for x in r) + '\n')
-with open(os.path.join(HERE, 'fails_1b9a.tsv'), 'w') as o:
-    o.write('id\tfirst failure of the harness (the minimized text as hex code units at the end of the line)\n')
-    for mid in sorted(fails):
-        o.write('%s\t%s\n' % (mid, fails[mid][0]))
+if fails:
+    with open(os.path.join(HERE, 'fails_1b9a.tsv'), 'w') as o:
+        o.write('id\tfirst failure of the harness (the minimized text as hex code units at the end of the line)\n')
+        for mid in sorted(fails):
+            o.write('%s\t%s\n' % (mid, fails[mid][0]))
 print('listed', len(listed), 'rows', len(rows))
 for k, v in sorted(counts.items()):
     print(v, k)

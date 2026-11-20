@@ -1,0 +1,15 @@
+# Mutants of the audit of 1b.9a that neither the unit tests of the new code nor the budgeted harness kill, argued (id -> argument). Read by summarize_1b9a.py and quoted in PROGRESS-S1.md.
+# EQUIVALENT: the mutant behaves like the original on every input that a caller or a test can reach (the argument says why); DEFENCE: a second line of defence behind a check that holds the same rule at the same read: not
+# equivalent on every input, not killed, reported as such; KILLED_BY_UNIT_TESTS: killed by an existing test class that the harness cannot replace (none in this audit: the survivors of round 1 that could be killed got a test, see the round 2 rows).
+EQUIVALENT = {
+    '1b9a_M02': 'a Trusted file that runs the Checked loops gives the same answer on every file that a Trusted tree can be given (the checks only add refusals for damaged tables, and a damaged table under Trusted is outside the contract: ADR-003 section 6); the difference is speed, which no test asserts',
+    '1b9a_M05': 'the stream of the packed pattern needs ceil(len * bits / 64) words and the read of a window touches one word behind the word of its first bit: the largest index written or read is ceil(len * bits / 64), which the array of ceil + 1 words holds; the second spare word of the original is never touched',
+    '1b9a_M13': 'a leaf whose suffix has been matched to its end has start = n; the next test, `m - c > n - start`, is then `m - c > 0`, which is true because c < m inside the loop, so the same refusal (absent pattern) is returned one test later',
+    '1b9a_M20': 'the first symbol of the edge was matched by the scan of the siblings (c equals the depth of the parent when the loop starts, `key == symbol` read the very symbol that the compare now starts with), so including it adds one comparison that is always equal; the bounds test of the stretch is the same inequality shifted by one on both sides',
+    '1b9a_M24': 'a window that carries one symbol fewer than the 64 / bits of the original (it differs only for 1, 2, 4 and 8 bits per symbol, where 64 / bits divides evenly) compares the same symbols in one more step: the answer is the same, the cost is one more step in about 32 symbols for 2-bit symbols',
+    '1b9a_M28': 'the words are zero when they are allocated, in both forms (a stackalloc of the language without SkipLocalsInit, which this project does not set, and a new array), and the pattern is packed once per call into a fresh buffer: the Clear writes zeros over zeros',
+    '1b9a_M30': 'the packed pattern on the heap from the first word on holds the same words as on the stack; only the allocation differs (the answer does not)',
+    '1b9a_M40': 'the 32-bit reader accepts a value of n + 2 that the original refuses; the descent reads the value only to `childEll = lcp[first]` and the next statement refuses `childEll > n` in Checked mode with the same exception (ThrowDamaged): the outcome of a call is the same, only the statement that throws differs',
+}
+DEFENCE = {}
+KILLED_BY_UNIT_TESTS = {}

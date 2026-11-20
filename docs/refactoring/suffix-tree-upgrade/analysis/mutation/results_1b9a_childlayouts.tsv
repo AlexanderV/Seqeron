@@ -1,0 +1,4 @@
+1b9a_C01	the tagged cell is not masked in FirstLIndex of the mapped table	killed(unit tests: 39 failed, first AdversarialFamilies_OnATaggedContainer_EveryMember)
+1b9a_C02	every tagged field is a next link (mapped table)	killed(unit tests: 36 failed, first AdversarialFamilies_OnATaggedContainer_EveryMember)
+1b9a_C03	the tagged next link of the mapped table is not read as tagged	killed(unit tests: 46 failed, first AdversarialFamilies_OnATaggedContainer_EveryMember)
+1b9a_C04	a tagged cell outside the section is read in checked mode (the bound of NextLIndex)	survived (unit tests and harness)

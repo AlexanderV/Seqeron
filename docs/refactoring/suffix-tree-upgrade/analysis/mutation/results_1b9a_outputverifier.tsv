@@ -1,0 +1,3 @@
+1b9a_A01	the adapter expects the packed layout of a tagged container	killed(unit tests: 7 failed, first ABuiltContainer_OfEitherChildCodec_PassesAllElevenChecks_AndTheContainerSaysWhichCodecItHolds)
+1b9a_A02	the adapter expects a next link without its tag	killed(unit tests: 7 failed, first ABuiltContainer_OfEitherChildCodec_PassesAllElevenChecks_AndTheContainerSaysWhichCodecItHolds)
+1b9a_A03	the adapter expects the up kind for the down field	killed(unit tests: 7 failed, first ABuiltContainer_OfEitherChildCodec_PassesAllElevenChecks_AndTheContainerSaysWhichCodecItHolds)

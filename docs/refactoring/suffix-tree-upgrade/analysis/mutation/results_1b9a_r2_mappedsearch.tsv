@@ -1,0 +1,4 @@
+1b9a_M01	the access mode of the dispatch is swapped	killed(host crash: Fatal error., unit tests)
+1b9a_M16	a child deeper than the text is accepted (checked)	killed(unit tests: 2 failed, first AnLcpValueAtTheEdgeOfItsRange_InCheckedMode_EndsAsTheReferenceDoes(False))
+1b9a_M17	the edge compare does not check that the stretch lies inside the text	killed(unit tests: 2 failed, first AnLcpValueAtTheEdgeOfItsRange_InCheckedMode_EndsAsTheReferenceDoes(False))
+1b9a_M39	an escaped 16-bit LCP entry is returned as the escape	killed(unit tests: 1 failed, first EveryRepresentationOfTheLcpArray_EqualsTheMemoryIndex)
