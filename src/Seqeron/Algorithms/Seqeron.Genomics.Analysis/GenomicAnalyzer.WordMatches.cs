@@ -1,3 +1,4 @@
+using Seqeron.Genomics.Alignment;
 using Seqeron.Genomics.Infrastructure;
 namespace Seqeron.Genomics.Analysis;
 
@@ -58,7 +59,10 @@ public static partial class GenomicAnalyzer
                 if (sequences[j].Length < wordSize)
                     continue;
                 foreach (var m in pair.Matches(sequences[j]).OrderBy(m => m.PositionInText).ThenBy(m => m.PositionInQuery))
+                {
                     result.Add(new WordMatch(i, j, m.PositionInText, m.PositionInQuery, m.Length));
+                    RequireMatchCount(result.Count);
+                }
             }
         }
 
@@ -99,7 +103,9 @@ public static partial class GenomicAnalyzer
             if (_plain)
             {
                 _tree ??= BuildMaskedTree(_indexed, BuildLetterMask("ABCDEFGHIJKLMNOPQRSTUVWXYZ"));
-                return _tree.FindMaximalExactMatches(LetterQuery(query, skip: '\0'), _k);
+                var found = _tree.FindMaximalExactMatches(LetterQuery(query, skip: '\0'), _k);
+                RequireMatchCount(found.Count);          // A4-2: the engine has listed them (its own list is not interruptible nor bounded); nothing more is built from an oversized list
+                return found;
             }
 
             _allowed ??= WordTableStarts(_upper, _k, _skip);
@@ -151,6 +157,14 @@ public static partial class GenomicAnalyzer
 
     // embWordBuildMatchTable: every window of the query is looked up in the table of the indexed sequence (literal comparison, no skipping on the query side); consecutive word hits
     // on one diagonal merge into one match of length run + k - 1.
+    // A4-2: the documented bound of the match lists of seqmatchall / megamerger (SequenceAligner.WordMatchMaxMatches)
+    private static void RequireMatchCount(long count)
+    {
+        if (count > SequenceAligner.WordMatchMaxMatches)
+            throw SequenceAligner.ResourceLimit("EMBOSS seqmatchall / megamerger", "keep every maximal word match of a sequence pair in memory", $"{count} matches", SequenceAligner.WordMatchMaxMatches,
+                nameof(SequenceAligner) + "." + nameof(SequenceAligner.WordMatchMaxMatches), "The programs have no such limit: they keep every match and die at the allocation", "use a larger word size or mask the repeats");
+    }
+
     private static IEnumerable<(int PositionInText, int PositionInQuery, int Length)> WordTableMatches(string a, string b, int k, bool[] allowed)
     {
         var table = new Dictionary<string, List<int>>(StringComparer.Ordinal);
@@ -182,6 +196,7 @@ public static partial class GenomicAnalyzer
                     }
 
                     done.Add((cur.StartP, cur.StartQ, cur.LastQ - cur.StartQ + k));
+                    RequireMatchCount(done.Count);
                 }
 
                 open[diag] = (p, q, q);

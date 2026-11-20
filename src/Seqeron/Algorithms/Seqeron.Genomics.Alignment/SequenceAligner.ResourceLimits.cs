@@ -28,6 +28,21 @@ public static partial class SequenceAligner
     /// <summary><see cref="MultipleAlignMafft"/>: cells (len1 x len2) of the pair dynamic program <c>G__align11</c> (an <c>int</c> trace-back cell plus row arrays): 2^28 cells = 1 GiB for the traceback.</summary>
     public const long MafftMaxPairCells = 1L << 28;
 
+    /// <summary><see cref="Minimap2Chaining.CollectAnchors"/> / <see cref="Minimap2Chaining.Chain"/>: anchors (20 bytes each, plus 36 bytes per anchor in the chaining arrays and the sort copies): 2^23 = 8 388 608 anchors, about 0.5 GiB at the peak. minimap2 has no such limit (a 100 kb poly-A query against itself is 10^10 anchors and the program dies at the allocation); it drops frequent minimizers instead (<c>mid_occ</c>, <c>mm_seed_select</c>: the registered A4-7).</summary>
+    public const long MinimapMaxAnchors = 1L << 23;
+
+    /// <summary><see cref="DotMatcher.Compute"/>: segments of the plot (16 bytes each; an alternating window score gives one segment per few cells, up to cells / 4 of them): 2^22 = 4 194 304 segments = 64 MiB. The program streams its segments to a graph file and has no such limit.</summary>
+    public const long DotMatcherMaxSegments = 1L << 22;
+
+    /// <summary><see cref="NucmerClusters.Cluster"/>: matches of ONE cluster (the chain dynamic program of <c>Process_Cluster</c> is O(c^2) per extracted chain and so is the program's: 100 000 matches are about 5 x 10^9 steps, a minute): 100 000. mgaps has no such limit; split the input by query sequence or raise the minimum match length.</summary>
+    public const long NucmerMaxClusterMatches = 100_000;
+
+    /// <summary><see cref="GenomicAnalyzer.MegaMerge"/> / <see cref="GenomicAnalyzer.SeqMatchAll"/>: maximal word matches of one sequence pair that are listed (12 bytes in the engine's list, 20 more in the result): 2^22 = 4 194 304. The programs keep every match in memory and have no such limit.</summary>
+    public const long WordMatchMaxMatches = 1L << 22;
+
+    /// <summary><see cref="LocalAlignTopN(string, string, ScoringMatrix?, int, int, TopNTieOrder)"/> and the affine overloads with <see cref="TopNTieOrder.Sim"/> (EMBOSS matcher): the K-vertex list holds at most this many candidate start points (a vertex is about 56 bytes): 2^22 = 4 194 304. A larger <c>maxAlignments</c> is allocated lazily, so <c>int.MaxValue</c> asks for "every alignment" exactly as the Waterman-Eggert order accepts it; the program calls <c>calloc(K)</c> up front and dies for such a K.</summary>
+    public const long TopNSimMaxVertices = 1L << 22;
+
     /// <summary>
     /// The one exception of a resource limit: "&lt;program&gt; &lt;what it keeps&gt;: &lt;size&gt; exceeds the limit of &lt;limit&gt; (&lt;constant&gt;). &lt;what the program itself does&gt;; &lt;what to use instead&gt;."
     /// </summary>

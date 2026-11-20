@@ -319,3 +319,5 @@ Input contract: ProbCons drops gap characters like the program's reader, POA rea
 - **Audit A4-4 (F156):** option boundaries measured on the programs: `OptionBoundaries_Oracle_Tests` (`option_boundary_oracle.json`, `generate_option_boundary_oracle.py`); the programs accept almost every value the audit listed (only k <= 0 / k > 28 rejected; etandem -threshold int.MinValue is a SIGFPE of the program, not "0 hits").
 
 - **Audit A4-1 (F157):** `Minimap2Chaining.Chain` / `CollectAnchors`, `NucmerClusters.Cluster` poll the ambient cancellation token (mid-run cancel tests); MCP tools take the request token.
+
+- **Audit A4-2 (F158):** resource guards: `Minimap2Chaining.CollectAnchors` / `Chain` (`MinimapMaxAnchors`), `NucmerClusters.Cluster` (`NucmerMaxClusterMatches`).

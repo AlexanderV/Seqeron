@@ -74,7 +74,7 @@ public static class DotMatcher
                     if (total < threshold)
                     {
                         above = false;
-                        segments.Add(new DotMatcherSegment(startj + 1, starti + 1, k, i));
+                        Add(new DotMatcherSegment(startj + 1, starti + 1, k, i));
                     }
                 }
                 else if (total >= threshold)
@@ -89,7 +89,16 @@ public static class DotMatcher
             }
 
             if (above)
-                segments.Add(new DotMatcherSegment(startj + 1, starti + 1, k, i));
+                Add(new DotMatcherSegment(startj + 1, starti + 1, k, i));
+        }
+
+        // A4-2: the segment list is bounded (a threshold of 0 or less over an alternating window score gives about one segment per four cells)
+        void Add(DotMatcherSegment segment)
+        {
+            if (segments.Count >= SequenceAligner.DotMatcherMaxSegments)
+                throw SequenceAligner.ResourceLimit("EMBOSS dotmatcher", "keeps the segments of the plot in memory (16 bytes each)", $"more than {segments.Count} segments for {len1} x {len2} residues and a threshold of {threshold}",
+                    SequenceAligner.DotMatcherMaxSegments, nameof(SequenceAligner) + "." + nameof(SequenceAligner.DotMatcherMaxSegments), "The program streams the segments to the graph file and has no such limit", "raise the threshold or the window size, or plot shorter sequences");
+            segments.Add(segment);
         }
     }
 }

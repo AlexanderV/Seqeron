@@ -155,3 +155,5 @@ MCP `water_align` (A3-17). The "at least 90 % reaches the textbook optimum" tole
 - **Audit A4-3 (F153):** the EMBOSS reader drops gap characters and every other non-letter (except `*`) from plain input sequences; one shared `EmbossSequenceReader` (Infrastructure) serves water, matcher, supermatcher, dotmatcher: 240 oracle rows each equal (`emboss_gap_oracle.tsv`).
 
 - **Audit A4-1 (F157):** `DotMatcher.Compute`, matcher (`TopNTieOrder.Sim`) poll the ambient cancellation token (mid-run cancel tests); MCP tools take the request token.
+
+- **Audit A4-2 (F158):** resource guards: `DotMatcher.Compute` (`DotMatcherMaxSegments`), `TopNTieOrder.Sim` (`TopNSimMaxVertices`, lazy vertex list: `maxAlignments = int.MaxValue` = every alignment).

@@ -209,4 +209,110 @@ public class SequenceAligner_ResourceLimits_Tests
             Assert.DoesNotThrow(() => Ksw2Aligner.ExtendZ(q, t, 5, mat, 0, 1, -1, -1), "q = 0, e = 1 is the smallest valid pair");
         });
     }
+
+    // ------------------------------------------------------------------ A4-2: the allocations added with the EMBOSS / minimap2 / nucmer ports (B09 F158)
+
+    private sealed class FakeAnchors(int count) : IReadOnlyList<MinimapAnchor>
+    {
+        public int Count => count;
+
+        public MinimapAnchor this[int index] => throw new InvalidOperationException("the limit is checked before an anchor is read");
+
+        public IEnumerator<MinimapAnchor> GetEnumerator() => throw new InvalidOperationException("the limit is checked before the anchors are enumerated");
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+    }
+
+    [Test]
+    public void Minimap2CollectAnchors_PolyAAndTandemQueries_AreRefusedBeforeTheAnchorsAreStored()
+    {
+        // a 100 kb poly-A query against itself: every position is a minimizer and mid_occ is 100 001 - 10^10 anchors (OutOfMemoryException after 10 s before A4-2)
+        string polyA = new('A', 100_000);
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var ex = Refused<ArgumentException>(() => Minimap2Chaining.CollectAnchors([polyA], polyA));
+        Assert.That(sw.Elapsed.TotalSeconds, Is.LessThan(30));
+        Assert.That(ex.Message, Does.StartWith("minimap2 seeding stores one anchor").And.Contain("SequenceAligner.MinimapMaxAnchors").And.Contain("mm_seed_select").And.Contain("8,388,608"));
+        Assert.That(ex.ParamName, Is.EqualTo("query"));
+        Assert.That(SequenceAligner.MinimapMaxAnchors, Is.EqualTo(8_388_608L));
+        // a tandem repeat (period 2, 60 kb) against itself: hundreds of millions of anchors (the audit's 57 kb tandem repeat: 45 million, 5.2 GB, 10.8 s)
+        string tandem = string.Concat(Enumerable.Repeat("AC", 30_000));
+        Refused<ArgumentException>(() => Minimap2Chaining.CollectAnchors([tandem], tandem));
+        // the anchors of an ordinary pair are untouched
+        string target = Dna(20_000, 11);
+        Assert.That(Minimap2Chaining.CollectAnchors([target], target[5_000..15_000]), Is.Not.Empty);
+    }
+
+    [Test]
+    public void Minimap2Chain_AboveTheAnchorLimit_IsRefusedBeforeAnyAnchorIsRead()
+    {
+        var ex = Refused<ArgumentException>(() => Minimap2Chaining.Chain(new FakeAnchors(8_388_609)));
+        Assert.That(ex.Message, Does.StartWith("minimap2 chaining keeps four arrays").And.Contain("SequenceAligner.MinimapMaxAnchors"));
+        Assert.That(ex.ParamName, Is.EqualTo("anchors"));
+    }
+
+    [Test]
+    public void TopNSim_MaxAlignmentsIntMaxValue_MeansEveryAlignment_LikeTheWatermanEggertOrder()
+    {
+        // the vertex list used to be allocated up front (new Vertex[int.MaxValue]: OutOfMemoryException) while the Waterman-Eggert order accepted int.MaxValue (23 alignments)
+        string a = Dna(60, 21), b = Dna(60, 22);
+        var scoring = new ScoringMatrix(5, -4, -10, -4);
+        var sim = SequenceAligner.LocalAlignAffineTopN(a, b, scoring, int.MaxValue, 0, TopNTieOrder.Sim);
+        var simBig = SequenceAligner.LocalAlignAffineTopN(a, b, scoring, 100_000, 0, TopNTieOrder.Sim);
+        Assert.That(sim, Is.Not.Empty);
+        Assert.That(sim.Select(x => (x.Score, x.AlignedSequence1, x.AlignedSequence2)), Is.EqualTo(simBig.Select(x => (x.Score, x.AlignedSequence1, x.AlignedSequence2))));
+        Assert.That(SequenceAligner.LocalAlignAffineTopN(a, b, scoring, int.MaxValue, 0, TopNTieOrder.WatermanEggert), Is.Not.Empty);
+        Assert.That(SequenceAligner.LocalAlignTopN(a, b, scoring, int.MaxValue, 0, TopNTieOrder.Sim), Is.Not.Empty);
+        Assert.That(SequenceAligner.LocalAlignTopN(a, b, scoring, int.MaxValue, 0, TopNTieOrder.WatermanEggert), Is.Not.Empty);
+    }
+
+    [Test]
+    public void TopNSim_VertexListIsBounded_ByTheDocumentedLimit()
+    {
+        string a = Dna(200, 23), b = Dna(200, 24);
+        var ex = Refused<ArgumentException>(() => SequenceAligner.LocalTopNSimCore(a, b, new ScoringMatrix(5, -4, -10, -4), affine: true, int.MaxValue, 0, maxVertices: 10));
+        Assert.That(ex.Message, Does.StartWith("EMBOSS matcher (Huang-Miller SIM) keeps a list of candidate start points").And.Contain("SequenceAligner.TopNSimMaxVertices").And.Contain("TopNTieOrder.WatermanEggert"));
+        Assert.That(ex.ParamName, Is.EqualTo("maxAlignments"));
+        Assert.That(SequenceAligner.TopNSimMaxVertices, Is.EqualTo(4_194_304L));
+    }
+
+    [Test]
+    public void WordMatches_AboveTheMatchLimit_AreRefused_BySeqMatchAll()
+    {
+        // wordsize 1 over two random 5 200-base sequences: about 0.1875 x 27 million = 5.1 million maximal matches (> 2^22 = 4 194 304); the engine behind seqmatchall and megamerger is shared (PairWordMatcher), every later list is bounded
+        string a = Dna(5_200, 31), b = Dna(5_200, 32);
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        var ex = Assert.Throws<ArgumentException>(() => GenomicAnalyzer.SeqMatchAll([a, b], 1))!;
+        Assert.That(GC.GetAllocatedBytesForCurrentThread() - before, Is.LessThan(1L << 30), "only the engine's own list is built");
+        Assert.That(ex.Message, Does.StartWith("EMBOSS seqmatchall / megamerger keep every maximal word match").And.Contain("SequenceAligner.WordMatchMaxMatches"));
+        Assert.That(SequenceAligner.WordMatchMaxMatches, Is.EqualTo(4_194_304L));
+        Assert.That(GenomicAnalyzer.SeqMatchAll([Dna(300, 33), Dna(300, 34)], 4), Is.Not.Empty, "an ordinary pair is untouched");
+    }
+
+    [Test]
+    public void DotMatcher_SegmentList_IsBounded_WhenTheThresholdLetsEveryMatchBeASegment()
+    {
+        // window 1, threshold 0: every matching cell of a 6 000 x 6 000 plot (EDNAFULL +5 / -4) starts a segment: 0.1875 x 36 million = 6.75 million segments (> 2^22)
+        string a = Dna(6_000, 41), b = Dna(6_000, 42);
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        var ex = Assert.Throws<ArgumentException>(() => DotMatcher.Compute(a, b, windowSize: 1, threshold: 0))!;
+        Assert.That(GC.GetAllocatedBytesForCurrentThread() - before, Is.LessThan(512L << 20), "the list stops growing at the limit (64 MiB of segments)");
+        Assert.That(ex.Message, Does.StartWith("EMBOSS dotmatcher keeps the segments of the plot").And.Contain("SequenceAligner.DotMatcherMaxSegments"));
+        Assert.That(SequenceAligner.DotMatcherMaxSegments, Is.EqualTo(4_194_304L));
+        Assert.That(DotMatcher.Compute(a[..500], b[..500], windowSize: 10, threshold: 23), Is.Not.Null);
+    }
+
+    [Test]
+    public void NucmerCluster_OfMoreThan100000Matches_IsRefusedBeforeTheQuadraticProgram()
+    {
+        // 100 001 collinear matches, 30 apart: ONE cluster whose chain dynamic program is O(c^2) (the program's own loop)
+        var matches = Enumerable.Range(0, 100_001).Select(i => ((long)(1 + 30 * i), (long)(1 + 30 * i), 20L)).ToList();
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        var ex = Assert.Throws<ArgumentException>(() => NucmerClusters.Cluster(matches))!;
+        Assert.That(sw.Elapsed.TotalSeconds, Is.LessThan(30));
+        Assert.That(GC.GetAllocatedBytesForCurrentThread() - before, Is.LessThan(512L << 20));
+        Assert.That(ex.Message, Does.StartWith("mgaps extracts the chains of a cluster").And.Contain("SequenceAligner.NucmerMaxClusterMatches"));
+        Assert.That(SequenceAligner.NucmerMaxClusterMatches, Is.EqualTo(100_000L));
+        Assert.That(NucmerClusters.Cluster(matches.Take(100_000).Take(2_000).ToList()), Is.Not.Empty, "a cluster of 2 000 matches is untouched");
+    }
 }

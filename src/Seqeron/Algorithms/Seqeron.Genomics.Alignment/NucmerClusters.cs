@@ -259,6 +259,9 @@ public static class NucmerClusters
     // Process_Cluster on A[first .. first + count - 1]
     private static void ProcessCluster(MatchT[] arr, int first, int count, NucmerClusterOptions o, List<NucmerCluster> output)
     {
+        if (count > SequenceAligner.NucmerMaxClusterMatches)
+            throw SequenceAligner.ResourceLimit("mgaps", "extracts the chains of a cluster by a dynamic program that compares every match with every earlier one (O(c^2) per chain)", $"{count} matches in one cluster", SequenceAligner.NucmerMaxClusterMatches,
+                nameof(SequenceAligner) + "." + nameof(SequenceAligner.NucmerMaxClusterMatches), "The program has no such limit and takes as long as the quadratic loop needs", "cluster the matches of one query sequence at a time or raise the minimum match length");
         var a = arr.AsSpan(first, count).ToArray();
         int n = count;
         while (n > 0)

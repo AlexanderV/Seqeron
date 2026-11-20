@@ -108,6 +108,9 @@ public static class Minimap2Chaining
         int n = anchors.Count;
         if (n == 0)
             return [];
+        if (n > SequenceAligner.MinimapMaxAnchors)
+            throw SequenceAligner.ResourceLimit("minimap2 chaining", "keeps four arrays (score, predecessor, peak score, mark: 36 bytes) per anchor besides the anchors", $"{n} anchors", SequenceAligner.MinimapMaxAnchors,
+                nameof(SequenceAligner) + "." + nameof(SequenceAligner.MinimapMaxAnchors), "The program has no such limit and dies at the allocation", "chain the anchors of the query in pieces", nameof(anchors));
         var ax = new ulong[n];
         var ay = new ulong[n];
         for (int i = 0; i < n; i++)
@@ -484,7 +487,20 @@ public static class Minimap2Chaining
             mv = mv.Where(m => !drop.Contains(m.X)).ToList();
         }
 
-        var anchors = new List<MinimapAnchor>();
+        // A4-2: count the anchors in 64 bit BEFORE any is stored (the sum of the occurrences of the query's minimizers): a 100 kb poly-A query against itself is 10^10 anchors and a 57 kb tandem repeat 45 million
+        // (5.2 GB, 10.8 s); minimap2 has no such limit but drops frequent minimizers (the registered A4-7)
+        long total = 0;
+        foreach (var (x, _) in mv)
+        {
+            if (index.TryGetValue(x >> 8, out var occurrences))
+                total += occurrences.Count;
+        }
+
+        if (total > SequenceAligner.MinimapMaxAnchors)
+            throw SequenceAligner.ResourceLimit("minimap2 seeding", "stores one anchor (20 bytes) for every occurrence of every query minimizer and four arrays of them for the chaining",
+                $"{total} anchors (the occurrences of {mv.Count} query minimizers in the targets)", SequenceAligner.MinimapMaxAnchors, nameof(SequenceAligner) + "." + nameof(SequenceAligner.MinimapMaxAnchors),
+                "The program has no such limit: it dies at the allocation, and drops the minimizers that occur more than mid_occ times (mm_seed_select)", "use a longer k-mer or window, mask the repeat, or map a shorter query", nameof(query));
+        var anchors = new List<MinimapAnchor>((int)total);
         int polled = 0;
         foreach (var (x, y) in mv)
         {

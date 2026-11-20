@@ -421,7 +421,7 @@ public class SequenceAligner_Cancellation_Tests
     {
         // the consensus of 1.5 million columns is computed first (its own poll), then 1.5 million one-column blocks are written (the poll of Output)
         string row1 = Random(1_500_000, 82), row2 = Random(1_500_000, 83);
-        AssertCancelsPromptly(ct => MultipleAlignmentDisplay.ShowAlign(["a", "b"], [row1, row2], new ShowAlignOptions { Width = 1, CancellationToken = ct }), delayMs: 1200, pollInside: "Output");
+        AssertCancelsPromptly(ct => MultipleAlignmentDisplay.ShowAlign(["a", "b"], [row1, row2], new ShowAlignOptions { Width = 1, CancellationToken = ct }), delayMs: 500, pollInside: "Output");
         AssertCancelsPromptly(ct => MultipleAlignmentDisplay.ShowAlign(["a", "b"], [row1, row2], new ShowAlignOptions { Width = 1, CancellationToken = ct }), delayMs: 100, pollInside: "EmbossConsensusCore");
     }
 

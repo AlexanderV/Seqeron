@@ -28,7 +28,7 @@ public static partial class SequenceAligner
     /// <c>matcher_SmallPass</c>, <c>matcher_Addnode</c>, <c>matcher_NoCross</c>, <c>matcher_Findmax</c>, <c>matcher_Diff</c>, <c>matcher_Calcons</c>).
     /// The program aborts ("The number of alignments computed is too large") when fewer than K local alignments exist; this port then returns the alignments found so far.
     /// </summary>
-    internal static IReadOnlyList<AlignmentResult> LocalTopNSimCore(string a, string b, PairScoring scoring, bool affine, int maxAlignments, long minScaled)
+    internal static IReadOnlyList<AlignmentResult> LocalTopNSimCore(string a, string b, PairScoring scoring, bool affine, int maxAlignments, long minScaled, long maxVertices = TopNSimMaxVertices)
     {
         if (maxAlignments < 1)
             throw new ArgumentOutOfRangeException(nameof(maxAlignments), maxAlignments, "maxAlignments must be at least 1.");
@@ -38,7 +38,7 @@ public static partial class SequenceAligner
         if (scoring.Gaps is not null)
             throw new ArgumentException("TopNTieOrder.Sim has no position-specific gap scores.", nameof(scoring));
         scoring.EnsureRange(a.Length, b.Length);
-        var sim = new SimMatcher(a, b, scoring, affine);
+        var sim = new SimMatcher(a, b, scoring, affine) { MaxVertices = maxVertices };
         sim.Run(maxAlignments, minScaled, results);
         return results;
     }
@@ -57,6 +57,9 @@ public static partial class SequenceAligner
         private readonly int _q, _r, _qr;
 
         private Vertex[] _list = Array.Empty<Vertex>();
+
+        /// <summary>The bound of the vertex list (A4-2).</summary>
+        public long MaxVertices { get; init; } = TopNSimMaxVertices;
         private Vertex? _low, _most;
         private int _lmin;
         private int _flag;
@@ -106,8 +109,7 @@ public static partial class SequenceAligner
         public void Run(int k, long minScaled, List<AlignmentResult> results)
         {
             _script = new int[_m + _n + 2];
-            _list = new Vertex[k];
-            for (int i = 0; i < k; i++) _list[i] = new Vertex();
+            _list = new Vertex[Math.Min(k, 64)];        // A4-2: lazily grown (SequenceAligner.TopNSimMaxVertices): maxAlignments = int.MaxValue means "every alignment", as in the Waterman-Eggert order
             int numnode = 0;
             _lmin = 0;
             BigPass(k, ref numnode);
@@ -217,7 +219,7 @@ public static partial class SequenceAligner
             }
             else
             {
-                _most = numnode == K ? _low : _list[numnode++];
+                _most = numnode == K ? _low : VertexAt(numnode++);
                 _most!.Score = c;
                 _most.StarI = ci;
                 _most.StarJ = cj;
@@ -239,6 +241,20 @@ public static partial class SequenceAligner
                 return _low.Score;
             }
             return cost;
+        }
+
+        // the list's vertices are created on first use: the original allocates K of them up front (calloc), which for a K like int.MaxValue is an out-of-memory
+        private Vertex VertexAt(int index)
+        {
+            if (index >= _list.Length)
+            {
+                if (index >= MaxVertices)
+                    throw ResourceLimit("EMBOSS matcher (Huang-Miller SIM)", "keeps a list of candidate start points (about 56 bytes each)", $"more than {MaxVertices} candidates", MaxVertices,
+                        nameof(SequenceAligner) + "." + nameof(TopNSimMaxVertices), "The program allocates K vertices up front and dies for a large K", "ask for fewer alignments (maxAlignments), raise minScore or use TopNTieOrder.WatermanEggert", "maxAlignments");
+                Array.Resize(ref _list, (int)Math.Min(MaxVertices, Math.Max(index + 1L, _list.Length * 2L)));
+            }
+
+            return _list[index] ??= new Vertex();
         }
 
         private Vertex Findmax(ref int numnode)

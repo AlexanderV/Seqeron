@@ -752,3 +752,8 @@ Sources actually opened: minimap2 v2.26 `options.c` (`mm_check_opt`), `sketch.c`
 ## Audit A4-1 (B09 F157): cancellation
 
 Mechanism: `AlignmentCancellation` (SequenceAligner.Cancellation.cs, A2-40); tests `SequenceAligner_Cancellation_Tests` (`PreCancelled_A4_1_...`, one `CancelledWhileRunning_...` test per class) and the MCP `CancellationTokenTests` / `EmbossProgramToolsTests`: `Minimap2Chaining.Chain` / `CollectAnchors`, `NucmerClusters.Cluster` poll the ambient token (a mid-run cancel stops with `OperationCanceledException` inside the named poll) and the MCP tool takes the request token.
+
+## Audit A4-2 (B09 F158): resource guards
+
+`SequenceAligner_ResourceLimits_Tests`: `Minimap2Chaining.CollectAnchors` / `Chain` (`MinimapMaxAnchors`), `NucmerClusters.Cluster` (`NucmerMaxClusterMatches`) - documented limit constants (`SequenceAligner.ResourceLimits.cs`), the exception of the `SequenceAligner.ResourceLimit` style raised before the allocation in 64-bit arithmetic, and a low-allocation assertion per limit.
+The programs have no such limits (they die at the allocation: measured OutOfMemory / SIGKILL on the audit inputs); minimap2 drops frequent minimizers (`mid_occ`, `mm_seed_select`), registered A4-7.
