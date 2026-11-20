@@ -1,0 +1,30 @@
+[
+ {
+  "id": "1b9a_M01",
+  "desc": "the access mode of the dispatch is swapped",
+  "old": "return Run<CheckedAccess, Lcp8Reader, PackedCells<CheckedAccess, Lcp8Reader>>(new PackedCells<CheckedAccess, Lcp8Reader>(_child, lcp, _n), lcp,",
+  "new": "return Run<TrustedAccess, Lcp8Reader, PackedCells<TrustedAccess, Lcp8Reader>>(new PackedCells<TrustedAccess, Lcp8Reader>(_child, lcp, _n), lcp,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ },
+ {
+  "id": "1b9a_M16",
+  "desc": "a child deeper than the text is accepted (checked)",
+  "old": "(childEll <= ell || childEll > n)",
+  "new": "(childEll <= ell || childEll > n + 1)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ },
+ {
+  "id": "1b9a_M17",
+  "desc": "the edge compare does not check that the stretch lies inside the text",
+  "old": "|| limit - c - 1 > n - (from + 1) || !Equal(",
+  "new": "|| !Equal(",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ },
+ {
+  "id": "1b9a_M39",
+  "desc": "an escaped 16-bit LCP entry is returned as the escape",
+  "old": "return v != ushort.MaxValue ? v : lcp[rank];",
+  "new": "return v;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ }
+]

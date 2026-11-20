@@ -1,0 +1,9 @@
+[
+ {
+  "id": "1b9a_C04",
+  "desc": "a tagged cell outside the section is read in checked mode (the bound of NextLIndex)",
+  "old": "            if (_checked && (uint)k >= (uint)_count) ThrowOutside(k);\n            uint cell = (uint)_cld[k];",
+  "new": "            uint cell = (uint)_cld[k];",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs"
+ }
+]

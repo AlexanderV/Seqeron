@@ -193,21 +193,26 @@ public class MappedSearchTests
             ["random (8-bit LCP)"] = RandomText(rng, 20_000, 4),
             ["a block twice (8-bit LCP and an overflow list)"] = RandomText(rng, 9000, 4) + repeat + RandomText(rng, 9000, 4) + repeat,
             ["a^2000 (16-bit LCP)"] = new string('A', 2000),
+            ["a^70000 (16-bit LCP and an overflow list)"] = new string('A', 70_000),
             ["a^200000 (32-bit LCP)"] = new string('A', 200_000),
         };
         var kinds = new HashSet<LcpKind>();
-        bool overflow = false;
+        bool overflow = false, overflow16 = false;
         foreach ((string name, string text) in texts)
         {
             using EsaSuffixTree probe = SesaTestFile.FileTree(text);
             kinds.Add(probe.File!.Lcp.Kind);
             overflow |= probe.File!.Lcp.Kind != LcpKind.U32 && probe.File!.Lcp.OverflowCount > 0;
+            overflow16 |= probe.File!.Lcp.Kind == LcpKind.U16 && probe.File!.Lcp.OverflowCount > 0;
             var patterns = new List<string>();
             for (int i = 0; i < 300; i++) patterns.Add(RandomPattern(rng, text, 4, 1 + rng.NextInt(1200), fromText: i % 4 != 0));
             patterns.AddRange(AllSubstrings(text.Length > 400 ? text[..40] : text, 40));
             patterns.Add(text[..Math.Min(text.Length, 1999)]);
+            // the patterns that descend to the depths whose LCP values are escaped in the 16-bit representation (65,535 and more)
+            if (text.Length == 70_000) patterns.AddRange(new[] { 65_534, 65_535, 65_536, 69_999, 70_000, 70_001 }.Select(len => new string('A', len)));
             CompareAll(text, name, patterns);
         }
+        Assert.That(overflow16, Is.True, "one text must use a 16-bit LCP array with an overflow list");
         Assert.That(kinds, Is.EquivalentTo(new[] { LcpKind.U8, LcpKind.U16, LcpKind.U32 }), "the texts must use every representation of the LCP array");
         Assert.That(overflow, Is.True, "one text must use an overflow list");
     }
@@ -323,6 +328,46 @@ public class MappedSearchTests
             }
         }
         Assert.That(refused, Is.GreaterThan(0));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void AnLcpValueAtTheEdgeOfItsRange_InCheckedMode_EndsAsTheReferenceDoes(bool tagged)
+    {
+        ChildCodec codec = tagged ? ChildCodec.Tagged : ChildCodec.Packed;
+        string text = "mississippimississippi";
+        int n = text.Length;
+        byte[] clean = SesaTestFile.Image(LcpChildCase.Of(text), codec: codec);
+        OracleSection lcp = SesaOracle.FromBytes(clean).Get(SesaFormat.KindLcp);
+        Assert.That(lcp.Count, Is.EqualTo(n + 1), "one byte per entry: the text is short enough for the 8-bit representation");
+        var options = new EsaOpenOptions { Access = EsaAccessMode.Checked };
+        int refused = 0, answered = 0;
+        // every entry of the LCP array set in turn to the values at the edges of its range (zero, the entry's own rank, one below the text length, the text length, one and two above it, the escape byte): the outcome is the one of the reference
+        for (int entry = 0; entry <= n; entry++)
+        {
+            foreach (int value in new[] { 0, 1, entry, n - 1, n, n + 1, n + 2, 255 })
+            {
+                byte[] image = (byte[])clean.Clone();
+                image[(int)lcp.Offset + entry] = (byte)value;
+                using var guarded = new SesaReaderHostileTests.Guarded(image, flush: entry % 2 == 0);
+                unsafe
+                {
+                    using SesaFile file = SesaFile.FromMemory(guarded.Data, guarded.Length, options);
+                    var search = new MappedSearch(file);
+                    foreach (string pattern in new[] { "i", "ss", "issi", "ppi", "ississippi", "mississippimississippi", "ssissippimi", "pp", "ippimissi", "ii", "iiii", "iiiiiiiiiiiiiiiiiiiiiiiiii", "pii", "ppiiii" })
+                    {
+                        byte[] dense = Dense(file.TextView.Alphabet, pattern);
+                        string expected = Outcome(() => (EsaIndex.DescendMapped(file.Child.Mapped, file.Sa, file.Lcp, file.TextReader, dense, true, out int lo, out int hi), lo, hi));
+                        string actual = Outcome(() => (search.TryMatch(dense, out int lo, out int hi), lo, hi));
+                        Assert.That(actual, Is.EqualTo(expected), $"{codec} entry {entry} = {value}, pattern '{pattern}'");
+                        if (actual == "InvalidDataException") refused++;
+                        else answered++;
+                    }
+                }
+            }
+        }
+        Assert.That(refused, Is.GreaterThan(0));
+        Assert.That(answered, Is.GreaterThan(0));
     }
 
     [TestCase(false)]

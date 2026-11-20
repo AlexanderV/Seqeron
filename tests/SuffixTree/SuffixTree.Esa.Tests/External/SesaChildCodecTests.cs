@@ -99,6 +99,22 @@ public class SesaChildCodecTests
         Assert.That(refused, Is.EqualTo(4 * cells));
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void ACellOutsideTheChildTable_InCheckedMode_IsInvalidData_ForTheNextLIndexOfBothLayouts(bool tagged)
+    {
+        ChildCodec codec = tagged ? ChildCodec.Tagged : ChildCodec.Packed;
+        using var dir = new TempDir();
+        byte[] image = SesaTestFile.Image(LcpChildCase.Of("mississippimississippi"), codec: codec);
+        using EsaSuffixTree tree = SesaTestFile.OpenImage(dir, image, access: EsaAccessMode.Checked);
+        MappedChild child = tree.File!.Child.Mapped;
+        int cells = (int)(child.PayloadBytes / 4);
+        Assert.That(child.IsTagged, Is.EqualTo(tagged));
+        foreach (int k in new[] { cells, cells + 1, cells + 1000, int.MaxValue - 1, -1 })
+            Assert.That(() => child.NextLIndex(k, int.MaxValue), Throws.TypeOf<InvalidDataException>(), $"{codec} cell {k}");
+        Assert.That(() => child.NextLIndex(1, int.MaxValue), Throws.Nothing);
+    }
+
     [Test]
     public void ATaggedTable_ThatTheLayoutOfCodec1Wrote_IsRefusedAtTheStructureLevel_AndTheOtherWayAround()
     {
