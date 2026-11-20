@@ -389,6 +389,8 @@ public class SaGap1b9cTests
         ExtDcsLevelStats over = Level0(samples - 1);
         Assert.That(over.SplitScans, Is.GreaterThanOrEqualTo(1), "capacity = sample size - 1: the root is split");
         Assert.That(over.Leaves, Is.GreaterThan(1));
+        Assert.That(over.Scans, Is.EqualTo(over.Leaves + over.SplitScans), "the root is split at once: no scan of a leaf that overflowed and was scanned again (F32: the root is a leaf one record late)");
+        Assert.That(fits.Scans, Is.EqualTo(1L), "the one leaf is scanned once");
     }
 
     // ---------------------------------------------------------------- N04: the sink of the rank file releases its window

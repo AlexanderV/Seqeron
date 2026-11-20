@@ -1,0 +1,5 @@
+T04	MemoryPositions: the array is not returned	killed(1 failed: TheMemorySource_GivesItsArrayBackToThePool_OnceWhateverTheNu)[only]			10
+T14	PosWriter: the buffer is flushed instead of grown	killed(2 failed: ABucketThatFitsTheCapacity_StaysInMemory_WhateverTheSizeOfIt,ThePosWriter_SpillsAtTheSameCount_WhateverTheHintOfTheSizeAn)[only]			10
+T18	PosWriter: the file bucket buffer is not returned	killed(1 failed: ThePosWriter_GivesItsBufferBackToThePool_WhenItHandsOverABuc)[only]			9
+T22	PosWriter: Dispose does not close the file	killed(4 failed: ABuildThatFailsAfterTheRankFile_GivesItsScratchBytesBack_AtT,AFailureInTheHandOverOfTheChildrenOfAPartition_DisposesTheCh,AFailureInTheMiddleOfTheScanOfAPartition_ClosesEveryWriterTh)[only]			9
+T28	PosWriter: the file is opened for append	killed(1 failed: ThePosWriter_CreatesItsFileAnew_AndKeepsNothingThatWasInItsP)[only]			10

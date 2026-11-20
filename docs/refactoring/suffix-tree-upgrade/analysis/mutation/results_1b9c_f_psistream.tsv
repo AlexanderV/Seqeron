@@ -1,0 +1,3 @@
+F01	the live-block counter is not raised at an allocation	killed(1 failed: ThePsiStream_GivesItsNativeBlocksBack_AfterEveryPass_AndAfte)[only]			10
+F02	the live-block counter is raised at a release	killed(1 failed: ThePsiStream_GivesItsNativeBlocksBack_AfterEveryPass_AndAfte)[only]			10
+F03	the live-block counter is not lowered at a release	killed(1 failed: ThePsiStream_GivesItsNativeBlocksBack_AfterEveryPass_AndAfte)[only]			9

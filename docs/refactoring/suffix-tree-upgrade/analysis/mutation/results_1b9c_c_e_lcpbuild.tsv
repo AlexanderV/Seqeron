@@ -1,0 +1,2 @@
+V10	a failed overflow writer leaves the base writer open	killed(1 failed: AnOverflowRangeThatLiesOutsideTheContainer_LeavesNoWriterOpe)[only]			11
+V11	a failed output writer leaves the writers open	killed(1 failed: AFailureInTheConstructionOfTheOutputWriterOfB3_LeavesNoWrite)[only]			15

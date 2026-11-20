@@ -1,0 +1,4 @@
+F25	the seconds of a section are negative	killed(1 failed: TheChecksumPass_MeasuresTheSecondsOfEverySection_AndKeepsIts)[only]			9
+F26	the seconds of a section are in ticks	killed(1 failed: TheChecksumPass_MeasuresTheSecondsOfEverySection_AndKeepsIts)[only]			9
+F27	the row says the hardware path was not used	killed(1 failed: TheChecksumPass_MeasuresTheSecondsOfEverySection_AndKeepsIts)[only]			9
+F28	the bytes of a row are one short	killed(1 failed: TheChecksumPass_MeasuresTheSecondsOfEverySection_AndKeepsIts)[only]			10

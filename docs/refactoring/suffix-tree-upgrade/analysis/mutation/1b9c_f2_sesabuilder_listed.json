@@ -1,0 +1,18 @@
+[
+ {
+  "id": "F24",
+  "desc": "BUILD_INFO is refused only above twice its room",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "if (length > capacity) throw new InvalidOperationException($\"BUILD_INFO has",
+  "new": "if (length > 2 * capacity) throw new InvalidOperationException($\"BUILD_INFO has",
+  "filter": "(FullyQualifiedName~Gap1b9cTests)"
+ },
+ {
+  "id": "F35",
+  "desc": "PH6 is run for a build with threads above 1000 only",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "            if (options.IncludePsi)\n            {\n                using var ph6",
+  "new": "            if (options.IncludePsi && options.Threads <= 1000)\n            {\n                using var ph6",
+  "filter": "(FullyQualifiedName~Gap1b9cTests)"
+ }
+]

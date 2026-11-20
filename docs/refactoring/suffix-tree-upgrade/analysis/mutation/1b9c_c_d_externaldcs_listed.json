@@ -45,15 +45,6 @@
   "closed_by": "SaGap1b9cTests.AFailureAfterTheRankFileOfLevelZeroWasWritten_RemovesTheFile_InEveryWayThatLevelZeroEnds"
  },
  {
-  "id": "L14",
-  "desc": "BuildLevel: the sort spill has no floor",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
-  "old": "SpillBytes = Math.Max(64, o.IoBufferBytes),",
-  "new": "SpillBytes = o.IoBufferBytes,",
-  "filter": "",
-  "closed_by": "SaGap1b9cTests.TheSortOfALevel_SpillsAtLeast64BytesWhateverTheIoBufferIs_SoTinyBuffersAndTheFloorGiveTheSameFiles"
- },
- {
   "id": "L15",
   "desc": "BuildLevel: the sort files carry no tag",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",

@@ -1,0 +1,4 @@
+F12	no rank-written point after the merge of unique names	killed(1 failed: AFailureAfterTheRankFileOfLevelZeroWasWritten_RemovesTheFile)[only]			10
+F13	no rank-written point after the base case	killed(1 failed: AFailureAfterTheRankFileOfLevelZeroWasWritten_RemovesTheFile)[only]			9
+F14	no rank-written point after the inversion	killed(1 failed: AFailureAfterTheRankFileOfLevelZeroWasWritten_RemovesTheFile)[only]			9
+F15	the entry limit of PH1 is at the limit	killed(1 failed: ATextAtTheLimitOfThePositions_PassesTheEntryOfPh1AndPh3)[only]			9

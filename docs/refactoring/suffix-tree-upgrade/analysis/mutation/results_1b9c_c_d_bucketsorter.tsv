@@ -1,0 +1,6 @@
+H02	Run: no upper bound on K	killed(1 failed: ALeafCapacityAboveTheBound_IsRefusedAtTheEntry_AndTheBoundIt)[only]			9
+H07	Run: no limit on the text length	killed(1 failed: ATextAboveTheLimitOfThePositions_IsRefusedAtTheEntryOfPh1And)[only]			9
+H37	RunTasks: the leaf time is not summed	killed(1 failed: TheSortCountsTheSecondsOfItsLeavesAndOfItsPartitions)[only]			9
+H64	Partition: the writers are not disposed	killed(3 failed: ABuildThatFailsAfterTheRankFile_GivesItsScratchBytesBack_AtT,AFailureInTheHandOverOfTheChildrenOfAPartition_DisposesTheCh,AFailureInTheMiddleOfTheScanOfAPartition_ClosesEveryWriterTh)[only]			10
+H65	Partition: the chunk is not returned	killed(1 failed: ThePartition_GivesItsReadChunkBackToThePool_WhenItEnds)[only]			10
+H66	Partition: the children of a failed hand-over are not disposed	killed(1 failed: AFailureInTheHandOverOfTheChildrenOfAPartition_DisposesTheCh)[only]			10

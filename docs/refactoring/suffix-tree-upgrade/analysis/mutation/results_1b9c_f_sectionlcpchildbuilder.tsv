@@ -1,0 +1,2 @@
+F37	PH5 flushes only the last window	killed(1 failed: TheChildTableWindows_AreFlushedWhenTheyAreReleased)[only]			9
+F38	PH4 gets the guards of PH5 only	killed(1 failed: TheGuardOption_ReachesTheB1B2AndB3PassesOfPh4_AndThePassOfPh)[only]			9

@@ -1,0 +1,10 @@
+[
+ {
+  "id": "F58",
+  "desc": "a read of exactly four bytes is refused by the BWT pass",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/BwtPass.cs",
+  "old": "ArgumentOutOfRangeException.ThrowIfLessThan(options.ReadBytes, sizeof(uint));",
+  "new": "ArgumentOutOfRangeException.ThrowIfLessThan(options.ReadBytes, sizeof(uint) + 1);",
+  "filter": "(FullyQualifiedName~Gap1b9cTests)"
+ }
+]

@@ -1,0 +1,3 @@
+F04	a flush is counted twice	killed(2 failed: TheOutputIsSyncedOnce_WithTheOption_AndNeverWithout,ThePublication_SyncsOnceAfterTheHeaderAndOnceAfterTheMagic_A)[only]			10
+F05	Reset keeps the flushes	survived			11
+F06	Flushes reads the counter of the write calls	killed(2 failed: TheOutputIsSyncedOnce_WithTheOption_AndNeverWithout,ThePublication_SyncsOnceAfterTheHeaderAndOnceAfterTheMagic_A)[only]			10

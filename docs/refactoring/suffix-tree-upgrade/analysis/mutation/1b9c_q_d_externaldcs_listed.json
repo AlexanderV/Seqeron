@@ -8,6 +8,14 @@
   "filter": ""
  },
  {
+  "id": "L14",
+  "desc": "BuildLevel: the sort spill has no floor",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",
+  "old": "SpillBytes = Math.Max(64, o.IoBufferBytes),",
+  "new": "SpillBytes = o.IoBufferBytes,",
+  "filter": ""
+ },
+ {
   "id": "L16",
   "desc": "BuildLevel: the sort shares no ledger",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs",

@@ -342,7 +342,28 @@ public class SesaGap1b9cTests
         Assert.That(e!.ParamName, Is.EqualTo("options.WindowBytes"));
         // the control: a window of one byte passes the entry and fails where the suffix array is opened
         Assert.Throws<FileNotFoundException>(() => BwtPass.Build(missing, 0, text, c.Sigma, bwt, new BwtOptions { WindowBytes = 1 }));
+        // the read of the pass is at least one entry (F58: a read of exactly one entry is refused too): three bytes are refused at the entry, four pass it
+        var tooSmall = Assert.Throws<ArgumentOutOfRangeException>(() => BwtPass.Build(missing, 0, text, c.Sigma, bwt, new BwtOptions { ReadBytes = 3 }));
+        Assert.That(tooSmall!.ParamName, Is.EqualTo("options.ReadBytes"));
+        Assert.Throws<FileNotFoundException>(() => BwtPass.Build(missing, 0, text, c.Sigma, bwt, new BwtOptions { ReadBytes = 4 }));
         Assert.That(File.Exists(bwt), Is.False);
+    }
+
+    // ---------------------------------------------------------------- F05: the counters of the flushes are reset with the others
+
+    [Test]
+    public void TheFlushCounter_CountsOneFlushAtATime_AndIsResetWithTheOtherCounters()
+    {
+        // F04-F06 (a flush is counted twice, Reset keeps the flushes, Flushes reads another counter)
+        var counters = new IoCounters();
+        Assert.That(counters.Flushes, Is.Zero);
+        counters.AddFlush();
+        counters.AddFlush();
+        counters.AddFlush();
+        counters.AddWrite(10);
+        Assert.That((counters.Flushes, counters.WriteCalls), Is.EqualTo((3L, 1L)), "three flushes, one write call");
+        counters.Reset();
+        Assert.That((counters.Flushes, counters.WriteCalls), Is.EqualTo((0L, 0L)));
     }
 
     // ---------------------------------------------------------------- B258: the default read of the BWT pass is a mebibyte

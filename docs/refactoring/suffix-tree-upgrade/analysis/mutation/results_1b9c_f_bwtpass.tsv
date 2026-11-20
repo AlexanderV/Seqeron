@@ -1,0 +1,2 @@
+F57	a window of one byte is refused by the BWT pass	killed(1 failed: TheBwtPass_RefusesAWindowOfZeroBytes_BeforeItOpensTheSuffixA)[only]			13
+F58	a read of exactly four bytes is refused by the BWT pass	survived			12

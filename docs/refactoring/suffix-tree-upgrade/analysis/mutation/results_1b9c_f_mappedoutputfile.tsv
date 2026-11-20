@@ -1,0 +1,3 @@
+F50	the fsync of a file is not counted	killed(1 failed: TheOutputIsSyncedOnce_WithTheOption_AndNeverWithout)[only]			9
+F51	a failed mapping sets the length again to the new length	killed(1 failed: AGrowthWhoseMappingFails_LeavesTheFileAtItsOldLength_AndTheO)[only]			10
+F52	the mapping hook of Grow is ignored	killed(1 failed: AGrowthWhoseMappingFails_LeavesTheFileAtItsOldLength_AndTheO)[only]			10

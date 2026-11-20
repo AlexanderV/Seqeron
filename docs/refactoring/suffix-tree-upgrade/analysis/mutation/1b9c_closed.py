@@ -33,7 +33,6 @@ CLOSED = {
     ('d', 'M18'): 'SaGap1b9cTests.TheMergeWindowCheck_RefusesFewerAndMoreRecordsThanSlots_AndAcceptsExactlyTheNumberOfSlots',
     ('d', 'M52'): 'SaGap1b9cTests.TheFanOutCapOfTheNaming_DoesNotChangeTheShapeWhenFewerBucketsAreNeeded',
     ('d', 'L24'): 'SaGap1b9cTests.TheFileOptions_ReachTheRankFileAndTheSuffixArrayFileOfTheLevelBelow',
-    ('d', 'L14'): 'SaGap1b9cTests.TheSortOfALevel_SpillsAtLeast64BytesWhateverTheIoBufferIs_SoTinyBuffersAndTheFloorGiveTheSameFiles',
     ('d', 'H37'): 'SaGap1b9cTests.TheSortCountsTheSecondsOfItsLeavesAndOfItsPartitions',
     ('d', 'E14'): 'SaGap1b9cTests.AFailureAfterTheRankFileOfLevelZeroWasWritten_RemovesTheFile_InEveryWayThatLevelZeroEnds',
     ('d', 'B04'): 'SaGap1b9cTests.AWriteOfARun_ThatFailsWithADiskFull_GivesTheBytesBack_AndLeavesNoFile',
@@ -68,6 +67,5 @@ CLOSED = {
     ('d', 'L28'): 'SaDcsGap1b9cTests.EveryLevel_CountsTheSecondsOfItsNamingAndOfItsMerge_AndEveryLevelBelowItsOwnWork',
     ('d', 'N19'): 'SaNamesGap1b9cTests.TheReducedFileSink_HoldsOneBufferOfTheFullSizePerClass_AndWritesTheNamesClassMajor',
     ('d', 'R18'): 'SaDcsGap1b9cTests.TheRankTable_MapsEveryByteOfItsFile_EvenTheLastFourThatReachIntoAPageOfTheirOwn',
-    ('d', 'C38'): 'SaSortStatsGap1b9cTests.ALeafOfEqualKeys_IsSortedByTheTiedComparison_AndTheSortCountsEveryOneOfThem',
     ('d', 'H02'): 'SaGap1b9cTests.ALeafCapacityAboveTheBound_IsRefusedAtTheEntry_AndTheBoundItselfIsNot',
 }

@@ -6,5 +6,13 @@
   "old": "long s = Math.Min(skip, lim);",
   "new": "long s = skip;",
   "filter": ""
+ },
+ {
+  "id": "C38",
+  "desc": "TiedComparer is the full comparison",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs",
+  "old": "public int Compare(uint x, uint y) => order.CompareTied(x, y);",
+  "new": "public int Compare(uint x, uint y) => order.Compare(x, y);",
+  "filter": ""
  }
 ]

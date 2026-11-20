@@ -1,0 +1,2 @@
+N04	RankFileSink: the writer is not disposed	killed(1 failed: ThePlainRankFileSink_ReleasesItsWindowAndItsFile_WhenTheBuil)[only]			12
+N19	ReducedFileSink: the buffers are one name short	killed(1 failed: TheReducedFileSink_HoldsOneBufferOfTheFullSizePerClass_AndWr)[only]			16

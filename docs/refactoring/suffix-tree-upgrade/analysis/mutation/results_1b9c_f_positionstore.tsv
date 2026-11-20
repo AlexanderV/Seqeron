@@ -1,0 +1,6 @@
+F39	the floor of the capacity of a bucket buffer is 17 positions	killed(2 failed: ThePosWriter_CreatesItsFileAnew_AndKeepsNothingThatWasInItsP,ThePosWriter_SpillsAtTheSameCount_WhateverTheHintOfTheSizeAn)[only]			9
+F40	a bucket in a file is handed over with its file open	killed(4 failed: ABuildThatFailsAfterTheRankFile_GivesItsScratchBytesBack_AtT,TheOutputIsSyncedOnce_WithTheOption_AndNeverWithout,ThePositionFilesOfPh3_AreInTheDirectoryOfPh3_AndThePhaseSees)[only]			10
+F41	a position file gives one entry less back to the ledger	killed(1 failed: AFailureInTheHandOverOfTheChildrenOfAPartition_DisposesTheCh)[only]			9
+F42	a writer that is disposed uncompleted keeps its buffer	killed(1 failed: ThePosWriter_GivesItsBufferBackToThePool_WhenItHandsOverABuc)[only]			9
+F43	a memory source can give its array back twice	killed(1 failed: TheMemorySource_GivesItsArrayBackToThePool_OnceWhateverTheNu)[only]			9
+F44	the second half of a flushed buffer is written at the wrong offset	killed(19 failed: ABuildThatFailsAfterTheRankFile_GivesItsScratchBytesBack_AtT,AnOutputThatChangedItsLengthDuringTheBuild_IsRefused_AndRemo,TheOutputIsSyncedOnce_WithTheOption_AndNeverWithout)[only]			8

@@ -1,0 +1,34 @@
+[
+ {
+  "id": "F45",
+  "desc": "PH1 time is the time of PH3",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "old": "Ph1Seconds = ph1Seconds,",
+  "new": "Ph1Seconds = ph23Seconds,",
+  "filter": "(FullyQualifiedName~Gap1b9cTests)"
+ },
+ {
+  "id": "F46",
+  "desc": "the entry limit of the build is at the limit",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "old": "if (n > PackedTextFormat.MaxSymbols) throw new NotSupportedException($\"{n} symbols: positions are 32-bit",
+  "new": "if (n >= PackedTextFormat.MaxSymbols) throw new NotSupportedException($\"{n} symbols: positions are 32-bit",
+  "filter": "(FullyQualifiedName~Gap1b9cTests)"
+ },
+ {
+  "id": "F49",
+  "desc": "the rank file is not booked in the ledger",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "old": "            ledger.Add(rankBytes); // the rank file is scratch of the pipeline from here on\n",
+  "new": "",
+  "filter": "(FullyQualifiedName~Gap1b9cTests)"
+ },
+ {
+  "id": "F62",
+  "desc": "the PH3 figure of the scratch peak is that of PH1",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "old": "Ph23ScratchPeakBytes = io2.ScratchPeakBytes,",
+  "new": "Ph23ScratchPeakBytes = ph1ScratchPeak,",
+  "filter": "(FullyQualifiedName~Gap1b9cTests)"
+ }
+]

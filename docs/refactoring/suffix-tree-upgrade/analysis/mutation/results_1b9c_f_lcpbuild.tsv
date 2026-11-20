@@ -1,0 +1,2 @@
+F29	the overflow writer is not disposed after a failed output writer	killed(1 failed: AFailureInTheConstructionOfTheOutputWriterOfB3_LeavesNoWrite)[only]			13
+F30	the base writer is not disposed after a failed output writer	killed(1 failed: AFailureInTheConstructionOfTheOutputWriterOfB3_LeavesNoWrite)[only]			12
