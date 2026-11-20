@@ -33,7 +33,7 @@ public sealed record KalignProgramResult(int ExitCode, string Stdout, IReadOnlyD
 /// </summary>
 /// <remarks>
 /// Accepted and documented but without effect on the alignment: <c>-n / --nthreads</c> beyond the one-thread / many-threads distinction of <see cref="KalignOptions.Threads"/>, <c>--set</c>, <c>-q</c>.
-/// <c>--format msf</c> and <c>--format clu</c> (output) and MSF / Clustal inputs are accepted by the program but not yet written / read here: <see cref="NotSupportedException"/> (registered, B09.md A2-20b).
+/// <c>--format msf</c> and <c>--format clu</c> (output) and MSF / Clustal inputs are accepted by the program but are not written / read by this library: <see cref="NotSupportedException"/> (use FASTA).
 /// </remarks>
 public static class KalignProgram
 {
@@ -226,7 +226,7 @@ public static class KalignProgram
             ReadFasta(text, names, seqs);
 
         if (cmd.Format != null && !cmd.Format.Contains("fasta", StringComparison.Ordinal) && !cmd.Format.Contains("fa", StringComparison.Ordinal))
-            throw new NotSupportedException($"Kalign output format '{cmd.Format}' is accepted by the program but not written here (B09.md A2-20b); use --format fasta.");
+            throw new NotSupportedException($"Kalign output format '{cmd.Format}' is accepted by the program but is not written by this library; use --format fasta.");
 
         KalignRunResult result;
         try

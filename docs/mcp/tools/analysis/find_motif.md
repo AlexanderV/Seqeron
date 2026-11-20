@@ -22,7 +22,7 @@ IUPAC symbols are literal and match nothing; use `find_known_motifs` with `iupac
 `find_exact_motif` (`MotifFinder.FindExactMotif`); the suffix tree is built per call, so for
 one-off queries on very large sequences prefer `kmer_positions` (KMP, no index).
 
-**IUPAC input (B09 A2-35).** The sequence may contain IUPAC codes (N): a symbol other than A/C/G/T matches nothing, so no window containing one is an occurrence.
+**IUPAC input.** The sequence may contain IUPAC codes (N): a symbol other than A/C/G/T matches nothing, so no window containing one is an occurrence.
 
 ## Core Documentation Reference
 

@@ -72,7 +72,7 @@ public static partial class SequenceAligner
     /// <param name="sequences">Exactly two sequences of letters ('-' and '.' are accepted).</param>
     /// <param name="options">Parameters; default = <c>mafft --anysymbol</c>.</param>
     /// <exception cref="ArgumentException">An empty sequence among two, a letter outside the alphabet with <c>AnySymbol = false</c>, an unusable parameter.</exception>
-    /// <exception cref="NotSupportedException">Three or more sequences (B09.md A2-19b).</exception>
+    /// <exception cref="NotSupportedException">Three or more sequences (only the alignment of two sequences is available).</exception>
     public static MultipleAlignmentResult MultipleAlignMafft(IEnumerable<string> sequences, MafftOptions? options = null)
     {
         var o = options ?? new MafftOptions();
@@ -86,7 +86,7 @@ public static partial class SequenceAligner
         if (list.Count == 1)
             return MafftEngine.SingleSequence(list[0], o);
         if (list.Count > 2)
-            throw new NotSupportedException("MAFFT's progressive stage for three or more sequences (6-mer distances, guide tree, A__align) is not ported yet (B09.md A2-19b); two sequences are supported.");
+            throw new NotSupportedException("MAFFT's progressive stage for three or more sequences (6-mer distances, guide tree, A__align) is not implemented in this library; only the alignment of two sequences is available.");
         using var cancelScope = AlignmentCancellation.Enter(o.CancellationToken);
         var rows = MafftEngine.AlignPair(list[0], list[1], o);
         var aligned = rows.ToList();

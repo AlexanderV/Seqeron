@@ -89,7 +89,7 @@ public sealed partial record TCoffeeProgramOptions
                 // 3dcoffee = `-in Msap_pair -template_file SELF_P_ -profile_template_file SELF_P_`; expresso fetches the structures from the RCSB (network)
                 return StringValue(flag, values) switch
                 {
-                    "3dcoffee" => throw new NotSupportedException("-mode 3dcoffee (= -in Msap_pair -template_file SELF_P_ -profile_template_file SELF_P_) equals -method proba_pair,sap_pair on 7 of the 8 committed sets; on the eighth the program's library holds fewer pair contributions (profile templates / network look-ups of the sequence names: not understood), so the mode is not claimed - use -method proba_pair,sap_pair (B09.md A2-10)."),
+                    "3dcoffee" => throw new NotSupportedException("-mode 3dcoffee (= -in Msap_pair -template_file SELF_P_ -profile_template_file SELF_P_) equals -method proba_pair,sap_pair on 7 of the 8 committed sets; on the eighth the program's library holds fewer pair contributions (profile templates / network look-ups of the sequence names: not understood), so the mode is not claimed - use -method proba_pair,sap_pair."),
                     "expresso" => throw new NotSupportedException("-mode expresso downloads the structures of the sequences from the RCSB PDB (blast against the PDB, network): not reproducible offline."),
                     var m => throw new ArgumentException($"The t_coffee mode {m} is not supported (3dcoffee)."),
                 };

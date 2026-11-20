@@ -31,7 +31,7 @@ extended on either side without losing an occurrence (`ACGTACGT` → `ACGT` only
 n results; linear time. For maximal repeated *pairs* use `find_direct_repeats`; for
 supermaximal repeats `find_supermaximal_repeats`.
 
-**Both strands and IUPAC input (B09 A2-33 / A2-35).** `bothStrands: true` reports repeat *classes* over `S # revcomp(S)` (MUMmer `repeat-match` default; Vmatch `-p`): a string and its reverse complement are one class, reported as the ordinal-smaller one; `positions` are the forward starts of the string, `reversePositions` the forward-strand starts of the windows that spell its reverse complement (a palindromic site is a repeat on its own); classes are ordered by string. The sequence may contain IUPAC codes (N): only A/C/G/T repeat, a window with another symbol never repeats and an adjacent N makes a repeat non-extendable.
+**Both strands and IUPAC input.** `bothStrands: true` reports repeat *classes* over `S # revcomp(S)` (MUMmer `repeat-match` default; Vmatch `-p`): a string and its reverse complement are one class, reported as the ordinal-smaller one; `positions` are the forward starts of the string, `reversePositions` the forward-strand starts of the windows that spell its reverse complement (a palindromic site is a repeat on its own); classes are ordered by string. The sequence may contain IUPAC codes (N): only A/C/G/T repeat, a window with another symbol never repeats and an adjacent N makes a repeat non-extendable.
 
 ## Core Documentation Reference
 

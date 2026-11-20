@@ -20,7 +20,7 @@ short `Contains` probes). Distinct such substrings are reported once, with the *
 position in `sequence1` and the start position in `sequence2`. Shorter prefixes sharing a start position with a longer match are not
 reported. `minLength` below 1 is treated as 1. Both inputs must be valid DNA.
 
-**Modes, strands, IUPAC input (B09 A2-30).** `mode` selects `RightMaximal` (default), `MaximalExactMatches` (`mummer -maxmatch`), `MaximalUniqueReference` (`-mumreference`) or `MaximalUnique` (`-mum`); `strands` `Forward` / `ReverseComplement` / `Both` (`mummer -r` / `-b`, `-c` position convention). Verified against mummer 3.23 on 4716 mode x strand cases. Only A/C/G/T match; N ends every region.
+**Modes, strands, IUPAC input.** `mode` selects `RightMaximal` (default), `MaximalExactMatches` (`mummer -maxmatch`), `MaximalUniqueReference` (`-mumreference`) or `MaximalUnique` (`-mum`); `strands` `Forward` / `ReverseComplement` / `Both` (`mummer -r` / `-b`, `-c` position convention). Verified against mummer 3.23 on 4716 mode x strand cases. Only A/C/G/T match; N ends every region.
 
 ## Core Documentation Reference
 

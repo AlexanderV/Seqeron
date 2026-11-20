@@ -31,7 +31,7 @@ fast on megabase sequences. **Approximate (interrupted) repeats** are not covere
 [`find_approximate_tandem_repeats`](find_approximate_tandem_repeats.md) (Tandem Repeats Finder
 model, Benson 1999).
 
-**Canonical rotation (B09 A2-34).** `canonicalRotation: true` reports each unit as its lexicographically least rotation (Booth 1980; the representative of MISA repeat-type classes), so `TGATGATGAT` gives `ATG` x3 at 0 with `originalUnit` `TGA`; `position`, `repetitions` and `totalLength` are unchanged. Verified against a brute-force least rotation on the MUMmer `exact-tandems` oracle (3630 rows).
+**Canonical rotation.** `canonicalRotation: true` reports each unit as its lexicographically least rotation (Booth 1980; the representative of MISA repeat-type classes), so `TGATGATGAT` gives `ATG` x3 at 0 with `originalUnit` `TGA`; `position`, `repetitions` and `totalLength` are unchanged. Verified against a brute-force least rotation on the MUMmer `exact-tandems` oracle (3630 rows).
 
 ## Core Documentation Reference
 

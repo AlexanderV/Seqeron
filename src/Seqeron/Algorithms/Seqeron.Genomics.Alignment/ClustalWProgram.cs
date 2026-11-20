@@ -84,7 +84,7 @@ public static class ClustalWProgram
             }
 
             default:
-                throw new NotSupportedException($"ClustalW verb {cmd.Verb} is not implemented in this library (-TREE and -BOOTSTRAP are registered as audit item A2-14f).");
+                throw new NotSupportedException($"ClustalW verb {cmd.Verb} is not implemented in this library (the tree commands -TREE and -BOOTSTRAP are unsupported; the alignment commands -ALIGN, -PROFILE / -SEQUENCES and the guide tree of -NEWTREE are available).");
         }
 
         return new ClustalWProgramResult(output, cmd.Messages);
@@ -131,7 +131,7 @@ public static class ClustalWProgram
         }
         else
         {
-            throw new NotSupportedException("Only FASTA, CLUSTAL and GDE input files are implemented (PIR, MSF, RSF, EMBL, PHYLIP and NEXUS input are registered as audit item A2-14f).");
+            throw new NotSupportedException("Only FASTA, CLUSTAL and GDE input files are implemented (PIR, MSF, RSF, EMBL, PHYLIP and NEXUS input files are not read; convert the input to FASTA or CLUSTAL).");
         }
 
         dna = (type ?? SequenceAligner.GuessClustalWSequenceType(seqs.Select(s => s.Residues))) == ClustalWSequenceType.Dna;

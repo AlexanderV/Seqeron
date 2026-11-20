@@ -18,7 +18,7 @@ public sealed record PoaProgramResult(int ExitCode, string Stdout, string Stderr
 /// text given as a dictionary.
 /// </summary>
 /// <remarks>
-/// Not ported (accepted by the program, registered B09.md A2-26b): <c>-read_msa</c>, <c>-read_msa2</c>, <c>-read_msa_list</c> (MSA / PO file input) and <c>-subset</c> / <c>-remove</c> (they raise
+/// Not ported (accepted by the program, unsupported here): <c>-read_msa</c>, <c>-read_msa2</c>, <c>-read_msa_list</c> (MSA / PO file input) and <c>-subset</c> / <c>-remove</c> (they raise
 /// <see cref="NotSupportedException"/>).
 /// </remarks>
 public static class PoaProgram
@@ -100,7 +100,7 @@ public static class PoaProgram
     /// <summary>Runs the program on text "files". See <see cref="PoaProgramResult"/>.</summary>
     /// <param name="arguments">The command-line arguments (without the program name).</param>
     /// <param name="files">Input files (name -> text): the FASTA file, the matrix file, the pair-score file.</param>
-    /// <exception cref="NotSupportedException">An MSA input option (registered A2-26b).</exception>
+    /// <exception cref="NotSupportedException">An MSA input option (unsupported; use FASTA input).</exception>
     public static PoaProgramResult Run(IReadOnlyList<string> arguments, IReadOnlyDictionary<string, string>? files = null)
     {
         ArgumentNullException.ThrowIfNull(arguments);
@@ -153,7 +153,7 @@ public static class PoaProgram
         }
 
         if (msa != null || msa2 != null || msaList != null)
-            throw new NotSupportedException("-read_msa / -read_msa2 / -read_msa_list (MSA and PO file input) are accepted by the program but not ported (B09.md A2-26b); use -read_fasta.");
+            throw new NotSupportedException("-read_msa / -read_msa2 / -read_msa_list (MSA and PO file input) are accepted by the program but are not supported by this library; use -read_fasta.");
 
         float hbThreshold = 0.9f;
         if (hbmin != null) hbThreshold = (float)Atof(hbmin);
