@@ -1,0 +1,51 @@
+[
+ {
+  "id": "1b9b_V01",
+  "desc": "VE7: the first eight bytes of a padding gap are not checked",
+  "old": "if (s.Offset > end && new ReadOnlySpan<byte>(file.Data + end, checked((int)(s.Offset - end))).IndexOfAnyExcept((byte)0) >= 0)",
+  "new": "if (s.Offset > end + 8 && new ReadOnlySpan<byte>(file.Data + end + 8, checked((int)(s.Offset - end - 8))).IndexOfAnyExcept((byte)0) >= 0)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs"
+ },
+ {
+  "id": "1b9b_V02",
+  "desc": "only the first eight bytes of a padding gap are checked",
+  "old": "new ReadOnlySpan<byte>(file.Data + end, checked((int)(s.Offset - end))).IndexOfAnyExcept((byte)0) >= 0)",
+  "new": "new ReadOnlySpan<byte>(file.Data + end, checked((int)Math.Min(8, s.Offset - end))).IndexOfAnyExcept((byte)0) >= 0)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs"
+ },
+ {
+  "id": "1b9b_V03",
+  "desc": "VE9: a PSI primary row below the real one is accepted",
+  "old": "if (ps.Psi!.Param0 != r) throw",
+  "new": "if (ps.Psi!.Param0 > r) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs"
+ },
+ {
+  "id": "1b9b_V04",
+  "desc": "a PSI primary row above the real one is accepted",
+  "old": "if (ps.Psi!.Param0 != r) throw",
+  "new": "if (ps.Psi!.Param0 < r) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs"
+ },
+ {
+  "id": "1b9b_V05",
+  "desc": "VE12: LRS_DEPTH above the real one is accepted",
+  "old": "if (h.LrsDepth != sink.LrsDepth) throw",
+  "new": "if (h.LrsDepth < sink.LrsDepth) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs"
+ },
+ {
+  "id": "1b9b_V06",
+  "desc": "LRS_DEPTH below the real one is accepted",
+  "old": "if (h.LrsDepth != sink.LrsDepth) throw",
+  "new": "if (h.LrsDepth > sink.LrsDepth) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs"
+ },
+ {
+  "id": "1b9b_V07",
+  "desc": "the verifier keeps the last deepest interval, not the first",
+  "old": "            if (ell > LrsDepth)",
+  "new": "            if (ell >= LrsDepth)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs"
+ }
+]

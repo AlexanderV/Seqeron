@@ -1,0 +1,51 @@
+[
+ {
+  "id": "1b9b_S01",
+  "desc": "S03: a 32-bit LCP value up to length + 5 is accepted",
+  "old": "if (TAccess.IsChecked && (uint)v > (uint)length) MappedSearch.ThrowDamaged();",
+  "new": "if (TAccess.IsChecked && (uint)v > (uint)length + 5) MappedSearch.ThrowDamaged();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ },
+ {
+  "id": "1b9b_S02",
+  "desc": "a 32-bit LCP value equal to the length is refused",
+  "old": "if (TAccess.IsChecked && (uint)v > (uint)length) MappedSearch.ThrowDamaged();",
+  "new": "if (TAccess.IsChecked && (uint)v >= (uint)length) MappedSearch.ThrowDamaged();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ },
+ {
+  "id": "1b9b_S04",
+  "desc": "the symbol read keeps the bits that the shift moved out of the 16",
+  "old": "return (int)(((w << (int)(bit & 7)) & 0xFFFF) >> (16 - bits));",
+  "new": "return (int)((w << (int)(bit & 7)) >> (16 - bits));",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ },
+ {
+  "id": "1b9b_S05",
+  "desc": "the symbol read takes one bit too many",
+  "old": "return (int)(((w << (int)(bit & 7)) & 0xFFFF) >> (16 - bits));",
+  "new": "return (int)(((w << (int)(bit & 7)) & 0xFFFF) >> (15 - bits));",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ },
+ {
+  "id": "1b9b_S06",
+  "desc": "the symbol read starts at the bit offset modulo 4",
+  "old": "return (int)(((w << (int)(bit & 7)) & 0xFFFF) >> (16 - bits));",
+  "new": "return (int)(((w << (int)(bit & 3)) & 0xFFFF) >> (16 - bits));",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ },
+ {
+  "id": "1b9b_S07",
+  "desc": "the symbol read does not turn the big-endian stream around",
+  "old": "uint w = BinaryPrimitives.ReverseEndianness(Unsafe.ReadUnaligned<ushort>(text + (bit >> 3)));",
+  "new": "uint w = Unsafe.ReadUnaligned<ushort>(text + (bit >> 3));",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ },
+ {
+  "id": "1b9b_S03",
+  "desc": "a 32-bit LCP value is never checked",
+  "old": "if (TAccess.IsChecked && (uint)v > (uint)length) MappedSearch.ThrowDamaged();",
+  "new": "if (TAccess.IsChecked && false) MappedSearch.ThrowDamaged();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ }
+]

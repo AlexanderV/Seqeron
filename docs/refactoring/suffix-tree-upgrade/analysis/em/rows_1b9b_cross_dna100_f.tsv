@@ -1,0 +1,16 @@
+#head	60e5064f8ee804adf5cf4a9504e3179d66ccf635
+#row: label variant count20_per_s locate8_per_s absent24_per_s open_s sink smaps...
+row	r1	memory	383651	347749	392751	10.4911	215119478	rss_kb=1516996	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=25700	rssanon_kb=1488792
+row	r1	checked	504410	440899	510732	0.0116	215119478	rss_kb=1408736	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=929556	rssanon_kb=477080
+row	r2	checked	509846	429998	430539	0.0114	215119478	rss_kb=1408636	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=929460	rssanon_kb=477080
+row	r2	memory	478254	444013	451646	11.2109	215119478	rss_kb=1516980	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=25684	rssanon_kb=1488792
+row	r3	memory	430081	446960	469384	9.7794	215119478	rss_kb=1517072	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=25788	rssanon_kb=1488780
+row	r3	checked	479199	431590	494878	0.0106	215119478	rss_kb=1408700	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=929528	rssanon_kb=477080
+row	r4	checked	509399	437643	521405	0.0106	215119478	rss_kb=1408800	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=929632	rssanon_kb=477076
+row	r4	memory	376589	344190	380710	10.3762	215119478	rss_kb=1517044	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=25748	rssanon_kb=1488792
+row	r5	memory	374633	335946	378651	12.1137	215119478	rss_kb=1517092	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=25800	rssanon_kb=1488788
+row	r5	checked	364644	339048	364067	0.0117	215119478	rss_kb=1408608	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=929440	rssanon_kb=477076
+row	r6	checked	441791	414591	432833	0.0108	215119478	rss_kb=1408752	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=929580	rssanon_kb=477080
+row	r6	memory	440373	424037	436489	11.5951	215119478	rss_kb=1516976	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=25688	rssanon_kb=1488784
+row	r7	memory	374159	343550	381418	12.1493	215119478	rss_kb=1517012	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=25720	rssanon_kb=1488788
+row	r7	checked	444889	428320	467924	0.0119	215119478	rss_kb=1408708	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=929532	rssanon_kb=477084

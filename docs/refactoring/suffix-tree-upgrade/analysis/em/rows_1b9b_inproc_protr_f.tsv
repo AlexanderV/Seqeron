@@ -1,0 +1,15 @@
+pair	ip1	memory	529421	536482	613357	ratio_to_first:	1.000	1.000	1.000	sink=5449770
+pair	ip1	checked	495750	483604	569660	ratio_to_first:	0.937	0.912	0.897	sink=5449770
+pair	ip1	trusted	521736	509349	583469	ratio_to_first:	1.002	0.955	0.932	sink=5449770
+pair	ip2	memory	520877	513522	587263	ratio_to_first:	1.000	1.000	1.000	sink=5449770
+pair	ip2	checked	510554	500355	576796	ratio_to_first:	0.972	0.970	0.971	sink=5449770
+pair	ip2	trusted	524046	506450	569824	ratio_to_first:	1.019	0.996	0.987	sink=5449770
+pair	ip3	memory	516072	523524	598353	ratio_to_first:	1.000	1.000	1.000	sink=5449770
+pair	ip3	checked	506029	506650	565690	ratio_to_first:	0.977	0.984	0.993	sink=5449770
+pair	ip3	trusted	540603	542103	570238	ratio_to_first:	1.041	1.001	1.010	sink=5449770
+pair	ip4	memory	600383	630802	758857	ratio_to_first:	1.000	1.000	1.000	sink=5449770
+pair	ip4	checked	590231	588371	686616	ratio_to_first:	0.934	0.904	0.954	sink=5449770
+pair	ip4	trusted	594297	578965	674852	ratio_to_first:	0.974	0.961	0.940	sink=5449770
+pair	ip5	memory	689682	668200	777863	ratio_to_first:	1.000	1.000	1.000	sink=5449770
+pair	ip5	checked	652358	682896	748072	ratio_to_first:	0.945	0.991	0.983	sink=5449770
+pair	ip5	trusted	627109	629161	747017	ratio_to_first:	0.932	0.962	0.929	sink=5449770

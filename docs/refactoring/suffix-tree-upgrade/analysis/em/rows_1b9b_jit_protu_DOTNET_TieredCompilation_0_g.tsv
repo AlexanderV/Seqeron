@@ -1,0 +1,18 @@
+#head	60e5064f8ee804adf5cf4a9504e3179d66ccf635
+#row: label variant count20_per_s locate8_per_s absent24_per_s open_s sink smaps...
+row	r1	memory	564867	554614	569522	1.0094	1540070	rss_kb=199296	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=25180	rssanon_kb=172044
+row	r1	checked	566242	566909	588932	0.0362	1540070	rss_kb=203628	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=119688	rssanon_kb=81744
+row	r2	checked	554356	542599	579058	0.0362	1540070	rss_kb=206192	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=119744	rssanon_kb=84252
+row	r2	memory	573397	558444	579686	1.0299	1540070	rss_kb=203136	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=25264	rssanon_kb=175808
+row	r3	memory	606770	696177	650288	0.9947	1540070	rss_kb=201932	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=25308	rssanon_kb=174556
+row	r3	checked	712935	724228	757255	0.0324	1540070	rss_kb=208040	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=119708	rssanon_kb=86136
+row	r4	checked	753066	755869	764584	0.0327	1540070	rss_kb=208236	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=119912	rssanon_kb=86128
+row	r4	memory	744029	727719	754513	0.9782	1540070	rss_kb=204220	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=25096	rssanon_kb=177052
+row	r5	memory	758283	749352	758662	1.0296	1540070	rss_kb=199296	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=25188	rssanon_kb=172044
+row	r5	checked	741234	759469	767163	0.0566	1540070	rss_kb=208168	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=119836	rssanon_kb=86136
+row	r6	checked	728618	727617	754082	0.0318	1540070	rss_kb=207476	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=119772	rssanon_kb=85508
+row	r6	memory	567126	553764	552348	0.8261	1540070	rss_kb=205020	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=25272	rssanon_kb=177688
+row	r7	memory	684901	668756	656863	0.7961	1540070	rss_kb=198788	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=25304	rssanon_kb=171412
+row	r7	checked	696373	696398	707911	0.0322	1540070	rss_kb=206892	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=119820	rssanon_kb=84880
+row	r8	checked	519353	536821	551686	0.0353	1540070	rss_kb=206328	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=119876	rssanon_kb=84256
+row	r8	memory	538402	516426	518525	0.8550	1540070	rss_kb=202564	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=25328	rssanon_kb=175172

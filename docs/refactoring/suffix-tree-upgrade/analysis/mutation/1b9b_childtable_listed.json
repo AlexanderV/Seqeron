@@ -1,0 +1,9 @@
+[
+ {
+  "id": "1b9b_L01",
+  "desc": "the in-memory scan keeps the last deepest interval on a tie",
+  "old": "        if (ell > LrsDepth)",
+  "new": "        if (ell >= LrsDepth)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ChildTable.cs"
+ }
+]

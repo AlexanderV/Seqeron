@@ -1,0 +1,15 @@
+pair	ip1	memory	131756	160284	162440	ratio_to_first:	1.000	1.000	1.000	sink=1980000
+pair	ip1	checked	129721	126492	130931	ratio_to_first:	1.043	1.008	1.025	sink=1980000
+pair	ip1	trusted	149827	130034	133949	ratio_to_first:	1.070	1.012	0.973	sink=1980000
+pair	ip2	memory	155430	154869	157704	ratio_to_first:	1.000	1.000	1.000	sink=1980000
+pair	ip2	checked	173663	168156	178733	ratio_to_first:	1.150	1.105	1.169	sink=1980000
+pair	ip2	trusted	168983	163979	160929	ratio_to_first:	1.079	1.043	1.013	sink=1980000
+pair	ip3	memory	158494	162842	164855	ratio_to_first:	1.000	1.000	1.000	sink=1980000
+pair	ip3	checked	137202	133364	136541	ratio_to_first:	1.009	1.029	1.011	sink=1980000
+pair	ip3	trusted	157305	162059	160635	ratio_to_first:	1.004	1.013	0.974	sink=1980000
+pair	ip4	memory	133887	145639	164637	ratio_to_first:	1.000	1.000	1.000	sink=1980000
+pair	ip4	checked	173343	166646	170608	ratio_to_first:	1.065	1.066	1.040	sink=1980000
+pair	ip4	trusted	161615	154948	138269	ratio_to_first:	1.009	1.006	1.026	sink=1980000
+pair	ip5	memory	164240	158571	164108	ratio_to_first:	1.000	1.000	1.000	sink=1980000
+pair	ip5	checked	169766	165418	152920	ratio_to_first:	1.019	1.063	1.059	sink=1980000
+pair	ip5	trusted	160989	158884	167571	ratio_to_first:	1.001	1.033	1.038	sink=1980000

@@ -1,0 +1,9 @@
+[
+ {
+  "id": "1b9b_L02",
+  "desc": "the builder keeps the last deepest interval on a tie",
+  "old": "            if (ell > _lrsDepth)",
+  "new": "            if (ell >= _lrsDepth)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs"
+ }
+]

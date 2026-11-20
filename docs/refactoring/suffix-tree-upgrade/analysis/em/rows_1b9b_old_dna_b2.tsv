@@ -1,0 +1,15 @@
+pair	o1	alc=/tmp/stbench/g9b/bin/old/SuffixTree.Esa.dll	824743	1067596	901617	ratio_to_first:	1.000	1.000	1.000	sink=29474766
+pair	o1	memory	811375	1035550	874218	ratio_to_first:	0.963	0.976	0.964	sink=29474766
+pair	o1	alc=/tmp/stbench/g9b/bin/pre/SuffixTree.Esa.dll	783646	1032897	875715	ratio_to_first:	0.953	0.966	0.978	sink=29474766
+pair	o2	alc=/tmp/stbench/g9b/bin/old/SuffixTree.Esa.dll	1009108	1388982	1241824	ratio_to_first:	1.000	1.000	1.000	sink=29474766
+pair	o2	memory	1013620	1342666	1215717	ratio_to_first:	1.014	0.990	1.017	sink=29474766
+pair	o2	alc=/tmp/stbench/g9b/bin/pre/SuffixTree.Esa.dll	1009427	1340282	1192908	ratio_to_first:	1.004	0.965	0.982	sink=29474766
+pair	o3	alc=/tmp/stbench/g9b/bin/old/SuffixTree.Esa.dll	968859	1366627	1194621	ratio_to_first:	1.000	1.000	1.000	sink=29474766
+pair	o3	memory	986263	1331125	1189613	ratio_to_first:	1.008	0.972	0.981	sink=29474766
+pair	o3	alc=/tmp/stbench/g9b/bin/pre/SuffixTree.Esa.dll	1011109	1322439	1169224	ratio_to_first:	1.016	0.966	0.983	sink=29474766
+pair	o4	alc=/tmp/stbench/g9b/bin/old/SuffixTree.Esa.dll	765795	968354	845573	ratio_to_first:	1.000	1.000	1.000	sink=29474766
+pair	o4	memory	746072	960471	803475	ratio_to_first:	0.969	0.985	0.973	sink=29474766
+pair	o4	alc=/tmp/stbench/g9b/bin/pre/SuffixTree.Esa.dll	742233	937586	790431	ratio_to_first:	0.965	0.927	0.932	sink=29474766
+pair	o5	alc=/tmp/stbench/g9b/bin/old/SuffixTree.Esa.dll	853853	1111059	870616	ratio_to_first:	1.000	1.000	1.000	sink=29474766
+pair	o5	memory	910403	1240829	1073469	ratio_to_first:	1.079	1.054	1.117	sink=29474766
+pair	o5	alc=/tmp/stbench/g9b/bin/pre/SuffixTree.Esa.dll	815487	1123163	887780	ratio_to_first:	0.955	0.994	0.962	sink=29474766

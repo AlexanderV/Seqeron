@@ -1,0 +1,51 @@
+[
+ {
+  "id": "1b9b_F01",
+  "desc": "an in-memory call does not look at the disposed flag",
+  "old": "ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);\n            return new ReadScope(this, -1);",
+  "new": "_ = Volatile.Read(ref _disposed);\n            return new ReadScope(this, -1);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs"
+ },
+ {
+  "id": "1b9b_F02",
+  "desc": "an in-memory call throws for a tree that is not disposed (the flag test is inverted)",
+  "old": "ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);\n            return new ReadScope(this, -1);",
+  "new": "ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) == 0, this);\n            return new ReadScope(this, -1);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs"
+ },
+ {
+  "id": "1b9b_F03",
+  "desc": "a tree over a container takes the in-memory path of Enter (no reader count)",
+  "old": "        if (_file is null)\n        {\n            // an in-memory tree takes no count",
+  "new": "        if (_file is not null)\n        {\n            // an in-memory tree takes no count",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs"
+ },
+ {
+  "id": "1b9b_F04",
+  "desc": "the scope of an in-memory call leaves stripe 0 (a count that was never raised)",
+  "old": "return new ReadScope(this, -1);",
+  "new": "return new ReadScope(this, 0);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs"
+ },
+ {
+  "id": "1b9b_F05",
+  "desc": "a scope that holds stripe 0 does not leave it (the count of that stripe never falls)",
+  "old": "if (stripe >= 0) owner.Leave(stripe);",
+  "new": "if (stripe > 0) owner.Leave(stripe);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs"
+ },
+ {
+  "id": "1b9b_F06",
+  "desc": "Dispose of an in-memory tree releases the pack at once (the behaviour of e4a0b2da)",
+  "old": "if (_file is not null) ReleaseWhenIdle();",
+  "new": "ReleaseWhenIdle();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs"
+ },
+ {
+  "id": "1b9b_F07",
+  "desc": "Dispose of a tree over a container releases nothing",
+  "old": "if (_file is not null) ReleaseWhenIdle();",
+  "new": "if (_file is null) ReleaseWhenIdle();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs"
+ }
+]

@@ -1,0 +1,12 @@
+pair	ab1	memory	134176	129536	132503	ratio_to_first:	1.000	1.000	1.000	sink=1980000
+pair	ab1	ix-memory	132187	134205	134192	ratio_to_first:	1.016	1.009	1.013	sink=1980000
+pair	ab1	ix-mem-b	158671	166456	169613	ratio_to_first:	1.096	1.222	1.208	sink=1980000
+pair	ab1	ix-mem-p	148302	127556	129305	ratio_to_first:	1.001	0.959	0.976	sink=1980000
+pair	ab2	memory	143574	159855	161238	ratio_to_first:	1.000	1.000	1.000	sink=1980000
+pair	ab2	ix-memory	126092	126105	127397	ratio_to_first:	0.964	0.983	0.894	sink=1980000
+pair	ab2	ix-mem-b	133146	132852	132211	ratio_to_first:	0.954	0.980	0.959	sink=1980000
+pair	ab2	ix-mem-p	125340	126785	126863	ratio_to_first:	0.955	0.945	0.930	sink=1980000
+pair	ab3	memory	131136	132355	133872	ratio_to_first:	1.000	1.000	1.000	sink=1980000
+pair	ab3	ix-memory	131347	131159	135190	ratio_to_first:	0.998	0.998	0.986	sink=1980000
+pair	ab3	ix-mem-b	132655	132655	137393	ratio_to_first:	1.012	0.999	1.039	sink=1980000
+pair	ab3	ix-mem-p	129350	128208	129955	ratio_to_first:	0.976	0.966	0.978	sink=1980000

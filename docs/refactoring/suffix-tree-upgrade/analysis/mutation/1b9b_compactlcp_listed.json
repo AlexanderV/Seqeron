@@ -1,0 +1,30 @@
+[
+ {
+  "id": "1b9b_K01",
+  "desc": "an escaped LCP entry is read as the escape value (the test of the indexer is inverted)",
+  "old": "return b != EscapeValue ? b : EscapedValue(rank);",
+  "new": "return b == EscapeValue ? b : EscapedValue(rank);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs"
+ },
+ {
+  "id": "1b9b_K02",
+  "desc": "a rank at the length is read (the range test of the base value)",
+  "old": "if ((uint)rank >= (uint)Length) ThrowRankOutside(rank);",
+  "new": "if ((uint)rank > (uint)Length) ThrowRankOutside(rank);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs"
+ },
+ {
+  "id": "1b9b_K03",
+  "desc": "a rank outside a mapped LCP array is an argument error, outside a managed one invalid data",
+  "old": "        if (IsMapped) throw new InvalidDataException($\"the LCP array is read at rank",
+  "new": "        if (!IsMapped) throw new InvalidDataException($\"the LCP array is read at rank",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs"
+ },
+ {
+  "id": "1b9b_K04",
+  "desc": "an escaped entry whose overflow pair is at index 0 is reported missing",
+  "old": "if (k < 0) throw Corrupt($\"overflow entry for rank {rank} is missing\");\n        return OverflowValueAt(k);",
+  "new": "if (k <= 0) throw Corrupt($\"overflow entry for rank {rank} is missing\");\n        return OverflowValueAt(k);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs"
+ }
+]

@@ -1,0 +1,58 @@
+[
+ {
+  "id": "1b9b_B01",
+  "desc": "B102: the BWT pass gets no guards",
+  "old": "ArenaGuards = options.ArenaGuards,\n            Counters = counters,\n            Files = options.Files,",
+  "new": "ArenaGuards = null,\n            Counters = counters,\n            Files = options.Files,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs"
+ },
+ {
+  "id": "1b9b_B02",
+  "desc": "the PSI pass gets no guards",
+  "old": "ArenaGuards = options.ArenaGuards,\n                Counters = counters,\n            });\n            double secPsi",
+  "new": "ArenaGuards = null,\n                Counters = counters,\n            });\n            double secPsi",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs"
+ },
+ {
+  "id": "1b9b_B03",
+  "desc": "B118: BUILD_INFO may overrun its room by 4 KiB",
+  "old": "if (length > capacity) throw",
+  "new": "if (length > capacity + 4096) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs"
+ },
+ {
+  "id": "1b9b_B04",
+  "desc": "BUILD_INFO may overrun its room by one byte",
+  "old": "if (length > capacity) throw",
+  "new": "if (length > capacity + 1) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs"
+ },
+ {
+  "id": "1b9b_B05",
+  "desc": "BUILD_INFO that fills its room exactly is refused",
+  "old": "if (length > capacity) throw",
+  "new": "if (length >= capacity) throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs"
+ },
+ {
+  "id": "1b9b_B06",
+  "desc": "the room check is not made by the builder",
+  "old": "CheckBuildInfoFits(infoBytes.Length, plan.BuildInfoCapacity);",
+  "new": "_ = plan.BuildInfoCapacity;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs"
+ },
+ {
+  "id": "1b9b_B07",
+  "desc": "the SA pass gets no guards",
+  "old": "ArenaGuards = options.ArenaGuards,\n                VerifyRanks = options.VerifyRanks,",
+  "new": "ArenaGuards = null,\n                VerifyRanks = options.VerifyRanks,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs"
+ },
+ {
+  "id": "1b9b_B08",
+  "desc": "the LCP and child pass gets no guards",
+  "old": "ArenaGuards = options.ArenaGuards,\n                MeasureRss = options.MeasureRss,\n                ProcSource = options.ProcSource,\n                RssAnonCapMb",
+  "new": "ArenaGuards = null,\n                MeasureRss = options.MeasureRss,\n                ProcSource = options.ProcSource,\n                RssAnonCapMb",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs"
+ }
+]

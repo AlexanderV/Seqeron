@@ -1,0 +1,23 @@
+[
+ {
+  "id": "1b9b_C01",
+  "desc": "the first l-index may be read one cell past the table",
+  "old": "if (_checked && (uint)at >= (uint)_count) ThrowOutside(at);",
+  "new": "if (_checked && (uint)at > (uint)_count) ThrowOutside(at);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs"
+ },
+ {
+  "id": "1b9b_C02",
+  "desc": "the next l-index of a tagged table may be read one cell past it",
+  "old": "if (_checked && (uint)k >= (uint)_count) ThrowOutside(k);\n            uint cell",
+  "new": "if (_checked && (uint)k > (uint)_count) ThrowOutside(k);\n            uint cell",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs"
+ },
+ {
+  "id": "1b9b_C03",
+  "desc": "the next l-index of a packed table may be read one cell past it",
+  "old": "if (_checked && (uint)k >= (uint)_count) ThrowOutside(k);\n        int lk",
+  "new": "if (_checked && (uint)k > (uint)_count) ThrowOutside(k);\n        int lk",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs"
+ }
+]

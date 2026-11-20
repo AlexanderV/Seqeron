@@ -1,0 +1,23 @@
+[
+ {
+  "id": "1b9b_A01",
+  "desc": "the guard counter never moves",
+  "old": "if (options.GuardBytes > 0) Interlocked.Increment(ref _guardedCreated);",
+  "new": "if (options.GuardBytes < 0) Interlocked.Increment(ref _guardedCreated);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/Memory/NativeArena.cs"
+ },
+ {
+  "id": "1b9b_A02",
+  "desc": "the guard counter counts every arena",
+  "old": "if (options.GuardBytes > 0) Interlocked.Increment(ref _guardedCreated);",
+  "new": "if (options.GuardBytes >= 0) Interlocked.Increment(ref _guardedCreated);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/Memory/NativeArena.cs"
+ },
+ {
+  "id": "1b9b_A03",
+  "desc": "the guard counter is not atomic",
+  "old": "if (options.GuardBytes > 0) Interlocked.Increment(ref _guardedCreated);",
+  "new": "if (options.GuardBytes > 0) _guardedCreated++;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/Memory/NativeArena.cs"
+ }
+]

@@ -1,0 +1,9 @@
+[
+ {
+  "id": "1b9b_N01",
+  "desc": "the navigator accepts a leaf as deep as its parent",
+  "old": "if (_isMapped && _n - saA + 1 <= parentDepth) ThrowCorruptChildTable();",
+  "new": "if (_isMapped && _n - saA + 1 < parentDepth) ThrowCorruptChildTable();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigator.cs"
+ }
+]

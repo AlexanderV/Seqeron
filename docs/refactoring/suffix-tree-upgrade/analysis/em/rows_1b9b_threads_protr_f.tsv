@@ -1,0 +1,15 @@
+mt	mt1	4	alc=/tmp/stbench/g9b/bin/pre/SuffixTree.Esa.dll	2280997	2616657	2607014	ratio_to_first:	1.000	1.000	1.000
+mt	mt1	4	memory	2343012	2443099	2658540	ratio_to_first:	1.026	0.943	1.022
+mt	mt1	4	ix-memory	2328519	2443203	2647733	ratio_to_first:	1.020	1.010	1.016
+mt	mt1	4	checked	2252487	2371058	2609732	ratio_to_first:	0.993	0.923	0.995
+mt	mt1	4	ix-file	2330934	2424665	2684813	ratio_to_first:	1.032	0.918	1.023
+mt	mt2	4	alc=/tmp/stbench/g9b/bin/pre/SuffixTree.Esa.dll	2318994	2669697	2657908	ratio_to_first:	1.000	1.000	1.000
+mt	mt2	4	memory	2329941	2659426	2641056	ratio_to_first:	0.993	0.988	1.014
+mt	mt2	4	ix-memory	2322401	2451003	2708006	ratio_to_first:	1.004	0.931	1.041
+mt	mt2	4	checked	2297252	2584974	2689797	ratio_to_first:	0.988	0.905	1.013
+mt	mt2	4	ix-file	2415836	2489529	2766133	ratio_to_first:	1.029	0.908	1.039
+mt	mt3	4	alc=/tmp/stbench/g9b/bin/pre/SuffixTree.Esa.dll	2234838	2514869	2602464	ratio_to_first:	1.000	1.000	1.000
+mt	mt3	4	memory	2297904	2417557	2621901	ratio_to_first:	1.034	0.979	1.011
+mt	mt3	4	ix-memory	2296955	2475828	2638471	ratio_to_first:	1.017	0.991	1.029
+mt	mt3	4	checked	2263414	2433521	2622802	ratio_to_first:	1.009	0.994	1.018
+mt	mt3	4	ix-file	2347610	2430049	2665173	ratio_to_first:	1.048	1.020	1.044

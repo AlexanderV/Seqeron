@@ -1,0 +1,9 @@
+[
+ {
+  "id": "1b9b_T01",
+  "desc": "the contract tree accepts a leaf as deep as its parent",
+  "old": "if (_isMapped && _n - saA + 1 <= parentDepth) ThrowCorruptChildTable();",
+  "new": "if (_isMapped && _n - saA + 1 < parentDepth) ThrowCorruptChildTable();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.Tree.cs"
+ }
+]
