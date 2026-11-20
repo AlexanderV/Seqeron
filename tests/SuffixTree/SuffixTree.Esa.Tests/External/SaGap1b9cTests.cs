@@ -115,17 +115,11 @@ public class SaGap1b9cTests
         DifferenceCover cover = DifferenceCover.Create(7);
         string scratch = _dir.Sub("scratch");
         var seen = new SortedSet<string>(StringComparer.Ordinal);
-        long smallest = long.MaxValue;
         ExtDcsOptions options = SaTiny.Dcs(scratch, 1, 1) with
         {
             Trace = _ =>
             {
-                foreach (string f in Directory.GetFiles(scratch))
-                {
-                    string name = Path.GetFileName(f);
-                    seen.Add(name);
-                    if (name.Contains("-pos-", StringComparison.Ordinal)) smallest = Math.Min(smallest, new FileInfo(f).Length);
-                }
+                foreach (string f in Directory.GetFiles(scratch)) seen.Add(Path.GetFileName(f));
             },
         };
         string textPath = SaRun.WriteText(_dir, c);
@@ -136,8 +130,31 @@ public class SaGap1b9cTests
         Assert.That(positionFiles, Is.Not.Empty, "the sort of the level below spilled positions to files");
         Assert.That(positionFiles, Has.All.Matches<string>(f => System.Text.RegularExpressions.Regex.IsMatch(f, @"^e3b-[0-9a-f]{8}-L[1-9][0-9]*-pos-[0-9]{8}\.bin$")), string.Join(", ", positionFiles));
         Assert.That(seen.Select(f => f[..12]).Distinct().Count(), Is.EqualTo(1), "every file of the scratch directory carries the one tag of the build: " + string.Join(", ", seen.Take(5)));
-        Assert.That(smallest, Is.GreaterThanOrEqualTo(64), "L14 (the sort spill has no floor): the tiny buffer of the options (16 bytes here) is raised to 64 bytes for the sort of a level, so no position file is smaller");
         Assert.That(Directory.Exists(scratch), Is.False, "nothing is left");
+    }
+
+    // ---------------------------------------------------------------- L14: the floor of the spill of the sort of a level
+
+    [Test]
+    public void TheSortOfALevel_SpillsAtLeast64BytesWhateverTheIoBufferIs_SoTinyBuffersAndTheFloorGiveTheSameFiles()
+    {
+        // L14 (the sort spill has no floor): the sort of a level takes the buffer of the options but not below 64 bytes, so an I/O buffer of 16 bytes and one of 64 spill the same buckets to the same number of position files
+        SaCase c = SaCase.Of(StringFamilies.Periodic(12_000, 37, 5));
+        DifferenceCover cover = DifferenceCover.Create(7);
+        string textPath = SaRun.WriteText(_dir, c);
+        using MappedTextReader text = MappedTextReader.Open(textPath, c.N, c.Bits);
+        int FilesWithIoBuffer(int bytes)
+        {
+            string scratch = _dir.Sub("scratch" + bytes);
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            ExtDcsOptions options = SaTiny.Dcs(scratch, 1, 1) with { IoBufferBytes = bytes, Trace = _ => seen.UnionWith(Directory.GetFiles(scratch).Select(f => Path.GetFileName(f)).Where(f => f.Contains("-pos-", StringComparison.Ordinal)).Select(f => f[13..])) };
+            ExternalDcs.BuildRankFile(text, cover, _dir.File($"r{bytes}.bin"), options);
+            return seen.Count;
+        }
+        int tiny = FilesWithIoBuffer(16), floor = FilesWithIoBuffer(64);
+        Assert.That(floor, Is.GreaterThan(0), "the sort of the level below spills");
+        Assert.That(tiny, Is.EqualTo(floor), "16 bytes are raised to the floor of 64");
+        Assert.That(FilesWithIoBuffer(32), Is.EqualTo(floor));
     }
 
     // ---------------------------------------------------------------- Q64: the thread count reaches PH1 and PH3
