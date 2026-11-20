@@ -15,7 +15,7 @@
         "items": {
           "type": "string"
         },
-        "description": "Exactly two sequences (letters; with anySymbol any character except blanks and '-' is a residue)."
+        "description": "Exactly two sequences (letters; with anySymbol any character except blanks and '-' is a residue). Like the program: an empty list gives an empty result and ONE sequence is written back (gaps dropped; without anySymbol nucleotides in lower and amino acids in upper case)."
       },
       "sequenceType": {
         "type": "string",

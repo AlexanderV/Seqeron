@@ -289,7 +289,7 @@ public static partial class SequenceAligner
                 }
             case TCoffeePairMethod.MusclePair:
                 {
-                    var mu = MultipleAlignMuscle(new[] { seqs[x], seqs[y] }, new MuscleOptions { MaxIterations = 8 });
+                    var mu = MultipleAlignMuscle(new[] { seqs[x], seqs[y] }, MuscleOptions.ProgramDefaults);
                     rows.Add((mu.AlignedSequences[0], mu.AlignedSequences[1]));
                     break;
                 }
@@ -590,6 +590,13 @@ public sealed partial record TCoffeeProgramOptions
 
     /// <summary><c>-distance_matrix_sim_mode</c>: the identity measure of the <c>fast</c> / <c>idscore</c> distances (<c>idmat_sim1</c> default; <c>sim1</c>, <c>sim2</c>, <c>sim3</c>, <c>cov</c>, <c>gap1</c>, <c>logid</c>, optionally with an <c>idmat_</c> prefix).</summary>
     public string DistanceMatrixSimMode { get; init; } = "idmat_sim1";
+
+    /// <summary>
+    /// The <c>srand</c> seed of <c>-distance_matrix_mode random</c> (<c>rand() % 100</c> per pair, glibc <c>rand</c>). T-Coffee seeds with <c>vsrand(0)</c> (<c>util.c</c>): the 4 bytes of <c>/dev/urandom</c> - two runs
+    /// of the same input differ - unless the environment variable <c>DEBUG_SRAND</c> is set, which makes it <c>srand(10)</c>. The default (10) is that deterministic run (every committed oracle set of the mode was recorded
+    /// with <c>DEBUG_SRAND=1</c>); any other seed reproduces the run of a program that happened to draw it. Ignored by every other distance mode.
+    /// </summary>
+    public uint RandomSeed { get; init; } = 10;
 
     /// <summary>The <c>method@EP@KEY@value</c> overrides (GOP, GEP, MATRIX) of <c>slow_pair</c> / <c>lalign_id_pair</c> by method; the first occurrence of a method counts, as the program reads a method once.</summary>
     public IReadOnlyDictionary<TCoffeePairMethod, TCoffeeMethodParameters>? MethodParameters { get; init; }

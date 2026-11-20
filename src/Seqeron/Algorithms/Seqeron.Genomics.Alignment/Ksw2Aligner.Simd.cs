@@ -28,6 +28,7 @@ public static partial class Ksw2Aligner
     public static Ksw2Result ExtendZ2(byte[] query, byte[] target, int m, sbyte[] mat, int q, int e, int w, int zdrop, int endBonus, Ksw2Option flag = Ksw2Option.None)
     {
         CheckInputs(query, target, m, mat);
+        CheckGapPenalties(q, e);
         int qlen = query.Length;
         int tlen = target.Length;
         q = (sbyte)q;
@@ -45,8 +46,8 @@ public static partial class Ksw2Aligner
         byte maxSc = Sat(mat[0] + ((q + e) * 2));
         byte qv = Sat(q);
         byte qe2v = Sat((q + e) * 2);
-        if (w < 0)
-            w = tlen > qlen ? tlen : qlen;
+        if (w < 0 || w > Math.Max(qlen, tlen))
+            w = tlen > qlen ? tlen : qlen;      // a band wider than the matrix is no band (and 2 * w + 1 must not overflow)
         int wl = w;
         int wr = w;
         int tlen_ = (tlen + 15) / 16;
@@ -84,6 +85,7 @@ public static partial class Ksw2Aligner
         int[]? offEnd = null;
         if (withCigar)
         {
+            RequireTraceback("ExtendZ2", ((((long)(qlen + tlen - 1)) * nCol) + 1) * 16);
             p = new byte[((((long)(qlen + tlen - 1)) * nCol) + 1) * 16];
             off = new int[qlen + tlen - 1];
             offEnd = new int[qlen + tlen - 1];
@@ -101,6 +103,7 @@ public static partial class Ksw2Aligner
         var vt1 = new byte[16];
         for (int r = 0; r < qlen + tlen - 1; ++r)
         {
+            AlignmentCancellation.ThrowIfRequested();       // A3-5: one poll per anti-diagonal
             int st = 0;
             int en = tlen - 1;
             int qrr = qrO + (qlen - 1 - r);
@@ -395,6 +398,8 @@ public static partial class Ksw2Aligner
     public static Ksw2Result ExtendD2(byte[] query, byte[] target, int m, sbyte[] mat, int q, int e, int q2, int e2, int w, int zdrop, int endBonus, Ksw2Option flag = Ksw2Option.None)
     {
         CheckInputs(query, target, m, mat);
+        CheckGapPenalties(q, e);
+        CheckGapPenalties(q2, e2);
         int qlen = query.Length;
         int tlen = target.Length;
         q = (sbyte)q;
@@ -421,8 +426,8 @@ public static partial class Ksw2Aligner
         byte q2v = Sat(q2);
         byte qev = Sat(q + e);
         byte qe2v = Sat(q2 + e2);
-        if (w < 0)
-            w = tlen > qlen ? tlen : qlen;
+        if (w < 0 || w > Math.Max(qlen, tlen))
+            w = tlen > qlen ? tlen : qlen;      // a band wider than the matrix is no band (and 2 * w + 1 must not overflow)
         int wl = w;
         int wr = w;
         int tlen_ = (tlen + 15) / 16;
@@ -467,6 +472,7 @@ public static partial class Ksw2Aligner
         int[]? offEnd = null;
         if (withCigar)
         {
+            RequireTraceback("ExtendD2", ((((long)(qlen + tlen - 1)) * nCol) + 1) * 16);
             p = new byte[((((long)(qlen + tlen - 1)) * nCol) + 1) * 16];
             off = new int[qlen + tlen - 1];
             offEnd = new int[qlen + tlen - 1];
@@ -485,6 +491,7 @@ public static partial class Ksw2Aligner
         var vt1 = new byte[16];
         for (int r = 0; r < qlen + tlen - 1; ++r)
         {
+            AlignmentCancellation.ThrowIfRequested();       // A3-5: one poll per anti-diagonal
             int st = 0;
             int en = tlen - 1;
             int qrr = qrO + (qlen - 1 - r);

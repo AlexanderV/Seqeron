@@ -23,10 +23,8 @@ public static partial class SequenceAligner
     {
         ArgumentNullException.ThrowIfNull(sequence1);
         ArgumentNullException.ThrowIfNull(sequence2);
-        if (gapOpen < 1 || gapOpen > 100)
-            throw new ArgumentOutOfRangeException(nameof(gapOpen), "-gapopen is between 1.0 and 100.0 in EMBOSS water.");
-        if (gapExtend < 0 || gapExtend > 10)
-            throw new ArgumentOutOfRangeException(nameof(gapExtend), "-gapextend is between 0.0 and 10.0 in EMBOSS water.");
+        RequireEmbossRange(gapOpen, 1, 100, nameof(gapOpen), "-gapopen", "water");
+        RequireEmbossRange(gapExtend, 0, 10, nameof(gapExtend), "-gapextend", "water");
         if (sequence1.Length < 2 || sequence2.Length < 2)
             return new AlignmentResult("", "", 0, AlignmentType.Local, 0, 0, 0, 0);
         matrix ??= IsNucleotideText(sequence1.ToUpperInvariant()) && IsNucleotideText(sequence2.ToUpperInvariant()) ? SubstitutionMatrix.EdnaFull : SubstitutionMatrix.Blosum62;
@@ -40,8 +38,8 @@ public static partial class SequenceAligner
     {
         int lena = s1.Length;
         int lenb = s2.Length;
-        if ((long)lena * lenb > 400_000_000)
-            throw new ArgumentException("Sequences too big for water (use LocalAlignTopN / matcher).");
+        RequireCells((long)lena * lenb, WaterMaxCells, nameof(WaterMaxCells), "EMBOSS water", "keeps a float path matrix and an int compass matrix (8 bytes per cell)", $"{lena:N0} x {lenb:N0} residues = {(long)lena * lenb:N0} cells",
+            "The program has no fixed limit: it dies with \"Sequences too big. Try 'matcher' or 'supermatcher'\" when the allocation fails", "use LocalAlignLinearSpace / Supermatcher for sequences of this length");
         var table = new EmbossScoreTable(matrix);
         int[] ca = table.Codes(s1);
         int[] cb = table.Codes(s2);
@@ -122,6 +120,7 @@ public static partial class SequenceAligner
 
         for (int xpos = 1; xpos != lenb; xpos++)
         {
+            AlignmentCancellation.ThrowIfRequested();       // A3-5: one poll per column of the matrix
             float bx0 = path[xpos] - gapopen - gapextend;
             double bx = bx0;
             for (int ypos = 1; ypos < lena; ypos++)

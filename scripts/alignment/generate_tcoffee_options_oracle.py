@@ -107,6 +107,10 @@ PLAN = {
     'dist_veryfast': [(t, f, n, (2, 8), (6, 50), '') for t in ('dna', 'protein') for f, n in (('-distance_matrix_mode very_fast', 50), ('-quicktree', 40), ('-quicktree -tree_mode upgma', 25), ('-quicktree -seq_weight t_coffee', 30),
                                                                                              ('-quicktree -relax_lib 0', 15), ('-quicktree -tg_mode 0', 15), ('-quicktree -tg_mode 2', 15), ('-quicktree -nomatch 20', 15),
                                                                                              ('-distance_matrix_mode very_fast -distance_matrix_sim_mode idmat_sim2', 15), ('-quicktree -method slow_pair,lalign_id_pair', 15))],
+    # B09 A3-6: `-distance_matrix_mode random` draws rand() % 100 per pair; t_coffee seeds with vsrand(0) = 4 bytes of /dev/urandom (two runs differ) unless the environment variable DEBUG_SRAND is set (srand(10), util.c): run_tc
+    # sets it for these runs, so every set is a deterministic oracle row of the port's default RandomSeed = 10.
+    'dist_random': [(t, f, n, (2, 8), (6, 40), '') for t in ('dna', 'protein') for f, n in (('-distance_matrix_mode random', 60), ('-distance_matrix_mode random -seq_weight t_coffee', 40), ('-distance_matrix_mode random -tree_mode upgma', 30),
+                                                                                           ('-distance_matrix_mode random -method slow_pair,lalign_id_pair', 15), ('-distance_matrix_mode random -relax_lib 0', 10))],
     'dist_geometric': [(t, f, n, (2, 8), (6, 50), '') for t in ('dna', 'protein') for f, n in (('-distance_matrix_mode geometric', 60), ('-distance_matrix_mode geometric -seq_weight t_coffee', 40), ('-distance_matrix_mode geometric -tree_mode upgma', 30),
                                                                                             ('-distance_matrix_mode geometric -method slow_pair,lalign_id_pair', 15), ('-distance_matrix_mode geometric -relax_lib 0', 10))],
     # A2-4: exon_pair / exon2_pair / exon3_pair = fast_pair on the genomic (_G_) templates of `-template_file` (matrix exon2mt); `@templates` is replaced by generated templates (recorded as `-template_file @t0,t1,...`)
@@ -228,6 +232,7 @@ def run_tc(seqs, flags, names, weights, templates=None):
                 f.write('# SINGLE_SEQ_WEIGHT_FORMAT_01\n' + ''.join(f'{n} {w}\n' for n, w in zip(names, weights)))
             flags = flags.replace('@random', d + '/w.txt')
         env = dict(os.environ, HOME=d)
+        if '-distance_matrix_mode random' in flags: env['DEBUG_SRAND'] = '1'      # srand(10): see 'dist_random'
         plug = d + '/.t_coffee/plugins/linux'   # the program points MAFFT_BINARIES / PATH at this private directory: link the installed helpers (mafft: /usr/lib/mafft/bin + lib/mafft; muscle = muscle3) so that mafft_pair / muscle_pair run (A2-11)
         os.makedirs(plug, exist_ok=True)
         for src in ('/usr/lib/mafft/bin', '/usr/lib/mafft/lib/mafft'):

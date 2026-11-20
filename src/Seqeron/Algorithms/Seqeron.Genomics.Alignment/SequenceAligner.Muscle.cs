@@ -68,7 +68,7 @@ public static partial class SequenceAligner
     /// user-run sets for <c>-maxiters 1 / 2</c>; A1-10c-muscle-r2: the rest, awaiting); the installed <c>muscle</c> 5.x is a different program.
     /// </remarks>
     /// <param name="sequences">Sequences (letters; at least one, none empty).</param>
-    /// <param name="options">MUSCLE parameters (default: the defaults of MUSCLE 3.8 except <see cref="MuscleOptions.MaxIterations"/> 2, the program's default is 8).</param>
+    /// <param name="options">MUSCLE parameters (default: the defaults of MUSCLE 3.8 except <see cref="MuscleOptions.MaxIterations"/> 2; <see cref="MuscleOptions.ProgramDefaults"/> = the program's default 8).</param>
     /// <param name="scoring">Scoring of the reported total score only.</param>
     /// <exception cref="ArgumentException">An empty sequence, a non-letter character or an unusable parameter.</exception>
     public static MultipleAlignmentResult MultipleAlignMuscle(IEnumerable<string> sequences, MuscleOptions? options = null, MatrixScoring? scoring = null)

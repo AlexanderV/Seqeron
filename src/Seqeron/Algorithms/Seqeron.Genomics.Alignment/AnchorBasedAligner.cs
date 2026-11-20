@@ -181,6 +181,7 @@ internal static class AnchorBasedAligner
 
         for (int i = 0; i < n; i++)
         {
+            AlignmentCancellation.ThrowIfRequested();       // A3-5: one poll per anchor of the chaining recurrence
             long len = sorted[i].Length;
             long rs = sorted[i].RefStart;
             long qs = sorted[i].QueryStart;
@@ -427,6 +428,7 @@ internal static class AnchorBasedAligner
 
         foreach (var anchor in chain)
         {
+            AlignmentCancellation.ThrowIfRequested();       // A3-5: one poll per anchor (each gap is aligned by the polling linear-space DP)
             // Align the gap before this anchor
             string refGap = reference[refPos..anchor.RefStart];
             string queryGap = query[queryPos..anchor.QueryStart];

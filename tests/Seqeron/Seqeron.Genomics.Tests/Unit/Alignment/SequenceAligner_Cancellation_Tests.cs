@@ -29,7 +29,21 @@ public class SequenceAligner_Cancellation_Tests
     /// Runs <paramref name="work"/> on a dedicated thread and cancels it from the test thread after <paramref name="delayMs"/> (a sleep, not a timer callback: the
     /// pool may be saturated by parallel fixtures); the call must stop with OperationCanceledException well before it would finish.
     /// </summary>
-    private static void AssertCancelsPromptly(Func<CancellationToken, object> work, int delayMs = 100, int limitMs = 20000)
+    private static void AssertCancelsPromptly(Func<CancellationToken, object> work, int delayMs = 100, int limitMs = 20000, string? pollInside = null)
+    {
+        // The frame check needs the cancel to arrive while the aligner runs; on a loaded machine the dedicated thread can start later than the delay, and the call then stops at the scope entry
+        // (no poll frame): that attempt is repeated (at most three times). Every attempt still has to stop with OperationCanceledException within the limit.
+        for (int attempt = 1; ; attempt++)
+        {
+            string? stack = CancelOnce(work, delayMs, limitMs);
+            if (pollInside is null || stack!.Contains(pollInside, StringComparison.Ordinal))
+                return;
+            if (attempt == 3)
+                Assert.Fail($"the cancellation must be observed by the poll inside {pollInside}; stack of the last attempt:\n{stack}");
+        }
+    }
+
+    private static string? CancelOnce(Func<CancellationToken, object> work, int delayMs, int limitMs)
     {
         using var cts = new CancellationTokenSource();
         var token = cts.Token;
@@ -43,6 +57,7 @@ public class SequenceAligner_Cancellation_Tests
         var inner = task.Exception?.Flatten().InnerException;
         Assert.That(inner, Is.InstanceOf<OperationCanceledException>(), "the call must stop with OperationCanceledException");
         Assert.That(sw.ElapsedMilliseconds, Is.LessThan(limitMs));
+        return inner!.StackTrace;
     }
 
     // ------------------------------------------------------------------ pre-cancelled
@@ -176,5 +191,131 @@ public class SequenceAligner_Cancellation_Tests
         AssertCancelsPromptly(ct => GenomicAnalyzer.FindOpenReadingFrames(big, 30, OrfSearchOptions.Default, ct).Count(), 1);
         AssertCancelsPromptly(ct => GenomicAnalyzer.FindKnownMotifHits(big, Enumerable.Range(0, 200).Select(i => Random(8, 100 + i)), true, false, 3, ct), 20);
         AssertCancelsPromptly(ct => GenomicAnalyzer.FindCommonRegions(big, other, 3, ct).Count(), 20);
+    }
+
+    // ------------------------------------------------------------------ A3-5: the pairwise programs, ksw2, T-Coffee DPs, MUSCLE refinement, anchors, distmat (B09 F133)
+
+    [Test]
+    public void PreCancelled_A3_5_EveryPortedProgram_Throws()
+    {
+        const string a = "ACGTACGTTAGCACGTAGCTAGCTAGGATC", b = "ACGTCGTTAGCACGTAGCTTAGCTAGGATC";
+        var one = new[] { new EmbossSequence("a", a) };
+        var q = Ksw2Aligner.EncodeNucleotides(a);
+        var t = Ksw2Aligner.EncodeNucleotides(b);
+        var mat = Ksw2Aligner.SimpleMatrix(5, 2, 4, 1);
+        Assert.Multiple(() =>
+        {
+            Assert.Catch<OperationCanceledException>(() => SequenceAligner.WithCancellation(Cancelled, () => SequenceAligner.NeedleAlign(a, b)));
+            Assert.Catch<OperationCanceledException>(() => SequenceAligner.WithCancellation(Cancelled, () => SequenceAligner.WaterAlign(a, b)));
+            Assert.Catch<OperationCanceledException>(() => SequenceAligner.WithCancellation(Cancelled, () => SequenceAligner.StretcherAlign(a, b)));
+            Assert.Catch<OperationCanceledException>(() => SequenceAligner.WithCancellation(Cancelled, () => SequenceAligner.Supermatcher(one, one)));
+            Assert.Catch<OperationCanceledException>(() => SequenceAligner.WithCancellation(Cancelled, () => SequenceAligner.NeedleAll(one, one)));
+            Assert.Catch<OperationCanceledException>(() => SequenceAligner.WithCancellation(Cancelled, () => Ksw2Aligner.ExtendZ(q, t, 5, mat, 4, 2, -1, -1)));
+            Assert.Catch<OperationCanceledException>(() => SequenceAligner.WithCancellation(Cancelled, () => Ksw2Aligner.ExtendD(q, t, 5, mat, 4, 2, 24, 1, -1, -1)));
+            Assert.Catch<OperationCanceledException>(() => SequenceAligner.WithCancellation(Cancelled, () => Ksw2Aligner.ExtendZ2(q, t, 5, mat, 4, 2, -1, -1, 0)));
+            Assert.Catch<OperationCanceledException>(() => SequenceAligner.WithCancellation(Cancelled, () => Ksw2Aligner.ExtendD2(q, t, 5, mat, 4, 2, 24, 1, -1, -1, 0)));
+            Assert.Catch<OperationCanceledException>(() => SequenceAligner.WithCancellation(Cancelled, () => SequenceAligner.GlobalAlignDualAffine(a, b, DualAffineScoring.Minimap2)));
+            Assert.Catch<OperationCanceledException>(() => SequenceAligner.WithCancellation(Cancelled, () => SequenceAligner.TCoffeeSlowPairAlign(a, b)));
+            Assert.Catch<OperationCanceledException>(() => SequenceAligner.WithCancellation(Cancelled, () => MultipleAlignmentStatistics.CalculateDistanceMatrix(new[] { "ACGT", "ACGA", "ACCA" }, new MsaDistanceOptions())));
+        });
+    }
+
+    [Test]
+    public void CancelledWhileRunning_Needle_Water_StopPromptly()
+    {
+        string a = Random(7000, 51), b = Random(7000, 52);
+        AssertCancelsPromptly(ct => SequenceAligner.WithCancellation(ct, () => SequenceAligner.NeedleAlign(a, b)), pollInside: "NeedleCore");
+        AssertCancelsPromptly(ct => SequenceAligner.WithCancellation(ct, () => SequenceAligner.WaterAlign(a, b)), pollInside: "WaterCore");
+    }
+
+    [Test]
+    public void CancelledWhileRunning_Stretcher_StopsPromptly()
+    {
+        string a = Random(30000, 53), b = Random(30000, 54);
+        AssertCancelsPromptly(ct => SequenceAligner.WithCancellation(ct, () => SequenceAligner.StretcherAlign(a, b)), pollInside: "StretcherEngine");
+    }
+
+    [Test]
+    public void CancelledWhileRunning_Supermatcher_StopsPromptly()
+    {
+        var seq = new[] { new EmbossSequence("a", Random(30000, 55)) };
+        AssertCancelsPromptly(ct => SequenceAligner.WithCancellation(ct, () => SequenceAligner.Supermatcher(seq, seq, width: 6000)), pollInside: "SwPathCalcFast");
+    }
+
+    [Test]
+    public void CancelledWhileRunning_NeedleAll_StopsPromptly()
+    {
+        var set = Enumerable.Range(0, 60).Select(i => new EmbossSequence("s" + i, Random(600, 200 + i))).ToArray();
+        AssertCancelsPromptly(ct => SequenceAligner.WithCancellation(ct, () => SequenceAligner.NeedleAll(set, set)), pollInside: "NeedleAll");
+    }
+
+    [Test]
+    public void CancelledWhileRunning_Ksw2AndDualAffine_StopPromptly()
+    {
+        var q = Ksw2Aligner.EncodeNucleotides(Random(30000, 56));
+        var t = Ksw2Aligner.EncodeNucleotides(Random(30000, 57));
+        var mat = Ksw2Aligner.SimpleMatrix(5, 2, 4, 1);
+        const Ksw2Option so = Ksw2Option.ScoreOnly;
+        AssertCancelsPromptly(ct => SequenceAligner.WithCancellation(ct, () => Ksw2Aligner.ExtendZ(q, t, 5, mat, 4, 2, -1, -1, so)), pollInside: "ExtendZ");
+        AssertCancelsPromptly(ct => SequenceAligner.WithCancellation(ct, () => Ksw2Aligner.ExtendD(q, t, 5, mat, 4, 2, 24, 1, -1, -1, so)), pollInside: "ExtendD");
+        AssertCancelsPromptly(ct => SequenceAligner.WithCancellation(ct, () => Ksw2Aligner.ExtendZ2(q, t, 5, mat, 4, 2, -1, -1, 0, so)), pollInside: "ExtendZ2");
+        AssertCancelsPromptly(ct => SequenceAligner.WithCancellation(ct, () => Ksw2Aligner.ExtendD2(q, t, 5, mat, 4, 2, 24, 1, -1, -1, 0, so)), pollInside: "ExtendD2");
+        string a = Random(4900, 58), b = Random(4900, 59);
+        AssertCancelsPromptly(ct => SequenceAligner.WithCancellation(ct, () => SequenceAligner.GlobalAlignDualAffine(a, b, DualAffineScoring.Minimap2)), pollInside: "DualAffineCore");
+    }
+
+    [Test]
+    public void CancelledWhileRunning_TCoffeePrimaryLibrary_StopsPromptly()
+    {
+        string a = Random(20000, 60), b = Random(20000, 61);
+        AssertCancelsPromptly(ct => SequenceAligner.WithCancellation(ct, () => SequenceAligner.TCoffeeSlowPairAlign(a, b)), pollInside: "MyersMillerState");
+    }
+
+    [Test]
+    public void CancelledWhileRunning_TCoffeeProgressiveDp_StopsPromptly()
+    {
+        // TcGotohProfile (TCoffeeDp.cs) is the profile-profile Gotoh program of the progressive stage; the library stage would dominate any end-to-end run, so the DP is called directly
+        var gotoh = typeof(SequenceAligner).GetMethod("TcGotohProfile", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+        Assert.That(gotoh, Is.Not.Null);
+        Func<int, int, int> cost = (i, j) => (i * 7 + j * 13) % 11 - 4;
+        AssertCancelsPromptly(ct => SequenceAligner.WithCancellation(ct, () =>
+        {
+            try
+            {
+                return gotoh.Invoke(null, new object[] { 7000, 7000, cost, -10, -1, 0, false })!;
+            }
+            catch (System.Reflection.TargetInvocationException e)
+            {
+                System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(e.InnerException!).Throw();
+                throw;
+            }
+        }), pollInside: "TcGotohProfile");
+    }
+
+    [Test]
+    public void CancelledWhileRunning_MuscleRefinement_StopsPromptly()
+    {
+        var seqs = Enumerable.Range(0, 24).Select(i => Random(300, 300 + i, "ACDEFGHIKLMNPQRSTVWY")).ToArray();
+        AssertCancelsPromptly(ct => SequenceAligner.MultipleAlignMuscle(seqs, new MuscleOptions { MaxIterations = 16, SequenceType = MuscleSequenceType.Protein, CancellationToken = ct }), delayMs: 600, pollInside: "Refine");
+    }
+
+    [Test]
+    public void CancelledWhileRunning_AnchoredAlignment_StopsPromptly()
+    {
+        // 2 x 1.5 Mb with a substitution every 40 bases: tens of thousands of anchors
+        var rng = new System.Random(80);
+        var baseSeq = Random(1_500_000, 81).ToCharArray();
+        var other = (char[])baseSeq.Clone();
+        for (int i = 20; i < other.Length; i += 40) other[i] = other[i] == 'A' ? 'C' : 'A';
+        var dna = new[] { new DnaSequence(new string(baseSeq)), new DnaSequence(new string(other)), new DnaSequence(new string(baseSeq)) };
+        AssertCancelsPromptly(ct => SequenceAligner.MultipleAlignAnchored(dna, null, new MsaOptions { CancellationToken = ct }), delayMs: 50);
+        _ = rng;
+    }
+
+    [Test]
+    public void CancelledWhileRunning_DistanceMatrix_StopsPromptly()
+    {
+        var rows = Enumerable.Range(0, 300).Select(i => Random(8000, 400 + i)).ToArray();
+        AssertCancelsPromptly(ct => SequenceAligner.WithCancellation(ct, () => MultipleAlignmentStatistics.CalculateDistanceMatrix(rows, new MsaDistanceOptions())), delayMs: 50);
     }
 }

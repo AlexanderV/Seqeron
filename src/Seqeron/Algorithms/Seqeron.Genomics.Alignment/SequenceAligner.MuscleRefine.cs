@@ -1091,6 +1091,7 @@ public static partial class SequenceAligner
             float before = 0, after = 0;
             for (int i = 0; i < internalCount; i++)
             {
+                AlignmentCancellation.ThrowIfRequested();       // A3-5: one poll per realigned edge (each is a profile-profile dynamic program)
                 int node = internals[i];
                 int neighbor;
                 if (node == tree.Root && !right)
@@ -1140,6 +1141,7 @@ public static partial class SequenceAligner
             bool anyAnyIter = false;
             for (int iter = 0; iter < iterCount; iter++)
             {
+                AlignmentCancellation.ThrowIfRequested();       // A3-5: one poll per refinement iteration
                 bool anyThisIter = false;
                 bool reversed = iter % 2 != 0;
                 var internals = reversed ? reverse : forward;

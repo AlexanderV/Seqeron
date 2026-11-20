@@ -1,3 +1,4 @@
+using Seqeron.Genomics.Alignment;
 using Seqeron.Genomics.Infrastructure;
 
 namespace Seqeron.Genomics.Analysis;
@@ -113,6 +114,7 @@ public static partial class MultipleAlignmentStatistics
         for (int i = 0; i < nseqs; i++)
             for (int j = i + 1; j < nseqs; j++)
             {
+                AlignmentCancellation.ThrowIfRequested();       // A3-5: one poll per pair of sequences
                 d[i, j] = dist[i, j];
                 d[j, i] = dist[i, j];
             }
@@ -162,6 +164,8 @@ public static partial class MultipleAlignmentStatistics
         var match = new float[nseqs, nseqs];
         var gap = new float[nseqs, nseqs];
         for (int i = 0; i < nseqs; i++)
+        {
+            AlignmentCancellation.ThrowIfRequested();       // A3-5: one poll per sequence (the pair loops below are O(length) each)
             for (int j = i + 1; j < nseqs; j++)
                 for (int k = 0; k < len; k++)
                 {
@@ -175,6 +179,7 @@ public static partial class MultipleAlignmentStatistics
                     if (m1 == '-' || m2 == '-')
                         gap[i, j] = gap[i, j] + 1;
                 }
+        }
 
         return (match, gap);
     }
@@ -208,6 +213,7 @@ public static partial class MultipleAlignmentStatistics
         for (int i = 0; i < nseqs; i++)
             for (int j = i + 1; j < nseqs; j++)
             {
+                AlignmentCancellation.ThrowIfRequested();       // A3-5: one poll per pair of sequences
                 float m = match[i, j], g = gap[i, j];
                 d[i, j] = 1 - (m / ((float)len - g + (g * gapwt)));
             }
@@ -315,6 +321,7 @@ public static partial class MultipleAlignmentStatistics
         for (int i = 0; i < nseqs; i++)
             for (int j = i + 1; j < nseqs; j++)
             {
+                AlignmentCancellation.ThrowIfRequested();       // A3-5: one poll per pair of sequences
                 int ptrans = 0, qtranv = 0, match = 0;
                 for (int k = 0; k < len; k++)
                 {
@@ -345,6 +352,7 @@ public static partial class MultipleAlignmentStatistics
         for (int i = 0; i < nseqs; i++)
             for (int j = i + 1; j < nseqs; j++)
             {
+                AlignmentCancellation.ThrowIfRequested();       // A3-5: one poll per pair of sequences
                 float match = 0;
                 int scored = 0;
                 for (int k = 0; k < mlen; k++)
@@ -391,6 +399,7 @@ public static partial class MultipleAlignmentStatistics
         for (int i = 0; i < nseqs; i++)
             for (int j = 0; j < nseqs; j++)
             {
+                AlignmentCancellation.ThrowIfRequested();       // A3-5: one poll per pair of sequences
                 float cgap = gap[i, j];
                 gc[i, j] = gc[i, j] / ((float)len - cgap);
             }
@@ -413,6 +422,7 @@ public static partial class MultipleAlignmentStatistics
         for (int i = 0; i < nseqs; i++)
             for (int j = i + 1; j < nseqs; j++)
             {
+                AlignmentCancellation.ThrowIfRequested();       // A3-5: one poll per pair of sequences
                 float c = gc[j, i] + gc[i, j];
                 c = c - (2 * gc[j, i] * gc[i, j]);
                 float p = (float)ptrans[i, j] / (float)score[i, j];
@@ -470,6 +480,7 @@ public static partial class MultipleAlignmentStatistics
         for (int i = 0; i < nseqs; i++)
             for (int j = i + 1; j < nseqs; j++)
             {
+                AlignmentCancellation.ThrowIfRequested();       // A3-5: one poll per pair of sequences
                 float slen = (float)len[i, j];
                 float fij2 = 0f;
                 for (int bs = 0; bs < 4; bs++)
@@ -518,6 +529,7 @@ public static partial class MultipleAlignmentStatistics
         for (int i = 0; i < nseqs; i++)
             for (int j = i + 1; j < nseqs; j++)
             {
+                AlignmentCancellation.ThrowIfRequested();       // A3-5: one poll per pair of sequences
                 float av = avL[i, j];
                 for (int k = 0; k < mlen; k++)
                 {
@@ -546,6 +558,7 @@ public static partial class MultipleAlignmentStatistics
             for (int i = 0; i < nseqs; i++)
                 for (int j = i + 1; j < nseqs; j++)
                 {
+                    AlignmentCancellation.ThrowIfRequested();       // A3-5: one poll per pair of sequences
                     xlen = (float)lenArr[i, j];
                     float av = avL[i, j];
                     float variance = 0f;
@@ -569,6 +582,7 @@ public static partial class MultipleAlignmentStatistics
         for (int i = 0; i < nseqs; i++)
             for (int j = i + 1; j < nseqs; j++)
             {
+                AlignmentCancellation.ThrowIfRequested();       // A3-5: one poll per pair of sequences
                 xlen = (float)lenArr[i, j];
                 float p = (float)ptrans[i, j] / xlen;
                 float q = (float)qtranv[i, j] / xlen;

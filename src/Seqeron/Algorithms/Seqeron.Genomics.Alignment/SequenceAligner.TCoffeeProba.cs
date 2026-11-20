@@ -227,15 +227,20 @@ public static partial class SequenceAligner
     /// </summary>
     public const long TCoffeeProbaMaxMatrixFloats = 1L << 28;
 
-    private static void RequireTcProbaFits(int length1, int length2, int matrixTypes)
+    private static void RequireTcProbaFits(int length1, int length2, int matrixTypes, string program = "T-Coffee proba_pair")
     {
         long cells = ((long)length1 + 1) * ((long)length2 + 1);
         long floats = cells * matrixTypes;
-        if (floats > TCoffeeProbaMaxMatrixFloats)
-            throw new ArgumentException(
-                $"The T-Coffee proba_pair pair-HMM keeps a forward and a backward matrix of (len1 + 1) x (len2 + 1) x {matrixTypes} floats: {length1} x {length2} residues = {floats:N0} floats " +
-                $"exceeds the limit of {TCoffeeProbaMaxMatrixFloats:N0} ({TCoffeeProbaMaxMatrixFloats * 4L / (1L << 30)} GiB per matrix; t_coffee itself overflows its 32-bit index at 2^31 floats and fails to allocate before). " +
-                "Use the slow_pair or lalign_id_pair primary library for sequences of this length.");
+        if (floats <= TCoffeeProbaMaxMatrixFloats)
+            return;
+        string programNote = program == "ProbCons"
+            ? "ProbCons 1.12 itself computes (len1 + 1) x (len2 + 1) x numMatrixTypes in a 32-bit int (it wraps at 2^31 floats) and allocates it with new (it dies with an out-of-memory failure well before)"
+            : "t_coffee itself overflows its 32-bit index at 2^31 floats and fails to allocate before";
+        string alternative = program == "ProbCons"
+            ? "use MultipleAlignKalign or MultipleAlignMafft for sequences of this length"
+            : "use the slow_pair or lalign_id_pair primary library for sequences of this length";
+        throw ResourceLimit($"The {program} pair-HMM", $"keeps a forward and a backward matrix of (len1 + 1) x (len2 + 1) x {matrixTypes} floats", $"{length1} x {length2} residues = {floats:N0} floats", TCoffeeProbaMaxMatrixFloats,
+            $"SequenceAligner.{nameof(TCoffeeProbaMaxMatrixFloats)}, {TCoffeeProbaMaxMatrixFloats * 4L / (1L << 30)} GiB per matrix", programNote, alternative);
     }
 
     // dirichlet_code: a c d e f g h i k l m n p q r s t v w y -> 0..19; every other letter -> -1

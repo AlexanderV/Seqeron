@@ -27,14 +27,10 @@ public static partial class SequenceAligner
     {
         ArgumentNullException.ThrowIfNull(sequence1);
         ArgumentNullException.ThrowIfNull(sequence2);
-        if (gapOpen < 1 || gapOpen > 100)
-            throw new ArgumentOutOfRangeException(nameof(gapOpen), "-gapopen is between 1.0 and 100.0 in EMBOSS needle.");
-        if (gapExtend < 0 || gapExtend > 10)
-            throw new ArgumentOutOfRangeException(nameof(gapExtend), "-gapextend is between 0.0 and 10.0 in EMBOSS needle.");
-        if (endOpen < 1 || endOpen > 100)
-            throw new ArgumentOutOfRangeException(nameof(endOpen), "-endopen is between 1.0 and 100.0 in EMBOSS needle.");
-        if (endExtend < 0 || endExtend > 10)
-            throw new ArgumentOutOfRangeException(nameof(endExtend), "-endextend is between 0.0 and 10.0 in EMBOSS needle.");
+        RequireEmbossRange(gapOpen, 1, 100, nameof(gapOpen), "-gapopen", "needle");
+        RequireEmbossRange(gapExtend, 0, 10, nameof(gapExtend), "-gapextend", "needle");
+        RequireEmbossRange(endOpen, 1, 100, nameof(endOpen), "-endopen", "needle");
+        RequireEmbossRange(endExtend, 0, 10, nameof(endExtend), "-endextend", "needle");
         if (sequence1.Length == 0 || sequence2.Length == 0)
             throw new ArgumentException("EMBOSS needle cannot align an empty sequence.", sequence1.Length == 0 ? nameof(sequence1) : nameof(sequence2));
         matrix ??= IsNucleotideText(sequence1.ToUpperInvariant()) && IsNucleotideText(sequence2.ToUpperInvariant()) ? SubstitutionMatrix.EdnaFull : SubstitutionMatrix.Blosum62;
@@ -75,8 +71,8 @@ public static partial class SequenceAligner
     {
         int lena = s1.Length;
         int lenb = s2.Length;
-        if ((long)lena * lenb > 400_000_000)
-            throw new ArgumentException("Sequences too big for needle (use StretcherAlign).");
+        RequireCells((long)lena * lenb, NeedleMaxCells, nameof(NeedleMaxCells), "EMBOSS needle", "keeps three float matrices and an int compass matrix (16 bytes per cell)", $"{lena:N0} x {lenb:N0} residues = {(long)lena * lenb:N0} cells",
+            "The program has no fixed limit: it dies with \"Sequences too big. Try 'stretcher'\" when the allocation fails", "use StretcherAlign (linear space) for sequences of this length");
         var table = new EmbossScoreTable(matrix);
         int[] ca = table.Codes(s1);
         int[] cb = table.Codes(s2);
@@ -134,6 +130,7 @@ public static partial class SequenceAligner
         int xp = 1;
         while (xp != lenb)
         {
+            AlignmentCancellation.ThrowIfRequested();       // A3-5: one poll per column of the matrix
             int yp = 1;
             int bconv = cb[xp];
             cursorp = xp - 1;

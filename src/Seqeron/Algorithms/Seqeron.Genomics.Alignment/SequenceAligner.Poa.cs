@@ -513,6 +513,10 @@ public static partial class SequenceAligner
                 nextPerp[maxGap + 1] = nextPerp[0];
             }
 
+            // the program computes lenX * lenY in a 32-bit int (it overflows above 2^31 cells: about 46 341 x 46 341) and callocs it; here a documented limit in 64-bit arithmetic
+            RequireCells((long)lenX * lenY, PoaMaxMatrixCells, nameof(PoaMaxMatrixCells), "POA", "keeps a score row per node of the new sequence (8 bytes per cell) and two move matrices (1 byte per cell)",
+                $"{lenX:N0} graph nodes x {lenY:N0} residues = {(long)lenX * lenY:N0} cells", "The program has no limit of its own: its 32-bit cell count overflows above 2^31 cells and the allocation fails before",
+                "align fewer or shorter sequences (or use MultipleAlignKalign / MultipleAlignMafft for sequences of this length)");
             var moveX = new byte[lenY * lenX];
             var moveY = new byte[lenY * lenX];
             // rows are shifted by one: index k + 1 holds position k, index 0 position -1

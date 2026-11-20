@@ -233,6 +233,29 @@ public static partial class Ksw2Aligner
                 throw new ArgumentException("Target symbols must be below m.", nameof(target));
     }
 
+    /// <summary>
+    /// The gap penalties of <c>ksw2.h</c> (<c>gapo</c> / <c>gape</c>: "a gap of length l costs -(gapo + l * gape)", prototype <c>int8_t q, int8_t e</c>): penalties, so <c>q &gt;= 0</c> and <c>e &gt;= 1</c>
+    /// (the programs' differences of 8 bits and the oracle need a positive extension penalty), and within <c>int8_t</c> (the C call would truncate silently, here an exception).
+    /// </summary>
+    internal static void CheckGapPenalties(int q, int e)
+    {
+        if (q < 0 || q > sbyte.MaxValue)
+            throw new ArgumentOutOfRangeException(nameof(q), q, "ksw2: the gap opening penalty q is a penalty between 0 and 127 (int8_t in ksw2.h; a gap of length l costs q + l * e).");
+        if (e < 1 || e > sbyte.MaxValue)
+            throw new ArgumentOutOfRangeException(nameof(e), e, "ksw2: the gap extension penalty e is a penalty between 1 and 127 (int8_t in ksw2.h; a gap of length l costs q + l * e).");
+    }
+
+    /// <summary>The memory of the traceback matrix (<c>ez->cigar</c> source): one byte per cell in the scalar functions, 16 bytes per anti-diagonal column in the SIMD ones; ksw2 allocates it with <c>kmalloc</c> and has no limit.</summary>
+    internal static void RequireTraceback(string function, long bytes)
+    {
+        if (bytes > MaxTracebackBytes)
+            throw SequenceAligner.ResourceLimit($"ksw2 {function}", "keeps a traceback matrix for the CIGAR", $"{bytes:N0} bytes", MaxTracebackBytes, nameof(Ksw2Aligner) + "." + nameof(MaxTracebackBytes),
+                "ksw2 itself has no limit and aborts with an out-of-memory error", "use the ScoreOnly flag, a band (w) or the linear-space aligners");
+    }
+
+    /// <summary>Largest traceback matrix of <c>ExtendZ / ExtendD / ExtendZ2 / ExtendD2</c> when a CIGAR is requested: 2^30 bytes (1 GiB); <see cref="Ksw2Option.ScoreOnly"/> needs none.</summary>
+    public const long MaxTracebackBytes = 1L << 30;
+
     // ------------------------------------------------------------------ scalar ----
 
     /// <summary>
@@ -241,6 +264,7 @@ public static partial class Ksw2Aligner
     public static Ksw2Result ExtendZ(byte[] query, byte[] target, int m, sbyte[] mat, int q, int e, int w, int zdrop, Ksw2Option flag = Ksw2Option.None)
     {
         CheckInputs(query, target, m, mat);
+        CheckGapPenalties(q, e);
         int qlen = query.Length;
         int tlen = target.Length;
         var ez = new Ez();
@@ -248,8 +272,8 @@ public static partial class Ksw2Aligner
         int gapo = (sbyte)q;
         int gape = (sbyte)e;
         int gapoe = gapo + gape;
-        if (w < 0)
-            w = tlen > qlen ? tlen : qlen;
+        if (w < 0 || w > Math.Max(qlen, tlen))
+            w = tlen > qlen ? tlen : qlen;      // a band wider than the matrix is no band (and 2 * w + 1 must not overflow)
         int nCol = qlen < (2 * w) + 1 ? qlen : (2 * w) + 1;
         var eh = new int[qlen + 1];
         var ee = new int[qlen + 1];
@@ -257,6 +281,7 @@ public static partial class Ksw2Aligner
         int[]? off = null;
         if (withCigar)
         {
+            RequireTraceback(nameof(ExtendZ), (long)nCol * tlen);
             z = new byte[(long)nCol * tlen];
             off = new int[tlen];
         }
@@ -282,6 +307,7 @@ public static partial class Ksw2Aligner
         int maxJ = 0;
         for (int i = 0; i < tlen; ++i)
         {
+            AlignmentCancellation.ThrowIfRequested();       // A3-5: one poll per target row
             int max = NegInf;
             int qo = target[i] * qlen;
             int st = i > w ? i - w : 0;
@@ -397,6 +423,8 @@ public static partial class Ksw2Aligner
     public static Ksw2Result ExtendD(byte[] query, byte[] target, int m, sbyte[] mat, int q, int e, int q2, int e2, int w, int zdrop, Ksw2Option flag = Ksw2Option.None)
     {
         CheckInputs(query, target, m, mat);
+        CheckGapPenalties(q, e);
+        CheckGapPenalties(q2, e2);
         int qlen = query.Length;
         int tlen = target.Length;
         var ez = new Ez();
@@ -407,8 +435,8 @@ public static partial class Ksw2Aligner
         int gape2 = (sbyte)e2;
         int gapoe = gapo + gape;
         int gapoe2 = gapo2 + gape2;
-        if (w < 0)
-            w = tlen > qlen ? tlen : qlen;
+        if (w < 0 || w > Math.Max(qlen, tlen))
+            w = tlen > qlen ? tlen : qlen;      // a band wider than the matrix is no band (and 2 * w + 1 must not overflow)
         int nCol = qlen < (2 * w) + 1 ? qlen : (2 * w) + 1;
         var eh = new int[qlen + 1];
         var ee = new int[qlen + 1];
@@ -417,6 +445,7 @@ public static partial class Ksw2Aligner
         int[]? off = null;
         if (withCigar)
         {
+            RequireTraceback(nameof(ExtendD), (long)nCol * tlen);
             z = new byte[(long)nCol * tlen];
             off = new int[tlen];
         }
@@ -446,6 +475,7 @@ public static partial class Ksw2Aligner
         bool right = (flag & Ksw2Option.Right) != 0;
         for (int i = 0; i < tlen; ++i)
         {
+            AlignmentCancellation.ThrowIfRequested();       // A3-5: one poll per target row
             int max = NegInf;
             int qo = target[i] * qlen;
             int st = i > w ? i - w : 0;

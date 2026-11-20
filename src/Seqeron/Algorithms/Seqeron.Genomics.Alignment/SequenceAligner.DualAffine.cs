@@ -55,7 +55,7 @@ public static partial class SequenceAligner
             throw new ArgumentException("The sequences are too long for the O(m n) dual affine program (limit 25 million cells).");
         if (!local && band >= 0 && Math.Abs(m - n) > band)
             throw new ArgumentException("The end cell lies outside the band (|m - n| > band): the global alignment does not exist.", nameof(band));
-        long limit = (long)(Math.Max(Math.Abs(sc.Match), Math.Abs(sc.Mismatch)) + Math.Abs(sc.GapOpen1) + Math.Abs(sc.GapExtend1) + Math.Abs(sc.GapOpen2) + Math.Abs(sc.GapExtend2) + 1) * (m + n + 2);
+        long limit = (Math.Max(Math.Abs((long)sc.Match), Math.Abs((long)sc.Mismatch)) + Math.Abs((long)sc.GapOpen1) + Math.Abs((long)sc.GapExtend1) + Math.Abs((long)sc.GapOpen2) + Math.Abs((long)sc.GapExtend2) + 1) * ((long)m + n + 2);
         if (limit >= 1 << 28)
             throw new ArgumentException("Score range too large for the integer dynamic program.", nameof(sc));
 
@@ -75,6 +75,7 @@ public static partial class SequenceAligner
         int best = 0, bi = 0, bj = 0;
         for (int i = 0; i <= m; i++)
         {
+            AlignmentCancellation.ThrowIfRequested();       // A3-5: one poll per row
             for (int j = 0; j <= n; j++)
             {
                 if ((i == 0 && j == 0) || !Inside(i, j))

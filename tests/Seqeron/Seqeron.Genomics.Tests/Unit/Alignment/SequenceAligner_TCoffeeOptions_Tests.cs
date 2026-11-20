@@ -319,7 +319,8 @@ public class SequenceAligner_TCoffeeOptions_Tests
         AssertFeature("distrefused", 150);
         var e = Assert.Throws<TCoffeeAbortedException>(() => SequenceAligner.MultipleAlignTCoffeeProgram(new[] { "ACGT", "ACGA", "ACGG" }, TCoffeeProgramOptions.FromCommandLine("-tree_mode kmeans")))!;
         Assert.That(e.ExitStatus, Is.Zero, "the program ends normally without an alignment");
-        Assert.Throws<NotSupportedException>(() => SequenceAligner.MultipleAlignTCoffeeProgram(new[] { "ACGT", "ACGA", "ACGG" }, TCoffeeProgramOptions.FromCommandLine("-distance_matrix_mode random")));
+        // -distance_matrix_mode random: implemented since A3-6 (glibc rand, seed 10 = the program's DEBUG_SRAND run), see RandomDistance_EveryRowEqualsTheProgram_WithDebugSrand
+        Assert.DoesNotThrow(() => SequenceAligner.MultipleAlignTCoffeeProgram(new[] { "ACGT", "ACGA", "ACGG" }, TCoffeeProgramOptions.FromCommandLine("-distance_matrix_mode random")));
     }
 
     /// <summary>
@@ -347,6 +348,29 @@ public class SequenceAligner_TCoffeeOptions_Tests
     /// <summary>A2-6: <c>-distance_matrix_mode geometric</c>: the identity vectors of the <c>fasta_pair_wise</c> alignments (pam250mt, gap open -10 / extend -1, k-tuple 3, no terminal gap penalty) against the first three sequences.</summary>
     [Test]
     public void GeometricDistance_EveryRowEqualsTheProgram() => AssertFeature("dist_geometric", 300);
+
+    /// <summary>
+    /// <c>-distance_matrix_mode random</c> (audit A3-6, B09 F135): <c>id = rand() % 100</c> per pair. T-Coffee seeds with <c>vsrand(0)</c> (/dev/urandom: two runs differ) unless <c>DEBUG_SRAND</c> is set (<c>srand(10)</c>);
+    /// the 310 committed sets were recorded with <c>DEBUG_SRAND=1</c> and equal the port's default <see cref="TCoffeeProgramOptions.RandomSeed"/> 10 (glibc <c>rand</c> emulation).
+    /// </summary>
+    [Test]
+    public void RandomDistance_EveryRowEqualsTheProgram_WithDebugSrand() => AssertFeature("dist_random", 300);
+
+    [Test]
+    public void RandomDistance_SeedIsAnOption_AndTheDefaultIsTheProgramsDebugSrand()
+    {
+        string[] seqs = ["ACGTACGTTAGCACGTAGCT", "ACGTACGTAGCACGTTGCT", "ACGTTCGTTAGCAAGTAGCT", "TTGTACGTTAGCACGTAGCA", "ACGAACGTTGCACGTAGCT", "ACGTACCTTAGCACGAAGCT"];
+        var random = TCoffeeProgramOptions.FromCommandLine("-distance_matrix_mode random -seq_weight t_coffee");
+        Assert.Multiple(() =>
+        {
+            Assert.That(random.RandomSeed, Is.EqualTo(10u));
+            var a = SequenceAligner.MultipleAlignTCoffeeProgram(seqs, random).AlignedSequences;
+            Assert.That(SequenceAligner.MultipleAlignTCoffeeProgram(seqs, random).AlignedSequences, Is.EqualTo(a), "deterministic for a seed");
+            Assert.That(SequenceAligner.MultipleAlignTCoffeeProgram(seqs, random with { RandomSeed = 10 }).AlignedSequences, Is.EqualTo(a));
+            bool anyDifferent = Enumerable.Range(1, 40).Any(seed => !SequenceAligner.MultipleAlignTCoffeeProgram(seqs, random with { RandomSeed = (uint)seed }).AlignedSequences.SequenceEqual(a));
+            Assert.That(anyDifferent, Is.True, "the seed changes the random distances (and so the tree / weights)");
+        });
+    }
 
     /// <summary>
     /// A2-4: <c>exon_pair</c> / <c>exon2_pair</c> / <c>exon3_pair</c> (<c>SEQ_TYPE G</c>): the Myers-Miller alignment of the genomic (<c>_G_</c>) templates with the matrix exon2mt (o / b / j = 100, x rows zeroed), expressed in the residues of

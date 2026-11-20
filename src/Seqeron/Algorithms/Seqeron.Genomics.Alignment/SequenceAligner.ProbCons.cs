@@ -818,7 +818,7 @@ public static partial class SequenceAligner
         private static float ForwardBackward(TcProbaModel m, PcSeq s1, PcSeq s2, out float[] forward, out float[] backward)
         {
             int I = s1.Len, J = s2.Len;
-            RequireTcProbaFits(I, J, NumMatrixTypes);
+            RequireTcProbaFits(I, J, NumMatrixTypes, "ProbCons");
             var tIns = new float[2][,];
             tIns[0] = new float[NumMatrixTypes, I + 1];
             tIns[1] = new float[NumMatrixTypes, J + 1];
@@ -916,7 +916,7 @@ public static partial class SequenceAligner
         {
             int I = s1.Len, J = s2.Len;
             const int nmt = NumMatrixTypes;
-            RequireTcProbaFits(I, J, nmt);
+            RequireTcProbaFits(I, J, nmt, "ProbCons");
             var viterbi = new float[nmt * (I + 1) * (J + 1)];
             Array.Fill(viterbi, TcLogZero);
             var trace = new int[nmt * (I + 1) * (J + 1)];
@@ -1460,6 +1460,8 @@ public static partial class SequenceAligner
         private static float[] BuildPosterior(List<PcSeq> a1, List<PcSeq> a2, PcSparse?[,] sparse, float cutoff)
         {
             int l1 = a1[0].Len, l2 = a2[0].Len;
+            RequireCells(((long)l1 + 1) * ((long)l2 + 1), ProbConsProfileMaxCells, nameof(ProbConsProfileMaxCells), "ProbCons", "keeps a posterior matrix of (columns1 + 1) x (columns2 + 1) floats and the profile-alignment dynamic program",
+                $"{l1:N0} x {l2:N0} alignment columns = {((long)l1 + 1) * ((long)l2 + 1):N0} cells", "The program computes the product in a 32-bit int and dies with an out-of-memory failure", "use MultipleAlignKalign or MultipleAlignMafft for sequences of this length");
             var posterior = new float[(l1 + 1) * (l2 + 1)];
             foreach (var s1 in a1)
             {

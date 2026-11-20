@@ -178,6 +178,14 @@ public static partial class SequenceAligner
         return l == 0 ? 0 : M[2][l2] * 100 / l;
     }
 
+    /// <summary>
+    /// The number of glibc <c>rand()</c> values that precede the first pair of <c>-distance_matrix_mode random</c> in the stream started by the program's <c>srand</c> (<c>vsrand(0)</c>, <c>util.c</c>): 19, the same
+    /// in every run. An <c>LD_PRELOAD</c> counter on the installed t_coffee shows 20 start-up calls before the first pair for 2-7 sequences and every option of the oracle (the 15-character temporary-file name of
+    /// <c>vtmpnamH</c>, the name root of <c>get_vtmpnam2_root</c>, the header tip, ...); the first of them runs before <c>srand</c> and is not part of the seeded stream, which is what the fit on the 310
+    /// committed sets shows (the pairs equal the stream from its 20th value on, for every skip 19 and no other constant).
+    /// </summary>
+    private const int TcRandomDrawsBeforeDistanceMatrix = 19;
+
     /// <summary>The distance matrix of the program (<c>seq2distance_matrix</c>) for the chosen <c>-distance_matrix_mode</c>.</summary>
     private static TcDistances TcDistanceMatrix(IReadOnlyList<string> seqs, TcSeqKind kind, TCoffeeProgramOptions o, TcRelaxedState? relaxed = null)
     {
@@ -195,7 +203,7 @@ public static partial class SequenceAligner
             case TCoffeeDistanceMode.Geometric:
                 return TcGeometricDistanceMatrix(seqs);
             case TCoffeeDistanceMode.Random:
-                throw new NotSupportedException("-distance_matrix_mode random uses rand() % 100 and the program's rand is seeded differently on every run: two runs of the same input give different sequence weights, so no result can be locked.");
+                break;      // rand() % 100 per pair in the loop below
         }
 
         int n = seqs.Count;
@@ -217,6 +225,9 @@ public static partial class SequenceAligner
         TcMatrix mat = protein ? TcMatrix.Blosum62 : TcMatrix.IdMat;
         int gop = protein ? (int)(mat.AverageMismatch() * 10) : -10;
         int call = 0;
+        // -distance_matrix_mode random: seq2distance_matrix draws `id = rand() % 100` for every pair a < b in row order (util_constraints_list.c); the program's glibc rand is seeded by vsrand(0)
+        var random = o.DistanceMatrixMode == TCoffeeDistanceMode.Random ? new GlibcRandom(o.RandomSeed) : null;
+        if (random != null) for (int skip = 0; skip < TcRandomDrawsBeforeDistanceMatrix; skip++) random.Next();
         for (int a = 0; a < n; a++)
         {
             dm.Sim[a, a] = TcMaxIdentity;
@@ -238,6 +249,10 @@ public static partial class SequenceAligner
                         break;
                     case TCoffeeDistanceMode.No:
                         id = TcMaxIdentity;
+                        score = id * TcScoreK;
+                        break;
+                    case TCoffeeDistanceMode.Random:
+                        id = random!.Next() % 100;
                         score = id * TcScoreK;
                         break;
                     default:

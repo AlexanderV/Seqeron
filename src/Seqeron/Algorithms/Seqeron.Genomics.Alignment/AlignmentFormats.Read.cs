@@ -278,6 +278,14 @@ public static partial class AlignmentFormats
             throw new FormatException($"Could not parse line, incorrect sequence count:\n{line}");
     }
 
+    // a NEXUS count that is not a 32-bit integer is a FormatException (int.Parse threw OverflowException)
+    private static int NexusCount(string digits, string name)
+    {
+        if (!int.TryParse(digits, NumberStyles.None, CultureInfo.InvariantCulture, out int value))
+            throw new FormatException($"NEXUS {name} = {digits} is not a valid count (at most {int.MaxValue}).");
+        return value;
+    }
+
     // ---------------------------------------------------------------- phylip ----
 
     private static List<BioAlignment> ParsePhylip(IReadOnlyList<string> fileLines)
@@ -285,6 +293,12 @@ public static partial class AlignmentFormats
         var header = SplitWhitespace(fileLines[0], int.MaxValue);
         if (header.Length != 2 || !int.TryParse(header[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out int nSeqs) || !int.TryParse(header[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out int seqLength))
             throw new FormatException($"Expected two integers in the first line, received '{fileLines[0]}'");
+        // The header is not trusted for an allocation: the reader keeps one record per header count (Biopython pads a short file with empty records and so allocates "999999999" of them: MemoryError /
+        // OutOfMemoryException). A file with fewer lines than records is truncated and refused here (FormatException) before anything is allocated.
+        if (nSeqs < 0 || nSeqs > fileLines.Count - 1)
+            throw new FormatException($"The PHYLIP header announces {nSeqs} sequences but the file has only {fileLines.Count - 1} lines after the header (at least one line per sequence is needed).");
+        if (seqLength < 0)
+            throw new FormatException($"The PHYLIP header announces a negative alignment length ({seqLength}).");
         int pos = 1;
         string ReadLine() => pos < fileLines.Count ? fileLines[pos++] : "";
         var names = new List<string>();
@@ -511,8 +525,8 @@ public static partial class AlignmentFormats
             {
                 var m1 = Regex.Match(cmd, @"ntax\s*=\s*(\d+)", RegexOptions.IgnoreCase);
                 var m2 = Regex.Match(cmd, @"nchar\s*=\s*(\d+)", RegexOptions.IgnoreCase);
-                ntax = m1.Success ? int.Parse(m1.Groups[1].Value, CultureInfo.InvariantCulture) : ntax;
-                nchar = m2.Success ? int.Parse(m2.Groups[1].Value, CultureInfo.InvariantCulture) : nchar;
+                ntax = m1.Success ? NexusCount(m1.Groups[1].Value, "ntax") : ntax;
+                nchar = m2.Success ? NexusCount(m2.Groups[1].Value, "nchar") : nchar;
             }
             else if (inData && lower.StartsWith("format", StringComparison.Ordinal))
             {

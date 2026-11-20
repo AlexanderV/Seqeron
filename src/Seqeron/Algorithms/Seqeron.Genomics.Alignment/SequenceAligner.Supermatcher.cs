@@ -31,16 +31,14 @@ public static partial class SequenceAligner
     {
         ArgumentNullException.ThrowIfNull(queries);
         ArgumentNullException.ThrowIfNull(targets);
-        if (gapOpen < 0 || gapOpen > 100)
-            throw new ArgumentOutOfRangeException(nameof(gapOpen), "-gapopen is between 0.0 and 100.0 in EMBOSS supermatcher.");
-        if (gapExtend < 0 || gapExtend > 10)
-            throw new ArgumentOutOfRangeException(nameof(gapExtend), "-gapextend is between 0.0 and 10.0 in EMBOSS supermatcher.");
+        RequireEmbossRange(gapOpen, 0, 100, nameof(gapOpen), "-gapopen", "supermatcher");
+        RequireEmbossRange(gapExtend, 0, 10, nameof(gapExtend), "-gapextend", "supermatcher");
         if (wordLength < 3)
             throw new ArgumentOutOfRangeException(nameof(wordLength), "-wordlen is at least 3 in EMBOSS supermatcher.");
         if (width < 1)
             throw new ArgumentOutOfRangeException(nameof(width), "-width is at least 1 in EMBOSS supermatcher.");
-        if (minScore < 0)
-            throw new ArgumentOutOfRangeException(nameof(minScore), "-minscore is 0 or more in EMBOSS supermatcher.");
+        if (!(minScore >= 0 && double.IsFinite(minScore)))
+            throw new ArgumentOutOfRangeException(nameof(minScore), minScore, "-minscore is a finite number, 0 or more, in EMBOSS supermatcher.");
         if (targets.Count == 0)
             throw new ArgumentException("At least one target sequence is required.", nameof(targets));
         matrix ??= queries.Concat(targets).All(s => IsNucleotideText(s.Residues.ToUpperInvariant())) ? SubstitutionMatrix.EdnaFull : SubstitutionMatrix.Blosum62;
@@ -54,6 +52,7 @@ public static partial class SequenceAligner
         var errors = new StringBuilder();
         foreach (var query in queries)
         {
+            AlignmentCancellation.ThrowIfRequested();
             var matchLists = words.Search(query.Residues);
             for (int k = 0; k < targets.Count; k++)
             {
@@ -94,6 +93,8 @@ public static partial class SequenceAligner
                 string a = target.Residues.Substring(targetstart, lena);
                 string b = query.Residues.Substring(querystart, lenb);
                 int pathwidth = width;
+                RequireCells(((long)lena + 1) * pathwidth, SupermatcherMaxPathCells, nameof(SupermatcherMaxPathCells), "EMBOSS supermatcher", "keeps a banded float path matrix and an int compass matrix (8 bytes per cell)",
+                    $"{lena:N0} target residues x width {pathwidth:N0} = {((long)lena + 1) * pathwidth:N0} cells", "The program has no fixed limit and dies when the allocation fails", "use a smaller -width");
                 var path = new float[((long)lena + 1) * pathwidth];
                 var compass = new int[path.Length];
                 float score = SwPathCalcFast(a, b, lena, lenb, 0, pathwidth, gapopen, gapextend, path, compass, table);
@@ -421,6 +422,7 @@ public static partial class SequenceAligner
         int irow = ymin;
         while (++irow < ymax)
         {
+            AlignmentCancellation.ThrowIfRequested();       // A3-5: one poll per row of the band
             ip = (irow * width) - 1;
             int icol = xmin++;
             for (int i = 0; i < width; i++)

@@ -558,6 +558,7 @@ public static partial class SequenceAligner
             t = tb;
             for (int i = 1; i <= midi; i++)
             {
+                AlignmentCancellation.ThrowIfRequested();       // A3-5: one poll per row
                 s = CC[0];
                 CC[0] = c = t = t + h;
                 e = t + g;
@@ -587,6 +588,7 @@ public static partial class SequenceAligner
             t = te;
             for (int i = M - 1; i >= midi; i--)
             {
+                AlignmentCancellation.ThrowIfRequested();       // A3-5: one poll per row
                 s = RR[N];
                 RR[N] = c = t = t + h;
                 e = t + g;
@@ -938,6 +940,7 @@ public static partial class SequenceAligner
 
             for (int i = 1; i <= M; i++)
             {
+                AlignmentCancellation.ThrowIfRequested();       // A3-5: one poll per row
                 int c = 0;
                 int f = -_q;
                 int ci = i, fi = i;
@@ -1385,6 +1388,7 @@ public static partial class SequenceAligner
             t = -tb;
             for (int i = 1; i <= midi; i++)
             {
+                AlignmentCancellation.ThrowIfRequested();       // A3-5: one poll per row
                 s = _cc[0];
                 _cc[0] = c = t = t - _r;
                 e = t - _q;
@@ -1414,6 +1418,7 @@ public static partial class SequenceAligner
             t = -te;
             for (int i = M - 1; i >= midi; i--)
             {
+                AlignmentCancellation.ThrowIfRequested();       // A3-5: one poll per row
                 s = _rr[N];
                 _rr[N] = c = t = t - _r;
                 e = t - _q;

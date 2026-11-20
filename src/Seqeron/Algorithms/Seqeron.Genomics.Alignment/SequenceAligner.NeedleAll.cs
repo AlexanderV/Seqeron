@@ -27,8 +27,11 @@ public static partial class SequenceAligner
     {
         ArgumentNullException.ThrowIfNull(setA);
         ArgumentNullException.ThrowIfNull(setB);
-        if (minScore < -10 || minScore > 100)
-            throw new ArgumentOutOfRangeException(nameof(minScore), "-minscore is between -10.0 and 100.0 in EMBOSS needleall.");
+        RequireEmbossRange(minScore, -10, 100, nameof(minScore), "-minscore", "needleall");
+        RequireEmbossRange(gapOpen, 1, 100, nameof(gapOpen), "-gapopen", "needleall");
+        RequireEmbossRange(gapExtend, 0, 10, nameof(gapExtend), "-gapextend", "needleall");
+        RequireEmbossRange(endOpen, 1, 100, nameof(endOpen), "-endopen", "needleall");
+        RequireEmbossRange(endExtend, 0, 10, nameof(endExtend), "-endextend", "needleall");
         matrix ??= setA.All(s => IsNucleotideText(s.Residues.ToUpperInvariant())) ? SubstitutionMatrix.EdnaFull : SubstitutionMatrix.Blosum62;
         float minscore = (float)minScore;
         var alignments = new List<EmbossPairAlignment>();
@@ -37,6 +40,7 @@ public static partial class SequenceAligner
         {
             foreach (var a in setA)
             {
+                AlignmentCancellation.ThrowIfRequested();       // A3-5: one poll per pair (the pair itself polls per column)
                 var r = NeedleAlign(a.Residues, b.Residues, matrix, gapOpen, gapExtend, endWeight, endOpen, endExtend);
                 float score = (float)r.ExactScore;
                 if (score > minscore)

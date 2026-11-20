@@ -26,7 +26,7 @@ MAFFT 7.505's alignment of TWO sequences (Katoh & Standley 2013, MBE 30:772; maf
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `sequences` | array<string> | Yes | Exactly two sequences (letters; with anySymbol any character except blanks and '-' is a residue). |
+| `sequences` | array<string> | Yes | Exactly two sequences (letters; with anySymbol any character except blanks and '-' is a residue). Like the program: an empty list gives an empty result and ONE sequence is written back (gaps dropped; without anySymbol nucleotides in lower and amino acids in upper case). |
 | `sequenceType` | string | No | 'auto' (default: guessed from the letters), 'nuc' (mafft --nuc) or 'amino' (mafft --amino). |
 | `gapOpen` | number | No | mafft --op: gap opening penalty (default 1.53). |
 | `offset` | number | No | mafft --ep: offset (default 0.0). |

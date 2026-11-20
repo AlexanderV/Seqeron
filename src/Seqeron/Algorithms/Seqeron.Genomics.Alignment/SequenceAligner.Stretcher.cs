@@ -34,6 +34,7 @@ public static partial class SequenceAligner
             throw new ArgumentOutOfRangeException(nameof(gapOpen), "The gap opening penalty must be at least 0 (EMBOSS minimum).");
         if (ge < 0)
             throw new ArgumentOutOfRangeException(nameof(gapExtend), "The gap extension penalty must be at least 0 (EMBOSS minimum).");
+        RequireStretcherRange(matrix, go, ge, s1.Length, s2.Length);
         var engine = new StretcherEngine(s1, s2, matrix, go - ge, ge);
         var (score, rows1, rows2) = engine.Run();
         return new AlignmentResult(rows1, rows2, score, AlignmentType.Global, 0, 0, s1.Length, s2.Length);
@@ -243,6 +244,7 @@ public static partial class SequenceAligner
             int c, d, e, s;
             for (int i = 1; i <= midi; i++)
             {
+                AlignmentCancellation.ThrowIfRequested();       // A3-5: one poll per row of the forward / reverse sweep
                 s = _cc[0];
                 t -= _hh;
                 _cc[0] = c = t;
@@ -282,6 +284,7 @@ public static partial class SequenceAligner
             t = te;
             for (int i = bigM - 1; i >= midi; i--)
             {
+                AlignmentCancellation.ThrowIfRequested();
                 s = _rr[n];
                 t -= _hh;
                 _rr[n] = c = t;

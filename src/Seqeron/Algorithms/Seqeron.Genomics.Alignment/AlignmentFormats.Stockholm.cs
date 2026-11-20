@@ -10,13 +10,22 @@ public static partial class AlignmentFormats
 {
     private sealed class StockholmReference
     {
-        internal int Number;
+        internal long Number;
         internal string? Comment;
         internal string? Medline;
         internal List<string> Title = [];
         internal List<string> Author = [];
         internal List<string> Location = [];
         internal List<string> Order = [];
+    }
+
+    // a number that is not a 64-bit integer is a FormatException (int.Parse threw OverflowException / FormatException of the BCL)
+    private static long StockholmInt(string text, string what)
+    {
+        // Python's int is unbounded; 64 bits cover every real file, a larger number is a FormatException
+        if (!long.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out long value))
+            throw new FormatException($"Stockholm {what}: '{text}' is not a valid integer (at most {long.MaxValue}).");
+        return value;
     }
 
     private static List<BioAlignment> ParseStockholm(IReadOnlyList<string> fileLines)
@@ -86,7 +95,7 @@ public static partial class AlignmentFormats
                 switch (feature)
                 {
                     case "RN":
-                        references.Add(new StockholmReference { Number = int.Parse(text[1..^1], CultureInfo.InvariantCulture), Comment = referenceComments.Count > 0 ? string.Join(' ', referenceComments) : null });
+                        references.Add(new StockholmReference { Number = StockholmInt(text.Length >= 2 ? text[1..^1] : text, "#=GF RN reference number"), Comment = referenceComments.Count > 0 ? string.Join(' ', referenceComments) : null });
                         referenceComments = [];
                         break;
                     case "RM":
@@ -252,7 +261,7 @@ public static partial class AlignmentFormats
                     node = string.Join(' ', value);
                     break;
                 case "SQ":
-                    if (int.Parse(value[0], CultureInfo.InvariantCulture) != rows.Count)
+                    if (StockholmInt(value[0], "#=GS SQ sequence count") != rows.Count)
                         throw new FormatException("Inconsistent number of sequences in alignment");
                     continue;
                 case "AU":

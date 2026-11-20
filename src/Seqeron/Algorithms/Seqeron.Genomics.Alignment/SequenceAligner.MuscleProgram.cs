@@ -69,7 +69,7 @@ public static partial class SequenceAligner
     /// </summary>
     public static string[] MuscleRefine(IReadOnlyList<string> alignment, MuscleOptions? options = null)
     {
-        var o = options ?? new MuscleOptions { MaxIterations = 8 };
+        var o = options ?? MuscleOptions.ProgramDefaults;
         return MuscleEngine.ForMsa(o, alignment).RefineMode(alignment);
     }
 
@@ -104,7 +104,7 @@ public static partial class SequenceAligner
     /// </summary>
     public static string[] MuscleRefineWindows(IReadOnlyList<string> alignment, MuscleOptions? options = null)
     {
-        var o = options ?? new MuscleOptions { MaxIterations = 8 };
+        var o = options ?? MuscleOptions.ProgramDefaults;
         return MuscleEngine.ForMsa(o, alignment).RefineWindowsMode(alignment);
     }
 

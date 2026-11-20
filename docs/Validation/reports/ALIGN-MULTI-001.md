@@ -307,3 +307,8 @@ One input contract for every multiple-alignment entry point: null element -> `Ar
 ## Audit r2 addendum (A2-26, B09 F128, WP34): POA 2.0
 
 `SequenceAligner.MultipleAlignPoa` / `PoaRun`, `PoaScoreMatrix` and `PoaProgram` port Lee's POA V2 (graph DP with the program's gap model, fusion into align rings, iterative / progressive / pair-score merging, `-fuse_all`, heaviest bundle, PO / PIR / CLUSTAL writers); MCP `multiple_align_poa`, `poa_command`. Exit code, standard output and the PO / PIR / CLUSTAL files equal the installed Debian `poa` 2.0+20060928 on 359 / 359 command lines. Registered DOABLE: MSA / PO input (`-read_msa*`, `-subset*`, `-remove*`, A2-26b), spoa and abPOA as separate programs (A2-26c).
+
+
+## Audit r3 addendum (WP35, A3-1 ... A3-7, B09 F129 - F135)
+
+Input contract: ProbCons drops gap characters like the program's reader, POA reads non-ASCII text as UTF-8 bytes; empty list: six ports refuse with one message, MAFFT returns empty and writes one sequence back; resource limits with one exception style for needle / water / supermatcher / POA / ProbCons / MAFFT / ksw2 and the format readers; NaN / Infinity / overflowing penalties refused (EMBOSS ports, stretcher, ksw2, dual affine); cancellation polls in the ported pairwise programs, ksw2, T-Coffee DPs, MUSCLE refinement, anchors and distmat; `MuscleOptions.ProgramDefaults` (`-maxiters 8`, the program's real default); `-distance_matrix_mode random` with `TCoffeeProgramOptions.RandomSeed` (default 10 = `DEBUG_SRAND`), 310 sets equal.

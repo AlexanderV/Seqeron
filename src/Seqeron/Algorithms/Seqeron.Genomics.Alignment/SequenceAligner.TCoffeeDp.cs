@@ -663,6 +663,7 @@ public static partial class SequenceAligner
         int c = 0, score = 0;
         for (int i = 1; i <= l1; i++)
         {
+            AlignmentCancellation.ThrowIfRequested();       // A3-5: one poll per row
             var tr = trace[i];
             int s = cc[0];
             cc[0] = c = t = t + termGep;

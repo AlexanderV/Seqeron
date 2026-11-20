@@ -65,8 +65,14 @@ public sealed record MatrixScoring(SubstitutionMatrix Matrix, double GapOpen, do
     /// Scoring from EMBOSS needle/water penalties (positive numbers): <paramref name="gapOpenPenalty"/> is the cost of a gap
     /// of length 1, every further position costs <paramref name="gapExtendPenalty"/> (needle/water defaults: 10 and 0.5).
     /// </summary>
-    public static MatrixScoring Emboss(SubstitutionMatrix matrix, double gapOpenPenalty = 10, double gapExtendPenalty = 0.5) =>
-        new(matrix, -(gapOpenPenalty - gapExtendPenalty), -gapExtendPenalty);
+    public static MatrixScoring Emboss(SubstitutionMatrix matrix, double gapOpenPenalty = 10, double gapExtendPenalty = 0.5)
+    {
+        if (!double.IsFinite(gapOpenPenalty))
+            throw new ArgumentOutOfRangeException(nameof(gapOpenPenalty), gapOpenPenalty, "The gap opening penalty must be a finite number (NaN / Infinity are rejected).");
+        if (!double.IsFinite(gapExtendPenalty))
+            throw new ArgumentOutOfRangeException(nameof(gapExtendPenalty), gapExtendPenalty, "The gap extension penalty must be a finite number (NaN / Infinity are rejected).");
+        return new(matrix, -(gapOpenPenalty - gapExtendPenalty), -gapExtendPenalty);
+    }
 }
 
 /// <summary>
@@ -1405,10 +1411,17 @@ public enum MuscleRoot
 /// <summary>
 /// Parameters of <c>SequenceAligner.MultipleAlignMuscle</c>, the port of MUSCLE 3.8.1551 (Edgar 2004, NAR 32:1792): k-mer distance, UPGMB guide tree, ClustalW
 /// tree weights, profile-profile dynamic programming with the log-expectation (protein) / sum-of-pairs (nucleotide) score, the tree-dependent refinement of iteration 2 and the
-/// restricted-partition refinement of iterations 3 and above. The defaults are MUSCLE's, except <see cref="MaxIterations"/> (2 here, 8 in the program).
+/// restricted-partition refinement of iterations 3 and above. The defaults are MUSCLE's, except <see cref="MaxIterations"/> (2 here, 8 in the program: <see cref="ProgramDefaults"/> is the option set of a plain <c>muscle -in x.fa</c>).
 /// </summary>
 public sealed record MuscleOptions
 {
+    /// <summary>
+    /// The option set of a plain <c>muscle -in x.fa</c>: every MUSCLE default including <b>-maxiters 8</b> (<c>MaxIterations</c> of a new <see cref="MuscleOptions"/> is 2, the draft + tree refinement only).
+    /// Verified against the installed muscle3 3.8.1551 (scripts/alignment/generate_muscle3_default_iters_oracle.py): a 40 x 300 residue family aligns differently for 8 and 16, and the program without
+    /// <c>-maxiters</c> writes the rows of 8. Also the default of <c>SequenceAligner.MuscleRun</c> / <c>MuscleRefine</c> when no options are passed.
+    /// </summary>
+    public static MuscleOptions ProgramDefaults { get; } = new() { MaxIterations = 8 };
+
     /// <summary>
     /// Cancels the alignment (the same convention as <see cref="System.Threading.Tasks.ParallelOptions.CancellationToken"/>): the dynamic programs poll it at their
     /// row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result. Default: never cancelled.
@@ -1422,7 +1435,7 @@ public sealed record MuscleOptions
     /// <summary>
     /// <c>-maxiters</c>: 1 = the progressive draft only, 2 = plus the tree-dependent refinement of iteration 2 (the guide tree is rebuilt from the Kimura distances of the draft and only the
     /// changed subtrees are realigned), 3 and above = plus <c>MaxIterations - 2</c> rounds of refinement by dividing the tree into two (restricted partitions: <see cref="Anchors"/> /
-    /// <see cref="ObjectiveScore"/>). Default 2 (the program's default is 8: pass 8 for <c>muscle</c>'s default behaviour).
+    /// <see cref="ObjectiveScore"/>). Default 2 (kept for the callers of <c>MultipleAlignMuscle</c>; the program's default is <b>8</b>: <c>params.cpp</c> of muscle3 3.8.1551 has <c>g_uMaxIters = 8</c>, and the installed binary writes the rows of <c>-maxiters 8</c>, not those of 16, for a plain <c>muscle3 -in x.fa</c> although its <c>-help</c> text says "default 16" (stale). Use <see cref="ProgramDefaults"/> for the program's behaviour).
     /// </summary>
     public int MaxIterations { get; init; } = 2;
 
