@@ -71,7 +71,7 @@ public partial class AnalysisTools
         => new(global::Seqeron.Genomics.Analysis.MashCommands.Bounds(k, probability));
 
     [McpServerTool(Name = "mash_dist", Title = "Mash — Distances of Queries to References (mash dist)", ReadOnly = true)]
-    [Description("Mash 2.3 'mash dist': MinHash (bottom-s) sketches of the reference and query files (canonical k-mers, MurmurHash3, the sketch of Ondov et al. 2016: KmerAnalyzer.CreateMinHashSketch) and, for every query in order and every reference, the line 'reference TAB query TAB distance TAB p-value TAB shared/total' of the pairs whose p-value is at most maxPValue (-v) and distance at most maxDistance (-d); table = true (-t) writes the '#query' header and a row of distances per query (a pair that fails a filter leaves its field blank); individual = true (-i) sketches every sequence on its own, named by its id (sequences shorter than k are skipped). Numbers are printed as C++ cout does (6 significant digits). VERIFICATION: 220 / 220 random sets (1 - 4 references x 1 - 3 queries of 1 - 3 records, k 4 - 32, sketch size 5 - 2000, seeds, -n, -i, -t, -v, -d) equal the installed mash 2.3 byte for byte.")]
+    [Description("Mash 2.3 'mash dist': MinHash (bottom-s) sketches of the reference and query files (canonical k-mers, MurmurHash3, the sketch of Ondov et al. 2016: KmerAnalyzer.CreateMinHashSketch) and, for every query in order and every reference, the line 'reference TAB query TAB distance TAB p-value TAB shared/total' of the pairs whose p-value is at most maxPValue (-v) and distance at most maxDistance (-d); table = true (-t) writes the '#query' header and a row of distances per query (a pair that fails a filter leaves its field blank); individual = true (-i) sketches every sequence on its own, named by its id (sequences shorter than k are skipped). A file without a record of at least k symbols is refused as the program refuses it (exit status 1: 'All fasta records in input files were shorter than the k-mer size'). Numbers are printed as C++ cout does (6 significant digits). VERIFICATION: 220 / 220 random sets (1 - 4 references x 1 - 3 queries of 1 - 3 records, k 4 - 32, sketch size 5 - 2000, seeds, -n, -i, -t, -v, -d) equal the installed mash 2.3 byte for byte.")]
     public static MashTextResult MashDist(
         [Description("The reference files as FASTA texts (records start with '>': the first word of the header is the sequence id, the rest the comment).")] string[] references,
         [Description("The query files (FASTA texts).")] string[] queries,
@@ -84,12 +84,13 @@ public partial class AnalysisTools
         [Description("-i: sketch individual sequences instead of whole files.")] bool individual = false,
         [Description("-t: table output.")] bool table = false,
         [Description("-v: maximum p-value to report (0 - 1, default 1).")] double maxPValue = 1.0,
-        [Description("-d: maximum distance to report (0 - 1, default 1).")] double maxDistance = 1.0)
+        [Description("-d: maximum distance to report (0 - 1, default 1).")] double maxDistance = 1.0,
+        CancellationToken cancellationToken = default)
         => new(global::Seqeron.Genomics.Analysis.MashCommands.Dist(ToMashInputs(references, referenceNames, "reference", nameof(references)), ToMashInputs(queries, queryNames, "query", nameof(queries)), k, sketchSize, RequireMashSeed(seed),
-            !noncanonical, individual, table, maxPValue, maxDistance));
+            !noncanonical, individual, table, maxPValue, maxDistance, cancellationToken));
 
     [McpServerTool(Name = "mash_triangle", Title = "Mash — Lower-Triangular Distance Matrix (mash triangle)", ReadOnly = true)]
-    [Description("Mash 2.3 'mash triangle': the distance of each input to every other input as a lower-triangular matrix in relaxed Phylip format (a first line with a TAB and the number of inputs, then one line per input: its name and the distances to the inputs before it), or with edgeList = true (-E; implied by a p-value or distance filter) the edge list 'name TAB name TAB distance TAB p-value TAB shared/total' of the pairs that pass maxPValue (-v) and maxDistance (-d). Sketches as mash_dist. VERIFICATION: 220 / 220 random sets (2 - 6 files, k 4 - 32, sketch size 5 - 2000, -n, -i, -E, -v, -d) equal the installed mash 2.3 byte for byte.")]
+    [Description("Mash 2.3 'mash triangle': the distance of each input to every other input as a lower-triangular matrix in relaxed Phylip format (a first line with a TAB and the number of inputs, then one line per input: its name and the distances to the inputs before it), or with edgeList = true (-E; implied by a p-value or distance filter) the edge list 'name TAB name TAB distance TAB p-value TAB shared/total' of the pairs that pass maxPValue (-v) and maxDistance (-d). Sketches as mash_dist (a file without a record of at least k symbols is refused). VERIFICATION: 220 / 220 random sets (2 - 6 files, k 4 - 32, sketch size 5 - 2000, -n, -i, -E, -v, -d) equal the installed mash 2.3 byte for byte.")]
     public static MashTextResult MashTriangle(
         [Description("The input files (FASTA texts), at least two for a matrix.")] string[] sequences,
         [Description("Names of the inputs as the program prints them (default input1, ...).")] string[]? names = null,
@@ -100,6 +101,7 @@ public partial class AnalysisTools
         [Description("-i: sketch individual sequences instead of whole files.")] bool individual = false,
         [Description("-E: output the edge list instead of the matrix.")] bool edgeList = false,
         [Description("-v: maximum p-value to report in the edge list (0 - 1, default 1).")] double maxPValue = 1.0,
-        [Description("-d: maximum distance to report in the edge list (0 - 1, default 1).")] double maxDistance = 1.0)
-        => new(global::Seqeron.Genomics.Analysis.MashCommands.Triangle(ToMashInputs(sequences, names, "input", nameof(sequences)), k, sketchSize, RequireMashSeed(seed), !noncanonical, individual, edgeList, maxPValue, maxDistance));
+        [Description("-d: maximum distance to report in the edge list (0 - 1, default 1).")] double maxDistance = 1.0,
+        CancellationToken cancellationToken = default)
+        => new(global::Seqeron.Genomics.Analysis.MashCommands.Triangle(ToMashInputs(sequences, names, "input", nameof(sequences)), k, sketchSize, RequireMashSeed(seed), !noncanonical, individual, edgeList, maxPValue, maxDistance, cancellationToken));
 }

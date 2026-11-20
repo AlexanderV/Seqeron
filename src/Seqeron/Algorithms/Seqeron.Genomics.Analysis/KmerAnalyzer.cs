@@ -1536,11 +1536,13 @@ public static class KmerAnalyzer
     /// <param name="sketchSize">Sketch size s ≥ 1 (Mash default 1000).</param>
     /// <param name="canonical">True (default): canonical k-mers min(w, RC(w)); false: forward k-mers (<c>mash sketch -n</c>).</param>
     /// <param name="seed">MurmurHash3 seed (Mash default 42).</param>
+    /// <param name="cancellationToken">Polled every few thousand windows.</param>
     /// <returns>The sketch.</returns>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="k"/> outside 1..32 or <paramref name="sketchSize"/> &lt; 1.</exception>
     public static MinHashSketch CreateMinHashSketch(
-        string sequence, int k, int sketchSize = DefaultMashSketchSize, bool canonical = true, uint seed = DefaultMashSeed)
-        => CreateMinHashSketch([sequence ?? string.Empty], k, sketchSize, canonical, seed);
+        string sequence, int k, int sketchSize = DefaultMashSketchSize, bool canonical = true, uint seed = DefaultMashSeed,
+        CancellationToken cancellationToken = default)
+        => CreateMinHashSketch([sequence ?? string.Empty], k, sketchSize, canonical, seed, cancellationToken);
 
     /// <summary>
     /// Builds a bottom-s MinHash sketch of a set of records (e.g. the contigs of one FASTA file) exactly as
@@ -1569,47 +1571,141 @@ public static class KmerAnalyzer
     /// <exception cref="ArgumentNullException"><paramref name="records"/> is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="k"/> outside 1..32 or <paramref name="sketchSize"/> &lt; 1.</exception>
     public static MinHashSketch CreateMinHashSketch(
-        IEnumerable<string> records, int k, int sketchSize = DefaultMashSketchSize, bool canonical = true, uint seed = DefaultMashSeed)
+        IEnumerable<string> records, int k, int sketchSize = DefaultMashSketchSize, bool canonical = true, uint seed = DefaultMashSeed,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(records);
         if (!IsMashKmerSize(k))
             throw new ArgumentOutOfRangeException(nameof(k), k, $"K must be in 1..{MaxMashKmerSize} (mash sketch -k).");
         ArgumentOutOfRangeException.ThrowIfLessThan(sketchSize, 1);
 
+        // Mash's MinHashHeap: only the s smallest distinct hashes are ever held (B09 A6-1: no k-mer string, no table of all k-mers)
         bool use64 = MashUses64BitHash(k);
-        var options = SketchCountingOptions(canonical);
-        var kmers = new HashSet<string>(StringComparer.Ordinal);
+        var bottom = new BottomHashes(sketchSize);
         long length = 0;
         foreach (var record in records)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var seq = record ?? string.Empty;
             if (seq.Length < k)
                 continue;
             length += seq.Length;
-            kmers.UnionWith(CountKmers(seq, k, options).Keys);
-        }
-
-        var hashes = new ulong[kmers.Count];
-        Span<byte> buffer = stackalloc byte[MaxMashKmerSize];
-        int n = 0;
-        foreach (var kmer in kmers)
-        {
-            ulong h1 = KmerHashH1(kmer, buffer, seed);
-            hashes[n++] = use64 ? h1 : (uint)h1;
-        }
-
-        Array.Sort(hashes);
-        var bottom = new List<ulong>(Math.Min(sketchSize, hashes.Length));
-        foreach (var h in hashes)
-        {
-            if (bottom.Count == sketchSize)
-                break;
-            if (bottom.Count == 0 || bottom[^1] != h)
-                bottom.Add(h);
+            if (use64)
+                StreamKmerHashes(seq, k, canonical, seed, bottom.Add64, cancellationToken);
+            else
+                StreamKmerHashes(seq, k, canonical, seed, bottom.Add32, cancellationToken);
         }
 
         return new MinHashSketch(k, sketchSize, canonical, seed, use64, length, bottom.ToArray());
     }
+
+    /// <summary>The s smallest distinct hash values seen so far (a bounded sorted set; the threshold rejects almost every hash of a long sequence in O(1)).</summary>
+    private sealed class BottomHashes(int capacity)
+    {
+        private readonly SortedSet<ulong> _set = [];
+        private ulong _threshold = ulong.MaxValue;     // valid once the set is full: the largest kept hash
+
+        public void Add64(ulong h) => Add(h);
+
+        public void Add32(ulong h) => Add((uint)h);
+
+        private void Add(ulong h)
+        {
+            if (_set.Count >= capacity && h >= _threshold)
+                return;
+            if (!_set.Add(h))
+                return;
+            if (_set.Count > capacity)
+                _set.Remove(_set.Max);
+            if (_set.Count >= capacity)
+                _threshold = _set.Max;
+        }
+
+        public ulong[] ToArray() => [.. _set];
+    }
+
+    /// <summary>
+    /// Streams the k-mer hash (the first 64-bit word h1 of <see cref="MurmurHash3X64_128"/> over the k-mer's ASCII bytes) of every window of <paramref name="seq"/> that holds only A/C/G/T (case-insensitive) — the (canonical) k-mer
+    /// windows of <see cref="CountKmers(string, int, KmerCountingOptions, CancellationToken, IProgress{double}?)"/> — without building a string: for k ≤ 32 a rolling 2-bit
+    /// forward / reverse-complement pair (A, C, G, T = 0 .. 3, so the numeric minimum is the ordinal minimum of the two k-mers), for a larger k two byte buffers.
+    /// A k-mer occurring several times is passed several times (the sinks are set-like or counting).
+    /// </summary>
+    private static void StreamKmerHashes(string seq, int k, bool canonical, uint seed, Action<ulong> sink, CancellationToken cancellationToken)
+    {
+        const int PollEvery = 4096;
+        int n = seq.Length;
+        if (k > n)
+            return;
+
+        if (k <= MaxMashKmerSize)
+        {
+            ulong mask = k == 32 ? ulong.MaxValue : (1UL << (2 * k)) - 1;
+            int rcShift = 2 * (k - 1);
+            ulong fwd = 0, rc = 0;
+            int run = 0;
+            Span<byte> bytes = stackalloc byte[MaxMashKmerSize];
+            for (int i = 0; i < n; i++)
+            {
+                if ((i & (PollEvery - 1)) == 0)
+                    cancellationToken.ThrowIfCancellationRequested();
+                int code = AcgtCode(seq[i]);
+                if (code < 0)
+                {
+                    run = 0;
+                    continue;
+                }
+
+                fwd = ((fwd << 2) | (uint)code) & mask;
+                rc = (rc >> 2) | ((ulong)(3 - code) << rcShift);
+                if (++run < k)
+                    continue;
+                run = k;
+                ulong key = canonical && rc < fwd ? rc : fwd;
+                for (int j = k - 1; j >= 0; j--, key >>= 2)
+                    bytes[j] = (byte)"ACGT"[(int)(key & 3)];
+                sink(MurmurHash3X64_128(bytes[..k], seed).H1);
+            }
+
+            return;
+        }
+
+        var forward = new byte[k];
+        var reverse = new byte[k];
+        int valid = 0;
+        for (int i = 0; i < n; i++)
+        {
+            if ((i & (PollEvery - 1)) == 0)
+                cancellationToken.ThrowIfCancellationRequested();
+            if (AcgtCode(seq[i]) < 0)
+            {
+                valid = 0;
+                continue;
+            }
+
+            if (++valid < k)
+                continue;
+            valid = k;
+            int start = i - k + 1;
+            for (int j = 0; j < k; j++)
+            {
+                int code = AcgtCode(seq[start + j]);
+                forward[j] = (byte)"ACGT"[code];
+                reverse[k - 1 - j] = (byte)"TGCA"[code];
+            }
+
+            sink(MurmurHash3X64_128(canonical && reverse.AsSpan().SequenceCompareTo(forward) < 0 ? reverse : forward, seed).H1);
+        }
+    }
+
+    /// <summary>2-bit code of A / C / G / T in either case (what <c>ToUpperInvariant</c> leaves as A / C / G / T), -1 for every other symbol.</summary>
+    private static int AcgtCode(char c) => c switch
+    {
+        'A' or 'a' => 0,
+        'C' or 'c' => 1,
+        'G' or 'g' => 2,
+        'T' or 't' => 3,
+        _ => -1,
+    };
 
     /// <summary>
     /// Compares two MinHash sketches as <c>mash dist</c> 2.3 does (Mash <c>CommandDistance.cpp</c>
@@ -1700,24 +1796,7 @@ public static class KmerAnalyzer
     /// <summary>Mash <c>Sketch.cpp</c> <c>use64 = 4^k &gt; 2^32</c>, i.e. k &gt; 16: the 64-bit hash h1 is kept, else its low 32 bits.</summary>
     internal static bool MashUses64BitHash(int k) => k > 16;
 
-    /// <summary>
-    /// The k-mer set a sketch hashes: canonical k-mers min(w, RC(w)) (Mash default, sourmash DNA) or forward ACGT k-mers
-    /// (Mash <c>-n</c>); non-ACGT windows are skipped in both modes.
-    /// </summary>
-    private static KmerCountingOptions SketchCountingOptions(bool canonical)
-        => canonical ? new KmerCountingOptions(Canonical: true) : new KmerCountingOptions(AcgtOnly: true);
-
-    /// <summary>
-    /// The single k-mer hash of the Mash and FracMinHash sketches: the first 64-bit word h1 of
-    /// <see cref="MurmurHash3X64_128"/> over the k-mer's ASCII bytes (written into <paramref name="buffer"/>, length ≥ k).
-    /// </summary>
-    private static ulong KmerHashH1(string kmer, Span<byte> buffer, uint seed)
-    {
-        var bytes = buffer[..kmer.Length];
-        for (int i = 0; i < bytes.Length; i++)
-            bytes[i] = (byte)kmer[i];
-        return MurmurHash3X64_128(bytes, seed).H1;
-    }
+    // The k-mer hash of the Mash and FracMinHash sketches is the first 64-bit word h1 of MurmurHash3X64_128 over the k-mer's ASCII bytes (StreamKmerHashes).
 
     /// <summary>Both sketch comparisons refuse sketches of different k, seed or canonical mode (Mash, sourmash).</summary>
     private static void ThrowIfSketchParametersDiffer(bool differ, string paramName)
@@ -1909,25 +1988,24 @@ public static class KmerAnalyzer
     /// <param name="canonical">True (default, sourmash): canonical k-mers; false: forward k-mers.</param>
     /// <param name="seed">MurmurHash3 seed (sourmash default 42).</param>
     /// <param name="trackAbundance">True: also record the abundance of each kept hash (sourmash <c>track_abundance</c>).</param>
+    /// <param name="cancellationToken">Polled every few thousand windows.</param>
     /// <returns>The sketch.</returns>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="k"/> is less than 1, or <paramref name="scaled"/> is outside
     /// 1..4294967295.</exception>
     public static FracMinHashSketch CreateFracMinHashSketch(
-        string sequence, int k, long scaled, bool canonical = true, uint seed = DefaultSourmashSeed, bool trackAbundance = false)
+        string sequence, int k, long scaled, bool canonical = true, uint seed = DefaultSourmashSeed, bool trackAbundance = false,
+        CancellationToken cancellationToken = default)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(k, 1);
         ulong maxHash = FracMinHashMaxHash(scaled);
-        var counts = CountKmers(sequence ?? string.Empty, k, SketchCountingOptions(canonical));
 
+        // only the retained hashes are stored (B09 A6-1: no k-mer string, no table of all k-mers); a k above the sequence length streams nothing and allocates no buffer
         var kept = new Dictionary<ulong, long>();
-        // a k above the sequence length has no k-mer: no scratch buffer (new byte[int.MaxValue] was an OutOfMemoryException, B09 audit A5-2)
-        var buffer = counts.Count == 0 ? Array.Empty<byte>() : new byte[k];
-        foreach (var (kmer, count) in counts)
+        StreamKmerHashes(sequence ?? string.Empty, k, canonical, seed, h =>
         {
-            ulong h = KmerHashH1(kmer, buffer, seed);
-            if (h <= maxHash && !kept.TryAdd(h, count))
-                kept[h] += count;
-        }
+            if (h <= maxHash && !kept.TryAdd(h, 1))
+                kept[h]++;
+        }, cancellationToken);
 
         var hashes = kept.Keys.ToArray();
         Array.Sort(hashes);

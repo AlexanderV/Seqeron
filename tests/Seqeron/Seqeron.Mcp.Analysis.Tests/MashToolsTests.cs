@@ -31,4 +31,27 @@ public class MashToolsTests
         Assert.Throws<ArgumentException>(() => AnalysisTools.MashDist([], [G2]));
         Assert.Throws<ArgumentOutOfRangeException>(() => AnalysisTools.MashTriangle([G1, G2], seed: -1));
     }
+
+    [Test]
+    public void MashDist_And_Triangle_RefuseAFileWhoseRecordsAreAllShorterThanK_LikeTheProgram()
+    {
+        // A6-6: `mash dist -k 11 -s 100 g.fa short.fa` -> "WARNING: All fasta records in input files were shorter than the k-mer size (11).", exit status 1; -i skips the record instead
+        const string Short = ">s\nACG\n";
+        var ex = Assert.Throws<ArgumentException>(() => AnalysisTools.MashDist([G1], [Short], k: 11, sketchSize: 100))!;
+        Assert.That(ex.Message, Does.StartWith("WARNING: All fasta records in input files were shorter than the k-mer size (11)."));
+        Assert.That(ex.ParamName, Is.EqualTo("queries"));
+        Assert.That(Assert.Throws<ArgumentException>(() => AnalysisTools.MashDist([Short], [G1], k: 11, sketchSize: 100))!.ParamName, Is.EqualTo("references"));
+        Assert.That(Assert.Throws<ArgumentException>(() => AnalysisTools.MashTriangle([G1, Short], k: 11, sketchSize: 100))!.Message, Does.StartWith("WARNING: All fasta records in input files were shorter than the k-mer size (11)."));
+        Assert.That(AnalysisTools.MashDist([G1], [Short], k: 11, sketchSize: 100, individual: true).Text, Is.Empty);
+        Assert.That(AnalysisTools.MashTriangle([G1, Short], k: 11, sketchSize: 100, individual: true).Text, Is.EqualTo("\t1\ng1\n"));
+    }
+
+    [Test]
+    public void MashDist_And_Triangle_TakeACancellationToken()
+    {
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        Assert.Throws<OperationCanceledException>(() => AnalysisTools.MashDist([G1], [G2], k: 9, sketchSize: 20, cancellationToken: cts.Token));
+        Assert.Throws<OperationCanceledException>(() => AnalysisTools.MashTriangle([G1, G2], k: 9, sketchSize: 20, cancellationToken: cts.Token));
+    }
 }

@@ -84,23 +84,52 @@ public static class MashCommands
 
     private sealed record Named(string Name, MinHashSketch Sketch);
 
-    private static List<Named> Sketches(IReadOnlyList<MashInput> inputs, int k, int sketchSize, uint seed, bool canonical, bool individual)
+    /// <summary>
+    /// The sketches of the inputs, as <c>Sketch.cpp</c> <c>sketchFile</c> / <c>sketchFileOrSequence</c> make them: one per file (all its records of at least k symbols together) or, with <paramref name="individual"/>, one per record of at least k symbols.
+    /// A file without such a record stops the program (exit status 1: "WARNING: All fasta records in input files were shorter than the k-mer size (k)." when records were skipped, else "ERROR: Did not find fasta records in "input files"." - the
+    /// program prints the words "input files", not the file name); here it is an <see cref="ArgumentException"/> with that text.
+    /// </summary>
+    private static List<Named> Sketches(IReadOnlyList<MashInput> inputs, string paramName, int k, int sketchSize, uint seed, bool canonical, bool individual, CancellationToken cancellationToken)
     {
         var list = new List<Named>();
-        foreach (var input in inputs)
+        for (int index = 0; index < inputs.Count; index++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            var input = inputs[index] ?? throw new ArgumentNullException(paramName, $"Input {index} is null.");
+            if (input.Name is null)
+                throw new ArgumentException($"Input {index} has no Name.", paramName);
+            if (input.Records is null)
+                throw new ArgumentException($"Input {index} ('{input.Name}') has no Records list.", paramName);
+            for (int r = 0; r < input.Records.Count; r++)
+            {
+                if (input.Records[r].Sequence is null)
+                    throw new ArgumentException($"Record {r} of input {index} ('{input.Name}') has no Sequence.", paramName);
+                if (individual && input.Records[r].Id is null)
+                    throw new ArgumentException($"Record {r} of input {index} ('{input.Name}') has no Id (the name of its sketch with -i).", paramName);
+            }
+
             if (individual)
             {
                 foreach (var r in input.Records.Where(r => r.Sequence.Length >= k))              // Sketch.cpp: a sequence shorter than k is not sketched
-                    list.Add(new Named(r.Id, KmerAnalyzer.CreateMinHashSketch(r.Sequence, k, sketchSize, canonical, seed)));
+                    list.Add(new Named(r.Id, KmerAnalyzer.CreateMinHashSketch(r.Sequence, k, sketchSize, canonical, seed, cancellationToken)));
+                continue;
             }
-            else
-            {
-                list.Add(new Named(input.Name, KmerAnalyzer.CreateMinHashSketch(input.Records.Select(r => r.Sequence), k, sketchSize, canonical, seed)));
-            }
+
+            if (!input.Records.Any(r => r.Sequence.Length >= k))
+                throw new ArgumentException(input.Records.Count > 0
+                    ? $"WARNING: All fasta records in input files were shorter than the k-mer size ({k})."
+                    : "ERROR: Did not find fasta records in \"input files\".", paramName);
+            list.Add(new Named(input.Name, KmerAnalyzer.CreateMinHashSketch(input.Records.Select(r => r.Sequence), k, sketchSize, canonical, seed, cancellationToken)));
         }
 
         return list;
+    }
+
+    private static void RequireSketchParameters(int k, int sketchSize)
+    {
+        if (!KmerAnalyzer.IsMashKmerSize(k))
+            throw new ArgumentOutOfRangeException(nameof(k), k, $"K must be in 1..{KmerAnalyzer.MaxMashKmerSize} (mash -k).");
+        ArgumentOutOfRangeException.ThrowIfLessThan(sketchSize, 1);
     }
 
     private static bool Passes(MashComparison c, double maxPValue, double maxDistance) => c.Distance <= maxDistance && c.PValue <= maxPValue;
@@ -119,15 +148,20 @@ public static class MashCommands
     /// <param name="table"><c>-t</c>: table output.</param>
     /// <param name="maxPValue"><c>-v</c> (0 - 1).</param>
     /// <param name="maxDistance"><c>-d</c> (0 - 1).</param>
+    /// <param name="cancellationToken">Polled per input, per sketched window block and per compared pair.</param>
+    /// <exception cref="ArgumentException">A file without a record of at least k symbols (the program's exit status 1 with "WARNING: All fasta records in input files were shorter than the k-mer size (k)." or "ERROR: Did not find fasta records in &quot;input files&quot;."), a null input / record field, or no reference sequence at all with <paramref name="individual"/>.</exception>
     public static string Dist(IReadOnlyList<MashInput> references, IReadOnlyList<MashInput> queries, int k = 21, int sketchSize = KmerAnalyzer.DefaultMashSketchSize, uint seed = KmerAnalyzer.DefaultMashSeed,
-        bool canonical = true, bool individual = false, bool table = false, double maxPValue = 1.0, double maxDistance = 1.0)
+        bool canonical = true, bool individual = false, bool table = false, double maxPValue = 1.0, double maxDistance = 1.0, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(references);
         ArgumentNullException.ThrowIfNull(queries);
         RequireFraction(maxPValue, nameof(maxPValue), "-v");
         RequireFraction(maxDistance, nameof(maxDistance), "-d");
-        var refs = Sketches(references, k, sketchSize, seed, canonical, individual);
-        var qs = Sketches(queries, k, sketchSize, seed, canonical, individual);
+        RequireSketchParameters(k, sketchSize);
+        var refs = Sketches(references, nameof(references), k, sketchSize, seed, canonical, individual, cancellationToken);
+        var qs = Sketches(queries, nameof(queries), k, sketchSize, seed, canonical, individual, cancellationToken);
+        if (refs.Count == 0)                                                                       // mash dist -i with no reference sequence of k symbols: division by zero in the program (SIGFPE)
+            throw new ArgumentException($"No reference sequence is at least k = {k} symbols long (mash dist -i has nothing to compare with and crashes).", nameof(references));
         var sb = new StringBuilder();
         if (table)
         {
@@ -139,10 +173,12 @@ public static class MashCommands
 
         foreach (var q in qs)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (table)
                 sb.Append(q.Name);
             foreach (var r in refs)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 var c = KmerAnalyzer.CompareMinHashSketches(r.Sketch, q.Sketch);
                 bool pass = Passes(c, maxPValue, maxDistance);
                 if (table)
@@ -168,23 +204,31 @@ public static class MashCommands
     /// <c>mash triangle [-E] [-v P] [-d D] [-i] sequence...</c>: the lower-triangular distance matrix in relaxed Phylip format (the number of sequences, then one row per sequence: its name and the distances to the sequences before it), or with
     /// <paramref name="edgeList"/> (implied by a p-value or distance filter in the program) the edge list <c>name TAB name TAB distance TAB p-value TAB shared/total</c> of the pairs that pass the filters.
     /// </summary>
+    /// <param name="inputs">The input files.</param>
+    /// <param name="cancellationToken">Polled per input, per sketched window block and per compared pair.</param>
+    /// <exception cref="ArgumentException">As <see cref="Dist"/>.</exception>
     public static string Triangle(IReadOnlyList<MashInput> inputs, int k = 21, int sketchSize = KmerAnalyzer.DefaultMashSketchSize, uint seed = KmerAnalyzer.DefaultMashSeed,
-        bool canonical = true, bool individual = false, bool edgeList = false, double maxPValue = 1.0, double maxDistance = 1.0)
+        bool canonical = true, bool individual = false, bool edgeList = false, double maxPValue = 1.0, double maxDistance = 1.0, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(inputs);
         RequireFraction(maxPValue, nameof(maxPValue), "-v");
         RequireFraction(maxDistance, nameof(maxDistance), "-d");
+        RequireSketchParameters(k, sketchSize);
         edgeList |= maxPValue < 1.0 || maxDistance < 1.0;
-        var sketches = Sketches(inputs, k, sketchSize, seed, canonical, individual);
+        var sketches = Sketches(inputs, nameof(inputs), k, sketchSize, seed, canonical, individual, cancellationToken);
+        if (sketches.Count == 0 && !edgeList)                                                      // mash triangle -i of sequences all shorter than k: the matrix writer aborts (std::out_of_range)
+            throw new ArgumentException($"No sequence is at least k = {k} symbols long (mash triangle -i aborts on an empty matrix).", nameof(inputs));
         var sb = new StringBuilder();
         if (!edgeList)
             sb.Append('\t').Append(sketches.Count).Append('\n');
         for (int index = 0; index < sketches.Count; index++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (!edgeList)
                 sb.Append(sketches[index].Name);
             for (int i = 0; i < index; i++)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 var c = KmerAnalyzer.CompareMinHashSketches(sketches[i].Sketch, sketches[index].Sketch);
                 if (edgeList)
                 {

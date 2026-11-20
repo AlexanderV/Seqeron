@@ -3,7 +3,9 @@
 
 JSON lines: {"cmd": "bounds|dist|triangle", "k", "s", "seed", "noncanonical", "individual", "table", "edge", "v", "d",
              "refs": [{"name", "records": [{"id", "comment", "seq"}]}], "queries": [...], "expected": "<stdout>"}
-(bounds: only "k" and "p".) The files are written under the names a1.fa, a2.fa, ... so that the names the program prints are those of the inputs; dist references are sketched first with the same -k -s -S -n -i
+(bounds: only "k" and "p".)
+Group "error" (audit A6-6, written LAST so the rows above are unchanged for the committed seed): {"cmd": "error", "sub": "dist|triangle", options as above, "refs", "queries", "status": <exit status or -signal>, "message": "<the WARNING / ERROR line of stderr>"} -
+runs of `mash dist` / `mash triangle` on FASTA files (no sketch file) where an input file has no record of at least k symbols (status 1, or a crash: SIGFPE / SIGABRT with -i), which the generator used to drop (`if r.returncode: continue`). The files are written under the names a1.fa, a2.fa, ... so that the names the program prints are those of the inputs; dist references are sketched first with the same -k -s -S -n -i
 (`mash sketch -o refs.msh`: the reference file of `mash dist` is one sketch file or one FASTA file).
 Families of related genomes (0.5 - 25 % substitutions / indels), unrelated ones, several records per file, k 4 - 32, sketch sizes 5 - 2000 (smaller and larger than the genome).
 Usage: python3 scripts/alignment/generate_mash_commands_oracle.py [per_command=220] > mash_commands_oracle.jsonl      (needs mash 2.3 on PATH)
@@ -104,5 +106,44 @@ def main():
                 print(json.dumps(dict(o, cmd=cmd, refs=refs, queries=qs, expected=r.stdout)))
 
 
+def error_rows(per):
+    """Runs the program refuses (A6-6): every non-zero status is KEPT with its message."""
+    made = 0
+    while made < per:
+        sub = 'dist' if made % 2 == 0 else 'triangle'
+        o = rand_opts()
+        o['individual'] = rnd.random() < 0.25
+        k = o['k']
+        def bad_file(name):
+            if rnd.random() < 0.3:
+                return {'name': name, 'records': []}                                     # an empty file: "Did not find fasta records"
+            return {'name': name, 'records': [{'id': 'short%d' % j, 'comment': rnd.choice(['', 'tiny']), 'seq': rseq(rnd.randint(1, k - 1))} for j in range(rnd.randint(1, 3))]}
+        if k == 1:
+            continue
+        if sub == 'dist':
+            refs = make_files(1, 'r'); qs = make_files(rnd.randint(1, 2), 'q')
+            o['table'] = rnd.random() < 0.3
+            if rnd.random() < 0.5: refs[0] = bad_file('r1.fa')
+            else: qs[rnd.randrange(len(qs))] = bad_file(qs[0]['name'] if len(qs) == 1 else 'q%d.fa' % (1 + rnd.randrange(len(qs))))
+            qs = [dict(q, name='q%d.fa' % (i + 1)) for i, q in enumerate(qs)]
+        else:
+            refs = make_files(rnd.randint(2, 4), 'a'); qs = []
+            o['edge'] = rnd.random() < 0.3
+            i = rnd.randrange(len(refs)); refs[i] = bad_file(refs[i]['name'])
+        with tempfile.TemporaryDirectory() as d:
+            write(d, refs); write(d, qs)
+            if sub == 'dist':
+                args = ['dist'] + (['-t'] if o['table'] else []) + common(o) + (['-i'] if o['individual'] else []) + [refs[0]['name']] + [f['name'] for f in qs]
+            else:
+                args = ['triangle'] + common(o) + (['-E'] if o['edge'] else []) + (['-i'] if o['individual'] else []) + [f['name'] for f in refs]
+            r = mash(d, args)
+        if r.returncode == 0:
+            continue                                                                       # -i drops the short records: no error (the main groups cover it)
+        lines = [l for l in r.stderr.splitlines() if l.startswith(('WARNING', 'ERROR'))]
+        made += 1
+        print(json.dumps(dict(o, cmd='error', sub=sub, refs=refs, queries=qs, status=r.returncode, message=lines[0] if lines else '')))
+
+
 if __name__ == '__main__':
     main()
+    error_rows(int(sys.argv[2]) if len(sys.argv) > 2 else 80)
