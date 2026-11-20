@@ -593,24 +593,44 @@ public class SequenceAligner_MuscleOptions_Tests
         Assert.That(failures, Is.Empty);
     }
 
+    /// <summary>
+    /// MUSCLE 3.8.1551 <c>-maxiters 2</c> versus <c>-maxiters 8</c> on 12 random protein families (C# <c>Random(5)</c>: five sequences of 30-49 residues, four mutated copies of the first), recorded from the
+    /// installed <c>muscle3</c> (TestData/Alignment/muscle3_iterations_oracle.tsv, scripts/alignment/generate_muscle3_iterations_oracle.py): the port gives the program's rows in BOTH settings on every family, and the
+    /// iterations 3 ... 8 change the alignment of iteration 2 on exactly the families 2, 5, 6, 8 and 9 (the program's own outcome), not on "some".
+    /// </summary>
     [Test]
-    public void Iterations3AndAbove_ChangeSomeAlignmentsOfIteration2_AndNucleotidesAreSupported()
+    public void Iterations3AndAbove_ChangeTheAlignmentOfIteration2_OnExactlyTheFamiliesTheProgramChanges_AndNucleotidesAreSupported()
     {
-        int changed = 0;
-        var rnd = new Random(5);
-        for (int trial = 0; trial < 12; trial++)
+        const string name = "Seqeron.Genomics.Tests.TestData.Alignment.muscle3_iterations_oracle.tsv";
+        using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(name) ?? throw new InvalidOperationException($"Embedded oracle '{name}' not found.");
+        using var reader = new StreamReader(stream);
+        reader.ReadLine();
+        var changed = new List<int>();
+        var failures = new List<string>();
+        int trials = 0;
+        string? line;
+        while ((line = reader.ReadLine()) is not null)
         {
-            var seqs = Enumerable.Range(0, 5).Select(_ => new string(Enumerable.Range(0, 30 + rnd.Next(20)).Select(_ => "ACDEFGHIKLMNPQRSTVWY"[rnd.Next(20)]).ToArray())).ToArray();
-            var baseSeq = seqs[0];
-            seqs = seqs.Select((s, i) => i == 0 ? s : Mutate(baseSeq, rnd)).ToArray();
+            if (line.Length == 0)
+                continue;
+            var f = line.Split('\t');
+            int trial = int.Parse(f[0], System.Globalization.CultureInfo.InvariantCulture);
+            var seqs = f[1].Split('|');
             var r2 = Align(seqs, new MuscleOptions { SequenceType = MuscleSequenceType.Protein, MaxIterations = 2 });
             var r8 = Align(seqs, new MuscleOptions { SequenceType = MuscleSequenceType.Protein, MaxIterations = 8 });
             AssertValidAlignment(seqs, r8, $"trial {trial}");
+            if (!r2.SequenceEqual(f[2].Split(';')))
+                failures.Add($"trial {trial} -maxiters 2");
+            if (!r8.SequenceEqual(f[3].Split(';')))
+                failures.Add($"trial {trial} -maxiters 8");
             if (!r2.SequenceEqual(r8))
-                changed++;
+                changed.Add(trial);
+            trials++;
         }
 
-        Assert.That(changed, Is.GreaterThan(0));
+        Assert.That(trials, Is.EqualTo(12));
+        Assert.That(failures, Is.Empty);
+        Assert.That(changed, Is.EqualTo(new[] { 2, 5, 6, 8, 9 }));
         AssertValidAlignment(Dna, Align(Dna, new MuscleOptions { SequenceType = MuscleSequenceType.Dna, MaxIterations = 6 }), "dna");
     }
 

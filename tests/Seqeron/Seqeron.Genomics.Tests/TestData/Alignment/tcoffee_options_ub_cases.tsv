@@ -1,0 +1,625 @@
+# Rows of tcoffee_program_options_oracle.tsv (1-based data rows, all features in file order) on which the t_coffee 13.41 program is in undefined behaviour, with what the port does there; see SequenceAligner_TCoffeeOptions_Tests (audit A3-14a, B09 F143). Regenerate: SEQERON_TCOFFEE_UB_CASES_OUT=<file> dotnet test --filter SequenceAligner_TCoffeeOptions_Tests (the observed lines are appended to <file>).
+feature	row	category	detail
+simidscore	6567	idscore_heap_value_diff	port returns other rows
+dp_extend	12842	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12843	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12844	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12845	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12846	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12848	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12849	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12850	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12851	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12852	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12853	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12854	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12855	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12856	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12857	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12858	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12859	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12860	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12861	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12862	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12863	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12864	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12865	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12866	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12867	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12868	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12869	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12870	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12871	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12872	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12873	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12874	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12875	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12876	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12877	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12879	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12880	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12881	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12882	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12883	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12884	relative_triplet_ub	NotSupportedException
+dp_extend	12885	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12886	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12887	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12888	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12889	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12890	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12891	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12892	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12893	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12894	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12895	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12896	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12897	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12898	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12899	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12900	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12901	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12902	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12903	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12904	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12905	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12906	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12907	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12908	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12909	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12910	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12911	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12912	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12913	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12914	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12915	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12916	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12917	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12918	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12919	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12920	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12921	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12922	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12923	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12924	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12925	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12926	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12927	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12928	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12930	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	12931	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13012	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13013	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13014	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13015	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13016	relative_triplet_ub	NotSupportedException
+dp_extend	13017	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13018	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13019	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13020	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13021	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13022	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13023	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13024	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13025	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13026	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13027	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13028	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13029	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13030	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13031	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13032	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13033	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13034	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13035	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13036	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13037	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13038	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13039	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13040	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13042	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13043	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13044	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13045	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13046	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13047	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13048	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13049	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13050	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13051	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13052	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13053	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13054	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13055	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13056	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13057	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13058	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13059	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13060	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13061	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13062	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13063	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13064	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13065	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13066	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13067	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13068	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13069	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13070	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13071	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13072	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13073	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13074	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13075	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13076	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13077	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13078	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13079	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13080	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13081	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13082	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13083	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13084	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13085	relative_triplet_ub	NotSupportedException
+dp_extend	13086	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13087	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13088	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13089	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13090	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13091	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13093	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13094	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13095	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13096	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13097	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13098	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13099	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13100	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_extend	13101	relative_triplet_ub	NotSupportedException (the program ran through)
+dp_other	13918	gotoh_row_overflow_abort	columns=24
+dp_other	13964	gotoh_row_overflow_last_column	the program's rows lack the last column
+dp_other	14014	gotoh_row_overflow_abort	columns=24
+dp_other	14034	gotoh_row_overflow_abort	columns=24
+dp_other	14086	gotoh_row_overflow_abort	columns=42
+dp_other	14339	gotoh_row_overflow_abort	columns=24
+dp_sw	16039	sw_uninitialised_write_abort	port returns 6 rows of 25 columns
+dp_sw	16047	sw_uninitialised_write_abort	port returns 4 rows of 24 columns
+dp_sw	16099	sw_uninitialised_write_abort	port returns 4 rows of 24 columns
+dp_sw	16126	sw_uninitialised_write_abort	port returns 4 rows of 24 columns
+dp_sw	16246	sw_uninitialised_write_abort	port returns 2 rows of 12 columns
+dp_sw	16255	sw_uninitialised_write_abort	port returns 5 rows of 17 columns
+dp_sw	16260	sw_uninitialised_write_abort	port returns 4 rows of 11 columns
+dp_sw	16261	sw_uninitialised_write_abort	port returns 3 rows of 7 columns
+dp_sw	16263	sw_uninitialised_write_abort	port returns 2 rows of 10 columns
+dp_sw	16268	sw_uninitialised_write_abort	port returns 8 rows of 4 columns
+dp_sw	16285	sw_uninitialised_write_abort	port returns 5 rows of 18 columns
+dp_sw	16288	sw_uninitialised_write_abort	port returns 5 rows of 11 columns
+dp_sw	16294	sw_uninitialised_write_abort	port returns 8 rows of 25 columns
+dp_sw	16302	sw_uninitialised_write_abort	port returns 4 rows of 6 columns
+dp_sw	16309	sw_uninitialised_write_abort	port returns 8 rows of 16 columns
+dp_sw	16310	sw_uninitialised_write_abort	port returns 5 rows of 9 columns
+dp_sw	16312	sw_uninitialised_write_abort	port returns 3 rows of 6 columns
+dp_sw	16316	sw_uninitialised_write_abort	port returns 8 rows of 4 columns
+dp_sw	16330	sw_uninitialised_write_abort	port returns 4 rows of 3 columns
+dp_sw	16334	sw_uninitialised_write_abort	port returns 4 rows of 4 columns
+dp_sw	16342	sw_uninitialised_write_abort	port returns 3 rows of 12 columns
+dp_sw	16344	sw_uninitialised_write_abort	port returns 3 rows of 4 columns
+dp_sw	16345	sw_uninitialised_write_abort	port returns 7 rows of 17 columns
+dp_sw	16364	sw_uninitialised_write_abort	port returns 5 rows of 9 columns
+dp_sw	16383	sw_uninitialised_write_abort	port returns 8 rows of 16 columns
+dp_sw	16385	sw_uninitialised_write_abort	port returns 8 rows of 8 columns
+dp_sw	16387	sw_uninitialised_write_abort	port returns 7 rows of 10 columns
+dp_sw	16401	sw_uninitialised_write_abort	port returns 4 rows of 20 columns
+dp_sw	16407	sw_uninitialised_write_abort	port returns 3 rows of 18 columns
+dp_sw	16408	sw_uninitialised_write_abort	port returns 5 rows of 4 columns
+dp_sw	16412	sw_uninitialised_write_abort	port returns 5 rows of 24 columns
+dp_sw	16413	sw_uninitialised_write_abort	port returns 4 rows of 27 columns
+dp_sw	16414	sw_uninitialised_write_abort	port returns 2 rows of 5 columns
+dp_sw	16418	sw_uninitialised_write_abort	port returns 7 rows of 5 columns
+dp_sw	16420	sw_uninitialised_write_abort	port returns 3 rows of 21 columns
+dp_sw	16427	sw_uninitialised_write_abort	port returns 2 rows of 21 columns
+dp_sw	16431	sw_uninitialised_write_abort	port returns 5 rows of 17 columns
+dp_sw	16436	sw_uninitialised_write_abort	port returns 8 rows of 25 columns
+dp_sw	16437	sw_uninitialised_write_abort	port returns 5 rows of 7 columns
+dp_sw	16439	sw_uninitialised_write_abort	port returns 2 rows of 23 columns
+dp_sw	16441	sw_uninitialised_write_abort	port returns 6 rows of 10 columns
+dp_sw	16442	sw_uninitialised_write_diff	port rows differ
+dp_sw	16443	sw_uninitialised_write_abort	port returns 4 rows of 13 columns
+dp_sw	16452	sw_uninitialised_write_abort	port returns 4 rows of 14 columns
+dp_sw	16454	sw_uninitialised_write_abort	port returns 6 rows of 8 columns
+dp_sw	16480	sw_uninitialised_write_abort	port returns 5 rows of 13 columns
+dp_sw	16481	sw_uninitialised_write_abort	port returns 4 rows of 7 columns
+dp_sw	16485	sw_uninitialised_write_abort	port returns 4 rows of 8 columns
+dp_sw	16487	sw_uninitialised_write_abort	port returns 4 rows of 4 columns
+dp_sw	16489	sw_uninitialised_write_abort	port returns 3 rows of 22 columns
+dp_gotoh	10781	gotoh_row_overflow_abort	columns=24
+dp_gotoh	10867	gotoh_row_overflow_abort	columns=24
+dp_lgp	15449	gotoh_row_overflow_abort	columns=24
+dp_lgp	15495	gotoh_row_overflow_abort	columns=26
+dp_lgp	15820	gotoh_row_overflow_last_column	the program's rows lack the last column
+dp_extend3	19189	gotoh_row_overflow_abort	columns=24
+dp_extend3	19219	gotoh_row_overflow_abort	columns=24
+dp_extend3	19629	gotoh_row_overflow_abort	columns=24
+dp_viterbi	19110	gotoh_row_overflow_abort	columns=29
+dp_quad	19921	gotoh_row_overflow_abort	columns=9
+dp_extend2	17642	gotoh_row_overflow_abort	columns=24
+dp_extend2	17738	gotoh_row_overflow_abort	columns=24
+dp_extend2	17990	gotoh_row_overflow_abort	columns=25
+dp_extend2	17996	gotoh_row_overflow_abort	columns=24
+dp_extend2	18000	gotoh_row_overflow_abort	columns=28
+dp_extend2	18252	gotoh_row_overflow_abort	columns=25
+dp_test	17082	test_pair_row_overflow_abort	excess=43
+dp_test	17083	test_pair_row_overflow_abort	excess=53
+dp_test	17084	test_pair_row_overflow_abort	excess=84
+dp_test	17085	test_pair_row_overflow_abort	excess=73
+dp_test	17086	test_pair_row_overflow_abort	excess=44
+dp_test	17087	test_pair_null_allocation_abort	port aborts
+dp_test	17088	test_pair_row_overflow_abort	excess=8
+dp_test	17089	test_pair_row_overflow_abort	excess=7
+dp_test	17090	test_pair_row_overflow_abort	excess=16
+dp_test	17091	test_pair_row_overflow_abort	excess=24
+dp_test	17092	test_pair_row_overflow_abort	excess=16
+dp_test	17093	test_pair_null_allocation_abort	port aborts
+dp_test	17094	test_pair_row_overflow_abort	excess=44
+dp_test	17096	test_pair_row_overflow_abort	excess=92
+dp_test	17097	test_pair_row_overflow_abort	excess=10
+dp_test	17098	test_pair_row_overflow_abort	excess=4
+dp_test	17099	test_pair_null_allocation_abort	port aborts
+dp_test	17100	test_pair_row_overflow_abort	excess=16
+dp_test	17101	test_pair_null_allocation_abort	port aborts
+dp_test	17102	test_pair_row_overflow_abort	excess=13
+dp_test	17103	test_pair_null_allocation_abort	port aborts
+dp_test	17104	test_pair_null_allocation_abort	port aborts
+dp_test	17105	test_pair_null_allocation_abort	port aborts
+dp_test	17106	test_pair_row_overflow_abort	excess=63
+dp_test	17107	test_pair_row_overflow_abort	excess=66
+dp_test	17108	test_pair_row_overflow_abort	excess=41
+dp_test	17109	test_pair_row_overflow_abort	excess=133
+dp_test	17110	test_pair_row_overflow_abort	excess=53
+dp_test	17111	test_pair_row_overflow_abort	excess=52
+dp_test	17112	test_pair_null_allocation_abort	port aborts
+dp_test	17113	test_pair_row_overflow_abort	excess=35
+dp_test	17114	test_pair_row_overflow_abort	excess=28
+dp_test	17115	test_pair_row_overflow_abort	excess=81
+dp_test	17116	test_pair_row_overflow_abort	excess=67
+dp_test	17117	test_pair_row_overflow_abort	excess=19
+dp_test	17118	test_pair_null_allocation_abort	port aborts
+dp_test	17119	test_pair_row_overflow_abort	excess=29
+dp_test	17120	test_pair_row_overflow_abort	excess=43
+dp_test	17121	test_pair_row_overflow_abort	excess=56
+dp_test	17122	test_pair_row_overflow_abort	excess=26
+dp_test	17123	test_pair_row_overflow_abort	excess=69
+dp_test	17124	test_pair_null_allocation_abort	port aborts
+dp_test	17125	test_pair_row_overflow_abort	excess=55
+dp_test	17126	test_pair_row_overflow_abort	excess=84
+dp_test	17127	test_pair_null_allocation_abort	port aborts
+dp_test	17128	test_pair_row_overflow_abort	excess=36
+dp_test	17129	test_pair_row_overflow_abort	excess=75
+dp_test	17130	test_pair_row_overflow_abort	excess=76
+dp_test	17131	test_pair_null_allocation_abort	port aborts
+dp_test	17132	test_pair_row_overflow_diff	excess=2
+dp_test	17133	test_pair_null_allocation_abort	port aborts
+dp_test	17134	test_pair_row_overflow_abort	excess=2
+dp_test	17135	test_pair_row_overflow_abort	excess=109
+dp_test	17136	test_pair_row_overflow_abort	excess=8
+dp_test	17137	test_pair_row_overflow_diff	excess=31
+dp_test	17138	test_pair_row_overflow_abort	excess=94
+dp_test	17139	test_pair_row_overflow_abort	excess=5
+dp_test	17140	test_pair_row_overflow_abort	excess=57
+dp_test	17141	test_pair_row_overflow_diff	excess=2
+dp_test	17142	test_pair_row_overflow_abort	excess=19
+dp_test	17143	test_pair_row_overflow_abort	excess=10
+dp_test	17144	test_pair_row_overflow_abort	excess=20
+dp_test	17145	test_pair_row_overflow_abort	excess=45
+dp_test	17146	test_pair_row_overflow_diff	excess=14
+dp_test	17147	test_pair_row_overflow_abort	excess=22
+dp_test	17148	test_pair_row_overflow_diff	excess=2
+dp_test	17149	test_pair_row_overflow_abort	excess=28
+dp_test	17150	test_pair_row_overflow_abort	excess=80
+dp_test	17151	test_pair_row_overflow_abort	excess=122
+dp_test	17152	test_pair_row_overflow_abort	excess=109
+dp_test	17153	test_pair_null_allocation_abort	port aborts
+dp_test	17154	test_pair_row_overflow_abort	excess=114
+dp_test	17155	test_pair_row_overflow_abort	excess=67
+dp_test	17156	test_pair_row_overflow_abort	excess=49
+dp_test	17157	test_pair_row_overflow_abort	excess=47
+dp_test	17158	test_pair_row_overflow_abort	excess=10
+dp_test	17159	test_pair_null_allocation_abort	port aborts
+dp_test	17160	test_pair_null_allocation_abort	port aborts
+dp_test	17161	test_pair_row_overflow_abort	excess=92
+dp_test	17162	test_pair_row_overflow_abort	excess=29
+dp_test	17163	test_pair_row_overflow_abort	excess=36
+dp_test	17164	test_pair_row_overflow_abort	excess=127
+dp_test	17165	test_pair_row_overflow_abort	excess=38
+dp_test	17166	test_pair_row_overflow_abort	excess=56
+dp_test	17167	test_pair_row_overflow_abort	excess=44
+dp_test	17168	test_pair_null_allocation_abort	port aborts
+dp_test	17169	test_pair_null_allocation_abort	port aborts
+dp_test	17170	test_pair_row_overflow_abort	excess=60
+dp_test	17171	test_pair_row_overflow_abort	excess=52
+dp_test	17172	test_pair_row_overflow_abort	excess=82
+dp_test	17173	test_pair_row_overflow_abort	excess=4
+dp_test	17174	test_pair_row_overflow_abort	excess=9
+dp_test	17175	test_pair_row_overflow_abort	excess=126
+dp_test	17176	test_pair_null_allocation_abort	port aborts
+dp_test	17177	test_pair_row_overflow_abort	excess=10
+dp_test	17178	test_pair_row_overflow_abort	excess=8
+dp_test	17179	test_pair_row_overflow_abort	excess=25
+dp_test	17180	test_pair_null_allocation_abort	port aborts
+dp_test	17181	test_pair_row_overflow_abort	excess=24
+dp_test	17182	test_pair_row_overflow_abort	excess=23
+dp_test	17183	test_pair_row_overflow_abort	excess=8
+dp_test	17184	test_pair_row_overflow_abort	excess=17
+dp_test	17185	test_pair_row_overflow_abort	excess=7
+dp_test	17187	test_pair_row_overflow_abort	excess=39
+dp_test	17188	test_pair_row_overflow_abort	excess=153
+dp_test	17189	test_pair_row_overflow_abort	excess=122
+dp_test	17190	test_pair_row_overflow_abort	excess=36
+dp_test	17192	test_pair_row_overflow_diff	excess=2
+dp_test	17197	test_pair_null_allocation_abort	port aborts
+dp_test	17198	test_pair_row_overflow_diff	excess=2
+dp_test	17200	test_pair_row_overflow_diff	excess=2
+dp_test	17203	test_pair_null_allocation_abort	port aborts
+dp_test	17204	test_pair_null_allocation_abort	port aborts
+dp_test	17207	test_pair_row_overflow_diff	excess=2
+dp_test	17209	test_pair_null_allocation_abort	port aborts
+dp_test	17210	test_pair_null_allocation_abort	port aborts
+dp_test	17213	test_pair_row_overflow_diff	excess=2
+dp_test	17214	test_pair_row_overflow_diff	excess=2
+dp_test	17215	test_pair_null_allocation_abort	port aborts
+dp_test	17216	test_pair_null_allocation_abort	port aborts
+dp_test	17219	test_pair_null_allocation_abort	port aborts
+dp_test	17220	test_pair_null_allocation_abort	port aborts
+dp_test	17221	test_pair_null_allocation_abort	port aborts
+dp_test	17222	test_pair_row_overflow_diff	excess=2
+dp_test	17223	test_pair_row_overflow_diff	excess=2
+dp_test	17224	test_pair_null_allocation_abort	port aborts
+dp_test	17225	test_pair_row_overflow_diff	excess=2
+dp_test	17226	test_pair_null_allocation_abort	port aborts
+dp_test	17228	test_pair_row_overflow_diff	excess=2
+dp_test	17229	test_pair_null_allocation_abort	port aborts
+dp_test	17230	test_pair_row_overflow_diff	excess=2
+dp_test	17231	test_pair_null_allocation_abort	port aborts
+dp_test	17233	test_pair_null_allocation_abort	port aborts
+dp_test	17234	test_pair_null_allocation_abort	port aborts
+dp_test	17235	test_pair_null_allocation_abort	port aborts
+dp_test	17236	test_pair_null_allocation_abort	port aborts
+dp_test	17237	test_pair_null_allocation_abort	port aborts
+dp_test	17239	test_pair_row_overflow_diff	excess=2
+dp_test	17240	test_pair_null_allocation_abort	port aborts
+dp_test	17241	test_pair_null_allocation_abort	port aborts
+dp_test	17242	test_pair_row_overflow_diff	excess=2
+dp_test	17243	test_pair_null_allocation_abort	port aborts
+dp_test	17244	test_pair_null_allocation_abort	port aborts
+dp_test	17247	test_pair_row_overflow_diff	excess=2
+dp_test	17248	test_pair_null_allocation_abort	port aborts
+dp_test	17250	test_pair_null_allocation_abort	port aborts
+dp_test	17252	test_pair_row_overflow_abort	excess=87
+dp_test	17253	test_pair_row_overflow_abort	excess=19
+dp_test	17254	test_pair_row_overflow_abort	excess=19
+dp_test	17255	test_pair_null_allocation_abort	port aborts
+dp_test	17256	test_pair_row_overflow_abort	excess=34
+dp_test	17257	test_pair_row_overflow_abort	excess=9
+dp_test	17258	test_pair_row_overflow_abort	excess=6
+dp_test	17259	test_pair_row_overflow_abort	excess=87
+dp_test	17260	test_pair_row_overflow_abort	excess=101
+dp_test	17261	test_pair_row_overflow_diff	excess=22
+dp_test	17262	test_pair_row_overflow_abort	excess=91
+dp_test	17263	test_pair_row_overflow_abort	excess=98
+dp_test	17264	test_pair_row_overflow_abort	excess=49
+dp_test	17265	test_pair_null_allocation_abort	port aborts
+dp_test	17266	test_pair_row_overflow_abort	excess=53
+dp_test	17267	test_pair_row_overflow_abort	excess=51
+dp_test	17268	test_pair_row_overflow_abort	excess=13
+dp_test	17269	test_pair_row_overflow_abort	excess=89
+dp_test	17270	test_pair_row_overflow_abort	excess=9
+dp_test	17271	test_pair_row_overflow_diff	excess=4
+dp_test	17272	test_pair_null_allocation_abort	port aborts
+dp_test	17273	test_pair_row_overflow_abort	excess=6
+dp_test	17274	test_pair_row_overflow_diff	excess=2
+dp_test	17275	test_pair_row_overflow_abort	excess=92
+dp_test	17276	test_pair_row_overflow_abort	excess=58
+dp_test	17277	test_pair_row_overflow_abort	excess=24
+dp_test	17278	test_pair_row_overflow_abort	excess=20
+dp_test	17279	test_pair_row_overflow_abort	excess=6
+dp_test	17280	test_pair_row_overflow_abort	excess=39
+dp_test	17281	test_pair_row_overflow_abort	excess=86
+dp_test	17282	test_pair_row_overflow_abort	excess=68
+dp_test	17283	test_pair_row_overflow_abort	excess=126
+dp_test	17284	test_pair_row_overflow_abort	excess=70
+dp_test	17285	test_pair_row_overflow_abort	excess=26
+dp_test	17286	test_pair_row_overflow_diff	excess=3
+dp_test	17287	test_pair_row_overflow_abort	excess=56
+dp_test	17288	test_pair_row_overflow_abort	excess=8
+dp_test	17289	test_pair_row_overflow_abort	excess=32
+dp_test	17290	test_pair_row_overflow_abort	excess=12
+dp_test	17292	test_pair_null_allocation_abort	port aborts
+dp_test	17293	test_pair_row_overflow_abort	excess=37
+dp_test	17294	test_pair_row_overflow_abort	excess=69
+dp_test	17295	test_pair_row_overflow_abort	excess=20
+dp_test	17296	test_pair_null_allocation_abort	port aborts
+dp_test	17297	test_pair_row_overflow_abort	excess=9
+dp_test	17298	test_pair_row_overflow_abort	excess=66
+dp_test	17299	test_pair_row_overflow_abort	excess=16
+dp_test	17300	test_pair_row_overflow_abort	excess=77
+dp_test	17301	test_pair_null_allocation_abort	port aborts
+dp_test	17302	test_pair_row_overflow_abort	excess=68
+dp_test	17303	test_pair_null_allocation_abort	port aborts
+dp_test	17304	test_pair_row_overflow_abort	excess=38
+dp_test	17305	test_pair_null_allocation_abort	port aborts
+dp_test	17306	test_pair_row_overflow_abort	excess=70
+dp_test	17307	test_pair_row_overflow_abort	excess=119
+dp_test	17308	test_pair_row_overflow_abort	excess=19
+dp_test	17310	test_pair_row_overflow_abort	excess=128
+dp_test	17311	test_pair_row_overflow_abort	excess=27
+dp_test	17312	test_pair_row_overflow_abort	excess=20
+dp_test	17313	test_pair_row_overflow_abort	excess=96
+dp_test	17314	test_pair_row_overflow_abort	excess=154
+dp_test	17315	test_pair_row_overflow_abort	excess=40
+dp_test	17316	test_pair_row_overflow_abort	excess=103
+dp_test	17317	test_pair_row_overflow_abort	excess=37
+dp_test	17318	test_pair_row_overflow_abort	excess=9
+dp_test	17319	test_pair_row_overflow_abort	excess=90
+dp_test	17320	test_pair_row_overflow_abort	excess=114
+dp_test	17321	test_pair_row_overflow_abort	excess=9
+dp_test	17322	test_pair_row_overflow_abort	excess=11
+dp_test	17323	test_pair_row_overflow_abort	excess=59
+dp_test	17324	test_pair_row_overflow_abort	excess=129
+dp_test	17325	test_pair_null_allocation_abort	port aborts
+dp_test	17327	test_pair_row_overflow_abort	excess=87
+dp_test	17328	test_pair_row_overflow_abort	excess=15
+dp_test	17329	test_pair_row_overflow_abort	excess=22
+dp_test	17330	test_pair_row_overflow_abort	excess=28
+dp_test	17331	test_pair_null_allocation_abort	port aborts
+dp_test	17332	test_pair_null_allocation_abort	port aborts
+dp_test	17333	test_pair_row_overflow_abort	excess=12
+dp_test	17334	test_pair_row_overflow_abort	excess=92
+dp_test	17335	test_pair_null_allocation_abort	port aborts
+dp_test	17336	test_pair_row_overflow_abort	excess=17
+dp_test	17337	test_pair_null_allocation_abort	port aborts
+dp_test	17338	test_pair_row_overflow_abort	excess=29
+dp_test	17339	test_pair_row_overflow_diff	excess=19
+dp_test	17340	test_pair_row_overflow_abort	excess=48
+dp_test	17341	test_pair_row_overflow_abort	excess=26
+dp_test	17342	test_pair_row_overflow_abort	excess=15
+dp_test	17343	test_pair_row_overflow_abort	excess=65
+dp_test	17344	test_pair_row_overflow_abort	excess=23
+dp_test	17345	test_pair_row_overflow_abort	excess=87
+dp_test	17346	test_pair_row_overflow_diff	excess=3
+dp_test	17347	test_pair_row_overflow_abort	excess=69
+dp_test	17348	test_pair_null_allocation_abort	port aborts
+dp_test	17349	test_pair_row_overflow_abort	excess=28
+dp_test	17350	test_pair_null_allocation_abort	port aborts
+dp_test	17351	test_pair_null_allocation_abort	port aborts
+dp_test	17352	test_pair_null_allocation_abort	port aborts
+dp_test	17353	test_pair_row_overflow_abort	excess=94
+dp_test	17354	test_pair_null_allocation_abort	port aborts
+dp_test	17355	test_pair_row_overflow_abort	excess=61
+dp_test	17356	test_pair_row_overflow_abort	excess=30
+dp_test	17357	test_pair_row_overflow_abort	excess=7
+dp_test	17358	test_pair_row_overflow_abort	excess=71
+dp_test	17359	test_pair_row_overflow_abort	excess=3
+dp_test	17360	test_pair_null_allocation_abort	port aborts
+dp_test	17361	test_pair_null_allocation_abort	port aborts
+dp_test	17362	test_pair_null_allocation_abort	port aborts
+dp_test	17363	test_pair_null_allocation_abort	port aborts
+dp_test	17364	test_pair_row_overflow_abort	excess=53
+dp_test	17365	test_pair_row_overflow_abort	excess=73
+dp_test	17366	test_pair_row_overflow_abort	excess=80
+dp_test	17367	test_pair_row_overflow_abort	excess=54
+dp_test	17368	test_pair_null_allocation_abort	port aborts
+dp_test	17369	test_pair_row_overflow_abort	excess=24
+dp_test	17370	test_pair_row_overflow_abort	excess=69
+dp_test	17371	test_pair_row_overflow_abort	excess=92
+dp_test	17372	test_pair_row_overflow_abort	excess=24
+dp_test	17373	test_pair_row_overflow_abort	excess=26
+dp_test	17374	test_pair_row_overflow_abort	excess=10
+dp_test	17375	test_pair_row_overflow_abort	excess=24
+dp_test	17376	test_pair_row_overflow_abort	excess=28
+dp_test	17377	test_pair_null_allocation_abort	port aborts
+dp_test	17378	test_pair_row_overflow_abort	excess=69
+dp_test	17379	test_pair_row_overflow_abort	excess=89
+dp_test	17380	test_pair_row_overflow_abort	excess=32
+dp_test	17381	test_pair_row_overflow_abort	excess=121
+dp_test	17382	test_pair_row_overflow_abort	excess=25
+dp_test	17383	test_pair_row_overflow_abort	excess=131
+dp_test	17384	test_pair_row_overflow_abort	excess=36
+dp_test	17385	test_pair_row_overflow_abort	excess=33
+dp_test	17386	test_pair_row_overflow_abort	excess=13
+dp_test	17387	test_pair_row_overflow_abort	excess=45
+dp_test	17388	test_pair_row_overflow_abort	excess=14
+dp_test	17389	test_pair_row_overflow_abort	excess=103
+dp_test	17390	test_pair_row_overflow_abort	excess=67
+dp_test	17391	test_pair_row_overflow_abort	excess=69
+dp_test	17392	test_pair_row_overflow_abort	excess=93
+dp_test	17393	test_pair_row_overflow_abort	excess=124
+dp_test	17394	test_pair_row_overflow_abort	excess=85
+dp_test	17395	test_pair_row_overflow_abort	excess=39
+dp_test	17396	test_pair_row_overflow_abort	excess=78
+dp_test	17397	test_pair_null_allocation_abort	port aborts
+dp_test	17398	test_pair_row_overflow_abort	excess=33
+dp_test	17399	test_pair_row_overflow_abort	excess=49
+dp_test	17400	test_pair_row_overflow_diff	excess=2
+dp_test	17402	test_pair_null_allocation_abort	port aborts
+dp_test	17404	test_pair_row_overflow_diff	excess=2
+dp_test	17406	test_pair_row_overflow_diff	excess=2
+dp_test	17408	test_pair_null_allocation_abort	port aborts
+dp_test	17409	test_pair_null_allocation_abort	port aborts
+dp_test	17410	test_pair_null_allocation_abort	port aborts
+dp_test	17411	test_pair_null_allocation_abort	port aborts
+dp_test	17412	test_pair_null_allocation_abort	port aborts
+dp_test	17413	test_pair_row_overflow_diff	excess=2
+dp_test	17414	test_pair_null_allocation_abort	port aborts
+dp_test	17415	test_pair_row_overflow_diff	excess=2
+dp_test	17416	test_pair_null_allocation_abort	port aborts
+dp_test	17417	test_pair_row_overflow_abort	excess=4
+dp_test	17418	test_pair_row_overflow_diff	excess=2
+dp_test	17420	test_pair_null_allocation_abort	port aborts
+dp_test	17421	test_pair_null_allocation_abort	port aborts
+dp_test	17422	test_pair_row_overflow_diff	excess=2
+dp_test	17423	test_pair_null_allocation_abort	port aborts
+dp_test	17425	test_pair_row_overflow_diff	excess=2
+dp_test	17426	test_pair_null_allocation_abort	port aborts
+dp_test	17429	test_pair_null_allocation_abort	port aborts
+dp_test	17430	test_pair_null_allocation_abort	port aborts
+dp_test	17431	test_pair_row_overflow_diff	excess=2
+dp_test	17432	test_pair_row_overflow_diff	excess=2
+dp_test	17433	test_pair_row_overflow_diff	excess=2
+dp_test	17434	test_pair_null_allocation_abort	port aborts
+dp_test	17435	test_pair_null_allocation_abort	port aborts
+dp_test	17438	test_pair_null_allocation_abort	port aborts
+dp_test	17442	test_pair_row_overflow_diff	excess=2
+dp_test	17444	test_pair_null_allocation_abort	port aborts
+dp_test	17445	test_pair_null_allocation_abort	port aborts
+dp_test	17446	test_pair_null_allocation_abort	port aborts
+dp_test	17448	test_pair_null_allocation_abort	port aborts
+dp_test	17449	test_pair_row_overflow_diff	excess=2
+dp_test	17451	test_pair_row_overflow_diff	excess=2
+dp_test	17452	test_pair_null_allocation_abort	port aborts
+dp_test	17453	test_pair_row_overflow_diff	excess=3
+dp_test	17455	test_pair_null_allocation_abort	port aborts
+dp_test	17460	test_pair_null_allocation_abort	port aborts
+dp_test	17461	test_pair_null_allocation_abort	port aborts
+dp_test	17462	test_pair_null_allocation_abort	port aborts
+dp_test	17463	test_pair_row_overflow_abort	excess=85
+dp_test	17464	test_pair_row_overflow_abort	excess=103
+dp_test	17465	test_pair_row_overflow_abort	excess=58
+dp_test	17466	test_pair_row_overflow_abort	excess=26
+dp_test	17467	test_pair_row_overflow_abort	excess=37
+dp_test	17469	test_pair_row_overflow_abort	excess=95
+dp_test	17470	test_pair_row_overflow_abort	excess=63
+dp_test	17471	test_pair_row_overflow_abort	excess=23
+dp_test	17472	test_pair_row_overflow_abort	excess=32
+dp_test	17473	test_pair_row_overflow_abort	excess=101
+dp_test	17474	test_pair_null_allocation_abort	port aborts
+dp_test	17475	test_pair_row_overflow_abort	excess=70
+dp_test	17476	test_pair_null_allocation_abort	port aborts
+dp_test	17477	test_pair_row_overflow_abort	excess=72
+dp_test	17478	test_pair_row_overflow_abort	excess=52
+dp_test	17479	test_pair_row_overflow_abort	excess=37
+dp_test	17480	test_pair_row_overflow_abort	excess=15
+dp_test	17481	test_pair_row_overflow_abort	excess=28
+dp_test	17482	test_pair_row_overflow_abort	excess=43
+dp_test	17483	test_pair_row_overflow_abort	excess=61
+dp_test	17484	test_pair_row_overflow_abort	excess=59
+dp_test	17485	test_pair_row_overflow_abort	excess=11
+dp_test	17486	test_pair_row_overflow_abort	excess=89
+dp_test	17487	test_pair_row_overflow_abort	excess=150
+dp_test	17488	test_pair_row_overflow_abort	excess=9
+dp_test	17489	test_pair_row_overflow_abort	excess=26
+dp_test	17490	test_pair_row_overflow_abort	excess=51
+dp_test	17491	test_pair_row_overflow_diff	excess=5
+dp_test	17492	test_pair_row_overflow_abort	excess=106
+dp_test	17493	test_pair_row_overflow_abort	excess=4
+dp_test	17494	test_pair_row_overflow_abort	excess=43
+dp_test	17495	test_pair_row_overflow_abort	excess=7
+dp_test	17496	test_pair_row_overflow_abort	excess=131
+dp_test	17497	test_pair_row_overflow_abort	excess=8
+dp_test	17498	test_pair_row_overflow_abort	excess=15
+dp_test	17499	test_pair_row_overflow_abort	excess=13
+dp_test	17501	test_pair_row_overflow_abort	excess=8
+simidscore_gapless	6817	idscore_heap_abort	port aborts (heap dependent)
+simidscore_gapless	6879	idscore_heap_abort	port aborts (heap dependent)
+simidscore_gapless	6923	idscore_heap_abort	port aborts (heap dependent)
+simidscore_gapless	6950	idscore_heap_abort	port aborts (heap dependent)
+simidscore_gapless	7052	idscore_heap_abort	port aborts (heap dependent)

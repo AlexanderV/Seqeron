@@ -52,19 +52,20 @@ public class SequenceAligner_TCoffeeOptions_Tests
     /// <c>test_pair_wise</c>: (the port aborts, the rows overflow the row buffers). The program pads every row to l0 + l1 - n columns with n = l0 / 2 (l0 &lt; 5) or 5 and reads <c>generate_null (l1 - n)</c>: a second group with fewer than n columns
     /// is a deterministic segmentation fault (the port raises <see cref="TCoffeeAbortedException"/>; 98 of 98 committed sets that have such a merge die). Otherwise the rows are written into buffers of max_len + 1 bytes (<c>seq2aln</c>): up to
     /// one column more than the longest sequence the program runs through and writes exactly the port's rows (50 of 50 committed sets); two or more columns beyond them overflow the heap (valgrind: "Invalid write of size 1 ... in strcpy" of the
-    /// <c>sprintf (seq, "%s", buf)</c>): 231 of 272 such sets die, 41 differ (32 lose the last column of every row, 9 have another row clobbered).
+    /// <c>sprintf (seq, "%s", buf)</c>): 231 of 272 such sets die, 41 differ (32 lose the last column of every row, 9 have another row clobbered). Returns the largest overflow (columns written beyond the buffer) of the merges.
     /// </summary>
-    private static (bool Aborted, bool Overflow) TestPairDp(Case c, TCoffeeProgramOptions options)
+    private static (bool Aborted, bool Overflow, int Excess) TestPairDp(Case c, TCoffeeProgramOptions options)
     {
         SequenceAligner.TcMergeTrace = new();
         try
         {
             SequenceAligner.MultipleAlignTCoffeeProgram(c.Seqs, options);
-            return (false, SequenceAligner.TcMergeTrace.Any(m => m.Written - m.MaxLen >= 2));
+            int excess = SequenceAligner.TcMergeTrace.Count == 0 ? 0 : SequenceAligner.TcMergeTrace.Max(m => m.Written - m.MaxLen);
+            return (false, SequenceAligner.TcMergeTrace.Any(m => m.Written - m.MaxLen >= 2), excess);
         }
         catch (TCoffeeAbortedException)
         {
-            return (true, false);
+            return (true, false, 0);
         }
         finally
         {
@@ -72,16 +73,50 @@ public class SequenceAligner_TCoffeeOptions_Tests
         }
     }
 
+    private static bool TestPairOverflow(Case c, TCoffeeProgramOptions options, out int excess)
+    {
+        var (_, overflow, e) = TestPairDp(c, options);
+        excess = e;
+        return overflow;
+    }
+
+    /// <summary>
+    /// The rows of <c>tcoffee_program_options_oracle.tsv</c> on which the PROGRAM is in undefined behaviour, enumerated (audit A3-14a, B09 F143): <c>tcoffee_options_ub_cases.tsv</c> = feature, 1-based data row of the oracle, category,
+    /// detail. Every other row is compared exactly (rows equal, or the abort is raised). Causes, each proven on the installed t_coffee 13.41 (Debian 13.45.0.4846264+really13.41.0.28bdc39+dfsg-1) with valgrind (Evidence F113 / F115):
+    /// <c>gotoh_row_overflow_*</c> (row writer of gotoh / biphasic / glocal_pair_wise writes the terminator one byte past a heap block when the alignment has 8 (mod 16) columns: abort, or the last column lost), <c>test_pair_*</c> (null
+    /// allocation / <c>sprintf</c> overflow of <c>seq2aln</c>), <c>sw_uninitialised_write_*</c> (gotoh_pair_wise_sw: "Invalid write of size 4 ... 4 bytes after a block of size 124"), <c>relative_triplet_ub</c> (a read past the end of a library
+    /// list, SIGFPE / wild read), <c>idscore_heap_*</c> (idscore_pairseq reads <c>m[s1[i] - 'a'][s2[j] - 'a']</c> with a gap in the second row: the heap 208 bytes before a matrix row). The port reproduces the common outcome (or refuses); the
+    /// detail column records WHAT it does, so that a changed behaviour of the port fails the test. Regenerate with the environment variable SEQERON_TCOFFEE_UB_CASES_OUT=&lt;file&gt; (the observed lines are appended there).
+    /// </summary>
+    private static readonly Lazy<Dictionary<string, List<string>>> UbCases = new(() =>
+    {
+        const string name = "Seqeron.Genomics.Tests.TestData.Alignment.tcoffee_options_ub_cases.tsv";
+        using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(name)
+            ?? throw new InvalidOperationException($"Embedded data '{name}' not found.");
+        using var reader = new StreamReader(stream);
+        var map = new Dictionary<string, List<string>>();
+        string? line;
+        while ((line = reader.ReadLine()) is not null)
+        {
+            if (line.Length == 0 || line[0] == '#' || line.StartsWith("feature\t", StringComparison.Ordinal))
+                continue;
+            int tab = line.IndexOf('\t');
+            string feature = line[..tab];
+            if (!map.TryGetValue(feature, out var list))
+                map[feature] = list = [];
+            list.Add(line[(tab + 1)..]);
+        }
+
+        return map;
+    });
+
     private static void AssertFeature(string feature, int minSets)
     {
-        var cases = Oracle().Where(c => c.Feature == feature).ToList();
+        var cases = Oracle().Select((c, i) => (Case: c, Row: i + 1)).Where(x => x.Case.Feature == feature).ToList();
         Assert.That(cases.Count, Is.GreaterThanOrEqualTo(minSets), $"oracle sets of '{feature}'");
         var failures = new List<string>();
-        int heapDependent = 0;
-        // a set on which the program itself core-dumps (SIM's edit script overflows its heap chunk, `lalign_id_pair@EP@GOP@-5`, F75) is reproduced as TCoffeeAbortedException:
-        // the rule is deterministic (script length > the usable bytes of the chunk), so "the program aborts" and "the port throws" must coincide on EVERY committed set
-        int gotohOverflow = 0, relativeUb = 0, testAborts = 0, testOverflows = 0, swUb = 0;
-        foreach (var c in cases)
+        var observed = new List<string>();
+        foreach (var (c, row) in cases)
         {
             var options = TCoffeeProgramOptions.FromCommandLine(c.Flags) with { Names = c.Names };
             if (c.Rows.StartsWith("FAIL:", StringComparison.Ordinal))
@@ -89,8 +124,22 @@ public class SequenceAligner_TCoffeeOptions_Tests
                 if (c.Flags.Contains("relative_triplet", StringComparison.Ordinal))
                 {
                     // the program divides by the total weight of an empty / short list (SIGFPE, exit status 8) or dies on the read past the list: the port stops with its UB refusal
-                    Assert.That(() => SequenceAligner.MultipleAlignTCoffeeProgram(c.Seqs, options), NUnit.Framework.Throws.InstanceOf<NotSupportedException>().Or.InstanceOf<TCoffeeAbortedException>());
-                    relativeUb++;
+                    string outcome = "returned";
+                    try
+                    {
+                        SequenceAligner.MultipleAlignTCoffeeProgram(c.Seqs, options);
+                    }
+                    catch (NotSupportedException)
+                    {
+                        outcome = nameof(NotSupportedException);
+                    }
+                    catch (TCoffeeAbortedException)
+                    {
+                        outcome = nameof(TCoffeeAbortedException);
+                    }
+
+                    Assert.That(outcome, Is.Not.EqualTo("returned"), $"relative_triplet UB row {row}");
+                    observed.Add($"{row}\trelative_triplet_ub\t{outcome}");
                     continue;
                 }
 
@@ -99,18 +148,19 @@ public class SequenceAligner_TCoffeeOptions_Tests
                 if (c.Rows is "FAIL:6" or "FAIL:-6" && IsGotohDp(c.Flags))
                 {
                     string[] rows = SequenceAligner.MultipleAlignTCoffeeProgram(c.Seqs, options).AlignedSequences.ToArray();
-                    // gotoh_pair_wise: the final alignment is 8 (mod 16) columns long in every committed abort; biphasic_pair_wise / glocal_pair_wise write the rows the same way and die on alignments of at least 24 columns (an intermediate merge of
-                    // 8 mod 16 columns can lie below the final length)
-                    Assert.That(rows[0].Length, Is.GreaterThanOrEqualTo(8), $"heap-overflow abort of the row writer on '{c.Flags}' {string.Join('|', c.Seqs)}"); // a merge of 8 (mod 16) columns: 8, 24, 40 ... (valgrind on a 9-column set: "Invalid write of size 1 ... 0 bytes after a block of size 88" at the merge of Len=8)
-                    gotohOverflow++;
+                    int columns = rows[0].Length;
+                    // the row writer overflows on the 8 (mod 16)-column MERGES of the progressive alignment (an intermediate merge can lie below the final length), so the necessary condition on the final alignment is only
+                    // its minimum (8); the exact length of the port's alignment is recorded per row in tcoffee_options_ub_cases.tsv
+                    Assert.That(columns, Is.GreaterThanOrEqualTo(8), $"heap-overflow abort of the row writer on '{c.Flags}' {string.Join('|', c.Seqs)}");
+                    observed.Add($"{row}\tgotoh_row_overflow_abort\tcolumns={columns}");
                     continue;
                 }
 
                 if (c.Flags.Contains("test_pair_wise", StringComparison.Ordinal))
                 {
-                    var (aborted, overflow) = TestPairDp(c, options);
+                    var (aborted, overflow, excess) = TestPairDp(c, options);
                     Assert.That(aborted || overflow, Is.True, $"test_pair_wise dies without a null allocation or a row overflow: {string.Join('|', c.Seqs)}");
-                    if (aborted) testAborts++; else testOverflows++;
+                    observed.Add(aborted ? $"{row}\ttest_pair_null_allocation_abort\tport aborts" : $"{row}\ttest_pair_row_overflow_abort\texcess={excess}");
                     continue;
                 }
 
@@ -118,8 +168,9 @@ public class SequenceAligner_TCoffeeOptions_Tests
                 // after a block of size 124" inside the local alignment routine on the set CVWVCITFIAFQYTADPVMHMVE|DKDGSPLSVL, exit status 6 on every run); the port returns the alignment
                 if (c.Flags.Contains("gotoh_pair_wise_sw", StringComparison.Ordinal))
                 {
-                    Assert.That(SequenceAligner.MultipleAlignTCoffeeProgram(c.Seqs, options).AlignedSequences, Is.Not.Empty);
-                    swUb++;
+                    var swRows = SequenceAligner.MultipleAlignTCoffeeProgram(c.Seqs, options).AlignedSequences.ToArray();
+                    Assert.That(swRows, Is.Not.Empty);
+                    observed.Add($"{row}\tsw_uninitialised_write_abort\tport returns {swRows.Length} rows of {swRows[0].Length} columns");
                     continue;
                 }
 
@@ -133,37 +184,29 @@ public class SequenceAligner_TCoffeeOptions_Tests
                 if (got == c.Rows) continue;
                 // idscore_pairseq reads m[s1[i] - 'a'][s2[j] - 'a']: with a gap in the SECOND aligned row that is the heap 208 bytes before a matrix row - 0 in 23 of the 24 committed sets that have such a gap,
                 // some other value in one (undefined behaviour of the program, not reproducible)
-                if (IsIdscoreFast(c.Flags) && HasSecondRowGap(c, options)) heapDependent++;
+                if (IsIdscoreFast(c.Flags) && HasSecondRowGap(c, options)) observed.Add($"{row}\tidscore_heap_value_diff\tport returns other rows");
                 // the same one-byte row overflow can also leave the program's rows without their last column (1 committed biphasic_pair_wise set)
-                else if (IsGotohDp(c.Flags) && c.Rows.Split('|').Zip(got.Split('|'), (e, g) => g.Length == e.Length + 1 && g.StartsWith(e, StringComparison.Ordinal)).All(x => x)) gotohOverflow++;
-                else if (c.Flags.Contains("test_pair_wise", StringComparison.Ordinal) && TestPairDp(c, options).Overflow) testOverflows++; // 32 sets lose the last column of every row, 9 have another row clobbered by the overflow
-                else if (c.Flags.Contains("gotoh_pair_wise_sw", StringComparison.Ordinal)) swUb++;
+                else if (IsGotohDp(c.Flags) && c.Rows.Split('|').Zip(got.Split('|'), (e, g) => g.Length == e.Length + 1 && g.StartsWith(e, StringComparison.Ordinal)).All(x => x)) observed.Add($"{row}\tgotoh_row_overflow_last_column\tthe program's rows lack the last column");
+                else if (c.Flags.Contains("test_pair_wise", StringComparison.Ordinal) && TestPairOverflow(c, options, out int excessColumns)) observed.Add($"{row}\ttest_pair_row_overflow_diff\texcess={excessColumns}"); // 32 sets lose the last column of every row, 9 have another row clobbered by the overflow
+                else if (c.Flags.Contains("gotoh_pair_wise_sw", StringComparison.Ordinal)) observed.Add($"{row}\tsw_uninitialised_write_diff\tport rows differ");
                 else failures.Add($"{c.Type} '{c.Flags}' {string.Join('|', c.Seqs)}: got {got} expected {c.Rows}");
             }
             catch (TCoffeeAbortedException e) when (e.HeapDependent)
             {
                 // undefined behaviour of the program (a wild pointer read whose outcome depends on the heap): it may also run through; only such sets may differ this way
-                heapDependent++;
+                observed.Add($"{row}\tidscore_heap_abort\tport aborts (heap dependent)");
             }
             catch (NotSupportedException) when (c.Flags.Contains("relative_triplet", StringComparison.Ordinal))
             {
                 // residue_pair_relative_extended_list reads past the end of a library list (undefined behaviour): not reproducible, the port says so
-                relativeUb++;
+                observed.Add($"{row}\trelative_triplet_ub\tNotSupportedException (the program ran through)");
             }
         }
 
-        Assert.That(gotohOverflow, Is.LessThanOrEqualTo(12), "heap-overflow aborts of the row writer of gotoh / biphasic / glocal_pair_wise (8 of 2 600 committed sets)");
-        if (feature == "dp_test")
-        {
-            Assert.That(testAborts, Is.GreaterThanOrEqualTo(90), "test_pair_wise: sets with a null allocation (98 committed)");
-            Assert.That(testOverflows, Is.GreaterThanOrEqualTo(250), "test_pair_wise: sets with a row overflow that die or lose the last column (272 committed)");
-        }
-
-        if (feature == "dp_sw") Assert.That(swUb, Is.InRange(10, 80), "gotoh_pair_wise_sw sets that die or differ (50 of 500 committed sets)");
-        if (feature == "dp_extend") Assert.That(relativeUb, Is.GreaterThanOrEqualTo(80), "sets on which relative_triplet reads past the end of a list");
-
+        if (Environment.GetEnvironmentVariable("SEQERON_TCOFFEE_UB_CASES_OUT") is { Length: > 0 } outPath)
+            File.AppendAllLines(outPath, observed.Select(o => feature + "\t" + o));
         Assert.That(failures, Is.Empty, $"{failures.Count} of {cases.Count} '{feature}' sets differ from t_coffee; first: {failures.FirstOrDefault()}");
-        Assert.That(heapDependent, Is.LessThanOrEqualTo(6), "sets on which the heap-dependent undefined behaviour of the idscore sim mode gave another result (5 aborts that the program survived + 1 differing set of 540)");
+        Assert.That(observed, Is.EqualTo(UbCases.Value.TryGetValue(feature, out var expected) ? expected : []), $"the undefined-behaviour rows of '{feature}' are exactly the enumerated ones (tcoffee_options_ub_cases.tsv)");
     }
 
     /// <summary>A1-13c: <c>proba_pair</c> of RNA (a U among more than 98 % nucleotide letters): the RNA pair-HMM (5 matrix types, 2 insert state pairs, RNAgapOpen2 / RNAgapExtend2) and <c>get_tot_prob</c>.</summary>

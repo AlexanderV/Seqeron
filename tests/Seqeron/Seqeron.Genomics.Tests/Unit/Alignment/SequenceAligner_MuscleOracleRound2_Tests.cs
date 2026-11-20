@@ -191,16 +191,31 @@ public class SequenceAligner_MuscleOracleRound2_Tests
     /// (RUNNER_ERROR); they are recorded in round 3 (muscle3_r3_oracle.tsv, <see cref="SequenceAligner_MuscleOracleRound3_Tests"/>, A2-1). Naming them makes a row dropped silently anywhere else
     /// (or a regenerated TSV with another gap) fail this test.
     /// </summary>
-    private static readonly string[] MissingUntilRound3 = ["R330", "R335", "R336", "R342", "R344", "R347", "R348", "R350"];
+    private static readonly string[] Round3OnlyIds = ["R330", "R335", "R336", "R342", "R344", "R347", "R348", "R350"];
 
     [Test]
     public void OracleHas630Sets_TheEightMissingIdsAreExactlyTheBlosum62NoStarOnes()
     {
         // the package has the 638 sets R0 ... R637; the oracle has every one of them except the eight sets recorded in round 3
-        var expected = Enumerable.Range(0, 638).Select(i => "R" + i).Except(MissingUntilRound3).ToHashSet();
+        var expected = Enumerable.Range(0, 638).Select(i => "R" + i).Except(Round3OnlyIds).ToHashSet();
         var oracleIds = Oracle.Value.Select(r => r.Id).ToHashSet();
         Assert.That(expected.Except(oracleIds), Is.Empty, "a set of the package is missing from the oracle although it is not one of the 8 round-3 sets");
         Assert.That(oracleIds.Except(expected), Is.Empty, "the oracle has a row that is not a set of the package");
+    }
+
+    [Test]
+    public void Round3OnlyIds_AreExactlyTheIdsBelowR638ThatRound3Holds_AndAllAreBlosum62NoStarRuns()
+    {
+        // round 3 (muscle3_r3_oracle.tsv) holds the 8 sets that round 2 could not record (ids below R638) plus the new sets R638 ... R689: the eight ids named here are exactly those, not more, not fewer
+        var round3 = Load("muscle3_r3_oracle.tsv");
+        var below = round3.Where(r => int.Parse(r.Id[1..], System.Globalization.CultureInfo.InvariantCulture) < 638).ToList();
+        Assert.Multiple(() =>
+        {
+            Assert.That(below.Select(r => r.Id), Is.EquivalentTo(Round3OnlyIds));
+            Assert.That(below.All(r => r.Options.Contains("matrix=@blosum62nostar", StringComparison.Ordinal)), Is.True, "every id round 2 could not record is a -matrix blosum62nostar run");
+            Assert.That(Oracle.Value.Select(r => r.Id).Intersect(Round3OnlyIds), Is.Empty, "round 2 holds none of them");
+            Assert.That(Oracle.Value.Any(r => r.Options.Contains("blosum62nostar", StringComparison.Ordinal)), Is.False, "round 2 holds no blosum62nostar run at all");
+        });
     }
 
     [Test]
