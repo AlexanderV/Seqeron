@@ -204,6 +204,9 @@
     <!-- GENOMIC-MOTIFS-001 (B09 A2-32): the fuzznuc pattern language (classes, exclusions, repeats, ranges, anchors, mismatches, both strands): EMBOSS fuzznuc 6.6.0 == independent
          Python reference on 3300 random syntax-tree rows; scripts/analysis/generate_fuzznuc_pattern_oracle.py. -->
     <EmbeddedResource Include="TestData\Analysis\fuzznuc_pattern_oracle.tsv" />
+    <!-- GENOMIC-TANDEM-001 (B09 A3-8): EMBOSS etandem / equicktandem 6.6.0 original-format output on random and planted sequences (1700 + 1300 rows);
+         scripts/analysis/generate_emboss_tandem_oracle.py. -->
+    <EmbeddedResource Include="TestData\Analysis\emboss_tandem_oracle.tsv" />
     <!-- GENOMIC-SIMILARITY-001 (B09 F32-F34): exact k-mer Jaccard (percent), literal == Python set == scipy jaccard on presence
          vectors, canonical == Python set over min(w, revcomp w) == sourmash 4.9.4 MinHash(scaled=1); 2086 rows;
          scripts/analysis/generate_similarity_oracle.py. -->

@@ -33,7 +33,7 @@ public class SequenceAligner_Cancellation_Tests
     {
         // The frame check needs the cancel to arrive while the aligner runs; on a loaded machine the dedicated thread can start later than the delay, and the call then stops at the scope entry
         // (no poll frame): that attempt is repeated (at most three times). Every attempt still has to stop with OperationCanceledException within the limit.
-        for (int attempt = 1; ; attempt++)
+        for (int attempt = 1; attempt <= 3; attempt++)
         {
             string? stack = CancelOnce(work, delayMs, limitMs);
             if (pollInside is null || stack!.Contains(pollInside, StringComparison.Ordinal))

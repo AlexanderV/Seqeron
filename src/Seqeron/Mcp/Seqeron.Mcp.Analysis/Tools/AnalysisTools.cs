@@ -7,7 +7,7 @@ namespace Seqeron.Mcp.Analysis.Tools;
 /// MCP tools wrapping <c>Seqeron.Genomics.Analysis</c>.
 /// </summary>
 [McpServerToolType]
-public class AnalysisTools
+public partial class AnalysisTools
 {
     // Utility holder for static MCP tools; never instantiated (S1118).
     private AnalysisTools() { }

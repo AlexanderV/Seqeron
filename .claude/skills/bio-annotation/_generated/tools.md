@@ -77,6 +77,7 @@
 | `find_supermaximal_repeats` | Analysis | `RepeatFinder.FindSupermaximalRepeats` | [doc](../../../../docs/mcp/tools/analysis/find_supermaximal_repeats.md) |
 | `find_syntenic_blocks` | Analysis | `ComparativeGenomics.FindSyntenicBlocks` | [doc](../../../../docs/mcp/tools/analysis/find_syntenic_blocks.md) |
 | `find_tandem_repeats` | Analysis | `GenomicAnalyzer.FindTandemRepeats` | [doc](../../../../docs/mcp/tools/analysis/find_tandem_repeats.md) |
+| `find_tandem_repeats_emboss` | Analysis | `GenomicAnalyzer.FindTandemRepeatsEtandem` | [doc](../../../../docs/mcp/tools/analysis/find_tandem_repeats_emboss.md) |
 | `flush_coaxial_stacking` | Analysis | `RnaSecondaryStructure.CalculateFlushCoaxialStacking` | [doc](../../../../docs/mcp/tools/analysis/flush_coaxial_stacking.md) |
 | `gc_content_profile` | Analysis | `SequenceStatistics.CalculateGcContentProfile` | [doc](../../../../docs/mcp/tools/analysis/gc_content_profile.md) |
 | `gc_skew` | Analysis | `GcSkewCalculator.CalculateGcSkew` | [doc](../../../../docs/mcp/tools/analysis/gc_skew.md) |

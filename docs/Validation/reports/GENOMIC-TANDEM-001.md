@@ -76,3 +76,4 @@ Fuzz oracle (`GenomicTandemFuzzTests.Oracle`) replayed the old greedy scan → r
 - Registered for B04 (finished batch; behaviour/performance change of a public method, so not done here): `RepeatFinder.FindMicrosatellites` with a very wide `maxUnitLength` could use `MaximalRepetitions.FindRuns` instead of one scan per unit length (QUEUE.md "Requests to finished batches").
 
 - **Audit r1 (A1-21):** `FindTandemRepeats(string, …)` overloads for N/IUPAC input over the canonical `RepeatFinder.FindMicrosatellites(string)`; 892-row ambiguous oracle; MCP accepts IUPAC (B09.md F50).
+- **Audit r3 (A3-8):** exact ports of EMBOSS `etandem` / `equicktandem` (`GenomicAnalyzer.FindTandemRepeatsEtandem` / `FindTandemRepeatsEquicktandem`, MCP `find_tandem_repeats_emboss`); 3000 / 3000 oracle rows equal (B09.md F136).

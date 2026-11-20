@@ -128,6 +128,8 @@ The canonical detector searches candidate unit lengths and starting positions, c
 
 - Approximate (interrupted) tandem repeats are not part of `GenomicAnalyzer.FindTandemRepeats`; they are `RepeatFinder.FindApproximateTandemRepeats` (TRF 4.10.0 model, REP-APPROX-001) and the MCP tools `find_approximate_tandem_repeats` / `mask_approximate_tandem_repeats`.
 
+**EMBOSS etandem / equicktandem (A3-8, `GenomicAnalyzer.EmbossTandem.cs`):** the two EMBOSS programs are score models, not the exact-run definition above, and are exposed as separate methods (`FindTandemRepeatsEtandem(sequence, minRepeat, maxRepeat, threshold = 20, mismatch, uniform)`, `FindTandemRepeatsEquicktandem(sequence, maxRepeat, threshold = 20)`, MCP `find_tandem_repeats_emboss`) that reproduce the programs statement by statement. etandem: per unit size n, candidates slide in n-mers over per-column base-count tables (+1 when the new base is / becomes the column's most frequent base, -1 otherwise, ties move the consensus; N = fifth base or -1 with `mismatch`), die below score 0, identical consensus tables are collapsed, candidates with a best score >= threshold (and, unless `uniform`, a two-letter consensus) are ranked highest score first (ties: smaller unit) and overlapping ones dropped; identity = 100 (score + n (copies + 1)) / (2 n copies) in 32-bit float arithmetic. equicktandem: the sequence against itself shifted by every gap, +1 / -1 diagonal score, reported stretches masked for larger gaps. Both programs agree with the code on 3000 / 3000 oracle rows (Evidence file). They overlap with `FindTandemRepeats` only on exact repeats; the F38 "297 of 400" difference is exactly this score model.
+
 ### 5.4 Deviations and Assumptions
 
 | # | Item | Type | Impact | Status | Notes |

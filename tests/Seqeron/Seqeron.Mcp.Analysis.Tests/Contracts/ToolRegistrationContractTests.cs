@@ -87,6 +87,7 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "find_supermaximal_repeats",
         "find_syntenic_blocks",
         "find_tandem_repeats",
+        "find_tandem_repeats_emboss",
         "flush_coaxial_stacking",
         "gc_content_profile",
         "gc_skew",

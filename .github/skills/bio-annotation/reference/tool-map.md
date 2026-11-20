@@ -121,6 +121,7 @@ Servers: `A` = Annotation, `X` = Analysis. `⚠` = guarded / documented-limited 
 | Tool | Srv | Purpose | Method ID |
 |---|---|---|---|
 | `find_tandem_repeats` | X | Consecutive repeating units | `GenomicAnalyzer.FindTandemRepeats` |
+| `find_tandem_repeats_emboss` | X | EMBOSS etandem / equicktandem ports (consensus-score / shifted-diagonal tandem repeats) | `GenomicAnalyzer.FindTandemRepeatsEtandem` |
 | `tandem_repeat_summary` | X | Aggregate microsatellite stats | `RepeatFinder.GetTandemRepeatSummary` |
 | `find_microsatellites` | X | STRs / microsatellites | `RepeatFinder.FindMicrosatellites` |
 | `find_direct_repeats` | X | Direct repeats (spacer-separated) | `RepeatFinder.FindDirectRepeats` |

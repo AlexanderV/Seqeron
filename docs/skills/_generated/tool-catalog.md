@@ -76,7 +76,7 @@
 | `tcoffee_slow_pair_align` | `SequenceAligner.TCoffeeSlowPairAlign` | [doc](../../mcp/tools/alignment/tcoffee_slow_pair_align.md) |
 | `write_alignment` | `EmbossAlignmentWriter.Format` | [doc](../../mcp/tools/alignment/write_alignment.md) |
 
-## Analysis (132 tools)
+## Analysis (133 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -151,6 +151,7 @@
 | `find_supermaximal_repeats` | `RepeatFinder.FindSupermaximalRepeats` | [doc](../../mcp/tools/analysis/find_supermaximal_repeats.md) |
 | `find_syntenic_blocks` | `ComparativeGenomics.FindSyntenicBlocks` | [doc](../../mcp/tools/analysis/find_syntenic_blocks.md) |
 | `find_tandem_repeats` | `GenomicAnalyzer.FindTandemRepeats` | [doc](../../mcp/tools/analysis/find_tandem_repeats.md) |
+| `find_tandem_repeats_emboss` | `GenomicAnalyzer.FindTandemRepeatsEtandem` | [doc](../../mcp/tools/analysis/find_tandem_repeats_emboss.md) |
 | `flush_coaxial_stacking` | `RnaSecondaryStructure.CalculateFlushCoaxialStacking` | [doc](../../mcp/tools/analysis/flush_coaxial_stacking.md) |
 | `gc_content_profile` | `SequenceStatistics.CalculateGcContentProfile` | [doc](../../mcp/tools/analysis/gc_content_profile.md) |
 | `gc_skew` | `GcSkewCalculator.CalculateGcSkew` | [doc](../../mcp/tools/analysis/gc_skew.md) |

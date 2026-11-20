@@ -100,6 +100,8 @@
 | ID | Test Case | Description | Expected Outcome | Notes |
 |----|-----------|-------------|------------------|-------|
 | C1 | Telomere motif | `TTAGGG` ×4 | unit `TTAGGG`, 4 copies | vertebrate telomere repeat |
+| C3 | EMBOSS etandem port (A3-8) | `FindTandemRepeatsEtandem` on 1700 oracle rows (`emboss_tandem_oracle.tsv`: random / planted / N / IUPAC / lower case; -mismatch, -uniform, thresholds) | score, start, end, size, count, identity (%.1f), consensus equal to etandem 6.6.0 on every row | `GenomicAnalyzer_EmbossTandem_Oracle_Tests` |
+| C4 | EMBOSS equicktandem port (A3-8) | `FindTandemRepeatsEquicktandem` on 1300 oracle rows | score, start, end, size, count equal to equicktandem 6.6.0 on every row | same class; worked values `33 61 96 3 12 100.0 cag`, `26 137 172 6 6 94.4 acgtta`, `21 1 24 3 8` |
 | C2 | 1 Mbp | bounded (2–60, ≥ 5 copies), unbounded, homopolymer, period-8 | planted repeat found, ≤ 6 s (Debug) | complexity |
 
 ---

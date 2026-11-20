@@ -90,6 +90,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `find_supermaximal_repeats` | Finds **supermaximal repeats** (Gusfield 1997 §7.12.1; Vmatch -supermax): maximal repeats that never occur as a substring of another maxima… |
 | `find_syntenic_blocks` | Collinear runs of orthologous genes between two genomes. |
 | `find_tandem_repeats` | Exact tandem repeats (e.g., ATGATGATG): maximal runs of a primitive unit (minUnitLength..maxUnitLength) repeated >= minRepetitions times; IUPAC input accepted (units must be A/C/G/T only); approximate repeats: `find_approximate_tandem_repeats`. `canonicalRotation` reports the least rotation of each unit (B09 A2-34). |
+| `find_tandem_repeats_emboss` | EMBOSS etandem / equicktandem ports (diagonal-score models: running consensus score / shifted-diagonal score), `program`, `minRepeat`, `maxRepeat`, `threshold`, `mismatch`, `uniform`; verified against EMBOSS 6.6.0 on 1700 + 1300 sequences (B09 A3-8). |
 | `flush_coaxial_stacking` | Coaxial stacking energy for two RNA helices with no intervening unpaired bases. |
 | `gc_content_profile` | GC content in sliding windows along the sequence (`fraction=true` for [0,1]; `ambiguityMode=remove\|ignore\|weighted` for Biopython gc_fraction; `includePartialWindow`). |
 | `gc_skew` | Whole-sequence GC skew = (G - C) / (G + C). |

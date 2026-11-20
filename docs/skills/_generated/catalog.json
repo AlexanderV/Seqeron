@@ -966,6 +966,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs"
   },
   {
+    "tool": "find_tandem_repeats_emboss",
+    "server": "Analysis",
+    "methodId": "GenomicAnalyzer.FindTandemRepeatsEtandem",
+    "docPath": "docs/mcp/tools/analysis/find_tandem_repeats_emboss.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.EmbossTandem.cs"
+  },
+  {
     "tool": "flush_coaxial_stacking",
     "server": "Analysis",
     "methodId": "RnaSecondaryStructure.CalculateFlushCoaxialStacking",

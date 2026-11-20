@@ -332,6 +332,7 @@
 | validate_dot_bracket | Analysis | RnaSecondaryStructure.ValidateDotBracket | RnaSecondaryStructure.cs#L1418 | 0/0 | – | – | Build-Ready |
 | windowed_complexity | Analysis | SequenceComplexity.CalculateWindowedComplexity | SequenceComplexity.cs#L470 | 0/0 | – | – | Build-Ready |
 | windowed_gc_skew | Analysis | GcSkewCalculator.CalculateWindowedGcSkew | GcSkewCalculator.cs#L147 | 0/0 | – | – | Build-Ready |
+| find_tandem_repeats_emboss | Analysis | GenomicAnalyzer.FindTandemRepeatsEtandem | GenomicAnalyzer.EmbossTandem.cs | 0/0 | – | – | Build-Ready |
 | alignment_statistics | Alignment | SequenceAligner.CalculateStatistics | Alignment/SequenceAligner.cs#L1064 | 0/0 | – | – | Build-Ready |
 | assemble_de_bruijn | Alignment | SequenceAssembler.AssembleDeBruijn | Alignment/SequenceAssembler.cs#L75 | 0/0 | – | – | Build-Ready |
 | assemble_olc | Alignment | SequenceAssembler.AssembleOLC | Alignment/SequenceAssembler.cs#L48 | 0/0 | – | – | Build-Ready |
