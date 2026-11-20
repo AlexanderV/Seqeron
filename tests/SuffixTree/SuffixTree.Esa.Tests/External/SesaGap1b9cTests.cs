@@ -268,6 +268,7 @@ public class SesaGap1b9cTests
             SesaRun.Compare(without, $"{threads} threads, no PSI", psi: false);
             SesaRun.Outcome with = SesaRun.Build(dir, text, SesaRun.Tiny(3, threads, psi: true), "-p");
             Assert.That(with.Oracle.Find(SesaFormat.KindPsi), Is.Not.Null, $"{threads} threads, PSI asked: a PSI section");
+            SesaRun.Compare(with, $"{threads} threads, PSI asked", psi: true); // the section is the PSI of the text: PH6 ran at every thread count (a build that skips PH6 above 1,000 threads leaves it empty)
         }
     }
 

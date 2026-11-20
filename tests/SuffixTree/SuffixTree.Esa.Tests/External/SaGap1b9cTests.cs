@@ -499,6 +499,7 @@ public class SaGap1b9cTests
             using MappedTextReader text = MappedTextReader.Open(path, n, 1);
             Assert.Throws<NotSupportedException>(() => ExternalDcs.BuildRankFile(text, cover, _dir.File("r.bin"), SaTiny.Dcs(scratch, 1)), $"PH1, {n} symbols");
             Assert.Throws<NotSupportedException>(() => BucketSorter.Run(text, SaTiny.Sort(scratch, 1), new NoSink(), ranks), $"PH3, {n} symbols");
+            Assert.Throws<NotSupportedException>(() => SaBuilder.Build(text, _dir.File("o.sa"), SaTiny.Build(scratch, 1)), $"the build, {n} symbols");
             File.Delete(path);
         }
         Assert.That(File.Exists(_dir.File("r.bin")), Is.False);
@@ -520,5 +521,6 @@ public class SaGap1b9cTests
         using MappedTextReader text = MappedTextReader.Open(path, n, 1);
         Assert.That(() => ExternalDcs.BuildRankFile(text, cover, _dir.File("r.bin"), SaTiny.Dcs(scratch, 1)), Throws.Exception.Not.TypeOf<NotSupportedException>(), "PH1");
         Assert.That(() => BucketSorter.Run(text, SaTiny.Sort(scratch, 1), new NoSink(), ranks), Throws.Exception.Not.TypeOf<NotSupportedException>(), "PH3");
+        Assert.That(() => SaBuilder.Build(text, _dir.File("o.sa"), SaTiny.Build(scratch, 1)), Throws.Exception.Not.TypeOf<NotSupportedException>(), "the build (F46: the entry of the build is at the limit as well)");
     }
 }

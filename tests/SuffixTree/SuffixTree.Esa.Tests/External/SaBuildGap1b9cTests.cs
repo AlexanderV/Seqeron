@@ -197,4 +197,55 @@ public class SaBuildGap1b9cTests
             Assert.That(seen, Is.EqualTo(occurrence), $"{point} #{occurrence}: the hook point was reached");
         }
     }
+
+    // ---------------------------------------------------------------- F45: each phase has its own seconds
+
+    [Test]
+    public void AWaitInOnePhase_ShowsInTheSecondsOfThatPhaseAlone()
+    {
+        // F45 (the PH1 time is the time of PH3): a hook that waits 400 ms once, inside PH1 (the first "rank-written") or inside PH3 (the first "leaf"), must show in the figure of that phase and not in the other
+        SaCase c = SaCase.Of(StringFamilies.RandomDna(800, 3));
+        foreach (string phase in new[] { "ph1", "ph3" })
+        {
+            using var dir = new TempDir();
+            bool inPh3 = false, waited = false;
+            SaBuildOptions options = SaTiny.Build(dir.Sub("scratch"), 1) with
+            {
+                Trace = step =>
+                {
+                    if (step == "ph23") inPh3 = true;
+                    bool here = phase == "ph1" ? step == "rank-written" : inPh3 && step == "leaf";
+                    if (here && !waited)
+                    {
+                        waited = true;
+                        using var gate = new ManualResetEventSlim(false);
+                        gate.Wait(400); // nothing sets it: a wait of 400 ms
+                    }
+                },
+            };
+            SaRun.Outcome o = SaRun.Run(dir, c, options);
+            Assert.That(waited, Is.True, phase);
+            double waiting = phase == "ph1" ? o.Result.Ph1Seconds : o.Result.Ph23Seconds;
+            double other = phase == "ph1" ? o.Result.Ph23Seconds : o.Result.Ph1Seconds;
+            Assert.That(waiting, Is.GreaterThanOrEqualTo(0.4), $"the phase that waited ({phase})");
+            Assert.That(other, Is.LessThan(0.4), $"the other phase ({phase} waited)");
+        }
+    }
+
+    // ---------------------------------------------------------------- F49, F62: the scratch bytes of a build that succeeded
+
+    [Test]
+    public void ABuildThatSucceeded_LeavesNoScratchByteInTheAccount_AndPh3ReportsItsOwnPeakWhichHoldsTheRankFile()
+    {
+        // F49 (the rank file is not booked in the ledger: the account ends at minus the size of the rank file) and F62 (the PH3 peak is that of PH1, which does not count the rank file yet)
+        SaCase c = SaCase.Of(StringFamilies.RandomDna(2500, 3));
+        var counters = new IoCounters();
+        SaBuildOptions options = SaTiny.Build(Scratch, 1) with { Counters = counters };
+        SaRun.Outcome o = SaRun.Run(_dir, c, options);
+        SaRun.Compare(c, o, "counted");
+        Assert.That(counters.ScratchLiveBytes, Is.Zero, "every scratch byte that the build took was given back");
+        Assert.That(o.Result.Ph23ScratchPeakBytes, Is.EqualTo(counters.ScratchPeakBytes), "the peak of the whole build is reached in PH3 (the rank file and the position files)");
+        Assert.That(o.Result.Ph23ScratchPeakBytes, Is.GreaterThan(o.Result.Ph1ScratchPeakBytes), "the rank file is booked from the end of PH1 on, so the peak of PH3 is above the peak of PH1");
+        Assert.That(o.Result.Ph23ScratchPeakBytes, Is.GreaterThanOrEqualTo(o.Result.RankFileBytes));
+    }
 }

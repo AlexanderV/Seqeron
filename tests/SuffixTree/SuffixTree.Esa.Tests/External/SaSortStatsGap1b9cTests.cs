@@ -35,4 +35,20 @@ public class SaSortStatsGap1b9cTests
         Assert.That(stats.Work.TiedCompares, Is.GreaterThan(0), "every key of the leaf ties");
         Assert.That(stats.Work.TiedCompares, Is.EqualTo(stats.Work.Compares), "the leaf sort compares tied suffixes only");
     }
+
+    [Test]
+    public void ThePartitionOfTheRoot_CountsEveryPositionThatItScans()
+    {
+        // F60 (the positions of the scans of the partitions are not counted): a root of 2,000 positions in leaves of 1,500 is split once, and its scan reads every position once
+        SaCase c = SaCase.Of(StringFamilies.RandomDna(2000, 3));
+        DifferenceCover cover = DifferenceCover.Create(7);
+        string textPath = SaRun.WriteText(_dir, c);
+        using MappedTextReader text = MappedTextReader.Open(textPath, c.N, c.Bits);
+        using RankTable ranks = RankTable.Open(SaInputs.WriteRankFile(_dir, c, cover), cover, c.N);
+        var sink = new MemorySaSink(c.N + 1);
+        SortStats stats = BucketSorter.Run(text, SaTiny.Sort(_dir.Sub("scratch"), 1, 1) with { LeafCapacity = 1500 }, sink, ranks);
+        Assert.That(sink.Data, Is.EqualTo(c.Sa));
+        Assert.That(stats.Partitions, Is.EqualTo(1L));
+        Assert.That(stats.Work.ScanPositions, Is.EqualTo(c.N), "one scan of the root");
+    }
 }
