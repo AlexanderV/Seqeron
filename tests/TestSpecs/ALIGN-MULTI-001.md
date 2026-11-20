@@ -757,3 +757,12 @@ Tests (`Seqeron.Genomics.Tests`, against the installed Debian `poa` 2.0+20060928
 | A5-2 | `LalignTopAlignments_IntMaxValue_MeansEveryAlignment`, `FracMinHashSketch_KAboveTheSequenceLength_IsAnEmptySketch_NotAnOutOfMemory` | the lazily grown vertex list of `lalign_id_pair`; `KmerAnalyzer.CreateFracMinHashSketch` with `k = int.MaxValue` |
 | A5-2 | `BiphasicPair_Cancels_...`, `GlocalGotohSwAndGotohProfile_Cancel_...`, `FastPair_Cancels_...`, `LgpAndViterbiDpModes_Cancel_...`, `LalignAndSlowPair_Cancel_...` | a pre-cancelled token and a cancellation at the middle poll INSIDE each pair method (`PollCancellation`: the call is run once to record its polls, then cancelled at the poll of the named method: no sleep) |
 
+## Audit A5-3 / A5-4 / A5-5 (B09 F169 / F171 / F170): null contract, deterministic cancellation, MCP documents
+
+| ID | Test | Locks |
+|---|---|---|
+| A5-3 | `SequenceAligner_NullContract_Tests` (MUSCLE stage methods, Kalign / POA / ProbCons runners, `Minimap2Chaining.Map`, T-Coffee k-tuple / primary library / pair stages, `Ksw2Aligner.SimpleMatrix`, `AlignmentFormats` a2m, POA name / matrix) + MCP `NullContractTests` | a null list / element, a character the matrix cannot index, an out-of-range size -> `ArgumentException` family with the parameter name (before: NullReference / IndexOutOfRange / KeyNotFound / Overflow); the programs' own argument handling is untouched (usage screen exit 255, unknown option exit 1) |
+| A5-4 | `SequenceAligner_Cancellation_Tests.CancelledWhileRunning_*` (every test names its poll site) | `PollCancellation`: the token is cancelled at the 3rd poll of the named method, the call stops with `OperationCanceledException` (no sleep, thread or time bound) |
+| A5-4 | `Minimap2Seeds_Tests.FrequentMinimizers_...`, MCP `Minimap2ChainsTests`, `SequenceAligner_ResourceLimits_Tests` | exact values of the installed programs instead of `> 0` / `Is.Not.Empty`: `mid_occ = 10`, `RS 24`, 35 / 1 866 anchors (`minimap2 --print-seeds`), stretcher score 20, seqmatchall 282 lines, dotmatcher plot (397 segments, first segment) |
+| A5-5 | `ToolDocsContractTests` (MCP.Alignment.Tests: 76 tools; MCP.Analysis.Tests: the B09 tools) over `ToolDocsContractTestsBase` | description, parameter names / order / type / default / description, `required`, the `.md` Input Schema table equal the reflection metadata of the tool; `python3 scripts/docs/sync_mcp_tool_docs.py [--check]` regenerates / checks the same fields |
+
