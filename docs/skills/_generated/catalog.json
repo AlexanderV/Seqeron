@@ -315,6 +315,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.Muscle.cs#L67"
   },
   {
+    "tool": "multiple_align_poa",
+    "server": "Alignment",
+    "methodId": "SequenceAligner.PoaRun",
+    "docPath": "docs/mcp/tools/alignment/multiple_align_poa.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.Poa.cs"
+  },
+  {
     "tool": "multiple_align_probcons",
     "server": "Alignment",
     "methodId": "SequenceAligner.ProbConsRun",
@@ -348,6 +355,13 @@
     "methodId": "SequenceAligner.NeedleAll",
     "docPath": "docs/mcp/tools/alignment/needleall_align.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.NeedleAll.cs"
+  },
+  {
+    "tool": "poa_command",
+    "server": "Alignment",
+    "methodId": "PoaProgram.Run",
+    "docPath": "docs/mcp/tools/alignment/poa_command.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/PoaProgram.cs"
   },
   {
     "tool": "probcons_command",

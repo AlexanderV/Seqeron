@@ -303,3 +303,7 @@ One input contract for every multiple-alignment entry point: null element -> `Ar
 ## Audit r2 addendum (A2-23, B09 F127, WP34): ProbCons 1.12
 
 `SequenceAligner.MultipleAlignProbCons` / `ProbConsRun` / `ProbConsPairs` / `ProbConsTrain`, `ProbConsParameters` and `ProbConsProgram` port ProbCons 1.12 (pair-HMM posteriors shared with T-Coffee's `proba_pair`, consistency transformation, expected-accuracy tree, progressive maximum-expected-accuracy alignment, glibc-`rand` iterative refinement, EM pre-training / training, annotation, all-pairs / Viterbi output, Clustal writer, MSF / Clustal readers); MCP `multiple_align_probcons`, `probcons_command`. Exit code, stdout, stderr and files equal the installed Debian `probcons` 1.12-14 on 407 / 407 command lines. Reproduced program defects: `-go` / `-ge` heap overflow for unequal profiles, gapped MSF input overflow (not in the oracle). Registered DOABLE: none for the algorithm.
+
+## Audit r2 addendum (A2-26, B09 F128, WP34): POA 2.0
+
+`SequenceAligner.MultipleAlignPoa` / `PoaRun`, `PoaScoreMatrix` and `PoaProgram` port Lee's POA V2 (graph DP with the program's gap model, fusion into align rings, iterative / progressive / pair-score merging, `-fuse_all`, heaviest bundle, PO / PIR / CLUSTAL writers); MCP `multiple_align_poa`, `poa_command`. Exit code, standard output and the PO / PIR / CLUSTAL files equal the installed Debian `poa` 2.0+20060928 on 359 / 359 command lines. Registered DOABLE: MSA / PO input (`-read_msa*`, `-subset*`, `-remove*`, A2-26b), spoa and abPOA as separate programs (A2-26c).

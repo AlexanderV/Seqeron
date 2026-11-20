@@ -20,7 +20,7 @@
 | Core | SuffixTree.Mcp.Core | 18 | 18/18 | 18/18 | 18/18 | ✅ done |
 | Sequence | Seqeron.Mcp.Sequence | 35 | 35/35 | 35/35 | 35/35 | ✅ done |
 | Parsers | Seqeron.Mcp.Parsers | 41 | 41/41 | 41/41 | 41/41 | ✅ done |
-| Alignment | Seqeron.Mcp.Alignment | 65 | 65/65 | 65/65 | 65/65 | ✅ done |
+| Alignment | Seqeron.Mcp.Alignment | 67 | 67/67 | 67/67 | 67/67 | ✅ done |
 | Analysis | Seqeron.Mcp.Analysis | 132 | 132/132 | 132/132 | 132/132 | ✅ done |
 | Annotation | Seqeron.Mcp.Annotation | 97 | 97/97 | 97/97 | 97/97 | ✅ done |
 | Chromosome | Seqeron.Mcp.Chromosome | 32 | 32/32 | 32/32 | 32/32 | ✅ done |
@@ -140,7 +140,7 @@
 | 40 | `vcf_variant_length` | ☑ | ☑ | ☑ |
 | 41 | `vcf_write` | ☑ | ☑ | ☑ |
 
-### Alignment (Seqeron.Mcp.Alignment) — 65 tools
+### Alignment (Seqeron.Mcp.Alignment) — 67 tools
 
 | # | tool | B | T | D |
 |---:|---|:--:|:--:|:--:|
@@ -209,6 +209,8 @@
 | 63 | `ksw2_extend` | ☑ | ☑ | ☑ |
 | 64 | `multiple_align_probcons` | ☑ | ☑ | ☑ |
 | 65 | `probcons_command` | ☑ | ☑ | ☑ |
+| 66 | `multiple_align_poa` | ☑ | ☑ | ☑ |
+| 67 | `poa_command` | ☑ | ☑ | ☑ |
 
 ### Analysis (Seqeron.Mcp.Analysis) — 132 tools
 

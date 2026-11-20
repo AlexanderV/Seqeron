@@ -51,11 +51,13 @@
 | `multiple_align_kalign` | Alignment | `SequenceAligner.KalignRun` | [doc](../../../../docs/mcp/tools/alignment/multiple_align_kalign.md) |
 | `multiple_align_mafft` | Alignment | `SequenceAligner.MultipleAlignMafft` | [doc](../../../../docs/mcp/tools/alignment/multiple_align_mafft.md) |
 | `multiple_align_muscle` | Alignment | `SequenceAligner.MultipleAlignMuscle` | [doc](../../../../docs/mcp/tools/alignment/multiple_align_muscle.md) |
+| `multiple_align_poa` | Alignment | `SequenceAligner.PoaRun` | [doc](../../../../docs/mcp/tools/alignment/multiple_align_poa.md) |
 | `multiple_align_probcons` | Alignment | `SequenceAligner.ProbConsRun` | [doc](../../../../docs/mcp/tools/alignment/multiple_align_probcons.md) |
 | `multiple_align_progressive` | Alignment | `SequenceAligner.MultipleAlignProgressive` | [doc](../../../../docs/mcp/tools/alignment/multiple_align_progressive.md) |
 | `multiple_align_tcoffee` | Alignment | `SequenceAligner.MultipleAlignTCoffeeProgram` | [doc](../../../../docs/mcp/tools/alignment/multiple_align_tcoffee.md) |
 | `muscle_msa_command` | Alignment | `SequenceAligner.MuscleProfileAlign` | [doc](../../../../docs/mcp/tools/alignment/muscle_msa_command.md) |
 | `needleall_align` | Alignment | `SequenceAligner.NeedleAll` | [doc](../../../../docs/mcp/tools/alignment/needleall_align.md) |
+| `poa_command` | Alignment | `PoaProgram.Run` | [doc](../../../../docs/mcp/tools/alignment/poa_command.md) |
 | `probcons_command` | Alignment | `ProbConsProgram.Run` | [doc](../../../../docs/mcp/tools/alignment/probcons_command.md) |
 | `quality_trim_reads` | Alignment | `SequenceAssembler.QualityTrimReads` | [doc](../../../../docs/mcp/tools/alignment/quality_trim_reads.md) |
 | `scaffold_contigs` | Alignment | `SequenceAssembler.Scaffold` | [doc](../../../../docs/mcp/tools/alignment/scaffold_contigs.md) |

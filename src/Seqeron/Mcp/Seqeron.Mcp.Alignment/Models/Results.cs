@@ -83,6 +83,23 @@ public record ProbConsCommandResultDto(
     string Stderr,
     Dictionary<string, string> Files);
 
+/// <summary>POA 2.0 alignment: the rows (sequences in the program's output order, then the consensus sequences of -hb), the input index of every row (-1 for a consensus), and the PO, PIR and CLUSTAL texts.</summary>
+public record PoaResultDto(
+    string[] Names,
+    string[] AlignedSequences,
+    int[] Order,
+    string Po,
+    string Pir,
+    string Clustal,
+    string Stdout);
+
+/// <summary>POA 2.0 command: exit code, standard output, standard error, and the files the program wrote (name to text).</summary>
+public record PoaCommandResultDto(
+    int ExitCode,
+    string Stdout,
+    string Stderr,
+    Dictionary<string, string> Files);
+
 /// <summary>Multiple sequence alignment result.</summary>
 public record MultipleAlignmentResultDto(
     string[] AlignedSequences,
