@@ -124,5 +124,6 @@ These live on the Alignment server but belong to the assembly workflow; listed f
 | [`multiple_align_poa`](../../../../docs/mcp/tools/alignment/multiple_align_poa.md) | `SequenceAligner.PoaRun` | POA 2.0 partial-order MSA (graph DP with the program's affine gap model, fusion into align rings, local / `global` / `progressive` / `pairScores`, `fuseAll`, heaviest bundle consensus); returns the rows and the program's PO / PIR / CLUSTAL texts; equal to the installed program on 359 / 359 command lines. |
 | [`poa_command`](../../../../docs/mcp/tools/alignment/poa_command.md) | `PoaProgram.Run` | POA 2.0 as a command line (`-read_fasta -do_global -do_progressive -read_pairscores -fuse_all -hb -hbmin -best -preserve_seqorder -tolower -toupper -pir -clustal -po -printmatrix -v MATRIX`, files as text); equal to the program on 359 / 359 command lines. |
 | [`align_gap_profile`](../../../../docs/mcp/tools/alignment/align_gap_profile.md) | `SequenceAligner.GlobalAlignAffine(GapScoreProfile)` | Biopython per-direction / per-end gap scores (left / right / internal x insertion / deletion, open / extend) |
+| [`merger`](../../../../docs/mcp/tools/alignment/merger.md) | `SequenceAligner.Merger` | EMBOSS merger (merge two overlapping sequences) |
 
 > For k-mer/assembly workflows use **`bio-assembly`**; this skill owns the alignment/similarity subset above.

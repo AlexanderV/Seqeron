@@ -53,6 +53,7 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "local_align_co_optimal",
         "local_align_top_n",
         "merge_contigs",
+        "merger",
         "multiple_align",
         "multiple_align_anchored",
         "multiple_align_clustalw",

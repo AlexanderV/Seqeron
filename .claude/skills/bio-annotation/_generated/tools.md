@@ -128,6 +128,7 @@
 | `scan_with_alphabet_pwm` | Analysis | `MotifFinder.ScanWithAlphabetPwm` | [doc](../../../../docs/mcp/tools/analysis/scan_with_alphabet_pwm.md) |
 | `scan_with_pwm` | Analysis | `MotifFinder.ScanWithPwm` | [doc](../../../../docs/mcp/tools/analysis/scan_with_pwm.md) |
 | `scan_with_pwm_both_strands` | Analysis | `MotifFinder.ScanWithPwmBothStrands` | [doc](../../../../docs/mcp/tools/analysis/scan_with_pwm_both_strands.md) |
+| `seqmatchall` | Analysis | `GenomicAnalyzer.SeqMatchAll` | [doc](../../../../docs/mcp/tools/analysis/seqmatchall.md) |
 | `shared_motifs_significance` | Analysis | `MotifFinder.FindSharedMotifs` | [doc](../../../../docs/mcp/tools/analysis/shared_motifs_significance.md) |
 | `spaced_word_distance` | Analysis | `KmerAnalyzer.SpacedWordDistance` | [doc](../../../../docs/mcp/tools/analysis/spaced_word_distance.md) |
 | `standardize_repeat_motif` | Analysis | `RepeatFinder.GetStandardMotif` | [doc](../../../../docs/mcp/tools/analysis/standardize_repeat_motif.md) |

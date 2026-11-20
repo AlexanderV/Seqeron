@@ -96,3 +96,4 @@ LRS values (ATCGATCGA, AAAAAAAAAA, ATATATA, ACGT) all match. ✓
 
 
 - **Audit r1 (A1-21):** `FindPalindromes(string, …)` overload (canonical raw-string `RepeatFinder`, only A/C/G/T pair); 861-row ambiguous oracle (B09.md F50).
+- **Audit r3 (A3-13, F139):** `FindPalindromes` vs EMBOSS `palindrome -gaplimit 0` compared on 330 sequences: per-centre longest = EMBOSS hit set; nested palindromes are extra (documented).

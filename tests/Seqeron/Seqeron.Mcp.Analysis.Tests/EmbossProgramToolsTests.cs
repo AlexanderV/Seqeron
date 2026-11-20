@@ -39,4 +39,16 @@ public class EmbossProgramToolsTests
         Assert.Throws<ArgumentOutOfRangeException>(() => AnalysisTools.FindTandemRepeatsEmboss("ACGT", "etandem", 1));
         Assert.Throws<ArgumentOutOfRangeException>(() => AnalysisTools.FindTandemRepeatsEmboss("ACGT", "equicktandem", threshold: 0));
     }
+
+    [Test]
+    public void SeqMatchAll_ReportsMaximalExactMatchesOfEveryPair()
+    {
+        // seqmatchall -wordsize 6 on these three sequences: "10 a 1..10 b 3..12", "6 a 1..6 b 7..12", "6 a 5..10 b 3..8" (1-based); the third is shorter than the word size
+        var r = AnalysisTools.SeqMatchAll(["ACGTACGTAC", "GGACGTACGTACTT", "TTTT"], 6);
+        Assert.That(r.Matches.Select(m => (m.Sequence1, m.Sequence2, m.Position1, m.Position2, m.Length)).ToArray(),
+            Is.EqualTo(new[] { (0, 1, 0, 2, 10), (0, 1, 0, 6, 6), (0, 1, 4, 2, 6) }));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.SeqMatchAll([], 4));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.SeqMatchAll(["ACGT", ""], 4));
+        Assert.Throws<ArgumentOutOfRangeException>(() => AnalysisTools.SeqMatchAll(["ACGT", "ACGT"], 0));
+    }
 }

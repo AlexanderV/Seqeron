@@ -185,3 +185,7 @@ CommonRegion r = GenomicAnalyzer.FindLongestCommonRegion(a, b);
 5. Chang W.I., Lawler E.L. 1994. Sublinear approximate string matching and biological applications. Algorithmica 12:327-344 (matching statistics computed in one left-to-right scan with suffix links; confirmed from search snippets/lecture notes, paper not opened).
 6. Kurtz S. et al. 2004. Versatile and open software for comparing large genomes. Genome Biol 5:R12 (maximal exact matches; as implemented by `SuffixTree.FindMaximalExactMatches`, MUMmer-identical per B05 F20).
 7. Seqeron repository. SuffixTree.Algorithms.cs — `LongestCommonSubstringInfo` (documented tie-break: first found in 'other'). ../../../src/SuffixTree/Algorithms/SuffixTree/SuffixTree.Algorithms.cs
+
+### seqmatchall (A3-13, B09 F139)
+
+`GenomicAnalyzer.SeqMatchAll(sequences, wordSize)` = EMBOSS `seqmatchall`: every maximal exact match (>= `wordSize`) of every pair i < j (forward strand; length(i) > k, length(j) >= k), by the canonical suffix-tree engine (`CommonRegionMode.MaximalExactMatches`) or, when the indexed sequence has the unknown symbol of its type (N / X), by the program's word-table scan (reproduced, including its restart-after-N quirk). MCP `seqmatchall`. Oracle: 330 sets, equal as sets (Evidence file).

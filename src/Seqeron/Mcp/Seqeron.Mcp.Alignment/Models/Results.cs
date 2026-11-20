@@ -300,3 +300,11 @@ public record EmbossProgramAlignResult(PairAlignmentItem[] Alignments, int Count
 
 /// <summary>Result of <c>ksw2_extend</c>: the fields of ksw_extz_t and the CIGAR.</summary>
 public record Ksw2ExtendResult(int Max, bool ZDropped, int MaxQ, int MaxT, int Mqe, int MqeT, int Mte, int MteQ, int Score, bool ReachEnd, string Cigar);
+
+
+/// <summary>A conflict line of <c>merger</c> (positions 1-based; '.' = gap).</summary>
+public record MergerConflictDto(int PositionA, string BaseA, int PositionB, string BaseB, string Using);
+
+/// <summary>Result of <c>merger</c>: the merged sequence, the score, the unaligned head lengths, the aligned region and the conflicts.</summary>
+public record MergerResultDto(
+    string MergedSequence, double Score, int StartA, int StartB, string AlignedA, string AlignedB, MergerConflictDto[] Conflicts, string[] Warnings);

@@ -194,3 +194,7 @@ The algorithm detects only exact DNA palindromes and does not interpret ambiguou
 3. Rosalind. 2026. REVP: Locating Restriction Sites. Rosalind. https://rosalind.info/problems/revp/
 4. REBASE. 2026. Restriction Enzyme Database. https://rebase.neb.com/
 5. Rice P, Longden I, Bleasby A. 2000. EMBOSS: the European Molecular Biology Open Software Suite. Trends Genet 16:276–277 (`palindrome.c`, `einverted.c`).
+
+### EMBOSS palindrome relation (A3-13, B09 F139)
+
+`GenomicAnalyzer.FindPalindromes` / `RepeatFinder.FindPalindromes` list every contiguous reverse-complement palindrome of a length range, nested ones included. EMBOSS `palindrome` (with `-gaplimit 0 -nummismatches 0 -overlap`) reports only, per centre, the longest palindrome of arm >= `-minpallen`, capped to the inner 2 x `-maxpallen` bases: the per-centre longest member of `FindPalindromes(2 m, 2 M)` equals it on 330 / 330 oracle sequences (1000+ hits). Loops (`-gaplimit`) and mismatches (`-nummismatches`) are `RepeatFinder.FindInvertedRepeats`, scored gapped arms are `FindInvertedRepeatsScored` (EMBOSS einverted), both verified in B04.

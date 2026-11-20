@@ -20,8 +20,8 @@
 | Core | SuffixTree.Mcp.Core | 18 | 18/18 | 18/18 | 18/18 | ✅ done |
 | Sequence | Seqeron.Mcp.Sequence | 35 | 35/35 | 35/35 | 35/35 | ✅ done |
 | Parsers | Seqeron.Mcp.Parsers | 41 | 41/41 | 41/41 | 41/41 | ✅ done |
-| Alignment | Seqeron.Mcp.Alignment | 68 | 68/68 | 68/68 | 68/68 | ✅ done |
-| Analysis | Seqeron.Mcp.Analysis | 133 | 133/133 | 133/133 | 133/133 | ✅ done |
+| Alignment | Seqeron.Mcp.Alignment | 69 | 69/69 | 69/69 | 69/69 | ✅ done |
+| Analysis | Seqeron.Mcp.Analysis | 134 | 134/134 | 134/134 | 134/134 | ✅ done |
 | Annotation | Seqeron.Mcp.Annotation | 97 | 97/97 | 97/97 | 97/97 | ✅ done |
 | Chromosome | Seqeron.Mcp.Chromosome | 32 | 32/32 | 32/32 | 32/32 | ✅ done |
 | Metagenomics | Seqeron.Mcp.Metagenomics | 19 | 19/19 | 19/19 | 19/19 | ✅ done |
@@ -140,7 +140,7 @@
 | 40 | `vcf_variant_length` | ☑ | ☑ | ☑ |
 | 41 | `vcf_write` | ☑ | ☑ | ☑ |
 
-### Alignment (Seqeron.Mcp.Alignment) — 68 tools
+### Alignment (Seqeron.Mcp.Alignment) — 69 tools
 
 | # | tool | B | T | D |
 |---:|---|:--:|:--:|:--:|
@@ -212,8 +212,9 @@
 | 66 | `multiple_align_poa` | ☑ | ☑ | ☑ |
 | 67 | `poa_command` | ☑ | ☑ | ☑ |
 | 68 | `align_gap_profile` | ☑ | ☑ | ☑ |
+| 69 | `merger` | ☑ | ☑ | ☑ |
 
-### Analysis (Seqeron.Mcp.Analysis) — 133 tools
+### Analysis (Seqeron.Mcp.Analysis) — 134 tools
 
 | # | tool | B | T | D |
 |---:|---|:--:|:--:|:--:|
@@ -349,6 +350,7 @@
 | 130 | `find_all_longest_repeats` | ☑ | ☑ | ☑ |
 | 131 | `find_pattern_hits` | ☑ | ☑ | ☑ |
 | 132 | `find_tandem_repeats_emboss` | ☑ | ☑ | ☑ |
+| 133 | `seqmatchall` | ☑ | ☑ | ☑ |
 | 132 | `find_longest_common_region_mismatches` | ☑ | ☑ | ☑ |
 ### Annotation (Seqeron.Mcp.Annotation) — 97 tools
 

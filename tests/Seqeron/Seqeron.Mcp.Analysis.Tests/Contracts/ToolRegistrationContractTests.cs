@@ -138,6 +138,7 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "scan_with_alphabet_pwm",
         "scan_with_pwm",
         "scan_with_pwm_both_strands",
+        "seqmatchall",
         "shared_motifs_significance",
         "spaced_word_distance",
         "standardize_repeat_motif",

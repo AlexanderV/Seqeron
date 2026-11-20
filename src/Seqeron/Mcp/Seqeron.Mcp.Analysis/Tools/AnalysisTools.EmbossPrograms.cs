@@ -40,4 +40,21 @@ public partial class AnalysisTools
             .ToArray();
         return new FindEmbossTandemRepeatsResult(which, items);
     }
+
+    [McpServerTool(Name = "seqmatchall", Title = "Genome — EMBOSS seqmatchall (all-against-all word matches)", ReadOnly = true)]
+    [Description("EMBOSS 6.6.0 seqmatchall: the all-against-all comparison of a set of sequences by exact word matches. For every pair i < j with length(i) > wordSize and length(j) >= wordSize every maximal exact match of at least wordSize symbols is reported (forward strand only; overlapping matches and repeated positions are all listed). Nucleotide or protein sequences (any letters, compared literally and case-insensitively); the program's word table leaves out words around its unknown symbol (N for a nucleotide sequence, X otherwise) with a scan that can keep a word that holds an N after a skipped one - reproduced exactly. Positions are 0-based (the program prints 1-based starts). Matches are listed per pair, by position (the program lists them in hash order: compare as sets). Verified against seqmatchall 6.6.0 on 330 random sets (2-5 sequences, nucleotide / N / lower case / protein, word sizes 2-12, 700+ pairs); on A/C/G/T input it equals find_common_regions mode MaximalExactMatches (MUMmer -maxmatch).")]
+    public static SeqMatchAllResult SeqMatchAll(
+        [Description("The sequences (at least one; nucleotide or protein letters).")] string[] sequences,
+        [Description("Word size (seqmatchall -wordsize, default 4, >= 1).")] int wordSize = 4,
+        CancellationToken cancellationToken = default)
+    {
+        if (sequences is null || sequences.Length == 0)
+            throw new ArgumentException("At least one sequence is required", nameof(sequences));
+        if (sequences.Any(string.IsNullOrEmpty))
+            throw new ArgumentException("Sequences cannot be null or empty", nameof(sequences));
+        var items = GenomicAnalyzer.SeqMatchAll(sequences, wordSize, cancellationToken)
+            .Select(m => new WordMatchItem(m.Sequence1, m.Sequence2, m.Position1, m.Position2, m.Length))
+            .ToArray();
+        return new SeqMatchAllResult(items);
+    }
 }

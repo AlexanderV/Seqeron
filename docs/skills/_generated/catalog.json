@@ -259,6 +259,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAssembler.cs#L629"
   },
   {
+    "tool": "merger",
+    "server": "Alignment",
+    "methodId": "SequenceAligner.Merger",
+    "docPath": "docs/mcp/tools/alignment/merger.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.Merger.cs"
+  },
+  {
     "tool": "multiple_align",
     "server": "Alignment",
     "methodId": "SequenceAligner.MultipleAlign",
@@ -1328,6 +1335,13 @@
     "methodId": "MotifFinder.ScanWithPwmBothStrands",
     "docPath": "docs/mcp/tools/analysis/scan_with_pwm_both_strands.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.PwmScoring.cs#L100"
+  },
+  {
+    "tool": "seqmatchall",
+    "server": "Analysis",
+    "methodId": "GenomicAnalyzer.SeqMatchAll",
+    "docPath": "docs/mcp/tools/analysis/seqmatchall.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.WordMatches.cs"
   },
   {
     "tool": "shared_motifs_significance",

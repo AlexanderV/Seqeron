@@ -333,6 +333,7 @@
 | windowed_complexity | Analysis | SequenceComplexity.CalculateWindowedComplexity | SequenceComplexity.cs#L470 | 0/0 | – | – | Build-Ready |
 | windowed_gc_skew | Analysis | GcSkewCalculator.CalculateWindowedGcSkew | GcSkewCalculator.cs#L147 | 0/0 | – | – | Build-Ready |
 | find_tandem_repeats_emboss | Analysis | GenomicAnalyzer.FindTandemRepeatsEtandem | GenomicAnalyzer.EmbossTandem.cs | 0/0 | – | – | Build-Ready |
+| seqmatchall | Analysis | GenomicAnalyzer.SeqMatchAll | GenomicAnalyzer.WordMatches.cs | 0/0 | – | – | Build-Ready |
 | alignment_statistics | Alignment | SequenceAligner.CalculateStatistics | Alignment/SequenceAligner.cs#L1064 | 0/0 | – | – | Build-Ready |
 | assemble_de_bruijn | Alignment | SequenceAssembler.AssembleDeBruijn | Alignment/SequenceAssembler.cs#L75 | 0/0 | – | – | Build-Ready |
 | assemble_olc | Alignment | SequenceAssembler.AssembleOLC | Alignment/SequenceAssembler.cs#L48 | 0/0 | – | – | Build-Ready |
@@ -401,6 +402,7 @@
 | multiple_align_poa | Alignment | SequenceAligner.PoaRun | Alignment/SequenceAligner.Poa.cs | 0/0 | – | – | Build-Ready |
 | poa_command | Alignment | PoaProgram.Run | Alignment/PoaProgram.cs | 0/0 | – | – | Build-Ready |
 | align_gap_profile | Alignment | SequenceAligner.GlobalAlignAffine(GapScoreProfile) | Alignment/SequenceAligner.GapProfile.cs | 0/0 | – | – | Build-Ready |
+| merger | Alignment | SequenceAligner.Merger | Alignment/SequenceAligner.Merger.cs | 0/0 | – | – | Build-Ready |
 | allele_frequencies | Population | PopulationGeneticsAnalyzer.CalculateAlleleFrequencies | Population/PopulationGeneticsAnalyzer.cs#L112 | 0/0 | – | – | Build-Ready |
 | diversity_statistics | Population | PopulationGeneticsAnalyzer.CalculateDiversityStatistics | Population/PopulationGeneticsAnalyzer.cs#L283 | 0/0 | – | – | Build-Ready |
 | estimate_ancestry | Population | PopulationGeneticsAnalyzer.EstimateAncestry | Population/PopulationGeneticsAnalyzer.cs#L919 | 0/0 | – | – | Build-Ready |

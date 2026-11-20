@@ -209,3 +209,5 @@
 | M-A2-30d | `LongestCommonRegionWithMismatches_MatchesBruteForce_AllRows`, `..._ZeroMismatches_IsTheExactMethod`, `..._ReverseStrand` | k-mismatch LCS (1680 rows), k = 0 equals the exact method, reverse strand |
 | M-A2-30e | `FindLongestCommonRegion_SeveralSequences_MatchesBruteForce_AllRows` | N-sequence LCS with support q (694 rows) |
 | S-A2-35 | `StringOverloads_WithN_ReportAnOrdinaryRegionNextToAnNRunUnchanged`, `..._Validation` | string / IUPAC input: N never matches |
+
+| A3-13a | `SeqMatchAll_EqualsSeqmatchall_AllSets`, `SeqMatchAll_OnNucleotides_IsTheMaximalExactMatchModeOfFindCommonRegions`, `SeqMatchAll_WorkedExample_AndArguments` | 330 seqmatchall 6.6.0 sets (`seqmatchall_oracle.tsv`: nucleotide / N / lower case / protein, k 2-12) | matches equal as sets; the N-free nucleotide case equals `FindCommonRegions` MaximalExactMatches | A3-13 |

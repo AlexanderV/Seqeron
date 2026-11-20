@@ -4,7 +4,7 @@
 
 <!-- BEGIN generated: do not edit by hand -->
 
-## Alignment (68 tools)
+## Alignment (69 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -45,6 +45,7 @@
 | `local_align_co_optimal` | `SequenceAligner.LocalAlignCoOptimal` | [doc](../../mcp/tools/alignment/local_align_co_optimal.md) |
 | `local_align_top_n` | `SequenceAligner.LocalAlignTopN` | [doc](../../mcp/tools/alignment/local_align_top_n.md) |
 | `merge_contigs` | `SequenceAssembler.MergeContigs` | [doc](../../mcp/tools/alignment/merge_contigs.md) |
+| `merger` | `SequenceAligner.Merger` | [doc](../../mcp/tools/alignment/merger.md) |
 | `multiple_align` | `SequenceAligner.MultipleAlign` | [doc](../../mcp/tools/alignment/multiple_align.md) |
 | `multiple_align_anchored` | `SequenceAligner.MultipleAlignAnchored` | [doc](../../mcp/tools/alignment/multiple_align_anchored.md) |
 | `multiple_align_clustalw` | `SequenceAligner.MultipleAlignClustalW` | [doc](../../mcp/tools/alignment/multiple_align_clustalw.md) |
@@ -77,7 +78,7 @@
 | `tcoffee_slow_pair_align` | `SequenceAligner.TCoffeeSlowPairAlign` | [doc](../../mcp/tools/alignment/tcoffee_slow_pair_align.md) |
 | `write_alignment` | `EmbossAlignmentWriter.Format` | [doc](../../mcp/tools/alignment/write_alignment.md) |
 
-## Analysis (133 tools)
+## Analysis (134 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -203,6 +204,7 @@
 | `scan_with_alphabet_pwm` | `MotifFinder.ScanWithAlphabetPwm` | [doc](../../mcp/tools/analysis/scan_with_alphabet_pwm.md) |
 | `scan_with_pwm` | `MotifFinder.ScanWithPwm` | [doc](../../mcp/tools/analysis/scan_with_pwm.md) |
 | `scan_with_pwm_both_strands` | `MotifFinder.ScanWithPwmBothStrands` | [doc](../../mcp/tools/analysis/scan_with_pwm_both_strands.md) |
+| `seqmatchall` | `GenomicAnalyzer.SeqMatchAll` | [doc](../../mcp/tools/analysis/seqmatchall.md) |
 | `shared_motifs_significance` | `MotifFinder.FindSharedMotifs` | [doc](../../mcp/tools/analysis/shared_motifs_significance.md) |
 | `spaced_word_distance` | `KmerAnalyzer.SpacedWordDistance` | [doc](../../mcp/tools/analysis/spaced_word_distance.md) |
 | `standardize_repeat_motif` | `RepeatFinder.GetStandardMotif` | [doc](../../mcp/tools/analysis/standardize_repeat_motif.md) |

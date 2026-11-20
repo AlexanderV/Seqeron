@@ -89,6 +89,7 @@ Servers: `A` = Annotation, `X` = Analysis. `⚠` = guarded / documented-limited 
 | `find_degenerate_motif` | X | IUPAC-degenerate matches | `MotifFinder.FindDegenerateMotif` |
 | `find_known_motifs` | X | Search a set of known motifs at once | `GenomicAnalyzer.FindKnownMotifs` |
 | `find_pattern_hits` | X | EMBOSS fuzznuc pattern language (classes, exclusions, repeats, ranges, anchors; mismatches; both strands) | `GenomicAnalyzer.FindPatternHits` |
+| `seqmatchall` | X | EMBOSS seqmatchall (all-against-all maximal exact word matches) | `GenomicAnalyzer.SeqMatchAll` |
 | `find_shared_motifs` | X | k-mers shared across sequences | `MotifFinder.FindSharedMotifs` |
 | `shared_motifs_significance` | X | Shared k-mers with RSAT ms_P/ms_E/ms_sig significance; degenerate words (-oneN/-onedeg) | `MotifFinder.FindSharedMotifs` (RSAT overloads) |
 | `find_regulatory_elements` | X | Built-in regulatory motif scan | `MotifFinder.FindRegulatoryElements` |

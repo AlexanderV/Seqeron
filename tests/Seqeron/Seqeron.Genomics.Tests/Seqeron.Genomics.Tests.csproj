@@ -214,6 +214,11 @@
          distance / p-value / shared hashes (400 rows, scripts/analysis/generate_mash_dist_oracle.py). -->
     <EmbeddedResource Include="TestData\Analysis\ani_ci_oracle.tsv" />
     <EmbeddedResource Include="TestData\Analysis\mash_dist_oracle.tsv" />
+    <!-- GENOMIC-COMMON-001 / GENOMIC-REPEAT-001 / ALIGN-SEMI-001 (B09 A3-13): EMBOSS seqmatchall (330 sets), palindrome -gaplimit 0 (330 sequences) and merger (450 read pairs) 6.6.0;
+         scripts/analysis/generate_seqmatchall_oracle.py, generate_palindrome_gap0_oracle.py, scripts/alignment/generate_merger_oracle.py. -->
+    <EmbeddedResource Include="TestData\Analysis\seqmatchall_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Analysis\palindrome_gap0_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Alignment\merger_oracle.tsv" />
     <!-- GENOMIC-SIMILARITY-001 (B09 F32-F34): exact k-mer Jaccard (percent), literal == Python set == scipy jaccard on presence
          vectors, canonical == Python set over min(w, revcomp w) == sourmash 4.9.4 MinHash(scaled=1); 2086 rows;
          scripts/analysis/generate_similarity_oracle.py. -->
