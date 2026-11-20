@@ -6,13 +6,15 @@ Every case runs `minimap2 [options] ref.fa query.fa` (PAF without -c) and record
 hits only), dv and rl. JSON lines:
   {"group": "...", "opts": {"k","w","g","r": [b, B], "n","m","N","p","mask_level","mask_len","hard_mask","rmq","chain_gap_scale","chain_skip_scale","max_chain_skip","max_chain_iter","no_long_join"? ...}, "names": [...], "qname": "...",
    "targets": [...], "query": "...", "hits": [[qs, qe, "+|-", tname, ts, te, mlen, blen, mapq, "P|S", cm, s1, s2|null, dv|null, rl], ...]}
-Groups (>= 300 cases each): sec (secondary-chain marking: repeats on both strands, -N -p --mask-level --mask-len --hard-mask-level, -r b,b), lj (long-join, -r b,B with B > b on queries made of distant pieces), rmq (--rmq), misc (-g -n -m
+Groups (>= 300 cases each): qname (audit A5-1: query names whose first byte is >= 0x80 - UTF-8 multi-byte names - or that contain U+0000, over references with 2 - 4 identical copies of the query so that the hash of the name decides the order of
+equal-score chains: khash.h __ac_X31_hash_string runs over a signed char, and a C string ends at NUL), sec (secondary-chain marking: repeats on both strands, -N -p --mask-level --mask-len --hard-mask-level, -r b,b), lj (long-join, -r b,B with B > b on queries made of distant pieces), rmq (--rmq), misc (-g -n -m
 --chain-gap-scale --chain-skip-scale --max-chain-skip --max-chain-iter on related pairs, -r b,b).
 Usage: python3 scripts/alignment/generate_minimap2_map_oracle.py [per_group=330] > minimap2_map_oracle.jsonl
 """
 import json, random, subprocess, sys, tempfile
 
 rnd = random.Random(20261206)
+QNAME_SEED = 20261207  # the qname group (A5-1) re-seeds the generator, so the four earlier groups are reproduced exactly
 COMP = str.maketrans('ACGT', 'TGCA')
 
 
@@ -50,8 +52,8 @@ def command(o):
 
 def run(o, names, targets, qname, query, d):
     open(d + '/r.fa', 'w').write(''.join('>%s\n%s\n' % (n, t) for n, t in zip(names, targets)))
-    open(d + '/q.fa', 'w').write('>%s\n%s\n' % (qname, query))
-    r = subprocess.run(command(o) + [d + '/r.fa', d + '/q.fa'], capture_output=True, text=True)
+    open(d + '/q.fa', 'wb').write(('>%s\n%s\n' % (qname, query)).encode('utf-8'))
+    r = subprocess.run(command(o) + [d + '/r.fa', d + '/q.fa'], capture_output=True, text=True, encoding='utf-8', errors='replace')
     if r.returncode != 0: return None
     hits = []
     for line in r.stdout.split('\n'):
@@ -63,8 +65,35 @@ def run(o, names, targets, qname, query, d):
     return hits
 
 
+def random_qname():
+    # code points outside ASCII (2-, 3- and 4-byte UTF-8), optionally with U+0000; no white space (kseq ends the name there), no surrogates
+    pools = [(0xA1, 0x24F), (0x370, 0x3FF), (0x400, 0x4FF), (0x4E00, 0x9FFF), (0x3040, 0x30FF), (0x1F300, 0x1F5FF), (0x80 + 0x20, 0x7FF)]
+    def ch():
+        lo, hi = rnd.choice(pools)
+        while True:
+            c = chr(rnd.randint(lo, hi))
+            if not c.isspace() and c.isprintable(): return c
+    kind = rnd.choice(['lead', 'lead', 'lead', 'inner', 'nul-first', 'nul-inner', 'ascii'])
+    ascii_part = ''.join(rnd.choice('abcdefgXYZ_/.019') for _ in range(rnd.randint(1, 5)))
+    wide = ''.join(ch() for _ in range(rnd.randint(1, 4)))
+    if kind == 'lead': return wide + ascii_part
+    if kind == 'inner': return ascii_part + wide
+    if kind == 'nul-first': return '\x00' + ascii_part + wide
+    if kind == 'nul-inner': return wide + '\x00' + ascii_part
+    return ascii_part
+
+
 def make(group):
     o = base(); names = ['r0']; qname = rnd.choice(['q', 'read1', 'seq_7', 'query/1'])
+    if group == 'qname':
+        qname = random_qname()
+        unit = rseq(rnd.randint(300, 600))
+        copy_count = rnd.choice([2, 3, 3, 4])
+        ref = ''.join(rseq(rnd.randint(50, 400)) + unit for _ in range(copy_count)) + rseq(rnd.randint(50, 300))
+        query = unit if rnd.random() < 0.8 else revcomp(unit)
+        if rnd.random() < 0.3: o['N'] = rnd.choice([1, 2, 5, 10])
+        if rnd.random() < 0.3: o['p'] = rnd.choice([0.5, 0.8, 1.0])
+        return o, ['r0'], [ref], qname, query
     o['k'] = rnd.choice([11, 13, 15, 15, 15, 17, 19]); o['w'] = rnd.choice([3, 5, 10, 10, 10])
     if group == 'sec':
         o['r'] = [500, 500] if rnd.random() < 0.7 else [100, 100]
@@ -131,7 +160,8 @@ def main():
     per = int(sys.argv[1]) if len(sys.argv) > 1 else 330
     counts = {}
     with tempfile.TemporaryDirectory() as d:
-        for group in ['sec', 'lj', 'rmq', 'misc']:
+        for group in ['sec', 'lj', 'rmq', 'misc', 'qname']:
+            if group == 'qname': rnd.seed(QNAME_SEED)
             made = attempts = 0
             while made < per and attempts < per * 4:
                 attempts += 1

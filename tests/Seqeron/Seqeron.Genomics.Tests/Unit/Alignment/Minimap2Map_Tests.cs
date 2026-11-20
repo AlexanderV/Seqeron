@@ -6,8 +6,9 @@ namespace Seqeron.Genomics.Tests.Unit.Alignment;
 /// <summary>
 /// ALIGN-MULTI-001 (audit A4-7, B09 F166): <see cref="Minimap2Chaining.Map"/> = minimap2 2.26 up to the end of the chaining stage: the primary / secondary marking (<c>mm_set_parent</c>, <c>mm_select_sub</c>, <c>-N</c> <c>-p</c>
 /// <c>--mask-level</c> <c>--mask-len</c> <c>--hard-mask-level</c>), the long-join re-chaining (<c>-r b,B</c>, <c>mg_lchain_rmq</c>), <c>--rmq</c>, the divergence estimate (<c>dv</c>), the mapping quality and the repeat length <c>rl</c>.
-/// Oracle (TestData/Alignment/minimap2_map_oracle.jsonl.gz, scripts/alignment/generate_minimap2_map_oracle.py): the PAF lines (without <c>-c</c>) of the installed minimap2 2.26 in four groups of >= 300 cases: columns 3 - 12 and the tags
-/// <c>tp cm s1 s2 dv rl</c> of every line.
+/// Oracle (TestData/Alignment/minimap2_map_oracle.jsonl.gz, scripts/alignment/generate_minimap2_map_oracle.py): the PAF lines (without <c>-c</c>) of the installed minimap2 2.26 in five groups of >= 300 cases: columns 3 - 12 and the tags
+/// <c>tp cm s1 s2 dv rl</c> of every line. Group <c>qname</c> (audit A5-1, B09 F167): query names that start with a non-ASCII character (UTF-8 lead byte &gt;= 0x80) or contain U+0000 over references with identical copies of the query, so that the hash of
+/// the name (khash.h <c>__ac_X31_hash_string</c>: signed <c>char</c>, C string) decides the order of equal-score chains.
 /// </summary>
 [TestFixture]
 public class Minimap2Map_Tests
@@ -160,5 +161,22 @@ public class Minimap2Map_Tests
         Assert.That(cases, Is.GreaterThanOrEqualTo(300));
         Assert.That(hits, Is.GreaterThan(300));
         Assert.That(multi, Is.GreaterThan(80));
+    }
+
+    [Test]
+    public void Map_NonAsciiAndNulQueryNames_EqualMinimap2()
+    {
+        // khash.h X31 hash of the name over a signed char (first byte included) and up to the first NUL: ties between equal-score chains are ordered by it
+        var failures = new List<string>();
+        var (cases, hits, secondary, multi, _) = CheckGroup("qname", failures);
+        Assert.That(failures, Is.Empty, $"{failures.Count} of {cases}:\n" + string.Join("\n", failures.Take(3)));
+        var rows = Oracle.Value.Where(c => c.Group == "qname").ToList();
+        Assert.That(cases, Is.GreaterThanOrEqualTo(300));
+        Assert.That(rows.Count(c => c.QName.Length > 0 && c.QName[0] > 0x7F), Is.GreaterThanOrEqualTo(150), "names whose first byte is >= 0x80");
+        Assert.That(rows.Count(c => c.QName.Contains('\0')), Is.GreaterThanOrEqualTo(50), "names with U+0000");
+        Assert.That(rows.Count(c => c.QName.Any(ch => ch >= 0x800)), Is.GreaterThanOrEqualTo(50), "3- and 4-byte UTF-8 names");
+        Assert.That(secondary, Is.GreaterThanOrEqualTo(300));
+        Assert.That(multi, Is.GreaterThanOrEqualTo(300));
+        Assert.That(hits, Is.GreaterThan(900));
     }
 }

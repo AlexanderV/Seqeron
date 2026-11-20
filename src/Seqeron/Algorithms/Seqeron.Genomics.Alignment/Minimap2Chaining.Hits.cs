@@ -127,18 +127,22 @@ public static partial class Minimap2Chaining
         public float Div = -1f;
     }
 
-    // __ac_X31_hash_string / __ac_Wang_hash of khash.h
+    // __ac_X31_hash_string of khash.h: `h = (khint_t)*s; for (++s; *s; ++s) h = (h << 5) - h + (khint_t)*s` over a SIGNED `char` (a byte >= 0x80 is sign-extended, also the first one) and over a C string, which ends at the first NUL.
     private static uint X31Hash(string s)
     {
-        if (s.Length == 0)
-            return 0;
         var bytes = System.Text.Encoding.UTF8.GetBytes(s);
-        uint h = bytes[0];
-        for (int i = 1; i < bytes.Length; i++)
+        int length = Array.IndexOf(bytes, (byte)0);
+        if (length < 0)
+            length = bytes.Length;
+        if (length == 0)
+            return 0;
+        uint h = (uint)(sbyte)bytes[0];
+        for (int i = 1; i < length; i++)
             h = (h << 5) - h + (uint)(sbyte)bytes[i];
         return h;
     }
 
+    // __ac_Wang_hash of khash.h
     private static uint WangHash(uint key)
     {
         key += ~(key << 15);
