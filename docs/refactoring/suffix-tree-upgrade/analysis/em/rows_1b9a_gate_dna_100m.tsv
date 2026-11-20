@@ -1,0 +1,48 @@
+#head	ebcb48fe15c1467f9681fa3bfdea6b8ef5ed548c
+#row: label variant count20_per_s locate8_per_s absent24_per_s open_s sink smaps...
+row	r1	memory	432342	420484	439415	10.0693	215119478	rss_kb=1516212	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=25048	rssanon_kb=1488760
+row	r1	checked	398256	344343	389468	0.0173	215119478	rss_kb=1407612	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=928856	rssanon_kb=476652
+row	r2	checked	369553	331944	369900	0.0110	215119478	rss_kb=1407668	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=928916	rssanon_kb=476648
+row	r2	memory	365807	349110	380766	11.2528	215119478	rss_kb=1516308	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=25144	rssanon_kb=1488760
+row	r3	memory	444273	426041	449804	10.7552	215119478	rss_kb=1516196	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=25040	rssanon_kb=1488752
+row	r3	checked	475577	412662	445875	0.0108	215119478	rss_kb=1407632	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=928880	rssanon_kb=476652
+row	r4	checked	491036	433297	479107	0.0110	215119478	rss_kb=1407692	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=928936	rssanon_kb=476652
+row	r4	memory	449377	425353	453519	10.3684	215119478	rss_kb=1516212	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=25048	rssanon_kb=1488760
+row	r5	memory	430652	420629	444461	10.5025	215119478	rss_kb=1516372	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=25208	rssanon_kb=1488760
+row	r5	checked	430671	417719	460334	0.0120	215119478	rss_kb=1407616	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=928860	rssanon_kb=476652
+row	r6	checked	363575	330892	369528	0.0108	215119478	rss_kb=1407720	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=928964	rssanon_kb=476656
+row	r6	memory	436671	423081	446118	10.3865	215119478	rss_kb=1516208	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=25048	rssanon_kb=1488756
+row	r7	memory	359230	341388	371039	9.8007	215119478	rss_kb=1516252	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=25088	rssanon_kb=1488760
+row	r7	checked	379717	344304	371192	0.0119	215119478	rss_kb=1407724	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=928968	rssanon_kb=476652
+#head	ebcb48fe15c1467f9681fa3bfdea6b8ef5ed548c
+#row: label variant count20_per_s locate8_per_s absent24_per_s open_s sink smaps...
+row	r1	memory	360107	342899	366803	11.9162	215119478	rss_kb=1516276	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=25120	rssanon_kb=1488752
+row	r1	checked	373551	335457	374810	0.0119	215119478	rss_kb=1407592	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=928836	rssanon_kb=476656
+row	r2	checked	471420	430932	460194	0.0134	215119478	rss_kb=1407716	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=928964	rssanon_kb=476652
+row	r2	memory	412115	412289	432352	10.9769	215119478	rss_kb=1516220	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=25052	rssanon_kb=1488764
+row	r3	memory	363866	333507	368162	11.4053	215119478	rss_kb=1516316	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=25156	rssanon_kb=1488756
+row	r3	checked	388173	337270	395191	0.0110	215119478	rss_kb=1407776	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=929024	rssanon_kb=476652
+row	r4	checked	382304	339743	376918	0.0118	215119478	rss_kb=1407696	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=928944	rssanon_kb=476652
+row	r4	memory	413480	374131	415577	11.2727	215119478	rss_kb=1516252	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=25096	rssanon_kb=1488752
+row	r5	memory	429446	425947	435137	10.2055	215119478	rss_kb=1516192	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=25024	rssanon_kb=1488764
+row	r5	checked	376469	419556	460316	0.0118	215119478	rss_kb=1407680	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=928932	rssanon_kb=476648
+row	r6	checked	447870	382375	414350	0.0113	215119478	rss_kb=1407772	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=929020	rssanon_kb=476652
+row	r6	memory	441552	433262	456971	11.3365	215119478	rss_kb=1516180	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=25024	rssanon_kb=1488752
+row	r7	memory	440961	363411	446281	10.7026	215119478	rss_kb=1516280	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=25124	rssanon_kb=1488752
+row	r7	checked	400076	339091	393543	0.0117	215119478	rss_kb=1407704	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=928952	rssanon_kb=476652
+row	r8	checked	445704	402212	415383	0.0111	215119478	rss_kb=1407584	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=928832	rssanon_kb=476652
+row	r8	memory	450517	434963	450550	10.6759	215119478	rss_kb=1516204	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=25040	rssanon_kb=1488760
+row	r9	memory	422212	402312	409272	10.1360	215119478	rss_kb=1516288	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=25132	rssanon_kb=1488752
+row	r9	checked	446959	407640	466028	0.0105	215119478	rss_kb=1407760	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=929012	rssanon_kb=476648
+row	r10	checked	478580	424683	462041	0.0105	215119478	rss_kb=1407636	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=928884	rssanon_kb=476652
+row	r10	memory	347029	325253	355137	11.8194	215119478	rss_kb=1516284	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=25120	rssanon_kb=1488760
+row	r11	memory	363123	343393	373302	10.6318	215119478	rss_kb=1516296	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=25128	rssanon_kb=1488764
+row	r11	checked	471237	433320	466858	0.0140	215119478	rss_kb=1407668	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=928912	rssanon_kb=476656
+row	r12	checked	507747	438034	479025	0.0108	215119478	rss_kb=1407772	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=929024	rssanon_kb=476648
+row	r12	memory	443252	427185	454835	9.7746	215119478	rss_kb=1516284	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=25124	rssanon_kb=1488756
+row	r13	memory	356672	333136	364657	10.2315	215119478	rss_kb=1516336	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=25172	rssanon_kb=1488760
+row	r13	checked	460491	412738	447329	0.0109	215119478	rss_kb=1407688	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=928932	rssanon_kb=476656
+row	r14	checked	366502	331413	363985	0.0130	215119478	rss_kb=1407604	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=928852	rssanon_kb=476652
+row	r14	memory	430074	421215	433895	12.0760	215119478	rss_kb=1516208	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=25044	rssanon_kb=1488760
+row	r15	memory	363689	323979	353715	11.4808	215119478	rss_kb=1516292	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=25132	rssanon_kb=1488756
+row	r15	checked	400990	358450	416562	0.0116	215119478	rss_kb=1407644	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=928880	rssanon_kb=476664

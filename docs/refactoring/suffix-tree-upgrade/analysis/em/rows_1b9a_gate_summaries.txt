@@ -1,0 +1,50 @@
+variant                              n |  count20/s      min      max  slower%  paired% |  locate8/s  slower%  paired% | absent24/s  slower%  paired%
+memory                              41 |     846806   730546  1211421      0.0      0.0 |    1002195      0.0      0.0 |     839839      0.0      0.0 
+checked                             41 |     842229   663089  1124378      0.5      3.4 |     970962      3.1      3.9 |     850153     -1.2      2.4 
+trusted                             41 |     838110   709645  1113259      1.0      1.6 |    1040688     -3.8     -1.1 |     889592     -5.9     -2.3 
+
+95 % bootstrap interval of slower% (the processes resampled):
+  checked                            count20 [ -13.4 ..   12.5]  locate8 [  -9.8 ..   14.3]  absent24 [ -13.0 ..   10.4]
+  trusted                            count20 [ -11.7 ..    9.5]  locate8 [ -18.4 ..   11.6]  absent24 [ -14.9 ..    6.9]
+
+slower% = (1 - median(variant) / median(reference)) * 100 over all processes; paired% = the median over rounds of the same quantity for the processes of one round
+variant                              n |  count20/s      min      max  slower%  paired% |  locate8/s  slower%  paired% | absent24/s  slower%  paired%
+memory                              21 |     819633   698156  1122864      0.0      0.0 |     859603      0.0      0.0 |     831294      0.0      0.0 
+checked                             21 |     771175   667058  1036297      5.9      6.3 |     829480      3.5      5.0 |     776711      6.6      4.7 
+trusted                             21 |     762988   700043  1049218      6.9      2.3 |     852877      0.8     -1.7 |     790925      4.9      1.8 
+
+95 % bootstrap interval of slower% (the processes resampled):
+  checked                            count20 [ -10.2 ..   14.8]  locate8 [ -12.3 ..   13.6]  absent24 [ -11.7 ..   15.0]
+  trusted                            count20 [  -7.8 ..   14.4]  locate8 [ -12.7 ..   10.3]  absent24 [  -9.3 ..   12.4]
+
+slower% = (1 - median(variant) / median(reference)) * 100 over all processes; paired% = the median over rounds of the same quantity for the processes of one round
+variant                              n |  count20/s      min      max  slower%  paired% |  locate8/s  slower%  paired% | absent24/s  slower%  paired%
+memory                              21 |     806372   652200   909275      0.0      0.0 |     783516      0.0      0.0 |     776138      0.0      0.0 
+checked                             21 |     653485   608607   858596     19.0      8.2 |     650274     17.0      7.4 |     649005     16.4      6.2 
+trusted                             21 |     693532   645993   909639     14.0      7.4 |     669609     14.5      6.0 |     640297     17.5      4.5 
+
+95 % bootstrap interval of slower% (the processes resampled):
+  checked                            count20 [  -1.4 ..   24.5]  locate8 [   1.0 ..   22.1]  absent24 [ -10.9 ..   21.4]
+  trusted                            count20 [  -7.2 ..   20.9]  locate8 [  -2.1 ..   19.8]  absent24 [ -12.0 ..   21.4]
+
+slower% = (1 - median(variant) / median(reference)) * 100 over all processes; paired% = the median over rounds of the same quantity for the processes of one round
+variant                              n |  count20/s      min      max  slower%  paired% |  locate8/s  slower%  paired% | absent24/s  slower%  paired%
+memory                              22 |     425829   347029   450517      0.0      0.0 |     407300      0.0      0.0 |     433124      0.0      0.0 
+checked                             22 |     415830   363575   507747      2.3     -5.9 |     392294      3.7     -1.1 |     415972      4.0     -5.8 
+
+95 % bootstrap interval of slower% (the processes resampled):
+  checked                            count20 [ -16.8 ..   10.0]  locate8 [ -16.7 ..   18.2]  absent24 [ -14.9 ..   10.6]
+
+slower% = (1 - median(variant) / median(reference)) * 100 over all processes; paired% = the median over rounds of the same quantity for the processes of one round
+variant                              n |  count20/s      min      max  slower%  paired% |  locate8/s  slower%  paired% | absent24/s  slower%  paired%
+memory@old                          15 |     812073   752746   950530      0.0      0.0 |     955247      0.0      0.0 |     823730      0.0      0.0 
+memory@new                          15 |     768893   719391   961995      5.3      4.5 |     909539      4.8      3.8 |     770699      6.4      5.1 
+
+95 % bootstrap interval of slower% (the processes resampled):
+  memory@new                         count20 [  -2.9 ..   10.9]  locate8 [  -6.9 ..   10.6]  absent24 [  -2.3 ..   10.8]
+
+slower% = (1 - median(variant) / median(reference)) * 100 over all processes; paired% = the median over rounds of the same quantity for the processes of one round
+in-process A/B (6 processes), throughput relative to memory (median over the processes; range in brackets)
+memory     count20 1.000 [1.000-1.000]  locate8 1.000 [1.000-1.000]  absent24 1.000 [1.000-1.000]
+checked    count20 1.033 [1.012-1.131]  locate8 1.004 [0.952-1.051]  absent24 1.036 [0.956-1.093]
+trusted    count20 1.071 [1.040-1.125]  locate8 1.024 [1.005-1.054]  absent24 1.063 [1.012-1.113]

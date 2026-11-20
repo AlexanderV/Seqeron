@@ -108,9 +108,23 @@ internal static class Program
         return new TreeQ((ISuffixTree)tree);
     }
 
+    /// <summary>Variant <c>alcf=&lt;path of SuffixTree.Esa.dll&gt;</c>: the file-backed tree (Checked) of the container, opened by that build.</summary>
+    private static Q FileOfBuild(string path, string file)
+    {
+        var context = new BuildContext(path);
+        System.Reflection.Assembly assembly = context.LoadFromAssemblyPath(path);
+        Type factory = assembly.GetType("SuffixTree.Esa.EsaSuffixTreeFactory")!;
+        Type options = assembly.GetType("SuffixTree.Esa.EsaOpenOptions")!;
+        object o = Activator.CreateInstance(options)!;
+        options.GetProperty("Access")!.SetValue(o, Enum.Parse(assembly.GetType("SuffixTree.Esa.EsaAccessMode")!, "Checked"));
+        object tree = factory.GetMethod("Open", [typeof(string), options])!.Invoke(null, [file, o])!;
+        return new TreeQ((ISuffixTree)tree);
+    }
+
     private static Q CreateQ(string variant, string file, string text)
     {
         if (variant.StartsWith("alc=", StringComparison.Ordinal)) return InMemoryOfBuild(variant[4..], text);
+        if (variant.StartsWith("alcf=", StringComparison.Ordinal)) return FileOfBuild(variant[5..], file);
 #if EXPERIMENTS
         if (variant.StartsWith("ix-", StringComparison.Ordinal)) return ExperimentsIx.Create(variant, file, text);
 #endif

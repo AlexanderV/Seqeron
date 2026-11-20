@@ -1,0 +1,12 @@
+smaps	rss_kb=509808	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=206612	rssanon_kb=300876
+pair	mv1	ix-nomadv	853520	1091929	878268	ratio_to_first:	1.000	1.000	1.000	sink=29474766
+pair	mv1	ix-madv	844119	1058733	855218	ratio_to_first:	0.985	1.019	0.972	sink=29474766
+smaps	rss_kb=509784	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=206596	rssanon_kb=300868
+pair	mv2	ix-nomadv	787350	986147	817197	ratio_to_first:	1.000	1.000	1.000	sink=29474766
+pair	mv2	ix-madv	808977	1026520	795150	ratio_to_first:	1.011	1.068	0.987	sink=29474766
+smaps	rss_kb=509872	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=206680	rssanon_kb=300872
+pair	mv3	ix-nomadv	878175	1121900	884773	ratio_to_first:	1.000	1.000	1.000	sink=29474766
+pair	mv3	ix-madv	840068	1099778	867270	ratio_to_first:	0.967	0.947	0.979	sink=29474766
+smaps	rss_kb=509832	anonhuge_kb=0	filehuge_kb=0	shmemhuge_kb=0	rssfile_kb=206636	rssanon_kb=300876
+pair	mv4	ix-nomadv	834076	1051011	830404	ratio_to_first:	1.000	1.000	1.000	sink=29474766
+pair	mv4	ix-madv	813215	1039716	818442	ratio_to_first:	0.986	0.989	0.977	sink=29474766

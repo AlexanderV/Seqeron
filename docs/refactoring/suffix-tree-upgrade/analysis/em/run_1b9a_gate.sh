@@ -49,7 +49,18 @@ for STEP in "$@"; do
       env -u DOTNET_GCHeapHardLimit SESA_ROWS="$W/rows/structure_100m.tsv" SESA_LABEL=dna_100m.structure SESA_VARIANT=open SESA_LEVEL=Structure SESA_ACCESS=Checked SESA_FILE="$W/dna_100m.sesa" SESA_INPUT="$DNA_100M" \
         dotnet test "$ROOT/tests/SuffixTree/SuffixTree.Esa.Tests/SuffixTree.Esa.Tests.csproj" -c Release --no-build --nologo --filter "FullyQualifiedName~SesaReaderCostTests" > "$W/rows/structure_100m.log" 2>&1
       matrix dna_100m "$DNA_100M" "$W/dna_100m.sesa" ACGT "$ROUNDS_100" "memory checked"
-      rm -f "$W/dna_100m.sesa" ;;
+      [ -n "${KEEP100:-}" ] || rm -f "$W/dna_100m.sesa" ;;
+    ip100) # the in-process A/B at 100 Mbp (the container of m100 with KEEP100=1): the in-memory tree and the Checked and Trusted file-backed trees in one process, IP_PROCS processes of IP_PASSES passes
+      for i in $(seq 1 "${IP_PROCS:-6}"); do dotnet "$W/bin/new/SuffixTree.Esa.Bench.dll" memory+checked+trusted "$W/dna_100m.sesa" "$DNA_100M" "${IP_PASSES:-7}" "ip$i" ACGT >> "$W/rows/inproc_dna_100m.tsv"; done
+      python3 "$HERE/summarize_1b9a.py" --inproc "$W/rows/inproc_dna_100m.tsv" | tee "$W/rows/inproc_dna_100m.summary.txt" ;;
+    del100) rm -f "$W/dna_100m.sesa" ;;
+    inproc10) # the in-process A/B at 10 Mbp (DNA 6 processes, the five-symbol and the protein-like text 3 each), 11 passes
+      for spec in "dna_10m:$DNA_10M:ACGT:6" "rnd5_10m:$RND5_10M:ACGTN:3" "prot_10m:$PROT_10M:ACDEFGHIKLMNPQRSTVWY:3"; do
+        IFS=: read -r name text alpha procs <<< "$spec"
+        : > "$W/rows/inproc_$name.tsv"
+        for i in $(seq 1 "$procs"); do dotnet "$W/bin/new/SuffixTree.Esa.Bench.dll" memory+checked+trusted "$W/$name.sesa" "$text" 11 "ip$i" "$alpha" >> "$W/rows/inproc_$name.tsv"; done
+        python3 "$HERE/summarize_1b9a.py" --inproc "$W/rows/inproc_$name.tsv" | tee "$W/rows/inproc_$name.summary.txt"
+      done ;;
     open)
       for i in 1 2 3; do dotnet "$W/bin/new/SuffixTree.Esa.Bench.dll" open "$W/dna_10m.sesa" x; done | tee "$W/rows/open_warm.tsv"
       : > "$W/rows/open_cold.tsv"

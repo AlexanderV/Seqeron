@@ -1,0 +1,9 @@
+pair	s16d1	memory	806618	1102110	839912	ratio_to_first:	1.000	1.000	1.000	sink=36024714
+pair	s16d1	alcf=/tmp/stbench/g9a/gate/bin/new/SuffixTree.Esa.dll	787041	1139066	901799	ratio_to_first:	0.974	1.016	1.038	sink=36024714
+pair	s16d1	alcf=/tmp/stbench/g9a_bin/v2/SuffixTree.Esa.dll	862638	1115061	899594	ratio_to_first:	1.069	1.026	1.024	sink=36024714
+pair	s16d2	memory	739754	937118	758532	ratio_to_first:	1.000	1.000	1.000	sink=36024714
+pair	s16d2	alcf=/tmp/stbench/g9a/gate/bin/new/SuffixTree.Esa.dll	747701	911530	766001	ratio_to_first:	0.958	0.945	0.960	sink=36024714
+pair	s16d2	alcf=/tmp/stbench/g9a_bin/v2/SuffixTree.Esa.dll	730747	960474	813389	ratio_to_first:	0.997	0.973	0.977	sink=36024714
+pair	s16d3	memory	841116	1120050	910164	ratio_to_first:	1.000	1.000	1.000	sink=36024714
+pair	s16d3	alcf=/tmp/stbench/g9a/gate/bin/new/SuffixTree.Esa.dll	822466	1094477	872736	ratio_to_first:	0.992	1.000	0.989	sink=36024714
+pair	s16d3	alcf=/tmp/stbench/g9a_bin/v2/SuffixTree.Esa.dll	877147	1106482	882669	ratio_to_first:	1.043	0.997	0.999	sink=36024714

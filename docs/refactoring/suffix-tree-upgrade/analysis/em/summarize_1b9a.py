@@ -30,7 +30,24 @@ def bootstrap(a, b, key, n=4000, seed=1):
     return out[int(0.025 * n)], out[int(0.975 * n) - 1]
 
 
+def inproc(path):
+    """The rows of the in-process A/B (ReadBench with variants joined by +: `pair <label> <variant> <count/s> <locate/s> <absent/s> ratio_to_first: <c> <l> <a>`): the median over the processes of the throughput ratio to the first variant."""
+    by = defaultdict(list)
+    for line in open(path, encoding="utf-8", errors="replace"):
+        f = line.split()
+        if len(f) >= 10 and f[0] == "pair":
+            by[f[2]].append((float(f[7]), float(f[8]), float(f[9])))
+    first = next(iter(by), None)
+    print("in-process A/B (%d processes), throughput relative to %s (median over the processes; range in brackets)" % (len(by.get(first, [])), first))
+    for v, r in by.items():
+        cols = list(zip(*r))
+        print("%-10s count20 %.3f [%.3f-%.3f]  locate8 %.3f [%.3f-%.3f]  absent24 %.3f [%.3f-%.3f]" % ((v,) + tuple(x for c in cols for x in (statistics.median(c), min(c), max(c)))))
+
+
 def main():
+    if "--inproc" in sys.argv:
+        inproc([p for p in sys.argv[1:] if not p.startswith("--")][0])
+        return
     paths = [p for p in sys.argv[1:] if not p.startswith("--")]
     ref = "memory"
     if len(paths) > 1 and not paths[1].endswith(".tsv"):

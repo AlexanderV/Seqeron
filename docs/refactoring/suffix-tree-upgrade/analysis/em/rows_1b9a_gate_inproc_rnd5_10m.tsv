@@ -1,0 +1,9 @@
+pair	ip1	memory	806845	980610	846775	ratio_to_first:	1.000	1.000	1.000	sink=8046907
+pair	ip1	checked	823811	959479	899709	ratio_to_first:	0.978	0.974	1.007	sink=8046907
+pair	ip1	trusted	884904	977119	914234	ratio_to_first:	1.074	0.989	1.015	sink=8046907
+pair	ip2	memory	728368	881149	785005	ratio_to_first:	1.000	1.000	1.000	sink=8046907
+pair	ip2	checked	674637	831635	701844	ratio_to_first:	0.929	0.937	0.899	sink=8046907
+pair	ip2	trusted	741728	856500	754365	ratio_to_first:	1.010	0.971	0.958	sink=8046907
+pair	ip3	memory	843668	1010467	885291	ratio_to_first:	1.000	1.000	1.000	sink=8046907
+pair	ip3	checked	811896	963034	859658	ratio_to_first:	0.992	0.990	0.984	sink=8046907
+pair	ip3	trusted	839167	963625	885531	ratio_to_first:	1.029	0.991	0.991	sink=8046907
