@@ -286,3 +286,7 @@ persistent_*.txt
 
 # Obsidian editor workspace state (local, not content)
 wiki/.obsidian/
+
+# Stray download artefacts at the repository root (A4-12: mash-1.14.tar.gz was committed by mistake)
+/*.tar
+/*.tar.gz

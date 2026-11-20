@@ -6,6 +6,7 @@ canonical k-mers (mash default) or `-n`; `mash sketch -k K -s S [-n] -o X seq.fa
 TSV (tests/.../TestData/Analysis/mash_dist_oracle.tsv):  seq1 \t seq2 \t k \t s \t canonical(1|0) \t distance \t p-value \t shared \t denominator
 (mash prints distance / p-value with 5 significant digits; the test compares at that precision).
 Never aborts: a failing mash call is reported on stderr and the row skipped.
+Install route of the reference program: `apt-get install mash` (Debian 2.3+dfsg-6); no source tarball is committed to the repository.
 Usage: python3 scripts/analysis/generate_mash_dist_oracle.py [rows] > mash_dist_oracle.tsv
 """
 import os, random, subprocess, sys, tempfile
