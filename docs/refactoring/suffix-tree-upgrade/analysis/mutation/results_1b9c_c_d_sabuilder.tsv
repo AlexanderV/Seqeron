@@ -1,4 +1,17 @@
-Q64	Build: PH1 threads	killed(1 failed: TheThreadCountOfTheBuild_ReachesPh1AndPh3_TwoTasksOfEachRunA)[only]			27
-Q76	Build: PH1 arena guards	killed(1 failed: TheGuardOption_ReachesPh1_AndPh3_EachOnItsOwn)[only]			9
-Q82	Build: the verification reads another length	killed(1 failed: WithVerifyRanks_ASlotOfTheRankFileThatWasDamagedAfterPh1_IsR)[only]			12
-Q86	Build: PH3 threads	killed(1 failed: TheThreadCountOfTheBuild_ReachesPh1AndPh3_TwoTasksOfEachRunA)[only]			29
+Q100	Build: the final length is not checked	killed(1 failed: AnOutputThatChangedItsLengthDuringTheBuild_IsRefused_AndRemo)[only]			33
+Q102	Build: the verdict is Within when above the cap	killed(1 failed: TheRssAnonFigures_AreInMegabytesOfTenToTheSixth_AndTheVerdic)[only]			13
+Q104	Build: the RSS figure is in KiB	killed(1 failed: TheRssAnonFigures_AreInMegabytesOfTenToTheSixth_AndTheVerdic)[only]			12
+Q106	Build: the PH3 RSS figure is from PH1	killed(1 failed: TheRssAnonFigureOfPh3_IsThatOfPh3_NotThatOfPh1)[only]			14
+Q112	Build: the PH1 time includes PH3	killed(1 failed: TheSecondsOfThePhases_AreMeasuredWithinTheBuild_AndAddUpToNo)[only]			13
+Q116	Build: the scratch bytes of a failed build are not given back	killed(1 failed: ABuildThatFailsAfterTheRankFile_GivesItsScratchBytesBack_AtT)[only]			14
+Q126	Build: the period is the nominal one	killed(1 failed: TheResultNamesThePeriodOfTheCoverThatWasUsed_NotTheOneThatWa)[only]			11
+Q64	Build: PH1 threads	killed(1 failed: TheThreadCountOfTheBuild_ReachesPh1AndPh3_TwoTasksOfEachRunA)[only]			30
+Q76	Build: PH1 arena guards	killed(1 failed: TheGuardOption_ReachesPh1_AndPh3_EachOnItsOwn)[only]			13
+Q82	Build: the verification reads another length	killed(1 failed: WithVerifyRanks_ASlotOfTheRankFileThatWasDamagedAfterPh1_IsR)[only]			13
+Q86	Build: PH3 threads	killed(1 failed: TheThreadCountOfTheBuild_ReachesPh1AndPh3_TwoTasksOfEachRunA)[only]			34
+Q88	Build: PH3 scratch directory	killed(1 failed: ThePositionFilesOfPh3_AreInTheDirectoryOfPh3_AndThePhaseSees)[only]			19
+Q92	Build: PH3 arena guards	killed(1 failed: TheGuardOption_ReachesPh1_AndPh3_EachOnItsOwn)[only]			19
+Q94	Build: PH3 trace	killed(3 failed: ABuildThatFailsAfterTheRankFile_GivesItsScratchBytesBack_AtT,ThePositionFilesOfPh3_AreInTheDirectoryOfPh3_AndThePhaseSees,TheThreadCountOfTheBuild_ReachesPh1AndPh3_TwoTasksOfEachRunA)[only]			17
+Q97	Build: the output is not completed	killed(1 failed: TheOutputIsSyncedOnce_WithTheOption_AndNeverWithout)[only]			16
+Q98	Build: the output is always synced	killed(1 failed: TheOutputIsSyncedOnce_WithTheOption_AndNeverWithout)[only]			14
+Q99	Build: the output is never synced	killed(1 failed: TheOutputIsSyncedOnce_WithTheOption_AndNeverWithout)[only]			14

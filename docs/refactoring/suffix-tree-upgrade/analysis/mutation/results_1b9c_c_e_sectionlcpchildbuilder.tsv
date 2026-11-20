@@ -1,3 +1,0 @@
-K23	PH4 gets no guards	killed(1 failed: TheGuardOption_ReachesTheB1B2AndB3PassesOfPh4_AndThePassOfPh)[only]			16
-K33	PH5 does not flush windows	killed(1 failed: TheChildTableWindows_AreFlushedWhenTheyAreReleased)[only]			13
-K37	PH5 gets no guards	killed(1 failed: TheGuardOption_ReachesTheB1B2AndB3PassesOfPh4_AndThePassOfPh)[only]			10

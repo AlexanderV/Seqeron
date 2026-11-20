@@ -1,5 +1,14 @@
 [
  {
+  "id": "H02",
+  "desc": "Run: no upper bound on K",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",
+  "old": "ArgumentOutOfRangeException.ThrowIfGreaterThan(options.LeafCapacity, int.MaxValue / 2);",
+  "new": "",
+  "filter": "",
+  "closed_by": "SaGap1b9cTests.ALeafCapacityAboveTheBound_IsRefusedAtTheEntry_AndTheBoundItselfIsNot"
+ },
+ {
   "id": "H07",
   "desc": "Run: no limit on the text length",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs",

@@ -1,3 +1,0 @@
-M06	Run: the root is a leaf one record early	killed(1 failed: ASampleThatExactlyFitsTheBucketCapacity_IsOneLeaf_AndOneMore)[only]			12
-M18	Merge: a short count of records is accepted	killed(1 failed: TheMergeWindowCheck_RefusesFewerAndMoreRecordsThanSlots_AndA)[only]			11
-M52	Split: the fan-out is the cap only	killed(1 failed: TheFanOutCapOfTheNaming_DoesNotChangeTheShapeWhenFewerBucket)[only]			10

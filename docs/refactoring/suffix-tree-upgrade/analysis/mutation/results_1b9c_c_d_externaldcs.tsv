@@ -1,6 +1,2 @@
-A08	BaseCase: the rank file is not marked as touched	killed(1 failed: AFailureAfterTheRankFileOfLevelZeroWasWritten_RemovesTheFile)[only]			11
-E13	BuildRankFile: no limit on the text length	killed(1 failed: ATextAboveTheLimitOfThePositions_IsRefusedAtTheEntryOfPh1And)[only]			8
-L14	BuildLevel: the sort spill has no floor	survived			9
-L15	BuildLevel: the sort files carry no tag	killed(1 failed: ThePositionFilesOfTheSortOfALevel_CarryTheTagOfTheBuild_AtEv)[only]			9
-L24	BuildLevel: the inversion has no reservation options	killed(1 failed: TheFileOptions_ReachTheRankFileAndTheSuffixArrayFileOfTheLev)[only]			9
-L29	BuildLevel: the touched flag of the rank file is not set	killed(1 failed: AFailureAfterTheRankFileOfLevelZeroWasWritten_RemovesTheFile)[only]			9
+A05	BaseCase: the chunk is not bounded by the slots	killed(1 failed: TheBaseCase_AllocatesNoMoreThanTheSlotsOfTheRankFile_WhenACh)[only]			14
+A07	BaseCase: the reservation is not recorded	killed(1 failed: TheBaseCaseOfLevelZero_ReportsWhatTheCreationOfTheRankFileDi)[only]			17

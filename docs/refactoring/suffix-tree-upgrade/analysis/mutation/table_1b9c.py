@@ -34,14 +34,21 @@ if what == 'hang':
             p = line.rstrip('\n').split('\t')
             if len(p) >= 7:
                 checked[p[0]] = p
+    def label(p):
+        """crash = the host died within seconds; hang = it was killed by the time limit of a test (the runtime prints "Aborted." when vstest kills it after the 60 s of --blame-hang-timeout)"""
+        kind = p[2]
+        secs = int(p[6]) if p[6].isdigit() else 0
+        return 'hang' if kind == 'crash' and secs >= 40 and 'Aborted' in p[4] else kind
+
     print('| mutant | what it does | counted as killed by | re-run alone, production build | the test that failed, or the last one running | wall s | checked build (`EsaBounds`) |')
     print('|---|---|---|---|---|---|---|')
     for line in open(os.path.join(HERE, 'results_1b9c_hang.tsv')):
         p = line.rstrip('\n').split('\t')
         if len(p) >= 7:
             c = checked.get(p[0])
-            ctext = '' if c is None else '**%s**: %s' % (c[2], short(c[3] or c[5], 70))
-            print('| `%s` | %s | %s | **%s** %s | %s | %s | %s |' % (p[0], short(p[1], 80), 'a watchdog or a crash (1b.7%s)' % p[0][0] if p[0] in earlier else 'a watchdog or a crash (stage 1 of this package)', p[2], short(p[4], 60), short(p[3] or p[5], 110), p[6], ctext))
+            ctext = '' if c is None else '**%s**: %s' % (label(c), short(c[3] or c[5].split('.')[-1], 60))
+            why = p[4].replace('Fatal error. System.', '').replace('Fatal error.', '')
+            print('| `%s` | %s | %s | **%s** %s | %s | %s | %s |' % (p[0], short(p[1], 80), 'a watchdog or a crash (1b.7%s)' % p[0][0] if p[0] in earlier else 'a watchdog or a crash (this package)', label(p), short(why, 50), short((p[3] or p[5]).split('.')[-1], 90), p[6], ctext))
 elif what == 'closed':
     print('| list | mutant | what it does | the test (SaGap1b9cTests / SesaGap1b9cTests) |')
     print('|---|---|---|---|')

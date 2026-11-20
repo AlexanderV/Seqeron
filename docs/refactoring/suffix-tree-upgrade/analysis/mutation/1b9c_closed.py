@@ -69,4 +69,5 @@ CLOSED = {
     ('d', 'N19'): 'SaNamesGap1b9cTests.TheReducedFileSink_HoldsOneBufferOfTheFullSizePerClass_AndWritesTheNamesClassMajor',
     ('d', 'R18'): 'SaDcsGap1b9cTests.TheRankTable_MapsEveryByteOfItsFile_EvenTheLastFourThatReachIntoAPageOfTheirOwn',
     ('d', 'C38'): 'SaSortStatsGap1b9cTests.ALeafOfEqualKeys_IsSortedByTheTiedComparison_AndTheSortCountsEveryOneOfThem',
+    ('d', 'H02'): 'SaGap1b9cTests.ALeafCapacityAboveTheBound_IsRefusedAtTheEntry_AndTheBoundItselfIsNot',
 }
