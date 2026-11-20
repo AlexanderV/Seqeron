@@ -206,3 +206,7 @@ Matrix-scored `LocalAlign`/`LocalAlignAffine` (BLOSUM62/PAM250/EDNAFULL, fractio
 
 ## Audit A2-28c (B09 F124): supermatcher
 `SequenceAligner_EmbossPrograms_Tests` (`emboss_multi_oracle.tsv`): 260 supermatcher runs against the installed EMBOSS 6.6.0 (1-3 queries x 1-4 targets, 4-600 residues, DNA / IUPAC / protein, every option: matrix, gapOpen, gapExtend, wordLength 3-15, width 1-100, minScore; whole output files in 12 -aformats and the error files, byte for byte), plus the no-shared-word error line.
+
+## Audit A2-28d (B09 F145): `TopNTieOrder.Sim` (EMBOSS matcher's tie order)
+
+`SequenceAligner_TopNSim_Tests` (`matcher_sim_oracle.tsv`, 1 197 rows of the installed `matcher` 6.6.0): (1) every list equals the program's alignment by alignment (1 138 rows) and the 59 aborting rows return fewer than K alignments; (2) the 7 tie rows of `topn_oracle.tsv` are exact in Sim order and differ in Waterman-Eggert order; (3) every Sim list is a legal Waterman-Eggert sequence (non-increasing scores, no aligned pair reused); (4) the first alignment has the optimal score, empty input gives nothing, `maxAlignments < 1` and an unknown order throw; (5) `minScore` cuts the list. MCP `TopNAlignTests.TopN_TieOrderSim_ReproducesEmbossMatcher_WhereWatermanEggertOrderDiffers`.

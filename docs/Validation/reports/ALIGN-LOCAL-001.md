@@ -145,3 +145,7 @@ The O(m·n) memory limit of the top-N declumper is lifted: above 25 000 000 cell
 ## Audit A3-14b / A3-14c / A3-17 addendum (B09 F141 / F143): water border rule, matcher ties
 
 MCP `water_align` (A3-17). The "at least 90 % reaches the textbook optimum" tolerance of water is replaced by an independent score-only program of `embAlignPathCalcSW` (639 / 639 dyadic oracle rows; the maximum is taken over the cells with both indices at least 1 only, so an alignment ending in the first row or column is never reported: 7 of the 250 sampled rows, ids 23, 51, 69, 240, 292, 305, 405). F47's "= EMBOSS matcher -alternatives" holds for round 1 (397 / 397) and for the whole score list on 390 / 397 rows; the 7 others (lines 46, 487, 502, 787, 793, 865, 1348 of `topn_oracle.tsv`) are explained by a tie broken differently in an earlier round (`scripts/alignment/analyze_topn_matcher_ties.py`); the exact tie order of SIM needs the matcher port (audit A2-28d).
+
+## Audit A2-28d (B09 F145): matcher port
+
+`TopNTieOrder.Sim` = EMBOSS `matcher` 6.6.0 (Huang-Miller SIM) ported from `matcher.c`; 1 138 / 1 138 alignment lists equal (incl. the 7 tie rows), 59 aborting rows return fewer than K; default order unchanged; MCP `local_align_top_n` `tieOrder`.

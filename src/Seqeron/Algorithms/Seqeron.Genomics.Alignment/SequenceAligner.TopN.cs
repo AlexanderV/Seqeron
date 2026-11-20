@@ -80,21 +80,21 @@ public static partial class SequenceAligner
     /// (see <see cref="ScoringMatrix"/>).</exception>
     [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static IReadOnlyList<AlignmentResult> LocalAlignTopN(
-        DnaSequence sequence1, DnaSequence sequence2, ScoringMatrix? scoring = null, int maxAlignments = 10, int minScore = 0)
+        DnaSequence sequence1, DnaSequence sequence2, ScoringMatrix? scoring = null, int maxAlignments = 10, int minScore = 0, TopNTieOrder tieOrder = TopNTieOrder.WatermanEggert)
     {
         ArgumentNullException.ThrowIfNull(sequence1);
         ArgumentNullException.ThrowIfNull(sequence2);
-        return LocalTopNCore(sequence1.Sequence, sequence2.Sequence, scoring ?? SimpleDna, affine: false, maxAlignments, minScore);
+        return LocalTopNOrdered(sequence1.Sequence, sequence2.Sequence, scoring ?? SimpleDna, affine: false, maxAlignments, minScore, tieOrder);
     }
 
     /// <summary><see cref="LocalAlignTopN(DnaSequence, DnaSequence, ScoringMatrix?, int, int)"/> on raw strings (upper-cased internally).</summary>
     [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static IReadOnlyList<AlignmentResult> LocalAlignTopN(
-        string sequence1, string sequence2, ScoringMatrix? scoring = null, int maxAlignments = 10, int minScore = 0)
+        string sequence1, string sequence2, ScoringMatrix? scoring = null, int maxAlignments = 10, int minScore = 0, TopNTieOrder tieOrder = TopNTieOrder.WatermanEggert)
     {
         ArgumentNullException.ThrowIfNull(sequence1);
         ArgumentNullException.ThrowIfNull(sequence2);
-        return LocalTopNCore(sequence1.ToUpperInvariant(), sequence2.ToUpperInvariant(), scoring ?? SimpleDna, affine: false, maxAlignments, minScore);
+        return LocalTopNOrdered(sequence1.ToUpperInvariant(), sequence2.ToUpperInvariant(), scoring ?? SimpleDna, affine: false, maxAlignments, minScore, tieOrder);
     }
 
     /// <summary>
@@ -106,70 +106,70 @@ public static partial class SequenceAligner
     /// </summary>
     [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static IReadOnlyList<AlignmentResult> LocalAlignAffineTopN(
-        DnaSequence sequence1, DnaSequence sequence2, ScoringMatrix? scoring = null, int maxAlignments = 10, int minScore = 0)
+        DnaSequence sequence1, DnaSequence sequence2, ScoringMatrix? scoring = null, int maxAlignments = 10, int minScore = 0, TopNTieOrder tieOrder = TopNTieOrder.WatermanEggert)
     {
         ArgumentNullException.ThrowIfNull(sequence1);
         ArgumentNullException.ThrowIfNull(sequence2);
-        return LocalTopNCore(sequence1.Sequence, sequence2.Sequence, scoring ?? SimpleDna, affine: true, maxAlignments, minScore);
+        return LocalTopNOrdered(sequence1.Sequence, sequence2.Sequence, scoring ?? SimpleDna, affine: true, maxAlignments, minScore, tieOrder);
     }
 
     /// <summary><see cref="LocalAlignAffineTopN(DnaSequence, DnaSequence, ScoringMatrix?, int, int)"/> on raw strings.</summary>
     [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static IReadOnlyList<AlignmentResult> LocalAlignAffineTopN(
-        string sequence1, string sequence2, ScoringMatrix? scoring = null, int maxAlignments = 10, int minScore = 0)
+        string sequence1, string sequence2, ScoringMatrix? scoring = null, int maxAlignments = 10, int minScore = 0, TopNTieOrder tieOrder = TopNTieOrder.WatermanEggert)
     {
         ArgumentNullException.ThrowIfNull(sequence1);
         ArgumentNullException.ThrowIfNull(sequence2);
-        return LocalTopNCore(sequence1.ToUpperInvariant(), sequence2.ToUpperInvariant(), scoring ?? SimpleDna, affine: true, maxAlignments, minScore);
+        return LocalTopNOrdered(sequence1.ToUpperInvariant(), sequence2.ToUpperInvariant(), scoring ?? SimpleDna, affine: true, maxAlignments, minScore, tieOrder);
     }
 
     /// <summary>Waterman-Eggert top-N with a substitution matrix and linear gap scores
     /// (<see cref="LocalAlign(string, string, MatrixScoring)"/>); <paramref name="minScore"/> is a real score, each result carries
     /// <see cref="AlignmentResult.ExactScore"/>.</summary>
     public static IReadOnlyList<AlignmentResult> LocalAlignTopN(
-        string sequence1, string sequence2, MatrixScoring scoring, int maxAlignments = 10, double minScore = 0) =>
-        TopNWithMatrix(sequence1, sequence2, scoring, affine: false, maxAlignments, minScore, coOptimal: false);
+        string sequence1, string sequence2, MatrixScoring scoring, int maxAlignments = 10, double minScore = 0, TopNTieOrder tieOrder = TopNTieOrder.WatermanEggert) =>
+        TopNWithMatrix(sequence1, sequence2, scoring, affine: false, maxAlignments, minScore, coOptimal: false, tieOrder);
 
     /// <summary><see cref="LocalAlignTopN(string, string, MatrixScoring, int, double)"/> for protein sequences.</summary>
     public static IReadOnlyList<AlignmentResult> LocalAlignTopN(
-        ProteinSequence sequence1, ProteinSequence sequence2, MatrixScoring scoring, int maxAlignments = 10, double minScore = 0)
+        ProteinSequence sequence1, ProteinSequence sequence2, MatrixScoring scoring, int maxAlignments = 10, double minScore = 0, TopNTieOrder tieOrder = TopNTieOrder.WatermanEggert)
     {
         ArgumentNullException.ThrowIfNull(sequence1);
         ArgumentNullException.ThrowIfNull(sequence2);
-        return TopNWithMatrix(sequence1.Sequence, sequence2.Sequence, scoring, affine: false, maxAlignments, minScore, coOptimal: false);
+        return TopNWithMatrix(sequence1.Sequence, sequence2.Sequence, scoring, affine: false, maxAlignments, minScore, coOptimal: false, tieOrder);
     }
 
     /// <summary><see cref="LocalAlignTopN(string, string, MatrixScoring, int, double)"/> for DNA sequences.</summary>
     public static IReadOnlyList<AlignmentResult> LocalAlignTopN(
-        DnaSequence sequence1, DnaSequence sequence2, MatrixScoring scoring, int maxAlignments = 10, double minScore = 0)
+        DnaSequence sequence1, DnaSequence sequence2, MatrixScoring scoring, int maxAlignments = 10, double minScore = 0, TopNTieOrder tieOrder = TopNTieOrder.WatermanEggert)
     {
         ArgumentNullException.ThrowIfNull(sequence1);
         ArgumentNullException.ThrowIfNull(sequence2);
-        return TopNWithMatrix(sequence1.Sequence, sequence2.Sequence, scoring, affine: false, maxAlignments, minScore, coOptimal: false);
+        return TopNWithMatrix(sequence1.Sequence, sequence2.Sequence, scoring, affine: false, maxAlignments, minScore, coOptimal: false, tieOrder);
     }
 
     /// <summary>Waterman-Eggert top-N with a substitution matrix and affine gap scores
     /// (<see cref="LocalAlignAffine(string, string, MatrixScoring)"/>; EMBOSS matcher with <see cref="MatrixScoring.Emboss"/> numbers).</summary>
     public static IReadOnlyList<AlignmentResult> LocalAlignAffineTopN(
-        string sequence1, string sequence2, MatrixScoring scoring, int maxAlignments = 10, double minScore = 0) =>
-        TopNWithMatrix(sequence1, sequence2, scoring, affine: true, maxAlignments, minScore, coOptimal: false);
+        string sequence1, string sequence2, MatrixScoring scoring, int maxAlignments = 10, double minScore = 0, TopNTieOrder tieOrder = TopNTieOrder.WatermanEggert) =>
+        TopNWithMatrix(sequence1, sequence2, scoring, affine: true, maxAlignments, minScore, coOptimal: false, tieOrder);
 
     /// <summary><see cref="LocalAlignAffineTopN(string, string, MatrixScoring, int, double)"/> for protein sequences.</summary>
     public static IReadOnlyList<AlignmentResult> LocalAlignAffineTopN(
-        ProteinSequence sequence1, ProteinSequence sequence2, MatrixScoring scoring, int maxAlignments = 10, double minScore = 0)
+        ProteinSequence sequence1, ProteinSequence sequence2, MatrixScoring scoring, int maxAlignments = 10, double minScore = 0, TopNTieOrder tieOrder = TopNTieOrder.WatermanEggert)
     {
         ArgumentNullException.ThrowIfNull(sequence1);
         ArgumentNullException.ThrowIfNull(sequence2);
-        return TopNWithMatrix(sequence1.Sequence, sequence2.Sequence, scoring, affine: true, maxAlignments, minScore, coOptimal: false);
+        return TopNWithMatrix(sequence1.Sequence, sequence2.Sequence, scoring, affine: true, maxAlignments, minScore, coOptimal: false, tieOrder);
     }
 
     /// <summary><see cref="LocalAlignAffineTopN(string, string, MatrixScoring, int, double)"/> for DNA sequences.</summary>
     public static IReadOnlyList<AlignmentResult> LocalAlignAffineTopN(
-        DnaSequence sequence1, DnaSequence sequence2, MatrixScoring scoring, int maxAlignments = 10, double minScore = 0)
+        DnaSequence sequence1, DnaSequence sequence2, MatrixScoring scoring, int maxAlignments = 10, double minScore = 0, TopNTieOrder tieOrder = TopNTieOrder.WatermanEggert)
     {
         ArgumentNullException.ThrowIfNull(sequence1);
         ArgumentNullException.ThrowIfNull(sequence2);
-        return TopNWithMatrix(sequence1.Sequence, sequence2.Sequence, scoring, affine: true, maxAlignments, minScore, coOptimal: false);
+        return TopNWithMatrix(sequence1.Sequence, sequence2.Sequence, scoring, affine: true, maxAlignments, minScore, coOptimal: false, tieOrder);
     }
 
     /// <summary>
@@ -305,7 +305,8 @@ public static partial class SequenceAligner
     }
 
     private static IReadOnlyList<AlignmentResult> TopNWithMatrix(
-        string sequence1, string sequence2, MatrixScoring scoring, bool affine, int maxAlignments, double minScore, bool coOptimal)
+        string sequence1, string sequence2, MatrixScoring scoring, bool affine, int maxAlignments, double minScore, bool coOptimal,
+        TopNTieOrder tieOrder = TopNTieOrder.WatermanEggert)
     {
         ArgumentNullException.ThrowIfNull(sequence1);
         ArgumentNullException.ThrowIfNull(sequence2);
@@ -320,7 +321,7 @@ public static partial class SequenceAligner
         long minScaled = (long)Math.Ceiling((decimal)Math.Clamp(minScore, -1e12, 1e12) * ps.Scale);
         var raw = coOptimal
             ? LocalCoOptimalCore(a, b, ps, affine, maxAlignments)
-            : LocalTopNCore(a, b, ps, affine, maxAlignments, minScaled);
+            : LocalTopNOrdered(a, b, ps, affine, maxAlignments, minScaled, tieOrder);
         var list = new List<AlignmentResult>(raw.Count);
         foreach (var r in raw)
         {
@@ -328,6 +329,17 @@ public static partial class SequenceAligner
             list.Add(r with { Score = (int)Math.Round(exact, MidpointRounding.AwayFromZero), ExactScore = exact });
         }
         return list;
+    }
+
+    private static IReadOnlyList<AlignmentResult> LocalTopNOrdered(
+        string a, string b, PairScoring scoring, bool affine, int maxAlignments, long minScaled, TopNTieOrder tieOrder)
+    {
+        return tieOrder switch
+        {
+            TopNTieOrder.WatermanEggert => LocalTopNCore(a, b, scoring, affine, maxAlignments, minScaled),
+            TopNTieOrder.Sim => LocalTopNSimCore(a, b, scoring, affine, maxAlignments, minScaled),
+            _ => throw new ArgumentOutOfRangeException(nameof(tieOrder), tieOrder, "Unknown tie order."),
+        };
     }
 
     private static void RequireTopNFits(int m, int n, string paramName)

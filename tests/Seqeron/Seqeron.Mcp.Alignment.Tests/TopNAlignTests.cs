@@ -43,6 +43,18 @@ public class TopNAlignTests
     }
 
     [Test]
+    public void TopN_TieOrderSim_ReproducesEmbossMatcher_WhereWatermanEggertOrderDiffers()
+    {
+        // topn_oracle.tsv line 46 (B09 F145, audit A2-28d): matcher -alternatives 6 -gapopen 8 -gapextend 2 on EDNAFULL reports 55,38,21,16,13,11.
+        const string a = "GCTCTAAATTTTGTAGCTCTAATT", b = "TTCGCTCTAAATTTC";
+        var sim = AlignmentTools.LocalAlignTopN(a, b, maxAlignments: 6, affine: true, match: 5, mismatch: -4, gapOpen: -6, gapExtend: -2, tieOrder: "Sim");
+        Assert.That(sim.Alignments.Select(x => x.Score), Is.EqualTo(new[] { 55, 38, 21, 16, 13, 11 }));
+        var we = AlignmentTools.LocalAlignTopN(a, b, maxAlignments: 6, affine: true, match: 5, mismatch: -4, gapOpen: -6, gapExtend: -2);
+        Assert.That(we.Alignments.Select(x => x.Score), Is.Not.EqualTo(sim.Alignments.Select(x => x.Score)));
+        Assert.Throws<ArgumentException>(() => AlignmentTools.LocalAlignTopN(a, b, tieOrder: "nonsense"));
+    }
+
+    [Test]
     public void TopN_NoPositivePair_EmptyList_AndValidation()
     {
         Assert.That(AlignmentTools.LocalAlignTopN("AAAA", "CCCC").Count, Is.EqualTo(0));
