@@ -69,6 +69,6 @@ megamerger writes the same merged sequence and report.
 
 ## See Also
 
-- [merger](merger.md) - dynamic-programming merge of two overlapping sequences
+- [merger](../alignment/merger.md) - dynamic-programming merge of two overlapping sequences
 - [seqmatchall](seqmatchall.md) - all exact word matches
-- [local_align_top_n](local_align_top_n.md) - non-intersecting local alignments
+- [local_align_top_n](../alignment/local_align_top_n.md) - non-intersecting local alignments

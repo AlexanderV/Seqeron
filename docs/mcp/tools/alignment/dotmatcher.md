@@ -67,4 +67,4 @@ dotmatcher -windowsize 6 -threshold 20 -graph data draws the same 17 lines (x on
 ## See Also
 
 - [local_align_top_n](local_align_top_n.md) - non-intersecting local alignments
-- [find_common_regions](find_common_regions.md) - exact common regions
+- [find_common_regions](../analysis/find_common_regions.md) - exact common regions

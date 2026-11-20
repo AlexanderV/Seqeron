@@ -125,7 +125,7 @@ public class SequenceAligner_TopN_Tests
     /// matcher round is a legal Waterman-Eggert round (its score is the optimum with the pairs of matcher's OWN earlier rounds forbidden), so two lists can differ only through a TIE - two different alignments of the same optimal
     /// score in an earlier round, one taken by matcher (the choice is SIM's own) and the other by the Waterman-Eggert reference that <c>LocalAlignTopN</c> equals on every row. In each of
     /// the 7 rows the first alignment that differs has the same score as ours and comes no later than the first score difference (rounds 2, 2, 1, 2, 1, 2, 1). 195 of the 390 equal rows also break a tie differently without changing
-    /// a score. Matching SIM's tie order needs the SIM program itself (matcher port, audit A2-28d).
+    /// a score. SIM's own tie order is reproduced by <c>TopNTieOrder.Sim</c> (matcher port, audit A2-28d, F145: <c>SequenceAligner_TopNSim_Tests</c>).
     /// </summary>
     internal static readonly int[] MatcherTieRows = [46, 487, 502, 787, 793, 865, 1348];
 

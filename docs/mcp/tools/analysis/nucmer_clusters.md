@@ -73,5 +73,5 @@ mummer -mum -b -l 15 | mgaps prints "6 1 65 none - -" and "75 70 66 none 4 4": t
 ## See Also
 
 - [find_common_regions](find_common_regions.md) - the exact matches (MUMs / MEMs) themselves
-- [find_longest_common_region](find_longest_common_region.md) - longest common region
-- [local_align_top_n](local_align_top_n.md) - non-intersecting local alignments
+- [find_longest_common_region](find_longest_common_region_mismatches.md) - longest common region
+- [local_align_top_n](../alignment/local_align_top_n.md) - non-intersecting local alignments

@@ -72,4 +72,4 @@ The seeding and chaining stage of minimap2 2.26 (450 related pairs: the seed arr
 
 - [local_align_top_n](local_align_top_n.md) - non-intersecting local alignments
 - [ksw2_extend](ksw2_extend.md) - the ksw2 extension minimap2 uses between and after the chain
-- [nucmer_clusters](nucmer_clusters.md) - the nucmer anchor clustering
+- [nucmer_clusters](../analysis/nucmer_clusters.md) - the nucmer anchor clustering

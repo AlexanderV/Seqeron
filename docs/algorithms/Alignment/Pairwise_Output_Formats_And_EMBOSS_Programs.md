@@ -43,4 +43,4 @@ Both programs are not always optimal: their recurrences forbid some gap-state tr
 
 ## 8. Remaining (registered in B09.md)
 
-Biopython genomic-coordinate formats (psl, sam, bed, exonerate, mauve, chain, maf) and readers (msf, emboss, hhr, tabular), readers for the EMBOSS formats, T-Coffee `.score_ascii`, pair-markup formats of three or more rows (A2-27c); est2genome / wordmatch / dotmatcher / matcher checks (A2-28d); the ksw2 real-program oracle (A2-29c).
+Biopython genomic-coordinate formats (psl, sam, bed, exonerate, mauve, chain, maf) and readers (msf, emboss, hhr, tabular), readers for the EMBOSS formats, T-Coffee `.score_ascii`, pair-markup formats of three or more rows (A2-27c); est2genome / wordmatch checks (A2-28d; matcher = `TopNTieOrder.Sim` and dotmatcher = `DotMatcher` done, F145 / F152); the ksw2 real-program oracle (A2-29c).
