@@ -1,0 +1,9 @@
+# the xl lane alone (master seed 4, 2 workers, budget 600 s, hang limit 1500 s), the head 39fc4739 against e57cdae0 (before this package): the case akb:a04b3ce91c8d2010:478991:2:78 that tripped the 300 s watchdog of the first 10-minute run (4 workers) finishes in both
+# head:
+lane xl: budget 600 s
+lane xl done: 20 cases in 603.4 s, 0 failure(s)
+done: 20 cases in 603 s, 0 failure(s)
+# e57cdae0:
+lane xl: budget 600 s
+lane xl done: 20 cases in 607.3 s, 0 failure(s)
+done: 20 cases in 607 s, 0 failure(s)

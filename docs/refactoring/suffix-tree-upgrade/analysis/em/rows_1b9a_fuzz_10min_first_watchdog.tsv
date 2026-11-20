@@ -1,0 +1,14 @@
+# run_1b8_fuzz.sh: head 39fc4739ae872a550107f46dffae6d971807dca6, budget 600 s, master seed 4, threads 4, started 2026-11-20T04:57:39Z
+# uptime before:  04:57:39 up  8:13,  0 user,  load average: 3.20, 2.01, 1.85
+# test process exit code 1, wall clock 699 s, ended 2026-11-20T05:09:18Z
+# uptime after:  05:09:18 up  8:24,  0 user,  load average: 1.18, 2.35, 2.44
+# The active test run was aborted. Reason: Test host process crashed : Process terminated.
+# HANG: worker 1 has been in the case 'n<=5e5 akb:a04b3ce91c8d2010:478991:2:78' for more than 300 s
+# lane tiny: budget 144 s
+# lane tiny done: 4804 cases in 144.1 s, 0 failure(s)
+# lane small: budget 144 s
+# lane small done: 1382 cases in 144.0 s, 0 failure(s)
+# lane large: budget 96 s
+# lane large done: 113 cases in 108.9 s, 0 failure(s)
+# lane xl: budget 36 s
+# HANG: worker 1 has been in the case 'n<=5e5 akb:a04b3ce91c8d2010:478991:2:78' for more than 300 s

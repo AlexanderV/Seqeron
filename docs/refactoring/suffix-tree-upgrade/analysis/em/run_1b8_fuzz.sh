@@ -3,7 +3,7 @@
 # (the generator families x alphabets x size bands over the in-memory and the file-backed engines against the definitions, the Ukkonen tree and the v6 tree; the container corruption fuzz; the shared-index test), one master
 # seed, a time budget (default 1800 s) split among the lanes by share (FullFuzzOptions.DefaultLanes). The machine must be otherwise idle. The report (lanes, per-engine counts and throughput, the corruption and concurrency
 # counts, the calls of every member) and the progress log are folded into the rows file: lines of the report as they are, progress lines behind a '#'.
-#   usage: run_1b8_fuzz.sh <rows file> [budget seconds, default 1800] [master seed, default 1] [threads, default the number of cores]
+#   usage: run_1b8_fuzz.sh <rows file> [budget seconds, default 1800] [master seed, default 1] [threads, default the number of cores]   (environment FUZZ_HANG_S: the watchdog limit of a case in seconds, default 300; 1b.9a: 900 for the xl band)
 set -u
 ROWS=$(readlink -f "$1")
 BUDGET=${2:-1800}
@@ -22,7 +22,7 @@ rm -rf "$W/journal"
   printf '# uptime before: %s\n' "$(uptime)"
 } > "$ROWS"
 START=$(date +%s)
-ESA_FUZZ_SEED=$SEED ESA_FUZZ_BUDGET_S=$BUDGET ESA_FUZZ_THREADS=$THREADS ESA_FUZZ_HANG_S=300 ESA_FUZZ_REPORT=$W/report.txt ESA_FUZZ_JOURNAL=$W/journal \
+ESA_FUZZ_SEED=$SEED ESA_FUZZ_BUDGET_S=$BUDGET ESA_FUZZ_THREADS=$THREADS ESA_FUZZ_HANG_S=${FUZZ_HANG_S:-300} ESA_FUZZ_REPORT=$W/report.txt ESA_FUZZ_JOURNAL=$W/journal \
   dotnet test "$PROJ" -c Release --no-build --nologo --filter "FullyQualifiedName~FullDifferentialFuzzTests" > "$W/test.out" 2>&1
 CODE=$?
 END=$(date +%s)
