@@ -103,11 +103,13 @@ public static partial class AlignmentFormats
 
     // ------------------------------------------------------------------- a2m ----
 
-    private static string FormatA2m(BioAlignment a)
+    private static string FormatA2m(BioAlignment alignment)
     {
-        string state = a.ColumnAnnotations["state"]?.GetValue<string>() ?? throw new KeyNotFoundException("state");
+        string state = alignment.ColumnAnnotations.TryGetPropertyValue("state", out var node) && node is System.Text.Json.Nodes.JsonValue value && value.TryGetValue<string>(out var text)
+            ? text
+            : throw new ArgumentException("The a2m format needs the column annotation \"state\" (a string with one 'D' (match) or 'I' (insert) per column; Biopython raises KeyError: 'state' here).", "alignment");
         var lines = new List<string>();
-        foreach (var r in a.Records)
+        foreach (var r in alignment.Records)
         {
             lines.Add(r.Description.Length > 0 ? $">{r.Id} {r.Description}" : $">{r.Id}");
             var s = new StringBuilder();

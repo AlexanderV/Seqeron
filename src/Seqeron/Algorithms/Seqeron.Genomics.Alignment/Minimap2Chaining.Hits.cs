@@ -510,7 +510,7 @@ public static partial class Minimap2Chaining
     {
         using var scope = AlignmentCancellation.Enter(cancellationToken);
         var o = options ?? new MinimapMapOptions();
-        ArgumentNullException.ThrowIfNull(targets);
+        SequenceAligner.RequireNoNullElements(targets, nameof(targets), "Target");
         ArgumentNullException.ThrowIfNull(query);
         var chainOptions = o.ChainOptions();
         ValidateOptions(chainOptions, nameof(options));

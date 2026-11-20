@@ -59,8 +59,17 @@ public static partial class Ksw2Aligner
     private const int CigarDel = 2;
 
     /// <summary>The <c>ksw_gen_simple_mat</c> matrix of minimap2: <c>a</c> on the diagonal, <c>-b</c> off it, <c>-ambiguous</c> in the last row and column (the wildcard).</summary>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="m"/> is outside 1 .. 256 (the residue codes are bytes) or a score does not fit the <c>int8_t</c> of the C function.</exception>
     public static sbyte[] SimpleMatrix(int m, int match, int mismatch, int ambiguous)
     {
+        ArgumentOutOfRangeException.ThrowIfLessThan(m, 1);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(m, 256);
+        if (match is < sbyte.MinValue or > sbyte.MaxValue)
+            throw new ArgumentOutOfRangeException(nameof(match), match, "A score of the matrix is an int8_t (ksw_gen_simple_mat).");
+        if (mismatch is < sbyte.MinValue or > sbyte.MaxValue)
+            throw new ArgumentOutOfRangeException(nameof(mismatch), mismatch, "A score of the matrix is an int8_t (ksw_gen_simple_mat).");
+        if (ambiguous is < -sbyte.MaxValue or > -sbyte.MinValue)
+            throw new ArgumentOutOfRangeException(nameof(ambiguous), ambiguous, "The wildcard score is stored negated in an int8_t (ksw_gen_simple_mat).");
         var mat = new sbyte[m * m];
         for (int i = 0; i < m - 1; i++)
         {
@@ -223,7 +232,7 @@ public static partial class Ksw2Aligner
         ArgumentNullException.ThrowIfNull(query);
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(mat);
-        if (m < 0 || mat.Length < m * m)
+        if (m < 0 || mat.Length < (long)m * m)       // 64-bit: m = int.MaxValue overflowed the product
             throw new ArgumentException("The matrix must have m * m entries.", nameof(mat));
         foreach (byte c in query)
             if (c >= m)

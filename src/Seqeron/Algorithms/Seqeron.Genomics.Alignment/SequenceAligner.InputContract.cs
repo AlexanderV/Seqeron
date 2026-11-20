@@ -60,6 +60,27 @@ public static partial class SequenceAligner
     internal static List<string> DnaStringsNoNull(IEnumerable<DnaSequence> sequences, string paramName) =>
         ToListNoNull(sequences, paramName).Select(s => s.Sequence).ToList();
 
+    /// <summary>A null list or a null element is an <see cref="ArgumentNullException"/> naming the parameter (and the index of the element): the one check of the entry points that take rows / arguments as given (audit A5-3).</summary>
+    internal static void RequireNoNullElements<T>(IReadOnlyList<T?>? items, string paramName, string what = "Row") where T : class
+    {
+        if (items is null)
+            throw new ArgumentNullException(paramName);
+        for (int i = 0; i < items.Count; i++)
+            if (items[i] is null)
+                throw new ArgumentNullException(paramName, $"{what} {i} is null.");
+    }
+
+    /// <summary>The argument list and the text "files" of a program runner (<c>KalignProgram</c>, <c>PoaProgram</c>, <c>ProbConsProgram</c>): a null list, null argument or null file text is an <see cref="ArgumentNullException"/> (an argv entry of a real program is never null).</summary>
+    internal static void RequireProgramCall(IReadOnlyList<string?>? arguments, IReadOnlyDictionary<string, string>? files)
+    {
+        RequireNoNullElements(arguments, "arguments", "Argument");
+        if (files is null)
+            return;
+        foreach (var kv in files)
+            if (kv.Value is null)
+                throw new ArgumentNullException(nameof(files), $"The text of file \"{kv.Key}\" is null.");
+    }
+
     /// <summary>Null element -> <see cref="ArgumentNullException"/>, empty element -> the shared <see cref="EmptyMemberMessage"/> <see cref="ArgumentException"/>.</summary>
     internal static void RequireProgramMembers(IReadOnlyList<string?> sequences, string program, string paramName)
     {

@@ -23,6 +23,8 @@ public static partial class SequenceAligner
         ArgumentNullException.ThrowIfNull(sequenceA);
         ArgumentNullException.ThrowIfNull(sequenceB);
         if (sequenceA.Length == 0 || sequenceB.Length == 0) throw new ArgumentException("Empty sequences are not supported.");
+        RequireTcResidues(sequenceA, nameof(sequenceA), "biphasic_pair");
+        RequireTcResidues(sequenceB, nameof(sequenceB), "biphasic_pair");
         var p = TcSlowPairParams(protein, matrix, parameters);
         return TcBiphasic(sequenceA, sequenceB, p.Matrix, p.Gop, p.Gep);
     }

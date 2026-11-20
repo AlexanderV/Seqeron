@@ -1416,6 +1416,8 @@ public partial class AlignmentTools
         var map = new Dictionary<global::Seqeron.Genomics.Alignment.TCoffeePairMethod, Dictionary<(int First, int Second), string>>();
         foreach (var o in outputs)
         {
+            if (o is null)
+                throw new ArgumentNullException(nameof(outputs), "structureAlignerOutputs contains a null element.");
             var method = (o.Method ?? "").Trim().ToLowerInvariant() switch
             {
                 "tmalign_pair" => global::Seqeron.Genomics.Alignment.TCoffeePairMethod.TMalignPair,
@@ -1511,6 +1513,7 @@ public partial class AlignmentTools
 
     private static List<global::Seqeron.Genomics.Core.DnaSequence> ParseDna(string[] sequences)
     {
+        ArgumentNullException.ThrowIfNull(sequences);
         var dnaList = new List<global::Seqeron.Genomics.Core.DnaSequence>(sequences.Length);
         for (int i = 0; i < sequences.Length; i++)
         {

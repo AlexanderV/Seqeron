@@ -27,7 +27,7 @@ public static partial class SequenceAligner
     /// <returns>Symmetric matrix of integer similarities (the diagonal is 100).</returns>
     public static int[,] TCoffeeKtupSimilarity(IReadOnlyList<string> sequences, bool protein = false)
     {
-        ArgumentNullException.ThrowIfNull(sequences);
+        RequireNoNullElements(sequences, nameof(sequences), "Sequence");
         int n = sequences.Count;
         var pscore = new int[n, n];
         if (n == 0) return pscore;

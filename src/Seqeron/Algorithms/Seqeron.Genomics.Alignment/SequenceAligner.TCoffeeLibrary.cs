@@ -413,6 +413,8 @@ public static partial class SequenceAligner
     public static IReadOnlyList<TCoffeeLibraryEntry> TCoffeePrimaryLibraryEntries(
         IReadOnlyList<string> sequences, IEnumerable<TCoffeePairMethod> methods, int lalignTopAlignments = 10, bool? protein = null, IReadOnlyList<string?>? genomicTemplates = null)
     {
+        RequireNoNullElements(sequences, nameof(sequences), "Sequence");
+        ArgumentNullException.ThrowIfNull(methods);
         var cl = TcBuildChecked(sequences, methods, lalignTopAlignments, TcKindOf(sequences, protein), templates: genomicTemplates?.ToArray());
         var list = new List<TCoffeeLibraryEntry>();
         for (int s1 = 0; s1 < sequences.Count; s1++)

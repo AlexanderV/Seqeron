@@ -77,7 +77,7 @@ public static class KalignProgram
     /// <exception cref="ArgumentException">An unknown / ambiguous option, a missing option argument, a type word or format that is not recognised, fewer than one thread.</exception>
     public static KalignCommand Parse(IReadOnlyList<string> arguments)
     {
-        ArgumentNullException.ThrowIfNull(arguments);
+        SequenceAligner.RequireNoNullElements(arguments, nameof(arguments), "Argument");
         var o = new KalignOptions();
         var inputs = new List<string>();
         var rest = new List<string>();
@@ -184,6 +184,7 @@ public static class KalignProgram
     /// </summary>
     public static KalignProgramResult Run(IReadOnlyList<string> arguments, IReadOnlyDictionary<string, string>? files = null, string? stdin = null)
     {
+        SequenceAligner.RequireProgramCall(arguments, files);
         var messages = new List<string>();
         KalignCommand cmd;
         try

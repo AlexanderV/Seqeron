@@ -125,6 +125,12 @@ public sealed class PoaScoreMatrix
             {
                 foreach (char c in line)
                     if (!char.IsWhiteSpace(c)) symbols.Append(c);
+                // the score matrix is indexed by char (int score[128][128] of the 7-bit alphabet): a symbol above 127 or more than 128 symbols have no meaning in the program
+                for (int k = 0; k < symbols.Length; k++)
+                    if (symbols[k] > 127)
+                        throw new ArgumentException($"The matrix symbol U+{(int)symbols[k]:X4} is not a 7-bit character: the score matrix of POA is indexed by char.");
+                if (symbols.Length > 128)
+                    throw new ArgumentException($"The matrix has {symbols.Length} symbols: the score matrix of POA is indexed by char (at most 128).");
                 foundSymbolLine = true;
             }
             else
@@ -332,7 +338,15 @@ public static partial class SequenceAligner
     /// <exception cref="ArgumentException">No sequence.</exception>
     public static PoaRunResult PoaRun(IReadOnlyList<PoaSequence> sequences, PoaScoreMatrix? matrix = null, PoaOptions? options = null)
     {
-        ArgumentNullException.ThrowIfNull(sequences);
+        RequireNoNullElements(sequences, nameof(sequences), "Sequence");
+        for (int i = 0; i < sequences.Count; i++)
+        {
+            if (sequences[i].Name is null)
+                throw new ArgumentNullException(nameof(sequences), $"Sequence {i} has no name.");
+            if (sequences[i].Residues is null)
+                throw new ArgumentNullException(nameof(sequences), $"Sequence {i} has no residues.");
+        }
+
         var o = options ?? new PoaOptions();
         RequireProgramInput(sequences.Count, "POA", "Error reading sequence file", nameof(sequences));
         using var cancelScope = AlignmentCancellation.Enter(o.CancellationToken);

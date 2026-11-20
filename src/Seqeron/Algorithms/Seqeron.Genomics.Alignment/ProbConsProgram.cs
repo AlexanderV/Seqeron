@@ -128,7 +128,7 @@ public static class ProbConsProgram
     /// <exception cref="ArgumentException">An unrecognised option, a missing / invalid / out-of-range option value, <c>-e</c> without <c>-t</c>; the message is the program's error text.</exception>
     public static ProbConsCommand Parse(IReadOnlyList<string> arguments)
     {
-        ArgumentNullException.ThrowIfNull(arguments);
+        SequenceAligner.RequireNoNullElements(arguments, nameof(arguments), "Argument");
         return ParseCore(arguments);
     }
 
@@ -583,7 +583,7 @@ public static class ProbConsProgram
     /// <param name="files">Input files (name -> text): sequence files and the <c>-p</c> parameter file.</param>
     public static ProbConsProgramResult Run(IReadOnlyList<string> arguments, IReadOnlyDictionary<string, string>? files = null)
     {
-        ArgumentNullException.ThrowIfNull(arguments);
+        SequenceAligner.RequireProgramCall(arguments, files);
         files ??= new Dictionary<string, string>();
         var err = new StringBuilder(Heading);
         var outFiles = new Dictionary<string, string>();

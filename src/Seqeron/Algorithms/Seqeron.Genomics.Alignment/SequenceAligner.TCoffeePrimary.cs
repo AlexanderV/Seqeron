@@ -429,6 +429,8 @@ public static partial class SequenceAligner
     {
         ArgumentNullException.ThrowIfNull(sequenceA);
         ArgumentNullException.ThrowIfNull(sequenceB);
+        RequireTcResidues(sequenceA, nameof(sequenceA), "slow_pair");
+        RequireTcResidues(sequenceB, nameof(sequenceB), "slow_pair");
         var p = TcSlowPairParams(protein, matrix, parameters);
         return TcMyersMiller(sequenceA, sequenceB, p.Matrix, p.Gop, p.Gep);
     }
@@ -703,6 +705,8 @@ public static partial class SequenceAligner
         ArgumentNullException.ThrowIfNull(sequenceA);
         ArgumentNullException.ThrowIfNull(sequenceB);
         ArgumentOutOfRangeException.ThrowIfLessThan(topAlignments, 1);
+        RequireTcResidues(sequenceA, nameof(sequenceA), "lalign_id_pair");
+        RequireTcResidues(sequenceB, nameof(sequenceB), "lalign_id_pair");
         var p = TcLalignParams(protein, parameters);
         return new TcSim(sequenceA, sequenceB, p.Matrix, p.Gop, p.Gep).Run(topAlignments);
     }

@@ -103,7 +103,7 @@ public static class PoaProgram
     /// <exception cref="NotSupportedException">An MSA input option (unsupported; use FASTA input).</exception>
     public static PoaProgramResult Run(IReadOnlyList<string> arguments, IReadOnlyDictionary<string, string>? files = null)
     {
-        ArgumentNullException.ThrowIfNull(arguments);
+        SequenceAligner.RequireProgramCall(arguments, files);
         files ??= new Dictionary<string, string>();
         var err = new StringBuilder();
         var outFiles = new Dictionary<string, string>();

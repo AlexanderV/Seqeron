@@ -18,6 +18,18 @@ public static partial class SequenceAligner
     /// </summary>
     public const long TCoffeePairDpMaxBytes = 1L << 31;
 
+    /// <summary>
+    /// The residue contract of the stand-alone T-Coffee pair stages (<c>slow_pair</c>, <c>biphasic_pair</c>, <c>lalign_id_pair</c>): letters only (as <c>MultipleAlignTCoffeeProgram</c> requires: "Sequences must be strings of letters"). The program's FASTA reader
+    /// drops a <c>*</c>, a <c>-</c> or a blank (measured with 13.41: the rows are those of the cleaned sequence) and the program dies with "ERROR: COREDUMP" for a non-ASCII letter (U+00E9), so the stage entry points refuse such a character with a
+    /// clear <see cref="ArgumentException"/> instead of an <see cref="IndexOutOfRangeException"/> in the scoring matrix.
+    /// </summary>
+    private static void RequireTcResidues(string sequence, string paramName, string stage)
+    {
+        for (int i = 0; i < sequence.Length; i++)
+            if (!char.IsAsciiLetter(sequence[i]))
+                throw new ArgumentException(string.Create(System.Globalization.CultureInfo.InvariantCulture, $"T-Coffee {stage}: the character U+{(int)sequence[i]:X4} at index {i} is not a letter. t_coffee removes '*', '-' and blanks when it reads its input and stops (\"ERROR: COREDUMP\") for a non-ASCII letter; clean the sequence first."), paramName);
+    }
+
     private static void RequireTcPairDp(string method, string keeps, long bytesPerCell, long rows, long columns, string unit, string? alternative = null) =>
         RequireTcPairDpCells(method, keeps, bytesPerCell, rows * columns, string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{rows - 1:N0} x {columns - 1:N0} {unit}"), alternative);
 

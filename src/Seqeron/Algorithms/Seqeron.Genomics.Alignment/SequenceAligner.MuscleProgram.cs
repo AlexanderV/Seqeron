@@ -22,9 +22,8 @@ public static partial class SequenceAligner
     /// </summary>
     public static MuscleRunResult MuscleRun(IEnumerable<string> sequences, MuscleOptions? options = null)
     {
-        ArgumentNullException.ThrowIfNull(sequences);
         var o = options ?? new MuscleOptions();
-        var list = sequences.ToList();
+        var list = ToListNoNull(sequences, nameof(sequences));
         RequireProgramInput(list.Count, "MUSCLE", "No sequences in input file", nameof(sequences));
         var engine = new MuscleEngine(o, list);
         var (rows, nucleotide) = engine.Run();
@@ -58,6 +57,8 @@ public static partial class SequenceAligner
     /// </summary>
     public static string[] MuscleProfileAlign(IReadOnlyList<string> alignment1, IReadOnlyList<string> alignment2, MuscleOptions? options = null)
     {
+        RequireNoNullElements(alignment1, nameof(alignment1));
+        RequireNoNullElements(alignment2, nameof(alignment2));
         var o = options ?? new MuscleOptions();
         var engine = MuscleEngine.ForMsa(o, alignment1);
         return engine.ProfileProfileMode(alignment1, alignment2);
@@ -69,6 +70,7 @@ public static partial class SequenceAligner
     /// </summary>
     public static string[] MuscleRefine(IReadOnlyList<string> alignment, MuscleOptions? options = null)
     {
+        RequireNoNullElements(alignment, nameof(alignment));
         var o = options ?? MuscleOptions.ProgramDefaults;
         return MuscleEngine.ForMsa(o, alignment).RefineMode(alignment);
     }
@@ -76,6 +78,7 @@ public static partial class SequenceAligner
     /// <summary><c>muscle -spscore x.afa</c>: the sum-of-pairs objective score (<c>-objscore sp</c> arithmetic, ClustalW weights of a guide tree built from the alignment) printed as "SP=%.4g".</summary>
     public static double MuscleScoreAlignment(IReadOnlyList<string> alignment, MuscleOptions? options = null)
     {
+        RequireNoNullElements(alignment, nameof(alignment));
         var o = options ?? new MuscleOptions();
         return MuscleEngine.ForMsa(o, alignment).SpScoreMode(alignment);
     }
@@ -86,6 +89,8 @@ public static partial class SequenceAligner
     /// </summary>
     public static double MuscleProfileScore(IReadOnlyList<string> alignment1, IReadOnlyList<string> alignment2, MuscleOptions? options = null)
     {
+        RequireNoNullElements(alignment1, nameof(alignment1));
+        RequireNoNullElements(alignment2, nameof(alignment2));
         var o = options ?? new MuscleOptions();
         return MuscleEngine.ForMsa(o, alignment1).ProfileScoreMode(alignment1, alignment2);
     }
@@ -93,6 +98,7 @@ public static partial class SequenceAligner
     /// <summary><c>muscle -maketree -in x.afa -out t</c>: the guide tree of an alignment (<c>-cluster2</c>, <c>-distance2</c>, <c>-root2</c>) in the Newick format of the program's tree files; leaf names are <see cref="MuscleOptions.SequenceNames"/> (default s0, s1, ...).</summary>
     public static string MuscleGuideTree(IReadOnlyList<string> alignment, MuscleOptions? options = null)
     {
+        RequireNoNullElements(alignment, nameof(alignment));
         var o = options ?? new MuscleOptions();
         return MuscleEngine.ForMsa(o, alignment).MakeTreeMode(alignment);
     }
@@ -104,6 +110,7 @@ public static partial class SequenceAligner
     /// </summary>
     public static string[] MuscleRefineWindows(IReadOnlyList<string> alignment, MuscleOptions? options = null)
     {
+        RequireNoNullElements(alignment, nameof(alignment));
         var o = options ?? MuscleOptions.ProgramDefaults;
         return MuscleEngine.ForMsa(o, alignment).RefineWindowsMode(alignment);
     }
@@ -116,6 +123,8 @@ public static partial class SequenceAligner
     /// </summary>
     public static string[] MuscleLocalAlign(IReadOnlyList<string> alignment1, IReadOnlyList<string> alignment2, MuscleOptions? options = null)
     {
+        RequireNoNullElements(alignment1, nameof(alignment1));
+        RequireNoNullElements(alignment2, nameof(alignment2));
         var o = options ?? new MuscleOptions();
         return MuscleEngine.ForMsa(o, alignment1).LocalAlignMode(alignment1, alignment2);
     }
@@ -209,6 +218,8 @@ public static partial class SequenceAligner
                 var r = rows[i].ToCharArray();
                 for (int c = 0; c < r.Length; c++)
                 {
+                    if (r[c] > 255)
+                        throw new ArgumentException($"Row {i}, column {c}: the character U+{(int)r[c]:X4} is not a byte: MUSCLE reads one byte per residue of an alignment file.");
                     if (r[c] == '.')
                         r[c] = '-';
                     else if (r[c] != '-' && !_isResidue[r[c]])
