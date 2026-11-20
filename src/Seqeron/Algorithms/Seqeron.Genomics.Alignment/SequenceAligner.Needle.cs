@@ -27,13 +27,15 @@ public static partial class SequenceAligner
     {
         ArgumentNullException.ThrowIfNull(sequence1);
         ArgumentNullException.ThrowIfNull(sequence2);
+        sequence1 = EmbossSequenceReader.Clean(sequence1);
+        sequence2 = EmbossSequenceReader.Clean(sequence2);
         RequireEmbossRange(gapOpen, 1, 100, nameof(gapOpen), "-gapopen", "needle");
         RequireEmbossRange(gapExtend, 0, 10, nameof(gapExtend), "-gapextend", "needle");
         RequireEmbossRange(endOpen, 1, 100, nameof(endOpen), "-endopen", "needle");
         RequireEmbossRange(endExtend, 0, 10, nameof(endExtend), "-endextend", "needle");
         if (sequence1.Length == 0 || sequence2.Length == 0)
             throw new ArgumentException("EMBOSS needle cannot align an empty sequence.", sequence1.Length == 0 ? nameof(sequence1) : nameof(sequence2));
-        matrix ??= IsNucleotideText(sequence1.ToUpperInvariant()) && IsNucleotideText(sequence2.ToUpperInvariant()) ? SubstitutionMatrix.EdnaFull : SubstitutionMatrix.Blosum62;
+        matrix ??= EmbossSequenceReader.IsNucleotide(sequence1) && EmbossSequenceReader.IsNucleotide(sequence2) ? SubstitutionMatrix.EdnaFull : SubstitutionMatrix.Blosum62;
         var (score, r1, r2) = NeedleCore(sequence1, sequence2, matrix, RoundFloat((float)gapOpen, 8), RoundFloat((float)gapExtend, 8), (float)endOpen, (float)endExtend, endWeight);
         return new AlignmentResult(r1, r2, (int)Math.Round(score, MidpointRounding.AwayFromZero), AlignmentType.Global, 0, 0, sequence1.Length, sequence2.Length) { ExactScore = score };
     }

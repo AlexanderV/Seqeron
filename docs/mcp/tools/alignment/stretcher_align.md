@@ -14,7 +14,7 @@ EMBOSS 6.6 stretcher: Myers-Miller linear-space global alignment with integer sc
 
 ## Description
 
-EMBOSS 6.6 stretcher: global alignment by the Myers-Miller linear-space algorithm (Myers & Miller 1988) with affine gaps and INTEGER scores; a gap of length k costs gapOpen + (k-1)*gapExtend (the EMBOSS convention), end gaps are charged like any gap, residues are upper-cased, a residue that is not in the matrix scores 0. The rows are the rows of the installed stretcher 6.6.0 (its midpoint tie rules differ from global_align_affine; the score is the same). VERIFICATION: rows and score identical on 689 / 689 committed random DNA / IUPAC / protein pairs (1-260 residues, gap penalties 0-20 / 0-6, 10 matrices).
+EMBOSS 6.6 stretcher: global alignment by the Myers-Miller linear-space algorithm (Myers & Miller 1988) with affine gaps and INTEGER scores; a gap of length k costs gapOpen + (k-1)*gapExtend (the EMBOSS convention), end gaps are charged like any gap, residues are upper-cased, a residue that is not in the matrix scores 0. The rows are the rows of the installed stretcher 6.6.0 (its midpoint tie rules differ from global_align_affine; the score is the same). VERIFICATION: rows and score identical on 689 / 689 committed random DNA / IUPAC / protein pairs (1-260 residues, gap penalties 0-20 / 0-6, 10 matrices). Input sequences are read as EMBOSS reads them (A4-3, one shared reader): only letters and '*' are kept; gap characters (- . ~ ?), '#', '+', '_', digits, blanks and every other character are dropped first, and positions, lengths and scores count the cleaned sequence (e.g. needle of AC-GTTAGC.TT* and ACGTTAGCTT: score 58, length 11, as the program).
 
 ## Core Documentation Reference
 

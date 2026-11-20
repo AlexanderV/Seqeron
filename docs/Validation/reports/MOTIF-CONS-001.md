@@ -114,3 +114,5 @@ branches.
 - **Stage B: PASS.**
 - **End-state: CLEAN** — no defect found; no code/test changes required.
 - **Audit r3 (A3-13d, F147):** EMBOSS `consambig` ported (`MotifFinder.GenerateEmbossAmbiguousConsensus`, MCP `consambig`): 1 400 / 1 400 oracle rows; input normalisation shared with `cons` (`NormalizedAlignmentChars`).
+
+- **Audit A4-3 (F153):** the EMBOSS reader drops gap characters and every other non-letter (except `*`) from plain input sequences; one shared `EmbossSequenceReader` (Infrastructure) serves consambig: 240 oracle rows each equal (`emboss_gap_oracle.tsv`).

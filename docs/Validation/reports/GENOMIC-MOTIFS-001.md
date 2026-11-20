@@ -178,3 +178,5 @@ No code or test change was required this session.
 - **End-state: CLEAN.**
 - **Audit r3 (A3-12, F140):** `fuzzpro` / `fuzztran` ported (`ProteinPattern`, `FindProteinPatternHits`, `FindTranslatedPatternHits`, MCP `fuzzpro` / `fuzztran`): 900 / 900 and 760 / 760 oracle rows equal; the "fuzznuc reads a sequence ambiguity code as a base set" claim corrected (letters compared literally; A3-12a registered with the measured rules).
 - **Audit r3 (A3-12a, F146):** fuzznuc with IUPAC codes in the sequence: `FindPatternHits(..., sequenceAmbiguity: true)`, MCP `sequenceAmbiguity`; 1 350 / 1 350 oracle rows (subset rule, classes plain only, exclusions everything unlisted, U = T, reverse = IUPAC revcomp).
+
+- **Audit A4-3 (F153):** the EMBOSS reader drops gap characters and every other non-letter (except `*`) from plain input sequences; one shared `EmbossSequenceReader` (Infrastructure) serves fuzznuc, fuzzpro, fuzztran: 240 oracle rows each equal (`emboss_gap_oracle.tsv`).

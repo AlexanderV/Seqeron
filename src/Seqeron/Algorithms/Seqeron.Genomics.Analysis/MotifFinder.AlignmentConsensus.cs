@@ -148,14 +148,16 @@ public static partial class MotifFinder
         List<string> rows;
         if (padRaggedRows)
         {
-            rows = MaterializeRows(alignedSequences, nameof(alignedSequences));
+            rows = ReadEmbossRows(MaterializeRows(alignedSequences, nameof(alignedSequences)));
             int len = rows.Count == 0 ? 0 : rows.Max(r => r.Length);
             for (int i = 0; i < rows.Count; i++)
                 rows[i] = rows[i].PadRight(len, '-'); // ajSeqsetFill: append '-' × (Len − own length)
         }
         else
         {
-            rows = MaterializeAligned(alignedSequences, nameof(alignedSequences));
+            rows = ReadEmbossRows(MaterializeRows(alignedSequences, nameof(alignedSequences)));
+            if (rows.Any(r => r.Length != rows[0].Length))
+                throw new ArgumentException("All sequences must have the same length.", nameof(alignedSequences));
         }
 
         if (rows.Count < 2)
@@ -204,7 +206,7 @@ public static partial class MotifFinder
         float fsetcase = setcase ?? totalWeight / 2f;
 
         bool nucleotide = residueType == ConsensusResidueType.Auto
-            ? IsEmbossNucleotideSequence(rows[0])
+            ? EmbossSequenceReader.IsNucleotide(rows[0])
             : residueType == ConsensusResidueType.Nucleotide;
         var table = matrixOverride ?? (nucleotide ? SubstitutionMatrix.EdnaFull : SubstitutionMatrix.Blosum62);
         string labels = table.Alphabet;
@@ -335,6 +337,14 @@ public static partial class MotifFinder
         return consensus.ToString();
     }
 
+    /// <summary>The rows of an alignment as the EMBOSS file reader keeps them (<see cref="EmbossSequenceReader.CleanGapped(string)"/>: letters and <c>* . ~ ? # + -</c>; digits, blanks and every other character vanish, which can make rows unequal: <c>ajSeqsetFill</c> pads them).</summary>
+    internal static List<string> ReadEmbossRows(List<string> rows)
+    {
+        for (int i = 0; i < rows.Count; i++)
+            rows[i] = EmbossSequenceReader.CleanGapped(rows[i]);
+        return rows;
+    }
+
     /// <summary>
     /// The alignment as the EMBOSS sequence reader hands it to <c>cons</c> / <c>consambig</c>: upper case, gaps <c>.</c> <c>~</c> → <c>-</c>, <c>?</c> → <c>X</c> (<c>N</c> in a nucleotide-typed row), <c>X</c> → <c>N</c> in a nucleotide row.
     /// Auto: every row is typed on its own (ajSeqType); an explicit type applies to all rows.
@@ -349,31 +359,13 @@ public static partial class MotifFinder
             // Auto: every sequence is typed on its own when read (ajSeqType -> ajSeqSetNuc turns
             // X into N in a nucleotide-looking sequence only); explicit types apply to all rows.
             bool rowNucleotide = residueType == ConsensusResidueType.Auto
-                ? IsEmbossNucleotideSequence(rows[s])
+                ? EmbossSequenceReader.IsNucleotide(rows[s])
                 : nucleotide;
             for (int k = 0; k < mlen; k++)
                 chars[s][k] = NormalizeEmbossResidue(rows[s][k], rowNucleotide, residueType == ConsensusResidueType.Auto, s, k, paramName, keepCase);
         }
 
         return chars;
-    }
-
-    // ajseqtype.c seqTypeStrNucGap: seqCharNucPure + seqCharNucAmbig + seqCharGap.
-    private const string EmbossNucGapChars = "ACGTUBDHKMNRSVWXY?.~-";
-
-    /// <summary>
-    /// <c>ajSeqTypeGapnucS</c> success (case-insensitive <c>ajStrIsCharsetCaseS</c>; empty → true),
-    /// i.e. <c>ajSeqIsNuc</c> of an untyped first sequence.
-    /// </summary>
-    internal static bool IsEmbossNucleotideSequence(string sequence)
-    {
-        foreach (char ch in sequence)
-        {
-            char c = ch is >= 'a' and <= 'z' ? (char)(ch - 'a' + 'A') : ch;
-            if (EmbossNucGapChars.IndexOf(c) < 0)
-                return false;
-        }
-        return true;
     }
 
     /// <summary>
@@ -397,7 +389,7 @@ public static partial class MotifFinder
             return '-';
         if (c == '*')
             return '*';
-        if (c == '?')
+        if (c == '?')                     // (# and + are read as ? by EmbossSequenceReader.CleanGapped)
             return nucleotide && typedOnRead ? 'N' : 'X';
         bool lower = c is >= 'a' and <= 'z';
         if (lower)

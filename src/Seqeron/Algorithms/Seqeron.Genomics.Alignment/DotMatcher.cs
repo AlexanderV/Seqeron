@@ -1,3 +1,5 @@
+using Seqeron.Genomics.Infrastructure;
+
 namespace Seqeron.Genomics.Alignment;
 
 /// <summary>A segment of the plot of <see cref="DotMatcher.Compute"/>: the diagonal run of windows scoring at least the threshold, 1-based, inclusive, on both sequences.</summary>
@@ -22,17 +24,17 @@ public static class DotMatcher
     /// <param name="sequence2">Second sequence (y axis).</param>
     /// <param name="windowSize">Window size (<c>-windowsize</c>, default 10; at least 1).</param>
     /// <param name="threshold">Score a window must reach (<c>-threshold</c>, default 23).</param>
-    /// <param name="matrix">Scoring matrix (<c>-matrixfile</c>); null = EDNAFULL when the first sequence consists of nucleotide codes only, EBLOSUM62 otherwise. A character that is not a letter of the matrix scores 0.</param>
+    /// <param name="matrix">Scoring matrix (<c>-matrixfile</c>); null = EDNAFULL when the first sequence consists of nucleotide codes only, EBLOSUM62 otherwise. A character that is not a letter of the matrix scores 0. Both sequences are read like EMBOSS reads them (<see cref="EmbossSequenceReader.Clean(string)"/>): gap characters, digits, blanks and every other non-letter except <c>*</c> are removed first and the segment positions count the cleaned sequences.</param>
     /// <returns>The segments (empty when a sequence is not longer than the window, where the program reads beyond the sequence).</returns>
     /// <exception cref="ArgumentNullException">A sequence is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="windowSize"/> &lt; 1.</exception>
     public static IReadOnlyList<DotMatcherSegment> Compute(
         string sequence1, string sequence2, int windowSize = 10, int threshold = 23, SubstitutionMatrix? matrix = null)
     {
-        ArgumentNullException.ThrowIfNull(sequence1);
-        ArgumentNullException.ThrowIfNull(sequence2);
+        sequence1 = EmbossSequenceReader.Clean(sequence1);
+        sequence2 = EmbossSequenceReader.Clean(sequence2);
         ArgumentOutOfRangeException.ThrowIfLessThan(windowSize, 1);
-        matrix ??= IsNucleotide(sequence1) ? SubstitutionMatrix.EdnaFull : SubstitutionMatrix.Blosum62;
+        matrix ??= EmbossSequenceReader.IsNucleotide(sequence1) ? SubstitutionMatrix.EdnaFull : SubstitutionMatrix.Blosum62;
         int len1 = sequence1.Length, len2 = sequence2.Length;
         var segments = new List<DotMatcherSegment>();
         if (len1 <= windowSize || len2 <= windowSize)
@@ -87,8 +89,4 @@ public static class DotMatcher
                 segments.Add(new DotMatcherSegment(startj + 1, starti + 1, k, i));
         }
     }
-
-    // ajSeqIsNuc of an untyped sequence: every character is a nucleotide code or a gap
-    private static bool IsNucleotide(string sequence) =>
-        sequence.All(c => "ACGTUBDHKMNRSVWXY?.~-".Contains(char.ToUpperInvariant(c), StringComparison.Ordinal));
 }

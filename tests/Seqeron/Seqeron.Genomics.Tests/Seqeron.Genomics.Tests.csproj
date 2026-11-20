@@ -41,6 +41,8 @@
     <EmbeddedResource Include="TestData\Alignment\matcher_sim_oracle.tsv" />
     <!-- ALIGN-LOCAL-001 (audit A2-28d, B09 F152): EMBOSS dotmatcher 6.6.0 plot segments of 600 DNA / protein pairs (graph data); scripts/alignment/generate_dotmatcher_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\dotmatcher_oracle.tsv" />
+    <!-- A4-3 (B09 F153): the EMBOSS programs 6.6.0 on plain sequences that contain gap characters and other non-letters (the reader drops them); scripts/alignment/generate_emboss_gap_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\emboss_gap_oracle.tsv" />
     <!-- ALIGN-MULTI-001 (audit A1-13, B09 F58): T-Coffee 13.41 progressive stage (library relaxation + sparse linked-pair-wise DP) for an explicit library and guide tree;
          rows of the installed `t_coffee` (Debian t-coffee 13.45.0.4846264+really13.41.0.28bdc39+dfsg-1); scripts/alignment/generate_tcoffee_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\tcoffee_oracle.tsv" />

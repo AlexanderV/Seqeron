@@ -27,12 +27,14 @@ public static partial class SequenceAligner
     {
         ArgumentNullException.ThrowIfNull(setA);
         ArgumentNullException.ThrowIfNull(setB);
+        setA = EmbossSequenceReader.Clean(setA);
+        setB = EmbossSequenceReader.Clean(setB);
         RequireEmbossRange(minScore, -10, 100, nameof(minScore), "-minscore", "needleall");
         RequireEmbossRange(gapOpen, 1, 100, nameof(gapOpen), "-gapopen", "needleall");
         RequireEmbossRange(gapExtend, 0, 10, nameof(gapExtend), "-gapextend", "needleall");
         RequireEmbossRange(endOpen, 1, 100, nameof(endOpen), "-endopen", "needleall");
         RequireEmbossRange(endExtend, 0, 10, nameof(endExtend), "-endextend", "needleall");
-        matrix ??= setA.All(s => IsNucleotideText(s.Residues.ToUpperInvariant())) ? SubstitutionMatrix.EdnaFull : SubstitutionMatrix.Blosum62;
+        matrix ??= setA.All(s => EmbossSequenceReader.IsNucleotide(s.Residues)) ? SubstitutionMatrix.EdnaFull : SubstitutionMatrix.Blosum62;
         float minscore = (float)minScore;
         var alignments = new List<EmbossPairAlignment>();
         var errors = new StringBuilder();

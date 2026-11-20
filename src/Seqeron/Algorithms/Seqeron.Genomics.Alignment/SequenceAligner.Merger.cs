@@ -59,6 +59,8 @@ public static partial class SequenceAligner
     {
         ArgumentNullException.ThrowIfNull(sequenceA);
         ArgumentNullException.ThrowIfNull(sequenceB);
+        sequenceA = EmbossSequenceReader.Clean(sequenceA);
+        sequenceB = EmbossSequenceReader.Clean(sequenceB);
         RequireEmbossRange(gapOpen, 0, 100, nameof(gapOpen), "-gapopen", "merger");
         RequireEmbossRange(gapExtend, 0, 10, nameof(gapExtend), "-gapextend", "merger");
         if (sequenceA.Length == 0 || sequenceB.Length == 0)

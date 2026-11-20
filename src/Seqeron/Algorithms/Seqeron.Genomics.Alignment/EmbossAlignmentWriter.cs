@@ -284,7 +284,7 @@ public sealed class EmbossAlignmentWriter
         return true;
     }
 
-    private static bool IsNuc(string row) => InSet(row, "ACGTUBDHKMNRSVWXY?.~-");
+    private static bool IsNuc(string row) => EmbossSequenceReader.IsNucleotide(row);
 
     private static bool IsProt(string row) => InSet(row, "ACDEFGHIKLMNPQRSTVWYBJOUXZ?*.~-");
 

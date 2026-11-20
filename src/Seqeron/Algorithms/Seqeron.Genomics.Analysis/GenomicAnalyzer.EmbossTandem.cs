@@ -1,3 +1,4 @@
+using Seqeron.Genomics.Infrastructure;
 namespace Seqeron.Genomics.Analysis;
 
 // B09 A3-8 (GENOMIC-TANDEM-001): the two EMBOSS 6.6.0 tandem-repeat programs, ported statement by statement from etandem.c / equicktandem.c
@@ -62,6 +63,7 @@ public static partial class GenomicAnalyzer
         ArgumentNullException.ThrowIfNull(sequence);
         if (minRepeat < 2) throw new ArgumentOutOfRangeException(nameof(minRepeat), minRepeat, "minRepeat must be 2 or higher (etandem -minrepeat).");
         if (maxRepeat < minRepeat) throw new ArgumentOutOfRangeException(nameof(maxRepeat), maxRepeat, "maxRepeat must be at least minRepeat (etandem -maxrepeat).");
+        sequence = EmbossSequenceReader.Clean(sequence);       // the reader drops the gap characters and every other non-letter but * (A4-3)
         int nbase = sequence.Length;
         int effectiveMax = Math.Min(maxRepeat, nbase);
         if ((long)nbase * Math.Max(1, effectiveMax - minRepeat + 1) > EmbossTandemMaxRepeatCells)
@@ -194,6 +196,7 @@ public static partial class GenomicAnalyzer
         ArgumentNullException.ThrowIfNull(sequence);
         if (maxRepeat < 1) throw new ArgumentOutOfRangeException(nameof(maxRepeat), maxRepeat, "maxRepeat must be at least 1 (equicktandem -maxrepeat).");
         if (threshold < 1) throw new ArgumentOutOfRangeException(nameof(threshold), threshold, "threshold must be at least 1 (equicktandem reads uninitialised memory below that).");
+        sequence = EmbossSequenceReader.Clean(sequence);       // the reader drops the gap characters and every other non-letter but * (A4-3)
         int len = sequence.Length;
         if (maxRepeat > len) maxRepeat = len;
         if ((long)len * maxRepeat > EmbossTandemMaxRepeatCells)

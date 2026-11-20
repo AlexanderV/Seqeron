@@ -1,3 +1,4 @@
+using Seqeron.Genomics.Infrastructure;
 using System.Globalization;
 using System.Text;
 
@@ -51,6 +52,8 @@ public static partial class GenomicAnalyzer
         ArgumentNullException.ThrowIfNull(name1);
         ArgumentNullException.ThrowIfNull(name2);
         ArgumentOutOfRangeException.ThrowIfLessThan(wordSize, 2);
+        sequence1 = EmbossSequenceReader.Clean(sequence1);
+        sequence2 = EmbossSequenceReader.Clean(sequence2);
         cancellationToken.ThrowIfCancellationRequested();
 
         var matcher = new PairWordMatcher(sequence1, wordSize);

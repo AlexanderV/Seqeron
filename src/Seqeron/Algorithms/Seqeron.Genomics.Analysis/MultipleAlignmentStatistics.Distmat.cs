@@ -58,7 +58,17 @@ public static partial class MultipleAlignmentStatistics
     public static double[,] CalculateDistanceMatrix(IReadOnlyList<string> alignedRows, MsaDistanceOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
-        var rows = Normalize(alignedRows);
+        ArgumentNullException.ThrowIfNull(alignedRows);
+        // distmat reads the alignment with the EMBOSS reader (type gapany): letters and * . ~ - ? # + stay, every other character is dropped, ? # + are the unknown residue (X; N in a nucleotide row below), shorter rows are filled with gaps
+        var read = alignedRows.Select(r => r is null ? null! : EmbossSequenceReader.CleanGapped(r).Replace('?', 'X')).ToArray();
+        if (read.All(r => r is not null) && read.Length > 0)
+        {
+            int longest = read.Max(r => r.Length);
+            for (int i = 0; i < read.Length; i++)
+                read[i] = read[i].PadRight(longest, '-');           // ajSeqsetFill: the rows of an aligned set are filled to the longest with trailing gaps (measured: distmat of rows of 8, 6 and 10 residues runs)
+        }
+
+        var rows = Normalize(read);
         if (rows.Length < 2)
             throw new ArgumentException($"Insufficient sequences ({rows.Length}) to create a matrix; EMBOSS distmat requires at least 2.", nameof(alignedRows));
         if (double.IsNaN(options.GapWeight) || double.IsInfinity(options.GapWeight))
@@ -72,7 +82,7 @@ public static partial class MultipleAlignmentStatistics
         // The EMBOSS reader types every row of an alignment on its own (Auto) and a nucleotide row has X turned into N (ajSeqSetNuc); with an explicit residue type every row is of that type.
         for (int i = 0; i < rows.Length; i++)
         {
-            bool rowNuc = options.ResidueType == ConsensusResidueType.Auto ? MotifFinder.IsEmbossNucleotideSequence(rows[i]) : nuc;
+            bool rowNuc = options.ResidueType == ConsensusResidueType.Auto ? EmbossSequenceReader.IsNucleotide(rows[i]) : nuc;
             if (rowNuc)
                 rows[i] = rows[i].Replace('X', 'N');
         }

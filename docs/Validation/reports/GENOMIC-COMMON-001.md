@@ -105,3 +105,5 @@ Other tests (M1–M4, S1–S4, C1, C2) assert exact sourced values and cover the
 - **End-state:** CLEAN. Build 0 errors; unit/combinatorial/property/metamorphic/fuzz tests of the unit green (247).
 - **Audit r3 (A3-13, F139):** `GenomicAnalyzer.SeqMatchAll` (EMBOSS seqmatchall, MCP `seqmatchall`), 330 / 330 oracle sets equal.
 - **Audit r3 (A3-13b, F149):** EMBOSS `megamerger` ported (`GenomicAnalyzer.MegaMerge`, MCP `megamerger`): 600 / 600 oracle pairs (merged sequence and report); shared `PairWordMatcher` with `seqmatchall`.
+
+- **Audit A4-3 (F153):** the EMBOSS reader drops gap characters and every other non-letter (except `*`) from plain input sequences; one shared `EmbossSequenceReader` (Infrastructure) serves megamerger, seqmatchall: 240 oracle rows each equal (`emboss_gap_oracle.tsv`).

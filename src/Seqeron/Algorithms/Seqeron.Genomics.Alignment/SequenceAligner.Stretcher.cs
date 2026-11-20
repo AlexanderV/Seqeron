@@ -24,9 +24,9 @@ public static partial class SequenceAligner
     {
         ArgumentNullException.ThrowIfNull(sequence1);
         ArgumentNullException.ThrowIfNull(sequence2);
-        string s1 = sequence1.ToUpperInvariant();
-        string s2 = sequence2.ToUpperInvariant();
-        bool nucleotide = IsNucleotideText(s1) && IsNucleotideText(s2);
+        string s1 = EmbossSequenceReader.Clean(sequence1).ToUpperInvariant();
+        string s2 = EmbossSequenceReader.Clean(sequence2).ToUpperInvariant();
+        bool nucleotide = EmbossSequenceReader.IsNucleotide(s1) && EmbossSequenceReader.IsNucleotide(s2);
         matrix ??= nucleotide ? SubstitutionMatrix.EdnaFull : SubstitutionMatrix.Blosum62;
         int go = gapOpen ?? (nucleotide ? 16 : 12);
         int ge = gapExtend ?? (nucleotide ? 4 : 2);
@@ -38,14 +38,6 @@ public static partial class SequenceAligner
         var engine = new StretcherEngine(s1, s2, matrix, go - ge, ge);
         var (score, rows1, rows2) = engine.Run();
         return new AlignmentResult(rows1, rows2, score, AlignmentType.Global, 0, 0, s1.Length, s2.Length);
-    }
-
-    private static bool IsNucleotideText(string upper)
-    {
-        foreach (char c in upper)
-            if ("ACGTUBDHKMNRSVWXY".IndexOf(c, StringComparison.Ordinal) < 0)
-                return false;
-        return true;
     }
 
     // static state of stretcher.c made instance state: g = G, hh = H, m = g + hh

@@ -113,3 +113,5 @@ Scalar `ScoringMatrix` and `MatrixScoring` now share one contract: gap scores <=
 ## Audit r2 addendum (A2-28c / A2-29b, B09 F124 / F125): needleall, ksw2
 
 `SequenceAligner.NeedleAll` (+ `SimilaritySubHeader`, the needle `-nobrief` lines) and `Ksw2Aligner` (ksw_extz / extz2_sse / extd / extd2_sse: band, Z-drop, end bonus, N scoring, CIGAR); MCP `needleall_align`, `ksw2_extend`. needleall 260 / 260 files equal; ksw2 exact cases 1 320 / 1 320 equal an independent program; the real-program oracle is a Docker package (A2-29b stays DOABLE until its output is integrated).
+
+- **Audit A4-3 (F153):** the EMBOSS reader drops gap characters and every other non-letter (except `*`) from plain input sequences; one shared `EmbossSequenceReader` (Infrastructure) serves needle, stretcher, needleall: 240 oracle rows each equal (`emboss_gap_oracle.tsv`).

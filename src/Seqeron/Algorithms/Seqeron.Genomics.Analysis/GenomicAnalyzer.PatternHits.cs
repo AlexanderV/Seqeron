@@ -1,3 +1,4 @@
+using Seqeron.Genomics.Infrastructure;
 using Seqeron.Genomics.Alignment;
 
 namespace Seqeron.Genomics.Analysis;
@@ -146,7 +147,7 @@ public static partial class GenomicAnalyzer
 
     private static List<PatternHit> SequenceTextHits(string sequence, FuzznucPattern pattern, int maxMismatches, bool bothStrands, bool sequenceAmbiguity, CancellationToken cancellationToken)
     {
-        string upper = sequence.ToUpperInvariant();
+        string upper = EmbossSequenceReader.Clean(sequence).ToUpperInvariant();      // the fuzznuc reader drops the gap characters and every other non-letter but * (A4-3)
         return sequenceAmbiguity
             ? PatternHitsLiteral(upper.Replace('U', 'T'), pattern, maxMismatches, bothStrands, cancellationToken)
             : PatternHitsCore(QueryText(upper), pattern, maxMismatches, bothStrands, cancellationToken);

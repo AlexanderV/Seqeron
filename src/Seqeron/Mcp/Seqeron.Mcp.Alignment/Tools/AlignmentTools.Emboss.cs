@@ -8,7 +8,7 @@ namespace Seqeron.Mcp.Alignment.Tools;
 public partial class AlignmentTools
 {
     [McpServerTool(Name = "stretcher_align", Title = "Pairwise — Global Alignment, Myers–Miller (EMBOSS stretcher)", ReadOnly = true)]
-    [Description("EMBOSS 6.6 stretcher: global alignment by the Myers–Miller linear-space algorithm (Myers & Miller 1988) with affine gaps and INTEGER scores; a gap of length k costs gapOpen + (k-1)·gapExtend (the needle/EMBOSS convention; EMBOSS -gapopen / -gapextend, positive penalties), end gaps are charged like any gap, residues are upper-cased and a residue that is not in the matrix scores 0 (EMBOSS 'bad character'). The rows are the rows of the installed stretcher 6.6.0 (its midpoint tie rules differ from global_align_affine; the score is the same): VERIFICATION: rows and score identical on 689 / 689 committed random DNA / IUPAC / protein pairs (1–260 residues, gap penalties 0–20 / 0–6, 10 matrices). Default matrix EDNAFULL (nucleotide) or EBLOSUM62 (protein) with gapOpen 16 / gapExtend 4 (nucleotide) or 12 / 2 (protein). Use write_alignment (program 'stretcher') for the EMBOSS output files.")]
+    [Description("EMBOSS 6.6 stretcher: global alignment by the Myers–Miller linear-space algorithm (Myers & Miller 1988) with affine gaps and INTEGER scores; a gap of length k costs gapOpen + (k-1)·gapExtend (the needle/EMBOSS convention; EMBOSS -gapopen / -gapextend, positive penalties), end gaps are charged like any gap, residues are upper-cased and a residue that is not in the matrix scores 0 (EMBOSS 'bad character'). The rows are the rows of the installed stretcher 6.6.0 (its midpoint tie rules differ from global_align_affine; the score is the same): VERIFICATION: rows and score identical on 689 / 689 committed random DNA / IUPAC / protein pairs (1–260 residues, gap penalties 0–20 / 0–6, 10 matrices). Default matrix EDNAFULL (nucleotide) or EBLOSUM62 (protein) with gapOpen 16 / gapExtend 4 (nucleotide) or 12 / 2 (protein). Use write_alignment (program 'stretcher') for the EMBOSS output files. Input sequences are read as EMBOSS reads them (A4-3, one shared reader): only letters and '*' are kept; gap characters (- . ~ ?), '#', '+', '_', digits, blanks and every other character are dropped first, and positions, lengths and scores count the cleaned sequence (e.g. needle of AC-GTTAGC.TT* and ACGTTAGCTT: score 58, length 11, as the program).")]
     public static AlignmentResultDto StretcherAlign(
         [Description("First sequence (-asequence).")] string sequence1,
         [Description("Second sequence (-bsequence).")] string sequence2,
@@ -19,7 +19,7 @@ public partial class AlignmentTools
         [Description(NamesParamDescription)] string[]? names = null,
         CancellationToken cancellationToken = default)
     {
-        return FormatPair(StretcherAlignCore(sequence1, sequence2, matrix, gapOpen, gapExtend, cancellationToken), format, sequence1.Length, sequence2.Length, names);
+        return FormatPair(StretcherAlignCore(sequence1, sequence2, matrix, gapOpen, gapExtend, cancellationToken), format, EmbossLength(sequence1), EmbossLength(sequence2), names);
     }
 
     private static AlignmentResultDto StretcherAlignCore(
@@ -37,7 +37,7 @@ public partial class AlignmentTools
     }
 
     [McpServerTool(Name = "needle_align", Title = "Pairwise — Global Alignment (EMBOSS needle, with end-gap penalties)", ReadOnly = true)]
-    [Description("EMBOSS 6.6 needle: global alignment (Needleman-Wunsch with Gotoh's three matrices) in the arithmetic and with the conventions of the program: a gap of length k costs gapOpen + (k-1)*gapExtend (positive penalties, EMBOSS -gapopen / -gapextend, rounded to 16 mantissa bits as EMBOSS does), scores are single-precision floats, and end gaps are FREE unless endWeight (-endweight): then an end gap of length k costs endOpen + (k-1)*endExtend (-endopen / -endextend). Rows (ties included), score and the printed score text are those of the installed needle 6.6.0. Default matrix EDNAFULL (both sequences nucleotide) or EBLOSUM62. exactScore is the single-precision score of the program, score its rounding. VERIFICATION: rows and printed score identical on 887 / 887 committed random DNA / IUPAC / protein pairs (1-200 residues, integer / dyadic / non-dyadic gap penalties, 445 without and 442 with end-gap weights, 10 matrices). Sequences whose matrices would exceed 2^27 = 134 217 728 cells are refused (the program keeps three float matrices and a compass matrix, 16 bytes per cell): use stretcher_align (linear space). Use format / write_alignment (program 'needle') for the EMBOSS output files.")]
+    [Description("EMBOSS 6.6 needle: global alignment (Needleman-Wunsch with Gotoh's three matrices) in the arithmetic and with the conventions of the program: a gap of length k costs gapOpen + (k-1)*gapExtend (positive penalties, EMBOSS -gapopen / -gapextend, rounded to 16 mantissa bits as EMBOSS does), scores are single-precision floats, and end gaps are FREE unless endWeight (-endweight): then an end gap of length k costs endOpen + (k-1)*endExtend (-endopen / -endextend). Rows (ties included), score and the printed score text are those of the installed needle 6.6.0. Default matrix EDNAFULL (both sequences nucleotide) or EBLOSUM62. exactScore is the single-precision score of the program, score its rounding. VERIFICATION: rows and printed score identical on 887 / 887 committed random DNA / IUPAC / protein pairs (1-200 residues, integer / dyadic / non-dyadic gap penalties, 445 without and 442 with end-gap weights, 10 matrices). Sequences whose matrices would exceed 2^27 = 134 217 728 cells are refused (the program keeps three float matrices and a compass matrix, 16 bytes per cell): use stretcher_align (linear space). Use format / write_alignment (program 'needle') for the EMBOSS output files. Input sequences are read as EMBOSS reads them (A4-3, one shared reader): only letters and '*' are kept; gap characters (- . ~ ?), '#', '+', '_', digits, blanks and every other character are dropped first, and positions, lengths and scores count the cleaned sequence (e.g. needle of AC-GTTAGC.TT* and ACGTTAGCTT: score 58, length 11, as the program).")]
     public static AlignmentResultDto NeedleAlign(
         [Description("First sequence (-asequence), at least one residue.")] string sequence1,
         [Description("Second sequence (-bsequence), at least one residue.")] string sequence2,
@@ -55,11 +55,11 @@ public partial class AlignmentTools
         RequireSequence(sequence1, nameof(sequence1));
         RequireSequence(sequence2, nameof(sequence2));
         var r = global::Seqeron.Genomics.Alignment.SequenceAligner.NeedleAlign(sequence1, sequence2, ResolveMatrix(matrix), gapOpen, gapExtend, endWeight, endOpen, endExtend);
-        return FormatPair(ToAlignmentDto(r), format, sequence1.Length, sequence2.Length, names);
+        return FormatPair(ToAlignmentDto(r), format, EmbossLength(sequence1), EmbossLength(sequence2), names);
     }
 
     [McpServerTool(Name = "water_align", Title = "Pairwise — Local Alignment (EMBOSS water)", ReadOnly = true)]
-    [Description("EMBOSS 6.6 water: local alignment (Smith-Waterman with Gotoh's affine gaps) as the program computes and reports it: a gap of length k costs gapOpen + (k-1)*gapExtend (positive penalties, EMBOSS -gapopen / -gapextend, rounded to 16 mantissa bits), single-precision scores, the cell of the best score is the LAST one scanned within the float epsilon of the maximum, and the walk-back follows the program's own rules; rows (ties included), start / end coordinates and score are those of the installed water 6.6.0. startPosition1 / startPosition2 are the 0-based first aligned residues. Needs sequences of at least two residues (shorter input returns the empty alignment, as the program's maximum is undefined for a one-row matrix); more than 2^28 matrix cells are refused. Default matrix EDNAFULL (both sequences nucleotide) or EBLOSUM62. VERIFICATION: rows, start coordinates and printed score identical on 860 / 860 committed random DNA / IUPAC / protein pairs (10 matrices). Use format / write_alignment (program 'water') for the EMBOSS output files.")]
+    [Description("EMBOSS 6.6 water: local alignment (Smith-Waterman with Gotoh's affine gaps) as the program computes and reports it: a gap of length k costs gapOpen + (k-1)*gapExtend (positive penalties, EMBOSS -gapopen / -gapextend, rounded to 16 mantissa bits), single-precision scores, the cell of the best score is the LAST one scanned within the float epsilon of the maximum, and the walk-back follows the program's own rules; rows (ties included), start / end coordinates and score are those of the installed water 6.6.0. startPosition1 / startPosition2 are the 0-based first aligned residues. Needs sequences of at least two residues (shorter input returns the empty alignment, as the program's maximum is undefined for a one-row matrix); more than 2^28 matrix cells are refused. Default matrix EDNAFULL (both sequences nucleotide) or EBLOSUM62. VERIFICATION: rows, start coordinates and printed score identical on 860 / 860 committed random DNA / IUPAC / protein pairs (10 matrices). Use format / write_alignment (program 'water') for the EMBOSS output files. Input sequences are read as EMBOSS reads them (A4-3, one shared reader): only letters and '*' are kept; gap characters (- . ~ ?), '#', '+', '_', digits, blanks and every other character are dropped first, and positions, lengths and scores count the cleaned sequence (e.g. needle of AC-GTTAGC.TT* and ACGTTAGCTT: score 58, length 11, as the program).")]
     public static AlignmentResultDto WaterAlign(
         [Description("First sequence (-asequence).")] string sequence1,
         [Description("Second sequence (-bsequence).")] string sequence2,
@@ -74,7 +74,7 @@ public partial class AlignmentTools
         RequireSequence(sequence1, nameof(sequence1));
         RequireSequence(sequence2, nameof(sequence2));
         var r = global::Seqeron.Genomics.Alignment.SequenceAligner.WaterAlign(sequence1, sequence2, ResolveMatrix(matrix), gapOpen, gapExtend);
-        return FormatPair(ToAlignmentDto(r), format, sequence1.Length, sequence2.Length, names);
+        return FormatPair(ToAlignmentDto(r), format, EmbossLength(sequence1), EmbossLength(sequence2), names);
     }
 
     [McpServerTool(Name = "write_alignment", Title = "Alignment — Write an alignment file (EMBOSS -aformat)", ReadOnly = true)]
@@ -207,4 +207,7 @@ public partial class AlignmentTools
             _ => throw new ArgumentException($"mode must be 'global' or 'local', got '{mode}'.", nameof(mode)),
         };
     }
+
+    // the length of an input sequence as the EMBOSS reader counts it (A4-3: gap characters, digits, blanks and every other non-letter except * are dropped before the program works)
+    private static int EmbossLength(string sequence) => global::Seqeron.Genomics.Infrastructure.EmbossSequenceReader.Clean(sequence).Length;
 }

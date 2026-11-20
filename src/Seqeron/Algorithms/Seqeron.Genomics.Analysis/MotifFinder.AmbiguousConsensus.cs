@@ -1,3 +1,4 @@
+using Seqeron.Genomics.Infrastructure;
 using System.Text;
 
 namespace Seqeron.Genomics.Analysis;
@@ -61,21 +62,23 @@ public static partial class MotifFinder
         List<string> rows;
         if (padRaggedRows)
         {
-            rows = MaterializeRows(alignedSequences, nameof(alignedSequences));
+            rows = ReadEmbossRows(MaterializeRows(alignedSequences, nameof(alignedSequences)));
             int len = rows.Count == 0 ? 0 : rows.Max(r => r.Length);
             for (int i = 0; i < rows.Count; i++)
                 rows[i] = rows[i].PadRight(len, '-');
         }
         else
         {
-            rows = MaterializeAligned(alignedSequences, nameof(alignedSequences));
+            rows = ReadEmbossRows(MaterializeRows(alignedSequences, nameof(alignedSequences)));
+            if (rows.Any(r => r.Length != rows[0].Length))
+                throw new ArgumentException("All sequences must have the same length.", nameof(alignedSequences));
         }
 
         if (rows.Count < 2)
             throw new ArgumentException($"Insufficient sequences ({rows.Count}) to create a consensus; EMBOSS consambig requires at least 2.", nameof(alignedSequences));
 
         // measured on consambig 6.6.0: -snucleotide forces a nucleotide set, but -sprotein does not make a nucleotide-looking set protein: the set type is the type of the first sequence
-        bool nucleotide = residueType == ConsensusResidueType.Nucleotide || IsEmbossNucleotideSequence(rows[0]);
+        bool nucleotide = residueType == ConsensusResidueType.Nucleotide || EmbossSequenceReader.IsNucleotide(rows[0]);
         var chars = NormalizedAlignmentChars(rows, residueType, residueType == ConsensusResidueType.Nucleotide, nameof(alignedSequences));
         int mlen = rows[0].Length;
         var consensus = new StringBuilder(mlen);

@@ -1,3 +1,4 @@
+using Seqeron.Genomics.Infrastructure;
 using Seqeron.Genomics.Core;
 
 namespace Seqeron.Genomics.Analysis;
@@ -62,6 +63,7 @@ public static partial class GenomicAnalyzer
     {
         ArgumentNullException.ThrowIfNull(protein);
         ArgumentNullException.ThrowIfNull(pattern);
+        protein = EmbossSequenceReader.Clean(protein);                // the fuzzpro reader drops the gap characters and every other non-letter but * (A4-3), then reads a trailing stop off
         return ProteinPatternHitsCore(protein.EndsWith('*') ? protein[..^1] : protein, pattern, cancellationToken);
     }
 
@@ -139,7 +141,7 @@ public static partial class GenomicAnalyzer
             _ => throw new ArgumentException("frames must be 1, 2, 3, -1, -2, -3, F, R or 6 (fuzztran -frame).", nameof(frames)),
         };
         var code = GeneticCode.GetByTableNumberOrThrow(table == 0 ? 1 : table, nameof(table));
-        string text = nucleotides.ToUpperInvariant();
+        string text = EmbossSequenceReader.Clean(nucleotides).ToUpperInvariant();      // the fuzztran reader drops the gap characters and every other non-letter but * (A4-3)
         var translations = Translator.TranslateSixFrames(text, code, SixFrameConvention.EmbossTranseq);
         int length = text.Length;
         var result = new List<TranslatedPatternHit>();

@@ -1,3 +1,5 @@
+using Seqeron.Genomics.Infrastructure;
+
 namespace Seqeron.Genomics.Alignment;
 
 // =====================================================================================================================
@@ -314,8 +316,9 @@ public static partial class SequenceAligner
         if (double.IsNaN(minScore))
             throw new ArgumentOutOfRangeException(nameof(minScore), "minScore must not be NaN.");
 
-        string a = sequence1.ToUpperInvariant();
-        string b = sequence2.ToUpperInvariant();
+        // matcher (TopNTieOrder.Sim) reads its sequences with the EMBOSS reader (A4-3): the gap characters and every other non-letter vanish
+        string a = (tieOrder == TopNTieOrder.Sim ? EmbossSequenceReader.Clean(sequence1) : sequence1).ToUpperInvariant();
+        string b = (tieOrder == TopNTieOrder.Sim ? EmbossSequenceReader.Clean(sequence2) : sequence2).ToUpperInvariant();
         var ps = PairScoring.Create(scoring, a, b);
 
         long minScaled = (long)Math.Ceiling((decimal)Math.Clamp(minScore, -1e12, 1e12) * ps.Scale);
@@ -337,7 +340,7 @@ public static partial class SequenceAligner
         return tieOrder switch
         {
             TopNTieOrder.WatermanEggert => LocalTopNCore(a, b, scoring, affine, maxAlignments, minScaled),
-            TopNTieOrder.Sim => LocalTopNSimCore(a, b, scoring, affine, maxAlignments, minScaled),
+            TopNTieOrder.Sim => LocalTopNSimCore(EmbossSequenceReader.Clean(a), EmbossSequenceReader.Clean(b), scoring, affine, maxAlignments, minScaled),
             _ => throw new ArgumentOutOfRangeException(nameof(tieOrder), tieOrder, "Unknown tie order."),
         };
     }

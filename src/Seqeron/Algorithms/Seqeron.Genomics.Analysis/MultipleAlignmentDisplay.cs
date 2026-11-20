@@ -130,9 +130,10 @@ public static class MultipleAlignmentDisplay
         int nseqs = rows.Count;
         if (rows.Any(r => r is null))
             throw new ArgumentException("Sequences cannot contain null elements.", nameof(rows));
-        int mlen = rows.Max(r => r.Length);
-        var padded = rows.Select(r => r.PadRight(mlen, '-')).ToList();
-        bool nucleotide = MotifFinder.IsEmbossNucleotideSequence(padded[0]);
+        var read = rows.Select(EmbossSequenceReader.CleanGapped).ToList();          // the file reader keeps the letters and * . ~ ? # + - (A4-3)
+        int mlen = read.Max(r => r.Length);
+        var padded = read.Select(r => r.PadRight(mlen, '-')).ToList();
+        bool nucleotide = EmbossSequenceReader.IsNucleotide(padded[0]);
         var matrix = o.Matrix ?? (nucleotide ? SubstitutionMatrix.EdnaFull : SubstitutionMatrix.Blosum62);
         var seqs = MotifFinder.NormalizedAlignmentChars(padded, ConsensusResidueType.Auto, nucleotide, nameof(rows), keepCase: true);
         var codes = matrix;

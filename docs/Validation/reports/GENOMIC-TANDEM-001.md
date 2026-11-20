@@ -77,3 +77,5 @@ Fuzz oracle (`GenomicTandemFuzzTests.Oracle`) replayed the old greedy scan → r
 
 - **Audit r1 (A1-21):** `FindTandemRepeats(string, …)` overloads for N/IUPAC input over the canonical `RepeatFinder.FindMicrosatellites(string)`; 892-row ambiguous oracle; MCP accepts IUPAC (B09.md F50).
 - **Audit r3 (A3-8):** exact ports of EMBOSS `etandem` / `equicktandem` (`GenomicAnalyzer.FindTandemRepeatsEtandem` / `FindTandemRepeatsEquicktandem`, MCP `find_tandem_repeats_emboss`); 3000 / 3000 oracle rows equal (B09.md F136).
+
+- **Audit A4-3 (F153):** the EMBOSS reader drops gap characters and every other non-letter (except `*`) from plain input sequences; one shared `EmbossSequenceReader` (Infrastructure) serves etandem, equicktandem: 240 oracle rows each equal (`emboss_gap_oracle.tsv`).

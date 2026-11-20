@@ -127,4 +127,22 @@ public class EmbossProgramToolsTests
         Assert.Throws<ArgumentException>(() => AnalysisTools.Fuzztran("ACGT", "A", "7"));
         Assert.Throws<ArgumentException>(() => AnalysisTools.Fuzztran("ACGT", "[X]"));
     }
+
+    /// <summary>A4-3 (B09 F153): the EMBOSS tools read the sequence like the programs (gap characters and other non-letters dropped first; positions count the cleaned sequence).</summary>
+    [Test]
+    public void EmbossTools_DropGapCharactersFromThePlainSequence_LikeThePrograms()
+    {
+        // fuzznuc -pattern ACGT on `AC-GT.AACGT` (cleaned ACGTAACGT): hits 1-4 and 6-9
+        var hits = AnalysisTools.FindPatternHits("AC-GT.AACGT", "ACGT").Hits.Select(h => (h.Position, h.Length)).ToArray();
+        Assert.That(hits, Is.EqualTo(new[] { (0, 4), (5, 4) }));
+        // fuzztran -pattern KV on `ATG-AAA GTT.CTGGCT` is the clean-text hit
+        var h = AnalysisTools.Fuzztran("ATG-AAA GTT.CTGGCT", "KV").Hits.Single();
+        Assert.That((h.EmbossStart, h.EmbossEnd), Is.EqualTo(((int?)4, (int?)9)));
+        Assert.That(AnalysisTools.FindTandemRepeatsEmboss("ACACAC-ACACAC.ACAC", "etandem", 2, 4, 5).Repeats.Select(r => (r.Position, r.Length)).ToArray(),
+            Is.EqualTo(AnalysisTools.FindTandemRepeatsEmboss("ACACACACACACACAC", "etandem", 2, 4, 5).Repeats.Select(r => (r.Position, r.Length)).ToArray()));
+        // consambig / showalign: `? # +` are the unknown residue, digits and blanks vanish
+        Assert.That(AnalysisTools.Consambig(["ACGT#CGT", "ACGT?CGT"]).Consensus, Is.EqualTo(AnalysisTools.Consambig(["ACGTNCGT", "ACGTNCGT"]).Consensus));
+        Assert.That(AnalysisTools.Consambig(["AC1GT CGT", "ACG_TACGT"]).Consensus, Is.EqualTo(AnalysisTools.Consambig(["ACGTCGT", "ACGTACGT"]).Consensus));
+        Assert.That(AnalysisTools.SeqMatchAll(["ACGT-ACGTA", "ACGT.ACGTA"], 4).Matches, Is.EqualTo(AnalysisTools.SeqMatchAll(["ACGTACGTA", "ACGTACGTA"], 4).Matches));
+    }
 }

@@ -199,7 +199,7 @@ public static partial class MultipleAlignmentStatistics
 
     private static bool IsNucleotide(string[] rows, ConsensusResidueType residueType) =>
         residueType == ConsensusResidueType.Auto
-            ? rows.Length > 0 && MotifFinder.IsEmbossNucleotideSequence(rows[0])
+            ? rows.Length > 0 && EmbossSequenceReader.IsNucleotide(rows[0])
             : residueType == ConsensusResidueType.Nucleotide;
 
     private static char ClustalConservationSymbol(IEnumerable<char> symbols, bool hasGap, bool nucleotide)

@@ -1,3 +1,4 @@
+using Seqeron.Genomics.Infrastructure;
 namespace Seqeron.Genomics.Analysis;
 
 /// <summary>
@@ -43,6 +44,7 @@ public static partial class GenomicAnalyzer
             throw new ArgumentOutOfRangeException(nameof(wordSize), wordSize, "wordSize must be at least 1 (seqmatchall -wordsize).");
         foreach (var s in sequences)
             ArgumentNullException.ThrowIfNull(s);
+        sequences = [.. sequences.Select(EmbossSequenceReader.Clean)];       // the EMBOSS reader drops the gap characters and every other non-letter but * (A4-3)
 
         var result = new List<WordMatch>();
         for (int i = 0; i < sequences.Count; i++)
@@ -82,7 +84,7 @@ public static partial class GenomicAnalyzer
             _indexed = indexed;
             _k = wordSize;
             // embWordGetTable: the unknown symbol of the first sequence's type (N for a nucleotide sequence, X otherwise) controls which words enter the table
-            _skip = IsNucleotideWordSequence(indexed) ? 'N' : 'X';
+            _skip = EmbossSequenceReader.IsNucleotide(indexed) ? 'N' : 'X';
             _upper = indexed.ToUpperInvariant();
             // The common case (no skip symbol in the indexed sequence, letters only): every word is in the table and the matches are the maximal exact matches of the canonical suffix-tree
             // engine. Otherwise the program's own table scan decides (WordTableMatches).
@@ -201,8 +203,6 @@ public static partial class GenomicAnalyzer
         return new string(chars);
     }
 
-    // ajSeqIsNuc (type not set): every character is a nucleotide code (ACGT U N and the IUPAC ambiguity letters, a gap) - ajSeqTypeGapnucS.
-    private static bool IsNucleotideWordSequence(string sequence) => sequence.All(c => "ACGTUNRYSWKMBDHV-".Contains(char.ToUpperInvariant(c), StringComparison.Ordinal));
 
     #endregion
 }

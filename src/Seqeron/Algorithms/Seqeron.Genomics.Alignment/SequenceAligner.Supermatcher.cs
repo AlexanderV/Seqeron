@@ -31,6 +31,8 @@ public static partial class SequenceAligner
     {
         ArgumentNullException.ThrowIfNull(queries);
         ArgumentNullException.ThrowIfNull(targets);
+        queries = EmbossSequenceReader.Clean(queries);
+        targets = EmbossSequenceReader.Clean(targets);
         RequireEmbossRange(gapOpen, 0, 100, nameof(gapOpen), "-gapopen", "supermatcher");
         RequireEmbossRange(gapExtend, 0, 10, nameof(gapExtend), "-gapextend", "supermatcher");
         if (wordLength < 3)
@@ -41,7 +43,7 @@ public static partial class SequenceAligner
             throw new ArgumentOutOfRangeException(nameof(minScore), minScore, "-minscore is a finite number, 0 or more, in EMBOSS supermatcher.");
         if (targets.Count == 0)
             throw new ArgumentException("At least one target sequence is required.", nameof(targets));
-        matrix ??= queries.Concat(targets).All(s => IsNucleotideText(s.Residues.ToUpperInvariant())) ? SubstitutionMatrix.EdnaFull : SubstitutionMatrix.Blosum62;
+        matrix ??= queries.Concat(targets).All(s => EmbossSequenceReader.IsNucleotide(s.Residues)) ? SubstitutionMatrix.EdnaFull : SubstitutionMatrix.Blosum62;
         var table = new EmbossScoreTable(matrix);
         float gapopen = RoundFloat((float)gapOpen, 8);
         float gapextend = RoundFloat((float)gapExtend, 8);
@@ -186,7 +188,7 @@ public static partial class SequenceAligner
             int len = s.Length;
             if (len < _wl)
                 return;
-            char skip = IsNucleotideText(s.ToUpperInvariant()) ? 'N' : 'X';
+            char skip = EmbossSequenceReader.IsNucleotide(s) ? 'N' : 'X';
             char At(int idx) => idx >= 0 && idx < len ? char.ToUpperInvariant(s[idx]) : '\0';
             int ilast = len - _wl;
             int i = 0;

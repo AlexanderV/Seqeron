@@ -151,3 +151,5 @@ MCP `water_align` (A3-17). The "at least 90 % reaches the textbook optimum" tole
 `TopNTieOrder.Sim` = EMBOSS `matcher` 6.6.0 (Huang-Miller SIM) ported from `matcher.c`; 1 138 / 1 138 alignment lists equal (incl. the 7 tie rows), 59 aborting rows return fewer than K; default order unchanged; MCP `local_align_top_n` `tieOrder`.
 
 - **Audit A2-28d (F152):** EMBOSS `dotmatcher` ported (`DotMatcher.Compute`, MCP `dotmatcher`): 600 / 600 plots equal.
+
+- **Audit A4-3 (F153):** the EMBOSS reader drops gap characters and every other non-letter (except `*`) from plain input sequences; one shared `EmbossSequenceReader` (Infrastructure) serves water, matcher, supermatcher, dotmatcher: 240 oracle rows each equal (`emboss_gap_oracle.tsv`).

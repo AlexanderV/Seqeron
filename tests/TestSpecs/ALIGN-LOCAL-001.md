@@ -214,3 +214,7 @@ Matrix-scored `LocalAlign`/`LocalAlignAffine` (BLOSUM62/PAM250/EDNAFULL, fractio
 ## Audit A2-28d (B09 F152): dotmatcher
 
 `DotMatcher_Tests` (`dotmatcher_oracle.tsv`, 600 dotmatcher 6.6.0 plots): `Compute_EqualsDotmatcher_AllRows` (segments in drawing order, DNA / protein, six matrices); `DefaultMatrix_IsChosenByTheSequenceType_AndShortSequencesGiveNoSegments`. MCP `Dotmatcher_...`.
+
+## Audit A4-3 (B09 F153): EMBOSS reader - gap characters and other non-letters
+
+`EmbossGapCharacters_Oracle_Tests` (`emboss_gap_oracle.tsv`, `generate_emboss_gap_oracle.py`): water (240), matcher (240), supermatcher (240) and dotmatcher (240) - the installed EMBOSS 6.6.0 `water, matcher, supermatcher, dotmatcher` on inputs that contain `- . ~ ? # + _`, digits, blanks, punctuation, `*` and non-ASCII letters equal `WaterAlign`, `LocalAlignAffineTopN(.., TopNTieOrder.Sim)`, `Supermatcher`, `DotMatcher.Compute` on every row, and the result of the cleaned input equals the result of the input. The reader rule (one shared `EmbossSequenceReader.Clean` / `CleanGapped`, Infrastructure): only `A-Z a-z *` survive in a plain sequence (`ajseqread.c seqAppend` + `ajseqtype.c ajSeqTypeCheckIn` + `ajstr.c ajStrRemoveGap`); coordinates and lengths count the cleaned sequence. Also `Clean_KeepsLettersAndStar_AndDropsEveryOtherCharacter` (all 256 code points) and `IsNucleotide_IsTheAjSeqIsNucRule_OfEveryPort`.

@@ -229,3 +229,7 @@
 | ID | Test | Oracle / what | Verdict |
 |---|---|---|---|
 | A3-13c | `ShowAlign_EqualsShowalign_AllCases`, `WorkedValues_RunOnTheBinary`, `Validation` | 600 showalign 6.6.0 texts (`showalign_oracle.jsonl`): every `-show` / `-order` / `-refseq` / `-bottom` / `-similarcase` / width / margin / uppercase / matrix / consensus option, nucleotide and protein, lower case, gaps, ragged rows | as specified |
+
+## Audit A4-3 (B09 F153): EMBOSS reader - gap characters and other non-letters
+
+`EmbossGapCharacters_Oracle_Tests` (`emboss_gap_oracle.tsv`, `generate_emboss_gap_oracle.py`): showalign (240 alignments) - the installed EMBOSS 6.6.0 `showalign` on inputs that contain `- . ~ ? # + _`, digits, blanks, punctuation, `*` and non-ASCII letters equal `MultipleAlignmentDisplay.ShowAlign` (alignment reader: `. ~ -` gaps, `? # +` unknown residue, other non-letters dropped) on every row, and the result of the cleaned input equals the result of the input. The reader rule (one shared `EmbossSequenceReader.Clean` / `CleanGapped`, Infrastructure): only `A-Z a-z *` survive in a plain sequence (`ajseqread.c seqAppend` + `ajseqtype.c ajSeqTypeCheckIn` + `ajstr.c ajStrRemoveGap`); coordinates and lengths count the cleaned sequence. Also `Clean_KeepsLettersAndStar_AndDropsEveryOtherCharacter` (all 256 code points) and `IsNucleotide_IsTheAjSeqIsNucRule_OfEveryPort`.

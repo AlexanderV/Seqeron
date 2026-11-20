@@ -23,11 +23,13 @@ public static partial class SequenceAligner
     {
         ArgumentNullException.ThrowIfNull(sequence1);
         ArgumentNullException.ThrowIfNull(sequence2);
+        sequence1 = EmbossSequenceReader.Clean(sequence1);
+        sequence2 = EmbossSequenceReader.Clean(sequence2);
         RequireEmbossRange(gapOpen, 1, 100, nameof(gapOpen), "-gapopen", "water");
         RequireEmbossRange(gapExtend, 0, 10, nameof(gapExtend), "-gapextend", "water");
         if (sequence1.Length < 2 || sequence2.Length < 2)
             return new AlignmentResult("", "", 0, AlignmentType.Local, 0, 0, 0, 0);
-        matrix ??= IsNucleotideText(sequence1.ToUpperInvariant()) && IsNucleotideText(sequence2.ToUpperInvariant()) ? SubstitutionMatrix.EdnaFull : SubstitutionMatrix.Blosum62;
+        matrix ??= EmbossSequenceReader.IsNucleotide(sequence1) && EmbossSequenceReader.IsNucleotide(sequence2) ? SubstitutionMatrix.EdnaFull : SubstitutionMatrix.Blosum62;
         var (score, r1, r2, start1, start2) = WaterCore(sequence1, sequence2, matrix, RoundFloat((float)gapOpen, 8), RoundFloat((float)gapExtend, 8));
         int len1 = r1.Count(c => c != '-');
         int len2 = r2.Count(c => c != '-');
