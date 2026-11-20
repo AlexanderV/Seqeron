@@ -132,11 +132,10 @@ public class GenomicAnalyzer_FindPalindromes_Tests
         for (int i = 0; i < chars.Length; i++) chars[i] = "ACGT"[rng.Next(4)];
         var dna = new DnaSequence(new string(chars));
 
-        var sw = Stopwatch.StartNew();
+        long before = GC.GetAllocatedBytesForCurrentThread();
         var result = GenomicAnalyzer.FindPalindromes(dna, 4, 12).ToList();
-        sw.Stop();
-
-        Assert.That(sw.Elapsed.TotalSeconds, Is.LessThan(10), $"took {sw.Elapsed.TotalSeconds:F1} s");
+        // A5-4: deterministic proxy of "linear, not one substring + reverse complement per window and length": the old scan made about 10 million strings (hundreds of MB), the result list is ~83k entries
+        Assert.That(GC.GetAllocatedBytesForCurrentThread() - before, Is.LessThan(128L << 20));
         // expected count of palindromic windows of length 2h in random DNA: n * 4^-h (4: 62.5k, 6: 15.6k, ... ) ~ 83k
         Assert.That(result.Count, Is.InRange(60_000, 110_000));
         Assert.That(result.Select(p => (p.Position, p.Length)), Is.Ordered);

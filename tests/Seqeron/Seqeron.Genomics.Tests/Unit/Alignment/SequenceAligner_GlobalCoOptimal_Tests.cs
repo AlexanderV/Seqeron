@@ -404,11 +404,12 @@ public class SequenceAligner_GlobalCoOptimal_Tests
     {
         // poly-A against poly-A with a long insertion: C(30, 10) gap placements; the cap must bound the work
         string a = new('A', 30), b = new('A', 20);
-        var sw = System.Diagnostics.Stopwatch.StartNew();
+        long before = GC.GetAllocatedBytesForCurrentThread();
         var list = SequenceAligner.GlobalAlignCoOptimal(a, b, new ScoringMatrix(1, -1, -2, -1), maxAlignments: 500);
         Assert.That(list, Has.Count.EqualTo(500));
         Assert.That(list.Select(RowKey).Distinct().Count(), Is.EqualTo(500));
         Assert.That(list.Select(x => x.Score), Is.All.EqualTo(20 - 10));
-        Assert.That(sw.Elapsed.TotalSeconds, Is.LessThan(10));
+        // A5-4: deterministic proxy of "the cap bounds the work": enumerating all C(30, 10) = 30 045 015 placements would allocate gigabytes
+        Assert.That(GC.GetAllocatedBytesForCurrentThread() - before, Is.LessThan(256L << 20));
     }
 }

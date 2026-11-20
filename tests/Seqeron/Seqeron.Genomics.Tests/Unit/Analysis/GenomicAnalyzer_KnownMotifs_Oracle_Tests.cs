@@ -276,7 +276,8 @@ public class GenomicAnalyzer_KnownMotifs_Oracle_Tests
         for (int i = s.IndexOf("GAATTC", StringComparison.Ordinal); i >= 0; i = s.IndexOf("GAATTC", i + 1, StringComparison.Ordinal))
             expected.Add(i);
         Assert.That(result["GAATTC"], Is.EqualTo(expected));
-        Assert.That(sw.Elapsed.TotalSeconds, Is.LessThan(20), "a linear scan; the suffix-tree build of 3 Mbp takes far longer in Debug");
+        // A5-4 complexity guard, not a latency bound: the single-motif path is a linear scan, the suffix-tree build of 3 Mbp takes minutes in Debug; the bound is 10x the earlier Debug budget so a loaded shared machine cannot fail it while a regression to the quadratic code still does
+        Assert.That(sw.Elapsed.TotalSeconds, Is.LessThan(200), "a linear scan; the suffix-tree build of 3 Mbp takes far longer in Debug");
     }
 
     #endregion

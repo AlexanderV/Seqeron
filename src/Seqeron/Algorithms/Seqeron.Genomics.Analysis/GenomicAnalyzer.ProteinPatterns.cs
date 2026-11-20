@@ -1,3 +1,4 @@
+using Seqeron.Genomics.Alignment;
 using Seqeron.Genomics.Infrastructure;
 using Seqeron.Genomics.Core;
 
@@ -76,12 +77,12 @@ public static partial class GenomicAnalyzer
         var hits = new HashSet<(int Position, int Length)>();
         foreach (var expansion in pattern.Expand())
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            AlignmentCancellation.Poll(cancellationToken);
             int length = expansion.Length;
             for (int pos = 0; pos + length <= bits.Length; pos++)
             {
                 if ((pos & 0xFFFF) == 0)
-                    cancellationToken.ThrowIfCancellationRequested();        // A4-1: a long sequence with one expansion has no other poll
+                    AlignmentCancellation.Poll(cancellationToken);        // A4-1: a long sequence with one expansion has no other poll
                 if (pattern.AnchoredAtStart && pos != 0)
                     break;
                 if (pattern.AnchoredAtEnd && pos + length != bits.Length)
@@ -150,7 +151,7 @@ public static partial class GenomicAnalyzer
         var result = new List<TranslatedPatternHit>();
         foreach (int frame in selected)
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            AlignmentCancellation.Poll(cancellationToken);
             // fuzztran translates only complete codons (the dangling-base residue transeq appends is not searched) and searches the translation as it is (a stop '*' stays)
             string protein = translations[frame].Sequence;
             int complete = Math.Max(0, (length - (Math.Abs(frame) - 1)) / 3);

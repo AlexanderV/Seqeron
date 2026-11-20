@@ -207,7 +207,7 @@ public class SequenceAligner_ResourceLimits_Tests
         Assert.Throws<ArgumentException>(() => SequenceAligner.StretcherAlign(a, b, null, 100_000, 1_000_000_000));
         // large but exact penalties are fine: the score is the exact integer (no wrap)
         Assert.That(SequenceAligner.StretcherAlign(a, b, null, 1_000_000, 1_000_000).Score, Is.LessThan(0));
-        Assert.That(SequenceAligner.StretcherAlign("ACGT", "ACGT").Score, Is.GreaterThan(0));
+        Assert.That(SequenceAligner.StretcherAlign("ACGT", "ACGT").Score, Is.EqualTo(20), "installed stretcher 6.6.0 -asequence ACGT -bsequence ACGT: # Score: 20");
     }
 
     [Test]
@@ -253,9 +253,7 @@ public class SequenceAligner_ResourceLimits_Tests
     {
         // a 100 kb poly-A query against itself: every position is a minimizer and mid_occ is 100 001 - 10^10 anchors (OutOfMemoryException after 10 s before A4-2)
         string polyA = new('A', 100_000);
-        var sw = System.Diagnostics.Stopwatch.StartNew();
-        var ex = Refused<ArgumentException>(() => Minimap2Chaining.CollectAnchors([polyA], polyA));
-        Assert.That(sw.Elapsed.TotalSeconds, Is.LessThan(30));
+        var ex = Refused<ArgumentException>(() => Minimap2Chaining.CollectAnchors([polyA], polyA));      // A5-4: the deterministic proxy is the allocation bound of Refused (10^10 anchors were an OutOfMemoryException after 10 s)
         Assert.That(ex.Message, Does.StartWith("minimap2 seeding stores one anchor").And.Contain("SequenceAligner.MinimapMaxAnchors").And.Contain("mm_seed_select").And.Contain("8,388,608"));
         Assert.That(ex.ParamName, Is.EqualTo("query"));
         Assert.That(SequenceAligner.MinimapMaxAnchors, Is.EqualTo(8_388_608L));
@@ -264,7 +262,7 @@ public class SequenceAligner_ResourceLimits_Tests
         Refused<ArgumentException>(() => Minimap2Chaining.CollectAnchors([tandem], tandem));
         // the anchors of an ordinary pair are untouched
         string target = Dna(20_000, 11);
-        Assert.That(Minimap2Chaining.CollectAnchors([target], target[5_000..15_000]), Is.Not.Empty);
+        Assert.That(Minimap2Chaining.CollectAnchors([target], target[5_000..15_000]), Has.Count.EqualTo(1866), "A5-4: the number of 'CN' lines of `minimap2 --print-seeds t.fa q.fa` (2.26) on these inputs");
     }
 
     [Test]
@@ -283,11 +281,13 @@ public class SequenceAligner_ResourceLimits_Tests
         var scoring = new ScoringMatrix(5, -4, -10, -4);
         var sim = SequenceAligner.LocalAlignAffineTopN(a, b, scoring, int.MaxValue, 0, TopNTieOrder.Sim);
         var simBig = SequenceAligner.LocalAlignAffineTopN(a, b, scoring, 100_000, 0, TopNTieOrder.Sim);
-        Assert.That(sim, Is.Not.Empty);
+        Assert.That(sim, Has.Count.GreaterThan(1));
         Assert.That(sim.Select(x => (x.Score, x.AlignedSequence1, x.AlignedSequence2)), Is.EqualTo(simBig.Select(x => (x.Score, x.AlignedSequence1, x.AlignedSequence2))));
-        Assert.That(SequenceAligner.LocalAlignAffineTopN(a, b, scoring, int.MaxValue, 0, TopNTieOrder.WatermanEggert), Is.Not.Empty);
-        Assert.That(SequenceAligner.LocalAlignTopN(a, b, scoring, int.MaxValue, 0, TopNTieOrder.Sim), Is.Not.Empty);
-        Assert.That(SequenceAligner.LocalAlignTopN(a, b, scoring, int.MaxValue, 0, TopNTieOrder.WatermanEggert), Is.Not.Empty);
+        // A5-4: int.MaxValue is exactly "every alignment": the same rows as 100 000 in every order and overload
+        static IEnumerable<(int, string, string)> Rows(IEnumerable<AlignmentResult> r) => r.Select(x => (x.Score, x.AlignedSequence1, x.AlignedSequence2));
+        Assert.That(Rows(SequenceAligner.LocalAlignAffineTopN(a, b, scoring, int.MaxValue, 0, TopNTieOrder.WatermanEggert)), Is.EqualTo(Rows(SequenceAligner.LocalAlignAffineTopN(a, b, scoring, 100_000, 0, TopNTieOrder.WatermanEggert))).And.Not.Empty);
+        Assert.That(Rows(SequenceAligner.LocalAlignTopN(a, b, scoring, int.MaxValue, 0, TopNTieOrder.Sim)), Is.EqualTo(Rows(SequenceAligner.LocalAlignTopN(a, b, scoring, 100_000, 0, TopNTieOrder.Sim))).And.Not.Empty);
+        Assert.That(Rows(SequenceAligner.LocalAlignTopN(a, b, scoring, int.MaxValue, 0, TopNTieOrder.WatermanEggert)), Is.EqualTo(Rows(SequenceAligner.LocalAlignTopN(a, b, scoring, 100_000, 0, TopNTieOrder.WatermanEggert))).And.Not.Empty);
     }
 
     [Test]
@@ -310,7 +310,7 @@ public class SequenceAligner_ResourceLimits_Tests
         Assert.That(GC.GetAllocatedBytesForCurrentThread() - before, Is.LessThan(1L << 30), "only the engine's own list is built");
         Assert.That(ex.Message, Does.StartWith("EMBOSS seqmatchall / megamerger keep every maximal word match").And.Contain("SequenceAligner.WordMatchMaxMatches"));
         Assert.That(SequenceAligner.WordMatchMaxMatches, Is.EqualTo(4_194_304L));
-        Assert.That(GenomicAnalyzer.SeqMatchAll([Dna(300, 33), Dna(300, 34)], 4), Is.Not.Empty, "an ordinary pair is untouched");
+        Assert.That(GenomicAnalyzer.SeqMatchAll([Dna(300, 33), Dna(300, 34)], 4), Has.Count.EqualTo(282), "an ordinary pair is untouched: the 282 match lines of installed seqmatchall 6.6.0 -wordsize 4 on these sequences");
     }
 
     [Test]
@@ -323,7 +323,10 @@ public class SequenceAligner_ResourceLimits_Tests
         Assert.That(GC.GetAllocatedBytesForCurrentThread() - before, Is.LessThan(512L << 20), "the list stops growing at the limit (64 MiB of segments)");
         Assert.That(ex.Message, Does.StartWith("EMBOSS dotmatcher keeps the segments of the plot").And.Contain("SequenceAligner.DotMatcherMaxSegments"));
         Assert.That(SequenceAligner.DotMatcherMaxSegments, Is.EqualTo(4_194_304L));
-        Assert.That(DotMatcher.Compute(a[..500], b[..500], windowSize: 10, threshold: 23), Is.Not.Null);
+        // A5-4: the plot of an ordinary pair: 397 segments, the first one (316,318)-(326,328) as the first "Line" of installed dotmatcher 6.6.0 -windowsize 10 -threshold 23 (the full plot comparison is DotMatcher_Tests, 600 / 600)
+        var ordinary = DotMatcher.Compute(a[..500], b[..500], windowSize: 10, threshold: 23);
+        Assert.That(ordinary, Has.Count.EqualTo(397));
+        Assert.That((ordinary[0].Start1, ordinary[0].Start2, ordinary[0].End1, ordinary[0].End2), Is.EqualTo((318, 316, 328, 326)));
     }
 
     [Test]
@@ -331,13 +334,12 @@ public class SequenceAligner_ResourceLimits_Tests
     {
         // 100 001 collinear matches, 30 apart: ONE cluster whose chain dynamic program is O(c^2) (the program's own loop)
         var matches = Enumerable.Range(0, 100_001).Select(i => ((long)(1 + 30 * i), (long)(1 + 30 * i), 20L)).ToList();
-        var sw = System.Diagnostics.Stopwatch.StartNew();
         long before = GC.GetAllocatedBytesForCurrentThread();
-        var ex = Assert.Throws<ArgumentException>(() => NucmerClusters.Cluster(matches))!;
-        Assert.That(sw.Elapsed.TotalSeconds, Is.LessThan(30));
+        var ex = Assert.Throws<ArgumentException>(() => NucmerClusters.Cluster(matches))!;      // A5-4: refused before the O(c^2) program runs; the allocation bound below replaces the wall-clock one
         Assert.That(GC.GetAllocatedBytesForCurrentThread() - before, Is.LessThan(512L << 20));
         Assert.That(ex.Message, Does.StartWith("mgaps extracts the chains of a cluster").And.Contain("SequenceAligner.NucmerMaxClusterMatches"));
         Assert.That(SequenceAligner.NucmerMaxClusterMatches, Is.EqualTo(100_000L));
-        Assert.That(NucmerClusters.Cluster(matches.Take(100_000).Take(2_000).ToList()), Is.Not.Empty, "a cluster of 2 000 matches is untouched");
+        var small = NucmerClusters.Cluster(matches.Take(2_000).ToList());
+        Assert.That(small.Select(c => c.Matches.Count), Is.EqualTo(new[] { 2_000 }), "a cluster of 2 000 collinear matches is untouched: one cluster holding all of them");
     }
 }

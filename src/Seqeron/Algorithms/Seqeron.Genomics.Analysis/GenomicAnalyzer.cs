@@ -124,7 +124,7 @@ public static partial class GenomicAnalyzer
     // separator), and a separator before a suffix counts as a left context different from every other.
     private static IEnumerable<RepeatInfo> EnumerateRepeatsCore(global::SuffixTree.SuffixTree tree, int minLength, bool maximalOnly, CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();
+        AlignmentCancellation.Poll(cancellationToken);
 
         // A repeat is a NON-EMPTY substring occurring >=2 times (the path label of an internal
         // node, never the root). The empty string is not a repeat, so the effective minimum is
@@ -139,7 +139,7 @@ public static partial class GenomicAnalyzer
 
         foreach (var (edgeEnd, parentDepth, depth) in loci.Nodes)
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            AlignmentCancellation.Poll(cancellationToken);
             // Path label of the node: the `depth` characters of the text ending at the end of its incoming edge
             // (an internal node's edge never contains the terminator).
             string label = tree.Text.Substring(edgeEnd - depth, depth);
@@ -182,7 +182,7 @@ public static partial class GenomicAnalyzer
         public void VisitNode(int startIndex, int endIndex, int leafCount, int childCount, int depth)
         {
             if ((++_visited & 0xFFF) == 0)
-                cancellationToken.ThrowIfCancellationRequested();
+                AlignmentCancellation.Poll(cancellationToken);
             if (!_rootSeen)
             {
                 _rootSeen = true; // the root has no incoming edge and is not a repeat
@@ -605,7 +605,7 @@ public static partial class GenomicAnalyzer
         ArgumentNullException.ThrowIfNull(sequence);
         ArgumentNullException.ThrowIfNull(motifs);
         ArgumentOutOfRangeException.ThrowIfNegative(maxMismatches);
-        cancellationToken.ThrowIfCancellationRequested();
+        AlignmentCancellation.Poll(cancellationToken);
 
         if (maxMismatches > 0)
             return FindKnownMotifHitsApproximate(sequence, motifs, bothStrands, allowIupac, maxMismatches, cancellationToken);
@@ -628,7 +628,7 @@ public static partial class GenomicAnalyzer
         var result = new Dictionary<string, IReadOnlyList<KnownMotifHit>>();
         foreach (string key in NormalizeMotifs(motifs))
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            AlignmentCancellation.Poll(cancellationToken);
             var forward = ApproximateMatcher.FindWithMismatches(text, key, maxMismatches, allowIupac, cancellationToken)
                 .Select(m => new KnownMotifHit(m.Position, IsReverseStrand: false, m.Distance)).ToList();
             var reverse = bothStrands
@@ -675,7 +675,7 @@ public static partial class GenomicAnalyzer
         var result = new Dictionary<string, (List<int>, List<int>)>(keys.Count);
         foreach (string key in keys)
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            AlignmentCancellation.Poll(cancellationToken);
             var forward = FindMotifPositions(text, indexed, key, allowIupac, useIndex, cancellationToken);
             var reverse = bothStrands
                 ? FindMotifPositions(text, indexed, DnaSequence.GetReverseComplementString(key), allowIupac, useIndex, cancellationToken)
@@ -830,7 +830,7 @@ public static partial class GenomicAnalyzer
     {
         ArgumentNullException.ThrowIfNull(sequence1);
         ArgumentNullException.ThrowIfNull(sequence2);
-        cancellationToken.ThrowIfCancellationRequested();
+        AlignmentCancellation.Poll(cancellationToken);
 
         // A common region is a NON-EMPTY contiguous substring; the empty string is not a region,
         // so the effective minimum length is at least 1 (Wikipedia "Longest common substring").
@@ -848,7 +848,7 @@ public static partial class GenomicAnalyzer
         for (int i = 0; i < matchLengths.Length; i++)
         {
             if ((i & 0x3FF) == 0)
-                cancellationToken.ThrowIfCancellationRequested();
+                AlignmentCancellation.Poll(cancellationToken);
             int length = matchLengths[i];
             if (length < effectiveMinLength)
             {
@@ -904,7 +904,7 @@ public static partial class GenomicAnalyzer
             for (int i = 0; i < m; i++)
             {
                 if ((i & 0x3FF) == 0)
-                    cancellationToken.ThrowIfCancellationRequested();
+                    AlignmentCancellation.Poll(cancellationToken);
                 if (length > 0)
                 {
                     length--;
@@ -932,7 +932,7 @@ public static partial class GenomicAnalyzer
         for (int i = 0; i < m; i++)
         {
             if ((i & 0x3FF) == 0)
-                cancellationToken.ThrowIfCancellationRequested();
+                AlignmentCancellation.Poll(cancellationToken);
             while (next < mems.Count && mems[next].PositionInQuery <= i)
             {
                 maxEnd = Math.Max(maxEnd, mems[next].PositionInQuery + mems[next].Length);
@@ -1124,7 +1124,7 @@ public static partial class GenomicAnalyzer
     {
         ArgumentNullException.ThrowIfNull(sequence);
         ArgumentNullException.ThrowIfNull(options);
-        cancellationToken.ThrowIfCancellationRequested();
+        AlignmentCancellation.Poll(cancellationToken);
         return FindOpenReadingFramesCore(sequence, minLength, options, cancellationToken);
     }
 
@@ -1186,7 +1186,7 @@ public static partial class GenomicAnalyzer
     {
         ArgumentNullException.ThrowIfNull(sequence);
         ArgumentNullException.ThrowIfNull(options);
-        cancellationToken.ThrowIfCancellationRequested();
+        AlignmentCancellation.Poll(cancellationToken);
         return FindOpenReadingFramesCore(SequenceExtensions.NormalizeIupacDna(sequence), minLength, options, cancellationToken);
     }
 

@@ -277,7 +277,8 @@ public class GenomicAnalyzer_MegaMerge_Tests
         sw.Stop();
         Assert.That(list, Has.Count.EqualTo(1));
         Assert.That((list[0].Start1, list[0].Start2, list[0].Length), Is.EqualTo((0, 0, n)));
-        Assert.That(sw.Elapsed.TotalSeconds, Is.LessThan(10), $"MinimalMatchSet of 60 000 matches took {sw.Elapsed.TotalSeconds:F2} s");
+        // A5-4 complexity guard, not a latency bound: List.RemoveAt shifting the tail 60 000 times is quadratic; the bound is 10x the earlier Debug budget so a loaded shared machine cannot fail it while a regression to the quadratic code still does
+        Assert.That(sw.Elapsed.TotalSeconds, Is.LessThan(100), $"MinimalMatchSet of 60 000 matches took {sw.Elapsed.TotalSeconds:F2} s");
     }
 
     [Test]

@@ -172,7 +172,7 @@ public static partial class GenomicAnalyzer
     {
         ArgumentNullException.ThrowIfNull(pattern);
         ArgumentOutOfRangeException.ThrowIfNegative(maxMismatches);
-        cancellationToken.ThrowIfCancellationRequested();
+        AlignmentCancellation.Poll(cancellationToken);
 
         var best = new Dictionary<(int Position, int Length, bool Reverse), int>();
         var expansions = pattern.ExpandWithExtras();
@@ -242,7 +242,7 @@ public static partial class GenomicAnalyzer
     {
         ArgumentNullException.ThrowIfNull(pattern);
         ArgumentOutOfRangeException.ThrowIfNegative(maxMismatches);
-        cancellationToken.ThrowIfCancellationRequested();
+        AlignmentCancellation.Poll(cancellationToken);
 
         var paths = pattern.ExpandPaths();
         bool hasRange = pattern.Elements.Any(e => e.IsRange);
@@ -262,7 +262,7 @@ public static partial class GenomicAnalyzer
             var strandHits = new Dictionary<(int Position, int Length), int>();
             foreach (var path in paths)
             {
-                cancellationToken.ThrowIfCancellationRequested();
+                AlignmentCancellation.Poll(cancellationToken);
                 int length = path.Elements.Count;
                 for (int start = 0; start + length <= strand.Length; start++)
                 {
@@ -367,7 +367,7 @@ public static partial class GenomicAnalyzer
         ArgumentNullException.ThrowIfNull(sequence);
         ArgumentNullException.ThrowIfNull(motifs);
         ArgumentOutOfRangeException.ThrowIfNegative(maxMismatches);
-        cancellationToken.ThrowIfCancellationRequested();
+        AlignmentCancellation.Poll(cancellationToken);
 
         string text = QueryText(sequence.ToUpperInvariant());
         if (maxMismatches > 0)

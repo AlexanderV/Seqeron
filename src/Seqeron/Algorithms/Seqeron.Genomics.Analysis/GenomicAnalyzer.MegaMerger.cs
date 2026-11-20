@@ -1,3 +1,4 @@
+using Seqeron.Genomics.Alignment;
 using Seqeron.Genomics.Infrastructure;
 using System.Globalization;
 using System.Text;
@@ -54,7 +55,7 @@ public static partial class GenomicAnalyzer
         ArgumentOutOfRangeException.ThrowIfLessThan(wordSize, 2);
         sequence1 = EmbossSequenceReader.Clean(sequence1);
         sequence2 = EmbossSequenceReader.Clean(sequence2);
-        cancellationToken.ThrowIfCancellationRequested();
+        AlignmentCancellation.Poll(cancellationToken);
 
         var matcher = new PairWordMatcher(sequence1, wordSize);
         if (!matcher.HasTable)
@@ -62,7 +63,7 @@ public static partial class GenomicAnalyzer
         var matches = sequence2.Length < wordSize
             ? []
             : matcher.Matches(sequence2).Select(m => new MegaMatch(m.PositionInText, m.PositionInQuery, m.Length)).ToList();
-        cancellationToken.ThrowIfCancellationRequested();
+        AlignmentCancellation.Poll(cancellationToken);
 
         MinimalMatchSet(matches, wordSize, cancellationToken);
         if (matches.Count == 0)
@@ -98,7 +99,7 @@ public static partial class GenomicAnalyzer
         int head = 0;
         while (head < matchlist.Count)
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            AlignmentCancellation.Poll(cancellationToken);
             var thismatch = matchlist[head++];
             minlist.Add(thismatch);
             int deadx1 = thismatch.Start1, deady1 = thismatch.Start2;

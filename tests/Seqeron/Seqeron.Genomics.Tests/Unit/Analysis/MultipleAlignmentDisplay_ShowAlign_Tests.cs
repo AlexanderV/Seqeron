@@ -186,9 +186,10 @@ public class MultipleAlignmentDisplay_ShowAlign_Tests
     {
         string[] rows = ["acgtac-gtaGT", "acgtaccgtaGA", "acctaccgtTGA"];
         string[] names = ["s1", "s2", "s3"];
-        var sw = System.Diagnostics.Stopwatch.StartNew();
+        long before = GC.GetAllocatedBytesForCurrentThread();
         string huge = MultipleAlignmentDisplay.ShowAlign(names, rows, new ShowAlignOptions { Width = int.MaxValue });
-        Assert.That(sw.ElapsedMilliseconds, Is.LessThan(2000), "int.MaxValue columns used to take 9.4 s for a 9-column alignment");
+        // A5-4: the block loop is bounded by the alignment length, not by Width (it ran to int.MaxValue and took 9.4 s for a 9-column alignment): the allocation of the call is the text and a few lists
+        Assert.That(GC.GetAllocatedBytesForCurrentThread() - before, Is.LessThan(8L << 20));
         Assert.That(huge, Is.EqualTo(MultipleAlignmentDisplay.ShowAlign(names, rows, new ShowAlignOptions { Width = 12 })));
         Assert.That(MultipleAlignmentDisplay.ShowAlign(names, rows, new ShowAlignOptions { Width = int.MaxValue - 1, Margin = 3 }),
             Is.EqualTo(MultipleAlignmentDisplay.ShowAlign(names, rows, new ShowAlignOptions { Width = 12, Margin = 3 })));

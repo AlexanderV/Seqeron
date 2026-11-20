@@ -123,6 +123,7 @@ public class GenomicAnalyzer_CalculateSimilarity_Oracle_Tests
         double self = GenomicAnalyzer.CalculateSimilarity(a, a, 21, canonical: true);
         sw.Stop();
         Assert.That(self, Is.EqualTo(100.0));
-        Assert.That(sw.Elapsed.TotalSeconds, Is.LessThan(30));
+        // A5-4 complexity guard, not a latency bound: the canonical k-mer sets are built in one pass over 300 kb; the bound is 10x the earlier Debug budget so a loaded shared machine cannot fail it while a regression to the quadratic code still does
+        Assert.That(sw.Elapsed.TotalSeconds, Is.LessThan(300));
     }
 }

@@ -1,3 +1,4 @@
+using Seqeron.Genomics.Alignment;
 using System.Text;
 
 namespace Seqeron.Genomics.Analysis;
@@ -188,7 +189,7 @@ public static partial class GenomicAnalyzer
 
         IEnumerable<RepeatInfo> Iterate()
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            AlignmentCancellation.Poll(cancellationToken);
             if (sequence.Length == 0)
                 yield break;
             foreach (var repeat in EnumerateRepeatsCore(BuildMaskedTree(sequence, letters), minLength, maximalOnly, cancellationToken))
@@ -317,7 +318,7 @@ public static partial class GenomicAnalyzer
 
     private static List<StrandedRepeatInfo> StrandedRepeatsCore(string sequence, int minLength, bool maximalOnly, bool longestOnly, CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();
+        AlignmentCancellation.Poll(cancellationToken);
         var result = new List<StrandedRepeatInfo>();
         int n = sequence.Length;
         if (n == 0)
@@ -337,7 +338,7 @@ public static partial class GenomicAnalyzer
             : EnumerateRepeatsCore(tree, minLength, maximalOnly, cancellationToken);
         foreach (var repeat in repeats)
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            AlignmentCancellation.Poll(cancellationToken);
             string alpha = repeat.Sequence;
             int length = alpha.Length;
             if (string.CompareOrdinal(alpha, DnaSequence.GetReverseComplementString(alpha)) > 0)

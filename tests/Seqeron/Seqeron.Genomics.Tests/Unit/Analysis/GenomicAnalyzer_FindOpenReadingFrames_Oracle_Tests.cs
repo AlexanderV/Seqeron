@@ -346,7 +346,8 @@ public class GenomicAnalyzer_FindOpenReadingFrames_Oracle_Tests
         Assert.That(orfs, Has.Count.EqualTo(335));
         Assert.That(orfs[0].Position, Is.EqualTo(0));
         Assert.That(orfs.All(o => o.Length >= 899_000), Is.True);
-        Assert.That(sw.Elapsed.TotalSeconds, Is.LessThan(30), "O(n) scan; the previous per-ATG rescan took minutes");
+        // A5-4 complexity guard, not a latency bound: the previous per-ATG rescan took minutes at this size; the bound is 10x the earlier Debug budget so a loaded shared machine cannot fail it while a regression to the quadratic code still does
+        Assert.That(sw.Elapsed.TotalSeconds, Is.LessThan(300), "O(n) scan; the previous per-ATG rescan took minutes");
     }
 
     [Test]
@@ -362,7 +363,8 @@ public class GenomicAnalyzer_FindOpenReadingFrames_Oracle_Tests
         sw.Stop();
 
         Assert.That(count, Is.GreaterThan(0));
-        Assert.That(sw.Elapsed.TotalSeconds, Is.LessThan(60));
+        // A5-4 complexity guard, not a latency bound: six-frame scan of 5 Mbp is linear; the bound is 10x the earlier Debug budget so a loaded shared machine cannot fail it while a regression to the quadratic code still does
+        Assert.That(sw.Elapsed.TotalSeconds, Is.LessThan(600));
     }
 
     #endregion

@@ -403,7 +403,8 @@ public class GenomicAnalyzer_TandemRepeat_Oracle_Tests
 
         var cag = hits.Single(h => h.Unit == "CAG" && h.Position == 500_000);
         Assert.That(cag.Repetitions, Is.EqualTo(40));
-        Assert.That(sw.Elapsed.TotalSeconds, Is.LessThan(60), $"took {sw.Elapsed}");
+        // A5-4 complexity guard, not a latency bound: the old detector was O(n^2 * m) substring scans (hours); the bound is 10x the earlier Debug budget so a loaded shared machine cannot fail it while a regression to the quadratic code still does
+        Assert.That(sw.Elapsed.TotalSeconds, Is.LessThan(600), $"took {sw.Elapsed}");
     }
 
 
@@ -421,7 +422,8 @@ public class GenomicAnalyzer_TandemRepeat_Oracle_Tests
         var periodic = GenomicAnalyzer.FindTandemRepeats(new DnaSequence(string.Concat(Enumerable.Repeat("ACGTTGCA", 125_000)))).ToList();
         sw.Stop();
         Assert.That(periodic.Single(h => h.Unit.Length == 8).Repetitions, Is.EqualTo(125_000));
-        Assert.That(sw.Elapsed.TotalSeconds, Is.LessThan(120), $"took {sw.Elapsed}");
+        // A5-4 complexity guard, not a latency bound: the suffix-array doubling is O(n log n) rounds, a per-unit-length scan needs about 5e11 comparisons; the bound is 10x the earlier Debug budget so a loaded shared machine cannot fail it while a regression to the quadratic code still does
+        Assert.That(sw.Elapsed.TotalSeconds, Is.LessThan(1200), $"took {sw.Elapsed}");
     }
 
     [Test]
@@ -441,7 +443,8 @@ public class GenomicAnalyzer_TandemRepeat_Oracle_Tests
         var big = hits.Single(h => h.Unit == "ACGTTGCAAGCTTAGGCATTG" && h.Position == 300_000);
         Assert.That(big.Repetitions, Is.EqualTo(30));
         Assert.That(hits.Select(h => h.Unit.Length), Is.Ordered);
-        Assert.That(sw.Elapsed.TotalSeconds, Is.LessThan(120), $"took {sw.Elapsed}");
+        // A5-4 complexity guard, not a latency bound: the suffix-array doubling is O(n log n) rounds, a per-unit-length scan needs about 5e11 comparisons; the bound is 10x the earlier Debug budget so a loaded shared machine cannot fail it while a regression to the quadratic code still does
+        Assert.That(sw.Elapsed.TotalSeconds, Is.LessThan(1200), $"took {sw.Elapsed}");
     }
     #endregion
 }

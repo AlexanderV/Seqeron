@@ -50,7 +50,7 @@ public static partial class GenomicAnalyzer
         var result = new List<WordMatch>();
         for (int i = 0; i < sequences.Count; i++)
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            AlignmentCancellation.Poll(cancellationToken);
             if (sequences[i].Length <= wordSize)
                 continue; // seqmatchall: length(seq1) must exceed the word size
             var pair = new PairWordMatcher(sequences[i], wordSize);

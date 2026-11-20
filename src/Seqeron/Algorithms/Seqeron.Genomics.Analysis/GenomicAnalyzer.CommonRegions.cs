@@ -1,3 +1,4 @@
+using Seqeron.Genomics.Alignment;
 namespace Seqeron.Genomics.Analysis;
 
 // B09 A2-30 / A2-35: strand, mode, k-mismatch and multi-sequence variants of the common-region search, and the string overloads.
@@ -145,7 +146,7 @@ public static partial class GenomicAnalyzer
         global::SuffixTree.SuffixTree tree, int textLength, string queryUpper, int minLength, CommonRegionMode mode,
         StrandSelection strands, CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();
+        AlignmentCancellation.Poll(cancellationToken);
         if (!Enum.IsDefined(mode))
             throw new ArgumentOutOfRangeException(nameof(mode), mode, "Unknown common-region mode.");
         int effectiveMinLength = Math.Max(1, minLength);
@@ -182,7 +183,7 @@ public static partial class GenomicAnalyzer
 
             foreach (var region in regions)
             {
-                cancellationToken.ThrowIfCancellationRequested();
+                AlignmentCancellation.Poll(cancellationToken);
                 yield return reverse
                     ? new CommonRegion(region.Sequence, region.PositionInFirst, query.Length - region.PositionInSecond - region.Length, isReverseComplement: true)
                     : region;

@@ -103,8 +103,10 @@ public class Minimap2Seeds_Tests
         var rng = new Random(5);
         string reference = new string(Enumerable.Range(0, 60_000).Select(_ => "ACGT"[rng.Next(4)]).ToArray()) + new string('A', 3000);
         var seeds = Minimap2Chaining.CollectSeeds([reference], new string('A', 24) + reference[..200]);
-        Assert.That(seeds.MidOcc, Is.GreaterThanOrEqualTo(10));
-        Assert.That(seeds.RepeatLength, Is.GreaterThan(0));
+        // A5-4: the exact values of `minimap2 --print-seeds ref.fa q.fa` on these inputs (2.26): "mid_occ = 10" and "RS 24" (the 24 query bases of the dropped poly-A minimizers), 'CN' anchor lines counted
+        Assert.That(seeds.MidOcc, Is.EqualTo(10));
+        Assert.That(seeds.RepeatLength, Is.EqualTo(24));
+        Assert.That(seeds.Anchors, Has.Count.EqualTo(35));
         Assert.That(Minimap2Chaining.CollectAnchors([reference], new string('A', 24) + reference[..200]), Is.EqualTo(seeds.Anchors));
         Assert.Throws<ArgumentOutOfRangeException>(() => Minimap2Chaining.CollectSeeds(["ACGT"], "ACGT", new MinimapSeedOptions { KmerSize = 29 }));
         Assert.Throws<ArgumentOutOfRangeException>(() => Minimap2Chaining.CollectSeeds(["ACGT"], "ACGT", new MinimapSeedOptions { WindowSize = 256 }));

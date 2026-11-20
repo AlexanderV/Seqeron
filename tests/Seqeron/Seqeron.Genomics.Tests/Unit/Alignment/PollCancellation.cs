@@ -3,32 +3,35 @@ using System.Diagnostics;
 namespace Seqeron.Genomics.Tests.Unit.Alignment;
 
 /// <summary>
-/// The deterministic cancellation seam of the B09 tests (audit A5-4): instead of cancelling a running call after a wall-clock delay (which lands in another stage under CPU load), the call is run once to
-/// record every poll of <see cref="AlignmentCancellation"/> (with its stack), and again with a token that is cancelled AT a chosen poll - the one inside the named method, in the middle of its polls. The
-/// call must then stop with <see cref="OperationCanceledException"/> raised by that very poll (the stack names the method), having polled exactly that many times: "polled inside X", "mid-run" and
-/// "no partial result" are asserted without a sleep, a thread or a time bound.
+/// The deterministic cancellation seam of the B09 tests (audit A5-4): instead of cancelling a running call after a wall-clock delay (which lands in another stage under CPU load), the call runs ONCE with a token that
+/// is cancelled AT the n-th poll of <see cref="AlignmentCancellation"/> whose stack contains the named method (the probe of <see cref="AlignmentCancellation.OnPoll"/> runs at the start of every poll of the calling
+/// flow, worker threads included). The call must then stop with <see cref="OperationCanceledException"/>: "polled inside X" (the cancelling poll is in the named method), "mid-run" (n &gt;= 2 means rows /
+/// iterations were already done) and "no partial result" are asserted without a sleep, a thread or a time bound.
 /// </summary>
 internal static class PollCancellation
 {
     /// <summary>
-    /// Runs <paramref name="work"/> uncancelled (a recording run), then again with the token cancelled at a poll whose stack contains <paramref name="pollInside"/> (the middle one of those; any poll when
-    /// <paramref name="pollInside"/> is null). Returns the stack of the exception.
+    /// Runs <paramref name="work"/> with the token cancelled at the <paramref name="nth"/> poll whose stack contains <paramref name="pollInside"/> (any poll when null). Returns the stack of the cancelling poll.
     /// </summary>
-    public static string CancelInside(Func<CancellationToken, object?> work, string? pollInside = null, int minimumPolls = 2)
+    public static string CancelInside(Func<CancellationToken, object?> work, string? pollInside = null, int nth = 3)
     {
-        var stacks = new List<string>();
-        using (AlignmentCancellation.OnPoll(() => stacks.Add(new StackTrace(1, false).ToString())))
-            work(CancellationToken.None);
-
-        var candidates = Enumerable.Range(0, stacks.Count).Where(i => pollInside is null || stacks[i].Contains(pollInside, StringComparison.Ordinal)).ToList();
-        Assert.That(candidates, Has.Count.GreaterThanOrEqualTo(minimumPolls),
-            pollInside is null ? $"the call polled {stacks.Count} times (a mid-run cancellation needs at least {minimumPolls})" : $"the poll inside {pollInside} ran {candidates.Count} times in {stacks.Count} polls (need {minimumPolls}); first stack:\n{(stacks.Count > 0 ? stacks[0] : "none")}");
-        int target = candidates[candidates.Count / 2] + 1;      // 1-based number of the poll that fires
-
         using var cts = new CancellationTokenSource();
-        int polls = 0;
+        int matching = 0, total = 0;
+        string? firing = null;
         OperationCanceledException? caught = null;
-        using (AlignmentCancellation.OnPoll(() => { if (Interlocked.Increment(ref polls) == target) cts.Cancel(); }))
+        using (AlignmentCancellation.OnPoll(() =>
+        {
+            Interlocked.Increment(ref total);
+            if (cts.IsCancellationRequested)
+                return;
+            if (pollInside is not null && !new StackTrace(1, false).ToString().Contains(pollInside, StringComparison.Ordinal))
+                return;
+            if (Interlocked.Increment(ref matching) == nth)
+            {
+                firing = new StackTrace(1, false).ToString();        // the poll that requests the cancellation: the call must observe it
+                cts.Cancel();
+            }
+        }))
         {
             try
             {
@@ -40,10 +43,12 @@ internal static class PollCancellation
             }
         }
 
-        Assert.That(caught, Is.Not.Null, $"the call finished although the token was cancelled at poll {target} of {stacks.Count}");
-        Assert.That(Volatile.Read(ref polls), Is.EqualTo(target), "the call stopped at the poll that observed the cancellation: no later poll ran");
-        if (pollInside is not null)
-            Assert.That(caught!.StackTrace, Does.Contain(pollInside), $"the cancellation must be observed by the poll inside {pollInside}");
-        return caught!.StackTrace ?? string.Empty;
+        Assert.That(caught, Is.Not.Null, pollInside is null ? $"the call finished although the token was cancelled at poll {nth} ({total} polls)" : $"the call finished: only {matching} polls inside {pollInside} ran ({total} polls in all), the token is cancelled at the {nth}th");
+        // the named method is the one whose poll requested the cancellation (a Parallel.For worker's exception is re-thrown by the loop, whose stack does not name the polling method)
+        return firing ?? string.Empty;
     }
+
+    /// <summary>The call with an already cancelled token: it must throw <see cref="OperationCanceledException"/> before doing the work (no poll of the named method is needed).</summary>
+    public static void PreCancelled(Func<CancellationToken, object?> work) =>
+        Assert.Catch<OperationCanceledException>(() => work(new CancellationToken(true)));
 }

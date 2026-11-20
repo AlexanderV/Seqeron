@@ -55,7 +55,7 @@ public class Minimap2ChainsTests
         var rng = new Random(5);
         string reference = new string(Enumerable.Range(0, 60_000).Select(_ => "ACGT"[rng.Next(4)]).ToArray()) + new string('A', 3000);
         var r = AlignmentTools.Minimap2Chains([reference], new string('A', 24) + reference[..200]);
-        Assert.That(r.RepeatLength, Is.GreaterThan(0));
-        Assert.That(r.MidOcc, Is.GreaterThanOrEqualTo(10));
+        // A5-4: the exact values of `minimap2 --print-seeds ref.fa q.fa` (2.26) on these inputs: "mid_occ = 10", "RS 24"
+        Assert.That((r.RepeatLength, r.MidOcc), Is.EqualTo((24, 10)));
     }
 }

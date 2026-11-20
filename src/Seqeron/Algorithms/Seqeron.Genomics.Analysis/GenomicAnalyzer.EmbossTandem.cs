@@ -1,3 +1,4 @@
+using Seqeron.Genomics.Alignment;
 using Seqeron.Genomics.Infrastructure;
 namespace Seqeron.Genomics.Analysis;
 
@@ -79,12 +80,12 @@ public static partial class GenomicAnalyzer
 
         for (int n = minRepeat; n <= maxRepeat; n++)
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            AlignmentCancellation.Poll(cancellationToken);
             if (n > nbase) break; // ibase < n - 1 for every position: no candidate ever starts (same for every larger size)
             var root = new EtandemCons(0);
             for (int ibase = 0; ibase < nbase; ibase++)
             {
-                if ((ibase & 1023) == 0) cancellationToken.ThrowIfCancellationRequested();
+                if ((ibase & 1023) == 0) AlignmentCancellation.Poll(cancellationToken);
                 int phase = ibase % n;
                 ring[phase] = codes[ibase];
                 if (ibase < n - 1) continue;
@@ -234,7 +235,7 @@ public static partial class GenomicAnalyzer
 
         for (int gap = 1; gap <= maxRepeat; gap++)
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            AlignmentCancellation.Poll(cancellationToken);
             int back = 0, front = gap, score = 0, max = 0;
             while (front <= len)
             {

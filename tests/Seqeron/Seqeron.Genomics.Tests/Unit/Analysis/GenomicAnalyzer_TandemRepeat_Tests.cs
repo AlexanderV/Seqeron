@@ -433,12 +433,10 @@ public class GenomicAnalyzer_TandemRepeat_Tests
         string sequence = string.Concat(Enumerable.Repeat("ACGT", 500));
         var dna = new DnaSequence(sequence);
 
-        var sw = Stopwatch.StartNew();
         var tandems = GenomicAnalyzer.FindTandemRepeats(dna, minUnitLength: 2, minRepetitions: 3).ToList();
-        sw.Stop();
 
-        Assert.That(sw.ElapsedMilliseconds, Is.LessThan(30_000),
-            "2 kb sequence should complete within 30 seconds (debug-safe)");
+        // A5-4: a 2 kb input finishes in milliseconds with any algorithm: the former "30 s" bound proved nothing, the exact result is the assertion (the 1 Mbp complexity guards are in the oracle tests)
+        Assert.That(tandems.Select(t => (t.Unit, t.Position, t.Repetitions)), Does.Contain(("ACGT", 0, 500)));
     }
 
     /// <summary>

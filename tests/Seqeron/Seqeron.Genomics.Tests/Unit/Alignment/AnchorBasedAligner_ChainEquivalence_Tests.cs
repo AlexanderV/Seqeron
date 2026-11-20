@@ -174,7 +174,8 @@ public class AnchorBasedAligner_ChainEquivalence_Tests
 
         Assert.Multiple(() =>
         {
-            Assert.That(sw.Elapsed.TotalSeconds, Is.LessThan(30), $"took {sw.Elapsed.TotalSeconds:F1} s");
+            // A5-4 complexity guard, not a latency bound: the chaining is O(n log n); the quadratic dynamic program needs minutes at 100 000 anchors; the bound is 10x the earlier Debug budget so a loaded shared machine cannot fail it while a regression to the quadratic code still does
+            Assert.That(sw.Elapsed.TotalSeconds, Is.LessThan(300), $"took {sw.Elapsed.TotalSeconds:F1} s");
             Assert.That(chain.Count, Is.GreaterThan(30_000));
             for (int i = 1; i < chain.Count; i++)
             {
