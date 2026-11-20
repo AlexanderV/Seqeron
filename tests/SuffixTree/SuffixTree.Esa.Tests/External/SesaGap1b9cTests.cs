@@ -1,3 +1,4 @@
+using System.IO.MemoryMappedFiles;
 using SuffixTree.Esa.External;
 using SuffixTree.Esa.Tests.TestSupport;
 
@@ -267,6 +268,110 @@ public class SesaGap1b9cTests
             SesaRun.Compare(without, $"{threads} threads, no PSI", psi: false);
             SesaRun.Outcome with = SesaRun.Build(dir, text, SesaRun.Tiny(3, threads, psi: true), "-p");
             Assert.That(with.Oracle.Find(SesaFormat.KindPsi), Is.Not.Null, $"{threads} threads, PSI asked: a PSI section");
+        }
+    }
+
+    // ---------------------------------------------------------------- V10: a failed overflow writer of B3 leaves no base writer open on the file of the container
+
+    [Test]
+    public void AnOverflowRangeThatLiesOutsideTheContainer_LeavesNoWriterOpenOnTheFile()
+    {
+        // V10 (a failed overflow writer leaves the base writer open): the placement puts the base array inside the container and the overflow list behind its end, so the second writer of B3 is refused after the first was opened; the file
+        // is the caller's, who must be able to complete it (which refuses while a writer is open)
+        using var dir = new TempDir();
+        LcpChildCase c = LcpChildCase.Of(StringFamilies.RandomDna(300, 3));
+        (string sa, string textPath) = LcpChildRun.WriteInputs(dir, c);
+        using MappedTextReader text = MappedTextReader.Open(textPath, c.N, c.Bits);
+        using MappedOutputFile container = MappedOutputFile.Create(dir.File("container.bin"), 1 << 16, null);
+        var options = new ExtLcpOptions
+        {
+            ScratchDir = dir.Sub("scratch"),
+            ChunkPositions = 40,
+            Threads = 1,
+            Workers = 1,
+            ReadBufferBytes = 4096,
+            TupleBufferBytes = 48,
+            WindowBytes = 128,
+            ArenaGuards = ArenaOptions.Guarded(0xCD),
+            Place = _ => new LcpPlacement(container, 0, (1 << 16) + 1),
+        };
+        Assert.Throws<ArgumentOutOfRangeException>(() => ExternalLcp.Build(sa, text, string.Empty, string.Empty, options));
+        Assert.That(() => container.Complete(false), Throws.Nothing, "no writer of the failed build is open on the file");
+    }
+
+    // ---------------------------------------------------------------- G16: a growth whose mapping fails is undone
+
+    [Test]
+    public void AGrowthWhoseMappingFails_LeavesTheFileAtItsOldLength_AndTheOldMappingUsable()
+    {
+        // G16 (the failed mapping does not undo the growth): the file is extended before it is mapped again, and a failure of the mapping must give the length back (the doc comment of Grow: "a failure leaves the file at its old length")
+        using var dir = new TempDir();
+        string path = dir.File("grow.bin");
+        using MappedOutputFile file = MappedOutputFile.Create(path, 4096, null);
+        var failing = new MappedFileOptions { Mapper = _ => throw new IOException("the mapping failed") };
+        var e = Assert.Throws<IOException>(() => file.Grow(40_000, failing));
+        Assert.That(e!.Message, Does.Contain("the mapping failed"));
+        Assert.That(new FileInfo(path).Length, Is.EqualTo(4096), "the file has its old length");
+        Assert.That(file.Length, Is.EqualTo(4096));
+        using (MappedWindowWriter w = file.CreateWriter(0, 4096, 256))
+        {
+            w.Append(new byte[4096]);
+        }
+        file.Complete(false);
+        // the control: without the failure the same growth works
+        file.Grow(40_000);
+        Assert.That((file.Length, new FileInfo(path).Length), Is.EqualTo((40_000L, 40_000L)));
+    }
+
+    // ---------------------------------------------------------------- W06: the window of the BWT pass is checked at the entry
+
+    [Test]
+    public void TheBwtPass_RefusesAWindowOfZeroBytes_BeforeItOpensTheSuffixArray()
+    {
+        // W06 (a window of 0 is accepted): the suffix array that does not exist would be the first error of a pass that went on past its entry; the entry check says what is wrong with the options
+        using var dir = new TempDir();
+        string textPath = SesaRun.WriteInput(dir, "banana");
+        LcpChildCase c = LcpChildCase.Of("banana");
+        string packed = TextOracle.WriteFile(dir, "t.pk", c.Symbols, c.Bits);
+        using MappedTextReader text = MappedTextReader.Open(packed, c.N, c.Bits);
+        string missing = dir.File("no-such.sa");
+        string bwt = dir.File("o.bwt");
+        Assert.That(File.Exists(textPath), Is.True);
+        var e = Assert.Throws<ArgumentOutOfRangeException>(() => BwtPass.Build(missing, 0, text, c.Sigma, bwt, new BwtOptions { WindowBytes = 0 }));
+        Assert.That(e!.ParamName, Is.EqualTo("options.WindowBytes"));
+        // the control: a window of one byte passes the entry and fails where the suffix array is opened
+        Assert.Throws<FileNotFoundException>(() => BwtPass.Build(missing, 0, text, c.Sigma, bwt, new BwtOptions { WindowBytes = 1 }));
+        Assert.That(File.Exists(bwt), Is.False);
+    }
+
+    // ---------------------------------------------------------------- B258: the default read of the BWT pass is a mebibyte
+
+    [Test]
+    public void TheBwtPass_ReadsTheSuffixArrayInOneMebibyteStepsByDefault_AndInTheStepOfTheTuningWhenThereIsOne()
+    {
+        // B258 (the default read of the BWT pass is smaller): 40,000 symbols, a suffix array of 160,004 bytes: one read of it with the default, 20 reads of 8 KiB with the tuning; the reads of the pass are those between the hooks
+        // "lcp-child-built" and "bwt-built" (the pass opens the file of the suffix array once and reads nothing else through the counters)
+        string text = StringFamilies.RandomDna(40_000, 3);
+        foreach ((int? readBytes, long reads) in new[] { ((int?)null, 1L), (8192, 20L) })
+        {
+            using var dir = new TempDir();
+            var counters = new IoCounters();
+            long before = -1, after = -1;
+            SesaBuildOptions options = new()
+            {
+                Threads = 1,
+                Fsync = false,
+                Counters = counters,
+                Ph6Tuning = new SesaPh6Tuning { ReadBytes = readBytes },
+                Hook = point =>
+                {
+                    if (point == SesaHooks.LcpChildBuilt) before = counters.ReadCalls;
+                    else if (point == SesaHooks.BwtBuilt) after = counters.ReadCalls;
+                },
+            };
+            SesaRun.Outcome o = SesaRun.Build(dir, text, options, "-r");
+            SesaRun.Compare(o, $"read {readBytes}", psi: true);
+            Assert.That(after - before, Is.EqualTo(reads), $"reads of the suffix array with ReadBytes = {readBytes?.ToString() ?? "default"}");
         }
     }
 }

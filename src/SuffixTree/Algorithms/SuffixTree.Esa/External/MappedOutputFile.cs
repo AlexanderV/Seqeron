@@ -79,6 +79,9 @@ internal sealed class MappedFileOptions
 
     /// <summary>The platform side (default <see cref="SystemReservationSource.Instance"/>).</summary>
     internal IReservationSource? Source { get; init; }
+
+    /// <summary>Test hook: how <see cref="MappedOutputFile.Grow"/> maps the file again once it has its new length (null = the system's read-write mapping of the whole file); a hook that throws is the failed mapping that Grow must undo.</summary>
+    internal Func<string, MemoryMappedFile>? Mapper { get; init; }
 }
 
 /// <summary>
@@ -160,7 +163,7 @@ internal sealed class MappedOutputFile : IDisposable
             MemoryMappedFile map;
             try
             {
-                map = MemoryMappedFile.CreateFromFile(Path, FileMode.Open, null, 0, MemoryMappedFileAccess.ReadWrite);
+                map = options?.Mapper is { } mapper ? mapper(Path) : MemoryMappedFile.CreateFromFile(Path, FileMode.Open, null, 0, MemoryMappedFileAccess.ReadWrite);
             }
             catch
             {
