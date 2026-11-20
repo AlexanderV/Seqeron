@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Measurement harness of work package 1b.9a (outside the shipped code): one tree per process, JIT warmed by time, the same patterns for every variant, the medians of the passes of one process on a row.
+    The assembly carries the name of the Esa bench app because SuffixTree.Esa lets that name see its internals (the experiments of the diagnosis need them); the public path of the harness uses the public API only.
+    The driver (run_1b9a_gate.sh) runs at least 15 processes per variant with the order rotated.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>SuffixTree.Esa.Bench</AssemblyName>
+    <RootNamespace>ReadBench</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <Optimize>true</Optimize>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <ServerGarbageCollector>false</ServerGarbageCollector>
+    <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+    <TieredPGO>true</TieredPGO>
+    <UseAppHost>false</UseAppHost>
+    <IsPackable>false</IsPackable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="*.cs" />
+    <Compile Remove="Experiments*.cs" Condition="'$(Experiments)' != 'true'" />
+  </ItemGroup>
+
+  <PropertyGroup Condition="'$(NoOpen)' == 'true'">
+    <DefineConstants>$(DefineConstants);NOOPEN</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Experiments)' == 'true'">
+    <DefineConstants>$(DefineConstants);EXPERIMENTS</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\..\..\src\SuffixTree\Algorithms\SuffixTree.Esa\SuffixTree.Esa.csproj" />
+  </ItemGroup>
+
+</Project>
