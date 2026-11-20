@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "supermatcher_align",
+  "serverName": "Alignment",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceAligner.Supermatcher",
+  "docRef": "Seqeron.Genomics.Alignment/SequenceAligner.Supermatcher.cs",
+  "description": "EMBOSS 6.6 supermatcher: approximate local alignment of large sequences. The words of wordLength residues of the TARGET sequences (-bsequence) are searched in every QUERY sequence (-asequence) with the Rabin-Karp multi-pattern search of embword.c; the longest word match (the first of equal length) fixes the diagonal, and a banded Smith-Waterman of `width` cells (embAlignPathCalcSWFast, single precision) along that diagonal, from the sequence starts to the end of the shorter overhang, gives the alignment, reported only when its score exceeds minScore. A pair without a shared word is reported in errorText ('No wordmatch start points for A vs B. No alignment'). The result is the program's heuristic alignment (the best one inside the band), not the Smith-Waterman optimum; use local_align_affine / local_align_top_n for that. Alignments are returned in the program's order (for each query, every target). VERIFICATION: output files (every -aformat) and error files identical to the installed supermatcher 6.6.0 on 260 / 260 committed random DNA / IUPAC / protein sets (1-3 queries x 1-4 targets, 4-600 residues, every option: matrix, gapOpen, gapExtend, wordLength 3-15, width 1-100, minScore). Use write_alignment (program 'supermatcher') for the EMBOSS output files.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "querySequences": {
+        "type": "array",
+        "description": "The -asequence sequences (first member of each pair).",
+        "items": {
+          "type": "string"
+        }
+      },
+      "targetSequences": {
+        "type": "array",
+        "description": "The -bsequence sequence set (second member of each pair).",
+        "items": {
+          "type": "string"
+        }
+      },
+      "queryNames": {
+        "type": "array",
+        "description": "Optional names of the query sequences (default query1, query2, ...).",
+        "items": {
+          "type": "string"
+        }
+      },
+      "targetNames": {
+        "type": "array",
+        "description": "Optional names of the target sequences (default target1, ...).",
+        "items": {
+          "type": "string"
+        }
+      },
+      "matrix": {
+        "type": "string",
+        "description": "Optional EMBOSS data matrix (-datafile). Omit for EDNAFULL (nucleotide) / EBLOSUM62."
+      },
+      "gapOpen": {
+        "type": "number",
+        "description": "Gap opening penalty (-gapopen, 0 - 100); default 10."
+      },
+      "gapExtend": {
+        "type": "number",
+        "description": "Gap extension penalty (-gapextend, 0 - 10); default 0.5."
+      },
+      "wordLength": {
+        "type": "integer",
+        "description": "Word length of the seed matching (-wordlen, at least 3); default 6."
+      },
+      "width": {
+        "type": "integer",
+        "description": "Alignment band width (-width, at least 1); default 16."
+      },
+      "minScore": {
+        "type": "number",
+        "description": "Minimum alignment score to report an alignment (-minscore); default 0."
+      }
+    },
+    "required": [
+      "querySequences",
+      "targetSequences"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "alignments": {
+        "type": "array",
+        "description": "Alignments in the program order: name1, name2, alignedSequence1, alignedSequence2, offset1, offset2, offend1, offend2 (residues before / after the aligned part), score.",
+        "items": {
+          "type": "object"
+        }
+      },
+      "count": {
+        "type": "integer",
+        "description": "Number of alignments."
+      },
+      "errorText": {
+        "type": "string",
+        "description": "The error-file text (pairs without a word match)."
+      },
+      "formatted": {
+        "type": "string",
+        "description": "Always null (use write_alignment for the files)."
+      }
+    },
+    "required": [
+      "alignments"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "a sequence is null or empty"
+    },
+    {
+      "code": 1002,
+      "message": "unknown matrix; wordLength < 3; width < 1; gapOpen / gapExtend / minScore out of range"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Identical 28-mer (one word-seeded alignment)",
+      "input": {
+        "querySequences": [
+          "ACGTACGTACGGTTAACCGGTTAAACCC"
+        ],
+        "targetSequences": [
+          "ACGTACGTACGGTTAACCGGTTAAACCC"
+        ]
+      },
+      "output": {
+        "alignments": [
+          {
+            "name1": "query1",
+            "name2": "target1",
+            "alignedSequence1": "ACGTACGTACGGTTAACCGGTTAAACCC",
+            "alignedSequence2": "ACGTACGTACGGTTAACCGGTTAAACCC",
+            "offset1": 0,
+            "offset2": 0,
+            "offend1": 0,
+            "offend2": 0,
+            "score": 140.0
+          }
+        ],
+        "count": 1,
+        "errorText": ""
+      }
+    }
+  ]
+}

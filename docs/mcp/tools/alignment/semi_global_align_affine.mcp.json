@@ -47,6 +47,17 @@
       "endGaps": {
         "type": "string",
         "description": "Which end gaps are free (default 'Fitting' = the classic semi-global: free leading/trailing sequence2 residues). Comma-separated, case-insensitive names of the flags FreeStart1 (leading sequence1 residues free), FreeEnd1 (trailing sequence1), FreeStart2 (leading sequence2), FreeEnd2 (trailing sequence2) or of a preset: None (= global, all end gaps penalised; result tagged Global), Fitting (FreeStart2+FreeEnd2; sequence1 inside sequence2; parasail sg_dx, Biopython end_insertion_score=0), FittingSequence2 (FreeStart1+FreeEnd1; sequence2 inside sequence1; sg_qx), OverlapSuffix1Prefix2 (FreeStart1+FreeEnd2: a suffix of sequence1 overlaps a prefix of sequence2; sg_qb_de), OverlapSuffix2Prefix1 (FreeEnd1+FreeStart2; sg_qe_db), All (all four free; parasail sg, EMBOSS needle's default -endweight N). Example: 'FreeStart1,FreeEnd2'. startPosition1/endPosition1 and startPosition2/endPosition2 are the consumed intervals of each sequence (the free flanks lie outside them; an empty interval has end = start - 1); a free flank is shown against '-' in the aligned rows."
+      },
+      "format": {
+        "type": "string",
+        "description": "Optional output format; the alignment written in that format is returned in 'formatted'. Biopython Bio.Align names: fasta, a2m, clustal, phylip, nexus, stockholm (byte for byte as Bio.Align.write; 'emboss:' + name selects the EMBOSS writer of the same name) or EMBOSS -aformat names (pair, simple, srspair, srs, markx0-3, markx10, match, score, sam, tcoffee, msf, mega, meganon, nexusnon, paup, paupnon, phylipnon, selex, treecon). Omit for no formatted text."
+      },
+      "names": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Optional names of the rows for the formatted output (default seq1, seq2, ...)."
       }
     },
     "required": [
@@ -92,6 +103,10 @@
       "exactScore": {
         "type": "number",
         "description": "Real-valued score (equals score for integer scoring; with matrix/fractional gaps score is this value rounded half away from zero)."
+      },
+      "formatted": {
+        "type": "string",
+        "description": "The alignment written in the requested format (null when format is omitted)."
       }
     },
     "required": [

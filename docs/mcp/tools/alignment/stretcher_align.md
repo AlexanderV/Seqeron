@@ -31,6 +31,8 @@ EMBOSS 6.6 stretcher: global alignment by the Myers-Miller linear-space algorith
 | `matrix` | string | No | EMBOSS data matrix (-datafile) or NCBI name; default EDNAFULL (nucleotide) / EBLOSUM62 (protein). |
 | `gapOpen` | integer | No | -gapopen (>= 0): cost of a gap of length 1; default 16 (nucleotide) / 12 (protein). |
 | `gapExtend` | integer | No | -gapextend (>= 0): cost of each further gap position; default 4 (nucleotide) / 2 (protein). |
+| `format` | string | No | Optional output format; the alignment written in that format is returned in 'formatted'. Biopython Bio.Align names: fasta, a2m, clustal, phylip, nexus, stockholm (byte for byte as Bio.Align.write; 'emboss:' + name selects the EMBOSS writer of the same name) or EMBOSS -aformat names (pair, simple, srspair, srs, markx0-3, markx10, match, score, sam, tcoffee, msf, mega, meganon, nexusnon, paup, paupnon, phylipnon, selex, treecon). Omit for no formatted text. |
+| `names` | array of string | No | Optional names of the rows for the formatted output (default seq1, seq2, ...). |
 
 ## Output Schema
 
@@ -45,6 +47,7 @@ EMBOSS 6.6 stretcher: global alignment by the Myers-Miller linear-space algorith
 | `endPosition1` | integer | Length of sequence1. |
 | `endPosition2` | integer | Length of sequence2. |
 | `exactScore` | number | The score as a real number. |
+| `formatted` | string | No | The alignment written in the requested format (null when format is omitted). |
 
 ## Errors
 

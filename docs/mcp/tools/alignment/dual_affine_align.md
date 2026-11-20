@@ -36,6 +36,8 @@ Pairwise alignment with the TWO-PIECE (dual) affine gap model of ksw2 / minimap2
 | `gapOpen2` | integer | No | Long regime: gap open score (<= 0). |
 | `gapExtend2` | integer | No | Long regime: extension score per position (<= 0). |
 | `band` | integer | No | Band half-width (|i - j| <= band); -1 = full matrix. |
+| `format` | string | No | Optional output format; the alignment written in that format is returned in 'formatted'. Biopython Bio.Align names: fasta, a2m, clustal, phylip, nexus, stockholm (byte for byte as Bio.Align.write; 'emboss:' + name selects the EMBOSS writer of the same name) or EMBOSS -aformat names (pair, simple, srspair, srs, markx0-3, markx10, match, score, sam, tcoffee, msf, mega, meganon, nexusnon, paup, paupnon, phylipnon, selex, treecon). Omit for no formatted text. |
+| `names` | array of string | No | Optional names of the rows for the formatted output (default seq1, seq2, ...). |
 
 ## Output Schema
 
@@ -50,6 +52,7 @@ Pairwise alignment with the TWO-PIECE (dual) affine gap model of ksw2 / minimap2
 | `endPosition1` | integer | End (exclusive). |
 | `endPosition2` | integer | End (exclusive). |
 | `exactScore` | number | Score as a real number. |
+| `formatted` | string | No | The alignment written in the requested format (null when format is omitted). |
 
 ## Errors
 

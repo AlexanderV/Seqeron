@@ -19,6 +19,24 @@ public partial class AlignmentTools
         [Description("mafft --fft (true, default) / --nofft (false): accepted, no effect on the committed pairs.")] bool fft = true,
         [Description("mafft --thread (accepted, no effect).")] int threads = 1,
         [Description("mafft --reorder (accepted, no effect for two sequences).")] bool reorder = false,
+        [Description(FormatParamDescription)] string? format = null,
+        [Description(NamesParamDescription)] string[]? names = null,
+        CancellationToken cancellationToken = default)
+    {
+        return FormatMultiple(MultipleAlignMafftCore(sequences, sequenceType, gapOpen, offset, blosum, anySymbol, retree, fft, threads, reorder, cancellationToken), format, names);
+    }
+
+    private static MultipleAlignmentResultDto MultipleAlignMafftCore(
+        [Description("Exactly two sequences (letters; with anySymbol any character except blanks and '-' is a residue).")] string[] sequences,
+        [Description("'auto' (default: guessed from the letters), 'nuc' (mafft --nuc) or 'amino' (mafft --amino).")] string sequenceType = "auto",
+        [Description("mafft --op: gap opening penalty (default 1.53).")] double gapOpen = 1.53,
+        [Description("mafft --ep: offset (default 0.0; a negative value adds to every substitution score, a positive one subtracts).")] double offset = 0.0,
+        [Description("mafft --bl: BLOSUM matrix of the amino-acid scoring: 30, 45, 50, 62 (default), 80, 90, 100 or 0.")] int blosum = 62,
+        [Description("true (default): mafft --anysymbol, the original letters are restored in the output. false: the plain command (letters and '.' only; nucleotides lower case, amino acids upper case in the rows).")] bool anySymbol = true,
+        [Description("mafft --retree (accepted, no effect for two sequences).")] int retree = 2,
+        [Description("mafft --fft (true, default) / --nofft (false): accepted, no effect on the committed pairs.")] bool fft = true,
+        [Description("mafft --thread (accepted, no effect).")] int threads = 1,
+        [Description("mafft --reorder (accepted, no effect for two sequences).")] bool reorder = false,
         CancellationToken cancellationToken = default)
     {
         using var cancelScope = global::Seqeron.Genomics.Alignment.SequenceAligner.BeginCancellationScope(cancellationToken);

@@ -14,7 +14,8 @@ public record AlignmentResultDto(
     int StartPosition2,
     int EndPosition1,
     int EndPosition2,
-    double ExactScore = 0);
+    double ExactScore = 0,
+    string? Formatted = null);
 
 /// <summary>List of alignments (local Waterman–Eggert top-N, local / global co-optimal enumeration), in the order found.</summary>
 public record LocalAlignmentListResult(AlignmentResultDto[] Alignments, int Count);
@@ -70,7 +71,8 @@ public record MultipleAlignmentResultDto(
     string[] AlignedSequences,
     string Consensus,
     int TotalScore,
-    double ExactTotalScore = 0);
+    double ExactTotalScore = 0,
+    string? Formatted = null);
 
 /// <summary>MUSCLE 3.8 run: the alignment and the files the program can write (-tree1, -tree2, -distmx1, -distmx2, -computeweights).</summary>
 public record MuscleRunResultDto(
@@ -255,3 +257,12 @@ public record TCoffeeKtupSimilarityResult(int[][] Similarity);
 
 /// <summary>Sum-of-pairs score of a multiple alignment.</summary>
 public record SumOfPairsScoreResult(double Score, string GapModel, string Scoring);
+
+/// <summary>One pairwise alignment reported by supermatcher / needleall: the rows, the residues of each sequence before (Offset) and after (Offend) the aligned part, and the single-precision score.</summary>
+public record PairAlignmentItem(string Name1, string Name2, string AlignedSequence1, string AlignedSequence2, int Offset1, int Offset2, int Offend1, int Offend2, double Score);
+
+/// <summary>Result of <c>supermatcher_align</c> / <c>needleall_align</c>: the alignments in the order the program writes them and the error-file text.</summary>
+public record EmbossProgramAlignResult(PairAlignmentItem[] Alignments, int Count, string ErrorText, string? Formatted = null);
+
+/// <summary>Result of <c>ksw2_extend</c>: the fields of ksw_extz_t and the CIGAR.</summary>
+public record Ksw2ExtendResult(int Max, bool ZDropped, int MaxQ, int MaxT, int Mqe, int MqeT, int Mte, int MteQ, int Score, bool ReachEnd, string Cigar);

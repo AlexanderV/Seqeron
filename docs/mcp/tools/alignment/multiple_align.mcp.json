@@ -47,6 +47,17 @@
       "matrix": {
         "type": "string",
         "description": "Optional substitution matrix: any built-in protein matrix by EMBOSS or NCBI name (BLOSUM62, PAM250, EBLOSUM45, EPAM120, ...) for type='protein', a nucleotide matrix (EDNAFULL, EDNAMAT, EDNASIMPLE, ENUC.4.4) for type='dna'. When given (or type='protein'), match/mismatch are ignored, residues are scored by the published table (case-insensitive, any symbol of the matrix), gapOpen/gapExtend may be fractional (EMBOSS needle numbers gapopen G / gapextend E = gapOpen -(G - E), gapExtend -E) and the result also carries the real-valued exactTotalScore (totalScore = rounded). Verified against independent Python implementations of every method, Biopython 1.88 pairwise optima and exhaustive enumeration of tiny sets."
+      },
+      "format": {
+        "type": "string",
+        "description": "Optional output format; the alignment written in that format is returned in 'formatted'. Biopython Bio.Align names: fasta, a2m, clustal, phylip, nexus, stockholm (byte for byte as Bio.Align.write; 'emboss:' + name selects the EMBOSS writer of the same name) or EMBOSS -aformat names (pair, simple, srspair, srs, markx0-3, markx10, match, score, sam, tcoffee, msf, mega, meganon, nexusnon, paup, paupnon, phylipnon, selex, treecon). Omit for no formatted text."
+      },
+      "names": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Optional names of the rows for the formatted output (default seq1, seq2, ...)."
       }
     },
     "required": [
@@ -71,6 +82,10 @@
       "exactTotalScore": {
         "type": "number",
         "description": "Real-valued sum-of-pairs score (= totalScore for DNA with integer scores; the exact score, e.g. 49.5, for substitution-matrix runs with fractional gaps, where totalScore is rounded half away from zero)."
+      },
+      "formatted": {
+        "type": "string",
+        "description": "The alignment written in the requested format (null when format is omitted)."
       }
     },
     "required": [

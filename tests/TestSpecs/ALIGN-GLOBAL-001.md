@@ -251,3 +251,6 @@ Scalar `ScoringMatrix` and `MatrixScoring` share ONE contract (`PairScoring`, ch
 ## Audit A2-29 (B09 F123): ksw2-style dual affine gaps
 
 `SequenceAligner_DualAffine_Tests`: 1 600 oracle cases (global / local x full / banded; Biopython callable gap score + independent WSB), re-scoring and coordinates of every alignment, single-regime equality with `GlobalAlignAffine` / `LocalAlignAffine`, long-gap regime, contract; MCP `DualAffineAlign`.
+
+## Audit A2-28c / A2-29b (B09 F124 / F125): needleall, ksw2 extension alignment
+`SequenceAligner_EmbossPrograms_Tests`: 260 needleall runs (whole output files, error files, `-endweight` / `-endopen` / `-endextend`, `-minscore`, `-nobrief`). `Ksw2Aligner_Tests` (`ksw2_exact_oracle.tsv`, 1 320 cases, 330 per variant extz / extz2 / extd / extd2): max, mqe, mte and score equal an independent Gotoh program over the band, every CIGAR is re-scored along its own path to score / max / mqe (corner, best cell, query end with the end bonus), `reach_end`; identical sequences, N penalty, Z-drop stop, end bonus. The Z-drop and approximate-mode cases wait for the real program (handoff A2-29b-ksw2).

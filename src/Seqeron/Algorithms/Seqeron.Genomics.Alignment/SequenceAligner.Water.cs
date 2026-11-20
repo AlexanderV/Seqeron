@@ -42,25 +42,10 @@ public static partial class SequenceAligner
         int lenb = s2.Length;
         if ((long)lena * lenb > 400_000_000)
             throw new ArgumentException("Sequences too big for water (use LocalAlignTopN / matcher).");
-        string alphabet = matrix.Alphabet;
-        int nsym = alphabet.Length + 1;
-        var sub = new float[nsym * nsym];
-        for (int i = 0; i < alphabet.Length; i++)
-            for (int j = 0; j < alphabet.Length; j++)
-                sub[(i * nsym) + j] = matrix.TryGetScore(alphabet[i], alphabet[j], out int sc) ? sc : 0;
-        int Code(char c)
-        {
-            int k = alphabet.IndexOf(char.ToUpperInvariant(c), StringComparison.Ordinal);
-            return k < 0 ? alphabet.Length : k;
-        }
-
-        var ca = new int[lena];
-        var cb = new int[lenb];
-        for (int i = 0; i < lena; i++)
-            ca[i] = Code(s1[i]);
-        for (int j = 0; j < lenb; j++)
-            cb[j] = Code(s2[j]);
-        float Sub(int x, int y) => sub[(x * nsym) + y];
+        var table = new EmbossScoreTable(matrix);
+        int[] ca = table.Codes(s1);
+        int[] cb = table.Codes(s2);
+        float Sub(int x, int y) => table.Score(x, y);
 
         long n = (long)lena * lenb;
         var path = new float[n];

@@ -36,6 +36,7 @@ The multiple alignment of the T-Coffee 13.41 program (t_coffee; Notredame, Higgi
 | `structureTemplates` | array<string> | No | The sequence of the PDB structure (a _P_ template) of every input sequence for the structure methods TMalign_pair / mustang_pair / sap_pair (one entry per sequence in input order, null / empty = no structure). A structure is attached only when it is alike enough (identity > 35 %, coverage > 50 %); a pair without two structures is aligned by proba_pair, as the program does. |
 | `structureAlignerOutputs` | array<object> | No | What the EXTERNAL structure aligner (TM-align / MUSTANG, not reimplemented) wrote for pairs of structures: method 'TMalign_pair' or 'mustang_pair', the input indices of the two sequences in the order the program calls it (names sorted), and the output (TMalign: its standard output, the last four lines matter; mustang: the content of results.afasta). A missing pair = the aligner failed (no library entries). sap_pair uses the TMalign entries (SAP is not installed: the program switches to TM-align). |
 | `blastXml` | string | No | The XML (blastall -p blastp -m7 / NCBI BLAST+ -outfmt 5) of the search of every sequence against a local BLAST database of all of them, one Iteration per sequence in order, for the methods blastp_msa and tblastx_msa (the BLAST search itself is the external program and is not reimplemented). The hits are matched by the names (see names; default q000, q001, ...). |
+| `format` | string | No | Optional output format; the alignment written in that format is returned in 'formatted' (the row names are the sequence names given in 'names'). Biopython Bio.Align names: fasta, a2m, clustal, phylip, nexus, stockholm (byte for byte as Bio.Align.write; 'emboss:' + name selects the EMBOSS writer of the same name) or EMBOSS -aformat names (pair, simple, srspair, srs, markx0-3, markx10, match, score, sam, tcoffee, msf, mega, meganon, nexusnon, paup, paupnon, phylipnon, selex, treecon). Omit for no formatted text. |
 
 ## Output Schema
 
@@ -44,6 +45,7 @@ The multiple alignment of the T-Coffee 13.41 program (t_coffee; Notredame, Higgi
 | `alignedSequences` | array<string> | The aligned rows of the MSA (input order). |
 | `consensus` | string | Majority-vote consensus of the aligned rows (gaps vote; a residue beats a gap on ties). |
 | `totalScore` | integer | Natural affine sum-of-pairs score of the alignment (EDNAFULL 10 / 0.5 for DNA, BLOSUM62 10 / 0.2 for proteins; the program's own objective is not reported). |
+| `formatted` | string | No | The alignment written in the requested format (null when format is omitted). |
 
 ## Errors
 

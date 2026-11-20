@@ -686,3 +686,6 @@ Tests (`Seqeron.Genomics.Tests`, against the installed EMBOSS 6.6.0): `SequenceA
 ## Audit A2-28 (B09 F121 / F122): stretcher, needle options, water
 
 `SequenceAligner_Stretcher_Tests` (689 oracle pairs: rows and score, optimum bound, defaults, contract), `SequenceAligner_Needle_Tests` (887 pairs incl. `-endweight` / `-endopen` / `-endextend`, `ajRoundFloat`, bound against the affine optima), `SequenceAligner_Water_Tests` (860 pairs: rows, starts, scores).
+
+## Audit A2-27b (B09 F126): Biopython Bio.Align text formats
+`AlignmentFormats_Tests` (`biopython_msa_oracle.tsv`, Biopython 1.88): writers byte for byte (fasta, a2m, clustal, phylip, nexus, stockholm; 210 alignment sets each, multi-alignment files, quoted / duplicate ids, descriptions, Stockholm annotation, nexus interleave) and readers equal to `Bio.Align.parse` on every file Biopython can read (>= 100 per format); MCP `FormatParameterTests`.

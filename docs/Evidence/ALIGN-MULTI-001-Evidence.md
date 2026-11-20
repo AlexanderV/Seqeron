@@ -681,3 +681,7 @@ The `multiple_align_*` tools run whole pipelines; the stage ports below had no t
 **Sources actually opened:** EMBOSS 6.6 `ajax/core/ajalign.c`, `ajseqwrite.c`, `ajseqtype.c`, `ajseq.c`, `ajstr.c`, `ajmath.c` (`ajRoundFloat`), `ajdefine.h` (`E_FPEQ`, `U_FEPS`), `emboss/stretcher.c`, `needle.c`, `water.c`, `supermatcher.c`, `nucleus/embaln.c`, `embword.c` (raw.githubusercontent.com, neutral User-Agent); the installed 6.6.0 programs `needle`, `water`, `stretcher`, `seqret`.
 
 **Oracle numbers:** formats 3 303 / 3 303 (needle, water, stretcher, 29 formats) and 1 309 / 1 309 (`seqret`, 11 formats); stretcher 689 / 689; needle 887 / 887; water 860 / 860.
+
+## Audit A2-27b (B09 F126): Biopython Bio.Align text formats
+
+Sources actually opened: Biopython 1.88 installed sources `Bio/Align/{interfaces,fasta,a2m,clustal,phylip,nexus,stockholm}.py`, `Bio/Align/__init__.py` (`parse_printed_alignment`), `Bio/Nexus/Nexus.py` (`write_nexus_data`, `safename`, `_matrix`, `CharBuffer.next_word`), Python 3.13 `textwrap.py` (`wordsep_re`). Oracle numbers: writers 210 / 210 alignment sets per format (6 formats); readers: every file Biopython can read (a2m 210, nexus 210, stockholm 197, fasta 128, phylip 125, clustal 124).

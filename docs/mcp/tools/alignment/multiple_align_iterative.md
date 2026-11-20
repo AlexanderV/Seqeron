@@ -42,6 +42,8 @@ Progressive MSA followed by MUSCLE-style tree-dependent restricted-partitioning 
 | `pwMatrix` | string | No | type='protein' with distance='clustalw': ClustalW's pairwise matrix (clustalw -PWMATRIX): 'gonnet' (default; GONNET250), 'blosum' (BLOSUM30), 'pam' (PAM350) or 'id' (identity). |
 | `pwGapOpen` | number | No | type='protein' with distance='clustalw': ClustalW -PWGAPOPEN (default 10; length-dependent: 2 * matrixAvg * (open + ln min(length)) in matrix units). |
 | `pwGapExtend` | number | No | type='protein' with distance='clustalw': ClustalW -PWGAPEXT (default 0.1). |
+| `format` | string | No | Optional output format; the alignment written in that format is returned in 'formatted'. Biopython Bio.Align names: fasta, a2m, clustal, phylip, nexus, stockholm (byte for byte as Bio.Align.write; 'emboss:' + name selects the EMBOSS writer of the same name) or EMBOSS -aformat names (pair, simple, srspair, srs, markx0-3, markx10, match, score, sam, tcoffee, msf, mega, meganon, nexusnon, paup, paupnon, phylipnon, selex, treecon). Omit for no formatted text. |
+| `names` | array of string | No | Optional names of the rows for the formatted output (default seq1, seq2, ...). |
 
 ## Output Schema
 
@@ -51,6 +53,7 @@ Progressive MSA followed by MUSCLE-style tree-dependent restricted-partitioning 
 | `consensus` | string | Majority-vote consensus of the aligned rows (gaps vote; a nucleotide beats a gap on ties). |
 | `totalScore` | integer | Sum-of-pairs score of the MSA: linear model = column score (match/mismatch from the matrix, residue-gap = gapExtend, gap-gap = 0); gapModel='affine' = natural affine gap costs (every gap run of each pair projection pays gapOpen once). |
 | `exactTotalScore` | number | Real-valued sum-of-pairs score (= totalScore for DNA with integer scores; exact, e.g. 49.5, for substitution-matrix runs with fractional gaps, where totalScore is rounded half away from zero). |
+| `formatted` | string | No | The alignment written in the requested format (null when format is omitted). |
 
 ## Errors
 

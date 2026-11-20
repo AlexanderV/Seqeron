@@ -210,6 +210,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/KalignProgram.cs"
   },
   {
+    "tool": "ksw2_extend",
+    "server": "Alignment",
+    "methodId": "Ksw2Aligner",
+    "docPath": "docs/mcp/tools/alignment/ksw2_extend.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/Ksw2Aligner.cs"
+  },
+  {
     "tool": "local_align",
     "server": "Alignment",
     "methodId": "SequenceAligner.LocalAlign",
@@ -329,6 +336,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.MuscleProgram.cs"
   },
   {
+    "tool": "needleall_align",
+    "server": "Alignment",
+    "methodId": "SequenceAligner.NeedleAll",
+    "docPath": "docs/mcp/tools/alignment/needleall_align.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.NeedleAll.cs"
+  },
+  {
     "tool": "quality_trim_reads",
     "server": "Alignment",
     "methodId": "SequenceAssembler.QualityTrimReads",
@@ -376,6 +390,13 @@
     "methodId": "SequenceAligner.SumOfPairsScore",
     "docPath": "docs/mcp/tools/alignment/sum_of_pairs_score.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.MultipleAffine.cs"
+  },
+  {
+    "tool": "supermatcher_align",
+    "server": "Alignment",
+    "methodId": "SequenceAligner.Supermatcher",
+    "docPath": "docs/mcp/tools/alignment/supermatcher_align.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.Supermatcher.cs"
   },
   {
     "tool": "tcoffee_guide_tree",

@@ -380,6 +380,11 @@ public sealed class EmbossAlignmentWriter
             string sub = SubHeader(d);
             o.Append("#\n# ").Append(sub.Replace("\n", "\n# ")).Append("\n#\n");
         }
+        else if (d.ExtraSubHeader.Length > 0)
+        {
+            // the plain-rows alignment of match / score has no standard sub-header, only the program's own (needleall -nobrief)
+            o.Append("#\n# ").Append(d.ExtraSubHeader.Replace("\n", "\n# ")).Append("\n#\n");
+        }
 
         o.Append("#=======================================\n\n");
         _count++;

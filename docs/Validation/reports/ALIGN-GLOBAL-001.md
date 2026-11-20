@@ -109,3 +109,7 @@ Scalar `ScoringMatrix` and `MatrixScoring` now share one contract: gap scores <=
 ## Audit r2 addendum (A2-29, B09 F123): dual affine gaps
 
 `GlobalAlignDualAffine` / `LocalAlignDualAffine` (ksw2-style two-piece affine gaps, optional band), MCP `dual_affine_align`; 1 600 oracle cases equal.
+
+## Audit r2 addendum (A2-28c / A2-29b, B09 F124 / F125): needleall, ksw2
+
+`SequenceAligner.NeedleAll` (+ `SimilaritySubHeader`, the needle `-nobrief` lines) and `Ksw2Aligner` (ksw_extz / extz2_sse / extd / extd2_sse: band, Z-drop, end bonus, N scoring, CIGAR); MCP `needleall_align`, `ksw2_extend`. needleall 260 / 260 files equal; ksw2 exact cases 1 320 / 1 320 equal an independent program; the real-program oracle is a Docker package (A2-29b stays DOABLE until its output is integrated).

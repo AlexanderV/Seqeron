@@ -36,6 +36,8 @@ MAFFT 7.505's alignment of TWO sequences (Katoh & Standley 2013, MBE 30:772; maf
 | `fft` | boolean | No | mafft --fft / --nofft (accepted, no effect on the committed pairs). |
 | `threads` | integer | No | mafft --thread (accepted, no effect). |
 | `reorder` | boolean | No | mafft --reorder (accepted, no effect for two sequences). |
+| `format` | string | No | Optional output format; the alignment written in that format is returned in 'formatted'. Biopython Bio.Align names: fasta, a2m, clustal, phylip, nexus, stockholm (byte for byte as Bio.Align.write; 'emboss:' + name selects the EMBOSS writer of the same name) or EMBOSS -aformat names (pair, simple, srspair, srs, markx0-3, markx10, match, score, sam, tcoffee, msf, mega, meganon, nexusnon, paup, paupnon, phylipnon, selex, treecon). Omit for no formatted text. |
+| `names` | array of string | No | Optional names of the rows for the formatted output (default seq1, seq2, ...). |
 
 ## Output Schema
 
@@ -45,6 +47,7 @@ MAFFT 7.505's alignment of TWO sequences (Katoh & Standley 2013, MBE 30:772; maf
 | `consensus` | string | Consensus string of the alignment. |
 | `totalScore` | integer | Natural affine sum of pairs (BLOSUM62 10 / 0.2 or EDNAFULL 10 / 0.5), rounded; not the program's own score. |
 | `exactTotalScore` | number | The same score unrounded. |
+| `formatted` | string | No | The alignment written in the requested format (null when format is omitted). |
 
 ## Errors
 

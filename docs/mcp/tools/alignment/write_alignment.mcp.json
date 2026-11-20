@@ -97,6 +97,10 @@
         "type": "boolean",
         "default": false,
         "description": "-adesshow."
+      },
+      "dialect": {
+        "type": "string",
+        "description": "'emboss' (default): the EMBOSS 6.6 writers named above. 'biopython': the Biopython 1.88 Bio.Align writers fasta, a2m, clustal, phylip, nexus, stockholm (byte for byte as Bio.Align.write; the descriptions are written, the Clustal header says Biopython 1.88)."
       }
     },
     "required": [

@@ -29,6 +29,17 @@
       "gapExtend": {
         "type": "integer",
         "description": "-gapextend (>= 0): cost of each further gap position; default 4 (nucleotide) / 2 (protein)."
+      },
+      "format": {
+        "type": "string",
+        "description": "Optional output format; the alignment written in that format is returned in 'formatted'. Biopython Bio.Align names: fasta, a2m, clustal, phylip, nexus, stockholm (byte for byte as Bio.Align.write; 'emboss:' + name selects the EMBOSS writer of the same name) or EMBOSS -aformat names (pair, simple, srspair, srs, markx0-3, markx10, match, score, sam, tcoffee, msf, mega, meganon, nexusnon, paup, paupnon, phylipnon, selex, treecon). Omit for no formatted text."
+      },
+      "names": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Optional names of the rows for the formatted output (default seq1, seq2, ...)."
       }
     },
     "required": [
@@ -74,6 +85,10 @@
       "exactScore": {
         "type": "number",
         "description": "The score as a real number."
+      },
+      "formatted": {
+        "type": "string",
+        "description": "The alignment written in the requested format (null when format is omitted)."
       }
     },
     "required": [

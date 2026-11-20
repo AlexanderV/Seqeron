@@ -65,6 +65,8 @@ ClustalW 2.1's multiple alignment of DNA (clustalw -TYPE=DNA -ALIGN) or PROTEIN 
 | `dnaMatrixFile` | string | No | type='dna': ClustalW -DNAMATRIX=file, the TEXT of a nucleotide matrix file for the profile stage (same layout as matrixFile, a single matrix; the transition weights of getProfileAlignMatrix index the matrix with the header letters at positions 0, 2, 4, 11 and 12 - give at least 13 letters). How it is used: see userDnaMatrixUse. |
 | `pwDnaMatrixFile` | string | No | type='dna': ClustalW -PWDNAMATRIX=file, the TEXT of a nucleotide matrix file for the full pairwise stage (a single matrix, x100, never shifted). See userDnaMatrixUse. |
 | `userDnaMatrixUse` | string | No | type='dna', with dnaMatrixFile / pwDnaMatrixFile: 'applied' (default; what ClustalW's interactive menu does - the matrix is used) or 'commandline' (what clustalw -DNAMATRIX=file -PWDNAMATRIX=file does: the file is read and validated but registered under the PROTEIN slot - a defect of CommandLineParser - so the DNA stages keep the IUB / built-in matrix). (default: applied) |
+| `format` | string | No | Optional output format; the alignment written in that format is returned in 'formatted'. Biopython Bio.Align names: fasta, a2m, clustal, phylip, nexus, stockholm (byte for byte as Bio.Align.write; 'emboss:' + name selects the EMBOSS writer of the same name) or EMBOSS -aformat names (pair, simple, srspair, srs, markx0-3, markx10, match, score, sam, tcoffee, msf, mega, meganon, nexusnon, paup, paupnon, phylipnon, selex, treecon). Omit for no formatted text. |
+| `names` | array of string | No | Optional names of the rows for the formatted output (default seq1, seq2, ...). |
 
 ## Output Schema
 
@@ -73,6 +75,7 @@ ClustalW 2.1's multiple alignment of DNA (clustalw -TYPE=DNA -ALIGN) or PROTEIN 
 | `alignedSequences` | array<string> | The aligned rows of the MSA (input order). |
 | `consensus` | string | Majority-vote consensus of the aligned rows (gaps vote; a nucleotide beats a gap on ties). |
 | `totalScore` | integer | Natural affine sum-of-pairs score of the alignment under match / mismatch / scoreGapOpen / scoreGapExtend (ClustalW itself reports no such score). |
+| `formatted` | string | No | The alignment written in the requested format (null when format is omitted). |
 
 ## Errors
 

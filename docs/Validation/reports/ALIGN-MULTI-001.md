@@ -295,3 +295,7 @@ One input contract for every multiple-alignment entry point: null element -> `Ar
 ## Audit r2 addendum (A2-27, B09 F120): EMBOSS alignment output formats
 
 `EmbossAlignmentWriter` writes the 29 EMBOSS `-aformat` formats byte for byte (pairwise layouts with the program header and statistics, sequence-set layouts of any number of rows); MCP `write_alignment`. See `docs/algorithms/Alignment/Pairwise_Output_Formats_And_EMBOSS_Programs.md`.
+
+## Audit r2 addendum (A2-27b, B09 F126): Biopython Bio.Align text formats
+
+`AlignmentFormats` writes / reads fasta, a2m, clustal, phylip, nexus, stockholm as Biopython 1.88 (210 sets per format written byte for byte; readers equal on every file Biopython reads); MCP `format` / `names` parameters on the pairwise and multiple-alignment tools (canonical writers: `AlignmentFormats` and `EmbossAlignmentWriter`). Registered DOABLE: genomic-coordinate formats, EMBOSS-format readers, `.score_ascii`, 3+ row pair markup (A2-27c).

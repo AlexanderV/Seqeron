@@ -36,6 +36,7 @@
 | `global_align_affine` | Alignment | `SequenceAligner.GlobalAlignAffine` | [doc](../../../../docs/mcp/tools/alignment/global_align_affine.md) |
 | `global_align_co_optimal` | Alignment | `SequenceAligner.GlobalAlignCoOptimal` | [doc](../../../../docs/mcp/tools/alignment/global_align_co_optimal.md) |
 | `kalign_command` | Alignment | `KalignProgram.Run` | [doc](../../../../docs/mcp/tools/alignment/kalign_command.md) |
+| `ksw2_extend` | Alignment | `Ksw2Aligner` | [doc](../../../../docs/mcp/tools/alignment/ksw2_extend.md) |
 | `local_align` | Alignment | `SequenceAligner.LocalAlign` | [doc](../../../../docs/mcp/tools/alignment/local_align.md) |
 | `local_align_affine` | Alignment | `SequenceAligner.LocalAlignAffine` | [doc](../../../../docs/mcp/tools/alignment/local_align_affine.md) |
 | `local_align_co_optimal` | Alignment | `SequenceAligner.LocalAlignCoOptimal` | [doc](../../../../docs/mcp/tools/alignment/local_align_co_optimal.md) |
@@ -53,6 +54,7 @@
 | `multiple_align_progressive` | Alignment | `SequenceAligner.MultipleAlignProgressive` | [doc](../../../../docs/mcp/tools/alignment/multiple_align_progressive.md) |
 | `multiple_align_tcoffee` | Alignment | `SequenceAligner.MultipleAlignTCoffeeProgram` | [doc](../../../../docs/mcp/tools/alignment/multiple_align_tcoffee.md) |
 | `muscle_msa_command` | Alignment | `SequenceAligner.MuscleProfileAlign` | [doc](../../../../docs/mcp/tools/alignment/muscle_msa_command.md) |
+| `needleall_align` | Alignment | `SequenceAligner.NeedleAll` | [doc](../../../../docs/mcp/tools/alignment/needleall_align.md) |
 | `quality_trim_reads` | Alignment | `SequenceAssembler.QualityTrimReads` | [doc](../../../../docs/mcp/tools/alignment/quality_trim_reads.md) |
 | `scaffold_contigs` | Alignment | `SequenceAssembler.Scaffold` | [doc](../../../../docs/mcp/tools/alignment/scaffold_contigs.md) |
 | `semi_global_align` | Alignment | `SequenceAligner.SemiGlobalAlign` | [doc](../../../../docs/mcp/tools/alignment/semi_global_align.md) |
@@ -60,6 +62,7 @@
 | `sequence_identity` | Alignment | `SequenceAssembler.CalculateIdentity` | [doc](../../../../docs/mcp/tools/alignment/sequence_identity.md) |
 | `stretcher_align` | Alignment | `SequenceAligner.StretcherAlign` | [doc](../../../../docs/mcp/tools/alignment/stretcher_align.md) |
 | `sum_of_pairs_score` | Alignment | `SequenceAligner.SumOfPairsScore` | [doc](../../../../docs/mcp/tools/alignment/sum_of_pairs_score.md) |
+| `supermatcher_align` | Alignment | `SequenceAligner.Supermatcher` | [doc](../../../../docs/mcp/tools/alignment/supermatcher_align.md) |
 | `tcoffee_guide_tree` | Alignment | `SequenceAligner.TCoffeeGuideTree` | [doc](../../../../docs/mcp/tools/alignment/tcoffee_guide_tree.md) |
 | `tcoffee_ktup_similarity` | Alignment | `SequenceAligner.TCoffeeKtupSimilarity` | [doc](../../../../docs/mcp/tools/alignment/tcoffee_ktup_similarity.md) |
 | `tcoffee_lalign_top_alignments` | Alignment | `SequenceAligner.TCoffeeLalignTopAlignments` | [doc](../../../../docs/mcp/tools/alignment/tcoffee_lalign_top_alignments.md) |

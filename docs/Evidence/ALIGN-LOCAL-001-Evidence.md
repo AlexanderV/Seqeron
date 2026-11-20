@@ -61,3 +61,7 @@ The reported alignment ends at the first maximal cell in row-major order and the
 ## 5. Not reachable (proof)
 
 Full texts of Huang-Hardison-Miller 1990 and Huang-Miller 1991 (Elsevier `sciencedirect.com/science/article/pii/019688589190017D` HTTP 403, OUP 403; repository records hold abstracts only) and Myers-Miller 1988 (OUP 403, author page 404); the linear-space local program is verified against the full-matrix aligner, EMBOSS `matcher` and the oracles above instead of the papers' text.
+
+## Audit A2-28c (B09 F124): supermatcher
+
+Sources actually opened: EMBOSS 6.6 `supermatcher.c`, `embword.c` (`embWordGetTable`, `embWordRabinKarpInit`, `embWordRabinKarpSearch`, `embWordMatchFirstMax`), `embaln.c` (`embAlignPathCalcSWFast`, `embAlignWalkSWMatrixFast`, `embAlignReportLocal`), `ajmem.h` (`AJCSET0` zeroes elements), `ajdefine.h`; the installed supermatcher 6.6.0. Oracle numbers: 260 / 260 runs (output files and error files).

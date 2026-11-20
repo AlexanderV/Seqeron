@@ -44,6 +44,8 @@ Consistency-based MSA (T-Coffee; Notredame, Higgins & Heringa 2000): a primary l
 | `pwGapExtend` | number | No | type='protein' with distance='clustalw': ClustalW -PWGAPEXT (default 0.1). |
 | `primaryLocalAlignments` | integer | No | T-Coffee Lalign library: the number of non-intersecting (Waterman-Eggert) local alignments per sequence pair that enter the primary library, each weighted by its own percent identity (lalign_id_pair, -lalign_n_top; default 1 = the single best Smith-Waterman alignment of the published formula). Paper engine and TCoffeeLinked engine. (default: 1) |
 | `sequenceWeights` | string | No | Sequence redundancy weights (T-Coffee -seq_weight): 'none' (default) or 'tcoffee' (compute_t_coffee_weight: w = 2 / (1 + sum (10 x identity)^3) rescaled to mean 1; an extended library weight is multiplied by the smaller of the two sequence weights). (default: none) |
+| `format` | string | No | Optional output format; the alignment written in that format is returned in 'formatted'. Biopython Bio.Align names: fasta, a2m, clustal, phylip, nexus, stockholm (byte for byte as Bio.Align.write; 'emboss:' + name selects the EMBOSS writer of the same name) or EMBOSS -aformat names (pair, simple, srspair, srs, markx0-3, markx10, match, score, sam, tcoffee, msf, mega, meganon, nexusnon, paup, paupnon, phylipnon, selex, treecon). Omit for no formatted text. |
+| `names` | array of string | No | Optional names of the rows for the formatted output (default seq1, seq2, ...). |
 
 ## Output Schema
 
@@ -53,6 +55,7 @@ Consistency-based MSA (T-Coffee; Notredame, Higgins & Heringa 2000): a primary l
 | `consensus` | string | Majority-vote consensus of the aligned rows (gaps vote; a nucleotide beats a gap on ties). |
 | `totalScore` | integer | Sum-of-pairs score of the MSA: linear model = column score (match/mismatch from the matrix, residue-gap = gapExtend, gap-gap = 0); gapModel='affine' = natural affine gap costs (every gap run of each pair projection pays gapOpen once). |
 | `exactTotalScore` | number | Real-valued sum-of-pairs score (= totalScore for DNA with integer scores; exact, e.g. 49.5, for substitution-matrix runs with fractional gaps, where totalScore is rounded half away from zero). |
+| `formatted` | string | No | The alignment written in the requested format (null when format is omitted). |
 
 ## Errors
 

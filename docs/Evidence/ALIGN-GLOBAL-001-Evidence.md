@@ -204,3 +204,7 @@ Earlier entries above cite these papers from WebSearch snippets only; on 2026-11
 ## Audit A2-29 (B09 F123): dual affine gaps
 
 Sources: Li (minimap2 / ksw2 description: gap cost min(q + k e, q2 + k e2), WebSearch snippets; the ksw2 C sources were not opened in this step), Gotoh 1982, Waterman-Smith-Beyer 1976. Oracle numbers: 1 600 / 1 600 cases (`dual_affine_oracle.tsv`).
+
+## Audit A2-28c / A2-29b (B09 F124 / F125): needleall, ksw2
+
+Sources actually opened (raw.githubusercontent.com, neutral User-Agent): EMBOSS `needleall.c`, `needle.c`, `embaln.c` (`embAlignCalcSimilarity`), `ajalign.c` (`ajAlignFormatShowsSequences`, formats table); lh3/minimap2 v2.26 and master `ksw2.h`, `ksw2_extz2_sse.c`, `ksw2_extd2_sse.c` (the v2.26 and master SSE files are identical; master `ksw2.h` differs by the splice flags only) and lh3/ksw2 `ksw2_extz.c`, `ksw2_extd.c`. The ksw2 / minimap2 C functions were NOT run: the review sandbox refuses to compile downloaded source; the oracle for the exact cases is an independent Gotoh program (Python), the real-program oracle is the Docker package `docs/Validation/review-2026-09/handoff/A2-29b-ksw2`. Installed `minimap2` 2.26 (apt) exists as a tool but exposes no function-level interface. Oracle numbers: needleall 260 / 260 runs (whole files); ksw2 exact cases 1 320 / 1 320.

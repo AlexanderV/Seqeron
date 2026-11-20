@@ -137,3 +137,7 @@ The O(m·n) memory limit of the top-N declumper is lifted: above 25 000 000 cell
 ## Audit r2 addendum (A2-28, B09 F122): water
 
 `SequenceAligner.WaterAlign` ports EMBOSS water (rows, starts and scores equal on 860 / 860 pairs).
+
+## Audit r2 addendum (A2-28c, B09 F124): supermatcher
+
+`SequenceAligner.Supermatcher` (Rabin-Karp word seeds + banded Smith-Waterman, the program's single-precision arithmetic); MCP `supermatcher_align`; 260 / 260 runs equal the installed supermatcher 6.6.0 (output files and error files).

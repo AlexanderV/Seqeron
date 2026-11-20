@@ -1,8 +1,8 @@
 # Pairwise alignment output formats and the EMBOSS programs needle, water and stretcher
 
-**Units:** ALIGN-GLOBAL-001, ALIGN-LOCAL-001, ALIGN-MULTI-001 (audit A2-27 / A2-28, B09 F120 - F122).
+**Units:** ALIGN-GLOBAL-001, ALIGN-LOCAL-001, ALIGN-MULTI-001 (audit A2-27 / A2-28 / A2-29, B09 F120 - F126).
 **Code:** `EmbossAlignmentWriter`, `EmbossAlignFormat`, `EmbossAlignOptions`, `EmbossPairAlignment`, `EmbossAlignedSequence` (`EmbossAlignmentTypes.cs`), `SequenceAligner.StretcherAlign`, `SequenceAligner.NeedleAlign`, `SequenceAligner.WaterAlign`.
-**MCP:** `write_alignment`, `stretcher_align`.
+**MCP:** `write_alignment`, `stretcher_align`, `supermatcher_align`, `needleall_align`, `ksw2_extend`, and the `format` / `names` parameters of the pairwise and multiple-alignment tools.
 
 ## 1. EMBOSS `-aformat` writers (F120)
 
@@ -29,6 +29,18 @@ Both programs are not always optimal: their recurrences forbid some gap-state tr
 
 `GlobalAlignDualAffine` / `LocalAlignDualAffine` (`DualAffineScoring`, `SequenceAligner.DualAffine.cs`) score a gap of length k as `max(open1 + k ext1, open2 + k ext2)` (the two-piece model of ksw2 `ksw2_extd2`, minimap2 default `-O 4,24 -E 2,1` = `DualAffineScoring.Minimap2`) with Gotoh's O(m n) recurrence over H, E1, F1, E2, F2 and an optional diagonal band (ksw2 `w`: cells |i - j| <= band). Oracle `dual_affine_oracle.tsv`: 1 600 cases (global / local x full / banded, 400 each), scores equal Biopython 1.88 `PairwiseAligner` with the callable gap score and an independent Waterman-Smith-Beyer program (banded variant), every traceback re-scores to its score and its coordinates are consistent. The original ksw2 sources were not compiled or compared; z-drop, end bonus and extension alignment are registered as A2-29b.
 
-## 5. Remaining (registered in B09.md)
+## 5. supermatcher and needleall (F124)
 
-Biopython `Bio.Align` writers / readers (A2-27b), `needleall`, `supermatcher` seeds (A2-28b / c), est2genome / wordmatch / dotmatcher (A2-28d), ksw2 z-drop / end-bonus / extension alignment (A2-29b).
+`SequenceAligner.Supermatcher` ports `supermatcher.c` with `embword.c` (`embWordGetTable` incl. its window-skipping of `N` / `X`, `embWordRabinKarpInit`, `embWordRabinKarpSearch` with the `lastlocation` cursor and the match extension, `embWordMatchFirstMax`) and `embaln.c` (`embAlignPathCalcSWFast`, `embAlignWalkSWMatrixFast`, `embAlignReportLocal`): the longest word match of a query against the targets fixes a diagonal, a Smith-Waterman of `-width` cells runs along it from the sequence starts to the first sequence end (single precision, `ajRoundFloat` gap penalties), reported when its score is above `-minscore`; the error file text (`No wordmatch start points for A vs B. No alignment`) is returned. The program is a heuristic, not an optimum. The formats that do not show sequences (`match`, `score`) get the plain-rows alignment with the TARGET first (`ajAlignDefineCC`). `SequenceAligner.NeedleAll` = every B sequence against every A sequence by `NeedleAlign` (minimum score default 0: the ACD help says 1.0, the value is 0; error line `Alignment score (S) is less than minimum score(M) for sequences A vs B`); `-nobrief` is `SequenceAligner.SimilaritySubHeader` (`embAlignCalcSimilarity`; a pair without gap-free column prints the x86 `-nan`). The score table of needle / water / supermatcher is one class (`EmbossScoreTable`). Oracle `emboss_multi_oracle.tsv` (`generate_emboss_multi_oracle.py`): 260 supermatcher + 260 needleall runs, whole output files in 12 `-aformat`s and the error files, byte for byte, 520 / 520.
+
+## 6. ksw2 extension alignment (F125)
+
+`Ksw2Aligner.ExtendZ` / `ExtendD` (scalar `ksw_extz` / `ksw_extd`) and `ExtendZ2` / `ExtendD2` (`ksw_extz2_sse` / `ksw_extd2_sse`, minimap2 v2.26) give the global or extension alignment with `q + k e` or `min(q + k e, q2 + k e2)` gap cost, band `w`, Z-drop (`ksw_apply_zdrop`: row-wise for the scalar functions, per anti-diagonal for the SIMD ones), end bonus, the ambiguous-base score (`mat[m*m-1]`, `-e` / `-e2` when 0) and the CIGAR (`ksw_backtrack`, left / right gap placement, reversed output). The SIMD functions are ported lane by lane (16-lane blocks past the band, byte wrap-around, one `mem` buffer with the C layout). Verified against an independent Gotoh program (max, mqe, mte, score, every CIGAR re-scored along its path; 330 cases per variant). Facts: the SIMD band is blurred to 16-lane blocks and `w = 0` ends at the second anti-diagonal; `e2 == e` leaves the long-gap boundary values undefined; the real C program is needed for Z-drop, the approximate flags and banded SIMD cases: `docs/Validation/review-2026-09/handoff/A2-29b-ksw2` (Docker package).
+
+## 7. Biopython `Bio.Align` text formats (F126)
+
+`AlignmentFormats` (+ `BioAlignment`, `BioAlignmentRecord`, `AlignmentWriteOptions`, `AlignmentFileFormat`) writes `fasta`, `a2m`, `clustal`, `phylip`, `nexus`, `stockholm` byte for byte as Biopython 1.88 `Bio.Align.write` and reads them as `Bio.Align.parse` (ids, descriptions, printed rows, `alignment.annotations`, `column_annotations`, record annotations, letter annotations, dbxrefs; all-gap columns disappear as in `Alignment.parse_printed_alignment`). Python `textwrap.fill` (Stockholm long text) is ported (`PythonTextWrap`). Oracle `biopython_msa_oracle.tsv`: 210 written alignment sets per format (1 - 3 alignments, 1 - 8 rows, up to 1 500 columns, quoted ids, descriptions, Stockholm GF / GS / GR / GC annotation, nexus interleave) and the files Biopython can read back (a2m 210, nexus 210, stockholm 197, fasta 128, phylip 125, clustal 124). The EMBOSS writers (`EmbossAlignmentWriter`) and the ClustalW program layouts (`ClustalWAlignmentWriter`) are different dialects (widths, headers, name rules) and are not merged: the MCP `format` parameter selects between them (`emboss:` prefix for the formats the two share: fasta, a2m, clustal, nexus, phylip).
+
+## 8. Remaining (registered in B09.md)
+
+Biopython genomic-coordinate formats (psl, sam, bed, exonerate, mauve, chain, maf) and readers (msf, emboss, hhr, tabular), readers for the EMBOSS formats, T-Coffee `.score_ascii`, pair-markup formats of three or more rows (A2-27c); est2genome / wordmatch / dotmatcher / matcher checks (A2-28d); the ksw2 real-program oracle (A2-29c).

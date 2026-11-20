@@ -169,3 +169,14 @@ public sealed record EmbossAlignOptions
     /// <summary>The gap-extension penalty printed (<c>Extend_penalty</c>); null = no line.</summary>
     public double? ExtendPenalty { get; init; }
 }
+
+/// <summary>An input sequence of an EMBOSS alignment program (name = first word of the FASTA header).</summary>
+/// <param name="Name">The sequence name.</param>
+/// <param name="Residues">The residues, case as read.</param>
+/// <param name="Description">The rest of the FASTA header.</param>
+public sealed record EmbossSequence(string Name, string Residues, string Description = "");
+
+/// <summary>The output of a multi-alignment EMBOSS program (<c>supermatcher</c>, <c>needleall</c>, <c>wordmatch</c> ...): the alignments in the order the program writes them and the text of its <c>-errfile</c>.</summary>
+/// <param name="Alignments">The pairwise alignments, one <c>ajAlignWrite</c> each.</param>
+/// <param name="ErrorText">What the program prints to its error file (one line per failed pair), empty when nothing failed.</param>
+public sealed record EmbossProgramResult(IReadOnlyList<EmbossPairAlignment> Alignments, string ErrorText);
