@@ -640,7 +640,7 @@ public static partial class SequenceAligner
     // ----- gotoh_pair_wise ------------------------------------------------------------------------------------------------
 
     /// <summary><c>gotoh_pair_wise</c> (and <c>gotoh_pair_wise_test</c>) on column scores: returns the presence masks of the two groups and the score of the last cell.</summary>
-    private static (List<bool> Present1, List<bool> Present2, int Score) TcGotohProfile(int l1, int l2, Func<int, int, int> cost, int gopIn, int gepIn, int tgMode, bool test)
+    internal static (List<bool> Present1, List<bool> Present2, int Score) TcGotohProfile(int l1, int l2, Func<int, int, int> cost, int gopIn, int gepIn, int tgMode, bool test)
     {
         int gop = gopIn * TcScoreK, gep = gepIn * TcScoreK;
         if (test) { gop = 0; gep = -1; }

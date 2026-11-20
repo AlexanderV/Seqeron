@@ -280,21 +280,8 @@ public class SequenceAligner_Cancellation_Tests
     public void CancelledWhileRunning_TCoffeeProgressiveDp_StopsPromptly()
     {
         // TcGotohProfile (TCoffeeDp.cs) is the profile-profile Gotoh program of the progressive stage; the library stage would dominate any end-to-end run, so the DP is called directly
-        var gotoh = typeof(SequenceAligner).GetMethod("TcGotohProfile", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
-        Assert.That(gotoh, Is.Not.Null);
         Func<int, int, int> cost = (i, j) => (i * 7 + j * 13) % 11 - 4;
-        AssertCancelsPromptly(ct => SequenceAligner.WithCancellation(ct, () =>
-        {
-            try
-            {
-                return gotoh.Invoke(null, new object[] { 7000, 7000, cost, -10, -1, 0, false })!;
-            }
-            catch (System.Reflection.TargetInvocationException e)
-            {
-                System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(e.InnerException!).Throw();
-                throw;
-            }
-        }), pollInside: "TcGotohProfile");
+        AssertCancelsPromptly(ct => SequenceAligner.WithCancellation(ct, () => SequenceAligner.TcGotohProfile(7000, 7000, cost, -10, -1, 0, false)), pollInside: "TcGotohProfile");
     }
 
     [Test]

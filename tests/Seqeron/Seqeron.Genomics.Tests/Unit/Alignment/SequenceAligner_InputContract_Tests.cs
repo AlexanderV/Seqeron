@@ -187,12 +187,12 @@ public class SequenceAligner_InputContract_Tests
         Assert.That(SequenceAligner.SemiGlobalAlign(a, b, null).Score, Is.EqualTo(SequenceAligner.SemiGlobalAlign(a, b).Score));
         Assert.That(SequenceAligner.SemiGlobalAlignAffine(a, b, null).Score, Is.EqualTo(SequenceAligner.SemiGlobalAlignAffine(a, b).Score));
         Assert.That(SequenceAligner.SemiGlobalAlign(a, b, null, EndGaps.All).Score, Is.EqualTo(SequenceAligner.SemiGlobalAlign(a, b, SequenceAligner.SimpleDna, EndGaps.All).Score));
-        Assert.That(SequenceAligner.LocalAlignTopN(a, b, null, 3, 1), Has.Count.GreaterThan(0));
-        Assert.That(SequenceAligner.LocalAlignAffineTopN(a, b, null, 3, 1), Has.Count.GreaterThan(0));
-        Assert.That(SequenceAligner.LocalAlignCoOptimal(a, b, null, 5), Has.Count.GreaterThan(0));
-        Assert.That(SequenceAligner.GlobalAlignCoOptimal(a, b, null, 5), Has.Count.GreaterThan(0));
+        Assert.That(SequenceAligner.LocalAlignTopN(a, b, null, 3, 1), Is.EqualTo(SequenceAligner.LocalAlignTopN(a, b, SequenceAligner.SimpleDna, 3, 1)).And.Count.EqualTo(3));
+        Assert.That(SequenceAligner.LocalAlignAffineTopN(a, b, null, 3, 1), Is.EqualTo(SequenceAligner.LocalAlignAffineTopN(a, b, SequenceAligner.SimpleDna, 3, 1)).And.Count.EqualTo(3));
+        Assert.That(SequenceAligner.LocalAlignCoOptimal(a, b, null, 5), Is.EqualTo(SequenceAligner.LocalAlignCoOptimal(a, b, SequenceAligner.SimpleDna, 5)));
+        Assert.That(SequenceAligner.GlobalAlignCoOptimal(a, b, null, 5), Is.EqualTo(SequenceAligner.GlobalAlignCoOptimal(a, b, SequenceAligner.SimpleDna, 5)));
         Assert.That(SequenceAligner.GlobalAlignLinearSpace(a, b, null).Score, Is.EqualTo(SequenceAligner.GlobalAlign(a, b).Score));
-        Assert.That(SequenceAligner.LocalAlignTopNLinearSpace(a, b, null, 3, 1), Has.Count.GreaterThan(0));
+        Assert.That(SequenceAligner.LocalAlignTopNLinearSpace(a, b, null, 3, 1), Is.EqualTo(SequenceAligner.LocalAlignTopN(a, b, SequenceAligner.SimpleDna, 3, 1)));
         var dna = new[] { new DnaSequence(a), new DnaSequence(b) };
         Assert.That(SequenceAligner.MultipleAlign(dna, null, null).AlignedSequences, Has.Length.EqualTo(2));
         Assert.That(SequenceAligner.MultipleAlignProgressive(dna, null, null).AlignedSequences, Has.Length.EqualTo(2));
@@ -204,8 +204,11 @@ public class SequenceAligner_InputContract_Tests
     public void NullScoring_TheTypedMatrixOverloadsStillBind()
     {
         var matrix = new MatrixScoring(SubstitutionMatrix.Blosum62, -11, -1);
-        Assert.That(SequenceAligner.GlobalAlign("MKVLA", "MKVA", matrix).Score, Is.Not.EqualTo(int.MinValue));
-        Assert.That(SequenceAligner.LocalAlignTopN("MKVLA", "MKVA", matrix, 3, 1), Has.Count.GreaterThan(0));
+        // Biopython PairwiseAligner (BLOSUM62, open = extend = -1): global 17 (MKV-A: 5 + 5 + 4 - 1 + 4), local 17; Waterman-Eggert scores 17, 2 (L / M), 1 (independent Python WE of the same matrix)
+        Assert.That(SequenceAligner.GlobalAlign("MKVLA", "MKVA", matrix).Score, Is.EqualTo(17));
+        var top = SequenceAligner.LocalAlignTopN("MKVLA", "MKVA", matrix, 3, 1);
+        Assert.That(top.Select(r => r.ExactScore), Is.EqualTo(new[] { 17.0, 2.0, 1.0 }));
+        Assert.That((top[0].AlignedSequence1, top[0].AlignedSequence2), Is.EqualTo(("MKVLA", "MKV-A")));
     }
 
     [Test]

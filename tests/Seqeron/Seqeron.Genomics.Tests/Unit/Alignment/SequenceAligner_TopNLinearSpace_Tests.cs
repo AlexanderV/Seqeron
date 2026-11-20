@@ -133,7 +133,16 @@ public class SequenceAligner_TopNLinearSpace_Tests
         var ms = new MatrixScoring(SubstitutionMatrix.Blosum62, -10, -1);
         const string a = "MKVLAAGIVGLLLAQPSMKVLAAGIVG", b = "MKVLAAGIVGPPPPPMKVLAGIVGLL";
         var viaString = Keys(SequenceAligner.LocalAlignAffineTopNLinearSpace(a, b, ms, 6, 0, 16));
-        Assert.That(viaString, Is.Not.Empty);
+        // 66 = Biopython PairwiseAligner local score (BLOSUM62, open -11, extend -1) of the pair; the further keys are the Waterman-Eggert reports of the full-matrix program (LocalAlignAffineTopN)
+        Assert.That(viaString, Is.EqualTo(new[]
+        {
+            "66|66|0|0|26|23|MKVLAAGIVGLLLAQPSMKVLAAGIVG|MKVLAAGIVG--PPPPPMKVL-AGIVG",
+            "46|46|17|0|26|9|MKVLAAGIVG|MKVLAAGIVG",
+            "39|39|0|15|11|25|MKVLAAGIVGLL|MKVL-AGIVGLL",
+            "11|11|7|18|11|22|IVGLL|LAGIV",
+            "10|10|9|6|15|12|GLLLAQP|GIVGPPP",
+            "9|9|6|23|8|25|GIV|GLL"
+        }));
         Assert.That(Keys(SequenceAligner.LocalAlignAffineTopNLinearSpace(new ProteinSequence(a), new ProteinSequence(b), ms, 6, 0, 16)), Is.EqualTo(viaString));
         Assert.That(Keys(SequenceAligner.LocalAlignAffineTopN(a, b, ms, 6)), Is.EqualTo(viaString));
         var dms = new MatrixScoring(SubstitutionMatrix.EdnaFull, -10, -1);

@@ -290,6 +290,6 @@ public class SequenceAligner_GapProfile_Tests
         var ms = new MatrixScoring(SubstitutionMatrix.Blosum62, -10, -0.5);
         var profile = new GapScoreProfile(Start2: GapScore.Free, End2: GapScore.FromBiopython(-1.5, -0.25));
         var r = SequenceAligner.GlobalAlignAffine("HEAGAWGHEE", "PAWHEAEHEE", ms, profile);
-        Assert.That(Math.Abs(r.ExactScore * 4 - Math.Round(r.ExactScore * 4)), Is.LessThan(1e-9)); // multiple of 1/4
+        Assert.That(r.ExactScore, Is.EqualTo(21.5).Within(1e-9), "Biopython 1.88 PairwiseAligner: BLOSUM62, open -10.5 / extend -0.5, left insertion 0, right insertion open -1.5 / extend -0.25"); // a multiple of 1/4
     }
 }

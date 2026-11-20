@@ -267,7 +267,8 @@ public class SequenceAligner_LinearSpace_Tests
         var viaApi = SequenceAligner.GlobalAlignAffine(a, b, ms);
         var viaForced = SequenceAligner.GlobalAlignAffineLinearSpace(a, b, ms, 2_000_000);
         Assert.That(viaApi, Is.EqualTo(viaForced));
-        Assert.That(viaApi.ExactScore, Is.Not.EqualTo(0.0));
+        Assert.That(viaApi.ExactScore, Is.EqualTo(19108.0), "Biopython PairwiseAligner 1.88, BLOSUM62, open -10, extend -0.5 (EMBOSS 10 / 0.5), global and local, on this generated pair");
+        Assert.That(SequenceAligner.LocalAlignAffine(a, b, ms).ExactScore, Is.EqualTo(19108.0));
         var local = SequenceAligner.LocalAlignAffine(a, b, ms);
         Assert.That(local, Is.EqualTo(SequenceAligner.LocalAlignAffineLinearSpace(a, b, ms, 1_000_000)));
     }
