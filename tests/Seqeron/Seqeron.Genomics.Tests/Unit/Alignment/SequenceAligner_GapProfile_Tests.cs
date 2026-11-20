@@ -278,10 +278,9 @@ public class SequenceAligner_GapProfile_Tests
         Assert.Throws<ArgumentException>(() => SequenceAligner.GlobalAlign("ACGT", "ACG", sc, new GapScoreProfile(End2: new GapScore(2, -1))));
         Assert.Throws<ArgumentException>(() => SequenceAligner.GlobalAlign("ACGT", "ACG", sc, new GapScoreProfile(End2: new GapScore(double.NaN, -1))));
         Assert.Throws<ArgumentNullException>(() => SequenceAligner.GlobalAlign("ACGT", "ACG", sc, (GapScoreProfile)null!));
-        // the linear-space program has one gap model: a profile on an input beyond the full-matrix limit is refused, not silently approximated
+        // an input beyond the full-matrix limit is no longer refused (A4-8): the exact linear-space program takes it (tests below)
         string big = new('A', 5001);
-        var ex = Assert.Throws<ArgumentException>(() => SequenceAligner.GlobalAlignAffine(big, big, sc, new GapScoreProfile(End1: GapScore.Free)));
-        Assert.That(ex!.Message, Does.Contain("full dynamic-programming matrix"));
+        Assert.That(SequenceAligner.GlobalAlignAffine(big, big, sc, new GapScoreProfile(End1: GapScore.Free)).AlignedSequence1, Is.EqualTo(big));
     }
 
     [Test]
@@ -291,5 +290,198 @@ public class SequenceAligner_GapProfile_Tests
         var profile = new GapScoreProfile(Start2: GapScore.Free, End2: GapScore.FromBiopython(-1.5, -0.25));
         var r = SequenceAligner.GlobalAlignAffine("HEAGAWGHEE", "PAWHEAEHEE", ms, profile);
         Assert.That(r.ExactScore, Is.EqualTo(21.5).Within(1e-9), "Biopython 1.88 PairwiseAligner: BLOSUM62, open -10.5 / extend -0.5, left insertion 0, right insertion open -1.5 / extend -0.25"); // a multiple of 1/4
+    }
+
+    // ------------------------------------------------------------------ A4-8: the exact linear-space programs with a gap profile
+
+    private static GapScore? RandomGap(Random rnd, bool affine)
+    {
+        int k = rnd.Next(10);
+        if (k < 3) return null;                       // the interior score of the scoring
+        if (k < 5) return GapScore.Free;
+        double open = affine ? -rnd.Next(0, 7) * 0.5 : 0;
+        double extend = -rnd.Next(0, 5) * 0.25;
+        return new GapScore(open, extend);
+    }
+
+    private static string RandomResidues(Random rnd, string alphabet, int n)
+    {
+        var c = new char[n];
+        for (int i = 0; i < n; i++) c[i] = alphabet[rnd.Next(alphabet.Length)];
+        return new string(c);
+    }
+
+    private static string Mutated(Random rnd, string s, string alphabet)
+    {
+        var sb = new System.Text.StringBuilder();
+        foreach (char c in s)
+        {
+            int r = rnd.Next(100);
+            if (r < 8) sb.Append(alphabet[rnd.Next(alphabet.Length)]);
+            else if (r < 13) { /* deletion */ }
+            else if (r < 18) { sb.Append(c).Append(alphabet[rnd.Next(alphabet.Length)]); }
+            else sb.Append(c);
+        }
+
+        return sb.ToString();
+    }
+
+    /// <summary>The full-matrix result and the forced linear-space result of one method family.</summary>
+    private static (AlignmentResult Full, AlignmentResult Linear) Both(int family, string a, string b, bool matrix, GapScoreProfile profile, long baseCells)
+    {
+        var sm = new ScoringMatrix(2, -3, -4, -1);
+        var ms = new MatrixScoring(SubstitutionMatrix.Blosum62, -3.5, -0.5);
+        return (family, matrix) switch
+        {
+            (0, false) => (SequenceAligner.GlobalAlign(a, b, sm, profile), SequenceAligner.GlobalAlignLinearSpace(a, b, sm, profile, baseCells)),
+            (1, false) => (SequenceAligner.GlobalAlignAffine(a, b, sm, profile), SequenceAligner.GlobalAlignAffineLinearSpace(a, b, sm, profile, baseCells)),
+            (2, false) => (SequenceAligner.SemiGlobalAlign(a, b, sm, profile), SequenceAligner.SemiGlobalAlignLinearSpace(a, b, sm, profile, baseCells)),
+            (3, false) => (SequenceAligner.SemiGlobalAlignAffine(a, b, sm, profile), SequenceAligner.SemiGlobalAlignAffineLinearSpace(a, b, sm, profile, baseCells)),
+            (4, false) => (SequenceAligner.LocalAlign(a, b, sm, profile), SequenceAligner.LocalAlignLinearSpace(a, b, sm, profile, baseCells)),
+            (5, false) => (SequenceAligner.LocalAlignAffine(a, b, sm, profile), SequenceAligner.LocalAlignAffineLinearSpace(a, b, sm, profile, baseCells)),
+            (0, true) => (SequenceAligner.GlobalAlign(a, b, ms, profile), SequenceAligner.GlobalAlignLinearSpace(a, b, ms, profile, baseCells)),
+            (1, true) => (SequenceAligner.GlobalAlignAffine(a, b, ms, profile), SequenceAligner.GlobalAlignAffineLinearSpace(a, b, ms, profile, baseCells)),
+            (2, true) => (SequenceAligner.SemiGlobalAlign(a, b, ms, profile), SequenceAligner.SemiGlobalAlignLinearSpace(a, b, ms, profile, baseCells)),
+            (3, true) => (SequenceAligner.SemiGlobalAlignAffine(a, b, ms, profile), SequenceAligner.SemiGlobalAlignAffineLinearSpace(a, b, ms, profile, baseCells)),
+            (4, true) => (SequenceAligner.LocalAlign(a, b, ms, profile), SequenceAligner.LocalAlignLinearSpace(a, b, ms, profile, baseCells)),
+            _ => (SequenceAligner.LocalAlignAffine(a, b, ms, profile), SequenceAligner.LocalAlignAffineLinearSpace(a, b, ms, profile, baseCells)),
+        };
+    }
+
+    [Test]
+    public void LinearSpace_ForcedRecursion_EqualsTheFullMatrix_RowForRow()
+    {
+        var rnd = new Random(20261201);
+        int cases = 0, freeEnds = 0, pricedEnds = 0, withGaps = 0;
+        long[] bases = { 1, 2, 9, 40, 300 };
+        for (int t = 0; t < 600; t++)
+        {
+            int family = t % 6;
+            bool matrix = (t / 6) % 2 == 1;
+            bool affine = family is 1 or 3 or 5;
+            string alphabet = matrix ? "ACDEFGHIKLMNPQRSTVWY" : "ACGT";
+            string a = RandomResidues(rnd, alphabet, rnd.Next(1, 90));
+            string b = rnd.Next(4) == 0 ? RandomResidues(rnd, alphabet, rnd.Next(1, 90)) : Mutated(rnd, a, alphabet);
+            if (b.Length == 0) b = "A";
+            var profile = new GapScoreProfile(RandomGap(rnd, affine), RandomGap(rnd, affine), RandomGap(rnd, affine), RandomGap(rnd, affine), RandomGap(rnd, affine), RandomGap(rnd, affine));
+            var (full, linear) = Both(family, a, b, matrix, profile, bases[t % bases.Length]);
+            Assert.That(linear, Is.EqualTo(full), $"family {family} matrix {matrix} base {bases[t % bases.Length]}: {a} / {b} {profile}");
+            cases++;
+            if (profile.HasFreeEnd) freeEnds++; else pricedEnds++;
+            if (full.AlignedSequence1.Contains('-') || full.AlignedSequence2.Contains('-')) withGaps++;
+        }
+
+        Assert.That(cases, Is.EqualTo(600));
+        Assert.That(freeEnds, Is.GreaterThan(300));
+        Assert.That(pricedEnds, Is.GreaterThan(30));
+        Assert.That(withGaps, Is.GreaterThan(400));
+    }
+
+    [Test]
+    public void LinearSpace_ForcedRecursion_Oracle_EqualsBiopython_AllRows()
+    {
+        // the 1000 Biopython rows with the base-case size forced to ONE cell (a sub-problem is solved by the full-matrix core only when one side has <= 1 residue)
+        var rows = Oracle.Value;
+        int checkedRows = 0;
+        foreach (var r in rows)
+        {
+            var full = Align(r);
+            var profile = Profile(r);
+            AlignmentResult forced;
+            if (r.Scoring.StartsWith("scalar", StringComparison.Ordinal))
+            {
+                var p = r.Scoring.Split(':');
+                var sm = new ScoringMatrix(int.Parse(p[1], CultureInfo.InvariantCulture), int.Parse(p[2], CultureInfo.InvariantCulture), 0, 0);
+                forced = (r.Mode, r.Affine) switch
+                {
+                    ("global", false) => SequenceAligner.GlobalAlignLinearSpace(r.Seq1, r.Seq2, sm, profile, 1),
+                    ("global", true) => SequenceAligner.GlobalAlignAffineLinearSpace(r.Seq1, r.Seq2, sm, profile, 1),
+                    (_, false) => SequenceAligner.LocalAlignLinearSpace(r.Seq1, r.Seq2, sm, profile, 1),
+                    _ => SequenceAligner.LocalAlignAffineLinearSpace(r.Seq1, r.Seq2, sm, profile, 1),
+                };
+            }
+            else
+            {
+                var ms = new MatrixScoring(r.Scoring == "EDNAFULL" ? SubstitutionMatrix.EdnaFull : SubstitutionMatrix.Blosum62, 0, 0);
+                forced = (r.Mode, r.Affine) switch
+                {
+                    ("global", false) => SequenceAligner.GlobalAlignLinearSpace(r.Seq1, r.Seq2, ms, profile, 1),
+                    ("global", true) => SequenceAligner.GlobalAlignAffineLinearSpace(r.Seq1, r.Seq2, ms, profile, 1),
+                    (_, false) => SequenceAligner.LocalAlignLinearSpace(r.Seq1, r.Seq2, ms, profile, 1),
+                    _ => SequenceAligner.LocalAlignAffineLinearSpace(r.Seq1, r.Seq2, ms, profile, 1),
+                };
+            }
+
+            string label = $"{r.Mode} {(r.Affine ? "affine" : "linear")} {r.Scoring} {r.Seq1} / {r.Seq2}";
+            Assert.That(forced, Is.EqualTo(full), label);
+            Assert.That(forced.ExactScore, Is.EqualTo(r.Model).Within(1e-9), label);
+            checkedRows++;
+        }
+
+        Assert.That(checkedRows, Is.GreaterThanOrEqualTo(500));
+    }
+
+    // deterministic xorshift32 pair, mirrored in Python for the Biopython oracle of the large smoke test below
+    private static (string A, string B) XorshiftPair()
+    {
+        uint x = 12345;
+        uint Next() { x ^= x << 13; x ^= x >> 17; x ^= x << 5; return x; }
+        string Gen(int n, uint seed, out string mutated)
+        {
+            x = seed;
+            var sbA = new System.Text.StringBuilder();
+            for (int i = 0; i < n; i++) sbA.Append("ACGT"[(int)(Next() & 3)]);
+            string a = sbA.ToString();
+            var sb = new System.Text.StringBuilder();
+            foreach (char c in a)
+            {
+                uint r = Next() % 100;
+                if (r < 4) sb.Append("ACGT"[(int)(Next() & 3)]);
+                else if (r < 6) { }
+                else if (r < 8) { sb.Append(c); sb.Append("ACGT"[(int)(Next() & 3)]); }
+                else sb.Append(c);
+            }
+
+            mutated = sb.ToString();
+            return a;
+        }
+
+        string a0 = Gen(8000, 12345, out string b);
+        string flank = Gen(700, 777, out _);
+        return (flank + a0, b);
+    }
+
+    [Test]
+    public void LargeInput_AboveTheFullMatrixLimit_IsAlignedByTheLinearSpaceProgram_WithBiopythonScores_AndLinearMemory()
+    {
+        var (a, b) = XorshiftPair();
+        long cells = (long)(a.Length + 1) * (b.Length + 1);
+        Assert.That(cells, Is.GreaterThan(SequenceAligner.LinearSpaceCellThreshold * 2)); // 69.6 M cells: the automatic switch applies
+        var sm = new ScoringMatrix(2, -3, -5, -2);
+        var affineProfile = new GapScoreProfile(Start1: GapScore.Free, End1: GapScore.FromBiopython(-3, -1), End2: GapScore.Free);
+        var linearScoring = new ScoringMatrix(2, -3, 0, -2);
+        var linearProfile = new GapScoreProfile(Start1: GapScore.Free, End1: GapScore.FromBiopython(-1, -1), End2: GapScore.Free);
+
+        SequenceAligner.GlobalAlignAffine(a.Substring(0, 300), b.Substring(0, 300), sm, affineProfile); // JIT warm-up
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        var globalAffine = SequenceAligner.GlobalAlignAffine(a, b, sm, affineProfile);
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        long fullBytes = cells * 12; // three int matrices of the full-matrix affine program: 835 MB
+        TestContext.Out.WriteLine(string.Create(CultureInfo.InvariantCulture, $"A4-8 memory: {cells} cells, allocated {allocated} bytes (the full affine matrices: {fullBytes} bytes)"));
+        Assert.That(allocated, Is.LessThan(fullBytes / 4), () => $"allocated {allocated:N0} bytes, full matrices {fullBytes:N0}");
+
+        // Biopython 1.88 PairwiseAligner on the same pair (scripts: see the test header of this region): open -7 / extend -2, query_left 0, query_right -3 / -1, target_right 0
+        Assert.That(globalAffine.ExactScore, Is.EqualTo(12242.0));
+        Assert.That(SequenceAligner.LocalAlignAffine(a, b, sm, affineProfile).ExactScore, Is.EqualTo(12242.0));
+        var globalLinear = SequenceAligner.GlobalAlign(a, b, linearScoring, linearProfile);
+        // global linear: 13824 = an independent numpy dynamic program of the same scheme (prefix-maximum row update) = Biopython's own LOCAL score of the pair; Biopython 1.88's linear Needleman-Wunsch
+        // routine itself prints 12499 here: the documented corner of the first column of the last row (see the oracle above), not a difference of the programs
+        Assert.That(globalLinear.ExactScore, Is.EqualTo(13824.0));
+        Assert.That(SequenceAligner.LocalAlign(a, b, linearScoring, linearProfile).ExactScore, Is.EqualTo(13824.0));
+
+        // the rows are a legal alignment of the two sequences and independent of the size of the full-matrix leaves
+        Assert.That(globalAffine.AlignedSequence1.Replace("-", ""), Is.EqualTo(a));
+        Assert.That(globalAffine.AlignedSequence2.Replace("-", ""), Is.EqualTo(b));
+        Assert.That(SequenceAligner.GlobalAlignAffineLinearSpace(a, b, sm, affineProfile, 1L << 18), Is.EqualTo(globalAffine));
     }
 }

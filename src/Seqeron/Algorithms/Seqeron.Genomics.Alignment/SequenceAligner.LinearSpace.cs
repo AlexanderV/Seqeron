@@ -89,7 +89,11 @@ public static partial class SequenceAligner
         CancellationToken ct, ForbiddenPairs? forbidden = null)
     {
         if (local)
+        {
             ends = EndGaps.None;
+            sc = sc.InteriorOnly(); // a local alignment never starts or ends in a gap: the interior gap scores of a GapScoreProfile apply everywhere
+        }
+
         sc.EnsureRange(a.Length, b.Length);
         baseCells = Math.Clamp(baseCells, 1, LinearSpaceCellThreshold);
         int m = a.Length;
@@ -168,7 +172,8 @@ public static partial class SequenceAligner
         int n = j1 - j0;
         if (m <= 1 || n <= 1 || (long)(m + 1) * (n + 1) <= baseCells)
         {
-            var r = LinearAlignCore(a.Substring(i0, m), b.Substring(j0, n), sc, EndGaps.None, ct, null, forceFullMatrix: true,
+            // the sub-rectangle sits at (i0, j0) of the whole a.Length x b.Length matrix: the position of its start / end runs (GapScoreProfile) is the whole matrix's
+            var r = LinearAlignCore(a.Substring(i0, m), b.Substring(j0, n), sc.Window(i0, j0, a.Length, b.Length), EndGaps.None, ct, null, forceFullMatrix: true,
                 forbidden, i0, j0);
             out1.Append(r.AlignedSequence1);
             out2.Append(r.AlignedSequence2);
@@ -176,7 +181,7 @@ public static partial class SequenceAligner
         }
 
         int mid = m / 2;
-        int cross = LinearMidpoint(a, i0, b, j0, m, n, mid, sc, ct, out int total, forbidden);
+        int cross = LinearMidpoint(a, i0, b, j0, m, n, mid, sc.Window(i0, j0, a.Length, b.Length), ct, out int total, forbidden);
         LinearSolve(a, i0, i0 + mid, b, j0, j0 + cross, sc, baseCells, out1, out2, ct, forbidden);
         LinearSolve(a, i0 + mid, i1, b, j0 + cross, j1, sc, baseCells, out1, out2, ct, forbidden);
         return total;
@@ -200,13 +205,17 @@ public static partial class SequenceAligner
         string a, int i0, string b, int j0, int m, int n, int mid, PairScoring sc, CancellationToken ct, out int total,
         ForbiddenPairs? forbidden = null)
     {
-        int d = sc.GapExtend;
+        // gap score per position of a vertical move in each column / a horizontal move in each row: uniform, or the position-dependent scores of a GapScoreProfile (as LinearFillMatrix)
+        var upGap = new int[n + 1];
+        for (int j = 0; j <= n; j++)
+            upGap[j] = sc.XExt(j, n);
         var prev = new int[n + 1];
         var cur = new int[n + 1];
         var crossPrev = new int[n + 1];
         var crossCur = new int[n + 1];
+        int firstRowGap = sc.YExt(0, m);
         for (int j = 0; j <= n; j++)
-            prev[j] = j * d;
+            prev[j] = j * firstRowGap;
 
         for (int r = 1; r <= m; r++)
         {
@@ -216,15 +225,16 @@ public static partial class SequenceAligner
             char ca = a[i0 + r - 1];
             bool carry = r > mid;
             var forbiddenRow = new ForbiddenRow(forbidden, i0 + r);
-            cur[0] = r * d;
+            int leftGap = sc.YExt(r, m);
+            cur[0] = r * upGap[0];
             if (carry)
                 crossCur[0] = crossPrev[0];
 
             for (int j = 1; j <= n; j++)
             {
                 int diag = forbiddenRow.Test(j0 + j) ? ForbiddenPairs.NoDiagonal : prev[j - 1] + sc.Sub(ca, b[j0 + j - 1]);
-                int up = prev[j] + d;
-                int left = cur[j - 1] + d;
+                int up = prev[j] + upGap[j];
+                int left = cur[j - 1] + leftGap;
                 int v = Math.Max(diag, Math.Max(up, left));
                 cur[j] = v;
                 if (carry)
@@ -256,7 +266,7 @@ public static partial class SequenceAligner
     {
         int m = a.Length;
         int n = b.Length;
-        int d = sc.GapExtend;
+        int dx = sc.XInteriorExt, dy = sc.YInteriorExt; // gap in sequence 2 (up) / in sequence 1 (left): direction-specific with a GapScoreProfile
         var hp = new int[n + 1];
         var hc = new int[n + 1];
         var sp = new long[n + 1];
@@ -276,8 +286,8 @@ public static partial class SequenceAligner
             {
                 // A forbidden aligned pair has no diagonal move (Waterman-Eggert); the gap moves are unchanged.
                 int diag = forbiddenRow.Test(j) ? ForbiddenPairs.NoDiagonal : hp[j - 1] + sc.Sub(ca, b[j - 1]);
-                int up = hp[j] + d;
-                int left = hc[j - 1] + d;
+                int up = hp[j] + dx;
+                int left = hc[j - 1] + dy;
                 int v = Math.Max(diag, Math.Max(up, left));
                 if (v <= 0)
                 {
@@ -412,7 +422,7 @@ public static partial class SequenceAligner
         int n = j1 - j0;
         if (m <= 1 || n <= 1 || (long)(m + 1) * (n + 1) <= baseCells)
         {
-            var r = AffineAlignCore(a.Substring(i0, m), b.Substring(j0, n), sc, AlignmentType.Global, EndGaps.None,
+            var r = AffineAlignCore(a.Substring(i0, m), b.Substring(j0, n), sc.Window(i0, j0, a.Length, b.Length), AlignmentType.Global, EndGaps.None,
                 startState, endState, forceFullMatrix: true, forbidden, i0, j0);
             out1.Append(r.AlignedSequence1);
             out2.Append(r.AlignedSequence2);
@@ -420,7 +430,7 @@ public static partial class SequenceAligner
         }
 
         int mid = m / 2;
-        AffineMidpoint(a, i0, b, j0, m, n, mid, sc, startState, endState, ct,
+        AffineMidpoint(a, i0, b, j0, m, n, mid, sc.Window(i0, j0, a.Length, b.Length), startState, endState, ct,
             out int crossCol, out int crossState, out int finalState, out int total, forbidden);
         AffineSolve(a, i0, i0 + mid, b, j0, j0 + crossCol, sc, startState, crossState, baseCells, out1, out2, ct, forbidden);
         AffineSolve(a, i0 + mid, i1, b, j0 + crossCol, j1, sc, crossState, finalState, baseCells, out1, out2, ct, forbidden);
@@ -444,9 +454,17 @@ public static partial class SequenceAligner
         CancellationToken ct, out int crossCol, out int crossState, out int finalState, out int total,
         ForbiddenPairs? forbidden = null)
     {
-        int o = sc.GapOpen;
-        int e = sc.GapExtend;
-        int oe = o + e;
+        // gap scores of a vertical run per column (X) and of a horizontal run per row (Y): uniform, or the position-dependent scores of a GapScoreProfile (as AffineFill)
+        var xe = new int[n + 1];
+        var xoe = new int[n + 1];
+        for (int j = 0; j <= n; j++)
+        {
+            xe[j] = sc.XExt(j, n);
+            xoe[j] = sc.XOpen(j, n) + xe[j];
+        }
+
+        int ye = sc.YExt(0, m);
+        int yoe = sc.YOpen(0, m) + ye;
         var mp = new int[n + 1];
         var xp = new int[n + 1];
         var yp = new int[n + 1];
@@ -467,7 +485,7 @@ public static partial class SequenceAligner
         {
             mp[j] = AffineNegInf;
             xp[j] = AffineNegInf;
-            yp[j] = Math.Max(AffineNegInf, Max3(mp[j - 1] + oe, yp[j - 1] + e, xp[j - 1] + oe));
+            yp[j] = Math.Max(AffineNegInf, Max3(mp[j - 1] + yoe, yp[j - 1] + ye, xp[j - 1] + yoe));
         }
 
         for (int r = 1; r <= m; r++)
@@ -478,15 +496,17 @@ public static partial class SequenceAligner
             char ca = a[i0 + r - 1];
             bool carry = r > mid;
             var forbiddenRow = new ForbiddenRow(forbidden, i0 + r);
+            ye = sc.YExt(r, m);
+            yoe = sc.YOpen(r, m) + ye;
 
             mc[0] = AffineNegInf;
             yc[0] = AffineNegInf;
-            xc[0] = Math.Max(AffineNegInf, Max3(mp[0] + oe, xp[0] + e, yp[0] + oe));
+            xc[0] = Math.Max(AffineNegInf, Max3(mp[0] + xoe[0], xp[0] + xe[0], yp[0] + xoe[0]));
             if (carry)
             {
                 pmc[0] = 0;
                 pyc[0] = 0;
-                int st = PickState(xc[0], mp[0] + oe, StateMatch, xp[0] + e, StateGapInSeq2, StateGapInSeq1);
+                int st = PickState(xc[0], mp[0] + xoe[0], StateMatch, xp[0] + xe[0], StateGapInSeq2, StateGapInSeq1);
                 pxc[0] = StatePayload(st, pmp[0], pxp[0], pyp[0]);
             }
 
@@ -496,18 +516,18 @@ public static partial class SequenceAligner
 
                 int basis = Max3(mp[j - 1], xp[j - 1], yp[j - 1]);
                 mc[j] = forbiddenRow.Test(j0 + j) ? AffineNegInf : Math.Max(AffineNegInf, basis + s);
-                int xv = Math.Max(AffineNegInf, Max3(mp[j] + oe, xp[j] + e, yp[j] + oe));
+                int xv = Math.Max(AffineNegInf, Max3(mp[j] + xoe[j], xp[j] + xe[j], yp[j] + xoe[j]));
                 xc[j] = xv;
-                int yv = Math.Max(AffineNegInf, Max3(mc[j - 1] + oe, yc[j - 1] + e, xc[j - 1] + oe));
+                int yv = Math.Max(AffineNegInf, Max3(mc[j - 1] + yoe, yc[j - 1] + ye, xc[j - 1] + yoe));
                 yc[j] = yv;
 
                 if (carry)
                 {
                     int sm = PickState(basis, mp[j - 1], StateMatch, xp[j - 1], StateGapInSeq2, StateGapInSeq1);
                     pmc[j] = StatePayload(sm, pmp[j - 1], pxp[j - 1], pyp[j - 1]);
-                    int sx = PickState(xv, mp[j] + oe, StateMatch, xp[j] + e, StateGapInSeq2, StateGapInSeq1);
+                    int sx = PickState(xv, mp[j] + xoe[j], StateMatch, xp[j] + xe[j], StateGapInSeq2, StateGapInSeq1);
                     pxc[j] = StatePayload(sx, pmp[j], pxp[j], pyp[j]);
-                    int sy = PickState(yv, mc[j - 1] + oe, StateMatch, yc[j - 1] + e, StateGapInSeq1, StateGapInSeq2);
+                    int sy = PickState(yv, mc[j - 1] + yoe, StateMatch, yc[j - 1] + ye, StateGapInSeq1, StateGapInSeq2);
                     pyc[j] = StatePayload(sy, pmc[j - 1], pxc[j - 1], pyc[j - 1]);
                 }
             }
@@ -553,9 +573,18 @@ public static partial class SequenceAligner
         bool freeEnd2 = ends.HasFlag(EndGaps.FreeEnd2);
         int m = a.Length;
         int n = b.Length;
-        int o = sc.GapOpen;
-        int e = sc.GapExtend;
-        int oe = o + e;
+        // gap scores of a vertical run per column (X) and of a horizontal run per row (Y): uniform, or the interior scores of a GapScoreProfile (this pass runs only for a local alignment, whose scoring is
+        // interior-only, and for the ends-free policies, which have no profile)
+        var xe = new int[n + 1];
+        var xoe = new int[n + 1];
+        for (int j = 0; j <= n; j++)
+        {
+            xe[j] = sc.XExt(j, n);
+            xoe[j] = sc.XOpen(j, n) + xe[j];
+        }
+
+        int ye = sc.YExt(0, m);
+        int yoe = sc.YOpen(0, m) + ye;
 
         var mp = new int[n + 1];
         var xp = new int[n + 1];
@@ -586,8 +615,8 @@ public static partial class SequenceAligner
             }
             else
             {
-                yp[j] = Math.Max(AffineNegInf, Max3(mp[j - 1] + oe, yp[j - 1] + e, xp[j - 1] + oe));
-                int sy = PickState(yp[j], mp[j - 1] + oe, StateMatch, yp[j - 1] + e, StateGapInSeq1, StateGapInSeq2);
+                yp[j] = Math.Max(AffineNegInf, Max3(mp[j - 1] + yoe, yp[j - 1] + ye, xp[j - 1] + yoe));
+                int sy = PickState(yp[j], mp[j - 1] + yoe, StateMatch, yp[j - 1] + ye, StateGapInSeq1, StateGapInSeq2);
                 pyp[j] = PayloadOf(sy, pmp[j - 1], pxp[j - 1], pyp[j - 1]);
             }
         }
@@ -612,6 +641,8 @@ public static partial class SequenceAligner
 
             char ca = a[i - 1];
             var forbiddenRow = new ForbiddenRow(forbidden, i);
+            ye = sc.YExt(i, m);
+            yoe = sc.YOpen(i, m) + ye;
 
             // Column 0.
             mc[0] = freeStart1 ? 0 : AffineNegInf;
@@ -623,8 +654,8 @@ public static partial class SequenceAligner
             }
             else
             {
-                xc[0] = Math.Max(AffineNegInf, Max3(mp[0] + oe, xp[0] + e, yp[0] + oe));
-                int sx0 = PickState(xc[0], mp[0] + oe, StateMatch, xp[0] + e, StateGapInSeq2, StateGapInSeq1);
+                xc[0] = Math.Max(AffineNegInf, Max3(mp[0] + xoe[0], xp[0] + xe[0], yp[0] + xoe[0]));
+                int sx0 = PickState(xc[0], mp[0] + xoe[0], StateMatch, xp[0] + xe[0], StateGapInSeq2, StateGapInSeq1);
                 pxc[0] = PayloadOf(sx0, pmp[0], pxp[0], pyp[0]);
             }
 
@@ -637,9 +668,9 @@ public static partial class SequenceAligner
                     basis = 0;
                 int mv = forbiddenRow.Test(j) ? AffineNegInf : Math.Max(AffineNegInf, basis + s);
                 mc[j] = mv;
-                int xv = Math.Max(AffineNegInf, Max3(mp[j] + oe, xp[j] + e, yp[j] + oe));
+                int xv = Math.Max(AffineNegInf, Max3(mp[j] + xoe[j], xp[j] + xe[j], yp[j] + xoe[j]));
                 xc[j] = xv;
-                int yv = Math.Max(AffineNegInf, Max3(mc[j - 1] + oe, yc[j - 1] + e, xc[j - 1] + oe));
+                int yv = Math.Max(AffineNegInf, Max3(mc[j - 1] + yoe, yc[j - 1] + ye, xc[j - 1] + yoe));
                 yc[j] = yv;
 
                 if (local && basis == 0)
@@ -652,9 +683,9 @@ public static partial class SequenceAligner
                     pmc[j] = PayloadOf(sm, pmp[j - 1], pxp[j - 1], pyp[j - 1]);
                 }
 
-                int sx = PickState(xv, mp[j] + oe, StateMatch, xp[j] + e, StateGapInSeq2, StateGapInSeq1);
+                int sx = PickState(xv, mp[j] + xoe[j], StateMatch, xp[j] + xe[j], StateGapInSeq2, StateGapInSeq1);
                 pxc[j] = PayloadOf(sx, pmp[j], pxp[j], pyp[j]);
-                int sy2 = PickState(yv, mc[j - 1] + oe, StateMatch, yc[j - 1] + e, StateGapInSeq1, StateGapInSeq2);
+                int sy2 = PickState(yv, mc[j - 1] + yoe, StateMatch, yc[j - 1] + ye, StateGapInSeq1, StateGapInSeq2);
                 pyc[j] = PayloadOf(sy2, pmc[j - 1], pxc[j - 1], pyc[j - 1]);
 
                 if (local && mv > bestLocal)

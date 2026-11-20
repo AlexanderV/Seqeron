@@ -103,6 +103,12 @@ internal readonly struct PairScoring
     private ScaledGap XGap(int j, int n)
     {
         var g = Gaps!;
+        if (_windowed)
+        {
+            j += _colOffset;
+            n = _totalCols;
+        }
+
         if (j == 0) return g.Start1;
         return j == n ? g.End1 : g.Interior1;
     }
@@ -110,9 +116,54 @@ internal readonly struct PairScoring
     private ScaledGap YGap(int i, int m)
     {
         var g = Gaps!;
+        if (_windowed)
+        {
+            i += _rowOffset;
+            m = _totalRows;
+        }
+
         if (i == 0) return g.Start2;
         return i == m ? g.End2 : g.Interior2;
     }
+
+    // ---- sub-problems of the linear-space program (A4-8): a sub-rectangle [i0, i1) x [j0, j1) of an m x n matrix is a matrix of its own for the dynamic program, but its column / row 0 and last column /
+    // row are start / end runs of the WHOLE alignment only where they lie on the border of the whole matrix. A window carries that position (a vertical run stays in one column, a horizontal run in one row).
+
+    private readonly bool _windowed;
+    private readonly int _rowOffset, _colOffset, _totalRows, _totalCols;
+
+    private PairScoring(in PairScoring o, ScaledGapProfile? gaps, bool windowed, int rowOffset, int colOffset, int totalRows, int totalCols)
+    {
+        _maxAbs = o._maxAbs;
+        Protein = o.Protein;
+        Match = o.Match;
+        Mismatch = o.Mismatch;
+        GapOpen = o.GapOpen;
+        GapExtend = o.GapExtend;
+        Scale = o.Scale;
+        _table = o._table;
+        _index = o._index;
+        _dim = o._dim;
+        Gaps = gaps;
+        _windowed = windowed;
+        _rowOffset = rowOffset;
+        _colOffset = colOffset;
+        _totalRows = totalRows;
+        _totalCols = totalCols;
+    }
+
+    /// <summary>
+    /// This model for the sub-matrix whose row 0 / column 0 are the rows / columns <paramref name="rowOffset"/> / <paramref name="colOffset"/> of a matrix of <paramref name="totalRows"/> x <paramref name="totalCols"/> cells after row / column 0:
+    /// <see cref="XExt"/> / <see cref="XOpen"/> / <see cref="YExt"/> / <see cref="YOpen"/> then resolve the start / interior / end member of the whole matrix (the index arguments are relative to the window). Without a profile: unchanged.
+    /// </summary>
+    public PairScoring Window(int rowOffset, int colOffset, int totalRows, int totalCols) =>
+        Gaps is null ? this : new PairScoring(this, Gaps, true, rowOffset, colOffset, totalRows, totalCols);
+
+    /// <summary>
+    /// This model with the interior gap scores at every position (a local alignment never starts or ends in a gap: Biopython's local mode ignores the left / right scores); without a profile: unchanged.
+    /// </summary>
+    public PairScoring InteriorOnly() =>
+        Gaps is null ? this : new PairScoring(this, new ScaledGapProfile(Gaps.Interior1, Gaps.Interior1, Gaps.Interior1, Gaps.Interior2, Gaps.Interior2, Gaps.Interior2), false, 0, 0, 0, 0);
 
     /// <summary>
     /// The scalar match / mismatch model with a <see cref="GapScoreProfile"/>: every score is scaled to the smallest integer unit that makes the
@@ -505,7 +556,6 @@ public static partial class SequenceAligner
         // (same rows, same score; see the Linear-space region).
         if (!forceFullMatrix && ExceedsFullMatrixLimit(m, n))
         {
-            RequireFullMatrixForGapProfile(scoring, m, n);
             var big = LinearSpaceAlign(seq1, seq2, scoring, affine: false, local: false, ends, LinearSpaceBaseCells, cancellationToken);
             progress?.Report(1.0);
             return big;
@@ -723,7 +773,6 @@ public static partial class SequenceAligner
         scoring.EnsureRange(seq1.Length, seq2.Length);
         if (!forceFullMatrix && ExceedsFullMatrixLimit(seq1.Length, seq2.Length))
         {
-            RequireFullMatrixForGapProfile(scoring, seq1.Length, seq2.Length);
             return LinearSpaceAlign(seq1, seq2, scoring, affine: true, local, ends, LinearSpaceBaseCells, default);
         }
         bool freeEnd1 = ends.HasFlag(EndGaps.FreeEnd1);
@@ -778,14 +827,6 @@ public static partial class SequenceAligner
         }
 
         return AffineTraceback(seq1, seq2, mm, xx, yy, scoring, local, ends, ci, cj, state, best);
-    }
-
-    /// <summary>A <see cref="GapScoreProfile"/> is only supported by the full-matrix programs (the linear-space program of very large inputs has one gap model).</summary>
-    private static void RequireFullMatrixForGapProfile(PairScoring scoring, int m, int n)
-    {
-        if (scoring.Gaps is not null)
-            throw new ArgumentException(
-                $"Per-direction / per-end gap scores (GapScoreProfile) need the full dynamic-programming matrix: {m} x {n} residues exceed the limit of {LinearSpaceCellThreshold} cells.");
     }
 
     private static (int[,] M, int[,] X, int[,] Y) AffineNewMatrices(int m, int n) =>
@@ -1072,7 +1113,6 @@ public static partial class SequenceAligner
 
         if (!forceFullMatrix && ExceedsFullMatrixLimit(m, n))
         {
-            RequireFullMatrixForGapProfile(scoring, m, n);
             return LinearSpaceAlign(seq1, seq2, scoring, affine: false, local: true, EndGaps.None, LinearSpaceBaseCells, default);
         }
 

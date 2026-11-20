@@ -17,15 +17,16 @@ public static partial class SequenceAligner
     /// <remarks>
     /// Coordinates: a free (zero-score) start / end run is an overhang and is excluded from <see cref="AlignmentResult.StartPosition1"/> … <see cref="AlignmentResult.EndPosition2"/> (the
     /// semi-global convention); the rows still show it against gaps. A priced end run belongs to the alignment (coordinates span the full sequence).
-    /// Verified against Biopython 1.88 <c>PairwiseAligner(mode = "global")</c> on 600 random schemes (docs/Evidence/ALIGN-SEMI-001-Evidence.md). Sequences longer than the
-    /// full-matrix limit (<c>LinearSpaceCellThreshold</c> cells) are refused: the linear-space program has one gap model.
+    /// Verified against Biopython 1.88 <c>PairwiseAligner(mode = "global")</c> on 600 random schemes (docs/Evidence/ALIGN-SEMI-001-Evidence.md). Above <see cref="LinearSpaceCellThreshold"/> cells the exact
+    /// linear-space program (<see cref="GlobalAlignLinearSpace(string, string, ScoringMatrix?, GapScoreProfile, long)"/>: Hirschberg / Myers-Miller with the start / interior / end gap scores resolved by the position of each
+    /// sub-problem in the whole matrix) gives the same rows (A4-8).
     /// </remarks>
     /// <param name="sequence1">First sequence (Biopython target).</param>
     /// <param name="sequence2">Second sequence (Biopython query).</param>
     /// <param name="scoring">Match / mismatch scoring (default <see cref="SimpleDna"/>).</param>
     /// <param name="gapScores">The gap scores.</param>
     /// <exception cref="ArgumentNullException">A sequence or <paramref name="gapScores"/> is null.</exception>
-    /// <exception cref="ArgumentException">A gap score is positive / not finite / finer than 1e-6, or the input is beyond the full-matrix limit.</exception>
+    /// <exception cref="ArgumentException">A gap score is positive / not finite / finer than 1e-6.</exception>
     [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static AlignmentResult GlobalAlign(string sequence1, string sequence2, ScoringMatrix? scoring, GapScoreProfile gapScores) =>
         ProfileAlign(sequence1, sequence2, scoring, null, gapScores, affine: false, AlignmentType.Global);
@@ -87,8 +88,76 @@ public static partial class SequenceAligner
     public static AlignmentResult LocalAlignAffine(string sequence1, string sequence2, MatrixScoring scoring, GapScoreProfile gapScores) =>
         ProfileAlign(sequence1, sequence2, null, scoring, gapScores, affine: true, AlignmentType.Local);
 
+    // ---- A4-8: the exact linear-space programs with a gap profile (forceable, like the other *LinearSpace methods)
+
+    /// <summary>
+    /// Exact linear-space global (Needleman-Wunsch, linear gaps) alignment with the gap scores of a <see cref="GapScoreProfile"/> (O(m + n) memory instead of O(m·n)): the very same rows, score and coordinates as
+    /// <see cref="GlobalAlign(string, string, ScoringMatrix?, GapScoreProfile)"/>, which switches to this program above <see cref="LinearSpaceCellThreshold"/> cells; call this method to force it for any size.
+    /// A sub-problem of the divide and conquer resolves its start / interior / end gap scores by its position in the whole matrix (a vertical run stays in one column, a horizontal run in one row); a local alignment uses the
+    /// interior scores only. The semi-global / local / affine variants below are the same for the corresponding full-matrix methods.
+    /// </summary>
+    /// <param name="sequence1">First sequence (upper-cased internally).</param>
+    /// <param name="sequence2">Second sequence.</param>
+    /// <param name="scoring">Match / mismatch scoring (default <see cref="SimpleDna"/>).</param>
+    /// <param name="gapScores">The gap scores.</param>
+    /// <param name="maxFullMatrixCells">Sub-problems of at most this many cells are solved with the full-matrix core (clamped to <see cref="LinearSpaceCellThreshold"/>); smaller values recurse deeper.</param>
+    /// <exception cref="ArgumentNullException">A sequence or <paramref name="gapScores"/> is null.</exception>
+    /// <exception cref="ArgumentException">A gap score is positive / not finite / finer than 1e-6.</exception>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
+    public static AlignmentResult GlobalAlignLinearSpace(string sequence1, string sequence2, ScoringMatrix? scoring, GapScoreProfile gapScores, long maxFullMatrixCells = LinearSpaceBaseCells) =>
+        ProfileAlign(sequence1, sequence2, scoring, null, gapScores, affine: false, AlignmentType.Global, Math.Max(1, maxFullMatrixCells));
+
+    /// <summary>Linear-space <see cref="GlobalAlign(string, string, MatrixScoring, GapScoreProfile)"/> with a substitution matrix and fractional gap scores.</summary>
+    public static AlignmentResult GlobalAlignLinearSpace(string sequence1, string sequence2, MatrixScoring scoring, GapScoreProfile gapScores, long maxFullMatrixCells = LinearSpaceBaseCells) =>
+        ProfileAlign(sequence1, sequence2, null, scoring, gapScores, affine: false, AlignmentType.Global, Math.Max(1, maxFullMatrixCells));
+
+    /// <summary>Linear-space <see cref="GlobalAlignAffine(string, string, ScoringMatrix?, GapScoreProfile)"/> (see <see cref="GlobalAlignLinearSpace(string, string, ScoringMatrix?, GapScoreProfile, long)"/>).</summary>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
+    public static AlignmentResult GlobalAlignAffineLinearSpace(string sequence1, string sequence2, ScoringMatrix? scoring, GapScoreProfile gapScores, long maxFullMatrixCells = LinearSpaceBaseCells) =>
+        ProfileAlign(sequence1, sequence2, scoring, null, gapScores, affine: true, AlignmentType.Global, Math.Max(1, maxFullMatrixCells));
+
+    /// <summary>Linear-space <see cref="GlobalAlignAffine(string, string, MatrixScoring, GapScoreProfile)"/> with a substitution matrix and fractional gap scores.</summary>
+    public static AlignmentResult GlobalAlignAffineLinearSpace(string sequence1, string sequence2, MatrixScoring scoring, GapScoreProfile gapScores, long maxFullMatrixCells = LinearSpaceBaseCells) =>
+        ProfileAlign(sequence1, sequence2, null, scoring, gapScores, affine: true, AlignmentType.Global, Math.Max(1, maxFullMatrixCells));
+
+    /// <summary>Linear-space <see cref="SemiGlobalAlign(string, string, ScoringMatrix?, GapScoreProfile)"/> (see <see cref="GlobalAlignLinearSpace(string, string, ScoringMatrix?, GapScoreProfile, long)"/>).</summary>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
+    public static AlignmentResult SemiGlobalAlignLinearSpace(string sequence1, string sequence2, ScoringMatrix? scoring, GapScoreProfile gapScores, long maxFullMatrixCells = LinearSpaceBaseCells) =>
+        ProfileAlign(sequence1, sequence2, scoring, null, gapScores, affine: false, AlignmentType.SemiGlobal, Math.Max(1, maxFullMatrixCells));
+
+    /// <summary>Linear-space <see cref="SemiGlobalAlign(string, string, MatrixScoring, GapScoreProfile)"/> with a substitution matrix and fractional gap scores.</summary>
+    public static AlignmentResult SemiGlobalAlignLinearSpace(string sequence1, string sequence2, MatrixScoring scoring, GapScoreProfile gapScores, long maxFullMatrixCells = LinearSpaceBaseCells) =>
+        ProfileAlign(sequence1, sequence2, null, scoring, gapScores, affine: false, AlignmentType.SemiGlobal, Math.Max(1, maxFullMatrixCells));
+
+    /// <summary>Linear-space <see cref="SemiGlobalAlignAffine(string, string, ScoringMatrix?, GapScoreProfile)"/> (see <see cref="GlobalAlignLinearSpace(string, string, ScoringMatrix?, GapScoreProfile, long)"/>).</summary>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
+    public static AlignmentResult SemiGlobalAlignAffineLinearSpace(string sequence1, string sequence2, ScoringMatrix? scoring, GapScoreProfile gapScores, long maxFullMatrixCells = LinearSpaceBaseCells) =>
+        ProfileAlign(sequence1, sequence2, scoring, null, gapScores, affine: true, AlignmentType.SemiGlobal, Math.Max(1, maxFullMatrixCells));
+
+    /// <summary>Linear-space <see cref="SemiGlobalAlignAffine(string, string, MatrixScoring, GapScoreProfile)"/> with a substitution matrix and fractional gap scores.</summary>
+    public static AlignmentResult SemiGlobalAlignAffineLinearSpace(string sequence1, string sequence2, MatrixScoring scoring, GapScoreProfile gapScores, long maxFullMatrixCells = LinearSpaceBaseCells) =>
+        ProfileAlign(sequence1, sequence2, null, scoring, gapScores, affine: true, AlignmentType.SemiGlobal, Math.Max(1, maxFullMatrixCells));
+
+    /// <summary>Linear-space <see cref="LocalAlign(string, string, ScoringMatrix?, GapScoreProfile)"/> (see <see cref="GlobalAlignLinearSpace(string, string, ScoringMatrix?, GapScoreProfile, long)"/>).</summary>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
+    public static AlignmentResult LocalAlignLinearSpace(string sequence1, string sequence2, ScoringMatrix? scoring, GapScoreProfile gapScores, long maxFullMatrixCells = LinearSpaceBaseCells) =>
+        ProfileAlign(sequence1, sequence2, scoring, null, gapScores, affine: false, AlignmentType.Local, Math.Max(1, maxFullMatrixCells));
+
+    /// <summary>Linear-space <see cref="LocalAlign(string, string, MatrixScoring, GapScoreProfile)"/> with a substitution matrix and fractional gap scores.</summary>
+    public static AlignmentResult LocalAlignLinearSpace(string sequence1, string sequence2, MatrixScoring scoring, GapScoreProfile gapScores, long maxFullMatrixCells = LinearSpaceBaseCells) =>
+        ProfileAlign(sequence1, sequence2, null, scoring, gapScores, affine: false, AlignmentType.Local, Math.Max(1, maxFullMatrixCells));
+
+    /// <summary>Linear-space <see cref="LocalAlignAffine(string, string, ScoringMatrix?, GapScoreProfile)"/> (see <see cref="GlobalAlignLinearSpace(string, string, ScoringMatrix?, GapScoreProfile, long)"/>).</summary>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
+    public static AlignmentResult LocalAlignAffineLinearSpace(string sequence1, string sequence2, ScoringMatrix? scoring, GapScoreProfile gapScores, long maxFullMatrixCells = LinearSpaceBaseCells) =>
+        ProfileAlign(sequence1, sequence2, scoring, null, gapScores, affine: true, AlignmentType.Local, Math.Max(1, maxFullMatrixCells));
+
+    /// <summary>Linear-space <see cref="LocalAlignAffine(string, string, MatrixScoring, GapScoreProfile)"/> with a substitution matrix and fractional gap scores.</summary>
+    public static AlignmentResult LocalAlignAffineLinearSpace(string sequence1, string sequence2, MatrixScoring scoring, GapScoreProfile gapScores, long maxFullMatrixCells = LinearSpaceBaseCells) =>
+        ProfileAlign(sequence1, sequence2, null, scoring, gapScores, affine: true, AlignmentType.Local, Math.Max(1, maxFullMatrixCells));
+
     private static AlignmentResult ProfileAlign(
-        string sequence1, string sequence2, ScoringMatrix? scalar, MatrixScoring? matrix, GapScoreProfile profile, bool affine, AlignmentType type)
+        string sequence1, string sequence2, ScoringMatrix? scalar, MatrixScoring? matrix, GapScoreProfile profile, bool affine, AlignmentType type, long linearSpaceBaseCells = 0)
     {
         ArgumentNullException.ThrowIfNull(sequence1);
         ArgumentNullException.ThrowIfNull(sequence2);
@@ -102,7 +171,9 @@ public static partial class SequenceAligner
 
         bool local = type == AlignmentType.Local;
         AlignmentResult r;
-        if (affine)
+        if (linearSpaceBaseCells > 0)
+            r = LinearSpaceAlign(a, b, ps, affine, local, EndGaps.None, linearSpaceBaseCells, default); // forced: sub-problems of at most linearSpaceBaseCells cells are solved by the full-matrix core
+        else if (affine)
             r = AffineAlignCore(a, b, ps, local ? AlignmentType.Local : AlignmentType.Global);
         else if (local)
             r = LocalAlignCore(a, b, ps);
