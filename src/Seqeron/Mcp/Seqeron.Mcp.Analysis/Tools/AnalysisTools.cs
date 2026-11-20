@@ -773,6 +773,13 @@ public partial class AnalysisTools
         return new FindKnownMotifsResult(matches, reverse, matchMismatches, reverseMismatches);
     }
 
+    private static global::Seqeron.Genomics.Infrastructure.EmbossReportFormat ParseEmbossReportFormat(string format) => (format ?? "").Trim().ToLowerInvariant() switch
+    {
+        "gff" => global::Seqeron.Genomics.Infrastructure.EmbossReportFormat.Gff,
+        "excel" => global::Seqeron.Genomics.Infrastructure.EmbossReportFormat.Excel,
+        _ => throw new ArgumentException("reportFormat must be gff or excel (the other EMBOSS report formats are not written yet)", nameof(format)),
+    };
+
     [McpServerTool(Name = "find_pattern_hits", Title = "Genome — fuzznuc Pattern Search", ReadOnly = true)]
     [Description("Search a DNA sequence with an EMBOSS fuzznuc pattern (the -pattern language): IUPAC letters, classes [ACG], exclusions {AG}, repeats N(3), length ranges A(2,4) (every matching window length is reported), '-' separators, the anchors '<' (start of the sequence) and '>' (end), a terminating '.'; e.g. [CG](5)TG{A}N(1,5)C. maxMismatches = fuzznuc -pmismatch (Hamming, substitutions only; with a range the extra repeats beyond n of X(n,m) must match exactly, as in fuzznuc); bothStrands = -complement (the reverse-strand pattern is the reversed, complemented one with swapped anchors; positions are forward-strand starts). Give one pattern, or patternFile = the text of a fuzznuc pattern file (one pattern per line, or FASTA '>name' + pattern) for several named patterns. Verified against EMBOSS fuzznuc 6.6.0 on 3300 random patterns. By default a symbol other than A/C/G/T in the sequence matches nothing and costs a mismatch; with sequenceAmbiguity = true the sequence is read as the fuzznuc binary reads it (1350 more oracle rows with ambiguity codes in the sequence): a pattern IUPAC letter matches every sequence symbol whose base set lies within the letter's (pattern R matches A, G, R; sequence R matches pattern R, V, D, N but not A, M, Y), N matches every symbol, a class [ACG] matches its plain bases only, an exclusion {AG} matches every symbol not listed (ambiguity codes included), U reads as T, and the reverse strand is the IUPAC reverse complement of the sequence (the reported patterns are the plain-base normal form). Positions 0-based; hits ordered by position, length, forward before reverse. Input sequences are read as EMBOSS reads them (A4-3, one shared reader): only letters and '*' are kept; gap characters (- . ~ ?), '#', '+', '_', digits, blanks and every other character are dropped first, and positions, lengths and scores count the cleaned sequence (e.g. needle of AC-GTTAGC.TT* and ACGTTAGCTT: score 58, length 11, as the program).")]
     public static FindPatternHitsResult FindPatternHits(
@@ -782,8 +789,37 @@ public partial class AnalysisTools
         [Description("Maximum substitutions per hit (fuzznuc -pmismatch, default 0).")] int maxMismatches = 0,
         [Description("Also search the reverse-complement strand (fuzznuc -complement, default false).")] bool bothStrands = false,
         [Description("Read IUPAC ambiguity codes in the SEQUENCE as the fuzznuc binary does (default false: they match nothing).")] bool sequenceAmbiguity = false,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        [Description("EMBOSS sequence-input qualifiers as on the command line: -sbegin 3 -send -2 -sreverse -slower -supper -scircular -snucleotide -sprotein (begin / end 1-based, negative = from the end; -sreverse reverse-complements a nucleotide sequence, the range then refers to the original). Measured on EMBOSS 6.6.0 per program: " + "fuzznuc searches the range of the (reverse-complemented) sequence and reports the ORIGINAL strand: positions are original, the strand is flipped for -sreverse; the sequence is read as fuzznuc reads it (ambiguity codes on).")] string? sequenceQualifiers = null,
+        [Description("EMBOSS report format (-rformat): gff or excel. The report text of the program (the whole file; #!Date is today; sequence name from sequenceName) is returned in the result field report; only for a search without sequenceQualifiers. The other formats of the program (seqtable, table, embl, genbank, motif, ...) are not written yet. Omit for no report text.")] string? reportFormat = null,
+        [Description("Sequence name printed in the report (default sequence).")] string sequenceName = "sequence")
     {
+        if (reportFormat is not null)
+        {
+            var format = ParseEmbossReportFormat(reportFormat);
+            if (sequenceQualifiers is not null || string.IsNullOrWhiteSpace(pattern) || !string.IsNullOrWhiteSpace(patternFile))
+                throw new ArgumentException("reportFormat needs one pattern and no sequenceQualifiers", nameof(reportFormat));
+            var plain = FindPatternHits(sequence, pattern, null, maxMismatches, bothStrands, sequenceAmbiguity, cancellationToken, null, null);
+            var hitList = plain.Hits.Select(h => new global::Seqeron.Genomics.Analysis.PatternHit(h.Position, h.Length, h.Strand == "reverse", h.Mismatches)).ToList();
+            var text = global::Seqeron.Genomics.Infrastructure.EmbossReportWriter.Write(global::Seqeron.Genomics.Analysis.EmbossReports.Fuzznuc(sequenceName, sequence, pattern, hitList, "pattern", maxMismatches), format, DateTime.Now);
+            return plain with { Report = text };
+        }
+
+        if (sequenceQualifiers is not null)
+        {
+            var q = global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.Parse(sequenceQualifiers);
+            if (maxMismatches < 0)
+                throw new ArgumentOutOfRangeException(nameof(maxMismatches), "maxMismatches cannot be negative");
+            if (string.IsNullOrWhiteSpace(pattern) == string.IsNullOrWhiteSpace(patternFile))
+                throw new ArgumentException("Give exactly one of pattern and patternFile", nameof(pattern));
+            var named = string.IsNullOrWhiteSpace(patternFile)
+                ? new[] { new NamedPattern("pattern1", FuzznucPattern.Parse(pattern!)) }
+                : FuzznucPattern.ParsePatternFile(patternFile).ToArray();
+            var qualifiedItems = named.SelectMany(p => GenomicAnalyzer.FindPatternHits(sequence, q, p.Pattern, maxMismatches, bothStrands, cancellationToken)
+                .Select(h => new PatternHitItem(p.Name, h.Position, h.Length, h.IsReverseStrand ? "reverse" : "forward", h.Mismatches))).ToArray();
+            return new FindPatternHitsResult(named.ToDictionary(p => p.Name, p => p.Pattern.ToString()), qualifiedItems);
+        }
+
         var nucleotides = RequireEmbossIupacDna(sequence, nameof(sequence));
         if (maxMismatches < 0)
             throw new ArgumentOutOfRangeException(nameof(maxMismatches), "maxMismatches cannot be negative");
@@ -1688,7 +1724,9 @@ public partial class AnalysisTools
         [Description("distmat -ambiguous (default false).")] bool ambiguous = false,
         [Description("distmat -position: 123 (default), 12, or for nucleotides 1, 2, 3.")] int position = 123,
         [Description("distmat -calculatea: calculate the Jin-Nei parameter a instead of using parameterA (default false).")] bool calculateA = false,
-        [Description("distmat -parametera: the Jin-Nei Gamma parameter a (default 1.0).")] double parameterA = 1.0)
+        [Description("distmat -parametera: the Jin-Nei Gamma parameter a (default 1.0).")] double parameterA = 1.0,
+        [Description("EMBOSS sequence-input qualifiers as on the command line: -sbegin 3 -send -2 -sreverse -slower -supper -scircular -snucleotide -sprotein (begin / end 1-based, negative = from the end; -sreverse reverse-complements a nucleotide sequence, the range then refers to the original). Measured on EMBOSS 6.6.0 per program: " + "distmat ignores -sbegin / -send; -sreverse reverse-complements every row of a nucleotide set; the set is nucleotide when its first row is (or -snucleotide); a protein set uses proteinMethod.")] string? sequenceQualifiers = null,
+        [Description("distmat -protmethod for a protein set when sequenceQualifiers is given: same names as method (default: the same as method).")] string? proteinMethod = null)
     {
         if (sequences is null || sequences.Length < 2)
             throw new ArgumentException("At least two sequences are required", nameof(sequences));
@@ -1702,18 +1740,28 @@ public partial class AnalysisTools
             "jin-nei" => (global::Seqeron.Genomics.Analysis.MsaDistanceMethod.JinNei, "jin-nei"),
             _ => throw new ArgumentException("method must be 'uncorrected', 'jukes-cantor', 'kimura', 'tamura', 'tajima-nei' or 'jin-nei'", nameof(method)),
         };
-        var d = global::Seqeron.Genomics.Analysis.MultipleAlignmentStatistics.CalculateDistanceMatrix(
-            sequences,
-            new global::Seqeron.Genomics.Analysis.MsaDistanceOptions
+        var distanceOptions = new global::Seqeron.Genomics.Analysis.MsaDistanceOptions
+        {
+            Method = m,
+            ResidueType = ParseConsensusResidueType(residueType),
+            GapWeight = gapWeight,
+            Ambiguous = ambiguous,
+            Position = position,
+            CalculateA = calculateA,
+            ParameterA = parameterA,
+        };
+        global::Seqeron.Genomics.Analysis.MsaDistanceMethod? protein = null;
+        if (proteinMethod is not null)
+            protein = proteinMethod.Trim().ToLowerInvariant() switch
             {
-                Method = m,
-                ResidueType = ParseConsensusResidueType(residueType),
-                GapWeight = gapWeight,
-                Ambiguous = ambiguous,
-                Position = position,
-                CalculateA = calculateA,
-                ParameterA = parameterA,
-            });
+                "uncorrected" => global::Seqeron.Genomics.Analysis.MsaDistanceMethod.Uncorrected,
+                "jukes-cantor" or "jc" => global::Seqeron.Genomics.Analysis.MsaDistanceMethod.JukesCantor,
+                "kimura" => global::Seqeron.Genomics.Analysis.MsaDistanceMethod.Kimura,
+                _ => throw new ArgumentException("proteinMethod must be 'uncorrected', 'jukes-cantor' or 'kimura'", nameof(proteinMethod)),
+            };
+        var d = sequenceQualifiers is null
+            ? global::Seqeron.Genomics.Analysis.MultipleAlignmentStatistics.CalculateDistanceMatrix(sequences, distanceOptions)
+            : global::Seqeron.Genomics.Analysis.MultipleAlignmentStatistics.CalculateDistanceMatrix(sequences, global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.Parse(sequenceQualifiers), distanceOptions, protein);
         return new AlignmentDistanceMatrixResult(name, ToJagged(d));
     }
 

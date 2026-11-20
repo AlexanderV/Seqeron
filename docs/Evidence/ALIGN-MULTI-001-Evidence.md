@@ -779,3 +779,4 @@ Sources actually opened (raw.githubusercontent.com/lh3/minimap2 tag v2.26, User-
 
 **A5-5 (MCP documents).** Source of truth = the `[McpServerTool]` / `[Description]` attributes read by reflection (`scripts/docs/McpToolDump`); 216 tools dumped (Alignment 76, Analysis 140); 80 documents of B09's tools regenerated.
 
+**A5-9 (minimap2 presets, WP42).** minimap2 2.26 `options.c` `mm_set_opt` (raw.githubusercontent.com/lh3/minimap2 v2.26, `options.c`, `main.c`, `map.c`, `lchain.c`, `format.c`, `hit.c` opened): 11 presets, `-F`, `-G` (`mm_mapopt_max_intron_len`: only with splice), `is_cdna` of `mg_lchain_dp`, `mm_write_paf3` / `write_tags`. Installed program: 11 x 220 random cases (`generate_minimap2_preset_oracle.py`, seed 20261210) whole stdout equal.

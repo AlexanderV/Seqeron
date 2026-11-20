@@ -28,6 +28,7 @@ EMBOSS 6.6.0 seqmatchall: the all-against-all comparison of a set of sequences b
 |-----------|------|----------|-------------|
 | `sequences` | array<string> | Yes | The sequences (at least one; nucleotide or protein letters). |
 | `wordSize` | integer | No | Word size (seqmatchall -wordsize, default 4, >= 1). (default: 4) |
+| `sequenceQualifiers` | string | No | EMBOSS sequence-input qualifiers as on the command line: -sbegin 3 -send -2 -sreverse -slower -supper -scircular -snucleotide -sprotein (begin / end 1-based, negative = from the end; -sreverse reverse-complements a nucleotide sequence, the range then refers to the original). Measured on EMBOSS 6.6.0 per program: seqmatchall ignores -sbegin / -send; -sreverse (taken by the whole set when its first sequence is nucleotide) only labels the sequences reversed: the words are matched on the sequences as given and numbered from the end. The result then lists the program's start / end positions (reversed: start > end) in 'reportedMatches'. |
 
 ## Output Schema
 

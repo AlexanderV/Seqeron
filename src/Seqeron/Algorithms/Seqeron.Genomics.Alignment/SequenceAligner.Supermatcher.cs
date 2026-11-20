@@ -31,8 +31,21 @@ public static partial class SequenceAligner
     {
         ArgumentNullException.ThrowIfNull(queries);
         ArgumentNullException.ThrowIfNull(targets);
-        queries = EmbossSequenceReader.Clean(queries);
-        targets = EmbossSequenceReader.Clean(targets);
+        IReadOnlyList<EmbossSequenceView>? queryViews = null, targetViews = null;
+        bool? proteinByFirst = null;
+        if (EmbossSetInput.Any(queries, targets))
+        {
+            // A5-7: the qualifiers (-sbegin -send -sreverse ...) of the inputs: asequence has the ACD type any, bsequence stopprotein / nucleotide by the first query (acdprotein)
+            (queries, queryViews) = EmbossSetInput.ReadAll(queries, EmbossSequenceType.Any);
+            proteinByFirst = queryViews.Count > 0 && !queryViews[0].IsNucleotide;
+            (targets, targetViews) = EmbossSetInput.ReadAll(targets, proteinByFirst == true ? EmbossSequenceType.StopProtein : EmbossSequenceType.Nucleotide, EmbossInputKind.Set);
+        }
+        else
+        {
+            queries = EmbossSequenceReader.Clean(queries);
+            targets = EmbossSequenceReader.Clean(targets);
+        }
+
         RequireEmbossRange(gapOpen, 0, 100, nameof(gapOpen), "-gapopen", "supermatcher");
         RequireEmbossRange(gapExtend, 0, 10, nameof(gapExtend), "-gapextend", "supermatcher");
         if (wordLength < 3)
@@ -43,7 +56,7 @@ public static partial class SequenceAligner
             throw new ArgumentOutOfRangeException(nameof(minScore), minScore, "-minscore is a finite number, 0 or more, in EMBOSS supermatcher.");
         if (targets.Count == 0)
             throw new ArgumentException("At least one target sequence is required.", nameof(targets));
-        matrix ??= queries.Concat(targets).All(s => EmbossSequenceReader.IsNucleotide(s.Residues)) ? SubstitutionMatrix.EdnaFull : SubstitutionMatrix.Blosum62;
+        matrix ??= EmbossSetInput.DefaultMatrix(proteinByFirst, queries.Concat(targets));
         var table = new EmbossScoreTable(matrix);
         float gapopen = RoundFloat((float)gapOpen, 8);
         float gapextend = RoundFloat((float)gapExtend, 8);
@@ -52,8 +65,9 @@ public static partial class SequenceAligner
         var words = new SupermatcherWords(targets, wordLength);
         var alignments = new List<EmbossPairAlignment>();
         var errors = new StringBuilder();
-        foreach (var query in queries)
+        for (int qi = 0; qi < queries.Count; qi++)
         {
+            var query = queries[qi];
             AlignmentCancellation.ThrowIfRequested();
             var matchLists = words.Search(query.Residues);
             for (int k = 0; k < targets.Count; k++)
@@ -106,23 +120,23 @@ public static partial class SequenceAligner
                 if (outputFormat is EmbossAlignFormat.Match or EmbossAlignFormat.Score)
                     alignments.Add(new EmbossPairAlignment(new EmbossAlignedSequence(target.Name, targetRow.Replace('.', '-')), new EmbossAlignedSequence(query.Name, queryRow.Replace('.', '-')), score));
                 else
-                    alignments.Add(ReportLocal(query, target, queryRow, targetRow, querystart, targetstart, score));
+                    alignments.Add(ReportLocal(query, target, queryRow, targetRow, querystart, targetstart, score, queryViews?[qi], targetViews?[k]));
             }
         }
 
-        return new EmbossProgramResult(alignments, errors.ToString());
+        return new EmbossProgramResult(alignments, errors.ToString(), MatrixFileName(matrix));
     }
 
     // embAlignReportLocal: the rows carry '.' for gaps (standardised to '-'), the residues outside the aligned part are the offsets (before) and offends (after)
-    private static EmbossPairAlignment ReportLocal(EmbossSequence first, EmbossSequence second, string rowFirst, string rowSecond, int startFirst, int startSecond, float score)
+    private static EmbossPairAlignment ReportLocal(EmbossSequence first, EmbossSequence second, string rowFirst, string rowSecond, int startFirst, int startSecond, float score,
+        EmbossSequenceView? firstView = null, EmbossSequenceView? secondView = null)
     {
         static int Gaps(string row) => row.Count(c => c is '.' or '-' or ' ');
         int offend1 = first.Residues.Length - rowFirst.Length - startFirst + Gaps(rowFirst);
         int offend2 = second.Residues.Length - rowSecond.Length - startSecond + Gaps(rowSecond);
-        return new EmbossPairAlignment(
-            new EmbossAlignedSequence(first.Name, rowFirst.Replace('.', '-'), startFirst, offend1, Description: first.Description, Usa: first.Name),
-            new EmbossAlignedSequence(second.Name, rowSecond.Replace('.', '-'), startSecond, offend2, Description: second.Description, Usa: second.Name),
-            score);
+        var a = new EmbossAlignedSequence(first.Name, rowFirst.Replace('.', '-'), startFirst, offend1, Description: first.Description, Usa: first.Name);
+        var b = new EmbossAlignedSequence(second.Name, rowSecond.Replace('.', '-'), startSecond, offend2, Description: second.Description, Usa: second.Name);
+        return new EmbossPairAlignment(firstView is null ? a : a.WithView(firstView), secondView is null ? b : b.WithView(secondView), score);
     }
 
     private readonly record struct WordMatch(int TargetStart, int QueryStart, int Length);

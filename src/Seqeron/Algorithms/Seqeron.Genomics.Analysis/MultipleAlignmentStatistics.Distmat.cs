@@ -48,6 +48,29 @@ public static partial class MultipleAlignmentStatistics
     private static char At(string s, int k) => k < s.Length ? s[k] : '\0';
 
     /// <summary>
+    /// <see cref="CalculateDistanceMatrix(IReadOnlyList{string}, MsaDistanceOptions)"/> for an alignment read with the sequence qualifiers (A5-7; ACD type <c>seqset</c> <c>gapany</c>): the set is nucleotide when <c>-snucleotide</c> forces it or when its FIRST row is (<c>-sprotein</c> has no effect on a set), and distmat then uses <c>-nucmethod</c> (<see cref="MsaDistanceOptions.Method"/>) or <c>-protmethod</c> (<paramref name="proteinMethod"/>). Measured on 6.6.0: distmat does <b>not</b> use
+    /// <c>-sbegin</c> / <c>-send</c> (the whole alignment is compared); <c>-sreverse</c> reverse-complements every row of a nucleotide set (the distances of the methods do not change, the gap columns move with the rows); the case options do not matter.
+    /// </summary>
+    /// <param name="alignedRows">The rows.</param>
+    /// <param name="qualifiers">The sequence qualifiers; null = none.</param>
+    /// <param name="options">The distmat options (<see cref="MsaDistanceOptions.Method"/> is <c>-nucmethod</c>).</param>
+    /// <param name="proteinMethod"><c>-protmethod</c>; null = <see cref="MsaDistanceOptions.Method"/>.</param>
+    public static double[,] CalculateDistanceMatrix(IReadOnlyList<string> alignedRows, EmbossSequenceQualifiers? qualifiers, MsaDistanceOptions options, MsaDistanceMethod? proteinMethod = null)
+    {
+        ArgumentNullException.ThrowIfNull(alignedRows);
+        ArgumentNullException.ThrowIfNull(options);
+        var q = qualifiers ?? EmbossSequenceQualifiers.None;
+        var read = alignedRows.Select(r => r is null ? null! : EmbossSequenceReader.CleanGapped(r)).ToList();
+        bool nucleotide = false;
+        if (read.Count > 0 && read[0] is not null)
+            nucleotide = q.Nucleotide || EmbossSequenceReader.IsNucleotide(read[0]);      // ajSeqsetIsNuc: the set's forced nucleotide type or the letters of the first row (-sprotein does not reach the set)
+        if (nucleotide && q.Reverse)
+            read = [.. read.Select(r => r is null ? null! : EmbossInputSequence.ReverseComplement(r))];
+        var effective = options with { ResidueType = nucleotide ? ConsensusResidueType.Nucleotide : ConsensusResidueType.Protein, Method = nucleotide ? options.Method : proteinMethod ?? options.Method };
+        return CalculateDistanceMatrix(read, effective);
+    }
+
+    /// <summary>
     /// Pairwise distance matrix of aligned rows exactly as EMBOSS <c>distmat</c> 6.6.0 computes it (every <c>-nucmethod</c> / <c>-protmethod</c>, <c>-gapweight</c>, <c>-ambiguous</c>, <c>-position</c>,
     /// <c>-calculatea</c>, <c>-parametera</c>): the fraction D of the printed percentage (the program prints 100 D with two decimals), single-precision arithmetic as in the C source, symmetric with a
     /// zero diagonal. Non-finite entries (nan / inf) are what the program prints.

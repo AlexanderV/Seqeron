@@ -31,6 +31,9 @@ Search a DNA sequence with an EMBOSS fuzznuc pattern (the -pattern language): IU
 | `maxMismatches` | integer | No | Maximum substitutions per hit (fuzznuc -pmismatch, default 0). (default: 0) |
 | `bothStrands` | boolean | No | Also search the reverse-complement strand (fuzznuc -complement, default false). (default: false) |
 | `sequenceAmbiguity` | boolean | No | Read IUPAC ambiguity codes in the SEQUENCE as the fuzznuc binary does (default false: they match nothing). |
+| `sequenceQualifiers` | string | No | EMBOSS sequence-input qualifiers as on the command line: -sbegin 3 -send -2 -sreverse -slower -supper -scircular -snucleotide -sprotein (begin / end 1-based, negative = from the end; -sreverse reverse-complements a nucleotide sequence, the range then refers to the original). Measured on EMBOSS 6.6.0 per program: fuzznuc searches the range of the (reverse-complemented) sequence and reports the ORIGINAL strand: positions are original, the strand is flipped for -sreverse; the sequence is read as fuzznuc reads it (ambiguity codes on). |
+| `reportFormat` | string | No | EMBOSS report format (-rformat): gff or excel. The report text of the program (the whole file; #!Date is today; sequence name from sequenceName) is returned in the result field report; only for a search without sequenceQualifiers. The other formats of the program (seqtable, table, embl, genbank, motif, ...) are not written yet. Omit for no report text. |
+| `sequenceName` | string | No | Sequence name printed in the report (default sequence). |
 
 ## Output Schema
 

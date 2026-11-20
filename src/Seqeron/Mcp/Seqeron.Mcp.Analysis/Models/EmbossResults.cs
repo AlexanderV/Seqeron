@@ -15,19 +15,24 @@ public record EmbossTandemItem(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Consensus = null);
 
 /// <summary>Result of <c>find_tandem_repeats_emboss</c>: the repeats in the program's report order.</summary>
-public record FindEmbossTandemRepeatsResult(string Program, EmbossTandemItem[] Repeats);
+public record FindEmbossTandemRepeatsResult(string Program, EmbossTandemItem[] Repeats, [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Report = null);
 
 /// <summary>A match of <c>seqmatchall</c>: sequence indices (0-based, first &lt; second), 0-based starts and the length.</summary>
 public record WordMatchItem(int Sequence1, int Sequence2, int Position1, int Position2, int Length);
 
 /// <summary>Result of <c>seqmatchall</c>: every maximal exact word match of every pair.</summary>
-public record SeqMatchAllResult(WordMatchItem[] Matches);
+public record SeqMatchAllResult(
+    WordMatchItem[] Matches,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] ReportedWordMatchItem[]? ReportedMatches = null);
+
+/// <summary>A seqmatchall match as the program's report prints it with <c>sequenceQualifiers</c>: 1-based positions in the original sequences, start &gt; end on a reversed one (A5-7).</summary>
+public record ReportedWordMatchItem(int Sequence1, int Sequence2, int Start1, int End1, int Start2, int End2, int Length, bool Reversed);
 
 /// <summary>A hit of <c>fuzzpro</c>: 0-based start and length.</summary>
 public record ProteinPatternHitItem(int Position, int Length);
 
 /// <summary>Result of <c>fuzzpro</c>: the normalised pattern and every matching window.</summary>
-public record FuzzproResult(string Pattern, ProteinPatternHitItem[] Hits);
+public record FuzzproResult(string Pattern, ProteinPatternHitItem[] Hits, [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Report = null);
 
 /// <summary>A hit of <c>fuzztran</c>: frame, protein start / end (1-based), the matched residues, the forward-strand nucleotide location (0-based) and the coordinates the program prints.</summary>
 public record TranslatedPatternHitItem(
@@ -36,7 +41,7 @@ public record TranslatedPatternHitItem(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? EmbossEnd = null);
 
 /// <summary>Result of <c>fuzztran</c>: the normalised pattern and the hits per frame.</summary>
-public record FuzztranResult(string Pattern, TranslatedPatternHitItem[] Hits);
+public record FuzztranResult(string Pattern, TranslatedPatternHitItem[] Hits, [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Report = null);
 
 /// <summary>Result of <c>showalign</c>: the text the program writes (blocks of number line, ruler, reference, rows and consensus).</summary>
 public record ShowAlignResult(string Text);
@@ -52,3 +57,6 @@ public record NucmerClusterItem(string Strand, NucmerClusterMatchItem[] Matches)
 
 /// <summary>Result of <c>nucmer_clusters</c>: the clusters of the forward strand, then of the reverse-complement strand.</summary>
 public record NucmerClustersResult(NucmerClusterItem[] Clusters);
+
+/// <summary>The text a Mash command writes (<c>mash_bounds</c>, <c>mash_dist</c>, <c>mash_triangle</c>), byte for byte as the program prints it.</summary>
+public record MashTextResult(string Text);

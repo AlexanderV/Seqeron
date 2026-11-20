@@ -1218,6 +1218,27 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L1273"
   },
   {
+    "tool": "mash_bounds",
+    "server": "Analysis",
+    "methodId": "MashCommands.Bounds",
+    "docPath": "docs/mcp/tools/analysis/mash_bounds.md",
+    "sourceLink": ""
+  },
+  {
+    "tool": "mash_dist",
+    "server": "Analysis",
+    "methodId": "MashCommands.Dist",
+    "docPath": "docs/mcp/tools/analysis/mash_dist.md",
+    "sourceLink": ""
+  },
+  {
+    "tool": "mash_triangle",
+    "server": "Analysis",
+    "methodId": "MashCommands.Triangle",
+    "docPath": "docs/mcp/tools/analysis/mash_triangle.md",
+    "sourceLink": ""
+  },
+  {
     "tool": "mask_approximate_tandem_repeats",
     "server": "Analysis",
     "methodId": "RepeatFinder.MaskApproximateTandemRepeats",

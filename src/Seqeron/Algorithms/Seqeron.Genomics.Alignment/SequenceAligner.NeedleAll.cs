@@ -27,27 +27,42 @@ public static partial class SequenceAligner
     {
         ArgumentNullException.ThrowIfNull(setA);
         ArgumentNullException.ThrowIfNull(setB);
-        setA = EmbossSequenceReader.Clean(setA);
-        setB = EmbossSequenceReader.Clean(setB);
+        IReadOnlyList<EmbossSequenceView>? viewsA = null, viewsB = null;
+        bool? proteinByFirst = null;
+        if (EmbossSetInput.Any(setA, setB))
+        {
+            // A5-7: the qualifiers (-sbegin -send -sreverse ...) of the inputs: asequence has the ACD type any, bsequence stopprotein / nucleotide by the first sequence of asequence (acdprotein)
+            (setA, viewsA) = EmbossSetInput.ReadAll(setA, EmbossSequenceType.Any, EmbossInputKind.Set);
+            proteinByFirst = viewsA.Count > 0 && !viewsA[0].IsNucleotide;
+            (setB, viewsB) = EmbossSetInput.ReadAll(setB, proteinByFirst == true ? EmbossSequenceType.StopProtein : EmbossSequenceType.Nucleotide);
+        }
+        else
+        {
+            setA = EmbossSequenceReader.Clean(setA);
+            setB = EmbossSequenceReader.Clean(setB);
+        }
+
         RequireEmbossRange(minScore, -10, 100, nameof(minScore), "-minscore", "needleall");
         RequireEmbossRange(gapOpen, 1, 100, nameof(gapOpen), "-gapopen", "needleall");
         RequireEmbossRange(gapExtend, 0, 10, nameof(gapExtend), "-gapextend", "needleall");
         RequireEmbossRange(endOpen, 1, 100, nameof(endOpen), "-endopen", "needleall");
         RequireEmbossRange(endExtend, 0, 10, nameof(endExtend), "-endextend", "needleall");
-        matrix ??= setA.All(s => EmbossSequenceReader.IsNucleotide(s.Residues)) ? SubstitutionMatrix.EdnaFull : SubstitutionMatrix.Blosum62;
+        matrix ??= EmbossSetInput.DefaultMatrix(proteinByFirst, setA);
         float minscore = (float)minScore;
         var alignments = new List<EmbossPairAlignment>();
         var errors = new StringBuilder();
-        foreach (var b in setB)
+        for (int bi = 0; bi < setB.Count; bi++)
         {
-            foreach (var a in setA)
+            var b = setB[bi];
+            for (int ai = 0; ai < setA.Count; ai++)
             {
+                var a = setA[ai];
                 AlignmentCancellation.ThrowIfRequested();       // A3-5: one poll per pair (the pair itself polls per column)
                 var r = NeedleAlign(a.Residues, b.Residues, matrix, gapOpen, gapExtend, endWeight, endOpen, endExtend);
                 float score = (float)r.ExactScore;
                 if (score > minscore)
                 {
-                    var pair = EmbossPairAlignment.From(r, a.Name, a.Residues.Length, b.Name, b.Residues.Length);
+                    var pair = viewsA is null ? EmbossPairAlignment.From(r, a.Name, a.Residues.Length, b.Name, b.Residues.Length) : EmbossPairAlignment.From(r, a.Name, viewsA[ai], b.Name, viewsB![bi]);
                     pair = pair with
                     {
                         First = pair.First with { Description = a.Description, Usa = a.Name },
@@ -63,7 +78,7 @@ public static partial class SequenceAligner
             }
         }
 
-        return new EmbossProgramResult(alignments, errors.ToString());
+        return new EmbossProgramResult(alignments, errors.ToString(), MatrixFileName(matrix));
     }
 
     /// <summary>

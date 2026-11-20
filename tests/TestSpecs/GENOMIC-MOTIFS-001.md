@@ -219,3 +219,6 @@
 ## Audit A4-1 (B09 F157): cancellation
 
 `SequenceAligner_Cancellation_Tests` (`PreCancelled_A4_1_...`, one `CancelledWhileRunning_...` test per class) and the MCP `CancellationTokenTests` / `EmbossProgramToolsTests`: `FindTranslatedPatternHits`, `FindProteinPatternHits` poll the ambient token (a mid-run cancel stops with `OperationCanceledException` inside the named poll) and the MCP tool takes the request token.
+
+## WP42 additions (A5-7 / A5-8)
+- `EmbossSequenceQualifiers_Oracle_Tests` (16 programs x 180 qualifier rows, parser / reader unit tests) and `EmbossReport_Oracle_Tests` (5 programs x gff / excel x 120 runs); `EmbossSeqOptsProducer` is the shared evaluator of the qualifier rows.

@@ -35,6 +35,7 @@ EMBOSS 6.6 supermatcher: approximate local alignment of large sequences. The wor
 | `wordLength` | integer | No | Word length of the seed matching (-wordlen, at least 3). (default: 6) |
 | `width` | integer | No | Alignment band width (-width, at least 1). (default: 16) |
 | `minScore` | number | No | Minimum alignment score to report an alignment (-minscore). (default: 0) |
+| `sequenceQualifiers` | string | No | EMBOSS sequence-input qualifiers as on the command line, with the input number: -sbegin1 3 -send1 -2 -sreverse1 -slower1 -supper1 -scircular1 -snucleotide1 -sprotein1 and the same with 2 for the second sequence (begin / end: 1-based, negative = from the end; -sreverse: reverse-complement a nucleotide sequence, the range then refers to the original; -snucleotide / -sprotein force the type). Measured on EMBOSS 6.6.0: the alignment covers the range, and the formatted alignment (default format 'pair') reports the positions of the ORIGINAL sequence, counting down for a reversed one. Omit for the whole sequences. Here 1 = the query sequences, 2 = the target sequences (every member takes the same qualifiers). |
 
 ## Output Schema
 

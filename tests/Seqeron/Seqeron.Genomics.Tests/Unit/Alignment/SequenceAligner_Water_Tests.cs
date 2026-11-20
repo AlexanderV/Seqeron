@@ -123,8 +123,13 @@ public class SequenceAligner_Water_Tests
         Assert.Throws<ArgumentNullException>(() => SequenceAligner.WaterAlign("ACGT", null!));
         Assert.Throws<ArgumentOutOfRangeException>(() => SequenceAligner.WaterAlign("ACGT", "ACGT", null, 0));
         Assert.Throws<ArgumentOutOfRangeException>(() => SequenceAligner.WaterAlign("ACGT", "ACGT", null, 10, 11));
+        // a one-residue sequence (water 6.6.0 `water a.fa b.fa -aformat3 pair`): the program reports the best single column of the one-row path matrix with the score -FLT_MAX (A5-7 measured: ACGT / G -> G at 3, ACGT / T -> T at 4,
+        // TTTT / A -> T,A at 1; the earlier "shorter input is empty" reading was wrong)
         var one = SequenceAligner.WaterAlign("A", "ACGT");
-        Assert.That(one.AlignedSequence1, Is.Empty);
-        Assert.That(one.Score, Is.EqualTo(0));
+        Assert.That((one.AlignedSequence1, one.AlignedSequence2, one.StartPosition1, one.StartPosition2), Is.EqualTo(("A", "A", 0, 0)));
+        Assert.That(one.ExactScore, Is.EqualTo(-float.MaxValue));
+        var g = SequenceAligner.WaterAlign("ACGT", "G");
+        Assert.That((g.AlignedSequence1, g.AlignedSequence2, g.StartPosition1), Is.EqualTo(("G", "G", 2)));
+        Assert.That(SequenceAligner.WaterAlign("", "ACGT").AlignedSequence1, Is.Empty);
     }
 }

@@ -27,6 +27,19 @@
     "type": "integer",
     "description": "EMBOSS genetic code (fuzztran -table): 0 = standard (default), otherwise an NCBI table number.",
     "default": 0
+   },
+   "sequenceQualifiers": {
+    "type": "string",
+    "description": "EMBOSS sequence-input qualifiers as on the command line: -sbegin 3 -send -2 -sreverse -slower -supper -scircular -snucleotide -sprotein (begin / end 1-based, negative = from the end; -sreverse reverse-complements a nucleotide sequence, the range then refers to the original). Measured on EMBOSS 6.6.0 per program: fuzztran cuts the (reverse-complemented) text at the begin / end AS GIVEN, numbers the hits from the first position of that text and prints negative numbers for the reverse frames (a defect of the program, reproduced)."
+   },
+   "reportFormat": {
+    "type": "string",
+    "description": "EMBOSS report format (-rformat): gff or excel. The report text of the program (the whole file; #!Date is today; sequence name from sequenceName) is returned in the result field report; only for a search without sequenceQualifiers. The other formats of the program (seqtable, table, embl, genbank, motif, ...) are not written yet. Omit for no report text."
+   },
+   "sequenceName": {
+    "type": "string",
+    "description": "Sequence name printed in the report (default sequence).",
+    "default": "sequence"
    }
   },
   "required": [

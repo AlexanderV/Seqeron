@@ -2,7 +2,7 @@
 
 MCP server — **K-mer, motif, repeat, complexity, RNA-structure and comparative-genomics analysis.**
 
-Exposes **140 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+Exposes **143 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
 MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test, with a
 per-tool doc under [`docs/mcp/tools/analysis/`](../../../../docs/mcp/tools/analysis). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
@@ -63,6 +63,9 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `find_inverted_repeats` | Sequences whose two arms are reverse-complement of each other (hairpin candidates). |
 | `find_inverted_repeats_scored` | Finds inverted repeats with EMBOSS einverted (Durbin & Thierry-Mieg 1993; EMBOSS 6.6.0): a local alignment of the sequence against its reve… |
 | `find_known_motifs` | Search for a user-provided set of motifs simultaneously (exact by default; optional IUPAC codes, reverse strand and a mismatch budget). Only motifs with at least one hit are returned; positions ascending, 0-based, forward-strand window starts. mismatches = k > 0 allows up to k substituted positions per window (Hamming distance, EMBOSS fuzznuc -pmismatch; no gaps) and adds matchMismatches / reverseMismatches (the distance of each reported hit, parallel to the position arrays). IUPAC sequences accepted (B09 A2-35). |
+| `mash_bounds` | Mash error-bounds table (`mash bounds`): error of the Mash / screen distance for sketch sizes 100 - 1 000 000 and distances 0.05 - 0.4. |
+| `mash_dist` | Mash distances of query files to reference files (`mash dist`: -t, -v, -d, -i, -n). |
+| `mash_triangle` | Mash lower-triangular distance matrix or edge list (`mash triangle`: -E, -v, -d, -i, -n). |
 | `megamerger` | EMBOSS megamerger: merge two large overlapping DNA sequences by minimal non-overlapping word-match anchors (merged sequence + report); 600 random pairs equal megamerger 6.6.0 (B09 A3-13b). |
 | `nucmer_clusters` | MUMmer nucmer anchor clustering (`mummer -mum|-mumreference|-maxmatch | mgaps`: unique / maximal matches joined by diagonal difference and separation, cut into maximum-score chains); 700 related pairs equal the installed nucmer 3.23 pipeline (B09 A3-9a). |
 | `seqmatchall` | EMBOSS seqmatchall: every maximal exact word match (>= `wordSize`) of every pair of a sequence set, nucleotide or protein, including the program's N / X word-table scan; verified against seqmatchall 6.6.0 on 330 sets (B09 A3-13). |

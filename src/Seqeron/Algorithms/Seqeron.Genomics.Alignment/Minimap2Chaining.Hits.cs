@@ -76,11 +76,35 @@ public sealed record MinimapMapOptions
     public bool OutputSecondary { get; init; } = true;
 
     /// <summary>The chaining options of <c>mg_lchain_dp</c> for this mapping.</summary>
-    internal MinimapChainOptions ChainOptions() => new()
+    /// <summary><c>-G</c> (<c>max_gap_ref</c>): the longest gap on the reference in a chain, also used as <see cref="Bandwidth"/> and <see cref="BandwidthLong"/> by the command line (<c>-G</c> sets all three; <c>-x splice</c> uses 200 000). 0 = not set (the program's -1).</summary>
+    public int MaxGapRef { get; init; }
+
+    /// <summary><c>-F</c> (<c>max_frag_len</c>): the maximum fragment length, effective with <c>-x sr</c> (800): the reference gap of a chain is then <c>max(MaxGap, MaxFragmentLength - query length)</c> unless <see cref="MaxGapRef"/> is set. 0 = not set.</summary>
+    public int MaxFragmentLength { get; init; }
+
+    /// <summary><c>--sr</c> (<c>MM_F_SR</c>, set by <c>-x sr</c>): short-read mode: the query gap of a chain is at least the query length, no divergence estimate (<c>dv</c>) and no long-join re-chaining.</summary>
+    public bool ShortRead { get; init; }
+
+    /// <summary><c>--splice</c> (<c>MM_F_SPLICE</c>, set by <c>-x splice</c>): spliced alignment. The preset values are stored; the chaining of a spliced query (<c>is_cdna</c> of <c>mg_lchain_dp</c>) is not yet part of <see cref="Minimap2Chaining.Map"/> (see <see cref="MinimapPresets"/>).</summary>
+    public bool Splice { get; init; }
+
+    /// <summary>Scoring of the base-level alignment (<c>-A -B -O -E -z -s -u ...</c>, <c>mm_mapopt_t</c> <c>a b q e q2 e2 zdrop zdrop_inv end_bonus min_dp_max noncan junc_bonus pe_ori</c>): set by the presets and stored for the base-level stage (audit A3-9c2); the chaining stage does not read it.</summary>
+    public MinimapAlignmentScoring Scoring { get; init; } = new();
+
+    internal MinimapChainOptions ChainOptions(int queryLength = 0)
     {
-        KmerSize = Seed.KmerSize, MaxTargetGap = MaxGap, MaxQueryGap = MaxGap, Bandwidth = Bandwidth, MaxChainSkip = MaxChainSkip, MaxChainIterations = MaxChainIterations,
-        MinCount = MinCount, MinScore = MinChainScore, ChainGapScale = ChainGapScale, ChainSkipScale = ChainSkipScale,
-    };
+        int queryGap = ShortRead ? Math.Max(queryLength, MaxGap) : MaxGap;
+        int targetGap = MaxGap;
+        if (MaxGapRef > 0)
+            targetGap = MaxGapRef;
+        else if (MaxFragmentLength > 0)
+            targetGap = Math.Max(MaxGap, MaxFragmentLength - queryLength);
+        return new MinimapChainOptions
+        {
+            KmerSize = Seed.KmerSize, MaxTargetGap = targetGap, MaxQueryGap = queryGap, Bandwidth = Bandwidth, MaxChainSkip = MaxChainSkip, MaxChainIterations = MaxChainIterations,
+            MinCount = MinCount, MinScore = MinChainScore, ChainGapScale = ChainGapScale, ChainSkipScale = ChainSkipScale, IsCdna = Splice,
+        };
+    }
 }
 
 /// <summary>A hit of <see cref="Minimap2Chaining.Map"/>: a chain with the fields of a PAF line of <c>minimap2</c> without <c>-c</c>.</summary>
@@ -100,6 +124,25 @@ public sealed record MinimapMapOptions
 /// <param name="AnchorCount">Number of anchors (<c>cm</c>).</param>
 /// <param name="Divergence">Divergence estimated from the minimizers (<c>dv</c>; negative: the tag is not written).</param>
 /// <param name="Anchors">The anchors of the chain in increasing order along the target.</param>
+/// <summary>The base-level alignment scoring of <c>mm_mapopt_t</c> (<c>-A</c> match, <c>-B</c> mismatch, <c>-O</c> gap open, <c>-E</c> gap extension (and the second pair of the dual affine gap cost), <c>-z</c> Z-drop, <c>-s</c> minimum peak DP score, <c>-u</c> / <c>-C</c> splice options): defaults of <c>mm_mapopt_init</c>.</summary>
+public sealed record MinimapAlignmentScoring
+{
+    public int Match { get; init; } = 2;
+    public int Mismatch { get; init; } = 4;
+    public int GapOpen { get; init; } = 4;
+    public int GapExtend { get; init; } = 2;
+    public int GapOpen2 { get; init; } = 24;
+    public int GapExtend2 { get; init; } = 1;
+    public int ZDrop { get; init; } = 400;
+    public int ZDropInverted { get; init; } = 200;
+    public int EndBonus { get; init; } = -1;
+    /// <summary><c>-s</c> (<c>min_dp_max</c>); null = <c>min_chain_score * a</c> (the program sets it after the options).</summary>
+    public int? MinDpMax { get; init; }
+    public int NonCanonical { get; init; }
+    public int JunctionBonus { get; init; }
+    public int MaxSmithWatermanMatrix { get; init; } = 100_000_000;
+}
+
 public sealed record MinimapHit(
     int Id, int Parent, int TargetId, bool Reverse, int QueryStart, int QueryEnd, int TargetStart, int TargetEnd, int MatchLength, int BlockLength, int MapQ,
     int Score, int SecondaryScore, int AnchorCount, float Divergence, IReadOnlyList<MinimapAnchor> Anchors)
@@ -512,7 +555,7 @@ public static partial class Minimap2Chaining
         var o = options ?? new MinimapMapOptions();
         SequenceAligner.RequireNoNullElements(targets, nameof(targets), "Target");
         ArgumentNullException.ThrowIfNull(query);
-        var chainOptions = o.ChainOptions();
+        var chainOptions = o.ChainOptions(query.Length);
         ValidateOptions(chainOptions, nameof(options));
         int qlen = query.Length;
         var targetLengths = targets.Select(t => t.Length).ToArray();
@@ -529,7 +572,7 @@ public static partial class Minimap2Chaining
         (Mm128[] Anchors, List<ulong> U) compact = Compact(a, chains);
 
         int bwLong = Math.Max(o.BandwidthLong, o.Bandwidth); // mm_mapopt_update
-        if (bwLong > o.Bandwidth && !o.NoLongJoin && compact.U.Count > 1)
+        if (bwLong > o.Bandwidth && !o.NoLongJoin && !o.ShortRead && !o.Splice && compact.U.Count > 1)
         {
             // re-chain / long-join for long sequences
             int st = (int)compact.Anchors[0].Y, en = (int)compact.Anchors[(int)(uint)compact.U[0] - 1].Y;
@@ -563,18 +606,21 @@ public static partial class Minimap2Chaining
             SelectSub(o.PrimaryRatio, o.Seed.KmerSize * 2, o.BestN, checkStrand: true, (int)(o.MaxGap * 0.8), regs);
         }
 
-        EstimateError(targetLengths, qlen, regs, compact.Anchors, seeds.MiniPos);
-        // mm_filter_strand_retained
-        int kept = 0;
-        for (int i = 0; i < regs.Count; ++i)
+        if (!o.ShortRead)
         {
-            var r = regs[i];
-            int p = r.Parent;
-            if (!r.StrandRetained || p < 0 || r.Div < regs[p].Div * 5.0f || r.Div < 0.01f)
-                regs[kept++] = r;
-        }
+            // !is_sr: mm_est_err and mm_filter_strand_retained
+            EstimateError(targetLengths, qlen, regs, compact.Anchors, seeds.MiniPos);
+            int kept = 0;
+            for (int i = 0; i < regs.Count; ++i)
+            {
+                var r = regs[i];
+                int p = r.Parent;
+                if (!r.StrandRetained || p < 0 || r.Div < regs[p].Div * 5.0f || r.Div < 0.01f)
+                    regs[kept++] = r;
+            }
 
-        regs.RemoveRange(kept, regs.Count - kept);
+            regs.RemoveRange(kept, regs.Count - kept);
+        }
         SetMapq(regs, o.MinChainScore, seeds.RepeatLength, out int[] mapq);
         var hits = new List<MinimapHit>(regs.Count);
         for (int i = 0; i < regs.Count; ++i)

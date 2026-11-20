@@ -25,6 +25,20 @@ public static partial class GenomicAnalyzer
     }
 
     /// <summary>
+    /// <see cref="MegaMerge(string, string, int, bool, string, string, CancellationToken)"/> for two sequences read with the qualifiers (A5-7; ACD type <c>DNA</c> for both): megamerger trims both sequences
+    /// (<c>ajSeqTrim</c>: the range of <c>-sbegin1</c> ... of the possibly reverse-complemented sequence), merges the trimmed texts and names them as the report does (the sequence names; positions are those of the trimmed texts).
+    /// </summary>
+    /// <exception cref="ArgumentException">A sequence is empty after reading, or <c>-sprotein</c> is given.</exception>
+    public static MegaMergeResult MegaMerge(EmbossSequence first, EmbossSequence second, int wordSize = 20, bool preferFirst = false, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(first);
+        ArgumentNullException.ThrowIfNull(second);
+        var v1 = EmbossInputSequence.Read(first.Residues, first.Qualifiers, EmbossSequenceType.Dna);
+        var v2 = EmbossInputSequence.Read(second.Residues, second.Qualifiers, EmbossSequenceType.Dna);
+        return MegaMerge(v1.Residues, v2.Residues, wordSize, preferFirst, first.Name, second.Name, cancellationToken);
+    }
+
+    /// <summary>
     /// EMBOSS <c>megamerger</c> (6.6.0; <c>emboss/megamerger.c</c>, <c>nucleus/embword.c</c> <c>embWordBuildMatchTable</c> / <c>embWordMatchMin</c> / <c>wordDeadZone</c>): merges two large overlapping DNA sequences.
     /// All exact word matches of <paramref name="wordSize"/> symbols are listed (the same maximal matches as <see cref="SeqMatchAll"/>), ordered longest first, and reduced to a
     /// minimal non-overlapping set: the longest match is kept, every match inside its dead zone is dropped and one that crosses it is truncated (and dropped when shorter than the word), until none is left;

@@ -244,3 +244,5 @@
 |---|---|---|
 | A4-9 | `MultipleAlignmentDisplay_ShowAlign_Tests.ShowAlign_EqualsShowalign_WithSbeginAndSend`, `ShowAlign_SequenceRange_WorkedValues` | 400 rows (`showalign_range_oracle.jsonl`): positive, negative, beyond-the-alignment and reversed ranges; the worked values of the 18-column example |
 
+## WP42 additions (A5-7)
+- distmat with the sequence qualifiers (180 rows): the range is ignored, `-sreverse` reverse-complements every row of a nucleotide set, `-sprotein` does not reach the set.

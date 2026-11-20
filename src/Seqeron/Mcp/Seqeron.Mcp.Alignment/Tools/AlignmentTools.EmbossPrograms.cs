@@ -7,6 +7,14 @@ namespace Seqeron.Mcp.Alignment.Tools;
 // B09 A2-28c / A2-29b: EMBOSS supermatcher and needleall, and the ksw2 extension functions; delegate to SequenceAligner.Supermatcher / NeedleAll and Ksw2Aligner.
 public partial class AlignmentTools
 {
+    private static global::Seqeron.Genomics.Infrastructure.EmbossSequence[] WithQualifiers(global::Seqeron.Genomics.Infrastructure.EmbossSequence[] sequences, string? sequenceQualifiers, string suffix)
+    {
+        if (sequenceQualifiers is null)
+            return sequences;
+        var q = global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.Parse(sequenceQualifiers, suffix);
+        return [.. sequences.Select(s => s with { Qualifiers = q })];
+    }
+
     private static global::Seqeron.Genomics.Infrastructure.EmbossSequence[] ToEmbossSequences(string[] sequences, string[]? names, string prefix, string paramName)
     {
         ArgumentNullException.ThrowIfNull(sequences);
@@ -42,11 +50,12 @@ public partial class AlignmentTools
         [Description("Word length of the seed matching (-wordlen, at least 3).")] int wordLength = 6,
         [Description("Alignment band width (-width, at least 1).")] int width = 16,
         [Description("Minimum alignment score to report an alignment (-minscore).")] double minScore = 0,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        [Description(SequenceQualifiersDescription + " Here 1 = the query sequences, 2 = the target sequences (every member takes the same qualifiers).")] string? sequenceQualifiers = null)
     {
         using var cancelScope = global::Seqeron.Genomics.Alignment.SequenceAligner.BeginCancellationScope(cancellationToken);
-        var queries = ToEmbossSequences(querySequences, queryNames, "query", nameof(querySequences));
-        var targets = ToEmbossSequences(targetSequences, targetNames, "target", nameof(targetSequences));
+        var queries = WithQualifiers(ToEmbossSequences(querySequences, queryNames, "query", nameof(querySequences)), sequenceQualifiers, "1");
+        var targets = WithQualifiers(ToEmbossSequences(targetSequences, targetNames, "target", nameof(targetSequences)), sequenceQualifiers, "2");
         var r = global::Seqeron.Genomics.Alignment.SequenceAligner.Supermatcher(queries, targets, ResolveMatrix(matrix), gapOpen, gapExtend, wordLength, width, minScore);
         return ToProgramResult(r);
     }
@@ -66,11 +75,12 @@ public partial class AlignmentTools
         [Description("-endextend (0 - 10).")] double endExtend = 0.5,
         [Description("-minscore (-10 - 100): minimum score to report an alignment.")] double minScore = 0,
         [Description("-brief: false adds the Longest_/Shortest_ Identity / Similarity lines to the sub-header.")] bool brief = true,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        [Description(SequenceQualifiersDescription + " Here 1 = the A set, 2 = the B sequences (every member takes the same qualifiers).")] string? sequenceQualifiers = null)
     {
         using var cancelScope = global::Seqeron.Genomics.Alignment.SequenceAligner.BeginCancellationScope(cancellationToken);
-        var a = ToEmbossSequences(setA, namesA, "a", nameof(setA));
-        var b = ToEmbossSequences(setB, namesB, "b", nameof(setB));
+        var a = WithQualifiers(ToEmbossSequences(setA, namesA, "a", nameof(setA)), sequenceQualifiers, "1");
+        var b = WithQualifiers(ToEmbossSequences(setB, namesB, "b", nameof(setB)), sequenceQualifiers, "2");
         var r = global::Seqeron.Genomics.Alignment.SequenceAligner.NeedleAll(a, b, ResolveMatrix(matrix), gapOpen, gapExtend, endWeight, endOpen, endExtend, minScore, brief);
         return ToProgramResult(r);
     }

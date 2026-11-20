@@ -17,8 +17,18 @@ public partial class AlignmentTools
         [Description("Gap extension penalty (-gapextend, integer >= 0): the cost of each further gap position. Omit for 4 (nucleotide) / 2 (protein).")] int? gapExtend = null,
         [Description(FormatParamDescription)] string? format = null,
         [Description(NamesParamDescription)] string[]? names = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        [Description(SequenceQualifiersDescription)] string? sequenceQualifiers = null)
     {
+        if (sequenceQualifiers is not null)
+        {
+            using var qualifiedScope = global::Seqeron.Genomics.Alignment.SequenceAligner.BeginCancellationScope(cancellationToken);
+            var (first, second) = QualifiedPair(sequence1, sequence2, sequenceQualifiers, names);
+            var result = global::Seqeron.Genomics.Alignment.SequenceAligner.StretcherProgram(first, second, ResolveMatrix(matrix), gapOpen, gapExtend);
+            bool protein = result.MatrixName != "EDNAFULL" && ResolveMatrix(matrix) is null;
+            return QualifiedPairResult("stretcher", result, format, gapOpen ?? (protein ? 12 : 16), gapExtend ?? (protein ? 2 : 4), true, true);
+        }
+
         return FormatPair(StretcherAlignCore(sequence1, sequence2, matrix, gapOpen, gapExtend, cancellationToken), format, EmbossLength(sequence1), EmbossLength(sequence2), names);
     }
 
@@ -49,9 +59,16 @@ public partial class AlignmentTools
         [Description("-endextend (0 - 10): cost of each further end-gap position (used only with endWeight).")] double endExtend = 0.5,
         [Description(FormatParamDescription)] string? format = null,
         [Description(NamesParamDescription)] string[]? names = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        [Description(SequenceQualifiersDescription)] string? sequenceQualifiers = null)
     {
         using var cancelScope = global::Seqeron.Genomics.Alignment.SequenceAligner.BeginCancellationScope(cancellationToken);
+        if (sequenceQualifiers is not null)
+        {
+            var (first, second) = QualifiedPair(sequence1, sequence2, sequenceQualifiers, names);
+            return QualifiedPairResult("needle", global::Seqeron.Genomics.Alignment.SequenceAligner.NeedleProgram(first, second, ResolveMatrix(matrix), gapOpen, gapExtend, endWeight, endOpen, endExtend), format, gapOpen, gapExtend, true, false);
+        }
+
         RequireSequence(sequence1, nameof(sequence1));
         RequireSequence(sequence2, nameof(sequence2));
         var r = global::Seqeron.Genomics.Alignment.SequenceAligner.NeedleAlign(sequence1, sequence2, ResolveMatrix(matrix), gapOpen, gapExtend, endWeight, endOpen, endExtend);
@@ -68,9 +85,16 @@ public partial class AlignmentTools
         [Description("Gap extension penalty (-gapextend, 0 - 10): the cost of each further gap position.")] double gapExtend = 0.5,
         [Description(FormatParamDescription)] string? format = null,
         [Description(NamesParamDescription)] string[]? names = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        [Description(SequenceQualifiersDescription)] string? sequenceQualifiers = null)
     {
         using var cancelScope = global::Seqeron.Genomics.Alignment.SequenceAligner.BeginCancellationScope(cancellationToken);
+        if (sequenceQualifiers is not null)
+        {
+            var (first, second) = QualifiedPair(sequence1, sequence2, sequenceQualifiers, names);
+            return QualifiedPairResult("water", global::Seqeron.Genomics.Alignment.SequenceAligner.WaterProgram(first, second, ResolveMatrix(matrix), gapOpen, gapExtend), format, gapOpen, gapExtend, false, false);
+        }
+
         RequireSequence(sequence1, nameof(sequence1));
         RequireSequence(sequence2, nameof(sequence2));
         var r = global::Seqeron.Genomics.Alignment.SequenceAligner.WaterAlign(sequence1, sequence2, ResolveMatrix(matrix), gapOpen, gapExtend);

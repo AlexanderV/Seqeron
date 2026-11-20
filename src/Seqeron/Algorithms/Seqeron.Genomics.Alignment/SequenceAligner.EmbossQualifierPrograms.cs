@@ -1,0 +1,90 @@
+using Seqeron.Genomics.Infrastructure;
+
+namespace Seqeron.Genomics.Alignment;
+
+// A5-7 (B09 F172): needle / water / stretcher / matcher with the sequence-input qualifiers (-sbegin -send -sreverse -slower -supper -scircular -snucleotide -sprotein of every input).
+// The programs trim both sequences (ajSeqTrim) and work on the trimmed residues; the report adds the cut residues to the offsets (ajSeqGetOffset) and counts down for a reversed sequence.
+public static partial class SequenceAligner
+{
+    private static string MatrixFileName(SubstitutionMatrix matrix) => matrix.Name.StartsWith('E') ? matrix.Name : "E" + matrix.Name;
+
+    private static EmbossPairAlignment ProgramPair(AlignmentResult r, EmbossSequence first, EmbossSequenceView v1, EmbossSequence second, EmbossSequenceView v2)
+    {
+        var pair = EmbossPairAlignment.From(r, first.Name, v1, second.Name, v2);
+        return pair with { First = pair.First with { Description = first.Description, Usa = first.Name }, Second = pair.Second with { Description = second.Description, Usa = second.Name } };
+    }
+
+    /// <summary>
+    /// EMBOSS <c>needle</c> on two sequences read with their qualifiers: the ranges and orientation of <see cref="EmbossSequence.Qualifiers"/> are applied (<see cref="EmbossInputSequence.Read"/>), the alignment is
+    /// <see cref="NeedleAlign"/> of the trimmed sequences and the result reports the offsets / reversal of the program. The default matrix follows the type of the first sequence (forced type included), and the second
+    /// sequence must be of the matching type, as the ACD of needle requires.
+    /// </summary>
+    /// <param name="first"><c>-asequence</c> with its <c>-sbegin1</c> ... qualifiers.</param>
+    /// <param name="second"><c>-bsequence</c> with its <c>-sbegin2</c> ... qualifiers.</param>
+    /// <param name="matrix">The scoring matrix; null = EDNAFULL / EBLOSUM62 by the first sequence.</param>
+    /// <param name="gapOpen"><c>-gapopen</c>.</param>
+    /// <param name="gapExtend"><c>-gapextend</c>.</param>
+    /// <param name="endWeight"><c>-endweight</c>.</param>
+    /// <param name="endOpen"><c>-endopen</c>.</param>
+    /// <param name="endExtend"><c>-endextend</c>.</param>
+    /// <param name="brief"><c>-brief</c>: false adds the <c>Longest_Identity</c> ... sub-header lines.</param>
+    public static EmbossProgramResult NeedleProgram(EmbossSequence first, EmbossSequence second, SubstitutionMatrix? matrix = null, double gapOpen = 10, double gapExtend = 0.5,
+        bool endWeight = false, double endOpen = 10, double endExtend = 0.5, bool brief = true)
+    {
+        var (v1, v2, protein) = EmbossPairInput.Read(first, second);
+        matrix ??= protein ? SubstitutionMatrix.Blosum62 : SubstitutionMatrix.EdnaFull;
+        var r = NeedleAlign(v1.Residues, v2.Residues, matrix, gapOpen, gapExtend, endWeight, endOpen, endExtend);
+        var pair = ProgramPair(r, first, v1, second, v2);
+        if (!brief)
+            pair = pair with { ExtraSubHeader = SimilaritySubHeader(r.AlignedSequence1, r.AlignedSequence2, v1.Residues.Length, v2.Residues.Length, matrix) };
+        return new EmbossProgramResult([pair], "", MatrixFileName(matrix));
+    }
+
+    /// <summary>EMBOSS <c>water</c> on two sequences read with their qualifiers (see <see cref="NeedleProgram"/>); no alignment above score 0 gives no alignment, as the program prints none.</summary>
+    public static EmbossProgramResult WaterProgram(EmbossSequence first, EmbossSequence second, SubstitutionMatrix? matrix = null, double gapOpen = 10, double gapExtend = 0.5)
+    {
+        var (v1, v2, protein) = EmbossPairInput.Read(first, second);
+        matrix ??= protein ? SubstitutionMatrix.Blosum62 : SubstitutionMatrix.EdnaFull;
+        var r = WaterAlign(v1.Residues, v2.Residues, matrix, gapOpen, gapExtend);
+        if (r.AlignedSequence1.Length == 0)
+            return new EmbossProgramResult([], "", MatrixFileName(matrix));
+        return new EmbossProgramResult([ProgramPair(r, first, v1, second, v2)], "", MatrixFileName(matrix));
+    }
+
+    /// <summary>EMBOSS <c>stretcher</c> on two sequences read with their qualifiers (see <see cref="NeedleProgram"/>); the default penalties are 16 / 4 for nucleotide and 12 / 2 for protein, chosen by the first sequence.</summary>
+    public static EmbossProgramResult StretcherProgram(EmbossSequence first, EmbossSequence second, SubstitutionMatrix? matrix = null, int? gapOpen = null, int? gapExtend = null)
+    {
+        var (v1, v2, protein) = EmbossPairInput.Read(first, second);
+        matrix ??= protein ? SubstitutionMatrix.Blosum62 : SubstitutionMatrix.EdnaFull;
+        var r = StretcherAlign(v1.Residues, v2.Residues, matrix, gapOpen ?? (protein ? 12 : 16), gapExtend ?? (protein ? 2 : 4));
+        return new EmbossProgramResult([ProgramPair(r, first, v1, second, v2)], "", MatrixFileName(matrix));
+    }
+
+    /// <summary>
+    /// EMBOSS <c>matcher</c> on two sequences read with their qualifiers (see <see cref="NeedleProgram"/>; the penalties are integers: 16 / 4 for nucleotide, 14 / 4 for protein): the best <paramref name="alternatives"/> local alignments (Huang-Miller SIM, the program's tie order).
+    /// </summary>
+    /// <exception cref="InvalidOperationException">Fewer than <paramref name="alternatives"/> alignments exist: the program aborts.</exception>
+    public static EmbossProgramResult MatcherProgram(EmbossSequence first, EmbossSequence second, SubstitutionMatrix? matrix = null, double? gapOpen = null, double gapExtend = 4, int alternatives = 1)
+    {
+        var (v1, v2, protein) = EmbossPairInput.Read(first, second);
+        matrix ??= protein ? SubstitutionMatrix.Blosum62 : SubstitutionMatrix.EdnaFull;
+        double open = gapOpen ?? (protein ? 14 : 16);      // -gapopen: 16 for nucleotide, 14 for protein (matcher.acd)
+        var scoring = new MatrixScoring(matrix, -(open - gapExtend), -gapExtend);
+        var list = LocalAlignAffineTopN(v1.Residues, v2.Residues, scoring, alternatives, 0, TopNTieOrder.Sim);
+        if (list.Count < alternatives)
+            throw new InvalidOperationException($"EMBOSS matcher aborts: only {list.Count} alignment(s) exist for -alternatives {alternatives}.");
+        // the SIM list reports inclusive 0-based ends
+        return new EmbossProgramResult([.. list.Select(r => ProgramPair(r with { EndPosition1 = r.EndPosition1 + 1, EndPosition2 = r.EndPosition2 + 1 }, first, v1, second, v2))], "", MatrixFileName(matrix));
+    }
+
+    /// <summary>
+    /// EMBOSS <c>merger</c> on two sequences read with their qualifiers (see <see cref="NeedleProgram"/>). Measured on 6.6.0: merger does not trim its sequences (the whole, possibly reverse-complemented, sequences are merged and the
+    /// whole merged sequence is written; <c>-sbegin</c> / <c>-send</c> have no effect on it), the case options are overridden by the program's own lower-casing, and the conflict positions count the sequences as used.
+    /// </summary>
+    /// <exception cref="ArgumentException">A sequence is empty after reading, or the forced types contradict the program's input types.</exception>
+    public static MergerResult MergerProgram(EmbossSequence first, EmbossSequence second, SubstitutionMatrix? matrix = null, double gapOpen = 50, double gapExtend = 5, CancellationToken cancellationToken = default)
+    {
+        var (v1, v2, protein) = EmbossPairInput.Read(first, second);
+        return Merger(v1.Full, v2.Full, matrix ?? (protein ? SubstitutionMatrix.Blosum62 : SubstitutionMatrix.EdnaFull), gapOpen, gapExtend, cancellationToken);
+    }
+}

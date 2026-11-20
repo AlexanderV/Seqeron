@@ -33,6 +33,9 @@ EMBOSS 6.6.0 tandem-repeat programs ported statement by statement (diagonal-scor
 | `threshold` | integer | No | Minimum score (-threshold, default 20; equicktandem needs >= 1). (default: 20) |
 | `mismatch` | boolean | No | etandem -mismatch: count N as a mismatch instead of a fifth base (default false). |
 | `uniform` | boolean | No | etandem -uniform: also report single-base consensus repeats (default false). |
+| `sequenceQualifiers` | string | No | EMBOSS sequence-input qualifiers as on the command line: -sbegin 3 -send -2 -sreverse -slower -supper -scircular -snucleotide -sprotein (begin / end 1-based, negative = from the end; -sreverse reverse-complements a nucleotide sequence, the range then refers to the original). Measured on EMBOSS 6.6.0 per program: etandem ignores -sbegin / -send (the whole sequence is searched) and numbers a -sreverse sequence on the reverse strand; equicktandem searches the range and numbers from its first position. |
+| `reportFormat` | string | No | EMBOSS report format (-rformat): gff or excel. The report text of the program (the whole file; #!Date is today; sequence name from sequenceName) is returned in the result field report; only for a search without sequenceQualifiers. The other formats of the program (seqtable, table, embl, genbank, motif, ...) are not written yet. Omit for no report text. |
+| `sequenceName` | string | No | Sequence name printed in the report (default sequence). |
 
 ## Output Schema
 

@@ -14,10 +14,19 @@ public partial class AlignmentTools
         [Description("Window size (dotmatcher -windowsize, default 10).")] int windowSize = 10,
         [Description("Score a window must reach (dotmatcher -threshold, default 23).")] int threshold = 23,
         [Description(MatrixParamDescription)] string? matrix = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        [Description(SequenceQualifiersDescription + " dotmatcher scans the whole length over the cut text (-send has no effect except a NUL at the cut; -sbegin shifts the range to the front): the program's own behaviour.")] string? sequenceQualifiers = null)
     {
         RequireSequence(sequence1, nameof(sequence1));
         RequireSequence(sequence2, nameof(sequence2));
+        if (sequenceQualifiers is not null)
+        {
+            var q1 = global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.Parse(sequenceQualifiers, "1");
+            var q2 = global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.Parse(sequenceQualifiers, "2");
+            var qualified = global::Seqeron.Genomics.Alignment.DotMatcher.Compute(sequence1, q1, sequence2, q2, windowSize, threshold, ResolveMatrix(matrix), cancellationToken);
+            return new DotMatcherResult(qualified.Select(s => new DotMatcherSegmentDto(s.Start1, s.Start2, s.End1, s.End2)).ToArray());
+        }
+
         var segments = global::Seqeron.Genomics.Alignment.DotMatcher.Compute(sequence1, sequence2, windowSize, threshold, ResolveMatrix(matrix), cancellationToken);
         return new DotMatcherResult(segments.Select(s => new DotMatcherSegmentDto(s.Start1, s.Start2, s.End1, s.End2)).ToArray());
     }

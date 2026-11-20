@@ -78,11 +78,13 @@ public class GenomicAnalyzer_ProteinPatterns_Oracle_Tests
             string Proj(string frame, string ps, string pe, string tl) => $"{frame}:{ps}:{pe}:{tl}";
             Assert.That(hits.Select(h => Proj(h.Frame.ToString(), h.ProteinStart.ToString(), h.ProteinEnd.ToString(), h.Translation)).OrderBy(x => x, StringComparer.Ordinal).ToArray(),
                 Is.EqualTo(expected.Select(e => Proj(e[0], e[1], e[2], e[3])).OrderBy(x => x, StringComparer.Ordinal).ToArray()), label);
-            // the printed coordinates of the forward frames equal the program's GFF start / end exactly (the reverse frames are not reproduced: null)
+            // the printed coordinates of the forward frames equal the program's GFF start / end exactly (the reverse frames print S - |frame| - 3 start + 4 / S - |frame| - 3 end + 2, A5-7)
             var printed = hits.Where(h => !h.IsReverseStrand).Select(h => $"{h.Frame}:{h.ProteinStart}:{h.EmbossStart}:{h.EmbossEnd}").OrderBy(x => x, StringComparer.Ordinal).ToArray();
             var gff = expected.Where(e => int.Parse(e[0]) > 0).Select(e => $"{e[0]}:{e[1]}:{e[4]}:{e[5]}").OrderBy(x => x, StringComparer.Ordinal).ToArray();
             Assert.That(printed, Is.EqualTo(gff), label + " coordinates");
-            Assert.That(hits.Where(h => h.IsReverseStrand).All(h => h.EmbossStart is null && h.EmbossEnd is null), Is.True);
+            // the program passes the END of the sequence instead of its begin to fuzztran_SourceFeature for frame -3 of -frame R / 6 (fuzztran.c)
+            int Anchor(TranslatedPatternHit h) => h.Frame == -3 && f[2].Trim().ToUpperInvariant() is "R" or "6" ? Seqeron.Genomics.Infrastructure.EmbossSequenceReader.Clean(f[0]).Length : 1;
+            Assert.That(hits.Where(h => h.IsReverseStrand).All(h => h.EmbossStart == Anchor(h) - Math.Abs(h.Frame) - 3 * h.ProteinStart + 4 && h.EmbossEnd == Anchor(h) - Math.Abs(h.Frame) - 3 * h.ProteinEnd + 2), Is.True);
             // the forward-strand location is consistent with the protein hit
             foreach (var h in hits)
             {

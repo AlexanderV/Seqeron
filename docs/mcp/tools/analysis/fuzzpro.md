@@ -29,6 +29,9 @@ EMBOSS 6.6.0 fuzzpro: every window of a protein sequence that matches a PROSITE-
 |-----------|------|----------|-------------|
 | `sequence` | string | Yes | Protein sequence (letters; a trailing * is dropped). |
 | `pattern` | string | Yes | The pattern (fuzzpro -pattern). |
+| `sequenceQualifiers` | string | No | EMBOSS sequence-input qualifiers as on the command line: -sbegin 3 -send -2 -sreverse -slower -supper -scircular -snucleotide -sprotein (begin / end 1-based, negative = from the end; -sreverse reverse-complements a nucleotide sequence, the range then refers to the original). Measured on EMBOSS 6.6.0 per program: fuzzpro searches the range and counts positions from the start of the original sequence; a protein is never reversed. |
+| `reportFormat` | string | No | EMBOSS report format (-rformat): gff or excel. The report text of the program (the whole file; #!Date is today; sequence name from sequenceName) is returned in the result field report; only for a search without sequenceQualifiers. The other formats of the program (seqtable, table, embl, genbank, motif, ...) are not written yet. Omit for no report text. |
+| `sequenceName` | string | No | Sequence name printed in the report (default sequence). |
 
 ## Output Schema
 

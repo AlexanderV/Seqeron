@@ -13,6 +13,17 @@ namespace Seqeron.Genomics.Analysis;
 /// <param name="Length">Length of the match (the EMBOSS score).</param>
 public readonly record struct WordMatch(int Sequence1, int Sequence2, int Position1, int Position2, int Length);
 
+/// <summary>A match of <see cref="GenomicAnalyzer.SeqMatchAll(IReadOnlyList{string}, EmbossSequenceQualifiers?, int, CancellationToken)"/> as the program's <c>-aformat match</c> report prints it: 1-based positions in the ORIGINAL sequences, counting down (start &gt; end) on a reversed one.</summary>
+/// <param name="Sequence1">0-based index of the first sequence of the pair.</param>
+/// <param name="Sequence2">0-based index of the second sequence.</param>
+/// <param name="Start1">First printed position in the first sequence.</param>
+/// <param name="End1">Last printed position in the first sequence (smaller than <paramref name="Start1"/> for a reverse-complemented sequence).</param>
+/// <param name="Start2">First printed position in the second sequence.</param>
+/// <param name="End2">Last printed position in the second sequence.</param>
+/// <param name="Length">Length of the match.</param>
+/// <param name="Reversed">The set was read with <c>-sreverse</c> (the strand column of both sequences prints <c>-</c>).</param>
+public readonly record struct SeqMatchAllHit(int Sequence1, int Sequence2, int Start1, int End1, int Start2, int End2, int Length, bool Reversed);
+
 public static partial class GenomicAnalyzer
 {
     #region seqmatchall (all-against-all word matches)
@@ -39,6 +50,9 @@ public static partial class GenomicAnalyzer
     /// <exception cref="ArgumentNullException"><paramref name="sequences"/> or an element is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="wordSize"/> &lt; 1.</exception>
     public static IReadOnlyList<WordMatch> SeqMatchAll(IReadOnlyList<string> sequences, int wordSize = 4, CancellationToken cancellationToken = default)
+        => SeqMatchAllCore(sequences, wordSize, null, cancellationToken);
+
+    private static List<WordMatch> SeqMatchAllCore(IReadOnlyList<string> sequences, int wordSize, bool? nucleotide, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(sequences);
         if (wordSize < 1)
@@ -53,7 +67,7 @@ public static partial class GenomicAnalyzer
             AlignmentCancellation.Poll(cancellationToken);
             if (sequences[i].Length <= wordSize)
                 continue; // seqmatchall: length(seq1) must exceed the word size
-            var pair = new PairWordMatcher(sequences[i], wordSize);
+            var pair = new PairWordMatcher(sequences[i], wordSize, nucleotide);
             for (int j = i + 1; j < sequences.Count; j++)
             {
                 if (sequences[j].Length < wordSize)
@@ -64,6 +78,41 @@ public static partial class GenomicAnalyzer
                     RequireMatchCount(result.Count);
                 }
             }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// <see cref="SeqMatchAll(IReadOnlyList{string}, int, CancellationToken)"/> for a set read with the qualifiers <c>-sbegin -send -sreverse -slower -supper -snucleotide -sprotein</c> (A5-7; ACD type <c>seqset</c> <c>any</c>). Measured on 6.6.0:
+    /// seqmatchall does <b>not</b> use <c>-sbegin</c> / <c>-send</c> (every sequence is searched whole); <c>-sreverse</c> (taken by the whole set when its FIRST sequence is nucleotide) only labels the sequences reversed: the words are matched on the
+    /// sequences AS READ and the report numbers them from the end (start &gt; end, strand <c>-</c>); the case options do not matter.
+    /// </summary>
+    /// <exception cref="ArgumentException">A sequence is empty after reading.</exception>
+    public static IReadOnlyList<SeqMatchAllHit> SeqMatchAll(IReadOnlyList<string> sequences, EmbossSequenceQualifiers? qualifiers, int wordSize = 4, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(sequences);
+        foreach (var sequence in sequences)
+            ArgumentNullException.ThrowIfNull(sequence);
+        var (_, views) = EmbossSetInput.ReadAll([.. sequences.Select((s, i) => new EmbossSequence("s" + i, s, "", qualifiers))], EmbossSequenceType.Any, EmbossInputKind.Set);
+        // the words are matched on the sequences as read, NOT reverse-complemented (measured: seqmatchall only labels them reversed); the reversal decision is the set's
+        var plain = qualifiers is null ? qualifiers : qualifiers with { Reverse = false, Begin = 0, End = 0 };
+        var (texts, _) = EmbossSetInput.ReadAll([.. sequences.Select((s, i) => new EmbossSequence("s" + i, s, "", plain))], EmbossSequenceType.Any, EmbossInputKind.Set);
+        bool? forced = null;
+        if (qualifiers is { Protein: true })
+            forced = false;
+        else if (qualifiers is { Nucleotide: true })
+            forced = true;
+        var matches = SeqMatchAllCore([.. texts.Select(t => t.Residues)], wordSize, forced, cancellationToken);
+        var result = new List<SeqMatchAllHit>(matches.Count);
+        foreach (var m in matches)
+        {
+            int n1 = views[m.Sequence1].Full.Length, n2 = views[m.Sequence2].Full.Length;
+            bool reversed = views[m.Sequence1].Reversed, reversed2 = views[m.Sequence2].Reversed;
+            result.Add(new SeqMatchAllHit(m.Sequence1, m.Sequence2,
+                reversed ? n1 - m.Position1 : m.Position1 + 1, reversed ? n1 - m.Position1 - m.Length + 1 : m.Position1 + m.Length,
+                reversed2 ? n2 - m.Position2 : m.Position2 + 1, reversed2 ? n2 - m.Position2 - m.Length + 1 : m.Position2 + m.Length,
+                m.Length, reversed));
         }
 
         return result;
@@ -83,12 +132,12 @@ public static partial class GenomicAnalyzer
         private global::SuffixTree.SuffixTree? _tree;
         private bool[]? _allowed;
 
-        public PairWordMatcher(string indexed, int wordSize)
+        public PairWordMatcher(string indexed, int wordSize, bool? nucleotide = null)
         {
             _indexed = indexed;
             _k = wordSize;
             // embWordGetTable: the unknown symbol of the first sequence's type (N for a nucleotide sequence, X otherwise) controls which words enter the table
-            _skip = EmbossSequenceReader.IsNucleotide(indexed) ? 'N' : 'X';
+            _skip = nucleotide ?? EmbossSequenceReader.IsNucleotide(indexed) ? 'N' : 'X';      // a forced type (-snucleotide / -sprotein, A5-7) decides it
             _upper = indexed.ToUpperInvariant();
             // The common case (no skip symbol in the indexed sequence, letters only): every word is in the table and the matches are the maximal exact matches of the canonical suffix-tree
             // engine. Otherwise the program's own table scan decides (WordTableMatches).

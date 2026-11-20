@@ -52,6 +52,14 @@
         "type": "number",
         "description": "distmat -parametera: the Jin-Nei Gamma parameter a (default 1.0).",
         "default": 1
+      },
+      "sequenceQualifiers": {
+        "type": "string",
+        "description": "EMBOSS sequence-input qualifiers as on the command line: -sbegin 3 -send -2 -sreverse -slower -supper -scircular -snucleotide -sprotein (begin / end 1-based, negative = from the end; -sreverse reverse-complements a nucleotide sequence, the range then refers to the original). Measured on EMBOSS 6.6.0 per program: distmat ignores -sbegin / -send; -sreverse reverse-complements every row of a nucleotide set; the set is nucleotide when its first row is (or -snucleotide); a protein set uses proteinMethod."
+      },
+      "proteinMethod": {
+        "type": "string",
+        "description": "distmat -protmethod for a protein set when sequenceQualifiers is given: same names as method (default: the same as method)."
       }
     },
     "required": [

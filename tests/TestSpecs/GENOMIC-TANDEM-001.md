@@ -144,3 +144,6 @@ All M/S/C items ✅ covered (see §4); no ❌/⚠ remain.
 ## Audit A4-4 (B09 F156): option boundaries
 
 `OptionBoundaries_Oracle_Tests.Etandem_ThresholdIntMinValue_...` (12 etandem rows): `-threshold -2147483648` dies in the program with SIGFPE (the report root's best score `thresh - 1` wraps to INT_MAX and the root, repeat size 0, is divided by) whenever a repeat qualifies - `InvalidOperationException` here - and prints nothing otherwise; `-2147483647` and above are exact.
+
+## WP42 additions (A5-7 / A5-8)
+- etandem / equicktandem qualifier rows (180 each) and gff / excel report rows (120 each) in the WP42 oracles.

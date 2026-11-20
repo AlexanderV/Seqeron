@@ -31,6 +31,10 @@
    "matrix": {
     "type": "string",
     "description": "Optional substitution matrix: any built-in matrix by EMBOSS or NCBI name - BLOSUM62, PAM250, EBLOSUM30 ... EBLOSUM90, EPAM10 ... EPAM500 (protein) or EDNAFULL, EDNAMAT, EDNASIMPLE, ENUC.4.4 (IUPAC DNA). When given, match/mismatch are ignored, residues are scored by the published table (any protein or IUPAC symbol of the matrix; case-insensitive) and gapOpen/gapExtend may be fractional (the EMBOSS needle/water models: gapOpen = -(G - E), gapExtend = -E for -gapopen G -gapextend E). The result then also carries the real-valued exactScore."
+   },
+   "sequenceQualifiers": {
+    "type": "string",
+    "description": "EMBOSS sequence-input qualifiers as on the command line with the input number: -sbegin1 3 -send1 -2 -sreverse1 -slower1 -supper1 -scircular1 -snucleotide1 -sprotein1 and the same with 2 for the second sequence. Measured on EMBOSS 6.6.0: merger does not trim its sequences - -sbegin / -send have no effect on it (the whole sequences are merged and the conflict positions count them); -sreverse reverse-complements a sequence, -snucleotide / -sprotein force the type (a protein pair is merged with BLOSUM62 unless a matrix is given). Omit to use the sequences as given."
    }
   },
   "required": [

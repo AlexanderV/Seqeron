@@ -191,7 +191,7 @@ public record FindAllLongestRepeatsResult(RepeatItem[] Items, int Length);
 public record PatternHitItem(string Pattern, int Position, int Length, string Strand, int Mismatches);
 
 /// <summary>Result of <c>find_pattern_hits</c>: the parsed patterns (normalised text per name) and every hit.</summary>
-public record FindPatternHitsResult(Dictionary<string, string> Patterns, PatternHitItem[] Hits);
+public record FindPatternHitsResult(Dictionary<string, string> Patterns, PatternHitItem[] Hits, [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? Report = null);
 
 /// <summary>Result of <c>find_longest_common_region_mismatches</c>: the longest pair of equal-length windows with at most k mismatches (empty strings and length 0 when none).</summary>
 public record LongestCommonRegionMismatchesResult(

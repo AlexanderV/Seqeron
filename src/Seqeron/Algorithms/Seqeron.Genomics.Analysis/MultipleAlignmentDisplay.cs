@@ -193,17 +193,9 @@ public static class MultipleAlignmentDisplay
             Convert(o.Show, reference, seqs[i], codes, o.SimilarCase);
 
         // -sbegin / -send of the sequence set (ajSeqsetGetBegin / ajSeqsetGetEnd): ajCvtSposToPosStart(len, imin, ipos) = a negative position counts from the end, clamped into [imin, len - 1]
-        static int SposToPosStart(int len, int imin, int ipos)
-        {
-            int pos = ipos < 0 ? len + ipos : ipos;
-            if (pos >= len) pos = len - 1;
-            if (pos < imin) pos = imin;
-            return pos;
-        }
-
         static int ZeroBased(int position) => position > 0 ? position - 1 : position; // a positive position is 1-based, a negative one counts from the end
-        int begin = o.Begin == 0 ? 0 : SposToPosStart(mlen, 0, ZeroBased(o.Begin));
-        int end = o.End == 0 ? mlen - 1 : SposToPosStart(mlen, begin, ZeroBased(o.End));
+        int begin = o.Begin == 0 ? 0 : EmbossInputSequence.PositionStart(mlen, 0, ZeroBased(o.Begin));
+        int end = o.End == 0 ? mlen - 1 : EmbossInputSequence.PositionStart(mlen, begin, ZeroBased(o.End));      // the one ajCvtSposToPosStart of the qualifier reader (A5-7)
         return Output(o, seqNames, seqs, nref, margin, consensus, order, mlen, width, begin, end);
     }
 

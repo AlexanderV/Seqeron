@@ -32,6 +32,7 @@ EMBOSS 6.6.0 megamerger: merges two large overlapping DNA sequences by exact wor
 | `preferFirst` | boolean | No | Use the first sequence over every mismatch region (megamerger -prefer, default false). (default: false) |
 | `name1` | string | No | Name of the first sequence in the report. (default: seq1) |
 | `name2` | string | No | Name of the second sequence in the report. (default: seq2) |
+| `sequenceQualifiers` | string | No | EMBOSS sequence-input qualifiers with the input number: -sbegin1 3 -send1 -2 -sreverse1 -slower1 -supper1 -scircular1 -snucleotide1 and the same with 2 for the second sequence. Measured on EMBOSS 6.6.0: megamerger merges the TRIMMED sequences (positions of the report are those of the trimmed texts; -sreverse1 reverse-complements before the range is cut); -sprotein is refused (the sequences are DNA). Omit for the whole sequences. |
 
 ## Output Schema
 

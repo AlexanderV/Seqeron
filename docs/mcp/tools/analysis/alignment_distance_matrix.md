@@ -33,6 +33,8 @@ Pairwise distance matrix of a multiple alignment as EMBOSS 6.6.0 distmat (every 
 | `position` | integer | No | distmat -position: 123 (default), 12, or for nucleotides 1, 2, 3. |
 | `calculateA` | boolean | No | distmat -calculatea: calculate the Jin-Nei parameter a instead of using parameterA (default false). |
 | `parameterA` | number | No | distmat -parametera: the Jin-Nei Gamma parameter a (default 1.0). |
+| `sequenceQualifiers` | string | No | EMBOSS sequence-input qualifiers as on the command line: -sbegin 3 -send -2 -sreverse -slower -supper -scircular -snucleotide -sprotein (begin / end 1-based, negative = from the end; -sreverse reverse-complements a nucleotide sequence, the range then refers to the original). Measured on EMBOSS 6.6.0 per program: distmat ignores -sbegin / -send; -sreverse reverse-complements every row of a nucleotide set; the set is nucleotide when its first row is (or -snucleotide); a protein set uses proteinMethod. |
+| `proteinMethod` | string | No | distmat -protmethod for a protein set when sequenceQualifiers is given: same names as method (default: the same as method). |
 
 ## Output Schema
 

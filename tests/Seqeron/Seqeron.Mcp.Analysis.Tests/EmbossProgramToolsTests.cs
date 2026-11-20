@@ -121,9 +121,9 @@ public class EmbossProgramToolsTests
         var r = AnalysisTools.Fuzztran("ATGAAAGTTCTGGCT", "KV");
         var h = r.Hits.Single();
         Assert.That((h.Frame, h.ProteinStart, h.ProteinEnd, h.Translation, h.Position, h.Length, h.EmbossStart, h.EmbossEnd), Is.EqualTo((1, 2, 3, "KV", 3, 6, (int?)4, (int?)9)));
-        // reverse frames carry the forward-strand location and no program coordinates
+        // reverse frames carry the forward-strand location and the numbers the program prints for them (S - |frame| - 3 start + 4 / + 2, A5-7)
         var rev = AnalysisTools.Fuzztran("GGATTA", "S", "-1").Hits.Single();
-        Assert.That((rev.Frame, rev.Translation, rev.Position, rev.Length, rev.EmbossStart), Is.EqualTo((-1, "S", 0, 3, (int?)null)));
+        Assert.That((rev.Frame, rev.Translation, rev.Position, rev.Length, rev.EmbossStart, rev.EmbossEnd), Is.EqualTo((-1, "S", 0, 3, (int?)(-2), (int?)(-4))));        // protein position 2: 1 - 1 - 3 * 2 + 4 and 1 - 1 - 3 * 2 + 2
         Assert.Throws<ArgumentException>(() => AnalysisTools.Fuzztran("ACGT", "A", "7"));
         Assert.Throws<ArgumentException>(() => AnalysisTools.Fuzztran("ACGT", "[X]"));
     }

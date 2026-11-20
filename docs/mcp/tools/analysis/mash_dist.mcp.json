@@ -1,0 +1,139 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "toolName": "mash_dist",
+ "serverName": "Analysis",
+ "version": "1.0.0",
+ "stability": "stable",
+ "methodId": "MashCommands.Dist",
+ "docRef": "Seqeron.Genomics.Analysis/MashCommands.cs",
+ "description": "Mash 2.3 'mash dist': MinHash (bottom-s) sketches of the reference and query files (canonical k-mers, MurmurHash3, the sketch of Ondov et al. 2016: KmerAnalyzer.CreateMinHashSketch) and, for every query in order and every reference, the line 'reference TAB query TAB distance TAB p-value TAB shared/total' of the pairs whose p-value is at most maxPValue (-v) and distance at most maxDistance (-d); table = true (-t) writes the '#query' header and a row of distances per query (a pair that fails a filter leaves its field blank); individual = true (-i) sketches every sequence on its own, named by its id (sequences shorter than k are skipped). Numbers are printed as C++ cout does (6 significant digits). VERIFICATION: 220 / 220 random sets (1 - 4 references x 1 - 3 queries of 1 - 3 records, k 4 - 32, sketch size 5 - 2000, seeds, -n, -i, -t, -v, -d) equal the installed mash 2.3 byte for byte.",
+ "inputSchema": {
+  "type": "object",
+  "properties": {
+   "references": {
+    "type": "array",
+    "items": {
+     "type": "string"
+    },
+    "description": "The reference files as FASTA texts (records start with '>': the first word of the header is the sequence id, the rest the comment)."
+   },
+   "queries": {
+    "type": "array",
+    "items": {
+     "type": "string"
+    },
+    "description": "The query files (FASTA texts)."
+   },
+   "referenceNames": {
+    "type": "array",
+    "items": {
+     "type": "string"
+    },
+    "description": "Names of the reference files as the program prints them (default reference1, ...)."
+   },
+   "queryNames": {
+    "type": "array",
+    "items": {
+     "type": "string"
+    },
+    "description": "Names of the query files (default query1, ...)."
+   },
+   "k": {
+    "type": "integer",
+    "description": "k-mer size (-k, 1 - 32, default 21).",
+    "default": 21
+   },
+   "sketchSize": {
+    "type": "integer",
+    "description": "Sketch size (-s, default 1000).",
+    "default": 1000
+   },
+   "seed": {
+    "type": "integer",
+    "description": "Hash seed (-S, 0 - 4294967295, default 42).",
+    "default": 42
+   },
+   "noncanonical": {
+    "type": "boolean",
+    "description": "-n: preserve the strand (no canonical k-mers).",
+    "default": false
+   },
+   "individual": {
+    "type": "boolean",
+    "description": "-i: sketch individual sequences instead of whole files.",
+    "default": false
+   },
+   "table": {
+    "type": "boolean",
+    "description": "-t: table output.",
+    "default": false
+   },
+   "maxPValue": {
+    "type": "number",
+    "description": "-v: maximum p-value to report (0 - 1, default 1).",
+    "default": 1.0
+   },
+   "maxDistance": {
+    "type": "number",
+    "description": "-d: maximum distance to report (0 - 1, default 1).",
+    "default": 1.0
+   }
+  },
+  "required": [
+   "references",
+   "queries"
+  ]
+ },
+ "outputSchema": {
+  "type": "object",
+  "properties": {
+   "text": {
+    "type": "string",
+    "description": "The text mash dist writes."
+   }
+  },
+  "required": [
+   "text"
+  ]
+ },
+ "errors": [
+  {
+   "code": 1001,
+   "message": "k must be in 1..32 (mash -k)"
+  },
+  {
+   "code": 1001,
+   "message": "seed must be in 0..4294967295 (mash -S)"
+  },
+  {
+   "code": 1001,
+   "message": "-v must be in 0..1 (mash)"
+  }
+ ],
+ "examples": [
+  {
+   "name": "One reference, two queries",
+   "input": {
+    "references": [
+     ">g1 first genome\nGGATCACAGTCTACACTGCTCACTCCAACCCCGGCCCCTGAGTCCGAGGAGAGGGTGCTTCAGAGTATGTATACCACTGGGTAGGATACGGCGGAGGGCACGTCAATACGGTTCAATGCCCTACTGCATGCTCTTGTGGTTCATCTGCAT\nGGAGAGGGTGGGCATGGGTGGGGGTGCTGGCCCGTGATCTGGACCTCCCATCCACAGCTCATTGTACCGAGTGTAGAGAGGGGCTTGTCCTTCCAGATAGCGTTTCTGTTTCGGTGTAGGTGCTAATCGACTATGCTACTGCGGTTAACG\n"
+    ],
+    "queries": [
+     ">g2 close\nGGATGACAGTCTACTCTGCTCACTCCAATCCCGGCCCCTGAGTCCGAGGAGAGGGTGCTTCAGAGTATGTATAACACTGGGTAGGATACGGCGGAGGGCACGTCAATACTGTTCAATGCCCTACTGCATGCTCTTGTGGTTCATCTGCATGGAGAGGGTGGGCATGGGTGGGGGTGCTCGCCCGTGATCTGGACCTCCCATCCACAGCTCATTGTACCGAGTGTAGAGAGGGGCTTGTCGTTCCAGATAGCGTTTCTGTTTCGGTGTGGGTGCTAATCGACTATGCTACAGCGGTTAACG\n",
+     ">g3 distant\nGGATCATAGTCTACACTTCTCACTCCAACCCCGGCCCCCGCGTCCGAGGACACGATGCTTCAGAGCATGTATACCACTGCATAGGATACGGCGGATGGCACGTCAATAGGGTTCAATTCCCTACTGCATGCTCGTTAGGTTCATCCGGATTGAGAGGGTAGGCATGGGTGGAGGTGTTGGCTCGAGATCTGGAACTCCCATACAGAGCCCAATGTACCGAGTGTAGAGAGGCGCTTGTCCTTCCATTTATCGCGTCTCTTTCGGTATAGGTGCTAATTGACTATGCTACTGAGGTTAACG\n"
+    ],
+    "referenceNames": [
+     "g1.fa"
+    ],
+    "queryNames": [
+     "g2.fa",
+     "g3.fa"
+    ],
+    "k": 9,
+    "sketchSize": 50
+   },
+   "output": {
+    "text": "g1.fa\tg2.fa\t0.0394246\t2.98721e-74\t27/50\ng1.fa\tg3.fa\t0.212171\t2.41195e-08\t4/50\n"
+   }
+  }
+ ]
+}

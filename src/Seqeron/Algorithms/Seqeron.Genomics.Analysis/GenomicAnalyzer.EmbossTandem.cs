@@ -387,4 +387,30 @@ public static partial class GenomicAnalyzer
     }
 
     #endregion
+
+    /// <summary>
+    /// <see cref="FindTandemRepeatsEtandem(string, int, int, int, bool, bool, CancellationToken)"/> for a sequence read with the qualifiers (A5-7; ACD type <c>dna</c>). Measured on 6.6.0: etandem does <b>not</b> use <c>-sbegin</c> / <c>-send</c> (the
+    /// whole sequence is searched and numbered from 1); <c>-sreverse</c> reverse-complements the whole sequence and the repeats are numbered on that strand (not mirrored); the case options do not matter (the program reads the bases case-blind) and
+    /// <c>-sprotein</c> is refused ("Sequence is not nucleic").
+    /// </summary>
+    /// <exception cref="ArgumentException">The sequence is empty after reading, or <c>-sprotein</c> is given.</exception>
+    public static IReadOnlyList<EmbossTandemRepeat> FindTandemRepeatsEtandem(
+        string sequence, EmbossSequenceQualifiers? qualifiers, int minRepeat, int maxRepeat, int threshold = 20, bool mismatch = false, bool uniform = false, CancellationToken cancellationToken = default)
+    {
+        var view = EmbossInputSequence.Read(sequence, qualifiers, EmbossSequenceType.Dna);
+        return FindTandemRepeatsEtandem(view.Full, minRepeat, maxRepeat, threshold, mismatch, uniform, cancellationToken);
+    }
+
+    /// <summary>
+    /// <see cref="FindTandemRepeatsEquicktandem(string, int, int, CancellationToken)"/> for a sequence read with the qualifiers (A5-7; ACD type <c>dna</c>): the repeats are searched in the range of <c>-sbegin</c> / <c>-send</c> of the (possibly
+    /// reverse-complemented) sequence and numbered from the sequence's first position (<c>begin</c> is added to every position the program prints).
+    /// </summary>
+    /// <exception cref="ArgumentException">The sequence is empty after reading, or <c>-sprotein</c> is given.</exception>
+    public static IReadOnlyList<EmbossTandemRepeat> FindTandemRepeatsEquicktandem(
+        string sequence, EmbossSequenceQualifiers? qualifiers, int maxRepeat, int threshold = 20, CancellationToken cancellationToken = default)
+    {
+        var view = EmbossInputSequence.Read(sequence, qualifiers, EmbossSequenceType.Dna);
+        var hits = FindTandemRepeatsEquicktandem(view.Residues, maxRepeat, threshold, cancellationToken);
+        return view.Offset == 0 ? hits : [.. hits.Select(h => h with { Position = h.Position + view.Offset })];
+    }
 }

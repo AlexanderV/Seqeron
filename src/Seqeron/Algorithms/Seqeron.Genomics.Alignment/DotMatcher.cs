@@ -44,6 +44,22 @@ public static class DotMatcher
         if (EmbossSequenceReader.IsNucleotide(sequence1) && !EmbossSequenceReader.IsNucleotide(sequence2))
             throw new ArgumentException("EMBOSS dotmatcher: the first sequence is nucleic, so the second sequence must be nucleic too (the program stops with \"Sequence is not nucleic\").", nameof(sequence2));
         matrix ??= EmbossSequenceReader.IsNucleotide(sequence1) ? SubstitutionMatrix.EdnaFull : SubstitutionMatrix.Blosum62;
+        return Plot(sequence1, sequence2, windowSize, threshold, matrix);
+    }
+
+    // the plot of the two residue strings as the program scans them (every character, a NUL included, is one position; a pair with an unknown character scores 0)
+    // dotmatcher.c: len = ajSeqGetLen (the WHOLE sequence), then the range is cut into the sequence object's own buffer: ajStrAssignSubC + ajSeqAssignSeqS copy the range and its terminator over the start of the old text, so the scan
+    // (which runs over the whole length) reads the range, a NUL, and then the OLD text behind it: -send is invisible except for the NUL, -sbegin shifts the range to the front
+    private static string Scanned(EmbossSequenceView view)
+    {
+        if (!view.Trimmed)
+            return view.Full;
+        int cut = view.Residues.Length;
+        return cut >= view.Full.Length ? view.Residues : string.Concat(view.Residues, "\0", view.Full.AsSpan(cut + 1));
+    }
+
+    private static IReadOnlyList<DotMatcherSegment> Plot(string sequence1, string sequence2, int windowSize, int threshold, SubstitutionMatrix matrix)
+    {
         int len1 = sequence1.Length, len2 = sequence2.Length;
         var segments = new List<DotMatcherSegment>();
 
@@ -108,5 +124,22 @@ public static class DotMatcher
                     SequenceAligner.DotMatcherMaxSegments, nameof(SequenceAligner) + "." + nameof(SequenceAligner.DotMatcherMaxSegments), "The program streams the segments to the graph file and has no such limit", "raise the threshold or the window size, or plot shorter sequences");
             segments.Add(segment);
         }
+    }
+
+    /// <summary>
+    /// <see cref="Compute(string, string, int, int, SubstitutionMatrix?, CancellationToken)"/> for two sequences read with their qualifiers (A5-7): the plot covers the range of <c>-sbegin1</c> / <c>-send1</c> and <c>-sbegin2</c> / <c>-send2</c>
+    /// of the (possibly reverse-complemented) sequences with the program's quirk (it scans the WHOLE length over the cut text: the range, a NUL, then the old text behind it). The default matrix follows the type of
+    /// the first sequence (forced type included); the second sequence must be of the matching type.
+    /// </summary>
+    /// <exception cref="ArgumentException">A sequence is empty after reading, or a forced type contradicts the program's input types.</exception>
+    public static IReadOnlyList<DotMatcherSegment> Compute(
+        string sequence1, EmbossSequenceQualifiers? qualifiers1, string sequence2, EmbossSequenceQualifiers? qualifiers2,
+        int windowSize = 10, int threshold = 23, SubstitutionMatrix? matrix = null, CancellationToken cancellationToken = default)
+    {
+        using var scope = AlignmentCancellation.Enter(cancellationToken);
+        ArgumentOutOfRangeException.ThrowIfLessThan(windowSize, 1);
+        var (v1, v2, protein) = EmbossPairInput.Read(new EmbossSequence("a", sequence1, "", qualifiers1), new EmbossSequence("b", sequence2, "", qualifiers2));
+        matrix ??= protein ? SubstitutionMatrix.Blosum62 : SubstitutionMatrix.EdnaFull;
+        return Plot(Scanned(v1), Scanned(v2), windowSize, threshold, matrix);
     }
 }

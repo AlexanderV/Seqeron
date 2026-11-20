@@ -93,6 +93,41 @@ public static partial class GenomicAnalyzer
         return FindPatternHits(sequence, FuzznucPattern.Parse(pattern), maxMismatches, bothStrands, cancellationToken, sequenceAmbiguity);
     }
 
+    /// <summary>
+    /// <see cref="FindPatternHits(string, string, int, bool, CancellationToken, bool)"/> for a sequence read with the qualifiers <c>-sbegin -send -sreverse -slower -supper -snucleotide -sprotein</c> (A5-7; ACD type <c>dna</c>, IUPAC letters of the sequence
+    /// read as fuzznuc reads them). The search is on the sequence as used (the range, reverse-complemented for <c>-sreverse</c>) and the hits are reported on the ORIGINAL strand, as the program's feature table is reversed with the sequence:
+    /// <see cref="PatternHit.Position"/> is the 0-based forward-strand start in the original sequence and <see cref="PatternHit.IsReverseStrand"/> is flipped for a reversed sequence (a pattern found on the reverse complement of the original is a hit on its minus strand).
+    /// </summary>
+    /// <param name="sequence">The nucleotide sequence.</param>
+    /// <param name="qualifiers">The sequence qualifiers; null = none.</param>
+    /// <param name="pattern">The pattern text.</param>
+    /// <param name="maxMismatches">Maximum substitutions per hit (<c>-pmismatch</c>).</param>
+    /// <param name="bothStrands">Also search the reverse-complement strand (<c>-complement</c>).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ArgumentException">The sequence is empty after reading, or <c>-sprotein</c> is given (fuzznuc needs a nucleotide sequence), or the pattern is invalid.</exception>
+    public static IReadOnlyList<PatternHit> FindPatternHits(
+        string sequence, EmbossSequenceQualifiers? qualifiers, string pattern, int maxMismatches = 0, bool bothStrands = false, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(pattern);
+        return FindPatternHits(sequence, qualifiers, FuzznucPattern.Parse(pattern), maxMismatches, bothStrands, cancellationToken);
+    }
+
+    /// <summary><see cref="FindPatternHits(string, EmbossSequenceQualifiers?, string, int, bool, CancellationToken)"/> with an already parsed pattern.</summary>
+    public static IReadOnlyList<PatternHit> FindPatternHits(
+        string sequence, EmbossSequenceQualifiers? qualifiers, FuzznucPattern pattern, int maxMismatches = 0, bool bothStrands = false, CancellationToken cancellationToken = default)
+    {
+        var view = EmbossInputSequence.Read(sequence, qualifiers, EmbossSequenceType.Dna);
+        var hits = FindPatternHits(view.Residues, pattern, maxMismatches, bothStrands, cancellationToken, sequenceAmbiguity: true);
+        var mapped = new List<PatternHit>(hits.Count);
+        foreach (var h in hits)
+        {
+            var (start, _) = view.ReportedRange(h.Position, h.Length);
+            mapped.Add(h with { Position = start - 1, IsReverseStrand = view.Reversed ? !h.IsReverseStrand : h.IsReverseStrand });
+        }
+
+        return mapped;
+    }
+
     /// <summary><see cref="FindPatternHits(string, string, int, bool, CancellationToken, bool)"/> with an already parsed pattern.</summary>
     /// <param name="sequence">Subject nucleotide string.</param>
     /// <param name="pattern">The parsed pattern.</param>

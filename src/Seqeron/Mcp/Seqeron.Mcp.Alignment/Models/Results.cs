@@ -324,7 +324,7 @@ public record Minimap2HitDto(
     int Score, int SecondaryScore, int AnchorCount, double? Divergence, Minimap2AnchorDto[] Anchors);
 
 /// <summary>Result of <c>minimap2_chains</c>: the chains ordered by the position of their first anchor, the number of seed hits they were built from and - in <c>paf</c> mode - the hits in the order of the PAF output.</summary>
-public record Minimap2ChainsResult(Minimap2ChainDto[] Chains, int SeedCount, Minimap2HitDto[]? Hits = null, int RepeatLength = 0, int MidOcc = 0);
+public record Minimap2ChainsResult(Minimap2ChainDto[] Chains, int SeedCount, Minimap2HitDto[]? Hits = null, int RepeatLength = 0, int MidOcc = 0, string? Paf = null);
 
 /// <summary>A segment of <c>dotmatcher</c>: 1-based inclusive positions on both sequences.</summary>
 public record DotMatcherSegmentDto(int Start1, int Start2, int End1, int End2);

@@ -27,6 +27,9 @@ public readonly record struct MinimapAnchor(int TargetId, bool Reverse, int Targ
 /// </remarks>
 public sealed record MinimapChainOptions
 {
+    /// <summary><c>is_cdna</c> of <c>mg_lchain_dp</c> (<c>--splice</c> / <c>-x splice</c>): a long gap on the target (an intron) costs <c>min(linear, log)</c> penalty, the query gap limit is not raised to the bandwidth and the chain is never cut by the score drop.</summary>
+    public bool IsCdna { get; init; }
+
     /// <summary>k-mer size of the index (<c>-k</c>, 15): scales the gap penalties.</summary>
     public int KmerSize { get; init; } = 15;
 
@@ -130,7 +133,7 @@ public static partial class Minimap2Chaining
         int n = ax.Length;
         float penGap = (float)(o.ChainGapScale * 0.01 * o.KmerSize);
         float penSkip = (float)(o.ChainSkipScale * 0.01 * o.KmerSize);
-        int bw = o.Bandwidth, maxDistX = Math.Max(o.MaxTargetGap, bw), maxDistY = Math.Max(o.MaxQueryGap, bw), maxDrop = bw;
+        int bw = o.Bandwidth, maxDistX = Math.Max(o.MaxTargetGap, bw), maxDistY = o.IsCdna ? o.MaxQueryGap : Math.Max(o.MaxQueryGap, bw), maxDrop = o.IsCdna ? int.MaxValue : bw;
 
         var f = new int[n];
         var p = new long[n];
@@ -150,7 +153,7 @@ public static partial class Minimap2Chaining
             long j;
             for (j = i - 1; j >= st; j--)
             {
-                int sc = Score(ax, ay, i, j, maxDistX, maxDistY, bw, penGap, penSkip);
+                int sc = Score(ax, ay, i, j, maxDistX, maxDistY, bw, penGap, penSkip, o.IsCdna);
                 if (sc == MinInt)
                     continue;
                 sc += f[j];
@@ -185,7 +188,7 @@ public static partial class Minimap2Chaining
 
             if (maxIi >= 0 && maxIi < endJ)
             {
-                int tmp = Score(ax, ay, i, maxIi, maxDistX, maxDistY, bw, penGap, penSkip);
+                int tmp = Score(ax, ay, i, maxIi, maxDistX, maxDistY, bw, penGap, penSkip, o.IsCdna);
                 if (tmp != MinInt && maxF < tmp + f[maxIi])
                 {
                     maxF = tmp + f[maxIi];
@@ -307,8 +310,8 @@ public static partial class Minimap2Chaining
         }
     }
 
-    // comput_sc (is_cdna = 0, one segment)
-    private static int Score(ulong[] ax, ulong[] ay, long i, long j, int maxDistX, int maxDistY, int bw, float penGap, float penSkip)
+    // comput_sc (one segment)
+    private static int Score(ulong[] ax, ulong[] ay, long i, long j, int maxDistX, int maxDistY, int bw, float penGap, float penSkip, bool isCdna)
     {
         int dq = (int)ay[i] - (int)ay[j];
         if (dq <= 0 || dq > maxDistX)
@@ -326,7 +329,10 @@ public static partial class Minimap2Chaining
         {
             float linPen = penGap * dd + penSkip * dg;
             float logPen = dd >= 1 ? Log2(dd + 1) : 0.0f;
-            sc = unchecked(sc - CInt(linPen + .5f * logPen));
+            if (isCdna && dr > dq)
+                sc = unchecked(sc - CInt(linPen < logPen ? linPen : logPen));         // a deletion (an intron on the target): the cheaper of the two penalties
+            else
+                sc = unchecked(sc - CInt(linPen + .5f * logPen));
         }
 
         return sc;

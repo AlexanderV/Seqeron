@@ -176,3 +176,5 @@ Oracle `emboss_gap_oracle.tsv` (`generate_emboss_gap_oracle.py`, seed 20261126):
 ## Audit A4-4 (B09 F156): option boundaries
 
 Sources actually opened: minimap2 v2.26 `options.c` (`mm_check_opt`), `sketch.c`, `lchain.c`; EMBOSS `emboss/etandem.c`; the installed minimap2 2.26-r1175, mgaps 3.23 and etandem 6.6.0 run on the boundary values. `OptionBoundaries_Oracle_Tests.Etandem_ThresholdIntMinValue_...` (12 etandem rows): `-threshold -2147483648` dies in the program with SIGFPE (the report root's best score `thresh - 1` wraps to INT_MAX and the root, repeat size 0, is divided by) whenever a repeat qualifies - `InvalidOperationException` here - and prints nothing otherwise; `-2147483647` and above are exact.
+
+**A5-7 / A5-8 (WP42).** etandem ignores `-sbegin` / `-send` and numbers a `-sreverse` sequence on the reverse strand; equicktandem uses the range (begin added); gff / excel reports: header written even without a repeat (`emboss_seqopts_oracle.tsv`, `emboss_report_oracle.tsv` on the installed 6.6.0).

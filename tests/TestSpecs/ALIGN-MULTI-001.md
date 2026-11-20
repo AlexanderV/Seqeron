@@ -766,3 +766,5 @@ Tests (`Seqeron.Genomics.Tests`, against the installed Debian `poa` 2.0+20060928
 | A5-4 | `Minimap2Seeds_Tests.FrequentMinimizers_...`, MCP `Minimap2ChainsTests`, `SequenceAligner_ResourceLimits_Tests` | exact values of the installed programs instead of `> 0` / `Is.Not.Empty`: `mid_occ = 10`, `RS 24`, 35 / 1 866 anchors (`minimap2 --print-seeds`), stretcher score 20, seqmatchall 282 lines, dotmatcher plot (397 segments, first segment) |
 | A5-5 | `ToolDocsContractTests` (MCP.Alignment.Tests: 76 tools; MCP.Analysis.Tests: the B09 tools) over `ToolDocsContractTestsBase` | description, parameter names / order / type / default / description, `required`, the `.md` Input Schema table equal the reflection metadata of the tool; `python3 scripts/docs/sync_mcp_tool_docs.py [--check]` regenerates / checks the same fields |
 
+## WP42 additions (A5-9 / A5-10)
+- `Minimap2Presets_Tests` (11 presets x 220 oracle cases, `-F` / `-G`, the options.c tables, `FormatPaf`), `MashCommands_Oracle_Tests` (bounds / dist / triangle: 660 oracle rows) and the MCP tests `Minimap2PresetToolsTests`, `MashToolsTests`; sources and numbers in docs/Evidence/ALIGN-MULTI-001-Evidence.md.

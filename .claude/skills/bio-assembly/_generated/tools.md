@@ -104,6 +104,9 @@
 | `kmers_with_min_count` | Analysis | `KmerAnalyzer.FindKmersWithMinCount` | [doc](../../../../docs/mcp/tools/analysis/kmers_with_min_count.md) |
 | `lempel_ziv_complexity` | Analysis | `SequenceComplexity.CalculateLempelZivComplexity` | [doc](../../../../docs/mcp/tools/analysis/lempel_ziv_complexity.md) |
 | `longdust_score` | Analysis | `SequenceComplexity.CalculateLongdustScore` | [doc](../../../../docs/mcp/tools/analysis/longdust_score.md) |
+| `mash_bounds` | Analysis | `MashCommands.Bounds` | [doc](../../../../docs/mcp/tools/analysis/mash_bounds.md) |
+| `mash_dist` | Analysis | `MashCommands.Dist` | [doc](../../../../docs/mcp/tools/analysis/mash_dist.md) |
+| `mash_triangle` | Analysis | `MashCommands.Triangle` | [doc](../../../../docs/mcp/tools/analysis/mash_triangle.md) |
 | `mask_approximate_tandem_repeats` | Analysis | `RepeatFinder.MaskApproximateTandemRepeats` | [doc](../../../../docs/mcp/tools/analysis/mask_approximate_tandem_repeats.md) |
 | `mask_low_complexity` | Analysis | `SequenceComplexity.MaskLowComplexity` | [doc](../../../../docs/mcp/tools/analysis/mask_low_complexity.md) |
 | `megamerger` | Analysis | `GenomicAnalyzer.MegaMerge` | [doc](../../../../docs/mcp/tools/analysis/megamerger.md) |

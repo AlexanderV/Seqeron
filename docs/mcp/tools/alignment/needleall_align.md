@@ -37,6 +37,7 @@ EMBOSS 6.6 needleall: the global alignment (Needleman-Wunsch with affine gaps, t
 | `endExtend` | number | No | -endextend (0 - 10). (default: 0.5) |
 | `minScore` | number | No | -minscore (-10 - 100): minimum score to report an alignment. (default: 0) |
 | `brief` | boolean | No | -brief: false adds the Longest_/Shortest_ Identity / Similarity lines to the sub-header. (default: true) |
+| `sequenceQualifiers` | string | No | EMBOSS sequence-input qualifiers as on the command line, with the input number: -sbegin1 3 -send1 -2 -sreverse1 -slower1 -supper1 -scircular1 -snucleotide1 -sprotein1 and the same with 2 for the second sequence (begin / end: 1-based, negative = from the end; -sreverse: reverse-complement a nucleotide sequence, the range then refers to the original; -snucleotide / -sprotein force the type). Measured on EMBOSS 6.6.0: the alignment covers the range, and the formatted alignment (default format 'pair') reports the positions of the ORIGINAL sequence, counting down for a reversed one. Omit for the whole sequences. Here 1 = the A set, 2 = the B sequences (every member takes the same qualifiers). |
 
 ## Output Schema
 

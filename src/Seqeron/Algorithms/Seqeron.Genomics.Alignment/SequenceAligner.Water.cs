@@ -10,8 +10,7 @@ public static partial class SequenceAligner
     /// <summary>
     /// EMBOSS <c>water</c>: local alignment (Smith-Waterman, Gotoh's affine gaps) as the program computes and reports it: a gap of length k costs <c>gapOpen + (k - 1) * gapExtend</c>
     /// (positive penalties, <c>-gapopen</c> / <c>-gapextend</c>, rounded to 16 mantissa bits as EMBOSS does), scores are single-precision. The rows (ties included), the score and the
-    /// coordinates are those of the installed water 6.6.0 (the program needs sequences of at least two residues: it reports its path-matrix maximum, which is undefined for a one-row matrix;
-    /// shorter input returns the empty alignment).
+    /// coordinates are those of the installed water 6.6.0 (a one-residue sequence gives the best single column with the score -FLT_MAX, as the program prints it - A5-7; an empty sequence returns the empty alignment).
     /// </summary>
     /// <param name="sequence1">First sequence (<c>-asequence</c>).</param>
     /// <param name="sequence2">Second sequence (<c>-bsequence</c>).</param>
@@ -27,7 +26,7 @@ public static partial class SequenceAligner
         sequence2 = EmbossSequenceReader.Clean(sequence2);
         RequireEmbossRange(gapOpen, 1, 100, nameof(gapOpen), "-gapopen", "water");
         RequireEmbossRange(gapExtend, 0, 10, nameof(gapExtend), "-gapextend", "water");
-        if (sequence1.Length < 2 || sequence2.Length < 2)
+        if (sequence1.Length == 0 || sequence2.Length == 0)
             return new AlignmentResult("", "", 0, AlignmentType.Local, 0, 0, 0, 0);
         matrix ??= EmbossSequenceReader.IsNucleotide(sequence1) && EmbossSequenceReader.IsNucleotide(sequence2) ? SubstitutionMatrix.EdnaFull : SubstitutionMatrix.Blosum62;
         var (score, r1, r2, start1, start2) = WaterCore(sequence1, sequence2, matrix, RoundFloat((float)gapOpen, 8), RoundFloat((float)gapExtend, 8));

@@ -20,9 +20,10 @@ public readonly record struct ProteinPatternHit(int Position, int Length)
 /// <param name="Translation">The matched residues (<c>*translation</c>).</param>
 /// <param name="Position">0-based start of the codons on the forward strand of the input.</param>
 /// <param name="Length">Length in nucleotides (3 per residue).</param>
-/// <param name="EmbossStart">Forward frames: the first coordinate the program prints (<c>fuzztran_SourceFeature</c>: <c>1 + frame + 3·start − 4</c>), = <see cref="Position"/> + 1.
-/// Null for the reverse frames: EMBOSS 6.6.0 prints meaningless numbers for them (negative, and dependent on state of the program that is not part of the search), which are not reproduced — use <see cref="Position"/>.</param>
-/// <param name="EmbossEnd">Forward frames: the second coordinate the program prints (<c>1 + frame + 3·end − 2</c>), = <see cref="Position"/> + <see cref="Length"/>; null for the reverse frames.</param>
+/// <param name="EmbossStart">The first coordinate the program prints (<c>fuzztran_SourceFeature</c>): forward frames <c>S + frame + 3·start − 4</c> (= <see cref="Position"/> + 1 for <c>S = 1</c>), reverse frames <c>S − |frame| − 3·start + 4</c>, where
+/// <c>S</c> is the first position of the sequence used (1, or the <c>-sbegin</c> of the range). The reverse-frame numbers are what the program prints: negative for a whole sequence (it counts the protein position from the start of the sequence with
+/// the wrong sign; EMBOSS 6.6.0 defect, reproduced on 3 000+ hits, A5-7 oracle), the gff report lists the smaller of the two first.</param>
+/// <param name="EmbossEnd">The second coordinate the program prints: forward frames <c>S + frame + 3·end − 2</c> (= <see cref="Position"/> + <see cref="Length"/> for <c>S = 1</c>), reverse frames <c>S − |frame| − 3·end + 2</c>.</param>
 public readonly record struct TranslatedPatternHit(
     int Frame, int ProteinStart, int ProteinEnd, string Translation, int Position, int Length, int? EmbossStart, int? EmbossEnd)
 {
@@ -53,6 +54,18 @@ public static partial class GenomicAnalyzer
     {
         ArgumentNullException.ThrowIfNull(protein);
         return FindProteinPatternHits(protein, ProteinPattern.Parse(pattern), cancellationToken);
+    }
+
+    /// <summary>
+    /// <see cref="FindProteinPatternHits(string, string, CancellationToken)"/> for a sequence read with the qualifiers <c>-sbegin -send -slower -supper -sprotein</c> (A5-7; ACD type <c>protein</c>): the search is on the range, and
+    /// <see cref="ProteinPatternHit.Position"/> counts from the start of the original sequence (<c>-sbegin</c> offset added). A protein is never reverse-complemented; <c>-snucleotide</c> is refused.
+    /// </summary>
+    /// <exception cref="ArgumentException">The sequence is empty after reading, or <c>-snucleotide</c> is given.</exception>
+    public static IReadOnlyList<ProteinPatternHit> FindProteinPatternHits(string protein, EmbossSequenceQualifiers? qualifiers, string pattern, CancellationToken cancellationToken = default)
+    {
+        var view = EmbossInputSequence.Read(protein, qualifiers, EmbossSequenceType.Protein);
+        var hits = FindProteinPatternHits(view.Residues, pattern, cancellationToken);
+        return view.Offset == 0 ? hits : [.. hits.Select(h => h with { Position = h.Position + view.Offset })];
     }
 
     /// <summary><see cref="FindProteinPatternHits(string, string, CancellationToken)"/> with an already parsed pattern.</summary>
@@ -116,7 +129,7 @@ public static partial class GenomicAnalyzer
     /// standard; otherwise the NCBI table number). Hits are listed per frame in the order 1, 2, 3, -1, -2, -3 (those requested), by protein position then length. Each hit carries the
     /// forward-strand nucleotide location (<see cref="TranslatedPatternHit.Position"/>, <see cref="TranslatedPatternHit.Length"/>) and the numbers the binary prints
     /// (<see cref="TranslatedPatternHit.EmbossStart"/> / <see cref="TranslatedPatternHit.EmbossEnd"/>: the program's 1-based coordinates, exact for the forward frames; for the reverse frames EMBOSS 6.6.0
-    /// prints meaningless numbers from a defect of its <c>fuzztran_SourceFeature</c> and they are not reproduced). Verified against fuzztran 6.6.0 on 700 random cases (docs/Evidence/GENOMIC-MOTIFS-001-Evidence.md).
+    /// prints meaningless numbers from a defect of its <c>fuzztran_SourceFeature</c> and they are not reproduced). Verified against fuzztran 6.6.0 on 700 random cases (docs/Evidence/GENOMIC-MOTIFS-001-Evidence.md) and, with every frame, on the A5-7 oracle.
     /// </remarks>
     /// <param name="nucleotides">The nucleotide sequence (IUPAC codes allowed).</param>
     /// <param name="pattern">The protein pattern text.</param>
@@ -128,10 +141,18 @@ public static partial class GenomicAnalyzer
     public static IReadOnlyList<TranslatedPatternHit> FindTranslatedPatternHits(string nucleotides, string pattern, string frames = "1", int table = 0, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(nucleotides);
+        string text = EmbossSequenceReader.Clean(nucleotides).ToUpperInvariant();      // the fuzztran reader drops the gap characters and every other non-letter but * (A4-3)
+        return TranslatedPatternHitsCore(text, 1, text.Length, pattern, frames, table, cancellationToken);
+    }
+
+    // fuzztran on the text it translates (the sequence as used, upper case): `begin` / `end` are the 1-based first and last position of that text in the sequence the program numbers (ajSeqallGetseqBegin / End)
+    private static IReadOnlyList<TranslatedPatternHit> TranslatedPatternHitsCore(string text, int begin, int end, string pattern, string frames, int table, CancellationToken cancellationToken)
+    {
         ArgumentNullException.ThrowIfNull(pattern);
         ArgumentNullException.ThrowIfNull(frames);
         var parsed = ProteinPattern.Parse(pattern);
-        int[] selected = frames.Trim().ToUpperInvariant() switch
+        string selector = frames.Trim().ToUpperInvariant();
+        int[] selected = selector switch
         {
             "F" => [1, 2, 3],
             "R" => [-1, -2, -3],
@@ -145,7 +166,6 @@ public static partial class GenomicAnalyzer
             _ => throw new ArgumentException("frames must be 1, 2, 3, -1, -2, -3, F, R or 6 (fuzztran -frame).", nameof(frames)),
         };
         var code = GeneticCode.GetByTableNumberOrThrow(table == 0 ? 1 : table, nameof(table));
-        string text = EmbossSequenceReader.Clean(nucleotides).ToUpperInvariant();      // the fuzztran reader drops the gap characters and every other non-letter but * (A4-3)
         var translations = Translator.TranslateSixFrames(text, code, SixFrameConvention.EmbossTranseq);
         int length = text.Length;
         var result = new List<TranslatedPatternHit>();
@@ -162,13 +182,44 @@ public static partial class GenomicAnalyzer
                 int s = hit.Position + 1, e = hit.Position + hit.Length;
                 int framenum = Math.Abs(frame);
                 int position = frame > 0 ? framenum + 3 * s - 4 : length - (framenum - 1) - 3 * e;
-                int? embossStart = frame > 0 ? position + 1 : null;
-                int? embossEnd = frame > 0 ? position + 3 * hit.Length : null;
+                // fuzztran_SourceFeature(start = S): forward S + frame + 3 start - 4, reverse S - |frame| - 3 start + 4; the program passes the END of the sequence instead of its begin for frame -3 of -frame R / 6
+                int anchor = frame == -3 && selector is "R" or "6" ? end : begin;
+                int embossStart = frame > 0 ? anchor + framenum + 3 * s - 4 : anchor - framenum - 3 * s + 4;
+                int embossEnd = frame > 0 ? anchor + framenum + 3 * e - 2 : anchor - framenum - 3 * e + 2;
                 result.Add(new TranslatedPatternHit(frame, s, e, protein.Substring(hit.Position, hit.Length), position, 3 * hit.Length, embossStart, embossEnd));
             }
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// <see cref="FindTranslatedPatternHits(string, string, string, int, CancellationToken)"/> for a sequence read with the qualifiers <c>-sbegin -send -sreverse -slower -supper -snucleotide -sprotein</c> (A5-7; ACD type <c>dna</c>):
+    /// the translation is of the sequence as the program cuts it (reverse-complemented for <c>-sreverse</c>, then the text from <c>ajSeqallGetseqBegin</c> to <c>ajSeqallGetseqEnd</c>: a begin or end given on the command line is used as given, not mirrored, so with
+    /// <c>-sreverse</c> the range is applied to the reverse complement), and the hits are numbered from the first position of that text (<see cref="TranslatedPatternHit.EmbossStart"/> / <see cref="TranslatedPatternHit.EmbossEnd"/>;
+    /// <see cref="TranslatedPatternHit.Position"/> stays relative to the text translated).
+    /// </summary>
+    /// <param name="nucleotides">The nucleotide sequence.</param>
+    /// <param name="qualifiers">The sequence qualifiers; null = none.</param>
+    /// <param name="pattern">The protein pattern text.</param>
+    /// <param name="frames">The frame selection: 1, 2, 3, -1, -2, -3, F, R or 6.</param>
+    /// <param name="table">EMBOSS genetic code (0 standard).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ArgumentException">The sequence is empty after reading, or <c>-sprotein</c> is given (fuzztran needs a nucleotide sequence).</exception>
+    public static IReadOnlyList<TranslatedPatternHit> FindTranslatedPatternHits(string nucleotides, EmbossSequenceQualifiers? qualifiers, string pattern, string frames = "1", int table = 0, CancellationToken cancellationToken = default)
+    {
+        var view = EmbossInputSequence.Read(nucleotides, qualifiers, EmbossSequenceType.Dna);
+        var q = qualifiers ?? EmbossSequenceQualifiers.None;
+        // fuzztran does not trim the sequence: it cuts the reverse-complemented text at ajSeqallGetseqBegin / End, which take the begin / end AS GIVEN when they are set (not mirrored) and the sequence's own (mirrored) otherwise
+        int n = view.Full.Length;
+        int rawBegin = q.Begin != 0 ? q.Begin : view.Begin;
+        int rawEnd = q.End != 0 ? q.End : view.End;
+        int begin = 1, end = n;
+        if (rawBegin != 0)
+            begin = 1 + EmbossInputSequence.PositionStart(n, 0, rawBegin > 0 ? rawBegin - 1 : rawBegin);
+        if (rawEnd != 0)
+            end = 1 + EmbossInputSequence.PositionStart(n, begin - 1, rawEnd > 0 ? rawEnd - 1 : rawEnd);
+        return TranslatedPatternHitsCore(SequenceCase.ToUpperAscii(view.Full[(begin - 1)..end]), begin, end, pattern, frames, table, cancellationToken);
     }
 
     #endregion

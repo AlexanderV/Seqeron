@@ -60,6 +60,9 @@ The seeding and chaining stage of minimap2 2.26 (450 related pairs: the seed arr
 | `noLongJoin` | boolean | No | paf mode: no long-join re-chaining (minimap2 --no-long-join). (default: false) |
 | `rmq` | boolean | No | paf mode: chain with the RMQ algorithm (minimap2 --rmq=yes). (default: false) |
 | `outputSecondary` | boolean | No | paf mode: return the secondary hits too (default true; false = minimap2 --secondary=no). |
+| `preset` | string | No | paf mode: the minimap2 -x preset (A5-9): map-ont, map-pb / map10k, map-hifi / map-ccs, ava-ont, ava-pb, asm5, asm10, asm20, sr / short, splice / cdna, splice:hq (options.c mm_set_opt). The program applies the preset first and every explicit option after it: here, every parameter left at its default value takes the preset's value, a parameter set to another value overrides the preset. The base-level scoring of the preset is not used (no -c). |
+| `maxFragmentLength` | integer | No | paf mode: minimap2 -F, the maximum fragment length (effective with preset sr, which sets 800). (default: 0) |
+| `maxIntronLength` | integer | No | paf mode: minimap2 -G / --max-intron-len: with a splice preset the longest gap on the reference, the bandwidth and the long bandwidth (ignored otherwise, as the program does). (default: 0) |
 
 ## Output Schema
 

@@ -43,7 +43,10 @@ public partial class AlignmentTools
         [Description("paf mode: no long-join re-chaining (minimap2 --no-long-join).")] bool noLongJoin = false,
         [Description("paf mode: chain with the RMQ algorithm (minimap2 --rmq=yes).")] bool rmq = false,
         [Description("paf mode: return the secondary hits too (default true; false = minimap2 --secondary=no).")] bool outputSecondary = true,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        [Description("paf mode: the minimap2 -x preset (A5-9): map-ont, map-pb / map10k, map-hifi / map-ccs, ava-ont, ava-pb, asm5, asm10, asm20, sr / short, splice / cdna, splice:hq (options.c mm_set_opt). The program applies the preset first and every explicit option after it: here, every parameter left at its default value takes the preset's value, a parameter set to another value overrides the preset. The base-level scoring of the preset is not used (no -c).")] string? preset = null,
+        [Description("paf mode: minimap2 -F, the maximum fragment length (effective with preset sr, which sets 800).")] int maxFragmentLength = 0,
+        [Description("paf mode: minimap2 -G / --max-intron-len: with a splice preset the longest gap on the reference, the bandwidth and the long bandwidth (ignored otherwise, as the program does).")] int maxIntronLength = 0)
     {
         using var cancelScope = global::Seqeron.Genomics.Alignment.SequenceAligner.BeginCancellationScope(cancellationToken);
         if (targets is null || targets.Length == 0)
@@ -71,13 +74,44 @@ public partial class AlignmentTools
                 MinChainScore = minChainScore, ChainGapScale = (float)chainGapScale, ChainSkipScale = (float)chainSkipScale, NoLongJoin = noLongJoin || allVsAll, UseRmq = rmq, AllChains = allVsAll,
                 MaskLevel = (float)maskLevel, MaskLength = maskLength, HardMaskLevel = hardMaskLevel, PrimaryRatio = (float)primaryRatio, BestN = bestN, OutputSecondary = outputSecondary,
             };
+            if (!string.IsNullOrEmpty(preset))
+            {
+                // -x is applied before every other option: a parameter that still has its default value takes the preset's value
+                var p = global::Seqeron.Genomics.Alignment.MinimapPresets.Apply(preset);
+                var d = new global::Seqeron.Genomics.Alignment.MinimapMapOptions();
+                T Pick<T>(T given, T def, T fromPreset) where T : IEquatable<T> => given.Equals(def) ? fromPreset : given;
+                mapOptions = mapOptions with
+                {
+                    Seed = mapOptions.Seed with
+                    {
+                        KmerSize = Pick(mapOptions.Seed.KmerSize, d.Seed.KmerSize, p.Seed.KmerSize), WindowSize = Pick(mapOptions.Seed.WindowSize, d.Seed.WindowSize, p.Seed.WindowSize),
+                        HomopolymerCompressed = mapOptions.Seed.HomopolymerCompressed || p.Seed.HomopolymerCompressed, OccDist = Pick(mapOptions.Seed.OccDist, d.Seed.OccDist, p.Seed.OccDist),
+                        MinMidOcc = Pick(mapOptions.Seed.MinMidOcc, d.Seed.MinMidOcc, p.Seed.MinMidOcc), MaxMidOcc = Pick(mapOptions.Seed.MaxMidOcc, d.Seed.MaxMidOcc, p.Seed.MaxMidOcc),
+                        MidOcc = mapOptions.Seed.MidOcc != 0 ? mapOptions.Seed.MidOcc : p.Seed.MidOcc, MaxOcc = mapOptions.Seed.MaxOcc != 0 ? mapOptions.Seed.MaxOcc : p.Seed.MaxOcc,
+                        SkipSelf = mapOptions.Seed.SkipSelf || p.Seed.SkipSelf, SkipDual = mapOptions.Seed.SkipDual || p.Seed.SkipDual,
+                    },
+                    MaxGap = Pick(mapOptions.MaxGap, d.MaxGap, p.MaxGap), Bandwidth = Pick(mapOptions.Bandwidth, d.Bandwidth, p.Bandwidth), BandwidthLong = Pick(mapOptions.BandwidthLong, d.BandwidthLong, p.BandwidthLong),
+                    MaxChainSkip = Pick(mapOptions.MaxChainSkip, d.MaxChainSkip, p.MaxChainSkip), MinCount = Pick(mapOptions.MinCount, d.MinCount, p.MinCount), MinChainScore = Pick(mapOptions.MinChainScore, d.MinChainScore, p.MinChainScore),
+                    PrimaryRatio = Pick(mapOptions.PrimaryRatio, d.PrimaryRatio, p.PrimaryRatio), BestN = Pick(mapOptions.BestN, d.BestN, p.BestN), UseRmq = mapOptions.UseRmq || p.UseRmq,
+                    NoLongJoin = mapOptions.NoLongJoin || p.NoLongJoin, AllChains = mapOptions.AllChains || p.AllChains, OutputSecondary = mapOptions.OutputSecondary && p.OutputSecondary,
+                    MaxGapRef = p.MaxGapRef, MaxFragmentLength = maxFragmentLength != 0 ? maxFragmentLength : p.MaxFragmentLength, ShortRead = p.ShortRead, Splice = p.Splice, Scoring = p.Scoring,
+                };
+                mapOptions = global::Seqeron.Genomics.Alignment.MinimapPresets.WithMaxIntronLength(mapOptions, maxIntronLength);
+            }
+            else if (maxFragmentLength != 0)
+            {
+                mapOptions = mapOptions with { MaxFragmentLength = maxFragmentLength };
+            }
+
             var mapped = global::Seqeron.Genomics.Alignment.Minimap2Chaining.Map(targets, query, mapOptions, targetNames, queryName);
+            string[] pafNames = targetNames ?? [.. targets.Select((_, i) => "target" + (i + 1).ToString(System.Globalization.CultureInfo.InvariantCulture))];
+            string pafText = global::Seqeron.Genomics.Alignment.Minimap2Chaining.FormatPaf(mapped, queryName ?? "query", query.Length, pafNames, [.. targets.Select(t => t.Length)]);
             var hits = mapped.Hits.Select(h => new Minimap2HitDto(h.Id, h.Parent, h.IsPrimary, h.TargetId, h.Reverse ? "reverse" : "forward", h.QueryStart, h.QueryEnd, h.TargetStart, h.TargetEnd, h.MatchLength,
                 h.BlockLength, h.MapQ, h.Score, h.SecondaryScore, h.AnchorCount, h.Divergence >= 0f ? Math.Round(h.Divergence, 4) : null,
                 h.Anchors.Select(a => new Minimap2AnchorDto(a.TargetId, a.Reverse ? "reverse" : "forward", a.TargetEnd, a.QueryEnd, a.Span)).ToArray())).ToArray();
             var asChains = mapped.Hits.Select(h => new Minimap2ChainDto(h.Score, h.TargetId, h.Reverse ? "reverse" : "forward",
                 h.Anchors.Select(a => new Minimap2AnchorDto(a.TargetId, a.Reverse ? "reverse" : "forward", a.TargetEnd, a.QueryEnd, a.Span)).ToArray())).ToArray();
-            return new Minimap2ChainsResult(asChains, hits.Sum(h => h.Anchors.Length), hits, mapped.RepeatLength, mapped.MidOcc);
+            return new Minimap2ChainsResult(asChains, hits.Sum(h => h.Anchors.Length), hits, mapped.RepeatLength, mapped.MidOcc, pafText);
         }
 
         var options = new global::Seqeron.Genomics.Alignment.MinimapChainOptions

@@ -1,0 +1,66 @@
+# mash_bounds
+
+Mash error-bounds table (mash bounds), byte for byte.
+
+## Overview
+
+| Property | Value |
+|----------|-------|
+| **Server** | Analysis |
+| **Tool Name** | `mash_bounds` |
+| **Method ID** | `MashCommands.Bounds` |
+| **Version** | 1.0.0 |
+| **Stability** | Stable |
+
+## Description
+
+Mash 2.3 'mash bounds -k K -p P', byte for byte: the table of error bounds of the Mash distance and of the screen distance for the sketch sizes 100 ... 1000000 and the distances 0.05 ... 0.4 (CommandBounds.cpp): for the binomial model of the number of shared hashes the smallest x whose cumulative probability exceeds (1 - p) / 2 gives the lower Jaccard bound, converted back to a distance and printed as the error (bound minus distance; inf when no hash is certain to be shared). The numbers are printed as C++ cout does (6 significant digits). VERIFICATION: 220 / 220 random (k, p) equal the installed mash 2.3.
+
+## Core Documentation Reference
+
+- Algorithm: [Mash_Commands.md](../../algorithms/Alignment/Mash_Commands.md)
+
+## Input Schema
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `k` | integer | No | k-mer size (1 - 32, default 21). (default: 21) |
+| `probability` | number | No | Confidence of the bounds (0 - 1 exclusive, default 0.99). (default: 0.99) |
+
+## Output Schema
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `text` | string | The text mash bounds writes. |
+
+## Errors
+
+| Code | Message |
+|------|---------|
+| 1001 | k must be in 1..32 (mash -k) |
+| 1001 | seed must be in 0..4294967295 (mash -S) |
+| 1001 | -v must be in 0..1 (mash) |
+
+## Examples
+
+### Example 1: Default parameters
+
+**User Prompt:**
+> Print the Mash error bounds for k = 21 and p = 0.99.
+
+**Expected Tool Call:**
+```json
+{"tool": "mash_bounds", "arguments": {"k": 21, "probability": 0.99}}
+```
+
+**Response:**
+```json
+{"text": "\nParameters (run with -h for details):\n   k:   21\n   p:   0.99\n\n\tMash distance\nSketch\t0.05\t0.1\t0.15\t0.2\t0.25\t0.3\t0.35\t0.4\n100\t0.0270708\t0.0867606\tinf\tinf\tinf\tinf\tinf\tinf\n500\t0.00981902\t0.0244913\t0.0472921\tinf\tinf\tinf\tinf\tinf\n1000\t0.00675661\t0.0157591\t0.0322692\t0.0630219\tinf\tinf\tinf\tinf\n5000\t0.00287501\t0.00652409\t0.0123757\t0.0234829\t0.0459813\tinf\tinf\tinf\n10000\t0.00199888\t0.00457132\t0.00862966\t0.0158855\t0.0299779\t0.0725831\tinf\tinf\n50000\t0.000881332\t0.00197968\t0.0037121\t0.00653009\t0.0116171\t0.0219007\t0.0395648\t0.0822215\n100000\t0.000621786\t0.00139473\t0.00259476\t0.00455892\t0.00806278\t0.014331\t0.0250252\t0.0492154\n500000\t0.000276699\t0.000619769\t0.00114475\t0.00200956\t0.003457\t0.00600661\t0.0104601\t0.0186527\n1000000\t0.000195544\t0.000437925\t0.000807741\t0.00141262\t0.00241973\t0.0041631\t0.00724945\t0.0127668\n\n\tScreen distance\nSketch\t0.05\t0.1\t0.15\t0.2\t0.25\t0.3\t0.35\t0.4\n100\t0.0195634\t0.0421104\t0.85\t0.8\t0.75\t0.7\t0.65\t0.6\n500\t0.00786602\t0.0154846\t0.0339432\t0.8\t0.75\t0.7\t0.65\t0.6\n1000\t0.0054207\t0.010758\t0.0219894\t0.0561633\t0.75\t0.7\t0.65\t0.6\n5000\t0.00233621\t0.00462429\t0.00861578\t0.0162137\t0.0379211\t0.7\t0.65\t0.6\n10000\t0.0016436\t0.00321392\t0.00598825\t0.0109799\t0.0240388\t0.0550533\t0.65\t0.6\n50000\t0.000731087\t0.00142413\t0.00259063\t0.00474589\t0.00911086\t0.0204149\t0.0526353\t0.6\n100000\t0.000515745\t0.00100563\t0.00181424\t0.00332922\t0.0063408\t0.0127218\t0.0325891\t0.6\n500000\t0.000229776\t0.000446762\t0.000803172\t0.00146113\t0.0027473\t0.00544966\t0.0118702\t0.0359202\n1000000\t0.000162418\t0.000315619\t0.000567196\t0.00102652\t0.00191631\t0.00374762\t0.00794327\t0.0194016\n\n"}
+```
+
+The table is the output of the installed mash 2.3 (mash bounds -k 21 -p 0.99).
+
+## See Also
+
+- [mash_dist](mash_dist.md) - Distances of queries to references
+- [mash_triangle](mash_triangle.md) - Lower-triangular distance matrix

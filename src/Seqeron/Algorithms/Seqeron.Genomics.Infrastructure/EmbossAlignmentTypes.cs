@@ -88,7 +88,19 @@ public sealed record EmbossAlignedSequence(
     string Accession = "",
     string Description = "",
     string Usa = "",
-    double Weight = 1.0);
+    double Weight = 1.0)
+{
+    /// <summary>The sequence as aligned after the range / orientation of <paramref name="view"/> (A5-7): the cut residues join the offsets, the reverse-complement flag is set.</summary>
+    public EmbossAlignedSequence WithView(EmbossSequenceView view)
+    {
+        ArgumentNullException.ThrowIfNull(view);
+        // the report counts residues in the ORIGINAL strand (ajalign.c alignSeqBegin: a reversed sequence starts at Len - Offend - Start + 1): when the sequence is reversed, the residues before the aligned part in the
+        // reverse-complement are the residues AFTER it in the original, so the two offsets swap sides (ajSeqReverseDo swaps seq->Offset and seq->Offend).
+        return view.Reversed && !view.OffsetsNotSwapped
+            ? this with { Offset = Offend + view.Offend, Offend = Offset + view.Offset, Reversed = true }
+            : this with { Offset = Offset + view.Offset, Offend = Offend + view.Offend, Reversed = Reversed || view.Reversed };
+    }
+}
 
 /// <summary>One pairwise alignment as reported by needle / water / stretcher / matcher / supermatcher.</summary>
 /// <param name="First">The first sequence (<c>-asequence</c>).</param>
@@ -112,6 +124,18 @@ public sealed record EmbossPairAlignment(
             new EmbossAlignedSequence(name1, alignment.AlignedSequence1, alignment.StartPosition1, Math.Max(0, length1 - alignment.EndPosition1)),
             new EmbossAlignedSequence(name2, alignment.AlignedSequence2, alignment.StartPosition2, Math.Max(0, length2 - alignment.EndPosition2)),
             alignment.ExactScore);
+    }
+    /// <summary>
+    /// <see cref="From(AlignmentResult, string, int, string, int)"/> for sequences read with the sequence qualifiers (<c>-sbegin -send -sreverse</c>, A5-7): the alignment was computed on <see cref="EmbossSequenceView.Residues"/>, so the residues
+    /// the range cut from each side (<see cref="EmbossSequenceView.Offset"/> / <see cref="EmbossSequenceView.Offend"/>) are added to the offsets and the sequence is marked <see cref="EmbossAlignedSequence.Reversed"/> when it was reverse-complemented.
+    /// </summary>
+    public static EmbossPairAlignment From(AlignmentResult alignment, string name1, EmbossSequenceView view1, string name2, EmbossSequenceView view2)
+    {
+        ArgumentNullException.ThrowIfNull(alignment);
+        ArgumentNullException.ThrowIfNull(view1);
+        ArgumentNullException.ThrowIfNull(view2);
+        var pair = From(alignment, name1, view1.Residues.Length, name2, view2.Residues.Length);
+        return pair with { First = pair.First.WithView(view1), Second = pair.Second.WithView(view2) };
     }
 }
 
@@ -174,9 +198,11 @@ public sealed record EmbossAlignOptions
 /// <param name="Name">The sequence name.</param>
 /// <param name="Residues">The residues, case as read.</param>
 /// <param name="Description">The rest of the FASTA header.</param>
-public sealed record EmbossSequence(string Name, string Residues, string Description = "");
+/// <param name="Qualifiers">The <c>-sbegin -send -sreverse -slower -supper -scircular -snucleotide -sprotein</c> of this input (A5-7); null = none.</param>
+public sealed record EmbossSequence(string Name, string Residues, string Description = "", EmbossSequenceQualifiers? Qualifiers = null);
 
 /// <summary>The output of a multi-alignment EMBOSS program (<c>supermatcher</c>, <c>needleall</c>, <c>wordmatch</c> ...): the alignments in the order the program writes them and the text of its <c>-errfile</c>.</summary>
 /// <param name="Alignments">The pairwise alignments, one <c>ajAlignWrite</c> each.</param>
 /// <param name="ErrorText">What the program prints to its error file (one line per failed pair), empty when nothing failed.</param>
-public sealed record EmbossProgramResult(IReadOnlyList<EmbossPairAlignment> Alignments, string ErrorText);
+/// <param name="MatrixName">The EMBOSS name of the scoring matrix the program used (<c>EDNAFULL</c>, <c>EBLOSUM62</c>, ...; the <c>Matrix:</c> line of its report); empty when the program did not record it.</param>
+public sealed record EmbossProgramResult(IReadOnlyList<EmbossPairAlignment> Alignments, string ErrorText, string MatrixName = "");
