@@ -26,11 +26,12 @@ Sum-of-pairs score of a multiple alignment (equal-length rows, '-' = gap). gapMo
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `alignedRows` | array<string> | Yes | Equal-length aligned rows, '-' = gap. |
-| `match` | integer | No | Score for a matching residue pair (ignored with matrix). |
-| `mismatch` | integer | No | Score for a mismatching residue pair (ignored with matrix). |
-| `gapOpen` | number | No | Gap-open score added once per gap run (affine model only; negative = penalty; integer unless matrix is given). |
-| `gapExtend` | number | No | Gap score per gap position (negative = penalty; integer unless matrix is given). |
+| `match` | integer | No | Score for a matching residue pair (ignored with matrix). (default: 1) |
+| `mismatch` | integer | No | Score for a mismatching residue pair (ignored with matrix). (default: -1) |
+| `gapOpen` | number | No | Gap-open score added once per gap run (affine model only; negative = penalty; integer unless matrix is given). (default: -2) |
+| `gapExtend` | number | No | Gap score per gap position (negative = penalty; integer unless matrix is given). (default: -1) |
 | `gapModel` | string | No | Gap model: 'linear' (default) or 'affine'. |
+| `matrix` | string | No | Optional substitution matrix: any built-in matrix by EMBOSS or NCBI name - BLOSUM62, PAM250, EBLOSUM30 ... EBLOSUM90, EPAM10 ... EPAM500 (protein) or EDNAFULL, EDNAMAT, EDNASIMPLE, ENUC.4.4 (IUPAC DNA). When given, match/mismatch are ignored, residues are scored by the published table (any protein or IUPAC symbol of the matrix; case-insensitive) and gapOpen/gapExtend may be fractional (the EMBOSS needle/water models: gapOpen = -(G - E), gapExtend = -E for -gapopen G -gapextend E). The result then also carries the real-valued exactScore. |
 
 ## Output Schema
 

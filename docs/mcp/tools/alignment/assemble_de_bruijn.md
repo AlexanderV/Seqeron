@@ -1,6 +1,6 @@
 # assemble_de_bruijn
 
-Assemble reads using a de Bruijn graph: shred reads into k-mers, build the (k-1)-mer node graph, trace Eulerian walks per component into contigs, then report N50 / longest / total length.
+Assembles input reads using a de Bruijn graph: shreds reads into k-mers, builds the (k-1)-mer node graph, traces non-branching paths into contigs, then reports assembly statistics.
 
 ## Overview
 
@@ -14,7 +14,7 @@ Assemble reads using a de Bruijn graph: shred reads into k-mers, build the (k-1)
 
 ## Description
 
-Assemble reads using a de Bruijn graph: shred reads into k-mers, build the (k-1)-mer node graph, trace Eulerian walks per component into contigs, then report N50 / longest / total length.
+Assembles input reads using a de Bruijn graph: shreds reads into k-mers, builds the (k-1)-mer node graph, traces non-branching paths into contigs, then reports assembly statistics.
 
 ## Core Documentation Reference
 

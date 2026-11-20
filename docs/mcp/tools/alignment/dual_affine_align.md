@@ -28,15 +28,15 @@ Pairwise alignment with the TWO-PIECE (dual) affine gap model of ksw2 / minimap2
 |-----------|------|----------|-------------|
 | `sequence1` | string | Yes | First sequence. |
 | `sequence2` | string | Yes | Second sequence. |
-| `mode` | string | No | 'global' or 'local'. |
-| `match` | integer | No | Score of an identical pair. |
-| `mismatch` | integer | No | Score of a different pair. |
-| `gapOpen1` | integer | No | Short regime: gap open score (<= 0). |
-| `gapExtend1` | integer | No | Short regime: extension score per position (<= 0). |
-| `gapOpen2` | integer | No | Long regime: gap open score (<= 0). |
-| `gapExtend2` | integer | No | Long regime: extension score per position (<= 0). |
-| `band` | integer | No | Band half-width (|i - j| <= band); -1 = full matrix. |
-| `format` | string | No | Optional output format; the alignment written in that format is returned in 'formatted'. Biopython Bio.Align names: fasta, a2m, clustal, phylip, nexus, stockholm (byte for byte as Bio.Align.write; 'emboss:' + name selects the EMBOSS writer of the same name) or EMBOSS -aformat names (pair, simple, srspair, srs, markx0-3, markx10, match, score, sam, tcoffee, msf, mega, meganon, nexusnon, paup, paupnon, phylipnon, selex, treecon). Omit for no formatted text. |
+| `mode` | string | No | 'global' (default) or 'local'. |
+| `match` | integer | No | Score of an identical pair (minimap2 -A). (default: 2) |
+| `mismatch` | integer | No | Score of a different pair (minimap2 -B is the penalty: -4). (default: -4) |
+| `gapOpen1` | integer | No | Short regime: gap open score (<= 0; minimap2 -O first value as -4). (default: -4) |
+| `gapExtend1` | integer | No | Short regime: gap extension score per position (<= 0; -E first value as -2). (default: -2) |
+| `gapOpen2` | integer | No | Long regime: gap open score (<= 0; -O second value as -24). (default: -24) |
+| `gapExtend2` | integer | No | Long regime: gap extension score per position (<= 0; -E second value as -1). (default: -1) |
+| `band` | integer | No | Band half-width (cells with \|i - j\| <= band); -1 = full matrix. (default: -1) |
+| `format` | string | No | Optional output format; the alignment written in that format is returned in the result field 'formatted'. Biopython Bio.Align names: fasta, a2m, clustal, phylip, nexus, stockholm (byte for byte as Bio.Align.write; 'emboss:' + name selects the EMBOSS writer of the same name). EMBOSS -aformat names: pair, simple, srspair, srs, markx0, markx1, markx2, markx3, markx10, match, score, sam, tcoffee (two rows) and msf, mega, meganon, nexusnon, paup, paupnon, phylipnon, selex, treecon (any number of rows; EMBOSS prints the run date: now, UTC). Omit for no formatted text. |
 | `names` | array of string | No | Optional names of the rows for the formatted output (default seq1, seq2, ...). |
 
 ## Output Schema

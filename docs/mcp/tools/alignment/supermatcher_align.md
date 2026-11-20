@@ -29,12 +29,12 @@ EMBOSS 6.6 supermatcher: approximate local alignment of large sequences. The wor
 | `targetSequences` | array of string | Yes | The -bsequence sequence set (second member of each pair). |
 | `queryNames` | array of string | No | Optional names of the query sequences (default query1, query2, ...). |
 | `targetNames` | array of string | No | Optional names of the target sequences (default target1, ...). |
-| `matrix` | string | No | Optional EMBOSS data matrix (-datafile). Omit for EDNAFULL (nucleotide) / EBLOSUM62. |
-| `gapOpen` | number | No | Gap opening penalty (-gapopen, 0 - 100); default 10. |
-| `gapExtend` | number | No | Gap extension penalty (-gapextend, 0 - 10); default 0.5. |
-| `wordLength` | integer | No | Word length of the seed matching (-wordlen, at least 3); default 6. |
-| `width` | integer | No | Alignment band width (-width, at least 1); default 16. |
-| `minScore` | number | No | Minimum alignment score to report an alignment (-minscore); default 0. |
+| `matrix` | string | No | Optional EMBOSS data matrix (-datafile): EBLOSUM62, EPAM250, EDNAFULL, ... or the NCBI name. Omit for EDNAFULL (nucleotide) / EBLOSUM62. |
+| `gapOpen` | number | No | Gap opening penalty (-gapopen, 0 - 100): the cost of a gap of length 1. (default: 10) |
+| `gapExtend` | number | No | Gap extension penalty (-gapextend, 0 - 10). (default: 0.5) |
+| `wordLength` | integer | No | Word length of the seed matching (-wordlen, at least 3). (default: 6) |
+| `width` | integer | No | Alignment band width (-width, at least 1). (default: 16) |
+| `minScore` | number | No | Minimum alignment score to report an alignment (-minscore). (default: 0) |
 
 ## Output Schema
 

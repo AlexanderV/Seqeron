@@ -27,11 +27,11 @@ Kalign 3.3.5's multiple alignment (Lassmann 2019, Bioinformatics 36:1928; kalign
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `sequences` | array<string> | Yes | Sequences to align (at least two with residues): letters (the alphabet of the detected type), any other character is a gap and is removed. |
-| `type` | string | No | Kalign --type: 'auto' (default), 'rna', 'dna', 'protein', 'divergent' (GON250, proteins only) or 'dna-internal' (library only). A type that does not fit the detected alphabet is refused like the program does. |
+| `type` | string | No | Kalign --type: 'auto' (default: RNA matrix for nucleotides, CorBLOSUM66_13plus for proteins), 'rna', 'dna', 'protein', 'divergent' (GON250, proteins only) or 'dna-internal' (library only: dna with terminal gap extension 8; the program's command line cannot select it). A type that does not fit the detected alphabet is refused like the program does. |
 | `gapOpen` | number | No | Kalign --gpo: gap open penalty (positive = cost); omit or negative = the default of the type. |
 | `gapExtend` | number | No | Kalign --gpe: gap extension penalty; omit or negative = the default of the type. |
-| `terminalGapExtend` | number | No | Kalign --tgpe: terminal gap extension penalty; applied only when gapExtend is also given (a quirk of 3.3.5). |
-| `threads` | integer | No | Kalign -n (at least 1, default 4): only 1 versus more than 1 matters (serial versus OpenMP recursion). |
+| `terminalGapExtend` | number | No | Kalign --tgpe: terminal gap extension penalty; applied only when gapExtend is also given (a quirk of 3.3.5: the program tests --gpe before applying --tgpe). |
+| `threads` | integer | No | Kalign -n: number of threads (at least 1, default 4). Only 1 versus more than 1 matters: the one-thread program uses the serial recursion, which differs in the order of sequence pairs. (default: 4) |
 
 ## Output Schema
 

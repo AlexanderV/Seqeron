@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "SequenceAssembler.MergeContigs",
   "docRef": "Seqeron.Genomics.Alignment/SequenceAssembler.cs#L629",
-  "description": "Concatenate two contigs, collapsing the specified suffix(contig1)/prefix(contig2) overlap of overlapLength bases. A non-positive or too-large overlap falls back to plain concatenation.",
+  "description": "Concatenates two contigs, collapsing the specified suffix/prefix overlap of overlapLength bases. Invalid overlapLength falls back to plain concatenation.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -20,7 +20,7 @@
       },
       "overlapLength": {
         "type": "integer",
-        "description": "Length of the overlap to collapse."
+        "description": "Length of overlap to collapse."
       }
     },
     "required": [

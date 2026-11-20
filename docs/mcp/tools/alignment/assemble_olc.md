@@ -1,6 +1,6 @@
 # assemble_olc
 
-Assemble reads with the overlap-layout-consensus approach: detect pairwise suffix-prefix overlaps above thresholds, build the overlap graph, greedily lay out contigs, and report N50 / longest / total length.
+Assembles input reads into contigs using the overlap–layout–consensus approach: detects pairwise suffix–prefix overlaps above thresholds, builds the overlap graph, lays out contigs, and reports N50 / longest / total length.
 
 ## Overview
 
@@ -14,7 +14,7 @@ Assemble reads with the overlap-layout-consensus approach: detect pairwise suffi
 
 ## Description
 
-Assemble reads with the overlap-layout-consensus approach: detect pairwise suffix-prefix overlaps above thresholds, build the overlap graph, greedily lay out contigs, and report N50 / longest / total length.
+Assembles input reads into contigs using the overlap–layout–consensus approach: detects pairwise suffix–prefix overlaps above thresholds, builds the overlap graph, lays out contigs, and reports N50 / longest / total length.
 
 ## Core Documentation Reference
 
@@ -27,7 +27,7 @@ Assemble reads with the overlap-layout-consensus approach: detect pairwise suffi
 | `reads` | array<string> | Yes | Input sequence reads. |
 | `minOverlap` | integer | No | Minimum overlap length to accept (bp). (default: 20) |
 | `minIdentity` | number | No | Minimum identity ratio for an overlap to be accepted (0.0-1.0). (default: 0.9) |
-| `kmerSize` | integer | No | K-mer size (unused by OLC path; shared parameter). (default: 31) |
+| `kmerSize` | integer | No | K-mer size (unused by OLC path; part of shared assembly parameters). (default: 31) |
 | `minContigLength` | integer | No | Minimum contig length to keep (bp). (default: 100) |
 
 ## Output Schema

@@ -45,11 +45,11 @@ sequence/pattern/k rows.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `sequence` | string | Yes | DNA sequence (min length 1) |
-| `motifs` | array of string | Yes | Set of motifs to search |
-| `bothStrands` | boolean | No | Also search the reverse strand (default false) |
-| `iupac` | boolean | No | Interpret IUPAC codes in the motifs (default false) |
-| `mismatches` | integer | No | Maximum mismatching positions per hit, Hamming (default 0 = exact; fuzznuc `-pmismatch`) |
+| `sequence` | string | Yes | Nucleotide sequence: A/C/G/T plus IUPAC codes such as N (case-insensitive); a symbol other than A/C/G/T matches no motif symbol (not even N) and costs a mismatch when mismatches > 0. |
+| `motifs` | array of string | Yes | Set of motifs to search. |
+| `bothStrands` | boolean | No | Also search the reverse strand: reverseMatches lists the windows matching the reverse complement of each motif (default false). |
+| `iupac` | boolean | No | Interpret IUPAC ambiguity codes in the motifs, e.g. TATAWAW (default false: codes are literal; without mismatches they match nothing, with mismatches each costs one). |
+| `mismatches` | integer | No | Maximum number of mismatching positions per hit (default 0 = exact; fuzznuc -pmismatch). A bound >= the motif length makes every window a hit. |
 
 ## Output Schema
 

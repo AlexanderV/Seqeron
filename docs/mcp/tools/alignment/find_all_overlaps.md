@@ -1,6 +1,6 @@
 # find_all_overlaps
 
-Compute all suffix-of-i / prefix-of-j overlaps between ordered read pairs above minOverlap length and minIdentity ratio; each result is an overlap-graph edge i -> j.
+Computes all suffix-of-i / prefix-of-j overlaps between read pairs above minOverlap length and minIdentity ratio.
 
 ## Overview
 
@@ -14,7 +14,7 @@ Compute all suffix-of-i / prefix-of-j overlaps between ordered read pairs above 
 
 ## Description
 
-Compute all suffix-of-i / prefix-of-j overlaps between ordered read pairs above minOverlap length and minIdentity ratio; each result is an overlap-graph edge i -> j.
+Computes all suffix-of-i / prefix-of-j overlaps between read pairs above minOverlap length and minIdentity ratio.
 
 ## Core Documentation Reference
 

@@ -28,19 +28,19 @@ The ksw2 / minimap2 extension-alignment functions: global or extension alignment
 | `query` | string | Yes | Query sequence (ACGT, other letters = N). |
 | `target` | string | Yes | Target sequence. |
 | `variant` | string | No | 'extd2' (default), 'extz2', 'extd' or 'extz'. |
-| `match` | integer | No | Score of a match (minimap2 -A); default 2. |
-| `mismatch` | integer | No | Penalty of a mismatch, positive (minimap2 -B); default 4. |
-| `ambiguous` | integer | No | Penalty of the ambiguous base N, positive; 0 gives -e; default 1. |
-| `gapOpen` | integer | No | Gap open penalty q (minimap2 -O first value); default 4. |
-| `gapExtend` | integer | No | Gap extension penalty e (minimap2 -E first value); default 2. |
-| `gapOpen2` | integer | No | Second gap open penalty q2 (dual variants); default 24. |
-| `gapExtend2` | integer | No | Second gap extension penalty e2 (dual variants); default 1. |
-| `band` | integer | No | Band half-width (-1 = none). |
-| `zdrop` | integer | No | Z-drop (-1 = none; minimap2 -z). |
-| `endBonus` | integer | No | End bonus (SIMD variants, extensionOnly). |
-| `extensionOnly` | boolean | No | Extension alignment: the path ends at the best cell (or the query end with the end bonus). |
-| `rightAlignGaps` | boolean | No | Right-align gaps (KSW_EZ_RIGHT). |
-| `scoreOnly` | boolean | No | Score only, no CIGAR. |
+| `match` | integer | No | Score of a match (minimap2 -A). (default: 2) |
+| `mismatch` | integer | No | Penalty of a mismatch, positive (minimap2 -B). (default: 4) |
+| `ambiguous` | integer | No | Penalty of the ambiguous base N, positive (minimap2 -N / sc_ambi); 0 gives -e. (default: 1) |
+| `gapOpen` | integer | No | Gap open penalty q (minimap2 -O first value), >= 0. (default: 4) |
+| `gapExtend` | integer | No | Gap extension penalty e (minimap2 -E first value), >= 1. (default: 2) |
+| `gapOpen2` | integer | No | Second gap open penalty q2 (dual variants; minimap2 -O second value). (default: 24) |
+| `gapExtend2` | integer | No | Second gap extension penalty e2 (dual variants; minimap2 -E second value). (default: 1) |
+| `band` | integer | No | Band half-width (-1 = none). (default: -1) |
+| `zdrop` | integer | No | Z-drop (-1 = none; minimap2 -z). (default: -1) |
+| `endBonus` | integer | No | End bonus (SIMD variants, extensionOnly). (default: 0) |
+| `extensionOnly` | boolean | No | Extension alignment: the path ends at the best cell (or the query end with the end bonus). (default: false) |
+| `rightAlignGaps` | boolean | No | Right-align gaps (KSW_EZ_RIGHT). (default: false) |
+| `scoreOnly` | boolean | No | Score only, no CIGAR. (default: false) |
 
 ## Output Schema
 

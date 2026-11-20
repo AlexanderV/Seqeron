@@ -27,7 +27,7 @@ Ambiguity-code consensus of an alignment, identical to EMBOSS 6.6.0 'consambig' 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `sequences` | array<string> | Yes | At least two aligned sequences (DNA or protein). |
-| `residueType` | string | No | 'auto' (default: type of the first sequence, as the program), 'nucleotide' (forces nucleotide, -snucleotide) or 'protein'. Default: `"auto"`. |
+| `residueType` | string | No | 'auto' (default: type of the first sequence, as the program), 'nucleotide' (forces nucleotide, -snucleotide) or 'protein'. |
 
 ## Output Schema
 

@@ -29,14 +29,14 @@ The anchor-clustering stage of MUMmer 3.23 nucmer = `mummer -mum|-mumreference|-
 |-----------|------|----------|-------------|
 | `reference` | string | Yes | Reference DNA sequence. |
 | `query` | string | Yes | Query DNA sequence. |
-| `minMatchLength` | integer | No | Minimum exact match length (nucmer -l, default 20). Default: `20`. |
-| `mode` | string | No | Match mode: 'mum' (default), 'mumreference' or 'maxmatch'. Default: `"mum"`. |
-| `bothStrands` | boolean | No | Also cluster the reverse-complement strand of the query (nucmer default true). Default: `true`. |
-| `maxSeparation` | integer | No | Largest separation between matches of a cluster (nucmer -g, default 90). Default: `90`. |
-| `minClusterLength` | integer | No | Smallest reported cluster length (nucmer -c, default 65). Default: `65`. |
-| `diagonalDifference` | integer | No | Fixed diagonal difference that joins matches (nucmer -D, default 5). Default: `5`. |
-| `diagonalFraction` | number | No | Fraction of the separation added to the allowed diagonal difference (nucmer -d, default 0.12). Default: `0.12`. |
-| `useExtent` | boolean | No | Cluster length = extent in the reference instead of the sum of the match lengths (mgaps -e, default false). Default: `false`. |
+| `minMatchLength` | integer | No | Minimum exact match length (nucmer -l, default 20). (default: 20) |
+| `mode` | string | No | Match mode: 'mum' (default), 'mumreference' or 'maxmatch'. |
+| `bothStrands` | boolean | No | Also cluster the reverse-complement strand of the query (nucmer default true). (default: true) |
+| `maxSeparation` | integer | No | Largest separation between matches of a cluster (nucmer -g, default 90). (default: 90) |
+| `minClusterLength` | integer | No | Smallest reported cluster length (nucmer -c, default 65). (default: 65) |
+| `diagonalDifference` | integer | No | Fixed diagonal difference that joins matches (nucmer -D, default 5). (default: 5) |
+| `diagonalFraction` | number | No | Fraction of the separation added to the allowed diagonal difference (nucmer -d, default 0.12). (default: 0.12) |
+| `useExtent` | boolean | No | Cluster length = extent in the reference instead of the sum of the match lengths (mgaps -e, default false). (default: false) |
 
 ## Output Schema
 

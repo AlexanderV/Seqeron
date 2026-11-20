@@ -1,6 +1,6 @@
 # compute_consensus
 
-Build a consensus from pre-aligned reads (same length; '-'/'.' ignored) by column-wise majority vote (Biopython dumb_consensus, threshold 0.5). Ties and sub-threshold columns emit 'N'.
+Builds a consensus sequence from a list of pre-aligned reads (same length, '-' / 'N' ignored) by majority vote per column. Columns with no informative bases yield 'N'.
 
 ## Overview
 
@@ -14,7 +14,7 @@ Build a consensus from pre-aligned reads (same length; '-'/'.' ignored) by colum
 
 ## Description
 
-Build a consensus from pre-aligned reads (same length; '-'/'.' ignored) by column-wise majority vote (Biopython dumb_consensus, threshold 0.5). Ties and sub-threshold columns emit 'N'.
+Builds a consensus sequence from a list of pre-aligned reads (same length, '-' / 'N' ignored) by majority vote per column. Columns with no informative bases yield 'N'.
 
 ## Core Documentation Reference
 

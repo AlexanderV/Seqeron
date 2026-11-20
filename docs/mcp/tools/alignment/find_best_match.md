@@ -1,6 +1,6 @@
 # find_best_match
 
-Return the single best (minimum Hamming distance) fixed-length window of pattern inside sequence; ties resolve to the leftmost window and an exact (distance 0) match short-circuits the scan.
+Returns the single best (minimum-Hamming-distance) fixed-length window of pattern inside sequence. Stops early on perfect (distance=0) match.
 
 ## Overview
 
@@ -14,7 +14,7 @@ Return the single best (minimum Hamming distance) fixed-length window of pattern
 
 ## Description
 
-Return the single best (minimum Hamming distance) fixed-length window of pattern inside sequence; ties resolve to the leftmost window and an exact (distance 0) match short-circuits the scan.
+Returns the single best (minimum-Hamming-distance) fixed-length window of pattern inside sequence. Stops early on perfect (distance=0) match.
 
 ## Core Documentation Reference
 

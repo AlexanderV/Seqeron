@@ -30,11 +30,11 @@ Runs the Lowrance & Wagner (1975) dynamic program and traces back an optimal edi
 |-----------|------|----------|-------------|
 | `sequence1` | string | Yes | Source sequence (s1). |
 | `sequence2` | string | Yes | Target sequence (s2). |
-| `variant` | string | No | 'unrestricted' (true Damerau–Levenshtein, default) or 'osa' (optimal string alignment). |
-| `insertionCost` | integer | No | Cost of inserting a sequence2 character (>= 0; default 1). |
-| `deletionCost` | integer | No | Cost of deleting a sequence1 character (>= 0; default 1). |
-| `substitutionCost` | integer | No | Cost of a substitution (>= 0; default 1). |
-| `transpositionCost` | integer | No | Cost of swapping two adjacent characters (>= 0; default 1; 'unrestricted' needs 2·transpositionCost >= insertionCost + deletionCost). |
+| `variant` | string | No | 'unrestricted' (true Damerau–Levenshtein, default) or 'osa' (optimal string alignment). (default: unrestricted) |
+| `insertionCost` | integer | No | Cost of inserting a sequence2 character (>= 0; default 1). (default: 1) |
+| `deletionCost` | integer | No | Cost of deleting a sequence1 character (>= 0; default 1). (default: 1) |
+| `substitutionCost` | integer | No | Cost of a substitution (>= 0; default 1). (default: 1) |
+| `transpositionCost` | integer | No | Cost of swapping two adjacent characters (>= 0; default 1; 'unrestricted' needs 2*transpositionCost >= insertionCost + deletionCost). (default: 1) |
 
 ## Output Schema
 

@@ -28,24 +28,24 @@ EMBOSS 6.6.0 showalign: the pretty text display of a multiple alignment, identic
 |-----------|------|----------|-------------|
 | `names` | array<string> | Yes | Sequence names (one per row; the first word is used). |
 | `sequences` | array<string> | Yes | The aligned sequences (DNA or protein; gaps '-', '.', '~'; case is kept). |
-| `refseq` | string | No | Reference: '0' = the consensus (default), a 1-based row number or a sequence name. Default: `"0"`. |
-| `show` | string | No | What to show: N non-identities (default), I identities, S similarities, D dissimilarities, A all. Default: `"N"`. |
-| `order` | string | No | Output order of the rows: I input (default), A alphabetical names, S similarity to the reference. Default: `"I"`. |
+| `refseq` | string | No | Reference: '0' = the consensus (default), a 1-based row number or a sequence name. |
+| `show` | string | No | What to show: N non-identities (default), I identities, S similarities, D dissimilarities, A all. |
+| `order` | string | No | Output order of the rows: I input (default), A alphabetical names, S similarity to the reference. |
 | `matrix` | string | No | Scoring matrix name (EBLOSUM62, EDNAFULL, EPAM250, ...); default by sequence type. |
-| `similarCase` | boolean | No | Case encodes similarity (default true). Default: `true`. |
-| `consensus` | boolean | No | Show the consensus line (default true). Default: `true`. |
-| `bottom` | boolean | No | Consensus at the bottom (default true) instead of the top. Default: `true`. |
-| `number` | boolean | No | Position number line (default true). Default: `true`. |
-| `ruler` | boolean | No | Tick ruler line (default true). Default: `true`. |
-| `width` | integer | No | Columns per block (default 60). Default: `60`. |
-| `margin` | integer | No | Name column width: -1 = longest name + 1 (default), 0 = no names. Default: `-1`. |
+| `similarCase` | boolean | No | Case encodes similarity (default true). |
+| `consensus` | boolean | No | Show the consensus line (default true). |
+| `bottom` | boolean | No | Consensus at the bottom (default true) instead of the top. |
+| `number` | boolean | No | Position number line (default true). |
+| `ruler` | boolean | No | Tick ruler line (default true). |
+| `width` | integer | No | Columns per block (default 60). |
+| `margin` | integer | No | Name column width: -1 = longest name + 1 (default), 0 = no names. |
 | `uppercase` | string | No | 1-based inclusive column ranges to put in upper case, e.g. '3-10,20-25'. |
-| `plurality` | number | No | Consensus plurality in percent of the total weight (default 50). Default: `50`. |
+| `plurality` | number | No | Consensus plurality in percent of the total weight (default 50). |
 | `setCase` | number | No | Consensus: weight at or below which the letter is lower case (default half the number of sequences). |
-| `identity` | number | No | Consensus: percent of identities required at a position (default 0). Default: `0`. |
-| `gaps` | boolean | No | A gap character can be the consensus (default true). Default: `true`. |
-| `sbegin` | integer | No | -sbegin: first column shown, 1-based (0 = the first; negative = counted from the end; beyond the alignment = the last). Default: `0`. |
-| `send` | integer | No | -send: last column shown, 1-based (0 = the last; negative = counted from the end; before the first shown column = that column). Default: `0`. |
+| `identity` | number | No | Consensus: percent of identities required at a position (default 0). |
+| `gaps` | boolean | No | A gap character can be the consensus (default true). |
+| `sbegin` | integer | No | -sbegin: first column shown, 1-based (0 = the first; negative = counted from the end; beyond the alignment = the last). (default: 0) |
+| `send` | integer | No | -send: last column shown, 1-based (0 = the last; negative = counted from the end; before the first shown column = that column). (default: 0) |
 
 ## Output Schema
 

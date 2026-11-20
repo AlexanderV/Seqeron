@@ -17,7 +17,7 @@
       },
       "alignedSequence2": {
         "type": "string",
-        "description": "Aligned representation of sequence2 (must equal alignedSequence1.Length).",
+        "description": "Aligned representation of sequence2 (with '-' gaps).",
         "minLength": 1
       },
       "matrix": {

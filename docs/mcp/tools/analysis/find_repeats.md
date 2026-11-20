@@ -42,10 +42,10 @@ supermaximal repeats `find_supermaximal_repeats`.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `sequence` | string | Yes | DNA sequence (min length 1) |
-| `minLength` | integer | Yes | Minimum repeat length (≥ 1) |
-| `maximalOnly` | boolean | No | Only Gusfield maximal repeats (default `false`) |
-| `bothStrands` | boolean | No | Search both strands: classes of a string and its reverse complement (MUMmer repeat-match default). Default false = forward strand only. |
+| `sequence` | string | Yes | Nucleotide sequence: A/C/G/T plus IUPAC codes such as N (case-insensitive); non-A/C/G/T symbols never repeat. |
+| `minLength` | integer | Yes | Minimum repeat length (>= 1). |
+| `maximalOnly` | boolean | No | Report only maximal repeats (Gusfield 1997 sec. 7.12; default false = every repeated substring). (default: false) |
+| `bothStrands` | boolean | No | Search both strands: classes of a string and its reverse complement (MUMmer repeat-match default). Default false = forward strand only. (default: false) |
 
 ## Output Schema
 

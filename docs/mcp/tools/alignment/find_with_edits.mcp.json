@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "ApproximateMatcher.FindWithEdits",
   "docRef": "Seqeron.Genomics.Alignment/ApproximateMatcher.cs#L118",
-  "description": "Find all approximate matches of pattern in sequence allowing up to maxEdits Levenshtein edits (insertions, deletions, substitutions), scanning variable-length windows of length pattern.Length +/- maxEdits.",
+  "description": "Finds all approximate matches of pattern in sequence allowing up to maxEdits Levenshtein edits (insertions, deletions, substitutions) with variable-length sliding windows of length pattern.Length ± maxEdits.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -79,7 +79,9 @@
             "position": 1,
             "matchedSequence": "CGT",
             "distance": 1,
-            "mismatchPositions": [0],
+            "mismatchPositions": [
+              0
+            ],
             "mismatchType": "Substitution"
           },
           {

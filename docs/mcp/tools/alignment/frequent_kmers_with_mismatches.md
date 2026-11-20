@@ -1,6 +1,6 @@
 # frequent_kmers_with_mismatches
 
-Find the most-frequent k-mers within sequence allowing up to d mismatches (each window's full Hamming-d neighborhood is tallied). Returns all k-mers tied for the maximum Count_d.
+Finds the most-frequent k-mers within sequence allowing up to d mismatches (counts each k-mer plus all its DNA neighbors at Hamming distance ≤ d). Returns all k-mers tied for the maximum count.
 
 ## Overview
 
@@ -14,7 +14,7 @@ Find the most-frequent k-mers within sequence allowing up to d mismatches (each 
 
 ## Description
 
-Find the most-frequent k-mers within sequence allowing up to d mismatches (each window's full Hamming-d neighborhood is tallied). Returns all k-mers tied for the maximum Count_d.
+Finds the most-frequent k-mers within sequence allowing up to d mismatches (counts each k-mer plus all its DNA neighbors at Hamming distance ≤ d). Returns all k-mers tied for the maximum count.
 
 ## Core Documentation Reference
 

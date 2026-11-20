@@ -20,59 +20,73 @@
       },
       "variant": {
         "type": "string",
-        "description": "'extd2' (default), 'extz2', 'extd' or 'extz'."
+        "description": "'extd2' (default), 'extz2', 'extd' or 'extz'.",
+        "default": "extd2"
       },
       "match": {
         "type": "integer",
-        "description": "Score of a match (minimap2 -A); default 2."
+        "description": "Score of a match (minimap2 -A).",
+        "default": 2
       },
       "mismatch": {
         "type": "integer",
-        "description": "Penalty of a mismatch, positive (minimap2 -B); default 4."
+        "description": "Penalty of a mismatch, positive (minimap2 -B).",
+        "default": 4
       },
       "ambiguous": {
         "type": "integer",
-        "description": "Penalty of the ambiguous base N, positive; 0 gives -e; default 1."
+        "description": "Penalty of the ambiguous base N, positive (minimap2 -N / sc_ambi); 0 gives -e.",
+        "default": 1
       },
       "gapOpen": {
         "type": "integer",
-        "description": "Gap open penalty q (minimap2 -O first value); default 4."
+        "description": "Gap open penalty q (minimap2 -O first value), >= 0.",
+        "default": 4
       },
       "gapExtend": {
         "type": "integer",
-        "description": "Gap extension penalty e (minimap2 -E first value); default 2."
+        "description": "Gap extension penalty e (minimap2 -E first value), >= 1.",
+        "default": 2
       },
       "gapOpen2": {
         "type": "integer",
-        "description": "Second gap open penalty q2 (dual variants); default 24."
+        "description": "Second gap open penalty q2 (dual variants; minimap2 -O second value).",
+        "default": 24
       },
       "gapExtend2": {
         "type": "integer",
-        "description": "Second gap extension penalty e2 (dual variants); default 1."
+        "description": "Second gap extension penalty e2 (dual variants; minimap2 -E second value).",
+        "default": 1
       },
       "band": {
         "type": "integer",
-        "description": "Band half-width (-1 = none)."
+        "description": "Band half-width (-1 = none).",
+        "default": -1
       },
       "zdrop": {
         "type": "integer",
-        "description": "Z-drop (-1 = none; minimap2 -z)."
+        "description": "Z-drop (-1 = none; minimap2 -z).",
+        "default": -1
       },
       "endBonus": {
         "type": "integer",
-        "description": "End bonus (SIMD variants, extensionOnly)."
+        "description": "End bonus (SIMD variants, extensionOnly).",
+        "default": 0
       },
       "extensionOnly": {
         "type": "boolean",
-        "description": "Extension alignment: the path ends at the best cell (or the query end with the end bonus)."
+        "description": "Extension alignment: the path ends at the best cell (or the query end with the end bonus).",
+        "default": false
       },
       "rightAlignGaps": {
         "type": "boolean",
-        "description": "Right-align gaps (KSW_EZ_RIGHT)."
+        "description": "Right-align gaps (KSW_EZ_RIGHT).",
+        "default": false
       },
       "scoreOnly": {
         "type": "boolean",
-        "description": "Score only, no CIGAR."
+        "description": "Score only, no CIGAR.",
+        "default": false
       }
     },
     "required": [

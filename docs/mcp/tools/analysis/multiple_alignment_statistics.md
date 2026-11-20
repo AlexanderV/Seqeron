@@ -27,7 +27,7 @@ Statistics of a gapped multiple alignment: per-sequence comparison with a refere
 |-----------|------|----------|-------------|
 | `sequences` | array<string> | Yes | At least two aligned sequences of equal length (DNA or protein, gaps '-'). |
 | `residueType` | string | No | 'auto' (type of the first row as EMBOSS), 'nucleotide' (EDNAFULL) or 'protein' (EBLOSUM62; also enables ':'/'.' conservation). (default: auto) |
-| `referenceSequence` | integer | No | infoalign -refseq: 0 = the EMBOSS cons consensus (default), k = the k-th sequence (1-based). (default: 0) |
+| `referenceSequence` | integer | No | infoalign -refseq: 0 = the EMBOSS cons consensus (default), k = the k-th sequence (1-based). |
 | `gapWeight` | number | No | Weight of gap columns in the identity matrix denominator L - g + g*gapWeight (distmat -gapweight; default 0). (default: 0) |
 
 ## Output Schema

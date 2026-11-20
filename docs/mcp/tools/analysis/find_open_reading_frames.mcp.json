@@ -6,29 +6,29 @@
   "stability": "stable",
   "methodId": "GenomicAnalyzer.FindOpenReadingFrames",
   "docRef": "Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#FindOpenReadingFrames",
-  "description": "Open reading frames in all 6 frames (3 forward + 3 reverse-complement): each start codon (default ATG) to its first in-frame stop codon of the chosen NCBI genetic code (default Standard TAA/TAG/TGA), stop included, length >= minLength nucleotides; every in-frame start is reported (nested ORFs, Rosalind). Options follow NCBI ORFfinder: genetic_code, startCodons, nested, includeOpenEnded, minLengthExcludesStop, bothStrands.",
+  "description": "ORFs in all 6 frames (3 forward + 3 reverse-complement): an ORF runs from a start codon (default ATG) to the first in-frame stop codon of the NCBI genetic code genetic_code (default 1 = Standard: TAA/TAG/TGA), stop included; every in-frame start that reaches a stop is reported, so nested ORFs sharing a stop are all returned (Rosalind ORF). minLength is in nucleotides including the stop (NCBI ORFfinder's -ml excludes it: minLengthExcludesStop). position is the 0-based start in the scanned strand (the input, or its reverse complement when isReverseComplement); start/end are the 0-based inclusive input-strand coordinates. Options (NCBI ORFfinder / COrf): startCodons AtgOnly (default) | GeneticCodeStarts (ATG + the table's alternative initiation codons) | AnySenseCodon (stop-to-stop); nested=false keeps only the most upstream start per stop; includeOpenEnded adds 3'-partial ORFs that reach the sequence end without a stop (isTerminated=false); strand (both|plus|minus, as ORFfinder -strand; alternative to bothStrands=false) restricts the strands. NCBI ORFfinder 0.4.3 options, measured on the binary (1750 runs): ignoreNested (-n: drop an ORF lying completely inside another ORF of any frame or strand; identical spans: the plus-strand ORF goes), regionStart/regionEnd (-b/-e, 1-based inclusive, 0 = to the end; the region is cut out and scanned alone, start/end stay in input coordinates), orfFinderMinLength (-ml: values below 30 become 30, whole codons), allowDualCodingStopTables (-g 27/28/31). isStartPartial marks an ORF that begins within the first 3 nt of the scanned strand or region (ORFfinder '5-partial'; isTerminated=false = 3'-partial). The ORFfinder equivalent is startCodons=GeneticCodeStarts nested=false includeOpenEnded=true minLengthExcludesStop=true orfFinderMinLength=true allowDualCodingStopTables=true; -c (circular) has no effect in the binary and no counterpart here. Without allowDualCodingStopTables tables with dual-coding stops (27, 28, 31) are rejected. IUPAC input (e.g. N runs of an assembly) is accepted: an ambiguous codon ends an ORF only when every concrete codon is a stop, never starts one and is otherwise read through.",
   "inputSchema": {
     "type": "object",
     "properties": {
       "sequence": {
         "type": "string",
-        "description": "Nucleotide sequence: A/C/G/T plus IUPAC codes such as N (case-insensitive); an ambiguous codon ends an ORF only when every concrete codon is a stop, never starts one, and is otherwise read through",
+        "description": "Nucleotide sequence: A/C/G/T plus IUPAC codes such as N (case-insensitive). An ambiguous codon ends an ORF only when every concrete codon is a stop, is never a start, and is otherwise read through.",
         "minLength": 1
       },
       "minLength": {
         "type": "integer",
-        "description": "Minimum ORF length in nucleotides, stop codon included unless minLengthExcludesStop (default 100)",
+        "description": "Minimum ORF length in nucleotides, stop codon included unless minLengthExcludesStop (default 100).",
         "minimum": 1,
         "default": 100
       },
       "genetic_code": {
         "type": "integer",
-        "description": "NCBI translation table whose stop codons end ORFs (default 1 = Standard); tables 27, 28, 31 (dual-coding stops) are rejected",
+        "description": "NCBI translation table number whose stop codons end ORFs (default 1 = Standard; e.g. 2 = vertebrate mitochondrial, 11 = bacterial/plastid). One of the NCBI gc.prt tables (1-6, 9-16, 21-33); the dual-coding 27, 28, 31 only with allowDualCodingStopTables.",
         "default": 1
       },
       "startCodons": {
         "type": "string",
-        "description": "AtgOnly (default) | GeneticCodeStarts (ATG + the table's alternative initiation codons) | AnySenseCodon (stop-to-stop); case-insensitive",
+        "description": "Start-codon policy (case-insensitive): AtgOnly (default), GeneticCodeStarts (ATG and the alternative initiation codons of genetic_code, e.g. TTG/CTG in table 1), AnySenseCodon (any non-stop codon).",
         "default": "AtgOnly",
         "enum": [
           "AtgOnly",
@@ -38,23 +38,52 @@
       },
       "nested": {
         "type": "boolean",
-        "description": "true (default): every in-frame start; false: only the most upstream start per stop (NCBI ORFfinder default)",
+        "description": "true (default): report every in-frame start (nested ORFs). false: only the most upstream start per stop codon (NCBI ORFfinder default, EMBOSS getorf).",
         "default": true
       },
       "includeOpenEnded": {
         "type": "boolean",
-        "description": "true: also report 3'-partial ORFs that reach the sequence end without a stop (isTerminated=false)",
+        "description": "true: also report ORFs that run to the sequence end without a stop codon (3'-partial, isTerminated=false). Default false.",
         "default": false
       },
       "minLengthExcludesStop": {
         "type": "boolean",
-        "description": "true: minLength excludes the stop codon (NCBI ORFfinder -ml, EMBOSS getorf -minsize)",
+        "description": "true: minLength excludes the stop codon (NCBI ORFfinder -ml / EMBOSS getorf -minsize). Default false.",
         "default": false
       },
       "bothStrands": {
         "type": "boolean",
-        "description": "true (default): both strands; false: forward only",
+        "description": "true (default): scan both strands; false: forward strand only (see strand).",
         "default": true
+      },
+      "strand": {
+        "type": "string",
+        "description": "NCBI ORFfinder -strand: both | plus | minus (case-insensitive). Default null = decided by bothStrands; cannot be combined with bothStrands=false."
+      },
+      "ignoreNested": {
+        "type": "boolean",
+        "description": "NCBI ORFfinder -n true: drop every ORF whose span lies completely inside another reported ORF of any frame/strand (identical spans: the plus-strand ORF is dropped). Default false.",
+        "default": false
+      },
+      "regionStart": {
+        "type": "integer",
+        "description": "NCBI ORFfinder -b: 1-based first nucleotide of the searched region (default 1; 0 is read as 1). The region is cut out and scanned as a sequence of its own.",
+        "default": 1
+      },
+      "regionEnd": {
+        "type": "integer",
+        "description": "NCBI ORFfinder -e: 1-based last nucleotide (inclusive) of the region; 0 (default) or beyond the sequence = to the end. An end below the start is an error.",
+        "default": 0
+      },
+      "orfFinderMinLength": {
+        "type": "boolean",
+        "description": "NCBI ORFfinder -ml rule: minLength below 30 is changed to 30 and used in whole codons (rounded down to a multiple of 3; also lifts the minLength >= 1 check). Default false.",
+        "default": false
+      },
+      "allowDualCodingStopTables": {
+        "type": "boolean",
+        "description": "true: genetic_code 27, 28 and 31 are accepted and the codons the table lists as stops end ORFs (what NCBI ORFfinder -g 27/28/31 does). Default false (rejected).",
+        "default": false
       }
     },
     "required": [

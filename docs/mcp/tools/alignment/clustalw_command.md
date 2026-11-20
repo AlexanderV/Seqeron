@@ -25,7 +25,7 @@ ClustalW 2.1 as a function of its command line and the text of the files it name
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `arguments` | array<string> | Yes | The command-line arguments of clustalw, one per element (for example ["-INFILE=ex.fa", "-TYPE=DNA", "-ALIGN", "-OUTPUT=GCG"]); a first argument without '-' or '/' is the input file. |
+| `arguments` | array<string> | Yes | The command-line arguments of clustalw, one per element (for example ["-INFILE=x.fa", "-TYPE=DNA", "-ALIGN", "-OUTPUT=GCG"]); a first argument without '-' or '/' is the input file. |
 | `files` | object<string,string> | No | The text of the files the arguments name: file name -> content (input sequences or profiles, -USETREE files, matrix files). |
 
 ## Output Schema

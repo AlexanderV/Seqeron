@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "SequenceAssembler.ErrorCorrectReads",
   "docRef": "Seqeron.Genomics.Alignment/SequenceAssembler.cs#L1104",
-  "description": "Correct single-base substitution errors using the k-mer spectrum (Musket/Quake two-sided): k-mers with multiplicity below minKmerFrequency are untrusted; a position is corrected only when a unique alternative base makes its covering k-mers trusted.",
+  "description": "Corrects single-base errors in reads using k-mer frequency: any k-mer occurring fewer than minKmerFrequency times is corrected by substituting its middle base if a higher-frequency k-mer can be obtained.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -16,12 +16,12 @@
       },
       "kmerSize": {
         "type": "integer",
-        "description": "K-mer size used to build the frequency table (>= 1).",
+        "description": "K-mer size used to build the frequency table.",
         "default": 21
       },
       "minKmerFrequency": {
         "type": "integer",
-        "description": "Minimum k-mer frequency considered trusted.",
+        "description": "Minimum k-mer frequency considered \"trusted\".",
         "default": 3
       }
     },

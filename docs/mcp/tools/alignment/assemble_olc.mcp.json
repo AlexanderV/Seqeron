@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "SequenceAssembler.AssembleOLC",
   "docRef": "Seqeron.Genomics.Alignment/SequenceAssembler.cs#L61",
-  "description": "Assemble reads with the overlap-layout-consensus approach: detect pairwise suffix-prefix overlaps above thresholds, build the overlap graph, greedily lay out contigs, and report N50 / longest / total length.",
+  "description": "Assembles input reads into contigs using the overlap–layout–consensus approach: detects pairwise suffix–prefix overlaps above thresholds, builds the overlap graph, lays out contigs, and reports N50 / longest / total length.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -26,7 +26,7 @@
       },
       "kmerSize": {
         "type": "integer",
-        "description": "K-mer size (unused by OLC path; shared parameter).",
+        "description": "K-mer size (unused by OLC path; part of shared assembly parameters).",
         "default": 31
       },
       "minContigLength": {

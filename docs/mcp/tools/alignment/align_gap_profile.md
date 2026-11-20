@@ -30,13 +30,13 @@ Pairwise alignment whose gap scores differ by direction and by position: Biopyth
 | `sequence2` | string | Yes | Second sequence (Biopython query). |
 | `mode` | string | No | global (default) \| semi_global \| local (case-insensitive). |
 | `affine` | boolean | No | true (default) = affine gaps (Gotoh), false = linear (per-position extend score). |
-| `match` | integer | No | Score for matching base (ignored when matrix is given). |
-| `mismatch` | integer | No | Score for mismatching base (ignored when matrix is given). |
-| `gapOpen` | number | No | Interior gap-open score for slots not named in gapScores (Seqeron convention: added once per run; <= 0). May be fractional when matrix is given. |
-| `gapExtend` | number | No | Interior gap score per position for slots not named in gapScores (<= 0). May be fractional when matrix is given. |
-| `gapScores` | object<string,string> | No | Biopython gap-score properties, name -> value (e.g. {"open_left_insertion_score": 0, "extend_left_insertion_score": 0, "end_deletion_score": -3, "open_gap_score": -5, "extend_gap_score": -1}). |
+| `match` | integer | No | Score for matching base (ignored when matrix is given). (default: 1) |
+| `mismatch` | integer | No | Score for mismatching base (ignored when matrix is given). (default: -1) |
+| `gapOpen` | number | No | Interior gap-open score for slots not named in gapScores (Seqeron convention: added once per run; <= 0). May be fractional when matrix is given. (default: -2) |
+| `gapExtend` | number | No | Interior gap score per position for slots not named in gapScores (<= 0). May be fractional when matrix is given. (default: -1) |
+| `gapScores` | object<string,string> | No | Biopython gap-score properties, name -> value (e.g. {"open_left_insertion_score": 0, "extend_left_insertion_score": 0, "end_deletion_score": -3, "open_gap_score": -5, "extend_gap_score": -1}); see the description for the accepted names. |
 | `endGaps` | string | No | Optional free end gaps (comma-separated FreeStart1, FreeEnd1, FreeStart2, FreeEnd2 or None, Fitting, FittingSequence2, OverlapSuffix1Prefix2, OverlapSuffix2Prefix1, All); slots named in gapScores keep their score. |
-| `matrix` | string | No | Optional substitution matrix by EMBOSS / NCBI name (BLOSUM62, PAM250, EDNAFULL, ...); fractional gap scores are then allowed. |
+| `matrix` | string | No | Optional substitution matrix: any built-in matrix by EMBOSS or NCBI name - BLOSUM62, PAM250, EBLOSUM30 ... EBLOSUM90, EPAM10 ... EPAM500 (protein) or EDNAFULL, EDNAMAT, EDNASIMPLE, ENUC.4.4 (IUPAC DNA). When given, match/mismatch are ignored, residues are scored by the published table (any protein or IUPAC symbol of the matrix; case-insensitive) and gapOpen/gapExtend may be fractional (the EMBOSS needle/water models: gapOpen = -(G - E), gapExtend = -E for -gapopen G -gapextend E). The result then also carries the real-valued exactScore. |
 
 ## Output Schema
 

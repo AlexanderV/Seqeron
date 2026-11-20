@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "SequenceAssembler.ComputeConsensus",
   "docRef": "Seqeron.Genomics.Alignment/SequenceAssembler.cs#L861",
-  "description": "Build a consensus from pre-aligned reads (same length; '-'/'.' ignored) by column-wise majority vote (Biopython dumb_consensus, threshold 0.5). Ties and sub-threshold columns emit 'N'.",
+  "description": "Builds a consensus sequence from a list of pre-aligned reads (same length, '-' / 'N' ignored) by majority vote per column. Columns with no informative bases yield 'N'.",
   "inputSchema": {
     "type": "object",
     "properties": {

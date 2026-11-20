@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "SequenceAssembler.FindOverlap",
   "docRef": "Seqeron.Genomics.Alignment/SequenceAssembler.cs#L221",
-  "description": "Detect the longest suffix-of-sequence1 / prefix-of-sequence2 overlap satisfying minOverlap and minIdentity thresholds. Returns null if no qualifying overlap exists.",
+  "description": "Detects the longest suffix-of-sequence1 / prefix-of-sequence2 overlap satisfying minOverlap and minIdentity thresholds. Returns null if no qualifying overlap exists.",
   "inputSchema": {
     "type": "object",
     "properties": {

@@ -1,6 +1,6 @@
 # quality_trim_reads
 
-Trim Phred+33 quality-encoded reads from both ends with the BWA/cutadapt running-sum method, dropping reads shorter than minLength after trimming.
+Trims Phred+33 quality-encoded reads from both ends, dropping bases whose decoded quality is below minQuality. Reads shorter than minLength after trimming are filtered out.
 
 ## Overview
 
@@ -14,7 +14,7 @@ Trim Phred+33 quality-encoded reads from both ends with the BWA/cutadapt running
 
 ## Description
 
-Trim Phred+33 quality-encoded reads from both ends with the BWA/cutadapt running-sum method, dropping reads shorter than minLength after trimming.
+Trims Phred+33 quality-encoded reads from both ends, dropping bases whose decoded quality is below minQuality. Reads shorter than minLength after trimming are filtered out.
 
 ## Core Documentation Reference
 
@@ -24,8 +24,8 @@ Trim Phred+33 quality-encoded reads from both ends with the BWA/cutadapt running
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `reads` | array<object> | Yes | Reads, each an object with sequence and matching Phred+33 quality string of equal length. |
-| `minQuality` | integer | No | Quality cutoff subtracted from each Phred score (values < 1 disable trimming). (default: 20) |
+| `reads` | array<object> | Yes | Reads, each with sequence and matching Phred+33 quality string. |
+| `minQuality` | integer | No | Minimum acceptable quality score (Phred). (default: 20) |
 | `minLength` | integer | No | Minimum length after trimming for a read to be kept. (default: 50) |
 
 ## Output Schema

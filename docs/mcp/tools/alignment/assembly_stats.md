@@ -1,6 +1,6 @@
 # assembly_stats
 
-Compute assembly statistics (N50, longest contig, total length, read accounting) for a precomputed list of contigs.
+Computes assembly statistics (N50, longest contig, total length, assembled-reads accounting) for a precomputed list of contigs.
 
 ## Overview
 
@@ -14,7 +14,7 @@ Compute assembly statistics (N50, longest contig, total length, read accounting)
 
 ## Description
 
-Compute assembly statistics (N50, longest contig, total length, read accounting) for a precomputed list of contigs.
+Computes assembly statistics (N50, longest contig, total length, assembled-reads accounting) for a precomputed list of contigs.
 
 ## Core Documentation Reference
 
@@ -25,7 +25,7 @@ Compute assembly statistics (N50, longest contig, total length, read accounting)
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `contigs` | array<string> | Yes | Assembled contig sequences. |
-| `totalReads` | integer | Yes | Total number of input reads (used to fill totalReads). |
+| `totalReads` | integer | Yes | Total number of input reads (used to fill TotalReads). |
 
 ## Output Schema
 

@@ -24,23 +24,28 @@
    },
    "gapOpen": {
     "type": "number",
-    "description": "Gap opening penalty (-gapopen, 1 - 100): the cost of a gap of length 1."
+    "description": "Gap opening penalty (-gapopen, 1 - 100): the cost of a gap of length 1.",
+    "default": 10
    },
    "gapExtend": {
     "type": "number",
-    "description": "Gap extension penalty (-gapextend, 0 - 10): the cost of each further gap position."
+    "description": "Gap extension penalty (-gapextend, 0 - 10): the cost of each further gap position.",
+    "default": 0.5
    },
    "endWeight": {
     "type": "boolean",
-    "description": "-endweight: apply the end-gap penalties (default false: end gaps are free)."
+    "description": "-endweight: apply the end-gap penalties (default false: end gaps are free).",
+    "default": false
    },
    "endOpen": {
     "type": "number",
-    "description": "-endopen (1 - 100): cost of an end gap of length 1 (used only with endWeight)."
+    "description": "-endopen (1 - 100): cost of an end gap of length 1 (used only with endWeight).",
+    "default": 10
    },
    "endExtend": {
     "type": "number",
-    "description": "-endextend (0 - 10): cost of each further end-gap position (used only with endWeight)."
+    "description": "-endextend (0 - 10): cost of each further end-gap position (used only with endWeight).",
+    "default": 0.5
    },
    "format": {
     "type": "string",

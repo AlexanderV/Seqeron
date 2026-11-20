@@ -1,6 +1,6 @@
 # merge_contigs
 
-Concatenate two contigs, collapsing the specified suffix(contig1)/prefix(contig2) overlap of overlapLength bases. A non-positive or too-large overlap falls back to plain concatenation.
+Concatenates two contigs, collapsing the specified suffix/prefix overlap of overlapLength bases. Invalid overlapLength falls back to plain concatenation.
 
 ## Overview
 
@@ -14,7 +14,7 @@ Concatenate two contigs, collapsing the specified suffix(contig1)/prefix(contig2
 
 ## Description
 
-Concatenate two contigs, collapsing the specified suffix(contig1)/prefix(contig2) overlap of overlapLength bases. A non-positive or too-large overlap falls back to plain concatenation.
+Concatenates two contigs, collapsing the specified suffix/prefix overlap of overlapLength bases. Invalid overlapLength falls back to plain concatenation.
 
 ## Core Documentation Reference
 
@@ -26,7 +26,7 @@ Concatenate two contigs, collapsing the specified suffix(contig1)/prefix(contig2
 |-----------|------|----------|-------------|
 | `contig1` | string | Yes | First contig (suffix donor). |
 | `contig2` | string | Yes | Second contig (prefix donor). |
-| `overlapLength` | integer | Yes | Length of the overlap to collapse. |
+| `overlapLength` | integer | Yes | Length of overlap to collapse. |
 
 ## Output Schema
 

@@ -24,11 +24,13 @@
    },
    "gapOpen": {
     "type": "number",
-    "description": "Gap opening penalty (-gapopen, 1 - 100): the cost of a gap of length 1."
+    "description": "Gap opening penalty (-gapopen, 1 - 100): the cost of a gap of length 1.",
+    "default": 10
    },
    "gapExtend": {
     "type": "number",
-    "description": "Gap extension penalty (-gapextend, 0 - 10): the cost of each further gap position."
+    "description": "Gap extension penalty (-gapextend, 0 - 10): the cost of each further gap position.",
+    "default": 0.5
    },
    "format": {
     "type": "string",

@@ -32,7 +32,7 @@ The fast pairwise stage of ClustalW 2.1 (clustalw -QUICKTREE -ALIGN: FastPairwis
 | `window` | integer | No | ClustalW -WINDOW (default 4 DNA, 5 protein). |
 | `topDiagonals` | integer | No | ClustalW -TOPDIAGS (default 4 DNA, 5 protein). |
 | `pairGap` | integer | No | ClustalW -PAIRGAP (default 5 DNA, 3 protein). |
-| `percent` | boolean | No | ClustalW -SCORE=PERCENT (true, default) or ABSOLUTE (false). |
+| `percent` | boolean | No | ClustalW -SCORE=PERCENT (true, default) or ABSOLUTE (false). (default: true) |
 | `maxSequenceLength` | integer | No | Longest sequence of the whole input set (>= the longer of the two); default the longer of the two. |
 
 ## Output Schema

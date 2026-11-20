@@ -32,11 +32,12 @@ POA 2.0's partial-order multiple alignment (Lee, Grasso & Sharlow 2002, Bioinfor
 | `global` | boolean | No | poa -do_global: global alignment (default: local alignment with free end gaps). |
 | `progressive` | boolean | No | poa -do_progressive: merge sequences / partial orders in descending order of their pairwise alignment scores (default: iterative in input order). |
 | `pairScores` | string | No | poa -read_pairscores: the text of a pair-score file (lines 'name1 name2 score'); the merge order follows these scores. |
-| `fuseAll` | boolean | No | poa -fuse_all: fuse identical letters on align rings. |
-| `heaviestBundle` | boolean | No | poa -hb: heaviest bundling: add the consensus sequences CONSENS0, CONSENS1, ... to the alignment. |
+| `fuseAll` | boolean | No | poa -fuse_all: fuse identical letters on align rings. (default: false) |
+| `heaviestBundle` | boolean | No | poa -hb: heaviest bundling: add the consensus sequences CONSENS0, CONSENS1, ... to the alignment. (default: false) |
 | `heaviestBundleMinimum` | number | No | poa -hbmin: minimum fraction of a sequence's residues on a bundle's path for the sequence to join it (default 0.9). |
-| `best` | boolean | No | poa -best: restrict the PIR text to the sequences of the heaviest bundle (bundle 0; every alignment column is still written). |
-| `preserveSequenceOrder` | boolean | No | poa -preserve_seqorder: write the sequences in their input order (progressive merging reorders them). |
+| `best` | boolean | No | poa -best: restrict the PIR text to the sequences of the heaviest bundle (bundle 0; every alignment column is still written). (default: false) |
+| `preserveSequenceOrder` | boolean | No | poa -preserve_seqorder: write the sequences in their input order (progressive merging reorders them). (default: false) |
+| `case` | string | No | Letter case of the input: 'keep' (default), 'lower' (poa -tolower) or 'upper' (poa -toupper). |
 
 ## Output Schema
 

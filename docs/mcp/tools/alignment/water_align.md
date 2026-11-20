@@ -29,8 +29,8 @@ EMBOSS 6.6 water: local alignment (Smith-Waterman with Gotoh's affine gaps) as t
 | `sequence1` | string | Yes | First sequence (-asequence). |
 | `sequence2` | string | Yes | Second sequence (-bsequence). |
 | `matrix` | string | No | Optional EMBOSS data matrix (-datafile): EBLOSUM62, EPAM250, EDNAFULL, ... or the NCBI name. Omit for EDNAFULL (nucleotide) / EBLOSUM62 (protein). |
-| `gapOpen` | number | No | Gap opening penalty (-gapopen, 1 - 100): the cost of a gap of length 1. |
-| `gapExtend` | number | No | Gap extension penalty (-gapextend, 0 - 10): the cost of each further gap position. |
+| `gapOpen` | number | No | Gap opening penalty (-gapopen, 1 - 100): the cost of a gap of length 1. (default: 10) |
+| `gapExtend` | number | No | Gap extension penalty (-gapextend, 0 - 10): the cost of each further gap position. (default: 0.5) |
 | `format` | string | No | Optional output format; the alignment written in that format is returned in the result field 'formatted'. Biopython Bio.Align names: fasta, a2m, clustal, phylip, nexus, stockholm (byte for byte as Bio.Align.write; 'emboss:' + name selects the EMBOSS writer of the same name). EMBOSS -aformat names: pair, simple, srspair, srs, markx0, markx1, markx2, markx3, markx10, match, score, sam, tcoffee (two rows) and msf, mega, meganon, nexusnon, paup, paupnon, phylipnon, selex, treecon (any number of rows; EMBOSS prints the run date: now, UTC). Omit for no formatted text. |
 | `names` | array of string | No | Optional names of the rows for the formatted output (default seq1, seq2, ...). |
 

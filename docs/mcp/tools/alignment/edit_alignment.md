@@ -14,7 +14,7 @@ Optimal global Levenshtein alignment (edit script, CIGAR, gapped strings) of a q
 
 ## Description
 
-Optimal global unit-cost (Levenshtein) alignment of `query` (rows) against `target` (columns) in edlib's convention: `=` match, `X` mismatch, `I` query character absent from the target, `D` target character absent from the query. Returns the distance (= edit distance), the per-column operations, the edlib EXTENDED CIGAR and STANDARD CIGAR (`M` for `=`/`X`), the gapped strings, the query-relative substitution positions and whether the path has indels. Case-sensitive. Default: full Wagner–Fischer matrix with a diagonal-first traceback (O(m·n) time and space; `ApproximateMatcher.GetEditAlignment`). With `linearSpace` = true, Hirschberg's divide-and-conquer algorithm (`ApproximateMatcher.GetEditAlignmentLinearSpace`, O(m+n) space) — same optimal distance, possibly a different co-optimal path.
+Optimal global unit-cost (Levenshtein) alignment of query against target in edlib's convention: operations '=' match, 'X' mismatch, 'I' query character absent from the target, 'D' target character absent from the query; returns the distance, extended and standard CIGAR, gapped strings and substitution positions. Case-sensitive. linearSpace=true uses Hirschberg's O(m+n)-space algorithm (same distance, possibly a different co-optimal path). Optional insertionCost/deletionCost/substitutionCost (default 1) give a weighted alignment with rapidfuzz Levenshtein weights semantics (query = s1, target = s2: 'D' costs insertionCost, 'I' deletionCost, 'X' substitutionCost); distance is then the weighted cost.
 
 ## Core Documentation Reference
 
@@ -27,12 +27,10 @@ Optimal global unit-cost (Levenshtein) alignment of `query` (rows) against `targ
 |-----------|------|----------|-------------|
 | `query` | string | Yes | Query sequence (alignment rows). |
 | `target` | string | Yes | Target sequence (alignment columns). |
-| `linearSpace` | boolean | No | Use Hirschberg's linear-space algorithm instead of the full-matrix traceback (default false). |
-| `insertionCost` | integer | No | Cost of inserting a target character, i.e. a `D` column (>= 0; default 1). |
-| `deletionCost` | integer | No | Cost of deleting a query character, i.e. an `I` column (>= 0; default 1). |
-| `substitutionCost` | integer | No | Cost of a substitution, i.e. an `X` column (>= 0; default 1). |
-
-With non-unit costs the tool delegates to `ApproximateMatcher.GetEditAlignment(query, target, EditCosts)` (or `GetEditAlignmentLinearSpace(…, EditCosts)` with `linearSpace`), rapidfuzz `Levenshtein.distance(query, target, weights=(insertion, deletion, substitution))` semantics; `distance` is then the weighted cost of the path. Unit costs (the default) keep the original behaviour.
+| `linearSpace` | boolean | No | Use Hirschberg's linear-space algorithm instead of the full-matrix diagonal-first traceback (default false). |
+| `insertionCost` | integer | No | Cost of inserting a target character, i.e. a 'D' column (>= 0; default 1). (default: 1) |
+| `deletionCost` | integer | No | Cost of deleting a query character, i.e. an 'I' column (>= 0; default 1). (default: 1) |
+| `substitutionCost` | integer | No | Cost of a substitution, i.e. an 'X' column (>= 0; default 1). (default: 1) |
 
 ## Output Schema
 

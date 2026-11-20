@@ -1,6 +1,6 @@
 # find_with_mismatches
 
-Find all occurrences of pattern inside sequence allowing up to maxMismatches substitutions (Hamming-style, fixed-length window). Reports position, matched substring, mismatch count, and 0-based mismatch positions.
+Finds all occurrences of pattern inside sequence allowing up to maxMismatches substitutions (Hamming-style, fixed-length window). Reports each match position, matched substring, mismatch count, and 0-based mismatch positions.
 
 ## Overview
 
@@ -14,7 +14,7 @@ Find all occurrences of pattern inside sequence allowing up to maxMismatches sub
 
 ## Description
 
-Find all occurrences of pattern inside sequence allowing up to maxMismatches substitutions (Hamming-style, fixed-length window). Reports position, matched substring, mismatch count, and 0-based mismatch positions.
+Finds all occurrences of pattern inside sequence allowing up to maxMismatches substitutions (Hamming-style, fixed-length window). Reports each match position, matched substring, mismatch count, and 0-based mismatch positions.
 
 ## Core Documentation Reference
 

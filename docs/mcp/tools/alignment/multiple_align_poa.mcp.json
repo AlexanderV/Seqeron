@@ -66,6 +66,11 @@
         "type": "boolean",
         "default": false,
         "description": "poa -preserve_seqorder: write the sequences in their input order (progressive merging reorders them)."
+      },
+      "case": {
+        "type": "string",
+        "description": "Letter case of the input: 'keep' (default), 'lower' (poa -tolower) or 'upper' (poa -toupper).",
+        "default": "keep"
       }
     },
     "required": [

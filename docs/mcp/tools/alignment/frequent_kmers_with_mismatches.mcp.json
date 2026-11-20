@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "ApproximateMatcher.FindFrequentKmersWithMismatches",
   "docRef": "Seqeron.Genomics.Alignment/ApproximateMatcher.cs#L312",
-  "description": "Find the most-frequent k-mers within sequence allowing up to d mismatches (each window's full Hamming-d neighborhood is tallied). Returns all k-mers tied for the maximum Count_d.",
+  "description": "Finds the most-frequent k-mers within sequence allowing up to d mismatches (counts each k-mer plus all its DNA neighbors at Hamming distance ≤ d). Returns all k-mers tied for the maximum count.",
   "inputSchema": {
     "type": "object",
     "properties": {

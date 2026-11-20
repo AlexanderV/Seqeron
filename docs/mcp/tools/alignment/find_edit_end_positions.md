@@ -14,7 +14,7 @@ Sellers k-differences search: end positions of approximate matches with their mi
 
 ## Description
 
-Sellers (1980) approximate string matching (the k-differences problem; Navarro 2001 §5.1): reports every 0-based end position j of `sequence` at which some substring ending at j is within `maxEdits` Levenshtein edits of `pattern`, together with that minimum distance min_i ed(pattern, sequence[i..j]). Case-insensitive. Engine: Myers (1999) bit-parallel column scan (⌈m/64⌉ words, O(⌈m/64⌉·n)), identical to the Wagner–Fischer DP with a free text start; cross-checked against edlib HW mode. Output ordered by increasing end position.
+Sellers (1980) k-differences search: reports every 0-based end position j in sequence at which some substring ending at j is within maxEdits Levenshtein edits of pattern, with that minimum distance (case-insensitive; Myers bit-parallel engine). Ordered by increasing end position. Optional insertionCost/deletionCost/substitutionCost (default 1) switch to the weighted Sellers DP (pattern = s1, text window = s2, rapidfuzz weights convention); maxEdits is then the maximum weighted cost.
 
 ## Core Documentation Reference
 
@@ -27,11 +27,9 @@ Sellers (1980) approximate string matching (the k-differences problem; Navarro 2
 | `sequence` | string | Yes | Sequence to search in. |
 | `pattern` | string | Yes | Pattern to find. |
 | `maxEdits` | integer | Yes | Maximum allowed edit distance (>= 0); the maximum weighted cost when costs are given. |
-| `insertionCost` | integer | No | Cost of a text character absent from the pattern (>= 0; default 1). |
-| `deletionCost` | integer | No | Cost of a pattern character absent from the text (>= 0; default 1). |
-| `substitutionCost` | integer | No | Cost of a substitution (>= 0; default 1). |
-
-Non-unit costs delegate to `ApproximateMatcher.FindEditEndPositions(sequence, pattern, maxCost, EditCosts)` — the weighted Sellers DP (pattern = s1, text window = s2 in rapidfuzz `weights=(insertion, deletion, substitution)` convention, free start in the text). Unit costs (the default) keep the Myers engine and the original behaviour.
+| `insertionCost` | integer | No | Cost of a text character absent from the pattern (insertion into the pattern, >= 0; default 1). (default: 1) |
+| `deletionCost` | integer | No | Cost of a pattern character absent from the text (deletion from the pattern, >= 0; default 1). (default: 1) |
+| `substitutionCost` | integer | No | Cost of a substitution (>= 0; default 1). (default: 1) |
 
 ## Output Schema
 

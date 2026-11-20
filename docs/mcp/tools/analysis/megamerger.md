@@ -28,10 +28,10 @@ EMBOSS 6.6.0 megamerger: merges two large overlapping DNA sequences by exact wor
 |-----------|------|----------|-------------|
 | `sequence1` | string | Yes | First DNA sequence (letters, any case). |
 | `sequence2` | string | Yes | Second DNA sequence. |
-| `wordSize` | integer | No | Word size (megamerger -wordsize, default 20, at least 2). Default: `20`. |
-| `preferFirst` | boolean | No | Use the first sequence over every mismatch region (megamerger -prefer, default false). Default: `false`. |
-| `name1` | string | No | Name of the first sequence in the report. Default: `"seq1"`. |
-| `name2` | string | No | Name of the second sequence in the report. Default: `"seq2"`. |
+| `wordSize` | integer | No | Word size (megamerger -wordsize, default 20, at least 2). (default: 20) |
+| `preferFirst` | boolean | No | Use the first sequence over every mismatch region (megamerger -prefer, default false). (default: false) |
+| `name1` | string | No | Name of the first sequence in the report. (default: seq1) |
+| `name2` | string | No | Name of the second sequence in the report. (default: seq2) |
 
 ## Output Schema
 

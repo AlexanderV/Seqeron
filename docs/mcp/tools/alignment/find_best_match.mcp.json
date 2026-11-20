@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "ApproximateMatcher.FindBestMatch",
   "docRef": "Seqeron.Genomics.Alignment/ApproximateMatcher.cs#L248",
-  "description": "Return the single best (minimum Hamming distance) fixed-length window of pattern inside sequence; ties resolve to the leftmost window and an exact (distance 0) match short-circuits the scan.",
+  "description": "Returns the single best (minimum-Hamming-distance) fixed-length window of pattern inside sequence. Stops early on perfect (distance=0) match.",
   "inputSchema": {
     "type": "object",
     "properties": {

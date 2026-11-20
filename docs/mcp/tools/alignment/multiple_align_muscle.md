@@ -26,27 +26,27 @@ MUSCLE 3.8.1551's multiple alignment (Edgar 2004, NAR 32:1792; muscle -in x.fa -
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `sequences` | array<string> | Yes | Sequences to align (at least one, none empty): letters, '-', '.' and white space only. |
-| `type` | string | No | 'auto' (default; MUSCLE's guess: nucleotide when >= 95 % of the first 100 residues are A, C, G, T, U or N), 'protein', 'dna' or 'rna' (MUSCLE -seqtype). (default: auto) |
-| `maxIters` | integer | No | MUSCLE -maxiters (at least 1): 1 = progressive draft, 2 (default) = plus tree refinement, 3 and above = plus restricted-partition refinement iterations (the program's default is 8: pass 8 for a plain 'muscle -in x.fa'; the -help text 'default 16' of 3.8.1551 is stale). (default: 2) |
+| `type` | string | No | 'auto' (default; MUSCLE's guess: nucleotide when >= 95 % of the first 100 residues are A, C, G, T, U or N), 'protein', 'dna' or 'rna' (MUSCLE -seqtype). |
+| `maxIters` | integer | No | MUSCLE -maxiters (at least 1): 1 = progressive draft, 2 (default) = plus tree refinement, 3 and above = plus restricted-partition refinement iterations (the program's default is 8: pass 8 for a plain 'muscle -in x.fa'; the -help text 'default 16' of 3.8.1551 is stale). |
 | `scoreModel` | string | No | Profile-profile score (-le / -sp / -sv / -spn): 'default' (LE for proteins, SPN for nucleotides), 'le', 'sp' (PAM200), 'sv' (VTML240), 'spn'. A score of the wrong alphabet is replaced like the program does (SPN for nucleotides, LE for proteins). (default: default) |
 | `gapOpen` | number | No | MUSCLE -gapopen (a negative score; default -2.9 LE, -1439 SP, -300 SV, -400 SPN DNA, -420 RNA). |
 | `gapExtend` | number | No | MUSCLE -gapextend (default 0). |
 | `center` | number | No | MUSCLE -center (default -0.52 LE, 0 otherwise, -300 RNA). |
 | `distance1` | string | No | MUSCLE -distance1: 'default' (kmer6_6 protein, kmer4_6 nucleotide), 'kmer6_6', 'kmer4_6' (nucleotides only), 'kmer20_3', 'kmer20_4', 'kbit20_3', 'pwkimura', 'pwscoredist' (protein only). kmer20_3 / kmer20_4 / kbit20_3 need sequences of at least 4 residues (the program reads outside its buffer for shorter ones). (default: default) |
-| `cluster1` | string | No | MUSCLE -cluster1 (first guide tree): 'upgmb' (default), 'upgma', 'upgmamin', 'upgmamax' or 'neighborjoining'. (default: upgmb) |
-| `cluster2` | string | No | MUSCLE -cluster2 (tree of iteration 2): 'upgmb' (default), 'upgma', 'upgmamin', 'upgmamax' or 'neighborjoining'. (default: upgmb) |
+| `cluster1` | string | No | MUSCLE -cluster1 (first guide tree): 'upgmb' (default), 'upgma', 'upgmamin', 'upgmamax' or 'neighborjoining'. |
+| `cluster2` | string | No | MUSCLE -cluster2 (tree of iteration 2): 'upgmb' (default), 'upgma', 'upgmamin', 'upgmamax' or 'neighborjoining'. |
 | `sueff` | number | No | MUSCLE -sueff (default 0.1): weight of the average linkage in UPGMB. |
-| `maxTrees` | integer | No | MUSCLE -maxtrees (default 1): 0 switches the tree refinement of iteration 2 off; more than 1 repeats it only for a weighting other than ClustalW. (default: 1) |
+| `maxTrees` | integer | No | MUSCLE -maxtrees (default 1): 0 switches the tree refinement of iteration 2 off; more than 1 repeats it only for a weighting other than ClustalW. |
 | `treeOrder` | boolean | No | true: rows in the order muscle writes them (depth-first leaf order of the final guide tree, -group) instead of the input order. (default: false) |
 | `distance2` | string | No | MUSCLE -distance2 (distance of the aligned pairs of iteration 2): 'default' (pctidkimura), 'pctidkimura', 'pctidlog', 'edit', 'scoredist' (protein only). (default: default) |
-| `root1` | string | No | MUSCLE -root1: 'pseudo' (default: the root of the clustering), 'midlongestspan' or 'minavgleafdist'. (default: pseudo) |
+| `root1` | string | No | MUSCLE -root1: 'pseudo' (default: the root of the clustering), 'midlongestspan' or 'minavgleafdist'. |
 | `root2` | string | No | MUSCLE -root2 (tree of iteration 2): 'pseudo', 'midlongestspan' or 'minavgleafdist'. (default: pseudo) |
-| `weight1` | string | No | MUSCLE -weight1 (sequence weights of the progressive stage): 'clustalw' (default), 'none', 'henikoff', 'henikoffpb', 'gsc', 'threeway'. (default: clustalw) |
+| `weight1` | string | No | MUSCLE -weight1 (sequence weights of the progressive stage): 'clustalw' (default), 'none', 'henikoff', 'henikoffpb', 'gsc', 'threeway'. |
 | `weight2` | string | No | MUSCLE -weight2 (sequence weights of the refinement): same values as weight1. (default: clustalw) |
-| `objScore` | string | No | MUSCLE -objscore (refinement objective): 'spm' (default: xp up to 100 sequences, spf above), 'sp', 'dp', 'xp', 'ps' (LE score only), 'spf'. (default: spm) |
-| `termGaps` | string | No | MUSCLE -termgaps: 'half' (default), 'full', 'ext'. (default: half) |
+| `objScore` | string | No | MUSCLE -objscore (refinement objective): 'spm' (default: xp up to 100 sequences, spf above), 'sp', 'dp', 'xp', 'ps' (LE score only), 'spf'. |
+| `termGaps` | string | No | MUSCLE -termgaps: 'half' (default), 'full', 'ext'. |
 | `anchors` | boolean | No | MUSCLE -anchors (true, default) / -noanchors (false): refine inside the blocks between anchor columns. (default: true) |
-| `anchorSpacing` | integer | No | MUSCLE -anchorspacing (default 32). (default: 32) |
+| `anchorSpacing` | integer | No | MUSCLE -anchorspacing (default 32). |
 | `smoothWindow` | integer | No | MUSCLE -smoothwindow (odd, default 7). (default: 7) |
 | `smoothScoreCeil` | number | No | MUSCLE -smoothscoreceil (default 3 LE, 200 SP, 90 SV, 999 SPN). |
 | `minBestColScore` | number | No | MUSCLE -minbestcolscore (default 2 LE, 300 SP, 130 SV, 90 SPN). |
@@ -54,11 +54,11 @@ MUSCLE 3.8.1551's multiple alignment (Edgar 2004, NAR 32:1792; muscle -in x.fa -
 | `brenner` | boolean | No | MUSCLE -brenner: build the root alignment by aligning every sequence to the root profile. (default: false) |
 | `diags1` | boolean | No | MUSCLE -diags1 (no effect: compiled out of 3.8.1551; -diags sets diags1 and diags2). (default: false) |
 | `diags2` | boolean | No | MUSCLE -diags2 (no effect). (default: false) |
-| `diagLength` | integer | No | MUSCLE -diaglength (default 24; no effect). (default: 24) |
-| `diagBreak` | integer | No | MUSCLE -diagbreak (default 1; no effect). (default: 1) |
-| `diagMargin` | integer | No | MUSCLE -diagmargin (default 5; no effect). (default: 5) |
-| `hydro` | integer | No | MUSCLE -hydro (default 5; no effect). (default: 5) |
-| `hydroFactor` | number | No | MUSCLE -hydrofactor (default 1.2; no effect). (default: 1.2) |
+| `diagLength` | integer | No | MUSCLE -diaglength (default 24; no effect). |
+| `diagBreak` | integer | No | MUSCLE -diagbreak (default 1; no effect). |
+| `diagMargin` | integer | No | MUSCLE -diagmargin (default 5; no effect). |
+| `hydro` | integer | No | MUSCLE -hydro (default 5; no effect). |
+| `hydroFactor` | number | No | MUSCLE -hydrofactor (default 1.2; no effect). |
 | `tomHydro` | boolean | No | MUSCLE -tomhydro (no effect). (default: false) |
 | `gapOpen2` | number | No | MUSCLE -gapopen2 (no effect). |
 | `gapExtend2` | number | No | MUSCLE -gapextend2 (no effect). |
@@ -70,7 +70,7 @@ MUSCLE 3.8.1551's multiple alignment (Edgar 2004, NAR 32:1792; muscle -in x.fa -
 | `names` | array<string> | No | FASTA labels of the sequences (default s0, s1, ...): the leaf names of useTree and of the returned trees. |
 | `clusterOnly` | boolean | No | MUSCLE -clusteronly with -tree1: return only the first guide tree (tree1), no alignment. (default: false) |
 | `computeWeights` | boolean | No | MUSCLE -computeweights: stop after the progressive alignment and return the weights file instead of an alignment. (default: false) |
-| `stable` | boolean | No | MUSCLE -stable: the 3.8.1551 program refuses it ("-stable not supported in this version of muscle"), so true is rejected; treeOrder = false (default) already returns the rows in input order. (default: false) |
+| `stable` | boolean | No | MUSCLE -stable: the 3.8.1551 program refuses it ("-stable not supported in this version of muscle"), so true is rejected; treeOrder = false (default) already returns the rows in input order. |
 
 ## Output Schema
 

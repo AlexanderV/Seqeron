@@ -28,38 +28,38 @@ The seeding and chaining stage of minimap2 2.26 (450 related pairs: the seed arr
 |-----------|------|----------|-------------|
 | `targets` | array<string> | Yes | Target (reference) sequences (A/C/G/T/U; other symbols break k-mers), at least one. |
 | `query` | string | Yes | Query sequence. |
-| `k` | integer | No | k-mer size (minimap2 -k, 1-28, default 15). Default: `15`. |
-| `w` | integer | No | Minimizer window size (minimap2 -w, 1-255, default 10). Default: `10`. |
-| `maxGap` | integer | No | Largest distance between two anchors of a chain on both sequences (minimap2 -g, default 5000). Default: `5000`. |
-| `bandwidth` | integer | No | Chaining bandwidth (minimap2 -r, first value, default 500). Default: `500`. |
-| `minChainScore` | integer | No | Smallest chain score (minimap2 -m, default 40). Default: `40`. |
-| `minAnchors` | integer | No | Fewest anchors of a chain (minimap2 -n, default 3). Default: `3`. |
-| `mode` | string | No | chains (default: every chain after the dynamic program, ordered by the first anchor) | paf (the mapping up to the end of the chaining stage: long-join re-chaining, primary / secondary marking, dv, mapq; the hits are returned in the PAF order). Default: `chains`. |
-| `homopolymerCompressed` | boolean | No | Homopolymer-compressed k-mers (minimap2 -H). Default: `false`. |
-| `sdustThreshold` | integer | No | sdust threshold masking low-complexity query minimizers (minimap2 -T, hidden option; 0 = off, default). Default: `0`. |
-| `midOccFraction` | number | No | minimap2 -f: below 1 the fraction of repeated minimizers to filter (default 0.0002), otherwise the occurrence limit mid_occ itself. Default: `0.0002`. |
-| `minMidOcc` | integer | No | minimap2 -U lower bound of mid_occ (default 10). Default: `10`. |
-| `maxMidOcc` | integer | No | minimap2 -U upper bound of mid_occ (default 1000000). Default: `1000000`. |
-| `queryOccFraction` | number | No | minimap2 --q-occ-frac (default 0.01). Default: `0.01`. |
-| `occDist` | integer | No | minimap2 -e: occ_dist, one frequent minimizer per this many query bases is kept (default 500; 0 = none). Default: `500`. |
-| `allVsAll` | boolean | No | All-vs-all mode (minimap2 -X): needs targetNames and queryName; all chains are reported without primary selection and without long join. Default: `false`. |
+| `k` | integer | No | k-mer size (minimap2 -k, 1-28, default 15). (default: 15) |
+| `w` | integer | No | Minimizer window size (minimap2 -w, 1-255, default 10). (default: 10) |
+| `maxGap` | integer | No | Largest distance between two anchors of a chain on both sequences (minimap2 -g, default 5000). (default: 5000) |
+| `bandwidth` | integer | No | Chaining bandwidth (minimap2 -r, first value, default 500). (default: 500) |
+| `minChainScore` | integer | No | Smallest chain score (minimap2 -m, default 40). (default: 40) |
+| `minAnchors` | integer | No | Fewest anchors of a chain (minimap2 -n, default 3). (default: 3) |
+| `mode` | string | No | chains (default: every chain after the dynamic program, ordered by the first anchor) \| paf (the mapping up to the end of the chaining stage: long-join re-chaining, primary / secondary marking, dv, mapq; the hits are returned in the PAF order). |
+| `homopolymerCompressed` | boolean | No | Homopolymer-compressed k-mers (minimap2 -H). (default: false) |
+| `sdustThreshold` | integer | No | sdust threshold masking low-complexity query minimizers (minimap2 -T, hidden option; 0 = off, default). (default: 0) |
+| `midOccFraction` | number | No | minimap2 -f: below 1 the fraction of repeated minimizers to filter (default 0.0002), otherwise the occurrence limit mid_occ itself. |
+| `minMidOcc` | integer | No | minimap2 -U lower bound of mid_occ (default 10). |
+| `maxMidOcc` | integer | No | minimap2 -U upper bound of mid_occ (default 1000000). |
+| `queryOccFraction` | number | No | minimap2 --q-occ-frac (default 0.01). |
+| `occDist` | integer | No | minimap2 -e: occ_dist, one frequent minimizer per this many query bases is kept (default 500; 0 = none). |
+| `allVsAll` | boolean | No | All-vs-all mode (minimap2 -X): needs targetNames and queryName; all chains are reported without primary selection and without long join. (default: false) |
 | `targetNames` | array<string> | No | Names of the targets (for allVsAll), one per target. |
 | `queryName` | string | No | Name of the query (for allVsAll; in paf mode its hash orders chains of equal score). |
-| `forwardOnly` | boolean | No | Only hits on the forward strand (minimap2 --for-only). Default: `false`. |
-| `reverseOnly` | boolean | No | Only hits on the reverse strand (minimap2 --rev-only). Default: `false`. |
-| `bandwidthLong` | integer | No | Long-join bandwidth (minimap2 -r second value, default 20000; the re-chaining runs only when it exceeds bandwidth, paf mode). Default: `20000`. |
-| `maxChainSkip` | integer | No | Stop the search for a predecessor after this many non-improving anchors (minimap2 --max-chain-skip, default 25). Default: `25`. |
-| `maxChainIterations` | integer | No | Largest number of predecessors examined per anchor (minimap2 --max-chain-iter, default 5000). Default: `5000`. |
-| `chainGapScale` | number | No | Gap penalty scale (minimap2 --chain-gap-scale, default 0.8). Default: `0.8`. |
-| `chainSkipScale` | number | No | Skip penalty scale (minimap2 --chain-skip-scale, default 0). Default: `0`. |
-| `bestN` | integer | No | paf mode: retain at most this many secondary hits (minimap2 -N, default 5). Default: `5`. |
-| `primaryRatio` | number | No | paf mode: minimum secondary-to-primary score ratio (minimap2 -p, default 0.8; 0 = no selection). Default: `0.8`. |
-| `maskLevel` | number | No | paf mode: minimap2 --mask-level (default 0.5). Default: `0.5`. |
-| `maskLength` | integer | No | paf mode: minimap2 --mask-len (default none). Default: `2147483647`. |
-| `hardMaskLevel` | boolean | No | paf mode: minimap2 --hard-mask-level. Default: `false`. |
-| `noLongJoin` | boolean | No | paf mode: no long-join re-chaining (minimap2 --no-long-join). Default: `false`. |
-| `rmq` | boolean | No | paf mode: chain with the RMQ algorithm (minimap2 --rmq=yes). Default: `false`. |
-| `outputSecondary` | boolean | No | paf mode: return the secondary hits too (default true; false = minimap2 --secondary=no). Default: `true`. |
+| `forwardOnly` | boolean | No | Only hits on the forward strand (minimap2 --for-only). (default: false) |
+| `reverseOnly` | boolean | No | Only hits on the reverse strand (minimap2 --rev-only). (default: false) |
+| `bandwidthLong` | integer | No | Long-join bandwidth (minimap2 -r second value, default 20000; the re-chaining runs only when it exceeds bandwidth, paf mode). (default: 20000) |
+| `maxChainSkip` | integer | No | Stop the search for a predecessor after this many non-improving anchors (minimap2 --max-chain-skip, default 25). (default: 25) |
+| `maxChainIterations` | integer | No | Largest number of predecessors examined per anchor (minimap2 --max-chain-iter, default 5000). (default: 5000) |
+| `chainGapScale` | number | No | Gap penalty scale (minimap2 --chain-gap-scale, default 0.8). (default: 0.8) |
+| `chainSkipScale` | number | No | Skip penalty scale (minimap2 --chain-skip-scale, default 0). (default: 0) |
+| `bestN` | integer | No | paf mode: retain at most this many secondary hits (minimap2 -N, default 5). (default: 5) |
+| `primaryRatio` | number | No | paf mode: minimum secondary-to-primary score ratio (minimap2 -p, default 0.8; 0 = no selection). (default: 0.8) |
+| `maskLevel` | number | No | paf mode: minimap2 --mask-level (default 0.5). |
+| `maskLength` | integer | No | paf mode: minimap2 --mask-len (default none). |
+| `hardMaskLevel` | boolean | No | paf mode: minimap2 --hard-mask-level. (default: false) |
+| `noLongJoin` | boolean | No | paf mode: no long-join re-chaining (minimap2 --no-long-join). (default: false) |
+| `rmq` | boolean | No | paf mode: chain with the RMQ algorithm (minimap2 --rmq=yes). (default: false) |
+| `outputSecondary` | boolean | No | paf mode: return the secondary hits too (default true; false = minimap2 --secondary=no). |
 
 ## Output Schema
 

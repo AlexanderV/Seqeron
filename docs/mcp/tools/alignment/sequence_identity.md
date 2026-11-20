@@ -1,6 +1,6 @@
 # sequence_identity
 
-Compute percent identity (fraction in [0,1]) between two equal-length sequences by case-insensitive position-by-position comparison. Returns 0 for unequal-length inputs.
+Computes percent-identity (fraction in [0,1]) between two equal-length sequences via case-insensitive position-by-position comparison. Returns 0 for unequal-length inputs.
 
 ## Overview
 
@@ -14,7 +14,7 @@ Compute percent identity (fraction in [0,1]) between two equal-length sequences 
 
 ## Description
 
-Compute percent identity (fraction in [0,1]) between two equal-length sequences by case-insensitive position-by-position comparison. Returns 0 for unequal-length inputs.
+Computes percent-identity (fraction in [0,1]) between two equal-length sequences via case-insensitive position-by-position comparison. Returns 0 for unequal-length inputs.
 
 ## Core Documentation Reference
 

@@ -1,6 +1,6 @@
 # find_with_edits
 
-Find all approximate matches of pattern in sequence allowing up to maxEdits Levenshtein edits (insertions, deletions, substitutions), scanning variable-length windows of length pattern.Length +/- maxEdits.
+Finds all approximate matches of pattern in sequence allowing up to maxEdits Levenshtein edits (insertions, deletions, substitutions) with variable-length sliding windows of length pattern.Length ± maxEdits.
 
 ## Overview
 
@@ -14,7 +14,7 @@ Find all approximate matches of pattern in sequence allowing up to maxEdits Leve
 
 ## Description
 
-Find all approximate matches of pattern in sequence allowing up to maxEdits Levenshtein edits (insertions, deletions, substitutions), scanning variable-length windows of length pattern.Length +/- maxEdits.
+Finds all approximate matches of pattern in sequence allowing up to maxEdits Levenshtein edits (insertions, deletions, substitutions) with variable-length sliding windows of length pattern.Length ± maxEdits.
 
 ## Core Documentation Reference
 

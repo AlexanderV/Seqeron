@@ -24,16 +24,19 @@
    },
    "bothStrands": {
     "type": "boolean",
-    "description": "Also search the reverse strand: reverseMatches lists the windows matching the reverse complement of each motif (default false)."
+    "description": "Also search the reverse strand: reverseMatches lists the windows matching the reverse complement of each motif (default false).",
+    "default": false
    },
    "iupac": {
     "type": "boolean",
-    "description": "Interpret IUPAC ambiguity codes in the motifs, e.g. TATAWAW (default false: codes are literal; without mismatches they match nothing, with mismatches each costs one)."
+    "description": "Interpret IUPAC ambiguity codes in the motifs, e.g. TATAWAW (default false: codes are literal; without mismatches they match nothing, with mismatches each costs one).",
+    "default": false
    },
    "mismatches": {
     "type": "integer",
     "minimum": 0,
-    "description": "Maximum number of mismatching positions per hit (default 0 = exact; fuzznuc -pmismatch). A bound >= the motif length makes every window a hit."
+    "description": "Maximum number of mismatching positions per hit (default 0 = exact; fuzznuc -pmismatch). A bound >= the motif length makes every window a hit.",
+    "default": 0
    }
   },
   "required": [

@@ -25,7 +25,7 @@ Computes identity / similarity / gap statistics for a pairwise alignment (EMBOSS
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `alignedSequence1` | string | Yes | Aligned representation of sequence1 (with '-' gaps). |
-| `alignedSequence2` | string | Yes | Aligned representation of sequence2 (must equal alignedSequence1.Length). |
+| `alignedSequence2` | string | Yes | Aligned representation of sequence2 (with '-' gaps). |
 | `matrix` | string | No | Optional substitution matrix deciding which non-gap columns are similar: any built-in matrix by EMBOSS or NCBI name - BLOSUM62, PAM250, EBLOSUM30 ... EBLOSUM90, EPAM10 ... EPAM500 (protein) or EDNAFULL, EDNAMAT, EDNASIMPLE, ENUC.4.4 (IUPAC DNA). Omit to use match/mismatch. |
 | `match` | integer | No | Scalar model (used when matrix is omitted): score of an identical pair; the pair is 'similar' iff this is > 0. (default: 1) |
 | `mismatch` | integer | No | Scalar model (used when matrix is omitted): score of a non-identical pair; the pair is 'similar' iff this is > 0. (default: -1) |

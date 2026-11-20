@@ -41,11 +41,11 @@ model, Benson 1999).
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `sequence` | string | Yes | Nucleotide sequence (min length 1): A/C/G/T plus IUPAC codes such as N, case-insensitive. A repeat unit must be spelled with A/C/G/T only, so a window containing N or another ambiguity code never forms a repeat (`ACACNACAC` → AC×2 at 0 and AC×2 at 5) |
-| `minUnitLength` | integer | No | Minimum repeat-unit length (default 2, ≥ 1) |
-| `minRepetitions` | integer | No | Minimum complete consecutive copies (default 2, ≥ 2) |
-| `maxUnitLength` | integer | No | Maximum repeat-unit length (≥ `minUnitLength`); omit for no upper bound |
-| `canonicalRotation` | boolean | No | Report each unit as its lexicographically least rotation (Booth 1980) instead of the spelling at the run's left end; originalUnit then holds the actual spelling. Default false. |
+| `sequence` | string | Yes | Nucleotide sequence: A/C/G/T plus IUPAC codes such as N (case-insensitive). A repeat unit must be spelled with A/C/G/T only, so windows with N never form a repeat. |
+| `minUnitLength` | integer | No | Minimum repeat-unit length (default 2, >= 1). |
+| `minRepetitions` | integer | No | Minimum number of complete repetitions (default 2, >= 2). |
+| `maxUnitLength` | integer | No | Optional maximum repeat-unit length (>= minUnitLength); omit for no upper bound (a unit longer than length / minRepetitions can never repeat). |
+| `canonicalRotation` | boolean | No | Report each unit as its lexicographically least rotation (Booth 1980) instead of the spelling at the run's left end; originalUnit then holds the actual spelling. Default false. (default: false) |
 
 ## Output Schema
 

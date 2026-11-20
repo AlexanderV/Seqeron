@@ -1,6 +1,6 @@
 # scaffold_contigs
 
-Join contigs into scaffolds using paired-end link records, inserting a run of gapCharacter (length = gapSize; unknown/non-positive -> 100) between linked contigs.
+Builds scaffolds by joining contigs using paired-end link records, inserting gapCharacter between linked contigs to span the indicated gap size.
 
 ## Overview
 
@@ -14,7 +14,7 @@ Join contigs into scaffolds using paired-end link records, inserting a run of ga
 
 ## Description
 
-Join contigs into scaffolds using paired-end link records, inserting a run of gapCharacter (length = gapSize; unknown/non-positive -> 100) between linked contigs.
+Builds scaffolds by joining contigs using paired-end link records, inserting gapCharacter between linked contigs to span the indicated gap size.
 
 ## Core Documentation Reference
 
@@ -25,7 +25,7 @@ Join contigs into scaffolds using paired-end link records, inserting a run of ga
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `contigs` | array<string> | Yes | Contig sequences. |
-| `links` | array<object> | Yes | Paired-end links between contigs, each an object {contig1, contig2, gapSize}. |
+| `links` | array<object> | Yes | Paired-end links between contigs (by index). |
 | `gapCharacter` | string | No | Single-character gap filler (e.g. "N"). (default: N) |
 
 ## Output Schema

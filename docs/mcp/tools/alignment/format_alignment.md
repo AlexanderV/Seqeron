@@ -1,6 +1,6 @@
 # format_alignment
 
-Render a pairwise alignment as three-line blocks in the EMBOSS needle/water (srspair) style: the markup line has '|' for identical columns, ':' for similar columns (positive substitution score), '.' for mismatches and ' ' for gap columns; wrapped to a configurable line width. matrix (BLOSUM62 | PAM250 | EDNAFULL) or the scalar match/mismatch decide which mismatches are similar.
+Renders a pairwise alignment as three-line blocks in the EMBOSS needle/water (srspair) style: the markup line has '|' for identical columns, ':' for similar columns (positive substitution score), '.' for mismatches and ' ' for gap columns; wrapped to a configurable line width. matrix (BLOSUM62 | PAM250 | EDNAFULL) or the scalar match/mismatch decide which mismatches are similar.
 
 ## Overview
 
@@ -14,7 +14,7 @@ Render a pairwise alignment as three-line blocks in the EMBOSS needle/water (srs
 
 ## Description
 
-Render a pairwise alignment as three-line blocks in the EMBOSS needle/water (srspair) style: the markup line has '|' for identical columns, ':' for similar columns (positive substitution score), '.' for mismatches and ' ' for gap columns; wrapped to a configurable line width. matrix (BLOSUM62 | PAM250 | EDNAFULL) or the scalar match/mismatch decide which mismatches are similar.
+Renders a pairwise alignment as three-line blocks in the EMBOSS needle/water (srspair) style: the markup line has '|' for identical columns, ':' for similar columns (positive substitution score), '.' for mismatches and ' ' for gap columns; wrapped to a configurable line width. matrix (BLOSUM62 | PAM250 | EDNAFULL) or the scalar match/mismatch decide which mismatches are similar.
 
 ## Core Documentation Reference
 
@@ -26,8 +26,8 @@ Render a pairwise alignment as three-line blocks in the EMBOSS needle/water (srs
 |-----------|------|----------|-------------|
 | `alignedSequence1` | string | Yes | Aligned representation of sequence1. |
 | `alignedSequence2` | string | Yes | Aligned representation of sequence2. |
-| `lineWidth` | integer | No | Maximum characters per line (>= 1). (default: 60) |
-| `matrix` | string | No | Optional substitution matrix deciding which non-gap columns are similar: any built-in matrix by EMBOSS or NCBI name - BLOSUM62, PAM250, EBLOSUM30 ... EBLOSUM90, EPAM10 ... EPAM500 (protein) or EDNAFULL, EDNAMAT, EDNASIMPLE, ENUC.4.4 (IUPAC DNA). Omit to use match/mismatch. |
+| `lineWidth` | integer | No | Maximum characters per line in the formatted output (>= 1). (default: 60) |
+| `matrix` | string | No | Optional substitution matrix deciding which non-gap columns are similar: any built-in matrix by EMBOSS or NCBI name (BLOSUM62, PAM250, EBLOSUM45, EPAM120, EDNAFULL, ...). Omit to use match/mismatch. |
 | `match` | integer | No | Scalar model (used when matrix is omitted): score of an identical pair. (default: 1) |
 | `mismatch` | integer | No | Scalar model (used when matrix is omitted): score of a non-identical pair; > 0 marks mismatches ':' (similar). (default: -1) |
 

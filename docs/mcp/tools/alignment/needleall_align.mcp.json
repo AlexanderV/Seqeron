@@ -44,31 +44,38 @@
       },
       "gapOpen": {
         "type": "number",
-        "description": "Gap opening penalty (-gapopen, 1 - 100); default 10."
+        "description": "Gap opening penalty (-gapopen, 1 - 100).",
+        "default": 10
       },
       "gapExtend": {
         "type": "number",
-        "description": "Gap extension penalty (-gapextend, 0 - 10); default 0.5."
+        "description": "Gap extension penalty (-gapextend, 0 - 10).",
+        "default": 0.5
       },
       "endWeight": {
         "type": "boolean",
-        "description": "-endweight: apply the end-gap penalties."
+        "description": "-endweight: apply the end-gap penalties.",
+        "default": false
       },
       "endOpen": {
         "type": "number",
-        "description": "-endopen (1 - 100); default 10."
+        "description": "-endopen (1 - 100).",
+        "default": 10
       },
       "endExtend": {
         "type": "number",
-        "description": "-endextend (0 - 10); default 0.5."
+        "description": "-endextend (0 - 10).",
+        "default": 0.5
       },
       "minScore": {
         "type": "number",
-        "description": "-minscore (-10 - 100); default 0."
+        "description": "-minscore (-10 - 100): minimum score to report an alignment.",
+        "default": 0
       },
       "brief": {
         "type": "boolean",
-        "description": "-brief: false adds the Longest_/Shortest_ Identity / Similarity lines to the sub-header."
+        "description": "-brief: false adds the Longest_/Shortest_ Identity / Similarity lines to the sub-header.",
+        "default": true
       }
     },
     "required": [

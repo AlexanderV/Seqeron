@@ -32,8 +32,8 @@ one-off queries on very large sequences prefer `kmer_positions` (KMP, no index).
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `sequence` | string | Yes | DNA sequence (min length 1) |
-| `motif` | string | Yes | Motif to locate (min length 1) |
+| `sequence` | string | Yes | Nucleotide sequence: A/C/G/T plus IUPAC codes such as N (case-insensitive); non-A/C/G/T symbols match nothing. |
+| `motif` | string | Yes | Motif to locate. |
 
 ## Output Schema
 

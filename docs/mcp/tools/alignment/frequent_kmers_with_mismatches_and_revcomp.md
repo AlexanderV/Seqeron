@@ -14,7 +14,7 @@ Most frequent k-mers with mismatches and reverse complements (ROSALIND BA1J).
 
 ## Description
 
-Frequent Words with Mismatches and Reverse Complements (Compeau & Pevzner, Bioinformatics Algorithms ch. 1; ROSALIND BA1J): all DNA k-mers P maximising Count_d(sequence, P) + Count_d(sequence, reverseComplement(P)), ties included. Neighbourhoods are over {A,C,G,T} (windows with other symbols contribute nothing beyond their DNA neighbours, as in BA1I); case-insensitive. A reverse-complement palindrome scores 2·Count_d. The result set is closed under reverse complement. The library leaves the order unspecified; the tool sorts items by k-mer (ordinal).
+Frequent words with mismatches and reverse complements (ROSALIND BA1J): all DNA k-mers P maximising Count_d(sequence, P) + Count_d(sequence, reverseComplement(P)), ties included; the set is closed under reverse complement. Items sorted by k-mer (ordinal).
 
 ## Core Documentation Reference
 

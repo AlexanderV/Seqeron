@@ -1,6 +1,6 @@
 # find_overlap
 
-Detect the longest suffix-of-sequence1 / prefix-of-sequence2 overlap satisfying minOverlap and minIdentity thresholds. Returns null if no qualifying overlap exists.
+Detects the longest suffix-of-sequence1 / prefix-of-sequence2 overlap satisfying minOverlap and minIdentity thresholds. Returns null if no qualifying overlap exists.
 
 ## Overview
 
@@ -14,7 +14,7 @@ Detect the longest suffix-of-sequence1 / prefix-of-sequence2 overlap satisfying 
 
 ## Description
 
-Detect the longest suffix-of-sequence1 / prefix-of-sequence2 overlap satisfying minOverlap and minIdentity thresholds. Returns null if no qualifying overlap exists.
+Detects the longest suffix-of-sequence1 / prefix-of-sequence2 overlap satisfying minOverlap and minIdentity thresholds. Returns null if no qualifying overlap exists.
 
 ## Core Documentation Reference
 

@@ -31,7 +31,7 @@ Modes and methods: `profile` = `SequenceAligner.MuscleProfileAlign`, `refine` = 
 | `alignment` | array<string> | Yes | The (first) alignment: equal-length rows, '-' = gap. |
 | `alignment2` | array<string> | No | The second alignment (profile, ppscore, sw). |
 | `type` | string | No | 'auto' (MUSCLE's guess from the alignment), 'protein', 'dna' or 'rna'. (default: auto) |
-| `maxIters` | integer | No | MUSCLE -maxiters for refine / refinew (default 8, the program's). (default: 8) |
+| `maxIters` | integer | No | MUSCLE -maxiters for refine / refinew (default 8, the program's). |
 | `scoreModel` | string | No | 'default', 'le', 'sp', 'sv', 'spn' (profile-profile score). (default: default) |
 | `gapOpen` | number | No | MUSCLE -gapopen. |
 | `gapExtend` | number | No | MUSCLE -gapextend. |
@@ -42,7 +42,7 @@ Modes and methods: `profile` = `SequenceAligner.MuscleProfileAlign`, `refine` = 
 | `cluster2` | string | No | MUSCLE -cluster2 (guide tree of an alignment): 'upgmb', 'upgma', 'upgmamin', 'upgmamax', 'neighborjoining'. (default: upgmb) |
 | `root1` | string | No | MUSCLE -root1 (profile / ppscore / sw trees). (default: pseudo) |
 | `root2` | string | No | MUSCLE -root2 (refine / spscore / maketree tree). (default: pseudo) |
-| `weight1` | string | No | MUSCLE -weight1 (sequence weights): 'clustalw' (default), 'none', 'henikoff', 'henikoffpb', 'gsc', 'threeway'. (default: clustalw) |
+| `weight1` | string | No | MUSCLE -weight1 (sequence weights): 'clustalw' (default), 'none', 'henikoff', 'henikoffpb', 'gsc', 'threeway'. |
 | `weight2` | string | No | MUSCLE -weight2. (default: clustalw) |
 | `objScore` | string | No | MUSCLE -objscore (refinement objective). (default: spm) |
 | `termGaps` | string | No | MUSCLE -termgaps. (default: half) |

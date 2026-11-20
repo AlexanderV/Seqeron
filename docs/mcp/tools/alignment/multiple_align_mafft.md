@@ -29,14 +29,14 @@ MAFFT 7.505's alignment of TWO sequences (Katoh & Standley 2013, MBE 30:772; maf
 | `sequences` | array<string> | Yes | Exactly two sequences (letters; with anySymbol any character except blanks and '-' is a residue). Like the program: an empty list gives an empty result and ONE sequence is written back (gaps dropped; without anySymbol nucleotides in lower and amino acids in upper case). |
 | `sequenceType` | string | No | 'auto' (default: guessed from the letters), 'nuc' (mafft --nuc) or 'amino' (mafft --amino). |
 | `gapOpen` | number | No | mafft --op: gap opening penalty (default 1.53). |
-| `offset` | number | No | mafft --ep: offset (default 0.0). |
-| `blosum` | integer | No | mafft --bl: BLOSUM matrix: 30, 45, 50, 62 (default), 80, 90, 100 or 0. |
-| `anySymbol` | boolean | No | true (default): mafft --anysymbol, the original letters are restored. false: the plain command (letters and '.' only; nucleotides lower case, amino acids upper case). |
-| `retree` | integer | No | mafft --retree (accepted, no effect for two sequences). |
-| `fft` | boolean | No | mafft --fft / --nofft (accepted, no effect on the committed pairs). |
-| `threads` | integer | No | mafft --thread (accepted, no effect). |
-| `reorder` | boolean | No | mafft --reorder (accepted, no effect for two sequences). |
-| `format` | string | No | Optional output format; the alignment written in that format is returned in 'formatted'. Biopython Bio.Align names: fasta, a2m, clustal, phylip, nexus, stockholm (byte for byte as Bio.Align.write; 'emboss:' + name selects the EMBOSS writer of the same name) or EMBOSS -aformat names (pair, simple, srspair, srs, markx0-3, markx10, match, score, sam, tcoffee, msf, mega, meganon, nexusnon, paup, paupnon, phylipnon, selex, treecon). Omit for no formatted text. |
+| `offset` | number | No | mafft --ep: offset (default 0.0; a negative value adds to every substitution score, a positive one subtracts). |
+| `blosum` | integer | No | mafft --bl: BLOSUM matrix of the amino-acid scoring: 30, 45, 50, 62 (default), 80, 90, 100 or 0. |
+| `anySymbol` | boolean | No | true (default): mafft --anysymbol, the original letters are restored in the output. false: the plain command (letters and '.' only; nucleotides lower case, amino acids upper case in the rows). |
+| `retree` | integer | No | mafft --retree (accepted, no effect for two sequences). (default: 2) |
+| `fft` | boolean | No | mafft --fft (true, default) / --nofft (false): accepted, no effect on the committed pairs. (default: true) |
+| `threads` | integer | No | mafft --thread (accepted, no effect). (default: 1) |
+| `reorder` | boolean | No | mafft --reorder (accepted, no effect for two sequences). (default: false) |
+| `format` | string | No | Optional output format; the alignment written in that format is returned in the result field 'formatted'. Biopython Bio.Align names: fasta, a2m, clustal, phylip, nexus, stockholm (byte for byte as Bio.Align.write; 'emboss:' + name selects the EMBOSS writer of the same name). EMBOSS -aformat names: pair, simple, srspair, srs, markx0, markx1, markx2, markx3, markx10, match, score, sam, tcoffee (two rows) and msf, mega, meganon, nexusnon, paup, paupnon, phylipnon, selex, treecon (any number of rows; EMBOSS prints the run date: now, UTC). Omit for no formatted text. |
 | `names` | array of string | No | Optional names of the rows for the formatted output (default seq1, seq2, ...). |
 
 ## Output Schema

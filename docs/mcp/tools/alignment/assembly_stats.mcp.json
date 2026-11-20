@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "SequenceAssembler.CalculateStats",
   "docRef": "Seqeron.Genomics.Alignment/SequenceAssembler.cs#L574",
-  "description": "Compute assembly statistics (N50, longest contig, total length, read accounting) for a precomputed list of contigs.",
+  "description": "Computes assembly statistics (N50, longest contig, total length, assembled-reads accounting) for a precomputed list of contigs.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -16,7 +16,7 @@
       },
       "totalReads": {
         "type": "integer",
-        "description": "Total number of input reads (used to fill totalReads)."
+        "description": "Total number of input reads (used to fill TotalReads)."
       }
     },
     "required": [

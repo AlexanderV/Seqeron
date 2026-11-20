@@ -31,12 +31,12 @@ ProbCons 1.12's multiple alignment of protein sequences (Do, Mahabhashyam, Brudn
 | `consistency` | integer | No | probcons -c: passes of consistency transformation, 0 - 5 (default 2). |
 | `iterativeRefinement` | integer | No | probcons -ir: passes of iterative refinement, 0 - 1000 (default 100). |
 | `preTraining` | integer | No | probcons -pre: rounds of EM pre-training, 0 - 20 (default 0). |
-| `alignmentOrder` | boolean | No | probcons -a: report the sequences in alignment order instead of input order. |
-| `gapOpenPenalty` | number | No | probcons -go: cosmetic gap-open penalty (<= 0; 0 together with a zero extension penalty = none). |
-| `gapExtensionPenalty` | number | No | probcons -ge: cosmetic gap-extension penalty (<= 0). |
-| `cutoff` | number | No | probcons -co: value in [0, 1] subtracted from the posterior probabilities before the profile alignments. |
+| `alignmentOrder` | boolean | No | probcons -a: report the sequences in alignment order instead of input order. (default: false) |
+| `gapOpenPenalty` | number | No | probcons -go: cosmetic gap-open penalty (<= 0; 0 together with a zero extension penalty = none). (default: 0.0) |
+| `gapExtensionPenalty` | number | No | probcons -ge: cosmetic gap-extension penalty (<= 0). (default: 0.0) |
+| `cutoff` | number | No | probcons -co: value in [0, 1] subtracted from the posterior probabilities before the profile alignments. (default: 0.0) |
 | `parameters` | string | No | probcons -p: the text of a parameter file (initial distribution, gap open, gap extension, alphabet, lower triangle of the match emissions, single emissions); omit for the built-in parameters. |
-| `annotate` | boolean | No | probcons -annot: also return the per-column annotation score (0 - 200: twice the mean posterior of the aligned residue pairs of the column, in percent). |
+| `annotate` | boolean | No | probcons -annot: also return the per-column annotation score (0 - 200: twice the mean posterior of the aligned residue pairs of the column, in percent). (default: false) |
 
 ## Output Schema
 

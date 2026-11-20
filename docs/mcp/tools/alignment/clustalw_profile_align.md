@@ -27,19 +27,19 @@ ClustalW 2.1's profile-profile alignment of two existing alignments (clustalw -P
 |-----------|------|----------|-------------|
 | `profile1` | array<string> | Yes | Rows of the first alignment (at least one; letters and '-'). |
 | `profile2` | array<string> | Yes | Rows of the second alignment (at least one; letters and '-'). |
-| `type` | string | No | 'dna' (default) or 'protein' (ClustalW -TYPE). (default: dna) |
+| `type` | string | No | 'dna' (default) or 'protein' (ClustalW -TYPE). |
 | `gapOpen` | number | No | ClustalW -GAPOPEN (default 15 for DNA, 10 for protein). |
 | `gapExtend` | number | No | ClustalW -GAPEXT (default 6.66 for DNA, 0.2 for protein). |
-| `transitionWeight` | number | No | DNA only, ClustalW -TRANSWEIGHT (default 0.5). (default: 0.5) |
+| `transitionWeight` | number | No | DNA only, ClustalW -TRANSWEIGHT (default 0.5). |
 | `noWeights` | boolean | No | ClustalW -NOWEIGHTS: no tree-derived sequence weights. (default: false) |
 | `negative` | boolean | No | ClustalW -NEGATIVE: keep the matrix signed (protein: BLOSUM40 / PAM120 / GONNET250 instead of the series). (default: false) |
 | `matrix` | string | No | type='protein': ClustalW -MATRIX, 'gonnet' (default), 'blosum', 'pam' or 'id'. |
 | `noPreferredGaps` | boolean | No | type='protein': ClustalW -NOPGAP. (default: false) |
 | `noHydrophilicGaps` | boolean | No | type='protein': ClustalW -NOHGAP. (default: false) |
 | `variableRegionGaps` | boolean | No | type='protein': ClustalW -NOVGAP (sic: switches the variable-region penalties ON). (default: false) |
-| `gapDist` | integer | No | type='protein': ClustalW -GAPDIST (default 4; 0 = off). (default: 4) |
-| `hydrophilicResidues` | string | No | type='protein': ClustalW -HGAPRESIDUES (default GPSNDQEKR). (default: GPSNDQEKR) |
-| `clustering` | string | No | ClustalW -CLUSTERING of the profile trees: 'nj' (default) or 'upgma'. (default: nj) |
+| `gapDist` | integer | No | type='protein': ClustalW -GAPDIST (default 4; 0 = off). |
+| `hydrophilicResidues` | string | No | type='protein': ClustalW -HGAPRESIDUES (default GPSNDQEKR). |
+| `clustering` | string | No | ClustalW -CLUSTERING of the profile trees: 'nj' (default) or 'upgma'. |
 
 ## Output Schema
 

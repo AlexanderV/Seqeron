@@ -29,11 +29,11 @@ EMBOSS 6.6 needle: global alignment (Needleman-Wunsch with Gotoh's three matrice
 | `sequence1` | string | Yes | First sequence (-asequence), at least one residue. |
 | `sequence2` | string | Yes | Second sequence (-bsequence), at least one residue. |
 | `matrix` | string | No | Optional EMBOSS data matrix (-datafile): EBLOSUM62, EPAM250, EDNAFULL, ... or the NCBI name. Omit for EDNAFULL (nucleotide) / EBLOSUM62 (protein). |
-| `gapOpen` | number | No | Gap opening penalty (-gapopen, 1 - 100): the cost of a gap of length 1. |
-| `gapExtend` | number | No | Gap extension penalty (-gapextend, 0 - 10): the cost of each further gap position. |
+| `gapOpen` | number | No | Gap opening penalty (-gapopen, 1 - 100): the cost of a gap of length 1. (default: 10) |
+| `gapExtend` | number | No | Gap extension penalty (-gapextend, 0 - 10): the cost of each further gap position. (default: 0.5) |
 | `endWeight` | boolean | No | -endweight: apply the end-gap penalties (default false: end gaps are free). |
-| `endOpen` | number | No | -endopen (1 - 100): cost of an end gap of length 1 (used only with endWeight). |
-| `endExtend` | number | No | -endextend (0 - 10): cost of each further end-gap position (used only with endWeight). |
+| `endOpen` | number | No | -endopen (1 - 100): cost of an end gap of length 1 (used only with endWeight). (default: 10) |
+| `endExtend` | number | No | -endextend (0 - 10): cost of each further end-gap position (used only with endWeight). (default: 0.5) |
 | `format` | string | No | Optional output format; the alignment written in that format is returned in the result field 'formatted'. Biopython Bio.Align names: fasta, a2m, clustal, phylip, nexus, stockholm (byte for byte as Bio.Align.write; 'emboss:' + name selects the EMBOSS writer of the same name). EMBOSS -aformat names: pair, simple, srspair, srs, markx0, markx1, markx2, markx3, markx10, match, score, sam, tcoffee (two rows) and msf, mega, meganon, nexusnon, paup, paupnon, phylipnon, selex, treecon (any number of rows; EMBOSS prints the run date: now, UTC). Omit for no formatted text. |
 | `names` | array of string | No | Optional names of the rows for the formatted output (default seq1, seq2, ...). |
 

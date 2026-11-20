@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "SequenceAssembler.Scaffold",
   "docRef": "Seqeron.Genomics.Alignment/SequenceAssembler.cs#L679",
-  "description": "Join contigs into scaffolds using paired-end link records, inserting a run of gapCharacter (length = gapSize; unknown/non-positive -> 100) between linked contigs.",
+  "description": "Builds scaffolds by joining contigs using paired-end link records, inserting gapCharacter between linked contigs to span the indicated gap size.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -16,7 +16,7 @@
       },
       "links": {
         "type": "array",
-        "description": "Paired-end links between contigs, each an object {contig1, contig2, gapSize}."
+        "description": "Paired-end links between contigs (by index)."
       },
       "gapCharacter": {
         "type": "string",

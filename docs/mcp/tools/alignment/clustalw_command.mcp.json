@@ -12,7 +12,7 @@
     "properties": {
       "arguments": {
         "type": "array",
-        "description": "The command-line arguments of clustalw, one per element (for example [\"-INFILE=ex.fa\", \"-TYPE=DNA\", \"-ALIGN\", \"-OUTPUT=GCG\"]); a first argument without '-' or '/' is the input file.",
+        "description": "The command-line arguments of clustalw, one per element (for example [\"-INFILE=x.fa\", \"-TYPE=DNA\", \"-ALIGN\", \"-OUTPUT=GCG\"]); a first argument without '-' or '/' is the input file.",
         "items": {
           "type": "string"
         }

@@ -28,9 +28,9 @@ EMBOSS 6.6.0 tandem-repeat programs ported statement by statement (diagonal-scor
 |-----------|------|----------|-------------|
 | `sequence` | string | Yes | Nucleotide sequence: A/C/G/T plus IUPAC codes such as N (case-insensitive). |
 | `program` | string | No | etandem (default) \| equicktandem (case-insensitive). |
-| `minRepeat` | integer | No | etandem -minrepeat: smallest unit size (>= 2, default 10 as in the program). Ignored by equicktandem. |
+| `minRepeat` | integer | No | etandem -minrepeat: smallest unit size (>= 2, default 10 as in the program). Ignored by equicktandem. (default: 10) |
 | `maxRepeat` | integer | No | Largest unit size (-maxrepeat). Default: etandem = minRepeat (as in the program), equicktandem = 600. |
-| `threshold` | integer | No | Minimum score (-threshold, default 20; equicktandem needs >= 1). |
+| `threshold` | integer | No | Minimum score (-threshold, default 20; equicktandem needs >= 1). (default: 20) |
 | `mismatch` | boolean | No | etandem -mismatch: count N as a mismatch instead of a fifth base (default false). |
 | `uniform` | boolean | No | etandem -uniform: also report single-base consensus repeats (default false). |
 

@@ -6,17 +6,17 @@
   "stability": "stable",
   "methodId": "SequenceAssembler.QualityTrimReads",
   "docRef": "Seqeron.Genomics.Alignment/SequenceAssembler.cs#L950",
-  "description": "Trim Phred+33 quality-encoded reads from both ends with the BWA/cutadapt running-sum method, dropping reads shorter than minLength after trimming.",
+  "description": "Trims Phred+33 quality-encoded reads from both ends, dropping bases whose decoded quality is below minQuality. Reads shorter than minLength after trimming are filtered out.",
   "inputSchema": {
     "type": "object",
     "properties": {
       "reads": {
         "type": "array",
-        "description": "Reads, each an object with sequence and matching Phred+33 quality string of equal length."
+        "description": "Reads, each with sequence and matching Phred+33 quality string."
       },
       "minQuality": {
         "type": "integer",
-        "description": "Quality cutoff subtracted from each Phred score (values < 1 disable trimming).",
+        "description": "Minimum acceptable quality score (Phred).",
         "default": 20
       },
       "minLength": {

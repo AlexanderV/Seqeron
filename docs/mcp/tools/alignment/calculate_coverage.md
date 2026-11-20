@@ -1,6 +1,6 @@
 # calculate_coverage
 
-Map each read to its best ungapped position on the reference (>= minOverlap matching bases) and return per-base coverage depth as an integer array of length reference.Length.
+Maps each read to its best-matching position on the reference (≥ minOverlap matching bases) and returns per-base coverage depth as an integer array of length reference.Length.
 
 ## Overview
 
@@ -14,7 +14,7 @@ Map each read to its best ungapped position on the reference (>= minOverlap matc
 
 ## Description
 
-Map each read to its best ungapped position on the reference (>= minOverlap matching bases) and return per-base coverage depth as an integer array of length reference.Length.
+Maps each read to its best-matching position on the reference (≥ minOverlap matching bases) and returns per-base coverage depth as an integer array of length reference.Length.
 
 ## Core Documentation Reference
 

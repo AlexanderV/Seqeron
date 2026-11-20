@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "SequenceAssembler.CalculateCoverage",
   "docRef": "Seqeron.Genomics.Alignment/SequenceAssembler.cs#L772",
-  "description": "Map each read to its best ungapped position on the reference (>= minOverlap matching bases) and return per-base coverage depth as an integer array of length reference.Length.",
+  "description": "Maps each read to its best-matching position on the reference (≥ minOverlap matching bases) and returns per-base coverage depth as an integer array of length reference.Length.",
   "inputSchema": {
     "type": "object",
     "properties": {

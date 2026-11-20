@@ -1,6 +1,6 @@
 # error_correct_reads
 
-Correct single-base substitution errors using the k-mer spectrum (Musket/Quake two-sided): k-mers with multiplicity below minKmerFrequency are untrusted; a position is corrected only when a unique alternative base makes its covering k-mers trusted.
+Corrects single-base errors in reads using k-mer frequency: any k-mer occurring fewer than minKmerFrequency times is corrected by substituting its middle base if a higher-frequency k-mer can be obtained.
 
 ## Overview
 
@@ -14,7 +14,7 @@ Correct single-base substitution errors using the k-mer spectrum (Musket/Quake t
 
 ## Description
 
-Correct single-base substitution errors using the k-mer spectrum (Musket/Quake two-sided): k-mers with multiplicity below minKmerFrequency are untrusted; a position is corrected only when a unique alternative base makes its covering k-mers trusted.
+Corrects single-base errors in reads using k-mer frequency: any k-mer occurring fewer than minKmerFrequency times is corrected by substituting its middle base if a higher-frequency k-mer can be obtained.
 
 ## Core Documentation Reference
 
@@ -25,8 +25,8 @@ Correct single-base substitution errors using the k-mer spectrum (Musket/Quake t
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `reads` | array<string> | Yes | Input reads. |
-| `kmerSize` | integer | No | K-mer size used to build the frequency table (>= 1). (default: 21) |
-| `minKmerFrequency` | integer | No | Minimum k-mer frequency considered trusted. (default: 3) |
+| `kmerSize` | integer | No | K-mer size used to build the frequency table. (default: 21) |
+| `minKmerFrequency` | integer | No | Minimum k-mer frequency considered "trusted". (default: 3) |
 
 ## Output Schema
 

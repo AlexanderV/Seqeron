@@ -27,7 +27,7 @@ EMBOSS 6.6.0 seqmatchall: the all-against-all comparison of a set of sequences b
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `sequences` | array<string> | Yes | The sequences (at least one; nucleotide or protein letters). |
-| `wordSize` | integer | No | Word size (seqmatchall -wordsize, default 4, >= 1). |
+| `wordSize` | integer | No | Word size (seqmatchall -wordsize, default 4, >= 1). (default: 4) |
 
 ## Output Schema
 

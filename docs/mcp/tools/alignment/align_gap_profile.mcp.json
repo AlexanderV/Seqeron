@@ -50,7 +50,7 @@
    },
    "gapScores": {
     "type": "object",
-    "description": "Biopython gap-score properties, name -> value (e.g. {\"open_left_insertion_score\": 0, \"extend_left_insertion_score\": 0, \"end_deletion_score\": -3, \"open_gap_score\": -5, \"extend_gap_score\": -1})."
+    "description": "Biopython gap-score properties, name -> value (e.g. {\"open_left_insertion_score\": 0, \"extend_left_insertion_score\": 0, \"end_deletion_score\": -3, \"open_gap_score\": -5, \"extend_gap_score\": -1}); see the description for the accepted names."
    },
    "endGaps": {
     "type": "string",
@@ -58,7 +58,7 @@
    },
    "matrix": {
     "type": "string",
-    "description": "Optional substitution matrix by EMBOSS / NCBI name (BLOSUM62, PAM250, EDNAFULL, ...); fractional gap scores are then allowed."
+    "description": "Optional substitution matrix: any built-in matrix by EMBOSS or NCBI name - BLOSUM62, PAM250, EBLOSUM30 ... EBLOSUM90, EPAM10 ... EPAM500 (protein) or EDNAFULL, EDNAMAT, EDNASIMPLE, ENUC.4.4 (IUPAC DNA). When given, match/mismatch are ignored, residues are scored by the published table (any protein or IUPAC symbol of the matrix; case-insensitive) and gapOpen/gapExtend may be fractional (the EMBOSS needle/water models: gapOpen = -(G - E), gapExtend = -E for -gapopen G -gapextend E). The result then also carries the real-valued exactScore."
    }
   },
   "required": [

@@ -27,7 +27,7 @@ The 'lalign_id_pair' pair-wise method of T-Coffee 13.41: the topAlignments (t_co
 |-----------|------|----------|-------------|
 | `sequenceA` | string | Yes | First sequence (letters; gaps rejected). |
 | `sequenceB` | string | Yes | Second sequence. |
-| `topAlignments` | integer | No | t_coffee -lalign_n_top: number of alignments to report (>= 1; default 10). |
+| `topAlignments` | integer | No | t_coffee -lalign_n_top: number of alignments to report (>= 1; default 10). (default: 10) |
 | `protein` | boolean | No | true = protein scoring, false (default) = DNA. |
 | `gapOpen` | integer | No | Method GOP override (gap open score, negative). |
 | `gapExtend` | integer | No | Method GEP override (gap extend score, negative). |

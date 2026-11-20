@@ -30,13 +30,13 @@ EMBOSS 6.6 needleall: the global alignment (Needleman-Wunsch with affine gaps, t
 | `namesA` | array of string | No | Optional names of the A sequences (default a1, a2, ...). |
 | `namesB` | array of string | No | Optional names of the B sequences (default b1, b2, ...). |
 | `matrix` | string | No | Optional EMBOSS data matrix (-datafile). Omit for EDNAFULL when every A sequence is nucleotide, EBLOSUM62 otherwise. |
-| `gapOpen` | number | No | Gap opening penalty (-gapopen, 1 - 100); default 10. |
-| `gapExtend` | number | No | Gap extension penalty (-gapextend, 0 - 10); default 0.5. |
-| `endWeight` | boolean | No | -endweight: apply the end-gap penalties. |
-| `endOpen` | number | No | -endopen (1 - 100); default 10. |
-| `endExtend` | number | No | -endextend (0 - 10); default 0.5. |
-| `minScore` | number | No | -minscore (-10 - 100); default 0. |
-| `brief` | boolean | No | -brief: false adds the Longest_/Shortest_ Identity / Similarity lines to the sub-header. |
+| `gapOpen` | number | No | Gap opening penalty (-gapopen, 1 - 100). (default: 10) |
+| `gapExtend` | number | No | Gap extension penalty (-gapextend, 0 - 10). (default: 0.5) |
+| `endWeight` | boolean | No | -endweight: apply the end-gap penalties. (default: false) |
+| `endOpen` | number | No | -endopen (1 - 100). (default: 10) |
+| `endExtend` | number | No | -endextend (0 - 10). (default: 0.5) |
+| `minScore` | number | No | -minscore (-10 - 100): minimum score to report an alignment. (default: 0) |
+| `brief` | boolean | No | -brief: false adds the Longest_/Shortest_ Identity / Similarity lines to the sub-header. (default: true) |
 
 ## Output Schema
 

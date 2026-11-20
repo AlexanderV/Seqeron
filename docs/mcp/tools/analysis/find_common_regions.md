@@ -30,9 +30,9 @@ reported. `minLength` below 1 is treated as 1. Both inputs must be valid DNA.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `sequence1` | string | Yes | First DNA sequence (min length 1) |
-| `sequence2` | string | Yes | Second DNA sequence (min length 1) |
-| `minLength` | integer | Yes | Minimum common-region length |
+| `sequence1` | string | Yes | First nucleotide sequence (the reference): A/C/G/T plus IUPAC codes such as N (case-insensitive). |
+| `sequence2` | string | Yes | Second nucleotide sequence (the query). |
+| `minLength` | integer | Yes | Minimum common-region length (mummer -l); values below 1 are treated as 1. |
 | `mode` | string | No | Which regions (case-insensitive): RightMaximal (default) \| MaximalExactMatches \| MaximalUniqueReference \| MaximalUnique. |
 | `strands` | string | No | Which strands of sequence2 (case-insensitive): Forward (default) \| ReverseComplement \| Both. |
 
