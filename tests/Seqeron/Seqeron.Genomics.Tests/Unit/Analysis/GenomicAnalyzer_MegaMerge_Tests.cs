@@ -102,4 +102,139 @@ public class GenomicAnalyzer_MegaMerge_Tests
         Assert.Throws<ArgumentOutOfRangeException>(() => GenomicAnalyzer.MegaMerge("ACGTACGT", "ACGTACGT", 1));
         Assert.Throws<OperationCanceledException>(() => GenomicAnalyzer.MegaMerge("ACGTACGT", "ACGTACGT", 4, cancellationToken: new CancellationToken(true)));
     }
+
+    // ------------------------------------------------------------------ A4-6: MinimalMatchSet without the O(k) list shifts and whole-list re-sorts
+
+    /// <summary>embWordMatchMin as it was before A4-6 (List.RemoveAt(0) / RemoveAt(i), the whole list sorted again after a truncation): the reference the new loop must equal.</summary>
+    private static List<(int S1, int S2, int Len)> ReferenceMinimalMatchSet(IEnumerable<(int S1, int S2, int Len)> matches, int wordLength, out string? exception)
+    {
+        exception = null;
+        var matchlist = matches.Select(m => new GenomicAnalyzer.MegaMatch(m.S1, m.S2, m.Len)).ToList();
+        matchlist.Sort(GenomicAnalyzer.MegaOrder);
+        var minlist = new List<GenomicAnalyzer.MegaMatch>();
+        try
+        {
+            while (matchlist.Count > 0)
+            {
+                var thismatch = matchlist[0];
+                matchlist.RemoveAt(0);
+                minlist.Add(thismatch);
+                int deadx1 = thismatch.Start1, deady1 = thismatch.Start2;
+                int deadx2 = thismatch.Start1 + thismatch.Length - 1, deady2 = thismatch.Start2 + thismatch.Length - 1;
+                bool truncated = false;
+                for (int i = 0; i < matchlist.Count;)
+                {
+                    int result = GenomicAnalyzer.DeadZone(matchlist[i], deadx1, deady1, deadx2, deady2, wordLength);
+                    if (result == 1)
+                    {
+                        matchlist.RemoveAt(i);
+                        continue;
+                    }
+
+                    if (result == 2)
+                        truncated = true;
+                    i++;
+                }
+
+                if (truncated)
+                    matchlist.Sort(GenomicAnalyzer.MegaOrder);
+            }
+        }
+        catch (InvalidOperationException e)
+        {
+            exception = e.Message;
+            return [];
+        }
+
+        minlist.Sort((a, b) => a.Start1 != b.Start1 ? a.Start1.CompareTo(b.Start1) : a.Start2.CompareTo(b.Start2));
+        return minlist.Select(m => (m.Start1, m.Start2, m.Length)).ToList();
+    }
+
+    private static List<(int S1, int S2, int Len)> NewMinimalMatchSet(IEnumerable<(int S1, int S2, int Len)> matches, int wordLength, out string? exception)
+    {
+        exception = null;
+        var list = matches.Select(m => new GenomicAnalyzer.MegaMatch(m.S1, m.S2, m.Len)).ToList();
+        try
+        {
+            GenomicAnalyzer.MinimalMatchSet(list, wordLength);
+        }
+        catch (InvalidOperationException e)
+        {
+            exception = e.Message;
+            return [];
+        }
+
+        return list.Select(m => (m.Start1, m.Start2, m.Length)).ToList();
+    }
+
+    [Test]
+    public void MinimalMatchSet_EqualsTheListShiftingOriginal_OnRandomRepetitiveMatchLists_ExceptionsIncluded()
+    {
+        var rnd = new Random(20261127);
+        int truncating = 0, threw = 0, total = 0;
+        for (int round = 0; round < 400; round++)
+        {
+            // repetitive sequences give crossing dead zones (shortened matches) and, now and then, the program's own "same diagonal" abort
+            string unit = new(Enumerable.Range(0, rnd.Next(1, 7)).Select(_ => "ACGT"[rnd.Next(4)]).ToArray());
+            string a = string.Concat(Enumerable.Repeat(unit, rnd.Next(5, 40))) + new string(Enumerable.Range(0, rnd.Next(0, 30)).Select(_ => "ACGT"[rnd.Next(4)]).ToArray());
+            string b = new string(Enumerable.Range(0, rnd.Next(0, 20)).Select(_ => "ACGT"[rnd.Next(4)]).ToArray()) + string.Concat(Enumerable.Repeat(unit, rnd.Next(5, 40)));
+            int w = rnd.Next(2, 9);
+            var words = GenomicAnalyzer.SeqMatchAll([a, b], w).Select(m => (m.Position1, m.Position2, m.Length)).ToList();
+            if (words.Count == 0)
+                continue;
+            total++;
+            var expected = ReferenceMinimalMatchSet(words, w, out string? expectedException);
+            var actual = NewMinimalMatchSet(words, w, out string? actualException);
+            Assert.That(actualException, Is.EqualTo(expectedException), $"round {round}");
+            Assert.That(actual, Is.EqualTo(expected), $"round {round}: {a} / {b} w={w}");
+            if (expectedException is not null) threw++;
+            if (expected.Count > 0 && words.Count > expected.Count) truncating++;
+        }
+
+        Assert.That(total, Is.GreaterThan(300));
+        Assert.That(truncating, Is.GreaterThan(100), "rounds in which the minimal set is smaller than the match list");
+        Assert.That(threw, Is.GreaterThanOrEqualTo(0));
+    }
+
+    [Test]
+    public void MinimalMatchSet_OfSixtyThousandDiagonalMatches_IsFast()
+    {
+        // the matches of two poly-A sequences of 30 000: one on every diagonal (60 000 of them); the longest one kills all the others (60 000 removals: List.RemoveAt shifted the tail every time)
+        int n = 30_000, w = 20;
+        var list = new List<GenomicAnalyzer.MegaMatch>();
+        for (int d = -(n - w); d <= n - w; d++)
+            list.Add(new GenomicAnalyzer.MegaMatch(Math.Max(0, d), Math.Max(0, -d), n - Math.Abs(d)));
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        GenomicAnalyzer.MinimalMatchSet(list, w);
+        sw.Stop();
+        Assert.That(list, Has.Count.EqualTo(1));
+        Assert.That((list[0].Start1, list[0].Start2, list[0].Length), Is.EqualTo((0, 0, n)));
+        Assert.That(sw.Elapsed.TotalSeconds, Is.LessThan(10), $"MinimalMatchSet of 60 000 matches took {sw.Elapsed.TotalSeconds:F2} s");
+    }
+
+    [Test]
+    public void PolyA_IsTheProgramsResult_ForTheLengthsTheProgramFinishes()
+    {
+        // megamerger 6.6.0 on two poly-A sequences of 600 / 1 500 residues (1 s / 20 s: its own minimal-match loop is quadratic too): the whole sequence in lower case, "Matching region a 1-n : b 1-n", "Length of match: n"
+        foreach (int n in new[] { 600, 1500 })
+        {
+            var r = GenomicAnalyzer.MegaMerge(new string('A', n), new string('A', n), 20);
+            Assert.That(r.MergedSequence, Is.EqualTo(new string('a', n)));
+            Assert.That(r.Report, Does.Contain($"Matching region seq1 1-{n} : seq2 1-{n}").And.Contain($"Length of match: {n}"));
+            Assert.That(r.Matches, Is.EqualTo(new[] { new WordMatch(0, 1, 0, 0, n) }));
+        }
+    }
+
+    [Test]
+    public void TandemRepeat_MegaMerge_IsTheProgramsResult_AndCancellable()
+    {
+        // a tandem repeat of a 7-mer against itself (megamerger 6.6.0 on the 420-base version: one region 1-420)
+        string tandem = string.Concat(Enumerable.Repeat("ACGTTGA", 570));
+        var r = GenomicAnalyzer.MegaMerge(tandem, tandem, 12);
+        Assert.That(r.MergedSequence, Is.EqualTo(tandem.ToLowerInvariant()));
+        Assert.That(r.Matches, Is.EqualTo(new[] { new WordMatch(0, 1, 0, 0, tandem.Length) }));
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        Assert.Throws<OperationCanceledException>(() => GenomicAnalyzer.MegaMerge(tandem, tandem, 12, cancellationToken: cts.Token));
+    }
 }

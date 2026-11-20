@@ -14,7 +14,7 @@ public static partial class GenomicAnalyzer
 {
     #region megamerger (merge of two large sequences by word-match anchors)
 
-    private sealed class MegaMatch(int start1, int start2, int length)
+    internal sealed class MegaMatch(int start1, int start2, int length)
     {
         public int Start1 { get; set; } = start1;
 
@@ -64,7 +64,7 @@ public static partial class GenomicAnalyzer
             : matcher.Matches(sequence2).Select(m => new MegaMatch(m.PositionInText, m.PositionInQuery, m.Length)).ToList();
         cancellationToken.ThrowIfCancellationRequested();
 
-        MinimalMatchSet(matches, wordSize);
+        MinimalMatchSet(matches, wordSize, cancellationToken);
         if (matches.Count == 0)
             return new MegaMergeResult(string.Empty, string.Empty, []);
 
@@ -73,7 +73,7 @@ public static partial class GenomicAnalyzer
     }
 
     // wordMatchCmp: longest first, then by start in the first sequence, then in the second
-    private static int MegaOrder(MegaMatch a, MegaMatch b)
+    internal static int MegaOrder(MegaMatch a, MegaMatch b)
     {
         if (a.Length != b.Length)
             return a.Length < b.Length ? 1 : -1;
@@ -84,43 +84,64 @@ public static partial class GenomicAnalyzer
         return 0;
     }
 
-    // embWordMatchMin
-    private static void MinimalMatchSet(List<MegaMatch> matchlist, int wordLength)
+    // embWordMatchMin. The program keeps the not yet decided matches in a list sorted by wordMatchCmp, takes the first one into the minimal set, removes every match inside its dead zone, shortens the ones
+    // that overlap it and sorts the list again when a match was shortened. Same result here (and the same exceptions in the same order: every remaining match is examined against every taken one),
+    // without the O(k) shift of RemoveAt(0) / RemoveAt(i) and without sorting the whole list again (A4-6): the head is an index, one pass compacts the survivors in place, and the shortened matches
+    // (whose key changed) are sorted on their own and merged back into the sorted survivors.
+    internal static void MinimalMatchSet(List<MegaMatch> matchlist, int wordLength, CancellationToken cancellationToken = default)
     {
-        matchlist.Sort(MegaOrder);
+        var comparer = Comparer<MegaMatch>.Create(MegaOrder);
+        matchlist.Sort(comparer);
         var minlist = new List<MegaMatch>();
-        while (matchlist.Count > 0)
+        var shortened = new List<MegaMatch>();
+        var merged = new List<MegaMatch>();
+        int head = 0;
+        while (head < matchlist.Count)
         {
-            var thismatch = matchlist[0];
-            matchlist.RemoveAt(0);
+            cancellationToken.ThrowIfCancellationRequested();
+            var thismatch = matchlist[head++];
             minlist.Add(thismatch);
             int deadx1 = thismatch.Start1, deady1 = thismatch.Start2;
             int deadx2 = thismatch.Start1 + thismatch.Length - 1, deady2 = thismatch.Start2 + thismatch.Length - 1;
-            bool truncated = false;
-            for (int i = 0; i < matchlist.Count;)
+            int write = head;
+            shortened.Clear();
+            for (int read = head; read < matchlist.Count; read++)
             {
-                int result = DeadZone(matchlist[i], deadx1, deady1, deadx2, deady2, wordLength);
+                var m = matchlist[read];
+                int result = DeadZone(m, deadx1, deady1, deadx2, deady2, wordLength);
                 if (result == 1)
-                {
-                    matchlist.RemoveAt(i);
                     continue;
-                }
-
                 if (result == 2)
-                    truncated = true;
-                i++;
+                    shortened.Add(m);
+                else
+                    matchlist[write++] = m;
             }
 
-            if (truncated)
-                matchlist.Sort(MegaOrder);
+            matchlist.RemoveRange(write, matchlist.Count - write);
+            if (shortened.Count == 0)
+                continue;
+
+            // the shortened matches have new keys: sort them and merge them with the survivors (both runs are sorted by wordMatchCmp)
+            shortened.Sort(comparer);
+            merged.Clear();
+            int a = head, b = 0;
+            while (a < matchlist.Count && b < shortened.Count)
+                merged.Add(MegaOrder(shortened[b], matchlist[a]) < 0 ? shortened[b++] : matchlist[a++]);
+            while (a < matchlist.Count)
+                merged.Add(matchlist[a++]);
+            while (b < shortened.Count)
+                merged.Add(shortened[b++]);
+            matchlist.RemoveRange(head, matchlist.Count - head);
+            matchlist.AddRange(merged);
         }
 
+        matchlist.Clear();
         minlist.Sort((a, b) => a.Start1 != b.Start1 ? a.Start1.CompareTo(b.Start1) : a.Start2.CompareTo(b.Start2));
         matchlist.AddRange(minlist);
     }
 
     // wordDeadZone: 0 live, 1 dead (remove), 2 truncated
-    private static int DeadZone(MegaMatch match, int deadx1, int deady1, int deadx2, int deady2, int minlength)
+    internal static int DeadZone(MegaMatch match, int deadx1, int deady1, int deadx2, int deady2, int minlength)
     {
         int startx = match.Start1, starty = match.Start2;
         int endx = match.Start1 + match.Length - 1, endy = match.Start2 + match.Length - 1;

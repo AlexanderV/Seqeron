@@ -133,4 +133,51 @@ public class MultipleAlignmentDisplay_ShowAlign_Tests
         Assert.Throws<ArgumentException>(() => MultipleAlignmentDisplay.ShowAlign(["a", "b"], ["AC", "AC"], new ShowAlignOptions { RefSeq = "nope" }));
         Assert.Throws<ArgumentOutOfRangeException>(() => MultipleAlignmentDisplay.ShowAlign(["a", "b"], ["AC", "AC"], new ShowAlignOptions { Width = 0 }));
     }
+
+    // ------------------------------------------------------------------ A4-2 (b) / A4-5: extremes of width and margin, allocation linear in the output
+
+    [Test]
+    public void Width_BeyondTheAlignment_ShowsOneBlock_TheSameTextAsTheAlignmentWidth_AndInstantly()
+    {
+        string[] rows = ["acgtac-gtaGT", "acgtaccgtaGA", "acctaccgtTGA"];
+        string[] names = ["s1", "s2", "s3"];
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        string huge = MultipleAlignmentDisplay.ShowAlign(names, rows, new ShowAlignOptions { Width = int.MaxValue });
+        Assert.That(sw.ElapsedMilliseconds, Is.LessThan(2000), "int.MaxValue columns used to take 9.4 s for a 9-column alignment");
+        Assert.That(huge, Is.EqualTo(MultipleAlignmentDisplay.ShowAlign(names, rows, new ShowAlignOptions { Width = 12 })));
+        Assert.That(MultipleAlignmentDisplay.ShowAlign(names, rows, new ShowAlignOptions { Width = int.MaxValue - 1, Margin = 3 }),
+            Is.EqualTo(MultipleAlignmentDisplay.ShowAlign(names, rows, new ShowAlignOptions { Width = 12, Margin = 3 })));
+    }
+
+    [Test]
+    public void Margin_OrWidth_AboveTheOutputLimit_IsRefusedBeforeAnythingIsBuilt()
+    {
+        string[] rows = ["acgtac-gtaGT", "acgtaccgtaGA"];
+        string[] names = ["s1", "s2"];
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        var ex = Assert.Throws<ArgumentException>(() => MultipleAlignmentDisplay.ShowAlign(names, rows, new ShowAlignOptions { Margin = int.MaxValue }))!;
+        Assert.That(GC.GetAllocatedBytesForCurrentThread() - before, Is.LessThan(64L << 20), "the limit is checked before the display is built");
+        Assert.That(ex.Message, Does.StartWith("EMBOSS showalign builds the whole display text").And.Contain("MultipleAlignmentDisplay.ShowAlignMaxOutputCharacters").And.Contain("margin"));
+        Assert.That(MultipleAlignmentDisplay.ShowAlignMaxOutputCharacters, Is.EqualTo(134_217_728L));
+        Assert.Throws<ArgumentException>(() => MultipleAlignmentDisplay.ShowAlign(names, rows, new ShowAlignOptions { Margin = 200_000_000 }));
+        // width 1 over a long alignment is the same quantity from the other side: 2 x 40 million columns would be 40 million blocks
+        string longRow = new('A', 40_000_000);
+        Assert.Throws<ArgumentException>(() => MultipleAlignmentDisplay.ShowAlign(names, [longRow, longRow], new ShowAlignOptions { Width = 1 }));
+        // the last margin that fits is accepted
+        Assert.DoesNotThrow(() => MultipleAlignmentDisplay.ShowAlign(names, rows, new ShowAlignOptions { Margin = 1000 }));
+    }
+
+    [Test]
+    public void Output_AllocationIsLinearInTheText_NotQuadratic()
+    {
+        // width 1 over two 20 000-column rows: 20 000 blocks; copying the whole row for every block allocated about 1.6 GB (60 GB for two 100 kb rows), the slice allocates the text
+        string a = new string('A', 20_000), b = new string('A', 19_990) + "CCCCCCCCCC";
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        string text = MultipleAlignmentDisplay.ShowAlign(["x", "y"], [a, b], new ShowAlignOptions { Width = 1 });
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        Assert.That(text.Length, Is.GreaterThan(20_000 * 5));
+        Assert.That(allocated, Is.LessThan(120L << 20), $"allocated {allocated} bytes for a {text.Length}-character text");
+        // the blocks still carry the right residue: the last block of row y is the C that differs
+        Assert.That(text, Does.Contain("y         C\n"));
+    }
 }

@@ -1,3 +1,4 @@
+using Seqeron.Genomics.Alignment;
 using System.Globalization;
 using System.Text;
 using Seqeron.Genomics.Infrastructure;
@@ -95,6 +96,12 @@ public sealed record ShowAlignOptions
 public static class MultipleAlignmentDisplay
 {
     /// <summary>
+    /// <see cref="ShowAlign"/>: the largest display text it builds, in characters (blocks x lines per block x (margin + width + 1)): 2^27 characters = 256 MiB. A larger request - a huge margin, a width of one over a very long
+    /// alignment - is refused with an <see cref="ArgumentException"/> before the text is built; the program streams its output and has no limit.
+    /// </summary>
+    public const long ShowAlignMaxOutputCharacters = 1L << 27;
+
+    /// <summary>
     /// The text of <c>showalign</c> for an alignment (the HTML formatting and <c>-highlight</c> are not part of this port). The reference sequence (the consensus unless
     /// <see cref="ShowAlignOptions.RefSeq"/> names a row) is the one against which every other row is converted according to <see cref="ShowAlignOptions.Show"/>:
     /// identities / non-identities (case-insensitive equality, <c>.</c> marks the suppressed residues), similarities / dissimilarities (matrix score &gt; 0 / ≤ 0, an unknown or gap code scores 0), and
@@ -132,21 +139,8 @@ public static class MultipleAlignmentDisplay
             throw new ArgumentException("Sequences cannot contain null elements.", nameof(rows));
         var read = rows.Select(EmbossSequenceReader.CleanGapped).ToList();          // the file reader keeps the letters and * . ~ ? # + - (A4-3)
         int mlen = read.Max(r => r.Length);
-        var padded = read.Select(r => r.PadRight(mlen, '-')).ToList();
-        bool nucleotide = EmbossSequenceReader.IsNucleotide(padded[0]);
-        var matrix = o.Matrix ?? (nucleotide ? SubstitutionMatrix.EdnaFull : SubstitutionMatrix.Blosum62);
-        var seqs = MotifFinder.NormalizedAlignmentChars(padded, ConsensusResidueType.Auto, nucleotide, nameof(rows), keepCase: true);
-        var codes = matrix;
         string[] seqNames = names.Select(n => n.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? string.Empty).ToArray();
-
         int nref = ReferenceIndex(o.RefSeq, seqNames);
-
-        // consensus (embConsCalc): plurality in weight units, identity as a count of sequences
-        float total = nseqs;
-        float fplural = total * o.Plurality / 100f;
-        int ident = nseqs * (int)o.Identity / 100;
-        char[] consensus = MotifFinder.EmbossConsensusCore(padded, ConsensusResidueType.Auto, fplural, ident, o.SetCase ?? total / 2f, null,
-            o.Gaps, keepCase: true, writeAsNucleotide: false, matrix, nameof(rows)).ToCharArray();
 
         int margin = o.Margin;
         if (margin == -1)
@@ -157,12 +151,35 @@ public static class MultipleAlignmentDisplay
             margin = longest + 1;
         }
 
+        // A4-2: a width beyond the alignment shows one block (the same text), and the display text must stay below a documented size - a margin or a width that would make it larger is refused
+        // before anything is built (the program streams its output and has no limit; the 32-bit position arithmetic of Output is done in 64 bit)
+        int width = Math.Min(o.Width, Math.Max(1, mlen));
+        long blocks = (mlen + (long)width - 1) / width;
+        long linesPerBlock = nseqs + (o.Consensus ? 1 : 0) + (o.Number ? 1 : 0) + (o.Ruler ? 1 : 0) + 1;
+        long estimate = blocks * linesPerBlock * ((long)margin + width + 1);
+        if (estimate > ShowAlignMaxOutputCharacters)
+            throw SequenceAligner.ResourceLimit("EMBOSS showalign", "builds the whole display text", $"{blocks} blocks x {linesPerBlock} lines x {(long)margin + width + 1} characters = {estimate} characters",
+                ShowAlignMaxOutputCharacters, nameof(MultipleAlignmentDisplay) + "." + nameof(ShowAlignMaxOutputCharacters), "The program streams its output and has no such limit", "use a wider display (a larger width), a smaller margin or fewer rows", nameof(options));
+
+        var padded = read.Select(r => r.PadRight(mlen, '-')).ToList();
+        bool nucleotide = EmbossSequenceReader.IsNucleotide(padded[0]);
+        var matrix = o.Matrix ?? (nucleotide ? SubstitutionMatrix.EdnaFull : SubstitutionMatrix.Blosum62);
+        var seqs = MotifFinder.NormalizedAlignmentChars(padded, ConsensusResidueType.Auto, nucleotide, nameof(rows), keepCase: true);
+        var codes = matrix;
+
+        // consensus (embConsCalc): plurality in weight units, identity as a count of sequences
+        float total = nseqs;
+        float fplural = total * o.Plurality / 100f;
+        int ident = nseqs * (int)o.Identity / 100;
+        char[] consensus = MotifFinder.EmbossConsensusCore(padded, ConsensusResidueType.Auto, fplural, ident, o.SetCase ?? total / 2f, null,
+            o.Gaps, keepCase: true, writeAsNucleotide: false, matrix, nameof(rows)).ToCharArray();
+
         char[] reference = nref == -1 ? consensus : seqs[nref];
         var order = OrderRows(o.Order, seqNames, seqs, reference, nref, codes);
         foreach (int i in Enumerable.Range(0, nseqs).Where(i => i != nref))
             Convert(o.Show, reference, seqs[i], codes, o.SimilarCase);
 
-        return Output(o, seqNames, seqs, nref, margin, consensus, order, mlen);
+        return Output(o, seqNames, seqs, nref, margin, consensus, order, mlen, width);
     }
 
     // showalign_Getrefseq: an exact name, else a unique name ignoring case, else a number 0..n (0 = the consensus; n > count is rejected)
@@ -290,15 +307,13 @@ public static class MultipleAlignmentDisplay
         }
     }
 
-    private static string Output(ShowAlignOptions o, string[] names, char[][] seqs, int nref, int margin, char[] consensus, int[] order, int mlen)
+    private static string Output(ShowAlignOptions o, string[] names, char[][] seqs, int nref, int margin, char[] consensus, int[] order, int mlen, int width)
     {
         var sb = new StringBuilder();
-        char[] r = nref == -1 ? consensus : seqs[nref];
         string refstr = new(nref == -1 ? consensus : SourceRef(seqs, nref));
         string tickline = Ticks(nref, refstr, out int firstpos, out int lastpos);
         string numline = Numbers(nref, refstr, firstpos, lastpos, margin);
         int begin = 0, end = mlen - 1;
-        int width = o.Width;
 
         for (int pos = begin; pos <= end; pos += width)
         {
@@ -313,9 +328,11 @@ public static class MultipleAlignmentDisplay
                         imargin--;
                 }
 
-                int iend = pos + width + margin - 1;
-                if (iend < end + margin)
+                long iendWide = (long)pos + width + margin - 1;           // 64 bit: the sum of the three 32-bit quantities overflowed for a huge width or margin
+                int iend;
+                if (iendWide < (long)end + margin)
                 {
+                    iend = (int)iendWide;
                     while (iend < end && CharAt(numline, iend + 1) != ' ')
                         iend++;
                 }
@@ -343,7 +360,6 @@ public static class MultipleAlignmentDisplay
             sb.Append('\n');
         }
 
-        _ = r;
         return sb.ToString();
     }
 
@@ -354,17 +370,30 @@ public static class MultipleAlignmentDisplay
 
     private static string Substring(string s, int first, int last) => EmbossText.Substring(s, first, last);
 
+    // one row of one block: the slice [pos, min(end, pos + width - 1)] of the row (EmbossText.Substring clipping), taken from the char[] directly - O(width) per block instead of a copy of the whole row
     private static void OutputSeq(StringBuilder sb, string name, char[] seq, int pos, int end, int width, int margin, IReadOnlyList<(int Start, int End)> uppercase)
     {
-        int stop = Math.Min(end, pos + width - 1);
-        var line = new StringBuilder(Substring(new string(seq), pos, stop));
+        long stopWide = Math.Min((long)end, (long)pos + width - 1);
+        int stop = (int)stopWide;
         if (margin > 0)
             sb.Append(name.Length >= margin ? name[..margin] : name.PadRight(margin));
-        foreach (var (start, last) in uppercase)
-            for (int j = Math.Max(start - 1, pos); j <= last - 1 && j - pos < line.Length; j++)
-                if (j >= pos)
-                    line[j - pos] = Up(line[j - pos]);
-        sb.Append(line).Append('\n');
+        int lineStart = sb.Length;
+        if (seq.Length > 0)
+        {
+            int first = Math.Clamp(pos, 0, seq.Length - 1);
+            int last = Math.Clamp(stop, first, seq.Length - 1);
+            sb.Append(seq, first, last - first + 1);
+        }
+
+        int length = sb.Length - lineStart;
+        if (uppercase.Count > 0)
+        {
+            foreach (var (start, lastUpper) in uppercase)
+                for (int j = Math.Max(start - 1, pos); j <= lastUpper - 1 && j - pos < length; j++)
+                    sb[lineStart + j - pos] = Up(sb[lineStart + j - pos]);
+        }
+
+        sb.Append('\n');
     }
 
     private static char TickChar(int i)
