@@ -135,7 +135,7 @@ public static class MultipleAlignmentDisplay
         bool nucleotide = MotifFinder.IsEmbossNucleotideSequence(padded[0]);
         var matrix = o.Matrix ?? (nucleotide ? SubstitutionMatrix.EdnaFull : SubstitutionMatrix.Blosum62);
         var seqs = MotifFinder.NormalizedAlignmentChars(padded, ConsensusResidueType.Auto, nucleotide, nameof(rows), keepCase: true);
-        var codes = new MatrixCodes(matrix);
+        var codes = matrix;
         string[] seqNames = names.Select(n => n.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? string.Empty).ToArray();
 
         int nref = ReferenceIndex(o.RefSeq, seqNames);
@@ -192,7 +192,7 @@ public static class MultipleAlignmentDisplay
         throw new ArgumentException($"Reference sequence '{refseq}' is not a sequence name or a number.", nameof(refseq));
     }
 
-    private static int[] OrderRows(ShowAlignOrder order, string[] names, char[][] seqs, char[] reference, int nref, MatrixCodes codes)
+    private static int[] OrderRows(ShowAlignOrder order, string[] names, char[][] seqs, char[] reference, int nref, SubstitutionMatrix codes)
     {
         var others = Enumerable.Range(0, seqs.Length).Where(i => i != nref).ToList();
         switch (order)
@@ -207,7 +207,7 @@ public static class MultipleAlignmentDisplay
                     {
                         int sum = 0;
                         for (int k = 0; k < seqs[i].Length && k < reference.Length; k++)
-                            sum += codes.Score(reference[k], seqs[i][k]);
+                            sum += Score(codes, reference[k], seqs[i][k]);
                         return sum;
                     });
                     return others.OrderByDescending(i => score[i]).ToArray();
@@ -217,11 +217,14 @@ public static class MultipleAlignmentDisplay
         }
     }
 
+    // the EMBOSS programs read a pair that involves a character outside the matrix (a gap, an unknown letter) as score 0
+    private static int Score(SubstitutionMatrix matrix, char a, char b) => matrix.TryGetScore(a, b, out int s) ? s : 0;
+
     private static char Up(char c) => c is >= 'a' and <= 'z' ? (char)(c - 32) : c;
 
     private static char Low(char c) => c is >= 'A' and <= 'Z' ? (char)(c + 32) : c;
 
-    private static void Convert(ShowAlignContent show, char[] r, char[] s, MatrixCodes codes, bool similarCase)
+    private static void Convert(ShowAlignContent show, char[] r, char[] s, SubstitutionMatrix codes, bool similarCase)
     {
         int lenref = r.Length, lenseq = s.Length;
         int i;
@@ -232,7 +235,7 @@ public static class MultipleAlignmentDisplay
                     return;
                 for (i = 0; i < lenref && i < lenseq; i++)
                     if (s[i] != '-')
-                        s[i] = codes.Score(r[i], s[i]) <= 0 ? Low(s[i]) : Up(s[i]);
+                        s[i] = Score(codes, r[i], s[i]) <= 0 ? Low(s[i]) : Up(s[i]);
                 for (; i < lenseq; i++)
                     if (s[i] != '-')
                         s[i] = Low(s[i]);
@@ -253,7 +256,7 @@ public static class MultipleAlignmentDisplay
                     if (Up(s[i]) == Up(r[i]))
                         s[i] = '.';
                     else if (similarCase)
-                        s[i] = codes.Score(r[i], s[i]) <= 0 ? Up(s[i]) : Low(s[i]);
+                        s[i] = Score(codes, r[i], s[i]) <= 0 ? Up(s[i]) : Low(s[i]);
                 }
 
                 if (lenseq > lenref && similarCase)
@@ -266,7 +269,7 @@ public static class MultipleAlignmentDisplay
                 {
                     if (s[i] == '-')
                         continue;
-                    if (codes.Score(r[i], s[i]) <= 0)
+                    if (Score(codes, r[i], s[i]) <= 0)
                         s[i] = '.';
                     else if (similarCase)
                         s[i] = Up(s[i]) == Up(r[i]) ? Up(s[i]) : Low(s[i]);
@@ -278,7 +281,7 @@ public static class MultipleAlignmentDisplay
                 break;
             case ShowAlignContent.Dissimilarities:
                 for (i = 0; i < lenref && i < lenseq; i++)
-                    if (s[i] != '-' && codes.Score(r[i], s[i]) > 0)
+                    if (s[i] != '-' && Score(codes, r[i], s[i]) > 0)
                         s[i] = '.';
                 break;
             default:
@@ -491,31 +494,5 @@ public static class MultipleAlignmentDisplay
         if (iwidth > 0)
             line.Append(' ', iwidth);
         return line.ToString();
-    }
-
-    /// <summary>The EMBOSS code table of a matrix: label i has code i + 1 in both cases, every other character code 0 (which scores 0 against everything).</summary>
-    private sealed class MatrixCodes
-    {
-        private readonly int[] _codeOf = new int[128];
-        private readonly int[,] _matrix;
-
-        public MatrixCodes(SubstitutionMatrix table)
-        {
-            string labels = table.Alphabet;
-            _matrix = new int[labels.Length, labels.Length];
-            for (int a = 0; a < labels.Length; a++)
-            {
-                _codeOf[char.ToUpperInvariant(labels[a])] = a + 1;
-                _codeOf[char.ToLowerInvariant(labels[a])] = a + 1;
-                for (int b = 0; b < labels.Length; b++)
-                    _matrix[a, b] = table.GetScore(labels[a], labels[b]);
-            }
-        }
-
-        public int Score(char a, char b)
-        {
-            int ca = a < 128 ? _codeOf[a] : 0, cb = b < 128 ? _codeOf[b] : 0;
-            return ca == 0 || cb == 0 ? 0 : _matrix[ca - 1, cb - 1];
-        }
     }
 }

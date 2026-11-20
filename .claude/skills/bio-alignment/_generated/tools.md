@@ -21,6 +21,7 @@
 | `compute_consensus` | Alignment | `SequenceAssembler.ComputeConsensus` | [doc](../../../../docs/mcp/tools/alignment/compute_consensus.md) |
 | `damerau_alignment` | Alignment | `ApproximateMatcher.GetDamerauLevenshteinAlignment` | [doc](../../../../docs/mcp/tools/alignment/damerau_alignment.md) |
 | `damerau_levenshtein_distance` | Alignment | `ApproximateMatcher.DamerauLevenshteinDistance` | [doc](../../../../docs/mcp/tools/alignment/damerau_levenshtein_distance.md) |
+| `dotmatcher` | Alignment | `DotMatcher.Compute` | [doc](../../../../docs/mcp/tools/alignment/dotmatcher.md) |
 | `dual_affine_align` | Alignment | `SequenceAligner.GlobalAlignDualAffine / LocalAlignDualAffine` | [doc](../../../../docs/mcp/tools/alignment/dual_affine_align.md) |
 | `edit_alignment` | Alignment | `ApproximateMatcher.GetEditAlignment` | [doc](../../../../docs/mcp/tools/alignment/edit_alignment.md) |
 | `error_correct_reads` | Alignment | `SequenceAssembler.ErrorCorrectReads` | [doc](../../../../docs/mcp/tools/alignment/error_correct_reads.md) |

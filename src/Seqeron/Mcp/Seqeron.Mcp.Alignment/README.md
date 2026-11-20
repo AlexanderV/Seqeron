@@ -33,6 +33,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `compute_consensus` | Builds a consensus sequence from a list of pre-aligned reads (same length, '-' / 'N' ignored) by majority vote per column. |
 | `damerau_alignment` | Optimal transposition-aware edit script turning sequence1 into sequence2 (Lowrance & Wagner 1975 trace). |
 | `damerau_levenshtein_distance` | Edit distance with adjacent transpositions. |
+| `dotmatcher` | EMBOSS dotmatcher: windowed substitution-matrix dot plot segments of two sequences (window, threshold, matrix); 600 DNA / protein pairs equal dotmatcher 6.6.0 (B09 A2-28d). |
 | `edit_alignment` | Optimal global unit-cost (Levenshtein) alignment of query against target in edlib's convention: operations '=' match, 'X' mismatch, 'I' que… |
 | `error_correct_reads` | Corrects single-base errors in reads using k-mer frequency: any k-mer occurring fewer than minKmerFrequency times is corrected by substit… |
 | `find_all_overlaps` | Computes all suffix-of-i / prefix-of-j overlaps between read pairs above minOverlap length and minIdentity ratio. |

@@ -105,6 +105,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/ApproximateMatcher.cs#L1016"
   },
   {
+    "tool": "dotmatcher",
+    "server": "Alignment",
+    "methodId": "DotMatcher.Compute",
+    "docPath": "docs/mcp/tools/alignment/dotmatcher.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/DotMatcher.cs"
+  },
+  {
     "tool": "dual_affine_align",
     "server": "Alignment",
     "methodId": "SequenceAligner.GlobalAlignDualAffine / LocalAlignDualAffine",

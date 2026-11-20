@@ -415,6 +415,7 @@
 | tcoffee_blast_msa_library | Alignment | SequenceAligner.TCoffeeBlastMsaLibraryEntries | Alignment/SequenceAligner.TCoffeeBlast.cs | 0/0 | – | – | Build-Ready |
 | tcoffee_tblastx_library | Alignment | SequenceAligner.TCoffeeTblastxLibraryEntries | Alignment/SequenceAligner.TCoffeeBlast.cs | 0/0 | – | – | Build-Ready |
 | minimap2_chains | Alignment | Minimap2Chaining.MapChains | Alignment/Minimap2Chaining.cs | 0/0 | – | – | Build-Ready |
+| dotmatcher | Alignment | DotMatcher.Compute | Alignment/DotMatcher.cs | 0/0 | – | – | Build-Ready |
 | allele_frequencies | Population | PopulationGeneticsAnalyzer.CalculateAlleleFrequencies | Population/PopulationGeneticsAnalyzer.cs#L112 | 0/0 | – | – | Build-Ready |
 | diversity_statistics | Population | PopulationGeneticsAnalyzer.CalculateDiversityStatistics | Population/PopulationGeneticsAnalyzer.cs#L283 | 0/0 | – | – | Build-Ready |
 | estimate_ancestry | Population | PopulationGeneticsAnalyzer.EstimateAncestry | Population/PopulationGeneticsAnalyzer.cs#L919 | 0/0 | – | – | Build-Ready |

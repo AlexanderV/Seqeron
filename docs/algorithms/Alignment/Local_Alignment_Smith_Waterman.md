@@ -194,6 +194,10 @@ GTTGAC
 
 with score `13`, matching the expected Smith-Waterman example used in the test suite.
 
+### 5.6 EMBOSS `dotmatcher` (A2-28d, B09 F152)
+
+`DotMatcher.Compute(sequence1, sequence2, windowSize = 10, threshold = 23, matrix)` / MCP `dotmatcher`: the windowed dot plot of EMBOSS `dotmatcher` - the summed matrix score of a window of `windowSize` residue pairs slides along each diagonal and every maximal run of windows at or above `threshold` is one segment; 600 / 600 plots equal the program (the program draws the second sequence on the x axis).
+
 ## 8. References
 
 1. [Smith-Waterman algorithm](https://en.wikipedia.org/wiki/Smith%E2%80%93Waterman_algorithm)

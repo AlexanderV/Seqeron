@@ -320,3 +320,9 @@ public record Minimap2ChainDto(int Score, int Target, string Strand, Minimap2Anc
 
 /// <summary>Result of <c>minimap2_chains</c>: the chains ordered by the position of their first anchor and the number of seed hits they were built from.</summary>
 public record Minimap2ChainsResult(Minimap2ChainDto[] Chains, int SeedCount);
+
+/// <summary>A segment of <c>dotmatcher</c>: 1-based inclusive positions on both sequences.</summary>
+public record DotMatcherSegmentDto(int Start1, int Start2, int End1, int End2);
+
+/// <summary>Result of <c>dotmatcher</c>: the segments in drawing order.</summary>
+public record DotMatcherResult(DotMatcherSegmentDto[] Segments);

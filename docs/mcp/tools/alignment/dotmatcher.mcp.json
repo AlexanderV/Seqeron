@@ -1,0 +1,180 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "toolName": "dotmatcher",
+ "serverName": "Alignment",
+ "version": "1.0.0",
+ "stability": "stable",
+ "methodId": "DotMatcher.Compute",
+ "docRef": "Seqeron.Genomics.Alignment/DotMatcher.cs",
+ "description": "EMBOSS 6.6.0 dotmatcher (600 DNA / protein pairs equal): the dot plot of two sequences by windowed substitution-matrix scores. On every diagonal a window of windowSize residue pairs slides along; a maximal run of windows whose summed matrix score reaches threshold is one segment from the first residue of its first window to the last residue of its last window. Returns the segments in the order the program draws them, 1-based inclusive positions on both sequences (the program's own scan treats the SECOND sequence as its first: the first diagonals start on the first residue of sequence2). matrix = BLOSUM62 | PAM250 | EDNAFULL | any EMBOSS matrix name; default EDNAFULL when sequence1 consists of nucleotide codes, EBLOSUM62 otherwise; a character that is not a letter of the matrix scores 0. Sequences not longer than the window give no segments.",
+ "inputSchema": {
+  "type": "object",
+  "properties": {
+   "sequence1": {
+    "type": "string",
+    "description": "First sequence (the plot's y axis in the program)."
+   },
+   "sequence2": {
+    "type": "string",
+    "description": "Second sequence (the plot's x axis)."
+   },
+   "windowSize": {
+    "type": "integer",
+    "description": "Window size (dotmatcher -windowsize, default 10).",
+    "default": 10
+   },
+   "threshold": {
+    "type": "integer",
+    "description": "Score a window must reach (dotmatcher -threshold, default 23).",
+    "default": 23
+   },
+   "matrix": {
+    "type": "string",
+    "description": "Scoring matrix name (BLOSUM62, EDNAFULL, ...); default by sequence type."
+   }
+  },
+  "required": [
+   "sequence1",
+   "sequence2"
+  ]
+ },
+ "outputSchema": {
+  "type": "object",
+  "properties": {
+   "segments": {
+    "type": "array",
+    "description": "Segments `{ start1, start2, end1, end2 }` (1-based inclusive on both sequences) in the order the program draws them."
+   }
+  },
+  "required": [
+   "segments"
+  ]
+ },
+ "errors": [
+  {
+   "code": 1001,
+   "message": "Sequence cannot be null or empty"
+  },
+  {
+   "code": 1001,
+   "message": "Unknown matrix '...'"
+  }
+ ],
+ "examples": [
+  {
+   "name": "Two similar DNA sequences with an insertion",
+   "input": {
+    "sequence1": "ACGTACGTAACCGGTTACGTAAACCCGGGTTT",
+    "sequence2": "ACGTACGGTAACCGGTTACGTAAACCCGGGTT",
+    "windowSize": 6,
+    "threshold": 20
+   },
+   "output": {
+    "segments": [
+     {
+      "start1": 1,
+      "start2": 1,
+      "end1": 8,
+      "end2": 8
+     },
+     {
+      "start1": 5,
+      "start2": 1,
+      "end1": 10,
+      "end2": 6
+     },
+     {
+      "start1": 11,
+      "start2": 5,
+      "end1": 18,
+      "end2": 12
+     },
+     {
+      "start1": 18,
+      "start2": 7,
+      "end1": 24,
+      "end2": 13
+     },
+     {
+      "start1": 21,
+      "start2": 9,
+      "end1": 27,
+      "end2": 15
+     },
+     {
+      "start1": 22,
+      "start2": 9,
+      "end1": 28,
+      "end2": 15
+     },
+     {
+      "start1": 24,
+      "start2": 11,
+      "end1": 30,
+      "end2": 17
+     },
+     {
+      "start1": 25,
+      "start2": 11,
+      "end1": 31,
+      "end2": 17
+     },
+     {
+      "start1": 17,
+      "start2": 1,
+      "end1": 22,
+      "end2": 6
+     },
+     {
+      "start1": 1,
+      "start2": 1,
+      "end1": 8,
+      "end2": 8
+     },
+     {
+      "start1": 5,
+      "start2": 6,
+      "end1": 31,
+      "end2": 32
+     },
+     {
+      "start1": 2,
+      "start2": 15,
+      "end1": 12,
+      "end2": 25
+     },
+     {
+      "start1": 8,
+      "start2": 22,
+      "end1": 14,
+      "end2": 28
+     },
+     {
+      "start1": 8,
+      "start2": 23,
+      "end1": 14,
+      "end2": 29
+     },
+     {
+      "start1": 10,
+      "start2": 25,
+      "end1": 16,
+      "end2": 31
+     },
+     {
+      "start1": 10,
+      "start2": 26,
+      "end1": 16,
+      "end2": 32
+     },
+     {
+      "start1": 1,
+      "start2": 18,
+      "end1": 6,
+      "end2": 23
+     }
+    ]
+   }
+  }
+ ]
+}
