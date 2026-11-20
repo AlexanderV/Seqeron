@@ -82,6 +82,74 @@ public class GenomicAnalyzer_MegaMerge_Tests
         Assert.That(upper, Is.GreaterThan(300));
     }
 
+    // ------------------------------------------------------------------ A4-9: the edge cases the main oracle never produces
+
+    [Test]
+    public void MegaMerge_EqualsMegamerger_OnTheEdgeCaseRows()
+    {
+        // 480 rows of the installed 6.6.0 binary: sequences entirely in lower case, one lower and one upper, runs of N longer than the word size (the word matcher skips them), sequences shorter than /
+        // equal to the word, identical and nested sequences (status ok / nomerge / abort = the program dies: the port throws the ArgumentException of its "No match found")
+        const string name = "Seqeron.Genomics.Tests.TestData.Analysis.megamerger_edge_oracle.jsonl";
+        using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(name) ?? throw new InvalidOperationException($"Embedded oracle '{name}' not found.");
+        using var reader = new StreamReader(stream);
+        var failures = new List<string>();
+        var perCase = new Dictionary<string, int>();
+        int ok = 0, nomerge = 0, abort = 0, allLower = 0, mixedCase = 0, nRuns = 0;
+        string? line;
+        while ((line = reader.ReadLine()) is not null)
+        {
+            if (line.Length == 0) continue;
+            using var doc = JsonDocument.Parse(line);
+            var r = doc.RootElement;
+            string kind = r.GetProperty("case").GetString()!, s1 = r.GetProperty("seq1").GetString()!, s2 = r.GetProperty("seq2").GetString()!, status = r.GetProperty("status").GetString()!;
+            int w = r.GetProperty("wordsize").GetInt32();
+            bool prefer = r.GetProperty("prefer").GetBoolean();
+            perCase[kind] = perCase.GetValueOrDefault(kind) + 1;
+            string label = $"{kind} w={w} prefer={prefer}\n{s1}\n{s2}";
+            if (status == "abort")
+            {
+                abort++;
+                try
+                {
+                    GenomicAnalyzer.MegaMerge(s1, s2, w, prefer, "seqA", "seqB");
+                    failures.Add(label + "\n the program dies, the port returned");
+                }
+                catch (ArgumentException)
+                {
+                }
+
+                continue;
+            }
+
+            var actual = GenomicAnalyzer.MegaMerge(s1, s2, w, prefer, "seqA", "seqB");
+            if (status == "nomerge")
+            {
+                nomerge++;
+                if (actual.MergedSequence.Length != 0 || actual.Report.Length != 0)
+                    failures.Add($"{label}\n the program writes nothing but the port merged {actual.MergedSequence}");
+                continue;
+            }
+
+            string merged = r.GetProperty("merged").GetString()!, report = r.GetProperty("report").GetString()!;
+            if (actual.MergedSequence != merged || actual.Report != report)
+                failures.Add($"{label}\n--- expected\n{merged}\n{report}--- actual\n{actual.MergedSequence}\n{actual.Report}");
+            ok++;
+            if (kind == "lowerall" && merged.Any(char.IsLower)) allLower++;
+            if (kind == "lowerone" && merged.Any(char.IsLower) && merged.Any(char.IsUpper)) mixedCase++;
+            if (kind == "nrun" && (s1 + s2).Contains(new string('N', w + 1))) nRuns++;
+        }
+
+        Assert.That(failures, Is.Empty, $"{failures.Count}: " + string.Join("\n=====\n", failures.Take(2)));
+        foreach (var c in new[] { "lowerall", "lowerone", "nrun", "short" })
+            Assert.That(perCase[c], Is.GreaterThanOrEqualTo(100), c);
+        Assert.That(ok, Is.GreaterThan(350));
+        Assert.That(nomerge, Is.GreaterThan(10));
+        Assert.That(abort, Is.GreaterThan(10));
+        Assert.That(allLower, Is.GreaterThanOrEqualTo(100));
+        Assert.That(mixedCase, Is.GreaterThan(30));
+        Assert.That(nRuns, Is.GreaterThanOrEqualTo(100));
+    }
+
     [Test]
     public void WorkedValues_RunOnTheBinary()
     {

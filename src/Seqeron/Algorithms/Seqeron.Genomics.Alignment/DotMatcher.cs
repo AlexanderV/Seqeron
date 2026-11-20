@@ -24,11 +24,15 @@ public static class DotMatcher
     /// <param name="sequence2">Second sequence (y axis).</param>
     /// <param name="windowSize">Window size (<c>-windowsize</c>, default 10; at least 1).</param>
     /// <param name="threshold">Score a window must reach (<c>-threshold</c>, default 23).</param>
-    /// <param name="matrix">Scoring matrix (<c>-matrixfile</c>); null = EDNAFULL when the first sequence consists of nucleotide codes only, EBLOSUM62 otherwise. A character that is not a letter of the matrix scores 0. Both sequences are read like EMBOSS reads them (<see cref="EmbossSequenceReader.Clean(string)"/>): gap characters, digits, blanks and every other non-letter except <c>*</c> are removed first and the segment positions count the cleaned sequences.</param>
+    /// <param name="matrix">Scoring matrix (<c>-matrixfile</c>); null = the program's default: EDNAFULL when the first sequence consists of nucleotide codes only, EBLOSUM62 otherwise (measured: the type of the first sequence decides, also when the second is of the other type). Letters are read in either case; a character that is not a letter of the matrix (<c>X</c> / <c>O</c> / <c>J</c> in a nucleotide matrix, ...) scores 0. Both sequences are read like EMBOSS reads them (<see cref="EmbossSequenceReader.Clean(string)"/>): gap characters, digits, blanks and every other non-letter except <c>*</c> are removed first and the segment positions count the cleaned sequences.</param>
     /// <param name="cancellationToken">Cancellation token, polled once per diagonal (A4-1: 100 kb x 100 kb is about 200 000 diagonals and minutes of work).</param>
-    /// <returns>The segments (empty when a sequence is not longer than the window, where the program reads beyond the sequence).</returns>
+    /// <returns>The segments. A window may be as long as a sequence (measured: the program then scores the one diagonal set that fits, e.g. a window equal to the length of the second sequence gives the segments of the diagonals that start in the first). A
+    /// window LONGER than a sequence makes the program read beyond the end of its sequence buffer: the terminator and the zero-filled allocation slack score 0 (this port scores every position beyond the end as 0 and reports segments that end beyond the
+    /// sequence: the window is counted whole), but beyond that slack - from about 8 to 24 residues past the end, depending on the allocator's chunk size of the sequence string - the program reads uninitialised memory and usually crashes: only overhangs up to
+    /// 8 residues are reproducible (measured on 600 rows); a window longer than the longer sequence gives no segment.</returns>
     /// <exception cref="ArgumentNullException">A sequence is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="windowSize"/> &lt; 1.</exception>
+    /// <exception cref="ArgumentException">The first sequence is nucleic and the second is not (the program: "Sequence is not nucleic").</exception>
     public static IReadOnlyList<DotMatcherSegment> Compute(
         string sequence1, string sequence2, int windowSize = 10, int threshold = 23, SubstitutionMatrix? matrix = null, CancellationToken cancellationToken = default)
     {
@@ -36,11 +40,12 @@ public static class DotMatcher
         sequence1 = EmbossSequenceReader.Clean(sequence1);
         sequence2 = EmbossSequenceReader.Clean(sequence2);
         ArgumentOutOfRangeException.ThrowIfLessThan(windowSize, 1);
+        // ACD: the type of bsequence follows asequence: a nucleic first sequence needs a nucleic second one ("Error: Sequence is not nucleic"); a protein first sequence accepts any letters in the second (measured on 37 rows)
+        if (EmbossSequenceReader.IsNucleotide(sequence1) && !EmbossSequenceReader.IsNucleotide(sequence2))
+            throw new ArgumentException("EMBOSS dotmatcher: the first sequence is nucleic, so the second sequence must be nucleic too (the program stops with \"Sequence is not nucleic\").", nameof(sequence2));
         matrix ??= EmbossSequenceReader.IsNucleotide(sequence1) ? SubstitutionMatrix.EdnaFull : SubstitutionMatrix.Blosum62;
         int len1 = sequence1.Length, len2 = sequence2.Length;
         var segments = new List<DotMatcherSegment>();
-        if (len1 <= windowSize || len2 <= windowSize)
-            return segments;
 
         // the program's s1 is the second sequence (index i, the plot's x) and its s2 the first (index k, the plot's y)
         int Score(int i, int k) => matrix.TryGetScore(sequence2[i], sequence1[k], out int s) ? s : 0;
@@ -57,8 +62,11 @@ public static class DotMatcher
             AlignmentCancellation.ThrowIfRequested();
             int i = i0, k = k0, total = 0, starti = 0, startj = 0;
             bool above = false;
-            for (int l = 0; l < windowSize; l++)
-                total += Score(i++, k++);
+            // the first window: positions beyond the end of a sequence score 0 (the program reads the zero terminator / slack there), so only the part inside both sequences is summed
+            for (int l = 0, inside = Math.Min(windowSize, Math.Min(len2 - i0, len1 - k0)); l < inside; l++)
+                total += Score(i + l, k + l);
+            i += windowSize;
+            k += windowSize;
             if (total >= threshold)
             {
                 above = true;

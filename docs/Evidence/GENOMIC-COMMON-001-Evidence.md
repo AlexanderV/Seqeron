@@ -155,3 +155,7 @@ Mechanism: `AlignmentCancellation` (SequenceAligner.Cancellation.cs, A2-40); tes
 
 `SequenceAligner_ResourceLimits_Tests`: `SeqMatchAll` / `MegaMerge` (`WordMatchMaxMatches`) - documented limit constants (`SequenceAligner.ResourceLimits.cs`), the exception of the `SequenceAligner.ResourceLimit` style raised before the allocation in 64-bit arithmetic, and a low-allocation assertion per limit.
 The programs have no such limits (they die at the allocation: measured OutOfMemory / SIGKILL on the audit inputs); minimap2 drops frequent minimizers (`mid_occ`, `mm_seed_select`), registered A4-7.
+
+## Audit A4-9 (B09 F164): megamerger edge cases
+
+`scripts/analysis/generate_megamerger_edge_oracle.py` -> `TestData/Analysis/megamerger_edge_oracle.jsonl`, **480 rows** of the installed megamerger 6.6.0: 120 sequences entirely in lower case, 120 with one lower- and one upper-case sequence, 120 with runs of N longer than the word size (the word matcher skips N runs: they never match each other) and 120 short / equal-to-the-word / identical / nested sequences (status ok 3xx, nomerge, abort = the program dies, the port throws its `ArgumentException`). `GenomicAnalyzer_MegaMerge_Tests.MegaMerge_EqualsMegamerger_OnTheEdgeCaseRows`: merged sequence and report equal on 480 / 480 (no code change needed).

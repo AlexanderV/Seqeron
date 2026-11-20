@@ -12,11 +12,11 @@ public class MultipleAlignmentDisplay_ShowAlign_Tests
 {
     private sealed record Case(string[] Names, string[] Rows, Dictionary<string, string> Args, string Out);
 
-    private static readonly Lazy<List<Case>> OracleCases = new(ReadOracle);
+    private static readonly Lazy<List<Case>> OracleCases = new(() => ReadOracle());
 
-    private static List<Case> ReadOracle()
+    private static List<Case> ReadOracle(string file = "showalign_oracle.jsonl")
     {
-        const string name = "Seqeron.Genomics.Tests.TestData.Analysis.showalign_oracle.jsonl";
+        string name = "Seqeron.Genomics.Tests.TestData.Analysis." + file;
         using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(name)
             ?? throw new InvalidOperationException($"Embedded oracle '{name}' not found.");
         using var reader = new StreamReader(stream);
@@ -65,7 +65,52 @@ public class MultipleAlignmentDisplay_ShowAlign_Tests
             SetCase = a.TryGetValue("setcase", out var sc) ? float.Parse(sc, CultureInfo.InvariantCulture) : null,
             Identity = a.TryGetValue("identity", out var id) ? float.Parse(id, CultureInfo.InvariantCulture) : 0f,
             Gaps = Flag(a, "gaps", true),
+            Begin = a.TryGetValue("sbegin", out var sb) ? int.Parse(sb, CultureInfo.InvariantCulture) : 0,
+            End = a.TryGetValue("send", out var se) ? int.Parse(se, CultureInfo.InvariantCulture) : 0,
         };
+    }
+
+    [Test]
+    public void ShowAlign_EqualsShowalign_WithSbeginAndSend()
+    {
+        // A4-9: 400 rows of the installed 6.6.0 program with random -sbegin / -send (0, 1-based, negative = from the end, beyond the alignment, an end before the begin); the displayed columns are cut,
+        // the consensus is that of the whole alignment and the ticks / numbers keep the positions of the whole alignment (showalign.c: begin = ajSeqsetGetBegin - 1, end = ajSeqsetGetEnd - 1)
+        var cases = ReadOracle("showalign_range_oracle.jsonl");
+        Assert.That(cases, Has.Count.EqualTo(400));
+        var failures = new List<string>();
+        int begins = 0, ends = 0, negative = 0, beyond = 0, cut = 0;
+        foreach (var c in cases)
+        {
+            string actual = MultipleAlignmentDisplay.ShowAlign(c.Names, c.Rows, OptionsOf(c.Args));
+            if (actual != c.Out)
+                failures.Add($"{string.Join(" ", c.Args.Select(kv => $"-{kv.Key} {kv.Value}"))}\n{string.Join("\n", c.Names.Zip(c.Rows, (n, r) => $">{n} {r}"))}\n--- expected\n{c.Out}--- actual\n{actual}");
+            int mlen = c.Rows.Max(r => r.Length);
+            int sb = c.Args.TryGetValue("sbegin", out var b0) ? int.Parse(b0, CultureInfo.InvariantCulture) : 0, se = c.Args.TryGetValue("send", out var e0) ? int.Parse(e0, CultureInfo.InvariantCulture) : 0;
+            if (sb != 0) begins++;
+            if (se != 0) ends++;
+            if (sb < 0 || se < 0) negative++;
+            if (sb > mlen || se > mlen || sb < -mlen || se < -mlen) beyond++;
+            if (sb != 0 || se != 0) cut++;
+        }
+
+        Assert.That(failures, Is.Empty, $"{failures.Count}: " + string.Join("\n=====\n", failures.Take(2)));
+        Assert.That(begins, Is.GreaterThan(200));
+        Assert.That(ends, Is.GreaterThan(200));
+        Assert.That(negative, Is.GreaterThan(100));
+        Assert.That(beyond, Is.GreaterThan(50));
+        Assert.That(cut, Is.GreaterThan(300));
+    }
+
+    [Test]
+    public void ShowAlign_SequenceRange_WorkedValues()
+    {
+        // measured: three 18-column rows, -sbegin 3 -send 12 shows the columns 3..12 with the numbers of the whole alignment; -sbegin 30 = the last column; -sbegin 8 -send 4 = column 8 only
+        string[] names = ["s1", "s2", "s3"];
+        string[] rows = ["ACGT--ACGTAAGGCCTT", "ACGTTTACGTA-GGCCTA", "ACGTTTACCTAAGG-CTT"];
+        string text = MultipleAlignmentDisplay.ShowAlign(names, rows, new ShowAlignOptions { Begin = 3, End = 12 });
+        Assert.That(text, Is.EqualTo("                  10  \n          --:----|----:---\ns1        ..--......\ns2        .........-\ns3        ......C...\nConsensus GTTTACGTAA\n\n"));
+        Assert.That(MultipleAlignmentDisplay.ShowAlign(names, rows, new ShowAlignOptions { Begin = 8, End = 4 }), Does.Contain("Consensus C\n"));
+        Assert.That(MultipleAlignmentDisplay.ShowAlign(names, rows, new ShowAlignOptions { Begin = 30 }), Does.Contain("Consensus T\n"));
     }
 
     [Test]

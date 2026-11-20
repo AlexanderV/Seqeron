@@ -198,3 +198,7 @@ Oracle `emboss_gap_oracle.tsv` (`generate_emboss_gap_oracle.py`, seed 20261126):
 ## Audit A4-1 (B09 F157): cancellation
 
 Mechanism: `AlignmentCancellation` (SequenceAligner.Cancellation.cs, A2-40); tests `SequenceAligner_Cancellation_Tests` (`PreCancelled_A4_1_...`, one `CancelledWhileRunning_...` test per class) and the MCP `CancellationTokenTests` / `EmbossProgramToolsTests`: `GenerateEmbossAmbiguousConsensus` poll the ambient token (a mid-run cancel stops with `OperationCanceledException` inside the named poll) and the MCP tool takes the request token.
+
+## Audit A4-9 (B09 F164): consambig -sbegin / -send
+
+Measured on the installed consambig 6.6.0: **`-sbegin` and `-send` are ignored** (the consensus covers every column of the alignment whatever the range). `scripts/analysis/generate_consambig_range_oracle.py` -> `consambig_range_oracle.tsv`, **300 rows** run with random positive / negative / beyond-the-alignment ranges: the port's plain call equals the program on 300 / 300, so `GenerateEmbossAmbiguousConsensus` needs no range option (documented, not a missing option).

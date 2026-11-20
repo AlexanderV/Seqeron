@@ -246,3 +246,9 @@ Oracle `emboss_gap_oracle.tsv` (`generate_emboss_gap_oracle.py`, seed 20261126):
 ## Audit A4-1 (B09 F157): cancellation
 
 Mechanism: `AlignmentCancellation` (SequenceAligner.Cancellation.cs, A2-40); tests `SequenceAligner_Cancellation_Tests` (`PreCancelled_A4_1_...`, one `CancelledWhileRunning_...` test per class) and the MCP `CancellationTokenTests` / `EmbossProgramToolsTests`: `MultipleAlignmentDisplay.ShowAlign` poll the ambient token (a mid-run cancel stops with `OperationCanceledException` inside the named poll) and the MCP tool takes the request token.
+
+## Audit A4-9 (B09 F164): showalign -sbegin / -send
+
+Sources actually opened: EMBOSS 6.6.0 `emboss/showalign.c` (`begin = ajSeqsetGetBegin(seqset) - 1; end = ajSeqsetGetEnd(seqset) - 1; for(pos = begin; pos <= end; pos += width)`), `ajax/core/ajseq.c` (`ajSeqsetGetBegin` / `ajSeqsetGetEnd`: a positive value is 1-based, a negative one counts from the end, `ajCvtSposToPosStart` clamps into [imin, len - 1]), installed `showalign` 6.6.0.
+
+`ShowAlignOptions.Begin` / `End` (MCP `showalign` `sbegin` / `send`) cut the DISPLAYED columns; the consensus is that of the whole alignment and the numbers / ticks keep the positions of the whole alignment (measured: `-sbegin 3 -send 12` shows the columns 3 - 12 numbered from the full alignment; `-sbegin 30` = the last column; `-sbegin 8 -send 4` = column 8). `scripts/analysis/generate_showalign_range_oracle.py` -> `showalign_range_oracle.jsonl`, **400 rows** (0, 1-based, negative, beyond the alignment, end before begin): equal on 400 / 400.

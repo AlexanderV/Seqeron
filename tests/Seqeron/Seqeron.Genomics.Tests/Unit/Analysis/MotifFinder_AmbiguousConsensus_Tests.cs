@@ -32,6 +32,33 @@ public class MotifFinder_AmbiguousConsensus_Tests
     private static ConsensusResidueType TypeOf(string t) => t switch { "nuc" => ConsensusResidueType.Nucleotide, "prot" => ConsensusResidueType.Protein, _ => ConsensusResidueType.Auto };
 
     [Test]
+    public void GenerateEmbossAmbiguousConsensus_EqualsConsambig_WithSbeginAndSendWhichTheProgramIgnores()
+    {
+        // A4-9: 300 rows of consambig 6.6.0 run WITH random -sbegin / -send (positive, negative, beyond the alignment): the consensus covers every column whatever the range, so the port needs no range option
+        const string name = "Seqeron.Genomics.Tests.TestData.Analysis.consambig_range_oracle.tsv";
+        using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(name) ?? throw new InvalidOperationException($"Embedded oracle '{name}' not found.");
+        using var reader = new StreamReader(stream);
+        int rows = 0, ranged = 0, shorter = 0;
+        string? line;
+        while ((line = reader.ReadLine()) is not null)
+        {
+            if (line.Length == 0) continue;
+            var f = line.Split('\t');
+            var seqs = f[1].Split(',');
+            string expected = f[5].Replace('@', '\0');
+            string actual = MotifFinder.GenerateEmbossAmbiguousConsensus(seqs, TypeOf(f[0]));
+            Assert.That(actual, Is.EqualTo(expected), $"-sbegin {f[3]} -send {f[4]} {f[0]} {string.Join(",", seqs)}");
+            rows++;
+            if (f[3] != "0" || f[4] != "0") ranged++;
+            if (expected.Length == seqs.Max(s => s.Length) && (int.Parse(f[3]) > 1 || int.Parse(f[4]) is > 0 and < 3 || int.Parse(f[3]) < -1)) shorter++;
+        }
+
+        Assert.That(rows, Is.EqualTo(300));
+        Assert.That(ranged, Is.GreaterThan(250));
+        Assert.That(shorter, Is.GreaterThan(100)); // the output is as long as the whole alignment although a range would cut it
+    }
+
+    [Test]
     public void GenerateEmbossAmbiguousConsensus_EqualsConsambig_AllRows()
     {
         var rows = OracleRows.Value;

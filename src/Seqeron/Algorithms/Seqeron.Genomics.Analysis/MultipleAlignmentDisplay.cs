@@ -90,6 +90,15 @@ public sealed record ShowAlignOptions
 
     /// <summary><c>-gaps</c> (default true): a gap character can be the consensus.</summary>
     public bool Gaps { get; init; } = true;
+
+    /// <summary>
+    /// <c>-sbegin</c> (default 0 = the first column; A4-9): the first column shown, 1-based; a negative value counts from the end (-5 = the fifth column from the end); a value beyond the alignment is the last column.
+    /// The consensus is that of the whole alignment and the position numbers and ticks keep the positions of the whole alignment; only the displayed columns are cut (<c>showalign.c</c>: <c>begin = ajSeqsetGetBegin(seqset)-1</c>).
+    /// </summary>
+    public int Begin { get; init; }
+
+    /// <summary><c>-send</c> (default 0 = the last column): the last column shown, 1-based, counted like <see cref="Begin"/> (negative = from the end); a value before the first shown column shows that one column.</summary>
+    public int End { get; init; }
 }
 
 /// <summary>
@@ -183,7 +192,19 @@ public static class MultipleAlignmentDisplay
         foreach (int i in Enumerable.Range(0, nseqs).Where(i => i != nref))
             Convert(o.Show, reference, seqs[i], codes, o.SimilarCase);
 
-        return Output(o, seqNames, seqs, nref, margin, consensus, order, mlen, width);
+        // -sbegin / -send of the sequence set (ajSeqsetGetBegin / ajSeqsetGetEnd): ajCvtSposToPosStart(len, imin, ipos) = a negative position counts from the end, clamped into [imin, len - 1]
+        static int SposToPosStart(int len, int imin, int ipos)
+        {
+            int pos = ipos < 0 ? len + ipos : ipos;
+            if (pos >= len) pos = len - 1;
+            if (pos < imin) pos = imin;
+            return pos;
+        }
+
+        static int ZeroBased(int position) => position > 0 ? position - 1 : position; // a positive position is 1-based, a negative one counts from the end
+        int begin = o.Begin == 0 ? 0 : SposToPosStart(mlen, 0, ZeroBased(o.Begin));
+        int end = o.End == 0 ? mlen - 1 : SposToPosStart(mlen, begin, ZeroBased(o.End));
+        return Output(o, seqNames, seqs, nref, margin, consensus, order, mlen, width, begin, end);
     }
 
     // showalign_Getrefseq: an exact name, else a unique name ignoring case, else a number 0..n (0 = the consensus; n > count is rejected)
@@ -311,13 +332,12 @@ public static class MultipleAlignmentDisplay
         }
     }
 
-    private static string Output(ShowAlignOptions o, string[] names, char[][] seqs, int nref, int margin, char[] consensus, int[] order, int mlen, int width)
+    private static string Output(ShowAlignOptions o, string[] names, char[][] seqs, int nref, int margin, char[] consensus, int[] order, int mlen, int width, int begin, int end)
     {
         var sb = new StringBuilder();
         string refstr = new(nref == -1 ? consensus : SourceRef(seqs, nref));
         string tickline = Ticks(nref, refstr, out int firstpos, out int lastpos);
         string numline = Numbers(nref, refstr, firstpos, lastpos, margin);
-        int begin = 0, end = mlen - 1;
 
         for (int pos = begin; pos <= end; pos += width)
         {
