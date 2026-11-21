@@ -824,3 +824,18 @@ Sources actually opened (Debian source package `mummer_3.23+dfsg.orig.tar.xz` wi
 | `nucmer -p` | `nucmer_prefix_oracle.jsonl.gz`, 170 runs | files and stderr equal on 123 successful runs |
 
 Detail and the quirks of the programs (the `gaps` endless loop and segmentation fault, the `delta2blocks` null pointer on PROMER data, the broken line break of the installed `exact-tandems`): docs/algorithms/Alignment/Mummer_Package_Programs.md.
+
+## Audit A3-9e2 / A3-9e3 / A3-9e4 (B09 F210 - F213, WP50): `combineMUMs`, `run-mummer3`, `repeat-match`, `exact-tandems`, `mapview`, `mummerplot`
+
+Sources actually opened (Debian source package `mummer_3.23+dfsg.orig.tar.xz` with its patches applied, User-Agent `Seqeron-review/1.0`; the installed `mummer 3.23+dfsg-8`, the perl 5.38.2 scripts `mapview`, `mummerplot`, `Foundation.pm`, the shell scripts `run-mummer3`, `exact-tandems` and `tandem-repeat.awk` are the oracle): `src/tigr/combineMUMs.cc` (2 183 lines), `repeat-match.cc` (1 515), `mgaps.cc`, `tigrinc.cc` / `tigrinc.hh` (`Read_String`, `Complement`), `scripts/mapview.pl` (967), `scripts/mummerplot.pl` (1 601), `scripts/Foundation.pm` (`TIGR_GetOptions`). Ports: `MummerCombineMums`, `MummerMgaps`, `MummerRunPrograms.RunMummer3`, `MummerRepeatMatch`, `MummerExactTandems`, `MummerPerl` (the Perl number / string / `split` behaviours), `MummerMapview`, `MummerPlot`; shared with the earlier ports: `MummerFastaReader` (the `combineMUMs` dialect of `Read_String`), `MummerCText` (`fgets`, `sscanf`), `NucmerClusters`, `MummerDeltaFilter`, `MummerShowCoords`, `MummerShowSnps`.
+
+| Program | Oracle (embedded recorded runs) | Result |
+|---|---|---|
+| `combineMUMs` | `combinemums_oracle.jsonl.gz`: 244 equal runs + 24 undefined + 9 failing | stdout, stderr, the `-W` file and the `.cover` files equal; reference length 7 modulo 16: the coverage report reads the byte after a realloc'd buffer (valgrind invalid read on 36 / 36 runs; 2519 / 2520 / 2521 under allocator tuning) |
+| `run-mummer3` | the same file: 216 equal runs + 4 failing | `.out`, `.gaps`, `.align`, `.errorsgaps`, the script's stdout and stderr equal |
+| `repeat-match` | `repeatmatch_oracle.jsonl.gz`: 370 equal runs + 24 program stops + 2 undefined + 3 aborts + 1 illegal option | standard output and error equal; empty file / no header = uninitialised buffer (valgrind, `MALLOC_PERTURB_`); header word of 500+ characters = `*** buffer overflow detected ***`; valgrind clean on 110 random runs |
+| `exact-tandems` | the same file: 215 runs of the installed script + 215 of the intended pipeline | the installed script (`awk -f $`) stops with status 2 and leaves `$$.tmp.matches`; the intended pipeline's table equal |
+| `mapview` | `mapview_oracle.jsonl.gz` | every fig file, stdout, stderr, the fig2dev command lines and the mgaps side file equal |
+| `mummerplot` | `mummerplot_oracle.jsonl.gz` | every data file, the gnuplot script, the filter file, stdout, stderr and the gnuplot arguments equal |
+
+Non-determinism of the perl programs (hash order) is proven by repeated runs and handled by the oracle (rows that differ between 6 runs are recorded and skipped); the real `gnuplot` 6.0 and `fig2dev` 3.2.9 are installed on the machine that generated the oracles and were run by hand on port-made scripts and FIG files (PNG byte-identical on repeated runs, PostScript differs in its `%%CreationDate` line); the oracle itself replaces them by recording stubs.

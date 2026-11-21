@@ -38,3 +38,6 @@ public record RepeatMatchToolResult(string Text, string Messages, int ExitCode);
 
 /// <summary>Result of <c>exact_tandems</c>: standard output (the table of tandem repeats, or the two progress lines of the installed script), standard error, the exit status and the files left behind.</summary>
 public record ExactTandemsToolResult(string Text, string Messages, int ExitCode, string[] FilesLeft);
+
+/// <summary>Result of <c>mapview</c>: the FIG files (or, with pdf / ps, the temporary FIG files the script feeds to fig2dev), the fig2dev command lines and output names, standard output, standard error, the exit status and the side file of an mgaps input.</summary>
+public record MapviewToolResult(Dictionary<string, string> Figs, string[] Commands, string[] Outputs, string Stdout, string Messages, int ExitCode, Dictionary<string, string> Side);

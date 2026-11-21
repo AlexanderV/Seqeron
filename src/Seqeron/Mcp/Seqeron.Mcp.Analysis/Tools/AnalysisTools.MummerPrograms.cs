@@ -275,4 +275,37 @@ public partial class AnalysisTools
         var r = installedScript ? MummerExactTandems.RunInstalled(genome, minLength) : MummerExactTandems.Run(genome, minLength);
         return new ExactTandemsToolResult(r.Text, r.Log, r.ExitCode, [.. r.LeftBehind]);
     }
+
+    [McpServerTool(Name = "mapview", Title = "Genome — MUMmer mapview (FIG alignment maps)", ReadOnly = true)]
+    [Description("MUMmer 3.23 mapview (perl script): turns the output of show-coords -rl (nucmer or promer; or of mgaps with mgapsReference = -g) into FIG 3.2 files that show the alignments along the reference - the percent identity (50 - 100) on the vertical axis, a red match line per alignment, a coloured link line between the alignments of one query contig (one of three colours; no link when the next match of the contig is more than maxDistance = -d (default 50 000) bases away) - partitioned into numberOfFiles = -n (default 10) files of an equal share of the reference (a multi-reference input gets one file per group of references that fit a share), named <prefix>_<n>.fig (prefix = -p; default 'NUCMER_graph' / 'PROMER_graph': the program name in the second line of the coords file), with a kilobase scale, the percent identity ticks and a legend. With a UTR file and a CDS file (GFF: sequence id, source, exon type single-exon / initial-exon / internal-exon / last-exon, start, end, score, strand, frame, gene name) the genes are drawn above the map (5' UTR, CDS, 3' UTR, introns; overlapping genes on levels), x1 / x2 (-x1 / -x2) bound the displayed range, printQueryNames (-I) / printGeneNames (-Ir) write the names. format (-f) 'pdf' or 'ps' makes the script convert every FIG file with fig2dev: the result then lists the tmp<prefix>_<n>.fig texts the script feeds to it (figs), the fig2dev command lines (commands) and the names of the converted files (outputs) - the conversion itself is done by fig2dev, which is not part of this library. verbose (-v) lists the files and their ranges on standard output (stdout). A UTR file without a CDS file, or GFF files whose first column names no reference of the coords file, stop the script (exitCode 1, the message on messages). An mgaps input (-g) also writes the file <coordsName>coords (side): the clusters in the format of show-coords, sorted by position. The messages of a wrong option (x1 > x2, a negative bound) are printed and the script goes on, as the program does. Byte for byte equal to the installed mapview on 263 + runs (nucmer and promer coords, one or several references, mgaps input, GFF genes on both strands, every option) and 800 more random runs.")]
+    public static MapviewToolResult Mapview(
+        [Description("The coords file (show-coords -rl output, or mgaps output with mgapsReference).")] string coords,
+        [Description("UTR coordinates in GFF format (needs the CDS file too).")] string? utrGff = null,
+        [Description("CDS coordinates in GFF format.")] string? cdsGff = null,
+        [Description("-d: the largest distance in base pairs between linked matches (default 50 000).")] int maxDistance = 0,
+        [Description("-f: output format 'fig' (default), 'pdf' or 'ps' (the last two through fig2dev: see the description).")] string format = "fig",
+        [Description("-m: magnification handed to fig2dev (default none).")] double magnification = 0,
+        [Description("-n: number of output files the reference is partitioned into (default 10).")] int numberOfFiles = 0,
+        [Description("-p: prefix of the output files (default 'NUCMER_graph' / 'PROMER_graph' by the coords file).")] string prefix = "",
+        [Description("-v: list the output files and their ranges (default false).")] bool verbose = false,
+        [Description("-x1: lower coordinate bound of the display (default none).")] int x1 = 0,
+        [Description("-x2: upper coordinate bound of the display (default none).")] int x2 = 0,
+        [Description("-g: the input is mgaps output; the reference sequence id (as in the first column of the GFF files).")] string mgapsReference = "",
+        [Description("-I: display the names of the query sequences (default false).")] bool printQueryNames = false,
+        [Description("-Ir: display the names of the reference genes (default false).")] bool printGeneNames = false,
+        [Description("The file name of the coords file as the script receives it (the mgaps side file is <name>coords; default coords).")] string coordsName = "coords",
+        [Description("The file name of the UTR file; when it equals cdsName the exon lists are not split (default utr.gff).")] string utrName = "utr.gff",
+        [Description("The file name of the CDS file (default cds.gff).")] string cdsName = "cds.gff")
+    {
+        if (string.IsNullOrEmpty(coords))
+            throw new ArgumentException("Coords text cannot be null or empty", nameof(coords));
+        if (format is not ("fig" or "pdf" or "ps"))
+            throw new ArgumentException("format must be 'fig', 'pdf' or 'ps'", nameof(format));
+        var r = MummerMapview.Run(coords, utrGff, cdsGff, new MummerMapviewOptions
+        {
+            MaxDistance = maxDistance, Format = format, Magnification = magnification, FileCount = numberOfFiles, Prefix = prefix ?? string.Empty, Verbose = verbose, X1 = x1, X2 = x2,
+            MgapsReference = mgapsReference ?? string.Empty, PrintQueryNames = printQueryNames, PrintGeneNames = printGeneNames, CoordsName = coordsName ?? "coords", UtrName = utrName ?? "utr.gff", CdsName = cdsName ?? "cds.gff",
+        });
+        return new MapviewToolResult(r.Figs.ToDictionary(f => f.Key, f => f.Value), [.. r.Commands], [.. r.Outputs], r.Stdout, r.Stderr, r.ExitCode, r.Side.ToDictionary(f => f.Key, f => f.Value));
+    }
 }

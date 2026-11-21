@@ -88,6 +88,8 @@
     <EmbeddedResource Include="TestData\Alignment\combinemums_oracle.jsonl.gz" />
     <!-- A3-9e3 (B09 F211): repeat-match and exact-tandems; scripts/alignment/generate_repeatmatch_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\repeatmatch_oracle.jsonl.gz" />
+    <!-- A3-9e4 (B09 F212): mapview; scripts/alignment/generate_mapview_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\mapview_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\nucmer_prefix_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\est2genome_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\wordmatch_oracle.jsonl.gz" />

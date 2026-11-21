@@ -821,3 +821,13 @@ Tests (`Seqeron.Genomics.Tests`, against the installed Debian `poa` 2.0+20060928
 | A3-9e | `MummerDelta2Maf_Oracle_Tests` (2) | 375 `delta2maf` runs (`delta2maf_oracle.jsonl.gz`) | as specified |
 | A3-9e / A3-9f | `MummerPerl_Oracle_Tests` (2) | 260 `nucmer2xfig` runs; 170 `nucmer -p` runs: files and stderr equal on 123 | as specified |
 | A3-9d .. A3-9f | MCP `MummerProgramToolsTests` (9), `ToolRegistrationContractTests`, `ToolDocsContractTests` | the installed programs on the small examples (`mummer`, `promer`, `show_aligns` / `show_snps` on PROMER, `mummer_gaps`, `delta2blocks`, `mummer_annotate`, `run_mummer1`, `delta2maf`, `nucmer2xfig`, `nucmer` prefix) | as specified |
+
+## Audit A3-9e2 / A3-9e3 / A3-9e4 (B09 F210 - F213): `combineMUMs`, `run-mummer3`, `repeat-match`, `exact-tandems`, `mapview`, `mummerplot`
+
+| Item | Tests | Oracle | Status |
+|---|---|---|---|
+| A3-9e2 | `MummerCombineMums_Oracle_Tests.CombineMums_AndRunMummer3_EqualTheInstalledPrograms_AllRows` | `combinemums_oracle.jsonl.gz` (`generate_combinemums_oracle.py`): `combineMUMs` >= 200 and `run-mummer3` >= 200 runs equal (files, stdout, stderr), the failing runs fail, the undefined runs are skipped | as specified |
+| A3-9e3 | `MummerRepeatMatch_Oracle_Tests.RepeatMatch_AndExactTandems_EqualTheInstalledPrograms_AllRows`, `..._ListsTheMatchesInTheOrderOfTheSuffixTreeOfTheProgram`, `ExactTandems_TheInstalledScriptIsBroken_...` | `repeatmatch_oracle.jsonl.gz` (`generate_repeatmatch_oracle.py`): `repeat-match` >= 200, `exact-tandems` installed >= 200 and intended >= 200 runs equal | as specified |
+| A3-9e4 | `MummerMapview_Oracle_Tests` (2) | `mapview_oracle.jsonl.gz` (`generate_mapview_oracle.py`): >= 200 runs equal incl. >= 30 `-f pdf / ps` | as specified |
+| A3-9e4 | `MummerPlot_Oracle_Tests` (3) | `mummerplot_oracle.jsonl.gz` (`generate_mummerplot_oracle.py`): >= 200 runs equal incl. the dies of the script | as specified |
+| A3-9e2 .. A3-9e4 | MCP `MummerProgramToolsTests` (+ 8), `ToolRegistrationContractTests`, `ToolDocsContractTests` | the installed programs on the small examples (`combine_mums`, `run_mummer3`, `repeat_match`, `exact_tandems`, `mapview`, `mummerplot`) | as specified |

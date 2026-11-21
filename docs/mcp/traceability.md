@@ -359,6 +359,7 @@
 | run_mummer3 | Analysis | MummerRunPrograms.RunMummer3 | AnalysisTools.MummerPrograms.cs | 0/0 | – | – | Build-Ready |
 | repeat_match | Analysis | MummerRepeatMatch.Run | AnalysisTools.MummerPrograms.cs | 0/0 | – | – | Build-Ready |
 | exact_tandems | Analysis | MummerExactTandems.Run | AnalysisTools.MummerPrograms.cs | 0/0 | – | – | Build-Ready |
+| mapview | Analysis | MummerMapview.Run | AnalysisTools.MummerPrograms.cs | 0/0 | – | – | Build-Ready |
 | delta2maf | Analysis | MummerDelta2Maf.Run | AnalysisTools.MummerPrograms.cs | 0/0 | – | – | Build-Ready |
 | nucmer2xfig | Analysis | MummerNucmer2Xfig.Run | AnalysisTools.MummerPrograms.cs | 0/0 | – | – | Build-Ready |
 | combine_mums | Analysis | MummerCombineMums.Run | AnalysisTools.MummerPrograms.cs | 0/0 | – | – | Build-Ready |

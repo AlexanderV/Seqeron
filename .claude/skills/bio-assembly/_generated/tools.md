@@ -113,6 +113,7 @@
 | `kmers_with_min_count` | Analysis | `KmerAnalyzer.FindKmersWithMinCount` | [doc](../../../../docs/mcp/tools/analysis/kmers_with_min_count.md) |
 | `lempel_ziv_complexity` | Analysis | `SequenceComplexity.CalculateLempelZivComplexity` | [doc](../../../../docs/mcp/tools/analysis/lempel_ziv_complexity.md) |
 | `longdust_score` | Analysis | `SequenceComplexity.CalculateLongdustScore` | [doc](../../../../docs/mcp/tools/analysis/longdust_score.md) |
+| `mapview` | Analysis | `MummerMapview.Run` | [doc](../../../../docs/mcp/tools/analysis/mapview.md) |
 | `mash_bounds` | Analysis | `MashCommands.Bounds` | [doc](../../../../docs/mcp/tools/analysis/mash_bounds.md) |
 | `mash_dist` | Analysis | `MashCommands.Dist` | [doc](../../../../docs/mcp/tools/analysis/mash_dist.md) |
 | `mash_info` | Analysis | `MashCommands.Info` | [doc](../../../../docs/mcp/tools/analysis/mash_info.md) |

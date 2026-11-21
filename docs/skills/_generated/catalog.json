@@ -1288,6 +1288,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L1273"
   },
   {
+    "tool": "mapview",
+    "server": "Analysis",
+    "methodId": "MummerMapview.Run",
+    "docPath": "docs/mcp/tools/analysis/mapview.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/MummerMapview.cs"
+  },
+  {
     "tool": "mash_bounds",
     "server": "Analysis",
     "methodId": "MashCommands.Bounds",

@@ -203,4 +203,23 @@ public class MummerProgramToolsTests
         Assert.That(installed.FilesLeft, Is.EqualTo(new[] { "$$.tmp.matches" }));
         Assert.Throws<ArgumentException>(() => AnalysisTools.ExactTandems("", 6));
     }
+
+    // mapview -n 1 -p demo x.coords (MUMmer 3.23) (B09 A3-9e4, F212)
+    private const string DemoCoords = "ref.fa qry.fa\nNUCMER\n\n    [S1]     [E1]  |     [S2]     [E2]  |  [LEN 1]  [LEN 2]  |  [% IDY]  |  [LEN R]  [LEN Q]  | [TAGS]\n==========================================================================================================\n      11      250  |        1      240  |      240      240  |    98.76  |      260      240  | ref\tqry\n";
+
+    [Test]
+    public void Mapview_DrawsTheFigFilesOfTheScript()
+    {
+        var r = AnalysisTools.Mapview(DemoCoords, numberOfFiles: 1, prefix: "demo");
+        Assert.That(r.Figs.Keys, Is.EquivalentTo(new[] { "demo_0.fig" }));
+        Assert.That(r.Figs["demo_0.fig"], Is.EqualTo("#FIG 3.2\nLandscape\nCenter\nInches\nLetter  \n100.00\nMultiple\n-2\n1200 2\n2 1 0 10 11 0 50 0 -1 0.000 0 0 -1 0 0 2\n\t 0 3050 17 3050\n2 1 2 1 0 7 60 0 -1 4.000 0 0 -1 0 0 2\n\t0 5250 17 5250\n2 1 2 1 0 7 60 0 -1 4.000 0 0 -1 0 0 2\n\t0 4250 17 4250\n2 1 2 1 0 7 60 0 -1 4.000 0 0 -1 0 0 2\n\t0 3250 17 3250\n2 1 0 1 0 7 60 0 -1 0.000 0 0 -1 0 0 2\n\t0 5250 0 5300\n4 0 0 100 0 0 8 0.0000 4 135 405 \t 0 5400 0k\\001\n4 0 0 50 0 0 14 0.0000 4 135 450 0 3000 0\\001\n4 0 0 50 0 0 14 0.0000 4 135 810 -233 3000 259\\001\n4 0 0 100 0 0 8 0.0000 4 135 405 \t-200 5270 50%\\001\n4 0 0 100 0 0 8 0.0000 4 135 405 \t37 5270 50%\\001\n4 0 0 100 0 0 8 0.0000 4 135 405 \t-200 4270 75%\\001\n4 0 0 100 0 0 8 0.0000 4 135 405 \t37 4270 75%\\001\n4 0 0 100 0 0 8 0.0000 4 135 405 \t-200 3270 100%\\001\n4 0 0 100 0 0 8 0.0000 4 135 405 \t37 3270 100%\\001\n2 1 0 2 4 0 40 0 -1 0.000 0 0 -1 0 0 2\n\t0 3330 17 3330\n2 1 0 5 20 0 50 0 -1 0.000 0 0 -1 0 0 2\n\t 0 3150 17 3150\n4 0 0 100 0 0 8 0.0000 4 135 405 \t100 6100  Legend \\001\n2 1 0 1 0 0 50 0 -1 0.000 0 0 -1 0 0 2\n\t 70 6300 99 6300\n2 1 0 5 27 0 50 0 -1 0.000 0 0 -1 0 0 2\n\t 100 6300 200 6300\n2 1 0 1 0 0 50 0 -1 0.000 0 0 -1 0 0 2\n\t 200 6300 230 6300\n4 0 0 100 0 0 8 0.0000 4 135 405 \t300 6330  5' utr \\001\n2 1 0 1 0 0 50 0 -1 0.000 0 0 -1 0 0 2\n\t 70 6450 99 6450\n2 1 0 5 2 0 50 0 -1 0.000 0 0 -1 0 0 2\n\t 100 6450 200 6450\n2 1 0 1 0 0 50 0 -1 0.000 0 0 -1 0 0 2\n\t 200 6450 230 6450\n4 0 0 100 0 0 8 0.0000 4 135 405 \t300 6480  cds \\001\n2 1 0 1 0 0 50 0 -1 0.000 0 0 -1 0 0 2\n\t 70 6600 99 6600\n2 1 0 5 1 0 50 0 -1 0.000 0 0 -1 0 0 2\n\t 100 6600 200 6600\n2 1 0 1 0 0 50 0 -1 0.000 0 0 -1 0 0 2\n\t 200 6600 230 6600\n4 0 0 100 0 0 8 0.0000 4 135 405 \t300 6630  3' utr \\001\n2 1 0 2 4 0 50 0 -1 0.000 0 0 -1 0 0 2\n\t100 6750 200 6750\n4 0 0 100 0 0 8 0.0000 4 135 405 \t300 6780  match found by NUCMER \\001\n"));
+        Assert.That(r.Stdout, Is.Empty);
+        Assert.That(r.ExitCode, Is.Zero);
+        var pdf = AnalysisTools.Mapview(DemoCoords, numberOfFiles: 1, prefix: "demo", format: "pdf");
+        Assert.That(pdf.Commands, Is.EqualTo(new[] { "fig2dev -L pdf -x 100 -M tmpdemo_0.fig demo_0.pdf" }));
+        Assert.That(pdf.Figs.Keys, Is.EquivalentTo(new[] { "tmpdemo_0.fig" }));
+        Assert.That(AnalysisTools.Mapview(DemoCoords, "other\tx\tsingle-exon\t5\t50\t.\t+\t.\tg1\n").ExitCode, Is.EqualTo(1));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.Mapview("", numberOfFiles: 1));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.Mapview(DemoCoords, format: "png"));
+    }
 }

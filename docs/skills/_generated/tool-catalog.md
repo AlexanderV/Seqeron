@@ -86,7 +86,7 @@
 | `water_align` | `SequenceAligner.WaterAlign` | [doc](../../mcp/tools/alignment/water_align.md) |
 | `write_alignment` | `EmbossAlignmentWriter.Format` | [doc](../../mcp/tools/alignment/write_alignment.md) |
 
-## Analysis (171 tools)
+## Analysis (172 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -197,6 +197,7 @@
 | `kmers_with_min_count` | `KmerAnalyzer.FindKmersWithMinCount` | [doc](../../mcp/tools/analysis/kmers_with_min_count.md) |
 | `lempel_ziv_complexity` | `SequenceComplexity.CalculateLempelZivComplexity` | [doc](../../mcp/tools/analysis/lempel_ziv_complexity.md) |
 | `longdust_score` | `SequenceComplexity.CalculateLongdustScore` | [doc](../../mcp/tools/analysis/longdust_score.md) |
+| `mapview` | `MummerMapview.Run` | [doc](../../mcp/tools/analysis/mapview.md) |
 | `mash_bounds` | `MashCommands.Bounds` | [doc](../../mcp/tools/analysis/mash_bounds.md) |
 | `mash_dist` | `MashCommands.Dist` | [doc](../../mcp/tools/analysis/mash_dist.md) |
 | `mash_info` | `MashCommands.Info` | [doc](../../mcp/tools/analysis/mash_info.md) |

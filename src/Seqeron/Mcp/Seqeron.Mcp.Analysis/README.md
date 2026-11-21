@@ -2,7 +2,7 @@
 
 MCP server — **K-mer, motif, repeat, complexity, RNA-structure and comparative-genomics analysis.**
 
-Exposes **171 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+Exposes **172 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
 MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test, with a
 per-tool doc under [`docs/mcp/tools/analysis/`](../../../../docs/mcp/tools/analysis). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
@@ -92,6 +92,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `run_mummer3` | MUMmer run-mummer3: mummer -mumreference -b -l 20 | mgaps | combineMUMs script, files .out .gaps .align .errorsgaps. |
 | `repeat_match` | MUMmer repeat-match: maximal exact repeats (-n -f -t -E -V) in the order of the program's suffix tree, byte for byte. |
 | `exact_tandems` | MUMmer exact-tandems: exact tandem repeats (repeat-match -t | sort | awk), the intended pipeline and the script as installed. |
+| `mapview` | MUMmer mapview: FIG maps of show-coords -rl / mgaps alignments with genes (-d -f -m -n -p -v -x1 -x2 -g -I -Ir), byte for byte. |
 | `delta2maf` | MUMmer delta2maf: nucmer alignments as MAF (a score / s lines), byte for byte. |
 | `nucmer2xfig` | MUMmer nucmer2xfig: xfig plot of a show-coords -c -l file, byte for byte. |
 | `combine_mums` | MUMmer combineMUMs: extension and alignment of the mgaps clusters (-D -e -n -N -q -r -S -t -v -x -W), byte for byte. |
