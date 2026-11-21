@@ -112,5 +112,177 @@
    },
    "note": "promer -l 5 -c 10 ref.fa qry.fa: two alignments, forward in frame +3 (an insertion of two residues in the query: delta -51, -1) and on the reverse strand; the delta values count amino acids."
   }
+ },
+ {
+  "name": "mummer_gaps",
+  "summary": "MUMmer 3.23 gaps: the longest consistent set of matches, then the other matches, in mgaps format.",
+  "methodId": "MummerGaps.Run",
+  "sourceFile": "MummerGaps.cs",
+  "sourcePath": "Seqeron.Genomics.Alignment/MummerGaps.cs",
+  "algorithmDoc": "Alignment/Mummer_Package_Programs.md",
+  "oracleScript": "generate_mummer_gaps_oracle.py",
+  "short": "MUMmer gaps: longest consistent set of matches and the others (mgaps format), byte for byte.",
+  "after": "promer",
+  "file": "AnalysisTools.MummerPrograms.cs",
+  "description": "MUMmer 3.23 gaps: reads a list of matches between two strings (start1 start2 length, as mummer prints them without the header lines; text that is not a number is refused - the program loops forever on it - and an empty list too - the program crashes) and prints first the longest consistent set of matches (ordered along both strings; overlaps are cut off: the overlap column shows the cut) after '> fileName [reverse] Consistent matches', then all the other matches after '> fileName [reverse] Other matches', in the format of mgaps: start1 start2 length overlap gap1 gap2 (the first line of a block has none - -; the other matches show a gap only after a match they chain to). Ties in the second start keep their input order. reverseComplement (-r) writes 'reverse' into the header lines, which mummer-annotate reads. Byte for byte equal to the installed gaps on 259 random match lists (+ the empty-list crash).",
+  "output": {
+   "text": [
+    "string",
+    "What gaps writes to standard output."
+   ]
+  },
+  "errors": [
+   "Matches cannot be null or empty",
+   "gaps: the input contains '...': the program loops forever on text that is not a number.",
+   "gaps: no matches (the program dereferences a null array and crashes)."
+  ],
+  "example": {
+   "title": "Consistent and other matches",
+   "prompt": "Order these matches.",
+   "input": {
+    "matches": "       3         9        20\n      40        50        15\n      70        80        30\n      30        20         5\n",
+    "fileName": "g1.fa",
+    "reverseComplement": true
+   },
+   "output": {
+    "text": "> g1.fa reverse Consistent matches\n       3        9     20    none      -      -\n      40       50     15    none     17     21\n      70       80     30    none     15     15\n> g1.fa reverse Other matches\n      30       20      5    none      -      -\n"
+   },
+   "note": "gaps g1.fa -r: three matches chain along both strings (gaps 17 / 21 and 15 / 15), the fourth is a match on its own."
+  }
+ },
+ {
+  "name": "delta2blocks",
+  "summary": "MUMmer delta2blocks (Debian package): the alignments of a nucmer delta as lines with a CIGAR of M / X / I / D.",
+  "methodId": "MummerDelta2Blocks.Run",
+  "sourceFile": "MummerGaps.cs",
+  "sourcePath": "Seqeron.Genomics.Alignment/MummerGaps.cs",
+  "algorithmDoc": "Alignment/Mummer_Package_Programs.md",
+  "oracleScript": "generate_mummer_gaps_oracle.py",
+  "short": "MUMmer delta2blocks: alignments of a nucmer delta file as CIGAR lines (M / X / I / D).",
+  "after": "mummer_gaps",
+  "file": "AnalysisTools.MummerPrograms.cs",
+  "description": "delta2blocks of the Debian MUMmer 3.23 package: the alignments of a nucmer delta file between one reference record and one query record as one line each, 'refId qryId sR eR sQ eQ CIGAR', the CIGAR written with M (matches), X (mismatches), I (an extra base in the reference, a positive delta) and D (an extra base in the query, a negative delta); the coordinates are those of the delta file (a reverse-strand alignment has sR > eR / sQ > eQ and is compared on the reverse complement). sortByReference (-r) / sortByQuery (-q) order the alignments. The sequences are read from the FASTA texts named in the delta header. A promer delta file is refused (the program reads the sequences through a null pointer and crashes). Byte for byte equal to the installed delta2blocks on 226 + runs.",
+  "output": {
+   "text": [
+    "string",
+    "What delta2blocks writes to standard output."
+   ],
+   "messages": [
+    "string",
+    "What it writes to standard error."
+   ]
+  },
+  "errors": [
+   "Delta file text cannot be null or empty",
+   "ERROR: Could not find any alignments for refId and qryId",
+   "delta2blocks: the program reads the sequences of a promer alignment through a null pointer and crashes (SIGSEGV)."
+  ],
+  "example": {
+   "title": "Three substitutions",
+   "prompt": "Give the CIGAR of the alignment.",
+   "input": {
+    "delta": "ref.fa qry.fa\nNUCMER\n>ref qry 140 135\n6 140 1 135 3 3 0\n0\n",
+    "referenceFasta": ">ref\nGCTAAAGACAATTACATAACATACACGTCAGCACGAAACTTGTTGGCCCAGTGTGAATCGCTTAAGGGTTAAGTAAGTGTGATGCATACGCCTTTACTTGCTGTGTCCACCCCATCGGACTGGCATTTTTATTACACTCA\n",
+    "queryFasta": ">qry\nAGACAATTACATAACATACACGTCAGCACGAAACTTGTTGGCCCAGTGTGAATCGCTTAAGGGTTGGGGAAGTGTGATGCATACGCCTTTACTTGCTGTGTCCACCCCATCGGACTGGCATTTTTATTACACTCA\n",
+    "referenceId": "ref",
+    "queryId": "qry"
+   },
+   "output": {
+    "text": "ref qry 6 140 1 135 65M2X1M1X66M\n",
+    "messages": ""
+   },
+   "note": "delta2blocks d.delta ref qry: 65 matches, 2 mismatches, 1 match, 1 mismatch, 66 matches."
+  }
+ },
+ {
+  "name": "mummer_annotate",
+  "summary": "MUMmer mummer-annotate: the edit-distance alignment of every gap of a gaps file, and witherrors.gaps.",
+  "methodId": "MummerAnnotate.Run",
+  "sourceFile": "MummerAnnotate.cs",
+  "sourcePath": "Seqeron.Genomics.Alignment/MummerAnnotate.cs",
+  "algorithmDoc": "Alignment/Mummer_Package_Programs.md",
+  "oracleScript": "generate_mummer_gaps_oracle.py",
+  "short": "MUMmer mummer-annotate: edit-distance alignment of the gaps of a gaps file with the error counts.",
+  "after": "delta2blocks",
+  "file": "AnalysisTools.MummerPrograms.cs",
+  "description": "MUMmer 3.23 mummer-annotate (annotate): reads the output of gaps (the first sequence is named on its '>' lines - supply it in files by that name - and the word 'reverse' there reverse-complements the query), repeats the gap file and, under every gap line, prints the edit-distance alignment of the stretch between the two matches (10 bases of each flanking match included): '    Errors = n' and the rows 'T:' (first sequence) / 'S:' (query) / mismatch marks, 60 columns per block; a gap longer than 10 000 prints '*** Too long ***'. withErrors is the file witherrors.gaps the program writes: the gap lines with the number of errors appended. A window that reaches before the first base of a sequence reads memory in front of the program's buffer (valgrind: invalid read) and is refused with an error; beyond the end the buffer holds zeros. Byte for byte equal to the installed program on 230 + runs.",
+  "output": {
+   "text": [
+    "string",
+    "What mummer-annotate writes to standard output."
+   ],
+   "withErrors": [
+    "string",
+    "The file witherrors.gaps."
+   ]
+  },
+  "errors": [
+   "Gap file text cannot be null or empty",
+   "Sequence cannot be null or empty",
+   "mummer-annotate: a gap window reaches before the first base of a sequence; ... (undefined behaviour)."
+  ],
+  "example": {
+   "title": "Align the gap between two matches",
+   "prompt": "Align the gap of this gaps file.",
+   "input": {
+    "gaps": "> ref.fa  Consistent matches\n       6        1     65    none      -      -\n      75       70     66    none      4      4\n> ref.fa  Other matches\n",
+    "dataFasta": ">qry\nAGACAATTACATAACATACACGTCAGCACGAAACTTGTTGGCCCAGTGTGAATCGCTTAAGGGTTGGGGAAGTGTGATGCATACGCCTTTACTTGCTGTGTCCACCCCATCGGACTGGCATTTTTATTACACTCA\n",
+    "files": {
+     "ref.fa": ">ref\nGCTAAAGACAATTACATAACATACACGTCAGCACGAAACTTGTTGGCCCAGTGTGAATCGCTTAAGGGTTAAGTAAGTGTGATGCATACGCCTTTACTTGCTGTGTCCACCCCATCGGACTGGCATTTTTATTACACTCA\n"
+    }
+   },
+   "output": {
+    "text": "> ref.fa  Consistent matches\n       6        1     65    none      -      -\n      75       70     66    none      4      4\n    Errors = 3\nT:  cttaagggttaagtaagtgtgatg\nS:  cttaagggttggggaagtgtgatg\n              ^^ ^          \n> ref.fa  Other matches\n",
+    "withErrors": "> ref.fa  Consistent matches\n       6        1     65    none      -      -\n      75       70     66    none      4      4       3\n> ref.fa  Other matches\n"
+   },
+   "note": "mummer-annotate g.gaps qry.fa: the gap between the two matches holds three substitutions."
+  }
+ },
+ {
+  "name": "run_mummer1",
+  "summary": "MUMmer run-mummer1 script: mummer -mum -l 20 -r | gaps | mummer-annotate; returns .out, .gaps, .align, .errorsgaps.",
+  "methodId": "MummerRunPrograms.RunMummer1",
+  "sourceFile": "MummerRunPrograms.cs",
+  "sourcePath": "Seqeron.Genomics.Alignment/MummerRunPrograms.cs",
+  "algorithmDoc": "Alignment/Mummer_Package_Programs.md",
+  "oracleScript": "generate_mummer_gaps_oracle.py",
+  "short": "MUMmer run-mummer1: mummer -mum -l 20 -r | gaps | mummer-annotate script, files .out .gaps .align .errorsgaps.",
+  "after": "mummer_annotate",
+  "file": "AnalysisTools.MummerPrograms.cs",
+  "description": "MUMmer 3.23 run-mummer1, the 'severely antiquated' script that runs the mummer 1 suite: mummer -mum -l 20 -r (reverse-complement matches only; the first output line is dropped) | gaps | mummer-annotate. reference and query are single-sequence FASTA texts; referenceName is the file name printed in the gaps file. Returns the files of the script: out (matches), gaps, align (the gaps with their alignments) and errorsGaps (the gaps with the number of errors). Without reverse (the script's fourth argument -r) the script passes an empty argument to mummer, which fails, and the tool refuses; a query with a second record makes gaps loop forever (refused), no match makes gaps crash (refused). Byte for byte equal to the installed script on 55 + runs.",
+  "output": {
+   "out": [
+    "string",
+    "The matches (prefix.out)."
+   ],
+   "gaps": [
+    "string",
+    "The gaps file (prefix.gaps)."
+   ],
+   "align": [
+    "string",
+    "The alignments of the gaps (prefix.align)."
+   ],
+   "errorsGaps": [
+    "string",
+    "The gaps file with error counts (prefix.errorsgaps)."
+   ]
+  },
+  "errors": [
+   "Sequence cannot be null or empty",
+   "/usr/bin/mummer: cannot open file \"\" or file \"\" is empty (without -r ...)",
+   "gaps: no matches (the program dereferences a null array and crashes)."
+  ],
+  "example": {
+   "title": "Reverse matches of a query",
+   "prompt": "Run the mummer 1 suite.",
+   "input": {
+    "reference": ">r\nacgtacgtacgtacgtacgtacgtacgtacgtacgtacgt\n",
+    "query": ">q\nacgt\n",
+    "reverse": false
+   },
+   "output": {},
+   "note": "Without -r the script passes an empty argument to mummer, which fails; the tool refuses (an error)."
+  }
  }
 ]

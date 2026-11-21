@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "delta2blocks",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MummerDelta2Blocks.Run",
+  "docRef": "MummerGaps.cs",
+  "description": "delta2blocks of the Debian MUMmer 3.23 package: the alignments of a nucmer delta file between one reference record and one query record as one line each, 'refId qryId sR eR sQ eQ CIGAR', the CIGAR written with M (matches), X (mismatches), I (an extra base in the reference, a positive delta) and D (an extra base in the query, a negative delta); the coordinates are those of the delta file (a reverse-strand alignment has sR > eR / sQ > eQ and is compared on the reverse complement). sortByReference (-r) / sortByQuery (-q) order the alignments. The sequences are read from the FASTA texts named in the delta header. A promer delta file is refused (the program reads the sequences through a null pointer and crashes). Byte for byte equal to the installed delta2blocks on 226 + runs.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "delta": {
+        "type": "string",
+        "description": "Delta file text (nucmer)."
+      },
+      "referenceFasta": {
+        "type": "string",
+        "description": "Reference FASTA text."
+      },
+      "queryFasta": {
+        "type": "string",
+        "description": "Query FASTA text."
+      },
+      "referenceId": {
+        "type": "string",
+        "description": "Reference record id."
+      },
+      "queryId": {
+        "type": "string",
+        "description": "Query record id."
+      },
+      "sortByQuery": {
+        "type": "boolean",
+        "description": "-q: sort the alignments by the query start (default false).",
+        "default": false
+      },
+      "sortByReference": {
+        "type": "boolean",
+        "description": "-r: sort the alignments by the reference start (default false).",
+        "default": false
+      }
+    },
+    "required": [
+      "delta",
+      "referenceFasta",
+      "queryFasta",
+      "referenceId",
+      "queryId"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "text": {
+        "type": "string",
+        "description": "What delta2blocks writes to standard output."
+      },
+      "messages": {
+        "type": "string",
+        "description": "What it writes to standard error."
+      }
+    },
+    "required": [
+      "text",
+      "messages"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Delta file text cannot be null or empty"
+    },
+    {
+      "code": 1001,
+      "message": "ERROR: Could not find any alignments for refId and qryId"
+    },
+    {
+      "code": 1001,
+      "message": "delta2blocks: the program reads the sequences of a promer alignment through a null pointer and crashes (SIGSEGV)."
+    }
+  ],
+  "examples": [
+    {
+      "name": "Three substitutions",
+      "input": {
+        "delta": "ref.fa qry.fa\nNUCMER\n>ref qry 140 135\n6 140 1 135 3 3 0\n0\n",
+        "referenceFasta": ">ref\nGCTAAAGACAATTACATAACATACACGTCAGCACGAAACTTGTTGGCCCAGTGTGAATCGCTTAAGGGTTAAGTAAGTGTGATGCATACGCCTTTACTTGCTGTGTCCACCCCATCGGACTGGCATTTTTATTACACTCA\n",
+        "queryFasta": ">qry\nAGACAATTACATAACATACACGTCAGCACGAAACTTGTTGGCCCAGTGTGAATCGCTTAAGGGTTGGGGAAGTGTGATGCATACGCCTTTACTTGCTGTGTCCACCCCATCGGACTGGCATTTTTATTACACTCA\n",
+        "referenceId": "ref",
+        "queryId": "qry"
+      },
+      "output": {
+        "text": "ref qry 6 140 1 135 65M2X1M1X66M\n",
+        "messages": ""
+      }
+    }
+  ]
+}

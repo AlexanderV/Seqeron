@@ -27,6 +27,7 @@
 | `create_pwm` | Analysis | `MotifFinder.CreatePwm` | [doc](../../../../docs/mcp/tools/analysis/create_pwm.md) |
 | `cumulative_gc_skew` | Analysis | `GcSkewCalculator.CalculateCumulativeGcSkew` | [doc](../../../../docs/mcp/tools/analysis/cumulative_gc_skew.md) |
 | `dangling_end_energy` | Analysis | `RnaSecondaryStructure.GetDanglingEndEnergy` | [doc](../../../../docs/mcp/tools/analysis/dangling_end_energy.md) |
+| `delta2blocks` | Analysis | `MummerDelta2Blocks.Run` | [doc](../../../../docs/mcp/tools/analysis/delta2blocks.md) |
 | `delta_filter` | Analysis | `MummerDeltaFilter.Run` | [doc](../../../../docs/mcp/tools/analysis/delta_filter.md) |
 | `detect_pseudoknots` | Analysis | `RnaSecondaryStructure.DetectPseudoknots` | [doc](../../../../docs/mcp/tools/analysis/detect_pseudoknots.md) |
 | `detect_rearrangements` | Analysis | `ComparativeGenomics.DetectRearrangements` | [doc](../../../../docs/mcp/tools/analysis/detect_rearrangements.md) |
@@ -125,6 +126,8 @@
 | `multibranch_loop_energy` | Analysis | `RnaSecondaryStructure.CalculateMultibranchLoopEnergy` | [doc](../../../../docs/mcp/tools/analysis/multibranch_loop_energy.md) |
 | `multiple_alignment_statistics` | Analysis | `MultipleAlignmentStatistics.Calculate` | [doc](../../../../docs/mcp/tools/analysis/multiple_alignment_statistics.md) |
 | `mummer` | Analysis | `MummerProgram.Run` | [doc](../../../../docs/mcp/tools/analysis/mummer.md) |
+| `mummer_annotate` | Analysis | `MummerAnnotate.Run` | [doc](../../../../docs/mcp/tools/analysis/mummer_annotate.md) |
+| `mummer_gaps` | Analysis | `MummerGaps.Run` | [doc](../../../../docs/mcp/tools/analysis/mummer_gaps.md) |
 | `nucmer` | Analysis | `GenomicAnalyzer.Nucmer` | [doc](../../../../docs/mcp/tools/analysis/nucmer.md) |
 | `nucmer_clusters` | Analysis | `GenomicAnalyzer.FindNucmerClusters` | [doc](../../../../docs/mcp/tools/analysis/nucmer_clusters.md) |
 | `oligo_analysis` | Analysis | `MotifFinder.DiscoverMotifs` | [doc](../../../../docs/mcp/tools/analysis/oligo_analysis.md) |
@@ -145,6 +148,7 @@
 | `pwm_score_thresholds` | Analysis | `PositionWeightMatrix.ScoreDistribution` | [doc](../../../../docs/mcp/tools/analysis/pwm_score_thresholds.md) |
 | `reversal_distance` | Analysis | `ComparativeGenomics.CalculateReversalDistance` | [doc](../../../../docs/mcp/tools/analysis/reversal_distance.md) |
 | `rna_complement_base` | Analysis | `RnaSecondaryStructure.GetComplement` | [doc](../../../../docs/mcp/tools/analysis/rna_complement_base.md) |
+| `run_mummer1` | Analysis | `MummerRunPrograms.RunMummer1` | [doc](../../../../docs/mcp/tools/analysis/run_mummer1.md) |
 | `scan_with_alphabet_pwm` | Analysis | `MotifFinder.ScanWithAlphabetPwm` | [doc](../../../../docs/mcp/tools/analysis/scan_with_alphabet_pwm.md) |
 | `scan_with_pwm` | Analysis | `MotifFinder.ScanWithPwm` | [doc](../../../../docs/mcp/tools/analysis/scan_with_pwm.md) |
 | `scan_with_pwm_both_strands` | Analysis | `MotifFinder.ScanWithPwmBothStrands` | [doc](../../../../docs/mcp/tools/analysis/scan_with_pwm_both_strands.md) |

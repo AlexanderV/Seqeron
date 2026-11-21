@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "mummer_gaps",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MummerGaps.Run",
+  "docRef": "MummerGaps.cs",
+  "description": "MUMmer 3.23 gaps: reads a list of matches between two strings (start1 start2 length, as mummer prints them without the header lines; text that is not a number is refused - the program loops forever on it - and an empty list too - the program crashes) and prints first the longest consistent set of matches (ordered along both strings; overlaps are cut off: the overlap column shows the cut) after '> fileName [reverse] Consistent matches', then all the other matches after '> fileName [reverse] Other matches', in the format of mgaps: start1 start2 length overlap gap1 gap2 (the first line of a block has none - -; the other matches show a gap only after a match they chain to). Ties in the second start keep their input order. reverseComplement (-r) writes 'reverse' into the header lines, which mummer-annotate reads. Byte for byte equal to the installed gaps on 259 random match lists (+ the empty-list crash).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "matches": {
+        "type": "string",
+        "description": "The matches: white-space separated numbers, three per match."
+      },
+      "fileName": {
+        "type": "string",
+        "description": "The first argument of the program, printed in the header lines (the file name of the first sequence).",
+        "default": "reference.fa"
+      },
+      "reverseComplement": {
+        "type": "boolean",
+        "description": "The second argument -r: the header lines read 'reverse' (default false).",
+        "default": false
+      }
+    },
+    "required": [
+      "matches"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "text": {
+        "type": "string",
+        "description": "What gaps writes to standard output."
+      }
+    },
+    "required": [
+      "text"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Matches cannot be null or empty"
+    },
+    {
+      "code": 1001,
+      "message": "gaps: the input contains '...': the program loops forever on text that is not a number."
+    },
+    {
+      "code": 1001,
+      "message": "gaps: no matches (the program dereferences a null array and crashes)."
+    }
+  ],
+  "examples": [
+    {
+      "name": "Consistent and other matches",
+      "input": {
+        "matches": "       3         9        20\n      40        50        15\n      70        80        30\n      30        20         5\n",
+        "fileName": "g1.fa",
+        "reverseComplement": true
+      },
+      "output": {
+        "text": "> g1.fa reverse Consistent matches\n       3        9     20    none      -      -\n      40       50     15    none     17     21\n      70       80     30    none     15     15\n> g1.fa reverse Other matches\n      30       20      5    none      -      -\n"
+      }
+    }
+  ]
+}

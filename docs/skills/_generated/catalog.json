@@ -686,6 +686,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L649"
   },
   {
+    "tool": "delta2blocks",
+    "server": "Analysis",
+    "methodId": "MummerDelta2Blocks.Run",
+    "docPath": "docs/mcp/tools/analysis/delta2blocks.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/MummerGaps.cs"
+  },
+  {
     "tool": "delta_filter",
     "server": "Analysis",
     "methodId": "MummerDeltaFilter.Run",
@@ -1372,6 +1379,20 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/MummerProgram.cs"
   },
   {
+    "tool": "mummer_annotate",
+    "server": "Analysis",
+    "methodId": "MummerAnnotate.Run",
+    "docPath": "docs/mcp/tools/analysis/mummer_annotate.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/MummerAnnotate.cs"
+  },
+  {
+    "tool": "mummer_gaps",
+    "server": "Analysis",
+    "methodId": "MummerGaps.Run",
+    "docPath": "docs/mcp/tools/analysis/mummer_gaps.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/MummerGaps.cs"
+  },
+  {
     "tool": "nucmer",
     "server": "Analysis",
     "methodId": "GenomicAnalyzer.Nucmer",
@@ -1510,6 +1531,13 @@
     "methodId": "RnaSecondaryStructure.GetComplement",
     "docPath": "docs/mcp/tools/analysis/rna_complement_base.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L455"
+  },
+  {
+    "tool": "run_mummer1",
+    "server": "Analysis",
+    "methodId": "MummerRunPrograms.RunMummer1",
+    "docPath": "docs/mcp/tools/analysis/run_mummer1.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/MummerRunPrograms.cs"
   },
   {
     "tool": "scan_with_alphabet_pwm",

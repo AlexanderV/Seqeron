@@ -20,3 +20,9 @@ public record Est2genomeToolResult(string Text, string Messages);
 
 /// <summary>Result of <c>promer</c>: the text of the <c>.delta</c> file (or of the <c>.cluster</c> file with <c>delta = false</c>), the optional coords file, what the programs write to standard error and the temporary files of the script (<c>.aaref</c>, <c>.aaqry</c>, <c>.mgaps</c>), which the script deletes.</summary>
 public record PromerToolResult(string? Delta, string? Cluster, string Messages, string? Coords, string AminoReference, string AminoQuery, string Mgaps);
+
+/// <summary>Result of <c>mummer_annotate</c>: standard output and the file <c>witherrors.gaps</c> the program writes.</summary>
+public record MummerAnnotateToolResult(string Text, string WithErrors);
+
+/// <summary>Result of <c>run_mummer1</c>: the files of the script (<c>.out</c>, <c>.gaps</c>, <c>.align</c>, <c>.errorsgaps</c>).</summary>
+public record RunMummer1ToolResult(string Out, string Gaps, string Align, string ErrorsGaps);

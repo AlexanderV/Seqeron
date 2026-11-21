@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "mummer_annotate",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MummerAnnotate.Run",
+  "docRef": "MummerAnnotate.cs",
+  "description": "MUMmer 3.23 mummer-annotate (annotate): reads the output of gaps (the first sequence is named on its '>' lines - supply it in files by that name - and the word 'reverse' there reverse-complements the query), repeats the gap file and, under every gap line, prints the edit-distance alignment of the stretch between the two matches (10 bases of each flanking match included): '    Errors = n' and the rows 'T:' (first sequence) / 'S:' (query) / mismatch marks, 60 columns per block; a gap longer than 10 000 prints '*** Too long ***'. withErrors is the file witherrors.gaps the program writes: the gap lines with the number of errors appended. A window that reaches before the first base of a sequence reads memory in front of the program's buffer (valgrind: invalid read) and is refused with an error; beyond the end the buffer holds zeros. Byte for byte equal to the installed program on 230 + runs.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "gaps": {
+        "type": "string",
+        "description": "The gap file text (the output of mummer_gaps)."
+      },
+      "dataFasta": {
+        "type": "string",
+        "description": "The data file (the query): its first record is used."
+      },
+      "files": {
+        "type": "object",
+        "description": "The FASTA texts of the files named on the '>' lines of the gap file, by name."
+      }
+    },
+    "required": [
+      "gaps",
+      "dataFasta",
+      "files"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "text": {
+        "type": "string",
+        "description": "What mummer-annotate writes to standard output."
+      },
+      "withErrors": {
+        "type": "string",
+        "description": "The file witherrors.gaps."
+      }
+    },
+    "required": [
+      "text",
+      "withErrors"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Gap file text cannot be null or empty"
+    },
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1001,
+      "message": "mummer-annotate: a gap window reaches before the first base of a sequence; ... (undefined behaviour)."
+    }
+  ],
+  "examples": [
+    {
+      "name": "Align the gap between two matches",
+      "input": {
+        "gaps": "> ref.fa  Consistent matches\n       6        1     65    none      -      -\n      75       70     66    none      4      4\n> ref.fa  Other matches\n",
+        "dataFasta": ">qry\nAGACAATTACATAACATACACGTCAGCACGAAACTTGTTGGCCCAGTGTGAATCGCTTAAGGGTTGGGGAAGTGTGATGCATACGCCTTTACTTGCTGTGTCCACCCCATCGGACTGGCATTTTTATTACACTCA\n",
+        "files": {
+          "ref.fa": ">ref\nGCTAAAGACAATTACATAACATACACGTCAGCACGAAACTTGTTGGCCCAGTGTGAATCGCTTAAGGGTTAAGTAAGTGTGATGCATACGCCTTTACTTGCTGTGTCCACCCCATCGGACTGGCATTTTTATTACACTCA\n"
+        }
+      },
+      "output": {
+        "text": "> ref.fa  Consistent matches\n       6        1     65    none      -      -\n      75       70     66    none      4      4\n    Errors = 3\nT:  cttaagggttaagtaagtgtgatg\nS:  cttaagggttggggaagtgtgatg\n              ^^ ^          \n> ref.fa  Other matches\n",
+        "withErrors": "> ref.fa  Consistent matches\n       6        1     65    none      -      -\n      75       70     66    none      4      4       3\n> ref.fa  Other matches\n"
+      }
+    }
+  ]
+}

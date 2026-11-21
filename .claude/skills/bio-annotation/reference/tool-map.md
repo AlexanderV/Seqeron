@@ -103,6 +103,10 @@ Servers: `A` = Annotation, `X` = Analysis. `⚠` = guarded / documented-limited 
 | `dnadiff` | X | MUMmer 3.23 dnadiff: nucmer --maxmatch + delta-filter + show-coords / show-snps / show-diff and the report of two sequence sets. | `GenomicAnalyzer.Dnadiff` |
 | `mummer` | X | MUMmer mummer: maximal exact matches (-mum / -mumreference / -maxmatch, -n -l -b -r -s -c -F -L), byte for byte. | `MummerProgram.Run` |
 | `promer` | X | MUMmer promer: six-frame amino-acid alignments (BLOSUM 45 / 62 / 80) of two DNA files, delta file byte for byte. | `PromerProgram.Run` |
+| `mummer_gaps` | X | MUMmer gaps: longest consistent set of matches and the others (mgaps format), byte for byte. | `MummerGaps.Run` |
+| `delta2blocks` | X | MUMmer delta2blocks: alignments of a nucmer delta file as CIGAR lines (M / X / I / D). | `MummerDelta2Blocks.Run` |
+| `mummer_annotate` | X | MUMmer mummer-annotate: edit-distance alignment of the gaps of a gaps file with the error counts. | `MummerAnnotate.Run` |
+| `run_mummer1` | X | MUMmer run-mummer1: mummer -mum -l 20 -r | gaps | mummer-annotate script, files .out .gaps .align .errorsgaps. | `MummerRunPrograms.RunMummer1` |
 | `est2genome` | X | EMBOSS 6.6.0 est2genome: the spliced alignment of ESTs to a genomic sequence (exons, GT/AG and CT/AC introns, both strands, linear-space recursion; 330 runs equal). | `EmbossEst2genomePrograms.Run` |
 | `find_shared_motifs` | X | k-mers shared across sequences | `MotifFinder.FindSharedMotifs` |
 | `shared_motifs_significance` | X | Shared k-mers with RSAT ms_P/ms_E/ms_sig significance; degenerate words (-oneN/-onedeg) | `MotifFinder.FindSharedMotifs` (RSAT overloads) |

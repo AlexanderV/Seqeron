@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "run_mummer1",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MummerRunPrograms.RunMummer1",
+  "docRef": "MummerRunPrograms.cs",
+  "description": "MUMmer 3.23 run-mummer1, the 'severely antiquated' script that runs the mummer 1 suite: mummer -mum -l 20 -r (reverse-complement matches only; the first output line is dropped) | gaps | mummer-annotate. reference and query are single-sequence FASTA texts; referenceName is the file name printed in the gaps file. Returns the files of the script: out (matches), gaps, align (the gaps with their alignments) and errorsGaps (the gaps with the number of errors). Without reverse (the script's fourth argument -r) the script passes an empty argument to mummer, which fails, and the tool refuses; a query with a second record makes gaps loop forever (refused), no match makes gaps crash (refused). Byte for byte equal to the installed script on 55 + runs.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "reference": {
+        "type": "string",
+        "description": "Reference FASTA text (one sequence)."
+      },
+      "query": {
+        "type": "string",
+        "description": "Query FASTA text (one sequence)."
+      },
+      "referenceName": {
+        "type": "string",
+        "description": "The reference file name as the script receives it (printed in the gaps file).",
+        "default": "reference.fa"
+      },
+      "prefix": {
+        "type": "string",
+        "description": "The prefix of the output files (names the files in the result).",
+        "default": "out"
+      },
+      "reverse": {
+        "type": "boolean",
+        "description": "The fourth argument -r (default true; without it the script fails).",
+        "default": true
+      }
+    },
+    "required": [
+      "reference",
+      "query"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "out": {
+        "type": "string",
+        "description": "The matches (prefix.out)."
+      },
+      "gaps": {
+        "type": "string",
+        "description": "The gaps file (prefix.gaps)."
+      },
+      "align": {
+        "type": "string",
+        "description": "The alignments of the gaps (prefix.align)."
+      },
+      "errorsGaps": {
+        "type": "string",
+        "description": "The gaps file with error counts (prefix.errorsgaps)."
+      }
+    },
+    "required": [
+      "out",
+      "gaps",
+      "align",
+      "errorsGaps"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1001,
+      "message": "/usr/bin/mummer: cannot open file \"\" or file \"\" is empty (without -r ...)"
+    },
+    {
+      "code": 1001,
+      "message": "gaps: no matches (the program dereferences a null array and crashes)."
+    }
+  ],
+  "examples": [
+    {
+      "name": "Reverse matches of a query",
+      "input": {
+        "reference": ">r\nacgtacgtacgtacgtacgtacgtacgtacgtacgtacgt\n",
+        "query": ">q\nacgt\n",
+        "reverse": false
+      },
+      "output": {}
+    }
+  ]
+}

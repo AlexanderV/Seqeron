@@ -84,4 +84,86 @@ public partial class AnalysisTools
         }, cancellationToken);
         return new PromerToolResult(r.Delta, r.Cluster, r.Messages, r.Coords, r.AminoReference, r.AminoQuery, r.Mgaps);
     }
+
+    [McpServerTool(Name = "mummer_gaps", Title = "Genome — MUMmer gaps (consistent matches)", ReadOnly = true)]
+    [Description("MUMmer 3.23 gaps: reads a list of matches between two strings (start1 start2 length, as mummer prints them without the header lines; text that is not a number is refused - the program loops forever on it - and an empty list too - the program crashes) and prints first the longest consistent set of matches (ordered along both strings; overlaps are cut off: the overlap column shows the cut) after '> fileName [reverse] Consistent matches', then all the other matches after '> fileName [reverse] Other matches', in the format of mgaps: start1 start2 length overlap gap1 gap2 (the first line of a block has none - -; the other matches show a gap only after a match they chain to). Ties in the second start keep their input order. reverseComplement (-r) writes 'reverse' into the header lines, which mummer-annotate reads. Byte for byte equal to the installed gaps on 259 random match lists (+ the empty-list crash).")]
+    public static MummerTextResult MummerGaps(
+        [Description("The matches: white-space separated numbers, three per match.")] string matches,
+        [Description("The first argument of the program, printed in the header lines (the file name of the first sequence).")] string fileName = "reference.fa",
+        [Description("The second argument -r: the header lines read 'reverse' (default false).")] bool reverseComplement = false)
+    {
+        if (string.IsNullOrWhiteSpace(matches))
+            throw new ArgumentException("Matches cannot be null or empty", nameof(matches));
+        return new MummerTextResult(global::Seqeron.Genomics.Alignment.MummerGaps.Run(fileName, reverseComplement, matches));
+    }
+
+    [McpServerTool(Name = "delta2blocks", Title = "Genome — MUMmer delta2blocks (CIGAR blocks)", ReadOnly = true)]
+    [Description("delta2blocks of the Debian MUMmer 3.23 package: the alignments of a nucmer delta file between one reference record and one query record as one line each, 'refId qryId sR eR sQ eQ CIGAR', the CIGAR written with M (matches), X (mismatches), I (an extra base in the reference, a positive delta) and D (an extra base in the query, a negative delta); the coordinates are those of the delta file (a reverse-strand alignment has sR > eR / sQ > eQ and is compared on the reverse complement). sortByReference (-r) / sortByQuery (-q) order the alignments. The sequences are read from the FASTA texts named in the delta header. A promer delta file is refused (the program reads the sequences through a null pointer and crashes). Byte for byte equal to the installed delta2blocks on 226 + runs.")]
+    public static MummerProgramResult Delta2Blocks(
+        [Description("Delta file text (nucmer).")] string delta,
+        [Description("Reference FASTA text.")] string referenceFasta,
+        [Description("Query FASTA text.")] string queryFasta,
+        [Description("Reference record id.")] string referenceId,
+        [Description("Query record id.")] string queryId,
+        [Description("-q: sort the alignments by the query start (default false).")] bool sortByQuery = false,
+        [Description("-r: sort the alignments by the reference start (default false).")] bool sortByReference = false)
+    {
+        if (string.IsNullOrEmpty(delta))
+            throw new ArgumentException("Delta file text cannot be null or empty", nameof(delta));
+        try
+        {
+            var r = MummerDelta2Blocks.Run(delta, referenceFasta, queryFasta, referenceId, queryId, new MummerShowAlignsOptions { SortByQuery = sortByQuery, SortByReference = sortByReference });
+            return new MummerProgramResult(r.Text, r.Messages);
+        }
+        catch (InvalidOperationException e)
+        {
+            throw new NotSupportedException(e.Message, e);
+        }
+    }
+
+    [McpServerTool(Name = "mummer_annotate", Title = "Genome — MUMmer mummer-annotate (gap alignments)", ReadOnly = true)]
+    [Description("MUMmer 3.23 mummer-annotate (annotate): reads the output of gaps (the first sequence is named on its '>' lines - supply it in files by that name - and the word 'reverse' there reverse-complements the query), repeats the gap file and, under every gap line, prints the edit-distance alignment of the stretch between the two matches (10 bases of each flanking match included): '    Errors = n' and the rows 'T:' (first sequence) / 'S:' (query) / mismatch marks, 60 columns per block; a gap longer than 10 000 prints '*** Too long ***'. withErrors is the file witherrors.gaps the program writes: the gap lines with the number of errors appended. A window that reaches before the first base of a sequence reads memory in front of the program's buffer (valgrind: invalid read) and is refused with an error; beyond the end the buffer holds zeros. Byte for byte equal to the installed program on 230 + runs.")]
+    public static MummerAnnotateToolResult MummerAnnotate(
+        [Description("The gap file text (the output of mummer_gaps).")] string gaps,
+        [Description("The data file (the query): its first record is used.")] string dataFasta,
+        [Description("The FASTA texts of the files named on the '>' lines of the gap file, by name.")] Dictionary<string, string> files)
+    {
+        if (string.IsNullOrEmpty(gaps))
+            throw new ArgumentException("Gap file text cannot be null or empty", nameof(gaps));
+        if (string.IsNullOrEmpty(dataFasta))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(dataFasta));
+        try
+        {
+            var r = global::Seqeron.Genomics.Alignment.MummerAnnotate.Run(gaps, dataFasta, files ?? []);
+            return new MummerAnnotateToolResult(r.Text, r.WithErrors);
+        }
+        catch (InvalidOperationException e)
+        {
+            throw new NotSupportedException(e.Message, e);
+        }
+    }
+
+    [McpServerTool(Name = "run_mummer1", Title = "Genome — MUMmer run-mummer1 (mummer 1 suite)", ReadOnly = true)]
+    [Description("MUMmer 3.23 run-mummer1, the 'severely antiquated' script that runs the mummer 1 suite: mummer -mum -l 20 -r (reverse-complement matches only; the first output line is dropped) | gaps | mummer-annotate. reference and query are single-sequence FASTA texts; referenceName is the file name printed in the gaps file. Returns the files of the script: out (matches), gaps, align (the gaps with their alignments) and errorsGaps (the gaps with the number of errors). Without reverse (the script's fourth argument -r) the script passes an empty argument to mummer, which fails, and the tool refuses; a query with a second record makes gaps loop forever (refused), no match makes gaps crash (refused). Byte for byte equal to the installed script on 55 + runs.")]
+    public static RunMummer1ToolResult RunMummer1(
+        [Description("Reference FASTA text (one sequence).")] string reference,
+        [Description("Query FASTA text (one sequence).")] string query,
+        [Description("The reference file name as the script receives it (printed in the gaps file).")] string referenceName = "reference.fa",
+        [Description("The prefix of the output files (names the files in the result).")] string prefix = "out",
+        [Description("The fourth argument -r (default true; without it the script fails).")] bool reverse = true)
+    {
+        if (string.IsNullOrEmpty(reference))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(reference));
+        if (string.IsNullOrEmpty(query))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(query));
+        try
+        {
+            var r = MummerRunPrograms.RunMummer1(reference, query, referenceName, prefix, reverse);
+            return new RunMummer1ToolResult(r.Out, r.Gaps, r.Align, r.ErrorsGaps);
+        }
+        catch (InvalidOperationException e)
+        {
+            throw new NotSupportedException(e.Message, e);
+        }
+    }
 }

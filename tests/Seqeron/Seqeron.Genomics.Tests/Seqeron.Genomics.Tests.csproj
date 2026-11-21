@@ -78,6 +78,8 @@
     <!-- A3-9d (B09 F205): promer (script + prepro / mummer / mgaps / postpro) and the delta programs on PROMER delta files; scripts/alignment/generate_promer_oracle.py, generate_promer_show_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\promer_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\promer_show_oracle.jsonl.gz" />
+    <!-- A3-9e (B09 F206): gaps, delta2blocks, mummer-annotate, run-mummer1; scripts/alignment/generate_mummer_gaps_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\mummer_gaps_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\est2genome_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\wordmatch_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\fuzznuc_dup_oracle.jsonl.gz" />

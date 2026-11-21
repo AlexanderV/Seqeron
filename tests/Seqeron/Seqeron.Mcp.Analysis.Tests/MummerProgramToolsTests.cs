@@ -66,4 +66,38 @@ public class MummerProgramToolsTests
             + "=====================================================================================================\n"
             + "      25   R L   19        |       15       19  |    1    1  |    QIRAV    QILAV  | -1 -1  ref\tqry\n      39   N W   33        |       31       33  |    1    1  |    GENSI    GEWSI  |  3  3  ref\tqry\n"));
     }
+
+    // gaps g1.fa -r, delta2blocks, mummer-annotate and run-mummer1 of MUMmer 3.23 on the three-substitution example (B09 A3-9e, F206)
+    private const string Ref1 = ">ref\nGCTAAAGACAATTACATAACATACACGTCAGCACGAAACTTGTTGGCCCAGTGTGAATCGCTTAAGGGTTAAGTAAGTGTGATGCATACGCCTTTACTTGCTGTGTCCACCCCATCGGACTGGCATTTTTATTACACTCA\n";
+    private const string Qry1 = ">qry\nAGACAATTACATAACATACACGTCAGCACGAAACTTGTTGGCCCAGTGTGAATCGCTTAAGGGTTGGGGAAGTGTGATGCATACGCCTTTACTTGCTGTGTCCACCCCATCGGACTGGCATTTTTATTACACTCA\n";
+
+    [Test]
+    public void MummerGaps_PrintsTheConsistentAndTheOtherMatches()
+    {
+        Assert.That(AnalysisTools.MummerGaps("       3         9        20\n      40        50        15\n      70        80        30\n      30        20         5\n", "g1.fa", true).Text,
+            Is.EqualTo("> g1.fa reverse Consistent matches\n       3        9     20    none      -      -\n      40       50     15    none     17     21\n      70       80     30    none     15     15\n> g1.fa reverse Other matches\n      30       20      5    none      -      -\n"));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.MummerGaps(" "));
+        Assert.Throws<FormatException>(() => AnalysisTools.MummerGaps("> q\n1 2 3\n"));
+    }
+
+    [Test]
+    public void Delta2Blocks_PrintsTheCigarOfEveryAlignment()
+    {
+        const string delta = "ref.fa qry.fa\nNUCMER\n>ref qry 140 135\n6 140 1 135 3 3 0\n0\n";
+        Assert.That(AnalysisTools.Delta2Blocks(delta, Ref1, Qry1, "ref", "qry").Text, Is.EqualTo("ref qry 6 140 1 135 65M2X1M1X66M\n"));
+        Assert.Throws<NotSupportedException>(() => AnalysisTools.Delta2Blocks("ref.fa qry.fa\nPROMER\n>ref qry 140 135\n6 140 1 135 3 3 0\n0\n", Ref1, Qry1, "ref", "qry"));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.Delta2Blocks("", Ref1, Qry1, "ref", "qry"));
+    }
+
+    [Test]
+    public void MummerAnnotate_AndRunMummer1_AlignTheGaps()
+    {
+        const string gaps = "> ref.fa  Consistent matches\n       6        1     65    none      -      -\n      75       70     66    none      4      4\n> ref.fa  Other matches\n";
+        var r = AnalysisTools.MummerAnnotate(gaps, Qry1, new Dictionary<string, string> { ["ref.fa"] = Ref1 });
+        Assert.That(r.Text, Is.EqualTo(gaps.Replace("      75       70     66    none      4      4\n", "      75       70     66    none      4      4\n    Errors = 3\nT:  cttaagggttaagtaagtgtgatg\nS:  cttaagggttggggaagtgtgatg\n              ^^ ^          \n", StringComparison.Ordinal)));
+        Assert.That(r.WithErrors, Is.EqualTo("> ref.fa  Consistent matches\n       6        1     65    none      -      -\n      75       70     66    none      4      4       3\n> ref.fa  Other matches\n"));
+        Assert.Throws<NotSupportedException>(() => AnalysisTools.MummerAnnotate("> ref.fa x\n   9   9  30  none  2  2\n", Qry1, new Dictionary<string, string> { ["ref.fa"] = Ref1 }));
+        Assert.Throws<FormatException>(() => AnalysisTools.RunMummer1(Ref1, Qry1, reverse: false));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.RunMummer1("", Qry1));
+    }
 }
