@@ -62,8 +62,11 @@ public partial class AnalysisTools
     public static EmbossReportFileResult EmbossReportFile(
         [Description("fuzznuc | fuzzpro | fuzztran | etandem | equicktandem.")] string program,
         [Description("The input file text: FASTA records (name = first word of the header, an accession-like second word is the accession, the rest the description).")] string fasta,
-        [Description("The pattern (fuzznuc / fuzzpro / fuzztran -pattern).")] string? pattern = null,
+        [Description("The pattern (fuzznuc / fuzzpro / fuzztran -pattern); give this or patternFile.")] string? pattern = null,
         [Description("fuzznuc -pmismatch.")] int maxMismatches = 0,
+        [Description("The TEXT of a pattern file (-pattern @file; A5-8c): one pattern per line, or FASTA style (>name, optionally '<mismatch=n>' after the name, then the pattern); every pattern is a row of the header table and has its own features.")] string? patternFile = null,
+        [Description("-pname: the pattern name (default 'pattern'; the lines of a simple file are numbered after it).")] string? patternName = null,
+        [Description("-pformat: simple (one pattern per line) or fasta; default: decided by the first line of the file.")] string? patternFormat = null,
         [Description("fuzznuc -complement.")] bool complement = false,
         [Description("fuzztran -frame: 1 2 3 -1 -2 -3 F R 6 (default 1).")] string frame = "1",
         [Description("fuzztran -table (0 = standard).")] int table = 0,
@@ -89,16 +92,16 @@ public partial class AnalysisTools
         switch (kind)
         {
             case "fuzznuc":
-                entries.Add(EmbossCommandLineEcho.Qualifier("pattern", RequireText(pattern, nameof(pattern))));
+                entries.AddRange(PatternEntries(pattern, patternFile, patternName, patternFormat));
                 entries.Add(Qualifier("pmismatch", maxMismatches));
                 if (complement)
                     entries.Add("-complement");
                 break;
             case "fuzzpro":
-                entries.Add(EmbossCommandLineEcho.Qualifier("pattern", RequireText(pattern, nameof(pattern))));
+                entries.AddRange(PatternEntries(pattern, patternFile, patternName, patternFormat));
                 break;
             case "fuzztran":
-                entries.AddRange([EmbossCommandLineEcho.Qualifier("pattern", RequireText(pattern, nameof(pattern))), Qualifier("frame", frame), Qualifier("table", table)]);
+                entries.AddRange([.. PatternEntries(pattern, patternFile, patternName, patternFormat), Qualifier("frame", frame), Qualifier("table", table)]);
                 break;
             case "etandem":
             case "equicktandem":
@@ -113,11 +116,17 @@ public partial class AnalysisTools
         var request = new EmbossReportRequest(fasta, sequenceQualifiers, reportQualifiers, commandLine ?? [.. entries], date, fastaFile, reportFile, CancellationToken: cancellationToken);
         try
         {
+            IReadOnlyList<EmbossProgramPattern> patterns = [];
+            if (kind is "fuzznuc" or "fuzzpro" or "fuzztran")
+            {
+                string spec = patternFile is null ? pattern! : "@" + PatternFileName;
+                patterns = EmbossPatternList.Read(spec, patternName, patternFormat, kind == "fuzznuc" ? maxMismatches : 0, _ => patternFile ?? "");
+            }
             var result = kind switch
             {
-                "fuzznuc" => EmbossReportPrograms.Fuzznuc(request, pattern!, maxMismatches, complement),
-                "fuzzpro" => EmbossReportPrograms.Fuzzpro(request, pattern!),
-                "fuzztran" => EmbossReportPrograms.Fuzztran(request, pattern!, frame, table),
+                "fuzznuc" => EmbossReportPrograms.Fuzznuc(request, patterns, complement),
+                "fuzzpro" => EmbossReportPrograms.Fuzzpro(request, patterns),
+                "fuzztran" => EmbossReportPrograms.Fuzztran(request, patterns, frame, table),
                 "etandem" => EmbossReportPrograms.Etandem(request, minRepeat, maxRepeat ?? minRepeat, threshold, mismatch, uniform),
                 _ => EmbossReportPrograms.Equicktandem(request, maxRepeat ?? 600, threshold),
             };
@@ -129,10 +138,18 @@ public partial class AnalysisTools
         }
     }
 
-    private static string RequireText(string? value, string name)
+    private const string PatternFileName = "patterns.txt";
+
+    // -pattern (or -pattern @file) with its associated qualifiers as typed
+    private static List<string> PatternEntries(string? pattern, string? patternFile, string? patternName, string? patternFormat)
     {
-        if (string.IsNullOrWhiteSpace(value))
-            throw new ArgumentException("The program needs a pattern", name);
-        return value;
+        if (string.IsNullOrWhiteSpace(patternFile) == string.IsNullOrWhiteSpace(pattern))
+            throw new ArgumentException("Give exactly one of pattern and patternFile", nameof(pattern));
+        var entries = new List<string> { EmbossCommandLineEcho.Qualifier("pattern", string.IsNullOrWhiteSpace(patternFile) ? pattern! : "@" + PatternFileName) };
+        if (!string.IsNullOrEmpty(patternName))
+            entries.Add(EmbossCommandLineEcho.Qualifier("pname", patternName));
+        if (!string.IsNullOrEmpty(patternFormat))
+            entries.Add(EmbossCommandLineEcho.Qualifier("pformat", patternFormat));
+        return entries;
     }
 }

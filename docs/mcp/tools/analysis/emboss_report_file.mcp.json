@@ -20,12 +20,24 @@
       },
       "pattern": {
         "type": "string",
-        "description": "The pattern (fuzznuc / fuzzpro / fuzztran -pattern)."
+        "description": "The pattern (fuzznuc / fuzzpro / fuzztran -pattern); give this or patternFile."
       },
       "maxMismatches": {
         "type": "integer",
         "description": "fuzznuc -pmismatch.",
         "default": 0
+      },
+      "patternFile": {
+        "type": "string",
+        "description": "The TEXT of a pattern file (-pattern @file; A5-8c): one pattern per line, or FASTA style (>name, optionally '<mismatch=n>' after the name, then the pattern); every pattern is a row of the header table and has its own features."
+      },
+      "patternName": {
+        "type": "string",
+        "description": "-pname: the pattern name (default 'pattern'; the lines of a simple file are numbered after it)."
+      },
+      "patternFormat": {
+        "type": "string",
+        "description": "-pformat: simple (one pattern per line) or fasta; default: decided by the first line of the file."
       },
       "complement": {
         "type": "boolean",

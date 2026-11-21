@@ -76,4 +76,14 @@ public class MashReadsToolTests
         Assert.Throws<ArgumentOutOfRangeException>(() => AnalysisTools.MashDist([A], [A], k: 8, reads: true, targetCoverage: -1));
         Assert.Throws<ArgumentException>(() => AnalysisTools.MashDist([A], [A], k: 8, reads: true, individual: true));
     }
+
+    [Test]
+    public void FuzznucPatternFile_IsOnePatternPerRowOfTheHeader()
+    {
+        // fuzznuc -pattern @file on s1 ACGTACGTTTGACGTAAACCCGGGTTTACGTACGATCAAACCCGGGTTT with a FASTA style file with <mismatch=1> (A5-8c): measured with the installed 6.6.0
+        var r = AnalysisTools.EmbossReportFile("fuzznuc", ">s1 d1\nACGTACGTTTGACGTAAACCCGGGTTTACGTACGATCAAACCCGGGTTT\n", patternFile: ">pa<mismatch=1>\nCCCGGG\n>pb desc x\nACGT\n>pc\nTTT\n", complement: true, reportQualifiers: "-rformat seqtable");
+        Assert.That(r.Report, Does.Contain("# Pattern_name Mismatch Pattern\n# pa                  1 CCCGGG\n# pb desc x           0 ACGT\n# pc                  0 TTT\n"));
+        Assert.That(r.Report, Does.Contain("     19      24       + pa:CCCGGG             . CCCGGG\n").And.Contain("     16      18       - pc:TTT                . TTT\n").And.Contain("# HitCount: 17"));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.EmbossReportFile("fuzznuc", ">a\nACGT\n", "ACGT", patternFile: "ACGT\n"));
+    }
 }

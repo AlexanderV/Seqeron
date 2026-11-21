@@ -192,11 +192,13 @@ public static partial class GenomicAnalyzer
         string text, IEnumerable<NamedPattern> patterns, int maxMismatches, bool bothStrands, bool sequenceAmbiguity, CancellationToken cancellationToken)
     {
         var result = new Dictionary<string, IReadOnlyList<PatternHit>>(StringComparer.Ordinal);
-        foreach (var (name, pattern) in patterns)
+        foreach (var named in patterns)
         {
+            string name = named.Name;
             if (result.ContainsKey(name))
                 throw new ArgumentException($"Two patterns are named '{name}'.", nameof(patterns));
-            result[name] = SequenceTextHits(text, pattern, maxMismatches, bothStrands, sequenceAmbiguity, cancellationToken);
+            // a pattern read from a pattern file carries its own mismatches (<mismatch=n> of its header, else -pmismatch)
+            result[name] = SequenceTextHits(text, named.Pattern, named.Mismatch ?? maxMismatches, bothStrands, sequenceAmbiguity, cancellationToken);
         }
 
         return result;

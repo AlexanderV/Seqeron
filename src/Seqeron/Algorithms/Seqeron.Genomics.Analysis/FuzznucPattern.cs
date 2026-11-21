@@ -419,48 +419,27 @@ public sealed class FuzznucPattern
     }
 
     /// <summary>
-    /// Parses a fuzznuc pattern file (<c>-pattern @file</c>): one pattern per line, or FASTA style (<c>&gt;name</c> then the pattern). A file whose first
-    /// non-blank line starts with <c>&gt;</c> is read as FASTA: the name is the header up to the first blank, the pattern the following lines joined. Otherwise every non-blank
-    /// line is a pattern. Unnamed patterns are called <c>pattern1</c>, <c>pattern2</c>, … by their 1-based position (fuzznuc's report names; with <c>-pname</c> the prefix is replaced).
+    /// Parses a fuzznuc pattern file (<c>-pattern @file</c>) with <see cref="EmbossPatternList.Read"/> (the program's <c>ajPatlistSeqRead</c>): one pattern per line, or FASTA style (a <c>&gt;name</c> header, optionally
+    /// with <c>&lt;mismatch=n&gt;</c>, then the pattern over one or several lines); the first line decides unless the format is given. The name of a FASTA header is the whole header text; an unnamed pattern is called
+    /// <c>pattern&lt;n&gt;</c> (the lines of a simple file: <c>-pname</c> or <c>pattern</c> followed by the line number, blank lines counted); each pattern carries its mismatches.
     /// </summary>
     /// <param name="text">The file content.</param>
-    /// <param name="defaultName">Prefix of the generated names (fuzznuc <c>-pname</c>, default <c>pattern</c>).</param>
+    /// <param name="defaultName"><c>-pname</c> (null = not given).</param>
+    /// <param name="mismatches"><c>-pmismatch</c>: the mismatches of a pattern whose header has no <c>&lt;mismatch=n&gt;</c>.</param>
+    /// <param name="format"><c>-pformat</c>: <c>simple</c> or <c>fasta</c> (null = decided by the first line).</param>
     /// <exception cref="ArgumentNullException"><paramref name="text"/> is null.</exception>
     /// <exception cref="ArgumentException">A pattern is invalid (the message names its line).</exception>
-    public static IReadOnlyList<NamedPattern> ParsePatternFile(string text, string defaultName = "pattern")
+    public static IReadOnlyList<NamedPattern> ParsePatternFile(string text, string? defaultName = null, int mismatches = 0, string? format = null)
     {
         ArgumentNullException.ThrowIfNull(text);
-        ArgumentNullException.ThrowIfNull(defaultName);
-        var lines = text.Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0).ToList();
         var result = new List<NamedPattern>();
-        if (lines.Count == 0)
-            return result;
-
-        if (lines[0].StartsWith('>'))
+        foreach (var p in EmbossPatternList.Read("@file", defaultName, format, mismatches, _ => text))
         {
-            string? name = null;
-            var body = new StringBuilder();
-            foreach (var line in lines.Append(">"))
-            {
-                if (line.StartsWith('>'))
-                {
-                    if (body.Length > 0 || name is not null)
-                        result.Add(new NamedPattern(name ?? $"{defaultName}{result.Count + 1}", Parse(body.ToString())));
-                    string header = line[1..].Trim();
-                    name = header.Length == 0 ? null : string.Concat(header.TakeWhile(ch => !char.IsWhiteSpace(ch)));
-                    body.Clear();
-                }
-                else
-                {
-                    body.Append(line);
-                }
-            }
-
-            return result;
+            string trimmed = p.Pattern.Trim();
+            if (trimmed.Length > 0)
+                result.Add(new NamedPattern(p.Name, Parse(trimmed), p.Mismatch));
         }
 
-        foreach (var line in lines)
-            result.Add(new NamedPattern($"{defaultName}{result.Count + 1}", Parse(line)));
         return result;
     }
 }
@@ -519,4 +498,5 @@ public readonly record struct PatternExpansion(string Iupac, IReadOnlyList<int> 
 /// <summary>A pattern with the name fuzznuc reports for it (<c>pattern1</c>, or the FASTA header).</summary>
 /// <param name="Name">Pattern name.</param>
 /// <param name="Pattern">The parsed pattern.</param>
-public readonly record struct NamedPattern(string Name, FuzznucPattern Pattern);
+/// <param name="Mismatch">The mismatches this pattern allows (a pattern file header's <c>&lt;mismatch=n&gt;</c> or <c>-pmismatch</c>); null = the caller's default.</param>
+public readonly record struct NamedPattern(string Name, FuzznucPattern Pattern, int? Mismatch = null);

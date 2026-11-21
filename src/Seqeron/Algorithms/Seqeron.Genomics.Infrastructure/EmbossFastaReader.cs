@@ -117,6 +117,41 @@ public static class EmbossFastaReader
     public static (string Name, string Accession, string Description) ParseHeader(string header)
     {
         ArgumentNullException.ThrowIfNull(header);
+        var ncbi = EmbossNcbiHeader.Parse(header);
+        if (ncbi is not null)
+            return (SetName(ncbi.Id), ncbi.Accession, ncbi.Description);
+        return ParsePlainHeader(header);
+    }
+
+    // seqSetName (ajseqread.c): a word is split at ':' (the last non-empty part is kept) and ",/\\" become '_'; a non-word has its blanks / ",;:/\\" turned into '_'
+    internal static string SetName(string id)
+    {
+        if (id.Length == 0)
+            return "";
+        if (IsWord(id))
+        {
+            string last = "";
+            foreach (var part in id.Split(':'))
+                if (part.Length > 0)
+                    last = part;
+            return last.Replace(',', '_').Replace('/', '_').Replace('\\', '_');
+        }
+
+        var words = id.Split([' ', '\t', '\n', '\r'], StringSplitOptions.RemoveEmptyEntries);
+        return string.Join(' ', words).Replace(' ', '_').Replace(',', '_').Replace(';', '_').Replace(':', '_').Replace('/', '_').Replace('\\', '_');
+    }
+
+    // the id as ajSeqParseFasta stores it (before seqSetName)
+    internal static (string Name, string Accession, string Description) ParsePlainRaw(string header)
+    {
+        var (_, acc, desc) = ParsePlainHeader(header);
+        string line = header.TrimStart('>', ' ');
+        int sp = line.IndexOfAny(HeaderSeparators);
+        return (sp < 0 ? line : line[..sp], acc, desc);
+    }
+
+    private static (string Name, string Accession, string Description) ParsePlainHeader(string header)
+    {
         string line = header.TrimStart('>', ' ');
         int sp = line.IndexOfAny(HeaderSeparators);
         string id = sp < 0 ? line : line[..sp];
@@ -144,10 +179,7 @@ public static class EmbossFastaReader
             desc = Join(token, afterToken);
         }
 
-        string name = id;
-        if (!IsWord(id))
-            name = string.Join('_', id.Split(' ', StringSplitOptions.RemoveEmptyEntries));
-        return (name, acc, desc);
+        return (SetName(id), acc, desc);
     }
 
     private static string Join(string token, string rest)
@@ -164,6 +196,7 @@ public static class EmbossFastaReader
     {
         ArgumentNullException.ThrowIfNull(text);
         var records = new List<EmbossFastaRecord>();
+        int unnamed = 0;
         string? header = null;
         var body = new System.Text.StringBuilder();
         foreach (string raw in text.Split('\n'))
@@ -172,7 +205,7 @@ public static class EmbossFastaReader
             if (line.StartsWith('>'))
             {
                 if (header is not null)
-                    records.Add(Make(header, body.ToString()));
+                    records.Add(Make(header, body.ToString(), ref unnamed));
                 header = line;
                 body.Clear();
             }
@@ -181,13 +214,16 @@ public static class EmbossFastaReader
         }
 
         if (header is not null)
-            records.Add(Make(header, body.ToString()));
+            records.Add(Make(header, body.ToString(), ref unnamed));
         return records;
     }
 
-    private static EmbossFastaRecord Make(string header, string body)
+    // a sequence without a name is called EMBOSS_001, EMBOSS_002, ... in the order of the unnamed sequences of the input (measured)
+    private static EmbossFastaRecord Make(string header, string body, ref int unnamed)
     {
         var (name, acc, desc) = ParseHeader(header);
+        if (name.Length == 0)
+            name = "EMBOSS_" + (++unnamed).ToString("000", System.Globalization.CultureInfo.InvariantCulture);
         return new EmbossFastaRecord(name, acc, desc, body);
     }
 }

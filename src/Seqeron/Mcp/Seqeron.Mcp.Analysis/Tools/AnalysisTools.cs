@@ -806,7 +806,7 @@ public partial class AnalysisTools
                 throw new ArgumentException("Give exactly one of pattern and patternFile", nameof(pattern));
             var named = string.IsNullOrWhiteSpace(patternFile)
                 ? new[] { new NamedPattern("pattern1", FuzznucPattern.Parse(pattern!)) }
-                : FuzznucPattern.ParsePatternFile(patternFile).ToArray();
+                : FuzznucPattern.ParsePatternFile(patternFile, null, maxMismatches).ToArray();
             var qualifiedItems = named.SelectMany(p => GenomicAnalyzer.FindPatternHits(sequence, q, p.Pattern, maxMismatches, bothStrands, cancellationToken)
                 .Select(h => new PatternHitItem(p.Name, h.Position, h.Length, h.IsReverseStrand ? "reverse" : "forward", h.Mismatches))).ToArray();
             return new FindPatternHitsResult(named.ToDictionary(p => p.Name, p => p.Pattern.ToString()), qualifiedItems);
@@ -820,7 +820,7 @@ public partial class AnalysisTools
 
         var patterns = string.IsNullOrWhiteSpace(patternFile)
             ? new[] { new NamedPattern("pattern1", FuzznucPattern.Parse(pattern!)) }
-            : FuzznucPattern.ParsePatternFile(patternFile).ToArray();
+            : FuzznucPattern.ParsePatternFile(patternFile, null, maxMismatches).ToArray();
         var hits = GenomicAnalyzer.FindPatternHits(nucleotides, patterns, maxMismatches, bothStrands, cancellationToken, sequenceAmbiguity);
         var items = hits
             .SelectMany(kv => kv.Value.Select(h => new PatternHitItem(kv.Key, h.Position, h.Length, h.IsReverseStrand ? "reverse" : "forward", h.Mismatches)))

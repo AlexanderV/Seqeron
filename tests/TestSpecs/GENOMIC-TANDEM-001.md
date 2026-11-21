@@ -150,3 +150,9 @@ All M/S/C items ✅ covered (see §4); no ❌/⚠ remain.
 
 ## WP43 additions (A6-2 / A6-4 / A6-10)
 - etandem / equicktandem: the qualifier text rows (130 + 40 per program) of the ACD oracles; the gff / excel report rows (`EmbossReport_Oracle_Tests`, 120 runs each) and `EmbossReportWriter` are WP42 (A5-8); WP44 (A5-8b, F184): every `-rformat`, the report options, `-origfile` and the `-sbegin -send -sreverse` reports (`EmbossReportFormats_Oracle_Tests`: 100 files per program and format, 12 000 byte-equal; MCP `EmbossReportFileToolTests`); `EmbossNullContract_Tests` (null report fields, undefined format); MCP `EmbossReportSingleSearchTests.TandemRepeats_Report_RunsTheSearchOnce`.
+
+## Audit A5-8c (B09 F192): NCBI-style FASTA ids and pattern files
+
+| ID | Tests | Locks |
+|---|---|---|
+| A5-8c | `EmbossNcbiPattern_Oracle_Tests` (`ReportFile_EqualsEmboss` x 6, `TwoBarredTokens_LeaveTheSequenceUnnamed` x 2, `NcbiHeader_WorkedValues`, `PatternList_WorkedValues`); MCP `FuzznucPatternFile_IsOnePatternPerRowOfTheHeader` | 1 110 report files of fuzznuc / fuzzpro / fuzztran (24 formats) with NCBI-style headers and with pattern files (simple / FASTA style, `<mismatch=n>`, `-pname`, `-pformat`, `-pmismatch`) equal the installed 6.6.0; the header parser and the pattern list read as the program reads them |

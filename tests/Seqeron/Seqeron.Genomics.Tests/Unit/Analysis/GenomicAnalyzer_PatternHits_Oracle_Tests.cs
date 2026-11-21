@@ -218,9 +218,9 @@ public class GenomicAnalyzer_PatternHits_Oracle_Tests
     public void ParsePatternFile_PlainAndFasta()
     {
         var plain = FuzznucPattern.ParsePatternFile("ACGT\n\nTTGA\nA(2,3)C\n");
-        Assert.That(plain.Select(x => (x.Name, x.Pattern.ToString())), Is.EqualTo(new[] { ("pattern1", "ACGT"), ("pattern2", "TTGA"), ("pattern3", "AC(2,3)".Replace("AC(2,3)", "A(2,3)C")) }));
+        Assert.That(plain.Select(x => (x.Name, x.Pattern.ToString())), Is.EqualTo(new[] { ("pattern1", "ACGT"), ("pattern3", "TTGA"), ("pattern4", "A(2,3)C") }));   // the blank line counts (measured: ajPatlistSeqRead numbers the lines, ajPatternSeqNewList drops the empty one)
         var fasta = FuzznucPattern.ParsePatternFile(">p1 first\nACGT\n>p2\nTT\nGA\n>\nCC\n");
-        Assert.That(fasta.Select(x => (x.Name, x.Pattern.ToString())), Is.EqualTo(new[] { ("p1", "ACGT"), ("p2", "TTGA"), ("pattern3", "CC") }));
+        Assert.That(fasta.Select(x => (x.Name, x.Pattern.ToString())), Is.EqualTo(new[] { ("p1 first", "ACGT"), ("p2", "TTGA"), ("pattern3", "CC") }));   // the name is the whole header (measured)
         Assert.That(FuzznucPattern.ParsePatternFile("ACGT", "xx").Single().Name, Is.EqualTo("xx1"));
         Assert.That(FuzznucPattern.ParsePatternFile(" \n"), Is.Empty);
         Assert.Throws<ArgumentException>(() => FuzznucPattern.ParsePatternFile("ACGT\n[AC"));
