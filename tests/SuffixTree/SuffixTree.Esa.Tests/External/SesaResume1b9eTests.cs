@@ -146,6 +146,19 @@ public sealed class SesaResume1b9eTests
         return [SesaStages.Packed, SesaStages.Sa, SesaStages.Lcp, SesaStages.Psi];
     }
 
+    /// <summary>The stages that a run records when <paramref name="skipped"/> are found done: the ones that it runs.</summary>
+    internal static string[] RanWhenSkipping(IReadOnlyCollection<string> skipped, bool psi)
+    {
+        var ran = new List<string>();
+        if (!skipped.Contains("packed")) ran.Add("packed");
+        if (!skipped.Contains("sa") && !skipped.Contains("ranks")) ran.Add("ranks");
+        if (!skipped.Contains("sa")) ran.Add("sa");
+        if (!skipped.Contains("lcp")) ran.Add("lcp");
+        if (psi && !skipped.Contains("psi") && !skipped.Contains("bwt")) ran.Add("bwt");
+        if (psi && !skipped.Contains("psi")) ran.Add("psi");
+        return [.. ran];
+    }
+
     private static void AssertOnlyTarget(ResumeCase c, string label)
     {
         Assert.That(c.Entries, Is.EqualTo(new[] { "x.sesa" }), $"{label}: nothing but the target is left (no temporary file, scratch, state or lock)");
@@ -300,6 +313,7 @@ public sealed class SesaResume1b9eTests
         AssertSame(c, Reference(s_text, psi), $"{point} psi {psi} {first}->{second} threads");
         AssertOnlyTarget(c, point);
         Assert.That(r.Resume!.Skipped, Is.EqualTo(done), $"{point}: the stages that were not run again");
+        Assert.That(r.Resume.Checkpoints.Select(x => x.Stage), Is.EqualTo(RanWhenSkipping(done, psi)), $"{point}: and the stages that were run are exactly the others");
         Assert.That(r.Resume.Accepted, Is.EqualTo(done.Length > 0));
         Assert.That(seen, Is.EqualTo(psi ? HookNames : HookNames.Where(h => h is not (SesaHooks.BwtBuilt or SesaHooks.PsiBuilt))), "every boundary is reached, by running the stage or by finding it done");
         Assert.That(counters.ScratchLiveBytes, Is.Zero, "the scratch on the account is back to zero");
@@ -319,6 +333,7 @@ public sealed class SesaResume1b9eTests
         AssertSame(c, Reference(s_text), trace);
         AssertOnlyTarget(c, trace);
         Assert.That(r.Resume!.Skipped, Is.EqualTo(done), trace);
+        Assert.That(r.Resume.Checkpoints.Select(x => x.Stage), Is.EqualTo(RanWhenSkipping(done, true)), trace);
     }
 
     [Test]
@@ -332,6 +347,7 @@ public sealed class SesaResume1b9eTests
         Assert.That(r.Resume!.Skipped, Is.EqualTo(new[] { SesaStages.Packed, SesaStages.Sa }));
         Assert.That(r.Sa.Ph23Seconds, Is.Zero, "PH2 and PH3 did not run");
         Assert.That(r.Lcp.Seconds, Is.GreaterThan(0), "PH4 and PH5 did");
+        Assert.That(r.Resume.Checkpoints.Select(x => x.Stage), Is.EqualTo(new[] { "lcp", "bwt", "psi" }));
     }
 
     [Test]
@@ -829,6 +845,48 @@ public sealed class SesaResume1b9eTests
         AssertOnlyTarget(c, $"'{text}' after {point}");
     }
 
+    [Test]
+    public void ARankFileThatIsKept_SurvivesAFailureOfTheResumedRunInPh3_AndIsReusedAgain()
+    {
+        using var c = new ResumeCase(s_text);
+        SesaBuildOptions FailInPh3(SesaBuildOptions o) => o with { SaTrace = FailAtTraceInPh3("leaf") };
+        Assert.Throws<InjectedFailureException>(() => SesaBuilder.Build(c.Input, c.Target, FailInPh3(Opts(3, 2))));
+        Assert.Throws<InjectedFailureException>(() => SesaBuilder.Build(c.Input, c.Target, FailInPh3(Opts(3, 2))), "the second run reuses the ranks and fails in PH3 itself");
+        Assert.That(File.Exists(Path.Combine(c.Scratch, "ranks.bin")), Is.True, "its failure did not delete the rank file that the state vouches for");
+        SesaBuildResult r = SesaBuilder.Build(c.Input, c.Target, Opts(3, 2));
+        AssertSame(c, Reference(s_text), "two failures in PH3");
+        Assert.That(r.Resume!.Skipped, Is.EqualTo(new[] { "packed", "ranks" }));
+        Assert.That(r.Resume.Checkpoints.Select(x => x.Stage), Is.EqualTo(new[] { "sa", "lcp", "bwt", "psi" }));
+    }
+
+    [Test]
+    public void AResumedBuild_RemovesWhatItDoesNotKeep_AndRewritesTheState_BeforeItRunsAnyStage()
+    {
+        using var c = new ResumeCase(s_text);
+        Fails(c, Opts(3, 2), SesaHooks.LcpChildBuilt);
+        SesaPlan plan = PlanOf(c, true);
+        FlipByte(c.Tmp, plan.SaOffset + (plan.SaLength / 2)); // the SA does not verify: only PH0 is kept
+        File.WriteAllText(Path.Combine(c.Scratch, "junk.bin"), "x");
+        Directory.CreateDirectory(Path.Combine(c.Scratch, "ph6"));
+        File.WriteAllText(Path.Combine(c.Scratch, "ph6", "bwt.bin"), "a BWT file of a stage that is not kept");
+        string[] stagesAtCreated = [];
+        bool junkAtCreated = true, bwtAtCreated = true;
+        SesaBuilder.Build(c.Input, c.Target, Opts(3, 2) with
+        {
+            Hook = p =>
+            {
+                if (p != SesaHooks.Created) return;
+                junkAtCreated = File.Exists(Path.Combine(c.Scratch, "junk.bin"));
+                bwtAtCreated = Directory.Exists(Path.Combine(c.Scratch, "ph6"));
+                Assert.That(SesaResumeFormat.TryParse(File.ReadAllBytes(c.State), out SesaResumeState? s), Is.True);
+                stagesAtCreated = [.. s!.Stages.Select(x => x.Name)];
+            },
+        });
+        Assert.That((junkAtCreated, bwtAtCreated), Is.EqualTo((false, false)), "what the stages that are not kept left was removed before anything ran");
+        Assert.That(stagesAtCreated, Is.EqualTo(new[] { "packed" }), "and the state on the disk names only what is kept");
+        AssertSame(c, Reference(s_text), "damaged SA");
+    }
+
     // ------------------------------------------------------------------ the numbers of a skipped stage reach the result and the header
 
     [Test]
@@ -847,6 +905,9 @@ public sealed class SesaResume1b9eTests
             Assert.That(b.Header.NodeCount, Is.EqualTo(a.Header.NodeCount));
             Assert.That(b.Sections.Select(s => (s.Kind, s.Offset, s.Length, s.Crc)), Is.EqualTo(a.Sections.Select(s => (s.Kind, s.Offset, s.Length, s.Crc))));
             Assert.That(b.CrcRows.Count, Is.EqualTo(a.CrcRows.Count));
+            Assert.That(b.Sa.Parameters, Is.EqualTo(a.Sa.Parameters), "the sizes that a skipped stage reports are those of this run's options");
+            Assert.That(b.Lcp.Parameters, Is.EqualTo(a.Lcp.Parameters));
+            Assert.That(b.Resume.Checkpoints, Is.Empty, "nothing was run, so nothing was recorded");
             Assert.That(b.Sa.Ph1Seconds + b.Sa.Ph23Seconds, Is.Zero, "the suffix array was not built by this run");
             Assert.That(b.Seconds.Ph45 + b.Seconds.Bwt + b.Seconds.Psi, Is.Zero, "nor the rest");
             Assert.That(b.Seconds.Total, Is.GreaterThan(0));

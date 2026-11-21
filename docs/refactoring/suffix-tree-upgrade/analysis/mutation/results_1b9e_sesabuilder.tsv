@@ -1,0 +1,56 @@
+B01	a resume build takes no lock	killed(2 failed: AStaleLockFile_FromAKilledBuild_DoesNotBlock_AndIsRemoved,TwoResumableBuildsOfOneTarget_TheSecondFailsFast_AndTouchesN)[only]			45
+B14	the packing is always done	survived			31
+B02	every build takes the lock	killed(2 failed: ABuildWithoutResume_TakesNoLock_SoItDoesNotCollideWithTheHol,TheDefaultBuild_WritesNoStateFile_TakesNoLock_AndFlushesTwic)[only]			30
+B15	the packing is not recorded	killed(208 failed: ABuildThatIsStoppedAtEveryBoundaryInTurn_IsFinishedByTheLast,ABwtFileOfAnEarlierRun_IsOnTheLedgerOfTheResumedRun_AndItsCo,AContainerThatIsGrownAndWhoseLcpStageIsDone_IsNotGrownAgain()[only]			30
+B03	the lock has another name	killed(2 failed: AStaleLockFile_FromAKilledBuild_DoesNotBlock_AndIsRemoved,TwoResumableBuildsOfOneTarget_TheSecondFailsFast_AndTouchesN)[only]			31
+B04	the state is not loaded	killed(244 failed: ABuildThatFinished_AndALeftoverScratchAfterTheRename_StartCl,ABuildThatIsStoppedAtEveryBoundaryInTurn_IsFinishedByTheLast,ABwtFileOfAnEarlierRun_IsOnTheLedgerOfTheResumedRun_AndItsCo)[only]			23
+B16	the packing is recorded also when it was kept	survived			30
+B05	the pre-flight of a resume is the pre-flight of a fresh build	killed(2 failed: AResumeNeedsLessFreeSpaceThanAFreshBuild_AndRefusesBelowItsO,TheFreeSpaceOfAResume_CountsWhatIsFreedFirst_ThePartOfTheCon)[only]			30
+B17	the suffix array is always built	killed(4 failed: AFailureInsidePh4_ThenAResume_RunsPh4Again_FromTheSuffixArra,AFailureInsidePh4_ThenAResume_RunsPh4Again_FromTheSuffixArra,AFailureInsidePh4_ThenAResume_RunsPh4Again_FromTheSuffixArra)[only]			32
+B06	the pre-flight of a resume does not count what is freed	killed(1 failed: TheFreeSpaceOfAResume_CountsWhatIsFreedFirst_ThePartOfTheCon)[only]			31
+B18	the checkpoint of PH1-PH3 is not given	killed(186 failed: ABuildThatIsStoppedAtEveryBoundaryInTurn_IsFinishedByTheLast,ABwtFileOfAnEarlierRun_IsOnTheLedgerOfTheResumedRun_AndItsCo,AContainerThatIsGrownAndWhoseLcpStageIsDone_IsNotGrownAgain()[only]			36
+B07	the pre-flight of a resume refuses at the need	killed(2 failed: AResumeNeedsLessFreeSpaceThanAFreshBuild_AndRefusesBelowItsO,TheFreeSpaceOfAResume_CountsWhatIsFreedFirst_ThePartOfTheCon)[only]			30
+B19	PH4-PH5 is always run	killed(2 failed: AResumeNeedsLessFreeSpaceThanAFreshBuild_AndRefusesBelowItsO,TheResultOfAResumedBuild_CarriesTheNumbersOfTheSkippedStages)[only]			30
+B08	the pre-flight of a resume is not made	killed(2 failed: AResumeNeedsLessFreeSpaceThanAFreshBuild_AndRefusesBelowItsO,TheFreeSpaceOfAResume_CountsWhatIsFreedFirst_ThePartOfTheCon)[only]			31
+B20	the LCP stage is not recorded	killed(136 failed: ABuildThatIsStoppedAtEveryBoundaryInTurn_IsFinishedByTheLast,ABwtFileOfAnEarlierRun_IsOnTheLedgerOfTheResumedRun_AndItsCo,AContainerThatIsGrownAndWhoseLcpStageIsDone_IsNotGrownAgain()[only]			30
+B09	a resumed build does not prepare	survived			30
+B21	the LCP kind of a kept stage is U8	killed(2 failed: AContainerThatIsGrownAndWhoseLcpStageIsDone_IsNotGrownAgain(,AContainerThatIsGrownAndWhoseLcpStageIsDone_IsNotGrownAgain()[only]			30
+B10	a build that starts clean does not delete the stale	killed(1 failed: AStateFile_ThatIsMissingEmptyCutDamagedOrNotAFile_StartsClea)[only]			31
+B22	a kept LCP stage has no escapes	killed(76 failed: ABuildThatIsStoppedAtEveryBoundaryInTurn_IsFinishedByTheLast,ABwtFileOfAnEarlierRun_IsOnTheLedgerOfTheResumedRun_AndItsCo,AContainerThatIsGrownAndWhoseLcpStageIsDone_IsNotGrownAgain()[only]			29
+B11	the container is created also when resuming	killed(187 failed: ABuildThatIsStoppedAtEveryBoundaryInTurn_IsFinishedByTheLast,ABwtFileOfAnEarlierRun_IsOnTheLedgerOfTheResumedRun_AndItsCo,AContainerThatIsGrownAndWhoseLcpStageIsDone_IsNotGrownAgain()[only]			27
+B23	the hook of the placement is not called for a kept stage	killed(42 failed: AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips,AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips,AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips)[only]			29
+B12	the grown part is never cut	killed(8 failed: AGrownContainer_IsCutBackAndGrownAgainOnce_AndAGrowthThatWas,AGrownContainer_IsCutBackAndGrownAgainOnce_AndAGrowthThatWas,AGrownContainer_IsCutBackAndGrownAgainOnce_AndAGrowthThatWas)[only]			29
+B24	the primary row of a kept PSI stage is minus one	killed(40 failed: ABuildThatIsStoppedAtEveryBoundaryInTurn_IsFinishedByTheLast,AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips,AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips)[only]			29
+B27	the BWT is always built	survived			30
+B13	the grown part is always cut	killed(79 failed: ABuildThatIsStoppedAtEveryBoundaryInTurn_IsFinishedByTheLast,ABwtFileOfAnEarlierRun_IsOnTheLedgerOfTheResumedRun_AndItsCo,AContainerThatIsGrownAndWhoseLcpStageIsDone_IsNotGrownAgain()[only]			30
+B25	the hook of the BWT is not called for a kept PSI stage	killed(18 failed: AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips,AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips,AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips)[only]			30
+B28	the BWT stage is not recorded	killed(14 failed: ABwtFileOfAnEarlierRun_IsOnTheLedgerOfTheResumedRun_AndItsCo,AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips,AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips)[only]			29
+B40	the need of a resume after the LCP stage is one byte short	killed(1 failed: TheResumeNeed_IsWhatTheRemainingStagesWillWrite_NotTheWholeB)[only]			29
+B26	a kept PSI stage is run again	killed(1 failed: TheResultOfAResumedBuild_CarriesTheNumbersOfTheSkippedStages)[only]			28
+B29	a kept BWT has the primary row zero	killed(6 failed: ABuildThatIsStoppedAtEveryBoundaryInTurn_IsFinishedByTheLast,ABwtFileOfAnEarlierRun_IsOnTheLedgerOfTheResumedRun_AndItsCo,AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips)[only]			29
+B41	the BWT file is not expected when PSI is wanted	killed(2 failed: AResumeNeedsLessFreeSpaceThanAFreshBuild_AndRefusesBelowItsO,TheResumeNeed_IsWhatTheRemainingStagesWillWrite_NotTheWholeB)[only]			29
+B53	the ranks are not recorded	killed(23 failed: AFailureInsideAPhase_ThenAResume_IsByteIdentical("ph23",1),AFailureInsideAPhase_ThenAResume_IsByteIdentical("ph23",4),AFailureInsideAPhase_ThenAResume_IsByteIdentical("partition")[only]			29
+B30	the PSI stage is not recorded	killed(47 failed: ABuildThatIsStoppedAtEveryBoundaryInTurn_IsFinishedByTheLast,AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips,AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips)[only]			29
+B42	the need does not count the existing scratch	killed(1 failed: TheResumeNeed_IsWhatTheRemainingStagesWillWrite_NotTheWholeB)[only]			30
+B54	the SA is not recorded	killed(168 failed: ABuildThatIsStoppedAtEveryBoundaryInTurn_IsFinishedByTheLast,ABwtFileOfAnEarlierRun_IsOnTheLedgerOfTheResumedRun_AndItsCo,AContainerThatIsGrownAndWhoseLcpStageIsDone_IsNotGrownAgain()[only]			30
+B31	the BWT file is deleted by a failure of PSI	killed(7 failed: ABwtFileOfAnEarlierRun_IsOnTheLedgerOfTheResumedRun_AndItsCo,AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips,AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips)[only]			30
+B43	the need can be negative	killed(1 failed: TheResumeNeed_IsWhatTheRemainingStagesWillWrite_NotTheWholeB)[only]			31
+B32	a failure leaves nothing also with Resume	killed(218 failed: ABuildThatFinished_AndALeftoverScratchAfterTheRename_StartCl,ABuildThatIsStoppedAtEveryBoundaryInTurn_IsFinishedByTheLast,ABwtFileOfAnEarlierRun_IsOnTheLedgerOfTheResumedRun_AndItsCo)[only]			24
+B56	the checkpoint gives no cover (the build makes it again)	survived			34
+B33	a failure leaves the files also of a build that was not resuming	killed(8 failed: AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips,AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips,AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips)[only]			27
+B44	the need before the LCP stage is the stage after it	killed(2 failed: TheFreeSpaceOfAResume_CountsWhatIsFreedFirst_ThePartOfTheCon,TheResumeNeed_IsWhatTheRemainingStagesWillWrite_NotTheWholeB)[only]			30
+B55	the seconds of the checkpoint are zero	survived			30
+B34	a failure leaves the files but not the temporary file	killed(196 failed: ABuildThatFinished_AndALeftoverScratchAfterTheRename_StartCl,ABuildThatIsStoppedAtEveryBoundaryInTurn_IsFinishedByTheLast,ABwtFileOfAnEarlierRun_IsOnTheLedgerOfTheResumedRun_AndItsCo)[only]			28
+B45	the skipped SA result has no parameters of the run	survived			32
+B35	a failure leaves the temporary file but removes the scratch	killed(216 failed: ABuildThatFinished_AndALeftoverScratchAfterTheRename_StartCl,ABuildThatIsStoppedAtEveryBoundaryInTurn_IsFinishedByTheLast,ABwtFileOfAnEarlierRun_IsOnTheLedgerOfTheResumedRun_AndItsCo)[only]			29
+B46	the skipped LCP result has the wrong statistics	killed(1 failed: TheResultOfAResumedBuild_CarriesTheNumbersOfTheSkippedStages)[only]			30
+B36	a published build leaves its scratch	survived			31
+B47	the skipped LCP result has no node count	killed(92 failed: ABuildThatIsStoppedAtEveryBoundaryInTurn_IsFinishedByTheLast,ABwtFileOfAnEarlierRun_IsOnTheLedgerOfTheResumedRun_AndItsCo,AContainerThatIsGrownAndWhoseLcpStageIsDone_IsNotGrownAgain()[only]			29
+B37	the report is not in the result	killed(241 failed: ABuildThatFinished_AndALeftoverScratchAfterTheRename_StartCl,ABuildThatIsStoppedAtEveryBoundaryInTurn_IsFinishedByTheLast,ABwtFileOfAnEarlierRun_IsOnTheLedgerOfTheResumedRun_AndItsCo)[only]			30
+B48	the skipped LCP result has no depth	killed(83 failed: ABuildThatIsStoppedAtEveryBoundaryInTurn_IsFinishedByTheLast,ABwtFileOfAnEarlierRun_IsOnTheLedgerOfTheResumedRun_AndItsCo,AContainerThatIsGrownAndWhoseLcpStageIsDone_IsNotGrownAgain()[only]			30
+B38	the primary row of the header is the BWT row only	killed(40 failed: ABuildThatIsStoppedAtEveryBoundaryInTurn_IsFinishedByTheLast,AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips,AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips)[only]			31
+B49	the skipped LCP result has no rank	killed(83 failed: ABuildThatIsStoppedAtEveryBoundaryInTurn_IsFinishedByTheLast,ABwtFileOfAnEarlierRun_IsOnTheLedgerOfTheResumedRun_AndItsCo,AContainerThatIsGrownAndWhoseLcpStageIsDone_IsNotGrownAgain()[only]			30
+B39	the need of a resume after the LCP stage is the whole scratch	killed(1 failed: TheResumeNeed_IsWhatTheRemainingStagesWillWrite_NotTheWholeB)[only]			30
+B50	the skipped LCP result has no max LCP	killed(1 failed: TheResultOfAResumedBuild_CarriesTheNumbersOfTheSkippedStages)[only]			29
+B51	the checkpoint reports the rank file as not vouched for	killed(13 failed: AFailureInsideAPhase_ThenAResume_IsByteIdentical("ph23",1),AFailureInsideAPhase_ThenAResume_IsByteIdentical("ph23",4),AFailureInsideAPhase_ThenAResume_IsByteIdentical("partition")[only]			32
+B52	the checkpoint never reuses the ranks	survived			33

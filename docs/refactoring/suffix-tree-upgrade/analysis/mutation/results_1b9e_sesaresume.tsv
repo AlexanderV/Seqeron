@@ -1,0 +1,57 @@
+V01	a state of another writer is accepted	killed(1 failed: AStateFile_OfAnotherVersionWriterOrInput_StartsClean(1))[only]			31
+V02	another length is accepted	killed(1 failed: AStateFile_OfAnotherVersionWriterOrInput_StartsClean(2))[only]			30
+V03	another bit width is accepted	killed(1 failed: AStateFile_OfAnotherVersionWriterOrInput_StartsClean(9))[only]			31
+V04	another sigma is accepted	survived			30
+V05	another hash is accepted	killed(1 failed: AStateFile_OfAnotherVersionWriterOrInput_StartsClean(3))[only]			30
+V14	a container of exactly the reserved length is refused	killed(73 failed: AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips,AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips,AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips)[only]			33
+V06	other letters are accepted	killed(1 failed: AStateFile_OfAnotherVersionWriterOrInput_StartsClean(8))[only]			35
+V15	a missing container is not refused	survived			32
+V07	other counts are accepted	killed(1 failed: AStateFile_OfAnotherVersionWriterOrInput_StartsClean(7))[only]			34
+V16	the first failing stage does not stop the walk	killed(28 failed: ALcpRecordThatDisagreesWithTheLayoutOrWithItself_IsNotTruste,ALcpRecordThatDisagreesWithTheLayoutOrWithItself_IsNotTruste,ALcpRecordThatDisagreesWithTheLayoutOrWithItself_IsNotTruste)[only]			30
+V27	the rank file may have another length	survived			31
+V08	another PSI option is accepted	killed(1 failed: AStateFile_OfAnotherVersionWriterOrInput_StartsClean(4))[only]			30
+V17	the walk keeps the failing stage	killed(48 failed: ALcpRecordThatDisagreesWithTheLayoutOrWithItself_IsNotTruste,ALcpRecordThatDisagreesWithTheLayoutOrWithItself_IsNotTruste,ALcpRecordThatDisagreesWithTheLayoutOrWithItself_IsNotTruste)[only]			29
+V28	the SA is expected one entry short	killed(149 failed: ABuildThatIsStoppedAtEveryBoundaryInTurn_IsFinishedByTheLast,ABwtFileOfAnEarlierRun_IsOnTheLedgerOfTheResumedRun_AndItsCo,AContainerThatIsGrownAndWhoseLcpStageIsDone_IsNotGrownAgain()[only]			32
+V09	another child codec is accepted	killed(2 failed: AStateFile_OfAnotherVersionWriterOrInput_StartsClean(5),ParametersThatCannotChangeAByte_DoNotInvalidateTheState_ButT)[only]			29
+V18	a state with no verified stage is still trusted	survived			31
+V29	a LCP kind above U32 is accepted	survived			31
+V10	the codec names are swapped	killed(193 failed: ABuildThatIsStoppedAtEveryBoundaryInTurn_IsFinishedByTheLast,ABwtFileOfAnEarlierRun_IsOnTheLedgerOfTheResumedRun_AndItsCo,AContainerThatIsGrownAndWhoseLcpStageIsDone_IsNotGrownAgain()[only]			33
+V19	the part of the container behind its reserved length is not reclaimable	killed(1 failed: TheFreeSpaceOfAResume_CountsWhatIsFreedFirst_ThePartOfTheCon)[only]			30
+V30	a negative LCP kind is accepted	survived			31
+V11	another reserved length is accepted	killed(1 failed: AStateFile_OfAnotherVersionWriterOrInput_StartsClean(6))[only]			29
+V20	the grown container is reclaimable also when the LCP stage is kept	killed(2 failed: AResumeNeedsLessFreeSpaceThanAFreshBuild_AndRefusesBelowItsO,TheFilesOfAStageThatIsNotKept_AreCountedAsReclaimable_AndThe)[only]			30
+V31	a negative number of escapes is accepted	survived			30
+V12	a state without stages is accepted	survived			30
+V21	the kept scratch files are not counted as existing	killed(1 failed: TheFilesOfAStageThatIsNotKept_AreCountedAsReclaimable_AndThe)[only]			35
+V32	escapes of a 32-bit LCP are accepted	survived			32
+V13	a container one byte short is accepted	killed(1 failed: AStageWhoseOutputIsMissingShortOrChanged_IsNotTrusted_AndEve)[only]			31
+V33	the final length is not compared with the layout	survived			31
+V22	the partial scratch is not reclaimable	killed(1 failed: TheFilesOfAStageThatIsNotKept_AreCountedAsReclaimable_AndThe)[only]			33
+V37	a depth above n is accepted	killed(1 failed: TheStatisticsOfTheScan_AreCheckedForRange_AndAMissingOneIsNo)[only]			30
+V34	NODE_COUNT is not compared	killed(4 failed: ALcpRecordThatDisagreesWithTheLayoutOrWithItself_IsNotTruste,ALcpRecordThatDisagreesWithTheLayoutOrWithItself_IsNotTruste,TheStatisticsOfTheScan_AreCheckedForRange_AndAMissingOneIsNo)[only]			31
+V23	the rank file of another cover is accepted	killed(1 failed: ARanksRecordForAnotherCover_IsNotTrusted_EveryValueOfItIsChe)[only]			30
+V38	a negative depth is accepted	killed(1 failed: TheStatisticsOfTheScan_AreCheckedForRange_AndAMissingOneIsNo)[only]			30
+V35	a negative number of internal nodes is accepted	survived			31
+V24	the kind of the cover is not compared	killed(1 failed: ARanksRecordForAnotherCover_IsNotTrusted_EveryValueOfItIsChe)[only]			31
+V39	a negative max LCP is accepted	killed(1 failed: TheStatisticsOfTheScan_AreCheckedForRange_AndAMissingOneIsNo)[only]			32
+V36	NODE_COUNT is one more	killed(93 failed: ABuildThatIsStoppedAtEveryBoundaryInTurn_IsFinishedByTheLast,ABwtFileOfAnEarlierRun_IsOnTheLedgerOfTheResumedRun_AndItsCo,AContainerThatIsGrownAndWhoseLcpStageIsDone_IsNotGrownAgain()[only]			31
+V25	the number of residues is not compared	killed(1 failed: ARanksRecordForAnotherCover_IsNotTrusted_EveryValueOfItIsChe)[only]			31
+V40	a max LCP above n is accepted	killed(1 failed: TheStatisticsOfTheScan_AreCheckedForRange_AndAMissingOneIsNo)[only]			30
+V26	the digest of the cover is not compared	killed(2 failed: ARanksRecordForAnotherCover_IsNotTrusted_EveryValueOfItIsChe,ARanksRecordForAnotherCover_IsNotTrusted_EveryValueOfItIsChe)[only]			31
+V73	the empty text has two nodes	killed(3 failed: TextsOfZeroOneAndTwoSymbols_ResumeLikeAnyOther("","lcp-child,TextsOfZeroOneAndTwoSymbols_ResumeLikeAnyOther("","psi-built,TextsOfZeroOneAndTwoSymbols_ResumeLikeAnyOther("","magic-wri)[only]			31
+V41	a rank below -1 is accepted	killed(1 failed: TheStatisticsOfTheScan_AreCheckedForRange_AndAMissingOneIsNo)[only]			31
+V74	the text of one symbol is the empty text	killed(3 failed: TextsOfZeroOneAndTwoSymbols_ResumeLikeAnyOther("x","lcp-chil,TextsOfZeroOneAndTwoSymbols_ResumeLikeAnyOther("x","psi-buil,TextsOfZeroOneAndTwoSymbols_ResumeLikeAnyOther("x","magic-wr)[only]			30
+V50	a negative primary row is accepted	killed(2 failed: ThePrimaryRowOfAnImpossibleValue_AndABwtRecordOfAnotherLengt,ThePrimaryRowOfAnImpossibleValue_AndABwtRecordOfAnotherLengt)[only]			31
+V42	a rank above n is accepted	killed(1 failed: TheStatisticsOfTheScan_AreCheckedForRange_AndAMissingOneIsNo)[only]			30
+V75	the empty text is not special	killed(3 failed: TextsOfZeroOneAndTwoSymbols_ResumeLikeAnyOther("","lcp-child,TextsOfZeroOneAndTwoSymbols_ResumeLikeAnyOther("","psi-built,TextsOfZeroOneAndTwoSymbols_ResumeLikeAnyOther("","magic-wri)[only]			30
+V51	a missing primary row is accepted	killed(4 failed: ThePrimaryRowOfAnImpossibleValue_AndABwtRecordOfAnotherLengt,ThePrimaryRowOfAnImpossibleValue_AndABwtRecordOfAnotherLengt,ThePrimaryRowOfAnImpossibleValue_AndABwtRecordOfAnotherLengt)[only]			31
+V43	the CHILD section is not expected	killed(95 failed: ABuildThatIsStoppedAtEveryBoundaryInTurn_IsFinishedByTheLast,ABwtFileOfAnEarlierRun_IsOnTheLedgerOfTheResumedRun_AndItsCo,AContainerThatIsGrownAndWhoseLcpStageIsDone_IsNotGrownAgain()[only]			30
+V63	the CRC of a scratch file is not compared	killed(2 failed: AStageWhoseOutputIsMissingShortOrChanged_IsNotTrusted_AndEve,AStageWhoseOutputIsMissingShortOrChanged_IsNotTrusted_AndEve)[only]			30
+V52	an unknown stage is accepted	survived			30
+V44	the LCP section is expected at the plan offset plus one	killed(94 failed: ABuildThatIsStoppedAtEveryBoundaryInTurn_IsFinishedByTheLast,ABwtFileOfAnEarlierRun_IsOnTheLedgerOfTheResumedRun_AndItsCo,AContainerThatIsGrownAndWhoseLcpStageIsDone_IsNotGrownAgain()[only]			30
+V64	a read error is not a failed stage	killed(3 failed: ARanksRecordForAnotherCover_IsNotTrusted_EveryValueOfItIsChe,TheStatisticsOfTheScan_AreCheckedForRange_AndAMissingOneIsNo,TheStatisticsOfTheScan_AreCheckedForRange_AndAMissingOneIsNo)[only]			31
+V53	the number of outputs is not compared	killed(1 failed: ARecordWithOtherOutputsThanTheLayoutHas_IsNotTrusted("extra")[only]			32
+V45	the overflow list is expected also when there is none	killed(17 failed: AContainerThatIsGrownAndWhoseLcpStageIsDone_IsNotGrownAgain(,AContainerThatIsGrownAndWhoseLcpStageIsDone_IsNotGrownAgain(,TextsOfZeroOneAndTwoSymbols_ResumeLikeAnyOther("","lcp-child)[only]			32
+V65	a kept file is deleted	killed(7 failed: ABuildThatIsStoppedAtEveryBoundaryInTurn_IsFinishedByTheLast,AResumeNeedsLessFreeSpaceThanAFreshBuild_AndRefusesBelowItsO,AResumeThatIsItselfStopped_AtAnotherBoundary_ResumesAgain(3))[only]			40
+V54	the role is not compared	survived			41
+V46	the overflow list is never expected	killed(77 failed: ABuildThatIsStoppedAtEveryBoundaryInTurn_IsFinishedByTheLast,ABwtFileOfAnEarlierRun_IsOnTheLedgerOfTheResumedRun_AndItsCo,AContainerThatIsGrownAndWhoseLcpStageIsDone_IsNotGrownAgain()[only]			42

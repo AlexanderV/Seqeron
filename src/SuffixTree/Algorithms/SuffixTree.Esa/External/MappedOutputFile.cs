@@ -190,8 +190,7 @@ internal sealed class MappedOutputFile : IDisposable
             using var handle = File.OpenHandle(path, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
             if (RandomAccess.GetLength(handle) > cut) RandomAccess.SetLength(handle, cut);
         }
-        long length = new FileInfo(path).Length;
-        if (length == 0 && !File.Exists(path)) throw new FileNotFoundException("the file of the interrupted build is gone", path);
+        long length = new FileInfo(path).Length; // a file that is gone is a FileNotFoundException from here (or from the handle above)
         MemoryMappedFile? map = length > 0 ? MemoryMappedFile.CreateFromFile(path, FileMode.Open, null, 0, MemoryMappedFileAccess.ReadWrite) : null;
         return new MappedOutputFile(path, length, ReservationOutcome.Reopened, map);
     }

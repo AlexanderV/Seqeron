@@ -1,0 +1,7 @@
+O01	a longer file is not cut back	killed(1 failed: OpenExisting_CutsALongerFileBack_AndLeavesAShorterOne)[only]			17
+O02	a file is cut one byte short	killed(1 failed: OpenExisting_CutsALongerFileBack_AndLeavesAShorterOne)[only]			4
+O03	a shorter file is extended to the cut	killed(1 failed: OpenExisting_CutsALongerFileBack_AndLeavesAShorterOne)[only]			4
+O04	the reopened file says Preallocated	killed(1 failed: OpenExisting_KeepsWhatTheFileHolds_ReportsReopened_AndWrites)[only]			4
+O05	a file that is gone is created empty	survived			3
+O06	the length of the object is the cut	killed(1 failed: OpenExisting_CutsALongerFileBack_AndLeavesAShorterOne)[only]			3
+O07	a negative cut is accepted	survived			3

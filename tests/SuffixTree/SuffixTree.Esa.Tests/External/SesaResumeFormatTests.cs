@@ -230,6 +230,7 @@ public sealed class SesaResumeFormatTests
         first.Dispose();
         first.Dispose();
         Assert.That(File.Exists(path), Is.False, "the holder removes the file");
+        ProcFds.AssertClosed("the lock", [path], []);
         using SesaBuildLock second = SesaBuildLock.Acquire(path);
         Assert.That(File.Exists(path), Is.True);
     }

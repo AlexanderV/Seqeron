@@ -32,19 +32,11 @@
   "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
  },
  {
-  "id": "O05",
-  "desc": "a file that is gone is created empty",
-  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
-  "old": "if (length == 0 && !File.Exists(path)) throw new FileNotFoundException(\"the file of the interrupted build is gone\", path);",
-  "new": "",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
- },
- {
   "id": "O06",
   "desc": "the length of the object is the cut",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
-  "old": "long length = new FileInfo(path).Length;\n        if (length == 0",
-  "new": "long length = truncateTo ?? new FileInfo(path).Length;\n        if (length == 0",
+  "old": "long length = new FileInfo(path).Length; // a file that is gone",
+  "new": "long length = truncateTo ?? new FileInfo(path).Length; // a file that is gone",
   "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
  },
  {

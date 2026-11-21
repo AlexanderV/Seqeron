@@ -1,0 +1,6 @@
+L01	the lock file is shared	killed(1 failed: TheLock_ExcludesASecondHolder_UntilTheFirstIsDone_AndRemoves)[only]			3
+L02	a refusal is always the lock message	killed(1 failed: TheLock_InADirectoryThatIsGone_IsAnIoExceptionWithoutAClaimT)[only]			4
+L03	the lock file is not removed	killed(2 failed: ALockFileThatAKilledProcessLeft_IsOnlyAName,TheLock_ExcludesASecondHolder_UntilTheFirstIsDone_AndRemoves)[only]			3
+L04	the lock is released twice	survived			4
+L05	the stream is not disposed	survived			3
+L06	the lock is taken with FileMode.Create	survived			4

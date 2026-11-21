@@ -17,7 +17,7 @@ what = (sys.argv[3] if len(sys.argv) > 3 else 'stage1,stage2').split(',')
 env = dict(os.environ, PATH=os.environ['PATH'] + ':/root/.dotnet', DOTNET_ROOT='/root/.dotnet', DOTNET_CLI_TELEMETRY_OPTOUT='1', DOTNET_NOLOGO='1', SEQERON_BENCH_DIR='/tmp/stbench')
 env.pop('DOTNET_GCHeapHardLimit', None)
 QUICK = 'FullyQualifiedName~SesaResumeFormatTests'
-NEW = 'FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests'
+NEW = 'FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests'
 QUICK_LISTS = ('sesaresumestate', 'sesabuildlock', 'mappedoutputfile')
 SLICE = 13  # the largest list is cut in slices of this many mutants so that the worktrees share it
 for w in trees:

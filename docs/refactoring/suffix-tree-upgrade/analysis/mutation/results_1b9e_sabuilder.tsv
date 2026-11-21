@@ -1,0 +1,11 @@
+S01	the rank file is rebuilt although it was reused	survived			44
+S02	a reused rank file is deleted by a failure	survived			32
+S03	a recorded rank file is deleted by a failure	killed(13 failed: AFailureInsideAPhase_ThenAResume_IsByteIdentical("ph23",1),AFailureInsideAPhase_ThenAResume_IsByteIdentical("ph23",4),AFailureInsideAPhase_ThenAResume_IsByteIdentical("partition")[only]			32
+S04	the rank file is recorded also when it was reused	survived			30
+S05	the rank file is not recorded	killed(23 failed: AFailureInsideAPhase_ThenAResume_IsByteIdentical("ph23",1),AFailureInsideAPhase_ThenAResume_IsByteIdentical("ph23",4),AFailureInsideAPhase_ThenAResume_IsByteIdentical("partition")[only]			29
+S06	the SA is not recorded	killed(168 failed: ABuildThatIsStoppedAtEveryBoundaryInTurn_IsFinishedByTheLast,ABwtFileOfAnEarlierRun_IsOnTheLedgerOfTheResumedRun_AndItsCo,AContainerThatIsGrownAndWhoseLcpStageIsDone_IsNotGrownAgain()[only]			30
+S07	the SA is recorded after the rank file is deleted	survived			30
+S08	the seconds of PH1 include the recording	survived			30
+S09	the seconds of PH2 and PH3 include the recording	survived			30
+S11	the cover that the checkpoint made is not used (the same value, made again)	survived			34
+S10	a reused rank file has no ledger entry	killed(25 failed: AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips,AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips,AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips)[only]			30

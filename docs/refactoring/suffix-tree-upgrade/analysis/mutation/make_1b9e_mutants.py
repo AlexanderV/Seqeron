@@ -7,7 +7,7 @@ import json, os
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, '../../../../..'))
 E = 'src/SuffixTree/Algorithms/SuffixTree.Esa/External/'
-NEW = 'FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests'
+NEW = 'FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests'
 ST, RS, LK, MO, SB, SA = 'Sesa/SesaResumeState.cs', 'Sesa/SesaResume.cs', 'Sesa/SesaBuildLock.cs', 'MappedOutputFile.cs', 'Sesa/SesaBuilder.cs', 'Sa/SaBuilder.cs'
 M = [
     # file, id, description, old, new
@@ -74,8 +74,7 @@ M = [
     (MO, 'O02', 'a file is cut one byte short', 'if (RandomAccess.GetLength(handle) > cut) RandomAccess.SetLength(handle, cut);', 'if (RandomAccess.GetLength(handle) > cut) RandomAccess.SetLength(handle, cut - 1);'),
     (MO, 'O03', 'a shorter file is extended to the cut', 'if (RandomAccess.GetLength(handle) > cut) RandomAccess.SetLength(handle, cut);', 'RandomAccess.SetLength(handle, cut);'),
     (MO, 'O04', 'the reopened file says Preallocated', 'return new MappedOutputFile(path, length, ReservationOutcome.Reopened, map);', 'return new MappedOutputFile(path, length, ReservationOutcome.Preallocated, map);'),
-    (MO, 'O05', 'a file that is gone is created empty', 'if (length == 0 && !File.Exists(path)) throw new FileNotFoundException("the file of the interrupted build is gone", path);', ''),
-    (MO, 'O06', 'the length of the object is the cut', 'long length = new FileInfo(path).Length;\n        if (length == 0', 'long length = truncateTo ?? new FileInfo(path).Length;\n        if (length == 0'),
+    (MO, 'O06', 'the length of the object is the cut', 'long length = new FileInfo(path).Length; // a file that is gone', 'long length = truncateTo ?? new FileInfo(path).Length; // a file that is gone'),
     (MO, 'O07', 'a negative cut is accepted', 'ArgumentOutOfRangeException.ThrowIfNegative(cut);\n            using var handle', 'using var handle'),
     # ---- the recording and the verification of the stages
     (RS, 'V01', 'a state of another writer is accepted', 'if (s.Writer != SesaResumeFormat.WriterId) return "the state was written by another writer";', ''),
