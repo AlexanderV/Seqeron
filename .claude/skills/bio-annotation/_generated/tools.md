@@ -27,6 +27,7 @@
 | `create_pwm` | Analysis | `MotifFinder.CreatePwm` | [doc](../../../../docs/mcp/tools/analysis/create_pwm.md) |
 | `cumulative_gc_skew` | Analysis | `GcSkewCalculator.CalculateCumulativeGcSkew` | [doc](../../../../docs/mcp/tools/analysis/cumulative_gc_skew.md) |
 | `dangling_end_energy` | Analysis | `RnaSecondaryStructure.GetDanglingEndEnergy` | [doc](../../../../docs/mcp/tools/analysis/dangling_end_energy.md) |
+| `delta_filter` | Analysis | `MummerDeltaFilter.Run` | [doc](../../../../docs/mcp/tools/analysis/delta_filter.md) |
 | `detect_pseudoknots` | Analysis | `RnaSecondaryStructure.DetectPseudoknots` | [doc](../../../../docs/mcp/tools/analysis/detect_pseudoknots.md) |
 | `detect_rearrangements` | Analysis | `ComparativeGenomics.DetectRearrangements` | [doc](../../../../docs/mcp/tools/analysis/detect_rearrangements.md) |
 | `diffseq` | Analysis | `GenomicAnalyzer.Diffseq` | [doc](../../../../docs/mcp/tools/analysis/diffseq.md) |
@@ -34,6 +35,7 @@
 | `dinucleotide_ratios` | Analysis | `SequenceStatistics.CalculateDinucleotideRatios` | [doc](../../../../docs/mcp/tools/analysis/dinucleotide_ratios.md) |
 | `discover_motifs` | Analysis | `MotifFinder.DiscoverMotifs` | [doc](../../../../docs/mcp/tools/analysis/discover_motifs.md) |
 | `disorder_propensity` | Analysis | `DisorderPredictor.GetDisorderPropensity` | [doc](../../../../docs/mcp/tools/analysis/disorder_propensity.md) |
+| `dnadiff` | Analysis | `GenomicAnalyzer.Dnadiff` | [doc](../../../../docs/mcp/tools/analysis/dnadiff.md) |
 | `dust_score` | Analysis | `SequenceComplexity.CalculateDustScore` | [doc](../../../../docs/mcp/tools/analysis/dust_score.md) |
 | `dyad_analysis` | Analysis | `MotifFinder.AnalyzeDyads` | [doc](../../../../docs/mcp/tools/analysis/dyad_analysis.md) |
 | `emboss_report_file` | Analysis | `EmbossReportPrograms.Fuzznuc` | [doc](../../../../docs/mcp/tools/analysis/emboss_report_file.md) |
@@ -121,6 +123,7 @@
 | `most_frequent_kmers` | Analysis | `KmerAnalyzer.FindMostFrequentKmers` | [doc](../../../../docs/mcp/tools/analysis/most_frequent_kmers.md) |
 | `multibranch_loop_energy` | Analysis | `RnaSecondaryStructure.CalculateMultibranchLoopEnergy` | [doc](../../../../docs/mcp/tools/analysis/multibranch_loop_energy.md) |
 | `multiple_alignment_statistics` | Analysis | `MultipleAlignmentStatistics.Calculate` | [doc](../../../../docs/mcp/tools/analysis/multiple_alignment_statistics.md) |
+| `nucmer` | Analysis | `GenomicAnalyzer.Nucmer` | [doc](../../../../docs/mcp/tools/analysis/nucmer.md) |
 | `nucmer_clusters` | Analysis | `GenomicAnalyzer.FindNucmerClusters` | [doc](../../../../docs/mcp/tools/analysis/nucmer_clusters.md) |
 | `oligo_analysis` | Analysis | `MotifFinder.DiscoverMotifs` | [doc](../../../../docs/mcp/tools/analysis/oligo_analysis.md) |
 | `parse_dot_bracket` | Analysis | `RnaSecondaryStructure.ParseDotBracket` | [doc](../../../../docs/mcp/tools/analysis/parse_dot_bracket.md) |
@@ -144,6 +147,11 @@
 | `scan_with_pwm_both_strands` | Analysis | `MotifFinder.ScanWithPwmBothStrands` | [doc](../../../../docs/mcp/tools/analysis/scan_with_pwm_both_strands.md) |
 | `seqmatchall` | Analysis | `GenomicAnalyzer.SeqMatchAll` | [doc](../../../../docs/mcp/tools/analysis/seqmatchall.md) |
 | `shared_motifs_significance` | Analysis | `MotifFinder.FindSharedMotifs` | [doc](../../../../docs/mcp/tools/analysis/shared_motifs_significance.md) |
+| `show_aligns` | Analysis | `MummerShowAligns.Run` | [doc](../../../../docs/mcp/tools/analysis/show_aligns.md) |
+| `show_coords` | Analysis | `MummerShowCoords.Run` | [doc](../../../../docs/mcp/tools/analysis/show_coords.md) |
+| `show_diff` | Analysis | `MummerShowDiff.Run` | [doc](../../../../docs/mcp/tools/analysis/show_diff.md) |
+| `show_snps` | Analysis | `MummerShowSnps.Run` | [doc](../../../../docs/mcp/tools/analysis/show_snps.md) |
+| `show_tiling` | Analysis | `MummerShowTiling.Run` | [doc](../../../../docs/mcp/tools/analysis/show_tiling.md) |
 | `showalign` | Analysis | `MultipleAlignmentDisplay.ShowAlign` | [doc](../../../../docs/mcp/tools/analysis/showalign.md) |
 | `spaced_word_distance` | Analysis | `KmerAnalyzer.SpacedWordDistance` | [doc](../../../../docs/mcp/tools/analysis/spaced_word_distance.md) |
 | `standardize_repeat_motif` | Analysis | `RepeatFinder.GetStandardMotif` | [doc](../../../../docs/mcp/tools/analysis/standardize_repeat_motif.md) |

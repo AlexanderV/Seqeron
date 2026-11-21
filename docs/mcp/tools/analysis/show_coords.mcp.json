@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "show_coords",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MummerShowCoords.Run",
+  "docRef": "MummerShowCoords.cs",
+  "description": "MUMmer 3.23 show-coords: the coordinates of the alignments of a delta file as the human-readable table (header, [S1] [E1] | [S2] [E2] | [LEN 1] [LEN 2] | [% IDY] | tags), the tab-delimited table (tabular, -T) or btab (btab, -B). header = false is -H; brief (-b) merges overlapping alignments regardless of direction and drops the identity columns; coverage (-c) adds the percent coverage columns, lengths (-l) the sequence lengths, direction (-d) the FRM columns; minIdentity (-I) and minLength (-L) filter; sortByReference (-r) / sortByQuery (-q) sort; annotateOverlaps (-o) tags alignments that cover a whole sequence end ([IDENTITY] [CONTAINED] [CONTAINS] [END] [BEGIN]); the hidden warnings (-w) tag [DUPLICATE] [CONTAINS] [SHADOWED] [OVERLAPS]; las (-g) / weightedLas (-G) keep the longest ascending subset (ties broken with rand() seeded by randomSeed, the program seeds it with the current time); knockout (-k) is for promer files. Percentages are printed from the float values with %.2f. Byte for byte equal to the installed show-coords on 450 + runs; PROmer delta files are accepted.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {},
+    "required": []
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "text": {
+        "type": "string",
+        "description": "What show-coords writes to standard output."
+      },
+      "messages": {
+        "type": "string",
+        "description": "What it writes to standard error (warnings)."
+      }
+    },
+    "required": [
+      "text",
+      "messages"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Delta file text cannot be null or empty"
+    },
+    {
+      "code": 1001,
+      "message": "ERROR: Percentages must be within the range [0.0. 100.0]"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Coordinates of three substitutions",
+      "input": {
+        "delta": "ref.fa qry.fa\nNUCMER\n>ref qry 140 135\n6 140 1 135 3 3 0\n0\n"
+      },
+      "output": {
+        "text": "ref.fa qry.fa\nNUCMER\n\n    [S1]     [E1]  |     [S2]     [E2]  |  [LEN 1]  [LEN 2]  |  [% IDY]  | [TAGS]\n=====================================================================================\n       6      140  |        1      135  |      135      135  |    97.78  | ref\tqry\n",
+        "messages": ""
+      }
+    }
+  ]
+}

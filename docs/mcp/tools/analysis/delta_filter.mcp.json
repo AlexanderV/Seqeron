@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "delta_filter",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MummerDeltaFilter.Run",
+  "docRef": "MummerDeltaFilter.cs",
+  "description": "MUMmer 3.23 delta-filter: reads a delta file (nucmer / promer) and keeps the alignments that survive the switches, in the order -i -l -u -q -r -g -m -1; the output is a delta file again (grouped by query record). minIdentity (-i, 0 - 100) and minLength (-l) drop weak alignments, minUnique (-u) those whose reference AND query part is not unique; queryLis (-q) maps each query position to its best hit in the reference (allowing reference overlaps), referenceLis (-r) each reference position to its best hit, globalLis (-g) the longest set of mutually consistent alignments (no rearrangements), manyToMany (-m) the union and oneToOne (-1) the intersection of the -r and -q chains; maxOverlap (-o) is the largest overlap of two chained alignments as a percent of their length; epsilon (-e, default -1) is the negligible score loss: a negative value breaks ties among equally good chains with glibc rand() seeded with 1, exactly as the program (reproducible). Byte for byte equal to the installed delta-filter on 300 + runs of random option sets over delta files of rearranged, duplicated and inverted multi-contig inputs. A percentage outside [0, 100] or a negative length is an error (the program's range errors).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {},
+    "required": []
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "text": {
+        "type": "string",
+        "description": "The filtered delta file text, grouped by query record."
+      }
+    },
+    "required": [
+      "text"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Delta file text cannot be null or empty"
+    },
+    {
+      "code": 1001,
+      "message": "ERROR: Minimum identity must be within the range [0, 100] (and the other range errors)"
+    }
+  ],
+  "examples": [
+    {
+      "name": "1-to-1 filter of one alignment",
+      "input": {
+        "delta": "ref.fa qry.fa\nNUCMER\n>ref qry 140 135\n6 140 1 135 3 3 0\n0\n",
+        "oneToOne": true
+      },
+      "output": {
+        "text": "ref.fa qry.fa\nNUCMER\n>ref qry 140 135\n6 140 1 135 3 3 0\n0\n"
+      }
+    }
+  ]
+}

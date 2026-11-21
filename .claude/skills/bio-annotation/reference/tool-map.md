@@ -93,6 +93,14 @@ Servers: `A` = Annotation, `X` = Analysis. `⚠` = guarded / documented-limited 
 | `seqmatchall` | X | EMBOSS seqmatchall (all-against-all maximal exact word matches) | `GenomicAnalyzer.SeqMatchAll` |
 | `megamerger` | X | EMBOSS megamerger (merge of two large overlapping DNA sequences by minimal word-match anchors; merged sequence + report) | `GenomicAnalyzer.MegaMerge` |
 | `nucmer_clusters` | X | MUMmer nucmer anchor clustering (mummer MUM / MAM / MEM matches clustered by mgaps: diagonal difference, separation, maximum-score chains) | `GenomicAnalyzer.FindNucmerClusters` |
+| `nucmer` | X | MUMmer 3.23 nucmer: the whole pipeline (anchors, mgaps clusters, postnuc banded Smith-Waterman extension), the .delta file byte for byte (434 runs, all option families). | `GenomicAnalyzer.Nucmer` |
+| `delta_filter` | X | MUMmer 3.23 delta-filter: keeps the alignments of a delta file that survive -i -l -u -q -r -g -m -1 (rand() seeded with 1, as the program). | `MummerDeltaFilter.Run` |
+| `show_coords` | X | MUMmer 3.23 show-coords: the alignment coordinates of a delta file (table, tab-delimited, btab; -b -c -d -H -I -k -l -L -o -q -r -T -B -g -G -w). | `MummerShowCoords.Run` |
+| `show_aligns` | X | MUMmer 3.23 show-aligns: the alignments of one reference / query pair drawn as three rows (^ under a difference, . for an indel). | `MummerShowAligns.Run` |
+| `show_snps` | X | MUMmer 3.23 show-snps: substitutions and indels of a nucmer delta file with buffer, distance, conflict counts and context. | `MummerShowSnps.Run` |
+| `show_diff` | X | MUMmer 3.23 show-diff: breaks, gaps, jumps, inversions, duplications and sequence jumps read off the many-to-many mapping of a delta file. | `MummerShowDiff.Run` |
+| `show_tiling` | X | MUMmer 3.23 show-tiling: tiles the aligned query contigs on the reference (path, alignments, XML, contig list, unusable contigs, pseudo molecule). | `MummerShowTiling.Run` |
+| `dnadiff` | X | MUMmer 3.23 dnadiff: nucmer --maxmatch + delta-filter + show-coords / show-snps / show-diff and the report of two sequence sets. | `GenomicAnalyzer.Dnadiff` |
 | `find_shared_motifs` | X | k-mers shared across sequences | `MotifFinder.FindSharedMotifs` |
 | `shared_motifs_significance` | X | Shared k-mers with RSAT ms_P/ms_E/ms_sig significance; degenerate words (-oneN/-onedeg) | `MotifFinder.FindSharedMotifs` (RSAT overloads) |
 | `find_regulatory_elements` | X | Built-in regulatory motif scan | `MotifFinder.FindRegulatoryElements` |

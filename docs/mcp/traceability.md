@@ -342,6 +342,14 @@
 | diffseq | Analysis | GenomicAnalyzer.Diffseq | GenomicAnalyzer.Diffseq.cs | 0/0 | – | – | Build-Ready |
 | wordmatch | Analysis | GenomicAnalyzer.Wordmatch | GenomicAnalyzer.Wordmatch.cs | 0/0 | – | – | Build-Ready |
 | nucmer_clusters | Analysis | GenomicAnalyzer.FindNucmerClusters | GenomicAnalyzer.NucmerClusters.cs | 0/0 | – | – | Build-Ready |
+| nucmer | Analysis | GenomicAnalyzer.Nucmer | GenomicAnalyzer.Nucmer.cs | 0/0 | – | – | Build-Ready |
+| delta_filter | Analysis | MummerDeltaFilter.Run | Seqeron.Genomics.Alignment/MummerDeltaFilter.cs | 0/0 | – | – | Build-Ready |
+| show_coords | Analysis | MummerShowCoords.Run | Seqeron.Genomics.Alignment/MummerShowCoords.cs | 0/0 | – | – | Build-Ready |
+| show_aligns | Analysis | MummerShowAligns.Run | Seqeron.Genomics.Alignment/MummerShowAligns.cs | 0/0 | – | – | Build-Ready |
+| show_snps | Analysis | MummerShowSnps.Run | Seqeron.Genomics.Alignment/MummerShowSnps.cs | 0/0 | – | – | Build-Ready |
+| show_diff | Analysis | MummerShowDiff.Run | Seqeron.Genomics.Alignment/MummerShowDiff.cs | 0/0 | – | – | Build-Ready |
+| show_tiling | Analysis | MummerShowTiling.Run | Seqeron.Genomics.Alignment/MummerShowTiling.cs | 0/0 | – | – | Build-Ready |
+| dnadiff | Analysis | GenomicAnalyzer.Dnadiff | GenomicAnalyzer.Dnadiff.cs | 0/0 | – | – | Build-Ready |
 | mash_bounds | Analysis | MashCommands.Bounds | Seqeron.Genomics.Analysis/MashCommands.cs | 0/0 | – | – | Build-Ready |
 | mash_dist | Analysis | MashCommands.Dist | Seqeron.Genomics.Analysis/MashCommands.cs | 0/0 | – | – | Build-Ready |
 | mash_triangle | Analysis | MashCommands.Triangle | Seqeron.Genomics.Analysis/MashCommands.cs | 0/0 | – | – | Build-Ready |

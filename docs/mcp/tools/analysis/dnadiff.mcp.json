@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "dnadiff",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GenomicAnalyzer.Dnadiff",
+  "docRef": "GenomicAnalyzer.Dnadiff.cs",
+  "description": "MUMmer 3.23 dnadiff: the comparative analysis of two sequence sets, the perl script over nucmer --maxmatch, delta-filter -1 / -m, show-coords -rclTH, show-snps -rlTHC and show-diff -rH / -qH, with its report: sequences, aligned / unaligned sequences and bases, the 1-to-1 and M-to-M alignments (count, total and average length, average identity), breakpoints, relocations, translocations, inversions, insertions, tandem insertions (count, sum, average) and the SNPs / indels with the 12 substitution classes, all also for the 'good' ones (buffer >= 20). Returns every file of the program: report, delta, 1delta, mdelta, 1coords, mcoords, snps, rdiff, qdiff and (when something is unaligned) unref / unqry. Pass delta (dnadiff -d) to analyse a precomputed nucmer delta file instead of running nucmer. The order of the per-substitution lines inside the SNP / indel blocks of the report and of the unref / unqry lines is the order of perl's hash iteration, which differs from run to run in the program (6 runs of the installed dnadiff on one input gave 6 different reports); here it is fixed (. A C G T, then other symbols). Everything else is byte for byte the program's (300 + runs, the unordered lines compared as sets). A FASTA line with white space (carriage return) is the program's 'Whitespace found in FastA' error.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "reference": {
+        "type": "string",
+        "description": "Reference FASTA text."
+      },
+      "query": {
+        "type": "string",
+        "description": "Query FASTA text."
+      },
+      "delta": {
+        "type": "string",
+        "description": "Precomputed delta file text (dnadiff -d); null = run nucmer --maxmatch."
+      },
+      "referenceName": {
+        "type": "string",
+        "description": "Reference file name printed in the delta header (default reference.fa).",
+        "default": "reference.fa"
+      },
+      "queryName": {
+        "type": "string",
+        "description": "Query file name printed in the delta header (default query.fa).",
+        "default": "query.fa"
+      }
+    },
+    "required": [
+      "reference",
+      "query"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "report": {
+        "type": "string",
+        "description": "The .report file."
+      },
+      "delta": {
+        "type": "string",
+        "description": "The nucmer delta file."
+      },
+      "delta1": {
+        "type": "string",
+        "description": "The 1-to-1 delta file (.1delta)."
+      },
+      "deltaM": {
+        "type": "string",
+        "description": "The M-to-M delta file (.mdelta)."
+      },
+      "coords1": {
+        "type": "string",
+        "description": "The 1-to-1 coordinates (.1coords)."
+      },
+      "coordsM": {
+        "type": "string",
+        "description": "The M-to-M coordinates (.mcoords)."
+      },
+      "snps": {
+        "type": "string",
+        "description": "The SNPs (.snps)."
+      },
+      "referenceDiff": {
+        "type": "string",
+        "description": "The reference breakpoints (.rdiff)."
+      },
+      "queryDiff": {
+        "type": "string",
+        "description": "The query breakpoints (.qdiff)."
+      },
+      "unalignedReference": {
+        "type": "string",
+        "description": "The .unref file (null when every reference sequence aligned)."
+      },
+      "unalignedQuery": {
+        "type": "string",
+        "description": "The .unqry file (null when every query sequence aligned)."
+      }
+    },
+    "required": [
+      "report",
+      "delta",
+      "delta1",
+      "deltaM",
+      "coords1",
+      "coordsM",
+      "snps",
+      "referenceDiff",
+      "queryDiff",
+      "unalignedReference",
+      "unalignedQuery"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1001,
+      "message": "ERROR: Whitespace found in FastA, aborting."
+    }
+  ],
+  "examples": [
+    {
+      "name": "Two contigs against one reference",
+      "input": {
+        "reference": ">r\nTTTCCTCATGCAATTCAAAACCATGTCCGTAATGTAGGCGAAATAGTAAACCATTTTACGGAGGATACCAAATTCCTCCTTATTCAGGACCTAACCTGAGGTAAACCAGGTCTCTCCGCCCCCTTATAAAAGCTGTTGCACCTAGCCAAGTTCAACGGCAGCTGCAATGGAAATAGGCAATGACGGATATATATTAAAAAGTGTTTTAAGATACATTGAGGCCCGTTCGTGCTCCTCGCCCTGAAGCATTGCTTTGTGAAGAGGGACTTCAGCCAATAGACCTGCATACCGGCTCATTCTTCATGTGCAACCTAGGGAGAATGTGTACATACGCTCTTACTGCGGTCGCGTCTAATAATATACATTTGCTTCGTTGACTAGCAACCCAGGGCTATAGCTATTCCCCCCGCGGCCCACCCAGTATTCCTAACGGAGCATAAATCCCACCCGAACTAAGTTTGTCGAACCTTGGTCCAAGATCGGGACTCGGTCTCCAGGTAAGACGGGCTCATTCATAAACGTTACTAAGGGGTATAATCTTCTATTTGTGGGTGGGAACACTTAGTAGACTTGCAATCCAATTACAGCAGTCTTGTGCGC\n",
+        "query": ">q1\nTTTCCTCATGCAATTCAAAACCATGTCCGTAATGTAGGCGAAATAGTAAACCATTTTACGGAGGATACCAAATTCCTCCTTATTCAGGACCTAACCTGAGGTAAACCAGGTCTCTCCGCCCCCTTATAAAAGCTGTTGCACCTAGCCAAGTTCAACGGCAGCTGCAATGGAAATAGGCAATGACGGATATATATTAAAAAGTGTTTTAAGATACATTGAGGCCCGTTCGTGCTCCTCGCCCTGAAGCATTGCTTTGTGAAGAGGGACTTCAGCCAATAGACCTGCATACCGGCTCATTCTTCATGTGCAACCTAGGGAGA\n>q2\nGCGCACAAGACTGCTGTAATTGGATTGCAAGTCTACTAAGTGTTCCCACCCACAAATAGAAGATTATACCCCTTAGTAACGTTTATGAATGAGCCCGTCTTACCTGGAGACCGAGTCCCGATCTTGGACCAAGGTTCGACAAACTTAGTTCGGGTGGGATTTATGCTCCGTTAGGAATACTGGGTGGGCCGCGGGGGGAATAGCTATAGCCCTGGGTTGCTAGTCAACGAAGCAAATGTATATTATTAGACGCGACCGCAGTAAGAGCGTATGTACACATTCTCCCTAGGTTGCACATGAAGAATGAGCCGGTATGCAGG\n",
+        "delta": "ref2.fa qry2.fa\nNUCMER\n>r q1 600 320\n1 320 1 320 0 0 0\n0\n>r q2 600 320\n281 600 320 1 0 0 0\n0\n"
+      },
+      "output": {
+        "report": "ref2.fa qry2.fa\nNUCMER\n\n                               [REF]                [QRY]\n[Sequences]\nTotalSeqs                          1                    2\nAlignedSeqs               1(100.00%)           2(100.00%)\nUnalignedSeqs               0(0.00%)             0(0.00%)\n\n[Bases]\nTotalBases                       600                  640\nAlignedBases            600(100.00%)         640(100.00%)\nUnalignedBases              0(0.00%)             0(0.00%)\n\n[Alignments]\n1-to-1                             2                    2\nTotalLength                      640                  640\nAvgLength                     320.00               320.00\nAvgIdentity                   100.00               100.00\n\nM-to-M                             2                    2\nTotalLength                      640                  640\nAvgLength                     320.00               320.00\nAvgIdentity                   100.00               100.00\n\n[Feature Estimates]\nBreakpoints                        2                    0\nRelocations                        0                    0\nTranslocations                     1                    0\nInversions                         0                    0\n\nInsertions                         0                    0\nInsertionSum                       0                    0\nInsertionAvg                    0.00                 0.00\n\nTandemIns                          0                    0\nTandemInsSum                       0                    0\nTandemInsAvg                    0.00                 0.00\n\n[SNPs]\nTotalSNPs                          0                    0\nAC                          0(0.00%)             0(0.00%)\nAT                          0(0.00%)             0(0.00%)\nAG                          0(0.00%)             0(0.00%)\nTA                          0(0.00%)             0(0.00%)\nTG                          0(0.00%)             0(0.00%)\nTC                          0(0.00%)             0(0.00%)\nGT                          0(0.00%)             0(0.00%)\nGC                          0(0.00%)             0(0.00%)\nGA                          0(0.00%)             0(0.00%)\nCT                          0(0.00%)             0(0.00%)\nCG                          0(0.00%)             0(0.00%)\nCA                          0(0.00%)             0(0.00%)\n\nTotalGSNPs                         0                    0\nTA                          0(0.00%)             0(0.00%)\nTG                          0(0.00%)             0(0.00%)\nTC                          0(0.00%)             0(0.00%)\nGT                          0(0.00%)             0(0.00%)\nGC                          0(0.00%)             0(0.00%)\nGA                          0(0.00%)             0(0.00%)\nCG                          0(0.00%)             0(0.00%)\nCT                          0(0.00%)             0(0.00%)\nCA                          0(0.00%)             0(0.00%)\nAG                          0(0.00%)             0(0.00%)\nAT                          0(0.00%)             0(0.00%)\nAC                          0(0.00%)             0(0.00%)\n\nTotalIndels                        0                    0\nA.                          0(0.00%)             0(0.00%)\nT.                          0(0.00%)             0(0.00%)\nG.                          0(0.00%)             0(0.00%)\nC.                          0(0.00%)             0(0.00%)\n.C                          0(0.00%)             0(0.00%)\n.T                          0(0.00%)             0(0.00%)\n.G                          0(0.00%)             0(0.00%)\n.A                          0(0.00%)             0(0.00%)\n\nTotalGIndels                       0                    0\nT.                          0(0.00%)             0(0.00%)\nG.                          0(0.00%)             0(0.00%)\nC.                          0(0.00%)             0(0.00%)\nA.                          0(0.00%)             0(0.00%)\n.A                          0(0.00%)             0(0.00%)\n.C                          0(0.00%)             0(0.00%)\n.T                          0(0.00%)             0(0.00%)\n.G                          0(0.00%)             0(0.00%)\n",
+        "note": "abridged: the other files are the program's"
+      }
+    }
+  ]
+}

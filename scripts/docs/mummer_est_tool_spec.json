@@ -1,0 +1,353 @@
+[
+ {
+  "name": "nucmer",
+  "summary": "MUMmer 3.23 nucmer: the whole pipeline (prenuc | mummer | mgaps | postnuc), the .delta file byte for byte.",
+  "methodId": "GenomicAnalyzer.Nucmer",
+  "sourceFile": "GenomicAnalyzer.Nucmer.cs",
+  "sourcePath": "Seqeron.Genomics.Analysis/GenomicAnalyzer.Nucmer.cs",
+  "algorithmDoc": "Alignment/Nucmer_And_Delta_Programs.md",
+  "oracleScript": "generate_nucmer_oracle.py",
+  "description": "MUMmer 3.23 nucmer, the whole pipeline: prenuc (the reference records joined with an x after each) | mummer (anchors: matchMode 'mum' = unique in reference and query, 'mumreference' = unique in the reference (default), 'maxmatch' = all; minMatch = -l; only A/C/G/T match; both strands unless forwardOnly / reverseOnly) | mgaps (clusters: maxGap = -g, minCluster = -c, diagonalDifference = -D, diagonalFactor = -d) | postnuc (the banded Smith-Waterman extension of the clusters: gaps between the matches of a cluster, then outward off both ends until the score has not improved for breakLength = -b bases; clusters that meet fuse; with simplify (default) clusters shadowed by an earlier alignment are dropped; extend / optimize / banded as --[no]extend / --[no]optimize (nooptimize forces the extension to the sequence ends) / --banded (hard diagonal band = diagonalDifference)). Returns the text of the .delta file - the alignments between every reference record and every query record as the distances between insertions and deletions (first line = the two file names, then NUCMER, then per record pair '>refId qryId refLen qryLen' and per alignment 'sR eR sQ eQ errors simErrors nonAlpha' followed by the delta values and 0; a reverse-strand alignment has sQ > eQ) - byte for byte what the installed nucmer 3.23 writes (434 runs: multi-record inputs, both strands, repeats, N runs, every option family, the abort paths). With delta = false (--nodelta) the .cluster text is returned instead. A break length outside 1 - 10000 is ignored with a warning (messages), as the program does. The inputs on which the programs abort (empty file, no header, a file whose only record is empty, an unparsable header) are refused with an error.",
+  "output": {
+   "delta": [
+    "string",
+    "Text of the .delta file (null with delta = false)."
+   ],
+   "cluster": [
+    "string",
+    "Text of the .cluster file (only with delta = false)."
+   ],
+   "messages": [
+    "string",
+    "What the programs write to standard error (warnings)."
+   ]
+  },
+  "errors": [
+   "Sequence cannot be null or empty",
+   "matchMode must be 'mumreference', 'mum' or 'maxmatch'",
+   "mummer: empty sequence in multiple fasta file (and the other aborts of the programs)"
+  ],
+  "example": {
+   "title": "Three substitutions between two sequences",
+   "prompt": "Align these two sequences with nucmer, minimum match length 15.",
+   "input": {
+    "reference": ">ref\nGCTAAAGACAATTACATAACATACACGTCAGCACGAAACTTGTTGGCCCAGTGTGAATCGCTTAAGGGTTAAGTAAGTGTGATGCATACGCCTTTACTTGCTGTGTCCACCCCATCGGACTGGCATTTTTATTACACTCA\n",
+    "query": ">qry\nAGACAATTACATAACATACACGTCAGCACGAAACTTGTTGGCCCAGTGTGAATCGCTTAAGGGTTGGGGAAGTGTGATGCATACGCCTTTACTTGCTGTGTCCACCCCATCGGACTGGCATTTTTATTACACTCA\n",
+    "minMatch": 15,
+    "referenceName": "/tmp/b09nuc/ref.fa",
+    "queryName": "/tmp/b09nuc/qry.fa"
+   },
+   "output": {
+    "delta": "/tmp/b09nuc/ref.fa /tmp/b09nuc/qry.fa\nNUCMER\n>ref qry 140 135\n6 140 1 135 3 3 0\n0\n",
+    "cluster": null,
+    "messages": ""
+   },
+   "note": "nucmer -l 15 ref.fa qry.fa writes exactly this out.delta: one alignment 6-140 / 1-135 with 3 errors, 3 similarity errors and no indel (the delta list is just the closing 0)."
+  }
+ },
+ {
+  "name": "delta_filter",
+  "summary": "MUMmer 3.23 delta-filter: keeps the alignments of a delta file that survive -i -l -u -q -r -g -m -1.",
+  "methodId": "MummerDeltaFilter.Run",
+  "sourceFile": "MummerDeltaFilter.cs",
+  "sourcePath": "Seqeron.Genomics.Alignment/MummerDeltaFilter.cs",
+  "algorithmDoc": "Alignment/Nucmer_And_Delta_Programs.md",
+  "oracleScript": "generate_mummer_show_oracle.py",
+  "description": "MUMmer 3.23 delta-filter: reads a delta file (nucmer / promer) and keeps the alignments that survive the switches, in the order -i -l -u -q -r -g -m -1; the output is a delta file again (grouped by query record). minIdentity (-i, 0 - 100) and minLength (-l) drop weak alignments, minUnique (-u) those whose reference AND query part is not unique; queryLis (-q) maps each query position to its best hit in the reference (allowing reference overlaps), referenceLis (-r) each reference position to its best hit, globalLis (-g) the longest set of mutually consistent alignments (no rearrangements), manyToMany (-m) the union and oneToOne (-1) the intersection of the -r and -q chains; maxOverlap (-o) is the largest overlap of two chained alignments as a percent of their length; epsilon (-e, default -1) is the negligible score loss: a negative value breaks ties among equally good chains with glibc rand() seeded with 1, exactly as the program (reproducible). Byte for byte equal to the installed delta-filter on 300 + runs of random option sets over delta files of rearranged, duplicated and inverted multi-contig inputs. A percentage outside [0, 100] or a negative length is an error (the program's range errors).",
+  "output": {
+   "text": [
+    "string",
+    "The filtered delta file text, grouped by query record."
+   ]
+  },
+  "errors": [
+   "Delta file text cannot be null or empty",
+   "ERROR: Minimum identity must be within the range [0, 100] (and the other range errors)"
+  ],
+  "example": {
+   "title": "1-to-1 filter of one alignment",
+   "prompt": "Keep only the 1-to-1 alignments of this delta file.",
+   "input": {
+    "delta": "ref.fa qry.fa\nNUCMER\n>ref qry 140 135\n6 140 1 135 3 3 0\n0\n",
+    "oneToOne": true
+   },
+   "output": {
+    "text": "ref.fa qry.fa\nNUCMER\n>ref qry 140 135\n6 140 1 135 3 3 0\n0\n"
+   },
+   "note": "delta-filter -1 d1.delta: the single alignment is its own best hit on both sides and is kept."
+  }
+ },
+ {
+  "name": "show_coords",
+  "summary": "MUMmer 3.23 show-coords: the alignment coordinates of a delta file as a table, tab-delimited or btab.",
+  "methodId": "MummerShowCoords.Run",
+  "sourceFile": "MummerShowCoords.cs",
+  "sourcePath": "Seqeron.Genomics.Alignment/MummerShowCoords.cs",
+  "algorithmDoc": "Alignment/Nucmer_And_Delta_Programs.md",
+  "oracleScript": "generate_mummer_show_oracle.py",
+  "description": "MUMmer 3.23 show-coords: the coordinates of the alignments of a delta file as the human-readable table (header, [S1] [E1] | [S2] [E2] | [LEN 1] [LEN 2] | [% IDY] | tags), the tab-delimited table (tabular, -T) or btab (btab, -B). header = false is -H; brief (-b) merges overlapping alignments regardless of direction and drops the identity columns; coverage (-c) adds the percent coverage columns, lengths (-l) the sequence lengths, direction (-d) the FRM columns; minIdentity (-I) and minLength (-L) filter; sortByReference (-r) / sortByQuery (-q) sort; annotateOverlaps (-o) tags alignments that cover a whole sequence end ([IDENTITY] [CONTAINED] [CONTAINS] [END] [BEGIN]); the hidden warnings (-w) tag [DUPLICATE] [CONTAINS] [SHADOWED] [OVERLAPS]; las (-g) / weightedLas (-G) keep the longest ascending subset (ties broken with rand() seeded by randomSeed, the program seeds it with the current time); knockout (-k) is for promer files. Percentages are printed from the float values with %.2f. Byte for byte equal to the installed show-coords on 450 + runs; PROmer delta files are accepted.",
+  "output": {
+   "text": [
+    "string",
+    "What show-coords writes to standard output."
+   ],
+   "messages": [
+    "string",
+    "What it writes to standard error (warnings)."
+   ]
+  },
+  "errors": [
+   "Delta file text cannot be null or empty",
+   "ERROR: Percentages must be within the range [0.0. 100.0]"
+  ],
+  "example": {
+   "title": "Coordinates of three substitutions",
+   "prompt": "Show the coordinates of the alignments of this delta file.",
+   "input": {
+    "delta": "ref.fa qry.fa\nNUCMER\n>ref qry 140 135\n6 140 1 135 3 3 0\n0\n"
+   },
+   "output": {
+    "text": "ref.fa qry.fa\nNUCMER\n\n    [S1]     [E1]  |     [S2]     [E2]  |  [LEN 1]  [LEN 2]  |  [% IDY]  | [TAGS]\n=====================================================================================\n       6      140  |        1      135  |      135      135  |    97.78  | ref\tqry\n",
+    "messages": ""
+   },
+   "note": "show-coords d1.delta: 135 of 135 bases aligned, 97.78 % identity."
+  }
+ },
+ {
+  "name": "show_aligns",
+  "summary": "MUMmer 3.23 show-aligns: the alignments of one reference / query pair drawn as three rows.",
+  "methodId": "MummerShowAligns.Run",
+  "sourceFile": "MummerShowAligns.cs",
+  "sourcePath": "Seqeron.Genomics.Alignment/MummerShowAligns.cs",
+  "algorithmDoc": "Alignment/Nucmer_And_Delta_Programs.md",
+  "oracleScript": "generate_mummer_show_oracle.py",
+  "description": "MUMmer 3.23 show-aligns: the alignments between one reference record and one query record of a nucmer delta file drawn as three rows (reference, query, a ^ under every difference; an indel is a . in the other row) in blocks of the screen width (-w, default 60; 11 or less is replaced with a warning), each row prefixed with the 1-based forward-strand position of its first base; '-- BEGIN alignment [ +1 sR - eR | +1 sQ - eQ ]' / END lines frame every alignment (a reverse-strand alignment shows -1). The alignments are in file order unless sortByReference (-r) / sortByQuery (-q). The program reads the sequences from the FASTA files named in the delta header: pass their text. Byte for byte equal to the installed show-aligns on 300 + runs; a promer (amino-acid) delta file is refused with NotSupportedException (registered A3-9d).",
+  "output": {
+   "text": [
+    "string",
+    "What show-aligns writes to standard output."
+   ],
+   "messages": [
+    "string",
+    "What it writes to standard error (warnings)."
+   ]
+  },
+  "errors": [
+   "Delta file text cannot be null or empty",
+   "ERROR: Could not find any alignments for <ref> and <qry>"
+  ],
+  "example": {
+   "title": "The three substitutions drawn",
+   "prompt": "Show the alignment between ref and qry in 50 columns.",
+   "input": {
+    "delta": "ref.fa qry.fa\nNUCMER\n>ref qry 140 135\n6 140 1 135 3 3 0\n0\n",
+    "referenceFasta": ">ref\nGCTAAAGACAATTACATAACATACACGTCAGCACGAAACTTGTTGGCCCAGTGTGAATCGCTTAAGGGTTAAGTAAGTGTGATGCATACGCCTTTACTTGCTGTGTCCACCCCATCGGACTGGCATTTTTATTACACTCA\n",
+    "queryFasta": ">qry\nAGACAATTACATAACATACACGTCAGCACGAAACTTGTTGGCCCAGTGTGAATCGCTTAAGGGTTGGGGAAGTGTGATGCATACGCCTTTACTTGCTGTGTCCACCCCATCGGACTGGCATTTTTATTACACTCA\n",
+    "referenceId": "ref",
+    "queryId": "qry",
+    "screenWidth": 50
+   },
+   "output": {
+    "text": "ref.fa qry.fa\n\n==================================================\n-- Alignments between ref and qry\n\n-- BEGIN alignment [ +1 6 - 140 | +1 1 - 135 ]\n\n\n6          agacaattacataacatacacgtcagcacgaaacttgtt\n1          agacaattacataacatacacgtcagcacgaaacttgtt\n                                                  \n\n45         ggcccagtgtgaatcgcttaagggttaagtaagtgtgat\n40         ggcccagtgtgaatcgcttaagggttggggaagtgtgat\n                                     ^^ ^         \n\n84         gcatacgcctttacttgctgtgtccaccccatcggactg\n79         gcatacgcctttacttgctgtgtccaccccatcggactg\n                                                  \n\n123        gcatttttattacactca\n118        gcatttttattacactca\n                             \n\n\n--   END alignment [ +1 6 - 140 | +1 1 - 135 ]\n\n==================================================\n",
+    "messages": ""
+   },
+   "note": "show-aligns -w 50 d1.delta ref qry: a ^ marks each of the three substituted bases."
+  }
+ },
+ {
+  "name": "show_snps",
+  "summary": "MUMmer 3.23 show-snps: the substitutions and indels of a nucmer delta file with buffer, distance, conflicts and context.",
+  "methodId": "MummerShowSnps.Run",
+  "sourceFile": "MummerShowSnps.cs",
+  "sourcePath": "Seqeron.Genomics.Alignment/MummerShowSnps.cs",
+  "algorithmDoc": "Alignment/Nucmer_And_Delta_Programs.md",
+  "oracleScript": "generate_mummer_show_oracle.py",
+  "description": "MUMmer 3.23 show-snps: the single-base substitutions and indels of every alignment of a nucmer delta file: [P1] reference position, [SUB] the two characters ('.' = indel), [P2] query position, [BUFF] the distance to the nearest other difference in the same alignment, [DIST] the distance to the nearest sequence end, [R] [Q] the number of other alignments over the position (showConflict = false is -C: only unambiguous SNPs and no [R] [Q] columns), optional sequence lengths (-l), context (-x characters each side), frames and ids; a difference between compatible IUPAC codes (N, R/A ...) is not a SNP (the program's asymmetric CompareIUPAC table). sortByReference (-r, default) / sortByQuery (-q), tabular (-T), header = false (-H), showIndels = false (-I), alignments (-S): only the alignments of these show-coords lines. Byte for byte equal to the installed show-snps on 450 + runs; a promer delta file is refused with NotSupportedException (registered A3-9d).",
+  "output": {
+   "text": [
+    "string",
+    "What show-snps writes to standard output."
+   ],
+   "messages": [
+    "string",
+    "What it writes to standard error (warnings)."
+   ]
+  },
+  "errors": [
+   "Delta file text cannot be null or empty",
+   "ERROR: SNP context must be a positive int"
+  ],
+  "example": {
+   "title": "Three substitutions with two bases of context",
+   "prompt": "List the SNPs of this alignment with 2 bases of context.",
+   "input": {
+    "delta": "ref.fa qry.fa\nNUCMER\n>ref qry 140 135\n6 140 1 135 3 3 0\n0\n",
+    "referenceFasta": ">ref\nGCTAAAGACAATTACATAACATACACGTCAGCACGAAACTTGTTGGCCCAGTGTGAATCGCTTAAGGGTTAAGTAAGTGTGATGCATACGCCTTTACTTGCTGTGTCCACCCCATCGGACTGGCATTTTTATTACACTCA\n",
+    "queryFasta": ">qry\nAGACAATTACATAACATACACGTCAGCACGAAACTTGTTGGCCCAGTGTGAATCGCTTAAGGGTTGGGGAAGTGTGATGCATACGCCTTTACTTGCTGTGTCCACCCCATCGGACTGGCATTTTTATTACACTCA\n",
+    "context": 2
+   },
+   "output": {
+    "text": "ref.fa qry.fa\nNUCMER\n\n    [P1]  [SUB]  [P2]      |   [BUFF]   [DIST]  |  [R]  [Q]  |  [CTX R]  [CTX Q]  | [FRM]  [TAGS]\n=====================================================================================================\n      71   A G   66        |        1       66  |    0    0  |    TTAAG    TTGGG  |  1  1  ref\tqry\n      72   A G   67        |        1       67  |    0    0  |    TAAGT    TGGGG  |  1  1  ref\tqry\n      74   T G   69        |        2       67  |    0    0  |    AGTAA    GGGAA  |  1  1  ref\tqry\n",
+    "messages": ""
+   },
+   "note": "show-snps -x 2 d1.delta."
+  }
+ },
+ {
+  "name": "show_diff",
+  "summary": "MUMmer 3.23 show-diff: breaks, gaps, jumps, inversions, duplications and sequence jumps of a delta file.",
+  "methodId": "MummerShowDiff.Run",
+  "sourceFile": "MummerShowDiff.cs",
+  "sourcePath": "Seqeron.Genomics.Alignment/MummerShowDiff.cs",
+  "algorithmDoc": "Alignment/Nucmer_And_Delta_Programs.md",
+  "oracleScript": "generate_mummer_show_oracle.py",
+  "description": "MUMmer 3.23 show-diff: the structural differences between the sequences of a delta file read off the many-to-many mapping (delta-filter -m) along every reference record (referenceDiff, -r, the default) or query record (queryDiff, -q; not both): BRK breaks (unaligned stretches), GAP (gap sizes in both sequences and their difference), JMP (a jump within a sequence), INV (an inversion), DUP (a duplication) and SEQ (a jump to another sequence, with the two neighbour ids); columns [SEQ] [TYPE] [S1] [E1] [LEN 1] (+ extra fields per type); amos (-f) writes the AMOS layout with the coordinates repeated. header = false is -H. The ties of the longest-increasing-subset choice use the program's rand() (seed 1). Byte for byte equal to the installed show-diff on 300 + runs.",
+  "output": {
+   "text": [
+    "string",
+    "What show-diff writes to standard output."
+   ],
+   "messages": [
+    "string",
+    "What it writes to standard error."
+   ]
+  },
+  "errors": [
+   "Delta file text cannot be null or empty",
+   "ERROR: -r and -q options cannot be combined"
+  ],
+  "example": {
+   "title": "A jump between two query contigs",
+   "prompt": "Classify the differences along the reference.",
+   "input": {
+    "delta": "ref2.fa qry2.fa\nNUCMER\n>r q1 600 320\n1 320 1 320 0 0 0\n0\n>r q2 600 320\n281 600 320 1 0 0 0\n0\n",
+    "referenceDiff": true
+   },
+   "output": {
+    "text": "ref2.fa qry2.fa\nNUCMER\n\n[SEQ]\t[TYPE]\t[S1]\t[E1]\t[LEN 1]\nr\tSEQ\t321\t280\t-40\tq1\tq2\n",
+    "messages": ""
+   },
+   "note": "show-diff -r d2.delta: the reference is covered by q1 (1-320) and by the inverted q2 (281-600); the end of q1 and the start of q2 overlap by 40 bases, reported as a SEQ jump of length -40 between the two contigs."
+  }
+ },
+ {
+  "name": "show_tiling",
+  "summary": "MUMmer 3.23 show-tiling: places the aligned query contigs on the reference and prints the tiling path.",
+  "methodId": "MummerShowTiling.Run",
+  "sourceFile": "MummerShowTiling.cs",
+  "sourcePath": "Seqeron.Genomics.Alignment/MummerShowTiling.cs",
+  "algorithmDoc": "Alignment/Nucmer_And_Delta_Programs.md",
+  "oracleScript": "generate_mummer_show_oracle.py",
+  "description": "MUMmer 3.23 show-tiling: places the aligned query contigs of a delta file on the reference. For every contig and reference the longest consistent subset of its alignments (maxGap -g, default 1000 for nucmer files / -1 for promer) is taken; a contig is tiled when its coverage is at least minCoverage (-v, default 95) and better than the second best by minCoverageDifference (-V, default 10) and its identity at least minIdentity (-i, default 90), or, when it hangs over the reference ends, by the same rule on the overhang-corrected coverage; contigs shorter than minContigLength (-l) are ignored. The tiled contigs are linked along each reference (circular = -c lets them span the origin) and printed as '>refId N bases' followed by 'start end gapToNext length coverage identity strand id' (the tiling path), or with printAlignments (-a) as the tab-delimited alignment rows, or with xml (-x) as the XML link evidence. contigList (-t), unusable (-u) and pseudoMolecule (-p, needs the query FASTA) return the program's files. randomRepeats (-R) places repetitive contigs at a random copy (rand() seeded by randomSeed; the program uses the current time; implies minCoverageDifference 0). Byte for byte equal to the installed show-tiling on 350 + runs.",
+  "output": {
+   "text": [
+    "string",
+    "The tiling path (or the alignment rows / XML) written to standard output."
+   ],
+   "contigList": [
+    "string",
+    "The -t file (when requested)."
+   ],
+   "unusable": [
+    "string",
+    "The -u file (when requested)."
+   ],
+   "pseudoMolecule": [
+    "string",
+    "The -p file (when requested)."
+   ]
+  },
+  "errors": [
+   "Delta file text cannot be null or empty",
+   "ERROR: Percentages must be within the range [0.0, 100.0]"
+  ],
+  "example": {
+   "title": "Two contigs tiled on one reference",
+   "prompt": "Tile the query contigs on the reference.",
+   "input": {
+    "delta": "ref2.fa qry2.fa\nNUCMER\n>r q1 600 320\n1 320 1 320 0 0 0\n0\n>r q2 600 320\n281 600 320 1 0 0 0\n0\n"
+   },
+   "output": {
+    "text": ">r 600 bases\n1\t320\t-40\t320\t100.00\t100.00\t+\tq1\n281\t600\t0\t320\t100.00\t100.00\t-\tq2\n",
+    "contigList": null,
+    "unusable": null,
+    "pseudoMolecule": null
+   },
+   "note": "show-tiling d2.delta: q1 forward at 1-320, q2 reverse at 281-600 (gap -40 = overlap)."
+  }
+ },
+ {
+  "name": "dnadiff",
+  "summary": "MUMmer 3.23 dnadiff: the comparative analysis of two sequence sets and its report.",
+  "methodId": "GenomicAnalyzer.Dnadiff",
+  "sourceFile": "GenomicAnalyzer.Dnadiff.cs",
+  "sourcePath": "Seqeron.Genomics.Analysis/GenomicAnalyzer.Dnadiff.cs",
+  "algorithmDoc": "Alignment/Nucmer_And_Delta_Programs.md",
+  "oracleScript": "generate_mummer_show_oracle.py",
+  "description": "MUMmer 3.23 dnadiff: the comparative analysis of two sequence sets, the perl script over nucmer --maxmatch, delta-filter -1 / -m, show-coords -rclTH, show-snps -rlTHC and show-diff -rH / -qH, with its report: sequences, aligned / unaligned sequences and bases, the 1-to-1 and M-to-M alignments (count, total and average length, average identity), breakpoints, relocations, translocations, inversions, insertions, tandem insertions (count, sum, average) and the SNPs / indels with the 12 substitution classes, all also for the 'good' ones (buffer >= 20). Returns every file of the program: report, delta, 1delta, mdelta, 1coords, mcoords, snps, rdiff, qdiff and (when something is unaligned) unref / unqry. Pass delta (dnadiff -d) to analyse a precomputed nucmer delta file instead of running nucmer. The order of the per-substitution lines inside the SNP / indel blocks of the report and of the unref / unqry lines is the order of perl's hash iteration, which differs from run to run in the program (6 runs of the installed dnadiff on one input gave 6 different reports); here it is fixed (. A C G T, then other symbols). Everything else is byte for byte the program's (300 + runs, the unordered lines compared as sets). A FASTA line with white space (carriage return) is the program's 'Whitespace found in FastA' error.",
+  "output": {
+   "report": [
+    "string",
+    "The .report file."
+   ],
+   "delta": [
+    "string",
+    "The nucmer delta file."
+   ],
+   "delta1": [
+    "string",
+    "The 1-to-1 delta file (.1delta)."
+   ],
+   "deltaM": [
+    "string",
+    "The M-to-M delta file (.mdelta)."
+   ],
+   "coords1": [
+    "string",
+    "The 1-to-1 coordinates (.1coords)."
+   ],
+   "coordsM": [
+    "string",
+    "The M-to-M coordinates (.mcoords)."
+   ],
+   "snps": [
+    "string",
+    "The SNPs (.snps)."
+   ],
+   "referenceDiff": [
+    "string",
+    "The reference breakpoints (.rdiff)."
+   ],
+   "queryDiff": [
+    "string",
+    "The query breakpoints (.qdiff)."
+   ],
+   "unalignedReference": [
+    "string",
+    "The .unref file (null when every reference sequence aligned)."
+   ],
+   "unalignedQuery": [
+    "string",
+    "The .unqry file (null when every query sequence aligned)."
+   ]
+  },
+  "errors": [
+   "Sequence cannot be null or empty",
+   "ERROR: Whitespace found in FastA, aborting."
+  ],
+  "example": {
+   "title": "Two contigs against one reference",
+   "prompt": "Run dnadiff on the reference and the two query contigs.",
+   "input": {
+    "reference": ">r\nTTTCCTCATGCAATTCAAAACCATGTCCGTAATGTAGGCGAAATAGTAAACCATTTTACGGAGGATACCAAATTCCTCCTTATTCAGGACCTAACCTGAGGTAAACCAGGTCTCTCCGCCCCCTTATAAAAGCTGTTGCACCTAGCCAAGTTCAACGGCAGCTGCAATGGAAATAGGCAATGACGGATATATATTAAAAAGTGTTTTAAGATACATTGAGGCCCGTTCGTGCTCCTCGCCCTGAAGCATTGCTTTGTGAAGAGGGACTTCAGCCAATAGACCTGCATACCGGCTCATTCTTCATGTGCAACCTAGGGAGAATGTGTACATACGCTCTTACTGCGGTCGCGTCTAATAATATACATTTGCTTCGTTGACTAGCAACCCAGGGCTATAGCTATTCCCCCCGCGGCCCACCCAGTATTCCTAACGGAGCATAAATCCCACCCGAACTAAGTTTGTCGAACCTTGGTCCAAGATCGGGACTCGGTCTCCAGGTAAGACGGGCTCATTCATAAACGTTACTAAGGGGTATAATCTTCTATTTGTGGGTGGGAACACTTAGTAGACTTGCAATCCAATTACAGCAGTCTTGTGCGC\n",
+    "query": ">q1\nTTTCCTCATGCAATTCAAAACCATGTCCGTAATGTAGGCGAAATAGTAAACCATTTTACGGAGGATACCAAATTCCTCCTTATTCAGGACCTAACCTGAGGTAAACCAGGTCTCTCCGCCCCCTTATAAAAGCTGTTGCACCTAGCCAAGTTCAACGGCAGCTGCAATGGAAATAGGCAATGACGGATATATATTAAAAAGTGTTTTAAGATACATTGAGGCCCGTTCGTGCTCCTCGCCCTGAAGCATTGCTTTGTGAAGAGGGACTTCAGCCAATAGACCTGCATACCGGCTCATTCTTCATGTGCAACCTAGGGAGA\n>q2\nGCGCACAAGACTGCTGTAATTGGATTGCAAGTCTACTAAGTGTTCCCACCCACAAATAGAAGATTATACCCCTTAGTAACGTTTATGAATGAGCCCGTCTTACCTGGAGACCGAGTCCCGATCTTGGACCAAGGTTCGACAAACTTAGTTCGGGTGGGATTTATGCTCCGTTAGGAATACTGGGTGGGCCGCGGGGGGAATAGCTATAGCCCTGGGTTGCTAGTCAACGAAGCAAATGTATATTATTAGACGCGACCGCAGTAAGAGCGTATGTACACATTCTCCCTAGGTTGCACATGAAGAATGAGCCGGTATGCAGG\n",
+    "delta": "ref2.fa qry2.fa\nNUCMER\n>r q1 600 320\n1 320 1 320 0 0 0\n0\n>r q2 600 320\n281 600 320 1 0 0 0\n0\n"
+   },
+   "output": {
+    "report": "ref2.fa qry2.fa\nNUCMER\n\n                               [REF]                [QRY]\n[Sequences]\nTotalSeqs                          1                    2\nAlignedSeqs               1(100.00%)           2(100.00%)\nUnalignedSeqs               0(0.00%)             0(0.00%)\n\n[Bases]\nTotalBases                       600                  640\nAlignedBases            600(100.00%)         640(100.00%)\nUnalignedBases              0(0.00%)             0(0.00%)\n\n[Alignments]\n1-to-1                             2                    2\nTotalLength                      640                  640\nAvgLength                     320.00               320.00\nAvgIdentity                   100.00               100.00\n\nM-to-M                             2                    2\nTotalLength                      640                  640\nAvgLength                     320.00               320.00\nAvgIdentity                   100.00               100.00\n\n[Feature Estimates]\nBreakpoints                        2                    0\nRelocations                        0                    0\nTranslocations                     1                    0\nInversions                         0                    0\n\nInsertions                         0                    0\nInsertionSum                       0                    0\nInsertionAvg                    0.00                 0.00\n\nTandemIns                          0                    0\nTandemInsSum                       0                    0\nTandemInsAvg                    0.00                 0.00\n\n[SNPs]\nTotalSNPs                          0                    0\nAC                          0(0.00%)             0(0.00%)\nAT                          0(0.00%)             0(0.00%)\nAG                          0(0.00%)             0(0.00%)\nTA                          0(0.00%)             0(0.00%)\nTG                          0(0.00%)             0(0.00%)\nTC                          0(0.00%)             0(0.00%)\nGT                          0(0.00%)             0(0.00%)\nGC                          0(0.00%)             0(0.00%)\nGA                          0(0.00%)             0(0.00%)\nCT                          0(0.00%)             0(0.00%)\nCG                          0(0.00%)             0(0.00%)\nCA                          0(0.00%)             0(0.00%)\n\nTotalGSNPs                         0                    0\nTA                          0(0.00%)             0(0.00%)\nTG                          0(0.00%)             0(0.00%)\nTC                          0(0.00%)             0(0.00%)\nGT                          0(0.00%)             0(0.00%)\nGC                          0(0.00%)             0(0.00%)\nGA                          0(0.00%)             0(0.00%)\nCG                          0(0.00%)             0(0.00%)\nCT                          0(0.00%)             0(0.00%)\nCA                          0(0.00%)             0(0.00%)\nAG                          0(0.00%)             0(0.00%)\nAT                          0(0.00%)             0(0.00%)\nAC                          0(0.00%)             0(0.00%)\n\nTotalIndels                        0                    0\nA.                          0(0.00%)             0(0.00%)\nT.                          0(0.00%)             0(0.00%)\nG.                          0(0.00%)             0(0.00%)\nC.                          0(0.00%)             0(0.00%)\n.C                          0(0.00%)             0(0.00%)\n.T                          0(0.00%)             0(0.00%)\n.G                          0(0.00%)             0(0.00%)\n.A                          0(0.00%)             0(0.00%)\n\nTotalGIndels                       0                    0\nT.                          0(0.00%)             0(0.00%)\nG.                          0(0.00%)             0(0.00%)\nC.                          0(0.00%)             0(0.00%)\nA.                          0(0.00%)             0(0.00%)\n.A                          0(0.00%)             0(0.00%)\n.C                          0(0.00%)             0(0.00%)\n.T                          0(0.00%)             0(0.00%)\n.G                          0(0.00%)             0(0.00%)\n",
+    "note": "abridged: the other files are the program's"
+   },
+   "note": "dnadiff -d d2.delta: the report of the 1-to-1 and M-to-M alignments; the files other than the report are omitted here."
+  }
+ }
+]

@@ -1,6 +1,6 @@
 # MCP Completion — Source of Truth & Campaign Ledger
 
-> Reality-based ledger of the 559 MCP tools across 11 servers. Campaign COMPLETE (2026-07-01):
+> Reality-based ledger of the 567 MCP tools across 11 servers. Campaign COMPLETE (2026-07-01):
 > every tool has a gold-standard binding (`[McpServerTool(Name/Title/ReadOnly)]` + `[Description]`,
 > structured record, input validation, real `Seqeron.Genomics` delegation), a Schema+Binding NUnit
 > test, and `{tool}.md` + `{tool}.mcp.json` docs. Supersedes `docs/mcp-plan.md` / `docs/mcp-checklist.md` (v4).
@@ -9,9 +9,9 @@
 
 | Metric | Done | Total |
 |---|---:|---:|
-| Gold-standard binding | 559 | 559 |
-| Schema+Binding tests | 559 | 559 |
-| Docs (.md + .mcp.json) | 559 | 559 |
+| Gold-standard binding | 567 | 567 |
+| Schema+Binding tests | 567 | 567 |
+| Docs (.md + .mcp.json) | 567 | 567 |
 
 ## Per-server summary
 
@@ -21,7 +21,7 @@
 | Sequence | Seqeron.Mcp.Sequence | 35 | 35/35 | 35/35 | 35/35 | ✅ done |
 | Parsers | Seqeron.Mcp.Parsers | 41 | 41/41 | 41/41 | 41/41 | ✅ done |
 | Alignment | Seqeron.Mcp.Alignment | 77 | 77/77 | 77/77 | 77/77 | ✅ done |
-| Analysis | Seqeron.Mcp.Analysis | 150 | 150/150 | 150/150 | 150/150 | ✅ done |
+| Analysis | Seqeron.Mcp.Analysis | 158 | 158/158 | 158/158 | 158/158 | ✅ done |
 | Annotation | Seqeron.Mcp.Annotation | 97 | 97/97 | 97/97 | 97/97 | ✅ done |
 | Chromosome | Seqeron.Mcp.Chromosome | 32 | 32/32 | 32/32 | 32/32 | ✅ done |
 | Metagenomics | Seqeron.Mcp.Metagenomics | 19 | 19/19 | 19/19 | 19/19 | ✅ done |
@@ -222,7 +222,7 @@
 | 76 | `dotmatcher` | ☑ | ☑ | ☑ |
 | 77 | `minimap2_map` | ☑ | ☑ | ☑ |
 
-### Analysis (Seqeron.Mcp.Analysis) — 150 tools
+### Analysis (Seqeron.Mcp.Analysis) — 158 tools
 
 | # | tool | B | T | D |
 |---:|---|:--:|:--:|:--:|
@@ -376,6 +376,14 @@
 | 148 | `mash_paste` | ☑ | ☑ | ☑ |
 | 149 | `diffseq` | ☑ | ☑ | ☑ |
 | 150 | `wordmatch` | ☑ | ☑ | ☑ |
+| 151 | `nucmer` | ☑ | ☑ | ☑ |
+| 152 | `delta_filter` | ☑ | ☑ | ☑ |
+| 153 | `show_coords` | ☑ | ☑ | ☑ |
+| 154 | `show_aligns` | ☑ | ☑ | ☑ |
+| 155 | `show_snps` | ☑ | ☑ | ☑ |
+| 156 | `show_diff` | ☑ | ☑ | ☑ |
+| 157 | `show_tiling` | ☑ | ☑ | ☑ |
+| 158 | `dnadiff` | ☑ | ☑ | ☑ |
 ### Annotation (Seqeron.Mcp.Annotation) — 97 tools
 
 | # | tool | B | T | D |

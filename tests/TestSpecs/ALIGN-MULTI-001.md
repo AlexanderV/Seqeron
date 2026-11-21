@@ -794,3 +794,18 @@ Tests (`Seqeron.Genomics.Tests`, against the installed Debian `poa` 2.0+20060928
 | A5-9d | `Minimap2Options_Tests` (9 groups) | 2 401 command lines (`minimap2_options_oracle.jsonl.gz`): index parts (`-I`) and `--split-prefix`, chaining / seeding options with `-c`, output options and `-o FILE`, `--alt` / `--alt-drop`, `--qstrand`, all-vs-all with `-c`, unusual input (lower case, IUPAC, U, empty and very short reads, CRLF, blank lines, multi-line FASTA / FASTQ, comments), a query of 610 kb with more than 65 535 operations (`CG:B:I`), option errors / help / version (stdout, stderr at `-v 2`, exit status) |
 | A3-9c2 .. A5-9d | MCP `Minimap2MapToolTests`, `ToolRegistrationContractTests`, `ToolDocsContractTests` | `minimap2_map`: `-c` PAF with `cg` and the tags (whole line prefix), SAM header with the command line, a proper pair (flags 99 / 147, TLEN +-450), exit status and error text, `-o` file, `-I` warning, argument validation; `ksw2_extend` variants `exts2` (`30M100N30M`) and `ll` (score 20 at target 9); tool documents equal the metadata of the code |
 
+
+## Audit A3-9b (B09 F199): nucmer `postnuc` and the whole pipeline
+
+| Item | Tests | Oracle | Status |
+|---|---|---|---|
+| A3-9b | `MummerNucmer_Oracle_Tests.Nucmer_FilesEqualTheProgram_AllRows` | 434 `nucmer` 3.23 runs (`nucmer_oracle.jsonl.gz`, `generate_nucmer_oracle.py`): `out.delta` / `out.cluster` text equal, 5 abort rows | as specified |
+| A3-9b | `MummerNucmer_Oracle_Tests.LibstdcxxSort_...`, `SwAlign_MatchScore...`, `Postnuc_ReadsTheMgapsTextOfTheProgram` | libstdc++ `std::sort` order (stable below 17 elements), the +3 / -7 score, the program's output for one mgaps text | as specified |
+| A3-9b | MCP `EmbossProgramToolsTests.Nucmer_WritesTheDeltaFileOfTheProgram`, `ToolRegistrationContractTests` | `nucmer -l 15` of the F150 example | as specified |
+
+## Audit A3-9b (B09 F200 - F202): the delta programs
+
+| Item | Tests | Oracle | Status |
+|---|---|---|---|
+| A3-9b | `MummerShow_Oracle_Tests.DeltaPrograms_OutputEqualsTheProgram_AllRuns` | 2 442 runs of `delta-filter`, `show-coords`, `show-aligns`, `show-snps`, `show-diff`, `show-tiling` (+ files), `dnadiff` (`mummer_show_oracle.jsonl.gz`, `generate_mummer_show_oracle.py`): every output text / file equal (dnadiff's hash-ordered lines as sets) | as specified |
+| A3-9b | MCP `EmbossProgramToolsTests.MummerDeltaPrograms_...`, `Dnadiff_...`, `ToolRegistrationContractTests`, `ToolDocsContractTests` | the installed programs on the three-substitution and two-contig examples | as specified |

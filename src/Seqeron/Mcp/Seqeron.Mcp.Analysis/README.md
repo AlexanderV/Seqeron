@@ -2,7 +2,7 @@
 
 MCP server — **K-mer, motif, repeat, complexity, RNA-structure and comparative-genomics analysis.**
 
-Exposes **150 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+Exposes **158 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
 MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test, with a
 per-tool doc under [`docs/mcp/tools/analysis/`](../../../../docs/mcp/tools/analysis). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
@@ -75,6 +75,14 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `emboss_report_file` | The whole report file of fuzznuc / fuzzpro / fuzztran / etandem / equicktandem in every -rformat (simple embl genbank gff gff3 pir swiss dasgff debug listfile dbmotif draw restrict excel feattable motif nametable regions seqtable srs summary table tagseq), with -raccshow -rdesshow -rscoreshow -rstrandshow -rusashow -rmaxall -rmaxseq, several sequences per file, -sbegin / -send / -sreverse and the -origfile of the tandem programs. |
 | `megamerger` | EMBOSS megamerger: merge two large overlapping DNA sequences by minimal non-overlapping word-match anchors (merged sequence + report); 600 random pairs equal megamerger 6.6.0 (B09 A3-13b). |
 | `nucmer_clusters` | MUMmer nucmer anchor clustering (`mummer -mum|-mumreference|-maxmatch | mgaps`: unique / maximal matches joined by diagonal difference and separation, cut into maximum-score chains); 700 related pairs equal the installed nucmer 3.23 pipeline (B09 A3-9a). |
+| `nucmer` | MUMmer 3.23 nucmer: the whole pipeline (anchors, mgaps clusters, postnuc banded Smith-Waterman extension), the .delta file byte for byte (434 runs, all option families). |
+| `delta_filter` | MUMmer 3.23 delta-filter: keeps the alignments of a delta file that survive -i -l -u -q -r -g -m -1 (rand() seeded with 1, as the program). |
+| `show_coords` | MUMmer 3.23 show-coords: the alignment coordinates of a delta file (table, tab-delimited, btab; -b -c -d -H -I -k -l -L -o -q -r -T -B -g -G -w). |
+| `show_aligns` | MUMmer 3.23 show-aligns: the alignments of one reference / query pair drawn as three rows (^ under a difference, . for an indel). |
+| `show_snps` | MUMmer 3.23 show-snps: substitutions and indels of a nucmer delta file with buffer, distance, conflict counts and context. |
+| `show_diff` | MUMmer 3.23 show-diff: breaks, gaps, jumps, inversions, duplications and sequence jumps read off the many-to-many mapping of a delta file. |
+| `show_tiling` | MUMmer 3.23 show-tiling: tiles the aligned query contigs on the reference (path, alignments, XML, contig list, unusable contigs, pseudo molecule). |
+| `dnadiff` | MUMmer 3.23 dnadiff: nucmer --maxmatch + delta-filter + show-coords / show-snps / show-diff and the report of two sequence sets. |
 | `seqmatchall` | EMBOSS seqmatchall: every maximal exact word match (>= `wordSize`) of every pair of a sequence set, nucleotide or protein, including the program's N / X word-table scan; verified against seqmatchall 6.6.0 on 330 sets (B09 A3-13). |
 | `find_longdust_regions` | Finds low-complexity regions with **longdust** (Li & Li 2025; port of lh3/longdust 1.4-r97 ld_dust1/ld_dust2, MIT) — the k-mer generalisati… |
 | `find_longest_common_region_mismatches` | Longest common substring with at most k mismatches (k-mismatch LCS) of two DNA sequences, optionally against the reverse complement (B09 A2-30). |

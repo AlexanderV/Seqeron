@@ -71,6 +71,8 @@
     <EmbeddedResource Include="TestData\Alignment\robin_hood_order_oracle.tsv" />
     <EmbeddedResource Include="TestData\Alignment\mash_reads_msh_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\diffseq_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\nucmer_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\mummer_show_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\wordmatch_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\fuzznuc_dup_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\mash_bloom_msh_oracle.jsonl.gz" />

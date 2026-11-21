@@ -686,6 +686,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L649"
   },
   {
+    "tool": "delta_filter",
+    "server": "Analysis",
+    "methodId": "MummerDeltaFilter.Run",
+    "docPath": "docs/mcp/tools/analysis/delta_filter.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/MummerDeltaFilter.cs"
+  },
+  {
     "tool": "detect_pseudoknots",
     "server": "Analysis",
     "methodId": "RnaSecondaryStructure.DetectPseudoknots",
@@ -733,6 +740,13 @@
     "methodId": "DisorderPredictor.GetDisorderPropensity",
     "docPath": "docs/mcp/tools/analysis/disorder_propensity.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/DisorderPredictor.cs#L865"
+  },
+  {
+    "tool": "dnadiff",
+    "server": "Analysis",
+    "methodId": "GenomicAnalyzer.Dnadiff",
+    "docPath": "docs/mcp/tools/analysis/dnadiff.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.Dnadiff.cs"
   },
   {
     "tool": "dust_score",
@@ -1344,6 +1358,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MultipleAlignmentStatistics.cs#L110"
   },
   {
+    "tool": "nucmer",
+    "server": "Analysis",
+    "methodId": "GenomicAnalyzer.Nucmer",
+    "docPath": "docs/mcp/tools/analysis/nucmer.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.Nucmer.cs"
+  },
+  {
     "tool": "nucmer_clusters",
     "server": "Analysis",
     "methodId": "GenomicAnalyzer.FindNucmerClusters",
@@ -1503,6 +1524,41 @@
     "methodId": "MotifFinder.FindSharedMotifs",
     "docPath": "docs/mcp/tools/analysis/shared_motifs_significance.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.OligoAnalysis.cs#L140"
+  },
+  {
+    "tool": "show_aligns",
+    "server": "Analysis",
+    "methodId": "MummerShowAligns.Run",
+    "docPath": "docs/mcp/tools/analysis/show_aligns.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/MummerShowAligns.cs"
+  },
+  {
+    "tool": "show_coords",
+    "server": "Analysis",
+    "methodId": "MummerShowCoords.Run",
+    "docPath": "docs/mcp/tools/analysis/show_coords.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/MummerShowCoords.cs"
+  },
+  {
+    "tool": "show_diff",
+    "server": "Analysis",
+    "methodId": "MummerShowDiff.Run",
+    "docPath": "docs/mcp/tools/analysis/show_diff.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/MummerShowDiff.cs"
+  },
+  {
+    "tool": "show_snps",
+    "server": "Analysis",
+    "methodId": "MummerShowSnps.Run",
+    "docPath": "docs/mcp/tools/analysis/show_snps.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/MummerShowSnps.cs"
+  },
+  {
+    "tool": "show_tiling",
+    "server": "Analysis",
+    "methodId": "MummerShowTiling.Run",
+    "docPath": "docs/mcp/tools/analysis/show_tiling.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/MummerShowTiling.cs"
   },
   {
     "tool": "showalign",

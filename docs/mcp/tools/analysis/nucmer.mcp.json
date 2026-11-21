@@ -1,0 +1,160 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "nucmer",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GenomicAnalyzer.Nucmer",
+  "docRef": "GenomicAnalyzer.Nucmer.cs",
+  "description": "MUMmer 3.23 nucmer, the whole pipeline: prenuc (the reference records joined with an x after each) | mummer (anchors: matchMode 'mum' = unique in reference and query, 'mumreference' = unique in the reference (default), 'maxmatch' = all; minMatch = -l; only A/C/G/T match; both strands unless forwardOnly / reverseOnly) | mgaps (clusters: maxGap = -g, minCluster = -c, diagonalDifference = -D, diagonalFactor = -d) | postnuc (the banded Smith-Waterman extension of the clusters: gaps between the matches of a cluster, then outward off both ends until the score has not improved for breakLength = -b bases; clusters that meet fuse; with simplify (default) clusters shadowed by an earlier alignment are dropped; extend / optimize / banded as --[no]extend / --[no]optimize (nooptimize forces the extension to the sequence ends) / --banded (hard diagonal band = diagonalDifference)). Returns the text of the .delta file - the alignments between every reference record and every query record as the distances between insertions and deletions (first line = the two file names, then NUCMER, then per record pair '>refId qryId refLen qryLen' and per alignment 'sR eR sQ eQ errors simErrors nonAlpha' followed by the delta values and 0; a reverse-strand alignment has sQ > eQ) - byte for byte what the installed nucmer 3.23 writes (434 runs: multi-record inputs, both strands, repeats, N runs, every option family, the abort paths). With delta = false (--nodelta) the .cluster text is returned instead. A break length outside 1 - 10000 is ignored with a warning (messages), as the program does. The inputs on which the programs abort (empty file, no header, a file whose only record is empty, an unparsable header) are refused with an error.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "reference": {
+        "type": "string",
+        "description": "Reference FASTA text (multi-record)."
+      },
+      "query": {
+        "type": "string",
+        "description": "Query FASTA text (multi-record)."
+      },
+      "matchMode": {
+        "type": "string",
+        "description": "Anchor matches: 'mumreference' (default, --mumreference / --mumcand), 'mum' (--mum) or 'maxmatch' (--maxmatch).",
+        "default": "mumreference"
+      },
+      "minMatch": {
+        "type": "integer",
+        "description": "Minimum length of a single match (-l, default 20).",
+        "default": 20
+      },
+      "maxGap": {
+        "type": "integer",
+        "description": "Maximum gap between two adjacent matches of a cluster (-g, default 90).",
+        "default": 90
+      },
+      "minCluster": {
+        "type": "integer",
+        "description": "Minimum length of a cluster of matches (-c, default 65).",
+        "default": 65
+      },
+      "diagonalDifference": {
+        "type": "integer",
+        "description": "Maximum diagonal difference of two adjacent anchors (-D, default 5).",
+        "default": 5
+      },
+      "diagonalFactor": {
+        "type": "number",
+        "description": "Diagonal difference as a fraction of the gap length (-d, default 0.12).",
+        "default": 0.12
+      },
+      "breakLength": {
+        "type": "integer",
+        "description": "Distance an extension tries to extend poor scoring regions before giving up (-b, default 200; outside 1 - 10000 ignored with a warning).",
+        "default": 200
+      },
+      "banded": {
+        "type": "boolean",
+        "description": "Enforce absolute banding of the dynamic programming matrix with diagonalDifference (--banded, default false).",
+        "default": false
+      },
+      "forwardOnly": {
+        "type": "boolean",
+        "description": "Use only the forward strand of the query (-f, default false).",
+        "default": false
+      },
+      "reverseOnly": {
+        "type": "boolean",
+        "description": "Use only the reverse complement of the query (-r, default false); both flags = both strands.",
+        "default": false
+      },
+      "extend": {
+        "type": "boolean",
+        "description": "Extend the clusters (--extend, default true).",
+        "default": true
+      },
+      "delta": {
+        "type": "boolean",
+        "description": "Create the delta (--delta, default true); false returns the cluster file (--nodelta).",
+        "default": true
+      },
+      "optimize": {
+        "type": "boolean",
+        "description": "Alignment score optimisation (--optimize, default true); false = --nooptimize: an extension that reaches the end of a sequence is not backtracked.",
+        "default": true
+      },
+      "simplify": {
+        "type": "boolean",
+        "description": "Remove shadowed alignments (--simplify, default true); false = --nosimplify (align a sequence to itself to find repeats).",
+        "default": true
+      },
+      "referenceName": {
+        "type": "string",
+        "description": "Reference file name printed in the first line of the output (nucmer prints the absolute path).",
+        "default": "reference.fa"
+      },
+      "queryName": {
+        "type": "string",
+        "description": "Query file name printed in the first line of the output.",
+        "default": "query.fa"
+      }
+    },
+    "required": [
+      "reference",
+      "query"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "delta": {
+        "type": "string",
+        "description": "Text of the .delta file (null with delta = false)."
+      },
+      "cluster": {
+        "type": "string",
+        "description": "Text of the .cluster file (only with delta = false)."
+      },
+      "messages": {
+        "type": "string",
+        "description": "What the programs write to standard error (warnings)."
+      }
+    },
+    "required": [
+      "delta",
+      "cluster",
+      "messages"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1001,
+      "message": "matchMode must be 'mumreference', 'mum' or 'maxmatch'"
+    },
+    {
+      "code": 1001,
+      "message": "mummer: empty sequence in multiple fasta file (and the other aborts of the programs)"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Three substitutions between two sequences",
+      "input": {
+        "reference": ">ref\nGCTAAAGACAATTACATAACATACACGTCAGCACGAAACTTGTTGGCCCAGTGTGAATCGCTTAAGGGTTAAGTAAGTGTGATGCATACGCCTTTACTTGCTGTGTCCACCCCATCGGACTGGCATTTTTATTACACTCA\n",
+        "query": ">qry\nAGACAATTACATAACATACACGTCAGCACGAAACTTGTTGGCCCAGTGTGAATCGCTTAAGGGTTGGGGAAGTGTGATGCATACGCCTTTACTTGCTGTGTCCACCCCATCGGACTGGCATTTTTATTACACTCA\n",
+        "minMatch": 15,
+        "referenceName": "/tmp/b09nuc/ref.fa",
+        "queryName": "/tmp/b09nuc/qry.fa"
+      },
+      "output": {
+        "delta": "/tmp/b09nuc/ref.fa /tmp/b09nuc/qry.fa\nNUCMER\n>ref qry 140 135\n6 140 1 135 3 3 0\n0\n",
+        "cluster": null,
+        "messages": ""
+      }
+    }
+  ]
+}

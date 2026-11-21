@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "show_snps",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MummerShowSnps.Run",
+  "docRef": "MummerShowSnps.cs",
+  "description": "MUMmer 3.23 show-snps: the single-base substitutions and indels of every alignment of a nucmer delta file: [P1] reference position, [SUB] the two characters ('.' = indel), [P2] query position, [BUFF] the distance to the nearest other difference in the same alignment, [DIST] the distance to the nearest sequence end, [R] [Q] the number of other alignments over the position (showConflict = false is -C: only unambiguous SNPs and no [R] [Q] columns), optional sequence lengths (-l), context (-x characters each side), frames and ids; a difference between compatible IUPAC codes (N, R/A ...) is not a SNP (the program's asymmetric CompareIUPAC table). sortByReference (-r, default) / sortByQuery (-q), tabular (-T), header = false (-H), showIndels = false (-I), alignments (-S): only the alignments of these show-coords lines. Byte for byte equal to the installed show-snps on 450 + runs; a promer delta file is refused with NotSupportedException (registered A3-9d).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {},
+    "required": []
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "text": {
+        "type": "string",
+        "description": "What show-snps writes to standard output."
+      },
+      "messages": {
+        "type": "string",
+        "description": "What it writes to standard error (warnings)."
+      }
+    },
+    "required": [
+      "text",
+      "messages"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Delta file text cannot be null or empty"
+    },
+    {
+      "code": 1001,
+      "message": "ERROR: SNP context must be a positive int"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Three substitutions with two bases of context",
+      "input": {
+        "delta": "ref.fa qry.fa\nNUCMER\n>ref qry 140 135\n6 140 1 135 3 3 0\n0\n",
+        "referenceFasta": ">ref\nGCTAAAGACAATTACATAACATACACGTCAGCACGAAACTTGTTGGCCCAGTGTGAATCGCTTAAGGGTTAAGTAAGTGTGATGCATACGCCTTTACTTGCTGTGTCCACCCCATCGGACTGGCATTTTTATTACACTCA\n",
+        "queryFasta": ">qry\nAGACAATTACATAACATACACGTCAGCACGAAACTTGTTGGCCCAGTGTGAATCGCTTAAGGGTTGGGGAAGTGTGATGCATACGCCTTTACTTGCTGTGTCCACCCCATCGGACTGGCATTTTTATTACACTCA\n",
+        "context": 2
+      },
+      "output": {
+        "text": "ref.fa qry.fa\nNUCMER\n\n    [P1]  [SUB]  [P2]      |   [BUFF]   [DIST]  |  [R]  [Q]  |  [CTX R]  [CTX Q]  | [FRM]  [TAGS]\n=====================================================================================================\n      71   A G   66        |        1       66  |    0    0  |    TTAAG    TTGGG  |  1  1  ref\tqry\n      72   A G   67        |        1       67  |    0    0  |    TAAGT    TGGGG  |  1  1  ref\tqry\n      74   T G   69        |        2       67  |    0    0  |    AGTAA    GGGAA  |  1  1  ref\tqry\n",
+        "messages": ""
+      }
+    }
+  ]
+}

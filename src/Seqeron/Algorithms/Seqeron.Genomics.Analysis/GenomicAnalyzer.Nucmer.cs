@@ -1,0 +1,165 @@
+using System.Globalization;
+using System.Text;
+using Seqeron.Genomics.Alignment;
+
+namespace Seqeron.Genomics.Analysis;
+
+/// <summary>The options of <see cref="GenomicAnalyzer.Nucmer"/>; defaults are those of <c>nucmer</c> 3.23.</summary>
+public sealed record NucmerOptions
+{
+    /// <summary>Anchor matches: <see cref="CommonRegionMode.MaximalUnique"/> (<c>--mum</c>), <see cref="CommonRegionMode.MaximalUniqueReference"/> (<c>--mumreference</c> / <c>--mumcand</c>, the default) or <see cref="CommonRegionMode.MaximalExactMatches"/> (<c>--maxmatch</c>).</summary>
+    public CommonRegionMode MatchMode { get; init; } = CommonRegionMode.MaximalUniqueReference;
+
+    /// <summary>Minimum length of a single match (<c>-l|--minmatch</c>, default 20).</summary>
+    public int MinMatch { get; init; } = 20;
+
+    /// <summary>Maximum gap between two adjacent matches of a cluster (<c>-g|--maxgap</c>, default 90).</summary>
+    public long MaxGap { get; init; } = 90;
+
+    /// <summary>Minimum length of a cluster of matches (<c>-c|--mincluster</c>, default 65).</summary>
+    public long MinCluster { get; init; } = 65;
+
+    /// <summary>Maximum diagonal difference of two adjacent anchors (<c>-D|--diagdiff</c>, default 5).</summary>
+    public int DiagonalDifference { get; init; } = 5;
+
+    /// <summary>Diagonal difference as a fraction of the gap length (<c>-d|--diagfactor</c>, default 0.12).</summary>
+    public double DiagonalFactor { get; init; } = 0.12;
+
+    /// <summary>Distance an extension tries to extend poor scoring regions before giving up (<c>-b|--breaklen</c>, default 200).</summary>
+    public int BreakLength { get; init; } = 200;
+
+    /// <summary>Enforce absolute banding of the dynamic programming matrix with the diagonal difference (<c>--banded</c>; default off).</summary>
+    public bool Banded { get; init; }
+
+    /// <summary>Use only the forward strand of the query (<c>-f|--forward</c>).</summary>
+    public bool ForwardOnly { get; init; }
+
+    /// <summary>Use only the reverse complement of the query (<c>-r|--reverse</c>); with <see cref="ForwardOnly"/> both strands (as the script).</summary>
+    public bool ReverseOnly { get; init; }
+
+    /// <summary>Extend the clusters (<c>--extend</c>, default; false = <c>--noextend</c>).</summary>
+    public bool Extend { get; init; } = true;
+
+    /// <summary>Create the delta (<c>--delta</c>, default; false = <c>--nodelta</c>, the cluster file is produced instead).</summary>
+    public bool Delta { get; init; } = true;
+
+    /// <summary>Alignment score optimisation (<c>--optimize</c>, default; false = <c>--nooptimize</c> = <c>postnuc -t</c>).</summary>
+    public bool Optimize { get; init; } = true;
+
+    /// <summary>Remove shadowed alignments (<c>--simplify</c>, default; false = <c>--nosimplify</c> = <c>postnuc -s</c>).</summary>
+    public bool Simplify { get; init; } = true;
+}
+
+/// <summary>Output of <see cref="GenomicAnalyzer.Nucmer"/>.</summary>
+/// <param name="Delta">Text of <c>out.delta</c> (null with <c>--nodelta</c>).</param>
+/// <param name="Cluster">Text of <c>out.cluster</c> (only with <c>--nodelta</c>).</param>
+/// <param name="Messages">Warnings the programs write to standard error.</param>
+public sealed record NucmerResult(string? Delta, string? Cluster, string Messages);
+
+public static partial class GenomicAnalyzer
+{
+    #region nucmer (mummer | mgaps | postnuc)
+
+    /// <summary>
+    /// MUMmer 3.23 <c>nucmer</c>: <c>prenuc</c> (the reference records joined with an <c>x</c> after each), <c>mummer</c> (<see cref="NucmerOptions.MatchMode"/>, both strands unless restricted, only A/C/G/T match)
+    /// piped into <c>mgaps</c> (<see cref="NucmerClusters"/>), then <c>postnuc</c> (<see cref="NucmerPostnuc"/>: banded Smith-Waterman extension of the clusters). Returns the text of the <c>.delta</c> file
+    /// (the alignments between every pair of reference record and query record, as the distances between insertions and deletions) - byte for byte what the installed program writes.
+    /// </summary>
+    /// <param name="referenceFasta">The reference FASTA text (multi-record).</param>
+    /// <param name="queryFasta">The query FASTA text (multi-record).</param>
+    /// <param name="referenceName">The reference file name printed in the first line of the output (<c>nucmer</c> prints the absolute path).</param>
+    /// <param name="queryName">The query file name printed in the first line of the output.</param>
+    /// <param name="options">The options (null = defaults).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    /// <exception cref="FormatException">A program aborts on the input (no reference sequence, unparsable FASTA header ...).</exception>
+    public static NucmerResult Nucmer(
+        string referenceFasta, string queryFasta, string referenceName = "reference.fa", string queryName = "query.fa",
+        NucmerOptions? options = null, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(referenceFasta);
+        ArgumentNullException.ThrowIfNull(queryFasta);
+        ArgumentNullException.ThrowIfNull(referenceName);
+        ArgumentNullException.ThrowIfNull(queryName);
+        var o = options ?? new NucmerOptions();
+        var refs = NucmerPostnuc.ReadFasta(referenceFasta, out string messages);
+        if (refs.Count == 0)
+            throw new FormatException("mummer: empty sequence in multiple fasta file");   // prenuc's file has no sequence
+        var prenuc = new StringBuilder();
+        foreach (var (_, seq) in refs)
+            prenuc.Append(seq).Append('x');
+
+        var strands = StrandSelection.Both;
+        if (o.ForwardOnly != o.ReverseOnly)
+            strands = o.ForwardOnly ? StrandSelection.Forward : StrandSelection.ReverseComplement;
+        var clusterOptions = new NucmerClusterOptions { MaxSeparation = o.MaxGap, MinClusterLength = o.MinCluster, DiagonalDifference = o.DiagonalDifference, DiagonalFraction = o.DiagonalFactor };
+        string concatenated = prenuc.ToString();
+
+        // mummer | mgaps: a header line per query record and strand; mgaps prints it before the first cluster of the block and a '#' line before the others
+        var mgaps = new StringBuilder();
+        var queries = NucmerPostnuc.ReadFasta(queryFasta, out string queryMessages);
+        CheckMummerInput(queryFasta, queries, "qry");
+        foreach (var (id, seq) in queries)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (concatenated.Length == 0 || seq.Length == 0)
+                continue;
+            var clusters = FindNucmerClusters(concatenated, seq, o.MinMatch, o.MatchMode, clusterOptions, strands, cancellationToken);
+            foreach (bool reverse in new[] { false, true })
+            {
+                bool first = true;
+                foreach (var c in clusters.Where(x => x.IsReverseComplement == reverse))
+                {
+                    if (first)
+                        mgaps.Append("> ").Append(id).Append(reverse ? " Reverse" : string.Empty).Append('\n');
+                    else
+                        mgaps.Append("#\n");
+                    first = false;
+                    bool firstMatch = true;
+                    long prevEnd1 = 0, prevEnd2 = 0;
+                    foreach (var m in c.Cluster.Matches)
+                    {
+                        mgaps.Append(m.Start1.ToString(CultureInfo.InvariantCulture).PadLeft(8)).Append(' ')
+                            .Append(m.Start2.ToString(CultureInfo.InvariantCulture).PadLeft(8)).Append(' ')
+                            .Append(m.Length.ToString(CultureInfo.InvariantCulture).PadLeft(6));
+                        if (firstMatch)
+                            mgaps.Append(' ').Append("none".PadLeft(7)).Append(' ').Append("-".PadLeft(6)).Append(' ').Append("-".PadLeft(6)).Append('\n');
+                        else
+                            mgaps.Append(' ').Append(Adjustment(m.Overlap).PadLeft(7)).Append(' ')
+                                .Append((m.Start1 - prevEnd1).ToString(CultureInfo.InvariantCulture).PadLeft(6)).Append(' ')
+                                .Append((m.Start2 - prevEnd2).ToString(CultureInfo.InvariantCulture).PadLeft(6)).Append('\n');
+                        firstMatch = false;
+                        prevEnd1 = m.Start1 + m.Length;
+                        prevEnd2 = m.Start2 + m.Length;
+                    }
+                }
+            }
+        }
+
+        var post = NucmerPostnuc.Run(referenceName, queryName, referenceFasta, queryFasta, mgaps.ToString(), new NucmerPostnucOptions
+        {
+            BreakLength = o.BreakLength,
+            Banding = o.Banded ? o.DiagonalDifference : 0,
+            Delta = o.Delta,
+            Extend = o.Extend,
+            ToSequenceEnd = !o.Optimize,
+            KeepShadowed = !o.Simplify,
+        });
+        return new NucmerResult(post.Delta, post.Cluster, messages + queryMessages + post.Messages);
+
+        static string Adjustment(long overlap) => overlap == 0 ? "none" : (-overlap).ToString(CultureInfo.InvariantCulture);
+    }
+
+    // The errors of mummer's FASTA reader: an empty file, a file without a header line and a file whose only record is empty (several records may be empty)
+    private static void CheckMummerInput(string fasta, IReadOnlyList<(string Id, string Sequence)> records, string name)
+    {
+        if (fasta.Length == 0)
+            throw new FormatException("mummer: cannot open file \"" + name + ".fa\" or file \"" + name + ".fa\" is empty");
+        if (records.Count == 0)
+            throw new FormatException("mummer: no sequences in multiple fasta file");
+        if (records.Count == 1 && records[0].Sequence.Length == 0)
+            throw new FormatException("mummer: empty sequence in multiple fasta file");
+    }
+
+    #endregion
+}
