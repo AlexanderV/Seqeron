@@ -141,6 +141,52 @@ public sealed class CoordinateAlignmentFile
     /// <summary>The iterator's <c>targets</c> (SAM header @SQ records); empty when the format has none.</summary>
     public IReadOnlyList<BioCoordSequence> Targets { get; init; } = [];
 
+    /// <summary>The autoSql declaration of a bigBed / bigMaf / bigPsl file (null for the other formats).</summary>
+    public BigBedDeclaration? Declaration { get; init; }
+
     /// <summary>The messages of the warnings the reader issues (Biopython's <c>BiopythonParserWarning</c>).</summary>
     public IReadOnlyList<string> Warnings { get; init; } = [];
 }
+
+/// <summary>One field of a bigBed declaration (<c>Field(as_type, name, comment)</c> of <c>Bio.Align.bigbed</c>).</summary>
+/// <param name="AsType">The autoSql type, e.g. <c>string</c>, <c>uint</c>, <c>char[1]</c>, <c>int[blockCount]</c>.</param>
+/// <param name="Name">The field name.</param>
+/// <param name="Comment">The comment.</param>
+public sealed record BigBedField(string AsType, string Name, string Comment);
+
+/// <summary>Options of <c>AlignmentCoordinateFormats.WriteBigBed</c> (the arguments of <c>Bio.Align.bigbed.AlignmentWriter</c>).</summary>
+public sealed record BigBedWriteOptions
+{
+    /// <summary>Number of BED columns, 3 to 12 (default 12).</summary>
+    public int BedN { get; init; } = 12;
+
+    /// <summary>The fields of a custom declaration (BED columns first, then the extra fields); null = the default BED declaration cut to <see cref="BedN"/> columns.</summary>
+    public IReadOnlyList<BigBedField>? DeclarationFields { get; init; }
+
+    /// <summary>The autoSql table name of a custom declaration.</summary>
+    public string DeclarationName { get; init; } = "bed";
+
+    /// <summary>The autoSql table comment of a custom declaration.</summary>
+    public string DeclarationComment { get; init; } = "Browser Extensible Data";
+
+    /// <summary>Compress the data blocks with zlib (default true).</summary>
+    public bool Compress { get; init; } = true;
+
+    /// <summary>Number of items per data block (default 512).</summary>
+    public int ItemsPerSlot { get; init; } = 512;
+
+    /// <summary>Number of items per R-tree / B+ tree node (default 256).</summary>
+    public int BlockSize { get; init; } = 256;
+
+    /// <summary>Names of extra string columns to index.</summary>
+    public IReadOnlyList<string> ExtraIndex { get; init; } = [];
+
+    /// <summary>The block compressor (default: zlib deflate); the compressed bytes depend on the zlib build, so a test may inject the bytes of the reference writer.</summary>
+    public Func<byte[], byte[]>? Compressor { get; init; }
+}
+
+/// <summary>The autoSql declaration stored in a bigBed file (<c>AutoSQLTable</c>).</summary>
+/// <param name="Name">The table name.</param>
+/// <param name="Comment">The table comment.</param>
+/// <param name="Fields">The fields.</param>
+public sealed record BigBedDeclaration(string Name, string Comment, IReadOnlyList<BigBedField> Fields);

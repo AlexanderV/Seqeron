@@ -94,7 +94,7 @@ def run_read(fmt, text):
 
 
 rows = []
-wanted = set(sys.argv[1:]) or {'bed', 'psl', 'chain', 'maf', 'mauve', 'sam', 'exonerate', 'msf', 'emboss', 'hhr', 'tabular', 'pslxprot'}
+wanted = set(sys.argv[1:]) or {'bed', 'psl', 'chain', 'maf', 'mauve', 'sam', 'exonerate', 'msf', 'emboss', 'hhr', 'tabular', 'pslxprot', 'bigbed'}
 
 
 def add_write(fmt, specs, **kw):
@@ -359,7 +359,7 @@ class Ctx:
 
 
 ctx = Ctx()
-ctx.rng, ctx.add_write, ctx.add_read, ctx.run_write = rng, add_write, add_read, run_write
+ctx.rng, ctx.add_write, ctx.add_read, ctx.run_write, ctx.rows = rng, add_write, add_read, run_write, rows
 if 'sam' in wanted or 'exonerate' in wanted:
     import oracle_sections_sam_exonerate as sx
     if 'sam' in wanted:
@@ -376,6 +376,11 @@ if wanted & {'msf', 'emboss', 'hhr', 'tabular'}:
         if name in wanted:
             ctx.rng = random.Random('20261303:' + name)
             getattr(rd, 'run_' + name)(ctx)
+
+if 'bigbed' in wanted:
+    import oracle_sections_bigbed as bb
+    ctx.rng = random.Random('20261303:bigbed')
+    bb.run(ctx)
 
 os.makedirs(os.path.dirname(out_path), exist_ok=True)
 existing = []
