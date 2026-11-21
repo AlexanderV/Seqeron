@@ -86,7 +86,7 @@
 | `water_align` | `SequenceAligner.WaterAlign` | [doc](../../mcp/tools/alignment/water_align.md) |
 | `write_alignment` | `EmbossAlignmentWriter.Format` | [doc](../../mcp/tools/alignment/write_alignment.md) |
 
-## Analysis (158 tools)
+## Analysis (159 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -124,6 +124,7 @@
 | `dyad_analysis` | `MotifFinder.AnalyzeDyads` | [doc](../../mcp/tools/analysis/dyad_analysis.md) |
 | `emboss_report_file` | `EmbossReportPrograms.Fuzznuc` | [doc](../../mcp/tools/analysis/emboss_report_file.md) |
 | `entropy_profile` | `SequenceStatistics.CalculateEntropyProfile` | [doc](../../mcp/tools/analysis/entropy_profile.md) |
+| `est2genome` | `EmbossEst2genomePrograms.Run` | [doc](../../mcp/tools/analysis/est2genome.md) |
 | `find_all_longest_repeats` | `GenomicAnalyzer.FindAllLongestRepeats` | [doc](../../mcp/tools/analysis/find_all_longest_repeats.md) |
 | `find_approximate_direct_repeats` | `RepeatFinder.FindApproximateDirectRepeats` | [doc](../../mcp/tools/analysis/find_approximate_direct_repeats.md) |
 | `find_approximate_tandem_repeats` | `RepeatFinder.FindApproximateTandemRepeats` | [doc](../../mcp/tools/analysis/find_approximate_tandem_repeats.md) |

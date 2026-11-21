@@ -73,29 +73,6 @@ public static class MummerShowSnps
 
     private static long Norm(long c, long l, int f) => f < 0 ? RevC(c, l) : c;
 
-    private static byte[] Rc(byte[] s)
-    {
-        long len = s.Length - 2;
-        var rev = (byte[])s.Clone();
-        long lo = 1, hi = len;
-        while (lo <= hi)
-        {
-            byte ch = rev[hi];
-            rev[hi] = Comp(rev[lo]);
-            rev[lo] = Comp(ch);
-            lo++;
-            hi--;
-        }
-
-        return rev;
-
-        static byte Comp(byte ch) => char.ToLowerInvariant((char)ch) switch
-        {
-            'a' => (byte)'t', 'c' => (byte)'g', 'g' => (byte)'c', 't' => (byte)'a', 'r' => (byte)'y', 'y' => (byte)'r', 's' => (byte)'s', 'w' => (byte)'w',
-            'm' => (byte)'k', 'k' => (byte)'m', 'b' => (byte)'v', 'd' => (byte)'h', 'h' => (byte)'d', 'v' => (byte)'b', var c => (byte)c,
-        };
-    }
-
     private static bool SnpRLess(MummerSnp a, MummerSnp b)
     {
         int i = string.CompareOrdinal(a.Edge.ReferenceNode.Id, b.Edge.ReferenceNode.Id);
@@ -286,9 +263,9 @@ public static class MummerShowSnps
                         frameQ = -(frameQ - 3);
 
                     if (R[ri] == null)
-                        R[ri] = li.ReverseR ? Rc(R[0]) : (byte[])R[0].Clone();
+                        R[ri] = li.ReverseR ? MummerSequence.ReverseComplement(R[0]) : (byte[])R[0].Clone();
                     if (Q[qi] == null)
-                        Q[qi] = li.ReverseQ ? Rc(Q[0]) : (byte[])Q[0].Clone();
+                        Q[qi] = li.ReverseQ ? MummerSequence.ReverseComplement(Q[0]) : (byte[])Q[0].Clone();
 
                     long rpos = sR, qpos = sQ, remain = eR - sR + 1;
                     li.FrameR = frameR;

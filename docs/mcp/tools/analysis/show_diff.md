@@ -26,6 +26,11 @@ MUMmer 3.23 show-diff: the structural differences between the sequences of a del
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
+| `delta` | string | Yes | Delta file text. |
+| `amos` | boolean | No | -f: AMOS output (default false). |
+| `referenceDiff` | boolean | No | -r: differences of the reference (default; the default when neither -r nor -q is set). |
+| `queryDiff` | boolean | No | -q: differences of the query (cannot be combined with -r). (default: false) |
+| `header` | boolean | No | Print the header (default true; false = -H). |
 
 ## Output Schema
 

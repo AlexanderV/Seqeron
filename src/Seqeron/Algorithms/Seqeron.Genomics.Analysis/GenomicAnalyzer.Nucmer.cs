@@ -48,13 +48,17 @@ public sealed record NucmerOptions
 
     /// <summary>Remove shadowed alignments (<c>--simplify</c>, default; false = <c>--nosimplify</c> = <c>postnuc -s</c>).</summary>
     public bool Simplify { get; init; } = true;
+
+    /// <summary>Also produce the NUCmer 1.1 coords file (<c>-o|--coords</c>: <c>show-coords -r out.delta</c>); needs the delta (not with <c>--nodelta</c>).</summary>
+    public bool Coords { get; init; }
 }
 
 /// <summary>Output of <see cref="GenomicAnalyzer.Nucmer"/>.</summary>
 /// <param name="Delta">Text of <c>out.delta</c> (null with <c>--nodelta</c>).</param>
 /// <param name="Cluster">Text of <c>out.cluster</c> (only with <c>--nodelta</c>).</param>
 /// <param name="Messages">Warnings the programs write to standard error.</param>
-public sealed record NucmerResult(string? Delta, string? Cluster, string Messages);
+/// <param name="Coords">Text of <c>out.coords</c> (only with <see cref="NucmerOptions.Coords"/>).</param>
+public sealed record NucmerResult(string? Delta, string? Cluster, string Messages, string? Coords = null);
 
 public static partial class GenomicAnalyzer
 {
@@ -145,7 +149,15 @@ public static partial class GenomicAnalyzer
             ToSequenceEnd = !o.Optimize,
             KeepShadowed = !o.Simplify,
         });
-        return new NucmerResult(post.Delta, post.Cluster, messages + queryMessages + post.Messages);
+        string? coords = null;
+        if (o.Coords)
+        {
+            if (post.Delta == null)
+                throw new FormatException("ERROR: show-coords returned non-zero (there is no delta file with --nodelta)");
+            coords = MummerShowCoords.Run(post.Delta, new MummerShowCoordsOptions { SortByReference = true }).Text;
+        }
+
+        return new NucmerResult(post.Delta, post.Cluster, messages + queryMessages + post.Messages, coords);
 
         static string Adjustment(long overlap) => overlap == 0 ? "none" : (-overlap).ToString(CultureInfo.InvariantCulture);
     }

@@ -26,6 +26,24 @@ MUMmer 3.23 show-coords: the coordinates of the alignments of a delta file as th
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
+| `delta` | string | Yes | Delta file text. |
+| `header` | boolean | No | Print the header (default true; false = -H). |
+| `brief` | boolean | No | -b: merge overlapping alignments, no identity columns (default false). |
+| `btab` | boolean | No | -B: btab output (default false). |
+| `coverage` | boolean | No | -c: percent coverage columns (default false). |
+| `direction` | boolean | No | -d: alignment direction in the FRM columns (default false; always for promer). |
+| `minIdentity` | number | No | -I: minimum alignment identity, 0 - 100 (default 0). |
+| `knockout` | boolean | No | -k: knockout (promer data only, default false). (default: false) |
+| `lengths` | boolean | No | -l: sequence length columns (default false). |
+| `minLength` | integer | No | -L: minimum alignment length (default 0). |
+| `annotateOverlaps` | boolean | No | -o: annotate overlaps (default false). |
+| `sortByQuery` | boolean | No | -q: sort by query (default false). |
+| `sortByReference` | boolean | No | -r: sort by reference (default false). |
+| `las` | boolean | No | -g: longest ascending subset, deprecated (default false). |
+| `weightedLas` | boolean | No | -G: weighted longest ascending subset, hidden (default false). |
+| `tabular` | boolean | No | -T: tab-delimited output (default false). |
+| `warnings` | boolean | No | -w: warnings column, hidden (default false). |
+| `randomSeed` | integer | No | Seed of the rand() that breaks ties of -g / -G (the program uses the current time); default = the current time. |
 
 ## Output Schema
 

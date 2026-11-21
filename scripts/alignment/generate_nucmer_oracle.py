@@ -139,6 +139,7 @@ def main():
         elif r < 0.2: args += ['-r']
         elif r < 0.25: args += ['-f', '-r']
         if rnd.random() < 0.05: args += ['--nodelta']
+        if rnd.random() < 0.12: args += [rnd.choice(['-o', '--coords'])]
         shutil.rmtree(WORK, ignore_errors=True); os.makedirs(WORK)
         open(WORK + '/ref.fa', 'w', newline='').write(ref); open(WORK + '/qry.fa', 'w', newline='').write(qry)
         p = subprocess.run(['nucmer'] + args + ['-p', 'out', 'ref.fa', 'qry.fa'], cwd=WORK, capture_output=True, text=True, timeout=120)
@@ -148,7 +149,9 @@ def main():
             out = open(WORK + '/' + fn).read()
         err = out is None
         errors += err
-        print(json.dumps({'ref': ref, 'qry': qry, 'args': args, 'out': out, 'error': err}))
+        row = {'ref': ref, 'qry': qry, 'args': args, 'out': out, 'error': err}
+        if not err and ('-o' in args or '--coords' in args): row['coords'] = open(WORK + '/out.coords').read()
+        print(json.dumps(row))
         rows += 1
     sys.stderr.write('rows=%d errors=%d\n' % (rows, errors))
 

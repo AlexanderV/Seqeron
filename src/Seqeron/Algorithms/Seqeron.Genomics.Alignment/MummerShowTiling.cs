@@ -680,29 +680,6 @@ public static class MummerShowTiling
         return sb.ToString();
     }
 
-    private static byte[] Rc(byte[] seq)
-    {
-        long len = seq.Length - 2;
-        var rev = (byte[])seq.Clone();
-        long lo = 1, hi = len;
-        while (lo <= hi)
-        {
-            byte ch = rev[hi];
-            rev[hi] = Comp(rev[lo]);
-            rev[lo] = Comp(ch);
-            lo++;
-            hi--;
-        }
-
-        return rev;
-
-        static byte Comp(byte ch) => char.ToLowerInvariant((char)ch) switch
-        {
-            'a' => (byte)'t', 'c' => (byte)'g', 'g' => (byte)'c', 't' => (byte)'a', 'r' => (byte)'y', 'y' => (byte)'r', 's' => (byte)'s', 'w' => (byte)'w',
-            'm' => (byte)'k', 'k' => (byte)'m', 'b' => (byte)'v', 'd' => (byte)'h', 'h' => (byte)'d', 'v' => (byte)'b', var c => (byte)c,
-        };
-    }
-
     private static string OutputPseudoMolecule(List<QueryContig> contigs, string queryFasta)
     {
         foreach (var (id, seq) in NucmerPostnuc.ReadFasta(queryFasta, out _))
@@ -715,7 +692,7 @@ public static class MummerShowTiling
             var bytes = new byte[seq.Length + 2];
             for (int i = 0; i < seq.Length; i++)
                 bytes[i + 1] = (byte)seq[i];
-            cp.SeqQ = cp.DirQ == ReverseChar ? Rc(bytes) : bytes;
+            cp.SeqQ = cp.DirQ == ReverseChar ? MummerSequence.ReverseComplement(bytes) : bytes;
         }
 
         var sb = new StringBuilder();

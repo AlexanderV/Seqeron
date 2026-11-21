@@ -26,6 +26,14 @@ MUMmer 3.23 show-aligns: the alignments between one reference record and one que
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
+| `delta` | string | Yes | Delta file text (nucmer). |
+| `referenceFasta` | string | Yes | Reference FASTA text (the file named in the delta header). |
+| `queryFasta` | string | Yes | Query FASTA text (the file named in the delta header). |
+| `referenceId` | string | Yes | Reference record id. |
+| `queryId` | string | Yes | Query record id. |
+| `sortByQuery` | boolean | No | -q: sort the alignments by the query start (default false). |
+| `sortByReference` | boolean | No | -r: sort the alignments by the reference start (default false). |
+| `screenWidth` | integer | No | -w: screen width (default 60). |
 
 ## Output Schema
 

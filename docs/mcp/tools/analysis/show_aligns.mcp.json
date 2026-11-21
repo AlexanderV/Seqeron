@@ -9,8 +9,50 @@
   "description": "MUMmer 3.23 show-aligns: the alignments between one reference record and one query record of a nucmer delta file drawn as three rows (reference, query, a ^ under every difference; an indel is a . in the other row) in blocks of the screen width (-w, default 60; 11 or less is replaced with a warning), each row prefixed with the 1-based forward-strand position of its first base; '-- BEGIN alignment [ +1 sR - eR | +1 sQ - eQ ]' / END lines frame every alignment (a reverse-strand alignment shows -1). The alignments are in file order unless sortByReference (-r) / sortByQuery (-q). The program reads the sequences from the FASTA files named in the delta header: pass their text. Byte for byte equal to the installed show-aligns on 300 + runs; a promer (amino-acid) delta file is refused with NotSupportedException (registered A3-9d).",
   "inputSchema": {
     "type": "object",
-    "properties": {},
-    "required": []
+    "properties": {
+      "delta": {
+        "type": "string",
+        "description": "Delta file text (nucmer)."
+      },
+      "referenceFasta": {
+        "type": "string",
+        "description": "Reference FASTA text (the file named in the delta header)."
+      },
+      "queryFasta": {
+        "type": "string",
+        "description": "Query FASTA text (the file named in the delta header)."
+      },
+      "referenceId": {
+        "type": "string",
+        "description": "Reference record id."
+      },
+      "queryId": {
+        "type": "string",
+        "description": "Query record id."
+      },
+      "sortByQuery": {
+        "type": "boolean",
+        "description": "-q: sort the alignments by the query start (default false).",
+        "default": false
+      },
+      "sortByReference": {
+        "type": "boolean",
+        "description": "-r: sort the alignments by the reference start (default false).",
+        "default": false
+      },
+      "screenWidth": {
+        "type": "integer",
+        "description": "-w: screen width (default 60).",
+        "default": 60
+      }
+    },
+    "required": [
+      "delta",
+      "referenceFasta",
+      "queryFasta",
+      "referenceId",
+      "queryId"
+    ]
   },
   "outputSchema": {
     "type": "object",

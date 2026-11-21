@@ -9,8 +9,79 @@
   "description": "MUMmer 3.23 show-tiling: places the aligned query contigs of a delta file on the reference. For every contig and reference the longest consistent subset of its alignments (maxGap -g, default 1000 for nucmer files / -1 for promer) is taken; a contig is tiled when its coverage is at least minCoverage (-v, default 95) and better than the second best by minCoverageDifference (-V, default 10) and its identity at least minIdentity (-i, default 90), or, when it hangs over the reference ends, by the same rule on the overhang-corrected coverage; contigs shorter than minContigLength (-l) are ignored. The tiled contigs are linked along each reference (circular = -c lets them span the origin) and printed as '>refId N bases' followed by 'start end gapToNext length coverage identity strand id' (the tiling path), or with printAlignments (-a) as the tab-delimited alignment rows, or with xml (-x) as the XML link evidence. contigList (-t), unusable (-u) and pseudoMolecule (-p, needs the query FASTA) return the program's files. randomRepeats (-R) places repetitive contigs at a random copy (rand() seeded by randomSeed; the program uses the current time; implies minCoverageDifference 0). Byte for byte equal to the installed show-tiling on 350 + runs.",
   "inputSchema": {
     "type": "object",
-    "properties": {},
-    "required": []
+    "properties": {
+      "delta": {
+        "type": "string",
+        "description": "Delta file text."
+      },
+      "queryFasta": {
+        "type": "string",
+        "description": "Query FASTA text (only needed for pseudoMolecule)."
+      },
+      "printAlignments": {
+        "type": "boolean",
+        "description": "-a: print the alignment rows of the tiling path (default false).",
+        "default": false
+      },
+      "circular": {
+        "type": "boolean",
+        "description": "-c: circular reference sequences (default false).",
+        "default": false
+      },
+      "maxGap": {
+        "type": "integer",
+        "description": "-g: maximum gap between clustered alignments, -1 = infinity (nucmer default 1000, promer -1)."
+      },
+      "minIdentity": {
+        "type": "number",
+        "description": "-i: minimum percent identity to tile, 0 - 100 (nucmer default 90, promer 55)."
+      },
+      "minContigLength": {
+        "type": "integer",
+        "description": "-l: minimum contig length to report (default 1).",
+        "default": 1
+      },
+      "randomRepeats": {
+        "type": "boolean",
+        "description": "-R: place repetitive contigs at a random one of their copies (default false).",
+        "default": false
+      },
+      "minCoverage": {
+        "type": "number",
+        "description": "-v: minimum contig coverage to tile, 0 - 100 (nucmer default 95, promer 50)."
+      },
+      "minCoverageDifference": {
+        "type": "number",
+        "description": "-V: minimum contig coverage difference, 0 - 100 (nucmer default 10, promer 30)."
+      },
+      "xml": {
+        "type": "boolean",
+        "description": "-x: print the XML contig linking information (default false).",
+        "default": false
+      },
+      "contigList": {
+        "type": "boolean",
+        "description": "-t: also return the TIGR-style contig list (default false).",
+        "default": false
+      },
+      "unusable": {
+        "type": "boolean",
+        "description": "-u: also return the alignment rows of the unusable contigs (default false).",
+        "default": false
+      },
+      "pseudoMolecule": {
+        "type": "boolean",
+        "description": "-p: also return the pseudo molecule of the query contigs (default false).",
+        "default": false
+      },
+      "randomSeed": {
+        "type": "integer",
+        "description": "Seed of rand() for -R (the program uses the current time); default = the current time."
+      }
+    },
+    "required": [
+      "delta"
+    ]
   },
   "outputSchema": {
     "type": "object",

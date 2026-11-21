@@ -26,6 +26,17 @@ MUMmer 3.23 delta-filter: reads a delta file (nucmer / promer) and keeps the ali
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
+| `delta` | string | Yes | Delta file text (the .delta output of nucmer). |
+| `queryLis` | boolean | No | -q: query-based longest increasing subset (default false). |
+| `referenceLis` | boolean | No | -r: reference-based longest increasing subset (default false). |
+| `globalLis` | boolean | No | -g: 1-to-1 global alignment not allowing rearrangements (default false). |
+| `oneToOne` | boolean | No | -1: 1-to-1 alignment allowing rearrangements = intersection of -r and -q (default false). |
+| `manyToMany` | boolean | No | -m: many-to-many alignment allowing rearrangements = union of -r and -q (default false). |
+| `minLength` | integer | No | -l: minimum alignment length (default 0). |
+| `minIdentity` | number | No | -i: minimum alignment identity, 0 - 100 (default 0). |
+| `minUnique` | number | No | -u: minimum alignment uniqueness, 0 - 100 (default 0). |
+| `maxOverlap` | number | No | -o: maximum alignment overlap for -r and -q as a percent of the alignment length, 0 - 100 (default 100). |
+| `epsilon` | number | No | -e: negligible alignment score; negative (default -1) picks randomly among equal chains with the program's rand(). |
 
 ## Output Schema
 

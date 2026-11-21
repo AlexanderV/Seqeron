@@ -95,47 +95,6 @@ public static class NucmerPostnuc
         public StringBuilder? ClusterFile;
     }
 
-    /// <summary>The complement of <c>tigrinc.cc Complement</c> (IUPAC aware, lower case).</summary>
-    private static byte Complement(byte ch)
-    {
-        switch (char.ToLowerInvariant((char)ch))
-        {
-            case 'a': return (byte)'t';
-            case 'c': return (byte)'g';
-            case 'g': return (byte)'c';
-            case 't': return (byte)'a';
-            case 'r': return (byte)'y';
-            case 'y': return (byte)'r';
-            case 's': return (byte)'s';
-            case 'w': return (byte)'w';
-            case 'm': return (byte)'k';
-            case 'k': return (byte)'m';
-            case 'b': return (byte)'v';
-            case 'd': return (byte)'h';
-            case 'h': return (byte)'d';
-            case 'v': return (byte)'b';
-            default: return (byte)char.ToLowerInvariant((char)ch);
-        }
-    }
-
-    private static byte[] ReverseComplement(FastaRecord rec)
-    {
-        long len = rec.Len;
-        var rev = new byte[len + 2];
-        Array.Copy(rec.Seq, 1, rev, 1, len);
-        long lo = 1, hi = len;
-        while (lo <= hi)
-        {
-            byte ch = rev[hi];
-            rev[hi] = Complement(rev[lo]);
-            rev[lo] = Complement(ch);
-            lo++;
-            hi--;
-        }
-
-        return rev;
-    }
-
     private static bool IsSpace(int c) => c == ' ' || (c >= '\t' && c <= '\r');
 
     private static bool IsAlpha(int c) => (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
@@ -518,7 +477,7 @@ public static class NucmerPostnuc
             }
             else
             {
-                bRev ??= ReverseComplement(bRec);
+                bRev ??= MummerSequence.ReverseComplement(bRec.Seq);
                 b = bRev;
             }
 
@@ -874,7 +833,7 @@ public static class NucmerPostnuc
             byte[] B = bf.Seq;
             if (ap.DirB == Reverse)
             {
-                brev ??= ReverseComplement(bf);
+                brev ??= MummerSequence.ReverseComplement(bf.Seq);
                 B = brev;
             }
 

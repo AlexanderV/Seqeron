@@ -26,6 +26,21 @@ MUMmer 3.23 show-tiling: places the aligned query contigs of a delta file on the
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
+| `delta` | string | Yes | Delta file text. |
+| `queryFasta` | string | No | Query FASTA text (only needed for pseudoMolecule). |
+| `printAlignments` | boolean | No | -a: print the alignment rows of the tiling path (default false). |
+| `circular` | boolean | No | -c: circular reference sequences (default false). |
+| `maxGap` | integer | No | -g: maximum gap between clustered alignments, -1 = infinity (nucmer default 1000, promer -1). |
+| `minIdentity` | number | No | -i: minimum percent identity to tile, 0 - 100 (nucmer default 90, promer 55). |
+| `minContigLength` | integer | No | -l: minimum contig length to report (default 1). |
+| `randomRepeats` | boolean | No | -R: place repetitive contigs at a random one of their copies (default false). |
+| `minCoverage` | number | No | -v: minimum contig coverage to tile, 0 - 100 (nucmer default 95, promer 50). |
+| `minCoverageDifference` | number | No | -V: minimum contig coverage difference, 0 - 100 (nucmer default 10, promer 30). |
+| `xml` | boolean | No | -x: print the XML contig linking information (default false). |
+| `contigList` | boolean | No | -t: also return the TIGR-style contig list (default false). |
+| `unusable` | boolean | No | -u: also return the alignment rows of the unusable contigs (default false). |
+| `pseudoMolecule` | boolean | No | -p: also return the pseudo molecule of the query contigs (default false). |
+| `randomSeed` | integer | No | Seed of rand() for -R (the program uses the current time); default = the current time. |
 
 ## Output Schema
 

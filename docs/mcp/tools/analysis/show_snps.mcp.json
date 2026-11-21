@@ -9,8 +9,72 @@
   "description": "MUMmer 3.23 show-snps: the single-base substitutions and indels of every alignment of a nucmer delta file: [P1] reference position, [SUB] the two characters ('.' = indel), [P2] query position, [BUFF] the distance to the nearest other difference in the same alignment, [DIST] the distance to the nearest sequence end, [R] [Q] the number of other alignments over the position (showConflict = false is -C: only unambiguous SNPs and no [R] [Q] columns), optional sequence lengths (-l), context (-x characters each side), frames and ids; a difference between compatible IUPAC codes (N, R/A ...) is not a SNP (the program's asymmetric CompareIUPAC table). sortByReference (-r, default) / sortByQuery (-q), tabular (-T), header = false (-H), showIndels = false (-I), alignments (-S): only the alignments of these show-coords lines. Byte for byte equal to the installed show-snps on 450 + runs; a promer delta file is refused with NotSupportedException (registered A3-9d).",
   "inputSchema": {
     "type": "object",
-    "properties": {},
-    "required": []
+    "properties": {
+      "delta": {
+        "type": "string",
+        "description": "Delta file text (nucmer)."
+      },
+      "referenceFasta": {
+        "type": "string",
+        "description": "Reference FASTA text (the file named in the delta header)."
+      },
+      "queryFasta": {
+        "type": "string",
+        "description": "Query FASTA text (the file named in the delta header)."
+      },
+      "showConflict": {
+        "type": "boolean",
+        "description": "Report SNPs of ambiguous alignments and show the [R] [Q] columns (default true; false = -C).",
+        "default": true
+      },
+      "showIndels": {
+        "type": "boolean",
+        "description": "Report indels (default true; false = -I).",
+        "default": true
+      },
+      "lengths": {
+        "type": "boolean",
+        "description": "-l: sequence length columns (default false).",
+        "default": false
+      },
+      "sortByQuery": {
+        "type": "boolean",
+        "description": "-q: sort by query ids and positions (default false; -r wins when both are set).",
+        "default": false
+      },
+      "sortByReference": {
+        "type": "boolean",
+        "description": "-r: sort by reference ids and positions (the default when neither is set).",
+        "default": false
+      },
+      "tabular": {
+        "type": "boolean",
+        "description": "-T: tab-delimited output (default false).",
+        "default": false
+      },
+      "header": {
+        "type": "boolean",
+        "description": "Print the header (default true; false = -H).",
+        "default": true
+      },
+      "context": {
+        "type": "integer",
+        "description": "-x: characters of SNP context on each side (default 0).",
+        "default": 0
+      },
+      "alignments": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "-S: report only the alignments of these show-coords lines (null = all)."
+      }
+    },
+    "required": [
+      "delta",
+      "referenceFasta",
+      "queryFasta"
+    ]
   },
   "outputSchema": {
     "type": "object",

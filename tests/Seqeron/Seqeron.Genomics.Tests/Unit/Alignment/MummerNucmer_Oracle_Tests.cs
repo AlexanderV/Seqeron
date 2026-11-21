@@ -9,7 +9,7 @@ namespace Seqeron.Genomics.Tests.Unit.Alignment;
 
 /// <summary>
 /// A3-9b (B09 F199): the whole <c>nucmer</c> 3.23 pipeline - prenuc | mummer | mgaps | postnuc - against the installed program: the text of <c>out.delta</c> (or <c>out.cluster</c> with --nodelta) of
-/// 434 runs (TestData/Alignment/nucmer_oracle.jsonl.gz, scripts/alignment/generate_nucmer_oracle.py): multi-record references and queries, both strands, repeats, N runs, IUPAC and non-letter characters,
+/// 434 runs, 20+ with the coords file (TestData/Alignment/nucmer_oracle.jsonl.gz, scripts/alignment/generate_nucmer_oracle.py): multi-record references and queries, both strands, repeats, N runs, IUPAC and non-letter characters,
 /// every option family (--mum / --mumreference / --maxmatch, -b -c -g -l -D -d, --banded --noextend --nooptimize --nosimplify -f -r --nodelta) and the inputs on which the programs abort.
 /// </summary>
 [TestFixture]
@@ -43,6 +43,7 @@ public class MummerNucmer_Oracle_Tests
                 case "-f": o = o with { ForwardOnly = true }; break;
                 case "-r": o = o with { ReverseOnly = true }; break;
                 case "--nodelta": o = o with { Delta = false }; break;
+                case "-o" or "--coords": o = o with { Coords = true }; break;
                 default: throw new ArgumentException("option " + opt);
             }
         }
@@ -60,7 +61,7 @@ public class MummerNucmer_Oracle_Tests
         using var gz = new GZipStream(stream, CompressionMode.Decompress);
         using var reader = new StreamReader(gz);
         var failures = new List<string>();
-        int rows = 0, errors = 0, reverseAlignments = 0, multi = 0, nodelta = 0, banded = 0, noextend = 0, nooptimize = 0, nosimplify = 0, maxmatch = 0, mum = 0, multiRef = 0;
+        int coordsRows = 0, rows = 0, errors = 0, reverseAlignments = 0, multi = 0, nodelta = 0, banded = 0, noextend = 0, nooptimize = 0, nosimplify = 0, maxmatch = 0, mum = 0, multiRef = 0;
         string? line;
         while ((line = reader.ReadLine()) is not null)
         {
@@ -74,6 +75,12 @@ public class MummerNucmer_Oracle_Tests
             {
                 var r = GenomicAnalyzer.Nucmer(reference, query, "/tmp/b09nuc/ref.fa", "/tmp/b09nuc/qry.fa", Parse(args));
                 got = r.Delta ?? r.Cluster;
+                if (j.TryGetProperty("coords", out var ec))
+                {
+                    coordsRows++;
+                    if (r.Coords != ec.GetString())
+                        failures.Add($"row {rows} [{string.Join(' ', args)}]: coords file differs");
+                }
             }
             catch (Exception e) when (e is FormatException or ArgumentException)
             {
@@ -106,6 +113,7 @@ public class MummerNucmer_Oracle_Tests
         Assert.That(failures, Is.Empty, $"{failures.Count} of {rows}:\n" + string.Join("\n", failures.Take(6)));
         Assert.That(rows, Is.GreaterThanOrEqualTo(420));
         Assert.That(errors, Is.GreaterThanOrEqualTo(5));
+        Assert.That(coordsRows, Is.GreaterThan(20));
         Assert.That(reverseAlignments, Is.GreaterThan(500));
         Assert.That(multi, Is.GreaterThan(150));
         Assert.That(multiRef, Is.GreaterThan(100));

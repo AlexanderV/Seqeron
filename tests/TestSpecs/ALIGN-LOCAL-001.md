@@ -240,3 +240,10 @@ Matrix-scored `LocalAlign`/`LocalAlignAffine` (BLOSUM62/PAM250/EDNAFULL, fractio
 |---|---|---|
 | A6-3 | `SequenceAligner_MatcherGap_Tests` | `MatcherProgram` equals matcher 6.6.0 on 872 `-gapopen` / `-gapextend` / `-alternatives` rows, in particular `-gapopen` below `-gapextend`; reset warnings (`StandardError`), refusal of non-integers |
 | A6-5 | `SequenceAligner_SupermatcherWordLength_Tests` | supermatcher `-wordlen` above the longest target: `Error: no kmers found`, error file, alignments (260 rows); `int.MaxValue` returns at once |
+
+## Audit A2-28d (B09 F203): est2genome
+
+| Item | Tests | Oracle | Status |
+|---|---|---|---|
+| A2-28d | `EmbossEst2genome_Oracle_Tests.Est2genome_OutfileEqualsTheProgram_AllRows` | 330 `est2genome` 6.6.0 runs (`est2genome_oracle.jsonl.gz`, `generate_est2genome_oracle.py`): the -outfile text equal, 19 crash / error rows (-nobest with one strand mode: SIGSEGV), the space warning | as specified |
+| A2-28d | `EmbossEst2genome_Oracle_Tests.Est2genome_WorkedExample_...`, MCP `EmbossProgramToolsTests.Est2genome_...`, `ToolRegistrationContractTests`, `ToolDocsContractTests` | the three-exon example of the program | as specified |

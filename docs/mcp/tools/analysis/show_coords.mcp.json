@@ -9,8 +9,99 @@
   "description": "MUMmer 3.23 show-coords: the coordinates of the alignments of a delta file as the human-readable table (header, [S1] [E1] | [S2] [E2] | [LEN 1] [LEN 2] | [% IDY] | tags), the tab-delimited table (tabular, -T) or btab (btab, -B). header = false is -H; brief (-b) merges overlapping alignments regardless of direction and drops the identity columns; coverage (-c) adds the percent coverage columns, lengths (-l) the sequence lengths, direction (-d) the FRM columns; minIdentity (-I) and minLength (-L) filter; sortByReference (-r) / sortByQuery (-q) sort; annotateOverlaps (-o) tags alignments that cover a whole sequence end ([IDENTITY] [CONTAINED] [CONTAINS] [END] [BEGIN]); the hidden warnings (-w) tag [DUPLICATE] [CONTAINS] [SHADOWED] [OVERLAPS]; las (-g) / weightedLas (-G) keep the longest ascending subset (ties broken with rand() seeded by randomSeed, the program seeds it with the current time); knockout (-k) is for promer files. Percentages are printed from the float values with %.2f. Byte for byte equal to the installed show-coords on 450 + runs; PROmer delta files are accepted.",
   "inputSchema": {
     "type": "object",
-    "properties": {},
-    "required": []
+    "properties": {
+      "delta": {
+        "type": "string",
+        "description": "Delta file text."
+      },
+      "header": {
+        "type": "boolean",
+        "description": "Print the header (default true; false = -H).",
+        "default": true
+      },
+      "brief": {
+        "type": "boolean",
+        "description": "-b: merge overlapping alignments, no identity columns (default false).",
+        "default": false
+      },
+      "btab": {
+        "type": "boolean",
+        "description": "-B: btab output (default false).",
+        "default": false
+      },
+      "coverage": {
+        "type": "boolean",
+        "description": "-c: percent coverage columns (default false).",
+        "default": false
+      },
+      "direction": {
+        "type": "boolean",
+        "description": "-d: alignment direction in the FRM columns (default false; always for promer).",
+        "default": false
+      },
+      "minIdentity": {
+        "type": "number",
+        "description": "-I: minimum alignment identity, 0 - 100 (default 0).",
+        "default": 0
+      },
+      "knockout": {
+        "type": "boolean",
+        "description": "-k: knockout (promer data only, default false).",
+        "default": false
+      },
+      "lengths": {
+        "type": "boolean",
+        "description": "-l: sequence length columns (default false).",
+        "default": false
+      },
+      "minLength": {
+        "type": "integer",
+        "description": "-L: minimum alignment length (default 0).",
+        "default": 0
+      },
+      "annotateOverlaps": {
+        "type": "boolean",
+        "description": "-o: annotate overlaps (default false).",
+        "default": false
+      },
+      "sortByQuery": {
+        "type": "boolean",
+        "description": "-q: sort by query (default false).",
+        "default": false
+      },
+      "sortByReference": {
+        "type": "boolean",
+        "description": "-r: sort by reference (default false).",
+        "default": false
+      },
+      "las": {
+        "type": "boolean",
+        "description": "-g: longest ascending subset, deprecated (default false).",
+        "default": false
+      },
+      "weightedLas": {
+        "type": "boolean",
+        "description": "-G: weighted longest ascending subset, hidden (default false).",
+        "default": false
+      },
+      "tabular": {
+        "type": "boolean",
+        "description": "-T: tab-delimited output (default false).",
+        "default": false
+      },
+      "warnings": {
+        "type": "boolean",
+        "description": "-w: warnings column, hidden (default false).",
+        "default": false
+      },
+      "randomSeed": {
+        "type": "integer",
+        "description": "Seed of the rand() that breaks ties of -g / -G (the program uses the current time); default = the current time."
+      }
+    },
+    "required": [
+      "delta"
+    ]
   },
   "outputSchema": {
     "type": "object",

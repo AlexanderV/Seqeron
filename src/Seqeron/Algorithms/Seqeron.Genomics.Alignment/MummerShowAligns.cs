@@ -94,45 +94,6 @@ public static class MummerShowAligns
         throw new FormatException("ERROR: Could not find " + id + " in the " + what + " file");
     }
 
-    private static byte Complement(byte ch)
-    {
-        switch (char.ToLowerInvariant((char)ch))
-        {
-            case 'a': return (byte)'t';
-            case 'c': return (byte)'g';
-            case 'g': return (byte)'c';
-            case 't': return (byte)'a';
-            case 'r': return (byte)'y';
-            case 'y': return (byte)'r';
-            case 's': return (byte)'s';
-            case 'w': return (byte)'w';
-            case 'm': return (byte)'k';
-            case 'k': return (byte)'m';
-            case 'b': return (byte)'v';
-            case 'd': return (byte)'h';
-            case 'h': return (byte)'d';
-            case 'v': return (byte)'b';
-            default: return (byte)char.ToLowerInvariant((char)ch);
-        }
-    }
-
-    private static byte[] ReverseComplement(byte[] s)
-    {
-        long len = s.Length - 2;
-        var rev = (byte[])s.Clone();
-        long lo = 1, hi = len;
-        while (lo <= hi)
-        {
-            byte ch = rev[hi];
-            rev[hi] = Complement(rev[lo]);
-            rev[lo] = Complement(ch);
-            lo++;
-            hi--;
-        }
-
-        return rev;
-    }
-
     private static long RevC(long coord, long len) => len - coord + 1;
 
     private static long ToFwd(long coord, long len, int frame) => frame < 0 ? RevC(coord, len) : coord;
@@ -143,9 +104,9 @@ public static class MummerShowAligns
         var a = new byte[7][];
         var b = new byte[7][];
         a[1] = r;
-        a[4] = ReverseComplement(r);
+        a[4] = MummerSequence.ReverseComplement(r);
         b[1] = q;
-        b[4] = ReverseComplement(q);
+        b[4] = MummerSequence.ReverseComplement(q);
 
         var buff1 = new char[width + 2];
         var buff2 = new char[width + 2];

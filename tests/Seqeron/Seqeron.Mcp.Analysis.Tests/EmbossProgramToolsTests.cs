@@ -163,6 +163,21 @@ public class EmbossProgramToolsTests
     }
 
     [Test]
+    public void Est2genome_AlignsASplicedEstLikeTheProgram()
+    {
+        // est2genome -estsequence e.fa -genomesequence g.fa (EMBOSS 6.6.0): three exons, two GT/AG introns (B09 A2-28d, F203)
+        string est = ">est1 an est\nGGATCACAGTCTACACTGCTCACTCCAACCCCGGCCCCTGAGTCCGAGGAGAGGGTGCTTCAGAGTATGTATACCACTGGGTAGGATACGGCGGAGGGCACGTCAATACGGTTCAATGCCCTACTGCATGCTCTTGTGGTTCATCTGCATGGAGAGGGTGGGCATGGGTGGGGGTGCTGGCCCGTGATCT\n";
+        string genome = ">genomic some description\nACGTGGATCACAGTCTACACTGCTCACTCCAACCCCGGCCCCTGAGTCCGAGGAGAGGGTGCTTGTAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGCAGAGTATGTATACCACTGGGTAGGATACGGCGGAGGGCACGTCAATACGGTTCAATGCCCTACTGCATGCTCTTGTGGTGTCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCAGTCATCTGCATGGAGAGGGTGGGCATGGGTGGGGGTGCTGGCCCGTGATCTTTTT\n";
+        var r = AnalysisTools.Est2genome(est, genome);
+        Assert.That(r.Text, Is.EqualTo("Note Best alignment is between forward est and forward genome, and splice sites imply forward gene\nExon        60 100.0     5    64 genomic          1    60 est1          an est\n+Intron    -20   0.0    65   138 genomic     \nExon        80 100.0   139   218 genomic         61   140 est1          an est\n+Intron    -20   0.0   219   262 genomic     \nExon        50 100.0   263   312 genomic        141   190 est1          an est\n\nSpan       150 100.0     5   312 genomic          1   190 est1          an est\n\nSegment     60 100.0     5    64 genomic          1    60 est1          an est\nSegment     80 100.0   139   218 genomic         61   140 est1          an est\nSegment     50 100.0   263   312 genomic        141   190 est1          an est\n"));
+        Assert.That(r.Messages, Is.Empty);
+        Assert.That(AnalysisTools.Est2genome(est, genome, minScore: 200).Text, Is.EqualTo("Note Best alignment is between forward est and forward genome, and splice sites imply forward gene\n"));
+        Assert.Throws<InvalidOperationException>(() => AnalysisTools.Est2genome(est, genome, mode: "forward", best: false));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.Est2genome(est, genome, mode: "x"));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.Est2genome("", genome));
+    }
+
+    [Test]
     public void FindTandemRepeatsEmboss_Etandem_ReportsScoreIdentityAndConsensus()
     {
         // etandem -minrepeat 2 -maxrepeat 8 -threshold 10: "33 61 96 3 12 100.0 cag" and "26 137 172 6 6 94.4 acgtta"

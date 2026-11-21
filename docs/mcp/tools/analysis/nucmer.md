@@ -14,7 +14,7 @@ MUMmer 3.23 nucmer: the whole pipeline (prenuc | mummer | mgaps | postnuc), the 
 
 ## Description
 
-MUMmer 3.23 nucmer, the whole pipeline: prenuc (the reference records joined with an x after each) | mummer (anchors: matchMode 'mum' = unique in reference and query, 'mumreference' = unique in the reference (default), 'maxmatch' = all; minMatch = -l; only A/C/G/T match; both strands unless forwardOnly / reverseOnly) | mgaps (clusters: maxGap = -g, minCluster = -c, diagonalDifference = -D, diagonalFactor = -d) | postnuc (the banded Smith-Waterman extension of the clusters: gaps between the matches of a cluster, then outward off both ends until the score has not improved for breakLength = -b bases; clusters that meet fuse; with simplify (default) clusters shadowed by an earlier alignment are dropped; extend / optimize / banded as --[no]extend / --[no]optimize (nooptimize forces the extension to the sequence ends) / --banded (hard diagonal band = diagonalDifference)). Returns the text of the .delta file - the alignments between every reference record and every query record as the distances between insertions and deletions (first line = the two file names, then NUCMER, then per record pair '>refId qryId refLen qryLen' and per alignment 'sR eR sQ eQ errors simErrors nonAlpha' followed by the delta values and 0; a reverse-strand alignment has sQ > eQ) - byte for byte what the installed nucmer 3.23 writes (434 runs: multi-record inputs, both strands, repeats, N runs, every option family, the abort paths). With delta = false (--nodelta) the .cluster text is returned instead. A break length outside 1 - 10000 is ignored with a warning (messages), as the program does. The inputs on which the programs abort (empty file, no header, a file whose only record is empty, an unparsable header) are refused with an error.
+MUMmer 3.23 nucmer, the whole pipeline: prenuc (the reference records joined with an x after each) | mummer (anchors: matchMode 'mum' = unique in reference and query, 'mumreference' = unique in the reference (default), 'maxmatch' = all; minMatch = -l; only A/C/G/T match; both strands unless forwardOnly / reverseOnly) | mgaps (clusters: maxGap = -g, minCluster = -c, diagonalDifference = -D, diagonalFactor = -d) | postnuc (the banded Smith-Waterman extension of the clusters: gaps between the matches of a cluster, then outward off both ends until the score has not improved for breakLength = -b bases; clusters that meet fuse; with simplify (default) clusters shadowed by an earlier alignment are dropped; extend / optimize / banded as --[no]extend / --[no]optimize (nooptimize forces the extension to the sequence ends) / --banded (hard diagonal band = diagonalDifference)). Returns the text of the .delta file - the alignments between every reference record and every query record as the distances between insertions and deletions (first line = the two file names, then NUCMER, then per record pair '>refId qryId refLen qryLen' and per alignment 'sR eR sQ eQ errors simErrors nonAlpha' followed by the delta values and 0; a reverse-strand alignment has sQ > eQ) - byte for byte what the installed nucmer 3.23 writes (434 runs: multi-record inputs, both strands, repeats, N runs, every option family, the abort paths). With delta = false (--nodelta) the .cluster text is returned instead; coords (-o) adds the coords file (show-coords -r of the delta). The prefix (-p) names files and has no meaning here. A break length outside 1 - 10000 is ignored with a warning (messages), as the program does. The inputs on which the programs abort (empty file, no header, a file whose only record is empty, an unparsable header) are refused with an error.
 
 ## Core Documentation Reference
 
@@ -44,6 +44,7 @@ MUMmer 3.23 nucmer, the whole pipeline: prenuc (the reference records joined wit
 | `simplify` | boolean | No | Remove shadowed alignments (--simplify, default true); false = --nosimplify (align a sequence to itself to find repeats). (default: true) |
 | `referenceName` | string | No | Reference file name printed in the first line of the output (nucmer prints the absolute path). (default: reference.fa) |
 | `queryName` | string | No | Query file name printed in the first line of the output. (default: query.fa) |
+| `coords` | boolean | No | Also return the NUCmer 1.1 coords file (-o / --coords: show-coords -r of the delta; default false; not with delta = false). (default: false) |
 
 ## Output Schema
 
@@ -52,6 +53,7 @@ MUMmer 3.23 nucmer, the whole pipeline: prenuc (the reference records joined wit
 | `delta` | string | Text of the .delta file (null with delta = false). |
 | `cluster` | string | Text of the .cluster file (only with delta = false). |
 | `messages` | string | What the programs write to standard error (warnings). |
+| `coords` | string | Text of the coords file (only with `coords = true`). |
 
 ## Errors
 
@@ -75,7 +77,7 @@ MUMmer 3.23 nucmer, the whole pipeline: prenuc (the reference records joined wit
 
 **Response:**
 ```json
-{"delta": "/tmp/b09nuc/ref.fa /tmp/b09nuc/qry.fa\nNUCMER\n>ref qry 140 135\n6 140 1 135 3 3 0\n0\n", "cluster": null, "messages": ""}
+{"delta": "/tmp/b09nuc/ref.fa /tmp/b09nuc/qry.fa\nNUCMER\n>ref qry 140 135\n6 140 1 135 3 3 0\n0\n", "cluster": null, "messages": "", "coords": null}
 ```
 
 nucmer -l 15 ref.fa qry.fa writes exactly this out.delta: one alignment 6-140 / 1-135 with 3 errors, 3 similarity errors and no indel (the delta list is just the closing 0).

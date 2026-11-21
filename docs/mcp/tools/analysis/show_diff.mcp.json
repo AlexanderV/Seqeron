@@ -9,8 +9,35 @@
   "description": "MUMmer 3.23 show-diff: the structural differences between the sequences of a delta file read off the many-to-many mapping (delta-filter -m) along every reference record (referenceDiff, -r, the default) or query record (queryDiff, -q; not both): BRK breaks (unaligned stretches), GAP (gap sizes in both sequences and their difference), JMP (a jump within a sequence), INV (an inversion), DUP (a duplication) and SEQ (a jump to another sequence, with the two neighbour ids); columns [SEQ] [TYPE] [S1] [E1] [LEN 1] (+ extra fields per type); amos (-f) writes the AMOS layout with the coordinates repeated. header = false is -H. The ties of the longest-increasing-subset choice use the program's rand() (seed 1). Byte for byte equal to the installed show-diff on 300 + runs.",
   "inputSchema": {
     "type": "object",
-    "properties": {},
-    "required": []
+    "properties": {
+      "delta": {
+        "type": "string",
+        "description": "Delta file text."
+      },
+      "amos": {
+        "type": "boolean",
+        "description": "-f: AMOS output (default false).",
+        "default": false
+      },
+      "referenceDiff": {
+        "type": "boolean",
+        "description": "-r: differences of the reference (default; the default when neither -r nor -q is set).",
+        "default": false
+      },
+      "queryDiff": {
+        "type": "boolean",
+        "description": "-q: differences of the query (cannot be combined with -r).",
+        "default": false
+      },
+      "header": {
+        "type": "boolean",
+        "description": "Print the header (default true; false = -H).",
+        "default": true
+      }
+    },
+    "required": [
+      "delta"
+    ]
   },
   "outputSchema": {
     "type": "object",

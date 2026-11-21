@@ -26,6 +26,18 @@ MUMmer 3.23 show-snps: the single-base substitutions and indels of every alignme
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
+| `delta` | string | Yes | Delta file text (nucmer). |
+| `referenceFasta` | string | Yes | Reference FASTA text (the file named in the delta header). |
+| `queryFasta` | string | Yes | Query FASTA text (the file named in the delta header). |
+| `showConflict` | boolean | No | Report SNPs of ambiguous alignments and show the [R] [Q] columns (default true; false = -C). |
+| `showIndels` | boolean | No | Report indels (default true; false = -I). |
+| `lengths` | boolean | No | -l: sequence length columns (default false). |
+| `sortByQuery` | boolean | No | -q: sort by query ids and positions (default false; -r wins when both are set). |
+| `sortByReference` | boolean | No | -r: sort by reference ids and positions (the default when neither is set). (default: false) |
+| `tabular` | boolean | No | -T: tab-delimited output (default false). |
+| `header` | boolean | No | Print the header (default true; false = -H). |
+| `context` | integer | No | -x: characters of SNP context on each side (default 0). |
+| `alignments` | array<string> | No | -S: report only the alignments of these show-coords lines (null = all). |
 
 ## Output Schema
 
