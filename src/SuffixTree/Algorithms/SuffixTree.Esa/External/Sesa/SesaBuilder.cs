@@ -102,6 +102,14 @@ internal sealed record SesaBuildOptions
     /// <summary>Read every slot of the rank file once between PH1 and PH2 / PH3 and check it (an O(S) pass).</summary>
     internal bool VerifyRanks { get; init; }
 
+    /// <summary>
+    /// Work package 1b.9e, ADR-004 section 4.3: record the build in <c>&lt;target&gt;.tmp.d/state.json</c> (the fingerprint of the input and what each completed stage wrote, every output forced to storage before its stage is
+    /// marked) and, when a valid state of the same input is found, skip the completed stages whose outputs still verify (length and CRC-32C). A build that fails (an exception) keeps its temporary file and state for the next call;
+    /// a state that is missing, cut, damaged, of another format, of another input or of another layout is discarded and the build starts clean. Takes the lock <c>&lt;target&gt;.lock</c>, so that two resumable builds of one
+    /// target cannot run at once. False (the default): the build is exactly the build of 1b.7e-1b.9d, no state file, no lock, no extra fsync, and a failure removes everything. The output is the same either way.
+    /// </summary>
+    internal bool Resume { get; init; }
+
     /// <summary>Sample RssAnon while the build runs (the figure of the gate); unavailable where there is no <c>/proc</c>.</summary>
     internal bool MeasureRss { get; init; } = true;
 
@@ -242,6 +250,39 @@ internal sealed class SesaBuildResult
     internal long GrownBytes { get; init; }
 
     internal required IReadOnlyList<SesaCrcRow> CrcRows { get; init; }
+
+    /// <summary>What <see cref="SesaBuildOptions.Resume"/> did (null when it was off).</summary>
+    internal SesaResumeReport? Resume { get; init; }
+}
+
+/// <summary>Cost of recording one completed stage (<see cref="SesaBuildOptions.Resume"/>): the fsync of its outputs, the CRC pass over them, the write of the state file.</summary>
+internal sealed record SesaCheckpointRow(string Stage, double FsyncSeconds, double CrcSeconds, double StateSeconds, long CrcBytes);
+
+/// <summary>What a build with <see cref="SesaBuildOptions.Resume"/> found and recorded.</summary>
+internal sealed class SesaResumeReport
+{
+    /// <summary>A state file was read (valid or not does not matter: it existed).</summary>
+    internal bool StateFound { get; init; }
+
+    /// <summary>A state of this input and layout was accepted, so that at least the stage <see cref="SesaStages.Packed"/> was skipped.</summary>
+    internal bool Accepted { get; init; }
+
+    /// <summary>In words: why the state was not used or why its stages were cut (empty when everything it held was used).</summary>
+    internal string Reason { get; init; } = string.Empty;
+
+    /// <summary>The stages that were not run because an earlier run completed them and their outputs verified, in order.</summary>
+    internal IReadOnlyList<string> Skipped { get; init; } = [];
+
+    /// <summary>Seconds spent finding, parsing and verifying the state (the CRC pass over the outputs of the skipped stages).</summary>
+    internal double VerifySeconds { get; init; }
+
+    /// <summary>The checkpoints this run recorded.</summary>
+    internal IReadOnlyList<SesaCheckpointRow> Checkpoints { get; init; } = [];
+
+    /// <summary>State files written and their bytes.</summary>
+    internal int StateWrites { get; init; }
+
+    internal long StateBytes { get; init; }
 }
 
 /// <summary>
@@ -517,6 +558,9 @@ internal static class SesaBuilder
 
     /// <summary>Bytes per character of scratch that the pre-flight reserves: the peak of PH4 in base mode (E4: 12.0 B/char) plus the rank file.</summary>
     internal const int ScratchBytesPerChar = 12;
+
+    /// <summary>The bytes of scratch that the stages still to run will need (the pre-flight of a resume), from the stages that are kept and the bytes of scratch files that already exist.</summary>
+    internal static long ResumeNeedBytes(long n, bool psi, IReadOnlyCollection<string> kept, long existingScratchBytes) => throw new NotImplementedException();
 
     /// <summary>Bytes of one entry of the scan stack of PH5 (the upper bound of its spill is this times the depth).</summary>
     internal const int SpillBytesPerEntry = 16;

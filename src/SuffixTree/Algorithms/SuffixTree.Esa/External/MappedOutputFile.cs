@@ -33,6 +33,9 @@ internal enum ReservationOutcome
 
     /// <summary>The range that was added to an existing file (<see cref="MappedOutputFile.Grow"/>) was reserved by writing zeros into it, because the BCL reserves blocks only for a file that it creates: a full disk is an <see cref="IOException"/> from the write, the file is as it was, and a mapped write into the range never needs a new block.</summary>
     Filled,
+
+    /// <summary>The file was not created by this call: the container of an earlier, interrupted run of the same build was opened again (<see cref="MappedOutputFile.OpenExisting"/>, work package 1b.9e). Its blocks were reserved when it was created, and the range that its growth added was reserved by <see cref="Filled"/> when that happened.</summary>
+    Reopened,
 }
 
 /// <summary>The platform side of the reservation, injectable so that the fallback is tested where the real one does not exist (macOS, Windows).</summary>
@@ -170,6 +173,27 @@ internal sealed class MappedOutputFile : IDisposable
             DeleteQuietly(path);
             throw;
         }
+    }
+
+    /// <summary>
+    /// Opens a file that an earlier run created (an interrupted build whose stages are to be resumed, work package 1b.9e) for writing through bounded windows, at the length it has now: nothing is created, truncated or
+    /// reserved, so what the file already holds stays. <paramref name="truncateTo"/> cuts a longer file back first (the part behind the reserved length that an interrupted growth added: <see cref="Grow"/> reserves it again, whole,
+    /// when PH4 asks for it, so a growth that was cut off half way through its zeros cannot leave a window of blocks that were never reserved). A file shorter than <paramref name="truncateTo"/> is left as it is.
+    /// </summary>
+    /// <exception cref="FileNotFoundException">There is no such file.</exception>
+    internal static MappedOutputFile OpenExisting(string path, long? truncateTo = null)
+    {
+        ArgumentNullException.ThrowIfNull(path);
+        if (truncateTo is { } cut)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(cut);
+            using var handle = File.OpenHandle(path, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
+            if (RandomAccess.GetLength(handle) > cut) RandomAccess.SetLength(handle, cut);
+        }
+        long length = new FileInfo(path).Length;
+        if (length == 0 && !File.Exists(path)) throw new FileNotFoundException("the file of the interrupted build is gone", path);
+        MemoryMappedFile? map = length > 0 ? MemoryMappedFile.CreateFromFile(path, FileMode.Open, null, 0, MemoryMappedFileAccess.ReadWrite) : null;
+        return new MappedOutputFile(path, length, ReservationOutcome.Reopened, map);
     }
 
     /// <summary>
