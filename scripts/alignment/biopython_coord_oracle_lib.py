@@ -43,6 +43,9 @@ def alignment_from(spec):
     records = [record_from(s) for s in spec['sequences']]
     a = Alignment(records, np.array(spec['coordinates'], np.intp))
     for k, v in spec.get('attrs', {}).items():
+        if k == 'annotations' and 'empty' in v:
+            v = dict(v)
+            v['empty'] = [(record_from(e['record']), tuple(e['segment']), e['status']) for e in v['empty']]
         setattr(a, k, v)
     return a
 
@@ -72,6 +75,9 @@ def alignment_spec(a):
     for k, v in a.__dict__.items():
         if k in ('sequences', 'coordinates'):
             continue
+        if k == 'annotations' and 'empty' in v:
+            v = dict(v)
+            v['empty'] = [{'record': record_spec(r), 'segment': [int(x) for x in seg], 'status': st} for r, seg, st in v['empty']]
         if isinstance(v, (np.integer,)):
             v = int(v)
         if isinstance(v, (np.floating,)):
@@ -135,3 +141,42 @@ def random_pair(rng, with_contents=True, strand='+', protein=False):
     else:
         tparts = qparts = None
     return {'sequences': [{'id': tname, 'length': tlen, 'parts': tparts}, {'id': qname, 'length': qlen, 'parts': qparts}], 'coordinates': co, 'attrs': {}}
+
+
+def random_msa(rng, n=None, with_strands=True):
+    """A random multiple alignment of nucleotide rows (printed rows -> sequences + coordinates, flanks, reverse-strand rows)."""
+    n = n or rng.randrange(2, 5)
+    cols = rng.randrange(6, 50)
+    base = ''.join(rng.choice('ACGT') for _ in range(cols))
+    rows = []
+    for _ in range(n):
+        r = ''.join(c if rng.random() > 0.15 else '-' for c in base)
+        rows.append(r)
+    for c in range(cols):
+        if all(r[c] == '-' for r in rows) and rng.random() < 0.9:
+            rows[0] = rows[0][:c] + base[c] + rows[0][c + 1:]
+    seqs, co = Alignment.parse_printed_alignment([r.encode() for r in rows])
+    co = [[int(x) for x in row] for row in co]
+    seqs = [s.decode() for s in seqs]
+    sequences = []
+    for i in range(n):
+        pre = ''.join(rng.choice('ACGT') for _ in range(rng.randrange(0, 12)))
+        post = ''.join(rng.choice('ACGT') for _ in range(rng.randrange(0, 12)))
+        full = pre + seqs[i] + post
+        co[i] = [x + len(pre) for x in co[i]]
+        if rng.random() < 0.4:
+            full = ''.join(c.lower() if rng.random() < 0.2 else c for c in full)
+        sequences.append([rng.choice(['hg38.chr1', 'mm10.chr2', 'rn6.chrX', 'sp%d' % i, 'a|b']), full])
+    # distinct names
+    names = set()
+    for i, sq in enumerate(sequences):
+        while sq[0] in names:
+            sq[0] += '_'
+        names.add(sq[0])
+    if with_strands:
+        for i in range(n):
+            if i > 0 and rng.random() < 0.35:
+                full = sequences[i][1]
+                sequences[i][1] = revcomp(full)
+                co[i] = [len(full) - x for x in co[i]]
+    return {'sequences': [{'id': a, 'length': len(b), 'parts': {'0': b}} for a, b in sequences], 'coordinates': co, 'attrs': {}}

@@ -11,6 +11,8 @@ public enum CoordinateAlignmentFormat
     Psl,
     /// <summary>UCSC chain (<c>chain</c>).</summary>
     Chain,
+    /// <summary>Multiple Alignment Format (<c>maf</c>), any number of sequences.</summary>
+    Maf,
 }
 
 /// <summary>
@@ -30,6 +32,9 @@ public sealed class BioCoordSequence
 
     /// <summary>The description (<c>record.description</c>).</summary>
     public string Description { get; init; } = "";
+
+    /// <summary>The annotations of the record (<c>record.annotations</c>: MAF <c>quality</c>, <c>leftStatus</c>, <c>leftCount</c>, <c>rightStatus</c>, <c>rightCount</c>).</summary>
+    public JsonObject Annotations { get; init; } = [];
 
     /// <summary>The residues <c>[start, end)</c>, or null when any of them is undefined (Biopython's <c>UndefinedSequenceError</c>).</summary>
     public string? Slice(long start, long end)
@@ -75,4 +80,7 @@ public sealed record CoordinateWriteOptions
 
     /// <summary>PSL: the wildcard residue counted in <c>nCount</c> (default <c>N</c>; null = none).</summary>
     public string? Wildcard { get; init; } = "N";
+
+    /// <summary>MAF: the metadata of the file header (<c>alignments.metadata</c>: <c>MAF Version</c>, <c>Scoring</c>, <c>Program</c>, <c>Comments</c>, <c>name</c>, <c>description</c>, <c>frames</c>, <c>mafDot</c>, <c>visibility</c>, <c>speciesOrder</c>); null = <c>{"MAF Version": "1"}</c>.</summary>
+    public JsonObject? Metadata { get; init; }
 }

@@ -6,7 +6,7 @@ using Seqeron.Genomics.Infrastructure;
 namespace Seqeron.Genomics.Tests.Unit.Alignment;
 
 /// <summary>
-/// ALIGN-MULTI-001 (audit A2-27c, B09 F224): the pairwise coordinate formats of Biopython 1.88 <c>Bio.Align</c> (<c>bed</c>, <c>psl</c>, <c>chain</c>): <see cref="AlignmentCoordinateFormats.Write"/> byte for byte and
+/// ALIGN-MULTI-001 (audit A2-27c, B09 F224 / F226): the coordinate formats of Biopython 1.88 <c>Bio.Align</c> (<c>bed</c>, <c>psl</c>, <c>chain</c>, <c>maf</c>): <see cref="AlignmentCoordinateFormats.Write"/> byte for byte and
 /// <see cref="AlignmentCoordinateFormats.Parse"/> equal to <c>Bio.Align.parse</c> (scripts/alignment/generate_biopython_coord_oracle.py, biopython_coord_oracle.tsv).
 /// </summary>
 [TestFixture]
@@ -16,7 +16,7 @@ public class AlignmentCoordinateFormats_Tests
 {
     private static readonly Lazy<List<BiopythonCoordOracle.Row>> Oracle = new(BiopythonCoordOracle.Load);
 
-    private static readonly string[] Formats = ["bed", "psl", "chain"];
+    private static readonly string[] Formats = ["bed", "psl", "chain", "maf"];
 
     private static CoordinateWriteOptions Options(JsonObject o) => new()
     {
@@ -24,6 +24,7 @@ public class AlignmentCoordinateFormats_Tests
         Header = o["header"]?.GetValue<bool>() ?? true,
         Mask = o["mask"]?.GetValue<string>(),
         Wildcard = o.ContainsKey("wildcard") ? o["wildcard"]?.GetValue<string>() : "N",
+        Metadata = o["metadata"] as JsonObject,
     };
 
     [Test]

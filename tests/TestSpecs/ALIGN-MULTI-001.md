@@ -846,3 +846,5 @@ Tests (`Seqeron.Genomics.Tests`, against the installed Debian `poa` 2.0+20060928
 ## Audit A2-27c (B09 F224): Biopython coordinate formats bed / psl / chain
 
 Tests (`Seqeron.Genomics.Tests`, against Biopython 1.88): `AlignmentCoordinateFormats_Tests` x3 - `biopython_coord_oracle.tsv` (957 rows from `scripts/alignment/generate_biopython_coord_oracle.py`: writer rows with every `bedN`, PSL `header` / `mask` / `wildcard`, strands of query and target, protein / translated DNA, known and unknown residues, two alignments per file; reader rows over the writers' own text, PSLX, comments, blank lines between chain blocks, 13-column chains, 10 / 11-column BED and other texts Biopython refuses): writers byte for byte (390 / 390), readers equal to `Bio.Align.parse` (567 / 567); MCP `CoordinateAlignmentTests` x3.
+
+F226 (maf): the same test class covers `maf` (`maf` rows of `biopython_coord_oracle.tsv`: 257 rows - writers with header metadata, annotations, empty regions and reverse-strand rows byte for byte; readers incl. refusals); the oracle now holds 1 214 rows (510 writer, 704 reader).

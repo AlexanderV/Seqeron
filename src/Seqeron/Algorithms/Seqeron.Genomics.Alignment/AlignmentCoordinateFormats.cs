@@ -21,6 +21,7 @@ public static partial class AlignmentCoordinateFormats
             case "bed": format = CoordinateAlignmentFormat.Bed; return true;
             case "psl": format = CoordinateAlignmentFormat.Psl; return true;
             case "chain": format = CoordinateAlignmentFormat.Chain; return true;
+            case "maf": format = CoordinateAlignmentFormat.Maf; return true;
             default: return false;
         }
     }
@@ -36,6 +37,8 @@ public static partial class AlignmentCoordinateFormats
         var sb = new StringBuilder();
         if (format == CoordinateAlignmentFormat.Psl && options.Header)
             sb.Append(PslHeader);
+        if (format == CoordinateAlignmentFormat.Maf)
+            sb.Append(MafHeader(options.Metadata));
         foreach (var a in alignments)
             sb.Append(Format(a, format, options));
         return sb.ToString();
@@ -50,6 +53,7 @@ public static partial class AlignmentCoordinateFormats
         {
             CoordinateAlignmentFormat.Bed => FormatBed(alignment, options.BedN),
             CoordinateAlignmentFormat.Psl => FormatPsl(alignment, options),
+            CoordinateAlignmentFormat.Maf => FormatMaf(alignment),
             _ => FormatChain(alignment),
         };
     }
@@ -63,6 +67,7 @@ public static partial class AlignmentCoordinateFormats
         {
             CoordinateAlignmentFormat.Bed => ParseBed(text),
             CoordinateAlignmentFormat.Psl => ParsePsl(text),
+            CoordinateAlignmentFormat.Maf => ParseMaf(text),
             _ => ParseChain(text),
         };
     }
@@ -197,7 +202,7 @@ public static partial class AlignmentCoordinateFormats
         var parts = new SortedDictionary<long, string>();
         foreach (var (start, text) in s.Parts)
             parts[s.Length - (start + text.Length)] = ReverseComplement(text);
-        return new BioCoordSequence { Id = s.Id, Length = s.Length, Parts = parts, Description = s.Description };
+        return new BioCoordSequence { Id = s.Id, Length = s.Length, Parts = parts, Description = s.Description, Annotations = s.Annotations };
     }
 
     private static string[] Words(string line) => line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);

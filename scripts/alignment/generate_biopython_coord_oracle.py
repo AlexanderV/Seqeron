@@ -16,7 +16,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import numpy as np
 from Bio import Align
-from biopython_coord_oracle_lib import alignment_from, alignment_spec, random_blocks, random_dna, random_pair
+from biopython_coord_oracle_lib import alignment_from, alignment_spec, random_blocks, random_dna, random_msa, random_pair
 
 root = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..')
 out_path = os.path.join(root, 'tests', 'Seqeron', 'Seqeron.Genomics.Tests', 'TestData', 'Alignment', 'biopython_coord_oracle.tsv')
@@ -56,8 +56,17 @@ def pslx_pair(strand):
     return p
 
 
+class AlignList(list):
+    pass
+
+
 def run_write(fmt, specs, **kw):
     aligns = [alignment_from(s) for s in specs]
+    if 'metadata' in kw:
+        kw = dict(kw)
+        wrapper = AlignList(aligns)
+        wrapper.metadata = kw.pop('metadata')
+        aligns = wrapper
     stream = io.StringIO()
     Align.write(aligns, stream, fmt, **kw)
     return stream.getvalue()
@@ -72,7 +81,7 @@ def run_read(fmt, text):
 
 
 rows = []
-wanted = set(sys.argv[1:]) or {'bed', 'psl', 'chain'}
+wanted = set(sys.argv[1:]) or {'bed', 'psl', 'chain', 'maf'}
 
 
 def add_write(fmt, specs, **kw):
@@ -208,6 +217,59 @@ if 'chain' in wanted:
     add_read('chain', 'chain 10 t 100 + 0 10 q 100\n10\n')
     add_read('chain', 'foo 10 t 100 + 0 10 q 100 + 0 10\n10\n')
     add_read('chain', '')
+
+if 'maf' in wanted:
+    def maf_spec():
+        spec = random_msa(rng)
+        n = len(spec['sequences'])
+        if rng.random() < 0.6:
+            attrs(spec, score=rng.choice([0, 12.5, 1234.567891, -3, 99]))
+        ann = {}
+        if rng.random() < 0.3:
+            ann['pass'] = rng.randrange(1, 9)
+        if rng.random() < 0.25:
+            ann['empty'] = [{'record': {'id': 'emp%d' % k, 'length': rng.randrange(50, 200), 'parts': None}, 'segment': [rng.randrange(0, 20), rng.randrange(20, 40)], 'status': rng.choice('CIMn')} for k in range(rng.randrange(1, 3))]
+            if rng.random() < 0.3:
+                ann['empty'][0]['segment'] = [30, 5]
+        if ann:
+            spec['attrs']['annotations'] = ann
+        for sq, co in zip(spec['sequences'], spec['coordinates']):
+            ann = {}
+            if rng.random() < 0.25:
+                ann['quality'] = ''.join(rng.choice('0123456789F') for _ in range(abs(co[-1] - co[0])))
+            if rng.random() < 0.25:
+                ann.update({'leftStatus': rng.choice('CINnMT'), 'leftCount': rng.randrange(0, 500), 'rightStatus': rng.choice('CINnMT'), 'rightCount': rng.randrange(0, 500)})
+            if ann:
+                sq['annotations'] = ann
+        return spec
+
+    for i in range(120):
+        specs = [maf_spec() for _ in range(rng.choice([1, 1, 2, 3]))]
+        kw = {}
+        if i % 4 == 1:
+            kw['metadata'] = {'MAF Version': '1', 'Scoring': 'blastz', 'Program': 'multiz'}
+        elif i % 4 == 2:
+            kw['metadata'] = {'name': 'my track', 'description': 'a b', 'mafDot': 'on', 'visibility': 'pack', 'speciesOrder': ['hg38', 'mm10 x'], 'MAF Version': '1', 'Comments': ['first comment', 'second']}
+        add_write('maf', specs, **kw)
+    for i in range(110):
+        specs = [maf_spec() for _ in range(rng.choice([1, 2, 3]))]
+        kw = {}
+        if i % 3 == 1:
+            kw['metadata'] = {'MAF Version': '1', 'Scoring': 'x', 'Program': 'y', 'Comments': ['c']}
+        elif i % 3 == 2:
+            kw['metadata'] = {'name': 'tr', 'speciesOrder': ['a', 'b'], 'MAF Version': '1'}
+        try:
+            text = run_write('maf', specs, **kw)
+        except Exception:  # noqa: BLE001
+            continue
+        add_read('maf', text)
+        if i % 5 == 0:
+            add_read('maf', text.replace('-', '.', 3))
+    add_read('maf', '##maf version=1\n\na score=1.0\ns h 0 4 + 10 AC-GT\ns m 2 4 - 20 ACG-T\n\n')
+    add_read('maf', '##maf version=2\n\n')
+    add_read('maf', 'x\n')
+    add_read('maf', '##maf version=1\n\na pass=0\ns a 0 1 + 1 A\n')
+    add_read('maf', '##maf version=1\n\na score=3\ns a 0 4 + 10 AC-G\n\na\ns b 0 2 + 10 AC\n\n')
 
 os.makedirs(os.path.dirname(out_path), exist_ok=True)
 existing = []

@@ -1,6 +1,6 @@
 # parse_coordinate_alignment
 
-Reads the pairwise alignments of a BED, PSL / PSLX or chain file as Bio.Align.parse does and returns them as JSON objects {"sequences", "coordinates", "attrs"} (see write_coordinate_alignment): sequences with their lengths and the residues a PSLX file defines, the block coordinates (a decreasing coordinate = reverse strand), score / matches / misMatches / repMatches / nCount / thickStart / thickEnd / itemRgb / annotations.id as the format carries them. Text Biopython refuses (inconsistent columns, block counts, starts and ends) is refused with the same condition; a PSLX line of a protein aligned to translated DNA is not read. VERIFICATION: equal to Biopython 1.88 on 567 / 567 committed texts.
+Reads the alignments of a BED, PSL / PSLX, chain or MAF file as Bio.Align.parse does and returns them as JSON objects {"sequences", "coordinates", "attrs"} (see write_coordinate_alignment): sequences with their lengths and the residues a PSLX file defines, the block coordinates (a decreasing coordinate = reverse strand), score / matches / misMatches / repMatches / nCount / thickStart / thickEnd / itemRgb / annotations.id as the format carries them. Text Biopython refuses (inconsistent columns, block counts, starts and ends) is refused with the same condition; a PSLX line of a protein aligned to translated DNA is not read. VERIFICATION: equal to Biopython 1.88 on 704 / 704 committed texts.
 
 ## Overview
 
@@ -14,7 +14,7 @@ Reads the pairwise alignments of a BED, PSL / PSLX or chain file as Bio.Align.pa
 
 ## Description
 
-Reads the pairwise alignments of a BED, PSL / PSLX or chain file as Bio.Align.parse does and returns them as JSON objects {"sequences", "coordinates", "attrs"} (see write_coordinate_alignment): sequences with their lengths and the residues a PSLX file defines, the block coordinates (a decreasing coordinate = reverse strand), score / matches / misMatches / repMatches / nCount / thickStart / thickEnd / itemRgb / annotations.id as the format carries them. Text Biopython refuses (inconsistent columns, block counts, starts and ends) is refused with the same condition; a PSLX line of a protein aligned to translated DNA is not read. VERIFICATION: equal to Biopython 1.88 on 567 / 567 committed texts.
+Reads the alignments of a BED, PSL / PSLX, chain or MAF file as Bio.Align.parse does and returns them as JSON objects {"sequences", "coordinates", "attrs"} (see write_coordinate_alignment): sequences with their lengths and the residues a PSLX file defines, the block coordinates (a decreasing coordinate = reverse strand), score / matches / misMatches / repMatches / nCount / thickStart / thickEnd / itemRgb / annotations.id as the format carries them. Text Biopython refuses (inconsistent columns, block counts, starts and ends) is refused with the same condition; a PSLX line of a protein aligned to translated DNA is not read. VERIFICATION: equal to Biopython 1.88 on 704 / 704 committed texts.
 
 ## Core Documentation Reference
 
@@ -27,7 +27,7 @@ Reads the pairwise alignments of a BED, PSL / PSLX or chain file as Bio.Align.pa
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `text` | string | Yes | The text of the file. |
-| `format` | string | No | Format: bed, psl or chain. (default: psl) |
+| `format` | string | No | Format: bed, psl, chain or maf. (default: psl) |
 
 ## Output Schema
 

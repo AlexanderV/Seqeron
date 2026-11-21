@@ -24,7 +24,14 @@ public static partial class AlignmentCoordinateFormats
                     parts[long.Parse(kv.Key, CultureInfo.InvariantCulture)] = kv.Value!.GetValue<string>();
             }
 
-            seqs.Add(new BioCoordSequence { Id = s["id"]?.GetValue<string>(), Length = s["length"]!.GetValue<long>(), Parts = parts, Description = s["description"]?.GetValue<string>() ?? "" });
+            seqs.Add(new BioCoordSequence
+            {
+                Id = s["id"]?.GetValue<string>(),
+                Length = s["length"]!.GetValue<long>(),
+                Parts = parts,
+                Description = s["description"]?.GetValue<string>() ?? "",
+                Annotations = s["annotations"] is JsonObject an ? (JsonObject)an.DeepClone() : [],
+            });
         }
 
         var co = (spec["coordinates"]?.AsArray() ?? throw new ArgumentException("\"coordinates\" is missing.", nameof(spec))).Select(r => r!.AsArray().Select(x => x!.GetValue<long>()).ToArray()).ToArray();
@@ -53,6 +60,8 @@ public static partial class AlignmentCoordinateFormats
 
             if (s.Description.Length > 0)
                 o["description"] = s.Description;
+            if (s.Annotations.Count > 0)
+                o["annotations"] = s.Annotations.DeepClone();
             seqs.Add(o);
         }
 

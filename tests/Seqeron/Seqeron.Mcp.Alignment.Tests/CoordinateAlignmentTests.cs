@@ -37,6 +37,21 @@ public class CoordinateAlignmentTests
     }
 
     [Test]
+    public void Write_And_Parse_Maf_EqualBiopython()
+    {
+        const string maf = "{\"sequences\":[{\"id\":\"hg38.chr1\",\"length\":12,\"parts\":{\"0\":\"ACGTACGTAAGG\"}},{\"id\":\"mm10.chr2\",\"length\":9,\"parts\":{\"0\":\"ACTACGAAG\"}}],\"coordinates\":[[2,5,6,11],[1,4,4,9]],\"attrs\":{\"score\":42}}";
+        string expected = "##maf version=1\na score=42.000000\ns hg38.chr1 2 9 + 12 GTACGTAAG\ns mm10.chr2 1 8 +  9 CTA-CGAAG\n\n";
+        var written = AlignmentTools.WriteCoordinateAlignment([maf], "maf");
+        var parsed = JsonNode.Parse(AlignmentTools.ParseCoordinateAlignment(written.Text, "maf").Text)!.AsArray();
+        Assert.Multiple(() =>
+        {
+            Assert.That(written.Text, Is.EqualTo(expected));
+            Assert.That(parsed[0]!["coordinates"]!.ToJsonString(), Is.EqualTo("[[2,5,6,11],[1,4,4,9]]"));
+            Assert.That(parsed[0]!["attrs"]!["score"]!.GetValue<double>(), Is.EqualTo(42.0));
+        });
+    }
+
+    [Test]
     public void UnknownFormat_IsRefused()
     {
         Assert.Throws<ArgumentException>(() => AlignmentTools.WriteCoordinateAlignment([Alignment], "sam"));

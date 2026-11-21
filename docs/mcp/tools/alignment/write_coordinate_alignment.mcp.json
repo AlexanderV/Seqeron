@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "AlignmentCoordinateFormats.Write",
   "docRef": "Seqeron.Genomics.Alignment/AlignmentCoordinateFormats.cs",
-  "description": "Writes pairwise alignments given by their block coordinates in a Biopython 1.88 Bio.Align coordinate format, byte for byte as Bio.Align.write does: bed (3 to 12 columns, bedN), psl (header, mask lower / upper for repeat matches, wildcard N), chain. An alignment is a JSON object {\"sequences\": [{\"id\": \"chr1\", \"length\": 1000, \"parts\": {\"0\": \"ACGT...\"} or null}, {query}], \"coordinates\": [[target positions], [query positions]], \"attrs\": {\"score\": 42, \"matches\": 10, ...}} (target first, query second; a position that decreases along the alignment is a sequence on the reverse strand; parts = the known residues by start position, null = unknown contents; PSL counts matches / mismatches from the residues when they are known, otherwise every aligned base is a match). VERIFICATION: written text equal to Biopython 1.88 on 390 / 390 committed cases (scripts/alignment/generate_biopython_coord_oracle.py).",
+  "description": "Writes alignments given by their block coordinates in a Biopython 1.88 Bio.Align coordinate format, byte for byte as Bio.Align.write does: bed (3 to 12 columns, bedN), psl (header, mask lower / upper for repeat matches, wildcard N), chain, maf (any number of sequences, score / pass / empty-region annotations, quality and i lines of the records, file header metadata). An alignment is a JSON object {\"sequences\": [{\"id\": \"chr1\", \"length\": 1000, \"parts\": {\"0\": \"ACGT...\"} or null}, {query}], \"coordinates\": [[target positions], [query positions]], \"attrs\": {\"score\": 42, \"matches\": 10, ...}} (target first, query second; a position that decreases along the alignment is a sequence on the reverse strand; parts = the known residues by start position, null = unknown contents; PSL counts matches / mismatches from the residues when they are known, otherwise every aligned base is a match). VERIFICATION: written text equal to Biopython 1.88 on 510 / 510 committed cases (scripts/alignment/generate_biopython_coord_oracle.py).",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -19,7 +19,7 @@
       },
       "format": {
         "type": "string",
-        "description": "Format: bed, psl or chain.",
+        "description": "Format: bed, psl, chain or maf.",
         "default": "psl"
       },
       "bedN": {
@@ -40,6 +40,10 @@
         "type": "string",
         "description": "PSL: the wildcard residue counted in nCount (default N; empty = none).",
         "default": "N"
+      },
+      "metadataJson": {
+        "type": "string",
+        "description": "MAF: the metadata of the file header as a JSON object (alignments.metadata: {\"MAF Version\": \"1\", \"Scoring\": ..., \"Program\": ..., \"Comments\": [...], \"name\", \"description\", \"mafDot\", \"visibility\", \"speciesOrder\": [...]}); default {\"MAF Version\": \"1\"}."
       }
     },
     "required": [
