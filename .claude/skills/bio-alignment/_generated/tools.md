@@ -64,6 +64,7 @@
 | `muscle_msa_command` | Alignment | `SequenceAligner.MuscleProfileAlign` | [doc](../../../../docs/mcp/tools/alignment/muscle_msa_command.md) |
 | `needle_align` | Alignment | `SequenceAligner.NeedleAlign` | [doc](../../../../docs/mcp/tools/alignment/needle_align.md) |
 | `needleall_align` | Alignment | `SequenceAligner.NeedleAll` | [doc](../../../../docs/mcp/tools/alignment/needleall_align.md) |
+| `parse_coordinate_alignment` | Alignment | `AlignmentCoordinateFormats.Parse` | [doc](../../../../docs/mcp/tools/alignment/parse_coordinate_alignment.md) |
 | `poa_command` | Alignment | `PoaProgram.Run` | [doc](../../../../docs/mcp/tools/alignment/poa_command.md) |
 | `probcons_command` | Alignment | `ProbConsProgram.Run` | [doc](../../../../docs/mcp/tools/alignment/probcons_command.md) |
 | `quality_trim_reads` | Alignment | `SequenceAssembler.QualityTrimReads` | [doc](../../../../docs/mcp/tools/alignment/quality_trim_reads.md) |
@@ -83,6 +84,7 @@
 | `tcoffee_tblastx_library` | Alignment | `SequenceAligner.TCoffeeTblastxLibraryEntries` | [doc](../../../../docs/mcp/tools/alignment/tcoffee_tblastx_library.md) |
 | `water_align` | Alignment | `SequenceAligner.WaterAlign` | [doc](../../../../docs/mcp/tools/alignment/water_align.md) |
 | `write_alignment` | Alignment | `EmbossAlignmentWriter.Format` | [doc](../../../../docs/mcp/tools/alignment/write_alignment.md) |
+| `write_coordinate_alignment` | Alignment | `AlignmentCoordinateFormats.Write` | [doc](../../../../docs/mcp/tools/alignment/write_coordinate_alignment.md) |
 | `calculate_similarity` | Core | `GenomicAnalyzer.CalculateSimilarity` | [doc](../../../../docs/mcp/tools/core/calculate_similarity.md) |
 | `count_approximate_occurrences` | Core | `ApproximateMatcher.CountApproximateOccurrences` | [doc](../../../../docs/mcp/tools/core/count_approximate_occurrences.md) |
 | `edit_distance` | Core | `ApproximateMatcher.EditDistance` | [doc](../../../../docs/mcp/tools/core/edit_distance.md) |

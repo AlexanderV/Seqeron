@@ -44,6 +44,9 @@ public record FormatAlignmentResult(string Formatted);
 /// <summary>An alignment file: its text, the format written and the dialect (tool whose layout it reproduces).</summary>
 public record WriteAlignmentResult(string Text, string Format, string Dialect);
 
+/// <summary>Text of a coordinate-format file (write) or the JSON of the parsed alignments (parse), its format and the number of alignments.</summary>
+public record CoordinateAlignmentResult(string Text, string Format, int Count);
+
 /// <summary>ClustalW 2.1 command: the files the program wrote (name to text) and what it printed to the error stream while reading the command line.</summary>
 public record ClustalWCommandResultDto(
     Dictionary<string, string> Files,

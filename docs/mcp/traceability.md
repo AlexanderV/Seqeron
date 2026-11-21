@@ -415,6 +415,8 @@
 | multiple_align_mafft | Alignment | SequenceAligner.MultipleAlignMafft | Alignment/SequenceAligner.Mafft.cs | 0/0 | – | – | Build-Ready |
 | stretcher_align | Alignment | SequenceAligner.StretcherAlign | Alignment/SequenceAligner.Stretcher.cs | 0/0 | – | – | Build-Ready |
 | write_alignment | Alignment | EmbossAlignmentWriter.Format | Alignment/EmbossAlignmentWriter.cs | 0/0 | – | – | Build-Ready |
+| write_coordinate_alignment | Alignment | AlignmentCoordinateFormats.Write | Alignment/AlignmentCoordinateFormats.cs | 0/0 | – | – | Build-Ready |
+| parse_coordinate_alignment | Alignment | AlignmentCoordinateFormats.Parse | Alignment/AlignmentCoordinateFormats.cs | 0/0 | – | – | Build-Ready |
 | dual_affine_align | Alignment | SequenceAligner.GlobalAlignDualAffine | Alignment/SequenceAligner.DualAffine.cs | 0/0 | – | – | Build-Ready |
 | supermatcher_align | Alignment | SequenceAligner.Supermatcher | Alignment/SequenceAligner.Supermatcher.cs | 0/0 | – | – | Build-Ready |
 | needleall_align | Alignment | SequenceAligner.NeedleAll | Alignment/SequenceAligner.NeedleAll.cs | 0/0 | – | – | Build-Ready |

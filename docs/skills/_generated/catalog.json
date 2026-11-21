@@ -406,6 +406,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.NeedleAll.cs"
   },
   {
+    "tool": "parse_coordinate_alignment",
+    "server": "Alignment",
+    "methodId": "AlignmentCoordinateFormats.Parse",
+    "docPath": "docs/mcp/tools/alignment/parse_coordinate_alignment.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/AlignmentCoordinateFormats.cs"
+  },
+  {
     "tool": "poa_command",
     "server": "Alignment",
     "methodId": "PoaProgram.Run",
@@ -537,6 +544,13 @@
     "methodId": "EmbossAlignmentWriter.Format",
     "docPath": "docs/mcp/tools/alignment/write_alignment.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/EmbossAlignmentWriter.cs"
+  },
+  {
+    "tool": "write_coordinate_alignment",
+    "server": "Alignment",
+    "methodId": "AlignmentCoordinateFormats.Write",
+    "docPath": "docs/mcp/tools/alignment/write_coordinate_alignment.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/AlignmentCoordinateFormats.cs"
   },
   {
     "tool": "alignment_distance_matrix",

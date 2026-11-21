@@ -2,7 +2,7 @@
 
 MCP server — **Pairwise and multiple sequence alignment, overlap/assembly and approximate matching.**
 
-Exposes **77 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+Exposes **79 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
 MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test, with a
 per-tool doc under [`docs/mcp/tools/alignment/`](../../../../docs/mcp/tools/alignment). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
@@ -76,6 +76,8 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `supermatcher_align` | EMBOSS 6.6 supermatcher: Rabin-Karp word seeds + banded Smith-Waterman local alignment of large sequences. |
 | `ksw2_extend` | The ksw2 / minimap2 extension-alignment functions (`extz`, `extz2`, `extd`, `extd2`): band, Z-drop, end bonus, CIGAR. |
 | `write_alignment` | Writes an alignment in an EMBOSS 6.6.0 `-aformat` format (pair, simple, srspair, srs, markx0-3 / 10, match, score, sam, tcoffee, fasta, a2m, msf, clustal, mega, meganon, nexus, paup, nexusnon, paupnon, phylip, phylipnon, selex, treecon) byte for byte (3 303 needle / water / stretcher files and 1 309 seqret files verified). |
+| `write_coordinate_alignment` | Writes pairwise alignments (block coordinates as JSON) as BED / PSL / chain text, byte for byte as Biopython 1.88 `Bio.Align.write` (`bedN`, PSL header / mask / wildcard). |
+| `parse_coordinate_alignment` | Reads BED / PSL / PSLX / chain text as Biopython 1.88 `Bio.Align.parse` does and returns the alignments as JSON (sequences, block coordinates, score / matches / thick / chain id attributes). |
 | `dual_affine_align` | ksw2 / minimap2-style two-piece affine gaps (`gapOpen1/2`, `gapExtend1/2`), global or local, optional band; 1 600 oracle cases (Biopython callable gap score + independent WSB). |
 | `muscle_msa_command` | MUSCLE 3.8.1551 command lines on existing alignments: profile-profile alignment, refinement, SP / profile score, guide tree, window refinement, local alignment (ported from the source; round-2 oracle awaiting). |
 | `multiple_align_muscle` | MUSCLE 3.8.1551's alignment ported step by step (Edgar 2004): k-mer distance, UPGMB guide tree, ClustalW weights, profile-profile DP with the log-expectation (protein) / sum-of-pairs (nucleotide) score and position-specific gap penalties, maxIters 1 (draft) and 2 (tree refinement); rows verified against the original program only once the Docker oracle of the hand-off package has been run (awaiting). |

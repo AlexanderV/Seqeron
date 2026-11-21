@@ -38,6 +38,7 @@ namespace Seqeron.Mcp.Alignment;
 [JsonSerializable(typeof(AlignmentStatisticsDto))]
 [JsonSerializable(typeof(FormatAlignmentResult))]
 [JsonSerializable(typeof(WriteAlignmentResult))]
+[JsonSerializable(typeof(CoordinateAlignmentResult))]
 [JsonSerializable(typeof(PairAlignmentItem))]
 [JsonSerializable(typeof(PairAlignmentItem[]))]
 [JsonSerializable(typeof(EmbossProgramAlignResult))]

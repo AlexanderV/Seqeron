@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "parse_coordinate_alignment",
+  "serverName": "Alignment",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "AlignmentCoordinateFormats.Parse",
+  "docRef": "Seqeron.Genomics.Alignment/AlignmentCoordinateFormats.cs",
+  "description": "Reads the pairwise alignments of a BED, PSL / PSLX or chain file as Bio.Align.parse does and returns them as JSON objects {\"sequences\", \"coordinates\", \"attrs\"} (see write_coordinate_alignment): sequences with their lengths and the residues a PSLX file defines, the block coordinates (a decreasing coordinate = reverse strand), score / matches / misMatches / repMatches / nCount / thickStart / thickEnd / itemRgb / annotations.id as the format carries them. Text Biopython refuses (inconsistent columns, block counts, starts and ends) is refused with the same condition; a PSLX line of a protein aligned to translated DNA is not read. VERIFICATION: equal to Biopython 1.88 on 567 / 567 committed texts.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "text": {
+        "type": "string",
+        "description": "The text of the file."
+      },
+      "format": {
+        "type": "string",
+        "description": "Format: bed, psl or chain.",
+        "default": "psl"
+      }
+    },
+    "required": [
+      "text"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "text": {
+        "type": "string",
+        "description": "The text of the file (write) or the JSON of the parsed alignments (parse)."
+      },
+      "format": {
+        "type": "string",
+        "description": "The format name."
+      },
+      "count": {
+        "type": "integer",
+        "description": "The number of alignments."
+      }
+    }
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "arguments is null"
+    },
+    {
+      "code": 1002,
+      "message": "--format msf / clu output (accepted by the program, not written here): NotSupportedException"
+    }
+  ]
+}

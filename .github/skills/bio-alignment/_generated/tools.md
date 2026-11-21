@@ -21,6 +21,7 @@
 | `compute_consensus` | Alignment | `SequenceAssembler.ComputeConsensus` | [doc](../../../../docs/mcp/tools/alignment/compute_consensus.md) |
 | `damerau_alignment` | Alignment | `ApproximateMatcher.GetDamerauLevenshteinAlignment` | [doc](../../../../docs/mcp/tools/alignment/damerau_alignment.md) |
 | `damerau_levenshtein_distance` | Alignment | `ApproximateMatcher.DamerauLevenshteinDistance` | [doc](../../../../docs/mcp/tools/alignment/damerau_levenshtein_distance.md) |
+| `dotmatcher` | Alignment | `DotMatcher.Compute` | [doc](../../../../docs/mcp/tools/alignment/dotmatcher.md) |
 | `dual_affine_align` | Alignment | `SequenceAligner.GlobalAlignDualAffine / LocalAlignDualAffine` | [doc](../../../../docs/mcp/tools/alignment/dual_affine_align.md) |
 | `edit_alignment` | Alignment | `ApproximateMatcher.GetEditAlignment` | [doc](../../../../docs/mcp/tools/alignment/edit_alignment.md) |
 | `error_correct_reads` | Alignment | `SequenceAssembler.ErrorCorrectReads` | [doc](../../../../docs/mcp/tools/alignment/error_correct_reads.md) |
@@ -45,6 +46,8 @@
 | `local_align_top_n` | Alignment | `SequenceAligner.LocalAlignTopN` | [doc](../../../../docs/mcp/tools/alignment/local_align_top_n.md) |
 | `merge_contigs` | Alignment | `SequenceAssembler.MergeContigs` | [doc](../../../../docs/mcp/tools/alignment/merge_contigs.md) |
 | `merger` | Alignment | `SequenceAligner.Merger` | [doc](../../../../docs/mcp/tools/alignment/merger.md) |
+| `minimap2_chains` | Alignment | `Minimap2Chaining.MapChains` | [doc](../../../../docs/mcp/tools/alignment/minimap2_chains.md) |
+| `minimap2_map` | Alignment | `Minimap2Program.Run` | [doc](../../../../docs/mcp/tools/alignment/minimap2_map.md) |
 | `multiple_align` | Alignment | `SequenceAligner.MultipleAlign` | [doc](../../../../docs/mcp/tools/alignment/multiple_align.md) |
 | `multiple_align_anchored` | Alignment | `SequenceAligner.MultipleAlignAnchored` | [doc](../../../../docs/mcp/tools/alignment/multiple_align_anchored.md) |
 | `multiple_align_clustalw` | Alignment | `SequenceAligner.MultipleAlignClustalW` | [doc](../../../../docs/mcp/tools/alignment/multiple_align_clustalw.md) |
@@ -61,6 +64,7 @@
 | `muscle_msa_command` | Alignment | `SequenceAligner.MuscleProfileAlign` | [doc](../../../../docs/mcp/tools/alignment/muscle_msa_command.md) |
 | `needle_align` | Alignment | `SequenceAligner.NeedleAlign` | [doc](../../../../docs/mcp/tools/alignment/needle_align.md) |
 | `needleall_align` | Alignment | `SequenceAligner.NeedleAll` | [doc](../../../../docs/mcp/tools/alignment/needleall_align.md) |
+| `parse_coordinate_alignment` | Alignment | `AlignmentCoordinateFormats.Parse` | [doc](../../../../docs/mcp/tools/alignment/parse_coordinate_alignment.md) |
 | `poa_command` | Alignment | `PoaProgram.Run` | [doc](../../../../docs/mcp/tools/alignment/poa_command.md) |
 | `probcons_command` | Alignment | `ProbConsProgram.Run` | [doc](../../../../docs/mcp/tools/alignment/probcons_command.md) |
 | `quality_trim_reads` | Alignment | `SequenceAssembler.QualityTrimReads` | [doc](../../../../docs/mcp/tools/alignment/quality_trim_reads.md) |
@@ -80,6 +84,7 @@
 | `tcoffee_tblastx_library` | Alignment | `SequenceAligner.TCoffeeTblastxLibraryEntries` | [doc](../../../../docs/mcp/tools/alignment/tcoffee_tblastx_library.md) |
 | `water_align` | Alignment | `SequenceAligner.WaterAlign` | [doc](../../../../docs/mcp/tools/alignment/water_align.md) |
 | `write_alignment` | Alignment | `EmbossAlignmentWriter.Format` | [doc](../../../../docs/mcp/tools/alignment/write_alignment.md) |
+| `write_coordinate_alignment` | Alignment | `AlignmentCoordinateFormats.Write` | [doc](../../../../docs/mcp/tools/alignment/write_coordinate_alignment.md) |
 | `calculate_similarity` | Core | `GenomicAnalyzer.CalculateSimilarity` | [doc](../../../../docs/mcp/tools/core/calculate_similarity.md) |
 | `count_approximate_occurrences` | Core | `ApproximateMatcher.CountApproximateOccurrences` | [doc](../../../../docs/mcp/tools/core/count_approximate_occurrences.md) |
 | `edit_distance` | Core | `ApproximateMatcher.EditDistance` | [doc](../../../../docs/mcp/tools/core/edit_distance.md) |

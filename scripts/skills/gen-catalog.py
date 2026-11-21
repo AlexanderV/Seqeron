@@ -71,7 +71,7 @@ EXPECTED_COUNTS = {
     "core": 18,
     "sequence": 35,
     "parsers": 41,
-    "alignment": 77,
+    "alignment": 79,
     "analysis": 174,
     "annotation": 97,
     "chromosome": 32,
@@ -80,7 +80,7 @@ EXPECTED_COUNTS = {
     "phylogenetics": 13,
     "population": 18,
 }
-EXPECTED_TOTAL = 583
+EXPECTED_TOTAL = 585
 
 BEGIN_MARK = "<!-- BEGIN generated: do not edit by hand -->"
 END_MARK = "<!-- END generated -->"

@@ -93,5 +93,7 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "tcoffee_tblastx_library",
         "water_align",
         "write_alignment",
+        "write_coordinate_alignment",
+        "parse_coordinate_alignment",
     };
 }

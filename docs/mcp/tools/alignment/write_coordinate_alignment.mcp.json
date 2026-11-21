@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "write_coordinate_alignment",
+  "serverName": "Alignment",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "AlignmentCoordinateFormats.Write",
+  "docRef": "Seqeron.Genomics.Alignment/AlignmentCoordinateFormats.cs",
+  "description": "Writes pairwise alignments given by their block coordinates in a Biopython 1.88 Bio.Align coordinate format, byte for byte as Bio.Align.write does: bed (3 to 12 columns, bedN), psl (header, mask lower / upper for repeat matches, wildcard N), chain. An alignment is a JSON object {\"sequences\": [{\"id\": \"chr1\", \"length\": 1000, \"parts\": {\"0\": \"ACGT...\"} or null}, {query}], \"coordinates\": [[target positions], [query positions]], \"attrs\": {\"score\": 42, \"matches\": 10, ...}} (target first, query second; a position that decreases along the alignment is a sequence on the reverse strand; parts = the known residues by start position, null = unknown contents; PSL counts matches / mismatches from the residues when they are known, otherwise every aligned base is a match). VERIFICATION: written text equal to Biopython 1.88 on 390 / 390 committed cases (scripts/alignment/generate_biopython_coord_oracle.py).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "alignmentsJson": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "The alignments, each a JSON object as described (a JSON array of objects)."
+      },
+      "format": {
+        "type": "string",
+        "description": "Format: bed, psl or chain.",
+        "default": "psl"
+      },
+      "bedN": {
+        "type": "integer",
+        "description": "BED: number of columns, 3 to 12.",
+        "default": 12
+      },
+      "header": {
+        "type": "boolean",
+        "description": "PSL: write the five header lines.",
+        "default": true
+      },
+      "mask": {
+        "type": "string",
+        "description": "PSL: null, 'lower' or 'upper': repeat-masked residues of the target are counted as repMatches."
+      },
+      "wildcard": {
+        "type": "string",
+        "description": "PSL: the wildcard residue counted in nCount (default N; empty = none).",
+        "default": "N"
+      }
+    },
+    "required": [
+      "alignmentsJson"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "text": {
+        "type": "string",
+        "description": "The text of the file (write) or the JSON of the parsed alignments (parse)."
+      },
+      "format": {
+        "type": "string",
+        "description": "The format name."
+      },
+      "count": {
+        "type": "integer",
+        "description": "The number of alignments."
+      }
+    }
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "arguments is null"
+    },
+    {
+      "code": 1002,
+      "message": "--format msf / clu output (accepted by the program, not written here): NotSupportedException"
+    }
+  ]
+}

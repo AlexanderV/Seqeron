@@ -91,6 +91,31 @@ Servers: `A` = Annotation, `X` = Analysis. `⚠` = guarded / documented-limited 
 | `find_pattern_hits` | X | EMBOSS fuzznuc pattern language (classes, exclusions, repeats, ranges, anchors; mismatches; both strands) | `GenomicAnalyzer.FindPatternHits` |
 | `fuzztran` | X | EMBOSS fuzztran (protein pattern search after six-frame translation) | `GenomicAnalyzer.FindTranslatedPatternHits` |
 | `seqmatchall` | X | EMBOSS seqmatchall (all-against-all maximal exact word matches) | `GenomicAnalyzer.SeqMatchAll` |
+| `megamerger` | X | EMBOSS megamerger (merge of two large overlapping DNA sequences by minimal word-match anchors; merged sequence + report) | `GenomicAnalyzer.MegaMerge` |
+| `nucmer_clusters` | X | MUMmer nucmer anchor clustering (mummer MUM / MAM / MEM matches clustered by mgaps: diagonal difference, separation, maximum-score chains) | `GenomicAnalyzer.FindNucmerClusters` |
+| `nucmer` | X | MUMmer 3.23 nucmer: the whole pipeline (anchors, mgaps clusters, postnuc banded Smith-Waterman extension), the .delta file byte for byte (434 runs, all option families). | `GenomicAnalyzer.Nucmer` |
+| `delta_filter` | X | MUMmer 3.23 delta-filter: keeps the alignments of a delta file that survive -i -l -u -q -r -g -m -1 (rand() seeded with 1, as the program). | `MummerDeltaFilter.Run` |
+| `show_coords` | X | MUMmer 3.23 show-coords: the alignment coordinates of a delta file (table, tab-delimited, btab; -b -c -d -H -I -k -l -L -o -q -r -T -B -g -G -w). | `MummerShowCoords.Run` |
+| `show_aligns` | X | MUMmer 3.23 show-aligns: the alignments of one reference / query pair drawn as three rows (^ under a difference, . for an indel). | `MummerShowAligns.Run` |
+| `show_snps` | X | MUMmer 3.23 show-snps: substitutions and indels of a nucmer delta file with buffer, distance, conflict counts and context. | `MummerShowSnps.Run` |
+| `show_diff` | X | MUMmer 3.23 show-diff: breaks, gaps, jumps, inversions, duplications and sequence jumps read off the many-to-many mapping of a delta file. | `MummerShowDiff.Run` |
+| `show_tiling` | X | MUMmer 3.23 show-tiling: tiles the aligned query contigs on the reference (path, alignments, XML, contig list, unusable contigs, pseudo molecule). | `MummerShowTiling.Run` |
+| `dnadiff` | X | MUMmer 3.23 dnadiff: nucmer --maxmatch + delta-filter + show-coords / show-snps / show-diff and the report of two sequence sets. | `GenomicAnalyzer.Dnadiff` |
+| `mummer` | X | MUMmer mummer: maximal exact matches (-mum / -mumreference / -maxmatch, -n -l -b -r -s -c -F -L), byte for byte. | `MummerProgram.Run` |
+| `promer` | X | MUMmer promer: six-frame amino-acid alignments (BLOSUM 45 / 62 / 80) of two DNA files, delta file byte for byte. | `PromerProgram.Run` |
+| `mummer_gaps` | X | MUMmer gaps: longest consistent set of matches and the others (mgaps format), byte for byte. | `MummerGaps.Run` |
+| `delta2blocks` | X | MUMmer delta2blocks: alignments of a nucmer delta file as CIGAR lines (M / X / I / D). | `MummerDelta2Blocks.Run` |
+| `mummer_annotate` | X | MUMmer mummer-annotate: edit-distance alignment of the gaps of a gaps file with the error counts. | `MummerAnnotate.Run` |
+| `run_mummer1` | X | MUMmer run-mummer1: mummer -mum -l 20 -r | gaps | mummer-annotate script, files .out .gaps .align .errorsgaps. | `MummerRunPrograms.RunMummer1` |
+| `run_mummer3` | X | MUMmer run-mummer3: mummer -mumreference -b -l 20 | mgaps | combineMUMs script, files .out .gaps .align .errorsgaps. | `MummerRunPrograms.RunMummer3` |
+| `repeat_match` | X | MUMmer repeat-match: maximal exact repeats (-n -f -t -E -V) in the order of the program's suffix tree, byte for byte. | `MummerRepeatMatch.Run` |
+| `exact_tandems` | X | MUMmer exact-tandems: exact tandem repeats (repeat-match -t | sort | awk), the intended pipeline and the script as installed. | `MummerExactTandems.Run` |
+| `mapview` | X | MUMmer mapview: FIG maps of show-coords -rl / mgaps alignments with genes (-d -f -m -n -p -v -x1 -x2 -g -I -Ir), byte for byte. | `MummerMapview.Run` |
+| `mummerplot` | X | MUMmer mummerplot: gnuplot script and data files of delta / cluster / mummer / tiling alignments (every option), byte for byte. | `MummerPlot.Run` |
+| `delta2maf` | X | MUMmer delta2maf: nucmer alignments as MAF (a score / s lines), byte for byte. | `MummerDelta2Maf.Run` |
+| `nucmer2xfig` | X | MUMmer nucmer2xfig: xfig plot of a show-coords -c -l file, byte for byte. | `MummerNucmer2Xfig.Run` |
+| `combine_mums` | X | MUMmer combineMUMs: extension and alignment of the mgaps clusters (-D -e -n -N -q -r -S -t -v -x -W), byte for byte. | `MummerCombineMums.Run` |
+| `est2genome` | X | EMBOSS 6.6.0 est2genome: the spliced alignment of ESTs to a genomic sequence (exons, GT/AG and CT/AC introns, both strands, linear-space recursion; 330 runs equal). | `EmbossEst2genomePrograms.Run` |
 | `find_shared_motifs` | X | k-mers shared across sequences | `MotifFinder.FindSharedMotifs` |
 | `shared_motifs_significance` | X | Shared k-mers with RSAT ms_P/ms_E/ms_sig significance; degenerate words (-oneN/-onedeg) | `MotifFinder.FindSharedMotifs` (RSAT overloads) |
 | `find_regulatory_elements` | X | Built-in regulatory motif scan | `MotifFinder.FindRegulatoryElements` |
@@ -102,6 +127,7 @@ Servers: `A` = Annotation, `X` = Analysis. `⚠` = guarded / documented-limited 
 | `generate_decipher_consensus` | X | DECIPHER ConsensusSequence (DNA/RNA/protein, gaps, IUPAC input) | `MotifFinder.GenerateDecipherConsensus` |
 | `generate_cavener_consensus` | X | Cavener (1987) degenerate consensus (Biopython degenerate_consensus) | `MotifFinder.GenerateCavenerConsensus` |
 | `generate_emboss_consensus` | X | EMBOSS cons plurality consensus (DNA/protein/auto, gaps, weights, ragged padding) | `MotifFinder.GenerateEmbossConsensus` |
+| `consambig` | X | EMBOSS consambig ambiguity-code consensus (union of the column codes, lower case at gaps) | `MotifFinder.GenerateEmbossAmbiguousConsensus` |
 | `generate_dumb_consensus` | X | Biopython dumb_consensus majority-threshold consensus | `MotifFinder.GenerateDumbConsensus` |
 | `create_pwm` | X | Log-odds PWM from aligned DNA (scalar / per-base / JASPAR pseudocounts, background) | `MotifFinder.CreatePwm` |
 | `scan_with_pwm` | X | Scan a sequence with a PWM | `MotifFinder.ScanWithPwm` |

@@ -4,7 +4,7 @@
 
 <!-- BEGIN generated: do not edit by hand -->
 
-## Alignment (77 tools)
+## Alignment (79 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -66,6 +66,7 @@
 | `muscle_msa_command` | `SequenceAligner.MuscleProfileAlign` | [doc](../../mcp/tools/alignment/muscle_msa_command.md) |
 | `needle_align` | `SequenceAligner.NeedleAlign` | [doc](../../mcp/tools/alignment/needle_align.md) |
 | `needleall_align` | `SequenceAligner.NeedleAll` | [doc](../../mcp/tools/alignment/needleall_align.md) |
+| `parse_coordinate_alignment` | `AlignmentCoordinateFormats.Parse` | [doc](../../mcp/tools/alignment/parse_coordinate_alignment.md) |
 | `poa_command` | `PoaProgram.Run` | [doc](../../mcp/tools/alignment/poa_command.md) |
 | `probcons_command` | `ProbConsProgram.Run` | [doc](../../mcp/tools/alignment/probcons_command.md) |
 | `quality_trim_reads` | `SequenceAssembler.QualityTrimReads` | [doc](../../mcp/tools/alignment/quality_trim_reads.md) |
@@ -85,6 +86,7 @@
 | `tcoffee_tblastx_library` | `SequenceAligner.TCoffeeTblastxLibraryEntries` | [doc](../../mcp/tools/alignment/tcoffee_tblastx_library.md) |
 | `water_align` | `SequenceAligner.WaterAlign` | [doc](../../mcp/tools/alignment/water_align.md) |
 | `write_alignment` | `EmbossAlignmentWriter.Format` | [doc](../../mcp/tools/alignment/write_alignment.md) |
+| `write_coordinate_alignment` | `AlignmentCoordinateFormats.Write` | [doc](../../mcp/tools/alignment/write_coordinate_alignment.md) |
 
 ## Analysis (174 tools)
 

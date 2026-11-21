@@ -841,3 +841,8 @@ Tests (`Seqeron.Genomics.Tests`, against the installed Debian `poa` 2.0+20060928
 | A3-9e4 | `MummerMapview_Oracle_Tests` (2) | `mapview_oracle.jsonl.gz` (`generate_mapview_oracle.py`): >= 200 runs equal incl. >= 30 `-f pdf / ps` | as specified |
 | A3-9e4 | `MummerPlot_Oracle_Tests` (3) | `mummerplot_oracle.jsonl.gz` (`generate_mummerplot_oracle.py`): >= 200 runs equal incl. the dies of the script | as specified |
 | A3-9e2 .. A3-9e4 | MCP `MummerProgramToolsTests` (+ 8), `ToolRegistrationContractTests`, `ToolDocsContractTests` | the installed programs on the small examples (`combine_mums`, `run_mummer3`, `repeat_match`, `exact_tandems`, `mapview`, `mummerplot`) | as specified |
+
+
+## Audit A2-27c (B09 F224): Biopython coordinate formats bed / psl / chain
+
+Tests (`Seqeron.Genomics.Tests`, against Biopython 1.88): `AlignmentCoordinateFormats_Tests` x3 - `biopython_coord_oracle.tsv` (957 rows from `scripts/alignment/generate_biopython_coord_oracle.py`: writer rows with every `bedN`, PSL `header` / `mask` / `wildcard`, strands of query and target, protein / translated DNA, known and unknown residues, two alignments per file; reader rows over the writers' own text, PSLX, comments, blank lines between chain blocks, 13-column chains, 10 / 11-column BED and other texts Biopython refuses): writers byte for byte (390 / 390), readers equal to `Bio.Align.parse` (567 / 567); MCP `CoordinateAlignmentTests` x3.
