@@ -85,11 +85,80 @@ public sealed record MinimapMapOptions
     /// <summary><c>--sr</c> (<c>MM_F_SR</c>, set by <c>-x sr</c>): short-read mode: the query gap of a chain is at least the query length, no divergence estimate (<c>dv</c>) and no long-join re-chaining.</summary>
     public bool ShortRead { get; init; }
 
-    /// <summary><c>--splice</c> (<c>MM_F_SPLICE</c>, set by <c>-x splice</c>): spliced alignment. <see cref="Minimap2Chaining.Map"/> chains a spliced query as <c>mg_lchain_dp</c> does with <c>is_cdna</c> (<see cref="ChainOptions"/> sets <c>IsCdna = Splice</c>; the long-join re-chaining is skipped for it, as in <c>mm_map_frag</c>): the <c>splice</c> / <c>splice:hq</c> presets equal <c>minimap2 -x splice</c> on 260 / 260 PAF texts each (A5-9, F173); the base-level stage (<c>Scoring</c>, the splice flags) is stored for <c>-c</c> (A3-9c2). See <see cref="MinimapPresets"/>.</summary>
+    /// <summary><c>--splice</c> (<c>MM_F_SPLICE</c>, set by <c>-x splice</c>): spliced alignment. <see cref="Minimap2Chaining.Map"/> chains a spliced query as <c>mg_lchain_dp</c> does with <c>is_cdna</c> (<see cref="ChainOptions"/> sets <c>IsCdna = Splice</c>; the long-join re-chaining is skipped for it, as in <c>mm_map_frag</c>): the <c>splice</c> / <c>splice:hq</c> presets equal <c>minimap2 -x splice</c> on 260 / 260 PAF texts each (A5-9, F173); the base-level stage (<c>Scoring</c>, the splice flags, <c>ksw_exts2_sse</c>) is read by <see cref="Cigar"/> (<c>-c</c>, A3-9c2, F187). See <see cref="MinimapPresets"/>.</summary>
     public bool Splice { get; init; }
 
-    /// <summary>Scoring of the base-level alignment (<c>-A -B -O -E -z -s -u ...</c>, <c>mm_mapopt_t</c> <c>a b q e q2 e2 zdrop zdrop_inv end_bonus min_dp_max noncan junc_bonus pe_ori</c>): set by the presets and stored for the base-level stage (audit A3-9c2); the chaining stage does not read it.</summary>
+    /// <summary>Scoring of the base-level alignment (<c>-A -B -O -E -z -s -C --score-N --junc-bonus</c>, <c>mm_mapopt_t</c> <c>a b q e q2 e2 sc_ambi zdrop zdrop_inv end_bonus min_dp_max noncan junc_bonus</c>): set by the presets, read by the base-level stage (<see cref="Cigar"/>).</summary>
     public MinimapAlignmentScoring Scoring { get; init; } = new();
+
+    /// <summary><c>-c</c> / <c>-a</c> / <c>--cs</c> / <c>--MD</c> (<c>MM_F_CIGAR</c>): the base-level alignment of every chain (<c>mm_align_skeleton</c>: ksw2 between the anchors and the end extensions, <c>mm_fix_cigar</c>, <c>mm_update_extra</c>), the primary / secondary marking after it and, for paired reads, <c>mm_pair</c>.</summary>
+    public bool Cigar { get; init; }
+
+    /// <summary><c>--eqx</c> (<c>MM_F_EQX</c>): the CIGAR uses <c>=</c> and <c>X</c> instead of <c>M</c>.</summary>
+    public bool Eqx { get; init; }
+
+    /// <summary><c>-u f|r|b</c> (<c>MM_F_SPLICE_FOR</c>): match the GT-AG signal of the transcript strand (the splice presets set both directions).</summary>
+    public bool SpliceForward { get; init; }
+
+    /// <summary><c>-u r|b</c> (<c>MM_F_SPLICE_REV</c>): match CT-AC, the reverse complement of GT-AG.</summary>
+    public bool SpliceReverse { get; init; }
+
+    /// <summary><c>--splice-flank</c> (<c>MM_F_SPLICE_FLANK</c>, the splice presets set it): the flanking-sequence bonus of the old splice model.</summary>
+    public bool SpliceFlank { get; init; }
+
+    /// <summary><c>-J 0</c> (<c>MM_F_SPLICE_OLD</c>): the original minimap2 splice model instead of the miniprot model.</summary>
+    public bool SpliceOld { get; init; }
+
+    /// <summary><c>--min-dp-len</c> (<c>min_ksw_len</c>, 200): an anchor gap shorter than this is not aligned by ksw2 on its own.</summary>
+    public int MinKswLength { get; init; } = 200;
+
+    /// <summary><c>anchor_ext_len</c> (20): the extension of an end anchor tested by the splice end filter.</summary>
+    public int AnchorExtensionLength { get; init; } = 20;
+
+    /// <summary><c>--end-seed-pen</c> (<c>anchor_ext_shift</c>, 6).</summary>
+    public int AnchorExtensionShift { get; init; } = 6;
+
+    /// <summary><c>--max-clip-ratio</c> (1): an alignment clipped by more than this fraction of the query at BOTH ends is dropped.</summary>
+    public float MaxClipRatio { get; init; } = 1.0f;
+
+    /// <summary><c>rank_min_len</c> (500): queries at least this long get their DP maxima re-estimated (<c>mm_update_dp_max</c>) when the best alignments are similar.</summary>
+    public int RankMinLength { get; init; } = 500;
+
+    /// <summary><c>rank_frac</c> (0.9).</summary>
+    public float RankFraction { get; init; } = 0.9f;
+
+    /// <summary><c>pe_ori</c> of the paired-read mode (<c>-x sr</c> sets 1 = FR): bit 1 reverse-complements the first read, bit 0 the second; a negative value switches the pairing off.</summary>
+    public int PairOrientation { get; init; }
+
+    /// <summary><c>pe_bonus</c> (33): the bonus of a proper pair in <c>mm_pair</c>.</summary>
+    public int PairBonus { get; init; } = 33;
+
+    /// <summary><c>--no-end-flt</c> (<c>MM_F_NO_END_FLT</c>): do not drop the first / last anchors that look like noise before the base-level alignment.</summary>
+    public bool NoEndFilter { get; init; }
+
+    /// <summary><c>MM_F_NO_INV</c> (set by <c>--qstrand</c>): no inversion rescue (<c>mm_align1_inv</c>).</summary>
+    public bool NoInversion { get; init; }
+
+    /// <summary><c>--alt-drop</c> (0.15): the score of a hit on an ALT contig is multiplied by <c>1 - alt_drop</c> in the ranking.</summary>
+    public float AltDrop { get; init; } = 0.15f;
+
+    /// <summary><c>--split-prefix</c>: the mapping results of every index part are merged afterwards (<c>mm_split_merge</c>): the DP maxima are then re-estimated by the merge, not by the alignment stage.</summary>
+    public bool SplitPrefix { get; init; }
+
+    /// <summary><c>--max-qlen</c> (0 = no limit): a query longer than this is not mapped.</summary>
+    public int MaxQueryLength { get; init; }
+
+    /// <summary><c>--seed</c> (11): the seed of the hash that orders chains of equal score.</summary>
+    public int HashSeed { get; init; } = 11;
+
+    /// <summary><c>--no-hash-name</c>: the query name is not part of the hash.</summary>
+    public bool NoHashName { get; init; }
+
+    /// <summary><c>--frag=yes</c> (<c>MM_F_FRAG_MODE</c>, the <c>sr</c> preset): consecutive reads of a query file with the same name (after removing /1 /2) are the segments of one fragment.</summary>
+    public bool FragmentMode { get; init; }
+
+    /// <summary><c>--no-pairing</c> (<c>MM_F_INDEPEND_SEG</c>): the segments of a fragment are mapped independently.</summary>
+    public bool NoPairing { get; init; }
 
     internal MinimapChainOptions ChainOptions(int queryLength = 0)
     {
@@ -136,8 +205,11 @@ public sealed record MinimapAlignmentScoring
     public int ZDrop { get; init; } = 400;
     public int ZDropInverted { get; init; } = 200;
     public int EndBonus { get; init; } = -1;
-    /// <summary><c>-s</c> (<c>min_dp_max</c>); null = <c>min_chain_score * a</c> (the program sets it after the options).</summary>
+    /// <summary><c>-s</c> (<c>min_dp_max</c>); null = 80, the value of <c>mm_mapopt_init</c> (<c>min_chain_score * a</c> of the DEFAULTS 40 * 2: the program does NOT recompute it after <c>-m</c> / <c>-A</c>; the presets set their own value or keep 80).</summary>
     public int? MinDpMax { get; init; }
+
+    /// <summary><c>--score-N</c> (<c>sc_ambi</c>, 1): the penalty of an ambiguous base (N); the matrix holds <c>-|N|</c>.</summary>
+    public int Ambiguous { get; init; } = 1;
     public int NonCanonical { get; init; }
     public int JunctionBonus { get; init; }
     public int MaxSmithWatermanMatrix { get; init; } = 100_000_000;
@@ -147,6 +219,24 @@ public sealed record MinimapHit(
     int Id, int Parent, int TargetId, bool Reverse, int QueryStart, int QueryEnd, int TargetStart, int TargetEnd, int MatchLength, int BlockLength, int MapQ,
     int Score, int SecondaryScore, int AnchorCount, float Divergence, IReadOnlyList<MinimapAnchor> Anchors)
 {
+    /// <summary>The base-level alignment (with <see cref="MinimapMapOptions.Cigar"/>), null for a hit without one (the chaining stage only).</summary>
+    public MinimapAlignment? Alignment { get; init; }
+
+    /// <summary>The hit is an inversion rescued between two parts of a chain (<c>tp:A:I</c> / <c>i</c>).</summary>
+    public bool IsInversion { get; init; }
+
+    /// <summary>The chain was split by a Z-drop (<c>zd:i:</c>): 1 = the first part, 2 = the second part.</summary>
+    public int Split { get; init; }
+
+    /// <summary>The hit is the primary hit of its read that SAM marks as non-supplementary (the first primary hit).</summary>
+    public bool IsSamPrimary { get; init; }
+
+    /// <summary>The hit is part of a proper pair chosen by <c>mm_pair</c> (SAM flag 0x2).</summary>
+    public bool IsProperFragment { get; init; }
+
+    /// <summary>Both reads of a pair cover the same reference interval (<c>pe_thru</c>).</summary>
+    public bool IsPairedThrough { get; init; }
+
     /// <summary>The hit is a primary hit (<c>tp:A:P</c>).</summary>
     public bool IsPrimary => Id == Parent;
 }
@@ -162,13 +252,26 @@ public static partial class Minimap2Chaining
     private const int ParentUnset = -1;
 
     // mm_reg1_t of minimap2 without a base-level alignment (the members that exist before -c)
-    private sealed class Reg
+    internal sealed class Reg
     {
-        public int Id, Parent, Score, Score0, Cnt, As, Rid, Rs, Re, Qs, Qe, Mlen, Blen, Subsc, NSub;
+        public int Id, Parent, Score, Score0, Cnt, As, Rid, Rs, Re, Qs, Qe, Mlen, Blen, Subsc, NSub, Mapq, Split;
         public uint Hash;
-        public bool Rev, StrandRetained;
+        public bool Rev, StrandRetained, Inv, SamPri, ProperFrag, PeThru, SegSplit, SplitInv, IsAlt;
         public float Div = -1f;
+        public Extra? P;
+        public Mm128[] A = [];
+
+        public Reg Clone() => (Reg)MemberwiseClone();
     }
+
+    // mm_extra_t: the base-level alignment of a hit
+    internal sealed class Extra
+    {
+        public int DpScore, DpMax, DpMax2, NAmbi, TransStrand;
+        public List<uint> Cigar = [];
+    }
+
+    private const int ParentTmpPri = -2;
 
     // __ac_X31_hash_string of khash.h: `h = (khint_t)*s; for (++s; *s; ++s) h = (h << 5) - h + (khint_t)*s` over a SIGNED `char` (a byte >= 0x80 is sign-extended, also the first one) and over a C string, which ends at the first NUL.
     private static uint X31Hash(string s)
@@ -211,14 +314,14 @@ public static partial class Minimap2Chaining
     }
 
     // mm_cal_fuzzy_len + mm_reg_set_coor
-    private static void SetCoordinates(Reg r, int qlen, Mm128[] a)
+    private static void SetCoordinates(Reg r, int qlen, Mm128[] a, bool isQstrand = false)
     {
         int k = r.As, qSpan = (int)(a[k].Y >> 32 & 0xff);
         r.Rev = (a[k].X >> 63) != 0;
         r.Rid = (int)(a[k].X << 1 >> 33);
         r.Rs = (int)a[k].X + 1 > qSpan ? (int)a[k].X + 1 - qSpan : 0;
         r.Re = (int)a[k + r.Cnt - 1].X + 1;
-        if (!r.Rev)
+        if (!r.Rev || isQstrand)
         {
             r.Qs = (int)a[k].Y + 1 - qSpan;
             r.Qe = (int)a[k + r.Cnt - 1].Y + 1;
@@ -245,7 +348,7 @@ public static partial class Minimap2Chaining
     }
 
     /// <summary><c>mm_gen_regs</c>: the chains (<paramref name="u"/>: score &lt;&lt; 32 | anchor count, in the order of the compacted array <paramref name="a"/>) as hits sorted by score.</summary>
-    private static List<Reg> GenRegs(uint hash, int qlen, List<ulong> u, Mm128[] a)
+    private static List<Reg> GenRegs(uint hash, int qlen, List<ulong> u, Mm128[] a, bool isQstrand = false)
     {
         int nU = u.Count;
         if (nU == 0)
@@ -266,15 +369,25 @@ public static partial class Minimap2Chaining
         {
             var r = new Reg { Id = i, Parent = ParentUnset, Score = (int)(z[i].X >> 32), Hash = (uint)z[i].X, Cnt = (int)z[i].Y, As = (int)(z[i].Y >> 32) };
             r.Score0 = r.Score;
-            SetCoordinates(r, qlen, a);
+            r.Div = -1f;
+            SetCoordinates(r, qlen, a, isQstrand);
             regs.Add(r);
         }
 
         return regs;
     }
 
-    /// <summary><c>mm_set_parent</c> (without base-level alignments): marks every hit as primary (parent = itself) or secondary of the first primary hit it overlaps on the query by more than the mask level.</summary>
-    private static void SetParent(float maskLevel, int maskLen, List<Reg> r, bool hardMaskLevel)
+    private static int AltScore(int score, float altDiffFrac)
+    {
+        if (score < 0)
+            return score;
+        score = (int)((score * (1.0 - altDiffFrac)) + .499);
+        return score > 0 ? score : 1;
+    }
+
+    /// <summary><c>mm_set_parent</c>: marks every hit as primary (parent = itself) or secondary of the first primary hit it overlaps on the query by more than the mask level; also the best secondary score (<c>subsc</c>), the number of
+    /// suboptimal hits (<c>n_sub</c>) and, for aligned hits, <c>dp_max2</c>.</summary>
+    private static void SetParent(float maskLevel, int maskLen, List<Reg> r, int subDiff, bool hardMaskLevel, float altDiffFrac)
     {
         int n = r.Count;
         if (n <= 0)
@@ -342,9 +455,21 @@ public static partial class Minimap2Chaining
                     {
                         int cntSub = 0, sci = ri.Score;
                         ri.Parent = rp.Parent;
+                        if (!rp.IsAlt && ri.IsAlt)
+                            sci = AltScore(sci, altDiffFrac);
                         rp.Subsc = rp.Subsc > sci ? rp.Subsc : sci;
                         if (ri.Cnt >= rp.Cnt)
                             cntSub = 1;
+                        if (rp.P is not null && ri.P is not null && (rp.Rid != ri.Rid || rp.Rs != ri.Rs || rp.Re != ri.Re || ol != min))
+                        {
+                            sci = ri.P.DpMax;
+                            if (!rp.IsAlt && ri.IsAlt)
+                                sci = AltScore(sci, altDiffFrac);
+                            rp.P.DpMax2 = rp.P.DpMax2 > sci ? rp.P.DpMax2 : sci;
+                            if (rp.P.DpMax - ri.P.DpMax <= subDiff)
+                                cntSub = 1;
+                        }
+
                         if (cntSub != 0)
                             ++rp.NSub;
                         break;
@@ -378,7 +503,25 @@ public static partial class Minimap2Chaining
         return Math.Min(ej, ei) - si;
     }
 
-    // mm_sync_regs (without alignments): keep id / parent in sync after hits were removed
+    // mm_set_sam_pri
+    private static void SetSamPri(List<Reg> r)
+    {
+        int nPri = 0;
+        foreach (var x in r)
+        {
+            if (x.Id == x.Parent)
+            {
+                ++nPri;
+                x.SamPri = nPri == 1;
+            }
+            else
+            {
+                x.SamPri = false;
+            }
+        }
+    }
+
+    // mm_sync_regs: keep id / parent in sync after hits were removed (and reset the ids)
     private static void SyncRegs(List<Reg> regs)
     {
         if (regs.Count == 0)
@@ -395,11 +538,15 @@ public static partial class Minimap2Chaining
         {
             var r = regs[i];
             r.Id = i;
-            if (r.Parent >= 0 && tmp[r.Parent] >= 0)
+            if (r.Parent == ParentTmpPri)
+                r.Parent = i;
+            else if (r.Parent >= 0 && tmp[r.Parent] >= 0)
                 r.Parent = tmp[r.Parent];
             else
                 r.Parent = ParentUnset;
         }
+
+        SetSamPri(regs);
     }
 
     /// <summary><c>mm_select_sub</c>: keep the primary hits and at most <paramref name="bestN"/> secondary hits that score at least <paramref name="priRatio"/> of their primary (or within <paramref name="minDiff"/> of it); hits of the
@@ -413,7 +560,7 @@ public static partial class Minimap2Chaining
         {
             var ri = r[i];
             int p = ri.Parent;
-            if (p == i)
+            if (p == i || ri.Inv)
             {
                 r[k++] = ri;
             }
@@ -508,11 +655,35 @@ public static partial class Minimap2Chaining
         }
     }
 
-    // hit.c mm_set_mapq (no base-level alignment, not a short-read run, no inversion hits)
-    private static void SetMapq(List<Reg> regs, int minChainScore, int repLen, out int[] mapq)
+    // mm_set_inv_mapq
+    private static void SetInvMapq(List<Reg> regs)
+    {
+        if (regs.Count < 3)
+            return;
+        if (!regs.Any(x => x.Inv))
+            return;
+        var aux = new List<Mm128>();
+        for (int i = 0; i < regs.Count; ++i)
+            if (regs[i].Parent == i || regs[i].Parent < 0)
+                aux.Add(new Mm128((ulong)(uint)regs[i].Rid << 32 | (uint)regs[i].Rs, (ulong)i));
+        var arr = aux.ToArray();
+        RadixSort(arr);
+        for (int i = 1; i < arr.Length - 1; ++i)
+        {
+            var inv = regs[(int)arr[i].Y];
+            if (inv.Inv)
+            {
+                var l = regs[(int)arr[i - 1].Y];
+                var r = regs[(int)arr[i + 1].Y];
+                inv.Mapq = l.Mapq < r.Mapq ? l.Mapq : r.Mapq;
+            }
+        }
+    }
+
+    // hit.c mm_set_mapq
+    private static void SetMapq(List<Reg> regs, int minChainScore, int matchSc, int repLen, bool isSr)
     {
         const float qCoef = 40.0f;
-        mapq = new int[regs.Count];
         if (regs.Count == 0)
             return;
         long sumSc = 0;
@@ -523,116 +694,82 @@ public static partial class Minimap2Chaining
         for (int i = 0; i < regs.Count; ++i)
         {
             var r = regs[i];
-            if (r.Parent != r.Id)
-                continue;
-            float penS1 = (r.Score > 100 ? 1.0f : 0.01f * r.Score) * uniqRatio;
-            float penCm = r.Cnt > 10 ? 1.0f : 0.1f * r.Cnt;
-            penCm = penS1 < penCm ? penS1 : penCm;
-            int subsc = r.Subsc > minChainScore ? r.Subsc : minChainScore;
-            float x = (float)subsc / r.Score0;
-            int q = CInt(penCm * qCoef * (1.0f - x) * MathF.Log(r.Score));
-            q -= CInt(4.343f * MathF.Log(r.NSub + 1) + .499f);
-            q = q > 0 ? q : 0;
-            mapq[i] = q < 60 ? q : 60;
+            if (r.Inv)
+            {
+                r.Mapq = 0;
+            }
+            else if (r.Parent == r.Id)
+            {
+                int mapq;
+                float penS1 = (r.Score > 100 ? 1.0f : 0.01f * r.Score) * uniqRatio;
+                float penCm = r.Cnt > 10 ? 1.0f : 0.1f * r.Cnt;
+                penCm = penS1 < penCm ? penS1 : penCm;
+                int subsc = r.Subsc > minChainScore ? r.Subsc : minChainScore;
+                if (r.P is not null && r.P.DpMax2 > 0 && r.P.DpMax > 0)
+                {
+                    float identity = (float)r.Mlen / r.Blen;
+                    float x = (float)r.P.DpMax2 * subsc / r.P.DpMax / r.Score0;
+                    mapq = CInt(identity * penCm * qCoef * (1.0f - (x * x)) * MathF.Log((float)r.P.DpMax / matchSc));
+                    if (!isSr)
+                    {
+                        int mapqAlt = CInt((6.02f * identity * identity * (r.P.DpMax - r.P.DpMax2) / matchSc) + .499f);
+                        mapq = mapq < mapqAlt ? mapq : mapqAlt;
+                    }
+                }
+                else
+                {
+                    float x = (float)subsc / r.Score0;
+                    if (r.P is not null)
+                    {
+                        float identity = (float)r.Mlen / r.Blen;
+                        mapq = CInt(identity * penCm * qCoef * (1.0f - x) * MathF.Log((float)r.P.DpMax / matchSc));
+                    }
+                    else
+                    {
+                        mapq = CInt(penCm * qCoef * (1.0f - x) * MathF.Log(r.Score));
+                    }
+                }
+
+                mapq -= CInt((4.343f * MathF.Log(r.NSub + 1)) + .499f);
+                mapq = mapq > 0 ? mapq : 0;
+                r.Mapq = mapq < 60 ? mapq : 60;
+                if (r.P is not null && r.P.DpMax > r.P.DpMax2 && r.Mapq == 0)
+                    r.Mapq = 1;
+            }
+            else
+            {
+                r.Mapq = 0;
+            }
         }
+
+        SetInvMapq(regs);
     }
 
-    /// <summary>
-    /// The mapping of a query by minimap2 up to the end of the chaining stage (<c>mm_map_frag</c> of <c>map.c</c> without <c>-c</c>): seeds (<see cref="CollectSeeds"/>), the chaining dynamic program, the long-join re-chaining for
-    /// <c>-r b,B</c> with <c>B &gt; b</c>, <c>mm_gen_regs</c>, the primary / secondary marking (<c>mm_set_parent</c>, <c>mm_select_sub</c>), the divergence estimate (<c>mm_est_err</c>) and the mapping quality (<c>mm_set_mapq</c>): the
-    /// fields of every PAF line of <c>minimap2 [options] ref.fa query.fa</c> (<c>tp</c>, <c>cm</c>, <c>s1</c>, <c>s2</c>, <c>dv</c>, <c>rl</c>). Single-segment, non-splice, non-short-read mapping of one query.
-    /// </summary>
-    /// <param name="targets">The target (reference) sequences.</param>
-    /// <param name="query">The query sequence.</param>
-    /// <param name="options">The options (null = the defaults of <c>minimap2 2.26</c>).</param>
-    /// <param name="targetNames">Names of the targets (needed by <c>-X</c>), null = none.</param>
-    /// <param name="queryName">Name of the query: its hash orders chains of equal score (the program hashes the name; null = hash 0).</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The hits in the order of the PAF output (descending score, secondary hits filtered by <c>-p</c> / <c>-N</c>).</returns>
-    public static MinimapMapResult Map(IReadOnlyList<string> targets, string query, MinimapMapOptions? options = null, IReadOnlyList<string>? targetNames = null, string? queryName = null, CancellationToken cancellationToken = default)
+    // mm_hit_sort: sort by the DP maximum (or the chaining score without alignments) and the hash, best first; hits with cnt == 0 are removed
+    private static void HitSort(List<Reg> r, float altDiffFrac)
     {
-        using var scope = AlignmentCancellation.Enter(cancellationToken);
-        var o = options ?? new MinimapMapOptions();
-        SequenceAligner.RequireNoNullElements(targets, nameof(targets), "Target");
-        ArgumentNullException.ThrowIfNull(query);
-        var chainOptions = o.ChainOptions(query.Length);
-        ValidateOptions(chainOptions, nameof(options));
-        int qlen = query.Length;
-        var targetLengths = targets.Select(t => t.Length).ToArray();
-        if (qlen == 0)
-            return new MinimapMapResult([], 0, 0);
-
-        var ctx = PrepareSeeds(targets, query, o.Seed);
-        var seeds = CollectSeedArray(ctx, o.Seed, ctx.MidOcc, targetNames, targetLengths, queryName);
-        var a = seeds.A;
-        float penGap = (float)(o.ChainGapScale * 0.01 * o.Seed.KmerSize), penSkip = (float)(o.ChainSkipScale * 0.01 * o.Seed.KmerSize);
-        var chains = o.UseRmq
-            ? RmqChain(a, o.MaxGap, o.RmqInnerDistance, o.Bandwidth, o.MaxChainSkip, o.RmqSizeCap, o.MinCount, o.MinChainScore, penGap, penSkip)
-            : ChainCore(a.Select(m => m.X).ToArray(), a.Select(m => m.Y).ToArray(), chainOptions);
-        (Mm128[] Anchors, List<ulong> U) compact = Compact(a, chains);
-
-        int bwLong = Math.Max(o.BandwidthLong, o.Bandwidth); // mm_mapopt_update
-        if (bwLong > o.Bandwidth && !o.NoLongJoin && !o.ShortRead && !o.Splice && compact.U.Count > 1)
+        int n = r.Count;
+        if (n <= 1)
+            return;
+        var aux = new List<Mm128>(n);
+        for (int i = 0; i < n; ++i)
         {
-            // re-chain / long-join for long sequences
-            int st = (int)compact.Anchors[0].Y, en = (int)compact.Anchors[(int)(uint)compact.U[0] - 1].Y;
-            if (qlen - (en - st) > o.RmqRescueSize || en - st > qlen * o.RmqRescueRatio)
+            if (r[i].Inv || r[i].Cnt > 0)
             {
-                int nA = 0;
-                foreach (ulong u in compact.U)
-                    nA += (int)(uint)u;
-                var b = new Mm128[nA];
-                Array.Copy(compact.Anchors, b, nA);
-                RadixSort(b);
-                compact = Compact(b, RmqChain(b, o.MaxGap, o.RmqInnerDistance, bwLong, o.MaxChainSkip, o.RmqSizeCap, o.MinCount, o.MinChainScore, penGap, penSkip));
+                int score = r[i].P is not null ? r[i].P!.DpMax : r[i].Score;
+                if (r[i].IsAlt)
+                    score = AltScore(score, altDiffFrac);
+                aux.Add(new Mm128((ulong)(uint)score << 32 | r[i].Hash, (ulong)i));
             }
         }
-        else if (o.Seed.MaxOcc > ctx.MidOcc && seeds.RepeatLength > 0 && !o.UseRmq && compact.U.Count == 0)
-        {
-            // re-chain with a higher max_occ (mostly for short reads): the best chain has "all the segments" of a single-segment query whenever a chain exists
-            var again = CollectSeedArray(ctx, o.Seed, o.Seed.MaxOcc, targetNames, targetLengths, queryName);
-            a = again.A;
-            seeds = again;
-            compact = Compact(a, ChainCore(a.Select(m => m.X).ToArray(), a.Select(m => m.Y).ToArray(), chainOptions));
-        }
 
-        uint hash = queryName is not null ? X31Hash(queryName) : 0;
-        hash ^= WangHash((uint)qlen) + WangHash(11u);
-        hash = WangHash(hash);
-        var regs = GenRegs(hash, qlen, compact.U, compact.Anchors);
-        if (!o.AllChains)
-        {
-            SetParent(o.MaskLevel, o.MaskLength, regs, o.HardMaskLevel);
-            SelectSub(o.PrimaryRatio, o.Seed.KmerSize * 2, o.BestN, checkStrand: true, (int)(o.MaxGap * 0.8), regs);
-        }
-
-        if (!o.ShortRead)
-        {
-            // !is_sr: mm_est_err and mm_filter_strand_retained
-            EstimateError(targetLengths, qlen, regs, compact.Anchors, seeds.MiniPos);
-            int kept = 0;
-            for (int i = 0; i < regs.Count; ++i)
-            {
-                var r = regs[i];
-                int p = r.Parent;
-                if (!r.StrandRetained || p < 0 || r.Div < regs[p].Div * 5.0f || r.Div < 0.01f)
-                    regs[kept++] = r;
-            }
-
-            regs.RemoveRange(kept, regs.Count - kept);
-        }
-        SetMapq(regs, o.MinChainScore, seeds.RepeatLength, out int[] mapq);
-        var hits = new List<MinimapHit>(regs.Count);
-        for (int i = 0; i < regs.Count; ++i)
-        {
-            var r = regs[i];
-            var members = ToAnchors(compact.Anchors.AsSpan(r.As, r.Cnt).ToArray());
-            if (!o.OutputSecondary && r.Id != r.Parent)
-                continue;
-            hits.Add(new MinimapHit(r.Id, r.Parent, r.Rid, r.Rev, r.Qs, r.Qe, r.Rs, r.Re, r.Mlen, r.Blen, mapq[i], r.Score, r.Parent == r.Id ? r.Subsc : 0, r.Cnt, r.Div, members));
-        }
-
-        return new MinimapMapResult(hits, seeds.RepeatLength, ctx.MidOcc);
+        var arr = aux.ToArray();
+        RadixSort(arr);
+        var t = new List<Reg>(arr.Length);
+        for (int i = arr.Length - 1; i >= 0; --i)
+            t.Add(r[(int)arr[i].Y]);
+        r.Clear();
+        r.AddRange(t);
     }
 
     /// <summary>The chains as <c>compact_a</c> leaves them: the anchors of the chains one after the other (ascending inside a chain) and <c>u[i] = score &lt;&lt; 32 | count</c>.</summary>

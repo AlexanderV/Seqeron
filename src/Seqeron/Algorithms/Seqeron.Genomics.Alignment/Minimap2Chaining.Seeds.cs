@@ -53,6 +53,13 @@ public sealed record MinimapSeedOptions
 
     /// <summary><c>--rev-only</c>: only hits on the reverse strand.</summary>
     public bool ReverseOnly { get; init; }
+
+    /// <summary><c>--heap-sort</c> (<c>MM_F_HEAP_SORT</c>, set by the <c>sr</c> preset): the anchors are collected by a k-way merge of the occurrence lists (<c>collect_seed_hits_heap</c>) instead of a radix sort; anchors with the same reference position
+    /// come out in the heap order, not in the radix-sort order.</summary>
+    public bool HeapSort { get; init; }
+
+    /// <summary><c>--qstrand</c> (<c>MM_F_QSTRAND</c>): the query-strand mode: anchors of the reverse strand keep the query coordinate and take the reverse-complemented reference coordinate.</summary>
+    public bool QueryStrand { get; init; }
 }
 
 /// <summary>The seed stage of minimap2 for one query: the sorted anchor array and the values the later stages use.</summary>
@@ -142,17 +149,38 @@ public static partial class Minimap2Chaining
         return midOcc;
     }
 
-    /// <summary>The index, <c>mid_occ</c> and the query minimizers of <c>collect_minimizers</c> (sketch, sdust) and <c>mm_seed_mz_flt</c>.</summary>
-    internal static SeedContext PrepareSeeds(IReadOnlyList<string> targets, string query, MinimapSeedOptions o)
+    /// <summary>The minimizer index of the targets and <c>mid_occ</c> (<c>mm_idx_gen</c> + <c>mm_mapopt_update</c>), shared by all queries of a run.</summary>
+    internal sealed class SeedIndex
+    {
+        internal required Dictionary<ulong, List<ulong>> Index { get; init; }
+        internal required int MidOcc { get; init; }
+    }
+
+    internal static SeedIndex BuildSeedIndex(IReadOnlyList<string> targets, MinimapSeedOptions o)
     {
         ArgumentNullException.ThrowIfNull(targets);
-        ArgumentNullException.ThrowIfNull(query);
         ValidateSeedOptions(o);
         var index = BuildIndex(targets, o.KmerSize, o.WindowSize, o.HomopolymerCompressed);
-        int midOcc = ResolveMidOcc(index, o);
-        var mv = Sketch(query, o.WindowSize, o.KmerSize, 0, o.HomopolymerCompressed);
-        if (o.SdustThreshold > 0)
-            mv = DustMinimizers(mv, query, o.SdustThreshold);
+        return new SeedIndex { Index = index, MidOcc = ResolveMidOcc(index, o) };
+    }
+
+    /// <summary>The query minimizers of <c>collect_minimizers</c> (sketch of every segment, the positions of the later segments shifted by the length of the earlier ones, sdust) and <c>mm_seed_mz_flt</c>.</summary>
+    internal static SeedContext PrepareQuerySeeds(SeedIndex ix, IReadOnlyList<string> segments, MinimapSeedOptions o)
+    {
+        var mv = new List<(ulong X, ulong Y)>();
+        int sum = 0;
+        for (int s = 0; s < segments.Count; s++)
+        {
+            var part = Sketch(segments[s], o.WindowSize, o.KmerSize, (uint)s, o.HomopolymerCompressed);
+            for (int j = 0; j < part.Count; j++)
+                part[j] = (part[j].X, part[j].Y + ((ulong)sum << 1));
+            if (o.SdustThreshold > 0)
+                part = DustMinimizers(part, segments[s], o.SdustThreshold);
+            mv.AddRange(part);
+            sum += segments[s].Length;
+        }
+
+        int midOcc = ix.MidOcc;
         if (mv.Count > midOcc && o.QueryOccurrenceFraction > 0f && midOcc > 0)
         {
             // mm_seed_mz_flt
@@ -167,7 +195,15 @@ public static partial class Minimap2Chaining
             mv = mv.Where(m => !drop.Contains(m.X)).ToList();
         }
 
-        return new SeedContext { Index = index, Minimizers = mv, MidOcc = midOcc, QueryLength = query.Length };
+        return new SeedContext { Index = ix.Index, Minimizers = mv, MidOcc = midOcc, QueryLength = sum };
+    }
+
+    /// <summary>The index, <c>mid_occ</c> and the query minimizers of <c>collect_minimizers</c> (sketch, sdust) and <c>mm_seed_mz_flt</c>.</summary>
+    internal static SeedContext PrepareSeeds(IReadOnlyList<string> targets, string query, MinimapSeedOptions o)
+    {
+        ArgumentNullException.ThrowIfNull(targets);
+        ArgumentNullException.ThrowIfNull(query);
+        return PrepareQuerySeeds(BuildSeedIndex(targets, o), [query], o);
     }
 
     // ---------------------------------------------------------------------------------------------------------- sdust (sdust.c)
@@ -351,6 +387,7 @@ public static partial class Minimap2Chaining
         public List<ulong> Cr = [];
         public int N;
         public bool Tandem, Flt;
+        public int SegId;
     }
 
     private const int MaxMaxHighOcc = 128;
@@ -448,7 +485,7 @@ public static partial class Minimap2Chaining
             var p = mv[i];
             if (!ctx.Index.TryGetValue(p.X >> 8, out var cr))
                 continue;
-            var q = new Seed { QPos = (uint)p.Y, QSpan = (int)(p.X & 0xff), Cr = cr, N = cr.Count };
+            var q = new Seed { QPos = (uint)p.Y, QSpan = (int)(p.X & 0xff), Cr = cr, N = cr.Count, SegId = (int)(p.Y >> 32) };
             if (i > 0 && p.X >> 8 == mv[i - 1].X >> 8)
                 q.Tandem = true;
             if (i < mv.Count - 1 && p.X >> 8 == mv[i + 1].X >> 8)
@@ -502,6 +539,112 @@ public static partial class Minimap2Chaining
                 "The program has no such limit: it dies at the allocation, and drops the minimizers that occur more than mid_occ times (mm_seed_select)", "use a longer k-mer or window, mask the repeat, or map a shorter query", "query");
 
         bool filterNames = (o.SkipSelf || o.SkipDual) && queryName is not null && targetNames is not null;
+        // skip_seed: false = keep; isSelf is the MM_SEED_SELF flag
+        bool SkipSeed(ulong r, Seed q, out bool isSelf)
+        {
+            isSelf = false;
+            if (filterNames)
+            {
+                int tid = (int)(r >> 32);
+                int cmp = string.CompareOrdinal(queryName, targetNames![tid]);
+                if (o.SkipSelf && cmp == 0 && targetLengths![tid] == qlen)
+                {
+                    if ((uint)r >> 1 == q.QPos >> 1)
+                        return true;
+                    if ((r & 1) == (q.QPos & 1))
+                        isSelf = true;
+                }
+
+                if (o.SkipDual && cmp > 0)
+                    return true;
+            }
+
+            if (o.ForwardOnly || o.ReverseOnly)
+            {
+                bool forward = (r & 1) == (q.QPos & 1);
+                if (forward && o.ReverseOnly)
+                    return true;
+                if (!forward && o.ForwardOnly)
+                    return true;
+            }
+
+            return false;
+        }
+
+        if (o.HeapSort)
+        {
+            // collect_seed_hits_heap: a k-way merge of the (sorted) occurrence lists; forward anchors are stored from the front, reverse anchors from the back (then reversed)
+            long total = nA;
+            var heapA = new Mm128[total];
+            int nFor = 0, nRev = 0;
+            var heap = new Mm128[kept.Count];
+            int heapSize = 0;
+            for (int i = 0; i < kept.Count; ++i)
+            {
+                if (kept[i].N > 0)
+                    heap[heapSize++] = new Mm128(kept[i].Cr[0], (ulong)i << 32);
+            }
+
+            HeapMakeMm(heapSize, heap);
+            int polledH = 0;
+            while (heapSize > 0)
+            {
+                if ((++polledH & 1023) == 0)
+                    AlignmentCancellation.ThrowIfRequested();
+                var q = kept[(int)(heap[0].Y >> 32)];
+                ulong r = heap[0].X;
+                int rpos = (int)((uint)r >> 1);
+                if (!SkipSeed(r, q, out bool isSelf))
+                {
+                    Mm128 pa;
+                    if ((r & 1) == (q.QPos & 1))
+                    {
+                        pa = new Mm128((r & 0xffffffff00000000UL) | (uint)rpos, (ulong)q.QSpan << 32 | q.QPos >> 1);
+                        pa.Y |= (ulong)q.SegId << 48;
+                        if (q.Tandem)
+                            pa.Y |= SeedTandem;
+                        if (isSelf)
+                            pa.Y |= SeedSelf;
+                        heapA[nFor++] = pa;
+                    }
+                    else
+                    {
+                        pa = new Mm128(1UL << 63 | (r & 0xffffffff00000000UL) | (uint)rpos, (ulong)q.QSpan << 32 | (uint)(qlen - ((int)(q.QPos >> 1) + 1 - q.QSpan) - 1));
+                        pa.Y |= (ulong)q.SegId << 48;
+                        if (q.Tandem)
+                            pa.Y |= SeedTandem;
+                        if (isSelf)
+                            pa.Y |= SeedSelf;
+                        heapA[total - (++nRev)] = pa;
+                    }
+                }
+
+                if ((uint)heap[0].Y < (uint)(q.N - 1))
+                {
+                    heap[0] = new Mm128(kept[(int)(heap[0].Y >> 32)].Cr[(int)(uint)heap[0].Y + 1], heap[0].Y + 1);
+                }
+                else
+                {
+                    heap[0] = heap[heapSize - 1];
+                    --heapSize;
+                }
+
+                HeapDownMm(0, heapSize, heap);
+            }
+
+            for (long jj = 0; jj < nRev >> 1; ++jj)
+            {
+                var t = heapA[total - 1 - jj];
+                heapA[total - 1 - jj] = heapA[total - (nRev - jj)];
+                heapA[total - (nRev - jj)] = t;
+            }
+
+            var res = new Mm128[nFor + nRev];
+            Array.Copy(heapA, 0, res, 0, nFor);
+            Array.Copy(heapA, total - nRev, res, nFor, nRev);
+            return new SeedArray { A = res, RepeatLength = repLen, MiniPos = miniPos.ToArray() };
+        }
+
         var a = new List<Mm128>((int)Math.Min(nA, int.MaxValue));
         int polled = 0;
         foreach (var q in kept)
@@ -510,45 +653,28 @@ public static partial class Minimap2Chaining
                 AlignmentCancellation.ThrowIfRequested();
             foreach (ulong r in q.Cr)
             {
-                bool isSelf = false;
                 int rpos = (int)((uint)r >> 1);
-                if (filterNames)
-                {
-                    int tid = (int)(r >> 32);
-                    int cmp = string.CompareOrdinal(queryName, targetNames![tid]);
-                    if (o.SkipSelf && cmp == 0 && targetLengths![tid] == qlen)
-                    {
-                        if ((uint)r >> 1 == q.QPos >> 1)
-                            continue;
-                        if ((r & 1) == (q.QPos & 1))
-                            isSelf = true;
-                    }
-
-                    if (o.SkipDual && cmp > 0)
-                        continue;
-                }
-
-                if (o.ForwardOnly || o.ReverseOnly)
-                {
-                    bool forward = (r & 1) == (q.QPos & 1);
-                    if (forward && o.ReverseOnly)
-                        continue;
-                    if (!forward && o.ForwardOnly)
-                        continue;
-                }
-
+                if (SkipSeed(r, q, out bool isSelf))
+                    continue;
                 ulong x, y;
                 if ((r & 1) == (q.QPos & 1))
                 {
                     x = (r & 0xffffffff00000000UL) | (uint)rpos;
                     y = (ulong)q.QSpan << 32 | q.QPos >> 1;
                 }
-                else
+                else if (!o.QueryStrand)
                 {
                     x = 1UL << 63 | (r & 0xffffffff00000000UL) | (uint)rpos;
                     y = (ulong)q.QSpan << 32 | (uint)(qlen - ((int)(q.QPos >> 1) + 1 - q.QSpan) - 1);
                 }
+                else
+                {
+                    int len = targetLengths![(int)(r >> 32)];
+                    x = 1UL << 63 | (r & 0xffffffff00000000UL) | (uint)(len - (rpos + 1 - q.QSpan) - 1);
+                    y = (ulong)q.QSpan << 32 | q.QPos >> 1;
+                }
 
+                y |= (ulong)q.SegId << 48;
                 if (q.Tandem)
                     y |= SeedTandem;
                 if (isSelf)
@@ -560,6 +686,30 @@ public static partial class Minimap2Chaining
         var arr = a.ToArray();
         RadixSort(arr);
         return new SeedArray { A = arr, RepeatLength = repLen, MiniPos = miniPos.ToArray() };
+    }
+
+    // ks_heapdown / ks_heapmake of ksort.h for KSORT_INIT(heap, mm128_t, heap_lt) with heap_lt(a, b) = a.x > b.x (a min-heap on x)
+    private static void HeapDownMm(int i, int n, Mm128[] l)
+    {
+        int k = i;
+        var tmp = l[i];
+        while ((k = (k << 1) + 1) < n)
+        {
+            if (k != n - 1 && l[k].X > l[k + 1].X)
+                ++k;
+            if (l[k].X > tmp.X)
+                break;
+            l[i] = l[k];
+            i = k;
+        }
+
+        l[i] = tmp;
+    }
+
+    private static void HeapMakeMm(int n, Mm128[] l)
+    {
+        for (int i = (n >> 1) - 1; i >= 0; --i)
+            HeapDownMm(i, n, l);
     }
 
     private static IReadOnlyList<MinimapAnchor> ToAnchors(Mm128[] a)

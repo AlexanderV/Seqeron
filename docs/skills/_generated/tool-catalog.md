@@ -4,7 +4,7 @@
 
 <!-- BEGIN generated: do not edit by hand -->
 
-## Alignment (76 tools)
+## Alignment (77 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -49,6 +49,7 @@
 | `merge_contigs` | `SequenceAssembler.MergeContigs` | [doc](../../mcp/tools/alignment/merge_contigs.md) |
 | `merger` | `SequenceAligner.Merger` | [doc](../../mcp/tools/alignment/merger.md) |
 | `minimap2_chains` | `Minimap2Chaining.MapChains` | [doc](../../mcp/tools/alignment/minimap2_chains.md) |
+| `minimap2_map` | `Minimap2Program.Run` | [doc](../../mcp/tools/alignment/minimap2_map.md) |
 | `multiple_align` | `SequenceAligner.MultipleAlign` | [doc](../../mcp/tools/alignment/multiple_align.md) |
 | `multiple_align_anchored` | `SequenceAligner.MultipleAlignAnchored` | [doc](../../mcp/tools/alignment/multiple_align_anchored.md) |
 | `multiple_align_clustalw` | `SequenceAligner.MultipleAlignClustalW` | [doc](../../mcp/tools/alignment/multiple_align_clustalw.md) |

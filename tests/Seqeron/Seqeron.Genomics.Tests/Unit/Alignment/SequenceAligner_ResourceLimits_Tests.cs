@@ -230,7 +230,8 @@ public class SequenceAligner_ResourceLimits_Tests
             Assert.Throws<ArgumentOutOfRangeException>(() => Ksw2Aligner.ExtendZ(q, t, 5, mat, 200, 2, -1, -1), "q beyond int8_t");
             Assert.Throws<ArgumentOutOfRangeException>(() => Ksw2Aligner.ExtendD(q, t, 5, mat, 4, 2, -24, 1, -1, -1), "q2 < 0");
             Assert.Throws<ArgumentOutOfRangeException>(() => Ksw2Aligner.ExtendZ2(q, t, 5, mat, 4, 0, -1, -1, 0), "e = 0 (SIMD)");
-            Assert.Throws<ArgumentOutOfRangeException>(() => Ksw2Aligner.ExtendD2(q, t, 5, mat, 4, 2, 24, 0, -1, -1, 0), "e2 = 0 (SIMD)");
+            Assert.Throws<ArgumentOutOfRangeException>(() => Ksw2Aligner.ExtendD2(q, t, 5, mat, 4, 2, 24, -1, -1, -1, 0), "e2 < 0 (SIMD)");
+            Assert.DoesNotThrow(() => Ksw2Aligner.ExtendD2(q, t, 5, mat, 4, 2, 24, 0, -1, -1, 0), "e2 = 0: minimap2 accepts -E 2,0 (a long gap at a fixed cost); the second piece may have a zero extension penalty");
             Assert.DoesNotThrow(() => Ksw2Aligner.ExtendZ(q, t, 5, mat, 0, 1, -1, -1), "q = 0, e = 1 is the smallest valid pair");
         });
     }

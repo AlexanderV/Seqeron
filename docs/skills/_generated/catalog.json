@@ -287,6 +287,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/Minimap2Chaining.cs"
   },
   {
+    "tool": "minimap2_map",
+    "server": "Alignment",
+    "methodId": "Minimap2Program.Run",
+    "docPath": "docs/mcp/tools/alignment/minimap2_map.md",
+    "sourceLink": ""
+  },
+  {
     "tool": "multiple_align",
     "server": "Alignment",
     "methodId": "SequenceAligner.MultipleAlign",

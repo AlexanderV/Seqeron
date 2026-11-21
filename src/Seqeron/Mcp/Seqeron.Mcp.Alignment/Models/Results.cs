@@ -326,6 +326,9 @@ public record Minimap2HitDto(
 /// <summary>Result of <c>minimap2_chains</c>: the chains ordered by the position of their first anchor, the number of seed hits they were built from and - in <c>paf</c> mode - the hits in the order of the PAF output.</summary>
 public record Minimap2ChainsResult(Minimap2ChainDto[] Chains, int SeedCount, Minimap2HitDto[]? Hits = null, int RepeatLength = 0, int MidOcc = 0, string? Paf = null);
 
+/// <summary>Result of <c>minimap2_map</c>: what the program writes to the standard output (PAF or SAM text), to the standard error and to the file of <c>-o</c>, and its exit status.</summary>
+public record Minimap2MapResult(string Output, string StandardError, int ExitCode, Dictionary<string, string>? Files = null);
+
 /// <summary>A segment of <c>dotmatcher</c>: 1-based inclusive positions on both sequences.</summary>
 public record DotMatcherSegmentDto(int Start1, int Start2, int End1, int End2);
 

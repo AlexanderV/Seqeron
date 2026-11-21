@@ -30,6 +30,9 @@ public sealed record MinimapChainOptions
     /// <summary><c>is_cdna</c> of <c>mg_lchain_dp</c> (<c>--splice</c> / <c>-x splice</c>): a long gap on the target (an intron) costs <c>min(linear, log)</c> penalty, the query gap limit is not raised to the bandwidth and the chain is never cut by the score drop.</summary>
     public bool IsCdna { get; init; }
 
+    /// <summary>Number of segments (reads) of the fragment (<c>n_seg</c> of <c>mg_lchain_dp</c>, 1): with more than one, a chain step between two anchors of the same read that skips more than the query gap on the reference is refused (<c>lchain.c:123</c>).</summary>
+    public int Segments { get; init; } = 1;
+
     /// <summary>k-mer size of the index (<c>-k</c>, 15): scales the gap penalties.</summary>
     public int KmerSize { get; init; } = 15;
 
@@ -153,7 +156,7 @@ public static partial class Minimap2Chaining
             long j;
             for (j = i - 1; j >= st; j--)
             {
-                int sc = Score(ax, ay, i, j, maxDistX, maxDistY, bw, penGap, penSkip, o.IsCdna);
+                int sc = Score(ax, ay, i, j, maxDistX, maxDistY, bw, penGap, penSkip, o.IsCdna, o.Segments);
                 if (sc == MinInt)
                     continue;
                 sc += f[j];
@@ -188,7 +191,7 @@ public static partial class Minimap2Chaining
 
             if (maxIi >= 0 && maxIi < endJ)
             {
-                int tmp = Score(ax, ay, i, maxIi, maxDistX, maxDistY, bw, penGap, penSkip, o.IsCdna);
+                int tmp = Score(ax, ay, i, maxIi, maxDistX, maxDistY, bw, penGap, penSkip, o.IsCdna, o.Segments);
                 if (tmp != MinInt && maxF < tmp + f[maxIi])
                 {
                     maxF = tmp + f[maxIi];
@@ -310,17 +313,21 @@ public static partial class Minimap2Chaining
         }
     }
 
-    // comput_sc (one segment)
-    private static int Score(ulong[] ax, ulong[] ay, long i, long j, int maxDistX, int maxDistY, int bw, float penGap, float penSkip, bool isCdna)
+    // comput_sc of lchain.c: the segment ids (bits 48 - 55 of y) separate the reads of a fragment; a step between two segments pays the cheaper penalty and a bonus when the reads overlap
+    private static int Score(ulong[] ax, ulong[] ay, long i, long j, int maxDistX, int maxDistY, int bw, float penGap, float penSkip, bool isCdna, int nSeg = 1)
     {
         int dq = (int)ay[i] - (int)ay[j];
+        int sidi = (int)((ay[i] & SeedSegMask) >> SeedSegShift);
+        int sidj = (int)((ay[j] & SeedSegMask) >> SeedSegShift);
         if (dq <= 0 || dq > maxDistX)
             return MinInt;
         int dr = (int)(ax[i] - ax[j]);
-        if (dr == 0 || dq > maxDistY)
+        if (sidi == sidj && (dr == 0 || dq > maxDistY))
             return MinInt;
         int dd = dr > dq ? dr - dq : dq - dr;
-        if (dd > bw)
+        if (sidi == sidj && dd > bw)
+            return MinInt;
+        if (nSeg > 1 && !isCdna && sidi == sidj && dr > maxDistY)
             return MinInt;
         int dg = dr < dq ? dr : dq;
         int qSpan = (int)(ay[j] >> 32 & 0xff);
@@ -329,10 +336,19 @@ public static partial class Minimap2Chaining
         {
             float linPen = penGap * dd + penSkip * dg;
             float logPen = dd >= 1 ? Log2(dd + 1) : 0.0f;
-            if (isCdna && dr > dq)
-                sc = unchecked(sc - CInt(linPen < logPen ? linPen : logPen));         // a deletion (an intron on the target): the cheaper of the two penalties
+            if (isCdna || sidi != sidj)
+            {
+                if (sidi != sidj && dr == 0)
+                    ++sc;                                                              // possibly due to overlapping paired ends: a minor bonus
+                else if (dr > dq || sidi != sidj)
+                    sc = unchecked(sc - CInt(linPen < logPen ? linPen : logPen));      // a deletion (an intron on the target) or a jump between paired ends: the cheaper of the two penalties
+                else
+                    sc = unchecked(sc - CInt(linPen + .5f * logPen));
+            }
             else
+            {
                 sc = unchecked(sc - CInt(linPen + .5f * logPen));
+            }
         }
 
         return sc;

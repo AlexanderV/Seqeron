@@ -49,6 +49,11 @@
     <EmbeddedResource Include="TestData\Alignment\minimap2_map_oracle.jsonl.gz" />
     <!-- A5-9 (B09 F173): minimap2 2.26 -x presets as PAF text; scripts/alignment/generate_minimap2_preset_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\minimap2_preset_oracle.jsonl.gz" />
+    <!-- A3-9c2 / A5-9b / A5-9c (B09 WP45): minimap2 2.26 as a program (-c / -a base-level alignment, the paired-read mode, the other options): the whole standard output of 6 903 command lines;
+         scripts/alignment/generate_minimap2_{align,pair,options}_oracle.py. -->
+    <!-- A3-9c2 (B09 WP45): the C ksw_ll_i16, ksw_exts2_sse, ksw_extz2_sse and ksw_extd2_sse of minimap2 v2.26 (compiled with -msse4.1) on 500 + 500 + 500 + 500 random inputs; scripts/alignment/ksw2/generate_ksw2_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\ksw2_c_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Alignment\minimap2_align_oracle.jsonl.gz" />
     <!-- A5-10 (B09 F174): Mash 2.3 bounds / dist / triangle text; scripts/alignment/generate_mash_commands_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\mash_commands_oracle.jsonl.gz" />
     <!-- A5-8 (B09 F176): the gff / excel feature reports of fuzznuc, fuzzpro, fuzztran, etandem, equicktandem; scripts/alignment/generate_emboss_report_oracle.py. -->

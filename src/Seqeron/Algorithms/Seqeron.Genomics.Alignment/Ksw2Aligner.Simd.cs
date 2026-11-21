@@ -25,6 +25,7 @@ public static partial class Ksw2Aligner
     /// <c>ksw_extz2_sse</c>: extension / global alignment with affine gap cost <c>q + k e</c> by the anti-diagonal 8-bit difference recurrence, band <paramref name="w"/>, Z-drop, end bonus, ambiguous-base scoring
     /// (without <see cref="Ksw2Option.GenericScore"/>: <c>mat[0]</c> match, <c>mat[1]</c> mismatch, <c>mat[m*m-1]</c> wildcard for the last symbol <c>m - 1</c>, which is <c>-e</c> when 0) and CIGAR.
     /// </summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveOptimization)]
     public static Ksw2Result ExtendZ2(byte[] query, byte[] target, int m, sbyte[] mat, int q, int e, int w, int zdrop, int endBonus, Ksw2Option flag = Ksw2Option.None)
     {
         CheckInputs(query, target, m, mat);
@@ -395,11 +396,12 @@ public static partial class Ksw2Aligner
     /// <summary>
     /// <c>ksw_extd2_sse</c>: the dual-affine gap cost <c>min(q + k e, q2 + k e2)</c> (the two pieces are swapped when <c>q2 + e2 &lt; q + e</c>), otherwise as <see cref="ExtendZ2"/>.
     /// </summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveOptimization)]
     public static Ksw2Result ExtendD2(byte[] query, byte[] target, int m, sbyte[] mat, int q, int e, int q2, int e2, int w, int zdrop, int endBonus, Ksw2Option flag = Ksw2Option.None)
     {
         CheckInputs(query, target, m, mat);
         CheckGapPenalties(q, e);
-        CheckGapPenalties(q2, e2);
+        CheckSecondGapPenalties(q2, e2);
         int qlen = query.Length;
         int tlen = target.Length;
         q = (sbyte)q;

@@ -57,6 +57,7 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "merge_contigs",
         "merger",
         "minimap2_chains",
+        "minimap2_map",
         "multiple_align",
         "multiple_align_anchored",
         "multiple_align_clustalw",

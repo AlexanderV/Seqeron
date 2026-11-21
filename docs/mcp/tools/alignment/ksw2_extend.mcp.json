@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "Ksw2Aligner",
   "docRef": "Seqeron.Genomics.Alignment/Ksw2Aligner.cs",
-  "description": "The ksw2 / minimap2 extension-alignment functions: global or extension alignment of a query against a target with affine (q + k*e) or dual-affine (min(q + k*e, q2 + k*e2)) gap cost, a diagonal band, the Z-drop rule, the end bonus, the ambiguous-base (N) penalty and CIGAR output. variant: 'extz' (ksw_extz, scalar affine), 'extz2' (ksw_extz2_sse, minimap2 affine), 'extd' (ksw_extd, scalar dual affine), 'extd2' (ksw_extd2_sse, minimap2 -O/-E dual affine; the default). Bases are encoded A,C,G,T = 0..3 and anything else = N (4); match / mismatch / ambiguous give the matrix as minimap2 builds it (-A, -B as a penalty, -N penalty of the wildcard). Penalties are POSITIVE (minimap2 -O q,q2 -E e,e2; a gap of length k costs q + k*e). w = band half-width (-1: none; the SIMD variants need w >= 1), zdrop = off-diagonal drop-off to stop an extension (-1: none; minimap2 -z), endBonus (minimap2 -s... as the extension end bonus; SIMD variants, extensionOnly). extensionOnly = the path ends at the best cell (or at the query end when mqe + endBonus > max); otherwise it is global (corner to corner). Returned: max, zdropped, maxQ/maxT, mqe (best score reaching the query end) with mqeT, mte with mteQ, score (corner score; -1073741824 = not reached), reachEnd and the CIGAR (M, I = query only, D = target only). VERIFICATION: exact cases (no Z-drop, no approximate mode) equal an independent dynamic program on 330 cases per variant (max, mqe, mte, score; every CIGAR re-scored along its path); the Z-drop and approximate cases have not yet been compared with the real C program (it could not be run in the development environment).",
+  "description": "The ksw2 / minimap2 extension-alignment functions: global or extension alignment of a query against a target with affine (q + k*e) or dual-affine (min(q + k*e, q2 + k*e2)) gap cost, a diagonal band, the Z-drop rule, the end bonus, the ambiguous-base (N) penalty and CIGAR output. variant: 'extz' (ksw_extz, scalar affine), 'extz2' (ksw_extz2_sse, minimap2 affine), 'extd' (ksw_extd, scalar dual affine), 'extd2' (ksw_extd2_sse, minimap2 -O/-E dual affine; the default), 'exts2' (ksw_exts2_sse, the spliced extension of minimap2 -x splice: introns of at least (q2 - q) / e - 1 bases are N operations of the CIGAR, charged q2 plus a donor / acceptor score: spliceStrand forward = GT-AG, reverse = CT-AC, nonCanonical = minimap2 -C, junctionBonus with a junctions string (digits: bit 0 forward donor, 1 forward acceptor, 2 reverse acceptor, 3 reverse donor; the program's --junc-bed), spliceModel 'miniprot' (-J 1) or 'old' (-J 0, with spliceFlank), reverseCigar), 'll' (ksw_ll_i16, the 16-bit striped local alignment minimap2 uses to test a Z-drop for an inversion: returns the best local score in max and its end coordinates in maxQ / maxT, gap cost gapOpen + k*gapExtend). Bases are encoded A,C,G,T = 0..3 and anything else = N (4); match / mismatch / ambiguous give the matrix as minimap2 builds it (-A, -B as a penalty, -N penalty of the wildcard). Penalties are POSITIVE (minimap2 -O q,q2 -E e,e2; a gap of length k costs q + k*e; the second extension penalty e2 may be 0). w = band half-width (-1: none; the SIMD variants need w >= 1), zdrop = off-diagonal drop-off to stop an extension (-1: none; minimap2 -z), endBonus (the extension end bonus; SIMD variants, extensionOnly). extensionOnly = the path ends at the best cell (or at the query end when mqe + endBonus > max); otherwise it is global (corner to corner). Returned: max, zdropped, maxQ/maxT, mqe (best score reaching the query end) with mqeT, mte with mteQ, score (corner score; -1073741824 = not reached), reachEnd and the CIGAR (M, I = query only, D = target only, N = intron). VERIFICATION: the SIMD variants extz2, extd2, exts2 and ll equal the C functions of minimap2 v2.26 compiled with SSE4.1 on 500 random inputs each (every field of ksw_extz_t and the CIGAR: band, Z-drop, end bonus, extension only, left / right gaps, reversed CIGAR, approximate maximum / drop, score only); extz / extd (scalar) equal an independent dynamic program on 330 cases per variant (max, mqe, mte, score; every CIGAR re-scored along its path).",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -20,7 +20,7 @@
       },
       "variant": {
         "type": "string",
-        "description": "'extd2' (default), 'extz2', 'extd' or 'extz'.",
+        "description": "'extd2' (default), 'extz2', 'extd', 'extz', 'exts2' (spliced extension) or 'll' (striped local alignment).",
         "default": "extd2"
       },
       "match": {
@@ -87,6 +87,40 @@
         "type": "boolean",
         "description": "Score only, no CIGAR.",
         "default": false
+      },
+      "spliceStrand": {
+        "type": "string",
+        "description": "exts2: 'none' (no splice signal), 'forward' (GT-AG, minimap2 -u f) or 'reverse' (CT-AC, the reverse complement).",
+        "default": "none"
+      },
+      "nonCanonical": {
+        "type": "integer",
+        "description": "exts2: the penalty of a non-canonical splice site (minimap2 -C, noncan).",
+        "default": 0
+      },
+      "junctionBonus": {
+        "type": "integer",
+        "description": "exts2: the bonus of an annotated junction (minimap2 --junc-bonus).",
+        "default": 0
+      },
+      "spliceModel": {
+        "type": "string",
+        "description": "exts2: 'miniprot' (minimap2 -J 1, the default) or 'old' (-J 0).",
+        "default": "miniprot"
+      },
+      "spliceFlank": {
+        "type": "boolean",
+        "description": "exts2, old model: the flanking-sequence bonus (--splice-flank).",
+        "default": false
+      },
+      "reverseCigar": {
+        "type": "boolean",
+        "description": "exts2: the CIGAR is reported last operation first (KSW_EZ_REV_CIGAR; the left extension of minimap2).",
+        "default": false
+      },
+      "junctions": {
+        "type": "string",
+        "description": "exts2: junction flags of the target positions, one digit 0-9 per target base (bit 0 forward donor, bit 1 forward acceptor, bit 2 reverse acceptor, bit 3 reverse donor), or null."
       }
     },
     "required": [

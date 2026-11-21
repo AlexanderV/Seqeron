@@ -22,6 +22,14 @@ public enum Ksw2Option
     ExtensionOnly = 0x40,
     /// <summary><c>KSW_EZ_REV_CIGAR</c>: the CIGAR is reported reversed (last operation first).</summary>
     ReverseCigar = 0x80,
+    /// <summary><c>KSW_EZ_SPLICE_FOR</c>: look for the GT-AG signal on the forward strand (<see cref="Ksw2Aligner.ExtendS2"/>).</summary>
+    SpliceForward = 0x100,
+    /// <summary><c>KSW_EZ_SPLICE_REV</c>: look for the CT-AC signal (the reverse complement of GT-AG).</summary>
+    SpliceReverse = 0x200,
+    /// <summary><c>KSW_EZ_SPLICE_FLANK</c>: the flanking-sequence bonus of the old splice model.</summary>
+    SpliceFlank = 0x400,
+    /// <summary><c>KSW_EZ_SPLICE_CMPLX</c>: the miniprot splice model (the default of <c>minimap2 -J 1</c>).</summary>
+    SpliceComplex = 0x800,
 }
 
 /// <summary>The result of a ksw2 extension (<c>ksw_extz_t</c>).</summary>
@@ -57,6 +65,7 @@ public static partial class Ksw2Aligner
     private const int CigarMatch = 0;
     private const int CigarIns = 1;
     private const int CigarDel = 2;
+    private const int CigarNSkip = 3;
 
     /// <summary>The <c>ksw_gen_simple_mat</c> matrix of minimap2: <c>a</c> on the diagonal, <c>-b</c> off it, <c>-ambiguous</c> in the last row and column (the wildcard).</summary>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="m"/> is outside 1 .. 256 (the residue codes are bytes) or a score does not fit the <c>int8_t</c> of the C function.</exception>
@@ -112,7 +121,7 @@ public static partial class Ksw2Aligner
         }
 
         internal Ksw2Result ToResult() => new(Max, ZDropped, MaxQ, MaxT, Mqe, MqeT, Mte, MteQ, Score, ReachEnd,
-            [.. Cigar.Select(c => ("MID"[(int)(c & 0xf)], (int)(c >> 4)))]);
+            [.. Cigar.Select(c => ("MIDN"[(int)(c & 0xf)], (int)(c >> 4)))]);
     }
 
     private static void PushCigar(List<uint> cigar, uint op, int len)
@@ -127,7 +136,7 @@ public static partial class Ksw2Aligner
     private static uint CellOrZero(byte[] p, long index) => index >= 0 && index < p.Length ? p[index] : 0u;
 
     // ksw_backtrack
-    private static List<uint> Backtrack(bool isRot, bool isRev, byte[] p, int[] off, int[]? offEnd, int nCol, int i0, int j0)
+    private static List<uint> Backtrack(bool isRot, bool isRev, byte[] p, int[] off, int[]? offEnd, int nCol, int i0, int j0, int minIntronLen = 0)
     {
         var cigar = new List<uint>();
         int i = i0;
@@ -169,9 +178,14 @@ public static partial class Ksw2Aligner
                 --i;
                 --j;
             }
-            else if (state == 1 || state == 3)
+            else if (state == 1 || (state == 3 && minIntronLen <= 0))
             {
                 PushCigar(cigar, CigarDel, 1);
+                --i;
+            }
+            else if (state == 3)
+            {
+                PushCigar(cigar, CigarNSkip, 1);
                 --i;
             }
             else
@@ -182,7 +196,7 @@ public static partial class Ksw2Aligner
         }
 
         if (i >= 0)
-            PushCigar(cigar, CigarDel, i + 1);
+            PushCigar(cigar, (uint)(minIntronLen > 0 && i >= minIntronLen ? CigarNSkip : CigarDel), i + 1);
         if (j >= 0)
             PushCigar(cigar, CigarIns, j + 1);
         if (!isRev)
@@ -252,6 +266,15 @@ public static partial class Ksw2Aligner
             throw new ArgumentOutOfRangeException(nameof(q), q, "ksw2: the gap opening penalty q is a penalty between 0 and 127 (int8_t in ksw2.h; a gap of length l costs q + l * e).");
         if (e < 1 || e > sbyte.MaxValue)
             throw new ArgumentOutOfRangeException(nameof(e), e, "ksw2: the gap extension penalty e is a penalty between 1 and 127 (int8_t in ksw2.h; a gap of length l costs q + l * e).");
+    }
+
+    // the second piece of the dual affine cost: minimap2 accepts -E k,0 (a long gap at a fixed cost), so e2 may be 0
+    internal static void CheckSecondGapPenalties(int q2, int e2)
+    {
+        if (q2 < 0 || q2 > sbyte.MaxValue)
+            throw new ArgumentOutOfRangeException(nameof(q2), q2, "ksw2: the second gap opening penalty q2 is a penalty between 0 and 127 (int8_t in ksw2.h).");
+        if (e2 < 0 || e2 > sbyte.MaxValue)
+            throw new ArgumentOutOfRangeException(nameof(e2), e2, "ksw2: the second gap extension penalty e2 is a penalty between 0 and 127 (int8_t in ksw2.h; minimap2 accepts 0).");
     }
 
     /// <summary>The memory of the traceback matrix (<c>ez->cigar</c> source): one byte per cell in the scalar functions, 16 bytes per anti-diagonal column in the SIMD ones; ksw2 allocates it with <c>kmalloc</c> and has no limit.</summary>
@@ -433,7 +456,7 @@ public static partial class Ksw2Aligner
     {
         CheckInputs(query, target, m, mat);
         CheckGapPenalties(q, e);
-        CheckGapPenalties(q2, e2);
+        CheckSecondGapPenalties(q2, e2);
         int qlen = query.Length;
         int tlen = target.Length;
         var ez = new Ez();

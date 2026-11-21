@@ -7,9 +7,9 @@ namespace Seqeron.Genomics.Alignment;
 /// </summary>
 /// <remarks>
 /// Explicit options of the command line that FOLLOW <c>-x</c> are <see cref="MinimapOverrides"/>: <c>MinimapPresets.Apply("asm5", new MinimapOverrides { KmerSize = 15 })</c> is <c>minimap2 -x asm5 -k 15</c>, also when the value equals the default of the
-/// option (the MCP tool <c>minimap2_chains</c> and the oracle test build the options this way: audit A6-7). The chaining-stage members (<c>-k -w -H -f/occ -g -r -n -m -p -N -S ... --rmq -P -D --no-dual --no-long-join -F --sr</c>) are read by <see cref="Minimap2Chaining.Map"/>; the base-level members (<c>-A -B -O -E -z -s -u</c>, splice flags) are stored
-/// in <see cref="MinimapMapOptions.Scoring"/> / <see cref="MinimapMapOptions.Splice"/> for the base-level stage (audit A3-9c2). <c>-x splice</c> chains the spliced query as <c>mg_lchain_dp</c> does with <c>is_cdna</c> (<see cref="MinimapMapOptions.Splice"/>, A5-9; the
-/// <c>splice</c> / <c>splice:hq</c> PAF texts equal the program on every oracle case); only the multi-segment fragment mode of <c>-x sr</c> with paired reads stays with the carried items (QUEUE.md / B09.md A5-9b).
+/// option (the MCP tool <c>minimap2_chains</c> and the oracle test build the options this way: audit A6-7). The chaining-stage members (<c>-k -w -H -f/occ -g -r -n -m -p -N -S ... --rmq -P -D --no-dual --no-long-join -F --sr</c>) are read by <see cref="Minimap2Chaining.Map"/>; the base-level members (<c>-A -B -O -E -z -s -u</c>, splice flags,
+/// <c>pe_ori</c>, the fragment mode, the heap sort) are read by the base-level alignment (<see cref="MinimapMapOptions.Cigar"/>, audit A3-9c2, F187) and the multi-segment mode (<see cref="Minimap2Chaining.MapFragment"/>, A5-9b / A5-9c, F188). <see cref="ApplyOn"/> applies a preset to options
+/// that already carry another preset (the program applies every <c>-x</c> in turn and a preset sets only the options it lists), which <see cref="Minimap2Program"/> uses for <c>-x splice -x asm5</c>.
 /// </remarks>
 public static class MinimapPresets
 {
@@ -19,9 +19,16 @@ public static class MinimapPresets
 
     /// <summary>The options <c>minimap2 -x <paramref name="preset"/></c> sets (null / empty = no preset: the program's defaults).</summary>
     /// <exception cref="ArgumentException">Unknown preset (the program: <c>unknown preset</c>).</exception>
-    public static MinimapMapOptions Apply(string? preset)
+    public static MinimapMapOptions Apply(string? preset) => ApplyOn(new MinimapMapOptions(), preset);
+
+    /// <summary>
+    /// <c>mm_set_opt(preset)</c> applied to the options as they are: like the program, a preset sets only the options it lists, so <c>-x splice -x asm5</c> keeps the splice flags of the first preset (and fails the option check <c>--rmq doesn't work with --splice</c>).
+    /// </summary>
+    /// <exception cref="ArgumentException">Unknown preset.</exception>
+    public static MinimapMapOptions ApplyOn(MinimapMapOptions current, string? preset)
     {
-        var o = new MinimapMapOptions();
+        ArgumentNullException.ThrowIfNull(current);
+        var o = current;
         if (string.IsNullOrEmpty(preset))
             return o;
         switch (preset)
@@ -62,8 +69,8 @@ public static class MinimapPresets
             case "short" or "sr":
                 return o with
                 {
-                    Seed = o.Seed with { HomopolymerCompressed = false, KmerSize = 21, WindowSize = 11, MidOcc = 1000, MaxOcc = 5000 },
-                    ShortRead = true, OutputSecondary = false, MaxFragmentLength = 800, MaxGap = 100, Bandwidth = 100, BandwidthLong = 100, PrimaryRatio = 0.5f, MinCount = 2, MinChainScore = 25, BestN = 20,
+                    Seed = o.Seed with { HomopolymerCompressed = false, KmerSize = 21, WindowSize = 11, MidOcc = 1000, MaxOcc = 5000, HeapSort = true },
+                    ShortRead = true, FragmentMode = true, PairOrientation = 1, OutputSecondary = false, MaxFragmentLength = 800, MaxGap = 100, Bandwidth = 100, BandwidthLong = 100, PrimaryRatio = 0.5f, MinCount = 2, MinChainScore = 25, BestN = 20,
                     Scoring = o.Scoring with { Match = 2, Mismatch = 8, GapOpen = 12, GapExtend = 2, GapOpen2 = 24, GapExtend2 = 1, ZDrop = 100, ZDropInverted = 100, EndBonus = 10, MinDpMax = 40 },
                 };
             case "splice" or "cdna" or "splice:hq":
@@ -71,7 +78,7 @@ public static class MinimapPresets
                     var splice = o with
                     {
                         Seed = o.Seed with { HomopolymerCompressed = false, KmerSize = 15, WindowSize = 5 },
-                        Splice = true, MaxGap = 2000, MaxGapRef = 200000, Bandwidth = 200000, BandwidthLong = 200000,
+                        Splice = true, SpliceForward = true, SpliceReverse = true, SpliceFlank = true, MaxGap = 2000, MaxGapRef = 200000, Bandwidth = 200000, BandwidthLong = 200000,
                         Scoring = o.Scoring with { Match = 1, Mismatch = 2, GapOpen = 2, GapExtend = 1, GapOpen2 = 32, GapExtend2 = 0, NonCanonical = 9, JunctionBonus = 9, ZDrop = 200, ZDropInverted = 100, MaxSmithWatermanMatrix = 0 },
                     };
                     return preset == "splice:hq" ? splice with { Scoring = splice.Scoring with { JunctionBonus = 5, Mismatch = 4, GapOpen = 6, GapOpen2 = 24 } } : splice;
