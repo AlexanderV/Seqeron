@@ -868,6 +868,13 @@
     "sourceLink": ""
   },
   {
+    "tool": "feattext",
+    "server": "Analysis",
+    "methodId": "EmbossFeaturePrograms.Feattext",
+    "docPath": "docs/mcp/tools/analysis/feattext.md",
+    "sourceLink": ""
+  },
+  {
     "tool": "find_all_longest_repeats",
     "server": "Analysis",
     "methodId": "GenomicAnalyzer.FindAllLongestRepeats",

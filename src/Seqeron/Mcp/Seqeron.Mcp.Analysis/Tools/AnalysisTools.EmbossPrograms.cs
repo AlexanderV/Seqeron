@@ -386,6 +386,32 @@ public partial class AnalysisTools
         }
     }
 
+    [McpServerTool(Name = "feattext", Title = "Alignment — EMBOSS feattext (original text of a feature table)", ReadOnly = true)]
+    [Description("EMBOSS 6.6.0 feattext: every feature table of a file (any input format of the EMBOSS feature readers; with no format every format is tried; 'format::' prefix and [begin:end] suffix in featuresValue) is read with the input storing the text it reads, and the text of each entry is returned as the library stored it: the EMBL / GenBank reader and the GFF3 reader keep the lines they consumed (a GFF3 table stops at the next ##gff-version line, which is given back with the library's off-by-the-line-ending cut of the stored text), the readers of the other formats keep none (nothing is returned for their tables). Equals the installed program on 400 runs (every input format, damaged files, the format:: prefix, the runs on which the program never stops refused with an error); the messages are returned as the program prints them.")]
+    public static FeattextToolResult Feattext(
+        [Description("The text of the feature file (a feature table of any input format, or an EMBL / GenBank entry; several tables may follow one another).")] string features,
+        [Description("The value of -features: 'format::' prefix and [begin:end] suffix are read as the program reads them; default the file itself.")] string? featuresValue = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(features))
+            throw new ArgumentException("The feature file cannot be empty", nameof(features));
+        cancellationToken.ThrowIfCancellationRequested();
+        string name = "features.dat";
+        try
+        {
+            var o = EmbossFeaturePrograms.Feattext(new EmbossFeattextRequest(string.IsNullOrWhiteSpace(featuresValue) ? name : featuresValue, new Dictionary<string, string> { [name] = features }));
+            return new FeattextToolResult(o.Text, o.Tables, [.. o.Messages]);
+        }
+        catch (global::Seqeron.Genomics.Infrastructure.EmbossFeatureDiedException e)
+        {
+            throw new ArgumentException(e.Message + (e.Errors.Count > 0 ? " (" + string.Join("; ", e.Errors.Where(m => m.Length > 0)) + ")" : ""), nameof(features));
+        }
+        catch (InvalidOperationException e)
+        {
+            throw new ArgumentException(e.Message, nameof(features));
+        }
+    }
+
     [McpServerTool(Name = "diffseq", Title = "Alignment — EMBOSS diffseq (differences between two sequences)", ReadOnly = true)]
     [Description("EMBOSS 6.6.0 diffseq: the regions of difference between two nearly identical sequences (336 nucleotide / protein pairs, every -rformat: report and both GFF3 feature files byte for byte). The exact word matches of wordSize symbols (the engine and the minimal non-overlapping set of megamerger) are the regions of identity; the stretches between them are the differences (a difference with length 0 in one sequence is an insertion in the other); with globalDifferences the differences before the first and after the last match are reported too (a start or end that matches by itself is not counted). A nucleotide pair also gets the SNP count and its transitions / transversions. Returns the differences and the program's files: the report in the default format 'diffseq' (7 report tags; reportFormat takes any -rformat or the report qualifiers as typed, e.g. '-rformat table -raccshow'), and the GFF3 files -aoutfeat / -boutfeat. The sequence qualifiers of both inputs (-sbegin1 -send1 -sreverse1 -slower1 -supper1 -snucleotide1 ... and the same with 2, given in reportFormat as typed after the files, e.g. '-sbegin1 20 -send1 200 -sreverse2 -rformat table') are applied as the program applies them: the sequence is cut to the range (positions, lengths and the report numbers refer to the cut sequence, the header shows the original range), reversed sequences are reported on the reverse strand; 260 / 260 runs equal the installed program. The inputs may be the text of a GenBank or EMBL file: its features (type, location with complement / join / order, qualifiers) are read as the program reads them, follow -sbegin / -send / -sreverse, and the features that overlap a difference are listed with it (first_feature / second_feature, the 'Feature:' lines of the diffseq report); the feature files -aoutfeat / -boutfeat are written in any output feature format of the program (-offormat4 / -offormat5: gff, gff2, gff3, bed, embl, genbank, ddbj, refseq, refseqp, pir, swiss, dasgff, draw, debug and their aliases, or the 'format::' prefix of the file name; a format the program refuses for the kind of sequence - embl for protein, pir for nucleotide - gives an empty file; 1 100 runs equal the installed program); 870 runs equal the installed program (420 with the usual qualifiers, 450 with the tags the program checks with a special validator - bad values become notes, correctable ones are corrected), including its loss of the features of a GenBank entry whose SOURCE block is followed directly by FEATURES. The features of a sequence can come from a SEPARATE file: -ufo1 / -ufo2 ([format::]file), -fformat1, -fopenfile1 (and the same with 2) in reportFormat name files given in featureFiles (file name -> text), read in every input format of the EMBOSS feature readers (embl, genbank, refseq, genpept, refseqp, gff2, gff3, the gff3 of EMBOSS before 6.4, swiss, pir, dasgff; with no format every format is tried; featcopy / seqret traces of 7 800 files equal, 450 diffseq runs equal); a UFO switches the features of the sequence file off. Not read: SwissProt / GFF / GenPept files as the SEQUENCE input.")]
     public static DiffseqToolResult Diffseq(

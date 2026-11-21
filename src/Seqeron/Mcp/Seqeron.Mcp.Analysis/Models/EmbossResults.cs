@@ -53,6 +53,9 @@ public record MegaMergerResult(string MergedSequence, string Report, WordMatchIt
 /// <summary>One region of difference of <c>diffseq</c>: 1-based coordinates in both sequences (a gap has length 0: its start is after the gap, its end before it).</summary>
 public record DiffseqDifferenceItem(int Start1, int End1, int Length1, int Start2, int End2, int Length2);
 
+/// <summary>Result of <c>feattext</c>: the text of every entry the feature readers read (only the EMBL / GenBank and the GFF3 readers keep it), the number of tables and the messages the library printed.</summary>
+public record FeattextToolResult(string Text, int Tables, string[] Messages);
+
 /// <summary>Result of <c>diffseq</c>: the differences, the overlap of the two sequences (-1 when no match), the substitution counts of a nucleotide pair, the report text (default format <c>diffseq</c>) and the two feature files (GFF3 unless <c>-offormat4</c> / <c>-offormat5</c> name another format; <c>FeatureFileName1</c> / <c>FeatureFileName2</c> = the file each is written to).</summary>
 public record WordmatchHitItem(string Pattern, int PatternStart, string Query, int QueryStart, int Length);
 

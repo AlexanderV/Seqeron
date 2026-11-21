@@ -45,6 +45,9 @@ internal sealed class EmbossFeatureReadContext
     /// <summary><c>ajUtilGetProgram</c>: the source of a feature without one.</summary>
     public string Program = "featcopy";
 
+    /// <summary>The input stores the text of the entries it reads (<c>Input-&gt;Text</c>: the ACD attribute <c>entry</c> of <c>feattext</c>).</summary>
+    public bool StoreText;
+
     // featSaveGroup / featSaveGroupStr / featSaveExon of ajfeatread.c
     public uint SaveGroup;
     public string? SaveGroupStr;
@@ -147,6 +150,18 @@ internal sealed partial class EmbossSeqFeatureTable
         return table;
     }
 
+    /// <summary>The text of the entry the reader has read (<c>ajFeattableGetEntry</c>: only the EMBL / GenBank and the GFF3 readers keep it, when the input has the ACD attribute <c>entry</c>); null = nothing stored.</summary>
+    public string? TextPtr;
+
+    // ajBuffreadLinePosStore: a line is appended to the text of the table when the input stores it
+    private string? NextStored(EmbossFeatureLines file)
+    {
+        string? line = file.Next();
+        if (line is not null && _context.StoreText)
+            TextPtr = (TextPtr ?? "") + line + "\n";
+        return line;
+    }
+
     /// <summary><c>featReadEmbl</c>: false when the lines held no feature.</summary>
     internal bool ReadEmbl(EmbossFeatureLines file)
     {
@@ -154,7 +169,7 @@ internal sealed partial class EmbossSeqFeatureTable
         string saveFeature = "", saveLoc = "", saveLine = "";
         SetType("N");
         string? raw;
-        while ((raw = file.Next()) is not null)
+        while ((raw = NextStored(file)) is not null)
         {
             string line = raw;
             if (line.StartsWith("//", StringComparison.Ordinal))

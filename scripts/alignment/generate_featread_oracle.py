@@ -494,6 +494,47 @@ def main_merge(out, n, seed):
     print(len(rows), 'rows;', sorted(Counter((r['format'], 'hang' if r['hang'] else 'out' if r['out'] else 'none') for r in rows).items()))
 
 
+def main_text(out, n, seed):
+    """A5-8c3f (B09 F246): feattext -features FILE -outfile out.txt (n runs)"""
+    import resource
+    rnd = random.Random(seed)
+    rows = []
+    with tempfile.TemporaryDirectory() as d:
+        work = os.path.join(d, 'w'); os.mkdir(work)
+
+        def limit():
+            resource.setrlimit(resource.RLIMIT_FSIZE, (4 << 20, 4 << 20))
+        while len(rows) < n:
+            kind = KINDS[len(rows) % len(KINDS)] if rnd.random() < 0.8 else rnd.choice(KINDS)
+            text = make(rnd, kind)
+            if rnd.random() < 0.15: text = damaged(rnd, text)
+            if rnd.random() < 0.05: text = text.rstrip('\n')
+            ufo = 'in.dat' if rnd.random() < 0.3 else '%s::in.dat' % FMTNAME[kind]
+            for nme in os.listdir(work): os.remove(os.path.join(work, nme))
+            open(os.path.join(work, 'in.dat'), 'w', newline='\n', encoding='latin-1').write(text)
+            hang = False
+            try:
+                p = subprocess.run(['feattext', '-auto', '-features', ufo, '-outfile', 'out.txt'], cwd=work, capture_output=True, timeout=4, preexec_fn=limit)
+                rc, err = p.returncode, p.stderr.decode('latin-1')
+                if rc == -25: hang = True
+            except subprocess.TimeoutExpired:
+                rc, err, hang = -9, '', True
+                subprocess.run(['pkill', '-9', 'feattext'])
+            q = os.path.join(work, 'out.txt')
+            outtext = open(q, encoding='latin-1', newline='').read() if os.path.exists(q) and not hang else ''
+            if err.startswith('Return a feature table original text\n'): err = err[len('Return a feature table original text\n'):]
+            rows.append({'id': len(rows), 'kind': kind, 'text': text, 'ufo': ufo, 'rc': rc, 'out': outtext, 'err': err, 'hang': hang})
+    with gzip.open(out, 'wt', encoding='utf-8', newline='\n', compresslevel=9) as fh:
+        for r in rows: fh.write(json.dumps(r, ensure_ascii=True) + '\n')
+    from collections import Counter
+    print(len(rows), 'rows;', sorted(Counter((r['kind'], 'hang' if r['hang'] else 'out' if r['out'] else 'none') for r in rows).items()))
+
+
+if __name__ == '__main__' and len(sys.argv) > 1 and sys.argv[1] == '--text':
+    main_text(sys.argv[2], int(sys.argv[3]), int(sys.argv[4]))
+    sys.exit(0)
+
+
 if __name__ == '__main__' and len(sys.argv) > 1 and sys.argv[1] == '--merge':
     main_merge(sys.argv[2], int(sys.argv[3]), int(sys.argv[4]))
     sys.exit(0)

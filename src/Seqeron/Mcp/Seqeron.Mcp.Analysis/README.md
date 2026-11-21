@@ -2,7 +2,7 @@
 
 MCP server — **K-mer, motif, repeat, complexity, RNA-structure and comparative-genomics analysis.**
 
-Exposes **176 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+Exposes **177 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
 MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test, with a
 per-tool doc under [`docs/mcp/tools/analysis/`](../../../../docs/mcp/tools/analysis). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
@@ -74,6 +74,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `wordmatch` | EMBOSS wordmatch: exact matches of a pattern set against large sequences (Rabin-Karp), alignments, statistics log and GFF3 feature files. |
 | `featcopy` | EMBOSS featcopy: every feature table of a file in any input format (embl, genbank, refseq, genpept, refseqp, gff2, gff3, swiss, pir, dasgff) written as gff3 / gff2 / embl / genbank / debug, with the library's messages. |
 | `featmerge` | EMBOSS featmerge: the first feature table of two feature files (any input format) merged and written as gff3 / gff2 / bed / embl / genbank / refseqp / pir / swiss / dasgff / draw / debug, with the library's messages. |
+| `feattext` | EMBOSS feattext: the original text of the entries of a feature file (EMBL / GenBank and GFF3 readers), with the library's messages. |
 | `mash_paste` | `mash paste`: one sketch file of several (first file's parameters; incompatible files skipped, larger sketches reduced). |
 | `emboss_report_file` | The whole report file of fuzznuc / fuzzpro / fuzztran / etandem / equicktandem in every -rformat (simple embl genbank gff gff3 pir swiss dasgff debug listfile dbmotif draw restrict excel feattable motif nametable regions seqtable srs summary table tagseq), with -raccshow -rdesshow -rscoreshow -rstrandshow -rusashow -rmaxall -rmaxseq, several sequences per file, -sbegin / -send / -sreverse and the -origfile of the tandem programs. |
 | `megamerger` | EMBOSS megamerger: merge two large overlapping DNA sequences by minimal non-overlapping word-match anchors (merged sequence + report); 600 random pairs equal megamerger 6.6.0 (B09 A3-13b). |

@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "feattext",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "EmbossFeaturePrograms.Feattext",
+  "docRef": "Seqeron.Genomics.Analysis/EmbossFeaturePrograms.cs",
+  "description": "EMBOSS 6.6.0 feattext: every feature table of a file (any input format of the EMBOSS feature readers; with no format every format is tried; 'format::' prefix and [begin:end] suffix in featuresValue) is read with the input storing the text it reads, and the text of each entry is returned as the library stored it: the EMBL / GenBank reader and the GFF3 reader keep the lines they consumed (a GFF3 table stops at the next ##gff-version line, which is given back with the library's off-by-the-line-ending cut of the stored text), the readers of the other formats keep none (nothing is returned for their tables). Equals the installed program on 400 runs (every input format, damaged files, the format:: prefix, the runs on which the program never stops refused with an error); the messages are returned as the program prints them.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "features": {
+        "type": "string",
+        "description": "The text of the feature file (a feature table of any input format, or an EMBL / GenBank entry; several tables may follow one another)."
+      },
+      "featuresValue": {
+        "type": "string",
+        "description": "The value of -features: 'format::' prefix and [begin:end] suffix are read as the program reads them; default the file itself."
+      }
+    },
+    "required": [
+      "features"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "text": {
+        "type": "string",
+        "description": "The text of the entries the readers stored."
+      },
+      "tables": {
+        "type": "integer",
+        "description": "The number of feature tables read."
+      },
+      "messages": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "What the library printed on its error stream (Warning: ..., Error: ...), in order."
+      }
+    },
+    "required": [
+      "text",
+      "tables",
+      "messages"
+    ]
+  },
+  "errors": [
+    {
+      "code": "InvalidParams",
+      "message": "Invalid arguments (an empty feature file, a file that no feature reader reads - 'Bad value for -features and no more retries' -, an input on which the reference program never stops)."
+    }
+  ],
+  "examples": [
+    {
+      "name": "The original text of an EMBL entry",
+      "input": {
+        "features": "ID   SEQA; SV 1; linear; genomic DNA; STD; UNC; 60 BP.\nXX\nFH   Key             Location/Qualifiers\nFH\nFT   gene            1..30\nXX\n//\n"
+      },
+      "output": {
+        "text": "ID   SEQA; SV 1; linear; genomic DNA; STD; UNC; 60 BP.\nXX\nFH   Key             Location/Qualifiers\nFH\nFT   gene            1..30\nXX\n//\n",
+        "tables": 1,
+        "messages": []
+      }
+    }
+  ]
+}

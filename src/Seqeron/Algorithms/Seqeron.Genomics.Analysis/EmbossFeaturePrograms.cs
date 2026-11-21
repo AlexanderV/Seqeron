@@ -37,6 +37,14 @@ public sealed record EmbossFeatcopyOutput(string FileName, string Text, string F
 public sealed record EmbossFeatmergeRequest(string AFeatures, string BFeatures, IReadOnlyDictionary<string, string> Files, int AFeatureBegin = 1, int? AFeatureEnd = null, int BFeatureBegin = 1, int? BFeatureEnd = null,
     string OutFeat = "unknown.gff", string? OutFormat = null, string? OutOpenFile = null, DateTime? RunDate = null);
 
+/// <summary>A run of <c>feattext</c>.</summary>
+/// <param name="Features">The value of <c>-features</c> (file with optional <c>format::</c> prefix and <c>[begin:end:r]</c> suffix).</param>
+/// <param name="Files">The input files by name.</param>
+public sealed record EmbossFeattextRequest(string Features, IReadOnlyDictionary<string, string> Files);
+
+/// <summary>The output of <c>feattext</c>: the text of every entry the feature readers read, and the messages the library printed.</summary>
+public sealed record EmbossFeattextOutput(string Text, int Tables, IReadOnlyList<string> Messages);
+
 /// <summary>
 /// The feature-table programs of EMBOSS 6.6.0 built on the feature library (<c>ajfeatread.c</c> readers, <c>ajfeatwrite.c</c> writers): <c>featcopy</c> (A5-8c3e, B09 F241): every feature table of a file in any input format (embl, genbank, refseq, genpept, refseqp,
 /// gff2, gff3, the gff3 of EMBOSS before 6.4, swiss, pir, dasgff; with no format the library tries each in turn) is written in an output format (every output format of the library: gff / gff3, gff2, bed, embl, genbank, refseq, refseqp, pir, swiss, dasgff, draw, debug; see <see cref="EmbossReportWriter.FeatureTableFormats"/>).
@@ -71,6 +79,30 @@ public static class EmbossFeaturePrograms
         if (tables == 0)
             context.Warn($"No features written to output file '{file}'");
         return new EmbossFeatcopyOutput(file, sb.ToString(), format, tables, [.. context.Messages]);
+    }
+
+    /// <summary>
+    /// Runs <c>feattext</c> (<c>emboss/feattext.c</c>): every feature table of the file is read with the input storing its text (<c>entry: "Y"</c>) and <c>ajFeattableGetEntry</c> of each is written: the text the EMBL / GenBank reader and the GFF3 reader
+    /// stored while they read the table (the other readers store none: nothing is written for their tables).
+    /// </summary>
+    /// <exception cref="EmbossFeatureDiedException">The input is no feature file ("Bad value for '-features' and no more retries").</exception>
+    public static EmbossFeattextOutput Feattext(EmbossFeattextRequest r)
+    {
+        ArgumentNullException.ThrowIfNull(r);
+        ArgumentNullException.ThrowIfNull(r.Features);
+        ArgumentNullException.ThrowIfNull(r.Files);
+        var context = new EmbossFeatureReadContext { Program = "feattext", StoreText = true };
+        var input = new EmbossFeatureInput(r.Features, name => r.Files.TryGetValue(name, out string? t) ? t : null, 1, null, context, "features", 1);
+        var sb = new System.Text.StringBuilder();
+        int tables = 0;
+        EmbossSeqFeatureTable? table;
+        while ((table = input.Next()) is not null)
+        {
+            sb.Append(table.TextPtr ?? "");
+            tables++;
+        }
+
+        return new EmbossFeattextOutput(sb.ToString(), tables, [.. context.Messages]);
     }
 
     /// <summary>

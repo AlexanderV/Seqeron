@@ -115,6 +115,7 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "emboss_report_file",
         "featcopy",
         "featmerge",
+        "feattext",
         "kmers_with_min_count",
         "lempel_ziv_complexity",
         "longdust_score",

@@ -901,7 +901,7 @@ internal sealed partial class EmbossSeqFeatureTable
         var idtable = new Dictionary<string, EmbossSeqFeature>(StringComparer.Ordinal);
         var childlist = new List<EmbossSeqFeature>();
         string? raw;
-        while ((raw = file.Next()) is not null)
+        while ((raw = NextStored(file)) is not null)
         {
             string line = Trim4(raw);
             Match m;
@@ -912,6 +912,8 @@ internal sealed partial class EmbossSeqFeatureTable
                     if (haveversion)
                     {
                         file.Clear(1);
+                        if (_context.StoreText && TextPtr is not null)
+                            TextPtr = TextPtr[..Math.Max(0, TextPtr.Length - line.Length)];          // ajFilebuffClearStore cuts as many characters as the TRIMMED line has
                         Gff3Matchtable(childlist, idtable);
                         return found;
                     }

@@ -152,6 +152,19 @@ public class EmbossProgramToolsTests
     }
 
     [Test]
+    public void Feattext_ReturnsTheStoredEntryText_AsTheProgram()
+    {
+        // feattext 6.6.0 (A5-8c3f, F246): the EMBL reader keeps the lines of the entry, the PIR reader none
+        const string embl = "ID   SEQA; SV 1; linear; genomic DNA; STD; UNC; 60 BP.\nXX\nFH   Key             Location/Qualifiers\nFH\nFT   gene            1..30\nXX\n//\n";
+        var r = AnalysisTools.Feattext(embl);
+        Assert.That(r.Tables, Is.EqualTo(1));
+        Assert.That(r.Text, Is.EqualTo(embl));
+        Assert.That(AnalysisTools.Feattext("F;1-10/Domain: x\n", "pir::features.dat").Text, Is.EqualTo(""));
+        Assert.That(() => AnalysisTools.Feattext("nothing here\n"), Throws.ArgumentException.With.Message.Contains("Bad value for '-features'"));
+        Assert.That(() => AnalysisTools.Feattext(" "), Throws.ArgumentException);
+    }
+
+    [Test]
     public void Diffseq_FeaturesFromSeparateFiles_AsTheProgram()
     {
         // diffseq 6.6.0 a.fa b.fa -wordsize 5 -ufo1 f1.gff -ufo2 swiss::f2.dat (A5-8c3e, F241): the features of the sequences come from the files, whatever their format

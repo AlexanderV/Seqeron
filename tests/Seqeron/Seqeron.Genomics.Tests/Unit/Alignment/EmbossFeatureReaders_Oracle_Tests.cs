@@ -382,6 +382,71 @@ public class EmbossFeatureReaders_Oracle_Tests
         Assert.That(hang, Is.GreaterThan(0));
     }
 
+    /// <summary>
+    /// A5-8c3f (F246): <c>feattext</c> (<see cref="EmbossFeaturePrograms.Feattext"/>) equals <c>feattext -features FILE -outfile out.txt</c> byte for byte, with its messages: the text of the entries the EMBL / GenBank and the GFF3 readers stored, nothing for the
+    /// other formats (TestData/Alignment/feattext_oracle.jsonl.gz, <c>generate_featread_oracle.py --text</c>).
+    /// </summary>
+    [Test]
+    public void Feattext_EqualsTheProgram_AllRows()
+    {
+        const string name = "Seqeron.Genomics.Tests.TestData.Alignment.feattext_oracle.jsonl.gz";
+        using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(name) ?? throw new InvalidOperationException($"Embedded oracle '{name}' not found.");
+        using var gz = new GZipStream(stream, CompressionMode.Decompress);
+        using var reader = new StreamReader(gz);
+        var failures = new List<string>();
+        int rows = 0, hang = 0, written = 0;
+        string? line;
+        while ((line = reader.ReadLine()) is not null)
+        {
+            var j = JsonDocument.Parse(line).RootElement;
+            rows++;
+            string expected = j.GetProperty("out").GetString()!;
+            string id = $"row {j.GetProperty("id")} ({j.GetProperty("kind").GetString()} {j.GetProperty("ufo").GetString()})";
+            var request = new EmbossFeattextRequest(j.GetProperty("ufo").GetString()!, new Dictionary<string, string> { ["in.dat"] = j.GetProperty("text").GetString()! });
+            string[] eLines = [.. j.GetProperty("err").GetString()!.Split('\n').Where(l => l.Length > 0)];
+            try
+            {
+                var got = EmbossFeaturePrograms.Feattext(request);
+                if (j.GetProperty("hang").GetBoolean())
+                {
+                    failures.Add($"{id}: the program never stops, the port returned");
+                    continue;
+                }
+
+                string[] gLines = [.. got.Messages.SelectMany(m => m.Split('\n')).Where(l => l.Length > 0)];
+                if (j.GetProperty("rc").GetInt32() != 0)
+                    failures.Add($"{id}: the program died, the port returned");
+                else if (got.Text != expected)
+                    failures.Add($"{id}: output differs at {FirstDifference(got.Text, expected)}");
+                else if (!eLines.SequenceEqual(gLines))
+                    failures.Add($"{id}: messages '{string.Join('|', gLines)}' expected '{string.Join('|', eLines)}'");
+                else if (expected.Length > 0)
+                    written++;
+            }
+            catch (EmbossFeatureDiedException e)
+            {
+                string[] gLines = [.. e.Errors.SelectMany(m => m.Split('\n')).Append(e.Message).Where(l => l.Length > 0)];
+                if (j.GetProperty("rc").GetInt32() != 1)
+                    failures.Add($"{id}: the port died, the program did not");
+                else if (!eLines.SequenceEqual(gLines))
+                    failures.Add($"{id}: messages '{string.Join('|', gLines)}' expected '{string.Join('|', eLines)}'");
+            }
+            catch (InvalidOperationException) when (j.GetProperty("hang").GetBoolean())
+            {
+                hang++;
+            }
+            catch (Exception e)
+            {
+                failures.Add($"{id}: {e.GetType().Name}: {e.Message}");
+            }
+        }
+
+        Assert.That(failures, Is.Empty, $"{failures.Count} of {rows}:\n" + string.Join("\n", failures.Take(12)));
+        Assert.That(rows, Is.GreaterThanOrEqualTo(400));
+        Assert.That(written, Is.GreaterThanOrEqualTo(150), "entries written");
+        Assert.That(hang, Is.GreaterThan(0));
+    }
+
     private static string FirstDifference(string got, string expected)
     {
         int i = 0;
