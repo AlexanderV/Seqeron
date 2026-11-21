@@ -81,4 +81,18 @@ public class EmbossFormatTests
         Assert.Throws<ArgumentException>(() => AlignmentTools.DualAffineAlign("ACGT", "ACGT", gapOpen1: 3));
         Assert.That(AlignmentTools.DualAffineAlign("ACGTACGT", "ACGTACGT", band: 0).Score, Is.EqualTo(16));
     }
+
+    [Test]
+    public void WriteAlignment_ThreeRows_SimpleHasTheConsensusMarkup_PairFormatsRefuseLikeTheProgram()
+    {
+        string[] rows = ["MKVLAAGIVGLLLAQP-", "MKVLSAGIVA-LLAQPP", "MRVLAAGLVGLLLVQP-"];
+        var simple = AlignmentTools.WriteAlignment(rows, "simple", names: ["a", "b", "c"], program: "aligncopy", runDate: "2026-11-21T19:14:37", commandLine: ["-sequences a3.fa", "-aformat simple", "-outfile stdout", "-auto"]);
+        var ex = Assert.Throws<ArgumentException>(() => AlignmentTools.WriteAlignment(rows, "pair", names: ["a", "b", "c"]));
+        Assert.Multiple(() =>
+        {
+            Assert.That(simple.Text, Does.Contain("# Aligned_sequences: 3\n# 1: a\n# 2: b\n# 3: c\n# Matrix: EBLOSUM62\n#\n# Length: 17\n# Identity:      10/17 (58.8%)\n# Similarity:    16/17 (94.1%)\n# Gaps:           2/17 (11.8%)\n"));
+            Assert.That(simple.Text, Does.Contain("a                  1 MKVLAAGIVGLLLAQP-     16\nb                  1 MKVLSAGIVA-LLAQPP     16\nc                  1 MRVLAAGLVGLLLVQP-     16\n                     |:||:||:|::||:|| \n"));
+            Assert.That(ex!.Message, Does.StartWith("Alignment format pair specifies at most 2 sequences, alignment has 3"));
+        });
+    }
 }

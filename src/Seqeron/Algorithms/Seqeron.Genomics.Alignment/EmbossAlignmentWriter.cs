@@ -144,6 +144,42 @@ public sealed class EmbossAlignmentWriter
         return this;
     }
 
+    /// <summary>
+    /// One <c>ajAlignWrite</c> of an alignment of any number of rows (<c>aligncopy</c>): <c>unknown</c> / <c>multiple</c> / <c>simple</c> (the consensus markup under the rows for three or more), <c>srs</c> and the sequence-style formats.
+    /// The pair-markup formats take at most two rows: the program refuses them with the message of the exception.
+    /// </summary>
+    /// <exception cref="ArgumentException">A pair-markup format of more than two rows.</exception>
+    public EmbossAlignmentWriter Write(EmbossMultiAlignment alignment)
+    {
+        ArgumentNullException.ThrowIfNull(alignment);
+        ThrowIfClosed();
+        int n = alignment.Rows.Count;
+        if (n < 2)
+            throw new ArgumentException("An alignment has at least two rows.", nameof(alignment));
+        if (n > 2 && IsPairFormat(_format))
+            throw new ArgumentException($"Alignment format {FormatName(_format)} specifies at most 2 sequences, alignment has {n}", nameof(alignment));
+        var d = new Pair(alignment, _o);
+        switch (_format)
+        {
+            case EmbossAlignFormat.Unknown:
+            case EmbossAlignFormat.Multiple:
+            case EmbossAlignFormat.Simple:
+                WriteSimple([d]);
+                break;
+            case EmbossAlignFormat.Srs:
+                WriteSrs([d], false);
+                break;
+            default:
+                if (IsPairFormat(_format) || _format == EmbossAlignFormat.TCoffee)
+                    throw new NotSupportedException($"The format '{FormatName(_format)}' of {n} rows is not ported.");
+                _seqOnly = true;
+                WriteSeqFormat(d.Rows);
+                break;
+        }
+
+        return this;
+    }
+
     private void WriteMarks(List<Pair> data, int markx)
     {
         foreach (var d in data)
@@ -186,13 +222,14 @@ public sealed class EmbossAlignmentWriter
     private sealed class Pair
     {
         public readonly EmbossAlignedSequence[] Seq;
-        public readonly string[] Row = new string[2];
-        public readonly int[] Start = [1, 1];
-        public readonly int[] End = new int[2];
-        public readonly int[] Len = new int[2];
-        public readonly int[] Offset = new int[2];
-        public readonly int[] Offend = new int[2];
-        public readonly bool[] Rev = new bool[2];
+        public readonly string[] Row;
+        public readonly int[] Start;
+        public readonly int[] End;
+        public readonly int[] Len;
+        public readonly int[] Offset;
+        public readonly int[] Offend;
+        public readonly bool[] Rev;
+        public readonly string DefaultMatrix = "";
         public readonly string ScoreText;
         public readonly string ExtraSubHeader;
         public readonly int LenAli;
@@ -201,9 +238,54 @@ public sealed class EmbossAlignmentWriter
         public readonly int NumGap;
         public readonly string Marks;     // | : . and blank, the pair-markup of the simple format
 
+        /// <summary>An alignment of three or more rows (<c>aligncopy</c>): the statistics and the markup come from <c>alignConsStats</c>.</summary>
+        public Pair(EmbossMultiAlignment m, EmbossAlignOptions o)
+        {
+            Seq = [.. m.Rows.Select(Standardize)];
+            int n = Seq.Length;
+            Row = new string[n];
+            Start = new int[n];
+            Array.Fill(Start, 1);
+            End = new int[n];
+            Len = new int[n];
+            Offset = new int[n];
+            Offend = new int[n];
+            Rev = new bool[n];
+            for (int i = 0; i < n; i++)
+            {
+                Row[i] = Seq[i].Row;
+                End[i] = Row[i].Length;
+                Offset[i] = Seq[i].Offset;
+                Offend[i] = Seq[i].Offend;
+                Rev[i] = Seq[i].Reversed;
+                Len[i] = Row[i].Length + Offset[i] + Offend[i] - Row[i].Count(c => GapChars.Contains(c));
+            }
+
+            if (Row.Any(r => r.Length != Row[0].Length))
+                throw new ArgumentException("The aligned rows must have equal length.", nameof(m));
+            ScoreText = "";
+            ExtraSubHeader = "";
+            bool nucleotide = IsNuc(Row[0]);
+            var matrix = o.Matrix ?? SubstitutionMatrix.Get(nucleotide ? "EDNAFULL" : "EBLOSUM62");
+            DefaultMatrix = o.Matrix is null ? MatrixFileName(matrix) : "";
+            var st = EmbossAlignmentConsensus.Calculate(Row, [.. Seq.Select(x => (float)x.Weight)], matrix);
+            LenAli = Row[0].Length;
+            NumId = st.Identical;
+            NumSim = st.Similar;
+            NumGap = st.Gaps;
+            Marks = EmbossAlignmentConsensus.Markup(st.Consensus, '|', ':', '.', ' ');
+        }
+
         public Pair(EmbossPairAlignment a, EmbossAlignOptions o)
         {
             Seq = [Standardize(a.First), Standardize(a.Second)];
+            Row = new string[2];
+            Start = [1, 1];
+            End = new int[2];
+            Len = new int[2];
+            Offset = new int[2];
+            Offend = new int[2];
+            Rev = new bool[2];
             for (int i = 0; i < 2; i++)
             {
                 Row[i] = Seq[i].Row;
@@ -349,8 +431,8 @@ public sealed class EmbossAlignmentWriter
         }
 
         o.Append("\n#=======================================\n#\n");
-        o.Append("# Aligned_sequences: 2\n");
-        for (int i = 0; i < 2; i++)
+        o.Append("# Aligned_sequences: ").Append(d.Seq.Length).Append('\n');
+        for (int i = 0; i < d.Seq.Length; i++)
         {
             var s = d.Seq[i];
             string extra = "";
@@ -362,6 +444,8 @@ public sealed class EmbossAlignmentWriter
         }
 
         string matrixName = PrintedMatrixName();
+        if (matrixName.Length == 0)
+            matrixName = d.DefaultMatrix;
         if (matrixName.Length > 0)
             o.Append("# Matrix: ").Append(matrixName).Append('\n');
         if (_o.GapPenalty is { } gp)
@@ -439,18 +523,20 @@ public sealed class EmbossAlignmentWriter
             WriteHeader(d);
             string cons = d.Marks;
             int ilen = d.LenAli;
-            int[] incs = [d.Increment(0), d.Increment(1)];
-            int[] ipos = [d.SeqBegin(0) - incs[0], d.SeqBegin(1) - incs[1]];
+            int nseq = d.Seq.Length;
+            int[] incs = [.. Enumerable.Range(0, nseq).Select(d.Increment)];
+            int[] ipos = [.. Enumerable.Range(0, nseq).Select(k => d.SeqBegin(k) - incs[k])];
             for (int i = 0; i < ilen; i += iwidth)
             {
-                for (int iseq = 0; iseq < 2; iseq++)
+                string mrk = "";
+                for (int iseq = 0; iseq < nseq; iseq++)
                 {
                     int istart = i;
                     int iend = Math.Min(ilen - 1, istart + iwidth - 1);
                     string tmp = d.Row[iseq].Substring(istart, iend - istart + 1).Replace('.', '-');
-                    string mrk = cons.Substring(istart, iend - istart + 1);
+                    mrk = cons.Substring(istart, iend - istart + 1);
                     int icnt = incs[iseq] * (tmp.Length - tmp.Count(c => c == '-') - tmp.Count(c => c == ' '));
-                    if (iseq == 1)
+                    if (nseq == 2 && iseq == 1)
                         _out.Append("                     ").Append(mrk).Append('\n');
                     if (tmp.Length > 0)
                         _out.Append(Left(SeqName(d.Seq[iseq]), 13)).Append(' ').Append(Right(ipos[iseq] + incs[iseq], 6)).Append(' ').Append(tmp).Append(' ').Append(Right(ipos[iseq] + icnt, 6)).Append('\n');
@@ -459,6 +545,8 @@ public sealed class EmbossAlignmentWriter
                     ipos[iseq] += icnt;
                 }
 
+                if (nseq > 2)
+                    _out.Append("                     ").Append(mrk).Append('\n');
                 _out.Append('\n');
             }
         }
@@ -472,11 +560,12 @@ public sealed class EmbossAlignmentWriter
             WriteHeader(d);
             string cons = d.Marks;
             int ilen = d.LenAli;
-            int[] incs = [d.Increment(0), d.Increment(1)];
-            int[] ipos = [d.SeqBegin(0) - incs[0], d.SeqBegin(1) - incs[1]];
+            int nseq = d.Seq.Length;
+            int[] incs = [.. Enumerable.Range(0, nseq).Select(d.Increment)];
+            int[] ipos = [.. Enumerable.Range(0, nseq).Select(k => d.SeqBegin(k) - incs[k])];
             for (int i = 0; i < ilen; i += iwidth)
             {
-                for (int iseq = 0; iseq < 2; iseq++)
+                for (int iseq = 0; iseq < nseq; iseq++)
                 {
                     int istart = i;
                     int iend = Math.Min(ilen - 1, istart + iwidth - 1);

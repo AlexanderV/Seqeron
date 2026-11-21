@@ -255,6 +255,8 @@
     <EmbeddedResource Include="TestData\Alignment\poa_msa_oracle.tsv" />
     <!-- spoa 4.0.8 command line (B09 A2-26c, F232): runs of the installed program; scripts/alignment/generate_spoa_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\spoa_oracle.tsv" />
+    <!-- EMBOSS alignment formats of three or more rows (B09 A2-27d, F233): runs of the installed aligncopy; scripts/alignment/generate_emboss_multirow_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\emboss_multirow_oracle.tsv" />
     <!-- ALIGN-MULTI-001 (audit A2-20, B09 F118): whole Kalign 3.3.5 command lines (argument parser quirks, types, gap options, thread counts, formats, input files, refusals) and the text the program writes;
          scripts/alignment/generate_kalign_command_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\kalign_command_oracle.tsv" />

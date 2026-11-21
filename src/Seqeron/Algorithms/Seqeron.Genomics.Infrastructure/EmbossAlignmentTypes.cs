@@ -102,6 +102,10 @@ public sealed record EmbossAlignedSequence(
     }
 }
 
+/// <summary>An alignment of any number of rows (the input of <c>aligncopy</c>): equal-length aligned rows; <see cref="EmbossAlignedSequence.Weight"/> is the sequence weight of the consensus.</summary>
+/// <param name="Rows">The aligned rows.</param>
+public sealed record EmbossMultiAlignment(IReadOnlyList<EmbossAlignedSequence> Rows);
+
 /// <summary>One pairwise alignment as reported by needle / water / stretcher / matcher / supermatcher.</summary>
 /// <param name="First">The first sequence (<c>-asequence</c>).</param>
 /// <param name="Second">The second sequence (<c>-bsequence</c>).</param>

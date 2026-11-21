@@ -102,7 +102,7 @@ public partial class AlignmentTools
     }
 
     [McpServerTool(Name = "write_alignment", Title = "Alignment — Write an alignment file (EMBOSS -aformat)", ReadOnly = true)]
-    [Description("Writes an alignment (gapped rows) in an EMBOSS 6.6.0 -aformat output format, byte for byte as the installed programs print it: PAIRWISE formats (exactly two rows; header with program, run date, command line, matrix, gap penalties and Length / Identity / Similarity / Gaps / Score): pair, simple, srspair, srs, markx0, markx1, markx2, markx3, markx10, match, score, sam, tcoffee, unknown, multiple; SEQUENCE-SET formats (any number of rows): fasta, a2m, msf, clustal, mega, meganon, nexus, paup, nexusnon, paupnon, phylip, phylipnon, selex, treecon. The pair formats take the score, the matrix (decides the similarity marks and count), the gap penalties and the program name (needle, water, stretcher, matcher, supermatcher: stretcher prints integer scores). VERIFICATION: 3 303 needle / water / stretcher files (29 formats x 114 alignment sets, faked run dates) and 1 309 seqret files (11 sequence-set formats, 1–9 rows) are identical to the installed EMBOSS 6.6.0. Offsets (residues of the original sequences outside the aligned part) are given per row for the local alignments.")]
+    [Description("Writes an alignment (gapped rows) in an EMBOSS 6.6.0 -aformat output format, byte for byte as the installed programs print it: PAIRWISE formats (exactly two rows; header with program, run date, command line, matrix, gap penalties and Length / Identity / Similarity / Gaps / Score): pair, simple, srspair, srs, markx0, markx1, markx2, markx3, markx10, match, score, sam, tcoffee, unknown, multiple; unknown, multiple, simple and srs also take THREE OR MORE rows (the consensus of EMBOSS alignConsStats under the rows, as aligncopy writes them; 800 / 800 committed alignments of 3 - 8 rows equal the installed program), while the pair-markup formats refuse more than two rows with the program's message (Alignment format pair specifies at most 2 sequences, alignment has 3); SEQUENCE-SET formats (any number of rows): fasta, a2m, msf, clustal, mega, meganon, nexus, paup, nexusnon, paupnon, phylip, phylipnon, selex, treecon. The pair formats take the score, the matrix (decides the similarity marks and count), the gap penalties and the program name (needle, water, stretcher, matcher, supermatcher: stretcher prints integer scores). VERIFICATION: 3 303 needle / water / stretcher files (29 formats x 114 alignment sets, faked run dates) and 1 309 seqret files (11 sequence-set formats, 1–9 rows) are identical to the installed EMBOSS 6.6.0. Offsets (residues of the original sequences outside the aligned part) are given per row for the local alignments.")]
     public static WriteAlignmentResult WriteAlignment(
         [Description("The aligned rows ('-' = gap); two for the pairwise formats, one or more for the sequence-set formats.")] string[] alignedSequences,
         [Description("The EMBOSS -aformat name: pair, simple, srspair, srs, markx0, markx1, markx2, markx3, markx10, match, score, sam, tcoffee, unknown, multiple, fasta, a2m, msf, clustal, mega, meganon, nexus, paup, nexusnon, paupnon, phylip, phylipnon, selex, treecon.")] string format = "srspair",
@@ -175,6 +175,14 @@ public partial class AlignmentTools
         if (global::Seqeron.Genomics.Alignment.EmbossAlignmentWriter.IsPairFormat(fmt) || fmt is global::Seqeron.Genomics.Infrastructure.EmbossAlignFormat.Simple or global::Seqeron.Genomics.Infrastructure.EmbossAlignFormat.Srs
             or global::Seqeron.Genomics.Infrastructure.EmbossAlignFormat.Multiple or global::Seqeron.Genomics.Infrastructure.EmbossAlignFormat.Unknown or global::Seqeron.Genomics.Infrastructure.EmbossAlignFormat.TCoffee)
         {
+            if (rows.Count > 2 && fmt != global::Seqeron.Genomics.Infrastructure.EmbossAlignFormat.TCoffee)
+            {
+                var multi = new global::Seqeron.Genomics.Alignment.EmbossAlignmentWriter(fmt, options);
+                multi.Write(new global::Seqeron.Genomics.Infrastructure.EmbossMultiAlignment(rows));
+                text = multi.Close();
+                return new WriteAlignmentResult(text, global::Seqeron.Genomics.Alignment.EmbossAlignmentWriter.FormatName(fmt), "emboss");
+            }
+
             if (rows.Count != 2)
                 throw new ArgumentException($"The pairwise format '{format}' takes exactly two aligned rows (got {rows.Count}); the sequence-set formats take any number.", nameof(alignedSequences));
             text = global::Seqeron.Genomics.Alignment.EmbossAlignmentWriter.Format(fmt, [new global::Seqeron.Genomics.Infrastructure.EmbossPairAlignment(rows[0], rows[1], score)], options);
