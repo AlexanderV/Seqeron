@@ -18,8 +18,9 @@ public sealed record PoaProgramResult(int ExitCode, string Stdout, string Stderr
 /// text given as a dictionary.
 /// </summary>
 /// <remarks>
-/// Not ported (accepted by the program, unsupported here): <c>-read_msa</c>, <c>-read_msa2</c>, <c>-read_msa_list</c> (MSA / PO file input) and <c>-subset</c> / <c>-remove</c> (they raise
-/// <see cref="NotSupportedException"/>).
+/// MSA / PO file input (<c>-read_msa</c>, <c>-read_msa2</c>, <c>-read_msa_list</c>, <c>-subset</c>, <c>-subset2</c>, <c>-remove</c>, <c>-remove2</c>): <c>msa_format.c</c> (the format is detected from the first line: PIR, PO, CLUSTAL;
+/// <c>fgets</c> chunks of 510 characters) and <c>lpo_format.c</c> (<c>read_lpo</c>, <c>read_lpo_select</c>) in <c>SequenceAligner.PoaInput.cs</c>. An alignment row name beyond 31 characters (the program aborts in `strcpy`), a PO file with links or sources outside the file
+/// (the program reads / writes outside its arrays) and an unclosed alignment ring are refused with exit status 1.
 /// </remarks>
 public static class PoaProgram
 {
@@ -100,8 +101,7 @@ public static class PoaProgram
     /// <summary>Runs the program on text "files". See <see cref="PoaProgramResult"/>.</summary>
     /// <param name="arguments">The command-line arguments (without the program name).</param>
     /// <param name="files">Input files (name -> text): the FASTA file, the matrix file, the pair-score file.</param>
-    /// <exception cref="NotSupportedException">An MSA input option (unsupported; use FASTA input).</exception>
-    public static PoaProgramResult Run(IReadOnlyList<string> arguments, IReadOnlyDictionary<string, string>? files = null)
+        public static PoaProgramResult Run(IReadOnlyList<string> arguments, IReadOnlyDictionary<string, string>? files = null)
     {
         SequenceAligner.RequireProgramCall(arguments, files);
         files ??= new Dictionary<string, string>();
@@ -152,9 +152,6 @@ public static class PoaProgram
             return new PoaProgramResult(1, string.Empty, err.ToString(), outFiles);
         }
 
-        if (msa != null || msa2 != null || msaList != null)
-            throw new NotSupportedException("-read_msa / -read_msa2 / -read_msa_list (MSA and PO file input) are accepted by the program but are not supported by this library; use -read_fasta.");
-
         float hbThreshold = 0.9f;
         if (hbmin != null) hbThreshold = (float)Atof(hbmin);
         PoaScoreMatrix matrix;
@@ -169,8 +166,35 @@ public static class PoaProgram
             return new PoaProgramResult(1, string.Empty, err.ToString(), outFiles);
         }
 
-        IReadOnlyList<PoaSequence> seqs;
-        string? comment;
+        // the inputs in the order of main.c: -read_msa, -read_msa2, -read_msa_list, -read_fasta (a file that cannot be opened stops the run when its turn comes)
+        PoaMsaFile? ReadFile(string? file, string? subsetFile, bool removeListed)
+        {
+            if (file == null) return null;
+            string? subsetText = null;
+            if (subsetFile != null) files.TryGetValue(subsetFile, out subsetText);
+            return new PoaMsaFile(file, files.TryGetValue(file, out var text) ? text : null, subsetFile, subsetText, removeListed);
+        }
+
+        PoaMsaFile? msaFile = ReadFile(msa, subset ?? remove, remove != null);
+        PoaMsaFile? msa2File = ReadFile(msa2, subset2 ?? remove2, remove2 != null);
+        var listEntries = new List<PoaMsaFile>();
+        if (msaList != null)
+        {
+            if (files.TryGetValue(msaList, out var listText))
+            {
+                foreach (var entry in listText.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
+                    listEntries.Add(ReadFile(entry, null, false)!);
+            }
+
+            if (listEntries.Count == 0)
+            {
+                err.Append("Error reading PO list file ").Append(msaList).Append(".\nExiting\n");
+                return new PoaProgramResult(1, string.Empty, err.ToString(), outFiles);
+            }
+        }
+
+        IReadOnlyList<PoaSequence> seqs = [];
+        string? comment = null;
         if (fastaFile != null)
         {
             if (!files.TryGetValue(fastaFile, out var ftext))
@@ -186,9 +210,9 @@ public static class PoaProgram
                 return new PoaProgramResult(1, string.Empty, err.ToString(), outFiles);
             }
 
-            err.Append("...Read ").Append(seqs.Count.ToString(CultureInfo.InvariantCulture)).Append(" sequences from sequence file ").Append(fastaFile).Append("...\n");
+            // the message of the program names the sequence file after the MSA files have been read: kept in the order of main.c below
         }
-        else
+        else if (msaFile == null && msa2File == null && listEntries.Count == 0)
         {
             err.Append("No input sequences were provided; use one of the -read_ flags.\nExiting.\n");
             return new PoaProgramResult(1, string.Empty, err.ToString(), outFiles);
@@ -219,7 +243,12 @@ public static class PoaProgram
         PoaRunResult run;
         try
         {
-            run = SequenceAligner.PoaRun(seqs, matrix, options);
+            run = SequenceAligner.PoaRunProgram(new PoaProgramInputs(msaFile, msa2File, listEntries, seqs), matrix, options, err, fastaFile);
+        }
+        catch (PoaInputException e)
+        {
+            err.Append(e.Message).Append('\n');
+            return new PoaProgramResult(e.ExitCode, string.Empty, err.ToString(), outFiles);
         }
         catch (ArgumentException e)
         {
@@ -227,7 +256,7 @@ public static class PoaProgram
             return new PoaProgramResult(1, string.Empty, err.ToString(), outFiles);
         }
 
-        int nsource = run.Names.Length - (hb ? run.Order.Count(o => o < 0) : 0);
+        int nsource = run.Names.Length; // lpo_out->nsource_seq: the bundle consensus sequences of -hb count
         if (poOut != null)
         {
             outFiles[poOut] = run.Po;

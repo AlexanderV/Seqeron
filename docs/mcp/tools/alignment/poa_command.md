@@ -14,7 +14,7 @@ command line (FASTA / matrix / pair-score files)
 
 ## Description
 
-POA 2.0 as a function of its command line and the text of the files it names (PoaProgram.Run): poa -read_fasta FILE [-do_global] [-do_progressive] [-read_pairscores FILE] [-fuse_all] [-hb] [-hbmin X] [-best] [-preserve_seqorder] [-tolower] [-toupper] [-pir FILE] [-clustal FILE] [-po FILE] [-printmatrix LETTERS] [-v] MATRIXFILE, with the program's argument loop (every argument is tested against every flag; unknown flags are ignored; the first argument that does not start with a dash is the matrix file). Output: the PIR / CLUSTAL / PO files named by -pir / -clustal / -po, standard output (-v gap penalty tables, -printmatrix, the permutation line of -preserve_seqorder). Exit code 1 = the program stops with an error (no matrix or unreadable matrix, no sequence file, no sequences, conflicting flags), 255 = called without arguments (usage). The alignment progress lines of standard error are not reproduced (the program prints uninitialised %ld arguments there); the '...Read N sequences...' / '...Wrote N sequences...' lines are. -read_msa / -read_msa2 / -read_msa_list / -subset / -remove are not ported (NotSupportedException, registered). VERIFICATION: exit code, standard output and the three output files equal the installed Debian poa 2.0+20060928 on 359 / 359 committed command lines.
+POA 2.0 as a function of its command line and the text of the files it names (PoaProgram.Run): poa [-read_fasta FILE] [-read_msa FILE] [-read_msa2 FILE] [-read_msa_list FILE] [-subset FILE] [-subset2 FILE] [-remove FILE] [-remove2 FILE] [-do_global] [-do_progressive] [-read_pairscores FILE] [-fuse_all] [-hb] [-hbmin X] [-best] [-preserve_seqorder] [-tolower] [-toupper] [-pir FILE] [-clustal FILE] [-po FILE] [-printmatrix LETTERS] [-v] MATRIXFILE, with the program's argument loop (every argument is tested against every flag; unknown flags are ignored; the first argument that does not start with a dash is the matrix file). Output: the PIR / CLUSTAL / PO files named by -pir / -clustal / -po, standard output (-v gap penalty tables, -printmatrix, the permutation line of -preserve_seqorder). Exit code 1 = the program stops with an error (no matrix or unreadable matrix, no sequence file, no sequences, conflicting flags), 255 = called without arguments (usage). The alignment progress lines of standard error are not reproduced (the program prints uninitialised %ld arguments there); the '...Read N sequences...' / '...Wrote N sequences...' lines are. The MSA / PO inputs (-read_msa, -read_msa2, -read_msa_list; the format is detected from the first line: a PO file, a FASTA-PIR alignment or a CLUSTAL alignment; rows are read in 510-character pieces like the program's fgets) and the filters -subset / -subset2 / -remove / -remove2 (SOURCENAME= lines) are ported; an alignment row name beyond 31 characters, a PO file whose links / sources / rings are inconsistent and a row without residues stop the run (exit 1 / 255) where the program aborts, crashes or loops. VERIFICATION: exit code, standard output, the Read / Wrote lines and the three output files equal the installed Debian poa 2.0+20060928 on 359 / 359 FASTA command lines and 687 / 687 MSA / PO input command lines (scripts/alignment/generate_poa_msa_oracle.py).
 
 ## Core Documentation Reference
 
@@ -27,7 +27,7 @@ POA 2.0 as a function of its command line and the text of the files it names (Po
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `arguments` | array<string> | Yes | The command-line arguments of poa, one per element (for example ["-read_fasta", "in.fa", "-clustal", "out.aln", "blosum80.mat"]). |
-| `files` | object<string,string> | No | The text of the files the arguments name: file name -> text (FASTA file, matrix file, pair-score file). |
+| `files` | object<string,string> | No | The text of the files the arguments name: file name -> text (FASTA / MSA / PO file, subset list, matrix file, pair-score file). |
 
 ## Output Schema
 
@@ -43,7 +43,7 @@ POA 2.0 as a function of its command line and the text of the files it names (Po
 | Code | Message |
 |------|---------|
 | 1001 | arguments is null |
-| 1002 | -read_msa / -read_msa2 / -read_msa_list (accepted by the program, not ported): NotSupportedException |
+| 1002 | (none: a refused command line is an exit code 1 / 255 with the reason in `stderr`) |
 
 ## Examples
 

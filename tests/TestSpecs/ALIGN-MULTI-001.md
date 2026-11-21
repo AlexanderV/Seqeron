@@ -704,6 +704,11 @@ Tests (`Seqeron.Genomics.Tests`, against the installed Debian `probcons` 1.12-14
 Tests (`Seqeron.Genomics.Tests`, against the installed Debian `poa` 2.0+20060928): `SequenceAligner_PoaOracle_Tests` x360 (`poa_oracle.tsv`: 359 command lines run by `scripts/alignment/generate_poa_oracle.py` - protein families with BLOSUM80 and the truncated / decaying gap model of `blosum80_trunc`, nucleotide families with four lower-case matrices (`GAP-PENALTIES`, `GAP-PENALTIES-X`, `GAP-TRUNCATION-LENGTH`, `GAP-DECAY-LENGTH`), default (iterative local), `-do_global`, `-do_progressive` (local / global), `-read_pairscores`, `-fuse_all`, `-hb` / `-hbmin` / `-best`, `-preserve_seqorder`, `-tolower` / `-toupper`, unknown letters, odd FASTA (CRLF, comments, `*` lines, long names, empty records, one residue), `-v`, `-printmatrix`, 150 - 300 residue sets, error exits: exit code, standard output and the PO / PIR / CLUSTAL files byte for byte), `SequenceAligner_Poa_Tests` x9 (rows / PIR / CLUSTAL / PO head of the program's default run, heaviest bundle, progressive + permutation + `-v`, matrix parser and printer, letters outside the matrix, validation, usage, FASTA reader), MCP `PoaTests` x3 (`multiple_align_poa`, `poa_command`).
 
 
+
+## Audit A2-26b (B09 F223): POA MSA / PO file input
+
+Tests (`Seqeron.Genomics.Tests`, against the installed Debian `poa` 2.0+20060928): `SequenceAligner_PoaMsaOracle_Tests` x2 - `poa_msa_oracle.tsv` (687 command lines from `scripts/alignment/generate_poa_msa_oracle.py`: single / two MSAs, MSA + FASTA, `-read_msa_list`, `-subset` / `-remove` for both files, PO / PIR / CLUSTAL inputs the program wrote and hand-made ones (comments, digits, CRLF, wrapped rows, blank lines, 510-character `fgets` pieces, empty / garbage files, PO files with unusual fields), every option, error exits): exit status (non-zero = non-zero; rows where the program crashes or loops stop here), standard output, `...` lines of standard error and the three written files equal on 687 / 687; `SequenceAligner_Poa_Tests.Program_Usage_AndMissingMsaFileStopsTheRun`.
+
 ## Audit round 3 (B09 F129 - F135, WP35): input contract, resource limits, penalties, cancellation, MUSCLE default, T-Coffee `random`
 
 | ID | Test | Locks |

@@ -323,7 +323,7 @@ Quirks of the program that are reproduced (and locked by the oracle): letters ou
 
 Input bytes (audit A3-1, F129): the program reads BYTES, so a non-ASCII character is its UTF-8 bytes, every byte one residue outside the matrix and therefore the matrix's first symbol (`MultipleAlignPoa(["ACG\u017fT", "AC\u0131GT"])` -> `ACGAAT` / `ACAAGT`, as the installed `poa`; U+00A0 / U+0085 are two residues, not white space; `-tolower` / `-toupper` touch ASCII only). The port applies the same byte view (`PoaEngine.PoaByteView`), also to the file text of `PoaProgram`.
 
-Not ported (registered B09.md A2-26b): MSA / PO file input (`-read_msa`, `-read_msa2`, `-read_msa_list`, `-subset*`, `-remove*`: `read_msa` and the MSA reader of `msa_format.c`), standard-error progress lines (they print uninitialised `%ld` arguments).
+MSA / PO file input (audit A2-26b, F223): `-read_msa`, `-read_msa2`, `-read_msa_list`, `-subset` / `-subset2`, `-remove` / `-remove2` (`SequenceAligner.PoaInput.cs`: `read_msa_select` with the format detected from the first line, `read_clustal`, `read_pir`, `lpo_from_aln_mat` (rows fused into a consensus row and stripped again), `filter_sequence_set`, `read_lpo`, `read_lpo_select`, `strip_seq_from_lpo`, `lpo_index_symbols`; `fgets` pieces of 510 characters, `fscanf` conversions of the program, the PIR blank-line quirk that re-uses the previous row) equal the installed program on 687 / 687 command lines. An alignment row name beyond 31 characters (the program aborts in `strcpy`), a row without residues (exit 255), links / sources outside the PO file and unclosed alignment rings (the program loops or reads outside its arrays) stop the run here. `spoa` / `abpoa` are separate programs (registered A2-26c).
 
 ## 5. Implementation Notes
 

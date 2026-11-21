@@ -109,14 +109,16 @@ public class SequenceAligner_Poa_Tests
     }
 
     [Test]
-    public void Program_Usage_AndMsaInputIsRegistered()
+    public void Program_Usage_AndMissingMsaFileStopsTheRun()
     {
         Assert.Multiple(() =>
         {
             var usage = PoaProgram.Run([]);
             Assert.That(usage.ExitCode, Is.EqualTo(255), "exit (-1)");
             Assert.That(usage.Stderr, Does.StartWith("\nUsage: poa [OPTIONS] MATRIXFILE\n"));
-            Assert.Throws<NotSupportedException>(() => PoaProgram.Run(["-read_msa", "x.msa", "m.mat"], new Dictionary<string, string> { ["m.mat"] = "A\nA 1\n" }));
+            var missing = PoaProgram.Run(["-read_msa", "x.msa", "m.mat"], new Dictionary<string, string> { ["m.mat"] = "A\nA 1\n" });
+            Assert.That(missing.ExitCode, Is.EqualTo(1));
+            Assert.That(missing.Stderr, Does.Contain("Couldn't open MSA file x.msa."));
         });
     }
 

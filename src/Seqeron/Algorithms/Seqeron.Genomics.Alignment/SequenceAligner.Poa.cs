@@ -354,7 +354,18 @@ public static partial class SequenceAligner
         return new PoaEngine(m, o).Run(sequences);
     }
 
-    private sealed class PoaEngine
+    /// <summary>The whole <c>poa</c> program on its inputs (MSA / PO files and FASTA records), see <see cref="PoaProgram.Run"/>.</summary>
+    internal static PoaRunResult PoaRunProgram(PoaProgramInputs inputs, PoaScoreMatrix? matrix, PoaOptions? options, StringBuilder err, string? fastaFile)
+    {
+        var o = options ?? new PoaOptions();
+        using var cancelScope = AlignmentCancellation.Enter(o.CancellationToken);
+        var m = matrix ?? PoaScoreMatrix.Parse(PoaDefaultMatrix.Text);
+        if (fastaFile != null)
+            return new PoaEngine(m, o).RunProgram(inputs, err, fastaFile);
+        return new PoaEngine(m, o).RunProgram(inputs, err, null);
+    }
+
+    private sealed partial class PoaEngine
     {
         private readonly PoaScoreMatrix _m;
         private readonly PoaOptions _o;
@@ -1218,7 +1229,8 @@ public static partial class SequenceAligner
 
         // ----- main -----
 
-        public PoaRunResult Run(IReadOnlyList<PoaSequence> input)
+        /// <summary>The <c>-v</c> gap tables and the <c>-printmatrix</c> table (printed before any input is read).</summary>
+        internal void Header()
         {
             if (_o.Verbose)
             {
@@ -1234,6 +1246,11 @@ public static partial class SequenceAligner
             }
 
             if (_o.PrintMatrix != null) _stdout.Append(_m.Print(_o.PrintMatrix));
+        }
+
+        public PoaRunResult Run(IReadOnlyList<PoaSequence> input)
+        {
+            Header();
             var all = new List<PoaLpo>();
             for (int k = 0; k < input.Count; k++)
             {
@@ -1243,7 +1260,14 @@ public static partial class SequenceAligner
                 all.Add(lpo);
             }
 
+            return Finish(all);
+        }
+
+        /// <summary>The part of <c>main</c> after the inputs are read: <c>buildup_progressive_lpo</c>, the comment as title, the bundles and the written outputs.</summary>
+        internal PoaRunResult Finish(List<PoaLpo> all)
+        {
             if (all.Count == 0) throw new ArgumentException("No input sequences were provided.");
+            foreach (var lpo in all) IndexSymbols(lpo);
             var result = Buildup(all);
             if (_o.Comment != null) result.Title = _o.Comment;
             if (_o.HeaviestBundle) GenerateBundles(result, _o.HeaviestBundleMinimum);
