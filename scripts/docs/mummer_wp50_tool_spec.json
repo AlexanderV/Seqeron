@@ -119,5 +119,101 @@
    },
    "note": "run-mummer3 ref.fa qry.fa pf: four MUMs form one cluster; the three gaps between them are aligned and the region (240 bases of the query) has 3 errors."
   }
+ },
+ {
+  "name": "repeat_match",
+  "summary": "MUMmer repeat-match: the maximal exact repeats of a sequence on both strands, in the order of the program's suffix tree, byte for byte.",
+  "methodId": "MummerRepeatMatch.Run",
+  "sourceFile": "MummerRepeatMatch.cs",
+  "sourcePath": "Seqeron.Genomics.Alignment/MummerRepeatMatch.cs",
+  "algorithmDoc": "Alignment/Mummer_Package_Programs.md",
+  "oracleScript": "generate_repeatmatch_oracle.py",
+  "short": "MUMmer repeat-match: maximal exact repeats (-n -f -t -E -V) in the order of the program's suffix tree, byte for byte.",
+  "after": "run_mummer3",
+  "file": "AnalysisTools.MummerPrograms.cs",
+  "description": "MUMmer 3.23 repeat-match (Delcher): the maximal exact repeats of the first sequence of a FASTA file that are at least minLength long (-n, default 20), within the forward strand and, unless forwardOnly (-f), between the forward and the reverse-complement strand. Output: 'Long Exact Matches:' and a line per match 'start1 start2[r] length' (start2 is a position of the reverse-complement strand, as a position of the original sequence read backwards, when the line has the letter r). tandemOnly (-t, implies forwardOnly) lists only the repeats whose two copies touch (start1 + length >= start2). The matches are listed in the order of the program's own suffix tree (a suffix tree of the sequence and of its reverse complement in which a new child is put in front of its siblings), reproduced by the same construction. exhaustive (-E) uses the program's quadratic search instead (a different order); verbose (-V 1) prints the sizes of the program's structures, -V 2 the construction and the traversal of the tree. messages = standard error ('Genome Length = n   Used m internal nodes', the warnings of the FASTA reader). A genome that is an exact reverse-complement palindrome stops the program (exitCode 255, '*** Genome is exact palindrome ***' on standard output). An empty file, a file without a '>' line (the program works on an uninitialised buffer: valgrind use of uninitialised values; the output changes under MALLOC_PERTURB_) and a header whose first word has 500 or more characters (buffer overflow, abort) are refused with an error. Byte for byte equal to the installed repeat-match on 370 + runs and 3 300 more random runs (every option, both strands, N / IUPAC characters, genomes of 30 kb).",
+  "output": {
+   "text": [
+    "string",
+    "What repeat-match writes to standard output."
+   ],
+   "messages": [
+    "string",
+    "What the program writes to standard error."
+   ],
+   "exitCode": [
+    "integer",
+    "The exit status of the program (0, or 255 when it stops)."
+   ]
+  },
+  "errors": [
+   "Sequence cannot be null or empty",
+   "ERROR:  Illegal min match length \"0\"",
+   "repeat-match: no sequence record: the program works on an uninitialised buffer (undefined; valgrind: use of uninitialised values)"
+  ],
+  "example": {
+   "title": "A repeat and its reverse complement",
+   "prompt": "Find the exact repeats of at least 3 bases of this sequence.",
+   "input": {
+    "genome": ">pal\nacgtagcta\n",
+    "minLength": 3
+   },
+   "output": {
+    "text": "Long Exact Matches:\n   Start1     Start2    Length\n        4          9r        6\n        1          4r        4\n",
+    "messages": "Genome Length = 9   Used 14 internal nodes\n",
+    "exitCode": 0
+   },
+   "note": "repeat-match -n 3 pal.fa: two matches between the forward and the reverse-complement strand (letter r): 6 bases from position 4 and 4 bases from position 1."
+  }
+ },
+ {
+  "name": "exact_tandems",
+  "summary": "MUMmer exact-tandems: the exact tandem repeats of a sequence (repeat-match -t | sort | tandem-repeat.awk) and the script as installed.",
+  "methodId": "MummerExactTandems.Run",
+  "sourceFile": "MummerExactTandems.cs",
+  "sourcePath": "Seqeron.Genomics.Alignment/MummerExactTandems.cs",
+  "algorithmDoc": "Alignment/Mummer_Package_Programs.md",
+  "oracleScript": "generate_repeatmatch_oracle.py",
+  "short": "MUMmer exact-tandems: exact tandem repeats (repeat-match -t | sort | awk), the intended pipeline and the script as installed.",
+  "after": "repeat_match",
+  "file": "AnalysisTools.MummerPrograms.cs",
+  "description": "MUMmer 3.23 exact-tandems: the exact tandem repeats of the first sequence of a FASTA file with a duplicated unit of at least minLength bases. The script runs repeat-match -t -n N, drops its two header lines, sorts the matches by the first and second column (sort -k1n -k2n) and feeds them to tandem-repeat.awk, which writes the table 'Start Extent UnitLen Copies' with one line per repeat region (the first match of every start whose copies touch; extent = start2 + length - start1, unit = start2 - start1, copies = extent / unit with one decimal). By default (installedScript = false) the result is that intended pipeline. The script as installed by the Debian package is broken - its last command is split over two lines (awk -f $ and, on the next line, $scriptdir/tandem-repeat.awk) - so awk looks for a file named $ and fails with status 2 ('awk: fatal: cannot open source file `$' for reading: No such file or directory'); sh -e then stops the script without a table and without removing its temporary file: installedScript = true reproduces that (text = the two progress lines 'Finding matches' and 'Tandem repeats', exitCode 2, filesLeft = $$.tmp.matches). messages = standard error (the lines of repeat-match, then the awk error with installedScript). A minLength below 1 makes repeat-match fail (the table is just the header). Byte for byte equal to the installed script (installedScript = true) and to the pipeline run by hand on 215 + runs each and 1 200 more random runs each.",
+  "output": {
+   "text": [
+    "string",
+    "The table of tandem repeats (or the two progress lines of the installed script)."
+   ],
+   "messages": [
+    "string",
+    "The standard error of the script."
+   ],
+   "exitCode": [
+    "integer",
+    "The exit status (0; 2 for the installed script)."
+   ],
+   "filesLeft": [
+    "array",
+    "The files the script leaves behind ($$.tmp.matches for the installed script)."
+   ]
+  },
+  "errors": [
+   "Sequence cannot be null or empty",
+   "repeat-match: no sequence record: the program works on an uninitialised buffer (undefined; valgrind: use of uninitialised values)"
+  ],
+  "example": {
+   "title": "A tandem array and a degenerate one",
+   "prompt": "Find the exact tandem repeats with a unit of at least 6 bases.",
+   "input": {
+    "genome": ">tandem demo\nacactgctcactccaaccccggcccctgagtccgaggagaggatcacagtctggatcaca\ngtctggatcacagtctggatcacagtctggatcacagtctgggtgcttcagagtatgtat\naccactgggtggatcaggatcaggatcaaggatacggcggagggcacg\n",
+    "minLength": 6
+   },
+   "output": {
+    "text": "   Start   Extent  UnitLen     Copies\n      41       62       12        5.2\n     131       18        6        3.0\n",
+    "messages": "Genome Length = 168   Used 129 internal nodes\n",
+    "exitCode": 0,
+    "filesLeft": []
+   },
+   "note": "exact-tandems t.fa 6 (intended pipeline): a unit of 12 bases repeated 5.2 times from position 41 and a unit of 6 bases from 131."
+  }
  }
 ]

@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "repeat_match",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MummerRepeatMatch.Run",
+  "docRef": "MummerRepeatMatch.cs",
+  "description": "MUMmer 3.23 repeat-match (Delcher): the maximal exact repeats of the first sequence of a FASTA file that are at least minLength long (-n, default 20), within the forward strand and, unless forwardOnly (-f), between the forward and the reverse-complement strand. Output: 'Long Exact Matches:' and a line per match 'start1 start2[r] length' (a line with the letter r after the second position matches the reverse-complement strand: start2 is read on the original sequence). tandemOnly (-t, implies forwardOnly) lists only the repeats whose two copies touch (start1 + length >= start2). The matches come in the order of the program's own suffix tree (a suffix tree of the sequence and its reverse complement in which a new child is put in front of its siblings), reproduced by the same construction. exhaustive (-E) uses the program's quadratic search instead (a different order); verbose (-V 1) prints the sizes of the program's structures, -V 2 the construction and the traversal of the tree. messages = standard error ('Genome Length = n   Used m internal nodes', the warnings of the FASTA reader). A genome that is an exact reverse-complement palindrome stops the program (exitCode 255, '*** Genome is exact palindrome ***' on standard output). An empty file, a file without a '>' line (the program works on an uninitialised buffer: valgrind use of uninitialised values; the output changes under MALLOC_PERTURB_) and a header whose first word has 500 or more characters (buffer overflow, abort) are refused with an error. Byte for byte equal to the installed repeat-match on 370 + runs and 3 300 more random runs (every option, both strands, N / IUPAC characters, genomes of 30 kb).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "genome": {
+        "type": "string",
+        "description": "Genome FASTA text (only the first record is used)."
+      },
+      "minLength": {
+        "type": "integer",
+        "description": "-n: minimum length of an exact match (default 20; at least 1).",
+        "default": 20
+      },
+      "forwardOnly": {
+        "type": "boolean",
+        "description": "-f: forward strand only (default false).",
+        "default": false
+      },
+      "tandemOnly": {
+        "type": "boolean",
+        "description": "-t: only tandem repeats; implies forwardOnly (default false).",
+        "default": false
+      },
+      "exhaustive": {
+        "type": "boolean",
+        "description": "-E: exhaustive (quadratic) search instead of the suffix tree (default false).",
+        "default": false
+      },
+      "verbose": {
+        "type": "integer",
+        "description": "-V: verbose level (default 0; 1 prints the structure sizes, 2 the tree construction and traversal).",
+        "default": 0
+      }
+    },
+    "required": [
+      "genome"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "text": {
+        "type": "string",
+        "description": "What repeat-match writes to standard output."
+      },
+      "messages": {
+        "type": "string",
+        "description": "What the program writes to standard error."
+      },
+      "exitCode": {
+        "type": "integer",
+        "description": "The exit status of the program (0, or 255 when it stops)."
+      }
+    },
+    "required": [
+      "text",
+      "messages",
+      "exitCode"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1001,
+      "message": "ERROR:  Illegal min match length \"0\""
+    },
+    {
+      "code": 1001,
+      "message": "repeat-match: no sequence record: the program works on an uninitialised buffer (undefined; valgrind: use of uninitialised values)"
+    }
+  ],
+  "examples": [
+    {
+      "name": "A repeat and its reverse complement",
+      "input": {
+        "genome": ">pal\nacgtagcta\n",
+        "minLength": 3
+      },
+      "output": {
+        "text": "Long Exact Matches:\n   Start1     Start2    Length\n        4          9r        6\n        1          4r        4\n",
+        "messages": "Genome Length = 9   Used 14 internal nodes\n",
+        "exitCode": 0
+      }
+    }
+  ]
+}

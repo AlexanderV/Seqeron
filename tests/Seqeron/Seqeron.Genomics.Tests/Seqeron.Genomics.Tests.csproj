@@ -86,6 +86,8 @@
     <EmbeddedResource Include="TestData\Alignment\nucmer2xfig_oracle.jsonl.gz" />
     <!-- A3-9e2 (B09 F210): combineMUMs and run-mummer3; scripts/alignment/generate_combinemums_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\combinemums_oracle.jsonl.gz" />
+    <!-- A3-9e3 (B09 F211): repeat-match and exact-tandems; scripts/alignment/generate_repeatmatch_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\repeatmatch_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\nucmer_prefix_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\est2genome_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\wordmatch_oracle.jsonl.gz" />

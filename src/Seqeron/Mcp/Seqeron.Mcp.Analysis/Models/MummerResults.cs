@@ -32,3 +32,9 @@ public record CombineMumsToolResult(string Text, string ErrorsFile, string Messa
 
 /// <summary>Result of <c>run_mummer3</c>: the files of the script (<c>.out</c>, <c>.gaps</c>, <c>.align</c>, <c>.errorsgaps</c>), its standard output and its standard error.</summary>
 public record RunMummer3ToolResult(string Out, string Gaps, string Align, string ErrorsGaps, string Stdout, string Messages);
+
+/// <summary>Result of <c>repeat_match</c>: standard output, standard error and the exit status of the program.</summary>
+public record RepeatMatchToolResult(string Text, string Messages, int ExitCode);
+
+/// <summary>Result of <c>exact_tandems</c>: standard output (the table of tandem repeats, or the two progress lines of the installed script), standard error, the exit status and the files left behind.</summary>
+public record ExactTandemsToolResult(string Text, string Messages, int ExitCode, string[] FilesLeft);

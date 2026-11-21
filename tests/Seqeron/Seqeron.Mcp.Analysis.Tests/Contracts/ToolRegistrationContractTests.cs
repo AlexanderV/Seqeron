@@ -138,6 +138,8 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "mummer_annotate",
         "run_mummer1",
         "run_mummer3",
+        "repeat_match",
+        "exact_tandems",
         "delta2maf",
         "nucmer2xfig",
         "combine_mums",

@@ -805,6 +805,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/EmbossEst2genomePrograms.cs"
   },
   {
+    "tool": "exact_tandems",
+    "server": "Analysis",
+    "methodId": "MummerExactTandems.Run",
+    "docPath": "docs/mcp/tools/analysis/exact_tandems.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/MummerExactTandems.cs"
+  },
+  {
     "tool": "find_all_longest_repeats",
     "server": "Analysis",
     "methodId": "GenomicAnalyzer.FindAllLongestRepeats",
@@ -1538,6 +1545,13 @@
     "methodId": "PositionWeightMatrix.ScoreDistribution",
     "docPath": "docs/mcp/tools/analysis/pwm_score_thresholds.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.PwmScoring.cs#L322"
+  },
+  {
+    "tool": "repeat_match",
+    "server": "Analysis",
+    "methodId": "MummerRepeatMatch.Run",
+    "docPath": "docs/mcp/tools/analysis/repeat_match.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/MummerRepeatMatch.cs"
   },
   {
     "tool": "reversal_distance",

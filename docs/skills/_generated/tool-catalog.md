@@ -86,7 +86,7 @@
 | `water_align` | `SequenceAligner.WaterAlign` | [doc](../../mcp/tools/alignment/water_align.md) |
 | `write_alignment` | `EmbossAlignmentWriter.Format` | [doc](../../mcp/tools/alignment/write_alignment.md) |
 
-## Analysis (169 tools)
+## Analysis (171 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -128,6 +128,7 @@
 | `emboss_report_file` | `EmbossReportPrograms.Fuzznuc` | [doc](../../mcp/tools/analysis/emboss_report_file.md) |
 | `entropy_profile` | `SequenceStatistics.CalculateEntropyProfile` | [doc](../../mcp/tools/analysis/entropy_profile.md) |
 | `est2genome` | `EmbossEst2genomePrograms.Run` | [doc](../../mcp/tools/analysis/est2genome.md) |
+| `exact_tandems` | `MummerExactTandems.Run` | [doc](../../mcp/tools/analysis/exact_tandems.md) |
 | `find_all_longest_repeats` | `GenomicAnalyzer.FindAllLongestRepeats` | [doc](../../mcp/tools/analysis/find_all_longest_repeats.md) |
 | `find_approximate_direct_repeats` | `RepeatFinder.FindApproximateDirectRepeats` | [doc](../../mcp/tools/analysis/find_approximate_direct_repeats.md) |
 | `find_approximate_tandem_repeats` | `RepeatFinder.FindApproximateTandemRepeats` | [doc](../../mcp/tools/analysis/find_approximate_tandem_repeats.md) |
@@ -233,6 +234,7 @@
 | `prosite_to_regex` | `ProteinMotifFinder.ConvertPrositeToRegex` | [doc](../../mcp/tools/analysis/prosite_to_regex.md) |
 | `pwm_score_pvalue` | `MotifFinder.PwmScorePValue` | [doc](../../mcp/tools/analysis/pwm_score_pvalue.md) |
 | `pwm_score_thresholds` | `PositionWeightMatrix.ScoreDistribution` | [doc](../../mcp/tools/analysis/pwm_score_thresholds.md) |
+| `repeat_match` | `MummerRepeatMatch.Run` | [doc](../../mcp/tools/analysis/repeat_match.md) |
 | `reversal_distance` | `ComparativeGenomics.CalculateReversalDistance` | [doc](../../mcp/tools/analysis/reversal_distance.md) |
 | `rna_complement_base` | `RnaSecondaryStructure.GetComplement` | [doc](../../mcp/tools/analysis/rna_complement_base.md) |
 | `run_mummer1` | `MummerRunPrograms.RunMummer1` | [doc](../../mcp/tools/analysis/run_mummer1.md) |

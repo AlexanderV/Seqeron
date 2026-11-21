@@ -170,4 +170,37 @@ public class MummerProgramToolsTests
         Assert.Throws<FormatException>(() => AnalysisTools.RunMummer3(Cm3Ref, ">q\n"));      // mummer: empty sequence in multiple fasta file; sh -e stops the script
         Assert.Throws<ArgumentException>(() => AnalysisTools.RunMummer3("", Cm3Qry));
     }
+
+    // repeat-match -n 12 t.fa and exact-tandems t.fa 6 (MUMmer 3.23) (B09 A3-9e3, F211)
+    private const string TandemFasta = ">tandem demo\nacactgctcactccaaccccggcccctgagtccgaggagaggatcacagtctggatcaca\ngtctggatcacagtctggatcacagtctggatcacagtctgggtgcttcagagtatgtat\naccactgggtggatcaggatcaggatcaaggatacggcggagggcacg\n";
+
+    [Test]
+    public void RepeatMatch_ListsTheRepeatsInTheOrderOfTheProgram()
+    {
+        var r = AnalysisTools.RepeatMatch(TandemFasta, minLength: 12);
+        Assert.That(r.Text, Is.EqualTo("Long Exact Matches:\n   Start1     Start2    Length\n       41         53        50\n       41         65        38\n       41         77        26\n       41         89        14\n      131        137        12\n"));
+        Assert.That(r.Messages, Is.EqualTo("Genome Length = 168   Used 248 internal nodes\n"));
+        Assert.That(r.ExitCode, Is.Zero);
+        Assert.That(AnalysisTools.RepeatMatch(TandemFasta, minLength: 12, tandemOnly: true).Text, Does.StartWith("Long Exact Matches:\n   Start1     Start2    Length\n       41         53        50\n"));
+        Assert.That(AnalysisTools.RepeatMatch(">pal\nacgtagcta\n", minLength: 3).Text, Is.EqualTo("Long Exact Matches:\n   Start1     Start2    Length\n        4          9r        6\n        1          4r        4\n"));
+        Assert.That(AnalysisTools.RepeatMatch(">p\nacgtacgt\n", minLength: 3).ExitCode, Is.EqualTo(255));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.RepeatMatch("", 3));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.RepeatMatch(TandemFasta, minLength: 0));
+        Assert.Throws<FormatException>(() => AnalysisTools.RepeatMatch("acgtacgtacgt\n"));      // no header line: the program works on an uninitialised buffer
+    }
+
+    [Test]
+    public void ExactTandems_WritesTheTableOfTheIntendedPipeline_AndTheInstalledScriptFails()
+    {
+        var r = AnalysisTools.ExactTandems(TandemFasta, 6);
+        Assert.That(r.Text, Is.EqualTo("   Start   Extent  UnitLen     Copies\n      41       62       12        5.2\n     131       18        6        3.0\n"));
+        Assert.That(r.Messages, Is.EqualTo("Genome Length = 168   Used 129 internal nodes\n"));
+        Assert.That(r.ExitCode, Is.Zero);
+        var installed = AnalysisTools.ExactTandems(TandemFasta, 6, installedScript: true);
+        Assert.That(installed.Text, Is.EqualTo("Finding matches\nTandem repeats\n"));
+        Assert.That(installed.ExitCode, Is.EqualTo(2));
+        Assert.That(installed.Messages, Does.EndWith("awk: fatal: cannot open source file `$' for reading: No such file or directory\n"));
+        Assert.That(installed.FilesLeft, Is.EqualTo(new[] { "$$.tmp.matches" }));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.ExactTandems("", 6));
+    }
 }

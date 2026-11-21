@@ -244,4 +244,35 @@ public partial class AnalysisTools
         var r = MummerRunPrograms.RunMummer3(reference, query, referenceName, queryName, prefix);
         return new RunMummer3ToolResult(r.Out, r.Gaps, r.Align, r.ErrorsGaps, r.Stdout, r.Log);
     }
+
+    [McpServerTool(Name = "repeat_match", Title = "Genome — MUMmer repeat-match (exact repeats)", ReadOnly = true)]
+    [Description("MUMmer 3.23 repeat-match (Delcher): the maximal exact repeats of the first sequence of a FASTA file that are at least minLength long (-n, default 20), within the forward strand and, unless forwardOnly (-f), between the forward and the reverse-complement strand. Output: 'Long Exact Matches:' and a line per match 'start1 start2[r] length' (a line with the letter r after the second position matches the reverse-complement strand: start2 is read on the original sequence). tandemOnly (-t, implies forwardOnly) lists only the repeats whose two copies touch (start1 + length >= start2). The matches come in the order of the program's own suffix tree (a suffix tree of the sequence and its reverse complement in which a new child is put in front of its siblings), reproduced by the same construction. exhaustive (-E) uses the program's quadratic search instead (a different order); verbose (-V 1) prints the sizes of the program's structures, -V 2 the construction and the traversal of the tree. messages = standard error ('Genome Length = n   Used m internal nodes', the warnings of the FASTA reader). A genome that is an exact reverse-complement palindrome stops the program (exitCode 255, '*** Genome is exact palindrome ***' on standard output). An empty file, a file without a '>' line (the program works on an uninitialised buffer: valgrind use of uninitialised values; the output changes under MALLOC_PERTURB_) and a header whose first word has 500 or more characters (buffer overflow, abort) are refused with an error. Byte for byte equal to the installed repeat-match on 370 + runs and 3 300 more random runs (every option, both strands, N / IUPAC characters, genomes of 30 kb).")]
+    public static RepeatMatchToolResult RepeatMatch(
+        [Description("Genome FASTA text (only the first record is used).")] string genome,
+        [Description("-n: minimum length of an exact match (default 20; at least 1).")] int minLength = 20,
+        [Description("-f: forward strand only (default false).")] bool forwardOnly = false,
+        [Description("-t: only tandem repeats; implies forwardOnly (default false).")] bool tandemOnly = false,
+        [Description("-E: exhaustive (quadratic) search instead of the suffix tree (default false).")] bool exhaustive = false,
+        [Description("-V: verbose level (default 0; 1 prints the structure sizes, 2 the tree construction and traversal).")] int verbose = 0)
+    {
+        if (string.IsNullOrEmpty(genome))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(genome));
+        if (minLength < 1)
+            throw new ArgumentException("ERROR:  Illegal min match length \"" + minLength.ToString(System.Globalization.CultureInfo.InvariantCulture) + "\"", nameof(minLength));
+        var r = MummerRepeatMatch.Run(genome, new MummerRepeatMatchOptions { MinMatchLength = minLength, ForwardOnly = forwardOnly, TandemOnly = tandemOnly, Exhaustive = exhaustive, Verbose = verbose });
+        return new RepeatMatchToolResult(r.Text, r.Messages, r.ExitCode);
+    }
+
+    [McpServerTool(Name = "exact_tandems", Title = "Genome — MUMmer exact-tandems (tandem repeats)", ReadOnly = true)]
+    [Description("MUMmer 3.23 exact-tandems: the exact tandem repeats of the first sequence of a FASTA file with a duplicated unit of at least minLength bases. The script runs repeat-match -t -n N, drops its two header lines, sorts the matches by the first and second column (sort -k1n -k2n) and feeds them to tandem-repeat.awk, which writes the table 'Start Extent UnitLen Copies' with one line per repeat region (the first match of every start whose copies touch; extent = start2 + length - start1, unit = start2 - start1, copies = extent / unit with one decimal). By default (installedScript = false) the result is that intended pipeline. The script as installed by the Debian package is broken - its last command is split over two lines (awk -f $ and, on the next line, $scriptdir/tandem-repeat.awk) - so awk looks for a file named $ and fails with status 2 ('awk: fatal: cannot open source file `$' for reading: No such file or directory'); sh -e then stops the script without a table and without removing its temporary file: installedScript = true reproduces that (text = the two progress lines 'Finding matches' and 'Tandem repeats', exitCode 2, filesLeft = $$.tmp.matches). messages = standard error (the lines of repeat-match, then the awk error with installedScript). A minLength below 1 makes repeat-match fail (the table is just the header). An empty file or a file without a '>' line is refused (see repeat_match). Byte for byte equal to the installed script (installedScript = true) and to the pipeline run by hand on 215 + runs each and 1 200 more random runs each.")]
+    public static ExactTandemsToolResult ExactTandems(
+        [Description("Genome FASTA text (only the first record is used).")] string genome,
+        [Description("Minimum length of the duplicated unit (repeat-match -n; default 20).")] int minLength = 20,
+        [Description("Reproduce the script as installed (broken: awk -f $), instead of the intended pipeline (default false).")] bool installedScript = false)
+    {
+        if (string.IsNullOrEmpty(genome))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(genome));
+        var r = installedScript ? MummerExactTandems.RunInstalled(genome, minLength) : MummerExactTandems.Run(genome, minLength);
+        return new ExactTandemsToolResult(r.Text, r.Log, r.ExitCode, [.. r.LeftBehind]);
+    }
 }
