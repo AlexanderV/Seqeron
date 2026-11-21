@@ -217,7 +217,7 @@ public partial class AnalysisTools
     }
 
     [McpServerTool(Name = "showalign", Title = "Alignment — EMBOSS showalign display", ReadOnly = true)]
-    [Description("EMBOSS 6.6.0 showalign: the pretty text display of a multiple alignment, identical to the program (600 random alignments with random options equal). Every row except the reference is converted against the reference (the consensus unless refseq names a row or a 1-based number): show N (default) non-identities, I identities, S similarities (matrix score > 0), D dissimilarities, A all; '.' marks suppressed residues; similarCase (default true) encodes similarity in the case (non-identity / similarity / all as in the program); order I (input), A (names), S (decreasing similarity to the reference). Per block of width columns (default 60): the position numbers (every 10th, relative to the reference residues when a row is the reference, with -n / +n flanks), the tick ruler, the reference first when it is a row, the rows, the consensus (consensus = false hides it; bottom = false puts it first when it is the reference). The consensus is the EMBOSS cons algorithm (plurality in percent, setCase, identity in percent, gaps: a gap can be the consensus) on the alignment as given (case kept); a lower-case letter of the input is kept lower case. margin = width of the name column (0 = no names, -1 = longest name + 1); uppercase = 1-based column ranges put in upper case, e.g. '3-10,20-25'. The set type is that of the first row (nucleotide: A/C/G/T/U + IUPAC letters); matrix defaults to EDNAFULL / EBLOSUM62; shorter rows are padded with trailing gaps. HTML output and highlight are not provided. Rows are read as EMBOSS reads an alignment (A4-3): letters and '*' are kept, '.' '~' '-' are gaps, '?' '#' '+' are the unknown residue, every other character (digits, blanks, '_', punctuation) is dropped, and rows that become unequal are padded with trailing gaps. A display text above 134 217 728 characters (blocks x lines x (margin + width + 1): a huge margin, width 1 over a very long alignment) is refused with an ArgumentException (MultipleAlignmentDisplay.ShowAlignMaxOutputCharacters); a width beyond the alignment shows one block. sbegin / send (A4-9, 400 random ranges equal the program) cut the displayed columns: the consensus is that of the whole alignment and the numbers and ticks keep the positions of the whole alignment.")]
+    [Description("EMBOSS 6.6.0 showalign: the pretty text display of a multiple alignment, identical to the program (600 random alignments with random options equal). Every row except the reference is converted against the reference (the consensus unless refseq names a row or a 1-based number): show N (default) non-identities, I identities, S similarities (matrix score > 0), D dissimilarities, A all; '.' marks suppressed residues; similarCase (default true) encodes similarity in the case (non-identity / similarity / all as in the program); order I (input), A (names), S (decreasing similarity to the reference). Per block of width columns (default 60): the position numbers (every 10th, relative to the reference residues when a row is the reference, with -n / +n flanks), the tick ruler, the reference first when it is a row, the rows, the consensus (consensus = false hides it; bottom = false puts it first when it is the reference). The consensus is the EMBOSS cons algorithm (plurality in percent, setCase, identity in percent, gaps: a gap can be the consensus) on the alignment as given (case kept); a lower-case letter of the input is kept lower case. margin = width of the name column (0 = no names, -1 = longest name + 1); uppercase = 1-based column ranges put in upper case, e.g. '3-10,20-25'. The set type is that of the first row (nucleotide: A/C/G/T/U + IUPAC letters); matrix defaults to EDNAFULL / EBLOSUM62; shorter rows are padded with trailing gaps. html = true wraps the text in <pre> ... </pre> and highlight (EMBOSS range syntax, a colour after each pair) colours the ranges of every sequence and consensus line with <font color=...> (A3-13c2: 300 random texts equal). Rows are read as EMBOSS reads an alignment (A4-3): letters and '*' are kept, '.' '~' '-' are gaps, '?' '#' '+' are the unknown residue, every other character (digits, blanks, '_', punctuation) is dropped, and rows that become unequal are padded with trailing gaps. A display text above 134 217 728 characters (blocks x lines x (margin + width + 1): a huge margin, width 1 over a very long alignment) is refused with an ArgumentException (MultipleAlignmentDisplay.ShowAlignMaxOutputCharacters); a width beyond the alignment shows one block. sbegin / send (A4-9, 400 random ranges equal the program) cut the displayed columns: the consensus is that of the whole alignment and the numbers and ticks keep the positions of the whole alignment.")]
     public static ShowAlignResult ShowAlign(
         [Description("Sequence names (one per row; the first word is used).")] string[] names,
         [Description("The aligned sequences (DNA or protein; gaps '-', '.', '~'; case is kept).")] string[] sequences,
@@ -232,27 +232,24 @@ public partial class AnalysisTools
         [Description("Tick ruler line (default true).")] bool ruler = true,
         [Description("Columns per block (default 60).")] int width = 60,
         [Description("Name column width: -1 = longest name + 1 (default), 0 = no names.")] int margin = -1,
-        [Description("1-based inclusive column ranges to put in upper case, e.g. '3-10,20-25'.")] string? uppercase = null,
+        [Description("1-based inclusive column ranges to put in upper case, e.g. '3-10,20-25' (EMBOSS range syntax; '@file' = one range per line).")] string? uppercase = null,
         [Description("Consensus plurality in percent of the total weight (default 50).")] double plurality = 50,
         [Description("Consensus: weight at or below which the letter is lower case (default half the number of sequences).")] double? setCase = null,
         [Description("Consensus: percent of identities required at a position (default 0).")] double identity = 0,
         [Description("A gap character can be the consensus (default true).")] bool gaps = true,
         [Description("-sbegin: first column shown, 1-based (0 = the first; negative = counted from the end; beyond the alignment = the last).")] int sbegin = 0,
         [Description("-send: last column shown, 1-based (0 = the last; negative = counted from the end; before the first shown column = that column).")] int send = 0,
+        [Description("-html (default false): wrap the display in <pre> ... </pre> and colour the highlight ranges with <font color=...> tags.")] bool html = false,
+        [Description("-highlight: column ranges to colour with html, each followed by an HTML colour (an empty colour is red), e.g. '24-45 blue 56-78 orange'; '@file' = one range per line. Used only with html.")] string? highlight = null,
         CancellationToken cancellationToken = default)
     {
         if (names is null || sequences is null || sequences.Length == 0)
             throw new ArgumentException("Names and sequences are required", nameof(sequences));
         if (names.Length != sequences.Length)
             throw new ArgumentException("One name per sequence is required", nameof(names));
-        var ranges = new List<(int, int)>();
-        foreach (var part in (uppercase ?? string.Empty).Split([',', ';', ' '], StringSplitOptions.RemoveEmptyEntries))
-        {
-            var ends = part.Split(['-', ':', '='], StringSplitOptions.RemoveEmptyEntries);
-            if (ends.Length is < 1 or > 2 || !int.TryParse(ends[0], out int a) || !int.TryParse(ends[^1], out int b) || a < 1 || b < a)
-                throw new ArgumentException($"Invalid uppercase range '{part}' (use 3-10)", nameof(uppercase));
-            ranges.Add((a, b));
-        }
+        // the ACD range type of the program (ajRangeNewString): pairs of positions with any separators, e.g. '3-10, 20-25' or '1:45 67=99;765..888'; '@file' = one range per line
+        var ranges = EmbossRangeSpec.Parse(uppercase).Select(r => (r.Start, r.End)).ToList();
+        var highlights = EmbossRangeSpec.Parse(highlight);
 
         if (show is not { Length: 1 } || "AINSD".IndexOf(char.ToUpperInvariant(show[0])) < 0)
             throw new ArgumentException("show must be A, I, N, S or D", nameof(show));
@@ -281,6 +278,8 @@ public partial class AnalysisTools
             Gaps = gaps,
             Begin = sbegin,
             End = send,
+            Html = html,
+            Highlight = highlights,
             CancellationToken = cancellationToken,
         };
         return new ShowAlignResult(MultipleAlignmentDisplay.ShowAlign(names, sequences, options));

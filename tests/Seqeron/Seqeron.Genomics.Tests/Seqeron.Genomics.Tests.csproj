@@ -265,6 +265,7 @@
     <EmbeddedResource Include="TestData\Analysis\showalign_oracle.jsonl" />
     <!-- ALIGN-STATS-001 (audit A4-9): 400 showalign rows with -sbegin / -send; scripts/analysis/generate_showalign_range_oracle.py. -->
     <EmbeddedResource Include="TestData\Analysis\showalign_range_oracle.jsonl" />
+    <EmbeddedResource Include="TestData\Analysis\showalign_html_oracle.jsonl" />
     <!-- GENOMIC-COMMON-001 (audit A3-13b, B09 F149): EMBOSS megamerger 6.6.0 merged sequence + report of 600 related / unrelated DNA pairs (JSON lines);
          scripts/analysis/generate_megamerger_oracle.py. -->
     <EmbeddedResource Include="TestData\Analysis\megamerger_oracle.jsonl" />

@@ -32,7 +32,18 @@ public class EmbossProgramToolsTests
         var identities = AnalysisTools.ShowAlign(["s1", "s2", "s3"], ["acgtac-gtaGT", "acgtaccgtaGA", "acctaccgtTGA"], refseq: "2", show: "I");
         Assert.That(identities.Text, Does.Contain("s1        acgtac-gtaG.\ns3        ac.taccgt.GA\nConsensus acgtaccgtaGA\n"));
         Assert.Throws<ArgumentException>(() => AnalysisTools.ShowAlign(["a", "b"], ["AC", "AC"], show: "Z"));
-        Assert.Throws<ArgumentException>(() => AnalysisTools.ShowAlign(["a", "b"], ["AC", "AC"], uppercase: "x-y"));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.ShowAlign(["a", "b"], ["AC", "AC"], uppercase: "5"));
+    }
+
+    [Test]
+    public void ShowAlign_Html_WrapsAndColoursAsShowalign()
+    {
+        // showalign 6.6.0 -html -highlight "3-8 blue 10-12 orange" -width 30 (A3-13c2): the ranges are coloured on the sequence lines and the consensus, not on the names or ticks
+        var r = AnalysisTools.ShowAlign(["a", "b"], ["ACGTACGTAAACCCGGG", "ACGTACGAAAACCCGGT"], html: true, highlight: "3-8 blue 10-12 orange", width: 30);
+        Assert.That(r.Text, Does.StartWith("<pre>\n").And.EndWith("</pre>\n"));
+        Assert.That(r.Text, Does.Contain("a         ..<font color=blue>......</font>.<font color=orange>...</font>").And.Contain("Consensus AC<font color=blue>GTACGt</font>A<font color=orange>AAC</font>CCGGg"));
+        Assert.That(AnalysisTools.ShowAlign(["a", "b"], ["AC", "AC"], highlight: "1-2 red").Text, Does.Not.Contain("<font"));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.ShowAlign(["a", "b"], ["AC", "AC"], html: true, highlight: "0-9 red"));
     }
 
     [Test]

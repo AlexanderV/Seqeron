@@ -67,6 +67,18 @@ public sealed record ShowAlignOptions
     /// <summary><c>-uppercase</c>: 1-based inclusive column ranges put in upper case.</summary>
     public IReadOnlyList<(int Start, int End)> Uppercase { get; init; } = [];
 
+    /// <summary>
+    /// <c>-html</c> (A3-13c2, default false): the display is wrapped in <c>&lt;pre&gt;</c> ... <c>&lt;/pre&gt;</c> and the <see cref="Highlight"/> ranges of every sequence line (consensus line included; names and the
+    /// number / tick lines are not) are wrapped in <c>&lt;font color=...&gt;</c> ... <c>&lt;/font&gt;</c> (<c>embShowColourRange</c>).
+    /// </summary>
+    public bool Html { get; init; }
+
+    /// <summary>
+    /// <c>-highlight</c> (used with <see cref="Html"/>): 1-based inclusive column ranges with the HTML colour that follows them (an empty colour is <c>red</c>); see <see cref="EmbossRangeSpec.Parse"/>.
+    /// Positions are those of the alignment columns, every block line is coloured separately.
+    /// </summary>
+    public IReadOnlyList<EmbossRangeElement> Highlight { get; init; } = [];
+
     /// <summary><c>-number</c> (default true): the position-number line.</summary>
     public bool Number { get; init; } = true;
 
@@ -327,6 +339,8 @@ public static class MultipleAlignmentDisplay
     private static string Output(ShowAlignOptions o, string[] names, char[][] seqs, int nref, int margin, char[] consensus, int[] order, int mlen, int width, int begin, int end)
     {
         var sb = new StringBuilder();
+        if (o.Html)
+            sb.Append("<pre>\n");
         string refstr = new(nref == -1 ? consensus : SourceRef(seqs, nref));
         string tickline = Ticks(nref, refstr, out int firstpos, out int lastpos);
         string numline = Numbers(nref, refstr, firstpos, lastpos, margin);
@@ -365,18 +379,20 @@ public static class MultipleAlignmentDisplay
                 sb.Append(' ', margin).Append(Substring(tickline, pos, pos + width - 1)).Append('\n');
 
             if (nref != -1)
-                OutputSeq(sb, names[nref], seqs[nref], pos, end, width, margin, o.Uppercase);
+                OutputSeq(sb, names[nref], seqs[nref], pos, end, width, margin, o);
             else if (o.Consensus && !o.Bottom)
-                OutputSeq(sb, "Consensus", consensus, pos, end, width, margin, o.Uppercase);
+                OutputSeq(sb, "Consensus", consensus, pos, end, width, margin, o);
 
             foreach (int i in order)
-                OutputSeq(sb, names[i], seqs[i], pos, end, width, margin, o.Uppercase);
+                OutputSeq(sb, names[i], seqs[i], pos, end, width, margin, o);
 
             if (o.Consensus && o.Bottom)
-                OutputSeq(sb, "Consensus", consensus, pos, end, width, margin, o.Uppercase);
+                OutputSeq(sb, "Consensus", consensus, pos, end, width, margin, o);
             sb.Append('\n');
         }
 
+        if (o.Html)
+            sb.Append("</pre>\n");
         return sb.ToString();
     }
 
@@ -388,8 +404,9 @@ public static class MultipleAlignmentDisplay
     private static string Substring(string s, int first, int last) => EmbossText.Substring(s, first, last);
 
     // one row of one block: the slice [pos, min(end, pos + width - 1)] of the row (EmbossText.Substring clipping), taken from the char[] directly - O(width) per block instead of a copy of the whole row
-    private static void OutputSeq(StringBuilder sb, string name, char[] seq, int pos, int end, int width, int margin, IReadOnlyList<(int Start, int End)> uppercase)
+    private static void OutputSeq(StringBuilder sb, string name, char[] seq, int pos, int end, int width, int margin, ShowAlignOptions o)
     {
+        var uppercase = o.Uppercase;
         long stopWide = Math.Min((long)end, (long)pos + width - 1);
         int stop = (int)stopWide;
         if (margin > 0)
@@ -410,7 +427,70 @@ public static class MultipleAlignmentDisplay
                     sb[lineStart + j - pos] = Up(sb[lineStart + j - pos]);
         }
 
+        if (o.Html && o.Highlight.Count > 0)
+        {
+            var line = sb.ToString(lineStart, sb.Length - lineStart);
+            sb.Length = lineStart;
+            sb.Append(ColourRange(line, o.Highlight, pos));
+        }
+
         sb.Append('\n');
+    }
+
+    // embShowColourRange: the ranges are applied one after the other to the growing HTML string (the length used for the overlap test and the clipping includes the tags inserted so far)
+    private static string ColourRange(string lineText, IReadOnlyList<EmbossRangeElement> colour, int pos)
+    {
+        var line = new StringBuilder(lineText);
+        foreach (var element in colour)
+        {
+            if (element.Start < 1 || element.End < 1 || element.Start > element.End)
+                continue;
+            uint posUnsigned = (uint)pos;
+            uint posend = unchecked(posUnsigned + (uint)line.Length - 1);
+            uint start = (uint)element.Start - 1, end = (uint)element.End - 1;
+            if (end < posUnsigned || start > posend)
+                continue;
+            int istart = unchecked((int)((uint)element.Start - posUnsigned - 1));
+            int iend = unchecked((int)((uint)element.End - posUnsigned - 1));
+            if (istart < 0)
+                istart = 0;
+            if (iend > line.Length - 1)
+                iend = line.Length - 1;
+            InsertHtml(line, istart, "<font color=" + (element.Text.Length > 0 ? element.Text : "red") + ">");
+            InsertHtml(line, iend + 1, "</font>");
+        }
+
+        return line.ToString();
+    }
+
+    // showInsertHTML: insert at a position that ignores the tags (anything between '<' and '>'); past the end it inserts at the end
+    private static void InsertHtml(StringBuilder target, int pos, string insert)
+    {
+        bool tag = false;
+        int i = 0, j = 0;
+        for (; j < pos && i < target.Length; i++)
+        {
+            if (!tag)
+            {
+                if (target[i] == '<')
+                    tag = true;
+                else
+                    j++;
+            }
+            else if (target[i] == '>')
+            {
+                tag = false;
+            }
+        }
+
+        while (i < target.Length && target[i] == '<')
+        {
+            while (i < target.Length && target[i] != '>')
+                i++;
+            i++;
+        }
+
+        target.Insert(Math.Min(i, target.Length), insert);
     }
 
     private static char TickChar(int i)

@@ -115,6 +115,7 @@ BLAST+ integer percentages / `BlastPositives` / `pident` text / report line on `
 
 - **Audit A4-3 (F153):** the EMBOSS reader drops gap characters and every other non-letter (except `*`) from plain input sequences; one shared `EmbossSequenceReader` (Infrastructure) serves showalign: 240 oracle rows each equal (`emboss_gap_oracle.tsv`).
 
+- **Audit A3-13c2 (F191):** `showalign -html` / `-highlight` ported (`EmbossRangeSpec`, `ShowAlignOptions.Html` / `Highlight`): 300 / 300 HTML texts equal.
 - **Audit A4-1 (F157):** `MultipleAlignmentDisplay.ShowAlign` poll the ambient cancellation token (mid-run cancel tests); MCP tools take the request token.
 
 - **Audit r5 / r6 (A5-3, A5-7, A6-2, A6-4; F169, F172, F177, F179):** the null / out-of-range contract of the `MultipleAlignmentStatistics` entry points (`SequenceAligner_NullContract_Tests`, MCP `NullContractTests`); `distmat` reads the sequence qualifiers (`-sbegin` / `-send` have no effect on it, `-sreverse` reverse-complements every row, the set is nucleotide when its first row is: `emboss_seqopts_oracle.tsv`, 180 rows), the qualifier TEXT of the `distmat` MCP tool is resolved as the program resolves it (`EmbossSequenceQualifiers.ParseInputs("distmat", text)`: 130 + 40 oracle rows).

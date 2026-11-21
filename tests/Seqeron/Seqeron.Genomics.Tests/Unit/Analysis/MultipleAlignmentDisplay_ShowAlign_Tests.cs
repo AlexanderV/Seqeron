@@ -67,7 +67,67 @@ public class MultipleAlignmentDisplay_ShowAlign_Tests
             Gaps = Flag(a, "gaps", true),
             Begin = a.TryGetValue("sbegin", out var sb) ? int.Parse(sb, CultureInfo.InvariantCulture) : 0,
             End = a.TryGetValue("send", out var se) ? int.Parse(se, CultureInfo.InvariantCulture) : 0,
+            Html = Flag(a, "html", false),
+            Highlight = HighlightOf(a),
         };
+    }
+
+    private static IReadOnlyList<EmbossRangeElement> HighlightOf(Dictionary<string, string> a)
+    {
+        if (!a.TryGetValue("highlight", out var spec))
+            return [];
+        if (spec != "@FILE")
+            return EmbossRangeSpec.Parse(spec);
+        string file = Path.Combine(Path.GetTempPath(), "showalign_hl_" + Guid.NewGuid().ToString("N") + ".txt");
+        File.WriteAllText(file, a["hlfile"]);
+        try { return EmbossRangeSpec.Parse("@" + file); }
+        finally { File.Delete(file); }
+    }
+
+    [Test]
+    public void ShowAlign_Html_EqualsShowalign_AllCases()
+    {
+        // A3-13c2: 300 rows of the installed 6.6.0 program with -html and random -highlight specifications (pairs a-b / a:b / a..b / a+n with colours, empty colour = red, overlapping and
+        // out-of-range pairs, the strtok quirk of "3-5,7-9", a range file); every text equal, including the <pre> wrapper and the nested <font> tags of overlapping ranges
+        var cases = ReadOracle("showalign_html_oracle.jsonl");
+        Assert.That(cases, Has.Count.EqualTo(300));
+        var failures = new List<string>();
+        int coloured = 0, files = 0, plus = 0, defaultColour = 0, comma = 0;
+        foreach (var c in cases)
+        {
+            string actual = MultipleAlignmentDisplay.ShowAlign(c.Names, c.Rows, OptionsOf(c.Args));
+            if (actual != c.Out)
+                failures.Add($"{string.Join(" ", c.Args.Select(kv => $"-{kv.Key} {kv.Value}"))}\n{string.Join("\n", c.Names.Zip(c.Rows, (n, r) => $">{n} {r}"))}\n--- expected\n{c.Out}--- actual\n{actual}");
+            if (c.Out.Contains("<font")) coloured++;
+            if (c.Args.TryGetValue("highlight", out var h))
+            {
+                if (h == "@FILE") files++;
+                if (h.Contains('+')) plus++;
+                if (c.Out.Contains("<font color=red>")) defaultColour++;
+                if (c.Out.Contains("<font color=,>")) comma++;
+            }
+        }
+
+        Assert.That(failures, Is.Empty, $"{failures.Count}: " + string.Join("\n=====\n", failures.Take(2)));
+        Assert.That(coloured, Is.GreaterThan(200));
+        Assert.That(files, Is.GreaterThan(10));
+        Assert.That(plus, Is.GreaterThan(20));
+        Assert.That(defaultColour, Is.GreaterThan(20));
+        Assert.That(comma, Is.GreaterThan(5));
+    }
+
+    [Test]
+    public void EmbossRangeSpec_WorkedValues()
+    {
+        // measured with showalign -highlight (6.6.0)
+        Assert.That(EmbossRangeSpec.Parse("24-45 blue 56-78 orange"), Is.EqualTo(new[] { new EmbossRangeElement(24, 45, "blue"), new EmbossRangeElement(56, 78, "orange") }));
+        Assert.That(EmbossRangeSpec.Parse("3+4 green"), Is.EqualTo(new[] { new EmbossRangeElement(3, 6, "green") }));
+        Assert.That(EmbossRangeSpec.Parse("3-5,7-9"), Is.EqualTo(new[] { new EmbossRangeElement(3, 5, ","), new EmbossRangeElement(7, 9, "") }));
+        Assert.That(EmbossRangeSpec.Parse("1:45, 67=99;765..888"), Has.Count.EqualTo(3));
+        Assert.That(EmbossRangeSpec.Parse(""), Is.Empty);
+        Assert.Throws<ArgumentException>(() => EmbossRangeSpec.Parse("0-9 red"));
+        Assert.Throws<ArgumentException>(() => EmbossRangeSpec.Parse("9-3"));
+        Assert.Throws<ArgumentException>(() => EmbossRangeSpec.Parse("1-2 3"));
     }
 
     [Test]

@@ -246,3 +246,9 @@
 
 ## WP42 additions (A5-7)
 - distmat with the sequence qualifiers (180 rows): the range is ignored, `-sreverse` reverse-complements every row of a nucleotide set, `-sprotein` does not reach the set.
+
+## Audit A3-13c2 (B09 F191): showalign -html / -highlight
+
+| ID | Tests | Locks |
+|---|---|---|
+| A3-13c2 | `MultipleAlignmentDisplay_ShowAlign_Tests.ShowAlign_Html_EqualsShowalign_AllCases`, `EmbossRangeSpec_WorkedValues`; MCP `ShowAlign_Html_WrapsAndColoursAsShowalign` | 300 showalign 6.6.0 HTML texts (`showalign_html_oracle.jsonl`): `<pre>` wrapper, `<font color=...>` ranges (empty colour = red, nested tags of overlapping ranges, ranges beyond the alignment), the program's range syntax (`a-b`, `a:b`, `a..b`, `a+n`, the `3-5,7-9` text quirk, `@file`), the refused values (`0-9`, `9-3`, odd count) |
