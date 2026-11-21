@@ -308,4 +308,50 @@ public partial class AnalysisTools
         });
         return new MapviewToolResult(r.Figs.ToDictionary(f => f.Key, f => f.Value), [.. r.Commands], [.. r.Outputs], r.Stdout, r.Stderr, r.ExitCode, r.Side.ToDictionary(f => f.Key, f => f.Value));
     }
+
+    [McpServerTool(Name = "mummerplot", Title = "Genome — MUMmer mummerplot (gnuplot script)", ReadOnly = true)]
+    [Description("MUMmer 3.23 mummerplot (perl script 3.5): the gnuplot plot of the alignments of a nucmer / promer .delta, a .cluster (nucmer --nodelta), a mummer -c output (.out; use -c -b -L) or a show-tiling file (.tiling; coverage plot): the data files <prefix>.fplot (forward hits sorted by percent similarity, 'sR sQ sim' per end of an alignment, blocks separated by two empty lines), <prefix>.rplot (reverse hits), <prefix>.hplot (highlighted hits: breakpoints with breakLength = -b, SNP positions with snp = -S through show-snps) and the script <prefix>.gp (terminal x11 / postscript / png with --x11 --postscript --png or terminal = -t, size small / medium / large, ranges, tics of several sequences, grid, labels, the line styles, the plot or splot command; color / coverage / title / xRange / yRange / layout options) - and, for delta input with filter (-f) or layout (-l, --fat; needs rFile / qFile), the filtered delta file <prefix>.filter (delta-filter -r -q). For delta and cluster input the sequence files named in the first line of the file are read (files: name -> FASTA text) to get the lengths and offsets of the sequences, rFile / qFile (-R / -Q) name files with an ordered set of sequences (a multi-FASTA file, or lines 'id length [+|-]'), idR / idQ (-r / -q) plot one sequence. The script then runs gnuplot: gnuplotCommand is the command line it runs (the rendering - .ps / .png / the x11 window - is not part of the text output); stdout holds the line of gnuplot --version (gnuplotVersion; gnuplotStatus 0 = found, -1 = not found, other = outdated), messages the progress lines and warnings (multiple terminals / sizes, -f -l -S with non-delta input, ports of non-x11 plots, overlaid sequences, 'Forking mouse listener' and the connection warnings of the listener of the x11 plot with rPort / qPort). A die of the script (invalid terminal / size / range, empty or unrecognised match file, no alignment data, an unreadable -R / -Q file, a line that cannot be parsed) is reported on messages with a non-zero exitCode (the status the program returns is the stale errno of its last system call: the tool returns 2). When equal lengths or offsets make perl's hash order decide the layout of several sequences the program's own output differs from run to run; the port uses the order of first appearance. Byte for byte equal to the installed mummerplot on 330 + runs (every input type, every option) and 1 000 more random runs.")]
+    public static MummerplotToolResult Mummerplot(
+        [Description("The text of the match file (.delta, .cluster, mummer -c .out or .tiling).")] string match,
+        [Description("The files the script reads besides the match file, by name: the sequence files named in the first line of a delta / cluster file and the -R / -Q files (FASTA text or lists of 'id length [+|-]').")] Dictionary<string, string>? files = null,
+        [Description("The file name of the match file as given to the script (printed in the messages; default out.delta).")] string matchName = "out.delta",
+        [Description("-b: highlight alignments with breakpoints further than this many nucleotides from the nearest sequence end.")] int? breakLength = null,
+        [Description("--color / --nocolor: colour the plot lines by percent similarity (true) or turn all colour off (false).")] bool? color = null,
+        [Description("-c / --nocoverage: draw a reference coverage plot (default for tiling input).")] bool? coverage = null,
+        [Description("-f: show only the best alignments of a delta file (delta-filter -r -q), delta input only.")] bool? filter = null,
+        [Description("-l: lay a delta multiplot out in an intelligible fashion (needs rFile / qFile), delta input only.")] bool? layout = null,
+        [Description("-p: prefix of the output files (default out).")] string prefix = "out",
+        [Description("-rv: reverse video for x11 plots.")] bool reverseVideo = false,
+        [Description("-r: plot this reference sequence id.")] string? idR = null,
+        [Description("-q: plot this query sequence id.")] string? idQ = null,
+        [Description("-R: file (a key of files) with an ordered set of reference sequences.")] string? rFile = null,
+        [Description("-Q: file (a key of files) with an ordered set of query sequences.")] string? qFile = null,
+        [Description("-rport: port to send the reference id and position to on a mouse double click (x11 plots).")] int? rPort = null,
+        [Description("-qport: port for the query.")] int? qPort = null,
+        [Description("-s: 'small' (default), 'medium' or 'large'.")] string size = "small",
+        [Description("--small.")] bool small = false,
+        [Description("--medium.")] bool medium = false,
+        [Description("--large.")] bool large = false,
+        [Description("-S: highlight the SNPs (delta input; reads the sequence files).")] bool? snp = null,
+        [Description("-t: terminal 'x11' (default), 'postscript' or 'png'.")] string terminal = "x11",
+        [Description("--x11.")] bool x11 = false,
+        [Description("--postscript.")] bool postscript = false,
+        [Description("--png.")] bool png = false,
+        [Description("--title: gnuplot plot title.")] string? title = null,
+        [Description("-x: x range '[min:max]'.")] string? xRange = null,
+        [Description("-y: y range '[min:max]'.")] string? yRange = null,
+        [Description("--fat: lay out by the fattest alignment only (implies layout).")] bool fat = false,
+        [Description("The status of 'gnuplot --version': 0 found (default), -1 not found, other = outdated.")] int gnuplotStatus = 0,
+        [Description("What 'gnuplot --version' prints (default 'gnuplot 6.0 patchlevel 0').")] string gnuplotVersion = "gnuplot 6.0 patchlevel 0\n")
+    {
+        if (string.IsNullOrEmpty(match))
+            throw new ArgumentException("Match file text cannot be null or empty", nameof(match));
+        var r = MummerPlot.Run(match, files ?? [], new MummerPlotOptions
+        {
+            BreakLength = breakLength, Color = color, Coverage = coverage, Filter = filter, Layout = layout, Prefix = prefix ?? "out", ReverseVideo = reverseVideo, IdR = idR, IdQ = idQ, RFile = rFile, QFile = qFile,
+            RPort = rPort, QPort = qPort, Size = size ?? "small", Small = small, Medium = medium, Large = large, Snp = snp, Terminal = terminal ?? "x11", X11 = x11, Postscript = postscript, Png = png, Title = title,
+            XRange = xRange, YRange = yRange, Fat = fat, MatchName = matchName ?? "out.delta", GnuplotStatus = gnuplotStatus, GnuplotVersion = gnuplotVersion ?? string.Empty,
+        });
+        return new MummerplotToolResult(r.Files.ToDictionary(f => f.Key, f => f.Value), r.Stdout, r.Stderr, r.ExitCode, r.GnuplotCommand);
+    }
 }

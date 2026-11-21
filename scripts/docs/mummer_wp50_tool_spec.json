@@ -283,5 +283,71 @@
    },
    "note": "mapview -n 1 -p demo x.coords: the reference line, the grid at 50 / 75 / 100 percent identity, the red match line at 98 percent, the kilobase scale and the legend."
   }
+ },
+ {
+  "name": "mummerplot",
+  "summary": "MUMmer mummerplot: the gnuplot script and the .fplot / .rplot / .hplot / .filter files of alignments, byte for byte.",
+  "methodId": "MummerPlot.Run",
+  "sourceFile": "MummerPlot.cs",
+  "sourcePath": "Seqeron.Genomics.Alignment/MummerPlot.cs",
+  "algorithmDoc": "Alignment/Mummer_Package_Programs.md",
+  "oracleScript": "generate_mummerplot_oracle.py",
+  "short": "MUMmer mummerplot: gnuplot script and data files of delta / cluster / mummer / tiling alignments (every option), byte for byte.",
+  "after": "mapview",
+  "file": "AnalysisTools.MummerPrograms.cs",
+  "description": "MUMmer 3.23 mummerplot (perl script 3.5): the .fplot / .rplot / .hplot data files, the .gp gnuplot script and the .filter delta file for delta, cluster, mummer -c and tiling input with every option (-b --color -c -f -l --fat -p -rv -r -q -R -Q -rport -qport -s --small/--medium/--large -S -t --x11/--postscript/--png --title -x -y); the command line of the gnuplot call is returned (rendering is not part of the text output). Byte for byte equal to the installed mummerplot on 330 + runs and 1 000 more random runs.",
+  "output": {
+   "files": [
+    "object",
+    "The files of the script by name (.fplot, .rplot, .hplot, .gp, .filter)."
+   ],
+   "stdout": [
+    "string",
+    "Standard output (the version line of gnuplot)."
+   ],
+   "messages": [
+    "string",
+    "Standard error of the script."
+   ],
+   "exitCode": [
+    "integer",
+    "The exit status (0, or non-zero after a die)."
+   ],
+   "gnuplotCommand": [
+    "string",
+    "The gnuplot command line the script runs."
+   ]
+  },
+  "errors": [
+   "Match file text cannot be null or empty",
+   "ERROR: Invalid terminal type, <name>",
+   "ERROR: Could not read <file>, Unrecognized file type"
+  ],
+  "example": {
+   "title": "A PNG plot of one alignment",
+   "prompt": "Write the gnuplot script that plots this delta file as a PNG.",
+   "input": {
+    "match": "ref.fa qry.fa\nNUCMER\n>ref qry 260 240\n11 250 1 240 3 3 0\n131\n-51\n0\n",
+    "matchName": "x.delta",
+    "files": {
+     "ref.fa": ">ref demo\nggcccagtccagatcctcggaagtcccaactaacgaataagtagatccttctaaatagta\ngtatacgaatgtaatcaacatattaccgcacccaactttgattgggtcataaacaaacat\ncatgtttctggaggcggtttgtgagaccgacaaacgcgatagagtaatcttataaatcag\ngcaaatactcggtcctttctacgggtcgcggccgcgtggtcataggcagttttatgtttc\ntttgaggttaatgggaggca\n",
+     "qry.fa": ">qry demo\nagatcctcggaagtcccaactaacgaataagtagatccttctaaatagtagtatacgaat\nataatcaacatattaccgcacccaactttgattgggtcataaacaaacatcatgtttctg\ngaggcggttttgagaccgacaaacgcgatagagtaatcttataaatcaggcaaatactcg\nggtcctttctacgggtcgcggccgcgtggtcataggcagttttatgtttctttgaggtta\n"
+    },
+    "prefix": "demo",
+    "png": true
+   },
+   "output": {
+    "files": {
+     "demo.fplot": "#-- forward hits sorted by %sim\n0 0 0\n0 0 0\n\n\n11 1 98.7551867219917\n250 240 98.7551867219917\n\n\n",
+     "demo.rplot": "#-- reverse hits sorted by %sim\n0 0 0\n0 0 0\n\n\n",
+     "demo.gp": "set terminal png tiny size 800,800\nset output \"demo.png\"\nset size 1,1\nset grid\nunset key\nset border 15\nset tics scale 0\nset xlabel \"ref\"\nset ylabel \"qry\"\nset format \"%.0f\"\nset mouse format \"%.0f\"\nset mouse mouseformat \"[%.0f, %.0f]\"\nset xrange [1:260]\nset yrange [1:240]\nset style line 1  lt 1 lw 3 pt 6 ps 1\nset style line 2  lt 3 lw 3 pt 6 ps 1\nset style line 3  lt 2 lw 3 pt 6 ps 1\nplot \\\n \"demo.fplot\" title \"FWD\" w lp ls 1, \\\n \"demo.rplot\" title \"REV\" w lp ls 2\n"
+    },
+    "stdout": "gnuplot 6.0 patchlevel 0\n",
+    "messages": "Reading delta file x.delta\nWriting plot files demo.fplot, demo.rplot\nWriting gnuplot script demo.gp\nRendering plot demo.png\n",
+    "exitCode": 0,
+    "gnuplotCommand": "gnuplot demo.gp"
+   },
+   "note": "mummerplot -p demo --png x.delta: one forward alignment at 98.755 percent similarity; the axes are the reference and query lengths."
+  }
  }
 ]

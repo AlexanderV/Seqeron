@@ -41,3 +41,6 @@ public record ExactTandemsToolResult(string Text, string Messages, int ExitCode,
 
 /// <summary>Result of <c>mapview</c>: the FIG files (or, with pdf / ps, the temporary FIG files the script feeds to fig2dev), the fig2dev command lines and output names, standard output, standard error, the exit status and the side file of an mgaps input.</summary>
 public record MapviewToolResult(Dictionary<string, string> Figs, string[] Commands, string[] Outputs, string Stdout, string Messages, int ExitCode, Dictionary<string, string> Side);
+
+/// <summary>Result of <c>mummerplot</c>: the files of the script (<c>.fplot</c>, <c>.rplot</c>, <c>.hplot</c>, <c>.gp</c>, <c>.filter</c>), standard output, standard error, the exit status and the gnuplot command line.</summary>
+public record MummerplotToolResult(Dictionary<string, string> Files, string Stdout, string Messages, int ExitCode, string? GnuplotCommand);

@@ -204,8 +204,9 @@ public class MummerProgramToolsTests
         Assert.Throws<ArgumentException>(() => AnalysisTools.ExactTandems("", 6));
     }
 
-    // mapview -n 1 -p demo x.coords (MUMmer 3.23) (B09 A3-9e4, F212)
+    // mapview -n 1 -p demo x.coords and mummerplot -p demo --png x.delta (MUMmer 3.23) (B09 A3-9e4, F212, F213)
     private const string DemoCoords = "ref.fa qry.fa\nNUCMER\n\n    [S1]     [E1]  |     [S2]     [E2]  |  [LEN 1]  [LEN 2]  |  [% IDY]  |  [LEN R]  [LEN Q]  | [TAGS]\n==========================================================================================================\n      11      250  |        1      240  |      240      240  |    98.76  |      260      240  | ref\tqry\n";
+    private const string DemoDelta = "ref.fa qry.fa\nNUCMER\n>ref qry 260 240\n11 250 1 240 3 3 0\n131\n-51\n0\n";
 
     [Test]
     public void Mapview_DrawsTheFigFilesOfTheScript()
@@ -221,5 +222,20 @@ public class MummerProgramToolsTests
         Assert.That(AnalysisTools.Mapview(DemoCoords, "other\tx\tsingle-exon\t5\t50\t.\t+\t.\tg1\n").ExitCode, Is.EqualTo(1));
         Assert.Throws<ArgumentException>(() => AnalysisTools.Mapview("", numberOfFiles: 1));
         Assert.Throws<ArgumentException>(() => AnalysisTools.Mapview(DemoCoords, format: "png"));
+    }
+
+    [Test]
+    public void Mummerplot_WritesTheScriptAndTheDataFilesOfTheProgram()
+    {
+        var files = new Dictionary<string, string> { ["ref.fa"] = ">ref demo\nggcccagtccagatcctcggaagtcccaactaacgaataagtagatccttctaaatagta\ngtatacgaatgtaatcaacatattaccgcacccaactttgattgggtcataaacaaacat\ncatgtttctggaggcggtttgtgagaccgacaaacgcgatagagtaatcttataaatcag\ngcaaatactcggtcctttctacgggtcgcggccgcgtggtcataggcagttttatgtttc\ntttgaggttaatgggaggca\n", ["qry.fa"] = ">qry demo\nagatcctcggaagtcccaactaacgaataagtagatccttctaaatagtagtatacgaat\nataatcaacatattaccgcacccaactttgattgggtcataaacaaacatcatgtttctg\ngaggcggttttgagaccgacaaacgcgatagagtaatcttataaatcaggcaaatactcg\nggtcctttctacgggtcgcggccgcgtggtcataggcagttttatgtttctttgaggtta\n" };
+        var r = AnalysisTools.Mummerplot(DemoDelta, files, "x.delta", prefix: "demo", png: true);
+        Assert.That(r.Files["demo.fplot"], Is.EqualTo("#-- forward hits sorted by %sim\n0 0 0\n0 0 0\n\n\n11 1 98.7551867219917\n250 240 98.7551867219917\n\n\n"));
+        Assert.That(r.Files["demo.rplot"], Is.EqualTo("#-- reverse hits sorted by %sim\n0 0 0\n0 0 0\n\n\n"));
+        Assert.That(r.Files["demo.gp"], Is.EqualTo("set terminal png tiny size 800,800\nset output \"demo.png\"\nset size 1,1\nset grid\nunset key\nset border 15\nset tics scale 0\nset xlabel \"ref\"\nset ylabel \"qry\"\nset format \"%.0f\"\nset mouse format \"%.0f\"\nset mouse mouseformat \"[%.0f, %.0f]\"\nset xrange [1:260]\nset yrange [1:240]\nset style line 1  lt 1 lw 3 pt 6 ps 1\nset style line 2  lt 3 lw 3 pt 6 ps 1\nset style line 3  lt 2 lw 3 pt 6 ps 1\nplot \\\n \"demo.fplot\" title \"FWD\" w lp ls 1, \\\n \"demo.rplot\" title \"REV\" w lp ls 2\n"));
+        Assert.That(r.Stdout, Is.EqualTo("gnuplot 6.0 patchlevel 0\n"));
+        Assert.That(r.Messages, Is.EqualTo("Reading delta file x.delta\nWriting plot files demo.fplot, demo.rplot\nWriting gnuplot script demo.gp\nRendering plot demo.png\n"));
+        Assert.That(r.GnuplotCommand, Is.EqualTo("gnuplot demo.gp"));
+        Assert.That(AnalysisTools.Mummerplot(DemoDelta, files, "x.delta", terminal: "foo").ExitCode, Is.Not.Zero);
+        Assert.Throws<ArgumentException>(() => AnalysisTools.Mummerplot("", files));
     }
 }

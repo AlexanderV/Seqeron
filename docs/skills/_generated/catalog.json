@@ -1421,6 +1421,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/MummerGaps.cs"
   },
   {
+    "tool": "mummerplot",
+    "server": "Analysis",
+    "methodId": "MummerPlot.Run",
+    "docPath": "docs/mcp/tools/analysis/mummerplot.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/MummerPlot.cs"
+  },
+  {
     "tool": "nucmer",
     "server": "Analysis",
     "methodId": "GenomicAnalyzer.Nucmer",

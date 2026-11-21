@@ -132,6 +132,7 @@
 | `mummer` | Analysis | `MummerProgram.Run` | [doc](../../../../docs/mcp/tools/analysis/mummer.md) |
 | `mummer_annotate` | Analysis | `MummerAnnotate.Run` | [doc](../../../../docs/mcp/tools/analysis/mummer_annotate.md) |
 | `mummer_gaps` | Analysis | `MummerGaps.Run` | [doc](../../../../docs/mcp/tools/analysis/mummer_gaps.md) |
+| `mummerplot` | Analysis | `MummerPlot.Run` | [doc](../../../../docs/mcp/tools/analysis/mummerplot.md) |
 | `nucmer` | Analysis | `GenomicAnalyzer.Nucmer` | [doc](../../../../docs/mcp/tools/analysis/nucmer.md) |
 | `nucmer2xfig` | Analysis | `MummerNucmer2Xfig.Run` | [doc](../../../../docs/mcp/tools/analysis/nucmer2xfig.md) |
 | `nucmer_clusters` | Analysis | `GenomicAnalyzer.FindNucmerClusters` | [doc](../../../../docs/mcp/tools/analysis/nucmer_clusters.md) |

@@ -86,7 +86,7 @@
 | `water_align` | `SequenceAligner.WaterAlign` | [doc](../../mcp/tools/alignment/water_align.md) |
 | `write_alignment` | `EmbossAlignmentWriter.Format` | [doc](../../mcp/tools/alignment/write_alignment.md) |
 
-## Analysis (172 tools)
+## Analysis (173 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -216,6 +216,7 @@
 | `mummer` | `MummerProgram.Run` | [doc](../../mcp/tools/analysis/mummer.md) |
 | `mummer_annotate` | `MummerAnnotate.Run` | [doc](../../mcp/tools/analysis/mummer_annotate.md) |
 | `mummer_gaps` | `MummerGaps.Run` | [doc](../../mcp/tools/analysis/mummer_gaps.md) |
+| `mummerplot` | `MummerPlot.Run` | [doc](../../mcp/tools/analysis/mummerplot.md) |
 | `nucmer` | `GenomicAnalyzer.Nucmer` | [doc](../../mcp/tools/analysis/nucmer.md) |
 | `nucmer2xfig` | `MummerNucmer2Xfig.Run` | [doc](../../mcp/tools/analysis/nucmer2xfig.md) |
 | `nucmer_clusters` | `GenomicAnalyzer.FindNucmerClusters` | [doc](../../mcp/tools/analysis/nucmer_clusters.md) |

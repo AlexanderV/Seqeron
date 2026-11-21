@@ -111,6 +111,7 @@ Servers: `A` = Annotation, `X` = Analysis. `⚠` = guarded / documented-limited 
 | `repeat_match` | X | MUMmer repeat-match: maximal exact repeats (-n -f -t -E -V) in the order of the program's suffix tree, byte for byte. | `MummerRepeatMatch.Run` |
 | `exact_tandems` | X | MUMmer exact-tandems: exact tandem repeats (repeat-match -t | sort | awk), the intended pipeline and the script as installed. | `MummerExactTandems.Run` |
 | `mapview` | X | MUMmer mapview: FIG maps of show-coords -rl / mgaps alignments with genes (-d -f -m -n -p -v -x1 -x2 -g -I -Ir), byte for byte. | `MummerMapview.Run` |
+| `mummerplot` | X | MUMmer mummerplot: gnuplot script and data files of delta / cluster / mummer / tiling alignments (every option), byte for byte. | `MummerPlot.Run` |
 | `delta2maf` | X | MUMmer delta2maf: nucmer alignments as MAF (a score / s lines), byte for byte. | `MummerDelta2Maf.Run` |
 | `nucmer2xfig` | X | MUMmer nucmer2xfig: xfig plot of a show-coords -c -l file, byte for byte. | `MummerNucmer2Xfig.Run` |
 | `combine_mums` | X | MUMmer combineMUMs: extension and alignment of the mgaps clusters (-D -e -n -N -q -r -S -t -v -x -W), byte for byte. | `MummerCombineMums.Run` |

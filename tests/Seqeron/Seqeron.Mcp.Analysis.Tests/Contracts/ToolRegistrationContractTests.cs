@@ -141,6 +141,7 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "repeat_match",
         "exact_tandems",
         "mapview",
+        "mummerplot",
         "delta2maf",
         "nucmer2xfig",
         "combine_mums",
