@@ -1,0 +1,1024 @@
+R	sesa	total_s	2.215057096	s	dna10.warm.0.A SesaBuilder.Build, inside the call
+R	sesa	wall_s	2.21950131	s	dna10.warm.0.A around the call
+R	sesa	scan_s	0.03643601	s	dna10.warm.0.A
+R	sesa	create_s	0.00238624	s	dna10.warm.0.A
+R	sesa	pack_s	0.04874778	s	dna10.warm.0.A
+R	sesa	ph1_s	0.072578017	s	dna10.warm.0.A
+R	sesa	ph23_s	0.46128411	s	dna10.warm.0.A
+R	sesa	ph45_s	1.045630511	s	dna10.warm.0.A
+R	sesa	bwt_s	0.114752635	s	dna10.warm.0.A
+R	sesa	psi_s	0.093796987	s	dna10.warm.0.A
+R	sesa	crc_s	0.032441165	s	dna10.warm.0.A
+R	sesa	seal_s	0.007863454	s	dna10.warm.0.A
+R	sesa	n	10000000	symbols	dna10.warm.0.A sigma 4, 2 bits
+R	sesa	file_size	132515457	bytes	dna10.warm.0.A LCP U8, 0 overflow pairs
+R	sesa	grown_bytes	0	bytes	dna10.warm.0.A growth none, creation Preallocated
+R	sesa	counted_read	352578065	bytes	dna10.warm.0.A explicit reads of the build (IoCounters)
+R	sesa	counted_write	242582160	bytes	dna10.warm.0.A explicit writes of the build (IoCounters)
+R	sesa	counted_mapped_write	143789338	bytes	dna10.warm.0.A writes through mapped windows (IoCounters)
+R	sesa	counted_reserved_write	0	bytes	dna10.warm.0.A zeros written to reserve the growth
+R	sesa	scratch_peak	120000000	bytes	dna10.warm.0.A
+R	sesa	arena_peak	140616824	bytes	dna10.warm.0.A
+R	sesa	proc_rchar	353282592	bytes	dna10.warm.0.A /proc/self/io over the call
+R	sesa	proc_wchar	242582335	bytes	dna10.warm.0.A
+R	sesa	proc_read_bytes	11108352	bytes	dna10.warm.0.A block-layer reads charged to the process
+R	sesa	proc_write_bytes	392822784	bytes	dna10.warm.0.A pages dirtied (a page that is written again counts again)
+R	sesa	dev_sectors_read	21696	sectors	dna10.warm.0.A /sys/block/vda/stat over the call (512 B)
+R	sesa	dev_sectors_written	378544	sectors	dna10.warm.0.A over the call
+R	sesa	dev_sectors_written_synced	378840	sectors	dna10.warm.0.A until the end of a sync after the call
+R	sesa	rssanon_peak_mb	102.162432	MB	dna10.warm.0.A verdict Within
+R	sesa	rssanon_ph0_mb	10.493952	MB	dna10.warm.0.A
+R	sesa	rssanon_ph1_mb	20.508672	MB	dna10.warm.0.A
+R	sesa	rssanon_ph23_mb	75.464704	MB	dna10.warm.0.A
+R	sesa	rssanon_ph45_mb	102.203392	MB	dna10.warm.0.A
+R	sesa	rssanon_ph6_mb	55.144448	MB	dna10.warm.0.A
+R	sesa	rssanon_seal_mb	55.17312	MB	dna10.warm.0.A
+R	sesa	total_s	1.819295352	s	dna10.warm.0.B SesaBuilder.Build, inside the call
+R	sesa	wall_s	1.81933544	s	dna10.warm.0.B around the call
+R	sesa	scan_s	0.013711218	s	dna10.warm.0.B
+R	sesa	create_s	0.000683815	s	dna10.warm.0.B
+R	sesa	pack_s	0.036611105	s	dna10.warm.0.B
+R	sesa	ph1_s	0.042461813	s	dna10.warm.0.B
+R	sesa	ph23_s	0.428111054	s	dna10.warm.0.B
+R	sesa	ph45_s	0.785060193	s	dna10.warm.0.B
+R	sesa	bwt_s	0.099648584	s	dna10.warm.0.B
+R	sesa	psi_s	0.098912819	s	dna10.warm.0.B
+R	sesa	crc_s	0.027333581	s	dna10.warm.0.B
+R	sesa	seal_s	0.003939615	s	dna10.warm.0.B
+R	sesa	n	10000000	symbols	dna10.warm.0.B sigma 4, 2 bits
+R	sesa	file_size	132515457	bytes	dna10.warm.0.B LCP U8, 0 overflow pairs
+R	sesa	grown_bytes	0	bytes	dna10.warm.0.B growth none, creation Preallocated
+R	sesa	counted_read	352578065	bytes	dna10.warm.0.B explicit reads of the build (IoCounters)
+R	sesa	counted_write	242582160	bytes	dna10.warm.0.B explicit writes of the build (IoCounters)
+R	sesa	counted_mapped_write	143789338	bytes	dna10.warm.0.B writes through mapped windows (IoCounters)
+R	sesa	counted_reserved_write	0	bytes	dna10.warm.0.B zeros written to reserve the growth
+R	sesa	scratch_peak	120000000	bytes	dna10.warm.0.B
+R	sesa	arena_peak	140616824	bytes	dna10.warm.0.B
+R	sesa	proc_rchar	353148625	bytes	dna10.warm.0.B /proc/self/io over the call
+R	sesa	proc_wchar	242582335	bytes	dna10.warm.0.B
+R	sesa	proc_read_bytes	8192	bytes	dna10.warm.0.B block-layer reads charged to the process
+R	sesa	proc_write_bytes	392736768	bytes	dna10.warm.0.B pages dirtied (a page that is written again counts again)
+R	sesa	dev_sectors_read	312	sectors	dna10.warm.0.B /sys/block/vda/stat over the call (512 B)
+R	sesa	dev_sectors_written	378368	sectors	dna10.warm.0.B over the call
+R	sesa	dev_sectors_written_synced	378624	sectors	dna10.warm.0.B until the end of a sync after the call
+R	sesa	rssanon_peak_mb	153.35424	MB	dna10.warm.0.B verdict Within
+R	sesa	rssanon_ph0_mb	56.426496	MB	dna10.warm.0.B
+R	sesa	rssanon_ph1_mb	63.56992	MB	dna10.warm.0.B
+R	sesa	rssanon_ph23_mb	102.944768	MB	dna10.warm.0.B
+R	sesa	rssanon_ph45_mb	153.358336	MB	dna10.warm.0.B
+R	sesa	rssanon_ph6_mb	103.088128	MB	dna10.warm.0.B
+R	sesa	rssanon_seal_mb	103.088128	MB	dna10.warm.0.B
+R	sesa	reserve_s	0	s	dna10.warm.0.B the seconds inside ReserveRange (the zeros of the growth)
+R	sesa	total_s	1.756179587	s	dna10.warm.1.A SesaBuilder.Build, inside the call
+R	sesa	wall_s	1.756197027	s	dna10.warm.1.A around the call
+R	sesa	scan_s	0.013936306	s	dna10.warm.1.A
+R	sesa	create_s	0.000542421	s	dna10.warm.1.A
+R	sesa	pack_s	0.034460561	s	dna10.warm.1.A
+R	sesa	ph1_s	0.039041682	s	dna10.warm.1.A
+R	sesa	ph23_s	0.426140401	s	dna10.warm.1.A
+R	sesa	ph45_s	0.735647765	s	dna10.warm.1.A
+R	sesa	bwt_s	0.098354844	s	dna10.warm.1.A
+R	sesa	psi_s	0.093391614	s	dna10.warm.1.A
+R	sesa	crc_s	0.028768374	s	dna10.warm.1.A
+R	sesa	seal_s	0.003469721	s	dna10.warm.1.A
+R	sesa	n	10000000	symbols	dna10.warm.1.A sigma 4, 2 bits
+R	sesa	file_size	132515457	bytes	dna10.warm.1.A LCP U8, 0 overflow pairs
+R	sesa	grown_bytes	0	bytes	dna10.warm.1.A growth none, creation Preallocated
+R	sesa	counted_read	352578065	bytes	dna10.warm.1.A explicit reads of the build (IoCounters)
+R	sesa	counted_write	242582160	bytes	dna10.warm.1.A explicit writes of the build (IoCounters)
+R	sesa	counted_mapped_write	143789338	bytes	dna10.warm.1.A writes through mapped windows (IoCounters)
+R	sesa	counted_reserved_write	0	bytes	dna10.warm.1.A zeros written to reserve the growth
+R	sesa	scratch_peak	120000000	bytes	dna10.warm.1.A
+R	sesa	arena_peak	140616824	bytes	dna10.warm.1.A
+R	sesa	proc_rchar	353128577	bytes	dna10.warm.1.A /proc/self/io over the call
+R	sesa	proc_wchar	242582335	bytes	dna10.warm.1.A
+R	sesa	proc_read_bytes	4096	bytes	dna10.warm.1.A block-layer reads charged to the process
+R	sesa	proc_write_bytes	392884224	bytes	dna10.warm.1.A pages dirtied (a page that is written again counts again)
+R	sesa	dev_sectors_read	8	sectors	dna10.warm.1.A /sys/block/vda/stat over the call (512 B)
+R	sesa	dev_sectors_written	378728	sectors	dna10.warm.1.A over the call
+R	sesa	dev_sectors_written_synced	378960	sectors	dna10.warm.1.A until the end of a sync after the call
+R	sesa	rssanon_peak_mb	155.635712	MB	dna10.warm.1.A verdict Within
+R	sesa	rssanon_ph0_mb	105.320448	MB	dna10.warm.1.A
+R	sesa	rssanon_ph1_mb	105.340928	MB	dna10.warm.1.A
+R	sesa	rssanon_ph23_mb	105.39008	MB	dna10.warm.1.A
+R	sesa	rssanon_ph45_mb	155.635712	MB	dna10.warm.1.A
+R	sesa	rssanon_ph6_mb	105.353216	MB	dna10.warm.1.A
+R	sesa	rssanon_seal_mb	105.353216	MB	dna10.warm.1.A
+R	sesa	total_s	2.128277644	s	dna10.warm.1.B SesaBuilder.Build, inside the call
+R	sesa	wall_s	2.128305104	s	dna10.warm.1.B around the call
+R	sesa	scan_s	0.013633623	s	dna10.warm.1.B
+R	sesa	create_s	0.000326692	s	dna10.warm.1.B
+R	sesa	pack_s	0.031381672	s	dna10.warm.1.B
+R	sesa	ph1_s	0.051102003	s	dna10.warm.1.B
+R	sesa	ph23_s	0.440996444	s	dna10.warm.1.B
+R	sesa	ph45_s	1.006792648	s	dna10.warm.1.B
+R	sesa	bwt_s	0.162994374	s	dna10.warm.1.B
+R	sesa	psi_s	0.09567685	s	dna10.warm.1.B
+R	sesa	crc_s	0.030562301	s	dna10.warm.1.B
+R	sesa	seal_s	0.003505092	s	dna10.warm.1.B
+R	sesa	n	10000000	symbols	dna10.warm.1.B sigma 4, 2 bits
+R	sesa	file_size	132515457	bytes	dna10.warm.1.B LCP U8, 0 overflow pairs
+R	sesa	grown_bytes	0	bytes	dna10.warm.1.B growth none, creation Preallocated
+R	sesa	counted_read	352578065	bytes	dna10.warm.1.B explicit reads of the build (IoCounters)
+R	sesa	counted_write	242582160	bytes	dna10.warm.1.B explicit writes of the build (IoCounters)
+R	sesa	counted_mapped_write	143789338	bytes	dna10.warm.1.B writes through mapped windows (IoCounters)
+R	sesa	counted_reserved_write	0	bytes	dna10.warm.1.B zeros written to reserve the growth
+R	sesa	scratch_peak	120000000	bytes	dna10.warm.1.B
+R	sesa	arena_peak	140616824	bytes	dna10.warm.1.B
+R	sesa	proc_rchar	353235007	bytes	dna10.warm.1.B /proc/self/io over the call
+R	sesa	proc_wchar	242582335	bytes	dna10.warm.1.B
+R	sesa	proc_read_bytes	0	bytes	dna10.warm.1.B block-layer reads charged to the process
+R	sesa	proc_write_bytes	391983104	bytes	dna10.warm.1.B pages dirtied (a page that is written again counts again)
+R	sesa	dev_sectors_read	0	sectors	dna10.warm.1.B /sys/block/vda/stat over the call (512 B)
+R	sesa	dev_sectors_written	377032	sectors	dna10.warm.1.B over the call
+R	sesa	dev_sectors_written_synced	377248	sectors	dna10.warm.1.B until the end of a sync after the call
+R	sesa	rssanon_peak_mb	165.45792	MB	dna10.warm.1.B verdict Within
+R	sesa	rssanon_ph0_mb	105.598976	MB	dna10.warm.1.B
+R	sesa	rssanon_ph1_mb	110.923776	MB	dna10.warm.1.B
+R	sesa	rssanon_ph23_mb	113.246208	MB	dna10.warm.1.B
+R	sesa	rssanon_ph45_mb	165.53984	MB	dna10.warm.1.B
+R	sesa	rssanon_ph6_mb	115.46624	MB	dna10.warm.1.B
+R	sesa	rssanon_seal_mb	115.490816	MB	dna10.warm.1.B
+R	sesa	reserve_s	0	s	dna10.warm.1.B the seconds inside ReserveRange (the zeros of the growth)
+R	sesa	pair_ratio_total	1.2118792746222713	B / A	dna10.warm pair 1: total 2.128 / 1.756 s, first A
+R	sesa	pair_ratio_ph45	1.3685797686070589	B / A	dna10.warm pair 1: PH4 + PH5 1.007 / 0.736 s
+R	sesa	total_s	1.78494536	s	dna10.warm.2.B SesaBuilder.Build, inside the call
+R	sesa	wall_s	1.784965698	s	dna10.warm.2.B around the call
+R	sesa	scan_s	0.014090412	s	dna10.warm.2.B
+R	sesa	create_s	0.000525853	s	dna10.warm.2.B
+R	sesa	pack_s	0.046824372	s	dna10.warm.2.B
+R	sesa	ph1_s	0.053289981	s	dna10.warm.2.B
+R	sesa	ph23_s	0.438776916	s	dna10.warm.2.B
+R	sesa	ph45_s	0.728066288	s	dna10.warm.2.B
+R	sesa	bwt_s	0.100244535	s	dna10.warm.2.B
+R	sesa	psi_s	0.087956294	s	dna10.warm.2.B
+R	sesa	crc_s	0.028280012	s	dna10.warm.2.B
+R	sesa	seal_s	0.003450001	s	dna10.warm.2.B
+R	sesa	n	10000000	symbols	dna10.warm.2.B sigma 4, 2 bits
+R	sesa	file_size	132515457	bytes	dna10.warm.2.B LCP U8, 0 overflow pairs
+R	sesa	grown_bytes	0	bytes	dna10.warm.2.B growth none, creation Preallocated
+R	sesa	counted_read	352578065	bytes	dna10.warm.2.B explicit reads of the build (IoCounters)
+R	sesa	counted_write	242582160	bytes	dna10.warm.2.B explicit writes of the build (IoCounters)
+R	sesa	counted_mapped_write	143789338	bytes	dna10.warm.2.B writes through mapped windows (IoCounters)
+R	sesa	counted_reserved_write	0	bytes	dna10.warm.2.B zeros written to reserve the growth
+R	sesa	scratch_peak	120000000	bytes	dna10.warm.2.B
+R	sesa	arena_peak	140616824	bytes	dna10.warm.2.B
+R	sesa	proc_rchar	353141692	bytes	dna10.warm.2.B /proc/self/io over the call
+R	sesa	proc_wchar	242582335	bytes	dna10.warm.2.B
+R	sesa	proc_read_bytes	0	bytes	dna10.warm.2.B block-layer reads charged to the process
+R	sesa	proc_write_bytes	392982528	bytes	dna10.warm.2.B pages dirtied (a page that is written again counts again)
+R	sesa	dev_sectors_read	0	sectors	dna10.warm.2.B /sys/block/vda/stat over the call (512 B)
+R	sesa	dev_sectors_written	378920	sectors	dna10.warm.2.B over the call
+R	sesa	dev_sectors_written_synced	379168	sectors	dna10.warm.2.B until the end of a sync after the call
+R	sesa	rssanon_peak_mb	162.852864	MB	dna10.warm.2.B verdict Within
+R	sesa	rssanon_ph0_mb	116.65408	MB	dna10.warm.2.B
+R	sesa	rssanon_ph1_mb	113.47968	MB	dna10.warm.2.B
+R	sesa	rssanon_ph23_mb	113.897472	MB	dna10.warm.2.B
+R	sesa	rssanon_ph45_mb	162.852864	MB	dna10.warm.2.B
+R	sesa	rssanon_ph6_mb	113.618944	MB	dna10.warm.2.B
+R	sesa	rssanon_seal_mb	113.618944	MB	dna10.warm.2.B
+R	sesa	reserve_s	0	s	dna10.warm.2.B the seconds inside ReserveRange (the zeros of the growth)
+R	sesa	total_s	1.764899469	s	dna10.warm.2.A SesaBuilder.Build, inside the call
+R	sesa	wall_s	1.76492161	s	dna10.warm.2.A around the call
+R	sesa	scan_s	0.013779446	s	dna10.warm.2.A
+R	sesa	create_s	0.000536501	s	dna10.warm.2.A
+R	sesa	pack_s	0.033116864	s	dna10.warm.2.A
+R	sesa	ph1_s	0.038219505	s	dna10.warm.2.A
+R	sesa	ph23_s	0.411006343	s	dna10.warm.2.A
+R	sesa	ph45_s	0.741949767	s	dna10.warm.2.A
+R	sesa	bwt_s	0.110972892	s	dna10.warm.2.A
+R	sesa	psi_s	0.102407717	s	dna10.warm.2.A
+R	sesa	crc_s	0.027613539	s	dna10.warm.2.A
+R	sesa	seal_s	0.002637459	s	dna10.warm.2.A
+R	sesa	n	10000000	symbols	dna10.warm.2.A sigma 4, 2 bits
+R	sesa	file_size	132515457	bytes	dna10.warm.2.A LCP U8, 0 overflow pairs
+R	sesa	grown_bytes	0	bytes	dna10.warm.2.A growth none, creation Preallocated
+R	sesa	counted_read	352578065	bytes	dna10.warm.2.A explicit reads of the build (IoCounters)
+R	sesa	counted_write	242582160	bytes	dna10.warm.2.A explicit writes of the build (IoCounters)
+R	sesa	counted_mapped_write	143789338	bytes	dna10.warm.2.A writes through mapped windows (IoCounters)
+R	sesa	counted_reserved_write	0	bytes	dna10.warm.2.A zeros written to reserve the growth
+R	sesa	scratch_peak	120000000	bytes	dna10.warm.2.A
+R	sesa	arena_peak	140616824	bytes	dna10.warm.2.A
+R	sesa	proc_rchar	353130448	bytes	dna10.warm.2.A /proc/self/io over the call
+R	sesa	proc_wchar	242582335	bytes	dna10.warm.2.A
+R	sesa	proc_read_bytes	4096	bytes	dna10.warm.2.A block-layer reads charged to the process
+R	sesa	proc_write_bytes	392597504	bytes	dna10.warm.2.A pages dirtied (a page that is written again counts again)
+R	sesa	dev_sectors_read	8	sectors	dna10.warm.2.A /sys/block/vda/stat over the call (512 B)
+R	sesa	dev_sectors_written	378112	sectors	dna10.warm.2.A over the call
+R	sesa	dev_sectors_written_synced	378344	sectors	dna10.warm.2.A until the end of a sync after the call
+R	sesa	rssanon_peak_mb	164.88448	MB	dna10.warm.2.A verdict Within
+R	sesa	rssanon_ph0_mb	115.699712	MB	dna10.warm.2.A
+R	sesa	rssanon_ph1_mb	115.720192	MB	dna10.warm.2.A
+R	sesa	rssanon_ph23_mb	115.73248	MB	dna10.warm.2.A
+R	sesa	rssanon_ph45_mb	164.88448	MB	dna10.warm.2.A
+R	sesa	rssanon_ph6_mb	115.65056	MB	dna10.warm.2.A
+R	sesa	rssanon_seal_mb	115.65056	MB	dna10.warm.2.A
+R	sesa	pair_ratio_total	1.0113580922608347	B / A	dna10.warm pair 2: total 1.785 / 1.765 s, first B
+R	sesa	pair_ratio_ph45	0.9812878450570359	B / A	dna10.warm pair 2: PH4 + PH5 0.728 / 0.742 s
+R	sesa	total_s	1.772934628	s	dna10.warm.3.A SesaBuilder.Build, inside the call
+R	sesa	wall_s	1.772964093	s	dna10.warm.3.A around the call
+R	sesa	scan_s	0.013532875	s	dna10.warm.3.A
+R	sesa	create_s	0.000778243	s	dna10.warm.3.A
+R	sesa	pack_s	0.034272403	s	dna10.warm.3.A
+R	sesa	ph1_s	0.039956801	s	dna10.warm.3.A
+R	sesa	ph23_s	0.419464039	s	dna10.warm.3.A
+R	sesa	ph45_s	0.747439523	s	dna10.warm.3.A
+R	sesa	bwt_s	0.103226692	s	dna10.warm.3.A
+R	sesa	psi_s	0.09665072	s	dna10.warm.3.A
+R	sesa	crc_s	0.030489224	s	dna10.warm.3.A
+R	sesa	seal_s	0.003904832	s	dna10.warm.3.A
+R	sesa	n	10000000	symbols	dna10.warm.3.A sigma 4, 2 bits
+R	sesa	file_size	132515457	bytes	dna10.warm.3.A LCP U8, 0 overflow pairs
+R	sesa	grown_bytes	0	bytes	dna10.warm.3.A growth none, creation Preallocated
+R	sesa	counted_read	352578065	bytes	dna10.warm.3.A explicit reads of the build (IoCounters)
+R	sesa	counted_write	242582160	bytes	dna10.warm.3.A explicit writes of the build (IoCounters)
+R	sesa	counted_mapped_write	143789338	bytes	dna10.warm.3.A writes through mapped windows (IoCounters)
+R	sesa	counted_reserved_write	0	bytes	dna10.warm.3.A zeros written to reserve the growth
+R	sesa	scratch_peak	120000000	bytes	dna10.warm.3.A
+R	sesa	arena_peak	140616824	bytes	dna10.warm.3.A
+R	sesa	proc_rchar	353128138	bytes	dna10.warm.3.A /proc/self/io over the call
+R	sesa	proc_wchar	242582335	bytes	dna10.warm.3.A
+R	sesa	proc_read_bytes	20480	bytes	dna10.warm.3.A block-layer reads charged to the process
+R	sesa	proc_write_bytes	391725056	bytes	dna10.warm.3.A pages dirtied (a page that is written again counts again)
+R	sesa	dev_sectors_read	40	sectors	dna10.warm.3.A /sys/block/vda/stat over the call (512 B)
+R	sesa	dev_sectors_written	376440	sectors	dna10.warm.3.A over the call
+R	sesa	dev_sectors_written_synced	376688	sectors	dna10.warm.3.A until the end of a sync after the call
+R	sesa	rssanon_peak_mb	165.146624	MB	dna10.warm.3.A verdict Within
+R	sesa	rssanon_ph0_mb	115.89632	MB	dna10.warm.3.A
+R	sesa	rssanon_ph1_mb	115.9168	MB	dna10.warm.3.A
+R	sesa	rssanon_ph23_mb	115.929088	MB	dna10.warm.3.A
+R	sesa	rssanon_ph45_mb	165.146624	MB	dna10.warm.3.A
+R	sesa	rssanon_ph6_mb	115.912704	MB	dna10.warm.3.A
+R	sesa	rssanon_seal_mb	115.912704	MB	dna10.warm.3.A
+R	sesa	total_s	1.78218683	s	dna10.warm.3.B SesaBuilder.Build, inside the call
+R	sesa	wall_s	1.782214139	s	dna10.warm.3.B around the call
+R	sesa	scan_s	0.018358072	s	dna10.warm.3.B
+R	sesa	create_s	0.000719096	s	dna10.warm.3.B
+R	sesa	pack_s	0.06054997	s	dna10.warm.3.B
+R	sesa	ph1_s	0.038267011	s	dna10.warm.3.B
+R	sesa	ph23_s	0.427548994	s	dna10.warm.3.B
+R	sesa	ph45_s	0.736012075	s	dna10.warm.3.B
+R	sesa	bwt_s	0.101743248	s	dna10.warm.3.B
+R	sesa	psi_s	0.082571937	s	dna10.warm.3.B
+R	sesa	crc_s	0.02891029	s	dna10.warm.3.B
+R	sesa	seal_s	0.003095943	s	dna10.warm.3.B
+R	sesa	n	10000000	symbols	dna10.warm.3.B sigma 4, 2 bits
+R	sesa	file_size	132515457	bytes	dna10.warm.3.B LCP U8, 0 overflow pairs
+R	sesa	grown_bytes	0	bytes	dna10.warm.3.B growth none, creation Preallocated
+R	sesa	counted_read	352578065	bytes	dna10.warm.3.B explicit reads of the build (IoCounters)
+R	sesa	counted_write	242582160	bytes	dna10.warm.3.B explicit writes of the build (IoCounters)
+R	sesa	counted_mapped_write	143789338	bytes	dna10.warm.3.B writes through mapped windows (IoCounters)
+R	sesa	counted_reserved_write	0	bytes	dna10.warm.3.B zeros written to reserve the growth
+R	sesa	scratch_peak	120000000	bytes	dna10.warm.3.B
+R	sesa	arena_peak	140616824	bytes	dna10.warm.3.B
+R	sesa	proc_rchar	353136141	bytes	dna10.warm.3.B /proc/self/io over the call
+R	sesa	proc_wchar	242582335	bytes	dna10.warm.3.B
+R	sesa	proc_read_bytes	0	bytes	dna10.warm.3.B block-layer reads charged to the process
+R	sesa	proc_write_bytes	392404992	bytes	dna10.warm.3.B pages dirtied (a page that is written again counts again)
+R	sesa	dev_sectors_read	480	sectors	dna10.warm.3.B /sys/block/vda/stat over the call (512 B)
+R	sesa	dev_sectors_written	377736	sectors	dna10.warm.3.B over the call
+R	sesa	dev_sectors_written_synced	378024	sectors	dna10.warm.3.B until the end of a sync after the call
+R	sesa	rssanon_peak_mb	162.79552	MB	dna10.warm.3.B verdict Within
+R	sesa	rssanon_ph0_mb	116.948992	MB	dna10.warm.3.B
+R	sesa	rssanon_ph1_mb	113.565696	MB	dna10.warm.3.B
+R	sesa	rssanon_ph23_mb	113.577984	MB	dna10.warm.3.B
+R	sesa	rssanon_ph45_mb	162.79552	MB	dna10.warm.3.B
+R	sesa	rssanon_ph6_mb	113.5616	MB	dna10.warm.3.B
+R	sesa	rssanon_seal_mb	113.5616	MB	dna10.warm.3.B
+R	sesa	reserve_s	0	s	dna10.warm.3.B the seconds inside ReserveRange (the zeros of the growth)
+R	sesa	pair_ratio_total	1.0052185804563123	B / A	dna10.warm pair 3: total 1.782 / 1.773 s, first A
+R	sesa	pair_ratio_ph45	0.9847112071968931	B / A	dna10.warm pair 3: PH4 + PH5 0.736 / 0.747 s
+R	sesa	total_s	1.741129278	s	dna10.warm.4.B SesaBuilder.Build, inside the call
+R	sesa	wall_s	1.741152358	s	dna10.warm.4.B around the call
+R	sesa	scan_s	0.013750132	s	dna10.warm.4.B
+R	sesa	create_s	0.000422002	s	dna10.warm.4.B
+R	sesa	pack_s	0.0322705	s	dna10.warm.4.B
+R	sesa	ph1_s	0.039512581	s	dna10.warm.4.B
+R	sesa	ph23_s	0.421712161	s	dna10.warm.4.B
+R	sesa	ph45_s	0.734689011	s	dna10.warm.4.B
+R	sesa	bwt_s	0.10114597	s	dna10.warm.4.B
+R	sesa	psi_s	0.082175168	s	dna10.warm.4.B
+R	sesa	crc_s	0.029080492	s	dna10.warm.4.B
+R	sesa	seal_s	0.003595255	s	dna10.warm.4.B
+R	sesa	n	10000000	symbols	dna10.warm.4.B sigma 4, 2 bits
+R	sesa	file_size	132515457	bytes	dna10.warm.4.B LCP U8, 0 overflow pairs
+R	sesa	grown_bytes	0	bytes	dna10.warm.4.B growth none, creation Preallocated
+R	sesa	counted_read	352578065	bytes	dna10.warm.4.B explicit reads of the build (IoCounters)
+R	sesa	counted_write	242582160	bytes	dna10.warm.4.B explicit writes of the build (IoCounters)
+R	sesa	counted_mapped_write	143789338	bytes	dna10.warm.4.B writes through mapped windows (IoCounters)
+R	sesa	counted_reserved_write	0	bytes	dna10.warm.4.B zeros written to reserve the growth
+R	sesa	scratch_peak	120000000	bytes	dna10.warm.4.B
+R	sesa	arena_peak	140616824	bytes	dna10.warm.4.B
+R	sesa	proc_rchar	353126104	bytes	dna10.warm.4.B /proc/self/io over the call
+R	sesa	proc_wchar	242582335	bytes	dna10.warm.4.B
+R	sesa	proc_read_bytes	4096	bytes	dna10.warm.4.B block-layer reads charged to the process
+R	sesa	proc_write_bytes	391880704	bytes	dna10.warm.4.B pages dirtied (a page that is written again counts again)
+R	sesa	dev_sectors_read	8	sectors	dna10.warm.4.B /sys/block/vda/stat over the call (512 B)
+R	sesa	dev_sectors_written	376656	sectors	dna10.warm.4.B over the call
+R	sesa	dev_sectors_written_synced	376912	sectors	dna10.warm.4.B until the end of a sync after the call
+R	sesa	rssanon_peak_mb	167.26016	MB	dna10.warm.4.B verdict Within
+R	sesa	rssanon_ph0_mb	115.642368	MB	dna10.warm.4.B
+R	sesa	rssanon_ph1_mb	118.030336	MB	dna10.warm.4.B
+R	sesa	rssanon_ph23_mb	118.042624	MB	dna10.warm.4.B
+R	sesa	rssanon_ph45_mb	167.26016	MB	dna10.warm.4.B
+R	sesa	rssanon_ph6_mb	118.02624	MB	dna10.warm.4.B
+R	sesa	rssanon_seal_mb	118.02624	MB	dna10.warm.4.B
+R	sesa	reserve_s	0	s	dna10.warm.4.B the seconds inside ReserveRange (the zeros of the growth)
+R	sesa	total_s	1.847948312	s	dna10.warm.4.A SesaBuilder.Build, inside the call
+R	sesa	wall_s	1.847974692	s	dna10.warm.4.A around the call
+R	sesa	scan_s	0.013385316	s	dna10.warm.4.A
+R	sesa	create_s	0.001937192	s	dna10.warm.4.A
+R	sesa	pack_s	0.029957149	s	dna10.warm.4.A
+R	sesa	ph1_s	0.038762621	s	dna10.warm.4.A
+R	sesa	ph23_s	0.426555654	s	dna10.warm.4.A
+R	sesa	ph45_s	0.75832372	s	dna10.warm.4.A
+R	sesa	bwt_s	0.16280062	s	dna10.warm.4.A
+R	sesa	psi_s	0.09692147	s	dna10.warm.4.A
+R	sesa	crc_s	0.030757558	s	dna10.warm.4.A
+R	sesa	seal_s	0.003676951	s	dna10.warm.4.A
+R	sesa	n	10000000	symbols	dna10.warm.4.A sigma 4, 2 bits
+R	sesa	file_size	132515457	bytes	dna10.warm.4.A LCP U8, 0 overflow pairs
+R	sesa	grown_bytes	0	bytes	dna10.warm.4.A growth none, creation Preallocated
+R	sesa	counted_read	352578065	bytes	dna10.warm.4.A explicit reads of the build (IoCounters)
+R	sesa	counted_write	242582160	bytes	dna10.warm.4.A explicit writes of the build (IoCounters)
+R	sesa	counted_mapped_write	143789338	bytes	dna10.warm.4.A writes through mapped windows (IoCounters)
+R	sesa	counted_reserved_write	0	bytes	dna10.warm.4.A zeros written to reserve the growth
+R	sesa	scratch_peak	120000000	bytes	dna10.warm.4.A
+R	sesa	arena_peak	140616824	bytes	dna10.warm.4.A
+R	sesa	proc_rchar	353151049	bytes	dna10.warm.4.A /proc/self/io over the call
+R	sesa	proc_wchar	242582335	bytes	dna10.warm.4.A
+R	sesa	proc_read_bytes	217088	bytes	dna10.warm.4.A block-layer reads charged to the process
+R	sesa	proc_write_bytes	392900608	bytes	dna10.warm.4.A pages dirtied (a page that is written again counts again)
+R	sesa	dev_sectors_read	424	sectors	dna10.warm.4.A /sys/block/vda/stat over the call (512 B)
+R	sesa	dev_sectors_written	378792	sectors	dna10.warm.4.A over the call
+R	sesa	dev_sectors_written_synced	379080	sectors	dna10.warm.4.A until the end of a sync after the call
+R	sesa	rssanon_peak_mb	168.255488	MB	dna10.warm.4.A verdict Within
+R	sesa	rssanon_ph0_mb	119.005184	MB	dna10.warm.4.A
+R	sesa	rssanon_ph1_mb	119.025664	MB	dna10.warm.4.A
+R	sesa	rssanon_ph23_mb	119.037952	MB	dna10.warm.4.A
+R	sesa	rssanon_ph45_mb	168.255488	MB	dna10.warm.4.A
+R	sesa	rssanon_ph6_mb	119.021568	MB	dna10.warm.4.A
+R	sesa	rssanon_seal_mb	119.021568	MB	dna10.warm.4.A
+R	sesa	pair_ratio_total	0.9421958756604011	B / A	dna10.warm pair 4: total 1.741 / 1.848 s, first B
+R	sesa	pair_ratio_ph45	0.9688329556670071	B / A	dna10.warm pair 4: PH4 + PH5 0.735 / 0.758 s
+R	sesa	total_s	1.823725471	s	dna10.warm.5.A SesaBuilder.Build, inside the call
+R	sesa	wall_s	1.823768679	s	dna10.warm.5.A around the call
+R	sesa	scan_s	0.013706426	s	dna10.warm.5.A
+R	sesa	create_s	0.000461728	s	dna10.warm.5.A
+R	sesa	pack_s	0.037040448	s	dna10.warm.5.A
+R	sesa	ph1_s	0.039697303	s	dna10.warm.5.A
+R	sesa	ph23_s	0.430996968	s	dna10.warm.5.A
+R	sesa	ph45_s	0.771845699	s	dna10.warm.5.A
+R	sesa	bwt_s	0.125636892	s	dna10.warm.5.A
+R	sesa	psi_s	0.088802467	s	dna10.warm.5.A
+R	sesa	crc_s	0.028775984	s	dna10.warm.5.A
+R	sesa	seal_s	0.003736447	s	dna10.warm.5.A
+R	sesa	n	10000000	symbols	dna10.warm.5.A sigma 4, 2 bits
+R	sesa	file_size	132515457	bytes	dna10.warm.5.A LCP U8, 0 overflow pairs
+R	sesa	grown_bytes	0	bytes	dna10.warm.5.A growth none, creation Preallocated
+R	sesa	counted_read	352578065	bytes	dna10.warm.5.A explicit reads of the build (IoCounters)
+R	sesa	counted_write	242582160	bytes	dna10.warm.5.A explicit writes of the build (IoCounters)
+R	sesa	counted_mapped_write	143789338	bytes	dna10.warm.5.A writes through mapped windows (IoCounters)
+R	sesa	counted_reserved_write	0	bytes	dna10.warm.5.A zeros written to reserve the growth
+R	sesa	scratch_peak	120000000	bytes	dna10.warm.5.A
+R	sesa	arena_peak	140616824	bytes	dna10.warm.5.A
+R	sesa	proc_rchar	353152291	bytes	dna10.warm.5.A /proc/self/io over the call
+R	sesa	proc_wchar	242582335	bytes	dna10.warm.5.A
+R	sesa	proc_read_bytes	0	bytes	dna10.warm.5.A block-layer reads charged to the process
+R	sesa	proc_write_bytes	393060352	bytes	dna10.warm.5.A pages dirtied (a page that is written again counts again)
+R	sesa	dev_sectors_read	0	sectors	dna10.warm.5.A /sys/block/vda/stat over the call (512 B)
+R	sesa	dev_sectors_written	379144	sectors	dna10.warm.5.A over the call
+R	sesa	dev_sectors_written_synced	379352	sectors	dna10.warm.5.A until the end of a sync after the call
+R	sesa	rssanon_peak_mb	166.002688	MB	dna10.warm.5.A verdict Within
+R	sesa	rssanon_ph0_mb	120.05376	MB	dna10.warm.5.A
+R	sesa	rssanon_ph1_mb	116.67456	MB	dna10.warm.5.A
+R	sesa	rssanon_ph23_mb	116.785152	MB	dna10.warm.5.A
+R	sesa	rssanon_ph45_mb	166.002688	MB	dna10.warm.5.A
+R	sesa	rssanon_ph6_mb	116.768768	MB	dna10.warm.5.A
+R	sesa	rssanon_seal_mb	116.768768	MB	dna10.warm.5.A
+R	sesa	total_s	1.815057776	s	dna10.warm.5.B SesaBuilder.Build, inside the call
+R	sesa	wall_s	1.815074571	s	dna10.warm.5.B around the call
+R	sesa	scan_s	0.013743953	s	dna10.warm.5.B
+R	sesa	create_s	0.003170139	s	dna10.warm.5.B
+R	sesa	pack_s	0.032241393	s	dna10.warm.5.B
+R	sesa	ph1_s	0.038892734	s	dna10.warm.5.B
+R	sesa	ph23_s	0.431407742	s	dna10.warm.5.B
+R	sesa	ph45_s	0.782034062	s	dna10.warm.5.B
+R	sesa	bwt_s	0.105189757	s	dna10.warm.5.B
+R	sesa	psi_s	0.09479232	s	dna10.warm.5.B
+R	sesa	crc_s	0.027783686	s	dna10.warm.5.B
+R	sesa	seal_s	0.003557249	s	dna10.warm.5.B
+R	sesa	n	10000000	symbols	dna10.warm.5.B sigma 4, 2 bits
+R	sesa	file_size	132515457	bytes	dna10.warm.5.B LCP U8, 0 overflow pairs
+R	sesa	grown_bytes	0	bytes	dna10.warm.5.B growth none, creation Preallocated
+R	sesa	counted_read	352578065	bytes	dna10.warm.5.B explicit reads of the build (IoCounters)
+R	sesa	counted_write	242582160	bytes	dna10.warm.5.B explicit writes of the build (IoCounters)
+R	sesa	counted_mapped_write	143789338	bytes	dna10.warm.5.B writes through mapped windows (IoCounters)
+R	sesa	counted_reserved_write	0	bytes	dna10.warm.5.B zeros written to reserve the growth
+R	sesa	scratch_peak	120000000	bytes	dna10.warm.5.B
+R	sesa	arena_peak	140616824	bytes	dna10.warm.5.B
+R	sesa	proc_rchar	353149424	bytes	dna10.warm.5.B /proc/self/io over the call
+R	sesa	proc_wchar	242582335	bytes	dna10.warm.5.B
+R	sesa	proc_read_bytes	303104	bytes	dna10.warm.5.B block-layer reads charged to the process
+R	sesa	proc_write_bytes	392982528	bytes	dna10.warm.5.B pages dirtied (a page that is written again counts again)
+R	sesa	dev_sectors_read	592	sectors	dna10.warm.5.B /sys/block/vda/stat over the call (512 B)
+R	sesa	dev_sectors_written	378920	sectors	dna10.warm.5.B over the call
+R	sesa	dev_sectors_written_synced	379184	sectors	dna10.warm.5.B until the end of a sync after the call
+R	sesa	rssanon_peak_mb	168.09984	MB	dna10.warm.5.B verdict Within
+R	sesa	rssanon_ph0_mb	118.849536	MB	dna10.warm.5.B
+R	sesa	rssanon_ph1_mb	118.870016	MB	dna10.warm.5.B
+R	sesa	rssanon_ph23_mb	118.882304	MB	dna10.warm.5.B
+R	sesa	rssanon_ph45_mb	168.09984	MB	dna10.warm.5.B
+R	sesa	rssanon_ph6_mb	118.86592	MB	dna10.warm.5.B
+R	sesa	rssanon_seal_mb	118.86592	MB	dna10.warm.5.B
+R	sesa	reserve_s	0	s	dna10.warm.5.B the seconds inside ReserveRange (the zeros of the growth)
+R	sesa	pair_ratio_total	0.9952472589006243	B / A	dna10.warm pair 5: total 1.815 / 1.824 s, first A
+R	sesa	pair_ratio_ph45	1.013199999706159	B / A	dna10.warm pair 5: PH4 + PH5 0.782 / 0.772 s
+R	sesa	total_s	1.781840259	s	dna10.warm.6.B SesaBuilder.Build, inside the call
+R	sesa	wall_s	1.781861313	s	dna10.warm.6.B around the call
+R	sesa	scan_s	0.013455296	s	dna10.warm.6.B
+R	sesa	create_s	0.000651423	s	dna10.warm.6.B
+R	sesa	pack_s	0.030384055	s	dna10.warm.6.B
+R	sesa	ph1_s	0.046259762	s	dna10.warm.6.B
+R	sesa	ph23_s	0.442404093	s	dna10.warm.6.B
+R	sesa	ph45_s	0.744576926	s	dna10.warm.6.B
+R	sesa	bwt_s	0.103226848	s	dna10.warm.6.B
+R	sesa	psi_s	0.086073075	s	dna10.warm.6.B
+R	sesa	crc_s	0.028561705	s	dna10.warm.6.B
+R	sesa	seal_s	0.003589635	s	dna10.warm.6.B
+R	sesa	n	10000000	symbols	dna10.warm.6.B sigma 4, 2 bits
+R	sesa	file_size	132515457	bytes	dna10.warm.6.B LCP U8, 0 overflow pairs
+R	sesa	grown_bytes	0	bytes	dna10.warm.6.B growth none, creation Preallocated
+R	sesa	counted_read	352578065	bytes	dna10.warm.6.B explicit reads of the build (IoCounters)
+R	sesa	counted_write	242582160	bytes	dna10.warm.6.B explicit writes of the build (IoCounters)
+R	sesa	counted_mapped_write	143789338	bytes	dna10.warm.6.B writes through mapped windows (IoCounters)
+R	sesa	counted_reserved_write	0	bytes	dna10.warm.6.B zeros written to reserve the growth
+R	sesa	scratch_peak	120000000	bytes	dna10.warm.6.B
+R	sesa	arena_peak	140616824	bytes	dna10.warm.6.B
+R	sesa	proc_rchar	353137146	bytes	dna10.warm.6.B /proc/self/io over the call
+R	sesa	proc_wchar	242582335	bytes	dna10.warm.6.B
+R	sesa	proc_read_bytes	12288	bytes	dna10.warm.6.B block-layer reads charged to the process
+R	sesa	proc_write_bytes	392069120	bytes	dna10.warm.6.B pages dirtied (a page that is written again counts again)
+R	sesa	dev_sectors_read	24	sectors	dna10.warm.6.B /sys/block/vda/stat over the call (512 B)
+R	sesa	dev_sectors_written	377104	sectors	dna10.warm.6.B over the call
+R	sesa	dev_sectors_written_synced	377312	sectors	dna10.warm.6.B until the end of a sync after the call
+R	sesa	rssanon_peak_mb	165.347328	MB	dna10.warm.6.B verdict Within
+R	sesa	rssanon_ph0_mb	119.11168	MB	dna10.warm.6.B
+R	sesa	rssanon_ph1_mb	119.128064	MB	dna10.warm.6.B
+R	sesa	rssanon_ph23_mb	119.144448	MB	dna10.warm.6.B
+R	sesa	rssanon_ph45_mb	165.347328	MB	dna10.warm.6.B
+R	sesa	rssanon_ph6_mb	116.113408	MB	dna10.warm.6.B
+R	sesa	rssanon_seal_mb	116.113408	MB	dna10.warm.6.B
+R	sesa	reserve_s	0	s	dna10.warm.6.B the seconds inside ReserveRange (the zeros of the growth)
+R	sesa	total_s	1.748625911	s	dna10.warm.6.A SesaBuilder.Build, inside the call
+R	sesa	wall_s	1.74864598	s	dna10.warm.6.A around the call
+R	sesa	scan_s	0.013856253	s	dna10.warm.6.A
+R	sesa	create_s	0.000375662	s	dna10.warm.6.A
+R	sesa	pack_s	0.035903818	s	dna10.warm.6.A
+R	sesa	ph1_s	0.03857455	s	dna10.warm.6.A
+R	sesa	ph23_s	0.42513843	s	dna10.warm.6.A
+R	sesa	ph45_s	0.73428097	s	dna10.warm.6.A
+R	sesa	bwt_s	0.102080528	s	dna10.warm.6.A
+R	sesa	psi_s	0.084452376	s	dna10.warm.6.A
+R	sesa	crc_s	0.028114017	s	dna10.warm.6.A
+R	sesa	seal_s	0.003657606	s	dna10.warm.6.A
+R	sesa	n	10000000	symbols	dna10.warm.6.A sigma 4, 2 bits
+R	sesa	file_size	132515457	bytes	dna10.warm.6.A LCP U8, 0 overflow pairs
+R	sesa	grown_bytes	0	bytes	dna10.warm.6.A growth none, creation Preallocated
+R	sesa	counted_read	352578065	bytes	dna10.warm.6.A explicit reads of the build (IoCounters)
+R	sesa	counted_write	242582160	bytes	dna10.warm.6.A explicit writes of the build (IoCounters)
+R	sesa	counted_mapped_write	143789338	bytes	dna10.warm.6.A writes through mapped windows (IoCounters)
+R	sesa	counted_reserved_write	0	bytes	dna10.warm.6.A zeros written to reserve the growth
+R	sesa	scratch_peak	120000000	bytes	dna10.warm.6.A
+R	sesa	arena_peak	140616824	bytes	dna10.warm.6.A
+R	sesa	proc_rchar	353127959	bytes	dna10.warm.6.A /proc/self/io over the call
+R	sesa	proc_wchar	242582335	bytes	dna10.warm.6.A
+R	sesa	proc_read_bytes	0	bytes	dna10.warm.6.A block-layer reads charged to the process
+R	sesa	proc_write_bytes	392151040	bytes	dna10.warm.6.A pages dirtied (a page that is written again counts again)
+R	sesa	dev_sectors_read	0	sectors	dna10.warm.6.A /sys/block/vda/stat over the call (512 B)
+R	sesa	dev_sectors_written	377280	sectors	dna10.warm.6.A over the call
+R	sesa	dev_sectors_written_synced	377536	sectors	dna10.warm.6.A until the end of a sync after the call
+R	sesa	rssanon_peak_mb	162.988032	MB	dna10.warm.6.A verdict Within
+R	sesa	rssanon_ph0_mb	117.1456	MB	dna10.warm.6.A
+R	sesa	rssanon_ph1_mb	113.758208	MB	dna10.warm.6.A
+R	sesa	rssanon_ph23_mb	113.770496	MB	dna10.warm.6.A
+R	sesa	rssanon_ph45_mb	162.988032	MB	dna10.warm.6.A
+R	sesa	rssanon_ph6_mb	113.754112	MB	dna10.warm.6.A
+R	sesa	rssanon_seal_mb	113.754112	MB	dna10.warm.6.A
+R	sesa	pair_ratio_total	1.018994541823417	B / A	dna10.warm pair 6: total 1.782 / 1.749 s, first B
+R	sesa	pair_ratio_ph45	1.014021820557327	B / A	dna10.warm pair 6: PH4 + PH5 0.745 / 0.734 s
+R	sesa	ratio_total_median	1.0113580922608347	B / A	dna10.warm: min 0.9422 max 1.2119 over 6 pairs
+R	sesa	ratio_ph45_median	1.013199999706159	B / A	dna10.warm: min 0.9688 max 1.3686
+R	sesa	reserve_s_median	0	s	dna10.warm: min 0.0000 max 0.0000
+R	sesa	total_s	2.67565226	s	u32_10.warm.0.A SesaBuilder.Build, inside the call
+R	sesa	wall_s	2.679862572	s	u32_10.warm.0.A around the call
+R	sesa	scan_s	0.033722063	s	u32_10.warm.0.A
+R	sesa	create_s	0.00156009	s	u32_10.warm.0.A
+R	sesa	pack_s	0.047445839	s	u32_10.warm.0.A
+R	sesa	ph1_s	0.160806512	s	u32_10.warm.0.A
+R	sesa	ph23_s	0.777158915	s	u32_10.warm.0.A
+R	sesa	ph45_s	1.084131627	s	u32_10.warm.0.A
+R	sesa	bwt_s	0.118331694	s	u32_10.warm.0.A
+R	sesa	psi_s	0.104779107	s	u32_10.warm.0.A
+R	sesa	crc_s	0.038851016	s	u32_10.warm.0.A
+R	sesa	seal_s	0.007997896	s	u32_10.warm.0.A
+R	sesa	n	10000000	symbols	u32_10.warm.0.A sigma 4, 2 bits
+R	sesa	file_size	162515460	bytes	u32_10.warm.0.A LCP U32, 0 overflow pairs
+R	sesa	grown_bytes	30000003	bytes	u32_10.warm.0.A growth Filled, creation Preallocated
+R	sesa	counted_read	352578065	bytes	u32_10.warm.0.A explicit reads of the build (IoCounters)
+R	sesa	counted_write	242582160	bytes	u32_10.warm.0.A explicit writes of the build (IoCounters)
+R	sesa	counted_mapped_write	173789402	bytes	u32_10.warm.0.A writes through mapped windows (IoCounters)
+R	sesa	counted_reserved_write	0	bytes	u32_10.warm.0.A zeros written to reserve the growth
+R	sesa	scratch_peak	120000000	bytes	u32_10.warm.0.A
+R	sesa	arena_peak	140616824	bytes	u32_10.warm.0.A
+R	sesa	proc_rchar	353404512	bytes	u32_10.warm.0.A /proc/self/io over the call
+R	sesa	proc_wchar	242582335	bytes	u32_10.warm.0.A
+R	sesa	proc_read_bytes	10010624	bytes	u32_10.warm.0.A block-layer reads charged to the process
+R	sesa	proc_write_bytes	427102208	bytes	u32_10.warm.0.A pages dirtied (a page that is written again counts again)
+R	sesa	dev_sectors_read	19552	sectors	u32_10.warm.0.A /sys/block/vda/stat over the call (512 B)
+R	sesa	dev_sectors_written	446024	sectors	u32_10.warm.0.A over the call
+R	sesa	dev_sectors_written_synced	446272	sectors	u32_10.warm.0.A until the end of a sync after the call
+R	sesa	rssanon_peak_mb	103.972864	MB	u32_10.warm.0.A verdict Within
+R	sesa	rssanon_ph0_mb	10.498048	MB	u32_10.warm.0.A
+R	sesa	rssanon_ph1_mb	20.553728	MB	u32_10.warm.0.A
+R	sesa	rssanon_ph23_mb	89.387008	MB	u32_10.warm.0.A
+R	sesa	rssanon_ph45_mb	104.046592	MB	u32_10.warm.0.A
+R	sesa	rssanon_ph6_mb	55.320576	MB	u32_10.warm.0.A
+R	sesa	rssanon_seal_mb	55.365632	MB	u32_10.warm.0.A
+R	sesa	total_s	1.8410541	s	u32_10.warm.0.B SesaBuilder.Build, inside the call
+R	sesa	wall_s	1.841074837	s	u32_10.warm.0.B around the call
+R	sesa	scan_s	0.013697111	s	u32_10.warm.0.B
+R	sesa	create_s	0.000614723	s	u32_10.warm.0.B
+R	sesa	pack_s	0.038167235	s	u32_10.warm.0.B
+R	sesa	ph1_s	0.074163005	s	u32_10.warm.0.B
+R	sesa	ph23_s	0.528789486	s	u32_10.warm.0.B
+R	sesa	ph45_s	0.676783435	s	u32_10.warm.0.B
+R	sesa	bwt_s	0.09599254	s	u32_10.warm.0.B
+R	sesa	psi_s	0.092426193	s	u32_10.warm.0.B
+R	sesa	crc_s	0.033777452	s	u32_10.warm.0.B
+R	sesa	seal_s	0.00400857	s	u32_10.warm.0.B
+R	sesa	n	10000000	symbols	u32_10.warm.0.B sigma 4, 2 bits
+R	sesa	file_size	162515460	bytes	u32_10.warm.0.B LCP U32, 0 overflow pairs
+R	sesa	grown_bytes	30000003	bytes	u32_10.warm.0.B growth Filled, creation Preallocated
+R	sesa	counted_read	352578065	bytes	u32_10.warm.0.B explicit reads of the build (IoCounters)
+R	sesa	counted_write	242582160	bytes	u32_10.warm.0.B explicit writes of the build (IoCounters)
+R	sesa	counted_mapped_write	173789402	bytes	u32_10.warm.0.B writes through mapped windows (IoCounters)
+R	sesa	counted_reserved_write	30000003	bytes	u32_10.warm.0.B zeros written to reserve the growth
+R	sesa	scratch_peak	120000000	bytes	u32_10.warm.0.B
+R	sesa	arena_peak	140616824	bytes	u32_10.warm.0.B
+R	sesa	proc_rchar	353155413	bytes	u32_10.warm.0.B /proc/self/io over the call
+R	sesa	proc_wchar	272582338	bytes	u32_10.warm.0.B
+R	sesa	proc_read_bytes	0	bytes	u32_10.warm.0.B block-layer reads charged to the process
+R	sesa	proc_write_bytes	437817344	bytes	u32_10.warm.0.B pages dirtied (a page that is written again counts again)
+R	sesa	dev_sectors_read	0	sectors	u32_10.warm.0.B /sys/block/vda/stat over the call (512 B)
+R	sesa	dev_sectors_written	467000	sectors	u32_10.warm.0.B over the call
+R	sesa	dev_sectors_written_synced	467200	sectors	u32_10.warm.0.B until the end of a sync after the call
+R	sesa	rssanon_peak_mb	160.903168	MB	u32_10.warm.0.B verdict Within
+R	sesa	rssanon_ph0_mb	56.619008	MB	u32_10.warm.0.B
+R	sesa	rssanon_ph1_mb	66.224128	MB	u32_10.warm.0.B
+R	sesa	rssanon_ph23_mb	111.587328	MB	u32_10.warm.0.B
+R	sesa	rssanon_ph45_mb	160.903168	MB	u32_10.warm.0.B
+R	sesa	rssanon_ph6_mb	111.685632	MB	u32_10.warm.0.B
+R	sesa	rssanon_seal_mb	111.685632	MB	u32_10.warm.0.B
+R	sesa	reserve_s	0.005299703	s	u32_10.warm.0.B the seconds inside ReserveRange (the zeros of the growth)
+R	sesa	total_s	2.10271971	s	u32_10.warm.1.A SesaBuilder.Build, inside the call
+R	sesa	wall_s	2.102750559	s	u32_10.warm.1.A around the call
+R	sesa	scan_s	0.015284605	s	u32_10.warm.1.A
+R	sesa	create_s	0.000483769	s	u32_10.warm.1.A
+R	sesa	pack_s	0.032296298	s	u32_10.warm.1.A
+R	sesa	ph1_s	0.077656195	s	u32_10.warm.1.A
+R	sesa	ph23_s	0.555117806	s	u32_10.warm.1.A
+R	sesa	ph45_s	0.843360474	s	u32_10.warm.1.A
+R	sesa	bwt_s	0.15080801	s	u32_10.warm.1.A
+R	sesa	psi_s	0.103601202	s	u32_10.warm.1.A
+R	sesa	crc_s	0.036365707	s	u32_10.warm.1.A
+R	sesa	seal_s	0.003985652	s	u32_10.warm.1.A
+R	sesa	n	10000000	symbols	u32_10.warm.1.A sigma 4, 2 bits
+R	sesa	file_size	162515460	bytes	u32_10.warm.1.A LCP U32, 0 overflow pairs
+R	sesa	grown_bytes	30000003	bytes	u32_10.warm.1.A growth Filled, creation Preallocated
+R	sesa	counted_read	352578065	bytes	u32_10.warm.1.A explicit reads of the build (IoCounters)
+R	sesa	counted_write	242582160	bytes	u32_10.warm.1.A explicit writes of the build (IoCounters)
+R	sesa	counted_mapped_write	173789402	bytes	u32_10.warm.1.A writes through mapped windows (IoCounters)
+R	sesa	counted_reserved_write	0	bytes	u32_10.warm.1.A zeros written to reserve the growth
+R	sesa	scratch_peak	120000000	bytes	u32_10.warm.1.A
+R	sesa	arena_peak	140616824	bytes	u32_10.warm.1.A
+R	sesa	proc_rchar	353236280	bytes	u32_10.warm.1.A /proc/self/io over the call
+R	sesa	proc_wchar	242582335	bytes	u32_10.warm.1.A
+R	sesa	proc_read_bytes	0	bytes	u32_10.warm.1.A block-layer reads charged to the process
+R	sesa	proc_write_bytes	426512384	bytes	u32_10.warm.1.A pages dirtied (a page that is written again counts again)
+R	sesa	dev_sectors_read	0	sectors	u32_10.warm.1.A /sys/block/vda/stat over the call (512 B)
+R	sesa	dev_sectors_written	444960	sectors	u32_10.warm.1.A over the call
+R	sesa	dev_sectors_written_synced	445184	sectors	u32_10.warm.1.A until the end of a sync after the call
+R	sesa	rssanon_peak_mb	172.429312	MB	u32_10.warm.1.A verdict Within
+R	sesa	rssanon_ph0_mb	114.143232	MB	u32_10.warm.1.A
+R	sesa	rssanon_ph1_mb	117.321728	MB	u32_10.warm.1.A
+R	sesa	rssanon_ph23_mb	123.211776	MB	u32_10.warm.1.A
+R	sesa	rssanon_ph45_mb	172.429312	MB	u32_10.warm.1.A
+R	sesa	rssanon_ph6_mb	123.195392	MB	u32_10.warm.1.A
+R	sesa	rssanon_seal_mb	123.195392	MB	u32_10.warm.1.A
+R	sesa	total_s	1.993724056	s	u32_10.warm.1.B SesaBuilder.Build, inside the call
+R	sesa	wall_s	1.993757407	s	u32_10.warm.1.B around the call
+R	sesa	scan_s	0.013405567	s	u32_10.warm.1.B
+R	sesa	create_s	0.000473223	s	u32_10.warm.1.B
+R	sesa	pack_s	0.034497498	s	u32_10.warm.1.B
+R	sesa	ph1_s	0.075670295	s	u32_10.warm.1.B
+R	sesa	ph23_s	0.512922044	s	u32_10.warm.1.B
+R	sesa	ph45_s	0.791407533	s	u32_10.warm.1.B
+R	sesa	bwt_s	0.135040377	s	u32_10.warm.1.B
+R	sesa	psi_s	0.103969314	s	u32_10.warm.1.B
+R	sesa	crc_s	0.037573971	s	u32_10.warm.1.B
+R	sesa	seal_s	0.00398415	s	u32_10.warm.1.B
+R	sesa	n	10000000	symbols	u32_10.warm.1.B sigma 4, 2 bits
+R	sesa	file_size	162515460	bytes	u32_10.warm.1.B LCP U32, 0 overflow pairs
+R	sesa	grown_bytes	30000003	bytes	u32_10.warm.1.B growth Filled, creation Preallocated
+R	sesa	counted_read	352578065	bytes	u32_10.warm.1.B explicit reads of the build (IoCounters)
+R	sesa	counted_write	242582160	bytes	u32_10.warm.1.B explicit writes of the build (IoCounters)
+R	sesa	counted_mapped_write	173789402	bytes	u32_10.warm.1.B writes through mapped windows (IoCounters)
+R	sesa	counted_reserved_write	30000003	bytes	u32_10.warm.1.B zeros written to reserve the growth
+R	sesa	scratch_peak	120000000	bytes	u32_10.warm.1.B
+R	sesa	arena_peak	140616824	bytes	u32_10.warm.1.B
+R	sesa	proc_rchar	353202808	bytes	u32_10.warm.1.B /proc/self/io over the call
+R	sesa	proc_wchar	272582338	bytes	u32_10.warm.1.B
+R	sesa	proc_read_bytes	0	bytes	u32_10.warm.1.B block-layer reads charged to the process
+R	sesa	proc_write_bytes	438034432	bytes	u32_10.warm.1.B pages dirtied (a page that is written again counts again)
+R	sesa	dev_sectors_read	0	sectors	u32_10.warm.1.B /sys/block/vda/stat over the call (512 B)
+R	sesa	dev_sectors_written	467400	sectors	u32_10.warm.1.B over the call
+R	sesa	dev_sectors_written_synced	467584	sectors	u32_10.warm.1.B until the end of a sync after the call
+R	sesa	rssanon_peak_mb	169.51296	MB	u32_10.warm.1.B verdict Within
+R	sesa	rssanon_ph0_mb	123.179008	MB	u32_10.warm.1.B
+R	sesa	rssanon_ph1_mb	119.7056	MB	u32_10.warm.1.B
+R	sesa	rssanon_ph23_mb	120.295424	MB	u32_10.warm.1.B
+R	sesa	rssanon_ph45_mb	169.51296	MB	u32_10.warm.1.B
+R	sesa	rssanon_ph6_mb	120.27904	MB	u32_10.warm.1.B
+R	sesa	rssanon_seal_mb	120.27904	MB	u32_10.warm.1.B
+R	sesa	reserve_s	0.00511697	s	u32_10.warm.1.B the seconds inside ReserveRange (the zeros of the growth)
+R	sesa	pair_ratio_total	0.9481644398529939	B / A	u32_10.warm pair 1: total 1.994 / 2.103 s, first A
+R	sesa	pair_ratio_ph45	0.938397704656953	B / A	u32_10.warm pair 1: PH4 + PH5 0.791 / 0.843 s
+R	sesa	total_s	2.081466307	s	u32_10.warm.2.B SesaBuilder.Build, inside the call
+R	sesa	wall_s	2.081487334	s	u32_10.warm.2.B around the call
+R	sesa	scan_s	0.016598992	s	u32_10.warm.2.B
+R	sesa	create_s	0.000638488	s	u32_10.warm.2.B
+R	sesa	pack_s	0.050362686	s	u32_10.warm.2.B
+R	sesa	ph1_s	0.098475231	s	u32_10.warm.2.B
+R	sesa	ph23_s	0.575910774	s	u32_10.warm.2.B
+R	sesa	ph45_s	0.778988345	s	u32_10.warm.2.B
+R	sesa	bwt_s	0.129039907	s	u32_10.warm.2.B
+R	sesa	psi_s	0.095398314	s	u32_10.warm.2.B
+R	sesa	crc_s	0.035481656	s	u32_10.warm.2.B
+R	sesa	seal_s	0.002179014	s	u32_10.warm.2.B
+R	sesa	n	10000000	symbols	u32_10.warm.2.B sigma 4, 2 bits
+R	sesa	file_size	162515460	bytes	u32_10.warm.2.B LCP U32, 0 overflow pairs
+R	sesa	grown_bytes	30000003	bytes	u32_10.warm.2.B growth Filled, creation Preallocated
+R	sesa	counted_read	352578065	bytes	u32_10.warm.2.B explicit reads of the build (IoCounters)
+R	sesa	counted_write	242582160	bytes	u32_10.warm.2.B explicit writes of the build (IoCounters)
+R	sesa	counted_mapped_write	173789402	bytes	u32_10.warm.2.B writes through mapped windows (IoCounters)
+R	sesa	counted_reserved_write	30000003	bytes	u32_10.warm.2.B zeros written to reserve the growth
+R	sesa	scratch_peak	120000000	bytes	u32_10.warm.2.B
+R	sesa	arena_peak	140616824	bytes	u32_10.warm.2.B
+R	sesa	proc_rchar	353231125	bytes	u32_10.warm.2.B /proc/self/io over the call
+R	sesa	proc_wchar	272582338	bytes	u32_10.warm.2.B
+R	sesa	proc_read_bytes	0	bytes	u32_10.warm.2.B block-layer reads charged to the process
+R	sesa	proc_write_bytes	437329920	bytes	u32_10.warm.2.B pages dirtied (a page that is written again counts again)
+R	sesa	dev_sectors_read	0	sectors	u32_10.warm.2.B /sys/block/vda/stat over the call (512 B)
+R	sesa	dev_sectors_written	466040	sectors	u32_10.warm.2.B over the call
+R	sesa	dev_sectors_written_synced	466272	sectors	u32_10.warm.2.B until the end of a sync after the call
+R	sesa	rssanon_peak_mb	178.311168	MB	u32_10.warm.2.B verdict Within
+R	sesa	rssanon_ph0_mb	122.507264	MB	u32_10.warm.2.B
+R	sesa	rssanon_ph1_mb	127.025152	MB	u32_10.warm.2.B
+R	sesa	rssanon_ph23_mb	127.168512	MB	u32_10.warm.2.B
+R	sesa	rssanon_ph45_mb	178.368512	MB	u32_10.warm.2.B
+R	sesa	rssanon_ph6_mb	129.134592	MB	u32_10.warm.2.B
+R	sesa	rssanon_seal_mb	129.150976	MB	u32_10.warm.2.B
+R	sesa	reserve_s	0.004905126	s	u32_10.warm.2.B the seconds inside ReserveRange (the zeros of the growth)
+R	sesa	total_s	2.219543538	s	u32_10.warm.2.A SesaBuilder.Build, inside the call
+R	sesa	wall_s	2.219580441	s	u32_10.warm.2.A around the call
+R	sesa	scan_s	0.014364213	s	u32_10.warm.2.A
+R	sesa	create_s	0.000465343	s	u32_10.warm.2.A
+R	sesa	pack_s	0.036561535	s	u32_10.warm.2.A
+R	sesa	ph1_s	0.083849161	s	u32_10.warm.2.A
+R	sesa	ph23_s	0.612503867	s	u32_10.warm.2.A
+R	sesa	ph45_s	0.868160388	s	u32_10.warm.2.A
+R	sesa	bwt_s	0.159979823	s	u32_10.warm.2.A
+R	sesa	psi_s	0.107169114	s	u32_10.warm.2.A
+R	sesa	crc_s	0.038449111	s	u32_10.warm.2.A
+R	sesa	seal_s	0.004017603	s	u32_10.warm.2.A
+R	sesa	n	10000000	symbols	u32_10.warm.2.A sigma 4, 2 bits
+R	sesa	file_size	162515460	bytes	u32_10.warm.2.A LCP U32, 0 overflow pairs
+R	sesa	grown_bytes	30000003	bytes	u32_10.warm.2.A growth Filled, creation Preallocated
+R	sesa	counted_read	352578065	bytes	u32_10.warm.2.A explicit reads of the build (IoCounters)
+R	sesa	counted_write	242582160	bytes	u32_10.warm.2.A explicit writes of the build (IoCounters)
+R	sesa	counted_mapped_write	173789402	bytes	u32_10.warm.2.A writes through mapped windows (IoCounters)
+R	sesa	counted_reserved_write	0	bytes	u32_10.warm.2.A zeros written to reserve the growth
+R	sesa	scratch_peak	120000000	bytes	u32_10.warm.2.A
+R	sesa	arena_peak	140616824	bytes	u32_10.warm.2.A
+R	sesa	proc_rchar	353279262	bytes	u32_10.warm.2.A /proc/self/io over the call
+R	sesa	proc_wchar	242582335	bytes	u32_10.warm.2.A
+R	sesa	proc_read_bytes	126976	bytes	u32_10.warm.2.A block-layer reads charged to the process
+R	sesa	proc_write_bytes	426999808	bytes	u32_10.warm.2.A pages dirtied (a page that is written again counts again)
+R	sesa	dev_sectors_read	248	sectors	u32_10.warm.2.A /sys/block/vda/stat over the call (512 B)
+R	sesa	dev_sectors_written	445976	sectors	u32_10.warm.2.A over the call
+R	sesa	dev_sectors_written_synced	446160	sectors	u32_10.warm.2.A until the end of a sync after the call
+R	sesa	rssanon_peak_mb	186.650624	MB	u32_10.warm.2.A verdict Within
+R	sesa	rssanon_ph0_mb	131.620864	MB	u32_10.warm.2.A
+R	sesa	rssanon_ph1_mb	137.416704	MB	u32_10.warm.2.A
+R	sesa	rssanon_ph23_mb	137.433088	MB	u32_10.warm.2.A
+R	sesa	rssanon_ph45_mb	186.650624	MB	u32_10.warm.2.A
+R	sesa	rssanon_ph6_mb	137.416704	MB	u32_10.warm.2.A
+R	sesa	rssanon_seal_mb	137.416704	MB	u32_10.warm.2.A
+R	sesa	pair_ratio_total	0.9377902579354584	B / A	u32_10.warm pair 2: total 2.081 / 2.220 s, first B
+R	sesa	pair_ratio_ph45	0.8972862108977034	B / A	u32_10.warm pair 2: PH4 + PH5 0.779 / 0.868 s
+R	sesa	total_s	2.041796355	s	u32_10.warm.3.A SesaBuilder.Build, inside the call
+R	sesa	wall_s	2.041814484	s	u32_10.warm.3.A around the call
+R	sesa	scan_s	0.015671914	s	u32_10.warm.3.A
+R	sesa	create_s	0.000624893	s	u32_10.warm.3.A
+R	sesa	pack_s	0.043229627	s	u32_10.warm.3.A
+R	sesa	ph1_s	0.081086411	s	u32_10.warm.3.A
+R	sesa	ph23_s	0.562030301	s	u32_10.warm.3.A
+R	sesa	ph45_s	0.821411539	s	u32_10.warm.3.A
+R	sesa	bwt_s	0.096993191	s	u32_10.warm.3.A
+R	sesa	psi_s	0.096365236	s	u32_10.warm.3.A
+R	sesa	crc_s	0.034322999	s	u32_10.warm.3.A
+R	sesa	seal_s	0.00383257	s	u32_10.warm.3.A
+R	sesa	n	10000000	symbols	u32_10.warm.3.A sigma 4, 2 bits
+R	sesa	file_size	162515460	bytes	u32_10.warm.3.A LCP U32, 0 overflow pairs
+R	sesa	grown_bytes	30000003	bytes	u32_10.warm.3.A growth Filled, creation Preallocated
+R	sesa	counted_read	352578065	bytes	u32_10.warm.3.A explicit reads of the build (IoCounters)
+R	sesa	counted_write	242582160	bytes	u32_10.warm.3.A explicit writes of the build (IoCounters)
+R	sesa	counted_mapped_write	173789402	bytes	u32_10.warm.3.A writes through mapped windows (IoCounters)
+R	sesa	counted_reserved_write	0	bytes	u32_10.warm.3.A zeros written to reserve the growth
+R	sesa	scratch_peak	120000000	bytes	u32_10.warm.3.A
+R	sesa	arena_peak	140616824	bytes	u32_10.warm.3.A
+R	sesa	proc_rchar	353217683	bytes	u32_10.warm.3.A /proc/self/io over the call
+R	sesa	proc_wchar	242582335	bytes	u32_10.warm.3.A
+R	sesa	proc_read_bytes	0	bytes	u32_10.warm.3.A block-layer reads charged to the process
+R	sesa	proc_write_bytes	427200512	bytes	u32_10.warm.3.A pages dirtied (a page that is written again counts again)
+R	sesa	dev_sectors_read	0	sectors	u32_10.warm.3.A /sys/block/vda/stat over the call (512 B)
+R	sesa	dev_sectors_written	446296	sectors	u32_10.warm.3.A over the call
+R	sesa	dev_sectors_written_synced	446536	sectors	u32_10.warm.3.A until the end of a sync after the call
+R	sesa	rssanon_peak_mb	174.157824	MB	u32_10.warm.3.A verdict Within
+R	sesa	rssanon_ph0_mb	137.40032	MB	u32_10.warm.3.A
+R	sesa	rssanon_ph1_mb	137.416704	MB	u32_10.warm.3.A
+R	sesa	rssanon_ph23_mb	124.940288	MB	u32_10.warm.3.A
+R	sesa	rssanon_ph45_mb	174.157824	MB	u32_10.warm.3.A
+R	sesa	rssanon_ph6_mb	124.923904	MB	u32_10.warm.3.A
+R	sesa	rssanon_seal_mb	124.923904	MB	u32_10.warm.3.A
+R	sesa	total_s	2.096913175	s	u32_10.warm.3.B SesaBuilder.Build, inside the call
+R	sesa	wall_s	2.096938488	s	u32_10.warm.3.B around the call
+R	sesa	scan_s	0.013973989	s	u32_10.warm.3.B
+R	sesa	create_s	0.000436864	s	u32_10.warm.3.B
+R	sesa	pack_s	0.032493318	s	u32_10.warm.3.B
+R	sesa	ph1_s	0.070828504	s	u32_10.warm.3.B
+R	sesa	ph23_s	0.547950277	s	u32_10.warm.3.B
+R	sesa	ph45_s	0.857881056	s	u32_10.warm.3.B
+R	sesa	bwt_s	0.156380686	s	u32_10.warm.3.B
+R	sesa	psi_s	0.095552895	s	u32_10.warm.3.B
+R	sesa	crc_s	0.036454694	s	u32_10.warm.3.B
+R	sesa	seal_s	0.002493149	s	u32_10.warm.3.B
+R	sesa	n	10000000	symbols	u32_10.warm.3.B sigma 4, 2 bits
+R	sesa	file_size	162515460	bytes	u32_10.warm.3.B LCP U32, 0 overflow pairs
+R	sesa	grown_bytes	30000003	bytes	u32_10.warm.3.B growth Filled, creation Preallocated
+R	sesa	counted_read	352578065	bytes	u32_10.warm.3.B explicit reads of the build (IoCounters)
+R	sesa	counted_write	242582160	bytes	u32_10.warm.3.B explicit writes of the build (IoCounters)
+R	sesa	counted_mapped_write	173789402	bytes	u32_10.warm.3.B writes through mapped windows (IoCounters)
+R	sesa	counted_reserved_write	30000003	bytes	u32_10.warm.3.B zeros written to reserve the growth
+R	sesa	scratch_peak	120000000	bytes	u32_10.warm.3.B
+R	sesa	arena_peak	140616824	bytes	u32_10.warm.3.B
+R	sesa	proc_rchar	353237129	bytes	u32_10.warm.3.B /proc/self/io over the call
+R	sesa	proc_wchar	272582338	bytes	u32_10.warm.3.B
+R	sesa	proc_read_bytes	0	bytes	u32_10.warm.3.B block-layer reads charged to the process
+R	sesa	proc_write_bytes	437485568	bytes	u32_10.warm.3.B pages dirtied (a page that is written again counts again)
+R	sesa	dev_sectors_read	264	sectors	u32_10.warm.3.B /sys/block/vda/stat over the call (512 B)
+R	sesa	dev_sectors_written	466336	sectors	u32_10.warm.3.B over the call
+R	sesa	dev_sectors_written_synced	466552	sectors	u32_10.warm.3.B until the end of a sync after the call
+R	sesa	rssanon_peak_mb	175.398912	MB	u32_10.warm.3.B verdict Within
+R	sesa	rssanon_ph0_mb	125.825024	MB	u32_10.warm.3.B
+R	sesa	rssanon_ph1_mb	126.164992	MB	u32_10.warm.3.B
+R	sesa	rssanon_ph23_mb	126.181376	MB	u32_10.warm.3.B
+R	sesa	rssanon_ph45_mb	175.398912	MB	u32_10.warm.3.B
+R	sesa	rssanon_ph6_mb	126.164992	MB	u32_10.warm.3.B
+R	sesa	rssanon_seal_mb	126.164992	MB	u32_10.warm.3.B
+R	sesa	reserve_s	0.005375016	s	u32_10.warm.3.B the seconds inside ReserveRange (the zeros of the growth)
+R	sesa	pair_ratio_total	1.0269942787707642	B / A	u32_10.warm pair 3: total 2.097 / 2.042 s, first A
+R	sesa	pair_ratio_ph45	1.0443985934801923	B / A	u32_10.warm pair 3: PH4 + PH5 0.858 / 0.821 s
+R	sesa	total_s	1.834240685	s	u32_10.warm.4.B SesaBuilder.Build, inside the call
+R	sesa	wall_s	1.834267286	s	u32_10.warm.4.B around the call
+R	sesa	scan_s	0.014449758	s	u32_10.warm.4.B
+R	sesa	create_s	0.000493946	s	u32_10.warm.4.B
+R	sesa	pack_s	0.032726459	s	u32_10.warm.4.B
+R	sesa	ph1_s	0.078627122	s	u32_10.warm.4.B
+R	sesa	ph23_s	0.536291996	s	u32_10.warm.4.B
+R	sesa	ph45_s	0.661911074	s	u32_10.warm.4.B
+R	sesa	bwt_s	0.098279679	s	u32_10.warm.4.B
+R	sesa	psi_s	0.093563135	s	u32_10.warm.4.B
+R	sesa	crc_s	0.032786227	s	u32_10.warm.4.B
+R	sesa	seal_s	0.002280128	s	u32_10.warm.4.B
+R	sesa	n	10000000	symbols	u32_10.warm.4.B sigma 4, 2 bits
+R	sesa	file_size	162515460	bytes	u32_10.warm.4.B LCP U32, 0 overflow pairs
+R	sesa	grown_bytes	30000003	bytes	u32_10.warm.4.B growth Filled, creation Preallocated
+R	sesa	counted_read	352578065	bytes	u32_10.warm.4.B explicit reads of the build (IoCounters)
+R	sesa	counted_write	242582160	bytes	u32_10.warm.4.B explicit writes of the build (IoCounters)
+R	sesa	counted_mapped_write	173789402	bytes	u32_10.warm.4.B writes through mapped windows (IoCounters)
+R	sesa	counted_reserved_write	30000003	bytes	u32_10.warm.4.B zeros written to reserve the growth
+R	sesa	scratch_peak	120000000	bytes	u32_10.warm.4.B
+R	sesa	arena_peak	140616824	bytes	u32_10.warm.4.B
+R	sesa	proc_rchar	353154264	bytes	u32_10.warm.4.B /proc/self/io over the call
+R	sesa	proc_wchar	272582338	bytes	u32_10.warm.4.B
+R	sesa	proc_read_bytes	0	bytes	u32_10.warm.4.B block-layer reads charged to the process
+R	sesa	proc_write_bytes	438267904	bytes	u32_10.warm.4.B pages dirtied (a page that is written again counts again)
+R	sesa	dev_sectors_read	24	sectors	u32_10.warm.4.B /sys/block/vda/stat over the call (512 B)
+R	sesa	dev_sectors_written	467968	sectors	u32_10.warm.4.B over the call
+R	sesa	dev_sectors_written_synced	468160	sectors	u32_10.warm.4.B until the end of a sync after the call
+R	sesa	rssanon_peak_mb	181.71904	MB	u32_10.warm.4.B verdict Within
+R	sesa	rssanon_ph0_mb	128.376832	MB	u32_10.warm.4.B
+R	sesa	rssanon_ph1_mb	132.48512	MB	u32_10.warm.4.B
+R	sesa	rssanon_ph23_mb	132.501504	MB	u32_10.warm.4.B
+R	sesa	rssanon_ph45_mb	181.71904	MB	u32_10.warm.4.B
+R	sesa	rssanon_ph6_mb	132.48512	MB	u32_10.warm.4.B
+R	sesa	rssanon_seal_mb	132.48512	MB	u32_10.warm.4.B
+R	sesa	reserve_s	0.004350405	s	u32_10.warm.4.B the seconds inside ReserveRange (the zeros of the growth)
+R	sesa	total_s	1.902930619	s	u32_10.warm.4.A SesaBuilder.Build, inside the call
+R	sesa	wall_s	1.902950166	s	u32_10.warm.4.A around the call
+R	sesa	scan_s	0.013733386	s	u32_10.warm.4.A
+R	sesa	create_s	0.000280232	s	u32_10.warm.4.A
+R	sesa	pack_s	0.042425133	s	u32_10.warm.4.A
+R	sesa	ph1_s	0.082381205	s	u32_10.warm.4.A
+R	sesa	ph23_s	0.534659837	s	u32_10.warm.4.A
+R	sesa	ph45_s	0.718930299	s	u32_10.warm.4.A
+R	sesa	bwt_s	0.097681703	s	u32_10.warm.4.A
+R	sesa	psi_s	0.08675842	s	u32_10.warm.4.A
+R	sesa	crc_s	0.035603572	s	u32_10.warm.4.A
+R	sesa	seal_s	0.002184724	s	u32_10.warm.4.A
+R	sesa	n	10000000	symbols	u32_10.warm.4.A sigma 4, 2 bits
+R	sesa	file_size	162515460	bytes	u32_10.warm.4.A LCP U32, 0 overflow pairs
+R	sesa	grown_bytes	30000003	bytes	u32_10.warm.4.A growth Filled, creation Preallocated
+R	sesa	counted_read	352578065	bytes	u32_10.warm.4.A explicit reads of the build (IoCounters)
+R	sesa	counted_write	242582160	bytes	u32_10.warm.4.A explicit writes of the build (IoCounters)
+R	sesa	counted_mapped_write	173789402	bytes	u32_10.warm.4.A writes through mapped windows (IoCounters)
+R	sesa	counted_reserved_write	0	bytes	u32_10.warm.4.A zeros written to reserve the growth
+R	sesa	scratch_peak	120000000	bytes	u32_10.warm.4.A
+R	sesa	arena_peak	140616824	bytes	u32_10.warm.4.A
+R	sesa	proc_rchar	353180967	bytes	u32_10.warm.4.A /proc/self/io over the call
+R	sesa	proc_wchar	242582335	bytes	u32_10.warm.4.A
+R	sesa	proc_read_bytes	0	bytes	u32_10.warm.4.A block-layer reads charged to the process
+R	sesa	proc_write_bytes	426553344	bytes	u32_10.warm.4.A pages dirtied (a page that is written again counts again)
+R	sesa	dev_sectors_read	0	sectors	u32_10.warm.4.A /sys/block/vda/stat over the call (512 B)
+R	sesa	dev_sectors_written	445008	sectors	u32_10.warm.4.A over the call
+R	sesa	dev_sectors_written_synced	445248	sectors	u32_10.warm.4.A until the end of a sync after the call
+R	sesa	rssanon_peak_mb	213.078016	MB	u32_10.warm.4.A verdict Within
+R	sesa	rssanon_ph0_mb	134.828032	MB	u32_10.warm.4.A
+R	sesa	rssanon_ph1_mb	138.661888	MB	u32_10.warm.4.A
+R	sesa	rssanon_ph23_mb	139.177984	MB	u32_10.warm.4.A
+R	sesa	rssanon_ph45_mb	213.078016	MB	u32_10.warm.4.A
+R	sesa	rssanon_ph6_mb	139.1616	MB	u32_10.warm.4.A
+R	sesa	rssanon_seal_mb	139.1616	MB	u32_10.warm.4.A
+R	sesa	pair_ratio_total	0.963903080167948	B / A	u32_10.warm pair 4: total 1.834 / 1.903 s, first B
+R	sesa	pair_ratio_ph45	0.9206887996245099	B / A	u32_10.warm pair 4: PH4 + PH5 0.662 / 0.719 s
+R	sesa	total_s	2.030979079	s	u32_10.warm.5.A SesaBuilder.Build, inside the call
+R	sesa	wall_s	2.031023276	s	u32_10.warm.5.A around the call
+R	sesa	scan_s	0.013648173	s	u32_10.warm.5.A
+R	sesa	create_s	0.000458029	s	u32_10.warm.5.A
+R	sesa	pack_s	0.03044114	s	u32_10.warm.5.A
+R	sesa	ph1_s	0.073870066	s	u32_10.warm.5.A
+R	sesa	ph23_s	0.535539892	s	u32_10.warm.5.A
+R	sesa	ph45_s	0.833338407	s	u32_10.warm.5.A
+R	sesa	bwt_s	0.129459266	s	u32_10.warm.5.A
+R	sesa	psi_s	0.091521157	s	u32_10.warm.5.A
+R	sesa	crc_s	0.037258013	s	u32_10.warm.5.A
+R	sesa	seal_s	0.002302055	s	u32_10.warm.5.A
+R	sesa	n	10000000	symbols	u32_10.warm.5.A sigma 4, 2 bits
+R	sesa	file_size	162515460	bytes	u32_10.warm.5.A LCP U32, 0 overflow pairs
+R	sesa	grown_bytes	30000003	bytes	u32_10.warm.5.A growth Filled, creation Preallocated
+R	sesa	counted_read	352578065	bytes	u32_10.warm.5.A explicit reads of the build (IoCounters)
+R	sesa	counted_write	242582160	bytes	u32_10.warm.5.A explicit writes of the build (IoCounters)
+R	sesa	counted_mapped_write	173789402	bytes	u32_10.warm.5.A writes through mapped windows (IoCounters)
+R	sesa	counted_reserved_write	0	bytes	u32_10.warm.5.A zeros written to reserve the growth
+R	sesa	scratch_peak	120000000	bytes	u32_10.warm.5.A
+R	sesa	arena_peak	140616824	bytes	u32_10.warm.5.A
+R	sesa	proc_rchar	353223847	bytes	u32_10.warm.5.A /proc/self/io over the call
+R	sesa	proc_wchar	242582335	bytes	u32_10.warm.5.A
+R	sesa	proc_read_bytes	0	bytes	u32_10.warm.5.A block-layer reads charged to the process
+R	sesa	proc_write_bytes	426708992	bytes	u32_10.warm.5.A pages dirtied (a page that is written again counts again)
+R	sesa	dev_sectors_read	0	sectors	u32_10.warm.5.A /sys/block/vda/stat over the call (512 B)
+R	sesa	dev_sectors_written	445368	sectors	u32_10.warm.5.A over the call
+R	sesa	dev_sectors_written_synced	445560	sectors	u32_10.warm.5.A until the end of a sync after the call
+R	sesa	rssanon_peak_mb	178.577408	MB	u32_10.warm.5.A verdict Within
+R	sesa	rssanon_ph0_mb	139.145216	MB	u32_10.warm.5.A
+R	sesa	rssanon_ph1_mb	139.1616	MB	u32_10.warm.5.A
+R	sesa	rssanon_ph23_mb	130.408448	MB	u32_10.warm.5.A
+R	sesa	rssanon_ph45_mb	178.577408	MB	u32_10.warm.5.A
+R	sesa	rssanon_ph6_mb	129.37216	MB	u32_10.warm.5.A
+R	sesa	rssanon_seal_mb	129.37216	MB	u32_10.warm.5.A
+R	sesa	total_s	2.025912365	s	u32_10.warm.5.B SesaBuilder.Build, inside the call
+R	sesa	wall_s	2.025946239	s	u32_10.warm.5.B around the call
+R	sesa	scan_s	0.014382165	s	u32_10.warm.5.B
+R	sesa	create_s	0.000337525	s	u32_10.warm.5.B
+R	sesa	pack_s	0.033812839	s	u32_10.warm.5.B
+R	sesa	ph1_s	0.072950051	s	u32_10.warm.5.B
+R	sesa	ph23_s	0.519938349	s	u32_10.warm.5.B
+R	sesa	ph45_s	0.721402611	s	u32_10.warm.5.B
+R	sesa	bwt_s	0.236388667	s	u32_10.warm.5.B
+R	sesa	psi_s	0.096460612	s	u32_10.warm.5.B
+R	sesa	crc_s	0.039776501	s	u32_10.warm.5.B
+R	sesa	seal_s	0.00405509	s	u32_10.warm.5.B
+R	sesa	n	10000000	symbols	u32_10.warm.5.B sigma 4, 2 bits
+R	sesa	file_size	162515460	bytes	u32_10.warm.5.B LCP U32, 0 overflow pairs
+R	sesa	grown_bytes	30000003	bytes	u32_10.warm.5.B growth Filled, creation Preallocated
+R	sesa	counted_read	352578065	bytes	u32_10.warm.5.B explicit reads of the build (IoCounters)
+R	sesa	counted_write	242582160	bytes	u32_10.warm.5.B explicit writes of the build (IoCounters)
+R	sesa	counted_mapped_write	173789402	bytes	u32_10.warm.5.B writes through mapped windows (IoCounters)
+R	sesa	counted_reserved_write	30000003	bytes	u32_10.warm.5.B zeros written to reserve the growth
+R	sesa	scratch_peak	120000000	bytes	u32_10.warm.5.B
+R	sesa	arena_peak	140616824	bytes	u32_10.warm.5.B
+R	sesa	proc_rchar	353216110	bytes	u32_10.warm.5.B /proc/self/io over the call
+R	sesa	proc_wchar	272582338	bytes	u32_10.warm.5.B
+R	sesa	proc_read_bytes	0	bytes	u32_10.warm.5.B block-layer reads charged to the process
+R	sesa	proc_write_bytes	437796864	bytes	u32_10.warm.5.B pages dirtied (a page that is written again counts again)
+R	sesa	dev_sectors_read	0	sectors	u32_10.warm.5.B /sys/block/vda/stat over the call (512 B)
+R	sesa	dev_sectors_written	466944	sectors	u32_10.warm.5.B over the call
+R	sesa	dev_sectors_written_synced	467152	sectors	u32_10.warm.5.B until the end of a sync after the call
+R	sesa	rssanon_peak_mb	178.60608	MB	u32_10.warm.5.B verdict Within
+R	sesa	rssanon_ph0_mb	130.27328	MB	u32_10.warm.5.B
+R	sesa	rssanon_ph1_mb	129.376256	MB	u32_10.warm.5.B
+R	sesa	rssanon_ph23_mb	129.388544	MB	u32_10.warm.5.B
+R	sesa	rssanon_ph45_mb	178.60608	MB	u32_10.warm.5.B
+R	sesa	rssanon_ph6_mb	129.37216	MB	u32_10.warm.5.B
+R	sesa	rssanon_seal_mb	129.37216	MB	u32_10.warm.5.B
+R	sesa	reserve_s	0.005245293	s	u32_10.warm.5.B the seconds inside ReserveRange (the zeros of the growth)
+R	sesa	pair_ratio_total	0.9975052849867391	B / A	u32_10.warm pair 5: total 2.026 / 2.031 s, first A
+R	sesa	pair_ratio_ph45	0.8656778626069014	B / A	u32_10.warm pair 5: PH4 + PH5 0.721 / 0.833 s
+R	sesa	total_s	2.136717676	s	u32_10.warm.6.B SesaBuilder.Build, inside the call
+R	sesa	wall_s	2.136739422	s	u32_10.warm.6.B around the call
+R	sesa	scan_s	0.017119602	s	u32_10.warm.6.B
+R	sesa	create_s	0.000626571	s	u32_10.warm.6.B
+R	sesa	pack_s	0.034345204	s	u32_10.warm.6.B
+R	sesa	ph1_s	0.079241449	s	u32_10.warm.6.B
+R	sesa	ph23_s	0.538877458	s	u32_10.warm.6.B
+R	sesa	ph45_s	0.891605218	s	u32_10.warm.6.B
+R	sesa	bwt_s	0.156282291	s	u32_10.warm.6.B
+R	sesa	psi_s	0.093046091	s	u32_10.warm.6.B
+R	sesa	crc_s	0.036825873	s	u32_10.warm.6.B
+R	sesa	seal_s	0.002166423	s	u32_10.warm.6.B
+R	sesa	n	10000000	symbols	u32_10.warm.6.B sigma 4, 2 bits
+R	sesa	file_size	162515460	bytes	u32_10.warm.6.B LCP U32, 0 overflow pairs
+R	sesa	grown_bytes	30000003	bytes	u32_10.warm.6.B growth Filled, creation Preallocated
+R	sesa	counted_read	352578065	bytes	u32_10.warm.6.B explicit reads of the build (IoCounters)
+R	sesa	counted_write	242582160	bytes	u32_10.warm.6.B explicit writes of the build (IoCounters)
+R	sesa	counted_mapped_write	173789402	bytes	u32_10.warm.6.B writes through mapped windows (IoCounters)
+R	sesa	counted_reserved_write	30000003	bytes	u32_10.warm.6.B zeros written to reserve the growth
+R	sesa	scratch_peak	120000000	bytes	u32_10.warm.6.B
+R	sesa	arena_peak	140616824	bytes	u32_10.warm.6.B
+R	sesa	proc_rchar	353228689	bytes	u32_10.warm.6.B /proc/self/io over the call
+R	sesa	proc_wchar	272582338	bytes	u32_10.warm.6.B
+R	sesa	proc_read_bytes	0	bytes	u32_10.warm.6.B block-layer reads charged to the process
+R	sesa	proc_write_bytes	438079488	bytes	u32_10.warm.6.B pages dirtied (a page that is written again counts again)
+R	sesa	dev_sectors_read	0	sectors	u32_10.warm.6.B /sys/block/vda/stat over the call (512 B)
+R	sesa	dev_sectors_written	467584	sectors	u32_10.warm.6.B over the call
+R	sesa	dev_sectors_written_synced	467792	sectors	u32_10.warm.6.B until the end of a sync after the call
+R	sesa	rssanon_peak_mb	184.926208	MB	u32_10.warm.6.B verdict Within
+R	sesa	rssanon_ph0_mb	131.584	MB	u32_10.warm.6.B
+R	sesa	rssanon_ph1_mb	135.696384	MB	u32_10.warm.6.B
+R	sesa	rssanon_ph23_mb	135.708672	MB	u32_10.warm.6.B
+R	sesa	rssanon_ph45_mb	184.926208	MB	u32_10.warm.6.B
+R	sesa	rssanon_ph6_mb	135.692288	MB	u32_10.warm.6.B
+R	sesa	rssanon_seal_mb	135.692288	MB	u32_10.warm.6.B
+R	sesa	reserve_s	0.005460078	s	u32_10.warm.6.B the seconds inside ReserveRange (the zeros of the growth)
+R	sesa	total_s	1.827703268	s	u32_10.warm.6.A SesaBuilder.Build, inside the call
+R	sesa	wall_s	1.827730978	s	u32_10.warm.6.A around the call
+R	sesa	scan_s	0.01425001	s	u32_10.warm.6.A
+R	sesa	create_s	0.000576231	s	u32_10.warm.6.A
+R	sesa	pack_s	0.045192051	s	u32_10.warm.6.A
+R	sesa	ph1_s	0.075847418	s	u32_10.warm.6.A
+R	sesa	ph23_s	0.526163171	s	u32_10.warm.6.A
+R	sesa	ph45_s	0.646843521	s	u32_10.warm.6.A
+R	sesa	bwt_s	0.099929755	s	u32_10.warm.6.A
+R	sesa	psi_s	0.086998447	s	u32_10.warm.6.A
+R	sesa	crc_s	0.033918418	s	u32_10.warm.6.A
+R	sesa	seal_s	0.004149967	s	u32_10.warm.6.A
+R	sesa	n	10000000	symbols	u32_10.warm.6.A sigma 4, 2 bits
+R	sesa	file_size	162515460	bytes	u32_10.warm.6.A LCP U32, 0 overflow pairs
+R	sesa	grown_bytes	30000003	bytes	u32_10.warm.6.A growth Filled, creation Preallocated
+R	sesa	counted_read	352578065	bytes	u32_10.warm.6.A explicit reads of the build (IoCounters)
+R	sesa	counted_write	242582160	bytes	u32_10.warm.6.A explicit writes of the build (IoCounters)
+R	sesa	counted_mapped_write	173789402	bytes	u32_10.warm.6.A writes through mapped windows (IoCounters)
+R	sesa	counted_reserved_write	0	bytes	u32_10.warm.6.A zeros written to reserve the growth
+R	sesa	scratch_peak	120000000	bytes	u32_10.warm.6.A
+R	sesa	arena_peak	140616824	bytes	u32_10.warm.6.A
+R	sesa	proc_rchar	353158004	bytes	u32_10.warm.6.A /proc/self/io over the call
+R	sesa	proc_wchar	242582335	bytes	u32_10.warm.6.A
+R	sesa	proc_read_bytes	0	bytes	u32_10.warm.6.A block-layer reads charged to the process
+R	sesa	proc_write_bytes	427245568	bytes	u32_10.warm.6.A pages dirtied (a page that is written again counts again)
+R	sesa	dev_sectors_read	0	sectors	u32_10.warm.6.A /sys/block/vda/stat over the call (512 B)
+R	sesa	dev_sectors_written	446432	sectors	u32_10.warm.6.A over the call
+R	sesa	dev_sectors_written_synced	446608	sectors	u32_10.warm.6.A until the end of a sync after the call
+R	sesa	rssanon_peak_mb	191.09888	MB	u32_10.warm.6.A verdict Within
+R	sesa	rssanon_ph0_mb	138.0352	MB	u32_10.warm.6.A
+R	sesa	rssanon_ph1_mb	141.869056	MB	u32_10.warm.6.A
+R	sesa	rssanon_ph23_mb	141.881344	MB	u32_10.warm.6.A
+R	sesa	rssanon_ph45_mb	191.09888	MB	u32_10.warm.6.A
+R	sesa	rssanon_ph6_mb	141.86496	MB	u32_10.warm.6.A
+R	sesa	rssanon_seal_mb	141.86496	MB	u32_10.warm.6.A
+R	sesa	pair_ratio_total	1.169072525836289	B / A	u32_10.warm pair 6: total 2.137 / 1.828 s, first B
+R	sesa	pair_ratio_ph45	1.3783939840992858	B / A	u32_10.warm pair 6: PH4 + PH5 0.892 / 0.647 s
+R	sesa	ratio_total_median	0.9975052849867391	B / A	u32_10.warm: min 0.9378 max 1.1691 over 6 pairs
+R	sesa	ratio_ph45_median	0.938397704656953	B / A	u32_10.warm: min 0.8657 max 1.3784
+R	sesa	reserve_s_median	0.005245293	s	u32_10.warm: min 0.0044 max 0.0055

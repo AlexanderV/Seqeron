@@ -1,0 +1,120 @@
+R	sesa-tail	grow_s	0.004052901	s	r1 sparse 100 MiB cold create or grow, with the reservation
+R	sesa-tail	write_s	0.169107792	s	r1 sparse 100 MiB cold the mapped windows over the whole growth
+R	sesa-tail	sync_s	0.003334549	s	r1 sparse 100 MiB cold sync after the write
+R	sesa-tail	total_s	0.176495242	s	r1 sparse 100 MiB cold
+R	sesa-tail	reserved_bytes	0	bytes	r1 sparse 100 MiB cold
+R	sesa-tail	proc_wchar	0	bytes	r1 sparse 100 MiB cold
+R	sesa-tail	proc_write_bytes	104886272	bytes	r1 sparse 100 MiB cold pages dirtied
+R	sesa-tail	dev_read_bytes	507904	bytes	r1 sparse 100 MiB cold
+R	sesa-tail	dev_written_bytes_before_sync	105271296	bytes	r1 sparse 100 MiB cold
+R	sesa-tail	dev_written_bytes	105291776	bytes	r1 sparse 100 MiB cold until the end of the sync
+R	sesa-tail	grow_s	0.020767022	s	r1 zero 100 MiB cold create or grow, with the reservation
+R	sesa-tail	write_s	0.245517966	s	r1 zero 100 MiB cold the mapped windows over the whole growth
+R	sesa-tail	sync_s	0.003981024	s	r1 zero 100 MiB cold sync after the write
+R	sesa-tail	total_s	0.270266012	s	r1 zero 100 MiB cold
+R	sesa-tail	reserved_bytes	104857600	bytes	r1 zero 100 MiB cold
+R	sesa-tail	proc_wchar	104857600	bytes	r1 zero 100 MiB cold
+R	sesa-tail	proc_write_bytes	104886272	bytes	r1 zero 100 MiB cold pages dirtied
+R	sesa-tail	dev_read_bytes	507904	bytes	r1 zero 100 MiB cold
+R	sesa-tail	dev_written_bytes_before_sync	105271296	bytes	r1 zero 100 MiB cold
+R	sesa-tail	dev_written_bytes	105291776	bytes	r1 zero 100 MiB cold until the end of the sync
+R	sesa-tail	grow_s	0.00189297	s	r1 worst 100 MiB cold create or grow, with the reservation
+R	sesa-tail	write_s	0.154931482	s	r1 worst 100 MiB cold the mapped windows over the whole growth
+R	sesa-tail	sync_s	0.003175457	s	r1 worst 100 MiB cold sync after the write
+R	sesa-tail	total_s	0.159999909	s	r1 worst 100 MiB cold
+R	sesa-tail	reserved_bytes	0	bytes	r1 worst 100 MiB cold
+R	sesa-tail	proc_wchar	0	bytes	r1 worst 100 MiB cold
+R	sesa-tail	proc_write_bytes	105934848	bytes	r1 worst 100 MiB cold pages dirtied
+R	sesa-tail	dev_read_bytes	274432	bytes	r1 worst 100 MiB cold
+R	sesa-tail	dev_written_bytes_before_sync	106323968	bytes	r1 worst 100 MiB cold
+R	sesa-tail	dev_written_bytes	106344448	bytes	r1 worst 100 MiB cold until the end of the sync
+R	sesa-tail	grow_s	0.002836191	s	r1 sparse 100 MiB warm create or grow, with the reservation
+R	sesa-tail	write_s	0.144474512	s	r1 sparse 100 MiB warm the mapped windows over the whole growth
+R	sesa-tail	sync_s	0.006507023	s	r1 sparse 100 MiB warm sync after the write
+R	sesa-tail	total_s	0.153817726	s	r1 sparse 100 MiB warm
+R	sesa-tail	reserved_bytes	0	bytes	r1 sparse 100 MiB warm
+R	sesa-tail	proc_wchar	0	bytes	r1 sparse 100 MiB warm
+R	sesa-tail	proc_write_bytes	104886272	bytes	r1 sparse 100 MiB warm pages dirtied
+R	sesa-tail	dev_read_bytes	90112	bytes	r1 sparse 100 MiB warm
+R	sesa-tail	dev_written_bytes_before_sync	105271296	bytes	r1 sparse 100 MiB warm
+R	sesa-tail	dev_written_bytes	105328640	bytes	r1 sparse 100 MiB warm until the end of the sync
+R	sesa-tail	grow_s	0.017892391	s	r1 zero 100 MiB warm create or grow, with the reservation
+R	sesa-tail	write_s	0.226646761	s	r1 zero 100 MiB warm the mapped windows over the whole growth
+R	sesa-tail	sync_s	0.005691588	s	r1 zero 100 MiB warm sync after the write
+R	sesa-tail	total_s	0.25023074	s	r1 zero 100 MiB warm
+R	sesa-tail	reserved_bytes	104857600	bytes	r1 zero 100 MiB warm
+R	sesa-tail	proc_wchar	104857600	bytes	r1 zero 100 MiB warm
+R	sesa-tail	proc_write_bytes	104886272	bytes	r1 zero 100 MiB warm pages dirtied
+R	sesa-tail	dev_read_bytes	0	bytes	r1 zero 100 MiB warm
+R	sesa-tail	dev_written_bytes_before_sync	105271296	bytes	r1 zero 100 MiB warm
+R	sesa-tail	dev_written_bytes	105328640	bytes	r1 zero 100 MiB warm until the end of the sync
+R	sesa-tail	grow_s	0.001335706	s	r1 worst 100 MiB warm create or grow, with the reservation
+R	sesa-tail	write_s	0.157026445	s	r1 worst 100 MiB warm the mapped windows over the whole growth
+R	sesa-tail	sync_s	0.006005662	s	r1 worst 100 MiB warm sync after the write
+R	sesa-tail	total_s	0.16436781299999997	s	r1 worst 100 MiB warm
+R	sesa-tail	reserved_bytes	0	bytes	r1 worst 100 MiB warm
+R	sesa-tail	proc_wchar	0	bytes	r1 worst 100 MiB warm
+R	sesa-tail	proc_write_bytes	105934848	bytes	r1 worst 100 MiB warm pages dirtied
+R	sesa-tail	dev_read_bytes	434176	bytes	r1 worst 100 MiB warm
+R	sesa-tail	dev_written_bytes_before_sync	106323968	bytes	r1 worst 100 MiB warm
+R	sesa-tail	dev_written_bytes	106381312	bytes	r1 worst 100 MiB warm until the end of the sync
+R	sesa-tail	grow_s	0.003460659	s	r1 sparse 300 MiB cold create or grow, with the reservation
+R	sesa-tail	write_s	0.472723375	s	r1 sparse 300 MiB cold the mapped windows over the whole growth
+R	sesa-tail	sync_s	0.003534093	s	r1 sparse 300 MiB cold sync after the write
+R	sesa-tail	total_s	0.479718127	s	r1 sparse 300 MiB cold
+R	sesa-tail	reserved_bytes	0	bytes	r1 sparse 300 MiB cold
+R	sesa-tail	proc_wchar	0	bytes	r1 sparse 300 MiB cold
+R	sesa-tail	proc_write_bytes	314617856	bytes	r1 sparse 300 MiB cold pages dirtied
+R	sesa-tail	dev_read_bytes	667648	bytes	r1 sparse 300 MiB cold
+R	sesa-tail	dev_written_bytes_before_sync	315805696	bytes	r1 sparse 300 MiB cold
+R	sesa-tail	dev_written_bytes	315838464	bytes	r1 sparse 300 MiB cold until the end of the sync
+R	sesa-tail	grow_s	0.049191661	s	r1 zero 300 MiB cold create or grow, with the reservation
+R	sesa-tail	write_s	0.730209274	s	r1 zero 300 MiB cold the mapped windows over the whole growth
+R	sesa-tail	sync_s	0.00319393	s	r1 zero 300 MiB cold sync after the write
+R	sesa-tail	total_s	0.782594865	s	r1 zero 300 MiB cold
+R	sesa-tail	reserved_bytes	314572800	bytes	r1 zero 300 MiB cold
+R	sesa-tail	proc_wchar	314572800	bytes	r1 zero 300 MiB cold
+R	sesa-tail	proc_write_bytes	314617856	bytes	r1 zero 300 MiB cold pages dirtied
+R	sesa-tail	dev_read_bytes	954368	bytes	r1 zero 300 MiB cold
+R	sesa-tail	dev_written_bytes_before_sync	315805696	bytes	r1 zero 300 MiB cold
+R	sesa-tail	dev_written_bytes	315838464	bytes	r1 zero 300 MiB cold until the end of the sync
+R	sesa-tail	grow_s	0.002170328	s	r1 worst 300 MiB cold create or grow, with the reservation
+R	sesa-tail	write_s	0.464873083	s	r1 worst 300 MiB cold the mapped windows over the whole growth
+R	sesa-tail	sync_s	0.003382524	s	r1 worst 300 MiB cold sync after the write
+R	sesa-tail	total_s	0.470425935	s	r1 worst 300 MiB cold
+R	sesa-tail	reserved_bytes	0	bytes	r1 worst 300 MiB cold
+R	sesa-tail	proc_wchar	0	bytes	r1 worst 300 MiB cold
+R	sesa-tail	proc_write_bytes	315666432	bytes	r1 worst 300 MiB cold pages dirtied
+R	sesa-tail	dev_read_bytes	294912	bytes	r1 worst 300 MiB cold
+R	sesa-tail	dev_written_bytes_before_sync	316858368	bytes	r1 worst 300 MiB cold
+R	sesa-tail	dev_written_bytes	316891136	bytes	r1 worst 300 MiB cold until the end of the sync
+R	sesa-tail	grow_s	0.003351699	s	r1 sparse 300 MiB warm create or grow, with the reservation
+R	sesa-tail	write_s	0.485536239	s	r1 sparse 300 MiB warm the mapped windows over the whole growth
+R	sesa-tail	sync_s	0.006887023	s	r1 sparse 300 MiB warm sync after the write
+R	sesa-tail	total_s	0.49577496099999996	s	r1 sparse 300 MiB warm
+R	sesa-tail	reserved_bytes	0	bytes	r1 sparse 300 MiB warm
+R	sesa-tail	proc_wchar	0	bytes	r1 sparse 300 MiB warm
+R	sesa-tail	proc_write_bytes	314617856	bytes	r1 sparse 300 MiB warm pages dirtied
+R	sesa-tail	dev_read_bytes	245760	bytes	r1 sparse 300 MiB warm
+R	sesa-tail	dev_written_bytes_before_sync	316121088	bytes	r1 sparse 300 MiB warm
+R	sesa-tail	dev_written_bytes	316198912	bytes	r1 sparse 300 MiB warm until the end of the sync
+R	sesa-tail	grow_s	0.052382871	s	r1 zero 300 MiB warm create or grow, with the reservation
+R	sesa-tail	write_s	0.744323743	s	r1 zero 300 MiB warm the mapped windows over the whole growth
+R	sesa-tail	sync_s	0.006583493	s	r1 zero 300 MiB warm sync after the write
+R	sesa-tail	total_s	0.8032901070000001	s	r1 zero 300 MiB warm
+R	sesa-tail	reserved_bytes	314572800	bytes	r1 zero 300 MiB warm
+R	sesa-tail	proc_wchar	314572800	bytes	r1 zero 300 MiB warm
+R	sesa-tail	proc_write_bytes	314621952	bytes	r1 zero 300 MiB warm pages dirtied
+R	sesa-tail	dev_read_bytes	12288	bytes	r1 zero 300 MiB warm
+R	sesa-tail	dev_written_bytes_before_sync	316678144	bytes	r1 zero 300 MiB warm
+R	sesa-tail	dev_written_bytes	316755968	bytes	r1 zero 300 MiB warm until the end of the sync
+R	sesa-tail	grow_s	0.001901251	s	r1 worst 300 MiB warm create or grow, with the reservation
+R	sesa-tail	write_s	0.481533324	s	r1 worst 300 MiB warm the mapped windows over the whole growth
+R	sesa-tail	sync_s	0.005995385	s	r1 worst 300 MiB warm sync after the write
+R	sesa-tail	total_s	0.48942996	s	r1 worst 300 MiB warm
+R	sesa-tail	reserved_bytes	0	bytes	r1 worst 300 MiB warm
+R	sesa-tail	proc_wchar	0	bytes	r1 worst 300 MiB warm
+R	sesa-tail	proc_write_bytes	315670528	bytes	r1 worst 300 MiB warm pages dirtied
+R	sesa-tail	dev_read_bytes	12288	bytes	r1 worst 300 MiB warm
+R	sesa-tail	dev_written_bytes_before_sync	318091264	bytes	r1 worst 300 MiB warm
+R	sesa-tail	dev_written_bytes	318164992	bytes	r1 worst 300 MiB warm until the end of the sync
