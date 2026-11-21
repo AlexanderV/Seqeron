@@ -29,6 +29,7 @@
 | `dangling_end_energy` | Analysis | `RnaSecondaryStructure.GetDanglingEndEnergy` | [doc](../../../../docs/mcp/tools/analysis/dangling_end_energy.md) |
 | `detect_pseudoknots` | Analysis | `RnaSecondaryStructure.DetectPseudoknots` | [doc](../../../../docs/mcp/tools/analysis/detect_pseudoknots.md) |
 | `detect_rearrangements` | Analysis | `ComparativeGenomics.DetectRearrangements` | [doc](../../../../docs/mcp/tools/analysis/detect_rearrangements.md) |
+| `diffseq` | Analysis | `GenomicAnalyzer.Diffseq` | [doc](../../../../docs/mcp/tools/analysis/diffseq.md) |
 | `dinucleotide_frequencies` | Analysis | `SequenceStatistics.CalculateDinucleotideFrequencies` | [doc](../../../../docs/mcp/tools/analysis/dinucleotide_frequencies.md) |
 | `dinucleotide_ratios` | Analysis | `SequenceStatistics.CalculateDinucleotideRatios` | [doc](../../../../docs/mcp/tools/analysis/dinucleotide_ratios.md) |
 | `discover_motifs` | Analysis | `MotifFinder.DiscoverMotifs` | [doc](../../../../docs/mcp/tools/analysis/discover_motifs.md) |
@@ -154,6 +155,7 @@
 | `validate_dot_bracket` | Analysis | `RnaSecondaryStructure.ValidateDotBracket` | [doc](../../../../docs/mcp/tools/analysis/validate_dot_bracket.md) |
 | `windowed_complexity` | Analysis | `SequenceComplexity.CalculateWindowedComplexity` | [doc](../../../../docs/mcp/tools/analysis/windowed_complexity.md) |
 | `windowed_gc_skew` | Analysis | `GcSkewCalculator.CalculateWindowedGcSkew` | [doc](../../../../docs/mcp/tools/analysis/windowed_gc_skew.md) |
+| `wordmatch` | Analysis | `GenomicAnalyzer.Wordmatch` | [doc](../../../../docs/mcp/tools/analysis/wordmatch.md) |
 | `align_mirna_to_target` | Annotation | `MiRnaAnalyzer.AlignMiRnaToTarget` | [doc](../../../../docs/mcp/tools/annotation/align_mirna_to_target.md) |
 | `analyze_target_context` | Annotation | `MiRnaAnalyzer.AnalyzeTargetContext` | [doc](../../../../docs/mcp/tools/annotation/analyze_target_context.md) |
 | `annotate_histone_modifications` | Annotation | `EpigeneticsAnalyzer.AnnotateHistoneModifications` | [doc](../../../../docs/mcp/tools/annotation/annotate_histone_modifications.md) |

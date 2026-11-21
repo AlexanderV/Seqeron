@@ -28,8 +28,8 @@ public record SeqMatchAllResult(
 /// <summary>A seqmatchall match as the program's report prints it with <c>sequenceQualifiers</c>: 1-based positions in the original sequences, start &gt; end on a reversed one (A5-7).</summary>
 public record ReportedWordMatchItem(int Sequence1, int Sequence2, int Start1, int End1, int Start2, int End2, int Length, bool Reversed);
 
-/// <summary>A hit of <c>fuzzpro</c>: 0-based start and length.</summary>
-public record ProteinPatternHitItem(int Position, int Length);
+/// <summary>A hit of <c>fuzzpro</c>: 0-based start and length (<c>mismatches</c>: substituted residues of a search with <c>mismatch</c> &gt; 0, omitted for an exact search).</summary>
+public record ProteinPatternHitItem(int Position, int Length, [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] int Mismatches = 0);
 
 /// <summary>Result of <c>fuzzpro</c>: the normalised pattern and every matching window.</summary>
 public record FuzzproResult(string Pattern, ProteinPatternHitItem[] Hits, [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Report = null);
@@ -38,7 +38,8 @@ public record FuzzproResult(string Pattern, ProteinPatternHitItem[] Hits, [prope
 public record TranslatedPatternHitItem(
     int Frame, int ProteinStart, int ProteinEnd, string Translation, int Position, int Length,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? EmbossStart = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? EmbossEnd = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? EmbossEnd = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] int Mismatches = 0);
 
 /// <summary>Result of <c>fuzztran</c>: the normalised pattern and the hits per frame.</summary>
 public record FuzztranResult(string Pattern, TranslatedPatternHitItem[] Hits, [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Report = null);
@@ -48,6 +49,18 @@ public record ShowAlignResult(string Text);
 
 /// <summary>Result of <c>megamerger</c>: the merged sequence, the program's report and the minimal set of anchoring matches (0-based starts; empty merge = nothing to merge).</summary>
 public record MegaMergerResult(string MergedSequence, string Report, WordMatchItem[] Matches);
+
+/// <summary>One region of difference of <c>diffseq</c>: 1-based coordinates in both sequences (a gap has length 0: its start is after the gap, its end before it).</summary>
+public record DiffseqDifferenceItem(int Start1, int End1, int Length1, int Start2, int End2, int Length2);
+
+/// <summary>Result of <c>diffseq</c>: the differences, the overlap of the two sequences (-1 when no match), the substitution counts of a nucleotide pair, the report text (default format <c>diffseq</c>) and the two GFF3 feature files.</summary>
+public record WordmatchHitItem(string Pattern, int PatternStart, string Query, int QueryStart, int Length);
+
+/// <summary>Result of <c>wordmatch</c>: the matches (0-based starts; every match is extended to the right beyond its word), the statistics and the program's files.</summary>
+public record WordmatchToolResult(WordmatchHitItem[] Matches, int PatternCount, long AllMatches, long SumLength, string Alignments, string Log, string FeatureFile1, string FeatureFile2);
+
+/// <summary>Result of <c>diffseq</c>: see <see cref="DiffseqToolResult"/>.</summary>
+public record DiffseqToolResult(DiffseqDifferenceItem[] Differences, int OverlapStart1, int OverlapEnd1, int OverlapStart2, int OverlapEnd2, int Snps, int Transitions, int Transversions, string Report, string FeatureFile1, string FeatureFile2);
 
 /// <summary>A match of a <c>nucmer_clusters</c> cluster: 1-based starts (the second one in the reverse-complemented query on the reverse strand), the length left after the overlap cut and the overlap.</summary>
 public record NucmerClusterMatchItem(long Start1, long Start2, long Length, long Overlap);

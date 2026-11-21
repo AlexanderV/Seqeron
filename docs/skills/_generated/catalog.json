@@ -700,6 +700,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/ComparativeGenomics.cs#L582"
   },
   {
+    "tool": "diffseq",
+    "server": "Analysis",
+    "methodId": "GenomicAnalyzer.Diffseq",
+    "docPath": "docs/mcp/tools/analysis/diffseq.md",
+    "sourceLink": ""
+  },
+  {
     "tool": "dinucleotide_frequencies",
     "server": "Analysis",
     "methodId": "SequenceStatistics.CalculateDinucleotideFrequencies",
@@ -1573,6 +1580,13 @@
     "methodId": "GcSkewCalculator.CalculateWindowedGcSkew",
     "docPath": "docs/mcp/tools/analysis/windowed_gc_skew.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L147"
+  },
+  {
+    "tool": "wordmatch",
+    "server": "Analysis",
+    "methodId": "GenomicAnalyzer.Wordmatch",
+    "docPath": "docs/mcp/tools/analysis/wordmatch.md",
+    "sourceLink": ""
   },
   {
     "tool": "align_mirna_to_target",

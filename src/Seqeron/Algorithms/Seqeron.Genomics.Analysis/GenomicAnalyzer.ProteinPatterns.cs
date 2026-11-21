@@ -7,7 +7,8 @@ namespace Seqeron.Genomics.Analysis;
 /// <summary>A hit of <see cref="GenomicAnalyzer.FindProteinPatternHits(string, string, CancellationToken)"/>: the 0-based start and the length of the matching window.</summary>
 /// <param name="Position">0-based start (EMBOSS <c>fuzzpro</c> prints Position + 1).</param>
 /// <param name="Length">Window length (a range such as <c>x(2,4)</c> yields hits of several lengths).</param>
-public readonly record struct ProteinPatternHit(int Position, int Length)
+/// <param name="Mismatches">Substituted positions of a search with <c>-pmismatch</c> (fuzzpro's <c>*mismatch</c> note, 0 for an exact hit).</param>
+public readonly record struct ProteinPatternHit(int Position, int Length, int Mismatches = 0)
 {
     /// <summary>Exclusive end of the window (0-based).</summary>
     public int End => Position + Length;
@@ -24,8 +25,9 @@ public readonly record struct ProteinPatternHit(int Position, int Length)
 /// <c>S</c> is the first position of the sequence used (1, or the <c>-sbegin</c> of the range). The reverse-frame numbers are what the program prints: negative for a whole sequence (it counts the protein position from the start of the sequence with
 /// the wrong sign; EMBOSS 6.6.0 defect, reproduced on 3 000+ hits, A5-7 oracle), the gff report lists the smaller of the two first.</param>
 /// <param name="EmbossEnd">The second coordinate the program prints: forward frames <c>S + frame + 3·end − 2</c> (= <see cref="Position"/> + <see cref="Length"/> for <c>S = 1</c>), reverse frames <c>S − |frame| − 3·end + 2</c>.</param>
+/// <param name="Mismatches">Substituted residues of a search with <c>-pmismatch</c> (the <c>*mismatch</c> note, 0 for an exact hit).</param>
 public readonly record struct TranslatedPatternHit(
-    int Frame, int ProteinStart, int ProteinEnd, string Translation, int Position, int Length, int? EmbossStart, int? EmbossEnd)
+    int Frame, int ProteinStart, int ProteinEnd, string Translation, int Position, int Length, int? EmbossStart, int? EmbossEnd, int Mismatches = 0)
 {
     /// <summary>True for the reverse frames (-1..-3).</summary>
     public bool IsReverseStrand => Frame < 0;
@@ -48,12 +50,13 @@ public static partial class GenomicAnalyzer
     /// <param name="protein">The protein sequence.</param>
     /// <param name="pattern">The pattern text (<see cref="ProteinPattern.Parse"/>).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
+    /// <param name="maxMismatches">Maximum substituted residues per hit (<c>-pmismatch</c>, A5-8c2): the search of <c>embPatBruteForce</c> / Baeza-Yates-Perleberg / Tarhio-Ukkonen-Bleasby; with a range only the mandatory part may mismatch.</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <exception cref="ArgumentException">The pattern is invalid.</exception>
-    public static IReadOnlyList<ProteinPatternHit> FindProteinPatternHits(string protein, string pattern, CancellationToken cancellationToken = default)
+    public static IReadOnlyList<ProteinPatternHit> FindProteinPatternHits(string protein, string pattern, CancellationToken cancellationToken = default, int maxMismatches = 0)
     {
         ArgumentNullException.ThrowIfNull(protein);
-        return FindProteinPatternHits(protein, ProteinPattern.Parse(pattern), cancellationToken);
+        return FindProteinPatternHits(protein, ProteinPattern.Parse(pattern), cancellationToken, maxMismatches);
     }
 
     /// <summary>
@@ -61,10 +64,10 @@ public static partial class GenomicAnalyzer
     /// <see cref="ProteinPatternHit.Position"/> counts from the start of the original sequence (<c>-sbegin</c> offset added). A protein is never reverse-complemented; <c>-snucleotide</c> is refused.
     /// </summary>
     /// <exception cref="ArgumentException">The sequence is empty after reading, or <c>-snucleotide</c> is given.</exception>
-    public static IReadOnlyList<ProteinPatternHit> FindProteinPatternHits(string protein, EmbossSequenceQualifiers? qualifiers, string pattern, CancellationToken cancellationToken = default)
+    public static IReadOnlyList<ProteinPatternHit> FindProteinPatternHits(string protein, EmbossSequenceQualifiers? qualifiers, string pattern, CancellationToken cancellationToken = default, int maxMismatches = 0)
     {
         var view = EmbossInputSequence.Read(protein, qualifiers, EmbossSequenceType.Protein);
-        var hits = FindProteinPatternHits(view.Residues, pattern, cancellationToken);
+        var hits = FindProteinPatternHits(view.Residues, pattern, cancellationToken, maxMismatches);
         return view.Offset == 0 ? hits : [.. hits.Select(h => h with { Position = h.Position + view.Offset })];
     }
 
@@ -72,20 +75,38 @@ public static partial class GenomicAnalyzer
     /// <param name="protein">The protein sequence.</param>
     /// <param name="pattern">The parsed pattern.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
+    /// <param name="maxMismatches">Maximum substituted residues per hit (<c>-pmismatch</c>, A5-8c2): the search of <c>embPatBruteForce</c> / Baeza-Yates-Perleberg / Tarhio-Ukkonen-Bleasby; with a range only the mandatory part may mismatch.</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
-    public static IReadOnlyList<ProteinPatternHit> FindProteinPatternHits(string protein, ProteinPattern pattern, CancellationToken cancellationToken = default)
+    public static IReadOnlyList<ProteinPatternHit> FindProteinPatternHits(string protein, ProteinPattern pattern, CancellationToken cancellationToken = default, int maxMismatches = 0)
     {
         ArgumentNullException.ThrowIfNull(protein);
         ArgumentNullException.ThrowIfNull(pattern);
         protein = EmbossSequenceReader.Clean(protein);                // the fuzzpro reader drops the gap characters and every other non-letter but * (A4-3), then reads a trailing stop off
-        return ProteinPatternHitsCore(protein.EndsWith('*') ? protein[..^1] : protein, pattern, cancellationToken);
+        return ProteinPatternHitsCore(protein.EndsWith('*') ? protein[..^1] : protein, pattern, cancellationToken, maxMismatches);
     }
 
-    private static List<ProteinPatternHit> ProteinPatternHitsCore(string text, ProteinPattern pattern, CancellationToken cancellationToken)
+    private static List<ProteinPatternHit> ProteinPatternHitsCore(string text, ProteinPattern pattern, CancellationToken cancellationToken, int maxMismatches = 0)
     {
+        ArgumentOutOfRangeException.ThrowIfNegative(maxMismatches);
         var bits = new uint[text.Length];
         for (int i = 0; i < bits.Length; i++)
             bits[i] = ProteinPattern.ResidueBit(text[i]);
+
+        if (maxMismatches > 0)
+        {
+            if (pattern.UsesTarhioUkkonenBleasby(out int realLength))
+            {
+                if (maxMismatches >= realLength)
+                    throw new ArgumentException($"embPatCompileII: Mismatches ({maxMismatches}) must be less than the real pattern length ({realLength})", nameof(maxMismatches));
+                // type 6: the skip-table search of embpat.c (it jumps over windows that hold a symbol that is no letter)
+                string tubText = pattern.TubText(out int m);
+                var upper = text.ToUpperInvariant();
+                return [.. EmbossTubSearch.Search(tubText, upper, EmbossTubSearch.Init(tubText, m, maxMismatches), m, maxMismatches, pattern.AnchoredAtStart, pattern.AnchoredAtEnd)
+                    .Select(h => new ProteinPatternHit(h.Start, h.Length, h.Mismatches))];
+            }
+
+            return ProteinPatternHitsApproximate(bits, pattern, maxMismatches, cancellationToken);
+        }
 
         var hits = new HashSet<(int Position, int Length)>();
         foreach (var expansion in pattern.Expand())
@@ -118,6 +139,47 @@ public static partial class GenomicAnalyzer
         return hits.OrderBy(h => h.Position).ThenBy(h => h.Length).Select(h => new ProteinPatternHit(h.Position, h.Length)).ToList();
     }
 
+    // fuzzpro / fuzztran with -pmismatch n (A5-8c2, F195): embPatGetTypeII gives a protein pattern with mismatches the Baeza-Yates-Perleberg, Tarhio-Ukkonen-Bleasby or recursive brute-force search (embPatBruteForce -> patOUBrute); all
+    // report a window with its Hamming distance <= n. With a range the recursive matcher lets a mismatch fall only on the mandatory part (the extra repeats must match exactly) and fails when the sequence ends while elements are left over.
+    // The recursion pushes one hit per successful unrolling (embPatPushHit), so a window that several unrollings match is listed several times (each with its own distance); the list is in push order: start ascending, then the
+    // unrollings in the order of the recursion (fewer repeats of the earlier element first), which is the order of ProteinPattern.ExpandPaths.
+    private static List<ProteinPatternHit> ProteinPatternHitsApproximate(uint[] bits, ProteinPattern pattern, int maxMismatches, CancellationToken cancellationToken)
+    {
+        bool recursiveMatcher = pattern.HasRange;
+        var paths = pattern.ExpandPaths();
+        var hits = new List<ProteinPatternHit>();
+        for (int pos = 0; pos < bits.Length; pos++)
+        {
+            if ((pos & 0xFFF) == 0)
+                AlignmentCancellation.Poll(cancellationToken);
+            if (pattern.AnchoredAtStart && pos != 0)
+                break;
+            foreach (var path in paths)
+            {
+                int length = path.Sets.Length;
+                if (pos + length > bits.Length)
+                    continue;
+                if (pattern.AnchoredAtEnd && pos + length != bits.Length)
+                    continue;
+                int bad = 0;
+                bool allowed = true;
+                for (int j = 0; j < length && allowed; j++)
+                {
+                    if ((bits[pos + j] & path.Sets[j]) != 0)
+                        continue;
+                    allowed = ++bad <= maxMismatches && !(recursiveMatcher && Array.IndexOf(path.ExtraPositions, j) >= 0);
+                }
+
+                if (!allowed || (recursiveMatcher && path.EndsWithEmptyElement && pos + length == bits.Length))
+                    continue;
+                hits.Add(new ProteinPatternHit(pos, length, bad));
+            }
+        }
+
+        // a pattern without a range is one unrolling (the Hamming engines list each window once)
+        return hits;
+    }
+
     /// <summary>
     /// EMBOSS <c>fuzztran</c> (6.6.0): translates a nucleotide sequence in the chosen frames with an EMBOSS genetic-code table and searches every translation with a
     /// <see cref="ProteinPattern"/> (<see cref="FindProteinPatternHits(string, ProteinPattern, CancellationToken)"/>, without reading a trailing stop off).
@@ -136,17 +198,18 @@ public static partial class GenomicAnalyzer
     /// <param name="frames">The frame selection: 1, 2, 3, -1, -2, -3, F, R or 6 (case-insensitive).</param>
     /// <param name="table">EMBOSS genetic code (0 standard, otherwise an NCBI table number).</param>
     /// <param name="cancellationToken">Cancellation token, polled per frame and every 65 536 residues of a translation (A4-1).</param>
+    /// <param name="maxMismatches">Maximum substituted residues per hit (<c>-pmismatch</c>, A5-8c2): the search of <c>embPatBruteForce</c> / Baeza-Yates-Perleberg / Tarhio-Ukkonen-Bleasby; with a range only the mandatory part may mismatch.</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <exception cref="ArgumentException">The pattern or the frame selection is invalid, or the table is unknown.</exception>
-    public static IReadOnlyList<TranslatedPatternHit> FindTranslatedPatternHits(string nucleotides, string pattern, string frames = "1", int table = 0, CancellationToken cancellationToken = default)
+    public static IReadOnlyList<TranslatedPatternHit> FindTranslatedPatternHits(string nucleotides, string pattern, string frames = "1", int table = 0, CancellationToken cancellationToken = default, int maxMismatches = 0)
     {
         ArgumentNullException.ThrowIfNull(nucleotides);
         string text = EmbossSequenceReader.Clean(nucleotides).ToUpperInvariant();      // the fuzztran reader drops the gap characters and every other non-letter but * (A4-3)
-        return TranslatedPatternHitsCore(text, 1, text.Length, pattern, frames, table, cancellationToken);
+        return TranslatedPatternHitsCore(text, 1, text.Length, pattern, frames, table, cancellationToken, maxMismatches);
     }
 
     // fuzztran on the text it translates (the sequence as used, upper case): `begin` / `end` are the 1-based first and last position of that text in the sequence the program numbers (ajSeqallGetseqBegin / End)
-    private static IReadOnlyList<TranslatedPatternHit> TranslatedPatternHitsCore(string text, int begin, int end, string pattern, string frames, int table, CancellationToken cancellationToken)
+    private static IReadOnlyList<TranslatedPatternHit> TranslatedPatternHitsCore(string text, int begin, int end, string pattern, string frames, int table, CancellationToken cancellationToken, int maxMismatches = 0)
     {
         ArgumentNullException.ThrowIfNull(pattern);
         ArgumentNullException.ThrowIfNull(frames);
@@ -177,7 +240,7 @@ public static partial class GenomicAnalyzer
             int complete = Math.Max(0, (length - (Math.Abs(frame) - 1)) / 3);
             if (protein.Length > complete)
                 protein = protein[..complete];
-            foreach (var hit in ProteinPatternHitsCore(protein, parsed, cancellationToken))
+            foreach (var hit in ProteinPatternHitsCore(protein, parsed, cancellationToken, maxMismatches))
             {
                 int s = hit.Position + 1, e = hit.Position + hit.Length;
                 int framenum = Math.Abs(frame);
@@ -186,7 +249,7 @@ public static partial class GenomicAnalyzer
                 int anchor = frame == -3 && selector is "R" or "6" ? end : begin;
                 int embossStart = frame > 0 ? anchor + framenum + 3 * s - 4 : anchor - framenum - 3 * s + 4;
                 int embossEnd = frame > 0 ? anchor + framenum + 3 * e - 2 : anchor - framenum - 3 * e + 2;
-                result.Add(new TranslatedPatternHit(frame, s, e, protein.Substring(hit.Position, hit.Length), position, 3 * hit.Length, embossStart, embossEnd));
+                result.Add(new TranslatedPatternHit(frame, s, e, protein.Substring(hit.Position, hit.Length), position, 3 * hit.Length, embossStart, embossEnd, hit.Mismatches));
             }
         }
 
@@ -205,8 +268,9 @@ public static partial class GenomicAnalyzer
     /// <param name="frames">The frame selection: 1, 2, 3, -1, -2, -3, F, R or 6.</param>
     /// <param name="table">EMBOSS genetic code (0 standard).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
+    /// <param name="maxMismatches">Maximum substituted residues per hit (<c>-pmismatch</c>, A5-8c2): the search of <c>embPatBruteForce</c> / Baeza-Yates-Perleberg / Tarhio-Ukkonen-Bleasby; with a range only the mandatory part may mismatch.</param>
     /// <exception cref="ArgumentException">The sequence is empty after reading, or <c>-sprotein</c> is given (fuzztran needs a nucleotide sequence).</exception>
-    public static IReadOnlyList<TranslatedPatternHit> FindTranslatedPatternHits(string nucleotides, EmbossSequenceQualifiers? qualifiers, string pattern, string frames = "1", int table = 0, CancellationToken cancellationToken = default)
+    public static IReadOnlyList<TranslatedPatternHit> FindTranslatedPatternHits(string nucleotides, EmbossSequenceQualifiers? qualifiers, string pattern, string frames = "1", int table = 0, CancellationToken cancellationToken = default, int maxMismatches = 0)
     {
         var view = EmbossInputSequence.Read(nucleotides, qualifiers, EmbossSequenceType.Dna);
         var q = qualifiers ?? EmbossSequenceQualifiers.None;
@@ -219,7 +283,7 @@ public static partial class GenomicAnalyzer
             begin = 1 + EmbossInputSequence.PositionStart(n, 0, rawBegin > 0 ? rawBegin - 1 : rawBegin);
         if (rawEnd != 0)
             end = 1 + EmbossInputSequence.PositionStart(n, begin - 1, rawEnd > 0 ? rawEnd - 1 : rawEnd);
-        return TranslatedPatternHitsCore(SequenceCase.ToUpperAscii(view.Full[(begin - 1)..end]), begin, end, pattern, frames, table, cancellationToken);
+        return TranslatedPatternHitsCore(SequenceCase.ToUpperAscii(view.Full[(begin - 1)..end]), begin, end, pattern, frames, table, cancellationToken, maxMismatches);
     }
 
     #endregion

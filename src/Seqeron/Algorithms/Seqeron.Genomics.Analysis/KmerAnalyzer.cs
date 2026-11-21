@@ -1635,8 +1635,12 @@ public static class KmerAnalyzer
     /// <param name="reads">The reads of at least k symbols, in input order.</param>
     /// <param name="readsUsed">The number of reads taken before the coverage target was reached.</param>
     internal static MinHashSketch CreateReadsMinHashSketch(IReadOnlyList<string> reads, int k, int sketchSize, bool canonical, uint seed, int minCopies, double targetCoverage, long genomeSize, out int readsUsed,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, long bloomFilterBytes = 0)
     {
+        ArgumentOutOfRangeException.ThrowIfNegative(bloomFilterBytes);
+        if (bloomFilterBytes > 0 && minCopies != 1)
+            throw new ArgumentException("The option -m cannot be used with -b.", nameof(minCopies));
+        var bloom = bloomFilterBytes > 0 ? new MashBloomFilter(bloomFilterBytes) : null;
         bool use64 = MashUses64BitHash(k);
         var hashes = new SortedSet<ulong>();
         var counts = new RobinHoodMap();            // HashSet of MinHashHeap: the multiplicities stay in the iteration order of Mash's robin_hood::unordered_map (A5-10b3)
@@ -1649,8 +1653,21 @@ public static class KmerAnalyzer
                 return;
             if (!counts.Contains(h))
             {
-                pending.TryGetValue(h, out uint seen);
-                if (minCopies <= 1 || seen == (uint)(minCopies - 1))
+                if (bloom is not null)
+                {
+                    // MinHashHeap::tryInsert with a Bloom filter: the second sighting (or a false positive) enters the set with the count 2
+                    if (bloom.Contains(h, use64))
+                    {
+                        counts.Insert(h, 2);
+                        hashes.Add(h);
+                        multiplicitySum += 2;
+                    }
+                    else
+                    {
+                        bloom.Insert(h, use64);
+                    }
+                }
+                else if (minCopies <= 1 || (pending.TryGetValue(h, out uint seenBefore) ? seenBefore : 0u) == (uint)(minCopies - 1))
                 {
                     counts.Insert(h, (uint)Math.Max(minCopies, 1));
                     hashes.Add(h);
@@ -1663,6 +1680,7 @@ public static class KmerAnalyzer
                 }
                 else
                 {
+                    pending.TryGetValue(h, out uint seen);
                     if (seen == 0)
                         pendingSorted.Add(h);
                     pending[h] = seen + 1;

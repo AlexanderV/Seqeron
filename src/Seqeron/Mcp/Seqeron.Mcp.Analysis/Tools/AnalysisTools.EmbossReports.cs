@@ -63,7 +63,7 @@ public partial class AnalysisTools
         [Description("fuzznuc | fuzzpro | fuzztran | etandem | equicktandem.")] string program,
         [Description("The input file text: FASTA records (name = first word of the header, an accession-like second word is the accession, the rest the description).")] string fasta,
         [Description("The pattern (fuzznuc / fuzzpro / fuzztran -pattern); give this or patternFile.")] string? pattern = null,
-        [Description("fuzznuc -pmismatch.")] int maxMismatches = 0,
+        [Description("fuzznuc / fuzzpro / fuzztran -pmismatch (a pattern file entry <mismatch=n> overrides it).")] int maxMismatches = 0,
         [Description("The TEXT of a pattern file (-pattern @file; A5-8c): one pattern per line, or FASTA style (>name, optionally '<mismatch=n>' after the name, then the pattern); every pattern is a row of the header table and has its own features.")] string? patternFile = null,
         [Description("-pname: the pattern name (default 'pattern'; the lines of a simple file are numbered after it).")] string? patternName = null,
         [Description("-pformat: simple (one pattern per line) or fasta; default: decided by the first line of the file.")] string? patternFormat = null,
@@ -99,9 +99,13 @@ public partial class AnalysisTools
                 break;
             case "fuzzpro":
                 entries.AddRange(PatternEntries(pattern, patternFile, patternName, patternFormat));
+                if (maxMismatches > 0)
+                    entries.Add(Qualifier("pmismatch", maxMismatches));
                 break;
             case "fuzztran":
                 entries.AddRange([.. PatternEntries(pattern, patternFile, patternName, patternFormat), Qualifier("frame", frame), Qualifier("table", table)]);
+                if (maxMismatches > 0)
+                    entries.Add(Qualifier("pmismatch", maxMismatches));
                 break;
             case "etandem":
             case "equicktandem":
@@ -120,7 +124,7 @@ public partial class AnalysisTools
             if (kind is "fuzznuc" or "fuzzpro" or "fuzztran")
             {
                 string spec = patternFile is null ? pattern! : "@" + PatternFileName;
-                patterns = EmbossPatternList.Read(spec, patternName, patternFormat, kind == "fuzznuc" ? maxMismatches : 0, _ => patternFile ?? "");
+                patterns = EmbossPatternList.Read(spec, patternName, patternFormat, maxMismatches, _ => patternFile ?? "");
             }
             var result = kind switch
             {

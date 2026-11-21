@@ -46,17 +46,20 @@ public partial class AnalysisTools
         }
     }
 
-    private static global::Seqeron.Genomics.Analysis.MashCommands.MashReadsOptions? ReadsOptions(bool reads, int minCopies, double targetCoverage, long genomeSize)
+    private static global::Seqeron.Genomics.Analysis.MashCommands.MashReadsOptions? ReadsOptions(bool reads, int minCopies, double targetCoverage, long genomeSize, string? bloomFilter = null)
     {
-        if (!reads)
+        long bloomBytes = string.IsNullOrEmpty(bloomFilter) ? 0 : global::Seqeron.Genomics.Analysis.MashCommands.ParseSize(bloomFilter);
+        if (!reads && bloomBytes == 0)
             return null;
+        if (bloomBytes > 0 && minCopies != 1)
+            throw new ArgumentException("minCopies cannot be used with bloomFilter (mash: the option -m cannot be used with -b).", nameof(minCopies));
         if (minCopies < 1)
             throw new ArgumentOutOfRangeException(nameof(minCopies), minCopies, "minCopies must be at least 1 (mash -m).");
         if (targetCoverage < 0 || double.IsNaN(targetCoverage))
             throw new ArgumentOutOfRangeException(nameof(targetCoverage), targetCoverage, "targetCoverage must be 0 or more (mash -c).");
         if (genomeSize < 0)
             throw new ArgumentOutOfRangeException(nameof(genomeSize), genomeSize, "genomeSize must be 0 or more (mash -g).");
-        return new global::Seqeron.Genomics.Analysis.MashCommands.MashReadsOptions(minCopies, targetCoverage, genomeSize);
+        return new global::Seqeron.Genomics.Analysis.MashCommands.MashReadsOptions(minCopies, targetCoverage, genomeSize, bloomBytes);
     }
 
     private static uint RequireMashSeed(long seed)
@@ -93,9 +96,10 @@ public partial class AnalysisTools
         [Description("-m: minimum copies of each k-mer required to pass the noise filter of a read set (default 1; only with reads).")] int minCopies = 1,
         [Description("-c: target coverage of a read set: sketching concludes when it is reached (default 0 = read everything; only with reads).")] double targetCoverage = 0.0,
         [Description("-g: genome size used as the sketch length of a read set (default 0 = estimated; only with reads).")] long genomeSize = 0,
-        [Description("-C: show the comment fields with the names (name:comment for dist, the comment instead of the id for triangle; the comment of a file sketch is the first record's name and comment, '[N seqs] ... [...]' for several).")] bool showComments = false)
+        [Description("-C: show the comment fields with the names (name:comment for dist, the comment instead of the id for triangle; the comment of a file sketch is the first record's name and comment, '[N seqs] ... [...]' for several).")] bool showComments = false,
+        [Description("-b: a Bloom filter of this size (raw bytes or with K/M/G/T, e.g. 500M) filters out the k-mers seen once, instead of the exact filter -m (cannot be combined with minCopies > 1; implies reads; copies cannot be counted beyond 2; some unique k-mers pass erroneously; the filter has one hash function over bytes x 8 bits as the program builds it).")] string? bloomFilter = null)
         => new(global::Seqeron.Genomics.Analysis.MashCommands.Dist(ToMashInputs(references, referenceNames, "reference", nameof(references)), ToMashInputs(queries, queryNames, "query", nameof(queries)), k, sketchSize, RequireMashSeed(seed),
-            !noncanonical, individual, table, maxPValue, maxDistance, cancellationToken, ReadsOptions(reads, minCopies, targetCoverage, genomeSize), showComments));
+            !noncanonical, individual, table, maxPValue, maxDistance, cancellationToken, ReadsOptions(reads, minCopies, targetCoverage, genomeSize, bloomFilter), showComments));
 
     [McpServerTool(Name = "mash_triangle", Title = "Mash — Lower-Triangular Distance Matrix (mash triangle)", ReadOnly = true)]
     [Description("Mash 2.3 'mash triangle': the distance of each input to every other input as a lower-triangular matrix in relaxed Phylip format (a first line with a TAB and the number of inputs, then one line per input: its name and the distances to the inputs before it), or with edgeList = true (-E; implied by a p-value or distance filter) the edge list 'name TAB name TAB distance TAB p-value TAB shared/total' of the pairs that pass maxPValue (-v) and maxDistance (-d). Sketches as mash_dist (a file without a record of at least k symbols is refused). VERIFICATION: 220 / 220 random sets (2 - 6 files, k 4 - 32, sketch size 5 - 2000, -n, -i, -E, -v, -d) equal the installed mash 2.3 byte for byte.")]
@@ -115,8 +119,9 @@ public partial class AnalysisTools
         [Description("-m: minimum copies of each k-mer required to pass the noise filter of a read set (default 1; only with reads).")] int minCopies = 1,
         [Description("-c: target coverage of a read set: sketching concludes when it is reached (default 0 = read everything; only with reads).")] double targetCoverage = 0.0,
         [Description("-g: genome size used as the sketch length of a read set (default 0 = estimated; only with reads).")] long genomeSize = 0,
-        [Description("-C: show the comment fields with the names (name:comment for dist, the comment instead of the id for triangle; the comment of a file sketch is the first record's name and comment, '[N seqs] ... [...]' for several).")] bool showComments = false)
-        => new(global::Seqeron.Genomics.Analysis.MashCommands.Triangle(ToMashInputs(sequences, names, "input", nameof(sequences)), k, sketchSize, RequireMashSeed(seed), !noncanonical, individual, edgeList, maxPValue, maxDistance, cancellationToken, ReadsOptions(reads, minCopies, targetCoverage, genomeSize), showComments));
+        [Description("-C: show the comment fields with the names (name:comment for dist, the comment instead of the id for triangle; the comment of a file sketch is the first record's name and comment, '[N seqs] ... [...]' for several).")] bool showComments = false,
+        [Description("-b: a Bloom filter of this size (raw bytes or with K/M/G/T, e.g. 500M) filters out the k-mers seen once, instead of the exact filter -m (cannot be combined with minCopies > 1; implies reads; copies cannot be counted beyond 2; some unique k-mers pass erroneously; the filter has one hash function over bytes x 8 bits as the program builds it).")] string? bloomFilter = null)
+        => new(global::Seqeron.Genomics.Analysis.MashCommands.Triangle(ToMashInputs(sequences, names, "input", nameof(sequences)), k, sketchSize, RequireMashSeed(seed), !noncanonical, individual, edgeList, maxPValue, maxDistance, cancellationToken, ReadsOptions(reads, minCopies, targetCoverage, genomeSize, bloomFilter), showComments));
 
     [McpServerTool(Name = "mash_screen", Title = "Mash — Containment of Queries in a Mixture (mash screen)", ReadOnly = true)]
     [Description("Mash 2.3 'mash screen' for nucleotide queries, byte for byte (CommandScreen.cpp): the MinHash sketches of the query files (as mash sketch -k -s -S -n -i would write them into the query .msh) are screened against a mixture (reads or contigs, any number of files): the hashes of the queries are counted in every window of the mixture and for each query one line identity TAB shared/hashes TAB median-multiplicity TAB p-value TAB query-ID TAB query-comment is written, identity = (shared / hashes)^(1/k), the median multiplicity over the shared hashes, the p-value the binomial tail with r = estimated distinct k-mers of the mixture / 4^k. winnerTakesAll = -w (a hash held by several queries counts for the query with the best identity, ties the longer one), minIdentity = -i (-1 writes every query, 0 those with a shared hash), maxPValue = -v. The query-comment is 'name comment' of the first record of a file ('[N seqs] ... [...]' for several records; the record's own comment with individual). Amino-acid queries (6-frame translation of the mixture) are not part of the port. VERIFICATION: 240 / 240 random screens equal the installed mash 2.3.")]
@@ -152,10 +157,11 @@ public partial class AnalysisTools
         [Description("-g: genome size used as the sketch length of a read set (default 0 = estimated; only with reads).")] long genomeSize = 0,
         [Description("-I: the id (name) of the first sketch.")] string? id = null,
         [Description("-C: the comment of the first sketch.")] string? comment = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        [Description("-b: a Bloom filter of this size (raw bytes or with K/M/G/T, e.g. 500M) filters out the k-mers seen once, instead of the exact filter -m (cannot be combined with minCopies > 1; implies reads; copies cannot be counted beyond 2; some unique k-mers pass erroneously; the filter has one hash function over bytes x 8 bits as the program builds it).")] string? bloomFilter = null)
     {
         var data = global::Seqeron.Genomics.Analysis.MashCommands.Sketch(ToMashInputs(sequences, names, "input", nameof(sequences)), k, sketchSize, RequireMashSeed(seed), !noncanonical, individual, cancellationToken,
-            ReadsOptions(reads, minCopies, targetCoverage, genomeSize), id, comment);
+            ReadsOptions(reads, minCopies, targetCoverage, genomeSize, bloomFilter), id, comment);
         return MshResult(data);
     }
 

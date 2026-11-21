@@ -63,9 +63,10 @@ public class MashSketchFile_Oracle_Tests
         canonical = !r.Args.Contains("-n");
         individual = r.Args.Contains("-i");
         readMode = r.Args.Contains("-r");
+        long bloom = r.Args.Contains("-b") ? MashCommands.ParseSize(Value("-b")) : 0;
 
-        if (readMode)
-            reads = new MashCommands.MashReadsOptions(minCopies, coverage, genome);
+        if (readMode || bloom > 0)
+            reads = new MashCommands.MashReadsOptions(minCopies, coverage, genome, bloom);
         var inputs = r.Files.Select(f => ToInput(f.Name, f.Fasta)).ToList();
         string? id = r.Args.Contains("-I") ? Value("-I") : null, comment = r.Args.Contains("-C") ? Value("-C") : null;
         data = MashCommands.Sketch(inputs, k, s, seed, canonical, individual, default, reads, id, comment);
@@ -87,6 +88,37 @@ public class MashSketchFile_Oracle_Tests
         }
 
         Assert.That(failures, Is.Empty, $"{failures.Count} of {rows.Count}:\n" + string.Join("\n", failures.Take(5)));
+    }
+
+    private static readonly Lazy<List<Row>> BloomOracle = new(() => Load("mash_bloom_msh_oracle"));
+
+    /// <summary>A5-10b2 (F197): 130 read sets filtered by a Bloom filter (<c>mash sketch -b SIZE</c>, 8 bytes - 2 MB, with and without <c>-r</c>): the whole .msh file byte for byte.</summary>
+    [Test]
+    public void BloomFilterSketchFile_EqualsMash_ByteForByte()
+    {
+        var rows = BloomOracle.Value;
+        Assert.That(rows, Has.Count.GreaterThanOrEqualTo(100));
+        var failures = new List<string>();
+        foreach (var r in rows)
+        {
+            var got = Make(r, out _);
+            if (!got.AsSpan().SequenceEqual(r.Msh))
+                failures.Add($"row {r.Id} {string.Join(' ', r.Args)}: expected {r.Msh.Length} bytes, got {got.Length}; first difference at {FirstDifference(got, r.Msh)}");
+        }
+
+        Assert.That(failures, Is.Empty, $"{failures.Count} of {rows.Count}:\n" + string.Join("\n", failures.Take(5)));
+    }
+
+    [Test]
+    public void ParseSize_AsMashCommandCpp()
+    {
+        Assert.That(MashCommands.ParseSize("500"), Is.EqualTo(500));
+        Assert.That(MashCommands.ParseSize("2K"), Is.EqualTo(2000));
+        Assert.That(MashCommands.ParseSize("3m"), Is.EqualTo(3_000_000));
+        Assert.That(MashCommands.ParseSize("1T"), Is.EqualTo(1_000_000_000_000));
+        Assert.Throws<ArgumentException>(() => MashCommands.ParseSize("5X"));
+        Assert.Throws<ArgumentException>(() => MashCommands.ParseSize("0"));
+        Assert.Throws<ArgumentException>(() => MashCommands.ParseSize("1.5K"));
     }
 
     [Test]

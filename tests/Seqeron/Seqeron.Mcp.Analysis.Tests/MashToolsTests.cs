@@ -89,6 +89,16 @@ public class MashToolsTests
     private const string SketchInput = ">s1 first seq\nACGTACGTAGCTAGCTAGGATCGATCGATCGTAGCTAGCTAGTCGATCGATGCTAGCTAGCATCGATCG\n>s2\nTTGACCAGTAGCTAGCTAGGGATCGATTTAGCGCGATATATCGCGCTAGCTAGTTTGGGCCCAAATTTAGC\n";
 
     [Test]
+    public void MashSketch_BloomFilter_AsTheProgram()
+    {
+        // mash 2.3: mash sketch -k 8 -s 6 -b 100 -o tb t.fa (A5-10b2, F197): the Bloom filter of 100 bytes (one hash function over 800 bits), the counts of the read-set sketch in robin_hood order
+        var sketch = AnalysisTools.MashSketch([SketchInput], ["t.fa"], k: 8, sketchSize: 6, bloomFilter: "100");
+        Assert.That(sketch.Msh, Is.EqualTo("msh:" + "AAAAACEAAAAAAAAAAwAEAAgAAAAAAAAABgAAAAEAAAAAAAAAAAAAAAwAAAAAAAEAYAAAAAAAAQBlAAAAKgAAAAAAAAAAAAAAAQAAAE8AAAAEAAAAAgAHAAAAAAAAAAAAUgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEQAAACoAAAARAAAA4gAAAB0AAAA0AAAAAAAAAAAAAAAhAAAANAAAAHQuZmEAAAAAWzIgc2Vxc10gczEgZmlyc3Qgc2VxIFsuLi5dAAAAAAAfQEMBkxLfA1WzHAUqyT4Q2GKoEYaxkBICAAAAAgAAAAIAAAACAAAAAwAAAAIAAAABAAAABwAAAAAAAAADAAAAQUNHVAAAAAA="));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.MashSketch([SketchInput], ["t.fa"], k: 8, sketchSize: 6, bloomFilter: "5X"));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.MashSketch([SketchInput], ["t.fa"], k: 8, sketchSize: 6, minCopies: 2, bloomFilter: "100"));      // -m cannot be used with -b
+    }
+
+    [Test]
     public void MashSketch_Info_Paste_AsTheProgram()
     {
         // mash 2.3: mash sketch -k 8 -s 6 -o t t.fa (A5-10b, F193): the file is byte for byte the one the program wrote; the msh: text is accepted by the other tools

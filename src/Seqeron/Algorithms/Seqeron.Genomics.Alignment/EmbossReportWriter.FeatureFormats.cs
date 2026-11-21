@@ -127,7 +127,7 @@ public static partial class EmbossReportWriter
             var ti = TypeOf(f);
             string typ = ti.EmblName ?? "misc_feature";
             string preftyp = lead + "   " + (typ.Length > 15 ? typ[..15] : typ).PadRight(15) + " ";
-            string pos = Int(f.Start) + ".." + Int(f.End);
+            string pos = Int(f.Start) + (f.Between ? "^" : "..") + Int(f.End);
             string loc = f.Strand == '-' ? "complement(" + pos + ")" : pos;
             LocWrap(loc, margin, preftag, preftyp, sb);
             if (ti.EmblName is null)
@@ -172,7 +172,11 @@ public static partial class EmbossReportWriter
             // featTypePirOut: when the external PIR type differs from the internal one the internal type name is appended to the first note
             var tags = f.Tags.ToList();
             int note = tags.FindIndex(g => g.Name.Equals("note", StringComparison.OrdinalIgnoreCase));
-            if (note >= 0)
+            if (f.Type == "SO:0000839")
+            {
+                // diffseq's generic feature of a protein table: its PIR type Region is the external type, nothing is appended
+            }
+            else if (note >= 0)
                 tags[note] = tags[note] with { Value = tags[note].Value + ", " + ti.Name };
             else
                 tags.Insert(0, new EmbossFeatureTag("note", ti.Name));
@@ -352,7 +356,7 @@ public static partial class EmbossReportWriter
         sb.Append("Tagnames: ").Append(o.Tags.Count).Append('\n');
         sb.Append("Tagprints: ").Append(o.Tags.Count).Append('\n');
         sb.Append("Tagtypes: ").Append(o.Tags.Count).Append('\n');
-        sb.Append("FileNames: 0\nFileTypes: 0\n");
+        sb.Append("FileNames: ").Append(st.O.AdditionalFiles.Count).Append("\nFileTypes: ").Append(st.O.AdditionalFiles.Count).Append('\n');
         sb.Append("Precision: ").Append(o.Precision).Append('\n');
         sb.Append("Showacc: ").Append(YesNo(o.ShowAccession)).Append('\n');
         sb.Append("Showdes: ").Append(YesNo(o.ShowDescription)).Append('\n');
@@ -380,7 +384,7 @@ public static partial class EmbossReportWriter
             sb.Append("    Source: '").Append(f.Source).Append("'\n");
             sb.Append("    Type: '").Append(TypeOf(f).Id).Append("'\n");
             sb.Append("    Score: ").Append(Infrastructure.CFormat.Fixed((float)f.Score, 6)).Append('\n');
-            sb.Append("    Protein: ").Append(YesNo(t.Protein)).Append('\n');
+            sb.Append("    Protein: ").Append(YesNo(f.Protein ?? t.Protein)).Append('\n');
             sb.Append("    Strand: '").Append(f.Strand).Append("'\n");
             sb.Append("    Start: ").Append(f.Start).Append('\n');
             sb.Append("    End: ").Append(f.End).Append('\n');
@@ -388,7 +392,7 @@ public static partial class EmbossReportWriter
             sb.Append("    Frame: ").Append(f.Frame).Append('\n');
             sb.Append("    Exon: 0\n");
             sb.Append("    Group: ").Append(n).Append('\n');
-            sb.Append("    Flags: 0\n");
+            sb.Append(f.Between ? "    Flags: 8\n      BETWEEN_SEQ\n" : "    Flags: 0\n");
             sb.Append("    Tags: ").Append(f.Tags.Count).Append(" tags\n");
             int j = 0;
             foreach (var tag in f.Tags)

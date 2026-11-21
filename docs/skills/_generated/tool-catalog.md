@@ -86,7 +86,7 @@
 | `water_align` | `SequenceAligner.WaterAlign` | [doc](../../mcp/tools/alignment/water_align.md) |
 | `write_alignment` | `EmbossAlignmentWriter.Format` | [doc](../../mcp/tools/alignment/write_alignment.md) |
 
-## Analysis (148 tools)
+## Analysis (150 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -113,6 +113,7 @@
 | `dangling_end_energy` | `RnaSecondaryStructure.GetDanglingEndEnergy` | [doc](../../mcp/tools/analysis/dangling_end_energy.md) |
 | `detect_pseudoknots` | `RnaSecondaryStructure.DetectPseudoknots` | [doc](../../mcp/tools/analysis/detect_pseudoknots.md) |
 | `detect_rearrangements` | `ComparativeGenomics.DetectRearrangements` | [doc](../../mcp/tools/analysis/detect_rearrangements.md) |
+| `diffseq` | `GenomicAnalyzer.Diffseq` | [doc](../../mcp/tools/analysis/diffseq.md) |
 | `dinucleotide_frequencies` | `SequenceStatistics.CalculateDinucleotideFrequencies` | [doc](../../mcp/tools/analysis/dinucleotide_frequencies.md) |
 | `dinucleotide_ratios` | `SequenceStatistics.CalculateDinucleotideRatios` | [doc](../../mcp/tools/analysis/dinucleotide_ratios.md) |
 | `discover_motifs` | `MotifFinder.DiscoverMotifs` | [doc](../../mcp/tools/analysis/discover_motifs.md) |
@@ -238,6 +239,7 @@
 | `validate_dot_bracket` | `RnaSecondaryStructure.ValidateDotBracket` | [doc](../../mcp/tools/analysis/validate_dot_bracket.md) |
 | `windowed_complexity` | `SequenceComplexity.CalculateWindowedComplexity` | [doc](../../mcp/tools/analysis/windowed_complexity.md) |
 | `windowed_gc_skew` | `GcSkewCalculator.CalculateWindowedGcSkew` | [doc](../../mcp/tools/analysis/windowed_gc_skew.md) |
+| `wordmatch` | `GenomicAnalyzer.Wordmatch` | [doc](../../mcp/tools/analysis/wordmatch.md) |
 
 ## Annotation (97 tools)
 

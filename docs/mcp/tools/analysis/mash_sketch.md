@@ -37,6 +37,7 @@ Mash 2.3 'mash sketch -o x.msh': the sketch file of the inputs, byte for byte as
 | `genomeSize` | integer | No | -g: genome size used as the sketch length of a read set (default 0 = estimated; only with reads). |
 | `id` | string | No | -I: the id (name) of the first sketch. |
 | `comment` | string | No | -C: the comment of the first sketch. |
+| `bloomFilter` | string | No | -b: a Bloom filter of this size (raw bytes or with K/M/G/T, e.g. 500M) filters out the k-mers seen once, instead of the exact filter -m (cannot be combined with minCopies > 1; implies reads; copies cannot be counted beyond 2; some unique k-mers pass erroneously; the filter has one hash function over bytes x 8 bits as the program builds it). |
 
 ## Output Schema
 

@@ -287,6 +287,95 @@ public sealed class ProteinPattern
         }
     }
 
+    /// <summary>
+    /// Every unrolling of the pattern like <see cref="Expand"/>, with the positions that are <b>extra repeats</b> (copies of an element <c>X(n,m)</c> beyond its first n) and whether the last element chose zero repeats: the mismatch search of
+    /// <c>fuzzpro</c> / <c>fuzztran</c> with a range (<c>patOUBrute</c>, A5-8c2) lets a mismatch fall only on the mandatory part and fails when the sequence ends while elements are left over (the same model as <see cref="FuzznucPattern.ExpandPaths"/>).
+    /// Not de-duplicated: the same sets can come from different choices.
+    /// </summary>
+    /// <exception cref="ArgumentException">The repeat ranges allow more than <see cref="MaxCombinations"/> combinations.</exception>
+    internal IReadOnlyList<ProteinPatternPath> ExpandPaths()
+    {
+        double combinations = 1;
+        foreach (var e in _elements)
+            combinations *= e.MaxRepeat - e.MinRepeat + 1;
+        if (combinations > MaxCombinations)
+            throw new ArgumentException(string.Create(System.Globalization.CultureInfo.InvariantCulture, $"The pattern '{Source}' has {combinations:N0} repeat combinations (limit {MaxCombinations:N0}); narrow its ranges."));
+
+        var paths = new List<ProteinPatternPath>();
+        Recurse(0, [], [], false);
+        return paths;
+
+        void Recurse(int index, List<uint> sets, List<int> extras, bool lastEmpty)
+        {
+            if (index == _elements.Length)
+            {
+                if (sets.Count > 0)
+                    paths.Add(new ProteinPatternPath(sets.ToArray(), extras.ToArray(), lastEmpty));
+                return;
+            }
+
+            var element = _elements[index];
+            for (int count = element.MinRepeat; count <= element.MaxRepeat; count++)
+            {
+                var nextSets = new List<uint>(sets);
+                var nextExtras = new List<int>(extras);
+                for (int copy = 0; copy < count; copy++)
+                {
+                    if (copy >= element.MinRepeat)
+                        nextExtras.Add(nextSets.Count);
+                    nextSets.Add(element.Set);
+                }
+
+                Recurse(index + 1, nextSets, nextExtras, count == 0);
+            }
+        }
+    }
+
+    /// <summary>
+    /// The pattern is searched with mismatches by the Tarhio-Ukkonen-Bleasby engine (<c>embPatGetTypeII</c> type 6: a pattern without a range that has a class or an exclusion - also written as the letters B, Z, J, which the program turns into
+    /// <c>[DN]</c>, <c>[EQ]</c>, <c>[IL]</c>): <c>embPatCompileII</c> then stops with a fatal error when the allowed mismatches reach the real pattern length (repeats counted as expanded).
+    /// </summary>
+    /// <param name="realLength">The real pattern length the program compares with.</param>
+    internal bool UsesTarhioUkkonenBleasby(out int realLength)
+    {
+        realLength = 0;
+        if (HasRange)
+            return false;
+        foreach (var e in _elements)
+            realLength += e.MinRepeat;
+        string upper = Source.ToUpperInvariant();
+        bool classOrExclusion = upper.Contains('[') || upper.Contains('{') || upper.Any(c => c is 'B' or 'Z' or 'J');
+        return classOrExclusion;
+    }
+
+    /// <summary>The pattern as <c>embPatTUBInit</c> reads it (<c>patProteinTranslate</c> + <c>patExpandRepeat</c>): letters, <c>?</c> for x, <c>[..]</c> classes, <c>{..}</c> exclusions, every repeat written out; the real length m.</summary>
+    internal string TubText(out int realLength)
+    {
+        var sb = new StringBuilder();
+        realLength = 0;
+        foreach (var e in _elements)
+        {
+            string atom;
+            if (e.Set == 0xFFFFFFFFu)
+                atom = "?";
+            else if ((e.Set >> 31 & 1) != 0)
+                atom = "{" + e.ComplementLetters + "}";
+            else
+            {
+                string letters = e.Letters;
+                atom = letters.Length == 1 ? letters : "[" + letters + "]";
+            }
+
+            for (int r = 0; r < e.MinRepeat; r++)
+            {
+                sb.Append(atom);
+                realLength++;
+            }
+        }
+
+        return sb.ToString();
+    }
+
     /// <summary>The normalised pattern text: upper case, classes and exclusions in alphabetical order, no separators.</summary>
     public override string ToString()
     {
@@ -340,6 +429,8 @@ public readonly record struct ProteinPatternElement(uint Set, int MinRepeat, int
         return (Set >> 31 & 1) != 0 ? "{" + Complement() + "}" : "[" + letters + "]";
     }
 
+    internal string ComplementLetters => Complement();
+
     private string Complement()
     {
         var sb = new StringBuilder();
@@ -349,3 +440,6 @@ public readonly record struct ProteinPatternElement(uint Set, int MinRepeat, int
         return sb.ToString();
     }
 }
+
+/// <summary>One unrolling of a <see cref="ProteinPattern"/> (<c>ExpandPaths</c>): the residue set at each position, the positions that are extra repeats of a range and whether the last element chose zero repeats.</summary>
+internal sealed record ProteinPatternPath(uint[] Sets, int[] ExtraPositions, bool EndsWithEmptyElement);

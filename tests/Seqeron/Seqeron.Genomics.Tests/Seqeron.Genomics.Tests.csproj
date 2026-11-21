@@ -70,6 +70,10 @@
     <EmbeddedResource Include="TestData\Alignment\mash_msh_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\robin_hood_order_oracle.tsv" />
     <EmbeddedResource Include="TestData\Alignment\mash_reads_msh_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\diffseq_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\wordmatch_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\fuzznuc_dup_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\mash_bloom_msh_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\mash_msh_commands_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\emboss_ncbi_pattern_oracle.jsonl.gz" />
     <!-- A4-4 (B09 F156): option boundaries of minimap2 chaining / mgaps / etandem measured on the installed programs; scripts/alignment/generate_option_boundary_oracle.py. -->
@@ -298,6 +302,8 @@
          scripts/analysis/generate_fuzzpro_oracle.py, generate_fuzztran_oracle.py. -->
     <EmbeddedResource Include="TestData\Analysis\fuzzpro_oracle.tsv" />
     <EmbeddedResource Include="TestData\Analysis\fuzztran_oracle.tsv" />
+    <!-- A5-8c2 (F195): fuzzpro / fuzztran with -pmismatch (scripts/analysis/generate_fuzzpro_mismatch_oracle.py). -->
+    <EmbeddedResource Include="TestData\Analysis\fuzzpro_mismatch_oracle.tsv" />
     <EmbeddedResource Include="TestData\Alignment\merger_oracle.tsv" />
     <!-- GENOMIC-SIMILARITY-001 (B09 F32-F34): exact k-mer Jaccard (percent), literal == Python set == scipy jaccard on presence
          vectors, canonical == Python set over min(w, revcomp w) == sourmash 4.9.4 MinHash(scaled=1); 2086 rows;

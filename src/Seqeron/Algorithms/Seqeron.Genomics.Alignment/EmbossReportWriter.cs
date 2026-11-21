@@ -252,7 +252,7 @@ public static partial class EmbossReportWriter
 
     private static char FeatStrand(EmbossFeature f, bool protein)
     {
-        if (protein)
+        if (f.Protein ?? protein)
             return '.';
         return f.Strand == '-' ? '-' : '+';
     }
@@ -266,6 +266,9 @@ public static partial class EmbossReportWriter
         ["SO:0001067"] = new("SO:0001067", "polypeptide_motif", "misc_feature", "polypeptide_motif", "other", null, "Region", "REGION"),
         ["SO:0000657"] = new("SO:0000657", "repeat_region", "repeat_region", "repeat_region", "repeat", "repeat_region", "", ""),
         ["SO:0000110"] = new("SO:0000110", "misc_feature", "misc_feature", "sequence_feature", "other", "misc_feature", "", ""),
+        ["SO:0000839"] = new("SO:0000839", "polypeptide_region", "misc_feature", "sequence_feature", "other", null, "Region", "REGION"),          // diffseq's generic feature in a protein table
+        ["polypeptide_region"] = new("polypeptide_region", "polypeptide_region", "misc_feature", "polypeptide_region", "other", null, "Region", "REGION"),   // wordmatch's misc_feature on a protein table
+        ["conflict"] = new("conflict", "conflict", "conflict", "sequence_conflict", "other", "conflict", "", ""),         // diffseq's feature files (-aoutfeat / -boutfeat)
     };
 
     private static TypeInfo TypeOf(EmbossFeature f)
@@ -279,6 +282,9 @@ public static partial class EmbossReportWriter
     }
 
     private static string TypeName(EmbossFeature f) => TypeOf(f).Name;
+
+    // the regions and draw reports name diffseq's polypeptide_region by its feature-table name misc_feature (the tagseq report keeps the internal name)
+    private static string RegionTypeName(EmbossFeature f) => f.Type == "SO:0000839" ? "misc_feature" : TypeName(f);
 
     // ajFeatGetNoteS / ajFeatGetNoteCI: the first note "*name value" whose text after '*' starts (case-insensitively) with name; the value after "*name " ("" when none); false when that note has another character after the name
     private static bool GetNote(EmbossFeature f, string name, out string value, int count = 0)
@@ -338,6 +344,13 @@ public static partial class EmbossReportWriter
                 sb.Append("# Max_hits_sequence: ").Append(o.MaxSeq).Append('\n');
             sb.Append("# Report_format: ").Append(FormatName(st)).Append('\n');
             sb.Append("# Report_file: ").Append(o.ReportFile).Append('\n');
+            if (o.AdditionalFiles.Count > 0)
+            {
+                sb.Append("# Additional_files: ").Append(o.AdditionalFiles.Count).Append('\n');
+                for (int i = 0; i < o.AdditionalFiles.Count; i++)
+                    sb.Append("# ").Append(i + 1).Append(": ").Append(o.AdditionalFiles[i].Name).Append(" (").Append(o.AdditionalFiles[i].Description).Append(")\n");
+            }
+
             sb.Append("########################################\n\n");
         }
 
@@ -383,6 +396,9 @@ public static partial class EmbossReportWriter
                 AppendBlock(sb, st.SubTail);
                 st.SubTail = "";
             }
+
+            if (st.O.Tail.Length > 0)
+                AppendBlock(sb, st.O.Tail);
         }
         else
         {
@@ -402,6 +418,86 @@ public static partial class EmbossReportWriter
         }
 
         sb.Append("#---------------------------------------\n");
+    }
+
+    // reportWriteDiffseq: the differences between two sequences (the program's seven tags start, end, length, name, sequence, first_feature, second_feature are notes "*name value" of the feature)
+    private static void DiffSeq(State st, EmbossReport t)
+    {
+        var sb = st.Out;
+        string seqalias = SeqAlias(t.Sequence);
+        string name = st.ShowUsa ? t.Sequence.Usa : t.Sequence.Name;
+        Header(st, t, t.Sequence);
+        foreach (var f in t.Features)
+        {
+            char strand = FeatStrand(f, t.Protein);
+            long istart = f.Start, iend = f.End;
+            long ilen = iend - istart + 1;
+            if (ilen == 2 && f.Between)
+                ilen = 0;
+            // reportWriteDiffseq keeps the feature's start and end in ajuint: a start before the sequence (-1) is the huge positive number the string cut then clips to the last character
+            string subseq = SubS(seqalias, unchecked((uint)(f.Start - 1)), unchecked((uint)(f.End - 1)));
+            if (strand == '-')
+                subseq = RevComp(subseq);
+            uint jstart = GetNote(f, "start", out var v) ? NoteUInt(v) : 0;
+            uint jend = GetNote(f, "end", out v) ? NoteUInt(v) : 0;
+            uint jlen = GetNote(f, "length", out v) ? NoteUInt(v) : 0;           // printed with %d: a wrapped negative number reads as negative again
+            char jstrand = '+';
+            if (GetNote(f, "strand", out v))
+                jstrand = v.Length > 0 ? v[0] : '\0';
+            if (!GetNote(f, "name", out string jname))
+                jname = "";
+            if (ilen > 0)
+            {
+                sb.Append('\n').Append(name).Append(' ').Append(Int(istart)).Append('-').Append(Int(iend)).Append(" Length: ").Append(Int(ilen)).Append(strand == '-' ? " (Reversed)\n" : "\n");
+                DiffSeqFeatures(sb, f, "first_feature");
+                sb.Append("Sequence: ").Append(subseq).Append('\n');
+            }
+            else
+            {
+                sb.Append('\n').Append(name).Append(' ').Append(Int(istart)).Append(" Length: ").Append(Int(ilen)).Append('\n');
+                DiffSeqFeatures(sb, f, "first_feature");
+                sb.Append("Sequence: \n");
+            }
+
+            if (!GetNote(f, "sequence", out subseq))
+                subseq = "";
+            if (jlen > 0)
+            {
+                sb.Append("Sequence: ").Append(subseq).Append('\n');
+                DiffSeqFeatures(sb, f, "second_feature");
+                sb.Append(jname).Append(' ').Append(Int(unchecked((int)jstart))).Append('-').Append(Int(unchecked((int)jend))).Append(" Length: ").Append(Int(unchecked((int)jlen))).Append(jstrand == '-' ? " (Reversed)\n" : "\n");
+            }
+            else
+            {
+                sb.Append("Sequence: \n");
+                DiffSeqFeatures(sb, f, "second_feature");
+                sb.Append(jname).Append(' ').Append(Int(unchecked((int)jstart))).Append(" Length: ").Append(Int(unchecked((int)jlen))).Append(jstrand == '-' ? " (Reversed)\n" : "\n");
+            }
+        }
+
+        Tail(st, t, t.Sequence);
+    }
+
+    // while(ajFeatGetNoteCI(feature, tag, n++, &text)) "Feature: %S"
+    private static void DiffSeqFeatures(StringBuilder sb, EmbossFeature f, string tag)
+    {
+        for (int n = 1; GetNote(f, tag, out string text, n); n++)
+            sb.Append("Feature: ").Append(text).Append('\n');
+    }
+
+    // ajStrToUint: the leading unsigned decimal number (0 when none)
+    private static uint NoteUInt(string v)
+    {
+        string t = v.TrimStart();
+        bool negative = t.StartsWith('-');
+        if (negative)
+            t = t[1..];
+        int e = 0;
+        while (e < t.Length && char.IsAsciiDigit(t[e]))
+            e++;
+        if (e == 0 || !uint.TryParse(t.AsSpan(0, e), NumberStyles.None, CultureInfo.InvariantCulture, out uint r))
+            return 0;
+        return negative ? unchecked(0u - r) : r;
     }
 
     private static string CharName(State st) => st.Type.Length > 0 && (st.Type[0] == 'n' || st.Type[0] == 'N') ? "bases" : "residues";
@@ -459,6 +555,9 @@ public static partial class EmbossReportWriter
                 break;
             case EmbossReportFormat.FeatTable:
                 FeatTable(st, t);
+                break;
+            case EmbossReportFormat.DiffSeq:
+                DiffSeq(st, t);
                 break;
             case EmbossReportFormat.Motif:
                 Motif(st, t);
@@ -577,6 +676,8 @@ public static partial class EmbossReportWriter
         foreach (var f in t.Features)
         {
             int istart = f.Start, iend = f.End;
+            if (f.Between)                                      // reportWriteTable / NameTable: a between-feature prints its end first
+                (istart, iend) = (iend, istart);
             if (nameColumn)
                 sb.Append(Pad(st.ShowUsa ? t.Sequence.Usa : t.Sequence.Name, 20, true)).Append(' ').Append(Int(istart).PadLeft(7)).Append(' ').Append(Int(iend).PadLeft(7));
             else
@@ -619,7 +720,9 @@ public static partial class EmbossReportWriter
         foreach (var f in t.Features)
         {
             uint istart = unchecked((uint)f.Start), iend = unchecked((uint)f.End);
-            string subseq = SubS(seqalias, unchecked((long)(istart - 1)), unchecked((long)(iend - 1)));
+            if (f.Between)                                      // reportWriteSeqTable: a between-feature prints its end first
+                (istart, iend) = (iend, istart);
+            string subseq = f.Between ? "" : SubS(seqalias, unchecked((long)(istart - 1)), unchecked((long)(iend - 1)));
             if (f.Strand == '-')
                 subseq = RevComp(subseq);
             sb.Append(Int(unchecked((int)istart)).PadLeft(7)).Append(' ').Append(Int(unchecked((int)iend)).PadLeft(7));
@@ -647,7 +750,7 @@ public static partial class EmbossReportWriter
         {
             uint istart = unchecked((uint)f.Start), iend = unchecked((uint)f.End);
             int ilen = unchecked((int)(iend - istart + 1));
-            sb.Append(TypeName(f)).Append(" from ").Append(Int(unchecked((int)istart))).Append(" to ").Append(Int(unchecked((int)iend))).Append(" (").Append(Int(ilen)).Append(' ').Append(CharName(st)).Append(")\n");
+            sb.Append(RegionTypeName(f)).Append(" from ").Append(Int(unchecked((int)istart))).Append(" to ").Append(Int(unchecked((int)iend))).Append(" (").Append(Int(ilen)).Append(' ').Append(CharName(st)).Append(")\n");
             if (st.O.ShowScore)
                 sb.Append("   Max score: ").Append(Score(st, f));
             if (tags.Count > 0)
@@ -716,7 +819,7 @@ public static partial class EmbossReportWriter
         {
             sb.Append("label\n");
             sb.Append("Range ").Append(Int(f.Start)).Append(' ').Append(Int(f.End)).Append(" | | 9 H\n");
-            sb.Append(TypeName(f)).Append('\n');
+            sb.Append(RegionTypeName(f)).Append('\n');
             sb.Append("endlabel\n");
             sb.Append('\n');
         }
@@ -793,8 +896,9 @@ public static partial class EmbossReportWriter
         var tags = GetTags(st);
         foreach (var f in t.Features)
         {
-            string type = TypeName(f);
-            string loc = f.Strand == '-' ? $"complement({Int(f.Start)}..{Int(f.End)})" : $"{Int(f.Start)}..{Int(f.End)}";
+            string type = RegionTypeName(f);
+            string range = f.Between ? $"{Int(f.Start)}^{Int(f.End)}" : $"{Int(f.Start)}..{Int(f.End)}";
+            string loc = f.Strand == '-' ? $"complement({range})" : range;
             sb.Append("FT   ").Append((type.Length > 15 ? type[..15] : type).PadRight(15)).Append(' ').Append(loc).Append('\n');
             foreach (var g in tags)
                 if (GetNote(f, g.Name, out var v))
@@ -1083,6 +1187,8 @@ public static partial class EmbossReportWriter
             else
                 sb.Append('.');
             sb.Append('\t').Append(FeatStrand(f, t.Protein)).Append('\t').Append(frameChar).Append("\tID=").Append(t.Sequence.Name).Append('.').Append(group);
+            if (f.Between)
+                sb.Append(";featflags=between:true");
             foreach (var tag in f.Tags)
             {
                 string name = tag.Name.ToLowerInvariant();

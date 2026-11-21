@@ -339,6 +339,8 @@
 | consambig | Analysis | MotifFinder.GenerateEmbossAmbiguousConsensus | MotifFinder.AmbiguousConsensus.cs | 0/0 | – | – | Build-Ready |
 | showalign | Analysis | MultipleAlignmentDisplay.ShowAlign | MultipleAlignmentDisplay.cs | 0/0 | – | – | Build-Ready |
 | megamerger | Analysis | GenomicAnalyzer.MegaMerge | GenomicAnalyzer.MegaMerger.cs | 0/0 | – | – | Build-Ready |
+| diffseq | Analysis | GenomicAnalyzer.Diffseq | GenomicAnalyzer.Diffseq.cs | 0/0 | – | – | Build-Ready |
+| wordmatch | Analysis | GenomicAnalyzer.Wordmatch | GenomicAnalyzer.Wordmatch.cs | 0/0 | – | – | Build-Ready |
 | nucmer_clusters | Analysis | GenomicAnalyzer.FindNucmerClusters | GenomicAnalyzer.NucmerClusters.cs | 0/0 | – | – | Build-Ready |
 | mash_bounds | Analysis | MashCommands.Bounds | Seqeron.Genomics.Analysis/MashCommands.cs | 0/0 | – | – | Build-Ready |
 | mash_dist | Analysis | MashCommands.Dist | Seqeron.Genomics.Analysis/MashCommands.cs | 0/0 | – | – | Build-Ready |

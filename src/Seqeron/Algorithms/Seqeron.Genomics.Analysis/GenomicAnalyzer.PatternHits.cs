@@ -104,20 +104,21 @@ public static partial class GenomicAnalyzer
     /// <param name="maxMismatches">Maximum substitutions per hit (<c>-pmismatch</c>).</param>
     /// <param name="bothStrands">Also search the reverse-complement strand (<c>-complement</c>).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
+    /// <param name="programOrder">A range pattern with mismatches: return the hits in the order of the program's list, a window once per matching unrolling (F195), instead of one hit per window sorted by position (the report programs use it).</param>
     /// <exception cref="ArgumentException">The sequence is empty after reading, or <c>-sprotein</c> is given (fuzznuc needs a nucleotide sequence), or the pattern is invalid.</exception>
     public static IReadOnlyList<PatternHit> FindPatternHits(
-        string sequence, EmbossSequenceQualifiers? qualifiers, string pattern, int maxMismatches = 0, bool bothStrands = false, CancellationToken cancellationToken = default)
+        string sequence, EmbossSequenceQualifiers? qualifiers, string pattern, int maxMismatches = 0, bool bothStrands = false, CancellationToken cancellationToken = default, bool programOrder = false)
     {
         ArgumentNullException.ThrowIfNull(pattern);
-        return FindPatternHits(sequence, qualifiers, FuzznucPattern.Parse(pattern), maxMismatches, bothStrands, cancellationToken);
+        return FindPatternHits(sequence, qualifiers, FuzznucPattern.Parse(pattern), maxMismatches, bothStrands, cancellationToken, programOrder);
     }
 
     /// <summary><see cref="FindPatternHits(string, EmbossSequenceQualifiers?, string, int, bool, CancellationToken)"/> with an already parsed pattern.</summary>
     public static IReadOnlyList<PatternHit> FindPatternHits(
-        string sequence, EmbossSequenceQualifiers? qualifiers, FuzznucPattern pattern, int maxMismatches = 0, bool bothStrands = false, CancellationToken cancellationToken = default)
+        string sequence, EmbossSequenceQualifiers? qualifiers, FuzznucPattern pattern, int maxMismatches = 0, bool bothStrands = false, CancellationToken cancellationToken = default, bool programOrder = false)
     {
         var view = EmbossInputSequence.Read(sequence, qualifiers, EmbossSequenceType.Dna);
-        var hits = FindPatternHits(view.Residues, pattern, maxMismatches, bothStrands, cancellationToken, sequenceAmbiguity: true);
+        var hits = FindPatternHits(view.Residues, pattern, maxMismatches, bothStrands, cancellationToken, sequenceAmbiguity: true, programOrder: programOrder);
         var mapped = new List<PatternHit>(hits.Count);
         foreach (var h in hits)
         {
@@ -138,10 +139,10 @@ public static partial class GenomicAnalyzer
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxMismatches"/> is negative.</exception>
     public static IReadOnlyList<PatternHit> FindPatternHits(
-        string sequence, FuzznucPattern pattern, int maxMismatches = 0, bool bothStrands = false, CancellationToken cancellationToken = default, bool sequenceAmbiguity = false)
+        string sequence, FuzznucPattern pattern, int maxMismatches = 0, bool bothStrands = false, CancellationToken cancellationToken = default, bool sequenceAmbiguity = false, bool programOrder = false)
     {
         ArgumentNullException.ThrowIfNull(sequence);
-        return SequenceTextHits(sequence, pattern, maxMismatches, bothStrands, sequenceAmbiguity, cancellationToken);
+        return SequenceTextHits(sequence, pattern, maxMismatches, bothStrands, sequenceAmbiguity, cancellationToken, programOrder);
     }
 
     /// <summary>
@@ -180,11 +181,11 @@ public static partial class GenomicAnalyzer
         return NamedPatternHits(sequence, patterns, maxMismatches, bothStrands, sequenceAmbiguity, cancellationToken);
     }
 
-    private static List<PatternHit> SequenceTextHits(string sequence, FuzznucPattern pattern, int maxMismatches, bool bothStrands, bool sequenceAmbiguity, CancellationToken cancellationToken)
+    private static List<PatternHit> SequenceTextHits(string sequence, FuzznucPattern pattern, int maxMismatches, bool bothStrands, bool sequenceAmbiguity, CancellationToken cancellationToken, bool programOrder = false)
     {
         string upper = EmbossSequenceReader.Clean(sequence).ToUpperInvariant();      // the fuzznuc reader drops the gap characters and every other non-letter but * (A4-3)
         return sequenceAmbiguity
-            ? PatternHitsLiteral(upper.Replace('U', 'T'), pattern, maxMismatches, bothStrands, cancellationToken)
+            ? PatternHitsLiteral(upper.Replace('U', 'T'), pattern, maxMismatches, bothStrands, cancellationToken, programOrder)
             : PatternHitsCore(QueryText(upper), pattern, maxMismatches, bothStrands, cancellationToken);
     }
 
@@ -275,7 +276,7 @@ public static partial class GenomicAnalyzer
 
     // A3-12a: the sequence read literally as fuzznuc reads it (FuzznucPattern.Matches). `text` is upper case, U already T. The reverse strand is the IUPAC reverse complement of the
     // sequence searched with the SAME pattern (fuzznuc reverse-complements the sequence), so the anchors and the two search classes apply to the scanned strand unchanged.
-    private static List<PatternHit> PatternHitsLiteral(string text, FuzznucPattern pattern, int maxMismatches, bool bothStrands, CancellationToken cancellationToken)
+    private static List<PatternHit> PatternHitsLiteral(string text, FuzznucPattern pattern, int maxMismatches, bool bothStrands, CancellationToken cancellationToken, bool programOrder = false)
     {
         ArgumentNullException.ThrowIfNull(pattern);
         ArgumentOutOfRangeException.ThrowIfNegative(maxMismatches);
@@ -285,6 +286,8 @@ public static partial class GenomicAnalyzer
         bool hasRange = pattern.Elements.Any(e => e.IsRange);
         bool recursiveMatcher = hasRange && maxMismatches > 0;
         bool regexClass = hasRange && !recursiveMatcher;
+        if (recursiveMatcher && programOrder)
+            return RecursiveMatcherHits(text);
         var best = new Dictionary<(int Position, int Length, bool Reverse), int>();
 
         foreach (var (position, length, mismatches) in ScanStrand(text))
@@ -293,6 +296,54 @@ public static partial class GenomicAnalyzer
             foreach (var (position, length, mismatches) in ScanStrand(DnaSequence.GetReverseComplementString(text)))
                 best[(text.Length - position - length, length, true)] = mismatches;
         return OrderedPatternHits(best);
+
+        // patOUBrute (a range pattern with mismatches, A5-8c2b F195): embPatBruteForce tries every start in turn and the recursion pushes one hit per successful unrolling (embPatPushHit), so a window several unrollings match is listed
+        // several times, each with its own distance, in the order start ascending then the unrollings in the order of the recursion (ExpandPaths). The program lists the first pass in that push order and the complement pass in the REVERSED
+        // push order (the list is popped without being reversed), so the hits are returned in the program's order: the strand scanned first, then the other strand (positions mapped back), instead of sorted by position.
+        List<PatternHit> RecursiveMatcherHits(string forwardText)
+        {
+            var result = new List<PatternHit>();
+            foreach (var (position, length, mismatches) in PushOrder(forwardText))
+                result.Add(new PatternHit(position, length, false, mismatches));
+            if (bothStrands)
+            {
+                var reverse = PushOrder(DnaSequence.GetReverseComplementString(forwardText));
+                for (int i = reverse.Count - 1; i >= 0; i--)
+                    result.Add(new PatternHit(forwardText.Length - reverse[i].Position - reverse[i].Length, reverse[i].Length, true, reverse[i].Mismatches));
+            }
+
+            return result;
+        }
+
+        List<(int Position, int Length, int Mismatches)> PushOrder(string strand)
+        {
+            var pushed = new List<(int, int, int)>();
+            for (int start = 0; start < strand.Length; start++)
+            {
+                if (pattern.AnchoredAtStart && start != 0)
+                    break;
+                AlignmentCancellation.Poll(cancellationToken);
+                foreach (var path in paths)
+                {
+                    int length = path.Elements.Count;
+                    if (start + length > strand.Length || (pattern.AnchoredAtEnd && start + length != strand.Length))
+                        continue;
+                    int bad = 0;
+                    bool allowed = true;
+                    for (int j = 0; j < length && allowed; j++)
+                    {
+                        if (pattern.Matches(path.Elements[j], strand[start + j]))
+                            continue;
+                        allowed = ++bad <= maxMismatches && !path.ExtraPositions.Contains(j);
+                    }
+
+                    if (allowed && !(path.EndsWithEmptyElement && start + length == strand.Length))
+                        pushed.Add((start, length, bad));
+                }
+            }
+
+            return pushed;
+        }
 
         List<(int Position, int Length, int Mismatches)> ScanStrand(string strand)
         {

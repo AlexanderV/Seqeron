@@ -180,3 +180,7 @@ Mechanism: `AlignmentCancellation` (SequenceAligner.Cancellation.cs, A2-40); tes
 **A5-7 / A5-8 (WP42).** EMBOSS 6.6 `ajacd.c`, `ajseq.c`, `ajseqread.c`, `ajseqtype.c`, `ajmath.c`, `ajalign.c`, `fuzznuc.c`, `fuzzpro.c`, `fuzztran.c`, `seqmatchall.c` opened (raw.githubusercontent.com/kimrutherford/EMBOSS, User-Agent `Seqeron-review/1.0`); installed 6.6.0: `emboss_seqopts_oracle.tsv` (180 rows per program) and `emboss_report_oracle.tsv` (120 runs per program and format, gff + excel). fuzztran reverse-frame numbers `S - |frame| - 3 start + 4` (frame -3 of R / 6: `S` = the end) reproduced.
 
 **A6-2 / A6-4 / A6-10 (WP43).** The qualifier text of the fuzznuc / fuzzpro / fuzztran tools is resolved as the ACD library resolves it (`fuzznuc a.fa -pattern ACG -sbegin1 5` = `-sbegin 5`, `-se` ambiguous in the one-sequence programs: installed 6.6.0 and `ajacd.c`; docs/Evidence/ALIGN-MULTI-001-Evidence.md A6-2); `EmbossReports.Fuzztran` refuses a hit without the program's coordinates.
+
+## WP47 (B09 F195 / F196): protein patterns with mismatches, diffseq
+
+Oracle numbers: fuzzpro `-pmismatch 1..3` on 1 000 random syntax-tree patterns (750 fuzzpro + 250 fuzztran `-frame 6` rows, 180 rejected: "Illegal pattern" or the fatal "Mismatches must be less than the real pattern length"): all equal (EMBOSS 6.6.0 `embpat.c`: `embPatGetTypeII` types 2 / 6 / 7, `patOUBrute`, `embPatTUBSearch`); `fuzznuc` range patterns with 1 - 2 mismatches, both strands, 300 excel reports equal (109 list a window more than once); `diffseq` 336 pairs equal (report + `-aoutfeat` + `-boutfeat`).

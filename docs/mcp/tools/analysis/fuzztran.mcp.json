@@ -40,6 +40,11 @@
     "type": "string",
     "description": "Sequence name printed in the report (default sequence).",
     "default": "sequence"
+   },
+   "mismatch": {
+    "type": "integer",
+    "description": "Maximum substituted residues per hit (fuzztran -pmismatch, default 0 = exact; see fuzzpro).",
+    "default": 0
    }
   },
   "required": [

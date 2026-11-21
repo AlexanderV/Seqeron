@@ -10,7 +10,7 @@ Usage: python3 scripts/alignment/generate_emboss_acd_profiles.py > src/Seqeron/A
 """
 import re, subprocess, sys
 
-PROGRAMS = ['needle', 'water', 'stretcher', 'matcher', 'supermatcher', 'needleall', 'merger', 'megamerger', 'seqmatchall', 'fuzznuc', 'fuzzpro', 'fuzztran', 'etandem', 'equicktandem', 'dotmatcher', 'distmat']
+PROGRAMS = ['needle', 'water', 'stretcher', 'matcher', 'supermatcher', 'needleall', 'merger', 'megamerger', 'seqmatchall', 'fuzznuc', 'fuzzpro', 'fuzztran', 'etandem', 'equicktandem', 'dotmatcher', 'distmat', 'diffseq', 'wordmatch', 'est2genome']
 
 
 def profile(prog):

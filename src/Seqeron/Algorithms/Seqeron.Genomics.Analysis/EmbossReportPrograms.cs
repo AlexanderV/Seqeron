@@ -164,7 +164,7 @@ public static class EmbossReportPrograms
             var view = EmbossInputSequence.Read(rec.Text, s.Inputs[0], EmbossSequenceType.Dna);
             lengths.Add(view.Residues.Length);
             var groups = patterns.Select((p, k) => new EmbossPatternHits<PatternHit>(p.Name, p.Pattern, p.Mismatch,
-                i == 0 && hits is not null ? hits[k] : GenomicAnalyzer.FindPatternHits(rec.Text, s.Inputs[0], p.Pattern, p.Mismatch, complement, r.CancellationToken))).ToList();
+                i == 0 && hits is not null ? hits[k] : GenomicAnalyzer.FindPatternHits(rec.Text, s.Inputs[0], p.Pattern, p.Mismatch, complement, r.CancellationToken, programOrder: true))).ToList();
             var table = EmbossReports.Fuzznuc(ReportSequence(r, rec, view, s.Inputs[0], view.IsNucleotide), groups);
             if (table.Features.Count > 0)
             {
@@ -177,10 +177,10 @@ public static class EmbossReportPrograms
     }
 
     /// <summary>The report file of <c>fuzzpro</c>; default format <c>seqtable</c>.</summary>
-    public static EmbossProgramReport Fuzzpro(EmbossReportRequest r, string pattern, IReadOnlyList<ProteinPatternHit>? hits = null)
+    public static EmbossProgramReport Fuzzpro(EmbossReportRequest r, string pattern, IReadOnlyList<ProteinPatternHit>? hits = null, int mismatch = 0)
     {
         ArgumentNullException.ThrowIfNull(pattern);
-        return Fuzzpro(r, [new EmbossProgramPattern(r.PatternName, pattern, 0)], hits is null ? null : [hits]);
+        return Fuzzpro(r, [new EmbossProgramPattern(r.PatternName, pattern, mismatch)], hits is null ? null : [hits]);
     }
 
     /// <summary>The report file of <c>fuzzpro</c> for a pattern list (<c>-pattern @file</c>; A5-8c).</summary>
@@ -198,7 +198,7 @@ public static class EmbossReportPrograms
             var view = EmbossInputSequence.Read(rec.Text, s.Inputs[0], EmbossSequenceType.Protein);
             lengths.Add(view.Residues.Length);
             var groups = patterns.Select((p, k) => new EmbossPatternHits<ProteinPatternHit>(p.Name, p.Pattern, p.Mismatch,
-                i == 0 && hits is not null ? hits[k] : GenomicAnalyzer.FindProteinPatternHits(rec.Text, s.Inputs[0], p.Pattern, r.CancellationToken))).ToList();
+                i == 0 && hits is not null ? hits[k] : GenomicAnalyzer.FindProteinPatternHits(rec.Text, s.Inputs[0], p.Pattern, r.CancellationToken, p.Mismatch))).ToList();
             var table = EmbossReports.Fuzzpro(ReportSequence(r, rec, view, s.Inputs[0], false), groups, i == 0);
             if (table.Features.Count > 0)
             {
@@ -215,10 +215,10 @@ public static class EmbossReportPrograms
     /// <param name="pattern">The protein pattern.</param>
     /// <param name="frame">The frames (<c>-frame</c>: 1 2 3 F -1 -2 -3 R 6).</param>
     /// <param name="table">The genetic code (<c>-table</c>).</param>
-    public static EmbossProgramReport Fuzztran(EmbossReportRequest r, string pattern, string frame = "1", int table = 0, IReadOnlyList<TranslatedPatternHit>? hits = null)
+    public static EmbossProgramReport Fuzztran(EmbossReportRequest r, string pattern, string frame = "1", int table = 0, IReadOnlyList<TranslatedPatternHit>? hits = null, int mismatch = 0)
     {
         ArgumentNullException.ThrowIfNull(pattern);
-        return Fuzztran(r, [new EmbossProgramPattern(r.PatternName, pattern, 0)], frame, table, hits is null ? null : [hits]);
+        return Fuzztran(r, [new EmbossProgramPattern(r.PatternName, pattern, mismatch)], frame, table, hits is null ? null : [hits]);
     }
 
     /// <summary>The report file of <c>fuzztran</c> for a pattern list (<c>-pattern @file</c>; A5-8c).</summary>
@@ -237,7 +237,7 @@ public static class EmbossReportPrograms
             var view = EmbossInputSequence.Read(rec.Text, s.Inputs[0], EmbossSequenceType.Dna);
             lengths.Add(view.Residues.Length);
             var groups = patterns.Select((p, k) => new EmbossPatternHits<TranslatedPatternHit>(p.Name, p.Pattern, p.Mismatch,
-                i == 0 && hits is not null ? hits[k] : GenomicAnalyzer.FindTranslatedPatternHits(rec.Text, s.Inputs[0], p.Pattern, frame, table, r.CancellationToken))).ToList();
+                i == 0 && hits is not null ? hits[k] : GenomicAnalyzer.FindTranslatedPatternHits(rec.Text, s.Inputs[0], p.Pattern, frame, table, r.CancellationToken, p.Mismatch))).ToList();
             var t = EmbossReports.Fuzztran(ReportSequence(r, rec, view, s.Inputs[0], view.IsNucleotide), groups);
             if (t.Features.Count > 0)
             {

@@ -124,33 +124,34 @@ public partial class AnalysisTools
     }
 
     [McpServerTool(Name = "fuzzpro", Title = "Protein — EMBOSS fuzzpro pattern search", ReadOnly = true)]
-    [Description("EMBOSS 6.6.0 fuzzpro: every window of a protein sequence that matches a PROSITE-like pattern: amino-acid letters (case-insensitive; B = D or N, Z = E or Q, J = I or L; x = any residue), classes [ILV], exclusions {P} (plain letters only: B, Z, J, X inside [] or {} are rejected as in the binary), repeats x(3), length ranges x(2,4) (every matching window length is reported; (0,n) makes the element optional), '-' separators, the anchors '<' (N terminus) and '>' (C terminus), a terminating '.'; e.g. [DE](2)HS{P}x(2)Px(2,4)C. The search is exact (fuzzpro has no mismatch option). A start-anchored pattern with a range reports only its longest match (the binary's regular-expression search class); a single trailing stop '*' is not part of the sequence. Positions are 0-based; hits are ordered by position, then length. Verified against fuzzpro 6.6.0 on 900 random patterns (letters, classes, exclusions, repeats, ranges, anchors; sequences with X, B, Z, U, J, O, * and lower case). For nucleotide patterns see find_pattern_hits (fuzznuc), for a translated search fuzztran. Input sequences are read as EMBOSS reads them (A4-3, one shared reader): only letters and '*' are kept; gap characters (- . ~ ?), '#', '+', '_', digits, blanks and every other character are dropped first, and positions, lengths and scores count the cleaned sequence (e.g. needle of AC-GTTAGC.TT* and ACGTTAGCTT: score 58, length 11, as the program).")]
+    [Description("EMBOSS 6.6.0 fuzzpro: every window of a protein sequence that matches a PROSITE-like pattern: amino-acid letters (case-insensitive; B = D or N, Z = E or Q, J = I or L; x = any residue), classes [ILV], exclusions {P} (plain letters only: B, Z, J, X inside [] or {} are rejected as in the binary), repeats x(3), length ranges x(2,4) (every matching window length is reported; (0,n) makes the element optional), '-' separators, the anchors '<' (N terminus) and '>' (C terminus), a terminating '.'; e.g. [DE](2)HS{P}x(2)Px(2,4)C. The search is exact unless mismatch > 0 (fuzzpro -pmismatch; verified on 750 random patterns with 1 - 3 mismatches). A start-anchored pattern with a range reports only its longest match (the binary's regular-expression search class); a single trailing stop '*' is not part of the sequence. Positions are 0-based; hits are ordered by position, then length (with mismatch > 0 and a range: the program's order, a window listed once per matching unrolling). Verified against fuzzpro 6.6.0 on 900 random patterns (letters, classes, exclusions, repeats, ranges, anchors; sequences with X, B, Z, U, J, O, * and lower case). For nucleotide patterns see find_pattern_hits (fuzznuc), for a translated search fuzztran. Input sequences are read as EMBOSS reads them (A4-3, one shared reader): only letters and '*' are kept; gap characters (- . ~ ?), '#', '+', '_', digits, blanks and every other character are dropped first, and positions, lengths and scores count the cleaned sequence (e.g. needle of AC-GTTAGC.TT* and ACGTTAGCTT: score 58, length 11, as the program).")]
     public static FuzzproResult Fuzzpro(
         [Description("Protein sequence (letters; a trailing * is dropped).")] string sequence,
         [Description("The pattern (fuzzpro -pattern).")] string pattern,
         CancellationToken cancellationToken = default,
         [Description("EMBOSS sequence-input qualifiers as on the command line: -sbegin 3 -send -2 -sreverse -slower -supper -scircular -snucleotide -sprotein (begin / end 1-based, negative = from the end; -sreverse reverse-complements a nucleotide sequence, the range then refers to the original). Measured on EMBOSS 6.6.0 per program: " + "fuzzpro searches the range and counts positions from the start of the original sequence; a protein is never reversed." + " " + global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.CommandLineRules)] string? sequenceQualifiers = null,
         [Description("EMBOSS report format (-rformat): any of simple embl genbank gff gff3 pir swiss dasgff debug listfile dbmotif draw restrict excel feattable motif nametable regions seqtable srs summary table tagseq (diffseq needs 7 report tags: refused as the program does; embl / genbank are nucleotide only, pir / swiss protein only), or the report qualifiers as typed after the files, e.g. '-rformat table -raccshow -rdesshow -rscoreshow -rstrandshow -rusashow -rmaxall 5 -rmaxseq 2'. The report FILE of the program (header with the command line, one block per sequence, footer; #Rundate / #!Date is now; sequence name from sequenceName) is returned in the result field report. Omit for no report text.")] string? reportFormat = null,
-        [Description("Sequence name printed in the report (default sequence).")] string sequenceName = "sequence")
+        [Description("Sequence name printed in the report (default sequence).")] string sequenceName = "sequence",
+        [Description("Maximum substituted residues per hit (fuzzpro -pmismatch, default 0 = exact; must be less than the real pattern length for a pattern with a class or an exclusion and no range: the program stops otherwise). Embpat's search engines: Baeza-Yates-Perleberg, Tarhio-Ukkonen-Bleasby (its skip table knows the letters A-Z only) or the recursive brute force, which with a range lets a mismatch fall only on the mandatory part and lists a window once per matching unrolling; each hit then carries its mismatches (the report: Score = length - mismatches and a *mismatch note).")] int mismatch = 0)
     {
         if (reportFormat is not null)
         {
-            var plainResult = Fuzzpro(sequence, pattern, cancellationToken, sequenceQualifiers, null, sequenceName);          // one search; the report reuses its hits
-            var reportHits = plainResult.Hits.Select(h => new ProteinPatternHit(h.Position, h.Length)).ToList();
+            var plainResult = Fuzzpro(sequence, pattern, cancellationToken, sequenceQualifiers, null, sequenceName, mismatch);          // one search; the report reuses its hits
+            var reportHits = plainResult.Hits.Select(h => new ProteinPatternHit(h.Position, h.Length, h.Mismatches)).ToList();
             return plainResult with
             {
-                Report = EmbossReportText("fuzzpro", sequenceName, sequence, sequenceQualifiers, reportFormat, [EmbossCommandLineEcho.Qualifier("pattern", pattern)], r => EmbossReportPrograms.Fuzzpro(r, pattern, reportHits), out _, cancellationToken),
+                Report = EmbossReportText("fuzzpro", sequenceName, sequence, sequenceQualifiers, reportFormat, [EmbossCommandLineEcho.Qualifier("pattern", pattern), .. (mismatch > 0 ? new[] { Qualifier("pmismatch", mismatch) } : [])], r => EmbossReportPrograms.Fuzzpro(r, pattern, reportHits, mismatch), out _, cancellationToken),
             };
         }
 
         if (sequenceQualifiers is not null)
         {
             RequireFuzzproInput(sequence, pattern);
-            return new FuzzproResult(ProteinPattern.Parse(pattern).ToString(), [.. GenomicAnalyzer.FindProteinPatternHits(sequence, global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.ParseInputs("fuzzpro", sequenceQualifiers)[0], pattern, cancellationToken).Select(h => new ProteinPatternHitItem(h.Position, h.Length))]);
+            return new FuzzproResult(ProteinPattern.Parse(pattern).ToString(), [.. GenomicAnalyzer.FindProteinPatternHits(sequence, global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.ParseInputs("fuzzpro", sequenceQualifiers)[0], pattern, cancellationToken, mismatch).Select(h => new ProteinPatternHitItem(h.Position, h.Length, h.Mismatches))]);
         }
 
-        var (parsed, hits) = RunFuzzpro(sequence, pattern, cancellationToken);
-        return new FuzzproResult(parsed.ToString(), [.. hits.Select(h => new ProteinPatternHitItem(h.Position, h.Length))]);
+        var (parsed, hits) = RunFuzzpro(sequence, pattern, cancellationToken, mismatch);
+        return new FuzzproResult(parsed.ToString(), [.. hits.Select(h => new ProteinPatternHitItem(h.Position, h.Length, h.Mismatches))]);
     }
 
     private static void RequireFuzzproInput(string sequence, string pattern)
@@ -161,11 +162,11 @@ public partial class AnalysisTools
             throw new ArgumentException("Pattern cannot be null or empty", nameof(pattern));
     }
 
-    private static (ProteinPattern Parsed, IReadOnlyList<ProteinPatternHit> Hits) RunFuzzpro(string sequence, string pattern, CancellationToken cancellationToken)
+    private static (ProteinPattern Parsed, IReadOnlyList<ProteinPatternHit> Hits) RunFuzzpro(string sequence, string pattern, CancellationToken cancellationToken, int mismatch = 0)
     {
         RequireFuzzproInput(sequence, pattern);
         var parsed = ProteinPattern.Parse(pattern);
-        return (parsed, GenomicAnalyzer.FindProteinPatternHits(sequence, parsed, cancellationToken));
+        return (parsed, GenomicAnalyzer.FindProteinPatternHits(sequence, parsed, cancellationToken, mismatch));
     }
 
     [McpServerTool(Name = "fuzztran", Title = "Genome — EMBOSS fuzztran (protein pattern search after translation)", ReadOnly = true)]
@@ -178,16 +179,17 @@ public partial class AnalysisTools
         CancellationToken cancellationToken = default,
         [Description("EMBOSS sequence-input qualifiers as on the command line: -sbegin 3 -send -2 -sreverse -slower -supper -scircular -snucleotide -sprotein (begin / end 1-based, negative = from the end; -sreverse reverse-complements a nucleotide sequence, the range then refers to the original). Measured on EMBOSS 6.6.0 per program: " + "fuzztran cuts the (reverse-complemented) text at the begin / end AS GIVEN, numbers the hits from the first position of that text and prints negative numbers for the reverse frames (a defect of the program, reproduced)." + " " + global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.CommandLineRules)] string? sequenceQualifiers = null,
         [Description("EMBOSS report format (-rformat): any of simple embl genbank gff gff3 pir swiss dasgff debug listfile dbmotif draw restrict excel feattable motif nametable regions seqtable srs summary table tagseq (diffseq needs 7 report tags: refused as the program does; embl / genbank are nucleotide only, pir / swiss protein only), or the report qualifiers as typed after the files, e.g. '-rformat table -raccshow -rdesshow -rscoreshow -rstrandshow -rusashow -rmaxall 5 -rmaxseq 2'. The report FILE of the program (header with the command line, one block per sequence, footer; #Rundate / #!Date is now; sequence name from sequenceName) is returned in the result field report. Omit for no report text.")] string? reportFormat = null,
-        [Description("Sequence name printed in the report (default sequence).")] string sequenceName = "sequence")
+        [Description("Sequence name printed in the report (default sequence).")] string sequenceName = "sequence",
+        [Description("Maximum substituted residues per hit (fuzztran -pmismatch, default 0 = exact; see fuzzpro).")] int mismatch = 0)
     {
         if (reportFormat is not null)
         {
-            var plainResult = Fuzztran(sequence, pattern, frame, table, cancellationToken, sequenceQualifiers, null, sequenceName);          // one search; the report reuses its hits
-            var reportHits = plainResult.Hits.Select(h => new TranslatedPatternHit(h.Frame, h.ProteinStart, h.ProteinEnd, h.Translation, h.Position, h.Length, h.EmbossStart, h.EmbossEnd)).ToList();
+            var plainResult = Fuzztran(sequence, pattern, frame, table, cancellationToken, sequenceQualifiers, null, sequenceName, mismatch);          // one search; the report reuses its hits
+            var reportHits = plainResult.Hits.Select(h => new TranslatedPatternHit(h.Frame, h.ProteinStart, h.ProteinEnd, h.Translation, h.Position, h.Length, h.EmbossStart, h.EmbossEnd, h.Mismatches)).ToList();
             return plainResult with
             {
-                Report = EmbossReportText("fuzztran", sequenceName, sequence, sequenceQualifiers, reportFormat, [EmbossCommandLineEcho.Qualifier("pattern", pattern), Qualifier("frame", frame), Qualifier("table", table)],
-                    r => EmbossReportPrograms.Fuzztran(r, pattern, frame, table, reportHits), out _, cancellationToken),
+                Report = EmbossReportText("fuzztran", sequenceName, sequence, sequenceQualifiers, reportFormat, [EmbossCommandLineEcho.Qualifier("pattern", pattern), Qualifier("frame", frame), Qualifier("table", table), .. (mismatch > 0 ? new[] { Qualifier("pmismatch", mismatch) } : [])],
+                    r => EmbossReportPrograms.Fuzztran(r, pattern, frame, table, reportHits, mismatch), out _, cancellationToken),
             };
         }
 
@@ -196,24 +198,24 @@ public partial class AnalysisTools
             if (string.IsNullOrWhiteSpace(pattern))
                 throw new ArgumentException("Pattern cannot be null or empty", nameof(pattern));
             var qualifiedParsed = ProteinPattern.Parse(pattern);
-            var qualifiedHits = GenomicAnalyzer.FindTranslatedPatternHits(sequence, global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.ParseInputs("fuzztran", sequenceQualifiers)[0], pattern, frame, table, cancellationToken)
+            var qualifiedHits = GenomicAnalyzer.FindTranslatedPatternHits(sequence, global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.ParseInputs("fuzztran", sequenceQualifiers)[0], pattern, frame, table, cancellationToken, mismatch)
                 .Select(TranslatedItem).ToArray();
             return new FuzztranResult(qualifiedParsed.ToString(), qualifiedHits);
         }
 
-        var (parsed, hits) = RunFuzztran(sequence, pattern, frame, table, cancellationToken);
+        var (parsed, hits) = RunFuzztran(sequence, pattern, frame, table, cancellationToken, mismatch);
         return new FuzztranResult(parsed.ToString(), [.. hits.Select(TranslatedItem)]);
     }
 
-    private static TranslatedPatternHitItem TranslatedItem(TranslatedPatternHit h) => new(h.Frame, h.ProteinStart, h.ProteinEnd, h.Translation, h.Position, h.Length, h.EmbossStart, h.EmbossEnd);
+    private static TranslatedPatternHitItem TranslatedItem(TranslatedPatternHit h) => new(h.Frame, h.ProteinStart, h.ProteinEnd, h.Translation, h.Position, h.Length, h.EmbossStart, h.EmbossEnd, h.Mismatches);
 
-    private static (ProteinPattern Parsed, IReadOnlyList<TranslatedPatternHit> Hits) RunFuzztran(string sequence, string pattern, string frame, int table, CancellationToken cancellationToken)
+    private static (ProteinPattern Parsed, IReadOnlyList<TranslatedPatternHit> Hits) RunFuzztran(string sequence, string pattern, string frame, int table, CancellationToken cancellationToken, int mismatch = 0)
     {
         var nucleotides = RequireEmbossIupacDna(sequence, nameof(sequence));
         if (string.IsNullOrWhiteSpace(pattern))
             throw new ArgumentException("Pattern cannot be null or empty", nameof(pattern));
         var parsed = ProteinPattern.Parse(pattern);
-        return (parsed, GenomicAnalyzer.FindTranslatedPatternHits(nucleotides, pattern, frame, table, cancellationToken));
+        return (parsed, GenomicAnalyzer.FindTranslatedPatternHits(nucleotides, pattern, frame, table, cancellationToken, mismatch));
     }
 
     [McpServerTool(Name = "showalign", Title = "Alignment — EMBOSS showalign display", ReadOnly = true)]
@@ -310,6 +312,73 @@ public partial class AnalysisTools
                 wordSize, preferFirst, cancellationToken);
         return new MegaMergerResult(r.MergedSequence, r.Report,
             r.Matches.Select(m => new WordMatchItem(m.Sequence1, m.Sequence2, m.Position1, m.Position2, m.Length)).ToArray());
+    }
+
+    [McpServerTool(Name = "diffseq", Title = "Alignment — EMBOSS diffseq (differences between two sequences)", ReadOnly = true)]
+    [Description("EMBOSS 6.6.0 diffseq: the regions of difference between two nearly identical sequences (336 nucleotide / protein pairs, every -rformat: report and both GFF3 feature files byte for byte). The exact word matches of wordSize symbols (the engine and the minimal non-overlapping set of megamerger) are the regions of identity; the stretches between them are the differences (a difference with length 0 in one sequence is an insertion in the other); with globalDifferences the differences before the first and after the last match are reported too (a start or end that matches by itself is not counted). A nucleotide pair also gets the SNP count and its transitions / transversions. Returns the differences and the program's files: the report in the default format 'diffseq' (7 report tags; reportFormat takes any -rformat or the report qualifiers as typed, e.g. '-rformat table -raccshow'), and the GFF3 files -aoutfeat / -boutfeat. The sequence qualifiers (-sbegin1 ...) and feature-table inputs (GenBank / EMBL with features) are not part of this port.")]
+    public static DiffseqToolResult Diffseq(
+        [Description("First sequence (nucleotide or protein letters).")] string sequence1,
+        [Description("Second sequence (the same kind).")] string sequence2,
+        [Description("Word size (diffseq -wordsize, default 10, at least 2).")] int wordSize = 10,
+        [Description("Report the differences at the start and the end (diffseq -globaldifferences).")] bool globalDifferences = false,
+        [Description("Name of the first sequence.")] string name1 = "seqa",
+        [Description("Name of the second sequence.")] string name2 = "seqb",
+        [Description("The report format (-rformat name) or the report qualifiers as typed after the files (e.g. '-rformat table -raccshow'); default format diffseq.")] string? reportFormat = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrEmpty(sequence1))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence1));
+        if (string.IsNullOrEmpty(sequence2))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence2));
+        string? qualifiers = null;
+        if (!string.IsNullOrWhiteSpace(reportFormat))
+            qualifiers = reportFormat.TrimStart().StartsWith('-') ? reportFormat : "-rformat " + reportFormat;
+        var entries = new List<string> { EmbossCommandLineEcho.Parameter("asequence", "a.fasta"), EmbossCommandLineEcho.Parameter("bsequence", "b.fasta"), Qualifier("wordsize", wordSize) };
+        if (globalDifferences)
+            entries.Add("-globaldifferences");
+        entries.AddRange(HeaderEntries(qualifiers));
+        try
+        {
+            var result = GenomicAnalyzer.Diffseq(sequence1, sequence2, wordSize, globalDifferences, cancellationToken);
+            var files = EmbossDiffseqPrograms.Run(new EmbossDiffseqRequest(">" + name1 + "\n" + sequence1 + "\n", ">" + name2 + "\n" + sequence2 + "\n", wordSize, globalDifferences, qualifiers, entries, DateTime.Now, "a.fasta", "b.fasta", "stdout", name1 + ".diffgff", name2 + ".diffgff", cancellationToken));
+            return new DiffseqToolResult([.. result.Differences.Select(d => new DiffseqDifferenceItem(d.Start1, d.End1, d.Len1, d.Start2, d.End2, d.Len2))], result.OverlapStart1, result.OverlapEnd1, result.OverlapStart2, result.OverlapEnd2,
+                result.Snps, result.Transitions, result.Transversions, files.Report, files.FeatureFile1, files.FeatureFile2);
+        }
+        catch (global::Seqeron.Genomics.Alignment.EmbossReportException e)
+        {
+            throw new ArgumentException(e.Message, nameof(reportFormat));
+        }
+    }
+
+    [McpServerTool(Name = "wordmatch", Title = "Alignment — EMBOSS wordmatch (exact matches of a pattern set, Rabin-Karp)", ReadOnly = true)]
+    [Description("EMBOSS 6.6.0 wordmatch: every exact match of at least wordSize symbols between a set of pattern sequences (a FASTA text) and large sequences (a FASTA text), found by Rabin-Karp (260 nucleotide / protein runs: alignments in match, pair, simple, fasta, srspair, markx3, score and srs format, the statistics log and both GFF3 feature files byte for byte). The table holds every word of the pattern sequences (a pattern sequence is identified by its NAME; words around N, or X for a protein, are skipped as in seqmatchall); a window found in the table is verified and the match is extended to the right over the pattern sequence; a pattern sequence is not examined again before the end of its previous match in that scanned sequence. Returns the matches (0-based starts, per scanned sequence and pattern sequence in the program's order), the number of distinct words, the number and total length of the matches and the files of the program: the alignments (-outfile, alignFormat), the log (-logfile) and the feature files (-aoutfeat / -boutfeat). Distinct words of five or more symbols with equal hashes are not distinguished (the program picks an arbitrary one).")]
+    public static WordmatchToolResult Wordmatch(
+        [Description("The pattern sequences as FASTA text (-asequence); every record is a pattern sequence.")] string patternFasta,
+        [Description("The sequences to scan as FASTA text (-bsequence); every record is scanned.")] string sequenceFasta,
+        [Description("Word size (wordmatch -wordsize, default 4, at least 2).")] int wordSize = 4,
+        [Description("Dump the matches as alignments (-dumpalign, default true).")] bool dumpAlign = true,
+        [Description("Dump the matches as GFF3 feature files (-dumpfeat, default true).")] bool dumpFeatures = true,
+        [Description("The alignment format (-aformat, default match).")] string alignFormat = "match",
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(patternFasta))
+            throw new ArgumentException("The pattern set cannot be empty", nameof(patternFasta));
+        if (string.IsNullOrWhiteSpace(sequenceFasta))
+            throw new ArgumentException("The sequences cannot be empty", nameof(sequenceFasta));
+        var set = global::Seqeron.Genomics.Infrastructure.EmbossFastaReader.Read(patternFasta);
+        var scanned = global::Seqeron.Genomics.Infrastructure.EmbossFastaReader.Read(sequenceFasta);
+        if (set.Count == 0 || scanned.Count == 0)
+            throw new ArgumentException("An input has no FASTA record.", nameof(patternFasta));
+        var files = EmbossWordmatchPrograms.Run(new EmbossWordmatchRequest(patternFasta, sequenceFasta, wordSize, dumpAlign, dumpFeatures, [EmbossCommandLineEcho.Parameter("asequence", "a.fasta"), EmbossCommandLineEcho.Parameter("bsequence", "b.fasta"), Qualifier("wordsize", wordSize)],
+            DateTime.Now, "a.fasta", "b.fasta", "stdout", alignFormat, cancellationToken));
+        bool nuc = global::Seqeron.Genomics.Infrastructure.EmbossSequenceReader.IsNucleotide(global::Seqeron.Genomics.Infrastructure.EmbossSequenceReader.Clean(set[0].Text));
+        var result = GenomicAnalyzer.Wordmatch([.. set.Select(x => (x.Name, global::Seqeron.Genomics.Alignment.EmbossInputSequence.Read(x.Text, null, global::Seqeron.Genomics.Infrastructure.EmbossSequenceType.Any).Residues))],
+            [.. scanned.Select(x => global::Seqeron.Genomics.Alignment.EmbossInputSequence.Read(x.Text, null, nuc ? global::Seqeron.Genomics.Infrastructure.EmbossSequenceType.Nucleotide : global::Seqeron.Genomics.Infrastructure.EmbossSequenceType.StopProtein).Residues)], wordSize, cancellationToken);
+        var matches = new List<WordmatchHitItem>();
+        for (int q = 0; q < result.Matches.Count; q++)
+            foreach (var perPattern in result.Matches[q])
+                matches.AddRange(perPattern.Select(h => new WordmatchHitItem(set[h.Pattern].Name, h.PatternStart, scanned[q].Name, h.QueryStart, h.Length)));
+        return new WordmatchToolResult([.. matches], result.PatternCount, result.AllMatches, result.SumLength, files.Alignments, files.Log, files.FeatureFile1, files.FeatureFile2);
     }
 
     [McpServerTool(Name = "nucmer_clusters", Title = "Genome — MUMmer nucmer Anchor Clusters", ReadOnly = true)]

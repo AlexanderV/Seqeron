@@ -25,6 +25,37 @@ public sealed record MashInput(string Name, IReadOnlyList<MashRecord> Records, M
 public static partial class MashCommands
 {
     // C++ `cout << double`: %g with six significant digits ("inf" / "nan" as glibc prints them)
+    /// <summary>
+    /// The value of a Mash option of the type <c>Size</c> (<c>-b</c>, <c>-g</c>: <c>Command.cpp</c>): a whole number optionally followed by one of <c>kKmMgGtT</c> (x 1000 ... 10^12); the number is read with <c>stof</c> (a float), so large values
+    /// are rounded to 24 bits of mantissa.
+    /// </summary>
+    /// <exception cref="ArgumentException">The text is no whole positive number with an optional unit.</exception>
+    public static long ParseSize(string argument, string option = "b")
+    {
+        ArgumentNullException.ThrowIfNull(argument);
+        if (argument.Length == 0)
+            return 0;
+        long factor = 1;
+        char suffix = argument[^1];
+        string number = argument;
+        if (suffix is < '0' or > '9')
+        {
+            factor = suffix switch
+            {
+                'k' or 'K' => 1000L,
+                'm' or 'M' => 1_000_000L,
+                'g' or 'G' => 1_000_000_000L,
+                't' or 'T' => 1_000_000_000_000L,
+                _ => throw new ArgumentException($"Unrecognized unit (\"{suffix}\") in argument to -{option}. If specified, unit must be one of [kKmMgGtT]."),
+            };
+            number = argument[..^1];
+        }
+
+        if (!float.TryParse(number.TrimStart(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float value) || value <= 0 || Math.Floor(value) != value)
+            throw new ArgumentException($"Argument to -{option} must be a whole number, optionally followed by one of [kKmMgGtT].");
+        return checked((long)((double)value * factor));
+    }
+
     private static string Num(double v)
     {
         if (double.IsNaN(v))
@@ -93,11 +124,12 @@ public static partial class MashCommands
 
     private sealed record Named(string Name, string Comment, MinHashSketch Sketch);
 
-    /// <summary>The read-set options of <c>mash sketch</c> / <c>dist</c> / <c>triangle</c> (<c>-r -m -c -g</c>; <c>-b</c>, the Bloom filter, is not part of the port).</summary>
+    /// <summary>The read-set options of <c>mash sketch</c> / <c>dist</c> / <c>triangle</c> (<c>-r -m -c -g -b</c>).</summary>
     /// <param name="MinCopies"><c>-m</c>: minimum copies of each k-mer (the noise filter, default 1).</param>
     /// <param name="TargetCoverage"><c>-c</c>: sketching concludes when this coverage is reached (0 = read everything).</param>
     /// <param name="GenomeSize"><c>-g</c>: the genome size used as the sketch length (0 = estimated).</param>
-    public sealed record MashReadsOptions(int MinCopies = 1, double TargetCoverage = 0.0, long GenomeSize = 0);
+    /// <param name="BloomFilterBytes"><c>-b</c>: the size of a Bloom filter that filters out the k-mers seen once (0 = none; cannot be combined with <c>-m</c>; see <see cref="MashBloomFilter"/>).</param>
+    public sealed record MashReadsOptions(int MinCopies = 1, double TargetCoverage = 0.0, long GenomeSize = 0, long BloomFilterBytes = 0);
 
     private static string FileComment(IReadOnlyList<MashRecord> usable, int count)
     {
@@ -156,7 +188,7 @@ public static partial class MashCommands
                 continue;
             }
 
-            var sketch = KmerAnalyzer.CreateReadsMinHashSketch([.. usable.Select(r => r.Sequence)], k, sketchSize, canonical, seed, reads.MinCopies, reads.TargetCoverage, reads.GenomeSize, out int used, cancellationToken);
+            var sketch = KmerAnalyzer.CreateReadsMinHashSketch([.. usable.Select(r => r.Sequence)], k, sketchSize, canonical, seed, reads.MinCopies, reads.TargetCoverage, reads.GenomeSize, out int used, cancellationToken, reads.BloomFilterBytes);
             list.Add(new Named(input.Name, FileComment(usable, used), sketch));
         }
 

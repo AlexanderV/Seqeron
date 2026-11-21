@@ -24,7 +24,7 @@
       },
       "maxMismatches": {
         "type": "integer",
-        "description": "fuzznuc -pmismatch.",
+        "description": "fuzznuc / fuzzpro / fuzztran -pmismatch (a pattern file entry <mismatch=n> overrides it).",
         "default": 0
       },
       "patternFile": {

@@ -41,6 +41,7 @@ Mash 2.3 'mash dist': MinHash (bottom-s) sketches of the reference and query fil
 | `targetCoverage` | number | No | -c: target coverage of a read set: sketching concludes when it is reached (default 0 = read everything; only with reads). |
 | `genomeSize` | integer | No | -g: genome size used as the sketch length of a read set (default 0 = estimated; only with reads). |
 | `showComments` | boolean | No | -C: show the comment fields with the names (name:comment for dist, the comment instead of the id for triangle; the comment of a file sketch is the first record's name and comment, '[N seqs] ... [...]' for several). (default: false) |
+| `bloomFilter` | string | No | -b: a Bloom filter of this size (raw bytes or with K/M/G/T, e.g. 500M) filters out the k-mers seen once, instead of the exact filter -m (cannot be combined with minCopies > 1; implies reads; copies cannot be counted beyond 2; some unique k-mers pass erroneously; the filter has one hash function over bytes x 8 bits as the program builds it). |
 
 ## Output Schema
 

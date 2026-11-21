@@ -111,6 +111,7 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "kmer_jaccard",
         "kmer_positions",
         "kmer_spectrum",
+        "diffseq",
         "emboss_report_file",
         "kmers_with_min_count",
         "lempel_ziv_complexity",
@@ -164,5 +165,6 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "validate_dot_bracket",
         "windowed_complexity",
         "windowed_gc_skew",
+        "wordmatch",
     };
 }

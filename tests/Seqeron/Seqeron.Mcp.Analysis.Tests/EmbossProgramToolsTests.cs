@@ -47,6 +47,42 @@ public class EmbossProgramToolsTests
     }
 
     [Test]
+    public void Diffseq_SnpsAndTheSevenTagReport_AsTheProgram()
+    {
+        // diffseq 6.6.0 on ACGTACGTACGTAAGGCCTTAACCGGTT / ACGTACGTACGTAAGGCATTAACCGGTT -wordsize 8 (A5-8c3, F196): one SNP, C -> A, a transversion
+        var r = AnalysisTools.Diffseq("ACGTACGTACGTAAGGCCTTAACCGGTT", "ACGTACGTACGTAAGGCATTAACCGGTT", 8, false, "a", "b");
+        Assert.That(r.Differences, Has.Length.EqualTo(1));
+        Assert.That(r.Differences[0], Is.EqualTo(new DiffseqDifferenceItem(18, 18, 1, 18, 18, 1)));
+        Assert.That((r.Snps, r.Transitions, r.Transversions, r.OverlapStart1, r.OverlapEnd1), Is.EqualTo((1, 0, 1, 1, 28)));
+        Assert.That(r.Report, Does.Contain("\n\na 18-18 Length: 1\nSequence: C\nSequence: A\nb 18-18 Length: 1\n"));
+        Assert.That(r.Report, Does.Contain("# SNP_count: 1\n# Transitions: 0\n# Transversions: 1\n"));
+        Assert.That(r.FeatureFile1, Does.Contain("a\tdiffseq\tsequence_conflict\t18\t18\t1\t+\t.\tID=a.1;note=SNP in b;replace=A"));
+        Assert.That(AnalysisTools.Diffseq("ACGTACGTACGTAAGGCCTTAACCGGTT", "ACGTACGTACGTAAGGCATTAACCGGTT", 8, false, "a", "b", "-rformat excel").Report, Does.StartWith("SeqName\tStart\tEnd\tScore\tStrand\tstart\tend\tlength\tname\tsequence\tfirst_feature\tsecond_feature\n"));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.Diffseq("ACGT", "ACGT", 8, false, "a", "b", "pir"));
+    }
+
+    [Test]
+    public void Wordmatch_RabinKarpMatches_AsTheProgram()
+    {
+        // wordmatch 6.6.0 on p = ACGTACGTAC against g = TTACGTACGTACTT, -wordsize 6 (A2-28d, F198): the two words TACGTA / CGTACG are extended to the right, the match of the second starts inside the first
+        var r = AnalysisTools.Wordmatch(">p\nACGTACGTAC\n", ">g\nTTACGTACGTACTT\n", 6);
+        Assert.That(r.Matches, Is.EqualTo(new[] { new WordmatchHitItem("p", 3, "g", 1, 7), new WordmatchHitItem("p", 1, "g", 3, 9) }));
+        Assert.That((r.PatternCount, r.AllMatches, r.SumLength), Is.EqualTo((4, 2L, 16L)));
+        Assert.That(r.Alignments, Does.Contain("     7 p               +        4..10       g               +        2..8\n     9 p               +        2..10       g               +        4..12\n"));
+        Assert.That(r.Log, Does.Contain("Average match length: 8.00").And.Contain("TACGTA :            1             1              7.00"));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.Wordmatch("", ">g\nAC\n"));
+    }
+
+    [Test]
+    public void Fuzzpro_WithMismatches_AsTheProgram()
+    {
+        // fuzzpro 6.6.0 -pmismatch 1 'H-H-K' on MKHHKLLHHKAAHHKMMHHRPPQQ (A5-8c2, F195): the last window HHR has one mismatch (score 2)
+        var r = AnalysisTools.Fuzzpro("MKHHKLLHHKAAHHKMMHHRPPQQ", "H-H-K", mismatch: 1);
+        Assert.That(r.Hits.Select(h => (h.Position, h.Length, h.Mismatches)), Is.EqualTo(new[] { (2, 3, 0), (7, 3, 0), (12, 3, 0), (17, 3, 1) }));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.Fuzzpro("MKHHK", "[HK]-[HK]", mismatch: 2));      // type 6: the mismatches must be below the real pattern length
+    }
+
+    [Test]
     public void Megamerger_MergesByWordMatchAnchors_AsTheProgram()
     {
         // megamerger a=ACGTACGTAC b=ACGTACGTACGGGGGG -wordsize 4 (B09 A3-13b, F149)

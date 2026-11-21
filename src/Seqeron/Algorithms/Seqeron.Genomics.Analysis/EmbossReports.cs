@@ -38,7 +38,7 @@ public static class EmbossReports
     private static IEnumerable<PatternHit> ReverseOrder(IEnumerable<PatternHit> hits, string pattern, int maxMismatches, Func<PatternHit, (int Start, int Length)> key)
     {
         if (maxMismatches > 0)
-            return hits.OrderBy(h => key(h).Start + key(h).Length).ThenBy(h => key(h).Start);
+            return RangeElement.IsMatch(pattern) ? hits : hits.OrderBy(h => key(h).Start + key(h).Length).ThenBy(h => key(h).Start);        // a range pattern: FindPatternHits lists the pass in the program's (reversed push) order
         return RangeElement.IsMatch(pattern) ? hits.OrderByDescending(h => key(h).Start + key(h).Length).ThenBy(h => key(h).Start) : hits;
     }
 
@@ -116,8 +116,9 @@ public static class EmbossReports
     {
         ArgumentNullException.ThrowIfNull(sequence);
         ArgumentNullException.ThrowIfNull(patterns);
-        var features = patterns.SelectMany(p => ReportOrder(p.Hits, p.Pattern, h => h.Position, h => h.Length).Select(h => new EmbossFeature("SO:0001067", "fuzzpro", h.Position + 1, h.Position + h.Length, h.Length, '\0', 0,
-            [Note("*pat " + p.Name + ":" + p.Pattern)]))).ToList();
+        // a search with mismatches (patOUBrute) lists a range pattern's hits in position order; the score is the length minus the mismatches and a hit with mismatches carries a *mismatch note (A5-8c2)
+        var features = patterns.SelectMany(p => ReportOrder(p.Hits, p.Mismatches > 0 ? "" : p.Pattern, h => h.Position, h => h.Length).Select(h => new EmbossFeature("SO:0001067", "fuzzpro", h.Position + 1, h.Position + h.Length, h.Length - h.Mismatches, '\0', 0,
+            h.Mismatches > 0 ? [Note("*pat " + p.Name + ":" + p.Pattern), Note("*mismatch " + Int(h.Mismatches))] : [Note("*pat " + p.Name + ":" + p.Pattern)]))).ToList();
         return new EmbossReport(sequence, features, true, first ? "P" : "p", TableLength: EmbossReportWriter.UnsignedRegionEnd(features), Tags: TagList("fuzzpro"));
     }
 
@@ -168,12 +169,15 @@ public static class EmbossReports
         }
 
         var frames = patterns.SelectMany(p => p.Hits.Select(h => h.Frame)).Distinct().OrderBy(f => f < 0 ? 3 - f : f).ToList();   // 1, 2, 3, -1, -2, -3
-        var features = frames.SelectMany(frame => patterns.SelectMany(p => ReportOrder(p.Hits.Where(h => h.Frame == frame), p.Pattern, h => h.ProteinStart, h => h.ProteinEnd).Select(h =>
+        var features = frames.SelectMany(frame => patterns.SelectMany(p => ReportOrder(p.Hits.Where(h => h.Frame == frame), p.Mismatches > 0 ? "" : p.Pattern, h => h.ProteinStart, h => h.ProteinEnd).Select(h =>
         {
             int number = Math.Abs(h.Frame);
             string pat = p.Name + ":" + p.Pattern;
-            return new EmbossFeature("SO:0000110", "fuzztran", h.EmbossStart!.Value, h.EmbossEnd!.Value, h.ProteinEnd - h.ProteinStart + 1, h.Frame < 0 ? '-' : '+', number,
-                [Note("*pat " + pat), Note("*frame " + Int(number)), Note("*start " + Int(h.ProteinStart)), Note("*end " + Int(h.ProteinEnd)), Note("*translation " + h.Translation)]);
+            var notes = new List<EmbossFeatureTag> { Note("*pat " + pat) };
+            if (h.Mismatches > 0)
+                notes.Add(Note("*mismatch " + Int(h.Mismatches)));
+            notes.AddRange([Note("*frame " + Int(number)), Note("*start " + Int(h.ProteinStart)), Note("*end " + Int(h.ProteinEnd)), Note("*translation " + h.Translation)]);
+            return new EmbossFeature("SO:0000110", "fuzztran", h.EmbossStart!.Value, h.EmbossEnd!.Value, h.ProteinEnd - h.ProteinStart + 1 - h.Mismatches, h.Frame < 0 ? '-' : '+', number, notes);
         }))).ToList();
         return new EmbossReport(sequence, features, false, "N", TableLength: EmbossReportWriter.UnsignedRegionEnd(features), Tags: TagList("fuzztran"));
     }

@@ -141,7 +141,14 @@ public sealed record EmbossFeatureTag(string Name, string Value);
 /// <param name="Strand">The strand: <c>'\0'</c> forward, <c>'-'</c> reverse (the stored character; <c>ajFeatGetStrand</c> reports <c>+</c> / <c>-</c>).</param>
 /// <param name="Frame">The frame (0 = none).</param>
 /// <param name="Tags">The tags in the order they were added.</param>
-public sealed record EmbossFeature(string Type, string Source, int Start, int End, double Score, char Strand, int Frame, IReadOnlyList<EmbossFeatureTag> Tags);
+/// <param name="Protein">The feature's own protein flag (<c>feature->Protein</c>) when it differs from its table's (diffseq's <c>ajFeatNewII</c> features in a protein table are not protein features: strand <c>+</c>); null = the table's.</param>
+/// <param name="Between">The feature lies between two positions (<c>AJFEATFLAG_BETWEEN_SEQ</c>, <c>ajFeatNewBetween</c>: start = the position, end = position + 1; embl / genbank write <c>203^204</c>, the GFF has <c>featflags=between:true</c>).</param>
+public sealed record EmbossFeature(string Type, string Source, int Start, int End, double Score, char Strand, int Frame, IReadOnlyList<EmbossFeatureTag> Tags, bool Between = false, bool? Protein = null);
+
+/// <summary>An additional output file named in the report header (<c>ajReportAddFileF</c>: <c># 1: a.gff (Feature file for first sequence)</c>).</summary>
+/// <param name="Name">The file name.</param>
+/// <param name="Description">The description in brackets.</param>
+public sealed record EmbossReportFile(string Name, string Description);
 
 /// <summary>One report tag of the program (<c>taglist</c> of the ACD report: <c>str:pat=Pattern</c>).</summary>
 /// <param name="Type">The value type (<c>str</c>, <c>int</c>, <c>float</c>): <c>str</c> columns are left-justified.</param>
@@ -213,6 +220,12 @@ public sealed record EmbossReportOptions
 
     /// <summary>The header text of the program (<c>ajReportSetHeaderS</c>: pattern documentation, parameters), lines separated by <c>\n</c>.</summary>
     public string Header { get; init; } = "";
+
+    /// <summary>The tail text of the program (<c>ajReportSetTailS</c>; printed in the tail of the report of each sequence after the hit-limit text), lines separated by <c>\n</c>.</summary>
+    public string Tail { get; init; } = "";
+
+    /// <summary>The additional output files (<c>ajReportAddFileF</c>; <c># Additional_files: n</c> in the file header).</summary>
+    public IReadOnlyList<EmbossReportFile> AdditionalFiles { get; init; } = [];
 
     /// <summary><c>-rscoreshow</c> (default true).</summary>
     public bool ShowScore { get; init; } = true;

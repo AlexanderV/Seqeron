@@ -27,7 +27,7 @@ The whole report FILE of the EMBOSS 6.6.0 programs fuzznuc, fuzzpro, fuzztran, e
 | `program` | string | Yes | fuzznuc \| fuzzpro \| fuzztran \| etandem \| equicktandem. |
 | `fasta` | string | Yes | The input file text: FASTA records (name = first word of the header, an accession-like second word is the accession, the rest the description). |
 | `pattern` | string | No | The pattern (fuzznuc / fuzzpro / fuzztran -pattern); give this or patternFile. |
-| `maxMismatches` | integer | No | fuzznuc -pmismatch. (default: 0) |
+| `maxMismatches` | integer | No | fuzznuc / fuzzpro / fuzztran -pmismatch (a pattern file entry <mismatch=n> overrides it). (default: 0) |
 | `patternFile` | string | No | The TEXT of a pattern file (-pattern @file; A5-8c): one pattern per line, or FASTA style (>name, optionally '<mismatch=n>' after the name, then the pattern); every pattern is a row of the header table and has its own features. |
 | `patternName` | string | No | -pname: the pattern name (default 'pattern'; the lines of a simple file are numbered after it). |
 | `patternFormat` | string | No | -pformat: simple (one pattern per line) or fasta; default: decided by the first line of the file. |

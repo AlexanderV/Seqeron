@@ -88,6 +88,10 @@
     "type": "boolean",
     "description": "-C: show the comment fields with the names (name:comment for dist, the comment instead of the id for triangle; the comment of a file sketch is the first record's name and comment, '[N seqs] ... [...]' for several).",
     "default": false
+   },
+   "bloomFilter": {
+    "type": "string",
+    "description": "-b: a Bloom filter of this size (raw bytes or with K/M/G/T, e.g. 500M) filters out the k-mers seen once, instead of the exact filter -m (cannot be combined with minCopies > 1; implies reads; copies cannot be counted beyond 2; some unique k-mers pass erroneously; the filter has one hash function over bytes x 8 bits as the program builds it)."
    }
   },
   "required": [

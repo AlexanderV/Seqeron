@@ -967,5 +967,235 @@ internal static partial class EmbossAcdProfiles
             G die boolean
             G version boolean
             """),
+        ("diffseq", """
+            P asequence 1 sequence
+            P bsequence 2 sequence
+            Q wordsize integer
+            P outfile 3 report
+            P aoutfeat 4 featout
+            P boutfeat 5 featout
+            Q globaldifferences boolean
+            A asequence sbegin 1 integer
+            A asequence send 1 integer
+            A asequence sreverse 1 boolean
+            A asequence sask 1 boolean
+            A asequence snucleotide 1 boolean
+            A asequence sprotein 1 boolean
+            A asequence slower 1 boolean
+            A asequence supper 1 boolean
+            A asequence scircular 1 boolean
+            A asequence squick 1 boolean
+            A asequence sformat 1 string
+            A asequence iquery 1 string
+            A asequence ioffset 1 integer
+            A asequence sdbname 1 string
+            A asequence sid 1 string
+            A asequence ufo 1 string
+            A asequence fformat 1 string
+            A asequence fopenfile 1 string
+            A bsequence sbegin 2 integer
+            A bsequence send 2 integer
+            A bsequence sreverse 2 boolean
+            A bsequence sask 2 boolean
+            A bsequence snucleotide 2 boolean
+            A bsequence sprotein 2 boolean
+            A bsequence slower 2 boolean
+            A bsequence supper 2 boolean
+            A bsequence scircular 2 boolean
+            A bsequence squick 2 boolean
+            A bsequence sformat 2 string
+            A bsequence iquery 2 string
+            A bsequence ioffset 2 integer
+            A bsequence sdbname 2 string
+            A bsequence sid 2 string
+            A bsequence ufo 2 string
+            A bsequence fformat 2 string
+            A bsequence fopenfile 2 string
+            A outfile rformat 3 string
+            A outfile rname 3 string
+            A outfile rextension 3 string
+            A outfile rdirectory 3 string
+            A outfile raccshow 3 boolean
+            A outfile rdesshow 3 boolean
+            A outfile rscoreshow 3 boolean
+            A outfile rstrandshow 3 boolean
+            A outfile rusashow 3 boolean
+            A outfile rmaxall 3 integer
+            A outfile rmaxseq 3 integer
+            A aoutfeat offormat 4 string
+            A aoutfeat ofopenfile 4 string
+            A aoutfeat ofextension 4 string
+            A aoutfeat ofdirectory 4 string
+            A aoutfeat ofname 4 string
+            A aoutfeat ofsingle 4 boolean
+            A boutfeat offormat 5 string
+            A boutfeat ofopenfile 5 string
+            A boutfeat ofextension 5 string
+            A boutfeat ofdirectory 5 string
+            A boutfeat ofname 5 string
+            A boutfeat ofsingle 5 boolean
+            G auto boolean
+            G stdout boolean
+            G filter boolean
+            G options boolean
+            G debug boolean
+            G verbose boolean
+            G help boolean
+            G warning boolean
+            G error boolean
+            G fatal boolean
+            G die boolean
+            G version boolean
+            """),
+        ("wordmatch", """
+            P asequence 1 seqset
+            P bsequence 2 seqall
+            Q wordsize integer
+            P outfile 3 align
+            P aoutfeat 4 featout
+            P boutfeat 5 featout
+            Q dumpalign toggle
+            Q logfile outfile
+            Q dumpfeat toggle
+            A asequence sbegin 1 integer
+            A asequence send 1 integer
+            A asequence sreverse 1 boolean
+            A asequence sask 1 boolean
+            A asequence snucleotide 1 boolean
+            A asequence sprotein 1 boolean
+            A asequence slower 1 boolean
+            A asequence supper 1 boolean
+            A asequence scircular 1 boolean
+            A asequence squick 1 boolean
+            A asequence sformat 1 string
+            A asequence iquery 1 string
+            A asequence ioffset 1 integer
+            A asequence sdbname 1 string
+            A asequence sid 1 string
+            A asequence ufo 1 string
+            A asequence fformat 1 string
+            A asequence fopenfile 1 string
+            A bsequence sbegin 2 integer
+            A bsequence send 2 integer
+            A bsequence sreverse 2 boolean
+            A bsequence sask 2 boolean
+            A bsequence snucleotide 2 boolean
+            A bsequence sprotein 2 boolean
+            A bsequence slower 2 boolean
+            A bsequence supper 2 boolean
+            A bsequence scircular 2 boolean
+            A bsequence squick 2 boolean
+            A bsequence sformat 2 string
+            A bsequence iquery 2 string
+            A bsequence ioffset 2 integer
+            A bsequence sdbname 2 string
+            A bsequence sid 2 string
+            A bsequence ufo 2 string
+            A bsequence fformat 2 string
+            A bsequence fopenfile 2 string
+            A outfile aformat 3 string
+            A outfile aextension 3 string
+            A outfile adirectory 3 string
+            A outfile aname 3 string
+            A outfile awidth 3 integer
+            A outfile aaccshow 3 boolean
+            A outfile adesshow 3 boolean
+            A outfile ausashow 3 boolean
+            A outfile aglobal 3 boolean
+            A logfile odirectory 0 string
+            A aoutfeat offormat 4 string
+            A aoutfeat ofopenfile 4 string
+            A aoutfeat ofextension 4 string
+            A aoutfeat ofdirectory 4 string
+            A aoutfeat ofname 4 string
+            A aoutfeat ofsingle 4 boolean
+            A boutfeat offormat 5 string
+            A boutfeat ofopenfile 5 string
+            A boutfeat ofextension 5 string
+            A boutfeat ofdirectory 5 string
+            A boutfeat ofname 5 string
+            A boutfeat ofsingle 5 boolean
+            G auto boolean
+            G stdout boolean
+            G filter boolean
+            G options boolean
+            G debug boolean
+            G verbose boolean
+            G help boolean
+            G warning boolean
+            G error boolean
+            G fatal boolean
+            G die boolean
+            G version boolean
+            """),
+        ("est2genome", """
+            P estsequence 1 seqall
+            P genomesequence 2 sequence
+            P outfile 3 outfile
+            Q match integer
+            Q mismatch integer
+            Q gappenalty integer
+            Q intronpenalty integer
+            Q splicepenalty integer
+            Q minscore integer
+            Q reverse boolean
+            Q usesplice boolean
+            Q mode menu
+            Q best boolean
+            Q space float
+            Q shuffle integer
+            Q seed integer
+            Q align boolean
+            Q width integer
+            A estsequence sbegin 1 integer
+            A estsequence send 1 integer
+            A estsequence sreverse 1 boolean
+            A estsequence sask 1 boolean
+            A estsequence snucleotide 1 boolean
+            A estsequence sprotein 1 boolean
+            A estsequence slower 1 boolean
+            A estsequence supper 1 boolean
+            A estsequence scircular 1 boolean
+            A estsequence squick 1 boolean
+            A estsequence sformat 1 string
+            A estsequence iquery 1 string
+            A estsequence ioffset 1 integer
+            A estsequence sdbname 1 string
+            A estsequence sid 1 string
+            A estsequence ufo 1 string
+            A estsequence fformat 1 string
+            A estsequence fopenfile 1 string
+            A genomesequence sbegin 2 integer
+            A genomesequence send 2 integer
+            A genomesequence sreverse 2 boolean
+            A genomesequence sask 2 boolean
+            A genomesequence snucleotide 2 boolean
+            A genomesequence sprotein 2 boolean
+            A genomesequence slower 2 boolean
+            A genomesequence supper 2 boolean
+            A genomesequence scircular 2 boolean
+            A genomesequence squick 2 boolean
+            A genomesequence sformat 2 string
+            A genomesequence iquery 2 string
+            A genomesequence ioffset 2 integer
+            A genomesequence sdbname 2 string
+            A genomesequence sid 2 string
+            A genomesequence ufo 2 string
+            A genomesequence fformat 2 string
+            A genomesequence fopenfile 2 string
+            A outfile odirectory 3 string
+            G auto boolean
+            G stdout boolean
+            G filter boolean
+            G options boolean
+            G debug boolean
+            G verbose boolean
+            G help boolean
+            G warning boolean
+            G error boolean
+            G fatal boolean
+            G die boolean
+            G version boolean
+            """),
     ];
 }
