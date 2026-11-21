@@ -1,9 +1,10 @@
 R	fullvolume	full.sparse.psi_false	exit_code	135		0 = built, 3 = IOException, 135 = SIGBUS
 R	fullvolume	full.sparse.psi_false	left_behind	2		entries of the volume besides the ballast
 #stderr: filled /tmp/stbench/b9d/vol: ballast of 2074980352 bytes
+R	fullvolume	full.reserved.psi_false	container_equals_reference	yes		SHA-256 of the container built on the full volume against the build on the ordinary disk (373fc2a3741e44a8)
 R	fullvolume	full.reserved.psi_false	exit_code	0		0 = built, 3 = IOException, 135 = SIGBUS
 R	fullvolume	full.reserved.psi_false	left_behind	0		entries of the volume besides the ballast
-R	fullvolume	total_s	14.617087954	s	full.reserved.psi_false SesaBuilder.Build, inside the call
+R	fullvolume	total_s	14.158397356	s	full.reserved.psi_false SesaBuilder.Build, inside the call
 R	fullvolume	grown_bytes	300000003	bytes	full.reserved.psi_false growth Filled, creation Preallocated
 #stderr: filled /tmp/stbench/b9d/vol: ballast of 1774981120 bytes
 R	fullvolume	full.sparse.psi_true	exit_code	135		0 = built, 3 = IOException, 135 = SIGBUS

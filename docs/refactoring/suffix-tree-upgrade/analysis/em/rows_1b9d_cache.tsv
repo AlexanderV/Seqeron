@@ -1790,3 +1790,116 @@ R	1b9d	u32_100.U.real	1	cmp_container	reference		SHA-256 99c630dc025328bc of the
 R	1b9d	u32_100.U.real	1	left_behind	0		entries of the work directory of the run besides the container (a build that succeeded leaves the container only)
 R	1b9d	u32_100.U.real	1	run_done	yes		all rows of this run are written
 R	1b9d	u16_100.U.real.sparse	1	settings	limit=max raise=none prewarm=1 gc=unset args=--sparse true		cgroup limit (bytes), limit after PH3, runtime pre-read outside the group, DOTNET_GCHeapHardLimit, extra program arguments
+R	1b9d	u16_100.U.real.sparse	1	ext_rssanon_peak	301.244	MB	independent sampler: max RssAnon of /proc/<pid>/status at 20 ms
+R	1b9d	u16_100.U.real.sparse	1	ext_rssanon_mean_ph3	97.494	MB	mean RssAnon over PH3 (rank file and ph3 directory exist), 313 samples
+R	1b9d	u16_100.U.real.sparse	1	eff_resident_ph3	1.0000		time-weighted resident fraction of (packed text + rank file) over PH3 (mincore every 200 ms, 30 samples, 6.3 s)
+R	1b9d	u16_100.U.real.sparse	1	eff_resident_ranks	1.0000		the same over the whole life of the rank file (PH1 end .. PH3 end, 30 samples, 6.3 s)
+R	1b9d	u16_100.U.real.sparse	1	text_bytes	25000064	bytes	TEXT section of the container
+R	1b9d	u16_100.U.real.sparse	1	rank_bytes	12890240	bytes	DCS rank file
+R	1b9d	u16_100.U.real.sparse	1	cg_limit	9223372036854771712	bytes	memory.limit_in_bytes of the sub-group at the start of the run
+R	1b9d	u16_100.U.real.sparse	1	cg_failcnt	0	n	memory.failcnt at the end
+R	1b9d	u16_100.U.real.sparse	1	cg_max_usage	2073190400	bytes	memory.max_usage_in_bytes at the end
+R	1b9d	u16_100.U.real.sparse	1	cg_rss_mean_ph3	97.575	MB	mean memory.stat rss (anonymous) of the sub-group over PH3
+R	1b9d	u16_100.U.real.sparse	1	ext_proc_rchar	3905786097	bytes	independent sampler: /proc/<pid>/io rchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	u16_100.U.real.sparse	1	ext_proc_wchar	2799554714	bytes	independent sampler: /proc/<pid>/io wchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	u16_100.U.real.sparse	1	ext_proc_read_bytes	100773888	bytes	independent sampler: /proc/<pid>/io read_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	u16_100.U.real.sparse	1	ext_proc_write_bytes	4480110592	bytes	independent sampler: /proc/<pid>/io write_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	u16_100.U.real.sparse	1	total_s	18.251704943	s	u16_100.U.real.sparse.1 SesaBuilder.Build, inside the call
+R	1b9d	u16_100.U.real.sparse	1	wall_s	18.25564785	s	u16_100.U.real.sparse.1 around the call
+R	1b9d	u16_100.U.real.sparse	1	scan_s	0.157744946	s	u16_100.U.real.sparse.1
+R	1b9d	u16_100.U.real.sparse	1	create_s	0.002215992	s	u16_100.U.real.sparse.1
+R	1b9d	u16_100.U.real.sparse	1	pack_s	0.322772949	s	u16_100.U.real.sparse.1
+R	1b9d	u16_100.U.real.sparse	1	ph1_s	1.036631615	s	u16_100.U.real.sparse.1
+R	1b9d	u16_100.U.real.sparse	1	ph23_s	6.201251089	s	u16_100.U.real.sparse.1
+R	1b9d	u16_100.U.real.sparse	1	ph45_s	7.206437219	s	u16_100.U.real.sparse.1
+R	1b9d	u16_100.U.real.sparse	1	bwt_s	1.79120231	s	u16_100.U.real.sparse.1
+R	1b9d	u16_100.U.real.sparse	1	psi_s	0.849993734	s	u16_100.U.real.sparse.1
+R	1b9d	u16_100.U.real.sparse	1	crc_s	0.31944968	s	u16_100.U.real.sparse.1
+R	1b9d	u16_100.U.real.sparse	1	seal_s	0.006196723	s	u16_100.U.real.sparse.1
+R	1b9d	u16_100.U.real.sparse	1	n	100000000	symbols	u16_100.U.real.sparse.1 sigma 4, 2 bits
+R	1b9d	u16_100.U.real.sparse	1	file_size	1504498704	bytes	u16_100.U.real.sparse.1 LCP U16, 9934466 overflow pairs
+R	1b9d	u16_100.U.real.sparse	1	grown_bytes	179479311	bytes	u16_100.U.real.sparse.1 growth Filled, creation Preallocated
+R	1b9d	u16_100.U.real.sparse	1	counted_read	3899561013	bytes	u16_100.U.real.sparse.1 explicit reads of the build (IoCounters)
+R	1b9d	u16_100.U.real.sparse	1	counted_write	2799551924	bytes	u16_100.U.real.sparse.1 explicit writes of the build (IoCounters)
+R	1b9d	u16_100.U.real.sparse	1	counted_mapped_write	1617366287	bytes	u16_100.U.real.sparse.1 writes through mapped windows (IoCounters)
+R	1b9d	u16_100.U.real.sparse	1	counted_reserved_write	0	bytes	u16_100.U.real.sparse.1 zeros written to reserve the growth
+R	1b9d	u16_100.U.real.sparse	1	scratch_peak	1200000000	bytes	u16_100.U.real.sparse.1
+R	1b9d	u16_100.U.real.sparse	1	arena_peak	141337720	bytes	u16_100.U.real.sparse.1
+R	1b9d	u16_100.U.real.sparse	1	proc_rchar	3905733073	bytes	u16_100.U.real.sparse.1 /proc/self/io over the call
+R	1b9d	u16_100.U.real.sparse	1	proc_wchar	2799552099	bytes	u16_100.U.real.sparse.1
+R	1b9d	u16_100.U.real.sparse	1	proc_read_bytes	100716544	bytes	u16_100.U.real.sparse.1 block-layer reads charged to the process
+R	1b9d	u16_100.U.real.sparse	1	proc_write_bytes	4480028672	bytes	u16_100.U.real.sparse.1 pages dirtied (a page that is written again counts again)
+R	1b9d	u16_100.U.real.sparse	1	dev_sectors_read	311120	sectors	u16_100.U.real.sparse.1 /sys/block/vda/stat over the call (512 B)
+R	1b9d	u16_100.U.real.sparse	1	dev_sectors_written	4867752	sectors	u16_100.U.real.sparse.1 over the call
+R	1b9d	u16_100.U.real.sparse	1	dev_sectors_written_synced	4871312	sectors	u16_100.U.real.sparse.1 until the end of a sync after the call
+R	1b9d	u16_100.U.real.sparse	1	rssanon_peak_mb	301.203456	MB	u16_100.U.real.sparse.1 verdict Within
+R	1b9d	u16_100.U.real.sparse	1	rssanon_ph0_mb	10.616832	MB	u16_100.U.real.sparse.1
+R	1b9d	u16_100.U.real.sparse	1	rssanon_ph1_mb	94.937088	MB	u16_100.U.real.sparse.1
+R	1b9d	u16_100.U.real.sparse	1	rssanon_ph23_mb	148.91008	MB	u16_100.U.real.sparse.1
+R	1b9d	u16_100.U.real.sparse	1	rssanon_ph45_mb	301.244416	MB	u16_100.U.real.sparse.1
+R	1b9d	u16_100.U.real.sparse	1	rssanon_ph6_mb	185.921536	MB	u16_100.U.real.sparse.1
+R	1b9d	u16_100.U.real.sparse	1	rssanon_seal_mb	185.966592	MB	u16_100.U.real.sparse.1
+R	1b9d	u16_100.U.real.sparse	1	exit_code	0		program exit code (0 = healthy)
+R	1b9d	u16_100.U.real.sparse	1	killed	no		no | watchdog (300 s) | oom-or-signal (exit 137 without the watchdog: the cgroup OOM killer)
+R	1b9d	u16_100.U.real.sparse	1	cg_failcnt_final	0	n	memory.failcnt after the run
+R	1b9d	u16_100.U.real.sparse	1	cg_max_usage_final	2073190400	bytes	memory.max_usage_in_bytes after the run; memory.stat: cache 1605496832 rss 0 mapped_file 0 pgpgin 358842 pgpgout 294270 pgmajfault 2666 total_cache 1605496832 total_rss 0 total_mapped_file 0 total_pgpgin 358842 total_pgpgout 294270 total_pgmajfault 2666 
+R	1b9d	u16_100.U.real.sparse	1	cmp_container	yes		SHA-256 13781b7831bbc08d of the container against the reference in /tmp/stbench/b9d/work/u16_100m.txt.sesa.sha (reference = this run made it)
+R	1b9d	u16_100.U.real.sparse	1	left_behind	0		entries of the work directory of the run besides the container (a build that succeeded leaves the container only)
+R	1b9d	u16_100.U.real.sparse	1	run_done	yes		all rows of this run are written
+R	1b9d	u32_100.U.real.sparse	1	settings	limit=max raise=none prewarm=1 gc=unset args=--sparse true		cgroup limit (bytes), limit after PH3, runtime pre-read outside the group, DOTNET_GCHeapHardLimit, extra program arguments
+R	1b9d	u32_100.U.real.sparse	1	ext_rssanon_peak	302.215	MB	independent sampler: max RssAnon of /proc/<pid>/status at 20 ms
+R	1b9d	u32_100.U.real.sparse	1	ext_rssanon_mean_ph3	109.688	MB	mean RssAnon over PH3 (rank file and ph3 directory exist), 367 samples
+R	1b9d	u32_100.U.real.sparse	1	eff_resident_ph3	1.0000		time-weighted resident fraction of (packed text + rank file) over PH3 (mincore every 200 ms, 35 samples, 7.3 s)
+R	1b9d	u32_100.U.real.sparse	1	eff_resident_ranks	1.0000		the same over the whole life of the rank file (PH1 end .. PH3 end, 35 samples, 7.3 s)
+R	1b9d	u32_100.U.real.sparse	1	text_bytes	25000064	bytes	TEXT section of the container
+R	1b9d	u32_100.U.real.sparse	1	rank_bytes	12890240	bytes	DCS rank file
+R	1b9d	u32_100.U.real.sparse	1	cg_limit	9223372036854771712	bytes	memory.limit_in_bytes of the sub-group at the start of the run
+R	1b9d	u32_100.U.real.sparse	1	cg_failcnt	0	n	memory.failcnt at the end
+R	1b9d	u32_100.U.real.sparse	1	cg_max_usage	2073870336	bytes	memory.max_usage_in_bytes at the end
+R	1b9d	u32_100.U.real.sparse	1	cg_rss_mean_ph3	111.210	MB	mean memory.stat rss (anonymous) of the sub-group over PH3
+R	1b9d	u32_100.U.real.sparse	1	ext_proc_rchar	3913956983	bytes	independent sampler: /proc/<pid>/io rchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	u32_100.U.real.sparse	1	ext_proc_wchar	2807118032	bytes	independent sampler: /proc/<pid>/io wchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	u32_100.U.real.sparse	1	ext_proc_read_bytes	101228544	bytes	independent sampler: /proc/<pid>/io read_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	u32_100.U.real.sparse	1	ext_proc_write_bytes	4650463232	bytes	independent sampler: /proc/<pid>/io write_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	u32_100.U.real.sparse	1	total_s	20.716706097	s	u32_100.U.real.sparse.1 SesaBuilder.Build, inside the call
+R	1b9d	u32_100.U.real.sparse	1	wall_s	20.720959628	s	u32_100.U.real.sparse.1 around the call
+R	1b9d	u32_100.U.real.sparse	1	scan_s	0.155674242	s	u32_100.U.real.sparse.1
+R	1b9d	u32_100.U.real.sparse	1	create_s	0.002067591	s	u32_100.U.real.sparse.1
+R	1b9d	u32_100.U.real.sparse	1	pack_s	0.363959321	s	u32_100.U.real.sparse.1
+R	1b9d	u32_100.U.real.sparse	1	ph1_s	1.153505364	s	u32_100.U.real.sparse.1
+R	1b9d	u32_100.U.real.sparse	1	ph23_s	7.306091927	s	u32_100.U.real.sparse.1
+R	1b9d	u32_100.U.real.sparse	1	ph45_s	7.701703252	s	u32_100.U.real.sparse.1
+R	1b9d	u32_100.U.real.sparse	1	bwt_s	2.266963949	s	u32_100.U.real.sparse.1
+R	1b9d	u32_100.U.real.sparse	1	psi_s	1.019015568	s	u32_100.U.real.sparse.1
+R	1b9d	u32_100.U.real.sparse	1	crc_s	0.367057712	s	u32_100.U.real.sparse.1
+R	1b9d	u32_100.U.real.sparse	1	seal_s	0.008198978	s	u32_100.U.real.sparse.1
+R	1b9d	u32_100.U.real.sparse	1	n	100000000	symbols	u32_100.U.real.sparse.1 sigma 4, 2 bits
+R	1b9d	u32_100.U.real.sparse	1	file_size	1625019396	bytes	u32_100.U.real.sparse.1 LCP U32, 0 overflow pairs
+R	1b9d	u32_100.U.real.sparse	1	grown_bytes	300000003	bytes	u32_100.U.real.sparse.1 growth Filled, creation Preallocated
+R	1b9d	u32_100.U.real.sparse	1	counted_read	3907127413	bytes	u32_100.U.real.sparse.1 explicit reads of the build (IoCounters)
+R	1b9d	u32_100.U.real.sparse	1	counted_write	2807117812	bytes	u32_100.U.real.sparse.1 explicit writes of the build (IoCounters)
+R	1b9d	u32_100.U.real.sparse	1	counted_mapped_write	1737890555	bytes	u32_100.U.real.sparse.1 writes through mapped windows (IoCounters)
+R	1b9d	u32_100.U.real.sparse	1	counted_reserved_write	0	bytes	u32_100.U.real.sparse.1 zeros written to reserve the growth
+R	1b9d	u32_100.U.real.sparse	1	scratch_peak	1200000000	bytes	u32_100.U.real.sparse.1
+R	1b9d	u32_100.U.real.sparse	1	arena_peak	141337720	bytes	u32_100.U.real.sparse.1
+R	1b9d	u32_100.U.real.sparse	1	proc_rchar	3913904210	bytes	u32_100.U.real.sparse.1 /proc/self/io over the call
+R	1b9d	u32_100.U.real.sparse	1	proc_wchar	2807117987	bytes	u32_100.U.real.sparse.1
+R	1b9d	u32_100.U.real.sparse	1	proc_read_bytes	101044224	bytes	u32_100.U.real.sparse.1 block-layer reads charged to the process
+R	1b9d	u32_100.U.real.sparse	1	proc_write_bytes	4650414080	bytes	u32_100.U.real.sparse.1 pages dirtied (a page that is written again counts again)
+R	1b9d	u32_100.U.real.sparse	1	dev_sectors_read	212680	sectors	u32_100.U.real.sparse.1 /sys/block/vda/stat over the call (512 B)
+R	1b9d	u32_100.U.real.sparse	1	dev_sectors_written	5203184	sectors	u32_100.U.real.sparse.1 over the call
+R	1b9d	u32_100.U.real.sparse	1	dev_sectors_written_synced	5204080	sectors	u32_100.U.real.sparse.1 until the end of a sync after the call
+R	1b9d	u32_100.U.real.sparse	1	rssanon_peak_mb	302.104576	MB	u32_100.U.real.sparse.1 verdict Within
+R	1b9d	u32_100.U.real.sparse	1	rssanon_ph0_mb	10.616832	MB	u32_100.U.real.sparse.1
+R	1b9d	u32_100.U.real.sparse	1	rssanon_ph1_mb	93.564928	MB	u32_100.U.real.sparse.1
+R	1b9d	u32_100.U.real.sparse	1	rssanon_ph23_mb	148.271104	MB	u32_100.U.real.sparse.1
+R	1b9d	u32_100.U.real.sparse	1	rssanon_ph45_mb	302.112768	MB	u32_100.U.real.sparse.1
+R	1b9d	u32_100.U.real.sparse	1	rssanon_ph6_mb	186.970112	MB	u32_100.U.real.sparse.1
+R	1b9d	u32_100.U.real.sparse	1	rssanon_seal_mb	187.031552	MB	u32_100.U.real.sparse.1
+R	1b9d	u32_100.U.real.sparse	1	exit_code	0		program exit code (0 = healthy)
+R	1b9d	u32_100.U.real.sparse	1	killed	no		no | watchdog (300 s) | oom-or-signal (exit 137 without the watchdog: the cgroup OOM killer)
+R	1b9d	u32_100.U.real.sparse	1	cg_failcnt_final	0	n	memory.failcnt after the run
+R	1b9d	u32_100.U.real.sparse	1	cg_max_usage_final	2073870336	bytes	memory.max_usage_in_bytes after the run; memory.stat: cache 1726455808 rss 0 mapped_file 0 pgpgin 345689 pgpgout 291437 pgmajfault 1973 total_cache 1726455808 total_rss 0 total_mapped_file 0 total_pgpgin 345689 total_pgpgout 291437 total_pgmajfault 1973 
+R	1b9d	u32_100.U.real.sparse	1	cmp_container	yes		SHA-256 99c630dc025328bc of the container against the reference in /tmp/stbench/b9d/work/u32_100m.txt.sesa.sha (reference = this run made it)
+R	1b9d	u32_100.U.real.sparse	1	left_behind	0		entries of the work directory of the run besides the container (a build that succeeded leaves the container only)
+R	1b9d	u32_100.U.real.sparse	1	run_done	yes		all rows of this run are written

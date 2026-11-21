@@ -37,23 +37,26 @@ def logical(r):
     except (KeyError, ValueError):
         return None
 
+def config(c):
+    """(input, configuration tag): the cell name is <input>.<U|D|C><limit MB>[.<tag>] and the slowdown of a cell is against the unlimited cell of the same input and tag."""
+    parts = c.split('.')
+    return parts[0], '.'.join(parts[2:])
+
 cases = sorted(rows)
 unl = {}
 for c in cases:
-    inp = c.split('.')[0]
     if rows[c] and next(iter(rows[c].values())).get('settings', '').startswith('limit=max'):
         t = [x for x in metric(c, 'total_s') if x is not None]
         if t:
-            unl[inp] = statistics.median(t)
+            unl[config(c)] = statistics.median(t)
 
 print('| cell | runs finished / started | total s | slowdown | PH1 s | PH2+PH3 s | PH4+PH5 s | PH6 s | CRC + seal s | effective cache (PH3) | device reads MB | dirty amplification (pages / device) | RssAnon peak MB | failcnt | killed | container identical |')
 print('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|')
 for c in cases:
     runs = rows[c]
     done = [r for r in runs.values() if r.get('run_done') == 'yes' and r.get('exit_code') == '0']
-    inp = c.split('.')[0]
     total = [f(r.get('total_s')) for r in done]
-    slow = [t / unl[inp] if t is not None and inp in unl else None for t in total]
+    slow = [t / unl[config(c)] if t is not None and config(c) in unl else None for t in total]
     ph6 = [(f(r.get('bwt_s')) or 0) + (f(r.get('psi_s')) or 0) for r in done]
     tail = [(f(r.get('crc_s')) or 0) + (f(r.get('seal_s')) or 0) for r in done]
     ph23 = [(f(r.get('ph23_s')) or 0) for r in done]

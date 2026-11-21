@@ -10,14 +10,21 @@ export PATH="$PATH:/root/.dotnet" DOTNET_ROOT=/root/.dotnet DOTNET_CLI_TELEMETRY
 unset DOTNET_GCHeapHardLimit
 DLL=${B9D_DLL:-/tmp/stbench/b9d/bin/SuffixTree.Esa.Bench.dll}
 V=/tmp/stbench/b9d/vol
-mkdir -p $V
+mkdir -p $V /tmp/stbench/b9d/volref
+# the reference: the same build without PSI on the ordinary disk, nothing filled; its SHA-256 is what the build on the full volume must give
+dotnet "$DLL" sesa build --input "$INPUT" --work /tmp/stbench/b9d/volref --label ref --psi false --threads 4 --fsync false --keep true > /dev/null 2>&1
+REF=$(sha256sum /tmp/stbench/b9d/volref/out.sesa | cut -d' ' -f1); rm -rf /tmp/stbench/b9d/volref
 for cell in "sparse psi=false" "reserved psi=false" "sparse psi=true" "reserved psi=true"; do
   set -- $cell; MODE=$1; PSI=${2#psi=}
   mount -t tmpfs -o size=$BYTES tmpfs $V || { echo "cannot mount" >&2; exit 2; }
   ARGS=""; [ "$MODE" = sparse ] && ARGS="--sparse true"
-  dotnet "$DLL" sesa build --input "$INPUT" --work $V --label "full.$MODE.psi_$PSI" --psi "$PSI" --threads 4 --fsync false --fill-at lcp-placed $ARGS > $V.out 2> $V.err
+  dotnet "$DLL" sesa build --input "$INPUT" --work $V --label "full.$MODE.psi_$PSI" --psi "$PSI" --threads 4 --fsync false --keep true --fill-at lcp-placed $ARGS > $V.out 2> $V.err
   RC=$?
-  LEFT=$(ls -A $V | grep -vc '^ballast$')
+  if [ -f $V/out.sesa ] && [ "$PSI" = false ]; then
+    GOT=$(sha256sum $V/out.sesa | cut -d' ' -f1)
+    printf 'R\tfullvolume\tfull.%s.psi_%s\tcontainer_equals_reference\t%s\t\tSHA-256 of the container built on the full volume against the build on the ordinary disk (%s)\n' "$MODE" "$PSI" "$([ "$GOT" = "$REF" ] && echo yes || echo NO)" "${REF:0:16}" >> "$ROWS"
+  fi
+  if [ $RC = 0 ]; then LEFT=$(ls -A $V | grep -vc '^ballast$\|^out.sesa$'); else LEFT=$(ls -A $V | grep -vc '^ballast$'); fi   # a build that succeeded leaves its container
   printf 'R\tfullvolume\tfull.%s.psi_%s\texit_code\t%s\t\t0 = built, 3 = IOException, 135 = SIGBUS\n' "$MODE" "$PSI" "$RC" >> "$ROWS"
   printf 'R\tfullvolume\tfull.%s.psi_%s\tleft_behind\t%s\t\tentries of the volume besides the ballast\n' "$MODE" "$PSI" "$LEFT" >> "$ROWS"
   grep -E "io_exception|total_s|grown_bytes" $V.out | sed "s/^R\tsesa/R\tfullvolume/" >> "$ROWS"
