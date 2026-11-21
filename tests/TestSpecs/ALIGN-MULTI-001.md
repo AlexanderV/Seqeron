@@ -809,3 +809,15 @@ Tests (`Seqeron.Genomics.Tests`, against the installed Debian `poa` 2.0+20060928
 |---|---|---|---|
 | A3-9b | `MummerShow_Oracle_Tests.DeltaPrograms_OutputEqualsTheProgram_AllRuns` | 2 442 runs of `delta-filter`, `show-coords`, `show-aligns`, `show-snps`, `show-diff`, `show-tiling` (+ files), `dnadiff` (`mummer_show_oracle.jsonl.gz`, `generate_mummer_show_oracle.py`): every output text / file equal (dnadiff's hash-ordered lines as sets) | as specified |
 | A3-9b | MCP `EmbossProgramToolsTests.MummerDeltaPrograms_...`, `Dnadiff_...`, `ToolRegistrationContractTests`, `ToolDocsContractTests` | the installed programs on the three-substitution and two-contig examples | as specified |
+
+## Audit A3-9d / A3-9e / A3-9f (B09 F204 - F209): the other programs of the MUMmer package
+
+| Item | Tests | Oracle | Status |
+|---|---|---|---|
+| A3-9e | `MummerCli_Oracle_Tests` (2) | 700 `mummer` runs (`mummer_cli_oracle.jsonl.gz`, `generate_mummer_cli_oracle.py`): stdout and the deterministic stderr lines equal, 47 error runs, option conflicts refused | as specified |
+| A3-9d | `MummerPromer_Oracle_Tests.Promer_AllStagesEqualTheProgram_AllRows`, `Translate_...`, `Prepro_...`, `Postpro_...` | 320 `promer` runs (`promer_oracle.jsonl.gz`): delta / cluster / coords / stderr and the temporary files equal; the `prepro` examples (`A*AAAAA*A`, `-m 5`, `-m -3`), the `compdna [-1]` rule | as specified |
+| A3-9d | `MummerPromer_Oracle_Tests.DeltaPrograms_OnPromerDeltaFiles_...` | 105 PROMER delta cases (`promer_show_oracle.jsonl.gz`): `delta-filter` 210, `show-coords` 315, `show-aligns` 210, `show-snps` 315, `show-diff` 210, `show-tiling` 234 runs equal | as specified |
+| A3-9e | `MummerGaps_Oracle_Tests` (4) | `gaps` 259 + the crash, `delta2blocks` 226 + 20 crashes, `mummer-annotate` 230 (+ 14 undefined, valgrind), `run-mummer1` 55 + 60 failing (`mummer_gaps_oracle.jsonl.gz`) | as specified |
+| A3-9e | `MummerDelta2Maf_Oracle_Tests` (2) | 375 `delta2maf` runs (`delta2maf_oracle.jsonl.gz`) | as specified |
+| A3-9e / A3-9f | `MummerPerl_Oracle_Tests` (2) | 260 `nucmer2xfig` runs; 170 `nucmer -p` runs: files and stderr equal on 123 | as specified |
+| A3-9d .. A3-9f | MCP `MummerProgramToolsTests` (9), `ToolRegistrationContractTests`, `ToolDocsContractTests` | the installed programs on the small examples (`mummer`, `promer`, `show_aligns` / `show_snps` on PROMER, `mummer_gaps`, `delta2blocks`, `mummer_annotate`, `run_mummer1`, `delta2maf`, `nucmer2xfig`, `nucmer` prefix) | as specified |

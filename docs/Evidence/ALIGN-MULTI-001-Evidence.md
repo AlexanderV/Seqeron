@@ -808,3 +808,19 @@ Sources actually opened: the MUMmer 3.23 source tarball of the Debian source pac
 ## Audit A3-9b (B09 F200 - F202): `delta-filter`, `show-coords`, `show-aligns`, `show-snps`, `show-diff`, `show-tiling`, `dnadiff`
 
 Sources actually opened: MUMmer 3.23 `src/tigr/delta.hh`, `delta.cc`, `delta-filter.cc`, `show-coords.cc`, `show-aligns.cc`, `show-snps.cc`, `show-diff.cc`, `show-tiling.cc`, `tigrinc.cc` (`CompareIUPAC`), the installed `dnadiff` 1.3 perl script. Ports: `MummerDelta` (reader, `DeltaGraph_t`, the LIS filters), `MummerDeltaFilter`, `MummerShowCoords`, `MummerShowAligns`, `MummerShowSnps`, `MummerShowDiff`, `MummerShowTiling`, `GenomicAnalyzer.Dnadiff`. Reproduced program details: `float` arithmetic of the identity percentages and coverages, `pow (idy, 2)` score truncation, libstdc++ `std::sort` (unstable) and `std::partition` (order-changing) permutations, glibc `rand ()` seeded with 1 (`delta-filter`, `show-diff`) or `time (NULL)` (`show-coords -g`, `show-tiling -R`, fixed to 1700000000 by an `LD_PRELOAD` shim in the oracle). Oracle: **2 442 / 2 442** runs equal (`generate_mummer_show_oracle.py`, seed 20261122), 3 further seeds (31 - 33, 5 800 runs) equal. `dnadiff`'s hash-ordered lines are non-deterministic in the program (6 runs, 6 reports) and are compared as sets. Not ported: promer (amino-acid) data in `show-aligns` / `show-snps` and the `promer` pipeline itself (registered A3-9d).
+
+## Audit A3-9d / A3-9e / A3-9f (B09 F204 - F209, WP49): the other programs of the MUMmer 3.23 package
+
+Sources actually opened (Debian source package `mummer_3.23+dfsg.orig.tar.xz` with its patches applied, User-Agent `Seqeron-review/1.0`; the installed binaries `mummer 3.23+dfsg-8` are the oracle): `src/kurtz/mm3src/*.c` and `libbasedir/{cleanMUMcand,multiseq}.c` (the `mummer` command), `src/tigr/{prepro,translate,postpro,sw_align,mgaps,show-aligns,show-snps,gaps,delta2blocks,annotate,delta2maf,tigrinc}.cc|hh`, `sw_alignscore.hh`, the installed perl scripts `promer`, `nucmer`, `nucmer2xfig`, the shell script `run-mummer1`. Not ported (registered): `combineMUMs`, `run-mummer3`, `repeat-match`, `exact-tandems`, `mapview`, `mummerplot`.
+
+| Program | Oracle (embedded recorded runs) | Result |
+|---|---|---|
+| `mummer` | `mummer_cli_oracle.jsonl.gz`, 700 runs (47 error runs) + 2 500 further seeds | stdout and stderr equal; the leaf order is the suffix order with the terminator greater than every byte (the opposite order fails 69 of 300 runs) |
+| `promer` | `promer_oracle.jsonl.gz`, 320 runs + 1 920 | delta / cluster / coords / stderr / `.aaref` `.aaqry` `.mgaps` equal; `compdna [-1]` reads 0 in the installed binary (measured on 14 letters) |
+| delta programs on PROMER deltas | `promer_show_oracle.jsonl.gz`, 105 cases: 210 + 315 + 210 + 315 + 210 + 234 runs (+ 7 458) | equal; `show-snps` contexts end at the zero byte of a translated frame |
+| `gaps` / `delta2blocks` / `mummer-annotate` / `run-mummer1` | `mummer_gaps_oracle.jsonl.gz`, 865 rows | 259 / 226 (+ 20 crashes) / 230 / 115 equal; `mummer-annotate` reads before its buffer on a window before the first base: valgrind invalid read on 14 / 14 crafted runs |
+| `delta2maf` | `delta2maf_oracle.jsonl.gz`, 375 runs | equal |
+| `nucmer2xfig` | `nucmer2xfig_oracle.jsonl.gz`, 260 runs | equal (malformed input and an empty file included) |
+| `nucmer -p` | `nucmer_prefix_oracle.jsonl.gz`, 170 runs | files and stderr equal on 123 successful runs |
+
+Detail and the quirks of the programs (the `gaps` endless loop and segmentation fault, the `delta2blocks` null pointer on PROMER data, the broken line break of the installed `exact-tandems`): docs/algorithms/Alignment/Mummer_Package_Programs.md.
