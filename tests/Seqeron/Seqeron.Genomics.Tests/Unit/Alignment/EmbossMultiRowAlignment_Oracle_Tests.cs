@@ -67,7 +67,7 @@ public class EmbossMultiRowAlignment_Oracle_Tests
     {
         Assert.Multiple(() =>
         {
-            foreach (var f in new[] { "unknown", "multiple", "simple", "srs" })
+            foreach (var f in new[] { "unknown", "multiple", "simple", "srs", "tcoffee" })
                 Assert.That(Rows.Value.Count(r => r.Format == f && !r.Output.StartsWith("ERROR:", StringComparison.Ordinal)), Is.GreaterThanOrEqualTo(200), f);
         });
     }

@@ -95,4 +95,18 @@ public class EmbossFormatTests
             Assert.That(ex!.Message, Does.StartWith("Alignment format pair specifies at most 2 sequences, alignment has 3"));
         });
     }
+
+    [Test]
+    public void WriteAlignment_ThreeRows_TCoffeeListsEveryPairOfRows()
+    {
+        var r = AlignmentTools.WriteAlignment(["ACGT-ACGTTAGC", "ACGTTACG-TAGC", "AC-TTACGTTAGA"], "tcoffee", names: ["s1", "s2", "s3"]);
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.Text, Does.StartWith("3\ns1 12 ACGTACGTTAGC\ns2 12 ACGTTACGTAGC\ns3 12 ACTTACGTTAGA\n"));
+            Assert.That(r.Text, Does.Contain("#1 2\n1 1 0 1 0\n2 2 0 1 0\n"));
+            Assert.That(r.Text, Does.Contain("#1 3\n1 1 0 1 0\n2 2 0 1 0\n4 3 0 1 0\n"));
+            Assert.That(r.Text, Does.Contain("#2 3\n"));
+            Assert.That(r.Text, Does.EndWith("! SEQ_1_TO_N\n"));
+        });
+    }
 }

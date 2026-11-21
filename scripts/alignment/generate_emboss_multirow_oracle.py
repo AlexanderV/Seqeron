@@ -71,6 +71,21 @@ with tempfile.TemporaryDirectory() as d:
             out = re.sub(r'# Rundate: .*', '# Rundate: Sat 21 Nov 2026 19:00:00', r.stdout)
         rows.append((fmt, str(width), fa, out))
 
+# the `tcoffee` format of three or more rows (B09 F238): its own random stream, so the rows above stay as they are
+rng = random.Random(20261324)
+with tempfile.TemporaryDirectory() as d:
+    for i in range(240):
+        prot = rng.random() < 0.5
+        fa = make(prot)
+        width = rng.choice([0, 0, 33, 80])
+        open(os.path.join(d, 'a.fa'), 'w').write(fa)
+        cmd = ['aligncopy', '-sequence', 'a.fa', '-aformat', 'tcoffee', '-outfile', 'stdout', '-auto']
+        if width:
+            cmd += ['-awidth', str(width)]
+        r = subprocess.run(cmd, cwd=d, capture_output=True, text=True)
+        out = 'ERROR:' + r.stderr if r.returncode != 0 else re.sub(r'# Rundate: .*', '# Rundate: Sat 21 Nov 2026 19:00:00', r.stdout)
+        rows.append(('tcoffee', str(width), fa, out))
+
 with open(out_path, 'w', newline='\n') as fh:
     fh.write('id\tformat\twidth\tfasta\toutput\n')
     for i, r in enumerate(rows):

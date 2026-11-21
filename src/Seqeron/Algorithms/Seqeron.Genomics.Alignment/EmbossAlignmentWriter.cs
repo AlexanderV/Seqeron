@@ -169,8 +169,11 @@ public sealed class EmbossAlignmentWriter
             case EmbossAlignFormat.Srs:
                 WriteSrs([d], false);
                 break;
+            case EmbossAlignFormat.TCoffee:
+                WriteTCoffee([d]);
+                break;
             default:
-                if (IsPairFormat(_format) || _format == EmbossAlignFormat.TCoffee)
+                if (IsPairFormat(_format))
                     throw new NotSupportedException($"The format '{FormatName(_format)}' of {n} rows is not ported.");
                 _seqOnly = true;
                 WriteSeqFormat(d.Rows);
@@ -962,31 +965,39 @@ public sealed class EmbossAlignmentWriter
     {
         _seqOnly = true;
         var first = data[0];
-        _out.Append(2).Append('\n');
-        string[] ungapped = new string[2];
-        for (int i = 0; i < 2; i++)
+        int nseq = first.Row.Length;
+        _out.Append(nseq).Append('\n');
+        for (int i = 0; i < nseq; i++)
         {
-            ungapped[i] = first.Row[i].Replace(" ", "").Replace("-", "");
-            _out.Append(SeqName(first.Seq[i])).Append(' ').Append(ungapped[i].Length).Append(' ').Append(ungapped[i]).Append('\n');
+            string ungapped = first.Row[i].Replace(" ", "").Replace("-", "");
+            _out.Append(SeqName(first.Seq[i])).Append(' ').Append(ungapped.Length).Append(' ').Append(ungapped).Append('\n');
         }
 
         foreach (var d in data)
         {
-            // alignConsStats is not called by this writer: NumId is what the program stored (stretcher) or 0 (needle, water)
+            // alignConsStats is not called by this writer: NumId is what the program stored (stretcher) or 0 (needle, water, aligncopy)
             int pidentity = _o.StatisticsSetByProgram ? (int)(0.5 + (100.0 * ((float)d.NumId / d.LenAli))) : 0;
-            _out.Append("! score=").Append(d.ScoreText).Append('\n');
-            _out.Append("! matrix=").Append(PrintedMatrixName()).Append('\n');
-            _out.Append("! gapopen=").Append(ScoreString(_o.GapPenalty ?? 0, _o.IntegerScores)).Append(" gapext=").Append(ScoreString(_o.ExtendPenalty ?? 0, _o.IntegerScores)).Append('\n');
-            _out.Append("#1 2\n");
-            int n1 = 1, n2 = 1;
-            for (int i = 0; i < d.LenAli; i++)
+            // the program prints %S of a string it never set (aligncopy: no score, matrix or gap penalties) as <null>
+            string matrix = PrintedMatrixName();
+            _out.Append("! score=").Append(d.ScoreText.Length == 0 && nseq > 2 ? "<null>" : d.ScoreText).Append('\n');
+            _out.Append("! matrix=").Append(matrix.Length == 0 && nseq > 2 ? "<null>" : matrix).Append('\n');
+            _out.Append("! gapopen=").Append(_o.GapPenalty is null && nseq > 2 ? "<null>" : ScoreString(_o.GapPenalty ?? 0, _o.IntegerScores)).Append(" gapext=").Append(_o.ExtendPenalty is null && nseq > 2 ? "<null>" : ScoreString(_o.ExtendPenalty ?? 0, _o.IntegerScores)).Append('\n');
+            for (int s1 = 0; s1 < nseq - 1; s1++)
             {
-                if (first.Row[0][i] >= 'A' && first.Row[1][i] >= 'A')
-                    _out.Append(n1).Append(' ').Append(n2).Append(' ').Append(pidentity).Append(" 1 0\n");
-                if (first.Row[0][i] >= 'A')
-                    n1++;
-                if (first.Row[1][i] >= 'A')
-                    n2++;
+                for (int s2 = s1 + 1; s2 < nseq; s2++)
+                {
+                    _out.Append('#').Append(s1 + 1).Append(' ').Append(s2 + 1).Append('\n');
+                    int n1 = 1, n2 = 1;
+                    for (int i = 0; i < d.LenAli; i++)
+                    {
+                        if (first.Row[s1][i] >= 'A' && first.Row[s2][i] >= 'A')
+                            _out.Append(n1).Append(' ').Append(n2).Append(' ').Append(pidentity).Append(" 1 0\n");
+                        if (first.Row[s1][i] >= 'A')
+                            n1++;
+                        if (first.Row[s2][i] >= 'A')
+                            n2++;
+                    }
+                }
             }
         }
 
