@@ -10,7 +10,7 @@ namespace Seqeron.Genomics.Alignment;
 /// <param name="Options">Alignment parameters (<c>--type</c>, <c>--gpo</c>, <c>--gpe</c>, <c>--tgpe</c>, <c>-n</c>).</param>
 /// <param name="InputFiles">Input file names: <c>-i / --input / --infile / --in</c> first, then the non-option arguments (the program also reads standard input when it is not a terminal).</param>
 /// <param name="OutFile"><c>-o / --output / --outfile / --out</c>; null = standard output.</param>
-/// <param name="Format"><c>-f / --format</c> (<c>fasta</c> default; <c>msf</c>, <c>clu</c> are accepted by the program).</param>
+/// <param name="Format"><c>-f / --format</c> (<c>fasta</c> default, <c>msf</c>, <c>clu</c>).</param>
 /// <param name="Quiet"><c>-q / --quiet</c> (no banner / log lines).</param>
 /// <param name="Help"><c>-h / --help</c>.</param>
 /// <param name="Version"><c>-v / -V / --version</c>.</param>
@@ -32,11 +32,17 @@ public sealed record KalignProgramResult(int ExitCode, string Stdout, IReadOnlyD
 /// <c>parameters.c</c> and the FASTA reader / writer of <c>msa_io.c</c> (60 columns per line). Input and output are text, the "files" are given as a dictionary.
 /// </summary>
 /// <remarks>
-/// Accepted and documented but without effect on the alignment: <c>-n / --nthreads</c> beyond the one-thread / many-threads distinction of <see cref="KalignOptions.Threads"/>, <c>--set</c>, <c>-q</c>.
-/// <c>--format msf</c> and <c>--format clu</c> (output) and MSF / Clustal inputs are accepted by the program but are not written / read by this library: <see cref="NotSupportedException"/> (use FASTA).
+/// Accepted and documented but without effect on the alignment: <c>-n / --nthreads</c> beyond the one-thread / many-threads distinction of <see cref="KalignOptions.Threads"/>, <c>--set</c>.
+/// Formats: input FASTA, MSF and Clustal (detected, the readers of <c>msa_io.c</c> with their quirks: a name ends at the first white space, a Clustal line without white space is read as residues), output
+/// FASTA / MSF / Clustal. Not reproduced: letters outside the alphabet of the detected type (the program leaves the internal code of such a residue uninitialised; this library refuses), the text of error
+/// messages with the program's source locations, the exact CPU times (<see cref="KalignRuntime"/>).
 /// </remarks>
 public static class KalignProgram
 {
+    /// <summary>Key of <see cref="Exception.Data"/> on the exception of <c>Number of threads has to be &gt;= 1.</c>: the program prints its help and the log line before it fails (the value is the <c>-q</c> flag).</summary>
+    private const string UsageKey = "kalign.usage.quiet";
+
+
     private const string Version = "kalign 3.3.5";
 
     private static readonly (string Name, bool HasArg, char Val)[] LongOptions =
@@ -162,7 +168,7 @@ public static class KalignProgram
         if (!version && !showw && !help)
         {
             if (o.Threads < 1)
-                throw new ArgumentException("Number of threads has to be >= 1.");
+                throw new ArgumentException("Number of threads has to be >= 1.") { Data = { [UsageKey] = quiet } };
             CheckFormat(format);
             if (typeWord != null)
                 o = o with { Type = ParseType(typeWord) };
@@ -179,17 +185,32 @@ public static class KalignProgram
     }
 
     /// <summary>
-    /// Runs the program: reads the input files (name -> FASTA text; a missing name is an error; <paramref name="stdin"/> is read when no file is named), aligns with <see cref="SequenceAligner.KalignRun"/>
-    /// and writes the alignment as FASTA (60 residues per line, <c>write_msa_fasta</c>) to standard output or to the <c>-o</c> file.
+    /// Runs the program: reads the input files (name -> text in FASTA, MSF or Clustal format, detected from the first 100 lines as <c>detect_alignment_format</c> does; a missing name is an error;
+    /// <paramref name="stdin"/> is read first when it is given, as the program reads a standard input that is not a terminal), aligns with <see cref="SequenceAligner.KalignRun"/> and writes the alignment in the
+    /// <c>--format</c> (<c>fasta</c> 60 columns, <c>msf</c> with the GCG checksums and the date line, <c>clu</c>) to standard output or to the <c>-o</c> file. Without <c>-q</c> the banner, the log lines
+    /// (<c>Detected DNA sequences.</c>, <c>Read n sequences from f.</c>, the stopwatch lines, the warnings about unaligned / aligned input) and, with <c>-n 1</c>, the <c>Aligned a and b</c> lines precede the alignment
+    /// on standard output exactly as the program prints them (the time of the day and the CPU time come from <paramref name="runtime"/>).
     /// </summary>
-    public static KalignProgramResult Run(IReadOnlyList<string> arguments, IReadOnlyDictionary<string, string>? files = null, string? stdin = null)
+    public static KalignProgramResult Run(IReadOnlyList<string> arguments, IReadOnlyDictionary<string, string>? files = null, string? stdin = null, KalignRuntime? runtime = null)
     {
         SequenceAligner.RequireProgramCall(arguments, files);
+        runtime ??= new KalignRuntime();
         var messages = new List<string>();
+        var stdout = new StringBuilder();
         KalignCommand cmd;
         try
         {
             cmd = Parse(arguments);
+        }
+        catch (ArgumentException e) when (e.Data.Contains(UsageKey))
+        {
+            // the program prints its banner (without -q), the help text and the log line, then fails
+            bool quiet = (bool)e.Data[UsageKey]!;
+            if (!quiet)
+                stdout.Append(BannerText);
+            stdout.Append(HelpText);
+            new KalignLog(runtime, stdout, quiet).Log(e.Message);
+            return new KalignProgramResult(1, stdout.ToString(), new Dictionary<string, string>(), messages);
         }
         catch (ArgumentException e)
         {
@@ -198,92 +219,235 @@ public static class KalignProgram
         }
         if (cmd.Version)
             return new KalignProgramResult(0, Version + "\n", new Dictionary<string, string>(), messages);
+        if (!cmd.Quiet)
+            stdout.Append(BannerText);
         if (cmd.ShowWarranty)
-            return new KalignProgramResult(0, WarrantyText, new Dictionary<string, string>(), messages);
+            return new KalignProgramResult(0, stdout + WarrantyText, new Dictionary<string, string>(), messages);
         if (cmd.Help)
-            return new KalignProgramResult(0, HelpText, new Dictionary<string, string>(), messages);
+            return new KalignProgramResult(0, stdout + HelpText, new Dictionary<string, string>(), messages);
         files ??= new Dictionary<string, string>();
+        var log = new KalignLog(runtime, stdout, cmd.Quiet);
 
-        var names = new List<string>();
-        var seqs = new List<string>();
-        var sources = new List<string>();
+        // the inputs in the program's order: standard input (when there is one), -i, the other arguments
+        var sources = new List<(string? Name, string? Text)>();
+        if (stdin != null)
+            sources.Add((null, stdin));
         foreach (var f in cmd.InputFiles)
-        {
-            if (!files.TryGetValue(f, out var text))
-            {
-                messages.Add($"File: {f} does not exist.");
-                return new KalignProgramResult(1, string.Empty, new Dictionary<string, string>(), messages);
-            }
-            sources.Add(text);
-        }
-        if (cmd.InputFiles.Count == 0 && stdin != null)
-            sources.Add(stdin);
+            sources.Add((f, files.TryGetValue(f, out var text) ? text : null));
         if (sources.Count == 0)
         {
-            messages.Add("No input files");
-            return new KalignProgramResult(0, HelpText, new Dictionary<string, string>(), messages);
+            stdout.Append(HelpText);
+            log.Log("No input files");
+            return new KalignProgramResult(0, stdout.ToString(), new Dictionary<string, string>(), messages);
         }
-        foreach (var text in sources)
-            ReadFasta(text, names, seqs);
 
-        if (cmd.Format != null && !cmd.Format.Contains("fasta", StringComparison.Ordinal) && !cmd.Format.Contains("fa", StringComparison.Ordinal))
-            throw new NotSupportedException($"Kalign output format '{cmd.Format}' is accepted by the program but is not written by this library; use --format fasta.");
-
-        KalignRunResult result;
+        var all = new List<KalignInputSequence>();
+        bool haveMsa = false;
+        bool? firstIsDna = null;
         try
         {
-            result = SequenceAligner.KalignRun(seqs, cmd.Options);
+            foreach (var (name, text) in sources)
+            {
+                if (text == null)
+                    throw new ArgumentException($"File: {name} does not exist.");
+                log.Start();
+                var lines = KalignMsaIo.ReadLines(text);
+                // an empty input and an input of unknown format both set the alignment read so far to NULL (the program loses it)
+                if (KalignMsaIo.IsEmptyInput(lines))
+                {
+                    all.Clear();
+                    haveMsa = false;
+                    continue;
+                }
+                var format = KalignMsaIo.Detect(lines);
+                if (format == KalignMsaIo.Format.Fail)
+                {
+                    log.Warning(name != null ? $"Could not detect input in file: {name}" : "Could not detect input in standard input", "msa_io.c", name != null ? 129 : 131);
+                    all.Clear();
+                    haveMsa = false;
+                    continue;
+                }
+                var read = format switch
+                {
+                    KalignMsaIo.Format.Fasta => KalignMsaIo.ReadFasta(lines),
+                    KalignMsaIo.Format.Msf => KalignMsaIo.ReadMsf(lines),
+                    _ => KalignMsaIo.ReadClustal(lines),
+                };
+                if (read.Count == 0)
+                    throw new ArgumentException("The input holds no sequence (the program crashes with a segmentation fault).");
+                // detect_alphabet / detect_aligned of the sequences of this file, then (for the second and later files) of the merged set
+                bool? dna = DetectAlphabet(LetterFrequencies(read), log);
+                DetectAligned(read, log);
+                log.Stop();
+                if (!cmd.Quiet)
+                {
+                    log.Log(name != null ? $"Read {read.Count} sequences from {name}." : $"Read {read.Count} sequences from standard input.");
+                    log.Timing();
+                }
+                if (haveMsa)
+                {
+                    if (firstIsDna != null && firstIsDna != dna)
+                        throw new ArgumentException("Input alignments have different alphabets");
+                    all.AddRange(read);
+                    firstIsDna = DetectAlphabet(LetterFrequencies(all), log);
+                    DetectAligned(all, log);
+                }
+                else
+                {
+                    all.AddRange(read);
+                    firstIsDna = dna;
+                    haveMsa = true;
+                }
+                if (all.Count < 2)
+                    throw new ArgumentException(all.Count == 0 ? "No sequences were found in the input files or standard input." : "Only 1 sequence was found in the input files or standard input");
+            }
+            if (!haveMsa)
+                throw new ArgumentException("No alignment");
         }
         catch (ArgumentException e)
         {
             messages.Add(e.Message);
-            return new KalignProgramResult(1, string.Empty, new Dictionary<string, string>(), messages);
+            return new KalignProgramResult(1, stdout.ToString(), new Dictionary<string, string>(), messages);
         }
-        var sb = new StringBuilder();
-        for (int i = 0; i < result.KeptIndices.Length; i++)
+
+        KalignRunResult result;
+        int[] residueCounts;
+        try
         {
-            sb.Append('>').Append(names[result.KeptIndices[i]]).Append('\n');
-            string row = result.Alignment.AlignedSequences[i];
-            for (int p = 0; p < row.Length; p += 60)
-                sb.Append(row, p, Math.Min(60, row.Length - p)).Append('\n');
+            result = SequenceAligner.KalignRunCore(all.Select(a => a.Raw), cmd.Options, log, all.Select(a => a.Name).ToList(), out residueCounts);
+        }
+        catch (ArgumentException e)
+        {
+            messages.Add(e.Message);
+            return new KalignProgramResult(1, stdout.ToString(), new Dictionary<string, string>(), messages);
+        }
+        var names = result.KeptIndices.Select(i => all[i].Name).ToList();
+        var rows = result.Alignment.AlignedSequences;
+        string outFormat = cmd.Format ?? "fasta";
+        string written;
+        try
+        {
+            if (outFormat.Contains("msf", StringComparison.Ordinal))
+                written = KalignMsaIo.WriteMsf(names, rows, residueCounts, cmd.OutFile, runtime.Now());
+            else if (outFormat.Contains("clu", StringComparison.Ordinal))
+                written = KalignMsaIo.WriteClustal(names, rows);
+            else
+                written = KalignMsaIo.WriteFasta(names, rows);
+        }
+        catch (ArgumentException e)
+        {
+            messages.Add(e.Message);
+            return new KalignProgramResult(1, stdout.ToString(), new Dictionary<string, string>(), messages);
         }
         if (cmd.OutFile != null)
-            return new KalignProgramResult(0, string.Empty, new Dictionary<string, string> { [cmd.OutFile] = sb.ToString() }, messages);
-        return new KalignProgramResult(0, sb.ToString(), new Dictionary<string, string>(), messages);
+            return new KalignProgramResult(0, stdout.ToString(), new Dictionary<string, string> { [cmd.OutFile] = written }, messages);
+        stdout.Append(written);
+        return new KalignProgramResult(0, stdout.ToString(), new Dictionary<string, string>(), messages);
     }
 
-    /// <summary>read_file_stdin / read_fasta: a '>' line starts a sequence (its whole text is the name), other lines add residues; a line ends at its first control character.</summary>
-    private static void ReadFasta(string text, List<string> names, List<string> seqs)
+    /// <summary>The <c>letter_freq</c> of the sequences (every character after the name enters, letters and punctuation alike).</summary>
+    private static int[] LetterFrequencies(IReadOnlyList<KalignInputSequence> seqs)
     {
-        var current = new List<StringBuilder>();
-        foreach (var raw in text.Split('\n'))
+        var freq = new int[128];
+        foreach (var s in seqs)
+            foreach (char c in s.Raw)
+                if (c < 128)
+                    freq[c]++;
+        return freq;
+    }
+
+    /// <summary><c>detect_alphabet</c> (<c>msa_op.c</c>): true = DNA, false = protein, null = the letter counts fit both equally (the program warns and leaves the alphabet undefined).</summary>
+    private static bool? DetectAlphabet(int[] freq, KalignLog log)
+    {
+        var dna = new double[128];
+        var protein = new double[128];
+        for (int i = 0; i < 128; i++)
         {
-            int cut = raw.Length;
-            for (int i = 0; i < raw.Length; i++)
+            dna[i] = Math.Log(0.0001 * 1.0 / 116.0);
+            protein[i] = Math.Log(0.0001 * 1.0 / 88.0);
+        }
+        foreach (char c in "acgtunACGTUN")
+            dna[c] = Math.Log(0.9999 * 1.0 / 12.0);
+        foreach (char c in "acdefghiklmnpqrstvwyACDEFGHIKLMNPQRSTVWY")
+            protein[c] = Math.Log(0.9999 * 1.0 / 40.0);
+        double d = 0.0, p = 0.0;
+        for (int i = 0; i < 128; i++)
+        {
+            if (freq[i] != 0)
             {
-                if (raw[i] < 32 || raw[i] == 127)
-                {
-                    cut = i;
-                    break;
-                }
-            }
-            string line = raw[..cut];
-            if (line.Length == 0)
-                continue;
-            if (line[0] == '>')
-            {
-                names.Add(line[1..]);
-                current.Add(new StringBuilder());
-            }
-            else
-            {
-                if (current.Count == 0)
-                    throw new ArgumentException("Encountered a sequence before encountering it's name");
-                current[^1].Append(line);
+                d += dna[i] * freq[i];
+                p += protein[i] * freq[i];
             }
         }
-        seqs.AddRange(current.Select(sb => sb.ToString()));
+        if (d == p)
+        {
+            log.Warning("Could not determine whether we have a DNA or Protein alignment", "msa_op.c", 124);
+            return null;
+        }
+        if (!log.Quiet)
+            log.Log(d > p ? "Detected DNA sequences." : "Detected protein sequences.");
+        return d > p;
     }
+
+    /// <summary><c>detect_aligned</c>: the warnings about input that has gaps but rows of different total length, or equal lengths without gaps.</summary>
+    private static void DetectAligned(IReadOnlyList<KalignInputSequence> seqs, KalignLog log)
+    {
+        int min = int.MaxValue, max = 0;
+        long gaps = 0;
+        var punctuation = new int[128];
+        foreach (var s in seqs)
+        {
+            int letters = 0, punct = 0;
+            foreach (char c in s.Raw)
+            {
+                if (c is >= 'a' and <= 'z' or >= 'A' and <= 'Z')
+                    letters++;
+                else if (c > ' ' && c < 127 && !(c >= '0' && c <= '9'))
+                {
+                    punct++;
+                    punctuation[c]++;
+                }
+            }
+            gaps += punct;
+            min = Math.Min(min, letters + punct);
+            max = Math.Max(max, letters + punct);
+        }
+        if (log.Quiet)
+            return;
+        if (gaps > 0)
+        {
+            if (min != max)
+            {
+                log.Warning("--------------------------------------------", "msa_op.c", 413);
+                log.Warning("The input sequences contain gap characters: ", "msa_op.c", 414);
+                for (int i = 0; i < 128; i++)
+                    if (punctuation[i] > 0)
+                        log.Warning($"\"{(char)i}\" : {punctuation[i],4} found                            ", "msa_op.c", 418);
+                log.Warning("BUT the presumably aligned sequences do not ", "msa_op.c", 422);
+                log.Warning("have the same length.                       ", "msa_op.c", 423);
+                log.Warning("                                            ", "msa_op.c", 424);
+                log.Warning("Kalign will remove the gap characters and   ", "msa_op.c", 425);
+                log.Warning("align the sequences.                        ", "msa_op.c", 426);
+                log.Warning("--------------------------------------------", "msa_op.c", 427);
+            }
+        }
+        else if (min == max)
+        {
+            log.Warning("--------------------------------------------", "msa_op.c", 434);
+            log.Warning("All input sequences have the same length.   ", "msa_op.c", 435);
+            log.Warning("BUT there are no gap characters.            ", "msa_op.c", 436);
+            log.Warning("                                            ", "msa_op.c", 437);
+            log.Warning("Unable to determine whether the sequences   ", "msa_op.c", 438);
+            log.Warning("are already aligned.                        ", "msa_op.c", 439);
+            log.Warning("Kalign will align the sequences.            ", "msa_op.c", 440);
+            log.Warning("--------------------------------------------", "msa_op.c", 441);
+        }
+    }
+
+    private const string BannerText =
+        "\nKalign (3.3.5)\n\nCopyright (C) 2006,2019,2020,2021 Timo Lassmann\n\nThis program comes with ABSOLUTELY NO WARRANTY; for details type:\n`kalign -showw'.\n" +
+        "This is free software, and you are welcome to redistribute it\nunder certain conditions; consult the COPYING file for details.\n\nPlease cite:\n  Lassmann, Timo.\n" +
+        "  \"Kalign 3: multiple sequence alignment of large data sets.\"\n  Bioinformatics (2019) \n  https://doi.org/10.1093/bioinformatics/btz795\n\n";
 
     private const string WarrantyText =
         "Here is the Disclaimer of Warranty section of the GNU General Public License (GPL):\n\n15. Disclaimer of Warranty.\n" +
@@ -294,8 +458,9 @@ public static class KalignProgram
         "A complete copy of the GPL can be found in the \"COPYING\" file.\n";
 
     private const string HelpText =
-        "\nUsage: kalign  -i <seq file> -o <out aln> \n\nOptions:\n\n   --format           : Output format. [Fasta]\n   --type             : Alignment type (rna, dna, internal). [rna]\n" +
+        "\nUsage: kalign-avx2  -i <seq file> -o <out aln> \n\nOptions:\n\n   --format           : Output format. [Fasta]\n   --type             : Alignment type (rna, dna, internal). [rna]\n" +
         "                        Options: protein, divergent (protein) \n                                 rna, dna, internal (nuc). \n   --gpo              : Gap open penalty. []\n" +
         "   --gpe              : Gap extension penalty. []\n   --tgpe             : Terminal gap extension penalty. []\n   -n/--nthreads      : Number of threads. [4]\n" +
-        "   --version (-V/-v)  : Prints version. [NA]\n";
+        "   --version (-V/-v)  : Prints version. [NA]\n\nExamples:\n\nPassing sequences via stdin:\n\n   cat input.fa | kalign -f fasta > out.afa\n\n" +
+        "Combining multiple input files:\n\n   kalign seqsA.fa seqsB.fa seqsC.fa -f fasta > combined.afa\n\n";
 }

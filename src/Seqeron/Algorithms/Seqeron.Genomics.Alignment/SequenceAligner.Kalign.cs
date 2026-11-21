@@ -96,6 +96,10 @@ public static partial class SequenceAligner
     /// </remarks>
     /// <exception cref="ArgumentException">See <see cref="MultipleAlignKalign"/>.</exception>
     public static KalignRunResult KalignRun(IEnumerable<string> sequences, KalignOptions? options = null)
+        => KalignRunCore(sequences, options, null, null, out _);
+
+    /// <summary><see cref="KalignRun"/> with the program's log (<paramref name="log"/>: the lines <c>kalign</c> prints to standard output unless <c>-q</c>) and the names of the sequences (for the warning about empty sequences).</summary>
+    internal static KalignRunResult KalignRunCore(IEnumerable<string> sequences, KalignOptions? options, KalignLog? log, IReadOnlyList<string>? names, out int[] residueCounts)
     {
         var o = options ?? new KalignOptions();
         var list = new List<string>();
@@ -104,8 +108,9 @@ public static partial class SequenceAligner
         if (o.Threads < 1)
             throw new ArgumentException("Number of threads has to be >= 1.", nameof(options));
         using var cancelScope = AlignmentCancellation.Enter(o.CancellationToken);
-        var engine = new KalignEngine(list, o);
+        var engine = new KalignEngine(list, o) { Log = log, Names = names };
         engine.Run();
+        residueCounts = engine.ResidueCounts;
         var rows = engine.Rows;
         var sp = engine.IsDna ? MatrixScoring.Emboss(SubstitutionMatrix.EdnaFull, 10, 0.5) : MatrixScoring.Emboss(SubstitutionMatrix.Blosum62, 10, 0.2);
         string consensus = BuildConsensus(rows.ToList(), rows[0].Length, anySymbol: true);
@@ -150,6 +155,9 @@ public static partial class SequenceAligner
         private float[][] _profile = Array.Empty<float[]>();
         private (int A, int B, int C)[] _tasks = Array.Empty<(int, int, int)>();
 
+        internal KalignLog? Log { get; init; }
+        internal IReadOnlyList<string>? Names { get; init; }
+        internal int[] ResidueCounts => _len;
         internal string[] Rows { get; private set; } = Array.Empty<string>();
         internal int[] Kept => _kept;
         internal bool IsDna { get; private set; }
@@ -195,6 +203,13 @@ public static partial class SequenceAligner
             for (int i = 0; i < n; i++)
                 if (letters[i].Length > 0)
                     keep.Add(i);
+            if (Log is { Quiet: false } log0 && keep.Count < n)
+            {
+                for (int i = 0; i < n; i++)
+                    if (letters[i].Length == 0)
+                        log0.Warning($"No sequence found for sequence {(Names != null ? Names[i] : "")} ", "msa_check.c", 71);
+                log0.Log(n - keep.Count == 1 ? $"Removing {n - keep.Count} sequence with a length of 0." : $"Removing {n - keep.Count} sequences with a length of 0.");
+            }
             if (keep.Count < 2)
                 throw new ArgumentException($"only {keep.Count} sequences found.");
             _kept = keep.ToArray();
@@ -230,7 +245,13 @@ public static partial class SequenceAligner
                 _sip[i] = new[] { i };
                 _nsip[i] = 1;
             }
+            if (Log is { Quiet: false } lg3)
+                lg3.Log("Aligning");
+            Log?.Start();
             CreateMsaTree(ap);
+            Log?.Stop();
+            if (Log is { Quiet: false } lg4)
+                lg4.Timing();
             Rows = MakeRows();
         }
 
@@ -552,6 +573,9 @@ public static partial class SequenceAligner
             for (int i = 0; i < numseq; i++)
                 samples[i] = i;
 
+            if (Log is { Quiet: false } lg0)
+                lg0.Log("Calculating pairwise distances");
+            Log?.Start();
             if (numseq >= 100)
             {
                 int numAnchors = Math.Min(32, numseq);
@@ -566,7 +590,17 @@ public static partial class SequenceAligner
                         _anchorDm[i][j] = CalcDistance(i, anchors[j]);
                 }
             }
+            Log?.Stop();
+            if (Log is { Quiet: false } lg)
+            {
+                lg.Timing();
+                lg.Start();
+                lg.Log("Building guide tree.");
+            }
             var root = BisectingKmeans(samples, numseq);
+            Log?.Stop();
+            if (Log is { Quiet: false } lg2)
+                lg2.Timing();
             LabelInternal(root, numseq);
             var tasks = new List<(int, int, int)>();
             CreateTasks(root, tasks);
@@ -1026,6 +1060,8 @@ public static partial class SequenceAligner
                 }
             }
             AddGapInfoToPath(m);
+            if (!parallel)
+                Log?.Log($"Aligned {a} and {b} (len {m.LenA} {m.LenB}) -> path is of length: {64 * (m.Path[0] + 2)}");
             var tmp = new float[64 * (m.Path[0] + 2)];
             if (taskId != _tasks.Length - 1)
                 UpdateProfile(_profile[a], _profile[b], tmp, ap, m.Path, _nsip[a], _nsip[b]);

@@ -99,13 +99,16 @@ public class SequenceAligner_KalignProgram_Tests
     }
 
     [Test]
-    public void MsfAndClustalOutput_AreAcceptedByTheParser_ButNotWritten()
+    public void MsfAndClustalOutput_AreWritten_AsTheProgramWritesThem()
     {
         var files = new Dictionary<string, string> { ["in"] = ">a\nACGTACGT\n>b\nACGTCGT\n" };
+        var run = new KalignRuntime { Now = () => new DateTime(2026, 3, 5, 9, 7, 0, DateTimeKind.Utc), CpuSeconds = () => 0 };
+        var clu = KalignProgram.Run(["-q", "-i", "in", "--format", "clu"], files, null, run);
+        var msf = KalignProgram.Run(["-q", "-i", "in", "--format", "msf", "-o", "dir/x.msf"], files, null, run);
         Assert.Multiple(() =>
         {
-            Assert.That(KalignProgram.Parse(["-i", "in", "--format", "msf"]).Format, Is.EqualTo("msf"));
-            Assert.Throws<NotSupportedException>(() => KalignProgram.Run(["-q", "-i", "in", "--format", "clu"], files));
+            Assert.That(clu.Stdout, Is.EqualTo("Kalign (3.3.5) multiple sequence alignment\n\na     ACGTACGT\nb     ACGT-CGT\n\n\n"));
+            Assert.That(msf.Files["dir/x.msf"], Does.StartWith("!!NA_MULTIPLE_ALIGNMENT 1.0\n\n x.msf  MSF: 8  Type: N  March 05, 2026 09:07  Check: "));
         });
     }
 }

@@ -14,7 +14,7 @@ Kalign 3.3.5 as a function of its command line and the text of the files it name
 
 ## Description
 
-Kalign 3.3.5 as a function of its command line and the text of the files it names (KalignProgram.Run): the arguments are those of the program (-i / --input / --infile / --in, -o / --output / --outfile / --out, -f / --format fasta, --type rna|dna|internal|protein|divergent, --gpo, --gpe, --tgpe, -n / --nthreads, -q, --set, -h, -v / -V, --showw; getopt_long_only forms: one or two dashes, --name=value, unambiguous abbreviations; non-option arguments are input files, several are merged). The type word is matched like the program's strstr chain (rna, dna, internal, protein, divergent in this order: 'internal' contains 'rna' and therefore means RNA). The alignment is written as FASTA with 60 residues per line to the -o file or to standard output. Exit code 1 = the program stops with an error (unknown / ambiguous option, bad type word or format, fewer than one thread, a missing file, a type that does not fit the sequences); the program segfaults on a single sequence, the port reports exit code 1. --format msf / clu and MSF / Clustal inputs are accepted by the program but not yet written / read here (a NotSupportedException error). VERIFICATION: stdout / output file and exit status equal the installed Debian kalign 1:3.3.5-1 on 83 / 83 committed command lines (scripts/alignment/generate_kalign_command_oracle.py).
+Kalign 3.3.5 as a function of its command line and the text of the files it names (KalignProgram.Run): the arguments are those of the program (-i / --input / --infile / --in, -o / --output / --outfile / --out, -f / --format fasta|msf|clu, --type rna|dna|internal|protein|divergent, --gpo, --gpe, --tgpe, -n / --nthreads, -q, --set, -h, -v / -V, --showw; getopt_long_only forms: one or two dashes, --name=value, unambiguous abbreviations; non-option arguments are input files, several are merged). The type word is matched like the program's strstr chain (rna, dna, internal, protein, divergent in this order: 'internal' contains 'rna' and therefore means RNA). The input files are read as FASTA, MSF or Clustal (detected from the first 100 lines like the program: MSF and Clustal rows are re-aligned after their gaps are removed); a standard input given as text is read before the named files. The alignment is written as FASTA with 60 residues per line (default), as MSF (GCG checksums, a date line taken from the clock; names longer than 256 characters are cut) or as Clustal (60-column blocks, 'Kalign (3.3.5) multiple sequence alignment' header) to the -o file or to standard output; without -q standard output starts with the banner and the program's log lines (detected alphabet, sequences read, CPU time of each stage, the warnings about aligned / unaligned input, '-n 1' alignment steps). Exit code 1 = the program stops with an error (unknown / ambiguous option, bad type word or format, fewer than one thread, a missing file, input of two alphabets, fewer than two sequences, a type that does not fit the sequences); the program segfaults on a single sequence or an MSF without Name: lines, the port reports exit code 1; letters outside the alphabet of the detected type leave uninitialised codes in the program and are refused. VERIFICATION: stdout / output file and exit status equal the installed Debian kalign 1:3.3.5-1 on 83 / 83 committed command lines (scripts/alignment/generate_kalign_command_oracle.py) and 251 / 251 more (formats, MSF / Clustal inputs, several inputs, non-quiet output under a time shim; scripts/alignment/generate_kalign_formats_oracle.py).
 
 ## Core Documentation Reference
 
@@ -27,8 +27,8 @@ Kalign 3.3.5 as a function of its command line and the text of the files it name
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `arguments` | array<string> | Yes | The command-line arguments of kalign, one per element (for example ["-i", "in.fa", "-o", "out.fa", "--type", "dna", "-q"]). |
-| `files` | object<string,string> | No | The text of the files the arguments name: file name -> FASTA text. |
-| `stdin` | string | No | Text of standard input, read when no input file is named. |
+| `files` | object<string,string> | No | The text of the files the arguments name: file name -> FASTA / MSF / Clustal text. |
+| `stdin` | string | No | Text of standard input (the program reads a standard input that is not a terminal before the named files; null = a terminal). |
 
 ## Output Schema
 
@@ -44,7 +44,7 @@ Kalign 3.3.5 as a function of its command line and the text of the files it name
 | Code | Message |
 |------|---------|
 | 1001 | arguments is null |
-| 1002 | --format msf / clu output (accepted by the program, not written here): NotSupportedException |
+| 1002 | (none: a refused command line is an exit code 1 with the reason in `messages`) |
 
 ## Examples
 

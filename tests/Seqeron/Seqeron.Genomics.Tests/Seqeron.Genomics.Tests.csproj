@@ -252,6 +252,8 @@
     <!-- ALIGN-MULTI-001 (audit A2-20, B09 F118): whole Kalign 3.3.5 command lines (argument parser quirks, types, gap options, thread counts, formats, input files, refusals) and the text the program writes;
          scripts/alignment/generate_kalign_command_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\kalign_command_oracle.tsv" />
+    <!-- ALIGN-MULTI-001 (audit A2-20b, B09 F222): Kalign 3.3.5 formats msf / clu, MSF / Clustal inputs, several inputs, non-quiet output (time shim); scripts/alignment/generate_kalign_formats_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\kalign_formats_oracle.tsv" />
     <!-- ALIGN-MULTI-001 (audit A2-19, B09 F119): MAFFT 7.505 (installed Debian mafft 7.505-1) alignments of two sequences (amino acids, DNA / RNA, IUPAC and unusual symbols with the anysymbol option, the options op, ep and bl,
          nuc, amino and the accepted options, the plain command); scripts/alignment/generate_mafft_pair_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\mafft_pair_oracle.tsv" />

@@ -286,7 +286,7 @@ One input contract for every multiple-alignment entry point: null element -> `Ar
 
 ## Audit r2 addendum (A2-20, B09 F118, WP31): Kalign 3.3.5
 
-`SequenceAligner.MultipleAlignKalign` / `KalignRun` and `KalignProgram` (command line) port Kalign 3.3.5 (Myers bit-parallel distances, UPGMA / bisecting k-means guide tree, affine profile alignment in linear space, the program's matrices and gap options); MCP `multiple_align_kalign`, `kalign_command`. Rows equal the installed Debian `kalign` 1:3.3.5-1 on 526 / 526 runs (DNA / RNA / protein, every `--type` and gap option, 1 / 2 / 4 threads, long sets, up to 1 000 sequences) and 83 / 83 command lines. Quirks of 3.3.5 reproduced (tgpe only with gpe, `--type internal` = RNA, no profile gap-open flags, serial versus OpenMP recursion). Registered DOABLE: MSF / Clustal formats of the command line (A2-20b).
+`SequenceAligner.MultipleAlignKalign` / `KalignRun` and `KalignProgram` (command line) port Kalign 3.3.5 (Myers bit-parallel distances, UPGMA / bisecting k-means guide tree, affine profile alignment in linear space, the program's matrices and gap options); MCP `multiple_align_kalign`, `kalign_command`. Rows equal the installed Debian `kalign` 1:3.3.5-1 on 526 / 526 runs (DNA / RNA / protein, every `--type` and gap option, 1 / 2 / 4 threads, long sets, up to 1 000 sequences) and 83 / 83 command lines. Quirks of 3.3.5 reproduced (tgpe only with gpe, `--type internal` = RNA, no profile gap-open flags, serial versus OpenMP recursion). MSF / Clustal formats of the command line, the non-quiet output and several inputs were added in A2-20b (F222): 251 / 251 further command lines equal the program (`KalignIo.cs`, `kalign_formats_oracle.tsv`).
 
 ## Audit r2 addendum (A2-19, B09 F119, WP31): MAFFT 7.505, stage 1
 
