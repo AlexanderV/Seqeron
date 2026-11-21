@@ -177,6 +177,33 @@ public sealed class SesaResume1b9e1Tests
     }
 
     [Test]
+    public void GarbageEverywhereOutsideTheKeptRanges_AfterAFailureInsideAPhase_IsNotInTheContainer(
+        [Values("ph1", "naming", "merge", "rank-written", "ph23", "partition", "leaf", "handover", "scan", "b1", "b2", "b3")] string trace, [Values(1, 4)] int threads, [Values(0, 1)] int pattern)
+    {
+        // the cuts inside the phases: PH1 (before and after the rank file is recorded), PH2-PH3 (the state names the rank file, a scratch file that the stage vouches for), PH4 (three steps)
+        Built reference = Reference(s_text);
+        using var c = new ResumeCase(s_text);
+        bool lcpTrace = trace is "b1" or "b2" or "b3";
+        int seen = 0;
+        bool ph3 = false;
+        void Fail(string p)
+        {
+            if (p == "ph23") ph3 = true;
+            bool match = p == trace && (trace != "leaf" && trace != "partition" && trace != "handover" && trace != "scan" || ph3);
+            if (match && Interlocked.Increment(ref seen) == 1) throw new InjectedFailureException(p);
+        }
+        SesaBuildOptions failing = lcpTrace ? Opts(threads: threads) with { LcpTrace = Fail } : Opts(threads: threads) with { SaTrace = Fail };
+        Assert.Throws<InjectedFailureException>(() => SesaBuilder.Build(c.Input, c.Target, failing));
+        Assert.That(SesaResumeFormat.TryParse(File.ReadAllBytes(c.State), out SesaResumeState? st), Is.True, "the packed stage was recorded before any of these points");
+        string[] named = [.. st!.Stages.Select(x => x.Name)];
+        Fill(c.Tmp, Complement(KeptRanges(c), new FileInfo(c.Tmp).Length), pattern);
+        SesaBuildResult r = SesaBuilder.Build(c.Input, c.Target, Opts(threads: threads));
+        Assert.That(r.Resume!.Skipped, Is.EqualTo(named), "the stages that the failed run recorded are kept: garbage outside their ranges does not fail them");
+        AssertSame(c, reference.Bytes, $"{trace} {threads} {pattern}");
+        AssertOnlyTarget(c, trace);
+    }
+
+    [Test]
     public void GarbageEverywhereOutsideTheKeptRanges_AlsoWithoutPsi([Values(SesaHooks.Packed, SesaHooks.SaBuilt, SesaHooks.LcpChildBuilt, SesaHooks.InfoWritten, SesaHooks.MagicWritten)] string point, [Values(0, 1)] int pattern)
     {
         Built reference = Reference(s_text, psi: false);

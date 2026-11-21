@@ -1,0 +1,78 @@
+R	resume	total_s	2.688952107	s	dna_10m resume False fsync True threads 4
+R	resume	wall_s	2.694192173	s	dna_10m
+R	resume	scan_s	0.035841938	s	dna_10m
+R	resume	pack_s	0.052088711	s	dna_10m
+R	resume	ph1_s	0.166193376	s	dna_10m
+R	resume	ph23_s	0.838393286	s	dna_10m
+R	resume	ph45_s	0.956604964	s	dna_10m
+R	resume	bwt_s	0.176525953	s	dna_10m
+R	resume	psi_s	0.106375443	s	dna_10m
+R	resume	crc_s	0.037609279	s	dna_10m
+R	resume	seal_s	0.008808286	s	dna_10m
+R	resume	n	10000000	symbols	dna_10m sigma 4
+R	resume	sort_partition_thread_s	0.25878938	s	dna_10m PH2: seconds of the partition steps, summed over the worker threads
+R	resume	sort_leaf_thread_s	2.1613590289999998	s	dna_10m PH3: seconds of the leaf sorts (and their slice writes), summed over the worker threads
+R	resume	sort_buckets	21	buckets	dna_10m 20 leaves, 1 partitions, depth 1
+R	resume	dcs_levels	1	levels	dna_10m names unique at level 0: False
+R	resume	file_size	142515458	bytes	dna_10m LCP U16
+R	resume	counted_read	352578065	bytes	dna_10m
+R	resume	counted_write	242582160	bytes	dna_10m
+R	resume	counted_mapped_write	153789400	bytes	dna_10m
+R	resume	counted_flushes	2	calls	dna_10m fsync calls counted (header, magic, and every checkpoint with Resume)
+R	resume	dev_sectors_written	406344	sectors	dna_10m over the call (512 B)
+R	resume	dev_sectors_written_synced	406736	sectors	dna_10m until the end of a sync after the call
+R	resume	dev_sectors_read	0	sectors	dna_10m
+R	resume	rssanon_peak_mb	103.256064	MB	dna_10m verdict Within
+R	resume	sha256	98821bd151b2934aff84c4684288e715cdb08a860d46bb1c1bbb6f62fda1b847	hex	dna_10m
+R	resume	total_s	2.859343894	s	dna_10m resume False fsync True threads 4
+R	resume	wall_s	2.864086419	s	dna_10m
+R	resume	scan_s	0.031834372	s	dna_10m
+R	resume	pack_s	0.048898248	s	dna_10m
+R	resume	ph1_s	0.167960647	s	dna_10m
+R	resume	ph23_s	0.75548066	s	dna_10m
+R	resume	ph45_s	1.215781597	s	dna_10m
+R	resume	bwt_s	0.171758034	s	dna_10m
+R	resume	psi_s	0.111841137	s	dna_10m
+R	resume	crc_s	0.037657331	s	dna_10m
+R	resume	seal_s	0.008939826	s	dna_10m
+R	resume	n	10000000	symbols	dna_10m sigma 4
+R	resume	sort_partition_thread_s	0.256309763	s	dna_10m PH2: seconds of the partition steps, summed over the worker threads
+R	resume	sort_leaf_thread_s	1.878984945	s	dna_10m PH3: seconds of the leaf sorts (and their slice writes), summed over the worker threads
+R	resume	sort_buckets	21	buckets	dna_10m 20 leaves, 1 partitions, depth 1
+R	resume	dcs_levels	1	levels	dna_10m names unique at level 0: False
+R	resume	file_size	142515458	bytes	dna_10m LCP U16
+R	resume	counted_read	352578065	bytes	dna_10m
+R	resume	counted_write	242582160	bytes	dna_10m
+R	resume	counted_mapped_write	153789400	bytes	dna_10m
+R	resume	counted_flushes	2	calls	dna_10m fsync calls counted (header, magic, and every checkpoint with Resume)
+R	resume	dev_sectors_written	407752	sectors	dna_10m over the call (512 B)
+R	resume	dev_sectors_written_synced	408008	sectors	dna_10m until the end of a sync after the call
+R	resume	dev_sectors_read	0	sectors	dna_10m
+R	resume	rssanon_peak_mb	103.305216	MB	dna_10m verdict Within
+R	resume	sha256	98821bd151b2934aff84c4684288e715cdb08a860d46bb1c1bbb6f62fda1b847	hex	dna_10m
+R	resume	total_s	2.926416076	s	dna_10m resume False fsync True threads 4
+R	resume	wall_s	2.931101536	s	dna_10m
+R	resume	scan_s	0.032106368	s	dna_10m
+R	resume	pack_s	0.050170842	s	dna_10m
+R	resume	ph1_s	0.152650136	s	dna_10m
+R	resume	ph23_s	0.7929044	s	dna_10m
+R	resume	ph45_s	1.232808074	s	dna_10m
+R	resume	bwt_s	0.187519876	s	dna_10m
+R	resume	psi_s	0.121221025	s	dna_10m
+R	resume	crc_s	0.038166218	s	dna_10m
+R	resume	seal_s	0.008983042	s	dna_10m
+R	resume	n	10000000	symbols	dna_10m sigma 4
+R	resume	sort_partition_thread_s	0.263430166	s	dna_10m PH2: seconds of the partition steps, summed over the worker threads
+R	resume	sort_leaf_thread_s	1.9565729539999999	s	dna_10m PH3: seconds of the leaf sorts (and their slice writes), summed over the worker threads
+R	resume	sort_buckets	21	buckets	dna_10m 20 leaves, 1 partitions, depth 1
+R	resume	dcs_levels	1	levels	dna_10m names unique at level 0: False
+R	resume	file_size	142515458	bytes	dna_10m LCP U16
+R	resume	counted_read	352578065	bytes	dna_10m
+R	resume	counted_write	242582160	bytes	dna_10m
+R	resume	counted_mapped_write	153789400	bytes	dna_10m
+R	resume	counted_flushes	2	calls	dna_10m fsync calls counted (header, magic, and every checkpoint with Resume)
+R	resume	dev_sectors_written	407816	sectors	dna_10m over the call (512 B)
+R	resume	dev_sectors_written_synced	408096	sectors	dna_10m until the end of a sync after the call
+R	resume	dev_sectors_read	0	sectors	dna_10m
+R	resume	rssanon_peak_mb	102.74816	MB	dna_10m verdict Within
+R	resume	sha256	98821bd151b2934aff84c4684288e715cdb08a860d46bb1c1bbb6f62fda1b847	hex	dna_10m

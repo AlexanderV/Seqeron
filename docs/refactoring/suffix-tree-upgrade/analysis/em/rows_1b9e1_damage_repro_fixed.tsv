@@ -1,0 +1,8 @@
+dna.txt	lcp-child-built	child_last	0	packed,sa	eq	0	clean	2.51	50003069	90015349	0.033367518
+dna.txt	lcp-child-built	tail_a5	0	packed,sa,lcp	eq	0	clean	1.02	0	40015344	0.015314505
+dna.txt	lcp-child-built	fill_a5	0	packed,sa,lcp	eq	0	clean	1.04	40015344	40015344	0.018458507
+dna.txt	packed	tail_a5	0	packed	eq	0	clean	3.23	130011169	130015353	0.044135424
+dna.txt	sa-built	tail_a5	0	packed,sa	eq	0	clean	2.51	90008701	90015349	0.03531743
+dna.txt	psi-built	tail_a5	0	packed,sa,lcp,psi	eq	0	clean	0.87	0	15340	0.007348198
+dna.txt	psi-built	fill_a5	0	packed,sa,lcp,psi	eq	0	clean	0.74	15340	15340	0.007464894
+dna.txt	info-written	fill_a5	0	packed,sa,lcp,psi	eq	0	clean	0.91	15340	15340	0.012496967

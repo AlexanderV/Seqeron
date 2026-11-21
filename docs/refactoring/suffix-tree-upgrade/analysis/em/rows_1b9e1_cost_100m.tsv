@@ -1,0 +1,38 @@
+# 2026-11-21T19:05:38Z dna_100m pairs 5 uptime  19:05:38 up 1 day, 4 min,  0 user,  load average: 1.61, 2.15, 2.09
+R	resume-abhead	total_s	19.354130724	s	dna_100m.head.fsync.0.before
+R	resume-abhead	total_s	18.000289653	s	dna_100m.head.fsync.0.after
+R	resume-abhead	total_s	16.949053208	s	dna_100m.head.fsync.1.before
+R	resume-abhead	total_s	19.569494911	s	dna_100m.head.fsync.1.after
+R	resume-abhead	pair_ratio_total	1.154606966586378	after / before	dna_100m.head.fsync pair 1: 19.569 / 16.949 s, first before
+R	resume-abhead	total_s	18.564764201	s	dna_100m.head.fsync.2.after
+R	resume-abhead	total_s	19.499985871	s	dna_100m.head.fsync.2.before
+R	resume-abhead	pair_ratio_total	0.9520398796087928	after / before	dna_100m.head.fsync pair 2: 18.565 / 19.500 s, first after
+R	resume-abhead	total_s	18.502811075	s	dna_100m.head.fsync.3.before
+R	resume-abhead	total_s	17.753261602	s	dna_100m.head.fsync.3.after
+R	resume-abhead	pair_ratio_total	0.9594899677696676	after / before	dna_100m.head.fsync pair 3: 17.753 / 18.503 s, first before
+R	resume-abhead	total_s	17.826746357	s	dna_100m.head.fsync.4.after
+R	resume-abhead	total_s	18.283904412	s	dna_100m.head.fsync.4.before
+R	resume-abhead	pair_ratio_total	0.9749966941032596	after / before	dna_100m.head.fsync pair 4: 17.827 / 18.284 s, first after
+R	resume-abhead	total_s	17.565969928	s	dna_100m.head.fsync.5.before
+R	resume-abhead	total_s	17.010807015	s	dna_100m.head.fsync.5.after
+R	resume-abhead	pair_ratio_total	0.9683955446083808	after / before	dna_100m.head.fsync pair 5: 17.011 / 17.566 s, first before
+R	resume-abhead	ratio_total_median	0.9683955446083808	after / before	dna_100m.head.fsync: min 0.9520 max 1.1546 over 5 pairs, Resume off
+R	resume-abhead	total_s	18.034414557	s	dna_100m.head.nofsync.0.before
+R	resume-abhead	total_s	17.959837591	s	dna_100m.head.nofsync.0.after
+R	resume-abhead	total_s	17.573329874	s	dna_100m.head.nofsync.1.before
+R	resume-abhead	total_s	16.853000666	s	dna_100m.head.nofsync.1.after
+R	resume-abhead	pair_ratio_total	0.9590100901101426	after / before	dna_100m.head.nofsync pair 1: 16.853 / 17.573 s, first before
+R	resume-abhead	total_s	17.184526318	s	dna_100m.head.nofsync.2.after
+R	resume-abhead	total_s	17.040871348	s	dna_100m.head.nofsync.2.before
+R	resume-abhead	pair_ratio_total	1.0084300249128317	after / before	dna_100m.head.nofsync pair 2: 17.185 / 17.041 s, first after
+R	resume-abhead	total_s	17.674346267	s	dna_100m.head.nofsync.3.before
+R	resume-abhead	total_s	19.647539463	s	dna_100m.head.nofsync.3.after
+R	resume-abhead	pair_ratio_total	1.1116416509098372	after / before	dna_100m.head.nofsync pair 3: 19.648 / 17.674 s, first before
+R	resume-abhead	total_s	18.947037954	s	dna_100m.head.nofsync.4.after
+R	resume-abhead	total_s	19.081350058	s	dna_100m.head.nofsync.4.before
+R	resume-abhead	pair_ratio_total	0.9929610796095798	after / before	dna_100m.head.nofsync pair 4: 18.947 / 19.081 s, first after
+R	resume-abhead	total_s	19.125625458	s	dna_100m.head.nofsync.5.before
+R	resume-abhead	total_s	17.986390977	s	dna_100m.head.nofsync.5.after
+R	resume-abhead	pair_ratio_total	0.940434132023459	after / before	dna_100m.head.nofsync pair 5: 17.986 / 19.126 s, first before
+R	resume-abhead	ratio_total_median	0.9929610796095798	after / before	dna_100m.head.nofsync: min 0.9404 max 1.1116 over 5 pairs, Resume off
+# 2026-11-21T19:13:15Z done uptime  19:13:15 up 1 day, 11 min,  0 user,  load average: 2.14, 2.02, 2.02

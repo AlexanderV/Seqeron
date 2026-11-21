@@ -1,0 +1,16 @@
+rep_10m	10000000	1	random	ph0@0.079	scanned	ph0	1	none		3.755	3.877	0.122	1	1	rssanon_mb=101.4
+rep_10m	10000000	2	random	ph0@0.125	scanned	ph0	1	none		4.951	3.877	-1.074	1	1	rssanon_mb=102.2
+rep_10m	10000000	3	random	ph1@0.740	ph1	ph1	1	none	packed	3.971	3.877	-0.094	1	1	rssanon_mb=101.5
+rep_10m	10000000	4	random	ph1@0.626	ph1	ph1	1	none	packed	7.486	3.877	-3.609	1	1	rssanon_mb=84.3
+rep_10m	10000000	5	random	ph23@1.493	ph23	ph23	1	none	packed,ranks	7.250	3.877	-3.373	1	1	rssanon_mb=85.0
+rep_10m	10000000	6	random	ph23@1.081	ph23	ph23	1	none	packed,ranks	6.737	3.877	-2.860	1	1	rssanon_mb=85.1
+rep_10m	10000000	7	random	ph4@3.288	lcp-placed	ph4	1	none	packed,sa	1.801	3.877	2.076	1	1	rssanon_mb=100.2
+rep_10m	10000000	8	random	ph4@3.360	lcp-placed	ph4	1	none	packed,sa	1.911	3.877	1.966	1	1	rssanon_mb=100.2
+rep_10m	10000000	9	random	bwt@3.580	lcp-placed	ph4	1	none	packed,sa	1.932	3.877	1.945	1	1	rssanon_mb=100.0
+rep_10m	10000000	10	random	bwt@3.698	info-written	ph7	1	none	packed,sa,lcp,psi	0.443	3.877	3.434	1	1	rssanon_mb=11.4
+rep_10m	10000000	11	random	psi@3.756	lcp-child-built	bwt	1	none	packed,sa,lcp	0.726	3.877	3.151	1	1	rssanon_mb=15.3
+rep_10m	10000000	12	random	psi@3.769	psi-built	ph7	1	none	packed,sa,lcp,psi	0.437	3.877	3.440	1	1	rssanon_mb=11.4
+rep_10m	10000000	13	random	ph7@3.888	bwt-built	psi	1	none	packed,sa,lcp,bwt	0.582	3.877	3.295	1	1	rssanon_mb=13.5
+rep_10m	10000000	14	random	ph7@3.902	magic-written	seal	1	complete	packed,ranks	6.835	3.877	-2.958	1	1	chain-killed@ph23 rssanon_mb=84.9
+rep_10m	10000000	15	random	seal@3.924	magic-written	seal	0	complete	packed,sa	1.952	3.877	1.925	1	1	chain-killed@lcp-placed rssanon_mb=100.2
+rep_10m	10000000	16	random	seal@3.922	magic-written	seal	1	complete		3.841	3.877	0.036	1	1	rssanon_mb=101.6

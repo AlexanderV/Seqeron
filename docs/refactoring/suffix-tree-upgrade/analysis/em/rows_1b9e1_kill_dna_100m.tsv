@@ -1,0 +1,8 @@
+dna_100m	100000000	1	random	ph0@0.776	created	ph0	1	none	packed,ranks	21.316	18.415	-2.901	1	1	chain-killed@ph23 rssanon_mb=174.4
+dna_100m	100000000	2	random	ph1@1.021	ph1	ph1	1	none	packed,sa	14.005	18.415	4.410	1	1	chain-killed@lcp-placed rssanon_mb=103.1
+dna_100m	100000000	3	random	ph23@3.494	ph23	ph23	1	none	packed,ranks	20.440	18.415	-2.025	1	1	rssanon_mb=174.8
+dna_100m	100000000	4	random	ph4@16.321	lcp-placed	ph4	1	none	packed,sa,lcp	3.768	18.415	14.647	1	1	chain-killed@lcp-child-built rssanon_mb=14.9
+dna_100m	100000000	5	random	bwt@18.092	lcp-child-built	bwt	1	none		21.018	18.415	-2.603	1	1	chain-finished-first rssanon_mb=255.8
+dna_100m	100000000	6	random	psi@19.201	magic-written	seal	0	complete	packed,ranks	20.874	18.415	-2.459	1	1	chain-killed@ph23 rssanon_mb=175.4
+dna_100m	100000000	7	random	ph7@20.058	bwt-built	psi	1	none	packed,sa,lcp,bwt	2.035	18.415	16.380	1	1	rssanon_mb=13.9
+dna_100m	100000000	8	random	seal@20.124	magic-written	seal	0	complete		22.076	18.415	-3.661	1	1	rssanon_mb=255.7
