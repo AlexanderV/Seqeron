@@ -1,0 +1,6 @@
+V04	another sigma is accepted	survived			343
+V52	an unknown stage is accepted	survived			325
+V72	a build that was not accepted prepares	survived			307
+C11	the new stage is added to all the old ones	survived			310
+C13	the state file is not flushed to storage	survived			313
+C26	the cover digest is of the residues only	survived			310
