@@ -1,0 +1,8 @@
+V04	another sigma is accepted	-	killed(1 failed: NoAllocationProportionalToTheTextForTheTotal_AndOnlyTheResul)		350
+V52	an unknown stage is accepted	-	killed(1 failed: NoAllocationProportionalToTheTextForTheTotal_AndOnlyTheResul)		322
+V72	a build that was not accepted prepares	-	killed(1 failed: NoAllocationProportionalToTheTextForTheTotal_AndOnlyTheResul)		311
+C11	the new stage is added to all the old ones	-	killed(1 failed: NoAllocationProportionalToTheTextForTheTotal_AndOnlyTheResul)		308
+C13	the state file is not flushed to storage	-	killed(1 failed: NoAllocationProportionalToTheTextForTheTotal_AndOnlyTheResul)		305
+C19	a kept PSI stage gives the primary row of the BWT record	-	survived		306
+C26	the cover digest is of the residues only	-	killed(1 failed: NoAllocationProportionalToTheTextForTheTotal_AndOnlyTheResul)		307
+C31	the run holds no cover	-	survived		315

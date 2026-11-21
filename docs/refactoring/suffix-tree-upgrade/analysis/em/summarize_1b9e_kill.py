@@ -30,7 +30,8 @@ def main():
         total["rows"] += len(rs)
         total["hash"] += sum(r["hash_ok"] == "1" for r in rs)
         total["left"] += sum(r["leftover_ok"] == "1" for r in rs)
-    print(f"\nTotal: {total['kills']} kills landed in {total['rows']} cases; hash equal in {total['hash']}, nothing else left in {total['left']}.\n")
+    rss = [float(x.split("rssanon_mb=")[1].split()[0]) for r in rows for x in [r["extra"]] if "rssanon_mb=" in x]
+    print(f"\nTotal: {total['kills']} kills landed in {total['rows']} cases; hash equal in {total['hash']}, nothing else left in {total['left']}." + (f" RssAnon of the finishing runs: max {max(rss):.1f} MB over {len(rss)} runs (the gate is 320)." if rss else "") + "\n")
     print("| input | phase of the kill (last marker seen) | kills | stages skipped by the resume (most common) | resume s (median [min-max]) | uninterrupted build s | saved s (median [min-max]) |")
     print("| --- | --- | --- | --- | --- | --- | --- |")
     for (kind, n), rs in sorted(by.items()):

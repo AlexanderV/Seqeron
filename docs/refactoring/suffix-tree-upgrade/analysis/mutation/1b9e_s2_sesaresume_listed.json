@@ -1,0 +1,66 @@
+[
+ {
+  "id": "V04",
+  "desc": "another sigma is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResume.cs",
+  "old": "|| s.Sigma != _info.Sigma || s.Sha256 != _info.Sha256) return",
+  "new": "|| s.Sha256 != _info.Sha256) return",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
+ },
+ {
+  "id": "V52",
+  "desc": "an unknown stage is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResume.cs",
+  "old": "why = \"an unknown stage\";",
+  "new": "",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
+ },
+ {
+  "id": "V72",
+  "desc": "a build that was not accepted prepares",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResume.cs",
+  "old": "if (!Accepted) return;",
+  "new": "",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
+ },
+ {
+  "id": "C11",
+  "desc": "the new stage is added to all the old ones",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResume.cs",
+  "old": "SesaResumeState next = _state.Truncate(_kept).With(record);",
+  "new": "SesaResumeState next = _state.With(record);",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
+ },
+ {
+  "id": "C13",
+  "desc": "the state file is not flushed to storage",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResume.cs",
+  "old": "fs.Flush(_options.Fsync);",
+  "new": "fs.Flush(false);",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
+ },
+ {
+  "id": "C19",
+  "desc": "a kept PSI stage gives the primary row of the BWT record",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResume.cs",
+  "old": "Has(SesaStages.Psi) ? Record(SesaStages.Psi) : Record(SesaStages.Bwt)",
+  "new": "Has(SesaStages.Bwt) ? Record(SesaStages.Bwt) : Record(SesaStages.Psi)",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
+ },
+ {
+  "id": "C26",
+  "desc": "the cover digest is of the residues only",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResume.cs",
+  "old": "int[] words = [cover.Period, .. cover.Residues];",
+  "new": "int[] words = [.. cover.Residues];",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
+ },
+ {
+  "id": "C31",
+  "desc": "the run holds no cover",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResume.cs",
+  "old": "internal DifferenceCover? Cover => _cover;",
+  "new": "internal DifferenceCover? Cover => null;",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
+ }
+]

@@ -23,3 +23,8 @@ C22	the LCP stage records the rank of a repeat that has no depth	killed(1 failed
 C26	the cover digest is of the residues only	survived			30
 C29	the verification time is not reported	killed(15 failed: AStageWhoseOutputIsMissingShortOrChanged_IsNotTrusted_AndEve,AStageWhoseOutputIsMissingShortOrChanged_IsNotTrusted_AndEve,AStageWhoseOutputIsMissingShortOrChanged_IsNotTrusted_AndEve)[only]			30
 C31	the run holds no cover	survived			33
+V18	a state with no verified stage is still trusted	killed(1 failed: ARunThatRejectedTheState_AndFailsBeforeItsFirstCheckpoint_Le)[only]			30
+V29	a LCP kind above U32 is accepted	killed(1 failed: AForgedLcpRecord_WithAnImpossibleWidthEscapesLengthOrNodeCou)[only]			29
+V30	a negative LCP kind is accepted	killed(1 failed: AForgedLcpRecord_WithAnImpossibleWidthEscapesLengthOrNodeCou)[only]			28
+V31	a negative number of escapes is accepted	killed(1 failed: AForgedLcpRecord_WithAnImpossibleWidthEscapesLengthOrNodeCou)[only]			29
+V32	escapes of a 32-bit LCP are accepted	killed(1 failed: AForgedLcpRecord_WithAnImpossibleWidthEscapesLengthOrNodeCou)[only]			28

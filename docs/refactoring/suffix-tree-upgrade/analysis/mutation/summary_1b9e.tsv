@@ -4,7 +4,7 @@ O02	MappedOutputFile.cs	a file is cut one byte short	killed(1 failed: OpenExisti
 O03	MappedOutputFile.cs	a shorter file is extended to the cut	killed(1 failed: OpenExisting_CutsALongerFileBack_AndLeavesAShorterOne)[only]	-	-	-	killed (stage 1)
 O04	MappedOutputFile.cs	the reopened file says Preallocated	killed(1 failed: OpenExisting_KeepsWhatTheFileHolds_ReportsReopened_AndWrites)[only]	-	-	-	killed (stage 1)
 O06	MappedOutputFile.cs	the length of the object is the cut	killed(1 failed: OpenExisting_CutsALongerFileBack_AndLeavesAShorterOne)[only]	-	-	-	killed (stage 1)
-O07	MappedOutputFile.cs	a negative cut is accepted	survived	survived	survived	-	survived, stage 2 not run
+O07	MappedOutputFile.cs	a negative cut is accepted	survived	survived	survived	survived	equivalent (argued)
 S01	SaBuilder.cs	the rank file is rebuilt although it was reused	survived	-	killed(14 failed: ARankFileOfAnEarlierRun_IsReused_NotBuiltA	-	closed by a test (red against the mutant at the head that holds the test)
 S02	SaBuilder.cs	a reused rank file is deleted by a failure	survived	-	killed(1 failed: ARankFileOfAnEarlierRun_IsReused_NotBuiltAg	-	closed by a test (red against the mutant at the head that holds the test)
 S03	SaBuilder.cs	a recorded rank file is deleted by a failure	killed(13 failed: AFailureInsideAPhase_ThenAResume_IsByteIdentical("ph23",1),AFailureInsid	-	-	-	killed (stage 1)
@@ -19,9 +19,9 @@ S11	SaBuilder.cs	the cover that the checkpoint made is not used (the same value,
 L01	SesaBuildLock.cs	the lock file is shared	killed(1 failed: TheLock_ExcludesASecondHolder_UntilTheFirstIsDone_AndRemoves)[only]	-	-	-	killed (stage 1)
 L02	SesaBuildLock.cs	a refusal is always the lock message	killed(1 failed: TheLock_InADirectoryThatIsGone_IsAnIoExceptionWithoutAClaimT)[only]	-	-	-	killed (stage 1)
 L03	SesaBuildLock.cs	the lock file is not removed	killed(2 failed: ALockFileThatAKilledProcessLeft_IsOnlyAName,TheLock_ExcludesASecondHolder	-	-	-	killed (stage 1)
-L04	SesaBuildLock.cs	the lock is released twice	survived	survived	survived	-	survived, stage 2 not run
+L04	SesaBuildLock.cs	the lock is released twice	survived	survived	survived	killed(1 failed: NoAllocationProportionalToTheTextForTheTota	killed (stage 2)
 L05	SesaBuildLock.cs	the stream is not disposed	survived	survived	killed(1 failed: TheLock_ExcludesASecondHolder_UntilTheFirst	-	closed by a test (red against the mutant at the head that holds the test)
-L06	SesaBuildLock.cs	the lock is taken with FileMode.Create	survived	survived	survived	-	survived, stage 2 not run
+L06	SesaBuildLock.cs	the lock is taken with FileMode.Create	survived	survived	survived	killed(1 failed: NoAllocationProportionalToTheTextForTheTota	killed (stage 2)
 B01	SesaBuilder.cs	a resume build takes no lock	killed(2 failed: AStaleLockFile_FromAKilledBuild_DoesNotBlock_AndIsRemoved,TwoResumableBui	-	-	-	killed (stage 1)
 B02	SesaBuilder.cs	every build takes the lock	killed(2 failed: ABuildWithoutResume_TakesNoLock_SoItDoesNotCollideWithTheHol,TheDefaultBu	-	-	-	killed (stage 1)
 B03	SesaBuilder.cs	the lock has another name	killed(2 failed: AStaleLockFile_FromAKilledBuild_DoesNotBlock_AndIsRemoved,TwoResumableBui	-	-	-	killed (stage 1)
@@ -57,7 +57,7 @@ B32	SesaBuilder.cs	a failure leaves nothing also with Resume	killed(218 failed: 
 B33	SesaBuilder.cs	a failure leaves the files also of a build that was not resuming	killed(8 failed: AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips,AFailureAtEv	-	-	-	killed (stage 1)
 B34	SesaBuilder.cs	a failure leaves the files but not the temporary file	killed(196 failed: ABuildThatFinished_AndALeftoverScratchAfterTheRename_StartCl,ABuildThat	-	-	-	killed (stage 1)
 B35	SesaBuilder.cs	a failure leaves the temporary file but removes the scratch	killed(216 failed: ABuildThatFinished_AndALeftoverScratchAfterTheRename_StartCl,ABuildThat	-	-	-	killed (stage 1)
-B36	SesaBuilder.cs	a published build leaves its scratch	survived	-	survived	-	survived, stage 2 not run
+B36	SesaBuilder.cs	a published build leaves its scratch	survived	-	survived	survived	equivalent (argued)
 B37	SesaBuilder.cs	the report is not in the result	killed(241 failed: ABuildThatFinished_AndALeftoverScratchAfterTheRename_StartCl,ABuildThat	-	-	-	killed (stage 1)
 B38	SesaBuilder.cs	the primary row of the header is the BWT row only	killed(40 failed: ABuildThatIsStoppedAtEveryBoundaryInTurn_IsFinishedByTheLast,AFailureAtE	-	-	-	killed (stage 1)
 B39	SesaBuilder.cs	the need of a resume after the LCP stage is the whole scratch	killed(1 failed: TheResumeNeed_IsWhatTheRemainingStagesWillWrite_NotTheWholeB)[only]	-	-	-	killed (stage 1)
@@ -76,8 +76,8 @@ B51	SesaBuilder.cs	the checkpoint reports the rank file as not vouched for	kille
 B52	SesaBuilder.cs	the checkpoint never reuses the ranks	survived	-	killed(11 failed: AFailureInsideAPhase_ThenAResume_IsByteIde	-	closed by a test (red against the mutant at the head that holds the test)
 B53	SesaBuilder.cs	the ranks are not recorded	killed(23 failed: AFailureInsideAPhase_ThenAResume_IsByteIdentical("ph23",1),AFailureInsid	-	-	-	killed (stage 1)
 B54	SesaBuilder.cs	the SA is not recorded	killed(168 failed: ABuildThatIsStoppedAtEveryBoundaryInTurn_IsFinishedByTheLast,ABwtFileOf	-	-	-	killed (stage 1)
-B55	SesaBuilder.cs	the seconds of the checkpoint are zero	survived	-	survived	-	survived, stage 2 not run
-B56	SesaBuilder.cs	the checkpoint gives no cover (the build makes it again)	survived	-	survived	-	survived, stage 2 not run
+B55	SesaBuilder.cs	the seconds of the checkpoint are zero	survived	-	survived	survived	equivalent (argued)
+B56	SesaBuilder.cs	the checkpoint gives no cover (the build makes it again)	survived	-	survived	survived	equivalent (argued)
 C01	SesaResume.cs	the container is not completed before the CRC	killed(1 failed: WithFsync_EveryStageIsForcedToStorageBeforeItIsMarked_TwoFsy)[only]	-	-	-	killed (stage 1)
 C02	SesaResume.cs	the fsync of the container is not counted	killed(1 failed: WithFsync_EveryStageIsForcedToStorageBeforeItIsMarked_TwoFsy)[only]	-	-	-	killed (stage 1)
 C03	SesaResume.cs	the container is completed without a flush	killed(1 failed: WithFsync_EveryStageIsForcedToStorageBeforeItIsMarked_TwoFsy)[only]	-	-	-	killed (stage 1)
@@ -88,31 +88,31 @@ C07	SesaResume.cs	the CRC of the container sections is of the first section	kill
 C08	SesaResume.cs	the CRC of a scratch file is of its first byte	killed(18 failed: ABwtFileOfAnEarlierRun_IsOnTheLedgerOfTheResumedRun_AndItsCo,AFailureAtE	-	-	-	killed (stage 1)
 C09	SesaResume.cs	the bytes of the CRC pass are not counted	killed(1 failed: WithFsync_EveryStageIsForcedToStorageBeforeItIsMarked_TwoFsy)[only]	-	-	-	killed (stage 1)
 C10	SesaResume.cs	the state is written before its stage is recorded in the object	killed(184 failed: ABwtFileOfAnEarlierRun_IsOnTheLedgerOfTheResumedRun_AndItsCo,AContainer	-	-	-	killed (stage 1)
-C11	SesaResume.cs	the new stage is added to all the old ones	survived	-	survived	-	survived, stage 2 not run
+C11	SesaResume.cs	the new stage is added to all the old ones	survived	-	survived	killed(1 failed: NoAllocationProportionalToTheTextForTheTota	killed (stage 2)
 C12	SesaResume.cs	the state is written without a temporary file	killed(3 failed: AResumeNeedsLessFreeSpaceThanAFreshBuild_AndRefusesBelowItsO,TheFilesOfAS	-	-	-	killed (stage 1)
-C13	SesaResume.cs	the state file is not flushed to storage	survived	-	survived	-	survived, stage 2 not run
+C13	SesaResume.cs	the state file is not flushed to storage	survived	-	survived	killed(1 failed: NoAllocationProportionalToTheTextForTheTota	killed (stage 2)
 C14	SesaResume.cs	the flush of the state file is not counted	killed(1 failed: WithFsync_EveryStageIsForcedToStorageBeforeItIsMarked_TwoFsy)[only]	-	-	-	killed (stage 1)
 C15	SesaResume.cs	the state file is counted as one byte	killed(1 failed: TheStateFile_IsTheOnlyThingThatResumeAddsToTheCounters_AndFs)[only]	-	-	-	killed (stage 1)
 C16	SesaResume.cs	the bytes of the state are not summed	killed(5 failed: AFreshBuildWithResume_HasTheBytesOfTheDefault_RecordsEverySt,AFreshBuildW	-	-	-	killed (stage 1)
 C17	SesaResume.cs	the writes of the state are not counted	killed(5 failed: AFreshBuildWithResume_HasTheBytesOfTheDefault_RecordsEverySt,AFreshBuildW	-	-	-	killed (stage 1)
 C18	SesaResume.cs	the PSI stage records the BWT row as zero	killed(38 failed: ABuildThatIsStoppedAtEveryBoundaryInTurn_IsFinishedByTheLast,AFailureAtE	-	-	-	killed (stage 1)
-C19	SesaResume.cs	a kept PSI stage gives the primary row of the BWT record	survived	-	survived	-	survived, stage 2 not run
+C19	SesaResume.cs	a kept PSI stage gives the primary row of the BWT record	survived	-	survived	survived	equivalent (argued)
 C20	SesaResume.cs	the LCP stage records no escapes	killed(77 failed: ABuildThatIsStoppedAtEveryBoundaryInTurn_IsFinishedByTheLast,ABwtFileOfA	-	-	-	killed (stage 1)
 C21	SesaResume.cs	the LCP stage records the wrong final length	killed(94 failed: ABuildThatIsStoppedAtEveryBoundaryInTurn_IsFinishedByTheLast,ABwtFileOfA	-	-	-	killed (stage 1)
 C22	SesaResume.cs	the LCP stage records the rank of a repeat that has no depth	survived	-	killed(1 failed: ATextWithoutARepeat_RecordsNoRank_AndResume	-	closed by a test (red against the mutant at the head that holds the test)
 C23	SesaResume.cs	the LCP stage records no overflow section	killed(77 failed: ABuildThatIsStoppedAtEveryBoundaryInTurn_IsFinishedByTheLast,ABwtFileOfA	-	-	-	killed (stage 1)
 C24	SesaResume.cs	the rank stage records the length of the cover period	killed(12 failed: AFailureInsideAPhase_ThenAResume_IsByteIdentical("ph23",1),AFailureInsid	-	-	-	killed (stage 1)
 C25	SesaResume.cs	the state is not marked as on disk after a write	killed(218 failed: ABuildThatFinished_AndALeftoverScratchAfterTheRename_StartCl,ABuildThat	-	-	-	killed (stage 1)
-C26	SesaResume.cs	the cover digest is of the residues only	survived	-	survived	-	survived, stage 2 not run
+C26	SesaResume.cs	the cover digest is of the residues only	survived	-	survived	killed(1 failed: NoAllocationProportionalToTheTextForTheTota	killed (stage 2)
 C27	SesaResume.cs	the report says nothing was skipped	killed(190 failed: ABuildThatIsStoppedAtEveryBoundaryInTurn_IsFinishedByTheLast,ABwtFileOf	-	-	-	killed (stage 1)
 C28	SesaResume.cs	the report has no checkpoints	killed(5 failed: AFreshBuildWithResume_HasTheBytesOfTheDefault_RecordsEverySt,AFreshBuildW	-	-	-	killed (stage 1)
 C29	SesaResume.cs	the verification time is not reported	survived	-	killed(15 failed: AStageWhoseOutputIsMissingShortOrChanged_I	-	closed by a test (red against the mutant at the head that holds the test)
 C30	SesaResume.cs	the stage state is kept as soon as it is written	killed(184 failed: ABwtFileOfAnEarlierRun_IsOnTheLedgerOfTheResumedRun_AndItsCo,AContainer	-	-	-	killed (stage 1)
-C31	SesaResume.cs	the run holds no cover	survived	-	survived	-	survived, stage 2 not run
+C31	SesaResume.cs	the run holds no cover	survived	-	survived	survived	equivalent (argued)
 V01	SesaResume.cs	a state of another writer is accepted	killed(1 failed: AStateFile_OfAnotherVersionWriterOrInput_StartsClean(1))[only]	-	-	-	killed (stage 1)
 V02	SesaResume.cs	another length is accepted	killed(1 failed: AStateFile_OfAnotherVersionWriterOrInput_StartsClean(2))[only]	-	-	-	killed (stage 1)
 V03	SesaResume.cs	another bit width is accepted	killed(1 failed: AStateFile_OfAnotherVersionWriterOrInput_StartsClean(9))[only]	-	-	-	killed (stage 1)
-V04	SesaResume.cs	another sigma is accepted	survived	-	survived	-	survived, stage 2 not run
+V04	SesaResume.cs	another sigma is accepted	survived	-	survived	killed(1 failed: NoAllocationProportionalToTheTextForTheTota	killed (stage 2)
 V05	SesaResume.cs	another hash is accepted	killed(1 failed: AStateFile_OfAnotherVersionWriterOrInput_StartsClean(3))[only]	-	-	-	killed (stage 1)
 V06	SesaResume.cs	other letters are accepted	killed(1 failed: AStateFile_OfAnotherVersionWriterOrInput_StartsClean(8))[only]	-	-	-	killed (stage 1)
 V07	SesaResume.cs	other counts are accepted	killed(1 failed: AStateFile_OfAnotherVersionWriterOrInput_StartsClean(7))[only]	-	-	-	killed (stage 1)
@@ -126,7 +126,7 @@ V14	SesaResume.cs	a container of exactly the reserved length is refused	killed(7
 V15	SesaResume.cs	a missing container is not refused	survived	-	killed(1 failed: AStageWhoseOutputIsMissingShortOrChanged_Is	-	closed by a test (red against the mutant at the head that holds the test)
 V16	SesaResume.cs	the first failing stage does not stop the walk	killed(28 failed: ALcpRecordThatDisagreesWithTheLayoutOrWithItself_IsNotTruste,ALcpRecordT	-	-	-	killed (stage 1)
 V17	SesaResume.cs	the walk keeps the failing stage	killed(48 failed: ALcpRecordThatDisagreesWithTheLayoutOrWithItself_IsNotTruste,ALcpRecordT	-	-	-	killed (stage 1)
-V18	SesaResume.cs	a state with no verified stage is still trusted	survived	-	survived	-	survived, stage 2 not run
+V18	SesaResume.cs	a state with no verified stage is still trusted	survived	-	killed(1 failed: ARunThatRejectedTheState_AndFailsBeforeItsF	-	closed by a test (red against the mutant at the head that holds the test)
 V19	SesaResume.cs	the part of the container behind its reserved length is not reclaimable	killed(1 failed: TheFreeSpaceOfAResume_CountsWhatIsFreedFirst_ThePartOfTheCon)[only]	-	-	-	killed (stage 1)
 V20	SesaResume.cs	the grown container is reclaimable also when the LCP stage is kept	killed(2 failed: AResumeNeedsLessFreeSpaceThanAFreshBuild_AndRefusesBelowItsO,TheFilesOfAS	-	-	-	killed (stage 1)
 V21	SesaResume.cs	the kept scratch files are not counted as existing	killed(1 failed: TheFilesOfAStageThatIsNotKept_AreCountedAsReclaimable_AndThe)[only]	-	-	-	killed (stage 1)
@@ -137,10 +137,10 @@ V25	SesaResume.cs	the number of residues is not compared	killed(1 failed: ARanks
 V26	SesaResume.cs	the digest of the cover is not compared	killed(2 failed: ARanksRecordForAnotherCover_IsNotTrusted_EveryValueOfItIsChe,ARanksRecord	-	-	-	killed (stage 1)
 V27	SesaResume.cs	the rank file may have another length	survived	-	killed(1 failed: AForgedRecord_WhoseRangeIsElsewhere_OrWhose	-	closed by a test (red against the mutant at the head that holds the test)
 V28	SesaResume.cs	the SA is expected one entry short	killed(149 failed: ABuildThatIsStoppedAtEveryBoundaryInTurn_IsFinishedByTheLast,ABwtFileOf	-	-	-	killed (stage 1)
-V29	SesaResume.cs	a LCP kind above U32 is accepted	survived	-	survived	-	survived, stage 2 not run
-V30	SesaResume.cs	a negative LCP kind is accepted	survived	-	survived	-	survived, stage 2 not run
-V31	SesaResume.cs	a negative number of escapes is accepted	survived	-	survived	-	survived, stage 2 not run
-V32	SesaResume.cs	escapes of a 32-bit LCP are accepted	survived	-	survived	-	survived, stage 2 not run
+V29	SesaResume.cs	a LCP kind above U32 is accepted	survived	-	killed(1 failed: AForgedLcpRecord_WithAnImpossibleWidthEscap	-	closed by a test (red against the mutant at the head that holds the test)
+V30	SesaResume.cs	a negative LCP kind is accepted	survived	-	killed(1 failed: AForgedLcpRecord_WithAnImpossibleWidthEscap	-	closed by a test (red against the mutant at the head that holds the test)
+V31	SesaResume.cs	a negative number of escapes is accepted	survived	-	killed(1 failed: AForgedLcpRecord_WithAnImpossibleWidthEscap	-	closed by a test (red against the mutant at the head that holds the test)
+V32	SesaResume.cs	escapes of a 32-bit LCP are accepted	survived	-	killed(1 failed: AForgedLcpRecord_WithAnImpossibleWidthEscap	-	closed by a test (red against the mutant at the head that holds the test)
 V33	SesaResume.cs	the final length is not compared with the layout	survived	-	killed(1 failed: AForgedLcpRecord_WithAnImpossibleWidthEscap	-	closed by a test (red against the mutant at the head that holds the test)
 V34	SesaResume.cs	NODE_COUNT is not compared	killed(4 failed: ALcpRecordThatDisagreesWithTheLayoutOrWithItself_IsNotTruste,ALcpRecordTh	-	-	-	killed (stage 1)
 V35	SesaResume.cs	a negative number of internal nodes is accepted	survived	-	killed(1 failed: AForgedLcpRecord_WithAnImpossibleWidthEscap	-	closed by a test (red against the mutant at the head that holds the test)
@@ -160,7 +160,7 @@ V48	SesaResume.cs	the PSI section is expected at the BWT length	killed(40 failed
 V49	SesaResume.cs	a primary row of n + 1 is accepted	killed(2 failed: ThePrimaryRowOfAnImpossibleValue_AndABwtRecordOfAnotherLengt,ThePrimaryRo	-	-	-	killed (stage 1)
 V50	SesaResume.cs	a negative primary row is accepted	killed(2 failed: ThePrimaryRowOfAnImpossibleValue_AndABwtRecordOfAnotherLengt,ThePrimaryRo	-	-	-	killed (stage 1)
 V51	SesaResume.cs	a missing primary row is accepted	killed(4 failed: ThePrimaryRowOfAnImpossibleValue_AndABwtRecordOfAnotherLengt,ThePrimaryRo	-	-	-	killed (stage 1)
-V52	SesaResume.cs	an unknown stage is accepted	survived	-	survived	-	survived, stage 2 not run
+V52	SesaResume.cs	an unknown stage is accepted	survived	-	survived	killed(1 failed: NoAllocationProportionalToTheTextForTheTota	killed (stage 2)
 V53	SesaResume.cs	the number of outputs is not compared	killed(1 failed: ARecordWithOtherOutputsThanTheLayoutHas_IsNotTrusted("extra")[only]	-	-	-	killed (stage 1)
 V54	SesaResume.cs	the role is not compared	survived	-	killed(1 failed: AForgedRecord_WhoseRangeIsElsewhere_OrWhose	-	closed by a test (red against the mutant at the head that holds the test)
 V55	SesaResume.cs	the place of the file is not compared	survived	-	killed(1 failed: AForgedRecord_WhoseRangeIsElsewhere_OrWhose	-	closed by a test (red against the mutant at the head that holds the test)
@@ -180,7 +180,7 @@ V68	SesaResume.cs	the foreign files of a kept directory are left	survived	-	kill
 V69	SesaResume.cs	the foreign files of the scratch are left	survived	-	killed(2 failed: AResumedBuild_RemovesForeignFilesAlsoInside	-	closed by a test (red against the mutant at the head that holds the test)
 V70	SesaResume.cs	the state is not rewritten when stages are cut	survived	-	killed(1 failed: AResumedBuild_RemovesWhatItDoesNotKeep_AndR	-	closed by a test (red against the mutant at the head that holds the test)
 V71	SesaResume.cs	the state is rewritten with all the stages	survived	-	killed(1 failed: AResumedBuild_RemovesWhatItDoesNotKeep_AndR	-	closed by a test (red against the mutant at the head that holds the test)
-V72	SesaResume.cs	a build that was not accepted prepares	survived	-	survived	-	survived, stage 2 not run
+V72	SesaResume.cs	a build that was not accepted prepares	survived	-	survived	killed(1 failed: NoAllocationProportionalToTheTextForTheTota	killed (stage 2)
 V73	SesaResume.cs	the empty text has two nodes	killed(3 failed: TextsOfZeroOneAndTwoSymbols_ResumeLikeAnyOther("","lcp-child,TextsOfZeroO	-	-	-	killed (stage 1)
 V74	SesaResume.cs	the text of one symbol is the empty text	killed(3 failed: TextsOfZeroOneAndTwoSymbols_ResumeLikeAnyOther("x","lcp-chil,TextsOfZeroO	-	-	-	killed (stage 1)
 V75	SesaResume.cs	the empty text is not special	killed(3 failed: TextsOfZeroOneAndTwoSymbols_ResumeLikeAnyOther("","lcp-child,TextsOfZeroO	-	-	-	killed (stage 1)

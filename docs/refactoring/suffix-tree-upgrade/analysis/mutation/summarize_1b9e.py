@@ -11,7 +11,7 @@ try:
     EQ = import_module('1b9e_equivalent').EQUIVALENT
 except ImportError:
     EQ = {}
-SKIP = ('1b9e_s2_', '1b9e_b_', '1b9e_c_')
+SKIP = ('1b9e_s2_', '1b9e_s2b_', '1b9e_b_', '1b9e_c_')
 listed = {}
 for f in sorted(glob.glob(os.path.join(HERE, '1b9e_*_listed.json'))):
     if os.path.basename(f).startswith(SKIP):
@@ -41,7 +41,7 @@ def is_kill(v):
     return v.startswith('killed')
 
 
-s1, s1b, s2, cl = results(''), results('b_'), results('s2_'), results('c_')
+s1, s1b, s2, s2b, cl = results(''), results('b_'), results('s2_'), results('s2b_'), results('c_')
 rows = []
 counts = {}
 for i, m in sorted(listed.items(), key=lambda kv: (kv[1]['file'], kv[0])):
@@ -49,6 +49,8 @@ for i, m in sorted(listed.items(), key=lambda kv: (kv[1]['file'], kv[0])):
     vb = verdict(s1b.get(i))
     vc = verdict(cl.get(i))
     v2 = s2.get(i, ['', '', '', ''])[3] if i in s2 else ''
+    if i in s2b:
+        v2 = s2b[i][2]  # the stage-2 run without the one allocation test that fails with the load of the machine
     if v1 == 'NOT RUN':
         status = 'not run'
     elif v1.startswith('BUILD'):

@@ -1,0 +1,26 @@
+[
+ {
+  "id": "B36",
+  "desc": "a published build leaves its scratch",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "if (!keep) DeleteDirectoryQuietly(scratch);",
+  "new": "if (!published && !keep) DeleteDirectoryQuietly(scratch);",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
+ },
+ {
+  "id": "B56",
+  "desc": "the checkpoint gives no cover (the build makes it again)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "public DifferenceCover? Cover => run.Cover;",
+  "new": "public DifferenceCover? Cover => null;",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
+ },
+ {
+  "id": "B55",
+  "desc": "the seconds of the checkpoint are zero",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "public double CheckpointSeconds => run.CheckpointSeconds;",
+  "new": "public double CheckpointSeconds => 0;",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
+ }
+]

@@ -1,0 +1,2 @@
+L04	the lock is released twice	-	killed(1 failed: NoAllocationProportionalToTheTextForTheTotal_AndOnlyTheResul)		355
+L06	the lock is taken with FileMode.Create	-	killed(1 failed: NoAllocationProportionalToTheTextForTheTotal_AndOnlyTheResul)		349

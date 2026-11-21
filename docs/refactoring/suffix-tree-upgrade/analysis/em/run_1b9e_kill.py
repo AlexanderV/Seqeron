@@ -179,6 +179,8 @@ def main():
         assert ref_hash in (None, rrows["sha256"]), "two uninterrupted builds differ"
         ref_hash = rrows["sha256"]
         totals.append(float(rrows["total_s"]))
+        with open(a.rows + ".reference", "a") as side:  # every row of the uninterrupted builds (phases, counters, the split of PH2 / PH3), for the tables
+            side.write("\n".join(l for l in ref.lines if l.startswith("R\t")) + "\n")
         assert entries(a.work) == ["out.sesa"], entries(a.work)
     ref_total = sorted(totals)[1]
     clean(a.work)
@@ -232,7 +234,8 @@ def main():
         leftover_ok = entries(a.work) == ["out.sesa"]
         skipped = fr.get("skipped", "")
         total = float(fr["total_s"]) if "total_s" in fr else None
-        log(mode, aimed, last, killed, target_state, skipped, total, hash_equal, leftover_ok, kid, extra)
+        rss = fr.get("rssanon_peak_mb")
+        log(mode, aimed, last, killed, target_state, skipped, total, hash_equal, leftover_ok, kid, (extra + " " if extra else "") + (f"rssanon_mb={float(rss):.1f}" if rss else ""))
         status = "ok" if hash_equal and leftover_ok else "FAILED"
         print(f"{status} {a.kind} {kid} {mode} aimed {aimed} last {last} phase {phase_of(last)} killed {int(killed)} target {target_state} skipped [{skipped}] resume {total if total is None else round(total, 2)} s {extra}", flush=True)
         if not (hash_equal and leftover_ok):

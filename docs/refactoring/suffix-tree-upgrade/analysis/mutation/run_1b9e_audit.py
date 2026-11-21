@@ -80,7 +80,7 @@ if 'stage1' in what:
     jobs = []
     for f in sorted(glob.glob(os.path.join(HERE, '1b9e_*_listed.json'))):
         name = os.path.basename(f)[len('1b9e_'):-len('_listed.json')]
-        if name.startswith(('s2_', 'b_', 'c_')):
+        if name.startswith(('s2_', 's2b_', 'b_', 'c_')):
             continue
         if not todo(f, 'results_1b9e_%s.tsv' % name):
             continue
@@ -92,7 +92,7 @@ if 'stage1b' in what:
     jobs = []
     for f in sorted(glob.glob(os.path.join(HERE, '1b9e_*_listed.json'))):
         name = os.path.basename(f)[len('1b9e_'):-len('_listed.json')]
-        if name.startswith(('s2_', 'b_', 'c_')) or name not in QUICK_LISTS:
+        if name.startswith(('s2_', 's2b_', 'b_', 'c_')) or name not in QUICK_LISTS:
             continue
         surv = survivors(name, first=True)
         sel = [m for m in json.load(open(f)) if m['id'] in surv]
@@ -106,7 +106,7 @@ if 'closed' in what:
     jobs = []
     for f in sorted(glob.glob(os.path.join(HERE, '1b9e_*_listed.json'))):
         name = os.path.basename(f)[len('1b9e_'):-len('_listed.json')]
-        if name.startswith(('s2_', 'b_', 'c_')):
+        if name.startswith(('s2_', 's2b_', 'b_', 'c_')):
             continue
         surv = survivors(name)
         sel = [m for m in json.load(open(f)) if m['id'] in surv]
@@ -120,7 +120,7 @@ if 'stage2' in what:
     jobs = []
     for f in sorted(glob.glob(os.path.join(HERE, '1b9e_*_listed.json'))):
         name = os.path.basename(f)[len('1b9e_'):-len('_listed.json')]
-        if name.startswith(('s2_', 'b_', 'c_')):
+        if name.startswith(('s2_', 's2b_', 'b_', 'c_')):
             continue
         surv = survivors(name)
         resc = os.path.join(HERE, 'results_1b9e_c_%s.tsv' % name)
@@ -132,5 +132,21 @@ if 'stage2' in what:
             json.dump(sel, open(f2, 'w'), indent=1)
             if todo(f2, 'results_1b9e_s2_%s.tsv' % name):
                 jobs.append((f2, 'results_1b9e_s2_%s.tsv' % name, {'MUTANT_STAGES': '2', 'MUTANT_TEST_LIMIT': '1500'}, ''))
+    run_phase(jobs)
+if 'stage2b' in what:
+    # a kill in stage 2 by the allocation test of EsaDistinctSubstringTests alone is a test that measures the allocations of the thread and fails or passes with the load of the machine (three mutant runs at once): the mutant is run
+    # again against the whole default set without that one test
+    FLAKY = 'NoAllocationProportionalToTheTextForTheTotal'
+    jobs = []
+    for f in sorted(glob.glob(os.path.join(HERE, '1b9e_s2_*_listed.json'))):
+        name = os.path.basename(f)[len('1b9e_s2_'):-len('_listed.json')]
+        res = os.path.join(HERE, 'results_1b9e_s2_%s.tsv' % name)
+        flaky = set(l.split('\t')[0] for l in open(res) if len(l.split('\t')) > 3 and l.split('\t')[3].startswith('killed(1 failed: %s' % FLAKY)) if os.path.exists(res) else set()
+        sel = [m for m in json.load(open(f)) if m['id'] in flaky]
+        if sel:
+            f2 = os.path.join(HERE, '1b9e_s2b_%s_listed.json' % name)
+            json.dump(sel, open(f2, 'w'), indent=1)
+            if todo(f2, 'results_1b9e_s2b_%s.tsv' % name):
+                jobs.append((f2, 'results_1b9e_s2b_%s.tsv' % name, {'MUTANT_STAGES': '2', 'MUTANT_TEST_LIMIT': '1500', 'MUTANT_FILTER_ONLY': 'TestCategory!=Exhaustive&TestCategory!=Fuzz&TestCategory!=Cost&FullyQualifiedName!~' + FLAKY}, ''))
     run_phase(jobs)
 open(os.path.join(HERE, '.audit_1b9e.done'), 'w').write('done\n')
