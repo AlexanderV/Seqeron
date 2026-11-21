@@ -1,0 +1,126 @@
+dna_10m	created	resume	0	2.602682589	2.795	1	
+dna_10m	created	restart	0	2.522801007	2.718	1	
+dna_10m	created	resume	1	2.580993949	2.778	1	
+dna_10m	created	restart	1	2.399484024	2.588	1	
+dna_10m	created	resume	2	2.652012509	2.845	1	
+dna_10m	created	restart	2	2.494453156	2.688	1	
+dna_10m	rank-written	resume	0	2.478880941	2.668	1	packed
+dna_10m	rank-written	restart	0	2.414890491	2.599	1	
+dna_10m	rank-written	resume	1	2.470992182	2.663	1	packed
+dna_10m	rank-written	restart	1	2.38564355	2.576	1	
+dna_10m	rank-written	resume	2	2.36018857	2.549	1	packed
+dna_10m	rank-written	restart	2	2.435547843	2.626	1	
+dna_10m	ph23	resume	0	2.366582807	2.570	1	packed,ranks
+dna_10m	ph23	restart	0	2.420669792	2.613	1	
+dna_10m	ph23	resume	1	2.473091002	2.663	1	packed,ranks
+dna_10m	ph23	restart	1	2.383168145	2.565	1	
+dna_10m	ph23	resume	2	2.357243442	2.543	1	packed,ranks
+dna_10m	ph23	restart	2	2.191552688	2.374	1	
+dna_10m	b2	resume	0	1.938110591	2.124	1	packed,sa
+dna_10m	b2	restart	0	2.531604676	2.712	1	
+dna_10m	b2	resume	1	2.040049204	2.230	1	packed,sa
+dna_10m	b2	restart	1	2.594559674	2.787	1	
+dna_10m	b2	resume	2	2.041123343	2.237	1	packed,sa
+dna_10m	b2	restart	2	2.500690809	2.691	1	
+dna_10m	lcp-child-built	resume	0	0.720211936	0.910	1	packed,sa,lcp
+dna_10m	lcp-child-built	restart	0	2.570717569	2.763	1	
+dna_10m	lcp-child-built	resume	1	0.769348065	0.960	1	packed,sa,lcp
+dna_10m	lcp-child-built	restart	1	2.607563359	2.799	1	
+dna_10m	lcp-child-built	resume	2	0.789492572	0.980	1	packed,sa,lcp
+dna_10m	lcp-child-built	restart	2	2.524459585	2.716	1	
+dna_10m	bwt-built	resume	0	0.587474605	0.773	1	packed,sa,lcp,bwt
+dna_10m	bwt-built	restart	0	2.592364086	2.788	1	
+dna_10m	bwt-built	resume	1	0.609231	0.804	1	packed,sa,lcp,bwt
+dna_10m	bwt-built	restart	1	2.59055521	2.788	1	
+dna_10m	bwt-built	resume	2	0.606227128	0.799	1	packed,sa,lcp,bwt
+dna_10m	bwt-built	restart	2	2.606638804	2.802	1	
+dna_10m	info-written	resume	0	0.452843013	0.639	1	packed,sa,lcp,psi
+dna_10m	info-written	restart	0	2.4728317	2.653	1	
+dna_10m	info-written	resume	1	0.421731441	0.601	1	packed,sa,lcp,psi
+dna_10m	info-written	restart	1	2.400947142	2.587	1	
+dna_10m	info-written	resume	2	0.423358163	0.603	1	packed,sa,lcp,psi
+dna_10m	info-written	restart	2	2.238541807	2.422	1	
+rep_10m	created	resume	0	3.284543477	3.480	1	
+rep_10m	created	restart	0	2.969795096	3.161	1	
+rep_10m	created	resume	1	3.273830066	3.471	1	
+rep_10m	created	restart	1	3.206709968	3.416	1	
+rep_10m	created	resume	2	3.263076597	3.463	1	
+rep_10m	created	restart	2	3.025548965	3.220	1	
+rep_10m	rank-written	resume	0	3.020400704	3.215	1	packed
+rep_10m	rank-written	restart	0	3.249301914	3.450	1	
+rep_10m	rank-written	resume	1	3.322398565	3.521	1	packed
+rep_10m	rank-written	restart	1	3.522629486	3.727	1	
+rep_10m	rank-written	resume	2	3.245557777	3.439	1	packed
+rep_10m	rank-written	restart	2	3.405403924	3.608	1	
+rep_10m	ph23	resume	0	3.136270389	3.338	1	packed,ranks
+rep_10m	ph23	restart	0	3.401709323	3.607	1	
+rep_10m	ph23	resume	1	3.179574424	3.380	1	packed,ranks
+rep_10m	ph23	restart	1	3.297871215	3.499	1	
+rep_10m	ph23	resume	2	3.136919742	3.344	1	packed,ranks
+rep_10m	ph23	restart	2	3.322589489	3.523	1	
+rep_10m	b2	resume	0	2.015652702	2.206	1	packed,sa
+rep_10m	b2	restart	0	3.335142182	3.534	1	
+rep_10m	b2	resume	1	2.136988096	2.330	1	packed,sa
+rep_10m	b2	restart	1	3.512344207	3.728	1	
+rep_10m	b2	resume	2	2.128000056	2.328	1	packed,sa
+rep_10m	b2	restart	2	3.160012638	3.350	1	
+rep_10m	lcp-child-built	resume	0	0.733094863	0.937	1	packed,sa,lcp
+rep_10m	lcp-child-built	restart	0	3.183480902	3.381	1	
+rep_10m	lcp-child-built	resume	1	0.671853719	0.860	1	packed,sa,lcp
+rep_10m	lcp-child-built	restart	1	3.042620223	3.231	1	
+rep_10m	lcp-child-built	resume	2	0.670704089	0.858	1	packed,sa,lcp
+rep_10m	lcp-child-built	restart	2	3.116885026	3.308	1	
+rep_10m	bwt-built	resume	0	0.59548736	0.782	1	packed,sa,lcp,bwt
+rep_10m	bwt-built	restart	0	3.118924153	3.307	1	
+rep_10m	bwt-built	resume	1	0.567640303	0.755	1	packed,sa,lcp,bwt
+rep_10m	bwt-built	restart	1	3.163817648	3.352	1	
+rep_10m	bwt-built	resume	2	0.590221497	0.787	1	packed,sa,lcp,bwt
+rep_10m	bwt-built	restart	2	3.375723207	3.579	1	
+rep_10m	info-written	resume	0	0.457311419	0.653	1	packed,sa,lcp,psi
+rep_10m	info-written	restart	0	3.469908034	3.668	1	
+rep_10m	info-written	resume	1	0.43532048	0.637	1	packed,sa,lcp,psi
+rep_10m	info-written	restart	1	3.309490165	3.501	1	
+rep_10m	info-written	resume	2	0.46031373	0.658	1	packed,sa,lcp,psi
+rep_10m	info-written	restart	2	3.246097556	3.443	1	
+prot_10m	created	resume	0	2.747334891	2.938	1	
+prot_10m	created	restart	0	2.759987554	2.960	1	
+prot_10m	created	resume	1	2.887874507	3.076	1	
+prot_10m	created	restart	1	2.518967464	2.713	1	
+prot_10m	created	resume	2	2.552642472	2.740	1	
+prot_10m	created	restart	2	2.587090579	2.781	1	
+prot_10m	rank-written	resume	0	2.784987581	2.981	1	packed
+prot_10m	rank-written	restart	0	2.76073067	2.954	1	
+prot_10m	rank-written	resume	1	2.863950717	3.060	1	packed
+prot_10m	rank-written	restart	1	2.668494074	2.856	1	
+prot_10m	rank-written	resume	2	2.782198169	2.974	1	packed
+prot_10m	rank-written	restart	2	2.556860712	2.743	1	
+prot_10m	ph23	resume	0	2.473489438	2.667	1	packed,ranks
+prot_10m	ph23	restart	0	2.896989727	3.097	1	
+prot_10m	ph23	resume	1	2.602643642	2.800	1	packed,ranks
+prot_10m	ph23	restart	1	2.855673696	3.050	1	
+prot_10m	ph23	resume	2	2.669177028	2.867	1	packed,ranks
+prot_10m	ph23	restart	2	2.870201464	3.068	1	
+prot_10m	b2	resume	0	2.216408844	2.415	1	packed,sa
+prot_10m	b2	restart	0	2.961708538	3.154	1	
+prot_10m	b2	resume	1	2.22205219	2.418	1	packed,sa
+prot_10m	b2	restart	1	3.025492352	3.220	1	
+prot_10m	b2	resume	2	2.208189271	2.406	1	packed,sa
+prot_10m	b2	restart	2	2.996244495	3.189	1	
+prot_10m	lcp-child-built	resume	0	0.796514816	0.991	1	packed,sa,lcp
+prot_10m	lcp-child-built	restart	0	2.833071312	3.029	1	
+prot_10m	lcp-child-built	resume	1	0.802931754	0.997	1	packed,sa,lcp
+prot_10m	lcp-child-built	restart	1	2.915990606	3.130	1	
+prot_10m	lcp-child-built	resume	2	0.800081223	0.994	1	packed,sa,lcp
+prot_10m	lcp-child-built	restart	2	2.781149507	2.969	1	
+prot_10m	bwt-built	resume	0	0.591108216	0.783	1	packed,sa,lcp,bwt
+prot_10m	bwt-built	restart	0	2.872972657	3.067	1	
+prot_10m	bwt-built	resume	1	0.580838101	0.768	1	packed,sa,lcp,bwt
+prot_10m	bwt-built	restart	1	2.726329694	2.922	1	
+prot_10m	bwt-built	resume	2	0.577822277	0.764	1	packed,sa,lcp,bwt
+prot_10m	bwt-built	restart	2	2.882414514	3.082	1	
+prot_10m	info-written	resume	0	0.437382706	0.629	1	packed,sa,lcp,psi
+prot_10m	info-written	restart	0	3.205994231	3.394	1	
+prot_10m	info-written	resume	1	0.431675097	0.618	1	packed,sa,lcp,psi
+prot_10m	info-written	restart	1	2.802189339	2.994	1	
+prot_10m	info-written	resume	2	0.440253019	0.623	1	packed,sa,lcp,psi
+prot_10m	info-written	restart	2	2.433453687	2.617	1	

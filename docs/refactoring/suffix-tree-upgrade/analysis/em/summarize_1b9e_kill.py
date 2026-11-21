@@ -32,17 +32,19 @@ def main():
         total["left"] += sum(r["leftover_ok"] == "1" for r in rs)
     rss = [float(x.split("rssanon_mb=")[1].split()[0]) for r in rows for x in [r["extra"]] if "rssanon_mb=" in x]
     print(f"\nTotal: {total['kills']} kills landed in {total['rows']} cases; hash equal in {total['hash']}, nothing else left in {total['left']}." + (f" RssAnon of the finishing runs: max {max(rss):.1f} MB over {len(rss)} runs (the gate is 320)." if rss else "") + "\n")
-    print("| input | phase of the kill (last marker seen) | kills | stages skipped by the resume (most common) | resume s (median [min-max]) | uninterrupted build s | saved s (median [min-max]) |")
-    print("| --- | --- | --- | --- | --- | --- | --- |")
+    print("Kills by the phase that the process was in (the last marker that it printed before the signal) and what the resume skipped (the most common set of stages). The seconds of the resumes are in the raw rows but are not a measurement of the saving: the resumes of these campaigns run with 1, 2 or 4 threads at random and right after the kill; the saving is measured by run_1b9e_timing.py.\n")
+    print("| input | " + " | ".join(ORDER) + " |")
+    print("| --- | " + " | ".join("---" for _ in ORDER) + " |")
     for (kind, n), rs in sorted(by.items()):
+        cells = []
         for ph in ORDER:
-            sel = [r for r in rs if r["phase"] == ph and r["killed"] == "1" and r["resume_s"]]
+            sel = [r for r in rs if r["phase"] == ph and r["killed"] == "1"]
             if not sel:
+                cells.append("0")
                 continue
-            res = sorted(float(r["resume_s"]) for r in sel)
-            sav = sorted(float(r["saved_s"]) for r in sel)
             common = collections.Counter(r["skipped"] or "(none)" for r in sel).most_common(1)[0]
-            print(f"| {kind} | {ph} | {len(sel)} | {common[0]} ({common[1]}) | {statistics.median(res):.2f} [{res[0]:.2f}-{res[-1]:.2f}] | {sel[0]['fresh_s']} | {statistics.median(sav):.2f} [{sav[0]:.2f}-{sav[-1]:.2f}] |")
+            cells.append(f"{len(sel)} ({common[0]})")
+        print(f"| {kind} | " + " | ".join(cells) + " |")
     bad = [r for r in rows if r["hash_ok"] != "1" or r["leftover_ok"] != "1"]
     for r in bad:
         print("FAILED:", r)

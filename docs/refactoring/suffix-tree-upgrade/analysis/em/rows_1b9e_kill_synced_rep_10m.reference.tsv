@@ -1,0 +1,78 @@
+R	resume	total_s	3.315119989	s	rep_10m resume False fsync True threads 4
+R	resume	wall_s	3.319752319	s	rep_10m
+R	resume	scan_s	0.032166036	s	rep_10m
+R	resume	pack_s	0.048438364	s	rep_10m
+R	resume	ph1_s	0.235182918	s	rep_10m
+R	resume	ph23_s	1.224644337	s	rep_10m
+R	resume	ph45_s	1.1593078	s	rep_10m
+R	resume	bwt_s	0.15079625	s	rep_10m
+R	resume	psi_s	0.102996145	s	rep_10m
+R	resume	crc_s	0.037488049	s	rep_10m
+R	resume	seal_s	0.00862728	s	rep_10m
+R	resume	n	10000000	symbols	rep_10m sigma 4
+R	resume	sort_partition_thread_s	0.278213787	s	rep_10m PH2: seconds of the partition steps, summed over the worker threads
+R	resume	sort_leaf_thread_s	3.581850565	s	rep_10m PH3: seconds of the leaf sorts (and their slice writes), summed over the worker threads
+R	resume	sort_buckets	21	buckets	rep_10m 20 leaves, 1 partitions, depth 1
+R	resume	dcs_levels	1	levels	rep_10m names unique at level 0: True
+R	resume	file_size	142515458	bytes	rep_10m LCP U16
+R	resume	counted_read	352578065	bytes	rep_10m
+R	resume	counted_write	242582160	bytes	rep_10m
+R	resume	counted_mapped_write	153789340	bytes	rep_10m
+R	resume	counted_flushes	2	calls	rep_10m fsync calls counted (header, magic, and every checkpoint with Resume)
+R	resume	dev_sectors_written	407080	sectors	rep_10m over the call (512 B)
+R	resume	dev_sectors_written_synced	407456	sectors	rep_10m until the end of a sync after the call
+R	resume	dev_sectors_read	8	sectors	rep_10m
+R	resume	rssanon_peak_mb	101.650432	MB	rep_10m verdict Within
+R	resume	sha256	924545d61c412898f0bae579ff20e76798c459afe7317c1aae3a7b20523c9021	hex	rep_10m
+R	resume	total_s	3.20617526	s	rep_10m resume False fsync True threads 4
+R	resume	wall_s	3.210882748	s	rep_10m
+R	resume	scan_s	0.034298329	s	rep_10m
+R	resume	pack_s	0.04932174	s	rep_10m
+R	resume	ph1_s	0.21023646	s	rep_10m
+R	resume	ph23_s	1.228615085	s	rep_10m
+R	resume	ph45_s	1.134022332	s	rep_10m
+R	resume	bwt_s	0.101640798	s	rep_10m
+R	resume	psi_s	0.1003273	s	rep_10m
+R	resume	crc_s	0.033512442	s	rep_10m
+R	resume	seal_s	0.007574032	s	rep_10m
+R	resume	n	10000000	symbols	rep_10m sigma 4
+R	resume	sort_partition_thread_s	0.243110414	s	rep_10m PH2: seconds of the partition steps, summed over the worker threads
+R	resume	sort_leaf_thread_s	3.743823035	s	rep_10m PH3: seconds of the leaf sorts (and their slice writes), summed over the worker threads
+R	resume	sort_buckets	21	buckets	rep_10m 20 leaves, 1 partitions, depth 1
+R	resume	dcs_levels	1	levels	rep_10m names unique at level 0: True
+R	resume	file_size	142515458	bytes	rep_10m LCP U16
+R	resume	counted_read	352578065	bytes	rep_10m
+R	resume	counted_write	242582160	bytes	rep_10m
+R	resume	counted_mapped_write	153789340	bytes	rep_10m
+R	resume	counted_flushes	2	calls	rep_10m fsync calls counted (header, magic, and every checkpoint with Resume)
+R	resume	dev_sectors_written	408368	sectors	rep_10m over the call (512 B)
+R	resume	dev_sectors_written_synced	408768	sectors	rep_10m until the end of a sync after the call
+R	resume	dev_sectors_read	8	sectors	rep_10m
+R	resume	rssanon_peak_mb	101.605376	MB	rep_10m verdict Within
+R	resume	sha256	924545d61c412898f0bae579ff20e76798c459afe7317c1aae3a7b20523c9021	hex	rep_10m
+R	resume	total_s	3.132194726	s	rep_10m resume False fsync True threads 4
+R	resume	wall_s	3.136937681	s	rep_10m
+R	resume	scan_s	0.034514293	s	rep_10m
+R	resume	pack_s	0.049683249	s	rep_10m
+R	resume	ph1_s	0.212083969	s	rep_10m
+R	resume	ph23_s	1.23192201	s	rep_10m
+R	resume	ph45_s	1.053543208	s	rep_10m
+R	resume	bwt_s	0.101894567	s	rep_10m
+R	resume	psi_s	0.10141986	s	rep_10m
+R	resume	crc_s	0.03362852	s	rep_10m
+R	resume	seal_s	0.007489004	s	rep_10m
+R	resume	n	10000000	symbols	rep_10m sigma 4
+R	resume	sort_partition_thread_s	0.241889121	s	rep_10m PH2: seconds of the partition steps, summed over the worker threads
+R	resume	sort_leaf_thread_s	3.7607146360000003	s	rep_10m PH3: seconds of the leaf sorts (and their slice writes), summed over the worker threads
+R	resume	sort_buckets	21	buckets	rep_10m 20 leaves, 1 partitions, depth 1
+R	resume	dcs_levels	1	levels	rep_10m names unique at level 0: True
+R	resume	file_size	142515458	bytes	rep_10m LCP U16
+R	resume	counted_read	352578065	bytes	rep_10m
+R	resume	counted_write	242582160	bytes	rep_10m
+R	resume	counted_mapped_write	153789340	bytes	rep_10m
+R	resume	counted_flushes	2	calls	rep_10m fsync calls counted (header, magic, and every checkpoint with Resume)
+R	resume	dev_sectors_written	407400	sectors	rep_10m over the call (512 B)
+R	resume	dev_sectors_written_synced	407760	sectors	rep_10m until the end of a sync after the call
+R	resume	dev_sectors_read	0	sectors	rep_10m
+R	resume	rssanon_peak_mb	102.264832	MB	rep_10m verdict Within
+R	resume	sha256	924545d61c412898f0bae579ff20e76798c459afe7317c1aae3a7b20523c9021	hex	rep_10m

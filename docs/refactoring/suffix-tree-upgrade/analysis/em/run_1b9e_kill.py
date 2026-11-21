@@ -156,12 +156,16 @@ def main():
     ap.add_argument("--psi", default="true")
     ap.add_argument("--lock-check", default="no")
     ap.add_argument("--fsync", default="true")
+    ap.add_argument("--vary-threads", default="yes", help="yes: the resumes run with 1, 2 or the full number of threads at random, so that the bytes of a resume at another thread count are compared (determinism); no: every run has --threads, for the seconds of a resume")
     ap.add_argument("--sync-before-resume", default="no", help="yes: the dirty pages that the killed process left are written to the device (sync) before the resume starts, so that the seconds of the resume are not those of a disk that is still busy with the killed run")
     a = ap.parse_args()
     rnd = random.Random(a.seed)
     os.makedirs(a.work, exist_ok=True)
     n = os.path.getsize(a.input)
     target = os.path.join(a.work, "out.sesa")
+
+    def pick_threads():
+        return rnd.choice([1, 2, a.threads]) if a.vary_threads == "yes" else a.threads
 
     def args(resume, threads=None, extra=()):
         return ["--input", a.input, "--work", a.work, "--resume", resume, "--threads", str(threads or a.threads), "--psi", a.psi, "--fsync", a.fsync, "--markers", "true", "--hash", "true", "--keep", "true", "--label", a.kind] + list(extra)
@@ -214,7 +218,7 @@ def main():
         extra = ""
         if chain and rnd.random() < chain:
             # the resume is itself killed once, at a random moment of its own run
-            mid = Run(a.bench, args("true", rnd.choice([1, 2, a.threads])))
+            mid = Run(a.bench, args("true", pick_threads()))
             t = rnd.uniform(0.0, 0.8 * end)
             if mid.wait_mark("start", 60):
                 time.sleep(t)
@@ -226,7 +230,7 @@ def main():
         if a.sync_before_resume == "yes":
             os.sync()
             time.sleep(0.3)
-        fin = Run(a.bench, args("true", rnd.choice([1, 2, a.threads])))
+        fin = Run(a.bench, args("true", pick_threads()))
         rc = fin.finish()
         fr = fin.rows()
         h = fr.get("sha256", "")

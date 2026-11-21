@@ -1,0 +1,42 @@
+dna_100m	created	resume	0	16.974184355	17.986	1	
+dna_100m	created	restart	0	16.473150463	17.541	1	
+dna_100m	created	resume	1	16.488549763	17.490	1	
+dna_100m	created	restart	1	17.243679533	18.275	1	
+dna_100m	created	resume	2	17.495048972	18.494	1	
+dna_100m	created	restart	2	16.715442327	17.709	1	
+dna_100m	rank-written	resume	0	17.527189246	18.572	1	packed
+dna_100m	rank-written	restart	0	17.092087412	18.168	1	
+dna_100m	rank-written	resume	1	17.540602274	18.650	1	packed
+dna_100m	rank-written	restart	1	18.375710441	19.477	1	
+dna_100m	rank-written	resume	2	18.432165802	19.556	1	packed
+dna_100m	rank-written	restart	2	18.037306766	19.112	1	
+dna_100m	ph23	resume	0	16.327004872	17.354	1	packed,ranks
+dna_100m	ph23	restart	0	16.865352699	17.862	1	
+dna_100m	ph23	resume	1	16.735214307	17.786	1	packed,ranks
+dna_100m	ph23	restart	1	16.562761828	17.576	1	
+dna_100m	ph23	resume	2	15.607595147	16.654	1	packed,ranks
+dna_100m	ph23	restart	2	18.372241442	19.417	1	
+dna_100m	b2	resume	0	12.5109771	13.527	1	packed,sa
+dna_100m	b2	restart	0	18.899605836	19.894	1	
+dna_100m	b2	resume	1	12.401475623	13.487	1	packed,sa
+dna_100m	b2	restart	1	17.659991513	18.687	1	
+dna_100m	b2	resume	2	11.263235594	12.253	1	packed,sa
+dna_100m	b2	restart	2	19.051267778	20.069	1	
+dna_100m	lcp-child-built	resume	0	4.136490501	5.166	1	packed,sa,lcp
+dna_100m	lcp-child-built	restart	0	17.643271676	18.671	1	
+dna_100m	lcp-child-built	resume	1	4.32536855	5.372	1	packed,sa,lcp
+dna_100m	lcp-child-built	restart	1	18.246840978	19.248	1	
+dna_100m	lcp-child-built	resume	2	4.139655594	5.177	1	packed,sa,lcp
+dna_100m	lcp-child-built	restart	2	17.811777914	18.873	1	
+dna_100m	bwt-built	resume	0	2.131964033	3.176	1	packed,sa,lcp,bwt
+dna_100m	bwt-built	restart	0	17.817479743	18.827	1	
+dna_100m	bwt-built	resume	1	2.108205045	3.101	1	packed,sa,lcp,bwt
+dna_100m	bwt-built	restart	1	18.07320112	19.117	1	
+dna_100m	bwt-built	resume	2	2.059184863	3.074	1	packed,sa,lcp,bwt
+dna_100m	bwt-built	restart	2	17.517345801	18.543	1	
+dna_100m	info-written	resume	0	1.104928661	2.154	1	packed,sa,lcp,psi
+dna_100m	info-written	restart	0	19.011655643	20.111	1	
+dna_100m	info-written	resume	1	1.074288107	2.132	1	packed,sa,lcp,psi
+dna_100m	info-written	restart	1	18.228034734	19.295	1	
+dna_100m	info-written	resume	2	1.065441392	2.118	1	packed,sa,lcp,psi
+dna_100m	info-written	restart	2	18.137816493	19.133	1	

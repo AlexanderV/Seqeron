@@ -1,0 +1,8 @@
+rep_100m	100000000	1	random	ph0@0.535	created	ph0	1	none	packed,ranks	59.503	25.900	-33.603	1	1	chain-killed@ph23 rssanon_mb=108.5
+rep_100m	100000000	2	random	ph1@1.351	ph1	ph1	1	none	packed	25.217	25.900	0.683	1	1	rssanon_mb=252.1
+rep_100m	100000000	3	random	ph23@2.855	ph23	ph23	1	none	packed,ranks	62.640	25.900	-36.740	1	1	rssanon_mb=108.4
+rep_100m	100000000	4	random	ph4@17.393	b2	ph4	1	none	packed,sa	11.472	25.900	14.428	1	1	rssanon_mb=166.9
+rep_100m	100000000	5	random	bwt@24.326	lcp-child-built	bwt	1	none	packed,sa,lcp	4.185	25.900	21.715	1	1	rssanon_mb=14.5
+rep_100m	100000000	6	random	psi@26.666	info-written	ph7	1	none	packed,sa,lcp,psi	1.045	25.900	24.855	1	1	rssanon_mb=11.6
+rep_100m	100000000	7	random	ph7@27.170	magic-written	seal	1	complete		62.005	25.900	-36.105	1	1	rssanon_mb=127.8
+rep_100m	100000000	8	random	seal@27.286	magic-written	seal	1	complete		39.342	25.900	-13.442	1	1	rssanon_mb=216.0

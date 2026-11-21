@@ -1,0 +1,49 @@
+R	resume	total_s	18.344565567	s	dna_100m resume True fsync True threads 4
+R	resume	wall_s	18.350529393	s	dna_100m
+R	resume	scan_s	0.157228444	s	dna_100m
+R	resume	pack_s	0.340419527	s	dna_100m
+R	resume	ph1_s	0.294254291	s	dna_100m
+R	resume	ph23_s	6.527555349	s	dna_100m
+R	resume	ph45_s	7.393400635	s	dna_100m
+R	resume	bwt_s	1.680482103	s	dna_100m
+R	resume	psi_s	0.955324115	s	dna_100m
+R	resume	crc_s	0.2632309	s	dna_100m
+R	resume	seal_s	0.010196814	s	dna_100m
+R	resume	n	100000000	symbols	dna_100m sigma 4
+R	resume	sort_partition_thread_s	6.175683368	s	dna_100m PH2: seconds of the partition steps, summed over the worker threads
+R	resume	sort_leaf_thread_s	9.619016034000001	s	dna_100m PH3: seconds of the leaf sorts (and their slice writes), summed over the worker threads
+R	resume	sort_buckets	284	buckets	dna_100m 222 leaves, 62 partitions, depth 2
+R	resume	dcs_levels	1	levels	dna_100m names unique at level 0: True
+R	resume	file_size	1325019393	bytes	dna_100m LCP U8
+R	resume	counted_read	3914729401	bytes	dna_100m
+R	resume	counted_write	2814725484	bytes	dna_100m
+R	resume	counted_mapped_write	1437890539	bytes	dna_100m
+R	resume	counted_flushes	14	calls	dna_100m fsync calls counted (header, magic, and every checkpoint with Resume)
+R	resume	dev_sectors_written	4552096	sectors	dna_100m over the call (512 B)
+R	resume	dev_sectors_written_synced	4552960	sectors	dna_100m until the end of a sync after the call
+R	resume	dev_sectors_read	0	sectors	dna_100m
+R	resume	rssanon_peak_mb	251.592704	MB	dna_100m verdict Within
+R	resume	skipped		stages	dna_100m
+R	resume	state_found	no	bool	dna_100m no state file
+R	resume	verify_s	0.000991394	s	dna_100m state parsed and the outputs of the skipped stages verified (CRC-32C)
+R	resume	state_writes	6	files	dna_100m
+R	resume	state_bytes	6004	bytes	dna_100m
+R	resume	ckpt_packed_fsync_s	0.000911616	s	dna_100m
+R	resume	ckpt_packed_crc_s	0.013787571	s	dna_100m 25000104 bytes
+R	resume	ckpt_packed_state_s	0.011700075	s	dna_100m
+R	resume	ckpt_ranks_fsync_s	0.000426555	s	dna_100m
+R	resume	ckpt_ranks_crc_s	0.002871172	s	dna_100m 12890240 bytes
+R	resume	ckpt_ranks_state_s	0.005463973	s	dna_100m
+R	resume	ckpt_sa_fsync_s	0.000115714	s	dna_100m
+R	resume	ckpt_sa_crc_s	0.086026682	s	dna_100m 400000004 bytes
+R	resume	ckpt_sa_state_s	0.00182736	s	dna_100m
+R	resume	ckpt_lcp_fsync_s	0.00020327	s	dna_100m
+R	resume	ckpt_lcp_crc_s	0.10259264	s	dna_100m 500000005 bytes
+R	resume	ckpt_lcp_state_s	0.002059347	s	dna_100m
+R	resume	ckpt_bwt_fsync_s	0.000110601	s	dna_100m
+R	resume	ckpt_bwt_crc_s	0.021345894	s	dna_100m 100000001 bytes
+R	resume	ckpt_bwt_state_s	0.001812822	s	dna_100m
+R	resume	ckpt_psi_fsync_s	0.000299612	s	dna_100m
+R	resume	ckpt_psi_crc_s	0.087100725	s	dna_100m 400000004 bytes
+R	resume	ckpt_psi_state_s	0.001888717	s	dna_100m
+R	resume	ckpt_total_s	0.34054434600000005	s	dna_100m recording all stages

@@ -1,0 +1,386 @@
+# 2026-11-21T12:14:45Z dna_100m pairs 5 uptime  12:14:45 up 17:13,  0 user,  load average: 1.57, 1.97, 1.93
+R	resume-ab	total_s	16.900077387	s	dna_100m.fsync.0.off
+R	resume-ab	phase_scan_s	0.155271296	s	dna_100m.fsync.0.off
+R	resume-ab	phase_create_s	0.001805424	s	dna_100m.fsync.0.off
+R	resume-ab	phase_pack_s	0.325975434	s	dna_100m.fsync.0.off
+R	resume-ab	phase_ph1_s	0.298100405	s	dna_100m.fsync.0.off
+R	resume-ab	phase_ph23_s	5.481301811	s	dna_100m.fsync.0.off
+R	resume-ab	phase_ph45_s	7.405201939	s	dna_100m.fsync.0.off
+R	resume-ab	phase_bwt_s	1.708674164	s	dna_100m.fsync.0.off
+R	resume-ab	phase_psi_s	0.864925122	s	dna_100m.fsync.0.off
+R	resume-ab	phase_crc_s	0.295566589	s	dna_100m.fsync.0.off
+R	resume-ab	phase_seal_s	0.00694922	s	dna_100m.fsync.0.off
+R	resume-ab	dev_sectors_written_synced	4551320	sectors	dna_100m.fsync.0.off
+R	resume-ab	flushes	2	calls	dna_100m.fsync.0.off
+R	resume-ab	total_s	18.01400137	s	dna_100m.fsync.0.on
+R	resume-ab	phase_scan_s	0.136371472	s	dna_100m.fsync.0.on
+R	resume-ab	phase_create_s	0.000410699	s	dna_100m.fsync.0.on
+R	resume-ab	phase_pack_s	0.336214675	s	dna_100m.fsync.0.on
+R	resume-ab	phase_ph1_s	0.24923945600000003	s	dna_100m.fsync.0.on
+R	resume-ab	phase_ph23_s	5.715403588	s	dna_100m.fsync.0.on
+R	resume-ab	phase_ph45_s	7.354872629	s	dna_100m.fsync.0.on
+R	resume-ab	phase_bwt_s	2.279261116	s	dna_100m.fsync.0.on
+R	resume-ab	phase_psi_s	0.909688137	s	dna_100m.fsync.0.on
+R	resume-ab	phase_crc_s	0.293668693	s	dna_100m.fsync.0.on
+R	resume-ab	phase_seal_s	0.006500225	s	dna_100m.fsync.0.on
+R	resume-ab	dev_sectors_written_synced	4548168	sectors	dna_100m.fsync.0.on
+R	resume-ab	flushes	14	calls	dna_100m.fsync.0.on
+R	resume-ab	ckpt_total_s	0.352996081	s	dna_100m.fsync.0.on
+R	resume-ab	total_s	17.891206367	s	dna_100m.fsync.1.off
+R	resume-ab	phase_scan_s	0.134591575	s	dna_100m.fsync.1.off
+R	resume-ab	phase_create_s	0.000433207	s	dna_100m.fsync.1.off
+R	resume-ab	phase_pack_s	0.33583631	s	dna_100m.fsync.1.off
+R	resume-ab	phase_ph1_s	0.26495254	s	dna_100m.fsync.1.off
+R	resume-ab	phase_ph23_s	5.775715347	s	dna_100m.fsync.1.off
+R	resume-ab	phase_ph45_s	7.834157829	s	dna_100m.fsync.1.off
+R	resume-ab	phase_bwt_s	2.02590931	s	dna_100m.fsync.1.off
+R	resume-ab	phase_psi_s	0.875299193	s	dna_100m.fsync.1.off
+R	resume-ab	phase_crc_s	0.302178981	s	dna_100m.fsync.1.off
+R	resume-ab	phase_seal_s	0.001889466	s	dna_100m.fsync.1.off
+R	resume-ab	dev_sectors_written_synced	4549544	sectors	dna_100m.fsync.1.off
+R	resume-ab	flushes	2	calls	dna_100m.fsync.1.off
+R	resume-ab	total_s	18.101312871	s	dna_100m.fsync.1.on
+R	resume-ab	phase_scan_s	0.134658461	s	dna_100m.fsync.1.on
+R	resume-ab	phase_create_s	0.00048679	s	dna_100m.fsync.1.on
+R	resume-ab	phase_pack_s	0.30698343	s	dna_100m.fsync.1.on
+R	resume-ab	phase_ph1_s	0.26296840899999996	s	dna_100m.fsync.1.on
+R	resume-ab	phase_ph23_s	5.794657774	s	dna_100m.fsync.1.on
+R	resume-ab	phase_ph45_s	7.632434599	s	dna_100m.fsync.1.on
+R	resume-ab	phase_bwt_s	2.029969526	s	dna_100m.fsync.1.on
+R	resume-ab	phase_psi_s	0.96329701	s	dna_100m.fsync.1.on
+R	resume-ab	phase_crc_s	0.299638522	s	dna_100m.fsync.1.on
+R	resume-ab	phase_seal_s	0.00320481	s	dna_100m.fsync.1.on
+R	resume-ab	dev_sectors_written_synced	4552040	sectors	dna_100m.fsync.1.on
+R	resume-ab	flushes	14	calls	dna_100m.fsync.1.on
+R	resume-ab	ckpt_total_s	0.32932188100000004	s	dna_100m.fsync.1.on
+R	resume-ab	pair_ratio_total	1.0117435627140012	on / off	dna_100m.fsync pair 1: 18.101 / 17.891 s, first off
+R	resume-ab	pair_ratio_device_sectors	1.0005486264117898	on / off	dna_100m.fsync pair 1: 4552040 / 4549544 sectors written until the end of a sync
+R	resume-ab	total_s	17.85313366	s	dna_100m.fsync.2.on
+R	resume-ab	phase_scan_s	0.134189945	s	dna_100m.fsync.2.on
+R	resume-ab	phase_create_s	0.0003927	s	dna_100m.fsync.2.on
+R	resume-ab	phase_pack_s	0.335338548	s	dna_100m.fsync.2.on
+R	resume-ab	phase_ph1_s	0.24774938800000001	s	dna_100m.fsync.2.on
+R	resume-ab	phase_ph23_s	5.85065245	s	dna_100m.fsync.2.on
+R	resume-ab	phase_ph45_s	7.48156951	s	dna_100m.fsync.2.on
+R	resume-ab	phase_bwt_s	1.970738157	s	dna_100m.fsync.2.on
+R	resume-ab	phase_psi_s	0.849212982	s	dna_100m.fsync.2.on
+R	resume-ab	phase_crc_s	0.297044686	s	dna_100m.fsync.2.on
+R	resume-ab	phase_seal_s	0.003404864	s	dna_100m.fsync.2.on
+R	resume-ab	dev_sectors_written_synced	4551512	sectors	dna_100m.fsync.2.on
+R	resume-ab	flushes	14	calls	dna_100m.fsync.2.on
+R	resume-ab	ckpt_total_s	0.336082844	s	dna_100m.fsync.2.on
+R	resume-ab	total_s	17.580893061	s	dna_100m.fsync.2.off
+R	resume-ab	phase_scan_s	0.134281744	s	dna_100m.fsync.2.off
+R	resume-ab	phase_create_s	0.00043373	s	dna_100m.fsync.2.off
+R	resume-ab	phase_pack_s	0.325452176	s	dna_100m.fsync.2.off
+R	resume-ab	phase_ph1_s	0.254252053	s	dna_100m.fsync.2.off
+R	resume-ab	phase_ph23_s	5.708444223	s	dna_100m.fsync.2.off
+R	resume-ab	phase_ph45_s	7.733326558	s	dna_100m.fsync.2.off
+R	resume-ab	phase_bwt_s	1.962576756	s	dna_100m.fsync.2.off
+R	resume-ab	phase_psi_s	0.831160247	s	dna_100m.fsync.2.off
+R	resume-ab	phase_crc_s	0.290972736	s	dna_100m.fsync.2.off
+R	resume-ab	phase_seal_s	0.002005921	s	dna_100m.fsync.2.off
+R	resume-ab	dev_sectors_written_synced	4555504	sectors	dna_100m.fsync.2.off
+R	resume-ab	flushes	2	calls	dna_100m.fsync.2.off
+R	resume-ab	pair_ratio_total	1.0154850267307476	on / off	dna_100m.fsync pair 2: 17.853 / 17.581 s, first on
+R	resume-ab	pair_ratio_device_sectors	0.9991236973998925	on / off	dna_100m.fsync pair 2: 4551512 / 4555504 sectors written until the end of a sync
+R	resume-ab	total_s	16.544000152	s	dna_100m.fsync.3.off
+R	resume-ab	phase_scan_s	0.133364299	s	dna_100m.fsync.3.off
+R	resume-ab	phase_create_s	0.000401321	s	dna_100m.fsync.3.off
+R	resume-ab	phase_pack_s	0.3113332	s	dna_100m.fsync.3.off
+R	resume-ab	phase_ph1_s	0.254487183	s	dna_100m.fsync.3.off
+R	resume-ab	phase_ph23_s	5.815412928	s	dna_100m.fsync.3.off
+R	resume-ab	phase_ph45_s	6.96441234	s	dna_100m.fsync.3.off
+R	resume-ab	phase_bwt_s	1.611194205	s	dna_100m.fsync.3.off
+R	resume-ab	phase_psi_s	0.826810721	s	dna_100m.fsync.3.off
+R	resume-ab	phase_crc_s	0.286291563	s	dna_100m.fsync.3.off
+R	resume-ab	phase_seal_s	0.00161318	s	dna_100m.fsync.3.off
+R	resume-ab	dev_sectors_written_synced	4546624	sectors	dna_100m.fsync.3.off
+R	resume-ab	flushes	2	calls	dna_100m.fsync.3.off
+R	resume-ab	total_s	16.635112286	s	dna_100m.fsync.3.on
+R	resume-ab	phase_scan_s	0.131630344	s	dna_100m.fsync.3.on
+R	resume-ab	phase_create_s	0.000433482	s	dna_100m.fsync.3.on
+R	resume-ab	phase_pack_s	0.331212708	s	dna_100m.fsync.3.on
+R	resume-ab	phase_ph1_s	0.243662283	s	dna_100m.fsync.3.on
+R	resume-ab	phase_ph23_s	5.778883747	s	dna_100m.fsync.3.on
+R	resume-ab	phase_ph45_s	7.025843447	s	dna_100m.fsync.3.on
+R	resume-ab	phase_bwt_s	1.257962293	s	dna_100m.fsync.3.on
+R	resume-ab	phase_psi_s	0.917322346	s	dna_100m.fsync.3.on
+R	resume-ab	phase_crc_s	0.294349693	s	dna_100m.fsync.3.on
+R	resume-ab	phase_seal_s	0.003292024	s	dna_100m.fsync.3.on
+R	resume-ab	dev_sectors_written_synced	4546744	sectors	dna_100m.fsync.3.on
+R	resume-ab	flushes	14	calls	dna_100m.fsync.3.on
+R	resume-ab	ckpt_total_s	0.311473819	s	dna_100m.fsync.3.on
+R	resume-ab	pair_ratio_total	1.0055072614339275	on / off	dna_100m.fsync pair 3: 16.635 / 16.544 s, first off
+R	resume-ab	pair_ratio_device_sectors	1.000026393209555	on / off	dna_100m.fsync pair 3: 4546744 / 4546624 sectors written until the end of a sync
+R	resume-ab	total_s	15.820303539	s	dna_100m.fsync.4.on
+R	resume-ab	phase_scan_s	0.131501843	s	dna_100m.fsync.4.on
+R	resume-ab	phase_create_s	0.000356104	s	dna_100m.fsync.4.on
+R	resume-ab	phase_pack_s	0.312535172	s	dna_100m.fsync.4.on
+R	resume-ab	phase_ph1_s	0.237857805	s	dna_100m.fsync.4.on
+R	resume-ab	phase_ph23_s	5.490298279	s	dna_100m.fsync.4.on
+R	resume-ab	phase_ph45_s	6.714226147	s	dna_100m.fsync.4.on
+R	resume-ab	phase_bwt_s	1.229657535	s	dna_100m.fsync.4.on
+R	resume-ab	phase_psi_s	0.785725674	s	dna_100m.fsync.4.on
+R	resume-ab	phase_crc_s	0.283373941	s	dna_100m.fsync.4.on
+R	resume-ab	phase_seal_s	0.003699155	s	dna_100m.fsync.4.on
+R	resume-ab	dev_sectors_written_synced	4547904	sectors	dna_100m.fsync.4.on
+R	resume-ab	flushes	14	calls	dna_100m.fsync.4.on
+R	resume-ab	ckpt_total_s	0.305915493	s	dna_100m.fsync.4.on
+R	resume-ab	total_s	17.170762384	s	dna_100m.fsync.4.off
+R	resume-ab	phase_scan_s	0.13216477	s	dna_100m.fsync.4.off
+R	resume-ab	phase_create_s	0.00073023	s	dna_100m.fsync.4.off
+R	resume-ab	phase_pack_s	0.284371216	s	dna_100m.fsync.4.off
+R	resume-ab	phase_ph1_s	0.252629869	s	dna_100m.fsync.4.off
+R	resume-ab	phase_ph23_s	5.609816242	s	dna_100m.fsync.4.off
+R	resume-ab	phase_ph45_s	7.360680316	s	dna_100m.fsync.4.off
+R	resume-ab	phase_bwt_s	1.969347107	s	dna_100m.fsync.4.off
+R	resume-ab	phase_psi_s	0.916393443	s	dna_100m.fsync.4.off
+R	resume-ab	phase_crc_s	0.302237314	s	dna_100m.fsync.4.off
+R	resume-ab	phase_seal_s	0.002297436	s	dna_100m.fsync.4.off
+R	resume-ab	dev_sectors_written_synced	4549872	sectors	dna_100m.fsync.4.off
+R	resume-ab	flushes	2	calls	dna_100m.fsync.4.off
+R	resume-ab	pair_ratio_total	0.921351258913327	on / off	dna_100m.fsync pair 4: 15.820 / 17.171 s, first on
+R	resume-ab	pair_ratio_device_sectors	0.9995674603593244	on / off	dna_100m.fsync pair 4: 4547904 / 4549872 sectors written until the end of a sync
+R	resume-ab	total_s	16.638709982	s	dna_100m.fsync.5.off
+R	resume-ab	phase_scan_s	0.134605807	s	dna_100m.fsync.5.off
+R	resume-ab	phase_create_s	0.000488818	s	dna_100m.fsync.5.off
+R	resume-ab	phase_pack_s	0.336613425	s	dna_100m.fsync.5.off
+R	resume-ab	phase_ph1_s	0.249421819	s	dna_100m.fsync.5.off
+R	resume-ab	phase_ph23_s	5.501981612	s	dna_100m.fsync.5.off
+R	resume-ab	phase_ph45_s	7.02434951	s	dna_100m.fsync.5.off
+R	resume-ab	phase_bwt_s	1.920304073	s	dna_100m.fsync.5.off
+R	resume-ab	phase_psi_s	0.831183948	s	dna_100m.fsync.5.off
+R	resume-ab	phase_crc_s	0.302356808	s	dna_100m.fsync.5.off
+R	resume-ab	phase_seal_s	0.002559058	s	dna_100m.fsync.5.off
+R	resume-ab	dev_sectors_written_synced	4550016	sectors	dna_100m.fsync.5.off
+R	resume-ab	flushes	2	calls	dna_100m.fsync.5.off
+R	resume-ab	total_s	16.715131654	s	dna_100m.fsync.5.on
+R	resume-ab	phase_scan_s	0.134962726	s	dna_100m.fsync.5.on
+R	resume-ab	phase_create_s	0.000450237	s	dna_100m.fsync.5.on
+R	resume-ab	phase_pack_s	0.319566647	s	dna_100m.fsync.5.on
+R	resume-ab	phase_ph1_s	0.246026819	s	dna_100m.fsync.5.on
+R	resume-ab	phase_ph23_s	5.4892135280000005	s	dna_100m.fsync.5.on
+R	resume-ab	phase_ph45_s	7.181577439	s	dna_100m.fsync.5.on
+R	resume-ab	phase_bwt_s	1.539275536	s	dna_100m.fsync.5.on
+R	resume-ab	phase_psi_s	0.858335488	s	dna_100m.fsync.5.on
+R	resume-ab	phase_crc_s	0.281713599	s	dna_100m.fsync.5.on
+R	resume-ab	phase_seal_s	0.0035678	s	dna_100m.fsync.5.on
+R	resume-ab	dev_sectors_written_synced	4550864	sectors	dna_100m.fsync.5.on
+R	resume-ab	flushes	14	calls	dna_100m.fsync.5.on
+R	resume-ab	ckpt_total_s	0.319907292	s	dna_100m.fsync.5.on
+R	resume-ab	pair_ratio_total	1.0045930046309284	on / off	dna_100m.fsync pair 5: 16.715 / 16.639 s, first off
+R	resume-ab	pair_ratio_device_sectors	1.000186372970996	on / off	dna_100m.fsync pair 5: 4550864 / 4550016 sectors written until the end of a sync
+R	resume-ab	ratio_total_median	1.0055072614339275	on / off	dna_100m.fsync: min 0.9214 max 1.0155 over 5 pairs, fsync True
+R	resume-ab	ratio_device_sectors_median	1.000026393209555	on / off	dna_100m.fsync: min 0.9991 max 1.0005
+R	resume-ab	total_s	18.139506396	s	dna_100m.nofsync.0.off
+R	resume-ab	phase_scan_s	0.152231628	s	dna_100m.nofsync.0.off
+R	resume-ab	phase_create_s	0.001720778	s	dna_100m.nofsync.0.off
+R	resume-ab	phase_pack_s	0.348037112	s	dna_100m.nofsync.0.off
+R	resume-ab	phase_ph1_s	0.29864776	s	dna_100m.nofsync.0.off
+R	resume-ab	phase_ph23_s	5.738828286	s	dna_100m.nofsync.0.off
+R	resume-ab	phase_ph45_s	8.049698504	s	dna_100m.nofsync.0.off
+R	resume-ab	phase_bwt_s	1.976465432	s	dna_100m.nofsync.0.off
+R	resume-ab	phase_psi_s	0.914689816	s	dna_100m.nofsync.0.off
+R	resume-ab	phase_crc_s	0.297455706	s	dna_100m.nofsync.0.off
+R	resume-ab	phase_seal_s	0.006532371	s	dna_100m.nofsync.0.off
+R	resume-ab	dev_sectors_written_synced	4547848	sectors	dna_100m.nofsync.0.off
+R	resume-ab	flushes	0	calls	dna_100m.nofsync.0.off
+R	resume-ab	total_s	17.230641806	s	dna_100m.nofsync.0.on
+R	resume-ab	phase_scan_s	0.137603291	s	dna_100m.nofsync.0.on
+R	resume-ab	phase_create_s	0.000452843	s	dna_100m.nofsync.0.on
+R	resume-ab	phase_pack_s	0.345871716	s	dna_100m.nofsync.0.on
+R	resume-ab	phase_ph1_s	0.250995776	s	dna_100m.nofsync.0.on
+R	resume-ab	phase_ph23_s	5.598326122	s	dna_100m.nofsync.0.on
+R	resume-ab	phase_ph45_s	7.054767206	s	dna_100m.nofsync.0.on
+R	resume-ab	phase_bwt_s	1.99113008	s	dna_100m.nofsync.0.on
+R	resume-ab	phase_psi_s	0.852549615	s	dna_100m.nofsync.0.on
+R	resume-ab	phase_crc_s	0.285373987	s	dna_100m.nofsync.0.on
+R	resume-ab	phase_seal_s	0.005247207	s	dna_100m.nofsync.0.on
+R	resume-ab	dev_sectors_written_synced	4546536	sectors	dna_100m.nofsync.0.on
+R	resume-ab	flushes	0	calls	dna_100m.nofsync.0.on
+R	resume-ab	ckpt_total_s	0.349993903	s	dna_100m.nofsync.0.on
+R	resume-ab	total_s	17.703938552	s	dna_100m.nofsync.1.off
+R	resume-ab	phase_scan_s	0.132897722	s	dna_100m.nofsync.1.off
+R	resume-ab	phase_create_s	0.000416101	s	dna_100m.nofsync.1.off
+R	resume-ab	phase_pack_s	0.315428481	s	dna_100m.nofsync.1.off
+R	resume-ab	phase_ph1_s	0.27108066	s	dna_100m.nofsync.1.off
+R	resume-ab	phase_ph23_s	5.651617983	s	dna_100m.nofsync.1.off
+R	resume-ab	phase_ph45_s	7.895602982	s	dna_100m.nofsync.1.off
+R	resume-ab	phase_bwt_s	1.939546336	s	dna_100m.nofsync.1.off
+R	resume-ab	phase_psi_s	0.857180741	s	dna_100m.nofsync.1.off
+R	resume-ab	phase_crc_s	0.302173237	s	dna_100m.nofsync.1.off
+R	resume-ab	phase_seal_s	0.001979394	s	dna_100m.nofsync.1.off
+R	resume-ab	dev_sectors_written_synced	4548184	sectors	dna_100m.nofsync.1.off
+R	resume-ab	flushes	0	calls	dna_100m.nofsync.1.off
+R	resume-ab	total_s	16.961277169	s	dna_100m.nofsync.1.on
+R	resume-ab	phase_scan_s	0.135608594	s	dna_100m.nofsync.1.on
+R	resume-ab	phase_create_s	0.000437412	s	dna_100m.nofsync.1.on
+R	resume-ab	phase_pack_s	0.325101262	s	dna_100m.nofsync.1.on
+R	resume-ab	phase_ph1_s	0.263906311	s	dna_100m.nofsync.1.on
+R	resume-ab	phase_ph23_s	5.747346871	s	dna_100m.nofsync.1.on
+R	resume-ab	phase_ph45_s	6.827872792	s	dna_100m.nofsync.1.on
+R	resume-ab	phase_bwt_s	1.906892588	s	dna_100m.nofsync.1.on
+R	resume-ab	phase_psi_s	0.828124418	s	dna_100m.nofsync.1.on
+R	resume-ab	phase_crc_s	0.262231389	s	dna_100m.nofsync.1.on
+R	resume-ab	phase_seal_s	0.002839703	s	dna_100m.nofsync.1.on
+R	resume-ab	dev_sectors_written_synced	4552008	sectors	dna_100m.nofsync.1.on
+R	resume-ab	flushes	0	calls	dna_100m.nofsync.1.on
+R	resume-ab	ckpt_total_s	0.31896566400000004	s	dna_100m.nofsync.1.on
+R	resume-ab	pair_ratio_total	0.9580510641279817	on / off	dna_100m.nofsync pair 1: 16.961 / 17.704 s, first off
+R	resume-ab	pair_ratio_device_sectors	1.000840775131349	on / off	dna_100m.nofsync pair 1: 4552008 / 4548184 sectors written until the end of a sync
+R	resume-ab	total_s	17.533296787	s	dna_100m.nofsync.2.on
+R	resume-ab	phase_scan_s	0.134181557	s	dna_100m.nofsync.2.on
+R	resume-ab	phase_create_s	0.000381147	s	dna_100m.nofsync.2.on
+R	resume-ab	phase_pack_s	0.340908251	s	dna_100m.nofsync.2.on
+R	resume-ab	phase_ph1_s	0.24577829899999998	s	dna_100m.nofsync.2.on
+R	resume-ab	phase_ph23_s	5.564109564	s	dna_100m.nofsync.2.on
+R	resume-ab	phase_ph45_s	7.767097331	s	dna_100m.nofsync.2.on
+R	resume-ab	phase_bwt_s	1.648289462	s	dna_100m.nofsync.2.on
+R	resume-ab	phase_psi_s	0.877943977	s	dna_100m.nofsync.2.on
+R	resume-ab	phase_crc_s	0.284378072	s	dna_100m.nofsync.2.on
+R	resume-ab	phase_seal_s	0.003137643	s	dna_100m.nofsync.2.on
+R	resume-ab	dev_sectors_written_synced	4553720	sectors	dna_100m.nofsync.2.on
+R	resume-ab	flushes	0	calls	dna_100m.nofsync.2.on
+R	resume-ab	ckpt_total_s	0.322941512	s	dna_100m.nofsync.2.on
+R	resume-ab	total_s	16.398288102	s	dna_100m.nofsync.2.off
+R	resume-ab	phase_scan_s	0.130416246	s	dna_100m.nofsync.2.off
+R	resume-ab	phase_create_s	0.000426225	s	dna_100m.nofsync.2.off
+R	resume-ab	phase_pack_s	0.319451602	s	dna_100m.nofsync.2.off
+R	resume-ab	phase_ph1_s	0.26302177	s	dna_100m.nofsync.2.off
+R	resume-ab	phase_ph23_s	5.560968108	s	dna_100m.nofsync.2.off
+R	resume-ab	phase_ph45_s	7.42717325	s	dna_100m.nofsync.2.off
+R	resume-ab	phase_bwt_s	1.227075913	s	dna_100m.nofsync.2.off
+R	resume-ab	phase_psi_s	0.834023594	s	dna_100m.nofsync.2.off
+R	resume-ab	phase_crc_s	0.293976137	s	dna_100m.nofsync.2.off
+R	resume-ab	phase_seal_s	0.00196868	s	dna_100m.nofsync.2.off
+R	resume-ab	dev_sectors_written_synced	4547144	sectors	dna_100m.nofsync.2.off
+R	resume-ab	flushes	0	calls	dna_100m.nofsync.2.off
+R	resume-ab	pair_ratio_total	1.0692150715940631	on / off	dna_100m.nofsync pair 2: 17.533 / 16.398 s, first on
+R	resume-ab	pair_ratio_device_sectors	1.0014461824828949	on / off	dna_100m.nofsync pair 2: 4553720 / 4547144 sectors written until the end of a sync
+R	resume-ab	total_s	17.041047974	s	dna_100m.nofsync.3.off
+R	resume-ab	phase_scan_s	0.132421402	s	dna_100m.nofsync.3.off
+R	resume-ab	phase_create_s	0.000413778	s	dna_100m.nofsync.3.off
+R	resume-ab	phase_pack_s	0.286774434	s	dna_100m.nofsync.3.off
+R	resume-ab	phase_ph1_s	0.250146802	s	dna_100m.nofsync.3.off
+R	resume-ab	phase_ph23_s	5.594665245	s	dna_100m.nofsync.3.off
+R	resume-ab	phase_ph45_s	7.240666075	s	dna_100m.nofsync.3.off
+R	resume-ab	phase_bwt_s	2.018201996	s	dna_100m.nofsync.3.off
+R	resume-ab	phase_psi_s	0.879976506	s	dna_100m.nofsync.3.off
+R	resume-ab	phase_crc_s	0.296087229	s	dna_100m.nofsync.3.off
+R	resume-ab	phase_seal_s	0.001290616	s	dna_100m.nofsync.3.off
+R	resume-ab	dev_sectors_written_synced	4551480	sectors	dna_100m.nofsync.3.off
+R	resume-ab	flushes	0	calls	dna_100m.nofsync.3.off
+R	resume-ab	total_s	17.825444661	s	dna_100m.nofsync.3.on
+R	resume-ab	phase_scan_s	0.136985208	s	dna_100m.nofsync.3.on
+R	resume-ab	phase_create_s	0.00070334	s	dna_100m.nofsync.3.on
+R	resume-ab	phase_pack_s	0.334733212	s	dna_100m.nofsync.3.on
+R	resume-ab	phase_ph1_s	0.260724876	s	dna_100m.nofsync.3.on
+R	resume-ab	phase_ph23_s	5.645622246	s	dna_100m.nofsync.3.on
+R	resume-ab	phase_ph45_s	7.56165154	s	dna_100m.nofsync.3.on
+R	resume-ab	phase_bwt_s	2.036288217	s	dna_100m.nofsync.3.on
+R	resume-ab	phase_psi_s	0.864078261	s	dna_100m.nofsync.3.on
+R	resume-ab	phase_crc_s	0.296959887	s	dna_100m.nofsync.3.on
+R	resume-ab	phase_seal_s	0.002916456	s	dna_100m.nofsync.3.on
+R	resume-ab	dev_sectors_written_synced	4550848	sectors	dna_100m.nofsync.3.on
+R	resume-ab	flushes	0	calls	dna_100m.nofsync.3.on
+R	resume-ab	ckpt_total_s	0.337523952	s	dna_100m.nofsync.3.on
+R	resume-ab	pair_ratio_total	1.0460298385519935	on / off	dna_100m.nofsync pair 3: 17.825 / 17.041 s, first off
+R	resume-ab	pair_ratio_device_sectors	0.9998611440674242	on / off	dna_100m.nofsync pair 3: 4550848 / 4551480 sectors written until the end of a sync
+R	resume-ab	total_s	17.921365322	s	dna_100m.nofsync.4.on
+R	resume-ab	phase_scan_s	0.135563471	s	dna_100m.nofsync.4.on
+R	resume-ab	phase_create_s	0.000429132	s	dna_100m.nofsync.4.on
+R	resume-ab	phase_pack_s	0.316325943	s	dna_100m.nofsync.4.on
+R	resume-ab	phase_ph1_s	0.241218132	s	dna_100m.nofsync.4.on
+R	resume-ab	phase_ph23_s	5.62397177	s	dna_100m.nofsync.4.on
+R	resume-ab	phase_ph45_s	7.806093344	s	dna_100m.nofsync.4.on
+R	resume-ab	phase_bwt_s	1.955544596	s	dna_100m.nofsync.4.on
+R	resume-ab	phase_psi_s	0.863858971	s	dna_100m.nofsync.4.on
+R	resume-ab	phase_crc_s	0.298065498	s	dna_100m.nofsync.4.on
+R	resume-ab	phase_seal_s	0.003018861	s	dna_100m.nofsync.4.on
+R	resume-ab	dev_sectors_written_synced	4546816	sectors	dna_100m.nofsync.4.on
+R	resume-ab	flushes	0	calls	dna_100m.nofsync.4.on
+R	resume-ab	ckpt_total_s	0.335001189	s	dna_100m.nofsync.4.on
+R	resume-ab	total_s	16.313416572	s	dna_100m.nofsync.4.off
+R	resume-ab	phase_scan_s	0.135774973	s	dna_100m.nofsync.4.off
+R	resume-ab	phase_create_s	0.000429167	s	dna_100m.nofsync.4.off
+R	resume-ab	phase_pack_s	0.31611878	s	dna_100m.nofsync.4.off
+R	resume-ab	phase_ph1_s	0.263315917	s	dna_100m.nofsync.4.off
+R	resume-ab	phase_ph23_s	5.787762435	s	dna_100m.nofsync.4.off
+R	resume-ab	phase_ph45_s	7.146293619	s	dna_100m.nofsync.4.off
+R	resume-ab	phase_bwt_s	1.217085342	s	dna_100m.nofsync.4.off
+R	resume-ab	phase_psi_s	0.839711145	s	dna_100m.nofsync.4.off
+R	resume-ab	phase_crc_s	0.265985944	s	dna_100m.nofsync.4.off
+R	resume-ab	phase_seal_s	0.001675328	s	dna_100m.nofsync.4.off
+R	resume-ab	dev_sectors_written_synced	4547688	sectors	dna_100m.nofsync.4.off
+R	resume-ab	flushes	0	calls	dna_100m.nofsync.4.off
+R	resume-ab	pair_ratio_total	1.0985660326212627	on / off	dna_100m.nofsync pair 4: 17.921 / 16.313 s, first on
+R	resume-ab	pair_ratio_device_sectors	0.9998082542162083	on / off	dna_100m.nofsync pair 4: 4546816 / 4547688 sectors written until the end of a sync
+R	resume-ab	total_s	17.171680469	s	dna_100m.nofsync.5.off
+R	resume-ab	phase_scan_s	0.141332932	s	dna_100m.nofsync.5.off
+R	resume-ab	phase_create_s	0.000599246	s	dna_100m.nofsync.5.off
+R	resume-ab	phase_pack_s	0.347764554	s	dna_100m.nofsync.5.off
+R	resume-ab	phase_ph1_s	0.25246952	s	dna_100m.nofsync.5.off
+R	resume-ab	phase_ph23_s	5.708301831	s	dna_100m.nofsync.5.off
+R	resume-ab	phase_ph45_s	7.276853531	s	dna_100m.nofsync.5.off
+R	resume-ab	phase_bwt_s	1.943029646	s	dna_100m.nofsync.5.off
+R	resume-ab	phase_psi_s	0.859496673	s	dna_100m.nofsync.5.off
+R	resume-ab	phase_crc_s	0.302668999	s	dna_100m.nofsync.5.off
+R	resume-ab	phase_seal_s	0.001242618	s	dna_100m.nofsync.5.off
+R	resume-ab	dev_sectors_written_synced	4549992	sectors	dna_100m.nofsync.5.off
+R	resume-ab	flushes	0	calls	dna_100m.nofsync.5.off
+R	resume-ab	total_s	16.90542985	s	dna_100m.nofsync.5.on
+R	resume-ab	phase_scan_s	0.134747922	s	dna_100m.nofsync.5.on
+R	resume-ab	phase_create_s	0.000477737	s	dna_100m.nofsync.5.on
+R	resume-ab	phase_pack_s	0.371279615	s	dna_100m.nofsync.5.on
+R	resume-ab	phase_ph1_s	0.24342926	s	dna_100m.nofsync.5.on
+R	resume-ab	phase_ph23_s	5.592907245999999	s	dna_100m.nofsync.5.on
+R	resume-ab	phase_ph45_s	6.648217458	s	dna_100m.nofsync.5.on
+R	resume-ab	phase_bwt_s	2.110645151	s	dna_100m.nofsync.5.on
+R	resume-ab	phase_psi_s	0.853575637	s	dna_100m.nofsync.5.on
+R	resume-ab	phase_crc_s	0.298154801	s	dna_100m.nofsync.5.on
+R	resume-ab	phase_seal_s	0.003375238	s	dna_100m.nofsync.5.on
+R	resume-ab	dev_sectors_written_synced	4550784	sectors	dna_100m.nofsync.5.on
+R	resume-ab	flushes	0	calls	dna_100m.nofsync.5.on
+R	resume-ab	ckpt_total_s	0.305412963	s	dna_100m.nofsync.5.on
+R	resume-ab	pair_ratio_total	0.9844947837527807	on / off	dna_100m.nofsync pair 5: 16.905 / 17.172 s, first off
+R	resume-ab	pair_ratio_device_sectors	1.0001740662401164	on / off	dna_100m.nofsync pair 5: 4550784 / 4549992 sectors written until the end of a sync
+R	resume-ab	ratio_total_median	1.0460298385519935	on / off	dna_100m.nofsync: min 0.9581 max 1.0986 over 5 pairs, fsync False
+R	resume-ab	ratio_device_sectors_median	1.0001740662401164	on / off	dna_100m.nofsync: min 0.9998 max 1.0014
+R	resume-abhead	total_s	23.469869179	s	dna_100m.head.fsync.0.before
+R	resume-abhead	total_s	16.935639233	s	dna_100m.head.fsync.0.after
+R	resume-abhead	total_s	17.514787222	s	dna_100m.head.fsync.1.before
+R	resume-abhead	total_s	16.841592906	s	dna_100m.head.fsync.1.after
+R	resume-abhead	pair_ratio_total	0.961564230985666	after / before	dna_100m.head.fsync pair 1: 16.842 / 17.515 s, first before
+R	resume-abhead	total_s	16.010384144	s	dna_100m.head.fsync.2.after
+R	resume-abhead	total_s	16.18744882	s	dna_100m.head.fsync.2.before
+R	resume-abhead	pair_ratio_total	0.9890616070531613	after / before	dna_100m.head.fsync pair 2: 16.010 / 16.187 s, first after
+R	resume-abhead	total_s	17.804303235	s	dna_100m.head.fsync.3.before
+R	resume-abhead	total_s	17.130146568	s	dna_100m.head.fsync.3.after
+R	resume-abhead	pair_ratio_total	0.9621351839439171	after / before	dna_100m.head.fsync pair 3: 17.130 / 17.804 s, first before
+R	resume-abhead	total_s	16.638664601	s	dna_100m.head.fsync.4.after
+R	resume-abhead	total_s	17.425844302	s	dna_100m.head.fsync.4.before
+R	resume-abhead	pair_ratio_total	0.9548268831422041	after / before	dna_100m.head.fsync pair 4: 16.639 / 17.426 s, first after
+R	resume-abhead	total_s	17.223945916	s	dna_100m.head.fsync.5.before
+R	resume-abhead	total_s	15.135591859	s	dna_100m.head.fsync.5.after
+R	resume-abhead	pair_ratio_total	0.8787528672474495	after / before	dna_100m.head.fsync pair 5: 15.136 / 17.224 s, first before
+R	resume-abhead	ratio_total_median	0.961564230985666	after / before	dna_100m.head.fsync: min 0.8788 max 0.9891 over 5 pairs, Resume off
+R	resume-abhead	total_s	15.554593491	s	dna_100m.head.nofsync.0.before
+R	resume-abhead	total_s	15.464381399	s	dna_100m.head.nofsync.0.after
+R	resume-abhead	total_s	15.491522507	s	dna_100m.head.nofsync.1.before
+R	resume-abhead	total_s	15.431834715	s	dna_100m.head.nofsync.1.after
+R	resume-abhead	pair_ratio_total	0.9961470674058648	after / before	dna_100m.head.nofsync pair 1: 15.432 / 15.492 s, first before
+R	resume-abhead	total_s	15.277346768	s	dna_100m.head.nofsync.2.after
+R	resume-abhead	total_s	15.016519703	s	dna_100m.head.nofsync.2.before
+R	resume-abhead	pair_ratio_total	1.0173693419086909	after / before	dna_100m.head.nofsync pair 2: 15.277 / 15.017 s, first after
+R	resume-abhead	total_s	15.683050587	s	dna_100m.head.nofsync.3.before
+R	resume-abhead	total_s	15.067555622	s	dna_100m.head.nofsync.3.after
+R	resume-abhead	pair_ratio_total	0.9607541299707216	after / before	dna_100m.head.nofsync pair 3: 15.068 / 15.683 s, first before
+R	resume-abhead	total_s	15.274122865	s	dna_100m.head.nofsync.4.after
+R	resume-abhead	total_s	14.864088755	s	dna_100m.head.nofsync.4.before
+R	resume-abhead	pair_ratio_total	1.027585553124612	after / before	dna_100m.head.nofsync pair 4: 15.274 / 14.864 s, first after
+R	resume-abhead	total_s	14.951333836	s	dna_100m.head.nofsync.5.before
+R	resume-abhead	total_s	15.793344778	s	dna_100m.head.nofsync.5.after
+R	resume-abhead	pair_ratio_total	1.0563167775688747	after / before	dna_100m.head.nofsync pair 5: 15.793 / 14.951 s, first before
+R	resume-abhead	ratio_total_median	1.0173693419086909	after / before	dna_100m.head.nofsync: min 0.9608 max 1.0563 over 5 pairs, Resume off
+# 2026-11-21T12:28:51Z done uptime  12:28:51 up 17:27,  0 user,  load average: 1.95, 1.82, 1.85
