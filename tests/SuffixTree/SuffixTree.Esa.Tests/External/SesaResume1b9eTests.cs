@@ -818,6 +818,17 @@ public sealed class SesaResume1b9eTests
         Assert.That(load.ReclaimableBytes, Is.EqualTo(1334L), "only the files that no kept stage vouches for");
     }
 
+    [Test]
+    public void TextsOfZeroOneAndTwoSymbols_ResumeLikeAnyOther([Values("", "x", "ab", "aaaaaaaa", "abababab")] string text, [Values(SesaHooks.Packed, SesaHooks.SaBuilt, SesaHooks.LcpChildBuilt, SesaHooks.PsiBuilt, SesaHooks.MagicWritten)] string point)
+    {
+        using var c = new ResumeCase(text);
+        Fails(c, Opts(3, 2), point);
+        SesaBuildResult r = SesaBuilder.Build(c.Input, c.Target, Opts(3, 2));
+        AssertSame(c, Reference(text), $"'{text}' after {point}");
+        Assert.That(r.Resume!.Skipped, Is.EqualTo(DoneAt(point, true)), $"'{text}' after {point}");
+        AssertOnlyTarget(c, $"'{text}' after {point}");
+    }
+
     // ------------------------------------------------------------------ the numbers of a skipped stage reach the result and the header
 
     [Test]

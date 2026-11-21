@@ -665,6 +665,8 @@ internal static class SesaBuilder
     /// <summary>The window of <see cref="SaBuilder"/> onto the recording of the build: the rank file after PH1, the suffix array after PH3.</summary>
     private sealed class SaCheckpoint(SesaResumeRun run, MappedOutputFile container) : ISaCheckpoint
     {
+        public DifferenceCover? Cover => run.Cover;
+
         public bool KeepRanks => run.Vouches("ranks.bin");
 
         public double CheckpointSeconds => run.CheckpointSeconds;

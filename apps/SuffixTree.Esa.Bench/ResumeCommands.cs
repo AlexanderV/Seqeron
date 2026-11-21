@@ -203,6 +203,10 @@ internal static class ResumeCommands
                 flushes[k] = counters.Flushes;
                 string label = $"{c.Label}.{pair}.{(on ? "on" : "off")}";
                 Emit.Row("resume-ab", "total_s", r.Seconds.Total, "s", label);
+                foreach ((string name, double v) in new[] { ("scan", r.Seconds.Scan), ("create", r.Seconds.Create), ("pack", r.Seconds.Pack), ("ph1", r.Seconds.Ph1), ("ph23", r.Seconds.Ph23), ("ph45", r.Seconds.Ph45), ("bwt", r.Seconds.Bwt), ("psi", r.Seconds.Psi), ("crc", r.Seconds.Crc), ("seal", r.Seconds.Seal) })
+                {
+                    Emit.Row("resume-ab", "phase_" + name + "_s", v, "s", label);
+                }
                 Emit.Row("resume-ab", "dev_sectors_written_synced", w1 - w0, "sectors", label);
                 Emit.Row("resume-ab", "flushes", counters.Flushes, "calls", label);
                 if (r.Resume is { } rp) Emit.Row("resume-ab", "ckpt_total_s", rp.Checkpoints.Sum(x => x.FsyncSeconds + x.CrcSeconds + x.StateSeconds), "s", label);

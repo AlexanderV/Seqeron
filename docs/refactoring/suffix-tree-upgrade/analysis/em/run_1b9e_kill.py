@@ -156,6 +156,7 @@ def main():
     ap.add_argument("--psi", default="true")
     ap.add_argument("--lock-check", default="no")
     ap.add_argument("--fsync", default="true")
+    ap.add_argument("--sync-before-resume", default="no", help="yes: the dirty pages that the killed process left are written to the device (sync) before the resume starts, so that the seconds of the resume are not those of a disk that is still busy with the killed run")
     a = ap.parse_args()
     rnd = random.Random(a.seed)
     os.makedirs(a.work, exist_ok=True)
@@ -166,13 +167,20 @@ def main():
         return ["--input", a.input, "--work", a.work, "--resume", resume, "--threads", str(threads or a.threads), "--psi", a.psi, "--fsync", a.fsync, "--markers", "true", "--hash", "true", "--keep", "true", "--label", a.kind] + list(extra)
 
     # ---- the reference: the build without Resume, and the build with Resume that nothing interrupts (its timeline decides where the random kills aim)
-    clean(a.work)
-    ref = Run(a.bench, args("false"))
-    rc = ref.finish()
-    assert rc == 0, ("the reference build failed", ref.err[-3:], ref.lines[-3:])
-    rrows = ref.rows()
-    ref_hash, ref_total = rrows["sha256"], float(rrows["total_s"])
-    assert entries(a.work) == ["out.sesa"], entries(a.work)
+    totals = []
+    ref_hash = None
+    for _ in range(3):  # the uninterrupted build without Resume, three times: the median is the time that a restart from nothing costs
+        clean(a.work)
+        os.sync()
+        ref = Run(a.bench, args("false"))
+        rc = ref.finish()
+        assert rc == 0, ("the reference build failed", ref.err[-3:], ref.lines[-3:])
+        rrows = ref.rows()
+        assert ref_hash in (None, rrows["sha256"]), "two uninterrupted builds differ"
+        ref_hash = rrows["sha256"]
+        totals.append(float(rrows["total_s"]))
+        assert entries(a.work) == ["out.sesa"], entries(a.work)
+    ref_total = sorted(totals)[1]
     clean(a.work)
     tl = Run(a.bench, args("true"))
     assert tl.finish() == 0, ("the timeline build failed", tl.err[-3:])
@@ -213,6 +221,9 @@ def main():
             if os.path.exists(target) and sha256_file(target) != ref_hash:
                 ok_hash = False
                 target_state = "damaged"
+        if a.sync_before_resume == "yes":
+            os.sync()
+            time.sleep(0.3)
         fin = Run(a.bench, args("true", rnd.choice([1, 2, a.threads])))
         rc = fin.finish()
         fr = fin.rows()

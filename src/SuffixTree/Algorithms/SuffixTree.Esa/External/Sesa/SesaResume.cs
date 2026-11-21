@@ -60,6 +60,9 @@ internal sealed class SesaResumeRun
         };
     }
 
+    /// <summary>The difference cover of this run (null when it cannot be made: the build reports that when it tries).</summary>
+    internal DifferenceCover? Cover => _cover;
+
     /// <summary>A state file was found (whether or not it was usable).</summary>
     internal bool StateFound { get; private set; }
 
@@ -249,7 +252,8 @@ internal sealed class SesaResumeRun
                     SesaTail tail = SesaLayout.PlaceTail(_plan, (LcpKind)kind, overflow);
                     long nodes = st.Value("node_count"), internalNodes = st.Value("internal_count");
                     if (st.Value("final_length") != tail.FinalLength) { why = "the recorded final length of the container does not follow from the width and the escapes"; break; }
-                    if (nodes != internalNodes + _info.N + 2 || internalNodes < 0) { why = "NODE_COUNT is not 1 + I + n + 1"; break; }
+                    long expectedNodes = _info.N == 0 ? 1 : internalNodes + _info.N + 2; // the scan of the empty text counts the root only
+                    if (nodes != expectedNodes || internalNodes < 0) { why = "NODE_COUNT is not 1 + I + n + 1"; break; }
                     if (st.Value("lrs_depth") < 0 || st.Value("lrs_depth") > _info.N || st.Value("max_lcp") < 0 || st.Value("max_lcp") > _info.N || st.Value("lrs_rank") < -1 || st.Value("lrs_rank") > _info.N) { why = "the statistics of the scan are out of range"; break; }
                     list.Add(new SesaFileCheck("child", true, _plan.ChildOffset, _plan.ChildLength, 0));
                     list.Add(new SesaFileCheck("lcp", true, _plan.LcpOffset, tail.LcpLength, 0));

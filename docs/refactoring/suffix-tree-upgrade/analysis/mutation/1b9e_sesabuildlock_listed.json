@@ -1,0 +1,50 @@
+[
+ {
+  "id": "L01",
+  "desc": "the lock file is shared",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuildLock.cs",
+  "old": "FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None, 1)",
+  "new": "FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite, 1)",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "L02",
+  "desc": "a refusal is always the lock message",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuildLock.cs",
+  "old": "catch (IOException e) when (File.Exists(path))",
+  "new": "catch (IOException e)",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "L03",
+  "desc": "the lock file is not removed",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuildLock.cs",
+  "old": "            File.Delete(Path); // while it is still held",
+  "new": "            // File.Delete(Path); // while it is still held",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "L04",
+  "desc": "the lock is released twice",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuildLock.cs",
+  "old": "FileStream? stream = Interlocked.Exchange(ref _stream, null);\n        if (stream is null) return;",
+  "new": "FileStream? stream = _stream;\n        if (stream is null) return;",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "L05",
+  "desc": "the stream is not disposed",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuildLock.cs",
+  "old": "        stream.Dispose();\n    }",
+  "new": "    }",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "L06",
+  "desc": "the lock is taken with FileMode.Create",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuildLock.cs",
+  "old": "FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None, 1)",
+  "new": "FileMode.Create, FileAccess.ReadWrite, FileShare.None, 1)",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ }
+]

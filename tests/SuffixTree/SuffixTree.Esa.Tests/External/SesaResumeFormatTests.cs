@@ -122,6 +122,61 @@ public sealed class SesaResumeFormatTests
     }
 
     [Test]
+    public void AFingerprintThatNoInputCanHave_IsRefused()
+    {
+        SesaResumeState s = Sample();
+        Assert.That(SesaResumeFormat.TryParse(SesaResumeFormat.Serialize(s with { Letters = [65, 67, 71, 255] }), out _), Is.True, "255 is a letter");
+        Assert.That(SesaResumeFormat.TryParse(SesaResumeFormat.Serialize(s with { Letters = [65, 67, 71, 256] }), out _), Is.False, "256 is not");
+        Assert.That(SesaResumeFormat.TryParse(SesaResumeFormat.Serialize(s with { Letters = [-1, 67, 71, 84] }), out _), Is.False, "-1 is not");
+        Assert.That(SesaResumeFormat.TryParse(SesaResumeFormat.Serialize(s with { Letters = [0, 67, 71, 84] }), out _), Is.True, "0 is a letter");
+        Assert.That(SesaResumeFormat.TryParse(SesaResumeFormat.Serialize(s with { Letters = [65, 67, 71] }), out _), Is.False, "fewer letters than sigma");
+        Assert.That(SesaResumeFormat.TryParse(SesaResumeFormat.Serialize(s with { Counts = [3000, 3000, 3345] }), out _), Is.False, "fewer counts than sigma");
+        Assert.That(SesaResumeFormat.TryParse(SesaResumeFormat.Serialize(s with { Counts = [3000, 3000, 3345, -1] }), out _), Is.False, "a negative count");
+        Assert.That(SesaResumeFormat.TryParse(SesaResumeFormat.Serialize(s with { Counts = [3000, 3000, 3345, 0] }), out _), Is.True, "a count of zero is not damage");
+        Assert.That(SesaResumeFormat.TryParse(SesaResumeFormat.Serialize(s with { N = 0, Sigma = 0, Bits = 1, Letters = [], Counts = [] }), out _), Is.True, "the empty text");
+        Assert.That(SesaResumeFormat.TryParse(SesaResumeFormat.Serialize(s with { N = -1 }), out _), Is.False);
+        Assert.That(SesaResumeFormat.TryParse(SesaResumeFormat.Serialize(s with { ReservedLength = -1 }), out _), Is.False);
+        Assert.That(SesaResumeFormat.TryParse(SesaResumeFormat.Serialize(s with { Bits = -1 }), out _), Is.False);
+        Assert.That(SesaResumeFormat.TryParse(SesaResumeFormat.Serialize(s with { Sigma = -1, Letters = [], Counts = [] }), out _), Is.False);
+        Assert.That(SesaResumeFormat.TryParse(SesaResumeFormat.Serialize(s with { Sha256 = new string('a', 63) }), out _), Is.False);
+        Assert.That(SesaResumeFormat.TryParse(SesaResumeFormat.Serialize(s with { Sha256 = new string('a', 65) }), out _), Is.False);
+        Assert.That(SesaResumeFormat.TryParse(SesaResumeFormat.Serialize(s with { Sha256 = new string('g', 64) }), out _), Is.False, "not hex");
+        Assert.That(SesaResumeFormat.TryParse(SesaResumeFormat.Serialize(s with { ChildCodec = "packed" }), out _), Is.True);
+        Assert.That(SesaResumeFormat.TryParse(SesaResumeFormat.Serialize(s with { ChildCodec = "other" }), out _), Is.False);
+        byte[] big = SesaResumeFormat.Serialize(s with { Stages = [s.Stages[0] with { Checks = [.. Enumerable.Range(0, 3000).Select(i => new SesaFileCheck("text", true, i, 1, 0))] }] });
+        Assert.That(big.Length, Is.GreaterThan(100_000));
+        Assert.That(SesaResumeFormat.TryParse(big, out _), Is.True, "a file well below the limit");
+    }
+
+    [Test]
+    public void AFileOfExactlyTheLongestLength_IsRead_OneByteLongerIsNot()
+    {
+        SesaResumeState State(int roleLength) => Sample() with { Stages = [new SesaStageRecord(SesaStages.Packed, [new SesaFileCheck(new string('r', roleLength), true, 0, 1, 0)], new Dictionary<string, long>())] };
+        int baseLength = SesaResumeFormat.Serialize(State(1)).Length;
+        int roles = 1 + (SesaResumeFormat.MaxBytes - baseLength);
+        byte[] exact = SesaResumeFormat.Serialize(State(roles));
+        Assert.That(exact.Length, Is.EqualTo(SesaResumeFormat.MaxBytes));
+        Assert.That(SesaResumeFormat.TryParse(exact, out _), Is.True, "exactly the longest file");
+        Assert.That(SesaResumeFormat.TryParse(SesaResumeFormat.Serialize(State(roles + 1)), out _), Is.False, "one byte more");
+    }
+
+    [Test]
+    public void AScratchFileOfTheStateThatIsNotBelowTheScratchDirectory_IsRefused_AndAnAbsentOneIsNot()
+    {
+        SesaResumeState s = Sample();
+        SesaStageRecord Bwt(SesaFileCheck check) => new("bwt", [check], new Dictionary<string, long> { ["primary_row"] = 1 });
+        SesaResumeState With(SesaFileCheck check) => s with { Stages = [s.Stages[0], s.Stages[1], s.Stages[2], Bwt(check)] };
+        Assert.That(SesaResumeFormat.TryParse(SesaResumeFormat.Serialize(With(new SesaFileCheck("ph6/bwt.bin", false, 0, 5, 0))), out _), Is.True);
+        Assert.That(SesaResumeFormat.TryParse(SesaResumeFormat.Serialize(With(new SesaFileCheck("ph6/../../x", false, 0, 5, 0))), out _), Is.False, "..");
+        Assert.That(SesaResumeFormat.TryParse(SesaResumeFormat.Serialize(With(new SesaFileCheck("/tmp/x", false, 0, 5, 0))), out _), Is.False, "absolute");
+        Assert.That(SesaResumeFormat.TryParse(SesaResumeFormat.Serialize(With(new SesaFileCheck("ph6/bwt.bin", false, 7, 5, 0))), out _), Is.False, "an offset");
+        Assert.That(SesaResumeFormat.TryParse(SesaResumeFormat.Serialize(With(new SesaFileCheck(string.Empty, false, 0, 5, 0))), out _), Is.False, "no role");
+        Assert.That(SesaResumeFormat.TryParse(SesaResumeFormat.Serialize(With(new SesaFileCheck("ph6/bwt.bin", false, 0, -5, 0))), out _), Is.False, "a negative length");
+        Assert.That(SesaResumeFormat.TryParse(SesaResumeFormat.Serialize(With(new SesaFileCheck("text", true, -1, 5, 0))), out _), Is.False, "a negative offset");
+        Assert.That(SesaResumeFormat.TryParse(SesaResumeFormat.Serialize(With(new SesaFileCheck("text", true, 0, 0, 0))), out _), Is.True, "an empty range is allowed");
+    }
+
+    [Test]
     public void TheStagesThatCannotBeTogether_AreRefused()
     {
         SesaResumeState s = Sample();

@@ -1,0 +1,402 @@
+[
+ {
+  "id": "F01",
+  "desc": "the newline at the end is not stripped before the CRC is checked",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "if (file.Length > 0 && file[^1] == (byte)'\\n') file = file[..^1];",
+  "new": "if (file.Length > 0 && file[^1] == (byte)'\\r') file = file[..^1];",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "F02",
+  "desc": "the tail is one byte longer than the CRC member",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "int tail = s_marker.Length + 8 + 2;",
+  "new": "int tail = s_marker.Length + 8 + 3;",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "F03",
+  "desc": "the CRC marker is not compared",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "if (!file.Slice(at, s_marker.Length).SequenceEqual(s_marker)) return false;",
+  "new": "",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "F04",
+  "desc": "the closing quote and brace need only one of the two",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "if (file[^2] != (byte)'\"' || file[^1] != (byte)'}') return false;",
+  "new": "if (file[^2] != (byte)'\"' && file[^1] != (byte)'}') return false;",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "F05",
+  "desc": "upper-case hex digits of the CRC are accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "if (!(d is >= (byte)'0' and <= (byte)'9' or >= (byte)'a' and <= (byte)'f')) return false;",
+  "new": "if (!(d is >= (byte)'0' and <= (byte)'9' or >= (byte)'a' and <= (byte)'F')) return false;",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "F06",
+  "desc": "the CRC is not compared",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "return stored == Crc32C.Compute(file[..at]);",
+  "new": "return true;",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "F07",
+  "desc": "the CRC covers one byte more",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "return stored == Crc32C.Compute(file[..at]);",
+  "new": "return stored == Crc32C.Compute(file[..(at + 1)]);",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "F08",
+  "desc": "the CRC covers one byte less",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "return stored == Crc32C.Compute(file[..at]);",
+  "new": "return stored == Crc32C.Compute(file[..(at - 1)]);",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "F09",
+  "desc": "the sealing computes the CRC of the body without its last byte",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "uint crc = Crc32C.Compute(bodyWithoutClosingBrace);",
+  "new": "uint crc = Crc32C.Compute(bodyWithoutClosingBrace[..^1]);",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "F10",
+  "desc": "the file has no newline",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "file[at + 2] = (byte)'\\n';",
+  "new": "file[at + 2] = (byte)' ';",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "F11",
+  "desc": "a file without the CRC check is parsed",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "if (file.Length == 0 || file.Length > MaxBytes || !CrcMatches(file)) return false;",
+  "new": "if (file.Length == 0 || file.Length > MaxBytes) return false;",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "F12",
+  "desc": "a file of exactly the longest length is refused",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "file.Length > MaxBytes",
+  "new": "file.Length >= MaxBytes",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "F13",
+  "desc": "the format name is not checked",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "if (root.GetProperty(\"format\").GetString() != \"sesa-resume\") return false;",
+  "new": "",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "F14",
+  "desc": "the version is not checked",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "if (root.GetProperty(\"version\").GetInt32() != SesaResumeState.CurrentVersion) return false;",
+  "new": "",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "F15",
+  "desc": "the writer is always the current one",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "Writer = root.GetProperty(\"writer\").GetString() ?? string.Empty,",
+  "new": "Writer = SesaResumeFormat.WriterId,",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "F16",
+  "desc": "the number of letters need not equal sigma",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "if (s.Letters.Count != s.Sigma || s.Counts.Count != s.Sigma ||",
+  "new": "if (s.Counts.Count != s.Sigma ||",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "F17",
+  "desc": "the number of counts need not equal sigma",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "s.Counts.Count != s.Sigma || s.Counts.Any",
+  "new": "s.Counts.Any",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "F18",
+  "desc": "a letter of 256 is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "s.Letters.Any(l => l is < 0 or > 255)",
+  "new": "s.Letters.Any(l => l is < 0 or > 256)",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "F19",
+  "desc": "a negative letter is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "s.Letters.Any(l => l is < 0 or > 255)",
+  "new": "s.Letters.Any(l => l is > 255)",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "F20",
+  "desc": "the hash may be shorter",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "if (s.Sha256.Length != 64 ||",
+  "new": "if (s.Sha256.Length > 64 ||",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "F21",
+  "desc": "the hash may hold upper-case digits",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "!Uri.IsHexDigit(c) || char.IsUpper(c)",
+  "new": "!Uri.IsHexDigit(c)",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "F22",
+  "desc": "the hash may hold other characters",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "!Uri.IsHexDigit(c) || char.IsUpper(c)",
+  "new": "char.IsUpper(c)",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "F23",
+  "desc": "an empty text (n = 0) is refused",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "if (s.N < 0 || s.Bits < 0 || s.Sigma < 0 || s.ReservedLength < 0) return false;",
+  "new": "if (s.N <= 0 || s.Bits < 0 || s.Sigma < 0 || s.ReservedLength < 0) return false;",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "F24",
+  "desc": "a negative n is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "if (s.N < 0 || s.Bits < 0 || s.Sigma < 0 || s.ReservedLength < 0) return false;",
+  "new": "if (s.Bits < 0 || s.Sigma < 0 || s.ReservedLength < 0) return false;",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "F25",
+  "desc": "a negative reserved length is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "if (s.N < 0 || s.Bits < 0 || s.Sigma < 0 || s.ReservedLength < 0) return false;",
+  "new": "if (s.N < 0 || s.Bits < 0 || s.Sigma < 0) return false;",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "F26",
+  "desc": "a negative count is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "s.Counts.Any(c => c < 0)",
+  "new": "s.Counts.Any(c => c < -1)",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "F27",
+  "desc": "another codec name is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "if (s.ChildCodec is not (\"tagged\" or \"packed\")) return false;",
+  "new": "",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "F28",
+  "desc": "a repeated stage is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "if (at <= previous) return false;",
+  "new": "if (at < previous) return false;",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "F29",
+  "desc": "stages in any order are accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "if (at <= previous) return false;",
+  "new": "if (at < 0) return false;",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "F30",
+  "desc": "a negative offset of a file is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "if (f.Offset < 0 || f.Length < 0 ||",
+  "new": "if (f.Length < 0 ||",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "F31",
+  "desc": "a negative length of a file is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "if (f.Offset < 0 || f.Length < 0 ||",
+  "new": "if (f.Offset < 0 ||",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "F32",
+  "desc": "a file without a role is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "f.Role.Length == 0 ||",
+  "new": "",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "F33",
+  "desc": "a scratch file with an offset is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "(!f.InContainer && (f.Offset != 0 ||",
+  "new": "(!f.InContainer && (false ||",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "F34",
+  "desc": "a scratch file above the scratch directory is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "f.Role.Contains(\"..\", StringComparison.Ordinal) || Path.IsPathRooted(f.Role)",
+  "new": "Path.IsPathRooted(f.Role)",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "F35",
+  "desc": "a scratch file at an absolute path is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "f.Role.Contains(\"..\", StringComparison.Ordinal) || Path.IsPathRooted(f.Role)",
+  "new": "f.Role.Contains(\"..\", StringComparison.Ordinal)",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "F36",
+  "desc": "rank file and SA stage can both be recorded",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "if (ranks && sa) return false;",
+  "new": "",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "F37",
+  "desc": "a state may start with another stage than the first",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "if (s.Find(SesaStages.Packed) is null && s.Stages.Count > 0) return false;",
+  "new": "",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "F38",
+  "desc": "LCP without SA is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "if (!sa && (s.Find(SesaStages.Lcp) is not null ||",
+  "new": "if (false && (s.Find(SesaStages.Lcp) is not null ||",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "F39",
+  "desc": "BWT without LCP is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "if (s.Find(SesaStages.Lcp) is null && (s.Find(SesaStages.Bwt) is not null || s.Find(SesaStages.Psi) is not null)) return false;",
+  "new": "",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "F40",
+  "desc": "PSI in a build without PSI is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "if (!s.Psi && (s.Find(SesaStages.Bwt) is not null || s.Find(SesaStages.Psi) is not null)) return false;",
+  "new": "",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "F41",
+  "desc": "a stage does not supersede the rank file",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "next = Stages.Where(s => s.Name != stage.Name && !(s.Name == SesaStages.Ranks && stage.Name == SesaStages.Sa) &&",
+  "new": "next = Stages.Where(s => s.Name != stage.Name &&",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "F42",
+  "desc": "PSI does not supersede the BWT file",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "!(s.Name == SesaStages.Bwt && stage.Name == SesaStages.Psi)).ToList();",
+  "new": "true).ToList();",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "F43",
+  "desc": "a recorded stage is added behind the old one of the same name",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "var next = Stages.Where(s => s.Name != stage.Name &&",
+  "new": "var next = Stages.Where(s => true &&",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "F44",
+  "desc": "the stages are not sorted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "next.Sort((a, b) => SesaStages.IndexOf(a.Name).CompareTo(SesaStages.IndexOf(b.Name)));",
+  "new": "",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "F45",
+  "desc": "Truncate keeps one stage more",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "internal SesaResumeState Truncate(int count) => this with { Stages = [.. Stages.Take(count)] };",
+  "new": "internal SesaResumeState Truncate(int count) => this with { Stages = [.. Stages.Take(count + 1)] };",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "F46",
+  "desc": "Value of a missing key is zero",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "Values.TryGetValue(key, out long v) ? v : throw new InvalidDataException",
+  "new": "Values.TryGetValue(key, out long v) ? v : 0; // throw new InvalidDataException",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "F47",
+  "desc": "the values are not written sorted by name",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "s.Values.OrderBy(v => v.Key, StringComparer.Ordinal)",
+  "new": "s.Values",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "F48",
+  "desc": "the CRC of a file is written in upper case",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "w.WriteString(\"crc32c\", Hex(f.Crc));",
+  "new": "w.WriteString(\"crc32c\", Hex(f.Crc).ToUpperInvariant());",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "F49",
+  "desc": "the letters are not written",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "foreach (int l in state.Letters) w.WriteNumberValue(l);",
+  "new": "",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "F50",
+  "desc": "Find returns the last stage of the name",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "Stages.FirstOrDefault(s => s.Name == name)",
+  "new": "Stages.LastOrDefault(s => s.Name == name)",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ }
+]

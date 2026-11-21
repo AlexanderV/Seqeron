@@ -126,6 +126,9 @@ internal sealed record SaBuildOptions
 /// </summary>
 internal interface ISaCheckpoint
 {
+    /// <summary>The difference cover of this run when the build made it already (making it takes a quarter of a second: it is made once, not once to look at the state and once to build); null = make it.</summary>
+    DifferenceCover? Cover { get; }
+
     /// <summary>True when a rank file of an earlier run is in place (verified, for this cover): PH1 is not run.</summary>
     bool TryReuseRanks(DifferenceCover cover);
 
@@ -375,7 +378,7 @@ internal static class SaBuilder
             if (saOffset > section.Length - (4 * (n + 1))) throw new ArgumentOutOfRangeException(nameof(saOffset), saOffset, $"the suffix array of {4 * (n + 1)} bytes does not fit the file of {section.Length} bytes at this offset");
         }
         SaBuildParameters p = SaBuildRules.Resolve(n, options);
-        DifferenceCover cover = CoverFor(options.Period, options.ExactPeriod);
+        DifferenceCover cover = options.Checkpoint?.Cover ?? CoverFor(options.Period, options.ExactPeriod);
 
         string scratch = Path.GetFullPath(options.ScratchDir);
         bool createdRoot = !Directory.Exists(scratch);

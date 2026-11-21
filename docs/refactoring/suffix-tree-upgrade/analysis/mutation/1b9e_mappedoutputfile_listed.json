@@ -1,0 +1,58 @@
+[
+ {
+  "id": "O01",
+  "desc": "a longer file is not cut back",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "if (RandomAccess.GetLength(handle) > cut) RandomAccess.SetLength(handle, cut);",
+  "new": "",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "O02",
+  "desc": "a file is cut one byte short",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "if (RandomAccess.GetLength(handle) > cut) RandomAccess.SetLength(handle, cut);",
+  "new": "if (RandomAccess.GetLength(handle) > cut) RandomAccess.SetLength(handle, cut - 1);",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "O03",
+  "desc": "a shorter file is extended to the cut",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "if (RandomAccess.GetLength(handle) > cut) RandomAccess.SetLength(handle, cut);",
+  "new": "RandomAccess.SetLength(handle, cut);",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "O04",
+  "desc": "the reopened file says Preallocated",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "return new MappedOutputFile(path, length, ReservationOutcome.Reopened, map);",
+  "new": "return new MappedOutputFile(path, length, ReservationOutcome.Preallocated, map);",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "O05",
+  "desc": "a file that is gone is created empty",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "if (length == 0 && !File.Exists(path)) throw new FileNotFoundException(\"the file of the interrupted build is gone\", path);",
+  "new": "",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "O06",
+  "desc": "the length of the object is the cut",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "long length = new FileInfo(path).Length;\n        if (length == 0",
+  "new": "long length = truncateTo ?? new FileInfo(path).Length;\n        if (length == 0",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "O07",
+  "desc": "a negative cut is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "ArgumentOutOfRangeException.ThrowIfNegative(cut);\n            using var handle",
+  "new": "using var handle",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+ }
+]
