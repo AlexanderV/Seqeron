@@ -94,7 +94,7 @@ def run_read(fmt, text):
 
 
 rows = []
-wanted = set(sys.argv[1:]) or {'bed', 'psl', 'chain', 'maf', 'mauve', 'sam', 'exonerate', 'msf', 'emboss', 'hhr', 'tabular', 'pslxprot', 'bigbed'}
+wanted = set(sys.argv[1:]) or {'bed', 'psl', 'chain', 'maf', 'mauve', 'sam', 'exonerate', 'msf', 'emboss', 'hhr', 'tabular', 'pslxprot', 'bigbed', 'bigmaf'}
 
 
 def add_write(fmt, specs, **kw):
@@ -381,6 +381,11 @@ if 'bigbed' in wanted:
     import oracle_sections_bigbed as bb
     ctx.rng = random.Random('20261303:bigbed')
     bb.run(ctx)
+
+if 'bigmaf' in wanted:
+    import oracle_sections_bigmaf as bm
+    ctx.rng = random.Random('20261303:bigmaf')
+    bm.run(ctx)
 
 os.makedirs(os.path.dirname(out_path), exist_ok=True)
 existing = []

@@ -284,7 +284,7 @@ public static partial class AlignmentCoordinateFormats
         }
     }
 
-    private static CoordinateAlignmentFile ParseBigBedCore(byte[] data)
+    private static CoordinateAlignmentFile ParseBigBedCore(byte[] data, bool maf = false)
     {
         var s = new ByteSource(data);
         var magic = s.Read(4);
@@ -379,6 +379,7 @@ public static partial class AlignmentCoordinateFormats
         }
 
         Walk(tree);
+        string? mafReference = null;
         foreach (var leaf in leaves)
         {
             s.Pos = leaf.DataOffset;
@@ -390,6 +391,12 @@ public static partial class AlignmentCoordinateFormats
                 using var output = new MemoryStream();
                 z.CopyTo(output);
                 block = output.ToArray();
+            }
+
+            if (maf && mafReference is null)
+            {
+                mafReference = BigMafReference(block);
+                targets[0] = new BioCoordSequence { Id = mafReference + "." + targets[0].Id, Length = targets[0].Length, Parts = targets[0].Parts, Description = targets[0].Description, Annotations = targets[0].Annotations };
             }
 
             int pos = 0;
@@ -404,7 +411,7 @@ public static partial class AlignmentCoordinateFormats
                     throw new ArgumentException("ValueError: subsection not found");
                 byte[] rest = block[(pos + 12)..zero];
                 pos = zero + 1;
-                alignments.Add(BbCreateAlignment(chromId, chromStart, chromEnd, rest, targets, bedN, customFields, converters));
+                alignments.Add(maf ? BbCreateMafAlignment(rest) : BbCreateAlignment(chromId, chromStart, chromEnd, rest, targets, bedN, customFields, converters));
             }
         }
 

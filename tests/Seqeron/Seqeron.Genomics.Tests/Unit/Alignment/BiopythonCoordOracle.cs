@@ -55,5 +55,39 @@ internal static class BiopythonCoordOracle
         }
     }
 
+    /// <summary>The path and the two values of the first difference between two descriptions (for failure messages); empty when <see cref="Same"/>.</summary>
+    internal static string FirstDifference(JsonNode? a, JsonNode? b, string path = "$")
+    {
+        if (Same(a, b))
+            return "";
+        if (a is JsonObject oa && b is JsonObject ob)
+        {
+            foreach (var kv in oa)
+            {
+                if (!ob.TryGetPropertyValue(kv.Key, out var v))
+                    return $"{path}.{kv.Key}: missing in expected";
+                string d = FirstDifference(kv.Value, v, $"{path}.{kv.Key}");
+                if (d.Length > 0)
+                    return d;
+            }
+
+            return $"{path}: keys differ ({string.Join(",", oa.Select(k => k.Key))} / {string.Join(",", ob.Select(k => k.Key))})";
+        }
+
+        if (a is JsonArray aa && b is JsonArray ab)
+        {
+            for (int i = 0; i < Math.Min(aa.Count, ab.Count); i++)
+            {
+                string d = FirstDifference(aa[i], ab[i], $"{path}[{i}]");
+                if (d.Length > 0)
+                    return d;
+            }
+
+            return $"{path}: length {aa.Count} / {ab.Count}";
+        }
+
+        return $"{path}: actual {a?.ToJsonString()} / expected {b?.ToJsonString()}";
+    }
+
     private static double ToDouble(JsonValue v) => System.Text.Json.JsonSerializer.SerializeToElement(v).GetDouble();
 }
