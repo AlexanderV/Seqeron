@@ -40,7 +40,7 @@ public class SesaGapTests
     }
 
     [Test]
-    public void Y02_TheTargetOfScatterWithoutFiles_IsCreatedSparse_NotReserved()
+    public void Y02_TheTargetOfScatterWithoutFiles_IsReserved_AsEveryOtherOutput_AndSparseOnlyOnRequest()
     {
         const int n = 4_000_000;
         string sa = _dir.File("sa.bin");
@@ -53,14 +53,14 @@ public class SesaGapTests
         Assert.Throws<ArenaBudgetExceededException>(() => Dist.BuildIsa(sa, n, isa, options));
         Assert.That(File.Exists(isa), Is.True, "the target is left (partial) after a failure: the documented contract");
         Assert.That(new FileInfo(isa).Length, Is.EqualTo(4L * (n + 1)));
-        long? allocated = AllocatedBytes(isa);
-        if (allocated is null) Assert.Ignore("no stat");
-        Assert.That(allocated, Is.LessThan(1 << 20), "created sparse: no block was reserved (a reservation would hold 16 MB)");
-        File.Delete(isa);
-        var reserved = options with { Budget = new ArenaBudget(1 << 20), Files = new MappedFileOptions() };
-        Assert.Throws<ArenaBudgetExceededException>(() => Dist.BuildIsa(sa, n, isa, reserved));
         long? blocks = AllocatedBytes(isa);
-        if (blocks is { } b && OperatingSystem.IsLinux()) Assert.That(b, Is.GreaterThanOrEqualTo(4L * (n + 1)), "with Files set the blocks are reserved at creation (fallocate)");
+        if (blocks is null) Assert.Ignore("no stat");
+        if (OperatingSystem.IsLinux()) Assert.That(blocks, Is.GreaterThanOrEqualTo(4L * (n + 1)), "without Files the blocks are reserved at creation (fallocate), as for every other output of the build (work package 1b.9d: it was created sparse)");
+        File.Delete(isa);
+        var sparse = options with { Budget = new ArenaBudget(1 << 20), Files = new MappedFileOptions { Reservation = ReservationMode.Sparse } };
+        Assert.Throws<ArenaBudgetExceededException>(() => Dist.BuildIsa(sa, n, isa, sparse));
+        long? allocated = AllocatedBytes(isa);
+        Assert.That(allocated, Is.LessThan(1 << 20), "created sparse on request: no block was reserved (a reservation would hold 16 MB)");
     }
 
     [Test]

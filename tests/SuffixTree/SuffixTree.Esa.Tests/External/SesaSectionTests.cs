@@ -21,7 +21,7 @@ public sealed class SesaSectionTests
         using (MappedWindowWriter w = file.CreateWriter(0, 100_000, 4096)) w.Append(Enumerable.Range(0, 100_000).Select(i => (byte)(i * 7)).ToArray());
         file.Complete(false);
         ReservationOutcome outcome = file.Grow(250_000);
-        Assert.That(outcome, Is.EqualTo(ReservationOutcome.FreeSpaceChecked).Or.EqualTo(ReservationOutcome.Unchecked));
+        Assert.That(outcome, Is.EqualTo(ReservationOutcome.Filled));
         Assert.That(file.Length, Is.EqualTo(250_000));
         Assert.That(new FileInfo(path).Length, Is.EqualTo(250_000));
         using (MappedWindowWriter w = file.CreateWriter(100_000, 150_000, 4096)) w.Append(Enumerable.Range(0, 150_000).Select(i => (byte)(i * 11 + 1)).ToArray());
@@ -67,11 +67,14 @@ public sealed class SesaSectionTests
         Assert.That(tight.LastDirectory, Is.EqualTo(Path.GetDirectoryName(Path.GetFullPath(path))));
         using (MappedWindowWriter w = file.CreateWriter(0, 1000, 64)) w.Append(new byte[1000]);
         var enough = new FakeReservationSource { CanPreallocate = true, Free = 2000 };
-        Assert.That(file.Grow(3000, new MappedFileOptions { Source = enough }), Is.EqualTo(ReservationOutcome.FreeSpaceChecked), "exactly the growth is enough");
+        Assert.That(file.Grow(3000, new MappedFileOptions { Source = enough }), Is.EqualTo(ReservationOutcome.Filled), "exactly the growth is enough");
         var unknown = new FakeReservationSource { CanPreallocate = false, Free = -1 };
-        Assert.That(file.Grow(3500, new MappedFileOptions { Source = unknown }), Is.EqualTo(ReservationOutcome.Unchecked));
+        Assert.That(file.Grow(3500, new MappedFileOptions { Source = unknown }), Is.EqualTo(ReservationOutcome.Filled), "the range is reserved by writing, whether or not the free space is known");
         Assert.That(unknown.FreeCalls, Is.EqualTo(1));
         Assert.That(unknown.PreallocateCalls, Is.Zero, "the BCL reserves only for a file that it creates");
+        // the sparse mode keeps the check alone, and says which kind of check it was
+        Assert.That(file.Grow(4000, new MappedFileOptions { Source = enough, Reservation = ReservationMode.Sparse }), Is.EqualTo(ReservationOutcome.FreeSpaceChecked));
+        Assert.That(file.Grow(4500, new MappedFileOptions { Source = unknown, Reservation = ReservationMode.Sparse }), Is.EqualTo(ReservationOutcome.Unchecked));
     }
 
     [Test]
@@ -81,7 +84,7 @@ public sealed class SesaSectionTests
         string path = dir.File("g.bin");
         using MappedOutputFile file = MappedOutputFile.Create(path, 4096);
         long target = 5_000_000_000;
-        file.Grow(target, new MappedFileOptions { Source = new FakeReservationSource { CanPreallocate = false, Free = -1 } });
+        file.Grow(target, new MappedFileOptions { Source = new FakeReservationSource { CanPreallocate = false, Free = -1 }, Reservation = ReservationMode.Sparse }); // sparse on request: a reservation would write 5 GB
         Assert.That(file.Length, Is.EqualTo(target));
         using (MappedWindowWriter w = file.CreateWriter(target - 100, 100, 64)) w.Append([.. Enumerable.Range(0, 100).Select(i => (byte)(i + 1))]);
         file.Complete(false);

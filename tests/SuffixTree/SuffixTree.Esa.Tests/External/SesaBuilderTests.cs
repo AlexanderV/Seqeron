@@ -195,7 +195,7 @@ public sealed class SesaBuilderTests
         Assert.That(o.Result.OverflowCount, Is.GreaterThan(0));
         Assert.That(o.Result.GrownBytes, Is.EqualTo(o.Result.FileSize - plan.ReservedLength));
         Assert.That(o.Result.GrownBytes, Is.GreaterThan(8L * o.Result.OverflowCount - 64));
-        Assert.That(o.Result.GrowthReservation, Is.EqualTo(ReservationOutcome.FreeSpaceChecked).Or.EqualTo(ReservationOutcome.Unchecked));
+        Assert.That(o.Result.GrowthReservation, Is.EqualTo(ReservationOutcome.Filled), "the range that was added has its blocks (work package 1b.9d)");
     }
 
     [Test]

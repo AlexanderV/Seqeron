@@ -173,21 +173,24 @@ internal sealed class MappedOutputFile : IDisposable
     }
 
     /// <summary>
-    /// Extends the file to <paramref name="newLength"/> bytes (the container writer places the LCP, whose width is known only after PH4-B2, behind the sections that were known after PH0): every writer must be disposed; the file
-    /// is extended sparse (the BCL reserves blocks only for a file that it creates), after a check that the volume has the room, and the mapping is made again over the whole file. Returns what the check did
-    /// (<see cref="ReservationOutcome.FreeSpaceChecked"/>, or <see cref="ReservationOutcome.Unchecked"/> where the platform cannot tell). A failure leaves the file at its old length.
+    /// Extends the file to <paramref name="newLength"/> bytes (the container writer places the LCP, whose width is known only after PH4-B2, behind the sections that were known after PH0): every writer must be disposed.
+    /// The BCL reserves blocks only for a file that it creates (<see cref="FileStreamOptions.PreallocationSize"/> is refused for an existing file), so unless the mode is <see cref="ReservationMode.Sparse"/> the range that
+    /// is added is reserved by <see cref="IReservationSource.ReserveRange"/> (zeros written into it) before the mapping is made again over the whole file: a mapped write into it can then never need a block, whatever
+    /// another process does to the volume meanwhile, and a full disk is an <see cref="IOException"/> here. In the mode <see cref="ReservationMode.Sparse"/> the file is extended without blocks, after a check that the
+    /// volume has the room. Returns <see cref="ReservationOutcome.Filled"/>, or what the check did in the sparse mode (<see cref="ReservationOutcome.FreeSpaceChecked"/>, or <see cref="ReservationOutcome.Unchecked"/> where
+    /// the platform cannot tell), or <see cref="ReservationOutcome.Sparse"/> when there is nothing to add. Every failure leaves the file at its old length (the zeros that were written are given back with it).
     /// </summary>
-    /// <exception cref="IOException">The volume has less room than the growth needs.</exception>
+    /// <exception cref="IOException">The volume has less room than the growth needs (found by the check, or by the write).</exception>
     /// <exception cref="InvalidOperationException">A writer is still open.</exception>
     internal ReservationOutcome Grow(long newLength, MappedFileOptions? options = null, IoCounters? counters = null)
     {
-        _ = counters; // stub of the red phase of 1b.9d: the reservation of the growth is not written yet
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentOutOfRangeException.ThrowIfLessThan(newLength, Length);
         if (newLength == Length) return ReservationOutcome.Sparse;
         int open = Volatile.Read(ref _writers);
         if (open != 0) throw new InvalidOperationException($"{open} writer(s) of {Path} are still open: dispose every writer before growing the file");
         IReservationSource source = options?.Source ?? SystemReservationSource.Instance;
+        bool reserve = (options is null || options.Reservation == ReservationMode.Auto ? AutoMode : options.Reservation) != ReservationMode.Sparse;
         long growth = newLength - Length;
         string directory = System.IO.Path.GetDirectoryName(System.IO.Path.GetFullPath(Path)) ?? ".";
         long free = source.AvailableFreeBytes(directory);
@@ -195,7 +198,22 @@ internal sealed class MappedOutputFile : IDisposable
         long previous = Length;
         lock (_gate)
         {
-            using (var stream = new FileStream(Path, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite)) stream.SetLength(newLength);
+            using (SafeFileHandle handle = File.OpenHandle(Path, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite))
+            {
+                RandomAccess.SetLength(handle, newLength);
+                if (reserve)
+                {
+                    try
+                    {
+                        source.ReserveRange(handle, previous, growth, counters);
+                    }
+                    catch
+                    {
+                        RandomAccess.SetLength(handle, previous);
+                        throw;
+                    }
+                }
+            }
             MemoryMappedFile map;
             try
             {
@@ -211,6 +229,7 @@ internal sealed class MappedOutputFile : IDisposable
             _map = map;
             Length = newLength;
         }
+        if (reserve) return ReservationOutcome.Filled;
         return free >= 0 ? ReservationOutcome.FreeSpaceChecked : ReservationOutcome.Unchecked;
     }
 

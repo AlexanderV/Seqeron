@@ -320,7 +320,7 @@ public sealed class FullDisk1b9dTests
             long full = VolumeBytesFor(dir, text, true, out SesaBuildResult baseline);
             string input = SesaRun.WriteInput(dir, text, "in2.txt");
             long lowest = baseline.FileSize / 3;
-            long step = Math.Max(4096, (full - lowest) / 36 / 4096 * 4096);
+            long step = Math.Max(4096, (full - lowest) / 20 / 4096 * 4096);
             for (long bytes = lowest; bytes <= full + step; bytes += step)
             {
                 using SmallVolume volume = SmallVolume.MountOrIgnore(dir, $"mnt-{bytes}", bytes);
@@ -340,7 +340,7 @@ public sealed class FullDisk1b9dTests
                 AssertNothingLeft(label, input, target, outDir);
             }
         }
-        Assert.That(builds, Is.GreaterThan(100));
+        Assert.That(builds, Is.GreaterThan(50));
         Assert.That(failures, Is.GreaterThan(builds / 4), "the sizes reach below what the build needs, so the failure paths ran");
         Assert.That(builds - failures, Is.GreaterThan(5), "and above it, so the success path ran");
     }

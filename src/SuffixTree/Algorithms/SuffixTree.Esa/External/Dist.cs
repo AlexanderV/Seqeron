@@ -31,12 +31,12 @@ internal sealed record DistOptions
     /// <summary>Arena options: guard bands in the tests, none in production.</summary>
     internal ArenaOptions? Arena { get; init; }
 
-    /// <summary>How the target file is created (reservation of the disk space through <see cref="MappedOutputFile.Create"/>: a full disk is an <see cref="IOException"/> at creation); null = created sparse, as in 1b.7a (work package 1b.7d added the option for the rank file of PH1).</summary>
+    /// <summary>How the target file is created (reservation of the disk space through <see cref="MappedOutputFile.Create"/>: a full disk is an <see cref="IOException"/> at creation); null = the default of <see cref="MappedFileOptions"/> (<see cref="ReservationMode.Auto"/>: the blocks are reserved), as in every other output of the build; the target is sparse only on an explicit <see cref="ReservationMode.Sparse"/> (work package 1b.9d: it was created sparse when this was null, a window of a signal on a full disk).</summary>
     internal MappedFileOptions? Files { get; init; }
 }
 
-/// <summary>What one run wrote to and read from its chunk files (a chunk that never outgrew its buffer is in neither).</summary>
-internal readonly record struct DistStats(long Chunks, long TupleBytesWritten, long TupleBytesRead, ReservationOutcome Reservation = ReservationOutcome.Sparse);
+/// <summary>What one run wrote to and read from its chunk files (a chunk that never outgrew its buffer is in neither), and what the creation of the target did about the disk space (<see cref="MappedOutputFile.Outcome"/>).</summary>
+internal readonly record struct DistStats(long Chunks, long TupleBytesWritten, long TupleBytesRead, ReservationOutcome Reservation);
 
 /// <summary>Maps the entry <c>index</c> of the source (a file of 32-bit values, in file order) to a tuple <c>(key, value)</c>, or skips it. A mapper may keep state (it is passed by reference).</summary>
 internal interface IDistMapper<TValue>
@@ -201,8 +201,8 @@ internal static class Dist
         arena.ReleaseTo(mark);
 
         // pass 2: chunk by chunk in key order
-        using MappedOutputFile? created = options.Files is null ? null : MappedOutputFile.Create(targetPath, slots * sizeof(TValue), options.Files);
-        using MappedWindowWriter window = created is null ? new MappedWindowWriter(targetPath, slots * sizeof(TValue), options.WindowBytes, counters) : created.CreateWriter(options.WindowBytes, counters);
+        using MappedOutputFile created = MappedOutputFile.Create(targetPath, slots * sizeof(TValue), options.Files);
+        using MappedWindowWriter window = created.CreateWriter(options.WindowBytes, counters);
         Buf<TValue> chunkArray = arena.Allocate<TValue>((int)Math.Min(chunkEntries, slots), zero: false, "dist.chunk");
         Buf<DistEntry<TValue>> chunkRead = arena.Allocate<DistEntry<TValue>>(bufEntries, zero: false, "dist.read");
         long bytesWritten = 0;
@@ -239,7 +239,7 @@ internal static class Dist
             window.Append(MemoryMarshal.AsBytes(array));
         }
         arena.VerifyCanaries();
-        return new DistStats(chunks, bytesWritten, bytesRead);
+        return new DistStats(chunks, bytesWritten, bytesRead, created.Outcome);
     }
 
     /// <summary>Keys are 32-bit: a target of more than 2^32 slots is refused.</summary>

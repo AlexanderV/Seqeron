@@ -235,7 +235,7 @@ internal sealed class SesaBuildResult
     /// <summary>What the creation of the container did about the disk space.</summary>
     internal ReservationOutcome Reservation { get; init; }
 
-    /// <summary>What the growth of the file behind the reserved length did (null when it did not grow).</summary>
+    /// <summary>What the growth of the file behind the reserved length did (null when it did not grow): <see cref="ReservationOutcome.Filled"/> when its blocks were reserved by writing zeros before PH4 wrote the LCP (work package 1b.9d), the outcome of the check of the free space when the build was asked for sparse files.</summary>
     internal ReservationOutcome? GrowthReservation { get; init; }
 
     /// <summary>Bytes the file grew by after PH4-B2 (0 when it did not).</summary>
@@ -366,7 +366,7 @@ internal static class SesaBuilder
                 if (available >= 0 && available < growthBytes + spillBound) throw new IOException($"not enough free space in {directory} for the LCP sections and the spill of the scan stack: {growthBytes} + {spillBound} bytes needed, {available} bytes are available");
                 if (growthBytes > 0)
                 {
-                    growth = container.Grow(tail.FinalLength, options.Files);
+                    growth = container.Grow(tail.FinalLength, options.Files, counters);
                     grown = growthBytes;
                 }
                 Hook(SesaHooks.LcpPlaced);

@@ -98,7 +98,7 @@ public unsafe class DistTests
             long chunks = (rows + r - 1) / r;
             int capacity = io / 8;
             long flushedBytes = ExpectedFlushedTuples(rows, r, capacity) * 8;
-            Assert.That(stats, Is.EqualTo(new DistStats(chunks, flushedBytes, flushedBytes)), $"round {round}: the tuples that outgrew a buffer are written and read once");
+            Assert.That(stats, Is.EqualTo(new DistStats(chunks, flushedBytes, flushedBytes, stats.Reservation)), $"round {round}: the tuples that outgrew a buffer are written and read once");
             Assert.That(counters.WriteBytes, Is.EqualTo(flushedBytes));
             Assert.That(counters.ReadBytes, Is.EqualTo((4 * rows) + flushedBytes), "the source once, the chunk files once");
             Assert.That(counters.MappedWriteBytes, Is.EqualTo(4 * rows), "the target through windows");
@@ -172,7 +172,7 @@ public unsafe class DistTests
         FileBits.WriteUInts(dir.File("sa.bin"), [0u]);
         DistStats s = Dist.BuildIsa(dir.File("sa.bin"), 0, dir.File("isa.bin"), Opt(dir, 8, 64, 64, 64));
         Assert.That(FileBits.ReadUInts(dir.File("isa.bin")), Is.EqualTo(new uint[] { 0 }));
-        Assert.That(s, Is.EqualTo(new DistStats(1, 0, 0)), "one tuple stays in its buffer");
+        Assert.That(s, Is.EqualTo(new DistStats(1, 0, 0, s.Reservation)), "one tuple stays in its buffer");
     }
 
     // ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
