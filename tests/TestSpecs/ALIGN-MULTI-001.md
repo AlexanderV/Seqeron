@@ -856,3 +856,8 @@ F228 - F231 (WP53): `AlignmentCoordinateFormats_Tests` now covers sam (318 rows)
 F232 (WP53): `SpoaProgram_Oracle_Tests` x3 (`spoa_oracle.tsv`: 441 command lines of the installed spoa 4.0.8 compared by exit status, standard output, standard error and the DOT file, with the 256-bit and the 128-bit engine), `SpoaProgram_Tests` x5 (known GFA / MSA / consensus of a three-read set, version / help / getopt errors, the invalid-FASTA abort, the DOT file), MCP `SpoaTests` x2.
 
 F233 (WP53): `EmbossMultiRowAlignment_Oracle_Tests` x2 (`emboss_multirow_oracle.tsv`: 1 200 runs of the installed `aligncopy` - 800 byte-equal outputs of `unknown` / `multiple` / `simple` / `srs` and 400 refusals of the pair-markup formats), MCP `EmbossFormatTests.WriteAlignment_ThreeRows_SimpleHasTheConsensusMarkup_PairFormatsRefuseLikeTheProgram`.
+
+F234 - F236 (WP53): `AlignmentCoordinateBigBed_Tests`, `AlignmentCoordinateBigMaf_Tests`, `AlignmentCoordinateBigPsl_Tests` (3 each: >= 200 writer rows byte for byte with the zlib calls of Biopython injected, >= 200 reader rows structurally equal to `Bio.Align.parse`, refusals with the same outcome), MCP `BigFormatTests` x4.
+
+F237 (WP53): `TCoffeeScoreAscii_Oracle_Tests` x2 (`tcoffee_score_oracle.tsv`: 300 alignments scored by the installed t_coffee 13.41, the whole `score_ascii` file compared; the refusals), MCP `BigFormatTests.TCoffeeEvaluate_AsTheProgram`.
+

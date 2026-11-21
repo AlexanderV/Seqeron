@@ -337,6 +337,14 @@ MSA / PO file input (audit A2-26b, F223): `-read_msa`, `-read_msa2`, `-read_msa_
 
 `SpoaProgram.Run` is the `spoa` 4.0.8 command line (`-m -n -g -e -q -c -l -r -d -s --version --help`; FASTA / FASTQ / gzip input) over `SpoaGraph` (partial order graph, heaviest-bundle consensus, MSA, GFA, DOT) and `SpoaEngine`, the vectorised engine of the program emulated lane by lane (int16 / int32 by the worst-case score, padding lanes, wrapping lane arithmetic, the program's traceback), so that the ties of the installed binary are reproduced; verified on 441 command lines. This is a different program from Lee's POA V2 (`MultipleAlignPoa`, section 4.14): the graph, the scoring (match / mismatch / linear, affine or convex gaps), the consensus and the output differ and are not shared. MCP `spoa_command`.
 
+### 4.9d Biopython bigBed / bigMaf / bigPsl (audit A2-27d, B09 F234 - F236)
+
+`AlignmentCoordinateFormats.WriteBigBed` / `ParseBigBed`, `WriteBigMaf` / `ParseBigMaf`, `WriteBigPsl` / `ParseBigPsl` are the UCSC binary formats of `Bio.Align`: header, autoSQL block, total summary, B+ tree of the chromosomes, zlib-compressed data blocks, R-tree, zoom levels (reduction levels, red-black range tree) and optional extra B+ tree indices. bigMaf stores the MAF text of every alignment (`;` for the line ends) as an `lstring` of a BED3 item of the reference chromosome; bigPsl stores BED12 + the 13 PSL fields. The compressed bytes depend on the zlib build, so the writers take an injectable compressor and are verified with the `zlib.compress` calls of Biopython fed back (the whole file is equal). MCP `write_big_alignment` / `parse_big_alignment` carry the bytes as base64.
+
+### 4.16 T-Coffee `score_ascii` evaluation (audit A2-27d, B09 F237)
+
+`SequenceAligner.TCoffeeEvaluate` is `t_coffee -infile aln -mode evaluate -output score_ascii` (evaluate mode `triplet`): the relaxed library of the sequences gives, for every residue, the paths residue -> partner -> partner of the partner with weight `min(w1, w2)`; the residue scores `trunc(10 x (1000 + S) / (1000 + M))` (capped at 9) with `M` the weight of all paths and `S` the weight of the paths that end in the column of the residue; the column, sequence and alignment scores are the same ratios (x 100 for the sequence and alignment). `TCoffeeEvaluation.ToScoreAscii` writes the program's file. Verified on 300 alignments; MCP `tcoffee_evaluate`.
+
 ## 5. Implementation Notes
 
 `-distance_matrix_mode random` (audit A3-6, B09 F135): `id = rand() % 100` per pair `a < b` (glibc `rand`, `GlibcRandom`); the program seeds with `vsrand(0)` = `/dev/urandom` unless `DEBUG_SRAND` is set (`srand(10)`), so `TCoffeeProgramOptions.RandomSeed` defaults to 10 (the deterministic run; 310 / 310 committed sets equal); any other seed is an option.
