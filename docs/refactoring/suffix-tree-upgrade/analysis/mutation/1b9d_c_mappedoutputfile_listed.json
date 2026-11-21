@@ -1,0 +1,34 @@
+[
+ {
+  "id": "Z03",
+  "desc": "the zero fill also writes at the end of the range",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "for (long at = offset; at < end; at += ChunkBytes)",
+  "new": "for (long at = offset; at <= end; at += ChunkBytes)",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "Z09",
+  "desc": "a negative offset is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "        ArgumentOutOfRangeException.ThrowIfNegative(offset);\n        ArgumentOutOfRangeException.ThrowIfNegative(length);\n        long end",
+  "new": "        ArgumentOutOfRangeException.ThrowIfNegative(length);\n        long end",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "Z11",
+  "desc": "a null handle is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "        ArgumentNullException.ThrowIfNull(file);\n        ArgumentOutOfRangeException.ThrowIfNegative(offset);",
+  "new": "        ArgumentOutOfRangeException.ThrowIfNegative(offset);",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "R04",
+  "desc": "the growth does not take the lock of the mapping",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "        long previous = Length;\n        lock (_gate)\n        {\n            using (SafeFileHandle handle",
+  "new": "        long previous = Length;\n        {\n            using (SafeFileHandle handle",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ }
+]

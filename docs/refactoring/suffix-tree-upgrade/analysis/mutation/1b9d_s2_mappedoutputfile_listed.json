@@ -1,0 +1,18 @@
+[
+ {
+  "id": "Z03",
+  "desc": "the zero fill also writes at the end of the range",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "for (long at = offset; at < end; at += ChunkBytes)",
+  "new": "for (long at = offset; at <= end; at += ChunkBytes)",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "R04",
+  "desc": "the growth does not take the lock of the mapping",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "        long previous = Length;\n        lock (_gate)\n        {\n            using (SafeFileHandle handle",
+  "new": "        long previous = Length;\n        {\n            using (SafeFileHandle handle",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ }
+]

@@ -13,7 +13,7 @@ except ImportError:
 listed = {}
 for f in sorted(glob.glob(os.path.join(HERE, '1b9d_*_listed.json'))):
     name = os.path.basename(f)
-    if name.startswith('1b9d_s2_') or name.startswith('1b9d_h_'):
+    if name.startswith(('1b9d_s2_', '1b9d_h_', '1b9d_c_')):
         continue
     for m in json.load(open(f)):
         listed[m['id']] = m
@@ -22,7 +22,7 @@ def results(prefix):
     out = {}
     for f in sorted(glob.glob(os.path.join(HERE, 'results_1b9d_%s*.tsv' % prefix))):
         base = os.path.basename(f)
-        if prefix == '' and (base.startswith('results_1b9d_s2_') or base.startswith('results_1b9d_h_')):
+        if prefix == '' and base.startswith(('results_1b9d_s2_', 'results_1b9d_h_', 'results_1b9d_c_')):
             continue
         for line in open(f):
             p = line.rstrip('\n').split('\t')
@@ -30,7 +30,7 @@ def results(prefix):
                 out[p[0]] = p
     return out
 
-s1, s2, h = results(''), results('s2_'), results('h_')
+s1, s2, h, cl = results(''), results('s2_'), results('h_'), results('c_')
 rows = []
 counts = {}
 for i, m in sorted(listed.items(), key=lambda kv: (kv[1]['file'], kv[0])):
@@ -50,7 +50,10 @@ for i, m in sorted(listed.items(), key=lambda kv: (kv[1]['file'], kv[0])):
     elif v1.startswith('BUILD'):
         status = 'does not compile'
     else:  # survived stage 1
-        if v2.startswith('killed'):
+        vc = cl.get(i, ['', '', ''])[2] if i in cl else ''
+        if vc.startswith('killed'):
+            status = 'closed by a test (red against the mutant at the head that holds the test)'
+        elif v2.startswith('killed'):
             status = 'killed (stage 2)'
         elif i in EQ:
             status = 'equivalent (argued)'
@@ -59,9 +62,9 @@ for i, m in sorted(listed.items(), key=lambda kv: (kv[1]['file'], kv[0])):
         else:
             status = 'OPEN'
     counts[status.split(';')[0].split(' (')[0] if status.startswith('killed') else status] = counts.get(status.split(';')[0].split(' (')[0] if status.startswith('killed') else status, 0) + 1
-    rows.append((i, os.path.basename(m['file']), m['desc'], v1[:90], v2[:60], vh[:60], status))
+    rows.append((i, os.path.basename(m['file']), m['desc'], v1[:90], (cl.get(i, ['', '', ''])[2][:60] if i in cl else '-'), v2[:60], vh[:60], status))
 with open(os.path.join(HERE, 'summary_1b9d.tsv'), 'w') as f:
-    f.write('id\tfile\tdescription\tstage 1\tstage 2\trerun without the crashing tests\tstatus\n')
+    f.write('id\tfile\tdescription\tstage 1\tclosed run\tstage 2\trerun without the crashing tests\tstatus\n')
     for r in rows:
         f.write('\t'.join(r) + '\n')
 print(len(listed), 'listed;', ', '.join('%s: %d' % kv for kv in sorted(counts.items())))

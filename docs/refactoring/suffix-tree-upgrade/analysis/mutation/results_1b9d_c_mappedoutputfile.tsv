@@ -1,0 +1,4 @@
+Z03	the zero fill also writes at the end of the range	survived			54
+Z09	a negative offset is accepted	killed(1 failed: ZeroFill_WritesExactlyTheRange_NothingBeforeIt_AndNothingBeh)[only]			53
+Z11	a null handle is accepted	killed(1 failed: ZeroFill_WritesExactlyTheRange_NothingBeforeIt_AndNothingBeh)[only]			53
+R04	the growth does not take the lock of the mapping	survived			52

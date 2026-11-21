@@ -35,3 +35,8 @@ Z01	the chunk of the zero fill is 512 KiB	killed(1 failed: Grow_ThroughTheDefaul
 Z02	the zero fill writes a chunk that is a byte short of the next	killed(3 failed: AReservationThatFails_AtAnyByte_IsAnIoException_AndTheFileIs,Grow_ThroughTheDefaultOfTheInterface_WritesTheZerosInChunksO,ZeroFill_WritesExactlyTheRange_NothingBeforeIt_AndNothingBeh)[only]			55
 Z03	the zero fill also writes at the end of the range	survived			52
 Z04	the last chunk of the zero fill is a full chunk	killed(12 failed: ADiskThatFillsInTheReservationOfTheTail_IsAnIoException_AndL,AFullDisk_AtEveryBoundaryOfTheBuild_IsASuccessOrAnIoExceptio,AFullDisk_AtEveryPointThatThePhasesReport_IsASuccessOrAnIoEx)[only]			7
+R01	the explicit preallocate mode grows sparse	killed(1 failed: Grow_InTheExplicitPreallocateMode_Reserves_AsTheAutomaticMod)[only]			65
+R03	the zero fill counts a chunk before it is written	killed(1 failed: ZeroFill_OnAFullVolume_CountsOnlyTheBytesThatWereWritten)[only]			65
+R04	the growth does not take the lock of the mapping	survived			58
+R02	only an IOException of the reservation gives the length back	killed(1 failed: AReservationThatFailsInAnyWay_LeavesTheFileAsItWas)[only]			59
+R05	a growth that is not longer than the file is also refused	killed(2 failed: Grow_WithNoGrowth_ReservesNothing,Grow_RefusesWhileAWriterIsOpen_ToShrink_AndAfterDisposal_And)[only]			54

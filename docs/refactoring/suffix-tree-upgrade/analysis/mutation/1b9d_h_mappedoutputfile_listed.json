@@ -1,0 +1,50 @@
+[
+ {
+  "id": "G01",
+  "desc": "the growth is never reserved",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "bool reserve = (options is null || options.Reservation == ReservationMode.Auto ? AutoMode : options.Reservation) != ReservationMode.Sparse;",
+  "new": "bool reserve = false;",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "G02",
+  "desc": "the growth is reserved only in the sparse mode",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "options.Reservation) != ReservationMode.Sparse;",
+  "new": "options.Reservation) == ReservationMode.Sparse;",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "G03",
+  "desc": "the automatic mode grows sparse",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "options.Reservation == ReservationMode.Auto ? AutoMode : options.Reservation)",
+  "new": "options.Reservation == ReservationMode.Auto ? ReservationMode.Sparse : options.Reservation)",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "Z12",
+  "desc": "the zeros are written from the start of the file",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "RandomAccess.Write(file, s_zeros.AsSpan(0, take), at);",
+  "new": "RandomAccess.Write(file, s_zeros.AsSpan(0, take), at - offset);",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "D01",
+  "desc": "the default of the interface reserves nothing",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "void ReserveRange(SafeFileHandle file, long offset, long length, IoCounters? counters) => ZeroFill.Write(file, offset, length, counters);",
+  "new": "void ReserveRange(SafeFileHandle file, long offset, long length, IoCounters? counters) { }",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "D02",
+  "desc": "the default of the interface reserves half",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "IoCounters? counters) => ZeroFill.Write(file, offset, length, counters);",
+  "new": "IoCounters? counters) => ZeroFill.Write(file, offset, length / 2, counters);",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ }
+]

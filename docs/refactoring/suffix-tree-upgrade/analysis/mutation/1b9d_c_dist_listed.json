@@ -1,0 +1,10 @@
+[
+ {
+  "id": "R06",
+  "desc": "the target writer of Dist is not given the counters",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs",
+  "old": "created.CreateWriter(options.WindowBytes, counters);",
+  "new": "created.CreateWriter(options.WindowBytes, null);",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ }
+]

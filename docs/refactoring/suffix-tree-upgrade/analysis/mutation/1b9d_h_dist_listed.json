@@ -1,0 +1,10 @@
+[
+ {
+  "id": "S01",
+  "desc": "the target of Dist is created sparse",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs",
+  "old": "MappedOutputFile.Create(targetPath, slots * sizeof(TValue), options.Files);",
+  "new": "MappedOutputFile.Create(targetPath, slots * sizeof(TValue), new MappedFileOptions { Reservation = ReservationMode.Sparse });",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ }
+]

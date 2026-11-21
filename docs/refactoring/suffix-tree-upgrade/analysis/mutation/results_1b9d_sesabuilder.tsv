@@ -1,3 +1,4 @@
 B01	the builder gives no counters to the growth	killed(2 failed: ADiskThatFillsInTheReservationOfTheTail_IsAnIoException_AndL,TheGrowthOfTheContainer_IsReserved_BeforeAnyByteOfTheLcpIsWr)[only]			53
 B02	the builder gives no file options to the growth	killed(3 failed: ADiskThatFillsInTheReservationOfTheTail_IsAnIoException_AndL,TheGrowthOfTheContainer_IsReserved_BeforeAnyByteOfTheLcpIsWr,TheSparseMode_StillGrowsTheContainerSparse_AndReservesNothin)[only]			52
 B03	the builder forgets what the growth did	killed(2 failed: TheGrowthOfTheContainer_IsReserved_BeforeAnyByteOfTheLcpIsWr,TheSparseMode_StillGrowsTheContainerSparse_AndReservesNothin)[only]			59
+R07	the container is grown also when it does not grow	killed(1 failed: ABuildWhoseLcpDoesNotGrow_ReservesNothingMore_AndCountsNothi)[only]			58

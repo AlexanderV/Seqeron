@@ -284,6 +284,7 @@ public sealed class FullDisk1b9dTests
             File.Delete(baseTarget);
             long bytes = baseline.FileSize + baseline.ScratchPeakBytes + (256 << 10);
             Assert.That(seen, Has.Count.GreaterThanOrEqualTo(8), "the phases report their points");
+            TestContext.Out.WriteLine($"{name}: the volume is filled at each of {seen.Count} points: {string.Join(", ", seen)}");
             foreach (string point in seen)
             {
                 using SmallVolume volume = SmallVolume.MountOrIgnore(dir, "mnt-" + point.Replace(':', '-'), bytes);

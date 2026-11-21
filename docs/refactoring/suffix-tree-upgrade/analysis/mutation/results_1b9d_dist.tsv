@@ -1,3 +1,4 @@
 S01	the target of Dist is created sparse	killed(host crash: Fatal error.)[only]			70
 S02	the target of Dist ignores the options	killed(1 failed: Dist_WithNoFileOptions_CreatesItsTargetWithAReservation_AndT)[only]			55
 S03	Dist reports a sparse target	killed(1 failed: Dist_WithNoFileOptions_CreatesItsTargetWithAReservation_AndT)[only]			55
+R06	the target writer of Dist is not given the counters	survived			65
