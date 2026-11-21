@@ -43,3 +43,17 @@ public class EmbossReportFileToolTests
         Assert.That(ranged.Report, Does.Contain("# Sequence: fasta::sequence.fasta:s[5:25]     from: 5   to: 25\n"));
     }
 }
+
+/// <summary>mash_screen (B09 A5-10b, F185): the tool over MashCommands.Screen; the byte-for-byte oracle is MashScreen_Oracle_Tests in Seqeron.Genomics.Tests.</summary>
+[TestFixture]
+public class MashScreenToolTests
+{
+    [Test]
+    public void MashScreen_QueryContainedInReads_IsTheProgramsLine()
+    {
+        var r = AnalysisTools.MashScreen([">g\nACGTTGCATGCCGATAGCTAGGATCCATGCATGCAAGT\n"], [">r1\nACGTTGCATGCCGATAGCTAGGATCC\n>r2\nGATAGCTAGGATCCATGCATGCAAGT\n"], ["g.fa"], k: 8, sketchSize: 100);
+        Assert.That(r.Text, Is.EqualTo("1\t30/30\t1\t6.59538e-101\tg.fa\tg \n"));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.MashScreen([], [">r\nACGT\n"]));
+        Assert.Throws<ArgumentOutOfRangeException>(() => AnalysisTools.MashScreen([">g\nACGTTGCATGCC\n"], [">r\nACGTTGCATGCC\n"], k: 8, seed: -1));
+    }
+}

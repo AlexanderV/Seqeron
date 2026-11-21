@@ -85,7 +85,7 @@
 | `water_align` | `SequenceAligner.WaterAlign` | [doc](../../mcp/tools/alignment/water_align.md) |
 | `write_alignment` | `EmbossAlignmentWriter.Format` | [doc](../../mcp/tools/alignment/write_alignment.md) |
 
-## Analysis (144 tools)
+## Analysis (145 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -190,6 +190,7 @@
 | `longdust_score` | `SequenceComplexity.CalculateLongdustScore` | [doc](../../mcp/tools/analysis/longdust_score.md) |
 | `mash_bounds` | `MashCommands.Bounds` | [doc](../../mcp/tools/analysis/mash_bounds.md) |
 | `mash_dist` | `MashCommands.Dist` | [doc](../../mcp/tools/analysis/mash_dist.md) |
+| `mash_screen` | `MashCommands.Screen` | [doc](../../mcp/tools/analysis/mash_screen.md) |
 | `mash_triangle` | `MashCommands.Triangle` | [doc](../../mcp/tools/analysis/mash_triangle.md) |
 | `mask_approximate_tandem_repeats` | `RepeatFinder.MaskApproximateTandemRepeats` | [doc](../../mcp/tools/analysis/mask_approximate_tandem_repeats.md) |
 | `mask_low_complexity` | `SequenceComplexity.MaskLowComplexity` | [doc](../../mcp/tools/analysis/mask_low_complexity.md) |

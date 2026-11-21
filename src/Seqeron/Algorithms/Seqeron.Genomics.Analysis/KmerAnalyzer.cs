@@ -1599,11 +1599,40 @@ public static class KmerAnalyzer
         return new MinHashSketch(k, sketchSize, canonical, seed, use64, length, bottom.ToArray());
     }
 
+    /// <summary>
+    /// The pass of <c>mash screen</c> over a mixture (<c>CommandScreen.cpp</c> <c>hashSequence</c>; B09 A5-10b, F185): every window of every record is hashed as <c>mash sketch</c> hashes it (canonical or forward, the low 32 bits below k = 17), the
+    /// hash is passed to <paramref name="onHash"/> (the screen counts the hashes of its queries) and enters a bottom-<paramref name="sketchSize"/> heap of the mixture whose smallest-hash set is returned (its largest value gives the
+    /// estimated number of distinct k-mers, <c>MinHashHeap::estimateSetSize</c>). Records shorter than k contribute no window.
+    /// </summary>
+    internal static ulong[] ScanMashMixture(IEnumerable<string> records, int k, int sketchSize, bool canonical, uint seed, Action<ulong> onHash, CancellationToken cancellationToken = default)
+    {
+        var bottom = new BottomHashes(sketchSize);
+        bool use64 = MashUses64BitHash(k);
+        void Sink(ulong h)
+        {
+            ulong hash = use64 ? h : (uint)h;
+            onHash(hash);
+            bottom.AddRaw(hash);
+        }
+
+        foreach (var record in records)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (record is null || record.Length < k)
+                continue;
+            StreamKmerHashes(record, k, canonical, seed, Sink, cancellationToken);
+        }
+
+        return bottom.ToArray();
+    }
+
     /// <summary>The s smallest distinct hash values seen so far (a bounded sorted set; the threshold rejects almost every hash of a long sequence in O(1)).</summary>
     private sealed class BottomHashes(int capacity)
     {
         private readonly SortedSet<ulong> _set = [];
         private ulong _threshold = ulong.MaxValue;     // valid once the set is full: the largest kept hash
+
+        public void AddRaw(ulong h) => Add(h);
 
         public void Add64(ulong h) => Add(h);
 

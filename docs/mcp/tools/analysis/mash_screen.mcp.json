@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "mash_screen",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MashCommands.Screen",
+  "docRef": "Seqeron.Genomics.Analysis/MashCommands.cs",
+  "description": "Mash 2.3 'mash screen' for nucleotide queries, byte for byte (CommandScreen.cpp): the MinHash sketches of the query files (as mash sketch -k -s -S -n -i would write them into the query .msh) are screened against a mixture (reads or contigs, any number of files): the hashes of the queries are counted in every window of the mixture and for each query one line identity TAB shared/hashes TAB median-multiplicity TAB p-value TAB query-ID TAB query-comment is written, identity = (shared / hashes)^(1/k), the median multiplicity over the shared hashes, the p-value the binomial tail with r = estimated distinct k-mers of the mixture / 4^k. winnerTakesAll = -w (a hash held by several queries counts for the query with the best identity, ties the longer one), minIdentity = -i (-1 writes every query, 0 those with a shared hash), maxPValue = -v. The query-comment is 'name comment' of the first record of a file ('[N seqs] ... [...]' for several records; the record's own comment with individual). Amino-acid queries (6-frame translation of the mixture) are not part of the port. VERIFICATION: 240 / 240 random screens equal the installed mash 2.3.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "queries": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "The query files as FASTA texts (records start with '>': the first word of the header is the sequence id, the rest the comment)."
+      },
+      "mixtures": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "The mixture files as FASTA texts (reads or contigs)."
+      },
+      "queryNames": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Names of the query files as the program prints them (default query1, ...)."
+      },
+      "k": {
+        "type": "integer",
+        "description": "k-mer size of the query sketch (-k of mash sketch, 1 - 32, default 21).",
+        "default": 21
+      },
+      "sketchSize": {
+        "type": "integer",
+        "description": "Sketch size of the query sketch (-s, default 1000).",
+        "default": 1000
+      },
+      "seed": {
+        "type": "integer",
+        "description": "Hash seed of the query sketch (-S, 0 - 4294967295, default 42).",
+        "default": 42
+      },
+      "noncanonical": {
+        "type": "boolean",
+        "description": "The query sketch was made with -n (strand preserved).",
+        "default": false
+      },
+      "individual": {
+        "type": "boolean",
+        "description": "The query sketch was made with -i (one reference per sequence).",
+        "default": false
+      },
+      "winnerTakesAll": {
+        "type": "boolean",
+        "description": "-w: winner-takes-all strategy for identity estimates.",
+        "default": false
+      },
+      "minIdentity": {
+        "type": "number",
+        "description": "-i: minimum identity to report (-1 - 1, default 0).",
+        "default": 0
+      },
+      "maxPValue": {
+        "type": "number",
+        "description": "-v: maximum p-value to report (0 - 1, default 1).",
+        "default": 1
+      }
+    },
+    "required": [
+      "queries",
+      "mixtures"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "text": {
+        "type": "string",
+        "description": "The text mash screen writes."
+      }
+    },
+    "required": [
+      "text"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "ERROR: Did not find sequence records in inputs"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Default parameters",
+      "input": {
+        "k": 21,
+        "probability": 0.99
+      },
+      "output": {
+        "text": "\nParameters (run with -h for details):\n   k:   21\n   p:   0.99\n\n\tMash distance\nSketch\t0.05\t0.1\t0.15\t0.2\t0.25\t0.3\t0.35\t0.4\n100\t0.0270708\t0.0867606\tinf\tinf\tinf\tinf\tinf\tinf\n500\t0.00981902\t0.0244913\t0.0472921\tinf\tinf\tinf\tinf\tinf\n1000\t0.00675661\t0.0157591\t0.0322692\t0.0630219\tinf\tinf\tinf\tinf\n5000\t0.00287501\t0.00652409\t0.0123757\t0.0234829\t0.0459813\tinf\tinf\tinf\n10000\t0.00199888\t0.00457132\t0.00862966\t0.0158855\t0.0299779\t0.0725831\tinf\tinf\n50000\t0.000881332\t0.00197968\t0.0037121\t0.00653009\t0.0116171\t0.0219007\t0.0395648\t0.0822215\n100000\t0.000621786\t0.00139473\t0.00259476\t0.00455892\t0.00806278\t0.014331\t0.0250252\t0.0492154\n500000\t0.000276699\t0.000619769\t0.00114475\t0.00200956\t0.003457\t0.00600661\t0.0104601\t0.0186527\n1000000\t0.000195544\t0.000437925\t0.000807741\t0.00141262\t0.00241973\t0.0041631\t0.00724945\t0.0127668\n\n\tScreen distance\nSketch\t0.05\t0.1\t0.15\t0.2\t0.25\t0.3\t0.35\t0.4\n100\t0.0195634\t0.0421104\t0.85\t0.8\t0.75\t0.7\t0.65\t0.6\n500\t0.00786602\t0.0154846\t0.0339432\t0.8\t0.75\t0.7\t0.65\t0.6\n1000\t0.0054207\t0.010758\t0.0219894\t0.0561633\t0.75\t0.7\t0.65\t0.6\n5000\t0.00233621\t0.00462429\t0.00861578\t0.0162137\t0.0379211\t0.7\t0.65\t0.6\n10000\t0.0016436\t0.00321392\t0.00598825\t0.0109799\t0.0240388\t0.0550533\t0.65\t0.6\n50000\t0.000731087\t0.00142413\t0.00259063\t0.00474589\t0.00911086\t0.0204149\t0.0526353\t0.6\n100000\t0.000515745\t0.00100563\t0.00181424\t0.00332922\t0.0063408\t0.0127218\t0.0325891\t0.6\n500000\t0.000229776\t0.000446762\t0.000803172\t0.00146113\t0.0027473\t0.00544966\t0.0118702\t0.0359202\n1000000\t0.000162418\t0.000315619\t0.000567196\t0.00102652\t0.00191631\t0.00374762\t0.00794327\t0.0194016\n\n"
+      }
+    }
+  ]
+}

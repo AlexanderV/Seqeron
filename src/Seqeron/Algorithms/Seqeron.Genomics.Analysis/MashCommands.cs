@@ -253,4 +253,188 @@ public static class MashCommands
         if (!(value >= 0 && value <= 1))
             throw new ArgumentOutOfRangeException(name, value, $"{option} must be in 0..1 (mash).");
     }
+
+    private static double ScreenIdentity(ulong common, ulong denominator, int k)
+    {
+        // CommandScreen.cpp estimateIdentity: 1 when every hash is shared (avoids -0), 0 for none (avoids inf), else jaccard^(1/k)
+        if (common == denominator)
+            return 1.0;
+        if (common == 0)
+            return 0.0;
+        return Math.Pow((double)common / denominator, 1.0 / k);
+    }
+
+    private static string NoUsableRecordMessage(MashInput input, int k)
+    {
+        if (input.Records.Count > 0)
+            return $"WARNING: All fasta records in input files were shorter than the k-mer size ({k}).";
+        return "ERROR: Did not find fasta records in \"input files\".";
+    }
+
+    private sealed record ScreenQuery(string Name, string Comment, long Length, MinHashSketch Sketch);
+
+    private static List<ScreenQuery> ScreenQueries(IReadOnlyList<MashInput> queries, int k, int sketchSize, uint seed, bool canonical, bool individual, CancellationToken cancellationToken)
+    {
+        var list = new List<ScreenQuery>();
+        foreach (var input in queries)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (individual)
+            {
+                foreach (var r in input.Records.Where(r => r.Sequence.Length >= k))
+                    list.Add(new ScreenQuery(r.Id, r.Comment ?? "", r.Sequence.Length, KmerAnalyzer.CreateMinHashSketch(r.Sequence, k, sketchSize, canonical, seed, cancellationToken)));
+                continue;
+            }
+
+            var usable = input.Records.Where(r => r.Sequence.Length >= k).ToList();
+            if (usable.Count == 0)
+                throw new ArgumentException(NoUsableRecordMessage(input, k), nameof(queries));
+            // Sketch.cpp sketchFile: the comment of a file's sketch is "name comment" of its first record; with more records "[N seqs] ... [...]"
+            string comment = usable[0].Id + " " + (usable[0].Comment ?? "");
+            if (usable.Count > 1)
+                comment = "[" + usable.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) + " seqs] " + comment + " [...]";
+            var sketch = KmerAnalyzer.CreateMinHashSketch(usable.Select(r => r.Sequence), k, sketchSize, canonical, seed, cancellationToken);
+            list.Add(new ScreenQuery(input.Name, comment, sketch.Length, sketch));
+        }
+
+        return list;
+    }
+
+    /// <summary>
+    /// <c>mash screen [-w] [-i I] [-v P] queries.msh mixture...</c> for nucleotide queries (<c>CommandScreen.cpp</c>, marbl/Mash v2.3; audit A5-10b, B09 F185): the hashes of the query sketches are counted in every window of the mixture
+    /// (reads or contigs, all records of all mixture files), and for every query one line <c>identity TAB shared/hashes TAB median-multiplicity TAB p-value TAB query-ID TAB query-comment</c> is written, where
+    /// identity = (shared / hashes)^(1/k), the multiplicity is the median number of occurrences of the shared hashes in the mixture and the p-value is the binomial tail of the shared count with
+    /// r = (estimated distinct k-mers of the mixture) / 4^k. With <paramref name="winnerTakesAll"/> a hash found in several queries is kept only by the query with the best identity (ties: the longer query).
+    /// </summary>
+    /// <param name="queries">The query files (what <c>mash sketch</c> writes into the .msh: one sketch per file, or per record with <paramref name="individual"/>); their names are the query IDs.</param>
+    /// <param name="mixtures">The mixture files.</param>
+    /// <param name="k">K-mer size of the query sketch (<c>mash sketch -k</c>).</param>
+    /// <param name="sketchSize">Sketch size of the query sketch (<c>-s</c>).</param>
+    /// <param name="seed">Hash seed (<c>-S</c>).</param>
+    /// <param name="canonical">False when the query sketch was made with <c>-n</c>.</param>
+    /// <param name="individual">The query sketch was made with <c>-i</c> (one reference per sequence).</param>
+    /// <param name="winnerTakesAll"><c>-w</c>.</param>
+    /// <param name="minIdentity"><c>-i</c>: minimum identity (-1 - 1; -1 writes every query, 0 only those with a shared hash).</param>
+    /// <param name="maxPValue"><c>-v</c>: maximum p-value (0 - 1).</param>
+    /// <param name="cancellationToken">Polled per file and per window block.</param>
+    /// <exception cref="ArgumentException">A query without a record of k symbols, no mixture record (the program's exit status 1 with "ERROR: Did not find sequence records in inputs"), a parameter outside the program's range.</exception>
+    public static string Screen(IReadOnlyList<MashInput> queries, IReadOnlyList<MashInput> mixtures, int k = 21, int sketchSize = KmerAnalyzer.DefaultMashSketchSize, uint seed = KmerAnalyzer.DefaultMashSeed,
+        bool canonical = true, bool individual = false, bool winnerTakesAll = false, double minIdentity = 0.0, double maxPValue = 1.0, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(queries);
+        ArgumentNullException.ThrowIfNull(mixtures);
+        RequireSketchParameters(k, sketchSize);
+        if (double.IsNaN(minIdentity) || minIdentity < -1.0 || minIdentity > 1.0)
+            throw new ArgumentOutOfRangeException(nameof(minIdentity), minIdentity, "-i must be in -1..1 (mash screen).");
+        RequireFraction(maxPValue, nameof(maxPValue), "-v");
+        var refs = ScreenQueries(queries, k, sketchSize, seed, canonical, individual, cancellationToken);
+        if (refs.Count == 0)
+            throw new ArgumentException("No query sequence is at least k symbols long.", nameof(queries));
+        foreach (var m in mixtures)
+        {
+            if (m is null || m.Records is null)
+                throw new ArgumentException("A mixture input is null or has no Records list.", nameof(mixtures));
+        }
+
+        if (!mixtures.Any(m => m.Records.Count > 0))
+            throw new ArgumentException("ERROR: Did not find sequence records in inputs", nameof(mixtures));
+
+        // the hash table of the queries (hash -> the queries that hold it, ascending) and the occurrence counts of those hashes in the mixture
+        var table = new Dictionary<ulong, List<int>>();
+        for (int i = 0; i < refs.Count; i++)
+        {
+            foreach (ulong h in refs[i].Sketch.Hashes)
+            {
+                if (!table.TryGetValue(h, out var owners))
+                    table[h] = owners = [];
+                owners.Add(i);
+            }
+        }
+
+        var counts = new Dictionary<ulong, uint>(table.Count);
+        foreach (ulong h in table.Keys)
+            counts[h] = 0;
+        var bottom = KmerAnalyzer.ScanMashMixture(mixtures.SelectMany(m => m.Records.Select(r => r.Sequence ?? "")), k, sketchSize, canonical, seed, h =>
+        {
+            if (counts.TryGetValue(h, out uint c))
+                counts[h] = c + 1;
+        }, cancellationToken);
+        double hashBits = KmerAnalyzer.MashUses64BitHash(k) ? 64.0 : 32.0;
+        ulong setSize = 0;                                      // MinHashHeap::estimateSetSize: 2^bits * hashes / largest hash, truncated
+        if (bottom.Length > 0)
+            setSize = (ulong)(Math.Pow(2.0, hashBits) * bottom.Length / (double)bottom[^1]);
+        double kmerSpace = Math.Pow(4.0, k);
+
+        var shared = new ulong[refs.Count];
+        var depths = new List<uint>[refs.Count];
+        for (int i = 0; i < refs.Count; i++)
+            depths[i] = [];
+        foreach (var (hash, count) in counts)
+        {
+            if (count < 1)
+                continue;
+            foreach (int owner in table[hash])
+            {
+                shared[owner]++;
+                depths[owner].Add(count);
+            }
+        }
+
+        if (winnerTakesAll)
+        {
+            var scores = new double[refs.Count];
+            for (int i = 0; i < refs.Count; i++)
+                scores[i] = ScreenIdentity(shared[i], (ulong)refs[i].Sketch.Hashes.Count, k);
+            Array.Clear(shared);
+            foreach (var d in depths)
+                d.Clear();
+            foreach (var (hash, owners) in table)
+            {
+                if (counts[hash] < 1)
+                    continue;
+                double maxScore = 0;
+                long maxLength = 0;
+                int maxIndex = -1;
+                foreach (int owner in owners)
+                {
+                    if (scores[owner] > maxScore)
+                    {
+                        maxScore = scores[owner];
+                        maxIndex = owner;
+                        maxLength = refs[owner].Length;
+                    }
+                    else if (scores[owner] == maxScore && refs[owner].Length > maxLength)
+                    {
+                        maxIndex = owner;
+                        maxLength = refs[owner].Length;
+                    }
+                }
+
+                if (maxIndex < 0)
+                    maxIndex = owners[0];                 // the program leaves the index uninitialised when no query has a positive length; the first owner is what a zero-initialised stack gives
+                shared[maxIndex]++;
+                depths[maxIndex].Add(counts[hash]);
+            }
+        }
+
+        var sb = new StringBuilder();
+        for (int i = 0; i < refs.Count; i++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            depths[i].Sort();
+            if (shared[i] == 0 && minIdentity >= 0.0)
+                continue;
+            ulong denominator = (ulong)refs[i].Sketch.Hashes.Count;
+            double identity = ScreenIdentity(shared[i], denominator, k);
+            if (identity < minIdentity)
+                continue;
+            double pValue = shared[i] == 0 ? 1.0 : StatisticsHelper.BinomialUpperTail((long)shared[i], (long)denominator, setSize / kmerSpace);
+            if (pValue > maxPValue)
+                continue;
+            sb.Append(Num(identity)).Append('\t').Append(shared[i]).Append('/').Append(denominator).Append('\t').Append(shared[i] > 0 ? depths[i][(int)(shared[i] / 2)] : 0).Append('\t').Append(Num(pValue)).Append('\t')
+                .Append(refs[i].Name).Append('\t').Append(refs[i].Comment).Append('\n');
+        }
+
+        return sb.ToString();
+    }
 }

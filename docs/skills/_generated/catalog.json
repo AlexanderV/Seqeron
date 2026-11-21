@@ -1239,6 +1239,13 @@
     "sourceLink": ""
   },
   {
+    "tool": "mash_screen",
+    "server": "Analysis",
+    "methodId": "MashCommands.Screen",
+    "docPath": "docs/mcp/tools/analysis/mash_screen.md",
+    "sourceLink": ""
+  },
+  {
     "tool": "mash_triangle",
     "server": "Analysis",
     "methodId": "MashCommands.Triangle",

@@ -117,6 +117,7 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "longdust_score",
         "mash_bounds",
         "mash_dist",
+        "mash_screen",
         "mash_triangle",
         "mask_approximate_tandem_repeats",
         "mask_low_complexity",
