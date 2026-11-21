@@ -1,4 +1,5 @@
 using System.IO.MemoryMappedFiles;
+using Microsoft.Win32.SafeHandles;
 
 namespace SuffixTree.Esa.External;
 
@@ -29,6 +30,9 @@ internal enum ReservationOutcome
 
     /// <summary>The platform cannot reserve and cannot tell the free space; the file is sparse and nothing was checked.</summary>
     Unchecked,
+
+    /// <summary>The range that was added to an existing file (<see cref="MappedOutputFile.Grow"/>) was reserved by writing zeros into it, because the BCL reserves blocks only for a file that it creates: a full disk is an <see cref="IOException"/> from the write, the file is as it was, and a mapped write into the range never needs a new block.</summary>
+    Filled,
 }
 
 /// <summary>The platform side of the reservation, injectable so that the fallback is tested where the real one does not exist (macOS, Windows).</summary>
@@ -42,6 +46,37 @@ internal interface IReservationSource
 
     /// <summary>Bytes available to this process on the volume of <paramref name="directory"/>, or -1 when unknown. Never throws.</summary>
     long AvailableFreeBytes(string directory);
+
+    /// <summary>
+    /// Reserves the blocks of the range <c>[offset, offset + length)</c> of a file that already exists and has been extended over it (<see cref="MappedOutputFile.Grow"/>): the BCL can ask the file system for blocks only when
+    /// it creates a file, so the default writes zeros into the range, which is the one way in managed code that works on every platform and every file system. A full disk is an <see cref="IOException"/>; the caller gives the
+    /// length back. A source that can do better (or one that fails on purpose) overrides it.
+    /// </summary>
+    void ReserveRange(SafeFileHandle file, long offset, long length, IoCounters? counters) => ZeroFill.Write(file, offset, length, counters);
+}
+
+/// <summary>The managed reservation of a range of an existing file: zeros written through <see cref="RandomAccess"/> in chunks of <see cref="ChunkBytes"/>.</summary>
+internal static class ZeroFill
+{
+    /// <summary>Bytes of one write.</summary>
+    internal const int ChunkBytes = 1 << 20;
+
+    private static readonly byte[] s_zeros = new byte[ChunkBytes];
+
+    /// <summary>Writes <paramref name="length"/> zero bytes at <paramref name="offset"/>; a full disk or a quota is an <see cref="IOException"/>, and every byte is counted in <paramref name="counters"/> (<see cref="IoCounters.ReservedWriteBytes"/>) as it is written.</summary>
+    internal static void Write(SafeFileHandle file, long offset, long length, IoCounters? counters)
+    {
+        ArgumentNullException.ThrowIfNull(file);
+        ArgumentOutOfRangeException.ThrowIfNegative(offset);
+        ArgumentOutOfRangeException.ThrowIfNegative(length);
+        long end = offset + length;
+        for (long at = offset; at < end; at += ChunkBytes)
+        {
+            int take = (int)Math.Min(ChunkBytes, end - at);
+            RandomAccess.Write(file, s_zeros.AsSpan(0, take), at);
+            counters?.AddReserved(take);
+        }
+    }
 }
 
 /// <summary>
@@ -144,8 +179,9 @@ internal sealed class MappedOutputFile : IDisposable
     /// </summary>
     /// <exception cref="IOException">The volume has less room than the growth needs.</exception>
     /// <exception cref="InvalidOperationException">A writer is still open.</exception>
-    internal ReservationOutcome Grow(long newLength, MappedFileOptions? options = null)
+    internal ReservationOutcome Grow(long newLength, MappedFileOptions? options = null, IoCounters? counters = null)
     {
+        _ = counters; // stub of the red phase of 1b.9d: the reservation of the growth is not written yet
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentOutOfRangeException.ThrowIfLessThan(newLength, Length);
         if (newLength == Length) return ReservationOutcome.Sparse;

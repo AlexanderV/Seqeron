@@ -36,7 +36,7 @@ internal sealed record DistOptions
 }
 
 /// <summary>What one run wrote to and read from its chunk files (a chunk that never outgrew its buffer is in neither).</summary>
-internal readonly record struct DistStats(long Chunks, long TupleBytesWritten, long TupleBytesRead);
+internal readonly record struct DistStats(long Chunks, long TupleBytesWritten, long TupleBytesRead, ReservationOutcome Reservation = ReservationOutcome.Sparse);
 
 /// <summary>Maps the entry <c>index</c> of the source (a file of 32-bit values, in file order) to a tuple <c>(key, value)</c>, or skips it. A mapper may keep state (it is passed by reference).</summary>
 internal interface IDistMapper<TValue>

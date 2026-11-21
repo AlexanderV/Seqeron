@@ -46,6 +46,7 @@ internal sealed class IoCounters
     private long _scratchLive;
     private long _scratchPeak;
     private long _flushes;
+    private long _reserved;
 
     internal long ReadBytes => Interlocked.Read(ref _readBytes);
 
@@ -86,6 +87,11 @@ internal sealed class IoCounters
 
     internal void AddFlush() => Interlocked.Increment(ref _flushes);
 
+    /// <summary>Bytes of zeros written to reserve the blocks of a range that was added to an existing file (<see cref="MappedOutputFile.Grow"/>): reported on their own, not part of <see cref="WriteBytes"/>, <see cref="IoSnapshot.TotalBytes"/> or the snapshot (the process's <c>wchar</c> has them).</summary>
+    internal long ReservedWriteBytes => Interlocked.Read(ref _reserved);
+
+    internal void AddReserved(long bytes) => Interlocked.Add(ref _reserved, bytes);
+
     internal void AddMappedWrite(long bytes) => Interlocked.Add(ref _mappedWriteBytes, bytes);
 
     internal void AddWindow(long bytes)
@@ -110,6 +116,7 @@ internal sealed class IoCounters
         Interlocked.Exchange(ref _scratchLive, 0);
         Interlocked.Exchange(ref _scratchPeak, 0);
         Interlocked.Exchange(ref _flushes, 0);
+        Interlocked.Exchange(ref _reserved, 0);
     }
 
     /// <summary>The values now (each read atomically, the set as a whole is not a transaction).</summary>
