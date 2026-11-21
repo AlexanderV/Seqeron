@@ -55,3 +55,52 @@ V45	the overflow list is expected also when there is none	killed(17 failed: ACon
 V65	a kept file is deleted	killed(7 failed: ABuildThatIsStoppedAtEveryBoundaryInTurn_IsFinishedByTheLast,AResumeNeedsLessFreeSpaceThanAFreshBuild_AndRefusesBelowItsO,AResumeThatIsItselfStopped_AtAnotherBoundary_ResumesAgain(3))[only]			40
 V54	the role is not compared	survived			41
 V46	the overflow list is never expected	killed(77 failed: ABuildThatIsStoppedAtEveryBoundaryInTurn_IsFinishedByTheLast,ABwtFileOfAnEarlierRun_IsOnTheLedgerOfTheResumedRun_AndItsCo,AContainerThatIsGrownAndWhoseLcpStageIsDone_IsNotGrownAgain()[only]			42
+V66	a file of a kept stage is deleted	killed(19 failed: ABuildThatIsStoppedAtEveryBoundaryInTurn_IsFinishedByTheLast,ABwtFileOfAnEarlierRun_IsOnTheLedgerOfTheResumedRun_AndItsCo,AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips)[only]			42
+V55	the place of the file is not compared	survived			40
+V47	the BWT file is expected one byte short	killed(6 failed: ABwtFileOfAnEarlierRun_IsOnTheLedgerOfTheResumedRun_AndItsCo,AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips,AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips)[only]			38
+V67	a directory that holds a kept file is deleted	BUILD-ERROR CS8641			1
+V48	the PSI section is expected at the BWT length	killed(40 failed: ABuildThatIsStoppedAtEveryBoundaryInTurn_IsFinishedByTheLast,AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips,AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips)[only]			31
+V56	the offset is not compared	survived			32
+V68	the foreign files of a kept directory are left	survived			35
+V49	a primary row of n + 1 is accepted	killed(2 failed: ThePrimaryRowOfAnImpossibleValue_AndABwtRecordOfAnotherLengt,ThePrimaryRowOfAnImpossibleValue_AndABwtRecordOfAnotherLengt)[only]			31
+V57	the length is not compared	survived			31
+V69	the foreign files of the scratch are left	survived			30
+C04	a scratch file is flushed also without Fsync	killed(1 failed: TheStateFile_IsTheOnlyThingThatResumeAddsToTheCounters_AndFs)[only]			31
+V58	the final length of the container is not compared	killed(1 failed: AStageWhoseOutputIsMissingShortOrChanged_IsNotTrusted_AndEve)[only]			31
+V70	the state is not rewritten when stages are cut	survived			31
+C05	a scratch file is never flushed	killed(1 failed: WithFsync_EveryStageIsForcedToStorageBeforeItIsMarked_TwoFsy)[only]			32
+V59	the CRC of a section is not compared	killed(6 failed: AStageRecord_WithAWrongRange_ALongerLengthOrAWrongCrc_IsNotT,AStageWhoseOutputIsMissingShortOrChanged_IsNotTrusted_AndEve,AStageWhoseOutputIsMissingShortOrChanged_IsNotTrusted_AndEve)[only]			32
+V71	the state is rewritten with all the stages	survived			32
+C06	the flush of a scratch file is not counted	killed(1 failed: WithFsync_EveryStageIsForcedToStorageBeforeItIsMarked_TwoFsy)[only]			31
+V60	the CRC of the first section only is compared	killed(1 failed: AStageWhoseOutputIsMissingShortOrChanged_IsNotTrusted_AndEve)[only]			32
+V72	a build that was not accepted prepares	survived			32
+V61	a missing scratch file is accepted	survived			30
+C01	the container is not completed before the CRC	killed(1 failed: WithFsync_EveryStageIsForcedToStorageBeforeItIsMarked_TwoFsy)[only]			29
+V62	a scratch file of another length is accepted	survived			28
+C02	the fsync of the container is not counted	killed(1 failed: WithFsync_EveryStageIsForcedToStorageBeforeItIsMarked_TwoFsy)[only]			28
+C07	the CRC of the container sections is of the first section	killed(246 failed: ABuildThatFinished_AndALeftoverScratchAfterTheRename_StartCl,ABuildThatIsStoppedAtEveryBoundaryInTurn_IsFinishedByTheLast,ABwtFileOfAnEarlierRun_IsOnTheLedgerOfTheResumedRun_AndItsCo)[only]			73
+C17	the writes of the state are not counted	killed(5 failed: AFreshBuildWithResume_HasTheBytesOfTheDefault_RecordsEverySt,AFreshBuildWithResume_HasTheBytesOfTheDefault_RecordsEverySt,AFreshBuildWithResume_HasTheBytesOfTheDefault_RecordsEverySt)[only]			29
+C03	the container is completed without a flush	killed(1 failed: WithFsync_EveryStageIsForcedToStorageBeforeItIsMarked_TwoFsy)[only]			29
+C08	the CRC of a scratch file is of its first byte	killed(18 failed: ABwtFileOfAnEarlierRun_IsOnTheLedgerOfTheResumedRun_AndItsCo,AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips,AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips)[only]			30
+C18	the PSI stage records the BWT row as zero	killed(38 failed: ABuildThatIsStoppedAtEveryBoundaryInTurn_IsFinishedByTheLast,AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips,AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips)[only]			30
+C31	the run holds no cover	survived			34
+C09	the bytes of the CRC pass are not counted	killed(1 failed: WithFsync_EveryStageIsForcedToStorageBeforeItIsMarked_TwoFsy)[only]			34
+C19	a kept PSI stage gives the primary row of the BWT record	survived			31
+C30	the stage state is kept as soon as it is written	killed(184 failed: ABwtFileOfAnEarlierRun_IsOnTheLedgerOfTheResumedRun_AndItsCo,AContainerThatIsGrownAndWhoseLcpStageIsDone_IsNotGrownAgain(,AContainerThatIsGrownAndWhoseLcpStageIsDone_IsNotGrownAgain()[only]			29
+C10	the state is written before its stage is recorded in the object	killed(184 failed: ABwtFileOfAnEarlierRun_IsOnTheLedgerOfTheResumedRun_AndItsCo,AContainerThatIsGrownAndWhoseLcpStageIsDone_IsNotGrownAgain(,AContainerThatIsGrownAndWhoseLcpStageIsDone_IsNotGrownAgain()[only]			33
+C20	the LCP stage records no escapes	killed(77 failed: ABuildThatIsStoppedAtEveryBoundaryInTurn_IsFinishedByTheLast,ABwtFileOfAnEarlierRun_IsOnTheLedgerOfTheResumedRun_AndItsCo,AContainerThatIsGrownAndWhoseLcpStageIsDone_IsNotGrownAgain()[only]			31
+C11	the new stage is added to all the old ones	survived			31
+C21	the LCP stage records the wrong final length	killed(94 failed: ABuildThatIsStoppedAtEveryBoundaryInTurn_IsFinishedByTheLast,ABwtFileOfAnEarlierRun_IsOnTheLedgerOfTheResumedRun_AndItsCo,AContainerThatIsGrownAndWhoseLcpStageIsDone_IsNotGrownAgain()[only]			31
+C12	the state is written without a temporary file	killed(3 failed: AResumeNeedsLessFreeSpaceThanAFreshBuild_AndRefusesBelowItsO,TheFilesOfAStageThatIsNotKept_AreCountedAsReclaimable_AndThe,TheFreeSpaceOfAResume_CountsWhatIsFreedFirst_ThePartOfTheCon)[only]			32
+C22	the LCP stage records the rank of a repeat that has no depth	survived			31
+C13	the state file is not flushed to storage	survived			31
+C23	the LCP stage records no overflow section	killed(77 failed: ABuildThatIsStoppedAtEveryBoundaryInTurn_IsFinishedByTheLast,ABwtFileOfAnEarlierRun_IsOnTheLedgerOfTheResumedRun_AndItsCo,AContainerThatIsGrownAndWhoseLcpStageIsDone_IsNotGrownAgain()[only]			31
+C14	the flush of the state file is not counted	killed(1 failed: WithFsync_EveryStageIsForcedToStorageBeforeItIsMarked_TwoFsy)[only]			32
+C24	the rank stage records the length of the cover period	killed(12 failed: AFailureInsideAPhase_ThenAResume_IsByteIdentical("ph23",1),AFailureInsideAPhase_ThenAResume_IsByteIdentical("ph23",4),AFailureInsideAPhase_ThenAResume_IsByteIdentical("partition")[only]			32
+C15	the state file is counted as one byte	killed(1 failed: TheStateFile_IsTheOnlyThingThatResumeAddsToTheCounters_AndFs)[only]			33
+C25	the state is not marked as on disk after a write	killed(218 failed: ABuildThatFinished_AndALeftoverScratchAfterTheRename_StartCl,ABuildThatIsStoppedAtEveryBoundaryInTurn_IsFinishedByTheLast,ABwtFileOfAnEarlierRun_IsOnTheLedgerOfTheResumedRun_AndItsCo)[only]			25
+C16	the bytes of the state are not summed	killed(5 failed: AFreshBuildWithResume_HasTheBytesOfTheDefault_RecordsEverySt,AFreshBuildWithResume_HasTheBytesOfTheDefault_RecordsEverySt,AFreshBuildWithResume_HasTheBytesOfTheDefault_RecordsEverySt)[only]			34
+C26	the cover digest is of the residues only	survived			35
+C27	the report says nothing was skipped	killed(190 failed: ABuildThatIsStoppedAtEveryBoundaryInTurn_IsFinishedByTheLast,ABwtFileOfAnEarlierRun_IsOnTheLedgerOfTheResumedRun_AndItsCo,AContainerThatIsGrownAndWhoseLcpStageIsDone_IsNotGrownAgain()[only]			28
+C28	the report has no checkpoints	killed(5 failed: AFreshBuildWithResume_HasTheBytesOfTheDefault_RecordsEverySt,AFreshBuildWithResume_HasTheBytesOfTheDefault_RecordsEverySt,AFreshBuildWithResume_HasTheBytesOfTheDefault_RecordsEverySt)[only]			28
+C29	the verification time is not reported	survived			28

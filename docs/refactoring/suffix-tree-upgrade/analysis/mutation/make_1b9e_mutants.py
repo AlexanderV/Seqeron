@@ -146,7 +146,7 @@ M = [
     (RS, 'V64', 'a read error is not a failed stage', 'catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException or KeyNotFoundException)', 'catch (Exception e) when (e is UnauthorizedAccessException)'),
     (RS, 'V65', 'a kept file is deleted', 'if (relative == SesaResumeFormat.FileName) return true;', ''),
     (RS, 'V66', 'a file of a kept stage is deleted', 'return _skipped.Any(s => s.Checks.Any(c => !c.InContainer && c.Role == relative));', 'return false;'),
-    (RS, 'V67', 'a directory that holds a kept file is deleted', 'if (!holdsKept) Directory.Delete(dir, true);', 'Directory.Delete(dir, true);'),
+    (RS, 'V67', 'a directory that holds a kept file is deleted', 'if (!holdsKept) Directory.Delete(dir, true);', 'if (true) Directory.Delete(dir, true);'),
     (RS, 'V68', 'the foreign files of a kept directory are left', 'if (!IsKept(file)) File.Delete(file);\n                }\n            }', 'if (false) File.Delete(file);\n                }\n            }'),
     (RS, 'V69', 'the foreign files of the scratch are left', '        foreach (string file in Directory.EnumerateFiles(_scratch).ToArray())\n        {\n            if (!IsKept(file)) File.Delete(file);', '        foreach (string file in Directory.EnumerateFiles(_scratch).ToArray())\n        {\n            if (false) File.Delete(file);'),
     (RS, 'V70', 'the state is not rewritten when stages are cut', 'if (_kept < _onDiskStages)', 'if (_kept < 0)'),

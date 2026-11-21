@@ -454,16 +454,18 @@ public sealed class SesaResume1b9eTests
         BwtGone,
         RanksGone,
         ScratchDeleted,
+        BwtLonger,
+        RanksLonger,
     }
 
     [Test]
     public void AStageWhoseOutputIsMissingShortOrChanged_IsNotTrusted_AndEverythingAfterItIsDoneAgain(
-        [Values(Damage.TextByte, Damage.SaByte, Damage.ChildByte, Damage.LcpByte, Damage.PsiByte, Damage.BwtByte, Damage.RanksByte, Damage.ContainerShort, Damage.ContainerLong, Damage.ContainerGone, Damage.BwtGone, Damage.RanksGone, Damage.ScratchDeleted)] Damage damage)
+        [Values(Damage.TextByte, Damage.SaByte, Damage.ChildByte, Damage.LcpByte, Damage.PsiByte, Damage.BwtByte, Damage.RanksByte, Damage.ContainerShort, Damage.ContainerLong, Damage.ContainerGone, Damage.BwtGone, Damage.RanksGone, Damage.ScratchDeleted, Damage.BwtLonger, Damage.RanksLonger)] Damage damage)
     {
         string point = damage switch
         {
-            Damage.BwtByte or Damage.BwtGone => SesaHooks.BwtBuilt,
-            Damage.RanksByte or Damage.RanksGone => "ph23",
+            Damage.BwtByte or Damage.BwtGone or Damage.BwtLonger => SesaHooks.BwtBuilt,
+            Damage.RanksByte or Damage.RanksGone or Damage.RanksLonger => "ph23",
             _ => SesaHooks.MagicWritten,
         };
         using var c = new ResumeCase(s_text);
@@ -491,6 +493,8 @@ public sealed class SesaResume1b9eTests
             case Damage.ContainerGone: File.Delete(c.Tmp); expected = []; break;
             case Damage.BwtGone: File.Delete(Path.Combine(c.Scratch, "ph6", "bwt.bin")); expected = ["packed", "sa", "lcp"]; break;
             case Damage.RanksGone: File.Delete(Path.Combine(c.Scratch, "ranks.bin")); expected = ["packed"]; break;
+            case Damage.BwtLonger: File.AppendAllText(Path.Combine(c.Scratch, "ph6", "bwt.bin"), "junk"); expected = ["packed", "sa", "lcp"]; break;
+            case Damage.RanksLonger: File.AppendAllText(Path.Combine(c.Scratch, "ranks.bin"), "junk"); expected = ["packed"]; break;
             default: Directory.Delete(c.Scratch, true); expected = []; break;
         }
         SesaBuildResult r = SesaBuilder.Build(c.Input, c.Target, Opts(3, 2));
@@ -498,6 +502,9 @@ public sealed class SesaResume1b9eTests
         AssertOnlyTarget(c, damage.ToString());
         Assert.That(r.Resume!.Skipped, Is.EqualTo(expected), damage.ToString());
         if (expected.Length < DoneAt(point, true).Length) Assert.That(r.Resume.Reason, Is.Not.Empty, "the reason is reported");
+        if (damage is Damage.ContainerGone or Damage.BwtGone or Damage.RanksGone) Assert.That(r.Resume.Reason, Does.Contain("gone"), "and it says that the file is gone");
+        if (damage is Damage.BwtLonger or Damage.RanksLonger) Assert.That(r.Resume.Reason, Does.Contain("bytes"), "and that the file has other bytes than the stage wrote");
+        Assert.That(r.Resume.VerifySeconds, Is.GreaterThan(0), "the verification took time");
     }
 
     [Test]
@@ -885,6 +892,173 @@ public sealed class SesaResume1b9eTests
         Assert.That((junkAtCreated, bwtAtCreated), Is.EqualTo((false, false)), "what the stages that are not kept left was removed before anything ran");
         Assert.That(stagesAtCreated, Is.EqualTo(new[] { "packed" }), "and the state on the disk names only what is kept");
         AssertSame(c, Reference(s_text), "damaged SA");
+    }
+
+    [Test]
+    public void AStateWithNoStageAtAll_StartsClean_WithAReason()
+    {
+        using var c = new ResumeCase(s_text);
+        KillAtPsiBuilt(c);
+        WriteState(c, ReadState(c) with { Stages = [] });
+        SesaBuildResult r = SesaBuilder.Build(c.Input, c.Target, Opts(3, 2));
+        AssertSame(c, Reference(s_text), "no stage");
+        Assert.That((r.Resume!.StateFound, r.Resume.Accepted, r.Resume.Skipped), Is.EqualTo((true, false, Array.Empty<string>())));
+        Assert.That(r.Resume.Reason, Does.Contain("no completed stage"));
+    }
+
+    [Test]
+    public void ARunThatRejectedTheState_AndFailsBeforeItsFirstCheckpoint_LeavesNothing()
+    {
+        using var c = new ResumeCase(s_text);
+        KillAtPsiBuilt(c);
+        WriteState(c, ReadState(c) with { N = ReadState(c).N + 1 });
+        Assert.Throws<InjectedFailureException>(() => SesaBuilder.Build(c.Input, c.Target, Opts(3, 2) with { Hook = FailAt(SesaHooks.Created) }));
+        Assert.That(c.Entries, Is.Empty, "the stale files were removed when the state was rejected, and the run that failed before it recorded anything left none of its own");
+        KillAtPsiBuilt(c);
+        File.Delete(c.Tmp);
+        Assert.Throws<InjectedFailureException>(() => SesaBuilder.Build(c.Input, c.Target, Opts(3, 2) with { Hook = FailAt(SesaHooks.Created) }));
+        Assert.That(c.Entries, Is.Empty, "a state whose stages all failed to verify is not kept either");
+    }
+
+    [Test]
+    public void AResumedBuild_RemovesForeignFilesAlsoInsideADirectoryThatHoldsAKeptFile()
+    {
+        using var c = new ResumeCase(s_text);
+        Fails(c, Opts(3, 2), SesaHooks.BwtBuilt);
+        File.WriteAllText(Path.Combine(c.Scratch, "ph6", "other.bin"), "x");
+        File.WriteAllText(Path.Combine(c.Scratch, "junk.bin"), "x");
+        bool other = true, junk = true, bwt = false;
+        SesaBuildResult r = SesaBuilder.Build(c.Input, c.Target, Opts(3, 2) with
+        {
+            Hook = p =>
+            {
+                if (p != SesaHooks.Created) return;
+                other = File.Exists(Path.Combine(c.Scratch, "ph6", "other.bin"));
+                junk = File.Exists(Path.Combine(c.Scratch, "junk.bin"));
+                bwt = File.Exists(Path.Combine(c.Scratch, "ph6", "bwt.bin"));
+            },
+        });
+        Assert.That((other, junk, bwt), Is.EqualTo((false, false, true)), "the foreign files are gone, the BWT file that the state vouches for is not");
+        Assert.That(r.Resume!.Skipped, Is.EqualTo(new[] { "packed", "sa", "lcp", "bwt" }));
+        AssertSame(c, Reference(s_text), "foreign file in ph6");
+    }
+
+    [Test]
+    public void ATextWithoutARepeat_RecordsNoRank_AndResumes()
+    {
+        const string distinct = "abcdefghijklmnopqrstuvwxyz";
+        using var c = new ResumeCase(distinct);
+        Fails(c, Opts(3, 2), SesaHooks.LcpChildBuilt);
+        SesaStageRecord lcp = ReadState(c).Find("lcp")!;
+        Assert.That((lcp.Values["lrs_depth"], lcp.Values["lrs_rank"], lcp.Values["max_lcp"]), Is.EqualTo((0L, -1L, 0L)));
+        SesaBuildResult r = SesaBuilder.Build(c.Input, c.Target, Opts(3, 2));
+        AssertSame(c, Reference(distinct), "distinct");
+        Assert.That(r.Resume!.Skipped, Is.EqualTo(new[] { "packed", "sa", "lcp" }));
+        Assert.That((r.LrsDepth, r.LrsRank), Is.EqualTo((0L, -1L)));
+    }
+
+    // ---- a state that was edited and sealed again (valid CRC): damage cannot make one, only a hand or a bug can; the checks of the layout still refuse what does not fit
+
+    private static uint CrcOf(string path, long offset, long length)
+    {
+        using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        fs.Position = offset;
+        var bytes = new byte[length];
+        fs.ReadExactly(bytes);
+        return Crc32C.Compute(bytes);
+    }
+
+    private static SesaResumeState WithChecks(SesaResumeState s, string stage, params SesaFileCheck[] checks)
+        => s with { Stages = [.. s.Stages.Select(x => x.Name == stage ? x with { Checks = checks } : x)] };
+
+    [Test]
+    public void AForgedRecord_WhoseRangeIsElsewhere_OrWhoseRoleOrPlaceIsAnother_IsNotTrusted([Values("offset", "length", "role", "place", "ranks length")] string how)
+    {
+        using var c = new ResumeCase(s_text);
+        string point = how switch { "place" or "role" => SesaHooks.BwtBuilt, "ranks length" => "ph23", _ => SesaHooks.PsiBuilt };
+        if (point == "ph23") FailsInside(c, Opts(3, 2), "ph23", sa: true);
+        else Fails(c, Opts(3, 2), point);
+        SesaPlan plan = PlanOf(c, true);
+        SesaResumeState s = ReadState(c);
+        string[] expected;
+        switch (how)
+        {
+            case "offset":
+                {
+                    SesaFileCheck sa = s.Find("sa")!.Checks[0];
+                    WriteState(c, WithChecks(s, "sa", sa with { Offset = sa.Offset + 4096, Crc = CrcOf(c.Tmp, sa.Offset + 4096, sa.Length) }));
+                    expected = ["packed"];
+                    break;
+                }
+            case "length":
+                {
+                    SesaFileCheck sa = s.Find("sa")!.Checks[0];
+                    WriteState(c, WithChecks(s, "sa", sa with { Length = sa.Length - 4, Crc = CrcOf(c.Tmp, sa.Offset, sa.Length - 4) }));
+                    expected = ["packed"];
+                    break;
+                }
+            case "role":
+                {
+                    string bwt = Path.Combine(c.Scratch, "ph6", "bwt.bin");
+                    File.Copy(bwt, Path.Combine(c.Scratch, "ph6", "other.bin"));
+                    SesaFileCheck check = s.Find("bwt")!.Checks[0];
+                    WriteState(c, WithChecks(s, "bwt", check with { Role = "ph6/other.bin" }));
+                    expected = ["packed", "sa", "lcp"];
+                    break;
+                }
+            case "place":
+                {
+                    FlipByte(Path.Combine(c.Scratch, "ph6", "bwt.bin"), 100); // the BWT file is damaged; the record now points at the container instead
+                    SesaFileCheck check = s.Find("bwt")!.Checks[0];
+                    WriteState(c, WithChecks(s, "bwt", check with { InContainer = true, Crc = CrcOf(c.Tmp, 0, check.Length) }));
+                    expected = ["packed", "sa", "lcp"];
+                    break;
+                }
+            default:
+                {
+                    string ranks = Path.Combine(c.Scratch, "ranks.bin");
+                    File.AppendAllBytes(ranks, new byte[4]);
+                    SesaFileCheck check = s.Find("ranks")!.Checks[0];
+                    WriteState(c, WithChecks(s, "ranks", check with { Length = check.Length + 4, Crc = CrcOf(ranks, 0, check.Length + 4) }));
+                    expected = ["packed"];
+                    break;
+                }
+        }
+        _ = plan;
+        SesaBuildResult r = SesaBuilder.Build(c.Input, c.Target, Opts(3, 2));
+        AssertSame(c, Reference(s_text), how);
+        Assert.That(r.Resume!.Skipped, Is.EqualTo(expected), how);
+        AssertOnlyTarget(c, how);
+    }
+
+    [Test]
+    public void AForgedLcpRecord_WithAnImpossibleWidthEscapesLengthOrNodeCount_IsNotTrusted_NeverAnException(
+        [Values("kind 3", "kind -1", "escapes -1", "escapes with 32 bits", "final length", "internal -1")] string how)
+    {
+        using var c = new ResumeCase(s_text);
+        KillAtPsiBuilt(c);
+        SesaResumeState s = ReadState(c);
+        long n = s_text.Length;
+        SesaStageRecord lcp = s.Find("lcp")!;
+        SesaResumeState edited = how switch
+        {
+            "kind 3" => EditValue(s, "lcp", "kind", 3),
+            "kind -1" => EditValue(s, "lcp", "kind", -1),
+            "escapes -1" => EditValue(s, "lcp", "overflow", -1),
+            "escapes with 32 bits" => EditValue(EditValue(s, "lcp", "kind", 2), "lcp", "overflow", 5),
+            "final length" => EditValue(s, "lcp", "final_length", lcp.Values["final_length"] + 4096),
+            _ => EditValue(EditValue(s, "lcp", "internal_count", -1), "lcp", "node_count", n + 1),
+        };
+        if (how == "final length")
+        {
+            using var fs = new FileStream(c.Tmp, FileMode.Open, FileAccess.Write, FileShare.ReadWrite);
+            fs.SetLength(fs.Length + 4096); // the container is as long as the forged record says: only the layout can tell that this is not what the stage left
+        }
+        WriteState(c, edited);
+        SesaBuildResult r = SesaBuilder.Build(c.Input, c.Target, Opts(3, 2));
+        AssertSame(c, Reference(s_text), how);
+        Assert.That(r.Resume!.Skipped, Is.EqualTo(new[] { "packed", "sa" }), how);
+        AssertOnlyTarget(c, how);
     }
 
     // ------------------------------------------------------------------ the numbers of a skipped stage reach the result and the header

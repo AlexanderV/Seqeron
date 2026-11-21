@@ -1,0 +1,3 @@
+L04	the lock is released twice	survived			32
+L05	the stream is not disposed	survived			28
+L06	the lock is taken with FileMode.Create	survived			28

@@ -1,0 +1,50 @@
+F01	the newline at the end is not stripped before the CRC is checked	killed(6 failed: AFileOfExactlyTheLongestLength_IsRead_OneByteLongerIsNot,AFileThatIsNotWhatTheWriterProduces_IsRefusedEvenWithAValidC,AFingerprintThatNoInputCanHave_IsRefused)[only]			3
+F02	the tail is one byte longer than the CRC member	killed(7 failed: AFileOfExactlyTheLongestLength_IsRead_OneByteLongerIsNot,AFileThatIsNotWhatTheWriterProduces_IsRefusedEvenWithAValidC,AFingerprintThatNoInputCanHave_IsRefused)[only]			3
+F03	the CRC marker is not compared	killed(1 failed: EveryCutAndEverySingleByteFlipOfAStateFile_IsRefused)[only]			3
+F04	the closing quote and brace need only one of the two	survived			3
+F05	upper-case hex digits of the CRC are accepted	killed(7 failed: AFileOfExactlyTheLongestLength_IsRead_OneByteLongerIsNot,AFileThatIsNotWhatTheWriterProduces_IsRefusedEvenWithAValidC,AFingerprintThatNoInputCanHave_IsRefused)[only]			3
+F06	the CRC is not compared	killed(1 failed: EveryCutAndEverySingleByteFlipOfAStateFile_IsRefused)[only]			3
+F07	the CRC covers one byte more	killed(7 failed: AFileOfExactlyTheLongestLength_IsRead_OneByteLongerIsNot,AFileThatIsNotWhatTheWriterProduces_IsRefusedEvenWithAValidC,AFingerprintThatNoInputCanHave_IsRefused)[only]			3
+F08	the CRC covers one byte less	killed(7 failed: AFileOfExactlyTheLongestLength_IsRead_OneByteLongerIsNot,AFileThatIsNotWhatTheWriterProduces_IsRefusedEvenWithAValidC,AFingerprintThatNoInputCanHave_IsRefused)[only]			3
+F09	the sealing computes the CRC of the body without its last byte	killed(7 failed: AFileOfExactlyTheLongestLength_IsRead_OneByteLongerIsNot,AFileThatIsNotWhatTheWriterProduces_IsRefusedEvenWithAValidC,AFingerprintThatNoInputCanHave_IsRefused)[only]			3
+F10	the file has no newline	killed(6 failed: AFileOfExactlyTheLongestLength_IsRead_OneByteLongerIsNot,AFileThatIsNotWhatTheWriterProduces_IsRefusedEvenWithAValidC,AFingerprintThatNoInputCanHave_IsRefused)[only]			4
+F11	a file without the CRC check is parsed	killed(1 failed: EveryCutAndEverySingleByteFlipOfAStateFile_IsRefused)[only]			3
+F12	a file of exactly the longest length is refused	killed(1 failed: AFileOfExactlyTheLongestLength_IsRead_OneByteLongerIsNot)[only]			3
+F13	the format name is not checked	killed(1 failed: AFileThatIsNotWhatTheWriterProduces_IsRefusedEvenWithAValidC)[only]			3
+F14	the version is not checked	killed(1 failed: AFileThatIsNotWhatTheWriterProduces_IsRefusedEvenWithAValidC)[only]			4
+F15	the writer is always the current one	survived			3
+F16	the number of letters need not equal sigma	killed(1 failed: AFingerprintThatNoInputCanHave_IsRefused)[only]			4
+F17	the number of counts need not equal sigma	killed(1 failed: AFingerprintThatNoInputCanHave_IsRefused)[only]			4
+F18	a letter of 256 is accepted	killed(1 failed: AFingerprintThatNoInputCanHave_IsRefused)[only]			3
+F19	a negative letter is accepted	killed(1 failed: AFingerprintThatNoInputCanHave_IsRefused)[only]			3
+F20	the hash may be shorter	killed(2 failed: AFileThatIsNotWhatTheWriterProduces_IsRefusedEvenWithAValidC,AFingerprintThatNoInputCanHave_IsRefused)[only]			4
+F21	the hash may hold upper-case digits	killed(1 failed: AFileThatIsNotWhatTheWriterProduces_IsRefusedEvenWithAValidC)[only]			3
+F22	the hash may hold other characters	killed(1 failed: AFingerprintThatNoInputCanHave_IsRefused)[only]			3
+F23	an empty text (n = 0) is refused	killed(1 failed: AFingerprintThatNoInputCanHave_IsRefused)[only]			3
+F24	a negative n is accepted	killed(2 failed: AFileThatIsNotWhatTheWriterProduces_IsRefusedEvenWithAValidC,AFingerprintThatNoInputCanHave_IsRefused)[only]			4
+F25	a negative reserved length is accepted	killed(1 failed: AFingerprintThatNoInputCanHave_IsRefused)[only]			3
+F26	a negative count is accepted	killed(1 failed: AFingerprintThatNoInputCanHave_IsRefused)[only]			3
+F27	another codec name is accepted	killed(2 failed: AFileThatIsNotWhatTheWriterProduces_IsRefusedEvenWithAValidC,AFingerprintThatNoInputCanHave_IsRefused)[only]			3
+F28	a repeated stage is accepted	survived			3
+F29	stages in any order are accepted	survived			3
+F30	a negative offset of a file is accepted	killed(2 failed: AFileThatIsNotWhatTheWriterProduces_IsRefusedEvenWithAValidC,AScratchFileOfTheStateThatIsNotBelowTheScratchDirectory_IsRe)[only]			4
+F31	a negative length of a file is accepted	killed(2 failed: AFileThatIsNotWhatTheWriterProduces_IsRefusedEvenWithAValidC,AScratchFileOfTheStateThatIsNotBelowTheScratchDirectory_IsRe)[only]			4
+F32	a file without a role is accepted	killed(1 failed: AScratchFileOfTheStateThatIsNotBelowTheScratchDirectory_IsRe)[only]			4
+F33	a scratch file with an offset is accepted	killed(2 failed: AFileThatIsNotWhatTheWriterProduces_IsRefusedEvenWithAValidC,AScratchFileOfTheStateThatIsNotBelowTheScratchDirectory_IsRe)[only]			4
+F34	a scratch file above the scratch directory is accepted	killed(2 failed: AFileThatIsNotWhatTheWriterProduces_IsRefusedEvenWithAValidC,AScratchFileOfTheStateThatIsNotBelowTheScratchDirectory_IsRe)[only]			4
+F35	a scratch file at an absolute path is accepted	killed(2 failed: AFileThatIsNotWhatTheWriterProduces_IsRefusedEvenWithAValidC,AScratchFileOfTheStateThatIsNotBelowTheScratchDirectory_IsRe)[only]			3
+F36	rank file and SA stage can both be recorded	survived			3
+F37	a state may start with another stage than the first	killed(1 failed: TheStagesThatCannotBeTogether_AreRefused)[only]			3
+F38	LCP without SA is accepted	killed(1 failed: TheStagesThatCannotBeTogether_AreRefused)[only]			4
+F39	BWT without LCP is accepted	killed(1 failed: TheStagesThatCannotBeTogether_AreRefused)[only]			3
+F40	PSI in a build without PSI is accepted	killed(1 failed: TheStagesThatCannotBeTogether_AreRefused)[only]			4
+F41	a stage does not supersede the rank file	killed(1 failed: WithAndTruncate_KeepTheOrder_AndASupersededStageGoes)[only]			4
+F42	PSI does not supersede the BWT file	killed(1 failed: WithAndTruncate_KeepTheOrder_AndASupersededStageGoes)[only]			3
+F43	a recorded stage is added behind the old one of the same name	killed(1 failed: WithAndTruncate_KeepTheOrder_AndASupersededStageGoes)[only]			4
+F44	the stages are not sorted	killed(1 failed: WithAndTruncate_KeepTheOrder_AndASupersededStageGoes)[only]			7
+F45	Truncate keeps one stage more	killed(1 failed: WithAndTruncate_KeepTheOrder_AndASupersededStageGoes)[only]			9
+F46	Value of a missing key is zero	survived			4
+F47	the values are not written sorted by name	survived			9
+F48	the CRC of a file is written in upper case	killed(1 failed: AFileThatIsNotWhatTheWriterProduces_IsRefusedEvenWithAValidC)[only]			6
+F49	the letters are not written	killed(7 failed: AFileOfExactlyTheLongestLength_IsRead_OneByteLongerIsNot,AFileThatIsNotWhatTheWriterProduces_IsRefusedEvenWithAValidC,AFingerprintThatNoInputCanHave_IsRefused)[only]			3
+F50	Find returns the last stage of the name	survived			3

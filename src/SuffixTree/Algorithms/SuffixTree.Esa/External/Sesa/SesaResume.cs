@@ -312,7 +312,7 @@ internal sealed class SesaResumeRun
             }
             return null;
         }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException or KeyNotFoundException)
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException or KeyNotFoundException or ArgumentException)
         {
             return "its outputs cannot be read: " + e.Message;
         }

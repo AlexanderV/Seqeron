@@ -122,6 +122,49 @@ public sealed class SesaResumeFormatTests
     }
 
     [Test]
+    public void TheCrcCheck_ItselfRefusesEveryChangeOfTheLastBytes_AndAnythingBeforeThem()
+    {
+        byte[] file = SesaResumeFormat.Serialize(Sample());
+        Assert.That(SesaResumeFormat.CrcMatches(file), Is.True);
+        for (int back = 1; back <= 14; back++)
+        {
+            byte[] bad = (byte[])file.Clone();
+            bad[^back] ^= 0x20;
+            Assert.That(SesaResumeFormat.CrcMatches(bad), Is.False, $"the byte {back} from the end changed");
+        }
+        Assert.That(SesaResumeFormat.CrcMatches(file[..^1]), Is.True, "without the newline");
+        Assert.That(SesaResumeFormat.CrcMatches(file[..^2]), Is.False, "without the brace");
+    }
+
+    [Test]
+    public void StagesThatRepeatOrComeOutOfOrder_AreRefused_AndSerialisingDoesNotDependOnTheOrderOfTheValues()
+    {
+        SesaResumeState s = Sample();
+        SesaStageRecord Rec(string name) => new(name, [], new Dictionary<string, long>());
+        Assert.That(SesaResumeFormat.TryParse(SesaResumeFormat.Serialize(s with { Stages = [Rec("packed"), Rec("sa"), Rec("sa")] }), out _), Is.False, "a repeated stage");
+        Assert.That(SesaResumeFormat.TryParse(SesaResumeFormat.Serialize(s with { Stages = [Rec("packed"), Rec("packed")] }), out _), Is.False, "a repeated first stage");
+        Assert.That(SesaResumeFormat.TryParse(SesaResumeFormat.Serialize(s with { Stages = [Rec("packed"), Rec("lcp"), Rec("sa")] }), out _), Is.False, "out of order");
+        Assert.That(SesaResumeFormat.TryParse(SesaResumeFormat.Serialize(s with { Stages = [Rec("packed"), Rec("ranks"), Rec("sa")] }), out _), Is.False, "the rank file and the SA are never recorded together");
+        Assert.That(SesaResumeFormat.TryParse(SesaResumeFormat.Serialize(s with { Stages = [Rec("sa"), Rec("packed")] }), out _), Is.False);
+        var a = new Dictionary<string, long> { ["b"] = 1, ["a"] = 2, ["c"] = 3 };
+        var b = new Dictionary<string, long> { ["c"] = 3, ["a"] = 2, ["b"] = 1 };
+        byte[] one = SesaResumeFormat.Serialize(s with { Stages = [new SesaStageRecord("packed", [], a)] });
+        byte[] two = SesaResumeFormat.Serialize(s with { Stages = [new SesaStageRecord("packed", [], b)] });
+        Assert.That(one, Is.EqualTo(two), "the same state has the same bytes, whatever the order in which its values were added");
+        Assert.That(Json(one), Does.Contain("\"values\":{\"a\":2,\"b\":1,\"c\":3}"));
+    }
+
+    [Test]
+    public void Find_GivesTheFirstStageOfTheName()
+    {
+        var first = new SesaStageRecord("sa", [], new Dictionary<string, long> { ["x"] = 1 });
+        var second = new SesaStageRecord("sa", [], new Dictionary<string, long> { ["x"] = 2 });
+        var s = Sample() with { Stages = [first, second] };
+        Assert.That(s.Find("sa"), Is.SameAs(first));
+        Assert.That(s.Find("lcp"), Is.Null);
+    }
+
+    [Test]
     public void AFingerprintThatNoInputCanHave_IsRefused()
     {
         SesaResumeState s = Sample();

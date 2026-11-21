@@ -1,0 +1,8 @@
+F04	the closing quote and brace need only one of the two	survived			32
+F15	the writer is always the current one	killed(1 failed: AStateFile_OfAnotherVersionWriterOrInput_StartsClean(1))[only]			28
+F28	a repeated stage is accepted	survived			28
+F29	stages in any order are accepted	survived			27
+F36	rank file and SA stage can both be recorded	survived			28
+F46	Value of a missing key is zero	killed(2 failed: TheStatisticsOfTheScan_AreCheckedForRange_AndAMissingOneIsNo,TheStatisticsOfTheScan_AreCheckedForRange_AndAMissingOneIsNo)[only]			28
+F47	the values are not written sorted by name	survived			31
+F50	Find returns the last stage of the name	survived			30
