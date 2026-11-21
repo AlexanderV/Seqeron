@@ -5,7 +5,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
   "old": "if (file.Length > 0 && file[^1] == (byte)'\\n') file = file[..^1];",
   "new": "if (file.Length > 0 && file[^1] == (byte)'\\r') file = file[..^1];",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "F02",
@@ -13,7 +13,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
   "old": "int tail = s_marker.Length + 8 + 2;",
   "new": "int tail = s_marker.Length + 8 + 3;",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "F03",
@@ -21,7 +21,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
   "old": "if (!file.Slice(at, s_marker.Length).SequenceEqual(s_marker)) return false;",
   "new": "",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "F04",
@@ -29,7 +29,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
   "old": "if (file[^2] != (byte)'\"' || file[^1] != (byte)'}') return false;",
   "new": "if (file[^2] != (byte)'\"' && file[^1] != (byte)'}') return false;",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "F05",
@@ -37,7 +37,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
   "old": "if (!(d is >= (byte)'0' and <= (byte)'9' or >= (byte)'a' and <= (byte)'f')) return false;",
   "new": "if (!(d is >= (byte)'0' and <= (byte)'9' or >= (byte)'a' and <= (byte)'F')) return false;",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "F06",
@@ -45,7 +45,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
   "old": "return stored == Crc32C.Compute(file[..at]);",
   "new": "return true;",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "F07",
@@ -53,7 +53,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
   "old": "return stored == Crc32C.Compute(file[..at]);",
   "new": "return stored == Crc32C.Compute(file[..(at + 1)]);",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "F08",
@@ -61,7 +61,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
   "old": "return stored == Crc32C.Compute(file[..at]);",
   "new": "return stored == Crc32C.Compute(file[..(at - 1)]);",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "F09",
@@ -69,7 +69,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
   "old": "uint crc = Crc32C.Compute(bodyWithoutClosingBrace);",
   "new": "uint crc = Crc32C.Compute(bodyWithoutClosingBrace[..^1]);",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "F10",
@@ -77,7 +77,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
   "old": "file[at + 2] = (byte)'\\n';",
   "new": "file[at + 2] = (byte)' ';",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "F11",
@@ -85,7 +85,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
   "old": "if (file.Length == 0 || file.Length > MaxBytes || !CrcMatches(file)) return false;",
   "new": "if (file.Length == 0 || file.Length > MaxBytes) return false;",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "F12",
@@ -93,7 +93,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
   "old": "file.Length > MaxBytes",
   "new": "file.Length >= MaxBytes",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "F13",
@@ -101,7 +101,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
   "old": "if (root.GetProperty(\"format\").GetString() != \"sesa-resume\") return false;",
   "new": "",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "F14",
@@ -109,7 +109,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
   "old": "if (root.GetProperty(\"version\").GetInt32() != SesaResumeState.CurrentVersion) return false;",
   "new": "",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "F15",
@@ -117,7 +117,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
   "old": "Writer = root.GetProperty(\"writer\").GetString() ?? string.Empty,",
   "new": "Writer = SesaResumeFormat.WriterId,",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "F16",
@@ -125,7 +125,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
   "old": "if (s.Letters.Count != s.Sigma || s.Counts.Count != s.Sigma ||",
   "new": "if (s.Counts.Count != s.Sigma ||",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "F17",
@@ -133,7 +133,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
   "old": "s.Counts.Count != s.Sigma || s.Counts.Any",
   "new": "s.Counts.Any",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "F18",
@@ -141,7 +141,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
   "old": "s.Letters.Any(l => l is < 0 or > 255)",
   "new": "s.Letters.Any(l => l is < 0 or > 256)",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "F19",
@@ -149,7 +149,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
   "old": "s.Letters.Any(l => l is < 0 or > 255)",
   "new": "s.Letters.Any(l => l is > 255)",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "F20",
@@ -157,7 +157,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
   "old": "if (s.Sha256.Length != 64 ||",
   "new": "if (s.Sha256.Length > 64 ||",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "F21",
@@ -165,7 +165,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
   "old": "!Uri.IsHexDigit(c) || char.IsUpper(c)",
   "new": "!Uri.IsHexDigit(c)",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "F22",
@@ -173,7 +173,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
   "old": "!Uri.IsHexDigit(c) || char.IsUpper(c)",
   "new": "char.IsUpper(c)",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "F23",
@@ -181,7 +181,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
   "old": "if (s.N < 0 || s.Bits < 0 || s.Sigma < 0 || s.ReservedLength < 0) return false;",
   "new": "if (s.N <= 0 || s.Bits < 0 || s.Sigma < 0 || s.ReservedLength < 0) return false;",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "F24",
@@ -189,7 +189,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
   "old": "if (s.N < 0 || s.Bits < 0 || s.Sigma < 0 || s.ReservedLength < 0) return false;",
   "new": "if (s.Bits < 0 || s.Sigma < 0 || s.ReservedLength < 0) return false;",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "F25",
@@ -197,7 +197,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
   "old": "if (s.N < 0 || s.Bits < 0 || s.Sigma < 0 || s.ReservedLength < 0) return false;",
   "new": "if (s.N < 0 || s.Bits < 0 || s.Sigma < 0) return false;",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "F26",
@@ -205,7 +205,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
   "old": "s.Counts.Any(c => c < 0)",
   "new": "s.Counts.Any(c => c < -1)",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "F27",
@@ -213,7 +213,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
   "old": "if (s.ChildCodec is not (\"tagged\" or \"packed\")) return false;",
   "new": "",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "F28",
@@ -221,7 +221,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
   "old": "if (at <= previous) return false;",
   "new": "if (at < previous) return false;",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "F29",
@@ -229,7 +229,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
   "old": "if (at <= previous) return false;",
   "new": "if (at < 0) return false;",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "F30",
@@ -237,7 +237,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
   "old": "if (f.Offset < 0 || f.Length < 0 ||",
   "new": "if (f.Length < 0 ||",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "F31",
@@ -245,7 +245,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
   "old": "if (f.Offset < 0 || f.Length < 0 ||",
   "new": "if (f.Offset < 0 ||",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "F32",
@@ -253,7 +253,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
   "old": "f.Role.Length == 0 ||",
   "new": "",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "F33",
@@ -261,7 +261,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
   "old": "(!f.InContainer && (f.Offset != 0 ||",
   "new": "(!f.InContainer && (false ||",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "F34",
@@ -269,7 +269,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
   "old": "f.Role.Contains(\"..\", StringComparison.Ordinal) || Path.IsPathRooted(f.Role)",
   "new": "Path.IsPathRooted(f.Role)",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "F35",
@@ -277,7 +277,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
   "old": "f.Role.Contains(\"..\", StringComparison.Ordinal) || Path.IsPathRooted(f.Role)",
   "new": "f.Role.Contains(\"..\", StringComparison.Ordinal)",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "F36",
@@ -285,7 +285,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
   "old": "if (ranks && sa) return false;",
   "new": "",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "F37",
@@ -293,7 +293,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
   "old": "if (s.Find(SesaStages.Packed) is null && s.Stages.Count > 0) return false;",
   "new": "",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "F38",
@@ -301,7 +301,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
   "old": "if (!sa && (s.Find(SesaStages.Lcp) is not null ||",
   "new": "if (false && (s.Find(SesaStages.Lcp) is not null ||",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "F39",
@@ -309,7 +309,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
   "old": "if (s.Find(SesaStages.Lcp) is null && (s.Find(SesaStages.Bwt) is not null || s.Find(SesaStages.Psi) is not null)) return false;",
   "new": "",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "F40",
@@ -317,7 +317,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
   "old": "if (!s.Psi && (s.Find(SesaStages.Bwt) is not null || s.Find(SesaStages.Psi) is not null)) return false;",
   "new": "",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "F41",
@@ -325,7 +325,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
   "old": "next = Stages.Where(s => s.Name != stage.Name && !(s.Name == SesaStages.Ranks && stage.Name == SesaStages.Sa) &&",
   "new": "next = Stages.Where(s => s.Name != stage.Name &&",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "F42",
@@ -333,7 +333,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
   "old": "!(s.Name == SesaStages.Bwt && stage.Name == SesaStages.Psi)).ToList();",
   "new": "true).ToList();",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "F43",
@@ -341,7 +341,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
   "old": "var next = Stages.Where(s => s.Name != stage.Name &&",
   "new": "var next = Stages.Where(s => true &&",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "F44",
@@ -349,7 +349,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
   "old": "next.Sort((a, b) => SesaStages.IndexOf(a.Name).CompareTo(SesaStages.IndexOf(b.Name)));",
   "new": "",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "F45",
@@ -357,7 +357,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
   "old": "internal SesaResumeState Truncate(int count) => this with { Stages = [.. Stages.Take(count)] };",
   "new": "internal SesaResumeState Truncate(int count) => this with { Stages = [.. Stages.Take(count + 1)] };",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "F46",
@@ -365,7 +365,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
   "old": "Values.TryGetValue(key, out long v) ? v : throw new InvalidDataException",
   "new": "Values.TryGetValue(key, out long v) ? v : 0; // throw new InvalidDataException",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "F47",
@@ -373,7 +373,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
   "old": "s.Values.OrderBy(v => v.Key, StringComparer.Ordinal)",
   "new": "s.Values",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "F48",
@@ -381,7 +381,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
   "old": "w.WriteString(\"crc32c\", Hex(f.Crc));",
   "new": "w.WriteString(\"crc32c\", Hex(f.Crc).ToUpperInvariant());",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "F49",
@@ -389,7 +389,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
   "old": "foreach (int l in state.Letters) w.WriteNumberValue(l);",
   "new": "",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "F50",
@@ -397,6 +397,6 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
   "old": "Stages.FirstOrDefault(s => s.Name == name)",
   "new": "Stages.LastOrDefault(s => s.Name == name)",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  }
 ]

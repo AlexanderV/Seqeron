@@ -143,7 +143,7 @@ M = [
     (RS, 'V61', 'a missing scratch file is accepted', 'if (!fi.Exists) return $"the scratch file {c.Role} is gone";', ''),
     (RS, 'V62', 'a scratch file of another length is accepted', 'if (fi.Length != c.Length) return $"the scratch file {c.Role} has {fi.Length} bytes, the stage wrote {c.Length}";', ''),
     (RS, 'V63', 'the CRC of a scratch file is not compared', 'if (SesaChecksums.Compute(path, [(0, 0, c.Length)])[0].Crc != c.Crc) return', 'if (false) return'),
-    (RS, 'V64', 'a read error is not a failed stage', 'catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException or KeyNotFoundException)', 'catch (Exception e) when (e is UnauthorizedAccessException)'),
+    (RS, 'V64', 'a read error is not a failed stage', 'catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException or KeyNotFoundException or ArgumentException)', 'catch (Exception e) when (e is UnauthorizedAccessException)'),
     (RS, 'V65', 'a kept file is deleted', 'if (relative == SesaResumeFormat.FileName) return true;', ''),
     (RS, 'V66', 'a file of a kept stage is deleted', 'return _skipped.Any(s => s.Checks.Any(c => !c.InContainer && c.Role == relative));', 'return false;'),
     (RS, 'V67', 'a directory that holds a kept file is deleted', 'if (!holdsKept) Directory.Delete(dir, true);', 'if (true) Directory.Delete(dir, true);'),

@@ -58,7 +58,6 @@ V46	the overflow list is never expected	killed(77 failed: ABuildThatIsStoppedAtE
 V66	a file of a kept stage is deleted	killed(19 failed: ABuildThatIsStoppedAtEveryBoundaryInTurn_IsFinishedByTheLast,ABwtFileOfAnEarlierRun_IsOnTheLedgerOfTheResumedRun_AndItsCo,AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips)[only]			42
 V55	the place of the file is not compared	survived			40
 V47	the BWT file is expected one byte short	killed(6 failed: ABwtFileOfAnEarlierRun_IsOnTheLedgerOfTheResumedRun_AndItsCo,AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips,AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips)[only]			38
-V67	a directory that holds a kept file is deleted	BUILD-ERROR CS8641			1
 V48	the PSI section is expected at the BWT length	killed(40 failed: ABuildThatIsStoppedAtEveryBoundaryInTurn_IsFinishedByTheLast,AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips,AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips)[only]			31
 V56	the offset is not compared	survived			32
 V68	the foreign files of a kept directory are left	survived			35
