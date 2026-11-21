@@ -259,16 +259,16 @@ public static partial class EmbossReportWriter
     }
 
     // the feature types of the programs: internal SO id, the EMBOSS name (ajFeatGetType / ajFeatTypeNuc / ajFeatTypeProt), the GFF3 name (also the DAS one), the DAS category
-    private sealed record TypeInfo(string Id, string Name, string NucName, string Gff3Name, string DasCategory, string? EmblName, string PirType, string SwissType);
+    private sealed record TypeInfo(string Id, string Name, string NucName, string Gff3Name, string DasCategory, string? EmblName, string PirType, string SwissType, string? Gff2Name = null, string RefseqpName = "misc_feature");
 
     private static readonly Dictionary<string, TypeInfo> Types = new(StringComparer.Ordinal)
     {
         ["SO:0000714"] = new("SO:0000714", "nucleotide_motif", "nucleotide_motif", "nucleotide_motif", "other", null, "", ""),
         ["SO:0001067"] = new("SO:0001067", "polypeptide_motif", "misc_feature", "polypeptide_motif", "other", null, "Region", "REGION"),
         ["SO:0000657"] = new("SO:0000657", "repeat_region", "repeat_region", "repeat_region", "repeat", "repeat_region", "", ""),
-        ["SO:0000110"] = new("SO:0000110", "misc_feature", "misc_feature", "sequence_feature", "other", "misc_feature", "", ""),
+        ["SO:0000110"] = new("SO:0000110", "misc_feature", "misc_feature", "sequence_feature", "other", "misc_feature", "", "", "located_sequence_feature"),
         ["SO:0000839"] = new("SO:0000839", "polypeptide_region", "misc_feature", "sequence_feature", "other", null, "Region", "REGION"),          // diffseq's generic feature in a protein table
-        ["polypeptide_region"] = new("polypeptide_region", "polypeptide_region", "misc_feature", "polypeptide_region", "other", null, "Region", "REGION"),   // wordmatch's misc_feature on a protein table
+        ["polypeptide_region"] = new("SO:0000839", "polypeptide_region", "misc_feature", "polypeptide_region", "other", null, "Region", "REGION", null, "Region"),   // wordmatch's misc_feature on a protein table
         ["conflict"] = new("SO:0001085", "sequence_conflict", "conflict", "sequence_conflict", "other", "conflict", "Region", "CONFLICT"),         // diffseq's feature files (-aoutfeat / -boutfeat)
     };
 
@@ -285,7 +285,7 @@ public static partial class EmbossReportWriter
     private static string TypeName(EmbossFeature f) => TypeOf(f).Name;
 
     // the regions and draw reports name diffseq's polypeptide_region by its feature-table name misc_feature (the tagseq report keeps the internal name)
-    private static string RegionTypeName(EmbossFeature f) => f.Type == "SO:0000839" ? "misc_feature" : TypeName(f);
+    private static string RegionTypeName(EmbossFeature f) => TypeOf(f).Id == "SO:0000839" ? "misc_feature" : TypeName(f);
 
     // ajFeatGetNoteS / ajFeatGetNoteCI: the first note "*name value" whose text after '*' starts (case-insensitively) with name; the value after "*name " ("" when none); false when that note has another character after the name
     private static bool GetNote(EmbossFeature f, string name, out string value, int count = 0)

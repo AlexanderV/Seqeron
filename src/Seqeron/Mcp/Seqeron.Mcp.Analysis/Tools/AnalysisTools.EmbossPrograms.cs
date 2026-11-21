@@ -360,7 +360,7 @@ public partial class AnalysisTools
     }
 
     [McpServerTool(Name = "wordmatch", Title = "Alignment — EMBOSS wordmatch (exact matches of a pattern set, Rabin-Karp)", ReadOnly = true)]
-    [Description("EMBOSS 6.6.0 wordmatch: every exact match of at least wordSize symbols between a set of pattern sequences (a FASTA text) and large sequences (a FASTA text), found by Rabin-Karp (260 nucleotide / protein runs: alignments in match, pair, simple, fasta, srspair, markx3, score and srs format, the statistics log and both GFF3 feature files byte for byte). The table holds every word of the pattern sequences (a pattern sequence is identified by its NAME; words around N, or X for a protein, are skipped as in seqmatchall); a window found in the table is verified and the match is extended to the right over the pattern sequence; a pattern sequence is not examined again before the end of its previous match in that scanned sequence. Returns the matches (0-based starts, per scanned sequence and pattern sequence in the program's order), the number of distinct words, the number and total length of the matches and the files of the program: the alignments (-outfile, alignFormat), the log (-logfile) and the feature files (-aoutfeat / -boutfeat). Distinct words of five or more symbols with equal hashes are not distinguished (the program picks an arbitrary one).")]
+    [Description("EMBOSS 6.6.0 wordmatch: every exact match of at least wordSize symbols between a set of pattern sequences (a FASTA text) and large sequences (a FASTA text), found by Rabin-Karp (260 nucleotide / protein runs: alignments in match, pair, simple, fasta, srspair, markx3, score and srs format, the statistics log and both GFF3 feature files byte for byte; the feature files in every output feature format of the program (-offormat4 / -offormat5 via featureQualifiers, the format:: prefix of the file name): 500 further runs equal; the sequence qualifiers -sbegin1 ... are not supported). The table holds every word of the pattern sequences (a pattern sequence is identified by its NAME; words around N, or X for a protein, are skipped as in seqmatchall); a window found in the table is verified and the match is extended to the right over the pattern sequence; a pattern sequence is not examined again before the end of its previous match in that scanned sequence. Returns the matches (0-based starts, per scanned sequence and pattern sequence in the program's order), the number of distinct words, the number and total length of the matches and the files of the program: the alignments (-outfile, alignFormat), the log (-logfile) and the feature files (-aoutfeat / -boutfeat). Distinct words of five or more symbols with equal hashes are not distinguished (the program picks an arbitrary one).")]
     public static WordmatchToolResult Wordmatch(
         [Description("The pattern sequences as FASTA text (-asequence); every record is a pattern sequence.")] string patternFasta,
         [Description("The sequences to scan as FASTA text (-bsequence); every record is scanned.")] string sequenceFasta,
@@ -368,7 +368,10 @@ public partial class AnalysisTools
         [Description("Dump the matches as alignments (-dumpalign, default true).")] bool dumpAlign = true,
         [Description("Dump the matches as GFF3 feature files (-dumpfeat, default true).")] bool dumpFeatures = true,
         [Description("The alignment format (-aformat, default match).")] string alignFormat = "match",
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        [Description("The feature output qualifiers as typed on the command line: -offormat4 / -offormat5 (the format of -aoutfeat / -boutfeat: gff, gff2, gff3, bed, embl, em, genbank, gb, ddbj, refseq, refseqp, pir, nbrf, swiss, sw, swissprot, uniprot, dasgff, draw, debug), -ofopenfile4 / -ofopenfile5, -ofname, -ofextension, -ofdirectory, -ofsingle. Default: GFF3 files.")] string? featureQualifiers = null,
+        [Description("The value of -aoutfeat (the file name, optionally with a 'format::' prefix; default unknown.gff).")] string? featureFile1 = null,
+        [Description("The value of -boutfeat (default unknown.gff).")] string? featureFile2 = null)
     {
         if (string.IsNullOrWhiteSpace(patternFasta))
             throw new ArgumentException("The pattern set cannot be empty", nameof(patternFasta));
@@ -379,7 +382,7 @@ public partial class AnalysisTools
         if (set.Count == 0 || scanned.Count == 0)
             throw new ArgumentException("An input has no FASTA record.", nameof(patternFasta));
         var files = EmbossWordmatchPrograms.Run(new EmbossWordmatchRequest(patternFasta, sequenceFasta, wordSize, dumpAlign, dumpFeatures, [EmbossCommandLineEcho.Parameter("asequence", "a.fasta"), EmbossCommandLineEcho.Parameter("bsequence", "b.fasta"), Qualifier("wordsize", wordSize)],
-            DateTime.Now, "a.fasta", "b.fasta", "stdout", alignFormat, cancellationToken));
+            DateTime.Now, "a.fasta", "b.fasta", "stdout", alignFormat, cancellationToken, featureQualifiers, featureFile1, featureFile2));
         bool nuc = global::Seqeron.Genomics.Infrastructure.EmbossSequenceReader.IsNucleotide(global::Seqeron.Genomics.Infrastructure.EmbossSequenceReader.Clean(set[0].Text));
         var result = GenomicAnalyzer.Wordmatch([.. set.Select(x => (x.Name, global::Seqeron.Genomics.Alignment.EmbossInputSequence.Read(x.Text, null, global::Seqeron.Genomics.Infrastructure.EmbossSequenceType.Any).Residues))],
             [.. scanned.Select(x => global::Seqeron.Genomics.Alignment.EmbossInputSequence.Read(x.Text, null, nuc ? global::Seqeron.Genomics.Infrastructure.EmbossSequenceType.Nucleotide : global::Seqeron.Genomics.Infrastructure.EmbossSequenceType.StopProtein).Residues)], wordSize, cancellationToken);
@@ -387,7 +390,7 @@ public partial class AnalysisTools
         for (int q = 0; q < result.Matches.Count; q++)
             foreach (var perPattern in result.Matches[q])
                 matches.AddRange(perPattern.Select(h => new WordmatchHitItem(set[h.Pattern].Name, h.PatternStart, scanned[q].Name, h.QueryStart, h.Length)));
-        return new WordmatchToolResult([.. matches], result.PatternCount, result.AllMatches, result.SumLength, files.Alignments, files.Log, files.FeatureFile1, files.FeatureFile2);
+        return new WordmatchToolResult([.. matches], result.PatternCount, result.AllMatches, result.SumLength, files.Alignments, files.Log, files.FeatureFile1, files.FeatureFile2, files.FeatureFileName1, files.FeatureFileName2);
     }
 
     [McpServerTool(Name = "nucmer_clusters", Title = "Genome — MUMmer nucmer Anchor Clusters", ReadOnly = true)]

@@ -41,10 +41,10 @@ public static partial class EmbossReportWriter
     public static string FeatureFormatName(int index) => FeatureFormatTable[index].Name;
 
     /// <summary>
-    /// <c>ajFeattableWrite</c>: the text of the feature table in the output format at <paramref name="formatIndex"/> (see <see cref="FeatureFormatIndex"/>), or null when the program refuses the format for the kind of sequence
+    /// <c>ajFeattableWrite</c> (<paramref name="tablesBefore"/> = the tables already written to the same output file, <c>ftout->Count</c>: dasgff writes its XML header for the first table only): the text of the feature table in the output format at <paramref name="formatIndex"/> (see <see cref="FeatureFormatIndex"/>), or null when the program refuses the format for the kind of sequence
     /// ("Feature format 'embl' not supported for protein sequence features": nothing is written).
     /// </summary>
-    public static string? WriteFeatureTable(EmbossReport table, int formatIndex, DateTime date, string program = "diffseq", EmbossFeatureWriteState? state = null)
+    public static string? WriteFeatureTable(EmbossReport table, int formatIndex, DateTime date, string program = "diffseq", EmbossFeatureWriteState? state = null, int tablesBefore = 0)
     {
         ArgumentNullException.ThrowIfNull(table);
         var (name, writer, nuc, protein) = FeatureFormatTable[formatIndex];
@@ -66,7 +66,7 @@ public static partial class EmbossReportWriter
             case "swiss":
                 return Output(options with { Format = EmbossReportFormat.Swiss }, table, state, Swiss);
             case "dasgff":
-                return Output(options with { Format = EmbossReportFormat.DasGff }, table, state, DasGff);          // the closing </GFF></DASGFF> is written by the report only
+                return Output(options with { Format = EmbossReportFormat.DasGff }, table, state, DasGff, tablesBefore > 0);          // the closing </GFF></DASGFF> is written by the report only
 
             case "gff2":
                 Gff2(sb, table, date, state);
@@ -88,9 +88,9 @@ public static partial class EmbossReportWriter
         }
     }
 
-    private static string Output(EmbossReportOptions options, EmbossReport table, EmbossFeatureWriteState state, Action<State, EmbossReport> body)
+    private static string Output(EmbossReportOptions options, EmbossReport table, EmbossFeatureWriteState state, Action<State, EmbossReport> body, bool opened = false)
     {
-        var st = new State { O = options, FormatIndex = EmbossReportFormats.IndexOf(options.Format), Leftover = state.Leftover };
+        var st = new State { O = options, FormatIndex = EmbossReportFormats.IndexOf(options.Format), Leftover = state.Leftover, Opened = opened };
         body(st, table);
         state.Leftover = st.Leftover;
         return st.Out.ToString();
@@ -133,7 +133,7 @@ public static partial class EmbossReportWriter
                 b = f.Start;
             }
 
-            sb.Append(seqid).Append('\t').Append(f.Source).Append('\t').Append(ti.Gff3Name).Append('\t').Append(Int(a)).Append('\t').Append(Int(b)).Append('\t');
+            sb.Append(seqid).Append('\t').Append(f.Source).Append('\t').Append(ti.Gff2Name ?? ti.Gff3Name).Append('\t').Append(Int(a)).Append('\t').Append(Int(b)).Append('\t');
             sb.Append((float)f.Score != 0f ? CFormat.General((float)f.Score, 4) : ".");
             sb.Append('\t').Append(strand).Append('\t').Append(f.Frame is > 0 and <= 3 ? (char)('0' + f.Frame - 1) : '.').Append('\t');
             string flagdata = f.Between ? "0x8" : "";
@@ -181,7 +181,7 @@ public static partial class EmbossReportWriter
                 iend = f.End - 1;
             }
 
-            sb.Append(t.Sequence.Name).Append('\t').Append(istart).Append('\t').Append(iend).Append('\t').Append(ti.Gff3Name).Append("\t0\t").Append(strand).Append('\t').Append(istart).Append('\t').Append(iend).Append("\t0");
+            sb.Append(t.Sequence.Name).Append('\t').Append(istart).Append('\t').Append(iend).Append('\t').Append(ti.Gff2Name ?? ti.Gff3Name).Append("\t0\t").Append(strand).Append('\t').Append(istart).Append('\t').Append(iend).Append("\t0");
             sb.Append("\t1\t0\t").Append(Int(f.End - f.Start + 1)).Append('\n');
         }
     }
@@ -245,7 +245,7 @@ public static partial class EmbossReportWriter
         string preftag = lead + "                   ";
         foreach (var f in t.Features)
         {
-            string preftyp = lead + "   " + "misc_feature".PadRight(15) + " ";
+            string preftyp = lead + "   " + TypeOf(f).RefseqpName.PadRight(15) + " ";
             string loc = Int(f.Start) + (f.Between ? "^" : "..") + Int(f.End);
             LocWrap(loc, 79, preftag, preftyp, sb);
             foreach (var tag in f.Tags)

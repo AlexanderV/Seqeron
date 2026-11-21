@@ -184,7 +184,7 @@ public static partial class EmbossReportWriter
             // featTypePirOut: when the external PIR type differs from the internal one the internal type name is appended to the first note
             var tags = f.Tags.ToList();
             int note = tags.FindIndex(g => g.Name.Equals("note", StringComparison.OrdinalIgnoreCase));
-            if (f.Type == "SO:0000839")
+            if (ti.Id == "SO:0000839")
             {
                 // diffseq's generic feature of a protein table: its PIR type Region is the external type, nothing is appended
             }

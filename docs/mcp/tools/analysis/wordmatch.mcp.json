@@ -6,7 +6,7 @@
  "stability": "stable",
  "methodId": "GenomicAnalyzer.Wordmatch",
  "docRef": "Seqeron.Genomics.Analysis/GenomicAnalyzer.Wordmatch.cs",
- "description": "EMBOSS 6.6.0 wordmatch: every exact match of at least wordSize symbols between a set of pattern sequences (a FASTA text) and large sequences (a FASTA text), found by Rabin-Karp (260 nucleotide / protein runs: alignments in match, pair, simple, fasta, srspair, markx3, score and srs format, the statistics log and both GFF3 feature files byte for byte). The table holds every word of the pattern sequences (a pattern sequence is identified by its NAME; words around N, or X for a protein, are skipped as in seqmatchall); a window found in the table is verified and the match is extended to the right over the pattern sequence; a pattern sequence is not examined again before the end of its previous match in that scanned sequence. Returns the matches (0-based starts, per scanned sequence and pattern sequence in the program's order), the number of distinct words, the number and total length of the matches and the files of the program: the alignments (-outfile, alignFormat), the log (-logfile) and the feature files (-aoutfeat / -boutfeat). Distinct words of five or more symbols with equal hashes are not distinguished (the program picks an arbitrary one).",
+ "description": "EMBOSS 6.6.0 wordmatch: every exact match of at least wordSize symbols between a set of pattern sequences (a FASTA text) and large sequences (a FASTA text), found by Rabin-Karp (260 nucleotide / protein runs: alignments in match, pair, simple, fasta, srspair, markx3, score and srs format, the statistics log and both GFF3 feature files byte for byte; the feature files in every output feature format of the program (-offormat4 / -offormat5 via featureQualifiers, the format:: prefix of the file name): 500 further runs equal; the sequence qualifiers -sbegin1 ... are not supported). The table holds every word of the pattern sequences (a pattern sequence is identified by its NAME; words around N, or X for a protein, are skipped as in seqmatchall); a window found in the table is verified and the match is extended to the right over the pattern sequence; a pattern sequence is not examined again before the end of its previous match in that scanned sequence. Returns the matches (0-based starts, per scanned sequence and pattern sequence in the program's order), the number of distinct words, the number and total length of the matches and the files of the program: the alignments (-outfile, alignFormat), the log (-logfile) and the feature files (-aoutfeat / -boutfeat). Distinct words of five or more symbols with equal hashes are not distinguished (the program picks an arbitrary one).",
  "inputSchema": {
   "type": "object",
   "properties": {
@@ -37,6 +37,18 @@
     "type": "string",
     "description": "The alignment format (-aformat, default match).",
     "default": "match"
+   },
+   "featureQualifiers": {
+    "type": "string",
+    "description": "The feature output qualifiers as typed on the command line: -offormat4 / -offormat5 (the format of -aoutfeat / -boutfeat: gff, gff2, gff3, bed, embl, em, genbank, gb, ddbj, refseq, refseqp, pir, nbrf, swiss, sw, swissprot, uniprot, dasgff, draw, debug), -ofopenfile4 / -ofopenfile5, -ofname, -ofextension, -ofdirectory, -ofsingle. Default: GFF3 files."
+   },
+   "featureFile1": {
+    "type": "string",
+    "description": "The value of -aoutfeat (the file name, optionally with a 'format::' prefix; default unknown.gff)."
+   },
+   "featureFile2": {
+    "type": "string",
+    "description": "The value of -boutfeat (default unknown.gff)."
    }
   },
   "required": [

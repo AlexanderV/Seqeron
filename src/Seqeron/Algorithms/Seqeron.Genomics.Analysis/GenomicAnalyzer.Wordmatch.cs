@@ -225,15 +225,26 @@ public static partial class GenomicAnalyzer
 /// <param name="AlignFile">The alignment file name (<c>Report_file:</c>).</param>
 /// <param name="AlignFormat">The <c>-aformat</c> (default <c>match</c>).</param>
 /// <param name="CancellationToken">Cancellation.</param>
+/// <param name="FeatureQualifiers">The feature output qualifiers as typed (<c>-offormat4 embl -offormat5 genbank -ofopenfile4 x</c>, A5-8c3d, F225); null = none.</param>
+/// <param name="FeatureFile1">The value of <c>-aoutfeat</c> (default <c>unknown.gff</c>; a <c>format::</c> prefix selects the output format).</param>
+/// <param name="FeatureFile2">The value of <c>-boutfeat</c> (default <c>unknown.gff</c>).</param>
 public sealed record EmbossWordmatchRequest(string Fasta1, string Fasta2, int WordSize = 4, bool DumpAlign = true, bool DumpFeature = true, IReadOnlyList<string>? CommandLine = null, DateTime? RunDate = null,
-    string Usa1 = "a.fa", string Usa2 = "b.fa", string AlignFile = "stdout", string AlignFormat = "match", CancellationToken CancellationToken = default);
+    string Usa1 = "a.fa", string Usa2 = "b.fa", string AlignFile = "stdout", string AlignFormat = "match", CancellationToken CancellationToken = default,
+    string? FeatureQualifiers = null, string? FeatureFile1 = null, string? FeatureFile2 = null);
 
 /// <summary>The files <c>wordmatch</c> writes.</summary>
 /// <param name="Alignments">The <c>-outfile</c> alignment text (empty without <c>-dumpalign</c>).</param>
 /// <param name="Log">The <c>-logfile</c> statistics.</param>
 /// <param name="FeatureFile1">The <c>-aoutfeat</c> file: the features of the pattern sequences (GFF3).</param>
 /// <param name="FeatureFile2">The <c>-boutfeat</c> file: the features of the scanned sequences.</param>
-public sealed record EmbossWordmatchOutput(string Alignments, string Log, string FeatureFile1, string FeatureFile2);
+public sealed record EmbossWordmatchOutput(string Alignments, string Log, string FeatureFile1, string FeatureFile2)
+{
+    /// <summary>The name of the file the first feature output is written to (after the <c>format::</c> prefix, or <c>-ofopenfile</c>); null when no feature file is opened (<c>-nodumpfeat</c>).</summary>
+    public string? FeatureFileName1 { get; init; }
+
+    /// <summary>The name of the file the second feature output is written to.</summary>
+    public string? FeatureFileName2 { get; init; }
+}
 
 /// <summary>The files of the EMBOSS 6.6.0 program <c>wordmatch</c> (<c>wordmatch.c</c>; B09 A2-28d, F198): <see cref="GenomicAnalyzer.Wordmatch"/> + the alignment writer + the log + the GFF3 feature files.</summary>
 public static class EmbossWordmatchPrograms
@@ -266,6 +277,13 @@ public static class EmbossWordmatchPrograms
             throw new ArgumentException("An input has no FASTA record.", nameof(r));
         if (!EmbossAlignmentWriter.TryParseFormat(r.AlignFormat, out var format))
             throw new ArgumentException($"Unknown alignment format '{r.AlignFormat}'.", nameof(r));
+        var (inputs, rq) = EmbossSequenceQualifiers.ParseInputsAndReport("wordmatch", r.FeatureQualifiers, true);
+        if (inputs.Any(i => i != EmbossSequenceQualifiers.None))
+            throw new NotSupportedException("The sequence qualifiers of the inputs of wordmatch (-sbegin1, -sreverse2, ...) are not supported; only the feature output qualifiers (-offormat4, -ofopenfile5, ...) are.");
+        // the files are created (empty) whether or not -dumpfeat is on
+        var out1 = EmbossDiffseqPrograms.OpenFeatureOutput(r.FeatureFile1 ?? "unknown.gff", rq.FeatureOutputs?[0], "gff");
+        var out2 = EmbossDiffseqPrograms.OpenFeatureOutput(r.FeatureFile2 ?? "unknown.gff", rq.FeatureOutputs?[1], "gff");
+
         bool nuc = EmbossSequenceReader.IsNucleotide(EmbossSequenceReader.Clean(records1[0].Text));
         var type2 = nuc ? EmbossSequenceType.Nucleotide : EmbossSequenceType.StopProtein;
         var set = records1.Select(x => (x.Name, Text: EmbossInputSequence.Read(x.Text, null, EmbossSequenceType.Any).Residues)).ToList();
@@ -285,6 +303,8 @@ public static class EmbossWordmatchPrograms
         var writer = new EmbossAlignmentWriter(format, alignOptions);
         var tables1 = new List<EmbossFeature>?[set.Count];
         var features2 = new StringBuilder();
+        var featureState = new EmbossFeatureWriteState();
+        int written1 = 0, written2 = 0;
         bool featureOutput = r.DumpFeature;
         string featureType = nuc ? "SO:0000110" : "polypeptide_region";            // ajFeatNew("misc_feature") on a protein table is a polypeptide_region without strand
         char featureStrand = nuc ? '+' : '\0';
@@ -318,7 +338,7 @@ public static class EmbossWordmatchPrograms
                             list2.Add(new EmbossFeature(featureType, "wordmatch", h.QueryStart + 1, h.QueryStart + h.Length, 1.0, featureStrand, 0, [new("note", set[i].Name)]));
                         }
 
-                        features2.Append(FeatureText(queries[q].Name, queries[q].Text, nuc, list2, date));
+                        features2.Append(FeatureText(queries[q].Name, queries[q].Text, nuc, list2, date, out2.Format, featureState, ref written2));
                     }
                 }
             }
@@ -337,7 +357,7 @@ public static class EmbossWordmatchPrograms
                     if (result.MatchesPerSequence[i] > 0)
                         log.Append(set[i].Name.PadRight(42)).Append(": ").Append(Int(result.MatchesPerSequence[i]).PadLeft(8)).Append('\n');
                     if (tables1[i] is { } t)
-                        features1.Append(FeatureText(set[i].Name, set[i].Text, nuc, t, date));
+                        features1.Append(FeatureText(set[i].Name, set[i].Text, nuc, t, date, out1.Format, featureState, ref written1));
                 }
 
                 log.Append("\nPattern statistics:\n");
@@ -348,17 +368,20 @@ public static class EmbossWordmatchPrograms
                         log.Append(w.Word.PadRight(7)).Append(": ").Append(Int(w.Sequences).PadLeft(12)).Append("  ").Append(Int(w.Matches).PadLeft(12)).Append(' ').Append(CFormat.Fixed(w.TotalLength * 1.0 / w.Matches, 2).PadLeft(17)).Append('\n');
             }
 
-            return new EmbossWordmatchOutput(r.DumpAlign ? writer.Close() : "", log.ToString(), featureOutput ? features1.ToString() : "", featureOutput ? features2.ToString() : "");
+            return new EmbossWordmatchOutput(r.DumpAlign ? writer.Close() : "", log.ToString(), featureOutput ? features1.ToString() : "", featureOutput ? features2.ToString() : "") { FeatureFileName1 = out1.File, FeatureFileName2 = out2.File };
         }
 
-        return new EmbossWordmatchOutput(r.DumpAlign ? writer.Close() : "", log.ToString(), "", "");
+        return new EmbossWordmatchOutput(r.DumpAlign ? writer.Close() : "", log.ToString(), "", "") { FeatureFileName1 = out1.File, FeatureFileName2 = out2.File };
     }
 
-    // the GFF3 text of one feature table (ajFeattableWrite): the table of a sequence with its matches
-    private static string FeatureText(string name, string residues, bool nuc, List<EmbossFeature> features, DateTime date)
+    // the text of one feature table in the output format (ajFeattableWrite): the table of a sequence with its matches; the writers share one static string (state)
+    private static string FeatureText(string name, string residues, bool nuc, List<EmbossFeature> features, DateTime date, int format, EmbossFeatureWriteState state, ref int written)
     {
         var seq = new EmbossReportSequence(name, name, "", "", residues, 1, residues.Length, 0, false, nuc);
         var table = new EmbossReport(seq, features, !nuc, nuc ? "N" : "P", TableLength: residues.Length, WriteWhenEmpty: true);
-        return EmbossReportWriter.Write(table, EmbossReportFormat.Gff, date, new EmbossReportOptions { Program = "wordmatch", RunDate = date, Format = EmbossReportFormat.Gff });
+        string? text = EmbossReportWriter.WriteFeatureTable(table, format, date, "wordmatch", state, written);
+        if (text is not null)
+            written++;
+        return text ?? "";
     }
 }

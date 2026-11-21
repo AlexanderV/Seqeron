@@ -394,13 +394,13 @@ public static class EmbossDiffseqPrograms
     }
 
     // acdSetFeatout + ajFeattabOutOpen + featoutUfoProcess: the format and the file name of one feature output from its value on the command line (the default is name.diffgff) and -offormat / -ofopenfile
-    private static (int Format, string File) OpenFeatureOutput(string ufo, EmbossFeatureOutQualifiers? q)
+    internal static (int Format, string File) OpenFeatureOutput(string ufo, EmbossFeatureOutQualifiers? q, string defaultFormat = "")
     {
         string fmt = q?.Format ?? "";
         string formatstr, file;
         if (!string.IsNullOrEmpty(q?.OpenFile))
         {
-            formatstr = fmt;
+            formatstr = fmt.Length > 0 ? fmt : defaultFormat;      // the ACD attribute offormat of the output (wordmatch: gff; diffseq has none)
             file = q.OpenFile;
         }
         else

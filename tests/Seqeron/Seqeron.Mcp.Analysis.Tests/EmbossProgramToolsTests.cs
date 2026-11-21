@@ -118,6 +118,19 @@ public class EmbossProgramToolsTests
     }
 
     [Test]
+    public void Wordmatch_FeatureOutputFormats_AsTheProgram()
+    {
+        // wordmatch 6.6.0 -offormat4 embl -offormat5 genbank on the same pair (A5-8c3d, F225): the feature files in the EMBL feature table and the GenBank FEATURES layout
+        var r = AnalysisTools.Wordmatch(">p\nACGTACGTAC\n", ">g\nTTACGTACGTACTT\n", 6, featureQualifiers: "-offormat4 embl -offormat5 genbank", featureFile1: "pa.out", featureFile2: "gb.out");
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.FeatureFile1, Is.EqualTo("FH   Key             Location/Qualifiers\nFH\nFT   misc_feature    4..10\nFT                   /note=\"g\"\nFT   misc_feature    2..10\nFT                   /note=\"g\"\n"));
+            Assert.That(r.FeatureFile2, Is.EqualTo("FEATURES             Location/Qualifiers\n     misc_feature    2..8\n                     /note=\"p\"\n     misc_feature    4..12\n                     /note=\"p\"\n"));
+            Assert.That((r.FeatureFileName1, r.FeatureFileName2), Is.EqualTo(("pa.out", "gb.out")));
+        });
+    }
+
+    [Test]
     public void Wordmatch_RabinKarpMatches_AsTheProgram()
     {
         // wordmatch 6.6.0 on p = ACGTACGTAC against g = TTACGTACGTACTT, -wordsize 6 (A2-28d, F198): the two words TACGTA / CGTACG are extended to the right, the match of the second starts inside the first
