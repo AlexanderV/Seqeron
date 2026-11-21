@@ -1,6 +1,6 @@
 # MCP Completion — Source of Truth & Campaign Ledger
 
-> Reality-based ledger of the 585 MCP tools across 11 servers. Campaign COMPLETE (2026-07-01):
+> Reality-based ledger of the 586 MCP tools across 11 servers. Campaign COMPLETE (2026-07-01):
 > every tool has a gold-standard binding (`[McpServerTool(Name/Title/ReadOnly)]` + `[Description]`,
 > structured record, input validation, real `Seqeron.Genomics` delegation), a Schema+Binding NUnit
 > test, and `{tool}.md` + `{tool}.mcp.json` docs. Supersedes `docs/mcp-plan.md` / `docs/mcp-checklist.md` (v4).
@@ -9,9 +9,9 @@
 
 | Metric | Done | Total |
 |---|---:|---:|
-| Gold-standard binding | 585 | 585 |
-| Schema+Binding tests | 585 | 585 |
-| Docs (.md + .mcp.json) | 585 | 585 |
+| Gold-standard binding | 586 | 586 |
+| Schema+Binding tests | 586 | 586 |
+| Docs (.md + .mcp.json) | 586 | 586 |
 
 ## Per-server summary
 
@@ -20,7 +20,7 @@
 | Core | SuffixTree.Mcp.Core | 18 | 18/18 | 18/18 | 18/18 | ✅ done |
 | Sequence | Seqeron.Mcp.Sequence | 35 | 35/35 | 35/35 | 35/35 | ✅ done |
 | Parsers | Seqeron.Mcp.Parsers | 41 | 41/41 | 41/41 | 41/41 | ✅ done |
-| Alignment | Seqeron.Mcp.Alignment | 79 | 79/79 | 79/79 | 79/79 | ✅ done |
+| Alignment | Seqeron.Mcp.Alignment | 80 | 80/80 | 80/80 | 80/80 | ✅ done |
 | Analysis | Seqeron.Mcp.Analysis | 174 | 174/174 | 174/174 | 174/174 | ✅ done |
 | Annotation | Seqeron.Mcp.Annotation | 97 | 97/97 | 97/97 | 97/97 | ✅ done |
 | Chromosome | Seqeron.Mcp.Chromosome | 32 | 32/32 | 32/32 | 32/32 | ✅ done |
@@ -140,7 +140,7 @@
 | 40 | `vcf_variant_length` | ☑ | ☑ | ☑ |
 | 41 | `vcf_write` | ☑ | ☑ | ☑ |
 
-### Alignment (Seqeron.Mcp.Alignment) — 79 tools
+### Alignment (Seqeron.Mcp.Alignment) — 80 tools
 
 | # | tool | B | T | D |
 |---:|---|:--:|:--:|:--:|
@@ -223,6 +223,7 @@
 | 77 | `minimap2_map` | ☑ | ☑ | ☑ |
 | 78 | `write_coordinate_alignment` | ☑ | ☑ | ☑ |
 | 79 | `parse_coordinate_alignment` | ☑ | ☑ | ☑ |
+| 80 | `spoa_command` | ☑ | ☑ | ☑ |
 
 ### Analysis (Seqeron.Mcp.Analysis) — 174 tools
 

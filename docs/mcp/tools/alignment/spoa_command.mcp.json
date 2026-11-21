@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "spoa_command",
+  "serverName": "Alignment",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SpoaProgram.Run",
+  "docRef": "Seqeron.Genomics.Alignment/SpoaProgram.cs",
+  "description": "SPOA 4.0.8 (Vaser et al. 2017, Genome Research 27:737; partial order alignment with vectorized dynamic programming) as a function of its command line and the files it names (SpoaProgram.Run): spoa [-m MATCH] [-n MISMATCH] [-g GAP_OPEN] [-e GAP_EXTEND] [-q GAP_OPEN2] [-c GAP_EXTEND2] [-l|--algorithm 0 local / 1 global / 2 semi-global] [-r|--result 0 consensus / 1 MSA / 2 both / 3 GFA / 4 consensus + GFA (repeatable)] [-d|--dot FILE] [-s|--strand-ambiguous] [--version] [-h|--help] SEQUENCES.fa|.fasta|.fna|.faa|.fq|.fastq (optionally .gz). The argument loop is glibc's getopt_long (permutation, unique abbreviations of the long options, the diagnostics), the numeric options are C `atoi` values stored in 8-bit integers, the gap model is linear (g >= e), affine (g <= q or e >= c) or convex; the file parsers are bioparser's (names end at the first white space, a FASTQ file gives Phred weights, an invalid file or an empty input aborts with status 134 and the `terminate called` text of the C++ runtime). The alignment engine is the SIMD engine of the program emulated lane by lane (int16 / int32 vectors chosen by the worst-case score, padding lanes, shifted prefix maxima, the traceback of the program, lanes = 16 / 8 as on AVX2; the result does not depend on the vector width), so the ties are the program's. Returns the exit status, standard output (consensus / MSA / GFA text, --help, --version), standard error and the written DOT file. VERIFICATION: exit status, standard output, standard error and the DOT file equal the installed Debian spoa 4.0.8-1 on 441 / 441 committed command lines (scripts/alignment/generate_spoa_oracle.py).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "arguments": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "The command-line arguments of spoa, one per element (for example [\"-l\", \"1\", \"-r\", \"2\", \"in.fa\"])."
+      },
+      "files": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "string"
+        },
+        "description": "The text of the input files the arguments name: file name -> text (FASTA / FASTQ; bytes are read as Latin-1)."
+      },
+      "binaryFiles": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "string"
+        },
+        "description": "Binary input files (for example gzip-compressed FASTA): file name -> base64."
+      }
+    },
+    "required": [
+      "arguments"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "exitCode": {
+        "type": "integer",
+        "description": "0 = success, 1 = the program stops with an error, 255 = no arguments (usage)."
+      },
+      "stdout": {
+        "type": "string",
+        "description": "Standard output: -v gap tables, -printmatrix table, the permutation line of -preserve_seqorder."
+      },
+      "stderr": {
+        "type": "string",
+        "description": "Error messages and the \"...Read N sequences...\" / \"...Wrote N sequences...\" lines (the alignment progress lines are not reproduced)."
+      },
+      "files": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "string"
+        },
+        "description": "The files the program wrote: -pir, -clustal, -po."
+      }
+    },
+    "required": [
+      "exitCode",
+      "stdout",
+      "stderr",
+      "files"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "arguments is null"
+    },
+    {
+      "code": 1002,
+      "message": "(none: a refused command line is an exit status 1 or 134 with the reason in `stderr`)"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Global multiple sequence alignment (spoa -l 1 -r 1 u.fa)",
+      "input": {
+        "arguments": [
+          "-l",
+          "1",
+          "-r",
+          "1",
+          "u.fa"
+        ],
+        "files": {
+          "u.fa": ">r1\nACGTACGTAC\n>r2\nACGTTCGTAC\n>r3\nACGACGTAC\n"
+        }
+      },
+      "output": {
+        "exitCode": 0,
+        "stdout": ">r1\nACGTACGTAC\n>r2\nACGTTCGTAC\n>r3\nACG-ACGTAC\n",
+        "stderr": "",
+        "files": {}
+      }
+    },
+    {
+      "name": "Consensus and the DOT graph (spoa -d g.dot u.fa)",
+      "input": {
+        "arguments": [
+          "-d",
+          "g.dot",
+          "u.fa"
+        ],
+        "files": {
+          "u.fa": ">r1\nACGTACGTAC\n>r2\nACGTTCGTAC\n>r3\nACGACGTAC\n"
+        }
+      },
+      "output": {
+        "exitCode": 0,
+        "stdout": ">Consensus LN:i:10\nACGTACGTAC\n",
+        "stderr": "",
+        "files": {
+          "g.dot": "digraph 3 {\n  graph [rankdir = LR]\n  0[label = \"0 - A\", style = filled, fillcolor = goldenrod1]\n  ..."
+        }
+      }
+    }
+  ]
+}

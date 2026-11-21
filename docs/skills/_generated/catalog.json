@@ -462,6 +462,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAssembler.cs#L247"
   },
   {
+    "tool": "spoa_command",
+    "server": "Alignment",
+    "methodId": "SpoaProgram.Run",
+    "docPath": "docs/mcp/tools/alignment/spoa_command.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SpoaProgram.cs"
+  },
+  {
     "tool": "stretcher_align",
     "server": "Alignment",
     "methodId": "SequenceAligner.StretcherAlign",

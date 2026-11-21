@@ -72,6 +72,7 @@
 | `semi_global_align` | Alignment | `SequenceAligner.SemiGlobalAlign` | [doc](../../../../docs/mcp/tools/alignment/semi_global_align.md) |
 | `semi_global_align_affine` | Alignment | `SequenceAligner.SemiGlobalAlignAffine` | [doc](../../../../docs/mcp/tools/alignment/semi_global_align_affine.md) |
 | `sequence_identity` | Alignment | `SequenceAssembler.CalculateIdentity` | [doc](../../../../docs/mcp/tools/alignment/sequence_identity.md) |
+| `spoa_command` | Alignment | `SpoaProgram.Run` | [doc](../../../../docs/mcp/tools/alignment/spoa_command.md) |
 | `stretcher_align` | Alignment | `SequenceAligner.StretcherAlign` | [doc](../../../../docs/mcp/tools/alignment/stretcher_align.md) |
 | `sum_of_pairs_score` | Alignment | `SequenceAligner.SumOfPairsScore` | [doc](../../../../docs/mcp/tools/alignment/sum_of_pairs_score.md) |
 | `supermatcher_align` | Alignment | `SequenceAligner.Supermatcher` | [doc](../../../../docs/mcp/tools/alignment/supermatcher_align.md) |

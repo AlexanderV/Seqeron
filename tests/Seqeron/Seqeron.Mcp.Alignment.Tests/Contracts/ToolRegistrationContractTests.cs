@@ -81,6 +81,7 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "semi_global_align",
         "semi_global_align_affine",
         "sequence_identity",
+        "spoa_command",
         "stretcher_align",
         "sum_of_pairs_score",
         "supermatcher_align",

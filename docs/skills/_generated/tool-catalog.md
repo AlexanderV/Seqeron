@@ -4,7 +4,7 @@
 
 <!-- BEGIN generated: do not edit by hand -->
 
-## Alignment (79 tools)
+## Alignment (80 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -74,6 +74,7 @@
 | `semi_global_align` | `SequenceAligner.SemiGlobalAlign` | [doc](../../mcp/tools/alignment/semi_global_align.md) |
 | `semi_global_align_affine` | `SequenceAligner.SemiGlobalAlignAffine` | [doc](../../mcp/tools/alignment/semi_global_align_affine.md) |
 | `sequence_identity` | `SequenceAssembler.CalculateIdentity` | [doc](../../mcp/tools/alignment/sequence_identity.md) |
+| `spoa_command` | `SpoaProgram.Run` | [doc](../../mcp/tools/alignment/spoa_command.md) |
 | `stretcher_align` | `SequenceAligner.StretcherAlign` | [doc](../../mcp/tools/alignment/stretcher_align.md) |
 | `sum_of_pairs_score` | `SequenceAligner.SumOfPairsScore` | [doc](../../mcp/tools/alignment/sum_of_pairs_score.md) |
 | `supermatcher_align` | `SequenceAligner.Supermatcher` | [doc](../../mcp/tools/alignment/supermatcher_align.md) |

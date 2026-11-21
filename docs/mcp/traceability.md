@@ -440,6 +440,7 @@
 | probcons_command | Alignment | ProbConsProgram.Run | Alignment/ProbConsProgram.cs | 0/0 | – | – | Build-Ready |
 | multiple_align_poa | Alignment | SequenceAligner.PoaRun | Alignment/SequenceAligner.Poa.cs | 0/0 | – | – | Build-Ready |
 | poa_command | Alignment | PoaProgram.Run | Alignment/PoaProgram.cs | 0/0 | – | – | Build-Ready |
+| spoa_command | Alignment | SpoaProgram.Run | Alignment/SpoaProgram.cs | 0/0 | – | – | Build-Ready |
 | align_gap_profile | Alignment | SequenceAligner.GlobalAlignAffine(GapScoreProfile) | Alignment/SequenceAligner.GapProfile.cs | 0/0 | – | – | Build-Ready |
 | merger | Alignment | SequenceAligner.Merger | Alignment/SequenceAligner.Merger.cs | 0/0 | – | – | Build-Ready |
 | needle_align | Alignment | SequenceAligner.NeedleAlign | Alignment/SequenceAligner.Needle.cs | 0/0 | – | – | Build-Ready |

@@ -329,6 +329,14 @@ Input bytes (audit A3-1, F129): the program reads BYTES, so a non-ASCII characte
 
 MSA / PO file input (audit A2-26b, F223): `-read_msa`, `-read_msa2`, `-read_msa_list`, `-subset` / `-subset2`, `-remove` / `-remove2` (`SequenceAligner.PoaInput.cs`: `read_msa_select` with the format detected from the first line, `read_clustal`, `read_pir`, `lpo_from_aln_mat` (rows fused into a consensus row and stripped again), `filter_sequence_set`, `read_lpo`, `read_lpo_select`, `strip_seq_from_lpo`, `lpo_index_symbols`; `fgets` pieces of 510 characters, `fscanf` conversions of the program, the PIR blank-line quirk that re-uses the previous row) equal the installed program on 687 / 687 command lines. An alignment row name beyond 31 characters (the program aborts in `strcpy`), a row without residues (exit 255), links / sources outside the PO file and unclosed alignment rings (the program loops or reads outside its arrays) stop the run here. `spoa` / `abpoa` are separate programs (registered A2-26c).
 
+### 4.9c Biopython sam / exonerate / msf / emboss / hhr / tabular and the CDS feature of PSLX (audit A2-27d, B09 F228 - F231)
+
+`AlignmentCoordinateFormats` also writes **sam** (header from the metadata and the target records, MD tag, clips, qualities, tags) and **exonerate** (vulgar / cigar) and reads sam, exonerate, GCG **msf**, EMBOSS **pair / srspair / simple**, HHsearch **hhr** and BLAST / FASTA **tabular** files exactly as `Bio.Align.parse` does (`ParseFile` also returns the iterator's metadata, targets and parser warnings); a protein-vs-translated-DNA PSLX line gives the target a `CDS` feature with the translation. Verified against Biopython 1.88 on 3 332 rows (see the Evidence document).
+
+### 4.15 SPOA 4.0.8 (audit A2-26c, B09 F232)
+
+`SpoaProgram.Run` is the `spoa` 4.0.8 command line (`-m -n -g -e -q -c -l -r -d -s --version --help`; FASTA / FASTQ / gzip input) over `SpoaGraph` (partial order graph, heaviest-bundle consensus, MSA, GFA, DOT) and `SpoaEngine`, the vectorised engine of the program emulated lane by lane (int16 / int32 by the worst-case score, padding lanes, wrapping lane arithmetic, the program's traceback), so that the ties of the installed binary are reproduced; verified on 441 command lines. This is a different program from Lee's POA V2 (`MultipleAlignPoa`, section 4.14): the graph, the scoring (match / mismatch / linear, affine or convex gaps), the consensus and the output differ and are not shared. MCP `spoa_command`.
+
 ## 5. Implementation Notes
 
 `-distance_matrix_mode random` (audit A3-6, B09 F135): `id = rand() % 100` per pair `a < b` (glibc `rand`, `GlibcRandom`); the program seeds with `vsrand(0)` = `/dev/urandom` unless `DEBUG_SRAND` is set (`srand(10)`), so `TCoffeeProgramOptions.RandomSeed` defaults to 10 (the deterministic run; 310 / 310 committed sets equal); any other seed is an option.

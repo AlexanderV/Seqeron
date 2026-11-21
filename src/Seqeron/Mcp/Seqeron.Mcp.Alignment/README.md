@@ -2,7 +2,7 @@
 
 MCP server — **Pairwise and multiple sequence alignment, overlap/assembly and approximate matching.**
 
-Exposes **79 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+Exposes **80 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
 MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test, with a
 per-tool doc under [`docs/mcp/tools/alignment/`](../../../../docs/mcp/tools/alignment). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
@@ -66,6 +66,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `kalign_command` | Kalign 3.3.5 as a command line (`--type`, `--gpo`, `--gpe`, `--tgpe`, `-n`, `-i`, `-o`, `-f fasta|msf|clu`; getopt_long_only forms); FASTA / MSF / Clustal files as text, banner and log lines without `-q`; verified on 83 + 251 command lines. |
 | `multiple_align_poa` | POA 2.0 partial-order MSA (graph DP with the program's affine gap model, fusion into align rings, local / `global` / `progressive` / `pairScores`, `fuseAll`, heaviest bundle consensus); returns the rows and the program's PO / PIR / CLUSTAL texts; equal to the installed program on 359 / 359 command lines. |
 | `poa_command` | POA 2.0 as a command line (`-read_fasta -read_msa -read_msa2 -read_msa_list -subset -remove -do_global -do_progressive -read_pairscores -fuse_all -hb -hbmin -best -preserve_seqorder -tolower -toupper -pir -clustal -po -printmatrix -v MATRIX`, files as text); equal to the program on 359 / 359 command lines. |
+| `spoa_command` | SPOA 4.0.8 as a command line (`-m -n -g -e -q -c -l -r -d -s --version --help`, FASTA / FASTQ / gzip input; the program's getopt_long loop, bioparser parsers and the SIMD engine emulated lane by lane; consensus / MSA / GFA / DOT output) |
 | `multiple_align_probcons` | ProbCons 1.12 MSA (pair-HMM posteriors, consistency transformation, expected-accuracy tree, maximum-expected-accuracy profile alignment, iterative refinement with glibc `rand`); `consistency` / `iterativeRefinement` / `preTraining` / `alignmentOrder` / `cutoff` / `parameters` / `annotate`; equal to the installed program on 407 / 407 command lines. |
 | `probcons_command` | ProbCons 1.12 as a command line (`-clustalw -c -ir -pre -pairs -viterbi -v -annot -t -e -p -a -go -ge -co`, MFA / MSF / Clustal files as text, stdout / stderr / written files byte for byte); equal to the program on 407 / 407 command lines. |
 | `multiple_align_mafft` | MAFFT 7.505's alignment of TWO sequences ported from the program (stage 1; three or more sequences are refused as unsupported): `sequenceType`, `gapOpen` (--op), `offset` (--ep), `blosum` (--bl), `anySymbol`; verified against the installed program (884 / 884 pairs); T-Coffee's `mafft_pair` uses it. |

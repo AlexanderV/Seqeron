@@ -850,3 +850,7 @@ Tests (`Seqeron.Genomics.Tests`, against Biopython 1.88): `AlignmentCoordinateFo
 F226 (maf): the same test class covers `maf` (`maf` rows of `biopython_coord_oracle.tsv`: 257 rows - writers with header metadata, annotations, empty regions and reverse-strand rows byte for byte; readers incl. refusals); the oracle now holds 1 214 rows (510 writer, 704 reader).
 
 F227 (mauve): `mauve` rows of the same oracle (266 rows: writers with separate files / one combined file and header metadata byte for byte, readers incl. refusals); the oracle now holds 1 480 rows (620 writer, 860 reader). Rows of different printed widths are excluded (uninitialised memory in Biopython's parser).
+
+F228 - F231 (WP53): `AlignmentCoordinateFormats_Tests` now covers sam (318 rows), exonerate (472), msf (306), emboss (202), hhr (258), tabular (203) and the 61 PSLX CDS rows in the same oracle (3 332 rows in all; the readers compare the iterator's metadata, targets and warnings too). MCP `CoordinateAlignmentTests.Write_And_Parse_Sam_And_Exonerate_EqualBiopython`.
+
+F232 (WP53): `SpoaProgram_Oracle_Tests` x3 (`spoa_oracle.tsv`: 441 command lines of the installed spoa 4.0.8 compared by exit status, standard output, standard error and the DOT file, with the 256-bit and the 128-bit engine), `SpoaProgram_Tests` x5 (known GFA / MSA / consensus of a three-read set, version / help / getopt errors, the invalid-FASTA abort, the DOT file), MCP `SpoaTests` x2.
