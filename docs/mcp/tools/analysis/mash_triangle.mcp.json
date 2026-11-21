@@ -63,6 +63,31 @@
     "type": "number",
     "description": "-d: maximum distance to report in the edge list (0 - 1, default 1).",
     "default": 1.0
+   },
+   "reads": {
+    "type": "boolean",
+    "description": "-r: the inputs are read sets (noise filter -m, target coverage -c, genome size -g); incompatible with individual.",
+    "default": false
+   },
+   "minCopies": {
+    "type": "integer",
+    "description": "-m: minimum copies of each k-mer required to pass the noise filter of a read set (default 1; only with reads).",
+    "default": 1
+   },
+   "targetCoverage": {
+    "type": "number",
+    "description": "-c: target coverage of a read set: sketching concludes when it is reached (default 0 = read everything; only with reads).",
+    "default": 0
+   },
+   "genomeSize": {
+    "type": "integer",
+    "description": "-g: genome size used as the sketch length of a read set (default 0 = estimated; only with reads).",
+    "default": 0
+   },
+   "showComments": {
+    "type": "boolean",
+    "description": "-C: show the comment fields with the names (name:comment for dist, the comment instead of the id for triangle; the comment of a file sketch is the first record's name and comment, '[N seqs] ... [...]' for several).",
+    "default": false
    }
   },
   "required": [

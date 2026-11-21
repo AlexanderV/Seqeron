@@ -57,3 +57,23 @@ public class MashScreenToolTests
         Assert.Throws<ArgumentOutOfRangeException>(() => AnalysisTools.MashScreen([">g\nACGTTGCATGCC\n"], [">r\nACGTTGCATGCC\n"], k: 8, seed: -1));
     }
 }
+
+/// <summary>mash_dist / mash_triangle read-set mode and -C (B09 A5-10b, F186); the byte-for-byte oracle is MashReads_Oracle_Tests in Seqeron.Genomics.Tests.</summary>
+[TestFixture]
+public class MashReadsToolTests
+{
+    private const string A = ">a first desc\nACGTTGCATGCCGATAGCTAGGATCCATGCATGCAAGTAGCTAGCATCGATCGATCGACTAGCTAGCATGC\n>b second\nTTGACGTACGTAGCTAGCTAGGGATATCGATCGATCGGGGATATATAGCGCGATCGAG\n";
+
+    [Test]
+    public void ShowComments_AppendsTheComment_AndReadsModeValidatesItsOptions()
+    {
+        // mash dist -k 8 -s 50 -C c1.fa c2.fa (installed 2.3)
+        var r = AnalysisTools.MashDist([A], [A], ["c1.fa"], ["c2.fa"], k: 8, sketchSize: 50, showComments: true);
+        Assert.That(r.Text, Is.EqualTo("c1.fa:[2 seqs] a first desc [...]\tc2.fa:[2 seqs] a first desc [...]\t0\t4.29169e-151\t50/50\n"));
+        var t = AnalysisTools.MashTriangle([A, A], ["c1.fa", "c2.fa"], k: 8, sketchSize: 50, showComments: true);
+        Assert.That(t.Text, Does.StartWith("\t2\n[2 seqs] a first desc [...]\n"));
+        Assert.Throws<ArgumentOutOfRangeException>(() => AnalysisTools.MashDist([A], [A], k: 8, reads: true, minCopies: 0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => AnalysisTools.MashDist([A], [A], k: 8, reads: true, targetCoverage: -1));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.MashDist([A], [A], k: 8, reads: true, individual: true));
+    }
+}

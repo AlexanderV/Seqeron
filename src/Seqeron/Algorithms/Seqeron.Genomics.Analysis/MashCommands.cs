@@ -82,15 +82,32 @@ public static class MashCommands
         return sb.ToString();
     }
 
-    private sealed record Named(string Name, MinHashSketch Sketch);
+    private sealed record Named(string Name, string Comment, MinHashSketch Sketch);
+
+    /// <summary>The read-set options of <c>mash sketch</c> / <c>dist</c> / <c>triangle</c> (<c>-r -m -c -g</c>; <c>-b</c>, the Bloom filter, is not part of the port).</summary>
+    /// <param name="MinCopies"><c>-m</c>: minimum copies of each k-mer (the noise filter, default 1).</param>
+    /// <param name="TargetCoverage"><c>-c</c>: sketching concludes when this coverage is reached (0 = read everything).</param>
+    /// <param name="GenomeSize"><c>-g</c>: the genome size used as the sketch length (0 = estimated).</param>
+    public sealed record MashReadsOptions(int MinCopies = 1, double TargetCoverage = 0.0, long GenomeSize = 0);
+
+    private static string FileComment(IReadOnlyList<MashRecord> usable, int count)
+    {
+        // Sketch.cpp sketchFile: the comment of a file's sketch is "name comment" of its first record; with more records "[N seqs] ... [...]"
+        string comment = usable[0].Id + " " + (usable[0].Comment ?? "");
+        if (count > 1)
+            comment = "[" + count.ToString(System.Globalization.CultureInfo.InvariantCulture) + " seqs] " + comment + " [...]";
+        return comment;
+    }
 
     /// <summary>
-    /// The sketches of the inputs, as <c>Sketch.cpp</c> <c>sketchFile</c> / <c>sketchFileOrSequence</c> make them: one per file (all its records of at least k symbols together) or, with <paramref name="individual"/>, one per record of at least k symbols.
-    /// A file without such a record stops the program (exit status 1: "WARNING: All fasta records in input files were shorter than the k-mer size (k)." when records were skipped, else "ERROR: Did not find fasta records in "input files"." - the
-    /// program prints the words "input files", not the file name); here it is an <see cref="ArgumentException"/> with that text.
+    /// The sketches of the inputs, as <c>Sketch.cpp</c> <c>sketchFile</c> / <c>sketchFileOrSequence</c> make them: one per file (all its records of at least k symbols together; a read set with <paramref name="reads"/>) or, with <paramref name="individual"/>, one per sequence
+    /// of at least k symbols, named by its id. A file without such a record stops the program (exit status 1: "WARNING: All fasta records in input files were shorter than the k-mer size (k)." when records were skipped, else "ERROR: Did not
+    /// find fasta records in "input files"." - the program prints the words "input files", not the file name); here it is an <see cref="ArgumentException"/> with that text.
     /// </summary>
-    private static List<Named> Sketches(IReadOnlyList<MashInput> inputs, string paramName, int k, int sketchSize, uint seed, bool canonical, bool individual, CancellationToken cancellationToken)
+    private static List<Named> Sketches(IReadOnlyList<MashInput> inputs, string paramName, int k, int sketchSize, uint seed, bool canonical, bool individual, CancellationToken cancellationToken, MashReadsOptions? reads = null)
     {
+        if (reads is not null && individual)
+            throw new ArgumentException("Reads mode (-r) is incompatible with -i.", paramName);
         var list = new List<Named>();
         for (int index = 0; index < inputs.Count; index++)
         {
@@ -111,15 +128,21 @@ public static class MashCommands
             if (individual)
             {
                 foreach (var r in input.Records.Where(r => r.Sequence.Length >= k))              // Sketch.cpp: a sequence shorter than k is not sketched
-                    list.Add(new Named(r.Id, KmerAnalyzer.CreateMinHashSketch(r.Sequence, k, sketchSize, canonical, seed, cancellationToken)));
+                    list.Add(new Named(r.Id, r.Comment ?? "", KmerAnalyzer.CreateMinHashSketch(r.Sequence, k, sketchSize, canonical, seed, cancellationToken)));
                 continue;
             }
 
-            if (!input.Records.Any(r => r.Sequence.Length >= k))
-                throw new ArgumentException(input.Records.Count > 0
-                    ? $"WARNING: All fasta records in input files were shorter than the k-mer size ({k})."
-                    : "ERROR: Did not find fasta records in \"input files\".", paramName);
-            list.Add(new Named(input.Name, KmerAnalyzer.CreateMinHashSketch(input.Records.Select(r => r.Sequence), k, sketchSize, canonical, seed, cancellationToken)));
+            var usable = input.Records.Where(r => r.Sequence.Length >= k).ToList();
+            if (usable.Count == 0)
+                throw new ArgumentException(NoUsableRecordMessage(input, k), paramName);
+            if (reads is null)
+            {
+                list.Add(new Named(input.Name, FileComment(usable, usable.Count), KmerAnalyzer.CreateMinHashSketch(usable.Select(r => r.Sequence), k, sketchSize, canonical, seed, cancellationToken)));
+                continue;
+            }
+
+            var sketch = KmerAnalyzer.CreateReadsMinHashSketch([.. usable.Select(r => r.Sequence)], k, sketchSize, canonical, seed, reads.MinCopies, reads.TargetCoverage, reads.GenomeSize, out int used, cancellationToken);
+            list.Add(new Named(input.Name, FileComment(usable, used), sketch));
         }
 
         return list;
@@ -149,17 +172,19 @@ public static class MashCommands
     /// <param name="maxPValue"><c>-v</c> (0 - 1).</param>
     /// <param name="maxDistance"><c>-d</c> (0 - 1).</param>
     /// <param name="cancellationToken">Polled per input, per sketched window block and per compared pair.</param>
+    /// <param name="reads">The inputs are read sets (<c>-r -m -c -g</c>); null = genomes.</param>
+    /// <param name="showComments"><c>-C</c>: <c>name:comment</c> (the comment of a file sketch is the first record's, <c>[N seqs] ... [...]</c> for several).</param>
     /// <exception cref="ArgumentException">A file without a record of at least k symbols (the program's exit status 1 with "WARNING: All fasta records in input files were shorter than the k-mer size (k)." or "ERROR: Did not find fasta records in &quot;input files&quot;."), a null input / record field, or no reference sequence at all with <paramref name="individual"/>.</exception>
     public static string Dist(IReadOnlyList<MashInput> references, IReadOnlyList<MashInput> queries, int k = 21, int sketchSize = KmerAnalyzer.DefaultMashSketchSize, uint seed = KmerAnalyzer.DefaultMashSeed,
-        bool canonical = true, bool individual = false, bool table = false, double maxPValue = 1.0, double maxDistance = 1.0, CancellationToken cancellationToken = default)
+        bool canonical = true, bool individual = false, bool table = false, double maxPValue = 1.0, double maxDistance = 1.0, CancellationToken cancellationToken = default, MashReadsOptions? reads = null, bool showComments = false)
     {
         ArgumentNullException.ThrowIfNull(references);
         ArgumentNullException.ThrowIfNull(queries);
         RequireFraction(maxPValue, nameof(maxPValue), "-v");
         RequireFraction(maxDistance, nameof(maxDistance), "-d");
         RequireSketchParameters(k, sketchSize);
-        var refs = Sketches(references, nameof(references), k, sketchSize, seed, canonical, individual, cancellationToken);
-        var qs = Sketches(queries, nameof(queries), k, sketchSize, seed, canonical, individual, cancellationToken);
+        var refs = Sketches(references, nameof(references), k, sketchSize, seed, canonical, individual, cancellationToken, reads);
+        var qs = Sketches(queries, nameof(queries), k, sketchSize, seed, canonical, individual, cancellationToken, reads);
         if (refs.Count == 0)                                                                       // mash dist -i with no reference sequence of k symbols: division by zero in the program (SIGFPE)
             throw new ArgumentException($"No reference sequence is at least k = {k} symbols long (mash dist -i has nothing to compare with and crashes).", nameof(references));
         var sb = new StringBuilder();
@@ -189,7 +214,7 @@ public static class MashCommands
                 }
                 else if (pass)
                 {
-                    sb.Append(r.Name).Append('\t').Append(q.Name).Append('\t').Append(Num(c.Distance)).Append('\t').Append(Num(c.PValue)).Append('\t').Append(c.SharedHashes).Append('/').Append(c.Denominator).Append('\n');
+                    sb.Append(r.Name).Append(showComments ? ":" + r.Comment : "").Append('\t').Append(q.Name).Append(showComments ? ":" + q.Comment : "").Append('\t').Append(Num(c.Distance)).Append('\t').Append(Num(c.PValue)).Append('\t').Append(c.SharedHashes).Append('/').Append(c.Denominator).Append('\n');
                 }
             }
 
@@ -208,14 +233,15 @@ public static class MashCommands
     /// <param name="cancellationToken">Polled per input, per sketched window block and per compared pair.</param>
     /// <exception cref="ArgumentException">As <see cref="Dist"/>.</exception>
     public static string Triangle(IReadOnlyList<MashInput> inputs, int k = 21, int sketchSize = KmerAnalyzer.DefaultMashSketchSize, uint seed = KmerAnalyzer.DefaultMashSeed,
-        bool canonical = true, bool individual = false, bool edgeList = false, double maxPValue = 1.0, double maxDistance = 1.0, CancellationToken cancellationToken = default)
+        bool canonical = true, bool individual = false, bool edgeList = false, double maxPValue = 1.0, double maxDistance = 1.0, CancellationToken cancellationToken = default, MashReadsOptions? reads = null, bool showComments = false)
     {
         ArgumentNullException.ThrowIfNull(inputs);
         RequireFraction(maxPValue, nameof(maxPValue), "-v");
         RequireFraction(maxDistance, nameof(maxDistance), "-d");
         RequireSketchParameters(k, sketchSize);
         edgeList |= maxPValue < 1.0 || maxDistance < 1.0;
-        var sketches = Sketches(inputs, nameof(inputs), k, sketchSize, seed, canonical, individual, cancellationToken);
+        var sketches = Sketches(inputs, nameof(inputs), k, sketchSize, seed, canonical, individual, cancellationToken, reads);
+        string Label(Named n) => showComments ? n.Comment : n.Name;                               // -C: the comment instead of the id
         if (sketches.Count == 0 && !edgeList)                                                      // mash triangle -i of sequences all shorter than k: the matrix writer aborts (std::out_of_range)
             throw new ArgumentException($"No sequence is at least k = {k} symbols long (mash triangle -i aborts on an empty matrix).", nameof(inputs));
         var sb = new StringBuilder();
@@ -225,7 +251,7 @@ public static class MashCommands
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (!edgeList)
-                sb.Append(sketches[index].Name);
+                sb.Append(Label(sketches[index]));
             for (int i = 0; i < index; i++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -233,7 +259,7 @@ public static class MashCommands
                 if (edgeList)
                 {
                     if (Passes(c, maxPValue, maxDistance))
-                        sb.Append(sketches[index].Name).Append('\t').Append(sketches[i].Name).Append('\t').Append(Num(c.Distance)).Append('\t').Append(Num(c.PValue)).Append('\t').Append(c.SharedHashes).Append('/').Append(c.Denominator).Append('\n');
+                        sb.Append(Label(sketches[index])).Append('\t').Append(Label(sketches[i])).Append('\t').Append(Num(c.Distance)).Append('\t').Append(Num(c.PValue)).Append('\t').Append(c.SharedHashes).Append('/').Append(c.Denominator).Append('\n');
                 }
                 else
                 {
@@ -271,35 +297,6 @@ public static class MashCommands
         return "ERROR: Did not find fasta records in \"input files\".";
     }
 
-    private sealed record ScreenQuery(string Name, string Comment, long Length, MinHashSketch Sketch);
-
-    private static List<ScreenQuery> ScreenQueries(IReadOnlyList<MashInput> queries, int k, int sketchSize, uint seed, bool canonical, bool individual, CancellationToken cancellationToken)
-    {
-        var list = new List<ScreenQuery>();
-        foreach (var input in queries)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (individual)
-            {
-                foreach (var r in input.Records.Where(r => r.Sequence.Length >= k))
-                    list.Add(new ScreenQuery(r.Id, r.Comment ?? "", r.Sequence.Length, KmerAnalyzer.CreateMinHashSketch(r.Sequence, k, sketchSize, canonical, seed, cancellationToken)));
-                continue;
-            }
-
-            var usable = input.Records.Where(r => r.Sequence.Length >= k).ToList();
-            if (usable.Count == 0)
-                throw new ArgumentException(NoUsableRecordMessage(input, k), nameof(queries));
-            // Sketch.cpp sketchFile: the comment of a file's sketch is "name comment" of its first record; with more records "[N seqs] ... [...]"
-            string comment = usable[0].Id + " " + (usable[0].Comment ?? "");
-            if (usable.Count > 1)
-                comment = "[" + usable.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) + " seqs] " + comment + " [...]";
-            var sketch = KmerAnalyzer.CreateMinHashSketch(usable.Select(r => r.Sequence), k, sketchSize, canonical, seed, cancellationToken);
-            list.Add(new ScreenQuery(input.Name, comment, sketch.Length, sketch));
-        }
-
-        return list;
-    }
-
     /// <summary>
     /// <c>mash screen [-w] [-i I] [-v P] queries.msh mixture...</c> for nucleotide queries (<c>CommandScreen.cpp</c>, marbl/Mash v2.3; audit A5-10b, B09 F185): the hashes of the query sketches are counted in every window of the mixture
     /// (reads or contigs, all records of all mixture files), and for every query one line <c>identity TAB shared/hashes TAB median-multiplicity TAB p-value TAB query-ID TAB query-comment</c> is written, where
@@ -327,7 +324,7 @@ public static class MashCommands
         if (double.IsNaN(minIdentity) || minIdentity < -1.0 || minIdentity > 1.0)
             throw new ArgumentOutOfRangeException(nameof(minIdentity), minIdentity, "-i must be in -1..1 (mash screen).");
         RequireFraction(maxPValue, nameof(maxPValue), "-v");
-        var refs = ScreenQueries(queries, k, sketchSize, seed, canonical, individual, cancellationToken);
+        var refs = Sketches(queries, nameof(queries), k, sketchSize, seed, canonical, individual, cancellationToken);
         if (refs.Count == 0)
             throw new ArgumentException("No query sequence is at least k symbols long.", nameof(queries));
         foreach (var m in mixtures)
@@ -401,12 +398,12 @@ public static class MashCommands
                     {
                         maxScore = scores[owner];
                         maxIndex = owner;
-                        maxLength = refs[owner].Length;
+                        maxLength = refs[owner].Sketch.Length;
                     }
-                    else if (scores[owner] == maxScore && refs[owner].Length > maxLength)
+                    else if (scores[owner] == maxScore && refs[owner].Sketch.Length > maxLength)
                     {
                         maxIndex = owner;
-                        maxLength = refs[owner].Length;
+                        maxLength = refs[owner].Sketch.Length;
                     }
                 }
 

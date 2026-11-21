@@ -1626,6 +1626,85 @@ public static class KmerAnalyzer
         return bottom.ToArray();
     }
 
+    /// <summary>
+    /// The sketch of a read set (<c>mash sketch -r [-m N] [-c X] [-g SIZE]</c>; <c>MinHashHeap::tryInsert</c> with a minimum multiplicity, <c>Sketch.cpp</c> <c>sketchFile</c>; B09 A5-10b, F185): a hash enters the bottom-<paramref name="sketchSize"/>
+    /// set only after it was seen <paramref name="minCopies"/> times (the noise filter; the hashes pending below the set's largest are counted, those above it are dropped when a hash is evicted), the reads are taken in order until the
+    /// mean multiplicity of the kept hashes reaches <paramref name="targetCoverage"/> (0 = all reads), and the length of the sketch is <paramref name="genomeSize"/> or, when 0, the estimated number of distinct k-mers
+    /// (<c>MinHashHeap::estimateSetSize</c>). The Bloom-filter noise filter (<c>-b</c>) is not part of this port.
+    /// </summary>
+    /// <param name="reads">The reads of at least k symbols, in input order.</param>
+    /// <param name="readsUsed">The number of reads taken before the coverage target was reached.</param>
+    internal static MinHashSketch CreateReadsMinHashSketch(IReadOnlyList<string> reads, int k, int sketchSize, bool canonical, uint seed, int minCopies, double targetCoverage, long genomeSize, out int readsUsed,
+        CancellationToken cancellationToken = default)
+    {
+        bool use64 = MashUses64BitHash(k);
+        var hashes = new SortedSet<ulong>();
+        var counts = new Dictionary<ulong, uint>();
+        var pending = new Dictionary<ulong, uint>();
+        var pendingSorted = new SortedSet<ulong>();
+        double multiplicitySum = 0;
+        void Insert(ulong h)
+        {
+            if (hashes.Count >= sketchSize && h >= hashes.Max)
+                return;
+            if (!counts.TryGetValue(h, out uint have))
+            {
+                pending.TryGetValue(h, out uint seen);
+                if (minCopies <= 1 || seen == (uint)(minCopies - 1))
+                {
+                    counts[h] = (uint)Math.Max(minCopies, 1);
+                    hashes.Add(h);
+                    multiplicitySum += Math.Max(minCopies, 1);
+                    if (minCopies > 1)
+                    {
+                        pending.Remove(h);
+                        pendingSorted.Remove(h);
+                    }
+                }
+                else
+                {
+                    if (seen == 0)
+                        pendingSorted.Add(h);
+                    pending[h] = seen + 1;
+                }
+            }
+            else
+            {
+                counts[h] = have + 1;
+                multiplicitySum++;
+            }
+
+            if (hashes.Count > sketchSize)
+            {
+                ulong top = hashes.Max;
+                multiplicitySum -= counts[top];
+                counts.Remove(top);
+                hashes.Remove(top);
+                while (pendingSorted.Count > 0 && pendingSorted.Max > top)          // a pending hash above the evicted one can never enter
+                {
+                    ulong drop = pendingSorted.Max;
+                    pendingSorted.Remove(drop);
+                    pending.Remove(drop);
+                }
+            }
+        }
+
+        readsUsed = 0;
+        foreach (var read in reads)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            readsUsed++;
+            StreamKmerHashes(read, k, canonical, seed, h => Insert(use64 ? h : (uint)h), cancellationToken);
+            if (targetCoverage > 0 && hashes.Count > 0 && multiplicitySum / hashes.Count >= targetCoverage)
+                break;
+        }
+
+        long length = genomeSize;
+        if (length == 0 && hashes.Count > 0)
+            length = (long)(ulong)(Math.Pow(2.0, use64 ? 64.0 : 32.0) * hashes.Count / (double)hashes.Max);
+        return new MinHashSketch(k, sketchSize, canonical, seed, use64, length, [.. hashes]);
+    }
+
     /// <summary>The s smallest distinct hash values seen so far (a bounded sorted set; the threshold rejects almost every hash of a long sequence in O(1)).</summary>
     private sealed class BottomHashes(int capacity)
     {

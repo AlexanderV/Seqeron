@@ -36,6 +36,11 @@ Mash 2.3 'mash dist': MinHash (bottom-s) sketches of the reference and query fil
 | `table` | boolean | No | -t: table output. (default: false) |
 | `maxPValue` | number | No | -v: maximum p-value to report (0 - 1, default 1). (default: 1.0) |
 | `maxDistance` | number | No | -d: maximum distance to report (0 - 1, default 1). (default: 1.0) |
+| `reads` | boolean | No | -r: the inputs are read sets (noise filter -m, target coverage -c, genome size -g); incompatible with individual. (default: false) |
+| `minCopies` | integer | No | -m: minimum copies of each k-mer required to pass the noise filter of a read set (default 1; only with reads). |
+| `targetCoverage` | number | No | -c: target coverage of a read set: sketching concludes when it is reached (default 0 = read everything; only with reads). |
+| `genomeSize` | integer | No | -g: genome size used as the sketch length of a read set (default 0 = estimated; only with reads). |
+| `showComments` | boolean | No | -C: show the comment fields with the names (name:comment for dist, the comment instead of the id for triangle; the comment of a file sketch is the first record's name and comment, '[N seqs] ... [...]' for several). (default: false) |
 
 ## Output Schema
 
