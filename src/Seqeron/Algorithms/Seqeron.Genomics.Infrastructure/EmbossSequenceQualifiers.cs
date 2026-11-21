@@ -89,17 +89,23 @@ public sealed record EmbossSequenceQualifiers
     /// <param name="program">The EMBOSS program.</param>
     /// <param name="commandLine">The qualifier text; null or blank = none.</param>
     /// <returns>The sequence qualifiers per input and the report qualifiers the text set.</returns>
-    public static (IReadOnlyList<EmbossSequenceQualifiers> Inputs, EmbossReportQualifiers Report) ParseInputsAndReport(string program, string? commandLine)
+    public static (IReadOnlyList<EmbossSequenceQualifiers> Inputs, EmbossReportQualifiers Report) ParseInputsAndReport(string program, string? commandLine) => ParseInputsAndReport(program, commandLine, false);
+
+    /// <summary>
+    /// <see cref="ParseInputsAndReport(string, string?)"/> that also takes the qualifiers of the program's FEATURE outputs (<c>-offormat -ofopenfile -ofname -ofextension -ofdirectory -ofsingle</c> of <c>-aoutfeat</c> / <c>-boutfeat</c>, with
+    /// the output's number (<c>-offormat4</c>, <c>-offormat5</c> of diffseq) or without; A5-8c3c, B09 F220), returned in <see cref="EmbossReportQualifiers.FeatureOutputs"/>.
+    /// </summary>
+    public static (IReadOnlyList<EmbossSequenceQualifiers> Inputs, EmbossReportQualifiers Report) ParseInputsAndReport(string program, string? commandLine, bool featureOutputs)
     {
         ArgumentNullException.ThrowIfNull(program);
         var profile = EmbossAcdProfiles.Get(program);
-        var inputs = Resolve(profile, commandLine, out var report);
+        var inputs = Resolve(profile, commandLine, out var report, true, featureOutputs);
         return (inputs, report);
     }
 
     private static EmbossSequenceQualifiers[] Resolve(AcdProfile profile, string? commandLine) => Resolve(profile, commandLine, out _, allowReport: false);
 
-    private static EmbossSequenceQualifiers[] Resolve(AcdProfile profile, string? commandLine, out EmbossReportQualifiers report, bool allowReport = true)
+    private static EmbossSequenceQualifiers[] Resolve(AcdProfile profile, string? commandLine, out EmbossReportQualifiers report, bool allowReport = true, bool featureOutputs = false)
     {
         report = new EmbossReportQualifiers();
         var result = new EmbossSequenceQualifiers[profile.Inputs.Count];
@@ -116,6 +122,12 @@ public sealed record EmbossSequenceQualifiers
             if (allowReport && item.Master is { Name: "outfile" } && ReportItems.Contains(item.Name))
             {
                 report = ApplyReport(report, item, raw, commandLine);
+                continue;
+            }
+
+            if (featureOutputs && item.Master is { Name: "aoutfeat" or "boutfeat" } && FeatureItems.Contains(item.Name))
+            {
+                report = ApplyFeatureOutput(report, item, raw, commandLine);
                 continue;
             }
 
@@ -138,6 +150,24 @@ public sealed record EmbossSequenceQualifiers
         }
 
         return result;
+    }
+
+    private static readonly HashSet<string> FeatureItems = ["offormat", "ofopenfile", "ofname", "ofextension", "ofdirectory", "ofsingle"];
+
+    // the feature output of -aoutfeat is output 0, the one of -boutfeat output 1; -ofname / -ofextension / -ofdirectory / -ofsingle do not change what is written (a named default file name wins over them; the residue strings have no directory)
+    private static EmbossReportQualifiers ApplyFeatureOutput(EmbossReportQualifiers q, AcdItem item, string raw, string commandLine)
+    {
+        int index = item.Master!.Name == "aoutfeat" ? 0 : 1;
+        if (item.Type == "boolean" && !AcdCommandLine.TryToBool(raw, out _))
+            throw new ArgumentException($"Invalid Y/N value '{raw}' for -{item.Name}.", nameof(commandLine));
+        var outputs = q.FeatureOutputs is { Count: 2 } ? [.. q.FeatureOutputs] : new EmbossFeatureOutQualifiers[] { new(), new() };
+        outputs[index] = item.Name switch
+        {
+            "offormat" => outputs[index] with { Format = raw },
+            "ofopenfile" => outputs[index] with { OpenFile = raw },
+            _ => outputs[index],
+        };
+        return q with { FeatureOutputs = outputs };
     }
 
     private static readonly HashSet<string> ReportItems = ["rformat", "rname", "rextension", "rdirectory", "raccshow", "rdesshow", "rscoreshow", "rstrandshow", "rusashow", "rmaxall", "rmaxseq"];
@@ -271,4 +301,10 @@ public sealed record EmbossSequenceView(string Residues, int Offset, int Offend,
 /// <param name="ShowUsa"><c>-rusashow</c>.</param>
 /// <param name="MaxAll"><c>-rmaxall</c> (0 = no limit).</param>
 /// <param name="MaxSeq"><c>-rmaxseq</c> (0 = no limit).</param>
-public sealed record EmbossReportQualifiers(string? Format = null, bool ShowAccession = false, bool ShowDescription = false, bool? ShowScore = null, bool? ShowStrand = null, bool ShowUsa = false, int MaxAll = 0, int MaxSeq = 0);
+/// <param name="FeatureOutputs">The qualifiers of the feature outputs (<c>-aoutfeat</c>, <c>-boutfeat</c>) when the text was resolved with them (<see cref="EmbossSequenceQualifiers.ParseInputsAndReport(string, string?, bool)"/>); null = none.</param>
+public sealed record EmbossReportQualifiers(string? Format = null, bool ShowAccession = false, bool ShowDescription = false, bool? ShowScore = null, bool? ShowStrand = null, bool ShowUsa = false, int MaxAll = 0, int MaxSeq = 0, IReadOnlyList<EmbossFeatureOutQualifiers>? FeatureOutputs = null);
+
+/// <summary>The qualifiers of one feature output file of an EMBOSS program.</summary>
+/// <param name="Format"><c>-offormat</c> as typed (null = not given).</param>
+/// <param name="OpenFile"><c>-ofopenfile</c> (the file the program opens instead of the one named on the command line; null = not given).</param>
+public sealed record EmbossFeatureOutQualifiers(string? Format = null, string? OpenFile = null);

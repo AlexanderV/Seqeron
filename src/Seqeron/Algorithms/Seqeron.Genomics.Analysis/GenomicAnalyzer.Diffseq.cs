@@ -207,6 +207,12 @@ public sealed record EmbossDiffseqRequest(string Fasta1, string Fasta2, int Word
 /// <param name="FeatureFile2"><c>-boutfeat</c>: the GFF3 feature file of the second sequence.</param>
 public sealed record EmbossDiffseqOutput(string Report, string FeatureFile1, string FeatureFile2)
 {
+    /// <summary>The name of the file the first feature table is written to (the value of <c>-aoutfeat</c> without a <c>format::</c> prefix, or <c>-ofopenfile</c>); null when the program writes no feature file.</summary>
+    public string? FeatureFileName1 { get; init; }
+
+    /// <summary>The name of the file the second feature table is written to.</summary>
+    public string? FeatureFileName2 { get; init; }
+
     /// <summary>The differences found (positions in the coordinates of the sequences as the program holds them after <c>-sbegin</c> / <c>-send</c> / <c>-sreverse</c>); null when the sequences share no word of the word size.</summary>
     public DiffseqResult? Result { get; init; }
 }
@@ -229,9 +235,10 @@ public static class EmbossDiffseqPrograms
         ArgumentNullException.ThrowIfNull(r);
         ArgumentNullException.ThrowIfNull(r.Fasta1);
         ArgumentNullException.ThrowIfNull(r.Fasta2);
-        var (inputs, rq) = EmbossSequenceQualifiers.ParseInputsAndReport("diffseq", r.ReportQualifiers);
-        var entry1 = ReadEntry(r.Fasta1, inputs[0]);
-        var entry2 = ReadEntry(r.Fasta2, inputs[1]);
+        var (inputs, rq) = EmbossSequenceQualifiers.ParseInputsAndReport("diffseq", r.ReportQualifiers, true);
+        var context = new EmbossFeatureReadContext();
+        var entry1 = ReadEntry(r.Fasta1, inputs[0], context);
+        var entry2 = ReadEntry(r.Fasta2, inputs[1], context);
         var rec1 = entry1.Record;
         var rec2 = entry2.Record;
         var view1 = EmbossInputSequence.Read(rec1.Text, inputs[0], EmbossSequenceType.Any);
@@ -249,7 +256,8 @@ public static class EmbossDiffseqPrograms
         // seqMakeUsa after ajSeqTrim: the range is cut (begin = end = 0) and only a reversed sequence keeps a suffix, "[::r]"
         string usa1 = entry1.Format + "::" + r.FastaFile1 + ":" + rec1.Name + (view1.Reversed ? "[::r]" : ""), usa2 = entry2.Format + "::" + r.FastaFile2 + ":" + rec2.Name + (view2.Reversed ? "[::r]" : "");
         string name2 = rq.ShowUsa ? usa2 : rec2.Name;
-        string file1 = r.FeatureFile1 ?? rec1.Name + ".diffgff", file2 = r.FeatureFile2 ?? rec2.Name + ".diffgff";
+        var out1 = OpenFeatureOutput(r.FeatureFile1 ?? rec1.Name + ".diffgff", rq.FeatureOutputs?[0]);
+        var out2 = OpenFeatureOutput(r.FeatureFile2 ?? rec2.Name + ".diffgff", rq.FeatureOutputs?[1]);
 
         var result = GenomicAnalyzer.DiffseqCore(s1, s2, r.WordSize, r.GlobalDifferences, view1.Reversed, view2.Reversed, r.CancellationToken);
         var reportFeatures = new List<EmbossFeature>();
@@ -330,11 +338,29 @@ public static class EmbossDiffseqPrograms
             tail = tail2.ToString();
         }
 
+        DateTime runDate = r.RunDate ?? DateTime.Now;
+        var featureState = new EmbossFeatureWriteState();
+        string FeatureText(string name, string usa, string residues, bool reversed, List<EmbossFeature> list, int format)
+        {
+            var seq = new EmbossReportSequence(name, usa, "", "", residues, 1, residues.Length, 0, reversed, nuc);
+            var t = new EmbossReport(seq, list, !nuc, nuc ? "N" : "P", TableLength: Math.Max(residues.Length, EmbossReportWriter.UnsignedRegionEnd(list)), WriteWhenEmpty: true);
+            return EmbossReportWriter.WriteFeatureTable(t, format, runDate, "diffseq", featureState) ?? "";
+        }
+
+        // the feature files are written before the report (their writers share a static string with the writers of the report)
+        string featureText1 = "", featureText2 = "";
+        if (result is not null)
+        {
+            featureText1 = FeatureText(rec1.Name, usa1, s1, view1.Reversed, features1, out1.Format);
+            featureText2 = FeatureText(rec2.Name, usa2, s2, view2.Reversed, features2, out2.Format);
+        }
+
         var options = new EmbossReportOptions
         {
             Program = "diffseq",
             CommandLine = r.CommandLine ?? [],
-            RunDate = r.RunDate ?? DateTime.Now,
+            RunDate = runDate,
+            FeatureLeftover = featureState.Leftover,
             ReportFile = r.ReportFile,
             Format = format,
             FormatText = formatText,
@@ -351,30 +377,58 @@ public static class EmbossDiffseqPrograms
             Precision = 3,
             TotalSequences = 2,
             TotalLength = len1 + len2,
-            AdditionalFiles = [new(file1, "Feature file for first sequence"), new(file2, "Feature file for second sequence")],
+            AdditionalFiles = [new(out1.File, "Feature file for first sequence"), new(out2.File, "Feature file for second sequence")],
         };
         var sequence = new EmbossReportSequence(rec1.Name, usa1, rec1.Accession, rec1.Description, s1, 1, len1, view1.Offset, view1.Reversed, nuc);
         var table = new EmbossReport(sequence, reportFeatures, !nuc, nuc ? "N" : "P", TableLength: Math.Max(len1, EmbossReportWriter.UnsignedRegionEnd(reportFeatures)), Tags: options.Tags, WriteWhenEmpty: true);
         string report = EmbossReportWriter.WriteFile(options, [table]);
 
-        string FeatureText(string name, string usa, string residues, bool reversed, List<EmbossFeature> list)
+        if (result is null)
+            return new EmbossDiffseqOutput(report, "", "") { FeatureFileName1 = out1.File, FeatureFileName2 = out2.File };
+        return new EmbossDiffseqOutput(report, featureText1, featureText2)
         {
-            var seq = new EmbossReportSequence(name, usa, "", "", residues, 1, residues.Length, 0, reversed, nuc);
-            var t = new EmbossReport(seq, list, !nuc, nuc ? "N" : "P", TableLength: Math.Max(residues.Length, EmbossReportWriter.UnsignedRegionEnd(list)), WriteWhenEmpty: true);
-            return EmbossReportWriter.Write(t, EmbossReportFormat.Gff, options.RunDate, new EmbossReportOptions { Program = "diffseq", RunDate = options.RunDate, Format = EmbossReportFormat.Gff, Tags = options.Tags });
+            Result = result,
+            FeatureFileName1 = out1.File,
+            FeatureFileName2 = out2.File,
+        };
+    }
+
+    // acdSetFeatout + ajFeattabOutOpen + featoutUfoProcess: the format and the file name of one feature output from its value on the command line (the default is name.diffgff) and -offormat / -ofopenfile
+    private static (int Format, string File) OpenFeatureOutput(string ufo, EmbossFeatureOutQualifiers? q)
+    {
+        string fmt = q?.Format ?? "";
+        string formatstr, file;
+        if (!string.IsNullOrEmpty(q?.OpenFile))
+        {
+            formatstr = fmt;
+            file = q.OpenFile;
+        }
+        else
+        {
+            var m = System.Text.RegularExpressions.Regex.Match(ufo, "^([A-Za-z0-9]*):+(.*)$", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+            string rest = ufo;
+            if (m.Success)
+            {
+                formatstr = m.Groups[1].Value.Length > 0 ? m.Groups[1].Value : "unknown";
+                rest = m.Groups[2].Value;
+            }
+            else
+                formatstr = fmt.Length > 0 ? fmt : "gff";
+            file = System.Text.RegularExpressions.Regex.IsMatch(rest, "^([^:]+)$", System.Text.RegularExpressions.RegexOptions.CultureInvariant) ? rest : "unknown." + formatstr;
         }
 
-        if (result is null)
-            return new EmbossDiffseqOutput(report, "", "");
-        return new EmbossDiffseqOutput(report, FeatureText(rec1.Name, usa1, s1, view1.Reversed, features1), FeatureText(rec2.Name, usa2, s2, view2.Reversed, features2)) { Result = result };
+        int index = EmbossReportWriter.FeatureFormatIndex(formatstr);
+        if (index < 0)
+            index = formatstr.Length == 0 ? 0 : 1;               // featFindOutFormatC: a name that is not a format is written as gff3, an empty one stays "unknown"
+        return (index, file);
     }
 
     // the first entry of the input text in the format of -sformat (or the one the program finds); the plain FASTA reader keeps its own messages
-    private static EmbossEntry ReadEntry(string text, EmbossSequenceQualifiers qualifiers)
+    private static EmbossEntry ReadEntry(string text, EmbossSequenceQualifiers qualifiers, EmbossFeatureReadContext context)
     {
         try
         {
-            return EmbossEntryReader.Read(text, qualifiers.Format);
+            return EmbossEntryReader.Read(text, qualifiers.Format, context);
         }
         catch (ArgumentException e) when (e.Message.StartsWith("Unable to read sequence", StringComparison.Ordinal) && qualifiers.Format is null)
         {

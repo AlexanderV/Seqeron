@@ -144,15 +144,22 @@ public class EmbossDiffseq_Oracle_Tests
     /// (the feature table is reversed and trimmed with the sequence), mixed with FASTA inputs, <c>-sformat1</c> (TestData/Alignment/diffseq_features_oracle.jsonl.gz, scripts/alignment/generate_diffseq_features_oracle.py, 420 runs; the GenBank entries
     /// also reproduce the program's loss of the features when the SOURCE block is followed directly by FEATURES): the report and both GFF3 files byte for byte.
     /// </summary>
-    [Test]
-    public void Diffseq_FeatureTableInputs_EqualTheProgram_AllRows()
+    /// <remarks>
+    /// A5-8c3c (F219): the second file (TestData/Alignment/diffseq_special_tags_oracle.jsonl.gz, the same generator with <c>special</c>, 450 runs) gives every feature 1 - 4 qualifiers of the tags with a special validator
+    /// (anticodon, bio_material, citation, codon, collection_date, compare, cons_splice, estimated_length, inference, lat_lon, mobile_element, ncRNA_class, PCR_primers, replace, rpt_unit, rpt_unit_range, rpt_unit_seq, tag_peptide,
+    /// transl_except, translation, protein_id, db_xref; valid, correctable, bad and other-case values, quoted and unquoted): the bad ones are notes (<c>*name: value</c>), the corrected ones are printed corrected, and
+    /// <c>rpt_unit</c> / <c>rpt_unit_seq</c> share ONE compiled pattern of the program (the first of the two that is checked decides for both entries of the run).
+    /// </remarks>
+    [TestCase("diffseq_features_oracle.jsonl.gz", false)]
+    [TestCase("diffseq_special_tags_oracle.jsonl.gz", true)]
+    public void Diffseq_FeatureTableInputs_EqualTheProgram_AllRows(string resource, bool special)
     {
-        const string name = "Seqeron.Genomics.Tests.TestData.Alignment.diffseq_features_oracle.jsonl.gz";
+        string name = "Seqeron.Genomics.Tests.TestData.Alignment." + resource;
         using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(name) ?? throw new InvalidOperationException($"Embedded oracle '{name}' not found.");
         using var gz = new GZipStream(stream, CompressionMode.Decompress);
         using var reader = new StreamReader(gz);
         var failures = new List<string>();
-        int rows = 0, withFeatures = 0, reversed = 0, trimmed = 0, genbank = 0, embl = 0, complement = 0, join = 0;
+        int rows = 0, withFeatures = 0, reversed = 0, trimmed = 0, genbank = 0, embl = 0, complement = 0, join = 0, badValues = 0, specialPrinted = 0;
         string? line;
         while ((line = reader.ReadLine()) is not null)
         {
@@ -181,6 +188,9 @@ public class EmbossDiffseq_Oracle_Tests
 
             if (report.Contains("Feature: ", StringComparison.Ordinal) || report.Contains("first_feature", StringComparison.Ordinal) || report.Contains("second_feature", StringComparison.Ordinal))
                 withFeatures++;
+            if (report.Contains("note='*", StringComparison.Ordinal)) badValues++;
+            if (report.Contains("lat_lon='", StringComparison.Ordinal) || report.Contains("rpt_unit_seq='", StringComparison.Ordinal) || report.Contains("inference='", StringComparison.Ordinal) || report.Contains("collection_date='", StringComparison.Ordinal))
+                specialPrinted++;
             if (rq.Contains("-sreverse", StringComparison.Ordinal)) reversed++;
             if (rq.Contains("-sbegin", StringComparison.Ordinal) || rq.Contains("-send", StringComparison.Ordinal)) trimmed++;
             if (file1.StartsWith("LOCUS", StringComparison.Ordinal)) genbank++; else embl++;
@@ -201,6 +211,85 @@ public class EmbossDiffseq_Oracle_Tests
         Assert.That(embl, Is.GreaterThan(60));
         Assert.That(complement, Is.GreaterThan(80));
         Assert.That(join, Is.GreaterThan(100));
+        if (special)
+        {
+            Assert.That(badValues, Is.GreaterThan(100), "reports with a bad special value (a note)");
+            Assert.That(specialPrinted, Is.GreaterThan(60), "reports with a valid special value");
+        }
+    }
+
+    /// <summary>
+    /// A5-8c3c (F220): the feature output formats of both feature files (<c>-offormat4</c> / <c>-offormat5</c>: gff, gff2, gff3, bed, embl, em, genbank, gb, ddbj, refseq, refseqp, pir, nbrf, swiss, sw, swissprot, uniprot, dasgff, draw, debug, unknown,
+    /// other case, a name that is no format; the <c>format::file</c> form of <c>-aoutfeat</c>; <c>-ofopenfile</c>; <c>-ofname</c> / <c>-ofextension</c> / <c>-ofsingle</c>) on nucleotide and protein pairs with the sequence qualifiers and the report formats
+    /// (TestData/Alignment/diffseq_featout_oracle.jsonl.gz, scripts/alignment/generate_diffseq_featout_oracle.py, 500 runs): the report (its header names the files) and every file the program wrote, byte for byte, including the empty file
+    /// of a format the program refuses for the kind of sequence and the text one writer leaves in the static string of the library for the next writer (gff2, pir print it in front of their first tag; the report is written after the feature files).
+    /// </summary>
+    [Test]
+    public void Diffseq_FeatureOutputFormats_EqualTheProgram_AllRows()
+    {
+        const string name = "Seqeron.Genomics.Tests.TestData.Alignment.diffseq_featout_oracle.jsonl.gz";
+        using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(name) ?? throw new InvalidOperationException($"Embedded oracle '{name}' not found.");
+        using var gz = new GZipStream(stream, CompressionMode.Decompress);
+        using var reader = new StreamReader(gz);
+        var failures = new List<string>();
+        var formats = new HashSet<string>(StringComparer.Ordinal);
+        int rows = 0, protein = 0, nucleotide = 0, openfile = 0, prefixed = 0, refused = 0;
+        string? line;
+        while ((line = reader.ReadLine()) is not null)
+        {
+            var j = JsonDocument.Parse(line).RootElement;
+            rows++;
+            string rq = j.GetProperty("rq").GetString()!;
+            var cmd = j.GetProperty("cmd").EnumerateArray().Select(x => x.GetString()!).ToList();
+            var names = j.GetProperty("names").EnumerateArray().Select(x => x.GetString()!).ToArray();
+            var request = new EmbossDiffseqRequest(j.GetProperty("fasta1").GetString()!, j.GetProperty("fasta2").GetString()!, j.GetProperty("wordsize").GetInt32(), j.GetProperty("glob").GetBoolean(), rq, cmd,
+                DateTimeOffset.FromUnixTimeSeconds(j.GetProperty("epoch").GetInt64()).UtcDateTime, "a.fa", "b.fa", "o.rep", names[0], names[1]);
+            string? expectedError = j.GetProperty("error").ValueKind == JsonValueKind.Null ? null : j.GetProperty("error").GetString();
+            EmbossDiffseqOutput got;
+            try
+            {
+                got = EmbossDiffseqPrograms.Run(request);
+            }
+            catch (EmbossReportException e) when (expectedError is not null && expectedError.Contains(e.Message, StringComparison.Ordinal))
+            {
+                continue;
+            }
+            catch (Exception e)
+            {
+                failures.Add($"row {j.GetProperty("id")} ({rq}): {e.GetType().Name}: {e.Message}");
+                continue;
+            }
+
+            foreach (System.Text.RegularExpressions.Match m in System.Text.RegularExpressions.Regex.Matches(rq, "-offormat[45] (\\S+)"))
+                formats.Add(m.Groups[1].Value.ToLowerInvariant());
+            if (j.GetProperty("nuc").GetBoolean()) nucleotide++; else protein++;
+            if (rq.Contains("-ofopenfile", StringComparison.Ordinal)) openfile++;
+            if (names.Any(n => n.Contains("::", StringComparison.Ordinal))) prefixed++;
+            var expected = new SortedDictionary<string, string>(StringComparer.Ordinal);
+            foreach (var p in j.GetProperty("files").EnumerateObject())
+                expected[p.Name] = p.Value.ValueKind == JsonValueKind.Null ? "" : p.Value.GetString()!;
+            var actual = new SortedDictionary<string, string>(StringComparer.Ordinal);
+            if (got.FeatureFileName1 is not null) actual[got.FeatureFileName1] = got.FeatureFile1;
+            if (got.FeatureFileName2 is not null) actual[got.FeatureFileName2] = got.FeatureFile2;
+            refused += expected.Values.Count(v => v.Length == 0);
+            string report = j.GetProperty("report").GetString()!;
+            if (got.Report != report)
+                failures.Add($"row {j.GetProperty("id")} ({rq}): report differs at {FirstDifference(got.Report, report)}");
+            else if (!expected.Keys.SequenceEqual(actual.Keys))
+                failures.Add($"row {j.GetProperty("id")} ({rq}): files {string.Join(',', actual.Keys)} instead of {string.Join(',', expected.Keys)}");
+            else
+                foreach (var key in expected.Keys.Where(k => expected[k] != actual[k]))
+                    failures.Add($"row {j.GetProperty("id")} ({rq}): file {key} differs at {FirstDifference(actual[key], expected[key])}");
+        }
+
+        Assert.That(failures, Is.Empty, $"{failures.Count} of {rows}:\n" + string.Join("\n", failures.Take(6)));
+        Assert.That(rows, Is.GreaterThanOrEqualTo(500));
+        Assert.That(formats.Count, Is.GreaterThanOrEqualTo(20), "output formats and names tried");
+        Assert.That(nucleotide, Is.GreaterThan(200));
+        Assert.That(protein, Is.GreaterThan(100));
+        Assert.That(openfile, Is.GreaterThan(10));
+        Assert.That(prefixed, Is.GreaterThan(30));
+        Assert.That(refused, Is.GreaterThan(100), "empty files");
     }
 
     private static string FirstDifference(string a, string b)

@@ -22,6 +22,12 @@ internal enum EmbossLocationBits
     EndUnsure = 4096,
 }
 
+/// <summary>The state the feature library keeps between the features of ONE program run: <c>featRegSpecialRptunitSeq</c> is a static shared by the checks of <c>/rpt_unit</c> and <c>/rpt_unit_seq</c>, each of which compiles ITS pattern into it when it is still empty (the first of the two to run decides for both).</summary>
+internal sealed class EmbossFeatureReadContext
+{
+    public System.Text.RegularExpressions.Regex? RptUnitSeq;
+}
+
 /// <summary>A feature of a feature table as the EMBOSS library holds it (<c>AjSFeature</c>): the (external) type, the location, the strand and the tags in the order they were added; a join / order location is one feature with its exons as <see cref="Subfeatures"/>.</summary>
 internal sealed class EmbossSeqFeature
 {
@@ -62,11 +68,11 @@ internal sealed class EmbossSeqFeatureTable
     /// <summary>
     /// <c>featReadEmbl</c> over the lines of ONE entry: the <c>FT</c> lines of an EMBL entry, the feature lines (five blanks) after <c>FEATURES</c> of a GenBank entry. Reading stops at <c>//</c>.
     /// </summary>
-    /// <exception cref="NotSupportedException">A qualifier whose value the program checks with a validator that is not ported (see <see cref="TagValue"/>).</exception>
-    public static EmbossSeqFeatureTable Read(IEnumerable<string> entryLines)
+    /// <param name="context">The state of the feature library shared by the entries of one program run (<see cref="EmbossFeatureReadContext"/>); null = a fresh one.</param>
+    public static EmbossSeqFeatureTable Read(IEnumerable<string> entryLines, EmbossFeatureReadContext? context = null)
     {
         ArgumentNullException.ThrowIfNull(entryLines);
-        var table = new EmbossSeqFeatureTable();
+        var table = new EmbossSeqFeatureTable { _context = context ?? new EmbossFeatureReadContext() };
         string saveFeature = "", saveLoc = "", saveLine = "";
         bool isGenbank = false;
         foreach (string raw in entryLines)
@@ -410,7 +416,7 @@ internal sealed class EmbossSeqFeatureTable
                 }
 
                 if (ret is not null)
-                    ret.Tags.Add(TagValue(tag, val));
+                    ret.Tags.Add(TagValue(tag, val, _context));
             }
             else if (TvRest(ref tags, out _))
             {
@@ -746,6 +752,8 @@ internal sealed class EmbossSeqFeatureTable
 
     private int _tvDepth;
 
+    private EmbossFeatureReadContext _context = new();
+
     // featEmblTvTagVal: the next "/name=value" of the tag text
     private bool TvTagVal(ref string tags, out string name, out string value)
     {
@@ -869,14 +877,14 @@ internal sealed class EmbossSeqFeatureTable
     }
 
     // ajFeatTagAddSS (DNA table): the canonical tag name and the value as the library stores them
-    private static (string Name, string Value) TagValue(string tag, string value)
+    private static (string Name, string Value) TagValue(string tag, string value, EmbossFeatureReadContext context)
     {
         var (name, kind, known) = EmbossFeatureVocabulary.Tag(tag);
         string v = value;
         switch (kind)
         {
             case "QSPECIAL" or "SPECIAL":
-                if (!SpecialValue(name, ref v))
+                if (!SpecialValue(name, ref v, context))
                     return (EmbossFeatureVocabulary.DefaultTag, "*" + name + ": " + value);
                 break;
             case "QTEXT":
@@ -888,37 +896,46 @@ internal sealed class EmbossSeqFeatureTable
         return (name, v);
     }
 
-    // ajFeattagSpecial: the checks of the special tags of the program that are ported (the values pass or the tag falls back to a note)
-    private static bool SpecialValue(string tag, ref string value)
+    private const System.Text.RegularExpressions.RegexOptions Rx = System.Text.RegularExpressions.RegexOptions.CultureInvariant;
+
+    private static bool Matches(string pattern, string value) => System.Text.RegularExpressions.Regex.IsMatch(value, pattern, Rx);
+
+    // ajFeattagSpecial: the checks (and the corrections) of the special tags; false = the value is bad and the tag becomes a note
+    private static bool SpecialValue(string tag, ref string value, EmbossFeatureReadContext context)
     {
         switch (tag)
         {
-            case "db_xref":
+            case "anticodon":
+                return Matches("^[(]pos:([0-9]+)[.][.]([0-9]+),aa:([^)]+)[)]$", value);
+            case "bio_material" or "culture_collection" or "specimen_voucher":
+                return Matches("^([^:]+)(:([^:]+))?(:(.*))?$", value);
+            case "citation":
                 {
-                    int colon = value.IndexOf(':', StringComparison.Ordinal);
-                    return colon >= 0 && colon + 1 < value.Length;
+                    int cp = 0, i = 0;
+                    bool ret = false;
+                    if (value.Length > 0 && value[cp++] == '[')
+                    {
+                        while (cp < value.Length && char.IsAsciiDigit(value[cp]))
+                        {
+                            i++;
+                            cp++;
+                        }
+
+                        if (cp < value.Length && value[cp++] == ']' && cp >= value.Length)
+                            ret = true;
+                        if (i == 0)
+                            ret = false;
+                    }
+
+                    return ret;
                 }
-            case "protein_id":
-                return ProteinId(value);
-            case "translation":
-                {
-                    string w = RemoveWhite(value);
-                    if (w.Any(c => !char.IsAsciiLetterUpper(c)))
-                        return false;
-                    value = w;
-                    return true;
-                }
-            case "estimated_length":
-                {
-                    bool ok = value == "unknown" || (value.Length > 0 && value[0] is >= '1' and <= '9' && value.All(char.IsAsciiDigit));
-                    return ok;
-                }
+
             case "codon":
                 {
-                    var m = System.Text.RegularExpressions.Regex.Match(value, "^[(]seq:\"([acgt][acgt][acgt])\",aa:([^)]+)[)]$");
+                    var m = System.Text.RegularExpressions.Regex.Match(value, "^[(]seq:\"([acgt][acgt][acgt])\",aa:([^)]+)[)]$", Rx);
                     if (m.Success)
                         return true;
-                    var bad = System.Text.RegularExpressions.Regex.Match(value, "^[(]seq:([acgt][acgt][acgt]),aa:([^)]+)[)]$");
+                    var bad = System.Text.RegularExpressions.Regex.Match(value, "^[(]seq:([acgt][acgt][acgt]),aa:([^)]+)[)]$", Rx);
                     if (bad.Success)
                     {
                         value = "(seq:\"" + bad.Groups[1].Value + "\",aa:" + bad.Groups[2].Value + ")";
@@ -927,9 +944,180 @@ internal sealed class EmbossSeqFeatureTable
 
                     return false;
                 }
+
+            case "collection_date":
+                return CollectionDate(value);
+            case "compare":
+                return Matches("^([A-Z]+[0-9]+([.][1-9][0-9]*)?)$", value);
+            case "cons_splice":
+                return ConsSplice(value);
+            case "db_xref":
+                {
+                    int colon = value.IndexOf(':', StringComparison.Ordinal);
+                    return colon >= 0 && colon + 1 < value.Length;
+                }
+
+            case "estimated_length":
+                return Matches("^(unknown|[1-9][0-9]*)$", value);
+            case "inference":
+                return Inference(value);
+            case "lat_lon":
+                return Matches("^[0-9.]+ [NS] [0-9.]+ [EW]$", value);
+            case "mobile_element":
+                {
+                    var m = System.Text.RegularExpressions.Regex.Match(value, "^([^:]+)(:(.*))?$", Rx);
+                    return m.Success && Array.IndexOf(["transposon", "retrotransposon", "integron", "insertion sequence", "non-LTR retrotransposon", "SINE", "MITE", "LINE", "other"], m.Groups[1].Value) >= 0;
+                }
+
+            case "ncRNA_class":
+                return Array.IndexOf(["antisense_RNA", "autocatalytically_spliced_intron", "ribozyme", "hammerhead_ribozyme", "RNase_P_RNA", "RNase_MRP_RNA", "telomerase_RNA", "guide_RNA", "rasiRNA",
+                    "scRNA", "siRNA", "miRNA", "piRNA", "snoRNA", "snRNA", "SRP_RNA", "vault_RNA", "Y_RNA", "other"], value) >= 0;
+            case "PCR_primers":
+                return Matches("^((fwd|rev)_name: [^,]+, )?(fwd|rev)_seq: [acgtubdhkmnrsvwxy<>i]+(, ((fwd|rev)_name: [^,]+, )?(fwd|rev)_seq: [acgtubdhkmnrsvwxy<>i]+)*", value);
+            case "protein_id":
+                return ProteinId(value);
+            case "replace":
+                value = RemoveWhite(value);
+                return Matches("^([abcdghkmnrstuvwxyABCDGHKMNRSTUVWXY/-]*)$", value);
+            case "rpt_unit":
+                {
+                    context.RptUnitSeq ??= new System.Text.RegularExpressions.Regex("^([abcdghkmnrstuvwxyABCDGHKMNRSTUVWXY0-9/();-]+)$", Rx);
+                    return Matches("^(([a-zA-Z0-9_]+:)?[0-9]+)[.][.]([0-9]+)$", value) || Matches("^(([a-zA-Z0-9_]+:)?[a-zA-Z0-9_]+)$", value)
+                        || Matches("^(complement[(]([a-zA-Z0-9_]+:)?[0-9]+)[.][.]([0-9]+)[)]$", value) || context.RptUnitSeq.IsMatch(value);
+                }
+
+            case "rpt_unit_range" or "tag_peptide":
+                return Matches("^(([a-zA-Z0-9_]+:)?[0-9]+)[.][.]([0-9]+)$", value) || Matches("^(([a-zA-Z0-9_]+:)?[a-zA-Z0-9_]+)$", value)
+                    || Matches("^(complement[(]([a-zA-Z0-9_]+:)?[0-9]+)[.][.]([0-9]+)[)]$", value);
+            case "rpt_unit_seq":
+                return RptUnitSeq(ref value, context);
+            case "transl_except":
+                return Matches("^[(]pos:([0-9]+)[.][.]([0-9]+),aa:([^)]+)[)]$", value) || Matches("^[(]pos:complement\\(([0-9]+)[.][.]([0-9]+)\\),aa:([^)]+)[)]$", value)
+                    || Matches("^[(]pos:([0-9]+),aa:([^)]+)[)]$", value) || Matches("^[(]pos:complement\\(([0-9]+)\\),aa:([^)]+)[)]$", value);
+            case "translation":
+                {
+                    string w = RemoveWhite(value);
+                    if (w.Any(c => !char.IsAsciiLetterUpper(c)))
+                        return false;
+                    value = w;
+                    return true;
+                }
+
             default:
-                throw new NotSupportedException($"The special qualifier /{tag} is checked by a validator of the program (ajfeat.c featTagSpecialAll...) that is not ported.");
+                return false;                                           // "Unrecognised special EMBL feature tag"
         }
+    }
+
+    // featTagSpecialAllCollectiondate
+    private static bool CollectionDate(string val)
+    {
+        var m = System.Text.RegularExpressions.Regex.Match(val, "^(([0-9][0-9])[-])?(([ADFJMNOS][A-Za-z][A-Za-z])[-])?([12][7890][0-9][0-9])$", Rx);
+        if (!m.Success)
+            return false;
+        bool ret = true;
+        string day = m.Groups[2].Value, mon = m.Groups[4].Value;
+        if (day.Length > 0)
+        {
+            if (mon.Length == 0)
+                ret = false;
+            int d = int.Parse(day, System.Globalization.CultureInfo.InvariantCulture);
+            if (d < 1 || d > 31)
+                ret = false;
+        }
+
+        if (mon.Length > 0 && Array.FindIndex(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], x => x.Equals(mon, StringComparison.OrdinalIgnoreCase)) < 0)
+            ret = false;
+        return ret;
+    }
+
+    // featTagSpecialAllConssplice
+    private static bool ConsSplice(string val)
+    {
+        bool ret = false;
+        if (!val.StartsWith("(5'site:", StringComparison.Ordinal) || val[^1] != ')')
+            return false;
+        int cp = 8;
+        int cq = cp;
+        while (cp < val.Length && val[cp] != ',')
+            cp++;
+        string beg = val[cq..cp];
+        if (string.CompareOrdinal(val, cp, ",3'site:", 0, 8) != 0)
+            return false;
+        cp += 8;
+        cq = cp;
+        while (cp < val.Length && val[cp] != ')')
+            cp++;
+        string end = val[cq..cp];
+        if (cp < val.Length && val[cp] == ')' && cp + 1 == val.Length && beg.Length > 0 && end.Length > 0)
+            ret = true;
+        return ret && SpliceWord(beg) && SpliceWord(end);
+    }
+
+    private static bool SpliceWord(string w)
+        => w.Length > 0 && w[0] switch
+        {
+            'Y' => w.Equals("yes", StringComparison.OrdinalIgnoreCase),
+            'N' => w.Equals("no", StringComparison.OrdinalIgnoreCase),
+            'A' => w.Equals("absent", StringComparison.OrdinalIgnoreCase),
+            _ => false,
+        };
+
+    private static readonly string[] InferenceTypes =
+    [
+        "non-experimental evidence, no additional details recorded", "similar to sequence", "similar to AA sequence", "similar to AA sequence sequence", "similar to DNA sequence", "similar to RNA sequence",
+        "similar to RNA sequence, mRNA", "similar to RNA sequence,mRNA", "similar to RNA sequence, EST", "similar to RNA sequence, other RNA", "profile", "nucleotide motif", "protein motif", "ab initio prediction", "alignment",
+    ];
+
+    // featTagSpecialAllInference
+    private static bool Inference(string val)
+    {
+        var m = System.Text.RegularExpressions.Regex.Match(val, "^([^:]+)(:([^:]+)?)*$", Rx);
+        if (!m.Success)
+            return false;
+        string typ = m.Groups[1].Value;
+        foreach (string t in InferenceTypes)
+        {
+            if (!typ.StartsWith(t, StringComparison.Ordinal))
+                continue;
+            if (typ == t)
+                return true;
+            if (SameSpeciesSuffix(typ) == typ.Length - t.Length)
+                return true;
+        }
+
+        return false;
+    }
+
+    // the suffix of an inference type the checks of featTagSpecialAllInference accept (the first of the three endings that fits decides)
+    private static int SameSpeciesSuffix(string typ)
+    {
+        if (typ.EndsWith(" (same species)", StringComparison.Ordinal))
+            return 15;
+        if (typ.EndsWith("(same species)", StringComparison.Ordinal))
+            return 14;
+        return typ.EndsWith(" (same species) ", StringComparison.Ordinal) ? 16 : -1;
+    }
+
+    private static readonly string[] RptUnitSeqSpecials =
+    [
+        "a-rich", "at-rich", "c-rich", "ct-rich", "CT-rich", "g-rich", "ga-rich", "GA-rich", "gc-rich", "t-rich", "CT_AT", "TA_CA", "AGAT_AGAC", "GAA-repeat", "GGA-repeat", "tgtc (imperfect)", "score", "direct", "dispersed", "inverted",
+        "ca repeat", "cac/caa/cag compound repeat", "cata interrupted repeat", "CA dinucleotide microsatellite", "gaa/gac compound repeat", "dodecanucleotide", "heptamer", "gttt..gt", "telunit", "af(12)", "alu", "Alu", "AluJo", "AluSg",
+        "AluY", "hif2DR", "B1element", "L1MC/D", "L1MC3", "L1MD3", "L1ME", "RMER17B", "RLTR11A", "poly A", "core-vntr1", "core-vntr2",
+    ];
+
+    // featTagSpecialAllRptunitseq
+    private static bool RptUnitSeq(ref string value, EmbossFeatureReadContext context)
+    {
+        context.RptUnitSeq ??= new System.Text.RegularExpressions.Regex("^([ abcdghkmnrstuvwxyABCDGHKMNRSTUVWXY0-9_/\\[\\]\\(\\):;.,+-]+)$", Rx);
+        if (context.RptUnitSeq.IsMatch(value))
+        {
+            value = RemoveWhite(value);
+            return true;
+        }
+
+        if (Matches("^((complement[\\(])?[<]?[0-9]+[.][.]?[>]?[0-9]+[\\)]?)$", value))
+            return true;
+        return Array.IndexOf(RptUnitSeqSpecials, value) >= 0;
     }
 
     // featTagSpecialAllProteinid

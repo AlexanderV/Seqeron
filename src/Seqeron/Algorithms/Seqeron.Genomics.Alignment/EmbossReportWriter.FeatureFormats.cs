@@ -150,11 +150,23 @@ public static partial class EmbossReportWriter
                 }
                 else if (name == "note")
                     line = "/note=" + QuoteEmbl(tag.Value) + "\n";
+                else if (name == "replace")
+                    line = ReplaceTag(tag.Value, true);
                 else
-                    throw new ArgumentException($"The feature tag '{tag.Name}' is not in the tag vocabulary of the report layer (note, rpt_type).");
+                    throw new ArgumentException($"The feature tag '{tag.Name}' is not in the tag vocabulary of the report layer (note, rpt_type, replace).");
                 TagWrap(line, margin, preftag, sb);
+                st.Leftover = CollapseWhite(line);
             }
         }
+    }
+
+    // the QSPECIAL tag replace (featTagSpecialAllReplace: white space removed, then bases and "/" "-" only): the quoted value, or the note "replace: value" the writers make of a bad one
+    private static string ReplaceTag(string value, bool embl)
+    {
+        string v = new([.. value.Where(c => !char.IsWhiteSpace(c))]);
+        if (v.All(c => "abcdghkmnrstuvwxyABCDGHKMNRSTUVWXY/-".Contains(c, StringComparison.Ordinal)))
+            return "/replace=" + QuoteEmbl(v) + "\n";
+        return embl ? "/note=\"replace: " + QuoteEmbl(v) + "\"" : "";
     }
 
     // ----------------------------------------------------------------------------------------------- pir ----
@@ -191,7 +203,8 @@ public static partial class EmbossReportWriter
                     continue;
                 }
 
-                sb.Append(' ').Append(tag.Value);
+                sb.Append(st.Leftover).Append(' ').Append(tag.Value);
+                st.Leftover = "";
             }
 
             sb.Append(comment).Append('\n');
@@ -272,6 +285,7 @@ public static partial class EmbossReportWriter
             }
 
             SwissWrap(line.ToString(), 75, "FT                                ", sb);
+            st.Leftover = "";
         }
     }
 
@@ -316,16 +330,19 @@ public static partial class EmbossReportWriter
                 string name = tag.Name.ToLowerInvariant();
                 sb.Append("         <NOTE>");
                 string v = tag.Value;
+                string note;
                 if (name == "note" && v.Length > 0 && v[0] == '*')
                 {
                     v = v[1..];
                     int sp = v.IndexOf(' ');
                     string w = sp < 0 ? v : v[..sp];
                     string rest = sp < 0 ? "" : v[(sp + 1)..].TrimStart();
-                    sb.Append(w).Append(':').Append(rest);
+                    note = w + ":" + rest;
                 }
                 else
-                    sb.Append(name).Append(':').Append(v);
+                    note = name + ":" + v;
+                sb.Append(note);
+                st.Leftover = note;
                 sb.Append("</NOTE>\n");
             }
 

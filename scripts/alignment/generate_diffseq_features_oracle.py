@@ -62,8 +62,49 @@ def locations(rnd, n):
     return 'join(%d..%d,J00194.1:%d..%d)' % (parts[0][0], parts[0][1], parts[1][0], parts[1][1])
 
 
+# the special tags of ajFeattagSpecial (A5-8c3c): valid, correctable and bad values, quoted as a feature table has them
+SPECIAL = False
+SPECIAL_VALUES = {
+    'anticodon': ['(pos:1..3,aa:Ala)', '(pos:12..14,aa:Met)', '(pos:complement(1..3),aa:Ala)', 'pos:1..3', '(pos:1..3,aa:)'],
+    'bio_material': ['ATCC:12345', 'ABC', 'a:b:c', ':x', 'a b:c d', ''],
+    'culture_collection': ['ATCC:1', 'DSM:99:x', 'plain', ':bad'],
+    'specimen_voucher': ['UAM:Mamm:12345', 'x:y', 'v'],
+    'citation': ['[1]', '[12]', '[]', '[a]', '1', '[1', '[1] x', '[12]]'],
+    'codon': ['(seq:"atg",aa:Met)', '(seq:atg,aa:Met)', '(seq:"ATG",aa:Met)', '(seq:"at",aa:M)', '(seq:"tga",aa:TERM)'],
+    'collection_date': ['12-Jan-2001', 'Jan-2001', '2001', '31-Dec-1999', '32-Jan-2001', '12-2001', 'xx-Jan-2001', '12-Foo-2001', '15-Mar-2700', '01-sep-1980', '15-Oct-1799'],
+    'compare': ['AB123456.1', 'X5.2', 'ab1', 'AB123456', 'AB123456.0', 'ABC123.10'],
+    'cons_splice': ['(5\'site:YES,3\'site:NO)', '(5\'site:yes,3\'site:absent)', '(5\'site:ABSENT,3\'site:Yes)', '(5\'site:maybe,3\'site:no)', '(5\'site:yes)', '(5\'site:,3\'site:no)', '(5\'site:no,3\'site:no'],
+    'estimated_length': ['unknown', '100', '0', '05', 'abc', '1000000'],
+    'inference': ['similar to sequence:RefSeq:NP_1.1', 'ab initio prediction:Glimmer', 'profile:Pfam:PF0001', 'alignment:Clustal', 'bogus:thing', 'similar to AA sequence (same species):UniProtKB:P12345',
+                  'similar to DNA sequence(same species):INSD:AB1', 'similar to RNA sequence, mRNA:INSD:AB2', 'protein motif:Prosite:PS0001', 'nucleotide motif', 'non-experimental evidence, no additional details recorded', 'ab initio prediction (same species)'],
+    'lat_lon': ['12.5 N 33.1 E', '12 S 3 W', '12.5 N 33.1', 'x N 3 E', '1.2.3 N 4 E', '12 n 3 e'],
+    'mobile_element': ['transposon', 'transposon:Tn5', 'insertion sequence:IS1', 'integron:x', 'bogus', 'LINE', 'other:why', 'SINE:Alu x'],
+    'ncRNA_class': ['miRNA', 'snoRNA', 'other', 'bogus', 'RNase_P_RNA', 'tRNA', 'SRP_RNA'],
+    'PCR_primers': ['fwd_name: f1, fwd_seq: acgt, rev_name: r1, rev_seq: tgca', 'fwd_seq: acgtn', 'rev_seq: ACGT', 'fwd_seq: acgt, rev_seq: tgcaz', 'fwd_name: a, fwd_seq: a<b>c', 'x'],
+    'replace': ['a', 'acgt', 'a c g', '', 'AC/GT', 'xyz', 'acgtq', 'N', 'a-c'],
+    'rpt_unit': ['1..5', 'abc', 'AB123456.1:5..9', 'complement(1..5)', 'acgt(10)', 'xx:yy', 'g(1)cx', '(ac)3'],
+    'rpt_unit_range': ['1..5', 'x:1..5', 'abc', 'complement(3..9)', 'a b', '5'],
+    'tag_peptide': ['1..5', 'x:1..5', 'complement(3..9)', 'foo'],
+    'rpt_unit_seq': ['acgt', 'ACGT (imperfect)', 'a-rich', 'AluSg', 'poly A', '1..5', 'complement(1..5)', 'xyz', 'ct_at', '(ac)n', 'ca repeat', 'core-vntr1', 'tgtc (imperfect)', 'AB c', 'GAA-repeat'],
+    'transl_except': ['(pos:1..3,aa:Sec)', '(pos:complement(1..3),aa:Trp)', '(pos:5,aa:TERM)', '(pos:complement(5),aa:OTHER)', '(pos:1..3)', 'pos:1..3,aa:Sec', '(pos:x,aa:Sec)'],
+    'translation': ['MKTAYIAK', 'MKT AYI AK', 'mktayiak', 'MKT*', 'MK1', 'M  K'],
+    'protein_id': ['AAA12345.1', 'AAA12345', 'CAB1234567.2', 'ABC', 'AA12345.1', 'Q1234.1'],
+    'db_xref': ['taxon:9606', 'x', 'a:', ':b', 'GI:1'],
+}
+
+
+def special_qualifier(rnd):
+    tag = rnd.choice(sorted(SPECIAL_VALUES))
+    val = rnd.choice(SPECIAL_VALUES[tag])
+    if rnd.random() < 0.15: tag = rnd.choice([tag, tag.upper(), tag.lower(), tag.capitalize()])
+    if rnd.random() < 0.1: return (tag, val)
+    return (tag, '"%s"' % val.replace('"', '""'))
+
+
 def qualifiers(rnd):
     quals = []
+    if SPECIAL:
+        return [special_qualifier(rnd) for _ in range(rnd.choice([1, 1, 2, 3, 4]))]
     for _ in range(rnd.choice([0, 1, 2, 3, 4, 6])):
         r = rnd.random()
         if r < 0.15: quals.append(('gene', '"%s"' % rnd.choice(['abc', 'recA', 'dnaK', 'x1'])))
@@ -136,6 +177,8 @@ def entry(rnd, fmt, name, desc, seq, features):
 
 
 def main(out, n, seed):
+    global SPECIAL
+    SPECIAL = len(sys.argv) > 4 and sys.argv[4] == 'special'
     rnd = random.Random(seed)
     rows = []
     with tempfile.TemporaryDirectory() as d:

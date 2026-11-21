@@ -260,6 +260,9 @@ public sealed record EmbossReportOptions
     /// <summary>The program closes the report (<c>ajReportClose</c>: the <c># Total_sequences ...</c> footer); etandem / equicktandem do not (only the end of the file is written by the file close).</summary>
     public bool WriteFooter { get; init; } = true;
 
+    /// <summary>What the feature writers left in the static string of <c>ajfeatwrite.c</c> before the report is written (a PIR report prints it in front of its first note; diffseq writes its feature files first).</summary>
+    public string FeatureLeftover { get; init; } = "";
+
     /// <summary>The program writes the report even when the feature table is empty (etandem, equicktandem); fuzznuc, fuzzpro and fuzztran write only tables with a feature.</summary>
     public bool WriteEmptyTables { get; init; }
 

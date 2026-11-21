@@ -92,9 +92,29 @@ public class EmbossProgramToolsTests
         Assert.That(r.Report, Does.Contain("Feature: gene 20-60 gene='abc'\nFeature: CDS 25-35 note='a note'\n"));
         Assert.That(r.Report, Does.Contain("Feature: misc_feature 28-33 gene='x1'\n"));
         Assert.That(r.Report, Does.Contain("SEQA 31-31 Length: 1\n"));
-        // a special qualifier whose check is not ported is refused
-        string special = genbank.Replace("/translation=\"MKV\"", "/collection_date=\"2020\"", StringComparison.Ordinal);
-        Assert.Throws<ArgumentException>(() => AnalysisTools.Diffseq(special, embl, 5, false));
+        // the special qualifiers (A5-8c3c, F219): a valid value is kept, a bad one is a note, a correctable one is corrected (the program also warns on stderr)
+        string special = genbank.Replace("/translation=\"MKV\"", "/collection_date=\"2020\"\n                     /lat_lon=\"12.5 N 33.1\"\n                     /replace=\"a c g\"", StringComparison.Ordinal);
+        var s2 = AnalysisTools.Diffseq(special, embl, 5, false);
+        Assert.That(s2.Report, Does.Contain("Feature: CDS 25-35 note='a note' collection_date='2020' note='*lat_lon: 12.5 N 33.1' replace='acg'\n"));
+    }
+
+    [Test]
+    public void Diffseq_FeatureOutputFormats_AsTheProgram()
+    {
+        // diffseq 6.6.0 a.fa b.fa -wordsize 5 -offormat4 embl -offormat5 bed (A5-8c3c, F220): each feature file in its own format, and the files the tool names
+        const string seq = "TTTCCTCATGCAATTCAAAACCATGTCCGTAATGTAGGCGAAATAGTAAACCATTTTACGGAGGATACCAAATTCCTCCT";
+        string snp = seq[..30] + "C" + seq[31..];
+        var r = AnalysisTools.Diffseq(seq, snp, 5, false, "seqa", "seqb", "-offormat4 embl -offormat5 bed");
+        Assert.That(r.FeatureFile1, Is.EqualTo("FH   Key             Location/Qualifiers\nFH\nFT   conflict        31..31\nFT                   /note=\"SNP in seqb\"\nFT                   /replace=\"C\"\n"));
+        Assert.That(r.FeatureFile2, Is.EqualTo("track name=seqb description=\"EMBOSS:6.6.0.0\" useScore=0\nseqb\t30\t30\tsequence_conflict\t0\t+\t30\t30\t0\t1\t0\t1\n"));
+        Assert.That(r.FeatureFileName1, Is.EqualTo("seqa.diffgff"));
+        // a protein pair in the Swiss-Prot and PIR formats; a format the program refuses for the kind of sequence writes an empty file
+        var p = AnalysisTools.Diffseq("MKTAYIAKQRQISFVKSHFSRQ", "MKTAYIAKQRQISFVKTHFSRQ", 3, false, "pa", "pb", "-offormat4 swiss -offormat5 pir");
+        Assert.That(p.FeatureFile1, Is.EqualTo("FT   CONFLICT     17     17       S -> T.\n"));
+        Assert.That(p.FeatureFile2, Is.EqualTo("F;17/Region: T -> S, sequence_conflict\n"));
+        var refused = AnalysisTools.Diffseq("MKTAYIAKQRQISFVKSHFSRQ", "MKTAYIAKQRQISFVKTHFSRQ", 3, false, "pa", "pb", "-offormat4 embl");
+        Assert.That(refused.FeatureFile1, Is.Empty);
+        Assert.That(refused.FeatureFileName1, Is.EqualTo("pa.diffgff"));
     }
 
     [Test]

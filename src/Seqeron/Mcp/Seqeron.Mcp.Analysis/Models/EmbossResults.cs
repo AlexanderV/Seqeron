@@ -53,14 +53,14 @@ public record MegaMergerResult(string MergedSequence, string Report, WordMatchIt
 /// <summary>One region of difference of <c>diffseq</c>: 1-based coordinates in both sequences (a gap has length 0: its start is after the gap, its end before it).</summary>
 public record DiffseqDifferenceItem(int Start1, int End1, int Length1, int Start2, int End2, int Length2);
 
-/// <summary>Result of <c>diffseq</c>: the differences, the overlap of the two sequences (-1 when no match), the substitution counts of a nucleotide pair, the report text (default format <c>diffseq</c>) and the two GFF3 feature files.</summary>
+/// <summary>Result of <c>diffseq</c>: the differences, the overlap of the two sequences (-1 when no match), the substitution counts of a nucleotide pair, the report text (default format <c>diffseq</c>) and the two feature files (GFF3 unless <c>-offormat4</c> / <c>-offormat5</c> name another format; <c>FeatureFileName1</c> / <c>FeatureFileName2</c> = the file each is written to).</summary>
 public record WordmatchHitItem(string Pattern, int PatternStart, string Query, int QueryStart, int Length);
 
 /// <summary>Result of <c>wordmatch</c>: the matches (0-based starts; every match is extended to the right beyond its word), the statistics and the program's files.</summary>
 public record WordmatchToolResult(WordmatchHitItem[] Matches, int PatternCount, long AllMatches, long SumLength, string Alignments, string Log, string FeatureFile1, string FeatureFile2);
 
 /// <summary>Result of <c>diffseq</c>: see <see cref="DiffseqToolResult"/>.</summary>
-public record DiffseqToolResult(DiffseqDifferenceItem[] Differences, int OverlapStart1, int OverlapEnd1, int OverlapStart2, int OverlapEnd2, int Snps, int Transitions, int Transversions, string Report, string FeatureFile1, string FeatureFile2);
+public record DiffseqToolResult(DiffseqDifferenceItem[] Differences, int OverlapStart1, int OverlapEnd1, int OverlapStart2, int OverlapEnd2, int Snps, int Transitions, int Transversions, string Report, string FeatureFile1, string FeatureFile2, string? FeatureFileName1 = null, string? FeatureFileName2 = null);
 
 /// <summary>A match of a <c>nucmer_clusters</c> cluster: 1-based starts (the second one in the reverse-complemented query on the reverse strand), the length left after the overlap cut and the overlap.</summary>
 public record NucmerClusterMatchItem(long Start1, long Start2, long Length, long Overlap);

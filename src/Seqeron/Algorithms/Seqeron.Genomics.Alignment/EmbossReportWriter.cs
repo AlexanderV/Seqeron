@@ -77,6 +77,7 @@ public static partial class EmbossReportWriter
         public string SubTail = "";
         public int FormatIndex;
         public bool Opened;
+        public string Leftover = "";          // the static featoutStr of ajfeatwrite.c between two writers (feature output)
     }
 
     private static void Validate(EmbossReportOptions options, IReadOnlyList<EmbossReport> tables, string tablesParam = "tables")
@@ -115,7 +116,7 @@ public static partial class EmbossReportWriter
         Validate(options, tables);
         if (!Enum.IsDefined(options.Format))
             throw new ArgumentOutOfRangeException(nameof(options), options.Format, "Unknown report format.");
-        var st = new State { O = options, FormatIndex = EmbossReportFormats.IndexOf(options.Format) };
+        var st = new State { O = options, FormatIndex = EmbossReportFormats.IndexOf(options.Format), Leftover = options.FeatureLeftover };
         var flags = EmbossReportFormats.Flags(options.Format);
         if (flags.MinTags > options.Tags.Count)
             throw new EmbossReportException($"Report format '{FormatName(st)}' needs {flags.MinTags} tags, has only {options.Tags.Count}");
@@ -268,7 +269,7 @@ public static partial class EmbossReportWriter
         ["SO:0000110"] = new("SO:0000110", "misc_feature", "misc_feature", "sequence_feature", "other", "misc_feature", "", ""),
         ["SO:0000839"] = new("SO:0000839", "polypeptide_region", "misc_feature", "sequence_feature", "other", null, "Region", "REGION"),          // diffseq's generic feature in a protein table
         ["polypeptide_region"] = new("polypeptide_region", "polypeptide_region", "misc_feature", "polypeptide_region", "other", null, "Region", "REGION"),   // wordmatch's misc_feature on a protein table
-        ["conflict"] = new("conflict", "conflict", "conflict", "sequence_conflict", "other", "conflict", "", ""),         // diffseq's feature files (-aoutfeat / -boutfeat)
+        ["conflict"] = new("SO:0001085", "sequence_conflict", "conflict", "sequence_conflict", "other", "conflict", "Region", "CONFLICT"),         // diffseq's feature files (-aoutfeat / -boutfeat)
     };
 
     private static TypeInfo TypeOf(EmbossFeature f)
