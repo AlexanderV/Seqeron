@@ -1,0 +1,10 @@
+[
+ {
+  "id": "Z15",
+  "desc": "a read of no bytes is not an error (the loop does not end)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "if (n <= 0) throw new IOException",
+  "new": "if (n < 0) throw new IOException",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ }
+]

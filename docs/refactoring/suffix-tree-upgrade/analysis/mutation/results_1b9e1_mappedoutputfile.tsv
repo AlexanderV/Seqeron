@@ -1,0 +1,45 @@
+Z27	a clean unit writes even when no run is open	killed(68 failed: ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(100),ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(4096),ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(4097))[only]			22
+Z01	the ranges are not sorted	killed(16 failed: ClearOutside_MakesEverythingOutsideTheKeptRangesZero_AndTouc,ClearOutside_MakesEverythingOutsideTheKeptRangesZero_AndTouc,ClearOutside_MakesEverythingOutsideTheKeptRangesZero_AndTouc)[only]			26
+Z14	a chunk is one byte shorter	killed(73 failed: ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(100),ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(4096),ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(4097))[only]			26
+Z28	a run is written one unit late	killed(47 failed: ClearOutside_FindsOneByteAtEveryEdge_OfAGapOfALengthThatIsNo,ClearOutside_FindsOneByteAtEveryEdge_OfAGapOfALengthThatIsNo,ClearOutside_FindsOneByteAtEveryEdge_OfAGapOfALengthThatIsNo)[only]			13
+Z02	the last gap (up to the end of the file) is not cleared	killed(26 failed: ClearOutside_AFileShorterThanItsLength_IsAnIoException,ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(100),ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(4096))[only]			16
+Z29	a run is written from the wrong place	killed(23 failed: ClearOutside_FindsOneByteAtEveryEdge_OfAGapOfALengthThatIsNo,ClearOutside_FindsOneByteAtEveryEdge_OfAGapOfALengthThatIsNo,ClearOutside_FindsOneByteAtEveryEdge_OfAGapOfALengthThatIsNo)[only]			12
+Z30	a run is written from the start of the chunk	killed(41 failed: ClearOutside_FindsOneByteAtEveryEdge_OfAGapOfALengthThatIsNo,ClearOutside_FindsOneByteAtEveryEdge_OfAGapOfALengthThatIsNo,ClearOutside_FindsOneByteAtEveryEdge_OfAGapOfALengthThatIsNo)[only]			6
+Z03	a range that starts beyond the file does not end the gap at the file	survived			12
+Z31	a run is not closed after it is written	killed(47 failed: ClearOutside_FindsOneByteAtEveryEdge_OfAGapOfALengthThatIsNo,ClearOutside_FindsOneByteAtEveryEdge_OfAGapOfALengthThatIsNo,ClearOutside_FindsOneByteAtEveryEdge_OfAGapOfALengthThatIsNo)[only]			11
+Z04	a gap of no bytes is also visited	survived			12
+Z32	the run that is open at the end of the chunk is not written	killed(33 failed: ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(100),ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(4096),ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(4097))[only]			10
+Z05	the end of a range does not move the cursor over a nested range (the last range wins)	killed(5 failed: ClearOutside_MakesEverythingOutsideTheKeptRangesZero_AndTouc,ClearOutside_MakesEverythingOutsideTheKeptRangesZero_AndTouc,ClearOutside_MakesEverythingOutsideTheKeptRangesZero_AndTouc)[only]			11
+Z33	the run at the end of the chunk is written one byte short	killed(32 failed: ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(100),ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(4096),ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(4097))[only]			11
+Z06	the cursor is not moved past a kept range	killed(63 failed: ClearOutside_EmptyKeepClearsTheWholeFile_AFullKeepReadsNothi,ClearOutside_FindsOneByteAtEveryEdge_OfAGapOfALengthThatIsNo,ClearOutside_FindsOneByteAtEveryEdge_OfAGapOfALengthThatIsNo)[only]			9
+Z34	the run at the end of the chunk is written a whole unit	killed(31 failed: ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(100),ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(4096),ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(4097))[only]			11
+Z07	the cursor is moved one byte past a kept range	killed(54 failed: ClearOutside_FindsOneByteAtEveryEdge_OfAGapOfALengthThatIsNo,ClearOutside_FindsOneByteAtEveryEdge_OfAGapOfALengthThatIsNo,ClearOutside_FindsOneByteAtEveryEdge_OfAGapOfALengthThatIsNo)[only]			12
+Z35	the zeros are written one byte short	killed(14 failed: ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(100),ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(4096),ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(4097))[only]			13
+Z08	the result swaps its two numbers	killed(69 failed: ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(100),ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(4096),ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(4097))[only]			11
+Z36	the zeros are written one byte late	killed(24 failed: ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(100),ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(4096),ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(4097))[only]			12
+Z09	the lengths of the file and of the ranges are not checked for sign (a negative length)	killed(1 failed: ClearOutside_RefusesWhatItCannotUse)[only]			12
+Z37	the cleared bytes are not counted	killed(66 failed: ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(100),ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(4096),ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(4097))[only]			10
+Z10	a null list of ranges is not refused	survived			11
+O01	the clearing is done only together with a cut	survived			10
+Z11	a null handle is not refused	survived			10
+O02	the keep ranges are not applied	killed(1 failed: OpenExisting_WithKeep_CutsThenClears_AndReportsIt_WithoutKee)[only]			10
+Z12	the chunk is one byte shorter than the step	killed(41 failed: ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(100),ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(4096),ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(4097))[only]			10
+Z13	a chunk is not cut at the end of the gap	killed(73 failed: ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(100),ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(4096),ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(4097))[only]			4
+O03	a file that has no keep ranges is cleared whole	killed(1 failed: OpenExisting_WithKeep_CutsThenClears_AndReportsIt_WithoutKee)[only]			11
+O04	the file is cleared before it is cut	killed(1 failed: OpenExisting_WithKeep_CutsThenClears_AndReportsIt_WithoutKee)[only]			11
+O05	the length that is cleared is the cut, not the length of the file	survived			10
+O06	the result of the clearing is not kept	killed(1 failed: OpenExisting_WithKeep_CutsThenClears_AndReportsIt_WithoutKee)[only]			10
+O07	a file is cut when it is not longer (it grows)	survived			10
+O08	a file is cut when it is exactly as long as the cut	killed(1 failed: OpenExisting_WithKeep_CutsThenClears_AndReportsIt_WithoutKee)[only]			10
+Z15	a read of no bytes is not an error (the loop does not end)	killed(hang)[only]			905
+Z16	a short read is taken as a full one	killed(1 failed: ClearOutside_AFileShorterThanItsLength_IsAnIoException)[only]			9
+Z17	a short read is read again at the same place	killed(1 failed: ClearOutside_AFileShorterThanItsLength_IsAnIoException)[only]			9
+Z18	a short read is read into the start of the buffer	survived			9
+Z19	the scanned bytes are one short per chunk	killed(73 failed: ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(100),ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(4096),ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(4097))[only]			9
+Z20	the scanned bytes are not counted	killed(73 failed: ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(100),ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(4096),ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(4097))[only]			9
+Z21	the last unit of a chunk is not looked at	killed(2 failed: ClearOutside_WritesTheLastUnitOfAGapOnlyAsFarAsTheGapGoes(1),ClearOutside_WritesTheLastUnitOfAGapOnlyAsFarAsTheGapGoes(40)[only]			9
+Z22	the loop over the units has one more step	survived			10
+Z23	a unit is looked at in full also at the end of the chunk (the stale tail of the buffer)	killed(6 failed: ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(100),ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(4097),ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(9000))[only]			9
+Z24	a unit of zeros is taken for data	killed(67 failed: ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(100),ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(4096),ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(4097))[only]			9
+Z25	only the first non-zero unit of a run opens it: a run starts at the last unit	killed(24 failed: ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(100),ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(4096),ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(4097))[only]			4
+Z26	a run of non-zero units is never started	killed(66 failed: ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(100),ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(4096),ClearOutside_DoesNotTakeTheStaleTailOfItsBufferForData(4097))[only]			4

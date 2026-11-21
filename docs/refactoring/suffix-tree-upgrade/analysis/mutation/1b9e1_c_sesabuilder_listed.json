@@ -1,0 +1,10 @@
+[
+ {
+  "id": "B05",
+  "desc": "the seconds of the normalisation include the whole build so far",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "run.NoteCleared(container.Cleared, Elapsed(tClear));",
+  "new": "run.NoteCleared(container.Cleared, Elapsed(tStart));",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ }
+]

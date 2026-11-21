@@ -1,0 +1,6 @@
+Z03	a range that starts beyond the file does not end the gap at the file	killed(2 failed: ClearOutside_IgnoresRangesThatStartAtOrBeyondTheEndOfTheFile,ClearOutside_IgnoresRangesThatStartAtOrBeyondTheEndOfTheFile)[only]			91
+Z04	a gap of no bytes is also visited	survived			85
+Z10	a null list of ranges is not refused	survived			84
+Z11	a null handle is not refused	killed(1 failed: ClearOutside_RefusesWhatItCannotUse)[only]			86
+Z18	a short read is read into the start of the buffer	survived			84
+Z22	the loop over the units has one more step	survived			86

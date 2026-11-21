@@ -1,0 +1,1 @@
+Z15	a read of no bytes is not an error (the loop does not end)	killed(1 failed: ClearOutside_AFileShorterThanItsLength_IsAnIoException_AndDo)[only]			43

@@ -1,0 +1,4 @@
+Z04	a gap of no bytes is also visited	-	survived		394
+Z10	a null list of ranges is not refused	-	survived		389
+Z18	a short read is read into the start of the buffer	-	survived		401
+Z22	the loop over the units has one more step	-	survived		431

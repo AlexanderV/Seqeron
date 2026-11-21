@@ -1,0 +1,9 @@
+Z03	a range that starts beyond the file does not end the gap at the file	survived			85
+Z04	a gap of no bytes is also visited	survived			85
+Z10	a null list of ranges is not refused	survived			84
+Z11	a null handle is not refused	survived			85
+Z18	a short read is read into the start of the buffer	survived			85
+Z22	the loop over the units has one more step	survived			84
+O01	the clearing is done only together with a cut	killed(218 failed: AResumeThatIsStoppedRightAfterTheNormalisation_AndResumedAga,AResumeThatIsStoppedRightAfterTheNormalisation_AndResumedAga,AResumeThatIsStoppedRightAfterTheNormalisation_AndResumedAga)[only]			84
+O05	the length that is cleared is the cut, not the length of the file	killed(238 failed: AResumeThatIsStoppedRightAfterTheNormalisation_AndResumedAga,AResumeThatIsStoppedRightAfterTheNormalisation_AndResumedAga,AResumeThatIsStoppedRightAfterTheNormalisation_AndResumedAga)[only]			85
+O07	a file is cut when it is not longer (it grows)	killed(1 failed: OpenExisting_CutsALongerFileBack_AndLeavesAShorterOne)[only]			84

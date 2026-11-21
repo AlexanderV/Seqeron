@@ -1,0 +1,50 @@
+[
+ {
+  "id": "Z03",
+  "desc": "a range that starts beyond the file does not end the gap at the file",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "long gapEnd = Math.Min(offset, length);",
+  "new": "long gapEnd = offset;",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "Z04",
+  "desc": "a gap of no bytes is also visited",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "if (gapEnd > at)",
+  "new": "if (gapEnd >= at)",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "Z10",
+  "desc": "a null list of ranges is not refused",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "ArgumentNullException.ThrowIfNull(keep);\n        ArgumentOutOfRangeException.ThrowIfNegative(length);\n        long scanned",
+  "new": "ArgumentOutOfRangeException.ThrowIfNegative(length);\n        long scanned",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "Z11",
+  "desc": "a null handle is not refused",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "ArgumentNullException.ThrowIfNull(file);\n        ArgumentNullException.ThrowIfNull(keep);",
+  "new": "ArgumentNullException.ThrowIfNull(keep);",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "Z18",
+  "desc": "a short read is read into the start of the buffer",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "int n = RandomAccess.Read(file, buffer.AsSpan(got, take - got), chunk + got);",
+  "new": "int n = RandomAccess.Read(file, buffer.AsSpan(0, take - got), chunk + got);",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "Z22",
+  "desc": "the loop over the units has one more step",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "for (int unit = 0; unit < take; unit += UnitBytes)",
+  "new": "for (int unit = 0; unit <= take; unit += UnitBytes)",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ }
+]

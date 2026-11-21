@@ -11,7 +11,7 @@ try:
     EQ = import_module('1b9e1_equivalent').EQUIVALENT
 except ImportError:
     EQ = {}
-SKIP = ('1b9e1_s2_', '1b9e1_s2b_', '1b9e1_b_', '1b9e1_c_')
+SKIP = ('1b9e1_s2_', '1b9e1_s2b_', '1b9e1_b_', '1b9e1_c_', '1b9e1_h_')
 listed = {}
 for f in sorted(glob.glob(os.path.join(HERE, '1b9e1_*_listed.json'))):
     if os.path.basename(f).startswith(SKIP):
@@ -41,7 +41,7 @@ def is_kill(v):
     return v.startswith('killed')
 
 
-s1, s1b, s2, s2b, cl = results(''), results('b_'), results('s2_'), results('s2b_'), results('c_')
+s1, s1b, s2, s2b, cl, hg = results(''), results('b_'), results('s2_'), results('s2b_'), results('c_'), results('h_')
 rows = []
 counts = {}
 for i, m in sorted(listed.items(), key=lambda kv: (kv[1]['file'], kv[0])):
@@ -55,6 +55,8 @@ for i, m in sorted(listed.items(), key=lambda kv: (kv[1]['file'], kv[0])):
         status = 'not run'
     elif v1.startswith('BUILD'):
         status = 'does not compile'
+    elif is_kill(v1) and ('host crash' in v1 or 'hang' in v1) and is_kill(verdict(hg.get(i))):
+        status = 'killed (stage 1, by a hang) and again by an assertion (re-run at the head that holds the guarded test)'
     elif is_kill(v1):
         status = 'killed (stage 1)' + (' by the death or the stop of the host' if ('host crash' in v1 or 'hang' in v1) else '')
     elif is_kill(vb):
