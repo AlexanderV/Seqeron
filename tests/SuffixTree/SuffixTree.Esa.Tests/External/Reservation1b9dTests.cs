@@ -44,6 +44,18 @@ internal sealed class TailSource : IReservationSource
     }
 }
 
+/// <summary>A source whose reservation fails with an exception that is not an <see cref="IOException"/>.</summary>
+internal sealed class ThrowingSource : IReservationSource
+{
+    public bool CanPreallocate => true;
+
+    public FileStream CreatePreallocated(string path, long length) => new(path, FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite);
+
+    public long AvailableFreeBytes(string directory) => -1;
+
+    public void ReserveRange(SafeFileHandle file, long offset, long length, IoCounters? counters) => throw new InvalidOperationException("the reservation failed in a way that is not an IOException");
+}
+
 /// <summary>
 /// A source that does what the system does, except that it cannot tell the free space: the pre-flights of the builder (the early one and the late one) pass whatever the volume holds, so that only the volume itself
 /// can refuse a file or a write (a disk that fills after the pre-flight, which is the window of work package 1b.9d).
@@ -109,6 +121,37 @@ public sealed class Reservation1b9dTests
     }
 
     [Test]
+    public void Grow_InTheExplicitPreallocateMode_Reserves_AsTheAutomaticModeDoes()
+    {
+        using var dir = new TempDir();
+        var source = new TailSource { Can = false, Free = -1 };
+        using MappedOutputFile file = MappedOutputFile.Create(dir.File("g.bin"), 1000, Opts(source, ReservationMode.Preallocate));
+        Assert.That(file.Grow(3000, Opts(source, ReservationMode.Preallocate)), Is.EqualTo(ReservationOutcome.Filled));
+        Assert.That(source.Reserved, Is.EqualTo(new[] { (1000L, 2000L) }));
+    }
+
+    [Test]
+    public void AReservationThatFailsInAnyWay_LeavesTheFileAsItWas()
+    {
+        using var dir = new TempDir();
+        var source = new ThrowingSource();
+        using MappedOutputFile file = MappedOutputFile.Create(dir.File("g.bin"), 1000, new MappedFileOptions { Source = source });
+        Assert.Throws<InvalidOperationException>(() => file.Grow(9000, new MappedFileOptions { Source = source }));
+        Assert.That((file.Length, new FileInfo(file.Path).Length), Is.EqualTo((1000L, 1000L)), "whatever the exception, the length is given back");
+    }
+
+    [Test]
+    public void ZeroFill_OnAFullVolume_CountsOnlyTheBytesThatWereWritten()
+    {
+        using var dir = new TempDir();
+        using SmallVolume volume = SmallVolume.MountOrIgnore(dir, "mnt", 3L << 20);
+        var counters = new IoCounters();
+        using SafeFileHandle h = File.OpenHandle(volume.File("z.bin"), FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite);
+        Assert.Throws<IOException>(() => ZeroFill.Write(h, 0, 8L << 20, counters));
+        Assert.That(counters.ReservedWriteBytes, Is.EqualTo(3L << 20), "the three chunks that fit were written; the fourth met the end of the volume and is not counted");
+    }
+
+    [Test]
     public void Grow_WithNoGrowth_ReservesNothing()
     {
         using var dir = new TempDir();
@@ -161,9 +204,11 @@ public sealed class Reservation1b9dTests
         }
         using (SafeFileHandle h = File.OpenHandle(path, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite))
         {
-            Assert.Throws<ArgumentOutOfRangeException>(() => ZeroFill.Write(h, -1, 1, null));
-            Assert.Throws<ArgumentOutOfRangeException>(() => ZeroFill.Write(h, 0, -1, null));
-            Assert.Throws<ArgumentNullException>(() => ZeroFill.Write(null!, 0, 1, null));
+            Assert.That(Assert.Throws<ArgumentOutOfRangeException>(() => ZeroFill.Write(h, -1, 1, null))!.ParamName, Is.EqualTo("offset"), "refused by ZeroFill, not by the call below it");
+            Assert.That(Assert.Throws<ArgumentOutOfRangeException>(() => ZeroFill.Write(h, 0, -1, null))!.ParamName, Is.EqualTo("length"));
+            Assert.That(Assert.Throws<ArgumentNullException>(() => ZeroFill.Write(null!, 0, 1, null))!.ParamName, Is.EqualTo("file"));
+            ZeroFill.Write(h, 4_000_000, 0, null);
+            Assert.That(RandomAccess.GetLength(h), Is.EqualTo(3_000_000), "no bytes, no write, nothing behind the end");
             ZeroFill.Write(h, 3_000_000, 10, null); // a range behind the end extends the file with zeros
         }
         Assert.That(new FileInfo(path).Length, Is.EqualTo(3_000_010));

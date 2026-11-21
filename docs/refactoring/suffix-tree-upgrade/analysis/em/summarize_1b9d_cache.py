@@ -2,12 +2,15 @@
 """Tables of rows_1b9d_cache.tsv (run_1b9d_cache.sh): one line per cell (input, limit): the runs that finished, the median [min-max] of the time of the whole build and of its phases, the slowdown against the unlimited
 cell of the same input and configuration, the effective cache (time-weighted resident fraction of the TEXT section and the rank file over PH3), the bytes read from the device (the process's read_bytes and the device's
 sectors), the dirty-page amplification (pages dirtied by the process = proc_write_bytes over the bytes that the build wrote: explicit + mapped + the zeros of the reservation) and the device's, RssAnon, memory.failcnt,
-the abandon / thrash flags of E7 and the identity of the container. usage: summarize_1b9d_cache.py rows_1b9d_cache.tsv"""
+the abandon / thrash flags of E7 and the identity of the container. usage: summarize_1b9d_cache.py rows_1b9d_cache.tsv [--compact]   (--compact: the columns that the ADR table keeps; PH4 + later = PH4 + PH5 + PH6 + the checksums and the seal)"""
 import collections, statistics, sys
+
+COMPACT = '--compact' in sys.argv
+PATH = [a for a in sys.argv[1:] if not a.startswith('--')][0]
 
 rows = collections.defaultdict(lambda: collections.defaultdict(dict))  # case -> run -> metric -> value
 notes = {}
-for line in open(sys.argv[1]):
+for line in open(PATH):
     p = line.rstrip('\n').split('\t')
     if len(p) < 6 or p[0] != 'R' or p[1] != '1b9d':
         continue
@@ -50,8 +53,12 @@ for c in cases:
         if t:
             unl[config(c)] = statistics.median(t)
 
-print('| cell | runs finished / started | total s | slowdown | PH1 s | PH2+PH3 s | PH4+PH5 s | PH6 s | CRC + seal s | effective cache (PH3) | device reads MB | dirty amplification (pages / device) | RssAnon peak MB | failcnt | killed | container identical |')
-print('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|')
+if COMPACT:
+    print('| cell | runs finished / started | total s | slowdown | PH1 s | PH2 + PH3 s | PH4 and later s | effective cache (PH3) | device reads GB | dirty amplification pages / device | RssAnon peak MB | result |')
+    print('|---|---|---|---|---|---|---|---|---|---|---|---|')
+else:
+    print('| cell | runs finished / started | total s | slowdown | PH1 s | PH2+PH3 s | PH4+PH5 s | PH6 s | CRC + seal s | effective cache (PH3) | device reads MB | dirty amplification (pages / device) | RssAnon peak MB | failcnt | killed | container identical |')
+    print('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|')
 for c in cases:
     runs = rows[c]
     done = [r for r in runs.values() if r.get('run_done') == 'yes' and r.get('exit_code') == '0']
@@ -61,6 +68,7 @@ for c in cases:
     tail = [(f(r.get('crc_s')) or 0) + (f(r.get('seal_s')) or 0) for r in done]
     ph23 = [(f(r.get('ph23_s')) or 0) for r in done]
     ph45 = [(f(r.get('ph45_s')) or 0) for r in done]
+    later = [a + b + c2 for a, b, c2 in zip(ph45, ph6, tail)]
     dev_read = [(f(r.get('dev_sectors_read')) or 0) * 512 / 1e6 for r in done]
     amp = []
     amp_dev = []
@@ -71,6 +79,13 @@ for c in cases:
             amp_dev.append(float(r['dev_sectors_written_synced']) * 512 / lg)
     killed = ','.join(sorted({r.get('killed', '?') for r in runs.values() if r.get('killed', 'no') != 'no'})) or 'no'
     ident = ' '.join(sorted({r.get('cmp_container', '-') for r in done})) if done else '-'
+    if COMPACT:
+        result = ('killed: ' + killed if killed != 'no' else 'finished') + ('; container ' + ident.replace('reference ', '').replace('reference', 'is the reference') if done else '')
+        print('| %s | %d / %d | %s | %s | %s | %s | %s | %s | %s | %s / %s | %s | %s |' % (
+            c, len(done), len(runs), med(total, '%.1f'), med(slow, '%.2f'), med([f(r.get('ph1_s')) for r in done], '%.2f'), med(ph23, '%.1f'), med(later, '%.1f'),
+            med([f(r.get('eff_resident_ph3')) for r in done], '%.3f'), med([x / 1000 for x in dev_read], '%.1f'), med(amp, '%.2f'), med(amp_dev, '%.2f'),
+            med([f(r.get('ext_rssanon_peak')) for r in done], '%.0f'), result))
+        continue
     print('| %s | %d / %d | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s / %s | %s | %s | %s | %s |' % (
         c, len(done), len(runs), med(total, '%.1f'), med(slow, '%.2f'), med([f(r.get('ph1_s')) for r in done], '%.2f'), med(ph23, '%.1f'), med(ph45, '%.1f'), med(ph6, '%.1f'), med(tail, '%.2f'),
         med([f(r.get('eff_resident_ph3')) for r in done], '%.3f'), med(dev_read, '%.0f'), med(amp, '%.2f'), med(amp_dev, '%.2f'),

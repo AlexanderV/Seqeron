@@ -22,5 +22,13 @@
   "old": "growth = container.Grow(tail.FinalLength, options.Files, counters);",
   "new": "container.Grow(tail.FinalLength, options.Files, counters);",
   "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "R07",
+  "desc": "the container is grown also when it does not grow",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "if (growthBytes > 0)\n                {\n                    growth = container.Grow",
+  "new": "if (growthBytes >= 0)\n                {\n                    growth = container.Grow",
+  "filter": "(FullyQualifiedName~1b9dTests)"
  }
 ]

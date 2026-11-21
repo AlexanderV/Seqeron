@@ -2,7 +2,10 @@
 """Work package 1b.9d, the mutation audit of the code that the package adds: the lists 1b9d_*_listed.json (make_1b9d_mutants.py) are run by run_1b9c_mutants.py in N git worktrees at the same time, Release, watchdog,
 analyzers off, no NUnit.StopOnError (see the docstring of run_1b9c_mutants.py).
   stage 1  the tests of the package and the older tests of the same code (MUTANT_FILTER_ONLY): Reservation1b9dTests, FullDisk1b9dTests, SesaSectionTests, MappedOutputFileTests; results_1b9d_<list>.tsv
-  stage 2  the survivors of stage 1 against the whole default set of SuffixTree.Esa.Tests (every test that is not [Explicit]); 1b9d_s2_<list>_listed.json, results_1b9d_s2_<list>.tsv
+  closed   the survivors of stage 1 run again, at the head that holds the tests written for them (a survivor is a gap of the tests unless it is equivalent): 1b9d_c_<list>_listed.json, results_1b9d_c_<list>.tsv
+  stage 2  the survivors of stage 1 (and of "closed", when it was run) against the whole default set of SuffixTree.Esa.Tests (every test that is not [Explicit]); 1b9d_s2_<list>_listed.json, results_1b9d_s2_<list>.tsv
+  hostdeath  the mutants that stage 1 killed by the death or the stop of the test host (a signal on a mapped page: the property of the package) run again with the tests that do not kill the host, to see whether an
+           assertion sees them too: 1b9d_h_<list>_listed.json, results_1b9d_h_<list>.tsv
 A tmpfs that a mutant left mounted (a killed test host does not unmount it) is unmounted after every list. The runner appends to a result file after every mutant and skips what the file holds, so this can be started again.
 usage: run_1b9d_audit.py <worktree,worktree,...> <commit> [stage1,stage2]"""
 import glob, json, os, queue, subprocess, sys, threading
@@ -11,6 +14,7 @@ ROOT = subprocess.check_output(['git', '-C', HERE, 'rev-parse', '--show-toplevel
 trees, commit = sys.argv[1].split(','), sys.argv[2]
 n = len(trees)
 what = (sys.argv[3] if len(sys.argv) > 3 else 'stage1,stage2').split(',')
+QUIET = '(FullyQualifiedName~Reservation1b9dTests|FullyQualifiedName~SesaSectionTests|FullyQualifiedName~MappedOutputFileTests)&FullyQualifiedName!~CannotHoldTheTarget'
 env = dict(os.environ, PATH=os.environ['PATH'] + ':/root/.dotnet', DOTNET_ROOT='/root/.dotnet', DOTNET_CLI_TELEMETRY_OPTOUT='1', DOTNET_NOLOGO='1', SEQERON_BENCH_DIR='/tmp/stbench')
 env.pop('DOTNET_GCHeapHardLimit', None)
 NEW = 'FullyQualifiedName~Reservation1b9dTests|FullyQualifiedName~FullDisk1b9dTests|FullyQualifiedName~SesaSectionTests|FullyQualifiedName~MappedOutputFileTests'
@@ -67,26 +71,60 @@ if 'stage1' in what:
     jobs = []
     for f in sorted(glob.glob(os.path.join(HERE, '1b9d_*_listed.json'))):
         name = os.path.basename(f)[len('1b9d_'):-len('_listed.json')]
-        if name.startswith('s2_'):
+        if name.startswith(('s2_', 'h_', 'c_')):
             continue
         if not todo(f, 'results_1b9d_%s.tsv' % name):
             continue
         for sl in slices(f, len(json.load(open(f)))):
             jobs.append((f, 'results_1b9d_%s.tsv' % name, {'MUTANT_FILTER_ONLY': NEW, 'MUTANT_TEST_LIMIT': '600'}, sl))
     run_phase(jobs)
+if 'closed' in what:
+    jobs = []
+    for f in sorted(glob.glob(os.path.join(HERE, '1b9d_*_listed.json'))):
+        name = os.path.basename(f)[len('1b9d_'):-len('_listed.json')]
+        if name.startswith(('s2_', 'h_', 'c_')):
+            continue
+        res = os.path.join(HERE, 'results_1b9d_%s.tsv' % name)
+        surv = set(l.split('\t')[0] for l in open(res) if len(l.split('\t')) > 2 and l.split('\t')[2].startswith('survived')) if os.path.exists(res) else set()
+        sel = [m for m in json.load(open(f)) if m['id'] in surv]
+        if sel:
+            f2 = os.path.join(HERE, '1b9d_c_%s_listed.json' % name)
+            json.dump(sel, open(f2, 'w'), indent=1)
+            if todo(f2, 'results_1b9d_c_%s.tsv' % name):
+                jobs.append((f2, 'results_1b9d_c_%s.tsv' % name, {'MUTANT_FILTER_ONLY': NEW, 'MUTANT_TEST_LIMIT': '600'}, ''))
+    run_phase(jobs)
 if 'stage2' in what:
     jobs = []
     for f in sorted(glob.glob(os.path.join(HERE, '1b9d_*_listed.json'))):
         name = os.path.basename(f)[len('1b9d_'):-len('_listed.json')]
-        if name.startswith('s2_'):
+        if name.startswith(('s2_', 'h_', 'c_')):
             continue
         res = os.path.join(HERE, 'results_1b9d_%s.tsv' % name)
         surv = set(l.split('\t')[0] for l in open(res) if len(l.split('\t')) > 2 and l.split('\t')[2].startswith('survived')) if os.path.exists(res) else set()
+        resc = os.path.join(HERE, 'results_1b9d_c_%s.tsv' % name)
+        if os.path.exists(resc):
+            surv &= set(l.split('\t')[0] for l in open(resc) if len(l.split('\t')) > 2 and l.split('\t')[2].startswith('survived'))
         sel = [m for m in json.load(open(f)) if m['id'] in surv]
         if sel:
             f2 = os.path.join(HERE, '1b9d_s2_%s_listed.json' % name)
             json.dump(sel, open(f2, 'w'), indent=1)
             if todo(f2, 'results_1b9d_s2_%s.tsv' % name):
                 jobs.append((f2, 'results_1b9d_s2_%s.tsv' % name, {'MUTANT_STAGES': '2', 'MUTANT_TEST_LIMIT': '1500'}, ''))
+    run_phase(jobs)
+if 'hostdeath' in what:
+    jobs = []
+    for f in sorted(glob.glob(os.path.join(HERE, '1b9d_*_listed.json'))):
+        name = os.path.basename(f)[len('1b9d_'):-len('_listed.json')]
+        if name.startswith(('s2_', 'h_', 'c_')):
+            continue
+        res = os.path.join(HERE, 'results_1b9d_%s.tsv' % name)
+        dead = set(l.split('\t')[0] for l in open(res) if len(l.split('\t')) > 2 and ('host crash' in l.split('\t')[2] or 'killed(hang)' in l.split('\t')[2])) if os.path.exists(res) else set()
+        sel = [m for m in json.load(open(f)) if m['id'] in dead]
+        if sel:
+            f2 = os.path.join(HERE, '1b9d_h_%s_listed.json' % name)
+            json.dump(sel, open(f2, 'w'), indent=1)
+            if todo(f2, 'results_1b9d_h_%s.tsv' % name):
+                for sl in slices(f2, len(sel)):
+                    jobs.append((f2, 'results_1b9d_h_%s.tsv' % name, {'MUTANT_FILTER_ONLY': QUIET, 'MUTANT_TEST_LIMIT': '600'}, sl))
     run_phase(jobs)
 open(os.path.join(HERE, '.audit_1b9d.done'), 'w').write('done\n')

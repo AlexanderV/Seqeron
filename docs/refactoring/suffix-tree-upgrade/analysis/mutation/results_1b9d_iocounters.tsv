@@ -1,0 +1,4 @@
+I01	the reserved bytes are counted one more	killed(7 failed: ADiskThatFillsInTheReservationOfTheTail_IsAnIoException_AndL,TheGrowthOfTheContainer_IsReserved_BeforeAnyByteOfTheLcpIsWr,AReservationThatFails_AtAnyByte_IsAnIoException_AndTheFileIs)[only]			67
+I02	Reset keeps the reserved bytes	killed(1 failed: TheReservedBytes_AreCountedOnTheirOwn_AndReset)[only]			56
+I03	the reserved bytes are the explicit writes	killed(9 failed: ABuildWhoseLcpDoesNotGrow_ReservesNothingMore_AndCountsNothi,ADiskThatFillsInTheReservationOfTheTail_IsAnIoException_AndL,TheGrowthOfTheContainer_IsReserved_BeforeAnyByteOfTheLcpIsWr)[only]			47
+I04	a reserved byte is also an explicit write	killed(2 failed: Grow_ReservesTheNewRange_ThroughTheSource_AndSaysFilled,TheReservedBytes_AreCountedOnTheirOwn_AndReset)[only]			55

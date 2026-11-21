@@ -1,0 +1,37 @@
+G01	the growth is never reserved	killed(host crash: ?)[only]			23
+G02	the growth is reserved only in the sparse mode	killed(host crash: ?)[only]			8
+G03	the automatic mode grows sparse	killed(host crash: ?)[only]			6
+G04	no options mean the sparse mode	killed(2 failed: OnARealVolume_TheGrowthTakesItsBlocksAtOnce,Grow_KeepsTheContent_MapsTheNewTail_AndUpdatesTheLength)[only]			55
+G05	the reserved range starts at the start of the file	killed(13 failed: ADiskThatFillsInTheReservationOfTheTail_IsAnIoException_AndL,AFullDisk_AtEveryBoundaryOfTheBuild_IsASuccessOrAnIoExceptio,AFullDisk_AtEveryPointThatThePhasesReport_IsASuccessOrAnIoEx)[only]			8
+G06	the reserved range is as long as the new file	killed(12 failed: ADiskThatFillsInTheReservationOfTheTail_IsAnIoException_AndL,AFullDisk_AtEveryBoundaryOfTheBuild_IsASuccessOrAnIoExceptio,AFullDisk_AtEveryPointThatThePhasesReport_IsASuccessOrAnIoEx)[only]			9
+G07	the reserved range starts one byte late	killed(6 failed: ADiskThatFillsInTheReservationOfTheTail_IsAnIoException_AndL,TheGrowthOfTheContainer_IsReserved_BeforeAnyByteOfTheLcpIsWr,AReservationThatFails_AtAnyByte_IsAnIoException_AndTheFileIs)[only]			49
+G08	the reserved range ends one byte early	killed(6 failed: ADiskThatFillsInTheReservationOfTheTail_IsAnIoException_AndL,TheGrowthOfTheContainer_IsReserved_BeforeAnyByteOfTheLcpIsWr,AReservationThatFails_AtAnyByte_IsAnIoException_AndTheFileIs)[only]			48
+G14	the check of the free space of the growth is not made	killed(3 failed: TheFreeSpaceIsCheckedBefore_AnyZeroIsWritten,Grow_ChecksTheFreeSpaceOfTheVolume_AndAFailureLeavesTheFileU,Grow_WithNoRoomAtAll_ReportsADiskThatIsFull)[only]			56
+G09	the counters are not given to the source	killed(5 failed: ADiskThatFillsInTheReservationOfTheTail_IsAnIoException_AndL,TheGrowthOfTheContainer_IsReserved_BeforeAnyByteOfTheLcpIsWr,AReservationThatFails_AtAnyByte_IsAnIoException_AndTheFileIs)[only]			47
+Z05	the zero fill counts one byte per write	killed(6 failed: ADiskThatFillsInTheReservationOfTheTail_IsAnIoException_AndL,TheGrowthOfTheContainer_IsReserved_BeforeAnyByteOfTheLcpIsWr,AReservationThatFails_AtAnyByte_IsAnIoException_AndTheFileIs)[only]			48
+G15	the file is one byte short after the growth	killed(4 failed: TheSparseMode_StillGrowsTheContainerSparse_AndReservesNothin,Grow_ExtendsTheFile_EvenWhenTheSourceWritesNothing,Grow_InTheSparseMode_StaysSparse_AsBefore)[only]			55
+G10	a failed reservation does not give the length back	killed(2 failed: AReservationThatFails_AtAnyByte_IsAnIoException_AndTheFileIs,OnARealVolume_AGrowthThatDoesNotFit_IsAnIoException_EvenWhen)[only]			55
+Z06	the zero fill does not count	killed(6 failed: ADiskThatFillsInTheReservationOfTheTail_IsAnIoException_AndL,TheGrowthOfTheContainer_IsReserved_BeforeAnyByteOfTheLcpIsWr,AReservationThatFails_AtAnyByte_IsAnIoException_AndTheFileIs)[only]			47
+Z07	the range ends one byte late	killed(12 failed: ADiskThatFillsInTheReservationOfTheTail_IsAnIoException_AndL,AFullDisk_AtEveryBoundaryOfTheBuild_IsASuccessOrAnIoExceptio,AFullDisk_AtEveryPointThatThePhasesReport_IsASuccessOrAnIoEx)[only]			8
+G16	a reserved growth says Sparse	killed(9 failed: TheGrowthOfTheContainer_IsReserved_BeforeAnyByteOfTheLcpIsWr,AReservationThatFails_AtAnyByte_IsAnIoException_AndTheFileIs,Grow_ExtendsTheFile_EvenWhenTheSourceWritesNothing)[only]			55
+G11	a failed reservation gives back the new length	killed(2 failed: AReservationThatFails_AtAnyByte_IsAnIoException_AndTheFileIs,OnARealVolume_AGrowthThatDoesNotFit_IsAnIoException_EvenWhen)[only]			55
+Z08	the zeros are ones	killed(7 failed: AFullDisk_AtEveryBoundaryOfTheBuild_IsASuccessOrAnIoExceptio,AVolumeOfAnySize_GivesASuccessOrAnIoException_NeverASignal_W,TheGrowthOfTheContainer_IsReserved_BeforeAnyByteOfTheLcpIsWr)[only]			46
+G17	a reserved growth says what the check did	killed(8 failed: TheGrowthOfTheContainer_IsReserved_BeforeAnyByteOfTheLcpIsWr,AReservationThatFails_AtAnyByte_IsAnIoException_AndTheFileIs,Grow_ExtendsTheFile_EvenWhenTheSourceWritesNothing)[only]			54
+G12	a failed reservation is a different exception	killed(5 failed: ADiskThatFillsInTheReservationOfTheTail_IsAnIoException_AndL,AFullDisk_AtEveryPointThatThePhasesReport_IsASuccessOrAnIoEx,AReservationThatFails_AtAnyByte_IsAnIoException_AndTheFileIs)[only]			43
+Z09	a negative offset is accepted	survived			55
+G18	the sparse growth with a known free space says Unchecked	killed(3 failed: TheSparseMode_StillGrowsTheContainerSparse_AndReservesNothin,Grow_InTheSparseMode_StaysSparse_AsBefore,Grow_ChecksTheFreeSpaceOfTheVolume_AndAFailureLeavesTheFileU)[only]			54
+G19	the file is opened without sharing	killed(24 failed: ADiskThatFillsInTheReservationOfTheTail_IsAnIoException_AndL,AFullDisk_AtEveryBoundaryOfTheBuild_IsASuccessOrAnIoExceptio,AFullDisk_AtEveryPointThatThePhasesReport_IsASuccessOrAnIoEx)[only]			7
+G13	the check of the free space refuses exactly enough	killed(1 failed: Grow_ChecksTheFreeSpaceOfTheVolume_AndAFailureLeavesTheFileU)[only]			54
+Z10	a negative length is accepted	killed(1 failed: ZeroFill_WritesExactlyTheRange_NothingBeforeIt_AndNothingBeh)[only]			56
+G20	the file is not extended before the reservation	killed(4 failed: TheSparseMode_StillGrowsTheContainerSparse_AndReservesNothin,Grow_ExtendsTheFile_EvenWhenTheSourceWritesNothing,Grow_InTheSparseMode_StaysSparse_AsBefore)[only]			58
+G21	the length of the object is not updated	killed(20 failed: ADiskThatFillsInTheReservationOfTheTail_IsAnIoException_AndL,AFullDisk_AtEveryBoundaryOfTheBuild_IsASuccessOrAnIoExceptio,AFullDisk_AtEveryPointThatThePhasesReport_IsASuccessOrAnIoEx)[only]			10
+Z11	a null handle is accepted	survived			55
+Z12	the zeros are written from the start of the file	killed(host crash: ?)[only]			10
+D01	the default of the interface reserves nothing	killed(host crash: ?)[only]			13
+D02	the default of the interface reserves half	killed(host crash: ?)[only]			14
+G22	a growth of nothing reserves	killed(2 failed: Grow_WithNoGrowth_ReservesNothing,Grow_RefusesWhileAWriterIsOpen_ToShrink_AndAfterDisposal_And)[only]			57
+D03	the default of the interface does not count	killed(1 failed: Grow_ThroughTheDefaultOfTheInterface_WritesTheZerosInChunksO)[only]			56
+Z01	the chunk of the zero fill is 512 KiB	killed(1 failed: Grow_ThroughTheDefaultOfTheInterface_WritesTheZerosInChunksO)[only]			60
+Z02	the zero fill writes a chunk that is a byte short of the next	killed(3 failed: AReservationThatFails_AtAnyByte_IsAnIoException_AndTheFileIs,Grow_ThroughTheDefaultOfTheInterface_WritesTheZerosInChunksO,ZeroFill_WritesExactlyTheRange_NothingBeforeIt_AndNothingBeh)[only]			55
+Z03	the zero fill also writes at the end of the range	survived			52
+Z04	the last chunk of the zero fill is a full chunk	killed(12 failed: ADiskThatFillsInTheReservationOfTheTail_IsAnIoException_AndL,AFullDisk_AtEveryBoundaryOfTheBuild_IsASuccessOrAnIoExceptio,AFullDisk_AtEveryPointThatThePhasesReport_IsASuccessOrAnIoEx)[only]			7

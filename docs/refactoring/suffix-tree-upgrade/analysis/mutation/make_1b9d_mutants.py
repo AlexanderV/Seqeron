@@ -56,6 +56,14 @@ M = [
     ('Sesa/SesaBuilder.cs', 'B01', 'the builder gives no counters to the growth', 'growth = container.Grow(tail.FinalLength, options.Files, counters);', 'growth = container.Grow(tail.FinalLength, options.Files);'),
     ('Sesa/SesaBuilder.cs', 'B02', 'the builder gives no file options to the growth', 'growth = container.Grow(tail.FinalLength, options.Files, counters);', 'growth = container.Grow(tail.FinalLength, null, counters);'),
     ('Sesa/SesaBuilder.cs', 'B03', 'the builder forgets what the growth did', 'growth = container.Grow(tail.FinalLength, options.Files, counters);', 'container.Grow(tail.FinalLength, options.Files, counters);'),
+    # the second batch: written after the tests that the survivors of the first (Z03, Z09, Z11) and the review of the tests asked for
+    ('MappedOutputFile.cs', 'R01', 'the explicit preallocate mode grows sparse', 'options.Reservation == ReservationMode.Auto ? AutoMode : options.Reservation)', 'options.Reservation == ReservationMode.Auto ? AutoMode : ReservationMode.Sparse)'),
+    ('MappedOutputFile.cs', 'R02', 'only an IOException of the reservation gives the length back', '                    catch\n                    {\n                        RandomAccess.SetLength(handle, previous);', '                    catch (IOException)\n                    {\n                        RandomAccess.SetLength(handle, previous);'),
+    ('MappedOutputFile.cs', 'R03', 'the zero fill counts a chunk before it is written', '            RandomAccess.Write(file, s_zeros.AsSpan(0, take), at);\n            counters?.AddReserved(take);', '            counters?.AddReserved(take);\n            RandomAccess.Write(file, s_zeros.AsSpan(0, take), at);'),
+    ('MappedOutputFile.cs', 'R04', 'the growth does not take the lock of the mapping', '        long previous = Length;\n        lock (_gate)\n        {\n            using (SafeFileHandle handle', '        long previous = Length;\n        {\n            using (SafeFileHandle handle'),
+    ('MappedOutputFile.cs', 'R05', 'a growth that is not longer than the file is also refused', 'ArgumentOutOfRangeException.ThrowIfLessThan(newLength, Length);\n        if (newLength == Length) return ReservationOutcome.Sparse;', 'ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(newLength, Length);\n        if (newLength == Length) return ReservationOutcome.Sparse;'),
+    ('Dist.cs', 'R06', 'the target writer of Dist is not given the counters', 'created.CreateWriter(options.WindowBytes, counters);', 'created.CreateWriter(options.WindowBytes, null);'),
+    ('Sesa/SesaBuilder.cs', 'R07', 'the container is grown also when it does not grow', 'if (growthBytes > 0)\n                {\n                    growth = container.Grow', 'if (growthBytes >= 0)\n                {\n                    growth = container.Grow'),
 ]
 by_file = {}
 bad = 0

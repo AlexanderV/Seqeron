@@ -294,5 +294,45 @@
   "old": "IoCounters? counters) => ZeroFill.Write(file, offset, length, counters);",
   "new": "IoCounters? counters) => ZeroFill.Write(file, offset, length, null);",
   "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "R01",
+  "desc": "the explicit preallocate mode grows sparse",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "options.Reservation == ReservationMode.Auto ? AutoMode : options.Reservation)",
+  "new": "options.Reservation == ReservationMode.Auto ? AutoMode : ReservationMode.Sparse)",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "R02",
+  "desc": "only an IOException of the reservation gives the length back",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "                    catch\n                    {\n                        RandomAccess.SetLength(handle, previous);",
+  "new": "                    catch (IOException)\n                    {\n                        RandomAccess.SetLength(handle, previous);",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "R03",
+  "desc": "the zero fill counts a chunk before it is written",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "            RandomAccess.Write(file, s_zeros.AsSpan(0, take), at);\n            counters?.AddReserved(take);",
+  "new": "            counters?.AddReserved(take);\n            RandomAccess.Write(file, s_zeros.AsSpan(0, take), at);",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "R04",
+  "desc": "the growth does not take the lock of the mapping",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "        long previous = Length;\n        lock (_gate)\n        {\n            using (SafeFileHandle handle",
+  "new": "        long previous = Length;\n        {\n            using (SafeFileHandle handle",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "R05",
+  "desc": "a growth that is not longer than the file is also refused",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "ArgumentOutOfRangeException.ThrowIfLessThan(newLength, Length);\n        if (newLength == Length) return ReservationOutcome.Sparse;",
+  "new": "ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(newLength, Length);\n        if (newLength == Length) return ReservationOutcome.Sparse;",
+  "filter": "(FullyQualifiedName~1b9dTests)"
  }
 ]
