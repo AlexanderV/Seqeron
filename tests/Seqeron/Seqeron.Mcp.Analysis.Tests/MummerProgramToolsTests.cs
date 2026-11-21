@@ -135,4 +135,39 @@ public class MummerProgramToolsTests
             + "# (maximum reference length is 536870908)\n# (maximum query length is 4294967295)\n# reading input file \"/w/qry.fa\" of length 135\n# matching query-file \"/w/qry.fa\"\n# against subject-file \"pre.ntref\"\n4: FINISHING DATA\n5: GENERATING COORDS FILE\n"));
         Assert.That(AnalysisTools.Nucmer(Ref1, Qry1, minMatch: 15, delta: false, prefix: "x").Files!.Keys, Is.EquivalentTo(new[] { "x.cluster" }));
     }
+
+    // combineMUMs -x ref.fa qry.fa pf.gaps and run-mummer3 ref.fa qry.fa pf (MUMmer 3.23): one query with a substitution and two single-base indels (B09 A3-9e2, F210)
+    private const string Cm3Ref = ">ref demo\nggcccagtccagatcctcggaagtcccaactaacgaataagtagatccttctaaatagta\ngtatacgaatgtaatcaacatattaccgcacccaactttgattgggtcataaacaaacat\ncatgtttctggaggcggtttgtgagaccgacaaacgcgatagagtaatcttataaatcag\ngcaaatactcggtcctttctacgggtcgcggccgcgtggtcataggcagttttatgtttc\ntttgaggttaatgggaggca\n";
+    private const string Cm3Qry = ">qry demo\nagatcctcggaagtcccaactaacgaataagtagatccttctaaatagtagtatacgaat\nataatcaacatattaccgcacccaactttgattgggtcataaacaaacatcatgtttctg\ngaggcggttttgagaccgacaaacgcgatagagtaatcttataaatcaggcaaatactcg\nggtcctttctacgggtcgcggccgcgtggtcataggcagttttatgtttctttgaggtta\n";
+
+    [Test]
+    public void CombineMums_AlignsTheGapsOfTheProgram()
+    {
+        var r = AnalysisTools.CombineMums(Cm3Ref, Cm3Qry, "> qry\n      11        1     60    none      -      -\n      72       62     69    none      1      1\n     142      131     51    none      1      0\n     193      183     58      -2      0      1\n> qry Reverse\n", noCoverFiles: true, referenceName: "ref.fa", queryName: "qry.fa");
+        Assert.That(r.Text, Is.EqualTo("> qry\n      11        1     60    none      -      -\n      72       62     69    none      1      1\n     Errors = 1\nA: gtatacgaatgtaatcaacat\nB: gtatacgaatataatcaacat\n   ==========^==========\n     142      131     51    none      1      0\n     Errors = 1\nA: gaggcggtttgtgagaccgac\nB: gaggcggttt-tgagaccgac\n   ==========^==========\n     193      183     58      -2      0      1\n     Errors = 1\nA: aaatactcgg-tcctttctac\nB: aaatactcgggtcctttctac\n   ==========^==========\nRegion:         11 .. 250                1 .. 240              3 / 240         1.25%\n> qry Reverse\n"));
+        Assert.That(r.ErrorsFile, Is.EqualTo("> qry\n      11        1     60    none      -      -       -\n      72       62     69    none      1      1       1\n     142      131     51    none      1      0       1\n     193      183     58      -2      0      1       1\n> qry Reverse\n"));
+        Assert.That(r.Messages, Is.EqualTo("           Ref len = 260\n            acgt's = 260\n        Non acgt's = 0\n Number of matches = 1\nSum of match bases = 240\n   Avg match bases = 240\n"));
+        Assert.That(r.Files.Keys, Is.EquivalentTo(new[] { "witherrors.gaps" }));
+        // without -x the cover files are named after the files: <ref base name>Ref.cover, <query base name>Query.cover
+        Assert.That(AnalysisTools.CombineMums(Cm3Ref, Cm3Qry, "> qry\n      11        1     60    none      -      -\n      72       62     69    none      1      1\n     142      131     51    none      1      0\n     193      183     58      -2      0      1\n> qry Reverse\n", referenceName: "ref.fa", queryName: "qry.fa", errorsFileName: "my.errors").Files.Keys, Is.EquivalentTo(new[] { "my.errors", "refRef.cover", "qryQuery.cover" }));
+        Assert.That(AnalysisTools.CombineMums(Cm3Ref, Cm3Qry, "> qry\n      11        1     60    none      -      -\n      72       62     69    none      1      1\n     142      131     51    none      1      0\n     193      183     58      -2      0      1\n> qry Reverse\n", onlyDifferences: true, noCoverFiles: true).Text, Does.Not.Contain("Region:"));
+        Assert.Throws<FormatException>(() => AnalysisTools.CombineMums(Cm3Ref, Cm3Qry, "> a\n> a Reverse\n> b\n", noCoverFiles: true));    // more forward blocks than query records
+        Assert.Throws<FormatException>(() => AnalysisTools.CombineMums(Cm3Ref, Cm3Qry, "> a\nnot numbers\n", noCoverFiles: true));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.CombineMums("", Cm3Qry, ""));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.CombineMums(Cm3Ref, "", ""));
+    }
+
+    [Test]
+    public void RunMummer3_RunsTheThreeProgramsOfTheScript()
+    {
+        var r = AnalysisTools.RunMummer3(Cm3Ref, Cm3Qry, "ref.fa", "qry.fa", "pf");
+        Assert.That(r.Out, Is.EqualTo("> qry\n      11         1        60\n      72        62        69\n     142       131        51\n     191       181        60\n> qry Reverse\n"));
+        Assert.That(r.Gaps, Is.EqualTo("> qry\n      11        1     60    none      -      -\n      72       62     69    none      1      1\n     142      131     51    none      1      0\n     193      183     58      -2      0      1\n> qry Reverse\n"));
+        Assert.That(r.Align, Is.EqualTo("> qry\n      11        1     60    none      -      -\n      72       62     69    none      1      1\n     Errors = 1\nA: gtatacgaatgtaatcaacat\nB: gtatacgaatataatcaacat\n   ==========^==========\n     142      131     51    none      1      0\n     Errors = 1\nA: gaggcggtttgtgagaccgac\nB: gaggcggttt-tgagaccgac\n   ==========^==========\n     193      183     58      -2      0      1\n     Errors = 1\nA: aaatactcgg-tcctttctac\nB: aaatactcgggtcctttctac\n   ==========^==========\nRegion:         11 .. 250                1 .. 240              3 / 240         1.25%\n> qry Reverse\n"));
+        Assert.That(r.ErrorsGaps, Is.EqualTo("> qry\n      11        1     60    none      -      -       -\n      72       62     69    none      1      1       1\n     142      131     51    none      1      0       1\n     193      183     58      -2      0      1       1\n> qry Reverse\n"));
+        Assert.That(r.Stdout, Is.EqualTo("Find MUMs\nDetermine gaps\nAlign gaps\n"));
+        Assert.That(r.Messages, Is.EqualTo("# reading input file \"ref.fa\" of length 260\n# construct suffix tree for sequence of length 260\n# (maximum reference length is 536870908)\n# (maximum query length is 4294967295)\n# reading input file \"qry.fa\" of length 240\n# matching query-file \"qry.fa\"\n# against subject-file \"ref.fa\"\n           Ref len = 260\n            acgt's = 260\n        Non acgt's = 0\n Number of matches = 1\nSum of match bases = 240\n   Avg match bases = 240\n"));
+        Assert.Throws<FormatException>(() => AnalysisTools.RunMummer3(Cm3Ref, ">q\n"));      // mummer: empty sequence in multiple fasta file; sh -e stops the script
+        Assert.Throws<ArgumentException>(() => AnalysisTools.RunMummer3("", Cm3Qry));
+    }
 }

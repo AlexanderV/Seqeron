@@ -1,0 +1,123 @@
+[
+ {
+  "name": "combine_mums",
+  "summary": "MUMmer combineMUMs: extends the clusters of mgaps and aligns the gaps between their matches (edit distance), byte for byte.",
+  "methodId": "MummerCombineMums.Run",
+  "sourceFile": "MummerCombineMums.cs",
+  "sourcePath": "Seqeron.Genomics.Alignment/MummerCombineMums.cs",
+  "algorithmDoc": "Alignment/Mummer_Package_Programs.md",
+  "oracleScript": "generate_combinemums_oracle.py",
+  "short": "MUMmer combineMUMs: extension and alignment of the mgaps clusters (-D -e -n -N -q -r -S -t -v -x -W), byte for byte.",
+  "after": "nucmer2xfig",
+  "file": "AnalysisTools.MummerPrograms.cs",
+  "description": "MUMmer 3.23 combineMUMs: takes the clusters of exact matches of mgaps and extends every cluster off both ends and fills the gaps between its matches by edit-distance alignments (branch point score 0.272 per match in single precision, or 1 - (1 - errorRate) with -e; give up 200 bases past the best score, at most 500 errors, extensions in steps of 10 000 bases). Output: the gaps file with, under every gap line, the number of errors and the alignment of the gap with 10 bases of each flanking match, and a 'Region:' line after every combined region; -D writes only the positions of the differences, -S every difference, -v every extension, -n lets only a, c, g, t match, -N breaks matches at consecutive non-ACGT characters, -t tags with the FASTA headers, -x suppresses the cover files, -W names the errors file. Byte for byte equal to the installed combineMUMs on 240 + runs (every option, both strands, N / IUPAC characters, extensions of 24 kb) and 3 000 more random runs.",
+  "output": {
+   "text": [
+    "string",
+    "What combineMUMs writes to standard output."
+   ],
+   "errorsFile": [
+    "string",
+    "The file -W names (witherrors.gaps): the gap lines with the number of errors appended."
+   ],
+   "messages": [
+    "string",
+    "What the program writes to standard error: the summary of the matches and, without -x, the coverage of both sequences."
+   ],
+   "files": [
+    "object",
+    "The files the program leaves behind by name: the errors file and the .cover files."
+   ]
+  },
+  "errors": [
+   "Sequence cannot be null or empty",
+   "Gaps file text cannot be null",
+   "combineMUMs: Assertion `Read_String (...)' failed (no reference record, fewer query records than forward blocks)",
+   "combineMUMs: Assertion `sscanf (...) == 3' failed (a line of the gaps file that is not three numbers)"
+  ],
+  "example": {
+   "title": "Alignment of the gaps of one query",
+   "prompt": "Extend and combine the clusters of this gaps file (no cover files).",
+   "input": {
+    "reference": ">ref demo\nggcccagtccagatcctcggaagtcccaactaacgaataagtagatccttctaaatagta\ngtatacgaatgtaatcaacatattaccgcacccaactttgattgggtcataaacaaacat\ncatgtttctggaggcggtttgtgagaccgacaaacgcgatagagtaatcttataaatcag\ngcaaatactcggtcctttctacgggtcgcggccgcgtggtcataggcagttttatgtttc\ntttgaggttaatgggaggca\n",
+    "query": ">qry demo\nagatcctcggaagtcccaactaacgaataagtagatccttctaaatagtagtatacgaat\nataatcaacatattaccgcacccaactttgattgggtcataaacaaacatcatgtttctg\ngaggcggttttgagaccgacaaacgcgatagagtaatcttataaatcaggcaaatactcg\nggtcctttctacgggtcgcggccgcgtggtcataggcagttttatgtttctttgaggtta\n",
+    "gaps": "> qry\n      11        1     60    none      -      -\n      72       62     69    none      1      1\n     142      131     51    none      1      0\n     193      183     58      -2      0      1\n> qry Reverse\n",
+    "noCoverFiles": true,
+    "referenceName": "ref.fa",
+    "queryName": "qry.fa"
+   },
+   "output": {
+    "text": "> qry\n      11        1     60    none      -      -\n      72       62     69    none      1      1\n     Errors = 1\nA: gtatacgaatgtaatcaacat\nB: gtatacgaatataatcaacat\n   ==========^==========\n     142      131     51    none      1      0\n     Errors = 1\nA: gaggcggtttgtgagaccgac\nB: gaggcggttt-tgagaccgac\n   ==========^==========\n     193      183     58      -2      0      1\n     Errors = 1\nA: aaatactcgg-tcctttctac\nB: aaatactcgggtcctttctac\n   ==========^==========\nRegion:         11 .. 250                1 .. 240              3 / 240         1.25%\n> qry Reverse\n",
+    "errorsFile": "> qry\n      11        1     60    none      -      -       -\n      72       62     69    none      1      1       1\n     142      131     51    none      1      0       1\n     193      183     58      -2      0      1       1\n> qry Reverse\n",
+    "messages": "           Ref len = 260\n            acgt's = 260\n        Non acgt's = 0\n Number of matches = 1\nSum of match bases = 240\n   Avg match bases = 240\n",
+    "files": {
+     "witherrors.gaps": "> qry\n      11        1     60    none      -      -       -\n      72       62     69    none      1      1       1\n     142      131     51    none      1      0       1\n     193      183     58      -2      0      1       1\n> qry Reverse\n"
+    }
+   },
+   "note": "combineMUMs -x ref.fa qry.fa pf.gaps: the three gaps of the cluster are aligned (one substitution, one extra base in the query, one extra base in the reference), the region is extended to the ends of the query (240 bases, 3 errors)."
+  }
+ },
+ {
+  "name": "run_mummer3",
+  "summary": "MUMmer run-mummer3: mummer | mgaps | combineMUMs, the files .out .gaps .align .errorsgaps, byte for byte.",
+  "methodId": "MummerRunPrograms.RunMummer3",
+  "sourceFile": "MummerRunPrograms.cs",
+  "sourcePath": "Seqeron.Genomics.Alignment/MummerRunPrograms.cs",
+  "algorithmDoc": "Alignment/Mummer_Package_Programs.md",
+  "oracleScript": "generate_combinemums_oracle.py",
+  "short": "MUMmer run-mummer3: mummer -mumreference -b -l 20 | mgaps | combineMUMs script, files .out .gaps .align .errorsgaps.",
+  "after": "run_mummer1",
+  "file": "AnalysisTools.MummerPrograms.cs",
+  "description": "MUMmer 3.23 run-mummer3: the basic mummer 3 suite - mummer -mumreference -b -l 20, mgaps -l 100 -f .12 -s 600, combineMUMs -x -e .10 -W prefix.errorsgaps - returning the files of the script (out, gaps, align, errorsGaps), its standard output (stdout: the three progress lines) and its standard error (messages: the lines of mummer and the summary of combineMUMs). An empty input file or a query without a sequence stops the script (refused). Byte for byte equal to the installed script on 216 + runs and 1 600 more random runs.",
+  "output": {
+   "out": [
+    "string",
+    "The matches (prefix.out)."
+   ],
+   "gaps": [
+    "string",
+    "The clusters (prefix.gaps)."
+   ],
+   "align": [
+    "string",
+    "The alignments of the gaps (prefix.align)."
+   ],
+   "errorsGaps": [
+    "string",
+    "The gaps with the number of errors (prefix.errorsgaps)."
+   ],
+   "stdout": [
+    "string",
+    "The standard output of the script."
+   ],
+   "messages": [
+    "string",
+    "The standard error of the script."
+   ]
+  },
+  "errors": [
+   "Sequence cannot be null or empty",
+   "mummer: empty sequence in multiple fasta file (the script stops)"
+  ],
+  "example": {
+   "title": "One query with a substitution and two indels",
+   "prompt": "Run the mummer 3 suite on this pair.",
+   "input": {
+    "reference": ">ref demo\nggcccagtccagatcctcggaagtcccaactaacgaataagtagatccttctaaatagta\ngtatacgaatgtaatcaacatattaccgcacccaactttgattgggtcataaacaaacat\ncatgtttctggaggcggtttgtgagaccgacaaacgcgatagagtaatcttataaatcag\ngcaaatactcggtcctttctacgggtcgcggccgcgtggtcataggcagttttatgtttc\ntttgaggttaatgggaggca\n",
+    "query": ">qry demo\nagatcctcggaagtcccaactaacgaataagtagatccttctaaatagtagtatacgaat\nataatcaacatattaccgcacccaactttgattgggtcataaacaaacatcatgtttctg\ngaggcggttttgagaccgacaaacgcgatagagtaatcttataaatcaggcaaatactcg\nggtcctttctacgggtcgcggccgcgtggtcataggcagttttatgtttctttgaggtta\n",
+    "referenceName": "ref.fa",
+    "queryName": "qry.fa",
+    "prefix": "pf"
+   },
+   "output": {
+    "out": "> qry\n      11         1        60\n      72        62        69\n     142       131        51\n     191       181        60\n> qry Reverse\n",
+    "gaps": "> qry\n      11        1     60    none      -      -\n      72       62     69    none      1      1\n     142      131     51    none      1      0\n     193      183     58      -2      0      1\n> qry Reverse\n",
+    "align": "> qry\n      11        1     60    none      -      -\n      72       62     69    none      1      1\n     Errors = 1\nA: gtatacgaatgtaatcaacat\nB: gtatacgaatataatcaacat\n   ==========^==========\n     142      131     51    none      1      0\n     Errors = 1\nA: gaggcggtttgtgagaccgac\nB: gaggcggttt-tgagaccgac\n   ==========^==========\n     193      183     58      -2      0      1\n     Errors = 1\nA: aaatactcgg-tcctttctac\nB: aaatactcgggtcctttctac\n   ==========^==========\nRegion:         11 .. 250                1 .. 240              3 / 240         1.25%\n> qry Reverse\n",
+    "errorsGaps": "> qry\n      11        1     60    none      -      -       -\n      72       62     69    none      1      1       1\n     142      131     51    none      1      0       1\n     193      183     58      -2      0      1       1\n> qry Reverse\n",
+    "stdout": "Find MUMs\nDetermine gaps\nAlign gaps\n",
+    "messages": "# reading input file \"ref.fa\" of length 260\n# construct suffix tree for sequence of length 260\n# (maximum reference length is 536870908)\n# (maximum query length is 4294967295)\n# reading input file \"qry.fa\" of length 240\n# matching query-file \"qry.fa\"\n# against subject-file \"ref.fa\"\n           Ref len = 260\n            acgt's = 260\n        Non acgt's = 0\n Number of matches = 1\nSum of match bases = 240\n   Avg match bases = 240\n"
+   },
+   "note": "run-mummer3 ref.fa qry.fa pf: four MUMs form one cluster; the three gaps between them are aligned and the region (240 bases of the query) has 3 errors."
+  }
+ }
+]

@@ -623,6 +623,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1830"
   },
   {
+    "tool": "combine_mums",
+    "server": "Analysis",
+    "methodId": "MummerCombineMums.Run",
+    "docPath": "docs/mcp/tools/analysis/combine_mums.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/MummerCombineMums.cs"
+  },
+  {
     "tool": "compare_genomes",
     "server": "Analysis",
     "methodId": "ComparativeGenomics.CompareGenomes",
@@ -1551,6 +1558,13 @@
     "server": "Analysis",
     "methodId": "MummerRunPrograms.RunMummer1",
     "docPath": "docs/mcp/tools/analysis/run_mummer1.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/MummerRunPrograms.cs"
+  },
+  {
+    "tool": "run_mummer3",
+    "server": "Analysis",
+    "methodId": "MummerRunPrograms.RunMummer3",
+    "docPath": "docs/mcp/tools/analysis/run_mummer3.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/MummerRunPrograms.cs"
   },
   {

@@ -107,8 +107,10 @@ Servers: `A` = Annotation, `X` = Analysis. `⚠` = guarded / documented-limited 
 | `delta2blocks` | X | MUMmer delta2blocks: alignments of a nucmer delta file as CIGAR lines (M / X / I / D). | `MummerDelta2Blocks.Run` |
 | `mummer_annotate` | X | MUMmer mummer-annotate: edit-distance alignment of the gaps of a gaps file with the error counts. | `MummerAnnotate.Run` |
 | `run_mummer1` | X | MUMmer run-mummer1: mummer -mum -l 20 -r | gaps | mummer-annotate script, files .out .gaps .align .errorsgaps. | `MummerRunPrograms.RunMummer1` |
+| `run_mummer3` | X | MUMmer run-mummer3: mummer -mumreference -b -l 20 | mgaps | combineMUMs script, files .out .gaps .align .errorsgaps. | `MummerRunPrograms.RunMummer3` |
 | `delta2maf` | X | MUMmer delta2maf: nucmer alignments as MAF (a score / s lines), byte for byte. | `MummerDelta2Maf.Run` |
 | `nucmer2xfig` | X | MUMmer nucmer2xfig: xfig plot of a show-coords -c -l file, byte for byte. | `MummerNucmer2Xfig.Run` |
+| `combine_mums` | X | MUMmer combineMUMs: extension and alignment of the mgaps clusters (-D -e -n -N -q -r -S -t -v -x -W), byte for byte. | `MummerCombineMums.Run` |
 | `est2genome` | X | EMBOSS 6.6.0 est2genome: the spliced alignment of ESTs to a genomic sequence (exons, GT/AG and CT/AC introns, both strands, linear-space recursion; 330 runs equal). | `EmbossEst2genomePrograms.Run` |
 | `find_shared_motifs` | X | k-mers shared across sequences | `MotifFinder.FindSharedMotifs` |
 | `shared_motifs_significance` | X | Shared k-mers with RSAT ms_P/ms_E/ms_sig significance; degenerate words (-oneN/-onedeg) | `MotifFinder.FindSharedMotifs` (RSAT overloads) |

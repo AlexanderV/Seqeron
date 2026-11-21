@@ -2,8 +2,11 @@ using System.Text;
 
 namespace Seqeron.Genomics.Alignment;
 
-/// <summary><c>Read_String (fp, T, Size, Name, FALSE)</c> of <c>tigrinc.cc</c>: a sequential reader of FASTA records (the first word of the header, residues lower-cased, a character that is not a letter or <c>*</c> becomes <c>x</c> with a warning).</summary>
-internal sealed class MummerFastaReader(string text)
+/// <summary>
+/// <c>Read_String (fp, T, Size, Name, FALSE)</c> of <c>tigrinc.cc</c>: a sequential reader of FASTA records (the first word of the header, residues lower-cased, a character that is not a letter or <c>*</c> becomes <c>x</c> with a warning).
+/// With <paramref name="ownReader"/> it is the <c>Read_String</c> of <c>combineMUMs.cc</c> (which has its own copy): the name is the whole header line (without its newline) and <c>*</c> is not a residue either.
+/// </summary>
+internal sealed class MummerFastaReader(string text, bool ownReader = false)
 {
     internal static bool IsSpace(int c) => c == ' ' || (c >= '\t' && c <= '\r');
 
@@ -37,7 +40,7 @@ internal sealed class MummerFastaReader(string text)
         int j = i;
         while (j < line.Length && line[j] != ' ' && line[j] != '\t' && line[j] != '\n')
             j++;
-        name = line.Substring(i, j - i);
+        name = ownReader ? line[..^1] : line.Substring(i, j - i);
 
         var bytes = new List<byte>(1024) { 0 };
         while (_pos < text.Length)
@@ -49,7 +52,7 @@ internal sealed class MummerFastaReader(string text)
             if (IsSpace(ch))
                 continue;
             ch = ch >= 'A' && ch <= 'Z' ? ch + 32 : ch;
-            if (!IsAlpha(ch) && ch != '*')
+            if (!IsAlpha(ch) && (ownReader || ch != '*'))
             {
                 err.Append("Unexpected character `").Append((char)ch).Append("' in string ").Append(name).Append('\n');
                 ch = 'x';

@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "run_mummer3",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MummerRunPrograms.RunMummer3",
+  "docRef": "MummerRunPrograms.cs",
+  "description": "MUMmer 3.23 run-mummer3, the script that runs the basic mummer 3 suite: mummer -mumreference -b -l 20 (maximal matches unique in the reference, both strands) | mgaps -l 100 -f .12 -s 600 (clusters) | combineMUMs -x -e .10 -W prefix.errorsgaps (extension of the clusters; no cover files). reference is a FASTA text (only its first record is aligned), query the multi-FASTA text; referenceName / queryName are the file names as the script receives them (printed in the messages of mummer). Returns the files of the script - out (the matches; the reverse matches are relative to the reverse complement of the query), gaps (the clusters), align (the alignments of the gaps: see combine_mums) and errorsGaps - the script's standard output (the three progress lines) and standard error (messages: the lines of mummer and the summary of combineMUMs). An empty input file or a query without a sequence stops the script (sh -e): refused. Byte for byte equal to the installed script on 216 + runs (files and messages) and 1 600 more random runs.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "reference": {
+        "type": "string",
+        "description": "Reference FASTA text (only the first record is aligned)."
+      },
+      "query": {
+        "type": "string",
+        "description": "Multi-FASTA text of the query records."
+      },
+      "referenceName": {
+        "type": "string",
+        "description": "The reference file name as the script receives it.",
+        "default": "reference.fa"
+      },
+      "queryName": {
+        "type": "string",
+        "description": "The query file name as the script receives it.",
+        "default": "query.fa"
+      },
+      "prefix": {
+        "type": "string",
+        "description": "The prefix of the output files (names the files in the result).",
+        "default": "out"
+      }
+    },
+    "required": [
+      "reference",
+      "query"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "out": {
+        "type": "string",
+        "description": "The matches (prefix.out)."
+      },
+      "gaps": {
+        "type": "string",
+        "description": "The clusters (prefix.gaps)."
+      },
+      "align": {
+        "type": "string",
+        "description": "The alignments of the gaps (prefix.align)."
+      },
+      "errorsGaps": {
+        "type": "string",
+        "description": "The gaps with the number of errors (prefix.errorsgaps)."
+      },
+      "stdout": {
+        "type": "string",
+        "description": "The standard output of the script."
+      },
+      "messages": {
+        "type": "string",
+        "description": "The standard error of the script."
+      }
+    },
+    "required": [
+      "out",
+      "gaps",
+      "align",
+      "errorsGaps",
+      "stdout",
+      "messages"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1001,
+      "message": "mummer: empty sequence in multiple fasta file (the script stops)"
+    }
+  ],
+  "examples": [
+    {
+      "name": "One query with a substitution and two indels",
+      "input": {
+        "reference": ">ref demo\nggcccagtccagatcctcggaagtcccaactaacgaataagtagatccttctaaatagta\ngtatacgaatgtaatcaacatattaccgcacccaactttgattgggtcataaacaaacat\ncatgtttctggaggcggtttgtgagaccgacaaacgcgatagagtaatcttataaatcag\ngcaaatactcggtcctttctacgggtcgcggccgcgtggtcataggcagttttatgtttc\ntttgaggttaatgggaggca\n",
+        "query": ">qry demo\nagatcctcggaagtcccaactaacgaataagtagatccttctaaatagtagtatacgaat\nataatcaacatattaccgcacccaactttgattgggtcataaacaaacatcatgtttctg\ngaggcggttttgagaccgacaaacgcgatagagtaatcttataaatcaggcaaatactcg\nggtcctttctacgggtcgcggccgcgtggtcataggcagttttatgtttctttgaggtta\n",
+        "referenceName": "ref.fa",
+        "queryName": "qry.fa",
+        "prefix": "pf"
+      },
+      "output": {
+        "out": "> qry\n      11         1        60\n      72        62        69\n     142       131        51\n     191       181        60\n> qry Reverse\n",
+        "gaps": "> qry\n      11        1     60    none      -      -\n      72       62     69    none      1      1\n     142      131     51    none      1      0\n     193      183     58      -2      0      1\n> qry Reverse\n",
+        "align": "> qry\n      11        1     60    none      -      -\n      72       62     69    none      1      1\n     Errors = 1\nA: gtatacgaatgtaatcaacat\nB: gtatacgaatataatcaacat\n   ==========^==========\n     142      131     51    none      1      0\n     Errors = 1\nA: gaggcggtttgtgagaccgac\nB: gaggcggttt-tgagaccgac\n   ==========^==========\n     193      183     58      -2      0      1\n     Errors = 1\nA: aaatactcgg-tcctttctac\nB: aaatactcgggtcctttctac\n   ==========^==========\nRegion:         11 .. 250                1 .. 240              3 / 240         1.25%\n> qry Reverse\n",
+        "errorsGaps": "> qry\n      11        1     60    none      -      -       -\n      72       62     69    none      1      1       1\n     142      131     51    none      1      0       1\n     193      183     58      -2      0      1       1\n> qry Reverse\n",
+        "stdout": "Find MUMs\nDetermine gaps\nAlign gaps\n",
+        "messages": "# reading input file \"ref.fa\" of length 260\n# construct suffix tree for sequence of length 260\n# (maximum reference length is 536870908)\n# (maximum query length is 4294967295)\n# reading input file \"qry.fa\" of length 240\n# matching query-file \"qry.fa\"\n# against subject-file \"ref.fa\"\n           Ref len = 260\n            acgt's = 260\n        Non acgt's = 0\n Number of matches = 1\nSum of match bases = 240\n   Avg match bases = 240\n"
+      }
+    }
+  ]
+}

@@ -18,6 +18,7 @@
 | `can_pair` | Analysis | `RnaSecondaryStructure.CanPair` | [doc](../../../../docs/mcp/tools/analysis/can_pair.md) |
 | `chou_fasman_assign` | Analysis | `SequenceStatistics.PredictSecondaryStructureChouFasman` | [doc](../../../../docs/mcp/tools/analysis/chou_fasman_assign.md) |
 | `codon_frequencies` | Analysis | `SequenceStatistics.CalculateCodonFrequencies` | [doc](../../../../docs/mcp/tools/analysis/codon_frequencies.md) |
+| `combine_mums` | Analysis | `MummerCombineMums.Run` | [doc](../../../../docs/mcp/tools/analysis/combine_mums.md) |
 | `compare_genomes` | Analysis | `ComparativeGenomics.CompareGenomes` | [doc](../../../../docs/mcp/tools/analysis/compare_genomes.md) |
 | `compression_ratio` | Analysis | `SequenceComplexity.EstimateCompressionRatio` | [doc](../../../../docs/mcp/tools/analysis/compression_ratio.md) |
 | `consambig` | Analysis | `MotifFinder.GenerateEmbossAmbiguousConsensus` | [doc](../../../../docs/mcp/tools/analysis/consambig.md) |
@@ -151,6 +152,7 @@
 | `reversal_distance` | Analysis | `ComparativeGenomics.CalculateReversalDistance` | [doc](../../../../docs/mcp/tools/analysis/reversal_distance.md) |
 | `rna_complement_base` | Analysis | `RnaSecondaryStructure.GetComplement` | [doc](../../../../docs/mcp/tools/analysis/rna_complement_base.md) |
 | `run_mummer1` | Analysis | `MummerRunPrograms.RunMummer1` | [doc](../../../../docs/mcp/tools/analysis/run_mummer1.md) |
+| `run_mummer3` | Analysis | `MummerRunPrograms.RunMummer3` | [doc](../../../../docs/mcp/tools/analysis/run_mummer3.md) |
 | `scan_with_alphabet_pwm` | Analysis | `MotifFinder.ScanWithAlphabetPwm` | [doc](../../../../docs/mcp/tools/analysis/scan_with_alphabet_pwm.md) |
 | `scan_with_pwm` | Analysis | `MotifFinder.ScanWithPwm` | [doc](../../../../docs/mcp/tools/analysis/scan_with_pwm.md) |
 | `scan_with_pwm_both_strands` | Analysis | `MotifFinder.ScanWithPwmBothStrands` | [doc](../../../../docs/mcp/tools/analysis/scan_with_pwm_both_strands.md) |

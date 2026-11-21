@@ -86,7 +86,7 @@
 | `water_align` | `SequenceAligner.WaterAlign` | [doc](../../mcp/tools/alignment/water_align.md) |
 | `write_alignment` | `EmbossAlignmentWriter.Format` | [doc](../../mcp/tools/alignment/write_alignment.md) |
 
-## Analysis (167 tools)
+## Analysis (169 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -102,6 +102,7 @@
 | `can_pair` | `RnaSecondaryStructure.CanPair` | [doc](../../mcp/tools/analysis/can_pair.md) |
 | `chou_fasman_assign` | `SequenceStatistics.PredictSecondaryStructureChouFasman` | [doc](../../mcp/tools/analysis/chou_fasman_assign.md) |
 | `codon_frequencies` | `SequenceStatistics.CalculateCodonFrequencies` | [doc](../../mcp/tools/analysis/codon_frequencies.md) |
+| `combine_mums` | `MummerCombineMums.Run` | [doc](../../mcp/tools/analysis/combine_mums.md) |
 | `compare_genomes` | `ComparativeGenomics.CompareGenomes` | [doc](../../mcp/tools/analysis/compare_genomes.md) |
 | `compression_ratio` | `SequenceComplexity.EstimateCompressionRatio` | [doc](../../mcp/tools/analysis/compression_ratio.md) |
 | `consambig` | `MotifFinder.GenerateEmbossAmbiguousConsensus` | [doc](../../mcp/tools/analysis/consambig.md) |
@@ -235,6 +236,7 @@
 | `reversal_distance` | `ComparativeGenomics.CalculateReversalDistance` | [doc](../../mcp/tools/analysis/reversal_distance.md) |
 | `rna_complement_base` | `RnaSecondaryStructure.GetComplement` | [doc](../../mcp/tools/analysis/rna_complement_base.md) |
 | `run_mummer1` | `MummerRunPrograms.RunMummer1` | [doc](../../mcp/tools/analysis/run_mummer1.md) |
+| `run_mummer3` | `MummerRunPrograms.RunMummer3` | [doc](../../mcp/tools/analysis/run_mummer3.md) |
 | `scan_with_alphabet_pwm` | `MotifFinder.ScanWithAlphabetPwm` | [doc](../../mcp/tools/analysis/scan_with_alphabet_pwm.md) |
 | `scan_with_pwm` | `MotifFinder.ScanWithPwm` | [doc](../../mcp/tools/analysis/scan_with_pwm.md) |
 | `scan_with_pwm_both_strands` | `MotifFinder.ScanWithPwmBothStrands` | [doc](../../mcp/tools/analysis/scan_with_pwm_both_strands.md) |

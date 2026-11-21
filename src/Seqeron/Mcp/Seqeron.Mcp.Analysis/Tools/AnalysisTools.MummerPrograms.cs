@@ -193,4 +193,55 @@ public partial class AnalysisTools
             throw new ArgumentException("Coords text cannot be null", nameof(coords));
         return new MummerTextResult(MummerNucmer2Xfig.Run(coords));
     }
+
+    [McpServerTool(Name = "combine_mums", Title = "Genome — MUMmer combineMUMs (extend and combine clusters)", ReadOnly = true)]
+    [Description("MUMmer 3.23 combineMUMs: takes the clusters of exact matches of mgaps (gaps = its output: '> id' / '> id Reverse' lines and 'start1 start2 length ...' lines; a '#' line ends a cluster) and extends every cluster off both ends and fills the gaps between its matches by edit-distance alignments (Myers / Landau-Vishkin diagonals; branch point score 0.272 per match and -0.728 per error in single precision, or 1 - (1 - errorRate) with errorRate = -e; give up 200 bases past the best score, at most 500 errors, extensions in steps of 10 000 bases). reference = a FASTA text (only its first record is read), query = the multi-FASTA texts of the query records; the n-th forward block of the gaps file belongs to the n-th query record and the reverse block after it to its reverse complement. Output (text) = the gaps file with, under every gap line, '     Errors = n' and the alignment (rows A: reference, B: query and a mark row with the 10 matching bases of each flanking match, 60 columns per block) or '   No extension', and a 'Region:  refStart .. refEnd  qryStart .. qryEnd  errors / length  percent' line after every combined region (a region on the reverse strand shows its query coordinates relative to the original query). onlyDifferences (-D) writes only the positions and characters of the differences instead; showDifferences (-S) every difference of the extensions and gaps; verbose (-v 1) every extension with its alignment; nucleotidesOnly (-n) lets only a, c, g, t match (others become '2' in the reference and '1' in the query); consecutiveNonAcgt (-N) breaks matches at that many consecutive non-ACGT characters; tagFromFasta (-t) tags the matches with the first word of the FASTA headers; queryTag (-q, default 'Query') / referenceTag (-r, default 'Ref') are suffixes of the cover file names. errorsFile = the file -W names (default witherrors.gaps): the gap lines with the number of errors appended. Without noCoverFiles (-x) the files '<reference base name><referenceTag>.cover' and '<query base name><queryTag>.cover' (regions and gaps with their N counts) are returned too; messages = standard error (a summary of the matches and the coverage of both sequences). A failed assertion of the program (no reference record, fewer query records than forward blocks, a line of the gaps file that is not three numbers) and a coordinate beyond a sequence (the program reads outside its buffers) are errors; the coverage report of a reference whose length is 7 modulo 16 reads the byte after its realloc'd buffer (valgrind: invalid read; the value printed depends on the allocator) and is refused unless noCoverFiles is set. Byte for byte equal to the installed combineMUMs on 240 + runs (every option, both strands, N / IUPAC characters, extensions of 24 kb) and 3 000 more random runs.")]
+    public static CombineMumsToolResult CombineMums(
+        [Description("Reference FASTA text (only the first record is read).")] string reference,
+        [Description("Multi-FASTA text of the query records.")] string query,
+        [Description("The gaps file (output of mgaps).")] string gaps,
+        [Description("-D: write only the positions and characters of the differences (default false).")] bool onlyDifferences = false,
+        [Description("-e: the error rate cutoff of the extensions, e.g. 0.02 (default: the built-in branch point score).")] double? errorRate = null,
+        [Description("-n: only a, c, g, t match (default false).")] bool nucleotidesOnly = false,
+        [Description("-N: break matches at this many consecutive non-ACGT characters (default 0 = never).")] int consecutiveNonAcgt = 0,
+        [Description("-q: suffix of the query tag (default Query).")] string queryTag = "Query",
+        [Description("-r: suffix of the reference tag (default Ref).")] string referenceTag = "Ref",
+        [Description("-S: show every difference of the extensions and gaps (default false).")] bool showDifferences = false,
+        [Description("-t: tag the matches with the first word of the FASTA headers (default false).")] bool tagFromFasta = false,
+        [Description("-v: verbose level, above 0 writes every extension with its alignment (default 0).")] int verbose = 0,
+        [Description("-x: do not write the cover files (default false).")] bool noCoverFiles = false,
+        [Description("-W: name of the errors file (default witherrors.gaps).")] string errorsFileName = "witherrors.gaps",
+        [Description("The reference file name as given on the command line (its base name is the reference tag; default reference.fa).")] string referenceName = "reference.fa",
+        [Description("The query file name as given on the command line (its base name is the query tag; default query.fa).")] string queryName = "query.fa")
+    {
+        if (string.IsNullOrEmpty(reference))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(reference));
+        if (string.IsNullOrEmpty(query))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(query));
+        if (gaps is null)
+            throw new ArgumentException("Gaps file text cannot be null", nameof(gaps));
+        var r = MummerCombineMums.Run(reference, query, gaps, new MummerCombineMumsOptions
+        {
+            OnlyDifferencePositions = onlyDifferences, ErrorRate = errorRate, NucleotidesOnly = nucleotidesOnly, ConsecutiveNonAcgt = consecutiveNonAcgt, QuerySuffix = queryTag ?? "Query", ReferenceSuffix = referenceTag ?? "Ref",
+            ShowDifferences = showDifferences, TagFromFastaLine = tagFromFasta, Verbose = verbose, NoCoverFiles = noCoverFiles, ErrorsFileName = errorsFileName ?? "witherrors.gaps", ReferenceName = referenceName ?? "reference.fa", QueryName = queryName ?? "query.fa",
+        });
+        return new CombineMumsToolResult(r.Text, r.ErrorsFile, r.Log, r.Files.ToDictionary(f => f.Key, f => f.Value));
+    }
+
+    [McpServerTool(Name = "run_mummer3", Title = "Genome — MUMmer run-mummer3 (mummer 3 suite)", ReadOnly = true)]
+    [Description("MUMmer 3.23 run-mummer3, the script that runs the basic mummer 3 suite: mummer -mumreference -b -l 20 (maximal matches unique in the reference, both strands) | mgaps -l 100 -f .12 -s 600 (clusters) | combineMUMs -x -e .10 -W prefix.errorsgaps (extension of the clusters; no cover files). reference is a FASTA text (only its first record is aligned), query the multi-FASTA text; referenceName / queryName are the file names as the script receives them (printed in the messages of mummer). Returns the files of the script - out (the matches; the reverse matches are relative to the reverse complement of the query), gaps (the clusters), align (the alignments of the gaps: see combine_mums) and errorsGaps - the script's standard output (the three progress lines) and standard error (messages: the lines of mummer and the summary of combineMUMs). An empty input file or a query without a sequence stops the script (sh -e): refused. Byte for byte equal to the installed script on 216 + runs (files and messages) and 1 600 more random runs.")]
+    public static RunMummer3ToolResult RunMummer3(
+        [Description("Reference FASTA text (only the first record is aligned).")] string reference,
+        [Description("Multi-FASTA text of the query records.")] string query,
+        [Description("The reference file name as the script receives it.")] string referenceName = "reference.fa",
+        [Description("The query file name as the script receives it.")] string queryName = "query.fa",
+        [Description("The prefix of the output files (names the files in the result).")] string prefix = "out")
+    {
+        if (string.IsNullOrEmpty(reference))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(reference));
+        if (string.IsNullOrEmpty(query))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(query));
+        var r = MummerRunPrograms.RunMummer3(reference, query, referenceName, queryName, prefix);
+        return new RunMummer3ToolResult(r.Out, r.Gaps, r.Align, r.ErrorsGaps, r.Stdout, r.Log);
+    }
 }

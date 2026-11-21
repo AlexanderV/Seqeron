@@ -1,0 +1,162 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "combine_mums",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MummerCombineMums.Run",
+  "docRef": "MummerCombineMums.cs",
+  "description": "MUMmer 3.23 combineMUMs: takes the clusters of exact matches of mgaps (gaps = its output: '> id' / '> id Reverse' lines and 'start1 start2 length ...' lines; a '#' line ends a cluster) and extends every cluster off both ends and fills the gaps between its matches by edit-distance alignments (Myers / Landau-Vishkin diagonals; branch point score 0.272 per match and -0.728 per error in single precision, or 1 - (1 - errorRate) with errorRate = -e; give up 200 bases past the best score, at most 500 errors, extensions in steps of 10 000 bases). reference = a FASTA text (only its first record is read), query = the multi-FASTA texts of the query records; the n-th forward block of the gaps file belongs to the n-th query record and the reverse block after it to its reverse complement. Output (text) = the gaps file with, under every gap line, '     Errors = n' and the alignment (rows A: reference, B: query and a mark row with the 10 matching bases of each flanking match, 60 columns per block) or '   No extension', and a 'Region:  refStart .. refEnd  qryStart .. qryEnd  errors / length  percent' line after every combined region (a region on the reverse strand shows its query coordinates relative to the original query). onlyDifferences (-D) writes only the positions and characters of the differences instead; showDifferences (-S) every difference of the extensions and gaps; verbose (-v 1) every extension with its alignment; nucleotidesOnly (-n) lets only a, c, g, t match (others become '2' in the reference and '1' in the query); consecutiveNonAcgt (-N) breaks matches at that many consecutive non-ACGT characters; tagFromFasta (-t) tags the matches with the first word of the FASTA headers; queryTag (-q, default 'Query') / referenceTag (-r, default 'Ref') are suffixes of the cover file names. errorsFile = the file -W names (default witherrors.gaps): the gap lines with the number of errors appended. Without noCoverFiles (-x) the files '<reference base name><referenceTag>.cover' and '<query base name><queryTag>.cover' (regions and gaps with their N counts) are returned too; messages = standard error (a summary of the matches and the coverage of both sequences). A failed assertion of the program (no reference record, fewer query records than forward blocks, a line of the gaps file that is not three numbers) and a coordinate beyond a sequence (the program reads outside its buffers) are errors; the coverage report of a reference whose length is 7 modulo 16 reads the byte after its realloc'd buffer (valgrind: invalid read; the value printed depends on the allocator) and is refused unless noCoverFiles is set. Byte for byte equal to the installed combineMUMs on 240 + runs (every option, both strands, N / IUPAC characters, extensions of 24 kb) and 3 000 more random runs.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "reference": {
+        "type": "string",
+        "description": "Reference FASTA text (only the first record is read)."
+      },
+      "query": {
+        "type": "string",
+        "description": "Multi-FASTA text of the query records."
+      },
+      "gaps": {
+        "type": "string",
+        "description": "The gaps file (output of mgaps)."
+      },
+      "onlyDifferences": {
+        "type": "boolean",
+        "description": "-D: write only the positions and characters of the differences (default false).",
+        "default": false
+      },
+      "errorRate": {
+        "type": "number",
+        "description": "-e: the error rate cutoff of the extensions, e.g. 0.02 (default: the built-in branch point score)."
+      },
+      "nucleotidesOnly": {
+        "type": "boolean",
+        "description": "-n: only a, c, g, t match (default false).",
+        "default": false
+      },
+      "consecutiveNonAcgt": {
+        "type": "integer",
+        "description": "-N: break matches at this many consecutive non-ACGT characters (default 0 = never).",
+        "default": 0
+      },
+      "queryTag": {
+        "type": "string",
+        "description": "-q: suffix of the query tag (default Query).",
+        "default": "Query"
+      },
+      "referenceTag": {
+        "type": "string",
+        "description": "-r: suffix of the reference tag (default Ref).",
+        "default": "Ref"
+      },
+      "showDifferences": {
+        "type": "boolean",
+        "description": "-S: show every difference of the extensions and gaps (default false).",
+        "default": false
+      },
+      "tagFromFasta": {
+        "type": "boolean",
+        "description": "-t: tag the matches with the first word of the FASTA headers (default false).",
+        "default": false
+      },
+      "verbose": {
+        "type": "integer",
+        "description": "-v: verbose level, above 0 writes every extension with its alignment (default 0).",
+        "default": 0
+      },
+      "noCoverFiles": {
+        "type": "boolean",
+        "description": "-x: do not write the cover files (default false).",
+        "default": false
+      },
+      "errorsFileName": {
+        "type": "string",
+        "description": "-W: name of the errors file (default witherrors.gaps).",
+        "default": "witherrors.gaps"
+      },
+      "referenceName": {
+        "type": "string",
+        "description": "The reference file name as given on the command line (its base name is the reference tag; default reference.fa).",
+        "default": "reference.fa"
+      },
+      "queryName": {
+        "type": "string",
+        "description": "The query file name as given on the command line (its base name is the query tag; default query.fa).",
+        "default": "query.fa"
+      }
+    },
+    "required": [
+      "reference",
+      "query",
+      "gaps"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "text": {
+        "type": "string",
+        "description": "What combineMUMs writes to standard output."
+      },
+      "errorsFile": {
+        "type": "string",
+        "description": "The file -W names (witherrors.gaps): the gap lines with the number of errors appended."
+      },
+      "messages": {
+        "type": "string",
+        "description": "What the program writes to standard error: the summary of the matches and, without -x, the coverage of both sequences."
+      },
+      "files": {
+        "type": "object",
+        "description": "The files the program leaves behind by name: the errors file and the .cover files."
+      }
+    },
+    "required": [
+      "text",
+      "errorsFile",
+      "messages",
+      "files"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1001,
+      "message": "Gaps file text cannot be null"
+    },
+    {
+      "code": 1001,
+      "message": "combineMUMs: Assertion `Read_String (...)' failed (no reference record, fewer query records than forward blocks)"
+    },
+    {
+      "code": 1001,
+      "message": "combineMUMs: Assertion `sscanf (...) == 3' failed (a line of the gaps file that is not three numbers)"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Alignment of the gaps of one query",
+      "input": {
+        "reference": ">ref demo\nggcccagtccagatcctcggaagtcccaactaacgaataagtagatccttctaaatagta\ngtatacgaatgtaatcaacatattaccgcacccaactttgattgggtcataaacaaacat\ncatgtttctggaggcggtttgtgagaccgacaaacgcgatagagtaatcttataaatcag\ngcaaatactcggtcctttctacgggtcgcggccgcgtggtcataggcagttttatgtttc\ntttgaggttaatgggaggca\n",
+        "query": ">qry demo\nagatcctcggaagtcccaactaacgaataagtagatccttctaaatagtagtatacgaat\nataatcaacatattaccgcacccaactttgattgggtcataaacaaacatcatgtttctg\ngaggcggttttgagaccgacaaacgcgatagagtaatcttataaatcaggcaaatactcg\nggtcctttctacgggtcgcggccgcgtggtcataggcagttttatgtttctttgaggtta\n",
+        "gaps": "> qry\n      11        1     60    none      -      -\n      72       62     69    none      1      1\n     142      131     51    none      1      0\n     193      183     58      -2      0      1\n> qry Reverse\n",
+        "noCoverFiles": true,
+        "referenceName": "ref.fa",
+        "queryName": "qry.fa"
+      },
+      "output": {
+        "text": "> qry\n      11        1     60    none      -      -\n      72       62     69    none      1      1\n     Errors = 1\nA: gtatacgaatgtaatcaacat\nB: gtatacgaatataatcaacat\n   ==========^==========\n     142      131     51    none      1      0\n     Errors = 1\nA: gaggcggtttgtgagaccgac\nB: gaggcggttt-tgagaccgac\n   ==========^==========\n     193      183     58      -2      0      1\n     Errors = 1\nA: aaatactcgg-tcctttctac\nB: aaatactcgggtcctttctac\n   ==========^==========\nRegion:         11 .. 250                1 .. 240              3 / 240         1.25%\n> qry Reverse\n",
+        "errorsFile": "> qry\n      11        1     60    none      -      -       -\n      72       62     69    none      1      1       1\n     142      131     51    none      1      0       1\n     193      183     58      -2      0      1       1\n> qry Reverse\n",
+        "messages": "           Ref len = 260\n            acgt's = 260\n        Non acgt's = 0\n Number of matches = 1\nSum of match bases = 240\n   Avg match bases = 240\n",
+        "files": {
+          "witherrors.gaps": "> qry\n      11        1     60    none      -      -       -\n      72       62     69    none      1      1       1\n     142      131     51    none      1      0       1\n     193      183     58      -2      0      1       1\n> qry Reverse\n"
+        }
+      }
+    }
+  ]
+}

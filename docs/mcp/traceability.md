@@ -356,8 +356,10 @@
 | delta2blocks | Analysis | MummerDelta2Blocks.Run | AnalysisTools.MummerPrograms.cs | 0/0 | – | – | Build-Ready |
 | mummer_annotate | Analysis | MummerAnnotate.Run | AnalysisTools.MummerPrograms.cs | 0/0 | – | – | Build-Ready |
 | run_mummer1 | Analysis | MummerRunPrograms.RunMummer1 | AnalysisTools.MummerPrograms.cs | 0/0 | – | – | Build-Ready |
+| run_mummer3 | Analysis | MummerRunPrograms.RunMummer3 | AnalysisTools.MummerPrograms.cs | 0/0 | – | – | Build-Ready |
 | delta2maf | Analysis | MummerDelta2Maf.Run | AnalysisTools.MummerPrograms.cs | 0/0 | – | – | Build-Ready |
 | nucmer2xfig | Analysis | MummerNucmer2Xfig.Run | AnalysisTools.MummerPrograms.cs | 0/0 | – | – | Build-Ready |
+| combine_mums | Analysis | MummerCombineMums.Run | AnalysisTools.MummerPrograms.cs | 0/0 | – | – | Build-Ready |
 | est2genome | Analysis | EmbossEst2genomePrograms.Run | Seqeron.Genomics.Alignment/EmbossEst2genomePrograms.cs | 0/0 | – | – | Build-Ready |
 | mash_bounds | Analysis | MashCommands.Bounds | Seqeron.Genomics.Analysis/MashCommands.cs | 0/0 | – | – | Build-Ready |
 | mash_dist | Analysis | MashCommands.Dist | Seqeron.Genomics.Analysis/MashCommands.cs | 0/0 | – | – | Build-Ready |

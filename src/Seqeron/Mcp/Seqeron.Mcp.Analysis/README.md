@@ -2,7 +2,7 @@
 
 MCP server — **K-mer, motif, repeat, complexity, RNA-structure and comparative-genomics analysis.**
 
-Exposes **167 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+Exposes **169 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
 MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test, with a
 per-tool doc under [`docs/mcp/tools/analysis/`](../../../../docs/mcp/tools/analysis). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
@@ -89,8 +89,10 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `delta2blocks` | MUMmer delta2blocks: alignments of a nucmer delta file as CIGAR lines (M / X / I / D). |
 | `mummer_annotate` | MUMmer mummer-annotate: edit-distance alignment of the gaps of a gaps file with the error counts. |
 | `run_mummer1` | MUMmer run-mummer1: mummer -mum -l 20 -r | gaps | mummer-annotate script, files .out .gaps .align .errorsgaps. |
+| `run_mummer3` | MUMmer run-mummer3: mummer -mumreference -b -l 20 | mgaps | combineMUMs script, files .out .gaps .align .errorsgaps. |
 | `delta2maf` | MUMmer delta2maf: nucmer alignments as MAF (a score / s lines), byte for byte. |
 | `nucmer2xfig` | MUMmer nucmer2xfig: xfig plot of a show-coords -c -l file, byte for byte. |
+| `combine_mums` | MUMmer combineMUMs: extension and alignment of the mgaps clusters (-D -e -n -N -q -r -S -t -v -x -W), byte for byte. |
 | `est2genome` | EMBOSS 6.6.0 est2genome: the spliced alignment of ESTs to a genomic sequence (exons, GT/AG and CT/AC introns, both strands, linear-space recursion; 330 runs equal). |
 | `seqmatchall` | EMBOSS seqmatchall: every maximal exact word match (>= `wordSize`) of every pair of a sequence set, nucleotide or protein, including the program's N / X word-table scan; verified against seqmatchall 6.6.0 on 330 sets (B09 A3-13). |
 | `find_longdust_regions` | Finds low-complexity regions with **longdust** (Li & Li 2025; port of lh3/longdust 1.4-r97 ld_dust1/ld_dust2, MIT) — the k-mer generalisati… |

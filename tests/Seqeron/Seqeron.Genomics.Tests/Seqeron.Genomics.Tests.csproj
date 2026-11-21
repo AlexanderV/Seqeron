@@ -84,6 +84,8 @@
     <EmbeddedResource Include="TestData\Alignment\delta2maf_oracle.jsonl.gz" />
     <!-- A3-9e / A3-9f (B09 F208, F209): nucmer2xfig and nucmer prefix option; scripts/alignment/generate_nucmer2xfig_oracle.py, generate_nucmer_prefix_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\nucmer2xfig_oracle.jsonl.gz" />
+    <!-- A3-9e2 (B09 F210): combineMUMs and run-mummer3; scripts/alignment/generate_combinemums_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\combinemums_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\nucmer_prefix_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\est2genome_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\wordmatch_oracle.jsonl.gz" />

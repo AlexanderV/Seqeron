@@ -26,3 +26,9 @@ public record MummerAnnotateToolResult(string Text, string WithErrors);
 
 /// <summary>Result of <c>run_mummer1</c>: the files of the script (<c>.out</c>, <c>.gaps</c>, <c>.align</c>, <c>.errorsgaps</c>).</summary>
 public record RunMummer1ToolResult(string Out, string Gaps, string Align, string ErrorsGaps);
+
+/// <summary>Result of <c>combine_mums</c>: standard output, the errors file (<c>-W</c>), standard error and the files of the program by name (the errors file and the <c>.cover</c> files).</summary>
+public record CombineMumsToolResult(string Text, string ErrorsFile, string Messages, Dictionary<string, string> Files);
+
+/// <summary>Result of <c>run_mummer3</c>: the files of the script (<c>.out</c>, <c>.gaps</c>, <c>.align</c>, <c>.errorsgaps</c>), its standard output and its standard error.</summary>
+public record RunMummer3ToolResult(string Out, string Gaps, string Align, string ErrorsGaps, string Stdout, string Messages);
