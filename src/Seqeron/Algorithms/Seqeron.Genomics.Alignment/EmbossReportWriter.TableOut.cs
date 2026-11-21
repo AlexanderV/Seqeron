@@ -9,19 +9,19 @@ namespace Seqeron.Genomics.Alignment;
 public static partial class EmbossReportWriter
 {
     /// <summary>The output formats <see cref="WriteFeatureTable(EmbossSeqFeatureTable, string, DateTime, string, EmbossFeatureReadContext, EmbossFeatureWriteState)"/> writes.</summary>
-    public static IReadOnlyList<string> FeatureTableFormats { get; } = ["unknown", "gff", "gff2", "gff3", "embl", "em", "genbank", "gb", "ddbj", "debug"];
+    public static IReadOnlyList<string> FeatureTableFormats { get; } = ["unknown", "gff", "gff2", "gff3", "bed", "embl", "em", "genbank", "gb", "ddbj", "refseq", "refseqp", "pir", "nbrf", "swiss", "sw", "swissprot", "uniprot", "dasgff", "draw", "debug"];
 
     /// <summary>
     /// <c>ajFeattableWrite</c> of one table in an output feature format: a table that is to be reversed or trimmed is copied and trimmed first (<c>ajFeattableNewFtable</c> + <c>ajFeattableTrim</c>); a format the table type does not allow gives null with the library's
     /// error in the messages of <paramref name="context"/>.
     /// </summary>
-    internal static string? WriteFeatureTable(EmbossSeqFeatureTable table, string format, DateTime date, string program, EmbossFeatureReadContext context, EmbossFeatureWriteState state)
+    internal static string? WriteFeatureTable(EmbossSeqFeatureTable table, string format, DateTime date, string program, EmbossFeatureReadContext context, EmbossFeatureWriteState state, int tablesBefore = 0)
     {
         ArgumentNullException.ThrowIfNull(table);
-        string f = format.ToLowerInvariant();
-        string writer = f switch { "unknown" or "gff" or "gff3" => "gff3", "gff2" => "gff2", "embl" or "em" => "embl", "genbank" or "gb" or "ddbj" => "genbank", "debug" => "debug", _ => throw new NotSupportedException($"The feature output format '{format}' is not written for a feature table by this port (gff3, gff2, embl, genbank, debug are).") };
-        bool isUnknown = f == "unknown";
-        bool nucOk = !isUnknown, protOk = !isUnknown && writer is "gff2" or "gff3" or "debug";
+        int index = FeatureFormatIndex(format);
+        if (index < 0)
+            throw new NotSupportedException($"The feature output format '{format}' is not an output format of the feature library.");
+        var (_, writer, nucOk, protOk) = FeatureFormatTable[index];
         bool isNuc = table.IsNuc, isProt = table.IsProt;
         if (!((isNuc && nucOk) || (isProt && protOk)))
         {
@@ -50,6 +50,24 @@ public static partial class EmbossReportWriter
                 break;
             case "genbank":
                 TableEmbl(sb, t, false, context, state);
+                break;
+            case "bed":
+                TableBed(sb, t);
+                break;
+            case "refseqp":
+                TableRefseqp(sb, t, context, state);
+                break;
+            case "pir":
+                TablePir(sb, t, context, state);
+                break;
+            case "swiss":
+                TableSwiss(sb, t, context, state);
+                break;
+            case "dasgff":
+                TableDasgff(sb, t, tablesBefore, context, state);
+                break;
+            case "draw":
+                TableDraw(sb, t);
                 break;
             default:
                 sb.Append(t.Debug());
@@ -268,7 +286,7 @@ public static partial class EmbossReportWriter
         else if (t.Type == "P")
             sb.Append("##Type Protein ").Append(t.SeqId).Append('\n');
         else
-            sb.Append("##Type unknown <").Append(t.Type).Append("> ").Append(t.SeqId).Append('\n');
+            sb.Append("##Type unknown <").Append(t.TypeNull ? "<null>" : t.Type).Append("> ").Append(t.SeqId).Append('\n');
         foreach (var gf in t.Features)
             DumpGff2(sb, gf, t, context, state);
     }
@@ -363,20 +381,31 @@ public static partial class EmbossReportWriter
     private static void TableEmbl(StringBuilder sb, EmbossSeqFeatureTable t, bool isEmbl, EmbossFeatureReadContext context, EmbossFeatureWriteState state)
     {
         sb.Append(isEmbl ? "FH   Key             Location/Qualifiers\nFH\n" : "FEATURES             Location/Qualifiers\n");
-        var sorted = t.Features.OrderBy(f => f.Group).ToList();            // ajListSort(ajFeatCompByGroup): stable
-        t.Features.Clear();
-        t.Features.AddRange(sorted);
+        var sorted = SortByGroup(t);
         foreach (var gf in sorted)
             WriteEmbl(sb, gf, t, isEmbl, context, state);
+    }
+
+    // ajListSort(thys->Features, &ajFeatCompByGroup): by group, then by exon (the signed difference of the unsigned numbers), the order of equal features kept
+    private static List<EmbossSeqFeature> SortByGroup(EmbossSeqFeatureTable t)
+    {
+        var sorted = t.Features.OrderBy(f => f, Comparer<EmbossSeqFeature>.Create((a, b) =>
+        {
+            int val = unchecked((int)(a.Group - b.Group));
+            return val != 0 ? val : unchecked(a.Exon - b.Exon);
+        })).ToList();
+        t.Features.Clear();
+        t.Features.AddRange(sorted);
+        return sorted;
     }
 
     private static string EmblPos(EmbossSeqFeature f)
     {
         var pos = new StringBuilder();
         if (f.Flags.HasFlag(EmbossLocationBits.RemoteId))
-            pos.Append(f.Remote).Append(':');
+            pos.Append(f.Remote ?? "<null>").Append(':');
         if (f.Flags.HasFlag(EmbossLocationBits.Label))
-            pos.Append(f.Label);
+            pos.Append(f.Label ?? "<null>");
         else if (f.Flags.HasFlag(EmbossLocationBits.StartBeforeSeq))
             pos.Append('<').Append(f.Start.ToString(CultureInfo.InvariantCulture));
         else if (f.Flags.HasFlag(EmbossLocationBits.StartTwo))
@@ -495,21 +524,27 @@ public static partial class EmbossReportWriter
             TagWrapState(str, margin, preftyptag, sb, state);
         }
 
+        DumpEmblTags(sb, feat, vocab.Tags, margin, preftyptag, seqid, context, state);
+    }
+
+    // the tags of a feature in the EMBL layout (featDumpEmbl, featDumpRefseq, featDumpRefseqp share the loop; only the vocabulary differs)
+    private static void DumpEmblTags(StringBuilder sb, EmbossSeqFeature feat, EmbossFeatureVocab.Table tags, int margin, string preftyptag, string seqid, EmbossFeatureReadContext context, EmbossFeatureWriteState state)
+    {
         foreach (var (tag, value) in feat.Tags)
         {
-            string tmptag = EmbossFeatureVocab.TagNameOf(vocab.Tags, tag, out _);
-            string fmt = EmbossFeatureVocab.TagFormat(vocab.Tags, tmptag);
+            string tmptag = EmbossFeatureVocab.TagNameOf(tags, tag, out _);
+            string fmt = EmbossFeatureVocab.TagFormat(tags, tmptag);
             string str = "/" + tmptag;
             string val = value;
             string kind = fmt.Length >= 2 ? fmt[..2] : fmt;
             switch (kind)
             {
                 case "LI":
-                    TagAllLimit(ref val, EmbossFeatureVocab.TagLimit(vocab.Tags, tmptag));
+                    TagAllLimit(ref val, EmbossFeatureVocab.TagLimit(tags, tmptag));
                     str += "=" + val + "\n";
                     break;
                 case "QL":
-                    TagAllLimit(ref val, EmbossFeatureVocab.TagLimit(vocab.Tags, tmptag));
+                    TagAllLimit(ref val, EmbossFeatureVocab.TagLimit(tags, tmptag));
                     str += "=" + QuoteEmblValue(val) + "\n";
                     break;
                 case "QS":

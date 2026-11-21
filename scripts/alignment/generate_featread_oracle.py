@@ -396,6 +396,114 @@ def main_write(out, n, seed):
     print(len(rows), 'rows;', Counter((r['format'].lower(), bool(r['out'])) for r in rows))
 
 
+PROT_KINDS = ['genpept', 'refseqp', 'swiss', 'pir', 'gff3', 'gff2']
+NUC_KINDS = ['embl', 'genbank', 'refseq', 'gff2', 'gff3', 'gff3emboss', 'dasgff']
+
+
+def main_write2(out, per_format, seed):
+    """A5-8c3f (B09 F244): featcopy -features FILE -outfeat out.X -offormat F for the output formats bed, refseq, refseqp, pir, nbrf, swiss, sw, swissprot, uniprot, dasgff, draw (per_format rows each; the input kinds
+    suit the format 3 times in 4, the others are refusals); a run the program does not stop (or that fills the output file) is recorded as hang (RLIMIT_FSIZE 4 MB, 4 s)"""
+    import resource
+    rnd = random.Random(seed)
+    rows = []
+    formats = ['bed', 'refseq', 'refseqp', 'pir', 'nbrf', 'swiss', 'sw', 'swissprot', 'uniprot', 'dasgff', 'draw']
+    with tempfile.TemporaryDirectory() as d:
+        shim = os.path.join(d, 'faketime.so')
+        subprocess.run(['gcc', '-shared', '-fPIC', '-o', shim, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'faketime.c')], check=True)
+        work = os.path.join(d, 'w'); os.mkdir(work)
+
+        def limit():
+            resource.setrlimit(resource.RLIMIT_FSIZE, (4 << 20, 4 << 20))
+        for fi in range(per_format * len(formats)):
+            fmt = formats[fi % len(formats)]
+            prot = fmt in ('refseqp', 'pir', 'nbrf', 'swiss', 'sw', 'swissprot', 'uniprot')
+            if fmt in ('bed', 'dasgff', 'draw'): kind = rnd.choice(KINDS)
+            elif rnd.random() < 0.75: kind = rnd.choice(PROT_KINDS if prot else NUC_KINDS)
+            else: kind = rnd.choice(KINDS)
+            text = make(rnd, kind)
+            if rnd.random() < 0.15: text = damaged(rnd, text)
+            extra = []
+            ufo = 'in.dat' if rnd.random() < 0.25 else '%s::in.dat' % FMTNAME[kind]
+            if rnd.random() < 0.25: extra = ['-fbegin1', str(rnd.randint(1, 100)), '-fend1', str(rnd.randint(60, 300))]
+            for nme in os.listdir(work): os.remove(os.path.join(work, nme))
+            open(os.path.join(work, 'in.dat'), 'w', newline='\n', encoding='latin-1').write(text)
+            env = dict(os.environ, LD_PRELOAD=shim, FAKE_EPOCH='978307200')
+            hang = False
+            try:
+                p = subprocess.run(['featcopy', '-features', ufo] + extra + ['-outfeat', 'out.dat', '-offormat', fmt], cwd=work, capture_output=True, timeout=4, env=env, preexec_fn=limit)
+                rc, err = p.returncode, p.stderr.decode('latin-1')
+                if rc == -25: hang = True
+            except subprocess.TimeoutExpired:
+                rc, err, hang = -9, '', True
+                subprocess.run(['pkill', '-9', 'featcopy'])
+            q = os.path.join(work, 'out.dat')
+            outtext = open(q, encoding='latin-1', newline='').read() if os.path.exists(q) and not hang else ''
+            if err.startswith('Read and write a feature table\n'): err = err[len('Read and write a feature table\n'):]
+            rows.append({'id': len(rows), 'kind': kind, 'text': text, 'ufo': ufo, 'extra': extra, 'format': fmt, 'epoch': 978307200, 'rc': rc, 'out': outtext, 'err': err, 'hang': hang})
+    with gzip.open(out, 'wt', encoding='utf-8', newline='\n', compresslevel=9) as fh:
+        for r in rows: fh.write(json.dumps(r, ensure_ascii=True) + '\n')
+    from collections import Counter
+    print(len(rows), 'rows;', sorted(Counter((r['format'], 'hang' if r['hang'] else 'out' if r['out'] else 'none') for r in rows).items()))
+
+
+OUT_FORMATS = ['gff3', 'gff', 'gff2', 'embl', 'genbank', 'bed', 'refseq', 'dasgff', 'draw', 'debug', 'pir', 'swiss', 'refseqp', 'ddbj', 'unknown']
+
+
+def main_merge(out, n, seed):
+    """A5-8c3f (B09 F245): featmerge -afeatures A -bfeatures B -outfeat out.dat -offormat F (n runs); the files are a.dat and b.dat"""
+    import resource
+    rnd = random.Random(seed)
+    rows = []
+    with tempfile.TemporaryDirectory() as d:
+        shim = os.path.join(d, 'faketime.so')
+        subprocess.run(['gcc', '-shared', '-fPIC', '-o', shim, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'faketime.c')], check=True)
+        work = os.path.join(d, 'w'); os.mkdir(work)
+
+        def limit():
+            resource.setrlimit(resource.RLIMIT_FSIZE, (4 << 20, 4 << 20))
+        while len(rows) < n:
+            ka = rnd.choice(KINDS); kb = rnd.choice(KINDS) if rnd.random() < 0.5 else ka
+            ta = make(rnd, ka); tb = make(rnd, kb)
+            if rnd.random() < 0.1: ta = damaged(rnd, ta)
+            fmt = rnd.choice(OUT_FORMATS)
+            ufa = 'a.dat' if rnd.random() < 0.3 else '%s::a.dat' % FMTNAME[ka]
+            ufb = 'b.dat' if rnd.random() < 0.3 else '%s::b.dat' % FMTNAME[kb]
+            if rnd.random() < 0.05: ufa = 'nofile.dat'
+            extra = []
+            if rnd.random() < 0.25: extra += ['-fbegin1', str(rnd.randint(1, 100)), '-fend1', str(rnd.randint(60, 300))]
+            if rnd.random() < 0.15: extra += ['-fbegin2', str(rnd.randint(1, 100)), '-fend2', str(rnd.randint(60, 300))]
+            for nme in os.listdir(work): os.remove(os.path.join(work, nme))
+            open(os.path.join(work, 'a.dat'), 'w', newline='\n', encoding='latin-1').write(ta)
+            open(os.path.join(work, 'b.dat'), 'w', newline='\n', encoding='latin-1').write(tb)
+            env = dict(os.environ, LD_PRELOAD=shim, FAKE_EPOCH='978307200')
+            hang = False
+            try:
+                p = subprocess.run(['featmerge', '-auto', '-afeatures', ufa, '-bfeatures', ufb] + extra + ['-outfeat', 'out.dat', '-offormat', fmt], cwd=work, capture_output=True, timeout=4, env=env, preexec_fn=limit)
+                rc, err = p.returncode, p.stderr.decode('latin-1')
+                if rc == -25: hang = True
+            except subprocess.TimeoutExpired:
+                rc, err, hang = -9, '', True
+                subprocess.run(['pkill', '-9', 'featmerge'])
+            q = os.path.join(work, 'out.dat')
+            outtext = open(q, encoding='latin-1', newline='').read() if os.path.exists(q) and not hang else ''
+            if err.startswith('Combine two feature tables\n'): err = err[len('Combine two feature tables\n'):]
+            rows.append({'id': len(rows), 'kind': ka + '+' + kb, 'a': ta, 'b': tb, 'ufoa': ufa, 'ufob': ufb, 'extra': extra, 'format': fmt, 'epoch': 978307200, 'rc': rc, 'out': outtext, 'err': err, 'hang': hang})
+    with gzip.open(out, 'wt', encoding='utf-8', newline='\n', compresslevel=9) as fh:
+        for r in rows: fh.write(json.dumps(r, ensure_ascii=True) + '\n')
+    from collections import Counter
+    print(len(rows), 'rows;', sorted(Counter((r['format'], 'hang' if r['hang'] else 'out' if r['out'] else 'none') for r in rows).items()))
+
+
+if __name__ == '__main__' and len(sys.argv) > 1 and sys.argv[1] == '--merge':
+    main_merge(sys.argv[2], int(sys.argv[3]), int(sys.argv[4]))
+    sys.exit(0)
+
+
+if __name__ == '__main__' and len(sys.argv) > 1 and sys.argv[1] == '--write2':
+    main_write2(sys.argv[2], int(sys.argv[3]), int(sys.argv[4]))
+    sys.exit(0)
+
+
 if __name__ == '__main__' and len(sys.argv) > 1 and sys.argv[1] == '--write':
     main_write(sys.argv[2], int(sys.argv[3]), int(sys.argv[4]))
     sys.exit(0)

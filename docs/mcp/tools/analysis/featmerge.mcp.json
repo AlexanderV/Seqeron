@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "featmerge",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "EmbossFeaturePrograms.Featmerge",
+  "docRef": "Seqeron.Genomics.Analysis/EmbossFeaturePrograms.cs",
+  "description": "EMBOSS 6.6.0 featmerge: the first feature table of featuresA and the first of featuresB (each in any input format of the EMBOSS feature readers: embl, genbank, refseq, genpept, refseqp, gff2, gff3, swiss, pir, dasgff; with no format every format is tried; 'format::' prefix and [begin:end] suffix in the *Value arguments) are read, a copy of every feature of B (every tag checked again, the group numbers kept) is added to A, and A is written in an output format: gff3 (default), gff, gff2, bed, embl, em, genbank, gb, ddbj, refseq, refseqp, pir, nbrf, swiss, sw, swissprot, uniprot, dasgff, draw, debug. The range of A (-fbegin1 / -fend1) cuts and shifts the merged table as it does in the program; the range of B is read and not used. Equals the installed program on 450 runs (every pair of input formats, ranges of both inputs, every output format, missing files, the inputs on which the program never stops refused with an error); the messages (Warning: ..., Error: Failed to open filename ...) are returned as the program prints them.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "featuresA": {
+        "type": "string",
+        "description": "The text of the first feature file (-afeatures)."
+      },
+      "featuresB": {
+        "type": "string",
+        "description": "The text of the second feature file (-bfeatures)."
+      },
+      "featuresAValue": {
+        "type": "string",
+        "description": "The value of -afeatures: 'format::' prefix and [begin:end] suffix; default the file itself."
+      },
+      "featuresBValue": {
+        "type": "string",
+        "description": "The value of -bfeatures."
+      },
+      "outputFormat": {
+        "type": "string",
+        "description": "The output feature format (-offormat): gff3 (default), gff, gff2, bed, embl, em, genbank, gb, ddbj, refseq, refseqp, pir, nbrf, swiss, sw, swissprot, uniprot, dasgff, draw, debug.",
+        "default": "gff3"
+      },
+      "featureBegin": {
+        "type": "integer",
+        "description": "-fbegin1: the range start of the first table (default 1).",
+        "default": 1
+      },
+      "featureEnd": {
+        "type": "integer",
+        "description": "-fend1: the range end of the first table (default: its length)."
+      }
+    },
+    "required": [
+      "featuresA",
+      "featuresB"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "fileName": {
+        "type": "string",
+        "description": "The name of the output file (the value of -outfeat without a format:: prefix)."
+      },
+      "text": {
+        "type": "string",
+        "description": "The feature tables in the output format."
+      },
+      "format": {
+        "type": "string",
+        "description": "The output feature format as the program resolved it."
+      },
+      "tables": {
+        "type": "integer",
+        "description": "The number of feature tables written."
+      },
+      "messages": {
+        "type": "array",
+        "description": "What the library printed on its error stream (Warning: ..., Error: ...), in order."
+      }
+    },
+    "required": [
+      "fileName",
+      "text",
+      "format",
+      "tables",
+      "messages"
+    ]
+  },
+  "errors": [
+    {
+      "code": "InvalidParams",
+      "message": "Invalid arguments (an empty feature file, a file that no feature reader reads - 'Bad value for -afeatures and no more retries' -, an input on which the reference program never stops)."
+    }
+  ],
+  "examples": [
+    {
+      "name": "Merge two GFF3 tables and write BED",
+      "input": {
+        "featuresA": "##gff-version 3\n##sequence-region seq1 1 100\nseq1\tsrc\tgene\t10\t50\t.\t+\t.\tID=g1;Name=abc\n",
+        "featuresB": "##gff-version 3\n##sequence-region seq1 1 100\nseq1\tsrc\texon\t20\t30\t.\t+\t.\tID=e1\n",
+        "outputFormat": "bed"
+      },
+      "output": {
+        "fileName": "unknown.gff",
+        "text": "track name=seq1 description=\"EMBOSS:6.6.0.0\" useScore=0\nseq1\t9\t49\tgene\t0\t+\t9\t49\t0\t1\t0\t41\nseq1\t19\t29\texon\t0\t+\t19\t29\t0\t1\t0\t11\n",
+        "format": "bed",
+        "tables": 1,
+        "messages": []
+      }
+    }
+  ]
+}

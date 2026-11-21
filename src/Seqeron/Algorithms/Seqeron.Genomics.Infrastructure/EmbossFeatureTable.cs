@@ -189,8 +189,14 @@ internal sealed partial class EmbossSeqFeatureTable
     internal void SetType(string type)
     {
         if (Type.Length == 0)
+        {
             Type = type;
+            TypeNull = false;
+        }
     }
+
+    /// <summary>The type of the table is the NULL string of the library (a new table: only a reader that sets the type, or a failed attempt that did and was cleared, makes it the empty string) and prints as <c>&lt;null&gt;</c> where the writers print it with <c>%S</c>.</summary>
+    public bool TypeNull = true;
 
     // featEmblFromLine / featRefseqpFromLine (the two differ only in the processing of a finished feature): the feature the call finished is returned (the "static" one of the library: the last one, even when this call finished none)
     internal bool FromLine(string? origLine, ref string saveFeature, ref string saveLoc, ref string saveLine, bool refseqp)
@@ -930,7 +936,7 @@ internal sealed partial class EmbossSeqFeatureTable
 
     // ajStrAssignSubS(from, to): inclusive 0-based positions, the end clipped, an empty result when it is before the start
     // ajStrAssignSubS with ajCvtSposToPos / ajCvtSposToPosStart: the positions are clamped to the string (a negative one counts from the end) and the result is NEVER shorter than one character
-    private static string Sub(string s, int first, int last)
+    internal static string Sub(string s, int first, int last)
     {
         int len = s.Length;
         if (len == 0)

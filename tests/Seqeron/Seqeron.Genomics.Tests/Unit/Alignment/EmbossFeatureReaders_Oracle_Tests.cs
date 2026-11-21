@@ -121,7 +121,7 @@ public class EmbossFeatureReaders_Oracle_Tests
             }
         }
 
-        Assert.That(failures, Is.Empty, $"{failures.Count} of {rows}:\n" + string.Join("\n", failures.Take(8)));
+        Assert.That(failures, Is.Empty, $"{failures.Count} of {rows}:\n" + string.Join("\n", failures.Take(12)));
         Assert.That(rows, Is.GreaterThanOrEqualTo(2600));
         foreach (string kind in new[] { "embl", "genbank", "refseq", "genpept", "refseqp", "gff2", "gff3", "gff3emboss", "swiss", "pir", "dasgff" })
         {
@@ -199,21 +199,14 @@ public class EmbossFeatureReaders_Oracle_Tests
             }
         }
 
-        Assert.That(failures, Is.Empty, $"{failures.Count} of {rows}:\n" + string.Join("\n", failures.Take(8)));
+        Assert.That(failures, Is.Empty, $"{failures.Count} of {rows}:\n" + string.Join("\n", failures.Take(12)));
         Assert.That(rows, Is.GreaterThanOrEqualTo(1200));
         Assert.That(read, Is.GreaterThan(600), "files that gave features");
         Assert.That(hang, Is.GreaterThan(5));
     }
 
-    /// <summary>
-    /// <c>featcopy</c> (<see cref="EmbossFeaturePrograms.Featcopy"/>): every table of a file in any input format written in the output formats gff3 (gff, unknown), gff2, embl (em), genbank (gb, ddbj) of the feature library - sub-features of join / order locations,
-    /// flags, remote ids, GFF3 attributes, the type notes of the ontology, the group order, the table range (<c>-fbegin1</c> / <c>-fend1</c>), the formats the program refuses for a protein table - equal the installed
-    /// <c>featcopy -features FILE -outfeat out.dat -offormat F</c> byte for byte, with its messages (TestData/Alignment/featwrite_oracle.jsonl.gz, <c>generate_featread_oracle.py --write</c>, dates faked).
-    /// </summary>
-    [Test]
-    public void Featcopy_WritesEveryFormat_EqualsTheProgram_AllRows()
+    private static (int Rows, Dictionary<string, int> PerFormat, int Hang) RunWriteOracle(string name)
     {
-        const string name = "Seqeron.Genomics.Tests.TestData.Alignment.featwrite_oracle.jsonl.gz";
         using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(name) ?? throw new InvalidOperationException($"Embedded oracle '{name}' not found.");
         using var gz = new GZipStream(stream, CompressionMode.Decompress);
         using var reader = new StreamReader(gz);
@@ -278,12 +271,115 @@ public class EmbossFeatureReaders_Oracle_Tests
             }
         }
 
-        Assert.That(failures, Is.Empty, $"{failures.Count} of {rows}:\n" + string.Join("\n", failures.Take(8)));
+        Assert.That(failures, Is.Empty, $"{failures.Count} of {rows}:\n" + string.Join("\n", failures.Take(12)));
+        return (rows, perFormat, hang);
+    }
+
+    /// <summary>
+    /// <c>featcopy</c> (<see cref="EmbossFeaturePrograms.Featcopy"/>): every table of a file in any input format written in the output formats gff3 (gff, unknown), gff2, embl (em), genbank (gb, ddbj) of the feature library - sub-features of join / order locations,
+    /// flags, remote ids, GFF3 attributes, the type notes of the ontology, the group order, the table range (<c>-fbegin1</c> / <c>-fend1</c>), the formats the program refuses for a protein table - equal the installed
+    /// <c>featcopy -features FILE -outfeat out.dat -offormat F</c> byte for byte, with its messages (TestData/Alignment/featwrite_oracle.jsonl.gz, <c>generate_featread_oracle.py --write</c>, dates faked).
+    /// </summary>
+    [Test]
+    public void Featcopy_WritesEveryFormat_EqualsTheProgram_AllRows()
+    {
+        var (rows, perFormat, hang) = RunWriteOracle("Seqeron.Genomics.Tests.TestData.Alignment.featwrite_oracle.jsonl.gz");
         Assert.That(rows, Is.GreaterThanOrEqualTo(1800));
         foreach (string f in new[] { "gff3", "gff2", "embl", "genbank" })
             Assert.That(perFormat.GetValueOrDefault(f), Is.GreaterThanOrEqualTo(150), $"tables written in {f}");
         Assert.That(perFormat.GetValueOrDefault("gff") + perFormat.GetValueOrDefault("em") + perFormat.GetValueOrDefault("gb") + perFormat.GetValueOrDefault("ddbj"), Is.GreaterThan(100), "the aliases");
         Assert.That(hang, Is.GreaterThan(3));
+    }
+
+    /// <summary>
+    /// A5-8c3f (F244): the feature writers of bed, refseq, refseqp, pir (nbrf), swiss (sw, swissprot, uniprot), dasgff and draw for a full table equal <c>featcopy -features FILE -outfeat out.dat -offormat F</c>
+    /// (TestData/Alignment/featwrite2_oracle.jsonl.gz, <c>generate_featread_oracle.py --write2</c>, 250 runs per format; the runs the program never ends or whose file it fills are rows that must be refused).
+    /// </summary>
+    [Test]
+    public void Featcopy_WritesBedRefseqRefseqpPirSwissDasgffDraw_EqualsTheProgram_AllRows()
+    {
+        var (rows, perFormat, hang) = RunWriteOracle("Seqeron.Genomics.Tests.TestData.Alignment.featwrite2_oracle.jsonl.gz");
+        Assert.That(rows, Is.GreaterThanOrEqualTo(2750));
+        foreach (string f in new[] { "bed", "refseq", "refseqp", "pir", "nbrf", "swiss", "sw", "swissprot", "uniprot", "dasgff", "draw" })
+            Assert.That(perFormat.GetValueOrDefault(f), Is.GreaterThanOrEqualTo(20), $"tables written in {f}");
+        Assert.That(hang, Is.GreaterThan(3));
+    }
+
+    /// <summary>
+    /// A5-8c3f (F245): <c>featmerge</c> (<see cref="EmbossFeaturePrograms.Featmerge"/>) equals <c>featmerge -afeatures A -bfeatures B -outfeat out.dat -offormat F</c> byte for byte with its messages, over every pair of input formats,
+    /// ranges of both inputs and every output format (TestData/Alignment/featmerge_oracle.jsonl.gz, <c>generate_featread_oracle.py --merge</c>).
+    /// </summary>
+    [Test]
+    public void Featmerge_EqualsTheProgram_AllRows()
+    {
+        const string name = "Seqeron.Genomics.Tests.TestData.Alignment.featmerge_oracle.jsonl.gz";
+        using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(name) ?? throw new InvalidOperationException($"Embedded oracle '{name}' not found.");
+        using var gz = new GZipStream(stream, CompressionMode.Decompress);
+        using var reader = new StreamReader(gz);
+        var failures = new List<string>();
+        int rows = 0, hang = 0, written = 0;
+        string? line;
+        while ((line = reader.ReadLine()) is not null)
+        {
+            var j = JsonDocument.Parse(line).RootElement;
+            rows++;
+            var extra = j.GetProperty("extra").EnumerateArray().Select(x => x.GetString()!).ToList();
+            var range = new Dictionary<string, int> { ["-fbegin1"] = 1, ["-fbegin2"] = 1 };
+            var ends = new Dictionary<string, int?> { ["-fend1"] = null, ["-fend2"] = null };
+            for (int i = 0; i + 1 < extra.Count; i += 2)
+            {
+                if (range.ContainsKey(extra[i])) range[extra[i]] = int.Parse(extra[i + 1], System.Globalization.CultureInfo.InvariantCulture);
+                else ends[extra[i]] = int.Parse(extra[i + 1], System.Globalization.CultureInfo.InvariantCulture);
+            }
+
+            string format = j.GetProperty("format").GetString()!;
+            string expected = j.GetProperty("out").GetString()!;
+            string id = $"row {j.GetProperty("id")} ({j.GetProperty("kind").GetString()} {format} {string.Join(' ', extra)})";
+            var request = new EmbossFeatmergeRequest(j.GetProperty("ufoa").GetString()!, j.GetProperty("ufob").GetString()!,
+                new Dictionary<string, string> { ["a.dat"] = j.GetProperty("a").GetString()!, ["b.dat"] = j.GetProperty("b").GetString()! },
+                range["-fbegin1"], ends["-fend1"], range["-fbegin2"], ends["-fend2"], "out.dat", format, null, DateTimeOffset.FromUnixTimeSeconds(j.GetProperty("epoch").GetInt64()).UtcDateTime);
+            string[] eLines = [.. j.GetProperty("err").GetString()!.Split('\n').Where(l => l.Length > 0)];
+            try
+            {
+                var got = EmbossFeaturePrograms.Featmerge(request);
+                if (j.GetProperty("hang").GetBoolean())
+                {
+                    failures.Add($"{id}: the program never stops, the port returned");
+                    continue;
+                }
+
+                string[] gLines = [.. got.Messages.SelectMany(m => m.Split('\n')).Where(l => l.Length > 0)];
+                if (j.GetProperty("rc").GetInt32() != 0)
+                    failures.Add($"{id}: the program died, the port returned");
+                else if (got.Text != expected)
+                    failures.Add($"{id}: output differs at {FirstDifference(got.Text, expected)}");
+                else if (!eLines.SequenceEqual(gLines))
+                    failures.Add($"{id}: messages '{string.Join('|', gLines)}' expected '{string.Join('|', eLines)}'");
+                else if (expected.Length > 0)
+                    written++;
+            }
+            catch (EmbossFeatureDiedException e)
+            {
+                string[] gLines = [.. e.Errors.SelectMany(m => m.Split('\n')).Append(e.Message).Where(l => l.Length > 0)];
+                if (j.GetProperty("rc").GetInt32() != 1)
+                    failures.Add($"{id}: the port died, the program did not");
+                else if (!eLines.SequenceEqual(gLines))
+                    failures.Add($"{id}: messages '{string.Join('|', gLines)}' expected '{string.Join('|', eLines)}'");
+            }
+            catch (InvalidOperationException) when (j.GetProperty("hang").GetBoolean())
+            {
+                hang++;
+            }
+            catch (Exception e)
+            {
+                failures.Add($"{id}: {e.GetType().Name}: {e.Message}");
+            }
+        }
+
+        Assert.That(failures, Is.Empty, $"{failures.Count} of {rows}:\n" + string.Join("\n", failures.Take(12)));
+        Assert.That(rows, Is.GreaterThanOrEqualTo(400));
+        Assert.That(written, Is.GreaterThanOrEqualTo(200), "tables written");
+        Assert.That(hang, Is.GreaterThan(0));
     }
 
     private static string FirstDifference(string got, string expected)

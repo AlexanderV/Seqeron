@@ -213,55 +213,6 @@ public static partial class EmbossReportWriter
 
     // --------------------------------------------------------------------------------------------- swiss ----
 
-    // featTagSwissWrapC (the /FTId= branches are not needed: the programs write no FTId tag)
-    private static void SwissWrap(string pval, int margin, string prefix, StringBuilder sb)
-    {
-        int left = prefix.Length;
-        int width = margin - left;
-        if (pval.Length <= left)
-        {
-            sb.Append(pval).Append('\n');
-            return;
-        }
-
-        sb.Append(pval, 0, left);
-        string valstr = pval[left..];
-        int len = valstr.Length;
-        int k;
-        for (int i = 0; i < len; i += k)
-        {
-            int last = i + width - 1;
-            string chunk;
-            int j;
-            if (last + 1 >= len)
-            {
-                chunk = valstr[i..];
-                j = 0;
-            }
-            else if (valstr[last + 1] == ' ')
-            {
-                chunk = valstr.Substring(i, last - i + 1);
-                j = width;
-            }
-            else
-            {
-                chunk = valstr.Substring(i, last - i + 1);
-                j = chunk.LastIndexOf(' ');
-            }
-
-            if (j < 1)
-            {
-                j = chunk.Length;
-                k = j;
-            }
-            else
-                k = j + 1;
-            if (i > 0)
-                sb.Append(prefix);
-            sb.Append(chunk, 0, Math.Min(j, chunk.Length)).Append('\n');
-        }
-    }
-
     private static void Swiss(State st, EmbossReport t)
     {
         var sb = st.Out;

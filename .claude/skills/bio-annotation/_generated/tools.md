@@ -46,6 +46,7 @@
 | `est2genome` | Analysis | `EmbossEst2genomePrograms.Run` | [doc](../../../../docs/mcp/tools/analysis/est2genome.md) |
 | `exact_tandems` | Analysis | `MummerExactTandems.Run` | [doc](../../../../docs/mcp/tools/analysis/exact_tandems.md) |
 | `featcopy` | Analysis | `EmbossFeaturePrograms.Featcopy` | [doc](../../../../docs/mcp/tools/analysis/featcopy.md) |
+| `featmerge` | Analysis | `EmbossFeaturePrograms.Featmerge` | [doc](../../../../docs/mcp/tools/analysis/featmerge.md) |
 | `find_all_longest_repeats` | Analysis | `GenomicAnalyzer.FindAllLongestRepeats` | [doc](../../../../docs/mcp/tools/analysis/find_all_longest_repeats.md) |
 | `find_approximate_direct_repeats` | Analysis | `RepeatFinder.FindApproximateDirectRepeats` | [doc](../../../../docs/mcp/tools/analysis/find_approximate_direct_repeats.md) |
 | `find_approximate_tandem_repeats` | Analysis | `RepeatFinder.FindApproximateTandemRepeats` | [doc](../../../../docs/mcp/tools/analysis/find_approximate_tandem_repeats.md) |

@@ -26,7 +26,7 @@ placeholder
 |-----------|------|----------|-------------|
 | `features` | string | Yes | The text of the feature file (a feature table of any input format, or an EMBL / GenBank entry; several tables may follow one another). |
 | `featuresValue` | string | No | The value of -features: 'format::' prefix and [begin:end] suffix are read as the program reads them; default the file itself. |
-| `outputFormat` | string | No | The output feature format (-offormat): gff3 (default), gff, gff2, embl, em, genbank, gb, ddbj, debug. |
+| `outputFormat` | string | No | The output feature format (-offormat): gff3 (default), gff, gff2, bed, embl, em, genbank, gb, ddbj, refseq, refseqp, pir, nbrf, swiss, sw, swissprot, uniprot, dasgff, draw, debug. |
 | `featureBegin` | integer | No | -fbegin: the first table is cut to this range start (default 1; negative counts from the end). |
 | `featureEnd` | integer | No | -fend: the first table is cut to this range end (default: its length). |
 

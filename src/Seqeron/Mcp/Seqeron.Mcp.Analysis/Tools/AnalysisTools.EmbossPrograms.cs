@@ -324,11 +324,11 @@ public partial class AnalysisTools
     }
 
     [McpServerTool(Name = "featcopy", Title = "Alignment — EMBOSS featcopy (read and write feature tables)", ReadOnly = true)]
-    [Description("EMBOSS 6.6.0 featcopy: every feature table of a file in ANY input format is read by the feature readers of the EMBOSS library and written in an output format. Input formats: embl, genbank, refseq (nucleotide, feature lines of five blanks), genpept, refseqp (protein), gff2 (versions 1 / 2, ##Type, ##sequence-region, group fields, featflags), gff3 (ID / Parent grouping, several lines of one ID, percent-encoded values, several tables), the gff3 EMBOSS wrote before 6.4, swiss, pir, dasgff (XML); with no format the library tries embl, refseq, refseqp, genpept, gff3, gff2, swiss, pir and dasgff in turn on the start of the file and keeps the first that finds features, and a 'format::' prefix of features forces one (an unknown name is an error message and the formats are tried). Output formats written for a feature table: gff3 (gff, unknown input = refused as the program does), gff2, embl (em), genbank (gb, ddbj), debug (the full internal trace: type, source, score, strand, positions, flags, group, exon, tags, sub-features); bed, refseq, refseqp, pir, swiss, dasgff and draw are not written for a feature table by this port. The first table is cut to the range featureBegin / featureEnd (a table with a range is trimmed and its features shifted: a feature cut at the end is flagged). The reader and writer pairs equal the installed program on 3 800 input files (embl, genbank, refseq, genpept, refseqp, gff2, gff3, gff3emboss, swiss, pir, dasgff: 236 or more each, damaged and mixed files, the format:: prefix, ranges, the files on which the program never stops are refused with an error) and 1 800 output files in gff3 / gff2 / embl / genbank and their aliases; the messages (Warning: bad /protein_id value ..., Error: Unknown input format ...) are returned as the program prints them.")]
+    [Description("EMBOSS 6.6.0 featcopy: every feature table of a file in ANY input format is read by the feature readers of the EMBOSS library and written in an output format. Input formats: embl, genbank, refseq (nucleotide, feature lines of five blanks), genpept, refseqp (protein), gff2 (versions 1 / 2, ##Type, ##sequence-region, group fields, featflags), gff3 (ID / Parent grouping, several lines of one ID, percent-encoded values, several tables), the gff3 EMBOSS wrote before 6.4, swiss, pir, dasgff (XML); with no format the library tries embl, refseq, refseqp, genpept, gff3, gff2, swiss, pir and dasgff in turn on the start of the file and keeps the first that finds features, and a 'format::' prefix of features forces one (an unknown name is an error message and the formats are tried). Output formats written for a feature table: gff3 (gff, unknown input = refused as the program does), gff2, embl (em), genbank (gb, ddbj, refseq), bed (track line, score 0, blocks of the sub-features), refseqp, pir (nbrf), swiss (sw, swissprot, uniprot: FT lines wrapped at 75 with the /FTId= rule), dasgff (XML, type category from the ontology table), draw (cirdna / lindna group), debug (the full internal trace: type, source, score, strand, positions, flags, group, exon, tags, sub-features); a format the program refuses for the kind of sequence (embl for a protein table, pir for a nucleotide one) is an error message and nothing is written. The first table is cut to the range featureBegin / featureEnd (a table with a range is trimmed and its features shifted: a feature cut at the end is flagged). The reader and writer pairs equal the installed program on 3 800 input files (embl, genbank, refseq, genpept, refseqp, gff2, gff3, gff3emboss, swiss, pir, dasgff: 236 or more each, damaged and mixed files, the format:: prefix, ranges, the files on which the program never stops are refused with an error) and 1 800 output files in gff3 / gff2 / embl / genbank and their aliases and 2 750 output files in bed, refseq, refseqp, pir / nbrf, swiss / sw / swissprot / uniprot, dasgff and draw (a Swiss-Prot feature line the library's wrapper cannot break - a word as long as the line - never ends in the program and is refused with an error); the messages (Warning: bad /protein_id value ..., Error: Unknown input format ...) are returned as the program prints them.")]
     public static FeatcopyToolResult Featcopy(
         [Description("The text of the feature file (a feature table of any input format, or an EMBL / GenBank entry; several tables may follow one another).")] string features,
         [Description("The value of -features: 'format::' prefix and [begin:end] suffix are read as the program reads them; default the file itself.")] string? featuresValue = null,
-        [Description("The output feature format (-offormat): gff3 (default), gff, gff2, embl, em, genbank, gb, ddbj, debug.")] string outputFormat = "gff3",
+        [Description("The output feature format (-offormat): gff3 (default), gff, gff2, bed, embl, em, genbank, gb, ddbj, refseq, refseqp, pir, nbrf, swiss, sw, swissprot, uniprot, dasgff, draw, debug.")] string outputFormat = "gff3",
         [Description("-fbegin: the first table is cut to this range start (default 1; negative counts from the end).")] int featureBegin = 1,
         [Description("-fend: the first table is cut to this range end (default: its length).")] int? featureEnd = null,
         CancellationToken cancellationToken = default)
@@ -346,6 +346,39 @@ public partial class AnalysisTools
         catch (global::Seqeron.Genomics.Infrastructure.EmbossFeatureDiedException e)
         {
             throw new ArgumentException(e.Message + (e.Errors.Count > 0 ? " (" + string.Join("; ", e.Errors.Where(m => m.Length > 0)) + ")" : ""), nameof(features));
+        }
+        catch (Exception e) when (e is NotSupportedException or InvalidOperationException)
+        {
+            throw new ArgumentException(e.Message, nameof(outputFormat));
+        }
+    }
+
+    [McpServerTool(Name = "featmerge", Title = "Alignment — EMBOSS featmerge (combine two feature tables)", ReadOnly = true)]
+    [Description("EMBOSS 6.6.0 featmerge: the first feature table of featuresA and the first of featuresB (each in any input format of the EMBOSS feature readers: embl, genbank, refseq, genpept, refseqp, gff2, gff3, swiss, pir, dasgff; with no format every format is tried; 'format::' prefix and [begin:end] suffix in the *Value arguments) are read, a copy of every feature of B (every tag checked again, the group numbers kept) is added to A, and A is written in an output format: gff3 (default), gff, gff2, bed, embl, em, genbank, gb, ddbj, refseq, refseqp, pir, nbrf, swiss, sw, swissprot, uniprot, dasgff, draw, debug. The range of A (-fbegin1 / -fend1) cuts and shifts the merged table as it does in the program; the range of B is read and not used. Equals the installed program on 450 runs (every pair of input formats, ranges of both inputs, every output format, missing files, the inputs on which the program never stops refused with an error); the messages (Warning: ..., Error: Failed to open filename ...) are returned as the program prints them.")]
+    public static FeatcopyToolResult Featmerge(
+        [Description("The text of the first feature file (-afeatures).")] string featuresA,
+        [Description("The text of the second feature file (-bfeatures).")] string featuresB,
+        [Description("The value of -afeatures: 'format::' prefix and [begin:end] suffix; default the file itself.")] string? featuresAValue = null,
+        [Description("The value of -bfeatures.")] string? featuresBValue = null,
+        [Description("The output feature format (-offormat): gff3 (default), gff, gff2, bed, embl, em, genbank, gb, ddbj, refseq, refseqp, pir, nbrf, swiss, sw, swissprot, uniprot, dasgff, draw, debug.")] string outputFormat = "gff3",
+        [Description("-fbegin1: the range start of the first table (default 1).")] int featureBegin = 1,
+        [Description("-fend1: the range end of the first table (default: its length).")] int? featureEnd = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(featuresA))
+            throw new ArgumentException("The feature file cannot be empty", nameof(featuresA));
+        if (string.IsNullOrWhiteSpace(featuresB))
+            throw new ArgumentException("The feature file cannot be empty", nameof(featuresB));
+        cancellationToken.ThrowIfCancellationRequested();
+        try
+        {
+            var o = EmbossFeaturePrograms.Featmerge(new EmbossFeatmergeRequest(string.IsNullOrWhiteSpace(featuresAValue) ? "a.dat" : featuresAValue, string.IsNullOrWhiteSpace(featuresBValue) ? "b.dat" : featuresBValue,
+                new Dictionary<string, string> { ["a.dat"] = featuresA, ["b.dat"] = featuresB }, featureBegin, featureEnd, 1, null, "unknown.gff", outputFormat, null, DateTime.Now));
+            return new FeatcopyToolResult(o.FileName, o.Text, o.Format, o.Tables, [.. o.Messages]);
+        }
+        catch (global::Seqeron.Genomics.Infrastructure.EmbossFeatureDiedException e)
+        {
+            throw new ArgumentException(e.Message + (e.Errors.Count > 0 ? " (" + string.Join("; ", e.Errors.Where(m => m.Length > 0)) + ")" : ""), nameof(featuresA));
         }
         catch (Exception e) when (e is NotSupportedException or InvalidOperationException)
         {

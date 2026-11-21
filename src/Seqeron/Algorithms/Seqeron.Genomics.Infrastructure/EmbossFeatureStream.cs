@@ -73,6 +73,7 @@ internal sealed class EmbossFeatureStream
     private readonly EmbossFeatureReadContext _context;
     private int _format;
     private int _count;
+    private bool _typeTouched;
 
     /// <param name="text">The text of the file.</param>
     /// <param name="format">The index of the input format in <see cref="EmbossFeatureFormats.Table"/>; 0 = find it.</param>
@@ -145,12 +146,15 @@ internal sealed class EmbossFeatureStream
     private EmbossSeqFeatureTable? TryRead(int format, out bool eof)
     {
         eof = false;
-        var table = new EmbossSeqFeatureTable(_context);
+        var table = new EmbossSeqFeatureTable(_context) { TypeNull = !_typeTouched };
         if (EmbossFeatureFormats.Read(table, format, _file))
         {
             table.FormatName = EmbossFeatureFormats.Table[format].Name;
             return table;
         }
+
+        if (table.Type.Length > 0)
+            _typeTouched = true;                         // ajFeattableClear of the shared table sets its type to the empty string, no longer the NULL one
 
         if (_file.Unbuffered && _file.End)
         {

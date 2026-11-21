@@ -31,11 +31,13 @@ internal sealed class EmbossFeatureInput
     /// <param name="fbegin">The value of <c>-fbegin</c> (default 1).</param>
     /// <param name="fend">The value of <c>-fend</c> (default: the length of the first table).</param>
     /// <param name="context">The state of the feature library of the run.</param>
+    /// <param name="parameter">The name of the ACD parameter (for the message of the program that dies).</param>
+    /// <param name="attempts">How often the ACD asks for the value before it dies (2 for <c>featuresall</c>).</param>
     /// <exception cref="EmbossFeatureDiedException">The value is no feature file ("Bad value for '-features' and no more retries"): the ACD asks twice, so every message of the reading is printed twice.</exception>
-    public EmbossFeatureInput(string value, Func<string, string?> files, int fbegin, int? fend, EmbossFeatureReadContext context)
+    public EmbossFeatureInput(string value, Func<string, string?> files, int fbegin, int? fend, EmbossFeatureReadContext context, string parameter = "features", int attempts = 2)
     {
         _context = context;
-        for (int attempt = 0; attempt < 2 && _first is null; attempt++)
+        for (int attempt = 0; attempt < attempts && _first is null; attempt++)
         {
             var stream = Open(value, files);
             if (stream is null)
@@ -45,7 +47,7 @@ internal sealed class EmbossFeatureInput
         }
 
         if (_first is null)
-            throw new EmbossFeatureDiedException("Died: featcopy terminated: Bad value for '-features' and no more retries", _context.Messages);
+            throw new EmbossFeatureDiedException($"Died: {context.Program} terminated: Bad value for '-{parameter}' and no more retries", _context.Messages);
         int len = _first.Length;
         int end = fend ?? len;
         _first.Start = unchecked((uint)PositionOf(len, 1, fbegin));

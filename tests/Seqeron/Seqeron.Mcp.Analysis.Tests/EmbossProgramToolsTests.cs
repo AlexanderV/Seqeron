@@ -123,9 +123,32 @@ public class EmbossProgramToolsTests
         var cut = AnalysisTools.Featcopy(gff, null, "debug", 10, 30);
         Assert.That(cut.Text, Does.StartWith("  Format: 0 (gff3)  Start: 10\n  End: 30\n  Len: 21\n  Offset: 0\n  Groups: 4\n"));
         Assert.That(cut.Text, Does.Contain("    Start: 1\n    End: 21\n").And.Contain("      END_AFTER_SEQ\n"));
-        // a format this port does not write for a table is refused
-        Assert.That(() => AnalysisTools.Featcopy(gff, null, "swiss"), Throws.ArgumentException.With.Message.Contains("not written"));
+        // a format the program refuses for the kind of sequence: an error message of the library and nothing written (embl for a protein table)
+        var refused = AnalysisTools.Featcopy(swiss, "swiss::features.dat", "embl");
+        Assert.That(refused.Messages, Does.Contain("Error: Feature format 'embl' not supported for protein sequence features"));
+        Assert.That(refused.Tables, Is.EqualTo(0));
+        // the other writers of the feature library (A5-8c3f, F244): bed with its blocks, Swiss-Prot FT lines, PIR, DAS GFF, draw
+        const string gb = "LOCUS       SEQA 300 bp    DNA     linear   UNK 01-JAN-2000\nFEATURES             Location/Qualifiers\n     gene            complement(10..50)\n                     /gene=\"abc\"\n     CDS             join(60..80,90..120)\n                     /product=\"foo\"\nORIGIN\n        1 acgt\n//\n";
+        Assert.That(AnalysisTools.Featcopy(gb, null, "bed").Text, Is.EqualTo("track name= description=\"EMBOSS:6.6.0.0\" useScore=0\n\t9\t49\tgene\t0\t-\t9\t49\t0\t1\t0\t41\n\t59\t119\tCDS\t0\t+\t59\t119\t0\t2\t21,31\t0,30\n"));
+        Assert.That(AnalysisTools.Featcopy(gb, null, "draw").Text, Does.Contain("Range 10 50 | | 9 H\ngene\nendlabel\n").And.EndWith("endgroup\n"));
+        Assert.That(AnalysisTools.Featcopy(swiss, "swiss::features.dat", "swiss").Text, Is.EqualTo("FT   DOMAIN        5     50       Kinase domain.\nFT   ACT_SITE     30     30       Proton acceptor (By similarity).\n"));
+        Assert.That(AnalysisTools.Featcopy(swiss, "swiss::features.dat", "pir").Text, Is.EqualTo("F;5-50/Domain: Kinase domain\nF;30/Active site: Proton acceptor #By similarity\n"));
+        Assert.That(AnalysisTools.Featcopy(gb, null, "dasgff").Text, Does.Contain("<TYPE id=\"SO:0000704\" category=\"other\" reference=\"no\" subparts=\"no\">gene</TYPE>"));
         Assert.That(() => AnalysisTools.Featcopy(" ", null, "gff3"), Throws.ArgumentException);
+    }
+
+    [Test]
+    public void Featmerge_CombinesTwoFeatureTables_AsTheProgram()
+    {
+        // featmerge 6.6.0 (A5-8c3f, F245): the features of the second table are copied into the first, which is written in the output format
+        const string a = "##gff-version 3\n##sequence-region seq1 1 100\nseq1\tsrc\tgene\t10\t50\t.\t+\t.\tID=g1;Name=abc\n";
+        const string b = "##gff-version 3\n##sequence-region seq1 1 100\nseq1\tsrc\texon\t20\t30\t.\t+\t.\tID=e1\n";
+        var merged = AnalysisTools.Featmerge(a, b);
+        Assert.That(merged.Tables, Is.EqualTo(1));
+        Assert.That(merged.Text, Does.Contain("seq1\tsrc\tgene\t10\t50").And.Contain("seq1\tsrc\texon\t20\t30"));
+        Assert.That(AnalysisTools.Featmerge(a, b, null, null, "bed").Text, Does.StartWith("track name=seq1 description=\"EMBOSS:6.6.0.0\" useScore=0\n"));
+        Assert.That(() => AnalysisTools.Featmerge(a, b, "missing.dat"), Throws.ArgumentException.With.Message.Contains("Bad value for '-afeatures'"));
+        Assert.That(() => AnalysisTools.Featmerge(" ", b), Throws.ArgumentException);
     }
 
     [Test]

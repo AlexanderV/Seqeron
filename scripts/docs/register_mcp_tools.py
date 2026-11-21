@@ -27,8 +27,8 @@ for lbl in ('Gold-standard binding', 'Schema+Binding tests', 'Docs (.md + .mcp.j
     status = status.replace('| %s | %d | %d |' % (lbl, total_old, total_old), '| %s | %d | %d |' % (lbl, total_new, total_new))
 status = status.replace('| Analysis | Seqeron.Mcp.Analysis | %d | %d/%d | %d/%d | %d/%d | ✅ done |' % ((an_old,) * 7), '| Analysis | Seqeron.Mcp.Analysis | %d | %d/%d | %d/%d | %d/%d | ✅ done |' % ((an_new,) * 7))
 status = status.replace('### Analysis (Seqeron.Mcp.Analysis) — %d tools' % an_old, '### Analysis (Seqeron.Mcp.Analysis) — %d tools' % an_new)
-last = re.findall(r'^\| (\d+) \|[^\n]*\n(?=### Annotation)', status, re.M)
-m = re.search(r'(^\| (\d+) \| `[^`]+` \| ☑ \| ☑ \| ☑ \|\n)(?=### Annotation)', status, re.M)
+last = re.findall(r'^\| (\d+) \|[^\n]*\n(?=\n?### Annotation)', status, re.M)
+m = re.search(r'(^\| (\d+) \| `[^`]+` \| ☑ \| ☑ \| ☑ \|\n)(?=\n?### Annotation)', status, re.M)
 num = int(m.group(2))
 rows = ''.join('| %d | `%s` | ☑ | ☑ | ☑ |\n' % (num + i + 1, t['name']) for i, t in enumerate(new))
 status = status[:m.end()] + rows + status[m.end():]

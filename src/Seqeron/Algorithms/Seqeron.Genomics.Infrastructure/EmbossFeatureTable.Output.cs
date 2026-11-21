@@ -18,6 +18,7 @@ internal sealed partial class EmbossSeqFeatureTable
         {
             SeqId = SeqId,
             Type = Type,
+            TypeNull = false,
             FormatName = FormatName ?? "",
             Format = Format,
             Groups = Groups,
@@ -43,6 +44,26 @@ internal sealed partial class EmbossSeqFeatureTable
         }
 
         return ret;
+    }
+
+    /// <summary><c>ajFeattableAdd</c>: the feature is appended, the length raised to its largest position unless it has a remote id or a label.</summary>
+    public void Add(EmbossSeqFeature feature)
+    {
+        if (!feature.Flags.HasFlag(EmbossLocationBits.RemoteId) && !feature.Flags.HasFlag(EmbossLocationBits.Label))
+        {
+            Length = Math.Max(Length, feature.Start);
+            Length = Math.Max(Length, feature.End);
+        }
+
+        Features.Add(feature);
+    }
+
+    /// <summary><c>ajFeattableMerge</c>: a copy (<see cref="NewFeat"/>, every tag checked again; the group numbers are kept) of every feature of the other table is added.</summary>
+    public int Merge(EmbossSeqFeatureTable source)
+    {
+        foreach (var f in source.Features)
+            Add(NewFeat(f));
+        return Features.Count;
     }
 
     /// <summary><c>ajFeattableIsNuc</c>: a table of unknown type is both.</summary>
