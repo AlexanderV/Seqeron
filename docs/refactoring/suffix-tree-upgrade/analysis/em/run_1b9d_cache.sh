@@ -50,7 +50,7 @@ PID=$!
 WDG=$!
 if [ -n "${B9D_RAISE:-}" ]; then
   ( exec > /dev/null 2>&1
-    while kill -0 $PID 2>/dev/null && [ ! -e "$SCR/ph3" ]; do sleep 0.05; done          # PH3 has started
+    while kill -0 $PID 2>/dev/null && [ ! -e "$SCR/ranks.bin" ]; do sleep 0.05; done   # PH1 has made the rank file (the directories ph1 and ph3 exist from the start of the production build, unlike the prototype's)
     while kill -0 $PID 2>/dev/null && [ -e "$SCR/ranks.bin" ]; do sleep 0.05; done     # the rank file is deleted as soon as PH3 has used it
     kill -0 $PID 2>/dev/null && echo "$B9D_RAISE" > "$CG/memory.limit_in_bytes" && touch "$PIDF.raised" ) &
   RZ=$!

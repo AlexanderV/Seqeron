@@ -1,0 +1,26 @@
+[
+ {
+  "id": "B01",
+  "desc": "the builder gives no counters to the growth",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "growth = container.Grow(tail.FinalLength, options.Files, counters);",
+  "new": "growth = container.Grow(tail.FinalLength, options.Files);",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "B02",
+  "desc": "the builder gives no file options to the growth",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "growth = container.Grow(tail.FinalLength, options.Files, counters);",
+  "new": "growth = container.Grow(tail.FinalLength, null, counters);",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "B03",
+  "desc": "the builder forgets what the growth did",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "growth = container.Grow(tail.FinalLength, options.Files, counters);",
+  "new": "container.Grow(tail.FinalLength, options.Files, counters);",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ }
+]

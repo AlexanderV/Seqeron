@@ -32,6 +32,42 @@ internal static class SesaCommands
         }
     }
 
+    /// <summary>Experiment of the tail measurement: one zero byte at the start of every 4 KiB page of the range instead of all of it (the pages are dirty either way).</summary>
+    private sealed class StrideSource : IReservationSource
+    {
+        public bool CanPreallocate => SystemReservationSource.Instance.CanPreallocate;
+
+        public FileStream CreatePreallocated(string path, long length) => SystemReservationSource.Instance.CreatePreallocated(path, length);
+
+        public long AvailableFreeBytes(string directory) => SystemReservationSource.Instance.AvailableFreeBytes(directory);
+
+        public void ReserveRange(SafeFileHandle file, long offset, long length, IoCounters? counters)
+        {
+            ReadOnlySpan<byte> one = [0];
+            for (long at = offset; at < offset + length; at += 4096)
+            {
+                RandomAccess.Write(file, one, at);
+                counters?.AddReserved(1);
+            }
+        }
+    }
+
+    /// <summary>Experiment of the tail measurement: the zeros, then a flush of the file to the device before the mapped writes (which adds the device writes of the zeros).</summary>
+    private sealed class SyncedZeroSource : IReservationSource
+    {
+        public bool CanPreallocate => SystemReservationSource.Instance.CanPreallocate;
+
+        public FileStream CreatePreallocated(string path, long length) => SystemReservationSource.Instance.CreatePreallocated(path, length);
+
+        public long AvailableFreeBytes(string directory) => SystemReservationSource.Instance.AvailableFreeBytes(directory);
+
+        public void ReserveRange(SafeFileHandle file, long offset, long length, IoCounters? counters)
+        {
+            ZeroFill.Write(file, offset, length, counters);
+            RandomAccess.FlushToDisk(file);
+        }
+    }
+
     /// <summary>The system's reservation with the seconds of the reservation of the growth (variant B of the A/B).</summary>
     private sealed class TimedSource : IReservationSource
     {
@@ -51,7 +87,7 @@ internal static class SesaCommands
         }
     }
 
-    private sealed record Config(string Input, string Work, string Label, int Threads, long ScaleN, bool Psi, bool Fsync, bool Sparse, bool Cold, bool Keep, string Device, string? RowsFile, int Pairs, bool MeasureRss);
+    private sealed record Config(string Input, string Work, string Label, int Threads, long ScaleN, bool Psi, bool Fsync, bool Sparse, bool Cold, bool Keep, string Device, string? RowsFile, int Pairs, bool MeasureRss, bool Lean, string? FillAt);
 
     internal static void Run(string[] args)
     {
@@ -62,11 +98,11 @@ internal static class SesaCommands
         }
         if (args.Length == 0 || args[0] is not ("build" or "ab")) throw new ArgumentException("usage: sesa build|ab --input <text file> --work <directory> [options] | sesa tail --work <directory> --mb <n> [options]");
         string mode = args[0];
-        string? input = null, work = null, label = null, rows = null;
+        string? input = null, work = null, label = null, rows = null, fillAt = null;
         string device = "vda";
         int threads = 4, pairs = 3;
         long scaleN = 0;
-        bool psi = true, fsync = true, sparse = false, cold = false, keep = false, rss = true;
+        bool psi = true, fsync = true, sparse = false, cold = false, keep = false, rss = true, lean = false;
         for (int i = 1; i < args.Length; i += 2)
         {
             string value = i + 1 < args.Length ? args[i + 1] : throw new ArgumentException($"option {args[i]} needs a value");
@@ -86,12 +122,14 @@ internal static class SesaCommands
                 case "--rows": rows = value; break;
                 case "--pairs": pairs = int.Parse(value, Inv); break;
                 case "--rss": rss = bool.Parse(value); break;
+                case "--lean": lean = bool.Parse(value); break;
+                case "--fill-at": fillAt = value; break;
                 default: throw new ArgumentException($"unknown option '{args[i]}'");
             }
         }
         if (input is null || work is null) throw new ArgumentException("--input and --work are required");
         Directory.CreateDirectory(work);
-        var c = new Config(Path.GetFullPath(input), Path.GetFullPath(work), label ?? Path.GetFileNameWithoutExtension(input), threads, scaleN, psi, fsync, sparse, cold, keep, device, rows, pairs, rss);
+        var c = new Config(Path.GetFullPath(input), Path.GetFullPath(work), label ?? Path.GetFileNameWithoutExtension(input), threads, scaleN, psi, fsync, sparse, cold, keep, device, rows, pairs, rss, lean, fillAt);
         if (mode == "build") Build(c);
         else Ab(c);
     }
@@ -151,7 +189,13 @@ internal static class SesaCommands
         }
         else
         {
-            IReservationSource source = variant == "sparse" ? new SparseTailSource() : SystemReservationSource.Instance;
+            IReservationSource source = variant switch
+            {
+                "sparse" => new SparseTailSource(),
+                "stride" => new StrideSource(),
+                "zerosync" => new SyncedZeroSource(),
+                _ => SystemReservationSource.Instance,
+            };
             using MappedOutputFile file = MappedOutputFile.Create(path, head);
             file.Grow(head + growth, new MappedFileOptions { Source = source }, counters);
             growS = Seconds(t0);
@@ -166,27 +210,40 @@ internal static class SesaCommands
         Sync();
         syncS = Seconds(t2);
         (_, long w2) = Sectors(device);
-        void Row(string metric, double v, string unit, string notes = "") => Emit.Row("sesa-tail", metric, v, unit, $"{label} {variant} {mb} MiB {(cold ? "cold" : "warm")} {notes}".TrimEnd());
+        string tag = $"{label} {variant} {mb} MiB {(cold ? "cold" : "warm")}";
+        void Row(string metric, double v, string unit, string notes = "") => Emit.Row("sesa-tail", metric, v, unit, $"{tag} {notes}".TrimEnd());
         Row("grow_s", growS, "s", "create or grow, with the reservation");
         Row("write_s", writeS, "s", "the mapped windows over the whole growth");
         Row("sync_s", syncS, "s", "sync after the write");
         Row("total_s", growS + writeS + syncS, "s");
-        Emit.Row("sesa-tail", "reserved_bytes", counters.ReservedWriteBytes, "bytes", $"{label} {variant} {mb} MiB");
+        Emit.Row("sesa-tail", "reserved_bytes", counters.ReservedWriteBytes, "bytes", tag);
         if (p0 is { } a && p1 is { } b)
         {
             ProcIoSnapshot d = b.Since(a);
-            Emit.Row("sesa-tail", "proc_wchar", d.WChar, "bytes", $"{label} {variant} {mb} MiB");
-            Emit.Row("sesa-tail", "proc_write_bytes", d.WriteBytes, "bytes", $"{label} {variant} {mb} MiB pages dirtied");
+            Emit.Row("sesa-tail", "proc_wchar", d.WChar, "bytes", tag);
+            Emit.Row("sesa-tail", "proc_write_bytes", d.WriteBytes, "bytes", $"{tag} pages dirtied");
         }
-        Emit.Row("sesa-tail", "dev_read_bytes", (r1 - r0) * 512, "bytes", $"{label} {variant} {mb} MiB");
-        Emit.Row("sesa-tail", "dev_written_bytes_before_sync", (w1 - w0) * 512, "bytes", $"{label} {variant} {mb} MiB");
-        Emit.Row("sesa-tail", "dev_written_bytes", (w2 - w0) * 512, "bytes", $"{label} {variant} {mb} MiB until the end of the sync");
+        Emit.Row("sesa-tail", "dev_read_bytes", (r1 - r0) * 512, "bytes", tag);
+        Emit.Row("sesa-tail", "dev_written_bytes_before_sync", (w1 - w0) * 512, "bytes", tag);
+        Emit.Row("sesa-tail", "dev_written_bytes", (w2 - w0) * 512, "bytes", $"{tag} until the end of the sync");
         File.Delete(path);
     }
 
     private static void Build(Config c)
     {
-        Measured m = BuildOnce(c, c.Sparse ? new SparseTailSource() : null);
+        Measured m;
+        try
+        {
+            m = BuildOnce(c, c.Sparse ? new SparseTailSource() : null);
+        }
+        catch (IOException e)
+        {
+            // a build that cannot get the disk space ends here with its exception (a signal would end the process before this line): exit code 3
+            Emit.Row("sesa", "io_exception", e.Message.Replace('\t', ' ').Replace('\n', ' '), "text", c.Label);
+            Emit.Row("sesa", "left_behind", Directory.GetFileSystemEntries(c.Work).Count(x => Path.GetFileName(x) is not "ballast"), "entries", $"{c.Label} entries of the work directory besides the ballast");
+            Environment.ExitCode = 3;
+            return;
+        }
         Report(c, c.Label, m);
     }
 
@@ -195,9 +252,10 @@ internal static class SesaCommands
         var ratios = new List<double>();
         var ratios45 = new List<double>();
         var reserve = new List<double>();
-        for (int pair = 1; pair <= c.Pairs; pair++)
+        // pair 0 is the warm-up of the process (JIT, the first touch of every buffer): it is run and reported like the others but left out of the ratios
+        for (int pair = 0; pair <= c.Pairs; pair++)
         {
-            bool aFirst = pair % 2 == 1;
+            bool aFirst = pair % 2 == 1 || pair == 0;
             Measured? a = null, b = null;
             TimedSource timed = new();
             foreach (char which in aFirst ? "AB" : "BA")
@@ -215,6 +273,7 @@ internal static class SesaCommands
                     Emit.Row("sesa", "reserve_s", timed.ReserveSeconds, "s", $"{label} the seconds inside ReserveRange (the zeros of the growth)");
                 }
             }
+            if (pair == 0) continue;
             ratios.Add(b!.Result.Seconds.Total / a!.Result.Seconds.Total);
             ratios45.Add(b.Result.Seconds.Ph45 / a.Result.Seconds.Ph45);
             reserve.Add(timed.ReserveSeconds);
@@ -248,8 +307,17 @@ internal static class SesaCommands
             IncludePsi = c.Psi,
             Fsync = c.Fsync,
             MeasureRss = c.MeasureRss,
+            // the lean settings of the cache tests of E7 (section 8 of RESULTS-E7.md: --budget-mb 64 --ph5-budget-mb 24 --spill-kb 16 --tuple-kb 8 --b2-workers 2), which cut RssAnon by more than half
+            ArenaCapBytes = c.Lean ? 64L << 20 : new SesaBuildOptions().ArenaCapBytes,
+            ChildArenaCapBytes = c.Lean ? 24L << 20 : new SesaBuildOptions().ChildArenaCapBytes,
+            SaTuning = c.Lean ? new SaBuildTuning { SpillBytes = 16 << 10 } : new SaBuildTuning(),
+            LcpTuning = c.Lean ? new LcpChildTuning { LcpTupleBytes = 8 << 10, LcpWorkers = 2 } : new LcpChildTuning(),
             Counters = counters,
             Files = source is null ? null : new MappedFileOptions { Source = source },
+            Hook = c.FillAt is null ? null : point =>
+            {
+                if (point == c.FillAt) FillVolume(c.Work);
+            },
         };
         ProcIoSnapshot? p0 = ProcIoSnapshot.TryRead();
         (long r0, long w0) = Sectors(c.Device);
@@ -319,6 +387,50 @@ internal static class SesaCommands
         {
             return (0, 0);
         }
+    }
+
+    /// <summary>
+    /// The disk of a full-volume run is taken at the point <c>--fill-at</c> names (a hook of <see cref="SesaHooks"/>, e.g. <c>lcp-placed</c>: after the late pre-flight and the growth of the container): a file of the name
+    /// <c>ballast</c> in the directory is written until the volume refuses the next byte, and a thread goes on trying for the rest of the process, so that every block that the build frees afterwards (it deletes its scratch
+    /// files as it goes) is taken at once: that is what another process that writes without end does to the volume in the window of work package 1b.9d.
+    /// </summary>
+    private static void FillVolume(string directory)
+    {
+        SafeFileHandle handle = File.OpenHandle(Path.Combine(directory, "ballast"), FileMode.Create, FileAccess.Write, FileShare.None);
+        long offset = 0;
+        offset = TakeWhatIsFree(handle, offset);
+        Console.Error.WriteLine($"filled {directory}: ballast of {offset} bytes");
+        var thief = new Thread(() =>
+        {
+            while (true)
+            {
+                offset = TakeWhatIsFree(handle, offset);
+                Thread.Sleep(1);
+            }
+        })
+        { IsBackground = true, Name = "ballast" };
+        thief.Start();
+    }
+
+    private static long TakeWhatIsFree(SafeFileHandle handle, long offset)
+    {
+        var chunk = new byte[1 << 20];
+        foreach (int size in new[] { 1 << 20, 4096, 1 })
+        {
+            try
+            {
+                while (true)
+                {
+                    RandomAccess.Write(handle, chunk.AsSpan(0, size), offset);
+                    offset += size;
+                }
+            }
+            catch (IOException)
+            {
+                offset = RandomAccess.GetLength(handle);
+            }
+        }
+        return offset;
     }
 
     private static void Sync()

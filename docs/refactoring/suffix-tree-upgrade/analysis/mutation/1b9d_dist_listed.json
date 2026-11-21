@@ -1,0 +1,26 @@
+[
+ {
+  "id": "S01",
+  "desc": "the target of Dist is created sparse",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs",
+  "old": "MappedOutputFile.Create(targetPath, slots * sizeof(TValue), options.Files);",
+  "new": "MappedOutputFile.Create(targetPath, slots * sizeof(TValue), new MappedFileOptions { Reservation = ReservationMode.Sparse });",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "S02",
+  "desc": "the target of Dist ignores the options",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs",
+  "old": "MappedOutputFile.Create(targetPath, slots * sizeof(TValue), options.Files);",
+  "new": "MappedOutputFile.Create(targetPath, slots * sizeof(TValue));",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "S03",
+  "desc": "Dist reports a sparse target",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs",
+  "old": "return new DistStats(chunks, bytesWritten, bytesRead, created.Outcome);",
+  "new": "return new DistStats(chunks, bytesWritten, bytesRead, ReservationOutcome.Sparse);",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ }
+]

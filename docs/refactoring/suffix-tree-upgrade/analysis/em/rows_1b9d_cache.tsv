@@ -1,0 +1,1792 @@
+R	1b9d	dna100.U	1	settings	limit=max raise=none prewarm=1 gc=unset args=--scale-n 3000000000		cgroup limit (bytes), limit after PH3, runtime pre-read outside the group, DOTNET_GCHeapHardLimit, extra program arguments
+R	1b9d	dna100.U	1	ext_rssanon_peak	145.904	MB	independent sampler: max RssAnon of /proc/<pid>/status at 20 ms
+R	1b9d	dna100.U	1	ext_rssanon_mean_ph3	68.027	MB	mean RssAnon over PH3 (rank file and ph3 directory exist), 669 samples
+R	1b9d	dna100.U	1	eff_resident_ph3	1.0000		time-weighted resident fraction of (packed text + rank file) over PH3 (mincore every 200 ms, 64 samples, 13.5 s)
+R	1b9d	dna100.U	1	eff_resident_ranks	1.0000		the same over the whole life of the rank file (PH1 end .. PH3 end, 64 samples, 13.5 s)
+R	1b9d	dna100.U	1	text_bytes	25000064	bytes	TEXT section of the container
+R	1b9d	dna100.U	1	rank_bytes	12890240	bytes	DCS rank file
+R	1b9d	dna100.U	1	cg_limit	9223372036854771712	bytes	memory.limit_in_bytes of the sub-group at the start of the run
+R	1b9d	dna100.U	1	cg_failcnt	0	n	memory.failcnt at the end
+R	1b9d	dna100.U	1	cg_max_usage	1905336320	bytes	memory.max_usage_in_bytes at the end
+R	1b9d	dna100.U	1	cg_rss_mean_ph3	67.947	MB	mean memory.stat rss (anonymous) of the sub-group over PH3
+R	1b9d	dna100.U	1	ext_proc_rchar	3919453727	bytes	independent sampler: /proc/<pid>/io rchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.U	1	ext_proc_wchar	2810214534	bytes	independent sampler: /proc/<pid>/io wchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.U	1	ext_proc_read_bytes	101584896	bytes	independent sampler: /proc/<pid>/io read_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.U	1	ext_proc_write_bytes	4340543488	bytes	independent sampler: /proc/<pid>/io write_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.U	1	total_s	25.287530863	s	dna100.U.1 SesaBuilder.Build, inside the call
+R	1b9d	dna100.U	1	wall_s	25.293683044	s	dna100.U.1 around the call
+R	1b9d	dna100.U	1	scan_s	0.186178319	s	dna100.U.1
+R	1b9d	dna100.U	1	create_s	0.0029771	s	dna100.U.1
+R	1b9d	dna100.U	1	pack_s	0.330972235	s	dna100.U.1
+R	1b9d	dna100.U	1	ph1_s	1.656028035	s	dna100.U.1
+R	1b9d	dna100.U	1	ph23_s	12.894556613	s	dna100.U.1
+R	1b9d	dna100.U	1	ph45_s	6.522340087	s	dna100.U.1
+R	1b9d	dna100.U	1	bwt_s	2.109597977	s	dna100.U.1
+R	1b9d	dna100.U	1	psi_s	0.938589205	s	dna100.U.1
+R	1b9d	dna100.U	1	crc_s	0.297534953	s	dna100.U.1
+R	1b9d	dna100.U	1	seal_s	0.005490339	s	dna100.U.1
+R	1b9d	dna100.U	1	n	100000000	symbols	dna100.U.1 sigma 4, 2 bits
+R	1b9d	dna100.U	1	file_size	1325019393	bytes	dna100.U.1 LCP U8, 0 overflow pairs
+R	1b9d	dna100.U	1	grown_bytes	0	bytes	dna100.U.1 growth none, creation Preallocated
+R	1b9d	dna100.U	1	counted_read	3910595933	bytes	dna100.U.1 explicit reads of the build (IoCounters)
+R	1b9d	dna100.U	1	counted_write	2810214300	bytes	dna100.U.1 explicit writes of the build (IoCounters)
+R	1b9d	dna100.U	1	counted_mapped_write	1437890539	bytes	dna100.U.1 writes through mapped windows (IoCounters)
+R	1b9d	dna100.U	1	counted_reserved_write	0	bytes	dna100.U.1 zeros written to reserve the growth
+R	1b9d	dna100.U	1	scratch_peak	1200000000	bytes	dna100.U.1
+R	1b9d	dna100.U	1	arena_peak	39395096	bytes	dna100.U.1
+R	1b9d	dna100.U	1	proc_rchar	3919401552	bytes	dna100.U.1 /proc/self/io over the call
+R	1b9d	dna100.U	1	proc_wchar	2810214491	bytes	dna100.U.1
+R	1b9d	dna100.U	1	proc_read_bytes	101531648	bytes	dna100.U.1 block-layer reads charged to the process
+R	1b9d	dna100.U	1	proc_write_bytes	4340502528	bytes	dna100.U.1 pages dirtied (a page that is written again counts again)
+R	1b9d	dna100.U	1	dev_sectors_read	199184	sectors	dna100.U.1 /sys/block/vda/stat over the call (512 B)
+R	1b9d	dna100.U	1	dev_sectors_written	4597928	sectors	dna100.U.1 over the call
+R	1b9d	dna100.U	1	dev_sectors_written_synced	4600160	sectors	dna100.U.1 until the end of a sync after the call
+R	1b9d	dna100.U	1	rssanon_peak_mb	145.903616	MB	dna100.U.1 verdict Within
+R	1b9d	dna100.U	1	rssanon_ph0_mb	10.760192	MB	dna100.U.1
+R	1b9d	dna100.U	1	rssanon_ph1_mb	26.996736	MB	dna100.U.1
+R	1b9d	dna100.U	1	rssanon_ph23_mb	103.395328	MB	dna100.U.1
+R	1b9d	dna100.U	1	rssanon_ph45_mb	145.903616	MB	dna100.U.1
+R	1b9d	dna100.U	1	rssanon_ph6_mb	121.319424	MB	dna100.U.1
+R	1b9d	dna100.U	1	rssanon_seal_mb	121.319424	MB	dna100.U.1
+R	1b9d	dna100.U	1	exit_code	0		program exit code (0 = healthy)
+R	1b9d	dna100.U	1	killed	no		no | watchdog (600 s) | oom-or-signal (exit 137 without the watchdog: the cgroup OOM killer)
+R	1b9d	dna100.U	1	cg_failcnt_final	0	n	memory.failcnt after the run
+R	1b9d	dna100.U	1	cg_max_usage_final	1905336320	bytes	memory.max_usage_in_bytes after the run; memory.stat: cache 1427214336 rss 0 mapped_file 0 pgpgin 324771 pgpgout 242089 pgmajfault 3413 total_cache 1427214336 total_rss 0 total_mapped_file 0 total_pgpgin 324771 total_pgpgout 242089 total_pgmajfault 3413 
+R	1b9d	dna100.U	1	cmp_container	reference		SHA-256 dc5ad0d82bef0114 of the container against the reference in /tmp/stbench/b9d/work/dna_100m.txt.sesa.sha (reference = this run made it)
+R	1b9d	dna100.U	1	left_behind	0		entries of the work directory of the run besides the container (a build that succeeded leaves the container only)
+R	1b9d	dna100.U	1	run_done	yes		all rows of this run are written
+R	1b9d	dna100.D130	1	settings	limit=130000000 raise=1073741824 prewarm=1 gc=unset args=--scale-n 3000000000		cgroup limit (bytes), limit after PH3, runtime pre-read outside the group, DOTNET_GCHeapHardLimit, extra program arguments
+R	1b9d	dna100.D130	1	ext_rssanon_peak	86.000	MB	independent sampler: max RssAnon of /proc/<pid>/status at 20 ms
+R	1b9d	dna100.D130	1	ext_rssanon_mean_ph3	50.166	MB	mean RssAnon over PH3 (rank file and ph3 directory exist), 827 samples
+R	1b9d	dna100.D130	1	eff_resident_ph3	0.8372		time-weighted resident fraction of (packed text + rank file) over PH3 (mincore every 200 ms, 78 samples, 16.5 s)
+R	1b9d	dna100.D130	1	eff_resident_ranks	0.8372		the same over the whole life of the rank file (PH1 end .. PH3 end, 78 samples, 16.5 s)
+R	1b9d	dna100.D130	1	text_bytes	25000064	bytes	TEXT section of the container
+R	1b9d	dna100.D130	1	rank_bytes	12890240	bytes	DCS rank file
+R	1b9d	dna100.D130	1	cg_limit	129998848	bytes	memory.limit_in_bytes of the sub-group at the start of the run
+R	1b9d	dna100.D130	1	cg_failcnt	238224	n	memory.failcnt at the end
+R	1b9d	dna100.D130	1	cg_max_usage	1073741824	bytes	memory.max_usage_in_bytes at the end
+R	1b9d	dna100.D130	1	eff_budget_ph3	2.1055		E3-style budget ratio (limit - mean cgroup anonymous memory over PH3 (50.2 MB)) / (text + rank file)
+R	1b9d	dna100.D130	1	cg_rss_mean_ph3	50.222	MB	mean memory.stat rss (anonymous) of the sub-group over PH3
+R	1b9d	dna100.D130	1	ext_proc_rchar	3921560347	bytes	independent sampler: /proc/<pid>/io rchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D130	1	ext_proc_wchar	2810214533	bytes	independent sampler: /proc/<pid>/io wchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D130	1	ext_proc_read_bytes	3409035264	bytes	independent sampler: /proc/<pid>/io read_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D130	1	ext_proc_write_bytes	4349689856	bytes	independent sampler: /proc/<pid>/io write_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D130	1	total_s	30.760158543	s	dna100.D130.1 SesaBuilder.Build, inside the call
+R	1b9d	dna100.D130	1	wall_s	30.765158911	s	dna100.D130.1 around the call
+R	1b9d	dna100.D130	1	scan_s	0.164544643	s	dna100.D130.1
+R	1b9d	dna100.D130	1	create_s	0.002326223	s	dna100.D130.1
+R	1b9d	dna100.D130	1	pack_s	0.398353408	s	dna100.D130.1
+R	1b9d	dna100.D130	1	ph1_s	1.687076758	s	dna100.D130.1
+R	1b9d	dna100.D130	1	ph23_s	16.044270955	s	dna100.D130.1
+R	1b9d	dna100.D130	1	ph45_s	8.076973388	s	dna100.D130.1
+R	1b9d	dna100.D130	1	bwt_s	2.528994084	s	dna100.D130.1
+R	1b9d	dna100.D130	1	psi_s	0.972150907	s	dna100.D130.1
+R	1b9d	dna100.D130	1	crc_s	0.534585208	s	dna100.D130.1
+R	1b9d	dna100.D130	1	seal_s	0.005356088	s	dna100.D130.1
+R	1b9d	dna100.D130	1	n	100000000	symbols	dna100.D130.1 sigma 4, 2 bits
+R	1b9d	dna100.D130	1	file_size	1325019393	bytes	dna100.D130.1 LCP U8, 0 overflow pairs
+R	1b9d	dna100.D130	1	grown_bytes	0	bytes	dna100.D130.1 growth none, creation Preallocated
+R	1b9d	dna100.D130	1	counted_read	3910595933	bytes	dna100.D130.1 explicit reads of the build (IoCounters)
+R	1b9d	dna100.D130	1	counted_write	2810214300	bytes	dna100.D130.1 explicit writes of the build (IoCounters)
+R	1b9d	dna100.D130	1	counted_mapped_write	1437890539	bytes	dna100.D130.1 writes through mapped windows (IoCounters)
+R	1b9d	dna100.D130	1	counted_reserved_write	0	bytes	dna100.D130.1 zeros written to reserve the growth
+R	1b9d	dna100.D130	1	scratch_peak	1200000000	bytes	dna100.D130.1
+R	1b9d	dna100.D130	1	arena_peak	39395096	bytes	dna100.D130.1
+R	1b9d	dna100.D130	1	proc_rchar	3921517520	bytes	dna100.D130.1 /proc/self/io over the call
+R	1b9d	dna100.D130	1	proc_wchar	2810214491	bytes	dna100.D130.1
+R	1b9d	dna100.D130	1	proc_read_bytes	3409018880	bytes	dna100.D130.1 block-layer reads charged to the process
+R	1b9d	dna100.D130	1	proc_write_bytes	4349648896	bytes	dna100.D130.1 pages dirtied (a page that is written again counts again)
+R	1b9d	dna100.D130	1	dev_sectors_read	6661600	sectors	dna100.D130.1 /sys/block/vda/stat over the call (512 B)
+R	1b9d	dna100.D130	1	dev_sectors_written	6021552	sectors	dna100.D130.1 over the call
+R	1b9d	dna100.D130	1	dev_sectors_written_synced	6022904	sectors	dna100.D130.1 until the end of a sync after the call
+R	1b9d	dna100.D130	1	rssanon_peak_mb	85.999616	MB	dna100.D130.1 verdict Within
+R	1b9d	dna100.D130	1	rssanon_ph0_mb	10.747904	MB	dna100.D130.1
+R	1b9d	dna100.D130	1	rssanon_ph1_mb	27.168768	MB	dna100.D130.1
+R	1b9d	dna100.D130	1	rssanon_ph23_mb	86.007808	MB	dna100.D130.1
+R	1b9d	dna100.D130	1	rssanon_ph45_mb	77.070336	MB	dna100.D130.1
+R	1b9d	dna100.D130	1	rssanon_ph6_mb	52.486144	MB	dna100.D130.1
+R	1b9d	dna100.D130	1	rssanon_seal_mb	52.486144	MB	dna100.D130.1
+R	1b9d	dna100.D130	1	exit_code	0		program exit code (0 = healthy)
+R	1b9d	dna100.D130	1	limit_raised	yes		the limit was raised to 1073741824 bytes when PH3 had finished
+R	1b9d	dna100.D130	1	killed	no		no | watchdog (300 s) | oom-or-signal (exit 137 without the watchdog: the cgroup OOM killer)
+R	1b9d	dna100.D130	1	cg_failcnt_final	238224	n	memory.failcnt after the run
+R	1b9d	dna100.D130	1	cg_max_usage_final	1073741824	bytes	memory.max_usage_in_bytes after the run; memory.stat: cache 1009307648 rss 0 mapped_file 0 pgpgin 580531 pgpgout 547851 pgmajfault 9249 total_cache 1009307648 total_rss 0 total_mapped_file 0 total_pgpgin 580531 total_pgpgout 547851 total_pgmajfault 9249 
+R	1b9d	dna100.D130	1	cmp_container	yes		SHA-256 dc5ad0d82bef0114 of the container against the reference in /tmp/stbench/b9d/work/dna_100m.txt.sesa.sha (reference = this run made it)
+R	1b9d	dna100.D130	1	left_behind	0		entries of the work directory of the run besides the container (a build that succeeded leaves the container only)
+R	1b9d	dna100.D130	1	run_done	yes		all rows of this run are written
+R	1b9d	dna100.D115	1	settings	limit=115000000 raise=1073741824 prewarm=1 gc=unset args=--scale-n 3000000000		cgroup limit (bytes), limit after PH3, runtime pre-read outside the group, DOTNET_GCHeapHardLimit, extra program arguments
+R	1b9d	dna100.D115	1	ext_rssanon_peak	85.426	MB	independent sampler: max RssAnon of /proc/<pid>/status at 20 ms
+R	1b9d	dna100.D115	1	ext_rssanon_mean_ph3	62.071	MB	mean RssAnon over PH3 (rank file and ph3 directory exist), 1187 samples
+R	1b9d	dna100.D115	1	eff_resident_ph3	0.7444		time-weighted resident fraction of (packed text + rank file) over PH3 (mincore every 200 ms, 112 samples, 23.7 s)
+R	1b9d	dna100.D115	1	eff_resident_ranks	0.7444		the same over the whole life of the rank file (PH1 end .. PH3 end, 112 samples, 23.7 s)
+R	1b9d	dna100.D115	1	text_bytes	25000064	bytes	TEXT section of the container
+R	1b9d	dna100.D115	1	rank_bytes	12890240	bytes	DCS rank file
+R	1b9d	dna100.D115	1	cg_limit	114999296	bytes	memory.limit_in_bytes of the sub-group at the start of the run
+R	1b9d	dna100.D115	1	cg_failcnt	464944	n	memory.failcnt at the end
+R	1b9d	dna100.D115	1	cg_max_usage	1073741824	bytes	memory.max_usage_in_bytes at the end
+R	1b9d	dna100.D115	1	eff_budget_ph3	1.4029		E3-style budget ratio (limit - mean cgroup anonymous memory over PH3 (61.8 MB)) / (text + rank file)
+R	1b9d	dna100.D115	1	cg_rss_mean_ph3	61.843	MB	mean memory.stat rss (anonymous) of the sub-group over PH3
+R	1b9d	dna100.D115	1	ext_proc_rchar	3925134244	bytes	independent sampler: /proc/<pid>/io rchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D115	1	ext_proc_wchar	2810214534	bytes	independent sampler: /proc/<pid>/io wchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D115	1	ext_proc_read_bytes	4982706176	bytes	independent sampler: /proc/<pid>/io read_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D115	1	ext_proc_write_bytes	4355428352	bytes	independent sampler: /proc/<pid>/io write_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D115	1	total_s	39.631349532	s	dna100.D115.1 SesaBuilder.Build, inside the call
+R	1b9d	dna100.D115	1	wall_s	39.636827835	s	dna100.D115.1 around the call
+R	1b9d	dna100.D115	1	scan_s	0.158848298	s	dna100.D115.1
+R	1b9d	dna100.D115	1	create_s	0.002258307	s	dna100.D115.1
+R	1b9d	dna100.D115	1	pack_s	0.335039823	s	dna100.D115.1
+R	1b9d	dna100.D115	1	ph1_s	1.689151522	s	dna100.D115.1
+R	1b9d	dna100.D115	1	ph23_s	23.261533073	s	dna100.D115.1
+R	1b9d	dna100.D115	1	ph45_s	9.688561812	s	dna100.D115.1
+R	1b9d	dna100.D115	1	bwt_s	2.471602386	s	dna100.D115.1
+R	1b9d	dna100.D115	1	psi_s	1.031024259	s	dna100.D115.1
+R	1b9d	dna100.D115	1	crc_s	0.611367742	s	dna100.D115.1
+R	1b9d	dna100.D115	1	seal_s	0.006417567	s	dna100.D115.1
+R	1b9d	dna100.D115	1	n	100000000	symbols	dna100.D115.1 sigma 4, 2 bits
+R	1b9d	dna100.D115	1	file_size	1325019393	bytes	dna100.D115.1 LCP U8, 0 overflow pairs
+R	1b9d	dna100.D115	1	grown_bytes	0	bytes	dna100.D115.1 growth none, creation Preallocated
+R	1b9d	dna100.D115	1	counted_read	3910595933	bytes	dna100.D115.1 explicit reads of the build (IoCounters)
+R	1b9d	dna100.D115	1	counted_write	2810214300	bytes	dna100.D115.1 explicit writes of the build (IoCounters)
+R	1b9d	dna100.D115	1	counted_mapped_write	1437890539	bytes	dna100.D115.1 writes through mapped windows (IoCounters)
+R	1b9d	dna100.D115	1	counted_reserved_write	0	bytes	dna100.D115.1 zeros written to reserve the growth
+R	1b9d	dna100.D115	1	scratch_peak	1200000000	bytes	dna100.D115.1
+R	1b9d	dna100.D115	1	arena_peak	39395096	bytes	dna100.D115.1
+R	1b9d	dna100.D115	1	proc_rchar	3925082317	bytes	dna100.D115.1 /proc/self/io over the call
+R	1b9d	dna100.D115	1	proc_wchar	2810214491	bytes	dna100.D115.1
+R	1b9d	dna100.D115	1	proc_read_bytes	4982652928	bytes	dna100.D115.1 block-layer reads charged to the process
+R	1b9d	dna100.D115	1	proc_write_bytes	4355391488	bytes	dna100.D115.1 pages dirtied (a page that is written again counts again)
+R	1b9d	dna100.D115	1	dev_sectors_read	9734552	sectors	dna100.D115.1 /sys/block/vda/stat over the call (512 B)
+R	1b9d	dna100.D115	1	dev_sectors_written	7564888	sectors	dna100.D115.1 over the call
+R	1b9d	dna100.D115	1	dev_sectors_written_synced	7565528	sectors	dna100.D115.1 until the end of a sync after the call
+R	1b9d	dna100.D115	1	rssanon_peak_mb	85.426176	MB	dna100.D115.1 verdict Within
+R	1b9d	dna100.D115	1	rssanon_ph0_mb	10.555392	MB	dna100.D115.1
+R	1b9d	dna100.D115	1	rssanon_ph1_mb	27.869184	MB	dna100.D115.1
+R	1b9d	dna100.D115	1	rssanon_ph23_mb	83.320832	MB	dna100.D115.1
+R	1b9d	dna100.D115	1	rssanon_ph45_mb	85.426176	MB	dna100.D115.1
+R	1b9d	dna100.D115	1	rssanon_ph6_mb	60.841984	MB	dna100.D115.1
+R	1b9d	dna100.D115	1	rssanon_seal_mb	60.841984	MB	dna100.D115.1
+R	1b9d	dna100.D115	1	exit_code	0		program exit code (0 = healthy)
+R	1b9d	dna100.D115	1	limit_raised	yes		the limit was raised to 1073741824 bytes when PH3 had finished
+R	1b9d	dna100.D115	1	killed	no		no | watchdog (300 s) | oom-or-signal (exit 137 without the watchdog: the cgroup OOM killer)
+R	1b9d	dna100.D115	1	cg_failcnt_final	464944	n	memory.failcnt after the run
+R	1b9d	dna100.D115	1	cg_max_usage_final	1073741824	bytes	memory.max_usage_in_bytes after the run; memory.stat: cache 1001320448 rss 0 mapped_file 0 pgpgin 918640 pgpgout 884881 pgmajfault 87794 total_cache 1001320448 total_rss 0 total_mapped_file 0 total_pgpgin 918640 total_pgpgout 884881 total_pgmajfault 87794 
+R	1b9d	dna100.D115	1	cmp_container	yes		SHA-256 dc5ad0d82bef0114 of the container against the reference in /tmp/stbench/b9d/work/dna_100m.txt.sesa.sha (reference = this run made it)
+R	1b9d	dna100.D115	1	left_behind	0		entries of the work directory of the run besides the container (a build that succeeded leaves the container only)
+R	1b9d	dna100.D115	1	run_done	yes		all rows of this run are written
+R	1b9d	dna100.D105	1	settings	limit=105000000 raise=1073741824 prewarm=1 gc=unset args=--scale-n 3000000000		cgroup limit (bytes), limit after PH3, runtime pre-read outside the group, DOTNET_GCHeapHardLimit, extra program arguments
+R	1b9d	dna100.D105	1	ext_rssanon_peak	83.743	MB	independent sampler: max RssAnon of /proc/<pid>/status at 20 ms
+R	1b9d	dna100.D105	1	ext_rssanon_mean_ph3	44.396	MB	mean RssAnon over PH3 (rank file and ph3 directory exist), 880 samples
+R	1b9d	dna100.D105	1	eff_resident_ph3	0.7944		time-weighted resident fraction of (packed text + rank file) over PH3 (mincore every 200 ms, 84 samples, 17.7 s)
+R	1b9d	dna100.D105	1	eff_resident_ranks	0.7944		the same over the whole life of the rank file (PH1 end .. PH3 end, 84 samples, 17.7 s)
+R	1b9d	dna100.D105	1	text_bytes	25000064	bytes	TEXT section of the container
+R	1b9d	dna100.D105	1	rank_bytes	12890240	bytes	DCS rank file
+R	1b9d	dna100.D105	1	cg_limit	104996864	bytes	memory.limit_in_bytes of the sub-group at the start of the run
+R	1b9d	dna100.D105	1	cg_failcnt	323802	n	memory.failcnt at the end
+R	1b9d	dna100.D105	1	cg_max_usage	1073741824	bytes	memory.max_usage_in_bytes at the end
+R	1b9d	dna100.D105	1	eff_budget_ph3	1.6024		E3-style budget ratio (limit - mean cgroup anonymous memory over PH3 (44.3 MB)) / (text + rank file)
+R	1b9d	dna100.D105	1	cg_rss_mean_ph3	44.280	MB	mean memory.stat rss (anonymous) of the sub-group over PH3
+R	1b9d	dna100.D105	1	ext_proc_rchar	3921758426	bytes	independent sampler: /proc/<pid>/io rchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D105	1	ext_proc_wchar	2810214533	bytes	independent sampler: /proc/<pid>/io wchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D105	1	ext_proc_read_bytes	4003160064	bytes	independent sampler: /proc/<pid>/io read_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D105	1	ext_proc_write_bytes	4347056128	bytes	independent sampler: /proc/<pid>/io write_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D105	1	total_s	30.798478128	s	dna100.D105.1 SesaBuilder.Build, inside the call
+R	1b9d	dna100.D105	1	wall_s	30.803170812	s	dna100.D105.1 around the call
+R	1b9d	dna100.D105	1	scan_s	0.163539426	s	dna100.D105.1
+R	1b9d	dna100.D105	1	create_s	0.002666306	s	dna100.D105.1
+R	1b9d	dna100.D105	1	pack_s	0.376898176	s	dna100.D105.1
+R	1b9d	dna100.D105	1	ph1_s	1.676399391	s	dna100.D105.1
+R	1b9d	dna100.D105	1	ph23_s	17.109067826	s	dna100.D105.1
+R	1b9d	dna100.D105	1	ph45_s	7.352589796	s	dna100.D105.1
+R	1b9d	dna100.D105	1	bwt_s	2.206316273	s	dna100.D105.1
+R	1b9d	dna100.D105	1	psi_s	0.944978643	s	dna100.D105.1
+R	1b9d	dna100.D105	1	crc_s	0.588788185	s	dna100.D105.1
+R	1b9d	dna100.D105	1	seal_s	0.006349864	s	dna100.D105.1
+R	1b9d	dna100.D105	1	n	100000000	symbols	dna100.D105.1 sigma 4, 2 bits
+R	1b9d	dna100.D105	1	file_size	1325019393	bytes	dna100.D105.1 LCP U8, 0 overflow pairs
+R	1b9d	dna100.D105	1	grown_bytes	0	bytes	dna100.D105.1 growth none, creation Preallocated
+R	1b9d	dna100.D105	1	counted_read	3910595933	bytes	dna100.D105.1 explicit reads of the build (IoCounters)
+R	1b9d	dna100.D105	1	counted_write	2810214300	bytes	dna100.D105.1 explicit writes of the build (IoCounters)
+R	1b9d	dna100.D105	1	counted_mapped_write	1437890539	bytes	dna100.D105.1 writes through mapped windows (IoCounters)
+R	1b9d	dna100.D105	1	counted_reserved_write	0	bytes	dna100.D105.1 zeros written to reserve the growth
+R	1b9d	dna100.D105	1	scratch_peak	1200000000	bytes	dna100.D105.1
+R	1b9d	dna100.D105	1	arena_peak	39395096	bytes	dna100.D105.1
+R	1b9d	dna100.D105	1	proc_rchar	3921711125	bytes	dna100.D105.1 /proc/self/io over the call
+R	1b9d	dna100.D105	1	proc_wchar	2810214491	bytes	dna100.D105.1
+R	1b9d	dna100.D105	1	proc_read_bytes	4003143680	bytes	dna100.D105.1 block-layer reads charged to the process
+R	1b9d	dna100.D105	1	proc_write_bytes	4347023360	bytes	dna100.D105.1 pages dirtied (a page that is written again counts again)
+R	1b9d	dna100.D105	1	dev_sectors_read	7822272	sectors	dna100.D105.1 /sys/block/vda/stat over the call (512 B)
+R	1b9d	dna100.D105	1	dev_sectors_written	6090224	sectors	dna100.D105.1 over the call
+R	1b9d	dna100.D105	1	dev_sectors_written_synced	6091376	sectors	dna100.D105.1 until the end of a sync after the call
+R	1b9d	dna100.D105	1	rssanon_peak_mb	83.74272	MB	dna100.D105.1 verdict Within
+R	1b9d	dna100.D105	1	rssanon_ph0_mb	10.747904	MB	dna100.D105.1
+R	1b9d	dna100.D105	1	rssanon_ph1_mb	27.107328	MB	dna100.D105.1
+R	1b9d	dna100.D105	1	rssanon_ph23_mb	69.115904	MB	dna100.D105.1
+R	1b9d	dna100.D105	1	rssanon_ph45_mb	83.74272	MB	dna100.D105.1
+R	1b9d	dna100.D105	1	rssanon_ph6_mb	59.199488	MB	dna100.D105.1
+R	1b9d	dna100.D105	1	rssanon_seal_mb	59.199488	MB	dna100.D105.1
+R	1b9d	dna100.D105	1	exit_code	0		program exit code (0 = healthy)
+R	1b9d	dna100.D105	1	limit_raised	yes		the limit was raised to 1073741824 bytes when PH3 had finished
+R	1b9d	dna100.D105	1	killed	no		no | watchdog (300 s) | oom-or-signal (exit 137 without the watchdog: the cgroup OOM killer)
+R	1b9d	dna100.D105	1	cg_failcnt_final	323802	n	memory.failcnt after the run
+R	1b9d	dna100.D105	1	cg_max_usage_final	1073741824	bytes	memory.max_usage_in_bytes after the run; memory.stat: cache 1004109824 rss 0 mapped_file 0 pgpgin 687271 pgpgout 654328 pgmajfault 19640 total_cache 1004109824 total_rss 0 total_mapped_file 0 total_pgpgin 687271 total_pgpgout 654328 total_pgmajfault 19640 
+R	1b9d	dna100.D105	1	cmp_container	yes		SHA-256 dc5ad0d82bef0114 of the container against the reference in /tmp/stbench/b9d/work/dna_100m.txt.sesa.sha (reference = this run made it)
+R	1b9d	dna100.D105	1	left_behind	0		entries of the work directory of the run besides the container (a build that succeeded leaves the container only)
+R	1b9d	dna100.D105	1	run_done	yes		all rows of this run are written
+R	1b9d	dna100.D95	1	settings	limit=95000000 raise=1073741824 prewarm=1 gc=unset args=--scale-n 3000000000		cgroup limit (bytes), limit after PH3, runtime pre-read outside the group, DOTNET_GCHeapHardLimit, extra program arguments
+R	1b9d	dna100.D95	1	ext_rssanon_peak	103.727	MB	independent sampler: max RssAnon of /proc/<pid>/status at 20 ms
+R	1b9d	dna100.D95	1	ext_rssanon_mean_ph3	49.181	MB	mean RssAnon over PH3 (rank file and ph3 directory exist), 1416 samples
+R	1b9d	dna100.D95	1	eff_resident_ph3	0.7134		time-weighted resident fraction of (packed text + rank file) over PH3 (mincore every 200 ms, 135 samples, 28.4 s)
+R	1b9d	dna100.D95	1	eff_resident_ranks	0.7134		the same over the whole life of the rank file (PH1 end .. PH3 end, 135 samples, 28.4 s)
+R	1b9d	dna100.D95	1	text_bytes	25000064	bytes	TEXT section of the container
+R	1b9d	dna100.D95	1	rank_bytes	12890240	bytes	DCS rank file
+R	1b9d	dna100.D95	1	cg_limit	94998528	bytes	memory.limit_in_bytes of the sub-group at the start of the run
+R	1b9d	dna100.D95	1	cg_failcnt	516620	n	memory.failcnt at the end
+R	1b9d	dna100.D95	1	cg_max_usage	1073741824	bytes	memory.max_usage_in_bytes at the end
+R	1b9d	dna100.D95	1	eff_budget_ph3	1.2073		E3-style budget ratio (limit - mean cgroup anonymous memory over PH3 (49.3 MB)) / (text + rank file)
+R	1b9d	dna100.D95	1	cg_rss_mean_ph3	49.253	MB	mean memory.stat rss (anonymous) of the sub-group over PH3
+R	1b9d	dna100.D95	1	ext_proc_rchar	3927209383	bytes	independent sampler: /proc/<pid>/io rchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D95	1	ext_proc_wchar	2810214549	bytes	independent sampler: /proc/<pid>/io wchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D95	1	ext_proc_read_bytes	5315514368	bytes	independent sampler: /proc/<pid>/io read_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D95	1	ext_proc_write_bytes	4351561728	bytes	independent sampler: /proc/<pid>/io write_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D95	1	total_s	44.541391532	s	dna100.D95.1 SesaBuilder.Build, inside the call
+R	1b9d	dna100.D95	1	wall_s	44.545913323	s	dna100.D95.1 around the call
+R	1b9d	dna100.D95	1	scan_s	0.158749664	s	dna100.D95.1
+R	1b9d	dna100.D95	1	create_s	0.002028602	s	dna100.D95.1
+R	1b9d	dna100.D95	1	pack_s	0.368306874	s	dna100.D95.1
+R	1b9d	dna100.D95	1	ph1_s	1.673207479	s	dna100.D95.1
+R	1b9d	dna100.D95	1	ph23_s	27.810492462	s	dna100.D95.1
+R	1b9d	dna100.D95	1	ph45_s	9.487899345	s	dna100.D95.1
+R	1b9d	dna100.D95	1	bwt_s	2.949433071	s	dna100.D95.1
+R	1b9d	dna100.D95	1	psi_s	1.05501775	s	dna100.D95.1
+R	1b9d	dna100.D95	1	crc_s	0.653699797	s	dna100.D95.1
+R	1b9d	dna100.D95	1	seal_s	0.007574033	s	dna100.D95.1
+R	1b9d	dna100.D95	1	n	100000000	symbols	dna100.D95.1 sigma 4, 2 bits
+R	1b9d	dna100.D95	1	file_size	1325019393	bytes	dna100.D95.1 LCP U8, 0 overflow pairs
+R	1b9d	dna100.D95	1	grown_bytes	0	bytes	dna100.D95.1 growth none, creation Preallocated
+R	1b9d	dna100.D95	1	counted_read	3910595933	bytes	dna100.D95.1 explicit reads of the build (IoCounters)
+R	1b9d	dna100.D95	1	counted_write	2810214300	bytes	dna100.D95.1 explicit writes of the build (IoCounters)
+R	1b9d	dna100.D95	1	counted_mapped_write	1437890539	bytes	dna100.D95.1 writes through mapped windows (IoCounters)
+R	1b9d	dna100.D95	1	counted_reserved_write	0	bytes	dna100.D95.1 zeros written to reserve the growth
+R	1b9d	dna100.D95	1	scratch_peak	1200000000	bytes	dna100.D95.1
+R	1b9d	dna100.D95	1	arena_peak	39395096	bytes	dna100.D95.1
+R	1b9d	dna100.D95	1	proc_rchar	3927162091	bytes	dna100.D95.1 /proc/self/io over the call
+R	1b9d	dna100.D95	1	proc_wchar	2810214507	bytes	dna100.D95.1
+R	1b9d	dna100.D95	1	proc_read_bytes	5315497984	bytes	dna100.D95.1 block-layer reads charged to the process
+R	1b9d	dna100.D95	1	proc_write_bytes	4351524864	bytes	dna100.D95.1 pages dirtied (a page that is written again counts again)
+R	1b9d	dna100.D95	1	dev_sectors_read	10385496	sectors	dna100.D95.1 /sys/block/vda/stat over the call (512 B)
+R	1b9d	dna100.D95	1	dev_sectors_written	6342408	sectors	dna100.D95.1 over the call
+R	1b9d	dna100.D95	1	dev_sectors_written_synced	6343488	sectors	dna100.D95.1 until the end of a sync after the call
+R	1b9d	dna100.D95	1	rssanon_peak_mb	100.9664	MB	dna100.D95.1 verdict Within
+R	1b9d	dna100.D95	1	rssanon_ph0_mb	10.56768	MB	dna100.D95.1
+R	1b9d	dna100.D95	1	rssanon_ph1_mb	27.860992	MB	dna100.D95.1
+R	1b9d	dna100.D95	1	rssanon_ph23_mb	63.193088	MB	dna100.D95.1
+R	1b9d	dna100.D95	1	rssanon_ph45_mb	100.9664	MB	dna100.D95.1
+R	1b9d	dna100.D95	1	rssanon_ph6_mb	74.850304	MB	dna100.D95.1
+R	1b9d	dna100.D95	1	rssanon_seal_mb	74.850304	MB	dna100.D95.1
+R	1b9d	dna100.D95	1	exit_code	0		program exit code (0 = healthy)
+R	1b9d	dna100.D95	1	limit_raised	yes		the limit was raised to 1073741824 bytes when PH3 had finished
+R	1b9d	dna100.D95	1	killed	no		no | watchdog (300 s) | oom-or-signal (exit 137 without the watchdog: the cgroup OOM killer)
+R	1b9d	dna100.D95	1	cg_failcnt_final	516620	n	memory.failcnt after the run
+R	1b9d	dna100.D95	1	cg_max_usage_final	1073741824	bytes	memory.max_usage_in_bytes after the run; memory.stat: cache 988823552 rss 0 mapped_file 0 pgpgin 989916 pgpgout 960832 pgmajfault 199732 total_cache 988823552 total_rss 0 total_mapped_file 0 total_pgpgin 989916 total_pgpgout 960832 total_pgmajfault 199732 
+R	1b9d	dna100.D95	1	cmp_container	yes		SHA-256 dc5ad0d82bef0114 of the container against the reference in /tmp/stbench/b9d/work/dna_100m.txt.sesa.sha (reference = this run made it)
+R	1b9d	dna100.D95	1	left_behind	0		entries of the work directory of the run besides the container (a build that succeeded leaves the container only)
+R	1b9d	dna100.D95	1	run_done	yes		all rows of this run are written
+R	1b9d	dna100.D88	1	settings	limit=88000000 raise=1073741824 prewarm=1 gc=unset args=--scale-n 3000000000		cgroup limit (bytes), limit after PH3, runtime pre-read outside the group, DOTNET_GCHeapHardLimit, extra program arguments
+R	1b9d	dna100.D88	1	ext_rssanon_peak	92.910	MB	independent sampler: max RssAnon of /proc/<pid>/status at 20 ms
+R	1b9d	dna100.D88	1	ext_rssanon_mean_ph3	55.998	MB	mean RssAnon over PH3 (rank file and ph3 directory exist), 4217 samples
+R	1b9d	dna100.D88	1	eff_resident_ph3	0.6034		time-weighted resident fraction of (packed text + rank file) over PH3 (mincore every 200 ms, 399 samples, 84.4 s)
+R	1b9d	dna100.D88	1	eff_resident_ranks	0.6034		the same over the whole life of the rank file (PH1 end .. PH3 end, 399 samples, 84.4 s)
+R	1b9d	dna100.D88	1	text_bytes	25000064	bytes	TEXT section of the container
+R	1b9d	dna100.D88	1	rank_bytes	12890240	bytes	DCS rank file
+R	1b9d	dna100.D88	1	cg_limit	87998464	bytes	memory.limit_in_bytes of the sub-group at the start of the run
+R	1b9d	dna100.D88	1	cg_failcnt	2513710	n	memory.failcnt at the end
+R	1b9d	dna100.D88	1	cg_max_usage	1073741824	bytes	memory.max_usage_in_bytes at the end
+R	1b9d	dna100.D88	1	eff_budget_ph3	0.8441		E3-style budget ratio (limit - mean cgroup anonymous memory over PH3 (56.0 MB)) / (text + rank file)
+R	1b9d	dna100.D88	1	cg_rss_mean_ph3	56.017	MB	mean memory.stat rss (anonymous) of the sub-group over PH3
+R	1b9d	dna100.D88	1	ext_proc_rchar	3950745040	bytes	independent sampler: /proc/<pid>/io rchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D88	1	ext_proc_wchar	2810214584	bytes	independent sampler: /proc/<pid>/io wchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D88	1	ext_proc_read_bytes	23289430016	bytes	independent sampler: /proc/<pid>/io read_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D88	1	ext_proc_write_bytes	4376580096	bytes	independent sampler: /proc/<pid>/io write_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D88	1	total_s	98.311530069	s	dna100.D88.1 SesaBuilder.Build, inside the call
+R	1b9d	dna100.D88	1	wall_s	98.316758522	s	dna100.D88.1 around the call
+R	1b9d	dna100.D88	1	scan_s	0.239038001	s	dna100.D88.1
+R	1b9d	dna100.D88	1	create_s	0.003361953	s	dna100.D88.1
+R	1b9d	dna100.D88	1	pack_s	0.356750153	s	dna100.D88.1
+R	1b9d	dna100.D88	1	ph1_s	1.542800737	s	dna100.D88.1
+R	1b9d	dna100.D88	1	ph23_s	83.970080667	s	dna100.D88.1
+R	1b9d	dna100.D88	1	ph45_s	7.607209371	s	dna100.D88.1
+R	1b9d	dna100.D88	1	bwt_s	2.476745901	s	dna100.D88.1
+R	1b9d	dna100.D88	1	psi_s	1.051073996	s	dna100.D88.1
+R	1b9d	dna100.D88	1	crc_s	0.665255368	s	dna100.D88.1
+R	1b9d	dna100.D88	1	seal_s	0.006763854	s	dna100.D88.1
+R	1b9d	dna100.D88	1	n	100000000	symbols	dna100.D88.1 sigma 4, 2 bits
+R	1b9d	dna100.D88	1	file_size	1325019393	bytes	dna100.D88.1 LCP U8, 0 overflow pairs
+R	1b9d	dna100.D88	1	grown_bytes	0	bytes	dna100.D88.1 growth none, creation Preallocated
+R	1b9d	dna100.D88	1	counted_read	3910595933	bytes	dna100.D88.1 explicit reads of the build (IoCounters)
+R	1b9d	dna100.D88	1	counted_write	2810214300	bytes	dna100.D88.1 explicit writes of the build (IoCounters)
+R	1b9d	dna100.D88	1	counted_mapped_write	1437890539	bytes	dna100.D88.1 writes through mapped windows (IoCounters)
+R	1b9d	dna100.D88	1	counted_reserved_write	0	bytes	dna100.D88.1 zeros written to reserve the growth
+R	1b9d	dna100.D88	1	scratch_peak	1200000000	bytes	dna100.D88.1
+R	1b9d	dna100.D88	1	arena_peak	39395096	bytes	dna100.D88.1
+R	1b9d	dna100.D88	1	proc_rchar	3950693392	bytes	dna100.D88.1 /proc/self/io over the call
+R	1b9d	dna100.D88	1	proc_wchar	2810214539	bytes	dna100.D88.1
+R	1b9d	dna100.D88	1	proc_read_bytes	23289376768	bytes	dna100.D88.1 block-layer reads charged to the process
+R	1b9d	dna100.D88	1	proc_write_bytes	4376539136	bytes	dna100.D88.1 pages dirtied (a page that is written again counts again)
+R	1b9d	dna100.D88	1	dev_sectors_read	45490464	sectors	dna100.D88.1 /sys/block/vda/stat over the call (512 B)
+R	1b9d	dna100.D88	1	dev_sectors_written	6150600	sectors	dna100.D88.1 over the call
+R	1b9d	dna100.D88	1	dev_sectors_written_synced	6151696	sectors	dna100.D88.1 until the end of a sync after the call
+R	1b9d	dna100.D88	1	rssanon_peak_mb	92.909568	MB	dna100.D88.1 verdict Within
+R	1b9d	dna100.D88	1	rssanon_ph0_mb	10.81344	MB	dna100.D88.1
+R	1b9d	dna100.D88	1	rssanon_ph1_mb	26.963968	MB	dna100.D88.1
+R	1b9d	dna100.D88	1	rssanon_ph23_mb	58.826752	MB	dna100.D88.1
+R	1b9d	dna100.D88	1	rssanon_ph45_mb	92.909568	MB	dna100.D88.1
+R	1b9d	dna100.D88	1	rssanon_ph6_mb	68.329472	MB	dna100.D88.1
+R	1b9d	dna100.D88	1	rssanon_seal_mb	68.329472	MB	dna100.D88.1
+R	1b9d	dna100.D88	1	exit_code	0		program exit code (0 = healthy)
+R	1b9d	dna100.D88	1	limit_raised	yes		the limit was raised to 1073741824 bytes when PH3 had finished
+R	1b9d	dna100.D88	1	killed	no		no | watchdog (300 s) | oom-or-signal (exit 137 without the watchdog: the cgroup OOM killer)
+R	1b9d	dna100.D88	1	cg_failcnt_final	2513710	n	memory.failcnt after the run
+R	1b9d	dna100.D88	1	cg_max_usage_final	1073741824	bytes	memory.max_usage_in_bytes after the run; memory.stat: cache 995184640 rss 0 mapped_file 0 pgpgin 3939440 pgpgout 3909040 pgmajfault 364586 total_cache 995184640 total_rss 0 total_mapped_file 0 total_pgpgin 3939440 total_pgpgout 3909040 total_pgmajfault 364586 
+R	1b9d	dna100.D88	1	cmp_container	yes		SHA-256 dc5ad0d82bef0114 of the container against the reference in /tmp/stbench/b9d/work/dna_100m.txt.sesa.sha (reference = this run made it)
+R	1b9d	dna100.D88	1	left_behind	0		entries of the work directory of the run besides the container (a build that succeeded leaves the container only)
+R	1b9d	dna100.D88	1	run_done	yes		all rows of this run are written
+R	1b9d	dna100.D80	1	settings	limit=80000000 raise=1073741824 prewarm=1 gc=unset args=--scale-n 3000000000		cgroup limit (bytes), limit after PH3, runtime pre-read outside the group, DOTNET_GCHeapHardLimit, extra program arguments
+R	1b9d	dna100.D80	1	ext_rssanon_peak	88.596	MB	independent sampler: max RssAnon of /proc/<pid>/status at 20 ms
+R	1b9d	dna100.D80	1	ext_rssanon_mean_ph3	56.461	MB	mean RssAnon over PH3 (rank file and ph3 directory exist), 6197 samples
+R	1b9d	dna100.D80	1	eff_resident_ph3	0.4028		time-weighted resident fraction of (packed text + rank file) over PH3 (mincore every 200 ms, 587 samples, 124.0 s)
+R	1b9d	dna100.D80	1	eff_resident_ranks	0.4028		the same over the whole life of the rank file (PH1 end .. PH3 end, 587 samples, 124.0 s)
+R	1b9d	dna100.D80	1	text_bytes	25000064	bytes	TEXT section of the container
+R	1b9d	dna100.D80	1	rank_bytes	12890240	bytes	DCS rank file
+R	1b9d	dna100.D80	1	cg_limit	79998976	bytes	memory.limit_in_bytes of the sub-group at the start of the run
+R	1b9d	dna100.D80	1	cg_failcnt	4663999	n	memory.failcnt at the end
+R	1b9d	dna100.D80	1	cg_max_usage	1073741824	bytes	memory.max_usage_in_bytes at the end
+R	1b9d	dna100.D80	1	eff_budget_ph3	0.6214		E3-style budget ratio (limit - mean cgroup anonymous memory over PH3 (56.5 MB)) / (text + rank file)
+R	1b9d	dna100.D80	1	cg_rss_mean_ph3	56.453	MB	mean memory.stat rss (anonymous) of the sub-group over PH3
+R	1b9d	dna100.D80	1	ext_proc_rchar	3967767499	bytes	independent sampler: /proc/<pid>/io rchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D80	1	ext_proc_wchar	2810214615	bytes	independent sampler: /proc/<pid>/io wchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D80	1	ext_proc_read_bytes	47551250432	bytes	independent sampler: /proc/<pid>/io read_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D80	1	ext_proc_write_bytes	4390637568	bytes	independent sampler: /proc/<pid>/io write_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D80	1	total_s	138.142917127	s	dna100.D80.1 SesaBuilder.Build, inside the call
+R	1b9d	dna100.D80	1	wall_s	138.147558239	s	dna100.D80.1 around the call
+R	1b9d	dna100.D80	1	scan_s	0.159629519	s	dna100.D80.1
+R	1b9d	dna100.D80	1	create_s	0.002913141	s	dna100.D80.1
+R	1b9d	dna100.D80	1	pack_s	0.377201755	s	dna100.D80.1
+R	1b9d	dna100.D80	1	ph1_s	1.659912507	s	dna100.D80.1
+R	1b9d	dna100.D80	1	ph23_s	123.438444362	s	dna100.D80.1
+R	1b9d	dna100.D80	1	ph45_s	8.34553812	s	dna100.D80.1
+R	1b9d	dna100.D80	1	bwt_s	2.244306658	s	dna100.D80.1
+R	1b9d	dna100.D80	1	psi_s	0.943837308	s	dna100.D80.1
+R	1b9d	dna100.D80	1	crc_s	0.594597153	s	dna100.D80.1
+R	1b9d	dna100.D80	1	seal_s	0.007114503	s	dna100.D80.1
+R	1b9d	dna100.D80	1	n	100000000	symbols	dna100.D80.1 sigma 4, 2 bits
+R	1b9d	dna100.D80	1	file_size	1325019393	bytes	dna100.D80.1 LCP U8, 0 overflow pairs
+R	1b9d	dna100.D80	1	grown_bytes	0	bytes	dna100.D80.1 growth none, creation Preallocated
+R	1b9d	dna100.D80	1	counted_read	3910595933	bytes	dna100.D80.1 explicit reads of the build (IoCounters)
+R	1b9d	dna100.D80	1	counted_write	2810214300	bytes	dna100.D80.1 explicit writes of the build (IoCounters)
+R	1b9d	dna100.D80	1	counted_mapped_write	1437890539	bytes	dna100.D80.1 writes through mapped windows (IoCounters)
+R	1b9d	dna100.D80	1	counted_reserved_write	0	bytes	dna100.D80.1 zeros written to reserve the growth
+R	1b9d	dna100.D80	1	scratch_peak	1200000000	bytes	dna100.D80.1
+R	1b9d	dna100.D80	1	arena_peak	39395096	bytes	dna100.D80.1
+R	1b9d	dna100.D80	1	proc_rchar	3967724419	bytes	dna100.D80.1 /proc/self/io over the call
+R	1b9d	dna100.D80	1	proc_wchar	2810214571	bytes	dna100.D80.1
+R	1b9d	dna100.D80	1	proc_read_bytes	47551234048	bytes	dna100.D80.1 block-layer reads charged to the process
+R	1b9d	dna100.D80	1	proc_write_bytes	4390600704	bytes	dna100.D80.1 pages dirtied (a page that is written again counts again)
+R	1b9d	dna100.D80	1	dev_sectors_read	92877568	sectors	dna100.D80.1 /sys/block/vda/stat over the call (512 B)
+R	1b9d	dna100.D80	1	dev_sectors_written	6202576	sectors	dna100.D80.1 over the call
+R	1b9d	dna100.D80	1	dev_sectors_written_synced	6202632	sectors	dna100.D80.1 until the end of a sync after the call
+R	1b9d	dna100.D80	1	rssanon_peak_mb	88.59648	MB	dna100.D80.1 verdict Within
+R	1b9d	dna100.D80	1	rssanon_ph0_mb	10.747904	MB	dna100.D80.1
+R	1b9d	dna100.D80	1	rssanon_ph1_mb	27.15648	MB	dna100.D80.1
+R	1b9d	dna100.D80	1	rssanon_ph23_mb	65.425408	MB	dna100.D80.1
+R	1b9d	dna100.D80	1	rssanon_ph45_mb	88.59648	MB	dna100.D80.1
+R	1b9d	dna100.D80	1	rssanon_ph6_mb	59.838464	MB	dna100.D80.1
+R	1b9d	dna100.D80	1	rssanon_seal_mb	59.838464	MB	dna100.D80.1
+R	1b9d	dna100.D80	1	exit_code	0		program exit code (0 = healthy)
+R	1b9d	dna100.D80	1	limit_raised	yes		the limit was raised to 1073741824 bytes when PH3 had finished
+R	1b9d	dna100.D80	1	killed	no		no | watchdog (300 s) | oom-or-signal (exit 137 without the watchdog: the cgroup OOM killer)
+R	1b9d	dna100.D80	1	cg_failcnt_final	4663999	n	memory.failcnt after the run
+R	1b9d	dna100.D80	1	cg_max_usage_final	1073741824	bytes	memory.max_usage_in_bytes after the run; memory.stat: cache 1003503616 rss 0 mapped_file 0 pgpgin 7592285 pgpgout 7562896 pgmajfault 280880 total_cache 1003503616 total_rss 0 total_mapped_file 0 total_pgpgin 7592285 total_pgpgout 7562896 total_pgmajfault 280880 
+R	1b9d	dna100.D80	1	cmp_container	yes		SHA-256 dc5ad0d82bef0114 of the container against the reference in /tmp/stbench/b9d/work/dna_100m.txt.sesa.sha (reference = this run made it)
+R	1b9d	dna100.D80	1	left_behind	0		entries of the work directory of the run besides the container (a build that succeeded leaves the container only)
+R	1b9d	dna100.D80	1	run_done	yes		all rows of this run are written
+R	1b9d	dna100.D72	1	settings	limit=72000000 raise=1073741824 prewarm=1 gc=unset args=--scale-n 3000000000		cgroup limit (bytes), limit after PH3, runtime pre-read outside the group, DOTNET_GCHeapHardLimit, extra program arguments
+R	1b9d	dna100.D72	1	ext_rssanon_peak	87.327	MB	independent sampler: max RssAnon of /proc/<pid>/status at 20 ms
+R	1b9d	dna100.D72	1	ext_rssanon_mean_ph3	48.029	MB	mean RssAnon over PH3 (rank file and ph3 directory exist), 6536 samples
+R	1b9d	dna100.D72	1	eff_resident_ph3	0.4167		time-weighted resident fraction of (packed text + rank file) over PH3 (mincore every 200 ms, 622 samples, 130.9 s)
+R	1b9d	dna100.D72	1	eff_resident_ranks	0.4167		the same over the whole life of the rank file (PH1 end .. PH3 end, 622 samples, 130.9 s)
+R	1b9d	dna100.D72	1	text_bytes	25000064	bytes	TEXT section of the container
+R	1b9d	dna100.D72	1	rank_bytes	12890240	bytes	DCS rank file
+R	1b9d	dna100.D72	1	cg_limit	71999488	bytes	memory.limit_in_bytes of the sub-group at the start of the run
+R	1b9d	dna100.D72	1	cg_failcnt	4919562	n	memory.failcnt at the end
+R	1b9d	dna100.D72	1	cg_max_usage	1073741824	bytes	memory.max_usage_in_bytes at the end
+R	1b9d	dna100.D72	1	eff_budget_ph3	0.6329		E3-style budget ratio (limit - mean cgroup anonymous memory over PH3 (48.0 MB)) / (text + rank file)
+R	1b9d	dna100.D72	1	cg_rss_mean_ph3	48.017	MB	mean memory.stat rss (anonymous) of the sub-group over PH3
+R	1b9d	dna100.D72	1	ext_proc_rchar	3970589742	bytes	independent sampler: /proc/<pid>/io rchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D72	1	ext_proc_wchar	2810214632	bytes	independent sampler: /proc/<pid>/io wchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D72	1	ext_proc_read_bytes	49377165312	bytes	independent sampler: /proc/<pid>/io read_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D72	1	ext_proc_write_bytes	4391124992	bytes	independent sampler: /proc/<pid>/io write_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D72	1	total_s	145.511110331	s	dna100.D72.1 SesaBuilder.Build, inside the call
+R	1b9d	dna100.D72	1	wall_s	145.516492603	s	dna100.D72.1 around the call
+R	1b9d	dna100.D72	1	scan_s	0.158545309	s	dna100.D72.1
+R	1b9d	dna100.D72	1	create_s	0.002728373	s	dna100.D72.1
+R	1b9d	dna100.D72	1	pack_s	0.358621791	s	dna100.D72.1
+R	1b9d	dna100.D72	1	ph1_s	1.794159885	s	dna100.D72.1
+R	1b9d	dna100.D72	1	ph23_s	130.155445583	s	dna100.D72.1
+R	1b9d	dna100.D72	1	ph45_s	8.025909974	s	dna100.D72.1
+R	1b9d	dna100.D72	1	bwt_s	3.104047089	s	dna100.D72.1
+R	1b9d	dna100.D72	1	psi_s	0.988550044	s	dna100.D72.1
+R	1b9d	dna100.D72	1	crc_s	0.553489385	s	dna100.D72.1
+R	1b9d	dna100.D72	1	seal_s	0.007954966	s	dna100.D72.1
+R	1b9d	dna100.D72	1	n	100000000	symbols	dna100.D72.1 sigma 4, 2 bits
+R	1b9d	dna100.D72	1	file_size	1325019393	bytes	dna100.D72.1 LCP U8, 0 overflow pairs
+R	1b9d	dna100.D72	1	grown_bytes	0	bytes	dna100.D72.1 growth none, creation Preallocated
+R	1b9d	dna100.D72	1	counted_read	3910595933	bytes	dna100.D72.1 explicit reads of the build (IoCounters)
+R	1b9d	dna100.D72	1	counted_write	2810214300	bytes	dna100.D72.1 explicit writes of the build (IoCounters)
+R	1b9d	dna100.D72	1	counted_mapped_write	1437890539	bytes	dna100.D72.1 writes through mapped windows (IoCounters)
+R	1b9d	dna100.D72	1	counted_reserved_write	0	bytes	dna100.D72.1 zeros written to reserve the growth
+R	1b9d	dna100.D72	1	scratch_peak	1200000000	bytes	dna100.D72.1
+R	1b9d	dna100.D72	1	arena_peak	39395096	bytes	dna100.D72.1
+R	1b9d	dna100.D72	1	proc_rchar	3970538064	bytes	dna100.D72.1 /proc/self/io over the call
+R	1b9d	dna100.D72	1	proc_wchar	2810214587	bytes	dna100.D72.1
+R	1b9d	dna100.D72	1	proc_read_bytes	49377112064	bytes	dna100.D72.1 block-layer reads charged to the process
+R	1b9d	dna100.D72	1	proc_write_bytes	4391084032	bytes	dna100.D72.1 pages dirtied (a page that is written again counts again)
+R	1b9d	dna100.D72	1	dev_sectors_read	96443352	sectors	dna100.D72.1 /sys/block/vda/stat over the call (512 B)
+R	1b9d	dna100.D72	1	dev_sectors_written	6262528	sectors	dna100.D72.1 over the call
+R	1b9d	dna100.D72	1	dev_sectors_written_synced	6262600	sectors	dna100.D72.1 until the end of a sync after the call
+R	1b9d	dna100.D72	1	rssanon_peak_mb	87.32672	MB	dna100.D72.1 verdict Within
+R	1b9d	dna100.D72	1	rssanon_ph0_mb	10.584064	MB	dna100.D72.1
+R	1b9d	dna100.D72	1	rssanon_ph1_mb	27.836416	MB	dna100.D72.1
+R	1b9d	dna100.D72	1	rssanon_ph23_mb	55.861248	MB	dna100.D72.1
+R	1b9d	dna100.D72	1	rssanon_ph45_mb	87.32672	MB	dna100.D72.1
+R	1b9d	dna100.D72	1	rssanon_ph6_mb	58.621952	MB	dna100.D72.1
+R	1b9d	dna100.D72	1	rssanon_seal_mb	58.621952	MB	dna100.D72.1
+R	1b9d	dna100.D72	1	exit_code	0		program exit code (0 = healthy)
+R	1b9d	dna100.D72	1	limit_raised	yes		the limit was raised to 1073741824 bytes when PH3 had finished
+R	1b9d	dna100.D72	1	killed	no		no | watchdog (300 s) | oom-or-signal (exit 137 without the watchdog: the cgroup OOM killer)
+R	1b9d	dna100.D72	1	cg_failcnt_final	4919562	n	memory.failcnt after the run
+R	1b9d	dna100.D72	1	cg_max_usage_final	1073741824	bytes	memory.max_usage_in_bytes after the run; memory.stat: cache 1004920832 rss 0 mapped_file 0 pgpgin 7868805 pgpgout 7839220 pgmajfault 309175 total_cache 1004920832 total_rss 0 total_mapped_file 0 total_pgpgin 7868805 total_pgpgout 7839220 total_pgmajfault 309175 
+R	1b9d	dna100.D72	1	cmp_container	yes		SHA-256 dc5ad0d82bef0114 of the container against the reference in /tmp/stbench/b9d/work/dna_100m.txt.sesa.sha (reference = this run made it)
+R	1b9d	dna100.D72	1	left_behind	0		entries of the work directory of the run besides the container (a build that succeeded leaves the container only)
+R	1b9d	dna100.D72	1	run_done	yes		all rows of this run are written
+R	1b9d	dna100.U	2	settings	limit=max raise=none prewarm=1 gc=unset args=--scale-n 3000000000		cgroup limit (bytes), limit after PH3, runtime pre-read outside the group, DOTNET_GCHeapHardLimit, extra program arguments
+R	1b9d	dna100.U	2	ext_rssanon_peak	146.317	MB	independent sampler: max RssAnon of /proc/<pid>/status at 20 ms
+R	1b9d	dna100.U	2	ext_rssanon_mean_ph3	68.525	MB	mean RssAnon over PH3 (rank file and ph3 directory exist), 655 samples
+R	1b9d	dna100.U	2	eff_resident_ph3	0.9983		time-weighted resident fraction of (packed text + rank file) over PH3 (mincore every 200 ms, 63 samples, 13.2 s)
+R	1b9d	dna100.U	2	eff_resident_ranks	0.9983		the same over the whole life of the rank file (PH1 end .. PH3 end, 63 samples, 13.2 s)
+R	1b9d	dna100.U	2	text_bytes	25000064	bytes	TEXT section of the container
+R	1b9d	dna100.U	2	rank_bytes	12890240	bytes	DCS rank file
+R	1b9d	dna100.U	2	cg_limit	9223372036854771712	bytes	memory.limit_in_bytes of the sub-group at the start of the run
+R	1b9d	dna100.U	2	cg_failcnt	0	n	memory.failcnt at the end
+R	1b9d	dna100.U	2	cg_max_usage	1911201792	bytes	memory.max_usage_in_bytes at the end
+R	1b9d	dna100.U	2	cg_rss_mean_ph3	68.406	MB	mean memory.stat rss (anonymous) of the sub-group over PH3
+R	1b9d	dna100.U	2	ext_proc_rchar	3919589721	bytes	independent sampler: /proc/<pid>/io rchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.U	2	ext_proc_wchar	2810216635	bytes	independent sampler: /proc/<pid>/io wchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.U	2	ext_proc_read_bytes	101490688	bytes	independent sampler: /proc/<pid>/io read_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.U	2	ext_proc_write_bytes	4336705536	bytes	independent sampler: /proc/<pid>/io write_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.U	2	total_s	25.744878258	s	dna100.U.2 SesaBuilder.Build, inside the call
+R	1b9d	dna100.U	2	wall_s	25.749635038	s	dna100.U.2 around the call
+R	1b9d	dna100.U	2	scan_s	0.156812026	s	dna100.U.2
+R	1b9d	dna100.U	2	create_s	0.002137785	s	dna100.U.2
+R	1b9d	dna100.U	2	pack_s	0.415112063	s	dna100.U.2
+R	1b9d	dna100.U	2	ph1_s	1.659171774	s	dna100.U.2
+R	1b9d	dna100.U	2	ph23_s	12.602942437	s	dna100.U.2
+R	1b9d	dna100.U	2	ph45_s	7.011616198	s	dna100.U.2
+R	1b9d	dna100.U	2	bwt_s	2.225231293	s	dna100.U.2
+R	1b9d	dna100.U	2	psi_s	0.992978844	s	dna100.U.2
+R	1b9d	dna100.U	2	crc_s	0.30532815	s	dna100.U.2
+R	1b9d	dna100.U	2	seal_s	0.007596531	s	dna100.U.2
+R	1b9d	dna100.U	2	n	100000000	symbols	dna100.U.2 sigma 4, 2 bits
+R	1b9d	dna100.U	2	file_size	1325019393	bytes	dna100.U.2 LCP U8, 0 overflow pairs
+R	1b9d	dna100.U	2	grown_bytes	0	bytes	dna100.U.2 growth none, creation Preallocated
+R	1b9d	dna100.U	2	counted_read	3910595933	bytes	dna100.U.2 explicit reads of the build (IoCounters)
+R	1b9d	dna100.U	2	counted_write	2810214300	bytes	dna100.U.2 explicit writes of the build (IoCounters)
+R	1b9d	dna100.U	2	counted_mapped_write	1437890539	bytes	dna100.U.2 writes through mapped windows (IoCounters)
+R	1b9d	dna100.U	2	counted_reserved_write	0	bytes	dna100.U.2 zeros written to reserve the growth
+R	1b9d	dna100.U	2	scratch_peak	1200000000	bytes	dna100.U.2
+R	1b9d	dna100.U	2	arena_peak	39395096	bytes	dna100.U.2
+R	1b9d	dna100.U	2	proc_rchar	3919537065	bytes	dna100.U.2 /proc/self/io over the call
+R	1b9d	dna100.U	2	proc_wchar	2810214491	bytes	dna100.U.2
+R	1b9d	dna100.U	2	proc_read_bytes	101433344	bytes	dna100.U.2 block-layer reads charged to the process
+R	1b9d	dna100.U	2	proc_write_bytes	4336611328	bytes	dna100.U.2 pages dirtied (a page that is written again counts again)
+R	1b9d	dna100.U	2	dev_sectors_read	213432	sectors	dna100.U.2 /sys/block/vda/stat over the call (512 B)
+R	1b9d	dna100.U	2	dev_sectors_written	4590000	sectors	dna100.U.2 over the call
+R	1b9d	dna100.U	2	dev_sectors_written_synced	4592560	sectors	dna100.U.2 until the end of a sync after the call
+R	1b9d	dna100.U	2	rssanon_peak_mb	146.317312	MB	dna100.U.2 verdict Within
+R	1b9d	dna100.U	2	rssanon_ph0_mb	10.858496	MB	dna100.U.2
+R	1b9d	dna100.U	2	rssanon_ph1_mb	27.844608	MB	dna100.U.2
+R	1b9d	dna100.U	2	rssanon_ph23_mb	104.267776	MB	dna100.U.2
+R	1b9d	dna100.U	2	rssanon_ph45_mb	146.317312	MB	dna100.U.2
+R	1b9d	dna100.U	2	rssanon_ph6_mb	121.73312	MB	dna100.U.2
+R	1b9d	dna100.U	2	rssanon_seal_mb	121.73312	MB	dna100.U.2
+R	1b9d	dna100.U	2	exit_code	0		program exit code (0 = healthy)
+R	1b9d	dna100.U	2	killed	no		no | watchdog (300 s) | oom-or-signal (exit 137 without the watchdog: the cgroup OOM killer)
+R	1b9d	dna100.U	2	cg_failcnt_final	0	n	memory.failcnt after the run
+R	1b9d	dna100.U	2	cg_max_usage_final	1911201792	bytes	memory.max_usage_in_bytes after the run; memory.stat: cache 1427300352 rss 0 mapped_file 0 pgpgin 325114 pgpgout 242286 pgmajfault 3412 total_cache 1427300352 total_rss 0 total_mapped_file 0 total_pgpgin 325114 total_pgpgout 242286 total_pgmajfault 3412 
+R	1b9d	dna100.U	2	cmp_container	yes		SHA-256 dc5ad0d82bef0114 of the container against the reference in /tmp/stbench/b9d/work/dna_100m.txt.sesa.sha (reference = this run made it)
+R	1b9d	dna100.U	2	left_behind	0		entries of the work directory of the run besides the container (a build that succeeded leaves the container only)
+R	1b9d	dna100.U	2	run_done	yes		all rows of this run are written
+R	1b9d	dna100.U	3	settings	limit=max raise=none prewarm=1 gc=unset args=--scale-n 3000000000		cgroup limit (bytes), limit after PH3, runtime pre-read outside the group, DOTNET_GCHeapHardLimit, extra program arguments
+R	1b9d	dna100.U	3	ext_rssanon_peak	146.149	MB	independent sampler: max RssAnon of /proc/<pid>/status at 20 ms
+R	1b9d	dna100.U	3	ext_rssanon_mean_ph3	69.418	MB	mean RssAnon over PH3 (rank file and ph3 directory exist), 673 samples
+R	1b9d	dna100.U	3	eff_resident_ph3	1.0000		time-weighted resident fraction of (packed text + rank file) over PH3 (mincore every 200 ms, 64 samples, 13.5 s)
+R	1b9d	dna100.U	3	eff_resident_ranks	1.0000		the same over the whole life of the rank file (PH1 end .. PH3 end, 64 samples, 13.5 s)
+R	1b9d	dna100.U	3	text_bytes	25000064	bytes	TEXT section of the container
+R	1b9d	dna100.U	3	rank_bytes	12890240	bytes	DCS rank file
+R	1b9d	dna100.U	3	cg_limit	9223372036854771712	bytes	memory.limit_in_bytes of the sub-group at the start of the run
+R	1b9d	dna100.U	3	cg_failcnt	0	n	memory.failcnt at the end
+R	1b9d	dna100.U	3	cg_max_usage	1910767616	bytes	memory.max_usage_in_bytes at the end
+R	1b9d	dna100.U	3	cg_rss_mean_ph3	69.971	MB	mean memory.stat rss (anonymous) of the sub-group over PH3
+R	1b9d	dna100.U	3	ext_proc_rchar	3919964021	bytes	independent sampler: /proc/<pid>/io rchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.U	3	ext_proc_wchar	2810216635	bytes	independent sampler: /proc/<pid>/io wchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.U	3	ext_proc_read_bytes	101621760	bytes	independent sampler: /proc/<pid>/io read_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.U	3	ext_proc_write_bytes	4341489664	bytes	independent sampler: /proc/<pid>/io write_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.U	3	total_s	26.869336789	s	dna100.U.3 SesaBuilder.Build, inside the call
+R	1b9d	dna100.U	3	wall_s	26.874248831	s	dna100.U.3 around the call
+R	1b9d	dna100.U	3	scan_s	0.15987286	s	dna100.U.3
+R	1b9d	dna100.U	3	create_s	0.002699052	s	dna100.U.3
+R	1b9d	dna100.U	3	pack_s	0.332041112	s	dna100.U.3
+R	1b9d	dna100.U	3	ph1_s	1.690412689	s	dna100.U.3
+R	1b9d	dna100.U	3	ph23_s	12.953472875	s	dna100.U.3
+R	1b9d	dna100.U	3	ph45_s	7.092274864	s	dna100.U.3
+R	1b9d	dna100.U	3	bwt_s	3.068162159	s	dna100.U.3
+R	1b9d	dna100.U	3	psi_s	0.901517697	s	dna100.U.3
+R	1b9d	dna100.U	3	crc_s	0.299637562	s	dna100.U.3
+R	1b9d	dna100.U	3	seal_s	0.006191044	s	dna100.U.3
+R	1b9d	dna100.U	3	n	100000000	symbols	dna100.U.3 sigma 4, 2 bits
+R	1b9d	dna100.U	3	file_size	1325019393	bytes	dna100.U.3 LCP U8, 0 overflow pairs
+R	1b9d	dna100.U	3	grown_bytes	0	bytes	dna100.U.3 growth none, creation Preallocated
+R	1b9d	dna100.U	3	counted_read	3910595933	bytes	dna100.U.3 explicit reads of the build (IoCounters)
+R	1b9d	dna100.U	3	counted_write	2810214300	bytes	dna100.U.3 explicit writes of the build (IoCounters)
+R	1b9d	dna100.U	3	counted_mapped_write	1437890539	bytes	dna100.U.3 writes through mapped windows (IoCounters)
+R	1b9d	dna100.U	3	counted_reserved_write	0	bytes	dna100.U.3 zeros written to reserve the growth
+R	1b9d	dna100.U	3	scratch_peak	1200000000	bytes	dna100.U.3
+R	1b9d	dna100.U	3	arena_peak	39395096	bytes	dna100.U.3
+R	1b9d	dna100.U	3	proc_rchar	3919911559	bytes	dna100.U.3 /proc/self/io over the call
+R	1b9d	dna100.U	3	proc_wchar	2810214491	bytes	dna100.U.3
+R	1b9d	dna100.U	3	proc_read_bytes	101564416	bytes	dna100.U.3 block-layer reads charged to the process
+R	1b9d	dna100.U	3	proc_write_bytes	4341403648	bytes	dna100.U.3 pages dirtied (a page that is written again counts again)
+R	1b9d	dna100.U	3	dev_sectors_read	210008	sectors	dna100.U.3 /sys/block/vda/stat over the call (512 B)
+R	1b9d	dna100.U	3	dev_sectors_written	4599296	sectors	dna100.U.3 over the call
+R	1b9d	dna100.U	3	dev_sectors_written_synced	4601576	sectors	dna100.U.3 until the end of a sync after the call
+R	1b9d	dna100.U	3	rssanon_peak_mb	146.149376	MB	dna100.U.3 verdict Within
+R	1b9d	dna100.U	3	rssanon_ph0_mb	10.604544	MB	dna100.U.3
+R	1b9d	dna100.U	3	rssanon_ph1_mb	27.869184	MB	dna100.U.3
+R	1b9d	dna100.U	3	rssanon_ph23_mb	104.194048	MB	dna100.U.3
+R	1b9d	dna100.U	3	rssanon_ph45_mb	146.149376	MB	dna100.U.3
+R	1b9d	dna100.U	3	rssanon_ph6_mb	121.56928	MB	dna100.U.3
+R	1b9d	dna100.U	3	rssanon_seal_mb	121.56928	MB	dna100.U.3
+R	1b9d	dna100.U	3	exit_code	0		program exit code (0 = healthy)
+R	1b9d	dna100.U	3	killed	no		no | watchdog (300 s) | oom-or-signal (exit 137 without the watchdog: the cgroup OOM killer)
+R	1b9d	dna100.U	3	cg_failcnt_final	0	n	memory.failcnt after the run
+R	1b9d	dna100.U	3	cg_max_usage_final	1910767616	bytes	memory.max_usage_in_bytes after the run; memory.stat: cache 1427320832 rss 0 mapped_file 0 pgpgin 323228 pgpgout 241467 pgmajfault 3369 total_cache 1427320832 total_rss 0 total_mapped_file 0 total_pgpgin 323228 total_pgpgout 241467 total_pgmajfault 3369 
+R	1b9d	dna100.U	3	cmp_container	yes		SHA-256 dc5ad0d82bef0114 of the container against the reference in /tmp/stbench/b9d/work/dna_100m.txt.sesa.sha (reference = this run made it)
+R	1b9d	dna100.U	3	left_behind	0		entries of the work directory of the run besides the container (a build that succeeded leaves the container only)
+R	1b9d	dna100.U	3	run_done	yes		all rows of this run are written
+R	1b9d	dna100.D95	2	settings	limit=95000000 raise=1073741824 prewarm=1 gc=unset args=--scale-n 3000000000		cgroup limit (bytes), limit after PH3, runtime pre-read outside the group, DOTNET_GCHeapHardLimit, extra program arguments
+R	1b9d	dna100.D95	2	ext_rssanon_peak	85.664	MB	independent sampler: max RssAnon of /proc/<pid>/status at 20 ms
+R	1b9d	dna100.D95	2	ext_rssanon_mean_ph3	58.403	MB	mean RssAnon over PH3 (rank file and ph3 directory exist), 1919 samples
+R	1b9d	dna100.D95	2	eff_resident_ph3	0.5875		time-weighted resident fraction of (packed text + rank file) over PH3 (mincore every 200 ms, 182 samples, 38.3 s)
+R	1b9d	dna100.D95	2	eff_resident_ranks	0.5875		the same over the whole life of the rank file (PH1 end .. PH3 end, 182 samples, 38.3 s)
+R	1b9d	dna100.D95	2	text_bytes	25000064	bytes	TEXT section of the container
+R	1b9d	dna100.D95	2	rank_bytes	12890240	bytes	DCS rank file
+R	1b9d	dna100.D95	2	cg_limit	94998528	bytes	memory.limit_in_bytes of the sub-group at the start of the run
+R	1b9d	dna100.D95	2	cg_failcnt	1217721	n	memory.failcnt at the end
+R	1b9d	dna100.D95	2	cg_max_usage	1073741824	bytes	memory.max_usage_in_bytes at the end
+R	1b9d	dna100.D95	2	eff_budget_ph3	0.9637		E3-style budget ratio (limit - mean cgroup anonymous memory over PH3 (58.5 MB)) / (text + rank file)
+R	1b9d	dna100.D95	2	cg_rss_mean_ph3	58.482	MB	mean memory.stat rss (anonymous) of the sub-group over PH3
+R	1b9d	dna100.D95	2	ext_proc_rchar	3931600439	bytes	independent sampler: /proc/<pid>/io rchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D95	2	ext_proc_wchar	2810214552	bytes	independent sampler: /proc/<pid>/io wchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D95	2	ext_proc_read_bytes	12408905728	bytes	independent sampler: /proc/<pid>/io read_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D95	2	ext_proc_write_bytes	4361166848	bytes	independent sampler: /proc/<pid>/io write_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D95	2	total_s	54.598457071	s	dna100.D95.2 SesaBuilder.Build, inside the call
+R	1b9d	dna100.D95	2	wall_s	54.60299452	s	dna100.D95.2 around the call
+R	1b9d	dna100.D95	2	scan_s	0.156033892	s	dna100.D95.2
+R	1b9d	dna100.D95	2	create_s	0.002077303	s	dna100.D95.2
+R	1b9d	dna100.D95	2	pack_s	0.349334373	s	dna100.D95.2
+R	1b9d	dna100.D95	2	ph1_s	1.708277665	s	dna100.D95.2
+R	1b9d	dna100.D95	2	ph23_s	37.872312679	s	dna100.D95.2
+R	1b9d	dna100.D95	2	ph45_s	9.93839018	s	dna100.D95.2
+R	1b9d	dna100.D95	2	bwt_s	2.500407703	s	dna100.D95.2
+R	1b9d	dna100.D95	2	psi_s	1.042608721	s	dna100.D95.2
+R	1b9d	dna100.D95	2	crc_s	0.649267667	s	dna100.D95.2
+R	1b9d	dna100.D95	2	seal_s	0.006748808	s	dna100.D95.2
+R	1b9d	dna100.D95	2	n	100000000	symbols	dna100.D95.2 sigma 4, 2 bits
+R	1b9d	dna100.D95	2	file_size	1325019393	bytes	dna100.D95.2 LCP U8, 0 overflow pairs
+R	1b9d	dna100.D95	2	grown_bytes	0	bytes	dna100.D95.2 growth none, creation Preallocated
+R	1b9d	dna100.D95	2	counted_read	3910595933	bytes	dna100.D95.2 explicit reads of the build (IoCounters)
+R	1b9d	dna100.D95	2	counted_write	2810214300	bytes	dna100.D95.2 explicit writes of the build (IoCounters)
+R	1b9d	dna100.D95	2	counted_mapped_write	1437890539	bytes	dna100.D95.2 writes through mapped windows (IoCounters)
+R	1b9d	dna100.D95	2	counted_reserved_write	0	bytes	dna100.D95.2 zeros written to reserve the growth
+R	1b9d	dna100.D95	2	scratch_peak	1200000000	bytes	dna100.D95.2
+R	1b9d	dna100.D95	2	arena_peak	39395096	bytes	dna100.D95.2
+R	1b9d	dna100.D95	2	proc_rchar	3931548777	bytes	dna100.D95.2 /proc/self/io over the call
+R	1b9d	dna100.D95	2	proc_wchar	2810214507	bytes	dna100.D95.2
+R	1b9d	dna100.D95	2	proc_read_bytes	12408852480	bytes	dna100.D95.2 block-layer reads charged to the process
+R	1b9d	dna100.D95	2	proc_write_bytes	4361129984	bytes	dna100.D95.2 pages dirtied (a page that is written again counts again)
+R	1b9d	dna100.D95	2	dev_sectors_read	24311872	sectors	dna100.D95.2 /sys/block/vda/stat over the call (512 B)
+R	1b9d	dna100.D95	2	dev_sectors_written	6081688	sectors	dna100.D95.2 over the call
+R	1b9d	dna100.D95	2	dev_sectors_written_synced	6082776	sectors	dna100.D95.2 until the end of a sync after the call
+R	1b9d	dna100.D95	2	rssanon_peak_mb	85.663744	MB	dna100.D95.2 verdict Within
+R	1b9d	dna100.D95	2	rssanon_ph0_mb	10.579968	MB	dna100.D95.2
+R	1b9d	dna100.D95	2	rssanon_ph1_mb	27.81184	MB	dna100.D95.2
+R	1b9d	dna100.D95	2	rssanon_ph23_mb	74.051584	MB	dna100.D95.2
+R	1b9d	dna100.D95	2	rssanon_ph45_mb	85.663744	MB	dna100.D95.2
+R	1b9d	dna100.D95	2	rssanon_ph6_mb	61.063168	MB	dna100.D95.2
+R	1b9d	dna100.D95	2	rssanon_seal_mb	61.063168	MB	dna100.D95.2
+R	1b9d	dna100.D95	2	exit_code	0		program exit code (0 = healthy)
+R	1b9d	dna100.D95	2	limit_raised	yes		the limit was raised to 1073741824 bytes when PH3 had finished
+R	1b9d	dna100.D95	2	killed	no		no | watchdog (300 s) | oom-or-signal (exit 137 without the watchdog: the cgroup OOM killer)
+R	1b9d	dna100.D95	2	cg_failcnt_final	1217721	n	memory.failcnt after the run
+R	1b9d	dna100.D95	2	cg_max_usage_final	1073741824	bytes	memory.max_usage_in_bytes after the run; memory.stat: cache 1001680896 rss 0 mapped_file 0 pgpgin 2062570 pgpgout 2029327 pgmajfault 71183 total_cache 1001680896 total_rss 0 total_mapped_file 0 total_pgpgin 2062570 total_pgpgout 2029327 total_pgmajfault 71183 
+R	1b9d	dna100.D95	2	cmp_container	yes		SHA-256 dc5ad0d82bef0114 of the container against the reference in /tmp/stbench/b9d/work/dna_100m.txt.sesa.sha (reference = this run made it)
+R	1b9d	dna100.D95	2	left_behind	0		entries of the work directory of the run besides the container (a build that succeeded leaves the container only)
+R	1b9d	dna100.D95	2	run_done	yes		all rows of this run are written
+R	1b9d	dna100.D95	3	settings	limit=95000000 raise=1073741824 prewarm=1 gc=unset args=--scale-n 3000000000		cgroup limit (bytes), limit after PH3, runtime pre-read outside the group, DOTNET_GCHeapHardLimit, extra program arguments
+R	1b9d	dna100.D95	3	ext_rssanon_peak	85.438	MB	independent sampler: max RssAnon of /proc/<pid>/status at 20 ms
+R	1b9d	dna100.D95	3	ext_rssanon_mean_ph3	45.505	MB	mean RssAnon over PH3 (rank file and ph3 directory exist), 1108 samples
+R	1b9d	dna100.D95	3	eff_resident_ph3	0.7246		time-weighted resident fraction of (packed text + rank file) over PH3 (mincore every 200 ms, 105 samples, 22.3 s)
+R	1b9d	dna100.D95	3	eff_resident_ranks	0.7246		the same over the whole life of the rank file (PH1 end .. PH3 end, 105 samples, 22.3 s)
+R	1b9d	dna100.D95	3	text_bytes	25000064	bytes	TEXT section of the container
+R	1b9d	dna100.D95	3	rank_bytes	12890240	bytes	DCS rank file
+R	1b9d	dna100.D95	3	cg_limit	94998528	bytes	memory.limit_in_bytes of the sub-group at the start of the run
+R	1b9d	dna100.D95	3	cg_failcnt	410967	n	memory.failcnt at the end
+R	1b9d	dna100.D95	3	cg_max_usage	1073741824	bytes	memory.max_usage_in_bytes at the end
+R	1b9d	dna100.D95	3	eff_budget_ph3	1.3075		E3-style budget ratio (limit - mean cgroup anonymous memory over PH3 (45.5 MB)) / (text + rank file)
+R	1b9d	dna100.D95	3	cg_rss_mean_ph3	45.457	MB	mean memory.stat rss (anonymous) of the sub-group over PH3
+R	1b9d	dna100.D95	3	ext_proc_rchar	3923934260	bytes	independent sampler: /proc/<pid>/io rchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D95	3	ext_proc_wchar	2810214535	bytes	independent sampler: /proc/<pid>/io wchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D95	3	ext_proc_read_bytes	4661686272	bytes	independent sampler: /proc/<pid>/io read_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D95	3	ext_proc_write_bytes	4357513216	bytes	independent sampler: /proc/<pid>/io write_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D95	3	total_s	35.916113983	s	dna100.D95.3 SesaBuilder.Build, inside the call
+R	1b9d	dna100.D95	3	wall_s	35.921584253	s	dna100.D95.3 around the call
+R	1b9d	dna100.D95	3	scan_s	0.169378562	s	dna100.D95.3
+R	1b9d	dna100.D95	3	create_s	0.003480855	s	dna100.D95.3
+R	1b9d	dna100.D95	3	pack_s	0.35333761	s	dna100.D95.3
+R	1b9d	dna100.D95	3	ph1_s	1.737890551	s	dna100.D95.3
+R	1b9d	dna100.D95	3	ph23_s	21.649715427	s	dna100.D95.3
+R	1b9d	dna100.D95	3	ph45_s	8.18643602	s	dna100.D95.3
+R	1b9d	dna100.D95	3	bwt_s	1.840636864	s	dna100.D95.3
+R	1b9d	dna100.D95	3	psi_s	1.01720104	s	dna100.D95.3
+R	1b9d	dna100.D95	3	crc_s	0.584465489	s	dna100.D95.3
+R	1b9d	dna100.D95	3	seal_s	0.006433295	s	dna100.D95.3
+R	1b9d	dna100.D95	3	n	100000000	symbols	dna100.D95.3 sigma 4, 2 bits
+R	1b9d	dna100.D95	3	file_size	1325019393	bytes	dna100.D95.3 LCP U8, 0 overflow pairs
+R	1b9d	dna100.D95	3	grown_bytes	0	bytes	dna100.D95.3 growth none, creation Preallocated
+R	1b9d	dna100.D95	3	counted_read	3910595933	bytes	dna100.D95.3 explicit reads of the build (IoCounters)
+R	1b9d	dna100.D95	3	counted_write	2810214300	bytes	dna100.D95.3 explicit writes of the build (IoCounters)
+R	1b9d	dna100.D95	3	counted_mapped_write	1437890539	bytes	dna100.D95.3 writes through mapped windows (IoCounters)
+R	1b9d	dna100.D95	3	counted_reserved_write	0	bytes	dna100.D95.3 zeros written to reserve the growth
+R	1b9d	dna100.D95	3	scratch_peak	1200000000	bytes	dna100.D95.3
+R	1b9d	dna100.D95	3	arena_peak	39395096	bytes	dna100.D95.3
+R	1b9d	dna100.D95	3	proc_rchar	3923886951	bytes	dna100.D95.3 /proc/self/io over the call
+R	1b9d	dna100.D95	3	proc_wchar	2810214491	bytes	dna100.D95.3
+R	1b9d	dna100.D95	3	proc_read_bytes	4661669888	bytes	dna100.D95.3 block-layer reads charged to the process
+R	1b9d	dna100.D95	3	proc_write_bytes	4357476352	bytes	dna100.D95.3 pages dirtied (a page that is written again counts again)
+R	1b9d	dna100.D95	3	dev_sectors_read	9107832	sectors	dna100.D95.3 /sys/block/vda/stat over the call (512 B)
+R	1b9d	dna100.D95	3	dev_sectors_written	6062016	sectors	dna100.D95.3 over the call
+R	1b9d	dna100.D95	3	dev_sectors_written_synced	6063008	sectors	dna100.D95.3 until the end of a sync after the call
+R	1b9d	dna100.D95	3	rssanon_peak_mb	85.438464	MB	dna100.D95.3 verdict Within
+R	1b9d	dna100.D95	3	rssanon_ph0_mb	10.56768	MB	dna100.D95.3
+R	1b9d	dna100.D95	3	rssanon_ph1_mb	26.9312	MB	dna100.D95.3
+R	1b9d	dna100.D95	3	rssanon_ph23_mb	63.041536	MB	dna100.D95.3
+R	1b9d	dna100.D95	3	rssanon_ph45_mb	85.438464	MB	dna100.D95.3
+R	1b9d	dna100.D95	3	rssanon_ph6_mb	60.862464	MB	dna100.D95.3
+R	1b9d	dna100.D95	3	rssanon_seal_mb	60.862464	MB	dna100.D95.3
+R	1b9d	dna100.D95	3	exit_code	0		program exit code (0 = healthy)
+R	1b9d	dna100.D95	3	limit_raised	yes		the limit was raised to 1073741824 bytes when PH3 had finished
+R	1b9d	dna100.D95	3	killed	no		no | watchdog (300 s) | oom-or-signal (exit 137 without the watchdog: the cgroup OOM killer)
+R	1b9d	dna100.D95	3	cg_failcnt_final	410967	n	memory.failcnt after the run
+R	1b9d	dna100.D95	3	cg_max_usage_final	1073741824	bytes	memory.max_usage_in_bytes after the run; memory.stat: cache 1001361408 rss 0 mapped_file 0 pgpgin 822403 pgpgout 792165 pgmajfault 64908 total_cache 1001361408 total_rss 0 total_mapped_file 0 total_pgpgin 822403 total_pgpgout 792165 total_pgmajfault 64908 
+R	1b9d	dna100.D95	3	cmp_container	yes		SHA-256 dc5ad0d82bef0114 of the container against the reference in /tmp/stbench/b9d/work/dna_100m.txt.sesa.sha (reference = this run made it)
+R	1b9d	dna100.D95	3	left_behind	0		entries of the work directory of the run besides the container (a build that succeeded leaves the container only)
+R	1b9d	dna100.D95	3	run_done	yes		all rows of this run are written
+R	1b9d	dna100.D84	1	settings	limit=84000000 raise=1073741824 prewarm=1 gc=unset args=--scale-n 3000000000		cgroup limit (bytes), limit after PH3, runtime pre-read outside the group, DOTNET_GCHeapHardLimit, extra program arguments
+R	1b9d	dna100.D84	1	ext_rssanon_peak	110.096	MB	independent sampler: max RssAnon of /proc/<pid>/status at 20 ms
+R	1b9d	dna100.D84	1	ext_rssanon_mean_ph3	57.463	MB	mean RssAnon over PH3 (rank file and ph3 directory exist), 5897 samples
+R	1b9d	dna100.D84	1	eff_resident_ph3	0.4656		time-weighted resident fraction of (packed text + rank file) over PH3 (mincore every 200 ms, 560 samples, 118.0 s)
+R	1b9d	dna100.D84	1	eff_resident_ranks	0.4656		the same over the whole life of the rank file (PH1 end .. PH3 end, 560 samples, 118.0 s)
+R	1b9d	dna100.D84	1	text_bytes	25000064	bytes	TEXT section of the container
+R	1b9d	dna100.D84	1	rank_bytes	12890240	bytes	DCS rank file
+R	1b9d	dna100.D84	1	cg_limit	83996672	bytes	memory.limit_in_bytes of the sub-group at the start of the run
+R	1b9d	dna100.D84	1	cg_failcnt	3982681	n	memory.failcnt at the end
+R	1b9d	dna100.D84	1	cg_max_usage	1073741824	bytes	memory.max_usage_in_bytes at the end
+R	1b9d	dna100.D84	1	eff_budget_ph3	0.7003		E3-style budget ratio (limit - mean cgroup anonymous memory over PH3 (57.5 MB)) / (text + rank file)
+R	1b9d	dna100.D84	1	cg_rss_mean_ph3	57.464	MB	mean memory.stat rss (anonymous) of the sub-group over PH3
+R	1b9d	dna100.D84	1	ext_proc_rchar	3965746841	bytes	independent sampler: /proc/<pid>/io rchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D84	1	ext_proc_wchar	2810214616	bytes	independent sampler: /proc/<pid>/io wchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D84	1	ext_proc_read_bytes	39426838528	bytes	independent sampler: /proc/<pid>/io read_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D84	1	ext_proc_write_bytes	4383645696	bytes	independent sampler: /proc/<pid>/io write_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D84	1	total_s	134.591306964	s	dna100.D84.1 SesaBuilder.Build, inside the call
+R	1b9d	dna100.D84	1	wall_s	134.597045637	s	dna100.D84.1 around the call
+R	1b9d	dna100.D84	1	scan_s	0.160950238	s	dna100.D84.1
+R	1b9d	dna100.D84	1	create_s	0.002853808	s	dna100.D84.1
+R	1b9d	dna100.D84	1	pack_s	0.334858166	s	dna100.D84.1
+R	1b9d	dna100.D84	1	ph1_s	1.77188663	s	dna100.D84.1
+R	1b9d	dna100.D84	1	ph23_s	117.425090731	s	dna100.D84.1
+R	1b9d	dna100.D84	1	ph45_s	10.289826591	s	dna100.D84.1
+R	1b9d	dna100.D84	1	bwt_s	2.586479436	s	dna100.D84.1
+R	1b9d	dna100.D84	1	psi_s	0.965146345	s	dna100.D84.1
+R	1b9d	dna100.D84	1	crc_s	0.674035138	s	dna100.D84.1
+R	1b9d	dna100.D84	1	seal_s	0.007833659	s	dna100.D84.1
+R	1b9d	dna100.D84	1	n	100000000	symbols	dna100.D84.1 sigma 4, 2 bits
+R	1b9d	dna100.D84	1	file_size	1325019393	bytes	dna100.D84.1 LCP U8, 0 overflow pairs
+R	1b9d	dna100.D84	1	grown_bytes	0	bytes	dna100.D84.1 growth none, creation Preallocated
+R	1b9d	dna100.D84	1	counted_read	3910595933	bytes	dna100.D84.1 explicit reads of the build (IoCounters)
+R	1b9d	dna100.D84	1	counted_write	2810214300	bytes	dna100.D84.1 explicit writes of the build (IoCounters)
+R	1b9d	dna100.D84	1	counted_mapped_write	1437890539	bytes	dna100.D84.1 writes through mapped windows (IoCounters)
+R	1b9d	dna100.D84	1	counted_reserved_write	0	bytes	dna100.D84.1 zeros written to reserve the growth
+R	1b9d	dna100.D84	1	scratch_peak	1200000000	bytes	dna100.D84.1
+R	1b9d	dna100.D84	1	arena_peak	39395096	bytes	dna100.D84.1
+R	1b9d	dna100.D84	1	proc_rchar	3965695325	bytes	dna100.D84.1 /proc/self/io over the call
+R	1b9d	dna100.D84	1	proc_wchar	2810214571	bytes	dna100.D84.1
+R	1b9d	dna100.D84	1	proc_read_bytes	39426785280	bytes	dna100.D84.1 block-layer reads charged to the process
+R	1b9d	dna100.D84	1	proc_write_bytes	4383608832	bytes	dna100.D84.1 pages dirtied (a page that is written again counts again)
+R	1b9d	dna100.D84	1	dev_sectors_read	77009144	sectors	dna100.D84.1 /sys/block/vda/stat over the call (512 B)
+R	1b9d	dna100.D84	1	dev_sectors_written	7675000	sectors	dna100.D84.1 over the call
+R	1b9d	dna100.D84	1	dev_sectors_written_synced	7675848	sectors	dna100.D84.1 until the end of a sync after the call
+R	1b9d	dna100.D84	1	rssanon_peak_mb	110.096384	MB	dna100.D84.1 verdict Within
+R	1b9d	dna100.D84	1	rssanon_ph0_mb	10.555392	MB	dna100.D84.1
+R	1b9d	dna100.D84	1	rssanon_ph1_mb	27.820032	MB	dna100.D84.1
+R	1b9d	dna100.D84	1	rssanon_ph23_mb	63.717376	MB	dna100.D84.1
+R	1b9d	dna100.D84	1	rssanon_ph45_mb	110.096384	MB	dna100.D84.1
+R	1b9d	dna100.D84	1	rssanon_ph6_mb	67.047424	MB	dna100.D84.1
+R	1b9d	dna100.D84	1	rssanon_seal_mb	67.047424	MB	dna100.D84.1
+R	1b9d	dna100.D84	1	exit_code	0		program exit code (0 = healthy)
+R	1b9d	dna100.D84	1	limit_raised	yes		the limit was raised to 1073741824 bytes when PH3 had finished
+R	1b9d	dna100.D84	1	killed	no		no | watchdog (300 s) | oom-or-signal (exit 137 without the watchdog: the cgroup OOM killer)
+R	1b9d	dna100.D84	1	cg_failcnt_final	3982681	n	memory.failcnt after the run
+R	1b9d	dna100.D84	1	cg_max_usage_final	1073741824	bytes	memory.max_usage_in_bytes after the run; memory.stat: cache 996999168 rss 0 mapped_file 0 pgpgin 6303976 pgpgout 6276870 pgmajfault 242368 total_cache 996999168 total_rss 0 total_mapped_file 0 total_pgpgin 6303976 total_pgpgout 6276870 total_pgmajfault 242368 
+R	1b9d	dna100.D84	1	cmp_container	yes		SHA-256 dc5ad0d82bef0114 of the container against the reference in /tmp/stbench/b9d/work/dna_100m.txt.sesa.sha (reference = this run made it)
+R	1b9d	dna100.D84	1	left_behind	0		entries of the work directory of the run besides the container (a build that succeeded leaves the container only)
+R	1b9d	dna100.D84	1	run_done	yes		all rows of this run are written
+R	1b9d	dna100.D84	2	settings	limit=84000000 raise=1073741824 prewarm=1 gc=unset args=--scale-n 3000000000		cgroup limit (bytes), limit after PH3, runtime pre-read outside the group, DOTNET_GCHeapHardLimit, extra program arguments
+R	1b9d	dna100.D84	2	ext_rssanon_peak	93.786	MB	independent sampler: max RssAnon of /proc/<pid>/status at 20 ms
+R	1b9d	dna100.D84	2	ext_rssanon_mean_ph3	56.377	MB	mean RssAnon over PH3 (rank file and ph3 directory exist), 5736 samples
+R	1b9d	dna100.D84	2	eff_resident_ph3	0.4994		time-weighted resident fraction of (packed text + rank file) over PH3 (mincore every 200 ms, 544 samples, 114.7 s)
+R	1b9d	dna100.D84	2	eff_resident_ranks	0.4994		the same over the whole life of the rank file (PH1 end .. PH3 end, 544 samples, 114.7 s)
+R	1b9d	dna100.D84	2	text_bytes	25000064	bytes	TEXT section of the container
+R	1b9d	dna100.D84	2	rank_bytes	12890240	bytes	DCS rank file
+R	1b9d	dna100.D84	2	cg_limit	83996672	bytes	memory.limit_in_bytes of the sub-group at the start of the run
+R	1b9d	dna100.D84	2	cg_failcnt	3837073	n	memory.failcnt at the end
+R	1b9d	dna100.D84	2	cg_max_usage	1073741824	bytes	memory.max_usage_in_bytes at the end
+R	1b9d	dna100.D84	2	eff_budget_ph3	0.7286		E3-style budget ratio (limit - mean cgroup anonymous memory over PH3 (56.4 MB)) / (text + rank file)
+R	1b9d	dna100.D84	2	cg_rss_mean_ph3	56.391	MB	mean memory.stat rss (anonymous) of the sub-group over PH3
+R	1b9d	dna100.D84	2	ext_proc_rchar	3963885512	bytes	independent sampler: /proc/<pid>/io rchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D84	2	ext_proc_wchar	2810216784	bytes	independent sampler: /proc/<pid>/io wchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D84	2	ext_proc_read_bytes	37454745600	bytes	independent sampler: /proc/<pid>/io read_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D84	2	ext_proc_write_bytes	4383379456	bytes	independent sampler: /proc/<pid>/io write_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D84	2	total_s	130.038914547	s	dna100.D84.2 SesaBuilder.Build, inside the call
+R	1b9d	dna100.D84	2	wall_s	130.044080799	s	dna100.D84.2 around the call
+R	1b9d	dna100.D84	2	scan_s	0.170716669	s	dna100.D84.2
+R	1b9d	dna100.D84	2	create_s	0.002952745	s	dna100.D84.2
+R	1b9d	dna100.D84	2	pack_s	0.335010113	s	dna100.D84.2
+R	1b9d	dna100.D84	2	ph1_s	1.745261276	s	dna100.D84.2
+R	1b9d	dna100.D84	2	ph23_s	114.196162398	s	dna100.D84.2
+R	1b9d	dna100.D84	2	ph45_s	9.119929671	s	dna100.D84.2
+R	1b9d	dna100.D84	2	bwt_s	2.570221353	s	dna100.D84.2
+R	1b9d	dna100.D84	2	psi_s	0.937820178	s	dna100.D84.2
+R	1b9d	dna100.D84	2	crc_s	0.583095743	s	dna100.D84.2
+R	1b9d	dna100.D84	2	seal_s	0.006182326	s	dna100.D84.2
+R	1b9d	dna100.D84	2	n	100000000	symbols	dna100.D84.2 sigma 4, 2 bits
+R	1b9d	dna100.D84	2	file_size	1325019393	bytes	dna100.D84.2 LCP U8, 0 overflow pairs
+R	1b9d	dna100.D84	2	grown_bytes	0	bytes	dna100.D84.2 growth none, creation Preallocated
+R	1b9d	dna100.D84	2	counted_read	3910595933	bytes	dna100.D84.2 explicit reads of the build (IoCounters)
+R	1b9d	dna100.D84	2	counted_write	2810214300	bytes	dna100.D84.2 explicit writes of the build (IoCounters)
+R	1b9d	dna100.D84	2	counted_mapped_write	1437890539	bytes	dna100.D84.2 writes through mapped windows (IoCounters)
+R	1b9d	dna100.D84	2	counted_reserved_write	0	bytes	dna100.D84.2 zeros written to reserve the growth
+R	1b9d	dna100.D84	2	scratch_peak	1200000000	bytes	dna100.D84.2
+R	1b9d	dna100.D84	2	arena_peak	39395096	bytes	dna100.D84.2
+R	1b9d	dna100.D84	2	proc_rchar	3963833821	bytes	dna100.D84.2 /proc/self/io over the call
+R	1b9d	dna100.D84	2	proc_wchar	2810214571	bytes	dna100.D84.2
+R	1b9d	dna100.D84	2	proc_read_bytes	37454553088	bytes	dna100.D84.2 block-layer reads charged to the process
+R	1b9d	dna100.D84	2	proc_write_bytes	4383277056	bytes	dna100.D84.2 pages dirtied (a page that is written again counts again)
+R	1b9d	dna100.D84	2	dev_sectors_read	73157272	sectors	dna100.D84.2 /sys/block/vda/stat over the call (512 B)
+R	1b9d	dna100.D84	2	dev_sectors_written	6167056	sectors	dna100.D84.2 over the call
+R	1b9d	dna100.D84	2	dev_sectors_written_synced	6168248	sectors	dna100.D84.2 until the end of a sync after the call
+R	1b9d	dna100.D84	2	rssanon_peak_mb	93.786112	MB	dna100.D84.2 verdict Within
+R	1b9d	dna100.D84	2	rssanon_ph0_mb	10.579968	MB	dna100.D84.2
+R	1b9d	dna100.D84	2	rssanon_ph1_mb	27.87328	MB	dna100.D84.2
+R	1b9d	dna100.D84	2	rssanon_ph23_mb	60.86656	MB	dna100.D84.2
+R	1b9d	dna100.D84	2	rssanon_ph45_mb	93.786112	MB	dna100.D84.2
+R	1b9d	dna100.D84	2	rssanon_ph6_mb	69.2224	MB	dna100.D84.2
+R	1b9d	dna100.D84	2	rssanon_seal_mb	69.2224	MB	dna100.D84.2
+R	1b9d	dna100.D84	2	exit_code	0		program exit code (0 = healthy)
+R	1b9d	dna100.D84	2	limit_raised	yes		the limit was raised to 1073741824 bytes when PH3 had finished
+R	1b9d	dna100.D84	2	killed	no		no | watchdog (300 s) | oom-or-signal (exit 137 without the watchdog: the cgroup OOM killer)
+R	1b9d	dna100.D84	2	cg_failcnt_final	3837073	n	memory.failcnt after the run
+R	1b9d	dna100.D84	2	cg_max_usage_final	1073741824	bytes	memory.max_usage_in_bytes after the run; memory.stat: cache 993255424 rss 0 mapped_file 0 pgpgin 5960258 pgpgout 5932674 pgmajfault 226189 total_cache 993255424 total_rss 0 total_mapped_file 0 total_pgpgin 5960258 total_pgpgout 5932674 total_pgmajfault 226189 
+R	1b9d	dna100.D84	2	cmp_container	yes		SHA-256 dc5ad0d82bef0114 of the container against the reference in /tmp/stbench/b9d/work/dna_100m.txt.sesa.sha (reference = this run made it)
+R	1b9d	dna100.D84	2	left_behind	0		entries of the work directory of the run besides the container (a build that succeeded leaves the container only)
+R	1b9d	dna100.D84	2	run_done	yes		all rows of this run are written
+R	1b9d	dna100.D84	3	settings	limit=84000000 raise=1073741824 prewarm=1 gc=unset args=--scale-n 3000000000		cgroup limit (bytes), limit after PH3, runtime pre-read outside the group, DOTNET_GCHeapHardLimit, extra program arguments
+R	1b9d	dna100.D84	3	ext_rssanon_peak	88.789	MB	independent sampler: max RssAnon of /proc/<pid>/status at 20 ms
+R	1b9d	dna100.D84	3	ext_rssanon_mean_ph3	54.465	MB	mean RssAnon over PH3 (rank file and ph3 directory exist), 5171 samples
+R	1b9d	dna100.D84	3	eff_resident_ph3	0.5547		time-weighted resident fraction of (packed text + rank file) over PH3 (mincore every 200 ms, 490 samples, 103.4 s)
+R	1b9d	dna100.D84	3	eff_resident_ranks	0.5547		the same over the whole life of the rank file (PH1 end .. PH3 end, 490 samples, 103.4 s)
+R	1b9d	dna100.D84	3	text_bytes	25000064	bytes	TEXT section of the container
+R	1b9d	dna100.D84	3	rank_bytes	12890240	bytes	DCS rank file
+R	1b9d	dna100.D84	3	cg_limit	83996672	bytes	memory.limit_in_bytes of the sub-group at the start of the run
+R	1b9d	dna100.D84	3	cg_failcnt	3326422	n	memory.failcnt at the end
+R	1b9d	dna100.D84	3	cg_max_usage	1073741824	bytes	memory.max_usage_in_bytes at the end
+R	1b9d	dna100.D84	3	eff_budget_ph3	0.7795		E3-style budget ratio (limit - mean cgroup anonymous memory over PH3 (54.5 MB)) / (text + rank file)
+R	1b9d	dna100.D84	3	cg_rss_mean_ph3	54.461	MB	mean memory.stat rss (anonymous) of the sub-group over PH3
+R	1b9d	dna100.D84	3	ext_proc_rchar	3958298401	bytes	independent sampler: /proc/<pid>/io rchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D84	3	ext_proc_wchar	2810214615	bytes	independent sampler: /proc/<pid>/io wchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D84	3	ext_proc_read_bytes	32378277888	bytes	independent sampler: /proc/<pid>/io read_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D84	3	ext_proc_write_bytes	4390662144	bytes	independent sampler: /proc/<pid>/io write_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D84	3	total_s	116.223133745	s	dna100.D84.3 SesaBuilder.Build, inside the call
+R	1b9d	dna100.D84	3	wall_s	116.22794665	s	dna100.D84.3 around the call
+R	1b9d	dna100.D84	3	scan_s	0.163825192	s	dna100.D84.3
+R	1b9d	dna100.D84	3	create_s	0.002910571	s	dna100.D84.3
+R	1b9d	dna100.D84	3	pack_s	0.347052807	s	dna100.D84.3
+R	1b9d	dna100.D84	3	ph1_s	1.700690323	s	dna100.D84.3
+R	1b9d	dna100.D84	3	ph23_s	102.911300486	s	dna100.D84.3
+R	1b9d	dna100.D84	3	ph45_s	7.201300484	s	dna100.D84.3
+R	1b9d	dna100.D84	3	bwt_s	2.059291311	s	dna100.D84.3
+R	1b9d	dna100.D84	3	psi_s	0.909489492	s	dna100.D84.3
+R	1b9d	dna100.D84	3	crc_s	0.554096405	s	dna100.D84.3
+R	1b9d	dna100.D84	3	seal_s	0.006827425	s	dna100.D84.3
+R	1b9d	dna100.D84	3	n	100000000	symbols	dna100.D84.3 sigma 4, 2 bits
+R	1b9d	dna100.D84	3	file_size	1325019393	bytes	dna100.D84.3 LCP U8, 0 overflow pairs
+R	1b9d	dna100.D84	3	grown_bytes	0	bytes	dna100.D84.3 growth none, creation Preallocated
+R	1b9d	dna100.D84	3	counted_read	3910595933	bytes	dna100.D84.3 explicit reads of the build (IoCounters)
+R	1b9d	dna100.D84	3	counted_write	2810214300	bytes	dna100.D84.3 explicit writes of the build (IoCounters)
+R	1b9d	dna100.D84	3	counted_mapped_write	1437890539	bytes	dna100.D84.3 writes through mapped windows (IoCounters)
+R	1b9d	dna100.D84	3	counted_reserved_write	0	bytes	dna100.D84.3 zeros written to reserve the growth
+R	1b9d	dna100.D84	3	scratch_peak	1200000000	bytes	dna100.D84.3
+R	1b9d	dna100.D84	3	arena_peak	39395096	bytes	dna100.D84.3
+R	1b9d	dna100.D84	3	proc_rchar	3958255581	bytes	dna100.D84.3 /proc/self/io over the call
+R	1b9d	dna100.D84	3	proc_wchar	2810214571	bytes	dna100.D84.3
+R	1b9d	dna100.D84	3	proc_read_bytes	32378261504	bytes	dna100.D84.3 block-layer reads charged to the process
+R	1b9d	dna100.D84	3	proc_write_bytes	4390629376	bytes	dna100.D84.3 pages dirtied (a page that is written again counts again)
+R	1b9d	dna100.D84	3	dev_sectors_read	63251000	sectors	dna100.D84.3 /sys/block/vda/stat over the call (512 B)
+R	1b9d	dna100.D84	3	dev_sectors_written	6194616	sectors	dna100.D84.3 over the call
+R	1b9d	dna100.D84	3	dev_sectors_written_synced	6194672	sectors	dna100.D84.3 until the end of a sync after the call
+R	1b9d	dna100.D84	3	rssanon_peak_mb	88.788992	MB	dna100.D84.3 verdict Within
+R	1b9d	dna100.D84	3	rssanon_ph0_mb	10.555392	MB	dna100.D84.3
+R	1b9d	dna100.D84	3	rssanon_ph1_mb	27.799552	MB	dna100.D84.3
+R	1b9d	dna100.D84	3	rssanon_ph23_mb	58.028032	MB	dna100.D84.3
+R	1b9d	dna100.D84	3	rssanon_ph45_mb	88.788992	MB	dna100.D84.3
+R	1b9d	dna100.D84	3	rssanon_ph6_mb	64.208896	MB	dna100.D84.3
+R	1b9d	dna100.D84	3	rssanon_seal_mb	64.208896	MB	dna100.D84.3
+R	1b9d	dna100.D84	3	exit_code	0		program exit code (0 = healthy)
+R	1b9d	dna100.D84	3	limit_raised	yes		the limit was raised to 1073741824 bytes when PH3 had finished
+R	1b9d	dna100.D84	3	killed	no		no | watchdog (300 s) | oom-or-signal (exit 137 without the watchdog: the cgroup OOM killer)
+R	1b9d	dna100.D84	3	cg_failcnt_final	3326422	n	memory.failcnt after the run
+R	1b9d	dna100.D84	3	cg_max_usage_final	1073741824	bytes	memory.max_usage_in_bytes after the run; memory.stat: cache 999174144 rss 0 mapped_file 0 pgpgin 5098962 pgpgout 5067996 pgmajfault 214898 total_cache 999174144 total_rss 0 total_mapped_file 0 total_pgpgin 5098962 total_pgpgout 5067996 total_pgmajfault 214898 
+R	1b9d	dna100.D84	3	cmp_container	yes		SHA-256 dc5ad0d82bef0114 of the container against the reference in /tmp/stbench/b9d/work/dna_100m.txt.sesa.sha (reference = this run made it)
+R	1b9d	dna100.D84	3	left_behind	0		entries of the work directory of the run besides the container (a build that succeeded leaves the container only)
+R	1b9d	dna100.D84	3	run_done	yes		all rows of this run are written
+R	1b9d	genome100.U	1	settings	limit=max raise=none prewarm=1 gc=unset args=--scale-n 3000000000		cgroup limit (bytes), limit after PH3, runtime pre-read outside the group, DOTNET_GCHeapHardLimit, extra program arguments
+R	1b9d	genome100.U	1	ext_rssanon_peak	150.684	MB	independent sampler: max RssAnon of /proc/<pid>/status at 20 ms
+R	1b9d	genome100.U	1	ext_rssanon_mean_ph3	78.242	MB	mean RssAnon over PH3 (rank file and ph3 directory exist), 687 samples
+R	1b9d	genome100.U	1	eff_resident_ph3	1.0000		time-weighted resident fraction of (packed text + rank file) over PH3 (mincore every 200 ms, 65 samples, 13.7 s)
+R	1b9d	genome100.U	1	eff_resident_ranks	1.0000		the same over the whole life of the rank file (PH1 end .. PH3 end, 65 samples, 13.7 s)
+R	1b9d	genome100.U	1	text_bytes	37500064	bytes	TEXT section of the container
+R	1b9d	genome100.U	1	rank_bytes	12890240	bytes	DCS rank file
+R	1b9d	genome100.U	1	cg_limit	9223372036854771712	bytes	memory.limit_in_bytes of the sub-group at the start of the run
+R	1b9d	genome100.U	1	cg_failcnt	0	n	memory.failcnt at the end
+R	1b9d	genome100.U	1	cg_max_usage	1925615616	bytes	memory.max_usage_in_bytes at the end
+R	1b9d	genome100.U	1	cg_rss_mean_ph3	78.358	MB	mean memory.stat rss (anonymous) of the sub-group over PH3
+R	1b9d	genome100.U	1	ext_proc_rchar	3975865563	bytes	independent sampler: /proc/<pid>/io rchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	genome100.U	1	ext_proc_wchar	2876365417	bytes	independent sampler: /proc/<pid>/io wchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	genome100.U	1	ext_proc_read_bytes	101634048	bytes	independent sampler: /proc/<pid>/io read_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	genome100.U	1	ext_proc_write_bytes	4435345408	bytes	independent sampler: /proc/<pid>/io write_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	genome100.U	1	total_s	29.314829123	s	genome100.U.1 SesaBuilder.Build, inside the call
+R	1b9d	genome100.U	1	wall_s	29.319743693	s	genome100.U.1 around the call
+R	1b9d	genome100.U	1	scan_s	0.160128737	s	genome100.U.1
+R	1b9d	genome100.U	1	create_s	0.002507465	s	genome100.U.1
+R	1b9d	genome100.U	1	pack_s	0.358864907	s	genome100.U.1
+R	1b9d	genome100.U	1	ph1_s	2.186101175	s	genome100.U.1
+R	1b9d	genome100.U	1	ph23_s	13.693996763	s	genome100.U.1
+R	1b9d	genome100.U	1	ph45_s	7.637914053	s	genome100.U.1
+R	1b9d	genome100.U	1	bwt_s	3.562137131	s	genome100.U.1
+R	1b9d	genome100.U	1	psi_s	1.014527738	s	genome100.U.1
+R	1b9d	genome100.U	1	crc_s	0.321893443	s	genome100.U.1
+R	1b9d	genome100.U	1	seal_s	0.007644971	s	genome100.U.1
+R	1b9d	genome100.U	1	n	100000000	symbols	genome100.U.1 sigma 5, 3 bits
+R	1b9d	genome100.U	1	file_size	1348644448	bytes	genome100.U.1 LCP U8, 1390028 overflow pairs
+R	1b9d	genome100.U	1	grown_bytes	11124063	bytes	genome100.U.1 growth Filled, creation Preallocated
+R	1b9d	genome100.U	1	counted_read	3965635349	bytes	genome100.U.1 explicit reads of the build (IoCounters)
+R	1b9d	genome100.U	1	counted_write	2865241040	bytes	genome100.U.1 explicit writes of the build (IoCounters)
+R	1b9d	genome100.U	1	counted_mapped_write	1474816555	bytes	genome100.U.1 writes through mapped windows (IoCounters)
+R	1b9d	genome100.U	1	counted_reserved_write	11124063	bytes	genome100.U.1 zeros written to reserve the growth
+R	1b9d	genome100.U	1	scratch_peak	1200000000	bytes	genome100.U.1
+R	1b9d	genome100.U	1	arena_peak	39395096	bytes	genome100.U.1
+R	1b9d	genome100.U	1	proc_rchar	3975812991	bytes	genome100.U.1 /proc/self/io over the call
+R	1b9d	genome100.U	1	proc_wchar	2876365372	bytes	genome100.U.1
+R	1b9d	genome100.U	1	proc_read_bytes	101457920	bytes	genome100.U.1 block-layer reads charged to the process
+R	1b9d	genome100.U	1	proc_write_bytes	4435300352	bytes	genome100.U.1 pages dirtied (a page that is written again counts again)
+R	1b9d	genome100.U	1	dev_sectors_read	217072	sectors	genome100.U.1 /sys/block/vda/stat over the call (512 B)
+R	1b9d	genome100.U	1	dev_sectors_written	4735224	sectors	genome100.U.1 over the call
+R	1b9d	genome100.U	1	dev_sectors_written_synced	4737520	sectors	genome100.U.1 until the end of a sync after the call
+R	1b9d	genome100.U	1	rssanon_peak_mb	150.683648	MB	genome100.U.1 verdict Within
+R	1b9d	genome100.U	1	rssanon_ph0_mb	10.752	MB	genome100.U.1
+R	1b9d	genome100.U	1	rssanon_ph1_mb	32.313344	MB	genome100.U.1
+R	1b9d	genome100.U	1	rssanon_ph23_mb	109.809664	MB	genome100.U.1
+R	1b9d	genome100.U	1	rssanon_ph45_mb	150.683648	MB	genome100.U.1
+R	1b9d	genome100.U	1	rssanon_ph6_mb	136.187904	MB	genome100.U.1
+R	1b9d	genome100.U	1	rssanon_seal_mb	136.192	MB	genome100.U.1
+R	1b9d	genome100.U	1	exit_code	0		program exit code (0 = healthy)
+R	1b9d	genome100.U	1	killed	no		no | watchdog (600 s) | oom-or-signal (exit 137 without the watchdog: the cgroup OOM killer)
+R	1b9d	genome100.U	1	cg_failcnt_final	0	n	memory.failcnt after the run
+R	1b9d	genome100.U	1	cg_max_usage_final	1925615616	bytes	memory.max_usage_in_bytes after the run; memory.stat: cache 1451057152 rss 0 mapped_file 0 pgpgin 335769 pgpgout 249316 pgmajfault 3420 total_cache 1451057152 total_rss 0 total_mapped_file 0 total_pgpgin 335769 total_pgpgout 249316 total_pgmajfault 3420 
+R	1b9d	genome100.U	1	cmp_container	reference		SHA-256 18f5e260c66f91ba of the container against the reference in /tmp/stbench/b9d/work/genome_100m.txt.sesa.sha (reference = this run made it)
+R	1b9d	genome100.U	1	left_behind	0		entries of the work directory of the run besides the container (a build that succeeded leaves the container only)
+R	1b9d	genome100.U	1	run_done	yes		all rows of this run are written
+R	1b9d	genome100.U	2	settings	limit=max raise=none prewarm=1 gc=unset args=--scale-n 3000000000		cgroup limit (bytes), limit after PH3, runtime pre-read outside the group, DOTNET_GCHeapHardLimit, extra program arguments
+R	1b9d	genome100.U	2	ext_rssanon_peak	147.587	MB	independent sampler: max RssAnon of /proc/<pid>/status at 20 ms
+R	1b9d	genome100.U	2	ext_rssanon_mean_ph3	76.114	MB	mean RssAnon over PH3 (rank file and ph3 directory exist), 667 samples
+R	1b9d	genome100.U	2	eff_resident_ph3	1.0000		time-weighted resident fraction of (packed text + rank file) over PH3 (mincore every 200 ms, 63 samples, 13.3 s)
+R	1b9d	genome100.U	2	eff_resident_ranks	1.0000		the same over the whole life of the rank file (PH1 end .. PH3 end, 63 samples, 13.3 s)
+R	1b9d	genome100.U	2	text_bytes	37500064	bytes	TEXT section of the container
+R	1b9d	genome100.U	2	rank_bytes	12890240	bytes	DCS rank file
+R	1b9d	genome100.U	2	cg_limit	9223372036854771712	bytes	memory.limit_in_bytes of the sub-group at the start of the run
+R	1b9d	genome100.U	2	cg_failcnt	0	n	memory.failcnt at the end
+R	1b9d	genome100.U	2	cg_max_usage	1922486272	bytes	memory.max_usage_in_bytes at the end
+R	1b9d	genome100.U	2	cg_rss_mean_ph3	75.694	MB	mean memory.stat rss (anonymous) of the sub-group over PH3
+R	1b9d	genome100.U	2	ext_proc_rchar	3975475252	bytes	independent sampler: /proc/<pid>/io rchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	genome100.U	2	ext_proc_wchar	2876367645	bytes	independent sampler: /proc/<pid>/io wchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	genome100.U	2	ext_proc_read_bytes	101502976	bytes	independent sampler: /proc/<pid>/io read_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	genome100.U	2	ext_proc_write_bytes	4444508160	bytes	independent sampler: /proc/<pid>/io write_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	genome100.U	2	total_s	28.179376797	s	genome100.U.2 SesaBuilder.Build, inside the call
+R	1b9d	genome100.U	2	wall_s	28.184762023	s	genome100.U.2 around the call
+R	1b9d	genome100.U	2	scan_s	0.216236146	s	genome100.U.2
+R	1b9d	genome100.U	2	create_s	0.002957847	s	genome100.U.2
+R	1b9d	genome100.U	2	pack_s	0.387734297	s	genome100.U.2
+R	1b9d	genome100.U	2	ph1_s	2.220605431	s	genome100.U.2
+R	1b9d	genome100.U	2	ph23_s	13.288014043	s	genome100.U.2
+R	1b9d	genome100.U	2	ph45_s	7.426345551	s	genome100.U.2
+R	1b9d	genome100.U	2	bwt_s	2.941701173	s	genome100.U.2
+R	1b9d	genome100.U	2	psi_s	0.993257624	s	genome100.U.2
+R	1b9d	genome100.U	2	crc_s	0.326115644	s	genome100.U.2
+R	1b9d	genome100.U	2	seal_s	0.008111755	s	genome100.U.2
+R	1b9d	genome100.U	2	n	100000000	symbols	genome100.U.2 sigma 5, 3 bits
+R	1b9d	genome100.U	2	file_size	1348644448	bytes	genome100.U.2 LCP U8, 1390028 overflow pairs
+R	1b9d	genome100.U	2	grown_bytes	11124063	bytes	genome100.U.2 growth Filled, creation Preallocated
+R	1b9d	genome100.U	2	counted_read	3965635349	bytes	genome100.U.2 explicit reads of the build (IoCounters)
+R	1b9d	genome100.U	2	counted_write	2865241040	bytes	genome100.U.2 explicit writes of the build (IoCounters)
+R	1b9d	genome100.U	2	counted_mapped_write	1474816555	bytes	genome100.U.2 writes through mapped windows (IoCounters)
+R	1b9d	genome100.U	2	counted_reserved_write	11124063	bytes	genome100.U.2 zeros written to reserve the growth
+R	1b9d	genome100.U	2	scratch_peak	1200000000	bytes	genome100.U.2
+R	1b9d	genome100.U	2	arena_peak	39395096	bytes	genome100.U.2
+R	1b9d	genome100.U	2	proc_rchar	3975422779	bytes	genome100.U.2 /proc/self/io over the call
+R	1b9d	genome100.U	2	proc_wchar	2876365372	bytes	genome100.U.2
+R	1b9d	genome100.U	2	proc_read_bytes	101445632	bytes	genome100.U.2 block-layer reads charged to the process
+R	1b9d	genome100.U	2	proc_write_bytes	4444418048	bytes	genome100.U.2 pages dirtied (a page that is written again counts again)
+R	1b9d	genome100.U	2	dev_sectors_read	214056	sectors	genome100.U.2 /sys/block/vda/stat over the call (512 B)
+R	1b9d	genome100.U	2	dev_sectors_written	4752448	sectors	genome100.U.2 over the call
+R	1b9d	genome100.U	2	dev_sectors_written_synced	4754840	sectors	genome100.U.2 until the end of a sync after the call
+R	1b9d	genome100.U	2	rssanon_peak_mb	147.587072	MB	genome100.U.2 verdict Within
+R	1b9d	genome100.U	2	rssanon_ph0_mb	10.944512	MB	genome100.U.2
+R	1b9d	genome100.U	2	rssanon_ph1_mb	33.492992	MB	genome100.U.2
+R	1b9d	genome100.U	2	rssanon_ph23_mb	106.467328	MB	genome100.U.2
+R	1b9d	genome100.U	2	rssanon_ph45_mb	147.587072	MB	genome100.U.2
+R	1b9d	genome100.U	2	rssanon_ph6_mb	133.095424	MB	genome100.U.2
+R	1b9d	genome100.U	2	rssanon_seal_mb	133.09952	MB	genome100.U.2
+R	1b9d	genome100.U	2	exit_code	0		program exit code (0 = healthy)
+R	1b9d	genome100.U	2	killed	no		no | watchdog (600 s) | oom-or-signal (exit 137 without the watchdog: the cgroup OOM killer)
+R	1b9d	genome100.U	2	cg_failcnt_final	0	n	memory.failcnt after the run
+R	1b9d	genome100.U	2	cg_max_usage_final	1922486272	bytes	memory.max_usage_in_bytes after the run; memory.stat: cache 1450876928 rss 0 mapped_file 0 pgpgin 334112 pgpgout 248770 pgmajfault 3376 total_cache 1450876928 total_rss 0 total_mapped_file 0 total_pgpgin 334112 total_pgpgout 248770 total_pgmajfault 3376 
+R	1b9d	genome100.U	2	cmp_container	yes		SHA-256 18f5e260c66f91ba of the container against the reference in /tmp/stbench/b9d/work/genome_100m.txt.sesa.sha (reference = this run made it)
+R	1b9d	genome100.U	2	left_behind	0		entries of the work directory of the run besides the container (a build that succeeded leaves the container only)
+R	1b9d	genome100.U	2	run_done	yes		all rows of this run are written
+R	1b9d	genome100.D120	1	settings	limit=120000000 raise=1073741824 prewarm=1 gc=unset args=--scale-n 3000000000		cgroup limit (bytes), limit after PH3, runtime pre-read outside the group, DOTNET_GCHeapHardLimit, extra program arguments
+R	1b9d	genome100.D120	1	ext_rssanon_peak	102.740	MB	independent sampler: max RssAnon of /proc/<pid>/status at 20 ms
+R	1b9d	genome100.D120	1	ext_rssanon_mean_ph3	68.834	MB	mean RssAnon over PH3 (rank file and ph3 directory exist), 4521 samples
+R	1b9d	genome100.D120	1	eff_resident_ph3	0.8024		time-weighted resident fraction of (packed text + rank file) over PH3 (mincore every 200 ms, 430 samples, 90.5 s)
+R	1b9d	genome100.D120	1	eff_resident_ranks	0.8024		the same over the whole life of the rank file (PH1 end .. PH3 end, 430 samples, 90.5 s)
+R	1b9d	genome100.D120	1	text_bytes	37500064	bytes	TEXT section of the container
+R	1b9d	genome100.D120	1	rank_bytes	12890240	bytes	DCS rank file
+R	1b9d	genome100.D120	1	cg_limit	119996416	bytes	memory.limit_in_bytes of the sub-group at the start of the run
+R	1b9d	genome100.D120	1	cg_failcnt	5360950	n	memory.failcnt at the end
+R	1b9d	genome100.D120	1	cg_max_usage	1073741824	bytes	memory.max_usage_in_bytes at the end
+R	1b9d	genome100.D120	1	eff_budget_ph3	1.0148		E3-style budget ratio (limit - mean cgroup anonymous memory over PH3 (68.9 MB)) / (text + rank file)
+R	1b9d	genome100.D120	1	cg_rss_mean_ph3	68.862	MB	mean memory.stat rss (anonymous) of the sub-group over PH3
+R	1b9d	genome100.D120	1	ext_proc_rchar	4008984167	bytes	independent sampler: /proc/<pid>/io rchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	genome100.D120	1	ext_proc_wchar	2876367753	bytes	independent sampler: /proc/<pid>/io wchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	genome100.D120	1	ext_proc_read_bytes	36768264192	bytes	independent sampler: /proc/<pid>/io read_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	genome100.D120	1	ext_proc_write_bytes	4466188288	bytes	independent sampler: /proc/<pid>/io write_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	genome100.D120	1	total_s	105.969314255	s	genome100.D120.1 SesaBuilder.Build, inside the call
+R	1b9d	genome100.D120	1	wall_s	105.974533844	s	genome100.D120.1 around the call
+R	1b9d	genome100.D120	1	scan_s	0.165812076	s	genome100.D120.1
+R	1b9d	genome100.D120	1	create_s	0.002822523	s	genome100.D120.1
+R	1b9d	genome100.D120	1	pack_s	0.382261838	s	genome100.D120.1
+R	1b9d	genome100.D120	1	ph1_s	2.635627339	s	genome100.D120.1
+R	1b9d	genome100.D120	1	ph23_s	90.370185607	s	genome100.D120.1
+R	1b9d	genome100.D120	1	ph45_s	7.681692618	s	genome100.D120.1
+R	1b9d	genome100.D120	1	bwt_s	2.838381948	s	genome100.D120.1
+R	1b9d	genome100.D120	1	psi_s	0.935403403	s	genome100.D120.1
+R	1b9d	genome100.D120	1	crc_s	0.588556351	s	genome100.D120.1
+R	1b9d	genome100.D120	1	seal_s	0.006276603	s	genome100.D120.1
+R	1b9d	genome100.D120	1	n	100000000	symbols	genome100.D120.1 sigma 5, 3 bits
+R	1b9d	genome100.D120	1	file_size	1348644448	bytes	genome100.D120.1 LCP U8, 1390028 overflow pairs
+R	1b9d	genome100.D120	1	grown_bytes	11124063	bytes	genome100.D120.1 growth Filled, creation Preallocated
+R	1b9d	genome100.D120	1	counted_read	3965635349	bytes	genome100.D120.1 explicit reads of the build (IoCounters)
+R	1b9d	genome100.D120	1	counted_write	2865241040	bytes	genome100.D120.1 explicit writes of the build (IoCounters)
+R	1b9d	genome100.D120	1	counted_mapped_write	1474816555	bytes	genome100.D120.1 writes through mapped windows (IoCounters)
+R	1b9d	genome100.D120	1	counted_reserved_write	11124063	bytes	genome100.D120.1 zeros written to reserve the growth
+R	1b9d	genome100.D120	1	scratch_peak	1200000000	bytes	genome100.D120.1
+R	1b9d	genome100.D120	1	arena_peak	39395096	bytes	genome100.D120.1
+R	1b9d	genome100.D120	1	proc_rchar	4008932479	bytes	genome100.D120.1 /proc/self/io over the call
+R	1b9d	genome100.D120	1	proc_wchar	2876365372	bytes	genome100.D120.1
+R	1b9d	genome100.D120	1	proc_read_bytes	36768194560	bytes	genome100.D120.1 block-layer reads charged to the process
+R	1b9d	genome100.D120	1	proc_write_bytes	4466106368	bytes	genome100.D120.1 pages dirtied (a page that is written again counts again)
+R	1b9d	genome100.D120	1	dev_sectors_read	71820520	sectors	genome100.D120.1 /sys/block/vda/stat over the call (512 B)
+R	1b9d	genome100.D120	1	dev_sectors_written	6883776	sectors	genome100.D120.1 over the call
+R	1b9d	genome100.D120	1	dev_sectors_written_synced	6884952	sectors	genome100.D120.1 until the end of a sync after the call
+R	1b9d	genome100.D120	1	rssanon_peak_mb	102.739968	MB	genome100.D120.1 verdict Within
+R	1b9d	genome100.D120	1	rssanon_ph0_mb	10.89536	MB	genome100.D120.1
+R	1b9d	genome100.D120	1	rssanon_ph1_mb	30.040064	MB	genome100.D120.1
+R	1b9d	genome100.D120	1	rssanon_ph23_mb	73.736192	MB	genome100.D120.1
+R	1b9d	genome100.D120	1	rssanon_ph45_mb	102.739968	MB	genome100.D120.1
+R	1b9d	genome100.D120	1	rssanon_ph6_mb	88.137728	MB	genome100.D120.1
+R	1b9d	genome100.D120	1	rssanon_seal_mb	88.141824	MB	genome100.D120.1
+R	1b9d	genome100.D120	1	exit_code	0		program exit code (0 = healthy)
+R	1b9d	genome100.D120	1	limit_raised	yes		the limit was raised to 1073741824 bytes when PH3 had finished
+R	1b9d	genome100.D120	1	killed	no		no | watchdog (600 s) | oom-or-signal (exit 137 without the watchdog: the cgroup OOM killer)
+R	1b9d	genome100.D120	1	cg_failcnt_final	5360950	n	memory.failcnt after the run
+R	1b9d	genome100.D120	1	cg_max_usage_final	1073741824	bytes	memory.max_usage_in_bytes after the run; memory.stat: cache 975175680 rss 0 mapped_file 0 pgpgin 9123570 pgpgout 9103098 pgmajfault 646764 total_cache 975175680 total_rss 0 total_mapped_file 0 total_pgpgin 9123570 total_pgpgout 9103098 total_pgmajfault 646764 
+R	1b9d	genome100.D120	1	cmp_container	yes		SHA-256 18f5e260c66f91ba of the container against the reference in /tmp/stbench/b9d/work/genome_100m.txt.sesa.sha (reference = this run made it)
+R	1b9d	genome100.D120	1	left_behind	0		entries of the work directory of the run besides the container (a build that succeeded leaves the container only)
+R	1b9d	genome100.D120	1	run_done	yes		all rows of this run are written
+R	1b9d	genome100.D100	1	settings	limit=100000000 raise=1073741824 prewarm=1 gc=unset args=--scale-n 3000000000		cgroup limit (bytes), limit after PH3, runtime pre-read outside the group, DOTNET_GCHeapHardLimit, extra program arguments
+R	1b9d	genome100.D100	1	ext_rssanon_peak	87.257	MB	independent sampler: max RssAnon of /proc/<pid>/status at 20 ms
+R	1b9d	genome100.D100	1	ext_rssanon_mean_ph3	57.105	MB	mean RssAnon over PH3 (rank file and ph3 directory exist), 14399 samples
+R	1b9d	genome100.D100	1	eff_resident_ph3	0.6933		time-weighted resident fraction of (packed text + rank file) over PH3 (mincore every 200 ms, 1365 samples, 288.1 s)
+R	1b9d	genome100.D100	1	eff_resident_ranks	0.6933		the same over the whole life of the rank file (PH1 end .. PH3 end, 1365 samples, 288.1 s)
+R	1b9d	genome100.D100	1	text_bytes	37500064	bytes	TEXT section of the container
+R	1b9d	genome100.D100	1	rank_bytes	12890240	bytes	DCS rank file
+R	1b9d	genome100.D100	1	cg_limit	99999744	bytes	memory.limit_in_bytes of the sub-group at the start of the run
+R	1b9d	genome100.D100	1	cg_failcnt	21646673	n	memory.failcnt at the end
+R	1b9d	genome100.D100	1	cg_max_usage	1073741824	bytes	memory.max_usage_in_bytes at the end
+R	1b9d	genome100.D100	1	eff_budget_ph3	0.8515		E3-style budget ratio (limit - mean cgroup anonymous memory over PH3 (57.1 MB)) / (text + rank file)
+R	1b9d	genome100.D100	1	cg_rss_mean_ph3	57.091	MB	mean memory.stat rss (anonymous) of the sub-group over PH3
+R	1b9d	genome100.D100	1	ext_proc_rchar	4094951050	bytes	independent sampler: /proc/<pid>/io rchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	genome100.D100	1	ext_proc_wchar	2876365448	bytes	independent sampler: /proc/<pid>/io wchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	genome100.D100	1	ext_proc_read_bytes	153420140544	bytes	independent sampler: /proc/<pid>/io read_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	genome100.D100	1	ext_proc_write_bytes	4508102656	bytes	independent sampler: /proc/<pid>/io write_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	genome100.D100	1	total_s	306.383828675	s	genome100.D100.1 SesaBuilder.Build, inside the call
+R	1b9d	genome100.D100	1	wall_s	306.389216719	s	genome100.D100.1 around the call
+R	1b9d	genome100.D100	1	scan_s	0.157310563	s	genome100.D100.1
+R	1b9d	genome100.D100	1	create_s	0.002437784	s	genome100.D100.1
+R	1b9d	genome100.D100	1	pack_s	0.371313162	s	genome100.D100.1
+R	1b9d	genome100.D100	1	ph1_s	2.340784815	s	genome100.D100.1
+R	1b9d	genome100.D100	1	ph23_s	287.923851754	s	genome100.D100.1
+R	1b9d	genome100.D100	1	ph45_s	10.590181168	s	genome100.D100.1
+R	1b9d	genome100.D100	1	bwt_s	3.067790355	s	genome100.D100.1
+R	1b9d	genome100.D100	1	psi_s	0.984070177	s	genome100.D100.1
+R	1b9d	genome100.D100	1	crc_s	0.602453769	s	genome100.D100.1
+R	1b9d	genome100.D100	1	seal_s	0.006309595	s	genome100.D100.1
+R	1b9d	genome100.D100	1	n	100000000	symbols	genome100.D100.1 sigma 5, 3 bits
+R	1b9d	genome100.D100	1	file_size	1348644448	bytes	genome100.D100.1 LCP U8, 1390028 overflow pairs
+R	1b9d	genome100.D100	1	grown_bytes	11124063	bytes	genome100.D100.1 growth Filled, creation Preallocated
+R	1b9d	genome100.D100	1	counted_read	3965635349	bytes	genome100.D100.1 explicit reads of the build (IoCounters)
+R	1b9d	genome100.D100	1	counted_write	2865241040	bytes	genome100.D100.1 explicit writes of the build (IoCounters)
+R	1b9d	genome100.D100	1	counted_mapped_write	1474816555	bytes	genome100.D100.1 writes through mapped windows (IoCounters)
+R	1b9d	genome100.D100	1	counted_reserved_write	11124063	bytes	genome100.D100.1 zeros written to reserve the growth
+R	1b9d	genome100.D100	1	scratch_peak	1200000000	bytes	genome100.D100.1
+R	1b9d	genome100.D100	1	arena_peak	39395096	bytes	genome100.D100.1
+R	1b9d	genome100.D100	1	proc_rchar	4094903736	bytes	genome100.D100.1 /proc/self/io over the call
+R	1b9d	genome100.D100	1	proc_wchar	2876365404	bytes	genome100.D100.1
+R	1b9d	genome100.D100	1	proc_read_bytes	153420124160	bytes	genome100.D100.1 block-layer reads charged to the process
+R	1b9d	genome100.D100	1	proc_write_bytes	4508065792	bytes	genome100.D100.1 pages dirtied (a page that is written again counts again)
+R	1b9d	genome100.D100	1	dev_sectors_read	299656280	sectors	genome100.D100.1 /sys/block/vda/stat over the call (512 B)
+R	1b9d	genome100.D100	1	dev_sectors_written	7872544	sectors	genome100.D100.1 over the call
+R	1b9d	genome100.D100	1	dev_sectors_written_synced	7873296	sectors	genome100.D100.1 until the end of a sync after the call
+R	1b9d	genome100.D100	1	rssanon_peak_mb	87.257088	MB	genome100.D100.1 verdict Within
+R	1b9d	genome100.D100	1	rssanon_ph0_mb	10.776576	MB	genome100.D100.1
+R	1b9d	genome100.D100	1	rssanon_ph1_mb	30.826496	MB	genome100.D100.1
+R	1b9d	genome100.D100	1	rssanon_ph23_mb	61.673472	MB	genome100.D100.1
+R	1b9d	genome100.D100	1	rssanon_ph45_mb	87.257088	MB	genome100.D100.1
+R	1b9d	genome100.D100	1	rssanon_ph6_mb	72.761344	MB	genome100.D100.1
+R	1b9d	genome100.D100	1	rssanon_seal_mb	72.76544	MB	genome100.D100.1
+R	1b9d	genome100.D100	1	exit_code	0		program exit code (0 = healthy)
+R	1b9d	genome100.D100	1	limit_raised	yes		the limit was raised to 1073741824 bytes when PH3 had finished
+R	1b9d	genome100.D100	1	killed	no		no | watchdog (600 s) | oom-or-signal (exit 137 without the watchdog: the cgroup OOM killer)
+R	1b9d	genome100.D100	1	cg_failcnt_final	21646673	n	memory.failcnt after the run
+R	1b9d	genome100.D100	1	cg_max_usage_final	1073741824	bytes	memory.max_usage_in_bytes after the run; memory.stat: cache 990322688 rss 0 mapped_file 0 pgpgin 37537654 pgpgout 37514214 pgmajfault 2113571 total_cache 990322688 total_rss 0 total_mapped_file 0 total_pgpgin 37537654 total_pgpgout 37514214 total_pgmajfault 2113571 
+R	1b9d	genome100.D100	1	cmp_container	yes		SHA-256 18f5e260c66f91ba of the container against the reference in /tmp/stbench/b9d/work/genome_100m.txt.sesa.sha (reference = this run made it)
+R	1b9d	genome100.D100	1	left_behind	0		entries of the work directory of the run besides the container (a build that succeeded leaves the container only)
+R	1b9d	genome100.D100	1	run_done	yes		all rows of this run are written
+R	1b9d	genome100.D90	1	settings	limit=90000000 raise=1073741824 prewarm=1 gc=unset args=--scale-n 3000000000		cgroup limit (bytes), limit after PH3, runtime pre-read outside the group, DOTNET_GCHeapHardLimit, extra program arguments
+R	1b9d	genome100.D90	1	ext_rssanon_peak	88.175	MB	independent sampler: max RssAnon of /proc/<pid>/status at 20 ms
+R	1b9d	genome100.D90	1	ext_rssanon_mean_ph3	54.680	MB	mean RssAnon over PH3 (rank file and ph3 directory exist), 27076 samples
+R	1b9d	genome100.D90	1	eff_resident_ph3	0.5516		time-weighted resident fraction of (packed text + rank file) over PH3 (mincore every 200 ms, 2569 samples, 541.5 s)
+R	1b9d	genome100.D90	1	eff_resident_ranks	0.5516		the same over the whole life of the rank file (PH1 end .. PH3 end, 2569 samples, 541.5 s)
+R	1b9d	genome100.D90	1	text_bytes	37500064	bytes	TEXT section of the container
+R	1b9d	genome100.D90	1	rank_bytes	12890240	bytes	DCS rank file
+R	1b9d	genome100.D90	1	cg_limit	89997312	bytes	memory.limit_in_bytes of the sub-group at the start of the run
+R	1b9d	genome100.D90	1	cg_failcnt	45023100	n	memory.failcnt at the end
+R	1b9d	genome100.D90	1	cg_max_usage	1073741824	bytes	memory.max_usage_in_bytes at the end
+R	1b9d	genome100.D90	1	eff_budget_ph3	0.7008		E3-style budget ratio (limit - mean cgroup anonymous memory over PH3 (54.7 MB)) / (text + rank file)
+R	1b9d	genome100.D90	1	cg_rss_mean_ph3	54.681	MB	mean memory.stat rss (anonymous) of the sub-group over PH3
+R	1b9d	genome100.D90	1	ext_proc_rchar	4202201931	bytes	independent sampler: /proc/<pid>/io rchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	genome100.D90	1	ext_proc_wchar	2876367795	bytes	independent sampler: /proc/<pid>/io wchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	genome100.D90	1	ext_proc_read_bytes	340516945920	bytes	independent sampler: /proc/<pid>/io read_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	genome100.D90	1	ext_proc_write_bytes	4525375488	bytes	independent sampler: /proc/<pid>/io write_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	genome100.D90	1	total_s	557.24916885	s	genome100.D90.1 SesaBuilder.Build, inside the call
+R	1b9d	genome100.D90	1	wall_s	557.254419161	s	genome100.D90.1 around the call
+R	1b9d	genome100.D90	1	scan_s	0.164848064	s	genome100.D90.1
+R	1b9d	genome100.D90	1	create_s	0.002703297	s	genome100.D90.1
+R	1b9d	genome100.D90	1	pack_s	0.376264472	s	genome100.D90.1
+R	1b9d	genome100.D90	1	ph1_s	2.29155794	s	genome100.D90.1
+R	1b9d	genome100.D90	1	ph23_s	541.477430764	s	genome100.D90.1
+R	1b9d	genome100.D90	1	ph45_s	9.112536655	s	genome100.D90.1
+R	1b9d	genome100.D90	1	bwt_s	1.981661684	s	genome100.D90.1
+R	1b9d	genome100.D90	1	psi_s	0.932696777	s	genome100.D90.1
+R	1b9d	genome100.D90	1	crc_s	0.530854392	s	genome100.D90.1
+R	1b9d	genome100.D90	1	seal_s	0.005632286	s	genome100.D90.1
+R	1b9d	genome100.D90	1	n	100000000	symbols	genome100.D90.1 sigma 5, 3 bits
+R	1b9d	genome100.D90	1	file_size	1348644448	bytes	genome100.D90.1 LCP U8, 1390028 overflow pairs
+R	1b9d	genome100.D90	1	grown_bytes	11124063	bytes	genome100.D90.1 growth Filled, creation Preallocated
+R	1b9d	genome100.D90	1	counted_read	3965635349	bytes	genome100.D90.1 explicit reads of the build (IoCounters)
+R	1b9d	genome100.D90	1	counted_write	2865241040	bytes	genome100.D90.1 explicit writes of the build (IoCounters)
+R	1b9d	genome100.D90	1	counted_mapped_write	1474816555	bytes	genome100.D90.1 writes through mapped windows (IoCounters)
+R	1b9d	genome100.D90	1	counted_reserved_write	11124063	bytes	genome100.D90.1 zeros written to reserve the growth
+R	1b9d	genome100.D90	1	scratch_peak	1200000000	bytes	genome100.D90.1
+R	1b9d	genome100.D90	1	arena_peak	39395096	bytes	genome100.D90.1
+R	1b9d	genome100.D90	1	proc_rchar	4202150245	bytes	genome100.D90.1 /proc/self/io over the call
+R	1b9d	genome100.D90	1	proc_wchar	2876365452	bytes	genome100.D90.1
+R	1b9d	genome100.D90	1	proc_read_bytes	340516876288	bytes	genome100.D90.1 block-layer reads charged to the process
+R	1b9d	genome100.D90	1	proc_write_bytes	4525297664	bytes	genome100.D90.1 pages dirtied (a page that is written again counts again)
+R	1b9d	genome100.D90	1	dev_sectors_read	665092232	sectors	genome100.D90.1 /sys/block/vda/stat over the call (512 B)
+R	1b9d	genome100.D90	1	dev_sectors_written	7969400	sectors	genome100.D90.1 over the call
+R	1b9d	genome100.D90	1	dev_sectors_written_synced	7970048	sectors	genome100.D90.1 until the end of a sync after the call
+R	1b9d	genome100.D90	1	rssanon_peak_mb	88.174592	MB	genome100.D90.1 verdict Within
+R	1b9d	genome100.D90	1	rssanon_ph0_mb	10.887168	MB	genome100.D90.1
+R	1b9d	genome100.D90	1	rssanon_ph1_mb	33.693696	MB	genome100.D90.1
+R	1b9d	genome100.D90	1	rssanon_ph23_mb	58.929152	MB	genome100.D90.1
+R	1b9d	genome100.D90	1	rssanon_ph45_mb	88.174592	MB	genome100.D90.1
+R	1b9d	genome100.D90	1	rssanon_ph6_mb	73.682944	MB	genome100.D90.1
+R	1b9d	genome100.D90	1	rssanon_seal_mb	73.68704	MB	genome100.D90.1
+R	1b9d	genome100.D90	1	exit_code	0		program exit code (0 = healthy)
+R	1b9d	genome100.D90	1	limit_raised	yes		the limit was raised to 1073741824 bytes when PH3 had finished
+R	1b9d	genome100.D90	1	killed	no		no | watchdog (600 s) | oom-or-signal (exit 137 without the watchdog: the cgroup OOM killer)
+R	1b9d	genome100.D90	1	cg_failcnt_final	45023100	n	memory.failcnt after the run
+R	1b9d	genome100.D90	1	cg_max_usage_final	1073741824	bytes	memory.max_usage_in_bytes after the run; memory.stat: cache 990425088 rss 0 mapped_file 0 pgpgin 80293286 pgpgout 80268439 pgmajfault 3584695 total_cache 990425088 total_rss 0 total_mapped_file 0 total_pgpgin 80293286 total_pgpgout 80268439 total_pgmajfault 3584695 
+R	1b9d	genome100.D90	1	cmp_container	yes		SHA-256 18f5e260c66f91ba of the container against the reference in /tmp/stbench/b9d/work/genome_100m.txt.sesa.sha (reference = this run made it)
+R	1b9d	genome100.D90	1	left_behind	0		entries of the work directory of the run besides the container (a build that succeeded leaves the container only)
+R	1b9d	genome100.D90	1	run_done	yes		all rows of this run are written
+R	1b9d	dna100.U.lean	1	settings	limit=max raise=none prewarm=1 gc=0x3000000 args=--scale-n 3000000000 --lean true		cgroup limit (bytes), limit after PH3, runtime pre-read outside the group, DOTNET_GCHeapHardLimit, extra program arguments
+R	1b9d	dna100.U.lean	1	ext_rssanon_peak	44.397	MB	independent sampler: max RssAnon of /proc/<pid>/status at 20 ms
+R	1b9d	dna100.U.lean	1	ext_rssanon_mean_ph3	28.313	MB	mean RssAnon over PH3 (rank file and ph3 directory exist), 790 samples
+R	1b9d	dna100.U.lean	1	eff_resident_ph3	1.0000		time-weighted resident fraction of (packed text + rank file) over PH3 (mincore every 200 ms, 75 samples, 15.9 s)
+R	1b9d	dna100.U.lean	1	eff_resident_ranks	1.0000		the same over the whole life of the rank file (PH1 end .. PH3 end, 75 samples, 15.9 s)
+R	1b9d	dna100.U.lean	1	text_bytes	25000064	bytes	TEXT section of the container
+R	1b9d	dna100.U.lean	1	rank_bytes	12890240	bytes	DCS rank file
+R	1b9d	dna100.U.lean	1	cg_limit	9223372036854771712	bytes	memory.limit_in_bytes of the sub-group at the start of the run
+R	1b9d	dna100.U.lean	1	cg_failcnt	0	n	memory.failcnt at the end
+R	1b9d	dna100.U.lean	1	cg_max_usage	1819906048	bytes	memory.max_usage_in_bytes at the end
+R	1b9d	dna100.U.lean	1	cg_rss_mean_ph3	28.368	MB	mean memory.stat rss (anonymous) of the sub-group over PH3
+R	1b9d	dna100.U.lean	1	ext_proc_rchar	4039242620	bytes	independent sampler: /proc/<pid>/io rchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.U.lean	1	ext_proc_wchar	2928122128	bytes	independent sampler: /proc/<pid>/io wchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.U.lean	1	ext_proc_read_bytes	101543936	bytes	independent sampler: /proc/<pid>/io read_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.U.lean	1	ext_proc_write_bytes	4463669248	bytes	independent sampler: /proc/<pid>/io write_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.U.lean	1	total_s	30.332153549	s	dna100.U.lean.1 SesaBuilder.Build, inside the call
+R	1b9d	dna100.U.lean	1	wall_s	30.337562736	s	dna100.U.lean.1 around the call
+R	1b9d	dna100.U.lean	1	scan_s	0.161552454	s	dna100.U.lean.1
+R	1b9d	dna100.U.lean	1	create_s	0.00268655	s	dna100.U.lean.1
+R	1b9d	dna100.U.lean	1	pack_s	0.337553438	s	dna100.U.lean.1
+R	1b9d	dna100.U.lean	1	ph1_s	1.64610621	s	dna100.U.lean.1
+R	1b9d	dna100.U.lean	1	ph23_s	15.334380712	s	dna100.U.lean.1
+R	1b9d	dna100.U.lean	1	ph45_s	8.566351998	s	dna100.U.lean.1
+R	1b9d	dna100.U.lean	1	bwt_s	2.530623137	s	dna100.U.lean.1
+R	1b9d	dna100.U.lean	1	psi_s	1.055743093	s	dna100.U.lean.1
+R	1b9d	dna100.U.lean	1	crc_s	0.305687766	s	dna100.U.lean.1
+R	1b9d	dna100.U.lean	1	seal_s	0.007121779	s	dna100.U.lean.1
+R	1b9d	dna100.U.lean	1	n	100000000	symbols	dna100.U.lean.1 sigma 4, 2 bits
+R	1b9d	dna100.U.lean	1	file_size	1325019393	bytes	dna100.U.lean.1 LCP U8, 0 overflow pairs
+R	1b9d	dna100.U.lean	1	grown_bytes	0	bytes	dna100.U.lean.1 growth none, creation Preallocated
+R	1b9d	dna100.U.lean	1	counted_read	4028503525	bytes	dna100.U.lean.1 explicit reads of the build (IoCounters)
+R	1b9d	dna100.U.lean	1	counted_write	2928121892	bytes	dna100.U.lean.1 explicit writes of the build (IoCounters)
+R	1b9d	dna100.U.lean	1	counted_mapped_write	1437890539	bytes	dna100.U.lean.1 writes through mapped windows (IoCounters)
+R	1b9d	dna100.U.lean	1	counted_reserved_write	0	bytes	dna100.U.lean.1 zeros written to reserve the growth
+R	1b9d	dna100.U.lean	1	scratch_peak	1200000000	bytes	dna100.U.lean.1
+R	1b9d	dna100.U.lean	1	arena_peak	20963096	bytes	dna100.U.lean.1
+R	1b9d	dna100.U.lean	1	proc_rchar	4039190697	bytes	dna100.U.lean.1 /proc/self/io over the call
+R	1b9d	dna100.U.lean	1	proc_wchar	2928122083	bytes	dna100.U.lean.1
+R	1b9d	dna100.U.lean	1	proc_read_bytes	101490688	bytes	dna100.U.lean.1 block-layer reads charged to the process
+R	1b9d	dna100.U.lean	1	proc_write_bytes	4463632384	bytes	dna100.U.lean.1 pages dirtied (a page that is written again counts again)
+R	1b9d	dna100.U.lean	1	dev_sectors_read	213128	sectors	dna100.U.lean.1 /sys/block/vda/stat over the call (512 B)
+R	1b9d	dna100.U.lean	1	dev_sectors_written	4841064	sectors	dna100.U.lean.1 over the call
+R	1b9d	dna100.U.lean	1	dev_sectors_written_synced	4841952	sectors	dna100.U.lean.1 until the end of a sync after the call
+R	1b9d	dna100.U.lean	1	rssanon_peak_mb	44.367872	MB	dna100.U.lean.1 verdict Within
+R	1b9d	dna100.U.lean	1	rssanon_ph0_mb	10.584064	MB	dna100.U.lean.1
+R	1b9d	dna100.U.lean	1	rssanon_ph1_mb	27.848704	MB	dna100.U.lean.1
+R	1b9d	dna100.U.lean	1	rssanon_ph23_mb	39.682048	MB	dna100.U.lean.1
+R	1b9d	dna100.U.lean	1	rssanon_ph45_mb	44.335104	MB	dna100.U.lean.1
+R	1b9d	dna100.U.lean	1	rssanon_ph6_mb	36.196352	MB	dna100.U.lean.1
+R	1b9d	dna100.U.lean	1	rssanon_seal_mb	36.196352	MB	dna100.U.lean.1
+R	1b9d	dna100.U.lean	1	exit_code	0		program exit code (0 = healthy)
+R	1b9d	dna100.U.lean	1	killed	no		no | watchdog (300 s) | oom-or-signal (exit 137 without the watchdog: the cgroup OOM killer)
+R	1b9d	dna100.U.lean	1	cg_failcnt_final	0	n	memory.failcnt after the run
+R	1b9d	dna100.U.lean	1	cg_max_usage_final	1819906048	bytes	memory.max_usage_in_bytes after the run; memory.stat: cache 1427410944 rss 0 mapped_file 0 pgpgin 563869 pgpgout 480456 pgmajfault 3428 total_cache 1427410944 total_rss 0 total_mapped_file 0 total_pgpgin 563869 total_pgpgout 480456 total_pgmajfault 3428 
+R	1b9d	dna100.U.lean	1	cmp_container	yes		SHA-256 dc5ad0d82bef0114 of the container against the reference in /tmp/stbench/b9d/work/dna_100m.txt.sesa.sha (reference = this run made it)
+R	1b9d	dna100.U.lean	1	left_behind	0		entries of the work directory of the run besides the container (a build that succeeded leaves the container only)
+R	1b9d	dna100.U.lean	1	run_done	yes		all rows of this run are written
+R	1b9d	dna100.U.lean	2	settings	limit=max raise=none prewarm=1 gc=0x3000000 args=--scale-n 3000000000 --lean true		cgroup limit (bytes), limit after PH3, runtime pre-read outside the group, DOTNET_GCHeapHardLimit, extra program arguments
+R	1b9d	dna100.U.lean	2	ext_rssanon_peak	52.449	MB	independent sampler: max RssAnon of /proc/<pid>/status at 20 ms
+R	1b9d	dna100.U.lean	2	ext_rssanon_mean_ph3	28.667	MB	mean RssAnon over PH3 (rank file and ph3 directory exist), 852 samples
+R	1b9d	dna100.U.lean	2	eff_resident_ph3	1.0000		time-weighted resident fraction of (packed text + rank file) over PH3 (mincore every 200 ms, 81 samples, 17.1 s)
+R	1b9d	dna100.U.lean	2	eff_resident_ranks	1.0000		the same over the whole life of the rank file (PH1 end .. PH3 end, 81 samples, 17.1 s)
+R	1b9d	dna100.U.lean	2	text_bytes	25000064	bytes	TEXT section of the container
+R	1b9d	dna100.U.lean	2	rank_bytes	12890240	bytes	DCS rank file
+R	1b9d	dna100.U.lean	2	cg_limit	9223372036854771712	bytes	memory.limit_in_bytes of the sub-group at the start of the run
+R	1b9d	dna100.U.lean	2	cg_failcnt	0	n	memory.failcnt at the end
+R	1b9d	dna100.U.lean	2	cg_max_usage	1830219776	bytes	memory.max_usage_in_bytes at the end
+R	1b9d	dna100.U.lean	2	cg_rss_mean_ph3	28.646	MB	mean memory.stat rss (anonymous) of the sub-group over PH3
+R	1b9d	dna100.U.lean	2	ext_proc_rchar	4039618058	bytes	independent sampler: /proc/<pid>/io rchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.U.lean	2	ext_proc_wchar	2928122127	bytes	independent sampler: /proc/<pid>/io wchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.U.lean	2	ext_proc_read_bytes	101646336	bytes	independent sampler: /proc/<pid>/io read_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.U.lean	2	ext_proc_write_bytes	4460261376	bytes	independent sampler: /proc/<pid>/io write_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.U.lean	2	total_s	31.160999368	s	dna100.U.lean.2 SesaBuilder.Build, inside the call
+R	1b9d	dna100.U.lean	2	wall_s	31.166095725	s	dna100.U.lean.2 around the call
+R	1b9d	dna100.U.lean	2	scan_s	0.158945978	s	dna100.U.lean.2
+R	1b9d	dna100.U.lean	2	create_s	0.002445853	s	dna100.U.lean.2
+R	1b9d	dna100.U.lean	2	pack_s	0.339637874	s	dna100.U.lean.2
+R	1b9d	dna100.U.lean	2	ph1_s	1.682572797	s	dna100.U.lean.2
+R	1b9d	dna100.U.lean	2	ph23_s	16.541176163	s	dna100.U.lean.2
+R	1b9d	dna100.U.lean	2	ph45_s	8.524070156	s	dna100.U.lean.2
+R	1b9d	dna100.U.lean	2	bwt_s	2.160376345	s	dna100.U.lean.2
+R	1b9d	dna100.U.lean	2	psi_s	0.992589505	s	dna100.U.lean.2
+R	1b9d	dna100.U.lean	2	crc_s	0.358616604	s	dna100.U.lean.2
+R	1b9d	dna100.U.lean	2	seal_s	0.007904542	s	dna100.U.lean.2
+R	1b9d	dna100.U.lean	2	n	100000000	symbols	dna100.U.lean.2 sigma 4, 2 bits
+R	1b9d	dna100.U.lean	2	file_size	1325019393	bytes	dna100.U.lean.2 LCP U8, 0 overflow pairs
+R	1b9d	dna100.U.lean	2	grown_bytes	0	bytes	dna100.U.lean.2 growth none, creation Preallocated
+R	1b9d	dna100.U.lean	2	counted_read	4028503525	bytes	dna100.U.lean.2 explicit reads of the build (IoCounters)
+R	1b9d	dna100.U.lean	2	counted_write	2928121892	bytes	dna100.U.lean.2 explicit writes of the build (IoCounters)
+R	1b9d	dna100.U.lean	2	counted_mapped_write	1437890539	bytes	dna100.U.lean.2 writes through mapped windows (IoCounters)
+R	1b9d	dna100.U.lean	2	counted_reserved_write	0	bytes	dna100.U.lean.2 zeros written to reserve the growth
+R	1b9d	dna100.U.lean	2	scratch_peak	1200000000	bytes	dna100.U.lean.2
+R	1b9d	dna100.U.lean	2	arena_peak	20963096	bytes	dna100.U.lean.2
+R	1b9d	dna100.U.lean	2	proc_rchar	4039571492	bytes	dna100.U.lean.2 /proc/self/io over the call
+R	1b9d	dna100.U.lean	2	proc_wchar	2928122083	bytes	dna100.U.lean.2
+R	1b9d	dna100.U.lean	2	proc_read_bytes	101629952	bytes	dna100.U.lean.2 block-layer reads charged to the process
+R	1b9d	dna100.U.lean	2	proc_write_bytes	4460224512	bytes	dna100.U.lean.2 pages dirtied (a page that is written again counts again)
+R	1b9d	dna100.U.lean	2	dev_sectors_read	204448	sectors	dna100.U.lean.2 /sys/block/vda/stat over the call (512 B)
+R	1b9d	dna100.U.lean	2	dev_sectors_written	4833816	sectors	dna100.U.lean.2 over the call
+R	1b9d	dna100.U.lean	2	dev_sectors_written_synced	4835048	sectors	dna100.U.lean.2 until the end of a sync after the call
+R	1b9d	dna100.U.lean	2	rssanon_peak_mb	52.44928	MB	dna100.U.lean.2 verdict Within
+R	1b9d	dna100.U.lean	2	rssanon_ph0_mb	10.579968	MB	dna100.U.lean.2
+R	1b9d	dna100.U.lean	2	rssanon_ph1_mb	27.79136	MB	dna100.U.lean.2
+R	1b9d	dna100.U.lean	2	rssanon_ph23_mb	39.149568	MB	dna100.U.lean.2
+R	1b9d	dna100.U.lean	2	rssanon_ph45_mb	52.44928	MB	dna100.U.lean.2
+R	1b9d	dna100.U.lean	2	rssanon_ph6_mb	46.288896	MB	dna100.U.lean.2
+R	1b9d	dna100.U.lean	2	rssanon_seal_mb	46.288896	MB	dna100.U.lean.2
+R	1b9d	dna100.U.lean	2	exit_code	0		program exit code (0 = healthy)
+R	1b9d	dna100.U.lean	2	killed	no		no | watchdog (300 s) | oom-or-signal (exit 137 without the watchdog: the cgroup OOM killer)
+R	1b9d	dna100.U.lean	2	cg_failcnt_final	0	n	memory.failcnt after the run
+R	1b9d	dna100.U.lean	2	cg_max_usage_final	1830219776	bytes	memory.max_usage_in_bytes after the run; memory.stat: cache 1427607552 rss 0 mapped_file 0 pgpgin 564752 pgpgout 480743 pgmajfault 3451 total_cache 1427607552 total_rss 0 total_mapped_file 0 total_pgpgin 564752 total_pgpgout 480743 total_pgmajfault 3451 
+R	1b9d	dna100.U.lean	2	cmp_container	yes		SHA-256 dc5ad0d82bef0114 of the container against the reference in /tmp/stbench/b9d/work/dna_100m.txt.sesa.sha (reference = this run made it)
+R	1b9d	dna100.U.lean	2	left_behind	0		entries of the work directory of the run besides the container (a build that succeeded leaves the container only)
+R	1b9d	dna100.U.lean	2	run_done	yes		all rows of this run are written
+R	1b9d	dna100.D70.lean	1	settings	limit=70000000 raise=1073741824 prewarm=1 gc=0x3000000 args=--scale-n 3000000000 --lean true		cgroup limit (bytes), limit after PH3, runtime pre-read outside the group, DOTNET_GCHeapHardLimit, extra program arguments
+R	1b9d	dna100.D70.lean	1	ext_rssanon_peak	51.606	MB	independent sampler: max RssAnon of /proc/<pid>/status at 20 ms
+R	1b9d	dna100.D70.lean	1	ext_rssanon_mean_ph3	25.302	MB	mean RssAnon over PH3 (rank file and ph3 directory exist), 1347 samples
+R	1b9d	dna100.D70.lean	1	eff_resident_ph3	0.6849		time-weighted resident fraction of (packed text + rank file) over PH3 (mincore every 200 ms, 128 samples, 27.0 s)
+R	1b9d	dna100.D70.lean	1	eff_resident_ranks	0.6849		the same over the whole life of the rank file (PH1 end .. PH3 end, 128 samples, 27.0 s)
+R	1b9d	dna100.D70.lean	1	text_bytes	25000064	bytes	TEXT section of the container
+R	1b9d	dna100.D70.lean	1	rank_bytes	12890240	bytes	DCS rank file
+R	1b9d	dna100.D70.lean	1	cg_limit	69996544	bytes	memory.limit_in_bytes of the sub-group at the start of the run
+R	1b9d	dna100.D70.lean	1	cg_failcnt	450132	n	memory.failcnt at the end
+R	1b9d	dna100.D70.lean	1	cg_max_usage	1073741824	bytes	memory.max_usage_in_bytes at the end
+R	1b9d	dna100.D70.lean	1	eff_budget_ph3	1.1793		E3-style budget ratio (limit - mean cgroup anonymous memory over PH3 (25.3 MB)) / (text + rank file)
+R	1b9d	dna100.D70.lean	1	cg_rss_mean_ph3	25.312	MB	mean memory.stat rss (anonymous) of the sub-group over PH3
+R	1b9d	dna100.D70.lean	1	ext_proc_rchar	4044395350	bytes	independent sampler: /proc/<pid>/io rchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D70.lean	1	ext_proc_wchar	2928124502	bytes	independent sampler: /proc/<pid>/io wchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D70.lean	1	ext_proc_read_bytes	4414926848	bytes	independent sampler: /proc/<pid>/io read_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D70.lean	1	ext_proc_write_bytes	4491988992	bytes	independent sampler: /proc/<pid>/io write_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D70.lean	1	total_s	42.268066553	s	dna100.D70.lean.1 SesaBuilder.Build, inside the call
+R	1b9d	dna100.D70.lean	1	wall_s	42.274804317	s	dna100.D70.lean.1 around the call
+R	1b9d	dna100.D70.lean	1	scan_s	0.207954303	s	dna100.D70.lean.1
+R	1b9d	dna100.D70.lean	1	create_s	0.002654061	s	dna100.D70.lean.1
+R	1b9d	dna100.D70.lean	1	pack_s	0.349993389	s	dna100.D70.lean.1
+R	1b9d	dna100.D70.lean	1	ph1_s	1.956421326	s	dna100.D70.lean.1
+R	1b9d	dna100.D70.lean	1	ph23_s	26.217995044	s	dna100.D70.lean.1
+R	1b9d	dna100.D70.lean	1	ph45_s	8.953259245	s	dna100.D70.lean.1
+R	1b9d	dna100.D70.lean	1	bwt_s	2.620195282	s	dna100.D70.lean.1
+R	1b9d	dna100.D70.lean	1	psi_s	0.977285026	s	dna100.D70.lean.1
+R	1b9d	dna100.D70.lean	1	crc_s	0.584560637	s	dna100.D70.lean.1
+R	1b9d	dna100.D70.lean	1	seal_s	0.007135881	s	dna100.D70.lean.1
+R	1b9d	dna100.D70.lean	1	n	100000000	symbols	dna100.D70.lean.1 sigma 4, 2 bits
+R	1b9d	dna100.D70.lean	1	file_size	1325019393	bytes	dna100.D70.lean.1 LCP U8, 0 overflow pairs
+R	1b9d	dna100.D70.lean	1	grown_bytes	0	bytes	dna100.D70.lean.1 growth none, creation Preallocated
+R	1b9d	dna100.D70.lean	1	counted_read	4028503525	bytes	dna100.D70.lean.1 explicit reads of the build (IoCounters)
+R	1b9d	dna100.D70.lean	1	counted_write	2928121892	bytes	dna100.D70.lean.1 explicit writes of the build (IoCounters)
+R	1b9d	dna100.D70.lean	1	counted_mapped_write	1437890539	bytes	dna100.D70.lean.1 writes through mapped windows (IoCounters)
+R	1b9d	dna100.D70.lean	1	counted_reserved_write	0	bytes	dna100.D70.lean.1 zeros written to reserve the growth
+R	1b9d	dna100.D70.lean	1	scratch_peak	1200000000	bytes	dna100.D70.lean.1
+R	1b9d	dna100.D70.lean	1	arena_peak	20963096	bytes	dna100.D70.lean.1
+R	1b9d	dna100.D70.lean	1	proc_rchar	4044343658	bytes	dna100.D70.lean.1 /proc/self/io over the call
+R	1b9d	dna100.D70.lean	1	proc_wchar	2928122115	bytes	dna100.D70.lean.1
+R	1b9d	dna100.D70.lean	1	proc_read_bytes	4414857216	bytes	dna100.D70.lean.1 block-layer reads charged to the process
+R	1b9d	dna100.D70.lean	1	proc_write_bytes	4491907072	bytes	dna100.D70.lean.1 pages dirtied (a page that is written again counts again)
+R	1b9d	dna100.D70.lean	1	dev_sectors_read	8630424	sectors	dna100.D70.lean.1 /sys/block/vda/stat over the call (512 B)
+R	1b9d	dna100.D70.lean	1	dev_sectors_written	6371576	sectors	dna100.D70.lean.1 over the call
+R	1b9d	dna100.D70.lean	1	dev_sectors_written_synced	6372568	sectors	dna100.D70.lean.1 until the end of a sync after the call
+R	1b9d	dna100.D70.lean	1	rssanon_peak_mb	51.605504	MB	dna100.D70.lean.1 verdict Within
+R	1b9d	dna100.D70.lean	1	rssanon_ph0_mb	10.747904	MB	dna100.D70.lean.1
+R	1b9d	dna100.D70.lean	1	rssanon_ph1_mb	26.955776	MB	dna100.D70.lean.1
+R	1b9d	dna100.D70.lean	1	rssanon_ph23_mb	29.372416	MB	dna100.D70.lean.1
+R	1b9d	dna100.D70.lean	1	rssanon_ph45_mb	51.605504	MB	dna100.D70.lean.1
+R	1b9d	dna100.D70.lean	1	rssanon_ph6_mb	45.44512	MB	dna100.D70.lean.1
+R	1b9d	dna100.D70.lean	1	rssanon_seal_mb	45.44512	MB	dna100.D70.lean.1
+R	1b9d	dna100.D70.lean	1	exit_code	0		program exit code (0 = healthy)
+R	1b9d	dna100.D70.lean	1	limit_raised	yes		the limit was raised to 1073741824 bytes when PH3 had finished
+R	1b9d	dna100.D70.lean	1	killed	no		no | watchdog (300 s) | oom-or-signal (exit 137 without the watchdog: the cgroup OOM killer)
+R	1b9d	dna100.D70.lean	1	cg_failcnt_final	450132	n	memory.failcnt after the run
+R	1b9d	dna100.D70.lean	1	cg_max_usage_final	1073741824	bytes	memory.max_usage_in_bytes after the run; memory.stat: cache 1017262080 rss 0 mapped_file 0 pgpgin 1010141 pgpgout 982358 pgmajfault 13550 total_cache 1017262080 total_rss 0 total_mapped_file 0 total_pgpgin 1010141 total_pgpgout 982358 total_pgmajfault 13550 
+R	1b9d	dna100.D70.lean	1	cmp_container	yes		SHA-256 dc5ad0d82bef0114 of the container against the reference in /tmp/stbench/b9d/work/dna_100m.txt.sesa.sha (reference = this run made it)
+R	1b9d	dna100.D70.lean	1	left_behind	0		entries of the work directory of the run besides the container (a build that succeeded leaves the container only)
+R	1b9d	dna100.D70.lean	1	run_done	yes		all rows of this run are written
+R	1b9d	dna100.D60.lean	1	settings	limit=60000000 raise=1073741824 prewarm=1 gc=0x3000000 args=--scale-n 3000000000 --lean true		cgroup limit (bytes), limit after PH3, runtime pre-read outside the group, DOTNET_GCHeapHardLimit, extra program arguments
+R	1b9d	dna100.D60.lean	1	ext_rssanon_peak	55.955	MB	independent sampler: max RssAnon of /proc/<pid>/status at 20 ms
+R	1b9d	dna100.D60.lean	1	ext_rssanon_mean_ph3	27.162	MB	mean RssAnon over PH3 (rank file and ph3 directory exist), 3046 samples
+R	1b9d	dna100.D60.lean	1	eff_resident_ph3	0.6026		time-weighted resident fraction of (packed text + rank file) over PH3 (mincore every 200 ms, 288 samples, 60.8 s)
+R	1b9d	dna100.D60.lean	1	eff_resident_ranks	0.6026		the same over the whole life of the rank file (PH1 end .. PH3 end, 288 samples, 60.8 s)
+R	1b9d	dna100.D60.lean	1	text_bytes	25000064	bytes	TEXT section of the container
+R	1b9d	dna100.D60.lean	1	rank_bytes	12890240	bytes	DCS rank file
+R	1b9d	dna100.D60.lean	1	cg_limit	59998208	bytes	memory.limit_in_bytes of the sub-group at the start of the run
+R	1b9d	dna100.D60.lean	1	cg_failcnt	1531546	n	memory.failcnt at the end
+R	1b9d	dna100.D60.lean	1	cg_max_usage	1073741824	bytes	memory.max_usage_in_bytes at the end
+R	1b9d	dna100.D60.lean	1	eff_budget_ph3	0.8659		E3-style budget ratio (limit - mean cgroup anonymous memory over PH3 (27.2 MB)) / (text + rank file)
+R	1b9d	dna100.D60.lean	1	cg_rss_mean_ph3	27.187	MB	mean memory.stat rss (anonymous) of the sub-group over PH3
+R	1b9d	dna100.D60.lean	1	ext_proc_rchar	4059056250	bytes	independent sampler: /proc/<pid>/io rchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D60.lean	1	ext_proc_wchar	2928124473	bytes	independent sampler: /proc/<pid>/io wchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D60.lean	1	ext_proc_read_bytes	13780815872	bytes	independent sampler: /proc/<pid>/io read_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D60.lean	1	ext_proc_write_bytes	4540035072	bytes	independent sampler: /proc/<pid>/io write_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D60.lean	1	total_s	76.716682977	s	dna100.D60.lean.1 SesaBuilder.Build, inside the call
+R	1b9d	dna100.D60.lean	1	wall_s	76.721441916	s	dna100.D60.lean.1 around the call
+R	1b9d	dna100.D60.lean	1	scan_s	0.155487686	s	dna100.D60.lean.1
+R	1b9d	dna100.D60.lean	1	create_s	0.002451762	s	dna100.D60.lean.1
+R	1b9d	dna100.D60.lean	1	pack_s	0.318513427	s	dna100.D60.lean.1
+R	1b9d	dna100.D60.lean	1	ph1_s	1.716067395	s	dna100.D60.lean.1
+R	1b9d	dna100.D60.lean	1	ph23_s	60.382212294	s	dna100.D60.lean.1
+R	1b9d	dna100.D60.lean	1	ph45_s	9.55320327	s	dna100.D60.lean.1
+R	1b9d	dna100.D60.lean	1	bwt_s	2.545849068	s	dna100.D60.lean.1
+R	1b9d	dna100.D60.lean	1	psi_s	1.034518336	s	dna100.D60.lean.1
+R	1b9d	dna100.D60.lean	1	crc_s	0.623901293	s	dna100.D60.lean.1
+R	1b9d	dna100.D60.lean	1	seal_s	0.007622622	s	dna100.D60.lean.1
+R	1b9d	dna100.D60.lean	1	n	100000000	symbols	dna100.D60.lean.1 sigma 4, 2 bits
+R	1b9d	dna100.D60.lean	1	file_size	1325019393	bytes	dna100.D60.lean.1 LCP U8, 0 overflow pairs
+R	1b9d	dna100.D60.lean	1	grown_bytes	0	bytes	dna100.D60.lean.1 growth none, creation Preallocated
+R	1b9d	dna100.D60.lean	1	counted_read	4028503525	bytes	dna100.D60.lean.1 explicit reads of the build (IoCounters)
+R	1b9d	dna100.D60.lean	1	counted_write	2928121892	bytes	dna100.D60.lean.1 explicit writes of the build (IoCounters)
+R	1b9d	dna100.D60.lean	1	counted_mapped_write	1437890539	bytes	dna100.D60.lean.1 writes through mapped windows (IoCounters)
+R	1b9d	dna100.D60.lean	1	counted_reserved_write	0	bytes	dna100.D60.lean.1 zeros written to reserve the growth
+R	1b9d	dna100.D60.lean	1	scratch_peak	1200000000	bytes	dna100.D60.lean.1
+R	1b9d	dna100.D60.lean	1	arena_peak	20963096	bytes	dna100.D60.lean.1
+R	1b9d	dna100.D60.lean	1	proc_rchar	4059004549	bytes	dna100.D60.lean.1 /proc/self/io over the call
+R	1b9d	dna100.D60.lean	1	proc_wchar	2928122083	bytes	dna100.D60.lean.1
+R	1b9d	dna100.D60.lean	1	proc_read_bytes	13780746240	bytes	dna100.D60.lean.1 block-layer reads charged to the process
+R	1b9d	dna100.D60.lean	1	proc_write_bytes	4539953152	bytes	dna100.D60.lean.1 pages dirtied (a page that is written again counts again)
+R	1b9d	dna100.D60.lean	1	dev_sectors_read	26923328	sectors	dna100.D60.lean.1 /sys/block/vda/stat over the call (512 B)
+R	1b9d	dna100.D60.lean	1	dev_sectors_written	6546680	sectors	dna100.D60.lean.1 over the call
+R	1b9d	dna100.D60.lean	1	dev_sectors_written_synced	6547640	sectors	dna100.D60.lean.1 until the end of a sync after the call
+R	1b9d	dna100.D60.lean	1	rssanon_peak_mb	55.955456	MB	dna100.D60.lean.1 verdict Within
+R	1b9d	dna100.D60.lean	1	rssanon_ph0_mb	10.555392	MB	dna100.D60.lean.1
+R	1b9d	dna100.D60.lean	1	rssanon_ph1_mb	27.807744	MB	dna100.D60.lean.1
+R	1b9d	dna100.D60.lean	1	rssanon_ph23_mb	30.081024	MB	dna100.D60.lean.1
+R	1b9d	dna100.D60.lean	1	rssanon_ph45_mb	55.955456	MB	dna100.D60.lean.1
+R	1b9d	dna100.D60.lean	1	rssanon_ph6_mb	49.790976	MB	dna100.D60.lean.1
+R	1b9d	dna100.D60.lean	1	rssanon_seal_mb	49.790976	MB	dna100.D60.lean.1
+R	1b9d	dna100.D60.lean	1	exit_code	0		program exit code (0 = healthy)
+R	1b9d	dna100.D60.lean	1	limit_raised	yes		the limit was raised to 1073741824 bytes when PH3 had finished
+R	1b9d	dna100.D60.lean	1	killed	no		no | watchdog (300 s) | oom-or-signal (exit 137 without the watchdog: the cgroup OOM killer)
+R	1b9d	dna100.D60.lean	1	cg_failcnt_final	1531546	n	memory.failcnt after the run
+R	1b9d	dna100.D60.lean	1	cg_max_usage_final	1073741824	bytes	memory.max_usage_in_bytes after the run; memory.stat: cache 1012895744 rss 0 mapped_file 0 pgpgin 2590050 pgpgout 2562479 pgmajfault 202384 total_cache 1012895744 total_rss 0 total_mapped_file 0 total_pgpgin 2590050 total_pgpgout 2562479 total_pgmajfault 202384 
+R	1b9d	dna100.D60.lean	1	cmp_container	yes		SHA-256 dc5ad0d82bef0114 of the container against the reference in /tmp/stbench/b9d/work/dna_100m.txt.sesa.sha (reference = this run made it)
+R	1b9d	dna100.D60.lean	1	left_behind	0		entries of the work directory of the run besides the container (a build that succeeded leaves the container only)
+R	1b9d	dna100.D60.lean	1	run_done	yes		all rows of this run are written
+R	1b9d	dna100.D53.lean	1	settings	limit=53000000 raise=1073741824 prewarm=1 gc=0x3000000 args=--scale-n 3000000000 --lean true		cgroup limit (bytes), limit after PH3, runtime pre-read outside the group, DOTNET_GCHeapHardLimit, extra program arguments
+R	1b9d	dna100.D53.lean	1	ext_rssanon_peak	50.377	MB	independent sampler: max RssAnon of /proc/<pid>/status at 20 ms
+R	1b9d	dna100.D53.lean	1	ext_rssanon_mean_ph3	26.197	MB	mean RssAnon over PH3 (rank file and ph3 directory exist), 6331 samples
+R	1b9d	dna100.D53.lean	1	eff_resident_ph3	0.4964		time-weighted resident fraction of (packed text + rank file) over PH3 (mincore every 200 ms, 600 samples, 126.6 s)
+R	1b9d	dna100.D53.lean	1	eff_resident_ranks	0.4964		the same over the whole life of the rank file (PH1 end .. PH3 end, 600 samples, 126.6 s)
+R	1b9d	dna100.D53.lean	1	text_bytes	25000064	bytes	TEXT section of the container
+R	1b9d	dna100.D53.lean	1	rank_bytes	12890240	bytes	DCS rank file
+R	1b9d	dna100.D53.lean	1	cg_limit	52998144	bytes	memory.limit_in_bytes of the sub-group at the start of the run
+R	1b9d	dna100.D53.lean	1	cg_failcnt	4675530	n	memory.failcnt at the end
+R	1b9d	dna100.D53.lean	1	cg_max_usage	1073741824	bytes	memory.max_usage_in_bytes at the end
+R	1b9d	dna100.D53.lean	1	eff_budget_ph3	0.7073		E3-style budget ratio (limit - mean cgroup anonymous memory over PH3 (26.2 MB)) / (text + rank file)
+R	1b9d	dna100.D53.lean	1	cg_rss_mean_ph3	26.197	MB	mean memory.stat rss (anonymous) of the sub-group over PH3
+R	1b9d	dna100.D53.lean	1	ext_proc_rchar	4087156023	bytes	independent sampler: /proc/<pid>/io rchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D53.lean	1	ext_proc_wchar	2928122175	bytes	independent sampler: /proc/<pid>/io wchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D53.lean	1	ext_proc_read_bytes	45099536384	bytes	independent sampler: /proc/<pid>/io read_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D53.lean	1	ext_proc_write_bytes	4572553216	bytes	independent sampler: /proc/<pid>/io write_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.D53.lean	1	total_s	142.079581304	s	dna100.D53.lean.1 SesaBuilder.Build, inside the call
+R	1b9d	dna100.D53.lean	1	wall_s	142.08479963	s	dna100.D53.lean.1 around the call
+R	1b9d	dna100.D53.lean	1	scan_s	0.163962421	s	dna100.D53.lean.1
+R	1b9d	dna100.D53.lean	1	create_s	0.003105836	s	dna100.D53.lean.1
+R	1b9d	dna100.D53.lean	1	pack_s	0.342121974	s	dna100.D53.lean.1
+R	1b9d	dna100.D53.lean	1	ph1_s	1.867316252	s	dna100.D53.lean.1
+R	1b9d	dna100.D53.lean	1	ph23_s	125.955590989	s	dna100.D53.lean.1
+R	1b9d	dna100.D53.lean	1	ph45_s	9.508947561	s	dna100.D53.lean.1
+R	1b9d	dna100.D53.lean	1	bwt_s	2.209473561	s	dna100.D53.lean.1
+R	1b9d	dna100.D53.lean	1	psi_s	1.007493668	s	dna100.D53.lean.1
+R	1b9d	dna100.D53.lean	1	crc_s	0.636154423	s	dna100.D53.lean.1
+R	1b9d	dna100.D53.lean	1	seal_s	0.00829499	s	dna100.D53.lean.1
+R	1b9d	dna100.D53.lean	1	n	100000000	symbols	dna100.D53.lean.1 sigma 4, 2 bits
+R	1b9d	dna100.D53.lean	1	file_size	1325019393	bytes	dna100.D53.lean.1 LCP U8, 0 overflow pairs
+R	1b9d	dna100.D53.lean	1	grown_bytes	0	bytes	dna100.D53.lean.1 growth none, creation Preallocated
+R	1b9d	dna100.D53.lean	1	counted_read	4028503525	bytes	dna100.D53.lean.1 explicit reads of the build (IoCounters)
+R	1b9d	dna100.D53.lean	1	counted_write	2928121892	bytes	dna100.D53.lean.1 explicit writes of the build (IoCounters)
+R	1b9d	dna100.D53.lean	1	counted_mapped_write	1437890539	bytes	dna100.D53.lean.1 writes through mapped windows (IoCounters)
+R	1b9d	dna100.D53.lean	1	counted_reserved_write	0	bytes	dna100.D53.lean.1 zeros written to reserve the growth
+R	1b9d	dna100.D53.lean	1	scratch_peak	1200000000	bytes	dna100.D53.lean.1
+R	1b9d	dna100.D53.lean	1	arena_peak	20963096	bytes	dna100.D53.lean.1
+R	1b9d	dna100.D53.lean	1	proc_rchar	4087108688	bytes	dna100.D53.lean.1 /proc/self/io over the call
+R	1b9d	dna100.D53.lean	1	proc_wchar	2928122131	bytes	dna100.D53.lean.1
+R	1b9d	dna100.D53.lean	1	proc_read_bytes	45099520000	bytes	dna100.D53.lean.1 block-layer reads charged to the process
+R	1b9d	dna100.D53.lean	1	proc_write_bytes	4572516352	bytes	dna100.D53.lean.1 pages dirtied (a page that is written again counts again)
+R	1b9d	dna100.D53.lean	1	dev_sectors_read	88092752	sectors	dna100.D53.lean.1 /sys/block/vda/stat over the call (512 B)
+R	1b9d	dna100.D53.lean	1	dev_sectors_written	6757472	sectors	dna100.D53.lean.1 over the call
+R	1b9d	dna100.D53.lean	1	dev_sectors_written_synced	6758504	sectors	dna100.D53.lean.1 until the end of a sync after the call
+R	1b9d	dna100.D53.lean	1	rssanon_peak_mb	50.376704	MB	dna100.D53.lean.1 verdict Within
+R	1b9d	dna100.D53.lean	1	rssanon_ph0_mb	10.584064	MB	dna100.D53.lean.1
+R	1b9d	dna100.D53.lean	1	rssanon_ph1_mb	27.865088	MB	dna100.D53.lean.1
+R	1b9d	dna100.D53.lean	1	rssanon_ph23_mb	29.622272	MB	dna100.D53.lean.1
+R	1b9d	dna100.D53.lean	1	rssanon_ph45_mb	50.376704	MB	dna100.D53.lean.1
+R	1b9d	dna100.D53.lean	1	rssanon_ph6_mb	44.220416	MB	dna100.D53.lean.1
+R	1b9d	dna100.D53.lean	1	rssanon_seal_mb	44.220416	MB	dna100.D53.lean.1
+R	1b9d	dna100.D53.lean	1	exit_code	0		program exit code (0 = healthy)
+R	1b9d	dna100.D53.lean	1	limit_raised	yes		the limit was raised to 1073741824 bytes when PH3 had finished
+R	1b9d	dna100.D53.lean	1	killed	no		no | watchdog (300 s) | oom-or-signal (exit 137 without the watchdog: the cgroup OOM killer)
+R	1b9d	dna100.D53.lean	1	cg_failcnt_final	4675530	n	memory.failcnt after the run
+R	1b9d	dna100.D53.lean	1	cg_max_usage_final	1073741824	bytes	memory.max_usage_in_bytes after the run; memory.stat: cache 1018429440 rss 0 mapped_file 0 pgpgin 7453812 pgpgout 7424821 pgmajfault 264833 total_cache 1018429440 total_rss 0 total_mapped_file 0 total_pgpgin 7453812 total_pgpgout 7424821 total_pgmajfault 264833 
+R	1b9d	dna100.D53.lean	1	cmp_container	yes		SHA-256 dc5ad0d82bef0114 of the container against the reference in /tmp/stbench/b9d/work/dna_100m.txt.sesa.sha (reference = this run made it)
+R	1b9d	dna100.D53.lean	1	left_behind	0		entries of the work directory of the run besides the container (a build that succeeded leaves the container only)
+R	1b9d	dna100.D53.lean	1	run_done	yes		all rows of this run are written
+R	1b9d	dna100.C130	1	settings	limit=130000000 raise=none prewarm=1 gc=unset args=--scale-n 3000000000		cgroup limit (bytes), limit after PH3, runtime pre-read outside the group, DOTNET_GCHeapHardLimit, extra program arguments
+R	1b9d	dna100.C130	1	ext_rssanon_peak	82.166	MB	independent sampler: max RssAnon of /proc/<pid>/status at 20 ms
+R	1b9d	dna100.C130	1	ext_rssanon_mean_ph3	48.328	MB	mean RssAnon over PH3 (rank file and ph3 directory exist), 825 samples
+R	1b9d	dna100.C130	1	eff_resident_ph3	0.8357		time-weighted resident fraction of (packed text + rank file) over PH3 (mincore every 200 ms, 79 samples, 16.5 s)
+R	1b9d	dna100.C130	1	eff_resident_ranks	0.8357		the same over the whole life of the rank file (PH1 end .. PH3 end, 79 samples, 16.5 s)
+R	1b9d	dna100.C130	1	text_bytes	25000064	bytes	TEXT section of the container
+R	1b9d	dna100.C130	1	rank_bytes	12890240	bytes	DCS rank file
+R	1b9d	dna100.C130	1	cg_limit	129998848	bytes	memory.limit_in_bytes of the sub-group at the start of the run
+R	1b9d	dna100.C130	1	cg_failcnt	373303	n	memory.failcnt at the end
+R	1b9d	dna100.C130	1	cg_max_usage	129998848	bytes	memory.max_usage_in_bytes at the end
+R	1b9d	dna100.C130	1	eff_budget_ph3	2.1528		E3-style budget ratio (limit - mean cgroup anonymous memory over PH3 (48.4 MB)) / (text + rank file)
+R	1b9d	dna100.C130	1	cg_rss_mean_ph3	48.429	MB	mean memory.stat rss (anonymous) of the sub-group over PH3
+R	1b9d	dna100.C130	1	ext_proc_rchar	3929011895	bytes	independent sampler: /proc/<pid>/io rchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.C130	1	ext_proc_wchar	2810214583	bytes	independent sampler: /proc/<pid>/io wchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.C130	1	ext_proc_read_bytes	5581852672	bytes	independent sampler: /proc/<pid>/io read_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.C130	1	ext_proc_write_bytes	4411416576	bytes	independent sampler: /proc/<pid>/io write_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.C130	1	total_s	56.682419475	s	dna100.C130.1 SesaBuilder.Build, inside the call
+R	1b9d	dna100.C130	1	wall_s	56.68712187	s	dna100.C130.1 around the call
+R	1b9d	dna100.C130	1	scan_s	0.156564383	s	dna100.C130.1
+R	1b9d	dna100.C130	1	create_s	0.002177816	s	dna100.C130.1
+R	1b9d	dna100.C130	1	pack_s	0.34885772	s	dna100.C130.1
+R	1b9d	dna100.C130	1	ph1_s	1.67674374	s	dna100.C130.1
+R	1b9d	dna100.C130	1	ph23_s	15.996540596	s	dna100.C130.1
+R	1b9d	dna100.C130	1	ph45_s	34.3642314	s	dna100.C130.1
+R	1b9d	dna100.C130	1	bwt_s	2.133979387	s	dna100.C130.1
+R	1b9d	dna100.C130	1	psi_s	1.019977001	s	dna100.C130.1
+R	1b9d	dna100.C130	1	crc_s	0.601884441	s	dna100.C130.1
+R	1b9d	dna100.C130	1	seal_s	0.006650573	s	dna100.C130.1
+R	1b9d	dna100.C130	1	n	100000000	symbols	dna100.C130.1 sigma 4, 2 bits
+R	1b9d	dna100.C130	1	file_size	1325019393	bytes	dna100.C130.1 LCP U8, 0 overflow pairs
+R	1b9d	dna100.C130	1	grown_bytes	0	bytes	dna100.C130.1 growth none, creation Preallocated
+R	1b9d	dna100.C130	1	counted_read	3910595933	bytes	dna100.C130.1 explicit reads of the build (IoCounters)
+R	1b9d	dna100.C130	1	counted_write	2810214300	bytes	dna100.C130.1 explicit writes of the build (IoCounters)
+R	1b9d	dna100.C130	1	counted_mapped_write	1437890539	bytes	dna100.C130.1 writes through mapped windows (IoCounters)
+R	1b9d	dna100.C130	1	counted_reserved_write	0	bytes	dna100.C130.1 zeros written to reserve the growth
+R	1b9d	dna100.C130	1	scratch_peak	1200000000	bytes	dna100.C130.1
+R	1b9d	dna100.C130	1	arena_peak	39395096	bytes	dna100.C130.1
+R	1b9d	dna100.C130	1	proc_rchar	3928964652	bytes	dna100.C130.1 /proc/self/io over the call
+R	1b9d	dna100.C130	1	proc_wchar	2810214539	bytes	dna100.C130.1
+R	1b9d	dna100.C130	1	proc_read_bytes	5581836288	bytes	dna100.C130.1 block-layer reads charged to the process
+R	1b9d	dna100.C130	1	proc_write_bytes	4411371520	bytes	dna100.C130.1 pages dirtied (a page that is written again counts again)
+R	1b9d	dna100.C130	1	dev_sectors_read	10914416	sectors	dna100.C130.1 /sys/block/vda/stat over the call (512 B)
+R	1b9d	dna100.C130	1	dev_sectors_written	8964608	sectors	dna100.C130.1 over the call
+R	1b9d	dna100.C130	1	dev_sectors_written_synced	8965032	sectors	dna100.C130.1 until the end of a sync after the call
+R	1b9d	dna100.C130	1	rssanon_peak_mb	82.16576	MB	dna100.C130.1 verdict Within
+R	1b9d	dna100.C130	1	rssanon_ph0_mb	10.575872	MB	dna100.C130.1
+R	1b9d	dna100.C130	1	rssanon_ph1_mb	27.836416	MB	dna100.C130.1
+R	1b9d	dna100.C130	1	rssanon_ph23_mb	78.843904	MB	dna100.C130.1
+R	1b9d	dna100.C130	1	rssanon_ph45_mb	82.16576	MB	dna100.C130.1
+R	1b9d	dna100.C130	1	rssanon_ph6_mb	58.130432	MB	dna100.C130.1
+R	1b9d	dna100.C130	1	rssanon_seal_mb	58.130432	MB	dna100.C130.1
+R	1b9d	dna100.C130	1	exit_code	0		program exit code (0 = healthy)
+R	1b9d	dna100.C130	1	killed	no		no | watchdog (450 s) | oom-or-signal (exit 137 without the watchdog: the cgroup OOM killer)
+R	1b9d	dna100.C130	1	cg_failcnt_final	373303	n	memory.failcnt after the run
+R	1b9d	dna100.C130	1	cg_max_usage_final	129998848	bytes	memory.max_usage_in_bytes after the run; memory.stat: cache 62148608 rss 0 mapped_file 0 pgpgin 722481 pgpgout 719921 pgmajfault 8595 total_cache 62148608 total_rss 0 total_mapped_file 0 total_pgpgin 722481 total_pgpgout 719921 total_pgmajfault 8595 
+R	1b9d	dna100.C130	1	cmp_container	yes		SHA-256 dc5ad0d82bef0114 of the container against the reference in /tmp/stbench/b9d/work/dna_100m.txt.sesa.sha (reference = this run made it)
+R	1b9d	dna100.C130	1	left_behind	0		entries of the work directory of the run besides the container (a build that succeeded leaves the container only)
+R	1b9d	dna100.C130	1	run_done	yes		all rows of this run are written
+R	1b9d	dna100.C95	1	settings	limit=95000000 raise=none prewarm=1 gc=unset args=--scale-n 3000000000		cgroup limit (bytes), limit after PH3, runtime pre-read outside the group, DOTNET_GCHeapHardLimit, extra program arguments
+R	1b9d	dna100.C95	1	ext_rssanon_peak	87.286	MB	independent sampler: max RssAnon of /proc/<pid>/status at 20 ms
+R	1b9d	dna100.C95	1	ext_rssanon_mean_ph3	54.534	MB	mean RssAnon over PH3 (rank file and ph3 directory exist), 1763 samples
+R	1b9d	dna100.C95	1	eff_resident_ph3	0.6802		time-weighted resident fraction of (packed text + rank file) over PH3 (mincore every 200 ms, 167 samples, 35.2 s)
+R	1b9d	dna100.C95	1	eff_resident_ranks	0.6802		the same over the whole life of the rank file (PH1 end .. PH3 end, 167 samples, 35.2 s)
+R	1b9d	dna100.C95	1	text_bytes	25000064	bytes	TEXT section of the container
+R	1b9d	dna100.C95	1	rank_bytes	12890240	bytes	DCS rank file
+R	1b9d	dna100.C95	1	cg_limit	94998528	bytes	memory.limit_in_bytes of the sub-group at the start of the run
+R	1b9d	dna100.C95	1	cg_failcnt	23547564	n	memory.failcnt at the end
+R	1b9d	dna100.C95	1	cg_max_usage	94998528	bytes	memory.max_usage_in_bytes at the end
+R	1b9d	dna100.C95	1	eff_budget_ph3	1.0670		E3-style budget ratio (limit - mean cgroup anonymous memory over PH3 (54.6 MB)) / (text + rank file)
+R	1b9d	dna100.C95	1	cg_rss_mean_ph3	54.569	MB	mean memory.stat rss (anonymous) of the sub-group over PH3
+R	1b9d	dna100.C95	1	ext_proc_rchar	1519049574	bytes	independent sampler: /proc/<pid>/io rchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.C95	1	ext_proc_wchar	2010210457	bytes	independent sampler: /proc/<pid>/io wchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.C95	1	ext_proc_read_bytes	150566768640	bytes	independent sampler: /proc/<pid>/io read_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.C95	1	ext_proc_write_bytes	2709663744	bytes	independent sampler: /proc/<pid>/io write_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.C95	1	exit_code	137		program exit code (0 = healthy)
+R	1b9d	dna100.C95	1	killed	oom-or-signal		no | watchdog (450 s) | oom-or-signal (exit 137 without the watchdog: the cgroup OOM killer)
+R	1b9d	dna100.C95	1	cg_failcnt_final	23547564	n	memory.failcnt after the run
+R	1b9d	dna100.C95	1	cg_max_usage_final	94998528	bytes	memory.max_usage_in_bytes after the run; memory.stat: cache 20480 rss 0 mapped_file 0 pgpgin 36929408 pgpgout 36929403 pgmajfault 1441969 total_cache 20480 total_rss 0 total_mapped_file 0 total_pgpgin 36929408 total_pgpgout 36929403 total_pgmajfault 1441969 
+R	1b9d	dna100.C95	1	left_behind	2		entries of the work directory of the run besides the container (a build that succeeded leaves the container only)
+R	1b9d	dna100.C95	1	run_done	yes		all rows of this run are written
+R	1b9d	dna100.C84	1	settings	limit=84000000 raise=none prewarm=1 gc=unset args=--scale-n 3000000000		cgroup limit (bytes), limit after PH3, runtime pre-read outside the group, DOTNET_GCHeapHardLimit, extra program arguments
+R	1b9d	dna100.C84	1	ext_rssanon_peak	76.251	MB	independent sampler: max RssAnon of /proc/<pid>/status at 20 ms
+R	1b9d	dna100.C84	1	ext_rssanon_mean_ph3	56.772	MB	mean RssAnon over PH3 (rank file and ph3 directory exist), 4648 samples
+R	1b9d	dna100.C84	1	eff_resident_ph3	0.4909		time-weighted resident fraction of (packed text + rank file) over PH3 (mincore every 200 ms, 443 samples, 93.0 s)
+R	1b9d	dna100.C84	1	eff_resident_ranks	0.4909		the same over the whole life of the rank file (PH1 end .. PH3 end, 443 samples, 93.0 s)
+R	1b9d	dna100.C84	1	text_bytes	25000064	bytes	TEXT section of the container
+R	1b9d	dna100.C84	1	rank_bytes	12890240	bytes	DCS rank file
+R	1b9d	dna100.C84	1	cg_limit	83996672	bytes	memory.limit_in_bytes of the sub-group at the start of the run
+R	1b9d	dna100.C84	1	cg_failcnt	8168385	n	memory.failcnt at the end
+R	1b9d	dna100.C84	1	cg_max_usage	83996672	bytes	memory.max_usage_in_bytes at the end
+R	1b9d	dna100.C84	1	eff_budget_ph3	0.7186		E3-style budget ratio (limit - mean cgroup anonymous memory over PH3 (56.8 MB)) / (text + rank file)
+R	1b9d	dna100.C84	1	cg_rss_mean_ph3	56.768	MB	mean memory.stat rss (anonymous) of the sub-group over PH3
+R	1b9d	dna100.C84	1	ext_proc_rchar	1473293658	bytes	independent sampler: /proc/<pid>/io rchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.C84	1	ext_proc_wchar	2010210473	bytes	independent sampler: /proc/<pid>/io wchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.C84	1	ext_proc_read_bytes	62221332480	bytes	independent sampler: /proc/<pid>/io read_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.C84	1	ext_proc_write_bytes	2760605696	bytes	independent sampler: /proc/<pid>/io write_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.C84	1	exit_code	137		program exit code (0 = healthy)
+R	1b9d	dna100.C84	1	killed	oom-or-signal		no | watchdog (450 s) | oom-or-signal (exit 137 without the watchdog: the cgroup OOM killer)
+R	1b9d	dna100.C84	1	cg_failcnt_final	8168385	n	memory.failcnt after the run
+R	1b9d	dna100.C84	1	cg_max_usage_final	83996672	bytes	memory.max_usage_in_bytes after the run; memory.stat: cache 241664 rss 0 mapped_file 0 pgpgin 12721650 pgpgout 12721591 pgmajfault 475742 total_cache 241664 total_rss 0 total_mapped_file 0 total_pgpgin 12721650 total_pgpgout 12721591 total_pgmajfault 475742 
+R	1b9d	dna100.C84	1	left_behind	2		entries of the work directory of the run besides the container (a build that succeeded leaves the container only)
+R	1b9d	dna100.C84	1	run_done	yes		all rows of this run are written
+R	1b9d	dna100.U.real	1	settings	limit=max raise=none prewarm=1 gc=unset args=		cgroup limit (bytes), limit after PH3, runtime pre-read outside the group, DOTNET_GCHeapHardLimit, extra program arguments
+R	1b9d	dna100.U.real	1	ext_rssanon_peak	262.431	MB	independent sampler: max RssAnon of /proc/<pid>/status at 20 ms
+R	1b9d	dna100.U.real	1	ext_rssanon_mean_ph3	58.959	MB	mean RssAnon over PH3 (rank file and ph3 directory exist), 325 samples
+R	1b9d	dna100.U.real	1	eff_resident_ph3	0.9886		time-weighted resident fraction of (packed text + rank file) over PH3 (mincore every 200 ms, 31 samples, 6.5 s)
+R	1b9d	dna100.U.real	1	eff_resident_ranks	0.9886		the same over the whole life of the rank file (PH1 end .. PH3 end, 31 samples, 6.5 s)
+R	1b9d	dna100.U.real	1	text_bytes	25000064	bytes	TEXT section of the container
+R	1b9d	dna100.U.real	1	rank_bytes	12890240	bytes	DCS rank file
+R	1b9d	dna100.U.real	1	cg_limit	9223372036854771712	bytes	memory.limit_in_bytes of the sub-group at the start of the run
+R	1b9d	dna100.U.real	1	cg_failcnt	0	n	memory.failcnt at the end
+R	1b9d	dna100.U.real	1	cg_max_usage	2034352128	bytes	memory.max_usage_in_bytes at the end
+R	1b9d	dna100.U.real	1	cg_rss_mean_ph3	58.338	MB	mean memory.stat rss (anonymous) of the sub-group over PH3
+R	1b9d	dna100.U.real	1	ext_proc_rchar	3909813289	bytes	independent sampler: /proc/<pid>/io rchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.U.real	1	ext_proc_wchar	2803641224	bytes	independent sampler: /proc/<pid>/io wchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.U.real	1	ext_proc_read_bytes	101347328	bytes	independent sampler: /proc/<pid>/io read_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.U.real	1	ext_proc_write_bytes	4305899520	bytes	independent sampler: /proc/<pid>/io write_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	dna100.U.real	1	total_s	18.335349268	s	dna100.U.real.1 SesaBuilder.Build, inside the call
+R	1b9d	dna100.U.real	1	wall_s	18.340580713	s	dna100.U.real.1 around the call
+R	1b9d	dna100.U.real	1	scan_s	0.16448897	s	dna100.U.real.1
+R	1b9d	dna100.U.real	1	create_s	0.002579114	s	dna100.U.real.1
+R	1b9d	dna100.U.real	1	pack_s	0.346516772	s	dna100.U.real.1
+R	1b9d	dna100.U.real	1	ph1_s	0.339201812	s	dna100.U.real.1
+R	1b9d	dna100.U.real	1	ph23_s	6.397929594	s	dna100.U.real.1
+R	1b9d	dna100.U.real	1	ph45_s	7.700354618	s	dna100.U.real.1
+R	1b9d	dna100.U.real	1	bwt_s	1.805525824	s	dna100.U.real.1
+R	1b9d	dna100.U.real	1	psi_s	0.918145518	s	dna100.U.real.1
+R	1b9d	dna100.U.real	1	crc_s	0.286865903	s	dna100.U.real.1
+R	1b9d	dna100.U.real	1	seal_s	0.0061901	s	dna100.U.real.1
+R	1b9d	dna100.U.real	1	n	100000000	symbols	dna100.U.real.1 sigma 4, 2 bits
+R	1b9d	dna100.U.real	1	file_size	1325019393	bytes	dna100.U.real.1 LCP U8, 0 overflow pairs
+R	1b9d	dna100.U.real	1	grown_bytes	0	bytes	dna100.U.real.1 growth none, creation Preallocated
+R	1b9d	dna100.U.real	1	counted_read	3903650413	bytes	dna100.U.real.1 explicit reads of the build (IoCounters)
+R	1b9d	dna100.U.real	1	counted_write	2803641004	bytes	dna100.U.real.1 explicit writes of the build (IoCounters)
+R	1b9d	dna100.U.real	1	counted_mapped_write	1437890539	bytes	dna100.U.real.1 writes through mapped windows (IoCounters)
+R	1b9d	dna100.U.real	1	counted_reserved_write	0	bytes	dna100.U.real.1 zeros written to reserve the growth
+R	1b9d	dna100.U.real	1	scratch_peak	1200000000	bytes	dna100.U.real.1
+R	1b9d	dna100.U.real	1	arena_peak	141337720	bytes	dna100.U.real.1
+R	1b9d	dna100.U.real	1	proc_rchar	3909765088	bytes	dna100.U.real.1 /proc/self/io over the call
+R	1b9d	dna100.U.real	1	proc_wchar	2803641179	bytes	dna100.U.real.1
+R	1b9d	dna100.U.real	1	proc_read_bytes	101330944	bytes	dna100.U.real.1 block-layer reads charged to the process
+R	1b9d	dna100.U.real	1	proc_write_bytes	4305858560	bytes	dna100.U.real.1 pages dirtied (a page that is written again counts again)
+R	1b9d	dna100.U.real	1	dev_sectors_read	199192	sectors	dna100.U.real.1 /sys/block/vda/stat over the call (512 B)
+R	1b9d	dna100.U.real	1	dev_sectors_written	4524904	sectors	dna100.U.real.1 over the call
+R	1b9d	dna100.U.real	1	dev_sectors_written_synced	4525696	sectors	dna100.U.real.1 until the end of a sync after the call
+R	1b9d	dna100.U.real	1	rssanon_peak_mb	262.397952	MB	dna100.U.real.1 verdict Within
+R	1b9d	dna100.U.real	1	rssanon_ph0_mb	10.612736	MB	dna100.U.real.1
+R	1b9d	dna100.U.real	1	rssanon_ph1_mb	57.655296	MB	dna100.U.real.1
+R	1b9d	dna100.U.real	1	rssanon_ph23_mb	110.215168	MB	dna100.U.real.1
+R	1b9d	dna100.U.real	1	rssanon_ph45_mb	262.434816	MB	dna100.U.real.1
+R	1b9d	dna100.U.real	1	rssanon_ph6_mb	147.501056	MB	dna100.U.real.1
+R	1b9d	dna100.U.real	1	rssanon_seal_mb	147.562496	MB	dna100.U.real.1
+R	1b9d	dna100.U.real	1	exit_code	0		program exit code (0 = healthy)
+R	1b9d	dna100.U.real	1	killed	no		no | watchdog (300 s) | oom-or-signal (exit 137 without the watchdog: the cgroup OOM killer)
+R	1b9d	dna100.U.real	1	cg_failcnt_final	0	n	memory.failcnt after the run
+R	1b9d	dna100.U.real	1	cg_max_usage_final	2034352128	bytes	memory.max_usage_in_bytes after the run; memory.stat: cache 1426608128 rss 0 mapped_file 0 pgpgin 326110 pgpgout 275305 pgmajfault 2124 total_cache 1426608128 total_rss 0 total_mapped_file 0 total_pgpgin 326110 total_pgpgout 275305 total_pgmajfault 2124 
+R	1b9d	dna100.U.real	1	cmp_container	yes		SHA-256 dc5ad0d82bef0114 of the container against the reference in /tmp/stbench/b9d/work/dna_100m.txt.sesa.sha (reference = this run made it)
+R	1b9d	dna100.U.real	1	left_behind	0		entries of the work directory of the run besides the container (a build that succeeded leaves the container only)
+R	1b9d	dna100.U.real	1	run_done	yes		all rows of this run are written
+R	1b9d	genome100.U.real	1	settings	limit=max raise=none prewarm=1 gc=unset args=		cgroup limit (bytes), limit after PH3, runtime pre-read outside the group, DOTNET_GCHeapHardLimit, extra program arguments
+R	1b9d	genome100.U.real	1	ext_rssanon_peak	294.203	MB	independent sampler: max RssAnon of /proc/<pid>/status at 20 ms
+R	1b9d	genome100.U.real	1	ext_rssanon_mean_ph3	92.694	MB	mean RssAnon over PH3 (rank file and ph3 directory exist), 326 samples
+R	1b9d	genome100.U.real	1	eff_resident_ph3	1.0000		time-weighted resident fraction of (packed text + rank file) over PH3 (mincore every 200 ms, 30 samples, 6.4 s)
+R	1b9d	genome100.U.real	1	eff_resident_ranks	1.0000		the same over the whole life of the rank file (PH1 end .. PH3 end, 30 samples, 6.4 s)
+R	1b9d	genome100.U.real	1	text_bytes	37500064	bytes	TEXT section of the container
+R	1b9d	genome100.U.real	1	rank_bytes	12890240	bytes	DCS rank file
+R	1b9d	genome100.U.real	1	cg_limit	9223372036854771712	bytes	memory.limit_in_bytes of the sub-group at the start of the run
+R	1b9d	genome100.U.real	1	cg_failcnt	0	n	memory.failcnt at the end
+R	1b9d	genome100.U.real	1	cg_max_usage	2077831168	bytes	memory.max_usage_in_bytes at the end
+R	1b9d	genome100.U.real	1	cg_rss_mean_ph3	91.903	MB	mean memory.stat rss (anonymous) of the sub-group over PH3
+R	1b9d	genome100.U.real	1	ext_proc_rchar	3906780442	bytes	independent sampler: /proc/<pid>/io rchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	genome100.U.real	1	ext_proc_wchar	2810957554	bytes	independent sampler: /proc/<pid>/io wchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	genome100.U.real	1	ext_proc_read_bytes	101388288	bytes	independent sampler: /proc/<pid>/io read_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	genome100.U.real	1	ext_proc_write_bytes	4331638784	bytes	independent sampler: /proc/<pid>/io write_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	genome100.U.real	1	total_s	21.044319594	s	genome100.U.real.1 SesaBuilder.Build, inside the call
+R	1b9d	genome100.U.real	1	wall_s	21.049129026	s	genome100.U.real.1 around the call
+R	1b9d	genome100.U.real	1	scan_s	0.161240807	s	genome100.U.real.1
+R	1b9d	genome100.U.real	1	create_s	0.002358588	s	genome100.U.real.1
+R	1b9d	genome100.U.real	1	pack_s	0.347040837	s	genome100.U.real.1
+R	1b9d	genome100.U.real	1	ph1_s	0.973579519	s	genome100.U.real.1
+R	1b9d	genome100.U.real	1	ph23_s	6.479708464	s	genome100.U.real.1
+R	1b9d	genome100.U.real	1	ph45_s	8.296846638	s	genome100.U.real.1
+R	1b9d	genome100.U.real	1	bwt_s	3.136431757	s	genome100.U.real.1
+R	1b9d	genome100.U.real	1	psi_s	0.967472184	s	genome100.U.real.1
+R	1b9d	genome100.U.real	1	crc_s	0.304640156	s	genome100.U.real.1
+R	1b9d	genome100.U.real	1	seal_s	0.006878226	s	genome100.U.real.1
+R	1b9d	genome100.U.real	1	n	100000000	symbols	genome100.U.real.1 sigma 5, 3 bits
+R	1b9d	genome100.U.real	1	file_size	1348644448	bytes	genome100.U.real.1 LCP U8, 1390028 overflow pairs
+R	1b9d	genome100.U.real	1	grown_bytes	11124063	bytes	genome100.U.real.1 growth Filled, creation Preallocated
+R	1b9d	genome100.U.real	1	counted_read	3899840217	bytes	genome100.U.real.1 explicit reads of the build (IoCounters)
+R	1b9d	genome100.U.real	1	counted_write	2799830872	bytes	genome100.U.real.1 explicit writes of the build (IoCounters)
+R	1b9d	genome100.U.real	1	counted_mapped_write	1461510791	bytes	genome100.U.real.1 writes through mapped windows (IoCounters)
+R	1b9d	genome100.U.real	1	counted_reserved_write	11124063	bytes	genome100.U.real.1 zeros written to reserve the growth
+R	1b9d	genome100.U.real	1	scratch_peak	1200000000	bytes	genome100.U.real.1
+R	1b9d	genome100.U.real	1	arena_peak	141337720	bytes	genome100.U.real.1
+R	1b9d	genome100.U.real	1	proc_rchar	3906727769	bytes	genome100.U.real.1 /proc/self/io over the call
+R	1b9d	genome100.U.real	1	proc_wchar	2810955110	bytes	genome100.U.real.1
+R	1b9d	genome100.U.real	1	proc_read_bytes	101330944	bytes	genome100.U.real.1 block-layer reads charged to the process
+R	1b9d	genome100.U.real	1	proc_write_bytes	4331556864	bytes	genome100.U.real.1 pages dirtied (a page that is written again counts again)
+R	1b9d	genome100.U.real	1	dev_sectors_read	201144	sectors	genome100.U.real.1 /sys/block/vda/stat over the call (512 B)
+R	1b9d	genome100.U.real	1	dev_sectors_written	4576304	sectors	genome100.U.real.1 over the call
+R	1b9d	genome100.U.real	1	dev_sectors_written_synced	4576544	sectors	genome100.U.real.1 until the end of a sync after the call
+R	1b9d	genome100.U.real	1	rssanon_peak_mb	294.580224	MB	genome100.U.real.1 verdict Within
+R	1b9d	genome100.U.real	1	rssanon_ph0_mb	10.752	MB	genome100.U.real.1
+R	1b9d	genome100.U.real	1	rssanon_ph1_mb	82.325504	MB	genome100.U.real.1
+R	1b9d	genome100.U.real	1	rssanon_ph23_mb	141.2096	MB	genome100.U.real.1
+R	1b9d	genome100.U.real	1	rssanon_ph45_mb	294.551552	MB	genome100.U.real.1
+R	1b9d	genome100.U.real	1	rssanon_ph6_mb	188.121088	MB	genome100.U.real.1
+R	1b9d	genome100.U.real	1	rssanon_seal_mb	188.162048	MB	genome100.U.real.1
+R	1b9d	genome100.U.real	1	exit_code	0		program exit code (0 = healthy)
+R	1b9d	genome100.U.real	1	killed	no		no | watchdog (300 s) | oom-or-signal (exit 137 without the watchdog: the cgroup OOM killer)
+R	1b9d	genome100.U.real	1	cg_failcnt_final	0	n	memory.failcnt after the run
+R	1b9d	genome100.U.real	1	cg_max_usage_final	2077831168	bytes	memory.max_usage_in_bytes after the run; memory.stat: cache 1450229760 rss 0 mapped_file 0 pgpgin 341669 pgpgout 288738 pgmajfault 2013 total_cache 1450229760 total_rss 0 total_mapped_file 0 total_pgpgin 341669 total_pgpgout 288738 total_pgmajfault 2013 
+R	1b9d	genome100.U.real	1	cmp_container	yes		SHA-256 18f5e260c66f91ba of the container against the reference in /tmp/stbench/b9d/work/genome_100m.txt.sesa.sha (reference = this run made it)
+R	1b9d	genome100.U.real	1	left_behind	0		entries of the work directory of the run besides the container (a build that succeeded leaves the container only)
+R	1b9d	genome100.U.real	1	run_done	yes		all rows of this run are written
+R	1b9d	u16_100.U.real	1	settings	limit=max raise=none prewarm=1 gc=unset args=		cgroup limit (bytes), limit after PH3, runtime pre-read outside the group, DOTNET_GCHeapHardLimit, extra program arguments
+R	1b9d	u16_100.U.real	1	ext_rssanon_peak	302.875	MB	independent sampler: max RssAnon of /proc/<pid>/status at 20 ms
+R	1b9d	u16_100.U.real	1	ext_rssanon_mean_ph3	99.903	MB	mean RssAnon over PH3 (rank file and ph3 directory exist), 315 samples
+R	1b9d	u16_100.U.real	1	eff_resident_ph3	1.0000		time-weighted resident fraction of (packed text + rank file) over PH3 (mincore every 200 ms, 30 samples, 6.3 s)
+R	1b9d	u16_100.U.real	1	eff_resident_ranks	1.0000		the same over the whole life of the rank file (PH1 end .. PH3 end, 30 samples, 6.3 s)
+R	1b9d	u16_100.U.real	1	text_bytes	25000064	bytes	TEXT section of the container
+R	1b9d	u16_100.U.real	1	rank_bytes	12890240	bytes	DCS rank file
+R	1b9d	u16_100.U.real	1	cg_limit	9223372036854771712	bytes	memory.limit_in_bytes of the sub-group at the start of the run
+R	1b9d	u16_100.U.real	1	cg_failcnt	0	n	memory.failcnt at the end
+R	1b9d	u16_100.U.real	1	cg_max_usage	2074894336	bytes	memory.max_usage_in_bytes at the end
+R	1b9d	u16_100.U.real	1	cg_rss_mean_ph3	99.420	MB	mean memory.stat rss (anonymous) of the sub-group over PH3
+R	1b9d	u16_100.U.real	1	ext_proc_rchar	3906690192	bytes	independent sampler: /proc/<pid>/io rchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	u16_100.U.real	1	ext_proc_wchar	2979033790	bytes	independent sampler: /proc/<pid>/io wchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	u16_100.U.real	1	ext_proc_read_bytes	101244928	bytes	independent sampler: /proc/<pid>/io read_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	u16_100.U.real	1	ext_proc_write_bytes	4569509888	bytes	independent sampler: /proc/<pid>/io write_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	u16_100.U.real	1	total_s	21.355507292	s	u16_100.U.real.1 SesaBuilder.Build, inside the call
+R	1b9d	u16_100.U.real	1	wall_s	21.360813275	s	u16_100.U.real.1 around the call
+R	1b9d	u16_100.U.real	1	scan_s	0.165699259	s	u16_100.U.real.1
+R	1b9d	u16_100.U.real	1	create_s	0.003502302	s	u16_100.U.real.1
+R	1b9d	u16_100.U.real	1	pack_s	0.410128431	s	u16_100.U.real.1
+R	1b9d	u16_100.U.real	1	ph1_s	1.174155784	s	u16_100.U.real.1
+R	1b9d	u16_100.U.real	1	ph23_s	6.26659118	s	u16_100.U.real.1
+R	1b9d	u16_100.U.real	1	ph45_s	9.048790867	s	u16_100.U.real.1
+R	1b9d	u16_100.U.real	1	bwt_s	2.433740029	s	u16_100.U.real.1
+R	1b9d	u16_100.U.real	1	psi_s	1.128032738	s	u16_100.U.real.1
+R	1b9d	u16_100.U.real	1	crc_s	0.348690152	s	u16_100.U.real.1
+R	1b9d	u16_100.U.real	1	seal_s	0.007328598	s	u16_100.U.real.1
+R	1b9d	u16_100.U.real	1	n	100000000	symbols	u16_100.U.real.1 sigma 4, 2 bits
+R	1b9d	u16_100.U.real	1	file_size	1504498704	bytes	u16_100.U.real.1 LCP U16, 9934466 overflow pairs
+R	1b9d	u16_100.U.real	1	grown_bytes	179479311	bytes	u16_100.U.real.1 growth Filled, creation Preallocated
+R	1b9d	u16_100.U.real	1	counted_read	3899561013	bytes	u16_100.U.real.1 explicit reads of the build (IoCounters)
+R	1b9d	u16_100.U.real	1	counted_write	2799551924	bytes	u16_100.U.real.1 explicit writes of the build (IoCounters)
+R	1b9d	u16_100.U.real	1	counted_mapped_write	1617366287	bytes	u16_100.U.real.1 writes through mapped windows (IoCounters)
+R	1b9d	u16_100.U.real	1	counted_reserved_write	179479311	bytes	u16_100.U.real.1 zeros written to reserve the growth
+R	1b9d	u16_100.U.real	1	scratch_peak	1200000000	bytes	u16_100.U.real.1
+R	1b9d	u16_100.U.real	1	arena_peak	141337720	bytes	u16_100.U.real.1
+R	1b9d	u16_100.U.real	1	proc_rchar	3906637623	bytes	u16_100.U.real.1 /proc/self/io over the call
+R	1b9d	u16_100.U.real	1	proc_wchar	2979031410	bytes	u16_100.U.real.1
+R	1b9d	u16_100.U.real	1	proc_read_bytes	101191680	bytes	u16_100.U.real.1 block-layer reads charged to the process
+R	1b9d	u16_100.U.real	1	proc_write_bytes	4569436160	bytes	u16_100.U.real.1 pages dirtied (a page that is written again counts again)
+R	1b9d	u16_100.U.real	1	dev_sectors_read	200584	sectors	u16_100.U.real.1 /sys/block/vda/stat over the call (512 B)
+R	1b9d	u16_100.U.real	1	dev_sectors_written	5042400	sectors	u16_100.U.real.1 over the call
+R	1b9d	u16_100.U.real	1	dev_sectors_written_synced	5043216	sectors	u16_100.U.real.1 until the end of a sync after the call
+R	1b9d	u16_100.U.real	1	rssanon_peak_mb	302.841856	MB	u16_100.U.real.1 verdict Within
+R	1b9d	u16_100.U.real	1	rssanon_ph0_mb	10.805248	MB	u16_100.U.real.1
+R	1b9d	u16_100.U.real	1	rssanon_ph1_mb	94.928896	MB	u16_100.U.real.1
+R	1b9d	u16_100.U.real	1	rssanon_ph23_mb	150.585344	MB	u16_100.U.real.1
+R	1b9d	u16_100.U.real	1	rssanon_ph45_mb	302.81728	MB	u16_100.U.real.1
+R	1b9d	u16_100.U.real	1	rssanon_ph6_mb	186.867712	MB	u16_100.U.real.1
+R	1b9d	u16_100.U.real	1	rssanon_seal_mb	186.904576	MB	u16_100.U.real.1
+R	1b9d	u16_100.U.real	1	exit_code	0		program exit code (0 = healthy)
+R	1b9d	u16_100.U.real	1	killed	no		no | watchdog (300 s) | oom-or-signal (exit 137 without the watchdog: the cgroup OOM killer)
+R	1b9d	u16_100.U.real	1	cg_failcnt_final	0	n	memory.failcnt after the run
+R	1b9d	u16_100.U.real	1	cg_max_usage_final	2074894336	bytes	memory.max_usage_in_bytes after the run; memory.stat: cache 1605951488 rss 0 mapped_file 0 pgpgin 342834 pgpgout 291266 pgmajfault 2059 total_cache 1605951488 total_rss 0 total_mapped_file 0 total_pgpgin 342834 total_pgpgout 291266 total_pgmajfault 2059 
+R	1b9d	u16_100.U.real	1	cmp_container	reference		SHA-256 13781b7831bbc08d of the container against the reference in /tmp/stbench/b9d/work/u16_100m.txt.sesa.sha (reference = this run made it)
+R	1b9d	u16_100.U.real	1	left_behind	0		entries of the work directory of the run besides the container (a build that succeeded leaves the container only)
+R	1b9d	u16_100.U.real	1	run_done	yes		all rows of this run are written
+R	1b9d	u32_100.U.real	1	settings	limit=max raise=none prewarm=1 gc=unset args=		cgroup limit (bytes), limit after PH3, runtime pre-read outside the group, DOTNET_GCHeapHardLimit, extra program arguments
+R	1b9d	u32_100.U.real	1	ext_rssanon_peak	301.498	MB	independent sampler: max RssAnon of /proc/<pid>/status at 20 ms
+R	1b9d	u32_100.U.real	1	ext_rssanon_mean_ph3	110.105	MB	mean RssAnon over PH3 (rank file and ph3 directory exist), 388 samples
+R	1b9d	u32_100.U.real	1	eff_resident_ph3	1.0000		time-weighted resident fraction of (packed text + rank file) over PH3 (mincore every 200 ms, 36 samples, 7.7 s)
+R	1b9d	u32_100.U.real	1	eff_resident_ranks	1.0000		the same over the whole life of the rank file (PH1 end .. PH3 end, 36 samples, 7.7 s)
+R	1b9d	u32_100.U.real	1	text_bytes	25000064	bytes	TEXT section of the container
+R	1b9d	u32_100.U.real	1	rank_bytes	12890240	bytes	DCS rank file
+R	1b9d	u32_100.U.real	1	cg_limit	9223372036854771712	bytes	memory.limit_in_bytes of the sub-group at the start of the run
+R	1b9d	u32_100.U.real	1	cg_failcnt	0	n	memory.failcnt at the end
+R	1b9d	u32_100.U.real	1	cg_max_usage	2072875008	bytes	memory.max_usage_in_bytes at the end
+R	1b9d	u32_100.U.real	1	cg_rss_mean_ph3	110.128	MB	mean memory.stat rss (anonymous) of the sub-group over PH3
+R	1b9d	u32_100.U.real	1	ext_proc_rchar	3913646450	bytes	independent sampler: /proc/<pid>/io rchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	u32_100.U.real	1	ext_proc_wchar	3107120359	bytes	independent sampler: /proc/<pid>/io wchar, last value before the process exited (whole process incl. runtime start)
+R	1b9d	u32_100.U.real	1	ext_proc_read_bytes	101236736	bytes	independent sampler: /proc/<pid>/io read_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	u32_100.U.real	1	ext_proc_write_bytes	4762521600	bytes	independent sampler: /proc/<pid>/io write_bytes, last value before the process exited (whole process incl. runtime start)
+R	1b9d	u32_100.U.real	1	total_s	19.50958766	s	u32_100.U.real.1 SesaBuilder.Build, inside the call
+R	1b9d	u32_100.U.real	1	wall_s	19.517737487	s	u32_100.U.real.1 around the call
+R	1b9d	u32_100.U.real	1	scan_s	0.192768634	s	u32_100.U.real.1
+R	1b9d	u32_100.U.real	1	create_s	0.002449442	s	u32_100.U.real.1
+R	1b9d	u32_100.U.real	1	pack_s	0.387136913	s	u32_100.U.real.1
+R	1b9d	u32_100.U.real	1	ph1_s	1.156844806	s	u32_100.U.real.1
+R	1b9d	u32_100.U.real	1	ph23_s	7.718962583	s	u32_100.U.real.1
+R	1b9d	u32_100.U.real	1	ph45_s	6.66969464	s	u32_100.U.real.1
+R	1b9d	u32_100.U.real	1	bwt_s	1.698243577	s	u32_100.U.real.1
+R	1b9d	u32_100.U.real	1	psi_s	0.970733744	s	u32_100.U.real.1
+R	1b9d	u32_100.U.real	1	crc_s	0.336141365	s	u32_100.U.real.1
+R	1b9d	u32_100.U.real	1	seal_s	0.006615846	s	u32_100.U.real.1
+R	1b9d	u32_100.U.real	1	n	100000000	symbols	u32_100.U.real.1 sigma 4, 2 bits
+R	1b9d	u32_100.U.real	1	file_size	1625019396	bytes	u32_100.U.real.1 LCP U32, 0 overflow pairs
+R	1b9d	u32_100.U.real	1	grown_bytes	300000003	bytes	u32_100.U.real.1 growth Filled, creation Preallocated
+R	1b9d	u32_100.U.real	1	counted_read	3907127413	bytes	u32_100.U.real.1 explicit reads of the build (IoCounters)
+R	1b9d	u32_100.U.real	1	counted_write	2807117812	bytes	u32_100.U.real.1 explicit writes of the build (IoCounters)
+R	1b9d	u32_100.U.real	1	counted_mapped_write	1737890555	bytes	u32_100.U.real.1 writes through mapped windows (IoCounters)
+R	1b9d	u32_100.U.real	1	counted_reserved_write	300000003	bytes	u32_100.U.real.1 zeros written to reserve the growth
+R	1b9d	u32_100.U.real	1	scratch_peak	1200000000	bytes	u32_100.U.real.1
+R	1b9d	u32_100.U.real	1	arena_peak	141337720	bytes	u32_100.U.real.1
+R	1b9d	u32_100.U.real	1	proc_rchar	3913593783	bytes	u32_100.U.real.1 /proc/self/io over the call
+R	1b9d	u32_100.U.real	1	proc_wchar	3107117990	bytes	u32_100.U.real.1
+R	1b9d	u32_100.U.real	1	proc_read_bytes	101179392	bytes	u32_100.U.real.1 block-layer reads charged to the process
+R	1b9d	u32_100.U.real	1	proc_write_bytes	4762443776	bytes	u32_100.U.real.1 pages dirtied (a page that is written again counts again)
+R	1b9d	u32_100.U.real	1	dev_sectors_read	199880	sectors	u32_100.U.real.1 /sys/block/vda/stat over the call (512 B)
+R	1b9d	u32_100.U.real	1	dev_sectors_written	5421624	sectors	u32_100.U.real.1 over the call
+R	1b9d	u32_100.U.real	1	dev_sectors_written_synced	5422632	sectors	u32_100.U.real.1 until the end of a sync after the call
+R	1b9d	u32_100.U.real	1	rssanon_peak_mb	301.498368	MB	u32_100.U.real.1 verdict Within
+R	1b9d	u32_100.U.real	1	rssanon_ph0_mb	10.79296	MB	u32_100.U.real.1
+R	1b9d	u32_100.U.real	1	rssanon_ph1_mb	94.048256	MB	u32_100.U.real.1
+R	1b9d	u32_100.U.real	1	rssanon_ph23_mb	148.717568	MB	u32_100.U.real.1
+R	1b9d	u32_100.U.real	1	rssanon_ph45_mb	301.3632	MB	u32_100.U.real.1
+R	1b9d	u32_100.U.real	1	rssanon_ph6_mb	187.6992	MB	u32_100.U.real.1
+R	1b9d	u32_100.U.real	1	rssanon_seal_mb	187.748352	MB	u32_100.U.real.1
+R	1b9d	u32_100.U.real	1	exit_code	0		program exit code (0 = healthy)
+R	1b9d	u32_100.U.real	1	killed	no		no | watchdog (300 s) | oom-or-signal (exit 137 without the watchdog: the cgroup OOM killer)
+R	1b9d	u32_100.U.real	1	cg_failcnt_final	0	n	memory.failcnt after the run
+R	1b9d	u32_100.U.real	1	cg_max_usage_final	2072875008	bytes	memory.max_usage_in_bytes after the run; memory.stat: cache 1726435328 rss 0 mapped_file 0 pgpgin 345185 pgpgout 291565 pgmajfault 1914 total_cache 1726435328 total_rss 0 total_mapped_file 0 total_pgpgin 345185 total_pgpgout 291565 total_pgmajfault 1914 
+R	1b9d	u32_100.U.real	1	cmp_container	reference		SHA-256 99c630dc025328bc of the container against the reference in /tmp/stbench/b9d/work/u32_100m.txt.sesa.sha (reference = this run made it)
+R	1b9d	u32_100.U.real	1	left_behind	0		entries of the work directory of the run besides the container (a build that succeeded leaves the container only)
+R	1b9d	u32_100.U.real	1	run_done	yes		all rows of this run are written
+R	1b9d	u16_100.U.real.sparse	1	settings	limit=max raise=none prewarm=1 gc=unset args=--sparse true		cgroup limit (bytes), limit after PH3, runtime pre-read outside the group, DOTNET_GCHeapHardLimit, extra program arguments

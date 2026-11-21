@@ -1,0 +1,34 @@
+[
+ {
+  "id": "I01",
+  "desc": "the reserved bytes are counted one more",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/IoCounters.cs",
+  "old": "internal void AddReserved(long bytes) => Interlocked.Add(ref _reserved, bytes);",
+  "new": "internal void AddReserved(long bytes) => Interlocked.Add(ref _reserved, bytes + 1);",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "I02",
+  "desc": "Reset keeps the reserved bytes",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/IoCounters.cs",
+  "old": "        Interlocked.Exchange(ref _reserved, 0);\n",
+  "new": "",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "I03",
+  "desc": "the reserved bytes are the explicit writes",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/IoCounters.cs",
+  "old": "internal long ReservedWriteBytes => Interlocked.Read(ref _reserved);",
+  "new": "internal long ReservedWriteBytes => Interlocked.Read(ref _writeBytes);",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "I04",
+  "desc": "a reserved byte is also an explicit write",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/IoCounters.cs",
+  "old": "internal void AddReserved(long bytes) => Interlocked.Add(ref _reserved, bytes);",
+  "new": "internal void AddReserved(long bytes) { Interlocked.Add(ref _reserved, bytes); Interlocked.Add(ref _writeBytes, bytes); }",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ }
+]

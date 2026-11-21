@@ -1,0 +1,15 @@
+R	fullvolume	full.sparse.psi_false	exit_code	135		0 = built, 3 = IOException, 135 = SIGBUS
+R	fullvolume	full.sparse.psi_false	left_behind	2		entries of the volume besides the ballast
+#stderr: filled /tmp/stbench/b9d/vol: ballast of 2074980352 bytes
+R	fullvolume	full.reserved.psi_false	exit_code	0		0 = built, 3 = IOException, 135 = SIGBUS
+R	fullvolume	full.reserved.psi_false	left_behind	0		entries of the volume besides the ballast
+R	fullvolume	total_s	14.617087954	s	full.reserved.psi_false SesaBuilder.Build, inside the call
+R	fullvolume	grown_bytes	300000003	bytes	full.reserved.psi_false growth Filled, creation Preallocated
+#stderr: filled /tmp/stbench/b9d/vol: ballast of 1774981120 bytes
+R	fullvolume	full.sparse.psi_true	exit_code	135		0 = built, 3 = IOException, 135 = SIGBUS
+R	fullvolume	full.sparse.psi_true	left_behind	2		entries of the volume besides the ballast
+#stderr: filled /tmp/stbench/b9d/vol: ballast of 1674977280 bytes
+R	fullvolume	full.reserved.psi_true	exit_code	3		0 = built, 3 = IOException, 135 = SIGBUS
+R	fullvolume	full.reserved.psi_true	left_behind	0		entries of the volume besides the ballast
+R	fullvolume	io_exception	Failed to create '/tmp/stbench/b9d/vol/out.sesa.tmp.d/ph6/bwt.bin' with allocation size '100000001' because the disk was full.	text	full.reserved.psi_true
+#stderr: filled /tmp/stbench/b9d/vol: ballast of 1374978048 bytes

@@ -1,0 +1,298 @@
+[
+ {
+  "id": "G01",
+  "desc": "the growth is never reserved",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "bool reserve = (options is null || options.Reservation == ReservationMode.Auto ? AutoMode : options.Reservation) != ReservationMode.Sparse;",
+  "new": "bool reserve = false;",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "G02",
+  "desc": "the growth is reserved only in the sparse mode",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "options.Reservation) != ReservationMode.Sparse;",
+  "new": "options.Reservation) == ReservationMode.Sparse;",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "G03",
+  "desc": "the automatic mode grows sparse",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "options.Reservation == ReservationMode.Auto ? AutoMode : options.Reservation)",
+  "new": "options.Reservation == ReservationMode.Auto ? ReservationMode.Sparse : options.Reservation)",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "G04",
+  "desc": "no options mean the sparse mode",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "(options is null || options.Reservation == ReservationMode.Auto ?",
+  "new": "(options is null ? ReservationMode.Sparse : options.Reservation == ReservationMode.Auto ?",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "G05",
+  "desc": "the reserved range starts at the start of the file",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "source.ReserveRange(handle, previous, growth, counters);",
+  "new": "source.ReserveRange(handle, 0, newLength, counters);",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "G06",
+  "desc": "the reserved range is as long as the new file",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "source.ReserveRange(handle, previous, growth, counters);",
+  "new": "source.ReserveRange(handle, previous, newLength, counters);",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "G07",
+  "desc": "the reserved range starts one byte late",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "source.ReserveRange(handle, previous, growth, counters);",
+  "new": "source.ReserveRange(handle, previous + 1, growth - 1, counters);",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "G08",
+  "desc": "the reserved range ends one byte early",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "source.ReserveRange(handle, previous, growth, counters);",
+  "new": "source.ReserveRange(handle, previous, growth - 1, counters);",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "G09",
+  "desc": "the counters are not given to the source",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "source.ReserveRange(handle, previous, growth, counters);",
+  "new": "source.ReserveRange(handle, previous, growth, null);",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "G10",
+  "desc": "a failed reservation does not give the length back",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "                        RandomAccess.SetLength(handle, previous);\n                        throw;",
+  "new": "                        throw;",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "G11",
+  "desc": "a failed reservation gives back the new length",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "RandomAccess.SetLength(handle, previous);\n                        throw;",
+  "new": "RandomAccess.SetLength(handle, newLength);\n                        throw;",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "G12",
+  "desc": "a failed reservation is a different exception",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "                        RandomAccess.SetLength(handle, previous);\n                        throw;",
+  "new": "                        RandomAccess.SetLength(handle, previous);\n                        throw new InvalidOperationException(\"the reservation failed\");",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "G13",
+  "desc": "the check of the free space refuses exactly enough",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "if (free >= 0 && free < growth) throw new IOException($\"not enough free space to grow",
+  "new": "if (free >= 0 && free <= growth) throw new IOException($\"not enough free space to grow",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "G14",
+  "desc": "the check of the free space of the growth is not made",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "if (free >= 0 && free < growth) throw new IOException($\"not enough free space to grow",
+  "new": "if (free >= 0 && free < 0) throw new IOException($\"not enough free space to grow",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "G15",
+  "desc": "the file is one byte short after the growth",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "RandomAccess.SetLength(handle, newLength);",
+  "new": "RandomAccess.SetLength(handle, newLength - 1);",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "G16",
+  "desc": "a reserved growth says Sparse",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "if (reserve) return ReservationOutcome.Filled;",
+  "new": "if (reserve) return ReservationOutcome.Sparse;",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "G17",
+  "desc": "a reserved growth says what the check did",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "if (reserve) return ReservationOutcome.Filled;",
+  "new": "if (reserve) return free >= 0 ? ReservationOutcome.FreeSpaceChecked : ReservationOutcome.Unchecked;",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "G18",
+  "desc": "the sparse growth with a known free space says Unchecked",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "return free >= 0 ? ReservationOutcome.FreeSpaceChecked : ReservationOutcome.Unchecked;\n    }\n\n    /// <summary>A writer for the bytes",
+  "new": "return free >= 0 ? ReservationOutcome.Unchecked : ReservationOutcome.FreeSpaceChecked;\n    }\n\n    /// <summary>A writer for the bytes",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "G19",
+  "desc": "the file is opened without sharing",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "File.OpenHandle(Path, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite))\n            {\n                RandomAccess.SetLength(handle, newLength);",
+  "new": "File.OpenHandle(Path, FileMode.Open, FileAccess.ReadWrite, FileShare.None))\n            {\n                RandomAccess.SetLength(handle, newLength);",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "G20",
+  "desc": "the file is not extended before the reservation",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "RandomAccess.SetLength(handle, newLength);\n                if (reserve)",
+  "new": "if (reserve)",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "G21",
+  "desc": "the length of the object is not updated",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "            _map = map;\n            Length = newLength;",
+  "new": "            _map = map;",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "G22",
+  "desc": "a growth of nothing reserves",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "if (newLength == Length) return ReservationOutcome.Sparse;",
+  "new": "if (newLength == Length) return ReservationOutcome.Filled;",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "Z01",
+  "desc": "the chunk of the zero fill is 512 KiB",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "internal const int ChunkBytes = 1 << 20;",
+  "new": "internal const int ChunkBytes = 1 << 19;",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "Z02",
+  "desc": "the zero fill writes a chunk that is a byte short of the next",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "for (long at = offset; at < end; at += ChunkBytes)",
+  "new": "for (long at = offset; at < end; at += ChunkBytes - 1)",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "Z03",
+  "desc": "the zero fill also writes at the end of the range",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "for (long at = offset; at < end; at += ChunkBytes)",
+  "new": "for (long at = offset; at <= end; at += ChunkBytes)",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "Z04",
+  "desc": "the last chunk of the zero fill is a full chunk",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "int take = (int)Math.Min(ChunkBytes, end - at);",
+  "new": "int take = ChunkBytes;",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "Z05",
+  "desc": "the zero fill counts one byte per write",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "counters?.AddReserved(take);",
+  "new": "counters?.AddReserved(1);",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "Z06",
+  "desc": "the zero fill does not count",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "            counters?.AddReserved(take);\n",
+  "new": "",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "Z07",
+  "desc": "the range ends one byte late",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "long end = offset + length;\n        for (long at = offset;",
+  "new": "long end = offset + length + 1;\n        for (long at = offset;",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "Z08",
+  "desc": "the zeros are ones",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "private static readonly byte[] s_zeros = new byte[ChunkBytes];",
+  "new": "private static readonly byte[] s_zeros = [.. Enumerable.Repeat((byte)1, ChunkBytes)];",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "Z09",
+  "desc": "a negative offset is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "        ArgumentOutOfRangeException.ThrowIfNegative(offset);\n        ArgumentOutOfRangeException.ThrowIfNegative(length);\n        long end",
+  "new": "        ArgumentOutOfRangeException.ThrowIfNegative(length);\n        long end",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "Z10",
+  "desc": "a negative length is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "        ArgumentOutOfRangeException.ThrowIfNegative(length);\n        long end = offset + length;",
+  "new": "        long end = offset + length;",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "Z11",
+  "desc": "a null handle is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "        ArgumentNullException.ThrowIfNull(file);\n        ArgumentOutOfRangeException.ThrowIfNegative(offset);",
+  "new": "        ArgumentOutOfRangeException.ThrowIfNegative(offset);",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "Z12",
+  "desc": "the zeros are written from the start of the file",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "RandomAccess.Write(file, s_zeros.AsSpan(0, take), at);",
+  "new": "RandomAccess.Write(file, s_zeros.AsSpan(0, take), at - offset);",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "D01",
+  "desc": "the default of the interface reserves nothing",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "void ReserveRange(SafeFileHandle file, long offset, long length, IoCounters? counters) => ZeroFill.Write(file, offset, length, counters);",
+  "new": "void ReserveRange(SafeFileHandle file, long offset, long length, IoCounters? counters) { }",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "D02",
+  "desc": "the default of the interface reserves half",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "IoCounters? counters) => ZeroFill.Write(file, offset, length, counters);",
+  "new": "IoCounters? counters) => ZeroFill.Write(file, offset, length / 2, counters);",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ },
+ {
+  "id": "D03",
+  "desc": "the default of the interface does not count",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "IoCounters? counters) => ZeroFill.Write(file, offset, length, counters);",
+  "new": "IoCounters? counters) => ZeroFill.Write(file, offset, length, null);",
+  "filter": "(FullyQualifiedName~1b9dTests)"
+ }
+]

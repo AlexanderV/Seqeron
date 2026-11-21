@@ -19,6 +19,9 @@ internal sealed class TailSource : IReservationSource
     /// <summary>A call whose range is longer than this writes that many bytes and then throws an <see cref="IOException"/>.</summary>
     internal long FailAfterBytes { get; set; } = long.MaxValue;
 
+    /// <summary>The source records the range and returns without writing (it reserves by another means).</summary>
+    internal bool WritesNothing { get; init; }
+
     /// <summary>Every range that was asked for, in order.</summary>
     internal List<(long Offset, long Length)> Reserved { get; } = [];
 
@@ -31,6 +34,7 @@ internal sealed class TailSource : IReservationSource
     public void ReserveRange(SafeFileHandle file, long offset, long length, IoCounters? counters)
     {
         lock (Reserved) Reserved.Add((offset, length));
+        if (WritesNothing) return;
         if (FailAfterBytes < length)
         {
             ZeroFill.Write(file, offset, FailAfterBytes, counters);
@@ -89,6 +93,19 @@ public sealed class Reservation1b9dTests
             Assert.That(bytes.AsSpan(0, 1000).ToArray(), Is.All.EqualTo((byte)0x5A), "what was there stays");
             Assert.That(bytes.AsSpan(1000).ToArray(), Is.All.Zero, "what is added is zero");
         }
+    }
+
+    [Test]
+    public void Grow_ExtendsTheFile_EvenWhenTheSourceWritesNothing()
+    {
+        // a source that reserves by other means (a platform call that a later version of the BCL may offer) is not obliged to write: the length is the caller's business, not the source's
+        using var dir = new TempDir();
+        var source = new TailSource { Can = true, Free = -1, WritesNothing = true };
+        using MappedOutputFile file = MappedOutputFile.Create(dir.File("g.bin"), 1000, Opts(source));
+        Assert.That(file.Grow(5000, Opts(source)), Is.EqualTo(ReservationOutcome.Filled));
+        Assert.That(source.Reserved, Is.EqualTo(new[] { (1000L, 4000L) }));
+        Assert.That((file.Length, new FileInfo(file.Path).Length), Is.EqualTo((5000L, 5000L)));
+        using (MappedWindowWriter w = file.CreateWriter(1000, 4000, 4096)) w.Append(new byte[4000]);
     }
 
     [Test]
@@ -166,6 +183,20 @@ public sealed class Reservation1b9dTests
         source.Free = -1;
         Assert.That(file.Grow(6_000_000, Opts(source, ReservationMode.Sparse), counters), Is.EqualTo(ReservationOutcome.Unchecked));
         Assert.That(source.Reserved, Is.Empty);
+    }
+
+    [Test]
+    public void TheReservedBytes_AreCountedOnTheirOwn_AndReset()
+    {
+        var c = new IoCounters();
+        c.AddReserved(5);
+        c.AddReserved(7);
+        Assert.That(c.ReservedWriteBytes, Is.EqualTo(12));
+        Assert.That((c.WriteBytes, c.WriteCalls, c.MappedWriteBytes, c.Snapshot().TotalBytes), Is.EqualTo((0L, 0L, 0L, 0L)), "they are not explicit writes, not mapped writes and not part of the snapshot");
+        c.AddWrite(3);
+        Assert.That((c.ReservedWriteBytes, c.WriteBytes), Is.EqualTo((12L, 3L)));
+        c.Reset();
+        Assert.That((c.ReservedWriteBytes, c.WriteBytes), Is.EqualTo((0L, 0L)));
     }
 
     // ------------------------------------------------------------------ a failure inside the reservation
