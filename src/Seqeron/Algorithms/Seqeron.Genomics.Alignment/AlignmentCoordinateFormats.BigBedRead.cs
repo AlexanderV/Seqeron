@@ -284,7 +284,7 @@ public static partial class AlignmentCoordinateFormats
         }
     }
 
-    private static CoordinateAlignmentFile ParseBigBedCore(byte[] data, bool maf = false)
+    private static CoordinateAlignmentFile ParseBigBedCore(byte[] data, bool maf = false, bool psl = false)
     {
         var s = new ByteSource(data);
         var magic = s.Read(4);
@@ -342,8 +342,10 @@ public static partial class AlignmentCoordinateFormats
         s.Pos = autoSqlOffset;
         var (declName, declComment, declFields) = BbParseAutoSql(s.Read(autoSqlSize));
         int bedN = definedFieldCount;
+        if (psl)
+            BbCheckPslFields(declFields);
         string[] names = ["chrom", "chromStart", "chromEnd", "name", "score", "strand", "thickStart", "thickEnd", "reserved", "blockCount", "blockSizes", "chromStarts"];
-        for (int i = 0; i < bedN; i++)
+        for (int i = 0; i < (psl ? 0 : bedN); i++)
         {
             string fname = declFields[i].Name;
             if (fname != names[i])
@@ -351,7 +353,7 @@ public static partial class AlignmentCoordinateFormats
         }
 
         var customFields = new List<(string Name, string AsType)>();
-        for (int i = definedFieldCount; i < fieldCount; i++)
+        for (int i = definedFieldCount; i < (psl ? definedFieldCount : fieldCount); i++)
             customFields.Add((declFields[i].Name, declFields[i].AsType));
         var converters = customFields.Select(f => BbConverter(f.AsType)).ToList();
 
@@ -411,7 +413,14 @@ public static partial class AlignmentCoordinateFormats
                     throw new ArgumentException("ValueError: subsection not found");
                 byte[] rest = block[(pos + 12)..zero];
                 pos = zero + 1;
-                alignments.Add(maf ? BbCreateMafAlignment(rest) : BbCreateAlignment(chromId, chromStart, chromEnd, rest, targets, bedN, customFields, converters));
+                BioCoordAlignment created;
+                if (maf)
+                    created = BbCreateMafAlignment(rest);
+                else if (psl)
+                    created = BbCreatePslAlignment(chromId, chromStart, chromEnd, rest, targets);
+                else
+                    created = BbCreateAlignment(chromId, chromStart, chromEnd, rest, targets, bedN, customFields, converters);
+                alignments.Add(created);
             }
         }
 

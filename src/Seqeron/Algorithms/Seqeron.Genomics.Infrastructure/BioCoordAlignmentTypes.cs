@@ -183,6 +183,18 @@ public sealed record BigBedWriteOptions
 
     /// <summary>The block compressor (default: zlib deflate); the compressed bytes depend on the zlib build, so a test may inject the bytes of the reference writer.</summary>
     public Func<byte[], byte[]>? Compressor { get; init; }
+
+    /// <summary>bigPsl only: write the CDS feature of the query in NCBI style (<c>cds=True</c>).</summary>
+    public bool Cds { get; init; }
+
+    /// <summary>bigPsl only: include the query sequence (<c>fa=True</c>).</summary>
+    public bool Fa { get; init; }
+
+    /// <summary>bigPsl only: <c>null</c>, <c>lower</c> or <c>upper</c>: repeat-masked residues of the target are counted in <c>repMatch</c>.</summary>
+    public string? Mask { get; init; }
+
+    /// <summary>bigPsl only: the code of the wildcard letter counted in <c>nCount</c>. Biopython's default is the string <c>"N"</c>, which never equals the integer codes it compares with, so null (the default) counts nothing; 78 counts <c>N</c>.</summary>
+    public int? Wildcard { get; init; }
 }
 
 /// <summary>The autoSql declaration stored in a bigBed file (<c>AutoSQLTable</c>).</summary>

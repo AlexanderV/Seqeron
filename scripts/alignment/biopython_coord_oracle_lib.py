@@ -53,6 +53,13 @@ def encode_value(v):
     return v
 
 
+def location_from(spec):
+    from Bio.SeqFeature import CompoundLocation, SimpleLocation
+    if 'parts' in spec:
+        return CompoundLocation([location_from(p) for p in spec['parts']], operator=spec['operator'])
+    return SimpleLocation(spec['start'], spec['end'], spec.get('strand'))
+
+
 def record_from(spec):
     if spec is None:
         return None
@@ -74,6 +81,10 @@ def record_from(spec):
         rec.annotations[k] = decode_value(v)
     for k, v in spec.get('letter_annotations', {}).items():
         rec.letter_annotations[k] = v
+    if spec.get('features'):
+        from Bio.SeqFeature import SeqFeature
+        for f in spec['features']:
+            rec.features.append(SeqFeature(location_from(f['location']), type=f['type'], qualifiers={k: list(v) for k, v in f.get('qualifiers', {}).items()}))
     return rec
 
 
