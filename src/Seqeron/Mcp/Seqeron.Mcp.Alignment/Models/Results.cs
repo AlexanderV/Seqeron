@@ -298,8 +298,8 @@ public record SumOfPairsScoreResult(double Score, string GapModel, string Scorin
 /// <summary>One pairwise alignment reported by supermatcher / needleall: the rows, the residues of each sequence before (Offset) and after (Offend) the aligned part, and the single-precision score.</summary>
 public record PairAlignmentItem(string Name1, string Name2, string AlignedSequence1, string AlignedSequence2, int Offset1, int Offset2, int Offend1, int Offend2, double Score);
 
-/// <summary>Result of <c>supermatcher_align</c> / <c>needleall_align</c>: the alignments in the order the program writes them and the error-file text.</summary>
-public record EmbossProgramAlignResult(PairAlignmentItem[] Alignments, int Count, string ErrorText, string? Formatted = null);
+/// <summary>Result of <c>supermatcher_align</c> / <c>needleall_align</c>: the alignments in the order the program writes them, the error-file text and what the program prints to its standard error (supermatcher: <c>Error: no kmers found</c> when -wordlen exceeds every target).</summary>
+public record EmbossProgramAlignResult(PairAlignmentItem[] Alignments, int Count, string ErrorText, string? Formatted = null, string StandardError = "");
 
 /// <summary>Result of <c>ksw2_extend</c>: the fields of ksw_extz_t and the CIGAR.</summary>
 public record Ksw2ExtendResult(int Max, bool ZDropped, int MaxQ, int MaxT, int Mqe, int MqeT, int Mte, int MteQ, int Score, bool ReachEnd, string Cigar);

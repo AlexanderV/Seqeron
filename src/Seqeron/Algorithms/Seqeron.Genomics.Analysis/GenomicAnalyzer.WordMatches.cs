@@ -57,8 +57,7 @@ public static partial class GenomicAnalyzer
         ArgumentNullException.ThrowIfNull(sequences);
         if (wordSize < 1)
             throw new ArgumentOutOfRangeException(nameof(wordSize), wordSize, "wordSize must be at least 1 (seqmatchall -wordsize).");
-        foreach (var s in sequences)
-            ArgumentNullException.ThrowIfNull(s);
+        SequenceAligner.RequireNoNullElements(sequences, nameof(sequences), "Sequence");
         sequences = [.. sequences.Select(EmbossSequenceReader.Clean)];       // the EMBOSS reader drops the gap characters and every other non-letter but * (A4-3)
 
         var result = new List<WordMatch>();
@@ -92,8 +91,7 @@ public static partial class GenomicAnalyzer
     public static IReadOnlyList<SeqMatchAllHit> SeqMatchAll(IReadOnlyList<string> sequences, EmbossSequenceQualifiers? qualifiers, int wordSize = 4, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(sequences);
-        foreach (var sequence in sequences)
-            ArgumentNullException.ThrowIfNull(sequence);
+        SequenceAligner.RequireNoNullElements(sequences, nameof(sequences), "Sequence");
         var (_, views) = EmbossSetInput.ReadAll([.. sequences.Select((s, i) => new EmbossSequence("s" + i, s, "", qualifiers))], EmbossSequenceType.Any, EmbossInputKind.Set);
         // the words are matched on the sequences as read, NOT reverse-complemented (measured: seqmatchall only labels them reversed); the reversal decision is the set's
         var plain = qualifiers is null ? qualifiers : qualifiers with { Reverse = false, Begin = 0, End = 0 };

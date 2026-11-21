@@ -70,6 +70,27 @@ public static partial class SequenceAligner
                 throw new ArgumentNullException(paramName, $"{what} {i} is null.");
     }
 
+    /// <summary>
+    /// A set of EMBOSS input sequences (<c>NeedleAll</c> / <c>Supermatcher</c> / ...): a null list, a null member, or a member without <c>Name</c> / <c>Residues</c> is an <see cref="ArgumentNullException"/> naming the parameter and the index
+    /// (audit A6-4: the first dereference was a <see cref="NullReferenceException"/> in <c>EmbossSetInput.Any</c>).
+    /// </summary>
+    internal static void RequireEmbossSet(IReadOnlyList<EmbossSequence>? set, string paramName)
+    {
+        RequireNoNullElements(set, paramName, "Sequence");
+        for (int i = 0; i < set!.Count; i++)
+            RequireEmbossSequence(set[i], paramName, i);
+    }
+
+    /// <summary>One EMBOSS input sequence: a null <c>Name</c> or <c>Residues</c> is an <see cref="ArgumentNullException"/> naming the parameter (and the index when it is a member of a set).</summary>
+    internal static void RequireEmbossSequence(EmbossSequence sequence, string paramName, int index = -1)
+    {
+        string which = index < 0 ? "The sequence" : $"Sequence {index}";
+        if (sequence.Name is null)
+            throw new ArgumentNullException(paramName, $"{which} has no Name.");
+        if (sequence.Residues is null)
+            throw new ArgumentNullException(paramName, $"{which} has no Residues.");
+    }
+
     /// <summary>The argument list and the text "files" of a program runner (<c>KalignProgram</c>, <c>PoaProgram</c>, <c>ProbConsProgram</c>): a null list, null argument or null file text is an <see cref="ArgumentNullException"/> (an argv entry of a real program is never null).</summary>
     internal static void RequireProgramCall(IReadOnlyList<string?>? arguments, IReadOnlyDictionary<string, string>? files)
     {

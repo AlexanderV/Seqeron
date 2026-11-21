@@ -62,6 +62,22 @@ public static partial class SequenceAligner
             throw new ArgumentOutOfRangeException(parameter, value, $"{option} is a finite number between {min:0.0} and {max:0.0} in EMBOSS {program}.");
     }
 
+    /// <summary>
+    /// An ACD <c>integer</c> option as <c>acdSetInt</c> reads it (audit A6-3, measured on matcher 6.6.0): the text must be a <c>strtol</c> integer ("1.5" / "1e2" / "abc": <c>Invalid integer value</c>, the program dies), a value beyond 64 bits is invalid too, a value
+    /// beyond the 32-bit range is saturated, and a value below the option's minimum is RESET to the minimum with the warning <c>integer value out of range -1 less than (reset to) 0</c> (the run goes on).
+    /// </summary>
+    /// <exception cref="ArgumentException"><paramref name="value"/> is not an integer the program accepts (NaN, infinite, fractional, beyond 64 bits).</exception>
+    internal static int EmbossInteger(double value, int minimum, string parameter, string option, System.Text.StringBuilder warnings)
+    {
+        if (!double.IsFinite(value) || value != Math.Floor(value) || Math.Abs(value) >= 9.2233720368547758E+18)
+            throw new ArgumentException($"Invalid integer value '{value.ToString("R", System.Globalization.CultureInfo.InvariantCulture)}' for {option}: an integer is required.", parameter);
+        int v = (int)Math.Clamp(value, int.MinValue, int.MaxValue);
+        if (v >= minimum)
+            return v;
+        warnings.Append(System.Globalization.CultureInfo.InvariantCulture, $"Warning: integer value out of range {v} less than (reset to) {minimum}\n");
+        return minimum;
+    }
+
     /// <summary>Integer-range contract of the stretcher (32-bit <c>int</c> program): the score of any path, <c>max(|substitution|, gapOpen + gapExtend) x (len1 + len2 + 2)</c>, must stay below 2^28 (as <see cref="PairScoring.EnsureRange"/>).</summary>
     internal static void RequireStretcherRange(SubstitutionMatrix matrix, long gapOpen, long gapExtend, long length1, long length2)
     {

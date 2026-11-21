@@ -29,8 +29,8 @@ public static partial class SequenceAligner
     public static EmbossProgramResult Supermatcher(IReadOnlyList<EmbossSequence> queries, IReadOnlyList<EmbossSequence> targets, SubstitutionMatrix? matrix = null,
         double gapOpen = 10, double gapExtend = 0.5, int wordLength = 6, int width = 16, double minScore = 0, EmbossAlignFormat? outputFormat = null)
     {
-        ArgumentNullException.ThrowIfNull(queries);
-        ArgumentNullException.ThrowIfNull(targets);
+        RequireEmbossSet(queries, nameof(queries));
+        RequireEmbossSet(targets, nameof(targets));
         IReadOnlyList<EmbossSequenceView>? queryViews = null, targetViews = null;
         bool? proteinByFirst = null;
         if (EmbossSetInput.Any(queries, targets))
@@ -65,11 +65,14 @@ public static partial class SequenceAligner
         var words = new SupermatcherWords(targets, wordLength);
         var alignments = new List<EmbossPairAlignment>();
         var errors = new StringBuilder();
+        // embWordGetTable finds no word at all (-wordlen above every target, or only N / X runs): "Error: no kmers found" on stderr, then every pair has no start point. The program still runs its Rabin-Karp loops over the
+        // word length for every query (-wordlen 2147483647: 9 s, then a segmentation fault from about -wordlen 1000000 on); with an empty table they can find nothing, so the port skips them (audit A6-5).
+        bool noWords = words.IsEmpty;
         for (int qi = 0; qi < queries.Count; qi++)
         {
             var query = queries[qi];
             AlignmentCancellation.ThrowIfRequested();
-            var matchLists = words.Search(query.Residues);
+            var matchLists = noWords ? words.NoMatches() : words.Search(query.Residues);
             for (int k = 0; k < targets.Count; k++)
             {
                 var target = targets[k];
@@ -124,7 +127,7 @@ public static partial class SequenceAligner
             }
         }
 
-        return new EmbossProgramResult(alignments, errors.ToString(), MatrixFileName(matrix));
+        return new EmbossProgramResult(alignments, errors.ToString(), MatrixFileName(matrix), noWords ? "Error: no kmers found\n" : "");
     }
 
     // embAlignReportLocal: the rows carry '.' for gaps (standardised to '-'), the residues outside the aligned part are the offsets (before) and offends (after)
@@ -263,6 +266,18 @@ public static partial class SequenceAligner
                 start++;
                 i++;
             }
+        }
+
+        /// <summary>No target holds a word (embWordGetTable found no k-mer).</summary>
+        internal bool IsEmpty => _sorted.Length == 0;
+
+        /// <summary>The match lists of a query when the table is empty: one empty list per target.</summary>
+        internal List<WordMatch>[] NoMatches()
+        {
+            var lists = new List<WordMatch>[_targets.Count];
+            for (int k = 0; k < lists.Length; k++)
+                lists[k] = [];
+            return lists;
         }
 
         // embWordRabinKarpSearch for one query: the match list of every target sequence

@@ -34,7 +34,7 @@ public partial class AlignmentTools
     private static EmbossProgramAlignResult ToProgramResult(global::Seqeron.Genomics.Infrastructure.EmbossProgramResult r, string? formatted = null)
     {
         var items = r.Alignments.Select(a => new PairAlignmentItem(a.First.Name, a.Second.Name, a.First.Row, a.Second.Row, a.First.Offset, a.Second.Offset, a.First.Offend, a.Second.Offend, a.Score)).ToArray();
-        return new EmbossProgramAlignResult(items, items.Length, r.ErrorText, formatted);
+        return new EmbossProgramAlignResult(items, items.Length, r.ErrorText, formatted, r.StandardError);
     }
 
     [McpServerTool(Name = "supermatcher_align", Title = "Pairwise — Seeded Local Alignment of Large Sequences (EMBOSS supermatcher)", ReadOnly = true)]

@@ -33,6 +33,8 @@ public static partial class GenomicAnalyzer
     {
         ArgumentNullException.ThrowIfNull(first);
         ArgumentNullException.ThrowIfNull(second);
+        SequenceAligner.RequireEmbossSequence(first, nameof(first));
+        SequenceAligner.RequireEmbossSequence(second, nameof(second));
         var v1 = EmbossInputSequence.Read(first.Residues, first.Qualifiers, EmbossSequenceType.Dna);
         var v2 = EmbossInputSequence.Read(second.Residues, second.Qualifiers, EmbossSequenceType.Dna);
         return MegaMerge(v1.Residues, v2.Residues, wordSize, preferFirst, first.Name, second.Name, cancellationToken);

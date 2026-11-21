@@ -205,4 +205,5 @@ public sealed record EmbossSequence(string Name, string Residues, string Descrip
 /// <param name="Alignments">The pairwise alignments, one <c>ajAlignWrite</c> each.</param>
 /// <param name="ErrorText">What the program prints to its error file (one line per failed pair), empty when nothing failed.</param>
 /// <param name="MatrixName">The EMBOSS name of the scoring matrix the program used (<c>EDNAFULL</c>, <c>EBLOSUM62</c>, ...; the <c>Matrix:</c> line of its report); empty when the program did not record it.</param>
-public sealed record EmbossProgramResult(IReadOnlyList<EmbossPairAlignment> Alignments, string ErrorText, string MatrixName = "");
+/// <param name="StandardError">What the program prints to its standard error while it runs (audit A6-3 / A6-5, measured on 6.6.0: matcher's <c>Warning: integer value out of range -1 less than (reset to) 0</c>, supermatcher's <c>Error: no kmers found</c>), one line each; empty when it printed nothing.</param>
+public sealed record EmbossProgramResult(IReadOnlyList<EmbossPairAlignment> Alignments, string ErrorText, string MatrixName = "", string StandardError = "");

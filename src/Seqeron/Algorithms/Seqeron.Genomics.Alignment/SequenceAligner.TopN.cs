@@ -320,7 +320,7 @@ public static partial class SequenceAligner
         // matcher (TopNTieOrder.Sim) reads its sequences with the EMBOSS reader (A4-3): the gap characters and every other non-letter vanish
         string a = (tieOrder == TopNTieOrder.Sim ? EmbossSequenceReader.Clean(sequence1) : sequence1).ToUpperInvariant();
         string b = (tieOrder == TopNTieOrder.Sim ? EmbossSequenceReader.Clean(sequence2) : sequence2).ToUpperInvariant();
-        var ps = PairScoring.Create(scoring, a, b);
+        var ps = PairScoring.Create(scoring, a, b, null, allowPositiveGapOpen: tieOrder == TopNTieOrder.Sim && affine);          // SIM: q = gapopen - gapextend may be negative (matcher -gapopen below -gapextend)
 
         long minScaled = (long)Math.Ceiling((decimal)Math.Clamp(minScore, -1e12, 1e12) * ps.Scale);
         var raw = coOptimal

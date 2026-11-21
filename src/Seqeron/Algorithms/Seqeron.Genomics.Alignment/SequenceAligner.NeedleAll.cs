@@ -25,8 +25,8 @@ public static partial class SequenceAligner
     public static EmbossProgramResult NeedleAll(IReadOnlyList<EmbossSequence> setA, IReadOnlyList<EmbossSequence> setB, SubstitutionMatrix? matrix = null, double gapOpen = 10, double gapExtend = 0.5,
         bool endWeight = false, double endOpen = 10, double endExtend = 0.5, double minScore = 0, bool brief = true)
     {
-        ArgumentNullException.ThrowIfNull(setA);
-        ArgumentNullException.ThrowIfNull(setB);
+        RequireEmbossSet(setA, nameof(setA));
+        RequireEmbossSet(setB, nameof(setB));
         IReadOnlyList<EmbossSequenceView>? viewsA = null, viewsB = null;
         bool? proteinByFirst = null;
         if (EmbossSetInput.Any(setA, setB))

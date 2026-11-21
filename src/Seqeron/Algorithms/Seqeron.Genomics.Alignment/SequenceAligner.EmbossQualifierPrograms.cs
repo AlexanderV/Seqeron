@@ -64,17 +64,27 @@ public static partial class SequenceAligner
     /// EMBOSS <c>matcher</c> on two sequences read with their qualifiers (see <see cref="NeedleProgram"/>; the penalties are integers: 16 / 4 for nucleotide, 14 / 4 for protein): the best <paramref name="alternatives"/> local alignments (Huang-Miller SIM, the program's tie order).
     /// </summary>
     /// <exception cref="InvalidOperationException">Fewer than <paramref name="alternatives"/> alignments exist: the program aborts.</exception>
+    /// <exception cref="ArgumentException"><paramref name="gapOpen"/> / <paramref name="gapExtend"/> is not an integer (matcher: <c>Invalid integer value</c>), or the score range of the 32-bit program is exceeded.</exception>
+    /// <remarks>
+    /// Any <c>-gapopen</c> is legal, also one below <c>-gapextend</c> (the first gap residue then costs less than a further one; SIM's <c>q = gapopen − gapextend</c> is negative: measured on matcher 6.6.0 with
+    /// <c>-gapopen 0 .. 3 -gapextend 4</c>, A6-3). Negative values are reset to the minimum (0 / 0 / 1) with the program's warning, which is returned in <see cref="EmbossProgramResult.StandardError"/>; a value the program reads as UB (its 32-bit scores
+    /// overflow: <c>-gapopen 2147483647</c>) is refused by the integer range check of the aligner.
+    /// </remarks>
     public static EmbossProgramResult MatcherProgram(EmbossSequence first, EmbossSequence second, SubstitutionMatrix? matrix = null, double? gapOpen = null, double gapExtend = 4, int alternatives = 1)
     {
         var (v1, v2, protein) = EmbossPairInput.Read(first, second);
         matrix ??= protein ? SubstitutionMatrix.Blosum62 : SubstitutionMatrix.EdnaFull;
-        double open = gapOpen ?? (protein ? 14 : 16);      // -gapopen: 16 for nucleotide, 14 for protein (matcher.acd)
-        var scoring = new MatrixScoring(matrix, -(open - gapExtend), -gapExtend);
+        // matcher.acd: -gapopen / -gapextend / -alternatives are integers with the minima 0 / 0 / 1 (below: warning and reset), no maximum; a gap of length k costs gapopen + (k - 1) * gapextend, also when gapopen is below gapextend
+        var warnings = new System.Text.StringBuilder();
+        alternatives = EmbossInteger(alternatives, 1, nameof(alternatives), "-alternatives", warnings);              // the order of matcher.acd: alternatives, gapopen, gapextend
+        int open = EmbossInteger(gapOpen ?? (protein ? 14 : 16), 0, nameof(gapOpen), "-gapopen", warnings);      // 16 for nucleotide, 14 for protein
+        int extend = EmbossInteger(gapExtend, 0, nameof(gapExtend), "-gapextend", warnings);
+        var scoring = new MatrixScoring(matrix, -((double)open - extend), -(double)extend);
         var list = LocalAlignAffineTopN(v1.Residues, v2.Residues, scoring, alternatives, 0, TopNTieOrder.Sim);
         if (list.Count < alternatives)
             throw new InvalidOperationException($"EMBOSS matcher aborts: only {list.Count} alignment(s) exist for -alternatives {alternatives}.");
         // the SIM list reports inclusive 0-based ends
-        return new EmbossProgramResult([.. list.Select(r => ProgramPair(r with { EndPosition1 = r.EndPosition1 + 1, EndPosition2 = r.EndPosition2 + 1 }, first, v1, second, v2))], "", MatrixFileName(matrix));
+        return new EmbossProgramResult([.. list.Select(r => ProgramPair(r with { EndPosition1 = r.EndPosition1 + 1, EndPosition2 = r.EndPosition2 + 1 }, first, v1, second, v2))], "", MatrixFileName(matrix), warnings.ToString());
     }
 
     /// <summary>

@@ -244,12 +244,19 @@ internal readonly struct PairScoring
     /// and <paramref name="b"/>, validating residues, gap scores and the integer range.
     /// </summary>
     public static PairScoring Create(MatrixScoring scoring, string a, string b, GapScoreProfile? profile = null)
+        => Create(scoring, a, b, profile, allowPositiveGapOpen: false);
+
+    /// <summary>
+    /// <see cref="Create(MatrixScoring, string, string, GapScoreProfile?)"/>; with <paramref name="allowPositiveGapOpen"/> a POSITIVE gap-open score is legal: the SIM program of EMBOSS <c>matcher</c> charges a gap of length k
+    /// <c>q + r·k</c> with q = gapopen − gapextend, which is negative whenever <c>-gapopen</c> is below <c>-gapextend</c> (audit A6-3: <c>matcher -gapopen 2 -gapextend 4</c> is a legal run).
+    /// </summary>
+    internal static PairScoring Create(MatrixScoring scoring, string a, string b, GapScoreProfile? profile, bool allowPositiveGapOpen)
     {
         var matrix = scoring.Matrix ?? throw new ArgumentException("MatrixScoring.Matrix must not be null.", nameof(scoring));
         ValidateResidues(matrix, a, "sequence1");
         ValidateResidues(matrix, b, "sequence2");
         return Build(scoring, matrix, (long)a.Length + b.Length + 2, 1,
-            $"sequence lengths {a.Length} and {b.Length}", profile);
+            $"sequence lengths {a.Length} and {b.Length}", profile, allowPositiveGapOpen);
     }
 
     /// <summary>
@@ -273,9 +280,9 @@ internal readonly struct PairScoring
             $"{sequences.Count} sequences, the two longest have {longest} and {second} residues");
     }
 
-    private static PairScoring Build(MatrixScoring scoring, SubstitutionMatrix matrix, long pathLength, long pairs, string sizeText, GapScoreProfile? profile = null)
+    private static PairScoring Build(MatrixScoring scoring, SubstitutionMatrix matrix, long pathLength, long pairs, string sizeText, GapScoreProfile? profile = null, bool allowPositiveGapOpen = false)
     {
-        decimal open = ToGapDecimal(scoring.GapOpen, nameof(MatrixScoring.GapOpen));
+        decimal open = ToGapDecimal(scoring.GapOpen, nameof(MatrixScoring.GapOpen), allowPositiveGapOpen);
         decimal extend = ToGapDecimal(scoring.GapExtend, nameof(MatrixScoring.GapExtend));
 
         // Smallest integer scale that makes every gap score integral (0.5 -> 2, 0.1 -> 10, integers -> 1); a profile adds its six members.
@@ -336,10 +343,10 @@ internal readonly struct PairScoring
                     $"Residue '{seq[i]}' at position {i} of {name} is not in substitution matrix {matrix.Name} ({matrix.Alphabet}).", name);
     }
 
-    private static decimal ToGapDecimal(double value, string name)
+    private static decimal ToGapDecimal(double value, string name, bool allowPositive = false)
     {
-        if (double.IsNaN(value) || double.IsInfinity(value) || value > 0)
-            throw new ArgumentException($"{name} must be a finite score <= 0 (a penalty), got {value}.", name);
+        if (double.IsNaN(value) || double.IsInfinity(value) || (value > 0 && !allowPositive))
+            throw new ArgumentException($"{name} must be a finite score{(allowPositive ? "" : " <= 0 (a penalty)")}, got {value}.", name);
         return (decimal)value;
     }
 

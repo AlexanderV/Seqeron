@@ -25,6 +25,8 @@ public static class EmbossReports
     /// <summary>The report of <c>fuzznuc</c>: forward hits in position order (a range pattern searched without mismatches: start descending), then the hits of the complement strand; score = hit length minus mismatches; the pattern is printed as <c><paramref name="patternName"/>:<paramref name="pattern"/></c>.</summary>
     public static EmbossReport Fuzznuc(string sequenceName, string sequence, string pattern, IReadOnlyList<PatternHit> hits, string patternName = "pattern", int maxMismatches = 0)
     {
+        ArgumentNullException.ThrowIfNull(sequenceName);
+        ArgumentNullException.ThrowIfNull(patternName);
         ArgumentNullException.ThrowIfNull(sequence);
         ArgumentNullException.ThrowIfNull(pattern);
         ArgumentNullException.ThrowIfNull(hits);
@@ -44,6 +46,8 @@ public static class EmbossReports
     /// <summary>The report of <c>fuzzpro</c>: the hits in position order, score = hit length; the gff report has no strand and its <c>##sequence-region</c> end is the largest hit end (the feature table has no length).</summary>
     public static EmbossReport Fuzzpro(string sequenceName, string sequence, string pattern, IReadOnlyList<ProteinPatternHit> hits, string patternName = "pattern")
     {
+        ArgumentNullException.ThrowIfNull(sequenceName);
+        ArgumentNullException.ThrowIfNull(patternName);
         ArgumentNullException.ThrowIfNull(sequence);
         ArgumentNullException.ThrowIfNull(pattern);
         ArgumentNullException.ThrowIfNull(hits);
@@ -57,10 +61,21 @@ public static class EmbossReports
     /// score = residues of the hit, the frame number without its sign (the strand column carries it). The gff report lists the smaller coordinate first unless the two have opposite signs, and its <c>##sequence-region</c> end is the largest
     /// coordinate read as an unsigned integer (the program's feature table has no length).
     /// </summary>
+    /// <exception cref="ArgumentException">A hit has no <see cref="TranslatedPatternHit.EmbossStart"/> / <see cref="TranslatedPatternHit.EmbossEnd"/> (a hit made by hand: the hits of <c>FindTranslatedPatternHits</c> carry the program's coordinates) or no translation (audit A6-4).</exception>
     public static EmbossReport Fuzztran(string sequenceName, string pattern, IReadOnlyList<TranslatedPatternHit> hits, string patternName = "pattern")
     {
+        ArgumentNullException.ThrowIfNull(sequenceName);
+        ArgumentNullException.ThrowIfNull(patternName);
         ArgumentNullException.ThrowIfNull(pattern);
         ArgumentNullException.ThrowIfNull(hits);
+        for (int i = 0; i < hits.Count; i++)
+        {
+            if (hits[i].EmbossStart is null || hits[i].EmbossEnd is null)
+                throw new ArgumentException($"Hit {i} has no EmbossStart / EmbossEnd: the report prints the program's own coordinates (the hits of GenomicAnalyzer.FindTranslatedPatternHits carry them).", nameof(hits));
+            if (hits[i].Translation is null)
+                throw new ArgumentException($"Hit {i} has no Translation.", nameof(hits));
+        }
+
         var features = hits.GroupBy(h => h.Frame).SelectMany(g => ReportOrder(g, pattern, h => h.ProteinStart, h => h.ProteinEnd)).Select(h =>
         {
             long s = h.EmbossStart!.Value, e = h.EmbossEnd!.Value;
@@ -77,6 +92,7 @@ public static class EmbossReports
     /// <summary>The report of <c>etandem</c> (the program's report order: highest score first): size, count, identity (one decimal) and the consensus.</summary>
     public static EmbossReport Etandem(string sequenceName, string sequence, IReadOnlyList<EmbossTandemRepeat> hits)
     {
+        ArgumentNullException.ThrowIfNull(sequenceName);
         ArgumentNullException.ThrowIfNull(sequence);
         ArgumentNullException.ThrowIfNull(hits);
         var features = hits.Select(h => new EmbossReportFeature(h.Start, h.End, h.Start, h.End, Int(h.Score), "+", "+", ".",
@@ -88,6 +104,7 @@ public static class EmbossReports
     /// <summary>The report of <c>equicktandem</c>: size and count.</summary>
     public static EmbossReport Equicktandem(string sequenceName, string sequence, IReadOnlyList<EmbossTandemRepeat> hits)
     {
+        ArgumentNullException.ThrowIfNull(sequenceName);
         ArgumentNullException.ThrowIfNull(sequence);
         ArgumentNullException.ThrowIfNull(hits);
         var features = hits.Select(h => new EmbossReportFeature(h.Start, h.End, h.Start, h.End, Int(h.Score), "+", "+", ".",

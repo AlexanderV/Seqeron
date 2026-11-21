@@ -77,11 +77,36 @@ public static class EmbossReportWriter
         return sb.ToString();
     }
 
+    private static void Validate(EmbossReport report)
+    {
+        if (report.Program is null || report.SequenceName is null || report.GffType is null)
+            throw new ArgumentException("The report needs a Program, a SequenceName and a GffType.", nameof(report));
+        if (report.ExcelHeader is null || report.ExcelHeader.Any(c => c is null))
+            throw new ArgumentException("The report's ExcelHeader is null or has a null column.", nameof(report));
+        if (report.Features is null)
+            throw new ArgumentException("The report's Features list is null.", nameof(report));
+        for (int i = 0; i < report.Features.Count; i++)
+        {
+            var f = report.Features[i];
+            if (f is null)
+                throw new ArgumentException($"Feature {i} is null.", nameof(report));
+            if (f.Score is null || f.ExcelStrand is null || f.GffStrand is null || f.GffPhase is null)
+                throw new ArgumentException($"Feature {i} has a null Score / strand / phase.", nameof(report));
+            if (f.ExcelColumns is null || f.ExcelColumns.Any(c => c is null) || f.GffAttributes is null || f.GffAttributes.Any(a => a is null))
+                throw new ArgumentException($"Feature {i} has null ExcelColumns / GffAttributes or a null element of them.", nameof(report));
+        }
+    }
+
     /// <summary>Writes the report in <paramref name="format"/>; <paramref name="date"/> is the <c>#!Date</c> of the gff header (the date of the run).</summary>
     /// <exception cref="ArgumentNullException"><paramref name="report"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="format"/> is not a defined <see cref="EmbossReportFormat"/> (it was written as gff).</exception>
+    /// <exception cref="ArgumentException">A field of <paramref name="report"/> or of one of its features is null (audit A6-4).</exception>
     public static string Write(EmbossReport report, EmbossReportFormat format, DateTime date)
     {
         ArgumentNullException.ThrowIfNull(report);
+        if (!Enum.IsDefined(format))
+            throw new ArgumentOutOfRangeException(nameof(format), format, "Unknown report format (gff or excel).");
+        Validate(report);
         if (report.Features.Count == 0 && !report.WriteWhenEmpty)
             return string.Empty;
         var sb = new StringBuilder();

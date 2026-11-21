@@ -194,6 +194,8 @@ internal static class EmbossPairInput
     {
         ArgumentNullException.ThrowIfNull(first);
         ArgumentNullException.ThrowIfNull(second);
+        SequenceAligner.RequireEmbossSequence(first, nameof(first));
+        SequenceAligner.RequireEmbossSequence(second, nameof(second));
         var v1 = EmbossInputSequence.Read(first.Residues, first.Qualifiers, EmbossSequenceType.Any);
         bool protein = !v1.IsNucleotide;
         var v2 = EmbossInputSequence.Read(second.Residues, second.Qualifiers, protein ? EmbossSequenceType.StopProtein : EmbossSequenceType.Nucleotide);
