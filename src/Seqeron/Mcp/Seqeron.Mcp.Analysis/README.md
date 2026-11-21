@@ -2,7 +2,7 @@
 
 MCP server — **K-mer, motif, repeat, complexity, RNA-structure and comparative-genomics analysis.**
 
-Exposes **173 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+Exposes **174 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
 MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test, with a
 per-tool doc under [`docs/mcp/tools/analysis/`](../../../../docs/mcp/tools/analysis). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
@@ -67,6 +67,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `mash_dist` | Mash distances of query files to reference files (`mash dist`: -t, -v, -d, -i, -n). |
 | `mash_triangle` | Mash lower-triangular distance matrix or edge list (`mash triangle`: -E, -v, -d, -i, -n). |
 | `mash_screen` | Mash containment of query sketches in a mixture of reads / contigs (`mash screen`: identity, shared-hashes, median-multiplicity, p-value, query-ID, comment; -w, -i, -v). |
+| `mash_taxscreen` | Mash taxscreen: Kraken-style taxonomic report (LCA of the references that share a hash, clade / taxon counts) of a pool of sequences, with names.dmp / nodes.dmp. |
 | `mash_sketch` | Mash sketch file (`mash sketch -o x.msh`: Cap'n Proto `MinHash.capnp`, byte for byte; genomes and read sets, -k -s -S -n -i -r -m -c -g -I -C -l): `msh:` + base64, accepted by the other Mash tools. |
 | `mash_info` | `mash info` of a sketch file: header and table, -H, -t, -c (count histogram), -d (JSON). |
 | `diffseq` | EMBOSS diffseq: the regions of difference between two nearly identical sequences (word matches), the 7-tag report in every -rformat and the GFF3 feature files. |

@@ -1573,14 +1573,32 @@ public static class KmerAnalyzer
     public static MinHashSketch CreateMinHashSketch(
         IEnumerable<string> records, int k, int sketchSize = DefaultMashSketchSize, bool canonical = true, uint seed = DefaultMashSeed,
         CancellationToken cancellationToken = default)
+        => CreateMinHashSketch(records, null, k, sketchSize, canonical, seed, cancellationToken);
+
+    /// <summary>
+    /// <see cref="CreateMinHashSketch(IEnumerable{string}, int, int, bool, uint, CancellationToken)"/> for any alphabet of <c>mash sketch -a | -z | -Z</c> (<see cref="MashAlphabet"/>): a window holding a character outside the alphabet is skipped,
+    /// the case is folded unless the alphabet preserves it, the hash is 64-bit when <c>alphabetSize^k &gt; 2^32</c>; <c>-a</c> and <c>-z</c> imply forward k-mers (<paramref name="canonical"/> false: <see cref="MashAlphabet.ImpliesNoncanonical"/>).
+    /// </summary>
+    /// <param name="records">The records; null entries are treated as empty.</param>
+    /// <param name="alphabet">The alphabet; null = the nucleotides <c>ACGT</c>.</param>
+    /// <param name="k">K-mer size, 1..32.</param>
+    /// <param name="sketchSize">Sketch size s ≥ 1.</param>
+    /// <param name="canonical">Canonical k-mers (only meaningful for nucleotide alphabets).</param>
+    /// <param name="seed">MurmurHash3 seed.</param>
+    /// <param name="cancellationToken">Polled every few thousand windows.</param>
+    /// <returns>The sketch (<see cref="MinHashSketch.AlphabetSize"/> set).</returns>
+    public static MinHashSketch CreateMinHashSketch(
+        IEnumerable<string> records, MashAlphabet? alphabet, int k, int sketchSize = DefaultMashSketchSize, bool canonical = true, uint seed = DefaultMashSeed,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(records);
         if (!IsMashKmerSize(k))
             throw new ArgumentOutOfRangeException(nameof(k), k, $"K must be in 1..{MaxMashKmerSize} (mash sketch -k).");
         ArgumentOutOfRangeException.ThrowIfLessThan(sketchSize, 1);
+        alphabet ??= MashAlphabet.Nucleotide();
 
         // Mash's MinHashHeap: only the s smallest distinct hashes are ever held (B09 A6-1: no k-mer string, no table of all k-mers)
-        bool use64 = MashUses64BitHash(k);
+        bool use64 = alphabet.Uses64BitHash(k);
         var bottom = new BottomHashes(sketchSize);
         long length = 0;
         foreach (var record in records)
@@ -1591,12 +1609,12 @@ public static class KmerAnalyzer
                 continue;
             length += seq.Length;
             if (use64)
-                StreamKmerHashes(seq, k, canonical, seed, bottom.Add64, cancellationToken);
+                StreamKmerHashes(seq, k, canonical, seed, bottom.Add64, cancellationToken, alphabet);
             else
-                StreamKmerHashes(seq, k, canonical, seed, bottom.Add32, cancellationToken);
+                StreamKmerHashes(seq, k, canonical, seed, bottom.Add32, cancellationToken, alphabet);
         }
 
-        return new MinHashSketch(k, sketchSize, canonical, seed, use64, length, bottom.ToArray());
+        return new MinHashSketch(k, sketchSize, canonical, seed, use64, length, bottom.ToArray()) { AlphabetSize = alphabet.Size };
     }
 
     /// <summary>
@@ -1635,13 +1653,14 @@ public static class KmerAnalyzer
     /// <param name="reads">The reads of at least k symbols, in input order.</param>
     /// <param name="readsUsed">The number of reads taken before the coverage target was reached.</param>
     internal static MinHashSketch CreateReadsMinHashSketch(IReadOnlyList<string> reads, int k, int sketchSize, bool canonical, uint seed, int minCopies, double targetCoverage, long genomeSize, out int readsUsed,
-        CancellationToken cancellationToken = default, long bloomFilterBytes = 0)
+        CancellationToken cancellationToken = default, long bloomFilterBytes = 0, MashAlphabet? alphabet = null)
     {
+        alphabet ??= MashAlphabet.Nucleotide();
         ArgumentOutOfRangeException.ThrowIfNegative(bloomFilterBytes);
         if (bloomFilterBytes > 0 && minCopies != 1)
             throw new ArgumentException("The option -m cannot be used with -b.", nameof(minCopies));
         var bloom = bloomFilterBytes > 0 ? new MashBloomFilter(bloomFilterBytes) : null;
-        bool use64 = MashUses64BitHash(k);
+        bool use64 = alphabet.Uses64BitHash(k);
         var hashes = new SortedSet<ulong>();
         var counts = new RobinHoodMap();            // HashSet of MinHashHeap: the multiplicities stay in the iteration order of Mash's robin_hood::unordered_map (A5-10b3)
         var pending = new Dictionary<ulong, uint>();
@@ -1712,7 +1731,7 @@ public static class KmerAnalyzer
         {
             cancellationToken.ThrowIfCancellationRequested();
             readsUsed++;
-            StreamKmerHashes(read, k, canonical, seed, h => Insert(use64 ? h : (uint)h), cancellationToken);
+            StreamKmerHashes(read, k, canonical, seed, h => Insert(use64 ? h : (uint)h), cancellationToken, alphabet);
             if (targetCoverage > 0 && hashes.Count > 0 && multiplicitySum / hashes.Count >= targetCoverage)
                 break;
         }
@@ -1720,7 +1739,7 @@ public static class KmerAnalyzer
         long length = genomeSize;
         if (length == 0 && hashes.Count > 0)
             length = (long)(ulong)(Math.Pow(2.0, use64 ? 64.0 : 32.0) * hashes.Count / (double)hashes.Max);
-        return new MinHashSketch(k, sketchSize, canonical, seed, use64, length, [.. hashes], counts.ValuesInIterationOrder());
+        return new MinHashSketch(k, sketchSize, canonical, seed, use64, length, [.. hashes], counts.ValuesInIterationOrder()) { AlphabetSize = alphabet.Size };
     }
 
     /// <summary>The s smallest distinct hash values seen so far (a bounded sorted set; the threshold rejects almost every hash of a long sequence in O(1)).</summary>
@@ -1756,8 +1775,14 @@ public static class KmerAnalyzer
     /// forward / reverse-complement pair (A, C, G, T = 0 .. 3, so the numeric minimum is the ordinal minimum of the two k-mers), for a larger k two byte buffers.
     /// A k-mer occurring several times is passed several times (the sinks are set-like or counting).
     /// </summary>
-    private static void StreamKmerHashes(string seq, int k, bool canonical, uint seed, Action<ulong> sink, CancellationToken cancellationToken)
+    private static void StreamKmerHashes(string seq, int k, bool canonical, uint seed, Action<ulong> sink, CancellationToken cancellationToken, MashAlphabet? alphabet = null)
     {
+        if (alphabet is not null && !alphabet.IsDefaultNucleotide)
+        {
+            MashAlphabet.StreamHashes(seq, k, canonical, seed, alphabet, sink, cancellationToken);
+            return;
+        }
+
         const int PollEvery = 4096;
         int n = seq.Length;
         if (k > n)
@@ -1823,6 +1848,10 @@ public static class KmerAnalyzer
         }
     }
 
+    /// <summary><see cref="StreamKmerHashes"/> for the screen pass (B09 F214).</summary>
+    internal static void StreamHashesInternal(string seq, int k, bool canonical, uint seed, Action<ulong> sink, CancellationToken cancellationToken, MashAlphabet? alphabet)
+        => StreamKmerHashes(seq, k, canonical, seed, sink, cancellationToken, alphabet);
+
     /// <summary>2-bit code of A / C / G / T in either case (what <c>ToUpperInvariant</c> leaves as A / C / G / T), -1 for every other symbol.</summary>
     private static int AcgtCode(char c) => c switch
     {
@@ -1862,7 +1891,7 @@ public static class KmerAnalyzer
         ArgumentNullException.ThrowIfNull(reference);
         ArgumentNullException.ThrowIfNull(query);
         ThrowIfSketchParametersDiffer(
-            reference.K != query.K || reference.Seed != query.Seed || reference.Canonical != query.Canonical, nameof(query));
+            reference.K != query.K || reference.Seed != query.Seed || reference.Canonical != query.Canonical || reference.AlphabetSize != query.AlphabetSize, nameof(query));
         ValidateMinHashSketch(reference, nameof(reference));
         ValidateMinHashSketch(query, nameof(query));
 
@@ -1893,7 +1922,7 @@ public static class KmerAnalyzer
 
         double jaccard = denom == 0 ? 0.0 : (double)common / denom;
         double distance = common == denom ? 0.0 : MashDistanceFromJaccard(jaccard, reference.K);
-        double pValue = MashPValue(common, reference.Length, query.Length, reference.K, denom);
+        double pValue = MashPValue(common, reference.Length, query.Length, reference.K, denom, Math.Pow(reference.AlphabetSize, reference.K));
         return new MashComparison(common, denom, jaccard, distance, pValue);
     }
 
@@ -1903,8 +1932,10 @@ public static class KmerAnalyzer
         // i.e. k > 16 for DNA, and a 32-bit sketch stores only 32-bit hash values.
         if (!IsMashKmerSize(sketch.K))
             throw new ArgumentException($"K must be in 1..{MaxMashKmerSize} (mash sketch -k).", paramName);
-        if (sketch.Use64 != MashUses64BitHash(sketch.K))
-            throw new ArgumentException("Use64 must equal K > 16 (Mash: use64 = 4^k > 2^32).", paramName);
+        if (sketch.AlphabetSize < 0)
+            throw new ArgumentException("AlphabetSize must not be negative.", paramName);
+        if (sketch.Use64 != (Math.Pow(sketch.AlphabetSize, sketch.K) > 4294967296.0))
+            throw new ArgumentException("Use64 must equal AlphabetSize^K > 2^32 (Mash: use64 = alphabetSize^k > 2^32; K > 16 for the 4-letter alphabet).", paramName);
         if (sketch.SketchSize < 1 || sketch.Length < 0)
             throw new ArgumentException("SketchSize must be >= 1 and Length >= 0.", paramName);
         if (sketch.Hashes is null)
@@ -1965,6 +1996,12 @@ public static class KmerAnalyzer
     /// <exception cref="ArgumentException"><paramref name="sharedHashes"/> exceeds <paramref name="sketchSize"/>, or is
     /// positive while a length is 0.</exception>
     public static double MashPValue(long sharedHashes, long length1, long length2, int k, long sketchSize)
+        => MashPValue(sharedHashes, length1, length2, k, sketchSize, Math.Pow(4.0, k));
+
+    /// <summary>
+    /// <see cref="MashPValue(long, long, long, int, long)"/> for a sketch of any alphabet: the k-mer space is <paramref name="kmerSpace"/> = <c>alphabetSize^k</c> (<c>Sketch::kmerSpace</c>, <see cref="MashAlphabet.KmerSpace"/>).
+    /// </summary>
+    public static double MashPValue(long sharedHashes, long length1, long length2, int k, long sketchSize, double kmerSpace)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(sharedHashes);
         ArgumentOutOfRangeException.ThrowIfNegative(length1);
@@ -1981,7 +2018,6 @@ public static class KmerAnalyzer
                 "Shared hashes require two non-empty sequence sets (length >= 1); an empty set has no hashes.",
                 length1 == 0 ? nameof(length1) : nameof(length2));
 
-        double kmerSpace = Math.Pow(4.0, k);
         double pX = 1.0 / (1.0 + kmerSpace / length1);
         double pY = 1.0 / (1.0 + kmerSpace / length2);
         double r = pX * pY / (pX + pY - pX * pY);
@@ -3518,6 +3554,9 @@ public readonly record struct D2StarStatistics(double D2Star, double D2Shepherd,
 /// <param name="Counts">With a read-set sketch (<c>mash sketch -r</c>): the multiplicity of each hash, parallel to <paramref name="Hashes"/> (the <c>counts32</c> of the <c>.msh</c> file holds the same multiset, but Mash writes it in the iteration order of its <c>robin_hood::unordered_map</c>, not parallel to the sorted hashes: registered A5-10b3), else null.</param>
 public sealed record MinHashSketch(int K, int SketchSize, bool Canonical, uint Seed, bool Use64, long Length, IReadOnlyList<ulong> Hashes, IReadOnlyList<uint>? Counts = null)
 {
+    /// <summary>The number of characters of the alphabet the k-mers were taken from (4 for nucleotides, 20 for <c>-a</c>; <see cref="MashAlphabet.Size"/>): the k-mer space of the p-value is <c>AlphabetSize^K</c> and <see cref="Use64"/> is <c>AlphabetSize^K &gt; 2^32</c>.</summary>
+    public int AlphabetSize { get; init; } = 4;
+
     /// <summary>
     /// Builds a well-formed sketch from arbitrary hash values (e.g. read from a Mash <c>.msh</c> file): the values are sorted,
     /// duplicates removed and the <paramref name="sketchSize"/> smallest kept, which is the form

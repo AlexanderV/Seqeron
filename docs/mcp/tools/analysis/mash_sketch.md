@@ -1,6 +1,6 @@
 # mash_sketch
 
-Mash 2.3 'mash sketch -o x.msh': the sketch file of the inputs, byte for byte as the program writes it (120 random runs equal: genomes and read sets, k 4 - 32, sketch sizes 1 - 3000, seeds, -n, -i, -r -m -c -g with all the files of a read set in ONE sketch, -I / -C, -l). The file is a Cap'n Proto message of MinHash.capnp built as capnp::MallocMessageBuilder builds it (segments of 1024, 1024, 2048, ... words, far pointers with landing pads); it is returned as base64 and, prefixed with 'msh:', it is accepted by mash_dist / mash_triangle / mash_screen / mash_info / mash_paste as an input. One sketch per file (its name is the file name, its comment the first record's name and comment) or, with individual, one per sequence. -l (a list of file names) is the caller's list of inputs.
+Mash 2.3 'mash sketch -o x.msh': the sketch file of the inputs, byte for byte as the program writes it (120 random runs equal, and 300 more with the alphabet options -a -z -Z: genomes and read sets, k 4 - 32, sketch sizes 1 - 3000, seeds, -n, -i, -r -m -c -g with all the files of a read set in ONE sketch, -I / -C, -l). The file is a Cap'n Proto message of MinHash.capnp built as capnp::MallocMessageBuilder builds it (segments of 1024, 1024, 2048, ... words, far pointers with landing pads); it is returned as base64 and, prefixed with 'msh:', it is accepted by mash_dist / mash_triangle / mash_screen / mash_info / mash_paste as an input. One sketch per file (its name is the file name, its comment the first record's name and comment) or, with individual, one per sequence. -l (a list of file names) is the caller's list of inputs.
 
 ## Overview
 
@@ -14,7 +14,7 @@ Mash 2.3 'mash sketch -o x.msh': the sketch file of the inputs, byte for byte as
 
 ## Description
 
-Mash 2.3 'mash sketch -o x.msh': the sketch file of the inputs, byte for byte as the program writes it (120 random runs equal: genomes and read sets, k 4 - 32, sketch sizes 1 - 3000, seeds, -n, -i, -r -m -c -g with all the files of a read set in ONE sketch, -I / -C, -l). The file is a Cap'n Proto message of MinHash.capnp built as capnp::MallocMessageBuilder builds it (segments of 1024, 1024, 2048, ... words, far pointers with landing pads); it is returned as base64 and, prefixed with 'msh:', it is accepted by mash_dist / mash_triangle / mash_screen / mash_info / mash_paste as an input. One sketch per file (its name is the file name, its comment the first record's name and comment) or, with individual, one per sequence. -l (a list of file names) is the caller's list of inputs.
+Mash 2.3 'mash sketch -o x.msh': the sketch file of the inputs, byte for byte as the program writes it (120 random runs equal, and 300 more with the alphabet options -a -z -Z: genomes and read sets, k 4 - 32, sketch sizes 1 - 3000, seeds, -n, -i, -r -m -c -g with all the files of a read set in ONE sketch, -I / -C, -l). The file is a Cap'n Proto message of MinHash.capnp built as capnp::MallocMessageBuilder builds it (segments of 1024, 1024, 2048, ... words, far pointers with landing pads); it is returned as base64 and, prefixed with 'msh:', it is accepted by mash_dist / mash_triangle / mash_screen / mash_info / mash_paste as an input. One sketch per file (its name is the file name, its comment the first record's name and comment) or, with individual, one per sequence. -l (a list of file names) is the caller's list of inputs.
 
 ## Core Documentation Reference
 
@@ -26,7 +26,7 @@ Mash 2.3 'mash sketch -o x.msh': the sketch file of the inputs, byte for byte as
 |-----------|------|----------|-------------|
 | `sequences` | array<string> | Yes | The input files as FASTA texts (records start with '>': the first word of the header is the sequence id, the rest the comment). |
 | `names` | array<string> | No | Names of the inputs as the program stores them (the file names; default input1, ...). |
-| `k` | integer | No | k-mer size (-k, 1 - 32, default 21). (default: 21) |
+| `k` | integer | No | k-mer size (-k, 1 - 32; default 21, or 9 with protein). |
 | `sketchSize` | integer | No | Sketch size (-s, default 1000). (default: 1000) |
 | `seed` | integer | No | Hash seed (-S, 0 - 4294967295, default 42; 42 is stored in referenceListOld, another seed in referenceList). (default: 42) |
 | `noncanonical` | boolean | No | -n: preserve the strand (no canonical k-mers). (default: false) |
@@ -38,6 +38,9 @@ Mash 2.3 'mash sketch -o x.msh': the sketch file of the inputs, byte for byte as
 | `id` | string | No | -I: the id (name) of the first sketch. |
 | `comment` | string | No | -C: the comment of the first sketch. |
 | `bloomFilter` | string | No | -b: a Bloom filter of this size (raw bytes or with K/M/G/T, e.g. 500M) filters out the k-mers seen once, instead of the exact filter -m (cannot be combined with minCopies > 1; implies reads; copies cannot be counted beyond 2; some unique k-mers pass erroneously; the filter has one hash function over bytes x 8 bits as the program builds it). |
+| `protein` | boolean | No | -a: the amino-acid alphabet (A-Z except BJOUXZ; implies -n and, without k, -k 9): k-mers of the 20 letters, 64-bit hashes when 20^k > 2^32, p-values over the k-mer space 20^k. (default: false) |
+| `alphabet` | string | No | -z: the alphabet the hashes are based on (case ignored unless preserveCase; k-mers with other characters are ignored; implies -n; ASCII only: the program has no defined result for a byte of 0x80 or more). protein takes precedence. |
+| `preserveCase` | boolean | No | -Z: preserve the case of the letters in the k-mers and the alphabet (a letter whose case is not in the alphabet is skipped). (default: false) |
 
 ## Output Schema
 

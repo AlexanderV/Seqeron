@@ -40,8 +40,9 @@ for t in new:
     readme = readme[:anchor.end()] + '| `%s` | %s |\n' % (t['name'], t['short']) + readme[anchor.end():]
     anchor = re.search(r'^\| %s \|[^\n]*\n' % re.escape(t['after']), trace, re.M)
     trace = trace[:anchor.end()] + '| %s | Analysis | %s | %s | 0/0 | – | – | Build-Ready |\n' % (t['name'], t['methodId'], t['file']) + trace[anchor.end():]
-    anchor = re.search(r'^\| `%s` \| X \|[^\n]*\n' % re.escape(t['after']), tmap, re.M)
-    tmap = tmap[:anchor.end()] + '| `%s` | X | %s | `%s` |\n' % (t['name'], t['short'], t['methodId']) + tmap[anchor.end():]
+    anchor = re.search(r'^\| `%s` \| X \|[^\n]*\n' % re.escape(t['after']), tmap, re.M) or re.search(r'^\| `%s` \| X \|[^\n]*\n' % re.escape(t.get('mapAfter', t['after'])), tmap, re.M)
+    if anchor is not None:      # the tool-map lists only some tools (the Mash tools are not in it): a tool whose anchor is absent is left out of it
+        tmap = tmap[:anchor.end()] + '| `%s` | X | %s | `%s` |\n' % (t['name'], t['short'], t['methodId']) + tmap[anchor.end():]
     contract = contract.replace('        "%s",\n' % t['after'], '        "%s",\n        "%s",\n' % (t['after'], t['name']), 1) if '        "%s",\n' % t['name'] not in contract else contract
 wr('src/Seqeron/Mcp/Seqeron.Mcp.Analysis/README.md', readme)
 wr('docs/mcp/traceability.md', trace)

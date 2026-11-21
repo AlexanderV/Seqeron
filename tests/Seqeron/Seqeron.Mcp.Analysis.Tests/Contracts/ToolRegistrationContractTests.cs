@@ -121,6 +121,7 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "mash_info",
         "mash_paste",
         "mash_screen",
+        "mash_taxscreen",
         "mash_sketch",
         "mash_triangle",
         "nucmer",

@@ -12,19 +12,21 @@ public static partial class MashCommands
     /// hashes). <see cref="SketchFile"/> writes it byte for byte as the program writes it.
     /// </summary>
     public static MashSketchFileData Sketch(IReadOnlyList<MashInput> inputs, int k = 21, int sketchSize = KmerAnalyzer.DefaultMashSketchSize, uint seed = KmerAnalyzer.DefaultMashSeed,
-        bool canonical = true, bool individual = false, CancellationToken cancellationToken = default, MashReadsOptions? reads = null, string? idOverride = null, string? commentOverride = null)
+        bool canonical = true, bool individual = false, CancellationToken cancellationToken = default, MashReadsOptions? reads = null, string? idOverride = null, string? commentOverride = null, MashAlphabet? alphabet = null)
     {
         ArgumentNullException.ThrowIfNull(inputs);
+        alphabet ??= MashAlphabet.Nucleotide();
+        canonical &= !alphabet.ImpliesNoncanonical;                 // -a and -z imply -n
         RequireSketchParameters(k, sketchSize);
         // -r: all the files are ONE read set (initFromReads): one sketch named after the first file; the files are read in turn, one record of each (paired reads), a file leaves the rotation at its end
         if (reads is not null && inputs.Count > 1)
             inputs = [new MashInput(inputs[0].Name, Interleave(inputs, k))];
-        var list = Sketches(inputs, nameof(inputs), k, sketchSize, seed, canonical, individual, cancellationToken, reads);
+        var list = Sketches(inputs, nameof(inputs), k, sketchSize, seed, canonical, individual, cancellationToken, reads, false, alphabet);
         // -I / -C: the id and the comment of the FIRST sketch (the program warns when there are several files and they are not read sets)
         if (list.Count > 0 && (idOverride is not null || commentOverride is not null))
             list[0] = list[0] with { Name = idOverride ?? list[0].Name, Comment = commentOverride ?? list[0].Comment };
         var references = list.Select(n => new MashSketchFileReference(n.Name, n.Comment, (ulong)n.Sketch.Length, n.Sketch.Hashes, reads is not null ? n.Sketch.Counts : null)).ToList();
-        return new MashSketchFileData(k, sketchSize, seed, "ACGT", !canonical, false, !individual, KmerAnalyzer.MashUses64BitHash(k), references);
+        return new MashSketchFileData(k, sketchSize, seed, alphabet.Characters, !canonical, alphabet.PreserveCase, !individual, alphabet.Uses64BitHash(k), references);
     }
 
     /// <summary>
@@ -101,8 +103,8 @@ public static partial class MashCommands
 
     /// <summary>The bytes of the <c>.msh</c> file <c>mash sketch -o x</c> writes (<see cref="MashSketchFile.Write"/> of <see cref="Sketch"/>).</summary>
     public static byte[] SketchFile(IReadOnlyList<MashInput> inputs, int k = 21, int sketchSize = KmerAnalyzer.DefaultMashSketchSize, uint seed = KmerAnalyzer.DefaultMashSeed,
-        bool canonical = true, bool individual = false, CancellationToken cancellationToken = default, MashReadsOptions? reads = null, string? idOverride = null, string? commentOverride = null)
-        => MashSketchFile.Write(Sketch(inputs, k, sketchSize, seed, canonical, individual, cancellationToken, reads, idOverride, commentOverride));
+        bool canonical = true, bool individual = false, CancellationToken cancellationToken = default, MashReadsOptions? reads = null, string? idOverride = null, string? commentOverride = null, MashAlphabet? alphabet = null)
+        => MashSketchFile.Write(Sketch(inputs, k, sketchSize, seed, canonical, individual, cancellationToken, reads, idOverride, commentOverride, alphabet));
 
     /// <summary>
     /// <c>mash paste out.msh a.msh b.msh ...</c> (<c>CommandPaste.cpp</c>): one sketch file of the sketches of several. The parameters (k, sketch size, seed, alphabet, strand mode, case) are those of the first file; a later file with

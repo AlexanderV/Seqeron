@@ -120,6 +120,7 @@
 | `mash_paste` | Analysis | `MashCommands.Paste` | [doc](../../../../docs/mcp/tools/analysis/mash_paste.md) |
 | `mash_screen` | Analysis | `MashCommands.Screen` | [doc](../../../../docs/mcp/tools/analysis/mash_screen.md) |
 | `mash_sketch` | Analysis | `MashCommands.Sketch` | [doc](../../../../docs/mcp/tools/analysis/mash_sketch.md) |
+| `mash_taxscreen` | Analysis | `MashTaxScreen.Run` | [doc](../../../../docs/mcp/tools/analysis/mash_taxscreen.md) |
 | `mash_triangle` | Analysis | `MashCommands.Triangle` | [doc](../../../../docs/mcp/tools/analysis/mash_triangle.md) |
 | `mask_approximate_tandem_repeats` | Analysis | `RepeatFinder.MaskApproximateTandemRepeats` | [doc](../../../../docs/mcp/tools/analysis/mask_approximate_tandem_repeats.md) |
 | `mask_low_complexity` | Analysis | `SequenceComplexity.MaskLowComplexity` | [doc](../../../../docs/mcp/tools/analysis/mask_low_complexity.md) |

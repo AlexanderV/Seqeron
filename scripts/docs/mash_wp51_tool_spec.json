@@ -1,0 +1,51 @@
+[
+ {
+  "name": "mash_taxscreen",
+  "summary": "Mash 2.3 'mash taxscreen': the Kraken-style taxonomic report of query references contained in a pool, byte for byte.",
+  "methodId": "MashTaxScreen.Run",
+  "sourceFile": "MashTaxScreen.cs",
+  "sourcePath": "Seqeron.Genomics.Analysis/MashTaxScreen.cs",
+  "algorithmDoc": "Alignment/Mash_Commands.md",
+  "oracleScript": "generate_mash_taxscreen_oracle.py",
+  "short": "Mash taxscreen: Kraken-style taxonomic report (LCA of the references that share a hash, clade / taxon counts) of a pool of sequences, with names.dmp / nodes.dmp.",
+  "after": "mash_screen",
+  "file": "AnalysisTools.Mash.cs",
+  "description": "Mash 2.3 'mash taxscreen': the Kraken-style taxonomic report of how well query references are contained in a pool of sequences (the pass of mash screen; the taxonomy ID of a reference is that of the mapping file or the number after 'taxid' in its comment; the hashes shared by several references go to their lowest common ancestor in the taxonomy dump). Byte for byte equal to the installed program on 300 random runs.",
+  "output": {
+   "text": [
+    "string",
+    "The report: the header line and one line per taxon from the root down."
+   ]
+  },
+  "errors": [
+   "A node whose parent is missing from nodes.dmp (the program uses an uninitialised pointer: refused)",
+   "At least one input is required",
+   "Input has no FASTA record"
+  ],
+  "example": {
+   "title": "Two references of one genus screened against a read of the first",
+   "prompt": "Screen this read against the two reference genomes and report the taxonomy.",
+   "input": {
+    "queries": [
+     ">refA taxid 10\nGGATCACAGTCTACACTGCTCACTCCAACCCCGGCCCCTGAGTCCGAGGAGAGGGTGCTT\n",
+     ">refB taxid 11\nGGATCACAGTCTACACTGCTCACTCCAACCCAGAGTATGTATACCACTGGGTAGGATACG\n"
+    ],
+    "pools": [
+     ">read1\nGGATCACAGTCTACACTGCTCACTCCAACCCCGGCCCCTGAGTCCGAGGAGAGGGTGCTT\n"
+    ],
+    "namesDump": "1\t|\troot\t|\t\t|\tscientific name\t|\n5\t|\tGenusX\t|\t\t|\tscientific name\t|\n10\t|\tGenusX alpha\t|\t\t|\tscientific name\t|\n11\t|\tGenusX beta\t|\t\t|\tscientific name\t|\n",
+    "nodesDump": "1\t|\t1\t|\tno rank\t|\n5\t|\t1\t|\tgenus\t|\n10\t|\t5\t|\tspecies\t|\n11\t|\t5\t|\tspecies\t|\n",
+    "queryNames": [
+     "a.fa",
+     "b.fa"
+    ],
+    "k": 9,
+    "sketchSize": 100
+   },
+   "output": {
+    "text": "%\thashes\ttaxHashes\thashesDB\ttaxHashesDB\ttaxID\trank\tname\n100.0000\t52\t0\t81\t0\tno rank\t1\troot\n100.0000\t52\t23\t81\t23\tgenus\t5\t  GenusX\n55.7692\t29\t29\t29\t29\tspecies\t10\t    GenusX alpha\n"
+   },
+   "note": "Both references share the first 30 bases, so their common hashes (23) are assigned to the genus; the read holds all of refA (29 more hashes)."
+  }
+ }
+]

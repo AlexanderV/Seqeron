@@ -6,7 +6,7 @@
  "stability": "stable",
  "methodId": "MashCommands.Dist",
  "docRef": "Seqeron.Genomics.Analysis/MashCommands.cs",
- "description": "Mash 2.3 'mash dist': MinHash (bottom-s) sketches of the reference and query files (canonical k-mers, MurmurHash3, the sketch of Ondov et al. 2016: KmerAnalyzer.CreateMinHashSketch) and, for every query in order and every reference, the line 'reference TAB query TAB distance TAB p-value TAB shared/total' of the pairs whose p-value is at most maxPValue (-v) and distance at most maxDistance (-d); table = true (-t) writes the '#query' header and a row of distances per query (a pair that fails a filter leaves its field blank); individual = true (-i) sketches every sequence on its own, named by its id (sequences shorter than k are skipped). A file without a record of at least k symbols is refused as the program refuses it (exit status 1: 'All fasta records in input files were shorter than the k-mer size'). Numbers are printed as C++ cout does (6 significant digits). VERIFICATION: 220 / 220 random sets (1 - 4 references x 1 - 3 queries of 1 - 3 records, k 4 - 32, sketch size 5 - 2000, seeds, -n, -i, -t, -v, -d) equal the installed mash 2.3 byte for byte.",
+ "description": "Mash 2.3 'mash dist': MinHash (bottom-s) sketches of the reference and query files (canonical k-mers, MurmurHash3, the sketch of Ondov et al. 2016: KmerAnalyzer.CreateMinHashSketch) and, for every query in order and every reference, the line 'reference TAB query TAB distance TAB p-value TAB shared/total' of the pairs whose p-value is at most maxPValue (-v) and distance at most maxDistance (-d); table = true (-t) writes the '#query' header and a row of distances per query (a pair that fails a filter leaves its field blank); individual = true (-i) sketches every sequence on its own, named by its id (sequences shorter than k are skipped). A file without a record of at least k symbols is refused as the program refuses it (exit status 1: 'All fasta records in input files were shorter than the k-mer size'). Numbers are printed as C++ cout does (6 significant digits). The alphabet options -a (protein: amino acids, implies -n -k 9), -z (own alphabet, implies -n) and -Z (case kept) as in the program (k-mer space alphabetSize^k in the p-value, 64-bit hashes when alphabetSize^k > 2^32). VERIFICATION: 220 / 220 random sets (1 - 4 references x 1 - 3 queries of 1 - 3 records, k 4 - 32, sketch size 5 - 2000, seeds, -n, -i, -t, -v, -d) and 300 / 300 sets with -a / -z / -Z equal the installed mash 2.3 byte for byte.",
  "inputSchema": {
   "type": "object",
   "properties": {
@@ -40,8 +40,7 @@
    },
    "k": {
     "type": "integer",
-    "description": "k-mer size (-k, 1 - 32, default 21).",
-    "default": 21
+    "description": "k-mer size (-k, 1 - 32; default 21, or 9 with protein)."
    },
    "sketchSize": {
     "type": "integer",
@@ -106,6 +105,20 @@
    "bloomFilter": {
     "type": "string",
     "description": "-b: a Bloom filter of this size (raw bytes or with K/M/G/T, e.g. 500M) filters out the k-mers seen once, instead of the exact filter -m (cannot be combined with minCopies > 1; implies reads; copies cannot be counted beyond 2; some unique k-mers pass erroneously; the filter has one hash function over bytes x 8 bits as the program builds it)."
+   },
+   "protein": {
+    "type": "boolean",
+    "description": "-a: the amino-acid alphabet (A-Z except BJOUXZ; implies -n and, without k, -k 9): k-mers of the 20 letters, 64-bit hashes when 20^k > 2^32, p-values over the k-mer space 20^k.",
+    "default": false
+   },
+   "alphabet": {
+    "type": "string",
+    "description": "-z: the alphabet the hashes are based on (case ignored unless preserveCase; k-mers with other characters are ignored; implies -n; ASCII only: the program has no defined result for a byte of 0x80 or more). protein takes precedence."
+   },
+   "preserveCase": {
+    "type": "boolean",
+    "description": "-Z: preserve the case of the letters in the k-mers and the alphabet (a letter whose case is not in the alphabet is skipped).",
+    "default": false
    }
   },
   "required": [

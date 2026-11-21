@@ -14,7 +14,7 @@ Mash distances of queries to references (mash dist) with the -t, -v, -d, -i, -n 
 
 ## Description
 
-Mash 2.3 'mash dist': MinHash (bottom-s) sketches of the reference and query files (canonical k-mers, MurmurHash3, the sketch of Ondov et al. 2016: KmerAnalyzer.CreateMinHashSketch) and, for every query in order and every reference, the line 'reference TAB query TAB distance TAB p-value TAB shared/total' of the pairs whose p-value is at most maxPValue (-v) and distance at most maxDistance (-d); table = true (-t) writes the '#query' header and a row of distances per query (a pair that fails a filter leaves its field blank); individual = true (-i) sketches every sequence on its own, named by its id (sequences shorter than k are skipped). A file without a record of at least k symbols is refused as the program refuses it (exit status 1: 'All fasta records in input files were shorter than the k-mer size'). Numbers are printed as C++ cout does (6 significant digits). VERIFICATION: 220 / 220 random sets (1 - 4 references x 1 - 3 queries of 1 - 3 records, k 4 - 32, sketch size 5 - 2000, seeds, -n, -i, -t, -v, -d) equal the installed mash 2.3 byte for byte.
+Mash 2.3 'mash dist': MinHash (bottom-s) sketches of the reference and query files (canonical k-mers, MurmurHash3, the sketch of Ondov et al. 2016: KmerAnalyzer.CreateMinHashSketch) and, for every query in order and every reference, the line 'reference TAB query TAB distance TAB p-value TAB shared/total' of the pairs whose p-value is at most maxPValue (-v) and distance at most maxDistance (-d); table = true (-t) writes the '#query' header and a row of distances per query (a pair that fails a filter leaves its field blank); individual = true (-i) sketches every sequence on its own, named by its id (sequences shorter than k are skipped). A file without a record of at least k symbols is refused as the program refuses it (exit status 1: 'All fasta records in input files were shorter than the k-mer size'). Numbers are printed as C++ cout does (6 significant digits). The alphabet options -a (protein: amino acids, implies -n -k 9), -z (own alphabet, implies -n) and -Z (case kept) as in the program (k-mer space alphabetSize^k in the p-value, 64-bit hashes when alphabetSize^k > 2^32). VERIFICATION: 220 / 220 random sets (1 - 4 references x 1 - 3 queries of 1 - 3 records, k 4 - 32, sketch size 5 - 2000, seeds, -n, -i, -t, -v, -d) and 300 / 300 sets with -a / -z / -Z equal the installed mash 2.3 byte for byte.
 
 ## Core Documentation Reference
 
@@ -28,7 +28,7 @@ Mash 2.3 'mash dist': MinHash (bottom-s) sketches of the reference and query fil
 | `queries` | array<string> | Yes | The query files (FASTA texts). |
 | `referenceNames` | array<string> | No | Names of the reference files as the program prints them (default reference1, ...). |
 | `queryNames` | array<string> | No | Names of the query files (default query1, ...). |
-| `k` | integer | No | k-mer size (-k, 1 - 32, default 21). (default: 21) |
+| `k` | integer | No | k-mer size (-k, 1 - 32; default 21, or 9 with protein). |
 | `sketchSize` | integer | No | Sketch size (-s, default 1000). (default: 1000) |
 | `seed` | integer | No | Hash seed (-S, 0 - 4294967295, default 42). (default: 42) |
 | `noncanonical` | boolean | No | -n: preserve the strand (no canonical k-mers). (default: false) |
@@ -42,6 +42,9 @@ Mash 2.3 'mash dist': MinHash (bottom-s) sketches of the reference and query fil
 | `genomeSize` | integer | No | -g: genome size used as the sketch length of a read set (default 0 = estimated; only with reads). |
 | `showComments` | boolean | No | -C: show the comment fields with the names (name:comment for dist, the comment instead of the id for triangle; the comment of a file sketch is the first record's name and comment, '[N seqs] ... [...]' for several). (default: false) |
 | `bloomFilter` | string | No | -b: a Bloom filter of this size (raw bytes or with K/M/G/T, e.g. 500M) filters out the k-mers seen once, instead of the exact filter -m (cannot be combined with minCopies > 1; implies reads; copies cannot be counted beyond 2; some unique k-mers pass erroneously; the filter has one hash function over bytes x 8 bits as the program builds it). |
+| `protein` | boolean | No | -a: the amino-acid alphabet (A-Z except BJOUXZ; implies -n and, without k, -k 9): k-mers of the 20 letters, 64-bit hashes when 20^k > 2^32, p-values over the k-mer space 20^k. (default: false) |
+| `alphabet` | string | No | -z: the alphabet the hashes are based on (case ignored unless preserveCase; k-mers with other characters are ignored; implies -n; ASCII only: the program has no defined result for a byte of 0x80 or more). protein takes precedence. |
+| `preserveCase` | boolean | No | -Z: preserve the case of the letters in the k-mers and the alphabet (a letter whose case is not in the alphabet is skipped). (default: false) |
 
 ## Output Schema
 

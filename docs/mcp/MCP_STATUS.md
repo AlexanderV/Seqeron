@@ -1,6 +1,6 @@
 # MCP Completion — Source of Truth & Campaign Ledger
 
-> Reality-based ledger of the 582 MCP tools across 11 servers. Campaign COMPLETE (2026-07-01):
+> Reality-based ledger of the 583 MCP tools across 11 servers. Campaign COMPLETE (2026-07-01):
 > every tool has a gold-standard binding (`[McpServerTool(Name/Title/ReadOnly)]` + `[Description]`,
 > structured record, input validation, real `Seqeron.Genomics` delegation), a Schema+Binding NUnit
 > test, and `{tool}.md` + `{tool}.mcp.json` docs. Supersedes `docs/mcp-plan.md` / `docs/mcp-checklist.md` (v4).
@@ -9,9 +9,9 @@
 
 | Metric | Done | Total |
 |---|---:|---:|
-| Gold-standard binding | 582 | 582 |
-| Schema+Binding tests | 582 | 582 |
-| Docs (.md + .mcp.json) | 582 | 582 |
+| Gold-standard binding | 583 | 583 |
+| Schema+Binding tests | 583 | 583 |
+| Docs (.md + .mcp.json) | 583 | 583 |
 
 ## Per-server summary
 
@@ -21,7 +21,7 @@
 | Sequence | Seqeron.Mcp.Sequence | 35 | 35/35 | 35/35 | 35/35 | ✅ done |
 | Parsers | Seqeron.Mcp.Parsers | 41 | 41/41 | 41/41 | 41/41 | ✅ done |
 | Alignment | Seqeron.Mcp.Alignment | 77 | 77/77 | 77/77 | 77/77 | ✅ done |
-| Analysis | Seqeron.Mcp.Analysis | 173 | 173/173 | 173/173 | 173/173 | ✅ done |
+| Analysis | Seqeron.Mcp.Analysis | 174 | 174/174 | 174/174 | 174/174 | ✅ done |
 | Annotation | Seqeron.Mcp.Annotation | 97 | 97/97 | 97/97 | 97/97 | ✅ done |
 | Chromosome | Seqeron.Mcp.Chromosome | 32 | 32/32 | 32/32 | 32/32 | ✅ done |
 | Metagenomics | Seqeron.Mcp.Metagenomics | 19 | 19/19 | 19/19 | 19/19 | ✅ done |
@@ -222,7 +222,7 @@
 | 76 | `dotmatcher` | ☑ | ☑ | ☑ |
 | 77 | `minimap2_map` | ☑ | ☑ | ☑ |
 
-### Analysis (Seqeron.Mcp.Analysis) — 173 tools
+### Analysis (Seqeron.Mcp.Analysis) — 174 tools
 
 | # | tool | B | T | D |
 |---:|---|:--:|:--:|:--:|
@@ -399,6 +399,7 @@
 | 171 | `exact_tandems` | ☑ | ☑ | ☑ |
 | 172 | `mapview` | ☑ | ☑ | ☑ |
 | 173 | `mummerplot` | ☑ | ☑ | ☑ |
+| 174 | `mash_taxscreen` | ☑ | ☑ | ☑ |
 ### Annotation (Seqeron.Mcp.Annotation) — 97 tools
 
 | # | tool | B | T | D |

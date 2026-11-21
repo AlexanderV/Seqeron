@@ -1337,6 +1337,13 @@
     "sourceLink": ""
   },
   {
+    "tool": "mash_taxscreen",
+    "server": "Analysis",
+    "methodId": "MashTaxScreen.Run",
+    "docPath": "docs/mcp/tools/analysis/mash_taxscreen.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MashTaxScreen.cs"
+  },
+  {
     "tool": "mash_triangle",
     "server": "Analysis",
     "methodId": "MashCommands.Triangle",

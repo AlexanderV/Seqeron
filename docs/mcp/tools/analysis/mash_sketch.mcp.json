@@ -6,7 +6,7 @@
  "stability": "stable",
  "methodId": "MashCommands.Sketch",
  "docRef": "Seqeron.Genomics.Analysis/MashCommands.cs",
- "description": "Mash 2.3 'mash sketch -o x.msh': the sketch file of the inputs, byte for byte as the program writes it (120 random runs equal: genomes and read sets, k 4 - 32, sketch sizes 1 - 3000, seeds, -n, -i, -r -m -c -g with all the files of a read set in ONE sketch, -I / -C, -l). The file is a Cap'n Proto message of MinHash.capnp built as capnp::MallocMessageBuilder builds it (segments of 1024, 1024, 2048, ... words, far pointers with landing pads); it is returned as base64 and, prefixed with 'msh:', it is accepted by mash_dist / mash_triangle / mash_screen / mash_info / mash_paste as an input. One sketch per file (its name is the file name, its comment the first record's name and comment) or, with individual, one per sequence. -l (a list of file names) is the caller's list of inputs.",
+ "description": "Mash 2.3 'mash sketch -o x.msh': the sketch file of the inputs, byte for byte as the program writes it (120 random runs equal, and 300 more with the alphabet options -a -z -Z: genomes and read sets, k 4 - 32, sketch sizes 1 - 3000, seeds, -n, -i, -r -m -c -g with all the files of a read set in ONE sketch, -I / -C, -l). The file is a Cap'n Proto message of MinHash.capnp built as capnp::MallocMessageBuilder builds it (segments of 1024, 1024, 2048, ... words, far pointers with landing pads); it is returned as base64 and, prefixed with 'msh:', it is accepted by mash_dist / mash_triangle / mash_screen / mash_info / mash_paste as an input. One sketch per file (its name is the file name, its comment the first record's name and comment) or, with individual, one per sequence. -l (a list of file names) is the caller's list of inputs.",
  "inputSchema": {
   "type": "object",
   "properties": {
@@ -26,8 +26,7 @@
    },
    "k": {
     "type": "integer",
-    "description": "k-mer size (-k, 1 - 32, default 21).",
-    "default": 21
+    "description": "k-mer size (-k, 1 - 32; default 21, or 9 with protein)."
    },
    "sketchSize": {
     "type": "integer",
@@ -80,6 +79,20 @@
    "bloomFilter": {
     "type": "string",
     "description": "-b: a Bloom filter of this size (raw bytes or with K/M/G/T, e.g. 500M) filters out the k-mers seen once, instead of the exact filter -m (cannot be combined with minCopies > 1; implies reads; copies cannot be counted beyond 2; some unique k-mers pass erroneously; the filter has one hash function over bytes x 8 bits as the program builds it)."
+   },
+   "protein": {
+    "type": "boolean",
+    "description": "-a: the amino-acid alphabet (A-Z except BJOUXZ; implies -n and, without k, -k 9): k-mers of the 20 letters, 64-bit hashes when 20^k > 2^32, p-values over the k-mer space 20^k.",
+    "default": false
+   },
+   "alphabet": {
+    "type": "string",
+    "description": "-z: the alphabet the hashes are based on (case ignored unless preserveCase; k-mers with other characters are ignored; implies -n; ASCII only: the program has no defined result for a byte of 0x80 or more). protein takes precedence."
+   },
+   "preserveCase": {
+    "type": "boolean",
+    "description": "-Z: preserve the case of the letters in the k-mers and the alphabet (a letter whose case is not in the alphabet is skipped).",
+    "default": false
    }
   },
   "required": [

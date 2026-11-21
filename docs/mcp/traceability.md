@@ -369,6 +369,7 @@
 | mash_dist | Analysis | MashCommands.Dist | Seqeron.Genomics.Analysis/MashCommands.cs | 0/0 | – | – | Build-Ready |
 | mash_triangle | Analysis | MashCommands.Triangle | Seqeron.Genomics.Analysis/MashCommands.cs | 0/0 | – | – | Build-Ready |
 | mash_screen | Analysis | MashCommands.Screen | Seqeron.Genomics.Analysis/MashCommands.cs | 0/0 | – | – | Build-Ready |
+| mash_taxscreen | Analysis | MashTaxScreen.Run | AnalysisTools.Mash.cs | 0/0 | – | – | Build-Ready |
 | emboss_report_file | Analysis | EmbossReportPrograms.Fuzznuc | Seqeron.Genomics.Analysis/EmbossReportPrograms.cs | 0/0 | – | – | Build-Ready |
 | alignment_statistics | Alignment | SequenceAligner.CalculateStatistics | Alignment/SequenceAligner.cs#L1064 | 0/0 | – | – | Build-Ready |
 | assemble_de_bruijn | Alignment | SequenceAssembler.AssembleDeBruijn | Alignment/SequenceAssembler.cs#L75 | 0/0 | – | – | Build-Ready |

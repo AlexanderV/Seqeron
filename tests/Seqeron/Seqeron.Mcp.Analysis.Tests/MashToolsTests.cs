@@ -114,4 +114,36 @@ public class MashToolsTests
         string dist = AnalysisTools.MashDist([sketch.Msh], [SketchInput], queryNames: ["q"]).Text;
         Assert.That(dist, Is.EqualTo("t.fa\tq\t0\t1.47546e-18\t6/6\n"));
     }
+
+    private const string Protein1 = ">p1 first\nMKVLAAGIVGLLLAQPSHHAKDEWRTYYCCMNPQRSTVWYAAEEKKLLM\n>p2\nMNVLAAGTVGLLLAQPSHHAKDEWRTYYCAMNPQRSTVWYQQEEKKLLM\n";
+    private const string Protein2 = ">q second\nMKVLAAGIVGLLLAQPSHHAKDEWRTYYCCMNPQRSTVWYLLMMKKIIM\n";
+
+    [Test]
+    public void MashSketch_Dist_AminoAcidAlphabet_AsTheProgram()
+    {
+        // mash 2.3 (A5-10b2, F214): mash sketch -a -k 5 -s 8 -o t p.fa; mash dist -a -k 5 -s 8 p.fa p2.fa; mash dist -a p.fa p2.fa (k 9 by default with -a)
+        var sketch = AnalysisTools.MashSketch([Protein1], ["p.fa"], k: 5, sketchSize: 8, protein: true);
+        Assert.That(sketch.Msh, Is.EqualTo("msh:" + "AAAAACAAAAAAAAAAAwAEAAUAAAAAAAAACAAAAAMAAAAAAAAAAAAAAAwAAAAAAAEAVAAAAAAAAQBZAAAAqgAAAAAAAAAAAAAAAQAAAE8AAAAEAAAAAgAHAAAAAAAAAAAAYgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEQAAACoAAAARAAAAwgAAABkAAABEAAAAAAAAAAAAAAAAAAAAAAAAAHAuZmEAAAAAWzIgc2Vxc10gcDEgZmlyc3QgWy4uLl0ATg9rB8MnHgt+0SkM1WARDbpjuA/aJxIkdR85J1X/BysBAAAABwAAAAAAAAADAAAAQUNERUZHSElLTE1OUFFSU1RWV1kAAAAA"));
+        Assert.That(AnalysisTools.MashInfo(sketch.Msh, headerOnly: true).Text, Does.Contain("Alphabet:                      ACDEFGHIKLMNPQRSTVWY\n"));        // implies -n: no "(canonical)"
+        Assert.That(AnalysisTools.MashDist([Protein1], [Protein2], ["p.fa"], ["p2.fa"], k: 5, sketchSize: 8, protein: true).Text, Is.EqualTo("p.fa\tp2.fa\t0.300815\t8.16629e-05\t1/8\n"));
+        Assert.That(AnalysisTools.MashDist([Protein1], [Protein2], ["p.fa"], ["p2.fa"], protein: true).Text, Is.EqualTo("p.fa\tp2.fa\t0.0581387\t1.53239e-305\t32/76\n"));
+        Assert.That(AnalysisTools.MashInfo(AnalysisTools.MashSketch([Protein2], ["z.fa"], k: 3, sketchSize: 4, alphabet: "ACGT", preserveCase: true).Msh, headerOnly: true).Text, Does.Contain("Alphabet:                      ACGT (case-sensitive)\n"));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.MashSketch([Protein2], ["z.fa"], alphabet: "AC\u00e9"));        // a byte of 0x80 or more has no defined meaning in the program
+    }
+
+    [Test]
+    public void MashTaxScreen_AsTheProgram()
+    {
+        // mash 2.3: mash sketch -k 9 -s 100 -o q a.fa b.fa; mash taxscreen -t . q.msh pool.fa (the example of the tool document; A5-10b2, F215)
+        var r = AnalysisTools.MashTaxScreen(
+            [">refA taxid 10\nGGATCACAGTCTACACTGCTCACTCCAACCCCGGCCCCTGAGTCCGAGGAGAGGGTGCTT\n", ">refB taxid 11\nGGATCACAGTCTACACTGCTCACTCCAACCCAGAGTATGTATACCACTGGGTAGGATACG\n"],
+            [">read1\nGGATCACAGTCTACACTGCTCACTCCAACCCCGGCCCCTGAGTCCGAGGAGAGGGTGCTT\n"],
+            "1\t|\troot\t|\t\t|\tscientific name\t|\n5\t|\tGenusX\t|\t\t|\tscientific name\t|\n10\t|\tGenusX alpha\t|\t\t|\tscientific name\t|\n11\t|\tGenusX beta\t|\t\t|\tscientific name\t|\n",
+            "1\t|\t1\t|\tno rank\t|\n5\t|\t1\t|\tgenus\t|\n10\t|\t5\t|\tspecies\t|\n11\t|\t5\t|\tspecies\t|\n",
+            queryNames: ["a.fa", "b.fa"], k: 9, sketchSize: 100);
+        Assert.That(r.Text, Is.EqualTo("%\thashes\ttaxHashes\thashesDB\ttaxHashesDB\ttaxID\trank\tname\n100.0000\t52\t0\t81\t0\tno rank\t1\troot\n100.0000\t52\t23\t81\t23\tgenus\t5\t  GenusX\n55.7692\t29\t29\t29\t29\tspecies\t10\t    GenusX alpha\n"));
+        // a node whose parent nodes.dmp does not list: the program uses an uninitialised pointer (valgrind): refused
+        Assert.Throws<ArgumentException>(() => AnalysisTools.MashTaxScreen([">a taxid 2\nACGTACGTAGCTAGCTAGCATCGATCGATCGATGCATGCATGCAT\n"], [">r\nACGTACGTAGCTAGCTAGCATCGATCGATCGATGCATGCATGCAT\n"],
+            "1\t|\troot\t|\t\t|\tscientific name\t|\n", "1\t|\t1\t|\tno rank\t|\n2\t|\t99\t|\tspecies\t|\n", k: 8));
+    }
 }

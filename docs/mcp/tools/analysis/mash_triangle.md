@@ -14,7 +14,7 @@ Mash lower-triangular distance matrix or edge list (mash triangle).
 
 ## Description
 
-Mash 2.3 'mash triangle': the distance of each input to every other input as a lower-triangular matrix in relaxed Phylip format (a first line with a TAB and the number of inputs, then one line per input: its name and the distances to the inputs before it), or with edgeList = true (-E; implied by a p-value or distance filter) the edge list 'name TAB name TAB distance TAB p-value TAB shared/total' of the pairs that pass maxPValue (-v) and maxDistance (-d). Sketches as mash_dist (a file without a record of at least k symbols is refused). VERIFICATION: 220 / 220 random sets (2 - 6 files, k 4 - 32, sketch size 5 - 2000, -n, -i, -E, -v, -d) equal the installed mash 2.3 byte for byte.
+Mash 2.3 'mash triangle': the distance of each input to every other input as a lower-triangular matrix in relaxed Phylip format (a first line with a TAB and the number of inputs, then one line per input: its name and the distances to the inputs before it), or with edgeList = true (-E; implied by a p-value or distance filter) the edge list 'name TAB name TAB distance TAB p-value TAB shared/total' of the pairs that pass maxPValue (-v) and maxDistance (-d). Sketches as mash_dist (a file without a record of at least k symbols is refused). The alphabet options -a / -z / -Z as mash_dist. VERIFICATION: 220 / 220 random sets (2 - 6 files, k 4 - 32, sketch size 5 - 2000, -n, -i, -E, -v, -d) and the 300 / 300 sets with -a / -z / -Z (shared with mash_dist) equal the installed mash 2.3 byte for byte.
 
 ## Core Documentation Reference
 
@@ -26,7 +26,7 @@ Mash 2.3 'mash triangle': the distance of each input to every other input as a l
 |-----------|------|----------|-------------|
 | `sequences` | array<string> | Yes | The input files (FASTA texts), at least two for a matrix. |
 | `names` | array<string> | No | Names of the inputs as the program prints them (default input1, ...). |
-| `k` | integer | No | k-mer size (-k, 1 - 32, default 21). (default: 21) |
+| `k` | integer | No | k-mer size (-k, 1 - 32; default 21, or 9 with protein). |
 | `sketchSize` | integer | No | Sketch size (-s, default 1000). (default: 1000) |
 | `seed` | integer | No | Hash seed (-S, 0 - 4294967295, default 42). (default: 42) |
 | `noncanonical` | boolean | No | -n: preserve the strand (no canonical k-mers). (default: false) |
@@ -40,6 +40,9 @@ Mash 2.3 'mash triangle': the distance of each input to every other input as a l
 | `genomeSize` | integer | No | -g: genome size used as the sketch length of a read set (default 0 = estimated; only with reads). |
 | `showComments` | boolean | No | -C: show the comment fields with the names (name:comment for dist, the comment instead of the id for triangle; the comment of a file sketch is the first record's name and comment, '[N seqs] ... [...]' for several). (default: false) |
 | `bloomFilter` | string | No | -b: a Bloom filter of this size (raw bytes or with K/M/G/T, e.g. 500M) filters out the k-mers seen once, instead of the exact filter -m (cannot be combined with minCopies > 1; implies reads; copies cannot be counted beyond 2; some unique k-mers pass erroneously; the filter has one hash function over bytes x 8 bits as the program builds it). |
+| `protein` | boolean | No | -a: the amino-acid alphabet (A-Z except BJOUXZ; implies -n and, without k, -k 9): k-mers of the 20 letters, 64-bit hashes when 20^k > 2^32, p-values over the k-mer space 20^k. (default: false) |
+| `alphabet` | string | No | -z: the alphabet the hashes are based on (case ignored unless preserveCase; k-mers with other characters are ignored; implies -n; ASCII only: the program has no defined result for a byte of 0x80 or more). protein takes precedence. |
+| `preserveCase` | boolean | No | -Z: preserve the case of the letters in the k-mers and the alphabet (a letter whose case is not in the alphabet is skipped). (default: false) |
 
 ## Output Schema
 
