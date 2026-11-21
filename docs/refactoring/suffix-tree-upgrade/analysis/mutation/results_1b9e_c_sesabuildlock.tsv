@@ -1,0 +1,3 @@
+L04	the lock is released twice	survived			32
+L05	the stream is not disposed	killed(1 failed: TheLock_ExcludesASecondHolder_UntilTheFirstIsDone_AndRemoves)[only]			32
+L06	the lock is taken with FileMode.Create	survived			32

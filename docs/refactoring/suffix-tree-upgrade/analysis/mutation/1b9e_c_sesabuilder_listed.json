@@ -1,0 +1,74 @@
+[
+ {
+  "id": "B09",
+  "desc": "a resumed build does not prepare",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "if (resumed) run!.Prepare();\n        else DeleteStale(tmp, scratch);",
+  "new": "if (resumed) { }\n        else DeleteStale(tmp, scratch);",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
+ },
+ {
+  "id": "B14",
+  "desc": "the packing is always done",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "bool packedKept = run?.Has(SesaStages.Packed) == true;",
+  "new": "bool packedKept = false;",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
+ },
+ {
+  "id": "B16",
+  "desc": "the packing is recorded also when it was kept",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "if (run is not null && !packedKept) run.CommitPacked(container);",
+  "new": "if (run is not null) run.CommitPacked(container);",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
+ },
+ {
+  "id": "B27",
+  "desc": "the BWT is always built",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "bool bwtKept = run?.Has(SesaStages.Bwt) == true;",
+  "new": "bool bwtKept = false;",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
+ },
+ {
+  "id": "B36",
+  "desc": "a published build leaves its scratch",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "if (!keep) DeleteDirectoryQuietly(scratch);",
+  "new": "if (!published && !keep) DeleteDirectoryQuietly(scratch);",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
+ },
+ {
+  "id": "B45",
+  "desc": "the skipped SA result has no parameters of the run",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "Parameters = SaBuildRules.Resolve(n, options),\n        N = n,",
+  "new": "Parameters = SaBuildRules.Resolve(0, options),\n        N = n,",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
+ },
+ {
+  "id": "B52",
+  "desc": "the checkpoint never reuses the ranks",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "public bool TryReuseRanks(DifferenceCover cover) => run.Has(SesaStages.Ranks);",
+  "new": "public bool TryReuseRanks(DifferenceCover cover) => false;",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
+ },
+ {
+  "id": "B56",
+  "desc": "the checkpoint gives no cover (the build makes it again)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "public DifferenceCover? Cover => run.Cover;",
+  "new": "public DifferenceCover? Cover => null;",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
+ },
+ {
+  "id": "B55",
+  "desc": "the seconds of the checkpoint are zero",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "public double CheckpointSeconds => run.CheckpointSeconds;",
+  "new": "public double CheckpointSeconds => 0;",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
+ }
+]

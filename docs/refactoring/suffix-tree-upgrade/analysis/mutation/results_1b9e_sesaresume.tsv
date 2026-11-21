@@ -103,3 +103,4 @@ C26	the cover digest is of the residues only	survived			35
 C27	the report says nothing was skipped	killed(190 failed: ABuildThatIsStoppedAtEveryBoundaryInTurn_IsFinishedByTheLast,ABwtFileOfAnEarlierRun_IsOnTheLedgerOfTheResumedRun_AndItsCo,AContainerThatIsGrownAndWhoseLcpStageIsDone_IsNotGrownAgain()[only]			28
 C28	the report has no checkpoints	killed(5 failed: AFreshBuildWithResume_HasTheBytesOfTheDefault_RecordsEverySt,AFreshBuildWithResume_HasTheBytesOfTheDefault_RecordsEverySt,AFreshBuildWithResume_HasTheBytesOfTheDefault_RecordsEverySt)[only]			28
 C29	the verification time is not reported	survived			28
+V67	a directory that holds a kept file is deleted	killed(7 failed: ABuildThatIsStoppedAtEveryBoundaryInTurn_IsFinishedByTheLast,ABwtFileOfAnEarlierRun_IsOnTheLedgerOfTheResumedRun_AndItsCo,AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips)[only]			30

@@ -5,7 +5,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuildLock.cs",
   "old": "FileStream? stream = Interlocked.Exchange(ref _stream, null);\n        if (stream is null) return;",
   "new": "FileStream? stream = _stream;\n        if (stream is null) return;",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "L05",
@@ -13,7 +13,7 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuildLock.cs",
   "old": "        stream.Dispose();\n    }",
   "new": "    }",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  },
  {
   "id": "L06",
@@ -21,6 +21,6 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuildLock.cs",
   "old": "FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None, 1)",
   "new": "FileMode.Create, FileAccess.ReadWrite, FileShare.None, 1)",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  }
 ]

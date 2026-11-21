@@ -1,0 +1,6 @@
+F04	the closing quote and brace need only one of the two	killed(1 failed: TheCrcCheck_ItselfRefusesEveryChangeOfTheLastBytes_AndAnythi)[only]			31
+F28	a repeated stage is accepted	killed(1 failed: StagesThatRepeatOrComeOutOfOrder_AreRefused_AndSerialisingDo)[only]			30
+F29	stages in any order are accepted	killed(1 failed: StagesThatRepeatOrComeOutOfOrder_AreRefused_AndSerialisingDo)[only]			30
+F36	rank file and SA stage can both be recorded	killed(1 failed: StagesThatRepeatOrComeOutOfOrder_AreRefused_AndSerialisingDo)[only]			30
+F47	the values are not written sorted by name	killed(1 failed: StagesThatRepeatOrComeOutOfOrder_AreRefused_AndSerialisingDo)[only]			33
+F50	Find returns the last stage of the name	killed(1 failed: Find_GivesTheFirstStageOfTheName)[only]			33

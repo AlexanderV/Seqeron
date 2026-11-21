@@ -1,0 +1,58 @@
+[
+ {
+  "id": "S01",
+  "desc": "the rank file is rebuilt although it was reused",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "old": "bool reused = cp?.TryReuseRanks(cover) == true;",
+  "new": "bool reused = false;",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
+ },
+ {
+  "id": "S02",
+  "desc": "a reused rank file is deleted by a failure",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "old": "rankTouched = !reused;",
+  "new": "rankTouched = true;",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
+ },
+ {
+  "id": "S04",
+  "desc": "the rank file is recorded also when it was reused",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "old": "if (cp is not null && !reused)\n            {\n                double before",
+  "new": "if (cp is not null)\n            {\n                double before",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
+ },
+ {
+  "id": "S07",
+  "desc": "the SA is recorded after the rank file is deleted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "old": "cp?.SaWritten();\n            File.Delete(rankPath); // the rank file has served its only consumer\n            ledger.Remove(rankBytes);",
+  "new": "File.Delete(rankPath); // the rank file has served its only consumer\n            ledger.Remove(rankBytes);\n            cp?.SaWritten();",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
+ },
+ {
+  "id": "S08",
+  "desc": "the seconds of PH1 include the recording",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "old": "ph1Seconds -= cp.CheckpointSeconds - before;",
+  "new": "",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
+ },
+ {
+  "id": "S09",
+  "desc": "the seconds of PH2 and PH3 include the recording",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "old": "double ph23Seconds = Seconds(t0) - ((cp?.CheckpointSeconds ?? 0) - checkpointBefore);",
+  "new": "double ph23Seconds = Seconds(t0);",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
+ },
+ {
+  "id": "S11",
+  "desc": "the cover that the checkpoint made is not used (the same value, made again)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs",
+  "old": "DifferenceCover cover = options.Checkpoint?.Cover ?? CoverFor(options.Period, options.ExactPeriod);",
+  "new": "DifferenceCover cover = CoverFor(options.Period, options.ExactPeriod);",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
+ }
+]

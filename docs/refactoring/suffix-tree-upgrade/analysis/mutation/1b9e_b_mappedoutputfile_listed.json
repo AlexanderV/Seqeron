@@ -5,6 +5,6 @@
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
   "old": "ArgumentOutOfRangeException.ThrowIfNegative(cut);\n            using var handle",
   "new": "using var handle",
-  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests)"
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
  }
 ]

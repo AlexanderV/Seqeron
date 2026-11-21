@@ -1,0 +1,7 @@
+S01	the rank file is rebuilt although it was reused	killed(14 failed: ARankFileOfAnEarlierRun_IsReused_NotBuiltAgain_NotRecordedAg,ARankFileThatIsVouchedFor_SurvivesAFailureInPh3_AndOneThatIs,TheCallsComeInTheOrderOfThePhases_AndEachSeesWhatItShould)[only]			38
+S02	a reused rank file is deleted by a failure	killed(1 failed: ARankFileOfAnEarlierRun_IsReused_NotBuiltAgain_NotRecordedAg)[only]			32
+S04	the rank file is recorded also when it was reused	killed(12 failed: ARankFileOfAnEarlierRun_IsReused_NotBuiltAgain_NotRecordedAg,AFailureInsideAPhase_ThenAResume_IsByteIdentical("ph23",1),AFailureInsideAPhase_ThenAResume_IsByteIdentical("ph23",4))[only]			33
+S07	the SA is recorded after the rank file is deleted	killed(1 failed: TheCallsComeInTheOrderOfThePhases_AndEachSeesWhatItShould)[only]			31
+S08	the seconds of PH1 include the recording	killed(1 failed: TheSecondsOfTheRecording_AreNotTheSecondsOfThePhases)[only]			31
+S09	the seconds of PH2 and PH3 include the recording	killed(1 failed: TheSecondsOfTheRecording_AreNotTheSecondsOfThePhases)[only]			32
+S11	the cover that the checkpoint made is not used (the same value, made again)	killed(1 failed: TheCoverThatTheCheckpointHolds_IsTheCoverOfTheBuild)[only]			36

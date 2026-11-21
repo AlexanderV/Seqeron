@@ -915,7 +915,7 @@ public sealed class SesaResume1b9eTests
         Assert.Throws<InjectedFailureException>(() => SesaBuilder.Build(c.Input, c.Target, Opts(3, 2) with { Hook = FailAt(SesaHooks.Created) }));
         Assert.That(c.Entries, Is.Empty, "the stale files were removed when the state was rejected, and the run that failed before it recorded anything left none of its own");
         KillAtPsiBuilt(c);
-        File.Delete(c.Tmp);
+        FlipByte(c.Tmp, PlanOf(c, true).TextOffset + 10); // the state is of this input, but the first stage does not verify: nothing of it is kept
         Assert.Throws<InjectedFailureException>(() => SesaBuilder.Build(c.Input, c.Target, Opts(3, 2) with { Hook = FailAt(SesaHooks.Created) }));
         Assert.That(c.Entries, Is.Empty, "a state whose stages all failed to verify is not kept either");
     }
@@ -1058,6 +1058,13 @@ public sealed class SesaResume1b9eTests
         SesaBuildResult r = SesaBuilder.Build(c.Input, c.Target, Opts(3, 2));
         AssertSame(c, Reference(s_text), how);
         Assert.That(r.Resume!.Skipped, Is.EqualTo(new[] { "packed", "sa" }), how);
+        string reason = how switch
+        {
+            "kind 3" or "kind -1" or "escapes -1" or "escapes with 32 bits" => "impossible",
+            "final length" => "final length",
+            _ => "NODE_COUNT",
+        };
+        Assert.That(r.Resume.Reason, Does.Contain(reason), $"{how}: the reason says which check refused it");
         AssertOnlyTarget(c, how);
     }
 

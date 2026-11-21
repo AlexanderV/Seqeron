@@ -1,0 +1,50 @@
+[
+ {
+  "id": "F04",
+  "desc": "the closing quote and brace need only one of the two",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "if (file[^2] != (byte)'\"' || file[^1] != (byte)'}') return false;",
+  "new": "if (file[^2] != (byte)'\"' && file[^1] != (byte)'}') return false;",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
+ },
+ {
+  "id": "F28",
+  "desc": "a repeated stage is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "if (at <= previous) return false;",
+  "new": "if (at < previous) return false;",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
+ },
+ {
+  "id": "F29",
+  "desc": "stages in any order are accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "if (at <= previous) return false;",
+  "new": "if (at < 0) return false;",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
+ },
+ {
+  "id": "F36",
+  "desc": "rank file and SA stage can both be recorded",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "if (ranks && sa) return false;",
+  "new": "",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
+ },
+ {
+  "id": "F47",
+  "desc": "the values are not written sorted by name",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "s.Values.OrderBy(v => v.Key, StringComparer.Ordinal)",
+  "new": "s.Values",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
+ },
+ {
+  "id": "F50",
+  "desc": "Find returns the last stage of the name",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs",
+  "old": "Stages.FirstOrDefault(s => s.Name == name)",
+  "new": "Stages.LastOrDefault(s => s.Name == name)",
+  "filter": "(FullyQualifiedName~SesaResume1b9eTests|FullyQualifiedName~SesaResumeFormatTests|FullyQualifiedName~SaCheckpoint1b9eTests)"
+ }
+]

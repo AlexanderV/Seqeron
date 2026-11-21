@@ -1,0 +1,25 @@
+V04	another sigma is accepted	survived			32
+V12	a state without stages is accepted	killed(1 failed: AStateWithNoStageAtAll_StartsClean_WithAReason)[only]			32
+V15	a missing container is not refused	killed(1 failed: AStageWhoseOutputIsMissingShortOrChanged_IsNotTrusted_AndEve)[only]			32
+V27	the rank file may have another length	killed(1 failed: AForgedRecord_WhoseRangeIsElsewhere_OrWhoseRoleOrPlaceIsAnot)[only]			31
+V33	the final length is not compared with the layout	killed(1 failed: AForgedLcpRecord_WithAnImpossibleWidthEscapesLengthOrNodeCou)[only]			30
+V35	a negative number of internal nodes is accepted	killed(1 failed: AForgedLcpRecord_WithAnImpossibleWidthEscapesLengthOrNodeCou)[only]			29
+V52	an unknown stage is accepted	survived			29
+V54	the role is not compared	killed(1 failed: AForgedRecord_WhoseRangeIsElsewhere_OrWhoseRoleOrPlaceIsAnot)[only]			29
+V55	the place of the file is not compared	killed(1 failed: AForgedRecord_WhoseRangeIsElsewhere_OrWhoseRoleOrPlaceIsAnot)[only]			28
+V56	the offset is not compared	killed(1 failed: AForgedRecord_WhoseRangeIsElsewhere_OrWhoseRoleOrPlaceIsAnot)[only]			29
+V57	the length is not compared	killed(2 failed: AForgedRecord_WhoseRangeIsElsewhere_OrWhoseRoleOrPlaceIsAnot,AForgedRecord_WhoseRangeIsElsewhere_OrWhoseRoleOrPlaceIsAnot)[only]			29
+V61	a missing scratch file is accepted	killed(2 failed: AStageWhoseOutputIsMissingShortOrChanged_IsNotTrusted_AndEve,AStageWhoseOutputIsMissingShortOrChanged_IsNotTrusted_AndEve)[only]			29
+V62	a scratch file of another length is accepted	killed(2 failed: AStageWhoseOutputIsMissingShortOrChanged_IsNotTrusted_AndEve,AStageWhoseOutputIsMissingShortOrChanged_IsNotTrusted_AndEve)[only]			29
+V68	the foreign files of a kept directory are left	killed(1 failed: AResumedBuild_RemovesForeignFilesAlsoInsideADirectoryThatHol)[only]			29
+V69	the foreign files of the scratch are left	killed(2 failed: AResumedBuild_RemovesForeignFilesAlsoInsideADirectoryThatHol,AResumedBuild_RemovesWhatItDoesNotKeep_AndRewritesTheState_B)[only]			29
+V70	the state is not rewritten when stages are cut	killed(1 failed: AResumedBuild_RemovesWhatItDoesNotKeep_AndRewritesTheState_B)[only]			29
+V71	the state is rewritten with all the stages	killed(1 failed: AResumedBuild_RemovesWhatItDoesNotKeep_AndRewritesTheState_B)[only]			29
+V72	a build that was not accepted prepares	survived			29
+C11	the new stage is added to all the old ones	survived			29
+C13	the state file is not flushed to storage	survived			30
+C19	a kept PSI stage gives the primary row of the BWT record	survived			29
+C22	the LCP stage records the rank of a repeat that has no depth	killed(1 failed: ATextWithoutARepeat_RecordsNoRank_AndResumes)[only]			30
+C26	the cover digest is of the residues only	survived			30
+C29	the verification time is not reported	killed(15 failed: AStageWhoseOutputIsMissingShortOrChanged_IsNotTrusted_AndEve,AStageWhoseOutputIsMissingShortOrChanged_IsNotTrusted_AndEve,AStageWhoseOutputIsMissingShortOrChanged_IsNotTrusted_AndEve)[only]			30
+C31	the run holds no cover	survived			33

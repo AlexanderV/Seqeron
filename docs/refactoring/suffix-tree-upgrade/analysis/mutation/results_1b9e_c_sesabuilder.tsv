@@ -1,0 +1,9 @@
+B09	a resumed build does not prepare	killed(3 failed: AForgedRecord_WhoseRangeIsElsewhere_OrWhoseRoleOrPlaceIsAnot,AResumedBuild_RemovesForeignFilesAlsoInsideADirectoryThatHol,AResumedBuild_RemovesWhatItDoesNotKeep_AndRewritesTheState_B)[only]			33
+B14	the packing is always done	killed(83 failed: AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips,AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips,AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips)[only]			31
+B16	the packing is recorded also when it was kept	killed(83 failed: AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips,AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips,AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips)[only]			31
+B27	the BWT is always built	killed(3 failed: AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips,AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips,AFailureAtEveryBoundary_ThenAResume_IsByteIdentical_AndSkips)[only]			31
+B36	a published build leaves its scratch	survived			31
+B45	the skipped SA result has no parameters of the run	killed(1 failed: TheResultOfAResumedBuild_CarriesTheNumbersOfTheSkippedStages)[only]			31
+B52	the checkpoint never reuses the ranks	killed(11 failed: AFailureInsideAPhase_ThenAResume_IsByteIdentical("ph23",1),AFailureInsideAPhase_ThenAResume_IsByteIdentical("ph23",4),AFailureInsideAPhase_ThenAResume_IsByteIdentical("partition")[only]			32
+B56	the checkpoint gives no cover (the build makes it again)	survived			35
+B55	the seconds of the checkpoint are zero	survived			31
