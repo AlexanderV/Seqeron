@@ -17,9 +17,13 @@ public class MashSketchFile_Oracle_Tests
 {
     private sealed record Row(int Id, List<string> Args, List<(string Name, string Fasta)> Files, byte[] Msh, Dictionary<string, string> Info);
 
-    private static readonly Lazy<List<Row>> Oracle = new(() =>
+    private static readonly Lazy<List<Row>> Oracle = new(() => Load("mash_msh_oracle"));
+
+    private static readonly Lazy<List<Row>> ReadsOracle = new(() => Load("mash_reads_msh_oracle"));
+
+    private static List<Row> Load(string resource)
     {
-        const string name = "Seqeron.Genomics.Tests.TestData.Alignment.mash_msh_oracle.jsonl.gz";
+        string name = $"Seqeron.Genomics.Tests.TestData.Alignment.{resource}.jsonl.gz";
         using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(name) ?? throw new InvalidOperationException($"Embedded oracle '{name}' not found.");
         using var gz = new GZipStream(stream, CompressionMode.Decompress);
         using var reader = new StreamReader(gz);
@@ -34,7 +38,7 @@ public class MashSketchFile_Oracle_Tests
         }
 
         return rows;
-    });
+    }
 
     // FASTA text -> records as Mash reads them (kseq, including the stale comment of a record without one)
     internal static MashInput ToInput(string name, string fasta) => MashCommands.ParseFasta(name, fasta);
@@ -68,6 +72,23 @@ public class MashSketchFile_Oracle_Tests
         return MashSketchFile.Write(data);
     }
 
+    /// <summary>A5-10b3 (F194): 140 read sets (10 - 1 200 reads, k 4 - 32, sketch sizes 1 - 3 000, -m 1 - 3, -c, -g, -n, 1 - 2 files): the whole .msh file, the order of the multiplicities (robin_hood iteration order) included.</summary>
+    [Test]
+    public void ReadSetSketchFile_EqualsMash_ByteForByte_CountsInRobinHoodOrder()
+    {
+        var rows = ReadsOracle.Value;
+        Assert.That(rows, Has.Count.GreaterThanOrEqualTo(100));
+        var failures = new List<string>();
+        foreach (var r in rows)
+        {
+            var got = Make(r, out var data);
+            if (!got.AsSpan().SequenceEqual(r.Msh))
+                failures.Add($"row {r.Id} {string.Join(' ', r.Args)}: expected {r.Msh.Length} bytes, got {got.Length}; first difference at {FirstDifference(got, r.Msh)}");
+        }
+
+        Assert.That(failures, Is.Empty, $"{failures.Count} of {rows.Count}:\n" + string.Join("\n", failures.Take(5)));
+    }
+
     [Test]
     public void SketchFile_EqualsMash_ByteForByte()
     {
@@ -88,9 +109,8 @@ public class MashSketchFile_Oracle_Tests
                 continue;
             }
 
-            // a read-set sketch holds the multiplicities in the iteration order of Mash's robin_hood::unordered_map (A5-10b3, registered); everything else is compared byte for byte, those files by content with the multiset of the counts
-            bool readSet = r.Args.Contains("-r");
-            if (readSet ? !SameContent(MashSketchFile.Read(got), MashSketchFile.Read(r.Msh)) : !got.AsSpan().SequenceEqual(r.Msh))
+            // a read-set sketch holds the multiplicities in the iteration order of Mash's robin_hood::unordered_map (A5-10b3, F194: RobinHoodMap): every file is compared byte for byte
+            if (!got.AsSpan().SequenceEqual(r.Msh))
                 failures.Add($"row {r.Id} {string.Join(' ', r.Args)}: expected {r.Msh.Length} bytes, got {got.Length}; first difference at {FirstDifference(got, r.Msh)}; {Describe(MashSketchFile.Read(got), MashSketchFile.Read(r.Msh))}");
             if (BitConverter.ToUInt32(r.Msh) > 0)
                 multiSegment++;
@@ -118,12 +138,6 @@ public class MashSketchFile_Oracle_Tests
         Assert.That(newList, Is.GreaterThanOrEqualTo(30));
         Assert.That(wide, Is.GreaterThanOrEqualTo(40));
     }
-
-    private static bool SameContent(MashSketchFileData a, MashSketchFileData b)
-        => a.KmerSize == b.KmerSize && a.HashSeed == b.HashSeed && a.MinHashesPerWindow == b.MinHashesPerWindow && a.Noncanonical == b.Noncanonical && a.Concatenated == b.Concatenated && a.Alphabet == b.Alphabet
-           && a.References.Count == b.References.Count
-           && a.References.Zip(b.References).All(p => p.First.Name == p.Second.Name && p.First.Comment == p.Second.Comment && p.First.Length == p.Second.Length && p.First.Hashes.SequenceEqual(p.Second.Hashes)
-               && (p.First.Counts ?? []).Order().SequenceEqual((p.Second.Counts ?? []).Order()));
 
     // which field of which sketch differs (a diagnosis for a failing row)
     private static string Describe(MashSketchFileData got, MashSketchFileData expected)
