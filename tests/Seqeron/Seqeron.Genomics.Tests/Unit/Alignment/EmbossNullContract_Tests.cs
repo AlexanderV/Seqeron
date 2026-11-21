@@ -69,7 +69,7 @@ public class EmbossNullContract_Tests
         ParamOf<ArgumentException>(() => EmbossReports.Fuzztran("s", "M", [real with { EmbossEnd = null }]), "hits", "Hit 0 has no EmbossStart / EmbossEnd");
         ParamOf<ArgumentException>(() => EmbossReports.Fuzztran("s", "M", [real with { Translation = null! }]), "hits", "Hit 0 has no Translation");
         Assert.That(EmbossReports.Fuzztran("s", "M", [real]).Features, Has.Count.EqualTo(1));
-        Assert.Throws<ArgumentNullException>(() => EmbossReports.Fuzztran(null!, "M", [real]));
+        Assert.Throws<ArgumentNullException>(() => EmbossReports.Fuzztran((string)null!, "M", [real]));
         Assert.Throws<ArgumentNullException>(() => EmbossReports.Etandem(null!, "ACGT", []));
     }
 
@@ -85,10 +85,10 @@ public class EmbossNullContract_Tests
         var feature = report.Features[0];
         ParamOf<ArgumentException>(() => EmbossReportWriter.Write(report with { Features = null! }, EmbossReportFormat.Gff, DateTime.Now), "report", "Features list is null");
         ParamOf<ArgumentException>(() => EmbossReportWriter.Write(report with { Features = [feature, null!] }, EmbossReportFormat.Excel, DateTime.Now), "report", "Feature 1 is null");
-        ParamOf<ArgumentException>(() => EmbossReportWriter.Write(report with { ExcelHeader = null! }, EmbossReportFormat.Excel, DateTime.Now), "report", "ExcelHeader");
-        ParamOf<ArgumentException>(() => EmbossReportWriter.Write(report with { Features = [feature with { GffAttributes = null! }] }, EmbossReportFormat.Gff, DateTime.Now), "report", "Feature 0");
-        ParamOf<ArgumentException>(() => EmbossReportWriter.Write(report with { Features = [feature with { ExcelColumns = [null!] }] }, EmbossReportFormat.Excel, DateTime.Now), "report", "Feature 0");
-        ParamOf<ArgumentException>(() => EmbossReportWriter.Write(report with { Program = null! }, EmbossReportFormat.Gff, DateTime.Now), "report", "Program");
-        ParamOf<ArgumentException>(() => EmbossReportWriter.Write(report with { Features = [feature with { Score = null! }] }, EmbossReportFormat.Gff, DateTime.Now), "report", "Feature 0");
+        ParamOf<ArgumentException>(() => EmbossReportWriter.Write(report with { Sequence = null! }, EmbossReportFormat.Excel, DateTime.Now), "report", "sequence");
+        ParamOf<ArgumentException>(() => EmbossReportWriter.Write(report with { Features = [feature with { Tags = null! }] }, EmbossReportFormat.Gff, DateTime.Now), "report", "Feature 0");
+        ParamOf<ArgumentException>(() => EmbossReportWriter.Write(report with { Features = [feature with { Tags = [null!] }] }, EmbossReportFormat.Excel, DateTime.Now), "report", "Feature 0");
+        ParamOf<ArgumentException>(() => EmbossReportWriter.Write(report with { Features = [feature with { Type = null! }] }, EmbossReportFormat.Gff, DateTime.Now), "report", "Feature 0");
+        ParamOf<ArgumentException>(() => EmbossReportWriter.Write(report with { Features = [feature with { Source = null! }] }, EmbossReportFormat.Gff, DateTime.Now), "report", "Feature 0");
     }
 }

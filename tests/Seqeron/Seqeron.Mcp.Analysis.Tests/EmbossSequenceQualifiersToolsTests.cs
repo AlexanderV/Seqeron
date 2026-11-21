@@ -88,7 +88,9 @@ public class EmbossSequenceQualifiersToolsTests
         var excel = AnalysisTools.FindPatternHits("ACGTAGGG", "ACGTA", reportFormat: "excel", sequenceName: "a");
         Assert.That(excel.Report, Is.EqualTo("SeqName\tStart\tEnd\tScore\tStrand\tPattern\tMismatch\na\t1\t5\t5\t+\tpattern:ACGTA\t.\n"));
         Assert.That(AnalysisTools.FindPatternHits("ACGTAGGG", "ACGTA").Report, Is.Null);
-        Assert.Throws<ArgumentException>(() => AnalysisTools.FindPatternHits("ACGTAGGG", "ACGTA", reportFormat: "seqtable"));
+        var table = AnalysisTools.FindPatternHits("ACGTAGGG", "ACGTA", reportFormat: "seqtable", sequenceName: "a");          // A5-8b: every -rformat of the program
+        Assert.That(table.Report, Does.Contain("  Start     End  Strand Pattern       Mismatch Sequence\n      1       5       + pattern:ACGTA        . ACGTA\n"));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.FindPatternHits("ACGTAGGG", "ACGTA", reportFormat: "nosuch"));
         var pro = AnalysisTools.Fuzzpro("ACDKLEFGHIKLMNPQRSTVWY", "K-L", reportFormat: "excel", sequenceName: "p");
         Assert.That(pro.Report, Is.EqualTo("SeqName\tStart\tEnd\tScore\tStrand\tPattern\tMismatch\np\t4\t5\t2\t+\tpattern:K-L\t.\np\t11\t12\t2\t+\tpattern:K-L\t.\n"));
     }

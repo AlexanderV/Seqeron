@@ -15,7 +15,7 @@ public record EmbossTandemItem(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Consensus = null);
 
 /// <summary>Result of <c>find_tandem_repeats_emboss</c>: the repeats in the program's report order.</summary>
-public record FindEmbossTandemRepeatsResult(string Program, EmbossTandemItem[] Repeats, [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Report = null);
+public record FindEmbossTandemRepeatsResult(string Program, EmbossTandemItem[] Repeats, [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Report = null, [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? OriginalFile = null);
 
 /// <summary>A match of <c>seqmatchall</c>: sequence indices (0-based, first &lt; second), 0-based starts and the length.</summary>
 public record WordMatchItem(int Sequence1, int Sequence2, int Position1, int Position2, int Length);
@@ -60,3 +60,6 @@ public record NucmerClustersResult(NucmerClusterItem[] Clusters);
 
 /// <summary>The text a Mash command writes (<c>mash_bounds</c>, <c>mash_dist</c>, <c>mash_triangle</c>), byte for byte as the program prints it.</summary>
 public record MashTextResult(string Text);
+
+/// <summary>Result of <c>emboss_report_file</c>: the <c>-outfile</c> report text of the program and, for etandem / equicktandem, the <c>-origfile</c> text.</summary>
+public record EmbossReportFileResult(string Report, [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? OriginalFile = null);

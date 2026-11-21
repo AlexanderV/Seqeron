@@ -79,8 +79,26 @@ public sealed record EmbossSequenceQualifiers
         return Resolve(EmbossAcdProfiles.Get(program), commandLine);
     }
 
-    private static EmbossSequenceQualifiers[] Resolve(AcdProfile profile, string? commandLine)
+    /// <summary>
+    /// <see cref="ParseInputs"/> for a text that may also carry the qualifiers of the program's REPORT output (<c>-rformat -rname -rextension -rdirectory -raccshow -rdesshow -rscoreshow -rstrandshow -rusashow -rmaxall -rmaxseq</c>, with the
+    /// output's number or without: <c>-rformat2 table</c>, <c>-rformat table</c>; audit A5-8b, B09 F184); every other qualifier is refused as in <see cref="ParseInputs"/>.
+    /// </summary>
+    /// <param name="program">The EMBOSS program.</param>
+    /// <param name="commandLine">The qualifier text; null or blank = none.</param>
+    /// <returns>The sequence qualifiers per input and the report qualifiers the text set.</returns>
+    public static (IReadOnlyList<EmbossSequenceQualifiers> Inputs, EmbossReportQualifiers Report) ParseInputsAndReport(string program, string? commandLine)
     {
+        ArgumentNullException.ThrowIfNull(program);
+        var profile = EmbossAcdProfiles.Get(program);
+        var inputs = Resolve(profile, commandLine, out var report);
+        return (inputs, report);
+    }
+
+    private static EmbossSequenceQualifiers[] Resolve(AcdProfile profile, string? commandLine) => Resolve(profile, commandLine, out _, allowReport: false);
+
+    private static EmbossSequenceQualifiers[] Resolve(AcdProfile profile, string? commandLine, out EmbossReportQualifiers report, bool allowReport = true)
+    {
+        report = new EmbossReportQualifiers();
         var result = new EmbossSequenceQualifiers[profile.Inputs.Count];
         Array.Fill(result, None);
         if (string.IsNullOrWhiteSpace(commandLine))
@@ -90,8 +108,14 @@ public sealed record EmbossSequenceQualifiers
         line.Run(tokens);
 
         var sequenceItems = new HashSet<AcdItem>(profile.Inputs.SelectMany(i => i.Assoc));
-        foreach (var (item, _) in line.Assignments)
+        foreach (var (item, raw) in line.Assignments)
         {
+            if (allowReport && item.Master is { Name: "outfile" } && ReportItems.Contains(item.Name))
+            {
+                report = ApplyReport(report, item, raw, commandLine);
+                continue;
+            }
+
             if (!sequenceItems.Contains(item))
                 throw new ArgumentException($"-{item.Name} is not a sequence qualifier: this text takes the qualifiers of the sequence inputs only (-sbegin -send -sreverse -slower -supper -scircular -snucleotide -sprotein, with the input number, e.g. -sbegin1).", nameof(commandLine));
         }
@@ -111,6 +135,36 @@ public sealed record EmbossSequenceQualifiers
         }
 
         return result;
+    }
+
+    private static readonly HashSet<string> ReportItems = ["rformat", "rname", "rextension", "rdirectory", "raccshow", "rdesshow", "rscoreshow", "rstrandshow", "rusashow", "rmaxall", "rmaxseq"];
+
+    private static EmbossReportQualifiers ApplyReport(EmbossReportQualifiers q, AcdItem item, string raw, string commandLine)
+    {
+        if (item.Type == "integer")
+        {
+            if (!AcdCommandLine.TryToInt(raw, out int number))
+                throw new ArgumentException($"Invalid integer value '{raw}' for -{item.Name}.", nameof(commandLine));
+            if (number < 0)
+                throw new ArgumentException($"-{item.Name} must be 0 or more (0 = no limit).", nameof(commandLine));
+            return item.Name == "rmaxall" ? q with { MaxAll = number } : q with { MaxSeq = number };
+        }
+
+        if (item.Type == "boolean")
+        {
+            if (!AcdCommandLine.TryToBool(raw, out bool flag))
+                throw new ArgumentException($"Invalid Y/N value '{raw}' for -{item.Name}.", nameof(commandLine));
+            return item.Name switch
+            {
+                "raccshow" => q with { ShowAccession = flag },
+                "rdesshow" => q with { ShowDescription = flag },
+                "rscoreshow" => q with { ShowScore = flag },
+                "rstrandshow" => q with { ShowStrand = flag },
+                _ => q with { ShowUsa = flag },
+            };
+        }
+
+        return item.Name == "rformat" ? q with { Format = raw } : q;            // rname / rextension / rdirectory: the file name is the caller's business
     }
 
     private static EmbossSequenceQualifiers Apply(EmbossSequenceQualifiers q, AcdItem item, string raw, string commandLine)
@@ -204,3 +258,14 @@ public sealed record EmbossSequenceView(string Residues, int Offset, int Offend,
         return (Offset + position + 1, Offset + position + length);
     }
 }
+
+/// <summary>The qualifiers of the report output of an EMBOSS program (<c>-rformat -raccshow -rdesshow -rscoreshow -rstrandshow -rusashow -rmaxall -rmaxseq</c>) as resolved from a command-line text; null / default = the program's own default.</summary>
+/// <param name="Format"><c>-rformat</c> as typed (null = the program's default format).</param>
+/// <param name="ShowAccession"><c>-raccshow</c>.</param>
+/// <param name="ShowDescription"><c>-rdesshow</c>.</param>
+/// <param name="ShowScore"><c>-rscoreshow</c> (null = the default, Y).</param>
+/// <param name="ShowStrand"><c>-rstrandshow</c> (null = the default, Y).</param>
+/// <param name="ShowUsa"><c>-rusashow</c>.</param>
+/// <param name="MaxAll"><c>-rmaxall</c> (0 = no limit).</param>
+/// <param name="MaxSeq"><c>-rmaxseq</c> (0 = no limit).</param>
+public sealed record EmbossReportQualifiers(string? Format = null, bool ShowAccession = false, bool ShowDescription = false, bool? ShowScore = null, bool? ShowStrand = null, bool ShowUsa = false, int MaxAll = 0, int MaxSeq = 0);

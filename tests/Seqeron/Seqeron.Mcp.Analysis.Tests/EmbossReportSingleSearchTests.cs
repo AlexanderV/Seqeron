@@ -67,20 +67,24 @@ public class EmbossReportSingleSearchTests
         int plain = Polls(() => AnalysisTools.FindPatternHits(Dna, "ATG"));
         int report = Polls(() => AnalysisTools.FindPatternHits(Dna, "ATG", reportFormat: "gff", sequenceName: "d"));
         Assert.That(report, Is.EqualTo(plain));
-        // one helper: an unknown format and the combination with sequenceQualifiers are refused identically by the four tools
-        Assert.Throws<ArgumentException>(() => AnalysisTools.FindPatternHits(Dna, "ATG", reportFormat: "genbank"));
+        // one helper: a format the program refuses for the sequence type (embl / genbank for proteins, pir / swiss for nucleotides, diffseq: 7 tags) and an unknown name are refused identically by the four tools
         Assert.Throws<ArgumentException>(() => AnalysisTools.Fuzzpro(Protein, "K-V", reportFormat: "genbank"));
-        Assert.Throws<ArgumentException>(() => AnalysisTools.Fuzztran(Dna, "M", reportFormat: "genbank"));
-        Assert.Throws<ArgumentException>(() => AnalysisTools.FindTandemRepeatsEmboss(Tandem, reportFormat: "genbank"));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.FindPatternHits(Dna, "ATG", reportFormat: "pir"));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.Fuzztran(Dna, "M", reportFormat: "swiss"));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.FindTandemRepeatsEmboss(Tandem, reportFormat: "diffseq"));
         foreach (var call in new Action[]
         {
-            () => AnalysisTools.FindPatternHits(Dna, "ATG", reportFormat: "gff", sequenceQualifiers: "-sbegin 2"),
-            () => AnalysisTools.Fuzzpro(Protein, "K-V", reportFormat: "gff", sequenceQualifiers: "-sbegin 2"),
-            () => AnalysisTools.Fuzztran(Dna, "M", reportFormat: "gff", sequenceQualifiers: "-sbegin 2"),
-            () => AnalysisTools.FindTandemRepeatsEmboss(Tandem, reportFormat: "gff", sequenceQualifiers: "-sbegin 2"),
+            () => AnalysisTools.FindPatternHits(Dna, "ATG", reportFormat: "nosuch"),
+            () => AnalysisTools.Fuzzpro(Protein, "K-V", reportFormat: "nosuch"),
+            () => AnalysisTools.Fuzztran(Dna, "M", reportFormat: "nosuch"),
+            () => AnalysisTools.FindTandemRepeatsEmboss(Tandem, reportFormat: "nosuch"),
         })
         {
             Assert.That(Assert.Throws<ArgumentException>(() => call())!.ParamName, Is.EqualTo("reportFormat"));
         }
+
+        // the report of a ranged search is written (A5-8b): the header names the range
+        Assert.That(AnalysisTools.FindPatternHits(Dna, "ATG", reportFormat: "table", sequenceQualifiers: "-sbegin 2", sequenceName: "d").Report, Does.Contain("# Sequence: d     from: 2   to: "));
+        Assert.That(AnalysisTools.Fuzzpro(Protein, "K-V", reportFormat: "-rformat simple -rdesshow", sequenceQualifiers: "-sbegin 2", sequenceName: "p").Report, Does.Contain("# Report_format: simple"));
     }
 }

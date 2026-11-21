@@ -111,6 +111,7 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "kmer_jaccard",
         "kmer_positions",
         "kmer_spectrum",
+        "emboss_report_file",
         "kmers_with_min_count",
         "lempel_ziv_complexity",
         "longdust_score",

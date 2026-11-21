@@ -85,7 +85,7 @@
 | `water_align` | `SequenceAligner.WaterAlign` | [doc](../../mcp/tools/alignment/water_align.md) |
 | `write_alignment` | `EmbossAlignmentWriter.Format` | [doc](../../mcp/tools/alignment/write_alignment.md) |
 
-## Analysis (143 tools)
+## Analysis (144 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -118,6 +118,7 @@
 | `disorder_propensity` | `DisorderPredictor.GetDisorderPropensity` | [doc](../../mcp/tools/analysis/disorder_propensity.md) |
 | `dust_score` | `SequenceComplexity.CalculateDustScore` | [doc](../../mcp/tools/analysis/dust_score.md) |
 | `dyad_analysis` | `MotifFinder.AnalyzeDyads` | [doc](../../mcp/tools/analysis/dyad_analysis.md) |
+| `emboss_report_file` | `EmbossReportPrograms.Fuzznuc` | [doc](../../mcp/tools/analysis/emboss_report_file.md) |
 | `entropy_profile` | `SequenceStatistics.CalculateEntropyProfile` | [doc](../../mcp/tools/analysis/entropy_profile.md) |
 | `find_all_longest_repeats` | `GenomicAnalyzer.FindAllLongestRepeats` | [doc](../../mcp/tools/analysis/find_all_longest_repeats.md) |
 | `find_approximate_direct_repeats` | `RepeatFinder.FindApproximateDirectRepeats` | [doc](../../mcp/tools/analysis/find_approximate_direct_repeats.md) |

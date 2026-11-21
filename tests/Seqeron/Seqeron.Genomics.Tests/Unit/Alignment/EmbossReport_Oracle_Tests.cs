@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
 using Seqeron.Genomics.Analysis;
+using Seqeron.Genomics.Alignment;
 using Seqeron.Genomics.Infrastructure;
 
 namespace Seqeron.Genomics.Tests.Unit.Alignment;

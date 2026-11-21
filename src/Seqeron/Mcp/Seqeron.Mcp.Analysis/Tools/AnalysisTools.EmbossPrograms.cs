@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using ModelContextProtocol.Server;
+using global::Seqeron.Genomics.Analysis;
 
 namespace Seqeron.Mcp.Analysis.Tools;
 
@@ -18,17 +19,26 @@ public partial class AnalysisTools
         [Description("etandem -uniform: also report single-base consensus repeats (default false).")] bool uniform = false,
         CancellationToken cancellationToken = default,
         [Description("EMBOSS sequence-input qualifiers as on the command line: -sbegin 3 -send -2 -sreverse -slower -supper -scircular -snucleotide -sprotein (begin / end 1-based, negative = from the end; -sreverse reverse-complements a nucleotide sequence, the range then refers to the original). Measured on EMBOSS 6.6.0 per program: " + "etandem ignores -sbegin / -send (the whole sequence is searched) and numbers a -sreverse sequence on the reverse strand; equicktandem searches the range and numbers from its first position." + " " + global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.CommandLineRules)] string? sequenceQualifiers = null,
-        [Description("EMBOSS report format (-rformat): gff or excel. The report text of the program (the whole file; #!Date is today; sequence name from sequenceName) is returned in the result field report; only for a search without sequenceQualifiers. The other formats of the program (seqtable, table, embl, genbank, motif, ...) are not written yet. Omit for no report text.")] string? reportFormat = null,
+        [Description("EMBOSS report format (-rformat): any of simple embl genbank gff gff3 pir swiss dasgff debug listfile dbmotif draw restrict excel feattable motif nametable regions seqtable srs summary table tagseq (diffseq needs 7 report tags: refused as the program does; embl / genbank are nucleotide only, pir / swiss protein only), or the report qualifiers as typed after the files, e.g. '-rformat table -raccshow -rdesshow -rscoreshow -rstrandshow -rusashow -rmaxall 5 -rmaxseq 2'. The report FILE of the program (header with the command line, one block per sequence, footer; #Rundate / #!Date is now; sequence name from sequenceName) is returned in the result field report. Omit for no report text.")] string? reportFormat = null,
         [Description("Sequence name printed in the report (default sequence).")] string sequenceName = "sequence")
     {
         if (reportFormat is not null)
         {
-            var format = ReportFormatWithoutQualifiers(reportFormat, sequenceQualifiers);
-            // one search: the report is built from the hits of the search the tool result is built from (A6-10: the search used to run twice)
-            var (which, found) = RunEmbossTandem(sequence, program, minRepeat, maxRepeat, threshold, mismatch, uniform, cancellationToken);
-            string clean = global::Seqeron.Genomics.Infrastructure.EmbossSequenceReader.Clean(sequence);
-            var report = which == "etandem" ? global::Seqeron.Genomics.Analysis.EmbossReports.Etandem(sequenceName, clean, found) : global::Seqeron.Genomics.Analysis.EmbossReports.Equicktandem(sequenceName, clean, found);
-            return TandemResult(which, found) with { Report = global::Seqeron.Genomics.Infrastructure.EmbossReportWriter.Write(report, format, DateTime.Now) };
+            string kindName = (program ?? "etandem").Trim().ToLowerInvariant();
+            if (kindName is not ("etandem" or "equicktandem"))
+                throw new ArgumentException("program must be etandem or equicktandem", nameof(program));
+            int max = maxRepeat ?? (kindName == "equicktandem" ? 600 : minRepeat);
+            string[] cmd = TandemEntries(kindName, minRepeat, max, threshold, mismatch, uniform);
+            if (sequenceQualifiers is null)
+            {
+                // one search: the report is built from the hits of the search the tool result is built from (A6-10)
+                var (which, found) = RunEmbossTandem(sequence, program, minRepeat, maxRepeat, threshold, mismatch, uniform, cancellationToken);
+                string text = EmbossReportText(which, sequenceName, sequence, null, reportFormat, cmd, r => RunTandemReport(which, r, minRepeat, max, threshold, mismatch, uniform, found), out var originalFile, cancellationToken);
+                return TandemResult(which, found) with { Report = text, OriginalFile = originalFile };
+            }
+
+            var qualifiedResult = FindTandemRepeatsEmboss(sequence, program ?? "etandem", minRepeat, maxRepeat, threshold, mismatch, uniform, cancellationToken, sequenceQualifiers, null, sequenceName);
+            return qualifiedResult with { Report = EmbossReportText(kindName, sequenceName, sequence, sequenceQualifiers, reportFormat, cmd, r => RunTandemReport(kindName, r, minRepeat, max, threshold, mismatch, uniform, null), out var original, cancellationToken), OriginalFile = original };
         }
 
         if (sequenceQualifiers is not null)
@@ -48,6 +58,27 @@ public partial class AnalysisTools
 
         var (plainWhich, plainHits) = RunEmbossTandem(sequence, program, minRepeat, maxRepeat, threshold, mismatch, uniform, cancellationToken);
         return TandemResult(plainWhich, plainHits);
+    }
+
+    private static string[] TandemEntries(string kind, int minRepeat, int max, int threshold, bool mismatch, bool uniform)
+    {
+        var entries = new List<string>();
+        if (kind != "equicktandem")
+            entries.Add(Qualifier("minrepeat", minRepeat));
+        entries.Add(Qualifier("maxrepeat", max));
+        entries.Add(Qualifier("threshold", threshold));
+        if (kind != "equicktandem" && mismatch)
+            entries.Add("-mismatch");
+        if (kind != "equicktandem" && uniform)
+            entries.Add("-uniform");
+        return [.. entries];
+    }
+
+    private static EmbossProgramReport RunTandemReport(string kind, EmbossReportRequest r, int minRepeat, int max, int threshold, bool mismatch, bool uniform, IReadOnlyList<EmbossTandemRepeat>? hits)
+    {
+        if (kind == "equicktandem")
+            return EmbossReportPrograms.Equicktandem(r, max, threshold, hits);
+        return EmbossReportPrograms.Etandem(r, minRepeat, max, threshold, mismatch, uniform, hits);
     }
 
     private static (string Which, IReadOnlyList<EmbossTandemRepeat> Hits) RunEmbossTandem(string sequence, string? program, int minRepeat, int? maxRepeat, int threshold, bool mismatch, bool uniform, CancellationToken cancellationToken)
@@ -99,16 +130,16 @@ public partial class AnalysisTools
         [Description("The pattern (fuzzpro -pattern).")] string pattern,
         CancellationToken cancellationToken = default,
         [Description("EMBOSS sequence-input qualifiers as on the command line: -sbegin 3 -send -2 -sreverse -slower -supper -scircular -snucleotide -sprotein (begin / end 1-based, negative = from the end; -sreverse reverse-complements a nucleotide sequence, the range then refers to the original). Measured on EMBOSS 6.6.0 per program: " + "fuzzpro searches the range and counts positions from the start of the original sequence; a protein is never reversed." + " " + global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.CommandLineRules)] string? sequenceQualifiers = null,
-        [Description("EMBOSS report format (-rformat): gff or excel. The report text of the program (the whole file; #!Date is today; sequence name from sequenceName) is returned in the result field report; only for a search without sequenceQualifiers. The other formats of the program (seqtable, table, embl, genbank, motif, ...) are not written yet. Omit for no report text.")] string? reportFormat = null,
+        [Description("EMBOSS report format (-rformat): any of simple embl genbank gff gff3 pir swiss dasgff debug listfile dbmotif draw restrict excel feattable motif nametable regions seqtable srs summary table tagseq (diffseq needs 7 report tags: refused as the program does; embl / genbank are nucleotide only, pir / swiss protein only), or the report qualifiers as typed after the files, e.g. '-rformat table -raccshow -rdesshow -rscoreshow -rstrandshow -rusashow -rmaxall 5 -rmaxseq 2'. The report FILE of the program (header with the command line, one block per sequence, footer; #Rundate / #!Date is now; sequence name from sequenceName) is returned in the result field report. Omit for no report text.")] string? reportFormat = null,
         [Description("Sequence name printed in the report (default sequence).")] string sequenceName = "sequence")
     {
         if (reportFormat is not null)
         {
-            var format = ReportFormatWithoutQualifiers(reportFormat, sequenceQualifiers);
-            var (reportParsed, reportHits) = RunFuzzpro(sequence, pattern, cancellationToken);      // one search for the result and the report (A6-10)
-            return new FuzzproResult(reportParsed.ToString(), [.. reportHits.Select(h => new ProteinPatternHitItem(h.Position, h.Length))])
+            var plainResult = Fuzzpro(sequence, pattern, cancellationToken, sequenceQualifiers, null, sequenceName);          // one search; the report reuses its hits
+            var reportHits = plainResult.Hits.Select(h => new ProteinPatternHit(h.Position, h.Length)).ToList();
+            return plainResult with
             {
-                Report = global::Seqeron.Genomics.Infrastructure.EmbossReportWriter.Write(global::Seqeron.Genomics.Analysis.EmbossReports.Fuzzpro(sequenceName, sequence, pattern, reportHits), format, DateTime.Now),
+                Report = EmbossReportText("fuzzpro", sequenceName, sequence, sequenceQualifiers, reportFormat, [EmbossCommandLineEcho.Qualifier("pattern", pattern)], r => EmbossReportPrograms.Fuzzpro(r, pattern, reportHits), out _, cancellationToken),
             };
         }
 
@@ -146,16 +177,17 @@ public partial class AnalysisTools
         [Description("EMBOSS genetic code (fuzztran -table): 0 = standard (default), otherwise an NCBI table number.")] int table = 0,
         CancellationToken cancellationToken = default,
         [Description("EMBOSS sequence-input qualifiers as on the command line: -sbegin 3 -send -2 -sreverse -slower -supper -scircular -snucleotide -sprotein (begin / end 1-based, negative = from the end; -sreverse reverse-complements a nucleotide sequence, the range then refers to the original). Measured on EMBOSS 6.6.0 per program: " + "fuzztran cuts the (reverse-complemented) text at the begin / end AS GIVEN, numbers the hits from the first position of that text and prints negative numbers for the reverse frames (a defect of the program, reproduced)." + " " + global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.CommandLineRules)] string? sequenceQualifiers = null,
-        [Description("EMBOSS report format (-rformat): gff or excel. The report text of the program (the whole file; #!Date is today; sequence name from sequenceName) is returned in the result field report; only for a search without sequenceQualifiers. The other formats of the program (seqtable, table, embl, genbank, motif, ...) are not written yet. Omit for no report text.")] string? reportFormat = null,
+        [Description("EMBOSS report format (-rformat): any of simple embl genbank gff gff3 pir swiss dasgff debug listfile dbmotif draw restrict excel feattable motif nametable regions seqtable srs summary table tagseq (diffseq needs 7 report tags: refused as the program does; embl / genbank are nucleotide only, pir / swiss protein only), or the report qualifiers as typed after the files, e.g. '-rformat table -raccshow -rdesshow -rscoreshow -rstrandshow -rusashow -rmaxall 5 -rmaxseq 2'. The report FILE of the program (header with the command line, one block per sequence, footer; #Rundate / #!Date is now; sequence name from sequenceName) is returned in the result field report. Omit for no report text.")] string? reportFormat = null,
         [Description("Sequence name printed in the report (default sequence).")] string sequenceName = "sequence")
     {
         if (reportFormat is not null)
         {
-            var format = ReportFormatWithoutQualifiers(reportFormat, sequenceQualifiers);
-            var (reportParsed, reportHits) = RunFuzztran(sequence, pattern, frame, table, cancellationToken);      // one search for the result and the report (A6-10)
-            return new FuzztranResult(reportParsed.ToString(), [.. reportHits.Select(TranslatedItem)])
+            var plainResult = Fuzztran(sequence, pattern, frame, table, cancellationToken, sequenceQualifiers, null, sequenceName);          // one search; the report reuses its hits
+            var reportHits = plainResult.Hits.Select(h => new TranslatedPatternHit(h.Frame, h.ProteinStart, h.ProteinEnd, h.Translation, h.Position, h.Length, h.EmbossStart, h.EmbossEnd)).ToList();
+            return plainResult with
             {
-                Report = global::Seqeron.Genomics.Infrastructure.EmbossReportWriter.Write(global::Seqeron.Genomics.Analysis.EmbossReports.Fuzztran(sequenceName, pattern, reportHits), format, DateTime.Now),
+                Report = EmbossReportText("fuzztran", sequenceName, sequence, sequenceQualifiers, reportFormat, [EmbossCommandLineEcho.Qualifier("pattern", pattern), Qualifier("frame", frame), Qualifier("table", table)],
+                    r => EmbossReportPrograms.Fuzztran(r, pattern, frame, table, reportHits), out _, cancellationToken),
             };
         }
 

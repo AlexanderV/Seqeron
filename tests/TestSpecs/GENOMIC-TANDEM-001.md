@@ -149,4 +149,4 @@ All M/S/C items ✅ covered (see §4); no ❌/⚠ remain.
 - etandem / equicktandem qualifier rows (180 each) and gff / excel report rows (120 each) in the WP42 oracles.
 
 ## WP43 additions (A6-2 / A6-4 / A6-10)
-- etandem / equicktandem: the qualifier text rows (130 + 40 per program) of the ACD oracles; the gff / excel report rows (`EmbossReport_Oracle_Tests`, 120 runs each) and `EmbossReportWriter` are WP42 (A5-8); `EmbossNullContract_Tests` (null report fields, undefined format); MCP `EmbossReportSingleSearchTests.TandemRepeats_Report_RunsTheSearchOnce`.
+- etandem / equicktandem: the qualifier text rows (130 + 40 per program) of the ACD oracles; the gff / excel report rows (`EmbossReport_Oracle_Tests`, 120 runs each) and `EmbossReportWriter` are WP42 (A5-8); WP44 (A5-8b, F184): every `-rformat`, the report options, `-origfile` and the `-sbegin -send -sreverse` reports (`EmbossReportFormats_Oracle_Tests`: 100 files per program and format, 12 000 byte-equal; MCP `EmbossReportFileToolTests`); `EmbossNullContract_Tests` (null report fields, undefined format); MCP `EmbossReportSingleSearchTests.TandemRepeats_Report_RunsTheSearchOnce`.

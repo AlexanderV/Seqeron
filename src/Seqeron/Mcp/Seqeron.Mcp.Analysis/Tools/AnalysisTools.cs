@@ -773,22 +773,6 @@ public partial class AnalysisTools
         return new FindKnownMotifsResult(matches, reverse, matchMismatches, reverseMismatches);
     }
 
-    /// <summary>The <c>reportFormat</c> of the EMBOSS report tools: parsed, and refused together with <c>sequenceQualifiers</c> (the report of a ranged / reversed search is not part of the port yet) or with another conflict of the tool (A6-10: one check for the four tools).</summary>
-    private static global::Seqeron.Genomics.Infrastructure.EmbossReportFormat ReportFormatWithoutQualifiers(string reportFormat, string? sequenceQualifiers, bool otherConflict = false, string message = "reportFormat needs no sequenceQualifiers")
-    {
-        var format = ParseEmbossReportFormat(reportFormat);
-        if (sequenceQualifiers is not null || otherConflict)
-            throw new ArgumentException(message, nameof(reportFormat));
-        return format;
-    }
-
-    private static global::Seqeron.Genomics.Infrastructure.EmbossReportFormat ParseEmbossReportFormat(string format) => (format ?? "").Trim().ToLowerInvariant() switch
-    {
-        "gff" => global::Seqeron.Genomics.Infrastructure.EmbossReportFormat.Gff,
-        "excel" => global::Seqeron.Genomics.Infrastructure.EmbossReportFormat.Excel,
-        _ => throw new ArgumentException("reportFormat must be gff or excel (the other EMBOSS report formats are not written yet)", nameof(format)),
-    };
-
     [McpServerTool(Name = "find_pattern_hits", Title = "Genome — fuzznuc Pattern Search", ReadOnly = true)]
     [Description("Search a DNA sequence with an EMBOSS fuzznuc pattern (the -pattern language): IUPAC letters, classes [ACG], exclusions {AG}, repeats N(3), length ranges A(2,4) (every matching window length is reported), '-' separators, the anchors '<' (start of the sequence) and '>' (end), a terminating '.'; e.g. [CG](5)TG{A}N(1,5)C. maxMismatches = fuzznuc -pmismatch (Hamming, substitutions only; with a range the extra repeats beyond n of X(n,m) must match exactly, as in fuzznuc); bothStrands = -complement (the reverse-strand pattern is the reversed, complemented one with swapped anchors; positions are forward-strand starts). Give one pattern, or patternFile = the text of a fuzznuc pattern file (one pattern per line, or FASTA '>name' + pattern) for several named patterns. Verified against EMBOSS fuzznuc 6.6.0 on 3300 random patterns. By default a symbol other than A/C/G/T in the sequence matches nothing and costs a mismatch; with sequenceAmbiguity = true the sequence is read as the fuzznuc binary reads it (1350 more oracle rows with ambiguity codes in the sequence): a pattern IUPAC letter matches every sequence symbol whose base set lies within the letter's (pattern R matches A, G, R; sequence R matches pattern R, V, D, N but not A, M, Y), N matches every symbol, a class [ACG] matches its plain bases only, an exclusion {AG} matches every symbol not listed (ambiguity codes included), U reads as T, and the reverse strand is the IUPAC reverse complement of the sequence (the reported patterns are the plain-base normal form). Positions 0-based; hits ordered by position, length, forward before reverse. Input sequences are read as EMBOSS reads them (A4-3, one shared reader): only letters and '*' are kept; gap characters (- . ~ ?), '#', '+', '_', digits, blanks and every other character are dropped first, and positions, lengths and scores count the cleaned sequence (e.g. needle of AC-GTTAGC.TT* and ACGTTAGCTT: score 58, length 11, as the program).")]
     public static FindPatternHitsResult FindPatternHits(
@@ -800,16 +784,17 @@ public partial class AnalysisTools
         [Description("Read IUPAC ambiguity codes in the SEQUENCE as the fuzznuc binary does (default false: they match nothing).")] bool sequenceAmbiguity = false,
         CancellationToken cancellationToken = default,
         [Description("EMBOSS sequence-input qualifiers as on the command line: -sbegin 3 -send -2 -sreverse -slower -supper -scircular -snucleotide -sprotein (begin / end 1-based, negative = from the end; -sreverse reverse-complements a nucleotide sequence, the range then refers to the original). Measured on EMBOSS 6.6.0 per program: " + "fuzznuc searches the range of the (reverse-complemented) sequence and reports the ORIGINAL strand: positions are original, the strand is flipped for -sreverse; the sequence is read as fuzznuc reads it (ambiguity codes on)." + " " + global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.CommandLineRules)] string? sequenceQualifiers = null,
-        [Description("EMBOSS report format (-rformat): gff or excel. The report text of the program (the whole file; #!Date is today; sequence name from sequenceName) is returned in the result field report; only for a search without sequenceQualifiers. The other formats of the program (seqtable, table, embl, genbank, motif, ...) are not written yet. Omit for no report text.")] string? reportFormat = null,
+        [Description("EMBOSS report format (-rformat): any of simple embl genbank gff gff3 pir swiss dasgff debug listfile dbmotif draw restrict excel feattable motif nametable regions seqtable srs summary table tagseq (diffseq needs 7 report tags: refused as the program does; embl / genbank are nucleotide only, pir / swiss protein only), or the report qualifiers as typed after the files, e.g. '-rformat table -raccshow -rdesshow -rscoreshow -rstrandshow -rusashow -rmaxall 5 -rmaxseq 2'. The report FILE of the program (header with the command line, one block per sequence, footer; #Rundate / #!Date is now; sequence name from sequenceName) is returned in the result field report; needs one pattern (pattern, not patternFile). Omit for no report text.")] string? reportFormat = null,
         [Description("Sequence name printed in the report (default sequence).")] string sequenceName = "sequence")
     {
         if (reportFormat is not null)
         {
-            var format = ReportFormatWithoutQualifiers(reportFormat, sequenceQualifiers, string.IsNullOrWhiteSpace(pattern) || !string.IsNullOrWhiteSpace(patternFile), "reportFormat needs one pattern and no sequenceQualifiers");
-            var plain = FindPatternHits(sequence, pattern, null, maxMismatches, bothStrands, sequenceAmbiguity, cancellationToken, null, null);
-            var hitList = plain.Hits.Select(h => new global::Seqeron.Genomics.Analysis.PatternHit(h.Position, h.Length, h.Strand == "reverse", h.Mismatches)).ToList();
-            var text = global::Seqeron.Genomics.Infrastructure.EmbossReportWriter.Write(global::Seqeron.Genomics.Analysis.EmbossReports.Fuzznuc(sequenceName, sequence, pattern!, hitList, "pattern", maxMismatches), format, DateTime.Now);
-            return plain with { Report = text };
+            if (string.IsNullOrWhiteSpace(pattern) || !string.IsNullOrWhiteSpace(patternFile))
+                throw new ArgumentException("reportFormat needs one pattern (the report names the pattern 'pattern')", nameof(reportFormat));
+            var plain = FindPatternHits(sequence, pattern, null, maxMismatches, bothStrands, sequenceAmbiguity, cancellationToken, sequenceQualifiers, null, sequenceName);
+            string[] cmd = [EmbossCommandLineEcho.Qualifier("pattern", pattern), Qualifier("pmismatch", maxMismatches), EmbossCommandLineEcho.Qualifier("complement", bothStrands ? "Y" : "N", true)];
+            var reportHits = plain.Hits.Select(h => new global::Seqeron.Genomics.Analysis.PatternHit(h.Position, h.Length, h.Strand == "reverse", h.Mismatches)).ToList();
+            return plain with { Report = EmbossReportText("fuzznuc", sequenceName, sequence, sequenceQualifiers, reportFormat, cmd, r => global::Seqeron.Genomics.Analysis.EmbossReportPrograms.Fuzznuc(r, pattern, maxMismatches, bothStrands, reportHits), out _, cancellationToken) };
         }
 
         if (sequenceQualifiers is not null)

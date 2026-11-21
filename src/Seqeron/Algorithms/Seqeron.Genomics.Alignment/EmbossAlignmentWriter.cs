@@ -316,15 +316,8 @@ public sealed class EmbossAlignmentWriter
 
     // ------------------------------------------------------------- dates ----
 
-    private static readonly string[] Days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    private static readonly string[] Months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
     // ajTimeRefTodayFmt("report"): "%a %e %b %Y %H:%M:%S"
-    private string ReportDate()
-    {
-        var d = _o.RunDate;
-        return string.Create(CultureInfo.InvariantCulture, $"{Days[(int)d.DayOfWeek]} {d.Day,2} {Months[d.Month - 1]} {d.Year:D4} {d.Hour:D2}:{d.Minute:D2}:{d.Second:D2}");
-    }
+    private string ReportDate() => EmbossDates.Report(_o.RunDate);
 
     // %D of ajTimeRefToday: "%d/%m/%y"
     private string ShortDate()

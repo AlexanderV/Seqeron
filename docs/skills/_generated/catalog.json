@@ -735,6 +735,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.DyadAnalysis.cs#L56"
   },
   {
+    "tool": "emboss_report_file",
+    "server": "Analysis",
+    "methodId": "EmbossReportPrograms.Fuzznuc",
+    "docPath": "docs/mcp/tools/analysis/emboss_report_file.md",
+    "sourceLink": ""
+  },
+  {
     "tool": "entropy_profile",
     "server": "Analysis",
     "methodId": "SequenceStatistics.CalculateEntropyProfile",

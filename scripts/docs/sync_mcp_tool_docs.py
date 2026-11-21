@@ -29,7 +29,7 @@ import tempfile
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir, os.pardir))
 TOOLS = os.path.join(ROOT, 'docs', 'mcp', 'tools')
 DUMPER = os.path.join(ROOT, 'scripts', 'docs', 'McpToolDump')
-B09_CLASSES = ('SequenceAligner.', 'GenomicAnalyzer.', 'MultipleAlignment', 'AnchorBasedAligner.', 'DotMatcher.', 'Minimap2Chaining.', 'NucmerClusters.', 'Ksw2Aligner.', 'AlignmentFormats.', 'MashCommands.', 'MotifFinder.GenerateEmbossAmbiguousConsensus')
+B09_CLASSES = ('EmbossReportPrograms.', 'SequenceAligner.', 'GenomicAnalyzer.', 'MultipleAlignment', 'AnchorBasedAligner.', 'DotMatcher.', 'Minimap2Chaining.', 'NucmerClusters.', 'Ksw2Aligner.', 'AlignmentFormats.', 'MashCommands.', 'MotifFinder.GenerateEmbossAmbiguousConsensus')
 
 
 def run_dump(servers):
