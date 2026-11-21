@@ -107,6 +107,18 @@ public sealed class SesaResume1b9eTests
         };
     }
 
+    /// <summary>Fails at the first <paramref name="trace"/> after PH3 has begun (the sorts of PH1's levels below the text fire the same traces earlier).</summary>
+    private static Action<string> FailAtTraceInPh3(string trace)
+    {
+        int seen = 0;
+        bool ph3 = false;
+        return p =>
+        {
+            if (p == "ph23") ph3 = true;
+            if (ph3 && p == trace && Interlocked.Increment(ref seen) == 1) throw new InjectedFailureException(p);
+        };
+    }
+
     private static void Fails(ResumeCase c, SesaBuildOptions options, string point)
     {
         InjectedFailureException? e = Assert.Throws<InjectedFailureException>(() => SesaBuilder.Build(c.Input, c.Target, options with { Hook = FailAt(point) }));
@@ -294,12 +306,14 @@ public sealed class SesaResume1b9eTests
     }
 
     [Test]
-    public void AFailureInsideAPhase_ThenAResume_IsByteIdentical([Values("ph1", "rank-written", "ph23", "partition", "leaf", "handover", "scan")] string trace, [Values(1, 4)] int threads)
+    public void AFailureInsideAPhase_ThenAResume_IsByteIdentical([Values("ph1", "naming", "merge", "rank-written", "ph23", "partition", "leaf", "handover", "scan")] string trace, [Values(1, 4)] int threads)
     {
         using var c = new ResumeCase(s_text);
         SesaBuildOptions o = Opts(3, threads);
-        FailsInside(c, o, trace, sa: true);
-        string[] done = trace is "ph1" or "rank-written" ? [SesaStages.Packed] : [SesaStages.Packed, SesaStages.Ranks];
+        bool inPh3 = trace is "ph23" or "partition" or "leaf" or "handover" or "scan";
+        if (trace is "partition" or "leaf" or "handover" or "scan") Assert.Throws<InjectedFailureException>(() => SesaBuilder.Build(c.Input, c.Target, o with { SaTrace = FailAtTraceInPh3(trace) }));
+        else FailsInside(c, o, trace, sa: true);
+        string[] done = inPh3 ? [SesaStages.Packed, SesaStages.Ranks] : [SesaStages.Packed];
         Assert.That(File.Exists(c.State), Is.True);
         SesaBuildResult r = SesaBuilder.Build(c.Input, c.Target, Opts(3, threads == 1 ? 4 : 1));
         AssertSame(c, Reference(s_text), trace);
@@ -478,6 +492,7 @@ public sealed class SesaResume1b9eTests
         Fails(c, Opts(3, 2), point);
         SesaPlan plan = PlanOf(c, true);
         string[] done = DoneAt(point, true);
+        byte[] reference = Reference(s_text);
         using (var fs = new FileStream(c.Tmp, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite))
         {
             void Poison(long offset, long length)
@@ -488,7 +503,10 @@ public sealed class SesaResume1b9eTests
             if (!done.Contains("sa")) Poison(plan.SaOffset, plan.SaLength);
             if (!done.Contains("lcp"))
             {
-                Poison(plan.ChildOffset, plan.ChildLength);
+                // the SA, the LCP and PSI are written entry by entry, so any garbage in their ranges is overwritten. CHILD is written at the slots that the scan sets and nowhere else (the other slots are
+                // zero in a new file): what an interrupted PH5 leaves there is a prefix of the writes of the complete one, i.e. the final values of some slots and zeros elsewhere.
+                fs.Position = plan.ChildOffset;
+                fs.Write(reference.AsSpan((int)plan.ChildOffset, (int)(plan.ChildLength / 2)));
                 Poison(plan.LcpOffset, fs.Length - plan.LcpOffset);
             }
             if (!done.Contains("psi")) Poison(plan.PsiOffset, plan.PsiLength);
@@ -725,7 +743,7 @@ public sealed class SesaResume1b9eTests
     [Test]
     public void AResumeBuildOfAnInputThatChanged_StartsCleanAndTheChangeIsInTheContainer()
     {
-        string changed = s_text[..1000] + "T" + s_text[1001..];
+        string changed = s_text[..1000] + (s_text[1000] == 'T' ? 'G' : 'T') + s_text[1001..];
         Assert.That(changed, Is.Not.EqualTo(s_text));
         using var c = new ResumeCase(s_text);
         Fails(c, Opts(3, 2), SesaHooks.LcpChildBuilt);

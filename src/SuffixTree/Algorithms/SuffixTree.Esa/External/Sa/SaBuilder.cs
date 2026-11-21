@@ -115,6 +115,31 @@ internal sealed record SaBuildOptions
     /// here fails the build like a failing step.
     /// </summary>
     internal Action<string>? Trace { get; init; }
+
+    /// <summary>The container build's resume (null: none).</summary>
+    internal ISaCheckpoint? Checkpoint { get; init; }
+}
+
+/// <summary>
+/// What the container build (work package 1b.9e) lets PH1-PH3 record and reuse: the rank file of the difference-cover sample is complete after PH1 and the suffix array is complete after PH3. <see cref="SaBuildOptions.Checkpoint"/> is
+/// null in every build that does not resume, and nothing below changes then.
+/// </summary>
+internal interface ISaCheckpoint
+{
+    /// <summary>True when a rank file of an earlier run is in place (verified, for this cover): PH1 is not run.</summary>
+    bool TryReuseRanks(DifferenceCover cover);
+
+    /// <summary>PH1 has written the rank file: record it.</summary>
+    void RanksBuilt(DifferenceCover cover);
+
+    /// <summary>PH3 has written the suffix array and every writer is closed: record it.</summary>
+    void SaWritten();
+
+    /// <summary>The rank file is vouched for by the state: a failure must leave it.</summary>
+    bool KeepRanks { get; }
+
+    /// <summary>Seconds that recording has taken (not part of the seconds of the phases).</summary>
+    double CheckpointSeconds { get; }
 }
 
 /// <summary>Every size of one run, resolved from <see cref="SaBuildOptions"/> and the text length (what the report prints, and what the tests pin).</summary>
@@ -333,6 +358,9 @@ internal static class SaBuilder
         return BuildCore(text, saPath, null, 0, options);
     }
 
+    /// <summary>The difference cover of a build with the given <paramref name="period"/> (the nearest Singer period unless <paramref name="exact"/>).</summary>
+    internal static DifferenceCover CoverFor(int period, bool exact) => DifferenceCover.Create(exact ? period : DifferenceCover.NearestSingerPeriod(period));
+
     private static SaBuildResult BuildCore(MappedTextReader text, string? saPath, MappedOutputFile? section, long saOffset, SaBuildOptions options)
     {
         ArgumentNullException.ThrowIfNull(options.ScratchDir);
@@ -347,7 +375,7 @@ internal static class SaBuilder
             if (saOffset > section.Length - (4 * (n + 1))) throw new ArgumentOutOfRangeException(nameof(saOffset), saOffset, $"the suffix array of {4 * (n + 1)} bytes does not fit the file of {section.Length} bytes at this offset");
         }
         SaBuildParameters p = SaBuildRules.Resolve(n, options);
-        DifferenceCover cover = DifferenceCover.Create(options.ExactPeriod ? options.Period : DifferenceCover.NearestSingerPeriod(options.Period));
+        DifferenceCover cover = CoverFor(options.Period, options.ExactPeriod);
 
         string scratch = Path.GetFullPath(options.ScratchDir);
         bool createdRoot = !Directory.Exists(scratch);
@@ -375,8 +403,10 @@ internal static class SaBuilder
             using var rss1 = options.MeasureRss ? new RssSampler(new RssReader(options.ProcSource), 10) : null;
             rss1?.Start();
             long t0 = Stopwatch.GetTimestamp();
-            rankTouched = true;
-            ExtDcsStats dcs = ExternalDcs.BuildRankFile(text, cover, rankPath, new ExtDcsOptions
+            ISaCheckpoint? cp = options.Checkpoint;
+            bool reused = cp?.TryReuseRanks(cover) == true;
+            rankTouched = !reused;
+            ExtDcsStats dcs = reused ? new ExtDcsStats() : ExternalDcs.BuildRankFile(text, cover, rankPath, new ExtDcsOptions
             {
                 ScratchDir = ph1,
                 BucketCapacity = p.DcsBucketCapacity,
@@ -409,6 +439,12 @@ internal static class SaBuilder
             double ph1Seconds = Seconds(t0);
             RssStats rssPh1 = rss1?.Stop() ?? default;
             IoSnapshot io1 = counters.Snapshot();
+            if (cp is not null && !reused)
+            {
+                double before = cp.CheckpointSeconds;
+                cp.RanksBuilt(cover);
+                ph1Seconds -= cp.CheckpointSeconds - before;
+            }
 
             // ---- PH2 / PH3
             options.Trace?.Invoke("ph23");
@@ -434,9 +470,11 @@ internal static class SaBuilder
                     Trace = options.Trace,
                 }, section is null ? new MappedSaSliceSink(saFile, p.WindowBytes, counters) : new MappedSaSectionSink(saFile, saOffset, 4 * (n + 1), p.WindowBytes, counters), ranks);
             }
+            double checkpointBefore = cp?.CheckpointSeconds ?? 0;
+            cp?.SaWritten();
             File.Delete(rankPath); // the rank file has served its only consumer
             ledger.Remove(rankBytes);
-            double ph23Seconds = Seconds(t0);
+            double ph23Seconds = Seconds(t0) - ((cp?.CheckpointSeconds ?? 0) - checkpointBefore);
             RssStats rssPh3 = rss3?.Stop() ?? default;
             IoSnapshot io2 = counters.Snapshot();
             if (section is null)
@@ -478,7 +516,7 @@ internal static class SaBuilder
         {
             ledger.ReleaseAll();
             if (saCreated) DeleteQuietly(saPath!);
-            if (rankTouched) DeleteQuietly(rankPath);
+            if (rankTouched && !(options.Checkpoint?.KeepRanks ?? false)) DeleteQuietly(rankPath);
             throw;
         }
         finally

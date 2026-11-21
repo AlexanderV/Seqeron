@@ -326,6 +326,7 @@ internal static class SesaBuilder
         if (!Directory.Exists(directory)) throw new DirectoryNotFoundException($"the directory of {targetPath} does not exist");
         string tmp = target + ".tmp";
         string scratch = tmp + ".d";
+        using SesaBuildLock? gate = options.Resume ? SesaBuildLock.Acquire(target + ".lock") : null; // held until the build ends, whatever way
         IoCounters counters = options.Counters ?? new IoCounters();
         IReservationSource source = options.Files?.Source ?? SystemReservationSource.Instance;
         long tStart = Stopwatch.GetTimestamp();
@@ -345,11 +346,22 @@ internal static class SesaBuilder
         options.BetweenPasses?.Invoke();
         ChildCodec childCodec = ChildCodecFor(n, options.ChildCodec);
         SesaPlan plan = SesaLayout.Plan(info, options.IncludePsi);
+        SesaResumeRun? run = options.Resume ? SesaResumeRun.Load(options, tmp, scratch, info, plan, childCodec, counters) : null;
+        bool resumed = run?.Accepted == true;
         long need = plan.ReservedLength + (ScratchBytesPerChar * n);
+        if (resumed) need = ResumeNeedBytes(n, options.IncludePsi, run!.Skipped, run.ExistingScratchBytes);
         long free = source.AvailableFreeBytes(directory);
-        if (free >= 0 && free < need) throw new IOException($"not enough free space in {directory}: the build needs about {need} bytes (the container {plan.ReservedLength} and {ScratchBytesPerChar} bytes per character of scratch), {free} bytes are available");
+        if (resumed)
+        {
+            if (free >= 0 && free + run!.ReclaimableBytes < need) throw new IOException($"not enough free space in {directory}: the resumed build needs about {need} bytes for the stages that are not done ({ScratchBytesPerChar} bytes per character of scratch at most), {free} bytes are available and {run.ReclaimableBytes} more are freed first");
+        }
+        else if (free >= 0 && free < need)
+        {
+            throw new IOException($"not enough free space in {directory}: the build needs about {need} bytes (the container {plan.ReservedLength} and {ScratchBytesPerChar} bytes per character of scratch), {free} bytes are available");
+        }
 
-        DeleteStale(tmp, scratch);
+        if (resumed) run!.Prepare();
+        else DeleteStale(tmp, scratch);
         bool published = false;
         MappedOutputFile? container = null;
         MappedTextReader? text = null;
@@ -357,22 +369,36 @@ internal static class SesaBuilder
         {
             t = Stopwatch.GetTimestamp();
             Directory.CreateDirectory(scratch);
-            container = MappedOutputFile.Create(tmp, plan.ReservedLength, options.Files);
+            if (resumed)
+            {
+                // the part behind the reserved length that an interrupted growth added is cut off, so that PH4 grows and reserves it again, whole, unless the LCP stage is done and the file is as it left it
+                long? cut = run!.Has(SesaStages.Lcp) ? null : plan.ReservedLength;
+                container = MappedOutputFile.OpenExisting(tmp, cut);
+            }
+            else
+            {
+                container = MappedOutputFile.Create(tmp, plan.ReservedLength, options.Files);
+            }
             double secCreate = Elapsed(t);
             ReservationOutcome reservation = container.Outcome;
             Hook(SesaHooks.Created);
 
             t = Stopwatch.GetTimestamp();
-            using (MappedWindowWriter w = container.CreateWriter(plan.TextOffset, plan.TextLength, options.TextWindowBytes, counters)) PackedTextWriter.Pack(inputPath, info, w, textOptions);
-            WriteSection(container, plan.AlphabetOffset, [.. info.Letters.Select(l => (ushort)l)], options.TextWindowBytes, counters);
-            WriteSection(container, plan.CountsOffset, [.. info.Counts.Select(c => (ulong)c)], options.TextWindowBytes, counters);
+            bool packedKept = run?.Has(SesaStages.Packed) == true;
+            if (!packedKept)
+            {
+                using (MappedWindowWriter w = container.CreateWriter(plan.TextOffset, plan.TextLength, options.TextWindowBytes, counters)) PackedTextWriter.Pack(inputPath, info, w, textOptions);
+                WriteSection(container, plan.AlphabetOffset, [.. info.Letters.Select(l => (ushort)l)], options.TextWindowBytes, counters);
+                WriteSection(container, plan.CountsOffset, [.. info.Counts.Select(c => (ulong)c)], options.TextWindowBytes, counters);
+            }
             double secPack = Elapsed(t);
+            if (run is not null && !packedKept) run.CommitPacked(container);
             double? rssPh0 = ph0.Stop();
             Hook(SesaHooks.Packed);
             text = MappedTextReader.OpenRegion(tmp, plan.TextOffset, plan.TextLength, n, info.Bits);
 
             // ---- PH1-PH3: the suffix array, straight into its section
-            SaBuildResult sa = SaBuilder.Build(text, container, plan.SaOffset, new SaBuildOptions
+            var saOptions = new SaBuildOptions
             {
                 ScratchDir = scratch,
                 Threads = options.Threads,
@@ -391,7 +417,9 @@ internal static class SesaBuilder
                 ProcSource = options.ProcSource,
                 RssAnonCapMb = options.RssAnonCapMb,
                 Trace = options.SaTrace,
-            });
+                Checkpoint = run is null ? null : new SaCheckpoint(run, container),
+            };
+            SaBuildResult sa = run?.Has(SesaStages.Sa) == true ? SkippedSa(n, saOptions, container.Outcome) : SaBuilder.Build(text, container, plan.SaOffset, saOptions);
             Hook(SesaHooks.SaBuilt);
 
             // ---- PH4-PH5: LCP (placed behind the sections known after PH0, once its width is known), overflow list and child table, straight into their sections
@@ -413,7 +441,7 @@ internal static class SesaBuilder
                 Hook(SesaHooks.LcpPlaced);
                 return new LcpPlacement(container, plan.LcpOffset, tail.OverflowOffset);
             }
-            LcpChildResult lcp = SectionLcpChildBuilder.Build(tmp, plan.SaOffset, text, container, plan.ChildOffset, Place, new LcpChildOptions
+            var lcpOptions = new LcpChildOptions
             {
                 ScratchDir = scratch,
                 Threads = options.Threads,
@@ -430,8 +458,22 @@ internal static class SesaBuilder
                 ProcSource = options.ProcSource,
                 RssAnonCapMb = options.RssAnonCapMb,
                 Trace = options.LcpTrace,
-            });
+            };
+            LcpChildResult lcp;
+            bool lcpKept = run?.Has(SesaStages.Lcp) == true;
+            if (lcpKept)
+            {
+                SesaStageRecord kept = run!.Record(SesaStages.Lcp);
+                tail = SesaLayout.PlaceTail(plan, (LcpKind)kept.Value("kind"), kept.Value("overflow"));
+                lcp = SkippedLcp(n, lcpOptions, tail, kept, container.Outcome);
+                Hook(SesaHooks.LcpPlaced);
+            }
+            else
+            {
+                lcp = SectionLcpChildBuilder.Build(tmp, plan.SaOffset, text, container, plan.ChildOffset, Place, lcpOptions);
+            }
             SesaTail placed = tail ?? throw new InvalidOperationException("PH4 did not ask for the placement of the LCP");
+            if (run is not null && !lcpKept) run.CommitLcp(container, placed, lcp.Scan);
             Hook(SesaHooks.LcpChildBuilt);
 
             // ---- PH6 (optional): the BWT as scratch, then PSI by the sigma-way distribution, straight into its section
@@ -439,11 +481,22 @@ internal static class SesaBuilder
             PsiStats? psi = null;
             double secBwt = 0, secPsi = 0;
             double? rssPh6 = null;
+            long primaryRow = -1;
             if (options.IncludePsi)
             {
-                using var ph6 = new PhaseRss(options);
-                (bwt, psi, secBwt, secPsi) = RunPh6(options, counters, scratch, tmp, plan, info, text, container, Hook);
-                rssPh6 = ph6.Stop();
+                if (run?.Has(SesaStages.Psi) == true)
+                {
+                    primaryRow = run.PrimaryRow();
+                    Hook(SesaHooks.BwtBuilt);
+                    Hook(SesaHooks.PsiBuilt);
+                }
+                else
+                {
+                    using var ph6 = new PhaseRss(options);
+                    (bwt, psi, secBwt, secPsi) = RunPh6(options, counters, scratch, tmp, plan, info, text, container, Hook, run);
+                    rssPh6 = ph6.Stop();
+                    primaryRow = bwt.PrimaryRow;
+                }
             }
 
             // ---- PH7: BUILD_INFO, the checksums, the header page, the atomic publication
@@ -466,7 +519,7 @@ internal static class SesaBuilder
             Hook(SesaHooks.Checksummed);
 
             t = Stopwatch.GetTimestamp();
-            SesaSection[] sections = BuildSections(plan, placed, info, bwt?.PrimaryRow ?? -1, buildInfo, infoBytes.Length, sums.Select(s => s.Crc).ToArray(), ranges, childCodec);
+            SesaSection[] sections = BuildSections(plan, placed, info, primaryRow, buildInfo, infoBytes.Length, sums.Select(s => s.Crc).ToArray(), ranges, childCodec);
             var header = new SesaHeader
             {
                 TextLength = n,
@@ -516,7 +569,7 @@ internal static class SesaBuilder
                 LrsRank = header.LrsRank,
                 MaxLcp = lcp.Scan.MaxLcp,
                 HasPsi = options.IncludePsi,
-                PrimaryRow = bwt?.PrimaryRow ?? -1,
+                PrimaryRow = primaryRow,
                 Sa = sa,
                 Lcp = lcp,
                 Psi = psi,
@@ -545,14 +598,16 @@ internal static class SesaBuilder
                 GrowthReservation = growth,
                 GrownBytes = grown,
                 CrcRows = sums.Select(s => s.Row).ToArray(),
+                Resume = run?.Report(),
             };
         }
         finally
         {
             text?.Dispose();
             container?.Dispose();
-            if (!published) DeleteQuietly(tmp);
-            DeleteDirectoryQuietly(scratch);
+            bool keep = !published && run is { Keeps: true }; // a build that records its stages leaves them for the next call when it fails
+            if (!published && !keep) DeleteQuietly(tmp);
+            if (!keep) DeleteDirectoryQuietly(scratch);
         }
     }
 
@@ -560,12 +615,67 @@ internal static class SesaBuilder
     internal const int ScratchBytesPerChar = 12;
 
     /// <summary>The bytes of scratch that the stages still to run will need (the pre-flight of a resume), from the stages that are kept and the bytes of scratch files that already exist.</summary>
-    internal static long ResumeNeedBytes(long n, bool psi, IReadOnlyCollection<string> kept, long existingScratchBytes) => throw new NotImplementedException();
+    internal static long ResumeNeedBytes(long n, bool psi, IReadOnlyCollection<string> kept, long existingScratchBytes)
+    {
+        long need = ScratchBytesPerChar * n;
+        if (kept.Contains(SesaStages.Lcp))
+        {
+            // only the BWT file is still to be created; PSI is written into the container, which is reserved
+            bool bwtToCome = psi && !kept.Contains(SesaStages.Psi);
+            need = bwtToCome ? n + 1 : 0;
+        }
+        return Math.Max(0, need - existingScratchBytes);
+    }
+
+    /// <summary>What a build that found PH1-PH3 done reports for them: the sizes that its options would give and nothing that ran.</summary>
+    private static SaBuildResult SkippedSa(long n, SaBuildOptions options, ReservationOutcome outcome) => new()
+    {
+        Parameters = SaBuildRules.Resolve(n, options),
+        N = n,
+        Dcs = new ExtDcsStats(),
+        Sort = new SortStats(),
+        Reservation = outcome,
+    };
+
+    /// <summary>What a build that found PH4-PH5 done reports for them: the numbers that the stage recorded.</summary>
+    private static LcpChildResult SkippedLcp(long n, LcpChildOptions options, SesaTail tail, SesaStageRecord record, ReservationOutcome outcome)
+    {
+        long depth = record.Value("lrs_depth");
+        return new LcpChildResult
+        {
+            Parameters = LcpChildRules.Resolve(n, options),
+            Lcp = new ExtLcpStats { Kind = tail.Kind, N = n, OverflowCount = tail.OverflowCount, Reservation = outcome },
+            Scan = new ChildScanResult
+            {
+                N = n,
+                InternalCount = record.Value("internal_count"),
+                NodeCount = record.Value("node_count"),
+                LrsDepth = (uint)depth,
+                LrsRank = depth == 0 ? 0 : (uint)record.Value("lrs_rank"),
+                MaxLcp = record.Value("max_lcp"),
+            },
+            Reservation = outcome,
+        };
+    }
+
+    /// <summary>The window of <see cref="SaBuilder"/> onto the recording of the build: the rank file after PH1, the suffix array after PH3.</summary>
+    private sealed class SaCheckpoint(SesaResumeRun run, MappedOutputFile container) : ISaCheckpoint
+    {
+        public bool KeepRanks => run.Vouches("ranks.bin");
+
+        public double CheckpointSeconds => run.CheckpointSeconds;
+
+        public bool TryReuseRanks(DifferenceCover cover) => run.Has(SesaStages.Ranks);
+
+        public void RanksBuilt(DifferenceCover cover) => run.CommitRanks(cover);
+
+        public void SaWritten() => run.CommitSa(container);
+    }
 
     /// <summary>Bytes of one entry of the scan stack of PH5 (the upper bound of its spill is this times the depth).</summary>
     internal const int SpillBytesPerEntry = 16;
 
-    private static (BwtResult Bwt, PsiStats Psi, double SecBwt, double SecPsi) RunPh6(SesaBuildOptions options, IoCounters counters, string scratch, string tmp, SesaPlan plan, PackedTextInfo info, MappedTextReader text, MappedOutputFile container, Action<string> hook)
+    private static (BwtResult Bwt, PsiStats Psi, double SecBwt, double SecPsi) RunPh6(SesaBuildOptions options, IoCounters counters, string scratch, string tmp, SesaPlan plan, PackedTextInfo info, MappedTextReader text, MappedOutputFile container, Action<string> hook, SesaResumeRun? run)
     {
         long n = info.N;
         string dir = Path.Combine(scratch, "ph6");
@@ -575,20 +685,24 @@ internal static class SesaBuilder
         SesaPh6Tuning tune = options.Ph6Tuning;
         int window = tune.WindowBytes ?? MappedWindowWriter.DefaultWindowBytes;
         long t = Stopwatch.GetTimestamp();
-        BwtResult bwt = BwtPass.Build(tmp, plan.SaOffset, text, info.Sigma, bwtPath, new BwtOptions
-        {
-            ReadBytes = tune.ReadBytes ?? 1 << 20,
-            WindowBytes = window,
-            Budget = budget,
-            ArenaGuards = options.ArenaGuards,
-            Counters = counters,
-            Files = options.Files,
-        });
-        double secBwt = Elapsed(t);
+        bool bwtKept = run?.Has(SesaStages.Bwt) == true;
+        BwtResult bwt = bwtKept
+            ? new BwtResult(n, run!.PrimaryRow(), [.. info.Counts]) // an earlier run built it, its counts were those of the text, and the file verified
+            : BwtPass.Build(tmp, plan.SaOffset, text, info.Sigma, bwtPath, new BwtOptions
+            {
+                ReadBytes = tune.ReadBytes ?? 1 << 20,
+                WindowBytes = window,
+                Budget = budget,
+                ArenaGuards = options.ArenaGuards,
+                Counters = counters,
+                Files = options.Files,
+            });
+        double secBwt = bwtKept ? 0 : Elapsed(t);
         counters.AddScratch(n + 1); // the BWT file is scratch until PSI is built
         try
         {
             if (!bwt.Counts.AsSpan().SequenceEqual(info.Counts)) throw new InvalidDataException("the symbol counts of the BWT differ from those of the text: the suffix array does not belong to the text");
+            if (run is not null && !bwtKept) run.CommitBwt(bwt.PrimaryRow);
             hook(SesaHooks.BwtBuilt);
             t = Stopwatch.GetTimestamp();
             PsiStats psi = PsiStream.Build(bwtPath, n, bwt.PrimaryRow, info.Counts, container, plan.PsiOffset, new PsiOptions
@@ -602,6 +716,7 @@ internal static class SesaBuilder
                 Counters = counters,
             });
             double secPsi = Elapsed(t);
+            run?.CommitPsi(container, bwt.PrimaryRow);
             File.Delete(bwtPath);
             Directory.Delete(dir);
             hook(SesaHooks.PsiBuilt);
@@ -610,7 +725,7 @@ internal static class SesaBuilder
         finally
         {
             counters.RemoveScratch(n + 1);
-            DeleteQuietly(bwtPath);
+            if (run is null || !run.Vouches("ph6/bwt.bin")) DeleteQuietly(bwtPath); // the state vouches for it: a failure of PSI must not lose the BWT
         }
     }
 
