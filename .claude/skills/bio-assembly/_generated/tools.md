@@ -28,6 +28,7 @@
 | `cumulative_gc_skew` | Analysis | `GcSkewCalculator.CalculateCumulativeGcSkew` | [doc](../../../../docs/mcp/tools/analysis/cumulative_gc_skew.md) |
 | `dangling_end_energy` | Analysis | `RnaSecondaryStructure.GetDanglingEndEnergy` | [doc](../../../../docs/mcp/tools/analysis/dangling_end_energy.md) |
 | `delta2blocks` | Analysis | `MummerDelta2Blocks.Run` | [doc](../../../../docs/mcp/tools/analysis/delta2blocks.md) |
+| `delta2maf` | Analysis | `MummerDelta2Maf.Run` | [doc](../../../../docs/mcp/tools/analysis/delta2maf.md) |
 | `delta_filter` | Analysis | `MummerDeltaFilter.Run` | [doc](../../../../docs/mcp/tools/analysis/delta_filter.md) |
 | `detect_pseudoknots` | Analysis | `RnaSecondaryStructure.DetectPseudoknots` | [doc](../../../../docs/mcp/tools/analysis/detect_pseudoknots.md) |
 | `detect_rearrangements` | Analysis | `ComparativeGenomics.DetectRearrangements` | [doc](../../../../docs/mcp/tools/analysis/detect_rearrangements.md) |
@@ -129,6 +130,7 @@
 | `mummer_annotate` | Analysis | `MummerAnnotate.Run` | [doc](../../../../docs/mcp/tools/analysis/mummer_annotate.md) |
 | `mummer_gaps` | Analysis | `MummerGaps.Run` | [doc](../../../../docs/mcp/tools/analysis/mummer_gaps.md) |
 | `nucmer` | Analysis | `GenomicAnalyzer.Nucmer` | [doc](../../../../docs/mcp/tools/analysis/nucmer.md) |
+| `nucmer2xfig` | Analysis | `MummerNucmer2Xfig.Run` | [doc](../../../../docs/mcp/tools/analysis/nucmer2xfig.md) |
 | `nucmer_clusters` | Analysis | `GenomicAnalyzer.FindNucmerClusters` | [doc](../../../../docs/mcp/tools/analysis/nucmer_clusters.md) |
 | `oligo_analysis` | Analysis | `MotifFinder.DiscoverMotifs` | [doc](../../../../docs/mcp/tools/analysis/oligo_analysis.md) |
 | `parse_dot_bracket` | Analysis | `RnaSecondaryStructure.ParseDotBracket` | [doc](../../../../docs/mcp/tools/analysis/parse_dot_bracket.md) |

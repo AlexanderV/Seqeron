@@ -137,6 +137,8 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "delta2blocks",
         "mummer_annotate",
         "run_mummer1",
+        "delta2maf",
+        "nucmer2xfig",
         "est2genome",
         "mask_approximate_tandem_repeats",
         "mask_low_complexity",

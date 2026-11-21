@@ -86,7 +86,7 @@
 | `water_align` | `SequenceAligner.WaterAlign` | [doc](../../mcp/tools/alignment/water_align.md) |
 | `write_alignment` | `EmbossAlignmentWriter.Format` | [doc](../../mcp/tools/alignment/write_alignment.md) |
 
-## Analysis (165 tools)
+## Analysis (167 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -112,6 +112,7 @@
 | `cumulative_gc_skew` | `GcSkewCalculator.CalculateCumulativeGcSkew` | [doc](../../mcp/tools/analysis/cumulative_gc_skew.md) |
 | `dangling_end_energy` | `RnaSecondaryStructure.GetDanglingEndEnergy` | [doc](../../mcp/tools/analysis/dangling_end_energy.md) |
 | `delta2blocks` | `MummerDelta2Blocks.Run` | [doc](../../mcp/tools/analysis/delta2blocks.md) |
+| `delta2maf` | `MummerDelta2Maf.Run` | [doc](../../mcp/tools/analysis/delta2maf.md) |
 | `delta_filter` | `MummerDeltaFilter.Run` | [doc](../../mcp/tools/analysis/delta_filter.md) |
 | `detect_pseudoknots` | `RnaSecondaryStructure.DetectPseudoknots` | [doc](../../mcp/tools/analysis/detect_pseudoknots.md) |
 | `detect_rearrangements` | `ComparativeGenomics.DetectRearrangements` | [doc](../../mcp/tools/analysis/detect_rearrangements.md) |
@@ -213,6 +214,7 @@
 | `mummer_annotate` | `MummerAnnotate.Run` | [doc](../../mcp/tools/analysis/mummer_annotate.md) |
 | `mummer_gaps` | `MummerGaps.Run` | [doc](../../mcp/tools/analysis/mummer_gaps.md) |
 | `nucmer` | `GenomicAnalyzer.Nucmer` | [doc](../../mcp/tools/analysis/nucmer.md) |
+| `nucmer2xfig` | `MummerNucmer2Xfig.Run` | [doc](../../mcp/tools/analysis/nucmer2xfig.md) |
 | `nucmer_clusters` | `GenomicAnalyzer.FindNucmerClusters` | [doc](../../mcp/tools/analysis/nucmer_clusters.md) |
 | `oligo_analysis` | `MotifFinder.DiscoverMotifs` | [doc](../../mcp/tools/analysis/oligo_analysis.md) |
 | `parse_dot_bracket` | `RnaSecondaryStructure.ParseDotBracket` | [doc](../../mcp/tools/analysis/parse_dot_bracket.md) |

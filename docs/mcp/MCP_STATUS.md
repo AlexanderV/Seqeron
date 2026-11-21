@@ -1,6 +1,6 @@
 # MCP Completion — Source of Truth & Campaign Ledger
 
-> Reality-based ledger of the 574 MCP tools across 11 servers. Campaign COMPLETE (2026-07-01):
+> Reality-based ledger of the 576 MCP tools across 11 servers. Campaign COMPLETE (2026-07-01):
 > every tool has a gold-standard binding (`[McpServerTool(Name/Title/ReadOnly)]` + `[Description]`,
 > structured record, input validation, real `Seqeron.Genomics` delegation), a Schema+Binding NUnit
 > test, and `{tool}.md` + `{tool}.mcp.json` docs. Supersedes `docs/mcp-plan.md` / `docs/mcp-checklist.md` (v4).
@@ -9,9 +9,9 @@
 
 | Metric | Done | Total |
 |---|---:|---:|
-| Gold-standard binding | 574 | 574 |
-| Schema+Binding tests | 574 | 574 |
-| Docs (.md + .mcp.json) | 574 | 574 |
+| Gold-standard binding | 576 | 576 |
+| Schema+Binding tests | 576 | 576 |
+| Docs (.md + .mcp.json) | 576 | 576 |
 
 ## Per-server summary
 
@@ -21,7 +21,7 @@
 | Sequence | Seqeron.Mcp.Sequence | 35 | 35/35 | 35/35 | 35/35 | ✅ done |
 | Parsers | Seqeron.Mcp.Parsers | 41 | 41/41 | 41/41 | 41/41 | ✅ done |
 | Alignment | Seqeron.Mcp.Alignment | 77 | 77/77 | 77/77 | 77/77 | ✅ done |
-| Analysis | Seqeron.Mcp.Analysis | 165 | 165/165 | 165/165 | 165/165 | ✅ done |
+| Analysis | Seqeron.Mcp.Analysis | 167 | 167/167 | 167/167 | 167/167 | ✅ done |
 | Annotation | Seqeron.Mcp.Annotation | 97 | 97/97 | 97/97 | 97/97 | ✅ done |
 | Chromosome | Seqeron.Mcp.Chromosome | 32 | 32/32 | 32/32 | 32/32 | ✅ done |
 | Metagenomics | Seqeron.Mcp.Metagenomics | 19 | 19/19 | 19/19 | 19/19 | ✅ done |
@@ -222,7 +222,7 @@
 | 76 | `dotmatcher` | ☑ | ☑ | ☑ |
 | 77 | `minimap2_map` | ☑ | ☑ | ☑ |
 
-### Analysis (Seqeron.Mcp.Analysis) — 165 tools
+### Analysis (Seqeron.Mcp.Analysis) — 167 tools
 
 | # | tool | B | T | D |
 |---:|---|:--:|:--:|:--:|
@@ -391,6 +391,8 @@
 | 163 | `delta2blocks` | ☑ | ☑ | ☑ |
 | 164 | `mummer_annotate` | ☑ | ☑ | ☑ |
 | 165 | `run_mummer1` | ☑ | ☑ | ☑ |
+| 166 | `delta2maf` | ☑ | ☑ | ☑ |
+| 167 | `nucmer2xfig` | ☑ | ☑ | ☑ |
 ### Annotation (Seqeron.Mcp.Annotation) — 97 tools
 
 | # | tool | B | T | D |

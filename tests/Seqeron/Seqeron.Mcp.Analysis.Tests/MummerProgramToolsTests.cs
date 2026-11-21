@@ -100,4 +100,39 @@ public class MummerProgramToolsTests
         Assert.Throws<FormatException>(() => AnalysisTools.RunMummer1(Ref1, Qry1, reverse: false));
         Assert.Throws<ArgumentException>(() => AnalysisTools.RunMummer1("", Qry1));
     }
+
+    [Test]
+    public void Delta2Maf_WritesTheMafOfTheAlignments()
+    {
+        const string delta = "ref.fa qry.fa\nNUCMER\n>ref qry 140 135\n6 140 1 135 3 3 0\n0\n";
+        string text = AnalysisTools.Delta2Maf(delta, Ref1, Qry1).Text;
+        Assert.That(text, Is.EqualTo("##maf version=1 scoring=single_cov2\na score=134\ns ref 5 135 + 140 " + Ref1.Split('\n')[1].ToLowerInvariant()[5..140]
+            + "\ns qry 0 135 + 135 " + Qry1.Split('\n')[1].ToLowerInvariant() + "\n\n##eof maf"));
+        Assert.Throws<FormatException>(() => AnalysisTools.Delta2Maf(delta, Ref1, Qry1, "nonexistent"));
+        Assert.Throws<NotSupportedException>(() => AnalysisTools.Delta2Maf("ref.fa qry.fa\nPROMER\n>ref qry 140 135\n6 140 1 135 3 3 0\n0\n", Ref1, Qry1));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.Delta2Maf("", Ref1, Qry1));
+    }
+
+    [Test]
+    public void Nucmer2Xfig_PlotsACoordsFile()
+    {
+        // nucmer2xfig c.coords (MUMmer 3.23, B09 A3-9e F208)
+        string text = AnalysisTools.Nucmer2Xfig("  2551   2577 | 240 266 | 27 27 | 96.30 | 30000 1424 | 0.09 1.90 | 2R ctg1\n  2600   9000 | 300 6700 | 6401 6401 | 99.00 | 30000 1424 | 21.33 99.00 | 2R ctg1\n").Text;
+        Assert.That(text, Does.StartWith("#FIG 3.2\nLandscape\nCenter\nInches\nLetter  \n100.00\nSingle\n-2\n1200 2\n2 1 0 2 2 7 100 0 -1 0.000 0 0 -1 0 0 2\n\t 12 926 13 926\n2 1 0 2 2 7 100 0 -1 0.000 0 0 -1 0 0 2\n\t 13 980 45 980\n"
+            + "2 1 0 2 1 7 100 0 -1 0.000 0 0 -1 0 0 2\n\t 13 1000 45 1000\n4 0 0 100 0 0 12 0.0000 4 135 405 150 0 2R\\001\n"));
+        Assert.That(text, Does.EndWith("4 0 0 100 0 0 5 0.0000 4 135 405 -150 1010 100\\001\n2 1 0 1 0 7 50 0 -1 0.000 0 0 -1 0 0 2\n-50 1000 0 1000\n"));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.Nucmer2Xfig(null!));
+    }
+
+    [Test]
+    public void Nucmer_Prefix_NamesTheFilesTheScriptLeavesBehind()
+    {
+        // nucmer -p pre -l 15 -o ref.fa qry.fa leaves pre.coords and pre.delta (the temporary pre.ntref and pre.mgaps are deleted) and writes the progress lines to standard error (B09 A3-9f, F209)
+        var r = AnalysisTools.Nucmer(Ref1, Qry1, minMatch: 15, coords: true, prefix: "pre", referenceName: "/w/ref.fa", queryName: "/w/qry.fa");
+        Assert.That(r.Files!.Keys, Is.EquivalentTo(new[] { "pre.delta", "pre.coords" }));
+        Assert.That(r.Files["pre.delta"], Is.EqualTo(r.Delta));
+        Assert.That(r.Log, Is.EqualTo("1: PREPARING DATA\n2,3: RUNNING mummer AND CREATING CLUSTERS\n# reading input file \"pre.ntref\" of length 141\n# construct suffix tree for sequence of length 141\n"
+            + "# (maximum reference length is 536870908)\n# (maximum query length is 4294967295)\n# reading input file \"/w/qry.fa\" of length 135\n# matching query-file \"/w/qry.fa\"\n# against subject-file \"pre.ntref\"\n4: FINISHING DATA\n5: GENERATING COORDS FILE\n"));
+        Assert.That(AnalysisTools.Nucmer(Ref1, Qry1, minMatch: 15, delta: false, prefix: "x").Files!.Keys, Is.EquivalentTo(new[] { "x.cluster" }));
+    }
 }

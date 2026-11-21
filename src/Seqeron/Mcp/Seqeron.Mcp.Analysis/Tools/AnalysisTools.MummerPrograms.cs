@@ -166,4 +166,31 @@ public partial class AnalysisTools
             throw new NotSupportedException(e.Message, e);
         }
     }
+
+    [McpServerTool(Name = "delta2maf", Title = "Genome — MUMmer delta2maf (MAF alignments)", ReadOnly = true)]
+    [Description("delta2maf of the Debian MUMmer 3.23 package: the alignments of a nucmer delta file as a MAF file: '##maf version=1 scoring=single_cov2', per alignment 'a score=n' (n = |end - start| in the reference) and two 's' lines (source id, 0-based start, aligned length, strand, source length, the gapped sequence text in lower case; a reverse-strand alignment is written on the reverse complement with strand '-'), and '##eof maf' (no final newline). referenceId / queryId select the alignments of one reference record, one query record or one pair (a query id alone needs an empty referenceId); all alignments when both are empty. sortByReference (-r) / sortByQuery (-q) order the alignments. The reference and query files named in the delta header are read into one map by id (the first record of an id wins). An id without alignments is an error (the program prints the maf header and exits with 1); a promer delta file is refused (the program reads its amino-acid deltas as nucleotide deltas and runs past the sequences). Byte for byte equal to the installed delta2maf on 315 + runs.")]
+    public static MummerProgramResult Delta2Maf(
+        [Description("Delta file text (nucmer).")] string delta,
+        [Description("Reference FASTA text.")] string referenceFasta,
+        [Description("Query FASTA text.")] string queryFasta,
+        [Description("Only the alignments of this reference record (default: any).")] string referenceId = "",
+        [Description("Only the alignments of this query record (default: any; both ids must match when both are given).")] string queryId = "",
+        [Description("-q: sort the alignments by the query start (default false).")] bool sortByQuery = false,
+        [Description("-r: sort the alignments by the reference start (default false).")] bool sortByReference = false)
+    {
+        if (string.IsNullOrEmpty(delta))
+            throw new ArgumentException("Delta file text cannot be null or empty", nameof(delta));
+        var r = MummerDelta2Maf.Run(delta, referenceFasta, queryFasta, referenceId ?? string.Empty, queryId ?? string.Empty, new MummerDelta2MafOptions { SortByQuery = sortByQuery, SortByReference = sortByReference });
+        return new MummerProgramResult(r.Text, r.Messages);
+    }
+
+    [McpServerTool(Name = "nucmer2xfig", Title = "Genome — MUMmer nucmer2xfig (xfig plot)", ReadOnly = true)]
+    [Description("nucmer2xfig of MUMmer 3.23 (perl script, Steven Salzberg 2001): an xfig file (FIG 3.2) plotting a coords file of 'show-coords -c -l' (19 white-space separated fields per alignment: s1 e1 | s2 e2 | len1 len2 | %idy | lenR lenQ | covR covQ | idR idQ; no header lines, sorted by query id and start) of the contigs of one genome against a reference chromosome: the reference as a red line (colour 4) with its id, x-axis tick marks every 250 000 bases and y-axis tick marks for 50 - 100 percent identity, every alignment as a green line (colour 2, x scaled by 0.005, y = 20 x (identity - 50)), every contig - the stretch its alignments span, split where they are more than twice the query length apart - as a blue line (colour 1) at 100 percent with a vertical label (4.7124 rad) when the line is wider than the label. Perl's numeric conversion of the fields is reproduced (text is 0) and printf %.0f rounds half to even. Byte for byte equal to the installed script on 260 + runs including malformed input (the output of an empty file is just the reference line with empty fields).")]
+    public static MummerTextResult Nucmer2Xfig(
+        [Description("The text of the coords file (show-coords -c -l without its header).")] string coords)
+    {
+        if (coords is null)
+            throw new ArgumentException("Coords text cannot be null", nameof(coords));
+        return new MummerTextResult(MummerNucmer2Xfig.Run(coords));
+    }
 }

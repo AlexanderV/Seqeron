@@ -80,6 +80,11 @@
     <EmbeddedResource Include="TestData\Alignment\promer_show_oracle.jsonl.gz" />
     <!-- A3-9e (B09 F206): gaps, delta2blocks, mummer-annotate, run-mummer1; scripts/alignment/generate_mummer_gaps_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\mummer_gaps_oracle.jsonl.gz" />
+    <!-- A3-9e (B09 F207): delta2maf; scripts/alignment/generate_delta2maf_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\delta2maf_oracle.jsonl.gz" />
+    <!-- A3-9e / A3-9f (B09 F208, F209): nucmer2xfig and nucmer prefix option; scripts/alignment/generate_nucmer2xfig_oracle.py, generate_nucmer_prefix_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\nucmer2xfig_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\nucmer_prefix_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\est2genome_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\wordmatch_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\fuzznuc_dup_oracle.jsonl.gz" />

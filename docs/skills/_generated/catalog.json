@@ -693,6 +693,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/MummerGaps.cs"
   },
   {
+    "tool": "delta2maf",
+    "server": "Analysis",
+    "methodId": "MummerDelta2Maf.Run",
+    "docPath": "docs/mcp/tools/analysis/delta2maf.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/MummerDelta2Maf.cs"
+  },
+  {
     "tool": "delta_filter",
     "server": "Analysis",
     "methodId": "MummerDeltaFilter.Run",
@@ -1398,6 +1405,13 @@
     "methodId": "GenomicAnalyzer.Nucmer",
     "docPath": "docs/mcp/tools/analysis/nucmer.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.Nucmer.cs"
+  },
+  {
+    "tool": "nucmer2xfig",
+    "server": "Analysis",
+    "methodId": "MummerNucmer2Xfig.Run",
+    "docPath": "docs/mcp/tools/analysis/nucmer2xfig.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/MummerNucmer2Xfig.cs"
   },
   {
     "tool": "nucmer_clusters",

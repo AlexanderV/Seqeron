@@ -1,7 +1,7 @@
 namespace Seqeron.Mcp.Analysis.Models;
 
-/// <summary>Result of <c>nucmer</c>: the text of the <c>.delta</c> file (or of the <c>.cluster</c> file with <c>delta = false</c>) and what the programs write to standard error (and, with <c>coords</c>, the text of the coords file).</summary>
-public record NucmerToolResult(string? Delta, string? Cluster, string Messages, string? Coords = null);
+/// <summary>Result of <c>nucmer</c>: the text of the <c>.delta</c> file (or of the <c>.cluster</c> file with <c>delta = false</c>) and what the programs write to standard error (and, with <c>coords</c>, the text of the coords file); <c>Log</c> is the whole standard error of the script, <c>Files</c> the files it leaves behind by name (<c>&lt;prefix&gt;.delta</c> ...).</summary>
+public record NucmerToolResult(string? Delta, string? Cluster, string Messages, string? Coords = null, string Log = "", Dictionary<string, string>? Files = null);
 
 /// <summary>The text a MUMmer show-* / delta-filter program writes to standard output, byte for byte.</summary>
 public record MummerTextResult(string Text);

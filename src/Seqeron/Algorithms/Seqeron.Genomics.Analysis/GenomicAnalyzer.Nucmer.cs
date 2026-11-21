@@ -51,6 +51,12 @@ public sealed record NucmerOptions
 
     /// <summary>Also produce the NUCmer 1.1 coords file (<c>-o|--coords</c>: <c>show-coords -r out.delta</c>); needs the delta (not with <c>--nodelta</c>).</summary>
     public bool Coords { get; init; }
+
+    /// <summary>
+    /// The output prefix (<c>-p|--prefix</c>, default <c>out</c>): the script writes <c>&lt;prefix&gt;.delta</c> (or <c>&lt;prefix&gt;.cluster</c> with <c>--nodelta</c>) and, with <c>-o</c>, <c>&lt;prefix&gt;.coords</c>; its temporary files
+    /// <c>&lt;prefix&gt;.ntref</c> (the joined reference, read by <c>mummer</c>) and <c>&lt;prefix&gt;.mgaps</c> are deleted at the end. The prefix names the keys of <see cref="NucmerResult.Files"/> and the files in <see cref="NucmerResult.Log"/>.
+    /// </summary>
+    public string Prefix { get; init; } = "out";
 }
 
 /// <summary>Output of <see cref="GenomicAnalyzer.Nucmer"/>.</summary>
@@ -58,7 +64,26 @@ public sealed record NucmerOptions
 /// <param name="Cluster">Text of <c>out.cluster</c> (only with <c>--nodelta</c>).</param>
 /// <param name="Messages">Warnings the programs write to standard error.</param>
 /// <param name="Coords">Text of <c>out.coords</c> (only with <see cref="NucmerOptions.Coords"/>).</param>
-public sealed record NucmerResult(string? Delta, string? Cluster, string Messages, string? Coords = null);
+/// <param name="Log">Everything the script and its programs write to standard error, in order (<c>1: PREPARING DATA</c>, the warnings of <c>prenuc</c>, <c>2,3: RUNNING mummer AND CREATING CLUSTERS</c>, the reading lines of <c>mummer</c> - the lines with its timings are not reproduced -, <c>4: FINISHING DATA</c>, the warnings of <c>postnuc</c>, <c>5: GENERATING COORDS FILE</c>).</param>
+/// <param name="Prefix">The output prefix (<see cref="NucmerOptions.Prefix"/>).</param>
+public sealed record NucmerResult(string? Delta, string? Cluster, string Messages, string? Coords = null, string Log = "", string Prefix = "out")
+{
+    /// <summary>The files the script leaves behind, by name: <c>&lt;prefix&gt;.delta</c> or <c>&lt;prefix&gt;.cluster</c> (with <c>--nodelta</c>) and <c>&lt;prefix&gt;.coords</c> (with <c>-o</c>).</summary>
+    public IReadOnlyDictionary<string, string> Files
+    {
+        get
+        {
+            var files = new Dictionary<string, string>();
+            if (Delta != null)
+                files[Prefix + ".delta"] = Delta;
+            if (Cluster != null)
+                files[Prefix + ".cluster"] = Cluster;
+            if (Coords != null)
+                files[Prefix + ".coords"] = Coords;
+            return files;
+        }
+    }
+}
 
 public static partial class GenomicAnalyzer
 {
@@ -87,6 +112,7 @@ public static partial class GenomicAnalyzer
         ArgumentNullException.ThrowIfNull(queryName);
         var o = options ?? new NucmerOptions();
         var refs = NucmerPostnuc.ReadFasta(referenceFasta, out string messages);
+        var log = new StringBuilder("1: PREPARING DATA\n").Append(messages);
         if (refs.Count == 0)
             throw new FormatException("mummer: empty sequence in multiple fasta file");   // prenuc's file has no sequence
         var prenuc = new StringBuilder();
@@ -98,11 +124,17 @@ public static partial class GenomicAnalyzer
             strands = o.ForwardOnly ? StrandSelection.Forward : StrandSelection.ReverseComplement;
         var clusterOptions = new NucmerClusterOptions { MaxSeparation = o.MaxGap, MinClusterLength = o.MinCluster, DiagonalDifference = o.DiagonalDifference, DiagonalFraction = o.DiagonalFactor };
         string concatenated = prenuc.ToString();
+        string pfx = o.Prefix ?? "out";
 
         // mummer | mgaps: a header line per query record and strand; mgaps prints it before the first cluster of the block and a '#' line before the others
         var mgaps = new StringBuilder();
         var queries = NucmerPostnuc.ReadFasta(queryFasta, out string queryMessages);
         CheckMummerInput(queryFasta, queries, "qry");
+        long residues = MummerMultiSeq.Scan(queryName, queryFasta, MummerMultiSeq.QueryReplacement).Text.Length;
+        log.Append("2,3: RUNNING mummer AND CREATING CLUSTERS\n# reading input file \"").Append(pfx).Append(".ntref\" of length ").Append(concatenated.Length.ToString(CultureInfo.InvariantCulture)).Append('\n')
+            .Append("# construct suffix tree for sequence of length ").Append(concatenated.Length.ToString(CultureInfo.InvariantCulture)).Append("\n# (maximum reference length is 536870908)\n# (maximum query length is 4294967295)\n")
+            .Append("# reading input file \"").Append(queryName).Append("\" of length ").Append(residues.ToString(CultureInfo.InvariantCulture)).Append('\n')
+            .Append("# matching query-file \"").Append(queryName).Append("\"\n# against subject-file \"").Append(pfx).Append(".ntref\"\n");
         foreach (var (id, seq) in queries)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -130,7 +162,10 @@ public static partial class GenomicAnalyzer
             coords = MummerShowCoords.Run(post.Delta, new MummerShowCoordsOptions { SortByReference = true }).Text;
         }
 
-        return new NucmerResult(post.Delta, post.Cluster, messages + queryMessages + post.Messages, coords);
+        log.Append("4: FINISHING DATA\n").Append(post.Messages);
+        if (o.Coords)
+            log.Append("5: GENERATING COORDS FILE\n");
+        return new NucmerResult(post.Delta, post.Cluster, messages + queryMessages + post.Messages, coords, log.ToString(), pfx);
 
     }
 

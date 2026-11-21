@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "delta2maf",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MummerDelta2Maf.Run",
+  "docRef": "MummerDelta2Maf.cs",
+  "description": "delta2maf of the Debian MUMmer 3.23 package: the alignments of a nucmer delta file as a MAF file: '##maf version=1 scoring=single_cov2', per alignment 'a score=n' (n = |end - start| in the reference) and two 's' lines (source id, 0-based start, aligned length, strand, source length, the gapped sequence text in lower case; a reverse-strand alignment is written on the reverse complement with strand '-'), and '##eof maf' (no final newline). referenceId / queryId select the alignments of one reference record, one query record or one pair (a query id alone needs an empty referenceId); all alignments when both are empty. sortByReference (-r) / sortByQuery (-q) order the alignments. The reference and query files named in the delta header are read into one map by id (the first record of an id wins). An id without alignments is an error (the program prints the maf header and exits with 1); a promer delta file is refused (the program reads its amino-acid deltas as nucleotide deltas and runs past the sequences). Byte for byte equal to the installed delta2maf on 315 + runs.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "delta": {
+        "type": "string",
+        "description": "Delta file text (nucmer)."
+      },
+      "referenceFasta": {
+        "type": "string",
+        "description": "Reference FASTA text."
+      },
+      "queryFasta": {
+        "type": "string",
+        "description": "Query FASTA text."
+      },
+      "referenceId": {
+        "type": "string",
+        "description": "Only the alignments of this reference record (default: any).",
+        "default": ""
+      },
+      "queryId": {
+        "type": "string",
+        "description": "Only the alignments of this query record (default: any; both ids must match when both are given).",
+        "default": ""
+      },
+      "sortByQuery": {
+        "type": "boolean",
+        "description": "-q: sort the alignments by the query start (default false).",
+        "default": false
+      },
+      "sortByReference": {
+        "type": "boolean",
+        "description": "-r: sort the alignments by the reference start (default false).",
+        "default": false
+      }
+    },
+    "required": [
+      "delta",
+      "referenceFasta",
+      "queryFasta"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "text": {
+        "type": "string",
+        "description": "What delta2maf writes to standard output."
+      },
+      "messages": {
+        "type": "string",
+        "description": "What it writes to standard error."
+      }
+    },
+    "required": [
+      "text",
+      "messages"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Delta file text cannot be null or empty"
+    },
+    {
+      "code": 1001,
+      "message": "ERROR: Could not find any alignments for refId and qryId"
+    },
+    {
+      "code": 1001,
+      "message": "delta2maf of a promer delta file: ..."
+    }
+  ],
+  "examples": [
+    {
+      "name": "One alignment as MAF",
+      "input": {
+        "delta": "ref.fa qry.fa\nNUCMER\n>ref qry 140 135\n6 140 1 135 3 3 0\n0\n",
+        "referenceFasta": ">ref\nGCTAAAGACAATTACATAACATACACGTCAGCACGAAACTTGTTGGCCCAGTGTGAATCGCTTAAGGGTTAAGTAAGTGTGATGCATACGCCTTTACTTGCTGTGTCCACCCCATCGGACTGGCATTTTTATTACACTCA\n",
+        "queryFasta": ">qry\nAGACAATTACATAACATACACGTCAGCACGAAACTTGTTGGCCCAGTGTGAATCGCTTAAGGGTTGGGGAAGTGTGATGCATACGCCTTTACTTGCTGTGTCCACCCCATCGGACTGGCATTTTTATTACACTCA\n"
+      },
+      "output": {
+        "text": "##maf version=1 scoring=single_cov2\na score=134\ns ref 5 135 + 140 agacaattacataacatacacgtcagcacgaaacttgttggcccagtgtgaatcgcttaagggttaagtaagtgtgatgcatacgcctttacttgctgtgtccaccccatcggactggcatttttattacactca\ns qry 0 135 + 135 agacaattacataacatacacgtcagcacgaaacttgttggcccagtgtgaatcgcttaagggttggggaagtgtgatgcatacgcctttacttgctgtgtccaccccatcggactggcatttttattacactca\n\n##eof maf",
+        "messages": ""
+      }
+    }
+  ]
+}
