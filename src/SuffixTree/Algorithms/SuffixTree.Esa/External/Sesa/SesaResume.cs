@@ -34,6 +34,8 @@ internal sealed class SesaResumeRun
     private int _writes;
     private long _bytes;
     private double _checkpointSeconds;
+    private ClearResult _cleared;
+    private double _clearSeconds;
 
     private SesaResumeRun(SesaBuildOptions options, string tmp, string scratch, PackedTextInfo info, SesaPlan plan, ChildCodec codec, IoCounters counters, DifferenceCover? cover)
     {
@@ -90,6 +92,19 @@ internal sealed class SesaResumeRun
     /// <summary>Seconds spent recording stages so far (fsync, CRC, state file).</summary>
     internal double CheckpointSeconds => _checkpointSeconds;
 
+    /// <summary>
+    /// The ranges of the container that the kept stages vouch for, each with a CRC-32C that <see cref="Load"/> has just verified (work package 1b.9e.1). Every other byte of the temporary container is, for this run, nothing that an earlier
+    /// run or anyone else can be believed about: <see cref="MappedOutputFile.OpenExisting"/> makes it zero, as it is in a new file, before any stage runs.
+    /// </summary>
+    internal IReadOnlyList<(long Offset, long Length)> KeptContainerRanges() => [.. _skipped.SelectMany(s => s.Checks).Where(c => c.InContainer).Select(c => (c.Offset, c.Length))];
+
+    /// <summary>Notes what the normalisation of the reopened container did and how long it took (for the report).</summary>
+    internal void NoteCleared(ClearResult cleared, double seconds)
+    {
+        _cleared = cleared;
+        _clearSeconds = seconds;
+    }
+
     /// <summary>The stage was completed by an earlier run and its outputs verified: this run does not run it.</summary>
     internal bool Has(string stage) => _skipped.Any(s => s.Name == stage);
 
@@ -109,6 +124,9 @@ internal sealed class SesaResumeRun
         Checkpoints = [.. _rows],
         StateWrites = _writes,
         StateBytes = _bytes,
+        ClearScannedBytes = _cleared.ScannedBytes,
+        ClearedBytes = _cleared.ClearedBytes,
+        ClearSeconds = _clearSeconds,
     };
 
     private string StatePath => Path.Combine(_scratch, SesaResumeFormat.FileName);

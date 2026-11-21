@@ -58,11 +58,19 @@ internal interface IReservationSource
     void ReserveRange(SafeFileHandle file, long offset, long length, IoCounters? counters) => ZeroFill.Write(file, offset, length, counters);
 }
 
-/// <summary>The managed reservation of a range of an existing file: zeros written through <see cref="RandomAccess"/> in chunks of <see cref="ChunkBytes"/>.</summary>
+/// <summary>What <see cref="ZeroFill.ClearOutside"/> found and did.</summary>
+/// <param name="ScannedBytes">Bytes that were read to be compared with zero (everything outside the ranges that were kept).</param>
+/// <param name="ClearedBytes">Bytes that were written as zeros: the units of <see cref="ZeroFill.UnitBytes"/> that held a non-zero byte.</param>
+internal readonly record struct ClearResult(long ScannedBytes, long ClearedBytes);
+
+/// <summary>The managed reservation of a range of an existing file: zeros written through <see cref="RandomAccess"/> in chunks of <see cref="ChunkBytes"/>; and the normalisation of a reopened file (<see cref="ClearOutside"/>).</summary>
 internal static class ZeroFill
 {
     /// <summary>Bytes of one write.</summary>
     internal const int ChunkBytes = 1 << 20;
+
+    /// <summary>The unit in which <see cref="ClearOutside"/> decides whether to write: a unit that holds a non-zero byte is written as zeros, a unit that is all zero is not touched (so its page is not dirtied and its block is not read from or written to the device twice).</summary>
+    internal const int UnitBytes = 4096;
 
     private static readonly byte[] s_zeros = new byte[ChunkBytes];
 
@@ -79,6 +87,69 @@ internal static class ZeroFill
             RandomAccess.Write(file, s_zeros.AsSpan(0, take), at);
             counters?.AddReserved(take);
         }
+    }
+
+    /// <summary>
+    /// Makes every byte of <c>[0, <paramref name="length"/>)</c> that lies outside the <paramref name="keep"/> ranges zero (work package 1b.9e.1): a new file has nothing but zeros where no writer has written yet, and the writers of the build
+    /// rely on it (the child writer sets only the slots that the scan names, nothing writes the padding between the sections, the room of BUILD_INFO behind its text or the header page before PH7); a file that an earlier run left, or that
+    /// another process, a failing disk or a power loss changed, has to be given that property again before the build goes on. The bytes are read in chunks of <see cref="ChunkBytes"/> and compared with zero, and only the units of
+    /// <see cref="UnitBytes"/> that hold a non-zero byte are written (as zeros, in place, so the blocks that the file has stay the blocks that it has: nothing is allocated or freed, the reservation of the file is what it was). The ranges
+    /// may be given in any order, may overlap and may reach beyond <paramref name="length"/>. A file that is shorter than <paramref name="length"/> is an <see cref="IOException"/>.
+    /// </summary>
+    internal static ClearResult ClearOutside(SafeFileHandle file, long length, IReadOnlyList<(long Offset, long Length)> keep)
+    {
+        ArgumentNullException.ThrowIfNull(file);
+        ArgumentNullException.ThrowIfNull(keep);
+        ArgumentOutOfRangeException.ThrowIfNegative(length);
+        long scanned = 0, cleared = 0;
+        byte[]? buffer = null;
+        long at = 0;
+        foreach ((long offset, long len) in keep.OrderBy(k => k.Offset).Append((length, 0)))
+        {
+            long gapEnd = Math.Min(offset, length);
+            if (gapEnd > at)
+            {
+                buffer ??= new byte[ChunkBytes];
+                ClearSpan(file, at, gapEnd, buffer, ref scanned, ref cleared);
+            }
+            at = Math.Max(at, offset + len);
+        }
+        return new ClearResult(scanned, cleared);
+    }
+
+    private static void ClearSpan(SafeFileHandle file, long start, long end, byte[] buffer, ref long scanned, ref long cleared)
+    {
+        for (long chunk = start; chunk < end; chunk += ChunkBytes)
+        {
+            int take = (int)Math.Min(ChunkBytes, end - chunk);
+            for (int got = 0; got < take;)
+            {
+                int n = RandomAccess.Read(file, buffer.AsSpan(got, take - got), chunk + got);
+                if (n <= 0) throw new IOException($"the file ends at {chunk + got}, before the {end} bytes that its length promised");
+                got += n;
+            }
+            scanned += take;
+            int dirtyFrom = -1;
+            for (int unit = 0; unit < take; unit += UnitBytes)
+            {
+                if (buffer.AsSpan(unit, Math.Min(UnitBytes, take - unit)).IndexOfAnyExcept((byte)0) >= 0)
+                {
+                    if (dirtyFrom < 0) dirtyFrom = unit;
+                }
+                else if (dirtyFrom >= 0)
+                {
+                    cleared += WriteZeros(file, chunk + dirtyFrom, unit - dirtyFrom);
+                    dirtyFrom = -1;
+                }
+            }
+            if (dirtyFrom >= 0) cleared += WriteZeros(file, chunk + dirtyFrom, take - dirtyFrom);
+        }
+    }
+
+    private static int WriteZeros(SafeFileHandle file, long offset, int length)
+    {
+        RandomAccess.Write(file, s_zeros.AsSpan(0, length), offset);
+        return length;
     }
 }
 
@@ -154,6 +225,9 @@ internal sealed class MappedOutputFile : IDisposable
     /// <summary>What the creation did about the disk space.</summary>
     internal ReservationOutcome Outcome { get; }
 
+    /// <summary>What <see cref="OpenExisting"/> did to the bytes outside the ranges it was asked to keep (zero when it was not asked).</summary>
+    internal ClearResult Cleared { get; private init; }
+
     /// <summary>Creates (truncates) the file at <paramref name="path"/> with the length <paramref name="length"/>; on any failure no file is left at the path.</summary>
     internal static MappedOutputFile Create(string path, long length, MappedFileOptions? options = null)
     {
@@ -179,20 +253,24 @@ internal sealed class MappedOutputFile : IDisposable
     /// Opens a file that an earlier run created (an interrupted build whose stages are to be resumed, work package 1b.9e) for writing through bounded windows, at the length it has now: nothing is created, truncated or
     /// reserved, so what the file already holds stays. <paramref name="truncateTo"/> cuts a longer file back first (the part behind the reserved length that an interrupted growth added: <see cref="Grow"/> reserves it again, whole,
     /// when PH4 asks for it, so a growth that was cut off half way through its zeros cannot leave a window of blocks that were never reserved). A file shorter than <paramref name="truncateTo"/> is left as it is.
+    /// With <paramref name="keep"/> (work package 1b.9e.1) every byte of the file that lies outside those ranges is then made zero (<see cref="ZeroFill.ClearOutside"/>): the file that an earlier run left holds the verified output of the
+    /// stages that are kept and, anywhere else, whatever the killed run or the world put there; a build goes on from a file that has nothing but zeros outside the ranges it keeps, as it does from a new one. Null leaves the bytes alone.
     /// </summary>
     /// <exception cref="FileNotFoundException">There is no such file.</exception>
-    internal static MappedOutputFile OpenExisting(string path, long? truncateTo = null)
+    internal static MappedOutputFile OpenExisting(string path, long? truncateTo = null, IReadOnlyList<(long Offset, long Length)>? keep = null)
     {
         ArgumentNullException.ThrowIfNull(path);
-        if (truncateTo is { } cut)
+        if (truncateTo is { } negative) ArgumentOutOfRangeException.ThrowIfNegative(negative);
+        ClearResult cleared = default;
+        if (truncateTo is not null || keep is not null)
         {
-            ArgumentOutOfRangeException.ThrowIfNegative(cut);
             using var handle = File.OpenHandle(path, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
-            if (RandomAccess.GetLength(handle) > cut) RandomAccess.SetLength(handle, cut);
+            if (truncateTo is { } cut && RandomAccess.GetLength(handle) > cut) RandomAccess.SetLength(handle, cut);
+            if (keep is not null) cleared = ZeroFill.ClearOutside(handle, RandomAccess.GetLength(handle), keep);
         }
         long length = new FileInfo(path).Length; // a file that is gone is a FileNotFoundException from here (or from the handle above)
         MemoryMappedFile? map = length > 0 ? MemoryMappedFile.CreateFromFile(path, FileMode.Open, null, 0, MemoryMappedFileAccess.ReadWrite) : null;
-        return new MappedOutputFile(path, length, ReservationOutcome.Reopened, map);
+        return new MappedOutputFile(path, length, ReservationOutcome.Reopened, map) { Cleared = cleared };
     }
 
     /// <summary>

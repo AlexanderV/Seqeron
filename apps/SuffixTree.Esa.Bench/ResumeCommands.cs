@@ -156,6 +156,9 @@ internal static class ResumeCommands
             Emit.Row("resume", "skipped", string.Join(',', rp.Skipped), "stages", c.Label);
             Emit.Row("resume", "state_found", rp.StateFound ? "yes" : "no", "bool", $"{c.Label} {rp.Reason}");
             Row("verify_s", rp.VerifySeconds, "s", "state parsed and the outputs of the skipped stages verified (CRC-32C)");
+            RowL("clear_scanned_bytes", rp.ClearScannedBytes, "bytes", "read and compared with zero: the container outside the ranges of the kept stages");
+            RowL("clear_bytes", rp.ClearedBytes, "bytes", "of those, written as zeros (units of 4096 bytes that held a non-zero byte)");
+            Row("clear_s", rp.ClearSeconds, "s", "the normalisation of the reopened container");
             RowL("state_writes", rp.StateWrites, "files");
             RowL("state_bytes", rp.StateBytes, "bytes");
             foreach (SesaCheckpointRow k in rp.Checkpoints)

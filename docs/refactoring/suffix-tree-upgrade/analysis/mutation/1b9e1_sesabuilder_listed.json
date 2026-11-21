@@ -1,0 +1,42 @@
+[
+ {
+  "id": "B01",
+  "desc": "the keep ranges are not handed to the opening of the container",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "container = MappedOutputFile.OpenExisting(tmp, cut, run.KeptContainerRanges());",
+  "new": "container = MappedOutputFile.OpenExisting(tmp, cut);",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "B02",
+  "desc": "the keep ranges are empty (every byte is cleared)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "container = MappedOutputFile.OpenExisting(tmp, cut, run.KeptContainerRanges());",
+  "new": "container = MappedOutputFile.OpenExisting(tmp, cut, []);",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "B03",
+  "desc": "the result of the normalisation is not handed to the run",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "                run.NoteCleared(container.Cleared, Elapsed(tClear));\n",
+  "new": "",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "B04",
+  "desc": "the seconds of the normalisation are zero",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "run.NoteCleared(container.Cleared, Elapsed(tClear));",
+  "new": "run.NoteCleared(container.Cleared, 0);",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "B05",
+  "desc": "the seconds of the normalisation include the whole build so far",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "old": "run.NoteCleared(container.Cleared, Elapsed(tClear));",
+  "new": "run.NoteCleared(container.Cleared, Elapsed(tStart));",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ }
+]

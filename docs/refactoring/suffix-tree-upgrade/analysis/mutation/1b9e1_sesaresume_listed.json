@@ -1,0 +1,90 @@
+[
+ {
+  "id": "R01",
+  "desc": "the ranges are those of every stage that the state names",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResume.cs",
+  "old": "internal IReadOnlyList<(long Offset, long Length)> KeptContainerRanges() => [.. _skipped.SelectMany(",
+  "new": "internal IReadOnlyList<(long Offset, long Length)> KeptContainerRanges() => [.. _state.Stages.SelectMany(",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "R02",
+  "desc": "the scratch files of the kept stages are taken for ranges of the container",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResume.cs",
+  "old": ".Where(c => c.InContainer).Select(c => (c.Offset, c.Length))];",
+  "new": ".Select(c => (c.Offset, c.Length))];",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "R03",
+  "desc": "only the ranges of scratch files are kept",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResume.cs",
+  "old": ".Where(c => c.InContainer).Select(c => (c.Offset, c.Length))];",
+  "new": ".Where(c => !c.InContainer).Select(c => (c.Offset, c.Length))];",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "R04",
+  "desc": "a kept range is one byte shorter",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResume.cs",
+  "old": ".Where(c => c.InContainer).Select(c => (c.Offset, c.Length))];",
+  "new": ".Where(c => c.InContainer).Select(c => (c.Offset, c.Length - 1))];",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "R05",
+  "desc": "a kept range starts one byte late",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResume.cs",
+  "old": ".Where(c => c.InContainer).Select(c => (c.Offset, c.Length))];",
+  "new": ".Where(c => c.InContainer).Select(c => (c.Offset + 1, c.Length))];",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "R06",
+  "desc": "the result of the normalisation is not noted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResume.cs",
+  "old": "        _cleared = cleared;\n        _clearSeconds = seconds;",
+  "new": "        _clearSeconds = seconds;",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "R07",
+  "desc": "the seconds of the normalisation are not noted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResume.cs",
+  "old": "        _cleared = cleared;\n        _clearSeconds = seconds;",
+  "new": "        _cleared = cleared;",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "R08",
+  "desc": "the report swaps the two numbers",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResume.cs",
+  "old": "ClearScannedBytes = _cleared.ScannedBytes,\n        ClearedBytes = _cleared.ClearedBytes,",
+  "new": "ClearScannedBytes = _cleared.ClearedBytes,\n        ClearedBytes = _cleared.ScannedBytes,",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "R09",
+  "desc": "the report has no seconds of the normalisation",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResume.cs",
+  "old": "ClearSeconds = _clearSeconds,",
+  "new": "ClearSeconds = 0,",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "R10",
+  "desc": "the report has no scanned bytes",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResume.cs",
+  "old": "ClearScannedBytes = _cleared.ScannedBytes,",
+  "new": "ClearScannedBytes = 0,",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "R11",
+  "desc": "the report has no cleared bytes",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResume.cs",
+  "old": "ClearedBytes = _cleared.ClearedBytes,",
+  "new": "ClearedBytes = 0,",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ }
+]

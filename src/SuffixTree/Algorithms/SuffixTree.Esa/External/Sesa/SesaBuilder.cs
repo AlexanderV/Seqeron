@@ -287,6 +287,15 @@ internal sealed class SesaResumeReport
     internal int StateWrites { get; init; }
 
     internal long StateBytes { get; init; }
+
+    /// <summary>Bytes of the reopened container outside the ranges of the kept stages that were read and compared with zero (work package 1b.9e.1; 0 when nothing was kept).</summary>
+    internal long ClearScannedBytes { get; init; }
+
+    /// <summary>Of those, the bytes that were not zero and were written as zeros (in units of 4,096 bytes).</summary>
+    internal long ClearedBytes { get; init; }
+
+    /// <summary>Seconds that the normalisation took.</summary>
+    internal double ClearSeconds { get; init; }
 }
 
 /// <summary>
@@ -375,9 +384,12 @@ internal static class SesaBuilder
             Directory.CreateDirectory(scratch);
             if (resumed)
             {
-                // the part behind the reserved length that an interrupted growth added is cut off, so that PH4 grows and reserves it again, whole, unless the LCP stage is done and the file is as it left it
+                // the part behind the reserved length that an interrupted growth added is cut off, so that PH4 grows and reserves it again, whole, unless the LCP stage is done and the file is as it left it; and every byte that
+                // no kept stage has a CRC for (the header page, the padding, the room of BUILD_INFO, the slots that a writer never writes, whatever the stages that are not kept left) is made zero, as in a new file (1b.9e.1)
                 long? cut = run!.Has(SesaStages.Lcp) ? null : plan.ReservedLength;
-                container = MappedOutputFile.OpenExisting(tmp, cut);
+                long tClear = Stopwatch.GetTimestamp();
+                container = MappedOutputFile.OpenExisting(tmp, cut, run.KeptContainerRanges());
+                run.NoteCleared(container.Cleared, Elapsed(tClear));
             }
             else
             {

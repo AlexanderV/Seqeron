@@ -1,0 +1,362 @@
+[
+ {
+  "id": "Z01",
+  "desc": "the ranges are not sorted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "keep.OrderBy(k => k.Offset).Append((length, 0))",
+  "new": "keep.Append((length, 0))",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "Z02",
+  "desc": "the last gap (up to the end of the file) is not cleared",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "keep.OrderBy(k => k.Offset).Append((length, 0))",
+  "new": "keep.OrderBy(k => k.Offset)",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "Z03",
+  "desc": "a range that starts beyond the file does not end the gap at the file",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "long gapEnd = Math.Min(offset, length);",
+  "new": "long gapEnd = offset;",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "Z04",
+  "desc": "a gap of no bytes is also visited",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "if (gapEnd > at)",
+  "new": "if (gapEnd >= at)",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "Z05",
+  "desc": "the end of a range does not move the cursor over a nested range (the last range wins)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "at = Math.Max(at, offset + len);",
+  "new": "at = offset + len;",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "Z06",
+  "desc": "the cursor is not moved past a kept range",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "at = Math.Max(at, offset + len);",
+  "new": "at = Math.Max(at, offset);",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "Z07",
+  "desc": "the cursor is moved one byte past a kept range",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "at = Math.Max(at, offset + len);",
+  "new": "at = Math.Max(at, offset + len + 1);",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "Z08",
+  "desc": "the result swaps its two numbers",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "return new ClearResult(scanned, cleared);",
+  "new": "return new ClearResult(cleared, scanned);",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "Z09",
+  "desc": "the lengths of the file and of the ranges are not checked for sign (a negative length)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "ArgumentOutOfRangeException.ThrowIfNegative(length);\n        long scanned = 0, cleared = 0;",
+  "new": "long scanned = 0, cleared = 0;",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "Z10",
+  "desc": "a null list of ranges is not refused",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "ArgumentNullException.ThrowIfNull(keep);\n        ArgumentOutOfRangeException.ThrowIfNegative(length);\n        long scanned",
+  "new": "ArgumentOutOfRangeException.ThrowIfNegative(length);\n        long scanned",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "Z11",
+  "desc": "a null handle is not refused",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "ArgumentNullException.ThrowIfNull(file);\n        ArgumentNullException.ThrowIfNull(keep);",
+  "new": "ArgumentNullException.ThrowIfNull(keep);",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "Z12",
+  "desc": "the chunk is one byte shorter than the step",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "for (long chunk = start; chunk < end; chunk += ChunkBytes)\n        {\n            int take",
+  "new": "for (long chunk = start; chunk < end; chunk += ChunkBytes - 1)\n        {\n            int take",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "Z13",
+  "desc": "a chunk is not cut at the end of the gap",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "int take = (int)Math.Min(ChunkBytes, end - chunk);\n            for (int got",
+  "new": "int take = ChunkBytes;\n            for (int got",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "Z14",
+  "desc": "a chunk is one byte shorter",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "int take = (int)Math.Min(ChunkBytes, end - chunk);\n            for (int got",
+  "new": "int take = (int)Math.Min(ChunkBytes, end - chunk - 1);\n            for (int got",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "Z15",
+  "desc": "a read of no bytes is not an error (the loop does not end)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "if (n <= 0) throw new IOException",
+  "new": "if (n < 0) throw new IOException",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "Z16",
+  "desc": "a short read is taken as a full one",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "got += n;",
+  "new": "got = take;",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "Z17",
+  "desc": "a short read is read again at the same place",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "int n = RandomAccess.Read(file, buffer.AsSpan(got, take - got), chunk + got);",
+  "new": "int n = RandomAccess.Read(file, buffer.AsSpan(got, take - got), chunk);",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "Z18",
+  "desc": "a short read is read into the start of the buffer",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "int n = RandomAccess.Read(file, buffer.AsSpan(got, take - got), chunk + got);",
+  "new": "int n = RandomAccess.Read(file, buffer.AsSpan(0, take - got), chunk + got);",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "Z19",
+  "desc": "the scanned bytes are one short per chunk",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "scanned += take;",
+  "new": "scanned += take - 1;",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "Z20",
+  "desc": "the scanned bytes are not counted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "scanned += take;",
+  "new": "",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "Z21",
+  "desc": "the last unit of a chunk is not looked at",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "for (int unit = 0; unit < take; unit += UnitBytes)",
+  "new": "for (int unit = 0; unit < take - 1; unit += UnitBytes)",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "Z22",
+  "desc": "the loop over the units has one more step",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "for (int unit = 0; unit < take; unit += UnitBytes)",
+  "new": "for (int unit = 0; unit <= take; unit += UnitBytes)",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "Z23",
+  "desc": "a unit is looked at in full also at the end of the chunk (the stale tail of the buffer)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "if (buffer.AsSpan(unit, Math.Min(UnitBytes, take - unit)).IndexOfAnyExcept((byte)0) >= 0)",
+  "new": "if (buffer.AsSpan(unit, UnitBytes).IndexOfAnyExcept((byte)0) >= 0)",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "Z24",
+  "desc": "a unit of zeros is taken for data",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "if (buffer.AsSpan(unit, Math.Min(UnitBytes, take - unit)).IndexOfAnyExcept((byte)0) >= 0)",
+  "new": "if (buffer.AsSpan(unit, Math.Min(UnitBytes, take - unit)).IndexOfAnyExcept((byte)0) >= -1)",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "Z25",
+  "desc": "only the first non-zero unit of a run opens it: a run starts at the last unit",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "if (dirtyFrom < 0) dirtyFrom = unit;",
+  "new": "dirtyFrom = unit;",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "Z26",
+  "desc": "a run of non-zero units is never started",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "if (dirtyFrom < 0) dirtyFrom = unit;",
+  "new": "",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "Z27",
+  "desc": "a clean unit writes even when no run is open",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "else if (dirtyFrom >= 0)",
+  "new": "else",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "Z28",
+  "desc": "a run is written one unit late",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "cleared += WriteZeros(file, chunk + dirtyFrom, unit - dirtyFrom);",
+  "new": "cleared += WriteZeros(file, chunk + dirtyFrom, unit - dirtyFrom + UnitBytes);",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "Z29",
+  "desc": "a run is written from the wrong place",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "cleared += WriteZeros(file, chunk + dirtyFrom, unit - dirtyFrom);",
+  "new": "cleared += WriteZeros(file, chunk + dirtyFrom + 1, unit - dirtyFrom - 1);",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "Z30",
+  "desc": "a run is written from the start of the chunk",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "cleared += WriteZeros(file, chunk + dirtyFrom, unit - dirtyFrom);",
+  "new": "cleared += WriteZeros(file, chunk, unit - dirtyFrom);",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "Z31",
+  "desc": "a run is not closed after it is written",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "dirtyFrom = -1;\n                }\n            }",
+  "new": "}\n            }",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "Z32",
+  "desc": "the run that is open at the end of the chunk is not written",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "if (dirtyFrom >= 0) cleared += WriteZeros(file, chunk + dirtyFrom, take - dirtyFrom);",
+  "new": "",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "Z33",
+  "desc": "the run at the end of the chunk is written one byte short",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "if (dirtyFrom >= 0) cleared += WriteZeros(file, chunk + dirtyFrom, take - dirtyFrom);",
+  "new": "if (dirtyFrom >= 0) cleared += WriteZeros(file, chunk + dirtyFrom, take - dirtyFrom - 1);",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "Z34",
+  "desc": "the run at the end of the chunk is written a whole unit",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "if (dirtyFrom >= 0) cleared += WriteZeros(file, chunk + dirtyFrom, take - dirtyFrom);",
+  "new": "if (dirtyFrom >= 0) cleared += WriteZeros(file, chunk + dirtyFrom, UnitBytes);",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "Z35",
+  "desc": "the zeros are written one byte short",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "RandomAccess.Write(file, s_zeros.AsSpan(0, length), offset);\n        return length;",
+  "new": "RandomAccess.Write(file, s_zeros.AsSpan(0, length - 1), offset);\n        return length;",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "Z36",
+  "desc": "the zeros are written one byte late",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "RandomAccess.Write(file, s_zeros.AsSpan(0, length), offset);\n        return length;",
+  "new": "RandomAccess.Write(file, s_zeros.AsSpan(0, length), offset + 1);\n        return length;",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "Z37",
+  "desc": "the cleared bytes are not counted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "RandomAccess.Write(file, s_zeros.AsSpan(0, length), offset);\n        return length;",
+  "new": "RandomAccess.Write(file, s_zeros.AsSpan(0, length), offset);\n        return 0;",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "O01",
+  "desc": "the clearing is done only together with a cut",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "if (truncateTo is not null || keep is not null)",
+  "new": "if (truncateTo is not null)",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "O02",
+  "desc": "the keep ranges are not applied",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "if (keep is not null) cleared = ZeroFill.ClearOutside(handle, RandomAccess.GetLength(handle), keep);",
+  "new": "",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "O03",
+  "desc": "a file that has no keep ranges is cleared whole",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "if (keep is not null) cleared = ZeroFill.ClearOutside(handle, RandomAccess.GetLength(handle), keep);",
+  "new": "cleared = ZeroFill.ClearOutside(handle, RandomAccess.GetLength(handle), keep ?? []);",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "O04",
+  "desc": "the file is cleared before it is cut",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "if (truncateTo is { } cut && RandomAccess.GetLength(handle) > cut) RandomAccess.SetLength(handle, cut);\n            if (keep is not null) cleared = ZeroFill.ClearOutside(handle, RandomAccess.GetLength(handle), keep);",
+  "new": "if (keep is not null) cleared = ZeroFill.ClearOutside(handle, RandomAccess.GetLength(handle), keep);\n            if (truncateTo is { } cut && RandomAccess.GetLength(handle) > cut) RandomAccess.SetLength(handle, cut);",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "O05",
+  "desc": "the length that is cleared is the cut, not the length of the file",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "cleared = ZeroFill.ClearOutside(handle, RandomAccess.GetLength(handle), keep);",
+  "new": "cleared = ZeroFill.ClearOutside(handle, truncateTo ?? RandomAccess.GetLength(handle) + 1, keep);",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "O06",
+  "desc": "the result of the clearing is not kept",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "{ Cleared = cleared }",
+  "new": "{ }",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "O07",
+  "desc": "a file is cut when it is not longer (it grows)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "if (truncateTo is { } cut && RandomAccess.GetLength(handle) > cut) RandomAccess.SetLength(handle, cut);",
+  "new": "if (truncateTo is { } cut) RandomAccess.SetLength(handle, cut);",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ },
+ {
+  "id": "O08",
+  "desc": "a file is cut when it is exactly as long as the cut",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "old": "if (truncateTo is { } cut && RandomAccess.GetLength(handle) > cut) RandomAccess.SetLength(handle, cut);",
+  "new": "if (truncateTo is { } cut && RandomAccess.GetLength(handle) >= cut) RandomAccess.SetLength(handle, cut - 1);",
+  "filter": "(FullyQualifiedName~ZeroFillClearingTests|FullyQualifiedName~SesaResume1b9e1Tests|FullyQualifiedName~SesaResumeFormatTests)"
+ }
+]
