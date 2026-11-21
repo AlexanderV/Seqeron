@@ -326,6 +326,7 @@ public sealed class SesaResume1b9e1Tests
         if (damaged) Assert.That(r.Resume.ClearedBytes, Is.InRange(2, 2 * ZeroFill.UnitBytes), "and the two units that held a damaged byte are written");
         else Assert.That(r.Resume.ClearedBytes, Is.EqualTo(0), "a file with nothing wrong in it is not written");
         Assert.That(r.Resume.ClearSeconds, Is.GreaterThan(0));
+        Assert.That(r.Resume.ClearSeconds, Is.LessThanOrEqualTo(r.Seconds.Create), "the normalisation is part of the opening of the container, not of the whole build so far");
         AssertSame(c, reference.Bytes, point);
     }
 
@@ -536,6 +537,41 @@ public sealed class ZeroFillClearingTests
     }
 
     [Test]
+    public void ClearOutside_IgnoresRangesThatStartAtOrBeyondTheEndOfTheFile([Values(0, 1, 20_000)] int beyond)
+    {
+        // the ranges are those of a state, which may name more than the file holds; the file is cleared up to its own length and not read beyond it
+        using var dir = new TempDir();
+        string path = dir.File("f.bin");
+        byte[] before = RandomFile(path, 10_000, 3);
+        ClearResult r = Clear(path, 10_000, [(10_000 + beyond, 5), (9_000, 0)]);
+        Assert.That(r.ScannedBytes, Is.EqualTo(10_000));
+        Assert.That(File.ReadAllBytes(path), Is.All.EqualTo(0));
+        Assert.That(before, Has.Some.Not.EqualTo(0), "the file was not clean");
+    }
+
+    [Test]
+    public void OpenExisting_WithKeep_NeverGrowsAShorterFile_AndClearsAFileWithNoCut([Values(30_000, 20_000, 19_999)] int cut)
+    {
+        // a cut that is not shorter than the file leaves the length alone (the ranges and the cut are those of a state, which may name more than the file holds); with no cut the file is cleared as it is
+        using var dir = new TempDir();
+        string path = dir.File("f.bin");
+        byte[] before = RandomFile(path, 20_000, 4);
+        using (MappedOutputFile cut1 = MappedOutputFile.OpenExisting(path, cut, [(0, 100)]))
+        {
+            Assert.That(cut1.Length, Is.EqualTo(Math.Min(cut, 20_000)));
+            Assert.That(cut1.Cleared.ScannedBytes, Is.EqualTo(Math.Min(cut, 20_000) - 100));
+        }
+        Assert.That(new FileInfo(path).Length, Is.EqualTo(Math.Min(cut, 20_000)), "the file was cut when it was longer, and never made longer");
+        using (MappedOutputFile none = MappedOutputFile.OpenExisting(path, null, [(0, 100)]))
+        {
+            Assert.That(none.Cleared.ScannedBytes, Is.EqualTo(Math.Min(cut, 20_000) - 100), "no cut: the whole file is looked at");
+        }
+        byte[] after = File.ReadAllBytes(path);
+        Assert.That(after.Take(100), Is.EqualTo(before.Take(100)));
+        Assert.That(after.Skip(100), Is.All.EqualTo(0));
+    }
+
+    [Test]
     public void ClearOutside_RefusesWhatItCannotUse()
     {
         using var dir = new TempDir();
@@ -543,18 +579,22 @@ public sealed class ZeroFillClearingTests
         File.WriteAllBytes(path, new byte[10]);
         using SafeFileHandle handle = File.OpenHandle(path, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
         Assert.Throws<ArgumentNullException>(() => ZeroFill.ClearOutside(null!, 10, []));
+        Assert.Throws<ArgumentNullException>(() => ZeroFill.ClearOutside(null!, 0, []), "also when there is nothing to read");
         Assert.Throws<ArgumentNullException>(() => ZeroFill.ClearOutside(handle, 10, null!));
         Assert.Throws<ArgumentOutOfRangeException>(() => ZeroFill.ClearOutside(handle, -1, []));
         Assert.Throws<ArgumentOutOfRangeException>(() => MappedOutputFile.OpenExisting(path, -1, []));
     }
 
     [Test]
-    public void ClearOutside_AFileShorterThanItsLength_IsAnIoException()
+    public void ClearOutside_AFileShorterThanItsLength_IsAnIoException_AndDoesNotHang()
     {
         using var dir = new TempDir();
         string path = dir.File("f.bin");
         File.WriteAllBytes(path, new byte[1000]);
-        Assert.Throws<IOException>(() => Clear(path, 5000, [(0, 10)]));
+        Task<ClearResult> task = Task.Run(() => Clear(path, 5000, [(0, 10)]));
+        Assert.That(((IAsyncResult)task).AsyncWaitHandle.WaitOne(TimeSpan.FromSeconds(30)), Is.True, "the read at the end of the file ends the call (a loop that asks again for the same bytes would never end)");
+        AggregateException? e = Assert.Throws<AggregateException>(() => task.Wait());
+        Assert.That(e!.InnerException, Is.InstanceOf<IOException>());
     }
 
     [Test]
