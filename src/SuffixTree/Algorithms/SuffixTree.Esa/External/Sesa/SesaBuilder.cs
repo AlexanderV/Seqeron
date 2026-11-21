@@ -119,7 +119,11 @@ internal sealed record SesaBuildOptions
     /// <summary>The gate of the owner decision of 2026-11-18: RssAnon of the process at most 320 MB (10^6 bytes) at every n with the default parameters and four threads.</summary>
     internal double RssAnonCapMb { get; init; } = 320;
 
-    /// <summary>Test hook, called with a name of <see cref="SesaHooks"/> at every boundary of the build; an exception thrown here fails the build like a failing step, a call that blocks holds the build at that point.</summary>
+    /// <summary>
+    /// Test hook, called with a name of <see cref="SesaHooks"/> at every boundary of the build; an exception thrown here fails the build like a failing step, a call that blocks holds the build at that point. With
+    /// <see cref="Resume"/> a boundary is reached whether the build ran the stage before it or found it done (the hooks of a skipped stage are called in order, one after the other), and the state of a stage is
+    /// recorded before the hook that follows the stage, so that a failure here is a kill just after the stage.
+    /// </summary>
     internal Action<string>? Hook { get; init; }
 
     /// <summary>Test hook, called between the two passes over the input.</summary>

@@ -679,6 +679,145 @@ public sealed class SesaResume1b9eTests
         Assert.That(r.LcpKind != LcpKind.U8 || r.OverflowCount > 0, Is.True, "the numbers of the skipped stage reach the result");
     }
 
+    private static SesaResumeState ReadState(ResumeCase c)
+    {
+        Assert.That(SesaResumeFormat.TryParse(File.ReadAllBytes(c.State), out SesaResumeState? s), Is.True);
+        return s!;
+    }
+
+    private static void WriteState(ResumeCase c, SesaResumeState s) => File.WriteAllBytes(c.State, SesaResumeFormat.Serialize(s));
+
+    private static SesaResumeState EditValue(SesaResumeState s, string stage, string key, long? value)
+    {
+        SesaStageRecord rec = s.Find(stage)!;
+        var values = new Dictionary<string, long>(rec.Values);
+        if (value is { } v) values[key] = v;
+        else values.Remove(key);
+        return s with { Stages = [.. s.Stages.Select(x => x.Name == stage ? rec with { Values = values } : x)] };
+    }
+
+    [Test]
+    public void ARanksRecordForAnotherCover_IsNotTrusted_EveryValueOfItIsChecked([Values("period", "kind", "residues", "digest", "missing")] string value)
+    {
+        using var c = new ResumeCase(s_text);
+        FailsInside(c, Opts(3, 2), "ph23", sa: true);
+        SesaResumeState s = ReadState(c);
+        long was = s.Find("ranks")!.Values[value == "missing" ? "digest" : value];
+        WriteState(c, EditValue(s, "ranks", value == "missing" ? "digest" : value, value == "missing" ? null : was + 1));
+        SesaBuildResult r = SesaBuilder.Build(c.Input, c.Target, Opts(3, 2));
+        AssertSame(c, Reference(s_text), value);
+        Assert.That(r.Resume!.Skipped, Is.EqualTo(new[] { "packed" }), value);
+        AssertOnlyTarget(c, value);
+    }
+
+    [Test]
+    public void TheStatisticsOfTheScan_AreCheckedForRange_AndAMissingOneIsNotTrusted(
+        [Values("lrs_depth", "lrs_rank", "max_lcp", "node_count", "missing")] string value,
+        [Values(-1, 1)] int direction)
+    {
+        using var c = new ResumeCase(s_text);
+        KillAtPsiBuilt(c);
+        SesaResumeState s = ReadState(c);
+        long n = s_text.Length;
+        long bad = value switch
+        {
+            "lrs_rank" => direction < 0 ? -2 : n + 1,
+            "node_count" => direction < 0 ? -1 : s.Find("lcp")!.Values["node_count"] + 1,
+            _ => direction < 0 ? -1 : n + 1,
+        };
+        WriteState(c, value == "missing" ? EditValue(s, "lcp", "max_lcp", null) : EditValue(s, "lcp", value, bad));
+        SesaBuildResult r = SesaBuilder.Build(c.Input, c.Target, Opts(3, 2));
+        AssertSame(c, Reference(s_text), $"{value} {direction}");
+        Assert.That(r.Resume!.Skipped, Is.EqualTo(new[] { "packed", "sa" }), $"{value} {direction}");
+        AssertOnlyTarget(c, value);
+    }
+
+    [Test]
+    public void ThePrimaryRowOfAnImpossibleValue_AndABwtRecordOfAnotherLength_AreNotTrusted([Values("bwt", "psi")] string stage, [Values("negative", "above n", "missing", "length")] string how)
+    {
+        using var c = new ResumeCase(s_text);
+        Fails(c, Opts(3, 2), stage == "bwt" ? SesaHooks.BwtBuilt : SesaHooks.PsiBuilt);
+        SesaResumeState s = ReadState(c);
+        long n = s_text.Length;
+        SesaResumeState edited;
+        if (how == "length")
+        {
+            SesaStageRecord rec = s.Find(stage)!;
+            edited = s with { Stages = [.. s.Stages.Select(x => x.Name == stage ? rec with { Checks = [.. rec.Checks.Select(k => k with { Length = k.Length + 1 })] } : x)] };
+        }
+        else
+        {
+            edited = EditValue(s, stage, "primary_row", how switch { "negative" => -1, "above n" => n + 1, _ => null });
+        }
+        WriteState(c, edited);
+        SesaBuildResult r = SesaBuilder.Build(c.Input, c.Target, Opts(3, 2));
+        AssertSame(c, Reference(s_text), $"{stage} {how}");
+        Assert.That(r.Resume!.Skipped, Is.EqualTo(new[] { "packed", "sa", "lcp" }), $"{stage} {how}");
+    }
+
+    [Test]
+    public void ARecordWithOtherOutputsThanTheLayoutHas_IsNotTrusted([Values("extra", "missing", "swapped roles", "scratch flag")] string how)
+    {
+        using var c = new ResumeCase(s_text);
+        KillAtPsiBuilt(c);
+        SesaResumeState s = ReadState(c);
+        SesaStageRecord rec = s.Find("lcp")!;
+        IReadOnlyList<SesaFileCheck> checks = how switch
+        {
+            "extra" => [.. rec.Checks, rec.Checks[0]],
+            "missing" => [.. rec.Checks.Skip(1)],
+            "swapped roles" => [rec.Checks[0] with { Role = "lcp" }, rec.Checks[1] with { Role = "child" }],
+            _ => [rec.Checks[0] with { InContainer = false, Offset = 0 }, .. rec.Checks.Skip(1)],
+        };
+        WriteState(c, s with { Stages = [.. s.Stages.Select(x => x.Name == "lcp" ? rec with { Checks = checks } : x)] });
+        SesaBuildResult r = SesaBuilder.Build(c.Input, c.Target, Opts(3, 2));
+        AssertSame(c, Reference(s_text), how);
+        Assert.That(r.Resume!.Skipped, Is.EqualTo(new[] { "packed", "sa" }), how);
+    }
+
+    [Test]
+    public void TheFreeSpaceOfAResume_CountsWhatIsFreedFirst_ThePartOfTheContainerBehindItsReservedLength()
+    {
+        using var c = new ResumeCase(TextU16);
+        SesaBuildOptions o = new() { Threads = 2, Fsync = false, MeasureRss = false, Resume = true };
+        Fails(c, o, SesaHooks.LcpPlaced);
+        PackedTextInfo info = PackedTextWriter.Scan(c.Input);
+        SesaPlan plan = SesaLayout.Plan(info, true);
+        long grown = new FileInfo(c.Tmp).Length - plan.ReservedLength;
+        Assert.That(grown, Is.GreaterThan(0));
+        SesaResumeRun load = SesaResumeRun.Load(o, c.Tmp, c.Scratch, info, plan, ChildCodec.Tagged, new IoCounters());
+        Assert.That(load.Skipped, Is.EqualTo(new[] { "packed", "sa" }));
+        Assert.That(load.ReclaimableBytes, Is.EqualTo(grown), "the growth is cut off and given back before PH4 asks for it again");
+        long need = SesaBuilder.ResumeNeedBytes(info.N, true, load.Skipped, load.ExistingScratchBytes);
+        string[] before = c.Entries;
+        Assert.Throws<IOException>(() => SesaBuilder.Build(c.Input, c.Target, o with { Files = new MappedFileOptions { Source = new FixedFreeSource(need - grown - 1) } }));
+        Assert.That(c.Entries, Is.EqualTo(before));
+        Assert.That(new FileInfo(c.Tmp).Length, Is.EqualTo(plan.ReservedLength + grown), "the refusal did not cut the container");
+        SesaBuilder.Build(c.Input, c.Target, o with { Files = new MappedFileOptions { Source = new FixedFreeSource(need - grown) } });
+        AssertSame(c, Reference(TextU16), "free = need - reclaimable");
+    }
+
+    [Test]
+    public void TheFilesOfAStageThatIsNotKept_AreCountedAsReclaimable_AndTheKeptOnesAsExisting()
+    {
+        using var c = new ResumeCase(s_text);
+        Fails(c, Opts(3, 2), SesaHooks.LcpChildBuilt);
+        File.WriteAllBytes(Path.Combine(c.Scratch, "junk.bin"), new byte[1234]);
+        Directory.CreateDirectory(Path.Combine(c.Scratch, "ph4"));
+        File.WriteAllBytes(Path.Combine(c.Scratch, "ph4", "a.tmp"), new byte[100]);
+        PackedTextInfo info = PackedTextWriter.Scan(c.Input);
+        SesaResumeRun load = SesaResumeRun.Load(Opts(3, 2), c.Tmp, c.Scratch, info, SesaLayout.Plan(info, true), ChildCodec.Tagged, new IoCounters());
+        Assert.That((load.ReclaimableBytes, load.ExistingScratchBytes), Is.EqualTo((1334L, 0L)));
+        Fails(c, Opts(3, 2), SesaHooks.BwtBuilt);
+        File.WriteAllBytes(Path.Combine(c.Scratch, "junk.bin"), new byte[1234]);
+        Directory.CreateDirectory(Path.Combine(c.Scratch, "ph4"));
+        File.WriteAllBytes(Path.Combine(c.Scratch, "ph4", "a.tmp"), new byte[100]);
+        load = SesaResumeRun.Load(Opts(3, 2), c.Tmp, c.Scratch, info, SesaLayout.Plan(info, true), ChildCodec.Tagged, new IoCounters());
+        Assert.That(load.Skipped, Is.EqualTo(new[] { "packed", "sa", "lcp", "bwt" }));
+        Assert.That(load.ExistingScratchBytes, Is.EqualTo(s_text.Length + 1), "the BWT file");
+        Assert.That(load.ReclaimableBytes, Is.EqualTo(1334L), "only the files that no kept stage vouches for");
+    }
+
     // ------------------------------------------------------------------ the numbers of a skipped stage reach the result and the header
 
     [Test]

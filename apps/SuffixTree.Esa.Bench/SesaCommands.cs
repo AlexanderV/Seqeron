@@ -96,6 +96,11 @@ internal static class SesaCommands
             Tail(args[1..]);
             return;
         }
+        if (args.Length > 0 && args[0] == "resume")
+        {
+            ResumeCommands.Run(args[1..]);
+            return;
+        }
         if (args.Length == 0 || args[0] is not ("build" or "ab")) throw new ArgumentException("usage: sesa build|ab --input <text file> --work <directory> [options] | sesa tail --work <directory> --mb <n> [options]");
         string mode = args[0];
         string? input = null, work = null, label = null, rows = null, fillAt = null;
@@ -376,7 +381,7 @@ internal static class SesaCommands
         if (c.RowsFile is not null) File.AppendAllText(c.RowsFile, $"#{label}\ttotal {r.Seconds.Total:F3}\tph45 {r.Seconds.Ph45:F3}\n");
     }
 
-    private static (long Read, long Written) Sectors(string device)
+    internal static (long Read, long Written) Sectors(string device)
     {
         try
         {
@@ -433,13 +438,13 @@ internal static class SesaCommands
         return offset;
     }
 
-    private static void Sync()
+    internal static void Sync()
     {
         using System.Diagnostics.Process? p = System.Diagnostics.Process.Start(new ProcessStartInfo("/usr/bin/sync"));
         p?.WaitForExit();
     }
 
-    private static void DropCaches() => File.WriteAllText("/proc/sys/vm/drop_caches", "3");
+    internal static void DropCaches() => File.WriteAllText("/proc/sys/vm/drop_caches", "3");
 
     private static void Cleanup(string target)
     {
