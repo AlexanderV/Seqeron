@@ -442,52 +442,64 @@ public static class MummerProgram
             var queries = MummerMultiSeq.Scan(qname, queryFastas[f], o.MatchNucleotidesOnly ? MummerMultiSeq.QueryReplacement : (byte)0);
             messages.Append("# reading input file \"").Append(qname).Append("\" of length ").Append(queries.Text.Length.ToString(CultureInfo.InvariantCulture)).Append('\n');
             messages.Append("# matching query-file \"").Append(qname).Append("\"\n# against subject-file \"").Append(o.ReferenceName).Append("\"\n");
-            int number = 0;
-            foreach (var (start, length) in queries.Sequences())
+            foreach (var block in Enumerate(index, queries, o, minLength, forward, reverse, cancellationToken))
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                var query = new byte[length];
-                Array.Copy(queries.Text, start, query, 0, length);
-                for (int strand = 0; strand < 2; strand++)
+                sb.Append("> ").Append(block.QueryName);
+                if (block.Reverse)
+                    sb.Append(" Reverse");
+                if (o.ShowSequenceLengths)
+                    sb.Append("  Len = ").Append(block.QueryLength.ToString(CultureInfo.InvariantCulture));
+                sb.Append('\n');
+                foreach (var match in block.Matches)
                 {
-                    bool isReverse = strand == 1;
-                    if (isReverse ? !reverse : !forward)
-                        continue;
-                    sb.Append("> ").Append(queries.Names[number]);
-                    if (isReverse)
-                        sb.Append(" Reverse");
-                    if (o.ShowSequenceLengths)
-                        sb.Append("  Len = ").Append(length.ToString(CultureInfo.InvariantCulture));
-                    sb.Append('\n');
-                    byte[] q = isReverse ? ReverseComplement(query) : query;
-                    foreach (var match in index.FindMatches(q, minLength, o.Mode, cancellationToken))
+                    if (singleColumn)
+                        sb.Append((match.ReferenceStart + 1).ToString(CultureInfo.InvariantCulture).PadLeft(8)).Append("  ");
+                    else
                     {
-                        if (singleColumn)
-                            sb.Append((match.ReferenceStart + 1).ToString(CultureInfo.InvariantCulture).PadLeft(8)).Append("  ");
-                        else
-                        {
-                            var (seq, offset) = reference.PositionPair(match.ReferenceStart);
-                            sb.Append("  ").Append(reference.Names[seq]).Append(' ', maxDescription - reference.DescriptionLengths[seq])
-                                .Append("  ").Append((offset + 1).ToString(CultureInfo.InvariantCulture).PadLeft(8)).Append("  ");
-                        }
+                        var (seq, offset) = reference.PositionPair(match.ReferenceStart);
+                        sb.Append("  ").Append(reference.Names[seq]).Append(' ', maxDescription - reference.DescriptionLengths[seq])
+                            .Append("  ").Append((offset + 1).ToString(CultureInfo.InvariantCulture).PadLeft(8)).Append("  ");
+                    }
 
-                        long qpos = isReverse && o.ShowReversePositions ? length - match.QueryStart : match.QueryStart + 1L;
-                        sb.Append(qpos.ToString(CultureInfo.InvariantCulture).PadLeft(8)).Append("  ")
-                            .Append(match.Length.ToString(CultureInfo.InvariantCulture).PadLeft(8)).Append('\n');
-                        if (o.ShowString)
-                        {
-                            for (int k = 0; k < match.Length; k++)
-                                sb.Append((char)reference.Text[match.ReferenceStart + k]);
-                            sb.Append('\n');
-                        }
+                    long qpos = block.Reverse && o.ShowReversePositions ? block.QueryLength - match.QueryStart : match.QueryStart + 1L;
+                    sb.Append(qpos.ToString(CultureInfo.InvariantCulture).PadLeft(8)).Append("  ")
+                        .Append(match.Length.ToString(CultureInfo.InvariantCulture).PadLeft(8)).Append('\n');
+                    if (o.ShowString)
+                    {
+                        for (int k = 0; k < match.Length; k++)
+                            sb.Append((char)reference.Text[match.ReferenceStart + k]);
+                        sb.Append('\n');
                     }
                 }
-
-                number++;
             }
         }
 
         return new MummerTextOutput(sb.ToString(), messages.ToString());
+    }
+
+    /// <summary>The matches of one strand of one query record.</summary>
+    internal sealed record QueryMatches(string QueryName, bool Reverse, int QueryLength, List<MummerMatch> Matches);
+
+    /// <summary>The query records of <paramref name="queries"/> matched against <paramref name="index"/>: per record the forward strand block and / or the reverse-complement block, as <c>mummer</c> processes them.</summary>
+    internal static IEnumerable<QueryMatches> Enumerate(MummerIndex index, MummerMultiSeq queries, MummerOptions o, int minLength, bool forward, bool reverse, CancellationToken cancellationToken)
+    {
+        int number = 0;
+        foreach (var (start, length) in queries.Sequences())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var query = new byte[length];
+            Array.Copy(queries.Text, start, query, 0, length);
+            for (int strand = 0; strand < 2; strand++)
+            {
+                bool isReverse = strand == 1;
+                if (isReverse ? !reverse : !forward)
+                    continue;
+                byte[] q = isReverse ? ReverseComplement(query) : query;
+                yield return new QueryMatches(queries.Names[number], isReverse, length, index.FindMatches(q, minLength, o.Mode, cancellationToken));
+            }
+
+            number++;
+        }
     }
 
     /// <summary><c>wccSequence</c> of <c>procmaxmat.c</c>: the Watson-Crick complement read backwards; the replacement characters of <c>-n</c> are kept, an unknown character becomes <c>n</c>.</summary>

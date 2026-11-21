@@ -86,7 +86,7 @@
 | `water_align` | `SequenceAligner.WaterAlign` | [doc](../../mcp/tools/alignment/water_align.md) |
 | `write_alignment` | `EmbossAlignmentWriter.Format` | [doc](../../mcp/tools/alignment/write_alignment.md) |
 
-## Analysis (160 tools)
+## Analysis (161 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -223,6 +223,7 @@
 | `predict_sigma70_promoters` | `MotifFinder.PredictSigma70Promoters` | [doc](../../mcp/tools/analysis/predict_sigma70_promoters.md) |
 | `predict_signal_peptide` | `ProteinMotifFinder.PredictSignalPeptide` | [doc](../../mcp/tools/analysis/predict_signal_peptide.md) |
 | `predict_transmembrane_helices` | `ProteinMotifFinder.PredictTransmembraneHelices` | [doc](../../mcp/tools/analysis/predict_transmembrane_helices.md) |
+| `promer` | `PromerProgram.Run` | [doc](../../mcp/tools/analysis/promer.md) |
 | `prosite_to_regex` | `ProteinMotifFinder.ConvertPrositeToRegex` | [doc](../../mcp/tools/analysis/prosite_to_regex.md) |
 | `pwm_score_pvalue` | `MotifFinder.PwmScorePValue` | [doc](../../mcp/tools/analysis/pwm_score_pvalue.md) |
 | `pwm_score_thresholds` | `PositionWeightMatrix.ScoreDistribution` | [doc](../../mcp/tools/analysis/pwm_score_thresholds.md) |

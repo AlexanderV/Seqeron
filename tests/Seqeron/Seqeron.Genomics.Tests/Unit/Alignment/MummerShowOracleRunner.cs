@@ -103,6 +103,7 @@ public static class MummerShowOracleRunner
                         case "-q": o = o with { SortByQuery = true }; break;
                         case "-r": o = o with { SortByReference = true }; break;
                         case "-w": o = o with { ScreenWidth = int.Parse(r.Value(), Ci) }; break;
+                        case "-x": o = o with { MatrixType = int.Parse(r.Value(), Ci) }; break;
                         default: throw new ArgumentException(opt);
                     }
                 }

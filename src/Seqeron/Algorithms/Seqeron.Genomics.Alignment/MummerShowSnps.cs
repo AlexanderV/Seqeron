@@ -71,7 +71,12 @@ public static class MummerShowSnps
 
     private static long RevC(long coord, long len) => len - coord + 1;
 
-    private static long Norm(long c, long l, int f) => f < 0 ? RevC(c, l) : c;
+    /// <summary><c>Norm</c>: a position in a frame as a position of the forward strand (amino-acid positions of a promer file are multiplied by three).</summary>
+    private static long Norm(long c, long l, int f, bool promer)
+    {
+        long retval = promer ? c * 3 - (3 - Math.Abs(f)) : c;
+        return f < 0 ? RevC(retval, l) : retval;
+    }
 
     private static bool SnpRLess(MummerSnp a, MummerSnp b)
     {
@@ -117,7 +122,6 @@ public static class MummerShowSnps
     /// <param name="queryFasta">The query FASTA named in the delta header.</param>
     /// <param name="options">Switches (null = defaults).</param>
     /// <exception cref="FormatException">The delta file cannot be parsed, a record is missing from a FASTA file, or a -S alignment is not found.</exception>
-    /// <exception cref="NotSupportedException">The delta file is a promer file (a registered sub-item).</exception>
     public static MummerTextOutput Run(string deltaText, string referenceFasta, string queryFasta, MummerShowSnpsOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(deltaText);
@@ -138,10 +142,8 @@ public static class MummerShowSnps
             select = SelectAligns(o.SelectedAlignments);
 
         var graph = MummerDeltaGraph.Build(deltaText, true);
-        if (graph.DataType != "NUCMER")
-            throw new NotSupportedException("show-snps of a promer delta file (amino-acid substitutions) is not ported.");
         graph.LoadSequences(referenceFasta, queryFasta);
-        FindSnps(graph, o, sortReference, select);
+        FindSnps(graph, o, sortReference, select, err);
         if (select != null && select.Count != 0)
             throw new FormatException("ERROR: One or more alignments from stdin could not be found");
         CheckSnps(graph);
@@ -206,9 +208,10 @@ public static class MummerShowSnps
         return set;
     }
 
-    private static void FindSnps(MummerDeltaGraph graph, MummerShowSnpsOptions o, bool sortReference, HashSet<string>? select)
+    private static void FindSnps(MummerDeltaGraph graph, MummerShowSnpsOptions o, bool sortReference, HashSet<string>? select, StringBuilder err)
     {
         var ci = CultureInfo.InvariantCulture;
+        bool promer = graph.DataType != "NUCMER";
         foreach (var mn in graph.ReferenceNodes.Values)
         {
             foreach (var ei in mn.Edges)
@@ -256,16 +259,26 @@ public static class MummerShowSnps
                         sQ = li.LoQ;
                     }
 
+                    if (promer)
+                    {
+                        // translate the coordinates to amino acids; eR points to the last base of the codon
+                        alenR /= 3;
+                        alenQ /= 3;
+                        frameR += (int)((sR + 2) % 3);
+                        frameQ += (int)((sQ + 2) % 3);
+                        sR = (sR + 2) / 3;
+                        eR /= 3;
+                        sQ = (sQ + 2) / 3;
+                    }
+
                     int ri = frameR, qi = frameQ;
                     if (frameR > 3)
                         frameR = -(frameR - 3);
                     if (frameQ > 3)
                         frameQ = -(frameQ - 3);
 
-                    if (R[ri] == null)
-                        R[ri] = li.ReverseR ? MummerSequence.ReverseComplement(R[0]) : (byte[])R[0].Clone();
-                    if (Q[qi] == null)
-                        Q[qi] = li.ReverseQ ? MummerSequence.ReverseComplement(Q[0]) : (byte[])Q[0].Clone();
+                    R[ri] ??= SequenceOfFrame(R[0], ri, li.ReverseR, promer, err);
+                    Q[qi] ??= SequenceOfFrame(Q[0], qi, li.ReverseQ, promer, err);
 
                     long rpos = sR, qpos = sQ, remain = eR - sR + 1;
                     li.FrameR = frameR;
@@ -276,8 +289,8 @@ public static class MummerShowSnps
                     MummerSnp Substitution()
                     {
                         var snp = new MummerSnp { Edge = ei, Edgelet = li };
-                        snp.PosR = Norm(rpos - 1, lenR, frameR);
-                        snp.PosQ = Norm(qpos - 1, lenQ, frameQ);
+                        snp.PosR = Norm(rpos - 1, lenR, frameR, promer);
+                        snp.PosQ = Norm(qpos - 1, lenQ, frameQ, promer);
                         snp.CharR = char.ToUpperInvariant((char)rs[rpos - 1]);
                         snp.CharQ = char.ToUpperInvariant((char)qs[qpos - 1]);
                         var cr = new StringBuilder();
@@ -302,8 +315,8 @@ public static class MummerShowSnps
                                 cq.Append(char.ToUpperInvariant((char)qs[qctx]));
                         }
 
-                        snp.ContextR = cr.ToString();
-                        snp.ContextQ = cq.ToString();
+                        snp.ContextR = CString(cr);
+                        snp.ContextQ = CString(cq);
                         return snp;
                     }
 
@@ -321,7 +334,7 @@ public static class MummerShowSnps
                         {
                             if (rs[rpos++] != qs[qpos++])
                             {
-                                if (Iupac((char)rs[rpos - 1], (char)qs[qpos - 1]))
+                                if (!promer && Iupac((char)rs[rpos - 1], (char)qs[qpos - 1]))
                                     continue;
                                 li.Snps.Add(Substitution());
                             }
@@ -338,8 +351,8 @@ public static class MummerShowSnps
 
                         if (sign > 0)
                         {
-                            snp.PosR = Norm(rpos, lenR, frameR);
-                            snp.PosQ = frameQ > 0 ? Norm(qpos - 1, lenQ, frameQ) : Norm(qpos, lenQ, frameQ);
+                            snp.PosR = Norm(rpos, lenR, frameR, promer);
+                            snp.PosQ = frameQ > 0 ? Norm(qpos - 1, lenQ, frameQ, promer) : Norm(qpos, lenQ, frameQ, promer);
                             snp.CharR = char.ToUpperInvariant((char)rs[rpos++]);
                             snp.CharQ = IndelChar;
                             remain -= i;
@@ -347,8 +360,8 @@ public static class MummerShowSnps
                         }
                         else
                         {
-                            snp.PosQ = Norm(qpos, lenQ, frameQ);
-                            snp.PosR = frameR > 0 ? Norm(rpos - 1, lenR, frameR) : Norm(rpos, lenR, frameR);
+                            snp.PosQ = Norm(qpos, lenQ, frameQ, promer);
+                            snp.PosR = frameR > 0 ? Norm(rpos - 1, lenR, frameR, promer) : Norm(rpos, lenR, frameR, promer);
                             snp.CharR = IndelChar;
                             snp.CharQ = char.ToUpperInvariant((char)qs[qpos++]);
                             remain -= i - 1;
@@ -361,8 +374,8 @@ public static class MummerShowSnps
                         cq.Append(snp.CharQ);
                         for (; qctx2 < qpos + o.Context; qctx2++)
                             cq.Append(qctx2 > alenQ ? SeqEndChar : char.ToUpperInvariant((char)qs[qctx2]));
-                        snp.ContextR = cr.ToString();
-                        snp.ContextQ = cq.ToString();
+                        snp.ContextR = CString(cr);
+                        snp.ContextQ = CString(cq);
                         li.Snps.Add(snp);
                     }
 
@@ -370,7 +383,7 @@ public static class MummerShowSnps
                     {
                         if (rs[rpos++] != qs[qpos++])
                         {
-                            if (Iupac((char)rs[rpos - 1], (char)qs[qpos - 1]))
+                            if (!promer && Iupac((char)rs[rpos - 1], (char)qs[qpos - 1]))
                                 continue;
                             li.Snps.Add(Substitution());
                         }
@@ -405,6 +418,25 @@ public static class MummerShowSnps
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// The context is a <c>std::string</c> printed with <c>c_str ()</c>: a context that reaches past the end of a translated frame (the frames 2 and 3 of an amino-acid sequence are one or two residues shorter than
+    /// the length / 3 the program tests against) holds the zero byte of the translation, which ends the printed text.
+    /// </summary>
+    private static string CString(StringBuilder text)
+    {
+        string t = text.ToString();
+        int nul = t.IndexOf('\0', StringComparison.Ordinal);
+        return nul < 0 ? t : t[..nul];
+    }
+
+    /// <summary>The sequence a frame is read from: the translation of the frame (promer), the reverse complement (a reverse nucmer alignment) or a copy of the sequence.</summary>
+    private static byte[] SequenceOfFrame(byte[] sequence, int frame, bool reverse, bool promer, StringBuilder err)
+    {
+        if (promer)
+            return MummerTranslate.Translate(sequence, sequence.Length - 2, frame, err).Amino;
+        return reverse ? MummerSequence.ReverseComplement(sequence) : (byte[])sequence.Clone();
     }
 
     private static void CheckSnps(MummerDeltaGraph graph)

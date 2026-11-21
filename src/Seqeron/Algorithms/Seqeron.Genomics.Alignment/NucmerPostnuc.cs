@@ -74,13 +74,9 @@ public static class NucmerPostnuc
         public List<Cluster> Clusters = [];
     }
 
-    private sealed class Alignment
+    private sealed class Alignment : MummerAlignment
     {
         public sbyte DirB;
-        public long SA, SB, EA, EB;
-        public List<long> Delta = [];
-        public long DeltaApos;
-        public long Errors, SimErrors, NonAlphas;
     }
 
     private enum LineType { None, Header, MatchLine }
@@ -93,70 +89,13 @@ public static class NucmerPostnuc
         public StringBuilder Err = new();
         public StringBuilder? Delta;
         public StringBuilder? ClusterFile;
+
+        public MummerExtension.Settings Extension => new(O.ToSequenceEnd, BreakLen, Banding, 0);
     }
 
     private static bool IsSpace(int c) => c == ' ' || (c >= '\t' && c <= '\r');
 
     private static bool IsAlpha(int c) => (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
-
-    /// <summary><c>Read_String (fp, T, Size, Name, FALSE)</c>: a sequential reader of FASTA records.</summary>
-    private sealed class FastaReader(string text)
-    {
-        private int _pos;
-
-        public bool Read(out string name, out byte[] seq, out long len, StringBuilder err)
-        {
-            name = string.Empty;
-            seq = [0, 0];
-            len = 0;
-            int ch;
-            while (_pos < text.Length && text[_pos] != '>')
-                _pos++;
-            if (_pos >= text.Length)
-                return false;
-            _pos++; // the '>'
-
-            // fgets (Line, MAX_LINE = 1024): at most 1023 characters up to and including the newline
-            int start = _pos;
-            int nl = text.IndexOf('\n', _pos);
-            if (nl < 0 || nl - start + 1 > 1023)
-                throw new FormatException("Assertion `Len > 0 && Line [Len - 1] == '\\n'' failed: the header line of a FASTA record is missing its newline or is longer than 1023 characters.");
-            string line = text.Substring(start, nl - start + 1);
-            _pos = nl + 1;
-            // strtok (Line, " \t\n")
-            int i = 0;
-            while (i < line.Length && (line[i] == ' ' || line[i] == '\t' || line[i] == '\n'))
-                i++;
-            int j = i;
-            while (j < line.Length && line[j] != ' ' && line[j] != '\t' && line[j] != '\n')
-                j++;
-            name = line.Substring(i, j - i);
-
-            var bytes = new List<byte>(1024) { 0 };
-            while (_pos < text.Length)
-            {
-                ch = text[_pos];
-                if (ch == '>')
-                    break;
-                _pos++;
-                if (IsSpace(ch))
-                    continue;
-                ch = ch >= 'A' && ch <= 'Z' ? ch + 32 : ch;
-                if (!IsAlpha(ch) && ch != '*')
-                {
-                    err.Append("Unexpected character `").Append((char)ch).Append("' in string ").Append(name).Append('\n');
-                    ch = 'x';
-                }
-
-                bytes.Add((byte)ch);
-            }
-
-            bytes.Add(0);
-            seq = [.. bytes];
-            len = bytes.Count - 2;
-            return true;
-        }
-    }
 
     private static long RevC(long coord, long len) => len - coord + 1;
 
@@ -170,7 +109,7 @@ public static class NucmerPostnuc
     {
         ArgumentNullException.ThrowIfNull(fasta);
         var err = new StringBuilder();
-        var reader = new FastaReader(fasta);
+        var reader = new MummerFastaReader(fasta);
         var list = new List<(string, string)>();
         while (reader.Read(out string id, out byte[] seq, out long len, err))
             list.Add((id, Encoding.Latin1.GetString(seq, 1, (int)len)));
@@ -221,13 +160,13 @@ public static class NucmerPostnuc
 
         // the reference records
         var af = new List<FastaRecord>();
-        var rr = new FastaReader(refFasta);
+        var rr = new MummerFastaReader(refFasta);
         while (rr.Read(out string id, out byte[] seq, out long len, st.Err))
             af.Add(new FastaRecord { Id = id, Len = len, Seq = seq });
         if (af.Count <= 0)
             ParseAbort(refName);
 
-        var qr = new FastaReader(qryFasta);
+        var qr = new MummerFastaReader(qryFasta);
         var syntenys = new List<Synteny>();
         int currSp = -1;
         var prevLine = LineType.None;
@@ -383,7 +322,7 @@ public static class NucmerPostnuc
     private static void ParseAbort(string s)
         => throw new FormatException("ERROR: Could not parse input from '" + s + "'. \nPlease check the filename and format, or file a bug report\n");
 
-    private static void ProcessSyntenys(State st, List<Synteny> syntenys, FastaReader qr)
+    private static void ProcessSyntenys(State st, List<Synteny> syntenys, MummerFastaReader qr)
     {
         string bId = string.Empty;
         byte[] bSeq = [0, 0];
@@ -505,7 +444,7 @@ public static class NucmerPostnuc
                     if (o.Extend || mp != 0)
                     {
                         int targetAp = GetReverseTargetAlignment(st, alignments, currAp);
-                        if (ExtendBackward(st, alignments, currAp, targetAp, a, b))
+                        if (MummerExtension.ExtendBackward(st.Extension, alignments, currAp, targetAp, a, b))
                             currAp = targetAp;
                     }
                 }
@@ -516,7 +455,7 @@ public static class NucmerPostnuc
                 {
                     targetA = cc.Matches[mp + 1].SA;
                     targetB = cc.Matches[mp + 1].SB;
-                    targetReached = ExtendForward(st, alignments[currAp], a, targetA, b, targetB, mo);
+                    targetReached = MummerExtension.ExtendForward(st.Extension, alignments[currAp], a, targetA, b, targetB, mo);
                 }
                 else if (o.Extend)
                 {
@@ -531,7 +470,7 @@ public static class NucmerPostnuc
                             mo |= NucmerSwAlign.SeqEndBit;
                     }
 
-                    targetReached = ExtendForward(st, alignments[currAp], a, targetA, b, targetB, mo);
+                    targetReached = MummerExtension.ExtendForward(st.Extension, alignments[currAp], a, targetA, b, targetB, mo);
                 }
             }
 
@@ -547,121 +486,6 @@ public static class NucmerPostnuc
         }
 
         FlushAlignments(st, alignments, af, bRec, bRev);
-    }
-
-    private static bool ExtendBackward(State st, List<Alignment> alignments, int currAp, int targetAp, byte[] a, byte[] b)
-    {
-        bool targetReached;
-        bool overflow = false, doubleFlag = false;
-        var cur = alignments[currAp];
-        uint mo = NucmerSwAlign.BackwardSearch;
-        long targetA, targetB;
-        bool noTarget = targetAp == alignments.Count;
-
-        if (!noTarget)
-        {
-            targetA = alignments[targetAp].EA;
-            targetB = alignments[targetAp].EB;
-        }
-        else
-        {
-            targetA = 1;
-            targetB = 1;
-            mo |= NucmerSwAlign.OptimalBit;
-        }
-
-        if (cur.SA - targetA + 1 > NucmerSwAlign.MaxAlignmentLength)
-        {
-            targetA = cur.SA - NucmerSwAlign.MaxAlignmentLength + 1;
-            overflow = true;
-            mo |= NucmerSwAlign.OptimalBit;
-        }
-
-        if (cur.SB - targetB + 1 > NucmerSwAlign.MaxAlignmentLength)
-        {
-            targetB = cur.SB - NucmerSwAlign.MaxAlignmentLength + 1;
-            if (overflow)
-                doubleFlag = true;
-            else
-                overflow = true;
-            mo |= NucmerSwAlign.OptimalBit;
-        }
-
-        if (st.O.ToSequenceEnd && !doubleFlag)
-            mo |= NucmerSwAlign.SeqEndBit;
-
-        targetReached = NucmerSwAlign.AlignEngine(a, cur.SA, ref targetA, b, cur.SB, ref targetB, [], mo, st.BreakLen, st.Banding);
-
-        if (overflow || noTarget)
-            targetReached = false;
-
-        if (targetReached)
-        {
-            ExtendForward(st, alignments[targetAp], a, cur.SA, b, cur.SB, NucmerSwAlign.ForcedForwardAlign);
-            alignments[targetAp].EA = cur.EA;
-            alignments[targetAp].EB = cur.EB;
-            alignments.RemoveAt(alignments.Count - 1);
-        }
-        else
-        {
-            long endA = cur.SA, endB = cur.SB;
-            NucmerSwAlign.AlignEngine(a, targetA, ref endA, b, targetB, ref endB, cur.Delta, NucmerSwAlign.ForcedForwardAlign, st.BreakLen, st.Banding);
-            cur.SA = targetA;
-            cur.SB = targetB;
-            foreach (long d in cur.Delta)
-                cur.DeltaApos += d > 0 ? d : Math.Abs(d) - 1;
-        }
-
-        return targetReached;
-    }
-
-    private static bool ExtendForward(State st, Alignment cur, byte[] a, long targetA, byte[] b, long targetB, uint mo)
-    {
-        bool overflow = false, doubleFlag = false;
-        int di = cur.Delta.Count;
-
-        long valA = targetA - cur.EA + 1;
-        long valB = targetB - cur.EB + 1;
-
-        if (valA > NucmerSwAlign.MaxAlignmentLength)
-        {
-            targetA = cur.EA + NucmerSwAlign.MaxAlignmentLength - 1;
-            overflow = true;
-            mo |= NucmerSwAlign.OptimalBit;
-        }
-
-        if (valB > NucmerSwAlign.MaxAlignmentLength)
-        {
-            targetB = cur.EB + NucmerSwAlign.MaxAlignmentLength - 1;
-            if (overflow)
-                doubleFlag = true;
-            else
-                overflow = true;
-            mo |= NucmerSwAlign.OptimalBit;
-        }
-
-        if (doubleFlag)
-            mo &= ~NucmerSwAlign.SeqEndBit;
-
-        bool targetReached = NucmerSwAlign.AlignEngine(a, cur.EA, ref targetA, b, cur.EB, ref targetB, cur.Delta, mo, st.BreakLen, st.Banding);
-
-        if (targetReached && overflow)
-            targetReached = false;
-
-        if (di < cur.Delta.Count)
-        {
-            valA = (cur.EA - cur.SA + 1) - cur.DeltaApos - 1;
-            cur.Delta[di] += cur.Delta[di] > 0 ? valA : -valA;
-            if (cur.Delta[di] == 0 || valA < 0)
-                throw new FormatException("ERROR: failed to merge alignments at position " + cur.EA.ToString(CultureInfo.InvariantCulture) + "\n       Please file a bug report\n");
-
-            for (int k = di; k < cur.Delta.Count; k++)
-                cur.DeltaApos += cur.Delta[k] > 0 ? cur.Delta[k] : Math.Abs(cur.Delta[k]) - 1;
-        }
-
-        cur.EA = targetA;
-        cur.EB = targetB;
-        return targetReached;
     }
 
     /// <summary>Returns the index of the cluster that is most likely to join with the current one (clusters.Count when none).</summary>

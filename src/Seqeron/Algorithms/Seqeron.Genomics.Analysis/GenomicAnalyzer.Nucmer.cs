@@ -110,34 +110,7 @@ public static partial class GenomicAnalyzer
                 continue;
             var clusters = FindNucmerClusters(concatenated, seq, o.MinMatch, o.MatchMode, clusterOptions, strands, cancellationToken);
             foreach (bool reverse in new[] { false, true })
-            {
-                bool first = true;
-                foreach (var c in clusters.Where(x => x.IsReverseComplement == reverse))
-                {
-                    if (first)
-                        mgaps.Append("> ").Append(id).Append(reverse ? " Reverse" : string.Empty).Append('\n');
-                    else
-                        mgaps.Append("#\n");
-                    first = false;
-                    bool firstMatch = true;
-                    long prevEnd1 = 0, prevEnd2 = 0;
-                    foreach (var m in c.Cluster.Matches)
-                    {
-                        mgaps.Append(m.Start1.ToString(CultureInfo.InvariantCulture).PadLeft(8)).Append(' ')
-                            .Append(m.Start2.ToString(CultureInfo.InvariantCulture).PadLeft(8)).Append(' ')
-                            .Append(m.Length.ToString(CultureInfo.InvariantCulture).PadLeft(6));
-                        if (firstMatch)
-                            mgaps.Append(' ').Append("none".PadLeft(7)).Append(' ').Append("-".PadLeft(6)).Append(' ').Append("-".PadLeft(6)).Append('\n');
-                        else
-                            mgaps.Append(' ').Append(Adjustment(m.Overlap).PadLeft(7)).Append(' ')
-                                .Append((m.Start1 - prevEnd1).ToString(CultureInfo.InvariantCulture).PadLeft(6)).Append(' ')
-                                .Append((m.Start2 - prevEnd2).ToString(CultureInfo.InvariantCulture).PadLeft(6)).Append('\n');
-                        firstMatch = false;
-                        prevEnd1 = m.Start1 + m.Length;
-                        prevEnd2 = m.Start2 + m.Length;
-                    }
-                }
-            }
+                MummerMgapsText.AppendBlock(mgaps, "> " + id + (reverse ? " Reverse" : string.Empty), clusters.Where(x => x.IsReverseComplement == reverse).Select(x => x.Cluster));
         }
 
         var post = NucmerPostnuc.Run(referenceName, queryName, referenceFasta, queryFasta, mgaps.ToString(), new NucmerPostnucOptions
@@ -159,7 +132,6 @@ public static partial class GenomicAnalyzer
 
         return new NucmerResult(post.Delta, post.Cluster, messages + queryMessages + post.Messages, coords);
 
-        static string Adjustment(long overlap) => overlap == 0 ? "none" : (-overlap).ToString(CultureInfo.InvariantCulture);
     }
 
     // The errors of mummer's FASTA reader: an empty file, a file without a header line and a file whose only record is empty (several records may be empty)

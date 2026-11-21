@@ -14,7 +14,7 @@ MUMmer 3.23 show-aligns: the alignments of one reference / query pair drawn as t
 
 ## Description
 
-MUMmer 3.23 show-aligns: the alignments between one reference record and one query record of a nucmer delta file drawn as three rows (reference, query, a ^ under every difference; an indel is a . in the other row) in blocks of the screen width (-w, default 60; 11 or less is replaced with a warning), each row prefixed with the 1-based forward-strand position of its first base; '-- BEGIN alignment [ +1 sR - eR | +1 sQ - eQ ]' / END lines frame every alignment (a reverse-strand alignment shows -1). The alignments are in file order unless sortByReference (-r) / sortByQuery (-q). The program reads the sequences from the FASTA files named in the delta header: pass their text. Byte for byte equal to the installed show-aligns on 300 + runs; a promer (amino-acid) delta file is refused with NotSupportedException (registered A3-9d).
+MUMmer 3.23 show-aligns: the alignments between one reference record and one query record of a nucmer delta file drawn as three rows (reference, query, a ^ under every difference; an indel is a . in the other row) in blocks of the screen width (-w, default 60; 11 or less is replaced with a warning), each row prefixed with the 1-based forward-strand position of its first base; '-- BEGIN alignment [ +1 sR - eR | +1 sQ - eQ ]' / END lines frame every alignment (a reverse-strand alignment shows -1). The alignments are in file order unless sortByReference (-r) / sortByQuery (-q). The program reads the sequences from the FASTA files named in the delta header: pass their text. A promer (amino-acid) delta file is drawn in amino acids: the frames are translated, the middle row shows the identical residue or + for a similar one under the matrix of matrixType (-x: 1 = BLOSUM 45, 2 = BLOSUM 62 default, 3 = BLOSUM 80; another value is replaced with a warning), the row order is reference, match row, query. Byte for byte equal to the installed show-aligns on 300 nucmer and 250 + promer runs.
 
 ## Core Documentation Reference
 
@@ -34,6 +34,7 @@ MUMmer 3.23 show-aligns: the alignments between one reference record and one que
 | `sortByQuery` | boolean | No | -q: sort the alignments by the query start (default false). |
 | `sortByReference` | boolean | No | -r: sort the alignments by the reference start (default false). |
 | `screenWidth` | integer | No | -w: screen width (default 60). |
+| `matrixType` | integer | No | -x: matrix of a promer alignment, 1 = BLOSUM 45, 2 = BLOSUM 62 (default), 3 = BLOSUM 80; only decides which differences are shown as similar (+). |
 
 ## Output Schema
 

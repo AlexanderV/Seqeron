@@ -14,11 +14,15 @@ public sealed record MummerShowAlignsOptions
 
     /// <summary><c>-w</c>: screen width (default 60; a value of 11 or less is replaced by 60 with a warning).</summary>
     public int ScreenWidth { get; init; } = 60;
+
+    /// <summary><c>-x</c>: the matrix of an amino-acid (promer) alignment, 1 = BLOSUM 45, 2 = BLOSUM 62 (default), 3 = BLOSUM 80; another value is replaced by 2 with a warning; it only decides which differences are shown as similar (<c>+</c>).</summary>
+    public int MatrixType { get; init; } = 2;
 }
 
 /// <summary>
 /// <c>show-aligns</c> of MUMmer 3.23 (<c>src/tigr/show-aligns.cc</c>): the alignments between one reference record and one query record of a nucmer delta file, drawn as three rows (reference, query, a
 /// <c>^</c> under every difference; an indel is a <c>.</c> in the other row) in blocks of the screen width, each block row prefixed with the 1-based position of its first base on the forward strand.
+/// A promer delta file is drawn in amino acids (the frames of the reference and query are translated; the middle row shows the identical residue, <c>+</c> for a similar one under the matrix <c>-x</c>).
 /// </summary>
 public static class MummerShowAligns
 {
@@ -38,7 +42,6 @@ public static class MummerShowAligns
     /// <param name="queryId">Query record id.</param>
     /// <param name="options">Switches (null = defaults).</param>
     /// <exception cref="FormatException">The delta file cannot be parsed or an id is missing (the program's error exits).</exception>
-    /// <exception cref="NotSupportedException">The delta file is a promer file (the amino-acid alignment is a registered sub-item).</exception>
     public static MummerTextOutput Run(string deltaText, string referenceFasta, string queryFasta, string referenceId, string queryId, MummerShowAlignsOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(deltaText);
@@ -53,12 +56,18 @@ public static class MummerShowAligns
             width = 60;
         }
 
+        int matrix = o.MatrixType;
+        if (matrix < 1 || matrix > 3)
+        {
+            err.Append("WARNING: invalid matrix type ").Append(matrix.ToString(CultureInfo.InvariantCulture)).Append(", using default\n");
+            matrix = 2;
+        }
+
         if (o.SortByQuery && o.SortByReference)
             err.Append("WARNING: both -r and -q were passed, -q ignored\n");
 
         var file = MummerDeltaFile.Parse(deltaText, true);
-        if (file.DataType != "NUCMER")
-            throw new NotSupportedException("show-aligns of a promer delta file (amino-acid alignment) is not ported.");
+        bool promer = file.DataType != "NUCMER";
         MummerDeltaRecord? found = file.Records.FirstOrDefault(r => r.ReferenceId == referenceId && r.QueryId == queryId)
             ?? throw new FormatException("ERROR: Could not find any alignments for " + referenceId + " and " + queryId);
         var aligns = found.Alignments.Select(a => new Aln { SR = a.StartR, ER = a.EndR, SQ = a.StartQ, EQ = a.EndQ, Delta = a.Deltas }).ToList();
@@ -73,7 +82,7 @@ public static class MummerShowAligns
 
         var sb = new StringBuilder();
         sb.Append(file.ReferencePath).Append(' ').Append(file.QueryPath).Append("\n\n").Append('=', width).Append("\n-- Alignments between ").Append(referenceId).Append(" and ").Append(queryId).Append("\n\n");
-        PrintAlignments(sb, aligns, R, Q, width);
+        PrintAlignments(sb, aligns, R, Q, width, promer, matrix, err);
         sb.Append('\n').Append('=', width).Append('\n');
         return new MummerTextOutput(sb.ToString(), err.ToString());
     }
@@ -96,17 +105,24 @@ public static class MummerShowAligns
 
     private static long RevC(long coord, long len) => len - coord + 1;
 
-    private static long ToFwd(long coord, long len, int frame) => frame < 0 ? RevC(coord, len) : coord;
+    private static long ToFwd(long coord, long len, int frame, bool promer)
+    {
+        long newc = promer ? coord * 3 - (3 - Math.Abs(frame)) : coord;
+        return frame < 0 ? RevC(newc, len) : newc;
+    }
 
-    private static void PrintAlignments(StringBuilder sb, List<Aln> aligns, byte[] r, byte[] q, int width)
+    private static void PrintAlignments(StringBuilder sb, List<Aln> aligns, byte[] r, byte[] q, int width, bool promer, int matrix, StringBuilder err)
     {
         long seqLenR = r.Length - 2, seqLenQ = q.Length - 2;
         var a = new byte[7][];
         var b = new byte[7][];
-        a[1] = r;
-        a[4] = MummerSequence.ReverseComplement(r);
-        b[1] = q;
-        b[4] = MummerSequence.ReverseComplement(q);
+        if (!promer)
+        {
+            a[1] = r;
+            a[4] = MummerSequence.ReverseComplement(r);
+            b[1] = q;
+            b[4] = MummerSequence.ReverseComplement(q);
+        }
 
         var buff1 = new char[width + 2];
         var buff2 = new char[width + 2];
@@ -131,11 +147,24 @@ public static class MummerShowAligns
                 frameQ += 3;
             }
 
+            if (promer)
+            {
+                // translate the coordinates from DNA to amino acids: eR points to the last nucleotide of the codon
+                frameR += (int)((sR + 2) % 3);
+                frameQ += (int)((sQ + 2) % 3);
+                sR = (sR + 2) / 3;
+                eR /= 3;
+                sQ = (sQ + 2) / 3;
+            }
+
             int ai = frameR, bi = frameQ;
             if (frameR > 3)
                 frameR = -(frameR - 3);
             if (frameQ > 3)
                 frameQ = -(frameQ - 3);
+
+            a[ai] ??= MummerTranslate.Translate(r, seqLenR, ai, err).Amino;
+            b[bi] ??= MummerTranslate.Translate(q, seqLenQ, bi, err).Amino;
 
             string tag = string.Concat(frameR > 0 ? "+" : "-", Math.Abs(frameR).ToString(CultureInfo.InvariantCulture), " ", ap.SR.ToString(CultureInfo.InvariantCulture), " - ", ap.ER.ToString(CultureInfo.InvariantCulture),
                 " | ", frameQ > 0 ? "+" : "-", Math.Abs(frameQ).ToString(CultureInfo.InvariantCulture), " ", ap.SQ.ToString(CultureInfo.InvariantCulture), " - ", ap.EQ.ToString(CultureInfo.InvariantCulture));
@@ -147,14 +176,17 @@ public static class MummerShowAligns
 
             void Prefix()
             {
-                Put(buff1, (ToFwd(apos, seqLenR, frameR)).ToString(CultureInfo.InvariantCulture).PadRight(10) + " ");
-                Put(buff2, (ToFwd(bpos, seqLenQ, frameQ)).ToString(CultureInfo.InvariantCulture).PadRight(10) + " ");
+                Put(buff1, (ToFwd(apos, seqLenR, frameR, promer)).ToString(CultureInfo.InvariantCulture).PadRight(10) + " ");
+                Put(buff2, (ToFwd(bpos, seqLenQ, frameQ, promer)).ToString(CultureInfo.InvariantCulture).PadRight(10) + " ");
             }
 
             void Flush(int p)
             {
                 buff1[p] = buff2[p] = buff3[p] = '\0';
-                sb.Append(Str(buff1)).Append('\n').Append(Str(buff2)).Append('\n').Append(Str(buff3)).Append("\n\n");
+                if (promer)
+                    sb.Append(Str(buff1)).Append('\n').Append(Str(buff3)).Append('\n').Append(Str(buff2)).Append("\n\n");
+                else
+                    sb.Append(Str(buff1)).Append('\n').Append(Str(buff2)).Append('\n').Append(Str(buff3)).Append("\n\n");
                 Prefix();
             }
 
@@ -177,7 +209,7 @@ public static class MummerShowAligns
                         pos = LinePrefixLen;
                     }
 
-                    buff3[pos] = a[ai][apos] == b[bi][bpos] ? ' ' : '^';
+                    buff3[pos] = MatchChar(a[ai][apos], b[bi][bpos], promer, matrix);
                     buff1[pos] = (char)a[ai][apos++];
                     buff2[pos++] = (char)b[bi][bpos++];
                 }
@@ -191,14 +223,14 @@ public static class MummerShowAligns
 
                 if (sign == 1)
                 {
-                    buff3[pos] = '^';
+                    buff3[pos] = promer ? ' ' : '^';
                     buff1[pos] = (char)a[ai][apos++];
                     buff2[pos++] = '.';
                     remain--;
                 }
                 else
                 {
-                    buff3[pos] = '^';
+                    buff3[pos] = promer ? ' ' : '^';
                     buff1[pos] = '.';
                     buff2[pos++] = (char)b[bi][bpos++];
                 }
@@ -212,7 +244,7 @@ public static class MummerShowAligns
                     pos = LinePrefixLen;
                 }
 
-                buff3[pos] = a[ai][apos] == b[bi][bpos] ? ' ' : '^';
+                buff3[pos] = MatchChar(a[ai][apos], b[bi][bpos], promer, matrix);
                 buff1[pos] = (char)a[ai][apos++];
                 buff2[pos++] = (char)b[bi][bpos++];
             }
@@ -221,6 +253,15 @@ public static class MummerShowAligns
                 Flush(pos);
 
             sb.Append("\n--   END alignment [ ").Append(tag).Append(" ]\n");
+        }
+
+        static char MatchChar(byte ca, byte cb, bool promer, int matrix)
+        {
+            if (!promer)
+                return ca == cb ? ' ' : '^';
+            if (ca == cb)
+                return (char)ca;
+            return MummerPromerTables.FlatMatchScore(matrix, char.ToUpperInvariant((char)ca) - 'A', char.ToUpperInvariant((char)cb) - 'A') > 0 ? '+' : ' ';
         }
 
         static void Put(char[] dst, string s)

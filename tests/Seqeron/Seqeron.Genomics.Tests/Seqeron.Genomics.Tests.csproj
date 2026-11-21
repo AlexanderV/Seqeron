@@ -75,6 +75,9 @@
     <EmbeddedResource Include="TestData\Alignment\mummer_show_oracle.jsonl.gz" />
     <!-- A3-9e (B09 F204): the mummer command of MUMmer 3.23; scripts/alignment/generate_mummer_cli_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\mummer_cli_oracle.jsonl.gz" />
+    <!-- A3-9d (B09 F205): promer (script + prepro / mummer / mgaps / postpro) and the delta programs on PROMER delta files; scripts/alignment/generate_promer_oracle.py, generate_promer_show_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\promer_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\promer_show_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\est2genome_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\wordmatch_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\fuzznuc_dup_oracle.jsonl.gz" />

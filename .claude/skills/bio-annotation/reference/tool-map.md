@@ -102,6 +102,7 @@ Servers: `A` = Annotation, `X` = Analysis. `⚠` = guarded / documented-limited 
 | `show_tiling` | X | MUMmer 3.23 show-tiling: tiles the aligned query contigs on the reference (path, alignments, XML, contig list, unusable contigs, pseudo molecule). | `MummerShowTiling.Run` |
 | `dnadiff` | X | MUMmer 3.23 dnadiff: nucmer --maxmatch + delta-filter + show-coords / show-snps / show-diff and the report of two sequence sets. | `GenomicAnalyzer.Dnadiff` |
 | `mummer` | X | MUMmer mummer: maximal exact matches (-mum / -mumreference / -maxmatch, -n -l -b -r -s -c -F -L), byte for byte. | `MummerProgram.Run` |
+| `promer` | X | MUMmer promer: six-frame amino-acid alignments (BLOSUM 45 / 62 / 80) of two DNA files, delta file byte for byte. | `PromerProgram.Run` |
 | `est2genome` | X | EMBOSS 6.6.0 est2genome: the spliced alignment of ESTs to a genomic sequence (exons, GT/AG and CT/AC introns, both strands, linear-space recursion; 330 runs equal). | `EmbossEst2genomePrograms.Run` |
 | `find_shared_motifs` | X | k-mers shared across sequences | `MotifFinder.FindSharedMotifs` |
 | `shared_motifs_significance` | X | Shared k-mers with RSAT ms_P/ms_E/ms_sig significance; degenerate words (-oneN/-onedeg) | `MotifFinder.FindSharedMotifs` (RSAT overloads) |

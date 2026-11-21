@@ -132,6 +132,7 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "show_tiling",
         "dnadiff",
         "mummer",
+        "promer",
         "est2genome",
         "mask_approximate_tandem_repeats",
         "mask_low_complexity",

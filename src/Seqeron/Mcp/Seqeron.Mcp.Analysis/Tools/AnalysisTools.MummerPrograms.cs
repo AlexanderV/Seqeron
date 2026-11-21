@@ -43,4 +43,45 @@ public partial class AnalysisTools
         }, cancellationToken);
         return new MummerProgramResult(r.Text, r.Messages);
     }
+
+    [McpServerTool(Name = "promer", Title = "Genome — MUMmer promer (amino-acid alignments)", ReadOnly = true)]
+    [Description("MUMmer 3.23 promer (PROtein MUMmer 3.07): amino-acid alignments between two multi-FASTA DNA files, the whole pipeline: prepro (both files translated in all six reading frames; a stretch of at most maskLength amino acids between stop codons is masked) | mummer (anchors in amino acids: matchMode 'mumreference' (default), 'mum', 'maxmatch'; minMatch = -l, default 6) | mgaps (clusters: maxGap = -g (30), minCluster = -c (20), diagonalFactor = -d (0.11)) | postpro (the affine Smith-Waterman extension of the clusters in amino-acid space with the BLOSUM matrix of matrix (-x: 1 = BLOSUM 45, 2 = BLOSUM 62 default, 3 = BLOSUM 80; 0 and other values are refused with a warning), give-up distance breakLength = -b (60 amino acids); extend / optimize as --[no]extend / --[no]optimize). Returns the .delta file: first line = the two file names, then PROMER, per record pair '>refId qryId refLen qryLen' and per alignment 'sR eR sQ eQ errors similarityErrors stopCodons' in nucleotide coordinates of the original DNA (a reverse-strand alignment has sR > eR / sQ > eQ) followed by the delta values - amino-acid distances, one delta = three nucleotides - and 0. With delta = false (--nodelta) the .cluster text is returned instead; coords (-o) adds the PROmer 1.1 coords file (show-coords -r of the delta). The prefix (-p) names the files of the result and the temporary files in the messages. Messages are the progress lines of the script, the warnings of the programs ('Forcing unrecognized DNA char to N', invalid break length / matrix) and mummer's reading lines. Byte for byte equal to the installed promer on 320 recorded and 1 920 further random runs (delta, cluster, coords, the temporary files and the messages; every option). The inputs on which the pipeline aborts (a file without sequence, a non-positive minMatch) are refused with an error.")]
+    public static PromerToolResult Promer(
+        [Description("Reference FASTA text (multi-record DNA).")] string reference,
+        [Description("Query FASTA text (multi-record DNA).")] string query,
+        [Description("Anchor matches: 'mumreference' (default, --mumreference / --mumcand), 'mum' (--mum) or 'maxmatch' (--maxmatch).")] string matchMode = "mumreference",
+        [Description("Minimum length of a single match in amino acids (-l, default 6).")] int minMatch = 6,
+        [Description("Maximum gap between two adjacent matches of a cluster in amino acids (-g, default 30).")] long maxGap = 30,
+        [Description("Minimum length of a cluster of matches in amino acids (-c, default 20).")] long minCluster = 20,
+        [Description("Diagonal difference as a fraction of the gap length (-d, default 0.11).")] double diagonalFactor = 0.11,
+        [Description("Distance an extension tries to extend poor scoring regions before giving up, in amino acids (-b, default 60; outside 1 - 10000 ignored with a warning).")] int breakLength = 60,
+        [Description("Alignment matrix (-x): 1 = BLOSUM 45, 2 = BLOSUM 62 (default), 3 = BLOSUM 80.")] int matrix = 2,
+        [Description("Maximum bookend masking length in amino acids (-m, default 8; negative = invalid, ignored with a warning).")] int maskLength = 8,
+        [Description("Extend the clusters (--extend, default true).")] bool extend = true,
+        [Description("Create the delta (--delta, default true); false returns the cluster file (--nodelta).")] bool delta = true,
+        [Description("Alignment score optimisation (--optimize, default true); false = --nooptimize.")] bool optimize = true,
+        [Description("Also return the PROmer 1.1 coords file (-o / --coords: show-coords -r of the delta; default false; not with delta = false).")] bool coords = false,
+        [Description("Output prefix (-p, default out): names the files in the messages.")] string prefix = "out",
+        [Description("Reference file name printed in the first line of the delta (promer prints the absolute path).")] string referenceName = "reference.fa",
+        [Description("Query file name printed in the first line of the delta.")] string queryName = "query.fa",
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrEmpty(reference))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(reference));
+        if (string.IsNullOrEmpty(query))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(query));
+        var mode = (matchMode ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "mumreference" or "mumcand" => MummerMatchMode.MumReference,
+            "mum" => MummerMatchMode.Mum,
+            "maxmatch" => MummerMatchMode.MaxMatch,
+            _ => throw new ArgumentException("matchMode must be 'mumreference', 'mum' or 'maxmatch'", nameof(matchMode)),
+        };
+        var r = PromerProgram.Run(reference, query, referenceName, queryName, new PromerOptions
+        {
+            MatchMode = mode, MinMatch = minMatch, MaxGap = maxGap, MinCluster = minCluster, DiagonalFactor = diagonalFactor, BreakLength = breakLength, Matrix = matrix, MaskLength = maskLength,
+            Extend = extend, Delta = delta, Optimize = optimize, Coords = coords, Prefix = prefix,
+        }, cancellationToken);
+        return new PromerToolResult(r.Delta, r.Cluster, r.Messages, r.Coords, r.AminoReference, r.AminoQuery, r.Mgaps);
+    }
 }

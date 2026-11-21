@@ -2,7 +2,7 @@
 
 MCP server — **K-mer, motif, repeat, complexity, RNA-structure and comparative-genomics analysis.**
 
-Exposes **160 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+Exposes **161 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
 MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test, with a
 per-tool doc under [`docs/mcp/tools/analysis/`](../../../../docs/mcp/tools/analysis). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
@@ -84,6 +84,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `show_tiling` | MUMmer 3.23 show-tiling: tiles the aligned query contigs on the reference (path, alignments, XML, contig list, unusable contigs, pseudo molecule). |
 | `dnadiff` | MUMmer 3.23 dnadiff: nucmer --maxmatch + delta-filter + show-coords / show-snps / show-diff and the report of two sequence sets. |
 | `mummer` | MUMmer mummer: maximal exact matches (-mum / -mumreference / -maxmatch, -n -l -b -r -s -c -F -L), byte for byte. |
+| `promer` | MUMmer promer: six-frame amino-acid alignments (BLOSUM 45 / 62 / 80) of two DNA files, delta file byte for byte. |
 | `est2genome` | EMBOSS 6.6.0 est2genome: the spliced alignment of ESTs to a genomic sequence (exons, GT/AG and CT/AC introns, both strands, linear-space recursion; 330 runs equal). |
 | `seqmatchall` | EMBOSS seqmatchall: every maximal exact word match (>= `wordSize`) of every pair of a sequence set, nucleotide or protein, including the program's N / X word-table scan; verified against seqmatchall 6.6.0 on 330 sets (B09 A3-13). |
 | `find_longdust_regions` | Finds low-complexity regions with **longdust** (Li & Li 2025; port of lh3/longdust 1.4-r97 ld_dust1/ld_dust2, MIT) — the k-mer generalisati… |

@@ -1470,6 +1470,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/ProteinMotifFinder.cs#L739"
   },
   {
+    "tool": "promer",
+    "server": "Analysis",
+    "methodId": "PromerProgram.Run",
+    "docPath": "docs/mcp/tools/analysis/promer.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/PromerProgram.cs"
+  },
+  {
     "tool": "prosite_to_regex",
     "server": "Analysis",
     "methodId": "ProteinMotifFinder.ConvertPrositeToRegex",

@@ -47,5 +47,70 @@
    },
    "note": "mummer -mum -l 8 -b -s r.fa q.fa: the whole reference matches the query at 14; the reverse-complement strand matches twice (the positions are in the reverse-complemented query)."
   }
+ },
+ {
+  "name": "promer",
+  "summary": "MUMmer 3.23 promer: amino-acid alignments between two DNA files (six-frame translation, mummer, mgaps, postpro), the .delta file byte for byte.",
+  "methodId": "PromerProgram.Run",
+  "sourceFile": "PromerProgram.cs",
+  "sourcePath": "Seqeron.Genomics.Alignment/PromerProgram.cs",
+  "algorithmDoc": "Alignment/Mummer_Package_Programs.md",
+  "oracleScript": "generate_promer_oracle.py",
+  "short": "MUMmer promer: six-frame amino-acid alignments (BLOSUM 45 / 62 / 80) of two DNA files, delta file byte for byte.",
+  "after": "mummer",
+  "file": "AnalysisTools.MummerPrograms.cs",
+  "description": "MUMmer 3.23 promer (PROtein MUMmer 3.07): amino-acid alignments between two multi-FASTA DNA files, the whole pipeline: prepro (six-frame translation, masking of short stop-to-stop stretches) | mummer on the translations | mgaps | postpro (the affine Smith-Waterman extension in amino-acid space with the BLOSUM matrix of matrix, give-up distance breakLength). Returns the .delta file (PROMER): coordinates of the original DNA, delta values in amino acids (one delta = three nucleotides); with delta = false the .cluster text; coords adds the PROmer 1.1 coords file; the temporary files of the script (.aaref, .aaqry, .mgaps) and the messages are returned too. Byte for byte equal to the installed promer on 320 recorded and 1 920 further random runs (every option).",
+  "output": {
+   "delta": [
+    "string",
+    "Text of the .delta file (null with delta = false)."
+   ],
+   "cluster": [
+    "string",
+    "Text of the .cluster file (only with delta = false)."
+   ],
+   "messages": [
+    "string",
+    "The progress lines of the script, the warnings of the programs and mummer's reading lines."
+   ],
+   "coords": [
+    "string",
+    "Text of the coords file (only with coords = true)."
+   ],
+   "aminoReference": [
+    "string",
+    "The temporary .aaref file (the reference in six frames)."
+   ],
+   "aminoQuery": [
+    "string",
+    "The temporary .aaqry file (the query in six frames)."
+   ],
+   "mgaps": [
+    "string",
+    "The temporary .mgaps file (the clusters)."
+   ]
+  },
+  "errors": [
+   "Sequence cannot be null or empty",
+   "matchMode must be 'mumreference', 'mum' or 'maxmatch'",
+   "ERROR: mummer and/or mgaps returned non-zero",
+   "ERROR: Could not parse input from 'stdin'."
+  ],
+  "example": {
+   "title": "A gene with substitutions and an insertion",
+   "prompt": "Align the two genes at the protein level.",
+   "input": {
+    "reference": ">ref gene\nACGTTGCATATAAAAACACTGCACGGATTTGCGGAGAGAATTCGATTCCCGTCGAATGGATCGCACACCAGAAGGGTCCAGGAGATTTCTATTATCGATTCTTTGCAGCACATCACGGAGGATTGATGCATGTACACGGCCATCCTCTAGCGAATCAAGGATTCAAGGACATGTTATATTGGGCATATATGGATCTGAACTTATCCATGGGATCCTCTGGATC\n",
+    "query": ">qry\nTTTACAAGAATACGGCCAGAATCTGCGGAGAGTGGTCAATCCCGGTCGAATGGATAGCCCACCAGAAAGGTCCGGGAGACTTTTACTATCGATTCTTCGCGGGACACCACGGCGGTCTCATGCACGTACACGGACACCCACTTGCAAACCAGAAAAAGGGATTCAAAGATATGCTTTACTGGGCTTACATGGACCTTAACCTGTCTATGGGCAGTTCGACGTA\n",
+    "minMatch": 5,
+    "minCluster": 10,
+    "referenceName": "ref.fa",
+    "queryName": "qry.fa"
+   },
+   "output": {
+    "delta": "ref.fa qry.fa\nPROMER\n>ref qry 223 223\n9 218 3 218 4 4 0\n-51\n-1\n0\n217 11 217 5 22 15 8\n-21\n-1\n0\n"
+   },
+   "note": "promer -l 5 -c 10 ref.fa qry.fa: two alignments, forward in frame +3 (an insertion of two residues in the query: delta -51, -1) and on the reverse strand; the delta values count amino acids."
+  }
  }
 ]

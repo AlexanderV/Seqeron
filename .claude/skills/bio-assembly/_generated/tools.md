@@ -139,6 +139,7 @@
 | `predict_sigma70_promoters` | Analysis | `MotifFinder.PredictSigma70Promoters` | [doc](../../../../docs/mcp/tools/analysis/predict_sigma70_promoters.md) |
 | `predict_signal_peptide` | Analysis | `ProteinMotifFinder.PredictSignalPeptide` | [doc](../../../../docs/mcp/tools/analysis/predict_signal_peptide.md) |
 | `predict_transmembrane_helices` | Analysis | `ProteinMotifFinder.PredictTransmembraneHelices` | [doc](../../../../docs/mcp/tools/analysis/predict_transmembrane_helices.md) |
+| `promer` | Analysis | `PromerProgram.Run` | [doc](../../../../docs/mcp/tools/analysis/promer.md) |
 | `prosite_to_regex` | Analysis | `ProteinMotifFinder.ConvertPrositeToRegex` | [doc](../../../../docs/mcp/tools/analysis/prosite_to_regex.md) |
 | `pwm_score_pvalue` | Analysis | `MotifFinder.PwmScorePValue` | [doc](../../../../docs/mcp/tools/analysis/pwm_score_pvalue.md) |
 | `pwm_score_thresholds` | Analysis | `PositionWeightMatrix.ScoreDistribution` | [doc](../../../../docs/mcp/tools/analysis/pwm_score_thresholds.md) |

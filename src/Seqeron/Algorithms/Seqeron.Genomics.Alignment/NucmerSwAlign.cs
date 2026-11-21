@@ -37,7 +37,6 @@ public static class NucmerSwAlign
     public const long MaxAlignmentLength = 10000;
 
     private const int Delete = 0, Insert = 1, Match = 2, Start = 3, None = 4;
-    private const int GoodScore = 3, OpenGapScore = -10, ContGapScore = -7;
     private const char StopChar = 'O';
 
     private sealed class Diagonal
@@ -53,13 +52,21 @@ public static class NucmerSwAlign
     private static int ToUpper(int c) => c >= 'a' && c <= 'z' ? c - 32 : c;
 
     /// <summary><c>MATCH_SCORE [NUCLEOTIDE] [toupper (a) - 'A'] [toupper (b) - 'A']</c> after the non-letters are replaced by the stop character.</summary>
-    public static int MatchScore(int a, int b)
+    public static int MatchScore(int a, int b) => MatchScore(a, b, 0);
+
+    /// <summary>
+    /// <c>MATCH_SCORE [matrixType] [toupper (a) - 'A'] [toupper (b) - 'A']</c> after the non-letters are replaced by the stop character; matrixType 0 = nucleotides (+3 / -7), 1 - 3 = BLOSUM 45 / 62 / 80
+    /// (the amino-acid alignments of <c>promer</c>; the stop character <c>O</c> stands for a stop codon).
+    /// </summary>
+    public static int MatchScore(int a, int b, int matrixType)
     {
         if (!IsAlpha(a)) a = StopChar;
         if (!IsAlpha(b)) b = StopChar;
         a = ToUpper(a);
         b = ToUpper(b);
-        return a == b && (a == 'A' || a == 'C' || a == 'G' || a == 'T') ? 3 : -7;
+        if (matrixType == 0)
+            return a == b && (a == 'A' || a == 'C' || a == 'G' || a == 'T') ? 3 : -7;
+        return MummerPromerTables.Blosum[matrixType - 1][(a - 'A') * 26 + (b - 'A')];
     }
 
     /// <summary>
@@ -67,12 +74,13 @@ public static class NucmerSwAlign
     /// improved for <paramref name="breakLength"/> diagonals; <paramref name="aEnd"/> / <paramref name="bEnd"/> are replaced by where the alignment ended. The delta is appended to <paramref name="delta"/> (not for a search).
     /// </summary>
     /// <returns>True when the target was reached.</returns>
-    public static bool AlignEngine(byte[] a0, long aStart, ref long aEnd, byte[] b0, long bStart, ref long bEnd, List<long> delta, uint mo, int breakLength = 200, int banding = 0)
+    public static bool AlignEngine(byte[] a0, long aStart, ref long aEnd, byte[] b0, long bStart, ref long bEnd, List<long> delta, uint mo, int breakLength = 200, int banding = 0, int matrixType = 0)
     {
+        int goodScore = MummerPromerTables.GoodScore[matrixType], openGapScore = MummerPromerTables.OpenGapScore[matrixType], contGapScore = MummerPromerTables.ContGapScore[matrixType];
         long minScore = -long.MaxValue;
         long highScore = minScore;
         long xhighScore = minScore;
-        long maxDiff = (long)GoodScore * breakLength;
+        long maxDiff = (long)goodScore * breakLength;
 
         long lbound = 0, rbound = 0;
         long finishCt = 0, finishCDi = 0, xFinishCt = 0, xFinishCDi = 0;
@@ -169,9 +177,9 @@ public static class NucmerSwAlign
                 {
                     long po = pdi * 3;
                     ScoreEdit(cur, o + Delete,
-                        pd.Used![po + Delete] == None ? pd.Value![po + Delete] : pd.Value![po + Delete] + ContGapScore,
-                        pd.Used[po + Insert] == None ? pd.Value[po + Insert] : pd.Value[po + Insert] + OpenGapScore,
-                        pd.Used[po + Match] == None ? pd.Value[po + Match] : pd.Value[po + Match] + OpenGapScore);
+                        pd.Used![po + Delete] == None ? pd.Value![po + Delete] : pd.Value![po + Delete] + contGapScore,
+                        pd.Used[po + Insert] == None ? pd.Value[po + Insert] : pd.Value[po + Insert] + openGapScore,
+                        pd.Used[po + Match] == None ? pd.Value[po + Match] : pd.Value[po + Match] + openGapScore);
                 }
                 else
                 {
@@ -186,9 +194,9 @@ public static class NucmerSwAlign
                 {
                     long po = pdi * 3;
                     ScoreEdit(cur, o + Insert,
-                        pd.Used![po + Delete] == None ? pd.Value![po + Delete] : pd.Value![po + Delete] + OpenGapScore,
-                        pd.Used[po + Insert] == None ? pd.Value[po + Insert] : pd.Value[po + Insert] + ContGapScore,
-                        pd.Used[po + Match] == None ? pd.Value[po + Match] : pd.Value[po + Match] + OpenGapScore);
+                        pd.Used![po + Delete] == None ? pd.Value![po + Delete] : pd.Value![po + Delete] + openGapScore,
+                        pd.Used[po + Insert] == None ? pd.Value[po + Insert] : pd.Value[po + Insert] + contGapScore,
+                        pd.Used[po + Match] == None ? pd.Value[po + Match] : pd.Value[po + Match] + openGapScore);
                 }
                 else
                 {
@@ -201,7 +209,7 @@ public static class NucmerSwAlign
                 {
                     long po = ppdi * 3;
                     ScoreEdit(cur, o + Match, ppd!.Value![po + Delete], ppd.Value[po + Insert], ppd.Value[po + Match]);
-                    cur.Value[o + Match] = unchecked(cur.Value[o + Match] + ScoreMatch(dct, cdi, a0, aBase, b0, bBase, n, mo));
+                    cur.Value[o + Match] = unchecked(cur.Value[o + Match] + ScoreMatch(dct, cdi, a0, aBase, b0, bBase, n, mo, matrixType));
                 }
                 else
                 {
@@ -457,7 +465,7 @@ public static class NucmerSwAlign
         }
     }
 
-    private static long ScoreMatch(long dct, long cdi, byte[] a, long aBase, byte[] b, long bBase, long n, uint mo)
+    private static long ScoreMatch(long dct, long cdi, byte[] a, long aBase, byte[] b, long bBase, long n, uint mo, int matrixType)
     {
         long dir = (mo & DirectionBit) != 0 ? 1 : -1;
         int ac, bc;
@@ -472,7 +480,7 @@ public static class NucmerSwAlign
             bc = Get(b, bBase + (dct - n + cdi) * dir);
         }
 
-        return MatchScore(ac, bc);
+        return MatchScore(ac, bc, matrixType);
     }
 
     private static int Get(byte[] s, long index) => index >= 0 && index < s.Length ? s[index] : 0;

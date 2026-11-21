@@ -351,6 +351,7 @@
 | show_tiling | Analysis | MummerShowTiling.Run | Seqeron.Genomics.Alignment/MummerShowTiling.cs | 0/0 | – | – | Build-Ready |
 | dnadiff | Analysis | GenomicAnalyzer.Dnadiff | GenomicAnalyzer.Dnadiff.cs | 0/0 | – | – | Build-Ready |
 | mummer | Analysis | MummerProgram.Run | AnalysisTools.MummerPrograms.cs | 0/0 | – | – | Build-Ready |
+| promer | Analysis | PromerProgram.Run | AnalysisTools.MummerPrograms.cs | 0/0 | – | – | Build-Ready |
 | est2genome | Analysis | EmbossEst2genomePrograms.Run | Seqeron.Genomics.Alignment/EmbossEst2genomePrograms.cs | 0/0 | – | – | Build-Ready |
 | mash_bounds | Analysis | MashCommands.Bounds | Seqeron.Genomics.Analysis/MashCommands.cs | 0/0 | – | – | Build-Ready |
 | mash_dist | Analysis | MashCommands.Dist | Seqeron.Genomics.Analysis/MashCommands.cs | 0/0 | – | – | Build-Ready |
