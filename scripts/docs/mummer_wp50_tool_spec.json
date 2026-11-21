@@ -295,7 +295,7 @@
   "short": "MUMmer mummerplot: gnuplot script and data files of delta / cluster / mummer / tiling alignments (every option), byte for byte.",
   "after": "mapview",
   "file": "AnalysisTools.MummerPrograms.cs",
-  "description": "MUMmer 3.23 mummerplot (perl script 3.5): the .fplot / .rplot / .hplot data files, the .gp gnuplot script and the .filter delta file for delta, cluster, mummer -c and tiling input with every option (-b --color -c -f -l --fat -p -rv -r -q -R -Q -rport -qport -s --small/--medium/--large -S -t --x11/--postscript/--png --title -x -y); the command line of the gnuplot call is returned (rendering is not part of the text output). Byte for byte equal to the installed mummerplot on 330 + runs and 1 000 more random runs.",
+  "description": "MUMmer 3.23 mummerplot (perl script 3.5): the .fplot / .rplot / .hplot data files, the .gp gnuplot script and the .filter delta file for delta, cluster, mummer -c and tiling input with every option (-b --color -c -f -l --fat -p -rv -r -q -R -Q -rport -qport -s --small/--medium/--large -S -t --x11/--postscript/--png --title -x -y); the command line of the gnuplot call is returned (rendering is not part of the text output). Byte for byte equal to the installed mummerplot on 283 recorded runs and 474 more random runs.",
   "output": {
    "files": [
     "object",
