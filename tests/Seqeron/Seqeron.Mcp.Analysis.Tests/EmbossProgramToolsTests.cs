@@ -99,6 +99,54 @@ public class EmbossProgramToolsTests
     }
 
     [Test]
+    public void Featcopy_ReadsAnyFormatAndWritesTheOthers_AsTheProgram()
+    {
+        // featcopy 6.6.0 (A5-8c3e, F241), dates as of the run: a GFF3 file with Name / Parent / product / percent-encoded values written as EMBL, GenBank, GFF2 (the sub-feature is written as its own feature)
+        const string gff = "##gff-version 3\n##sequence-region seq1 1 100\nseq1\tsrc\tgene\t10\t50\t.\t+\t.\tID=g1;Name=abc;product=foo\nseq1\tsrc\tmRNA\t20\t40\t5.5\t-\t.\tID=m1;Parent=g1;note=hello%20world\n";
+        var embl = AnalysisTools.Featcopy(gff, null, "embl");
+        Assert.That(embl.Text, Is.EqualTo("FH   Key             Location/Qualifiers\nFH\nFT   gene            10..50\nFT                   /note=\"*Name abc\"\nFT                   /product=\"foo\"\nFT   mRNA            complement(20..40)\nFT                   /note=\"hello world\"\n"));
+        Assert.That(embl.Tables, Is.EqualTo(1));
+        Assert.That(AnalysisTools.Featcopy(gff, null, "gb").Text, Does.StartWith("FEATURES             Location/Qualifiers\n     gene            10..50\n                     /note=\"*Name abc\"\n"));
+        var gff2 = AnalysisTools.Featcopy(gff, null, "gff2");
+        Assert.That(gff2.Text, Does.EndWith("##Type unknown <> seq1\nseq1\tsrc\tgene\t10\t50\t.\t+\t.\tSequence \"seq1.2\" ; product \"foo\"\n"));
+        // the format:: prefix forces a reader: SwissProt feature lines, PIR feature lines (a text with no feature of the format is refused as the program refuses it)
+        const string swiss = "ID   KIN1_HUMAN   Reviewed;   120 AA.\nAC   P12345;\nFT   DOMAIN         5     50       Kinase domain.\nFT   ACT_SITE     30     30       Proton acceptor (By similarity).\n//\n";
+        var sw = AnalysisTools.Featcopy(swiss, "swiss::features.dat", "gff3");
+        Assert.That(sw.Text, Does.EndWith("#!Type Protein\n#!Source-version EMBOSS 6.6.0.0\nKIN1_HUMAN\tSWISSPROT\tpolypeptide_domain\t5\t50\t.\t.\t.\tID=KIN1_HUMAN.1;note=Kinase domain\nKIN1_HUMAN\tSWISSPROT\tactive_site_residue\t30\t30\t.\t.\t.\tID=KIN1_HUMAN.2;note=Proton acceptor;comment=By similarity\n"));
+        Assert.That(AnalysisTools.Featcopy(swiss, "swiss::features.dat", "gff2").Text, Does.Contain("Sequence \"KIN1_HUMAN.2\" ; note \"Proton acceptor\" ; comment \"By similarity\"\n"));
+        Assert.That(() => AnalysisTools.Featcopy("F;1-10/Domain: x\n", "gff2::features.dat", "gff3"), Throws.ArgumentException.With.Message.Contains("Bad value for '-features'"));
+        // an unknown format name is an error message of the library, the formats are tried as for an unknown input
+        var bogus = AnalysisTools.Featcopy(gff, "bogus::features.dat", "gff3");
+        Assert.That(bogus.Messages, Does.Contain("Error: Unknown input format 'bogus'"));
+        Assert.That(bogus.Tables, Is.EqualTo(1));
+        // the debug trace and a range (-fbegin / -fend cut the table: positions shift, a feature cut at the end is flagged)
+        var cut = AnalysisTools.Featcopy(gff, null, "debug", 10, 30);
+        Assert.That(cut.Text, Does.StartWith("  Format: 0 (gff3)  Start: 10\n  End: 30\n  Len: 21\n  Offset: 0\n  Groups: 4\n"));
+        Assert.That(cut.Text, Does.Contain("    Start: 1\n    End: 21\n").And.Contain("      END_AFTER_SEQ\n"));
+        // a format this port does not write for a table is refused
+        Assert.That(() => AnalysisTools.Featcopy(gff, null, "swiss"), Throws.ArgumentException.With.Message.Contains("not written"));
+        Assert.That(() => AnalysisTools.Featcopy(" ", null, "gff3"), Throws.ArgumentException);
+    }
+
+    [Test]
+    public void Diffseq_FeaturesFromSeparateFiles_AsTheProgram()
+    {
+        // diffseq 6.6.0 a.fa b.fa -wordsize 5 -ufo1 f1.gff -ufo2 swiss::f2.dat (A5-8c3e, F241): the features of the sequences come from the files, whatever their format
+        const string seq = "TTTCCTCATGCAATTCAAAACCATGTCCGTAATGTAGGCGAAATAGTAAACCATTTTACGGAGGATACCAAATTCCTCCT";
+        string snp = seq[..30] + "C" + seq[31..];
+        const string f1 = "##gff-version 3\nseqa\tsrc\tgene\t20\t40\t.\t+\t.\tID=g1;Name=abc\n";
+        const string f2 = "ID   SEQB_HUMAN   Reviewed;   80 AA.\nFT   DOMAIN         25     35       a domain.\n//\n";
+        var files = new Dictionary<string, string> { ["f1.gff"] = f1, ["f2.dat"] = f2 };
+        var r = AnalysisTools.Diffseq(seq, snp, 5, false, "seqa", "seqb", "-ufo1 f1.gff -ufo2 swiss::f2.dat", default, files);
+        Assert.That(r.Differences, Is.EqualTo(new[] { new DiffseqDifferenceItem(31, 31, 1, 31, 31, 1) }));
+        Assert.That(r.Report, Does.Contain("Feature: gene 20-40\n"));
+        Assert.That(r.Report, Does.Contain("Feature: polypeptide_domain 25-35 note='a domain'"));
+        // a UFO that names no file gives no features
+        var none = AnalysisTools.Diffseq(seq, snp, 5, false, "seqa", "seqb", "-ufo1 missing.gff", default, files);
+        Assert.That(none.Report, Does.Not.Contain("Feature: "));
+    }
+
+    [Test]
     public void Diffseq_FeatureOutputFormats_AsTheProgram()
     {
         // diffseq 6.6.0 a.fa b.fa -wordsize 5 -offormat4 embl -offormat5 bed (A5-8c3c, F220): each feature file in its own format, and the files the tool names

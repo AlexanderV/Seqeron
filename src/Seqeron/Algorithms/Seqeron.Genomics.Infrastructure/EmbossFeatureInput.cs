@@ -87,19 +87,19 @@ internal sealed class EmbossFeatureInput
         return new EmbossFeatureStream(text, format, _context);
     }
 
-    // ajFeattablePosII
+    // ajFeattablePosII (unsigned: a negative result is a huge number, which is then cut to the length)
     private static int PositionOf(int ilen, int imin, int ipos)
     {
-        int jpos;
+        uint jpos;
         if (ipos < 0)
-            jpos = ilen + ipos + 1;
+            jpos = unchecked((uint)(ilen + ipos + 1));
         else
-            jpos = ipos != 0 ? ipos : 1;
-        if (jpos > ilen)
-            jpos = ilen;
-        if (jpos < imin)
-            jpos = imin;
-        return jpos;
+            jpos = ipos != 0 ? (uint)ipos : 1u;
+        if (jpos > unchecked((uint)ilen))
+            jpos = unchecked((uint)ilen);
+        if (jpos < unchecked((uint)imin))
+            jpos = unchecked((uint)imin);
+        return unchecked((int)jpos);
     }
 
     /// <summary><c>ajFeattaballNext</c>: the next table (the first is the one the ACD read), or null.</summary>
@@ -116,4 +116,107 @@ internal sealed class EmbossFeatureInput
 
     /// <summary>The state of the feature library the tables are read with.</summary>
     public EmbossFeatureReadContext Context => _context;
+}
+
+/// <summary>
+/// The features of a sequence read from a separate file (<c>ajFeattableNewReadUfo</c> of <c>ajfeatread.c</c>, called by <c>seqReadFmt</c> when the sequence input has features, none came with the sequence and <c>-ufo</c>, <c>-fformat</c>
+/// or <c>-fopenfile</c> name them): the UFO is <c>[format:]file</c>, the format of <c>-fformat</c> is used when the UFO has no prefix, the file is <c>-fopenfile</c> or <c>NAME.FORMAT</c> when the UFO names none; with no format every
+/// format of the table is tried in turn. A5-8c3e, B09 F241.
+/// </summary>
+internal static class EmbossFeatureUfo
+{
+    private static readonly Regex RegFmt = new("^([A-Za-z0-9][A-Za-z0-9]+):+(.*)$", RegexOptions.CultureInvariant | RegexOptions.Singleline);
+    private static readonly Regex RegFile = new("^(([A-Za-z]:)?[^:]+)$", RegexOptions.CultureInvariant | RegexOptions.Singleline);
+
+    /// <summary>The table of the features, or null (no file, no features, a format that reads none).</summary>
+    /// <param name="ufo">The UFO (<c>-ufo</c>), may be empty.</param>
+    /// <param name="formatOption">The value of <c>-fformat</c>, null / empty = none.</param>
+    /// <param name="fileOption">The value of <c>-fopenfile</c>, null / empty = none.</param>
+    /// <param name="seqname">The name of the sequence (the name the file is taken from when nothing names it).</param>
+    /// <param name="files">The files by name: null when the file does not exist.</param>
+    /// <param name="context">The state of the feature library of the run.</param>
+    public static EmbossSeqFeatureTable? Read(string ufo, string? formatOption, string? fileOption, string seqname, Func<string, string?> files, EmbossFeatureReadContext context)
+    {
+        string formatstr = formatOption ?? "";
+        string filename = fileOption ?? "";
+        string test = ufo;
+        int format = 0;
+        if (ufo.Length > 0)
+        {
+            var m = RegFmt.Match(ufo);
+            if (m.Success)
+            {
+                formatstr = m.Groups[1].Value.Length > 0 ? m.Groups[1].Value : "unknown";
+                test = m.Groups[2].Value;
+                int f = EmbossFeatureFormats.Find(formatstr);
+                if (f >= 0)
+                {
+                    format = f;
+                }
+                else
+                {
+                    context.Error($"Unknown input feat format '{formatstr}'");
+                    context.Error($"unknown input feature table format '{formatstr}'\nNO Features will be read in");
+                }
+            }
+        }
+
+        // featFormatSet
+        if (formatstr.Length > 0)
+        {
+            int f = EmbossFeatureFormats.Find(formatstr);
+            if (f >= 0)
+                format = f;
+            else
+                context.Error($"Unknown input feat format '{formatstr}'");
+        }
+
+        var mf = RegFile.Match(test);
+        if (mf.Success)
+        {
+            filename = mf.Groups[1].Value;
+        }
+        else if (seqname.Length > 0 && formatstr.Length > 0)
+        {
+            if (filename.Length == 0)
+                filename = seqname + "." + formatstr;
+        }
+        else
+        {
+            return null;
+        }
+
+        string? text = files(filename);
+        if (text is null)
+            return null;
+        var file = EmbossFeatureLines.FromText(text);
+        if (format != 0)
+            return ReadTable(file, format, seqname, context);
+        for (int i = 1; i < EmbossFeatureFormats.Table.Length; i++)
+        {
+            var ret = ReadTable(file, i, seqname, context);
+            if (ret is not null)
+                return ret;
+            file.Reset();
+        }
+
+        return null;
+    }
+
+    // ajFeattableNewRead: blank lines are skipped, then the reader of the format reads the table
+    private static EmbossSeqFeatureTable? ReadTable(EmbossFeatureLines file, int format, string seqname, EmbossFeatureReadContext context)
+    {
+        string? line;
+        while ((line = file.Next()) is not null)
+        {
+            if (!line.All(EmbossSeqFeatureTable.IsCSpace))
+            {
+                file.Clear(1);
+                break;
+            }
+        }
+
+        var table = new EmbossSeqFeatureTable(context) { SeqId = seqname };
+        return EmbossFeatureFormats.Read(table, format, file) ? table : null;
+    }
 }

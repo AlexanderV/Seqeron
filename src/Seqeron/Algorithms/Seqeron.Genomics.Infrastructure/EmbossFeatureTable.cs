@@ -100,6 +100,9 @@ internal sealed partial class EmbossSeqFeatureTable
     /// <summary>The entry name (<c>thys-&gt;Seqid</c>).</summary>
     public string SeqId = "";
 
+    /// <summary>The reader found at least one feature (<c>featReadEmbl</c> returned true): the library returns no table otherwise.</summary>
+    public bool Found;
+
     /// <summary>The sequence type of the table (<c>thys-&gt;Type</c>: <c>N</c>, <c>P</c>, or empty while it is not known).</summary>
     public string Type = "";
 
@@ -110,7 +113,7 @@ internal sealed partial class EmbossSeqFeatureTable
     public uint Groups;
 
     /// <summary>The name of the input format the table was read with (<c>thys-&gt;Formatstr</c>) and its index in the table of input formats (<c>thys-&gt;Format</c>).</summary>
-    public string FormatName = "";
+    public string? FormatName;
 
     public int Format;
 
@@ -140,7 +143,7 @@ internal sealed partial class EmbossSeqFeatureTable
         ArgumentNullException.ThrowIfNull(entryLines);
         var table = new EmbossSeqFeatureTable(context);
         var lines = new EmbossFeatureLines([.. entryLines]);
-        table.ReadEmbl(lines);
+        table.Found = table.ReadEmbl(lines);
         return table;
     }
 
@@ -336,8 +339,12 @@ internal sealed partial class EmbossSeqFeatureTable
             }
         }
 
+        string previousOpval = "\u0001";
         while (opval.Length > 0)
         {
+            if (opval == previousOpval)
+                throw new InvalidOperationException($"The location '{loc}' is never consumed: the reference program loops forever on it (a location that begins with a comma).");
+            previousOpval = opval;
             bool locFwd = fwd, begBound = false, endBound = false, simple = false, between = false, hasOper = false, remoteId = false, isLabel = false;
             uint begNum = 0, endNum = 0, beg2 = 0, end2 = 0;
             string featId = "", featLabel = "", locstr, rest;
@@ -372,7 +379,7 @@ internal sealed partial class EmbossSeqFeatureTable
             {
                 beg2 = 0;
             }
-            else if (LocRange(begstr, out begNum, out beg2))
+            else if (LocRange(begstr, ref begNum, ref beg2))
             {
                 begBound = false;
             }
@@ -388,7 +395,7 @@ internal sealed partial class EmbossSeqFeatureTable
             {
                 end2 = 0;
             }
-            else if (LocRange(endstr, out end2, out endNum))
+            else if (LocRange(endstr, ref end2, ref endNum))
             {
                 endBound = false;
             }
@@ -837,19 +844,21 @@ internal sealed partial class EmbossSeqFeatureTable
                 idpos = ipos;
         }
 
+        // ajStrAssignSubS: a negative end counts from the end of the string (ipos = 0 gives the whole string)
         if (idpos > 0)
         {
-            entryId = loc[..(idpos - 1)];
-            value = loc[idpos..ipos];
+            entryId = Sub(loc, 0, idpos - 2);
+            value = Sub(loc, idpos, ipos - 1);
         }
         else
         {
             entryId = "";
-            value = loc[..ipos];
+            value = Sub(loc, 0, ipos - 1);
         }
 
-        rest = ipos < loc.Length ? loc[(ipos + 1)..] : "";
+        rest = ipos < loc.Length ? Sub(loc, ipos + 1, -1) : "";
     }
+
 
     // featEmblLoc: "beg..end", "beg^end" (between), a single position
     private static bool Loc(string loc, out string begstr, out bool between, out bool simple, out string endstr)
@@ -920,19 +929,21 @@ internal sealed partial class EmbossSeqFeatureTable
     }
 
     // ajStrAssignSubS(from, to): inclusive 0-based positions, the end clipped, an empty result when it is before the start
+    // ajStrAssignSubS with ajCvtSposToPos / ajCvtSposToPosStart: the positions are clamped to the string (a negative one counts from the end) and the result is NEVER shorter than one character
     private static string Sub(string s, int first, int last)
     {
-        if (last < 0)
-            last = s.Length + last;
-        if (first < 0)
-            first = s.Length + first;
-        if (first < 0)
-            first = 0;
-        if (last >= s.Length)
-            last = s.Length - 1;
-        if (last < first)
+        int len = s.Length;
+        if (len == 0)
             return "";
-        return s.Substring(first, last - first + 1);
+        int ibegin = first < 0 ? Math.Max(0, len + first) : first;
+        if (ibegin >= len)
+            ibegin = len - 1;
+        int iend = last < 0 ? Math.Max(0, len + last) : last;
+        if (iend >= len)
+            iend = len - 1;
+        if (iend < ibegin)
+            iend = ibegin;
+        return s.Substring(ibegin, iend - ibegin + 1);
     }
 
     // featEmblLocNum: [<>]digits
@@ -958,11 +969,11 @@ internal sealed partial class EmbossSeqFeatureTable
     }
 
     // featEmblLocRange: (num.num)
-    private static bool LocRange(string loc, out uint num1, out uint num2)
+    private static bool LocRange(string loc, ref uint num1, ref uint num2)
     {
-        num1 = num2 = 0;
         if (loc.Length == 0 || loc[0] != '(' || loc[^1] != ')')
             return false;
+        num1 = num2 = 0;
         bool dot = false;
         int ipos = 0;
         foreach (char c in loc)
@@ -1137,9 +1148,15 @@ internal sealed partial class EmbossSeqFeatureTable
     private static bool Matches(string pattern, string value) => System.Text.RegularExpressions.Regex.IsMatch(value, pattern, Rx);
 
     // ajFeattagSpecial with its messages (ajFeatWarn of the validators)
-    private static bool SpecialValue(string tag, ref string value, EmbossFeatureReadContext context)
+    internal static bool SpecialValue(string tag, ref string value, EmbossFeatureReadContext context, string dialect = "EMBL")
     {
         string before = value;
+        if (dialect == "GFF2" && tag == "ncRNA_class")
+        {
+            context.Warn($"Unrecognised special GFF feature tag '{tag}'");                       // ajFeattagSpecialGff2 knows no ncRNA_class
+            return false;
+        }
+
         bool ok = SpecialCheck(tag, ref value, context);
         switch (tag)
         {
@@ -1198,7 +1215,7 @@ internal sealed partial class EmbossSeqFeatureTable
                     context.Warn($"bad /translation value '{RemoveWhite(before)}'");
                 break;
             default:
-                context.Warn($"Unrecognised special EMBL feature tag '{tag}'");
+                context.Warn($"Unrecognised special {(dialect == "EMBL" ? "EMBL" : "GFF")} feature tag '{tag}'");
                 break;
         }
 
@@ -1208,7 +1225,8 @@ internal sealed partial class EmbossSeqFeatureTable
     // the lower-case test of featTagSpecialAllConssplice: true (with the two words) when a letter of either is lower case
     private static bool ConsSpliceIsLow(string val, out string beg, out string end)
     {
-        beg = end = "";
+        beg = "";
+        end = "<null>";                                                // the word that was never read prints as <null>
         if (!val.StartsWith("(5'site:", StringComparison.Ordinal) || val[^1] != ')')
             return false;
         int cp = 8;
@@ -1239,7 +1257,7 @@ internal sealed partial class EmbossSeqFeatureTable
     }
 
     // ajFeattagSpecial: the checks (and the corrections) of the special tags; false = the value is bad and the tag becomes a note
-    private static bool SpecialCheck(string tag, ref string value, EmbossFeatureReadContext context)
+    internal static bool SpecialCheck(string tag, ref string value, EmbossFeatureReadContext context)
     {
         switch (tag)
         {
@@ -1561,32 +1579,39 @@ internal sealed partial class EmbossSeqFeatureTable
     public void TrimOff(int offset, int length)
     {
         int seqLength = length + offset;
-        int begin = PositionII(Length, 1, 0);
-        int end = Length;
-        if (end > seqLength)
+        int begin = PositionII(Length, 1, unchecked((int)Start));
+        int end = End != 0 ? PositionII(Length, unchecked((int)End), seqLength) : Length;
+        if (U(end) > U(seqLength))
             end = seqLength;
-        if (begin <= offset)
+        if (U(begin) <= U(offset))
             begin = PositionII(Length, offset + 1, end);
-        bool doBegin = begin > 1, doEnd = end < Length;
+        bool doBegin = begin > 1, doEnd = U(end) < U(Length);
         Features.RemoveAll(f => !TrimOffRange(f, offset, begin, end, doBegin, doEnd));
+        Offset = unchecked((uint)offset);
+        if (Rev)
+            ReverseTable();
+        Trimmed = true;
     }
 
-    // ajFeattablePosII
+    // ajFeattablePosII (unsigned: a negative result is a huge number, which is then cut to the length)
     private static int PositionII(int ilen, int imin, int ipos)
     {
-        int jpos;
+        uint jpos;
         if (ipos < 0)
-            jpos = ilen + ipos + 1;
+            jpos = unchecked((uint)(ilen + ipos + 1));
         else
-            jpos = ipos != 0 ? ipos : 1;
-        if (jpos > ilen)
-            jpos = ilen;
-        if (jpos < imin)
-            jpos = imin;
-        return jpos;
+            jpos = ipos != 0 ? (uint)ipos : 1u;
+        if (jpos > unchecked((uint)ilen))
+            jpos = unchecked((uint)ilen);
+        if (jpos < unchecked((uint)imin))
+            jpos = unchecked((uint)imin);
+        return unchecked((int)jpos);
     }
 
     // ajFeatTrimOffRange: false deletes the feature
+    // the positions of the library are unsigned: a position before the start of the sequence is a huge number
+    private static uint U(int v) => unchecked((uint)v);
+
     private static bool TrimOffRange(EmbossSeqFeature ft, int offset, int begin, int end, bool doBegin, bool doEnd)
     {
         bool ok = true;
@@ -1597,33 +1622,33 @@ internal sealed partial class EmbossSeqFeatureTable
             return true;
         if (doEnd)
         {
-            if (ft.Start > end)
+            if (U(ft.Start) > U(end))
                 return false;
-            if (ft.Start2 > end)
+            if (U(ft.Start2) > U(end))
                 ft.Start2 = end;
-            if (ft.End > end)
+            if (U(ft.End) > U(end))
             {
                 ft.End = end;
                 ft.Flags |= EmbossLocationBits.EndAfterSeq;
             }
 
-            if (ft.End2 > end)
+            if (U(ft.End2) > U(end))
                 ft.End2 = end;
         }
 
         if (doBegin)
         {
-            if (ft.End < begin)
+            if (U(ft.End) < U(begin))
                 return false;
-            if (ft.End2 != 0 && begin > offset + 1 && ft.End2 < begin)
+            if (ft.End2 != 0 && U(begin) > U(offset + 1) && U(ft.End2) < U(begin))
                 ft.End2 = begin;
-            if (ft.Start != 0 && ft.Start < begin)
+            if (ft.Start != 0 && U(ft.Start) < U(begin))
             {
                 ft.Start = begin;
                 ft.Flags |= EmbossLocationBits.StartBeforeSeq;
             }
 
-            if (ft.Start2 != 0 && ft.Start2 < begin)
+            if (ft.Start2 != 0 && U(ft.Start2) < U(begin))
                 ft.Start2 = begin;
         }
 

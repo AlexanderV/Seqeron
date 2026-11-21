@@ -247,3 +247,13 @@ Matrix-scored `LocalAlign`/`LocalAlignAffine` (BLOSUM62/PAM250/EDNAFULL, fractio
 |---|---|---|---|
 | A2-28d | `EmbossEst2genome_Oracle_Tests.Est2genome_OutfileEqualsTheProgram_AllRows` | 330 `est2genome` 6.6.0 runs (`est2genome_oracle.jsonl.gz`, `generate_est2genome_oracle.py`): the -outfile text equal, 19 crash / error rows (-nobest with one strand mode: SIGSEGV), the space warning | as specified |
 | A2-28d | `EmbossEst2genome_Oracle_Tests.Est2genome_WorkedExample_...`, MCP `EmbossProgramToolsTests.Est2genome_...`, `ToolRegistrationContractTests`, `ToolDocsContractTests` | the three-exon example of the program | as specified |
+
+## Audit A5-8c3e (B09 F241 - F243): feature readers, UFO, featcopy
+
+| Item | Tests | Oracle | Status |
+|---|---|---|---|
+| A5-8c3e | `EmbossFeatureVocab_Oracle_Tests.VocabularyTables_EqualTheLibrary_AllEntries` | 2 406 entries of the ten vocabularies (`emboss_feature_vocab_oracle.tsv.gz`, `emboss_feature_vocab_dump.c`) | done |
+| A5-8c3e | `EmbossFeatureReaders_Oracle_Tests.FeatureReaders_EqualFeatcopyDebug_AllRows` | 2 600 `featcopy -offormat debug` runs of the 11 input formats (`featread_oracle.jsonl.gz`, `generate_featread_oracle.py`) | done |
+| A5-8c3e | `EmbossFeatureReaders_Oracle_Tests.FeatureFileOfASequence_EqualsSeqretDebug_AllRows` | 1 200 `seqret -feature -ufo1` runs (`featread_ufo_oracle.jsonl.gz`) | done |
+| A5-8c3e | `EmbossDiffseq_Oracle_Tests.Diffseq_FeatureFilesOfTheSequences_EqualTheProgram_AllRows` | 450 `diffseq -ufo1 / -ufo2` runs (`diffseq_ufo_oracle.jsonl.gz`, `generate_diffseq_ufo_oracle.py`) | done |
+| A5-8c3e | `EmbossFeatureReaders_Oracle_Tests.Featcopy_WritesEveryFormat_EqualsTheProgram_AllRows`, MCP `EmbossProgramToolsTests.Featcopy_...`, `Diffseq_FeaturesFromSeparateFiles_...`, `ToolRegistrationContractTests`, `ToolDocsContractTests` | 1 800 `featcopy` output-format runs (`featwrite_oracle.jsonl.gz`) | done |

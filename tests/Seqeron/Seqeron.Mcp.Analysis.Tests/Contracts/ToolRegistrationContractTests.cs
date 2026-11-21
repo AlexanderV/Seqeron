@@ -113,6 +113,7 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "kmer_spectrum",
         "diffseq",
         "emboss_report_file",
+        "featcopy",
         "kmers_with_min_count",
         "lempel_ziv_complexity",
         "longdust_score",

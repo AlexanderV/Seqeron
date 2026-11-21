@@ -219,6 +219,68 @@ public class EmbossDiffseq_Oracle_Tests
     }
 
     /// <summary>
+    /// A5-8c3e (F241): the features of a sequence read from a SEPARATE file - <c>-ufo1</c> / <c>-ufo2</c> (<c>[format::]file</c>), <c>-fformat</c>, <c>-fopenfile</c>, a file named after the sequence - of every input format
+    /// (featcopy's readers) for FASTA, GenBank and EMBL inputs (a UFO switches the features of the sequence file off), with <c>-sbegin</c> / <c>-send</c> / <c>-sreverse</c> (a table of a format the reader did not make
+    /// nucleotide is typed by the sequence check and reversed with it; one made nucleotide by the EMBL reader is not): the report and both GFF3 files byte for byte
+    /// (TestData/Alignment/diffseq_ufo_oracle.jsonl.gz, scripts/alignment/generate_diffseq_ufo_oracle.py, 450 runs).
+    /// </summary>
+    [Test]
+    public void Diffseq_FeatureFilesOfTheSequences_EqualTheProgram_AllRows()
+    {
+        const string name = "Seqeron.Genomics.Tests.TestData.Alignment.diffseq_ufo_oracle.jsonl.gz";
+        using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(name) ?? throw new InvalidOperationException($"Embedded oracle '{name}' not found.");
+        using var gz = new GZipStream(stream, CompressionMode.Decompress);
+        using var reader = new StreamReader(gz);
+        var failures = new List<string>();
+        int rows = 0, withFeatures = 0, reversed = 0, ufo = 0, fformat = 0, fopen = 0;
+        string? line;
+        while ((line = reader.ReadLine()) is not null)
+        {
+            var j = JsonDocument.Parse(line).RootElement;
+            rows++;
+            string rq = j.GetProperty("rq").GetString()!;
+            var cmd = j.GetProperty("cmd").EnumerateArray().Select(x => x.GetString()!).ToList();
+            var ffiles = j.GetProperty("ffiles").EnumerateObject().ToDictionary(p => p.Name, p => p.Value.GetString()!);
+            var request = new EmbossDiffseqRequest(j.GetProperty("file1").GetString()!, j.GetProperty("file2").GetString()!, j.GetProperty("wordsize").GetInt32(), j.GetProperty("glob").GetBoolean(), rq, cmd,
+                DateTimeOffset.FromUnixTimeSeconds(j.GetProperty("epoch").GetInt64()).UtcDateTime, j.GetProperty("name1").GetString()!, j.GetProperty("name2").GetString()!, "o.rep", "a.gff", "b.gff", FeatureInputFiles: ffiles);
+            string report = j.GetProperty("report").GetString()!;
+            EmbossDiffseqOutput got;
+            try
+            {
+                got = EmbossDiffseqPrograms.Run(request);
+            }
+            catch (EmbossReportException e) when (j.GetProperty("error").ValueKind != JsonValueKind.Null && j.GetProperty("error").GetString()!.Contains(e.Message, StringComparison.Ordinal))
+            {
+                continue;
+            }
+            catch (Exception e)
+            {
+                failures.Add($"row {j.GetProperty("id")} ({rq}): {e.GetType().Name}: {e.Message}");
+                continue;
+            }
+
+            if (report.Contains("Feature: ", StringComparison.Ordinal) || report.Contains("first_feature", StringComparison.Ordinal) || report.Contains("second_feature", StringComparison.Ordinal))
+                withFeatures++;
+            if (rq.Contains("-sreverse", StringComparison.Ordinal)) reversed++;
+            if (rq.Contains("-ufo", StringComparison.Ordinal)) ufo++;
+            if (rq.Contains("-fformat", StringComparison.Ordinal)) fformat++;
+            if (rq.Contains("-fopenfile", StringComparison.Ordinal)) fopen++;
+            if (got.Report != report)
+                failures.Add($"row {j.GetProperty("id")} ({rq}): report differs at {FirstDifference(got.Report, report)}");
+            else if (got.FeatureFile1 != j.GetProperty("feat1").GetString() || got.FeatureFile2 != j.GetProperty("feat2").GetString())
+                failures.Add($"row {j.GetProperty("id")} ({rq}): feature file differs");
+        }
+
+        Assert.That(failures, Is.Empty, $"{failures.Count} of {rows}:\n" + string.Join("\n", failures.Take(6)));
+        Assert.That(rows, Is.GreaterThanOrEqualTo(450));
+        Assert.That(withFeatures, Is.GreaterThan(90), "reports with feature notes");
+        Assert.That(reversed, Is.GreaterThan(40));
+        Assert.That(ufo, Is.GreaterThan(250));
+        Assert.That(fformat, Is.GreaterThan(80));
+        Assert.That(fopen, Is.GreaterThan(20));
+    }
+
+    /// <summary>
     /// A5-8c3c (F220): the feature output formats of both feature files (<c>-offormat4</c> / <c>-offormat5</c>: gff, gff2, gff3, bed, embl, em, genbank, gb, ddbj, refseq, refseqp, pir, nbrf, swiss, sw, swissprot, uniprot, dasgff, draw, debug, unknown,
     /// other case, a name that is no format; the <c>format::file</c> form of <c>-aoutfeat</c>; <c>-ofopenfile</c>; <c>-ofname</c> / <c>-ofextension</c> / <c>-ofsingle</c>) on nucleotide and protein pairs with the sequence qualifiers and the report formats
     /// (TestData/Alignment/diffseq_featout_oracle.jsonl.gz, scripts/alignment/generate_diffseq_featout_oracle.py, 500 runs): the report (its header names the files) and every file the program wrote, byte for byte, including the empty file

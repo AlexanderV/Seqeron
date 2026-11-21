@@ -854,6 +854,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/MummerExactTandems.cs"
   },
   {
+    "tool": "featcopy",
+    "server": "Analysis",
+    "methodId": "EmbossFeaturePrograms.Featcopy",
+    "docPath": "docs/mcp/tools/analysis/featcopy.md",
+    "sourceLink": ""
+  },
+  {
     "tool": "find_all_longest_repeats",
     "server": "Analysis",
     "methodId": "GenomicAnalyzer.FindAllLongestRepeats",

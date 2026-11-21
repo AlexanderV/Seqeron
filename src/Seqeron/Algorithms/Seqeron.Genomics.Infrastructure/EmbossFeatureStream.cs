@@ -63,15 +63,15 @@ internal static class EmbossFeatureFormats
 }
 
 /// <summary>
-/// A feature input stream (<c>AjPFeattaball</c> / <c>ajFeattabinRead</c> of <c>ajfeatread.c</c>): the tables of ONE file, read one after the other; with no format given every format that is tried for an unknown input is tried in turn on the start of the file
-/// (<c>feattabinRead</c>) and the one that finds features is kept for the next tables. A5-8c3e, B09 F241.
+/// A feature input stream (<c>AjPFeattaball</c> / <c>ajFeattabinRead</c> / <c>feattabinRead</c> of <c>ajfeatread.c</c>): the tables of ONE file, read one after the other. With no format given every format that is tried for an unknown input is tried in turn on the
+/// start of the buffer; the one that finds features is kept for the next tables. With a format the file is read UNBUFFERED: a reader that finds nothing ends the stream - unless the file was read to its end earlier (the other formats did read it), then
+/// the library tries the rest of the buffer again, which makes it skip a table without features. A5-8c3e, B09 F241.
 /// </summary>
 internal sealed class EmbossFeatureStream
 {
     private readonly EmbossFeatureLines _file;
     private readonly EmbossFeatureReadContext _context;
     private int _format;
-    private bool _buffered = true;
     private int _count;
 
     /// <param name="text">The text of the file.</param>
@@ -94,15 +94,15 @@ internal sealed class EmbossFeatureStream
     public EmbossSeqFeatureTable? Next()
     {
         _count++;
-        if (_buffered)
+        if (!_file.Unbuffered)
         {
-            // skip blank lines: the first line that is not white is given back
+            // blank lines are skipped; the first line that is not white is given back
             string? line;
             while ((line = _file.Next()) is not null)
             {
                 if (!IsWhite(line))
                 {
-                    _file.Unread();
+                    _file.Clear(1);
                     break;
                 }
             }
@@ -114,34 +114,52 @@ internal sealed class EmbossFeatureStream
             {
                 if (!EmbossFeatureFormats.Table[i].Try)
                     continue;
-                var table = TryRead(i);
+                var table = TryRead(i, out _);
                 if (table is not null)
                 {
                     _format = i;
                     return table;
                 }
-
-                _file.Reset();
             }
 
             return null;
         }
 
-        _buffered = false;
+        _file.SetUnbuffered();
         bool atEnd = _file.AtEnd;
-        var next = TryRead(_format);
-        if (next is not null && atEnd)
-            throw new InvalidOperationException("The reference program never stops here: a reader returns a table at the end of the file again and again (the last feature of a static pointer of the library).");
-        return next;
+        var first = TryRead(_format, out bool eof);
+        if (first is not null)
+        {
+            if (atEnd)
+                throw new InvalidOperationException("The reference program never stops here: a reader returns a table at the end of the file again and again (the last feature of a static pointer of the library).");
+            return first;
+        }
+
+        if (!eof)
+            return null;
+        // the file was read to its end before: the reading goes on once with what is left of the buffer (a failure or the end of the file ends it)
+        return _file.IsEmpty ? null : TryRead(_format, out _);
     }
 
-    private EmbossSeqFeatureTable? TryRead(int format)
+    // feattabinReadFmt: a table, or null (the file is reset for the next try unless the file is unbuffered and at its end: <paramref name="eof"/>)
+    private EmbossSeqFeatureTable? TryRead(int format, out bool eof)
     {
+        eof = false;
         var table = new EmbossSeqFeatureTable(_context);
-        if (!EmbossFeatureFormats.Read(table, format, _file))
+        if (EmbossFeatureFormats.Read(table, format, _file))
+        {
+            table.FormatName = EmbossFeatureFormats.Table[format].Name;
+            return table;
+        }
+
+        if (_file.Unbuffered && _file.End)
+        {
+            eof = true;
             return null;
-        table.FormatName = EmbossFeatureFormats.Table[format].Name;
-        return table;
+        }
+
+        _file.Reset();
+        return null;
     }
 
     private static bool IsWhite(string s) => s.All(EmbossSeqFeatureTable.IsCSpace);

@@ -18,7 +18,7 @@ internal sealed partial class EmbossSeqFeatureTable
         {
             SeqId = SeqId,
             Type = Type,
-            FormatName = FormatName,
+            FormatName = FormatName ?? "",
             Format = Format,
             Groups = Groups,
             Start = Start,
@@ -94,7 +94,7 @@ internal sealed partial class EmbossSeqFeatureTable
     public string Debug()
     {
         var sb = new StringBuilder();
-        sb.Append("  Format: ").Append(Format).Append(" (").Append(FormatName).Append(')');
+        sb.Append("  Format: ").Append(Format).Append(" (").Append(FormatName ?? "<null>").Append(')');
         sb.Append("  Start: ").Append(Start).Append('\n');
         sb.Append("  End: ").Append(End).Append('\n');
         sb.Append("  Len: ").Append(unchecked((uint)Length)).Append('\n');

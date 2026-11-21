@@ -305,5 +305,106 @@ def main(out, n, seed):
     print(len(rows), 'rows;', Counter((r['kind'], r['rc'] == 0 and bool(r['debug'])) for r in rows))
 
 
+
+
+# ---------------------------------------------------------------------------------------------------------------- the features of a sequence read from a separate file (-ufo, -fformat, -fopenfile)
+
+
+def run_seqret(d, files, args, timeout=6):
+    for nme in os.listdir(d):
+        os.remove(os.path.join(d, nme))
+    for nme, text in files.items():
+        open(os.path.join(d, nme), 'w', newline='\n', encoding='latin-1').write(text)
+    hang = False
+    try:
+        p = subprocess.run(['seqret'] + args + ['-feature', '-outseq', 'o.fa', '-offormat2', 'debug', '-auto'], cwd=d, capture_output=True, timeout=timeout)
+        rc, err = p.returncode, p.stderr.decode('latin-1')
+    except subprocess.TimeoutExpired:
+        rc, err, hang = -9, '', True
+        subprocess.run(['pkill', '-9', 'seqret'])
+    q = os.path.join(d, 'o.debug')
+    dbg = open(q, encoding='latin-1', newline='').read() if os.path.exists(q) and not hang else ''
+    if err.startswith('Read and write (return) sequences\n'): err = err[len('Read and write (return) sequences\n'):]
+    return rc, dbg, err, hang
+
+
+def main_ufo(out, n, seed):
+    rnd = random.Random(seed)
+    rows = []
+    with tempfile.TemporaryDirectory() as d:
+        i = 0
+        while len(rows) < n:
+            kind = KINDS[i % len(KINDS)]; i += 1
+            name = rnd.choice(['SEQA', 'seq1', 'AB123456'])
+            seq = ''.join(rnd.choice('ACGT') for _ in range(rnd.randint(60, 300)))
+            text = make(rnd, kind)
+            if rnd.random() < 0.15: text = damaged(rnd, text)
+            files = {'a.fa': '>%s a test sequence\n%s\n' % (name, seq), 'f.dat': text}
+            r = rnd.random()
+            args = ['a.fa']
+            mode = 'ufo'
+            if r < 0.3: args += ['-ufo1', 'f.dat']
+            elif r < 0.55: args += ['-ufo1', '%s::f.dat' % rnd.choice([FMTNAME[kind], FMTNAME[kind], 'gff3', 'embl', 'swiss', 'pir', 'GFF3', 'bogus', 'gff', 'em', 'sw', 'nbrf', 'unknown'])]
+            elif r < 0.7: args += ['-ufo1', 'f.dat', '-fformat1', rnd.choice([FMTNAME[kind], 'gff3', 'bogus', 'embl'])]
+            elif r < 0.8: args += ['-fformat1', FMTNAME[kind]]; files['%s.%s' % (name, FMTNAME[kind])] = text; mode = 'name'
+            elif r < 0.9: args += ['-fformat1', rnd.choice([FMTNAME[kind], 'pir']), '-fopenfile1', 'f.dat']
+            else: args += ['-ufo1', rnd.choice(['missing.dat', 'x::f.dat', ':f.dat', 'f.dat:', 'a:b:c', '']) ]
+            rc, dbg, err, hang = run_seqret(d, files, args)
+            rows.append({'id': len(rows), 'kind': kind, 'name': name, 'seq': seq, 'files': files, 'args': args[1:], 'rc': rc, 'debug': dbg, 'err': err, 'hang': hang})
+    with gzip.open(out, 'wt', encoding='utf-8', newline='\n', compresslevel=9) as fh:
+        for r in rows: fh.write(json.dumps(r, ensure_ascii=True) + '\n')
+    from collections import Counter
+    print(len(rows), 'rows;', Counter((r['kind'], bool(r['debug'])) for r in rows))
+
+
+def main_write(out, n, seed):
+    """featcopy -features FILE -outfeat out.X -offormat F: the feature tables written in an output format (dates faked with scripts/alignment/faketime.c)"""
+    rnd = random.Random(seed)
+    rows = []
+    with tempfile.TemporaryDirectory() as d:
+        shim = os.path.join(d, 'faketime.so')
+        subprocess.run(['gcc', '-shared', '-fPIC', '-o', shim, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'faketime.c')], check=True)
+        work = os.path.join(d, 'w'); os.mkdir(work)
+        formats = ['gff3', 'gff3', 'gff', 'unknown', 'gff2', 'gff2', 'embl', 'embl', 'em', 'genbank', 'genbank', 'gb', 'ddbj', 'GFF3', 'EMBL']
+        i = 0
+        while len(rows) < n:
+            kind = KINDS[i % len(KINDS)]; i += 1
+            text = make(rnd, kind)
+            if rnd.random() < 0.15: text = damaged(rnd, text)
+            fmt = rnd.choice(formats)
+            ufo = 'in.dat'
+            extra = []
+            if rnd.random() < 0.25: extra = ['-fbegin1', str(rnd.randint(1, 100)), '-fend1', str(rnd.randint(60, 300))]
+            for nme in os.listdir(work): os.remove(os.path.join(work, nme))
+            open(os.path.join(work, 'in.dat'), 'w', newline='\n', encoding='latin-1').write(text)
+            epoch = rnd.randint(978307200, 2051222400)
+            env = dict(os.environ, LD_PRELOAD=shim, FAKE_EPOCH=str(epoch))
+            hang = False
+            try:
+                p = subprocess.run(['featcopy', '-features', ufo] + extra + ['-outfeat', 'out.dat', '-offormat', fmt], cwd=work, capture_output=True, timeout=4, env=env)
+                rc, err = p.returncode, p.stderr.decode('latin-1')
+            except subprocess.TimeoutExpired:
+                rc, err, hang = -9, '', True
+                subprocess.run(['pkill', '-9', 'featcopy'])
+            q = os.path.join(work, 'out.dat')
+            outtext = open(q, encoding='latin-1', newline='').read() if os.path.exists(q) and not hang else ''
+            if err.startswith('Read and write a feature table\n'): err = err[len('Read and write a feature table\n'):]
+            rows.append({'id': len(rows), 'kind': kind, 'text': text, 'ufo': ufo, 'extra': extra, 'format': fmt, 'epoch': epoch, 'rc': rc, 'out': outtext, 'err': err, 'hang': hang})
+    with gzip.open(out, 'wt', encoding='utf-8', newline='\n', compresslevel=9) as fh:
+        for r in rows: fh.write(json.dumps(r, ensure_ascii=True) + '\n')
+    from collections import Counter
+    print(len(rows), 'rows;', Counter((r['format'].lower(), bool(r['out'])) for r in rows))
+
+
+if __name__ == '__main__' and len(sys.argv) > 1 and sys.argv[1] == '--write':
+    main_write(sys.argv[2], int(sys.argv[3]), int(sys.argv[4]))
+    sys.exit(0)
+
+
+if __name__ == '__main__' and len(sys.argv) > 1 and sys.argv[1] == '--ufo':
+    main_ufo(sys.argv[2], int(sys.argv[3]), int(sys.argv[4]))
+    sys.exit(0)
+
+
 if __name__ == '__main__':
     main(sys.argv[1], int(sys.argv[2]) if len(sys.argv) > 2 else 1000, int(sys.argv[3]) if len(sys.argv) > 3 else 20261401)

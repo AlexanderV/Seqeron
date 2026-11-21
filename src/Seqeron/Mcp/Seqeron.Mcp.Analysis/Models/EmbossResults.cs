@@ -59,6 +59,9 @@ public record WordmatchHitItem(string Pattern, int PatternStart, string Query, i
 /// <summary>Result of <c>wordmatch</c>: the matches (0-based starts; every match is extended to the right beyond its word), the statistics and the program's files.</summary>
 public record WordmatchToolResult(WordmatchHitItem[] Matches, int PatternCount, long AllMatches, long SumLength, string Alignments, string Log, string FeatureFile1, string FeatureFile2, string? FeatureFileName1 = null, string? FeatureFileName2 = null);
 
+/// <summary>Result of <c>featcopy</c>: the output file name, its text (every feature table of the input in the output format), the format, the number of tables written and the messages the library printed.</summary>
+public record FeatcopyToolResult(string FileName, string Text, string Format, int Tables, string[] Messages);
+
 /// <summary>Result of <c>diffseq</c>: see <see cref="DiffseqToolResult"/>.</summary>
 public record DiffseqToolResult(DiffseqDifferenceItem[] Differences, int OverlapStart1, int OverlapEnd1, int OverlapStart2, int OverlapEnd2, int Snps, int Transitions, int Transversions, string Report, string FeatureFile1, string FeatureFile2, string? FeatureFileName1 = null, string? FeatureFileName2 = null);
 

@@ -36,10 +36,10 @@ internal static class EmbossEntryReader
     /// Reads the first entry. <paramref name="format"/> is <c>-sformat</c> (null = found from the text; <c>fasta</c>, <c>genbank</c> / <c>gb</c>, <c>embl</c> / <c>em</c>).
     /// </summary>
     /// <exception cref="ArgumentException">The text is not an entry of the format ("Unable to read sequence"), or the format is not read by this port.</exception>
-    public static EmbossEntry Read(string text, string? format = null) => Read(text, format, null);
+    public static EmbossEntry Read(string text, string? format = null) => Read(text, format, null, true);
 
-    /// <summary><paramref name="context"/> is the state of the feature library shared by the entries of one program run.</summary>
-    internal static EmbossEntry Read(string text, string? format, EmbossFeatureReadContext? context)
+    /// <summary><paramref name="context"/> is the state of the feature library shared by the entries of one program run; <paramref name="readFeatures"/> false = the features of the file are not read (<c>seqinUfoLocal</c>: a feature file was named).</summary>
+    internal static EmbossEntry Read(string text, string? format, EmbossFeatureReadContext? context, bool readFeatures)
     {
         ArgumentNullException.ThrowIfNull(text);
         string f = (format ?? DetectFormat(text) ?? "fasta").ToLowerInvariant();
@@ -54,9 +54,9 @@ internal static class EmbossEntryReader
                     return new EmbossEntry("fasta", records[0], null);
                 }
             case "genbank":
-                return ReadGenbank(text, context);
+                return ReadGenbank(text, context, readFeatures);
             case "embl":
-                return ReadEmbl(text, context);
+                return ReadEmbl(text, context, readFeatures);
             default:
                 throw new ArgumentException($"The sequence format '{format}' is not read by this port (fasta, genbank and embl are).", nameof(format));
         }
@@ -103,7 +103,7 @@ internal static class EmbossEntryReader
 
     // seqReadGenbank: the loop over the header records with its skips: a record handled WITHOUT "done" is followed by the reading of one more line, so the line after the lines of a SOURCE block
     // (ORGANISM and its lineage: all of them GB_MORE) is skipped - a FEATURES line there is lost together with its features (measured on 6.6.0)
-    private static EmbossEntry ReadGenbank(string text, EmbossFeatureReadContext? context)
+    private static EmbossEntry ReadGenbank(string text, EmbossFeatureReadContext? context, bool readFeatures)
     {
         var lines = Lines(text);
         int i = 0;
@@ -207,14 +207,18 @@ internal static class EmbossEntryReader
             Next();
         }
 
-        var features = EmbossSeqFeatureTable.Read(featureLines, context);
+        var features = readFeatures ? EmbossSeqFeatureTable.Read(featureLines, context) : null;
         string residues = EmbossSequenceReader.Clean(seq.ToString());
-        features.Length = residues.Length;
-        features.SeqId = name;
-        return new EmbossEntry("genbank", new EmbossFastaRecord(name, acc, desc, residues), features);
+        if (features is not null)
+        {
+            features.Length = residues.Length;
+            features.SeqId = name;
+        }
+
+        return new EmbossEntry("genbank", new EmbossFastaRecord(name, acc, desc, residues), features is { Found: true } ? features : null);
     }
 
-    private static EmbossEntry ReadEmbl(string text, EmbossFeatureReadContext? context)
+    private static EmbossEntry ReadEmbl(string text, EmbossFeatureReadContext? context, bool readFeatures)
     {
         var lines = Lines(text);
         int i = 0;
@@ -252,10 +256,14 @@ internal static class EmbossEntryReader
             i++;
         for (; i < lines.Count && !lines[i].StartsWith("//", StringComparison.Ordinal); i++)
             seq.Append(lines[i]);
-        var features = EmbossSeqFeatureTable.Read(featureLines, context);
+        var features = readFeatures ? EmbossSeqFeatureTable.Read(featureLines, context) : null;
         string residues = EmbossSequenceReader.Clean(seq.ToString());
-        features.Length = residues.Length;
-        features.SeqId = name;
-        return new EmbossEntry("embl", new EmbossFastaRecord(name, acc, desc, residues), features);
+        if (features is not null)
+        {
+            features.Length = residues.Length;
+            features.SeqId = name;
+        }
+
+        return new EmbossEntry("embl", new EmbossFastaRecord(name, acc, desc, residues), features is { Found: true } ? features : null);
     }
 }

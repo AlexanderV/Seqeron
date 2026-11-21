@@ -198,8 +198,10 @@ internal static class EmbossPurinePyrimidine
 /// <param name="FeatureFile1">The feature file of the first sequence (<c>-aoutfeat</c>; default <c>name.diffgff</c>).</param>
 /// <param name="FeatureFile2">The feature file of the second sequence (<c>-boutfeat</c>).</param>
 /// <param name="CancellationToken">Cancellation of the search.</param>
+/// <param name="FeatureInputFiles">The feature files the inputs name with <c>-ufo1</c> / <c>-fformat1</c> / <c>-fopenfile1</c> (and the second input's), by file name (A5-8c3e, B09 F241); a file that is not here does not exist.</param>
 public sealed record EmbossDiffseqRequest(string Fasta1, string Fasta2, int WordSize = 10, bool GlobalDifferences = false, string? ReportQualifiers = null, IReadOnlyList<string>? CommandLine = null,
-    DateTime? RunDate = null, string FastaFile1 = "a.fa", string FastaFile2 = "b.fa", string ReportFile = "stdout", string? FeatureFile1 = null, string? FeatureFile2 = null, CancellationToken CancellationToken = default);
+    DateTime? RunDate = null, string FastaFile1 = "a.fa", string FastaFile2 = "b.fa", string ReportFile = "stdout", string? FeatureFile1 = null, string? FeatureFile2 = null, CancellationToken CancellationToken = default,
+    IReadOnlyDictionary<string, string>? FeatureInputFiles = null);
 
 /// <summary>The files <c>diffseq</c> writes.</summary>
 /// <param name="Report">The <c>-outfile</c> report (7 report tags, default format <c>diffseq</c>).</param>
@@ -237,15 +239,15 @@ public static class EmbossDiffseqPrograms
         ArgumentNullException.ThrowIfNull(r.Fasta2);
         var (inputs, rq) = EmbossSequenceQualifiers.ParseInputsAndReport("diffseq", r.ReportQualifiers, true);
         var context = new EmbossFeatureReadContext();
-        var entry1 = ReadEntry(r.Fasta1, inputs[0], context);
-        var entry2 = ReadEntry(r.Fasta2, inputs[1], context);
+        var entry1 = ReadEntry(r.Fasta1, inputs[0], context, r.FeatureInputFiles);
+        var entry2 = ReadEntry(r.Fasta2, inputs[1], context, r.FeatureInputFiles);
         var rec1 = entry1.Record;
         var rec2 = entry2.Record;
         var view1 = EmbossInputSequence.Read(rec1.Text, inputs[0], EmbossSequenceType.Any);
         var view2 = EmbossInputSequence.Read(rec2.Text, inputs[1], view1.IsNucleotide ? EmbossSequenceType.Nucleotide : EmbossSequenceType.StopProtein);
         // the feature tables follow the sequence: ajSeqSetRange reverses the table of a reversed sequence (ilen = the length of the whole sequence), ajSeqTrim cuts it (ajFeattableTrimOff)
-        var table1 = PrepareFeatures(entry1.Features, view1);
-        var table2 = PrepareFeatures(entry2.Features, view2);
+        var table1 = PrepareFeatures(entry1.Features, view1, entry1.Format);
+        var table2 = PrepareFeatures(entry2.Features, view2, entry2.Format);
         string s1 = view1.Residues, s2 = view2.Residues;
         int len1 = s1.Length, len2 = s2.Length;
         bool nuc = view1.IsNucleotide;
@@ -424,11 +426,25 @@ public static class EmbossDiffseqPrograms
     }
 
     // the first entry of the input text in the format of -sformat (or the one the program finds); the plain FASTA reader keeps its own messages
-    private static EmbossEntry ReadEntry(string text, EmbossSequenceQualifiers qualifiers, EmbossFeatureReadContext context)
+    private static EmbossEntry ReadEntry(string text, EmbossSequenceQualifiers qualifiers, EmbossFeatureReadContext context, IReadOnlyDictionary<string, string>? featureFiles)
     {
         try
         {
-            return EmbossEntryReader.Read(text, qualifiers.Format, context);
+            // seqinUfoLocal: with -ufo the features of the sequence file are not read; with none found (or none named) the feature file of -ufo / -fformat / -fopenfile is
+            bool ufoGiven = !string.IsNullOrEmpty(qualifiers.FeaturesUfo);
+            var entry = EmbossEntryReader.Read(text, qualifiers.Format, context, readFeatures: !ufoGiven);
+            if (entry.Features is null)
+            {
+                var table = EmbossFeatureUfo.Read(qualifiers.FeaturesUfo ?? "", qualifiers.FeaturesFormat, qualifiers.FeaturesFile, entry.Record.Name,
+                    name => featureFiles is not null && featureFiles.TryGetValue(name, out var t) ? t : null, context);
+                if (table is not null)
+                {
+                    table.Length = entry.Record.Text.Length;
+                    entry = entry with { Features = table };
+                }
+            }
+
+            return entry;
         }
         catch (ArgumentException e) when (e.Message.StartsWith("Unable to read sequence", StringComparison.Ordinal) && qualifiers.Format is null)
         {
@@ -436,14 +452,23 @@ public static class EmbossDiffseqPrograms
         }
     }
 
-    private static EmbossSeqFeatureTable? PrepareFeatures(EmbossSeqFeatureTable? table, EmbossSequenceView view)
+    private static EmbossSeqFeatureTable? PrepareFeatures(EmbossSeqFeatureTable? table, EmbossSequenceView view, string format)
     {
         if (table is null)
             return null;
+        // ajSeqSetNuc / ajSeqSetProt set the type of the table of the sequence when it has none - but a sequence the format reader made nucleotide (seqReadEmbl; the readers of swiss, gff, nbrf, gcg, msf do the same) has its type already, and the call returns at once
+        if (format != "embl")
+            table.SetType(view.IsNucleotide ? "N" : "P");
         if (view.Reversed)
-            table.Reverse();
+        {
+            // ajSeqReverseDo: ajFeattableSetReverse + ajFeattableReverse (a table that is not known to be nucleotide, as those of the GFF readers, is left as it is)
+            table.Rev = !table.Rev;
+            table.Reversed = false;
+            table.ReverseTable();
+        }
+
         table.TrimOff(view.Offset, view.Residues.Length);
-        return table;
+        return table.NewFtable();                                              // ajSeqGetFeatCopy
     }
 
     // diffseq_Features + diffseq_AddTags: "*first_feature TYPE start-end tag='value' ..." for every feature (but source) that overlaps [start, end]; the translation is left out
@@ -455,7 +480,7 @@ public static class EmbossDiffseqPrograms
         {
             if ((uint)start > (uint)f.GetEnd() || (uint)end < (uint)f.GetStart())        // ajuint parameters and results: a negative position (the first difference of -globaldifferences with no match starts at -1) is a huge number
                 continue;
-            string typeName = EmbossFeatureVocab.TypeExternal(EmbossFeatureVocab.Dna.Types, f.Type);       // ajFeatTypeNuc
+            string typeName = EmbossFeatureVocab.TypeExternal((f.Protein ? EmbossFeatureVocab.Protein : EmbossFeatureVocab.Dna).Types, f.Type);       // ajFeatGetType
             if (f.Type.Length == 0 || typeName == "source")
                 continue;
             var sb = new System.Text.StringBuilder("*").Append(kind).Append(' ').Append(typeName).Append(' ').Append(Int(f.GetStart())).Append('-').Append(Int(f.GetEnd()));

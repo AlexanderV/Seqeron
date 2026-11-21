@@ -911,7 +911,7 @@ internal sealed partial class EmbossSeqFeatureTable
                 {
                     if (haveversion)
                     {
-                        file.Unread();
+                        file.Clear(1);
                         Gff3Matchtable(childlist, idtable);
                         return found;
                     }

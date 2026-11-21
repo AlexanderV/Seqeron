@@ -10,6 +10,7 @@
   <ItemGroup>
     <InternalsVisibleTo Include="Seqeron.Genomics.Tests" />
     <InternalsVisibleTo Include="Seqeron.Genomics.Analysis" />
+    <InternalsVisibleTo Include="Seqeron.Genomics.Alignment" />
   </ItemGroup>
 
 </Project>

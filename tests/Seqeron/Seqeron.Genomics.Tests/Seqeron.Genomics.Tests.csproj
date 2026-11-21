@@ -111,6 +111,9 @@
     <EmbeddedResource Include="TestData\Alignment\diffseq_features_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\emboss_feature_vocab_oracle.tsv.gz" />
     <EmbeddedResource Include="TestData\Alignment\featread_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\featread_ufo_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\diffseq_ufo_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\featwrite_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\diffseq_special_tags_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\diffseq_featout_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\emboss_ncbi_pattern_oracle.jsonl.gz" />

@@ -13,7 +13,7 @@ public sealed record EmbossSequenceQualifiers
     public const string CommandLineRules = "The text is resolved exactly as the EMBOSS program resolves it on its command line after the sequence arguments (ACD, 6.6.0): -sbegin1 3, -sbegin1=3, -nosreverse1, -sreverse1 N, any case, -/--/ prefix, "
         + "and every UNIQUE abbreviation (-sbeg1, -sre2; uniqueness is decided among all qualifiers of the program, an ambiguous or unknown one is refused). The number is the sequence (1, and 2 for the second sequence of a two-sequence program; 1 for a program with one sequence). "
         + "An unnumbered qualifier belongs to the LAST sequence given (-sbegin 3 is -sbegin2 3 in a two-sequence program) until a qualifier of another sequence ends that tie; after that it applies to all sequences. "
-        + "-sformat -sask -squick -sdbname -sid -iquery -ufo -fformat -fopenfile are accepted without effect (residue strings have no file); any other qualifier or a stray word is refused.";
+        + "-sformat selects the file format of the text; -ufo -fformat -fopenfile name the feature file of a program that takes the features of its sequences (diffseq: the files are given by the tool); -sask -squick -sdbname -sid -iquery are accepted without effect (residue strings have no file); any other qualifier or a stray word is refused.";
 
     /// <summary>No qualifier given (every field at its default): the sequence is used whole, as read.</summary>
     public static EmbossSequenceQualifiers None { get; } = new();
@@ -235,8 +235,24 @@ public sealed record EmbossSequenceQualifiers
             };
         }
 
-        return item.Name == "sformat" ? q with { Format = raw } : q;      // iquery, sdbname, sid, ufo, fformat, fopenfile: accepted, not interpreted
+        return item.Name switch
+        {
+            "sformat" => q with { Format = raw },
+            "ufo" => q with { FeaturesUfo = raw },
+            "fformat" => q with { FeaturesFormat = raw },
+            "fopenfile" => q with { FeaturesFile = raw },
+            _ => q,                                    // iquery, sdbname, sid: accepted, not interpreted
+        };
     }
+
+    /// <summary><c>-ufo</c>: the feature file of the sequence (<c>[format::]file</c>; A5-8c3e, B09 F241); null = not given.</summary>
+    public string? FeaturesUfo { get; init; }
+
+    /// <summary><c>-fformat</c>: the format of the feature file; null = not given.</summary>
+    public string? FeaturesFormat { get; init; }
+
+    /// <summary><c>-fopenfile</c>: the name of the feature file; null = not given.</summary>
+    public string? FeaturesFile { get; init; }
 
     /// <summary>True when no qualifier differs from the default.</summary>
     public bool IsDefault => Begin == 0 && End == 0 && !Reverse && !Lower && !Upper && !Circular && !Nucleotide && !Protein;

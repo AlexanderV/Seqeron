@@ -111,14 +111,23 @@ internal static class CStr
     }
 }
 
-/// <summary>The line buffer of a feature file (<c>AjPFilebuff</c>): the lines are read in turn, the last one can be given back (<c>ajFilebuffClear</c> keeping one line), the whole buffer can be rewound (<c>ajFilebuffReset</c>).</summary>
+/// <summary>
+/// The line buffer of a feature file (<c>AjPFilebuff</c> of <c>ajfile.c</c>: <c>ajBuffreadLine</c>, <c>ajFilebuffClear</c>, <c>ajFilebuffReset</c>, <c>ajFilebuffSetUnbuffered</c>, <c>ajFilebuffIsEmpty</c>): a line read from the file is kept in the buffer until the
+/// buffer is cleared (so that another reader can try the same lines after a reset); an UNBUFFERED buffer keeps nothing but the last line of a clear that keeps one. Whether the file was read to its end (<see cref="End"/>) decides what the
+/// feature input does after a reader found no feature. A5-8c3e, B09 F241.
+/// </summary>
 internal sealed class EmbossFeatureLines(IReadOnlyList<string> lines)
 {
+    private readonly List<string> _buffer = [];
+    private int _filePos;
     private int _pos;
+    private string? _lastRead;
 
-    public int Position => _pos;
+    /// <summary>The file was read up to its end (<c>File-&gt;End</c>: a read found no more lines).</summary>
+    public bool End { get; private set; }
 
-    public bool AtEnd => _pos >= lines.Count;
+    /// <summary>The buffer retains no lines (<c>Nobuff</c>).</summary>
+    public bool Unbuffered { get; private set; }
 
     /// <summary>The lines of a text: split at line feeds; a carriage return stays at the end of its line (<c>ajBuffreadLine</c> keeps the line end).</summary>
     public static EmbossFeatureLines FromText(string text)
@@ -129,13 +138,51 @@ internal sealed class EmbossFeatureLines(IReadOnlyList<string> lines)
         return new EmbossFeatureLines(parts);
     }
 
-    public string? Next() => _pos < lines.Count ? lines[_pos++] : null;
+    /// <summary><c>ajBuffreadLine</c>.</summary>
+    public string? Next()
+    {
+        if (_pos < _buffer.Count)
+            return _buffer[_pos++];
+        if (_filePos >= lines.Count)
+        {
+            End = true;
+            return null;
+        }
 
-    public void Unread() => _pos--;
+        string l = lines[_filePos++];
+        _lastRead = l;
+        if (Unbuffered)
+            return l;
+        _buffer.Add(l);
+        _pos++;
+        return l;
+    }
 
+    /// <summary><c>ajFilebuffClear</c> with <paramref name="keep"/> lines: the lines before the last <paramref name="keep"/> read ones are dropped and the next read starts at the first kept one (the last line read is "given back").</summary>
+    public void Clear(int keep)
+    {
+        int first = keep < 0 ? _buffer.Count : _pos - keep;
+        if (first < 0)
+            first = 0;
+        if (Unbuffered && _pos == _buffer.Count)
+            first = _pos;
+        _buffer.RemoveRange(0, Math.Min(first, _buffer.Count));
+        _pos = 0;
+        if (Unbuffered && _buffer.Count == 0 && keep == 1 && _lastRead is not null)
+            _buffer.Add(_lastRead);                 // unbuffered: only the last line read can be kept
+    }
+
+    /// <summary><c>ajFilebuffReset</c>: the next read starts at the first line of the buffer.</summary>
     public void Reset() => _pos = 0;
 
-    public void Seek(int position) => _pos = position;
+    /// <summary><c>ajFilebuffSetUnbuffered</c>.</summary>
+    public void SetUnbuffered() => Unbuffered = true;
+
+    /// <summary><c>ajFilebuffIsEmpty</c>: nothing is left in the buffer and the file was read to its end.</summary>
+    public bool IsEmpty => _pos >= _buffer.Count && End;
+
+    /// <summary>The file is at its end with nothing buffered (no more line can be read).</summary>
+    public bool AtEnd => _pos >= _buffer.Count && _filePos >= lines.Count;
 }
 
 /// <summary>A static tokenizer of <c>ajstr.c</c> (<c>AjPStrTok</c>): the leading delimiters are skipped, a token ends at the next delimiter and ALL the delimiters after it are skipped.</summary>

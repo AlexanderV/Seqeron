@@ -1,6 +1,6 @@
 # MCP Completion — Source of Truth & Campaign Ledger
 
-> Reality-based ledger of the 589 MCP tools across 11 servers. Campaign COMPLETE (2026-07-01):
+> Reality-based ledger of the 590 MCP tools across 11 servers. Campaign COMPLETE (2026-07-01):
 > every tool has a gold-standard binding (`[McpServerTool(Name/Title/ReadOnly)]` + `[Description]`,
 > structured record, input validation, real `Seqeron.Genomics` delegation), a Schema+Binding NUnit
 > test, and `{tool}.md` + `{tool}.mcp.json` docs. Supersedes `docs/mcp-plan.md` / `docs/mcp-checklist.md` (v4).
@@ -9,9 +9,9 @@
 
 | Metric | Done | Total |
 |---|---:|---:|
-| Gold-standard binding | 589 | 589 |
-| Schema+Binding tests | 589 | 589 |
-| Docs (.md + .mcp.json) | 589 | 589 |
+| Gold-standard binding | 590 | 590 |
+| Schema+Binding tests | 590 | 590 |
+| Docs (.md + .mcp.json) | 590 | 590 |
 
 ## Per-server summary
 
@@ -21,7 +21,7 @@
 | Sequence | Seqeron.Mcp.Sequence | 35 | 35/35 | 35/35 | 35/35 | ✅ done |
 | Parsers | Seqeron.Mcp.Parsers | 41 | 41/41 | 41/41 | 41/41 | ✅ done |
 | Alignment | Seqeron.Mcp.Alignment | 83 | 83/83 | 83/83 | 83/83 | ✅ done |
-| Analysis | Seqeron.Mcp.Analysis | 174 | 174/174 | 174/174 | 174/174 | ✅ done |
+| Analysis | Seqeron.Mcp.Analysis | 175 | 175/175 | 175/175 | 175/175 | ✅ done |
 | Annotation | Seqeron.Mcp.Annotation | 97 | 97/97 | 97/97 | 97/97 | ✅ done |
 | Chromosome | Seqeron.Mcp.Chromosome | 32 | 32/32 | 32/32 | 32/32 | ✅ done |
 | Metagenomics | Seqeron.Mcp.Metagenomics | 19 | 19/19 | 19/19 | 19/19 | ✅ done |
@@ -228,7 +228,7 @@
 | 82 | `parse_big_alignment` | ☑ | ☑ | ☑ |
 | 83 | `tcoffee_evaluate` | ☑ | ☑ | ☑ |
 
-### Analysis (Seqeron.Mcp.Analysis) — 174 tools
+### Analysis (Seqeron.Mcp.Analysis) — 175 tools
 
 | # | tool | B | T | D |
 |---:|---|:--:|:--:|:--:|
@@ -406,6 +406,8 @@
 | 172 | `mapview` | ☑ | ☑ | ☑ |
 | 173 | `mummerplot` | ☑ | ☑ | ☑ |
 | 174 | `mash_taxscreen` | ☑ | ☑ | ☑ |
+| 175 | `featcopy` | ☑ | ☑ | ☑ |
+
 ### Annotation (Seqeron.Mcp.Annotation) — 97 tools
 
 | # | tool | B | T | D |
