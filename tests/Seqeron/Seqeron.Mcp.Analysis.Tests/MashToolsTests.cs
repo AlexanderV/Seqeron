@@ -85,4 +85,23 @@ public class MashToolsTests
         Assert.Throws<OperationCanceledException>(() => AnalysisTools.MashDist([G1], [G2], k: 9, sketchSize: 20, cancellationToken: cts.Token));
         Assert.Throws<OperationCanceledException>(() => AnalysisTools.MashTriangle([G1, G2], k: 9, sketchSize: 20, cancellationToken: cts.Token));
     }
+
+    private const string SketchInput = ">s1 first seq\nACGTACGTAGCTAGCTAGGATCGATCGATCGTAGCTAGCTAGTCGATCGATGCTAGCTAGCATCGATCG\n>s2\nTTGACCAGTAGCTAGCTAGGGATCGATTTAGCGCGATATATCGCGCTAGCTAGTTTGGGCCCAAATTTAGC\n";
+
+    [Test]
+    public void MashSketch_Info_Paste_AsTheProgram()
+    {
+        // mash 2.3: mash sketch -k 8 -s 6 -o t t.fa (A5-10b, F193): the file is byte for byte the one the program wrote; the msh: text is accepted by the other tools
+        var sketch = AnalysisTools.MashSketch([SketchInput], ["t.fa"], k: 8, sketchSize: 6);
+        Assert.That(sketch.Msh, Is.EqualTo("msh:" + "AAAAAB4AAAAAAAAAAwAEAAgAAAAAAAAABgAAAAEAAAAAAAAAAAAAAAwAAAAAAAEAVAAAAAAAAQBZAAAAKgAAAAAAAAAAAAAAAQAAAE8AAAAEAAAAAgAHAAAAAAAAAAAAjAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEQAAACoAAAARAAAA4gAAAB0AAAA0AAAAAAAAAAAAAAAAAAAAAAAAAHQuZmEAAAAAWzIgc2Vxc10gczEgZmlyc3Qgc2VxIFsuLi5dAAAAAACYOngAH0BDAZMS3wNVsxwF9IB0CboKGAsBAAAABwAAAAAAAAADAAAAQUNHVAAAAAA="));
+        Assert.That(sketch.Sketches, Is.EqualTo(1));
+        Assert.That(AnalysisTools.MashInfo(sketch.Msh).Text, Is.EqualTo("Header:\n  Hash function (seed):          MurmurHash3_x64_128 (42)\n  K-mer size:                    8 (32-bit hashes)\n  Alphabet:                      ACGT (canonical)\n  Target min-hashes per sketch:  6\n  Sketches:                      1\n\nSketches:\n  [Hashes]  [Length]  [ID]  [Comment]\n\n  6         140       t.fa  [2 seqs] s1 first seq [...]\n\n"));
+        Assert.That(AnalysisTools.MashInfo(sketch.Msh, tabular: true).Text, Is.EqualTo("#Hashes\tLength\tID\tComment\n6\t140\tt.fa\t[2 seqs] s1 first seq [...]\n"));
+        Assert.That(AnalysisTools.MashPaste([sketch.Msh, sketch.Msh]).Sketches, Is.EqualTo(2));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.MashInfo(sketch.Msh, headerOnly: true, tabular: true));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.MashInfo("msh:AAAA"));
+        // a sketch file is an input of mash_dist (its parameters are inherited) and of mash_triangle
+        string dist = AnalysisTools.MashDist([sketch.Msh], [SketchInput], queryNames: ["q"]).Text;
+        Assert.That(dist, Is.EqualTo("t.fa\tq\t0\t1.47546e-18\t6/6\n"));
+    }
 }

@@ -1,0 +1,69 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "toolName": "mash_paste",
+ "serverName": "Analysis",
+ "version": "1.0.0",
+ "stability": "stable",
+ "methodId": "MashCommands.Paste",
+ "docRef": "Seqeron.Genomics.Analysis/MashCommands.cs",
+ "description": "Mash 2.3 'mash paste', byte for byte (35 random runs equal): one sketch file of the sketches of several. The parameters (k, sketch size, seed, alphabet, strand mode, case) are those of the first file; a later file with another alphabet, seed, k or strand mode or a smaller sketch size is skipped (the program warns on the error stream), a larger sketch is reduced to the first file's size; hash counts of read-set sketches are not kept.",
+ "inputSchema": {
+  "type": "object",
+  "properties": {
+   "sketches": {
+    "type": "array",
+    "items": {
+     "type": "string"
+    },
+    "description": "The sketch files: 'msh:' + base64 each."
+   }
+  },
+  "required": [
+   "sketches"
+  ]
+ },
+ "outputSchema": {
+  "type": "object",
+  "properties": {
+   "msh": {
+    "type": "string",
+    "description": "msh: + base64 of the pasted file."
+   },
+   "bytes": {
+    "type": "integer",
+    "description": "Size of the file."
+   },
+   "sketches": {
+    "type": "integer",
+    "description": "Number of sketches."
+   }
+  },
+  "required": [
+   "msh",
+   "bytes",
+   "sketches"
+  ]
+ },
+ "errors": [
+  {
+   "code": "InvalidParams",
+   "message": "Invalid arguments (the program's message for incompatible options or a sketch file that is not a .msh)."
+  }
+ ],
+ "examples": [
+  {
+   "name": "Paste two sketch files",
+   "input": {
+    "sketches": [
+     "msh:...",
+     "msh:..."
+    ]
+   },
+   "output": {
+    "msh": "msh:...",
+    "bytes": 300,
+    "sketches": 2
+   }
+  }
+ ]
+}

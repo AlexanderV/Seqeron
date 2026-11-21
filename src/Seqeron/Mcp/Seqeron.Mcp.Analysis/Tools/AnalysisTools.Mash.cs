@@ -16,44 +16,34 @@ public partial class AnalysisTools
         for (int i = 0; i < files.Length; i++)
         {
             string text = files[i] ?? throw new ArgumentException($"Input {i} is null", paramName);
-            var records = new List<global::Seqeron.Genomics.Analysis.MashRecord>();
-            string id = "", comment = "";
-            var seq = new System.Text.StringBuilder();
-            bool open = false;
-            void Close()
+            if (text.StartsWith(MshPrefix, StringComparison.Ordinal))
             {
-                if (open)
-                    records.Add(new global::Seqeron.Genomics.Analysis.MashRecord(id, comment, seq.ToString()));
-                seq.Clear();
+                // a sketch file (x.msh): "msh:" + the base64 of the file (the output of mash_sketch / mash_paste)
+                inputs[i] = new global::Seqeron.Genomics.Analysis.MashInput(names is null ? prefix + (i + 1).ToString(System.Globalization.CultureInfo.InvariantCulture) : names[i], [], ReadMshText(text, paramName));
+                continue;
             }
 
-            foreach (string raw in text.Split('\n'))
-            {
-                string line = raw.TrimEnd('\r');
-                if (line.StartsWith('>'))
-                {
-                    Close();
-                    open = true;
-                    string header = line[1..].Trim();
-                    int sp = header.IndexOfAny([' ', '\t']);
-                    id = sp < 0 ? header : header[..sp];
-                    comment = sp < 0 ? "" : header[(sp + 1)..].Trim();
-                }
-                else if (open)
-                {
-                    foreach (char c in line)
-                        if (!char.IsWhiteSpace(c))
-                            seq.Append(c);
-                }
-            }
-
-            Close();
-            if (records.Count == 0)
+            var parsed = global::Seqeron.Genomics.Analysis.MashCommands.ParseFasta(names is null ? prefix + (i + 1).ToString(System.Globalization.CultureInfo.InvariantCulture) : names[i], text);
+            if (parsed.Records.Count == 0)
                 throw new ArgumentException($"Input {i} has no FASTA record", paramName);
-            inputs[i] = new global::Seqeron.Genomics.Analysis.MashInput(names is null ? prefix + (i + 1).ToString(System.Globalization.CultureInfo.InvariantCulture) : names[i], records);
+            inputs[i] = parsed;
         }
 
         return inputs;
+    }
+
+    private const string MshPrefix = "msh:";
+
+    private static global::Seqeron.Genomics.Analysis.MashSketchFileData ReadMshText(string text, string paramName)
+    {
+        try
+        {
+            return global::Seqeron.Genomics.Analysis.MashSketchFile.Read(Convert.FromBase64String(text[MshPrefix.Length..].Trim()));
+        }
+        catch (Exception e) when (e is FormatException or InvalidDataException)
+        {
+            throw new ArgumentException("The sketch file is not valid base64 of a Mash .msh file: " + e.Message, paramName);
+        }
     }
 
     private static global::Seqeron.Genomics.Analysis.MashCommands.MashReadsOptions? ReadsOptions(bool reads, int minCopies, double targetCoverage, long genomeSize)
@@ -73,7 +63,7 @@ public partial class AnalysisTools
     {
         if (seed is < 0 or > uint.MaxValue)
             throw new ArgumentOutOfRangeException(nameof(seed), seed, "seed must be in 0..4294967295 (mash -S).");
-        return (uint)seed;
+        return global::Seqeron.Genomics.Analysis.MashCommands.SeedFromOption(seed);   // the program stores 4294967295 as 0 (measured)
     }
 
     [McpServerTool(Name = "mash_bounds", Title = "Mash — Error Bounds Table (mash bounds)", ReadOnly = true)]
@@ -145,4 +135,58 @@ public partial class AnalysisTools
         CancellationToken cancellationToken = default)
         => new(global::Seqeron.Genomics.Analysis.MashCommands.Screen(ToMashInputs(queries, queryNames, "query", nameof(queries)), ToMashInputs(mixtures, null, "mixture", nameof(mixtures)), k, sketchSize, RequireMashSeed(seed),
             !noncanonical, individual, winnerTakesAll, minIdentity, maxPValue, cancellationToken));
+
+    [McpServerTool(Name = "mash_sketch", Title = "Mash — Sketch File (mash sketch -o)", ReadOnly = true)]
+    [Description("Mash 2.3 'mash sketch -o x.msh': the sketch file of the inputs, byte for byte as the program writes it (120 random runs equal: genomes and read sets, k 4 - 32, sketch sizes 1 - 3000, seeds, -n, -i, -r -m -c -g with all the files of a read set in ONE sketch, -I / -C, -l). The file is a Cap'n Proto message of MinHash.capnp built as capnp::MallocMessageBuilder builds it (segments of 1024, 1024, 2048, ... words, far pointers with landing pads); it is returned as base64 and, prefixed with 'msh:', it is accepted by mash_dist / mash_triangle / mash_screen / mash_info / mash_paste as an input. One sketch per file (its name is the file name, its comment the first record's name and comment) or, with individual, one per sequence. -l (a list of file names) is the caller's list of inputs.")]
+    public static MashSketchFileResult MashSketch(
+        [Description("The input files as FASTA texts (records start with '>': the first word of the header is the sequence id, the rest the comment).")] string[] sequences,
+        [Description("Names of the inputs as the program stores them (the file names; default input1, ...).")] string[]? names = null,
+        [Description("k-mer size (-k, 1 - 32, default 21).")] int k = 21,
+        [Description("Sketch size (-s, default 1000).")] int sketchSize = 1000,
+        [Description("Hash seed (-S, 0 - 4294967295, default 42; 42 is stored in referenceListOld, another seed in referenceList).")] long seed = 42,
+        [Description("-n: preserve the strand (no canonical k-mers).")] bool noncanonical = false,
+        [Description("-i: sketch individual sequences instead of whole files.")] bool individual = false,
+        [Description("-r: the inputs are read sets (noise filter -m, target coverage -c, genome size -g); the hash counts are stored.")] bool reads = false,
+        [Description("-m: minimum copies of each k-mer required to pass the noise filter of a read set (default 1; only with reads).")] int minCopies = 1,
+        [Description("-c: target coverage of a read set (default 0 = read everything; only with reads).")] double targetCoverage = 0.0,
+        [Description("-g: genome size used as the sketch length of a read set (default 0 = estimated; only with reads).")] long genomeSize = 0,
+        [Description("-I: the id (name) of the first sketch.")] string? id = null,
+        [Description("-C: the comment of the first sketch.")] string? comment = null,
+        CancellationToken cancellationToken = default)
+    {
+        var data = global::Seqeron.Genomics.Analysis.MashCommands.Sketch(ToMashInputs(sequences, names, "input", nameof(sequences)), k, sketchSize, RequireMashSeed(seed), !noncanonical, individual, cancellationToken,
+            ReadsOptions(reads, minCopies, targetCoverage, genomeSize), id, comment);
+        return MshResult(data);
+    }
+
+    private static MashSketchFileResult MshResult(global::Seqeron.Genomics.Analysis.MashSketchFileData data)
+    {
+        var bytes = global::Seqeron.Genomics.Analysis.MashSketchFile.Write(data);
+        return new MashSketchFileResult(MshPrefix + Convert.ToBase64String(bytes), bytes.Length, data.References.Count);
+    }
+
+    [McpServerTool(Name = "mash_info", Title = "Mash — Sketch File Information (mash info)", ReadOnly = true)]
+    [Description("Mash 2.3 'mash info', byte for byte (120 sketch files x 5 output modes equal): the header (hash function and seed, k-mer size with the hash width, the alphabet with '(canonical)' / '(case-sensitive)', the target sketch size, the number of sketches) and the table of the sketches (hashes, length, id, comment; an empty field is '-'), or with headerOnly only the header, with tabular the tab separated table, with counts the hash count histogram of each read-set sketch, with dump the JSON dump of the sketches and hashes. The options headerOnly / tabular / counts / dump exclude each other as in the program (the errors are the program's messages).")]
+    public static MashTextResult MashInfo(
+        [Description("The sketch file: 'msh:' + base64 (the output of mash_sketch / mash_paste).")] string sketch,
+        [Description("-H: only the header.")] bool headerOnly = false,
+        [Description("-t: tabular output (no header).")] bool tabular = false,
+        [Description("-c: hash count histograms (only for read-set sketches).")] bool counts = false,
+        [Description("-d: dump the sketches as JSON.")] bool dump = false)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(sketch);
+        var data = ReadMshText(sketch.StartsWith(MshPrefix, StringComparison.Ordinal) ? sketch : MshPrefix + sketch, nameof(sketch));
+        return new(global::Seqeron.Genomics.Analysis.MashCommands.Info(data, new global::Seqeron.Genomics.Analysis.MashCommands.MashInfoOptions(headerOnly, tabular, counts, dump)));
+    }
+
+    [McpServerTool(Name = "mash_paste", Title = "Mash — Paste Sketch Files (mash paste)", ReadOnly = true)]
+    [Description("Mash 2.3 'mash paste', byte for byte (35 random runs equal): one sketch file of the sketches of several. The parameters (k, sketch size, seed, alphabet, strand mode, case) are those of the first file; a later file with another alphabet, seed, k or strand mode or a smaller sketch size is skipped (the program warns on the error stream), a larger sketch is reduced to the first file's size; hash counts of read-set sketches are not kept.")]
+    public static MashSketchFileResult MashPaste(
+        [Description("The sketch files: 'msh:' + base64 each.")] string[] sketches)
+    {
+        if (sketches is null || sketches.Length == 0)
+            throw new ArgumentException("At least one sketch file is required", nameof(sketches));
+        var files = sketches.Select(t => ReadMshText(t.StartsWith(MshPrefix, StringComparison.Ordinal) ? t : MshPrefix + t, nameof(sketches))).ToArray();
+        return MshResult(global::Seqeron.Genomics.Analysis.MashCommands.Paste(files));
+    }
 }

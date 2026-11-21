@@ -1,0 +1,133 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "toolName": "mash_sketch",
+ "serverName": "Analysis",
+ "version": "1.0.0",
+ "stability": "stable",
+ "methodId": "MashCommands.Sketch",
+ "docRef": "Seqeron.Genomics.Analysis/MashCommands.cs",
+ "description": "Mash 2.3 'mash sketch -o x.msh': the sketch file of the inputs, byte for byte as the program writes it (120 random runs equal: genomes and read sets, k 4 - 32, sketch sizes 1 - 3000, seeds, -n, -i, -r -m -c -g with all the files of a read set in ONE sketch, -I / -C, -l). The file is a Cap'n Proto message of MinHash.capnp built as capnp::MallocMessageBuilder builds it (segments of 1024, 1024, 2048, ... words, far pointers with landing pads); it is returned as base64 and, prefixed with 'msh:', it is accepted by mash_dist / mash_triangle / mash_screen / mash_info / mash_paste as an input. One sketch per file (its name is the file name, its comment the first record's name and comment) or, with individual, one per sequence. -l (a list of file names) is the caller's list of inputs.",
+ "inputSchema": {
+  "type": "object",
+  "properties": {
+   "sequences": {
+    "type": "array",
+    "items": {
+     "type": "string"
+    },
+    "description": "The input files as FASTA texts (records start with '>': the first word of the header is the sequence id, the rest the comment)."
+   },
+   "names": {
+    "type": "array",
+    "items": {
+     "type": "string"
+    },
+    "description": "Names of the inputs as the program stores them (the file names; default input1, ...)."
+   },
+   "k": {
+    "type": "integer",
+    "description": "k-mer size (-k, 1 - 32, default 21).",
+    "default": 21
+   },
+   "sketchSize": {
+    "type": "integer",
+    "description": "Sketch size (-s, default 1000).",
+    "default": 1000
+   },
+   "seed": {
+    "type": "integer",
+    "description": "Hash seed (-S, 0 - 4294967295, default 42; 42 is stored in referenceListOld, another seed in referenceList).",
+    "default": 42
+   },
+   "noncanonical": {
+    "type": "boolean",
+    "description": "-n: preserve the strand (no canonical k-mers).",
+    "default": false
+   },
+   "individual": {
+    "type": "boolean",
+    "description": "-i: sketch individual sequences instead of whole files.",
+    "default": false
+   },
+   "reads": {
+    "type": "boolean",
+    "description": "-r: the inputs are read sets (noise filter -m, target coverage -c, genome size -g); the hash counts are stored.",
+    "default": false
+   },
+   "minCopies": {
+    "type": "integer",
+    "description": "-m: minimum copies of each k-mer required to pass the noise filter of a read set (default 1; only with reads).",
+    "default": 1
+   },
+   "targetCoverage": {
+    "type": "number",
+    "description": "-c: target coverage of a read set (default 0 = read everything; only with reads).",
+    "default": 0
+   },
+   "genomeSize": {
+    "type": "integer",
+    "description": "-g: genome size used as the sketch length of a read set (default 0 = estimated; only with reads).",
+    "default": 0
+   },
+   "id": {
+    "type": "string",
+    "description": "-I: the id (name) of the first sketch."
+   },
+   "comment": {
+    "type": "string",
+    "description": "-C: the comment of the first sketch."
+   }
+  },
+  "required": [
+   "sequences"
+  ]
+ },
+ "outputSchema": {
+  "type": "object",
+  "properties": {
+   "msh": {
+    "type": "string",
+    "description": "msh: + base64 of the .msh file."
+   },
+   "bytes": {
+    "type": "integer",
+    "description": "Size of the file."
+   },
+   "sketches": {
+    "type": "integer",
+    "description": "Number of sketches."
+   }
+  },
+  "required": [
+   "msh",
+   "bytes",
+   "sketches"
+  ]
+ },
+ "errors": [
+  {
+   "code": "InvalidParams",
+   "message": "Invalid arguments (the program's message for incompatible options or a sketch file that is not a .msh)."
+  }
+ ],
+ "examples": [
+  {
+   "name": "Sketch one genome",
+   "input": {
+    "sequences": [
+     ">s1\nACGTACGTAGCTAGCTAGGATCGATCGATCGTAGCTAGCTAGTCGATCGATGCTAGCTAGC\n"
+    ],
+    "names": [
+     "a.fa"
+    ],
+    "k": 8,
+    "sketchSize": 5
+   },
+   "output": {
+    "msh": "msh:...",
+    "bytes": 216,
+    "sketches": 1
+   }
+  }
+ ]
+}

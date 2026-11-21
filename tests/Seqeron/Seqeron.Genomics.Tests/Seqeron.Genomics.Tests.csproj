@@ -67,6 +67,8 @@
     <EmbeddedResource Include="TestData\Alignment\mash_screen_oracle.jsonl.gz" />
     <!-- A5-10b (B09 F186): the read-set mode (-r -m -c -g) and -C of mash dist / triangle; scripts/alignment/generate_mash_reads_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\mash_reads_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\mash_msh_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\mash_msh_commands_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\emboss_ncbi_pattern_oracle.jsonl.gz" />
     <!-- A4-4 (B09 F156): option boundaries of minimap2 chaining / mgaps / etandem measured on the installed programs; scripts/alignment/generate_option_boundary_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\option_boundary_oracle.json" />

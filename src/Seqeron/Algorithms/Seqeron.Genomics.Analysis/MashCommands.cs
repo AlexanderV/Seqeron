@@ -4,16 +4,25 @@ using Seqeron.Genomics.Infrastructure;
 namespace Seqeron.Genomics.Analysis;
 
 /// <summary>A named sequence record of a <see cref="MashInput"/> (FASTA: the first word of the header is the id, the rest the comment).</summary>
-public readonly record struct MashRecord(string Id, string Comment, string Sequence);
+public readonly record struct MashRecord(string Id, string Comment, string Sequence)
+{
+    /// <summary>The comment string Mash reads for the record when it names the sketch of a file: kseq leaves the text of the previous comment in its buffer when a record has none (<see cref="MashCommands.ParseFasta"/>); null = <see cref="Comment"/>.</summary>
+    public string? StaleComment { get; init; }
+}
 
-/// <summary>One input file of a Mash command: its name (what the program prints, the path as given) and its records.</summary>
-public sealed record MashInput(string Name, IReadOnlyList<MashRecord> Records);
+/// <summary>
+/// One input file of a Mash command: its name (what the program prints, the path as given) and its records, or - for a sketch file (<c>x.msh</c>, <see cref="MashSketchFile.Read"/>) - its content in <paramref name="SketchFile"/>
+/// (<paramref name="Records"/> is then ignored): its sketches are used as they are, with their own names. As in the program, the k-mer size, seed, strand mode and sketch size of the FIRST reference sketch file are inherited by
+/// the command (a <c>-k</c> / <c>-s</c> / <c>-S</c> / <c>-n</c> given too is ignored here: the program refuses it); a later sketch file with another alphabet, seed, k, strand mode or a smaller sketch size is skipped (the
+/// program warns on the error stream and goes on), a larger sketch is reduced to the current size.
+/// </summary>
+public sealed record MashInput(string Name, IReadOnlyList<MashRecord> Records, MashSketchFileData? SketchFile = null);
 
 /// <summary>
 /// The text commands of Mash 2.3 on top of the sketching and comparison of <see cref="KmerAnalyzer"/> (audit A5-10, B09 F174): <c>mash bounds</c>, <c>mash dist</c> (with <c>-t</c>, <c>-v</c>, <c>-d</c>, <c>-i</c>) and
 /// <c>mash triangle</c> (Phylip matrix, edge list <c>-E</c>, <c>-v</c>, <c>-d</c>), written as the program writes them (<c>CommandBounds.cpp</c>, <c>CommandDistance.cpp</c>, <c>CommandTriangle.cpp</c>, marbl/Mash v2.3 at raw.githubusercontent.com).
 /// </summary>
-public static class MashCommands
+public static partial class MashCommands
 {
     // C++ `cout << double`: %g with six significant digits ("inf" / "nan" as glibc prints them)
     private static string Num(double v)
@@ -93,7 +102,7 @@ public static class MashCommands
     private static string FileComment(IReadOnlyList<MashRecord> usable, int count)
     {
         // Sketch.cpp sketchFile: the comment of a file's sketch is "name comment" of its first record; with more records "[N seqs] ... [...]"
-        string comment = usable[0].Id + " " + (usable[0].Comment ?? "");
+        string comment = usable[0].Id + " " + (usable[0].StaleComment ?? usable[0].Comment ?? "");
         if (count > 1)
             comment = "[" + count.ToString(System.Globalization.CultureInfo.InvariantCulture) + " seqs] " + comment + " [...]";
         return comment;
@@ -104,7 +113,7 @@ public static class MashCommands
     /// of at least k symbols, named by its id. A file without such a record stops the program (exit status 1: "WARNING: All fasta records in input files were shorter than the k-mer size (k)." when records were skipped, else "ERROR: Did not
     /// find fasta records in "input files"." - the program prints the words "input files", not the file name); here it is an <see cref="ArgumentException"/> with that text.
     /// </summary>
-    private static List<Named> Sketches(IReadOnlyList<MashInput> inputs, string paramName, int k, int sketchSize, uint seed, bool canonical, bool individual, CancellationToken cancellationToken, MashReadsOptions? reads = null)
+    private static List<Named> Sketches(IReadOnlyList<MashInput> inputs, string paramName, int k, int sketchSize, uint seed, bool canonical, bool individual, CancellationToken cancellationToken, MashReadsOptions? reads = null, bool contain = false)
     {
         if (reads is not null && individual)
             throw new ArgumentException("Reads mode (-r) is incompatible with -i.", paramName);
@@ -115,6 +124,12 @@ public static class MashCommands
             var input = inputs[index] ?? throw new ArgumentNullException(paramName, $"Input {index} is null.");
             if (input.Name is null)
                 throw new ArgumentException($"Input {index} has no Name.", paramName);
+            if (input.SketchFile is not null)
+            {
+                list.AddRange(LoadSketchFile(input.SketchFile, k, sketchSize, seed, canonical, contain));
+                continue;
+            }
+
             if (input.Records is null)
                 throw new ArgumentException($"Input {index} ('{input.Name}') has no Records list.", paramName);
             for (int r = 0; r < input.Records.Count; r++)
@@ -146,6 +161,34 @@ public static class MashCommands
         }
 
         return list;
+    }
+
+    // initFromFiles with a sketch file: the sketches of a file that agrees with the current parameters (a larger sketch is reduced to the bottom sketchSize hashes), else none (skipped with a warning)
+    private static List<Named> LoadSketchFile(MashSketchFileData file, int k, int sketchSize, uint seed, bool canonical, bool contain = false)
+    {
+        var list = new List<Named>();
+        if (file.Alphabet != "ACGT" || file.HashSeed != seed || file.KmerSize != k || (!contain && file.MinHashesPerWindow < sketchSize) || file.Noncanonical == canonical)
+            return list;
+        foreach (var r in file.References)
+        {
+            var hashes = r.Hashes.Count > sketchSize ? r.Hashes.Take(sketchSize).ToArray() : r.Hashes;
+            var counts = r.Counts is not null && r.Counts.Count > sketchSize ? r.Counts.Take(sketchSize).ToArray() : r.Counts;
+            list.Add(new Named(r.Name, r.Comment, new MinHashSketch(k, sketchSize, canonical, seed, file.Use64, (long)r.Length, hashes, counts)));
+        }
+
+        return list;
+    }
+
+    // the parameters of the first sketch file are the command's (CommandDistance / CommandTriangle / CommandScreen: initFromFiles without enforced parameters)
+    private static void InheritFromSketchFile(IReadOnlyList<MashInput> first, ref int k, ref int sketchSize, ref uint seed, ref bool canonical)
+    {
+        if (first.Count > 0 && first[0]?.SketchFile is { } f)
+        {
+            k = f.KmerSize;
+            sketchSize = f.MinHashesPerWindow;
+            seed = f.HashSeed;
+            canonical = !f.Noncanonical;
+        }
     }
 
     private static void RequireSketchParameters(int k, int sketchSize)
@@ -182,6 +225,7 @@ public static class MashCommands
         ArgumentNullException.ThrowIfNull(queries);
         RequireFraction(maxPValue, nameof(maxPValue), "-v");
         RequireFraction(maxDistance, nameof(maxDistance), "-d");
+        InheritFromSketchFile(references, ref k, ref sketchSize, ref seed, ref canonical);
         RequireSketchParameters(k, sketchSize);
         var refs = Sketches(references, nameof(references), k, sketchSize, seed, canonical, individual, cancellationToken, reads);
         var qs = Sketches(queries, nameof(queries), k, sketchSize, seed, canonical, individual, cancellationToken, reads);
@@ -238,6 +282,7 @@ public static class MashCommands
         ArgumentNullException.ThrowIfNull(inputs);
         RequireFraction(maxPValue, nameof(maxPValue), "-v");
         RequireFraction(maxDistance, nameof(maxDistance), "-d");
+        InheritFromSketchFile(inputs, ref k, ref sketchSize, ref seed, ref canonical);
         RequireSketchParameters(k, sketchSize);
         edgeList |= maxPValue < 1.0 || maxDistance < 1.0;
         var sketches = Sketches(inputs, nameof(inputs), k, sketchSize, seed, canonical, individual, cancellationToken, reads);
@@ -320,11 +365,12 @@ public static class MashCommands
     {
         ArgumentNullException.ThrowIfNull(queries);
         ArgumentNullException.ThrowIfNull(mixtures);
+        InheritFromSketchFile(queries, ref k, ref sketchSize, ref seed, ref canonical);
         RequireSketchParameters(k, sketchSize);
         if (double.IsNaN(minIdentity) || minIdentity < -1.0 || minIdentity > 1.0)
             throw new ArgumentOutOfRangeException(nameof(minIdentity), minIdentity, "-i must be in -1..1 (mash screen).");
         RequireFraction(maxPValue, nameof(maxPValue), "-v");
-        var refs = Sketches(queries, nameof(queries), k, sketchSize, seed, canonical, individual, cancellationToken);
+        var refs = Sketches(queries, nameof(queries), k, sketchSize, seed, canonical, individual, cancellationToken, null, true);
         if (refs.Count == 0)
             throw new ArgumentException("No query sequence is at least k symbols long.", nameof(queries));
         foreach (var m in mixtures)

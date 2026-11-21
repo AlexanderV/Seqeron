@@ -60,6 +60,7 @@ namespace Seqeron.Mcp.Analysis;
 [JsonSerializable(typeof(WordMatchItem))]
 [JsonSerializable(typeof(ReportedWordMatchItem))]
 [JsonSerializable(typeof(MashTextResult))]
+[JsonSerializable(typeof(MashSketchFileResult))]
 [JsonSerializable(typeof(ReportedWordMatchItem[]))]
 [JsonSerializable(typeof(WordMatchItem[]))]
 [JsonSerializable(typeof(SeqMatchAllResult))]

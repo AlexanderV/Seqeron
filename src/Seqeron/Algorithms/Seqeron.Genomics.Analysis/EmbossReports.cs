@@ -139,6 +139,14 @@ public static class EmbossReports
         ArgumentNullException.ThrowIfNull(pattern);
         ArgumentNullException.ThrowIfNull(hits);
         ArgumentNullException.ThrowIfNull(patternName);
+        for (int i = 0; i < hits.Count; i++)
+        {
+            if (hits[i].EmbossStart is null || hits[i].EmbossEnd is null)
+                throw new ArgumentException($"Hit {i} has no EmbossStart / EmbossEnd: the report prints the program's own coordinates (the hits of GenomicAnalyzer.FindTranslatedPatternHits carry them).", nameof(hits));
+            if (hits[i].Translation is null)
+                throw new ArgumentException($"Hit {i} has no Translation.", nameof(hits));
+        }
+
         return Fuzztran(sequence, [new EmbossPatternHits<TranslatedPatternHit>(patternName, pattern, 0, hits)]);
     }
 

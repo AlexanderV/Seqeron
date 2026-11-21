@@ -1246,10 +1246,31 @@
     "sourceLink": ""
   },
   {
+    "tool": "mash_info",
+    "server": "Analysis",
+    "methodId": "MashCommands.Info",
+    "docPath": "docs/mcp/tools/analysis/mash_info.md",
+    "sourceLink": ""
+  },
+  {
+    "tool": "mash_paste",
+    "server": "Analysis",
+    "methodId": "MashCommands.Paste",
+    "docPath": "docs/mcp/tools/analysis/mash_paste.md",
+    "sourceLink": ""
+  },
+  {
     "tool": "mash_screen",
     "server": "Analysis",
     "methodId": "MashCommands.Screen",
     "docPath": "docs/mcp/tools/analysis/mash_screen.md",
+    "sourceLink": ""
+  },
+  {
+    "tool": "mash_sketch",
+    "server": "Analysis",
+    "methodId": "MashCommands.Sketch",
+    "docPath": "docs/mcp/tools/analysis/mash_sketch.md",
     "sourceLink": ""
   },
   {

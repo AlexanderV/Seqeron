@@ -1702,7 +1702,7 @@ public static class KmerAnalyzer
         long length = genomeSize;
         if (length == 0 && hashes.Count > 0)
             length = (long)(ulong)(Math.Pow(2.0, use64 ? 64.0 : 32.0) * hashes.Count / (double)hashes.Max);
-        return new MinHashSketch(k, sketchSize, canonical, seed, use64, length, [.. hashes]);
+        return new MinHashSketch(k, sketchSize, canonical, seed, use64, length, [.. hashes], [.. hashes.Select(h => counts[h])]);
     }
 
     /// <summary>The s smallest distinct hash values seen so far (a bounded sorted set; the threshold rejects almost every hash of a long sequence in O(1)).</summary>
@@ -3497,7 +3497,8 @@ public readonly record struct D2StarStatistics(double D2Star, double D2Shepherd,
 /// <param name="Use64">True when the 64-bit hash h1 is used (k ≥ 17); false for its low 32 bits.</param>
 /// <param name="Length">Total length of the sketched records of length ≥ k (Mash reference length).</param>
 /// <param name="Hashes">The smallest distinct hash values, ascending.</param>
-public sealed record MinHashSketch(int K, int SketchSize, bool Canonical, uint Seed, bool Use64, long Length, IReadOnlyList<ulong> Hashes)
+/// <param name="Counts">With a read-set sketch (<c>mash sketch -r</c>): the multiplicity of each hash, parallel to <paramref name="Hashes"/> (the <c>counts32</c> of the <c>.msh</c> file holds the same multiset, but Mash writes it in the iteration order of its <c>robin_hood::unordered_map</c>, not parallel to the sorted hashes: registered A5-10b3), else null.</param>
+public sealed record MinHashSketch(int K, int SketchSize, bool Canonical, uint Seed, bool Use64, long Length, IReadOnlyList<ulong> Hashes, IReadOnlyList<uint>? Counts = null)
 {
     /// <summary>
     /// Builds a well-formed sketch from arbitrary hash values (e.g. read from a Mash <c>.msh</c> file): the values are sorted,

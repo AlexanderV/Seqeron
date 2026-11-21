@@ -61,5 +61,8 @@ public record NucmerClustersResult(NucmerClusterItem[] Clusters);
 /// <summary>The text a Mash command writes (<c>mash_bounds</c>, <c>mash_dist</c>, <c>mash_triangle</c>), byte for byte as the program prints it.</summary>
 public record MashTextResult(string Text);
 
+/// <summary>A Mash sketch file (<c>mash_sketch</c>, <c>mash_paste</c>): <c>msh:</c> + the base64 of the <c>.msh</c> bytes (accepted as an input by the other Mash tools), their number and the number of sketches in it.</summary>
+public record MashSketchFileResult(string Msh, int Bytes, int Sketches);
+
 /// <summary>Result of <c>emboss_report_file</c>: the <c>-outfile</c> report text of the program and, for etandem / equicktandem, the <c>-origfile</c> text.</summary>
 public record EmbossReportFileResult(string Report, [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? OriginalFile = null);
