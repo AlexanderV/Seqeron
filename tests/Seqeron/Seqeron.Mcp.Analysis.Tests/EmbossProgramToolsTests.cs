@@ -62,6 +62,21 @@ public class EmbossProgramToolsTests
     }
 
     [Test]
+    public void Diffseq_SequenceQualifiers_AsTheProgram()
+    {
+        // diffseq 6.6.0 qa.fa qb.fa -wordsize 5 -sbegin1 11 -send1 70 -sbegin2 11 -send2 70 -rformat table (A5-8c3b, F216): the SNP of position 31 is at 21 of the cut sequences, the header keeps the original range of the first and 1 - 60 for the second
+        const string a = "TTTCCTCATGCAATTCAAAACCATGTCCGTAATGTAGGCGAAATAGTAAACCATTTTACGGAGGATACCAAATTCCTCCT";
+        const string b = "TTTCCTCATGCAATTCAAAACCATGTCCGTCATGTAGGCGAAATAGTAAACCATTTTACGGAGGATACCAAATTCCTCCT";
+        var r = AnalysisTools.Diffseq(a, b, 5, false, "seqa", "seqb", "-sbegin1 11 -send1 70 -sbegin2 11 -send2 70 -rformat table");
+        Assert.That(r.Differences, Is.EqualTo(new[] { new DiffseqDifferenceItem(21, 21, 1, 21, 21, 1) }));
+        Assert.That(r.Report, Does.Contain("# Sequence: seqa     from: 11   to: 70\n"));
+        Assert.That(r.Report, Does.Contain("# Compare: seqb     from: 1   to: 60\n"));
+        Assert.That(r.Report, Does.Contain("     21      21       +   0.000     21     21      1 seqb   C        .             .             \n"));
+        Assert.That(r.FeatureFile1, Does.Contain("seqa\tdiffseq\tsequence_conflict\t21\t21\t1\t+\t.\tID=seqa.1;note=SNP in seqb;replace=C"));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.Diffseq(a, b, 5, false, "seqa", "seqb", "-sbegin3 4"));
+    }
+
+    [Test]
     public void Wordmatch_RabinKarpMatches_AsTheProgram()
     {
         // wordmatch 6.6.0 on p = ACGTACGTAC against g = TTACGTACGTACTT, -wordsize 6 (A2-28d, F198): the two words TACGTA / CGTACG are extended to the right, the match of the second starts inside the first

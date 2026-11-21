@@ -15,9 +15,9 @@ public class EmbossDiffseq_Oracle_Tests
 {
     private sealed record Row(int Id, bool Nuc, string Fasta1, string Fasta2, int WordSize, bool Glob, string Rq, List<string> Cmd, long Epoch, string Report, string Feat1, string Feat2, string? Error);
 
-    private static List<Row> Load()
+    private static List<Row> Load(string resource = "diffseq_oracle")
     {
-        const string name = "Seqeron.Genomics.Tests.TestData.Alignment.diffseq_oracle.jsonl.gz";
+        string name = $"Seqeron.Genomics.Tests.TestData.Alignment.{resource}.jsonl.gz";
         using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(name) ?? throw new InvalidOperationException($"Embedded oracle '{name}' not found.");
         using var gz = new GZipStream(stream, CompressionMode.Decompress);
         using var reader = new StreamReader(gz);
@@ -88,6 +88,55 @@ public class EmbossDiffseq_Oracle_Tests
         Assert.That(glob, Is.GreaterThan(60));
         Assert.That(refused, Is.GreaterThan(15));
         Assert.That(formats, Is.GreaterThanOrEqualTo(22));
+    }
+
+    /// <summary>
+    /// A5-8c3b (F216): the sequence qualifiers of both inputs (<c>-sbegin1/2 -send1/2 -sreverse1/2 -slower -supper -snucleotide -sprotein -sformat</c>) with the report formats and <c>-rusashow</c>: 260 runs
+    /// (TestData/Alignment/diffseq_qualifiers_oracle.jsonl.gz, scripts/alignment/generate_diffseq_qualifiers_oracle.py), the report and both GFF3 files byte for byte, the refusals as the program refuses.
+    /// </summary>
+    [Test]
+    public void Diffseq_SequenceQualifiers_EqualTheProgram_AllRows()
+    {
+        var rows = Load("diffseq_qualifiers_oracle");
+        Assert.That(rows, Has.Count.GreaterThanOrEqualTo(250));
+        var failures = new List<string>();
+        int ranged = 0, reversed = 0, withDifferences = 0, refused = 0;
+        foreach (var r in rows)
+        {
+            var request = new EmbossDiffseqRequest(r.Fasta1, r.Fasta2, r.WordSize, r.Glob, r.Rq, r.Cmd, DateTimeOffset.FromUnixTimeSeconds(r.Epoch).UtcDateTime, "a.fa", "b.fa", "o.rep", "a.gff", "b.gff");
+            EmbossDiffseqOutput got;
+            try
+            {
+                got = EmbossDiffseqPrograms.Run(request);
+            }
+            catch (EmbossReportException e)
+            {
+                if (r.Error is null || !r.Error.Contains(e.Message, StringComparison.Ordinal))
+                    failures.Add($"row {r.Id} ({r.Rq}): unexpected refusal '{e.Message}' (program: {r.Error})");
+                else
+                    refused++;
+                continue;
+            }
+            catch (Exception e)
+            {
+                failures.Add($"row {r.Id} ({r.Rq}): {e.GetType().Name}: {e.Message}");
+                continue;
+            }
+
+            if (r.Rq.Contains("-sbegin", StringComparison.Ordinal) || r.Rq.Contains("-send", StringComparison.Ordinal)) ranged++;
+            if (r.Rq.Contains("-sreverse", StringComparison.Ordinal)) reversed++;
+            if (got.Result is { Differences.Count: > 0 }) withDifferences++;
+            if (got.Report != r.Report)
+                failures.Add($"row {r.Id} ({r.Rq}): report differs at {FirstDifference(got.Report, r.Report)}");
+            else if (got.FeatureFile1 != r.Feat1 || got.FeatureFile2 != r.Feat2)
+                failures.Add($"row {r.Id} ({r.Rq}): feature file differs: {FirstDifference(got.FeatureFile1, r.Feat1)} / {FirstDifference(got.FeatureFile2, r.Feat2)}");
+        }
+
+        Assert.That(failures, Is.Empty, $"{failures.Count} of {rows.Count}:\n" + string.Join("\n", failures.Take(6)));
+        Assert.That(ranged, Is.GreaterThan(150));
+        Assert.That(reversed, Is.GreaterThan(30));
+        Assert.That(withDifferences, Is.GreaterThan(80));
+        Assert.That(refused, Is.GreaterThan(5));
     }
 
     private static string FirstDifference(string a, string b)

@@ -282,7 +282,8 @@ public static partial class GenomicAnalyzer
         ArgumentOutOfRangeException.ThrowIfNegative(maxMismatches);
         AlignmentCancellation.Poll(cancellationToken);
 
-        var paths = pattern.ExpandPaths();
+        // an all-optional range pattern also has the empty hit (A5-8c3b, F217): the program tries every start of the strand, so the empty unrolling is a hit at each of them (never at the end of the strand)
+        var paths = pattern.ExpandPaths(includeEmpty: true);
         bool hasRange = pattern.Elements.Any(e => e.IsRange);
         bool recursiveMatcher = hasRange && maxMismatches > 0;
         bool regexClass = hasRange && !recursiveMatcher;
@@ -352,7 +353,8 @@ public static partial class GenomicAnalyzer
             {
                 AlignmentCancellation.Poll(cancellationToken);
                 int length = path.Elements.Count;
-                for (int start = 0; start + length <= strand.Length; start++)
+                // the empty hit: at every start of the strand (the loops of the program stop at the last residue)
+                for (int start = 0; start + length <= strand.Length && (length > 0 || start < strand.Length); start++)
                 {
                     if ((pattern.AnchoredAtStart && start != 0) || (pattern.AnchoredAtEnd && start + length != strand.Length))
                         continue;
@@ -374,6 +376,11 @@ public static partial class GenomicAnalyzer
                         strandHits[key] = bad;
                 }
             }
+
+            // regex class anchored at the end ('>'): embPatMatchFindAll looks for the matches of the regular expression 'pattern$' start by start while the search position is not the end of the string; the empty string matches AT the end,
+            // and is found only when no match began at the last residue (the position after it is the end: the search stops there; A5-8c3b, F217)
+            if (regexClass && pattern.AnchoredAtEnd && !pattern.AnchoredAtStart && strand.Length > 0 && paths.Any(p => p.Elements.Count == 0) && !strandHits.ContainsKey((strand.Length - 1, 1)))
+                strandHits[(strand.Length, 0)] = 0;
 
             // regex class: a start-anchored (<) range pattern returns only the longest match at the anchor
             if (regexClass && pattern.AnchoredAtStart && strandHits.Count > 1)

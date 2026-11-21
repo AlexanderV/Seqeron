@@ -99,11 +99,16 @@ public static class EmbossReportPrograms
 
     // the USA of a sequence read with a range: the qualifiers as typed
     private static string Usa(EmbossReportRequest r, string name, EmbossSequenceQualifiers q)
+        => "fasta::" + r.FastaFile + ":" + name + UsaRange(q);
+
+    /// <summary>The range part of the USA of a sequence read with <c>-sbegin</c> / <c>-send</c> / <c>-sreverse</c> (<c>[b:e:r]</c>), empty without them.</summary>
+    internal static string UsaRange(EmbossSequenceQualifiers q)
     {
-        string usa = "fasta::" + r.FastaFile + ":" + name;
-        if (q.Begin != 0 || q.End != 0 || q.Reverse)
-            usa += "[" + (q.Begin != 0 ? Int(q.Begin) : "") + ":" + (q.End != 0 ? Int(q.End) : "") + (q.Reverse ? ":r" : "") + "]";
-        return usa;
+        if (q.Begin == 0 && q.End == 0 && !q.Reverse)
+            return "";
+        string begin = q.Begin != 0 ? Int(q.Begin) : "";
+        string end = q.End != 0 ? Int(q.End) : "";
+        return "[" + begin + ":" + end + (q.Reverse ? ":r" : "") + "]";
     }
 
     // ajSeqGetBegin / ajSeqGetEnd: unset = whole, negative = from the end

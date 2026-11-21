@@ -129,6 +129,22 @@ public static partial class GenomicAnalyzer
             }
         }
 
+        // an all-optional range pattern: the empty hit at every start of the sequence (the search loop stops at the last residue); anchored at the end ('>') the regular expression 'pattern$' matches the empty string AT the end of the
+        // sequence, found only when no match began at the last residue (A5-8c3b, F217)
+        if (pattern.HasRange && pattern.ExpandPaths(includeEmpty: true).Any(path => path.Sets.Length == 0))
+        {
+            if (pattern.AnchoredAtEnd)
+            {
+                if (!pattern.AnchoredAtStart && bits.Length > 0 && !hits.Contains((bits.Length - 1, 1)))
+                    hits.Add((bits.Length, 0));
+            }
+            else
+            {
+                for (int pos = 0; pos < bits.Length && !(pattern.AnchoredAtStart && pos != 0); pos++)
+                    hits.Add((pos, 0));
+            }
+        }
+
         // regex class (embPatMatchFindAll with nterm): a start-anchored range pattern returns only the longest match at the anchor
         if (pattern.AnchoredAtStart && pattern.HasRange && hits.Count > 1)
         {
@@ -146,7 +162,7 @@ public static partial class GenomicAnalyzer
     private static List<ProteinPatternHit> ProteinPatternHitsApproximate(uint[] bits, ProteinPattern pattern, int maxMismatches, CancellationToken cancellationToken)
     {
         bool recursiveMatcher = pattern.HasRange;
-        var paths = pattern.ExpandPaths();
+        var paths = pattern.ExpandPaths(includeEmpty: true);          // the empty unrolling of an all-optional pattern is a hit at every start (A5-8c3b, F217)
         var hits = new List<ProteinPatternHit>();
         for (int pos = 0; pos < bits.Length; pos++)
         {
@@ -249,7 +265,7 @@ public static partial class GenomicAnalyzer
                 int anchor = frame == -3 && selector is "R" or "6" ? end : begin;
                 int embossStart = frame > 0 ? anchor + framenum + 3 * s - 4 : anchor - framenum - 3 * s + 4;
                 int embossEnd = frame > 0 ? anchor + framenum + 3 * e - 2 : anchor - framenum - 3 * e + 2;
-                result.Add(new TranslatedPatternHit(frame, s, e, protein.Substring(hit.Position, hit.Length), position, 3 * hit.Length, embossStart, embossEnd, hit.Mismatches));
+                result.Add(new TranslatedPatternHit(frame, s, e, EmbossText.SubstringFromEnd(protein, hit.Position, hit.Position + hit.Length - 1), position, 3 * hit.Length, embossStart, embossEnd, hit.Mismatches));
             }
         }
 

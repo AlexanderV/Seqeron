@@ -292,8 +292,9 @@ public sealed class ProteinPattern
     /// <c>fuzzpro</c> / <c>fuzztran</c> with a range (<c>patOUBrute</c>, A5-8c2) lets a mismatch fall only on the mandatory part and fails when the sequence ends while elements are left over (the same model as <see cref="FuzznucPattern.ExpandPaths"/>).
     /// Not de-duplicated: the same sets can come from different choices.
     /// </summary>
+    /// <param name="includeEmpty">Also the unrolling in which every element chose zero repeats (the empty hit of a pattern whose elements are all optional, A5-8c3b F217).</param>
     /// <exception cref="ArgumentException">The repeat ranges allow more than <see cref="MaxCombinations"/> combinations.</exception>
-    internal IReadOnlyList<ProteinPatternPath> ExpandPaths()
+    internal IReadOnlyList<ProteinPatternPath> ExpandPaths(bool includeEmpty = false)
     {
         double combinations = 1;
         foreach (var e in _elements)
@@ -309,7 +310,7 @@ public sealed class ProteinPattern
         {
             if (index == _elements.Length)
             {
-                if (sets.Count > 0)
+                if (sets.Count > 0 || includeEmpty)
                     paths.Add(new ProteinPatternPath(sets.ToArray(), extras.ToArray(), lastEmpty));
                 return;
             }

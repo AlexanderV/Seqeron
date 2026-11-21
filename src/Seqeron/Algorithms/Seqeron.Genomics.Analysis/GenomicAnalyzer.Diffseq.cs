@@ -205,7 +205,11 @@ public sealed record EmbossDiffseqRequest(string Fasta1, string Fasta2, int Word
 /// <param name="Report">The <c>-outfile</c> report (7 report tags, default format <c>diffseq</c>).</param>
 /// <param name="FeatureFile1"><c>-aoutfeat</c>: the GFF3 feature file of the first sequence (empty when the program writes nothing).</param>
 /// <param name="FeatureFile2"><c>-boutfeat</c>: the GFF3 feature file of the second sequence.</param>
-public sealed record EmbossDiffseqOutput(string Report, string FeatureFile1, string FeatureFile2);
+public sealed record EmbossDiffseqOutput(string Report, string FeatureFile1, string FeatureFile2)
+{
+    /// <summary>The differences found (positions in the coordinates of the sequences as the program holds them after <c>-sbegin</c> / <c>-send</c> / <c>-sreverse</c>); null when the sequences share no word of the word size.</summary>
+    public DiffseqResult? Result { get; init; }
+}
 
 /// <summary>
 /// The files of the EMBOSS 6.6.0 program <c>diffseq</c> (<c>diffseq.c</c>; B09 A5-8c3, F196): <see cref="GenomicAnalyzer.Diffseq(string, string, int, bool, CancellationToken)"/> for the differences, the seven-tag report
@@ -218,7 +222,7 @@ public static class EmbossDiffseqPrograms
     private static EmbossFeatureTag Note(string text) => new("note", text);
 
     /// <summary>Runs <c>diffseq</c>.</summary>
-    /// <exception cref="ArgumentException">An input has no FASTA record, the second sequence is of another kind (nucleotide / protein) than the first, a sequence qualifier is given (the sequence qualifiers of diffseq are not ported), or the report qualifiers are refused.</exception>
+    /// <exception cref="ArgumentException">An input has no FASTA record, the second sequence is of another kind (nucleotide / protein) than the first, or the sequence / report qualifiers are refused.</exception>
     /// <exception cref="EmbossReportException">The report format is not written for the sequence type.</exception>
     public static EmbossDiffseqOutput Run(EmbossDiffseqRequest r)
     {
@@ -226,8 +230,6 @@ public static class EmbossDiffseqPrograms
         ArgumentNullException.ThrowIfNull(r.Fasta1);
         ArgumentNullException.ThrowIfNull(r.Fasta2);
         var (inputs, rq) = EmbossSequenceQualifiers.ParseInputsAndReport("diffseq", r.ReportQualifiers);
-        if (inputs.Any(q => q != EmbossSequenceQualifiers.None))
-            throw new ArgumentException("The sequence qualifiers (-sbegin1 -send1 -sreverse1 ... of diffseq) are not ported.", nameof(r));
         var records1 = EmbossFastaReader.Read(r.Fasta1);
         var records2 = EmbossFastaReader.Read(r.Fasta2);
         if (records1.Count == 0 || records2.Count == 0)
@@ -243,7 +245,8 @@ public static class EmbossDiffseqPrograms
         string formatText = rq.Format ?? "diffseq";
         if (!EmbossReportFormats.TryParse(formatText, out var format))
             throw new EmbossReportException($"Unknown report format '{formatText}'");
-        string usa1 = "fasta::" + r.FastaFile1 + ":" + rec1.Name, usa2 = "fasta::" + r.FastaFile2 + ":" + rec2.Name;
+        // seqMakeUsa after ajSeqTrim: the range is cut (begin = end = 0) and only a reversed sequence keeps a suffix, "[::r]"
+        string usa1 = "fasta::" + r.FastaFile1 + ":" + rec1.Name + (view1.Reversed ? "[::r]" : ""), usa2 = "fasta::" + r.FastaFile2 + ":" + rec2.Name + (view2.Reversed ? "[::r]" : "");
         string name2 = rq.ShowUsa ? usa2 : rec2.Name;
         string file1 = r.FeatureFile1 ?? rec1.Name + ".diffgff", file2 = r.FeatureFile2 ?? rec2.Name + ".diffgff";
 
@@ -344,7 +347,7 @@ public static class EmbossDiffseqPrograms
             TotalLength = len1 + len2,
             AdditionalFiles = [new(file1, "Feature file for first sequence"), new(file2, "Feature file for second sequence")],
         };
-        var sequence = new EmbossReportSequence(rec1.Name, usa1, rec1.Accession, rec1.Description, s1, 1, len1, 0, view1.Reversed, nuc);
+        var sequence = new EmbossReportSequence(rec1.Name, usa1, rec1.Accession, rec1.Description, s1, 1, len1, view1.Offset, view1.Reversed, nuc);
         var table = new EmbossReport(sequence, reportFeatures, !nuc, nuc ? "N" : "P", TableLength: Math.Max(len1, EmbossReportWriter.UnsignedRegionEnd(reportFeatures)), Tags: options.Tags, WriteWhenEmpty: true);
         string report = EmbossReportWriter.WriteFile(options, [table]);
 
@@ -357,7 +360,7 @@ public static class EmbossDiffseqPrograms
 
         if (result is null)
             return new EmbossDiffseqOutput(report, "", "");
-        return new EmbossDiffseqOutput(report, FeatureText(rec1.Name, usa1, s1, view1.Reversed, features1), FeatureText(rec2.Name, usa2, s2, view2.Reversed, features2));
+        return new EmbossDiffseqOutput(report, FeatureText(rec1.Name, usa1, s1, view1.Reversed, features1), FeatureText(rec2.Name, usa2, s2, view2.Reversed, features2)) { Result = result };
     }
 
     // diffseq_WordMatchListConvDiffToFeat: a "conflict" feature in each sequence that has a stretch of the difference

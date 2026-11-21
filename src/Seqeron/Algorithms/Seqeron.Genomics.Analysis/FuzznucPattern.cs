@@ -315,8 +315,9 @@ public sealed class FuzznucPattern
     /// position — unlike <see cref="ExpandWithExtras"/> this keeps the kind of the element (letter, class, exclusion), which the literal sequence reading
     /// (<see cref="Matches(int, char)"/>) needs. Paths without a base are omitted; an element with an empty base set (<c>{ACGT}</c>) can still stand in a path.
     /// </summary>
+    /// <param name="includeEmpty">Also the path of a pattern whose elements are ALL optional with every count 0 (the empty hit that <c>fuzznuc</c> lists as <c>end = start - 1</c>, A5-8c3b F217); default false.</param>
     /// <exception cref="ArgumentException">The repeat ranges allow more than <see cref="MaxCombinations"/> combinations.</exception>
-    public IReadOnlyList<PatternPath> ExpandPaths()
+    public IReadOnlyList<PatternPath> ExpandPaths(bool includeEmpty = false)
     {
         double combinations = 1;
         foreach (var e in _elements)
@@ -332,7 +333,7 @@ public sealed class FuzznucPattern
         {
             if (index == _elements.Length)
             {
-                if (positions.Count > 0)
+                if (positions.Count > 0 || includeEmpty)
                     paths.Add(new PatternPath(positions.ToArray(), extras.ToArray(), lastEmpty));
                 return;
             }

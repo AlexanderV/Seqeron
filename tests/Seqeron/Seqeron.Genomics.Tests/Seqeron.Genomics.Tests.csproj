@@ -102,6 +102,8 @@
     <EmbeddedResource Include="TestData\Alignment\mash_alphabet_dist_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\mash_alphabet_screen_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\mash_taxscreen_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\diffseq_qualifiers_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\fuzznuc_optional_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\emboss_ncbi_pattern_oracle.jsonl.gz" />
     <!-- A4-4 (B09 F156): option boundaries of minimap2 chaining / mgaps / etandem measured on the installed programs; scripts/alignment/generate_option_boundary_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\option_boundary_oracle.json" />
