@@ -5,7 +5,7 @@ namespace Seqeron.Mcp.Alignment.Tests;
 
 /// <summary>
 /// MCP <c>minimap2_map</c> (B09 A3-9c2 / A5-9b / A5-9c / A5-9d, F187 - F189): minimap2 2.26 as a program (<c>-c</c> / <c>-a</c>, paired reads, the options) on the same synthetic genome as <see cref="Minimap2PresetToolsTests"/>; the expected lines are
-/// those of the installed program (<c>minimap2 [options] ref.fa query.fa</c>); the library tests compare 6 903 whole outputs.
+/// those of the installed program (<c>minimap2 [options] ref.fa query.fa</c>); the library tests compare 7 201 whole outputs.
 /// </summary>
 [TestFixture]
 public class Minimap2MapToolTests

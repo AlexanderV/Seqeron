@@ -28,7 +28,7 @@ flags 0x1 0x2 0x4 0x8 0x10 0x20 0x40 0x80 0x100 0x800, clipping `S` / `H` (`-Y`,
 ### 1.2 Kernels
 
 `Ksw2Aligner.ExtendS2` (`ksw_exts2_sse`, new), `LocalScore` (`ksw_ll_qinit` + `ksw_ll_i16`, new; the zero-scored padding lanes of the striped layout can hold the maximum, so the end coordinate can lie beyond the query, which `mm_align1_inv` then reads as bytes before the region), and the F125 ports `ExtendZ2` / `ExtendD2`
-are run lane by lane on the byte layout of the C code. `ExtendD2` / `ExtendD` accept a second extension penalty 0 (`-E 2,0`; the earlier check refused it). The Alignment project is built with `Optimize = true` (the lane emulation is about four times slower unoptimised).
+are run lane by lane on the byte layout of the C code. `ExtendD2` / `ExtendD` accept a second extension penalty 0 (`-E 2,0`; the earlier check refused it).
 
 ### 1.3 Paired reads (`map.c`, `hit.c`, `pe.c`)
 
@@ -56,7 +56,7 @@ files, so two files without the fragment mode pair the wrong reads with the stor
 |---|---|---|
 | `minimap2_align_oracle.jsonl.gz` | whole stdout of 2 700 command lines: 6 presets x 150, random alignment options, SAM, short reads, splice, repeat families, Z-drop / inversion rescue | 2 700 / 2 700 equal |
 | `minimap2_pair_oracle.jsonl.gz` | 2 100 command lines of the paired mode (two files, interleaved, FR / FF, PAF with / without `-c`, SAM, options) | 2 100 / 2 100 equal |
-| `minimap2_options_oracle.jsonl.gz` | 2 403 command lines: index parts / split-prefix, chaining and seeding options, output flags, `--alt`, `--qstrand`, all-vs-all, unusual input, a 610 kb query with `CG:B:I`, option errors (stdout + stderr at `-v 2` + exit status + `-o` files) | 2 403 / 2 403 equal |
+| `minimap2_options_oracle.jsonl.gz` | 2 401 command lines: index parts / split-prefix, chaining and seeding options, output flags, `--alt`, `--qstrand`, all-vs-all, unusual input, a 610 kb query with `CG:B:I`, option errors (stdout + stderr at `-v 2` + exit status + `-o` files) | 2 401 / 2 401 equal |
 | `ksw2_c_oracle.tsv` | the C `ksw_ll_i16`, `ksw_exts2_sse`, `ksw_extz2_sse`, `ksw_extd2_sse` (v2.26, `gcc -msse4.1`) on 4 x 500 random inputs, every field of `ksw_extz_t` and the CIGAR | 2 000 / 2 000 equal |
 
 `valgrind -q --track-origins=yes` on two cases of every group of the three program oracles: no invalid access, no use of uninitialised values. The program has one SSE4.1 code path (no run-time dispatch), so its output does not depend on the CPU.

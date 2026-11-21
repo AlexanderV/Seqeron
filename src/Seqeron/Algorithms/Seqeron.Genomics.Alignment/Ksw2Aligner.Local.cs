@@ -49,7 +49,6 @@ public static partial class Ksw2Aligner
     /// <param name="mat">The <c>m * m</c> score matrix, indexed <c>mat[target * m + query]</c>.</param>
     /// <param name="gapOpen">Gap open penalty (a gap of length k costs <c>gapOpen + k * gapExtend</c>).</param>
     /// <param name="gapExtend">Gap extension penalty.</param>
-    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveOptimization)]
     public static LocalScoreResult LocalScore(byte[] query, byte[] target, int m, sbyte[] mat, int gapOpen, int gapExtend)
     {
         CheckInputs(query, target, m, mat);

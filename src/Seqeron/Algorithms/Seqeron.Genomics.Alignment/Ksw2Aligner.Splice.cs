@@ -20,7 +20,6 @@ public static partial class Ksw2Aligner
     /// <param name="juncBonus">Bonus of an annotated junction.</param>
     /// <param name="flag">The <see cref="Ksw2Option"/> flags (<see cref="Ksw2Option.SpliceForward"/> / <see cref="Ksw2Option.SpliceReverse"/>, <see cref="Ksw2Option.SpliceFlank"/>, <see cref="Ksw2Option.SpliceComplex"/>, <see cref="Ksw2Option.ReverseCigar"/> ...).</param>
     /// <param name="junc">Junction flags of the target positions (bit 0: forward donor, bit 1: forward acceptor, bit 2: reverse acceptor, bit 3: reverse donor), or null.</param>
-    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveOptimization)]
     public static Ksw2Result ExtendS2(byte[] query, byte[] target, int m, sbyte[] mat, int q, int e, int q2, int noncan, int zdrop, int juncBonus, Ksw2Option flag = Ksw2Option.None, byte[]? junc = null)
     {
         CheckInputs(query, target, m, mat);

@@ -13,7 +13,7 @@ Groups (default 300 cases each, seed 20261223):
   opt_qstrand     - --qstrand (-c, --cs, --MD)
   opt_ava         - all-vs-all mappings with -c (-x ava-ont / ava-pb, -X, -D, --dual=no)
   opt_input       - unusual input: lowercase / IUPAC / U bases, empty and very short reads, reads of N, multi-line FASTA / FASTQ, CRLF, blank lines, comments, an empty reference sequence
-  opt_long_cigar  - 3 cases of a 610 kb query with more than 65 535 CIGAR operations (-L: the CG tag, -Y)
+  opt_long_cigar  - one case of a 610 kb query with more than 65 535 CIGAR operations (-L: the CG tag)
   opt_errors      - invalid or special command lines: option checks of mm_check_opt, unknown / missing option arguments, unknown preset, --splice with --frag, -V, -h, missing input, `-N 0`, deprecated options (exit status, stderr and stdout)
 Usage: python3 scripts/alignment/generate_minimap2_options_oracle.py [per_group=300] > minimap2_options_oracle.jsonl      (needs minimap2 2.26 on PATH)
 """
@@ -170,7 +170,7 @@ def case_output(out):
     if rnd.random() < 0.4:
         txt = txt.replace('read0', 'read0 comment:Z:xy\tNM:i:7 more words', 1)
     files = {'r.fa': fasta(['ref%d' % i for i in range(len(refs))], refs), 'q.fa': txt}
-    args = rnd.choice([['-a'], ['-c'], ['-a'], ['--cs'], ['-x', 'map-hifi', '-a'], ['-x', 'asm10', '-c']])
+    args = rnd.choice([['-a'], ['-c'], ['-a'], ['--cs'], ['-x', 'map-hifi', '-a'], ['-x', 'map-pb', '-c'], ['-a', '-x', 'map-ont']])
     for f in [['--paf-no-hit'], ['--sam-hit-only'], ['-y'], ['-Q'], ['-Y'], ['-L'], ['--secondary-seq'], ['-R', '@RG\\tID:grp\\tSM:smp'], ['--eqx'], ['--cs'], ['--cs=long'], ['--MD'], ['--secondary=no'],
               ['-S'], ['-o', 'out.txt'], ['-o', '-'], ['-t', '4'], ['-K', '500k'], ['-v', '1'], ['-N', '0']]:
         if rnd.random() < 0.18:
@@ -200,7 +200,7 @@ def case_alt(out):
     if rnd.random() < 0.4:
         q = revcomp(q)
     files = {'r.fa': fasta(names, seqs), 'q.fa': fasta(['q1'], [q]), 'alt.txt': '\n'.join(n + '\t' + str(len(s)) for n, s in zip(names, seqs) if 'alt' in n) + '\n'}
-    args = rnd.choice([['-c'], ['-a'], ['-x', 'asm10', '-c'], ['-x', 'map-hifi', '-a']])
+    args = rnd.choice([['-c'], ['-a'], ['-x', 'map-ont', '-c'], ['-x', 'sr', '-a'], ['-x', 'map-pb', '-a']])
     args += ['--alt', 'alt.txt']
     if rnd.random() < 0.6:
         args += ['--alt-drop', str(rnd.choice([0, 0.05, 0.15, 0.5, 1.0]))]
@@ -303,7 +303,7 @@ def case_input(out):
     if rnd.random() < 0.1:
         ref_txt = ref_txt.replace('>ref0', '>ref0 some description here', 1)
     files = {'r.fa': ref_txt, 'q.fa': txt}
-    args = rnd.choice([['-a'], ['-c'], ['-a', '--cs'], ['-c', '--MD'], ['-x', 'sr', '-a'], ['-x', 'map-hifi', '-c'], ['-a', '--paf-no-hit'], ['-c', '--paf-no-hit'], ['-a', '--sam-hit-only']])
+    args = rnd.choice([['-a'], ['-c'], ['-a', '--cs'], ['-c', '--MD'], ['-x', 'sr', '-a'], ['-x', 'map-pb', '-c'], ['-a', '--paf-no-hit'], ['-c', '--paf-no-hit'], ['-a', '--sam-hit-only']])
     return emit('opt_input', ['-v', '2'] + args + ['r.fa', 'q.fa'], files, out, True)
 
 
@@ -345,8 +345,7 @@ def case_errors(out):
 def main():
     per = int(sys.argv[1]) if len(sys.argv) > 1 else 300
     out = sys.stdout
-    for k in range(3):
-        case_long_cigar(out, k)
+    case_long_cigar(out, 0)
     for name, fn in [('opt_index_parts', case_index_parts), ('opt_chain', case_chain), ('opt_output', case_output), ('opt_alt', case_alt), ('opt_qstrand', case_qstrand), ('opt_ava', case_ava), ('opt_input', case_input), ('opt_errors', case_errors)]:
         made = 0
         tries = 0

@@ -5,8 +5,6 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>Seqeron.Genomics.Alignment</RootNamespace>
-    <!-- The ksw2 / minimap2 ports emulate the 16-lane SSE code lane by lane: unoptimized Debug code is ~4x slower on the oracle tests (several thousand alignments). -->
-    <Optimize>true</Optimize>
   </PropertyGroup>
 
   <ItemGroup>
