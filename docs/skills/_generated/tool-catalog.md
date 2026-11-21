@@ -86,7 +86,7 @@
 | `water_align` | `SequenceAligner.WaterAlign` | [doc](../../mcp/tools/alignment/water_align.md) |
 | `write_alignment` | `EmbossAlignmentWriter.Format` | [doc](../../mcp/tools/alignment/write_alignment.md) |
 
-## Analysis (159 tools)
+## Analysis (160 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -208,6 +208,7 @@
 | `most_frequent_kmers` | `KmerAnalyzer.FindMostFrequentKmers` | [doc](../../mcp/tools/analysis/most_frequent_kmers.md) |
 | `multibranch_loop_energy` | `RnaSecondaryStructure.CalculateMultibranchLoopEnergy` | [doc](../../mcp/tools/analysis/multibranch_loop_energy.md) |
 | `multiple_alignment_statistics` | `MultipleAlignmentStatistics.Calculate` | [doc](../../mcp/tools/analysis/multiple_alignment_statistics.md) |
+| `mummer` | `MummerProgram.Run` | [doc](../../mcp/tools/analysis/mummer.md) |
 | `nucmer` | `GenomicAnalyzer.Nucmer` | [doc](../../mcp/tools/analysis/nucmer.md) |
 | `nucmer_clusters` | `GenomicAnalyzer.FindNucmerClusters` | [doc](../../mcp/tools/analysis/nucmer_clusters.md) |
 | `oligo_analysis` | `MotifFinder.DiscoverMotifs` | [doc](../../mcp/tools/analysis/oligo_analysis.md) |

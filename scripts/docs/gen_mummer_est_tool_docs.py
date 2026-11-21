@@ -5,7 +5,7 @@ Only creates a document that does not exist yet (hand text of an existing one is
 import json, os, sys
 
 ROOT = 'docs/mcp/tools/analysis'
-SPEC = json.load(open(os.path.join(os.path.dirname(__file__), 'mummer_est_tool_spec.json')))
+SPEC = json.load(open(sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(__file__), 'mummer_est_tool_spec.json')))
 
 for t in SPEC:
     name = t['name']

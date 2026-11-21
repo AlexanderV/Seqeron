@@ -16,5 +16,5 @@ public sealed class ToolDocsContractTests : ToolDocsContractTestsBase
     protected override string DocsServer => "analysis";
 
     protected override string[] OwnedMethodIdPrefixes { get; } =
-        ["SequenceAligner.", "GenomicAnalyzer.", "MultipleAlignment", "AnchorBasedAligner.", "DotMatcher.", "Minimap2Chaining.", "NucmerClusters.", "Ksw2Aligner.", "AlignmentFormats.", "MashCommands.", "MotifFinder.GenerateEmbossAmbiguousConsensus", "MummerDeltaFilter.", "MummerShow", "EmbossEst2genomePrograms."];
+        ["SequenceAligner.", "GenomicAnalyzer.", "MultipleAlignment", "AnchorBasedAligner.", "DotMatcher.", "Minimap2Chaining.", "NucmerClusters.", "Ksw2Aligner.", "AlignmentFormats.", "MashCommands.", "MotifFinder.GenerateEmbossAmbiguousConsensus", "Mummer", "EmbossEst2genomePrograms."];
 }

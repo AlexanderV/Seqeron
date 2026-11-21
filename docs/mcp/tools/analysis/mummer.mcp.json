@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "mummer",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MummerProgram.Run",
+  "docRef": "MummerProgram.cs",
+  "description": "MUMmer 3.23 mummer (Kurtz' maxmat3): the maximal exact matches between a reference file and one or more query files. matchMode 'mumreference' (default, -mumreference / -mumcand) reports matches unique in the reference, 'mum' (-mum) matches unique in both, 'maxmatch' (-maxmatch) every maximal match; minLength = -l (default 20); nucleotidesOnly (-n) matches only a, c, g, t (any case) - without it every character is a letter of the alphabet (also protein text), both (-b) adds the reverse-complement strand of the query, reverseOnly (-r) only that strand. Output per query record: a '> id' line ('> id Reverse' for the reverse strand, '  Len = n' appended with showSequenceLengths = -L) and one line per match: reference position, query position, length (%8lu columns; with several reference records or fourColumn = -F the reference id is the first column; for reverse matches the query position is a position in the reverse-complemented query, or with showReversePositions = -c relative to the original query), followed by the matching text with showString (-s). Matches come in the order the suffix tree of the program enumerates them (per query position, the reference occurrences in lexicographic order of their suffixes; -mum by reference position). The reference records are joined by a separator no match can span; text before the first '>' belongs to the first record; the residues are lower-cased. The file read errors of the program (empty file, no header, only empty records) and its option conflicts (-b with -r, -c without -b / -r, a non-positive -l, no query file, more than 32 query files) are errors. Byte for byte equal to the installed mummer on 3 200 random runs (every mode, every option, multi-record files, N / IUPAC / odd characters, CR LF).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "reference": {
+        "type": "string",
+        "description": "Reference FASTA text (multi-record)."
+      },
+      "queries": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Query FASTA texts (at most 32 files); each is matched in turn."
+      },
+      "matchMode": {
+        "type": "string",
+        "description": "Matching algorithm: 'mumreference' (default, -mumreference / -mumcand), 'mum' (-mum) or 'maxmatch' (-maxmatch).",
+        "default": "mumreference"
+      },
+      "nucleotidesOnly": {
+        "type": "boolean",
+        "description": "-n: match only the characters a, c, g, t (default false).",
+        "default": false
+      },
+      "minLength": {
+        "type": "integer",
+        "description": "-l: minimum length of a match (default 20).",
+        "default": 20
+      },
+      "both": {
+        "type": "boolean",
+        "description": "-b: compute forward and reverse-complement matches (default false).",
+        "default": false
+      },
+      "reverseOnly": {
+        "type": "boolean",
+        "description": "-r: compute only reverse-complement matches (default false).",
+        "default": false
+      },
+      "showString": {
+        "type": "boolean",
+        "description": "-s: show the matching substrings (default false).",
+        "default": false
+      },
+      "showReversePositions": {
+        "type": "boolean",
+        "description": "-c: report the query position of a reverse match relative to the original query (needs both or reverseOnly; default false).",
+        "default": false
+      },
+      "fourColumn": {
+        "type": "boolean",
+        "description": "-F: force the 4 column format also for a single reference record (default false).",
+        "default": false
+      },
+      "showSequenceLengths": {
+        "type": "boolean",
+        "description": "-L: show the length of the query sequence on the header line (default false).",
+        "default": false
+      },
+      "referenceName": {
+        "type": "string",
+        "description": "The reference file name shown in the messages (default reference.fa).",
+        "default": "reference.fa"
+      }
+    },
+    "required": [
+      "reference",
+      "queries"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "text": {
+        "type": "string",
+        "description": "What mummer writes to standard output."
+      },
+      "messages": {
+        "type": "string",
+        "description": "The deterministic lines of standard error ('# reading input file ...'; the timing lines are left out)."
+      }
+    },
+    "required": [
+      "text",
+      "messages"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1001,
+      "message": "At least one query file is required"
+    },
+    {
+      "code": 1001,
+      "message": "matchMode must be 'mumreference', 'mum' or 'maxmatch'"
+    },
+    {
+      "code": 1001,
+      "message": "mummer: empty sequence in multiple fasta file"
+    },
+    {
+      "code": 1001,
+      "message": "mummer: option -b and option -r exclude each other"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Maximal unique matches on both strands",
+      "input": {
+        "reference": ">r\nacgtacgtacgtaaccggtt\n",
+        "queries": [
+          ">q\nacgtacgtaacctacgtacgtacgtaaccggtta\n"
+        ],
+        "matchMode": "mum",
+        "minLength": 8,
+        "both": true,
+        "showString": true
+      },
+      "output": {
+        "text": "> q\n       1        14        20\nacgtacgtacgtaaccggtt\n> q Reverse\n       1        10        13\nacgtacgtacgta\n      12         1         9\ntaaccggtt\n",
+        "messages": "# reading input file \"reference.fa\" of length 20\n# construct suffix tree for sequence of length 20\n# (maximum reference length is 536870908)\n# (maximum query length is 4294967295)\n# reading input file \"query.fa\" of length 34\n# matching query-file \"query.fa\"\n# against subject-file \"reference.fa\"\n"
+      }
+    }
+  ]
+}

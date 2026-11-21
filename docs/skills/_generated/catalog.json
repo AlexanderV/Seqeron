@@ -1365,6 +1365,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MultipleAlignmentStatistics.cs#L110"
   },
   {
+    "tool": "mummer",
+    "server": "Analysis",
+    "methodId": "MummerProgram.Run",
+    "docPath": "docs/mcp/tools/analysis/mummer.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/MummerProgram.cs"
+  },
+  {
     "tool": "nucmer",
     "server": "Analysis",
     "methodId": "GenomicAnalyzer.Nucmer",
