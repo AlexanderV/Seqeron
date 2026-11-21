@@ -242,3 +242,5 @@ validate (null, k >= 1) and return `KmerAnalyzer.JaccardSimilarity(a.Sequence, b
 | M-A5-10 | `MashCommands_Oracle_Tests.Bounds_...` / `Dist_TableAndFilters_...` / `Triangle_MatrixAndEdgeList_...`, MCP `MashToolsTests` | `mash bounds` / `dist` (`-t -v -d -i -n`) / `triangle` (`-E -v -d -i`) as the installed mash 2.3 writes them: 660 rows byte-equal (docs/algorithms/Alignment/Mash_Commands.md) |
 | M-A6-1 | `KmerAnalyzer_SketchStreaming_Tests` | the sketch builders stream a rolling 2-bit window: equal to the previous string-per-k-mer implementation on 1 200 + 1 200 random inputs, memory O(s), cancellation |
 | M-A6-6 | `MashCommands_Oracle_Tests.FilesWithoutARecordOfKSymbols_AreRefused_...` | the program's refusal of a file whose records are all shorter than k (80 rows) |
+| M-A5-10b2 | `MashAlphabet_Oracle_Tests` (sketch files / dist + triangle / screen: 900 runs), `MashTaxScreen_Oracle_Tests` (300), MCP `MashToolsTests` | the alphabet options `-a -z -Z` (protein sketches, six-frame screen of amino-acid queries) and `mash taxscreen` against the installed mash 2.3: all equal (docs/algorithms/Alignment/Mash_Commands.md, B09 F214 / F215) |
+

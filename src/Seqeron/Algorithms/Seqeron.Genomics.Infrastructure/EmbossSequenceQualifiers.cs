@@ -24,6 +24,9 @@ public sealed record EmbossSequenceQualifiers
     /// <summary><c>-send</c>: last position to use, 1-based; a negative value counts from the end (-1 = the last residue); 0 = the end.</summary>
     public int End { get; init; }
 
+    /// <summary><c>-sformat</c>: the input sequence format as typed (read by <see cref="EmbossEntryReader"/>: fasta, genbank, embl); null = the program finds the format itself.</summary>
+    public string? Format { get; init; }
+
     /// <summary><c>-sreverse</c>: use the reverse complement (only for a nucleotide sequence; a protein is left alone). The range then refers to the ORIGINAL sequence.</summary>
     public bool Reverse { get; init; }
 
@@ -202,7 +205,7 @@ public sealed record EmbossSequenceQualifiers
             };
         }
 
-        return q;                                          // sformat, iquery, sdbname, sid, ufo, fformat, fopenfile: accepted, not interpreted
+        return item.Name == "sformat" ? q with { Format = raw } : q;      // iquery, sdbname, sid, ufo, fformat, fopenfile: accepted, not interpreted
     }
 
     /// <summary>True when no qualifier differs from the default.</summary>

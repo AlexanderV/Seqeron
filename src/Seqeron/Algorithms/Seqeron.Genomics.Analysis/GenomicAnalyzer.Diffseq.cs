@@ -230,14 +230,15 @@ public static class EmbossDiffseqPrograms
         ArgumentNullException.ThrowIfNull(r.Fasta1);
         ArgumentNullException.ThrowIfNull(r.Fasta2);
         var (inputs, rq) = EmbossSequenceQualifiers.ParseInputsAndReport("diffseq", r.ReportQualifiers);
-        var records1 = EmbossFastaReader.Read(r.Fasta1);
-        var records2 = EmbossFastaReader.Read(r.Fasta2);
-        if (records1.Count == 0 || records2.Count == 0)
-            throw new ArgumentException("An input has no FASTA record.", nameof(r));
-        var rec1 = records1[0];
-        var rec2 = records2[0];
+        var entry1 = ReadEntry(r.Fasta1, inputs[0]);
+        var entry2 = ReadEntry(r.Fasta2, inputs[1]);
+        var rec1 = entry1.Record;
+        var rec2 = entry2.Record;
         var view1 = EmbossInputSequence.Read(rec1.Text, inputs[0], EmbossSequenceType.Any);
         var view2 = EmbossInputSequence.Read(rec2.Text, inputs[1], view1.IsNucleotide ? EmbossSequenceType.Nucleotide : EmbossSequenceType.StopProtein);
+        // the feature tables follow the sequence: ajSeqSetRange reverses the table of a reversed sequence (ilen = the length of the whole sequence), ajSeqTrim cuts it (ajFeattableTrimOff)
+        var table1 = PrepareFeatures(entry1.Features, view1);
+        var table2 = PrepareFeatures(entry2.Features, view2);
         string s1 = view1.Residues, s2 = view2.Residues;
         int len1 = s1.Length, len2 = s2.Length;
         bool nuc = view1.IsNucleotide;
@@ -246,7 +247,7 @@ public static class EmbossDiffseqPrograms
         if (!EmbossReportFormats.TryParse(formatText, out var format))
             throw new EmbossReportException($"Unknown report format '{formatText}'");
         // seqMakeUsa after ajSeqTrim: the range is cut (begin = end = 0) and only a reversed sequence keeps a suffix, "[::r]"
-        string usa1 = "fasta::" + r.FastaFile1 + ":" + rec1.Name + (view1.Reversed ? "[::r]" : ""), usa2 = "fasta::" + r.FastaFile2 + ":" + rec2.Name + (view2.Reversed ? "[::r]" : "");
+        string usa1 = entry1.Format + "::" + r.FastaFile1 + ":" + rec1.Name + (view1.Reversed ? "[::r]" : ""), usa2 = entry2.Format + "::" + r.FastaFile2 + ":" + rec2.Name + (view2.Reversed ? "[::r]" : "");
         string name2 = rq.ShowUsa ? usa2 : rec2.Name;
         string file1 = r.FeatureFile1 ?? rec1.Name + ".diffgff", file2 = r.FeatureFile2 ?? rec2.Name + ".diffgff";
 
@@ -282,7 +283,12 @@ public static class EmbossDiffseqPrograms
                     between = true;
                 }
 
-                var tags = new List<EmbossFeatureTag> { Note("*name " + name2), Note("*length " + Int(d.Len2)) };
+                // diffseq_Features: the features of each sequence that overlap the difference, first those of the first sequence then those of the second, before the program's own notes
+                var tags = new List<EmbossFeatureTag>();
+                tags.AddRange(FeatureNotes("first_feature", table1, d.Start1, d.End1));
+                tags.AddRange(FeatureNotes("second_feature", table2, d.Start2, d.End2));
+                tags.Add(Note("*name " + name2));
+                tags.Add(Note("*length " + Int(d.Len2)));
                 if (rev2)
                     tags.Add(Note("*strand -"));
                 if (d.Len2 > 0)
@@ -361,6 +367,51 @@ public static class EmbossDiffseqPrograms
         if (result is null)
             return new EmbossDiffseqOutput(report, "", "");
         return new EmbossDiffseqOutput(report, FeatureText(rec1.Name, usa1, s1, view1.Reversed, features1), FeatureText(rec2.Name, usa2, s2, view2.Reversed, features2)) { Result = result };
+    }
+
+    // the first entry of the input text in the format of -sformat (or the one the program finds); the plain FASTA reader keeps its own messages
+    private static EmbossEntry ReadEntry(string text, EmbossSequenceQualifiers qualifiers)
+    {
+        try
+        {
+            return EmbossEntryReader.Read(text, qualifiers.Format);
+        }
+        catch (ArgumentException e) when (e.Message.StartsWith("Unable to read sequence", StringComparison.Ordinal) && qualifiers.Format is null)
+        {
+            throw new ArgumentException("An input has no FASTA record.", nameof(text), e);
+        }
+    }
+
+    private static EmbossSeqFeatureTable? PrepareFeatures(EmbossSeqFeatureTable? table, EmbossSequenceView view)
+    {
+        if (table is null)
+            return null;
+        if (view.Reversed)
+            table.Reverse();
+        table.TrimOff(view.Offset, view.Residues.Length);
+        return table;
+    }
+
+    // diffseq_Features + diffseq_AddTags: "*first_feature TYPE start-end tag='value' ..." for every feature (but source) that overlaps [start, end]; the translation is left out
+    private static IEnumerable<EmbossFeatureTag> FeatureNotes(string kind, EmbossSeqFeatureTable? table, int start, int end)
+    {
+        if (table is null)
+            yield break;
+        foreach (var f in table.Features)
+        {
+            if ((uint)start > (uint)f.GetEnd() || (uint)end < (uint)f.GetStart())        // ajuint parameters and results: a negative position (the first difference of -globaldifferences with no match starts at -1) is a huge number
+                continue;
+            if (f.Type.Length == 0 || f.Type == "source")
+                continue;
+            var sb = new System.Text.StringBuilder("*").Append(kind).Append(' ').Append(f.Type).Append(' ').Append(Int(f.GetStart())).Append('-').Append(Int(f.GetEnd()));
+            foreach (var (name, value) in f.Tags)
+            {
+                if (name != "translation")
+                    sb.Append(' ').Append(name).Append("='").Append(value).Append('\'');
+            }
+
+            yield return Note(sb.ToString());
+        }
     }
 
     // diffseq_WordMatchListConvDiffToFeat: a "conflict" feature in each sequence that has a stretch of the difference

@@ -139,6 +139,70 @@ public class EmbossDiffseq_Oracle_Tests
         Assert.That(refused, Is.GreaterThan(5));
     }
 
+    /// <summary>
+    /// A5-8c3b (F218): GenBank and EMBL entries WITH FEATURES as the inputs of diffseq: the <c>first_feature</c> / <c>second_feature</c> notes (type, location, qualifiers) of the 7-tag report and of the other report formats, with the sequence qualifiers
+    /// (the feature table is reversed and trimmed with the sequence), mixed with FASTA inputs, <c>-sformat1</c> (TestData/Alignment/diffseq_features_oracle.jsonl.gz, scripts/alignment/generate_diffseq_features_oracle.py, 420 runs; the GenBank entries
+    /// also reproduce the program's loss of the features when the SOURCE block is followed directly by FEATURES): the report and both GFF3 files byte for byte.
+    /// </summary>
+    [Test]
+    public void Diffseq_FeatureTableInputs_EqualTheProgram_AllRows()
+    {
+        const string name = "Seqeron.Genomics.Tests.TestData.Alignment.diffseq_features_oracle.jsonl.gz";
+        using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(name) ?? throw new InvalidOperationException($"Embedded oracle '{name}' not found.");
+        using var gz = new GZipStream(stream, CompressionMode.Decompress);
+        using var reader = new StreamReader(gz);
+        var failures = new List<string>();
+        int rows = 0, withFeatures = 0, reversed = 0, trimmed = 0, genbank = 0, embl = 0, complement = 0, join = 0;
+        string? line;
+        while ((line = reader.ReadLine()) is not null)
+        {
+            var j = JsonDocument.Parse(line).RootElement;
+            rows++;
+            string rq = j.GetProperty("rq").GetString()!;
+            var cmd = j.GetProperty("cmd").EnumerateArray().Select(x => x.GetString()!).ToList();
+            string file1 = j.GetProperty("file1").GetString()!, file2 = j.GetProperty("file2").GetString()!;
+            var request = new EmbossDiffseqRequest(file1, file2, j.GetProperty("wordsize").GetInt32(), j.GetProperty("glob").GetBoolean(), rq, cmd, DateTimeOffset.FromUnixTimeSeconds(j.GetProperty("epoch").GetInt64()).UtcDateTime,
+                j.GetProperty("name1").GetString()!, j.GetProperty("name2").GetString()!, "o.rep", "a.gff", "b.gff");
+            string report = j.GetProperty("report").GetString()!;
+            EmbossDiffseqOutput got;
+            try
+            {
+                got = EmbossDiffseqPrograms.Run(request);
+            }
+            catch (EmbossReportException e) when (j.GetProperty("error").ValueKind != JsonValueKind.Null && j.GetProperty("error").GetString()!.Contains(e.Message, StringComparison.Ordinal))
+            {
+                continue;
+            }
+            catch (Exception e)
+            {
+                failures.Add($"row {j.GetProperty("id")} ({rq}): {e.GetType().Name}: {e.Message}");
+                continue;
+            }
+
+            if (report.Contains("Feature: ", StringComparison.Ordinal) || report.Contains("first_feature", StringComparison.Ordinal) || report.Contains("second_feature", StringComparison.Ordinal))
+                withFeatures++;
+            if (rq.Contains("-sreverse", StringComparison.Ordinal)) reversed++;
+            if (rq.Contains("-sbegin", StringComparison.Ordinal) || rq.Contains("-send", StringComparison.Ordinal)) trimmed++;
+            if (file1.StartsWith("LOCUS", StringComparison.Ordinal)) genbank++; else embl++;
+            if (file1.Contains("complement(", StringComparison.Ordinal) || file2.Contains("complement(", StringComparison.Ordinal)) complement++;
+            if (file1.Contains("join(", StringComparison.Ordinal) || file2.Contains("join(", StringComparison.Ordinal)) join++;
+            if (got.Report != report)
+                failures.Add($"row {j.GetProperty("id")} ({rq}): report differs at {FirstDifference(got.Report, report)}");
+            else if (got.FeatureFile1 != j.GetProperty("feat1").GetString() || got.FeatureFile2 != j.GetProperty("feat2").GetString())
+                failures.Add($"row {j.GetProperty("id")} ({rq}): feature file differs");
+        }
+
+        Assert.That(failures, Is.Empty, $"{failures.Count} of {rows}:\n" + string.Join("\n", failures.Take(6)));
+        Assert.That(rows, Is.GreaterThanOrEqualTo(400));
+        Assert.That(withFeatures, Is.GreaterThan(150), "reports with feature notes");
+        Assert.That(reversed, Is.GreaterThan(40));
+        Assert.That(trimmed, Is.GreaterThan(80));
+        Assert.That(genbank, Is.GreaterThan(100));
+        Assert.That(embl, Is.GreaterThan(60));
+        Assert.That(complement, Is.GreaterThan(80));
+        Assert.That(join, Is.GreaterThan(100));
+    }
+
     private static string FirstDifference(string a, string b)
     {
         int i = 0;

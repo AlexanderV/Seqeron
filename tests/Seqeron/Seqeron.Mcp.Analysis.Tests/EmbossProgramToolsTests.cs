@@ -77,6 +77,27 @@ public class EmbossProgramToolsTests
     }
 
     [Test]
+    public void Diffseq_GenbankAndEmblFeatures_AsTheProgram()
+    {
+        // diffseq 6.6.0 a.gb b.embl -wordsize 5 (A5-8c3b, F218): the features of both entries that overlap the difference (the join is one feature from its first to its last base, complement is a strand only)
+        const string seq = "TTTCCTCATGCAATTCAAAACCATGTCCGTAATGTAGGCGAAATAGTAAACCATTTTACGGAGGATACCAAATTCCTCCT";
+        string genbank = "LOCUS       SEQA 80 bp    DNA     linear   UNK 01-JAN-2000\nDEFINITION  first.\nACCESSION   SEQA\nVERSION     SEQA.1\nREFERENCE   1  (bases 1 to 80)\nFEATURES             Location/Qualifiers\n"
+            + "     source          1..80\n     gene            join(20..40,45..60)\n                     /gene=\"abc\"\n     CDS             complement(25..35)\n                     /note=\"a note\"\n                     /translation=\"MKV\"\n"
+            + "ORIGIN\n        1 " + string.Join(' ', Enumerable.Range(0, 8).Select(i => seq.Substring(i * 10, 10).ToLowerInvariant())) + "\n//\n";
+        string snp = seq[..30] + "C" + seq[31..];
+        string embl = "ID   SEQB; SV 1; linear; genomic DNA; STD; UNC; 80 BP.\nXX\nDE   second\nXX\nFT   source          1..80\nFT   misc_feature    28..33\nFT                   /gene=\"x1\"\nXX\nSQ   Sequence 80 BP;\n     "
+            + string.Join(' ', Enumerable.Range(0, 8).Select(i => snp.Substring(i * 10, 10).ToLowerInvariant())) + "   80\n//\n";
+        var r = AnalysisTools.Diffseq(genbank, embl, 5, false);
+        Assert.That(r.Differences, Is.EqualTo(new[] { new DiffseqDifferenceItem(31, 31, 1, 31, 31, 1) }));
+        Assert.That(r.Report, Does.Contain("Feature: gene 20-60 gene='abc'\nFeature: CDS 25-35 note='a note'\n"));
+        Assert.That(r.Report, Does.Contain("Feature: misc_feature 28-33 gene='x1'\n"));
+        Assert.That(r.Report, Does.Contain("SEQA 31-31 Length: 1\n"));
+        // a special qualifier whose check is not ported is refused
+        string special = genbank.Replace("/translation=\"MKV\"", "/collection_date=\"2020\"", StringComparison.Ordinal);
+        Assert.Throws<ArgumentException>(() => AnalysisTools.Diffseq(special, embl, 5, false));
+    }
+
+    [Test]
     public void Wordmatch_RabinKarpMatches_AsTheProgram()
     {
         // wordmatch 6.6.0 on p = ACGTACGTAC against g = TTACGTACGTACTT, -wordsize 6 (A2-28d, F198): the two words TACGTA / CGTACG are extended to the right, the match of the second starts inside the first

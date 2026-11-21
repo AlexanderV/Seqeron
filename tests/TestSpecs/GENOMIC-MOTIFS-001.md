@@ -225,3 +225,8 @@
 
 ## WP43 additions (A6-2 / A6-4 / A6-10)
 - `fuzznuc` / `fuzzpro` / `fuzztran`: the qualifier TEXT resolves like the ACD library (`EmbossAcdCommandLine_Oracle_Tests`, `EmbossSequenceQualifiersText_Oracle_Tests`: 130 + 40 rows each; `fuzznuc -sbegin1 5`, `-se` ambiguous); `EmbossNullContract_Tests.Fuzztran_HitWithoutEmbossCoordinates_...`, `ReportWriter_RefusesAnUndefinedFormat_...`; the report mode of the MCP tools runs the search once (`EmbossReportSingleSearchTests`). The `-rformat gff` / `excel` rows (`EmbossReport_Oracle_Tests`, 120 runs per format) are WP42 (A5-8).
+
+## WP51 additions (A5-8c3b: F216 / F217 / F218)
+- `EmbossFuzznucRangeMismatch_Oracle_Tests.AllOptionalRangePatterns_ListTheEmptyHits_EqualsTheProgram` (`fuzznuc_optional_oracle.jsonl.gz`: 200 fuzznuc + 100 fuzzpro + 100 fuzztran whole excel reports with every element an optional range; `-pmismatch` 0 - 2, anchors, both strands).
+- `EmbossDiffseq_Oracle_Tests.Diffseq_SequenceQualifiers_EqualTheProgram_AllRows` (`diffseq_qualifiers_oracle.jsonl.gz`: 260 runs with `-sbegin` / `-send` / `-sreverse` / `-slower` / `-supper` / `-snucleotide` / `-sprotein` of both inputs, 12 report formats, `-rusashow`) and `Diffseq_FeatureTableInputs_EqualTheProgram_AllRows` (`diffseq_features_oracle.jsonl.gz`: 420 runs on GenBank / EMBL entries with features: complement / join / order locations, qualifiers, `-sformat1`, ranges and reversal of the feature table); MCP `EmbossProgramToolsTests.Diffseq_SequenceQualifiers_AsTheProgram` / `Diffseq_GenbankAndEmblFeatures_AsTheProgram`.
+
