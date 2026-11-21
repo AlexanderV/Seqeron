@@ -6,9 +6,10 @@ namespace Seqeron.Genomics.Alignment;
 /// option overrides the preset: <c>MinimapPresets.Apply("asm5") with { MinChainScore = 30 }</c> is <c>minimap2 -x asm5 -m 30</c>.
 /// </summary>
 /// <remarks>
-/// The chaining-stage members (<c>-k -w -H -f/occ -g -r -n -m -p -N -S ... --rmq -P -D --no-dual --no-long-join -F --sr</c>) are read by <see cref="Minimap2Chaining.Map"/>; the base-level members (<c>-A -B -O -E -z -s -u</c>, splice flags) are stored
-/// in <see cref="MinimapMapOptions.Scoring"/> / <see cref="MinimapMapOptions.Splice"/> for the base-level stage (audit A3-9c2). <c>-x splice</c> additionally needs the cDNA chaining of <c>mg_lchain_dp</c> (<c>is_cdna</c>) and the
-/// multi-segment fragment mode of <c>-x sr</c> with paired reads; both stay with the carried items (QUEUE.md / B09.md A5-9).
+/// Explicit options of the command line that FOLLOW <c>-x</c> are <see cref="MinimapOverrides"/>: <c>MinimapPresets.Apply("asm5", new MinimapOverrides { KmerSize = 15 })</c> is <c>minimap2 -x asm5 -k 15</c>, also when the value equals the default of the
+/// option (the MCP tool <c>minimap2_chains</c> and the oracle test build the options this way: audit A6-7). The chaining-stage members (<c>-k -w -H -f/occ -g -r -n -m -p -N -S ... --rmq -P -D --no-dual --no-long-join -F --sr</c>) are read by <see cref="Minimap2Chaining.Map"/>; the base-level members (<c>-A -B -O -E -z -s -u</c>, splice flags) are stored
+/// in <see cref="MinimapMapOptions.Scoring"/> / <see cref="MinimapMapOptions.Splice"/> for the base-level stage (audit A3-9c2). <c>-x splice</c> chains the spliced query as <c>mg_lchain_dp</c> does with <c>is_cdna</c> (<see cref="MinimapMapOptions.Splice"/>, A5-9; the
+/// <c>splice</c> / <c>splice:hq</c> PAF texts equal the program on every oracle case); only the multi-segment fragment mode of <c>-x sr</c> with paired reads stays with the carried items (QUEUE.md / B09.md A5-9b).
 /// </remarks>
 public static class MinimapPresets
 {
@@ -81,6 +82,58 @@ public static class MinimapPresets
     }
 
     /// <summary>
+    /// <c>minimap2 -x <paramref name="preset"/> [options]</c>: the preset (<see cref="Apply(string?)"/>) and then every option that is SET in <paramref name="overrides"/> (the program applies <c>-x</c> before every other option), so an option
+    /// whose value equals the default still overrides the preset (<c>-x asm5 -k 15</c> is k = 15, preset k = 19). <c>-G</c> (<see cref="MinimapOverrides.MaxIntronLength"/>) is applied last, as <see cref="WithMaxIntronLength"/>.
+    /// </summary>
+    /// <exception cref="ArgumentException">Unknown preset.</exception>
+    public static MinimapMapOptions Apply(string? preset, MinimapOverrides overrides)
+    {
+        ArgumentNullException.ThrowIfNull(overrides);
+        var o = Apply(preset);
+        var seed = o.Seed with
+        {
+            KmerSize = overrides.KmerSize ?? o.Seed.KmerSize,
+            WindowSize = overrides.WindowSize ?? o.Seed.WindowSize,
+            HomopolymerCompressed = overrides.HomopolymerCompressed || o.Seed.HomopolymerCompressed,                 // -H has no negation in minimap2 2.26 (ipt.flag |= MM_I_HPC)
+            SdustThreshold = overrides.SdustThreshold ?? o.Seed.SdustThreshold,
+            MinMidOcc = overrides.MinMidOcc ?? o.Seed.MinMidOcc,
+            MaxMidOcc = overrides.MaxMidOcc ?? o.Seed.MaxMidOcc,
+            QueryOccurrenceFraction = overrides.QueryOccurrenceFraction is { } q ? (float)q : o.Seed.QueryOccurrenceFraction,
+            OccDist = overrides.OccDist ?? o.Seed.OccDist,
+            ForwardOnly = overrides.ForwardOnly || o.Seed.ForwardOnly,
+            ReverseOnly = overrides.ReverseOnly || o.Seed.ReverseOnly,
+            SkipSelf = overrides.AllVsAll || o.Seed.SkipSelf,
+            SkipDual = overrides.AllVsAll || o.Seed.SkipDual,
+        };
+        if (overrides.MidOccFraction is { } f)                                  // main.c -f: x < 1 is the fraction (mid_occ = 0), otherwise the limit itself
+            seed = f < 1.0 ? seed with { MidOccFraction = (float)f, MidOcc = 0 } : seed with { MidOcc = (int)(f + .499) };
+        o = o with
+        {
+            Seed = seed,
+            MaxGap = overrides.MaxGap ?? o.MaxGap,
+            Bandwidth = overrides.Bandwidth ?? o.Bandwidth,
+            BandwidthLong = overrides.BandwidthLong ?? o.BandwidthLong,
+            MaxChainSkip = overrides.MaxChainSkip ?? o.MaxChainSkip,
+            MaxChainIterations = overrides.MaxChainIterations ?? o.MaxChainIterations,
+            MinCount = overrides.MinCount ?? o.MinCount,
+            MinChainScore = overrides.MinChainScore ?? o.MinChainScore,
+            ChainGapScale = overrides.ChainGapScale is { } g ? (float)g : o.ChainGapScale,
+            ChainSkipScale = overrides.ChainSkipScale is { } ss ? (float)ss : o.ChainSkipScale,
+            NoLongJoin = overrides.NoLongJoin || overrides.AllVsAll || o.NoLongJoin,                                // --no-long-join / -X only switch ON
+            AllChains = overrides.AllVsAll || o.AllChains,
+            UseRmq = overrides.UseRmq ?? o.UseRmq,                                                                   // --rmq=yes|no
+            MaskLevel = overrides.MaskLevel is { } ml ? (float)ml : o.MaskLevel,
+            MaskLength = overrides.MaskLength ?? o.MaskLength,
+            HardMaskLevel = overrides.HardMaskLevel || o.HardMaskLevel,
+            PrimaryRatio = overrides.PrimaryRatio is { } pr ? (float)pr : o.PrimaryRatio,
+            BestN = overrides.BestN ?? o.BestN,
+            OutputSecondary = overrides.OutputSecondary ?? o.OutputSecondary,                                        // --secondary=yes|no
+            MaxFragmentLength = overrides.MaxFragmentLength ?? o.MaxFragmentLength,
+        };
+        return overrides.MaxIntronLength is { } intron ? WithMaxIntronLength(o, intron) : o;
+    }
+
+    /// <summary>
     /// <c>-G NUM</c> / <c>--max-intron-len</c> (<c>mm_mapopt_max_intron_len</c>): only in splice mode, the longest gap on the reference, the bandwidth and the long bandwidth become NUM; without splice mode the program ignores the option.
     /// </summary>
     public static MinimapMapOptions WithMaxIntronLength(MinimapMapOptions options, int maxIntronLength)
@@ -91,4 +144,105 @@ public static class MinimapPresets
 
     // MM_F_ALL_CHAINS | MM_F_NO_DIAG | MM_F_NO_DUAL | MM_F_NO_LJOIN with the chaining members the two ava presets share
     private static MinimapMapOptions AllVsAll(MinimapMapOptions o) => o with { AllChains = true, NoLongJoin = true, MinChainScore = 100, PrimaryRatio = 0f, MaxChainSkip = 25 };
+}
+
+/// <summary>
+/// The options of a <c>minimap2</c> command line that follow <c>-x PRESET</c>, up to the end of the chaining stage: a member that is <c>null</c> was not given on the command line (the preset's value, or the default, stays); any given value overrides
+/// the preset, also one that equals the default (<see cref="MinimapPresets.Apply(string?, MinimapOverrides)"/>, audit A6-7). Booleans: <c>-H</c>, <c>-X</c>, <c>--no-long-join</c>, <c>--hard-mask-level</c>, <c>--for-only</c> and <c>--rev-only</c>
+/// only switch a flag ON in minimap2 2.26 (<c>false</c> = not given); <c>--rmq=yes|no</c> and <c>--secondary=yes|no</c> take a value (<c>null</c> = not given).
+/// </summary>
+public sealed record MinimapOverrides
+{
+    /// <summary><c>-k</c>.</summary>
+    public int? KmerSize { get; init; }
+
+    /// <summary><c>-w</c>.</summary>
+    public int? WindowSize { get; init; }
+
+    /// <summary><c>-H</c>.</summary>
+    public bool HomopolymerCompressed { get; init; }
+
+    /// <summary><c>-T</c>.</summary>
+    public int? SdustThreshold { get; init; }
+
+    /// <summary><c>-f</c> first value: below 1 the fraction of repeated minimizers, otherwise the occurrence limit itself.</summary>
+    public double? MidOccFraction { get; init; }
+
+    /// <summary><c>-U</c> first value.</summary>
+    public int? MinMidOcc { get; init; }
+
+    /// <summary><c>-U</c> second value.</summary>
+    public int? MaxMidOcc { get; init; }
+
+    /// <summary><c>--q-occ-frac</c>.</summary>
+    public double? QueryOccurrenceFraction { get; init; }
+
+    /// <summary><c>-e</c>.</summary>
+    public int? OccDist { get; init; }
+
+    /// <summary><c>--for-only</c>.</summary>
+    public bool ForwardOnly { get; init; }
+
+    /// <summary><c>--rev-only</c>.</summary>
+    public bool ReverseOnly { get; init; }
+
+    /// <summary><c>-X</c>: all-vs-all (skip self and dual, all chains, no long join).</summary>
+    public bool AllVsAll { get; init; }
+
+    /// <summary><c>-g</c>.</summary>
+    public int? MaxGap { get; init; }
+
+    /// <summary><c>-r</c> first value.</summary>
+    public int? Bandwidth { get; init; }
+
+    /// <summary><c>-r</c> second value.</summary>
+    public int? BandwidthLong { get; init; }
+
+    /// <summary><c>--max-chain-skip</c>.</summary>
+    public int? MaxChainSkip { get; init; }
+
+    /// <summary><c>--max-chain-iter</c>.</summary>
+    public int? MaxChainIterations { get; init; }
+
+    /// <summary><c>-n</c>.</summary>
+    public int? MinCount { get; init; }
+
+    /// <summary><c>-m</c>.</summary>
+    public int? MinChainScore { get; init; }
+
+    /// <summary><c>--chain-gap-scale</c>.</summary>
+    public double? ChainGapScale { get; init; }
+
+    /// <summary><c>--chain-skip-scale</c>.</summary>
+    public double? ChainSkipScale { get; init; }
+
+    /// <summary><c>--no-long-join</c>.</summary>
+    public bool NoLongJoin { get; init; }
+
+    /// <summary><c>--rmq=yes</c> / <c>--rmq=no</c>.</summary>
+    public bool? UseRmq { get; init; }
+
+    /// <summary><c>--mask-level</c> (<c>-M</c>).</summary>
+    public double? MaskLevel { get; init; }
+
+    /// <summary><c>--mask-len</c>.</summary>
+    public int? MaskLength { get; init; }
+
+    /// <summary><c>--hard-mask-level</c>.</summary>
+    public bool HardMaskLevel { get; init; }
+
+    /// <summary><c>-p</c>.</summary>
+    public double? PrimaryRatio { get; init; }
+
+    /// <summary><c>-N</c>.</summary>
+    public int? BestN { get; init; }
+
+    /// <summary><c>--secondary=yes</c> / <c>--secondary=no</c>.</summary>
+    public bool? OutputSecondary { get; init; }
+
+    /// <summary><c>-F</c>.</summary>
+    public int? MaxFragmentLength { get; init; }
+
+    /// <summary><c>-G</c> / <c>--max-intron-len</c> (applied last; only in splice mode, see <see cref="MinimapPresets.WithMaxIntronLength"/>).</summary>
+    public int? MaxIntronLength { get; init; }
 }

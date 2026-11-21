@@ -23,33 +23,27 @@
    },
    "k": {
     "type": "integer",
-    "description": "k-mer size (minimap2 -k, 1-28, default 15).",
-    "default": 15
+    "description": "k-mer size (minimap2 -k, 1-28; omit = 15, or the preset's value)."
    },
    "w": {
     "type": "integer",
-    "description": "Minimizer window size (minimap2 -w, 1-255, default 10).",
-    "default": 10
+    "description": "Minimizer window size (minimap2 -w, 1-255; omit = 10, or the preset's value)."
    },
    "maxGap": {
     "type": "integer",
-    "description": "Largest distance between two anchors of a chain on both sequences (minimap2 -g, default 5000).",
-    "default": 5000
+    "description": "Largest distance between two anchors of a chain on both sequences (minimap2 -g; omit = 5000, or the preset's value)."
    },
    "bandwidth": {
     "type": "integer",
-    "description": "Chaining bandwidth (minimap2 -r, first value, default 500).",
-    "default": 500
+    "description": "Chaining bandwidth (minimap2 -r, first value; omit = 500, or the preset's value)."
    },
    "minChainScore": {
     "type": "integer",
-    "description": "Smallest chain score (minimap2 -m, default 40).",
-    "default": 40
+    "description": "Smallest chain score (minimap2 -m; omit = 40, or the preset's value)."
    },
    "minAnchors": {
     "type": "integer",
-    "description": "Fewest anchors of a chain (minimap2 -n, default 3).",
-    "default": 3
+    "description": "Fewest anchors of a chain (minimap2 -n; omit = 3, or the preset's value)."
    },
    "mode": {
     "type": "string",
@@ -58,38 +52,32 @@
    },
    "homopolymerCompressed": {
     "type": "boolean",
-    "description": "Homopolymer-compressed k-mers (minimap2 -H).",
+    "description": "Homopolymer-compressed k-mers (minimap2 -H; the flag only switches on: false = not given, a preset that sets it keeps it).",
     "default": false
    },
    "sdustThreshold": {
     "type": "integer",
-    "description": "sdust threshold masking low-complexity query minimizers (minimap2 -T, hidden option; 0 = off, default).",
-    "default": 0
+    "description": "sdust threshold masking low-complexity query minimizers (minimap2 -T, hidden option; omit = 0 = off)."
    },
    "midOccFraction": {
     "type": "number",
-    "description": "minimap2 -f: below 1 the fraction of repeated minimizers to filter (default 0.0002), otherwise the occurrence limit mid_occ itself.",
-    "default": 0.0002
+    "description": "minimap2 -f: below 1 the fraction of repeated minimizers (omit = 0.0002), otherwise the occurrence limit mid_occ itself."
    },
    "minMidOcc": {
     "type": "integer",
-    "description": "minimap2 -U lower bound of mid_occ (default 10).",
-    "default": 10
+    "description": "minimap2 -U lower bound of mid_occ (omit = 10, or the preset's value)."
    },
    "maxMidOcc": {
     "type": "integer",
-    "description": "minimap2 -U upper bound of mid_occ (default 1000000).",
-    "default": 1000000
+    "description": "minimap2 -U upper bound of mid_occ (omit = 1000000, or the preset's value)."
    },
    "queryOccFraction": {
     "type": "number",
-    "description": "minimap2 --q-occ-frac (default 0.01).",
-    "default": 0.01
+    "description": "minimap2 --q-occ-frac (omit = 0.01)."
    },
    "occDist": {
     "type": "integer",
-    "description": "minimap2 -e: occ_dist, one frequent minimizer per this many query bases is kept (default 500; 0 = none).",
-    "default": 500
+    "description": "minimap2 -e: occ_dist, one frequent minimizer per this many query bases is kept (omit = 500, or the preset's value; 0 = none)."
    },
    "allVsAll": {
     "type": "boolean",
@@ -119,82 +107,69 @@
    },
    "bandwidthLong": {
     "type": "integer",
-    "description": "Long-join bandwidth (minimap2 -r second value, default 20000; the re-chaining runs only when it exceeds bandwidth, paf mode).",
-    "default": 20000
+    "description": "Long-join bandwidth (minimap2 -r second value; omit = 20000, or the preset's value; the re-chaining runs only when it exceeds bandwidth, paf mode)."
    },
    "maxChainSkip": {
     "type": "integer",
-    "description": "Stop the search for a predecessor after this many non-improving anchors (minimap2 --max-chain-skip, default 25).",
-    "default": 25
+    "description": "Stop the search for a predecessor after this many non-improving anchors (minimap2 --max-chain-skip; omit = 25, or the preset's value)."
    },
    "maxChainIterations": {
     "type": "integer",
-    "description": "Largest number of predecessors examined per anchor (minimap2 --max-chain-iter, default 5000).",
-    "default": 5000
+    "description": "Largest number of predecessors examined per anchor (minimap2 --max-chain-iter; omit = 5000)."
    },
    "chainGapScale": {
     "type": "number",
-    "description": "Gap penalty scale (minimap2 --chain-gap-scale, default 0.8).",
-    "default": 0.8
+    "description": "Gap penalty scale (minimap2 --chain-gap-scale; omit = 0.8)."
    },
    "chainSkipScale": {
     "type": "number",
-    "description": "Skip penalty scale (minimap2 --chain-skip-scale, default 0).",
-    "default": 0
+    "description": "Skip penalty scale (minimap2 --chain-skip-scale; omit = 0)."
    },
    "bestN": {
     "type": "integer",
-    "description": "paf mode: retain at most this many secondary hits (minimap2 -N, default 5).",
-    "default": 5
+    "description": "paf mode: retain at most this many secondary hits (minimap2 -N; omit = 5, or the preset's value)."
    },
    "primaryRatio": {
     "type": "number",
-    "description": "paf mode: minimum secondary-to-primary score ratio (minimap2 -p, default 0.8; 0 = no selection).",
-    "default": 0.8
+    "description": "paf mode: minimum secondary-to-primary score ratio (minimap2 -p; omit = 0.8, or the preset's value; 0 = no selection)."
    },
    "maskLevel": {
     "type": "number",
-    "description": "paf mode: minimap2 --mask-level (default 0.5).",
-    "default": 0.5
+    "description": "paf mode: minimap2 --mask-level (omit = 0.5)."
    },
    "maskLength": {
     "type": "integer",
-    "description": "paf mode: minimap2 --mask-len (default none).",
-    "default": 2147483647
+    "description": "paf mode: minimap2 --mask-len (omit = none)."
    },
    "hardMaskLevel": {
     "type": "boolean",
-    "description": "paf mode: minimap2 --hard-mask-level.",
+    "description": "paf mode: minimap2 --hard-mask-level (a flag: false = not given).",
     "default": false
    },
    "noLongJoin": {
     "type": "boolean",
-    "description": "paf mode: no long-join re-chaining (minimap2 --no-long-join).",
+    "description": "paf mode: no long-join re-chaining (minimap2 --no-long-join; a flag: false = not given, a preset that sets it keeps it).",
     "default": false
    },
    "rmq": {
     "type": "boolean",
-    "description": "paf mode: chain with the RMQ algorithm (minimap2 --rmq=yes).",
-    "default": false
+    "description": "paf mode: chain with the RMQ algorithm (minimap2 --rmq=yes | --rmq=no; omit = off, or the preset's value: --rmq=no switches the asm presets' RMQ off)."
    },
    "outputSecondary": {
     "type": "boolean",
-    "description": "paf mode: return the secondary hits too (default true; false = minimap2 --secondary=no).",
-    "default": true
+    "description": "paf mode: return the secondary hits (minimap2 --secondary=yes | --secondary=no; omit = yes, or the preset's value: --secondary=yes re-enables them for -x sr)."
    },
    "preset": {
     "type": "string",
-    "description": "paf mode: the minimap2 -x preset (A5-9): map-ont, map-pb / map10k, map-hifi / map-ccs, ava-ont, ava-pb, asm5, asm10, asm20, sr / short, splice / cdna, splice:hq (options.c mm_set_opt). The program applies the preset first and every explicit option after it: here, every parameter left at its default value takes the preset's value, a parameter set to another value overrides the preset. The base-level scoring of the preset is not used (no -c)."
+    "description": "paf mode: the minimap2 -x preset (A5-9): map-ont, map-pb / map10k, map-hifi / map-ccs, ava-ont, ava-pb, asm5, asm10, asm20, sr / short, splice / cdna, splice:hq (options.c mm_set_opt). The program applies the preset first and every explicit option after it, so does this tool: every parameter that is GIVEN overrides the preset, also a value equal to the default (preset asm5 with k = 15 is k = 15, not the preset's 19); omitted parameters take the preset's value. The base-level scoring of the preset is not used (no -c); the chains mode takes no preset."
    },
    "maxFragmentLength": {
     "type": "integer",
-    "description": "paf mode: minimap2 -F, the maximum fragment length (effective with preset sr, which sets 800).",
-    "default": 0
+    "description": "paf mode: minimap2 -F, the maximum fragment length (effective with preset sr, which sets 800; omit = the preset's value)."
    },
    "maxIntronLength": {
     "type": "integer",
-    "description": "paf mode: minimap2 -G / --max-intron-len: with a splice preset the longest gap on the reference, the bandwidth and the long bandwidth (ignored otherwise, as the program does).",
-    "default": 0
+    "description": "paf mode: minimap2 -G / --max-intron-len: with a splice preset the longest gap on the reference, the bandwidth and the long bandwidth (ignored otherwise, as the program does)."
    }
   },
   "required": [

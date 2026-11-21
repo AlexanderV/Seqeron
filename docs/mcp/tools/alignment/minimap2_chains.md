@@ -28,41 +28,41 @@ The seeding and chaining stage of minimap2 2.26 (450 related pairs: the seed arr
 |-----------|------|----------|-------------|
 | `targets` | array<string> | Yes | Target (reference) sequences (A/C/G/T/U; other symbols break k-mers), at least one. |
 | `query` | string | Yes | Query sequence. |
-| `k` | integer | No | k-mer size (minimap2 -k, 1-28, default 15). (default: 15) |
-| `w` | integer | No | Minimizer window size (minimap2 -w, 1-255, default 10). (default: 10) |
-| `maxGap` | integer | No | Largest distance between two anchors of a chain on both sequences (minimap2 -g, default 5000). (default: 5000) |
-| `bandwidth` | integer | No | Chaining bandwidth (minimap2 -r, first value, default 500). (default: 500) |
-| `minChainScore` | integer | No | Smallest chain score (minimap2 -m, default 40). (default: 40) |
-| `minAnchors` | integer | No | Fewest anchors of a chain (minimap2 -n, default 3). (default: 3) |
+| `k` | integer | No | k-mer size (minimap2 -k, 1-28; omit = 15, or the preset's value). |
+| `w` | integer | No | Minimizer window size (minimap2 -w, 1-255; omit = 10, or the preset's value). |
+| `maxGap` | integer | No | Largest distance between two anchors of a chain on both sequences (minimap2 -g; omit = 5000, or the preset's value). |
+| `bandwidth` | integer | No | Chaining bandwidth (minimap2 -r, first value; omit = 500, or the preset's value). |
+| `minChainScore` | integer | No | Smallest chain score (minimap2 -m; omit = 40, or the preset's value). |
+| `minAnchors` | integer | No | Fewest anchors of a chain (minimap2 -n; omit = 3, or the preset's value). |
 | `mode` | string | No | chains (default: every chain after the dynamic program, ordered by the first anchor) \| paf (the mapping up to the end of the chaining stage: long-join re-chaining, primary / secondary marking, dv, mapq; the hits are returned in the PAF order). |
-| `homopolymerCompressed` | boolean | No | Homopolymer-compressed k-mers (minimap2 -H). (default: false) |
-| `sdustThreshold` | integer | No | sdust threshold masking low-complexity query minimizers (minimap2 -T, hidden option; 0 = off, default). (default: 0) |
-| `midOccFraction` | number | No | minimap2 -f: below 1 the fraction of repeated minimizers to filter (default 0.0002), otherwise the occurrence limit mid_occ itself. |
-| `minMidOcc` | integer | No | minimap2 -U lower bound of mid_occ (default 10). |
-| `maxMidOcc` | integer | No | minimap2 -U upper bound of mid_occ (default 1000000). |
-| `queryOccFraction` | number | No | minimap2 --q-occ-frac (default 0.01). |
-| `occDist` | integer | No | minimap2 -e: occ_dist, one frequent minimizer per this many query bases is kept (default 500; 0 = none). |
+| `homopolymerCompressed` | boolean | No | Homopolymer-compressed k-mers (minimap2 -H; the flag only switches on: false = not given, a preset that sets it keeps it). (default: false) |
+| `sdustThreshold` | integer | No | sdust threshold masking low-complexity query minimizers (minimap2 -T, hidden option; omit = 0 = off). |
+| `midOccFraction` | number | No | minimap2 -f: below 1 the fraction of repeated minimizers (omit = 0.0002), otherwise the occurrence limit mid_occ itself. |
+| `minMidOcc` | integer | No | minimap2 -U lower bound of mid_occ (omit = 10, or the preset's value). |
+| `maxMidOcc` | integer | No | minimap2 -U upper bound of mid_occ (omit = 1000000, or the preset's value). |
+| `queryOccFraction` | number | No | minimap2 --q-occ-frac (omit = 0.01). |
+| `occDist` | integer | No | minimap2 -e: occ_dist, one frequent minimizer per this many query bases is kept (omit = 500, or the preset's value; 0 = none). |
 | `allVsAll` | boolean | No | All-vs-all mode (minimap2 -X): needs targetNames and queryName; all chains are reported without primary selection and without long join. (default: false) |
 | `targetNames` | array<string> | No | Names of the targets (for allVsAll), one per target. |
 | `queryName` | string | No | Name of the query (for allVsAll; in paf mode its hash orders chains of equal score). |
 | `forwardOnly` | boolean | No | Only hits on the forward strand (minimap2 --for-only). (default: false) |
 | `reverseOnly` | boolean | No | Only hits on the reverse strand (minimap2 --rev-only). (default: false) |
-| `bandwidthLong` | integer | No | Long-join bandwidth (minimap2 -r second value, default 20000; the re-chaining runs only when it exceeds bandwidth, paf mode). (default: 20000) |
-| `maxChainSkip` | integer | No | Stop the search for a predecessor after this many non-improving anchors (minimap2 --max-chain-skip, default 25). (default: 25) |
-| `maxChainIterations` | integer | No | Largest number of predecessors examined per anchor (minimap2 --max-chain-iter, default 5000). (default: 5000) |
-| `chainGapScale` | number | No | Gap penalty scale (minimap2 --chain-gap-scale, default 0.8). (default: 0.8) |
-| `chainSkipScale` | number | No | Skip penalty scale (minimap2 --chain-skip-scale, default 0). (default: 0) |
-| `bestN` | integer | No | paf mode: retain at most this many secondary hits (minimap2 -N, default 5). (default: 5) |
-| `primaryRatio` | number | No | paf mode: minimum secondary-to-primary score ratio (minimap2 -p, default 0.8; 0 = no selection). (default: 0.8) |
-| `maskLevel` | number | No | paf mode: minimap2 --mask-level (default 0.5). |
-| `maskLength` | integer | No | paf mode: minimap2 --mask-len (default none). |
-| `hardMaskLevel` | boolean | No | paf mode: minimap2 --hard-mask-level. (default: false) |
-| `noLongJoin` | boolean | No | paf mode: no long-join re-chaining (minimap2 --no-long-join). (default: false) |
-| `rmq` | boolean | No | paf mode: chain with the RMQ algorithm (minimap2 --rmq=yes). (default: false) |
-| `outputSecondary` | boolean | No | paf mode: return the secondary hits too (default true; false = minimap2 --secondary=no). |
-| `preset` | string | No | paf mode: the minimap2 -x preset (A5-9): map-ont, map-pb / map10k, map-hifi / map-ccs, ava-ont, ava-pb, asm5, asm10, asm20, sr / short, splice / cdna, splice:hq (options.c mm_set_opt). The program applies the preset first and every explicit option after it: here, every parameter left at its default value takes the preset's value, a parameter set to another value overrides the preset. The base-level scoring of the preset is not used (no -c). |
-| `maxFragmentLength` | integer | No | paf mode: minimap2 -F, the maximum fragment length (effective with preset sr, which sets 800). (default: 0) |
-| `maxIntronLength` | integer | No | paf mode: minimap2 -G / --max-intron-len: with a splice preset the longest gap on the reference, the bandwidth and the long bandwidth (ignored otherwise, as the program does). (default: 0) |
+| `bandwidthLong` | integer | No | Long-join bandwidth (minimap2 -r second value; omit = 20000, or the preset's value; the re-chaining runs only when it exceeds bandwidth, paf mode). |
+| `maxChainSkip` | integer | No | Stop the search for a predecessor after this many non-improving anchors (minimap2 --max-chain-skip; omit = 25, or the preset's value). |
+| `maxChainIterations` | integer | No | Largest number of predecessors examined per anchor (minimap2 --max-chain-iter; omit = 5000). |
+| `chainGapScale` | number | No | Gap penalty scale (minimap2 --chain-gap-scale; omit = 0.8). |
+| `chainSkipScale` | number | No | Skip penalty scale (minimap2 --chain-skip-scale; omit = 0). |
+| `bestN` | integer | No | paf mode: retain at most this many secondary hits (minimap2 -N; omit = 5, or the preset's value). |
+| `primaryRatio` | number | No | paf mode: minimum secondary-to-primary score ratio (minimap2 -p; omit = 0.8, or the preset's value; 0 = no selection). |
+| `maskLevel` | number | No | paf mode: minimap2 --mask-level (omit = 0.5). |
+| `maskLength` | integer | No | paf mode: minimap2 --mask-len (omit = none). |
+| `hardMaskLevel` | boolean | No | paf mode: minimap2 --hard-mask-level (a flag: false = not given). (default: false) |
+| `noLongJoin` | boolean | No | paf mode: no long-join re-chaining (minimap2 --no-long-join; a flag: false = not given, a preset that sets it keeps it). (default: false) |
+| `rmq` | boolean | No | paf mode: chain with the RMQ algorithm (minimap2 --rmq=yes \| --rmq=no; omit = off, or the preset's value: --rmq=no switches the asm presets' RMQ off). |
+| `outputSecondary` | boolean | No | paf mode: return the secondary hits (minimap2 --secondary=yes \| --secondary=no; omit = yes, or the preset's value: --secondary=yes re-enables them for -x sr). |
+| `preset` | string | No | paf mode: the minimap2 -x preset (A5-9): map-ont, map-pb / map10k, map-hifi / map-ccs, ava-ont, ava-pb, asm5, asm10, asm20, sr / short, splice / cdna, splice:hq (options.c mm_set_opt). The program applies the preset first and every explicit option after it, so does this tool: every parameter that is GIVEN overrides the preset, also a value equal to the default (preset asm5 with k = 15 is k = 15, not the preset's 19); omitted parameters take the preset's value. The base-level scoring of the preset is not used (no -c); the chains mode takes no preset. |
+| `maxFragmentLength` | integer | No | paf mode: minimap2 -F, the maximum fragment length (effective with preset sr, which sets 800; omit = the preset's value). |
+| `maxIntronLength` | integer | No | paf mode: minimap2 -G / --max-intron-len: with a splice preset the longest gap on the reference, the bandwidth and the long bandwidth (ignored otherwise, as the program does). |
 
 ## Output Schema
 

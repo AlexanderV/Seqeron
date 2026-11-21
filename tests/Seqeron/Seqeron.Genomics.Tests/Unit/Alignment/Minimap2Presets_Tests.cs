@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.IO.Compression;
 using System.Text.Json;
 using Seqeron.Genomics.Alignment;
@@ -6,7 +7,7 @@ namespace Seqeron.Genomics.Tests.Unit.Alignment;
 
 /// <summary>
 /// A5-9 (B09 F173): the <c>-x</c> presets of minimap2 2.26 (<c>options.c mm_set_opt</c>: <see cref="MinimapPresets"/>), <c>-F</c> / <c>-G</c> and the PAF text (<see cref="Minimap2Chaining.FormatPaf"/>) against the installed program:
-/// 220 random cases per preset (TestData/Alignment/minimap2_preset_oracle.jsonl.gz, scripts/alignment/generate_minimap2_preset_oracle.py), the WHOLE stdout of <c>minimap2 -x PRESET [-F|-G] ref.fa query.fa</c> (columns 1 - 12 and the
+/// 220 random cases per preset + 40 cases with options after the preset (A6-7) (TestData/Alignment/minimap2_preset_oracle.jsonl.gz, scripts/alignment/generate_minimap2_preset_oracle.py), the WHOLE stdout of <c>minimap2 -x PRESET [-F|-G] ref.fa query.fa</c> (columns 1 - 12 and the
 /// tags tp cm s1 s2 dv rl of every line) compared as text. Primary and secondary hits, both strands, all-vs-all self hits, short reads and spliced queries are in the sets.
 /// </summary>
 [TestFixture]
@@ -34,46 +35,89 @@ public class Minimap2Presets_Tests
         return cases;
     });
 
+    /// <summary>The options after <c>-x PRESET</c> on the command line of the case: <see cref="MinimapPresets.Apply(string?, MinimapOverrides)"/> (the program applies the preset first, every option after it wins).</summary>
     private static MinimapMapOptions Options(Case c)
     {
-        var o = MinimapPresets.Apply(c.Preset);
-        for (int i = 0; i + 1 < c.Extra.Length; i += 2)
-            o = c.Extra[i] == "-F" ? o with { MaxFragmentLength = int.Parse(c.Extra[i + 1]) } : MinimapPresets.WithMaxIntronLength(o, int.Parse(c.Extra[i + 1]));
-        return o;
+        var o = new MinimapOverrides();
+        string[] x = c.Extra;
+        int i = 0;
+        while (i < x.Length)
+        {
+            string option = x[i++];
+            string Value() => x[i++];
+            int Int() => int.Parse(Value(), CultureInfo.InvariantCulture);
+            double Dbl() => double.Parse(Value(), CultureInfo.InvariantCulture);
+            switch (option)
+            {
+                case "-k": o = o with { KmerSize = Int() }; break;
+                case "-w": o = o with { WindowSize = Int() }; break;
+                case "-g": o = o with { MaxGap = Int() }; break;
+                case "-n": o = o with { MinCount = Int() }; break;
+                case "-m": o = o with { MinChainScore = Int() }; break;
+                case "-N": o = o with { BestN = Int() }; break;
+                case "-e": o = o with { OccDist = Int() }; break;
+                case "-F": o = o with { MaxFragmentLength = Int() }; break;
+                case "-G": o = o with { MaxIntronLength = Int() }; break;
+                case "--max-chain-skip": o = o with { MaxChainSkip = Int() }; break;
+                case "-p": o = o with { PrimaryRatio = Dbl() }; break;
+                case "-M": o = o with { MaskLevel = Dbl() }; break;
+                case "-f": o = o with { MidOccFraction = Dbl() }; break;
+                case "-r":
+                    var b = Value().Split(',');
+                    o = o with { Bandwidth = int.Parse(b[0], CultureInfo.InvariantCulture), BandwidthLong = b.Length > 1 ? int.Parse(b[1], CultureInfo.InvariantCulture) : o.BandwidthLong };
+                    break;
+                case "-U":
+                    var u = Value().Split(',');
+                    o = o with { MinMidOcc = int.Parse(u[0], CultureInfo.InvariantCulture), MaxMidOcc = u.Length > 1 ? int.Parse(u[1], CultureInfo.InvariantCulture) : o.MaxMidOcc };
+                    break;
+                case "--rmq=yes": o = o with { UseRmq = true }; break;
+                case "--rmq=no": o = o with { UseRmq = false }; break;
+                case "--secondary=yes": o = o with { OutputSecondary = true }; break;
+                case "--secondary=no": o = o with { OutputSecondary = false }; break;
+                case "-H": o = o with { HomopolymerCompressed = true }; break;
+                case "--no-long-join": o = o with { NoLongJoin = true }; break;
+                default: throw new InvalidOperationException($"option {option} of the oracle is not handled by the test");
+            }
+        }
+
+        return MinimapPresets.Apply(c.Preset, o);
     }
 
-    private static void Check(string preset)
+    private static bool HasOverride(Case c) => c.Extra.Length > 0 && c.Extra[0] is not ("-F" or "-G");          // the cases of A5-9 carry one -F / -G, the cases of A6-7 the options of the generator's OVERRIDES table
+
+    /// <summary>The rows of a preset: all cases, the cases with <c>-F</c> / <c>-G</c> (after the preset: sr honours -F, the splice presets -G, the others ignore -G), the cases with the option overrides of A6-7, the PAF lines.</summary>
+    private static void Check(string preset, int cases, int withFragmentOrIntron, int withOverrides, int pafLines)
     {
-        var cases = Oracle.Value.Where(c => c.Preset == preset).ToList();
-        Assert.That(cases.Count, Is.GreaterThanOrEqualTo(200), preset);
+        var all = Oracle.Value.Where(c => c.Preset == preset).ToList();
+        Assert.That(all.Count, Is.EqualTo(cases), preset);
         var failures = new List<string>();
-        int lines = 0, extras = 0;
-        foreach (var c in cases)
+        int lines = 0;
+        foreach (var c in all)
         {
             var result = Minimap2Chaining.Map(c.Targets, c.Query, Options(c), c.Names, c.QName);
             string got = Minimap2Chaining.FormatPaf(result, c.QName, c.Query.Length, c.Names, [.. c.Targets.Select(t => t.Length)]);
             lines += c.Paf.Count(ch => ch == '\n');
-            extras += c.Extra.Length > 0 ? 1 : 0;
             if (got != c.Paf)
-                failures.Add($"{c.QName} ({c.Targets.Length} targets, {c.Query.Length} bp)\n   expected {c.Paf.Replace("\n", " || ")}\n   actual   {got.Replace("\n", " || ")}");
+                failures.Add($"{c.QName} {string.Join(' ', c.Extra)} ({c.Targets.Length} targets, {c.Query.Length} bp)\n   expected {c.Paf.Replace("\n", " || ")}\n   actual   {got.Replace("\n", " || ")}");
         }
 
-        Assert.That(failures, Is.Empty, $"{failures.Count} of {cases.Count}:\n" + string.Join("\n", failures.Take(3)));
-        Assert.That(lines, Is.GreaterThanOrEqualTo(cases.Count * 9 / 10), "PAF lines in the set");
-        Assert.That(extras, Is.GreaterThan(0).Or.EqualTo(0));
+        Assert.That(failures, Is.Empty, $"{failures.Count} of {all.Count}:\n" + string.Join("\n", failures.Take(3)));
+        Assert.That(lines, Is.EqualTo(pafLines), "PAF lines in the set");
+        Assert.That(all.Count(c => c.Extra.Contains("-F") || c.Extra.Contains("-G")), Is.EqualTo(withFragmentOrIntron), "cases with -F / -G");
+        Assert.That(all.Count(HasOverride), Is.EqualTo(withOverrides), "cases with option overrides after the preset");
     }
 
-    [Test] public void MapOnt_EqualsMinimap2_OnAllCases() => Check("map-ont");
-    [Test] public void MapPb_HomopolymerCompressed_EqualsMinimap2_OnAllCases() => Check("map-pb");
-    [Test] public void MapHifi_EqualsMinimap2_OnAllCases() => Check("map-hifi");
-    [Test] public void AvaOnt_AllChainsNoSelfNoDual_EqualsMinimap2_OnAllCases() => Check("ava-ont");
-    [Test] public void AvaPb_AllChainsNoSelfNoDual_EqualsMinimap2_OnAllCases() => Check("ava-pb");
-    [Test] public void Asm5_Rmq_EqualsMinimap2_OnAllCases() => Check("asm5");
-    [Test] public void Asm10_Rmq_EqualsMinimap2_OnAllCases() => Check("asm10");
-    [Test] public void Asm20_Rmq_EqualsMinimap2_OnAllCases() => Check("asm20");
-    [Test] public void Sr_ShortReads_WithAndWithoutFragmentLength_EqualsMinimap2_OnAllCases() => Check("sr");
-    [Test] public void Splice_CdnaChaining_WithAndWithoutMaxIntronLength_EqualsMinimap2_OnAllCases() => Check("splice");
-    [Test] public void SpliceHq_EqualsMinimap2_OnAllCases() => Check("splice:hq");
+    [Test] public void MapOnt_EqualsMinimap2_OnAllCases() => Check("map-ont", 260, 38, 40, 260);
+    [Test] public void MapPb_HomopolymerCompressed_EqualsMinimap2_OnAllCases() => Check("map-pb", 260, 35, 40, 240);
+    [Test] public void MapHifi_EqualsMinimap2_OnAllCases() => Check("map-hifi", 260, 54, 40, 261);
+    [Test] public void AvaOnt_AllChainsNoSelfNoDual_EqualsMinimap2_OnAllCases() => Check("ava-ont", 260, 54, 40, 507);
+    [Test] public void AvaPb_AllChainsNoSelfNoDual_EqualsMinimap2_OnAllCases() => Check("ava-pb", 260, 42, 40, 381);
+    [Test] public void Asm5_Rmq_EqualsMinimap2_OnAllCases() => Check("asm5", 260, 49, 40, 263);
+    [Test] public void Asm10_Rmq_EqualsMinimap2_OnAllCases() => Check("asm10", 260, 47, 40, 260);
+    [Test] public void Asm20_Rmq_EqualsMinimap2_OnAllCases() => Check("asm20", 260, 54, 40, 257);
+    [Test] public void Sr_ShortReads_WithAndWithoutFragmentLength_EqualsMinimap2_OnAllCases() => Check("sr", 260, 63, 40, 258);
+    [Test] public void Splice_CdnaChaining_WithAndWithoutMaxIntronLength_EqualsMinimap2_OnAllCases() => Check("splice", 260, 49, 40, 292);
+    [Test] public void SpliceHq_EqualsMinimap2_OnAllCases() => Check("splice:hq", 260, 45, 40, 270);
 
     [Test]
     public void Presets_AreTheOptionsC_Tables()

@@ -6,7 +6,10 @@ Presets (>= 250 cases each): map-ont, map-pb, map-hifi, ava-ont, ava-pb, asm5, a
 compares the presets the port reproduces and states which it does not). Cases: a reference of 1 - 3 random sequences (1.5 - 14 kb; for the ava presets several reads and the query among them, so that the
 self hit is skipped), the query a mutated (1 - 15 %: substitutions, deletions, insertions), possibly reverse-complemented, possibly partial copy of a reference stretch, with repeats (a second copy elsewhere, sometimes
 inverted), homopolymer runs (the HPC presets), 80 - 250 bp reads for sr, spliced queries (exons of a gene joined) for splice.
-Usage: python3 scripts/alignment/generate_minimap2_preset_oracle.py [per_preset=220] > minimap2_preset_oracle.jsonl      (needs minimap2 2.26 on PATH)
+Audit A6-7 (B09 F181): after the cases above (so that they are byte-identical to the committed file) every preset gets `overrides` cases: `minimap2 -x PRESET <options> ref query` with 1 - 3 explicit options after the preset
+(-k -w -g -r -n -m -p -N -e -f -U --max-chain-skip -M --rmq=no|yes --secondary=no|yes -H --no-long-join), half of them with a value EQUAL TO THE DEFAULT of the option (`-x asm5 -k 15`: k = 15, not the preset's 19), because the program
+applies -x first and every later option wins.
+Usage: python3 scripts/alignment/generate_minimap2_preset_oracle.py [per_preset=220 [overrides_per_preset=40]] > minimap2_preset_oracle.jsonl      (needs minimap2 2.26 on PATH)
 """
 import json, random, subprocess, sys, tempfile
 
@@ -103,5 +106,45 @@ def main():
                 print(json.dumps({'preset': preset, 'extra': extra, 'names': names, 'targets': targets, 'qname': qname, 'query': query, 'paf': p.stdout}))
 
 
+OVERRIDES = [  # (tokens for a random value, tokens for the default value)
+    (lambda: ['-k', str(rnd.choice([11, 12, 15, 17, 19, 21, 24]))], lambda: ['-k', '15']),
+    (lambda: ['-w', str(rnd.choice([3, 5, 8, 10, 14, 19, 25]))], lambda: ['-w', '10']),
+    (lambda: ['-g', str(rnd.choice([100, 800, 2000, 8000, 20000]))], lambda: ['-g', '5000']),
+    (lambda: ['-r', rnd.choice(['200', '800', '2000', '300,5000', '1500,50000'])], lambda: ['-r', rnd.choice(['500', '500,20000'])]),
+    (lambda: ['-n', str(rnd.choice([1, 2, 4, 6]))], lambda: ['-n', '3']),
+    (lambda: ['-m', str(rnd.choice([10, 25, 60, 120]))], lambda: ['-m', '40']),
+    (lambda: ['-p', str(rnd.choice([0, 0.3, 0.5, 0.95]))], lambda: ['-p', '0.8']),
+    (lambda: ['-N', str(rnd.choice([1, 2, 10, 50]))], lambda: ['-N', '5']),
+    (lambda: ['-e', str(rnd.choice([0, 50, 200, 1000]))], lambda: ['-e', '500']),
+    (lambda: ['-f', rnd.choice(['0.001', '0.01', '5', '50', '0.00005'])], lambda: ['-f', '0.0002']),
+    (lambda: ['-U', rnd.choice(['5,100', '20,2000', '50,500'])], lambda: ['-U', '10,1000000']),
+    (lambda: ['--max-chain-skip', str(rnd.choice([5, 10, 50]))], lambda: ['--max-chain-skip', '25']),
+    (lambda: ['-M', str(rnd.choice([0.1, 0.3, 0.8]))], lambda: ['-M', '0.5']),
+    (lambda: ['--rmq=' + rnd.choice(['yes', 'no'])], lambda: ['--rmq=no']),
+    (lambda: ['--secondary=' + rnd.choice(['yes', 'no'])], lambda: ['--secondary=yes']),
+    (lambda: ['-H'], lambda: ['-H']),
+    (lambda: ['--no-long-join'], lambda: ['--no-long-join']),
+]
+
+
+def overrides(per):
+    with tempfile.TemporaryDirectory() as d:
+        for preset in ['map-ont', 'map-pb', 'map-hifi', 'ava-ont', 'ava-pb', 'asm5', 'asm10', 'asm20', 'sr', 'splice', 'splice:hq']:
+            made = 0; tries = 0
+            while made < per and tries < per * 6:
+                tries += 1
+                names, targets, qname, query = make(preset)
+                open(d + '/r.fa', 'w').write(''.join('>%s\n%s\n' % (n, t) for n, t in zip(names, targets)))
+                open(d + '/q.fa', 'w').write('>%s\n%s\n' % (qname, query))
+                extra = []
+                for fn_random, fn_default in rnd.sample(OVERRIDES, rnd.choice([1, 1, 2, 3])):
+                    extra += (fn_default if rnd.random() < 0.5 else fn_random)()
+                p = subprocess.run(['minimap2', '-x', preset] + extra + [d + '/r.fa', d + '/q.fa'], capture_output=True, text=True)
+                if p.returncode != 0: continue
+                made += 1
+                print(json.dumps({'preset': preset, 'extra': extra, 'names': names, 'targets': targets, 'qname': qname, 'query': query, 'paf': p.stdout}))
+
+
 if __name__ == '__main__':
     main()
+    overrides(int(sys.argv[2]) if len(sys.argv) > 2 else 40)

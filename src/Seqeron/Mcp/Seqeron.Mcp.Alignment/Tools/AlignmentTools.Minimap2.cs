@@ -11,42 +11,42 @@ public partial class AlignmentTools
     public static Minimap2ChainsResult Minimap2Chains(
         [Description("Target (reference) sequences (A/C/G/T/U; other symbols break k-mers), at least one.")] string[] targets,
         [Description("Query sequence.")] string query,
-        [Description("k-mer size (minimap2 -k, 1-28, default 15).")] int k = 15,
-        [Description("Minimizer window size (minimap2 -w, 1-255, default 10).")] int w = 10,
-        [Description("Largest distance between two anchors of a chain on both sequences (minimap2 -g, default 5000).")] int maxGap = 5000,
-        [Description("Chaining bandwidth (minimap2 -r, first value, default 500).")] int bandwidth = 500,
-        [Description("Smallest chain score (minimap2 -m, default 40).")] int minChainScore = 40,
-        [Description("Fewest anchors of a chain (minimap2 -n, default 3).")] int minAnchors = 3,
+        [Description("k-mer size (minimap2 -k, 1-28; omit = 15, or the preset's value).")] int? k = null,
+        [Description("Minimizer window size (minimap2 -w, 1-255; omit = 10, or the preset's value).")] int? w = null,
+        [Description("Largest distance between two anchors of a chain on both sequences (minimap2 -g; omit = 5000, or the preset's value).")] int? maxGap = null,
+        [Description("Chaining bandwidth (minimap2 -r, first value; omit = 500, or the preset's value).")] int? bandwidth = null,
+        [Description("Smallest chain score (minimap2 -m; omit = 40, or the preset's value).")] int? minChainScore = null,
+        [Description("Fewest anchors of a chain (minimap2 -n; omit = 3, or the preset's value).")] int? minAnchors = null,
         [Description("chains (default: every chain after the dynamic program, ordered by the first anchor) | paf (the mapping up to the end of the chaining stage: long-join re-chaining, primary / secondary marking, dv, mapq; the hits are returned in the PAF order).")] string mode = "chains",
-        [Description("Homopolymer-compressed k-mers (minimap2 -H).")] bool homopolymerCompressed = false,
-        [Description("sdust threshold masking low-complexity query minimizers (minimap2 -T, hidden option; 0 = off, default).")] int sdustThreshold = 0,
-        [Description("minimap2 -f: below 1 the fraction of repeated minimizers to filter (default 0.0002), otherwise the occurrence limit mid_occ itself.")] double midOccFraction = 0.0002,
-        [Description("minimap2 -U lower bound of mid_occ (default 10).")] int minMidOcc = 10,
-        [Description("minimap2 -U upper bound of mid_occ (default 1000000).")] int maxMidOcc = 1000000,
-        [Description("minimap2 --q-occ-frac (default 0.01).")] double queryOccFraction = 0.01,
-        [Description("minimap2 -e: occ_dist, one frequent minimizer per this many query bases is kept (default 500; 0 = none).")] int occDist = 500,
+        [Description("Homopolymer-compressed k-mers (minimap2 -H; the flag only switches on: false = not given, a preset that sets it keeps it).")] bool homopolymerCompressed = false,
+        [Description("sdust threshold masking low-complexity query minimizers (minimap2 -T, hidden option; omit = 0 = off).")] int? sdustThreshold = null,
+        [Description("minimap2 -f: below 1 the fraction of repeated minimizers (omit = 0.0002), otherwise the occurrence limit mid_occ itself.")] double? midOccFraction = null,
+        [Description("minimap2 -U lower bound of mid_occ (omit = 10, or the preset's value).")] int? minMidOcc = null,
+        [Description("minimap2 -U upper bound of mid_occ (omit = 1000000, or the preset's value).")] int? maxMidOcc = null,
+        [Description("minimap2 --q-occ-frac (omit = 0.01).")] double? queryOccFraction = null,
+        [Description("minimap2 -e: occ_dist, one frequent minimizer per this many query bases is kept (omit = 500, or the preset's value; 0 = none).")] int? occDist = null,
         [Description("All-vs-all mode (minimap2 -X): needs targetNames and queryName; all chains are reported without primary selection and without long join.")] bool allVsAll = false,
         [Description("Names of the targets (for allVsAll), one per target.")] string[]? targetNames = null,
         [Description("Name of the query (for allVsAll; in paf mode its hash orders chains of equal score).")] string? queryName = null,
         [Description("Only hits on the forward strand (minimap2 --for-only).")] bool forwardOnly = false,
         [Description("Only hits on the reverse strand (minimap2 --rev-only).")] bool reverseOnly = false,
-        [Description("Long-join bandwidth (minimap2 -r second value, default 20000; the re-chaining runs only when it exceeds bandwidth, paf mode).")] int bandwidthLong = 20000,
-        [Description("Stop the search for a predecessor after this many non-improving anchors (minimap2 --max-chain-skip, default 25).")] int maxChainSkip = 25,
-        [Description("Largest number of predecessors examined per anchor (minimap2 --max-chain-iter, default 5000).")] int maxChainIterations = 5000,
-        [Description("Gap penalty scale (minimap2 --chain-gap-scale, default 0.8).")] double chainGapScale = 0.8,
-        [Description("Skip penalty scale (minimap2 --chain-skip-scale, default 0).")] double chainSkipScale = 0,
-        [Description("paf mode: retain at most this many secondary hits (minimap2 -N, default 5).")] int bestN = 5,
-        [Description("paf mode: minimum secondary-to-primary score ratio (minimap2 -p, default 0.8; 0 = no selection).")] double primaryRatio = 0.8,
-        [Description("paf mode: minimap2 --mask-level (default 0.5).")] double maskLevel = 0.5,
-        [Description("paf mode: minimap2 --mask-len (default none).")] int maskLength = int.MaxValue,
-        [Description("paf mode: minimap2 --hard-mask-level.")] bool hardMaskLevel = false,
-        [Description("paf mode: no long-join re-chaining (minimap2 --no-long-join).")] bool noLongJoin = false,
-        [Description("paf mode: chain with the RMQ algorithm (minimap2 --rmq=yes).")] bool rmq = false,
-        [Description("paf mode: return the secondary hits too (default true; false = minimap2 --secondary=no).")] bool outputSecondary = true,
+        [Description("Long-join bandwidth (minimap2 -r second value; omit = 20000, or the preset's value; the re-chaining runs only when it exceeds bandwidth, paf mode).")] int? bandwidthLong = null,
+        [Description("Stop the search for a predecessor after this many non-improving anchors (minimap2 --max-chain-skip; omit = 25, or the preset's value).")] int? maxChainSkip = null,
+        [Description("Largest number of predecessors examined per anchor (minimap2 --max-chain-iter; omit = 5000).")] int? maxChainIterations = null,
+        [Description("Gap penalty scale (minimap2 --chain-gap-scale; omit = 0.8).")] double? chainGapScale = null,
+        [Description("Skip penalty scale (minimap2 --chain-skip-scale; omit = 0).")] double? chainSkipScale = null,
+        [Description("paf mode: retain at most this many secondary hits (minimap2 -N; omit = 5, or the preset's value).")] int? bestN = null,
+        [Description("paf mode: minimum secondary-to-primary score ratio (minimap2 -p; omit = 0.8, or the preset's value; 0 = no selection).")] double? primaryRatio = null,
+        [Description("paf mode: minimap2 --mask-level (omit = 0.5).")] double? maskLevel = null,
+        [Description("paf mode: minimap2 --mask-len (omit = none).")] int? maskLength = null,
+        [Description("paf mode: minimap2 --hard-mask-level (a flag: false = not given).")] bool hardMaskLevel = false,
+        [Description("paf mode: no long-join re-chaining (minimap2 --no-long-join; a flag: false = not given, a preset that sets it keeps it).")] bool noLongJoin = false,
+        [Description("paf mode: chain with the RMQ algorithm (minimap2 --rmq=yes | --rmq=no; omit = off, or the preset's value: --rmq=no switches the asm presets' RMQ off).")] bool? rmq = null,
+        [Description("paf mode: return the secondary hits (minimap2 --secondary=yes | --secondary=no; omit = yes, or the preset's value: --secondary=yes re-enables them for -x sr).")] bool? outputSecondary = null,
         CancellationToken cancellationToken = default,
-        [Description("paf mode: the minimap2 -x preset (A5-9): map-ont, map-pb / map10k, map-hifi / map-ccs, ava-ont, ava-pb, asm5, asm10, asm20, sr / short, splice / cdna, splice:hq (options.c mm_set_opt). The program applies the preset first and every explicit option after it: here, every parameter left at its default value takes the preset's value, a parameter set to another value overrides the preset. The base-level scoring of the preset is not used (no -c).")] string? preset = null,
-        [Description("paf mode: minimap2 -F, the maximum fragment length (effective with preset sr, which sets 800).")] int maxFragmentLength = 0,
-        [Description("paf mode: minimap2 -G / --max-intron-len: with a splice preset the longest gap on the reference, the bandwidth and the long bandwidth (ignored otherwise, as the program does).")] int maxIntronLength = 0)
+        [Description("paf mode: the minimap2 -x preset (A5-9): map-ont, map-pb / map10k, map-hifi / map-ccs, ava-ont, ava-pb, asm5, asm10, asm20, sr / short, splice / cdna, splice:hq (options.c mm_set_opt). The program applies the preset first and every explicit option after it, so does this tool: every parameter that is GIVEN overrides the preset, also a value equal to the default (preset asm5 with k = 15 is k = 15, not the preset's 19); omitted parameters take the preset's value. The base-level scoring of the preset is not used (no -c); the chains mode takes no preset.")] string? preset = null,
+        [Description("paf mode: minimap2 -F, the maximum fragment length (effective with preset sr, which sets 800; omit = the preset's value).")] int? maxFragmentLength = null,
+        [Description("paf mode: minimap2 -G / --max-intron-len: with a splice preset the longest gap on the reference, the bandwidth and the long bandwidth (ignored otherwise, as the program does).")] int? maxIntronLength = null)
     {
         using var cancelScope = global::Seqeron.Genomics.Alignment.SequenceAligner.BeginCancellationScope(cancellationToken);
         if (targets is null || targets.Length == 0)
@@ -58,51 +58,18 @@ public partial class AlignmentTools
             throw new ArgumentException("mode must be chains or paf", nameof(mode));
         if (allVsAll && (targetNames is null || targetNames.Length != targets.Length || queryName is null))
             throw new ArgumentException("allVsAll needs one target name per target and the query name", nameof(targetNames));
-        // minimap2 main.c: -f x[,y]: x < 1 is the fraction, otherwise the occurrence limit itself
-        var seed = new global::Seqeron.Genomics.Alignment.MinimapSeedOptions
+        // minimap2 applies -x first and every option after it: the one canonical merge is MinimapPresets.Apply(preset, overrides) (A6-7: a given value overrides the preset also when it equals the default)
+        var overrides = new global::Seqeron.Genomics.Alignment.MinimapOverrides
         {
-            KmerSize = k, WindowSize = w, HomopolymerCompressed = homopolymerCompressed, SdustThreshold = sdustThreshold,
-            MidOccFraction = midOccFraction >= 1.0 ? 2e-4f : (float)midOccFraction, MidOcc = midOccFraction >= 1.0 ? (int)(midOccFraction + .499) : 0,
-            MinMidOcc = minMidOcc, MaxMidOcc = maxMidOcc, QueryOccurrenceFraction = (float)queryOccFraction, OccDist = occDist,
-            SkipSelf = allVsAll, SkipDual = allVsAll, ForwardOnly = forwardOnly, ReverseOnly = reverseOnly,
+            KmerSize = k, WindowSize = w, HomopolymerCompressed = homopolymerCompressed, SdustThreshold = sdustThreshold, MidOccFraction = midOccFraction, MinMidOcc = minMidOcc, MaxMidOcc = maxMidOcc,
+            QueryOccurrenceFraction = queryOccFraction, OccDist = occDist, ForwardOnly = forwardOnly, ReverseOnly = reverseOnly, AllVsAll = allVsAll, MaxGap = maxGap, Bandwidth = bandwidth, BandwidthLong = bandwidthLong,
+            MaxChainSkip = maxChainSkip, MaxChainIterations = maxChainIterations, MinCount = minAnchors, MinChainScore = minChainScore, ChainGapScale = chainGapScale, ChainSkipScale = chainSkipScale,
+            NoLongJoin = noLongJoin, UseRmq = rmq, MaskLevel = maskLevel, MaskLength = maskLength, HardMaskLevel = hardMaskLevel, PrimaryRatio = primaryRatio, BestN = bestN, OutputSecondary = outputSecondary,
+            MaxFragmentLength = maxFragmentLength, MaxIntronLength = maxIntronLength,
         };
         if (mode.Equals("paf", StringComparison.OrdinalIgnoreCase))
         {
-            var mapOptions = new global::Seqeron.Genomics.Alignment.MinimapMapOptions
-            {
-                Seed = seed, MaxGap = maxGap, Bandwidth = bandwidth, BandwidthLong = bandwidthLong, MaxChainSkip = maxChainSkip, MaxChainIterations = maxChainIterations, MinCount = minAnchors,
-                MinChainScore = minChainScore, ChainGapScale = (float)chainGapScale, ChainSkipScale = (float)chainSkipScale, NoLongJoin = noLongJoin || allVsAll, UseRmq = rmq, AllChains = allVsAll,
-                MaskLevel = (float)maskLevel, MaskLength = maskLength, HardMaskLevel = hardMaskLevel, PrimaryRatio = (float)primaryRatio, BestN = bestN, OutputSecondary = outputSecondary,
-            };
-            if (!string.IsNullOrEmpty(preset))
-            {
-                // -x is applied before every other option: a parameter that still has its default value takes the preset's value
-                var p = global::Seqeron.Genomics.Alignment.MinimapPresets.Apply(preset);
-                var d = new global::Seqeron.Genomics.Alignment.MinimapMapOptions();
-                T Pick<T>(T given, T def, T fromPreset) where T : IEquatable<T> => given.Equals(def) ? fromPreset : given;
-                mapOptions = mapOptions with
-                {
-                    Seed = mapOptions.Seed with
-                    {
-                        KmerSize = Pick(mapOptions.Seed.KmerSize, d.Seed.KmerSize, p.Seed.KmerSize), WindowSize = Pick(mapOptions.Seed.WindowSize, d.Seed.WindowSize, p.Seed.WindowSize),
-                        HomopolymerCompressed = mapOptions.Seed.HomopolymerCompressed || p.Seed.HomopolymerCompressed, OccDist = Pick(mapOptions.Seed.OccDist, d.Seed.OccDist, p.Seed.OccDist),
-                        MinMidOcc = Pick(mapOptions.Seed.MinMidOcc, d.Seed.MinMidOcc, p.Seed.MinMidOcc), MaxMidOcc = Pick(mapOptions.Seed.MaxMidOcc, d.Seed.MaxMidOcc, p.Seed.MaxMidOcc),
-                        MidOcc = mapOptions.Seed.MidOcc != 0 ? mapOptions.Seed.MidOcc : p.Seed.MidOcc, MaxOcc = mapOptions.Seed.MaxOcc != 0 ? mapOptions.Seed.MaxOcc : p.Seed.MaxOcc,
-                        SkipSelf = mapOptions.Seed.SkipSelf || p.Seed.SkipSelf, SkipDual = mapOptions.Seed.SkipDual || p.Seed.SkipDual,
-                    },
-                    MaxGap = Pick(mapOptions.MaxGap, d.MaxGap, p.MaxGap), Bandwidth = Pick(mapOptions.Bandwidth, d.Bandwidth, p.Bandwidth), BandwidthLong = Pick(mapOptions.BandwidthLong, d.BandwidthLong, p.BandwidthLong),
-                    MaxChainSkip = Pick(mapOptions.MaxChainSkip, d.MaxChainSkip, p.MaxChainSkip), MinCount = Pick(mapOptions.MinCount, d.MinCount, p.MinCount), MinChainScore = Pick(mapOptions.MinChainScore, d.MinChainScore, p.MinChainScore),
-                    PrimaryRatio = Pick(mapOptions.PrimaryRatio, d.PrimaryRatio, p.PrimaryRatio), BestN = Pick(mapOptions.BestN, d.BestN, p.BestN), UseRmq = mapOptions.UseRmq || p.UseRmq,
-                    NoLongJoin = mapOptions.NoLongJoin || p.NoLongJoin, AllChains = mapOptions.AllChains || p.AllChains, OutputSecondary = mapOptions.OutputSecondary && p.OutputSecondary,
-                    MaxGapRef = p.MaxGapRef, MaxFragmentLength = maxFragmentLength != 0 ? maxFragmentLength : p.MaxFragmentLength, ShortRead = p.ShortRead, Splice = p.Splice, Scoring = p.Scoring,
-                };
-                mapOptions = global::Seqeron.Genomics.Alignment.MinimapPresets.WithMaxIntronLength(mapOptions, maxIntronLength);
-            }
-            else if (maxFragmentLength != 0)
-            {
-                mapOptions = mapOptions with { MaxFragmentLength = maxFragmentLength };
-            }
-
+            var mapOptions = global::Seqeron.Genomics.Alignment.MinimapPresets.Apply(preset, overrides);
             var mapped = global::Seqeron.Genomics.Alignment.Minimap2Chaining.Map(targets, query, mapOptions, targetNames, queryName);
             string[] pafNames = targetNames ?? [.. targets.Select((_, i) => "target" + (i + 1).ToString(System.Globalization.CultureInfo.InvariantCulture))];
             string pafText = global::Seqeron.Genomics.Alignment.Minimap2Chaining.FormatPaf(mapped, queryName ?? "query", query.Length, pafNames, [.. targets.Select(t => t.Length)]);
@@ -114,17 +81,18 @@ public partial class AlignmentTools
             return new Minimap2ChainsResult(asChains, hits.Sum(h => h.Anchors.Length), hits, mapped.RepeatLength, mapped.MidOcc, pafText);
         }
 
+        var resolved = global::Seqeron.Genomics.Alignment.MinimapPresets.Apply(null, overrides);        // the chains mode takes no preset: the defaults and the given options
+        var seed = resolved.Seed;
         var options = new global::Seqeron.Genomics.Alignment.MinimapChainOptions
         {
-            MaxTargetGap = maxGap, MaxQueryGap = maxGap, Bandwidth = bandwidth, MinScore = minChainScore, MinCount = minAnchors, MaxChainSkip = maxChainSkip, MaxChainIterations = maxChainIterations,
-            ChainGapScale = (float)chainGapScale, ChainSkipScale = (float)chainSkipScale,
+            MaxTargetGap = resolved.MaxGap, MaxQueryGap = resolved.MaxGap, Bandwidth = resolved.Bandwidth, MinScore = resolved.MinChainScore, MinCount = resolved.MinCount, MaxChainSkip = resolved.MaxChainSkip,
+            MaxChainIterations = resolved.MaxChainIterations, ChainGapScale = resolved.ChainGapScale, ChainSkipScale = resolved.ChainSkipScale,
         };
         var seeds = global::Seqeron.Genomics.Alignment.Minimap2Chaining.CollectSeeds(targets, query, seed, targetNames, queryName);
         var anchors = seeds.Anchors;
-        var chains = global::Seqeron.Genomics.Alignment.Minimap2Chaining.Chain(anchors, options with { KmerSize = k })
+        var chains = global::Seqeron.Genomics.Alignment.Minimap2Chaining.Chain(anchors, options with { KmerSize = seed.KmerSize })
             .Select(c => new Minimap2ChainDto(c.Score, anchors[c.Anchors[0]].TargetId, anchors[c.Anchors[0]].Reverse ? "reverse" : "forward",
-                c.Anchors.Select(i => anchors[i]).Select(a => new Minimap2AnchorDto(a.TargetId, a.Reverse ? "reverse" : "forward", a.TargetEnd, a.QueryEnd, a.Span)).ToArray()))
-            .ToArray();
+                c.Anchors.Select(i => anchors[i]).Select(a => new Minimap2AnchorDto(a.TargetId, a.Reverse ? "reverse" : "forward", a.TargetEnd, a.QueryEnd, a.Span)).ToArray())).ToArray();
         return new Minimap2ChainsResult(chains, anchors.Count, null, seeds.RepeatLength, seeds.MidOcc);
     }
 }
