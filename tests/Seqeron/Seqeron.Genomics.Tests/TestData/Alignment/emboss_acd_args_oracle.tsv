@@ -1,0 +1,2081 @@
+id	program	text	expected
+0	needle	-SE1 24	send[1]=24
+1	needle	--spro1 -snu2 /sup sbegin2 33 -sprotein1	ERROR
+2	needle	-suppe -nosprotein YES	REFUSED
+3	needle	--slower2=n -sprotein1 TRUE	slower[2]=n;sprotein[1]=TRUE
+4	needle	-scircular2 -snu1 --nosnucleotide -fformat01 x -supper=F	fformat[1]=x;scircular[2]=Y;snucleotide[1]=N;snucleotide[2]=N;supper[1]=F;supper[2]=F
+5	needle	-s /supper1	ERROR
+6	needle	-SBEG 007 -nosreverse	sbegin[1]=007;sbegin[2]=007;sreverse[1]=N;sreverse[2]=N
+7	needle	--slower1 --send2=16 /scircular3	ERROR
+8	needle	-sbegin01=33 -fformat gcg	fformat[1]=gcg;fformat[2]=gcg;sbegin[1]=33
+9	needle	-slower snucleotid TRUE -afor -sb -snUCLeOTiDe01	ERROR
+10	needle	-SEND --5 --s1 -0	ERROR
+11	needle	-nosprotein1 -slower01 t --squick	slower[1]=t;sprotein[1]=N;squick[1]=Y;squick[2]=Y
+12	needle	-snucleotide -sl	slower[1]=Y;slower[2]=Y;snucleotide[2]=Y
+13	needle	-SLOWER2=nan /sc2 /supper1=2	ERROR
+14	needle	-slower F -nosnucleo=01	ERROR
+15	needle	-s3 -SUPPER1=1 -noslower2 F --sprotein1	ERROR
+16	needle	-sen=1 -supper	send[1]=1;send[2]=1;supper[1]=Y;supper[2]=Y
+17	needle	-slowe1=0.5 -sdbname -3	sdbname[1]=-3;sdbname[2]=-3;slower[1]=0.5
+18	needle	--ioffset 33 /sl0 -sup2	?ioffset[2]=33;slower[1]=Y;slower[2]=Y;supper[2]=Y
+19	needle	-nosupper1=yEs	ERROR
+20	needle	/patt=5 -sreverse2 y	ERROR
+21	needle	-SNUcLeoTIde 1 scircular	REFUSED
+22	needle	--sr1 -sreverse1 yes -sreverse1=f	sreverse[1]=f
+23	needle	-FOPENFILE1 a=b	fopenfile[1]=a=b
+24	needle	-se2 5- --nosnucleot1 -nosupper f	ERROR
+25	needle	--scircul=Y --ufo1=fasta -sbegin -1	sbegin[1]=-1;sbegin[2]=-1;scircular[1]=Y;scircular[2]=Y;ufo[1]=fasta
+26	needle	-SEND3 5- -spr1=maybe	ERROR
+27	needle	--snucleotide01 1 -nosnucleotide2 -supp1 sbegin3 -2	ERROR
+28	needle	--Sp01 sbegin	REFUSED
+29	needle	SdBNam1 x -snucleotide3 y sbegin1 33 -slower	ERROR
+30	needle	/sreverse1 -srever2	sreverse[1]=Y;sreverse[2]=Y
+31	needle	/send 0	send[2]=0
+32	needle	-supper2=nan -send1 33 --srEvErse -IOFFSET1 1e3 -snUcLEoTidE2=f	ERROR
+33	needle	/slower -NoSprOt2=false	ERROR
+34	needle	-SEQU0 5 -slo1	ERROR
+35	needle	-sb -33 --sreVeRSE2 -sreverse=00 -sbe +3 -Sp2 true	?sbegin[1]=+3;sbegin[2]=+3;sprotein[2]=true;sreverse[1]=00;sreverse[2]=00
+36	needle	-send2 0x10 -scircular -ufo2 fastq -se 007 -sbegin2=26	sbegin[2]=26;scircular[2]=Y;send[1]=007;send[2]=007;ufo[2]=fastq
+37	needle	send=-11	send[2]=-11
+38	needle	-s=f -sprotein	ERROR
+39	needle	-outfile -sEn=11 -s=0 -nosu01	ERROR
+40	needle	-nosreverse 0 -scircular1 -nosnucleo2 -send1	ERROR
+41	needle	-ufo sbegin	ufo[2]=sbegin
+42	needle	-nosupper3 -sreverse1	ERROR
+43	needle	-s /sNuCLeOTide=n -supper1=inf	ERROR
+44	needle	-snu -FOPENFILE1=-3	fopenfile[1]=-3;snucleotide[1]=Y;snucleotide[2]=Y
+45	needle	-SR2	sreverse[2]=Y
+46	needle	--nosupp3=YES -fopenfile3 3 -sreverse01	ERROR
+47	needle	-sfo fastq	?sformat[1]=fastq;sformat[2]=fastq
+48	needle	-nosrev3 /sprotein1 -sreverse	ERROR
+49	needle	-sup1 t --scircular1 -NOSLOWER=1 -complement1 x	ERROR
+50	needle	-noslower --slower1=F -ufo sbegin /NospRoteIn2 1 -scircular1=true	REFUSED
+51	needle	-sprotein2	?sprotein[2]=Y
+52	needle	/nosnu -s2=tr -snucleotide2 -NOsREver	ERROR
+53	needle	-snucleotide1 true	snucleotide[1]=true
+54	needle	/nosprotein1 /sREv2 srev YES	ERROR
+55	needle	-outfile1 5 -d x	ERROR
+56	needle	-slow -s -s n x=1	ERROR
+57	needle	-slower1 1	slower[1]=1
+58	needle	-send2=8 -squick3 -supper -send 0 -si 3	ERROR
+59	needle	-nos=tr	ERROR
+60	needle	-noscircular -noslower -slo N -sbegin=-4	sbegin[1]=-4;sbegin[2]=-4;scircular[2]=N;slower[1]=N;slower[2]=N
+61	needle	-sprotein no	sprotein[2]=no
+62	needle	/send1 010	send[1]=010
+63	needle	-sbeg1=-2147483649 -datafile1 4	ERROR
+64	needle	-supper=00 -snucleotide1 false /spROteI=+0	snucleotide[1]=false;sprotein[1]=+0;sprotein[2]=+0;supper[2]=00
+65	needle	-send1 abc -sreverse=tr -fopenfile2=fasta	ERROR
+66	needle	-sl -SEND2 +0	send[2]=+0;slower[1]=Y;slower[2]=Y
+67	needle	/sbegin1 12 -sprotein1 yes -snu	?sbegin[1]=12;snucleotide[1]=Y;snucleotide[2]=Y;sprotein[1]=yes
+68	needle	-SRev=00 -scir2 1 -snucleotide3	ERROR
+69	needle	-SPROTEIN2=01 -sbegin1 16 -snucleotide2=1e2	ERROR
+70	needle	-sprotein2 -iquery -fasta -gapopen2 4	ERROR
+71	needle	/supper1 t	supper[1]=t
+72	needle	-nosnucleotide0 --nosprotein no	REFUSED
+73	needle	-noslowezr false --slowezr1=N s=3 -slower2 sprotein yes	ERROR
+74	needle	s2 n	ERROR
+75	needle	-sreverse2 --NoSLOWER=1e999 -sen01 22 -nosupper=1	ERROR
+76	needle	-scircular1 -scircular1=01	scircular[1]=01
+77	needle	-nosprotein=2	ERROR
+78	needle	-send1 13 -scircular true -scircUlaR -send2=0 -IOFFSET1 -1	ioffset[1]=-1;scircular[1]=Y;scircular[2]=Y;send[1]=13;send[2]=0
+79	needle	-sen 1 -sc No -sreverse -sbegin1 -27 -snuc1 true	sbegin[1]=-27;scircular[1]=No;scircular[2]=No;send[1]=1;send[2]=1;snucleotide[1]=true;sreverse[1]=Y;sreverse[2]=Y
+80	needle	-scirc -sprotein1	scircular[1]=Y;scircular[2]=Y;sprotein[1]=Y
+81	needle	-noscircular -spr	scircular[2]=N;sprotein[1]=Y;sprotein[2]=Y
+82	needle	-sprotei2 -fopenfile -s 010 -nosprot	REFUSED
+83	needle	--sreverse1=00 -sLOw01	slower[1]=Y;sreverse[1]=00
+84	needle	-spro1 -snucleotide1=inf -s 25	ERROR
+85	needle	-auto2 x	ERROR
+86	needle	-scircular -wordsize x	ERROR
+87	needle	-sbegi2=3 -s=-fasta	ERROR
+88	needle	-se1=	ERROR
+89	needle	-s=-13	ERROR
+90	needle	-snucleotide1 true --SUPPER1 -scircular2 y	scircular[2]=y;snucleotide[1]=true;supper[1]=Y
+91	needle	-snucleotidze supper	ERROR
+92	needle	-sprot2 0 -slower0 noslower1	REFUSED
+93	needle	--sb 9223372036854775807	sbegin[1]=9223372036854775807;sbegin[2]=9223372036854775807
+94	needle	-sprotein2=00 -IOFFSET0 21 -sreverse pattern1 5 -noslower1 true	ERROR
+95	needle	-snucle1 sformat fasta -SLoweR1 0 -srevers01	ERROR
+96	needle	-sbe01 0 -nosup -sprotein1 T	sbegin[1]=0;sprotein[1]=T;supper[1]=N;supper[2]=N
+97	needle	-SBEGIN=0 --si -slower	ERROR
+98	needle	-nosnucleotide1=0	ERROR
+99	needle	-snucleo -sequence=10 -noscircular1 true -	ERROR
+100	needle	-nosrevers2 no -sbegin2 5- -se 1	ERROR
+101	needle	--noslower /sformat=-fasta	sformat[2]=-fasta;slower[2]=N
+102	needle	-brief2 4	ERROR
+103	needle	-SEND2 0 /scircular1 --uf abc -SBEGIN 0	sbegin[1]=0;sbegin[2]=0;scircular[1]=Y;send[2]=0;ufo[1]=abc;ufo[2]=abc
+104	needle	-slower2 -nosnucleotide2 -noslower2=t --srev	ERROR
+105	needle	-iquer2 x -snucleotide2 -send3 0	ERROR
+106	needle	-scircular01 t -slower2=No -noscircular2	scircular[1]=t;scircular[2]=N;slower[2]=No
+107	needle	-noslower1	slower[1]=N
+108	needle	-nosupper1 1 -snucLEOtIDe -SeNd -1 -supp1 -sbegin1 1	REFUSED
+109	needle	--senyd2=0	ERROR
+110	needle	-send2 21	send[2]=21
+111	needle	-sprotei0=ye -sbegin1 0 --sprotein -SLOWER 1 /slowezr	ERROR
+112	needle	-supper1 -sbegi --SbE2=9223372036854775808	ERROR
+113	needle	-send2 -18	send[2]=-18
+114	needle	-snucleotide -snUCLeotIdE	snucleotide[2]=Y
+115	needle	-NOSuPpER1 -sreverse1=yes -send=-33 -snucleotide	send[1]=-33;send[2]=-33;snucleotide[1]=Y;snucleotide[2]=Y;sreverse[1]=yes;supper[1]=N
+116	needle	-nosnucleotid1= -scircular2=01 -S=16	ERROR
+117	needle	-slo1 -sreverse0 -sreverse1	slower[1]=Y;sreverse[1]=Y;sreverse[2]=Y
+118	needle	-NOSCIRCULAR No -sequence1=10	ERROR
+119	needle	-sprotein01=01 -SNUCLEOTID01 f	snucleotide[1]=f;sprotein[1]=01
+120	needle	-wordsize1 -Sf 3 stray	ERROR
+121	needle	-nosci	scircular[1]=N;scircular[2]=N
+122	needle	--SupP1 -SuPpER2 -s=-9	ERROR
+123	needle	-sLOwEr1 --send1 0 -words2 10	ERROR
+124	needle	--slower	slower[2]=Y
+125	needle	-fformat2 a=b -SEND2 1 -supper2 TRUE -send2 33 -nOsuppEr1=y	ERROR
+126	needle	-send2 -sformat2 3	ERROR
+127	needle	--snucleotide /nosrevers1	snucleotide[2]=Y;sreverse[1]=N
+128	needle	SLOW0 -Afo 5	REFUSED
+129	needle	-send 1 -s	ERROR
+130	water	-slower1=inf -s2 010	ERROR
+131	water	/sdbname1	ERROR
+132	water	-supper -sbegin1=-33 scircular=TRUE	sbegin[1]=-33;scircular[1]=TRUE;scircular[2]=TRUE;supper[2]=Y
+133	water	-scircular2	scircular[2]=Y
+134	water	--send 0 -nosLOwER No -scir2	REFUSED
+135	water	/sb --5	ERROR
+136	water	-SPRo2 TRUE --scircular f -sreverse1=yEs -fopenfile2 3 -AseqUENCe2 4	REFUSED
+137	water	/sP -scircular=0.5	scircular[1]=0.5;scircular[2]=0.5;sprotein[1]=Y;sprotein[2]=Y
+138	water	-sdbname sbegin -sen1 0	sdbname[2]=sbegin;send[1]=0
+139	water	-senyd1 5- -sbegin3=33 -snucleotide	ERROR
+140	water	-sPro n	sprotein[1]=n;sprotein[2]=n
+141	water	/sprotein=YES -sform2 -sbegi -28 -su1=1 -s01=12	ERROR
+142	water	-snucleotide=TRUE -sreverse -sbeg2 0	sbegin[2]=0;snucleotide[2]=TRUE;sreverse[2]=Y
+143	water	-send2=010 -se -9223372036854775808 /snucleotide	send[1]=-9223372036854775808;send[2]=-9223372036854775808;snucleotide[1]=Y;snucleotide[2]=Y
+144	water	-nosprotein1 No -slower	REFUSED
+145	water	-sUpPeR2 no	supper[2]=no
+146	water	-send -9223372036854775808 -sbegin 18 -supper2 -slow	sbegin[2]=18;send[2]=-9223372036854775808;slower[1]=Y;slower[2]=Y;supper[2]=Y
+147	water	-noscircular2 y -stdout2=x	ERROR
+148	water	-scircul2 -iquEry -sbegin -ufo2 -sbegin -auto1=x	ERROR
+149	water	-datafile 5 -squick1 -sprotein2	REFUSED
+150	water	-SenD=1e3 -slowe1	ERROR
+151	water	-nosupper sen2 -1 -noslower2 -SU=N	ERROR
+152	water	-compl1 x -sbegin2=0	ERROR
+153	water	-sb2=12 -fformat1 abc	fformat[1]=abc;sbegin[2]=12
+154	water	-noslower2 -slowe1 1	slower[1]=1;slower[2]=N
+155	water	/Srev	sreverse[1]=Y;sreverse[2]=Y
+156	water	-squick /supper2=f -sre	squick[2]=Y;sreverse[1]=Y;sreverse[2]=Y;supper[2]=f
+157	water	-sreversye1 -send 1e3 -supper2 t	ERROR
+158	water	-scircular1 -slower1 false -nosprotein2 -send2 27 -gapopen=x	REFUSED
+159	water	i --5 -sbegin3=-33 SCIRCULAR1 --sprotein2 0 SCIRCULAR1=TRUE	ERROR
+160	water	sask2 1	ERROR
+161	water	-s2 10 -snuc TRUE	ERROR
+162	water	-spro1=t -SUPPER -send1 -snuc -pa2=5	ERROR
+163	water	-SUPPER2=tr -slower -ioFfSE 1 -snucleotide T -scircular1	?ioffset[1]=1;ioffset[2]=1;scircular[1]=Y;slower[2]=Y;snucleotide[1]=T;snucleotide[2]=T;supper[2]=tr
+164	water	/NOS1=inf -sprotei3 -sCIRculAR1 -sreverse1 -sprotein2	ERROR
+165	water	-supper -slower1=no -nosupper0 -sci YES	scircular[1]=YES;scircular[2]=YES;slower[1]=no;supper[1]=N;supper[2]=N
+166	water	-supper2 -slower --sid1 x	sid[1]=x;slower[2]=Y;supper[2]=Y
+167	water	-sbegin2 +0	sbegin[2]=+0
+168	water	sen1 -9 -SPROTEIN1	ERROR
+169	water	-s1 0	ERROR
+170	water	-nosupper2	supper[2]=N
+171	water	snucleotide2 No	ERROR
+172	water	-nosnucleotide=-1 -slower yes -snucleot -snucleotide -sbegin2 -33	ERROR
+173	water	-nosreverse2=1 --scircular2 T -nosprotein1 -SReveRSe2 -nosnucleotide2	ERROR
+174	water	/nosnucleotide2	snucleotide[2]=N
+175	water	-sprotein=0x1 -NOSLOWER	?slower[2]=N;sprotein[2]=0x1
+176	water	-s2=t	ERROR
+177	water	-sbegin2 -11 -sbegin2=21 /nosnucleotide -sreverse=No -noslower01	sbegin[2]=21;slower[1]=N;snucleotide[2]=N;sreverse[2]=No
+178	water	-sreverse --nosci -scircul -noSreVERSe	scircular[1]=Y;scircular[2]=Y;sreverse[1]=N;sreverse[2]=N
+179	water	--fforma1 abc -stdout 5 -asequence2 4 -sen 2147483648	REFUSED
+180	water	-nosprotein3 -nosnucleotide2 -noscircular	ERROR
+181	water	-s3 /slower1=yEs	ERROR
+182	water	--SBEGI2 5-	ERROR
+183	water	-sbegin2 99999999999999999999 -squick=-1 -send1=29 -sreverse2=y -s2 +3	ERROR
+184	water	-sprotein=0.5 -S3 n	ERROR
+185	water	/SEN0=-29 -snuc f -supp2 F	send[1]=-29;send[2]=-29;snucleotide[1]=f;snucleotide[2]=f;supper[2]=F
+186	water	snucleotide2 -slower0	REFUSED
+187	water	-scir2 No -scircular -snuClEotiDE -nosnucleo --nosprotein	scircular[2]=Y;snucleotide[1]=N;snucleotide[2]=N;sprotein[1]=N;sprotein[2]=N
+188	water	-nos=1e2 /sreverse2 -sreverse2 false	ERROR
+189	water	sr2 -nosquick false	ERROR
+190	water	-rformat1 -sbegin3 21 -scircula01 t -nosreverse2 TRUE	ERROR
+191	water	-sNuCle2 -send -6	send[2]=-6;snucleotide[2]=Y
+192	water	-SREVERSE1 -slow1=t	slower[1]=t;sreverse[1]=Y
+193	water	-nosnucleotide2=00 -sbegin2 0 -supper --sc1=F -scircular1	ERROR
+194	water	-s1 false	ERROR
+195	water	-SB1 5-	ERROR
+196	water	-SREVERSE	sreverse[2]=Y
+197	water	-noslower --sreverse1	slower[2]=N;sreverse[1]=Y
+198	water	-sreverse -SenD=1	send[2]=1;sreverse[2]=Y
+199	water	-sc1=yEs -send2 0 -noscircular	scircular[1]=N;scircular[2]=N;send[2]=0
+200	water	--sb=17	sbegin[1]=17;sbegin[2]=17
+201	water	-sreverse -outfile2 4	REFUSED
+202	water	-s T -slower2 -nosquick y	ERROR
+203	water	-SLOWER2 1	slower[2]=1
+204	water	-FoPENf1=fasta	fopenfile[1]=fasta
+205	water	-nosn -S2=10 x=1	ERROR
+206	water	-s2=-3 -pattern1 5 -sreverse -sbegin2=15 /outfile1 5	ERROR
+207	water	-sbegin2=0	sbegin[2]=0
+208	water	-nosreverse1=0.5	ERROR
+209	water	--supper1=T	supper[1]=T
+210	water	slower1 Y --SREVERSE2=maybe	ERROR
+211	water	-su1=N -noscircular	scircular[1]=N;scircular[2]=N;supper[1]=N
+212	water	-slow1=N -sdbname0 -sup	sdbname[1]=-sup;sdbname[2]=-sup;slower[1]=N
+213	water	-sLower2 No	slower[2]=No
+214	water	-nosuppeyr2=0.5 -sprotein1=false -sBEG0 5	ERROR
+215	water	-sreve01 -slower01 -sc2 F -sb2 -12	sbegin[2]=-12;scircular[2]=F;slower[1]=Y;sreverse[1]=Y
+216	water	-OUTFILE1 10 -sEND -snucleotide1	ERROR
+217	water	-supper2 no -pattern 10 scircular=n	ERROR
+218	water	-supper -fopenfile=-3	fopenfile[2]=-3;supper[2]=Y
+219	water	-sask -scircular2 false --fopenfile sbegin	fopenfile[2]=sbegin;sask[2]=Y;scircular[2]=false
+220	water	-S3	ERROR
+221	water	-scircular2	scircular[2]=Y
+222	water	-nosnucleotide2=01 -sreverse1 -slowe2	ERROR
+223	water	-SREVE2 F -SbeGi -11 -outfile1 4	REFUSED
+224	water	fformat fastq -sbegin=33 -sen1=-33 scir1 -sprotein	ERROR
+225	water	sENd3 --snucleotide1	REFUSED
+226	water	-nosreverse=ye send -1 -supper	ERROR
+227	water	-SN2 -scircular1 no -fformat1=-fasta -supper2	fformat[1]=-fasta;scircular[1]=no;snucleotide[2]=Y;supper[2]=Y
+228	water	/sEnd1 -13 -snucleotide1 -snucleotide0 --sbegin=2	sbegin[1]=2;sbegin[2]=2;send[1]=-13;snucleotide[1]=Y;snucleotide[2]=Y
+229	water	-slower -slo=yEs -ScIRCUlar1=1e999	ERROR
+230	water	-ioffset2 -wordsize3 x -sc1 N	ERROR
+231	water	-squick -sprotein -snucleotide1 -fformat2=3	?fformat[2]=3;snucleotide[1]=Y;sprotein[2]=Y;squick[2]=Y
+232	water	/sbeg1 0 -SBEGIN 0 -scircular1 f /supper1 f	sbegin[1]=0;sbegin[2]=0;scircular[1]=f;supper[1]=f
+233	water	-SPROTEIN01 0 -nosreverse -sbegin1=-7 -snucleot1	sbegin[1]=-7;snucleotide[1]=Y;sprotein[1]=0;sreverse[1]=N;sreverse[2]=N
+234	water	-send1 5 /snucleotide2	send[1]=5;snucleotide[2]=Y
+235	water	-noscircu1 yes /sbegin1 -0 -SRE=+0	REFUSED
+236	water	/scircular	scircular[2]=Y
+237	water	-send=0	send[2]=0
+238	water	/sreverse	sreverse[2]=Y
+239	water	-nosuppe2=maybe	ERROR
+240	water	-SU2	supper[2]=Y
+241	water	-sReveRSe1 -sreverse	sreverse[1]=Y;sreverse[2]=Y
+242	water	-nosPrOtEiN1 YES -sbegin1 18	REFUSED
+243	water	SCIRCULAR --scircul1 -fformat2 -3 -snucleotide1 -sbegin1 15	REFUSED
+244	water	-sbeg1 0 -supper2 -SPROTEI --supper2 t --NOSLOWE false	REFUSED
+245	water	-sprote T	sprotein[1]=T;sprotein[2]=T
+246	water	-sbegin1 010 -sbegin1=-11 -su1	sbegin[1]=-11;supper[1]=Y
+247	water	-brief2=10 -B2 x -sreverse1=f -SiD0 -3	ERROR
+248	water	-outfile01 4 -sprotein -sID fastq -scircular	REFUSED
+249	water	-iquery1 -fasta	iquery[1]=-fasta
+250	water	-snucleotide3 --sreverse=nan -scircular -SeNd01 23 stray	ERROR
+251	water	s3	REFUSED
+252	water	/sreverse n -SREVERS1 f	sreverse[1]=f;sreverse[2]=n
+253	water	sreverse2	REFUSED
+254	water	-sbegin0 -0 -slower -SPROT1 YES	sbegin[2]=-0;slower[2]=Y;sprotein[1]=YES
+255	water	-outfile1=4 -sbegi1 -21 -SLowe=0x1	REFUSED
+256	water	-stdoUZt=4	ERROR
+257	water	-sbegin -1 -sbegin1 4 SEN 1e3 -srEVeRse Y	ERROR
+258	water	-supper YES /supper2 -nospro2 -o=10 -sen0=--5	ERROR
+259	water	--send1 0	send[1]=0
+260	stretcher	sprotei3=TRUE	ERROR
+261	stretcher	-NOSUPPER1 -NOSCIRCULAR2 TRUE	REFUSED
+262	stretcher	-supper No -si -fasta	sid[1]=-fasta;sid[2]=-fasta;supper[2]=No
+263	stretcher	-scircular y	scircular[2]=y
+264	stretcher	-sreversze -supper1 --scircular1	ERROR
+265	stretcher	-SpROTeIn YES	?sprotein[2]=YES
+266	stretcher	-SU=YES -sid1 -fasta	sid[1]=-fasta;supper[1]=YES;supper[2]=YES
+267	stretcher	-scircul1=-1 -scirc2= -s	ERROR
+268	stretcher	-sprot=N -snucl -send 1e3	ERROR
+269	stretcher	-nos1 -snucleotide=0.5 -nospr f	ERROR
+270	stretcher	-supp1=T -snucleo1 -NosLoWer3=f --AFORMAT 4 -sr yes	ERROR
+271	stretcher	-sBegIn2=-9223372036854775808	sbegin[2]=-9223372036854775808
+272	stretcher	-nosreverse rfo2=4 -noSlow	ERROR
+273	stretcher	--sbegin2 0	sbegin[2]=0
+274	stretcher	-snucleotide2 -sbegin 0	sbegin[2]=0;snucleotide[2]=Y
+275	stretcher	-nosnucleotide -ioffset1 33	?ioffset[1]=33;snucleotide[2]=N
+276	stretcher	sBEgin 15 -sreverse2	ERROR
+277	stretcher	-supper3 -SR1=1e999 -sequence1 4	ERROR
+278	stretcher	/sdbname 3 --sreverse2 y	sdbname[2]=3;sreverse[2]=y
+279	stretcher	/iq1 -SREVersE -sreverse=0.5	ERROR
+280	stretcher	-sprotein1 false -sprotein1=0 --sreverse1 N	sprotein[1]=0;sreverse[1]=N
+281	stretcher	-slo2	slower[2]=Y
+282	stretcher	-S	ERROR
+283	stretcher	-snucleotide=maybe slower01 -sb 33	ERROR
+284	stretcher	snucleotide1=1 -SdBNaME2 3 --sBEGIN2=0	sbegin[2]=0;sdbname[2]=3;snucleotide[1]=1
+285	stretcher	-slower F -sreve2 /nosci=f -s fasta	ERROR
+286	stretcher	--s1 -snucleotide2=Y	ERROR
+287	stretcher	-sprotein -SEND 11	?send[2]=11;sprotein[2]=Y
+288	stretcher	-slower=false -sprotein1 no -sdbn nosprotein=1	sdbname[1]=nosprotein=1;sdbname[2]=nosprotein=1;slower[2]=false;sprotein[1]=no
+289	stretcher	--SBEGI2 -sreverse=t	ERROR
+290	stretcher	-s --sbegi01 x=1	ERROR
+291	stretcher	--scir T --supper	scircular[1]=T;scircular[2]=T;supper[1]=Y;supper[2]=Y
+292	stretcher	supper -noSnUcleOt1 No -sprotein1=Y -snucleotide2 No	ERROR
+293	stretcher	-noSASk1 /noscircu2	sask[1]=N;scircular[2]=N
+294	stretcher	-scirculaxr -supper -SLOWER --	ERROR
+295	stretcher	-sbegin2 1 /slower1=t -sbegin2 -10 -send1 +3	sbegin[2]=-10;send[1]=+3;slower[1]=t
+296	stretcher	-nosnucleotide2=1e999	ERROR
+297	stretcher	-fformat2 a=b --supper01 -SBEGIN 14 -s1 x	ERROR
+298	stretcher	/iquery2=3 -nosnucleotide2 t -sprotein1 -scirc1 No	REFUSED
+299	stretcher	-noslower1=0 -sbegin1 33 -s=x iOFFsEt -17	ERROR
+300	stretcher	-slow2	slower[2]=Y
+301	stretcher	-sTdout1 10	ERROR
+302	stretcher	-ufo1 fasta -slo1=F	slower[1]=F;ufo[1]=fasta
+303	stretcher	-SdBNAme fasta -outf 4	REFUSED
+304	stretcher	-sbegin 0 -sci0	sbegin[2]=0;scircular[1]=Y;scircular[2]=Y
+305	stretcher	-send 0 -ioffset 1 -sprotein1	?ioffset[2]=1;send[2]=0;sprotein[1]=Y
+306	stretcher	-sprotein1	sprotein[1]=Y
+307	stretcher	-SNUCLEOTIDE1 -aforma x	REFUSED
+308	stretcher	--noscircular2=f	ERROR
+309	stretcher	-sLOweR f	slower[2]=f
+310	stretcher	-sbegin 0 --send2 -22 -s=Y	ERROR
+311	stretcher	-snucleo=N -snucleotide stray	REFUSED
+312	stretcher	-send 27	send[2]=27
+313	stretcher	-snucleoti2=false -sbegin2 abc	ERROR
+314	stretcher	-snucleot2 squick1 false --iquer2=-fasta -send1=-22	ERROR
+315	stretcher	/NOSU0	supper[1]=N;supper[2]=N
+316	stretcher	scircular=T send2 17 -supper2 -scircular F -sen 0	ERROR
+317	stretcher	-noscircu1 nosnucleotide1 -sprotein -scircular2 sbeg01 9223372036854775808	ERROR
+318	stretcher	-send2 007 x=1	ERROR
+319	stretcher	--noslower1= -fformat=-3	ERROR
+320	stretcher	-nos1=t -SBEGIN2 9	ERROR
+321	stretcher	-sreverse --nosprotein F slower=true	REFUSED
+322	stretcher	-sid1 gcg	sid[1]=gcg
+323	stretcher	-s	ERROR
+324	stretcher	-NOsNUcLEoTiDe1 -iquery fastq -s2 /noscircular ioffset2 0	ERROR
+325	stretcher	-s3 -sprotein -slow -suPP1	ERROR
+326	stretcher	-slower yes -complement=10	ERROR
+327	stretcher	--ScirculAR F -sbegin2=27	sbegin[2]=27;scircular[2]=F
+328	stretcher	-sbegin -6 -sbegin=3 -nosnucleotide1 -slowe -sreverse1 no x=1	ERROR
+329	stretcher	-supper	supper[2]=Y
+330	stretcher	-s=0x1 -scircular --slower2 n -srev1 --SREVE2=0.5	ERROR
+331	stretcher	--SBE2=9223372036854775808 -SfOrMAt	ERROR
+332	stretcher	-sc1 -scircular1=1 -rformat2 4	ERROR
+333	stretcher	-noslower1 Y sprotein -sreverse n	ERROR
+334	stretcher	-snucleotide01 false	snucleotide[1]=false
+335	stretcher	-rfor=4 -su1 1 -SREVERS0=1	ERROR
+336	stretcher	-SFORMAT1 gcg -nosprotein2 n -sreverse3=0.5	ERROR
+337	stretcher	sprotein -supper1 senzd2 sreverse01=TRUE -se=0	ERROR
+338	stretcher	-SEND1 33 -scircular YES -afo2 10 -sUppER	ERROR
+339	stretcher	-sreverse1=No -iquery=-3 --slo1	iquery[1]=-3;iquery[2]=-3;slower[1]=Y;sreverse[1]=No
+340	stretcher	-slow1	slower[1]=Y
+341	stretcher	-send2 -12 --send2 1e3 -supper2 -complement2 x -sf2 x	ERROR
+342	stretcher	-SE -33 -s1 --supper3	ERROR
+343	stretcher	-suppe1 -sreverse1	sreverse[1]=Y;supper[1]=Y
+344	stretcher	-supper -slower1 -sprotein1 -supp	slower[1]=Y;sprotein[1]=Y;supper[1]=Y;supper[2]=Y
+345	stretcher	/supper=1 -nosup -sp false	sprotein[1]=false;sprotein[2]=false;supper[1]=N;supper[2]=N
+346	stretcher	-scircular -datafile0 5 -sprote2 /ioffset2 0	REFUSED
+347	stretcher	-sprotein -sbegin -1	?sbegin[2]=-1;sprotein[2]=Y
+348	stretcher	-noscircul2	scircular[2]=N
+349	stretcher	-scircul1 -snucleotide1 -send2 -1	scircular[1]=Y;send[2]=-1;snucleotide[1]=Y
+350	stretcher	-supper1 No -sprotein1=+0 -scircular -send1 010 --nosp2=01	ERROR
+351	stretcher	-uf1 -3 -SFORMAT1 3 -sprot1 -f1=fastq -s 6	ERROR
+352	stretcher	-slower2=F -nos3 YES	ERROR
+353	stretcher	-snucleotide t -sprotein1 -send1 --send1 1e3 -sre1=No	ERROR
+354	stretcher	-scircular1 -sreverse f -scircu0=0.5 -suppe01 t	scircular[1]=0.5;scircular[2]=0.5;sreverse[1]=f;sreverse[2]=f;supper[1]=t
+355	stretcher	--NOSREVERSE2 -sbegin1 -1 -sformat1 -3 -nosup -s fastq	ERROR
+356	stretcher	-slower2=1e2 -supper -slower1	ERROR
+357	stretcher	-slower3=TRUE /Se2 18 -sprotein=0x1 -sreve YES -supper2=inf	ERROR
+358	stretcher	-supper=t	supper[2]=t
+359	stretcher	-SBEG1 0	sbegin[1]=0
+360	stretcher	-GAPOPEN1 5 -send2=-33 -slo1	ERROR
+361	stretcher	-supper2 TRUE	supper[2]=TRUE
+362	stretcher	-slower2=F -send0	ERROR
+363	stretcher	/send1 -30	send[1]=-30
+364	stretcher	-se1 0 -snucleotide	send[1]=0;snucleotide[1]=Y;snucleotide[2]=Y
+365	stretcher	-srever01 -SUppeR2=00	sreverse[1]=Y;supper[2]=00
+366	stretcher	supper1 f -scircular1=F -supper=1e999 -send=11 -sbegin1 9	ERROR
+367	stretcher	--snucleo	snucleotide[1]=Y;snucleotide[2]=Y
+368	stretcher	-sreverse2 -iquery1 fastq --sprotein -SREVERSZE n -a1 x	ERROR
+369	stretcher	-supper1 -snucleotide1	snucleotide[1]=Y;supper[1]=Y
+370	stretcher	-ioffs1 0 supper1 /sbegin2 6 -sprotein -sid fastq	REFUSED
+371	stretcher	snucleotide3=YES	ERROR
+372	stretcher	-nosprotein -snucleotide2=Y /nosprote1 -send 8	send[1]=8;send[2]=8;snucleotide[2]=Y;sprotein[1]=N;sprotein[2]=N
+373	stretcher	-nos01 --snucl1 -sprotein2	ERROR
+374	stretcher	--S 1 --sCIRCULA2	ERROR
+375	stretcher	-sc=0.5 slower1 -sreverse1= -SNUCLEOTIDZE=n -send 21	ERROR
+376	stretcher	-scircular=0.5	scircular[2]=0.5
+377	stretcher	-nosnu2 -sform1 abc	sformat[1]=abc;snucleotide[2]=N
+378	stretcher	-sbegin2 -1	sbegin[2]=-1
+379	stretcher	/noscirculazr2=TRUE --sci=-1	ERROR
+380	stretcher	-send1 1.5 -su -NOSLOWER1	ERROR
+381	stretcher	-nos -sprotein1 -iquery=x	ERROR
+382	stretcher	-sprote2 1 -snucleotid2 t	?snucleotide[2]=t;sprotein[2]=1
+383	stretcher	-nosprotein1 -SREVERSE no	sprotein[1]=N;sreverse[1]=no;sreverse[2]=no
+384	stretcher	-slower2=F	slower[2]=F
+385	stretcher	/sPRoTeIN1 -send 4	send[1]=4;send[2]=4;sprotein[1]=Y
+386	stretcher	-sequence1=x	ERROR
+387	stretcher	-nosprotein2 -sformat1 sbegin	sformat[1]=sbegin;sprotein[2]=N
+388	stretcher	-scircul1 true -nosreverse2 --snu1	scircular[1]=true;snucleotide[1]=Y;sreverse[2]=N
+389	stretcher	-SNUCLEOTIDE=TRUE -sprotei -sreverse=No	snucleotide[2]=TRUE;sprotein[1]=Y;sprotein[2]=Y;sreverse[1]=No;sreverse[2]=No
+390	matcher	-snUCLE=true -noscircula1	scircular[1]=N;snucleotide[1]=true;snucleotide[2]=true
+391	matcher	-aformat1	ERROR
+392	matcher	-sen2 27 -SL	send[2]=27;slower[1]=Y;slower[2]=Y
+393	matcher	-sbegi2 0 --	REFUSED
+394	matcher	COMPL1 10 -send2 -2147483649 -sn=Y	ERROR
+395	matcher	--sask1=No	sask[1]=No
+396	matcher	-s F -sd2 sbegin -sprot1 -supper2 -scircular yes	ERROR
+397	matcher	-slower 1 -send 7 -nosreverse --send2=21	send[2]=21;slower[2]=1;sreverse[2]=N
+398	matcher	-nosnucleotide1 --nosupp2	snucleotide[1]=N;supper[2]=N
+399	matcher	-send3 1.5 -ioffset 13 -supper -supper1 f	ERROR
+400	matcher	-s 0	ERROR
+401	matcher	-sreverse=true	sreverse[2]=true
+402	matcher	slower2	REFUSED
+403	matcher	-send1=0 /sbegin -33	sbegin[1]=-33;sbegin[2]=-33;send[1]=0
+404	matcher	-noscircular1 F	REFUSED
+405	matcher	-sLOWeR2=No -nosupper -scircular1=2	scircular[1]=2;slower[2]=No;supper[2]=N
+406	matcher	-SBEGIN 007	sbegin[2]=007
+407	matcher	send 0 -scir	ERROR
+408	matcher	-supper1 nosn -slower2 -sb1 -9 /sprotein3 T	ERROR
+409	matcher	--SREVERSE1	sreverse[1]=Y
+410	matcher	-ufo -fasta -ufo=3 -send2 -0	send[2]=-0;ufo[2]=3
+411	matcher	-snucleotide=true -sreverse0=yEs	snucleotide[2]=true;sreverse[2]=yEs
+412	matcher	-sp1 -sup1 /snucleotide1	snucleotide[1]=Y;sprotein[1]=Y;supper[1]=Y
+413	matcher	-slower2 -nosnucleot YES	REFUSED
+414	matcher	-send 3 -nosreverse0=yEs	ERROR
+415	matcher	/se=0 -send1 -sreverse1	ERROR
+416	matcher	-slower01=yes	slower[1]=yes
+417	matcher	-send -supper2 -nosnucle -ScircUlayR2 -snucleotide=	ERROR
+418	matcher	-spr -scircular2 -noscirc2 TRUE	REFUSED
+419	matcher	-sbegin2=33	sbegin[2]=33
+420	matcher	--nosupper2 true -snucleotide y -slower no	REFUSED
+421	matcher	sreverse=1e999 /S 0 -noscirculazr1 0	ERROR
+422	matcher	-sbegin0 -11 -s	ERROR
+423	matcher	--nosnucleotide1 -sformat2=fasta -nosupper2 -snuc2=yEs	sformat[2]=fasta;snucleotide[1]=N;snucleotide[2]=yEs;supper[2]=N
+424	matcher	--sbeg 1.5 -SEND=0 -slower	ERROR
+425	matcher	-scircu1 --snucleotidxe1	ERROR
+426	matcher	nosreverse1 -snucleotide2 -NOSC1=T	ERROR
+427	matcher	-sbegin -9223372036854775808 -nosprotein	sbegin[2]=-9223372036854775808;sprotein[2]=N
+428	matcher	-snucle2=n -datafile 4 -nosl2 -s2 -0	ERROR
+429	matcher	-send=17 -nOSu	send[2]=17;supper[1]=N;supper[2]=N
+430	matcher	-noscircular1 false	REFUSED
+431	matcher	sid -scircula -S	ERROR
+432	matcher	-s2 -10 -send2=1	ERROR
+433	matcher	-fopenfile01=gcg -SCIRCULAR N -NOSLOWER -SLOWER=false -scircular	fopenfile[1]=gcg;scircular[1]=Y;scircular[2]=Y;slower[1]=false;slower[2]=false
+434	matcher	-nosupp1 -scircular1 T	scircular[1]=T;supper[1]=N
+435	matcher	-nosrev -send1 0 -SbEgIN2	ERROR
+436	matcher	-scircular -snucleoti2 -sen 0	scircular[2]=Y;send[1]=0;send[2]=0;snucleotide[2]=Y
+437	matcher	-scircular Y	scircular[2]=Y
+438	matcher	-sreverse -nosreverse2 --sbegin1 23 -sprotein2 -sreverse	?sbegin[1]=23;sprotein[2]=Y;sreverse[1]=Y;sreverse[2]=Y
+439	matcher	--sbegin1	ERROR
+440	matcher	-sproteiyn1 T -AUTO2 4	ERROR
+441	matcher	--sci --snucleotide2=-1 -sreverse2 Y -supper Y -noslowe yes	REFUSED
+442	matcher	-supper n -SNUCLEOTIDE=nan	ERROR
+443	matcher	-sprotein -nosprotein3 -sprotei1	ERROR
+444	matcher	-SLOWER --slower2 true	slower[2]=true
+445	matcher	-sreverse /scircular	scircular[2]=Y;sreverse[2]=Y
+446	matcher	/ff -3 -supper2=No	fformat[1]=-3;fformat[2]=-3;supper[2]=No
+447	matcher	-SLO3 true -SUPPER=T -outfile 5	ERROR
+448	matcher	-sreverse2 --sreverse3=yEs noslo -supper	ERROR
+449	matcher	-snucleotide2 -sprotein1 slowexr2 -Sup2	REFUSED
+450	matcher	-sbegi -nosprotein1 no -snucleotide	ERROR
+451	matcher	-slower=0x1 -sbegin 010	sbegin[2]=010;slower[2]=0x1
+452	matcher	-snucleotide -snucleotide2 sprotein1 t -slower1 -suppexr1=true	ERROR
+453	matcher	-iquery2 -3 -nospr2=YES	ERROR
+454	matcher	-SR1 false --SREversE=01 -SUP	sreverse[1]=01;sreverse[2]=01;supper[1]=Y;supper[2]=Y
+455	matcher	-squick2 F -send2=29	send[2]=29;squick[2]=F
+456	matcher	--aformat1 4 send 16 -ufo2 a=b -ioffset 1	ERROR
+457	matcher	-SLoWezR -nosre2 no -sbegin1 33 sprotein --scircu yes	ERROR
+458	matcher	/sbe2 010	sbegin[2]=010
+459	matcher	-noslower1 false sprotein1 -S2 0 -sprotein2=0 /nosreverse	ERROR
+460	matcher	-SID1 x	sid[1]=x
+461	matcher	-S1 +3 x=1	ERROR
+462	matcher	-snucleotide1 -snucleotide3 -nosquick1 -sreverse --nosnucleotide2 yes	ERROR
+463	matcher	/da1 4 -noscircul2=+0 -uf2=abc -sreverse	ERROR
+464	matcher	-noscircular2 --sprotein1 -nosreverse=YES -snucleotide1 -scircular2	ERROR
+465	matcher	/noscircular=t snucleotide1 -SREV1	ERROR
+466	matcher	--NOSPROTEIN2= -s N -nosci2=inf -sbegin 0 -SciRCulAr1	ERROR
+467	matcher	-sl yes -SBEGIN=5 -sreverse3 f -nosreverse -send=-23	ERROR
+468	matcher	-sbeg 1 --sbegin	ERROR
+469	matcher	--sc /sbegin1 -0 -SeNd01 14	sbegin[1]=-0;scircular[1]=Y;scircular[2]=Y;send[1]=14
+470	matcher	-wordsize 5 -scircular1 F -SEND1=-9223372036854775808	ERROR
+471	matcher	-s2 15	ERROR
+472	matcher	-nosreverse=01 -noscir --sreverse2 -sREVErsE1	ERROR
+473	matcher	-SC2 No --slower2 yes -asequence2 10 sbegin1 -SUPPER No	REFUSED
+474	matcher	-brief x -send1 33	ERROR
+475	matcher	-fformat=fastq -sreverse	fformat[2]=fastq;sreverse[2]=Y
+476	matcher	-sbe 3 --sbeg0=0	sbegin[1]=0;sbegin[2]=0
+477	matcher	-slower3 nos2 -supper1 false -SEND1	ERROR
+478	matcher	auto3=x	ERROR
+479	matcher	-s1 false -sbegi 27 -sREVERse2 --snucleoti2 0	ERROR
+480	matcher	-sb ٣ -se2 4 sreverse3 T	ERROR
+481	matcher	ffOrMaT1 3 -noscircula2	ERROR
+482	matcher	-sbegin -10 send 0	ERROR
+483	matcher	-sprotein -send2 20 -s2 -1 nOsre -scircular1	ERROR
+484	matcher	-supper1 s 11 NOSUPPER=F -IquEry x /slow	ERROR
+485	matcher	-u2 a=b /slower YES	slower[2]=YES;ufo[2]=a=b
+486	matcher	-sbe 6 -sdbname1 3 -snucleotide2 -fopenfile0 gcg -sprotein1	?fopenfile[1]=gcg;fopenfile[2]=gcg;sbegin[1]=6;sbegin[2]=6;sdbname[1]=3;snucleotide[2]=Y;sprotein[1]=Y
+487	matcher	-sprotein	?sprotein[2]=Y
+488	matcher	/noscircular1 -supper2 -snucleotide1 N -SNuCLeoTiDE1	scircular[1]=N;snucleotide[1]=Y;supper[2]=Y
+489	matcher	-SnUCLEOTiDe2=n --sPRotEin2=true -supper -sFormAT1=fastq -sbegin 0	?sbegin[1]=0;sbegin[2]=0;sformat[1]=fastq;snucleotide[2]=n;sprotein[2]=true;supper[2]=Y
+490	matcher	-sbegin2 0	sbegin[2]=0
+491	matcher	-sreverse1 Y -sbegin1 5 -datafil 5	REFUSED
+492	matcher	/sproteizn3 -snucleotide1 YES	ERROR
+493	matcher	-sreverse -slower1=t -slower -scircular yes	scircular[1]=yes;scircular[2]=yes;slower[1]=Y;slower[2]=Y;sreverse[2]=Y
+494	matcher	-srever=n -nosreverse2	sreverse[1]=n;sreverse[2]=N
+495	matcher	-sbegin2 007 --	REFUSED
+496	matcher	--sformat fasta -scircular1=y -send1 2	scircular[1]=y;send[1]=2;sformat[2]=fasta
+497	matcher	/s1 gcg	ERROR
+498	matcher	-slower1 -sreverse1 -supp false	slower[1]=Y;sreverse[1]=Y;supper[1]=false;supper[2]=false
+499	matcher	/snucleotide1 N -suppeyr -noscircular2=f	ERROR
+500	matcher	-snucleotid2 no -noscircular Y	REFUSED
+501	matcher	snucleotid2 no -sbegin1 33 -si1 a=b -sprotein	ERROR
+502	matcher	-snucleotide1 Y -i -10	ERROR
+503	matcher	-paTTeRN	ERROR
+504	matcher	--sPRote YES -supper3 N	ERROR
+505	matcher	-nosupper 1 -sprotein no slower -scircular1=-1	ERROR
+506	matcher	-sen2 0x10 -sen=20	send[1]=20;send[2]=20
+507	matcher	-srev	sreverse[1]=Y;sreverse[2]=Y
+508	matcher	-nosupper=2 -SBEGIN1 1e3	ERROR
+509	matcher	-slower1 --asequence01 10	REFUSED
+510	matcher	-SNu true	snucleotide[1]=true;snucleotide[2]=true
+511	matcher	/sreverse1	sreverse[1]=Y
+512	matcher	-scircular nosnucleotide 1 -sbegin1=-0 /nosu3 --sformat a=b	ERROR
+513	matcher	-slower -sup -supper1 -send	ERROR
+514	matcher	-sPROtEin2=no -NOSPROTEIN=n -slower f	ERROR
+515	matcher	-snucleotide01 f -slower2 y	slower[2]=y;snucleotide[1]=f
+516	matcher	-scircular1 yes -sbegiyn -0	ERROR
+517	matcher	-squick1 -SBEGIN2 -10 --snuc -snucleotid f	sbegin[2]=-10;snucleotide[1]=f;snucleotide[2]=f;squick[1]=Y
+518	matcher	-S2=No -nosnucl Y -sENd 0	ERROR
+519	matcher	-sb -13 -sbegin1	ERROR
+520	supermatcher	-send 33 -NosUp1 Y -nosprotein T -	ERROR
+521	supermatcher	-sb 15 -IQUERY2 a=b	iquery[2]=a=b;sbegin[1]=15;sbegin[2]=15
+522	supermatcher	-squick -send2 13	send[2]=13;squick[2]=Y
+523	supermatcher	-sprotein2	?sprotein[2]=Y
+524	supermatcher	-srevers	sreverse[1]=Y;sreverse[2]=Y
+525	supermatcher	-slower2 no -afor1 4 -rforma x -snucleotide1 -SUPPEYR2	ERROR
+526	supermatcher	send1=6 -nosupper=0	ERROR
+527	supermatcher	-scirc2	scircular[2]=Y
+528	supermatcher	-se=-7 --SNUCLEOTIDE -sbegin 010	sbegin[1]=010;sbegin[2]=010;send[1]=-7;send[2]=-7;snucleotide[1]=Y;snucleotide[2]=Y
+529	supermatcher	-scircular n -SE1 -8 -SenD1 5 --	REFUSED
+530	supermatcher	-W 10 ufo gcg	ERROR
+531	supermatcher	-slo -slowexr01=1 --sprotein1	ERROR
+532	supermatcher	-sbegin 33 -sprotein2 /slower1 -S2=No -scircular2	ERROR
+533	supermatcher	-snucleotide1 -sprotein yes	snucleotide[1]=Y;sprotein[1]=yes;sprotein[2]=yes
+534	supermatcher	-slower1=ye	ERROR
+535	supermatcher	supper2 sprotein2 n -scircuLar1 -sdbname 3 -sprotein No	ERROR
+536	supermatcher	-send1 -30 -sreverse01	send[1]=-30;sreverse[1]=Y
+537	supermatcher	-sprotein3	ERROR
+538	supermatcher	-SCIRCULAR2=t -sbegin 0 -snucleotide1 TRUE	sbegin[2]=0;scircular[2]=t;snucleotide[1]=TRUE
+539	supermatcher	-snucLeoTide TRUE	snucleotide[2]=TRUE
+540	supermatcher	-sreverse1 T	sreverse[1]=T
+541	supermatcher	-scircular1	scircular[1]=Y
+542	supermatcher	-nosnucleotidze -gapopen 5	ERROR
+543	supermatcher	-nosreverse1	sreverse[1]=N
+544	supermatcher	-s1 1 -SBEGIN=-29	ERROR
+545	supermatcher	slower -slower= -s2 23	ERROR
+546	supermatcher	-suppe1 -nosup -si3 sbegin -sreversye t -sbeg01 17	ERROR
+547	supermatcher	-sCiRcuLAR2 -slower2 F -snucleotide -slower2 -SBEGIN2 0	sbegin[2]=0;scircular[2]=Y;slower[2]=Y;snucleotide[2]=Y
+548	supermatcher	nosupper=01	ERROR
+549	supermatcher	-snucleotide /snucleotide1 -noscirculazr2=0.5 SP1 -sbegin1 29	ERROR
+550	supermatcher	-sprotei2	?sprotein[2]=Y
+551	supermatcher	ioffset1 28 -SP2 -sprote1 /u1 3	ERROR
+552	supermatcher	-sdbname1=x -send1=17 -slower1=inf -supper1 true	ERROR
+553	supermatcher	-ioffset1 30 -af=10 -snucleotide=ye	ERROR
+554	supermatcher	-nosp	sprotein[1]=N;sprotein[2]=N
+555	supermatcher	-s -nosprotein Y --snucleotide01=T -SBEG2 -4	ERROR
+556	supermatcher	-scircular no -sask -nosrev -scIrCULAR1 -sreverse1=0.5	sask[2]=Y;scircular[1]=Y;scircular[2]=no;sreverse[1]=0.5;sreverse[2]=N
+557	supermatcher	-srevers F -sforma1 sbegin -sreverse0 se2=9223372036854775807 -ASEqUEnce	ERROR
+558	supermatcher	-nosnucleotide1=n -f2 gcg -sbegin2=30	ERROR
+559	supermatcher	-sbegin2 3	sbegin[2]=3
+560	supermatcher	-send -33 -sbeg 5-	ERROR
+561	supermatcher	-send1=+0 -nosnucle=no /SEND1 30	ERROR
+562	supermatcher	-sbegin1 -25 -supper 1 -spRO1 No --slowe -scir1 y	sbegin[1]=-25;scircular[1]=y;slower[1]=Y;slower[2]=Y;sprotein[1]=No;supper[1]=1;supper[2]=1
+563	supermatcher	-sid1 gcg -SBEGIN1 7 -noscircular=Y -s01 -sreverse false	ERROR
+564	supermatcher	-sreverse2 No /scircular01 -snucleotid2 -supp=f -SPROTEIN	scircular[1]=Y;snucleotide[2]=Y;sprotein[1]=Y;sprotein[2]=Y;sreverse[2]=No;supper[1]=f;supper[2]=f
+565	supermatcher	-supper -SCIRCUL1 sbegin1=-1	sbegin[1]=-1;scircular[1]=Y;supper[2]=Y
+566	supermatcher	-sreverse2 -sbegin2=-9	sbegin[2]=-9;sreverse[2]=Y
+567	supermatcher	-sre F -slower1 y	slower[1]=y;sreverse[1]=F;sreverse[2]=F
+568	supermatcher	-suppe1 -supper no	supper[1]=no;supper[2]=no
+569	supermatcher	-NOSREVERSE true -sd2 3 -iqu x	REFUSED
+570	supermatcher	-se1=20	send[1]=20
+571	supermatcher	--send=0 -SNUCLEOTIDE1 0 -snucleotide2 N -nospr2 no -send1=-33	REFUSED
+572	supermatcher	-noslo1 -sdbnam1 gcg	sdbname[1]=gcg;slower[1]=N
+573	supermatcher	-nosprotein -send1 0 -sprotein2 y -sreverse2 -noslo2 -	REFUSED
+574	supermatcher	-sbegizn -sre0=No -scircular2 t -snucleotid3=ye -	ERROR
+575	supermatcher	-NOSPR2=TRUE	ERROR
+576	supermatcher	-supp1	supper[1]=Y
+577	supermatcher	--suppezr -scircular -nosnucleotide=yes	ERROR
+578	supermatcher	noslow1 -SbEG -8 -snucleotide2 1 -SU1 no	REFUSED
+579	supermatcher	scircular -scircular2 -sbegi1 +0 -supp	REFUSED
+580	supermatcher	-sr true -sCirCU3 -supper0=-1 -sbegin1 -1	ERROR
+581	supermatcher	SREVERSE2 -sprot1 n -slow2	REFUSED
+582	supermatcher	-sBEGIn -1 -sdbname1 3 -send2 33 -supper3	ERROR
+583	supermatcher	-snucleotide2 -noslowe01 No	REFUSED
+584	supermatcher	-sUpPER NOSN2=YES	ERROR
+585	supermatcher	-NOSciRculAr No -ufo2=fastq -sup1=+0 -datafil1	ERROR
+586	supermatcher	-s -nosreverse=true	ERROR
+587	supermatcher	-slower F -snucleotide1 nosnucl2 -scIrCULAr 1 -SBE01=-8	REFUSED
+588	supermatcher	-sloweR1 TRUE -snucleotide2	slower[1]=TRUE;snucleotide[2]=Y
+589	supermatcher	-SREVER2=nan	ERROR
+590	supermatcher	--slower2 y -send1 11 -srevers no -send1 -2147483649	send[1]=-2147483649;slower[2]=y;sreverse[1]=no;sreverse[2]=no
+591	supermatcher	-iquery1 /supper1	iquery[1]=/supper1
+592	supermatcher	-nosask2=t -outfile x	ERROR
+593	supermatcher	-squick1=tr -sreverse2 Y SEND +0 -SEND 1	ERROR
+594	supermatcher	-scircular1 s0 -sformat2 abc	REFUSED
+595	supermatcher	-sreverse -sp -snucleotide1 N	snucleotide[1]=N;sprotein[1]=Y;sprotein[2]=Y;sreverse[2]=Y
+596	supermatcher	-SnuClEoT1=n -sbegin1=33 -nosnucleotide	sbegin[1]=33;snucleotide[1]=N;snucleotide[2]=N
+597	supermatcher	-supper1 -NOSLOW=nan	ERROR
+598	supermatcher	-sreverse2 -slowe2 -sprotein2=t -	REFUSED
+599	supermatcher	-nosu2 --sreverse1 -sprotein0=yEs	sprotein[1]=yEs;sprotein[2]=yEs;sreverse[1]=Y;supper[2]=N
+600	supermatcher	-send 0 -send1 1.5	ERROR
+601	supermatcher	-complemen 4 /s1 -23 --	ERROR
+602	supermatcher	-sprotein2=maybe --ScIRcUlAR -SPR2=1 -SBEGIN 0x10	ERROR
+603	supermatcher	/slower=1	slower[2]=1
+604	supermatcher	--ioff1 33 -s=1e999	ERROR
+605	supermatcher	-snuCLEoTIde T --noscircular1 /s 18 -nosupp2=1	ERROR
+606	supermatcher	-slower	slower[2]=Y
+607	supermatcher	-sreverse2 -sbegin2 15 --slower1 -SUPPER1 -supper=No	sbegin[2]=15;slower[1]=Y;sreverse[2]=Y;supper[1]=No;supper[2]=No
+608	supermatcher	/sreverse1 --sreVErSe1 -sbe1=9223372036854775807 -snucleotide=inf iq 3	ERROR
+609	supermatcher	-sreverse -se1 0 -send1 27 -NOSReverSe1	send[1]=27;sreverse[1]=N;sreverse[2]=Y
+610	supermatcher	-sreverse2 YES -SpROtEIN1 -uf=fasta -slower1	slower[1]=Y;sprotein[1]=Y;sreverse[2]=YES;ufo[1]=fasta;ufo[2]=fasta
+611	supermatcher	/supper	supper[2]=Y
+612	supermatcher	-sprotein1 yes -srevers --scircular	scircular[1]=Y;scircular[2]=Y;sprotein[1]=yes;sreverse[1]=Y;sreverse[2]=Y
+613	supermatcher	snucleotide2=tr -snucleotide1	ERROR
+614	supermatcher	-sreversze1=TRUE	ERROR
+615	supermatcher	-nosprotein /datafile2 4 -datafile2 x -snucle1 -SNUCLEOTIDE2	ERROR
+616	supermatcher	--noscirc	scircular[1]=N;scircular[2]=N
+617	supermatcher	-SNUCLEOTI2 -send1 5 /supp -supper2=true -send3 24	ERROR
+618	supermatcher	-sprotein=0x1 stray	REFUSED
+619	supermatcher	-srevErSE2	sreverse[2]=Y
+620	supermatcher	-sreverse0 no -scircular2=1 -sprotein true -senD 10 -scircular1=f	?scircular[1]=f;scircular[2]=1;send[2]=10;sprotein[2]=true;sreverse[2]=no
+621	supermatcher	-slower -SReV -sbegin=-33 -nosrever2 -sBegin2 0	sbegin[1]=-33;sbegin[2]=0;slower[2]=Y;sreverse[1]=Y;sreverse[2]=N
+622	supermatcher	-sprot1 --sen=11	send[1]=11;send[2]=11;sprotein[1]=Y
+623	supermatcher	-s1 y -sb 0 -NoSPRoTEIN -spROTein1	ERROR
+624	supermatcher	-fopenfile abc -SpRoTeIn2 f -si2=gcg -s -30	ERROR
+625	supermatcher	-nosupper1 --nosnucleotide1 --supper2=yEs	snucleotide[1]=N;supper[1]=N;supper[2]=yEs
+626	supermatcher	-nosprotein2 T -auto x	ERROR
+627	supermatcher	-sl1	slower[1]=Y
+628	supermatcher	-sbegin -20 -nosnucleotide1	sbegin[2]=-20;snucleotide[1]=N
+629	supermatcher	-sup --s=0.5 /S=-19 -send1 -1 -stdout 4	ERROR
+630	supermatcher	-ioffset2 010	?ioffset[2]=010
+631	supermatcher	-sproTe2 0 -noscircular2 yes	REFUSED
+632	supermatcher	-scircular -scIRcUlaR1 f nosupper1 -slow1 -sbegin 1.5	ERROR
+633	supermatcher	-s2 -sloWER2 N -sdbname -supper1	ERROR
+634	supermatcher	-scircular2=1 -nosnucleotide	scircular[2]=1;snucleotide[2]=N
+635	supermatcher	-snucle false	snucleotide[1]=false;snucleotide[2]=false
+636	supermatcher	-sEnd 11 --SLOWER1	send[2]=11;slower[1]=Y
+637	supermatcher	--NOSLOWER --SBEGIN 0x10 -snUClEotiDE1	ERROR
+638	supermatcher	--snucl2 scircular3 -sprotein t	REFUSED
+639	supermatcher	-snucleotide3 --noscircular -scircular 1 -NOSREVERSE01 -sprotein N	ERROR
+640	supermatcher	-nosnucleotide1 -scircular t -seNd 18	scircular[1]=t;scircular[2]=t;send[1]=18;send[2]=18;snucleotide[1]=N
+641	supermatcher	-sr2 /SCIRCULAR=ye sBegiN1 -33 -nosupper no	ERROR
+642	supermatcher	-s1 33	ERROR
+643	supermatcher	-sbegin2 0	sbegin[2]=0
+644	supermatcher	-sbegin1=-23 -scircular1	sbegin[1]=-23;scircular[1]=Y
+645	supermatcher	-sbegi1	ERROR
+646	supermatcher	-NoSCiRculAr -supp1	scircular[2]=N;supper[1]=Y
+647	supermatcher	-SUPPER=y	supper[2]=y
+648	supermatcher	-noslower1 -SEND --5 -snucle2=T	ERROR
+649	supermatcher	/sprotein=ye -sequence2 4 /snucleotide1 Y -s1 1	ERROR
+650	needleall	-sbegin2 8 -sprotein	?sbegin[2]=8;sprotein[2]=Y
+651	needleall	-slower1 t -nosupper -snu n -scircul no -sciRCULar1	scircular[1]=Y;scircular[2]=no;slower[1]=t;snucleotide[1]=n;snucleotide[2]=n;supper[1]=N;supper[2]=N
+652	needleall	-scircular2=no -squi2=true --iquery01 3 /sprotein1	iquery[1]=3;scircular[2]=no;sprotein[1]=Y;squick[2]=true
+653	needleall	-su1	supper[1]=Y
+654	needleall	-NOsnUCLeO -slower -SUPPER1 -SBEGIN 0	sbegin[1]=0;sbegin[2]=0;slower[1]=Y;slower[2]=Y;snucleotide[1]=N;snucleotide[2]=N;supper[1]=Y
+655	needleall	-slower2 -sask -sprotei2 -supper=yes	?sask[2]=Y;slower[2]=Y;sprotein[2]=Y;supper[2]=yes
+656	needleall	--s 33 /slower N	ERROR
+657	needleall	-snucle -scirculaxr	ERROR
+658	needleall	-slower1	slower[1]=Y
+659	needleall	-SUPPER2	supper[2]=Y
+660	needleall	--sprotei -ScIrCUlAR3 -scircul N	ERROR
+661	needleall	-snucleotide2=yes -sen1 007	send[1]=007;snucleotide[2]=yes
+662	needleall	-srevers2	sreverse[2]=Y
+663	needleall	--send2=٣ -scircu1 1 -send01=-3 -nosnucleotide --noslower2	ERROR
+664	needleall	-sreverse2	sreverse[2]=Y
+665	needleall	-slowe1 -fopenfile1 abc -send1 -1	fopenfile[1]=abc;send[1]=-1;slower[1]=Y
+666	needleall	--supp2 -sreve1	sreverse[1]=Y;supper[2]=Y
+667	needleall	-sbegin 0 -send 3 -datafile x --send -15 -sEnd2 -16	REFUSED
+668	needleall	-ufo3 -snucleotide	ERROR
+669	needleall	-supper2=+0 -sreverse1	sreverse[1]=Y;supper[2]=+0
+670	needleall	-sbegin1 -26 -su=No -send1 -send1=17 -sre0	ERROR
+671	needleall	-SUPPER0=t	supper[2]=t
+672	needleall	--nosprote -supper no	sprotein[1]=N;sprotein[2]=N;supper[1]=no;supper[2]=no
+673	needleall	/SEND1=-0 -slower=yes -sre2 1 -SuPPeR N -send ٣	ERROR
+674	needleall	-sprotein=maybe -supper -noslowe No -srevers1 T nosnucleotide1=1e999	ERROR
+675	needleall	-sENd=-19 -slowe -nosprotein	send[2]=-19;slower[1]=Y;slower[2]=Y;sprotein[1]=N;sprotein[2]=N
+676	needleall	-slOW3 spr=maybe -sreverse3	ERROR
+677	needleall	-nosupper -squIcK snucle1	REFUSED
+678	needleall	-SASK2	sask[2]=Y
+679	needleall	-supper1	supper[1]=Y
+680	needleall	-sbegin2 007 -sbegin	ERROR
+681	needleall	-NOSLOWER -sen2 -33	send[2]=-33;slower[2]=N
+682	needleall	-send2 14 -snucleotide --snuclEoTIde1 n	send[2]=14;snucleotide[1]=n;snucleotide[2]=Y
+683	needleall	-nosupper0 -sbegin 1 -SreVErSe2	sbegin[2]=1;sreverse[2]=Y;supper[2]=N
+684	needleall	--scircul send1 --5 -sre	ERROR
+685	needleall	-SCirCULaR -S -33 -SiD2 -3	ERROR
+686	needleall	-seND 9223372036854775807 -SEND1 -2147483649 -fopenfile gcg -snucleotide2 n -nosprotein 0	REFUSED
+687	needleall	-GAPOPEN 10 -snucleotide2=t -supper2 no -se3 0 --nosloweR No	ERROR
+688	needleall	-ufo a=b	ufo[2]=a=b
+689	needleall	-SLoWeR2=yes -SprOtEiN1	slower[2]=yes;sprotein[1]=Y
+690	needleall	-send 2147483648 -sreve -pat1=x	ERROR
+691	needleall	-send3 0 /sbegin1 -s2 abc	ERROR
+692	needleall	-s2	ERROR
+693	needleall	-noscircular2 /snucleotide1 -sbegin2 -33 -sreverse=0x1 -SUPPER1	sbegin[2]=-33;scircular[2]=N;snucleotide[1]=Y;sreverse[1]=0x1;sreverse[2]=0x1;supper[1]=Y
+694	needleall	-sreverse2 /iqu2=fastq -sUP1=00 -SNUCLEOTIDE2	iquery[2]=fastq;snucleotide[2]=Y;sreverse[2]=Y;supper[1]=00
+695	needleall	-sask -SUPPER3	ERROR
+696	needleall	-nosup --ioffset1=0	ioffset[1]=0;supper[1]=N;supper[2]=N
+697	needleall	-sreve1 N --scircular2=TRUE	scircular[2]=TRUE;sreverse[1]=N
+698	needleall	-sbeg1 -1 --word2 x -scircular	ERROR
+699	needleall	-IOF2 1 --nosreverse -SPROTEIN -sbegin -18	?ioffset[2]=1;sbegin[2]=-18;sprotein[2]=Y;sreverse[2]=N
+700	needleall	-s2 TRUE -sbegin=0 -sreverse false	ERROR
+701	needleall	-iquery2 gcg -sreverse01 false -sbegi1 33 -s 0	ERROR
+702	needleall	/nosnucl3=01 -slower01 0 -nosrev2=0 -sbegin=	ERROR
+703	needleall	slower1	REFUSED
+704	needleall	--slo1=YES	slower[1]=YES
+705	needleall	--snucleotide2	snucleotide[2]=Y
+706	needleall	-sbegin0 -7 -noslower2 F	REFUSED
+707	needleall	-se2 23	send[2]=23
+708	needleall	-sbegin2 -sdbname2 -3	ERROR
+709	needleall	-sbegin=abc	ERROR
+710	needleall	-stdou2=x /ASEQUENCE1 10 -Nos1 -sbegin2=--5	ERROR
+711	needleall	-sreverse=nan nosprotein3 scircular1 YES	ERROR
+712	needleall	-nosreverse -sbegin1 -15 -noslow2 -slow3	ERROR
+713	needleall	-SCIR fFOrMAT2 fastq /nosquick=n --scircular2 1 -snucleotide	ERROR
+714	needleall	-send2=24	send[2]=24
+715	needleall	-nosreverse1 false --send1 0 -supper1	REFUSED
+716	needleall	--slower	slower[2]=Y
+717	needleall	-SCIRCULAR n -SBEGIN -33 -sbegin1 1	sbegin[1]=1;sbegin[2]=-33;scircular[2]=n
+718	needleall	-slower=no -sforMAT1 x -se 9 -SUP -NOSC	scircular[1]=N;scircular[2]=N;send[1]=9;send[2]=9;sformat[1]=x;slower[2]=no;supper[1]=Y;supper[2]=Y
+719	needleall	-snucleotide2	snucleotide[2]=Y
+720	needleall	-sbegin2=12 -sup2	sbegin[2]=12;supper[2]=Y
+721	needleall	-SLoWeR1 -scircular1 t	scircular[1]=t;slower[1]=Y
+722	needleall	-sdbname=-fasta SPROT=2 -sQU -scircular t	scircular[1]=t;scircular[2]=t;sdbname[2]=-fasta;sprotein[1]=2;sprotein[2]=2;squick[1]=Y;squick[2]=Y
+723	needleall	-send -sprotein2 1 -sprotein1	ERROR
+724	needleall	coMpleMENt2=x	ERROR
+725	needleall	/scircular2 1 supper1	REFUSED
+726	needleall	-sprotein --sprotein2=true	?sprotein[2]=true
+727	needleall	-squick1	squick[1]=Y
+728	needleall	--sre1=0 -s2 -asequence2 10 -PATTERN0 10 sprotein=ye	ERROR
+729	needleall	-sprote -SUPPER2=0 -SNUCLEOTIDE1 -SPROTEIN1	snucleotide[1]=Y;sprotein[1]=Y;sprotein[2]=Y;supper[2]=0
+730	needleall	-NOSuPper2 y	REFUSED
+731	needleall	--sbegin2 9223372036854775808 -su2 t -scircular	ERROR
+732	needleall	-nosreverse3 --GAPOPEN1=5 -send2 -9223372036854775808 -sbe1=-33	ERROR
+733	needleall	-sqUICk2 Y sprotein1 -slo1 T	REFUSED
+734	needleall	--sprotein2=01 -SREVERSE1	?sprotein[2]=01;sreverse[1]=Y
+735	needleall	NoSrEVeRSE TRUE -scircular=F -send 0 --sb1 13 slower1	ERROR
+736	needleall	/BRIEF 10 -nosnucleotide2=N	ERROR
+737	needleall	-sbegi1 10 -supper1	sbegin[1]=10;supper[1]=Y
+738	needleall	NOSNUCLEOTIDE1 YES -noslower2 n	ERROR
+739	needleall	-nosnucleotide01=1e999 -S=99999999999999999999 -nosupper01 --sbegin 0 -spr1=0.5	ERROR
+740	needleall	-slow -sprotein2 x=1	ERROR
+741	needleall	-supper2 -snucleotide1 -sbegin 5-	ERROR
+742	needleall	-snucleotide 1 -sdbname -3 -slower -sUppeR --	REFUSED
+743	needleall	sbegin1 12 --sen2 -4 /s3 sbegin scircular	ERROR
+744	needleall	-se=33 -sprotein1 -scircular -slower1 -rformat1 10	ERROR
+745	needleall	-slower=N	slower[2]=N
+746	needleall	--SBEGIN -2 -slo=YES	sbegin[2]=-2;slower[1]=YES;slower[2]=YES
+747	needleall	sbeg 4 --supper1 -nosre3=+0	ERROR
+748	needleall	-COMPLEMENT 5 -SCIRCULAR -SCIRCU1 -noslow=0.5 -slower	ERROR
+749	needleall	--nosupp YES -suppe2 F	REFUSED
+750	needleall	-snucleotide=maybe -noslower 0 -supp f	ERROR
+751	needleall	-sbegin1=-10 -sb 29 -squick1 true -sprotein3	ERROR
+752	needleall	-scircu1 -slower=1e2 /sNUCLEOTIDe2=yEs	ERROR
+753	needleall	-sbegin2 -scircular3 -sbegin1 3	ERROR
+754	needleall	-sprotein1 n /sask2	sask[2]=Y;sprotein[1]=n
+755	needleall	/nosuppe=no -send 17 -SnuCLeotid1 -snucleotide2	ERROR
+756	needleall	-SNUCLEOTID1 YES -sen01 10 -sprotein=YES --sprotein Y	send[1]=10;snucleotide[1]=YES;sprotein[1]=Y;sprotein[2]=Y
+757	needleall	-supper -sdbname a=b	sdbname[2]=a=b;supper[2]=Y
+758	needleall	-noslower1 -snu1=No	slower[1]=N;snucleotide[1]=No
+759	needleall	-sbegi1 -14	sbegin[1]=-14
+760	needleall	-sbegin2 -25 -sreverse2 --sreverse t /nosquick0=01 -sPROteiN=yes	ERROR
+761	needleall	-nosupper -spr2	?sprotein[2]=Y;supper[2]=N
+762	needleall	-out 5	REFUSED
+763	needleall	-fformat1 gcg	fformat[1]=gcg
+764	needleall	-noslower	slower[2]=N
+765	needleall	-SPROTEIN1 n -sen2 -1	send[2]=-1;sprotein[1]=n
+766	needleall	-sbegin2 0	sbegin[2]=0
+767	needleall	-sen1 0	send[1]=0
+768	needleall	-s2 Y /SCIRCULAR2	ERROR
+769	needleall	/scirc	scircular[1]=Y;scircular[2]=Y
+770	needleall	-nosprotein1 No -aform01=4 --s1 ٣	ERROR
+771	needleall	-slower1=f	slower[1]=f
+772	needleall	-send 9 -supper TRUE -S1 -sprot2=inf -supper1	ERROR
+773	needleall	SUPPER true -s2 29 -scircular x=1	ERROR
+774	needleall	-SEND0=10 -sREvERse2=yes -sprotein2=00	send[2]=10;sprotein[2]=00;sreverse[2]=yes
+775	needleall	-sformat3 sbegin noslower t -nosnucleo1 -sup y -sbegin1 26	ERROR
+776	needleall	--su2 yes /send	ERROR
+777	needleall	-snucleotide2 false -suppe -SeNd	ERROR
+778	needleall	-send1 23 /sbegin2 uf1=a=b -outfile=5 --snucleotide2 y	ERROR
+779	needleall	-send=0x10 -supper1 t -snuc2	ERROR
+780	merger	-s1 -22 -wordsize1=5	ERROR
+781	merger	-sreversxe -nosnuc1	ERROR
+782	merger	-send=33 -nosupper yes	REFUSED
+783	merger	-sUPPER false	supper[2]=false
+784	merger	nosupper -sen1 -24 -snucleotide3 -slowe	ERROR
+785	merger	/IOFFSE1 9223372036854775807 -sbegin2 30	?ioffset[1]=9223372036854775807;sbegin[2]=30
+786	merger	-s1=+3	ERROR
+787	merger	-send=13	send[2]=13
+788	merger	-sprotein /snucleotide -ioFfSET 33	?ioffset[2]=33;snucleotide[2]=Y;sprotein[2]=Y
+789	merger	-stdout1 x -sprotein 0 -s 0 -supper1 /supper1 N	ERROR
+790	merger	--words 5 -s2 6 /se1 -1	ERROR
+791	merger	-nospro2 -send -33 --	REFUSED
+792	merger	-SUPPER yes	supper[2]=yes
+793	merger	-nosa2=0.5	ERROR
+794	merger	/scircular3=2 -slow1 -scircular2 -sfo=a=b	ERROR
+795	merger	-supper -sreverse -scircula=01 -sprotein1 -sbegin	ERROR
+796	merger	-sn2	snucleotide[2]=Y
+797	merger	srEvers2 -sbegi 33	REFUSED
+798	merger	-SUpPE2=t -s -SNUCLE No -Slower1 -NOSPROTEIN0=1e999	ERROR
+799	merger	-snucleot no -ioffset1 -24 slo -sn1 -sre0	REFUSED
+800	merger	-complement x	ERROR
+801	merger	-sprotein2 -sbegin1 2147483648	?sbegin[1]=2147483648;sprotein[2]=Y
+802	merger	--pattern 5 -slower1 -s2=01	ERROR
+803	merger	-snucleotide1=2	snucleotide[1]=2
+804	merger	-sbegin1 33 -slower /spro n --SciRC yes stray	REFUSED
+805	merger	-sb=0x10	ERROR
+806	merger	/sprotein -supp1 -sreve -slower --scir	?scircular[1]=Y;scircular[2]=Y;slower[1]=Y;slower[2]=Y;sprotein[2]=Y;sreverse[1]=Y;sreverse[2]=Y;supper[1]=Y
+807	merger	-sreverse -s0 -23	ERROR
+808	merger	-snucleo1 0 -FOpeNFILE1 -fasta	fopenfile[1]=-fasta;snucleotide[1]=0
+809	merger	-supper2=Y -srever1 -S2	ERROR
+810	merger	-sb1 28	sbegin[1]=28
+811	merger	-sd1 a=b	sdbname[1]=a=b
+812	merger	--SREVERSE2 -scircular -ufo2=gcg	scircular[2]=Y;sreverse[2]=Y;ufo[2]=gcg
+813	merger	sprotein -sprotein	REFUSED
+814	merger	-SCIRCULAR=nan	ERROR
+815	merger	--sbegin=-19 nosprotein -scircular2=0 -supper	REFUSED
+816	merger	--nos1=2 -sn2	ERROR
+817	merger	-sf a=b -nosreverse no	REFUSED
+818	merger	-outFIle1 5 -send1=	ERROR
+819	merger	-slower -suppe -sbegin	ERROR
+820	merger	-nosprot1=true	ERROR
+821	merger	-u2 fastq -sr1=yes	sreverse[1]=yes;ufo[2]=fastq
+822	merger	-sbegin 19 stray	REFUSED
+823	merger	/iquery1=-3 -sci	iquery[1]=-3;scircular[1]=Y;scircular[2]=Y
+824	merger	-snucleotide sbegin1=4	sbegin[1]=4;snucleotide[2]=Y
+825	merger	-noscircular 1 -snucleotide1 --nosreverse=+0 -scirculaR	ERROR
+826	merger	-IO 10 -se2=--5 -s 007	ERROR
+827	merger	-sprotein2 -snucleotide1 yes -spro false -sreverse	snucleotide[1]=yes;sprotein[1]=false;sprotein[2]=false;sreverse[1]=Y;sreverse[2]=Y
+828	merger	-s2=-2 --nosnucle	ERROR
+829	merger	-slower F -nosreverse2 T -sbegin=33	REFUSED
+830	merger	-send3 4 -nosprotei2=Y	ERROR
+831	merger	-sci2 sbegin 33	REFUSED
+832	merger	-s=YES -scircula	ERROR
+833	merger	-nOSReVer3 no	ERROR
+834	merger	-nosp2	sprotein[2]=N
+835	merger	-supper1 -nosprotein true /sReveRse2	REFUSED
+836	merger	-snucleotide -SR2 -supp3 y	ERROR
+837	merger	-sbe2=-33 -scircular3=-1	ERROR
+838	merger	-snucleotide /sen2 20 -auto=4	REFUSED
+839	merger	-su1 -SBEGIN -nosnucleo1 y	ERROR
+840	merger	-slower01 -scircular2=y /sid2 gcg	scircular[2]=y;sid[2]=gcg;slower[1]=Y
+841	merger	-fopenfil1 fasta se=1 --	REFUSED
+842	merger	-supper -ioffset1 -2147483649 stray	REFUSED
+843	merger	-nosupper0=f --sreve2=YES	ERROR
+844	merger	--sformat1=a=b -SA T -stdoUt1 4	ERROR
+845	merger	-slower -slo1 noslower=ye nosupper	ERROR
+846	merger	-sprotein1 -slower true -supper1 -slower1 -supper	slower[1]=Y;slower[2]=true;sprotein[1]=Y;supper[1]=Y;supper[2]=Y
+847	merger	-nosnucleotide -IOFFSE 19 -slo1	?ioffset[1]=19;ioffset[2]=19;slower[1]=Y;snucleotide[2]=N
+848	merger	-srev1 YES -sprote1 -fformat sbegin	fformat[1]=sbegin;fformat[2]=sbegin;sprotein[1]=Y;sreverse[1]=YES
+849	merger	-stdout 4 -GApOPeN1 5 -sprotein	ERROR
+850	merger	-scirc01=TRUE -snucleotide1 -sn -sbegin3 0	ERROR
+851	merger	-SloWeR1 -sbegin2 5 -send 21	sbegin[2]=5;send[1]=21;send[2]=21;slower[1]=Y
+852	merger	-ufo2 x -scircular0 /su	scircular[2]=Y;supper[1]=Y;supper[2]=Y;ufo[2]=x
+853	merger	-nosnucleotide -send3 25 -rformat=10 -s2 no	ERROR
+854	merger	-sformat2=x -nosrev=inf -sprotein	ERROR
+855	merger	-nosa -nosci yes --sdbname1 -sbegin	ERROR
+856	merger	-nosprotei2 -sprotein2 t	?sprotein[2]=t
+857	merger	-noslower1 No -sreverse2	REFUSED
+858	merger	-sprotein -nosnu /sequence1 4	ERROR
+859	merger	--SREVERSE3 -s -sc=	ERROR
+860	merger	--scircular --nosprotein	scircular[2]=Y;sprotein[2]=N
+861	merger	-nosl n	REFUSED
+862	merger	-sp2=T -scircu1=0x1 /NOSReVerSe1=TRUE	ERROR
+863	merger	-SREVERSE2 --sreverse	sreverse[2]=Y
+864	merger	-nosprotein no -scircular01 -slow01	REFUSED
+865	merger	-scircular No	scircular[2]=No
+866	merger	--SEND 2147483648 -auto1 5 -sid1 a=b	ERROR
+867	merger	s1	REFUSED
+868	merger	-sbegin1 -1	sbegin[1]=-1
+869	merger	--SLoWer=yes -slower=-1 -send --5	ERROR
+870	merger	-snucle2	snucleotide[2]=Y
+871	merger	-send1 -1 -sbegin 0x10 -sreverse2=n -slo1	ERROR
+872	merger	-noscirc2 -s1=f	ERROR
+873	merger	-scircu2=yEs	scircular[2]=yEs
+874	merger	-sr TRUE -sreversye=F --noscircular false -sreverse1 1 -nOSUpper1	ERROR
+875	merger	-datafile2 4	ERROR
+876	merger	/slower2=F -supper2	slower[2]=F;supper[2]=Y
+877	merger	-sUppEYR -snucleotide1	ERROR
+878	merger	-sbEgIN01 0 -u1=-sbegin -send 3	sbegin[1]=0;send[1]=3;send[2]=3;ufo[1]=-sbegin
+879	merger	-send2 -supper2	ERROR
+880	merger	-slower -snucleotide1 Y -slo2 t --noslower2 No -nos2	ERROR
+881	merger	/iquery1 fasta stray	REFUSED
+882	merger	--scir2 -s1=9 -sequence1 10 stray	ERROR
+883	merger	srev2 -sen 1 -sbegin2 +0	REFUSED
+884	merger	-spro	sprotein[1]=Y;sprotein[2]=Y
+885	merger	-sEnD3 -33 -sprotein1=Y	ERROR
+886	merger	-sbegin1 -6	sbegin[1]=-6
+887	merger	-send 0 -nosnucleot2	send[2]=0;snucleotide[2]=N
+888	merger	-sbegin2 -s=tr --sprotein	ERROR
+889	merger	-SBEGIN3 -11 -snucleotid	ERROR
+890	merger	-sreverse1 -noslower2	slower[2]=N;sreverse[1]=Y
+891	merger	-s01 3 -S2 0 --NosprOteIN -sreverse	ERROR
+892	merger	-send2 0 -SCIRCULAR2	scircular[2]=Y;send[2]=0
+893	merger	-sbegin1 -s1 1e3 -sbegin 1e3 -nosu1	ERROR
+894	merger	-sreversze1 -send -19 -send 19 -FFORMAT1 -3 -nosquick	ERROR
+895	merger	-noslow1 -SCIRCULAR= sprotei -nosnucleotide -scircular	REFUSED
+896	merger	-ufo2 gcg -send1 -30 -sformat1=gcg	?send[1]=-30;sformat[1]=gcg;ufo[2]=gcg
+897	merger	-sreverse2 Y -s y -sreverse1 -snucleotide -slower=	ERROR
+898	merger	-fopenfile2 sbegin -send1 -21 -IOFFSET -sbegin 0	ERROR
+899	merger	-fop2 x --sprotein -sreverse Y	?fopenfile[2]=x;sprotein[2]=Y;sreverse[2]=Y
+900	merger	-SBEGIN1 4 S01 1 -srev f	REFUSED
+901	merger	-sask2	sask[2]=Y
+902	merger	-scircular=ye	ERROR
+903	merger	scircular1 yes	REFUSED
+904	merger	slower3=ye SUPPER1	ERROR
+905	merger	-nosreve1 yes send1 24	ERROR
+906	merger	-noslower3 f -sreverse2	ERROR
+907	merger	-supper -send3 9 -sbegin3	ERROR
+908	merger	-sbegin1 1 -spr F	sbegin[1]=1;sprotein[1]=F;sprotein[2]=F
+909	merger	-snucleotide2 -slower1 F	slower[1]=F;snucleotide[2]=Y
+910	megamerger	-s 4 -SreVeRSE -nosreverse0 -NOSUPPER2=Y /asequence2 5	ERROR
+911	megamerger	-fformat -s2 /supper1	fformat[2]=-s2;supper[1]=Y
+912	megamerger	scircular1 -sp2=tr /sbegin1 -1 /fopenfil3 a=b x=1	ERROR
+913	megamerger	/send 33 --nospr=tr	ERROR
+914	megamerger	-ioffset -33 -sbegin1=-8 -SBEGIN01=2 /nosqui=true -sprotein1	ERROR
+915	megamerger	noslower1=No -sREver -SCIRCULA1=0.5 -slower1 -sreverse2 Y	ERROR
+916	megamerger	--NOSREVERSYE2 1	ERROR
+917	megamerger	-sreverse --send 10 -sprotein /outfile x -send3 14	ERROR
+918	megamerger	-srevers2 n -nosreverse2 T	REFUSED
+919	megamerger	SUPPER1	REFUSED
+920	megamerger	-snucleotide1	snucleotide[1]=Y
+921	megamerger	--slower2 -sbegin1 --5 -S1 1 --spROteIN	ERROR
+922	megamerger	-NOsuPPer2=01 -srever=0x1 -noscircular1 -sreverse0 n -snucleotide t	ERROR
+923	megamerger	-sbe -25 -u01=gcg	sbegin[1]=-25;sbegin[2]=-25;ufo[1]=gcg
+924	megamerger	-sreverse2=Y	sreverse[2]=Y
+925	megamerger	-sprotein2 /noscircular --sbegin0	ERROR
+926	megamerger	-nosupper t -slower1 -send2=0 -SBEGIN -23 -se 17	REFUSED
+927	megamerger	-sen2 -0 /sbegin1 +3 SLO1	REFUSED
+928	megamerger	-SPROT t -scircular	?scircular[1]=Y;scircular[2]=Y;sprotein[1]=t;sprotein[2]=t
+929	megamerger	-sLoWer -sbegin1=24 -noscirculazr1 -supper=	ERROR
+930	megamerger	-nosupper2=T send +0 -supper2=1e2 sc1=Y	ERROR
+931	megamerger	-sr -sl2	slower[2]=Y;sreverse[1]=Y;sreverse[2]=Y
+932	megamerger	-snucleotide1=01	snucleotide[1]=01
+933	megamerger	-sbegin 2147483648	sbegin[2]=2147483648
+934	megamerger	-send1=010 -sbe1 19	?sbegin[1]=19;send[1]=010
+935	megamerger	-snucleotide	snucleotide[2]=Y
+936	megamerger	-sdbnam2 -fasta -supper1=yes -noSCiRcuLA -snucle Y -sbegin=٣	ERROR
+937	megamerger	-SPROTEIN1 no -snucleotid1 TRUE	snucleotide[1]=TRUE;sprotein[1]=no
+938	megamerger	-fOpENFILe gcg -sreverse -snu2=No	fopenfile[2]=gcg;snucleotide[2]=No;sreverse[2]=Y
+939	megamerger	-SnucleOTID2 no --SREVERSE -s=false	ERROR
+940	megamerger	/nosuppe	supper[1]=N;supper[2]=N
+941	megamerger	-gapo1 4 -send2 33 -SEND=-20	ERROR
+942	megamerger	-sbegin 15 -ufo1 /supper T	REFUSED
+943	megamerger	-sprotein1 y	?sprotein[1]=y
+944	megamerger	--supper2 No	supper[2]=No
+945	megamerger	/snucleotide -sbegin2 -snucleotide	ERROR
+946	megamerger	--sprotein2 -supper1=+0 -s2 -sbegin -1 -nospr3 false	ERROR
+947	megamerger	-sr0 sfo2 x	REFUSED
+948	megamerger	-send3 1e3 -suppe -send1=-33	ERROR
+949	megamerger	-sbegin2=33 -sup=y	sbegin[2]=33;supper[1]=y;supper[2]=y
+950	megamerger	--snucleotide -nosreverse1 /sproteizn=tr -se01 0 --sreverse3	ERROR
+951	megamerger	--nosc	scircular[1]=N;scircular[2]=N
+952	megamerger	-slower1=no -sbegin=-9223372036854775808 /srev2=2 -send 21 -SLOWER1 x=1	ERROR
+953	megamerger	-sbegin2 -21	sbegin[2]=-21
+954	megamerger	-SCIRCULAR1 N	scircular[1]=N
+955	megamerger	-slower=1 -send2=1 -supper -scircular2	scircular[2]=Y;send[2]=1;slower[2]=1;supper[2]=Y
+956	megamerger	-nosnucleotide1 1 -SBEGIN=-2147483649	REFUSED
+957	megamerger	-SBEGIN3 1 s2 -snucleotide1=0.5	ERROR
+958	megamerger	-nosprotein=0.5 -snucleotide1 1	ERROR
+959	megamerger	-sbegin2 33 -sr1 -snucleotid -supper YES	sbegin[2]=33;snucleotide[1]=Y;snucleotide[2]=Y;sreverse[1]=Y;supper[1]=YES;supper[2]=YES
+960	megamerger	-SCIRCU=T	scircular[1]=T;scircular[2]=T
+961	megamerger	/slower1 -sprotein2=+0	slower[1]=Y;sprotein[2]=+0
+962	megamerger	-auto 5 -outfile -nosup	REFUSED
+963	megamerger	nosre1=true -sn=T -SEND1=1	ERROR
+964	megamerger	-scircular 1 -noslowe1 -sprotein1	?scircular[2]=1;slower[1]=N;sprotein[1]=Y
+965	megamerger	/sreverse -su3 1	ERROR
+966	megamerger	-nosuppezr=+0 -SBE=010 -slo3 n	ERROR
+967	megamerger	-send=33	send[2]=33
+968	megamerger	-SCIRCULAR=	ERROR
+969	megamerger	--sid1 abc	sid[1]=abc
+970	megamerger	-noslower2 -SNUCLEOTIDE1 -se2 21	send[2]=21;slower[2]=N;snucleotide[1]=Y
+971	megamerger	-sproTEIN2=+0 -slower1	slower[1]=Y;sprotein[2]=+0
+972	megamerger	-sequence 5 -NOSPROTEIN	ERROR
+973	megamerger	--snucleotidze TRUE --SPROTEIN	ERROR
+974	megamerger	-SCIRCULAR -sl2	scircular[2]=Y;slower[2]=Y
+975	megamerger	/sprotein nosupper1	REFUSED
+976	megamerger	sbegin 13 -s1 0 -s -sNUcLeoTId1	ERROR
+977	megamerger	-send 18 -sUPp1	send[2]=18;supper[1]=Y
+978	megamerger	-NOSPROTEIN=false -noscircu1=maybe -send1 /nos2 -sbe0=13	ERROR
+979	megamerger	-scircu1 -supper2 f	scircular[1]=Y;supper[2]=f
+980	megamerger	-send -1 -NOSLOWER0=t -sbegin 1	ERROR
+981	megamerger	-send1 27 -snucleo -sBegIN2 -1	sbegin[2]=-1;send[1]=27;snucleotide[1]=Y;snucleotide[2]=Y
+982	megamerger	/snucleotide1 -iquery gcg -sreverse2=YES -supper -sb2	ERROR
+983	megamerger	-noslower	slower[2]=N
+984	megamerger	-slower2 -sprotein0 -SUPpeR1	?slower[2]=Y;sprotein[2]=Y;supper[1]=Y
+985	megamerger	/brief2 5 -slower1 false	ERROR
+986	megamerger	s1 -scircular1	REFUSED
+987	megamerger	-sreverse -FOPENFI2=fasta noscircul3 N	REFUSED
+988	megamerger	-nosprotein1	sprotein[1]=N
+989	megamerger	-nOsnuClEOTidE0 F -sprotein1=2 -sreverse1 YES -snucleot -nosuppe=	ERROR
+990	megamerger	-slower1	slower[1]=Y
+991	megamerger	-scircular1 false --sreverse2 -snucleotide1 -sprotein1 -snucleotide1 TRUE	?scircular[1]=false;snucleotide[1]=TRUE;sprotein[1]=Y;sreverse[2]=Y
+992	megamerger	-SREVERS1 yes -s1 -6	ERROR
+993	megamerger	-sequencze1 10	ERROR
+994	megamerger	-sbeg1 0 --snucleotide -send 14	sbegin[1]=0;send[1]=14;send[2]=14;snucleotide[1]=Y;snucleotide[2]=Y
+995	megamerger	-sp2=N -gap=x	ERROR
+996	megamerger	-sbegin2 -33 -nOsnUcLEoTIdE=00	ERROR
+997	megamerger	-supper1=00 -nosu	supper[1]=N;supper[2]=N
+998	megamerger	-SASK y -sbegin2 -0	sask[2]=y;sbegin[2]=-0
+999	megamerger	sbegin 9223372036854775808 -sformat1 x -noscir2 -sreverse	REFUSED
+1000	megamerger	--scir=+0 suppe false -SEN1 +3 -slow2 -scircular No	REFUSED
+1001	megamerger	-sbeg2	ERROR
+1002	megamerger	/noscircu2	scircular[2]=N
+1003	megamerger	-SNuCLeOTiD2 1 -sbegin abc	ERROR
+1004	megamerger	-SuP0 -SREVERSE=inf -snucleotide3	ERROR
+1005	megamerger	-ufo2=x -supper1	supper[1]=Y;ufo[2]=x
+1006	megamerger	-send=007 -slowe1 -snucleotide1 -aformat1 5	ERROR
+1007	megamerger	-scircular1 -sci1 -iquery=gcg	iquery[1]=gcg;iquery[2]=gcg;scircular[1]=Y
+1008	megamerger	-spro01 T	?sprotein[1]=T
+1009	megamerger	/supper2=n	supper[2]=n
+1010	megamerger	-snucleotide3 -snucleotide -outfile x -a2=5	ERROR
+1011	megamerger	-scircular2 y -sdbname2 abc -SBEGIN -33 -slower	sbegin[2]=-33;scircular[2]=y;sdbname[2]=abc;slower[2]=Y
+1012	megamerger	-supper1=ye --sbegin1 -3 -nosnucleotid3 f	ERROR
+1013	megamerger	-send=-2 -sbeg abc	ERROR
+1014	megamerger	-send=0 /noscircular1 T -nosnucleotide2 YES -snucleotide	REFUSED
+1015	megamerger	-SBEGIN2=+0 -noscirc -nosprotein=+0	ERROR
+1016	megamerger	--slower2 T -SBEGIN1 +3	sbegin[1]=+3;slower[2]=T
+1017	megamerger	-scircular --SUPPER1 Y /sreverse1	scircular[2]=Y;sreverse[1]=Y;supper[1]=Y
+1018	megamerger	-sreverse1=true -SCI1 YES -SREVERSE1	scircular[1]=YES;sreverse[1]=Y
+1019	megamerger	-supper=yes -NOSUPPER TRUE	REFUSED
+1020	megamerger	-fforma1 3 -IOFFSET2 -21	fformat[1]=3;ioffset[2]=-21
+1021	megamerger	-i2 -sbegin -snucleotide=2 -nosreverse2	ERROR
+1022	megamerger	-SEND -3 -sPR2=t	?send[2]=-3;sprotein[2]=t
+1023	megamerger	-IofFsEt2 -1 -SBEGiN01 -2 -sprote1 -SR TRUE -nosprotei1	?ioffset[2]=-1;sbegin[1]=-2;sprotein[1]=N;sreverse[1]=TRUE;sreverse[2]=TRUE
+1024	megamerger	-sprotein1=ye	ERROR
+1025	megamerger	/s1 33 sbe1 1.5	ERROR
+1026	megamerger	-nosnucleotide2=t -snucleotide	ERROR
+1027	megamerger	-sprote --senxd 0 -sformat=gcg	ERROR
+1028	megamerger	/slower -nosupper 0	REFUSED
+1029	megamerger	-SE1 12 --snucleotid01=TRUE -sUPPER1 0	send[1]=12;snucleotide[1]=TRUE;supper[1]=0
+1030	megamerger	-s -SN1=0 nosprotei	ERROR
+1031	megamerger	-fform abc	fformat[1]=abc;fformat[2]=abc
+1032	megamerger	-senyd 29	ERROR
+1033	megamerger	sbegin 8 -nosreverse2	REFUSED
+1034	megamerger	--sprotein2 -sbegin 8 -sbegin2 16 /sbegin2 -16 -snucleot	?sbegin[2]=-16;snucleotide[1]=Y;snucleotide[2]=Y;sprotein[2]=Y
+1035	megamerger	-nosn	snucleotide[1]=N;snucleotide[2]=N
+1036	megamerger	-sbegin 12 -send1 -2 -aformat1 4	ERROR
+1037	megamerger	-sprotein -sprotein1	?sprotein[1]=Y;sprotein[2]=Y
+1038	megamerger	-sbegin 0 -fformat=a=b	fformat[2]=a=b;sbegin[2]=0
+1039	megamerger	-send 9223372036854775808 --snucleotide1=00 /slo2	ERROR
+1040	seqmatchall	-scircular -sl1	scircular[1]=Y;slower[1]=Y
+1041	seqmatchall	-sd1 fastq -gapopen 10 -send1 0 -sask F noslower	ERROR
+1042	seqmatchall	-sbegin 0 -send01 +0	sbegin[1]=0;send[1]=+0
+1043	seqmatchall	--scircular -sprotein1 T	scircular[1]=Y;sprotein[1]=T
+1044	seqmatchall	-SREVER1	sreverse[1]=Y
+1045	seqmatchall	-rfOrmat=10 -nosreverse1= -sci=n	ERROR
+1046	seqmatchall	-srev1=y	sreverse[1]=y
+1047	seqmatchall	-snucleotide1	snucleotide[1]=Y
+1048	seqmatchall	--nosnucleo1 /nosprotein F -s -2 -SbEGiN -3	ERROR
+1049	seqmatchall	-nosrev	sreverse[1]=N
+1050	seqmatchall	-noslower=01 scircular=nan -supper1=1 -SREVERSE1=2 -send -6	ERROR
+1051	seqmatchall	-scircular1=inf -scircular -outfile1 x	REFUSED
+1052	seqmatchall	-complement1 10 -sreverse=nan -SNUCLEOTIDE -NOSUPPER -s1=5	ERROR
+1053	seqmatchall	--send1 -snucleot1 -sbegi1=1 -sprotein1 n -SCIRculaR1	ERROR
+1054	seqmatchall	-sprotein true	sprotein[1]=true
+1055	seqmatchall	-snucleotide1 /sre1=00 -nosl	slower[1]=N;snucleotide[1]=Y;sreverse[1]=00
+1056	seqmatchall	-sreverse -scircular1 -supper=01 -sbe01 1	sbegin[1]=1;scircular[1]=Y;sreverse[1]=Y;supper[1]=01
+1057	seqmatchall	-S -SB=12 stray	ERROR
+1058	seqmatchall	scircular3 true	ERROR
+1059	seqmatchall	--sprotein No -scircular1	scircular[1]=Y;sprotein[1]=No
+1060	seqmatchall	-send 0 -scirc1 f	scircular[1]=f;send[1]=0
+1061	seqmatchall	-send=-9223372036854775808 -s=1 /S1 -NOSR	ERROR
+1062	seqmatchall	-noslower T AFORMA x	ERROR
+1063	seqmatchall	-s1 0 -sequenc3 4 -ioffset1 20	ERROR
+1064	seqmatchall	-iquery1 x	iquery[1]=x
+1065	seqmatchall	-sprotein1 no -slower	slower[1]=Y;sprotein[1]=no
+1066	seqmatchall	-sbegin1 -iq1 fasta -scir1=f -pattern1 4 -nosreverse=false	ERROR
+1067	seqmatchall	-scircular1 -sbegin1 +0 -sreverse	sbegin[1]=+0;scircular[1]=Y;sreverse[1]=Y
+1068	seqmatchall	-nosprotein=Y -slower1	ERROR
+1069	seqmatchall	-GAPOPEN=10	ERROR
+1070	seqmatchall	/nosupper 1	REFUSED
+1071	seqmatchall	-suPpER	supper[1]=Y
+1072	seqmatchall	-send -33 -spr1 0 -slower false -sprotein1 -sprotein	send[1]=-33;slower[1]=false;sprotein[1]=Y
+1073	seqmatchall	-brief1=5 -NOSCIRCULAR1 Y -sf1 fastq /slower f -nOSprOTEiN1	ERROR
+1074	seqmatchall	-SnuCLeotidE1 --senyd1 ٣ -spr1=TRUE	ERROR
+1075	seqmatchall	-ufo1 -sbEgIN 33 -snucleotide1 -scircular1	ERROR
+1076	seqmatchall	--nosu	supper[1]=N
+1077	seqmatchall	-sbegin1 0 sbeg1=-28 --scircular1 1	sbegin[1]=-28;scircular[1]=1
+1078	seqmatchall	--sdbn1 -sbegin --sb=-33	ERROR
+1079	seqmatchall	-supper1 -S1=yEs -gapoPe1=x -snucleoti -sprotein1	ERROR
+1080	seqmatchall	-sENd 010 -sen1=--5 -nosnucle1=yEs -SReVerse3	ERROR
+1081	seqmatchall	-nosprotein	sprotein[1]=N
+1082	seqmatchall	-slower1 /SREVERSE -sc 1 -SREVERSE1 -slower1=01	scircular[1]=1;slower[1]=01;sreverse[1]=Y
+1083	seqmatchall	-asequenc1 x -noscircular1 1 -slower	ERROR
+1084	seqmatchall	-nosp -spr=2 slowezr -supper	REFUSED
+1085	seqmatchall	-slower1 0 -nos1 YES -nosprotein	ERROR
+1086	seqmatchall	-send -noscircular s1	ERROR
+1087	seqmatchall	-SeND1 -26 -scircular -snucleotide1=inf	ERROR
+1088	seqmatchall	-sp1 -send1 25	send[1]=25;sprotein[1]=Y
+1089	seqmatchall	-sbegin1 20 -SCIRCULAR /sp1	sbegin[1]=20;scircular[1]=Y;sprotein[1]=Y
+1090	seqmatchall	-sbe=33 -SUPPER -NOSREVERSE	sbegin[1]=33;sreverse[1]=N;supper[1]=Y
+1091	seqmatchall	-supper1 y -SPROTEIN1 -snucleotide1 -se -2147483649 -SLOw1	ERROR
+1092	seqmatchall	-NOSREVERSE 0 NOSREVERSE -s01	ERROR
+1093	seqmatchall	/SnuCLEoTIDe=yes -sprotein -sprotein	snucleotide[1]=yes;sprotein[1]=Y
+1094	seqmatchall	-SbEGI1 3	sbegin[1]=3
+1095	seqmatchall	-nosnucl -slower1 0 -noscircular=01	ERROR
+1096	seqmatchall	-nosre1 TRUE -sprOtein	REFUSED
+1097	seqmatchall	-fopenfile3=fasta -suppeR -nosqui1 YES -datafile1 5 --slower=yes	ERROR
+1098	seqmatchall	-s	ERROR
+1099	seqmatchall	-sprotein1=2	sprotein[1]=2
+1100	seqmatchall	-sreverse1 --SUPPEYR=F -SUPPER1 1 -send -16	ERROR
+1101	seqmatchall	-sb1=21 -sbe1=0 -wordsize=x	REFUSED
+1102	seqmatchall	-sprotein --su1	sprotein[1]=Y;supper[1]=Y
+1103	seqmatchall	--sCIRcUlar	scircular[1]=Y
+1104	seqmatchall	-slower1 -sid1=x -sreverse=f	sid[1]=x;slower[1]=Y;sreverse[1]=f
+1105	seqmatchall	-nosnucleotide1 T	REFUSED
+1106	seqmatchall	-SUPPER1	supper[1]=Y
+1107	seqmatchall	-sprot1=-1 /send0 0 -send=0 -noslower -sprOtEin	send[1]=0;slower[1]=N;sprotein[1]=Y
+1108	seqmatchall	-sb01 2 -sask -sci sreverse1 -sbegin1=-16	REFUSED
+1109	seqmatchall	-scircular1 --sreverse -SUPPER1 -fformat3 -3 -nosnucleotide	ERROR
+1110	seqmatchall	--sprotei1 --scircular1 /nosprotein	scircular[1]=Y;sprotein[1]=N
+1111	seqmatchall	-sdbname1 -sbegin -s1=inf	ERROR
+1112	seqmatchall	-nosnucleotide=TRUE -nosc N -sprotein1	ERROR
+1113	seqmatchall	-sCI Y -sreverse1 -SNucLEotIDe1 -nosu	scircular[1]=Y;snucleotide[1]=Y;sreverse[1]=Y;supper[1]=N
+1114	seqmatchall	-supper1 -send 3 -slower1 -send=	ERROR
+1115	seqmatchall	-sreve1 iquery fastq -sreverse1 T -sformat1 -3	ERROR
+1116	seqmatchall	-snUclEO1=0 -sbegin1=5 -scircular1=no	sbegin[1]=5;scircular[1]=no;snucleotide[1]=0
+1117	seqmatchall	-nosreverse1 -send1 33 --send=-5 /slower	send[1]=-5;slower[1]=Y;sreverse[1]=N
+1118	seqmatchall	-ioffset1 0 --sreverse -sbegin=25 -sreverse1=F noscirculazr	REFUSED
+1119	seqmatchall	/send1 -33	send[1]=-33
+1120	seqmatchall	-SLOWER1 -se 0 -s1 abc	ERROR
+1121	seqmatchall	-nosreverse1 --send1 -14	send[1]=-14;sreverse[1]=N
+1122	seqmatchall	-nosupper1 no /snucleotide y -sformat -fasta	REFUSED
+1123	seqmatchall	-supper1=yes -sprotein1	sprotein[1]=Y;supper[1]=yes
+1124	seqmatchall	-spro f -nosreverse1	sprotein[1]=f;sreverse[1]=N
+1125	seqmatchall	-snucleotide1	snucleotide[1]=Y
+1126	seqmatchall	--send=-6 -nosupper	send[1]=-6;supper[1]=N
+1127	seqmatchall	-slower -nosreverse0=1e999 --nosupper	ERROR
+1128	seqmatchall	-SLo1=false -nosask1 -sbegin1 0	sask[1]=N;sbegin[1]=0;slower[1]=false
+1129	seqmatchall	--SUPPER1 true -SReve -scir1 y -scircular1=1	scircular[1]=1;sreverse[1]=Y;supper[1]=true
+1130	seqmatchall	-s	ERROR
+1131	seqmatchall	snucleotide	REFUSED
+1132	seqmatchall	-SCIRCULAR1=y -gapopen1=5	ERROR
+1133	seqmatchall	-snucleotide1=yEs -sbegi1 -send 33 --sprotein3 true -noslower1	ERROR
+1134	seqmatchall	-sbegin1 -33 -scircula1 true -SBEgiN1 11 sbegin 33 /s	ERROR
+1135	seqmatchall	-spro -sl1 YES -scircular=yes -AUTO1 10 -snucleotide1=yes	ERROR
+1136	seqmatchall	-snucleotide1 -supper1	snucleotide[1]=Y;supper[1]=Y
+1137	seqmatchall	-sReVER1=no	sreverse[1]=no
+1138	seqmatchall	--se 007 -supper1 yes	ERROR
+1139	seqmatchall	/s1 fasta -snucle1 1	ERROR
+1140	seqmatchall	-nosuppe=1e2 --supper YES -SPROTEIN1 y	ERROR
+1141	seqmatchall	-sbegin +3 -scircular1 -sforma3 fastq -sprotein1	ERROR
+1142	seqmatchall	-snuc=nan -snucleotide	snucleotide[1]=Y
+1143	seqmatchall	-fopen1 -sbegin -sprote1 T -sprotein1 -SBEGI1 9223372036854775807	ERROR
+1144	seqmatchall	-nosnucleotide1=maybe -supp1	ERROR
+1145	seqmatchall	-complement1 10 nosprotein3	ERROR
+1146	seqmatchall	-sreverse -scircular1 -FFormAt1 3 --	REFUSED
+1147	seqmatchall	-snucl1 N -rformat=x -snucleoti	ERROR
+1148	seqmatchall	-SPROTE1 -SL1 TRUE -supper1 -slOwER1 f sre1 TRUE x=1	ERROR
+1149	seqmatchall	-sb01= -nosnu n	ERROR
+1150	seqmatchall	/send1 1 --	REFUSED
+1151	seqmatchall	-slo /NoSNuCLEOTIDe -SCIRCULAR1=maybe stray	ERROR
+1152	seqmatchall	-scircular1 -sup1 -SPROTEIN1	scircular[1]=Y;sprotein[1]=Y;supper[1]=Y
+1153	seqmatchall	-send1=33 -SCIRCULAR -sreverse	scircular[1]=Y;send[1]=33;sreverse[1]=Y
+1154	seqmatchall	-SREVERSE	sreverse[1]=Y
+1155	seqmatchall	-snucleot1 f -spro1	snucleotide[1]=f;sprotein[1]=Y
+1156	seqmatchall	-supper1 t -nosnucleotide01	snucleotide[1]=N;supper[1]=t
+1157	seqmatchall	-sreverse1 yes scircular1=0x1 nosreverse -snucleotide	REFUSED
+1158	seqmatchall	IQUERY1=-sbegin -noslower	iquery[1]=-sbegin;slower[1]=N
+1159	seqmatchall	-nosupper1 n -sbegi1	ERROR
+1160	seqmatchall	-scirculaxr -snucleotide	ERROR
+1161	seqmatchall	-snucleotide1	snucleotide[1]=Y
+1162	seqmatchall	-sbegin1 20	sbegin[1]=20
+1163	seqmatchall	-noscirculazr1	ERROR
+1164	seqmatchall	-squick=no -iquery1 fastq -sre	iquery[1]=fastq;squick[1]=no;sreverse[1]=Y
+1165	seqmatchall	-SUPp n --scircular	scircular[1]=Y;supper[1]=n
+1166	seqmatchall	/squick	squick[1]=Y
+1167	seqmatchall	-sen01 0	send[1]=0
+1168	seqmatchall	-snucleotide0 -s0 -sbegin --5 -sreve1	ERROR
+1169	seqmatchall	-supp1 true	supper[1]=true
+1170	fuzznuc	/SNUCLEOTIDE1 -snucleotide=inf -supper1 -afor1=5	ERROR
+1171	fuzznuc	-s fastq -ufzo fasta	ERROR
+1172	fuzznuc	/snucleo3 -noslower1 -sreverse1=1	ERROR
+1173	fuzznuc	-SQUICK=01 sp=No	sprotein[1]=No;squick[1]=01
+1174	fuzznuc	-SbEgIn1=-16 -nosnucleotide=yEs -sprotein1=f sid1 gcg -send1 1e3	ERROR
+1175	fuzznuc	--D x -SENYD1=33	ERROR
+1176	fuzznuc	-auto1 x x=1	ERROR
+1177	fuzznuc	--SASK1 T scircular1 -asequence1=x	ERROR
+1178	fuzznuc	--sbegin 0	sbegin[1]=0
+1179	fuzznuc	-scircular3 -sR1=0x1	ERROR
+1180	fuzznuc	-noslower1	slower[1]=N
+1181	fuzznuc	/sdbna	ERROR
+1182	fuzznuc	/supper1	supper[1]=Y
+1183	fuzznuc	-sreve -se01 -9223372036854775808 -fopenfile1 gcg -slower0 T	ERROR
+1184	fuzznuc	/sbegin -nosnucleotidye	ERROR
+1185	fuzznuc	-slo1 -sformat1	ERROR
+1186	fuzznuc	-SEND1 -27 -slower1	send[1]=-27;slower[1]=Y
+1187	fuzznuc	-nosreverse1 -supper1 -nosupper1 yes SEND 1	ERROR
+1188	fuzznuc	-sProteiN false -snuc -SEN 1	send[1]=1;snucleotide[1]=Y;sprotein[1]=false
+1189	fuzznuc	-SNUCLEOTIDE1 -snucleotide false	snucleotide[1]=false
+1190	fuzznuc	-se 5 -SREVERSE1 0	ERROR
+1191	fuzznuc	-sformat abc -	REFUSED
+1192	fuzznuc	-scircul1=true -sbegin1 -33 -SPRoTeiN1	?sbegin[1]=-33;scircular[1]=true;sprotein[1]=Y
+1193	fuzznuc	-noslower1=0x1 -WORDSI1 x	ERROR
+1194	fuzznuc	-sup1 N -sen 27 -s -17	ERROR
+1195	fuzznuc	-slower=false --i x -sbegi=abc	ERROR
+1196	fuzznuc	-slower1	slower[1]=Y
+1197	fuzznuc	nosreverse1	REFUSED
+1198	fuzznuc	/s 11 -supper=f	ERROR
+1199	fuzznuc	-sreverse1=n -slower1 Y -scircular1=true stray	REFUSED
+1200	fuzznuc	-nosupper1 -scircular1 false	scircular[1]=false;supper[1]=N
+1201	fuzznuc	-sbegi1=33 --SL1 -scircu1=F stray	REFUSED
+1202	fuzznuc	-nosnucleotide1 n /sbegin1 9223372036854775807 -suppEr1 TRUE	REFUSED
+1203	fuzznuc	--scircular1 Y -send1 -33 -slower1 Y -snucleotidye1=tr -send1 20	ERROR
+1204	fuzznuc	-sreverse=ye	ERROR
+1205	fuzznuc	-nosnucleotide -sbegin1 -s 25	ERROR
+1206	fuzznuc	--sbegin 0x10 -sreverse1=No	ERROR
+1207	fuzznuc	-sdbname -3 -scir1 -s 1	ERROR
+1208	fuzznuc	scircular1 -snucleotide3 -sreverse -send 0	ERROR
+1209	fuzznuc	-SEND scircular1	ERROR
+1210	fuzznuc	-slower1=tr	ERROR
+1211	fuzznuc	-SNUCLEOTIDE1	snucleotide[1]=Y
+1212	fuzznuc	-sprotein1=no -nosnucleotide1 N -sbegin1 33 -snucleotide -sprotein	REFUSED
+1213	fuzznuc	-SpRoTeIn1 No -sid 3 -nOSlOwER sbegin 12	ERROR
+1214	fuzznuc	-nos	ERROR
+1215	fuzznuc	/sbegin ٣ fopenfile1 abc	ERROR
+1216	fuzznuc	-scircular F -noslower1=Y -squi --sci1	ERROR
+1217	fuzznuc	/slower -noscircular3 -slower	ERROR
+1218	fuzznuc	--sprotein01 f	sprotein[1]=f
+1219	fuzznuc	-sdbname gcg -scircula -SBeGiN1 -33	sbegin[1]=-33;scircular[1]=Y;sdbname[1]=gcg
+1220	fuzznuc	--brief 10	ERROR
+1221	fuzznuc	-slower1	slower[1]=Y
+1222	fuzznuc	-nosupper -sreverse1 -squi1	squick[1]=Y;sreverse[1]=Y;supper[1]=N
+1223	fuzznuc	-se1 1	ERROR
+1224	fuzznuc	/send1 26 --ioffset1= -snucleotide1=01	ERROR
+1225	fuzznuc	-nOs -slower1 YES -sreverse=true noslowe1=F	ERROR
+1226	fuzznuc	-u fastq	ufo[1]=fastq
+1227	fuzznuc	-sprotein No -NOSCIrcular1=TRUE -SciRCulaR1 f -nosupp1=f	ERROR
+1228	fuzznuc	-s1 -1	ERROR
+1229	fuzznuc	-s 0	ERROR
+1230	fuzznuc	-sreversye1 -sen1 -15 S -sbegin -IOFFSET 0 -snucleotidxe1	ERROR
+1231	fuzznuc	-SNUCLEOTIDE -scircular1	scircular[1]=Y;snucleotide[1]=Y
+1232	fuzznuc	-complEmENt1 4 -sprotein1 -SBEgin1=abc	ERROR
+1233	fuzznuc	-ioffset1 -9223372036854775808 -ffo sbegin	fformat[1]=sbegin;ioffset[1]=-9223372036854775808
+1234	fuzznuc	-supper1=yEs --nos1 -slower1	ERROR
+1235	fuzznuc	-SFORM 3 -supp -noscircular1 -slower send1=33	scircular[1]=N;send[1]=33;sformat[1]=3;slower[1]=Y;supper[1]=Y
+1236	fuzznuc	-scircular1 0	scircular[1]=0
+1237	fuzznuc	-sre0	sreverse[1]=Y
+1238	fuzznuc	-slower -sbegi1 0 -sprotein0 -nosprotein1	sbegin[1]=0;slower[1]=Y;sprotein[1]=N
+1239	fuzznuc	-sbegin 0	sbegin[1]=0
+1240	fuzznuc	-send1 0	send[1]=0
+1241	fuzznuc	-sprotei1=TRUE	?sprotein[1]=TRUE
+1242	fuzznuc	-sp1 -fform1=a=b	?fformat[1]=a=b;sprotein[1]=Y
+1243	fuzznuc	-SLOWER1	slower[1]=Y
+1244	fuzznuc	-nOsreVErse1=0.5	ERROR
+1245	fuzznuc	-send1=12	send[1]=12
+1246	fuzznuc	-sbegin01 4 --slower -NOsCIRCulAYR1 N	ERROR
+1247	fuzznuc	-send 0 -nospr1 -scirc N -supper	scircular[1]=N;send[1]=0;sprotein[1]=N;supper[1]=Y
+1248	fuzznuc	-sdBnaME01 -noscircular1 -supper false	sdbname[1]=-noscircular1;supper[1]=false
+1249	fuzznuc	spro1 yes slower	ERROR
+1250	fuzznuc	-sreverse No -NOSPROTEIN1 y -snucleotide=ye	ERROR
+1251	fuzznuc	-S=0	ERROR
+1252	fuzznuc	-nosprotein1 /b 5	ERROR
+1253	fuzznuc	sprotein=+0 -supp -sr1 -slower1 stray	REFUSED
+1254	fuzznuc	-sbegin1 --5 -sreverse1 -s 1 -scircular -SUPPER f	ERROR
+1255	fuzznuc	-sreverse -sbegin1 +3 snucleotide1	REFUSED
+1256	fuzznuc	-SLOWeR iquery=fasta -snucleotide1=YES -SNUCLEOTIDE1=ye	ERROR
+1257	fuzznuc	/fopenfile3=-fasta -iof -1 -sreverse1 -sl	ERROR
+1258	fuzznuc	-send1 007 -nosnucleotide1 y	REFUSED
+1259	fuzznuc	-slower -slower -slower	slower[1]=Y
+1260	fuzznuc	-srev1 -sprotein01 -scirc1	?scircular[1]=Y;sprotein[1]=Y;sreverse[1]=Y
+1261	fuzznuc	-sreverse1 -se=+3 x=1	ERROR
+1262	fuzznuc	-sequence1 x -se1 010 scircula1 1	ERROR
+1263	fuzznuc	-uFo1 fasta	ufo[1]=fasta
+1264	fuzznuc	-supper1=yEs -scircular1 false -snucleotide1=-1	scircular[1]=false;snucleotide[1]=-1;supper[1]=yEs
+1265	fuzznuc	--slower=f -S3 -1 snucleotide1 false	ERROR
+1266	fuzznuc	-sprotein1 /SCIRCULAR -squick -send 0x10 -nosprotein	ERROR
+1267	fuzznuc	-sbegin1 0 -sreverse1	sbegin[1]=0;sreverse[1]=Y
+1268	fuzznuc	-snucleotide yes -spro	?snucleotide[1]=yes;sprotein[1]=Y
+1269	fuzznuc	-send 7	send[1]=7
+1270	fuzznuc	-snucleotide T /sbegin1=99999999999999999999	ERROR
+1271	fuzznuc	-s 0	ERROR
+1272	fuzznuc	-noslower1 yes -sci --snucleotide1=yes	REFUSED
+1273	fuzznuc	-scircular01=inf --sbegiyn3 0 -nosprotein TRUE --dataf1=4 -send1 -33	ERROR
+1274	fuzznuc	-spr1=N -s1 F -scircular T -fformat1 fastq	ERROR
+1275	fuzznuc	-SBeGiN 0x10	ERROR
+1276	fuzznuc	-SENd1 6 -SnucleOTIDE1 /Se 33 --send -33 -su1	ERROR
+1277	fuzznuc	-sbegin1 +3 -d1 5 -nosreverse --noslOWer yes -sprotein=T	ERROR
+1278	fuzznuc	/nosprotein=0	ERROR
+1279	fuzznuc	-nosnucl=0.5 -sfORMat fastq -snucleotide1=T	ERROR
+1280	fuzznuc	--sprotein=y -send1 9223372036854775807	?send[1]=9223372036854775807;sprotein[1]=y
+1281	fuzznuc	-send1 0	send[1]=0
+1282	fuzznuc	-fopenfile1 -3 -snucleotide1 -noscircular1=t -	ERROR
+1283	fuzznuc	-nosreverse1 1 sreverse	ERROR
+1284	fuzznuc	-snucleotide1	snucleotide[1]=Y
+1285	fuzznuc	-sreverse=t	sreverse[1]=t
+1286	fuzznuc	-send=23 -sbe1 -23 -nOsquICk1=inf -NoSciRCuLar1=ye	ERROR
+1287	fuzznuc	-send1=23	send[1]=23
+1288	fuzznuc	-SCIRCULAR1 -S3 010 -sas1=T	REFUSED
+1289	fuzznuc	-squ1=n --slower1 send1 -33 -sReversE	ERROR
+1290	fuzznuc	-s1 -sprotein1 -slower	ERROR
+1291	fuzznuc	-sl1=1e999 -sbegin1=1 -SEND1 0 -brief1 10	ERROR
+1292	fuzznuc	-send 0	send[1]=0
+1293	fuzznuc	-sfor1 a=b	sformat[1]=a=b
+1294	fuzznuc	-noscircular	scircular[1]=N
+1295	fuzznuc	-send1 -SUPPER	ERROR
+1296	fuzznuc	-SC YES -noslower1 false -scircular T -nosci1 -sreverse01	REFUSED
+1297	fuzznuc	--sequence0=10 -snucle1	REFUSED
+1298	fuzznuc	-fopenfile sbegin	fopenfile[1]=sbegin
+1299	fuzznuc	-scircular --sbegin=-2147483649 sprotein1 F -nosas1	ERROR
+1300	fuzzpro	-scircular	scircular[1]=Y
+1301	fuzzpro	-sprotein1=01 -send1 -9 -noscircular1 y -scirc1 Y -send1 0	REFUSED
+1302	fuzzpro	sqUick1 YES	ERROR
+1303	fuzzpro	-sbegin=2 -scIRCUlaR0 yes	sbegin[1]=2;scircular[1]=yes
+1304	fuzzpro	-sbegin1=-13	sbegin[1]=-13
+1305	fuzzpro	-sreverse	sreverse[1]=Y
+1306	fuzzpro	/SLower -nos1=YES /slow1 y	ERROR
+1307	fuzzpro	-ufo=x ASEQUENCE1 4 -snucleotide -sreverse=no	ERROR
+1308	fuzzpro	--snucleotide1	?snucleotide[1]=Y
+1309	fuzzpro	-nosupper TRUE -snucleotide true -snucleotide1 --sbegin1 abc -SCIrculA	ERROR
+1310	fuzzpro	-fopenfile1 sbegin -s0=01 /slowe1	ERROR
+1311	fuzzpro	-scircular	scircular[1]=Y
+1312	fuzzpro	-noscircul No -s1 14	ERROR
+1313	fuzzpro	-snucl1 -sreverse -sproteiyn	ERROR
+1314	fuzzpro	-sbegin1 +0	sbegin[1]=+0
+1315	fuzzpro	-scircular1 -sproteizn	ERROR
+1316	fuzzpro	-snucleotide3=N /NOSLOWER	ERROR
+1317	fuzzpro	SREVERSE1 -dataf1 5 -nosreverse No -s 3	ERROR
+1318	fuzzpro	/send1 007 -supper1 -send1	ERROR
+1319	fuzzpro	-send1 9 --send 33 /send1 -slower YES	ERROR
+1320	fuzzpro	-sprotein -supper1=n -scircular T	scircular[1]=T;sprotein[1]=Y;supper[1]=n
+1321	fuzzpro	-slo1 -supper1 -SBegIN1 18 -SPROTE1 true -SEND01 0	sbegin[1]=18;send[1]=0;slower[1]=Y;sprotein[1]=true;supper[1]=Y
+1322	fuzzpro	/supper1	supper[1]=Y
+1323	fuzzpro	-SPRO1=00 FFORMAT1=fastq -sreverse=y	fformat[1]=fastq;sprotein[1]=00;sreverse[1]=y
+1324	fuzzpro	-snucleotide1 -sCIRCULAr0 SBEGIN0 -7 -snucleotide1 -FFORMAT1	ERROR
+1325	fuzzpro	-slower1 --SCIRC t -slower -send 007	scircular[1]=t;send[1]=007;slower[1]=Y
+1326	fuzzpro	slower1=-1 supper1 No -sreverse1	ERROR
+1327	fuzzpro	-SUPPER1 /snucleotide	?snucleotide[1]=Y;supper[1]=Y
+1328	fuzzpro	-scircular -sprot01=tr	ERROR
+1329	fuzzpro	-srEVERse1=no -NOsNUcLeoTiDe1 -SCIRCULAR 0	scircular[1]=0;snucleotide[1]=N;sreverse[1]=no
+1330	fuzzpro	srEverSE1 n	ERROR
+1331	fuzzpro	-sup	supper[1]=Y
+1332	fuzzpro	-slower3	ERROR
+1333	fuzzpro	-supper1 -scircular1 t	scircular[1]=t;supper[1]=Y
+1334	fuzzpro	-send1 -33 --sprotein1	send[1]=-33;sprotein[1]=Y
+1335	fuzzpro	-sprotein1 -sreverse1=true -SUpper1	sprotein[1]=Y;sreverse[1]=true;supper[1]=Y
+1336	fuzzpro	-nosnucleotide1 -nosnucle=N -s1 0 -send1=-1	ERROR
+1337	fuzzpro	-send=1	send[1]=1
+1338	fuzzpro	-scircu1 -sreverse1 -scircular TRUE /SeND -sEND1 0	ERROR
+1339	fuzzpro	-sbegin1 -SLOWE1=1e2 -scircular1 f	ERROR
+1340	fuzzpro	-scircular y -sbegin1=	ERROR
+1341	fuzzpro	-ioffset 1	?ioffset[1]=1
+1342	fuzzpro	/f 3 datafile1 10 sreverse1 y -snucleotide1=00 -nosupper	ERROR
+1343	fuzzpro	-snucleotide	?snucleotide[1]=Y
+1344	fuzzpro	-scircular -SPROTEIN1 true -s=T -sPROTeI1= /NOSN TRUE	ERROR
+1345	fuzzpro	-S0 -sprotein=0 -su1 Y -nOSREvErse	ERROR
+1346	fuzzpro	sen 1e3 -sformat1 fastq nos1 -nosup1	ERROR
+1347	fuzzpro	-scircular3 --nosLoweR1 T -sreverse01	ERROR
+1348	fuzzpro	-sreverse -F fastq	ERROR
+1349	fuzzpro	-send1 0 -sb3 -2147483649 -nosnucleotide	ERROR
+1350	fuzzpro	-sb ٣ /nosnucleotide1 /squick3 T -sprotein0 -slower3 1	ERROR
+1351	fuzzpro	-SENXD=-10 -scircular f -sNUCLEOTIDe1	ERROR
+1352	fuzzpro	/SCIRCULAR1 --supper=0.5	scircular[1]=Y;supper[1]=0.5
+1353	fuzzpro	nospr1	REFUSED
+1354	fuzzpro	-sn -NOSUPPER1 YES -S1=21	ERROR
+1355	fuzzpro	-nosnucleotide1	snucleotide[1]=N
+1356	fuzzpro	-supp1 0 -SFORMAT fastq -SproTEiN1	?sformat[1]=fastq;sprotein[1]=Y;supper[1]=0
+1357	fuzzpro	-nosreverse1=01 -snucleoti=f -slower1	ERROR
+1358	fuzzpro	-sreverse1	sreverse[1]=Y
+1359	fuzzpro	-nospro=YES -NOSLOWER1 -sfo1 -sbegin	ERROR
+1360	fuzzpro	-sreverse -sbegin1 -26 -supper -fopenf1=-fasta -rform01 4	ERROR
+1361	fuzzpro	-noslower1 yes --s1 5 -nos1 -snucleotide YES	ERROR
+1362	fuzzpro	-sreverse1 --s1 -sbegin -sbegin 0 -snucleotide	ERROR
+1363	fuzzpro	-SBEGIN -1 -c 10 -srevers1 -send=23 -srev	ERROR
+1364	fuzzpro	--uf1 -3 -slower1 AFOR 4	ERROR
+1365	fuzzpro	-send 0 -scircular1 -sprotein1 F -supp1	scircular[1]=Y;send[1]=0;sprotein[1]=F;supper[1]=Y
+1366	fuzzpro	-nosprotein	sprotein[1]=N
+1367	fuzzpro	-send3 9223372036854775807	ERROR
+1368	fuzzpro	--srevErSE -sbe1=0 -nos1=y	ERROR
+1369	fuzzpro	-supper F -nosLOwEr1 -SU1 -snucleot	?slower[1]=N;snucleotide[1]=Y;supper[1]=Y
+1370	fuzzpro	-scircular1 -s0 1e3 -SciRc=ye	ERROR
+1371	fuzzpro	-snucleotide1 -SCIRCULAR1	?scircular[1]=Y;snucleotide[1]=Y
+1372	fuzzpro	--gApOPEn1 4	ERROR
+1373	fuzzpro	--slow=+0 -supper1 YES	slower[1]=+0;supper[1]=YES
+1374	fuzzpro	-supper1=no -supper false	supper[1]=false
+1375	fuzzpro	/NOS no -send3 2147483648 --sask=0 -squ1	ERROR
+1376	fuzzpro	-nosprotein1 -NOsprOtEIN1 --sreversye1 no -sreverse false	ERROR
+1377	fuzzpro	-sbegi -1 -slower -snucleotide1	?sbegin[1]=-1;slower[1]=Y;snucleotide[1]=Y
+1378	fuzzpro	-nosnuc=TRUE sprotein	ERROR
+1379	fuzzpro	-supper1	supper[1]=Y
+1380	fuzzpro	-sn1 -suppe1=no --	REFUSED
+1381	fuzzpro	-SUPPER -NOSCIRCULAR1 N	REFUSED
+1382	fuzzpro	-sreverse01	sreverse[1]=Y
+1383	fuzzpro	snucleotide no -slower=TRUE	ERROR
+1384	fuzzpro	-sNucLe1 -SBEG -33 --SCirCula	?sbegin[1]=-33;scircular[1]=Y;snucleotide[1]=Y
+1385	fuzzpro	-sbegin1 1.5	ERROR
+1386	fuzzpro	-nosnucleotide01 Y --scircula1	REFUSED
+1387	fuzzpro	-send1 3 --slower	send[1]=3;slower[1]=Y
+1388	fuzzpro	-sreverse YES -send 15 -nosprotein1 false	REFUSED
+1389	fuzzpro	--sprotein -nosrevers --snucleotide1 -slower1 Y -snucleotide1 0 stray	REFUSED
+1390	fuzzpro	-supper -sprotein --SB 9223372036854775808 --outfile1 5	ERROR
+1391	fuzzpro	-scircular1 -sci1	scircular[1]=Y
+1392	fuzzpro	-SBEGIN1 1e3	ERROR
+1393	fuzzpro	-snucleotide1 -sid1 -3 -sprotein1 false sup T nosupper	ERROR
+1394	fuzzpro	-sbeg1 12 -supper	sbegin[1]=12;supper[1]=Y
+1395	fuzzpro	-scircu -sb1 29 SNUCLEOTIDE1	REFUSED
+1396	fuzzpro	-sbegin1 1 -nosrevers1 -nosprotein1	sbegin[1]=1;sprotein[1]=N;sreverse[1]=N
+1397	fuzzpro	/noscircular1 n /snucleotide true -sreverse1 T	REFUSED
+1398	fuzzpro	-s1 21 -send -snucleotide1	ERROR
+1399	fuzzpro	-Sbe 0x10 -nos1 -SPROTEIN 1 -spRoTEi1	ERROR
+1400	fuzzpro	-send1 -2147483649 -s1 -1	ERROR
+1401	fuzzpro	-sbeg1 010 --sreverse	sbegin[1]=010;sreverse[1]=Y
+1402	fuzzpro	-sbegin1 14 -supper n -fopenfile 3	fopenfile[1]=3;sbegin[1]=14;supper[1]=n
+1403	fuzzpro	-sBeGin=18	sbegin[1]=18
+1404	fuzzpro	/sprotein1 -NOSPROT1 -sprotein3	ERROR
+1405	fuzzpro	/snucleotide1	?snucleotide[1]=Y
+1406	fuzzpro	-supp1 -sprotein -snucl1 N -sprotein	snucleotide[1]=N;sprotein[1]=Y;supper[1]=Y
+1407	fuzzpro	-SREVersyE1=00 -SPROTEIN01=Y	ERROR
+1408	fuzzpro	-iquery1=a=b snucleotide1=yEs -noslower1 -s1=0 -sNuCLEoTidE	ERROR
+1409	fuzzpro	-supper --send1 17	send[1]=17;supper[1]=Y
+1410	fuzzpro	--SCIR -snucleotide=tr	ERROR
+1411	fuzzpro	-nosn1=tr --sid1 x	ERROR
+1412	fuzzpro	SCIRCULA3 N	ERROR
+1413	fuzzpro	-sn	?snucleotide[1]=Y
+1414	fuzzpro	-srevers1 true -SLOWEr=ye -sbegin1 -1 --sreverse0 -scI1	ERROR
+1415	fuzzpro	noscircular	REFUSED
+1416	fuzzpro	-SRevERSe -sreverse YES --sbegin01	ERROR
+1417	fuzzpro	-send= /noscircula01 -NOsNUClEoTIDE true -sask1 -nosprotein	ERROR
+1418	fuzzpro	-slower -SuPpEr F -fopenfile	ERROR
+1419	fuzzpro	-sci1=yEs	scircular[1]=yEs
+1420	fuzzpro	-SLOWER -supper1 -slower1 true -SnUcLEoTi1 -supper=No	?slower[1]=true;snucleotide[1]=Y;supper[1]=No
+1421	fuzzpro	-SEND -21 -send1 1 -noslower -sn1 -sreverse1	?send[1]=1;slower[1]=N;snucleotide[1]=Y;sreverse[1]=Y
+1422	fuzzpro	-rforma1 5 -noslower1 -sbegin abc x=1	ERROR
+1423	fuzzpro	-SREVERSE1 -SREVERSE -noslower1 YES	REFUSED
+1424	fuzzpro	-send1 1	send[1]=1
+1425	fuzzpro	-sask3 -sb -30	ERROR
+1426	fuzzpro	SREVERSE=yes	sreverse[1]=yes
+1427	fuzzpro	-scircular1 sCiRCULaR1	REFUSED
+1428	fuzzpro	--snucleot1 -sreve1 /sprotein1 -SCIRCULAR1	scircular[1]=Y;snucleotide[1]=Y;sprotein[1]=Y;sreverse[1]=Y
+1429	fuzzpro	-s1 -supper	ERROR
+1430	fuzztran	/sequence1 5	REFUSED
+1431	fuzztran	-sprotein1 -sprote -ScIrculAr	?scircular[1]=Y;sprotein[1]=Y
+1432	fuzztran	-snuc1=01 -noslower	slower[1]=N;snucleotide[1]=01
+1433	fuzztran	/slower1 -sbegin1 1e3 sprotein1	ERROR
+1434	fuzztran	-sprotein1=-1 --slo1 -s1	ERROR
+1435	fuzztran	-w -sbegiyn -1 sbe1	ERROR
+1436	fuzztran	-sN	snucleotide[1]=Y
+1437	fuzztran	-sprotein -sreverse1 0	?sprotein[1]=Y;sreverse[1]=0
+1438	fuzztran	--ufo fasta -spro Y -nosnucleotide=no	ERROR
+1439	fuzztran	-sen 13	send[1]=13
+1440	fuzztran	--sprot1 -sformat1=-3 -supper -slower1 -c x	ERROR
+1441	fuzztran	-sbegin1 2	sbegin[1]=2
+1442	fuzztran	-sbeg=	ERROR
+1443	fuzztran	-complement1=4 -nosnucleotide1=inf -NOSPR1	ERROR
+1444	fuzztran	-SLOWER1	slower[1]=Y
+1445	fuzztran	-sPrOteiN=maybe -SuPPER1 true -supper3 scIRCUlaR t	ERROR
+1446	fuzztran	-s1	ERROR
+1447	fuzztran	-sdBNA=3 sen 33	ERROR
+1448	fuzztran	/send3 8 /sprotein=2 -s=ye	ERROR
+1449	fuzztran	-u fasta /sbegin 1 -SREVERSE1 -SNUCLEOTIDE=yes -Au 4	REFUSED
+1450	fuzztran	-SREVERSE F -supper=false -sreverse1	sreverse[1]=Y;supper[1]=false
+1451	fuzztran	-IoffSet	ERROR
+1452	fuzztran	-sr -su1 -send= /sreverse -snucleotide1	ERROR
+1453	fuzztran	/sbegin1=0 -pattern x -srev=yes -sen 0	REFUSED
+1454	fuzztran	NOSNUCLEOTIDE1 -send1 1e3	ERROR
+1455	fuzztran	--sbegin1=-7	sbegin[1]=-7
+1456	fuzztran	-nosreverse1 N -send1=2 /sbegin1 29	REFUSED
+1457	fuzztran	-sbegin1 9223372036854775808 -nosnucleotide=yes /sprotein	ERROR
+1458	fuzztran	-outfile1 4 -noslower -send1 21 -sprotein1=tr	ERROR
+1459	fuzztran	-noslower1	slower[1]=N
+1460	fuzztran	-send1 33	send[1]=33
+1461	fuzztran	-nosprotein1 -slower1 F -sreverse	slower[1]=F;sprotein[1]=N;sreverse[1]=Y
+1462	fuzztran	-nosprotein	sprotein[1]=N
+1463	fuzztran	/SpRotEin0=inf --snucleotide -fformat1 -fasta -sprotein --s1=-16	ERROR
+1464	fuzztran	--se1 1.5 SPROTEIN1 -ScIrCULAr1=yEs -	ERROR
+1465	fuzztran	-asequence1 x /SNUCLEOTIDE -supp1	ERROR
+1466	fuzztran	-send1=-9223372036854775808 -iquery1 gcg -SEND0=0	iquery[1]=gcg;send[1]=0
+1467	fuzztran	-send1 -sen1 -33 -sprot1=01 -rformat x -nosnucleotide	ERROR
+1468	fuzztran	-sprotein1=1e999 -nosprotein1 /noslow	slower[1]=N;sprotein[1]=N
+1469	fuzztran	-complement1=4 -sformat1=-fasta -stdout3 x -SreVerse	ERROR
+1470	fuzztran	-snucleotide3=+0 -SEND=8 -sbegin1 -14 -S3 +3	ERROR
+1471	fuzztran	/SBEGin 13 -send1 -13 -sreve1 /scircular1=t --snucleotide1	sbegin[1]=13;scircular[1]=t;send[1]=-13;snucleotide[1]=Y;sreverse[1]=Y
+1472	fuzztran	-scircULaR1 F	scircular[1]=F
+1473	fuzztran	-send 0 -sreverse1	send[1]=0;sreverse[1]=Y
+1474	fuzztran	-su false -SUPPER1 0	supper[1]=0
+1475	fuzztran	-auto1 -send1 -10 -sprotein0 -SPROTEI	ERROR
+1476	fuzztran	-sprotein -SCIRCULAR1 SREVERSE -noscircular true	ERROR
+1477	fuzztran	/sreverse	sreverse[1]=Y
+1478	fuzztran	-sreverse1	sreverse[1]=Y
+1479	fuzztran	-NOSUPPER3	ERROR
+1480	fuzztran	-scircula1=0 -sbegi abc -noslower1 true x=1	ERROR
+1481	fuzztran	-snucleotide1 false -SREV	snucleotide[1]=false;sreverse[1]=Y
+1482	fuzztran	-SPROTEIN1 1 -scircular1	?scircular[1]=Y;sprotein[1]=1
+1483	fuzztran	-snuc1	snucleotide[1]=Y
+1484	fuzztran	-sbegin3 --supper /nosupper=n -NOSCI1	ERROR
+1485	fuzztran	-sbegin1=-33 /sre=01 -send3=-33	ERROR
+1486	fuzztran	-slower1 -nosprotein -nosnucleoti1	slower[1]=Y;snucleotide[1]=N;sprotein[1]=N
+1487	fuzztran	-SCIRCUL1 --supper1=	ERROR
+1488	fuzztran	-SE=-2147483649	ERROR
+1489	fuzztran	-send1 3 -nosn1 -scircula1 -SNuCLeotIDe1=tr /nosprotein=yes	ERROR
+1490	fuzztran	-sbegin1 4 -su	sbegin[1]=4;supper[1]=Y
+1491	fuzztran	-send -1 --SBEGIN -25	sbegin[1]=-25;send[1]=-1
+1492	fuzztran	/sprotein -ufo=abc	?sprotein[1]=Y;ufo[1]=abc
+1493	fuzztran	-nos1=t -Sp3 --SUPPER=ye	ERROR
+1494	fuzztran	--send3 2 -send3=3 -sbegi1 -0 x=1	ERROR
+1495	fuzztran	-snucleotide1 -sprotein=ye	ERROR
+1496	fuzztran	-slower No -nosprotein1 -nosnucleotide true	REFUSED
+1497	fuzztran	-s1 18	ERROR
+1498	fuzztran	-slower N -SREVERSE=t	slower[1]=N;sreverse[1]=t
+1499	fuzztran	--nosrever=yes -SpROTein1 -send1=007	ERROR
+1500	fuzztran	-snucleotide -SREVERsE1 F	snucleotide[1]=Y;sreverse[1]=F
+1501	fuzztran	-send 3 -supper -snucleotidxe1 Y -iquery1=fasta sbegin 0	ERROR
+1502	fuzztran	-IQ1 fastq -supper1 -nosreverse1 -SpROteIn /slower	?iquery[1]=fastq;slower[1]=Y;sprotein[1]=Y;sreverse[1]=N;supper[1]=Y
+1503	fuzztran	-scircular 1 -sbegin1 +3 slower1	REFUSED
+1504	fuzztran	S1 1.5	ERROR
+1505	fuzztran	-sbegin 2147483648 -SBegIN -1	sbegin[1]=-1
+1506	fuzztran	-sid fasta	sid[1]=fasta
+1507	fuzztran	-SUPP1=TRUE --snucleotide=true	snucleotide[1]=true;supper[1]=TRUE
+1508	fuzztran	-nosprotein1 /spro -snucleotide1	?snucleotide[1]=Y;sprotein[1]=Y
+1509	fuzztran	-send1 0 sbeg1 0 -nosquick1	ERROR
+1510	fuzztran	-sdbname1 -sp1 -sreverse1=t -sreverse3=nan	ERROR
+1511	fuzztran	-sprotein -nosreverse -send1 -25	?send[1]=-25;sprotein[1]=Y;sreverse[1]=N
+1512	fuzztran	-sbegin=4 --snucl -sformat1 a=b -sp=1 -SPROTEIN	?sbegin[1]=4;sformat[1]=a=b;snucleotide[1]=Y;sprotein[1]=Y
+1513	fuzztran	-nosnucl no -sbegin -9223372036854775808	REFUSED
+1514	fuzztran	-sbegin1 -11 --s1 -SbeGIN1 -33	ERROR
+1515	fuzztran	-slower1 /nosnucleotide1 --SNuClEoTidE	slower[1]=Y;snucleotide[1]=Y
+1516	fuzztran	-send 6	send[1]=6
+1517	fuzztran	nosprote T -supp=y	ERROR
+1518	fuzztran	-sbegixn1 9223372036854775808 -slower=inf -send 0 -sbegin1 0 -NOSUPPE1=T	ERROR
+1519	fuzztran	-sbeg 21 /sprote	?sbegin[1]=21;sprotein[1]=Y
+1520	fuzztran	-s1 -i1 a=b -nosprotein -scircular1	ERROR
+1521	fuzztran	-sreverse1 Y -snucleotide1	snucleotide[1]=Y;sreverse[1]=Y
+1522	fuzztran	-NOSQU=t -send1 0 noscircu -sd3 fasta	ERROR
+1523	fuzztran	-sprotein1=TRUE -scircular1 -sprotein T	?scircular[1]=Y;sprotein[1]=T
+1524	fuzztran	noscirc1 -send=22 -nosprotein3	ERROR
+1525	fuzztran	/sprotein1 -squick3	ERROR
+1526	fuzztran	-snucleo1 -sreverse1 -SBEGIN3=-20 -sen 19 --scircul1	ERROR
+1527	fuzztran	-SREVERS3	ERROR
+1528	fuzztran	-send1=-9223372036854775808	send[1]=-9223372036854775808
+1529	fuzztran	-sbegin 0 -nosnucleotide1=01	ERROR
+1530	fuzztran	SReV -nosprotein01	REFUSED
+1531	fuzztran	-snuCLeotIdE=inf sprotein1 -supper1=0 -scircular 0 -nosreverse1=+0	ERROR
+1532	fuzztran	--scircular F	scircular[1]=F
+1533	fuzztran	-u1 3 -supper1	supper[1]=Y;ufo[1]=3
+1534	fuzztran	-sprotein1 T x=1	ERROR
+1535	fuzztran	-SREVeR1 no	sreverse[1]=no
+1536	fuzztran	-sreverse=1 -sreverse --send1 0x10 -sr false -slower1	ERROR
+1537	fuzztran	--sreverse1=0.5 -sproteixn1 false	ERROR
+1538	fuzztran	SUPPER1 -noSrEVerse1 -sreverse false -nosnucleotidze1 YES	ERROR
+1539	fuzztran	-send1 0 s1 --s=1e999	ERROR
+1540	fuzztran	-noslowe no -sreve	REFUSED
+1541	fuzztran	--nosproteixn0 -NoSLoWEr -sreverse1 -sen1 0 /supper YES	ERROR
+1542	fuzztran	-nosupper=n -rformat1 5 scircular1 sPRO1 n -snucleOtidE3 YES	ERROR
+1543	fuzztran	-sbe1 +0 -nosup=00	ERROR
+1544	fuzztran	--sbegin=20	sbegin[1]=20
+1545	fuzztran	-SNucLeOtIde1 -noscircular0 -sEnd1 1.5	ERROR
+1546	fuzztran	-s=t	ERROR
+1547	fuzztran	-aformayt1=10 sask T	ERROR
+1548	fuzztran	-supper1 false --	REFUSED
+1549	fuzztran	snucleotid1 -scircu	REFUSED
+1550	fuzztran	SE01 -2	ERROR
+1551	fuzztran	-sEnD1 +3 S1	REFUSED
+1552	fuzztran	-slower1=no -sprotein -nosreverse	?slower[1]=no;sprotein[1]=Y;sreverse[1]=N
+1553	fuzztran	-sbegin=19 -SREVERSE1 -nospr0 TRUE -sr1 TRUE -scircular1	REFUSED
+1554	fuzztran	-ioffset=4 -NOSREVERSE1=tr -sdbname1 fastq	ERROR
+1555	fuzztran	-spr y -sprotein1=+0 -send1 10 fFOrmAT1 a=b	REFUSED
+1556	fuzztran	--SB1 -0 --nosr false -nOSLOWer	REFUSED
+1557	fuzztran	-sreverse1 -sreversye1 no -nosc /sl	ERROR
+1558	fuzztran	-sen1 0 -sreverse1 -supper1=N sc1	REFUSED
+1559	fuzztran	/scircular no -sbeg1 1 -SLOWER -noslow0 f	REFUSED
+1560	etandem	-noscirculayr -NOSLOWER0=no	ERROR
+1561	etandem	-noslower -sbegin1 1 --snucleotide1=maybe	ERROR
+1562	etandem	-sprotein1 TRUE -nosprotei -brief1 5 -scircu0=no --	ERROR
+1563	etandem	-sr1 sdbname sbegin -SLOWER1 f -snucleotid	ERROR
+1564	etandem	sen=-1 -sprotein1 1 --sdbname1=a=b -sprotein1 -send	ERROR
+1565	etandem	--u gcg	ERROR
+1566	etandem	-SpRoteIN 1 -noscircular true	REFUSED
+1567	etandem	send 010 -UF fastq -send1 -	ERROR
+1568	etandem	--scircular1 -squick1	scircular[1]=Y;squick[1]=Y
+1569	etandem	-sbegin 007 -noslower=no -srever1	ERROR
+1570	etandem	--squick -noslower	slower[1]=N;squick[1]=Y
+1571	etandem	/word1 5	ERROR
+1572	etandem	-sbegin 0 -scircular -sprotein1=0 -datafile1 10	ERROR
+1573	etandem	--SEND1=13 -srever1 -send1 29 -sizd sbegin	ERROR
+1574	etandem	-noslower1=F -fopenfile1 a=b	ERROR
+1575	etandem	IOFFSET1=0 -nosreverse1 -SReverse3 F -slower1	ERROR
+1576	etandem	-sbegin=	ERROR
+1577	etandem	-aformat=x -stdout1=4 -SLOWER3 -SCIRcULAR -scir n	ERROR
+1578	etandem	--supper=1e999 sreve1 sl1	ERROR
+1579	etandem	--send1 0	send[1]=0
+1580	etandem	-SNUCLEOTIDE01 -nosquick false	REFUSED
+1581	etandem	--sbEgi=33 --slo t -P 4 -SNUCLEOTIDE= -slower1	ERROR
+1582	etandem	-aform x -sreverse1 -slow -sreverse=Y -sREvErsE no	ERROR
+1583	etandem	-snucleotide3 -supper0 0 --snucleotide -snucleotide1 --srev1 true	ERROR
+1584	etandem	/SLOWE -scircul1=0 -snucleotide	scircular[1]=0;slower[1]=Y;snucleotide[1]=Y
+1585	etandem	-noscirC1 F -snucleotide1	REFUSED
+1586	etandem	/se 17 -sreve /slower	ERROR
+1587	etandem	-scircular1 -send1 33	scircular[1]=Y;send[1]=33
+1588	etandem	--nosprotein1 no /nospr1 -supp1	REFUSED
+1589	etandem	-sbegi3 0 -NOSLOWER1 -snucleotide1 --s -4	ERROR
+1590	etandem	-nosnucleotide1 -supper y -s1=	ERROR
+1591	etandem	-SEND=0	send[1]=0
+1592	etandem	-supp Y -sreverse1 No -nosuppe1=Y -nosnucleoti TRUE --sre	ERROR
+1593	etandem	-NoSreveRsE -sE 99999999999999999999 -patter=5	ERROR
+1594	etandem	nosreverse1	REFUSED
+1595	etandem	-snucleotide1=F -sprot=F	snucleotide[1]=F;sprotein[1]=F
+1596	etandem	-send1=16	send[1]=16
+1597	etandem	-nosnucleotide t -sreverse	REFUSED
+1598	etandem	-snucleot1	snucleotide[1]=Y
+1599	etandem	-sen 33 -sreverse0 t -sformat -fasta	send[1]=33;sformat[1]=-fasta;sreverse[1]=t
+1600	etandem	-ScirculAR0 -slower -scircul3=maybe	ERROR
+1601	etandem	-NOSPRO1 fopenfile=abc	fopenfile[1]=abc;sprotein[1]=N
+1602	etandem	-SUPPER=tr -ufo1 -sbegin	ERROR
+1603	etandem	-snucleotide	snucleotide[1]=Y
+1604	etandem	-sbegin 0 -SCiRCular1=F -send=33 -nosupper3 -supper1	ERROR
+1605	etandem	-scir Y -slower /sreverse	scircular[1]=Y;slower[1]=Y;sreverse[1]=Y
+1606	etandem	-snuc1 -SPROTEIN -sprotein	?snucleotide[1]=Y;sprotein[1]=Y
+1607	etandem	-NOSPROTEIN1 F -AUTO 4 --	ERROR
+1608	etandem	-fformat x -sbegin1 2147483648 sbe=--5 -SCIRCULAR1 false -send 17	ERROR
+1609	etandem	sequ1 4 -nosloweyr	ERROR
+1610	etandem	suppe t --su -S3	ERROR
+1611	etandem	-SBEGin3 0 --snuc1	ERROR
+1612	etandem	-sU1 no --sdbname1 fastq	sdbname[1]=fastq;supper[1]=no
+1613	etandem	-SCi -SNUCL	scircular[1]=Y;snucleotide[1]=Y
+1614	etandem	/slower1	slower[1]=Y
+1615	etandem	-sprotein=false -s1 -send1=-1	ERROR
+1616	etandem	-supper	supper[1]=Y
+1617	etandem	-SNUCLEOTIDE 1 -sprotein=F --SNuCLeotIDE1 -snucleoti /nosreverse=0	ERROR
+1618	etandem	-send1=20 /slower --send1 ٣	ERROR
+1619	etandem	-sbegin1=0 -NOSNUCLEOT1 -SLO1 --sbegin1=-1	sbegin[1]=-1;slower[1]=Y;snucleotide[1]=N
+1620	etandem	-sbegin 10 -slower -sdbname -scircular1 N	ERROR
+1621	etandem	snucleotide1	REFUSED
+1622	etandem	-squick1 1 --sbegizn1 1 -supper	ERROR
+1623	etandem	-snucleo1 /nosprotein -SREVERSE1	snucleotide[1]=Y;sprotein[1]=N;sreverse[1]=Y
+1624	etandem	-si -sbegin	ERROR
+1625	etandem	-sbegin1 -2 -sprotein1=+0 -sloweyr=n -snucleotide true	ERROR
+1626	etandem	nosreverse1 t -GAPO3=x -supper1= -sen1 4 -nosl3	ERROR
+1627	etandem	--sc1=f --sl=01	scircular[1]=f;slower[1]=01
+1628	etandem	-noscircular Y -gapope0=10 -sn1 -send1 0	ERROR
+1629	etandem	/S=18 -fopenfi -sbegin -sbeg1 -9223372036854775808	ERROR
+1630	etandem	-SloWeR	slower[1]=Y
+1631	etandem	-sformat1 3 --nosupper -send1 0 --slow	send[1]=0;sformat[1]=3;slower[1]=Y;supper[1]=N
+1632	etandem	-sprotein1=tr -supper1 -noslower no -SUPPER T	ERROR
+1633	etandem	-nosprotein1=f -SLOWER1 -sNUCleoTiDE1 YES -s f -scir	ERROR
+1634	etandem	-sbe1 5- -supper -snucleotide1 Y -srevers0	ERROR
+1635	etandem	-send1 -1 -sbegin1	ERROR
+1636	etandem	-scircular1 -noscircular=N -SCirCUlAr1=Y -sreverse=false	ERROR
+1637	etandem	--sbegin1 0 /squick y -slower1 -	REFUSED
+1638	etandem	-sprotei -snucleotide1 --sequence1 4 -sLoWEr1 -SBEGIN=-33	REFUSED
+1639	etandem	--sreverse0=ye	ERROR
+1640	etandem	-auto 5 -snucleotide1=1	REFUSED
+1641	etandem	-slower YES -words1=x -send1=1	ERROR
+1642	etandem	-sprotein1=0x1 -sask1=1e999	ERROR
+1643	etandem	-supper t -sbeg1=17 -sbe1=23 -sLOWeR -SLOWER=n	sbegin[1]=23;slower[1]=n;supper[1]=t
+1644	etandem	-sb1 -2147483649 -SR1 yes	sbegin[1]=-2147483649;sreverse[1]=yes
+1645	etandem	-snucleotide1 false	snucleotide[1]=false
+1646	etandem	-sbegin1 -22 -nosupper1=false -scircular Y -sbegin1=19 send 33	ERROR
+1647	etandem	-fformat -sbegin -sid1 x -fopenfile3 fastq	ERROR
+1648	etandem	-nospr1 /SCIRCULAYR1 1 -ioffset0 -0	ERROR
+1649	etandem	-sreverse1 n nosrevers t -supper1 -send1 -22	ERROR
+1650	etandem	send0 33 -sprotei -spro1=01 -send 1	ERROR
+1651	etandem	-sen1 1 -s1 29 -spr1	ERROR
+1652	etandem	--sl	slower[1]=Y
+1653	etandem	-slOWER1=yes	slower[1]=yes
+1654	etandem	-pattern1=10	ERROR
+1655	etandem	-nosupper -nosupper1 yes	REFUSED
+1656	etandem	-noslower=y -sen=0 /nosreverse3	ERROR
+1657	etandem	-sreverse -srev /sbegin1 13	sbegin[1]=13;sreverse[1]=Y
+1658	etandem	-SPRoTeiN -sc -scircular01=ye	ERROR
+1659	etandem	slower=f	slower[1]=f
+1660	etandem	-slower=TRUE	slower[1]=TRUE
+1661	etandem	-sbegin1=99999999999999999999	ERROR
+1662	etandem	-scircular=yes -scircular1=N -sask No	sask[1]=No;scircular[1]=N
+1663	etandem	-NoSnucLEOtIDE -SEND1=-26 -SCIRCULAR1	scircular[1]=Y;send[1]=-26;snucleotide[1]=N
+1664	etandem	-SNUCLEOTIDE --snucleotide No -sprotein1 f -noslower1=inf	ERROR
+1665	etandem	--sprotein -nosupper=f -nos	ERROR
+1666	etandem	/sprotein1=yEs -ufo x	?sprotein[1]=yEs;ufo[1]=x
+1667	etandem	-se1=-14 -nosupper /slower1 -snucleotid1 -nosreverse3 false	ERROR
+1668	etandem	-noscircular true	REFUSED
+1669	etandem	-SUPPE1 -sNuCleoTid=yes	snucleotide[1]=yes;supper[1]=Y
+1670	etandem	-noscircular true	REFUSED
+1671	etandem	-sen1=0 sr1 slower=ye -sreverse=1e999 --slowezr1	ERROR
+1672	etandem	-scircular1 -nosreverse1 -fopenfile1 3	fopenfile[1]=3;scircular[1]=Y;sreverse[1]=N
+1673	etandem	-SLOW=1e999 --SBEGIXN1=4 -supper -scircular -send1=-33	ERROR
+1674	etandem	-srever=00	sreverse[1]=00
+1675	etandem	-nosnucleotide1=maybe	ERROR
+1676	etandem	--sbegin1=33 -se 23 --supper n -scirc3 -nosreverse1=F	ERROR
+1677	etandem	-snucleotide=1e999	ERROR
+1678	etandem	-scircular1	scircular[1]=Y
+1679	etandem	-sid a=b	sid[1]=a=b
+1680	etandem	-snucleotide0 -sbegin1=21	sbegin[1]=21;snucleotide[1]=Y
+1681	etandem	--sid=3 -suppe1 -nOsproteIN1 -aformat 5 --nosreverse1	ERROR
+1682	etandem	-sbeg=-17	sbegin[1]=-17
+1683	etandem	-slower1	slower[1]=Y
+1684	etandem	-sbe 24 --SPROTEIN1=false -supper	sbegin[1]=24;sprotein[1]=false;supper[1]=Y
+1685	etandem	-sprotein0 -nosupper f -supper1 -sre1	REFUSED
+1686	etandem	-nos1 yes -sreve1 -SNUCLEOTIDE1	ERROR
+1687	etandem	-SENd1=-28	send[1]=-28
+1688	etandem	-slower1=0x1 -scircular -sdbna=a=b stray	REFUSED
+1689	etandem	--SP= -SeNd 1 -SrEvE1 -send 33	ERROR
+1690	equicktandem	-slower -snucleot1=+0 -sbegin 0	sbegin[1]=0;slower[1]=Y;snucleotide[1]=+0
+1691	equicktandem	s0 a=b -scirc1 -ufo1 fasta	REFUSED
+1692	equicktandem	-se1=-26 -slower1=01 -send -s=4 --send 010	ERROR
+1693	equicktandem	-snucleotide -NOSCIRCULAR N	REFUSED
+1694	equicktandem	-sciRCUlAR1	scircular[1]=Y
+1695	equicktandem	-scircular1 SLOWER1 No -sprotein -supper0 scircul1=true	ERROR
+1696	equicktandem	/scircula01=y -se01 33	ERROR
+1697	equicktandem	-SP1=0.5	?sprotein[1]=0.5
+1698	equicktandem	-scircular=1e999 -sup no	ERROR
+1699	equicktandem	-SProtEi1=1e999 -slower=+0	ERROR
+1700	equicktandem	--sTdo1=4 --	ERROR
+1701	equicktandem	-IQuERY1 3	iquery[1]=3
+1702	equicktandem	-snu yes -SBEGIN -19 -asequence 4	ERROR
+1703	equicktandem	-slower1	slower[1]=Y
+1704	equicktandem	-slower1 -sc1	scircular[1]=Y;slower[1]=Y
+1705	equicktandem	-NOSPROTEIN3=maybe	ERROR
+1706	equicktandem	--SBE1 --nosupper No -S1 0	ERROR
+1707	equicktandem	-STDOUT01 -nosupper1	ERROR
+1708	equicktandem	-s TRUE -NOSUPPER=00	ERROR
+1709	equicktandem	-SPROTEIN=t -slow --supper	?slower[1]=Y;sprotein[1]=t;supper[1]=Y
+1710	equicktandem	-iquery01 a=b /snucleotide1 -sFOrMAt=gcg -nosreverse1	?iquery[1]=a=b;sformat[1]=gcg;snucleotide[1]=Y;sreverse[1]=N
+1711	equicktandem	-send1 -send01 -9223372036854775808	ERROR
+1712	equicktandem	sid=sbegin	sid[1]=sbegin
+1713	equicktandem	-snuc N	snucleotide[1]=N
+1714	equicktandem	-sre1	sreverse[1]=Y
+1715	equicktandem	-SNUCLEOTI3 1 suPpEr1 /SNucleotIDE YES	ERROR
+1716	equicktandem	--s1 -send 007 -sreverse1	ERROR
+1717	equicktandem	-sbe1 8	sbegin[1]=8
+1718	equicktandem	-SPROTEIN1	?sprotein[1]=Y
+1719	equicktandem	-S -send3=27 -sprotein1 No	ERROR
+1720	equicktandem	-scircu -snucleotide1 F -supper1	scircular[1]=Y;snucleotide[1]=F;supper[1]=Y
+1721	equicktandem	-NoSUPp=false -noSCirCuLAR /sequence 10 -sprotein1	ERROR
+1722	equicktandem	-slower1=ye	ERROR
+1723	equicktandem	-sbegin 1 -sbegiyn abc -s noscirc F	ERROR
+1724	equicktandem	-sbegin1 -gapopen 4 -SbegiN1 -1 -sid1 sbegin	REFUSED
+1725	equicktandem	-fopenfile -supper Y -complement x	ERROR
+1726	equicktandem	-snucleotide -snucleotide -sbegin1=-1	sbegin[1]=-1;snucleotide[1]=Y
+1727	equicktandem	-SREVERSE N -scI	scircular[1]=Y;sreverse[1]=N
+1728	equicktandem	/snucleotide1 y -nosreverse1 -nosreverse t	REFUSED
+1729	equicktandem	-nosprotein1 y	REFUSED
+1730	equicktandem	-sNuclEOtIDE1 -SCIRcUL1 -supper -snucleotide yes send1=33	scircular[1]=Y;send[1]=33;snucleotide[1]=yes;supper[1]=Y
+1731	equicktandem	-supper=Y -se1 -sprot1 -compleme x	ERROR
+1732	equicktandem	-s1 -nosupp1=-1 -scircular1=2	ERROR
+1733	equicktandem	-sc	scircular[1]=Y
+1734	equicktandem	-SEND1 22	send[1]=22
+1735	equicktandem	-SCIRcuLAR -SREVERSE1 -sbegin 3 stray	REFUSED
+1736	equicktandem	-NoSReVERSE1=1 -supper0=f	ERROR
+1737	equicktandem	-snuCLEoTiDE -sreverse1 --send1 -22	send[1]=-22;snucleotide[1]=Y;sreverse[1]=Y
+1738	equicktandem	-snu No -wordsiz1=4	ERROR
+1739	equicktandem	-sbegin 33 -send 13 -snucleotide1	sbegin[1]=33;send[1]=13;snucleotide[1]=Y
+1740	equicktandem	-nosprotein -scircul true	scircular[1]=true;sprotein[1]=N
+1741	equicktandem	-SUPPER1 F fforma1 3 -nosprotein -nosprotein -nosprotei yes	ERROR
+1742	equicktandem	-supper1 No -slower1 -scircular3=0.5	ERROR
+1743	equicktandem	-sFoRmAT abc -SBEGIN1 13	sbegin[1]=13;sformat[1]=abc
+1744	equicktandem	-sprotein -sl false	?slower[1]=false;sprotein[1]=Y
+1745	equicktandem	-supper1 Y --snucleotide1 -snucleotide3	ERROR
+1746	equicktandem	-sbegin1 9223372036854775808 -sprotein1 /sbegin1=33	?sbegin[1]=33;sprotein[1]=Y
+1747	equicktandem	-sreverse=ye	ERROR
+1748	equicktandem	-snucleotide01=No -supper1 -supper1	snucleotide[1]=No;supper[1]=Y
+1749	equicktandem	sre1 f	ERROR
+1750	equicktandem	-Sbegin1=99999999999999999999 -sbegin 13 -sprotein1 t -sreverse1=n -snucleotidxe1	ERROR
+1751	equicktandem	-nosUPP1 -send1=-1 -sreverse yes -send=--5	ERROR
+1752	equicktandem	-SQUICK01 --se=-30	ERROR
+1753	equicktandem	-send1 0 -s 33 -snucleotide01=no -scircular1	ERROR
+1754	equicktandem	-noslower false	REFUSED
+1755	equicktandem	-NOSLOWER=true -slower=f	ERROR
+1756	equicktandem	/spro3 -scircular=tr	ERROR
+1757	equicktandem	-sbeg -send 1 --slowe1	ERROR
+1758	equicktandem	-sbegin1 -19 -nosupper /supper1	sbegin[1]=-19;supper[1]=Y
+1759	equicktandem	-SnUcLeoTide -sc -supper1=1e2	ERROR
+1760	equicktandem	sbegin1 24 -sprotein1 TRUE -sreverse1	ERROR
+1761	equicktandem	-S1=t -sreverse3 -nosrever t -sbegi1 010 stray	ERROR
+1762	equicktandem	-SREVERSE1 /noslower1 -send1 27	send[1]=27;slower[1]=N;sreverse[1]=Y
+1763	equicktandem	-slower=no -s1 7 -supper=no -send1	ERROR
+1764	equicktandem	sbegin1 13 -SPROTEIN1 -sbegin0=-8 -sask1 y	ERROR
+1765	equicktandem	-sbegin1 18 send1 0 /send 2147483648 -scircular1	ERROR
+1766	equicktandem	-scircul1 sbegin --5 -sId1 sen1 +3 send1 -5	ERROR
+1767	equicktandem	-s1 -supper	ERROR
+1768	equicktandem	-auto1 -supper -sprotein3	ERROR
+1769	equicktandem	-sprotein -sprotein1 -nOSLOWEr1=01	ERROR
+1770	equicktandem	slow=inf -fopenfilye1 -sbegin -SEND01 -23 sreve	ERROR
+1771	equicktandem	--snucleotide1 -scircular -nosnucleotide -SL1 -nosup3	ERROR
+1772	equicktandem	-supper yes /send -1 -sask1=1e999	ERROR
+1773	equicktandem	-SPROTEIN1=+0	sprotein[1]=+0
+1774	equicktandem	-send 33	send[1]=33
+1775	equicktandem	--sbegin1 9 snucleotid -SCiRc1 -noslow1=01 -SNUCLEOTIDE1 no	ERROR
+1776	equicktandem	-NOSCIRCULAR --NOSLOWER1 -noscircular=No -sid1=a=b	ERROR
+1777	equicktandem	sbeg -sbegin1=28 /supper -sprotein1=n -sb1 007	REFUSED
+1778	equicktandem	-s1 -sbegi1 27	ERROR
+1779	equicktandem	slower1	REFUSED
+1780	equicktandem	-noslower1 y	REFUSED
+1781	equicktandem	suppER	REFUSED
+1782	equicktandem	-send1 0 -sreverse	send[1]=0;sreverse[1]=Y
+1783	equicktandem	--scircular1 Y	scircular[1]=Y
+1784	equicktandem	-scircular1 f --se1 9223372036854775807	ERROR
+1785	equicktandem	-s1 ٣ -snucle -send1 99999999999999999999	ERROR
+1786	equicktandem	-send -28 /SREVERSE=y /noslower1=yEs -sci1 T	ERROR
+1787	equicktandem	--nosprotein1 -nosupper1 No	REFUSED
+1788	equicktandem	-sask 1 -snucleotide1=ye	ERROR
+1789	equicktandem	-s1 --supper1=01 -supper1	ERROR
+1790	equicktandem	-nosnucleotide1	snucleotide[1]=N
+1791	equicktandem	/NOSP1=0 -se 3 /fope	ERROR
+1792	equicktandem	-sNucLeotide n -supper -nospr1 -Sb1=0	sbegin[1]=0;snucleotide[1]=n;sprotein[1]=N;supper[1]=Y
+1793	equicktandem	-scircular1 true -PATtErN01 x -nosprotein1	ERROR
+1794	equicktandem	-sdbname1 -3	sdbname[1]=-3
+1795	equicktandem	-sn1 -supper=01 -s	ERROR
+1796	equicktandem	-nosnucleotide Y -NOSLOWER	REFUSED
+1797	equicktandem	-SUPPER1=ye -nosnucleotide1=+0	ERROR
+1798	equicktandem	-slower=1e999	ERROR
+1799	equicktandem	-snucleot1 y S1 9223372036854775808 -sprotein1 t	ERROR
+1800	equicktandem	-nosupper	supper[1]=N
+1801	equicktandem	-nosnucleotide t -slower1	REFUSED
+1802	equicktandem	-SN	snucleotide[1]=Y
+1803	equicktandem	-supper	supper[1]=Y
+1804	equicktandem	-send1 4 -supper -slower	send[1]=4;slower[1]=Y;supper[1]=Y
+1805	equicktandem	-nosproteiyn1 -aformat1 10	ERROR
+1806	equicktandem	-nosnucleoti1	snucleotide[1]=N
+1807	equicktandem	-sprotein3=-1 -noslower1 -AFORMAT1 10	ERROR
+1808	equicktandem	--noscircular1 No --s 99999999999999999999 -SL	ERROR
+1809	equicktandem	--sbegin1=0 --scircular3 n -supper1 y -sreverse1 f	ERROR
+1810	equicktandem	-uf1 fastq --sbegi -22 --send3 --5	ERROR
+1811	equicktandem	-SPROTEIN1 /send -6	?send[1]=-6;sprotein[1]=Y
+1812	equicktandem	-snucleotide -srever=0x1 /SBEGIN1 -33	sbegin[1]=-33;snucleotide[1]=Y;sreverse[1]=0x1
+1813	equicktandem	nosnucleotide1 -sbegin1= -slow1	ERROR
+1814	equicktandem	/SCIRCULA -S -supper=false	ERROR
+1815	equicktandem	--noscircular3 -fopenfil1=-3 -srev1=YES	ERROR
+1816	equicktandem	--sup1 -s1 -data x	ERROR
+1817	equicktandem	--nosuppexr1 --sbe 4 -SCIRCULAR -SBegiN1 0 --sbe 0 --	ERROR
+1818	equicktandem	-sask1 -slower1 -spROtEIn=yEs	?sask[1]=Y;slower[1]=Y;sprotein[1]=yEs
+1819	equicktandem	-slower1 -scircular=YES -noscircular1	scircular[1]=N;slower[1]=Y
+1820	dotmatcher	-sbegin2 22	sbegin[2]=22
+1821	dotmatcher	-nosreverse No -sprotei2=true -noscircular -snucleotide	ERROR
+1822	dotmatcher	-i a=b /sreverse3 1	ERROR
+1823	dotmatcher	-s1 --iquery2 x -sbegin 1	ERROR
+1824	dotmatcher	--slower -NOSUPPE=t -uf1 abc -sbegi 14 -nosn2	ERROR
+1825	dotmatcher	-sprotein1	sprotein[1]=Y
+1826	dotmatcher	-seND1=007 -nosupper	send[1]=007;supper[1]=N;supper[2]=N
+1827	dotmatcher	/SAsK1=yes /SCIRCULAR1	sask[1]=yes;scircular[1]=Y
+1828	dotmatcher	sdbname1=fastq	sdbname[1]=fastq
+1829	dotmatcher	-sprotein1 ioffset1=-9 -scircul1 false NosReVErse01	ERROR
+1830	dotmatcher	-suppeyr=ye --s1 fastq -nosreverse=Y s 19	ERROR
+1831	dotmatcher	-sbegin -9223372036854775808 -sprotein1	sbegin[2]=-9223372036854775808;sprotein[1]=Y
+1832	dotmatcher	-scircular=no	scircular[2]=no
+1833	dotmatcher	-SEND01 010 -sbegin 0	sbegin[1]=0;sbegin[2]=0;send[1]=010
+1834	dotmatcher	/SREV=0 sbegi -9223372036854775808	ERROR
+1835	dotmatcher	-sCiRCuLaR2=0 /ioffset1 0 -slo3 --sC1	ERROR
+1836	dotmatcher	/sPROtE1 YES	sprotein[1]=YES
+1837	dotmatcher	-sprot2 -sbegizn -supper2	ERROR
+1838	dotmatcher	-slower1=0x1	slower[1]=0x1
+1839	dotmatcher	-snucleotide -si -sbegin	ERROR
+1840	dotmatcher	-sreverse=0 -nosquic=F	ERROR
+1841	dotmatcher	--SPROTEIN1 -noslower	slower[1]=N;slower[2]=N;sprotein[1]=Y
+1842	dotmatcher	/send 9223372036854775807 supper2=1e2 -slower1=nan	ERROR
+1843	dotmatcher	-fform -sbegin -s2 2	ERROR
+1844	dotmatcher	--s=4 -sCiRcuLAR	ERROR
+1845	dotmatcher	--ufo2 -fasta	ufo[2]=-fasta
+1846	dotmatcher	-slower2	slower[2]=Y
+1847	dotmatcher	-slowezr=1e999	ERROR
+1848	dotmatcher	-sformat=sbegin -se -1 /sbeg1 33	sbegin[1]=33;send[1]=-1;send[2]=-1;sformat[2]=sbegin
+1849	dotmatcher	-sprotein2 0 -srever1 -scircular1	scircular[1]=Y;sprotein[2]=0;sreverse[1]=Y
+1850	dotmatcher	-send 6 -scircu -Sre	scircular[1]=Y;scircular[2]=Y;send[2]=6;sreverse[1]=Y;sreverse[2]=Y
+1851	dotmatcher	-send1=abc -nosprotein -brief2 4	ERROR
+1852	dotmatcher	-NoSnUc3	ERROR
+1853	dotmatcher	-nosprotein1 -SrEVeRSE=TRUE -snucleotide=N	snucleotide[1]=N;snucleotide[2]=N;sprotein[1]=N;sreverse[1]=TRUE;sreverse[2]=TRUE
+1854	dotmatcher	-snucleotide true -sq1	snucleotide[2]=true;squick[1]=Y
+1855	dotmatcher	-supper2	supper[2]=Y
+1856	dotmatcher	-slow01=inf /spro2=01 -send2 0	ERROR
+1857	dotmatcher	-nosnucleotide -sprotei1 -send -1	send[1]=-1;send[2]=-1;snucleotide[2]=N;sprotein[1]=Y
+1858	dotmatcher	--sbegin2 3 -s2 33 -nosnucle -ufo=-fasta /noscircular2 yes	ERROR
+1859	dotmatcher	sREve2 No -scircular	ERROR
+1860	dotmatcher	-sre2	sreverse[2]=Y
+1861	dotmatcher	-sASk1 -SREVERSE1	sask[1]=Y;sreverse[1]=Y
+1862	dotmatcher	--sdbname a=b -snucleotide2	sdbname[2]=a=b;snucleotide[2]=Y
+1863	dotmatcher	-noslower1 -aformat2 x	ERROR
+1864	dotmatcher	-sen=0 -sb 2 -SFoRmat2 sbegin -scircular2=T -supper YES	sbegin[1]=2;sbegin[2]=2;scircular[2]=T;send[1]=0;send[2]=0;sformat[2]=sbegin;supper[1]=YES;supper[2]=YES
+1865	dotmatcher	-SUPP2 -supp3=1 -slower1 -noSNUcLeOtide=yEs	ERROR
+1866	dotmatcher	-sbegin3 0	ERROR
+1867	dotmatcher	-scircular f /supper -sbegi=1 -scircular	sbegin[1]=1;sbegin[2]=1;scircular[1]=Y;scircular[2]=Y;supper[2]=Y
+1868	dotmatcher	-sl -sReVeRse	slower[1]=Y;slower[2]=Y;sreverse[1]=Y;sreverse[2]=Y
+1869	dotmatcher	-ScIRCuLar2=maybe --se 1 /nos1 -slower yes	ERROR
+1870	dotmatcher	-nosreverse -	ERROR
+1871	dotmatcher	-supper=no	supper[2]=no
+1872	dotmatcher	-s -slower=true	ERROR
+1873	dotmatcher	-scircular=inf slower -	ERROR
+1874	dotmatcher	-snucleotide1 -slower2	slower[2]=Y;snucleotide[1]=Y
+1875	dotmatcher	-sprotein1 -sreverse	sprotein[1]=Y;sreverse[1]=Y;sreverse[2]=Y
+1876	dotmatcher	-SREVERSE3 1 -fformat1 a=b	ERROR
+1877	dotmatcher	--send1 -13	send[1]=-13
+1878	dotmatcher	-SEQU1 5	ERROR
+1879	dotmatcher	--nos=N -nosreverse1 T	ERROR
+1880	dotmatcher	-supper1 -noscircu2 f -SREVERSE1 iquery abc	ERROR
+1881	dotmatcher	/sbegi2 5 -scir1 -snucleotide	sbegin[2]=5;scircular[1]=Y;snucleotide[1]=Y;snucleotide[2]=Y
+1882	dotmatcher	sprote2 -NOsCiRcUlAR2 SREVERS=0 sb 3 -ioffse2 -33	ERROR
+1883	dotmatcher	-sfORmAt2 -sc1=yes	sformat[2]=-sc1=yes
+1884	dotmatcher	-sen1=٣ -sreverse0 --sprotein -s n -snucleotide f	ERROR
+1885	dotmatcher	-supPER1 -SBEGIN1=33 -scircular	sbegin[1]=33;scircular[1]=Y;scircular[2]=Y;supper[1]=Y
+1886	dotmatcher	-se1=-0 --iquer abc -nosnucleotide2	iquery[1]=abc;iquery[2]=abc;send[1]=-0;snucleotide[2]=N
+1887	dotmatcher	-outfil1 5 /GAPopEN3 5 -sreverse T	ERROR
+1888	dotmatcher	-snucleotide --ioffset 0	ioffset[2]=0;snucleotide[2]=Y
+1889	dotmatcher	-sbegin2 -ioffsext=0 -sprotein2=1e2 -srever1	ERROR
+1890	dotmatcher	-SnuCleotIdE2 n -sreverse=tr -sReVErSE1 x=1	ERROR
+1891	dotmatcher	-s2 20	ERROR
+1892	dotmatcher	-sreverse1	sreverse[1]=Y
+1893	dotmatcher	/slower2 /SBEGIN01 -13 -sdbname -fasta	sbegin[1]=-13;sdbname[1]=-fasta;sdbname[2]=-fasta;slower[2]=Y
+1894	dotmatcher	SEN2=+0 -scir Y -sBeGin0 1.5	ERROR
+1895	dotmatcher	-noslower -SE1=13 -sprotein=01 -scircu1 t -snucleotide1	scircular[1]=t;send[1]=13;slower[2]=N;snucleotide[1]=Y;sprotein[1]=01;sprotein[2]=01
+1896	dotmatcher	-sbegin2=28 -sprotein1	sbegin[2]=28;sprotein[1]=Y
+1897	dotmatcher	-wordsize 10 -noslower -nosc1=nan	ERROR
+1898	dotmatcher	-Sen3 abc -SLOWER1 no	ERROR
+1899	dotmatcher	-supper2 y	supper[2]=y
+1900	dotmatcher	-slower3 TRUE -snu2 -scircular	ERROR
+1901	dotmatcher	-noslower2=1e2 /s f	ERROR
+1902	dotmatcher	-s x -nOsNucLEoTiDE1 -supper1	ERROR
+1903	dotmatcher	-scircular1 -sformat abc -fFoRMaT -sbegin	ERROR
+1904	dotmatcher	-sbegin1 -2 -squick01 -snucleotide2 -supper2=yes /send1 1	sbegin[1]=-2;send[1]=1;snucleotide[2]=Y;squick[1]=Y;supper[2]=yes
+1905	dotmatcher	-NOSPROTEIN= -SPROTEIN No -nosprotein1 n -NOSNUCLEOTIDE -nosn	ERROR
+1906	dotmatcher	-sbegin1 2 -sl1	sbegin[1]=2;slower[1]=Y
+1907	dotmatcher	-sbegin1 0 -sprotein2 Y	?sbegin[1]=0;sprotein[2]=Y
+1908	dotmatcher	-nosp1 true -nosupper1	ERROR
+1909	dotmatcher	-sprotein2 SNUCLEOTIDE --Send1 -SbEgIn1 --5 /scircula0 YES	ERROR
+1910	dotmatcher	-SBEGIN -28 -s1 F	ERROR
+1911	dotmatcher	-sbegin1=	ERROR
+1912	dotmatcher	--sreverse F -slower1=yEs	slower[1]=yEs;sreverse[2]=F
+1913	dotmatcher	-Iq fastq	iquery[1]=fastq;iquery[2]=fastq
+1914	dotmatcher	-nosnucleotide3 -nosreverse1=N -sprotein2=1e999 -sforM1 -3 fformat01 3	ERROR
+1915	dotmatcher	-wordsize x -iquery fasta -supper1	ERROR
+1916	dotmatcher	/sprotein TRUE -Nos -slower=ye -nosprotein -spr	ERROR
+1917	dotmatcher	-NOS -noslower2 -slower2	ERROR
+1918	dotmatcher	-supper1 -sprotein01 -sreverse2 -supp=y -sreve2 false	sprotein[1]=Y;sreverse[2]=false;supper[1]=y;supper[2]=y
+1919	dotmatcher	/sreverse0	sreverse[2]=Y
+1920	dotmatcher	-srever2	sreverse[2]=Y
+1921	dotmatcher	/nosnUcLEOTIde1 true -sen 99999999999999999999 -sp=ye -SCIrCULaR -se1 -12	ERROR
+1922	dotmatcher	-send 13 -scircular1 -snucleoti0 Y -SRE1 false	scircular[1]=Y;send[2]=13;snucleotide[1]=Y;snucleotide[2]=Y;sreverse[1]=false
+1923	dotmatcher	-SUPPER2 -su -sb2 23	sbegin[2]=23;supper[1]=Y;supper[2]=Y
+1924	dotmatcher	-sreverse=1e2 -srevers=1e2 -sen=1 -sr2=f	ERROR
+1925	dotmatcher	-s1 -25 -FFORMAT abc	ERROR
+1926	dotmatcher	-snucleotide -send 0 -srev1 -sre2	send[2]=0;snucleotide[2]=Y;sreverse[1]=Y;sreverse[2]=Y
+1927	dotmatcher	-supper=t -SREVERSE1=-1 -asequence 5 -nosup TRUE	ERROR
+1928	dotmatcher	-sr -noscircular supper -UFO2 fasta -slower=true	ERROR
+1929	dotmatcher	-snucleotide2 y	snucleotide[2]=y
+1930	dotmatcher	-s1=6 NOSCIRCULAR1 -send2 1	ERROR
+1931	dotmatcher	-srever2	sreverse[2]=Y
+1932	dotmatcher	-send1=	ERROR
+1933	dotmatcher	-slo2=0 -scircular3=F -noslowexr2	ERROR
+1934	dotmatcher	-SREVE -SLOWER2	slower[2]=Y;sreverse[1]=Y;sreverse[2]=Y
+1935	dotmatcher	--nosprotein -supper2	sprotein[2]=N;supper[2]=Y
+1936	dotmatcher	-sup1	supper[1]=Y
+1937	dotmatcher	-sbegi01 24 -snucleotide2 --se=--5 -sbegin -1	ERROR
+1938	dotmatcher	-noslower=tr -sid1 --supper2 -send01 -33 -s1=-1	ERROR
+1939	dotmatcher	d1=4 stray	ERROR
+1940	dotmatcher	-fopenfile2 x --sbegin=33	fopenfile[2]=x;sbegin[2]=33
+1941	dotmatcher	-sr1 f -sreverse=TRUE --ufo2 sbegin	sreverse[1]=TRUE;sreverse[2]=TRUE;ufo[2]=sbegin
+1942	dotmatcher	-snucleotid2=No	snucleotide[2]=No
+1943	dotmatcher	-suppe --sen2=-2147483649	send[2]=-2147483649;supper[1]=Y;supper[2]=Y
+1944	dotmatcher	-sprotein TRUE /supp1	?sprotein[2]=TRUE;supper[1]=Y
+1945	dotmatcher	--scircular1 yes send ٣	ERROR
+1946	dotmatcher	-nosprotein2	sprotein[2]=N
+1947	dotmatcher	-sprotein2 -sbegin2 0	?sbegin[2]=0;sprotein[2]=Y
+1948	dotmatcher	--sCIr=tr -sid abc	ERROR
+1949	dotmatcher	-send=0	send[2]=0
+1950	distmat	-sprotein -SCIRCULAR -S1 33 -iquer=abc -supper	ERROR
+1951	distmat	supper	REFUSED
+1952	distmat	-slowe -sbegi 99999999999999999999 --NOSLOWER YES -s1=33 -fopen1 x	ERROR
+1953	distmat	-ique1 3	iquery[1]=3
+1954	distmat	-iquery1 a=b --nOScIRc3	ERROR
+1955	distmat	-stdout1 10 -NOSCIRCULAR1 true -sbegin 0 -sprotein -srev1 T	ERROR
+1956	distmat	-send1 21 -ioffset -17	ioffset[1]=-17;send[1]=21
+1957	distmat	-scirculayr1	ERROR
+1958	distmat	-sprotein1 yes	sprotein[1]=yes
+1959	distmat	-noslowe1=N -SCircULar1 -sprotein=ye	ERROR
+1960	distmat	-supper1 --SLOWER1 -scircular1=YES -sbegin abc	ERROR
+1961	distmat	-srevers1 no	sreverse[1]=no
+1962	distmat	-sprotein0	sprotein[1]=Y
+1963	distmat	sprotein -sbegin3 18	ERROR
+1964	distmat	-sreverse1 TRUE -datafile 5	ERROR
+1965	distmat	-sNUCLEOtIdE F -sreverse1=+0	snucleotide[1]=F;sreverse[1]=+0
+1966	distmat	-sreverse -slower1 N	slower[1]=N;sreverse[1]=Y
+1967	distmat	-snucleotide YES -srever1 false -supper1=1	snucleotide[1]=YES;sreverse[1]=false;supper[1]=1
+1968	distmat	-sreve --nos	ERROR
+1969	distmat	-nosnucleotidye3 -SrEVErSe1=No	ERROR
+1970	distmat	-squick1= -squick1 -SBEGI1 +3 -snucleotide 0 --sprotein	sbegin[1]=+3;snucleotide[1]=0;sprotein[1]=Y;squick[1]=Y
+1971	distmat	-scircular3=no -send01 +3	ERROR
+1972	distmat	-noSuPPEr --slower -sreverse1 -sbegin1 1e3	ERROR
+1973	distmat	-SEnd1 -se 14	ERROR
+1974	distmat	-SbeGiN3 1 -slower1=+0 -SBEGIN1 -2147483649	ERROR
+1975	distmat	-send1 -23	send[1]=-23
+1976	distmat	-sprotein Y -snuc1 -nosprotein1	snucleotide[1]=Y;sprotein[1]=N
+1977	distmat	-NOSUPPER -s -slower1	ERROR
+1978	distmat	-sbeg1=-17 -slowe1	sbegin[1]=-17;slower[1]=Y
+1979	distmat	-scirc1 -send=0 -nosprotein -sreverse1	scircular[1]=Y;send[1]=0;sprotein[1]=N;sreverse[1]=Y
+1980	distmat	-s1=-1 -s1 -9223372036854775808 -scircular1 /ufzo1 sbegin -SrEvErSE n	ERROR
+1981	distmat	-nosu -snucleotide -sdbname	ERROR
+1982	distmat	--snucleotide -SEnD1 -8 -send1 7 sci1 -snucleotide1	REFUSED
+1983	distmat	-sBEGin1 -slower	ERROR
+1984	distmat	-supp -sprotein1 -sbegin -0	sbegin[1]=-0;sprotein[1]=Y;supper[1]=Y
+1985	distmat	-s1 -nosnucleotide3	ERROR
+1986	distmat	-AUTO 5	REFUSED
+1987	distmat	-spr1 N -scircular -NoSnUClEoTide1 t	REFUSED
+1988	distmat	/noscircular1	scircular[1]=N
+1989	distmat	-slower1=N	slower[1]=N
+1990	distmat	-supper1	supper[1]=Y
+1991	distmat	/SBEGIN1 -33 -sp1=2 -send	ERROR
+1992	distmat	-snucleotide01 -supper -send 0	send[1]=0;snucleotide[1]=Y;supper[1]=Y
+1993	distmat	-snucleotide1 F -squick1 -sprotein1 -slower /sen1 -1	send[1]=-1;slower[1]=Y;snucleotide[1]=F;sprotein[1]=Y;squick[1]=Y
+1994	distmat	-send1=-1	send[1]=-1
+1995	distmat	-noscirculayr f -s=0	ERROR
+1996	distmat	-slower -s -sbegin -sbegin1=33	ERROR
+1997	distmat	-send1 17 -sbegin1=-5 -slower -sprote1 F -snucleotide=no	sbegin[1]=-5;send[1]=17;slower[1]=Y;snucleotide[1]=no;sprotein[1]=F
+1998	distmat	/s1=tr -sen0=1	ERROR
+1999	distmat	-brief1 x -SPROT	ERROR
+2000	distmat	/s1=-9	ERROR
+2001	distmat	-nosnu1 -nosreverse=t SE1=-19 -ioffset01=	ERROR
+2002	distmat	-send1 9223372036854775808	ERROR
+2003	distmat	-send1 25	send[1]=25
+2004	distmat	-scircular -ioffsezt1 -30 -SBEGIN1 19 -send1=22 -senxd 1	ERROR
+2005	distmat	-nosrever F --suppe	REFUSED
+2006	distmat	-snucleotide F	snucleotide[1]=F
+2007	distmat	-sreverse -scircul1 YES -slowe -sreverse3	ERROR
+2008	distmat	-send=-13	send[1]=-13
+2009	distmat	-sBeGIN1 3 -SEND1=5- -sprotein -sLOwer1=t	ERROR
+2010	distmat	-sprotein -nosupp -sbegin1 -22 -sreverse	sbegin[1]=-22;sprotein[1]=Y;sreverse[1]=Y;supper[1]=N
+2011	distmat	-SCIRCU1 No	scircular[1]=No
+2012	distmat	-supper1 true -fformat sbegin	fformat[1]=sbegin;supper[1]=true
+2013	distmat	snucleotide1 -sQUIck1	REFUSED
+2014	distmat	-send 33 -sprotein false -fforma1 -sbegin --sprotein3 0	ERROR
+2015	distmat	-nosupper1	supper[1]=N
+2016	distmat	-snucleotide1 -nosreverse1 -slow /scircular --	REFUSED
+2017	distmat	-wordsize1 10 -SEN1=-17 --send1 fopenfile=x -nosnucleotide3 no	ERROR
+2018	distmat	-sbeg1 -15	sbegin[1]=-15
+2019	distmat	-slower=n -sbegin1 24	sbegin[1]=24;slower[1]=n
+2020	distmat	-sprotein -noslower1	slower[1]=N;sprotein[1]=Y
+2021	distmat	/sbegin -sreverse1 no -SEND1 -29	ERROR
+2022	distmat	-SLOWER t	slower[1]=t
+2023	distmat	-sen	ERROR
+2024	distmat	-sup -s	ERROR
+2025	distmat	-snucleot=YES	snucleotide[1]=YES
+2026	distmat	snucleotide -spro	REFUSED
+2027	distmat	-scirc1 -scircular3 -sen1 -0 -slower1=no	ERROR
+2028	distmat	-sprotein1=YES	sprotein[1]=YES
+2029	distmat	-rform1 10 --snucleotide -SRE3	ERROR
+2030	distmat	-nosupper=n	ERROR
+2031	distmat	-snucleotide1 /sbegixn 6	ERROR
+2032	distmat	-slower1	slower[1]=Y
+2033	distmat	-nos1 -snucleotide	ERROR
+2034	distmat	-nosrevers -SLOWE1 supper1	REFUSED
+2035	distmat	-send1 26 -nosnucleotide	send[1]=26;snucleotide[1]=N
+2036	distmat	-snucleotide=nan -sbegin +0 -nosreverse1 n	ERROR
+2037	distmat	sreverse1	REFUSED
+2038	distmat	/sbeg1 abc -sequence 5	ERROR
+2039	distmat	nosprotein1 -noscircu3 -s1 -1	ERROR
+2040	distmat	-send=-33 -snucleotide1 -scircular	scircular[1]=Y;send[1]=-33;snucleotide[1]=Y
+2041	distmat	-slow1 No	slower[1]=No
+2042	distmat	-fopenfil1 a=b -sprotein1 -slower1 0 --spro=YES	fopenfile[1]=a=b;slower[1]=0;sprotein[1]=YES
+2043	distmat	/nosnucleotide1 /snucleotide1 yes -s1=y sbeg1=-33 -slower=inf	ERROR
+2044	distmat	--sreverse -ufo1 3	sreverse[1]=Y;ufo[1]=3
+2045	distmat	/scircular1 -NOSCIRCULAR0 Y -sprotein3=y -sreve1 -sbegin 0	ERROR
+2046	distmat	-noscircular=tr SPROTEIN1=F -SCIRCULAR1 1	ERROR
+2047	distmat	-noscircular 0	REFUSED
+2048	distmat	-SQUICK t -scircular= s=+0 -SBEGIN 33	ERROR
+2049	distmat	-ioffs1 1 -ioffset1 -11	ioffset[1]=-11
+2050	distmat	-slower1=ye -sprotein1=01 -SEND=7	ERROR
+2051	distmat	-sbegin1 -10	sbegin[1]=-10
+2052	distmat	-nosproteixn No	ERROR
+2053	distmat	-FFORMAT1 -sbegin /NOSUPPEYR F	ERROR
+2054	distmat	-send1 abc -iof1	ERROR
+2055	distmat	--squick1 1 -send=6 -SBEGIn -9223372036854775808 -nosprotein1 -srevers1	sbegin[1]=-9223372036854775808;send[1]=6;sprotein[1]=N;squick[1]=1;sreverse[1]=Y
+2056	distmat	suppe -asequence1 x	ERROR
+2057	distmat	-sbegin 007 --supper1 -STdoUt1=5	ERROR
+2058	distmat	-sprotein1=tr	ERROR
+2059	distmat	-sbegin 15 /noscircular1 -suppe	sbegin[1]=15;scircular[1]=N;supper[1]=Y
+2060	distmat	-sCIrCulAr1	scircular[1]=Y
+2061	distmat	-SReVERsE -se1 20 -sc3=yEs -noslower1 -sreverse1=2	ERROR
+2062	distmat	-aformat=4 -send01 007 -sreverse1 f -SEND1 12 -S1 1e3	ERROR
+2063	distmat	/rforma=5 -SBEGIZN -0	ERROR
+2064	distmat	-s1=ye	ERROR
+2065	distmat	/sprotein1=0x1 -noslower t -supper1	REFUSED
+2066	distmat	--rformat 5 -sEnD1 -sbegin 0	ERROR
+2067	distmat	-slow1 Y	slower[1]=Y
+2068	distmat	-ScIRCUlAR1 -slower3=n sq1 N -snucleotide=yEs	ERROR
+2069	distmat	-snucleotide1 -scir1 F	scircular[1]=F;snucleotide[1]=Y
+2070	distmat	-sc1 -SNUCLEOTIDE1=f	scircular[1]=Y;snucleotide[1]=f
+2071	distmat	/slowe1 -scircular1	scircular[1]=Y;slower[1]=Y
+2072	distmat	-uFo1 -sreversxe snucleotide=Y /sformat3=a=b	ERROR
+2073	distmat	-IOff 0 -send1 -1	ioffset[1]=0;send[1]=-1
+2074	distmat	-squick1 yes	squick[1]=yes
+2075	distmat	-snucleotide1 -sen=8	send[1]=8;snucleotide[1]=Y
+2076	distmat	--sprot1 Y -supper -snucleotide1 Y -SLOWER1 -SLOWER=yes	slower[1]=yes;snucleotide[1]=Y;sprotein[1]=Y;supper[1]=Y
+2077	distmat	/sprotein1 -sprotein=f	sprotein[1]=f
+2078	distmat	-sid1=gcg -SEND0 1 -send=5	send[1]=5;sid[1]=gcg
+2079	distmat	-sprotein1 TRUE -scircula1=f /sbegizn1 9223372036854775807	ERROR

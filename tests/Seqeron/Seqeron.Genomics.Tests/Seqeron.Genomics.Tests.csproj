@@ -59,6 +59,8 @@
     <EmbeddedResource Include="TestData\Alignment\emboss_gap_oracle.tsv" />
     <!-- A5-7 (B09 F172): the sequence-input qualifiers (-sbegin -send -sreverse -slower -supper -scircular -snucleotide -sprotein) on the 16 EMBOSS programs 6.6.0; scripts/alignment/generate_emboss_seqopts_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\emboss_seqopts_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_acd_args_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_seqopts_text_oracle.tsv" />
     <!-- ALIGN-MULTI-001 (audit A1-13, B09 F58): T-Coffee 13.41 progressive stage (library relaxation + sparse linked-pair-wise DP) for an explicit library and guide tree;
          rows of the installed `t_coffee` (Debian t-coffee 13.45.0.4846264+really13.41.0.28bdc39+dfsg-1); scripts/alignment/generate_tcoffee_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\tcoffee_oracle.tsv" />

@@ -23,7 +23,7 @@ public partial class AlignmentTools
         if (sequenceQualifiers is not null)
         {
             using var qualifiedScope = global::Seqeron.Genomics.Alignment.SequenceAligner.BeginCancellationScope(cancellationToken);
-            var (first, second) = QualifiedPair(sequence1, sequence2, sequenceQualifiers, names);
+            var (first, second) = QualifiedPair("stretcher", sequence1, sequence2, sequenceQualifiers, names);
             var result = global::Seqeron.Genomics.Alignment.SequenceAligner.StretcherProgram(first, second, ResolveMatrix(matrix), gapOpen, gapExtend);
             bool protein = result.MatrixName != "EDNAFULL" && ResolveMatrix(matrix) is null;
             return QualifiedPairResult("stretcher", result, format, gapOpen ?? (protein ? 12 : 16), gapExtend ?? (protein ? 2 : 4), true, true);
@@ -65,7 +65,7 @@ public partial class AlignmentTools
         using var cancelScope = global::Seqeron.Genomics.Alignment.SequenceAligner.BeginCancellationScope(cancellationToken);
         if (sequenceQualifiers is not null)
         {
-            var (first, second) = QualifiedPair(sequence1, sequence2, sequenceQualifiers, names);
+            var (first, second) = QualifiedPair("needle", sequence1, sequence2, sequenceQualifiers, names);
             return QualifiedPairResult("needle", global::Seqeron.Genomics.Alignment.SequenceAligner.NeedleProgram(first, second, ResolveMatrix(matrix), gapOpen, gapExtend, endWeight, endOpen, endExtend), format, gapOpen, gapExtend, true, false);
         }
 
@@ -91,7 +91,7 @@ public partial class AlignmentTools
         using var cancelScope = global::Seqeron.Genomics.Alignment.SequenceAligner.BeginCancellationScope(cancellationToken);
         if (sequenceQualifiers is not null)
         {
-            var (first, second) = QualifiedPair(sequence1, sequence2, sequenceQualifiers, names);
+            var (first, second) = QualifiedPair("water", sequence1, sequence2, sequenceQualifiers, names);
             return QualifiedPairResult("water", global::Seqeron.Genomics.Alignment.SequenceAligner.WaterProgram(first, second, ResolveMatrix(matrix), gapOpen, gapExtend), format, gapOpen, gapExtend, false, false);
         }
 

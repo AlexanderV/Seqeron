@@ -28,6 +28,21 @@ public class EmbossSequenceQualifiersToolsTests
     }
 
     [Test]
+    public void FindPatternHits_NumberedEqualsAndAbbreviatedForms_AreResolvedLikeTheProgram()
+    {
+        // A6-2: fuzznuc s.fa -pattern CGATC -sbegin1 5 -send1 40 == -sbegin 5 -send 40; also -sbegin1=5, the unique abbreviations -sbeg1 / -sen1 / --SEND=40
+        var expected = AnalysisTools.FindPatternHits(S, "CGATC", sequenceQualifiers: "-sbegin 5 -send 40").Hits.Select(h => (h.Position, h.Length, h.Strand)).ToArray();
+        Assert.That(expected, Is.EqualTo(new[] { (23, 5, "forward") }));
+        foreach (string text in new[] { "-sbegin1 5 -send1 40", "-sbegin1=5 -send1=40", "-sbeg1 5 -sen1 40", "-SBEGIN=5 --send 40", "-sbegin1 5 -send 40" })
+            Assert.That(AnalysisTools.FindPatternHits(S, "CGATC", sequenceQualifiers: text).Hits.Select(h => (h.Position, h.Length, h.Strand)).ToArray(), Is.EqualTo(expected), text);
+        // a range that starts after the hit finds nothing; -se is ambiguous between -send and -sequence in fuzznuc, -sbegin2 names a sequence it does not have
+        Assert.That(AnalysisTools.FindPatternHits(S, "CGATC", sequenceQualifiers: "-sbeg1 30").Hits, Is.Empty);
+        Assert.That(Assert.Throws<ArgumentException>(() => AnalysisTools.FindPatternHits(S, "CGATC", sequenceQualifiers: "-se 40"))!.Message, Does.Contain("ambiguous qualifier 'se' (send,sequence)"));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.FindPatternHits(S, "CGATC", sequenceQualifiers: "-sbegin2 5"));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.FindPatternHits(S, "CGATC", sequenceQualifiers: "-pattern ACG"));
+    }
+
+    [Test]
     public void Fuzzpro_Range_CountsFromTheOriginalStart()
     {
         var plain = AnalysisTools.Fuzzpro("MKVLAAGIVGLLLAQ", "K-V");

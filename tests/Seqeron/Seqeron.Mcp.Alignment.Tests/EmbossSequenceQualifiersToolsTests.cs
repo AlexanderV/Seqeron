@@ -21,6 +21,22 @@ public class EmbossSequenceQualifiersToolsTests
     }
 
     [Test]
+    public void NeedleAlign_UnnumberedQualifiers_BelongToTheSecondSequence_LikeTheProgramAfterItsFiles()
+    {
+        // A6-2: needle a.fa b.fa -sbegin 3 -send 8 -aformat3 pair (installed 6.6.0, Commandline echo "-sbegin2 3 -send2 8"): only b is cut
+        var r = AlignmentTools.NeedleAlign(A, B, sequenceQualifiers: "-sbegin 3 -send 8");
+        Assert.That(r.Formatted, Does.Contain("a                  1 ACGTACGTTAGCCGATTAGGCATCGATCGGATCG-     34\n"));
+        Assert.That(r.Formatted, Does.Contain("b                  3 -----------------------------GATCGA      8\n"));
+        Assert.That(r.Score, Is.EqualTo(25));
+        // the same with the numbers, the = form and unique abbreviations; -sbe (no number) is -sbegin of EVERY sequence (the program resolves it without the tie to the second file)
+        foreach (string text in new[] { "-sbegin2 3 -send2 8", "-sbegin2=3 --SEND2=8", "-sbeg2 3 -sen2 8" })
+            Assert.That(AlignmentTools.NeedleAlign(A, B, sequenceQualifiers: text).Formatted, Is.EqualTo(r.Formatted), text);
+        var both = AlignmentTools.NeedleAlign(A, B, sequenceQualifiers: "-sbe 3");
+        Assert.That(both.Formatted, Does.Contain("a                  3 ").And.Contain("b                  3 "));
+        Assert.That(Assert.Throws<ArgumentException>(() => AlignmentTools.NeedleAlign(A, B, sequenceQualifiers: "-s 3"))!.Message, Does.Contain("ambiguous qualifier"));
+    }
+
+    [Test]
     public void NeedleAlign_WithoutQualifiers_IsUnchanged()
     {
         var plain = AlignmentTools.NeedleAlign(A, B);

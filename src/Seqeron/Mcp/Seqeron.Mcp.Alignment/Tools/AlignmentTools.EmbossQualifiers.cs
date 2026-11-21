@@ -9,15 +9,16 @@ public partial class AlignmentTools
     /// <summary>Description of the <c>sequenceQualifiers</c> parameter of the EMBOSS pairwise tools.</summary>
     internal const string SequenceQualifiersDescription = "EMBOSS sequence-input qualifiers as on the command line, with the input number: -sbegin1 3 -send1 -2 -sreverse1 -slower1 -supper1 -scircular1 -snucleotide1 -sprotein1 and the same with 2 for the second sequence "
         + "(begin / end: 1-based, negative = from the end; -sreverse: reverse-complement a nucleotide sequence, the range then refers to the original; -snucleotide / -sprotein force the type). Measured on EMBOSS 6.6.0: the alignment covers the range, and the formatted "
-        + "alignment (default format 'pair') reports the positions of the ORIGINAL sequence, counting down for a reversed one. Omit for the whole sequences.";
+        + "alignment (default format 'pair') reports the positions of the ORIGINAL sequence, counting down for a reversed one. Omit for the whole sequences. " + global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.CommandLineRules;
 
-    private static (EmbossSequence First, EmbossSequence Second) QualifiedPair(string sequence1, string sequence2, string? sequenceQualifiers, string[]? names)
+    private static (EmbossSequence First, EmbossSequence Second) QualifiedPair(string program, string sequence1, string sequence2, string? sequenceQualifiers, string[]? names)
     {
         RequireSequence(sequence1, nameof(sequence1));
         RequireSequence(sequence2, nameof(sequence2));
         string n1 = names is { Length: > 0 } && !string.IsNullOrWhiteSpace(names[0]) ? names[0] : "a";
         string n2 = names is { Length: > 1 } && !string.IsNullOrWhiteSpace(names[1]) ? names[1] : "b";
-        return (new EmbossSequence(n1, sequence1, "", EmbossSequenceQualifiers.Parse(sequenceQualifiers, "1")), new EmbossSequence(n2, sequence2, "", EmbossSequenceQualifiers.Parse(sequenceQualifiers, "2")));
+        var q = EmbossSequenceQualifiers.ParseInputs(program, sequenceQualifiers);
+        return (new EmbossSequence(n1, sequence1, "", q[0]), new EmbossSequence(n2, sequence2, "", q[1]));
     }
 
     private static AlignmentResultDto QualifiedPairResult(string program, EmbossProgramResult result, string? format, double gapOpen, double gapExtend, bool global, bool integerScores)

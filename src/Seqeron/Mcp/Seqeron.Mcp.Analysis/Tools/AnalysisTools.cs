@@ -790,7 +790,7 @@ public partial class AnalysisTools
         [Description("Also search the reverse-complement strand (fuzznuc -complement, default false).")] bool bothStrands = false,
         [Description("Read IUPAC ambiguity codes in the SEQUENCE as the fuzznuc binary does (default false: they match nothing).")] bool sequenceAmbiguity = false,
         CancellationToken cancellationToken = default,
-        [Description("EMBOSS sequence-input qualifiers as on the command line: -sbegin 3 -send -2 -sreverse -slower -supper -scircular -snucleotide -sprotein (begin / end 1-based, negative = from the end; -sreverse reverse-complements a nucleotide sequence, the range then refers to the original). Measured on EMBOSS 6.6.0 per program: " + "fuzznuc searches the range of the (reverse-complemented) sequence and reports the ORIGINAL strand: positions are original, the strand is flipped for -sreverse; the sequence is read as fuzznuc reads it (ambiguity codes on).")] string? sequenceQualifiers = null,
+        [Description("EMBOSS sequence-input qualifiers as on the command line: -sbegin 3 -send -2 -sreverse -slower -supper -scircular -snucleotide -sprotein (begin / end 1-based, negative = from the end; -sreverse reverse-complements a nucleotide sequence, the range then refers to the original). Measured on EMBOSS 6.6.0 per program: " + "fuzznuc searches the range of the (reverse-complemented) sequence and reports the ORIGINAL strand: positions are original, the strand is flipped for -sreverse; the sequence is read as fuzznuc reads it (ambiguity codes on)." + " " + global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.CommandLineRules)] string? sequenceQualifiers = null,
         [Description("EMBOSS report format (-rformat): gff or excel. The report text of the program (the whole file; #!Date is today; sequence name from sequenceName) is returned in the result field report; only for a search without sequenceQualifiers. The other formats of the program (seqtable, table, embl, genbank, motif, ...) are not written yet. Omit for no report text.")] string? reportFormat = null,
         [Description("Sequence name printed in the report (default sequence).")] string sequenceName = "sequence")
     {
@@ -807,7 +807,7 @@ public partial class AnalysisTools
 
         if (sequenceQualifiers is not null)
         {
-            var q = global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.Parse(sequenceQualifiers);
+            var q = global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.ParseInputs("fuzznuc", sequenceQualifiers)[0];
             if (maxMismatches < 0)
                 throw new ArgumentOutOfRangeException(nameof(maxMismatches), "maxMismatches cannot be negative");
             if (string.IsNullOrWhiteSpace(pattern) == string.IsNullOrWhiteSpace(patternFile))
@@ -1725,7 +1725,7 @@ public partial class AnalysisTools
         [Description("distmat -position: 123 (default), 12, or for nucleotides 1, 2, 3.")] int position = 123,
         [Description("distmat -calculatea: calculate the Jin-Nei parameter a instead of using parameterA (default false).")] bool calculateA = false,
         [Description("distmat -parametera: the Jin-Nei Gamma parameter a (default 1.0).")] double parameterA = 1.0,
-        [Description("EMBOSS sequence-input qualifiers as on the command line: -sbegin 3 -send -2 -sreverse -slower -supper -scircular -snucleotide -sprotein (begin / end 1-based, negative = from the end; -sreverse reverse-complements a nucleotide sequence, the range then refers to the original). Measured on EMBOSS 6.6.0 per program: " + "distmat ignores -sbegin / -send; -sreverse reverse-complements every row of a nucleotide set; the set is nucleotide when its first row is (or -snucleotide); a protein set uses proteinMethod.")] string? sequenceQualifiers = null,
+        [Description("EMBOSS sequence-input qualifiers as on the command line: -sbegin 3 -send -2 -sreverse -slower -supper -scircular -snucleotide -sprotein (begin / end 1-based, negative = from the end; -sreverse reverse-complements a nucleotide sequence, the range then refers to the original). Measured on EMBOSS 6.6.0 per program: " + "distmat ignores -sbegin / -send; -sreverse reverse-complements every row of a nucleotide set; the set is nucleotide when its first row is (or -snucleotide); a protein set uses proteinMethod." + " " + global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.CommandLineRules)] string? sequenceQualifiers = null,
         [Description("distmat -protmethod for a protein set when sequenceQualifiers is given: same names as method (default: the same as method).")] string? proteinMethod = null)
     {
         if (sequences is null || sequences.Length < 2)
@@ -1761,7 +1761,7 @@ public partial class AnalysisTools
             };
         var d = sequenceQualifiers is null
             ? global::Seqeron.Genomics.Analysis.MultipleAlignmentStatistics.CalculateDistanceMatrix(sequences, distanceOptions)
-            : global::Seqeron.Genomics.Analysis.MultipleAlignmentStatistics.CalculateDistanceMatrix(sequences, global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.Parse(sequenceQualifiers), distanceOptions, protein);
+            : global::Seqeron.Genomics.Analysis.MultipleAlignmentStatistics.CalculateDistanceMatrix(sequences, global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.ParseInputs("distmat", sequenceQualifiers)[0], distanceOptions, protein);
         return new AlignmentDistanceMatrixResult(name, ToJagged(d));
     }
 

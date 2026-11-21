@@ -7,6 +7,14 @@ namespace Seqeron.Genomics.Infrastructure;
 /// </summary>
 public sealed record EmbossSequenceQualifiers
 {
+    /// <summary>
+    /// The rules by which the qualifier text of the MCP tools is resolved (<see cref="ParseInputs"/>), for the tool descriptions.
+    /// </summary>
+    public const string CommandLineRules = "The text is resolved exactly as the EMBOSS program resolves it on its command line after the sequence arguments (ACD, 6.6.0): -sbegin1 3, -sbegin1=3, -nosreverse1, -sreverse1 N, any case, -/--/ prefix, "
+        + "and every UNIQUE abbreviation (-sbeg1, -sre2; uniqueness is decided among all qualifiers of the program, an ambiguous or unknown one is refused). The number is the sequence (1, and 2 for the second sequence of a two-sequence program; 1 for a program with one sequence). "
+        + "An unnumbered qualifier belongs to the LAST sequence given (-sbegin 3 is -sbegin2 3 in a two-sequence program) until a qualifier of another sequence ends that tie; after that it applies to all sequences. "
+        + "-sformat -sask -squick -sdbname -sid -iquery -ufo -fformat -fopenfile are accepted without effect (residue strings have no file); any other qualifier or a stray word is refused.";
+
     /// <summary>No qualifier given (every field at its default): the sequence is used whole, as read.</summary>
     public static EmbossSequenceQualifiers None { get; } = new();
 
@@ -35,69 +43,112 @@ public sealed record EmbossSequenceQualifiers
     public bool Protein { get; init; }
 
     /// <summary>
-    /// The qualifiers of one input from a command-line fragment such as <c>-sbegin1 3 -send1 20 -sreverse1 -slower1</c>: <paramref name="suffix"/> is the input's number (<c>1</c>, <c>2</c>; empty for a program with one sequence input).
-    /// Qualifiers with another suffix are ignored (one text can describe all the inputs of a program); a boolean qualifier may be written <c>-sreverse1</c> or <c>-nosreverse1</c>; <c>-sbegin</c> / <c>-send</c> take an integer
-    /// (negative counts from the end). <c>-sformat</c> / <c>-sask</c> / <c>-sdbname</c> ... are accepted and ignored (they select the file format and prompting, which residue strings do not have).
+    /// The qualifiers of one input from a command-line fragment such as <c>-sbegin1 3 -send1 20 -sreverse1 -slower1</c>, resolved as the ACD library of the EMBOSS programs does it (see <see cref="ParseInputs"/>) for a program
+    /// that has no other qualifiers: <paramref name="suffix"/> is the number of the input (<c>1</c>, <c>2</c>; empty for a program with one sequence input). Use <see cref="ParseInputs"/> with the program name when the program is known
+    /// (an abbreviation such as <c>-se</c> is only valid when it is unique among ALL qualifiers of the program).
     /// </summary>
-    /// <exception cref="ArgumentException">Unknown token, missing or non-integer value.</exception>
+    /// <exception cref="ArgumentException">Unknown / ambiguous qualifier, missing or invalid value, a token that is not a qualifier, a qualifier that is not a sequence qualifier, an input number that does not exist.</exception>
     public static EmbossSequenceQualifiers Parse(string? commandLine, string suffix = "")
     {
-        var q = None;
-        if (string.IsNullOrWhiteSpace(commandLine))
-            return q;
-        var tokens = commandLine.Split([' ', '\t', '\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
-        int next = 0;
-        while (next < tokens.Length)
+        int index = 0, inputs = 1;
+        if (suffix.Length > 0)
         {
-            string t = tokens[next++];
-            if (!t.StartsWith('-'))
-                throw new ArgumentException($"Unexpected token '{t}': a sequence qualifier starts with '-' (for example -sbegin1 3 -sreverse1).", nameof(commandLine));
-            string name = t.TrimStart('-').ToLowerInvariant();
-            bool negated = name.StartsWith("nos", StringComparison.Ordinal) && name.Length > 3;
-            if (negated)
-                name = name[2..];
-            string stem = name.TrimEnd('0', '1', '2', '3', '4', '5', '6', '7', '8', '9');
-            bool mine = name[stem.Length..] == suffix;
-            switch (stem)
+            if (!int.TryParse(suffix, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int n) || n is < 1 or > 2)
+                throw new ArgumentException($"Input number '{suffix}' must be 1 or 2.", nameof(suffix));
+            index = n - 1;
+            inputs = 2;
+        }
+
+        return Resolve(EmbossAcdProfiles.SequenceOnly(inputs), commandLine)[index];
+    }
+
+    /// <summary>
+    /// The sequence qualifiers of EVERY sequence input of an EMBOSS program from the command-line text that follows its sequence arguments (<c>needle a.fa b.fa -sbegin 3 -send2 5</c>: the text is <c>-sbegin 3 -send2 5</c>), as the ACD library
+    /// resolves them (audit A6-2, B09 F177; <see cref="AcdCommandLine"/> for the rules): both <c>-sbegin1 5</c> (also for a program with one input) and <c>-sbegin=5</c>, <c>-nosreverse2</c>, <c>-sreverse2 N</c>, any unique abbreviation of a
+    /// qualifier name (<c>-sbeg1</c>, <c>-sre2</c>; ambiguity is decided over all qualifiers of the program), and an unnumbered qualifier, which belongs to the sequence argument that precedes it (the LAST one, <c>-sbegin 3</c> after two files is
+    /// <c>-sbegin2 3</c>) until a qualifier of another input or of the program ends that tie, and then applies to all inputs. <c>-sformat</c> / <c>-sask</c> / <c>-squick</c> / <c>-sdbname</c> / <c>-sid</c> / <c>-iquery</c> / <c>-ufo</c> / <c>-fformat</c> /
+    /// <c>-fopenfile</c> are accepted (their values are not interpreted: residue strings have no file format, prompt or database; they are kept as the program accepts them); <c>-ioffset</c> must be 0.
+    /// </summary>
+    /// <param name="program">The EMBOSS program: needle, water, stretcher, matcher, supermatcher, needleall, merger, megamerger, seqmatchall, fuzznuc, fuzzpro, fuzztran, etandem, equicktandem, dotmatcher, distmat.</param>
+    /// <param name="commandLine">The qualifier text; null or blank = none.</param>
+    /// <returns>One entry per sequence input of the program (1 or 2), in parameter order.</returns>
+    /// <exception cref="ArgumentException">Unknown program; a token the program would refuse (unknown or ambiguous qualifier, missing or invalid value, <c>no</c> prefix with a value) or that is not a qualifier of a sequence input.</exception>
+    public static IReadOnlyList<EmbossSequenceQualifiers> ParseInputs(string program, string? commandLine)
+    {
+        ArgumentNullException.ThrowIfNull(program);
+        return Resolve(EmbossAcdProfiles.Get(program), commandLine);
+    }
+
+    private static EmbossSequenceQualifiers[] Resolve(AcdProfile profile, string? commandLine)
+    {
+        var result = new EmbossSequenceQualifiers[profile.Inputs.Count];
+        Array.Fill(result, None);
+        if (string.IsNullOrWhiteSpace(commandLine))
+            return result;
+        var tokens = commandLine.Split([' ', '\t', '\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
+        var line = new AcdCommandLine(profile);
+        line.Run(tokens);
+
+        var sequenceItems = new HashSet<AcdItem>(profile.Inputs.SelectMany(i => i.Assoc));
+        foreach (var (item, _) in line.Assignments)
+        {
+            if (!sequenceItems.Contains(item))
+                throw new ArgumentException($"-{item.Name} is not a sequence qualifier: this text takes the qualifiers of the sequence inputs only (-sbegin -send -sreverse -slower -supper -scircular -snucleotide -sprotein, with the input number, e.g. -sbegin1).", nameof(commandLine));
+        }
+
+        for (int k = 0; k < result.Length; k++)
+        {
+            var q = None;
+            foreach (var item in profile.Inputs[k].Assoc)
             {
-                case "sbegin" or "send":
-                    {
-                        if (negated || next >= tokens.Length || !int.TryParse(tokens[next], System.Globalization.NumberStyles.AllowLeadingSign, System.Globalization.CultureInfo.InvariantCulture, out int value))
-                            throw new ArgumentException($"{t} needs an integer value.", nameof(commandLine));
-                        next++;
-                        if (mine)
-                            q = stem == "sbegin" ? q with { Begin = value } : q with { End = value };
-                        break;
-                    }
-                case "sreverse":
-                    q = mine ? q with { Reverse = !negated } : q;
-                    break;
-                case "slower":
-                    q = mine ? q with { Lower = !negated } : q;
-                    break;
-                case "supper":
-                    q = mine ? q with { Upper = !negated } : q;
-                    break;
-                case "scircular":
-                    q = mine ? q with { Circular = !negated } : q;
-                    break;
-                case "snucleotide":
-                    q = mine ? q with { Nucleotide = !negated } : q;
-                    break;
-                case "sprotein":
-                    q = mine ? q with { Protein = !negated } : q;
-                    break;
-                case "sformat" or "sdbname" or "sid" or "sopenfile" or "ssubdb" or "iquery" or "ioffset":
-                    next++;      // takes a value that residue strings have no use for
-                    break;
-                case "squick" or "sask":
-                    break;
+                string? raw = line.Value(item);
+                if (raw is null)
+                    continue;
+                q = Apply(q, item, raw, commandLine);
+            }
+
+            result[k] = q;
+        }
+
+        return result;
+    }
+
+    private static EmbossSequenceQualifiers Apply(EmbossSequenceQualifiers q, AcdItem item, string raw, string commandLine)
+    {
+        if (item.Type == "integer")
+        {
+            if (!AcdCommandLine.TryToInt(raw, out int number))
+                throw new ArgumentException($"Invalid integer value '{raw}' for -{item.Name}{(item.PNum > 0 ? item.PNum.ToString(System.Globalization.CultureInfo.InvariantCulture) : "")}.", nameof(commandLine));
+            switch (item.Name)
+            {
+                case "sbegin":
+                    return q with { Begin = number };
+                case "send":
+                    return q with { End = number };
+                case "ioffset" when number != 0:
+                    throw new ArgumentException("-ioffset must be 0: a residue string has no file to start reading at an offset.", nameof(commandLine));
                 default:
-                    throw new ArgumentException($"Unknown sequence qualifier '{t}'. Supported: -sbegin, -send, -sreverse, -slower, -supper, -scircular, -snucleotide, -sprotein (with the input number, e.g. -sbegin1).", nameof(commandLine));
+                    return q;
             }
         }
 
-        return q;
+        if (item.Type == "boolean")
+        {
+            if (!AcdCommandLine.TryToBool(raw, out bool flag))
+                throw new ArgumentException($"Invalid Y/N value '{raw}' for -{item.Name}{(item.PNum > 0 ? item.PNum.ToString(System.Globalization.CultureInfo.InvariantCulture) : "")}.", nameof(commandLine));
+            return item.Name switch
+            {
+                "sreverse" => q with { Reverse = flag },
+                "slower" => q with { Lower = flag },
+                "supper" => q with { Upper = flag },
+                "scircular" => q with { Circular = flag },
+                "snucleotide" => q with { Nucleotide = flag },
+                "sprotein" => q with { Protein = flag },
+                _ => q,                                    // sask, squick: accepted, no effect on a residue string
+            };
+        }
+
+        return q;                                          // sformat, iquery, sdbname, sid, ufo, fformat, fopenfile: accepted, not interpreted
     }
 
     /// <summary>True when no qualifier differs from the default.</summary>

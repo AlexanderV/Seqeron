@@ -7,11 +7,11 @@ namespace Seqeron.Mcp.Alignment.Tools;
 // B09 A2-28c / A2-29b: EMBOSS supermatcher and needleall, and the ksw2 extension functions; delegate to SequenceAligner.Supermatcher / NeedleAll and Ksw2Aligner.
 public partial class AlignmentTools
 {
-    private static global::Seqeron.Genomics.Infrastructure.EmbossSequence[] WithQualifiers(global::Seqeron.Genomics.Infrastructure.EmbossSequence[] sequences, string? sequenceQualifiers, string suffix)
+    private static global::Seqeron.Genomics.Infrastructure.EmbossSequence[] WithQualifiers(global::Seqeron.Genomics.Infrastructure.EmbossSequence[] sequences, string program, string? sequenceQualifiers, int input)
     {
         if (sequenceQualifiers is null)
             return sequences;
-        var q = global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.Parse(sequenceQualifiers, suffix);
+        var q = global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.ParseInputs(program, sequenceQualifiers)[input];
         return [.. sequences.Select(s => s with { Qualifiers = q })];
     }
 
@@ -54,8 +54,8 @@ public partial class AlignmentTools
         [Description(SequenceQualifiersDescription + " Here 1 = the query sequences, 2 = the target sequences (every member takes the same qualifiers).")] string? sequenceQualifiers = null)
     {
         using var cancelScope = global::Seqeron.Genomics.Alignment.SequenceAligner.BeginCancellationScope(cancellationToken);
-        var queries = WithQualifiers(ToEmbossSequences(querySequences, queryNames, "query", nameof(querySequences)), sequenceQualifiers, "1");
-        var targets = WithQualifiers(ToEmbossSequences(targetSequences, targetNames, "target", nameof(targetSequences)), sequenceQualifiers, "2");
+        var queries = WithQualifiers(ToEmbossSequences(querySequences, queryNames, "query", nameof(querySequences)), "supermatcher", sequenceQualifiers, 0);
+        var targets = WithQualifiers(ToEmbossSequences(targetSequences, targetNames, "target", nameof(targetSequences)), "supermatcher", sequenceQualifiers, 1);
         var r = global::Seqeron.Genomics.Alignment.SequenceAligner.Supermatcher(queries, targets, ResolveMatrix(matrix), gapOpen, gapExtend, wordLength, width, minScore);
         return ToProgramResult(r);
     }
@@ -79,8 +79,8 @@ public partial class AlignmentTools
         [Description(SequenceQualifiersDescription + " Here 1 = the A set, 2 = the B sequences (every member takes the same qualifiers).")] string? sequenceQualifiers = null)
     {
         using var cancelScope = global::Seqeron.Genomics.Alignment.SequenceAligner.BeginCancellationScope(cancellationToken);
-        var a = WithQualifiers(ToEmbossSequences(setA, namesA, "a", nameof(setA)), sequenceQualifiers, "1");
-        var b = WithQualifiers(ToEmbossSequences(setB, namesB, "b", nameof(setB)), sequenceQualifiers, "2");
+        var a = WithQualifiers(ToEmbossSequences(setA, namesA, "a", nameof(setA)), "needleall", sequenceQualifiers, 0);
+        var b = WithQualifiers(ToEmbossSequences(setB, namesB, "b", nameof(setB)), "needleall", sequenceQualifiers, 1);
         var r = global::Seqeron.Genomics.Alignment.SequenceAligner.NeedleAll(a, b, ResolveMatrix(matrix), gapOpen, gapExtend, endWeight, endOpen, endExtend, minScore, brief);
         return ToProgramResult(r);
     }

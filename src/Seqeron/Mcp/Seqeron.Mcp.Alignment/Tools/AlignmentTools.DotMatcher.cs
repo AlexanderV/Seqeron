@@ -21,9 +21,8 @@ public partial class AlignmentTools
         RequireSequence(sequence2, nameof(sequence2));
         if (sequenceQualifiers is not null)
         {
-            var q1 = global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.Parse(sequenceQualifiers, "1");
-            var q2 = global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.Parse(sequenceQualifiers, "2");
-            var qualified = global::Seqeron.Genomics.Alignment.DotMatcher.Compute(sequence1, q1, sequence2, q2, windowSize, threshold, ResolveMatrix(matrix), cancellationToken);
+            var q = global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.ParseInputs("dotmatcher", sequenceQualifiers);
+            var qualified = global::Seqeron.Genomics.Alignment.DotMatcher.Compute(sequence1, q[0], sequence2, q[1], windowSize, threshold, ResolveMatrix(matrix), cancellationToken);
             return new DotMatcherResult(qualified.Select(s => new DotMatcherSegmentDto(s.Start1, s.Start2, s.End1, s.End2)).ToArray());
         }
 
