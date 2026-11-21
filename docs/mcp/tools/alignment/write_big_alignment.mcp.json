@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "write_big_alignment",
+  "serverName": "Alignment",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "AlignmentCoordinateFormats.WriteBigBed / WriteBigMaf / WriteBigPsl",
+  "docRef": "Seqeron.Genomics.Alignment/AlignmentCoordinateFormats.BigBed.cs",
+  "description": "Writes alignments given by their block coordinates (see write_coordinate_alignment for the JSON object) as a UCSC binary file, byte for byte as Biopython 1.88 Bio.Align.write does, and returns the bytes as base64: bigbed (BED3 - BED12 plus custom autoSQL fields, B+ tree of the chromosomes, R-tree, zoom levels, optional extra string indices), bigmaf (the MAF block of every alignment as an lstring field of the reference chromosome; the first row is named reference.chromosome) and bigpsl (BED12 + the 13 PSL fields: match counts from the residues, other-chromosome fields of the query, oCDS from the CDS feature of the query, oSequence, seqType from the molecule_type annotation; every alignment needs attrs.annotations). The data blocks are zlib-compressed (the compressed bytes depend on the zlib build: with compress = true the .NET deflate stream is used, which Biopython's zlib bytes need not equal; the structure, offsets and decompressed blocks are equal). VERIFICATION: with the compressed blocks of Biopython's own zlib fed back, 216 bigbed, 231 bigmaf and 328 bigpsl committed files equal byte for byte (scripts/alignment/generate_biopython_coord_oracle.py).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "alignmentsJson": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "The alignments, each a JSON object (target first; for bigmaf all rows of the MAF block)."
+      },
+      "targetsJson": {
+        "type": "string",
+        "description": "The chromosomes in the order of the alignments, as a JSON array of {\"id\": \"chr1\", \"length\": 1000} objects (bigmaf: the first id is reference.chromosome)."
+      },
+      "format": {
+        "type": "string",
+        "description": "Format: bigbed, bigmaf or bigpsl.",
+        "default": "bigbed"
+      },
+      "bedN": {
+        "type": "integer",
+        "description": "bigbed: number of BED columns, 3 to 12.",
+        "default": 12
+      },
+      "compress": {
+        "type": "boolean",
+        "description": "Compress the data blocks with zlib.",
+        "default": true
+      },
+      "itemsPerSlot": {
+        "type": "integer",
+        "description": "bigbed: number of items per data block.",
+        "default": 512
+      },
+      "blockSize": {
+        "type": "integer",
+        "description": "bigbed: number of items per R-tree / B+ tree node.",
+        "default": 256
+      },
+      "extraIndex": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "bigbed: names of extra string columns to index."
+      },
+      "declarationJson": {
+        "type": "string",
+        "description": "bigbed: a custom autoSQL declaration as JSON {\"name\", \"comment\", \"fields\": [[type, name, comment], ...]} (the BED columns first); the extra fields are read from attrs.annotations."
+      },
+      "cds": {
+        "type": "boolean",
+        "description": "bigpsl: write the CDS feature of the query in NCBI style.",
+        "default": false
+      },
+      "fa": {
+        "type": "boolean",
+        "description": "bigpsl: include the query sequence.",
+        "default": false
+      },
+      "mask": {
+        "type": "string",
+        "description": "bigpsl: null, 'lower' or 'upper': repeat-masked target residues are counted as repMatch."
+      },
+      "wildcard": {
+        "type": "integer",
+        "description": "bigpsl: the code of the wildcard letter counted in nCount (78 = N); null counts nothing, as Biopython's default string 'N' never equals a byte."
+      }
+    },
+    "required": [
+      "alignmentsJson",
+      "targetsJson"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "base64": {
+        "type": "string",
+        "description": "The bytes of the file, base64."
+      },
+      "format": {
+        "type": "string",
+        "description": "bigBed, bigMaf or bigPsl."
+      },
+      "byteLength": {
+        "type": "integer",
+        "description": "The number of bytes."
+      },
+      "count": {
+        "type": "integer",
+        "description": "The number of alignments written."
+      }
+    },
+    "required": [
+      "base64",
+      "format",
+      "byteLength",
+      "count"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "alignmentsJson or targetsJson is null / not JSON"
+    },
+    {
+      "code": 1002,
+      "message": "Unknown binary format (supported: bigbed, bigmaf, bigpsl)"
+    },
+    {
+      "code": 1003,
+      "message": "Biopython refuses the alignments (for example bedN outside 3 - 12, a chromStart after chromEnd, a missing annotation field)"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Example 1: one alignment as bigBed",
+      "input": {
+        "alignmentsJson": [
+          "{\"sequences\": [{\"id\": \"chr1\", \"length\": 100, \"parts\": null}, {\"id\": \"read1\", \"length\": 20, \"parts\": null}], \"coordinates\": [[10, 20, 25, 40], [0, 10, 10, 25]], \"attrs\": {\"score\": 500}}"
+        ],
+        "targetsJson": "[{\"id\": \"chr1\", \"length\": 100}]",
+        "format": "bigbed"
+      },
+      "output": {
+        "base64": "6/KJhwQA...",
+        "format": "bigBed",
+        "byteLength": 0,
+        "count": 1
+      }
+    }
+  ]
+}

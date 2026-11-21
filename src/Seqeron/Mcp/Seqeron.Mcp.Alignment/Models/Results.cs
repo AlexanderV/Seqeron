@@ -45,6 +45,15 @@ public record FormatAlignmentResult(string Formatted);
 public record WriteAlignmentResult(string Text, string Format, string Dialect);
 
 /// <summary>Text of a coordinate-format file (write) or the JSON of the parsed alignments (parse), its format and the number of alignments.</summary>
+/// <summary>A binary Bio.Align file (bigBed / bigMaf / bigPsl): the bytes as base64.</summary>
+public record BigAlignmentResult(string Base64, string Format, int ByteLength, int Count);
+
+/// <summary>The alignments, chromosomes and autoSQL declaration read from a bigBed / bigMaf / bigPsl file.</summary>
+public record BigAlignmentParseResult(string AlignmentsJson, string TargetsJson, string DeclarationJson, string Format, int Count);
+
+/// <summary>The T-Coffee evaluation of an alignment (score_ascii).</summary>
+public record TCoffeeEvaluateResult(int AlignmentScore, int[] SequenceScores, int[] ColumnScores, int[][] ResidueScores, string ScoreAscii);
+
 public record CoordinateAlignmentResult(string Text, string Format, int Count, string? MetadataJson = null, string? TargetsJson = null, string[]? Warnings = null);
 
 /// <summary>ClustalW 2.1 command: the files the program wrote (name to text) and what it printed to the error stream while reading the command line.</summary>

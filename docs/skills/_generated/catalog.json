@@ -406,6 +406,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.NeedleAll.cs"
   },
   {
+    "tool": "parse_big_alignment",
+    "server": "Alignment",
+    "methodId": "AlignmentCoordinateFormats.ParseBigBed / ParseBigMaf / ParseBigPsl",
+    "docPath": "docs/mcp/tools/alignment/parse_big_alignment.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/AlignmentCoordinateFormats.BigBedRead.cs"
+  },
+  {
     "tool": "parse_coordinate_alignment",
     "server": "Alignment",
     "methodId": "AlignmentCoordinateFormats.Parse",
@@ -497,6 +504,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.TCoffeeBlast.cs"
   },
   {
+    "tool": "tcoffee_evaluate",
+    "server": "Alignment",
+    "methodId": "SequenceAligner.TCoffeeEvaluate",
+    "docPath": "docs/mcp/tools/alignment/tcoffee_evaluate.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.TCoffeeEvaluate.cs"
+  },
+  {
     "tool": "tcoffee_guide_tree",
     "server": "Alignment",
     "methodId": "SequenceAligner.TCoffeeGuideTree",
@@ -551,6 +565,13 @@
     "methodId": "EmbossAlignmentWriter.Format",
     "docPath": "docs/mcp/tools/alignment/write_alignment.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/EmbossAlignmentWriter.cs"
+  },
+  {
+    "tool": "write_big_alignment",
+    "server": "Alignment",
+    "methodId": "AlignmentCoordinateFormats.WriteBigBed / WriteBigMaf / WriteBigPsl",
+    "docPath": "docs/mcp/tools/alignment/write_big_alignment.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/AlignmentCoordinateFormats.BigBed.cs"
   },
   {
     "tool": "write_coordinate_alignment",

@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "parse_big_alignment",
+  "serverName": "Alignment",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "AlignmentCoordinateFormats.ParseBigBed / ParseBigMaf / ParseBigPsl",
+  "docRef": "Seqeron.Genomics.Alignment/AlignmentCoordinateFormats.BigBedRead.cs",
+  "description": "Reads a UCSC binary alignment file (bigBed, bigMaf or bigPsl; base64) as Bio.Align.parse does and returns the alignments as JSON objects {\"sequences\", \"coordinates\", \"attrs\"} (see write_coordinate_alignment), the chromosomes (targets) and the autoSQL declaration {name, comment, fields}. bigbed: BED3 - BED12 columns plus the custom fields as attrs.annotations; bigmaf: the alignments of the MAF blocks (rows of the block, score / pass / empty annotations, quality / status annotations of the records; the first chromosome is named reference.chromosome); bigpsl: score, thickStart, thickEnd, itemRgb, matches, misMatches, repMatches, nCount, the query record with its sequence, molecule_type and CDS feature. A file Biopython refuses (not bigBed, truncated, inconsistent counts or coordinates) is refused with the same condition. VERIFICATION: equal to Biopython 1.88 on 229 bigbed, 963 bigmaf and 518 bigpsl committed files (damaged blocks and fields included).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "base64": {
+        "type": "string",
+        "description": "The bytes of the file as base64."
+      },
+      "format": {
+        "type": "string",
+        "description": "Format: bigbed, bigmaf or bigpsl.",
+        "default": "bigbed"
+      }
+    },
+    "required": [
+      "base64"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "alignmentsJson": {
+        "type": "string",
+        "description": "JSON array of the alignments {sequences, coordinates, attrs}."
+      },
+      "targetsJson": {
+        "type": "string",
+        "description": "JSON array of the chromosomes."
+      },
+      "declarationJson": {
+        "type": "string",
+        "description": "JSON {name, comment, fields: [[type, name, comment], ...]} of the autoSQL declaration."
+      },
+      "format": {
+        "type": "string",
+        "description": "bigBed, bigMaf or bigPsl."
+      },
+      "count": {
+        "type": "integer",
+        "description": "The number of alignments."
+      }
+    },
+    "required": [
+      "alignmentsJson",
+      "targetsJson",
+      "declarationJson",
+      "format",
+      "count"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "base64 is empty or not valid base64"
+    },
+    {
+      "code": 1002,
+      "message": "Unknown binary format (supported: bigbed, bigmaf, bigpsl)"
+    },
+    {
+      "code": 1003,
+      "message": "Biopython refuses the file (not bigBed, truncated, inconsistent counts or coordinates)"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Example 1: refused file",
+      "input": {
+        "base64": "bm90IGEgYmlnYmVkIGZpbGU=",
+        "format": "bigbed"
+      },
+      "output": {
+        "error": "not a bigBed file"
+      }
+    }
+  ]
+}

@@ -86,6 +86,7 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "sum_of_pairs_score",
         "supermatcher_align",
         "tcoffee_blast_msa_library",
+        "tcoffee_evaluate",
         "tcoffee_guide_tree",
         "tcoffee_ktup_similarity",
         "tcoffee_lalign_top_alignments",
@@ -96,5 +97,7 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "write_alignment",
         "write_coordinate_alignment",
         "parse_coordinate_alignment",
+        "write_big_alignment",
+        "parse_big_alignment",
     };
 }

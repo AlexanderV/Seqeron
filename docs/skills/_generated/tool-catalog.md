@@ -4,7 +4,7 @@
 
 <!-- BEGIN generated: do not edit by hand -->
 
-## Alignment (80 tools)
+## Alignment (83 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -66,6 +66,7 @@
 | `muscle_msa_command` | `SequenceAligner.MuscleProfileAlign` | [doc](../../mcp/tools/alignment/muscle_msa_command.md) |
 | `needle_align` | `SequenceAligner.NeedleAlign` | [doc](../../mcp/tools/alignment/needle_align.md) |
 | `needleall_align` | `SequenceAligner.NeedleAll` | [doc](../../mcp/tools/alignment/needleall_align.md) |
+| `parse_big_alignment` | `AlignmentCoordinateFormats.ParseBigBed / ParseBigMaf / ParseBigPsl` | [doc](../../mcp/tools/alignment/parse_big_alignment.md) |
 | `parse_coordinate_alignment` | `AlignmentCoordinateFormats.Parse` | [doc](../../mcp/tools/alignment/parse_coordinate_alignment.md) |
 | `poa_command` | `PoaProgram.Run` | [doc](../../mcp/tools/alignment/poa_command.md) |
 | `probcons_command` | `ProbConsProgram.Run` | [doc](../../mcp/tools/alignment/probcons_command.md) |
@@ -79,6 +80,7 @@
 | `sum_of_pairs_score` | `SequenceAligner.SumOfPairsScore` | [doc](../../mcp/tools/alignment/sum_of_pairs_score.md) |
 | `supermatcher_align` | `SequenceAligner.Supermatcher` | [doc](../../mcp/tools/alignment/supermatcher_align.md) |
 | `tcoffee_blast_msa_library` | `SequenceAligner.TCoffeeBlastMsaLibraryEntries` | [doc](../../mcp/tools/alignment/tcoffee_blast_msa_library.md) |
+| `tcoffee_evaluate` | `SequenceAligner.TCoffeeEvaluate` | [doc](../../mcp/tools/alignment/tcoffee_evaluate.md) |
 | `tcoffee_guide_tree` | `SequenceAligner.TCoffeeGuideTree` | [doc](../../mcp/tools/alignment/tcoffee_guide_tree.md) |
 | `tcoffee_ktup_similarity` | `SequenceAligner.TCoffeeKtupSimilarity` | [doc](../../mcp/tools/alignment/tcoffee_ktup_similarity.md) |
 | `tcoffee_lalign_top_alignments` | `SequenceAligner.TCoffeeLalignTopAlignments` | [doc](../../mcp/tools/alignment/tcoffee_lalign_top_alignments.md) |
@@ -87,6 +89,7 @@
 | `tcoffee_tblastx_library` | `SequenceAligner.TCoffeeTblastxLibraryEntries` | [doc](../../mcp/tools/alignment/tcoffee_tblastx_library.md) |
 | `water_align` | `SequenceAligner.WaterAlign` | [doc](../../mcp/tools/alignment/water_align.md) |
 | `write_alignment` | `EmbossAlignmentWriter.Format` | [doc](../../mcp/tools/alignment/write_alignment.md) |
+| `write_big_alignment` | `AlignmentCoordinateFormats.WriteBigBed / WriteBigMaf / WriteBigPsl` | [doc](../../mcp/tools/alignment/write_big_alignment.md) |
 | `write_coordinate_alignment` | `AlignmentCoordinateFormats.Write` | [doc](../../mcp/tools/alignment/write_coordinate_alignment.md) |
 
 ## Analysis (174 tools)
