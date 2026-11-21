@@ -336,17 +336,44 @@ public static partial class AlignmentCoordinateFormats
         return $"{start + 1}..{end}";
     }
 
-    private static readonly Regex LocPair = new(@"^[<>]?-?\d+\.\.[<>]?-?\d+$", RegexOptions.ECMAScript | RegexOptions.CultureInvariant);
-    private static readonly Regex LocBetween = new(@"^\d+\^\d+$", RegexOptions.ECMAScript | RegexOptions.CultureInvariant);
-    private static readonly Regex LocSolo = new(@"^[<>]?\d+$", RegexOptions.ECMAScript | RegexOptions.CultureInvariant);
-    private static readonly Regex LocBond = new(@"^bond\([<>]?\d+\)$", RegexOptions.ECMAScript | RegexOptions.CultureInvariant);
+    private const string LocOneOfPosition = @"one\-of\(\d+[,\d+]+\)";
+    private const string LocReference = @"(?:[a-zA-Z][a-zA-Z0-9_\.\|]*[a-zA-Z0-9]?\:)";
+    private static readonly Regex LocPair = new(@"^[<>]?-?\d+\.\.[<>]?-?\d+", RegexOptions.ECMAScript | RegexOptions.CultureInvariant);
+    private static readonly Regex LocBetween = new(@"^\d+\^\d+", RegexOptions.ECMAScript | RegexOptions.CultureInvariant);
+    private static readonly Regex LocWithin = new(@"^([<>]?\d+|\(\d+\.\d+\))\.\.([<>]?\d+|\(\d+\.\d+\))", RegexOptions.ECMAScript | RegexOptions.CultureInvariant);
+    private static readonly Regex LocOneOf = new(@"^([<>]?\d+|" + LocOneOfPosition + @")\.\.([<>]?\d+|" + LocOneOfPosition + ")", RegexOptions.ECMAScript | RegexOptions.CultureInvariant);
+    private static readonly Regex LocBond = new(@"^bond\([<>]?\d+\)", RegexOptions.ECMAScript | RegexOptions.CultureInvariant);
+    private static readonly Regex LocSolo = new(@"^[<>]?\d+", RegexOptions.ECMAScript | RegexOptions.CultureInvariant);
+    private static readonly Regex LocWithinPosition = new(@"^\((\d+)\.(\d+)\)$", RegexOptions.ECMAScript | RegexOptions.CultureInvariant);
+    private static readonly Regex LocOneOfChoices = new(@"^one\-of\((\d+[,\d+]+)\)$", RegexOptions.ECMAScript | RegexOptions.CultureInvariant);
 
-    private static long PositionValue(string text) => PyInt(text.TrimStart('<', '>'));
+    // the splitter of the parts of join() / order() / bond(): Bio.SeqFeature._split (_any_location)
+    private const string LocOneOfLocation = @"[<>]?(?:\d+|" + LocOneOfPosition + @")\.\.[<>]?(?:\d+|" + LocOneOfPosition + ")";
+    private static readonly Regex LocAnyLocation = new("(" + LocReference + "?" + LocOneOfLocation + @"|complement\(" + LocOneOfLocation + @"\)|[^,]+|complement\([^,]+\))", RegexOptions.ECMAScript | RegexOptions.CultureInvariant);
+
+    /// <summary><c>Position.fromstring(text, offset)</c> as an integer: the position of a start (offset -1: the lowest choice / the left bound) or of an end (the highest choice / the right bound).</summary>
+    private static long PositionValue(string text, bool start)
+    {
+        int offset = start ? -1 : 0;
+        if (text.Length > 0 && text[0] is '<' or '>')
+            return PyInt(text[1..]) + offset;
+        var within = LocWithinPosition.Match(text);
+        if (within.Success)
+            return start ? PyInt(within.Groups[1].Value) + offset : PyInt(within.Groups[2].Value);
+        var oneOf = LocOneOfChoices.Match(text);
+        if (oneOf.Success)
+        {
+            var choices = oneOf.Groups[1].Value.Split(',').Select(c => PyInt(c) + offset).ToList();
+            return start ? choices.Min() : choices.Max();
+        }
+
+        return PyInt(text) + offset;
+    }
 
     private static JsonObject SimpleLocationSpec(long start, long end, int? strand)
         => new() { ["start"] = start, ["end"] = end, ["strand"] = strand };
 
-    /// <summary><c>Location.fromstring</c> for the exact and the fuzzy (<c>&lt;</c>, <c>&gt;</c>) positions, <c>a..b</c>, <c>a</c>, <c>a^b</c>, <c>complement()</c>, <c>join()</c>, <c>order()</c>, <c>bond()</c>; the within / one-of positions and references are refused.</summary>
+    /// <summary><c>Location.fromstring</c>: exact, fuzzy (<c>&lt;</c>, <c>&gt;</c>), within <c>(a.b)</c> and <c>one-of(...)</c> positions, <c>a..b</c>, <c>a</c>, <c>a^b</c>, <c>ref:</c> prefixes (dropped: the description holds start, end and strand), <c>complement</c>, <c>join</c>, <c>order</c>, <c>bond</c>.</summary>
     internal static JsonObject LocationFromString(string text)
     {
         int strand = 1;
@@ -369,9 +396,9 @@ public static partial class AlignmentCoordinateFormats
         string inner = text[(op.Length + 1)..Math.Max(op.Length + 1, text.Length - 1)];
         var locs = new List<JsonObject>();
         JsonObject last = [];
-        foreach (string part in inner.Split(','))
+        foreach (Match part in LocAnyLocation.Matches(inner))
         {
-            last = SimpleLocationFromString(part);
+            last = SimpleLocationFromString(part.Groups[1].Value);
             if (last["strand"]?.GetValue<int>() == -1)
             {
                 if (strand == -1)
@@ -385,6 +412,8 @@ public static partial class AlignmentCoordinateFormats
             locs.Add((JsonObject)last.DeepClone());
         }
 
+        if (locs.Count == 0)
+            throw new ArgumentException($"failed to parse feature location '{text}'");
         if (locs.Count == 1)
             return last;
         if (strand == -1)
@@ -410,16 +439,32 @@ public static partial class AlignmentCoordinateFormats
         if (halves.Length == 2 && long.TryParse(halves[0].Trim(), NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out long s0) && long.TryParse(halves[1].Trim(), NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out long e0)
             && 0 <= s0 - 1 && s0 - 1 < e0)
             return SimpleLocationSpec(s0 - 1, e0, strand);
-        if (text.Contains(':', StringComparison.Ordinal))
-            throw new ArgumentException($"references in feature locations are not supported ('{text}')");
-        long start, end;
-        if (LocPair.IsMatch(text))
+        var colon = text.Split(':');
+        if (colon.Length == 2)
+            text = colon[1];
+        (Regex Pattern, string Kind)[] categories = [(LocPair, "range"), (LocBetween, "between"), (LocWithin, "range"), (LocOneOf, "range"), (LocBond, "bond"), (LocSolo, "solo")];
+        Match? match = null;
+        string kind = "";
+        foreach (var (pattern, k) in categories)
         {
-            var p = text.Split("..");
-            start = PositionValue(p[0]) - 1;
-            end = PositionValue(p[1]);
+            var candidate = pattern.Match(text);
+            if (candidate.Success)
+            {
+                match = candidate;
+                kind = k;
+                break;
+            }
         }
-        else if (LocBetween.IsMatch(text))
+
+        if (match is null)
+            throw new ArgumentException($"Could not parse feature location '{text}'");
+        RequireWhole(match, text);
+        long start, end;
+        if (kind == "range")
+        {
+            (start, end) = PositionRange(text);
+        }
+        else if (kind == "between")
         {
             var p = text.Split('^');
             long s = PyInt(p[0]), e = PyInt(p[1]);
@@ -427,20 +472,11 @@ public static partial class AlignmentCoordinateFormats
                 throw new ArgumentException($"invalid feature location '{text}'");
             start = end = s;
         }
-        else if (LocSolo.IsMatch(text))
-        {
-            start = PositionValue(text) - 1;
-            end = PositionValue(text);
-        }
-        else if (LocBond.IsMatch(text))
-        {
-            string number = text[5..^1];
-            start = PositionValue(number) - 1;
-            end = PositionValue(number);
-        }
         else
         {
-            throw new ArgumentException($"Could not parse feature location '{text}'");
+            string number = kind == "bond" ? text[5..^1] : text;
+            start = PositionValue(number, true);
+            end = PositionValue(number, false);
         }
 
         if (start < 0)
@@ -448,6 +484,18 @@ public static partial class AlignmentCoordinateFormats
         if (end < start)
             throw new ArgumentException("End location must be greater than or equal to start location");
         return SimpleLocationSpec(start, end, strand);
+    }
+
+    private static void RequireWhole(Match m, string text)
+    {
+        if (m.Value != text)
+            throw new ArgumentException("AssertionError");
+    }
+
+    private static (long Start, long End) PositionRange(string text)
+    {
+        var p = text.Split("..");
+        return (PositionValue(p[0], true), PositionValue(p[1], false));
     }
 
     private static readonly string[] BigPslFieldNames =

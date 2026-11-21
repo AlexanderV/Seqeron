@@ -288,6 +288,29 @@ def run(ctx):
             except Exception:  # noqa: BLE001
                 continue
             rows.append(('bigpsl', 'read', '{}', b64(raw), json.dumps(read_bigpsl(raw))))
+    # oCDS location strings of the whole INSDC grammar (A5-8c3e, F239 follow-up): within / one-of positions, references, compound locations, fuzzy bounds, refusals
+    odd = ['(8.9)..(20.25)', '8..(20.25)', '(8.9)..25', 'one-of(6,9)..12', '3..one-of(8,12,5)', 'one-of(6,9)..one-of(20,22)', '(8^9)..25', '<(8.9)..25', '12..>20', 'NC_1.2:3..10', 'complement(NC_1.2:3..10)',
+           'join(NC_1:3..10,20..30)', 'join(1..5,NC_1.2:20..30)', '(8.9)', 'one-of(6,9)', 'bond(5)', 'bond(<5)', '<5', '10..<5', '5..3', '(9.8)..12', '(8.9)..(3.4)', '0..5', '(0.5)..9', 'one-of(6,9)..2',
+           'join(one-of(3,5)..9,12..15)', 'join(1..5,6..8,10..14)', 'complement(join(10..14,6..8,1..5))', 'order(1..3,complement(5..9))', 'join(complement(5..9),1..3)', 'join(1..5)', 'join(1..5,', 'join()', 'join(1..5,,7..9)',
+           'join(a..b,2..3)', 'bond(1..3,5..7)', 'complement(complement(2..5))', 'join(complement(1..3),complement(5..9))', 'a:b:1..5', '1..5xyz', '2^3', '3^4', '3^5', '1.5', '..5', '5..', '1,5', ' 1..5', '1..5 ',
+           'join(1..5,7..9)extra', 'order(1..5)', 'bond(1..5)', 'join(<1..>5,7..9)', 'complement(<1..>5)', 'join(1..3, 5..9)', 'JOIN(1..3,5..9)', '-3..5', '1..-5', '3..3', '4..4', 'join(3..3,6..6)']
+    for k in range(rng.randrange(1, 3)):
+        specs, targets = random_file(rng)
+        try:
+            data, calls, captured, tg = write_bigpsl(specs, targets, {'cds': True})
+        except Exception:  # noqa: BLE001
+            continue
+        if not captured:
+            continue
+        for text in odd:
+            fixed = copy.deepcopy(captured)
+            a = rng.choice(fixed)
+            a['attrs']['annotations']['oCDS'] = text
+            try:
+                raw = write_raw(fixed, tg)
+            except Exception:  # noqa: BLE001
+                continue
+            rows.append(('bigpsl', 'read', '{}', b64(raw), json.dumps(read_bigpsl(raw))))
     ok = [r for r in rows if r[0] == 'bigpsl' and r[1] == 'read'][:6]
     for r in ok:
         raw = base64.b64decode(r[3])
