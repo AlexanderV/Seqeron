@@ -62,7 +62,7 @@ class AlignList(list):
 
 def run_write(fmt, specs, **kw):
     aligns = [alignment_from(s) for s in specs]
-    if 'metadata' in kw:
+    if 'metadata' in kw and fmt != 'mauve':
         kw = dict(kw)
         wrapper = AlignList(aligns)
         wrapper.metadata = kw.pop('metadata')
@@ -81,7 +81,7 @@ def run_read(fmt, text):
 
 
 rows = []
-wanted = set(sys.argv[1:]) or {'bed', 'psl', 'chain', 'maf'}
+wanted = set(sys.argv[1:]) or {'bed', 'psl', 'chain', 'maf', 'mauve'}
 
 
 def add_write(fmt, specs, **kw):
@@ -270,6 +270,48 @@ if 'maf' in wanted:
     add_read('maf', 'x\n')
     add_read('maf', '##maf version=1\n\na pass=0\ns a 0 1 + 1 A\n')
     add_read('maf', '##maf version=1\n\na score=3\ns a 0 4 + 10 AC-G\n\na\ns b 0 2 + 10 AC\n\n')
+
+if 'mauve' in wanted:
+    def mauve_case(single):
+        spec = random_msa(rng)
+        n = len(spec['sequences'])
+        if single:
+            ids = [str(i) for i in range(n)]
+            meta = {'File': rng.choice(['genome.fa', 'all.fasta']), 'FormatVersion': 'Mauve1'}
+        else:
+            ids = ['seq%d.fa' % (i + 1) for i in range(n)]
+            meta = {'FormatVersion': rng.choice(['Mauve1', 'Mauve2'])}
+        if rng.random() < 0.4:
+            meta['BackboneFile'] = 'x.backbone'
+        for sq, i in zip(spec['sequences'], ids):
+            sq['id'] = i
+        return spec, meta, ids
+
+    for i in range(110):
+        spec, meta, ids = mauve_case(i % 2 == 0)
+        specs = [spec] + ([mauve_case(i % 2 == 0)[0]] if False else [])
+        add_write('mauve', specs, metadata=meta, identifiers=ids)
+    for i in range(120):
+        spec, meta, ids = mauve_case(i % 2 == 0)
+        specs = [spec]
+        # a second block over the same sequences
+        spec2 = random_msa(rng, n=len(ids))
+        for sq, k in zip(spec2['sequences'], ids):
+            sq['id'] = k
+        specs.append(spec2)
+        try:
+            text = run_write('mauve', specs, metadata=meta, identifiers=ids)
+        except Exception:  # noqa: BLE001
+            continue
+        add_read('mauve', text)
+        if i % 4 == 0:
+            add_read('mauve', text.replace('\n=\n', '\n=\n', 1)[:-2])
+    add_read('mauve', '#FormatVersion Mauve1\n#Sequence1File\ta.fa\n#Sequence1Format\tFastA\n#Sequence2File\tb.fa\n#Sequence2Format\tFastA\n> 1:1-4 + a.fa\nACGT\n> 2:1-3 - b.fa\nAC-T\n=\n')
+    add_read('mauve', '')
+    add_read('mauve', '#FormatVersion Mauve1\n')
+    add_read('mauve', '#FormatVersion Mauve1\n#Sequence1File\ta.fa\n> 3:1-4 + a.fa\nACGT\n=\n')
+    add_read('mauve', '#FormatVersion Mauve1\n#Sequence1File\ta.fa\n#Sequence2File\ta.fa\n#Sequence1Entry\t1\n#Sequence2Entry\t2\n> 1:1-4 + a\nACGT\n> 2:0-0 + a\n----\n=\n')
+    add_read('mauve', '#FormatVersion Mauve1\n#SequenceXFile\ta.fa\n')
 
 os.makedirs(os.path.dirname(out_path), exist_ok=True)
 existing = []

@@ -16,7 +16,7 @@ public class AlignmentCoordinateFormats_Tests
 {
     private static readonly Lazy<List<BiopythonCoordOracle.Row>> Oracle = new(BiopythonCoordOracle.Load);
 
-    private static readonly string[] Formats = ["bed", "psl", "chain", "maf"];
+    private static readonly string[] Formats = ["bed", "psl", "chain", "maf", "mauve"];
 
     private static CoordinateWriteOptions Options(JsonObject o) => new()
     {
@@ -25,6 +25,7 @@ public class AlignmentCoordinateFormats_Tests
         Mask = o["mask"]?.GetValue<string>(),
         Wildcard = o.ContainsKey("wildcard") ? o["wildcard"]?.GetValue<string>() : "N",
         Metadata = o["metadata"] as JsonObject,
+        Identifiers = o["identifiers"] is JsonArray ids ? [.. ids.Select(x => x!.GetValue<string>())] : null,
     };
 
     [Test]

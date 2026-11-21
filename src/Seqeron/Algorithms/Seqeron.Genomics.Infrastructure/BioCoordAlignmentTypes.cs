@@ -13,6 +13,8 @@ public enum CoordinateAlignmentFormat
     Chain,
     /// <summary>Multiple Alignment Format (<c>maf</c>), any number of sequences.</summary>
     Maf,
+    /// <summary>Mauve XMFA (<c>mauve</c>), any number of sequences.</summary>
+    Mauve,
 }
 
 /// <summary>
@@ -83,4 +85,7 @@ public sealed record CoordinateWriteOptions
 
     /// <summary>MAF: the metadata of the file header (<c>alignments.metadata</c>: <c>MAF Version</c>, <c>Scoring</c>, <c>Program</c>, <c>Comments</c>, <c>name</c>, <c>description</c>, <c>frames</c>, <c>mafDot</c>, <c>visibility</c>, <c>speciesOrder</c>); null = <c>{"MAF Version": "1"}</c>.</summary>
     public JsonObject? Metadata { get; init; }
+
+    /// <summary>Mauve: the identifiers of the sequences (the file names, or the entry numbers of a combined file as strings); sequences are numbered by their index in this list.</summary>
+    public IReadOnlyList<string>? Identifiers { get; init; }
 }

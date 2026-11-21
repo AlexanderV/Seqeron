@@ -22,6 +22,7 @@ public static partial class AlignmentCoordinateFormats
             case "psl": format = CoordinateAlignmentFormat.Psl; return true;
             case "chain": format = CoordinateAlignmentFormat.Chain; return true;
             case "maf": format = CoordinateAlignmentFormat.Maf; return true;
+            case "mauve": format = CoordinateAlignmentFormat.Mauve; return true;
             default: return false;
         }
     }
@@ -39,6 +40,8 @@ public static partial class AlignmentCoordinateFormats
             sb.Append(PslHeader);
         if (format == CoordinateAlignmentFormat.Maf)
             sb.Append(MafHeader(options.Metadata));
+        if (format == CoordinateAlignmentFormat.Mauve)
+            sb.Append(MauveHeader(options));
         foreach (var a in alignments)
             sb.Append(Format(a, format, options));
         return sb.ToString();
@@ -54,6 +57,7 @@ public static partial class AlignmentCoordinateFormats
             CoordinateAlignmentFormat.Bed => FormatBed(alignment, options.BedN),
             CoordinateAlignmentFormat.Psl => FormatPsl(alignment, options),
             CoordinateAlignmentFormat.Maf => FormatMaf(alignment),
+            CoordinateAlignmentFormat.Mauve => FormatMauve(alignment, options),
             _ => FormatChain(alignment),
         };
     }
@@ -68,6 +72,7 @@ public static partial class AlignmentCoordinateFormats
             CoordinateAlignmentFormat.Bed => ParseBed(text),
             CoordinateAlignmentFormat.Psl => ParsePsl(text),
             CoordinateAlignmentFormat.Maf => ParseMaf(text),
+            CoordinateAlignmentFormat.Mauve => ParseMauve(text),
             _ => ParseChain(text),
         };
     }

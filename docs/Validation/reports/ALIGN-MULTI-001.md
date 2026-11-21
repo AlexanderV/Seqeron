@@ -302,7 +302,7 @@ One input contract for every multiple-alignment entry point: null element -> `Ar
 
 ## Audit r2 addendum (A2-27c, B09 F224, WP52): Biopython coordinate formats bed, psl, chain
 
-`AlignmentCoordinateFormats` (`Write` / `Format` / `Parse`, JSON description of a pairwise alignment) writes and reads the `Bio.Align` formats bed (`bedN` 3 - 12), psl (header, mask, wildcard, PSLX of nucleotides, translated-protein strands) and chain; MCP `write_coordinate_alignment` / `parse_coordinate_alignment`. 1 214 / 1 214 oracle rows equal Biopython 1.88 (510 writer rows byte for byte, 704 reader rows incl. the refusals; maf added in F226). Registered (A2-27d): sam, exonerate, mauve, bigbed, bigmaf, bigpsl, readers msf / emboss / hhr / tabular, `.score_ascii`, `cons` pair markup, the CDS feature of protein PSLX.
+`AlignmentCoordinateFormats` (`Write` / `Format` / `Parse`, JSON description of a pairwise alignment) writes and reads the `Bio.Align` formats bed (`bedN` 3 - 12), psl (header, mask, wildcard, PSLX of nucleotides, translated-protein strands) and chain; MCP `write_coordinate_alignment` / `parse_coordinate_alignment`. 1 480 / 1 480 oracle rows equal Biopython 1.88 (620 writer rows byte for byte, 860 reader rows incl. the refusals; maf added in F226, mauve in F227). Registered (A2-27d): sam, exonerate, bigbed, bigmaf, bigpsl, readers msf / emboss / hhr / tabular, `.score_ascii`, `cons` pair markup, the CDS feature of protein PSLX.
 
 ## Audit r2 addendum (A2-23, B09 F127, WP34): ProbCons 1.12
 
