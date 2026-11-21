@@ -81,3 +81,5 @@ Fuzz oracle (`GenomicTandemFuzzTests.Oracle`) replayed the old greedy scan → r
 - **Audit A4-3 (F153):** the EMBOSS reader drops gap characters and every other non-letter (except `*`) from plain input sequences; one shared `EmbossSequenceReader` (Infrastructure) serves etandem, equicktandem: 240 oracle rows each equal (`emboss_gap_oracle.tsv`).
 
 - **Audit A4-4 (F156):** option boundaries measured on the programs: `OptionBoundaries_Oracle_Tests.Etandem_ThresholdIntMinValue_...` (12 etandem rows); the programs accept almost every value the audit listed (only k <= 0 / k > 28 rejected; etandem -threshold int.MinValue is a SIGFPE of the program, not "0 hits").
+
+- **Audit r5 / r6 (A5-7, A5-8, A6-2, A6-4, A6-10; F172, F176, F177, F179, F183):** `etandem` ignores `-sbegin` / `-send` and numbers a `-sreverse` sequence on the reverse strand, `equicktandem` uses the range (180 oracle rows each); the gff / excel reports of both programs (120 runs per program and format equal; the header is written even without a repeat); the qualifier text resolves like the ACD library; the MCP report mode runs the search once (`EmbossReportSingleSearchTests`).

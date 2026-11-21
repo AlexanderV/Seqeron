@@ -117,6 +117,7 @@ With `sketchSize` / `scaled` steps 2-3 are replaced by the canonical sketch buil
 - `GenomicAnalyzer.CalculateSimilarity(…, int, bool, int sketchSize)`, `CalculateJaccardDistance(…)`, `CompareSimilarity(…, int?, long?)` (`DnaSequence` and `string` overloads; [GenomicAnalyzer.Similarity.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.Similarity.cs), audit A2-31 / A2-35): the sketch estimators and the derived distances / ANI.
 - The exact overloads are facades: validation, then `KmerAnalyzer.JaccardSimilarity(a.Sequence, b.Sequence, k, new KmerCountingOptions(Canonical: canonical)) * 100` (the canonical k-mer Jaccard, DUP_MAP §16). The former private `GetKmers` duplicate was removed (B09 F32).
 - MCP `calculate_similarity` delegates to these overloads (`canonical`, `sketchSize`, `scaled`, estimates; IUPAC strings accepted).
+- The sketch builders (`KmerAnalyzer.CreateMinHashSketch` / `CreateFracMinHashSketch`) stream the k-mers through a rolling 2-bit window and keep only the bottom-`s` hashes (Mash) / the hashes <= max_hash (sourmash): no string per k-mer, constant memory (audit A6-1: a 4 Mbp genome allocates < 16 MB; the string-per-k-mer version needed 1.2 GB for 5 Mbp); the output is identical (the previous implementation is the test oracle, `KmerAnalyzer_SketchStreaming_Tests`). The text commands of Mash 2.3 on top of the sketches (`mash bounds`, `dist`, `triangle`; MCP `mash_bounds` / `mash_dist` / `mash_triangle`) are in [Mash_Commands.md](../Alignment/Mash_Commands.md) (`MashCommands`, B09 F174).
 
 ### 5.2 Current Behavior
 
@@ -200,6 +201,7 @@ double pct = GenomicAnalyzer.CalculateSimilarity(a, b, kmerSize: 3); // 80.0
 
 - Tests: [GenomicAnalyzer_CalculateSimilarity_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/GenomicAnalyzer_CalculateSimilarity_Tests.cs) — covers INV-01..INV-05; the sketch estimators, distances and ANI: `GenomicAnalyzer_SimilaritySketch_Oracle_Tests` (4290 sourmash / Mash rows, `scripts/analysis/generate_similarity_sketch_oracle.py`)
 - Evidence: [GENOMIC-SIMILARITY-001-Evidence.md](../../../docs/Evidence/GENOMIC-SIMILARITY-001-Evidence.md)
+- The Mash program commands (`bounds`, `dist`, `triangle`) built on these sketches: [Mash_Commands.md](../Alignment/Mash_Commands.md).
 
 ## 8. References
 

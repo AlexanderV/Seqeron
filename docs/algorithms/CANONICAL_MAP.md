@@ -10,6 +10,12 @@ This map defines canonical algorithm IDs and documentation aliases to avoid dupl
 | `SEQ-TM-001` | `SEQ-THERMO-001` | Consolidated | Same canonical fixture and behavior |
 | `GENOMIC-TANDEM-001` | `REP-TANDEM-001` | Consolidated | Same method/class, unified under repeats |
 
+## Cross-bucket Pages
+
+| Page | Bucket | Owner unit | Note |
+|---|---|---|---|
+| [Mash_Commands.md](Alignment/Mash_Commands.md) (`MashCommands`: `mash bounds` / `dist` / `triangle`, MCP `mash_bounds` / `mash_dist` / `mash_triangle`) | `Alignment` (program ports) | `GENOMIC-SIMILARITY-001` | The MinHash estimators it is built on are documented once in [Sequence_Similarity.md](Analysis/Sequence_Similarity.md); the two pages link each other |
+
 ## Taxonomy Aliases (Folder Naming)
 
 | Alias / Variant | Canonical Bucket | Policy |

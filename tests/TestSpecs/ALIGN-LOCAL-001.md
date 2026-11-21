@@ -234,3 +234,9 @@ Matrix-scored `LocalAlign`/`LocalAlignAffine` (BLOSUM62/PAM250/EDNAFULL, fractio
 | A4-9 | `DotMatcher_Tests.Compute_EqualsDotmatcher_OnTheEdgeCaseRows` | 720 rows of the installed dotmatcher (`dotmatcher_edge_oracle.tsv`): lower / mixed case, ambiguity codes, `*`, gap characters, default matrix (the type of the first sequence; a nucleic first sequence with a non-nucleic second one is refused), window >= length (zero terminator beyond the end, up to 8 residues) |
 | A4-9 | `DotMatcher_Tests.WindowEqualToASequence_ScoresTheDiagonalsThatFit_AndALongerWindowReadsZerosBeyondTheEnd` | a 12 / 10 nt pair: w = 10 -> 1:1:10:10, w = 11 -> 1:1:11:11, w = 12 -> none; the nucleic / protein refusal |
 
+
+## WP43 additions (A6-3 / A6-5)
+| ID | Test | Locks |
+|---|---|---|
+| A6-3 | `SequenceAligner_MatcherGap_Tests` | `MatcherProgram` equals matcher 6.6.0 on 872 `-gapopen` / `-gapextend` / `-alternatives` rows, in particular `-gapopen` below `-gapextend`; reset warnings (`StandardError`), refusal of non-integers |
+| A6-5 | `SequenceAligner_SupermatcherWordLength_Tests` | supermatcher `-wordlen` above the longest target: `Error: no kmers found`, error file, alignments (260 rows); `int.MaxValue` returns at once |

@@ -23,17 +23,12 @@ public partial class AnalysisTools
     {
         if (reportFormat is not null)
         {
-            var format = ParseEmbossReportFormat(reportFormat);
-            if (sequenceQualifiers is not null)
-                throw new ArgumentException("reportFormat needs no sequenceQualifiers", nameof(reportFormat));
-            var plain = FindTandemRepeatsEmboss(sequence, program, minRepeat, maxRepeat, threshold, mismatch, uniform, cancellationToken, null, null);
-            string reportProgram = (program ?? "etandem").Trim().ToLowerInvariant();
+            var format = ReportFormatWithoutQualifiers(reportFormat, sequenceQualifiers);
+            // one search: the report is built from the hits of the search the tool result is built from (A6-10: the search used to run twice)
+            var (which, found) = RunEmbossTandem(sequence, program, minRepeat, maxRepeat, threshold, mismatch, uniform, cancellationToken);
             string clean = global::Seqeron.Genomics.Infrastructure.EmbossSequenceReader.Clean(sequence);
-            var hits = reportProgram == "etandem"
-                ? GenomicAnalyzer.FindTandemRepeatsEtandem(RequireEmbossIupacDna(sequence, nameof(sequence)), minRepeat, maxRepeat ?? minRepeat, threshold, mismatch, uniform, cancellationToken)
-                : GenomicAnalyzer.FindTandemRepeatsEquicktandem(RequireEmbossIupacDna(sequence, nameof(sequence)), maxRepeat ?? 600, threshold, cancellationToken);
-            var report = reportProgram == "etandem" ? global::Seqeron.Genomics.Analysis.EmbossReports.Etandem(sequenceName, clean, hits) : global::Seqeron.Genomics.Analysis.EmbossReports.Equicktandem(sequenceName, clean, hits);
-            return plain with { Report = global::Seqeron.Genomics.Infrastructure.EmbossReportWriter.Write(report, format, DateTime.Now) };
+            var report = which == "etandem" ? global::Seqeron.Genomics.Analysis.EmbossReports.Etandem(sequenceName, clean, found) : global::Seqeron.Genomics.Analysis.EmbossReports.Equicktandem(sequenceName, clean, found);
+            return TandemResult(which, found) with { Report = global::Seqeron.Genomics.Infrastructure.EmbossReportWriter.Write(report, format, DateTime.Now) };
         }
 
         if (sequenceQualifiers is not null)
@@ -51,27 +46,26 @@ public partial class AnalysisTools
             return new FindEmbossTandemRepeatsResult(kind, [.. qualified.Select(h => new EmbossTandemItem(h.Position, h.Length, h.Score, h.RepeatSize, h.RepeatCount, kind == "etandem" ? Math.Round((double)h.Identity, 1) : null, h.Consensus))]);
         }
 
+        var (plainWhich, plainHits) = RunEmbossTandem(sequence, program, minRepeat, maxRepeat, threshold, mismatch, uniform, cancellationToken);
+        return TandemResult(plainWhich, plainHits);
+    }
+
+    private static (string Which, IReadOnlyList<EmbossTandemRepeat> Hits) RunEmbossTandem(string sequence, string? program, int minRepeat, int? maxRepeat, int threshold, bool mismatch, bool uniform, CancellationToken cancellationToken)
+    {
         var nucleotides = RequireEmbossIupacDna(sequence, nameof(sequence));
         string which = (program ?? "etandem").Trim().ToLowerInvariant();
-        IReadOnlyList<EmbossTandemRepeat> found;
-        switch (which)
+        return which switch
         {
-            case "etandem":
-                found = GenomicAnalyzer.FindTandemRepeatsEtandem(nucleotides, minRepeat, maxRepeat ?? minRepeat, threshold, mismatch, uniform, cancellationToken);
-                break;
-            case "equicktandem":
-                found = GenomicAnalyzer.FindTandemRepeatsEquicktandem(nucleotides, maxRepeat ?? 600, threshold, cancellationToken);
-                break;
-            default:
-                throw new ArgumentException("program must be etandem or equicktandem", nameof(program));
-        }
+            "etandem" => (which, GenomicAnalyzer.FindTandemRepeatsEtandem(nucleotides, minRepeat, maxRepeat ?? minRepeat, threshold, mismatch, uniform, cancellationToken)),
+            "equicktandem" => (which, GenomicAnalyzer.FindTandemRepeatsEquicktandem(nucleotides, maxRepeat ?? 600, threshold, cancellationToken)),
+            _ => throw new ArgumentException("program must be etandem or equicktandem", nameof(program)),
+        };
+    }
 
+    private static FindEmbossTandemRepeatsResult TandemResult(string which, IReadOnlyList<EmbossTandemRepeat> found)
+    {
         bool detailed = which == "etandem";
-        var items = found
-            .Select(h => new EmbossTandemItem(h.Position, h.Length, h.Score, h.RepeatSize, h.RepeatCount,
-                detailed ? Math.Round((double)h.Identity, 1) : null, h.Consensus))
-            .ToArray();
-        return new FindEmbossTandemRepeatsResult(which, items);
+        return new FindEmbossTandemRepeatsResult(which, [.. found.Select(h => new EmbossTandemItem(h.Position, h.Length, h.Score, h.RepeatSize, h.RepeatCount, detailed ? Math.Round((double)h.Identity, 1) : null, h.Consensus))]);
     }
 
     [McpServerTool(Name = "seqmatchall", Title = "Genome — EMBOSS seqmatchall (all-against-all word matches)", ReadOnly = true)]
@@ -110,24 +104,37 @@ public partial class AnalysisTools
     {
         if (reportFormat is not null)
         {
-            var format = ParseEmbossReportFormat(reportFormat);
-            if (sequenceQualifiers is not null)
-                throw new ArgumentException("reportFormat needs no sequenceQualifiers", nameof(reportFormat));
-            var plain = Fuzzpro(sequence, pattern, cancellationToken, null, null);
-            var hitList = GenomicAnalyzer.FindProteinPatternHits(sequence, ProteinPattern.Parse(pattern), cancellationToken);
-            return plain with { Report = global::Seqeron.Genomics.Infrastructure.EmbossReportWriter.Write(global::Seqeron.Genomics.Analysis.EmbossReports.Fuzzpro(sequenceName, sequence, pattern, hitList), format, DateTime.Now) };
+            var format = ReportFormatWithoutQualifiers(reportFormat, sequenceQualifiers);
+            var (reportParsed, reportHits) = RunFuzzpro(sequence, pattern, cancellationToken);      // one search for the result and the report (A6-10)
+            return new FuzzproResult(reportParsed.ToString(), [.. reportHits.Select(h => new ProteinPatternHitItem(h.Position, h.Length))])
+            {
+                Report = global::Seqeron.Genomics.Infrastructure.EmbossReportWriter.Write(global::Seqeron.Genomics.Analysis.EmbossReports.Fuzzpro(sequenceName, sequence, pattern, reportHits), format, DateTime.Now),
+            };
         }
 
+        if (sequenceQualifiers is not null)
+        {
+            RequireFuzzproInput(sequence, pattern);
+            return new FuzzproResult(ProteinPattern.Parse(pattern).ToString(), [.. GenomicAnalyzer.FindProteinPatternHits(sequence, global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.ParseInputs("fuzzpro", sequenceQualifiers)[0], pattern, cancellationToken).Select(h => new ProteinPatternHitItem(h.Position, h.Length))]);
+        }
+
+        var (parsed, hits) = RunFuzzpro(sequence, pattern, cancellationToken);
+        return new FuzzproResult(parsed.ToString(), [.. hits.Select(h => new ProteinPatternHitItem(h.Position, h.Length))]);
+    }
+
+    private static void RequireFuzzproInput(string sequence, string pattern)
+    {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
         if (string.IsNullOrWhiteSpace(pattern))
             throw new ArgumentException("Pattern cannot be null or empty", nameof(pattern));
+    }
+
+    private static (ProteinPattern Parsed, IReadOnlyList<ProteinPatternHit> Hits) RunFuzzpro(string sequence, string pattern, CancellationToken cancellationToken)
+    {
+        RequireFuzzproInput(sequence, pattern);
         var parsed = ProteinPattern.Parse(pattern);
-        if (sequenceQualifiers is not null)
-            return new FuzzproResult(parsed.ToString(), [.. GenomicAnalyzer.FindProteinPatternHits(sequence, global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.ParseInputs("fuzzpro", sequenceQualifiers)[0], pattern, cancellationToken).Select(h => new ProteinPatternHitItem(h.Position, h.Length))]);
-        var hits = GenomicAnalyzer.FindProteinPatternHits(sequence, parsed, cancellationToken)
-            .Select(h => new ProteinPatternHitItem(h.Position, h.Length)).ToArray();
-        return new FuzzproResult(parsed.ToString(), hits);
+        return (parsed, GenomicAnalyzer.FindProteinPatternHits(sequence, parsed, cancellationToken));
     }
 
     [McpServerTool(Name = "fuzztran", Title = "Genome — EMBOSS fuzztran (protein pattern search after translation)", ReadOnly = true)]
@@ -144,12 +151,12 @@ public partial class AnalysisTools
     {
         if (reportFormat is not null)
         {
-            var format = ParseEmbossReportFormat(reportFormat);
-            if (sequenceQualifiers is not null)
-                throw new ArgumentException("reportFormat needs no sequenceQualifiers", nameof(reportFormat));
-            var plain = Fuzztran(sequence, pattern, frame, table, cancellationToken, null, null);
-            var hitList = GenomicAnalyzer.FindTranslatedPatternHits(RequireEmbossIupacDna(sequence, nameof(sequence)), pattern, frame, table, cancellationToken);
-            return plain with { Report = global::Seqeron.Genomics.Infrastructure.EmbossReportWriter.Write(global::Seqeron.Genomics.Analysis.EmbossReports.Fuzztran(sequenceName, pattern, hitList), format, DateTime.Now) };
+            var format = ReportFormatWithoutQualifiers(reportFormat, sequenceQualifiers);
+            var (reportParsed, reportHits) = RunFuzztran(sequence, pattern, frame, table, cancellationToken);      // one search for the result and the report (A6-10)
+            return new FuzztranResult(reportParsed.ToString(), [.. reportHits.Select(TranslatedItem)])
+            {
+                Report = global::Seqeron.Genomics.Infrastructure.EmbossReportWriter.Write(global::Seqeron.Genomics.Analysis.EmbossReports.Fuzztran(sequenceName, pattern, reportHits), format, DateTime.Now),
+            };
         }
 
         if (sequenceQualifiers is not null)
@@ -158,17 +165,23 @@ public partial class AnalysisTools
                 throw new ArgumentException("Pattern cannot be null or empty", nameof(pattern));
             var qualifiedParsed = ProteinPattern.Parse(pattern);
             var qualifiedHits = GenomicAnalyzer.FindTranslatedPatternHits(sequence, global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.ParseInputs("fuzztran", sequenceQualifiers)[0], pattern, frame, table, cancellationToken)
-                .Select(h => new TranslatedPatternHitItem(h.Frame, h.ProteinStart, h.ProteinEnd, h.Translation, h.Position, h.Length, h.EmbossStart, h.EmbossEnd)).ToArray();
+                .Select(TranslatedItem).ToArray();
             return new FuzztranResult(qualifiedParsed.ToString(), qualifiedHits);
         }
 
+        var (parsed, hits) = RunFuzztran(sequence, pattern, frame, table, cancellationToken);
+        return new FuzztranResult(parsed.ToString(), [.. hits.Select(TranslatedItem)]);
+    }
+
+    private static TranslatedPatternHitItem TranslatedItem(TranslatedPatternHit h) => new(h.Frame, h.ProteinStart, h.ProteinEnd, h.Translation, h.Position, h.Length, h.EmbossStart, h.EmbossEnd);
+
+    private static (ProteinPattern Parsed, IReadOnlyList<TranslatedPatternHit> Hits) RunFuzztran(string sequence, string pattern, string frame, int table, CancellationToken cancellationToken)
+    {
         var nucleotides = RequireEmbossIupacDna(sequence, nameof(sequence));
         if (string.IsNullOrWhiteSpace(pattern))
             throw new ArgumentException("Pattern cannot be null or empty", nameof(pattern));
         var parsed = ProteinPattern.Parse(pattern);
-        var hits = GenomicAnalyzer.FindTranslatedPatternHits(nucleotides, pattern, frame, table, cancellationToken)
-            .Select(h => new TranslatedPatternHitItem(h.Frame, h.ProteinStart, h.ProteinEnd, h.Translation, h.Position, h.Length, h.EmbossStart, h.EmbossEnd)).ToArray();
-        return new FuzztranResult(parsed.ToString(), hits);
+        return (parsed, GenomicAnalyzer.FindTranslatedPatternHits(nucleotides, pattern, frame, table, cancellationToken));
     }
 
     [McpServerTool(Name = "showalign", Title = "Alignment — EMBOSS showalign display", ReadOnly = true)]

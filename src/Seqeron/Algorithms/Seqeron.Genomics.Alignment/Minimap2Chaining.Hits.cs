@@ -85,7 +85,7 @@ public sealed record MinimapMapOptions
     /// <summary><c>--sr</c> (<c>MM_F_SR</c>, set by <c>-x sr</c>): short-read mode: the query gap of a chain is at least the query length, no divergence estimate (<c>dv</c>) and no long-join re-chaining.</summary>
     public bool ShortRead { get; init; }
 
-    /// <summary><c>--splice</c> (<c>MM_F_SPLICE</c>, set by <c>-x splice</c>): spliced alignment. The preset values are stored; the chaining of a spliced query (<c>is_cdna</c> of <c>mg_lchain_dp</c>) is not yet part of <see cref="Minimap2Chaining.Map"/> (see <see cref="MinimapPresets"/>).</summary>
+    /// <summary><c>--splice</c> (<c>MM_F_SPLICE</c>, set by <c>-x splice</c>): spliced alignment. <see cref="Minimap2Chaining.Map"/> chains a spliced query as <c>mg_lchain_dp</c> does with <c>is_cdna</c> (<see cref="ChainOptions"/> sets <c>IsCdna = Splice</c>; the long-join re-chaining is skipped for it, as in <c>mm_map_frag</c>): the <c>splice</c> / <c>splice:hq</c> presets equal <c>minimap2 -x splice</c> on 260 / 260 PAF texts each (A5-9, F173); the base-level stage (<c>Scoring</c>, the splice flags) is stored for <c>-c</c> (A3-9c2). See <see cref="MinimapPresets"/>.</summary>
     public bool Splice { get; init; }
 
     /// <summary>Scoring of the base-level alignment (<c>-A -B -O -E -z -s -u ...</c>, <c>mm_mapopt_t</c> <c>a b q e q2 e2 zdrop zdrop_inv end_bonus min_dp_max noncan junc_bonus pe_ori</c>): set by the presets and stored for the base-level stage (audit A3-9c2); the chaining stage does not read it.</summary>

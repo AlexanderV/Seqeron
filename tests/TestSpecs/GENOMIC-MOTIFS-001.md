@@ -222,3 +222,6 @@
 
 ## WP42 additions (A5-7 / A5-8)
 - `EmbossSequenceQualifiers_Oracle_Tests` (16 programs x 180 qualifier rows, parser / reader unit tests) and `EmbossReport_Oracle_Tests` (5 programs x gff / excel x 120 runs); `EmbossSeqOptsProducer` is the shared evaluator of the qualifier rows.
+
+## WP43 additions (A6-2 / A6-4 / A6-10)
+- `fuzznuc` / `fuzzpro` / `fuzztran`: the qualifier TEXT resolves like the ACD library (`EmbossAcdCommandLine_Oracle_Tests`, `EmbossSequenceQualifiersText_Oracle_Tests`: 130 + 40 rows each; `fuzznuc -sbegin1 5`, `-se` ambiguous); `EmbossNullContract_Tests.Fuzztran_HitWithoutEmbossCoordinates_...`, `ReportWriter_RefusesAnUndefinedFormat_...`; the report mode of the MCP tools runs the search once (`EmbossReportSingleSearchTests`). The `-rformat gff` / `excel` rows (`EmbossReport_Oracle_Tests`, 120 runs per format) are WP42 (A5-8).

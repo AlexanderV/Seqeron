@@ -157,3 +157,5 @@ MCP `water_align` (A3-17). The "at least 90 % reaches the textbook optimum" tole
 - **Audit A4-1 (F157):** `DotMatcher.Compute`, matcher (`TopNTieOrder.Sim`) poll the ambient cancellation token (mid-run cancel tests); MCP tools take the request token.
 
 - **Audit A4-2 (F158):** resource guards: `DotMatcher.Compute` (`DotMatcherMaxSegments`), `TopNTieOrder.Sim` (`TopNSimMaxVertices`, lazy vertex list: `maxAlignments = int.MaxValue` = every alignment).
+
+- **Audit r5 / r6 (A5-7, A6-2, A6-3, A6-5; F172, F177, F178, F180):** `water` / `matcher` / `supermatcher` read the sequence-input qualifiers (180 oracle rows each); `MatcherProgram` accepts every integer `-gapopen` / `-gapextend` pair including `-gapopen` below `-gapextend` (SIM `q = gapopen - gapextend` < 0), resets a negative value with the program's warning (`EmbossProgramResult.StandardError`) and refuses a non-integer (872 rows); `Supermatcher` with `-wordlen` above every target prints `Error: no kmers found` and returns without the Rabin-Karp loops (`-wordlen 2147483647` took 30 s; 260 rows).

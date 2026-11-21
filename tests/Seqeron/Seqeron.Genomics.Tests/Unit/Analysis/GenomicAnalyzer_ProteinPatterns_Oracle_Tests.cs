@@ -103,7 +103,7 @@ public class GenomicAnalyzer_ProteinPatterns_Oracle_Tests
         Assert.That(reverse, Is.GreaterThan(100));
         Assert.That(forward, Is.GreaterThan(150));
         Assert.That(tables, Is.GreaterThan(200));
-        Assert.That(rejected, Is.GreaterThanOrEqualTo(0));
+        Assert.That(rejected, Is.EqualTo(0), "fuzztran_oracle.tsv holds no refused row (all 760 runs of the program succeeded; the ERR branch is kept for a regenerated file)");
     }
 
     [Test]

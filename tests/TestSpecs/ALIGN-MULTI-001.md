@@ -63,7 +63,7 @@
 
 - **Canonical:** `tests/Seqeron/Seqeron.Genomics.Tests/SequenceAligner_MultipleAlign_Tests.cs` — 18 tests
 - **Property:** `tests/Seqeron/Seqeron.Genomics.Tests/Properties/AlignmentProperties.cs` — 2 MSA tests
-- **Benchmark:** `tests/Seqeron/Seqeron.Genomics.Tests/SequenceAligner_MultipleAlign_Benchmark.cs` — 9 tests
+- **Benchmark:** the former `[Explicit]` fixture `SequenceAligner_MultipleAlign_Benchmark` is gone (A6-8d: no tier ran it); its scenarios are the deterministic tests `SequenceAligner_MultipleAlignAnchored_Scenarios_Tests` (8) and the timing table is `apps/Seqeron.Alignment.Benchmarks`
 
 ### Canonical (`SequenceAligner_MultipleAlign_Tests.cs`) — 18 test methods
 
@@ -768,3 +768,17 @@ Tests (`Seqeron.Genomics.Tests`, against the installed Debian `poa` 2.0+20060928
 
 ## WP42 additions (A5-9 / A5-10)
 - `Minimap2Presets_Tests` (11 presets x 220 oracle cases, `-F` / `-G`, the options.c tables, `FormatPaf`), `MashCommands_Oracle_Tests` (bounds / dist / triangle: 660 oracle rows) and the MCP tests `Minimap2PresetToolsTests`, `MashToolsTests`; sources and numbers in docs/Evidence/ALIGN-MULTI-001-Evidence.md.
+
+## Audit round 6 / WP43 (B09 F177 - F183)
+
+| ID | Test | Locks |
+|---|---|---|
+| A6-1 | `KmerAnalyzer_SketchStreaming_Tests` | the streaming MinHash / FracMinHash builders equal the previous string-per-k-mer implementation on 1 200 + 1 200 random inputs (k 1 .. 60, canonical / forward, case / N / IUPAC / U, null and short records) and on all 65 536 UTF-16 code units; a 4 Mbp genome allocates < 16 MB; the token is observed between records and inside a record |
+| A6-2 | `EmbossAcdCommandLine_Oracle_Tests` (16), `EmbossSequenceQualifiersText_Oracle_Tests` (16), `EmbossSequenceQualifiers_CommandLine_Tests` (9), MCP `EmbossSequenceQualifiersToolsTests` | the qualifier text resolves as the ACD library of the program resolves it: 2 080 ACD-log rows (`emboss_acd_args_oracle.tsv`) and 640 report rows (`emboss_seqopts_text_oracle.tsv`) equal; the forms of the audit (`-sbegin1 5` on one input, `-sbegin 3` after the files, `=`, abbreviations, ambiguity) with the program's messages |
+| A6-3 | `SequenceAligner_MatcherGap_Tests` | `matcher -gapopen` below `-gapextend`, 0 / 1 / 100, reset warnings and refusals: 872 rows of `matcher_gap_oracle.tsv` |
+| A6-4 | `EmbossNullContract_Tests` (5), `MashCommands_Oracle_Tests.Dist_And_Triangle_RefuseNullInputs_...` | typed exceptions with the parameter name and the index for null set members / `Name` / `Residues`, hits without `EmbossStart`, an undefined report format, null report fields, null Mash inputs |
+| A6-5 | `SequenceAligner_SupermatcherWordLength_Tests` | `-wordlen` around / above the targets: stderr `Error: no kmers found`, error file, alignments equal on 260 rows; `int.MaxValue` returns at once; sibling programs |
+| A6-6 | `MashCommands_Oracle_Tests.FilesWithoutARecordOfKSymbols_AreRefused_...` | 80 `error` rows of `mash_commands_oracle.jsonl.gz` (status 1 messages, the SIGFPE of `dist -i`) |
+| A6-7 | `Minimap2Presets_Tests` (11 presets x 260 cases), MCP `Minimap2PresetToolsTests` | `-x PRESET` followed by `-k -w -g -r -n -m -p -N -e -f -U --rmq --secondary -H --no-long-join` (half with the default value): 2 860 PAF texts; whole PAF lines of `-x asm5 -k 15`, `-w 10 -m 40 -n 3`, `-x ava-ont -m 40` |
+| A6-8 | MCP wiring tests, `GenomicAnalyzer_ProteinPatterns_Oracle_Tests`, `SequenceAligner_MultipleAlignAnchored_Scenarios_Tests` | the program's whole result instead of `Any(...)` / `Is.Not.Empty`; exact counters |
+| A6-10 | MCP `EmbossReportSingleSearchTests` | the report mode runs the search once (the same number of polls as without `reportFormat`) |

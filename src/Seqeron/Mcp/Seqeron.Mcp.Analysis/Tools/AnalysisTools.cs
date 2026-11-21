@@ -773,6 +773,15 @@ public partial class AnalysisTools
         return new FindKnownMotifsResult(matches, reverse, matchMismatches, reverseMismatches);
     }
 
+    /// <summary>The <c>reportFormat</c> of the EMBOSS report tools: parsed, and refused together with <c>sequenceQualifiers</c> (the report of a ranged / reversed search is not part of the port yet) or with another conflict of the tool (A6-10: one check for the four tools).</summary>
+    private static global::Seqeron.Genomics.Infrastructure.EmbossReportFormat ReportFormatWithoutQualifiers(string reportFormat, string? sequenceQualifiers, bool otherConflict = false, string message = "reportFormat needs no sequenceQualifiers")
+    {
+        var format = ParseEmbossReportFormat(reportFormat);
+        if (sequenceQualifiers is not null || otherConflict)
+            throw new ArgumentException(message, nameof(reportFormat));
+        return format;
+    }
+
     private static global::Seqeron.Genomics.Infrastructure.EmbossReportFormat ParseEmbossReportFormat(string format) => (format ?? "").Trim().ToLowerInvariant() switch
     {
         "gff" => global::Seqeron.Genomics.Infrastructure.EmbossReportFormat.Gff,
@@ -796,12 +805,10 @@ public partial class AnalysisTools
     {
         if (reportFormat is not null)
         {
-            var format = ParseEmbossReportFormat(reportFormat);
-            if (sequenceQualifiers is not null || string.IsNullOrWhiteSpace(pattern) || !string.IsNullOrWhiteSpace(patternFile))
-                throw new ArgumentException("reportFormat needs one pattern and no sequenceQualifiers", nameof(reportFormat));
+            var format = ReportFormatWithoutQualifiers(reportFormat, sequenceQualifiers, string.IsNullOrWhiteSpace(pattern) || !string.IsNullOrWhiteSpace(patternFile), "reportFormat needs one pattern and no sequenceQualifiers");
             var plain = FindPatternHits(sequence, pattern, null, maxMismatches, bothStrands, sequenceAmbiguity, cancellationToken, null, null);
             var hitList = plain.Hits.Select(h => new global::Seqeron.Genomics.Analysis.PatternHit(h.Position, h.Length, h.Strand == "reverse", h.Mismatches)).ToList();
-            var text = global::Seqeron.Genomics.Infrastructure.EmbossReportWriter.Write(global::Seqeron.Genomics.Analysis.EmbossReports.Fuzznuc(sequenceName, sequence, pattern, hitList, "pattern", maxMismatches), format, DateTime.Now);
+            var text = global::Seqeron.Genomics.Infrastructure.EmbossReportWriter.Write(global::Seqeron.Genomics.Analysis.EmbossReports.Fuzznuc(sequenceName, sequence, pattern!, hitList, "pattern", maxMismatches), format, DateTime.Now);
             return plain with { Report = text };
         }
 

@@ -58,8 +58,10 @@ public class EmbossSequenceQualifiersToolsTests
     {
         // dotmatcher da.fa db.fa -windowsize 5 -threshold 15 -matrixfile EDNAFULL -sbegin1 10: the first segment of the plain run (32 32 40 40) stays: -sbegin shifts the range to the front
         var r = AlignmentTools.Dotmatcher("ACGTTGCATGCATTAGCGATCGATCGGATTACAGGCATCG", "TTGCATGCATTAGCGATCGATAAGGATTACAGGGGCATCG", 5, 15, "EDNAFULL", sequenceQualifiers: "-sbegin1 10");
-        Assert.That(r.Segments, Is.Not.Empty);
-        Assert.That(r.Segments.Any(s => s.Start1 == 32 && s.Start2 == 32), Is.True);
+        // the whole plot of the program (dotmatcher ... -graph data, installed 6.6.0; the program's x / y are the second / first sequence): 22 segments, the main-diagonal one twice
+        var expected = new[] { (32, 32, 40, 40), (16, 6, 23, 13), (26, 14, 32, 20), (20, 1, 24, 5), (22, 3, 30, 11), (35, 14, 40, 19), (24, 1, 30, 7), (32, 4, 39, 11), (33, 1, 39, 7), (32, 32, 40, 40), (17, 18, 22, 23), (1, 3, 5, 7),
+            (9, 11, 18, 20), (1, 7, 16, 22), (15, 22, 27, 34), (23, 32, 31, 40), (5, 15, 12, 22), (2, 19, 7, 24), (1, 24, 7, 30), (12, 35, 17, 40), (8, 35, 13, 40), (1, 35, 5, 39) };
+        Assert.That(r.Segments.Select(s => (s.Start1, s.Start2, s.End1, s.End2)).ToArray(), Is.EqualTo(expected));
     }
 
     [Test]
