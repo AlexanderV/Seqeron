@@ -16,7 +16,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import numpy as np
 from Bio import Align
-from biopython_coord_oracle_lib import alignment_from, alignment_spec, random_blocks, random_dna, random_msa, random_pair
+from biopython_coord_oracle_lib import alignment_from, alignment_spec, random_blocks, random_dna, random_msa, random_pair, record_from, record_spec
 
 root = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..')
 out_path = os.path.join(root, 'tests', 'Seqeron', 'Seqeron.Genomics.Tests', 'TestData', 'Alignment', 'biopython_coord_oracle.tsv')
@@ -62,26 +62,36 @@ class AlignList(list):
 
 def run_write(fmt, specs, **kw):
     aligns = [alignment_from(s) for s in specs]
-    if 'metadata' in kw and fmt != 'mauve':
+    if ('metadata' in kw or 'targets' in kw) and fmt != 'mauve':
         kw = dict(kw)
         wrapper = AlignList(aligns)
-        wrapper.metadata = kw.pop('metadata')
+        if 'metadata' in kw:
+            wrapper.metadata = kw.pop('metadata')
+        if 'targets' in kw:
+            wrapper.targets = [record_from(t) for t in kw.pop('targets')]
         aligns = wrapper
     stream = io.StringIO()
-    Align.write(aligns, stream, fmt, **kw)
+    args = [kw.pop('exfmt')] if 'exfmt' in kw else []
+    Align.write(aligns, stream, fmt, *args, **kw)
     return stream.getvalue()
+
+
+FILE_LEVEL = {'sam', 'exonerate'}
 
 
 def run_read(fmt, text):
     try:
-        aligns = list(Align.parse(io.StringIO(text), fmt))
+        it = Align.parse(io.StringIO(text), fmt)
+        aligns = list(it)
     except Exception as e:  # noqa: BLE001
         return {'error': type(e).__name__}
+    if fmt in FILE_LEVEL:
+        return {'alignments': [alignment_spec(a) for a in aligns], 'metadata': getattr(it, 'metadata', {}), 'targets': [record_spec(t) for t in getattr(it, 'targets', [])]}
     return [alignment_spec(a) for a in aligns]
 
 
 rows = []
-wanted = set(sys.argv[1:]) or {'bed', 'psl', 'chain', 'maf', 'mauve'}
+wanted = set(sys.argv[1:]) or {'bed', 'psl', 'chain', 'maf', 'mauve', 'sam', 'exonerate'}
 
 
 def add_write(fmt, specs, **kw):
@@ -312,6 +322,19 @@ if 'mauve' in wanted:
     add_read('mauve', '#FormatVersion Mauve1\n#Sequence1File\ta.fa\n> 3:1-4 + a.fa\nACGT\n=\n')
     add_read('mauve', '#FormatVersion Mauve1\n#Sequence1File\ta.fa\n#Sequence2File\ta.fa\n#Sequence1Entry\t1\n#Sequence2Entry\t2\n> 1:1-4 + a\nACGT\n> 2:0-0 + a\n----\n=\n')
     add_read('mauve', '#FormatVersion Mauve1\n#SequenceXFile\ta.fa\n')
+
+class Ctx:
+    pass
+
+
+ctx = Ctx()
+ctx.rng, ctx.add_write, ctx.add_read, ctx.run_write = rng, add_write, add_read, run_write
+if 'sam' in wanted or 'exonerate' in wanted:
+    import oracle_sections_sam_exonerate as sx
+    if 'sam' in wanted:
+        sx.run(ctx)
+    if 'exonerate' in wanted:
+        sx.run_exonerate(ctx)
 
 os.makedirs(os.path.dirname(out_path), exist_ok=True)
 existing = []

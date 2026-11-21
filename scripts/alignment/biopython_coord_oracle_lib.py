@@ -24,9 +24,45 @@ def make_seq(part):
     return part
 
 
+def decode_value(v):
+    """JSON -> Python value of an alignment attribute / annotation (bytes and arrays are tagged objects; `operations` is a string -> bytearray)."""
+    if isinstance(v, dict):
+        if '__bytes__' in v:
+            return bytes(v['__bytes__'])
+        if '__array__' in v:
+            return np.array(v['__array__'], int if v.get('dtype') == 'int' else float)
+        return {k: decode_value(x) for k, x in v.items()}
+    if isinstance(v, list):
+        return [decode_value(x) for x in v]
+    return v
+
+
+def encode_value(v):
+    if isinstance(v, (bytes, bytearray)):
+        return {'__bytes__': list(v)}
+    if isinstance(v, np.ndarray):
+        return {'__array__': [x.item() for x in v], 'dtype': 'int' if np.issubdtype(v.dtype, np.integer) else 'float'}
+    if isinstance(v, dict):
+        return {k: encode_value(x) for k, x in v.items()}
+    if isinstance(v, (list, tuple)):
+        return [encode_value(x) for x in v]
+    if isinstance(v, np.integer):
+        return int(v)
+    if isinstance(v, np.floating):
+        return float(v)
+    return v
+
+
 def record_from(spec):
+    if spec is None:
+        return None
     parts = spec.get('parts')
     length = spec['length']
+    if length is None:
+        rec = SeqRecord(None, id=spec['id'], description=spec.get('description', ''))
+        for k, v in spec.get('annotations', {}).items():
+            rec.annotations[k] = decode_value(v)
+        return rec
     if parts is None:
         seq = Seq(None, length=length)
     elif len(parts) == 1 and '0' in parts and len(parts['0']) == length:
@@ -35,14 +71,21 @@ def record_from(spec):
         seq = Seq({int(k): v for k, v in parts.items()}, length=length)
     rec = SeqRecord(seq, id=spec['id'], description=spec.get('description', ''))
     for k, v in spec.get('annotations', {}).items():
-        rec.annotations[k] = v
+        rec.annotations[k] = decode_value(v)
+    for k, v in spec.get('letter_annotations', {}).items():
+        rec.letter_annotations[k] = v
     return rec
 
 
 def alignment_from(spec):
     records = [record_from(s) for s in spec['sequences']]
-    a = Alignment(records, np.array(spec['coordinates'], np.intp))
+    co = spec['coordinates']
+    a = Alignment(records, None if co is None else np.array(co, np.intp))
     for k, v in spec.get('attrs', {}).items():
+        if k == 'operations':
+            v = bytearray(v.encode('latin-1'))
+        elif k == 'annotations' and 'empty' not in v:
+            v = decode_value(v)
         if k == 'annotations' and 'empty' in v:
             v = dict(v)
             v['empty'] = [(record_from(e['record']), tuple(e['segment']), e['status']) for e in v['empty']]
@@ -51,7 +94,16 @@ def alignment_from(spec):
 
 
 def record_spec(rec):
+    if rec is None:
+        return None
     seq = rec.seq
+    if seq is None:
+        d = {'id': rec.id, 'length': None, 'parts': None}
+        if rec.description:
+            d['description'] = rec.description
+        if rec.annotations:
+            d['annotations'] = encode_value(dict(rec.annotations))
+        return d
     n = len(seq)
     try:
         parts = {'0': str(seq)}
@@ -66,7 +118,9 @@ def record_spec(rec):
     if rec.description:
         d['description'] = rec.description
     if rec.annotations:
-        d['annotations'] = dict(rec.annotations)
+        d['annotations'] = encode_value(dict(rec.annotations))
+    if rec.letter_annotations:
+        d['letter_annotations'] = {k: list(v) for k, v in rec.letter_annotations.items()}
     return d
 
 
@@ -78,12 +132,17 @@ def alignment_spec(a):
         if k == 'annotations' and 'empty' in v:
             v = dict(v)
             v['empty'] = [{'record': record_spec(r), 'segment': [int(x) for x in seg], 'status': st} for r, seg, st in v['empty']]
-        if isinstance(v, (np.integer,)):
+        if k == 'operations':
+            v = bytes(v).decode('latin-1')
+        elif isinstance(v, (np.integer,)):
             v = int(v)
-        if isinstance(v, (np.floating,)):
+        elif isinstance(v, (np.floating,)):
             v = float(v)
+        else:
+            v = encode_value(v)
         attrs[k] = v
-    return {'sequences': [record_spec(r) for r in a.sequences], 'coordinates': [[int(x) for x in row] for row in a.coordinates], 'attrs': attrs}
+    co = None if a.coordinates is None else [[int(x) for x in row] for row in a.coordinates]
+    return {'sequences': [record_spec(r) for r in a.sequences], 'coordinates': co, 'attrs': attrs}
 
 
 def random_dna(rng, n, lower=0.2):

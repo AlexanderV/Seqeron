@@ -16,6 +16,12 @@ public static partial class AlignmentCoordinateFormats
         var seqs = new List<BioCoordSequence>();
         foreach (var s in spec["sequences"]?.AsArray() ?? throw new ArgumentException("\"sequences\" is missing.", nameof(spec)))
         {
+            if (s is null)
+            {
+                seqs.Add(new BioCoordSequence { Id = null, Length = -1 });
+                continue;
+            }
+
             SortedDictionary<long, string>? parts = null;
             if (s!["parts"] is JsonObject po)
             {
@@ -27,15 +33,19 @@ public static partial class AlignmentCoordinateFormats
             seqs.Add(new BioCoordSequence
             {
                 Id = s["id"]?.GetValue<string>(),
-                Length = s["length"]!.GetValue<long>(),
+                Length = s["length"] is null ? -1 : s["length"]!.GetValue<long>(),
                 Parts = parts,
                 Description = s["description"]?.GetValue<string>() ?? "",
                 Annotations = s["annotations"] is JsonObject an ? (JsonObject)an.DeepClone() : [],
+                LetterAnnotations = s["letter_annotations"] is JsonObject la ? (JsonObject)la.DeepClone() : [],
             });
         }
 
-        var co = (spec["coordinates"]?.AsArray() ?? throw new ArgumentException("\"coordinates\" is missing.", nameof(spec))).Select(r => r!.AsArray().Select(x => x!.GetValue<long>()).ToArray()).ToArray();
-        return new BioCoordAlignment { Sequences = seqs, Coordinates = co, Attributes = spec["attrs"] is JsonObject a ? (JsonObject)a.DeepClone() : [] };
+        if (!spec.AsObject().ContainsKey("coordinates"))
+            throw new ArgumentException("\"coordinates\" is missing.", nameof(spec));
+        bool none = spec["coordinates"] is null;
+        var co = none ? [] : spec["coordinates"]!.AsArray().Select(r => r!.AsArray().Select(x => x!.GetValue<long>()).ToArray()).ToArray();
+        return new BioCoordAlignment { Sequences = seqs, Coordinates = co, NoCoordinates = none, Attributes = spec["attrs"] is JsonObject a ? (JsonObject)a.DeepClone() : [] };
     }
 
     /// <summary>The JSON description of an alignment (<see cref="FromJson"/>).</summary>
@@ -45,7 +55,13 @@ public static partial class AlignmentCoordinateFormats
         var seqs = new JsonArray();
         foreach (var s in a.Sequences)
         {
-            var o = new JsonObject { ["id"] = s.Id, ["length"] = s.Length };
+            if (a.NoCoordinates && ReferenceEquals(s, a.Sequences[0]) && s.Length < 0 && s.Id is null)
+            {
+                seqs.Add(null);
+                continue;
+            }
+
+            var o = new JsonObject { ["id"] = s.Id, ["length"] = s.Length < 0 ? null : s.Length };
             if (s.Parts is null)
             {
                 o["parts"] = null;
@@ -62,13 +78,15 @@ public static partial class AlignmentCoordinateFormats
                 o["description"] = s.Description;
             if (s.Annotations.Count > 0)
                 o["annotations"] = s.Annotations.DeepClone();
+            if (s.LetterAnnotations.Count > 0)
+                o["letter_annotations"] = s.LetterAnnotations.DeepClone();
             seqs.Add(o);
         }
 
         return new JsonObject
         {
             ["sequences"] = seqs,
-            ["coordinates"] = new JsonArray(a.Coordinates.Select(r => (JsonNode)new JsonArray(r.Select(x => (JsonNode)JsonValue.Create(x)!).ToArray())).ToArray()),
+            ["coordinates"] = a.NoCoordinates ? null : new JsonArray(a.Coordinates.Select(r => (JsonNode)new JsonArray(r.Select(x => (JsonNode)JsonValue.Create(x)!).ToArray())).ToArray()),
             ["attrs"] = a.Attributes.DeepClone(),
         };
     }

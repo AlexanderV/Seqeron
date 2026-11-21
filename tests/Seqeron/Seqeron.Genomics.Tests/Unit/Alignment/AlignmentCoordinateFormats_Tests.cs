@@ -16,7 +16,7 @@ public class AlignmentCoordinateFormats_Tests
 {
     private static readonly Lazy<List<BiopythonCoordOracle.Row>> Oracle = new(BiopythonCoordOracle.Load);
 
-    private static readonly string[] Formats = ["bed", "psl", "chain", "maf", "mauve"];
+    private static readonly string[] Formats = ["bed", "psl", "chain", "maf", "mauve", "sam", "exonerate"];
 
     private static CoordinateWriteOptions Options(JsonObject o) => new()
     {
@@ -26,6 +26,9 @@ public class AlignmentCoordinateFormats_Tests
         Wildcard = o.ContainsKey("wildcard") ? o["wildcard"]?.GetValue<string>() : "N",
         Metadata = o["metadata"] as JsonObject,
         Identifiers = o["identifiers"] is JsonArray ids ? [.. ids.Select(x => x!.GetValue<string>())] : null,
+        Md = o["md"]?.GetValue<bool>() ?? false,
+        Targets = o["targets"] is JsonArray tg ? [.. tg.Select(t => AlignmentCoordinateFormats.FromJson(new JsonObject { ["sequences"] = new JsonArray(t!.DeepClone()), ["coordinates"] = new JsonArray(), ["attrs"] = new JsonObject() }).Sequences[0])] : null,
+        ExonerateFormat = o["exfmt"]?.GetValue<string>() ?? "vulgar",
     };
 
     [Test]
@@ -79,27 +82,38 @@ public class AlignmentCoordinateFormats_Tests
         {
             AlignmentCoordinateFormats.TryParseFormat(r.Format, out var fmt);
             var expected = JsonNode.Parse(r.Data2)!;
-            IReadOnlyList<BioCoordAlignment> actual;
+            CoordinateAlignmentFile actualFile;
             try
             {
-                actual = AlignmentCoordinateFormats.Parse(r.Data1, fmt);
+                actualFile = AlignmentCoordinateFormats.ParseFile(r.Data1, fmt);
             }
             catch (ArgumentException)
             {
-                if (expected is not JsonObject)
+                if (!(expected is JsonObject refusedNode && refusedNode.ContainsKey("error")))
                     failures.Add($"{r.Id} {r.Format} threw but Biopython parsed: {r.Data2}");
                 continue;
             }
 
-            if (expected is JsonObject err)
+            if (expected is JsonObject err && err.ContainsKey("error"))
             {
                 failures.Add($"{r.Id} {r.Format} parsed but Biopython refused ({err["error"]})\n{r.Data1}");
                 continue;
             }
 
-            var actualSpec = new JsonArray(actual.Select(BiopythonCoordOracle.ToSpec).ToArray());
-            if (!BiopythonCoordOracle.Same(actualSpec, expected))
-                failures.Add($"{r.Id} {r.Format}\n--- text\n{r.Data1}--- expected\n{expected.ToJsonString()}\n--- actual\n{actualSpec.ToJsonString()}");
+            var actualSpec = new JsonArray(actualFile.Alignments.Select(BiopythonCoordOracle.ToSpec).ToArray());
+            JsonNode actualNode = actualSpec;
+            if (expected is JsonObject fileLevel && fileLevel.ContainsKey("alignments"))
+            {
+                actualNode = new JsonObject
+                {
+                    ["alignments"] = actualSpec,
+                    ["metadata"] = actualFile.Metadata.DeepClone(),
+                    ["targets"] = new JsonArray(actualFile.Targets.Select(t => BiopythonCoordOracle.ToSpec(new BioCoordAlignment { Sequences = [t], Coordinates = [] })["sequences"]![0]!.DeepClone()).ToArray()),
+                };
+            }
+
+            if (!BiopythonCoordOracle.Same(actualNode, expected))
+                failures.Add($"{r.Id} {r.Format}\n--- text\n{r.Data1}--- expected\n{expected.ToJsonString()}\n--- actual\n{actualNode.ToJsonString()}");
         }
 
         Assert.That(failures, Is.Empty, string.Join("\n=====\n", failures.Take(4)) + $"\n({failures.Count})");

@@ -23,6 +23,15 @@ public static partial class AlignmentCoordinateFormats
             case "chain": format = CoordinateAlignmentFormat.Chain; return true;
             case "maf": format = CoordinateAlignmentFormat.Maf; return true;
             case "mauve": format = CoordinateAlignmentFormat.Mauve; return true;
+            case "sam": format = CoordinateAlignmentFormat.Sam; return true;
+            case "exonerate": format = CoordinateAlignmentFormat.Exonerate; return true;
+            case "bigbed": format = CoordinateAlignmentFormat.BigBed; return true;
+            case "bigmaf": format = CoordinateAlignmentFormat.BigMaf; return true;
+            case "bigpsl": format = CoordinateAlignmentFormat.BigPsl; return true;
+            case "msf": format = CoordinateAlignmentFormat.Msf; return true;
+            case "emboss": format = CoordinateAlignmentFormat.Emboss; return true;
+            case "hhr": format = CoordinateAlignmentFormat.Hhr; return true;
+            case "tabular": format = CoordinateAlignmentFormat.Tabular; return true;
             default: return false;
         }
     }
@@ -42,8 +51,14 @@ public static partial class AlignmentCoordinateFormats
             sb.Append(MafHeader(options.Metadata));
         if (format == CoordinateAlignmentFormat.Mauve)
             sb.Append(MauveHeader(options));
+        if (format == CoordinateAlignmentFormat.Sam)
+            sb.Append(SamHeader(options));
+        if (format == CoordinateAlignmentFormat.Exonerate)
+            sb.Append(ExonerateHeader(options));
         foreach (var a in alignments)
             sb.Append(Format(a, format, options));
+        if (format == CoordinateAlignmentFormat.Exonerate)
+            sb.Append("-- completed exonerate analysis\n");
         return sb.ToString();
     }
 
@@ -58,23 +73,54 @@ public static partial class AlignmentCoordinateFormats
             CoordinateAlignmentFormat.Psl => FormatPsl(alignment, options),
             CoordinateAlignmentFormat.Maf => FormatMaf(alignment),
             CoordinateAlignmentFormat.Mauve => FormatMauve(alignment, options),
-            _ => FormatChain(alignment),
+            CoordinateAlignmentFormat.Sam => FormatSam(alignment, options),
+            CoordinateAlignmentFormat.Exonerate => FormatExonerate(alignment, options),
+            CoordinateAlignmentFormat.Chain => FormatChain(alignment),
+            _ => throw new NotSupportedException($"The {FormatName(format)} format has no per-alignment text writer (use WriteBinary / Parse)."),
         };
     }
 
     /// <summary>Parses the alignments of a text as <c>Bio.Align.parse(handle, format)</c> does.</summary>
     /// <exception cref="ArgumentException">Biopython raises <c>ValueError</c> for the text.</exception>
-    public static IReadOnlyList<BioCoordAlignment> Parse(string text, CoordinateAlignmentFormat format)
+    public static IReadOnlyList<BioCoordAlignment> Parse(string text, CoordinateAlignmentFormat format) => ParseFile(text, format).Alignments;
+
+    /// <summary>Parses a text and returns the alignments together with the file-level attributes of the iterator (<c>metadata</c>, <c>targets</c>).</summary>
+    /// <exception cref="ArgumentException">Biopython raises <c>ValueError</c> (or <c>AssertionError</c>, ...) for the text.</exception>
+    public static CoordinateAlignmentFile ParseFile(string text, CoordinateAlignmentFormat format)
     {
         ArgumentNullException.ThrowIfNull(text);
-        return format switch
+        try
+        {
+            return ParseFileCore(text, format);
+        }
+        catch (Exception e) when (e is IndexOutOfRangeException or ArgumentOutOfRangeException or KeyNotFoundException or InvalidCastException or NullReferenceException or FormatException or OverflowException or InvalidOperationException)
+        {
+            throw new ArgumentException(e.Message, e);
+        }
+    }
+
+    private static CoordinateAlignmentFile ParseFileCore(string text, CoordinateAlignmentFormat format)
+    {
+        switch (format)
+        {
+            case CoordinateAlignmentFormat.Sam: return ParseSam(text);
+            case CoordinateAlignmentFormat.Exonerate: return ParseExonerate(text);
+            case CoordinateAlignmentFormat.BigBed:
+            case CoordinateAlignmentFormat.BigMaf:
+            case CoordinateAlignmentFormat.BigPsl:
+                throw new NotSupportedException("The big* formats are binary: use ParseBinary.");
+        }
+
+        var alignments = format switch
         {
             CoordinateAlignmentFormat.Bed => ParseBed(text),
             CoordinateAlignmentFormat.Psl => ParsePsl(text),
             CoordinateAlignmentFormat.Maf => ParseMaf(text),
             CoordinateAlignmentFormat.Mauve => ParseMauve(text),
-            _ => ParseChain(text),
+            CoordinateAlignmentFormat.Chain => ParseChain(text),
+            _ => throw new NotSupportedException($"The {FormatName(format)} reader is in AlignmentCoordinateReaders."),
         };
+        return new CoordinateAlignmentFile { Alignments = alignments };
     }
 
     // ------------------------------------------------------------------ shared helpers
@@ -160,7 +206,7 @@ public static partial class AlignmentCoordinateFormats
 
     private static string ReverseComplement(string s)
     {
-        bool rna = s.Contains('U') || s.Contains('u');
+        const bool rna = false; // Seq.reverse_complement always uses the DNA table (U -> A, A -> T)
         var sb = new StringBuilder(s.Length);
         for (int i = s.Length - 1; i >= 0; i--)
         {
@@ -243,6 +289,46 @@ public static partial class AlignmentCoordinateFormats
             list.Add(PyInt(p));
         return list;
     }
+
+    /// <summary><c>Seq({start: text}, length=n)</c>: the parts sorted, adjacent parts merged, ValueErrors for overlapping or too long data; a complete sequence is one part at 0.</summary>
+    internal static SortedDictionary<long, string> SeqParts(IEnumerable<KeyValuePair<long, string>> data, long length)
+    {
+        var parts = new SortedDictionary<long, string>();
+        if (length == 0)
+        {
+            parts[0] = "";
+            return parts;
+        }
+
+        if (length < 0)
+            throw new ArgumentException("length must not be negative.");
+        long current = 0, end = -1;
+        foreach (var (start, seq) in data.OrderBy(kv => kv.Key))
+        {
+            if (seq.Any(c => c > 127))
+                throw new ArgumentException("non-ASCII sequence data");
+            if (start < end)
+                throw new ArgumentException("Sequence data are overlapping.");
+            if (start == end)
+            {
+                parts[current] += seq;
+            }
+            else
+            {
+                parts[start] = seq;
+                current = start;
+            }
+
+            end = start + seq.Length;
+        }
+
+        if (end > length)
+            throw new ArgumentException("Provided sequence data extend beyond sequence length.");
+        return parts;
+    }
+
+    /// <summary><c>Seq(None, length=n)</c>: no known residues, except for length 0 which is the empty (defined) sequence.</summary>
+    internal static SortedDictionary<long, string>? UndefinedParts(long length) => length == 0 ? new SortedDictionary<long, string> { [0] = "" } : null;
 
     private static BioCoordSequence Unknown(string? id, long length) => new() { Id = id, Length = length, Parts = null };
 }
