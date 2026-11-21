@@ -97,6 +97,8 @@
     <EmbeddedResource Include="TestData\Alignment\wordmatch_oracle.jsonl.gz" />
     <!-- A5-8c3d (B09 F225): wordmatch with the feature output qualifiers (-offormat4/5 ...) of both feature files; scripts/alignment/generate_wordmatch_featout_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\wordmatch_featout_oracle.jsonl.gz" />
+    <!-- A5-8c3e (B09 F239): wordmatch with the sequence qualifiers of both inputs; scripts/alignment/generate_wordmatch_seqopts_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\wordmatch_seqopts_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\fuzznuc_dup_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\mash_bloom_msh_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\mash_msh_commands_oracle.jsonl.gz" />

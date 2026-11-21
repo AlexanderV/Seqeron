@@ -68,9 +68,10 @@ public static partial class GenomicAnalyzer
     /// <param name="queries">The query texts (<c>-bsequence</c>).</param>
     /// <param name="wordSize">The word size (<c>-wordsize</c>, default 4, at least 2).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
+    /// <param name="nucleotide">The type of the pattern set when it was decided by <c>-snucleotide1</c> / <c>-sprotein1</c> (decides the unknown symbol <c>N</c> / <c>X</c> whose words are left out); null = by the letters of each sequence.</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="wordSize"/> &lt; 2.</exception>
-    public static WordmatchResult Wordmatch(IReadOnlyList<(string Name, string Text)> patterns, IReadOnlyList<string> queries, int wordSize = 4, CancellationToken cancellationToken = default)
+    public static WordmatchResult Wordmatch(IReadOnlyList<(string Name, string Text)> patterns, IReadOnlyList<string> queries, int wordSize = 4, CancellationToken cancellationToken = default, bool? nucleotide = null)
     {
         ArgumentNullException.ThrowIfNull(patterns);
         ArgumentNullException.ThrowIfNull(queries);
@@ -83,7 +84,7 @@ public static partial class GenomicAnalyzer
             if (text.Length < wordSize)
                 continue;
             string upper = text.ToUpperInvariant();
-            char skip = EmbossSequenceReader.IsNucleotide(text) ? 'N' : 'X';
+            char skip = nucleotide ?? EmbossSequenceReader.IsNucleotide(text) ? 'N' : 'X';
             var allowed = WordTableStarts(upper, wordSize, skip);
             for (int p = 0; p + wordSize <= text.Length; p++)
             {
@@ -244,6 +245,9 @@ public sealed record EmbossWordmatchOutput(string Alignments, string Log, string
 
     /// <summary>The name of the file the second feature output is written to.</summary>
     public string? FeatureFileName2 { get; init; }
+
+    /// <summary>The matches the program found (with the sequence qualifiers of the inputs applied).</summary>
+    public WordmatchResult? Result { get; init; }
 }
 
 /// <summary>The files of the EMBOSS 6.6.0 program <c>wordmatch</c> (<c>wordmatch.c</c>; B09 A2-28d, F198): <see cref="GenomicAnalyzer.Wordmatch"/> + the alignment writer + the log + the GFF3 feature files.</summary>
@@ -278,17 +282,34 @@ public static class EmbossWordmatchPrograms
         if (!EmbossAlignmentWriter.TryParseFormat(r.AlignFormat, out var format))
             throw new ArgumentException($"Unknown alignment format '{r.AlignFormat}'.", nameof(r));
         var (inputs, rq) = EmbossSequenceQualifiers.ParseInputsAndReport("wordmatch", r.FeatureQualifiers, true);
-        if (inputs.Any(i => i != EmbossSequenceQualifiers.None))
-            throw new NotSupportedException("The sequence qualifiers of the inputs of wordmatch (-sbegin1, -sreverse2, ...) are not supported; only the feature output qualifiers (-offormat4, -ofopenfile5, ...) are.");
+        bool qualified = inputs.Any(i => i != EmbossSequenceQualifiers.None);
         // the files are created (empty) whether or not -dumpfeat is on
         var out1 = EmbossDiffseqPrograms.OpenFeatureOutput(r.FeatureFile1 ?? "unknown.gff", rq.FeatureOutputs?[0], "gff");
         var out2 = EmbossDiffseqPrograms.OpenFeatureOutput(r.FeatureFile2 ?? "unknown.gff", rq.FeatureOutputs?[1], "gff");
 
         bool nuc = EmbossSequenceReader.IsNucleotide(EmbossSequenceReader.Clean(records1[0].Text));
-        var type2 = nuc ? EmbossSequenceType.Nucleotide : EmbossSequenceType.StopProtein;
-        var set = records1.Select(x => (x.Name, Text: EmbossInputSequence.Read(x.Text, null, EmbossSequenceType.Any).Residues)).ToList();
-        var queries = records2.Select(x => (x.Name, Text: EmbossInputSequence.Read(x.Text, null, type2).Residues)).ToList();
-        var result = GenomicAnalyzer.Wordmatch(set, [.. queries.Select(q => q.Text)], r.WordSize, r.CancellationToken);
+        IReadOnlyList<EmbossSequenceView>? views1 = null, views2 = null;
+        List<(string Name, string Text)> set, queries;
+        if (qualified)
+        {
+            // acdSetSeqset / acdSetSeqall (A5-8c3e, F239): the qualifiers of the first input apply to every member of the set, those of the second to every member of the stream; wordmatch reads the stream
+            // member by member without its -sbegin2 / -send2 (measured on 6.6.0: the whole sequence is scanned), and the set's ranges only cut the residues (the positions of the report start at 1 in the cut sequence)
+            var (_, v1) = EmbossSetInput.ReadAll([.. records1.Select(x => new EmbossSequence(x.Name, x.Text, x.Description, inputs[0]))], EmbossSequenceType.Any, EmbossInputKind.Set);
+            views1 = v1;
+            nuc = v1[0].IsNucleotide;
+            var (_, v2) = EmbossSetInput.ReadAll([.. records2.Select(x => new EmbossSequence(x.Name, x.Text, x.Description, inputs[1] with { Begin = 0, End = 0 }))], nuc ? EmbossSequenceType.Nucleotide : EmbossSequenceType.StopProtein, EmbossInputKind.Stream);
+            views2 = v2;
+            set = [.. records1.Select((x, i) => (x.Name, views1[i].Residues))];
+            queries = [.. records2.Select((x, i) => (x.Name, views2[i].Residues))];
+        }
+        else
+        {
+            var type2 = nuc ? EmbossSequenceType.Nucleotide : EmbossSequenceType.StopProtein;
+            set = [.. records1.Select(x => (x.Name, Text: EmbossInputSequence.Read(x.Text, null, EmbossSequenceType.Any).Residues))];
+            queries = [.. records2.Select(x => (x.Name, Text: EmbossInputSequence.Read(x.Text, null, type2).Residues))];
+        }
+
+        var result = GenomicAnalyzer.Wordmatch(set, [.. queries.Select(q => q.Text)], r.WordSize, r.CancellationToken, qualified ? nuc : null);
         DateTime date = r.RunDate ?? DateTime.Now;
 
         var log = new StringBuilder();
@@ -322,9 +343,12 @@ public static class EmbossWordmatchPrograms
                         continue;
                     if (r.DumpAlign)
                     {
-                        var pairs = hits.Select(h => new EmbossPairAlignment(
-                            new EmbossAlignedSequence(set[i].Name, set[i].Text.Substring(h.PatternStart, h.Length), h.PatternStart, set[i].Text.Length - h.PatternStart - h.Length, Description: records1[i].Description),
-                            new EmbossAlignedSequence(queries[q].Name, queries[q].Text.Substring(h.QueryStart, h.Length), h.QueryStart, queries[q].Text.Length - h.QueryStart - h.Length, Description: records2[q].Description), h.Length)).ToList();
+                        var pairs = hits.Select(h =>
+                        {
+                            var a = new EmbossAlignedSequence(set[i].Name, set[i].Text.Substring(h.PatternStart, h.Length), h.PatternStart, set[i].Text.Length - h.PatternStart - h.Length, Description: records1[i].Description);
+                            var b = new EmbossAlignedSequence(queries[q].Name, queries[q].Text.Substring(h.QueryStart, h.Length), h.QueryStart, queries[q].Text.Length - h.QueryStart - h.Length, Description: records2[q].Description);
+                            return new EmbossPairAlignment(views1 is null ? a : a with { Reversed = views1[i].Reversed }, views2 is null ? b : b with { Reversed = views2[q].Reversed }, h.Length);
+                        }).ToList();
                         writer.Write(pairs);
                     }
 
@@ -368,16 +392,16 @@ public static class EmbossWordmatchPrograms
                         log.Append(w.Word.PadRight(7)).Append(": ").Append(Int(w.Sequences).PadLeft(12)).Append("  ").Append(Int(w.Matches).PadLeft(12)).Append(' ').Append(CFormat.Fixed(w.TotalLength * 1.0 / w.Matches, 2).PadLeft(17)).Append('\n');
             }
 
-            return new EmbossWordmatchOutput(r.DumpAlign ? writer.Close() : "", log.ToString(), featureOutput ? features1.ToString() : "", featureOutput ? features2.ToString() : "") { FeatureFileName1 = out1.File, FeatureFileName2 = out2.File };
+            return new EmbossWordmatchOutput(r.DumpAlign ? writer.Close() : "", log.ToString(), featureOutput ? features1.ToString() : "", featureOutput ? features2.ToString() : "") { FeatureFileName1 = out1.File, FeatureFileName2 = out2.File, Result = result };
         }
 
-        return new EmbossWordmatchOutput(r.DumpAlign ? writer.Close() : "", log.ToString(), "", "") { FeatureFileName1 = out1.File, FeatureFileName2 = out2.File };
+        return new EmbossWordmatchOutput(r.DumpAlign ? writer.Close() : "", log.ToString(), "", "") { FeatureFileName1 = out1.File, FeatureFileName2 = out2.File, Result = result };
     }
 
     // the text of one feature table in the output format (ajFeattableWrite): the table of a sequence with its matches; the writers share one static string (state)
-    private static string FeatureText(string name, string residues, bool nuc, List<EmbossFeature> features, DateTime date, int format, EmbossFeatureWriteState state, ref int written)
+    private static string FeatureText(string name, string residues, bool nuc, List<EmbossFeature> features, DateTime date, int format, EmbossFeatureWriteState state, ref int written, EmbossSequenceView? view = null)
     {
-        var seq = new EmbossReportSequence(name, name, "", "", residues, 1, residues.Length, 0, false, nuc);
+        var seq = new EmbossReportSequence(name, name, "", "", residues, 1, residues.Length, view?.Offset ?? 0, view?.Reversed ?? false, nuc);
         var table = new EmbossReport(seq, features, !nuc, nuc ? "N" : "P", TableLength: residues.Length, WriteWhenEmpty: true);
         string? text = EmbossReportWriter.WriteFeatureTable(table, format, date, "wordmatch", state, written);
         if (text is not null)

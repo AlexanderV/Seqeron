@@ -131,6 +131,20 @@ public class EmbossProgramToolsTests
     }
 
     [Test]
+    public void Wordmatch_SequenceQualifiers_AsTheProgram()
+    {
+        // wordmatch 6.6.0 -sbegin1 3 -send1 18 -sreverse2 -sbegin2 4 -send2 40 (A5-8c3e, F239): the set is cut to residues 3..18, the scanned sequences are reversed (their -sbegin2 / -send2 are ignored by the program)
+        var r = AnalysisTools.Wordmatch(">p1 desc one\nACGTACGTTAGCATCGATCG\n>p2\nTTAGCATCGGGATTACGAT\n", ">g1 genome\nGGACGTACGTTAGCATCGATCGAAATTAGCATCGGGATTACGATTT\n>g2\nCCCTTAGCATCGATCGATCGATGGG\n", 5,
+            featureQualifiers: "-sbegin1 3 -send1 18 -sreverse2 -sbegin2 4 -send2 40");
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.AllMatches, Is.EqualTo(7));
+            Assert.That(r.Alignments, Does.Contain("     5 p1              +       12..16       g1              -       28..24\n     6 p1              +       11..16       g1              -       32..27\n     6 p1              +        1..6        g1              -       44..39\n"));
+            Assert.That(r.FeatureFile1, Does.Contain("##sequence-region p1 1 16\n"));
+        });
+    }
+
+    [Test]
     public void Wordmatch_RabinKarpMatches_AsTheProgram()
     {
         // wordmatch 6.6.0 on p = ACGTACGTAC against g = TTACGTACGTACTT, -wordsize 6 (A2-28d, F198): the two words TACGTA / CGTACG are extended to the right, the match of the second starts inside the first
