@@ -18,7 +18,7 @@ public static partial class AlignmentCoordinateFormats
         {
             if (s is null)
             {
-                seqs.Add(new BioCoordSequence { Id = null, Length = -1 });
+                seqs.Add(new BioCoordSequence { Id = null, Length = -1, Missing = true });
                 continue;
             }
 
@@ -38,6 +38,7 @@ public static partial class AlignmentCoordinateFormats
                 Description = s["description"]?.GetValue<string>() ?? "",
                 Annotations = s["annotations"] is JsonObject an ? (JsonObject)an.DeepClone() : [],
                 LetterAnnotations = s["letter_annotations"] is JsonObject la ? (JsonObject)la.DeepClone() : [],
+                Features = s["features"] is JsonArray fa ? (JsonArray)fa.DeepClone() : [],
             });
         }
 
@@ -55,7 +56,7 @@ public static partial class AlignmentCoordinateFormats
         var seqs = new JsonArray();
         foreach (var s in a.Sequences)
         {
-            if (a.NoCoordinates && ReferenceEquals(s, a.Sequences[0]) && s.Length < 0 && s.Id is null)
+            if (s.Missing)
             {
                 seqs.Add(null);
                 continue;
@@ -78,6 +79,8 @@ public static partial class AlignmentCoordinateFormats
                 o["description"] = s.Description;
             if (s.Annotations.Count > 0)
                 o["annotations"] = s.Annotations.DeepClone();
+            if (s.Features.Count > 0)
+                o["features"] = s.Features.DeepClone();
             if (s.LetterAnnotations.Count > 0)
                 o["letter_annotations"] = s.LetterAnnotations.DeepClone();
             seqs.Add(o);

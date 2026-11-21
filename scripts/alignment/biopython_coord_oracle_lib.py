@@ -93,6 +93,17 @@ def alignment_from(spec):
     return a
 
 
+def location_spec(loc):
+    from Bio.SeqFeature import CompoundLocation
+    if isinstance(loc, CompoundLocation):
+        return {'parts': [location_spec(p) for p in loc.parts], 'operator': loc.operator}
+    return {'start': int(loc.start), 'end': int(loc.end), 'strand': loc.strand}
+
+
+def feature_spec(f):
+    return {'type': f.type, 'location': location_spec(f.location), 'qualifiers': {k: list(v) for k, v in f.qualifiers.items()}}
+
+
 def record_spec(rec):
     if rec is None:
         return None
@@ -119,8 +130,10 @@ def record_spec(rec):
         d['description'] = rec.description
     if rec.annotations:
         d['annotations'] = encode_value(dict(rec.annotations))
+    if rec.features:
+        d['features'] = [feature_spec(f) for f in rec.features]
     if rec.letter_annotations:
-        d['letter_annotations'] = {k: list(v) for k, v in rec.letter_annotations.items()}
+        d['letter_annotations'] = {k: (v if isinstance(v, str) else list(v)) for k, v in rec.letter_annotations.items()}
     return d
 
 

@@ -76,22 +76,25 @@ def run_write(fmt, specs, **kw):
     return stream.getvalue()
 
 
-FILE_LEVEL = {'sam', 'exonerate'}
+FILE_LEVEL = {'sam', 'exonerate', 'msf', 'emboss', 'hhr', 'tabular'}
 
 
 def run_read(fmt, text):
+    import warnings
     try:
-        it = Align.parse(io.StringIO(text), fmt)
-        aligns = list(it)
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter('always')
+            it = Align.parse(io.StringIO(text), fmt)
+            aligns = [a for a in it]
     except Exception as e:  # noqa: BLE001
         return {'error': type(e).__name__}
     if fmt in FILE_LEVEL:
-        return {'alignments': [alignment_spec(a) for a in aligns], 'metadata': getattr(it, 'metadata', {}), 'targets': [record_spec(t) for t in getattr(it, 'targets', [])]}
+        return {'alignments': [alignment_spec(a) for a in aligns], 'metadata': getattr(it, 'metadata', {}), 'targets': [record_spec(t) for t in getattr(it, 'targets', [])], 'warnings': [str(w.message) for w in caught]}
     return [alignment_spec(a) for a in aligns]
 
 
 rows = []
-wanted = set(sys.argv[1:]) or {'bed', 'psl', 'chain', 'maf', 'mauve', 'sam', 'exonerate'}
+wanted = set(sys.argv[1:]) or {'bed', 'psl', 'chain', 'maf', 'mauve', 'sam', 'exonerate', 'msf', 'emboss', 'hhr', 'tabular', 'pslxprot'}
 
 
 def add_write(fmt, specs, **kw):
@@ -323,6 +326,34 @@ if 'mauve' in wanted:
     add_read('mauve', '#FormatVersion Mauve1\n#Sequence1File\ta.fa\n#Sequence2File\ta.fa\n#Sequence1Entry\t1\n#Sequence2Entry\t2\n> 1:1-4 + a\nACGT\n> 2:0-0 + a\n----\n=\n')
     add_read('mauve', '#FormatVersion Mauve1\n#SequenceXFile\ta.fa\n')
 
+if 'pslxprot' in wanted:
+    rng = random.Random('20261303:pslxprot')
+    # PSLX of a protein aligned to translated DNA (strands ++ / +-): the CDS feature of the target
+    AA = 'ACDEFGHIKLMNPQRSTVWY'
+    for i in range(60):
+        spec = dnax_pair('+' if i % 2 == 0 else '-')
+        text = run_write('psl', [spec], header=(i % 3 != 0))
+        lines = [l for l in text.split('\n') if l]
+        n_head = 5 if (i % 3 != 0) else 0
+        out = lines[:n_head]
+        for l in lines[n_head:]:
+            w = l.split('\t')
+            bs = [int(x) for x in w[18].rstrip(',').split(',')]
+            qseqs = ''.join(rng.choice(AA) for _ in range(sum(bs)))
+            pos = 0
+            q_blocks, t_blocks = [], []
+            for b in bs:
+                q_blocks.append(qseqs[pos:pos + b])
+                t_blocks.append(''.join(rng.choice(AA) for _ in range(b)))
+                pos += b
+            out.append('\t'.join(w + [','.join(q_blocks) + ',', ','.join(t_blocks) + ',']))
+        t = '\n'.join(out) + '\n'
+        rows.append(('psl', 'read', '{"cds": true}', t, json.dumps(run_read('psl', t))))
+        if i % 5 == 0:
+            rows.append(('psl', 'read', '{"cds": true}', t + t.split('\n')[-2] + '\n', json.dumps(run_read('psl', t + t.split('\n')[-2] + '\n'))))
+    rows.append(('psl', 'read', '{"cds": true}', '1\t2\t3\t4\t0\t0\t0\t0\t++\tq\t5\t0\t5\tt\t30\t0\t15\t1\t5,\t0,\t0,\tAAAAA,\tAAAAA,\n', json.dumps(run_read('psl', '1\t2\t3\t4\t0\t0\t0\t0\t++\tq\t5\t0\t5\tt\t30\t0\t15\t1\t5,\t0,\t0,\tAAAAA,\tAAAAA,\n'))))
+
+
 class Ctx:
     pass
 
@@ -332,9 +363,19 @@ ctx.rng, ctx.add_write, ctx.add_read, ctx.run_write = rng, add_write, add_read, 
 if 'sam' in wanted or 'exonerate' in wanted:
     import oracle_sections_sam_exonerate as sx
     if 'sam' in wanted:
+        ctx.rng = random.Random('20261303:sam')
         sx.run(ctx)
     if 'exonerate' in wanted:
+        ctx.rng = random.Random('20261303:exonerate')
         sx.run_exonerate(ctx)
+
+ctx.last_rows = lambda fmt, n: [r[3] for r in rows if r[0] == fmt and r[1] == 'read'][-n:]
+if wanted & {'msf', 'emboss', 'hhr', 'tabular'}:
+    import oracle_sections_readers as rd
+    for name in ('msf', 'emboss', 'hhr', 'tabular'):
+        if name in wanted:
+            ctx.rng = random.Random('20261303:' + name)
+            getattr(rd, 'run_' + name)(ctx)
 
 os.makedirs(os.path.dirname(out_path), exist_ok=True)
 existing = []
@@ -343,7 +384,7 @@ if os.path.exists(out_path) and len(sys.argv) > 1:
         if line.startswith('id\t'):
             continue
         f = line.rstrip('\n').split('\t')
-        if f[1] not in wanted:
+        if f[1] not in wanted and not ('pslxprot' in wanted and '"cds"' in f[3]):
             existing.append(f[1:])
 allrows = existing + [list(map(str, r)) if False else [r[0], r[1], esc(r[2]), esc(r[3]), esc(r[4])] for r in rows]
 with open(out_path, 'w', newline='\n') as fh:

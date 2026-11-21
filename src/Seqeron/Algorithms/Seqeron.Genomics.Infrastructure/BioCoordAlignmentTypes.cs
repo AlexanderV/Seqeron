@@ -56,6 +56,12 @@ public sealed class BioCoordSequence
     /// <summary>The annotations of the record (<c>record.annotations</c>: MAF <c>quality</c>, <c>leftStatus</c>, <c>leftCount</c>, <c>rightStatus</c>, <c>rightCount</c>).</summary>
     public JsonObject Annotations { get; init; } = [];
 
+    /// <summary>True for a placeholder that is not a record at all (Biopython's <c>None</c> target of an unmapped SAM line).</summary>
+    public bool Missing { get; init; }
+
+    /// <summary>The features of the record (<c>record.features</c>): objects <c>{"type": "CDS", "location": {"start", "end", "strand"} | {"parts": [...], "operator": "join"}, "qualifiers": {"translation": [...]}}</c>.</summary>
+    public JsonArray Features { get; init; } = [];
+
     /// <summary>The letter annotations of the record (<c>record.letter_annotations</c>: SAM <c>phred_quality</c>).</summary>
     public JsonObject LetterAnnotations { get; init; } = [];
 
@@ -134,4 +140,7 @@ public sealed class CoordinateAlignmentFile
 
     /// <summary>The iterator's <c>targets</c> (SAM header @SQ records); empty when the format has none.</summary>
     public IReadOnlyList<BioCoordSequence> Targets { get; init; } = [];
+
+    /// <summary>The messages of the warnings the reader issues (Biopython's <c>BiopythonParserWarning</c>).</summary>
+    public IReadOnlyList<string> Warnings { get; init; } = [];
 }

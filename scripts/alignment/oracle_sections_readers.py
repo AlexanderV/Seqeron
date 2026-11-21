@@ -56,7 +56,7 @@ def gcg_msf(rng, names, seqs, kind='N', dot='.', lead='  stdout', check_word='Co
     out.append('')
     for i in range(n):
         if lenmode == 'residues':
-            ln = len(seqs[i].replace('-', ''))
+            ln = len(seqs[i].replace('-', '')) if dot == '-' else len(seqs[i])
         else:
             ln = len(seqs[i])
         w = weights[i] if weights else 1.0
@@ -210,7 +210,7 @@ def run_hhr(ctx):
     add_read = ctx.add_read
     tmp = tempfile.mkdtemp()
     try:
-        for i in range(110):
+        for i in range(150):
             n_q = rng.randrange(1, 5)
             base = rseq(rng, AA, rng.randrange(40, 160))
             q = [('query%d %s' % (i, rng.choice(['desc one', 'protein x', 'a'])), base)]
@@ -236,7 +236,7 @@ def run_hhr(ctx):
             text = re.sub(r'(Date\s+).*', r'\1Sat Nov 21 18:57:54 2026', text)
             text = re.sub(r'(Command\s+).*', r'\1hhalign -i q.a3m -t t.a3m -o out.hhr -v 0', text)
             add_read('hhr', text)
-            if i % 6 == 0:
+            if i % 4 == 0:
                 add_read('hhr', text.replace('Done!', 'Done!\nextra'))
                 add_read('hhr', text.replace('Done!\n', ''))
             if i % 9 == 0:
@@ -252,9 +252,10 @@ def run_hhr(ctx):
 # ---------------------------------------------------------------------------- tabular
 
 BLAST_FIELD_SETS = [
-    'std', 'std btop', 'qacc sacc qstart qend sstart send btop', 'qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore btop',
-    'std qlen slen', 'std qseq sseq', 'qacc.ver sacc.ver qstart qend sstart send btop qlen', 'std score', 'std nident positive gaps ppos',
-    'qseqid sseqid qstart qend sstart send btop staxids stitle', 'std qframe sframe', 'std frames', 'qacc sacc evalue bitscore',
+    'std btop', 'qacc sacc qstart qend sstart send btop', 'qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore btop',
+    'std btop qlen slen', 'std btop qseq sseq', 'qacc.ver sacc.ver qstart qend sstart send btop qlen', 'std btop score', 'std btop nident positive gaps ppos',
+    'qseqid sseqid qstart qend sstart send btop staxids stitle', 'std btop qframe sframe', 'std btop frames', 'qacc sacc qstart qend sstart send btop evalue bitscore',
+    'std btop slen', 'qseqid sseqid qstart qend sstart send btop sstrand', 'std', 'qacc sacc evalue bitscore',
 ]
 
 
@@ -322,7 +323,7 @@ def run_tabular(ctx):
             write_a3m(os.path.join(tmp, 'f1.fa'), [('fq%d desc' % i, base)])
             write_a3m(os.path.join(tmp, 'f2.fa'), [('fs%d' % k, related(rng, alphabet, base, 0.15) if k == 0 else rseq(rng, alphabet, 120)) for k in range(3)])
             prog = rng.choice(['ssearch36', 'fasta36', 'glsearch36'])
-            cmd = [prog, '-m', rng.choice(['8CB', '8CC']), '-q', 'f1.fa', 'f2.fa']
+            cmd = [prog, '-m', rng.choice(['8CB', '8CB', '8CB', '8CC']), '-q', 'f1.fa', 'f2.fa']
             if dna:
                 cmd.insert(1, '-n')
             try:

@@ -833,7 +833,7 @@ public static partial class AlignmentCoordinateFormats
         {
             return new BioCoordAlignment
             {
-                Sequences = [new BioCoordSequence { Id = null, Length = -1 }, querySeq],
+                Sequences = [new BioCoordSequence { Id = null, Length = -1, Missing = true }, querySeq],
                 Coordinates = [],
                 NoCoordinates = true,
                 Attributes = attrs,

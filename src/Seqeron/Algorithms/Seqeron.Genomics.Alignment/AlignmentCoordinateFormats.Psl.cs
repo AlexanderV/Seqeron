@@ -320,18 +320,29 @@ public static partial class AlignmentCoordinateFormats
             BioCoordSequence target, query;
             if (pslx)
             {
-                if (protein)
-                    throw new NotSupportedException("A PSLX line of a protein aligned to translated DNA (strand ++ / +-) carries a CDS feature with the translation; it is not read by this library.");
                 var qSeqs = words[21].TrimEnd(',').Split(',');
                 var tSeqs = words[22].TrimEnd(',').Split(',');
-                var qParts = new SortedDictionary<long, string>();
-                var tParts = new SortedDictionary<long, string>();
-                for (int i = 0; i < Math.Min(qStartsL.Count, qSeqs.Length); i++) qParts[qStartsL[i]] = qSeqs[i];
-                for (int i = 0; i < Math.Min(tStartsL.Count, tSeqs.Length); i++) tParts[tStartsL[i]] = tSeqs[i];
-                target = new BioCoordSequence { Id = tName, Length = tSize, Parts = tParts };
-                query = new BioCoordSequence { Id = qName, Length = qSize, Parts = qParts };
-                if (strand == "-")
-                    query = ReverseComplement(query);
+                var qData = new Dictionary<long, string>();
+                for (int i = 0; i < Math.Min(qStartsL.Count, qSeqs.Length); i++)
+                    qData[qStartsL[i]] = qSeqs[i];
+                var features = new JsonArray();
+                if (protein)
+                {
+                    target = new BioCoordSequence { Id = tName, Length = tSize, Parts = UndefinedParts(tSize) };
+                    query = new BioCoordSequence { Id = qName, Length = qSize, Parts = SeqParts(qData, qSize) };
+                    features.Add(CdsFeature(co, strand == "++", string.Concat(tSeqs)));
+                    target = new BioCoordSequence { Id = target.Id, Length = target.Length, Parts = target.Parts, Features = features };
+                }
+                else
+                {
+                    var tData = new Dictionary<long, string>();
+                    for (int i = 0; i < Math.Min(tStartsL.Count, tSeqs.Length); i++)
+                        tData[tStartsL[i]] = tSeqs[i];
+                    target = new BioCoordSequence { Id = tName, Length = tSize, Parts = SeqParts(tData, tSize) };
+                    query = new BioCoordSequence { Id = qName, Length = qSize, Parts = SeqParts(qData, qSize) };
+                    if (strand == "-")
+                        query = ReverseComplement(query);
+                }
             }
             else
             {
@@ -344,5 +355,37 @@ public static partial class AlignmentCoordinateFormats
         }
 
         return result;
+    }
+
+    /// <summary>The <c>CDS</c> feature of the target of a protein-vs-translated-DNA PSLX line (<c>++</c>: strand +1 locations walking the columns forward, <c>+-</c>: strand -1).</summary>
+    private static JsonObject CdsFeature(long[][] co, bool forward, string translation)
+    {
+        var locations = new List<JsonObject>();
+        long tStart = co[0][0], qStart = co[1][0], tEnd = co[0][0];
+        if (!forward)
+            tEnd = co[0][0];
+        for (int c = 1; c < co[0].Length; c++)
+        {
+            long tNext = co[0][c], qEnd = co[1][c];
+            if (forward)
+            {
+                if (qStart < qEnd && tStart < tNext)
+                    locations.Add(new JsonObject { ["start"] = tStart, ["end"] = tNext, ["strand"] = 1 });
+                tStart = tNext;
+            }
+            else
+            {
+                if (qStart < qEnd && tNext < tEnd)
+                    locations.Add(new JsonObject { ["start"] = tNext, ["end"] = tEnd, ["strand"] = -1 });
+                tEnd = tNext;
+            }
+
+            qStart = qEnd;
+        }
+
+        if (locations.Count == 0)
+            throw new ArgumentException("UnboundLocalError: location");
+        JsonNode location = locations.Count > 1 ? new JsonObject { ["parts"] = new JsonArray(locations.Select(l => (JsonNode)l).ToArray()), ["operator"] = "join" } : locations[^1];
+        return new JsonObject { ["type"] = "CDS", ["location"] = location, ["qualifiers"] = new JsonObject { ["translation"] = new JsonArray(JsonValue.Create(translation)) } };
     }
 }

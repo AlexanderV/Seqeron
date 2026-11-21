@@ -1,6 +1,6 @@
 # parse_coordinate_alignment
 
-Reads the alignments of a BED, PSL / PSLX, chain, MAF or Mauve xmfa file as Bio.Align.parse does and returns them as JSON objects {"sequences", "coordinates", "attrs"} (see write_coordinate_alignment): sequences with their lengths and the residues a PSLX file defines, the block coordinates (a decreasing coordinate = reverse strand), score / matches / misMatches / repMatches / nCount / thickStart / thickEnd / itemRgb / annotations.id as the format carries them. Text Biopython refuses (inconsistent columns, block counts, starts and ends) is refused with the same condition; a PSLX line of a protein aligned to translated DNA is not read. VERIFICATION: equal to Biopython 1.88 on 860 / 860 committed texts.
+Reads the alignments of a BED, PSL / PSLX (nucleotides, and a protein aligned to translated DNA with its CDS feature), chain, MAF, Mauve xmfa, SAM (header metadata and targets, MD tag, hard / soft clips, qualities, tags), Exonerate vulgar / cigar, GCG MSF, EMBOSS pair / srspair / simple (needle, water, stretcher), HHsearch hhr or BLAST / FASTA tabular (-outfmt 7, -m 8CB / 8CC) file as Bio.Align.parse does and returns them as JSON objects {"sequences", "coordinates", "attrs"} (see write_coordinate_alignment): sequences with their lengths and the residues a PSLX file defines, the block coordinates (a decreasing coordinate = reverse strand), score / matches / misMatches / repMatches / nCount / thickStart / thickEnd / itemRgb / annotations.id as the format carries them. Text Biopython refuses (inconsistent columns, block counts, starts and ends) is refused with the same condition; the file-level values (the iterator's metadata, the SAM targets, the parser warnings) are returned in metadataJson / targetsJson / warnings. VERIFICATION: equal to Biopython 1.88 on 2 331 / 2 331 committed texts (incl. EMBOSS 6.6.0, HH-suite 3.3.0, BLAST+ and fasta36 outputs).
 
 ## Overview
 
@@ -14,7 +14,7 @@ Reads the alignments of a BED, PSL / PSLX, chain, MAF or Mauve xmfa file as Bio.
 
 ## Description
 
-Reads the alignments of a BED, PSL / PSLX, chain, MAF or Mauve xmfa file as Bio.Align.parse does and returns them as JSON objects {"sequences", "coordinates", "attrs"} (see write_coordinate_alignment): sequences with their lengths and the residues a PSLX file defines, the block coordinates (a decreasing coordinate = reverse strand), score / matches / misMatches / repMatches / nCount / thickStart / thickEnd / itemRgb / annotations.id as the format carries them. Text Biopython refuses (inconsistent columns, block counts, starts and ends) is refused with the same condition; a PSLX line of a protein aligned to translated DNA is not read. VERIFICATION: equal to Biopython 1.88 on 860 / 860 committed texts.
+Reads the alignments of a BED, PSL / PSLX (nucleotides, and a protein aligned to translated DNA with its CDS feature), chain, MAF, Mauve xmfa, SAM (header metadata and targets, MD tag, hard / soft clips, qualities, tags), Exonerate vulgar / cigar, GCG MSF, EMBOSS pair / srspair / simple (needle, water, stretcher), HHsearch hhr or BLAST / FASTA tabular (-outfmt 7, -m 8CB / 8CC) file as Bio.Align.parse does and returns them as JSON objects {"sequences", "coordinates", "attrs"} (see write_coordinate_alignment): sequences with their lengths and the residues a PSLX file defines, the block coordinates (a decreasing coordinate = reverse strand), score / matches / misMatches / repMatches / nCount / thickStart / thickEnd / itemRgb / annotations.id as the format carries them. Text Biopython refuses (inconsistent columns, block counts, starts and ends) is refused with the same condition; the file-level values (the iterator's metadata, the SAM targets, the parser warnings) are returned in metadataJson / targetsJson / warnings. VERIFICATION: equal to Biopython 1.88 on 2 331 / 2 331 committed texts (incl. EMBOSS 6.6.0, HH-suite 3.3.0, BLAST+ and fasta36 outputs).
 
 ## Core Documentation Reference
 
@@ -27,7 +27,7 @@ Reads the alignments of a BED, PSL / PSLX, chain, MAF or Mauve xmfa file as Bio.
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `text` | string | Yes | The text of the file. |
-| `format` | string | No | Format: bed, psl, chain, maf or mauve. (default: psl) |
+| `format` | string | No | Format: bed, psl, chain, maf, mauve, sam, exonerate, msf, emboss, hhr or tabular. (default: psl) |
 
 ## Output Schema
 

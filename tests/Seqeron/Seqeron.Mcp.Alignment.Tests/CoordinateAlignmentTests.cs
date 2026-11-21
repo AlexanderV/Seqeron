@@ -54,7 +54,19 @@ public class CoordinateAlignmentTests
     [Test]
     public void UnknownFormat_IsRefused()
     {
-        Assert.Throws<ArgumentException>(() => AlignmentTools.WriteCoordinateAlignment([Alignment], "sam"));
-        Assert.Throws<ArgumentException>(() => AlignmentTools.ParseCoordinateAlignment("x", "sam"));
+        Assert.Throws<ArgumentException>(() => AlignmentTools.WriteCoordinateAlignment([Alignment], "bogus"));
+        Assert.Throws<ArgumentException>(() => AlignmentTools.ParseCoordinateAlignment("x", "bogus"));
+    }
+
+    [Test]
+    public void Write_And_Parse_Sam_And_Exonerate_EqualBiopython()
+    {
+        var sam = AlignmentTools.WriteCoordinateAlignment([Alignment], "sam", md: true, metadataJson: "{\"HD\": {\"VN\": \"1.6\"}}", targetsJson: "[{\"id\": \"chr1\", \"length\": 20}]");
+        Assert.That(sam.Text, Is.EqualTo("@HD\tVN:1.6\n@SQ\tSN:chr1\tLN:20\tDS:\nq1\t0\tchr1\t3\t255\t6M2D6M\t*\t0\t0\tACGTACTAAGGT\t*\tMD:Z:0G0T0A0C0G0T^AA0G0G0T0T0A0C\tAS:i:42\n"));
+        var parsed = AlignmentTools.ParseCoordinateAlignment(sam.Text, "sam");
+        Assert.That(JsonNode.Parse(parsed.Text)!.AsArray(), Has.Count.EqualTo(1));
+        var vulgar = AlignmentTools.WriteCoordinateAlignment([Alignment], "exonerate", exonerateFormat: "cigar");
+        Assert.That(vulgar.Text, Is.EqualTo("Command line: []\nHostname: []\ncigar: q1 0 12 + chr1 2 16 + 42 M 6 D 2 M 6\n-- completed exonerate analysis\n"));
+        Assert.That(AlignmentTools.ParseCoordinateAlignment(vulgar.Text, "exonerate").Count, Is.EqualTo(1));
     }
 }

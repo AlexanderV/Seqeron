@@ -105,6 +105,10 @@ public static partial class AlignmentCoordinateFormats
         {
             case CoordinateAlignmentFormat.Sam: return ParseSam(text);
             case CoordinateAlignmentFormat.Exonerate: return ParseExonerate(text);
+            case CoordinateAlignmentFormat.Msf: return ParseMsf(text);
+            case CoordinateAlignmentFormat.Emboss: return ParseEmboss(text);
+            case CoordinateAlignmentFormat.Hhr: return ParseHhr(text);
+            case CoordinateAlignmentFormat.Tabular: return ParseTabular(text);
             case CoordinateAlignmentFormat.BigBed:
             case CoordinateAlignmentFormat.BigMaf:
             case CoordinateAlignmentFormat.BigPsl:
@@ -330,5 +334,5 @@ public static partial class AlignmentCoordinateFormats
     /// <summary><c>Seq(None, length=n)</c>: no known residues, except for length 0 which is the empty (defined) sequence.</summary>
     internal static SortedDictionary<long, string>? UndefinedParts(long length) => length == 0 ? new SortedDictionary<long, string> { [0] = "" } : null;
 
-    private static BioCoordSequence Unknown(string? id, long length) => new() { Id = id, Length = length, Parts = null };
+    private static BioCoordSequence Unknown(string? id, long length) => new() { Id = id, Length = length, Parts = UndefinedParts(length) };
 }

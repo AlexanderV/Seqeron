@@ -16,7 +16,9 @@ public class AlignmentCoordinateFormats_Tests
 {
     private static readonly Lazy<List<BiopythonCoordOracle.Row>> Oracle = new(BiopythonCoordOracle.Load);
 
-    private static readonly string[] Formats = ["bed", "psl", "chain", "maf", "mauve", "sam", "exonerate"];
+    private static readonly string[] WriterFormats = ["bed", "psl", "chain", "maf", "mauve", "sam", "exonerate"];
+
+    private static readonly string[] Formats = [.. WriterFormats, "msf", "emboss", "hhr", "tabular"];
 
     private static CoordinateWriteOptions Options(JsonObject o) => new()
     {
@@ -38,7 +40,8 @@ public class AlignmentCoordinateFormats_Tests
         {
             foreach (var f in Formats)
             {
-                Assert.That(Oracle.Value.Count(r => r.Format == f && r.Kind == "write"), Is.GreaterThanOrEqualTo(100), f + " writers");
+                if (WriterFormats.Contains(f))
+                    Assert.That(Oracle.Value.Count(r => r.Format == f && r.Kind == "write"), Is.GreaterThanOrEqualTo(100), f + " writers");
                 Assert.That(Oracle.Value.Count(r => r.Format == f && r.Kind == "read"), Is.GreaterThanOrEqualTo(70), f + " readers");
                 Assert.That(Oracle.Value.Count(r => r.Format == f), Is.GreaterThanOrEqualTo(200), f);
             }
@@ -49,7 +52,7 @@ public class AlignmentCoordinateFormats_Tests
     public void Write_EveryRow_IsByteEqualToBiopython()
     {
         var failures = new List<string>();
-        foreach (var r in Oracle.Value.Where(r => r.Kind == "write" && Formats.Contains(r.Format)))
+        foreach (var r in Oracle.Value.Where(r => r.Kind == "write" && WriterFormats.Contains(r.Format)))
         {
             AlignmentCoordinateFormats.TryParseFormat(r.Format, out var fmt);
             var aligns = JsonNode.Parse(r.Data1)!.AsArray().Select(s => BiopythonCoordOracle.FromSpec(s!)).ToList();
@@ -71,7 +74,7 @@ public class AlignmentCoordinateFormats_Tests
                 failures.Add($"{r.Id} {r.Format} {r.Options}\n--- expected\n{r.Data2}--- actual\n{actual}");
         }
 
-        Assert.That(failures, Is.Empty, string.Join("\n=====\n", failures.Take(4)) + $"\n({failures.Count})");
+        Assert.That(failures, Is.Empty, string.Join("\n=====\n", failures.Take(4)) + $"\n({failures.Count}: {string.Join(", ", failures.GroupBy(f => f.Split(' ')[1].Split('\n')[0]).Select(g => g.Key + '=' + g.Count()))})");
     }
 
     [Test]
@@ -110,12 +113,14 @@ public class AlignmentCoordinateFormats_Tests
                     ["metadata"] = actualFile.Metadata.DeepClone(),
                     ["targets"] = new JsonArray(actualFile.Targets.Select(t => BiopythonCoordOracle.ToSpec(new BioCoordAlignment { Sequences = [t], Coordinates = [] })["sequences"]![0]!.DeepClone()).ToArray()),
                 };
+                if (fileLevel.ContainsKey("warnings"))
+                    actualNode["warnings"] = new JsonArray(actualFile.Warnings.Select(w => (JsonNode)JsonValue.Create(w)!).ToArray());
             }
 
             if (!BiopythonCoordOracle.Same(actualNode, expected))
                 failures.Add($"{r.Id} {r.Format}\n--- text\n{r.Data1}--- expected\n{expected.ToJsonString()}\n--- actual\n{actualNode.ToJsonString()}");
         }
 
-        Assert.That(failures, Is.Empty, string.Join("\n=====\n", failures.Take(4)) + $"\n({failures.Count})");
+        Assert.That(failures, Is.Empty, string.Join("\n=====\n", failures.Take(4)) + $"\n({failures.Count}: {string.Join(", ", failures.GroupBy(f => f.Split(' ')[1].Split('\n')[0]).Select(g => g.Key + '=' + g.Count()))})");
     }
 }

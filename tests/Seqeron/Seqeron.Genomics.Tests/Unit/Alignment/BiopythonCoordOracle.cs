@@ -55,5 +55,5 @@ internal static class BiopythonCoordOracle
         }
     }
 
-    private static double ToDouble(JsonValue v) => v.TryGetValue<long>(out var l) ? l : v.GetValue<double>();
+    private static double ToDouble(JsonValue v) => System.Text.Json.JsonSerializer.SerializeToElement(v).GetDouble();
 }
