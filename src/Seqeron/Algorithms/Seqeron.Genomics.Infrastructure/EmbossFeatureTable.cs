@@ -2,40 +2,77 @@ using System.Text;
 
 namespace Seqeron.Genomics.Infrastructure;
 
-/// <summary>The flags of a feature location (<c>AJFEATFLAG_*</c> of <c>ajfeat.h</c>; the values are private to this port).</summary>
+/// <summary>The flags of a feature location (<c>AJFEATFLAG_*</c> of <c>ajfeatdata.h</c>, with the values of the library: the debug trace prints them in hexadecimal).</summary>
 [Flags]
-internal enum EmbossLocationBits
+internal enum EmbossLocationBits : uint
 {
     None = 0,
-    StartBeforeSeq = 1,
-    EndAfterSeq = 2,
-    Point = 4,
-    BetweenSeq = 8,
-    RemoteId = 16,
-    Label = 32,
-    StartTwo = 64,
-    EndTwo = 128,
-    Multiple = 256,
-    Order = 512,
-    ComplementMain = 1024,
-    StartUnsure = 2048,
-    EndUnsure = 4096,
+    StartBeforeSeq = 0x0001,
+    EndAfterSeq = 0x0002,
+    Generated = 0x0004,
+    BetweenSeq = 0x0008,
+    StartTwo = 0x0010,
+    EndTwo = 0x0020,
+    Point = 0x0040,
+    ComplementMain = 0x0080,
+    Multiple = 0x0100,
+    Group = 0x0200,
+    Order = 0x0400,
+    OneOf = 0x0800,
+    RemoteId = 0x1000,
+    Label = 0x2000,
+    StartUnsure = 0x4000,
+    EndUnsure = 0x8000,
 }
 
-/// <summary>The state the feature library keeps between the features of ONE program run: <c>featRegSpecialRptunitSeq</c> is a static shared by the checks of <c>/rpt_unit</c> and <c>/rpt_unit_seq</c>, each of which compiles ITS pattern into it when it is still empty (the first of the two to run decides for both).</summary>
+/// <summary>The state the feature library keeps between the features and the tables of ONE program run: <c>featRegSpecialRptunitSeq</c> is a static shared by the checks of <c>/rpt_unit</c> and <c>/rpt_unit_seq</c>, each of which compiles ITS pattern into it when it is still empty (the first of the two to run decides for both); the statics of the GFF group readers and of the format readers (the feature the last call created) live here too.</summary>
 internal sealed class EmbossFeatureReadContext
 {
     public System.Text.RegularExpressions.Regex? RptUnitSeq;
+
+    /// <summary>The messages the library printed (<c>ajWarn</c> / <c>ajErr</c>: <c>Warning: ...</c>, <c>Error: ...</c>) in the order they were printed.</summary>
+    public List<string> Messages = [];
+
+    /// <summary><c>ajFeatWarn</c> / <c>ajWarn</c>.</summary>
+    public void Warn(string message) => Messages.Add("Warning: " + message);
+
+    /// <summary><c>ajErr</c>.</summary>
+    public void Error(string message) => Messages.Add("Error: " + message);
+
+    /// <summary><c>featRegMore</c>: the pattern of the flag lists of the GFF readers, compiled by the first of <c>featFlagSet</c> / <c>featGff3FlagSet</c> that runs.</summary>
+    public System.Text.RegularExpressions.Regex? RegMore;
+
+    /// <summary><c>ajUtilGetProgram</c>: the source of a feature without one.</summary>
+    public string Program = "featcopy";
+
+    // featSaveGroup / featSaveGroupStr / featSaveExon of ajfeatread.c
+    public uint SaveGroup;
+    public string? SaveGroupStr;
+    public uint SaveExon;
+
+    // the "static AjPFeature gf" of featEmblFromLine / featSwissFromLine / featRefseqpFromLine / featPirFromLine
+    public EmbossSeqFeature? EmblGf;
+    public EmbossSeqFeature? SwissGf;
+    public EmbossSeqFeature? RefseqpGf;
+    public EmbossSeqFeature? PirGf;
 }
 
-/// <summary>A feature of a feature table as the EMBOSS library holds it (<c>AjSFeature</c>): the (external) type, the location, the strand and the tags in the order they were added; a join / order location is one feature with its exons as <see cref="Subfeatures"/>.</summary>
+/// <summary>A feature of a feature table as the EMBOSS library holds it (<c>AjSFeature</c>): the (internal) type, the source, the location, the strand and the tags in the order they were added; a join / order location is one feature with its exons as <see cref="Subfeatures"/>.</summary>
 internal sealed class EmbossSeqFeature
 {
+    public string Source = "";
     public string Type = "";
     public int Start, End, Start2, End2, Frame, Exon;
+    public uint Group;
+    public float Score;
+    public bool Protein;
+    public string? Remote, Label;
     public EmbossLocationBits Flags;
     public char Strand;
     public List<(string Name, string Value)> Tags = [];
+
+    /// <summary>The GFF3 special tags (<c>ID</c>, <c>Name</c>, <c>Alias</c>, <c>Parent</c>, ...; <c>GffTags</c>).</summary>
+    public List<(string Name, string Value)> GffTags = [];
     public List<EmbossSeqFeature>? Subfeatures;
 
     /// <summary><c>ajFeatGetStart</c>: the second position of an uncertain start when it is the lower.</summary>
@@ -49,7 +86,7 @@ internal sealed class EmbossSeqFeature
 /// A nucleotide feature table read from the features of a GenBank / EMBL entry (<c>ajfeatread.c</c> <c>featReadEmbl</c>, <c>featEmblFromLine</c>, <c>featEmblProcess</c> and the location / tag readers; <c>ajfeat.c</c> <c>ajFeatNewNucFlags</c>,
 /// <c>ajFeatTagAddSS</c>, <c>ajFeattableTrimOff</c>, <c>ajFeattableReverse</c>, <c>ajFeatReverse</c>, <c>ajFeatTrimOffRange</c>; EMBOSS 6.6.0, kimrutherford/EMBOSS at raw.githubusercontent.com). A5-8c3b, B09 F218.
 /// </summary>
-internal sealed class EmbossSeqFeatureTable
+internal sealed partial class EmbossSeqFeatureTable
 {
     /// <summary>The features in table order (the parents of the join / order locations).</summary>
     public List<EmbossSeqFeature> Features = [];
@@ -63,19 +100,58 @@ internal sealed class EmbossSeqFeatureTable
     /// <summary>The entry name (<c>thys-&gt;Seqid</c>).</summary>
     public string SeqId = "";
 
+    /// <summary>The sequence type of the table (<c>thys-&gt;Type</c>: <c>N</c>, <c>P</c>, or empty while it is not known).</summary>
+    public string Type = "";
+
+    /// <summary>The first and last position used (<c>thys-&gt;Start</c>, <c>thys-&gt;End</c>) and the offset when trimmed.</summary>
+    public uint Start, End, Offset;
+
+    /// <summary>The largest group number (<c>thys-&gt;Groups</c>).</summary>
+    public uint Groups;
+
+    /// <summary>The name of the input format the table was read with (<c>thys-&gt;Formatstr</c>) and its index in the table of input formats (<c>thys-&gt;Format</c>).</summary>
+    public string FormatName = "";
+
+    public int Format;
+
+    /// <summary>The table is of a circular molecule (<c>thys-&gt;Circular</c>).</summary>
+    public bool Circular;
+
+    private EmbossFeatureReadContext _context = new();
+
+    /// <summary>The state of the feature library the table is read with.</summary>
+    public EmbossFeatureReadContext Context => _context;
+
+    /// <summary>A new, empty table (<c>ajFeattableNew</c>).</summary>
+    public EmbossSeqFeatureTable(EmbossFeatureReadContext? context = null)
+    {
+        _context = context ?? new EmbossFeatureReadContext();
+    }
+
     // ---------------------------------------------------------------------------------------------------------------- reading
 
     /// <summary>
     /// <c>featReadEmbl</c> over the lines of ONE entry: the <c>FT</c> lines of an EMBL entry, the feature lines (five blanks) after <c>FEATURES</c> of a GenBank entry. Reading stops at <c>//</c>.
     /// </summary>
+    /// <param name="entryLines">The lines of the entry.</param>
     /// <param name="context">The state of the feature library shared by the entries of one program run (<see cref="EmbossFeatureReadContext"/>); null = a fresh one.</param>
     public static EmbossSeqFeatureTable Read(IEnumerable<string> entryLines, EmbossFeatureReadContext? context = null)
     {
         ArgumentNullException.ThrowIfNull(entryLines);
-        var table = new EmbossSeqFeatureTable { _context = context ?? new EmbossFeatureReadContext() };
+        var table = new EmbossSeqFeatureTable(context);
+        var lines = new EmbossFeatureLines([.. entryLines]);
+        table.ReadEmbl(lines);
+        return table;
+    }
+
+    /// <summary><c>featReadEmbl</c>: false when the lines held no feature.</summary>
+    internal bool ReadEmbl(EmbossFeatureLines file)
+    {
+        bool found = false, isGenbank = false;
         string saveFeature = "", saveLoc = "", saveLine = "";
-        bool isGenbank = false;
-        foreach (string raw in entryLines)
+        SetType("N");
+        string? raw;
+        while ((raw = file.Next()) is not null)
         {
             string line = raw;
             if (line.StartsWith("//", StringComparison.Ordinal))
@@ -84,19 +160,16 @@ internal sealed class EmbossSeqFeatureTable
             {
                 isGenbank = false;
                 string[] tokens = line.Split([' ', ';', '\t', '\n', '\r'], StringSplitOptions.RemoveEmptyEntries);
-                table.SeqId = tokens.Length > 1 ? tokens[1] : "";
+                SeqId = tokens.Length > 1 ? tokens[1] : "";
             }
             else if (line.StartsWith("LOCUS ", StringComparison.Ordinal) || line.StartsWith("FEATURES  ", StringComparison.Ordinal))
             {
                 isGenbank = true;
             }
-            else if (line.StartsWith("FT   ", StringComparison.Ordinal))
+            else if (line.StartsWith("FT   ", StringComparison.Ordinal) || (isGenbank && line.StartsWith("     ", StringComparison.Ordinal)))
             {
-                table.FromLine(line.TrimEnd(' ', '\t', '\n', '\r'), ref saveFeature, ref saveLoc, ref saveLine);
-            }
-            else if (isGenbank && line.StartsWith("     ", StringComparison.Ordinal))
-            {
-                table.FromLine(line.TrimEnd(' ', '\t', '\n', '\r'), ref saveFeature, ref saveLoc, ref saveLine);
+                if (FromLine(line.TrimEnd(' ', '\t', '\n', '\r'), ref saveFeature, ref saveLoc, ref saveLine, false))
+                    found = true;
             }
             else if (isGenbank)
             {
@@ -104,19 +177,27 @@ internal sealed class EmbossSeqFeatureTable
             }
         }
 
-        table.FromLine(null, ref saveFeature, ref saveLoc, ref saveLine);
-        return table;
+        if (FromLine(null, ref saveFeature, ref saveLoc, ref saveLine, false))
+            found = true;
+        return found;
     }
 
-    // featEmblFromLine
-    private void FromLine(string? origLine, ref string saveFeature, ref string saveLoc, ref string saveLine)
+    /// <summary><c>ajFeattableSetNuc</c> / <c>ajFeattableSetProt</c>: the type is set when it is still empty.</summary>
+    internal void SetType(string type)
+    {
+        if (Type.Length == 0)
+            Type = type;
+    }
+
+    // featEmblFromLine / featRefseqpFromLine (the two differ only in the processing of a finished feature): the feature the call finished is returned (the "static" one of the library: the last one, even when this call finished none)
+    internal bool FromLine(string? origLine, ref string saveFeature, ref string saveLoc, ref string saveLine, bool refseqp)
     {
         string line = "";
         bool newFeature = false, doFeature = false;
         if (origLine is not null)
         {
             line = origLine.Length >= 5 ? origLine[5..] : "";
-            if (line.Length > 0 && line[0] != ' ')
+            if (line.Length == 0 || line[0] != ' ')                 // ajStrGetCharFirst of an empty string is the end-of-string character: not a blank
             {
                 newFeature = true;
                 if (saveLoc.Length > 0)
@@ -128,22 +209,25 @@ internal sealed class EmbossSeqFeatureTable
             doFeature = true;
         }
 
+        EmbossSeqFeature? gf = refseqp ? _context.RefseqpGf : _context.EmblGf;
         if (doFeature)
         {
-            Process(saveFeature, ref saveLoc, ref saveLine);
+            gf = refseqp ? ProcessProtein(saveFeature, ref saveLoc, ref saveLine) : Process(saveFeature, ref saveLoc, ref saveLine);
+            if (refseqp)
+                _context.RefseqpGf = gf;
+            else
+                _context.EmblGf = gf;
             saveLoc = "";
             saveLine = "";
         }
 
         if (origLine is null)
-            return;
+            return refseqp ? gf is not null : doFeature && gf is not null;
         line = RemoveWhiteExcess(line);
         if (newFeature)
         {
-            // ajStrTokenAssignC(" "), the key, then the location up to a blank or '/', then the rest of the string
             int p = 0;
-            string key = NextToken(line, ref p, " ");
-            saveFeature = key;
+            saveFeature = NextToken(line, ref p, " ");
             string loc = NextToken(line, ref p, " /");
             if (loc.Length > 0 || p < line.Length)
             {
@@ -152,16 +236,15 @@ internal sealed class EmbossSeqFeatureTable
             }
             else
             {
-                saveLoc = "";
-                saveLine = "";                                              // location only
+                saveLoc = loc;
+                saveLine = "";
             }
 
-            return;
+            return gf is not null;
         }
 
         if (saveLine.Length == 0 && (line.Length == 0 || line[0] != '/'))
         {
-            // no tag-values yet: more of the location
             int p = 0;
             string temp = NextToken(line, ref p, " ");
             if (temp.Length > 0)
@@ -169,10 +252,11 @@ internal sealed class EmbossSeqFeatureTable
             string rest = p < line.Length ? line[p..] : "";
             if (rest.Length > 0)
                 saveLine += rest;
-            return;
+            return gf is not null;
         }
 
         saveLine += " " + line;                                              // tag-values continued
+        return gf is not null;
     }
 
     // ajStrTokenNextParseC: skips the leading delimiters, takes the characters up to the next delimiter, and steps over ONE delimiter
@@ -214,10 +298,15 @@ internal sealed class EmbossSeqFeatureTable
 
     private static string RemoveWhite(string s) => string.Concat(s.Where(c => !char.IsWhiteSpace(c)));
 
-    // featEmblProcess
-    private void Process(string feature, ref string loc, ref string tags)
+    private EmbossSeqFeature? Process(string feature, ref string loc, ref string tags) => ProcessCore(feature, ref loc, ref tags, false);
+
+    private EmbossSeqFeature? ProcessProtein(string feature, ref string loc, ref string tags) => ProcessCore(feature, ref loc, ref tags, true);
+
+    // featEmblProcess / featRefseqpProcess
+    private EmbossSeqFeature? ProcessCore(string feature, ref string loc, ref string tags, bool protein)
     {
         EmbossSeqFeature? ret = null, gf = null;
+        string source = protein ? "REFSEQP" : "EMBL";
         bool fwd = true, join = false, order = false, parent = true;
         char strand;
         int frame = 0;
@@ -241,6 +330,8 @@ internal sealed class EmbossSeqFeatureTable
                     join = true;
                 else if (opnam.Equals("order", StringComparison.OrdinalIgnoreCase) || opnam.Equals("group", StringComparison.OrdinalIgnoreCase))
                     order = true;
+                else
+                    _context.Warn($"{SeqId}: unrecognised operator '{opnam}()' in '{opval}'");
                 opval = inner;
             }
         }
@@ -290,6 +381,7 @@ internal sealed class EmbossSeqFeatureTable
                 isLabel = true;
                 simple = true;
                 featLabel = begstr;
+                _context.Warn($"{SeqId}: Simple feature location '{begstr}' in '{locstr}'");
             }
 
             if (LocNum(endstr, out endBound, out endNum))
@@ -305,10 +397,13 @@ internal sealed class EmbossSeqFeatureTable
                 isLabel = true;
                 simple = true;
                 featLabel = endstr;
+                _context.Error($"{SeqId}: Simple feature end '{begstr}' in '{locstr}'");
             }
 
             var flags = EmbossLocationBits.None;
             strand = locFwd ? '+' : '-';
+            if (isLabel)
+                _context.Warn($"{SeqId}: Feature location with label '{locstr}'");
             if (simple) flags |= EmbossLocationBits.Point;
             if (between) flags |= EmbossLocationBits.BetweenSeq;
             if (end2 != 0) flags |= EmbossLocationBits.EndTwo;
@@ -320,7 +415,7 @@ internal sealed class EmbossSeqFeatureTable
             if (join || order) flags |= EmbossLocationBits.Multiple;
             if (order) flags |= EmbossLocationBits.Order;
             if (parent && !fwd) flags |= EmbossLocationBits.ComplementMain;
-            string type = EmbossFeatureVocabulary.Type(feature);
+            string type = protein ? EmbossFeatureVocab.TypeInternal(EmbossFeatureVocab.Get("refseqp").Types, feature) ?? "" : EmbossFeatureVocab.TypeInternal(EmbossFeatureVocab.Dna.Types, feature) ?? "";
             uint tmpBeg, tmpEnd;
             EmbossLocationBits tmpFlags;
             string tmpFeatId;
@@ -341,19 +436,20 @@ internal sealed class EmbossSeqFeatureTable
                     tmpFeatId = featId;
                 }
 
-                gf = NewNuc(type, (int)tmpBeg, (int)tmpEnd, strand, frame, exon, (int)beg2, (int)end2, tmpFeatId, featLabel, tmpFlags);
+                gf = protein ? NewProt(source, type, (int)tmpBeg, (int)tmpEnd, 0f, tmpFlags, null) : NewNuc(source, type, (int)tmpBeg, (int)tmpEnd, 0f, strand, frame, exon, (int)beg2, (int)end2, tmpFeatId, featLabel, tmpFlags, null);
             }
 
             if (!parent || opval.Length > 0)
             {
                 exon++;
-                var sub = new EmbossSeqFeature { Type = type, Strand = strand, Frame = frame, Start = (int)begNum, End = (int)endNum, Start2 = (int)beg2, End2 = (int)end2, Exon = exon, Flags = flags };
-                gf!.Subfeatures ??= [];
-                gf.Subfeatures.Add(sub);
+                if (protein)
+                    NewProt(source, type, (int)begNum, (int)endNum, 0f, flags, gf);
+                else
+                    NewNuc(source, type, (int)begNum, (int)endNum, 0f, strand, frame, exon, (int)beg2, (int)end2, featId, featLabel, flags, gf);
                 if (!remoteId)
                 {
-                    Length = Math.Max(Length, sub.Start);
-                    Length = Math.Max(Length, sub.End);
+                    if (gf is null)
+                        throw new InvalidOperationException("feature location without a feature");
                     if (fwd)
                     {
                         if (gf.Start == 0 || gf.Start > (int)begNum)
@@ -379,85 +475,247 @@ internal sealed class EmbossSeqFeatureTable
             }
         }
 
+        string? tagName = null, tagRest = null;
         while (tags.Length > 0)
         {
             if (TvTagVal(ref tags, out string tag, out string val))
             {
                 val = QuoteStrip(val);
-                if (tag == "codon_start")
+                if (!protein)
                 {
-                    frame = ToInt(val);
-                    if (gf is not null)
-                        gf.Frame = frame;
-                }
-
-                if (tag == "note" && val.Length > 0 && val[0] == '*')
-                {
-                    val = val[1..];
-                    int sp = val.IndexOf(' ', StringComparison.Ordinal);
-                    string tagName = sp < 0 ? val : val[..sp];
-                    string tagRest = sp < 0 ? "" : val[(sp + 1)..].TrimStart();
-                    if (tagName == "Type")
+                    if (tag == "codon_start")
                     {
-                        int sp2 = tagRest.IndexOf(' ', StringComparison.Ordinal);
-                        if (gf is not null)
-                            gf.Type = sp2 < 0 ? tagRest : tagRest[..sp2];
+                        frame = ToInt(val);
+                        gf!.Frame = frame;
                     }
-                    else if (ret is not null)
+
+                    if (tag == "note" && val.Length > 0 && val[0] == '*')
                     {
-                        foreach (string piece in tagRest.Split(','))
+                        val = val[1..];
+                        if (ExtractFirst(val, out string word, out string restText))
                         {
-                            if (!Gff3PredefinedTags.Contains(tagName))
-                                ret.Tags.Add((tagName, piece));
+                            tagName = word;
+                            tagRest = restText;
                         }
+
+                        if (tagName == "Type")
+                        {
+                            if (tagRest is not null && ExtractFirst(tagRest, out string typeWord, out string afterType))
+                            {
+                                gf!.Type = typeWord;
+                                tagName = afterType;
+                            }
+                        }
+                        else if (tagName is not null)
+                        {
+                            GfftagAdd(gf!, tagName, tagRest ?? "");
+                        }
+
+                        continue;
                     }
 
-                    continue;
+                    if (!TagAdd(ret!, tag, val))
+                        _context.Warn($"{SeqId}: Bad value '{val}' for tag '/{tag}'");
                 }
-
-                if (ret is not null)
-                    ret.Tags.Add(TagValue(tag, val, _context));
+                else
+                {
+                    if (!TagAdd(ret!, tag, val))
+                        _context.Warn($"{SeqId}: Bad value '{val}' for tag '/{tag}'");
+                    if (tag == "codon_start")
+                    {
+                        frame = ToInt(val);
+                        gf!.Frame = frame;
+                    }
+                }
             }
-            else if (TvRest(ref tags, out _))
+            else if (TvRest(ref tags, out string skipped))
             {
                 // anything non-white up to '/' is bad: skipped
+                _context.Warn($"Bad feature syntax {SeqId}: skipping '{skipped}'");
             }
             else
             {
+                _context.Warn($"Bad feature syntax {SeqId}: giving up at '{tags}'");
                 tags = "";
             }
         }
+
+        return ret;
     }
 
-    private static readonly HashSet<string> Gff3PredefinedTags = ["ID", "Name", "Alias", "Parent", "Target", "Gap", "Derives_from", "Note", "Dbxref", "Ontology_term"];
-
-    private static int ToInt(string s)
+    // ajStrExtractFirst: the first white-delimited word and the rest after the blanks that follow it; false (and nothing set) for an empty string or one that starts with white
+    internal static bool ExtractFirst(string s, out string first, out string rest)
     {
-        // ajStrToInt: sscanf("%d")-like on the leading integer
-        int i = 0;
-        while (i < s.Length && char.IsWhiteSpace(s[i]))
-            i++;
-        int start = i;
-        if (i < s.Length && s[i] is '+' or '-')
-            i++;
-        while (i < s.Length && char.IsAsciiDigit(s[i]))
-            i++;
-        return int.TryParse(s.AsSpan(start, i - start), out int v) ? v : 0;
+        first = rest = "";
+        if (s.Length == 0 || IsCSpace(s[0]))
+            return false;
+        int j = 1;
+        while (j < s.Length && !IsCSpace(s[j]))
+            j++;
+        first = s[..j];
+        while (j < s.Length && IsCSpace(s[j]))
+            j++;
+        rest = s[j..];
+        return true;
     }
 
-    // ajFeatNewNucFlags
-    private EmbossSeqFeature NewNuc(string type, int start, int end, char strand, int frame, int exon, int start2, int end2, string entryId, string label, EmbossLocationBits flags)
+    internal static bool IsCSpace(char c) => c is ' ' or '\t' or '\n' or '\r' or '\f' or '\v';
+
+    /// <summary><c>ajFeatTagAddSS</c>: the tag is stored under its canonical name of the vocabulary of the feature (protein or DNA); a value that fails its check, or a tag the vocabulary does not know, becomes a <c>note</c> <c>*tag: value</c>.</summary>
+    /// <returns>False when the value was bad.</returns>
+    internal bool TagAdd(EmbossSeqFeature f, string tag, string value)
     {
-        var f = new EmbossSeqFeature { Type = type, Strand = strand is '+' or '-' ? strand : '\0', Frame = frame, Exon = exon, Start = start, End = end, Start2 = start2, End2 = end2, Flags = flags };
-        if (entryId.Length == 0 && !flags.HasFlag(EmbossLocationBits.RemoteId) && !flags.HasFlag(EmbossLocationBits.Label))
+        var tags = f.Protein ? EmbossFeatureVocab.Protein.Tags : EmbossFeatureVocab.Dna.Tags;
+        string tmptag = EmbossFeatureVocab.TagNameOf(tags, tag, out bool known);
+        string fmt = EmbossFeatureVocab.TagFormat(tags, tmptag);
+        string valTmp = value, tagTmp = tmptag;
+        bool ret = true;
+        string kind = fmt.Length >= 2 ? fmt[..2] : fmt;
+        switch (kind)
+        {
+            case "LI" or "QL" or "TE" or "VO" or "QW":
+                break;
+            case "QS" or "SP":
+                if (!SpecialValue(tmptag, ref valTmp, _context))
+                {
+                    ret = false;
+                    tagTmp = EmbossFeatureVocab.Dna.Tags.Fetch("") ?? "";
+                    valTmp = "*" + tmptag + ": " + value;
+                }
+
+                break;
+            case "QT":
+                if (!known)
+                    valTmp = "*" + tag + ": " + value;
+                break;
+        }
+
+        string finalTag = EmbossFeatureVocab.TagNameOf(f.Protein ? EmbossFeatureVocab.Protein.Tags : EmbossFeatureVocab.Dna.Tags, tagTmp, out _);
+        f.Tags.Add((finalTag, valTmp));
+        return ret;
+    }
+
+    private static readonly HashSet<string> Gff3PredefinedTags = ["ID", "Name", "Alias", "Parent", "Target", "Gap", "Derives_from", "Note", "Dbxref", "Ontology_term", "Is_circular"];
+
+    /// <summary><c>ajFeatGfftagAddSS</c>: the value is split at commas, one tag-value each; a predefined GFF3 tag goes to <see cref="EmbossSeqFeature.GffTags"/>, any other to the ordinary tags (as it is spelled).</summary>
+    internal static int GfftagAdd(EmbossSeqFeature f, string tag, string value)
+    {
+        int n = 0;
+        bool predefined = Gff3PredefinedTags.Contains(tag);
+        foreach (string piece in SplitTokens(value, ','))
+        {
+            n++;
+            (predefined ? f.GffTags : f.Tags).Add((tag, piece));
+        }
+
+        return n;
+    }
+
+    // ajStrTokenNewC(value, ","): ajStrTokenNextParse steps over the delimiters (an empty piece between two of them is skipped) and stops at the end
+    private static IEnumerable<string> SplitTokens(string value, char delimiter)
+    {
+        int p = 0;
+        while (true)
+        {
+            while (p < value.Length && value[p] == delimiter)
+                p++;
+            if (p >= value.Length)
+                yield break;
+            int q = p;
+            while (p < value.Length && value[p] != delimiter)
+                p++;
+            yield return value[q..p];
+        }
+    }
+
+
+    // ajStrToInt as the library uses it for a codon_start: a string that is not entirely an integer gives 0
+    private static int ToInt(string s) => CStr.ToInt(s, out int v) ? v : 0;
+
+    /// <summary><c>ajFeatNewNucFlags</c> (<paramref name="parent"/> null) or <c>ajFeatNewNucFlagsSub</c>: a nucleotide feature, appended to the table or to the sub-features of the parent.</summary>
+    internal EmbossSeqFeature? NewNuc(string source, string type, int start, int end, float score, char strand, int frame, int exon, int start2, int end2, string? entryId, string? label, EmbossLocationBits flags, EmbossSeqFeature? parent)
+    {
+        if (type.Length == 0)
+            return null;
+        Groups++;
+        var f = new EmbossSeqFeature
+        {
+            Group = Groups,
+            Exon = exon,
+            Source = source.Length > 0 ? source : _context.Program,
+            Type = Type == "P" ? ProteinInternalType(type) : DnaInternalType(type),
+            Score = score,
+            Flags = flags,
+            Strand = strand is '+' or '-' ? strand : '\0',
+            Frame = frame,
+            Start = start,
+            End = end,
+            Start2 = start2,
+            End2 = end2,
+        };
+        if (!string.IsNullOrEmpty(entryId))
+        {
+            f.Remote = entryId;
+        }
+        else if (!flags.HasFlag(EmbossLocationBits.RemoteId) && !flags.HasFlag(EmbossLocationBits.Label))
         {
             Length = Math.Max(Length, f.Start);
             Length = Math.Max(Length, f.End);
         }
 
-        Features.Add(f);
+        if (!string.IsNullOrEmpty(label))
+        {
+            f.Label = label;
+            _context.Warn($"{SeqId}: Feature label '{label}' used");
+        }
+        Attach(f, parent);
         return f;
     }
+
+    /// <summary><c>ajFeatNewProtFlags</c> / <c>ajFeatNewProtFlagsSub</c>: a protein feature.</summary>
+    internal EmbossSeqFeature? NewProt(string source, string type, int start, int end, float score, EmbossLocationBits flags, EmbossSeqFeature? parent)
+    {
+        if (type.Length == 0)
+            return null;
+        Groups++;
+        var f = new EmbossSeqFeature
+        {
+            Group = Groups,
+            Source = source.Length > 0 ? source : _context.Program,
+            Type = ProteinInternalType(type),
+            Score = score,
+            Flags = flags,
+            Strand = '\0',
+            Start = start,
+            End = end,
+            Protein = true,
+        };
+        if (!flags.HasFlag(EmbossLocationBits.RemoteId) && !flags.HasFlag(EmbossLocationBits.Label))
+        {
+            Length = Math.Max(Length, f.Start);
+            Length = Math.Max(Length, f.End);
+        }
+
+        Attach(f, parent);
+        return f;
+    }
+
+    private void Attach(EmbossSeqFeature f, EmbossSeqFeature? parent)
+    {
+        if (parent is null)
+        {
+            Features.Add(f);                                             // ajFeattableAdd
+            return;
+        }
+
+        parent.Subfeatures ??= [];
+        parent.Subfeatures.Add(f);
+    }
+
+    // featTypeDna / featTypeProt: the internal type for a type name
+    private static string DnaInternalType(string type) => EmbossFeatureVocab.TypeInternal(EmbossFeatureVocab.Dna.Types, type) ?? "";
+
+    private static string ProteinInternalType(string type) => EmbossFeatureVocab.TypeInternal(EmbossFeatureVocab.Protein.Types, type) ?? "";
 
     // ajStrHasParentheses: the parentheses are balanced (true when there are none)
     private static bool HasParentheses(string s)
@@ -752,8 +1010,6 @@ internal sealed class EmbossSeqFeatureTable
 
     private int _tvDepth;
 
-    private EmbossFeatureReadContext _context = new();
-
     // featEmblTvTagVal: the next "/name=value" of the tag text
     private bool TvTagVal(ref string tags, out string name, out string value)
     {
@@ -876,32 +1132,114 @@ internal sealed class EmbossSeqFeatureTable
         return true;
     }
 
-    // ajFeatTagAddSS (DNA table): the canonical tag name and the value as the library stores them
-    private static (string Name, string Value) TagValue(string tag, string value, EmbossFeatureReadContext context)
-    {
-        var (name, kind, known) = EmbossFeatureVocabulary.Tag(tag);
-        string v = value;
-        switch (kind)
-        {
-            case "QSPECIAL" or "SPECIAL":
-                if (!SpecialValue(name, ref v, context))
-                    return (EmbossFeatureVocabulary.DefaultTag, "*" + name + ": " + value);
-                break;
-            case "QTEXT":
-                if (!known)
-                    v = "*" + tag + ": " + value;
-                break;
-        }
-
-        return (name, v);
-    }
-
     private const System.Text.RegularExpressions.RegexOptions Rx = System.Text.RegularExpressions.RegexOptions.CultureInvariant;
 
     private static bool Matches(string pattern, string value) => System.Text.RegularExpressions.Regex.IsMatch(value, pattern, Rx);
 
-    // ajFeattagSpecial: the checks (and the corrections) of the special tags; false = the value is bad and the tag becomes a note
+    // ajFeattagSpecial with its messages (ajFeatWarn of the validators)
     private static bool SpecialValue(string tag, ref string value, EmbossFeatureReadContext context)
+    {
+        string before = value;
+        bool ok = SpecialCheck(tag, ref value, context);
+        switch (tag)
+        {
+            case "anticodon" or "citation" or "collection_date" or "compare" or "db_xref" or "lat_lon" or "mobile_element" or "ncRNA_class" or "PCR_primers" or "protein_id" or "rpt_unit" or "transl_except":
+                if (!ok)
+                    context.Warn($"bad /{tag} value '{before}'");
+                break;
+            case "bio_material" or "culture_collection" or "specimen_voucher":
+                if (!ok)
+                    context.Warn($"bad /bio_material value '{before}'");
+                break;
+            case "rpt_unit_range" or "tag_peptide":
+                if (!ok)
+                    context.Warn($"bad /rpt_unit_tange value '{before}'");
+                break;
+            case "codon":
+                if (ok && value != before)
+                    context.Warn($"unquoted /codon value corrected to '{value}'");
+                if (!ok)
+                    context.Warn($"bad /codon value '{before}'");
+                break;
+            case "cons_splice":
+                if (!ok)
+                    context.Warn($"bad /cons_splice value '{before}'");
+                if (ConsSpliceIsLow(before, out string beg, out string end))
+                {
+                    value = "(5'site:" + beg + ",3'site:" + end + ")";
+                    context.Warn($"bad /cons_splice value corrected to '{value}'");
+                    if (!ok)
+                        value = before;
+                }
+
+                break;
+            case "estimated_length":
+                if (!ok)
+                    context.Warn($"bad /estimated_length value '{before}' corrected to 'unknown'");
+                break;
+            case "inference":
+                if (!ok)
+                {
+                    var m = System.Text.RegularExpressions.Regex.Match(before, "^([^:]+)(:([^:]+)?)*$", Rx);
+                    context.Warn($"bad /inference value '{before}' type: '{(m.Success ? m.Groups[1].Value : "<null>")}'");
+                }
+
+                break;
+            case "replace":
+                if (!ok)
+                    context.Warn($"bad /replace value '{value}'");
+                break;
+            case "rpt_unit_seq":
+                if (!ok)
+                    context.Warn($"bad /rpt_unit_seq value '{value}'");
+                break;
+            case "translation":
+                if (!ok)
+                    context.Warn($"bad /translation value '{RemoveWhite(before)}'");
+                break;
+            default:
+                context.Warn($"Unrecognised special EMBL feature tag '{tag}'");
+                break;
+        }
+
+        return ok;
+    }
+
+    // the lower-case test of featTagSpecialAllConssplice: true (with the two words) when a letter of either is lower case
+    private static bool ConsSpliceIsLow(string val, out string beg, out string end)
+    {
+        beg = end = "";
+        if (!val.StartsWith("(5'site:", StringComparison.Ordinal) || val[^1] != ')')
+            return false;
+        int cp = 8;
+        bool low = false;
+        while (cp < val.Length && val[cp] != ',')
+        {
+            if (char.IsAsciiLetterLower(val[cp]))
+                low = true;
+            cp++;
+        }
+
+        beg = val[8..cp];
+        if (string.CompareOrdinal(val, cp, ",3'site:", 0, 8) == 0)
+        {
+            cp += 8;
+            int cq = cp;
+            while (cp < val.Length && val[cp] != ')')
+            {
+                if (char.IsAsciiLetterLower(val[cp]))
+                    low = true;
+                cp++;
+            }
+
+            end = val[cq..cp];
+        }
+
+        return low;
+    }
+
+    // ajFeattagSpecial: the checks (and the corrections) of the special tags; false = the value is bad and the tag becomes a note
+    private static bool SpecialCheck(string tag, ref string value, EmbossFeatureReadContext context)
     {
         switch (tag)
         {

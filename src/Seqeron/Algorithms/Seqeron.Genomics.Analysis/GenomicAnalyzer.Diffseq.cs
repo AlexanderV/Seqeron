@@ -455,9 +455,10 @@ public static class EmbossDiffseqPrograms
         {
             if ((uint)start > (uint)f.GetEnd() || (uint)end < (uint)f.GetStart())        // ajuint parameters and results: a negative position (the first difference of -globaldifferences with no match starts at -1) is a huge number
                 continue;
-            if (f.Type.Length == 0 || f.Type == "source")
+            string typeName = EmbossFeatureVocab.TypeExternal(EmbossFeatureVocab.Dna.Types, f.Type);       // ajFeatTypeNuc
+            if (f.Type.Length == 0 || typeName == "source")
                 continue;
-            var sb = new System.Text.StringBuilder("*").Append(kind).Append(' ').Append(f.Type).Append(' ').Append(Int(f.GetStart())).Append('-').Append(Int(f.GetEnd()));
+            var sb = new System.Text.StringBuilder("*").Append(kind).Append(' ').Append(typeName).Append(' ').Append(Int(f.GetStart())).Append('-').Append(Int(f.GetEnd()));
             foreach (var (name, value) in f.Tags)
             {
                 if (name != "translation")
