@@ -98,9 +98,16 @@ internal sealed partial class EmbossSeqin
         if (accval.Length > 0)
         {
             int ilen = t.Seq.Length;
+            if (ilen > _qualsize)
+            {
+                AccuracyResize(ilen);
+                _qualsize = ilen;
+            }
+
             var tokens = new StrTok(accval, " ");
             for (int i = 0; i < ilen; i++)
             {
+                _acc![i] = int.MinValue;
                 if (!tokens.Next(out string value))
                 {
                     _context.Warn($"Missing accuracy for base {i + 1} in experiment format\n");
@@ -110,7 +117,12 @@ internal sealed partial class EmbossSeqin
                 var inner = new StrTok(value, ",");
                 while (inner.Next(out string part))
                 {
-                    if (!CStr.ToInt(part, out _))
+                    if (CStr.ToInt(part, out int ja))
+                    {
+                        if (ja > _acc[i])
+                            _acc[i] = ja;
+                    }
+                    else
                     {
                         _context.Warn($"Bad accuracy '{value}' for base {i + 1} in experiment format\n");
                         break;

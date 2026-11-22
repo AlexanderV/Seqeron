@@ -32,6 +32,12 @@ public sealed record EmbossSeqretRequest(string Sequence, IReadOnlyDictionary<st
 
     /// <summary><c>-osname</c>: accepted; the library uses the names of the sequences (the value has no effect on seqret, measured on 6.6.0).</summary>
     public string? OutName { get; init; }
+
+    /// <summary><c>-osdbname</c> (<c>outseq-&gt;Setoutdb</c>): the database name that the writers put in front of the names (<c>db:name</c>: fasta, fastq, gde) or into the identifiers (<c>gnl|db|name</c>: ncbi, gifasta).</summary>
+    public string? OutDbName { get; init; }
+
+    /// <summary>The arguments of the command line of the program run, which the SAM writer prints on its <c>@PG</c> line (<c>ajUtilGetCmdline</c>); null: built from the request.</summary>
+    public string? CommandLine { get; init; }
 }
 
 /// <summary>The output of <c>seqret</c>: the sequence file, the feature file and the messages the library printed.</summary>
@@ -86,7 +92,8 @@ public static class EmbossSeqretPrograms
         var featOut = new StringBuilder();
         var singles = new Dictionary<string, string>();
         var state = new EmbossFeatureWriteState();
-        var writeRun = new EmbossSeqWriteRun();
+        var runDate = r.RunDate ?? DateTime.Now;
+        var writeRun = new EmbossSeqWriteRun { RunDate = runDate, Program = program, CommandLine = r.CommandLine ?? "", Setoutdb = r.OutDbName ?? "" };
         string? lastSingle = null;
         int tables = 0, unnamed = 0, written = 0, count = 0;
         // ajSeqoutUsaProcess: "format::file" names the output format (an empty format is "unknown")
@@ -99,8 +106,9 @@ public static class EmbossSeqretPrograms
             outName = um.Groups[2].Value;
         }
 
+        writeRun.FileName = outName;
+
         var outFormat = EmbossSeqWrite.Find(formatName);
-        var runDate = r.RunDate ?? DateTime.Now;
         EmbossSeq? seq;
         while (TryNext(seqall, context, out seq))
         {
@@ -128,6 +136,25 @@ public static class EmbossSeqretPrograms
 
             if (split)
                 nseqDup = SplitName(names, seq, nseqDup, context);
+            if (outFormat.Save)
+            {
+                // seqClone then seqWriteListAppend: the sequence (a copy cut to its range) is kept and the set is written when the output is closed
+                // -ossingle: seqWriteListAppend writes the list at once, to a file that is not open (no file is made for a set format); the writers that print through the null file with a conversion that dereferences it
+                // (the file name, the date, ...) kill the process by a segmentation fault, the others write nothing
+                var copy = EmbossSeqRange.CopyForList(seq);
+                EmbossSeqRange.Trim(copy);
+                if (outSingle && EmbossSeqWrite.WritesToNullFileDies(outFormat, Math.Max(copy.Seq.Length, writeRun.Saved.Count == 0 ? 0 : writeRun.Saved.Max(x => x.Seq.Length))))
+                    throw new InvalidOperationException("A set format with -ossingle writes the saved list to a file that is not open (the reference program dies by a fault).");
+                if (seq.Type.Length > 0)
+                    writeRun.OutType = seq.Type;
+                EmbossSeqWrite.ListAppend(writeRun, new EmbossSeqSaved { Name = copy.Name, Desc = copy.Desc, Type = copy.Type, Seq = copy.SeqText, Weight = copy.Weight }, seq.Entryname);
+                count++;
+                written++;
+                if (r.FirstOnly)
+                    break;
+                continue;
+            }
+
             if (!EmbossSeqWrite.IsPorted(outFormat))
                 throw new NotSupportedException($"The sequence output format '{outFormat.Name}' is not written by this port.");
             if (r.Feature && outFormat.Features)
@@ -138,7 +165,11 @@ public static class EmbossSeqretPrograms
                 name = outSingle ? "EMBOSS" : "EMBOSS_" + (++unnamed).ToString("000", System.Globalization.CultureInfo.InvariantCulture);
             string residues = EmbossSeqRange.Cut(seq, out int ibegin, out _, out _);                  // seqClone: the range of the sequence
             var target = outSingle ? new StringBuilder() : seqOut;
-            EmbossSeqWrite.Write(target, outFormat, name, seq.Desc, seq.Acc, seq.Sv, seq.Type, residues, outSingle ? 0 : count, runDate, seq.FullDescMulti, seq.Gi, seq.Db, seq.Setdb, writeRun, ibegin - 1, count);
+            var item = EmbossSeqWrite.Clone(seq, residues, ibegin, writeRun);
+            item.Name = name;
+            writeRun.Count = outSingle ? 0 : count;
+            writeRun.HeaderCount = count;
+            EmbossSeqWrite.Write(target, outFormat, item, writeRun);
             if (outSingle)
             {
                 string file = (name + "." + (r.OutExtension ?? r.OutSeqFormat ?? "fasta")).ToLowerInvariant();
@@ -161,6 +192,12 @@ public static class EmbossSeqretPrograms
 
             if (r.FirstOnly)
                 break;
+        }
+
+        if (outFormat is { Save: true } && writeRun.Saved.Count > 0 && !outSingle)
+        {
+            writeRun.Count = count;                                    // ajSeqoutClose writes the saved list
+            EmbossSeqWrite.WriteSaved(seqOut, outFormat, writeRun);
         }
 
         // seqCleanDasdna / seqCleanDasseq: the footer of a DAS file is written when the file that is open at the end of the run is closed (with -ossingle only the last file has it)

@@ -1,4 +1,4 @@
-#pragma warning disable S1121, S3358, S2325, S1066, S3776, S107, S1854, S1481, S2589, S3626 // the writers keep the control flow of ajseqwrite.c
+#pragma warning disable S1121, S3358, S2325, S1066, S3776, S107, S1854, S1481, S2589, S3626, CS0649, S3459 // the writers keep the control flow of ajseqwrite.c
 
 using System.Globalization;
 using System.Text;
@@ -8,17 +8,11 @@ namespace Seqeron.Genomics.Infrastructure;
 /// <summary>One sequence output format of <c>seqOutFormat</c> (<c>ajseqwrite.c</c>): the name, whether it is an alias, the kinds of sequence it takes, whether the writer keeps the sequences and writes them when the output is closed, and the writer.</summary>
 internal sealed record EmbossSeqOutFormat(string Name, bool Alias, bool Save, bool Nucleotide, bool Protein, bool Features, string Writer);
 
-/// <summary>The state of the sequence writers that lasts for a program run: the counters of the names <c>gnl|BL_ORD_ID|N</c> of the ncbi and gifasta writers (a <c>static</c> of each writer).</summary>
-internal sealed class EmbossSeqWriteRun
-{
-    public int NcbiOrdinal, GifastaOrdinal;
-}
-
 /// <summary>
 /// The sequence writers of EMBOSS 6.6.0 <c>ajseqwrite.c</c> (<c>seqOutFormat</c>, <c>seqSeqFormat</c>, <c>seqWriteSeq</c> and the <c>seqWrite*</c> functions) for the formats that write one entry per sequence from the
 /// name, description, accession, type and residues: fasta, gcg, nbrf, codata, strider, staden, text, ig, iguspto, gde, fitch, acedb, mase. A5-8c3h, B09 F252.
 /// </summary>
-internal static class EmbossSeqWrite
+internal static partial class EmbossSeqWrite
 {
     /// <summary>The table <c>seqOutFormat</c> (name, alias, save, nucleotide, protein, feature, writer).</summary>
     internal static readonly EmbossSeqOutFormat[] Table =
@@ -59,14 +53,14 @@ internal static class EmbossSeqWrite
     }
 
     /// <summary>The writers of this port.</summary>
-    internal static bool IsPorted(EmbossSeqOutFormat f) => f.Writer is "Asn1" or "Dasdna" or "Dasseq" or "Nibble" or "Ncbi" or "Gifasta" or "Fasta" or "Gcg" or "Nbrf" or "Codata" or "Strider" or "Staden" or "Text" or "Ig" or "Iguspto" or "Gde" or "Fitch" or "Acedb" or "Mase";
+    internal static bool IsPorted(EmbossSeqOutFormat f) => f.Writer is "Scf" or "Gff2" or "Gff3" or "FastqSanger" or "FastqIllumina" or "FastqSolexa" or "Sam" or "Asn1" or "Dasdna" or "Dasseq" or "Nibble" or "Ncbi" or "Gifasta" or "Fasta" or "Gcg" or "Nbrf" or "Codata" or "Strider" or "Staden" or "Text" or "Ig" or "Iguspto" or "Gde" or "Fitch" or "Acedb" or "Mase";
 
     /// <summary>The <c>SeqSFormat</c> of the library: the layout of <c>seqWriteSeq</c> (the fields the ported formats set; the others stay at the defaults of <c>seqSeqFormat</c>: no name, no right number, no tab, no padding).</summary>
     private sealed class SeqFormat
     {
-        public int Spacer, Width = 50, NumWidth, LinePos;
-        public bool NumLeft, SkipBefore;
-        public string EndStr = "";
+        public int Spacer, Width = 50, NumWidth, LinePos, Tab;
+        public bool NumLeft, NumRight, NumJust, SkipBefore;
+        public string EndStr = "", LeftStr = "";
     }
 
     private const int SpaceAll = -9;
@@ -96,8 +90,10 @@ internal static class EmbossSeqWrite
             {
                 if (sf.SkipBefore)
                     o.Append('\n');
+                o.Append(sf.LeftStr);
                 if (sf.NumLeft)
                     o.Append(Pad(ibase.ToString(CultureInfo.InvariantCulture), sf.NumWidth));
+                o.Append(' ', sf.Tab);
             }
 
             l1++;
@@ -112,10 +108,31 @@ internal static class EmbossSeqWrite
             l++;
             if (l1 == width || i == seqlen)
             {
+                if (sf.NumJust)
+                {
+                    for (; l1 < width; l1++)
+                    {
+                        if (sf.Spacer == SpaceAll || (sf.Spacer != 0 && (l + 1) % sf.Spacer == 1))
+                        {
+                            s.Append(' ');
+                            l++;
+                        }
+
+                        s.Append(' ');
+                        l++;
+                    }
+                }
+
                 l = 0;
                 l1 = 0;
                 o.Append(s);
                 s.Clear();
+                if (sf.NumRight)
+                {
+                    o.Append(' ');
+                    o.Append(Pad((ibase - 1).ToString(CultureInfo.InvariantCulture), sf.NumWidth));
+                }
+
                 if (i == seqlen)
                     o.Append(sf.EndStr);
                 o.Append('\n');
@@ -286,6 +303,163 @@ internal static class EmbossSeqWrite
         WriteLines60(o, seq);
     }
 
+    // the accuracy value of a base: a value the library never wrote (the buffer of the output object is longer than what the reader filled) has no defined output
+    private static float AccuracyAt(float[] acc, int i)
+    {
+        if (i >= acc.Length || float.IsNaN(acc[i]))
+            throw new InvalidOperationException("The accuracy values of the sequence were never written (the reference program prints uninitialised memory).");
+        return acc[i];
+    }
+
+    // seqWriteFastqSanger / seqWriteFastqIllumina / seqWriteFastqSolexa
+    private static void WriteFastq(StringBuilder o, string writer, string name, string acc, string sv, string desc, string seq, float[]? accuracy)
+    {
+        o.Append('@').Append(name);
+        if (sv.Length > 0)
+            o.Append(' ').Append(sv);
+        else if (acc.Length > 0)
+            o.Append(' ').Append(acc);
+        if (desc.Length > 0)
+            o.Append(' ').Append(desc);
+        o.Append('\n').Append(seq).Append('\n').Append("+\n");
+        int ilen = seq.Length;
+        if (writer == "FastqSanger")
+        {
+            if (accuracy is not null)
+            {
+                for (int i = 0; i < ilen; i++)
+                    o.Append((char)((33 + (int)AccuracyAt(accuracy, i)) & 0xFF));
+            }
+            else
+            {
+                o.Append('"', ilen);
+            }
+        }
+        else if (writer == "FastqIllumina")
+        {
+            if (accuracy is not null)
+            {
+                for (int j = 0; j < ilen; j++)
+                {
+                    int qchar = 64 + (int)(0.5 + AccuracyAt(accuracy, j));
+                    o.Append((char)(qchar > 126 ? 126 : qchar < 33 ? 33 : qchar));
+                }
+            }
+            else
+            {
+                o.Append('A', ilen);
+            }
+        }
+        else if (accuracy is not null)
+        {
+            for (int j = 0; j < ilen; j++)
+            {
+                double sval = AccuracyAt(accuracy, j);
+                uint i = unchecked((uint)(int)sval);
+                if (i > 62)
+                    i = 62;
+                i = EmbossQuality.PhredToIndex[i];
+                while (EmbossQuality.IndexToSolexa[i] < sval)
+                    i++;
+                o.Append((char)(58 + i));
+            }
+        }
+        else
+        {
+            o.Append(';', ilen);
+        }
+
+        o.Append('\n');
+    }
+
+    private static void Uint4(StringBuilder o, int v)
+    {
+        o.Append((char)(v & 0xFF)).Append((char)((v >> 8) & 0xFF)).Append((char)((v >> 16) & 0xFF)).Append((char)((v >> 24) & 0xFF));
+    }
+
+    // seqWriteScf: SCF version 3 with no samples; the words are written in the byte order of the machine (little endian: ajWritebinUint4)
+    private static void WriteScf(StringBuilder o, string desc, string seq, float[]? accuracy)
+    {
+        int filepos = 128;
+        string tmp = desc.Replace("; ", "\n").Replace(";", "\n");
+        int seqlen = seq.Length;
+        o.Append(".scf");
+        Uint4(o, 0);
+        Uint4(o, filepos);
+        Uint4(o, seqlen);
+        Uint4(o, 0);
+        Uint4(o, 0);
+        filepos += 4;
+        Uint4(o, filepos);
+        filepos += 12 * seqlen;
+        Uint4(o, tmp.Length);
+        Uint4(o, filepos);
+        filepos += tmp.Length;
+        o.Append("3.00");
+        Uint4(o, 1);
+        Uint4(o, 0);
+        Uint4(o, 0);
+        Uint4(o, filepos);
+        for (int i = 0; i < 18; i++)
+            Uint4(o, 0);
+        Uint4(o, 0);
+        for (int i = 0; i < seqlen; i++)
+            Uint4(o, 0);
+        foreach (string bases in new[] { "Aa", "Cc", "Gg", "Tt" })
+        {
+            for (int i = 0; i < seqlen; i++)
+            {
+                int iqual = 0;
+                if (accuracy is not null && bases.Contains(seq[i], StringComparison.Ordinal))
+                    iqual = (int)AccuracyAt(accuracy, i);
+                o.Append((char)(iqual & 0xFF));
+            }
+        }
+
+        o.Append(seq);
+        for (int i = 0; i < seqlen; i++)
+            o.Append('\0', 3);
+        o.Append(tmp);
+    }
+
+    // seqWriteSam: the header lines (@HD and @PG with the command line) at the first sequence of the file, then one unmapped read per sequence
+    private static void WriteSam(StringBuilder o, EmbossSeqWriteRun run, string name, string seq, float[]? accuracy)
+    {
+        if (run.HeaderCount == 0)
+        {
+            o.Append("@HD\tVN:1.3\tSO:unsorted\n");
+            o.Append("@PG\tID:").Append(run.Program).Append("\tVN:6.6.0.0\tCL:").Append(run.CommandLine.Replace('\n', ' ')).Append('\n');
+        }
+
+        var q = new StringBuilder();
+        int ilen = seq.Length;
+        if (accuracy is not null)
+        {
+            for (int i = 0; i < ilen; i++)
+                q.Append((char)((33 + (int)AccuracyAt(accuracy, i)) & 0xFF));
+        }
+        else
+        {
+            q.Append('"', ilen);
+        }
+
+        o.Append(name).Append("\t4\t*\t0\t0\t*\t*\t0\t0\t").Append(seq).Append('\t').Append(q).Append('\n');
+    }
+
+    // seqWriteFasta
+    private static void WriteFastaEntry(StringBuilder o, string name, string acc, string sv, string desc, string seq)
+    {
+        o.Append('>').Append(name);
+        if (sv.Length > 0)
+            o.Append(' ').Append(sv);
+        else if (acc.Length > 0)
+            o.Append(' ').Append(acc);
+        if (desc.Length > 0)
+            o.Append(' ').Append(desc);
+        o.Append('\n');
+        WriteLines60(o, seq);
+    }
+
     private static void WriteLines60(StringBuilder o, string seq)
     {
         for (int i = 0; i < seq.Length; i += 60)
@@ -302,21 +476,114 @@ internal static class EmbossSeqWrite
     /// <param name="type">The type <c>N</c> / <c>P</c> or empty.</param>
     /// <param name="seq">The residues.</param>
     /// <param name="count">The number of sequences written to the file before this one.</param>
-    /// <exception cref="InvalidOperationException">The writer is one on which the reference program dies by a fault (iguspto).</exception>
     /// <param name="runDate">The date of the run (the header of mase).</param>
     /// <param name="fullDescMulti">The comment lines of the full description (<c>Fulldesc-&gt;Multi</c>); null when the reader made no full description.</param>
-    /// <param name="offset">The offset of the sequence (<c>outseq->Offset</c>: the start of the range of the sequence minus one; the DAS writers print it).</param>
-    /// <param name="headerCount">The number of sequences written before this one to ALL the files of the run (<c>outseq->Count</c>, which <c>-ossingle</c> does not reset): the DAS writers write their header when it is 0; -1 = <paramref name="count"/>.</param>
     /// <param name="gi">The GI number of the sequence (the ncbi and gifasta writers).</param>
     /// <param name="db">The database the sequence was read from (<c>Db</c>).</param>
     /// <param name="setdb">The database name of the sequence (<c>Setdb</c>: from the header of an NCBI FASTA entry, else <c>-osdbname</c>).</param>
     /// <param name="run">The state of the writers that lasts for the run (the counter of the <c>BL_ORD_ID</c> names of ncbi and gifasta).</param>
+    /// <param name="offset">The offset of the sequence (<c>outseq->Offset</c>: the start of the range of the sequence minus one; the DAS writers print it).</param>
+    /// <param name="headerCount">The number of sequences written before this one to ALL the files of the run (<c>outseq->Count</c>, which <c>-ossingle</c> does not reset): the DAS writers write their header when it is 0; -1 = <paramref name="count"/>.</param>
+    /// <exception cref="InvalidOperationException">The writer is one on which the reference program dies by a fault (iguspto).</exception>
     internal static void Write(StringBuilder o, EmbossSeqOutFormat format, string name, string desc, string acc, string sv, string type, string seq, int count, DateTime runDate, IReadOnlyList<string>? fullDescMulti = null,
         string gi = "", string db = "", string setdb = "", EmbossSeqWriteRun? run = null, int offset = 0, int headerCount = -1)
     {
+        run ??= new EmbossSeqWriteRun();
+        run.Count = count;
+        run.HeaderCount = headerCount >= 0 ? headerCount : count;
+        run.RunDate = runDate;
+        var s = new EmbossSeqOut { Name = name, Desc = desc, Acc = acc, Sv = sv, Type = type, Seq = seq, Gi = gi, Db = db, Setdb = setdb, Offset = offset, FullDescMulti = fullDescMulti is null ? null : [.. fullDescMulti] };
+        Write(o, format, s, run);
+    }
+
+    /// <summary>
+    /// <c>seqClone</c> (the part that matters to the writers): the output object takes the fields of the sequence, the residues of its range and, when the sequence has accuracy values, those of the range; the accuracy buffer of the
+    /// output object lives from one sequence to the next (<c>seqDeclone</c> zeroes it after every sequence), so that a sequence without values written after one with has zeros.
+    /// </summary>
+    /// <param name="seq">The sequence.</param>
+    /// <param name="residues">The residues of its range.</param>
+    /// <param name="ibegin">The 1-based start of the range.</param>
+    /// <param name="run">The state of the output object.</param>
+    internal static EmbossSeqOut Clone(EmbossSeq seq, string residues, int ibegin, EmbossSeqWriteRun run)
+    {
+        var s = new EmbossSeqOut
+        {
+            Name = seq.Name, Acc = seq.Acc, Acclist = [.. seq.Acclist], Sv = seq.Sv, Gi = seq.Gi, Desc = seq.Desc, Type = seq.Type, Db = seq.Db, Setdb = run.Setoutdb.Length > 0 ? run.Setoutdb : seq.Setdb, Tax = seq.Tax,
+            Taxcommon = seq.Taxcommon, Taxid = seq.Taxid, Organelle = seq.Organelle, Taxlist = [.. seq.Taxlist], Keylist = [.. seq.Keylist], FullDescMulti = seq.FullDescMulti is null ? null : [.. seq.FullDescMulti], Seq = residues,
+            Fttable = seq.Fttable, Circular = seq.Circular, Rev = seq.Rev, Offset = ibegin - 1,
+        };
+        if (seq.Type.Length > 0)
+            run.OutType = seq.Type;
+        if (run.OutAccuracy is not null && run.OutQualsize > 0)
+            Array.Clear(run.OutAccuracy, 0, Math.Min(run.OutQualsize, run.OutAccuracy.Length));            // seqDeclone of the sequence before
+        if (seq.Accuracy is not null)
+        {
+            int ilen = seq.Seq.Length;
+            int old = run.OutAccuracy?.Length ?? 0;
+            if (run.OutAccuracy is null)
+                run.OutAccuracy = new float[ilen];
+            else if (old != ilen)
+                Array.Resize(ref run.OutAccuracy, ilen);                                                 // the new values are zero
+            run.OutQualsize = ilen;
+            for (int k = 0; k < ilen; k++)
+            {
+                int from = ibegin - 1 + k;
+                run.OutAccuracy[k] = from < seq.Accuracy.Length ? seq.Accuracy[from] : float.NaN;      // memmove(outseq->Accuracy, seq->Accuracy+ibegin-1, ilen*sizeof(float)): the values past the buffer are not the library's
+            }
+        }
+
+        s.Accuracy = run.OutAccuracy;
+        return s;
+    }
+
+    // seqDbName: the name of the database in front of the name
+    private static string DbName(string name, string db) => db.Length > 0 ? db + ":" + name : name;
+
+    /// <summary>Writes one sequence (the output object after <c>seqClone</c>) in a format of this port; <paramref name="run"/> holds the counts, the date and the other state of the run.</summary>
+    /// <exception cref="InvalidOperationException">The writer is one on which the reference program dies by a fault (iguspto) or whose output has no defined value (accuracy values that were never written).</exception>
+    internal static void Write(StringBuilder o, EmbossSeqOutFormat format, EmbossSeqOut s, EmbossSeqWriteRun run)
+    {
+        string name = s.Name, desc = s.Desc, acc = s.Acc, sv = s.Sv, type = s.Type, seq = s.Seq, gi = s.Gi, db = s.Db, setdb = s.Setdb;
+        int count = run.Count, offset = s.Offset, headerCount = run.HeaderCount;
+        var runDate = run.RunDate;
+        var fullDescMulti = s.FullDescMulti;
         bool prot = type.Length > 0 && type[0] == 'P';
         switch (format.Writer)
         {
+            case "Scf":
+                WriteScf(o, desc, seq, s.Accuracy);
+                break;
+            case "Gff2":
+            {
+                o.Append("##gff-version 2\n");
+                o.Append("##source-version EMBOSS 6.6.0.0\n");
+                o.Append("##date ").Append(run.RunDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)).Append('\n');
+                o.Append(prot ? "##Protein " : "##DNA ").Append(name).Append('\n');
+                var sf = NewFormat(seq.Length);
+                sf.LeftStr = "##";
+                sf.Width = 60;
+                WriteSeq(o, seq, sf);
+                o.Append(prot ? "##end-Protein\n" : "##end-DNA\n");
+                break;
+            }
+
+            case "Gff3":
+                o.Append("##gff-version 3\n");
+                o.Append(CultureInfo.InvariantCulture, $"##sequence-region {name} 1 {seq.Length}\n");
+                o.Append("#!Date ").Append(run.RunDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)).Append('\n');
+                o.Append(prot ? "#!Type Protein\n" : "#!Type DNA\n");
+                o.Append("#!Source-version EMBOSS 6.6.0.0\n");
+                o.Append("##FASTA\n");
+                WriteFastaEntry(o, DbName(name, run.Setoutdb), acc, sv, desc, seq);
+                break;
+            case "FastqSanger":
+            case "FastqIllumina":
+            case "FastqSolexa":
+                WriteFastq(o, format.Writer, DbName(name, run.Setoutdb), acc, sv, desc, seq, s.Accuracy);
+                break;
+            case "Sam":
+                WriteSam(o, run, name, seq, s.Accuracy);
+                break;
             case "Asn1":
                 WriteAsn1(o, desc, type, seq);
                 break;
@@ -336,15 +603,7 @@ internal static class EmbossSeqWrite
                 WriteNcbi(o, name, desc, acc, sv, seq, gi, db, setdb, true, run);
                 break;
             case "Fasta":
-                o.Append('>').Append(name);
-                if (sv.Length > 0)
-                    o.Append(' ').Append(sv);
-                else if (acc.Length > 0)
-                    o.Append(' ').Append(acc);
-                if (desc.Length > 0)
-                    o.Append(' ').Append(desc);
-                o.Append('\n');
-                WriteLines60(o, seq);
+                WriteFastaEntry(o, DbName(name, run.Setoutdb), acc, sv, desc, seq);
                 break;
             case "Gcg":
             {
@@ -462,7 +721,7 @@ internal static class EmbossSeqWrite
             }
 
             case "Gde":
-                o.Append('#').Append(name).Append('\n');
+                o.Append('#').Append(DbName(name, run.Setoutdb)).Append('\n');
                 WriteLines60(o, seq);
                 break;
             case "Fitch":

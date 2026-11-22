@@ -46,6 +46,7 @@ internal sealed partial class EmbossSeqin
         string name = data.Names[data.Count];
         var item = data.Table[name];
         t.Name = name;
+        t.Weight = item.Weight;
         t.Seq.Clear().Append(item.Seq.ToString());
         data.Count++;
         return true;

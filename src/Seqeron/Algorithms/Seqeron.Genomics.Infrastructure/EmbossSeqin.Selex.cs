@@ -13,6 +13,9 @@ internal sealed partial class EmbossSeqin
         public int N, Count;
         public string[] Name = [];
         public StringBuilder[] Str = [];
+
+        /// <summary><c>sq[n]-&gt;wt</c>: the weight of the <c>#=SQ</c> line (0 when there is none).</summary>
+        public float[] Wt = [];
     }
 
     private SelexData? _selex;
@@ -35,6 +38,8 @@ internal sealed partial class EmbossSeqin
             var tokens = line.Split([' ', '\t', '\n'], StringSplitOptions.RemoveEmptyEntries);
             if (tokens.Length > 1)
                 selex.Name[sqcnt] = tokens[1];
+            if (tokens.Length > 2)
+                CStr.ToFloat(tokens[2], out selex.Wt[sqcnt]);
             named = true;
             ++sqcnt;
             return true;
@@ -189,7 +194,7 @@ internal sealed partial class EmbossSeqin
 
             _buff.Rewind();
             StoreReset();
-            selex = new SelexData { N = (int)n, Name = new string[n], Str = new StringBuilder[n] };
+            selex = new SelexData { N = (int)n, Name = new string[n], Str = new StringBuilder[n], Wt = new float[n] };
             for (int i = 0; i < n; i++)
             {
                 selex.Name[i] = "";
@@ -238,6 +243,7 @@ internal sealed partial class EmbossSeqin
         int idx = selex.Count;
         t.Seq.Clear().Append(selex.Str[idx].ToString());
         t.Name = selex.Name[idx];
+        t.Weight = selex.Wt[idx];
         ++selex.Count;
         _buff.Clear(0);
         return true;

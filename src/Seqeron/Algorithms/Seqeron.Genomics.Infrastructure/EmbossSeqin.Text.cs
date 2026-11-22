@@ -553,17 +553,28 @@ internal sealed partial class EmbossSeqin
             StoreClear(1);
         else
             _buff.Clear(0);
+        if (seqlen > _qualsize)
+            AccuracyResize(seqlen);
+        _qualsize = seqlen;
+        if (sanger && qual.Length > _qualsize)
+            AccuracyResize(qual.Length);
+        int ai = 0;
         foreach (char c in qual.ToString())
         {
+            int iqual = c;
             if (c < qmin)
             {
                 _context.Warn(sanger ? $"FASTQ-SANGER '{_opt.Filename}' sequence '{t.Name}' quality value '{c}' too low" : $"FASTQ-{kind} quality value too low '{_opt.Filename}' '{t.Name}' '{c}'");
+                iqual = qmin;
             }
 
             if (c > qmax)
             {
                 _context.Warn(sanger ? $"FASTQ-SANGER '{_opt.Filename}' sequence '{t.Name}' quality value '{c}' too high" : $"FASTQ-{kind} quality value too high '{_opt.Filename}' '{t.Name}' '{c}'");
+                iqual = qmax;
             }
+
+            _acc![ai++] = QualityValue(iqual, kind);
         }
 
         return true;
@@ -680,14 +691,27 @@ internal sealed partial class EmbossSeqin
                 return false;
             }
 
+            if (seqlen > _qualsize)
+                AccuracyResize(seqlen);
+            _qualsize = seqlen;
             int pos = 0;
             foreach (char c in tok)
             {
+                int iqual = c;
                 pos++;
                 if (c < 33)
+                {
                     _context.Warn($"SAM '{_opt.Filename}' sequence '{t.Name}' quality value {pos} '{c}' too low");
+                    iqual = 33;
+                }
+
                 if (c > 126)
+                {
                     _context.Warn($"SAM '{_opt.Filename}' sequence '{t.Name}' quality value '{c}' too high");
+                    iqual = 126;
+                }
+
+                _acc![pos - 1] = QualityValue(iqual, "SANGER");
             }
         }
 

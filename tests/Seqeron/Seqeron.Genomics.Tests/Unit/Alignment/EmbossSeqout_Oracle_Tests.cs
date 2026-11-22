@@ -63,6 +63,9 @@ public class EmbossSeqout_Oracle_Tests
             string? osdir = j.GetProperty("osdir").GetString();
             int rc = j.GetProperty("rc").GetInt32();
             bool refusal = j.GetProperty("hang").GetBoolean() || rc is -11 or -9 or -25;
+            bool memerr = j.TryGetProperty("memerr", out var me) && me.GetBoolean();           // valgrind: the reference reads memory the library never wrote, its output has no defined value
+            string? osdbname = j.TryGetProperty("osdbname", out var odn) && odn.ValueKind == JsonValueKind.String ? odn.GetString() : null;
+            string? commandLine = j.TryGetProperty("cmd", out var cm) ? string.Join(' ', cm.EnumerateArray().Select(x => x.GetString())) : null;
             string err = j.GetProperty("err").GetString()!;
             string? sformat = null;
             bool firstOnly = false, lower = false, upper = false, protein = false, nucleotide = false;
@@ -97,7 +100,9 @@ public class EmbossSeqout_Oracle_Tests
                 var date = DateTimeOffset.FromUnixTimeSeconds(j.GetProperty("epoch").GetInt64()).UtcDateTime;
                 var o = EmbossSeqretPrograms.Seqret(new EmbossSeqretRequest("in.dat", new Dictionary<string, string> { ["in.dat"] = text },
                     new EmbossSequenceQualifiers { Format = sformat, Lower = lower, Upper = upper, Protein = protein, Nucleotide = nucleotide }, false, firstOnly, outseq, osformat, null, null, date)
-                { OutSingle = single, OutDirectory = osdir, OutExtension = osext });
+                { OutSingle = single, OutDirectory = osdir, OutExtension = osext, CommandLine = commandLine, OutDbName = osdbname });
+                if (memerr)
+                    continue;
                 if (refusal)
                 {
                     failures.Add($"{id}: the reference never stops or dies by a fault, the port returned");
@@ -132,7 +137,7 @@ public class EmbossSeqout_Oracle_Tests
                         singles++;
                 }
             }
-            catch (InvalidOperationException) when (refusal)
+            catch (InvalidOperationException) when (refusal || memerr)
             {
                 refused++;
                 refusedBy[fmt] = refusedBy.GetValueOrDefault(fmt) + 1;
@@ -143,8 +148,8 @@ public class EmbossSeqout_Oracle_Tests
             }
         }
 
-        Assert.That(failures, Is.Empty, $"{failures.Count} of {rows}:\n" + string.Join("\n", failures.Take(12)));
-        string[] formats = ["unknown", "fasta", "pearson", "gcg", "gcg8", "nbrf", "pir", "codata", "strider", "staden", "text", "plain", "raw", "ig", "iguspto", "gde", "fitch", "acedb", "mase", "ncbi", "gifasta", "nib", "nibble", "dasdna", "das", "asn1"];
+        Assert.That(failures, Is.Empty, $"{failures.Count} of {rows}:\n" + string.Join("\n", failures.Take(25)));
+        string[] formats = ["unknown", "fasta", "pearson", "gcg", "gcg8", "nbrf", "pir", "codata", "strider", "staden", "text", "plain", "raw", "ig", "iguspto", "gde", "fitch", "acedb", "mase", "ncbi", "gifasta", "nib", "nibble", "dasdna", "das", "asn1", "fastq-sanger", "fastq-illumina", "fastq-solexa", "fastq", "sam", "gff2", "gff3", "gff", "msf", "clustal", "aln", "selex", "phylip", "phylipnon", "phylip3", "hennig86", "mega", "meganon", "nexus", "paup", "nexusnon", "paupnon", "jackknifer", "jackknifernon", "treecon"];
         foreach (string f in formats)
         {
             Assert.That(perFormat.GetValueOrDefault(f), Is.GreaterThanOrEqualTo(200), $"inputs of {f}");

@@ -103,6 +103,17 @@ internal static class EmbossSeqRange
             ReverseDo(seq);
     }
 
+    /// <summary><c>ajSeqNewSeq</c> as <c>seqWriteListAppend</c> uses it: a copy of the sequence with its range (the feature table is not copied: the writers of the lists do not read it).</summary>
+    public static EmbossSeq CopyForList(EmbossSeq seq)
+    {
+        var c = new EmbossSeq
+        {
+            Name = seq.Name, Desc = seq.Desc, Type = seq.Type, Begin = seq.Begin, End = seq.End, Offset = seq.Offset, Offend = seq.Offend, Rev = seq.Rev, Reversed = seq.Reversed, Weight = seq.Weight,
+        };
+        c.Seq.Append(seq.Seq);
+        return c;
+    }
+
     /// <summary><c>ajSeqGetBegin</c>: the 1-based start of the range in the sequence as it is now.</summary>
     public static int GetBegin(EmbossSeq seq)
     {

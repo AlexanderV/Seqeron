@@ -6,14 +6,22 @@ tables, damaged texts) so that names, descriptions, accessions, versions, nucleo
 JSONL.GZ rows: id, fmt (the output format), text, spec, args, osformat, outseq, single, osext, osdir, osname, firstonly, epoch, rc, fa (the sequence file), files ({path: text} of -ossingle), err.
 Usage: python3 scripts/alignment/generate_seqout_oracle.py OUT.jsonl.gz PER_FORMAT [seed] [format ...]      (needs EMBOSS 6.6.0 and gcc)
 """
-import gzip, json, os, random, subprocess, sys, tempfile
+import gzip, json, os, random, shutil, subprocess, sys, tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import generate_seqret_oracle as G  # noqa: E402
 
-FORMATS = ['unknown', 'fasta', 'pearson', 'gcg', 'gcg8', 'nbrf', 'pir', 'codata', 'strider', 'staden', 'text', 'plain', 'raw', 'ig', 'iguspto', 'gde', 'fitch', 'acedb', 'mase', 'ncbi', 'gifasta', 'nib', 'nibble', 'dasdna', 'das', 'asn1']
+FORMATS = ['unknown', 'fasta', 'pearson', 'gcg', 'gcg8', 'nbrf', 'pir', 'codata', 'strider', 'staden', 'text', 'plain', 'raw', 'ig', 'iguspto', 'gde', 'fitch', 'acedb', 'mase', 'ncbi', 'gifasta', 'nib', 'nibble', 'dasdna', 'das', 'asn1',
+           'fastq-sanger', 'fastq-illumina', 'fastq-solexa', 'fastq', 'sam', 'gff2', 'gff3', 'gff',
+           'msf', 'clustal', 'aln', 'selex', 'phylip', 'phylipnon', 'phylip3', 'hennig86', 'mega', 'meganon', 'nexus', 'paup', 'nexusnon', 'paupnon', 'jackknifer', 'jackknifernon', 'treecon', 'scf']
+# the writers that print the accuracy values (quality) of the sequences: their inputs are mostly texts with random qualities, and every run is checked with valgrind (the buffer of the values keeps what it had)
+QUAL_FORMATS = {'fastq-sanger', 'fastq-illumina', 'fastq-solexa', 'fastq', 'sam', 'scf', 'bam', 'experiment', 'debug'}
+QUAL_INPUTS = ['qsanger', 'qsanger', 'qillumina', 'qsolexa', 'qsam', 'qexperiment', 'fastq-sanger', 'fastq-illumina', 'fastq-solexa', 'sam', 'experiment']
 # the inputs of the readers whose reference runs are defined (the nexus and mega readers of the library read freed or foreign memory on some inputs, see generate_seqret_oracle.py: memerr)
 INPUTS = ['ncbi', 'ncbi', 'ncbi', 'fasta', 'fasta', 'fasta', 'gcg', 'embl', 'genbank', 'nbrf', 'swiss', 'ig', 'codata', 'strider', 'staden', 'gde', 'fitch', 'treecon', 'pir', 'clustal', 'msf', 'phylip', 'raw', 'textonly', 'asis', 'fastq', 'sam']
+
+
+DBNAME_FORCE = os.environ.get('SEQOUT_OSDBNAME') == '1'     # a run that gives -osdbname to most inputs (the file seqout_oracle_osdbname.jsonl.gz)
 
 
 def ncbi_text(rnd):
@@ -39,6 +47,39 @@ def ncbi_text(rnd):
     return ''.join(out)
 
 
+def qual_text(rnd, kind):
+    """Entries of the quality formats with random quality characters (fastq-sanger, fastq-illumina, fastq-solexa, sam, experiment); a few have a quality line of the wrong length, qualities below the minimum, or no quality at all (sam '*')."""
+    out = []
+    qmin = {'qsanger': 33, 'qillumina': 64, 'qsolexa': 59, 'qsam': 33}.get(kind, 33)
+    for i in range(rnd.choice([1, 1, 2, 3, 5])):
+        n = rnd.choice([1, 4, 10, 20, 21, 40, 61])
+        seq = ''.join(rnd.choice('ACGTN') if rnd.random() < 0.95 else rnd.choice('acgtRYK') for _ in range(n))
+        name = rnd.choice(['r%d' % i, 'read_%d' % i, 'HWI-ST:%d:1' % i, 'A%d' % (i + 7)])
+        desc = rnd.choice(['', '', 'x y', 'length=%d' % n, 'some description'])
+        qn = n
+        if rnd.random() < 0.1: qn = max(0, n + rnd.choice([-3, -1, 1, 4]))
+        lo = qmin if rnd.random() < 0.85 else max(33, qmin - rnd.choice([1, 5, 20]))
+        hi = rnd.choice([qmin + 10, qmin + 40, 126, 90])
+        qual = ''.join(chr(rnd.randint(lo, min(hi, 126))) for _ in range(qn))
+        if kind == 'qexperiment':
+            av = ' '.join(rnd.choice(['%d' % rnd.randint(0, 99), '%d,%d' % (rnd.randint(0, 9), rnd.randint(0, 99)), '%d' % rnd.randint(0, 9)]) for _ in range(qn))
+            body = ''.join('SQ   Sequence %d BP; 0 A; 0 C; 0 G; 0 T; 0 other;\n' % n if False else '') or ''
+            lines = ['ID   %s' % name, 'EX   %s' % (desc or 'experiment')]
+            for j in range(0, len(av), 70): lines.append('AV   ' + av[j:j + 70])
+            lines.append('SQ   Sequence %d BP; 0 A; 0 C; 0 G; 0 T; 0 other;' % n)
+            for j in range(0, n, 60): lines.append('     ' + seq[j:j + 60].lower())
+            lines.append('//')
+            out.append('\n'.join(lines) + '\n')
+        elif kind == 'qsam':
+            q = qual if rnd.random() < 0.8 and qn == n else '*'
+            out.append('%s\t4\t*\t0\t0\t*\t*\t0\t0\t%s\t%s\n' % (name, seq, q))
+        else:
+            out.append('@%s%s\n%s\n+%s\n%s\n' % (name, (' ' + desc) if desc else '', seq, name if rnd.random() < 0.3 else '', qual))
+    text = ''.join(out)
+    if kind == 'qsam' and rnd.random() < 0.8: text = '@HD\tVN:1.0\n' + text
+    return text
+
+
 def collect(work):
     files = {}
     for root, _, names in os.walk(work):
@@ -62,8 +103,12 @@ def main(out, per, seed, formats):
         for fmt in formats:
             made = 0
             while made < per:
-                src = rnd.choice(INPUTS)
-                text, how = (ncbi_text(rnd), 'ncbi') if src == 'ncbi' else G.make_input(rnd, gen, src)
+                src = rnd.choice(QUAL_INPUTS if fmt in QUAL_FORMATS and rnd.random() < 0.8 else INPUTS)
+                if src.startswith('q'):
+                    text, how = qual_text(rnd, src), 'qual'
+                    src = {'qsanger': 'fastq-sanger', 'qillumina': 'fastq-illumina', 'qsolexa': 'fastq-solexa', 'qsam': 'sam', 'qexperiment': 'experiment'}[src]
+                else:
+                    text, how = (ncbi_text(rnd), 'ncbi') if src == 'ncbi' else G.make_input(rnd, gen, src)
                 if rnd.random() < 0.15: text, how = G.damaged(rnd, text), how + '+damaged'
                 if rnd.random() < 0.05: text = text.rstrip('\n')
                 spec, args = 'in.dat', []
@@ -77,6 +122,7 @@ def main(out, per, seed, formats):
                 osext = rnd.choice(['abc', 'X1', 'Txt']) if single and rnd.random() < 0.4 else None
                 osdir = rnd.choice(['sub', 'sub/']) if single and rnd.random() < 0.4 else None
                 osname = rnd.choice(['nm', 'N1']) if rnd.random() < 0.2 else None
+                osdbname = rnd.choice(['MYDB', 'db1', 'sp', 'gb', 'lcl', 'BL_ORD_ID']) if DBNAME_FORCE and rnd.random() < 0.9 else None
                 if rnd.random() < 0.03: osformat, outseq = 'bogus', 'o.out'
                 for nme in os.listdir(work):
                     p = os.path.join(work, nme)
@@ -95,11 +141,21 @@ def main(out, per, seed, formats):
                 if osext: cmd += ['-osextension2', osext]
                 if osdir: cmd += ['-osdirectory2', osdir]
                 if osname: cmd += ['-osname2', osname]
+                if osdbname: cmd += ['-osdbname2', osdbname]
                 rc, err, hang = G.seqret(work, cmd, env=env)
-                if err.startswith('Read and write (return) sequences\n'): err = err[len('Read and write (return) sequences\n'):]
                 files = collect(work) if not hang else {}
-                rows.append({'id': len(rows), 'fmt': fmt, 'how': how + '/' + src, 'text': text, 'spec': spec, 'args': args, 'osformat': osformat, 'outseq': outseq, 'single': single, 'osext': osext, 'osdir': osdir, 'osname': osname,
-                             'epoch': epoch, 'rc': rc, 'files': files, 'err': err, 'hang': hang})
+                memerr = False
+                if fmt in QUAL_FORMATS and not hang and shutil.which('valgrind'):
+                    # a run that reads memory the library never wrote has no defined output: valgrind -q with an exit code (the rows are refused by the port)
+                    import re
+                    try:
+                        vg = subprocess.run(['valgrind', '-q', '--error-exitcode=99', 'seqret'] + cmd, cwd=work, capture_output=True, timeout=120, env=dict(os.environ))
+                        memerr = vg.returncode == 99 or re.search(rb'^==\d+== (Invalid|Conditional|Use of|Syscall|Mismatched|Source and destination|Process terminating)', vg.stderr, re.M) is not None
+                    except subprocess.TimeoutExpired:
+                        memerr = True
+                if err.startswith('Read and write (return) sequences\n'): err = err[len('Read and write (return) sequences\n'):]
+                rows.append({'id': len(rows), 'fmt': fmt, 'how': how + '/' + src, 'text': text, 'spec': spec, 'args': args, 'osformat': osformat, 'outseq': outseq, 'single': single, 'osext': osext, 'osdir': osdir, 'osname': osname, 'osdbname': osdbname,
+                             'epoch': epoch, 'rc': rc, 'files': files, 'err': err, 'hang': hang, 'memerr': memerr, 'cmd': cmd})
                 made += 1
     with gzip.open(out, 'wt', encoding='utf-8', newline='\n', compresslevel=9) as fh:
         for r in rows: fh.write(json.dumps(r, ensure_ascii=True) + '\n')

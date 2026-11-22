@@ -34,6 +34,13 @@ internal sealed class EmbossSeq
     /// <summary>The text of the entry the reader read (<c>thys-&gt;TextPtr</c>; kept when the input stores it).</summary>
     public StringBuilder? TextPtr;
 
+    /// <summary>The accuracy (quality) values (<c>thys-&gt;Accuracy</c>, <c>Qualsize</c>): null when the stream never had any; NaN is memory the library never wrote.</summary>
+    public float[]? Accuracy;
+    public int Qualsize;
+
+    /// <summary>The weight of the sequence (<c>thys-&gt;Weight</c>, default 1.0; the alignment formats set it).</summary>
+    public float Weight = 1.0f;
+
     /// <summary><c>ajSeqSetNuc</c>: the type, the type of the feature table when it has none, and N as the ambiguity code (every x and X of the sequence becomes n and N).</summary>
     public void SetNuc()
     {
@@ -327,6 +334,7 @@ internal sealed partial class EmbossSeqin
     public EmbossSeq? Next()
     {
         var t = new EmbossSeq();
+        AccuracyClear();
         _count++;
         bool ok = !_buff.Unbuffered;
         if (!Table[_format].Binary)
@@ -369,6 +377,7 @@ internal sealed partial class EmbossSeqin
                 if (_format != 0)
                     break;                                          // something was read: the format is known
                 t = new EmbossSeq();
+                AccuracyClear();
             }
 
             if (_format == 0)
@@ -404,6 +413,7 @@ internal sealed partial class EmbossSeqin
                 throw new InvalidOperationException("The reference program never stops on this input: the reader reads the same lines again and again.");
             var before = (_buff.State, _seqData?.Count ?? -1, _seqData is null);
             t = new EmbossSeq();
+            AccuracyClear();
             int jstat = ReadFmt(t, _format);
             if (jstat is FmtNoMatch or FmtEmpty && (_buff.State, _seqData?.Count ?? -1, _seqData is null) == before)
                 throw new InvalidOperationException("The reference program never stops on this input: the reader does not consume the entry that the query refuses.");
@@ -585,6 +595,7 @@ internal sealed partial class EmbossSeqin
     // seqDefine: the type from the format when the reader set none (ajSeqSetNuc / ajSeqSetProt), else from the letters (ajSeqType), the circular flag of the table
     private void Define(EmbossSeq t)
     {
+        AccuracySnapshot(t);
         if (_opt.Db.Length > 0)
             t.Db = _opt.Db;
         if (_opt.Entryname.Length > 0 && t.Entryname.Length == 0)
