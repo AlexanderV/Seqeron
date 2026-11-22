@@ -80,6 +80,8 @@ public static class EmbossProgramRunner
         ["infoseq"] = EmbossSequencePrograms.Infoseq,
         ["wordcount"] = EmbossSequencePrograms.Wordcount,
         ["seqxref"] = EmbossSequencePrograms.Seqxref,
+        ["showorf"] = EmbossSequencePrograms.Showorf,
+        ["prettyseq"] = EmbossSequencePrograms.Prettyseq,
     };
 
     /// <summary>The programs that can be run.</summary>

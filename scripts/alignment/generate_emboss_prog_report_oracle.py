@@ -154,7 +154,45 @@ def gen_seqxref(rnd, i, d):
     return args, {'in.dat': text}
 
 
-GENS = {'seqxref': gen_seqxref, 'listor': gen_listor, 'nthseqset': gen_nthseqset, 'infoseq': gen_infoseq, 'wordcount': gen_wordcount}
+def gen_showorf(rnd, i, d):
+    lens = rnd.choice([(1, 12), (1, 60), (30, 300)])
+    items = G.seqs_for(rnd, 'x', 'n', 1, lens)
+    text, fmt = G.seq_file(rnd, d, items)
+    args = ['-sequence', 'in.dat'] + G.seq_quals(rnd, fmt, '', 0.15)
+    if rnd.random() < 0.6: args += ['-frames', rnd.choice(['1,2,3,4,5,6', '1', '2,3', '4,5,6', '0', '1,4', '6,5,4', 'F1', 'R2,F3', '1,2,3', '*', '7', '1,1', ',1', '0,1', '1,0', 'F1,R1', 'None'])]
+    if rnd.random() < 0.4: args += ['-table', rnd.choice(['0', '1', '2', '3', '4', '5', '6', '9', '10', '11', '12', '13', '14', '15', '16', '21', '22', '23', 'Standard', '7', 'Bacterial', '1,2'])]
+    if rnd.random() < 0.5: args += ['-width', str(rnd.choice([10, 20, 30, 50, 60, 100, 5, 0, -3, 1000]))]
+    for o in ['-noruler', '-noplabel', '-nonlabel']:
+        if rnd.random() < 0.2: args.append(o)
+    args += ['-outfile', rnd.choice(['out.txt', 'stdout'])]
+    return args, {'in.dat': text}, {'vg': 'underflow'}
+
+
+def gen_prettyseq(rnd, i, d):
+    lens = rnd.choice([(1, 12), (1, 60), (30, 300)])
+    items = G.seqs_for(rnd, 'x', 'n', 1, lens)
+    text, fmt = G.seq_file(rnd, d, items)
+    n = len(items[0][2])
+    args = ['-sequence', 'in.dat'] + G.seq_quals(rnd, fmt, '', 0.15)
+    r = rnd.random()
+    if r < 0.6:
+        k = rnd.choice([1, 1, 1, 2, 3])
+        parts = []
+        for _ in range(k):
+            a = rnd.randint(1, max(1, n)); b = rnd.randint(a, max(a, n))
+            parts.append('%d-%d' % (a, b))
+        args += ['-range', rnd.choice([',', ' ', ';']).join(parts)]
+    elif r < 0.65:
+        args += ['-range', rnd.choice(['0-3', '5-3', '1-1000', '3', 'a-b', '1,2,3', '1-3,2-9', '2-4,1-6', '1-2,1-2,1-3'])]
+    if rnd.random() < 0.4: args += ['-table', rnd.choice(['0', '1', '2', '3', '4', '5', '6', '9', '10', '11', '12', '13', '14', '15', '16', '21', '22', '23', '7'])]
+    if rnd.random() < 0.5: args += ['-width', str(rnd.choice([10, 20, 30, 50, 60, 100, 5, 0, -3, 1000]))]
+    for o in ['-noruler', '-noplabel', '-nonlabel']:
+        if rnd.random() < 0.2: args.append(o)
+    args += ['-outfile', rnd.choice(['out.txt', 'stdout'])]
+    return args, {'in.dat': text}, {'vg': 'underflow'}
+
+
+GENS = {'prettyseq': gen_prettyseq, 'showorf': gen_showorf, 'seqxref': gen_seqxref, 'listor': gen_listor, 'nthseqset': gen_nthseqset, 'infoseq': gen_infoseq, 'wordcount': gen_wordcount}
 
 if __name__ == '__main__':
     prog = sys.argv.pop(1)

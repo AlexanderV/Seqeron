@@ -117,7 +117,7 @@ def run(prog, args, files, work, timeout=8, env=None, timetoday=None):
     return rc, outb.decode('latin-1'), errb.decode('latin-1'), outfiles, hang
 
 
-def valgrind_bad(prog, args, files, work, env=None):
+def valgrind_bad(prog, args, files, work, env=None, tolerate_underflow=False):
     """True when the run reads or writes invalid memory (valgrind -q reports an error): such a run has no defined result and is refused by the port"""
     if not shutil.which('valgrind'):
         return False
@@ -132,6 +132,11 @@ def valgrind_bad(prog, args, files, work, env=None):
         vg = subprocess.run(['valgrind', '-q', '--error-exitcode=99', prog, '-auto'] + args, cwd=work, capture_output=True, timeout=120, env=env, stdin=subprocess.DEVNULL)
     except subprocess.TimeoutExpired:
         return True
+    if tolerate_underflow:
+        # a read of one byte before a heap block is the high byte of the size field of the chunk header (always 0): the loop `for(...; p[pos]; ...)` of the programs stops there as at a NUL (benign, deterministic)
+        records = re.split(rb'\n==\d+== \n', vg.stderr)
+        records = [r for r in records if not (re.search(rb'Invalid read of size 1\b', r) and re.search(rb'is 1 bytes before a block of size', r))]
+        return vg.returncode == 99 and any(re.search(rb'(Invalid|Conditional|Use of|Syscall|Mismatched|Source and destination|Process terminating)', r) for r in records) or any(re.search(rb'^==\d+== (Invalid|Conditional|Use of|Syscall|Mismatched|Source and destination|Process terminating)', r, re.M) for r in records)
     return vg.returncode == 99 or re.search(rb'^==\d+== (Invalid|Conditional|Use of|Syscall|Mismatched|Source and destination|Process terminating)', vg.stderr, re.M) is not None
 
 
@@ -165,7 +170,7 @@ def main(prog, gen, default_n=300, default_seed=20261701):
             if (rc, o, e, outfiles) != (rc2, o2, e2, outfiles2):
                 print('row', len(rows), 'not deterministic: dropped', args, file=sys.stderr)
                 continue
-            if extra.get('vg') and rc >= 0 and not hang and valgrind_bad(prog, args, dict(files, **({'.embossrc': 'SET timetoday "%s"\n' % extra['timetoday']} if extra.get('timetoday') is not None else {})), work, dict(env, **({'HOME': work} if extra.get('timetoday') is not None else {}))):
+            if extra.get('vg') and rc >= 0 and not hang and valgrind_bad(prog, args, dict(files, **({'.embossrc': 'SET timetoday "%s"\n' % extra['timetoday']} if extra.get('timetoday') is not None else {})), work, dict(env, **({'HOME': work} if extra.get('timetoday') is not None else {})), tolerate_underflow=extra['vg'] == 'underflow'):
                 rc, hang, o, e, outfiles = -11, False, '', '', {}                  # invalid memory access in the reference: refused by the port
             row = {'id': len(rows), 'prog': prog, 'args': args, 'files': {k: v for k, v in files.items()}, 'rc': rc, 'out': o, 'err': e, 'outfiles': outfiles, 'hang': hang, 'epoch': epoch}
             row.update({k: v for k, v in extra.items()})
