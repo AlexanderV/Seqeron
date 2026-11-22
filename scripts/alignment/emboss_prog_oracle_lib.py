@@ -4,7 +4,7 @@
 and the standard output, the error stream, the exit status and every file it wrote are kept (JSONL.GZ rows: id, prog, args, files, rc, out, err, outfiles, hang). The C# test
 EmbossPrograms_Oracle_Tests runs EmbossProgramRunner.Run(prog, args, files) on every row and compares the four results byte for byte.
 A program-specific script defines gen(rnd, i) -> (args, files) and calls main(program, gen, default_n)."""
-import gzip, json, os, random, resource, subprocess, sys, tempfile, shutil
+import gzip, json, os, random, re, resource, subprocess, sys, tempfile, shutil
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import generate_seqret_oracle as S  # noqa: E402
@@ -76,16 +76,17 @@ def clock_shim(d):
     return shim
 
 
-def run(prog, args, files, work, timeout=8, env=None, timetoday=False):
-    """runs the program; returns (rc, stdout, stderr, outfiles, hang). timetoday: the EMBOSS variable of that name is defined (HOME = the work directory with a .embossrc that holds `SET timetoday 1`)"""
+def run(prog, args, files, work, timeout=8, env=None, timetoday=None):
+    """runs the program; returns (rc, stdout, stderr, outfiles, hang). timetoday: the value of the EMBOSS variable of that name (HOME = the work directory with a .embossrc that holds `SET timetoday "VALUE"`): the date of the run and seed 0"""
     for nme in os.listdir(work):
         path = os.path.join(work, nme)
         shutil.rmtree(path) if os.path.isdir(path) else os.remove(path)
-    if timetoday:
-        open(os.path.join(work, '.embossrc'), 'w').write('SET timetoday 1\n')
+    if timetoday is not None:
+        rc_text = 'SET timetoday "%s"\n' % timetoday
+        open(os.path.join(work, '.embossrc'), 'w').write(rc_text)
         env = dict(env or os.environ, HOME=work)
         files = dict(files)
-        files['.embossrc'] = 'SET timetoday 1\n'
+        files['.embossrc'] = rc_text
     for k, v in files.items():
         if '/' in k:
             os.makedirs(os.path.join(work, os.path.dirname(k)), exist_ok=True)
@@ -116,8 +117,26 @@ def run(prog, args, files, work, timeout=8, env=None, timetoday=False):
     return rc, outb.decode('latin-1'), errb.decode('latin-1'), outfiles, hang
 
 
+def valgrind_bad(prog, args, files, work, env=None):
+    """True when the run reads or writes invalid memory (valgrind -q reports an error): such a run has no defined result and is refused by the port"""
+    if not shutil.which('valgrind'):
+        return False
+    for nme in os.listdir(work):
+        path = os.path.join(work, nme)
+        shutil.rmtree(path) if os.path.isdir(path) else os.remove(path)
+    for k, v in files.items():
+        if '/' in k:
+            os.makedirs(os.path.join(work, os.path.dirname(k)), exist_ok=True)
+        open(os.path.join(work, k), 'w', newline='\n', encoding='latin-1').write(v)
+    try:
+        vg = subprocess.run(['valgrind', '-q', '--error-exitcode=99', prog, '-auto'] + args, cwd=work, capture_output=True, timeout=120, env=env, stdin=subprocess.DEVNULL)
+    except subprocess.TimeoutExpired:
+        return True
+    return vg.returncode == 99 or re.search(rb'^==\d+== (Invalid|Conditional|Use of|Syscall|Mismatched|Source and destination|Process terminating)', vg.stderr, re.M) is not None
+
+
 def main(prog, gen, default_n=300, default_seed=20261701):
-    """gen(rnd, i, dir) -> (args, files) or (args, files, extra): extra = {'usec': N} (the microseconds gettimeofday returns when the random number generator is seeded) or {'timetoday': True}.
+    """gen(rnd, i, dir) -> (args, files) or (args, files, extra): extra = {'usec': N} (the microseconds gettimeofday returns when the random number generator is seeded) or {'timetoday': 'yyyy-mm-dd hh:mm:ss'} (the value of the variable).
     Every row also holds 'epoch': the date of the run (time() of the run; the writers of genbank / embl / ... print it), drawn from a generator of its own so that the rows do not depend on it."""
     out = sys.argv[1]
     n = int(sys.argv[2]) if len(sys.argv) > 2 else default_n
@@ -138,7 +157,16 @@ def main(prog, gen, default_n=300, default_seed=20261701):
             env = dict(os.environ, LD_PRELOAD=shim, FAKE_EPOCH=str(epoch), TZ='UTC')
             if 'usec' in extra:
                 env['FAKE_USEC'] = str(extra['usec'])
-            rc, o, e, outfiles, hang = run(prog, args, files, work, env=env, timetoday=extra.get('timetoday', False))
+            rc, o, e, outfiles, hang = run(prog, args, files, work, env=env, timetoday=extra.get('timetoday'))
+            rc2, o2, e2, outfiles2, hang2 = run(prog, args, files, work, env=env, timetoday=extra.get('timetoday'))
+            if hang and rc == -9:
+                print('row', len(rows), 'timed out: dropped', args, file=sys.stderr)       # slow rather than defined (e.g. the 28 s of an NCBI header with two barred tokens): no row
+                continue
+            if (rc, o, e, outfiles) != (rc2, o2, e2, outfiles2):
+                print('row', len(rows), 'not deterministic: dropped', args, file=sys.stderr)
+                continue
+            if extra.get('vg') and rc >= 0 and not hang and valgrind_bad(prog, args, dict(files, **({'.embossrc': 'SET timetoday "%s"\n' % extra['timetoday']} if extra.get('timetoday') is not None else {})), work, dict(env, **({'HOME': work} if extra.get('timetoday') is not None else {}))):
+                rc, hang, o, e, outfiles = -11, False, '', '', {}                  # invalid memory access in the reference: refused by the port
             row = {'id': len(rows), 'prog': prog, 'args': args, 'files': {k: v for k, v in files.items()}, 'rc': rc, 'out': o, 'err': e, 'outfiles': outfiles, 'hang': hang, 'epoch': epoch}
             row.update({k: v for k, v in extra.items()})
             rows.append(row)

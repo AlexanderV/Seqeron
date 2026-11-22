@@ -465,6 +465,7 @@ internal sealed partial class EmbossSeqin
     {
         if (_nexusData is null)
         {
+            _multidone = false;
             _buff.SetBuffered();
             bool ok = ReadLine();
             if (!ok)
@@ -525,6 +526,7 @@ internal sealed partial class EmbossSeqin
         d.Count++;
         if (d.Count >= d.Nseq)
         {
+            _multidone = true;
             _buff.Clear(0);
             _nexusData = null;
         }

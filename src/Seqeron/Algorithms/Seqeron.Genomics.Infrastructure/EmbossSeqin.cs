@@ -183,7 +183,7 @@ internal sealed partial class EmbossSeqin
     private readonly EmbossSeqinOptions _opt;
     private readonly Func<string, string?> _files;
     private int _format;
-    private readonly int _specified;
+    private int _specified;
     private int _count;
     private int _records;
     private int _totRecords;
@@ -245,6 +245,17 @@ internal sealed partial class EmbossSeqin
         }
 
         _specified = _format;
+    }
+
+    /// <summary><c>seqinFormatSet</c> on the next sequence object (<c>ajSeqsetRead</c>, <c>ajSeqsetallRead</c>): the format the input found for the sequence just read is the format of the next sequences (<c>thys-&gt;Format</c>), so that <c>seqDefine</c> gives a nucleic-only format its type N.</summary>
+    public void MarkFormatSet()
+    {
+        if (_format != 0)
+            _specified = _format;
+        // every member of a set is a new sequence object: it has no date object, accuracy buffer ... of the sequence before (the stream reuses one object)
+        _dateProto = null;
+        _acc = null;
+        _qualsize = 0;
     }
 
     // the lines of a file as ajReadline returns them: every line ends with a line feed, a last line of a file that does not end with one gets it (measured on 6.6.0)

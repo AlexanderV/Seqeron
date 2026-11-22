@@ -46,6 +46,49 @@ internal sealed class AcdCommandLine
 
     private void Warn(string message) => _warnings.Add(message);
 
+    private readonly System.Text.StringBuilder _saved = new("-auto");
+
+    /// <summary>
+    /// The arguments of the run as the library keeps them (<c>acdArgSave</c>, <c>ajUtilGetCmdline</c>, tokens separated by a blank here): every qualifier under its full resolved name with its number or its master
+    /// (<c>-sbegin1</c>, <c>-osformat_outseq</c> ...), a boolean without its value when the value is the one the name says, a value that is no word (or holds one of <c>* ? [ ] { } | ! &amp; ^</c>) in double quotes.
+    /// </summary>
+    public string SavedCommandLine => _saved.ToString();
+
+    // acdArgsParse: the part of the loop that appends the token to acdArgSave
+    private void Save(AcdItem acd, string qual, string noqual, string value, int number, string master)
+    {
+        _saved.Append(" -").Append(noqual);
+        if (number != 0)
+            _saved.Append(number.ToString(CultureInfo.InvariantCulture));
+        else if (master.Length > 0)
+            _saved.Append('_').Append(master);
+        bool isWord = value.Length > 0 && !value.Any(char.IsWhiteSpace);
+        if (acd.IsBoolean)
+        {
+            string argval = value;
+            if (qual == noqual)
+            {
+                if (value == "Y")
+                    argval = "";
+            }
+            else if (value == "N")
+            {
+                argval = "";
+            }
+
+            if (argval.Length > 0)
+                _saved.Append(' ').Append(argval);
+        }
+        else if (isWord && value.IndexOfAny(['*', '?', '[', ']', '{', '}', '|', '!', '&', '^']) < 0)
+        {
+            _saved.Append(' ').Append(value);
+        }
+        else if (qual == noqual)
+        {
+            _saved.Append(" \"").Append(value).Append('"');
+        }
+    }
+
     /// <summary>Resolves the tokens one after the other (<c>acdArgsParse</c>).</summary>
     /// <exception cref="ArgumentException">The program would die: unknown / ambiguous qualifier, missing value, "no" prefix with a value; or a token that is not a qualifier (the text holds qualifiers only).</exception>
     public void Run(IReadOnlyList<string> tokens)
@@ -55,11 +98,12 @@ internal sealed class AcdCommandLine
         {
             string cp = tokens[i];
             string? cq = i + 1 < tokens.Count ? tokens[i + 1] : null;
-            int j = IsQual(cp, cq, out int jparam, out string qual, out _, out string value, out int number, out string master, out AcdItem? acd);
+            int j = IsQual(cp, cq, out int jparam, out string qual, out string noqual, out string value, out int number, out string master, out AcdItem? acd);
             if (j == 0)
                 throw Die($"Unexpected argument '{cp}': the text takes qualifiers of the sequence inputs only (for example -sbegin1 3 -sreverse2).");
             // acdFindQualDetail dies (Unknown qualifier) if acd is not set, so acd is set here
             _values[acd!] = value;
+            Save(acd!, qual, noqual, value, number, master);
             if (master.Length == 0 && number == 0 && jparam == 0 && acd!.PNum != 0)
             {
                 for (int itest = acd.PNum + 1; itest <= _profile.ParamCount; itest++)

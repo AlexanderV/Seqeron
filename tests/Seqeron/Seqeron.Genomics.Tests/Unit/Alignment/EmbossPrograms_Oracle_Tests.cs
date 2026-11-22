@@ -53,7 +53,7 @@ public class EmbossPrograms_Oracle_Tests
             var clock = new EmbossRunEnvironment(
                 j.TryGetProperty("epoch", out var epoch) ? DateTimeOffset.FromUnixTimeSeconds(epoch.GetInt64()).UtcDateTime : null,
                 j.TryGetProperty("usec", out var usec) && usec.ValueKind == JsonValueKind.Number ? usec.GetInt32() : null,
-                j.TryGetProperty("timetoday", out var timetoday) && timetoday.ValueKind == JsonValueKind.True);
+                j.TryGetProperty("timetoday", out var timetoday) && timetoday.ValueKind == JsonValueKind.String ? timetoday.GetString() : null);
             try
             {
                 var r = EmbossProgramRunner.Run(program, args, files, clock);

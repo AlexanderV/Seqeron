@@ -46,6 +46,7 @@ internal sealed partial class EmbossSeqin
         data.Count++;
         if (data.Count >= data.Nseq)
         {
+            _multidone = true;
             _buff.Clear(0);
             _seqData = null;
         }
@@ -58,6 +59,7 @@ internal sealed partial class EmbossSeqin
     {
         if (_seqData is null)
         {
+            _multidone = false;
             bool ok = ReadLine();
             if (!ok)
                 return false;
@@ -140,6 +142,7 @@ internal sealed partial class EmbossSeqin
         _buff.SetBuffered();
         if (_seqData is null)
         {
+            _multidone = false;
             bool ok = ReadLine();
             while (ok && IsWhite(_line))
                 ok = ReadLine();

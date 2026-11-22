@@ -160,6 +160,9 @@ internal static class EmbossSeqType
     /// <summary><c>ajSeqIsNuc</c> of a sequence with the type <paramref name="type"/> (<c>N</c> / <c>P</c> / empty) and the residues <paramref name="seq"/>.</summary>
     public static bool IsNuc(string type, string seq) => type == "N" || (type != "P" && TestS(seq, FilterNucGap) == '\0');
 
+    /// <summary><c>ajSeqsetIsNuc</c>: the type of the set (the type of its first member) is N, or the residues of the first member are nucleic (whatever its own type says).</summary>
+    public static bool IsNucSet(string type, string seq) => type == "N" || TestS(seq, FilterNucGap) == '\0';
+
     /// <summary><c>ajSeqIsProt</c>.</summary>
     public static bool IsProt(string type, string seq) => type == "P" || (type != "N" && TestS(seq, FilterProtAny) == '\0');
 

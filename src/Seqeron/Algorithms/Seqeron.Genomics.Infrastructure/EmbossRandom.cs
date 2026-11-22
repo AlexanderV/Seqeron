@@ -115,6 +115,19 @@ internal sealed class EmbossRandom
         return new string(q);
     }
 
+    /// <summary><c>ajSortIntIncI</c>: Shell sort of the index array <paramref name="p"/> by the keys a[p[.]] (an int key array).</summary>
+    public static void SortIntIncI(int[] a, uint[] p, int n)
+    {
+        for (uint s = (uint)n / 2; s > 0; s /= 2)
+        {
+            for (uint i = s; i < n; ++i)
+            {
+                for (long j = (long)i - s; j >= 0 && a[p[j]] >= a[p[j + s]]; j -= s)
+                    (p[j], p[j + s]) = (p[j + s], p[j]);
+            }
+        }
+    }
+
     // ajSortUintIncI: Shell sort of the index array p by the keys a[p[.]] (swap while a[p[j]] >= a[p[j+s]])
     private static void SortUintIncI(uint[] a, uint[] p, int n)
     {

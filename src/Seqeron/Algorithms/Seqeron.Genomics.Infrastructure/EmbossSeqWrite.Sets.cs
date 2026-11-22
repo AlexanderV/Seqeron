@@ -74,7 +74,7 @@ internal static partial class EmbossSeqWrite
         _ => "seqWrite" + f.Writer,
     };
 
-    private static string Today(EmbossSeqWriteRun run) => run.RunDate.ToString("dd/MM/yy", CultureInfo.InvariantCulture);
+    private static string Today(EmbossSeqWriteRun run) => (run.RefToday ?? run.RunDate).ToString("dd/MM/yy", CultureInfo.InvariantCulture);
 
     // seqGapSL: the characters of " .~-" become the gap character, the ends of the sequence the pad character (when there is one), and the sequence is padded to a length
     private static string GapSL(string seq, char gapc, char padc, int ilen)

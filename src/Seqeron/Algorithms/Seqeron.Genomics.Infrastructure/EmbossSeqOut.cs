@@ -53,6 +53,9 @@ internal sealed class EmbossSeqWriteRun
     /// <summary>The date of the run (the header of mase).</summary>
     public DateTime RunDate = DateTime.Now;
 
+    /// <summary><c>ajTimeRefToday</c> (the header of the set formats): the date of the clock; the EMBOSS variable <c>timetoday</c> does not change it (the time object is made before the configuration is read), null = <see cref="RunDate"/>.</summary>
+    public DateTime? RefToday;
+
     /// <summary>The name of the program and its arguments (<c>ajUtilGetProgram</c> / <c>ajUtilGetCmdline</c>: the <c>@PG</c> line of SAM files).</summary>
     public string Program = "seqret", CommandLine = "";
 

@@ -90,7 +90,11 @@ internal static partial class EmbossSeqWrite
     private static void WriteEmblOld(StringBuilder o, EmbossSeqOut s, EmbossSeqWriteRun run)
     {
         if (s.IsProtein)
-            throw new NotSupportedException("The protein sequences of the embl writers are written by the swiss writer.");
+        {
+            WriteSwissOld(o, s, run);                                    // seqWriteEmbl / seqWriteEmblnew: a protein sequence is written by seqWriteSwiss
+            return;
+        }
+
         o.Append("ID   ").Append(Left(s.Name, 10, int.MaxValue)).Append(CultureInfo.InvariantCulture, $" standard; DNA; UNC; {s.Seq.Length} BP.\n");
         if (s.Acclist.Count > 0)
             ListLines(o, "AC   ", s.Acclist, true);
@@ -111,7 +115,11 @@ internal static partial class EmbossSeqWrite
     private static void WriteEmblNew(StringBuilder o, EmbossSeqOut s, EmbossSeqWriteRun run)
     {
         if (s.IsProtein)
-            throw new NotSupportedException("The protein sequences of the embl writers are written by the swiss writer.");
+        {
+            WriteSwissOld(o, s, run);                                    // seqWriteEmbl / seqWriteEmblnew: a protein sequence is written by seqWriteSwiss
+            return;
+        }
+
         string svstr = "1";
         if (s.Sv.Length > 0)
         {

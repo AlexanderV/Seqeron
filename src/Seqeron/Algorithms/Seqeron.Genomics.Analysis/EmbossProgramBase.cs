@@ -9,10 +9,10 @@ internal static class EmbossProgramBase
     public static EmbossFeatureReadContext Context(string program) => new() { Program = program };
 
     /// <summary><c>acdSetSeqall</c> / <c>acdSetSeq</c> of the input parameter <paramref name="parameter"/> (the first sequence is read here, as the ACD does when it processes the item); null: the program dies.</summary>
-    public static EmbossSeqall? Open(string program, EmbossAcdArgs a, IReadOnlyDictionary<string, string> files, EmbossFeatureReadContext context, string type, string parameter = "sequence", bool single = false)
+    public static EmbossSeqall? Open(string program, EmbossAcdArgs a, IReadOnlyDictionary<string, string> files, EmbossFeatureReadContext context, string type, string parameter = "sequence", bool single = false, bool features = false)
     {
         context.InputType ??= type.ToLowerInvariant();                         // acdInTypeSeqSave: the first input wins
-        return EmbossSeqall.Open(program, a.Raw(parameter) ?? "", files, a.Sequence(parameter), false, context, type, single);
+        return EmbossSeqall.Open(program, a.Raw(parameter) ?? "", files, a.Sequence(parameter), features, context, type, single);
     }
 
     /// <summary>The program dies on the input <paramref name="parameter"/>.</summary>

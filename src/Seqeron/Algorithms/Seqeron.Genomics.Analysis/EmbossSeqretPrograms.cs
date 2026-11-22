@@ -327,6 +327,21 @@ public static class EmbossSeqretPrograms
         return seq is not null;
     }
 
+    // ajSeqRead of the next member of a set; a fatal error of the library ends the program with its message
+    internal static EmbossSeq? TryNextMember(EmbossSeqall seqall, EmbossFeatureReadContext context, bool applyRange = true)
+    {
+        try
+        {
+            return seqall.NextMember(applyRange);
+        }
+        catch (EmbossFatalException e)
+        {
+            context.Messages.Add(e.Message);
+            context.Fatal = true;
+            return null;
+        }
+    }
+
     internal static EmbossSeqretOutput Died(EmbossFeatureReadContext context, string parameter = "sequence")
     {
         if (!context.Fatal)

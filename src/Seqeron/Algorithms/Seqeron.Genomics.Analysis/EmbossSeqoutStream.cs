@@ -18,6 +18,9 @@ public sealed record EmbossOutseqOptions(string OutSeq = "stdout", string? Forma
     /// <summary>The date of the run (the headers of some writers); null = now.</summary>
     public DateTime? RunDate { get; init; }
 
+    /// <summary>The date of the clock (<c>ajTimeRefToday</c>, the headers of the set formats); null = <see cref="RunDate"/>.</summary>
+    public DateTime? RefToday { get; init; }
+
     /// <summary>The command line of the run (the SAM writer prints it).</summary>
     public string CommandLine { get; init; } = "";
 }
@@ -65,7 +68,7 @@ internal sealed class EmbossSeqoutStream
             _outName = um.Groups[2].Value;
         }
 
-        _run = new EmbossSeqWriteRun { RunDate = options.RunDate ?? DateTime.Now, Program = program, CommandLine = options.CommandLine, Setoutdb = options.DbName ?? "", FileName = _outName };
+        _run = new EmbossSeqWriteRun { RunDate = options.RunDate ?? DateTime.Now, RefToday = options.RefToday, Program = program, CommandLine = options.CommandLine, Setoutdb = options.DbName ?? "", FileName = _outName };
         // ajSeqoutOpen (at the start of the run, by acdSetSeqout): -osdirectory is the directory of the output file, too (not only of the files of -ossingle)
         _outDir = EmbossOutPath.FixDirectory(options.Directory);
         _mainPath = options.Single ? _outName : EmbossOutPath.Combine(_outDir, _outName);
@@ -108,15 +111,37 @@ internal sealed class EmbossSeqoutStream
             return;
         }
 
+        WriteMember(seq, _format);
+    }
+
+    /// <summary>
+    /// <c>ajSeqoutWriteSet</c>: the members of a set are written one after the other (<c>seqsetClone</c>): an unknown format is reported at every call and the sequences are written as FASTA (format 0 of the table), the format is
+    /// not asked whether it supports the kind of the sequence.
+    /// </summary>
+    public void WriteSet(IReadOnlyList<EmbossSeq> members)
+    {
+        var format = _format;
+        if (format is null)
+        {
+            _context.Error($"unknown output sequence set format '{_formatName}'");
+            format = EmbossSeqWrite.Find("fasta")!;
+        }
+
+        foreach (var seq in members)
+            WriteMember(seq, format);
+    }
+
+    private void WriteMember(EmbossSeq seq, EmbossSeqOutFormat format)
+    {
         bool outSingle = _o.Single;
-        if (_format.Save)
+        if (format.Save)
         {
             // seqClone then seqWriteListAppend: the sequence (a copy cut to its range) is kept and the set is written when the output is closed
             var copy = EmbossSeqRange.CopyForList(seq);
             EmbossSeqRange.Trim(copy);
-            if (outSingle && EmbossSeqWrite.WritesToNullFileDies(_format, Math.Max(copy.Seq.Length, _run.Saved.Count == 0 ? 0 : _run.Saved.Max(x => x.Seq.Length))))
+            if (outSingle && EmbossSeqWrite.WritesToNullFileDies(format, Math.Max(copy.Seq.Length, _run.Saved.Count == 0 ? 0 : _run.Saved.Max(x => x.Seq.Length))))
                 throw new InvalidOperationException("A set format with -ossingle writes the saved list to a file that is not open (the reference program dies by a fault).");
-            if (_format.Writer is "Nexus" or "Msf" && copy.Seq.Length == 0)
+            if (format.Writer is "Nexus" or "Msf" && copy.Seq.Length == 0)
                 throw new InvalidOperationException("The nexus and msf writers die by a segmentation fault on a set that holds an empty sequence (measured on 6.6.0).");
             if (seq.Type.Length > 0)
                 _run.OutType = seq.Type;
@@ -126,8 +151,8 @@ internal sealed class EmbossSeqoutStream
             return;
         }
 
-        if (!EmbossSeqWrite.IsPorted(_format))
-            throw new NotSupportedException($"The sequence output format '{_format.Name}' is not written by this port.");
+        if (!EmbossSeqWrite.IsPorted(format))
+            throw new NotSupportedException($"The sequence output format '{format.Name}' is not written by this port.");
         _run.UfoLocal = false;
         // ajSeqoutSetNameDefaultS: an unnamed sequence is called EMBOSS_001, EMBOSS_002 ... (EMBOSS with -ossingle: the file of every unnamed sequence has the same name)
         string name = seq.Name;
@@ -140,7 +165,7 @@ internal sealed class EmbossSeqoutStream
         item.Name = name;
         _run.Count = outSingle ? 0 : _count;
         _run.HeaderCount = _count;
-        if (_format.Writer == "Debug")
+        if (format.Writer == "Debug")
         {
             string ext = _o.Extension ?? _o.Format ?? "fasta";
             string dirName = _o.Directory ?? "";
@@ -153,14 +178,14 @@ internal sealed class EmbossSeqoutStream
             };
         }
 
-        EmbossSeqWrite.Write(target, _format, item, _run);
+        EmbossSeqWrite.Write(target, format, item, _run);
         if (outSingle)
         {
             string file = (name + "." + (_o.Extension ?? _o.Format ?? "fasta")).ToLowerInvariant();
             string path = EmbossOutPath.Combine(_outDir, file);
             if (!EmbossOutPath.DirectoryExists(_o.ExistingDirectories, path))
             {
-                if (!EmbossOutPath.SingleOpenSurvives(_format))
+                if (!EmbossOutPath.SingleOpenSurvives(format))
                     throw new InvalidOperationException("The directory of a file of -ossingle does not exist: the library warns and the reference program dies by a segmentation fault.");
                 EmbossOutPath.SingleOpenFailed(_context, file, _outDir);
             }

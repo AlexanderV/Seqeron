@@ -23,7 +23,10 @@ internal sealed partial class EmbossSeqin
     }
 
     private MegaData? _mega;
-    private bool _megaMultidone;
+    private bool _multidone;
+
+    /// <summary><c>seqin-&gt;Multidone</c>: the reader finished a set of a file that holds several (phylip, phylipnon, treecon, jackknifer, nexus, mega).</summary>
+    public bool Multidone => _multidone;
 
     // ajCvtSposToPosStart
     private static int PosStart(int len, int imin, int ipos)
@@ -53,12 +56,12 @@ internal sealed partial class EmbossSeqin
     {
         MegaData? phydata = _mega;
         bool resume = false;
-        if (phydata is not null && _megaMultidone)
+        if (phydata is not null && _multidone)
             resume = phydata.Resume;
-        if (phydata is null || (_megaMultidone && resume))
+        if (phydata is null || (_multidone && resume))
         {
             int iseq = 0;
-            _megaMultidone = false;
+            _multidone = false;
             bool ok = true;
             var list = new List<string>();
             string tmpdesc = "";
@@ -308,7 +311,7 @@ internal sealed partial class EmbossSeqin
         phydata.Count++;
         if (phydata.Count >= phydata.Nseq)
         {
-            _megaMultidone = true;
+            _multidone = true;
             phydata.Names[0] = null;
             if (!phydata.Resume)
             {

@@ -41,6 +41,7 @@ internal sealed class EmbossSeqall
 
     // the sequence object of the stream is one object that every read refills (ajSeqClear does not reset Offset and Offend: they stay from the sequence before; B09 WP61, F280)
     private EmbossSeq? _last;
+    private bool _exhausted;
 
     /// <summary>The name of the configuration file in the messages of the library (the generator of the oracles replaces the path of the work directory by this name).</summary>
     internal const string ConfigName = "<WORK>/.embossrc";
@@ -215,9 +216,20 @@ internal sealed class EmbossSeqall
         }
         else
         {
+            if (_exhausted)
+            {
+                // ajSeqallNext cleared the input when the last read failed (ajSeqallClear): the next call reads from an empty USA
+                _context.Error("Failed to open filename ''");
+                return null;
+            }
+
             seq = ReadNext();
             if (seq is null)
+            {
+                _exhausted = true;
                 return null;
+            }
+
             _count++;
             if (_last is not null)
             {
@@ -233,6 +245,35 @@ internal sealed class EmbossSeqall
         else
             EmbossSeqRange.SetRange(seq!, _begin, _end);
         _last = seq;
+        return seq;
+    }
+
+    /// <summary>
+    /// The next member of a <c>seqset</c> (<c>ajSeqsetRead</c>: every sequence is a new object, <c>ajSeqSetRange</c> with the range of the set; the reversal of the set is done afterwards, by <c>ajSeqsetReverse</c>): the first
+    /// sequence is the one the ACD read when it opened the input.
+    /// </summary>
+    public bool MultiDone => _input?.Multidone ?? false;
+
+    public EmbossSeq? NextMember(bool applyRange = true)
+    {
+        EmbossSeq? seq;
+        if (_count == 0)
+        {
+            _count = 1;
+            seq = _first;
+            _first = null;
+        }
+        else
+        {
+            seq = ReadNext();
+            if (seq is null)
+                return null;
+            _count++;
+        }
+
+        _input?.MarkFormatSet();                                                // ajSeqsetRead: seqinFormatSet on the next sequence object
+        if (applyRange)
+            EmbossSeqRange.SetRange(seq!, _begin, _end);                        // ajSeqsetallRead does not set the range of the members
         return seq;
     }
 
