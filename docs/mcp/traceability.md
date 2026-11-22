@@ -372,6 +372,8 @@
 | infoseq | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossSequencePrograms2.cs | 0/0 | – | – | Build-Ready |
 | wordcount | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossSequencePrograms2.cs | 0/0 | – | – | Build-Ready |
 | seqxref | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossSequencePrograms2.cs | 0/0 | – | – | Build-Ready |
+| showorf | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossSequencePrograms2.cs | 0/0 | – | – | Build-Ready |
+| prettyseq | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossSequencePrograms2.cs | 0/0 | – | – | Build-Ready |
 | makenucseq | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossSequencePrograms2.cs | 0/0 | – | – | Build-Ready |
 | makeprotseq | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossSequencePrograms2.cs | 0/0 | – | – | Build-Ready |
 | splitter | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossSequencePrograms.cs | 0/0 | – | – | Build-Ready |

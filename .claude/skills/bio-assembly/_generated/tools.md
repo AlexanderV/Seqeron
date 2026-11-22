@@ -178,6 +178,7 @@
 | `predict_sigma70_promoters` | Analysis | `MotifFinder.PredictSigma70Promoters` | [doc](../../../../docs/mcp/tools/analysis/predict_sigma70_promoters.md) |
 | `predict_signal_peptide` | Analysis | `ProteinMotifFinder.PredictSignalPeptide` | [doc](../../../../docs/mcp/tools/analysis/predict_signal_peptide.md) |
 | `predict_transmembrane_helices` | Analysis | `ProteinMotifFinder.PredictTransmembraneHelices` | [doc](../../../../docs/mcp/tools/analysis/predict_transmembrane_helices.md) |
+| `prettyseq` | Analysis | `EmbossProgramRunner.Run` | [doc](../../../../docs/mcp/tools/analysis/prettyseq.md) |
 | `promer` | Analysis | `PromerProgram.Run` | [doc](../../../../docs/mcp/tools/analysis/promer.md) |
 | `prosite_to_regex` | Analysis | `ProteinMotifFinder.ConvertPrositeToRegex` | [doc](../../../../docs/mcp/tools/analysis/prosite_to_regex.md) |
 | `pwm_score_pvalue` | Analysis | `MotifFinder.PwmScorePValue` | [doc](../../../../docs/mcp/tools/analysis/pwm_score_pvalue.md) |
@@ -204,6 +205,7 @@
 | `show_tiling` | Analysis | `MummerShowTiling.Run` | [doc](../../../../docs/mcp/tools/analysis/show_tiling.md) |
 | `showalign` | Analysis | `MultipleAlignmentDisplay.ShowAlign` | [doc](../../../../docs/mcp/tools/analysis/showalign.md) |
 | `showfeat` | Analysis | `EmbossShowfeatProgram.Showfeat` | [doc](../../../../docs/mcp/tools/analysis/showfeat.md) |
+| `showorf` | Analysis | `EmbossProgramRunner.Run` | [doc](../../../../docs/mcp/tools/analysis/showorf.md) |
 | `shuffleseq` | Analysis | `EmbossProgramRunner.Run` | [doc](../../../../docs/mcp/tools/analysis/shuffleseq.md) |
 | `skipseq` | Analysis | `EmbossProgramRunner.Run` | [doc](../../../../docs/mcp/tools/analysis/skipseq.md) |
 | `spaced_word_distance` | Analysis | `KmerAnalyzer.SpacedWordDistance` | [doc](../../../../docs/mcp/tools/analysis/spaced_word_distance.md) |

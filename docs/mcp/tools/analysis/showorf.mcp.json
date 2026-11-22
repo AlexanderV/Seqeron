@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "showorf",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "EmbossProgramRunner.Run",
+  "docRef": "EmbossSequencePrograms.Report.cs",
+  "description": "EMBOSS 6.6.0 showorf: the sequence in blocks of width bases with a ruler and the numbers of the bases, and under it the translations of the frames (F1 F2 F3 forward, R1 R2 R3 reverse: the amino acid under the first base of every codon, the numbers of the first and last residue of the block); the genetic code is the EMBOSS table of the code number. Equals the installed program on 300 runs (every input format of seqret, ranges, the output formats, the messages of the library; byte for byte). B09 WP62, F281.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "The text of the sequence file (the first sequence is used), or a sequence as letters."
+      },
+      "frames": {
+        "type": "string",
+        "description": "The frames to translate (-frames): a comma list of 0 none, 1 F1, 2 F2, 3 F3, 4 R1, 5 R2, 6 R3 (default 1,2,3,4,5,6)."
+      },
+      "table": {
+        "type": "string",
+        "description": "The genetic code (-table): 0 .. 6, 9 .. 16, 21 .. 23."
+      },
+      "width": {
+        "type": "integer",
+        "description": "The width of the screen (-width, default 50; at least 10)."
+      },
+      "ruler": {
+        "type": "boolean",
+        "description": "Add a ruler (-ruler, default true).",
+        "default": true
+      },
+      "plabel": {
+        "type": "boolean",
+        "description": "Number the translations (-plabel, default true).",
+        "default": true
+      },
+      "nlabel": {
+        "type": "boolean",
+        "description": "Number the sequence (-nlabel, default true).",
+        "default": true
+      },
+      "sequenceFormat": {
+        "type": "string",
+        "description": "The input format (-sformat1); default: the program finds the format."
+      },
+      "qualifiers": {
+        "type": "string",
+        "description": "Sequence input qualifiers as typed after the sequence on the command line: -sbegin1 -send1 -sreverse1, -slower1 -supper1 -snucleotide1 -sprotein1 -scircular1, -sid1 name, -sdbname1 db, -squick1, -iquery1 query, -ioffset1 bytes."
+      },
+      "files": {
+        "type": "object",
+        "description": "More files by name (file name -> text) that the program may read (a file named by a USA, @file)."
+      },
+      "sequenceValue": {
+        "type": "string",
+        "description": "The USA of the sequence input (-sequence) as the program reads it, instead of the text: [format::]file[begin:end:r], file:id, @list, asis::SEQUENCE."
+      }
+    },
+    "required": [
+      "sequence"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "text": {
+        "type": "string",
+        "description": "The standard output of the program (the sequences) or the text of its output file."
+      },
+      "files": {
+        "type": "object",
+        "description": "The files the program wrote, by name."
+      },
+      "messages": {
+        "type": "string[]",
+        "description": "What the library printed on the error stream (warnings and errors)."
+      }
+    },
+    "required": [
+      "text",
+      "files",
+      "messages"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "The sequence cannot be empty"
+    },
+    {
+      "code": 1001,
+      "message": "The program died: the messages of the library (a value it refuses, an input no reader reads, a sequence of the wrong kind)"
+    },
+    {
+      "code": 1001,
+      "message": "An input on which the reference program never stops or dies by a fault is refused"
+    }
+  ],
+  "examples": [
+    {
+      "name": "A run on a small input",
+      "input": {
+        "sequence": ">s1 d\nATGAAATTTGGGCCCTAGATGCCCAAATTT\n",
+        "frames": "1,4",
+        "width": 30
+      },
+      "output": {
+        "text": "SHOWORF of s1 from 1 to 30\n\n           ---------|---------|---------|\n         1 ATGAAATTTGGGCCCTAGATGCCCAAATTT 30\nF1       1 M  K  F  G  P  *  M  P  K  F   4\nR1      10   H  F  K  P  G  L  H  G  F  K 1\n\n",
+        "files": {},
+        "messages": []
+      }
+    }
+  ]
+}

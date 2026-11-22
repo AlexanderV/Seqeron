@@ -1785,6 +1785,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/ProteinMotifFinder.cs#L739"
   },
   {
+    "tool": "prettyseq",
+    "server": "Analysis",
+    "methodId": "EmbossProgramRunner.Run",
+    "docPath": "docs/mcp/tools/analysis/prettyseq.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossSequencePrograms.Report.cs"
+  },
+  {
     "tool": "promer",
     "server": "Analysis",
     "methodId": "PromerProgram.Run",
@@ -1965,6 +1972,13 @@
     "methodId": "EmbossShowfeatProgram.Showfeat",
     "docPath": "docs/mcp/tools/analysis/showfeat.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossShowfeatProgram.cs"
+  },
+  {
+    "tool": "showorf",
+    "server": "Analysis",
+    "methodId": "EmbossProgramRunner.Run",
+    "docPath": "docs/mcp/tools/analysis/showorf.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossSequencePrograms.Report.cs"
   },
   {
     "tool": "shuffleseq",

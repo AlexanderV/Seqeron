@@ -92,7 +92,7 @@
 | `write_big_alignment` | `AlignmentCoordinateFormats.WriteBigBed / WriteBigMaf / WriteBigPsl` | [doc](../../mcp/tools/alignment/write_big_alignment.md) |
 | `write_coordinate_alignment` | `AlignmentCoordinateFormats.Write` | [doc](../../mcp/tools/alignment/write_coordinate_alignment.md) |
 
-## Analysis (220 tools)
+## Analysis (222 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -268,6 +268,7 @@
 | `predict_sigma70_promoters` | `MotifFinder.PredictSigma70Promoters` | [doc](../../mcp/tools/analysis/predict_sigma70_promoters.md) |
 | `predict_signal_peptide` | `ProteinMotifFinder.PredictSignalPeptide` | [doc](../../mcp/tools/analysis/predict_signal_peptide.md) |
 | `predict_transmembrane_helices` | `ProteinMotifFinder.PredictTransmembraneHelices` | [doc](../../mcp/tools/analysis/predict_transmembrane_helices.md) |
+| `prettyseq` | `EmbossProgramRunner.Run` | [doc](../../mcp/tools/analysis/prettyseq.md) |
 | `promer` | `PromerProgram.Run` | [doc](../../mcp/tools/analysis/promer.md) |
 | `prosite_to_regex` | `ProteinMotifFinder.ConvertPrositeToRegex` | [doc](../../mcp/tools/analysis/prosite_to_regex.md) |
 | `pwm_score_pvalue` | `MotifFinder.PwmScorePValue` | [doc](../../mcp/tools/analysis/pwm_score_pvalue.md) |
@@ -294,6 +295,7 @@
 | `show_tiling` | `MummerShowTiling.Run` | [doc](../../mcp/tools/analysis/show_tiling.md) |
 | `showalign` | `MultipleAlignmentDisplay.ShowAlign` | [doc](../../mcp/tools/analysis/showalign.md) |
 | `showfeat` | `EmbossShowfeatProgram.Showfeat` | [doc](../../mcp/tools/analysis/showfeat.md) |
+| `showorf` | `EmbossProgramRunner.Run` | [doc](../../mcp/tools/analysis/showorf.md) |
 | `shuffleseq` | `EmbossProgramRunner.Run` | [doc](../../mcp/tools/analysis/shuffleseq.md) |
 | `skipseq` | `EmbossProgramRunner.Run` | [doc](../../mcp/tools/analysis/skipseq.md) |
 | `spaced_word_distance` | `KmerAnalyzer.SpacedWordDistance` | [doc](../../mcp/tools/analysis/spaced_word_distance.md) |

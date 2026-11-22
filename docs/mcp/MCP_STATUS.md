@@ -1,6 +1,6 @@
 # MCP Completion — Source of Truth & Campaign Ledger
 
-> Reality-based ledger of the 635 MCP tools across 11 servers. Campaign COMPLETE (2026-07-01):
+> Reality-based ledger of the 637 MCP tools across 11 servers. Campaign COMPLETE (2026-07-01):
 > every tool has a gold-standard binding (`[McpServerTool(Name/Title/ReadOnly)]` + `[Description]`,
 > structured record, input validation, real `Seqeron.Genomics` delegation), a Schema+Binding NUnit
 > test, and `{tool}.md` + `{tool}.mcp.json` docs. Supersedes `docs/mcp-plan.md` / `docs/mcp-checklist.md` (v4).
@@ -9,9 +9,9 @@
 
 | Metric | Done | Total |
 |---|---:|---:|
-| Gold-standard binding | 635 | 635 |
-| Schema+Binding tests | 635 | 635 |
-| Docs (.md + .mcp.json) | 635 | 635 |
+| Gold-standard binding | 637 | 637 |
+| Schema+Binding tests | 637 | 637 |
+| Docs (.md + .mcp.json) | 637 | 637 |
 
 ## Per-server summary
 
@@ -21,7 +21,7 @@
 | Sequence | Seqeron.Mcp.Sequence | 35 | 35/35 | 35/35 | 35/35 | ✅ done |
 | Parsers | Seqeron.Mcp.Parsers | 41 | 41/41 | 41/41 | 41/41 | ✅ done |
 | Alignment | Seqeron.Mcp.Alignment | 83 | 83/83 | 83/83 | 83/83 | ✅ done |
-| Analysis | Seqeron.Mcp.Analysis | 220 | 220/220 | 220/220 | 220/220 | ✅ done |
+| Analysis | Seqeron.Mcp.Analysis | 222 | 222/222 | 222/222 | 222/222 | ✅ done |
 | Annotation | Seqeron.Mcp.Annotation | 97 | 97/97 | 97/97 | 97/97 | ✅ done |
 | Chromosome | Seqeron.Mcp.Chromosome | 32 | 32/32 | 32/32 | 32/32 | ✅ done |
 | Metagenomics | Seqeron.Mcp.Metagenomics | 19 | 19/19 | 19/19 | 19/19 | ✅ done |
@@ -228,7 +228,7 @@
 | 82 | `parse_big_alignment` | ☑ | ☑ | ☑ |
 | 83 | `tcoffee_evaluate` | ☑ | ☑ | ☑ |
 
-### Analysis (Seqeron.Mcp.Analysis) — 220 tools
+### Analysis (Seqeron.Mcp.Analysis) — 222 tools
 
 | # | tool | B | T | D |
 |---:|---|:--:|:--:|:--:|
@@ -452,6 +452,8 @@
 | 218 | `infoseq` | ☑ | ☑ | ☑ |
 | 219 | `wordcount` | ☑ | ☑ | ☑ |
 | 220 | `seqxref` | ☑ | ☑ | ☑ |
+| 221 | `showorf` | ☑ | ☑ | ☑ |
+| 222 | `prettyseq` | ☑ | ☑ | ☑ |
 
 ### Annotation (Seqeron.Mcp.Annotation) — 97 tools
 
