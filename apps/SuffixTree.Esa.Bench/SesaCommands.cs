@@ -101,7 +101,12 @@ internal static class SesaCommands
             ResumeCommands.Run(args[1..]);
             return;
         }
-        if (args.Length == 0 || args[0] is not ("build" or "ab")) throw new ArgumentException("usage: sesa build|ab --input <text file> --work <directory> [options] | sesa tail --work <directory> --mb <n> [options]");
+        if (args.Length > 0 && args[0] == "handoff")
+        {
+            HandoffCommands.Run(args[1..]);
+            return;
+        }
+        if (args.Length == 0 || args[0] is not ("build" or "ab")) throw new ArgumentException("usage: sesa build|ab --input <text file> --work <directory> [options] | sesa tail --work <directory> --mb <n> [options] | sesa resume ... | sesa handoff env|open|queries ...");
         string mode = args[0];
         string? input = null, work = null, label = null, rows = null, fillAt = null;
         string device = "vda";

@@ -79,32 +79,31 @@ public sealed class HandoffQueryRunTests
     }
 
     [Test]
-    public void AnSwappedPairOfSuffixArrayEntries_IsFoundByTheSearchAndByTheEngine()
+    public void AReversedBlockOfSuffixArrayEntries_IsFoundByTheSearchAndByTheEngine()
     {
+        // one damaged entry is the business of e8-verify (the order check); a query set finds damage that a query can reach, so the damage here is a block of 1,000 of the 5,001 entries
         (string input, string container) = Build(Text(3, 5000, "ACGT", 1000));
         using (SesaFile file = SesaFile.Open(container, new EsaOpenOptions()))
         {
-            long offset = file.Parsed.Sa.Offset;
+            long offset = file.Parsed.Sa.Offset + (4L * 1000);
             using var fs = new FileStream(container, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
-            var a = new byte[4];
-            var b = new byte[4];
-            fs.Position = offset + (4L * 1000);
-            fs.ReadExactly(a);
-            fs.Position = offset + (4L * 3000);
-            fs.ReadExactly(b);
-            fs.Position = offset + (4L * 1000);
-            fs.Write(b);
-            fs.Position = offset + (4L * 3000);
-            fs.Write(a);
+            var block = new byte[4 * 1000];
+            fs.Position = offset;
+            fs.ReadExactly(block);
+            var reversed = new byte[block.Length];
+            for (int i = 0; i < 1000; i++) Array.Copy(block, 4 * (999 - i), reversed, 4 * i, 4);
+            fs.Position = offset;
+            fs.Write(reversed);
         }
         (int code, Dictionary<string, string> rows) = Run(container, input);
         Assert.That(code, Is.EqualTo(3));
         Assert.That(rows["q_result"], Is.EqualTo("FAIL"));
-        Assert.That(long.Parse(rows["q_sa_mismatches"]) + long.Parse(rows["q_engine_mismatches"]), Is.GreaterThan(0));
+        Assert.That(long.Parse(rows["q_sa_mismatches"]), Is.GreaterThan(0), "the search");
+        Assert.That(long.Parse(rows["q_engine_mismatches"]), Is.GreaterThan(0), "the engine reads the positions of a locate from the same array");
     }
 
     [Test]
-    public void ADamagedChildCell_IsFoundByTheEngineOnly()
+    public void ADamagedChildTable_IsFoundByTheEngineAndNotByTheSearch()
     {
         // the search does not use the child table: only the engine's descent can disagree with the oracle
         (string input, string container) = Build(Text(4, 5000, "ACGT", 0));
@@ -124,8 +123,9 @@ public sealed class HandoffQueryRunTests
         }
         (int code, Dictionary<string, string> rows) = Run(container, input);
         Assert.That(rows["q_sa_mismatches"], Is.EqualTo("0"));
-        Assert.That(code, Is.EqualTo(3).Or.Zero, "a damaged child table may, or may not, change an answer: what matters is that the engine is compared");
-        Assert.That(rows.ContainsKey("q_engine_mismatches"));
+        Assert.That(code, Is.EqualTo(3));
+        Assert.That(long.Parse(rows["q_engine_mismatches"]), Is.GreaterThan(0));
+        Assert.That(long.Parse(rows["q_engine_refused"]), Is.GreaterThan(0), "the Checked mode refuses a damaged child table instead of answering");
     }
 
     [Test]

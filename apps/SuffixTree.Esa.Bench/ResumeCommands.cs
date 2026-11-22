@@ -143,6 +143,15 @@ internal static class ResumeCommands
         RowL("sort_buckets", r.Sa.Sort.Buckets, "buckets", $"{r.Sa.Sort.Leaves} leaves, {r.Sa.Sort.Partitions} partitions, depth {r.Sa.Sort.MaxDepth}");
         RowL("dcs_levels", r.Sa.Dcs.Levels.Count, "levels", $"names unique at level 0: {(r.Sa.Dcs.Levels.Count > 0 && r.Sa.Dcs.Levels[0].NamesUnique)}");
         RowL("file_size", r.FileSize, "bytes", $"LCP {r.LcpKind}");
+        RowL("overflow_pairs", r.OverflowCount, "pairs", "entries of the LCP overflow list");
+        RowL("scratch_peak", r.ScratchPeakBytes, "bytes", "the most scratch the build held at one time (IoCounters)");
+        RowL("arena_peak", r.ArenaPeakBytes, "bytes", "the largest peak of the native buffers of any stage");
+        RowL("grown_bytes", r.GrownBytes, "bytes", $"the file grew behind its reserved length, growth {(r.GrowthReservation?.ToString() ?? "none")}, creation {r.Reservation}");
+        Emit.Row("resume", "crc_hardware", r.CrcRows.Count > 0 && r.CrcRows.All(k => k.Hardware) ? "yes" : "no", "bool", $"{c.Label} the section checksums of this build ran on the CPU's CRC-32C instruction");
+        foreach ((string name, double? v) in new[] { ("ph0", r.Rss.Ph0), ("ph1", r.Rss.Ph1), ("ph23", r.Rss.Ph23), ("ph45", r.Rss.Ph45), ("ph6", r.Rss.Ph6), ("seal", r.Rss.Seal) })
+        {
+            if (v is { } x) Row("rssanon_" + name + "_mb", x, "MB");
+        }
         RowL("counted_read", r.Io.ReadBytes, "bytes");
         RowL("counted_write", r.Io.WriteBytes, "bytes");
         RowL("counted_mapped_write", r.Io.MappedWriteBytes, "bytes");
