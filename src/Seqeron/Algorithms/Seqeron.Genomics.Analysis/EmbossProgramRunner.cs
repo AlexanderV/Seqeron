@@ -71,6 +71,10 @@ public static class EmbossProgramRunner
         ["nospace"] = EmbossSequencePrograms.Nospace,
         ["notab"] = EmbossSequencePrograms.Notab,
         ["noreturn"] = EmbossSequencePrograms.Noreturn,
+        ["shuffleseq"] = EmbossSequencePrograms.Shuffleseq,
+        ["msbar"] = EmbossSequencePrograms.Msbar,
+        ["makenucseq"] = EmbossSequencePrograms.Makenucseq,
+        ["makeprotseq"] = EmbossSequencePrograms.Makeprotseq,
     };
 
     /// <summary>The programs that can be run.</summary>
