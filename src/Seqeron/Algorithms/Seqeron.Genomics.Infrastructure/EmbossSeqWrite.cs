@@ -53,7 +53,7 @@ internal static partial class EmbossSeqWrite
     }
 
     /// <summary>The writers of this port.</summary>
-    internal static bool IsPorted(EmbossSeqOutFormat f) => f.Writer is "Scf" or "Gff2" or "Gff3" or "FastqSanger" or "FastqIllumina" or "FastqSolexa" or "Sam" or "Asn1" or "Dasdna" or "Dasseq" or "Nibble" or "Ncbi" or "Gifasta" or "Fasta" or "Gcg" or "Nbrf" or "Codata" or "Strider" or "Staden" or "Text" or "Ig" or "Iguspto" or "Gde" or "Fitch" or "Acedb" or "Mase";
+    internal static bool IsPorted(EmbossSeqOutFormat f) => f.Writer is "Embl" or "Emblnew" or "Scf" or "Gff2" or "Gff3" or "FastqSanger" or "FastqIllumina" or "FastqSolexa" or "Sam" or "Asn1" or "Dasdna" or "Dasseq" or "Nibble" or "Ncbi" or "Gifasta" or "Fasta" or "Gcg" or "Nbrf" or "Codata" or "Strider" or "Staden" or "Text" or "Ig" or "Iguspto" or "Gde" or "Fitch" or "Acedb" or "Mase";
 
     /// <summary>The <c>SeqSFormat</c> of the library: the layout of <c>seqWriteSeq</c> (the fields the ported formats set; the others stay at the defaults of <c>seqSeqFormat</c>: no name, no right number, no tab, no padding).</summary>
     private sealed class SeqFormat
@@ -509,11 +509,21 @@ internal static partial class EmbossSeqWrite
         var s = new EmbossSeqOut
         {
             Name = seq.Name, Acc = seq.Acc, Acclist = [.. seq.Acclist], Sv = seq.Sv, Gi = seq.Gi, Desc = seq.Desc, Type = seq.Type, Db = seq.Db, Setdb = run.Setoutdb.Length > 0 ? run.Setoutdb : seq.Setdb, Tax = seq.Tax,
-            Taxcommon = seq.Taxcommon, Taxid = seq.Taxid, Organelle = seq.Organelle, Taxlist = [.. seq.Taxlist], Keylist = [.. seq.Keylist], FullDescMulti = seq.FullDescMulti is null ? null : [.. seq.FullDescMulti], Seq = residues,
+            Taxcommon = seq.Taxcommon, Taxid = seq.Taxid, Organelle = seq.Organelle, Taxlist = [.. seq.Taxlist], Keylist = [.. seq.Keylist], Cmtlist = [.. seq.Cmtlist], Reflist = [.. seq.Reflist.Select(r => r.Clone())], Xreflist = [.. seq.Xreflist.Select(x => x.Clone())], Date = seq.Date?.Clone(), FullDescMulti = seq.FullDescMulti is null ? null : [.. seq.FullDescMulti], Seq = residues,
             Fttable = seq.Fttable, Circular = seq.Circular, Rev = seq.Rev, Offset = ibegin - 1,
         };
         if (seq.Type.Length > 0)
             run.OutType = seq.Type;
+        // seqClone sets the molecule, class and division only when the sequence has them and seqDeclone never clears them: they stay from one sequence to the next
+        if (seq.Molecule.Length > 0)
+            run.OutMolecule = seq.Molecule;
+        if (seq.Class.Length > 0)
+            run.OutClass = seq.Class;
+        if (seq.Division.Length > 0)
+            run.OutDivision = seq.Division;
+        s.Molecule = run.OutMolecule;
+        s.Class = run.OutClass;
+        s.Division = run.OutDivision;
         if (run.OutAccuracy is not null && run.OutQualsize > 0)
             Array.Clear(run.OutAccuracy, 0, Math.Min(run.OutQualsize, run.OutAccuracy.Length));            // seqDeclone of the sequence before
         if (seq.Accuracy is not null)
@@ -552,6 +562,12 @@ internal static partial class EmbossSeqWrite
         {
             case "Scf":
                 WriteScf(o, desc, seq, s.Accuracy);
+                break;
+            case "Embl":
+                WriteEmblOld(o, s, run);
+                break;
+            case "Emblnew":
+                WriteEmblNew(o, s, run);
                 break;
             case "Gff2":
             {

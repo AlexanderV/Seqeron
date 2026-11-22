@@ -7,7 +7,11 @@ namespace Seqeron.Genomics.Infrastructure;
 internal sealed class EmbossSeqOut
 {
     public string Name = "", Acc = "", Sv = "", Gi = "", Desc = "", Db = "", Setdb = "", Tax = "", Taxcommon = "", Taxid = "", Organelle = "", Type = "", Seq = "";
-    public List<string> Acclist = [], Keylist = [], Taxlist = [];
+    public List<string> Acclist = [], Keylist = [], Taxlist = [], Cmtlist = [];
+    public string Molecule = "", Class = "", Division = "";
+    public List<EmbossSeqRef> Reflist = [];
+    public List<EmbossSeqXref> Xreflist = [];
+    public EmbossSeqDate? Date;
 
     /// <summary><c>Fulldesc-&gt;Multi</c>; null when the reader made no full description.</summary>
     public List<string>? FullDescMulti;
@@ -51,6 +55,9 @@ internal sealed class EmbossSeqWriteRun
     public List<EmbossSeqSaved> Saved = [];
 
     public string FileName = "";
+
+    /// <summary><c>outseq-&gt;Molecule</c>, <c>Class</c>, <c>Division</c>.</summary>
+    public string OutMolecule = "", OutClass = "", OutDivision = "";
 
     /// <summary><c>outseq-&gt;Type</c>: the type of the last sequence cloned (<c>seqClone</c> sets it when the sequence has one).</summary>
     public string OutType = "";

@@ -16,6 +16,18 @@ internal sealed class EmbossSeq
     public List<string> Acclist = [];
     public List<string> Taxlist = [];
 
+    /// <summary>The molecule, class and division of the entry (<c>thys-&gt;Molecule</c>, <c>Class</c>, <c>Division</c>).</summary>
+    public string Molecule = "", Class = "", Division = "";
+
+    /// <summary>The comments (<c>Cmtlist</c>), citations (<c>Reflist</c>), cross-references (<c>Xreflist</c>) and the dates of the entry (<c>Date</c>: null until a reader makes one).</summary>
+    public List<string> Cmtlist = [];
+    public List<EmbossSeqRef> Reflist = [];
+    public List<EmbossSeqXref> Xreflist = [];
+    public EmbossSeqDate? Date;
+
+    /// <summary>The name of the first gene of the entry (<c>Genelist</c>); null when it has none.</summary>
+    public string? Gene;
+
     /// <summary>The keywords of the entry (<c>thys-&gt;Keylist</c>).</summary>
     public List<string> Keylist = [];
 

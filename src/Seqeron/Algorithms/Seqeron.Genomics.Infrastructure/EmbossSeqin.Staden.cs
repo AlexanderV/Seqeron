@@ -29,6 +29,7 @@ internal sealed partial class EmbossSeqin
         lineprefix = PrefixSwiss(_line);
         string accval = "";
         string desc = "";
+        var annot = new AnnotState();
         while (ok && lineprefix != Sw.Sq)
         {
             if (lineprefix == Sw.Ex)
@@ -70,6 +71,9 @@ internal sealed partial class EmbossSeqin
                 a.Next(out token, "\n\r");
                 desc = desc.Length > 0 ? new StringBuilder(desc).Append(' ').Append(token).ToString() : token;
             }
+
+            if (lineprefix is Sw.Kw or Sw.Os or Sw.Oc)
+                AnnotationLine(lineprefix, t, annot);
 
             ok = ReadLine();
             lineprefix = PrefixSwiss(_line);

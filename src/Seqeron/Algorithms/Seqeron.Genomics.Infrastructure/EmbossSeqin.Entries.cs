@@ -96,9 +96,13 @@ internal sealed partial class EmbossSeqin
             h.Next(out token);
             if (token == "circular")
                 t.Circular = true;
-            h.Next(out _, ";\t\n\r");
-            h.Next(out _);
-            h.Next(out _);
+            h.Next(out token, ";\t\n\r");
+            if (EmbossSeqTables.MolFromEmbl(token.Trim(' ', '\t', '\n', '\r', '\f', '\v')) is { } mol)
+                t.Molecule = mol;
+            h.Next(out token);
+            t.Class = token.Trim(' ', '\t', '\n', '\r', '\f', '\v');
+            h.Next(out token);
+            t.Division = token.Trim(' ', '\t', '\n', '\r', '\f', '\v');
             h.Next(out token);
             token = token.TrimEnd('B', 'P', '.').Trim(' ', '\t', '\n', '\r');
             if (CStr.ToUint(token, out uint n))
@@ -120,6 +124,7 @@ internal sealed partial class EmbossSeqin
         List<string>? featureLines = null;
         var desc = new StringBuilder();
         var constr = new StringBuilder();
+        var annot = new AnnotState();
         while (ok && lineprefix != Sw.Sq && lineprefix != Sw.End)
         {
             if (lineprefix == Sw.Ex)
@@ -158,6 +163,10 @@ internal sealed partial class EmbossSeqin
             else if (lineprefix == Sw.Co)
             {
                 constr.Append(_line.TrimEnd(' ', '\t', '\n', '\r').Length > 5 ? _line.TrimEnd(' ', '\t', '\n', '\r')[5..] : "");
+            }
+            else
+            {
+                AnnotationLine(lineprefix, t, annot);
             }
 
             ok = ReadLine();
@@ -203,6 +212,7 @@ internal sealed partial class EmbossSeqin
         t.SetNuc();
         if (t.Fttable is { } table)
             table.Length = t.Seq.Length;
+        RefXrefs(t);
         _buff.Clear(0);
         return true;
     }
