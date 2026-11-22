@@ -1,0 +1,243 @@
+[
+ {
+  "name": "tcode",
+  "summary": "EMBOSS 6.6.0 tcode: Identifies protein-coding regions of a nucleotide sequence with the Fickett TESTCODE statistic, as tcode of EMBOSS 6.6.0.",
+  "methodId": "EmbossProgramRunner.Run",
+  "sourceFile": "EmbossSequencePrograms.Tcode.cs",
+  "sourcePath": "Seqeron.Genomics.Analysis/EmbossSequencePrograms.Tcode.cs",
+  "algorithmDoc": "Alignment/Pairwise_Output_Formats_And_EMBOSS_Programs.md",
+  "oracleScript": "generate_emboss_prog_wp63_oracle.py",
+  "short": "EMBOSS tcode: identifies protein-coding regions of a nucleotide sequence with the fickett testcode statistic; equals tcode 6.6.0 on 300 runs.",
+  "after": "showorf",
+  "file": "AnalysisTools.EmbossSequencePrograms3.cs",
+  "description": "EMBOSS 6.6.0 tcode: the Fickett TESTCODE statistic of the windows of window bases (at least 200) every step bases, from the base compositions and the position asymmetries of the three codon positions with the probability tables of the data file Etcode.dat (or the datafile given); every window is reported with its score and the estimation Non-coding (below 0.74), No opinion or Coding (0.95 and above) as the report out.txt in the report format reportFormat (default table: every report format of EMBOSS, the report qualifiers of reportQualifiers); with plot the values are plotted against the window mid positions (graph: data writes the data file tcode1.dat, bedgraph the track file tcode.bedgraph, none draws nothing; the devices that draw with plplot (ps, png, svg ...) are refused). Equals the installed program on 300 runs (every input format of seqret, ranges, the report and graph options, the messages of the library; standard output, error stream, exit status and written files byte for byte). B09 WP63, F282.",
+  "output": {
+   "text": [
+    "string",
+    "The text of the main output of the program (the report, or its standard output)."
+   ],
+   "files": [
+    "object",
+    "The other files the program wrote (sequences, features, graph data), by name."
+   ],
+   "messages": [
+    "string[]",
+    "What the library printed on the error stream (warnings and errors)."
+   ]
+  },
+  "errors": [
+   "The sequence cannot be empty",
+   "The program died: the messages of the library (a value it refuses, an input no reader reads, a sequence of the wrong kind)",
+   "An input on which the reference program never stops or dies by a fault is refused"
+  ],
+  "example": {
+   "title": "A run on a small input",
+   "prompt": "Run tcode on this input.",
+   "input": {
+    "sequence": ">s1 test\nATGAAATTTGGGCCCGATGAACTGACCGGCTTAGGTACCATGAAATTTGGGCCCGATGAACTGACCGGCTTAGGTACCATGAAATTTGGGCCCGATGAACTGACCGGCTTAGGTACCATGAAATTTGGGCCCGATGAACTGACCGGCTTAGGTACCATGAAATTTGGGCCCGATGAACTGACCGGCTTAGGTACCATGAAATTTGGGCCCGATGAACTGACCGGCTTAGGTACCATGAAATTTGGGCCCGATGAACTGACCGGCTTAGGTACCATGAAATTTGGGCCCGATGAACTGACCGGCTTAGGTACC\n",
+    "window": 200,
+    "step": 30
+   },
+   "output": {
+    "text": "########################################\n# Program: tcode\n# Rundate: Tue 14 Nov 2023 22:13:20\n# Commandline: tcode\n#    -auto\n#    -sequence sequence.dat\n#    -window 200\n#    -step 30\n#    -outfile out.txt\n# Report_format: table\n# Report_file: out.txt\n########################################\n\n#=======================================\n#\n# Sequence: s1     from: 1   to: 312\n# HitCount: 4\n#\n# Fickett TESTCODE statistic\n#\n#=======================================\n\n  Start     End  Strand   Score Estimation\n      1     200       +   1.048 Coding    \n     31     230       +   1.034 Coding    \n     61     260       +   1.087 Coding    \n     91     290       +   1.046 Coding    \n\n#---------------------------------------\n#---------------------------------------\n\n#---------------------------------------\n# Total_sequences: 1\n# Total_length: 312\n# Reported_sequences: 1\n# Reported_hitcount: 4\n#---------------------------------------\n",
+    "files": {},
+    "messages": []
+   },
+   "note": "The output is the text the installed program writes."
+  }
+ },
+ {
+  "name": "checktrans",
+  "summary": "EMBOSS 6.6.0 checktrans: Reports the STOP codons and the open reading frames of a protein translation, as checktrans of EMBOSS 6.6.0.",
+  "methodId": "EmbossProgramRunner.Run",
+  "sourceFile": "EmbossSequencePrograms.Checktrans.cs",
+  "sourcePath": "Seqeron.Genomics.Analysis/EmbossSequencePrograms.Checktrans.cs",
+  "algorithmDoc": "Alignment/Pairwise_Output_Formats_And_EMBOSS_Programs.md",
+  "oracleScript": "generate_emboss_prog_wp63_oracle.py",
+  "short": "EMBOSS checktrans: reports the stop codons and the open reading frames of a protein translation; equals checktrans 6.6.0 on 300 runs.",
+  "after": "tcode",
+  "file": "AnalysisTools.EmbossSequencePrograms3.cs",
+  "description": "EMBOSS 6.6.0 checktrans: for every protein sequence the stretches between its stops (*) that are at least orfml residues long: the report out.txt lists their positions and the number of stops, the sequences name_N are returned in the file seqout.txt (sequence format outputFormat) and the protein feature table in the file features.txt (feature format featureFormat, default gff3); with addlast (default) a stop is forced at the end (it is not counted). Equals the installed program on 300 runs (every input format of seqret, ranges, the report and graph options, the messages of the library; standard output, error stream, exit status and written files byte for byte). B09 WP63, F282.",
+  "output": {
+   "text": [
+    "string",
+    "The text of the main output of the program (the report, or its standard output)."
+   ],
+   "files": [
+    "object",
+    "The other files the program wrote (sequences, features, graph data), by name."
+   ],
+   "messages": [
+    "string[]",
+    "What the library printed on the error stream (warnings and errors)."
+   ]
+  },
+  "errors": [
+   "The sequence cannot be empty",
+   "The program died: the messages of the library (a value it refuses, an input no reader reads, a sequence of the wrong kind)",
+   "An input on which the reference program never stops or dies by a fault is refused"
+  ],
+  "example": {
+   "title": "A run on a small input",
+   "prompt": "Run checktrans on this input.",
+   "input": {
+    "sequence": ">p1 test\nMKVLAAGIV*ACDEFGHIK*PQRS\n",
+    "orfml": 3
+   },
+   "output": {
+    "text": "\n\nCHECKTRANS of p1 from 1 to 25\n\n\tORF#\tPos\tLen\tORF Range\tSequence name\n\n\t1\t10\t9\t1-9\tp1_1\n\t2\t20\t9\t11-19\tp1_2\n\t3\t25\t4\t21-24\tp1_3\n\n\tTotal STOPS:     2\n\n ",
+    "files": {
+     "features.txt": "##gff-version 3\n##sequence-region p1 1 24\n#!Date 2023-11-14\n#!Type Protein\n#!Source-version EMBOSS 6.6.0.0\np1\tchecktrans\tpolypeptide_region\t1\t9\t.\t.\t.\tID=p1.1\np1\tchecktrans\tpolypeptide_region\t11\t19\t.\t.\t.\tID=p1.2\np1\tchecktrans\tpolypeptide_region\t21\t24\t.\t.\t.\tID=p1.3\n",
+     "seqout.txt": ">p1_1\nMKVLAAGIV\n>p1_2\nACDEFGHIK\n>p1_3\nPQRS\n"
+    },
+    "messages": []
+   },
+   "note": "The output is the text the installed program writes."
+  }
+ },
+ {
+  "name": "wordfinder",
+  "summary": "EMBOSS 6.6.0 wordfinder: Matches large sequences against one or more other sequences by their words, as wordfinder of EMBOSS 6.6.0.",
+  "methodId": "EmbossProgramRunner.Run",
+  "sourceFile": "EmbossSequencePrograms.Wordfinder.cs",
+  "sourcePath": "Seqeron.Genomics.Analysis/EmbossSequencePrograms.Wordfinder.cs",
+  "algorithmDoc": "Alignment/Pairwise_Output_Formats_And_EMBOSS_Programs.md",
+  "oracleScript": "generate_emboss_prog_wp63_oracle.py",
+  "short": "EMBOSS wordfinder: matches large sequences against one or more other sequences by their words; equals wordfinder 6.6.0 on 300 runs.",
+  "after": "checktrans",
+  "file": "AnalysisTools.EmbossSequencePrograms3.cs",
+  "description": "EMBOSS 6.6.0 wordfinder: the target sequences (bsequence) are indexed by their words of wordlen residues, every query sequence (asequence) is looked up in the index, the diagonal with the most word residues fixes the start points and a banded Smith-Waterman alignment of width cells (gap penalties gapopen / gapextend, matrix datafile: an EMBOSS matrix name such as EDNAFULL or EBLOSUM62, or the text of a matrix file) is written in the alignment format alignFormat (every -aformat of EMBOSS, default simple, with the sub-header lines Wordscore and Alignlength) as out.txt; the matches and alignments excluded by limitmatch / lowmatch / limitalign / lowalign and the matches per target are written to err.txt. Equals the installed program on 300 runs (every input format of seqret, ranges, the report and graph options, the messages of the library; standard output, error stream, exit status and written files byte for byte). B09 WP63, F282.",
+  "output": {
+   "text": [
+    "string",
+    "The text of the main output of the program (the report, or its standard output)."
+   ],
+   "files": [
+    "object",
+    "The other files the program wrote (sequences, features, graph data), by name."
+   ],
+   "messages": [
+    "string[]",
+    "What the library printed on the error stream (warnings and errors)."
+   ]
+  },
+  "errors": [
+   "The sequence cannot be empty",
+   "The program died: the messages of the library (a value it refuses, an input no reader reads, a sequence of the wrong kind)",
+   "An input on which the reference program never stops or dies by a fault is refused"
+  ],
+  "example": {
+   "title": "A run on a small input",
+   "prompt": "Run wordfinder on this input.",
+   "input": {
+    "querySequence": ">q1\nACGTACGTACGGGTTTTAAACCCGGGATATATCGCGCGTAGCTAGCTAGCTAGGGGATCCC\n",
+    "targetSequence": ">t1\nGGGACGTACGTACGGGTTTTAAACCCGGGATATATCGCGCGTAGCTAGCTAGCTAGGGGATCCCAAAAAA\n"
+   },
+   "output": {
+    "text": "########################################\n# Program: wordfinder\n# Rundate: Tue 14 Nov 2023 22:13:20\n# Commandline: wordfinder\n#    -auto\n#    -asequence asequence.dat\n#    -bsequence bsequence.dat\n#    -outfile out.txt\n#    -errfile err.txt\n# Align_format: simple\n# Report_file: out.txt\n########################################\n\n#=======================================\n#\n# Aligned_sequences: 2\n# 1: q1\n# 2: t1\n# Matrix: EDNAFULL\n# Gap_penalty: 30.0\n# Extend_penalty: 1.5\n#\n# Length: 61\n# Identity:      61/61 (100.0%)\n# Similarity:    61/61 (100.0%)\n# Gaps:           0/61 ( 0.0%)\n# Score: 305.0\n# \n# Wordscore:61\n# Alignlength:61\n#\n#=======================================\n\nq1                 1 ACGTACGTACGGGTTTTAAACCCGGGATATATCGCGCGTAGCTAGCTAGC     50\n                     ||||||||||||||||||||||||||||||||||||||||||||||||||\nt1                 4 ACGTACGTACGGGTTTTAAACCCGGGATATATCGCGCGTAGCTAGCTAGC     53\n\nq1                51 TAGGGGATCCC     61\n                     |||||||||||\nt1                54 TAGGGGATCCC     64\n\n\n#---------------------------------------\n#---------------------------------------\n",
+    "files": {
+     "err.txt": "Target 1 t1 matches 1\n"
+    },
+    "messages": []
+   },
+   "note": "The output is the text the installed program writes."
+  }
+ },
+ {
+  "name": "marscan",
+  "summary": "EMBOSS 6.6.0 marscan: Finds matrix/scaffold recognition (MRS) signatures in DNA sequences, as marscan of EMBOSS 6.6.0.",
+  "methodId": "EmbossProgramRunner.Run",
+  "sourceFile": "EmbossSequencePrograms.Marscan.cs",
+  "sourcePath": "Seqeron.Genomics.Analysis/EmbossSequencePrograms.Marscan.cs",
+  "algorithmDoc": "Alignment/Pairwise_Output_Formats_And_EMBOSS_Programs.md",
+  "oracleScript": "generate_emboss_prog_wp63_oracle.py",
+  "short": "EMBOSS marscan: finds matrix/scaffold recognition (mrs) signatures in dna sequences; equals marscan 6.6.0 on 300 runs.",
+  "after": "checktrans",
+  "file": "AnalysisTools.EmbossSequencePrograms3.cs",
+  "description": "EMBOSS 6.6.0 marscan: the MAR/SAR recognition signatures: the 16 bp site awwrtaannwwgnnnc (one mismatch allowed) or its reverse gnnncwwnnttaywwt and the 8 bp site aataayaa or ttrttatt within 200 bp of each other; of a cluster of signatures the pair with the least distance is reported as the report out.txt (default format gff: the feature misc_signal with the positions of the two sites; every report format of EMBOSS, the report qualifiers of reportQualifiers). Equals the installed program on 300 runs (every input format of seqret, ranges, the report and graph options, the messages of the library; standard output, error stream, exit status and written files byte for byte). B09 WP63, F282.",
+  "output": {
+   "text": [
+    "string",
+    "The text of the main output of the program (the report, or its standard output)."
+   ],
+   "files": [
+    "object",
+    "The other files the program wrote (sequences, features, graph data), by name."
+   ],
+   "messages": [
+    "string[]",
+    "What the library printed on the error stream (warnings and errors)."
+   ]
+  },
+  "errors": [
+   "The sequence cannot be empty",
+   "The program died: the messages of the library (a value it refuses, an input no reader reads, a sequence of the wrong kind)",
+   "An input on which the reference program never stops or dies by a fault is refused"
+  ],
+  "example": {
+   "title": "A run on a small input",
+   "prompt": "Run marscan on this input.",
+   "input": {
+    "sequence": ">s1 test\nCCCCCCCCCCAATAACAACCCCCCCCCCCCCCAATGTAAGGTTGCCCCTTTTTTTTTT\n"
+   },
+   "output": {
+    "text": "##gff-version 3\n##sequence-region s1 1 48\n#!Date 2023-11-14\n#!Type DNA\n#!Source-version EMBOSS 6.6.0.0\ns1\tmarscan\tregulatory_region\t11\t48\t.\t+\t.\tID=s1.1;note=*type MAR/SAR recognition site (MRS);note=*start8bp 11;note=*end8bp 18;note=*start16bp 33;note=*end16bp 48\n",
+    "files": {},
+    "messages": []
+   },
+   "note": "The output is the text the installed program writes."
+  }
+ },
+ {
+  "name": "plotorf",
+  "summary": "EMBOSS 6.6.0 plotorf: Plots the potential open reading frames of a nucleotide sequence, as plotorf of EMBOSS 6.6.0.",
+  "methodId": "EmbossProgramRunner.Run",
+  "sourceFile": "EmbossSequencePrograms.Plotorf.cs",
+  "sourcePath": "Seqeron.Genomics.Analysis/EmbossSequencePrograms.Plotorf.cs",
+  "algorithmDoc": "Alignment/Pairwise_Output_Formats_And_EMBOSS_Programs.md",
+  "oracleScript": "generate_emboss_prog_wp63_oracle.py",
+  "short": "EMBOSS plotorf: plots the potential open reading frames of a nucleotide sequence; equals plotorf 6.6.0 on 300 runs.",
+  "after": "checktrans",
+  "file": "AnalysisTools.EmbossSequencePrograms3.cs",
+  "description": "EMBOSS 6.6.0 plotorf: for each of the six frames the stretches from a start codon (start, default ATG) to the next stop codon of the frame (stop, default TAA,TAG,TGA; a stretch that reaches the end of the sequence ends there) as the filled rectangles of six plots; graph: data writes the six data files plotorf1.dat ... plotorf6.dat (returned in files), bedgraph one track file, none draws nothing (the devices that draw with plplot are refused). Equals the installed program on 300 runs (every input format of seqret, ranges, the report and graph options, the messages of the library; standard output, error stream, exit status and written files byte for byte). B09 WP63, F282.",
+  "output": {
+   "text": [
+    "string",
+    "The text of the main output of the program (the report, or its standard output)."
+   ],
+   "files": [
+    "object",
+    "The other files the program wrote (sequences, features, graph data), by name."
+   ],
+   "messages": [
+    "string[]",
+    "What the library printed on the error stream (warnings and errors)."
+   ]
+  },
+  "errors": [
+   "The sequence cannot be empty",
+   "The program died: the messages of the library (a value it refuses, an input no reader reads, a sequence of the wrong kind)",
+   "An input on which the reference program never stops or dies by a fault is refused"
+  ],
+  "example": {
+   "title": "A run on a small input",
+   "prompt": "Run plotorf on this input.",
+   "input": {
+    "sequence": ">o1\nATGAAATTTGGGCCCTAGATGCCCAAATTTTAAATGGGGGGGGTGATAGCATGAAACCCTGAGGATAA\n"
+   },
+   "output": {
+    "text": "Created plotorf1.dat\nCreated plotorf2.dat\nCreated plotorf3.dat\nCreated plotorf4.dat\nCreated plotorf5.dat\nCreated plotorf6.dat\n",
+    "files": {
+     "plotorf1.dat": "##Multi 2D Plot Small\n##Title Potential codons (rectangles)\n##Graphs 6\n##Number 1\n##Points 0\n##XminA 1.000000 XmaxA 68.000000 YminA 0.000000 YmaxA 1.000000\n##Xmin 1.000000 Xmax 68.000000 Ymin 0.000000 Ymax 1.000000\n##ScaleXmin 1.000000 ScaleXmax 68.000000 ScaleYmin 0.000000 ScaleYmax 1.000000\n##Maintitle F1\n##Subtitle \n##Xtitle Sequence\n##Ytitle Orf\n##DataObjects\n##Number 3\nFilled Rectangle x1 16.000000 y1 0.000000 x2 1.000000 y2 1.000000 colour 4\nFilled Rectangle x1 31.000000 y1 0.000000 x2 19.000000 y2 1.000000 colour 4\nFilled Rectangle x1 52.000000 y1 0.000000 x2 34.000000 y2 1.000000 colour 4\n##GraphObjects\n##Number 0\n",
+     "plotorf2.dat": "##Multi 2D Plot Small\n##Title Potential codons (rectangles)\n##Graphs 6\n##Number 2\n##Points 0\n##XminA 1.000000 XmaxA 68.000000 YminA 0.000000 YmaxA 1.000000\n##Xmin 1.000000 Xmax 68.000000 Ymin 0.000000 Ymax 1.000000\n##ScaleXmin 1.000000 ScaleXmax 68.000000 ScaleYmin 0.000000 ScaleYmax 1.000000\n##Maintitle F2\n##Subtitle \n##Xtitle Sequence\n##Ytitle Orf\n##DataObjects\n##Number 0\n##GraphObjects\n##Number 0\n",
+     "plotorf3.dat": "##Multi 2D Plot Small\n##Title Potential codons (rectangles)\n##Graphs 6\n##Number 3\n##Points 0\n##XminA 1.000000 XmaxA 68.000000 YminA 0.000000 YmaxA 1.000000\n##Xmin 1.000000 Xmax 68.000000 Ymin 0.000000 Ymax 1.000000\n##ScaleXmin 1.000000 ScaleXmax 68.000000 ScaleYmin 0.000000 ScaleYmax 1.000000\n##Maintitle F3\n##Subtitle \n##Xtitle Sequence\n##Ytitle Orf\n##DataObjects\n##Number 1\nFilled Rectangle x1 60.000000 y1 0.000000 x2 51.000000 y2 1.000000 colour 4\n##GraphObjects\n##Number 0\n",
+     "plotorf4.dat": "##Multi 2D Plot Small\n##Title Potential codons (rectangles)\n##Graphs 6\n##Number 4\n##Points 0\n##XminA 1.000000 XmaxA 68.000000 YminA 0.000000 YmaxA 1.000000\n##Xmin 1.000000 Xmax 68.000000 Ymin 0.000000 Ymax 1.000000\n##ScaleXmin 1.000000 ScaleXmax 68.000000 ScaleYmin 0.000000 ScaleYmax 1.000000\n##Maintitle R1\n##Subtitle \n##Xtitle Sequence\n##Ytitle Orf\n##DataObjects\n##Number 0\n##GraphObjects\n##Number 0\n",
+     "plotorf5.dat": "##Multi 2D Plot Small\n##Title Potential codons (rectangles)\n##Graphs 6\n##Number 5\n##Points 0\n##XminA 1.000000 XmaxA 68.000000 YminA 0.000000 YmaxA 1.000000\n##Xmin 1.000000 Xmax 68.000000 Ymin 0.000000 Ymax 1.000000\n##ScaleXmin 1.000000 ScaleXmax 68.000000 ScaleYmin 0.000000 ScaleYmax 1.000000\n##Maintitle R2\n##Subtitle \n##Xtitle Sequence\n##Ytitle Orf\n##DataObjects\n##Number 1\nFilled Rectangle x1 1.000000 y1 0.000000 x2 52.000000 y2 1.000000 colour 4\n##GraphObjects\n##Number 0\n",
+     "plotorf6.dat": "##Multi 2D Plot Small\n##Title Potential codons (rectangles)\n##Graphs 6\n##Number 6\n##Points 0\n##XminA 1.000000 XmaxA 68.000000 YminA 0.000000 YmaxA 1.000000\n##Xmin 1.000000 Xmax 68.000000 Ymin 0.000000 Ymax 1.000000\n##ScaleXmin 1.000000 ScaleXmax 68.000000 ScaleYmin 0.000000 ScaleYmax 1.000000\n##Maintitle R3\n##Subtitle \n##Xtitle Sequence\n##Ytitle Orf\n##DataObjects\n##Number 0\n##GraphObjects\n##Number 0\n"
+    },
+    "messages": []
+   },
+   "note": "The output is the text the installed program writes."
+  }
+ }
+]

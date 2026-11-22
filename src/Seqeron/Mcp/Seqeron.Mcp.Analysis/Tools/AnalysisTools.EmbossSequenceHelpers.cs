@@ -46,4 +46,25 @@ public partial class AnalysisTools
             throw new ArgumentException(e.Message, parameter);
         }
     }
+
+    // B09 WP63 (F282): a program with several outputs: the text of the main output (a file, or the standard output when it is "stdout") and the other files the program wrote
+    private static EmbossProgramToolResult RunEmbossMultiProgram(string program, List<string> args, IReadOnlyDictionary<string, string> files, string parameter, string main)
+    {
+        try
+        {
+            var r = EmbossProgramRunner.Run(program, args, files, new EmbossRunEnvironment());
+            var messages = r.Stderr.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            if (r.ExitCode != 0)
+                throw new ArgumentException(string.Join("; ", messages), parameter);
+            var others = r.Files.Where(f => f.Key != main).ToDictionary(f => f.Key, f => f.Value);
+            string text = r.Stdout;
+            if (main != "stdout")
+                text = r.Files.TryGetValue(main, out string? t) ? t : "";
+            return new EmbossProgramToolResult(text, others, messages);
+        }
+        catch (Exception e) when (e is NotSupportedException or InvalidOperationException)
+        {
+            throw new ArgumentException(e.Message, parameter);
+        }
+    }
 }
