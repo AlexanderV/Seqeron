@@ -373,6 +373,11 @@
 | wordcount | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossSequencePrograms2.cs | 0/0 | – | – | Build-Ready |
 | seqxref | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossSequencePrograms2.cs | 0/0 | – | – | Build-Ready |
 | showorf | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossSequencePrograms2.cs | 0/0 | – | – | Build-Ready |
+| tcode | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossSequencePrograms3.cs | 0/0 | – | – | Build-Ready |
+| checktrans | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossSequencePrograms3.cs | 0/0 | – | – | Build-Ready |
+| marscan | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossSequencePrograms3.cs | 0/0 | – | – | Build-Ready |
+| plotorf | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossSequencePrograms3.cs | 0/0 | – | – | Build-Ready |
+| wordfinder | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossSequencePrograms3.cs | 0/0 | – | – | Build-Ready |
 | prettyseq | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossSequencePrograms2.cs | 0/0 | – | – | Build-Ready |
 | makenucseq | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossSequencePrograms2.cs | 0/0 | – | – | Build-Ready |
 | makeprotseq | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossSequencePrograms2.cs | 0/0 | – | – | Build-Ready |

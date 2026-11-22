@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "marscan",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "EmbossProgramRunner.Run",
+  "docRef": "EmbossSequencePrograms.Marscan.cs",
+  "description": "EMBOSS 6.6.0 marscan: the MAR/SAR recognition signatures: the 16 bp site awwrtaannwwgnnnc (one mismatch allowed) or its reverse gnnncwwnnttaywwt and the 8 bp site aataayaa or ttrttatt within 200 bp of each other; of a cluster of signatures the pair with the least distance is reported as the report out.txt (default format gff: the feature misc_signal with the positions of the two sites; every report format of EMBOSS, the report qualifiers of reportQualifiers). Equals the installed program on 300 runs (every input format of seqret, ranges, the report and graph options, the messages of the library; standard output, error stream, exit status and written files byte for byte). B09 WP63, F282.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {},
+    "required": []
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "text": {
+        "type": "string",
+        "description": "The text of the main output of the program (the report, or its standard output)."
+      },
+      "files": {
+        "type": "object",
+        "description": "The other files the program wrote (sequences, features, graph data), by name."
+      },
+      "messages": {
+        "type": "string[]",
+        "description": "What the library printed on the error stream (warnings and errors)."
+      }
+    },
+    "required": [
+      "text",
+      "files",
+      "messages"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "The sequence cannot be empty"
+    },
+    {
+      "code": 1001,
+      "message": "The program died: the messages of the library (a value it refuses, an input no reader reads, a sequence of the wrong kind)"
+    },
+    {
+      "code": 1001,
+      "message": "An input on which the reference program never stops or dies by a fault is refused"
+    }
+  ],
+  "examples": [
+    {
+      "name": "A run on a small input",
+      "input": {
+        "sequence": ">s1 test\nCCCCCCCCCCAATAACAACCCCCCCCCCCCCCAATGTAAGGTTGCCCCTTTTTTTTTT\n"
+      },
+      "output": {
+        "text": "##gff-version 3\n##sequence-region s1 1 48\n#!Date 2023-11-14\n#!Type DNA\n#!Source-version EMBOSS 6.6.0.0\ns1\tmarscan\tregulatory_region\t11\t48\t.\t+\t.\tID=s1.1;note=*type MAR/SAR recognition site (MRS);note=*start8bp 11;note=*end8bp 18;note=*start16bp 33;note=*end16bp 48\n",
+        "files": {},
+        "messages": []
+      }
+    }
+  ]
+}

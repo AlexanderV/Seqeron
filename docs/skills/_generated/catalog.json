@@ -651,6 +651,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L423"
   },
   {
+    "tool": "checktrans",
+    "server": "Analysis",
+    "methodId": "EmbossProgramRunner.Run",
+    "docPath": "docs/mcp/tools/analysis/checktrans.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossSequencePrograms.Checktrans.cs"
+  },
+  {
     "tool": "chou_fasman_assign",
     "server": "Analysis",
     "methodId": "SequenceStatistics.PredictSecondaryStructureChouFasman",
@@ -1449,6 +1456,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/MummerMapview.cs"
   },
   {
+    "tool": "marscan",
+    "server": "Analysis",
+    "methodId": "EmbossProgramRunner.Run",
+    "docPath": "docs/mcp/tools/analysis/marscan.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossSequencePrograms.Marscan.cs"
+  },
+  {
     "tool": "mash_bounds",
     "server": "Analysis",
     "methodId": "MashCommands.Bounds",
@@ -1713,6 +1727,13 @@
     "methodId": "EmbossProgramRunner.Run",
     "docPath": "docs/mcp/tools/analysis/pasteseq.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossSequencePrograms.cs"
+  },
+  {
+    "tool": "plotorf",
+    "server": "Analysis",
+    "methodId": "EmbossProgramRunner.Run",
+    "docPath": "docs/mcp/tools/analysis/plotorf.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossSequencePrograms.Plotorf.cs"
   },
   {
     "tool": "predict_chou_fasman",
@@ -2037,6 +2058,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs#L6352"
   },
   {
+    "tool": "tcode",
+    "server": "Analysis",
+    "methodId": "EmbossProgramRunner.Run",
+    "docPath": "docs/mcp/tools/analysis/tcode.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossSequencePrograms.Tcode.cs"
+  },
+  {
     "tool": "terminal_mismatch_energy",
     "server": "Analysis",
     "methodId": "RnaSecondaryStructure.GetTerminalMismatchEnergy",
@@ -2119,6 +2147,13 @@
     "methodId": "EmbossProgramRunner.Run",
     "docPath": "docs/mcp/tools/analysis/wordcount.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossSequencePrograms.Report.cs"
+  },
+  {
+    "tool": "wordfinder",
+    "server": "Analysis",
+    "methodId": "EmbossProgramRunner.Run",
+    "docPath": "docs/mcp/tools/analysis/wordfinder.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossSequencePrograms.Wordfinder.cs"
   },
   {
     "tool": "wordmatch",

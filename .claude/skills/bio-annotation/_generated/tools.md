@@ -16,6 +16,7 @@
 | `bulge_loop_energy` | Analysis | `RnaSecondaryStructure.CalculateBulgeLoopEnergy` | [doc](../../../../docs/mcp/tools/analysis/bulge_loop_energy.md) |
 | `calculate_ani` | Analysis | `ComparativeGenomics.CalculateANI` | [doc](../../../../docs/mcp/tools/analysis/calculate_ani.md) |
 | `can_pair` | Analysis | `RnaSecondaryStructure.CanPair` | [doc](../../../../docs/mcp/tools/analysis/can_pair.md) |
+| `checktrans` | Analysis | `EmbossProgramRunner.Run` | [doc](../../../../docs/mcp/tools/analysis/checktrans.md) |
 | `chou_fasman_assign` | Analysis | `SequenceStatistics.PredictSecondaryStructureChouFasman` | [doc](../../../../docs/mcp/tools/analysis/chou_fasman_assign.md) |
 | `coderet` | Analysis | `EmbossCoderetProgram.Coderet` | [doc](../../../../docs/mcp/tools/analysis/coderet.md) |
 | `codon_frequencies` | Analysis | `SequenceStatistics.CalculateCodonFrequencies` | [doc](../../../../docs/mcp/tools/analysis/codon_frequencies.md) |
@@ -130,6 +131,7 @@
 | `makenucseq` | Analysis | `EmbossProgramRunner.Run` | [doc](../../../../docs/mcp/tools/analysis/makenucseq.md) |
 | `makeprotseq` | Analysis | `EmbossProgramRunner.Run` | [doc](../../../../docs/mcp/tools/analysis/makeprotseq.md) |
 | `mapview` | Analysis | `MummerMapview.Run` | [doc](../../../../docs/mcp/tools/analysis/mapview.md) |
+| `marscan` | Analysis | `EmbossProgramRunner.Run` | [doc](../../../../docs/mcp/tools/analysis/marscan.md) |
 | `mash_bounds` | Analysis | `MashCommands.Bounds` | [doc](../../../../docs/mcp/tools/analysis/mash_bounds.md) |
 | `mash_dist` | Analysis | `MashCommands.Dist` | [doc](../../../../docs/mcp/tools/analysis/mash_dist.md) |
 | `mash_info` | Analysis | `MashCommands.Info` | [doc](../../../../docs/mcp/tools/analysis/mash_info.md) |
@@ -168,6 +170,7 @@
 | `oligo_analysis` | Analysis | `MotifFinder.DiscoverMotifs` | [doc](../../../../docs/mcp/tools/analysis/oligo_analysis.md) |
 | `parse_dot_bracket` | Analysis | `RnaSecondaryStructure.ParseDotBracket` | [doc](../../../../docs/mcp/tools/analysis/parse_dot_bracket.md) |
 | `pasteseq` | Analysis | `EmbossProgramRunner.Run` | [doc](../../../../docs/mcp/tools/analysis/pasteseq.md) |
+| `plotorf` | Analysis | `EmbossProgramRunner.Run` | [doc](../../../../docs/mcp/tools/analysis/plotorf.md) |
 | `predict_chou_fasman` | Analysis | `SequenceStatistics.PredictSecondaryStructure` | [doc](../../../../docs/mcp/tools/analysis/predict_chou_fasman.md) |
 | `predict_coiled_coils` | Analysis | `ProteinMotifFinder.PredictCoiledCoils` | [doc](../../../../docs/mcp/tools/analysis/predict_coiled_coils.md) |
 | `predict_disorder` | Analysis | `DisorderPredictor.PredictDisorder` | [doc](../../../../docs/mcp/tools/analysis/predict_disorder.md) |
@@ -214,6 +217,7 @@
 | `stem_energy` | Analysis | `RnaSecondaryStructure.CalculateStemEnergy` | [doc](../../../../docs/mcp/tools/analysis/stem_energy.md) |
 | `tandem_repeat_bernoulli_statistics` | Analysis | `RepeatFinder.ComputeBernoulliStatistics` | [doc](../../../../docs/mcp/tools/analysis/tandem_repeat_bernoulli_statistics.md) |
 | `tandem_repeat_summary` | Analysis | `RepeatFinder.GetTandemRepeatSummary` | [doc](../../../../docs/mcp/tools/analysis/tandem_repeat_summary.md) |
+| `tcode` | Analysis | `EmbossProgramRunner.Run` | [doc](../../../../docs/mcp/tools/analysis/tcode.md) |
 | `terminal_mismatch_energy` | Analysis | `RnaSecondaryStructure.GetTerminalMismatchEnergy` | [doc](../../../../docs/mcp/tools/analysis/terminal_mismatch_energy.md) |
 | `transeq` | Analysis | `EmbossProgramRunner.Run` | [doc](../../../../docs/mcp/tools/analysis/transeq.md) |
 | `trimest` | Analysis | `EmbossProgramRunner.Run` | [doc](../../../../docs/mcp/tools/analysis/trimest.md) |
@@ -226,6 +230,7 @@
 | `windowed_complexity` | Analysis | `SequenceComplexity.CalculateWindowedComplexity` | [doc](../../../../docs/mcp/tools/analysis/windowed_complexity.md) |
 | `windowed_gc_skew` | Analysis | `GcSkewCalculator.CalculateWindowedGcSkew` | [doc](../../../../docs/mcp/tools/analysis/windowed_gc_skew.md) |
 | `wordcount` | Analysis | `EmbossProgramRunner.Run` | [doc](../../../../docs/mcp/tools/analysis/wordcount.md) |
+| `wordfinder` | Analysis | `EmbossProgramRunner.Run` | [doc](../../../../docs/mcp/tools/analysis/wordfinder.md) |
 | `wordmatch` | Analysis | `GenomicAnalyzer.Wordmatch` | [doc](../../../../docs/mcp/tools/analysis/wordmatch.md) |
 | `yank` | Analysis | `EmbossProgramRunner.Run` | [doc](../../../../docs/mcp/tools/analysis/yank.md) |
 | `align_mirna_to_target` | Annotation | `MiRnaAnalyzer.AlignMiRnaToTarget` | [doc](../../../../docs/mcp/tools/annotation/align_mirna_to_target.md) |

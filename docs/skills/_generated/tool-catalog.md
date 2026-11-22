@@ -92,7 +92,7 @@
 | `write_big_alignment` | `AlignmentCoordinateFormats.WriteBigBed / WriteBigMaf / WriteBigPsl` | [doc](../../mcp/tools/alignment/write_big_alignment.md) |
 | `write_coordinate_alignment` | `AlignmentCoordinateFormats.Write` | [doc](../../mcp/tools/alignment/write_coordinate_alignment.md) |
 
-## Analysis (222 tools)
+## Analysis (227 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -106,6 +106,7 @@
 | `bulge_loop_energy` | `RnaSecondaryStructure.CalculateBulgeLoopEnergy` | [doc](../../mcp/tools/analysis/bulge_loop_energy.md) |
 | `calculate_ani` | `ComparativeGenomics.CalculateANI` | [doc](../../mcp/tools/analysis/calculate_ani.md) |
 | `can_pair` | `RnaSecondaryStructure.CanPair` | [doc](../../mcp/tools/analysis/can_pair.md) |
+| `checktrans` | `EmbossProgramRunner.Run` | [doc](../../mcp/tools/analysis/checktrans.md) |
 | `chou_fasman_assign` | `SequenceStatistics.PredictSecondaryStructureChouFasman` | [doc](../../mcp/tools/analysis/chou_fasman_assign.md) |
 | `coderet` | `EmbossCoderetProgram.Coderet` | [doc](../../mcp/tools/analysis/coderet.md) |
 | `codon_frequencies` | `SequenceStatistics.CalculateCodonFrequencies` | [doc](../../mcp/tools/analysis/codon_frequencies.md) |
@@ -220,6 +221,7 @@
 | `makenucseq` | `EmbossProgramRunner.Run` | [doc](../../mcp/tools/analysis/makenucseq.md) |
 | `makeprotseq` | `EmbossProgramRunner.Run` | [doc](../../mcp/tools/analysis/makeprotseq.md) |
 | `mapview` | `MummerMapview.Run` | [doc](../../mcp/tools/analysis/mapview.md) |
+| `marscan` | `EmbossProgramRunner.Run` | [doc](../../mcp/tools/analysis/marscan.md) |
 | `mash_bounds` | `MashCommands.Bounds` | [doc](../../mcp/tools/analysis/mash_bounds.md) |
 | `mash_dist` | `MashCommands.Dist` | [doc](../../mcp/tools/analysis/mash_dist.md) |
 | `mash_info` | `MashCommands.Info` | [doc](../../mcp/tools/analysis/mash_info.md) |
@@ -258,6 +260,7 @@
 | `oligo_analysis` | `MotifFinder.DiscoverMotifs` | [doc](../../mcp/tools/analysis/oligo_analysis.md) |
 | `parse_dot_bracket` | `RnaSecondaryStructure.ParseDotBracket` | [doc](../../mcp/tools/analysis/parse_dot_bracket.md) |
 | `pasteseq` | `EmbossProgramRunner.Run` | [doc](../../mcp/tools/analysis/pasteseq.md) |
+| `plotorf` | `EmbossProgramRunner.Run` | [doc](../../mcp/tools/analysis/plotorf.md) |
 | `predict_chou_fasman` | `SequenceStatistics.PredictSecondaryStructure` | [doc](../../mcp/tools/analysis/predict_chou_fasman.md) |
 | `predict_coiled_coils` | `ProteinMotifFinder.PredictCoiledCoils` | [doc](../../mcp/tools/analysis/predict_coiled_coils.md) |
 | `predict_disorder` | `DisorderPredictor.PredictDisorder` | [doc](../../mcp/tools/analysis/predict_disorder.md) |
@@ -304,6 +307,7 @@
 | `stem_energy` | `RnaSecondaryStructure.CalculateStemEnergy` | [doc](../../mcp/tools/analysis/stem_energy.md) |
 | `tandem_repeat_bernoulli_statistics` | `RepeatFinder.ComputeBernoulliStatistics` | [doc](../../mcp/tools/analysis/tandem_repeat_bernoulli_statistics.md) |
 | `tandem_repeat_summary` | `RepeatFinder.GetTandemRepeatSummary` | [doc](../../mcp/tools/analysis/tandem_repeat_summary.md) |
+| `tcode` | `EmbossProgramRunner.Run` | [doc](../../mcp/tools/analysis/tcode.md) |
 | `terminal_mismatch_energy` | `RnaSecondaryStructure.GetTerminalMismatchEnergy` | [doc](../../mcp/tools/analysis/terminal_mismatch_energy.md) |
 | `transeq` | `EmbossProgramRunner.Run` | [doc](../../mcp/tools/analysis/transeq.md) |
 | `trimest` | `EmbossProgramRunner.Run` | [doc](../../mcp/tools/analysis/trimest.md) |
@@ -316,6 +320,7 @@
 | `windowed_complexity` | `SequenceComplexity.CalculateWindowedComplexity` | [doc](../../mcp/tools/analysis/windowed_complexity.md) |
 | `windowed_gc_skew` | `GcSkewCalculator.CalculateWindowedGcSkew` | [doc](../../mcp/tools/analysis/windowed_gc_skew.md) |
 | `wordcount` | `EmbossProgramRunner.Run` | [doc](../../mcp/tools/analysis/wordcount.md) |
+| `wordfinder` | `EmbossProgramRunner.Run` | [doc](../../mcp/tools/analysis/wordfinder.md) |
 | `wordmatch` | `GenomicAnalyzer.Wordmatch` | [doc](../../mcp/tools/analysis/wordmatch.md) |
 | `yank` | `EmbossProgramRunner.Run` | [doc](../../mcp/tools/analysis/yank.md) |
 

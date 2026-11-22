@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "plotorf",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "EmbossProgramRunner.Run",
+  "docRef": "EmbossSequencePrograms.Plotorf.cs",
+  "description": "EMBOSS 6.6.0 plotorf: for each of the six frames the stretches from a start codon (start, default ATG) to the next stop codon of the frame (stop, default TAA,TAG,TGA; a stretch that reaches the end of the sequence ends there) as the filled rectangles of six plots; graph: data writes the six data files plotorf1.dat ... plotorf6.dat (returned in files), bedgraph one track file, none draws nothing (the devices that draw with plplot are refused). Equals the installed program on 60 runs (every input format of seqret, ranges, the report and graph options, the messages of the library; standard output, error stream, exit status and written files byte for byte). B09 WP63, F282.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "The text of the sequence file (any input format of seqret), or a sequence as letters."
+      },
+      "start": {
+        "type": "string",
+        "description": "The start codons, a comma list (-start, default ATG)."
+      },
+      "stop": {
+        "type": "string",
+        "description": "The stop codons, a comma list (-stop, default TAA,TAG,TGA)."
+      },
+      "graph": {
+        "type": "string",
+        "description": "The graph device (-graph): data (default), bedgraph or none.",
+        "default": "data"
+      },
+      "graphQualifiers": {
+        "type": "string",
+        "description": "Graph qualifiers as typed on the command line: -gtitle T -gsubtitle T -gxtitle T -gytitle T -gdesc T -goutfile NAME -gdirectory DIR."
+      },
+      "sequenceFormat": {
+        "type": "string",
+        "description": "The input format (-sformat1); default: the program finds the format."
+      },
+      "qualifiers": {
+        "type": "string",
+        "description": "Sequence input qualifiers as typed after the sequence on the command line: -sbegin1 -send1 -sreverse1, -slower1 -supper1 -snucleotide1 -sprotein1 -scircular1, -sid1 name, -sdbname1 db, -squick1, -iquery1 query, -ioffset1 bytes."
+      },
+      "files": {
+        "type": "object",
+        "description": "More files by name (file name -> text) that the program may read (a file named by a USA, @file)."
+      }
+    },
+    "required": [
+      "sequence"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "text": {
+        "type": "string",
+        "description": "The text of the main output of the program (the report, or its standard output)."
+      },
+      "files": {
+        "type": "object",
+        "description": "The other files the program wrote (sequences, features, graph data), by name."
+      },
+      "messages": {
+        "type": "string[]",
+        "description": "What the library printed on the error stream (warnings and errors)."
+      }
+    },
+    "required": [
+      "text",
+      "files",
+      "messages"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "The sequence cannot be empty"
+    },
+    {
+      "code": 1001,
+      "message": "The program died: the messages of the library (a value it refuses, an input no reader reads, a sequence of the wrong kind)"
+    },
+    {
+      "code": 1001,
+      "message": "An input on which the reference program never stops or dies by a fault is refused"
+    }
+  ],
+  "examples": [
+    {
+      "name": "A run on a small input",
+      "input": {
+        "sequence": ">o1\nATGAAATTTGGGCCCTAGATGCCCAAATTTTAAATGGGGGGGGTGATAGCATGAAACCCTGAGGATAA\n"
+      },
+      "output": {
+        "text": "Created plotorf1.dat\nCreated plotorf2.dat\nCreated plotorf3.dat\nCreated plotorf4.dat\nCreated plotorf5.dat\nCreated plotorf6.dat\n",
+        "files": {
+          "plotorf1.dat": "##Multi 2D Plot Small\n##Title Potential codons (rectangles)\n##Graphs 6\n##Number 1\n##Points 0\n##XminA 1.000000 XmaxA 68.000000 YminA 0.000000 YmaxA 1.000000\n##Xmin 1.000000 Xmax 68.000000 Ymin 0.000000 Ymax 1.000000\n##ScaleXmin 1.000000 ScaleXmax 68.000000 ScaleYmin 0.000000 ScaleYmax 1.000000\n##Maintitle F1\n##Subtitle \n##Xtitle Sequence\n##Ytitle Orf\n##DataObjects\n##Number 3\nFilled Rectangle x1 16.000000 y1 0.000000 x2 1.000000 y2 1.000000 colour 4\nFilled Rectangle x1 31.000000 y1 0.000000 x2 19.000000 y2 1.000000 colour 4\nFilled Rectangle x1 52.000000 y1 0.000000 x2 34.000000 y2 1.000000 colour 4\n##GraphObjects\n##Number 0\n",
+          "plotorf2.dat": "##Multi 2D Plot Small\n##Title Potential codons (rectangles)\n##Graphs 6\n##Number 2\n##Points 0\n##XminA 1.000000 XmaxA 68.000000 YminA 0.000000 YmaxA 1.000000\n##Xmin 1.000000 Xmax 68.000000 Ymin 0.000000 Ymax 1.000000\n##ScaleXmin 1.000000 ScaleXmax 68.000000 ScaleYmin 0.000000 ScaleYmax 1.000000\n##Maintitle F2\n##Subtitle \n##Xtitle Sequence\n##Ytitle Orf\n##DataObjects\n##Number 0\n##GraphObjects\n##Number 0\n",
+          "plotorf3.dat": "##Multi 2D Plot Small\n##Title Potential codons (rectangles)\n##Graphs 6\n##Number 3\n##Points 0\n##XminA 1.000000 XmaxA 68.000000 YminA 0.000000 YmaxA 1.000000\n##Xmin 1.000000 Xmax 68.000000 Ymin 0.000000 Ymax 1.000000\n##ScaleXmin 1.000000 ScaleXmax 68.000000 ScaleYmin 0.000000 ScaleYmax 1.000000\n##Maintitle F3\n##Subtitle \n##Xtitle Sequence\n##Ytitle Orf\n##DataObjects\n##Number 1\nFilled Rectangle x1 60.000000 y1 0.000000 x2 51.000000 y2 1.000000 colour 4\n##GraphObjects\n##Number 0\n",
+          "plotorf4.dat": "##Multi 2D Plot Small\n##Title Potential codons (rectangles)\n##Graphs 6\n##Number 4\n##Points 0\n##XminA 1.000000 XmaxA 68.000000 YminA 0.000000 YmaxA 1.000000\n##Xmin 1.000000 Xmax 68.000000 Ymin 0.000000 Ymax 1.000000\n##ScaleXmin 1.000000 ScaleXmax 68.000000 ScaleYmin 0.000000 ScaleYmax 1.000000\n##Maintitle R1\n##Subtitle \n##Xtitle Sequence\n##Ytitle Orf\n##DataObjects\n##Number 0\n##GraphObjects\n##Number 0\n",
+          "plotorf5.dat": "##Multi 2D Plot Small\n##Title Potential codons (rectangles)\n##Graphs 6\n##Number 5\n##Points 0\n##XminA 1.000000 XmaxA 68.000000 YminA 0.000000 YmaxA 1.000000\n##Xmin 1.000000 Xmax 68.000000 Ymin 0.000000 Ymax 1.000000\n##ScaleXmin 1.000000 ScaleXmax 68.000000 ScaleYmin 0.000000 ScaleYmax 1.000000\n##Maintitle R2\n##Subtitle \n##Xtitle Sequence\n##Ytitle Orf\n##DataObjects\n##Number 1\nFilled Rectangle x1 1.000000 y1 0.000000 x2 52.000000 y2 1.000000 colour 4\n##GraphObjects\n##Number 0\n",
+          "plotorf6.dat": "##Multi 2D Plot Small\n##Title Potential codons (rectangles)\n##Graphs 6\n##Number 6\n##Points 0\n##XminA 1.000000 XmaxA 68.000000 YminA 0.000000 YmaxA 1.000000\n##Xmin 1.000000 Xmax 68.000000 Ymin 0.000000 Ymax 1.000000\n##ScaleXmin 1.000000 ScaleXmax 68.000000 ScaleYmin 0.000000 ScaleYmax 1.000000\n##Maintitle R3\n##Subtitle \n##Xtitle Sequence\n##Ytitle Orf\n##DataObjects\n##Number 0\n##GraphObjects\n##Number 0\n"
+        },
+        "messages": []
+      }
+    }
+  ]
+}

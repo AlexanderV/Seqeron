@@ -2,7 +2,7 @@
 
 MCP server — **K-mer, motif, repeat, complexity, RNA-structure and comparative-genomics analysis.**
 
-Exposes **222 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+Exposes **227 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
 MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test, with a
 per-tool doc under [`docs/mcp/tools/analysis/`](../../../../docs/mcp/tools/analysis). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
@@ -101,6 +101,11 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `wordcount` | EMBOSS wordcount: counts the words of a given size in sequences; equals wordcount 6.6.0 on 300 runs. |
 | `seqxref` | EMBOSS seqxref: reports the database cross-references of sequence entries; equals seqxref 6.6.0 on 300 runs. |
 | `showorf` | EMBOSS showorf: displays a nucleotide sequence and its translations in pretty format; equals showorf 6.6.0 on 300 runs. |
+| `tcode` | EMBOSS tcode: identifies protein-coding regions of a nucleotide sequence with the fickett testcode statistic; equals tcode 6.6.0 on 300 runs. |
+| `checktrans` | EMBOSS checktrans: reports the stop codons and the open reading frames of a protein translation; equals checktrans 6.6.0 on 300 runs. |
+| `marscan` | EMBOSS marscan: finds matrix/scaffold recognition (mrs) signatures in dna sequences; equals marscan 6.6.0 on 300 runs. |
+| `plotorf` | EMBOSS plotorf: plots the potential open reading frames of a nucleotide sequence; equals plotorf 6.6.0 on 300 runs. |
+| `wordfinder` | EMBOSS wordfinder: matches large sequences against one or more other sequences by their words; equals wordfinder 6.6.0 on 300 runs. |
 | `prettyseq` | EMBOSS prettyseq: writes a nucleotide sequence and its translation; equals prettyseq 6.6.0 on 300 runs. |
 | `makenucseq` | EMBOSS makenucseq: creates random nucleotide sequences; equals makenucseq 6.6.0 on 300 runs. |
 | `makeprotseq` | EMBOSS makeprotseq: creates random protein sequences; equals makeprotseq 6.6.0 on 300 runs. |
