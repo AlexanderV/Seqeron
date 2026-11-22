@@ -360,3 +360,7 @@ Input contract: ProbCons drops gap characters like the program's reader, POA rea
 ## Audit r2 addendum (A2-19c, B09 F286, WP64): MAFFT 7.505, stage 5 - the iterative pair-library methods
 
 `SequenceAligner.MultipleAlignMafft` / `RunMafft` accept `MafftOptions.MaxIterate` together with `PairLibrary` (`--maxiterate N` with `--globalpair` / `--localpair` / `--genafpair` = G-INS-i, L-INS-i, E-INS-i). Verified against the installed `mafft` 7.505-1 on 13 620 sets in 60 strategy groups: rows 13 620 / 13 620, standard error 12 960 / 12 960 (the `--thread` sets rows only). Code commit `4a1176ff0`. Still registered (DOABLE): `--auto`, `--weighti 0`, `--add` / `--addfragments` / `--keeplength` / `--seed` / `--merge`, `--clustalout` / `--inputorder`, the `parttree` family, `--retree 0`.
+
+## Audit r2 addendum (A2-19c, B09 F287, WP64): MAFFT 7.505, stage 6 - `--auto`
+
+`MafftOptions.Auto` = `mafft --auto`: the strategy follows from the number of sequences and the longest sequence (L-INS-i, `--localpair --maxiterate 2`, FFT-NS-i, FFT-NS-2; 20 000 sequences and more refused). Verified against the installed `mafft` 7.505-1 on 2 508 sets in 11 strategy groups (every branch): rows 2 508 / 2 508, standard error 2 288 / 2 288. Code commit `791157446`. Still registered (DOABLE): `--weighti 0`, `--add` / `--addfragments` / `--keeplength` / `--seed` / `--merge`, `--clustalout` / `--inputorder`, the `parttree` family, `--retree 0`.

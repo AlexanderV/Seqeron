@@ -908,3 +908,13 @@ Tests (`Seqeron.Genomics.Tests`, against the installed Debian `mafft` 7.505-1): 
 | MR2 | `Oracle_HasEveryStrategy` | - | >= 9 000 sets, every group >= 200, >= 60 groups, >= 3 000 sets per pair library, >= 10 refusals | shape |
 | MR3 | threads refusal | - | `Threads > 0` with an iteration and a pair library: `NotSupportedException`; `ThreadsIterate = 0` equals the single-thread run | proof of non-determinism (F284) |
 | MR4 | strategy text | - | "G-INS-i (Suitable for sequences of similar lengths, very slow)" / "L-INS-i ..." / "E-INS-i ..." with "(<N)" | program text |
+
+## Audit A2-19c part 4 (B09 F287): MAFFT 7.505, stage 6 (`--auto`)
+
+Tests (`Seqeron.Genomics.Tests`, against the installed Debian `mafft` 7.505-1): `SequenceAligner_MafftAuto_Tests` x13 (`mafft_auto_oracle.tsv.gz`, `scripts/alignment/generate_mafft_auto_oracle.py`: **2 508 sets in 11 strategy groups, at least 220 each**, every branch of the rule); one test per group compares the rows and the standard error (SHA-256 of the whole text, the full text for every 25th set) with the program.
+
+| ID | Test | Sets | Behaviour | Source |
+|----|------|------|-----------|--------|
+| MA1 | `RowsAndStandardError_EqualMafft(<strategy>)` | 2 508 | rows and standard error equal the program | oracle |
+| MA2 | `Oracle_HasEveryBranchOfTheRule` | - | >= 2 000 sets, every group >= 200, sets of 100 - 199, 200 - 499 and 500+ sequences, refusals, full texts | shape |
+| MA3 | `Rule_PicksTheStrategyOfTheScript` | 4 | 5 / 100 / 200 / 500 sequences: L-INS-i (<16), L-INS-i (<2), FFT-NS-i (2 iterations), FFT-NS-2 | strategy text |
