@@ -658,6 +658,15 @@ internal sealed partial class EmbossSeqin
         int nul = whole.IndexOf('\0');
         string tail = nul >= 0 ? whole[nul..] : "";
         string text = nul >= 0 ? whole[..nul] : whole;
+        if (_opt.SequenceType.Length == 0)
+        {
+            // no type (ajSeqGetFromUsa): the characters of a gap (blank . ~ -) become '-', nothing else is looked at
+            t.Seq.Clear().Append(text.Replace(' ', '-').Replace('.', '-').Replace('~', '-')).Append(tail);
+            return true;
+        }
+
+        if (_opt.SequenceType == "dna")
+            return TypeCheckDna(t, text, tail);
         if (_opt.SequenceType == "any")
         {
             // ungapped type: ajStrRemoveGap keeps the letters and '*'
@@ -694,6 +703,44 @@ internal sealed partial class EmbossSeqin
         }
 
         t.Seq.Clear().Append(s.Replace('?', 'X')).Append(tail);
+        return true;
+    }
+
+    // ajSeqTypeCheckIn of the type dna (the type of the sequence input of coderet): the gaps are removed, a sequence that is not nucleic is refused ("Sequence is not nucleic"), the characters that are no nucleotide codes
+    // become N (seqTypeFix), U becomes T and X, ? become N
+    private bool TypeCheckDna(EmbossSeq t, string text, string tail)
+    {
+        var kept = new StringBuilder(text.Length);
+        foreach (char c in text)
+        {
+            if (char.IsAsciiLetter(c) || c == '*')
+                kept.Append(c);
+        }
+
+        string s = kept.ToString();
+        t.Seq.Clear().Append(s).Append(tail);
+        if (!(t.Type == "N" || (t.Type != "P" && IsNucleotideText(s))))
+        {
+            _context.Error("Sequence is not nucleic\n");
+            return false;
+        }
+
+        t.SetNuc();
+        s = t.Seq.ToString();
+        string tailPart = tail;
+        if (tailPart.Length > 0)
+            s = s[..^tailPart.Length];
+        const string good = "ACGTUBDHKMNRSVWXY?";
+        var sb = new StringBuilder(s.Length);
+        foreach (char c in s)
+        {
+            char u = char.ToUpperInvariant(c);
+            char r = good.Contains(u, StringComparison.Ordinal) ? c : 'N';          // seqTypeFixReg: the characters that are no nucleotide codes become N
+            r = r switch { '?' or 'X' => 'N', 'x' => 'n', 'U' => 'T', 'u' => 't', _ => r };
+            sb.Append(r);
+        }
+
+        t.Seq.Clear().Append(sb).Append(tail);
         return true;
     }
 
