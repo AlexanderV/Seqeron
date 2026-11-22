@@ -178,6 +178,9 @@ internal sealed class EmbossFeatureLines(IReadOnlyList<string> lines)
     /// <summary><c>ajFilebuffSetUnbuffered</c>.</summary>
     public void SetUnbuffered() => Unbuffered = true;
 
+    /// <summary><c>ajFilebuffSetBuffered</c>.</summary>
+    public void SetBuffered() => Unbuffered = false;
+
     /// <summary><c>ajFilebuffIsEmpty</c>: nothing is left in the buffer and the file was read to its end.</summary>
     public bool IsEmpty => _pos >= _buffer.Count && End;
 
@@ -223,6 +226,9 @@ internal sealed class StrTok
         _pos = Span(p);
         return true;
     }
+
+    /// <summary><c>ajStrTokenStepC</c>: the next token is skipped (the delimiters are set first); false when there is none.</summary>
+    public bool Step(string delim) => Next(out _, delim);
 
     /// <summary><c>ajStrTokenRestParse</c>.</summary>
     public bool Rest(out string rest)

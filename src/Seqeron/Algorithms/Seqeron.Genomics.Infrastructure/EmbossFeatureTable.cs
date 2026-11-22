@@ -42,6 +42,9 @@ internal sealed class EmbossFeatureReadContext
     /// <summary><c>featRegMore</c>: the pattern of the flag lists of the GFF readers, compiled by the first of <c>featFlagSet</c> / <c>featGff3FlagSet</c> that runs.</summary>
     public System.Text.RegularExpressions.Regex? RegMore;
 
+    /// <summary>The count of <c>ajSeqSetNameMulti</c> (a static of <c>ajseq.c</c>): the sequences of the run that were given a name of the form EMBOSS_001.</summary>
+    public int SeqNameCount;
+
     /// <summary><c>ajUtilGetProgram</c>: the source of a feature without one.</summary>
     public string Program = "featcopy";
 
