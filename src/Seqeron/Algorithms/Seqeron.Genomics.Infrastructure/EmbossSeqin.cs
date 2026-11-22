@@ -574,6 +574,10 @@ internal sealed partial class EmbossSeqin
                 return ReadTreecon(t);
             case "acedb":
                 return ReadAcedb(t);
+            case "phylip":
+                return ReadPhylip(t);
+            case "phylipnon":
+                return ReadPhylipnon(t);
             case "fastq":
                 return ReadFastq(t);
             case "fastq-sanger":

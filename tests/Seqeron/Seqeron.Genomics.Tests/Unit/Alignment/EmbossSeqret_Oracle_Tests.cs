@@ -30,17 +30,22 @@ public class EmbossSeqret_Oracle_Tests
     [Test]
     public void SequenceReaders_EqualSeqret_AllRows()
     {
-        const string name = "Seqeron.Genomics.Tests.TestData.Alignment.seqret_oracle.jsonl.gz";
-        using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(name) ?? throw new InvalidOperationException($"Embedded oracle '{name}' not found.");
-        using var gz = new GZipStream(stream, CompressionMode.Decompress);
-        using var reader = new StreamReader(gz);
+        var asm = System.Reflection.Assembly.GetExecutingAssembly();
+        var names = asm.GetManifestResourceNames().Where(n => n.StartsWith("Seqeron.Genomics.Tests.TestData.Alignment.seqret_oracle", StringComparison.Ordinal) && n.EndsWith(".jsonl.gz", StringComparison.Ordinal)).Order().ToList();
+        Assert.That(names, Is.Not.Empty, "the embedded seqret oracles");
+        var lines = names.SelectMany(name =>
+        {
+            using var stream = asm.GetManifestResourceStream(name)!;
+            using var gz = new GZipStream(stream, CompressionMode.Decompress);
+            using var reader = new StreamReader(gz);
+            return reader.ReadToEnd().Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        }).ToList();
         var failures = new List<string>();
         var perFormat = new Dictionary<string, int>();
         var read = new Dictionary<string, int>();
         var withFeatures = new Dictionary<string, int>();
         int rows = 0, refused = 0;
-        string? line;
-        while ((line = reader.ReadLine()) is not null)
+        foreach (string line in lines)
         {
             var j = JsonDocument.Parse(line).RootElement;
             rows++;
@@ -120,7 +125,8 @@ public class EmbossSeqret_Oracle_Tests
 
         Assert.That(failures, Is.Empty, $"{failures.Count} of {rows}:\n" + string.Join("\n", failures.Take(12)));
         string[] formats = ["fasta", "ncbi", "pearson", "gifasta", "dbid", "gcg", "gcg8", "embl", "em", "swiss", "sw", "swissprot", "uniprot", "nbrf", "pir", "fastq", "fastq-sanger", "fastq-illumina", "fastq-solexa", "sam", "genbank", "gb",
-            "ddbj", "refseq", "refseqp", "genpept", "codata", "strider", "ig", "igstrict", "iguspto", "staden", "textonly", "plain", "asis", "unknown", "gff2", "gff3", "gff", "raw", "gde", "clustal", "aln", "msf", "fitch", "mase", "biomart", "treecon", "acedb"];
+            "ddbj", "refseq", "refseqp", "genpept", "codata", "strider", "ig", "igstrict", "iguspto", "staden", "textonly", "plain", "asis", "unknown", "gff2", "gff3", "gff", "raw", "gde", "clustal", "aln", "msf", "fitch", "mase", "biomart", "treecon", "acedb",
+            "phylip", "phylipnon"];
         foreach (string f in formats)
         {
             Assert.That(perFormat.GetValueOrDefault(f), Is.GreaterThanOrEqualTo(200), $"inputs of {f}");

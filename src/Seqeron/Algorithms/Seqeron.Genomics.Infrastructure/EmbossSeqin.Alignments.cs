@@ -23,6 +23,10 @@ internal sealed partial class EmbossSeqin
         public readonly Dictionary<string, AlnItem> Table = [];
         public readonly List<string> Names = [];
         public int Count;
+
+        /// <summary>The names as the PHYLIP readers keep them (an array of the size of the header, entries not set are null) and the number of sequences of the header.</summary>
+        public string?[]? NameArr;
+        public int Nseq;
     }
 
     private AlnData? _seqData;
