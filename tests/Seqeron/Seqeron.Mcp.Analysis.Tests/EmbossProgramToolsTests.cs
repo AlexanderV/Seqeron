@@ -182,6 +182,23 @@ public class EmbossProgramToolsTests
     }
 
     [Test]
+    public void Seqret_ReadsTheSequenceFormats_AsTheProgram()
+    {
+        // seqret 6.6.0 (A5-8c3g, F248): the DE description of a Swiss-Prot entry, its features, the type letters of a FASTA file, an asis:: sequence
+        const string sw = "ID   ABC_HUMAN   Reviewed;   10 AA.\nAC   P12345;\nDE   RecName: Full=Kinase alpha; Short=KA;\nDE   AltName: Full=Other name;\nFT   DOMAIN       1      5       Kinase domain.\nSQ   SEQUENCE   10 AA;  1000 MW;  0 CRC64;\n     MKVLAAGIVG\n//\n";
+        var r = AnalysisTools.Seqret(sw, "swiss", feature: true);
+        Assert.That(r.SequenceText, Is.EqualTo(">ABC_HUMAN P12345 Kinase alpha (KA) (Other name)\nMKVLAAGIVG\n"));
+        Assert.That(r.Sequences, Is.EqualTo(1));
+        Assert.That(r.FeatureText, Does.Contain("ABC_HUMAN\tSWISSPROT\tpolypeptide_domain\t1\t5\t.\t.\t.\tID=ABC_HUMAN.1;note=Kinase domain"));
+        var fa = AnalysisTools.Seqret(">s1 first\nACGTXX\n>s2\nMKVL*\n");
+        Assert.That(fa.SequenceText, Is.EqualTo(">s1 first\nACGTNN\n>s2\nMKVL*\n"));
+        Assert.That(AnalysisTools.Seqret("asis::ACGT.ACGT").SequenceText, Is.EqualTo(">asis\nACGT-ACGT\n"));
+        Assert.That(AnalysisTools.Seqret(">a\nACGT\n>b\nTT\n", firstOnly: true).Sequences, Is.EqualTo(1));
+        Assert.That(() => AnalysisTools.Seqret("CLUSTAL W\n\nseq1 ACGT\nseq2 ACGA\n"), Throws.ArgumentException);
+        Assert.That(() => AnalysisTools.Seqret(" "), Throws.ArgumentException);
+    }
+
+    [Test]
     public void Diffseq_FeaturesFromSeparateFiles_AsTheProgram()
     {
         // diffseq 6.6.0 a.fa b.fa -wordsize 5 -ufo1 f1.gff -ufo2 swiss::f2.dat (A5-8c3e, F241): the features of the sequences come from the files, whatever their format

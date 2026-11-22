@@ -1694,6 +1694,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.WordMatches.cs"
   },
   {
+    "tool": "seqret",
+    "server": "Analysis",
+    "methodId": "EmbossSeqretPrograms.Seqret",
+    "docPath": "docs/mcp/tools/analysis/seqret.md",
+    "sourceLink": ""
+  },
+  {
     "tool": "shared_motifs_significance",
     "server": "Analysis",
     "methodId": "MotifFinder.FindSharedMotifs",

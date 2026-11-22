@@ -1197,5 +1197,591 @@ internal static partial class EmbossAcdProfiles
             G die boolean
             G version boolean
             """),
+        ("seqret", """
+            P sequence 1 seqall
+            P outseq 2 seqoutall
+            Q feature boolean
+            Q firstonly boolean
+            A sequence sbegin 1 integer
+            A sequence send 1 integer
+            A sequence sreverse 1 boolean
+            A sequence sask 1 boolean
+            A sequence snucleotide 1 boolean
+            A sequence sprotein 1 boolean
+            A sequence slower 1 boolean
+            A sequence supper 1 boolean
+            A sequence scircular 1 boolean
+            A sequence squick 1 boolean
+            A sequence sformat 1 string
+            A sequence iquery 1 string
+            A sequence ioffset 1 integer
+            A sequence sdbname 1 string
+            A sequence sid 1 string
+            A sequence ufo 1 string
+            A sequence fformat 1 string
+            A sequence fopenfile 1 string
+            A outseq osformat 2 string
+            A outseq osextension 2 string
+            A outseq osname 2 string
+            A outseq osdirectory 2 string
+            A outseq osdbname 2 string
+            A outseq ossingle 2 boolean
+            A outseq oufo 2 string
+            A outseq offormat 2 string
+            A outseq ofname 2 string
+            A outseq ofdirectory 2 string
+            G auto boolean
+            G stdout boolean
+            G filter boolean
+            G options boolean
+            G debug boolean
+            G verbose boolean
+            G help boolean
+            G warning boolean
+            G error boolean
+            G fatal boolean
+            G die boolean
+            G version boolean
+            """),
+        ("extractfeat", """
+            P sequence 1 seqall
+            P outseq 2 seqout
+            Q before integer
+            Q after integer
+            Q source string
+            Q type string
+            Q sense integer
+            Q minscore float
+            Q maxscore float
+            Q tag string
+            Q value string
+            Q join boolean
+            Q featinname boolean
+            Q describe string
+            A sequence sbegin 1 integer
+            A sequence send 1 integer
+            A sequence sreverse 1 boolean
+            A sequence sask 1 boolean
+            A sequence snucleotide 1 boolean
+            A sequence sprotein 1 boolean
+            A sequence slower 1 boolean
+            A sequence supper 1 boolean
+            A sequence scircular 1 boolean
+            A sequence squick 1 boolean
+            A sequence sformat 1 string
+            A sequence iquery 1 string
+            A sequence ioffset 1 integer
+            A sequence sdbname 1 string
+            A sequence sid 1 string
+            A sequence ufo 1 string
+            A sequence fformat 1 string
+            A sequence fopenfile 1 string
+            A outseq osformat 2 string
+            A outseq osextension 2 string
+            A outseq osname 2 string
+            A outseq osdirectory 2 string
+            A outseq osdbname 2 string
+            A outseq ossingle 2 boolean
+            A outseq oufo 2 string
+            A outseq offormat 2 string
+            A outseq ofname 2 string
+            A outseq ofdirectory 2 string
+            G auto boolean
+            G stdout boolean
+            G filter boolean
+            G options boolean
+            G debug boolean
+            G verbose boolean
+            G help boolean
+            G warning boolean
+            G error boolean
+            G fatal boolean
+            G die boolean
+            G version boolean
+            """),
+        ("showfeat", """
+            P sequence 1 seqall
+            P outfile 2 outfile
+            Q sourcematch string
+            Q typematch string
+            Q tagmatch string
+            Q valuematch string
+            Q sort menu
+            Q joinfeatures boolean
+            Q annotation range
+            Q html boolean
+            Q id boolean
+            Q description boolean
+            Q scale boolean
+            Q width integer
+            Q collapse boolean
+            Q forward boolean
+            Q reverse boolean
+            Q unknown boolean
+            Q strand boolean
+            Q sourceshow boolean
+            Q position boolean
+            Q typeshow boolean
+            Q tagshow boolean
+            Q valueshow boolean
+            Q stricttags boolean
+            A sequence sbegin 1 integer
+            A sequence send 1 integer
+            A sequence sreverse 1 boolean
+            A sequence sask 1 boolean
+            A sequence snucleotide 1 boolean
+            A sequence sprotein 1 boolean
+            A sequence slower 1 boolean
+            A sequence supper 1 boolean
+            A sequence scircular 1 boolean
+            A sequence squick 1 boolean
+            A sequence sformat 1 string
+            A sequence iquery 1 string
+            A sequence ioffset 1 integer
+            A sequence sdbname 1 string
+            A sequence sid 1 string
+            A sequence ufo 1 string
+            A sequence fformat 1 string
+            A sequence fopenfile 1 string
+            A outfile odirectory 2 string
+            G auto boolean
+            G stdout boolean
+            G filter boolean
+            G options boolean
+            G debug boolean
+            G verbose boolean
+            G help boolean
+            G warning boolean
+            G error boolean
+            G fatal boolean
+            G die boolean
+            G version boolean
+            """),
+        ("featreport", """
+            P sequence 1 sequence
+            P features 2 features
+            P outfile 3 report
+            A sequence sbegin 1 integer
+            A sequence send 1 integer
+            A sequence sreverse 1 boolean
+            A sequence sask 1 boolean
+            A sequence snucleotide 1 boolean
+            A sequence sprotein 1 boolean
+            A sequence slower 1 boolean
+            A sequence supper 1 boolean
+            A sequence scircular 1 boolean
+            A sequence squick 1 boolean
+            A sequence sformat 1 string
+            A sequence iquery 1 string
+            A sequence ioffset 1 integer
+            A sequence sdbname 1 string
+            A sequence sid 1 string
+            A sequence ufo 1 string
+            A sequence fformat 1 string
+            A sequence fopenfile 1 string
+            A features fformat 2 string
+            A features iquery 2 string
+            A features ioffset 2 integer
+            A features fopenfile 2 string
+            A features fask 2 boolean
+            A features fbegin 2 integer
+            A features fend 2 integer
+            A features freverse 2 boolean
+            A features fcircular 2 boolean
+            A outfile rformat 3 string
+            A outfile rname 3 string
+            A outfile rextension 3 string
+            A outfile rdirectory 3 string
+            A outfile raccshow 3 boolean
+            A outfile rdesshow 3 boolean
+            A outfile rscoreshow 3 boolean
+            A outfile rstrandshow 3 boolean
+            A outfile rusashow 3 boolean
+            A outfile rmaxall 3 integer
+            A outfile rmaxseq 3 integer
+            G auto boolean
+            G stdout boolean
+            G filter boolean
+            G options boolean
+            G debug boolean
+            G verbose boolean
+            G help boolean
+            G warning boolean
+            G error boolean
+            G fatal boolean
+            G die boolean
+            G version boolean
+            """),
+        ("twofeat", """
+            P sequence 1 seqall
+            Q atype string
+            Q btype string
+            Q minrange integer
+            Q maxrange integer
+            P outfile 2 report
+            Q asource string
+            Q asense menu
+            Q aminscore float
+            Q amaxscore float
+            Q atag string
+            Q avalue string
+            Q bsource string
+            Q bsense menu
+            Q bminscore float
+            Q bmaxscore float
+            Q btag string
+            Q bvalue string
+            Q overlap menu
+            Q rangetype menu
+            Q sense menu
+            Q order menu
+            Q twoout toggle
+            Q typeout string
+            A sequence sbegin 1 integer
+            A sequence send 1 integer
+            A sequence sreverse 1 boolean
+            A sequence sask 1 boolean
+            A sequence snucleotide 1 boolean
+            A sequence sprotein 1 boolean
+            A sequence slower 1 boolean
+            A sequence supper 1 boolean
+            A sequence scircular 1 boolean
+            A sequence squick 1 boolean
+            A sequence sformat 1 string
+            A sequence iquery 1 string
+            A sequence ioffset 1 integer
+            A sequence sdbname 1 string
+            A sequence sid 1 string
+            A sequence ufo 1 string
+            A sequence fformat 1 string
+            A sequence fopenfile 1 string
+            A outfile rformat 2 string
+            A outfile rname 2 string
+            A outfile rextension 2 string
+            A outfile rdirectory 2 string
+            A outfile raccshow 2 boolean
+            A outfile rdesshow 2 boolean
+            A outfile rscoreshow 2 boolean
+            A outfile rstrandshow 2 boolean
+            A outfile rusashow 2 boolean
+            A outfile rmaxall 2 integer
+            A outfile rmaxseq 2 integer
+            G auto boolean
+            G stdout boolean
+            G filter boolean
+            G options boolean
+            G debug boolean
+            G verbose boolean
+            G help boolean
+            G warning boolean
+            G error boolean
+            G fatal boolean
+            G die boolean
+            G version boolean
+            """),
+        ("maskfeat", """
+            P sequence 1 seqall
+            P outseq 2 seqout
+            Q type string
+            Q tolower toggle
+            Q maskchar string
+            A sequence sbegin 1 integer
+            A sequence send 1 integer
+            A sequence sreverse 1 boolean
+            A sequence sask 1 boolean
+            A sequence snucleotide 1 boolean
+            A sequence sprotein 1 boolean
+            A sequence slower 1 boolean
+            A sequence supper 1 boolean
+            A sequence scircular 1 boolean
+            A sequence squick 1 boolean
+            A sequence sformat 1 string
+            A sequence iquery 1 string
+            A sequence ioffset 1 integer
+            A sequence sdbname 1 string
+            A sequence sid 1 string
+            A sequence ufo 1 string
+            A sequence fformat 1 string
+            A sequence fopenfile 1 string
+            A outseq osformat 2 string
+            A outseq osextension 2 string
+            A outseq osname 2 string
+            A outseq osdirectory 2 string
+            A outseq osdbname 2 string
+            A outseq ossingle 2 boolean
+            A outseq oufo 2 string
+            A outseq offormat 2 string
+            A outseq ofname 2 string
+            A outseq ofdirectory 2 string
+            G auto boolean
+            G stdout boolean
+            G filter boolean
+            G options boolean
+            G debug boolean
+            G verbose boolean
+            G help boolean
+            G warning boolean
+            G error boolean
+            G fatal boolean
+            G die boolean
+            G version boolean
+            """),
+        ("coderet", """
+            P seqall 1 seqall
+            P outfile 2 outfile
+            P cdsoutseq 3 seqoutall
+            P mrnaoutseq 4 seqoutall
+            P translationoutseq 5 seqoutall
+            P restoutseq 6 seqoutall
+            A seqall sbegin 1 integer
+            A seqall send 1 integer
+            A seqall sreverse 1 boolean
+            A seqall sask 1 boolean
+            A seqall snucleotide 1 boolean
+            A seqall sprotein 1 boolean
+            A seqall slower 1 boolean
+            A seqall supper 1 boolean
+            A seqall scircular 1 boolean
+            A seqall squick 1 boolean
+            A seqall sformat 1 string
+            A seqall iquery 1 string
+            A seqall ioffset 1 integer
+            A seqall sdbname 1 string
+            A seqall sid 1 string
+            A seqall ufo 1 string
+            A seqall fformat 1 string
+            A seqall fopenfile 1 string
+            A outfile odirectory 2 string
+            A cdsoutseq osformat 3 string
+            A cdsoutseq osextension 3 string
+            A cdsoutseq osname 3 string
+            A cdsoutseq osdirectory 3 string
+            A cdsoutseq osdbname 3 string
+            A cdsoutseq ossingle 3 boolean
+            A cdsoutseq oufo 3 string
+            A cdsoutseq offormat 3 string
+            A cdsoutseq ofname 3 string
+            A cdsoutseq ofdirectory 3 string
+            A mrnaoutseq osformat 4 string
+            A mrnaoutseq osextension 4 string
+            A mrnaoutseq osname 4 string
+            A mrnaoutseq osdirectory 4 string
+            A mrnaoutseq osdbname 4 string
+            A mrnaoutseq ossingle 4 boolean
+            A mrnaoutseq oufo 4 string
+            A mrnaoutseq offormat 4 string
+            A mrnaoutseq ofname 4 string
+            A mrnaoutseq ofdirectory 4 string
+            A translationoutseq osformat 5 string
+            A translationoutseq osextension 5 string
+            A translationoutseq osname 5 string
+            A translationoutseq osdirectory 5 string
+            A translationoutseq osdbname 5 string
+            A translationoutseq ossingle 5 boolean
+            A translationoutseq oufo 5 string
+            A translationoutseq offormat 5 string
+            A translationoutseq ofname 5 string
+            A translationoutseq ofdirectory 5 string
+            A restoutseq osformat 6 string
+            A restoutseq osextension 6 string
+            A restoutseq osname 6 string
+            A restoutseq osdirectory 6 string
+            A restoutseq osdbname 6 string
+            A restoutseq ossingle 6 boolean
+            A restoutseq oufo 6 string
+            A restoutseq offormat 6 string
+            A restoutseq ofname 6 string
+            A restoutseq ofdirectory 6 string
+            G auto boolean
+            G stdout boolean
+            G filter boolean
+            G options boolean
+            G debug boolean
+            G verbose boolean
+            G help boolean
+            G warning boolean
+            G error boolean
+            G fatal boolean
+            G die boolean
+            G version boolean
+            """),
+        ("union", """
+            P sequence 1 seqall
+            P outseq 2 seqout
+            Q overlapfile outfile
+            Q feature boolean
+            Q source boolean
+            Q findoverlap boolean
+            A sequence sbegin 1 integer
+            A sequence send 1 integer
+            A sequence sreverse 1 boolean
+            A sequence sask 1 boolean
+            A sequence snucleotide 1 boolean
+            A sequence sprotein 1 boolean
+            A sequence slower 1 boolean
+            A sequence supper 1 boolean
+            A sequence scircular 1 boolean
+            A sequence squick 1 boolean
+            A sequence sformat 1 string
+            A sequence iquery 1 string
+            A sequence ioffset 1 integer
+            A sequence sdbname 1 string
+            A sequence sid 1 string
+            A sequence ufo 1 string
+            A sequence fformat 1 string
+            A sequence fopenfile 1 string
+            A outseq osformat 2 string
+            A outseq osextension 2 string
+            A outseq osname 2 string
+            A outseq osdirectory 2 string
+            A outseq osdbname 2 string
+            A outseq ossingle 2 boolean
+            A outseq oufo 2 string
+            A outseq offormat 2 string
+            A outseq ofname 2 string
+            A outseq ofdirectory 2 string
+            A overlapfile odirectory 0 string
+            G auto boolean
+            G stdout boolean
+            G filter boolean
+            G options boolean
+            G debug boolean
+            G verbose boolean
+            G help boolean
+            G warning boolean
+            G error boolean
+            G fatal boolean
+            G die boolean
+            G version boolean
+            """),
+        ("descseq", """
+            P sequence 1 sequence
+            P outseq 2 seqout
+            Q name string
+            Q description string
+            Q append boolean
+            A sequence sbegin 1 integer
+            A sequence send 1 integer
+            A sequence sreverse 1 boolean
+            A sequence sask 1 boolean
+            A sequence snucleotide 1 boolean
+            A sequence sprotein 1 boolean
+            A sequence slower 1 boolean
+            A sequence supper 1 boolean
+            A sequence scircular 1 boolean
+            A sequence squick 1 boolean
+            A sequence sformat 1 string
+            A sequence iquery 1 string
+            A sequence ioffset 1 integer
+            A sequence sdbname 1 string
+            A sequence sid 1 string
+            A sequence ufo 1 string
+            A sequence fformat 1 string
+            A sequence fopenfile 1 string
+            A outseq osformat 2 string
+            A outseq osextension 2 string
+            A outseq osname 2 string
+            A outseq osdirectory 2 string
+            A outseq osdbname 2 string
+            A outseq ossingle 2 boolean
+            A outseq oufo 2 string
+            A outseq offormat 2 string
+            A outseq ofname 2 string
+            A outseq ofdirectory 2 string
+            G auto boolean
+            G stdout boolean
+            G filter boolean
+            G options boolean
+            G debug boolean
+            G verbose boolean
+            G help boolean
+            G warning boolean
+            G error boolean
+            G fatal boolean
+            G die boolean
+            G version boolean
+            """),
+        ("seqretsplit", """
+            P sequence 1 seqall
+            P outseq 2 seqoutall
+            Q feature boolean
+            Q firstonly boolean
+            A sequence sbegin 1 integer
+            A sequence send 1 integer
+            A sequence sreverse 1 boolean
+            A sequence sask 1 boolean
+            A sequence snucleotide 1 boolean
+            A sequence sprotein 1 boolean
+            A sequence slower 1 boolean
+            A sequence supper 1 boolean
+            A sequence scircular 1 boolean
+            A sequence squick 1 boolean
+            A sequence sformat 1 string
+            A sequence iquery 1 string
+            A sequence ioffset 1 integer
+            A sequence sdbname 1 string
+            A sequence sid 1 string
+            A sequence ufo 1 string
+            A sequence fformat 1 string
+            A sequence fopenfile 1 string
+            A outseq osformat 2 string
+            A outseq osextension 2 string
+            A outseq osname 2 string
+            A outseq osdirectory 2 string
+            A outseq osdbname 2 string
+            A outseq ossingle 2 boolean
+            A outseq oufo 2 string
+            A outseq offormat 2 string
+            A outseq ofname 2 string
+            A outseq ofdirectory 2 string
+            G auto boolean
+            G stdout boolean
+            G filter boolean
+            G options boolean
+            G debug boolean
+            G verbose boolean
+            G help boolean
+            G warning boolean
+            G error boolean
+            G fatal boolean
+            G die boolean
+            G version boolean
+            """),
+        ("entret", """
+            P sequence 1 seqall
+            P outfile 2 outfile
+            Q firstonly boolean
+            A sequence sbegin 1 integer
+            A sequence send 1 integer
+            A sequence sreverse 1 boolean
+            A sequence sask 1 boolean
+            A sequence snucleotide 1 boolean
+            A sequence sprotein 1 boolean
+            A sequence slower 1 boolean
+            A sequence supper 1 boolean
+            A sequence scircular 1 boolean
+            A sequence squick 1 boolean
+            A sequence sformat 1 string
+            A sequence iquery 1 string
+            A sequence ioffset 1 integer
+            A sequence sdbname 1 string
+            A sequence sid 1 string
+            A sequence ufo 1 string
+            A sequence fformat 1 string
+            A sequence fopenfile 1 string
+            A outfile odirectory 2 string
+            G auto boolean
+            G stdout boolean
+            G filter boolean
+            G options boolean
+            G debug boolean
+            G verbose boolean
+            G help boolean
+            G warning boolean
+            G error boolean
+            G fatal boolean
+            G die boolean
+            G version boolean
+            """),
     ];
 }

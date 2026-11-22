@@ -165,6 +165,7 @@
 | `scan_with_pwm` | Analysis | `MotifFinder.ScanWithPwm` | [doc](../../../../docs/mcp/tools/analysis/scan_with_pwm.md) |
 | `scan_with_pwm_both_strands` | Analysis | `MotifFinder.ScanWithPwmBothStrands` | [doc](../../../../docs/mcp/tools/analysis/scan_with_pwm_both_strands.md) |
 | `seqmatchall` | Analysis | `GenomicAnalyzer.SeqMatchAll` | [doc](../../../../docs/mcp/tools/analysis/seqmatchall.md) |
+| `seqret` | Analysis | `EmbossSeqretPrograms.Seqret` | [doc](../../../../docs/mcp/tools/analysis/seqret.md) |
 | `shared_motifs_significance` | Analysis | `MotifFinder.FindSharedMotifs` | [doc](../../../../docs/mcp/tools/analysis/shared_motifs_significance.md) |
 | `show_aligns` | Analysis | `MummerShowAligns.Run` | [doc](../../../../docs/mcp/tools/analysis/show_aligns.md) |
 | `show_coords` | Analysis | `MummerShowCoords.Run` | [doc](../../../../docs/mcp/tools/analysis/show_coords.md) |

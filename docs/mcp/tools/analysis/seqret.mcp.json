@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "seqret",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "EmbossSeqretPrograms.Seqret",
+  "docRef": "Seqeron.Genomics.Analysis/EmbossSeqretPrograms.cs",
+  "description": "EMBOSS 6.6.0 seqret: the sequences of a file are read by the sequence readers of the EMBOSS library (ajseqread.c) and written in FASTA (with the GFF3 or another feature format of the features the file carries). Input formats read byte for byte as the installed program reads them (200 inputs of each, with the library's warnings and errors): fasta (ncbi, pearson, gifasta, dbid), gcg (gcg8), embl (em), swiss (sw, swissprot, uniprot; the DE description of RecName / AltName / SubName / Includes / Contains / Flags is assembled as the library does), nbrf (pir), genbank (gb, ddbj, refseq), refseqp, genpept, codata, strider, ig, igstrict, iguspto, staden, textonly (plain, asis, unknown), fastq, fastq-sanger, fastq-illumina, fastq-solexa, sam, gff2, gff3 (gff; the sequence after ##FASTA / the ##DNA lines), raw. With no format every format the program tries is tried in turn (a text no format reads is read as plain text). The features of embl, genbank, refseq, refseqp, swiss, nbrf, gff2 and gff3 files are returned with featureFormat when feature is true. Not read yet (alignment and binary formats: clustal, msf, phylip, nexus, mega, selex, stockholm, mase, fitch, treecon, hennig86, jackknifer, gde, acedb, ace, pdb, abi, bam, nibble, scf, das, ensembl): the tool refuses an input of such a format. A5-8c3g, B09 F248.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "The text of the sequence file (any input format above), or a sequence as letters. A value 'asis::ACGT' is the sequence itself."
+      },
+      "sequenceFormat": {
+        "type": "string",
+        "description": "The input format (-sformat): the names above, any case, or an EDAM term; default: the program finds the format."
+      },
+      "feature": {
+        "type": "boolean",
+        "description": "Read and write the features of the sequences (-feature).",
+        "default": false
+      },
+      "firstOnly": {
+        "type": "boolean",
+        "description": "Read one sequence and stop (-firstonly).",
+        "default": false
+      },
+      "featureFormat": {
+        "type": "string",
+        "description": "The feature output format (-offormat2): gff3 (default), gff, gff2, bed, embl, em, genbank, gb, ddbj, refseq, refseqp, pir, nbrf, swiss, sw, swissprot, uniprot, dasgff, draw, debug.",
+        "default": "gff3"
+      },
+      "qualifiers": {
+        "type": "string",
+        "description": "Sequence input qualifiers as typed after the sequence on the command line: -slower1 -supper1 -snucleotide1 -sprotein1 (also -sformat1 F); the range qualifiers are not applied by this tool yet."
+      },
+      "files": {
+        "type": "object",
+        "description": "More files by name (file name -> text) that sequence may name with a 'format::' prefix."
+      }
+    },
+    "required": [
+      "sequence"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "sequenceText": {
+        "type": "string",
+        "description": "The text of the sequence output file (FASTA)."
+      },
+      "featureText": {
+        "type": "string",
+        "description": "The text of the feature output file (empty when no feature was written)."
+      },
+      "sequences": {
+        "type": "integer",
+        "description": "The number of sequences written."
+      },
+      "messages": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "What the library printed on its error stream (Warning: ..., Error: ...), in order."
+      }
+    },
+    "required": [
+      "sequenceText",
+      "featureText",
+      "sequences",
+      "messages"
+    ]
+  },
+  "errors": [
+    {
+      "code": "InvalidParams",
+      "message": "Invalid arguments (an empty sequence, a text no sequence reader reads - 'Unable to read sequence' -, an input of an alignment or binary format this port does not read, an input on which the reference program dies by a fault)."
+    }
+  ],
+  "examples": [
+    {
+      "name": "A Swiss-Prot entry with its description and features",
+      "input": {
+        "sequence": "ID   ABC_HUMAN   Reviewed;   10 AA.\nAC   P12345;\nDE   RecName: Full=Kinase alpha; Short=KA;\nDE   AltName: Full=Other name;\nFT   DOMAIN       1      5       Kinase domain.\nSQ   SEQUENCE   10 AA;  1000 MW;  0 CRC64;\n     MKVLAAGIVG\n//\n",
+        "sequenceFormat": "swiss",
+        "feature": true
+      },
+      "output": {
+        "sequenceText": ">ABC_HUMAN P12345 Kinase alpha (KA) (Other name)\nMKVLAAGIVG\n",
+        "featureText": "##gff-version 3\n##sequence-region ABC_HUMAN 1 10\n#!Date 2026-11-22\n#!Type Protein\n#!Source-version EMBOSS 6.6.0.0\nABC_HUMAN\tSWISSPROT\tpolypeptide_domain\t1\t5\t.\t.\t.\tID=ABC_HUMAN.1;note=Kinase domain\n",
+        "sequences": 1,
+        "messages": []
+      }
+    }
+  ]
+}
