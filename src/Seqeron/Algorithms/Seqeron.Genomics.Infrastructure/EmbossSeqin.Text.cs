@@ -891,21 +891,6 @@ internal sealed partial class EmbossSeqin
         return true;
     }
 
-    // seqReadPdb / seqReadPdbseq / seqReadPdbnuc / seqReadPdbnucseq: the entry is recognised by the HEADER line (an entry of the protein databank format is not read by this port)
-    private bool ReadPdb(EmbossSeq t)
-    {
-        _ = t;
-        if (!ReadLine())
-            return false;
-        if (!PrefixC(_line, "HEADER    "))
-        {
-            StoreReset();
-            return false;
-        }
-
-        throw new InvalidOperationException("The protein databank formats (pdb, pdbseq, pdbnuc, pdbnucseq) are not read by this port.");
-    }
-
     private static readonly Regex RegPhylipTop = new(@"^ *([0-9]+) +([0-9]+)", RegexOptions.CultureInvariant);
     private static readonly Regex RegJackTop = new(@"^'(.*)'\s*$", RegexOptions.CultureInvariant);
     private static readonly Regex RegTreeconTop = new(@"^ *([0-9]+)", RegexOptions.CultureInvariant);

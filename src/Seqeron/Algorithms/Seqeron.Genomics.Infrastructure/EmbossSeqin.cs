@@ -555,10 +555,13 @@ internal sealed partial class EmbossSeqin
             case "refseqp":
                 return ReadProteinEntry(t, true);
             case "pdb":
-            case "pdbseq":
+                return ReadPdbAtoms(t, false);
             case "pdbnuc":
+                return ReadPdbAtoms(t, true);
+            case "pdbseq":
+                return ReadPdbSeqres(t, false);
             case "pdbnucseq":
-                return ReadPdb(t);
+                return ReadPdbSeqres(t, true);
             case "ig":
                 return ReadIg(t);
             case "igstrict":
