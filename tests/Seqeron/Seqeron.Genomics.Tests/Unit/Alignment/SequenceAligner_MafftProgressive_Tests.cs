@@ -102,6 +102,7 @@ public class SequenceAligner_MafftProgressive_Tests
                 case "--thread": o = o with { Threads = I() }; break;
                 case "--threadit": o = o with { ThreadsIterate = I() }; break;
                 case "--maxiterate": o = o with { MaxIterate = I() }; break;
+                case "--auto": o = o with { Auto = true }; break;
                 case "--globalpair": o = o with { PairLibrary = MafftPairLibrary.Global }; break;
                 case "--localpair": o = o with { PairLibrary = MafftPairLibrary.Local }; break;
                 case "--genafpair": o = o with { PairLibrary = MafftPairLibrary.Genaf }; break;

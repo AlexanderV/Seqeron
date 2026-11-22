@@ -142,6 +142,13 @@ public sealed record MafftOptions
     /// <summary>See <see cref="GenafOpen"/>: <c>--LEXP</c> (default -0.000).</summary>
     public double GenafExtension { get; init; } = -0.000;
 
+    /// <summary>
+    /// <c>--auto</c>: the script chooses the strategy from the number of sequences and the longest sequence (without gaps): fewer than 100 sequences of fewer than 3 000 letters = L-INS-i (<c>--localpair --maxiterate 1000</c>); fewer than 200 of fewer than 1 000 =
+    /// L-INS-2 iterations (<c>--localpair --maxiterate 2</c>); fewer than 500 of fewer than 10 000 = FFT-NS-i with 2 iterations and two trees; fewer than 20 000 = FFT-NS-2. The pair library, the iterations and the number of trees of the options are then replaced;
+    /// larger inputs (the memory-saving tree, <c>--parttree</c>) are refused.
+    /// </summary>
+    public bool Auto { get; init; }
+
     /// <summary><c>--oldgenafpair</c>: the parameters of E-INS-i before version 7.243 (the offset and the extension of the pair stage as given, the alignment score of the pair).</summary>
     public bool OldGenafParameters { get; init; }
 
@@ -289,6 +296,8 @@ public static partial class SequenceAligner
             foreach (var s in originals)
                 if (NoGaps(s).Length == 0)
                     throw new ArgumentException("A sequence without residues cannot be aligned.", nameof(list));
+            if (o.Auto)
+                o = ApplyAuto(o, list.Count, originals.Max(x => NoGaps(x).Length));
             bool nuc1 = GuessNucleotide(originals, o);
             var log = new System.Text.StringBuilder();
             if (o.AnySymbol)
@@ -350,6 +359,20 @@ public static partial class SequenceAligner
                 rows = result.Order.Select(i => rows[i]).ToArray();
             string stderr = o.Quiet ? "" : log.ToString() + MafftScript.Epilogue(o, list.Count);
             return new MafftRunResult(ToResult(rows, nuc), stderr);
+        }
+
+        /// <summary>The rule of <c>--auto</c> in <c>mafft.tmpl</c> (<c>nlen</c> and <c>nseq</c> of <c>countlen</c>).</summary>
+        private static MafftOptions ApplyAuto(MafftOptions o, int nseq, int nlen)
+        {
+            if (nlen < 3000 && nseq < 100)
+                return o with { Auto = false, PairLibrary = MafftPairLibrary.Local, MaxIterate = 1000, Retree = 1 };
+            if (nlen < 1000 && nseq < 200)
+                return o with { Auto = false, PairLibrary = MafftPairLibrary.Local, MaxIterate = 2, Retree = 1 };
+            if (nlen < 10000 && nseq < 500)
+                return o with { Auto = false, PairLibrary = MafftPairLibrary.None, MaxIterate = 2, Retree = 2 };
+            if (nseq < 20000)
+                return o with { Auto = false, PairLibrary = MafftPairLibrary.None, MaxIterate = 0, Retree = 2 };
+            throw new NotSupportedException("--auto for 20 000 or more sequences (the memory-saving tree, --parttree) is not available in this port.");
         }
 
         internal static MultipleAlignmentResult ToResult(string[] rows, bool nucleotide)

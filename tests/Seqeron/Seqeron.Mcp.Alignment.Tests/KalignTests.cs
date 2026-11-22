@@ -127,6 +127,14 @@ public class MafftTests
     }
 
     [Test]
+    public void MultipleAlignMafft_Auto_PicksTheStrategyOfTheScript()
+    {
+        var seqs = new[] { "MKVLAAGIVGLLLAQ", "MKVLAGIVALLAQ", "MKILAAGIVGLLAQ", "MKVLAAGIVGLLAQ" };
+        var r = AlignmentTools.MultipleAlignMafft(seqs, anySymbol: false, auto: true);
+        Assert.That(r.StandardError, Does.Contain("L-INS-i (Probably most accurate, very slow)"), "fewer than 100 sequences: L-INS-i");
+    }
+
+    [Test]
     public void MultipleAlignMafft_Validation()
     {
         Assert.Multiple(() =>
