@@ -104,6 +104,8 @@ public static partial class SequenceAligner
             string aof = AwkPrint(0.0 + 0.0 + MafftGlobals.CAtof(AwkPrint(-1.0 * o.Offset)));
             if (o.Offset == 0.0)
                 aof = "0";
+            if (o.PairLibrary == MafftPairLibrary.Genaf)
+                aof = "0.000"; // E-INS: the offset is 0 whatever --ep says
             int threads = o.Threads < 0 ? Environment.ProcessorCount : o.Threads;
             int threadsIt = o.ThreadsIterate ?? (threads < 8 ? threads : 8);
             var args = new List<string> { "-W", "0.00001", "-E", "0.0", "-s", "0.0" };
@@ -114,6 +116,11 @@ public static partial class SequenceAligner
             args.Add("-t");
             args.Add("0");
             args.Add("-F");
+            if (o.PairLibrary != MafftPairLibrary.None)
+            {
+                args.Add("-l");
+                args.Add(Text(o.WeightI));
+            }
             args.Add("-z");
             args.Add("50");
             if (o.SequenceType == MafftSequenceType.Nucleotide)
@@ -159,7 +166,22 @@ public static partial class SequenceAligner
             string strategy = prefix + "NS-" + (iterate > 0 ? "i" : cycle.ToString(CultureInfo.InvariantCulture));
             string explanation = "?";
             string performance = "Not tested.";
-            if (strategy == "L-INS-1")
+            if (strategy == "G-INS-i")
+            {
+                explanation = "Iterative refinement method (<" + iterate.ToString(CultureInfo.InvariantCulture) + ") with GLOBAL pairwise alignment information";
+                performance = "Suitable for sequences of similar lengths, very slow";
+            }
+            else if (strategy == "L-INS-i")
+            {
+                explanation = "Iterative refinement method (<" + iterate.ToString(CultureInfo.InvariantCulture) + ") with LOCAL pairwise alignment information";
+                performance = "Probably most accurate, very slow";
+            }
+            else if (strategy == "E-INS-i")
+            {
+                explanation = "Iterative refinement method (<" + iterate.ToString(CultureInfo.InvariantCulture) + ") with LOCAL pairwise alignment with generalized affine gap costs (Altschul 1998)";
+                performance = "Suitable for sequences with long unalignable regions, very slow";
+            }
+            else if (strategy == "L-INS-1")
             {
                 explanation = "Progressive method incorporating LOCAL pairwise alignment information";
             }

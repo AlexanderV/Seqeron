@@ -107,6 +107,7 @@ public static partial class SequenceAligner
                         case 'N': g.NeverMemSave = 1; break;
                         case 'D': g.Dorp = 'd'; break;
                         case 'P': g.Dorp = 'p'; break;
+                        case 'l': g.FastaThreshold = CAtof(Next()); g.Constraint = 2; rest = true; break;
                         case 'T': g.Kobetsubunkatsu = 0; break;
                         case 'B': g.Bunkatsu = 0; break;
                         case 'A': g.Alg = 'A'; break;
@@ -130,6 +131,8 @@ public static partial class SequenceAligner
                     }
                 }
             }
+            if (g.FastaThreshold < 0.0001)
+                g.Constraint = 0;
             return g;
         }
     }
@@ -332,7 +335,7 @@ public static partial class SequenceAligner
         /// the two groups are re-aligned (<see cref="Falign"/> with the groups' own columns as anchors), and the new alignment is kept when its score is not lower than the old one; a pass over all branches is an iteration (forward
         /// and backward alternately) and the refinement ends when <c>2 n</c> branches in a row do not change or the score oscillates. <paramref name="aseq"/> is the alignment of the segment, the result is returned.
         /// </summary>
-        private string[] TreeDependentIteration(int locnjob, string[] segment, int[][][] topol, double[][] len, double[][] distmtx, int[][] skipthisbranch, int alloclen)
+        private string[] TreeDependentIteration(int locnjob, string[] segment, int[][][] topol, double[][] len, double[][] distmtx, int[][] skipthisbranch, int alloclen, MafftLocalHom[][]? localhom = null)
         {
             var aseq = (string[])segment.Clone();
             var bseq = (string[])segment.Clone();
@@ -342,6 +345,13 @@ public static partial class SequenceAligner
             var branchWeight = new double[locnjob][];
             for (int i = 0; i < locnjob; i++)
                 branchWeight[i] = new double[2];
+            if (localhom != null && G.UTree != 0)
+            {
+                // constraint (before treeCnv, which raises short branch lengths in place): the importance of the blocks of the pair library from the weights of the tree (counteff_simple of the full member lists)
+                var effarrforlocalhom = new double[locnjob];
+                CountEffSimpleFull(locnjob, topol, len, effarrforlocalhom);
+                CalcImportanceHalf(locnjob, effarrforlocalhom, aseq, localhom, alloclen);
+            }
             MafftUnrootedTree? stopol = null;
             if (G.UTree != 0 && locnjob > 2 && (G.Weight == 4 || G.Weight == 0))
                 stopol = new MafftUnrootedTree(locnjob, topol, len, branchWeight);
@@ -404,7 +414,21 @@ public static partial class SequenceAligner
                         FastConjunction(memlist1, aseq, mseq2, effarr2, effarr, G.MinimumWeight);
                         int clus1 = memlist0.Length, clus2 = memlist1.Length;
                         double mscore = G.ScoreCheck != 0 ? IntergroupScore(mseq1, mseq2, effarr1, effarr2, clus1, clus2, length) : 0.0;
-                        if (G.UseFft)
+                        double impmatchdouble = 0.0;
+                        if (localhom != null)
+                        {
+                            // msshrinklocalhom_fast_half, part_imp_match_init_strict, the importance on the diagonal of the groups' own alignment
+                            var shrink = ShrinkLocalHom(memlist0, memlist1, localhom);
+                            double oimpmatchdouble = 0.0;
+                            PartFillImp(clus1, clus2, length, length, mseq1, mseq2, effarr1, effarr2, shrink, memlist0, memlist1);
+                            for (int i = length - 1; i >= 0; i--)
+                                oimpmatchdouble += _partImpMtx![i][i];
+                            mscore = oimpmatchdouble + mscore;
+                            if (!G.UseFft)
+                                throw new InvalidOperationException("Unexpected error.  Please contact katoh@ifrec.osaka-u.ac.jp");
+                            FalignLocalHom(mseq1, mseq2, effarr1, effarr2, clus1, clus2, alloclen, out impmatchdouble);
+                        }
+                        else if (G.UseFft)
                             Falign(G.NDisConsweightMulti, mseq1, mseq2, effarr1, effarr2, clus1, clus2, alloclen);
                         else
                             throw new InvalidOperationException("Unexpected error.  Please contact katoh@ifrec.osaka-u.ac.jp");
@@ -423,7 +447,16 @@ public static partial class SequenceAligner
                         }
                         else
                         {
-                            tscore = G.ScoreCheck != 0 ? IntergroupScore(mseq1, mseq2, effarr1, effarr2, clus1, clus2, length) : mscore + 1.0;
+                            if (G.ScoreCheck != 0)
+                            {
+                                tscore = IntergroupScore(mseq1, mseq2, effarr1, effarr2, clus1, clus2, length);
+                                if (localhom != null)
+                                    tscore = impmatchdouble + tscore;
+                            }
+                            else
+                            {
+                                tscore = mscore + 1.0;
+                            }
                             if (double.IsNaN(mscore))
                                 throw new InvalidOperationException("mscore became NaN");
                             if (double.IsNaN(tscore))
@@ -472,6 +505,38 @@ public static partial class SequenceAligner
             return bseq;
         }
 
+        /// <summary><c>counteff_simple</c> (<c>mltaln9.c</c>): the weight of a sequence from the lengths of the branches between it and the root of the tree, with the complete member lists of the groups.</summary>
+        private static void CountEffSimpleFull(int nseq, int[][][] topol, double[][] len, double[] node)
+        {
+            var rootnode = new double[nseq];
+            var eff = new double[nseq];
+            for (int i = 0; i < nseq; i++)
+                eff[i] = 1.0;
+            for (int i = 0; i < nseq - 1; i++)
+            {
+                foreach (int s1 in topol[i][0])
+                {
+                    rootnode[s1] += len[i][0] * eff[s1];
+                    eff[s1] *= 0.5;
+                }
+                foreach (int s2 in topol[i][1])
+                {
+                    rootnode[s2] += len[i][1] * eff[s2];
+                    eff[s2] *= 0.5;
+                }
+            }
+            for (int i = 0; i < nseq; i++)
+                rootnode[i] += 0.001;
+            double total = 0.0;
+            for (int i = 0; i < nseq; i++)
+                total += rootnode[i];
+            for (int i = 0; i < nseq; i++)
+                node[i] = rootnode[i] / total;
+        }
+
+        private void PartFillImp(int clus1, int clus2, int lgth1, int lgth2, string[] seq1, string[] seq2, double[] eff1, double[] eff2, MafftLocalHom?[][] localhom, int[] orinum1, int[] orinum2)
+            => FillImp(clus1, clus2, lgth1, lgth2, seq1, seq2, eff1, eff2, localhom, orinum1, orinum2, true);
+
         /// <summary><c>OneClusterAndTheOther_fast</c>: the sequences of the group (step, branch) and all the others.</summary>
         private static (int[] Mem1, int[] Mem2) OneClusterAndTheOther(int locnjob, int[][][] topol, int step, int branch)
         {
@@ -493,7 +558,7 @@ public static partial class SequenceAligner
         /// <c>dvtditr</c> (<c>dvtditr.c</c>): the iterative refinement of the alignment <paramref name="rows"/> (the output of <c>disttbfast</c>): the guide tree is the UPGMA of the distances <paramref name="hat2"/> of <c>dndpre</c>, the alignment is cut
         /// into segments at the windows with a high column score (<see cref="SearchAnchors"/>; <c>--bunkatsunashi</c> = <c>-B</c> keeps one), and every segment is refined by <see cref="TreeDependentIteration"/>.
         /// </summary>
-        internal Result Dvtditr(string[] rows, double[][] hat2)
+        internal Result Dvtditr(string[] rows, double[][] hat2, MafftLocalHom[][]? localhom = null)
         {
             int njob = rows.Length;
             for (int i = 1; i < njob; i++)
@@ -505,6 +570,8 @@ public static partial class SequenceAligner
             if (G.Dorp == 'd')
                 for (int i = 0; i < njob; i++)
                     seqG[i] = seqG[i].ToLowerInvariant();
+            if (localhom != null)
+                Report("Loading 'hat3' ... done.\n");
             G.Constants(seqG);
             for (int i = 0; i < njob; i++)
                 for (int k = 0; k < seqG[i].Length; k++)
@@ -540,7 +607,7 @@ public static partial class SequenceAligner
             for (int i = 0; i < njob - 1; i++)
                 topol[i] = new[] { topol0[i], topol1[i] };
             var anchors = new List<int> { 0 };
-            if (G.Bunkatsu == 0)
+            if (G.Bunkatsu == 0 || localhom != null)
             {
                 anchors.Add(seqG[0].Length);
             }
@@ -568,7 +635,7 @@ public static partial class SequenceAligner
                     seg[j] = seqG[j].Substring(offset, tmplen);
                 offset += tmplen;
                 Report("Segment " + (iseg + 1).ToString(CultureInfo.InvariantCulture).PadLeft(3) + "/" + (nseg - 1).ToString(CultureInfo.InvariantCulture).PadLeft(3) + " " + (pos + 1).ToString(CultureInfo.InvariantCulture).PadLeft(4) + "-" + (pos + 1 + tmplen).ToString(CultureInfo.InvariantCulture).PadLeft(4) + "\n");
-                var bseq = TreeDependentIteration(njob, seg, topol, len, eff, skipthisbranch, alloclen);
+                var bseq = TreeDependentIteration(njob, seg, topol, len, eff, skipthisbranch, alloclen, localhom);
                 for (int i = 0; i < njob; i++)
                     resG[i].Append(bseq[i]);
             }

@@ -633,15 +633,21 @@ public static partial class SequenceAligner
         }
 
         /// <summary><c>counteff_simple_double_nostatic_memsave</c>: the weight of every sequence from the branch lengths of the tree (every branch is shared equally among the sequences below it), +0.001, normalised.</summary>
-        private static void CountEffSimple(int nseq, GuideTree tree, double[] node)
+        private void CountEffSimple(int nseq, GuideTree tree, double[] node)
         {
             var len = tree.Len;
             for (int i = 0; i < nseq; i++)
             {
                 if (len[i][0] < 0.0)
+                {
+                    Report("WARNING: negative branch length " + len[i][0].ToString("F6", CultureInfo.InvariantCulture) + ", step " + i + "-0\n");
                     len[i][0] = 0.0;
+                }
                 if (len[i][1] < 0.0)
+                {
+                    Report("WARNING: negative branch length " + len[i][1].ToString("F6", CultureInfo.InvariantCulture) + ", step " + i + "-1\n");
                     len[i][1] = 0.0;
+                }
             }
             var rootnode = new double[nseq];
             var eff = new double[nseq];

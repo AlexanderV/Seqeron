@@ -283,13 +283,8 @@ public static partial class SequenceAligner
                 throw new ArgumentException("--op, --ep and --exp must be finite.", nameof(o));
             if (o.Retree == 0)
                 throw new NotSupportedException("--retree 0 (the guide tree only) of MAFFT is not available in this port.");
-            if (o.PairLibrary != MafftPairLibrary.None)
-            {
-                if (!(o.WeightI >= 0.0001))
-                    throw new NotSupportedException("--weighti 0 (the pair library without constraints) of MAFFT is not available in this port.");
-                if (MafftScript.Iterations(o) > 0)
-                    throw new NotSupportedException("The iterative refinement with a pair library (G-INS-i, L-INS-i, E-INS-i: --maxiterate with --globalpair / --localpair / --genafpair) is not available in this port yet; with --maxiterate 0 the progressive G-INS-1 / L-INS-1 / E-INS-1 are.");
-            }
+            if (o.PairLibrary != MafftPairLibrary.None && !(o.WeightI >= 0.0001))
+                throw new NotSupportedException("--weighti 0 (the pair library without constraints) of MAFFT is not available in this port.");
             var originals = list.Select(x => LoadResidues(x, o.AnySymbol)).ToArray();
             foreach (var s in originals)
                 if (NoGaps(s).Length == 0)
@@ -304,6 +299,8 @@ public static partial class SequenceAligner
             bool nuc = GuessNucleotide(replaced, o);
             replaced = nuc ? replaced.Select(s => s.ToLowerInvariant()).ToArray() : replaced.Select(s => s.ToUpperInvariant()).ToArray();
             MafftRun.Result result;
+            double[][]? pairHat2 = null;
+            MafftLocalHom[][]? pairHat3 = null;
             if (o.PairLibrary != MafftPairLibrary.None)
             {
                 var (pairArgs, tbArgs) = MafftScript.TbfastArguments(o, list.Count);
@@ -313,6 +310,8 @@ public static partial class SequenceAligner
                 var trun = new MafftRun(tg);
                 result = trun.Tbfast(replaced, MafftGlobals.ParsePairlocalalign(pairArgs));
                 log.Append(trun.Log);
+                pairHat2 = trun.Hat2Table;
+                pairHat3 = trun.Hat3Table;
             }
             else
             {
@@ -329,11 +328,19 @@ public static partial class SequenceAligner
                 int threadsIt = o.ThreadsIterate ?? Math.Min(threads, 8);
                 if (threadsIt > 0)
                     throw new NotSupportedException("The iterative refinement of MAFFT with threads (--thread n --maxiterate m without --threadit 0) is non-deterministic in the program (the branches are refined in the order the threads finish: repeated runs of one input give different alignments); use Threads = 0 or ThreadsIterate = 0, which equal the single-thread program.");
-                var run2 = new MafftRun(MafftGlobals.ParseDndpre(MafftScript.DndpreArguments(o)));
-                var hat2 = run2.Dndpre(result.Rows);
-                log.Append(run2.Log);
+                double[][] hat2;
+                if (pairHat2 != null)
+                {
+                    hat2 = pairHat2; // the distances of the pair library (tbfast wrote hat2 itself)
+                }
+                else
+                {
+                    var run2 = new MafftRun(MafftGlobals.ParseDndpre(MafftScript.DndpreArguments(o)));
+                    hat2 = run2.Dndpre(result.Rows);
+                    log.Append(run2.Log);
+                }
                 var run3 = new MafftRun(MafftGlobals.ParseDvtditr(MafftScript.DvtditrArguments(o)));
-                result = run3.Dvtditr(result.Rows, hat2);
+                result = run3.Dvtditr(result.Rows, hat2, pairHat3);
                 log.Append(run3.Log);
             }
             string[] rows = o.AnySymbol

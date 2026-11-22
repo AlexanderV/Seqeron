@@ -77,7 +77,6 @@ public class SequenceAligner_MafftPairLibrary_Tests
         var o = new MafftOptions { AnySymbol = false, PairLibrary = MafftPairLibrary.Global };
         Assert.Multiple(() =>
         {
-            Assert.Throws<NotSupportedException>(() => SequenceAligner.MultipleAlignMafft(three, o with { MaxIterate = 2 }), "G-INS-i / L-INS-i / E-INS-i: the refinement with the pair library is not ported yet");
             Assert.Throws<NotSupportedException>(() => SequenceAligner.MultipleAlignMafft(three, o with { WeightI = 0.0 }), "--weighti 0: no constraints");
             Assert.Throws<ArgumentException>(() => SequenceAligner.MultipleAlignMafft([.. three, "MK*U+"], o), "letters outside the alphabet stop the plain command");
             Assert.Throws<OperationCanceledException>(() => SequenceAligner.MultipleAlignMafft(three, o with { CancellationToken = new CancellationToken(true) }));

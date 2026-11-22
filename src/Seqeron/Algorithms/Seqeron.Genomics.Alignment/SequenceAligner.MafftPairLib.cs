@@ -889,20 +889,32 @@ public static partial class SequenceAligner
 
         private double[][]? _impMtx;
         private int _impAllocLen;
+        private double[][]? _partImpMtx;
+        private int _partImpAllocLen;
 
         /// <summary><c>imp_match_init_strict</c> / <c>fillimp</c>: the matrix of the importance of every pair of columns of two groups, from the blocks of every pair of their sequences, weighted by the weights of the sequences and <c>fastathreshold</c>.</summary>
-        private double[][] FillImp(int clus1, int clus2, int lgth1, int lgth2, string[] seq1, string[] seq2, double[] eff1, double[] eff2, MafftLocalHom?[][] localhom, int[] orinum1, int[] orinum2)
+        private double[][] FillImp(int clus1, int clus2, int lgth1, int lgth2, string[] seq1, string[] seq2, double[] eff1, double[] eff2, MafftLocalHom?[][] localhom, int[] orinum1, int[] orinum2, bool part = false)
         {
-            // impmtx of Salignmm.c is static: it is allocated (zeroed) when a group is longer than any before and only [0, lgth1) x [0, lgth2) is cleared by a call, so the row lgth1 read by the
+            // impmtx of Salignmm.c (partSalignmm.c for the refinement, <paramref name="part"/>) is static: it is allocated (zeroed) when a group is longer than any before and only [0, lgth1) x [0, lgth2) is cleared by a call, so the row lgth1 read by the
             // dynamic program after the last residue (end gaps penalised) holds what earlier, larger calls left there
-            if (_impMtx == null || _impAllocLen < lgth1 + 2 || _impAllocLen < lgth2 + 2)
+            if (part)
+            {
+                if (_partImpMtx == null || _partImpAllocLen < lgth1 + 2 || _partImpAllocLen < lgth2 + 2)
+                {
+                    _partImpAllocLen = Math.Max(lgth1, lgth2) + 2;
+                    _partImpMtx = new double[_partImpAllocLen][];
+                    for (int i = 0; i < _partImpAllocLen; i++)
+                        _partImpMtx[i] = new double[_partImpAllocLen];
+                }
+            }
+            else if (_impMtx == null || _impAllocLen < lgth1 + 2 || _impAllocLen < lgth2 + 2)
             {
                 _impAllocLen = Math.Max(lgth1, lgth2) + 2;
                 _impMtx = new double[_impAllocLen][];
                 for (int i = 0; i < _impAllocLen; i++)
                     _impMtx[i] = new double[_impAllocLen];
             }
-            var impmtx = _impMtx;
+            var impmtx = part ? _partImpMtx! : _impMtx!;
             for (int i = 0; i < lgth1; i++)
                 Array.Clear(impmtx[i], 0, lgth2);
             double effijx = 1.0 * G.FastaThreshold;
@@ -968,6 +980,93 @@ public static partial class SequenceAligner
 
         // -------------------------------------------------------------------- tbfast.c
 
+        /// <summary>The pair library as <c>dvtditr</c> reads it from the file <c>hat3</c> (<c>-+ n</c> with n &gt; 0 writes it, five decimals), null without <c>-+</c>.</summary>
+        internal MafftLocalHom[][]? Hat3Table;
+
+        /// <summary>The distances of the pair library as <c>dvtditr</c> reads them from the file <c>hat2</c> (six-character fields with three decimals), [i][j] for i &lt; j.</summary>
+        internal double[][]? Hat2Table;
+
+        /// <summary><c>tbfast</c> writes the blocks as <c>"%d %d %d %7.5f %d %d %d %d %c"</c> with <c>opt / 600 * 5.8</c>; <c>readlocalhomtable2_half</c> reads <c>opt / 5.8 * 600</c> back into fresh blocks.</summary>
+        private static MafftLocalHom[][] RoundTripHat3(MafftLocalHom[][] lh, int njob)
+        {
+            var res = new MafftLocalHom[njob][];
+            for (int i = 0; i < njob; i++)
+            {
+                res[i] = new MafftLocalHom[njob - i];
+                for (int j = 0; j < res[i].Length; j++)
+                    res[i][j] = new MafftLocalHom();
+            }
+            for (int i = 0; i < njob - 1; i++)
+            {
+                for (int j = i; j < njob; j++)
+                {
+                    bool first = true;
+                    var tail = res[i][j - i];
+                    for (var t = lh[i][j - i]; t != null; t = t.Next)
+                    {
+                        if (t.Opt == -1.0)
+                            continue;
+                        if (j <= i)
+                            continue; // the program writes the pairs of different sequences with the first younger than the second only
+                        double opt = MafftGlobals.CAtof((t.Opt / 600 * 5.8).ToString("F5", CultureInfo.InvariantCulture));
+                        MafftLocalHom node;
+                        if (first)
+                        {
+                            node = tail;
+                            first = false;
+                        }
+                        else
+                        {
+                            node = new MafftLocalHom { Importance = 0.0, Overlapaa = 0 };
+                            tail.Next = node;
+                            tail = node;
+                        }
+                        node.Start1 = t.Start1;
+                        node.Start2 = t.Start2;
+                        node.End1 = t.End1;
+                        node.End2 = t.End2;
+                        node.Opt = (opt + 0.00) / 5.8 * 600;
+                        node.Overlapaa = t.Overlapaa;
+                        node.Korh = t.Korh;
+                    }
+                }
+            }
+            return res;
+        }
+
+        /// <summary><c>WriteFloatHat2_pointer_halfmtx</c> (<c>%#6.3f</c> values, twelve to a line) and <c>readhat2_pointer</c> (<c>input_new</c>: an optional line end, then six characters): the distances as <c>dvtditr</c> gets them.</summary>
+        private static double[][] RoundTripHat2(double[][] iscore, int njob)
+        {
+            var sb = new System.Text.StringBuilder();
+            for (int i = 0; i < njob; i++)
+            {
+                for (int j = i + 1; j < njob; j++)
+                {
+                    sb.Append(iscore[i][j - i].ToString("F3", CultureInfo.InvariantCulture).PadLeft(6));
+                    int ijsa = j - i;
+                    if (ijsa % 12 == 0 || ijsa == njob - i - 1)
+                        sb.Append('\n');
+                }
+            }
+            string text = sb.ToString();
+            int pos = 0;
+            var res = new double[njob][];
+            for (int i = 0; i < njob; i++)
+                res[i] = new double[njob];
+            for (int i = 0; i < njob - 1; i++)
+            {
+                for (int j = i + 1; j < njob; j++)
+                {
+                    if (pos < text.Length && text[pos] == '\n')
+                        pos++;
+                    int take = Math.Min(6, text.Length - pos);
+                    res[i][j] = MafftGlobals.CAtof(text.Substring(pos, take));
+                    pos += take;
+                }
+            }
+            return res;
+        }
+
         /// <summary>
         /// <c>tbfast _ (pair library arguments) _ -+ n ...</c> (<c>main</c> of <c>tbfast.c</c> with <c>pairlocalalign</c> called inside): the pairwise alignments of all pairs give the guide tree (UPGMA of their distances) and the
         /// constraints (the importance of the aligned blocks) of the progressive alignment of the groups (<c>A__align</c> with <c>constraint</c> 2).
@@ -1010,6 +1109,13 @@ public static partial class SequenceAligner
             }
             Report("Loading 'hat3.seed' ... ");
             Report("\ndone.\n");
+            if (G.OutputHat23 != 0)
+            {
+                // the files hat3 and hat2 that dvtditr reads: the values go through their text
+                Report("Writing hat3 for iterative refinement\n");
+                Hat3Table = RoundTripHat3(localhom, njob);
+                Hat2Table = RoundTripHat2(iscore, njob);
+            }
             G.Constants(seq);
             Report("Gap Penalty = " + MafftGlobals.F((double)G.Ppenalty / 1000, 5, 2, true) + ", " + MafftGlobals.F((double)G.PpenaltyEx / 1000, 5, 2, true) + ", " + MafftGlobals.F((double)G.Poffset / 1000, 5, 2, true) + "\n");
             Report("tbutree = 1, compacttree = 0\n");
