@@ -167,3 +167,7 @@ MCP `water_align` (A3-17). The "at least 90 % reaches the textbook optimum" tole
 - **Audit A5-8c3g (F248, WP56):** the sequence readers of `ajseqread.c` for 49 input formats (fasta, gcg, embl, swiss with its DE description, nbrf, genbank, refseqp, genpept, codata, strider, ig, staden, text, fastq, sam, gff2, gff3, gde, raw, clustal, msf, fitch, mase, biomart, treecon, acedb and their aliases; the feature tables of embl / genbank / swiss / nbrf / gff / refseqp inputs) and `seqret` (MCP `seqret`): 9 800 / 9 800 oracle runs equal.
 - **Audit A5-8c3g (F249, WP56):** `maskfeat` (MCP `maskfeat`): 1 200 / 1 200 oracle runs equal.
 - **Audit A5-8c3g (F250, WP56):** `descseq` (MCP `descseq`): 1 000 / 1 000 oracle runs equal.
+- **Audit A5-8c3h (F251, WP57):** the sequence readers of phylip, phylipnon, nexus / paup, mega, selex, stockholm / pfam, jackknifer, hennig86, experiment, ace / consed, pdb, pdbseq, pdbnuc and pdbnucseq: 3 400 / 3 400 oracle runs equal (the runs on which the reference reads freed memory, overruns an array, loops or dies are refused).
+- **Audit A5-8c3h (F252, WP57):** the sequence writers of gcg, nbrf, codata, strider, staden, text, ig, iguspto, gde, fitch, acedb, mase and the `-osformat` / `-ossingle` / `-osdirectory` / `-osextension` options of `seqret`: 3 800 / 3 800 oracle runs equal.
+- **Audit A5-8c3h (F253, F254, WP57):** `union` and `seqretsplit` (MCP `union`, `seqretsplit`): 200 / 200 oracle runs equal each.
+
