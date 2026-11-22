@@ -175,6 +175,15 @@ internal sealed class EmbossFeatureLines(IReadOnlyList<string> lines)
     /// <summary><c>ajFilebuffReset</c>: the next read starts at the first line of the buffer.</summary>
     public void Reset() => _pos = 0;
 
+    /// <summary>The buffer is cleared and the file is read again from its first line (<c>ajFilebuffClear(buff, -1); buff-&gt;Fpos = 0; ajFileSeek(buff-&gt;File, 0L, 0)</c>).</summary>
+    public void Rewind()
+    {
+        _buffer.Clear();
+        _pos = 0;
+        _filePos = 0;
+        End = false;
+    }
+
     /// <summary><c>ajFilebuffSetUnbuffered</c>.</summary>
     public void SetUnbuffered() => Unbuffered = true;
 

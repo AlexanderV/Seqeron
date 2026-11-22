@@ -597,6 +597,11 @@ internal sealed partial class EmbossSeqin
                 return ReadNexus(t);
             case "mega":
                 return ReadMega(t);
+            case "selex":
+                return ReadSelex(t);
+            case "stockholm":
+            case "pfam":
+                return ReadStockholm(t);
             case "fastq":
                 return ReadFastq(t);
             case "fastq-sanger":

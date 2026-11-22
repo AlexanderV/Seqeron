@@ -129,7 +129,7 @@ public class EmbossSeqret_Oracle_Tests
         Assert.That(failures, Is.Empty, $"{failures.Count} of {rows}:\n" + string.Join("\n", failures.Take(12)));
         string[] formats = ["fasta", "ncbi", "pearson", "gifasta", "dbid", "gcg", "gcg8", "embl", "em", "swiss", "sw", "swissprot", "uniprot", "nbrf", "pir", "fastq", "fastq-sanger", "fastq-illumina", "fastq-solexa", "sam", "genbank", "gb",
             "ddbj", "refseq", "refseqp", "genpept", "codata", "strider", "ig", "igstrict", "iguspto", "staden", "textonly", "plain", "asis", "unknown", "gff2", "gff3", "gff", "raw", "gde", "clustal", "aln", "msf", "fitch", "mase", "biomart", "treecon", "acedb",
-            "phylip", "phylipnon", "jackknifer", "hennig86", "nexus", "paup", "mega"];
+            "phylip", "phylipnon", "jackknifer", "hennig86", "nexus", "paup", "mega", "selex", "stockholm", "pfam"];
         // the readers whose reference runs die on every input that reaches their loop (ace / consed: a null table of names; hennig86: a loop over memory) give sequences only for the texts they refuse
         var fewReads = new Dictionary<string, int> { ["ace"] = 0, ["consed"] = 0, ["hennig86"] = 0 };
         foreach (string f in formats)
