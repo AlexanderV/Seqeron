@@ -171,3 +171,5 @@ Oracle `emboss_gap_oracle.tsv` (`generate_emboss_gap_oracle.py`, seed 20261126):
 ## Audit A4-1 (B09 F157): cancellation
 
 Mechanism: `AlignmentCancellation` (SequenceAligner.Cancellation.cs, A2-40); tests `SequenceAligner_Cancellation_Tests` (`PreCancelled_A4_1_...`, one `CancelledWhileRunning_...` test per class) and the MCP `CancellationTokenTests` / `EmbossProgramToolsTests`: `SequenceAligner.Merger` poll the ambient token (a mid-run cancel stops with `OperationCanceledException` inside the named poll) and the MCP tool takes the request token.
+
+**Audit R14-2 (B09 F289).** The MCP semi-global tools no longer require ACGT: Biopython 1.88 `PairwiseAligner(mode=global, match 1, mismatch -1, gap -1, left_insertion_score = right_insertion_score = 0)` scores `ACNGT` / `TTACAGTTT` 3, `ACNGT` / `TTACNGTTT` 5, `RYACGT` / `TTRYACGTT` 6, `MKTAY` / `GGMKTAYGG` 5, `MKTWY` / `GGMKTAYGG` 3 (affine open -2 extend -1: 3 and 4), which the tools return.

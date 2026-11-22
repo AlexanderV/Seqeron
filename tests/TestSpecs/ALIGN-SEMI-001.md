@@ -270,3 +270,7 @@ Matrix-scored `SemiGlobalAlign`/`SemiGlobalAlignAffine`: see the table in ALIGN-
 | A4-8 | `LinearSpace_ForcedRecursion_Oracle_EqualsBiopython_AllRows` | the 1 000 Biopython rows with base size 1 equal the full-matrix rows and the Biopython score |
 | A4-8 | `LargeInput_AboveTheFullMatrixLimit_IsAlignedByTheLinearSpaceProgram_WithBiopythonScores_AndLinearMemory` | 8 700 x 7 999 (69.6 M cells): Biopython scores 12 242 / 13 824, 125 MB allocated against 835 MB |
 
+
+## Audit R14-2 (B09 F289): any letters in the MCP semi-global tools
+
+MCP `SemiGlobalAnyLettersTests`: `semi_global_align` fitting scores of N / IUPAC / protein queries equal Biopython 1.88 (`ACNGT` in `TTACAGTTT` 3, in `TTACNGTTT` 5, `RYACGT` in `TTRYACGTT` 6, `MKTAY` in `GGMKTAYGG` 5, `MKTWY` 3; affine 3 and 4); `general_gap_align` accepts any letters in every mode; only a null sequence is refused.

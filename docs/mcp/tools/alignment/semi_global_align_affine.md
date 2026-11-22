@@ -24,8 +24,8 @@ Semi-global (fitting) pairwise alignment with affine gap costs: by default seque
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `sequence1` | string | Yes | Query sequence (typically shorter). |
-| `sequence2` | string | Yes | Reference sequence (typically longer). |
+| `sequence1` | string | Yes | Query sequence (typically shorter; any letters - N, IUPAC, protein - uppercased internally). |
+| `sequence2` | string | Yes | Reference sequence (typically longer; any letters, uppercased internally). |
 | `match` | integer | No | Score for matching base. (default: 1) |
 | `mismatch` | integer | No | Score for mismatching base. (default: -1) |
 | `gapOpen` | number | No | Gap-open score added once per gap run (negative = penalty). May be fractional when matrix is given; EMBOSS gapopen G / gapextend E = gapOpen -(G - E), gapExtend -E. (default: -2) |
@@ -53,7 +53,7 @@ Semi-global (fitting) pairwise alignment with affine gap costs: by default seque
 
 | Code | Message |
 |------|---------|
-| 1010 | Invalid DNA in sequence1/sequence2 |
+| 1001 | Sequence is required (null). Any letters are accepted (N, IUPAC codes, protein); an empty string is accepted |
 
 ## Examples
 

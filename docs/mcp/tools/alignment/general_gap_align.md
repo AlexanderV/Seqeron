@@ -24,8 +24,8 @@ Pairwise alignment with an ARBITRARY gap-cost function (Waterman–Smith–Beyer
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `sequence1` | string | Yes | First sequence (DNA unless matrix is given). |
-| `sequence2` | string | Yes | Second sequence (DNA unless matrix is given). |
+| `sequence1` | string | Yes | First sequence (any letters - N, IUPAC, protein - uppercased internally). |
+| `sequence2` | string | Yes | Second sequence (any letters, uppercased internally). |
 | `gapScores` | number[] | Yes | Gap scores: gapScores[k-1] is the score of a gap of length k (negative = penalty), for k = 1 .. max(length1, length2) at least. |
 | `mode` | string | No | Alignment mode: global, local or semi_global. (default: global) |
 | `match` | integer | No | Score for matching base (ignored with matrix). (default: 1) |
@@ -54,7 +54,7 @@ Pairwise alignment with an ARBITRARY gap-cost function (Waterman–Smith–Beyer
 
 | Code | Message |
 |------|---------|
-| 1010 | Invalid DNA in sequence |
+| 1001 | Sequence is required (null). Any letters are accepted (N, IUPAC codes, protein); an empty string is accepted |
 
 ## Examples
 

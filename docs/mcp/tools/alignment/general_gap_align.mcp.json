@@ -12,12 +12,12 @@
     "properties": {
       "sequence1": {
         "type": "string",
-        "description": "First sequence (DNA unless matrix is given).",
+        "description": "First sequence (any letters - N, IUPAC, protein - uppercased internally).",
         "minLength": 1
       },
       "sequence2": {
         "type": "string",
-        "description": "Second sequence (DNA unless matrix is given).",
+        "description": "Second sequence (any letters, uppercased internally).",
         "minLength": 1
       },
       "gapScores": {
@@ -125,8 +125,8 @@
   },
   "errors": [
     {
-      "code": 1010,
-      "message": "Invalid DNA in sequence"
+      "code": 1001,
+      "message": "Sequence is required (null). Any letters are accepted (N, IUPAC codes, protein); an empty string is accepted"
     }
   ],
   "examples": [

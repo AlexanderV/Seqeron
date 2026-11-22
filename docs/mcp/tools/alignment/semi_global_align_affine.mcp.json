@@ -12,12 +12,12 @@
     "properties": {
       "sequence1": {
         "type": "string",
-        "description": "Query sequence (typically shorter).",
+        "description": "Query sequence (typically shorter; any letters - N, IUPAC, protein - uppercased internally).",
         "minLength": 1
       },
       "sequence2": {
         "type": "string",
-        "description": "Reference sequence (typically longer).",
+        "description": "Reference sequence (typically longer; any letters, uppercased internally).",
         "minLength": 1
       },
       "match": {
@@ -122,8 +122,8 @@
   },
   "errors": [
     {
-      "code": 1010,
-      "message": "Invalid DNA in sequence1/sequence2"
+      "code": 1001,
+      "message": "Sequence is required (null). Any letters are accepted (N, IUPAC codes, protein); an empty string is accepted"
     }
   ],
   "examples": [
