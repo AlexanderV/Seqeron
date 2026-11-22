@@ -211,6 +211,7 @@ internal sealed partial class EmbossSeqin
                     d = d.Length > 0 ? d[1..] : "";
                     if (d.Length > 0 && d[0] == ' ')
                         d = d[1..];
+                    (t.FullDescMulti ??= []).Add(d);
                     if (PrefixC(d, "GENERAL INFORMATION"))
                         isheader = false;
                     if (isheader)

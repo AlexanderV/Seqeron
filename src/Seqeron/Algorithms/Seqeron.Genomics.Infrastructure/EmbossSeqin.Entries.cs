@@ -288,6 +288,7 @@ internal sealed partial class EmbossSeqin
         bool ok = ReadLine();
         lineprefix = PrefixSwiss(_line);
         var full = new Desc();
+        t.FullDescMulti = [];
         var desc = new StringBuilder();
         bool dofeat = false;
         bool tryfeat = _opt.Features && !_opt.UfoGiven;

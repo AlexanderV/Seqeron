@@ -15,6 +15,9 @@ internal sealed class EmbossSeq
 
     public List<string> Acclist = [];
     public List<string> Taxlist = [];
+
+    /// <summary>The <c>Multi</c> list of the full description (<c>thys-&gt;Fulldesc</c>): null when the reader made none (only the swiss and iguspto readers do); the lines of the comments of an iguspto entry.</summary>
+    public List<string>? FullDescMulti;
     public StringBuilder Seq = new();
     public EmbossSeqFeatureTable? Fttable;
     public int Format;

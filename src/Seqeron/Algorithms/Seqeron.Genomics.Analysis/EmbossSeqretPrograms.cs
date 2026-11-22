@@ -16,7 +16,20 @@ namespace Seqeron.Genomics.Analysis;
 /// <param name="OutFeatFormat"><c>-offormat2</c>: the feature output format (default <c>gff3</c>).</param>
 /// <param name="RunDate">The date of the run (GFF headers); null = now.</param>
 public sealed record EmbossSeqretRequest(string Sequence, IReadOnlyDictionary<string, string> Files, EmbossSequenceQualifiers? Qualifiers = null, bool Feature = false, bool FirstOnly = false,
-    string OutSeq = "stdout", string? OutSeqFormat = null, string? OutFeat = null, string? OutFeatFormat = null, DateTime? RunDate = null);
+    string OutSeq = "stdout", string? OutSeqFormat = null, string? OutFeat = null, string? OutFeatFormat = null, DateTime? RunDate = null)
+{
+    /// <summary><c>-ossingle</c>: every sequence is written to a file of its own (<c>name.extension</c>, lower case) instead of the file of <c>-outseq</c>. Null: the default of the program (no for seqret, yes for seqretsplit).</summary>
+    public bool? OutSingle { get; init; }
+
+    /// <summary><c>-osdirectory</c>: the directory of the files of <c>-ossingle</c>.</summary>
+    public string? OutDirectory { get; init; }
+
+    /// <summary><c>-osextension</c>: the extension of the files of <c>-ossingle</c> (default: the name of the output format as typed).</summary>
+    public string? OutExtension { get; init; }
+
+    /// <summary><c>-osname</c>: accepted; the library uses the names of the sequences (the value has no effect on seqret, measured on 6.6.0).</summary>
+    public string? OutName { get; init; }
+}
 
 /// <summary>The output of <c>seqret</c>: the sequence file, the feature file and the messages the library printed.</summary>
 /// <param name="SequenceText">The text of the sequence output file.</param>
@@ -25,6 +38,9 @@ public sealed record EmbossSeqretRequest(string Sequence, IReadOnlyDictionary<st
 /// <param name="Messages">What the library printed on its error stream, in order (the ones before the program died, too).</param>
 public sealed record EmbossSeqretOutput(string SequenceText, string FeatureText, int Sequences, IReadOnlyList<string> Messages)
 {
+    /// <summary>The files of <c>-ossingle</c> by path (<c>directory/name.extension</c>); empty when the output is one file.</summary>
+    public IReadOnlyDictionary<string, string> SingleFiles { get; init; } = new Dictionary<string, string>();
+
     /// <summary>The name of the feature output file.</summary>
     public string FeatureFileName { get; init; } = "";
 
@@ -39,13 +55,18 @@ public static class EmbossSeqretPrograms
 {
     /// <summary>Runs <c>seqret</c>.</summary>
     /// <exception cref="InvalidOperationException">The input is one on which the reference program does not stop or dies by a fault (the library dereferences a null pointer).</exception>
-    public static EmbossSeqretOutput Seqret(EmbossSeqretRequest r)
+    public static EmbossSeqretOutput Seqret(EmbossSeqretRequest r) => Run(r, "seqret", false);
+
+    private static EmbossSeqretOutput Run(EmbossSeqretRequest r, string program, bool split)
     {
         ArgumentNullException.ThrowIfNull(r);
         ArgumentNullException.ThrowIfNull(r.Sequence);
         ArgumentNullException.ThrowIfNull(r.Files);
-        var context = new EmbossFeatureReadContext { Program = "seqret" };
-        var seqall = EmbossSeqall.Open("seqret", r.Sequence, r.Files, r.Qualifiers ?? EmbossSequenceQualifiers.None, r.Feature, context);
+        bool outSingle = r.OutSingle ?? split;
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        int nseqDup = 1;
+        var context = new EmbossFeatureReadContext { Program = program };
+        var seqall = EmbossSeqall.Open(program, r.Sequence, r.Files, r.Qualifiers ?? EmbossSequenceQualifiers.None, r.Feature, context);
         if (seqall is null)
             return Died(context);
         string featFormat = r.OutFeatFormat ?? "gff3";
@@ -53,16 +74,71 @@ public static class EmbossSeqretPrograms
         string featName = EmbossReportWriter.FeatureFormatName(featIndex < 0 ? 1 : featIndex);
         var seqOut = new StringBuilder();
         var featOut = new StringBuilder();
+        var singles = new Dictionary<string, string>();
         var state = new EmbossFeatureWriteState();
-        int tables = 0, unnamed = 0, written = 0;
+        int tables = 0, unnamed = 0, written = 0, count = 0;
+        // ajSeqoutUsaProcess: "format::file" names the output format (an empty format is "unknown")
+        string outName = r.OutSeq;
+        string formatName = r.OutSeqFormat ?? "fasta";
+        var um = System.Text.RegularExpressions.Regex.Match(outName, "^([A-Za-z0-9-]*)::?(.*)$", System.Text.RegularExpressions.RegexOptions.CultureInvariant | System.Text.RegularExpressions.RegexOptions.Singleline);
+        if (um.Success)
+        {
+            formatName = um.Groups[1].Value.Length == 0 ? "unknown" : um.Groups[1].Value;
+            outName = um.Groups[2].Value;
+        }
+
+        var outFormat = EmbossSeqWrite.Find(formatName);
+        var runDate = r.RunDate ?? DateTime.Now;
         EmbossSeq? seq;
         while ((seq = seqall.Next()) is not null)
         {
-            WriteFasta(seqOut, seq, ref unnamed);
+            if (outFormat is null)
+            {
+                // ajSeqoutWriteSeq: the format is looked up when the first sequence is written (the message is printed once)
+                if (count++ == 0)
+                    context.Error($"unknown output sequence format '{formatName}'");
+                if (r.FirstOnly)
+                    break;
+                continue;
+            }
+
+            bool isNuc = seq.Type == "N", isProt = seq.Type == "P";
+            if (!(isNuc && outFormat.Nucleotide) && !(isProt && outFormat.Protein))
+            {
+                string kind = isNuc ? "not supported for nucleotide sequences" : "not supported for protein sequences";
+                if (!isNuc && !isProt)
+                    kind = "failed: unknown sequence type";
+                context.Error($"Sequence format '{formatName}' {kind}");
+                if (r.FirstOnly)
+                    break;
+                continue;
+            }
+
+            if (split)
+                nseqDup = SplitName(names, seq, nseqDup, context);
+            if (!EmbossSeqWrite.IsPorted(outFormat))
+                throw new NotSupportedException($"The sequence output format '{outFormat.Name}' is not written by this port.");
+            if (r.Feature && outFormat.Features)
+                throw new NotSupportedException($"The features of the output format '{outFormat.Name}' are written inside the sequence file, which this port does not do.");
+            // ajSeqoutSetNameDefaultS: an unnamed sequence is called EMBOSS_001, EMBOSS_002 ... (EMBOSS with -ossingle: the file of every unnamed sequence has the same name)
+            string name = seq.Name;
+            if (name.Length == 0)
+                name = outSingle ? "EMBOSS" : "EMBOSS_" + (++unnamed).ToString("000", System.Globalization.CultureInfo.InvariantCulture);
+            string residues = seq.SeqText;
+            var target = outSingle ? new StringBuilder() : seqOut;
+            EmbossSeqWrite.Write(target, outFormat, name, seq.Desc, seq.Acc, seq.Sv, seq.Type, residues, outSingle ? 0 : count, runDate, seq.FullDescMulti);
+            if (outSingle)
+            {
+                string file = (name + "." + (r.OutExtension ?? r.OutSeqFormat ?? "fasta")).ToLowerInvariant();
+                string dir = r.OutDirectory ?? "";
+                singles[dir.Length > 0 ? Path.Combine(dir, file) : file] = target.ToString();
+            }
+
+            count++;
             written++;
             if (r.Feature && seq.Fttable is { } table)
             {
-                string? ftext = EmbossReportWriter.WriteFeatureTable(table, featName, r.RunDate ?? DateTime.Now, "seqret", context, state, tables);
+                string? ftext = EmbossReportWriter.WriteFeatureTable(table, featName, runDate, "seqret", context, state, tables);
                 if (ftext is not null)
                 {
                     featOut.Append(ftext);
@@ -74,9 +150,38 @@ public static class EmbossSeqretPrograms
                 break;
         }
 
+        if (count == 0)
+            context.Warn($"No sequences written to output file '{outName}'");
         if (r.Feature && tables == 0)
             context.Warn($"No features written to output file '{r.OutFeat ?? "o.gff"}'");
-        return new EmbossSeqretOutput(seqOut.ToString(), featOut.ToString(), written, [.. context.Messages]) { FeatureFileName = r.OutFeat ?? "" };
+        return new EmbossSeqretOutput(seqOut.ToString(), featOut.ToString(), written, [.. context.Messages]) { FeatureFileName = r.OutFeat ?? "", SingleFiles = singles };
+    }
+
+    // seqretsplit_Name: a name that is in the table (any case) gets name.002, name.003 ... (the counter of the run grows with every duplicate); the name of the sequence is then put into the table
+    private static int SplitName(HashSet<string> table, EmbossSeq seq, int nseq, EmbossFeatureReadContext context)
+    {
+        if (table.Contains(seq.Name))
+        {
+            nseq++;
+            bool renamed = false;
+            for (int i = 2; i <= nseq; i++)
+            {
+                string newname = seq.Name + "." + i.ToString("000", System.Globalization.CultureInfo.InvariantCulture);
+                if (!table.Contains(newname))
+                {
+                    context.Warn($"Duplicate name '{seq.Name}' changed to '{newname}'");
+                    seq.Name = newname;
+                    renamed = true;
+                    break;
+                }
+            }
+
+            if (!renamed)
+                context.Warn($"Unable to set new name for duplicate sequence number {nseq} '{seq.Name}'");
+        }
+
+        table.Add(seq.Name);
+        return nseq;
     }
 
     internal static EmbossSeqretOutput Died(EmbossFeatureReadContext context, string parameter = "sequence")
