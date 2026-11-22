@@ -23,7 +23,7 @@ public static class EmbossDescseqPrograms
         ArgumentNullException.ThrowIfNull(r.Sequence);
         ArgumentNullException.ThrowIfNull(r.Files);
         var context = new EmbossFeatureReadContext { Program = "descseq" };
-        var seqall = EmbossSeqall.Open("descseq", r.Sequence, r.Files, r.Qualifiers ?? EmbossSequenceQualifiers.None, false, context);
+        var seqall = EmbossSeqall.Open("descseq", r.Sequence, r.Files, r.Qualifiers ?? EmbossSequenceQualifiers.None, false, context, "gapany", true);
         if (seqall is null)
             return EmbossSeqretPrograms.Died(context);
         var seq = seqall.Next()!;

@@ -235,6 +235,21 @@ public class EmbossProgramToolsTests
     }
 
     [Test]
+    public void Seqret_ReadsTheUsaForms_AsTheProgram()
+    {
+        // seqret 6.6.0 USA forms (A5-8c3h, F255): ranges, strands, list files, queries on files, -sbegin / -send / -sreverse, -sid; the texts are the ones of the installed program
+        const string fa = ">a desc\nACGTACGTAAACCCGGGTTT\n>b\nGGGGCCCCAAAATTTT\n";
+        Assert.That(AnalysisTools.Seqret(fa, sequenceValue: "sequence.dat[3:10]").SequenceText, Is.EqualTo(">a desc\nGTACGTAA\n>b\nGGCCCCAA\n"));
+        Assert.That(AnalysisTools.Seqret(fa, sequenceValue: "sequence.dat[3:10:r]").SequenceText, Is.EqualTo(">a desc\nTTACGTAC\n>b\nTTGGGGCC\n"));
+        Assert.That(AnalysisTools.Seqret(fa, qualifiers: "-sbegin1 3 -send1 10 -sreverse1").SequenceText, Is.EqualTo(">a desc\nTTACGTAC\n>b\nTTGGGGCC\n"));
+        var files = new Dictionary<string, string> { ["l.lst"] = "sequence.dat[2:5]\nfasta::sequence.dat[1:3:r] # comment\n" };
+        Assert.That(AnalysisTools.Seqret(fa, sequenceValue: "@l.lst", files: files).SequenceText, Is.EqualTo(">a desc\nCGTA\n>b\nGGGGCCCCAAAATTTT\n>a desc\nCGT\n>b\nCCC\n"));
+        Assert.That(AnalysisTools.Seqret(fa, sequenceValue: "sequence.dat:b").SequenceText, Is.EqualTo(">b\nGGGGCCCCAAAATTTT\n"));
+        Assert.That(AnalysisTools.Seqret(fa, qualifiers: "-sid1 zzz").SequenceText, Is.EqualTo(">zzz desc\nACGTACGTAAACCCGGGTTT\n>zzz\nGGGGCCCCAAAATTTT\n"));
+        Assert.That(() => AnalysisTools.Seqret(fa, sequenceValue: "missing.dat"), Throws.ArgumentException);
+    }
+
+    [Test]
     public void Union_JoinsTheSequences_AsTheProgram()
     {
         // union 6.6.0 (A5-8c3h, F253)

@@ -27,6 +27,9 @@ public sealed record EmbossSeqretRequest(string Sequence, IReadOnlyDictionary<st
     /// <summary><c>-osextension</c>: the extension of the files of <c>-ossingle</c> (default: the name of the output format as typed).</summary>
     public string? OutExtension { get; init; }
 
+    /// <summary>The texts of the configuration files (<c>.embossrc</c>, <c>emboss.default</c>) that define the databases of the USAs <c>db:id</c> (<c>DBNAME name [ type: ... format: ... method: direct directory: ... filename: ... ]</c>, <c>SET name value</c>); the files of the databases are in <see cref="Files"/>.</summary>
+    public IReadOnlyList<string>? Definitions { get; init; }
+
     /// <summary><c>-osname</c>: accepted; the library uses the names of the sequences (the value has no effect on seqret, measured on 6.6.0).</summary>
     public string? OutName { get; init; }
 }
@@ -73,7 +76,7 @@ public static class EmbossSeqretPrograms
         var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         int nseqDup = 1;
         var context = new EmbossFeatureReadContext { Program = program };
-        var seqall = EmbossSeqall.Open(program, r.Sequence, r.Files, r.Qualifiers ?? EmbossSequenceQualifiers.None, r.Feature, context);
+        var seqall = EmbossSeqall.Open(program, r.Sequence, r.Files, r.Qualifiers ?? EmbossSequenceQualifiers.None, r.Feature, context, "gapany", false, r.Definitions);
         if (seqall is null)
             return Died(context);
         string featFormat = r.OutFeatFormat ?? "gff3";
@@ -97,7 +100,7 @@ public static class EmbossSeqretPrograms
         var outFormat = EmbossSeqWrite.Find(formatName);
         var runDate = r.RunDate ?? DateTime.Now;
         EmbossSeq? seq;
-        while ((seq = seqall.Next()) is not null)
+        while (TryNext(seqall, context, out seq))
         {
             if (outFormat is null)
             {
@@ -131,7 +134,7 @@ public static class EmbossSeqretPrograms
             string name = seq.Name;
             if (name.Length == 0)
                 name = outSingle ? "EMBOSS" : "EMBOSS_" + (++unnamed).ToString("000", System.Globalization.CultureInfo.InvariantCulture);
-            string residues = seq.SeqText;
+            string residues = EmbossSeqRange.Cut(seq, out _, out _, out _);                  // seqClone: the range of the sequence
             var target = outSingle ? new StringBuilder() : seqOut;
             EmbossSeqWrite.Write(target, outFormat, name, seq.Desc, seq.Acc, seq.Sv, seq.Type, residues, outSingle ? 0 : count, runDate, seq.FullDescMulti);
             if (outSingle)
@@ -157,6 +160,8 @@ public static class EmbossSeqretPrograms
                 break;
         }
 
+        if (context.Fatal)
+            return new EmbossSeqretOutput(seqOut.ToString(), featOut.ToString(), written, [.. context.Messages]) { Died = true, FeatureFileName = r.OutFeat ?? "", SingleFiles = singles };
         if (count == 0)
             context.Warn($"No sequences written to output file '{outName}'");
         if (r.Feature && tables == 0)
@@ -191,9 +196,27 @@ public static class EmbossSeqretPrograms
         return nseq;
     }
 
+    // ajSeqallNext; a fatal error of the library (ajFatal) ends the program with its message
+    internal static bool TryNext(EmbossSeqall seqall, EmbossFeatureReadContext context, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out EmbossSeq? seq)
+    {
+        try
+        {
+            seq = seqall.Next();
+        }
+        catch (EmbossFatalException e)
+        {
+            context.Messages.Add(e.Message);
+            context.Fatal = true;
+            seq = null;
+        }
+
+        return seq is not null;
+    }
+
     internal static EmbossSeqretOutput Died(EmbossFeatureReadContext context, string parameter = "sequence")
     {
-        context.Messages.Add($"Died: {context.Program} terminated: Bad value for '-{parameter}' with -auto defined");
+        if (!context.Fatal)
+            context.Messages.Add($"Died: {context.Program} terminated: Bad value for '-{parameter}' with -auto defined");
         return new EmbossSeqretOutput("", "", 0, [.. context.Messages]) { Died = true };
     }
 
@@ -210,7 +233,7 @@ public static class EmbossSeqretPrograms
         if (s.Desc.Length > 0)
             sb.Append(' ').Append(s.Desc);
         sb.Append('\n');
-        string seq = s.SeqText;
+        string seq = EmbossSeqRange.Cut(s, out _, out _, out _);                              // seqClone: the range of the sequence
         if (sequenceType == "any")
             seq = new string([.. seq.Where(c => char.IsAsciiLetter(c) || c == '*')]);          // seqClone: ajSeqTypeCheckS of the output type (the type of the input) removes the gaps and every other character
         for (int i = 0; i < seq.Length; i += 60)

@@ -16,12 +16,20 @@ internal sealed class EmbossSeq
     public List<string> Acclist = [];
     public List<string> Taxlist = [];
 
+    /// <summary>The keywords of the entry (<c>thys-&gt;Keylist</c>).</summary>
+    public List<string> Keylist = [];
+
     /// <summary>The <c>Multi</c> list of the full description (<c>thys-&gt;Fulldesc</c>): null when the reader made none (only the swiss and iguspto readers do); the lines of the comments of an iguspto entry.</summary>
     public List<string>? FullDescMulti;
     public StringBuilder Seq = new();
     public EmbossSeqFeatureTable? Fttable;
     public int Format;
     public bool Circular;
+
+    /// <summary>The range, the reversal flags and the offsets of the sequence object (<c>thys-&gt;Begin</c>, <c>End</c>, <c>Rev</c>, <c>Reversed</c>, <c>Offset</c>, <c>Offend</c>): set by the USA / <c>-sbegin</c> / <c>-send</c> / <c>-sreverse</c> (<c>ajSeqSetRange</c>), used by the writers (<c>seqClone</c>).</summary>
+    public int Begin, End, Offset, Offend;
+
+    public bool Rev, Reversed;
 
     /// <summary>The text of the entry the reader read (<c>thys-&gt;TextPtr</c>; kept when the input stores it).</summary>
     public StringBuilder? TextPtr;
@@ -79,6 +87,18 @@ internal sealed class EmbossSeqinOptions
     public string SequenceType = "gapany";
     public int Begin, End;
     public bool Rev;
+
+    /// <summary>The query of the USA (<c>seqin-&gt;Input-&gt;Query</c>): the entries that do not match are skipped (<c>seqQueryMatch</c>); null = no query.</summary>
+    public EmbossQuery? Query;
+
+    /// <summary><c>-sid</c> (<c>seqin-&gt;Entryname</c>): the name of every sequence read.</summary>
+    public string Entryname = "";
+
+    /// <summary>The whole text of the file when the reading starts at an offset (<c>-ioffset</c>): the binary readers (raw ...) read the file from its first byte whatever the offset is.</summary>
+    public string? FullText;
+
+    /// <summary><c>-sdbname</c> (<c>seqin-&gt;Input-&gt;Db</c>): the database name of every sequence read.</summary>
+    public string Db = "";
 }
 
 /// <summary>
@@ -87,7 +107,7 @@ internal sealed class EmbossSeqinOptions
 /// </summary>
 internal sealed partial class EmbossSeqin
 {
-    private const int FmtOk = 0, FmtBadtype = 1, FmtFail = 2, FmtEof = 3, FmtEmpty = 5;
+    private const int FmtOk = 0, FmtBadtype = 1, FmtFail = 2, FmtEof = 3, FmtNoMatch = 4, FmtEmpty = 5;
 
     /// <summary>name, EDAM term, alias, tried when no format is named, nucleotide, protein, features, gaps, multiset, binary (the columns of <c>seqinFormatDef</c>).</summary>
     internal static readonly (string Name, string Obo, bool Alias, bool Try, bool Nuc, bool Prot, bool Feat, bool Gap, bool Multi, bool Binary)[] Table =
@@ -151,7 +171,9 @@ internal sealed partial class EmbossSeqin
     /// <param name="files">The other files by name (feature files); null when there are none.</param>
     public EmbossSeqin(string text, EmbossSeqinOptions options, EmbossFeatureReadContext context, Func<string, string?>? files = null)
     {
-        _buff = new EmbossFeatureLines(SplitLines(text));
+        var lines = SplitLines(text);
+        _lineCount = lines.Count;
+        _buff = new EmbossFeatureLines(lines);
         _opt = options;
         _context = context;
         _files = files ?? (_ => null);
@@ -192,6 +214,9 @@ internal sealed partial class EmbossSeqin
         return parts;
     }
 
+    /// <summary><c>ajSeqinformatTest</c>: the text is the name of a format (any case; the EDAM numbers do not count).</summary>
+    internal static bool FormatNameKnown(string format) => Table.Any(t => string.Equals(t.Name, format, StringComparison.OrdinalIgnoreCase));
+
     /// <summary>The index of a format by its name (any case) in <see cref="Table"/>; -1 when unknown (<c>seqSetInFormat</c> / <c>ajSeqinSetFormat</c>).</summary>
     internal static int FindFormat(string format)
     {
@@ -210,8 +235,14 @@ internal sealed partial class EmbossSeqin
 
     // ---------------------------------------------------------------------------------------------------------------- the buffer (ajTextin*)
 
+    private long _reads;
+    private readonly int _lineCount;
+
     private bool ReadLine()
     {
+        // a reader that reads the same lines again and again (the whitespace loop of seqReadGcg, an entry the query refuses and the reader does not consume ...) never ends in the reference program
+        if (++_reads > 100_000 + 200L * _lineCount)
+            throw new InvalidOperationException("The reference program never stops on this input: the reader reads the same lines again and again.");
         string? l = _buff.Next();
         if (l is null)
         {
@@ -327,10 +358,17 @@ internal sealed partial class EmbossSeqin
         }
 
         // the first try failed or found an empty sequence: the rest of the file is read again while there is any (the search flag of the input)
+        int rounds = 0;
         while (!_buff.IsEmpty)
         {
+            if (++rounds > 20000)
+                throw new InvalidOperationException("The reference program never stops on this input: the reader reads the same lines again and again.");
+            var before = (_buff.State, _seqData?.Count ?? -1, _seqData is null);
             t = new EmbossSeq();
-            switch (ReadFmt(t, _format))
+            int jstat = ReadFmt(t, _format);
+            if (jstat is FmtNoMatch or FmtEmpty && (_buff.State, _seqData?.Count ?? -1, _seqData is null) == before)
+                throw new InvalidOperationException("The reference program never stops on this input: the reader does not consume the entry that the query refuses.");
+            switch (jstat)
             {
                 case FmtOk:
                     Define(t);
@@ -365,7 +403,16 @@ internal sealed partial class EmbossSeqin
         {
             _format = format;
             t.Formatstr = Table[format].Name;
+            if (t.Db.Length == 0)
+                t.Db = _opt.Db;
+            t.Entryname = _opt.Entryname;
             t.Filename = _opt.Filename;
+            if (!QueryMatch(t))
+            {
+                // the entry is not the one the query asks for: the reader goes on with the next one (a binary file is not read again)
+                return Table[format].Binary ? FmtFail : FmtNoMatch;
+            }
+
             if (t.Entryname.Length == 0)
                 t.Entryname = t.Name;
             if (_opt.Features && t.Fttable is null)
@@ -388,6 +435,12 @@ internal sealed partial class EmbossSeqin
                     ToCase(t, true);
                 if (_opt.Lower)
                     ToCase(t, false);
+                if (_opt.Begin != 0)
+                    t.Begin = _opt.Begin;
+                if (_opt.End != 0)
+                    t.End = _opt.End;
+                if (_opt.Rev)
+                    t.Rev = true;
                 return FmtOk;
             }
 
@@ -414,9 +467,89 @@ internal sealed partial class EmbossSeqin
         }
     }
 
+    // seqQueryMatch: the entry is accepted when it matches ANY field of the query (the link operators are not looked at); a query none of whose fields could be tested is refused
+    private bool QueryMatch(EmbossSeq t)
+    {
+        var query = _opt.Query;
+        if (query is null)
+            return true;
+        bool tested = false;
+        foreach (var field in query.Fields)
+        {
+            switch (field.Field)
+            {
+                case "id":
+                    if (query.CaseId ? EmbossWild.Match(t.Name, field.Wildquery) : EmbossWild.MatchCase(t.Name, field.Wildquery))
+                        return true;
+                    tested = true;
+                    break;
+                case "sv":
+                    if (EmbossWild.MatchCase(t.Sv, field.Wildquery))
+                        return true;
+                    tested = true;
+                    break;
+                case "gi":
+                    if (EmbossWild.MatchCase(t.Gi, field.Wildquery))
+                        return true;
+                    tested = true;
+                    break;
+                case "acc":
+                    if (t.Acclist.Any(a => EmbossWild.MatchCase(a, field.Wildquery)))
+                        return true;
+                    tested = true;
+                    break;
+                case "org":
+                    if (t.Taxlist.Count == 0)
+                        return false;
+                    if (t.Taxlist.Any(a => EmbossWild.MatchCase(a, field.Wildquery)))
+                        return true;
+                    tested = true;
+                    break;
+                case "key":
+                    if (t.Keylist.Count == 0)
+                        return false;
+                    if (t.Keylist.Any(a => EmbossWild.MatchCase(a, field.Wildquery)))
+                        return true;
+                    tested = true;
+                    break;
+                case "des":
+                    if (t.Desc.Length == 0)
+                        return false;
+                    if (EmbossWild.MatchWordCase(t.Desc, field.Wildquery))
+                        return true;
+                    tested = true;
+                    break;
+                default:
+                    _context.Error($"Unknown query field '{query.SingleField}' in query '{query.QryString}'");
+                    tested = true;
+                    break;
+            }
+        }
+
+        if (!tested)
+        {
+            if (query.Fields.Count > 0)
+            {
+                _context.Error("");
+                return false;
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
     // seqDefine: the type from the format when the reader set none (ajSeqSetNuc / ajSeqSetProt), else from the letters (ajSeqType), the circular flag of the table
     private void Define(EmbossSeq t)
     {
+        if (_opt.Db.Length > 0)
+            t.Db = _opt.Db;
+        if (_opt.Entryname.Length > 0 && t.Entryname.Length == 0)
+            t.Entryname = _opt.Entryname;
+        if (t.Entryname.Length > 0)
+            t.Name = t.Entryname;
+
         if (t.Type.Length == 0 && _specified != 0)
         {
             var f = Table[_specified];                     // thys->Format is set from the format NAMED for the input (seqinFormatSet), not from the one a search found
@@ -464,6 +597,20 @@ internal sealed partial class EmbossSeqin
             t.SetNuc();
         if (_opt.IsProt)
             t.SetProt();
+        if (_opt.Query is { DbType.Length: > 0 } query)
+        {
+            // seqTypeSet: the type of the database (the first letter: P protein, N nucleotide, S either)
+            switch (char.ToUpperInvariant(query.DbType[0]))
+            {
+                case 'P':
+                    t.SetProt();
+                    break;
+                case 'N':
+                    t.SetNuc();
+                    break;
+            }
+        }
+
         // the library checks the residues as a C string: the text behind a NUL character (the mega reader can leave one) is not looked at
         string whole = t.SeqText;
         int nul = whole.IndexOf('\0');
@@ -1214,6 +1361,7 @@ internal sealed partial class EmbossSeqin
         }
 
         string token = m.Groups[1].Value;
+        _seqToken = token;                                       // ajRegSubI(seqRegNbrfId, 1, &seqToken): the static token stays for the next reader (strider)
         t.Name = m.Groups[2].Value;
         string idline = _line.Length > 4 ? _line[4..] : "";
         switch (char.ToUpperInvariant(token[0]))

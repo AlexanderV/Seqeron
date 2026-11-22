@@ -305,12 +305,14 @@ internal sealed partial class EmbossSeqin
     // seqReadRaw: the whole remaining file must consist of letters, digits, blanks and '*' '-'
     private bool ReadRaw(EmbossSeq t)
     {
-        if (_rawEnded)
+        if (_rawEnded || _buff.IsEnded)
             return false;
         var sb = new StringBuilder();
-        while (ReadLine())
+        if (_opt.FullText is { } full)
         {
-            foreach (char c in _line)
+            // a regular file is read as a whole from its first byte (the offset of -ioffset only positions the line readers)
+            _records = 0;
+            foreach (char c in full)
             {
                 if (!(char.IsAsciiLetterOrDigit(c) || c is ' ' or '\t' or '\n' or '\r' or '*' or '-'))
                 {
@@ -319,7 +321,24 @@ internal sealed partial class EmbossSeqin
                 }
             }
 
-            sb.Append(_line);
+            sb.Append(full);
+            _records = (full.Length + 2047) / 2048;
+        }
+        else
+        {
+            while (ReadLine())
+            {
+                foreach (char c in _line)
+                {
+                    if (!(char.IsAsciiLetterOrDigit(c) || c is ' ' or '\t' or '\n' or '\r' or '*' or '-'))
+                    {
+                        StoreReset();
+                        return false;
+                    }
+                }
+
+                sb.Append(_line);
+            }
         }
 
         Append(t, sb.ToString());

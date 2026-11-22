@@ -66,6 +66,24 @@ public sealed record EmbossSequenceQualifiers
     }
 
     /// <summary>
+    /// <see cref="Parse"/> for a program that reads its sequences from FILES (seqret, union, maskfeat ...): <c>-ioffset</c> (the byte position in the file where the reading starts), <c>-sid</c> (the name of every sequence), <c>-sdbname</c>, <c>-iquery</c>,
+    /// <c>-squick</c> are kept in <see cref="Offset"/>, <see cref="EntryId"/>, <see cref="DbName"/>, <see cref="QueryFields"/>, <see cref="Quick"/> (A5-8c3h, B09 F255).
+    /// </summary>
+    public static EmbossSequenceQualifiers ParseFile(string? commandLine, string suffix = "")
+    {
+        int index = 0, inputs = 1;
+        if (suffix.Length > 0)
+        {
+            if (!int.TryParse(suffix, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int n) || n is < 1 or > 2)
+                throw new ArgumentException($"Input number '{suffix}' must be 1 or 2.", nameof(suffix));
+            index = n - 1;
+            inputs = 2;
+        }
+
+        return Resolve(EmbossAcdProfiles.SequenceOnly(inputs), commandLine, out _, allowReport: false, featureOutputs: false, fileInput: true)[index];
+    }
+
+    /// <summary>
     /// The sequence qualifiers of EVERY sequence input of an EMBOSS program from the command-line text that follows its sequence arguments (<c>needle a.fa b.fa -sbegin 3 -send2 5</c>: the text is <c>-sbegin 3 -send2 5</c>), as the ACD library
     /// resolves them (audit A6-2, B09 F177; <see cref="AcdCommandLine"/> for the rules): both <c>-sbegin1 5</c> (also for a program with one input) and <c>-sbegin=5</c>, <c>-nosreverse2</c>, <c>-sreverse2 N</c>, any unique abbreviation of a
     /// qualifier name (<c>-sbeg1</c>, <c>-sre2</c>; ambiguity is decided over all qualifiers of the program), and an unnumbered qualifier, which belongs to the sequence argument that precedes it (the LAST one, <c>-sbegin 3</c> after two files is
@@ -105,7 +123,7 @@ public sealed record EmbossSequenceQualifiers
 
     private static EmbossSequenceQualifiers[] Resolve(AcdProfile profile, string? commandLine) => Resolve(profile, commandLine, out _, allowReport: false);
 
-    private static EmbossSequenceQualifiers[] Resolve(AcdProfile profile, string? commandLine, out EmbossReportQualifiers report, bool allowReport = true, bool featureOutputs = false)
+    private static EmbossSequenceQualifiers[] Resolve(AcdProfile profile, string? commandLine, out EmbossReportQualifiers report, bool allowReport = true, bool featureOutputs = false, bool fileInput = false)
     {
         report = new EmbossReportQualifiers();
         var result = new EmbossSequenceQualifiers[profile.Inputs.Count];
@@ -143,7 +161,7 @@ public sealed record EmbossSequenceQualifiers
                 string? raw = line.Value(item);
                 if (raw is null)
                     continue;
-                q = Apply(q, item, raw, commandLine);
+                q = Apply(q, item, raw, commandLine, fileInput);
             }
 
             result[k] = q;
@@ -200,7 +218,7 @@ public sealed record EmbossSequenceQualifiers
         return item.Name == "rformat" ? q with { Format = raw } : q;            // rname / rextension / rdirectory: the file name is the caller's business
     }
 
-    private static EmbossSequenceQualifiers Apply(EmbossSequenceQualifiers q, AcdItem item, string raw, string commandLine)
+    private static EmbossSequenceQualifiers Apply(EmbossSequenceQualifiers q, AcdItem item, string raw, string commandLine, bool fileInput = false)
     {
         if (item.Type == "integer")
         {
@@ -212,6 +230,8 @@ public sealed record EmbossSequenceQualifiers
                     return q with { Begin = number };
                 case "send":
                     return q with { End = number };
+                case "ioffset" when fileInput:
+                    return q with { Offset = number };
                 case "ioffset" when number != 0:
                     throw new ArgumentException("-ioffset must be 0: a residue string has no file to start reading at an offset.", nameof(commandLine));
                 default:
@@ -231,7 +251,8 @@ public sealed record EmbossSequenceQualifiers
                 "scircular" => q with { Circular = flag },
                 "snucleotide" => q with { Nucleotide = flag },
                 "sprotein" => q with { Protein = flag },
-                _ => q,                                    // sask, squick: accepted, no effect on a residue string
+                "squick" => q with { Quick = flag },
+                _ => q,                                    // sask: accepted, no effect
             };
         }
 
@@ -241,9 +262,27 @@ public sealed record EmbossSequenceQualifiers
             "ufo" => q with { FeaturesUfo = raw },
             "fformat" => q with { FeaturesFormat = raw },
             "fopenfile" => q with { FeaturesFile = raw },
-            _ => q,                                    // iquery, sdbname, sid: accepted, not interpreted
+            "sid" => q with { EntryId = raw },
+            "sdbname" => q with { DbName = raw },
+            "iquery" => q with { QueryFields = raw },
+            _ => q,
         };
     }
+
+    /// <summary><c>-sid</c>: the name given to every sequence read (<c>seqin-&gt;Entryname</c>); null = not given.</summary>
+    public string? EntryId { get; init; }
+
+    /// <summary><c>-sdbname</c>: the database name given to every sequence read; null = not given.</summary>
+    public string? DbName { get; init; }
+
+    /// <summary><c>-iquery</c>: a query on the input (<c>id</c>, <c>field:value</c>, <c>{a|b}</c>); null = not given.</summary>
+    public string? QueryFields { get; init; }
+
+    /// <summary><c>-squick</c>: read only the name (a quick read of the entry); accepted, the library of 6.6.0 does not use it for files.</summary>
+    public bool Quick { get; init; }
+
+    /// <summary><c>-ioffset</c>: the byte position of a file where the reading starts (<see cref="ParseFile"/>); 0 = the start.</summary>
+    public int Offset { get; init; }
 
     /// <summary><c>-ufo</c>: the feature file of the sequence (<c>[format::]file</c>; A5-8c3e, B09 F241); null = not given.</summary>
     public string? FeaturesUfo { get; init; }

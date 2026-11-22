@@ -416,6 +416,14 @@ public partial class AnalysisTools
         }
     }
 
+    // the USA of the sequence input: the value given, else asis::TEXT, else the file the text is put in
+    private static string SequenceSpec(string? sequenceValue, string sequence, string file)
+    {
+        if (!string.IsNullOrWhiteSpace(sequenceValue))
+            return sequenceValue;
+        return sequence.TrimStart().StartsWith("asis::", StringComparison.OrdinalIgnoreCase) ? sequence.Trim() : file;
+    }
+
     [McpServerTool(Name = "seqret", Title = "Alignment — EMBOSS seqret (read and write sequences)", ReadOnly = true)]
     [Description("EMBOSS 6.6.0 seqret: the sequences of a file are read by the sequence readers of the EMBOSS library (ajseqread.c) and written in FASTA or, with outputFormat, in another sequence format (with the GFF3 or another feature format of the features the file carries). Input formats read byte for byte as the installed program reads them (200 inputs of each of 66 names, with the library's warnings and errors): fasta (ncbi, pearson, gifasta, dbid), gcg (gcg8), embl (em), swiss (sw, swissprot, uniprot; the DE description of RecName / AltName / SubName / Includes / Contains / Flags is assembled as the library does), nbrf (pir), genbank (gb, ddbj, refseq), refseqp, genpept, codata, strider, ig, igstrict, iguspto, staden, textonly (plain, asis, unknown), fastq, fastq-sanger, fastq-illumina, fastq-solexa, sam, gff2, gff3 (gff; the sequence after ##FASTA / the ##DNA lines), gde, raw, and the alignment formats clustal (aln), msf, fitch, mase, biomart, treecon, acedb, phylip (interleaved; falls back to phylipnon as the library does), phylipnon, nexus (paup), mega, selex, stockholm (pfam), jackknifer, hennig86 (the library loops over memory on a sequence line: refused), the entries of experiment, pdb (the ATOM residues), pdbseq (SEQRES), pdbnuc, pdbnucseq (the members of the alignment are returned one after the other). ace / consed (the library reads the AS line and then dies by a segmentation fault) are refused, as are the few inputs on which the library reads freed or foreign memory (a repeated taxon label of a nexus file, ...). With no format every format the program tries is tried in turn (a text no format reads is read as plain text). The features of embl, genbank, refseq, refseqp, swiss, nbrf, gff2 and gff3 files are returned with featureFormat when feature is true. Output: 19 format names (fasta unknown pearson, gcg gcg8, nbrf pir, codata, strider, staden, text plain raw, ig, gde, fitch, acedb, mase) written byte for byte as the installed program writes them (200 runs of each: the format as -osformat2 or the 'format::' prefix of the output name, outputSingle with outputDirectory / outputExtension, unknown formats, the format-for-sequence-type errors). Not read yet (the binary abi, bam, nibble, scf, das, ensembl and the CO contig lines of embl) and not written yet (embl, genbank, swiss, gff, fastq, sam and the alignment-set formats): the tool refuses such an input or format. A5-8c3g / A5-8c3h, B09 F248 / F251 - F252.")]
     public static SeqretToolResult Seqret(
@@ -424,20 +432,21 @@ public partial class AnalysisTools
         [Description("Read and write the features of the sequences (-feature).")] bool feature = false,
         [Description("Read one sequence and stop (-firstonly).")] bool firstOnly = false,
         [Description("The feature output format (-offormat2): gff3 (default), gff, gff2, bed, embl, em, genbank, gb, ddbj, refseq, refseqp, pir, nbrf, swiss, sw, swissprot, uniprot, dasgff, draw, debug.")] string featureFormat = "gff3",
-        [Description("Sequence input qualifiers as typed after the sequence on the command line: -slower1 -supper1 -snucleotide1 -sprotein1 (also -sformat1 F); the range qualifiers are not applied by this tool yet.")] string? qualifiers = null,
+        [Description("Sequence input qualifiers as typed after the sequence on the command line: -sbegin1 -send1 -sreverse1 (the range and the strand: applied to the sequences and to their features), -slower1 -supper1 -snucleotide1 -sprotein1 -scircular1, -sformat1 F, -sid1 name, -sdbname1 db, -squick1, -iquery1 query, -ioffset1 bytes.")] string? qualifiers = null,
         CancellationToken cancellationToken = default,
         [Description("More files by name (file name -> text) that sequence may name with a 'format::' prefix.")] IReadOnlyDictionary<string, string>? files = null,
         [Description("The sequence output format (-osformat2): fasta (default; unknown, pearson), gcg (gcg8), nbrf (pir), codata, strider, staden, text (plain, raw), ig, gde, fitch, acedb, mase. iguspto is accepted by the library but its writer dies on every sequence that has no full description (all but swiss and iguspto input), so such a run is refused. Other output formats of the library (embl, genbank, swiss, msf, clustal, phylip, nexus, ...) are not written yet.")] string outputFormat = "fasta",
         [Description("Write every sequence to a file of its own, name.extension in lower case (-ossingle2); the files are returned in singleFiles.")] bool outputSingle = false,
         [Description("The directory of the files of outputSingle (-osdirectory2).")] string? outputDirectory = null,
-        [Description("The extension of the files of outputSingle (-osextension2); default: the output format as typed.")] string? outputExtension = null)
+        [Description("The extension of the files of outputSingle (-osextension2); default: the output format as typed.")] string? outputExtension = null,
+        [Description("The USA of the sequence input (-sequence) as the program reads it, instead of the file the text is put in: [format::]file[begin:end:r] (file = the name of an entry of files; the text of sequence is the file 'sequence.dat'), file:id / file:field:query / file{a|b} (id, acc, sv, gi, des, key, org; wildcards * and ?), @list / list::list (a list file of files; # comments; every entry has its own range and format), asis::SEQUENCE; the range qualifiers -sbegin1 -send1 -sreverse1 of qualifiers are applied to the sequences and to their features.")] string? sequenceValue = null)
     {
         if (string.IsNullOrWhiteSpace(sequence))
             throw new ArgumentException("The sequence cannot be empty", nameof(sequence));
         cancellationToken.ThrowIfCancellationRequested();
         string name = "sequence.dat";
-        var q = global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.Parse(qualifiers) with { Format = sequenceFormat };
-        string spec = sequence.TrimStart().StartsWith("asis::", StringComparison.OrdinalIgnoreCase) ? sequence.Trim() : name;
+        var q = global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.ParseFile(qualifiers) with { Format = sequenceFormat };
+        string spec = SequenceSpec(sequenceValue, sequence, name);
         try
         {
             var all = new Dictionary<string, string>(files ?? new Dictionary<string, string>()) { [name] = sequence };
@@ -460,16 +469,17 @@ public partial class AnalysisTools
         [Description("The feature types to mask (-type): names separated by blanks, commas, semicolons or bars; * and ? wildcards; default repeat*.")] string type = "repeat*",
         [Description("Make the masked regions lower case (-tolower).")] bool toLower = false,
         [Description("The mask character (-maskchar, one character; none or a blank = lower case); default N (nucleotide) / X (protein).")] string? maskChar = null,
-        [Description("Sequence input qualifiers as typed after the sequence on the command line: -slower1 -supper1 -snucleotide1 -sprotein1.")] string? qualifiers = null,
+        [Description("Sequence input qualifiers as typed after the sequence on the command line: -sbegin1 -send1 -sreverse1, -slower1 -supper1 -snucleotide1 -sprotein1 -scircular1, -sformat1 F, -sid1 name, -sdbname1 db, -squick1, -iquery1 query, -ioffset1 bytes.")] string? qualifiers = null,
         CancellationToken cancellationToken = default,
-        [Description("More files by name (file name -> text) that sequence may name with a 'format::' prefix.")] IReadOnlyDictionary<string, string>? files = null)
+        [Description("More files by name (file name -> text) that sequence may name with a 'format::' prefix.")] IReadOnlyDictionary<string, string>? files = null,
+        [Description("The USA of the sequence input (-sequence) as the program reads it, instead of the file the text is put in: [format::]file[begin:end:r] (file = the name of an entry of files; the text of sequence is the file 'sequence.dat'), file:id / file:field:query / file{a|b} (id, acc, sv, gi, des, key, org; wildcards * and ?), @list / list::list (a list file of files; # comments; every entry has its own range and format), asis::SEQUENCE; the range qualifiers -sbegin1 -send1 -sreverse1 of qualifiers are applied to the sequences and to their features.")] string? sequenceValue = null)
     {
         if (string.IsNullOrWhiteSpace(sequence))
             throw new ArgumentException("The sequence cannot be empty", nameof(sequence));
         cancellationToken.ThrowIfCancellationRequested();
         string name = "sequence.dat";
-        var q = global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.Parse(qualifiers) with { Format = sequenceFormat };
-        string spec = sequence.TrimStart().StartsWith("asis::", StringComparison.OrdinalIgnoreCase) ? sequence.Trim() : name;
+        var q = global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.ParseFile(qualifiers) with { Format = sequenceFormat };
+        string spec = SequenceSpec(sequenceValue, sequence, name);
         try
         {
             var all = new Dictionary<string, string>(files ?? new Dictionary<string, string>()) { [name] = sequence };
@@ -492,16 +502,17 @@ public partial class AnalysisTools
         [Description("Look for the overlaps of consecutive sequences when joining (-findoverlap).")] bool findOverlap = false,
         [Description("Return the overlap of every sequence (-overlapfile).")] bool overlapFile = false,
         [Description("The sequence output format (-osformat); default fasta.")] string outputFormat = "fasta",
-        [Description("Sequence input qualifiers as typed after the sequence on the command line: -slower1 -supper1 -snucleotide1 -sprotein1.")] string? qualifiers = null,
+        [Description("Sequence input qualifiers as typed after the sequence on the command line: -sbegin1 -send1 -sreverse1, -slower1 -supper1 -snucleotide1 -sprotein1 -scircular1, -sformat1 F, -sid1 name, -sdbname1 db, -squick1, -iquery1 query, -ioffset1 bytes.")] string? qualifiers = null,
         CancellationToken cancellationToken = default,
-        [Description("More files by name (file name -> text) that sequence may name with a 'format::' prefix.")] IReadOnlyDictionary<string, string>? files = null)
+        [Description("More files by name (file name -> text) that sequence may name with a 'format::' prefix.")] IReadOnlyDictionary<string, string>? files = null,
+        [Description("The USA of the sequence input (-sequence) as the program reads it, instead of the file the text is put in: [format::]file[begin:end:r] (file = the name of an entry of files; the text of sequence is the file 'sequence.dat'), file:id / file:field:query / file{a|b} (id, acc, sv, gi, des, key, org; wildcards * and ?), @list / list::list (a list file of files; # comments; every entry has its own range and format), asis::SEQUENCE; the range qualifiers -sbegin1 -send1 -sreverse1 of qualifiers are applied to the sequences and to their features.")] string? sequenceValue = null)
     {
         if (string.IsNullOrWhiteSpace(sequence))
             throw new ArgumentException("The sequence cannot be empty", nameof(sequence));
         cancellationToken.ThrowIfCancellationRequested();
         string file = "sequence.dat";
-        var q = global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.Parse(qualifiers) with { Format = sequenceFormat };
-        string spec = sequence.TrimStart().StartsWith("asis::", StringComparison.OrdinalIgnoreCase) ? sequence.Trim() : file;
+        var q = global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.ParseFile(qualifiers) with { Format = sequenceFormat };
+        string spec = SequenceSpec(sequenceValue, sequence, file);
         try
         {
             var all = new Dictionary<string, string>(files ?? new Dictionary<string, string>()) { [file] = sequence };
@@ -526,16 +537,17 @@ public partial class AnalysisTools
         [Description("Write every sequence to a file of its own (-ossingle2; the default of the program).")] bool outputSingle = true,
         [Description("The directory of the files (-osdirectory2).")] string? outputDirectory = null,
         [Description("The extension of the files (-osextension2); default: the output format as typed.")] string? outputExtension = null,
-        [Description("Sequence input qualifiers as typed after the sequence on the command line: -slower1 -supper1 -snucleotide1 -sprotein1.")] string? qualifiers = null,
+        [Description("Sequence input qualifiers as typed after the sequence on the command line: -sbegin1 -send1 -sreverse1, -slower1 -supper1 -snucleotide1 -sprotein1 -scircular1, -sformat1 F, -sid1 name, -sdbname1 db, -squick1, -iquery1 query, -ioffset1 bytes.")] string? qualifiers = null,
         CancellationToken cancellationToken = default,
-        [Description("More files by name (file name -> text) that sequence may name with a 'format::' prefix.")] IReadOnlyDictionary<string, string>? files = null)
+        [Description("More files by name (file name -> text) that sequence may name with a 'format::' prefix.")] IReadOnlyDictionary<string, string>? files = null,
+        [Description("The USA of the sequence input (-sequence) as the program reads it, instead of the file the text is put in: [format::]file[begin:end:r] (file = the name of an entry of files; the text of sequence is the file 'sequence.dat'), file:id / file:field:query / file{a|b} (id, acc, sv, gi, des, key, org; wildcards * and ?), @list / list::list (a list file of files; # comments; every entry has its own range and format), asis::SEQUENCE; the range qualifiers -sbegin1 -send1 -sreverse1 of qualifiers are applied to the sequences and to their features.")] string? sequenceValue = null)
     {
         if (string.IsNullOrWhiteSpace(sequence))
             throw new ArgumentException("The sequence cannot be empty", nameof(sequence));
         cancellationToken.ThrowIfCancellationRequested();
         string file = "sequence.dat";
-        var q = global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.Parse(qualifiers) with { Format = sequenceFormat };
-        string spec = sequence.TrimStart().StartsWith("asis::", StringComparison.OrdinalIgnoreCase) ? sequence.Trim() : file;
+        var q = global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.ParseFile(qualifiers) with { Format = sequenceFormat };
+        string spec = SequenceSpec(sequenceValue, sequence, file);
         try
         {
             var all = new Dictionary<string, string>(files ?? new Dictionary<string, string>()) { [file] = sequence };
@@ -558,16 +570,17 @@ public partial class AnalysisTools
         [Description("The new name (-name); empty = the name is kept.")] string name = "",
         [Description("The new description (-description); empty = the description is kept.")] string description = "",
         [Description("Append the name and the description to the existing ones (-append).")] bool append = false,
-        [Description("Sequence input qualifiers as typed after the sequence on the command line: -slower1 -supper1 -snucleotide1 -sprotein1.")] string? qualifiers = null,
+        [Description("Sequence input qualifiers as typed after the sequence on the command line: -sbegin1 -send1 -sreverse1, -slower1 -supper1 -snucleotide1 -sprotein1 -scircular1, -sformat1 F, -sid1 name, -sdbname1 db, -squick1, -iquery1 query, -ioffset1 bytes.")] string? qualifiers = null,
         CancellationToken cancellationToken = default,
-        [Description("More files by name (file name -> text) that sequence may name with a 'format::' prefix.")] IReadOnlyDictionary<string, string>? files = null)
+        [Description("More files by name (file name -> text) that sequence may name with a 'format::' prefix.")] IReadOnlyDictionary<string, string>? files = null,
+        [Description("The USA of the sequence input (-sequence) as the program reads it, instead of the file the text is put in: [format::]file[begin:end:r] (file = the name of an entry of files; the text of sequence is the file 'sequence.dat'), file:id / file:field:query / file{a|b} (id, acc, sv, gi, des, key, org; wildcards * and ?), @list / list::list (a list file of files; # comments; every entry has its own range and format), asis::SEQUENCE; the range qualifiers -sbegin1 -send1 -sreverse1 of qualifiers are applied to the sequences and to their features.")] string? sequenceValue = null)
     {
         if (string.IsNullOrWhiteSpace(sequence))
             throw new ArgumentException("The sequence cannot be empty", nameof(sequence));
         cancellationToken.ThrowIfCancellationRequested();
         string file = "sequence.dat";
-        var q = global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.Parse(qualifiers) with { Format = sequenceFormat };
-        string spec = sequence.TrimStart().StartsWith("asis::", StringComparison.OrdinalIgnoreCase) ? sequence.Trim() : file;
+        var q = global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.ParseFile(qualifiers) with { Format = sequenceFormat };
+        string spec = SequenceSpec(sequenceValue, sequence, file);
         try
         {
             var all = new Dictionary<string, string>(files ?? new Dictionary<string, string>()) { [file] = sequence };

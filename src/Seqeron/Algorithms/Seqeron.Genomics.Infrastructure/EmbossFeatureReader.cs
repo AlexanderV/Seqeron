@@ -129,6 +129,9 @@ internal sealed class EmbossFeatureLines(IReadOnlyList<string> lines)
     /// <summary>The buffer retains no lines (<c>Nobuff</c>).</summary>
     public bool Unbuffered { get; private set; }
 
+    /// <summary>Where the reading stands (lines taken from the file, position in the buffer, lines in the buffer): a loop that does not change it never ends.</summary>
+    public (int File, int Position, int Buffered) State => (_filePos, _pos, _buffer.Count);
+
     /// <summary>The lines of a text: split at line feeds; a carriage return stays at the end of its line (<c>ajBuffreadLine</c> keeps the line end).</summary>
     public static EmbossFeatureLines FromText(string text)
     {
@@ -192,6 +195,9 @@ internal sealed class EmbossFeatureLines(IReadOnlyList<string> lines)
 
     /// <summary><c>ajFilebuffIsEmpty</c>: nothing is left in the buffer and the file was read to its end.</summary>
     public bool IsEmpty => _pos >= _buffer.Count && End;
+
+    /// <summary><c>ajFilebuffIsEnded</c>: the end of the file was reached and the buffer holds no line at all.</summary>
+    public bool IsEnded => End && _buffer.Count == 0;
 
     /// <summary>The file is at its end with nothing buffered (no more line can be read).</summary>
     public bool AtEnd => _pos >= _buffer.Count && _filePos >= lines.Count;

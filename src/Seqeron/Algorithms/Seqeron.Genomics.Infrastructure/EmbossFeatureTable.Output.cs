@@ -72,6 +72,20 @@ internal sealed partial class EmbossSeqFeatureTable
     /// <summary><c>ajFeattableIsProt</c>.</summary>
     public bool IsProt => Type != "N";
 
+    /// <summary><c>ajFeattableSetRange</c>: the part of the sequence the features are written for.</summary>
+    public void SetRange(int begin, int end)
+    {
+        Start = unchecked((uint)PositionII(Length, 1, begin));
+        End = unchecked((uint)PositionII(Length, unchecked((int)Start), end));
+    }
+
+    /// <summary><c>ajFeattableSetReverse</c>: the table is to be reversed (the flag is toggled, the table counts as not reversed yet).</summary>
+    public void SetReverse()
+    {
+        Rev = !Rev;
+        Reversed = false;
+    }
+
     /// <summary><c>ajFeattableGetBegin</c>.</summary>
     public int GetBegin() => Start == 0 ? 1 : PositionII(Length, 1, unchecked((int)Start));
 

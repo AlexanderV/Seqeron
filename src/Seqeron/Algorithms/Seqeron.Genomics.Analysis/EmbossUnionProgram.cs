@@ -39,7 +39,8 @@ public static class EmbossUnionProgram
         var seqall = EmbossSeqall.Open("union", r.Sequence, r.Files, r.Qualifiers ?? EmbossSequenceQualifiers.None, false, context);
         if (seqall is null)
         {
-            context.Messages.Add("Died: union terminated: Bad value for '-sequence' with -auto defined");
+            if (!context.Fatal)
+                context.Messages.Add("Died: union terminated: Bad value for '-sequence' with -auto defined");
             return new EmbossUnionOutput("", "", [.. context.Messages]) { Died = true };
         }
 
@@ -52,6 +53,7 @@ public static class EmbossUnionProgram
         EmbossSeq? seq;
         while ((seq = seqall.Next()) is not null)
         {
+            EmbossSeqRange.Trim(seq);                                  // union.c: ajSeqTrim(seq)
             if (first)
                 uniseq = seq;
             string residues = seq.SeqText;

@@ -26,6 +26,9 @@ internal enum EmbossLocationBits : uint
 }
 
 /// <summary>The state the feature library keeps between the features and the tables of ONE program run: <c>featRegSpecialRptunitSeq</c> is a static shared by the checks of <c>/rpt_unit</c> and <c>/rpt_unit_seq</c>, each of which compiles ITS pattern into it when it is still empty (the first of the two to run decides for both); the statics of the GFF group readers and of the format readers (the feature the last call created) live here too.</summary>
+/// <summary><c>ajFatal</c>: the program stops at once (the message is printed with the source line of the library).</summary>
+public sealed class EmbossFatalException(string message) : Exception(message);
+
 internal sealed class EmbossFeatureReadContext
 {
     public System.Text.RegularExpressions.Regex? RptUnitSeq;
@@ -47,6 +50,9 @@ internal sealed class EmbossFeatureReadContext
 
     /// <summary><c>ajUtilGetProgram</c>: the source of a feature without one.</summary>
     public string Program = "featcopy";
+
+    /// <summary>The library called <c>ajFatal</c>: the program ended at once with the message (no <c>Died:</c> line of the ACD follows).</summary>
+    public bool Fatal;
 
     /// <summary>The input stores the text of the entries it reads (<c>Input-&gt;Text</c>: the ACD attribute <c>entry</c> of <c>feattext</c>).</summary>
     public bool StoreText;

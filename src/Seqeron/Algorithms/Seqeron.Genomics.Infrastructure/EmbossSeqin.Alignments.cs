@@ -409,6 +409,9 @@ internal sealed partial class EmbossSeqin
                 _seqData = null;
                 return false;
             }
+
+            if (data.Names.Count == 0)
+                throw new InvalidOperationException("The reference program reads the name of a sequence that does not exist (a treecon file with the sequence count and no sequence): it reads past the end of an empty array and dies by a segmentation fault.");
         }
 
         if (NextAlignmentItem(t))
