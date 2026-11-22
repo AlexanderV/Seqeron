@@ -11,9 +11,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import generate_seqret_oracle as S  # noqa: E402
 import generate_coderet_oracle as C  # noqa: E402
 
+SINGLE_SHARE = float(os.environ.get('SINGLE_SHARE', '0'))      # the share of the runs with -ossingle2 / -osextension2 / -osdirectory2 / -osname2 (B09 WP60)
 FMTS = ['own', 'own', 'own', 'own', 'own', 'embl', 'genbank', 'gff3', 'gff2', 'swiss', 'nbrf', 'refseqp', 'own']
 FFORMATS = ['gff3', 'gff3', 'gff', 'gff2', 'embl', 'genbank', 'swiss', 'pir', 'tagseq', 'debug']
-OSFORMATS = ['fasta', 'fasta', 'fasta', 'fasta', 'gcg', 'raw', 'text', 'ig', 'codata', 'fitch', 'mase', 'strider', 'gde', 'acedb', 'unknown', 'embl', 'em', 'emblnew', 'emold', 'emblold', 'genbank', 'gb', 'ddbj', 'refseq', 'genpept', 'refseqp', 'swiss', 'sw', 'swissprot', 'uniprot', 'swissnew', 'swold', 'fastq', 'fastq-sanger', 'fastq-illumina', 'fastq-solexa', 'sam', 'gff', 'gff2', 'gff3', 'scf', 'msf', 'clustal', 'aln', 'selex', 'phylip', 'phylipnon', 'phylip3', 'hennig86', 'mega', 'meganon', 'nexus', 'paup', 'nexusnon', 'paupnon', 'jackknifer', 'jackknifernon', 'treecon']
+OSFORMATS = ['fasta', 'fasta', 'fasta', 'fasta', 'gcg', 'raw', 'text', 'ig', 'codata', 'fitch', 'mase', 'strider', 'gde', 'acedb', 'unknown', 'embl', 'em', 'emblnew', 'emold', 'emblold', 'genbank', 'gb', 'ddbj', 'refseq', 'genpept', 'refseqp', 'swiss', 'sw', 'swissprot', 'uniprot', 'swissnew', 'swold', 'fastq', 'fastq-sanger', 'fastq-illumina', 'fastq-solexa', 'sam', 'gff', 'gff2', 'gff3', 'scf', 'msf', 'clustal', 'aln', 'selex', 'phylip', 'phylipnon', 'phylip3', 'hennig86', 'mega', 'meganon', 'nexus', 'paup', 'nexusnon', 'paupnon', 'jackknifer', 'jackknifernon', 'treecon', 'experiment', 'debug', 'bam']
 
 
 def fragments(rnd):
@@ -71,14 +72,22 @@ def main(out, n, seed):
             if rnd.random() < 0.5: args.append('-findoverlap')
             if rnd.random() < 0.3: args += ['-overlapfile', 'ov.txt']
             outseq = rnd.choice(['o.fa', 'o.fa', 'q.seq', 'plain', 'a.b.c', 'fasta::z.w'])
-            args += ['-outseq', outseq]
+            default_out = rnd.random() < SINGLE_SHARE * 0.6                  # no -outseq: the default name BASE.EXT (-osname2, -osextension2)
+            if not default_out:
+                args += ['-outseq', outseq]
             if rnd.random() < 0.3: args += ['-osformat2', rnd.choice(OSFORMATS)]
             if rnd.random() < 0.12: args += ['-osdbname2', rnd.choice(['MYDB', 'db1', 'sp', 'gb', 'lcl', 'BL_ORD_ID'])]
             if rnd.random() < 0.55: args += ['-offormat2', rnd.choice(FFORMATS)]
             if rnd.random() < 0.3: args += ['-ofname2', 'f.out']
+            if rnd.random() < SINGLE_SHARE: args.append('-ossingle2')
+            if rnd.random() < SINGLE_SHARE: args += ['-osextension2', rnd.choice(['abc', 'X1', 'Txt'])]
+            if rnd.random() < SINGLE_SHARE * 1.5: args += ['-osdirectory2', rnd.choice(['sub', 'sub', 'sub/', 'nosuch'])]
+            if rnd.random() < SINGLE_SHARE and default_out: args += ['-osname2', rnd.choice(['nm', 'N1', 'a b'])]
+            if rnd.random() < SINGLE_SHARE * 0.6: args += ['-ofdirectory2', rnd.choice(['sub', 'sub/', 'nosuch'])]
             if rnd.random() < 0.04: args += ['-sbegin1', str(rnd.randint(1, 10))]
             if rnd.random() < 0.04: args += ['-send1', str(rnd.randint(20, 60))]
-            for nme in os.listdir(work): os.remove(os.path.join(work, nme))
+            C.clean(work)
+            os.mkdir(os.path.join(work, 'sub'))
             open(os.path.join(work, 'in.dat'), 'w', newline='\n', encoding='latin-1').write(text)
             epoch = rnd.randint(978307200, 2051222400)
             env = dict(os.environ, LD_PRELOAD=shim, FAKE_EPOCH=str(epoch))
@@ -96,13 +105,11 @@ def main(out, n, seed):
                 subprocess.run(['pkill', '-9', 'union'])
             files = {}
             if not hang:
-                for nme in sorted(os.listdir(work)):
-                    if nme == 'in.dat': continue
-                    files[nme] = open(os.path.join(work, nme), encoding='latin-1', newline='').read()
+                files = C.collect(work)
             memerr = False
             if not hang and shutil.which('valgrind') and (rc != 0 or len(rows) % 4 == 0):
-                for nme in os.listdir(work):
-                    if nme != 'in.dat': os.remove(os.path.join(work, nme))
+                C.clean(work, keep='in.dat')
+                os.mkdir(os.path.join(work, 'sub'))
                 try:
                     vg = subprocess.run(['valgrind', '-q', '--error-exitcode=99', 'union'] + cmd, cwd=work, capture_output=True, timeout=120)
                     memerr = vg.returncode == 99 or re.search(rb'^==\d+== (Invalid|Conditional|Use of|Syscall|Mismatched|Source and destination|Process terminating)', vg.stderr, re.M) is not None

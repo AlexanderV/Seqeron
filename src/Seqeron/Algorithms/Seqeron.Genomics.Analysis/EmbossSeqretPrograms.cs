@@ -186,13 +186,13 @@ public static class EmbossSeqretPrograms
                 // seqoutUfoLocal: the features are written into the sequence file, in the feature format of the sequence format
                 if (outFormat.Writer == "Genpept" || (outFormat.Writer is "Gff2" or "Gff3" && seq.Fttable is null))
                     throw new InvalidOperationException("The writer takes a feature format the feature library does not have (genpept), or a feature table that does not exist (gff2, gff3 for a sequence without features): the reference program dies by a segmentation fault.");
-                string fmt = EmbossSeqWrite.LocalFeatureFormat(outFormat);
+                string fmt = EmbossSeqWrite.LocalFeatureFormat(outFormat, seq.Type == "P");
                 if (seq.Fttable is { } ftable)
                 {
                     // the feature table of a PIR entry has no type (ajFeattableIsNuc is true for it) and the writer of refseqp refuses such a table without a message (measured)
                     string? ftext = outFormat.Writer == "Refseqp" && seq.Formatstr is "nbrf" or "pir" ? null : EmbossReportWriter.WriteFeatureTable(ftable, fmt, runDate, "seqret", context, new EmbossFeatureWriteState(), 0);
                     if (ftext is null)
-                        context.Warn($"{EmbossSeqWrite.LocalFeatureWriterName(outFormat)} features output failed UFO: ''");
+                        context.Warn($"{EmbossSeqWrite.LocalFeatureWriterName(outFormat, seq.Type == "P")} features output failed UFO: ''");
                     item.FeatureText = ftext ?? "";
                 }
                 else

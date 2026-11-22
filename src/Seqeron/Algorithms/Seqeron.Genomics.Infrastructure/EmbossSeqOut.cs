@@ -35,7 +35,10 @@ internal sealed class EmbossSeqOut
     public bool IsProtein => Type.Length > 0 && Type[0] == 'P';
 
     /// <summary>The number of features of the table (<c>ajFeattableGetSize</c>), the sequence version of the type of its <c>Input format</c> (the <c>debug</c> writer).</summary>
-    public int FeatureCount => Fttable?.Features.Count ?? 0;
+    public int FeatureCount => FeatureTableSize ?? Fttable?.Features.Count ?? 0;
+
+    /// <summary>The size of the feature table the trace of the debug writer prints when the object does not hold the table itself (union: the table of the first sequence).</summary>
+    public int? FeatureTableSize { get; set; }
 }
 
 /// <summary>The state of the output object of a program run (<c>AjPSeqout</c>) and of the writers (the <c>static</c> variables of <c>ajseqwrite.c</c>) that lasts from one sequence to the next.</summary>

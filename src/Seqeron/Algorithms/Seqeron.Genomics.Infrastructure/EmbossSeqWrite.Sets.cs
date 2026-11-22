@@ -50,8 +50,9 @@ internal static partial class EmbossSeqWrite
     }
 
     /// <summary>The feature format that a sequence format writes into its file (<c>ajFeattabOutNewCSF</c> of the writer).</summary>
-    internal static string LocalFeatureFormat(EmbossSeqOutFormat f) => f.Writer switch
+    internal static string LocalFeatureFormat(EmbossSeqOutFormat f, bool protein = false) => f.Writer switch
     {
+        "Experiment" when protein => "swiss",                          // seqWriteExperiment writes a protein with seqWriteSwiss
         "Embl" or "Emblnew" or "Experiment" => "embl",
         "Genbank" => "genbank",
         "Genpept" => "genpept",
@@ -65,8 +66,9 @@ internal static partial class EmbossSeqWrite
     };
 
     /// <summary>The name of the writer function in the warning <c>seqWriteEmbl features output failed UFO</c>.</summary>
-    internal static string LocalFeatureWriterName(EmbossSeqOutFormat f) => f.Writer switch
+    internal static string LocalFeatureWriterName(EmbossSeqOutFormat f, bool protein = false) => f.Writer switch
     {
+        "Experiment" when protein => "seqWriteSwiss",
         "Embl" or "Emblnew" or "Experiment" => "seqWriteEmbl",
         "Swiss" or "Swissnew" => "seqWriteSwiss",
         _ => "seqWrite" + f.Writer,

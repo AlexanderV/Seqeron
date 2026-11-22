@@ -15,7 +15,7 @@ FORMATS = ['unknown', 'fasta', 'pearson', 'gcg', 'gcg8', 'nbrf', 'pir', 'codata'
            'fastq-sanger', 'fastq-illumina', 'fastq-solexa', 'fastq', 'sam', 'gff2', 'gff3', 'gff',
            'msf', 'clustal', 'aln', 'selex', 'phylip', 'phylipnon', 'phylip3', 'hennig86', 'mega', 'meganon', 'nexus', 'paup', 'nexusnon', 'paupnon', 'jackknifer', 'jackknifernon', 'treecon', 'scf', 'experiment', 'debug', 'bam', 'embl', 'em', 'emblnew', 'emold', 'emblold']
 # the writers that print the accuracy values (quality) of the sequences: their inputs are mostly texts with random qualities, and every run is checked with valgrind (the buffer of the values keeps what it had)
-ENTRY_FORMATS = {'embl', 'em', 'emblnew', 'emold', 'emblold', 'genbank', 'gb', 'ddbj', 'refseq', 'genpept', 'refseqp', 'swiss', 'sw', 'swissprot', 'uniprot', 'swissnew', 'swnew', 'swold', 'swissold', 'swissprotold', 'swissprotnew', 'debug'}
+ENTRY_FORMATS = {'embl', 'em', 'emblnew', 'emold', 'emblold', 'genbank', 'gb', 'ddbj', 'refseq', 'genpept', 'refseqp', 'swiss', 'sw', 'swissprot', 'uniprot', 'swissnew', 'swnew', 'swold', 'swissold', 'swissprotold', 'swissprotnew', 'debug', 'experiment'}
 QUAL_FORMATS = {'fastq-sanger', 'fastq-illumina', 'fastq-solexa', 'fastq', 'sam', 'scf', 'bam', 'debug', 'experiment'}
 QUAL_INPUTS = ['qsanger', 'qsanger', 'qillumina', 'qsolexa', 'qsam', 'qexperiment', 'fastq-sanger', 'fastq-illumina', 'fastq-solexa', 'sam', 'experiment']
 # the inputs of the readers whose reference runs are defined (the nexus and mega readers of the library read freed or foreign memory on some inputs, see generate_seqret_oracle.py: memerr)

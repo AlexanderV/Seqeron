@@ -38,7 +38,7 @@ public class EmbossUnionFeature_Oracle_Tests
         using var reader = new StreamReader(gz);
         var failures = new List<string>();
         var formats = new HashSet<string>();
-        int rows = 0, compared = 0, refused = 0, withFeatures = 0;
+        int rows = 0, compared = 0, refused = 0, withFeatures = 0, singles = 0, directories = 0, defaultNames = 0;
         string? line;
         while ((line = reader.ReadLine()) is not null)
         {
@@ -58,7 +58,8 @@ public class EmbossUnionFeature_Oracle_Tests
             {
                 var q = new List<string>();
                 string outseq = "stdout";
-                string? osf = null, off = null, ofn = null, odb = null;
+                string? osf = null, off = null, ofn = null, odb = null, oext = null, odir = null, oname = null, ofdir = null;
+                bool single = false, defaultOut = true;
                 bool feature = false, source = false, findOverlap = false, overlapFile = false;
                 for (int i = 0; i < a.Count; i++)
                 {
@@ -68,7 +69,12 @@ public class EmbossUnionFeature_Oracle_Tests
                         case "-source": source = true; break;
                         case "-findoverlap": findOverlap = true; break;
                         case "-overlapfile": overlapFile = true; i++; break;
-                        case "-outseq": outseq = a[++i]; break;
+                        case "-outseq": outseq = a[++i]; defaultOut = false; break;
+                        case "-ossingle2": single = true; break;
+                        case "-osextension2": oext = a[++i]; break;
+                        case "-osdirectory2": odir = a[++i]; break;
+                        case "-osname2": oname = a[++i]; break;
+                        case "-ofdirectory2": ofdir = a[++i]; break;
                         case "-osformat2": osf = a[++i]; break;
                         case "-offormat2": off = a[++i]; break;
                         case "-ofname2": ofn = a[++i]; break;
@@ -82,7 +88,7 @@ public class EmbossUnionFeature_Oracle_Tests
                 }
 
                 var quals = EmbossSequenceQualifiers.ParseFile(string.Join(' ', q));
-                var o = EmbossUnionProgram.Union(new EmbossUnionRequest("in.dat", new Dictionary<string, string> { ["in.dat"] = text }, quals, findOverlap, overlapFile, outseq, osf, date) { Feature = feature, Source = source, OutFeatFormat = off, OutFeatName = ofn, OutDbName = odb, CommandLine = "-auto -sequence in.dat " + string.Join(' ', a.Select(x => x.Length == 0 || x.Contains(' ', StringComparison.Ordinal) ? "\"" + x + "\"" : x)) });
+                var o = EmbossUnionProgram.Union(new EmbossUnionRequest("in.dat", new Dictionary<string, string> { ["in.dat"] = text }, quals, findOverlap, overlapFile, outseq, osf, date) { Feature = feature, Source = source, OutFeatFormat = off, OutFeatName = ofn, OutDbName = odb, OutSingle = single, OutExtension = oext, OutDirectory = odir, OutName = oname, OutFeatDirectory = ofdir, DefaultOutSeq = defaultOut, ExistingDirectories = ["sub"], CommandLine = "-auto -sequence in.dat " + string.Join(' ', a.Select(x => x.Length == 0 || x.Contains(' ', StringComparison.Ordinal) ? "\"" + x + "\"" : x)) });
                 if (memerr)
                     continue;
                 if (refusal)
@@ -92,15 +98,14 @@ public class EmbossUnionFeature_Oracle_Tests
                 }
 
                 string messages = o.Messages.Count > 0 ? string.Join("\n", o.Messages) + "\n" : "";
-                string outName = outseq;
-                var um = Regex.Match(outName, "^([A-Za-z0-9-]*)::?(.*)$");
-                if (um.Success)
-                    outName = um.Groups[2].Value;
+                string outName = o.SequenceFileName;
                 var got = new Dictionary<string, string>();
-                if (!o.Died)
+                if (!o.Died && !single)
                     got[outName] = o.SequenceText;
+                foreach (var kv in o.SingleFiles)
+                    got[kv.Key] = kv.Value;
                 if (o.FeatureText.Length > 0 || o.FeatureFileName.Length > 0)
-                    got[o.FeatureFileName] = o.FeatureText;
+                    got[EmbossOutPath.Combine(o.FeatureDirectory, o.FeatureFileName)] = o.FeatureText;
                 if (overlapFile)
                     got["ov.txt"] = o.OverlapText;
                 string? why = null;
@@ -130,6 +135,12 @@ public class EmbossUnionFeature_Oracle_Tests
                 }
 
                 compared++;
+                if (single && expFiles.Count > 0)
+                    singles++;
+                if (odir is not null && expFiles.Keys.Any(k => k.StartsWith("sub/", StringComparison.Ordinal)))
+                    directories++;
+                if (defaultOut && !o.Died)
+                    defaultNames++;
                 if (expFiles.Any(kv => kv.Key != outName && kv.Key != "ov.txt" && kv.Value.Length > 0))
                 {
                     withFeatures++;
@@ -154,5 +165,8 @@ public class EmbossUnionFeature_Oracle_Tests
         Assert.That(compared, Is.GreaterThanOrEqualTo(950), $"compared {compared}, refused {refused}");
         Assert.That(withFeatures, Is.GreaterThanOrEqualTo(700));
         Assert.That(formats.Count, Is.GreaterThanOrEqualTo(6));
+        Assert.That(singles, Is.GreaterThanOrEqualTo(60), "the -ossingle2 runs");
+        Assert.That(directories, Is.GreaterThanOrEqualTo(60), "the -osdirectory2 runs");
+        Assert.That(defaultNames, Is.GreaterThanOrEqualTo(50), "the runs with the default output file name");
     }
 }
