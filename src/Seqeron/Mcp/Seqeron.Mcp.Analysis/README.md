@@ -2,7 +2,7 @@
 
 MCP server — **K-mer, motif, repeat, complexity, RNA-structure and comparative-genomics analysis.**
 
-Exposes **179 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+Exposes **180 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
 MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test, with a
 per-tool doc under [`docs/mcp/tools/analysis/`](../../../../docs/mcp/tools/analysis). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
@@ -74,6 +74,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `wordmatch` | EMBOSS wordmatch: exact matches of a pattern set against large sequences (Rabin-Karp), alignments, statistics log and GFF3 feature files. |
 | `featcopy` | EMBOSS featcopy: every feature table of a file in any input format (embl, genbank, refseq, genpept, refseqp, gff2, gff3, swiss, pir, dasgff) written as gff3 / gff2 / embl / genbank / debug, with the library's messages. |
 | `featmerge` | EMBOSS featmerge: the first feature table of two feature files (any input format) merged and written as gff3 / gff2 / bed / embl / genbank / refseqp / pir / swiss / dasgff / draw / debug, with the library's messages. |
+| `descseq` | EMBOSS descseq: the name and / or description of the first sequence of a file replaced or appended to, written as FASTA; 1 000 runs equal descseq 6.6.0. |
 | `maskfeat` | EMBOSS maskfeat: the regions of the features of the wanted types (wildcards, lists; default repeat*) masked with a character (N / X) or lower case in the sequences of a file with features, written as FASTA; 1 200 runs equal maskfeat 6.6.0. |
 | `seqret` | EMBOSS seqret: the sequences of a file read by the sequence readers of the EMBOSS library (fasta, gcg, embl, swiss with its DE description, nbrf, genbank, refseqp, genpept, codata, strider, ig, staden, fastq, sam, gff2, gff3, raw ...) written as FASTA with their features (gff3, embl, genbank ...), with the library's messages. |
 | `feattext` | EMBOSS feattext: the original text of the entries of a feature file (EMBL / GenBank and GFF3 readers), with the library's messages. |

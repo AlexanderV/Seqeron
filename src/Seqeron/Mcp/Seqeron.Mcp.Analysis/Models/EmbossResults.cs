@@ -59,6 +59,9 @@ public record SeqretToolResult(string SequenceText, string FeatureText, int Sequ
 /// <summary>Result of <c>maskfeat</c>: the text of the sequence output file (FASTA), the number of sequences written and the messages the library printed.</summary>
 public record MaskfeatToolResult(string SequenceText, int Sequences, string[] Messages);
 
+/// <summary>Result of <c>descseq</c>: the text of the sequence output file (FASTA), the number of sequences written and the messages the library printed.</summary>
+public record DescseqToolResult(string SequenceText, int Sequences, string[] Messages);
+
 /// <summary>Result of <c>feattext</c>: the text of every entry the feature readers read (only the EMBL / GenBank and the GFF3 readers keep it), the number of tables and the messages the library printed.</summary>
 public record FeattextToolResult(string Text, int Tables, string[] Messages);
 

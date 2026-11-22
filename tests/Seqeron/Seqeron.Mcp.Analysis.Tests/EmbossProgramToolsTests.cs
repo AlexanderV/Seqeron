@@ -211,6 +211,17 @@ public class EmbossProgramToolsTests
     }
 
     [Test]
+    public void Descseq_ReplacesOrAppendsNameAndDescription_AsTheProgram()
+    {
+        // descseq 6.6.0 (A5-8c3g, F250)
+        const string fa = ">seq1 old words\nACGTACGT\n>seq2\nTTTT\n";
+        Assert.That(AnalysisTools.Descseq(fa, name: "New", description: "new text").SequenceText, Is.EqualTo(">New new text\nACGTACGT\n"));
+        Assert.That(AnalysisTools.Descseq(fa, name: "_x", description: " more", append: true).SequenceText, Is.EqualTo(">seq1_x old words more\nACGTACGT\n"));
+        Assert.That(AnalysisTools.Descseq(fa).SequenceText, Is.EqualTo(">seq1 old words\nACGTACGT\n"));
+        Assert.That(() => AnalysisTools.Descseq(" "), Throws.ArgumentException);
+    }
+
+    [Test]
     public void Diffseq_FeaturesFromSeparateFiles_AsTheProgram()
     {
         // diffseq 6.6.0 a.fa b.fa -wordsize 5 -ufo1 f1.gff -ufo2 swiss::f2.dat (A5-8c3e, F241): the features of the sequences come from the files, whatever their format

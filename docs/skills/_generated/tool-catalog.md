@@ -92,7 +92,7 @@
 | `write_big_alignment` | `AlignmentCoordinateFormats.WriteBigBed / WriteBigMaf / WriteBigPsl` | [doc](../../mcp/tools/alignment/write_big_alignment.md) |
 | `write_coordinate_alignment` | `AlignmentCoordinateFormats.Write` | [doc](../../mcp/tools/alignment/write_coordinate_alignment.md) |
 
-## Analysis (179 tools)
+## Analysis (180 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -121,6 +121,7 @@
 | `delta2blocks` | `MummerDelta2Blocks.Run` | [doc](../../mcp/tools/analysis/delta2blocks.md) |
 | `delta2maf` | `MummerDelta2Maf.Run` | [doc](../../mcp/tools/analysis/delta2maf.md) |
 | `delta_filter` | `MummerDeltaFilter.Run` | [doc](../../mcp/tools/analysis/delta_filter.md) |
+| `descseq` | `EmbossDescseqPrograms.Descseq` | [doc](../../mcp/tools/analysis/descseq.md) |
 | `detect_pseudoknots` | `RnaSecondaryStructure.DetectPseudoknots` | [doc](../../mcp/tools/analysis/detect_pseudoknots.md) |
 | `detect_rearrangements` | `ComparativeGenomics.DetectRearrangements` | [doc](../../mcp/tools/analysis/detect_rearrangements.md) |
 | `diffseq` | `GenomicAnalyzer.Diffseq` | [doc](../../mcp/tools/analysis/diffseq.md) |

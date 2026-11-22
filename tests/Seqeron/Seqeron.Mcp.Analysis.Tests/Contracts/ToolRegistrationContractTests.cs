@@ -118,6 +118,7 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "feattext",
         "seqret",
         "maskfeat",
+        "descseq",
         "kmers_with_min_count",
         "lempel_ziv_complexity",
         "longdust_score",

@@ -756,6 +756,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/MummerDeltaFilter.cs"
   },
   {
+    "tool": "descseq",
+    "server": "Analysis",
+    "methodId": "EmbossDescseqPrograms.Descseq",
+    "docPath": "docs/mcp/tools/analysis/descseq.md",
+    "sourceLink": ""
+  },
+  {
     "tool": "detect_pseudoknots",
     "server": "Analysis",
     "methodId": "RnaSecondaryStructure.DetectPseudoknots",
