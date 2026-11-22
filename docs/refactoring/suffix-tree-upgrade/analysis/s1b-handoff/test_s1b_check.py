@@ -139,6 +139,25 @@ class CheckerTests(unittest.TestCase):
             self.assertEqual(code, 1, section + '\n' + out)
             self.assertTrue([x for x in lines(out, 'FAIL') if 'missing' in x and section in x], section + '\n' + out)
 
+    def test_an_emptied_section_fails_like_a_missing_one(self):
+        # found by the orchestrator's doctored forms: "rss": {} skipped R1 and R2 and the form passed
+        for section in ('build', 'rss', 'container', 'verify', 'structure', 'queries', 'input'):
+            f = form()
+            f['runs']['genome-n100000000'][section] = {}
+            code, out = check(f)
+            self.assertEqual(code, 1, section + '\n' + out)
+            self.assertTrue([x for x in lines(out, 'FAIL') if 'missing' in x and section in x], section + '\n' + out)
+            self.assertNotIn('Traceback', out)
+
+    def test_a_section_that_is_not_an_object_fails_like_a_missing_one(self):
+        for section in ('build', 'rss', 'container', 'verify', 'input'):
+            for bad in (None, [], 'x', 0):
+                f = form()
+                f['runs']['genome-n100000000'][section] = bad
+                code, out = check(f)
+                self.assertEqual(code, 1, f'{section}={bad!r}\n' + out)
+                self.assertNotIn('Traceback', out)
+
     def test_a_missing_field_inside_a_section_fails_not_crashes(self):
         f = form()
         del f['runs']['genome-n100000000']['rss']['in_process_peak_mb']

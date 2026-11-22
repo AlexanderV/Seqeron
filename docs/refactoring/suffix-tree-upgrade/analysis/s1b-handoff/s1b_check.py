@@ -100,8 +100,9 @@ def check_run(label, run, rep, table, others):
     n = run.get('n') if num(run.get('n')) else None
     print(f"run {label} ({run.get('kind')}, n = {n:,}, resume {'on' if run.get('resume') else 'off'})" if n else f'run {label}')
     for section in ('input', 'build', 'rss', 'container', 'verify', 'structure', 'queries'):
-        if not isinstance(run.get(section), dict):
-            rep.line('FAIL', section[:1].upper(), f"missing section '{section}' in run {label}")
+        if not isinstance(run.get(section), dict) or not run.get(section):
+            # an emptied section ({}) is as good as a missing one: the gates below skip a falsy section, so without this line "rss": {} passed
+            rep.line('FAIL', section[:1].upper(), f"missing section '{section}' in run {label}" + (' (it is empty)' if isinstance(run.get(section), dict) else ''))
     if n is None:
         rep.line('FAIL', 'B1', f"missing 'n' in run {label}")
         return
