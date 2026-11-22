@@ -29,6 +29,7 @@ placeholder
 | `outputFormat` | string | No | The output feature format (-offormat): gff3 (default), gff, gff2, bed, embl, em, genbank, gb, ddbj, refseq, refseqp, pir, nbrf, swiss, sw, swissprot, uniprot, dasgff, draw, debug. |
 | `featureBegin` | integer | No | -fbegin: the first table is cut to this range start (default 1; negative counts from the end). |
 | `featureEnd` | integer | No | -fend: the first table is cut to this range end (default: its length). |
+| `files` | object | No | More files by name (file name -> text) that featuresValue may name: a list file ('@list' or 'list::list': one query per word of a line, '#' starts a comment, the queries are files with an optional 'format::' prefix and [begin:end] suffix, or lists again), the files the list names; a file that is not here does not exist. 'asis::' is refused for features as the program refuses it. |
 
 ## Output Schema
 

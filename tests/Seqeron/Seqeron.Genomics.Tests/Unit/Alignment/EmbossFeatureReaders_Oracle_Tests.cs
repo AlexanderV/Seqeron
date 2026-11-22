@@ -447,6 +447,81 @@ public class EmbossFeatureReaders_Oracle_Tests
         Assert.That(hang, Is.GreaterThan(0));
     }
 
+    /// <summary>
+    /// A5-8c3f (F247): the list forms of the <c>features</c> input (<c>@listfile</c>, <c>list::listfile</c>, nested lists, comments, bad records, missing files, formats and ranges of the items) and the refusal of <c>asis::</c> equal
+    /// <c>featcopy -features SPEC</c> byte for byte with its messages (TestData/Alignment/featlist_oracle.jsonl.gz, <c>generate_featread_oracle.py --list</c>).
+    /// </summary>
+    [Test]
+    public void FeaturesInput_ListForms_EqualFeatcopy_AllRows()
+    {
+        const string name = "Seqeron.Genomics.Tests.TestData.Alignment.featlist_oracle.jsonl.gz";
+        using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(name) ?? throw new InvalidOperationException($"Embedded oracle '{name}' not found.");
+        using var gz = new GZipStream(stream, CompressionMode.Decompress);
+        using var reader = new StreamReader(gz);
+        var failures = new List<string>();
+        int rows = 0, hang = 0, written = 0;
+        string? line;
+        while ((line = reader.ReadLine()) is not null)
+        {
+            var j = JsonDocument.Parse(line).RootElement;
+            rows++;
+            var extra = j.GetProperty("extra").EnumerateArray().Select(x => x.GetString()!).ToList();
+            int fbegin = 1;
+            int? fend = null;
+            for (int i = 0; i + 1 < extra.Count; i += 2)
+            {
+                if (extra[i] == "-fbegin1") fbegin = int.Parse(extra[i + 1], System.Globalization.CultureInfo.InvariantCulture);
+                else if (extra[i] == "-fend1") fend = int.Parse(extra[i + 1], System.Globalization.CultureInfo.InvariantCulture);
+            }
+
+            var files = j.GetProperty("files").EnumerateObject().ToDictionary(p => p.Name, p => p.Value.GetString()!);
+            string format = j.GetProperty("format").GetString()!;
+            string expected = j.GetProperty("out").GetString()!;
+            string id = $"row {j.GetProperty("id")} ({j.GetProperty("spec").GetString()} {format} {string.Join(' ', extra)})";
+            var request = new EmbossFeatcopyRequest(j.GetProperty("spec").GetString()!, files, fbegin, fend, "out.dat", format, null, DateTimeOffset.FromUnixTimeSeconds(j.GetProperty("epoch").GetInt64()).UtcDateTime);
+            string[] eLines = [.. j.GetProperty("err").GetString()!.Split('\n').Where(l => l.Length > 0)];
+            try
+            {
+                var got = EmbossFeaturePrograms.Featcopy(request);
+                if (j.GetProperty("hang").GetBoolean())
+                {
+                    failures.Add($"{id}: the program never stops, the port returned");
+                    continue;
+                }
+
+                string[] gLines = [.. got.Messages.SelectMany(m => m.Split('\n')).Where(l => l.Length > 0)];
+                if (j.GetProperty("rc").GetInt32() != 0)
+                    failures.Add($"{id}: the program died, the port returned");
+                else if (got.Text != expected)
+                    failures.Add($"{id}: output differs at {FirstDifference(got.Text, expected)}");
+                else if (!eLines.SequenceEqual(gLines))
+                    failures.Add($"{id}: messages '{string.Join('|', gLines)}' expected '{string.Join('|', eLines)}'");
+                else if (expected.Length > 0)
+                    written++;
+            }
+            catch (EmbossFeatureDiedException e)
+            {
+                string[] gLines = [.. e.Errors.SelectMany(m => m.Split('\n')).Append(e.Message).Where(l => l.Length > 0)];
+                if (j.GetProperty("rc").GetInt32() != 1)
+                    failures.Add($"{id}: the port died, the program did not ({e.Message})");
+                else if (!eLines.SequenceEqual(gLines))
+                    failures.Add($"{id}: messages '{string.Join('|', gLines)}' expected '{string.Join('|', eLines)}'");
+            }
+            catch (InvalidOperationException) when (j.GetProperty("hang").GetBoolean())
+            {
+                hang++;
+            }
+            catch (Exception e)
+            {
+                failures.Add($"{id}: {e.GetType().Name}: {e.Message}");
+            }
+        }
+
+        Assert.That(failures, Is.Empty, $"{failures.Count} of {rows}:\n" + string.Join("\n", failures.Take(12)));
+        Assert.That(rows, Is.GreaterThanOrEqualTo(500));
+        Assert.That(written, Is.GreaterThanOrEqualTo(200), "runs that wrote tables");
+    }
+
     private static string FirstDifference(string got, string expected)
     {
         int i = 0;

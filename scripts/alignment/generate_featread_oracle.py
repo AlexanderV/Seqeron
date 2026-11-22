@@ -535,6 +535,92 @@ if __name__ == '__main__' and len(sys.argv) > 1 and sys.argv[1] == '--text':
     sys.exit(0)
 
 
+def main_list(out, n, seed):
+    """A5-8c3f (B09 F247): featcopy -features SPEC where SPEC is `@list`, `list::list`, `asis::...`, nested lists, lists with comments / bad records / missing files / formats / ranges (n runs)"""
+    import resource
+    rnd = random.Random(seed)
+    rows = []
+    with tempfile.TemporaryDirectory() as d:
+        shim = os.path.join(d, 'faketime.so')
+        subprocess.run(['gcc', '-shared', '-fPIC', '-o', shim, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'faketime.c')], check=True)
+        work = os.path.join(d, 'w'); os.mkdir(work)
+
+        def limit():
+            resource.setrlimit(resource.RLIMIT_FSIZE, (4 << 20, 4 << 20))
+        while len(rows) < n:
+            files = {}
+            nf = rnd.choice([1, 2, 3, 4])
+            names = []
+            for i in range(nf):
+                kind = rnd.choice(KINDS)
+                if rnd.random() < 0.7: kind = rnd.choice(['embl', 'genbank', 'gff3', 'refseq', 'gff3', 'embl'])
+                t = make(rnd, kind)
+                if rnd.random() < 0.08: t = damaged(rnd, t)
+                nm = 'f%d.dat' % i
+                files[nm] = t; names.append((nm, kind))
+
+            def item(allow_list=True):
+                r = rnd.random()
+                nm, kind = rnd.choice(names)
+                if r < 0.5: return nm
+                if r < 0.65: return '%s::%s' % (FMTNAME[kind], nm)
+                if r < 0.72: return '%s[1:%d]' % (nm, rnd.randint(20, 200))
+                if r < 0.78: return 'missing%d.dat' % rnd.randint(1, 3)
+                if r < 0.83: return rnd.choice(['bogus::' + nm, 'gff3::' + nm, 'embl::' + nm, 'asis::ACGT', 'list::', '@'])
+                if allow_list and r < 0.93 and 'l1' in files: return rnd.choice(['@l1', 'list::l1', 'LIST:l1'])
+                return nm
+            lists = rnd.choice([0, 1, 1, 2])
+            if lists >= 1:
+                body = []
+                for _ in range(rnd.choice([1, 2, 3, 5])):
+                    r = rnd.random()
+                    if r < 0.12: body.append('# a comment')
+                    elif r < 0.18: body.append('')
+                    elif r < 0.26: body.append(item(False) + ' # trailing comment')
+                    elif r < 0.32: body.append(rnd.choice(['two words', 'f0.dat extra', '  indented.dat', 'a b c']))
+                    else: body.append(item(False))
+                files['l1'] = '\n'.join(body) + rnd.choice(['\n', '', '\r\n'])
+            if lists >= 2:
+                body = [item(True) for _ in range(rnd.choice([1, 2, 3]))]
+                if rnd.random() < 0.1: body.append('@l2')
+                files['l2'] = '\n'.join(body) + '\n'
+            r = rnd.random()
+            if lists == 0: spec = item(False)
+            elif lists == 2 and r < 0.5: spec = rnd.choice(['@l2', 'list::l2', 'LIST::l2'])
+            elif r < 0.6: spec = rnd.choice(['@l1', 'list::l1', 'List:l1', '@ l1', ' @l1 '])
+            elif r < 0.7: spec = rnd.choice(['embl::@l1', 'gff3::list::l1', 'genbank::@l1', 'bogus::@l1'])
+            elif r < 0.75: spec = '@l1[1:100]'
+            elif r < 0.78: spec = '@missinglist'
+            else: spec = '@l1'
+            fmt = rnd.choice(['gff3', 'debug', 'gff3', 'embl'])
+            extra = []
+            if rnd.random() < 0.15: extra = ['-fbegin1', str(rnd.randint(1, 60)), '-fend1', str(rnd.randint(60, 200))]
+            for nme in os.listdir(work): os.remove(os.path.join(work, nme))
+            for nm, t in files.items(): open(os.path.join(work, nm), 'w', newline='\n', encoding='latin-1').write(t)
+            env = dict(os.environ, LD_PRELOAD=shim, FAKE_EPOCH='978307200')
+            hang = False
+            try:
+                p = subprocess.run(['featcopy', '-features', spec] + extra + ['-outfeat', 'out.dat', '-offormat', fmt], cwd=work, capture_output=True, timeout=4, env=env, preexec_fn=limit)
+                rc, err = p.returncode, p.stderr.decode('latin-1')
+                if rc == -25: hang = True
+            except subprocess.TimeoutExpired:
+                rc, err, hang = -9, '', True
+                subprocess.run(['pkill', '-9', 'featcopy'])
+            q = os.path.join(work, 'out.dat')
+            outtext = open(q, encoding='latin-1', newline='').read() if os.path.exists(q) and not hang else ''
+            if err.startswith('Read and write a feature table\n'): err = err[len('Read and write a feature table\n'):]
+            rows.append({'id': len(rows), 'spec': spec, 'files': files, 'extra': extra, 'format': fmt, 'epoch': 978307200, 'rc': rc, 'out': outtext, 'err': err, 'hang': hang})
+    with gzip.open(out, 'wt', encoding='utf-8', newline='\n', compresslevel=9) as fh:
+        for r in rows: fh.write(json.dumps(r, ensure_ascii=True) + '\n')
+    from collections import Counter
+    print(len(rows), 'rows;', sorted(Counter(('hang' if r['hang'] else 'out' if r['out'] else 'none', r['rc']) for r in rows).items()))
+
+
+if __name__ == '__main__' and len(sys.argv) > 1 and sys.argv[1] == '--list':
+    main_list(sys.argv[2], int(sys.argv[3]), int(sys.argv[4]))
+    sys.exit(0)
+
+
 if __name__ == '__main__' and len(sys.argv) > 1 and sys.argv[1] == '--merge':
     main_merge(sys.argv[2], int(sys.argv[3]), int(sys.argv[4]))
     sys.exit(0)

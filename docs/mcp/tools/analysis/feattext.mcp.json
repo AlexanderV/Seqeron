@@ -17,6 +17,10 @@
       "featuresValue": {
         "type": "string",
         "description": "The value of -features: 'format::' prefix and [begin:end] suffix are read as the program reads them; default the file itself."
+      },
+      "files": {
+        "type": "object",
+        "description": "More files by name (file name -> text) that featuresValue may name, list files included ('@list')."
       }
     },
     "required": [

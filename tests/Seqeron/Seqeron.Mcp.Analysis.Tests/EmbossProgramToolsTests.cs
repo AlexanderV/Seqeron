@@ -138,6 +138,23 @@ public class EmbossProgramToolsTests
     }
 
     [Test]
+    public void Featcopy_ListFilesAsFeatureInput_AsTheProgram()
+    {
+        // featcopy 6.6.0 -features @list (A5-8c3f, F247): the words of a list file are queries, a '#' starts a comment, a missing file is an error message and the list goes on
+        const string one = "##gff-version 3\n##sequence-region seq1 1 100\nseq1\tsrc\tgene\t10\t50\t.\t+\t.\tID=g1\n";
+        const string two = "##gff-version 3\n##sequence-region seq2 1 100\nseq2\tsrc\texon\t20\t30\t.\t+\t.\tID=e1\n";
+        var files = new Dictionary<string, string> { ["a.gff"] = one, ["b.gff"] = two, ["l.txt"] = "# the files\na.gff\nmissing.gff\nb.gff # last\n" };
+        var bed = AnalysisTools.Featcopy(one, "@l.txt", "bed", 1, null, default, files);
+        Assert.That(bed.Text, Is.EqualTo("track name=seq1 description=\"EMBOSS:6.6.0.0\" useScore=0\nseq1\t9\t49\tgene\t0\t+\t9\t49\t0\t1\t0\t41\ntrack name=seq2 description=\"EMBOSS:6.6.0.0\" useScore=0\nseq2\t19\t29\texon\t0\t+\t19\t29\t0\t1\t0\t11\n"));
+        var all = AnalysisTools.Featcopy(one, "@l.txt", "gff3", 1, null, default, files);
+        Assert.That(all.Tables, Is.EqualTo(2));
+        Assert.That(all.Messages, Does.Contain("Error: Failed to open filename 'missing.gff'").And.Contain("Error: Failed to read data data 'missing.gff'"));
+        Assert.That(all.Text, Does.Contain("seq1\tsrc\tgene\t10\t50").And.Contain("seq2\tsrc\texon\t20\t30"));
+        Assert.That(() => AnalysisTools.Featcopy(one, "@nolist.txt", "gff3"), Throws.ArgumentException.With.Message.Contains("Bad value for '-features'"));
+        Assert.That(() => AnalysisTools.Featcopy(one, "asis::ACGT", "gff3", 1, null, default, files), Throws.ArgumentException.With.Message.Contains("asis:: not supported by datatype"));
+    }
+
+    [Test]
     public void Featmerge_CombinesTwoFeatureTables_AsTheProgram()
     {
         // featmerge 6.6.0 (A5-8c3f, F245): the features of the second table are copied into the first, which is written in the output format

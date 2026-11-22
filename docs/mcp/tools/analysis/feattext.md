@@ -26,6 +26,7 @@ placeholder
 |-----------|------|----------|-------------|
 | `features` | string | Yes | The text of the feature file (a feature table of any input format, or an EMBL / GenBank entry; several tables may follow one another). |
 | `featuresValue` | string | No | The value of -features: 'format::' prefix and [begin:end] suffix are read as the program reads them; default the file itself. |
+| `files` | object | No | More files by name (file name -> text) that featuresValue may name, list files included ('@list'). |
 
 ## Output Schema
 

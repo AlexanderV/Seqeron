@@ -31,6 +31,7 @@ placeholder
 | `outputFormat` | string | No | The output feature format (-offormat): gff3 (default), gff, gff2, bed, embl, em, genbank, gb, ddbj, refseq, refseqp, pir, nbrf, swiss, sw, swissprot, uniprot, dasgff, draw, debug. |
 | `featureBegin` | integer | No | -fbegin1: the range start of the first table (default 1). |
 | `featureEnd` | integer | No | -fend1: the range end of the first table (default: its length). |
+| `files` | object | No | More files by name (file name -> text) that featuresAValue / featuresBValue may name, list files included ('@list'). |
 
 ## Output Schema
 

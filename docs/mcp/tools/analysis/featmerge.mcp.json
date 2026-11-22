@@ -39,6 +39,10 @@
       "featureEnd": {
         "type": "integer",
         "description": "-fend1: the range end of the first table (default: its length)."
+      },
+      "files": {
+        "type": "object",
+        "description": "More files by name (file name -> text) that featuresAValue / featuresBValue may name, list files included ('@list')."
       }
     },
     "required": [

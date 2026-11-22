@@ -18,15 +18,26 @@ internal sealed class EmbossFeatureInput
     private static readonly Regex RegFmt = new("^([A-Za-z0-9-]*)::(.*)$", RegexOptions.CultureInvariant | RegexOptions.Singleline);
     private static readonly Regex RegRange = new(@"^(.*)[[](-?[0-9]*):(-?[0-9]*)(:(r)?)?[]]$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 
-    private readonly EmbossFeatureStream _stream = null!;
+    private static readonly Regex RegList = new("^(@|[Ll][Ii][Ss][Tt]:+)([^:].*)$", RegexOptions.CultureInvariant | RegexOptions.Singleline);
+    private static readonly Regex RegTrailingColons = new("^([^:]+):+$", RegexOptions.CultureInvariant | RegexOptions.Singleline);
+    private static readonly Regex RegSpecial = new("^(@|[Ll][Ii][Ss][Tt]:+|[Aa][Ss][Ii][Ss]:+)", RegexOptions.CultureInvariant);
+    private static readonly Regex RegAsis = new("^[Aa][Ss][Ii][Ss]:+([^:].*)$", RegexOptions.CultureInvariant | RegexOptions.Singleline);
+
+    private readonly Func<string, string?> _files;
     private readonly EmbossFeatureReadContext _context;
+    private readonly List<(string Ufo, int Format)> _list = [];
     private readonly EmbossSeqFeatureTable? _first;
+    private EmbossFeatureStream? _stream;
+    private string _qry = "";
+    private int _format;
+    private int _depth;
+    private int _expansions;
     private bool _firstReturned;
 
     /// <summary>The messages the library printed (<c>Warning: ...</c>, <c>Error: ...</c>) so far, in order.</summary>
     public IReadOnlyList<string> Errors => _context.Messages;
 
-    /// <param name="value">The value of the <c>-features</c> parameter.</param>
+    /// <param name="value">The value of the <c>-features</c> parameter: a file, <c>format::file</c>, <c>file[begin:end:r]</c>, <c>@listfile</c> or <c>list::listfile</c> (the lines of a list file are values of the same kinds: <c>#</c> starts a comment, a line has one word).</param>
     /// <param name="files">The files by name: null when the file does not exist.</param>
     /// <param name="fbegin">The value of <c>-fbegin</c> (default 1).</param>
     /// <param name="fend">The value of <c>-fend</c> (default: the length of the first table).</param>
@@ -37,13 +48,14 @@ internal sealed class EmbossFeatureInput
     public EmbossFeatureInput(string value, Func<string, string?> files, int fbegin, int? fend, EmbossFeatureReadContext context, string parameter = "features", int attempts = 2)
     {
         _context = context;
+        _files = files;
         for (int attempt = 0; attempt < attempts && _first is null; attempt++)
         {
-            var stream = Open(value, files);
-            if (stream is null)
-                continue;
-            _stream = stream;
-            _first = stream.Next();
+            _qry = value;                                // ajFeattabinQryS
+            _stream = null;
+            _format = 0;
+            _list.Clear();
+            _first = Read();
         }
 
         if (_first is null)
@@ -54,39 +66,156 @@ internal sealed class EmbossFeatureInput
         _first.End = unchecked((uint)PositionOf(len, (int)_first.Start, end));
     }
 
-    // one attempt of the ACD: the query string is parsed (ajQuerystrParseFormat: a format name that is none is an error, twice) and the file opened
-    private EmbossFeatureStream? Open(string value, Func<string, string?> files)
+    // ajFeattabinRead: the next table of the open file; when there is none (or no file yet) the next query of the list is processed, and so on
+    private EmbossSeqFeatureTable? Read()
+    {
+        bool listdata = false;
+        EmbossSeqFeatureTable? table;
+        if (_stream is not null)
+        {
+            table = _stream.Next();
+        }
+        else if (_list.Count > 0)
+        {
+            listdata = true;
+            Pop();
+            if (!Process(_qry) && _list.Count == 0)
+                return null;
+            table = _stream?.Next();
+        }
+        else
+        {
+            if (!Process(_qry) && _list.Count == 0)
+                return null;
+            if (_list.Count > 0)
+                listdata = true;
+            table = _stream?.Next();
+        }
+
+        while (table is null && _list.Count > 0)
+        {
+            if (listdata)
+                _context.Error($"Failed to read data data '{_qry}'");
+            listdata = true;
+            Pop();
+            if (!Process(_qry))
+                continue;
+            table = _stream?.Next();
+        }
+
+        if (table is null && listdata)
+            _context.Error($"Failed to read data data '{_qry}'");
+        return table;
+    }
+
+    private void Pop()
+    {
+        (_qry, _format) = _list[0];
+        _list.RemoveAt(0);
+    }
+
+    // feattabinQryProcess: "format::" (not for a list or asis), "[begin:end:r]" range, "@list" / "list::", then the file (ajQuerystrParseRead: "asis::" is refused for features)
+    private bool Process(string value)
     {
         string qry = value.Trim(' ', '\t', '\n');
-        int format = 0;
-        var m = RegFmt.Match(qry);
-        if (m.Success)
+        if (!RegSpecial.IsMatch(qry))
         {
-            string name = m.Groups[1].Value.Length > 0 ? m.Groups[1].Value : "unknown";
-            qry = m.Groups[2].Value;
-            int f = EmbossFeatureFormats.Find(name);
-            if (f >= 0)
+            var m = RegFmt.Match(qry);
+            if (m.Success)
             {
-                format = f;
-            }
-            else
-            {
-                _context.Error($"Unknown input format '{name}'");
-                _context.Error($"Unknown input format '{name}'\n");
+                string name = m.Groups[1].Value.Length > 0 ? m.Groups[1].Value : "unknown";
+                qry = m.Groups[2].Value;
+                int f = EmbossFeatureFormats.Find(name);
+                if (f >= 0)
+                {
+                    _format = f;
+                }
+                else
+                {
+                    _context.Error($"Unknown input format '{name}'");
+                    _context.Error($"Unknown input format '{name}'\n");
+                }
             }
         }
 
         var mr = RegRange.Match(qry);
         if (mr.Success)
             qry = mr.Groups[1].Value;
-        string? text = files(qry);
+        qry = qry.Trim(' ', '\t', '\n');
+        var ml = RegList.Match(qry);
+        if (ml.Success)
+            return ListProcess(ml.Groups[2].Value);
+        if (RegAsis.IsMatch(qry))
+        {
+            _context.Error("Unknown input format 'asis'");
+            _context.Error($"asis:: not supported by datatype for '{qry}'");
+            return false;
+        }
+
+        qry = RegTrailingColons.Replace(qry, "$1");               // "list::", "asis:" and "db:" with no query are the name before the colons
+        string? text = _files(qry);
         if (text is null)
         {
             _context.Error($"Failed to open filename '{qry}'");
-            return null;
+            return false;
         }
 
-        return new EmbossFeatureStream(text, format, _context);
+        _stream = new EmbossFeatureStream(text, _format, _context);
+        return true;
+    }
+
+    // feattabinListProcess: the words of the list file are queries that are appended to the pending ones; the first of them is processed
+    private bool ListProcess(string listfile)
+    {
+        if (++_expansions > 2000)
+            throw new InvalidOperationException("The reference program never stops here: a list file refers to itself (the depth check of the library sees only the nesting of one expansion, not the expansion of a list item read later).");
+        if (++_depth > 16)
+            throw new EmbossFeatureDiedException("Died: " + _context.Program + " terminated: Query list too deep", _context.Messages);
+        try
+        {
+            string? text = _files(listfile);
+            if (text is null)
+            {
+                _context.Error($"Failed to open list file '{listfile}'");
+                return false;
+            }
+
+            var nodes = new List<(string Ufo, int Format)>();
+            string[] lines = text.Split('\n');
+            int count = lines.Length > 0 && lines[^1].Length == 0 ? lines.Length - 1 : lines.Length;
+            for (int i = 0; i < count; i++)
+            {
+                string line = lines[i].TrimEnd('\r');
+                int hash = line.IndexOf('#', StringComparison.Ordinal);
+                if (hash >= 0)
+                    line = line[..hash];
+                int a = 0;
+                while (a < line.Length && EmbossSeqFeatureTable.IsCSpace(line[a]))
+                    a++;
+                if (a >= line.Length)
+                    continue;
+                int b = a;
+                while (b < line.Length && !EmbossSeqFeatureTable.IsCSpace(line[b]))
+                    b++;
+                int r = b;
+                while (r < line.Length && EmbossSeqFeatureTable.IsCSpace(line[r]))
+                    r++;
+                if (r < line.Length)
+                    _context.Error($"Bad record {i + 1} in list file '{listfile}'\n'{line}'");
+                else
+                    nodes.Add((line[a..b], _format));
+            }
+
+            _list.InsertRange(0, nodes);                  // ajListPushlist: the new queries go to the START of the pending ones
+            if (_list.Count == 0)
+                return false;
+            Pop();
+            return Process(_qry);
+        }
+        finally
+        {
+            _depth--;
+        }
     }
 
     // ajFeattablePosII (unsigned: a negative result is a huge number, which is then cut to the length)
@@ -113,7 +242,7 @@ internal sealed class EmbossFeatureInput
             return _first;
         }
 
-        return _stream.Next();
+        return Read();
     }
 
     /// <summary>The state of the feature library the tables are read with.</summary>
