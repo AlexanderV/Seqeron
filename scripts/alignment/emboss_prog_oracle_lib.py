@@ -69,11 +69,23 @@ def convert(text, fmt, d):
     return r.stdout.decode('latin-1') if r.returncode == 0 and r.stdout else text
 
 
-def run(prog, args, files, work, timeout=8, env=None):
-    """runs the program; returns (rc, stdout, stderr, outfiles, hang)"""
+def clock_shim(d):
+    """compiles scripts/alignment/faketime.c (time() = $FAKE_EPOCH, gettimeofday() = $FAKE_EPOCH / $FAKE_USEC) into d and returns its path"""
+    shim = os.path.join(d, 'faketime.so')
+    subprocess.run(['gcc', '-shared', '-fPIC', '-o', shim, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'faketime.c'), '-ldl'], check=True)
+    return shim
+
+
+def run(prog, args, files, work, timeout=8, env=None, timetoday=False):
+    """runs the program; returns (rc, stdout, stderr, outfiles, hang). timetoday: the EMBOSS variable of that name is defined (HOME = the work directory with a .embossrc that holds `SET timetoday 1`)"""
     for nme in os.listdir(work):
         path = os.path.join(work, nme)
         shutil.rmtree(path) if os.path.isdir(path) else os.remove(path)
+    if timetoday:
+        open(os.path.join(work, '.embossrc'), 'w').write('SET timetoday 1\n')
+        env = dict(env or os.environ, HOME=work)
+        files = dict(files)
+        files['.embossrc'] = 'SET timetoday 1\n'
     for k, v in files.items():
         if '/' in k:
             os.makedirs(os.path.join(work, os.path.dirname(k)), exist_ok=True)
@@ -105,6 +117,8 @@ def run(prog, args, files, work, timeout=8, env=None):
 
 
 def main(prog, gen, default_n=300, default_seed=20261701):
+    """gen(rnd, i, dir) -> (args, files) or (args, files, extra): extra = {'usec': N} (the microseconds gettimeofday returns when the random number generator is seeded) or {'timetoday': True}.
+    Every row also holds 'epoch': the date of the run (time() of the run; the writers of genbank / embl / ... print it), drawn from a generator of its own so that the rows do not depend on it."""
     out = sys.argv[1]
     n = int(sys.argv[2]) if len(sys.argv) > 2 else default_n
     seed = int(sys.argv[3]) if len(sys.argv) > 3 else default_seed
@@ -115,10 +129,19 @@ def main(prog, gen, default_n=300, default_seed=20261701):
         os.mkdir(work)
         gdir = os.path.join(d, 'g')
         os.mkdir(gdir)
+        shim = clock_shim(d)
         while len(rows) < n:
-            args, files = gen(rnd, len(rows), gdir)
-            rc, o, e, outfiles, hang = run(prog, args, files, work)
-            rows.append({'id': len(rows), 'prog': prog, 'args': args, 'files': files, 'rc': rc, 'out': o, 'err': e, 'outfiles': outfiles, 'hang': hang})
+            got = gen(rnd, len(rows), gdir)
+            args, files = got[0], got[1]
+            extra = got[2] if len(got) > 2 else {}
+            epoch = random.Random(seed * 1000003 + len(rows)).randint(978307200, 2051222400)
+            env = dict(os.environ, LD_PRELOAD=shim, FAKE_EPOCH=str(epoch), TZ='UTC')
+            if 'usec' in extra:
+                env['FAKE_USEC'] = str(extra['usec'])
+            rc, o, e, outfiles, hang = run(prog, args, files, work, env=env, timetoday=extra.get('timetoday', False))
+            row = {'id': len(rows), 'prog': prog, 'args': args, 'files': {k: v for k, v in files.items()}, 'rc': rc, 'out': o, 'err': e, 'outfiles': outfiles, 'hang': hang, 'epoch': epoch}
+            row.update({k: v for k, v in extra.items()})
+            rows.append(row)
     with gzip.open(out, 'wt', encoding='utf-8', newline='\n', compresslevel=9) as fh:
         for r in rows:
             fh.write(json.dumps(r, ensure_ascii=True) + '\n')

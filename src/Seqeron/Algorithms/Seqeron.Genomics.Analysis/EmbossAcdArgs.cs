@@ -169,6 +169,6 @@ internal sealed class EmbossAcdArgs
         if (single is not null && !AcdCommandLine.TryToBool(single, out isSingle))
             throw Die("ossingle", $"Error: Invalid boolean value '{single}'");
 
-        return new EmbossOutseqOptions(Raw(master) ?? "stdout", format, isSingle, RawAssoc(master, "osdirectory"), RawAssoc(master, "osextension"), RawAssoc(master, "osdbname"), RawAssoc(master, "osname")) { CommandLine = CommandLine };
+        return new EmbossOutseqOptions(Raw(master) ?? "stdout", format, isSingle, RawAssoc(master, "osdirectory"), RawAssoc(master, "osextension"), RawAssoc(master, "osdbname"), RawAssoc(master, "osname")) { CommandLine = CommandLine, RunDate = EmbossRunEnvironment.Current.Now };
     }
 }

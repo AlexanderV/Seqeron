@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Unit.Alignment;
 
 /// <summary>
 /// B09 WP61 (F280): the EMBOSS 6.6.0 sequence programs run from their command line (<see cref="EmbossProgramRunner"/>) equal the installed programs byte for byte: the standard output, the error stream, the exit status and
-/// every file the program writes, on the rows of TestData/Alignment/emboss_prog_&lt;program&gt;_oracle.jsonl.gz (scripts/alignment/emboss_prog_oracle_lib.py and the generate_emboss_prog_*_oracle.py scripts of the programs:
+/// every file the program writes (with the clock of the recorded run: <see cref="EmbossRunEnvironment"/>), on the rows of TestData/Alignment/emboss_prog_&lt;program&gt;_oracle.jsonl.gz (scripts/alignment/emboss_prog_oracle_lib.py and the generate_emboss_prog_*_oracle.py scripts of the programs:
 /// every row is one run of <c>&lt;program&gt; -auto ARGS</c> in a work directory that holds the input files). A row on which the reference program dies by a signal or never ends must be refused by the port
 /// (<see cref="InvalidOperationException"/>: the result is not defined).
 /// </summary>
@@ -49,9 +49,14 @@ public class EmbossPrograms_Oracle_Tests
             int rc = j.GetProperty("rc").GetInt32();
             bool refusal = j.GetProperty("hang").GetBoolean() || rc < 0;
             string id = $"row {j.GetProperty("id")} [{string.Join(' ', args)}]";
+            // the clock of the recorded run: the date the writers print ('epoch', UTC) and, for the random programs, the microseconds of gettimeofday ('usec') or the variable timetoday
+            var clock = new EmbossRunEnvironment(
+                j.TryGetProperty("epoch", out var epoch) ? DateTimeOffset.FromUnixTimeSeconds(epoch.GetInt64()).UtcDateTime : null,
+                j.TryGetProperty("usec", out var usec) && usec.ValueKind == JsonValueKind.Number ? usec.GetInt32() : null,
+                j.TryGetProperty("timetoday", out var timetoday) && timetoday.ValueKind == JsonValueKind.True);
             try
             {
-                var r = EmbossProgramRunner.Run(program, args, files);
+                var r = EmbossProgramRunner.Run(program, args, files, clock);
                 if (refusal)
                 {
                     failures.Add($"{id}: the reference dies by a signal or never ends (status {rc}), the port returned");

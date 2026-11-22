@@ -79,13 +79,21 @@ public static class EmbossProgramRunner
     /// <summary>Runs <paramref name="program"/> with the arguments of its command line (<c>-sequence in.dat -outseq stdout -minsize 30</c>); <paramref name="files"/> are the files the program may read, by name.</summary>
     /// <exception cref="ArgumentException">An unknown program, or a qualifier the library would refuse.</exception>
     /// <exception cref="InvalidOperationException">The input is one on which the reference program never stops or dies by a fault.</exception>
-    public static EmbossRunResult Run(string program, IReadOnlyList<string> args, IReadOnlyDictionary<string, string> files)
+    public static EmbossRunResult Run(string program, IReadOnlyList<string> args, IReadOnlyDictionary<string, string> files) => Run(program, args, files, new EmbossRunEnvironment());
+
+    /// <summary>
+    /// Runs <paramref name="program"/> as <see cref="Run(string, IReadOnlyList{string}, IReadOnlyDictionary{string, string})"/> with the clock of <paramref name="environment"/>: the date the writers print and the seed of the
+    /// random programs (<c>msbar</c>, <c>shuffleseq</c>, <c>makenucseq</c>, <c>makeprotseq</c> take the microseconds of the clock as the seed).
+    /// </summary>
+    public static EmbossRunResult Run(string program, IReadOnlyList<string> args, IReadOnlyDictionary<string, string> files, EmbossRunEnvironment environment)
     {
         ArgumentNullException.ThrowIfNull(program);
+        ArgumentNullException.ThrowIfNull(environment);
         ArgumentNullException.ThrowIfNull(args);
         ArgumentNullException.ThrowIfNull(files);
         if (!Programs.TryGetValue(program, out var run))
             throw new ArgumentException($"The EMBOSS program '{program}' is not ported.", nameof(program));
+        using var scope = EmbossRunEnvironment.Enter(environment);
         return run(EmbossAcdArgs.Parse(program, args), files);
     }
 }
