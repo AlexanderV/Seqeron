@@ -195,7 +195,7 @@ public class EmbossProgramToolsTests
         Assert.That(AnalysisTools.Seqret("asis::ACGT.ACGT").SequenceText, Is.EqualTo(">asis\nACGT-ACGT\n"));
         Assert.That(AnalysisTools.Seqret(">a\nACGT\n>b\nTT\n", firstOnly: true).Sequences, Is.EqualTo(1));
         Assert.That(AnalysisTools.Seqret("CLUSTAL W (1.83) multiple sequence alignment\n\n\nseq1      ACGT\nseq2      ACGA\n\n").SequenceText, Is.EqualTo(">seq1\nACGT\n>seq2\nACGA\n"));
-        Assert.That(() => AnalysisTools.Seqret("#NEXUS\nbegin data;\n"), Throws.ArgumentException);          // an alignment format this port does not read yet
+        Assert.That(() => AnalysisTools.Seqret("AS 1 1\n"), Throws.ArgumentException);          // the ACE reader of the library dies by a segmentation fault
         Assert.That(() => AnalysisTools.Seqret(" "), Throws.ArgumentException);
     }
 
@@ -220,6 +220,18 @@ public class EmbossProgramToolsTests
         Assert.That(AnalysisTools.Descseq(fa, name: "_x", description: " more", append: true).SequenceText, Is.EqualTo(">seq1_x old words more\nACGTACGT\n"));
         Assert.That(AnalysisTools.Descseq(fa).SequenceText, Is.EqualTo(">seq1 old words\nACGTACGT\n"));
         Assert.That(() => AnalysisTools.Descseq(" "), Throws.ArgumentException);
+    }
+
+    [Test]
+    public void Seqret_WritesTheOutputFormats_AsTheProgram()
+    {
+        // seqret 6.6.0 sequence writers (A5-8c3h, F252): the entries are the ones of the installed program
+        const string fa = ">s1 desc one\nACGTACGTAC\n>s2\nTTGGCCAATT\n";
+        Assert.That(AnalysisTools.Seqret(fa, outputFormat: "pir").SequenceText, Is.EqualTo(">D1;s1\ndesc one, 10 bases\n ACGTACGTAC*\n\n>D1;s2\n, 10 bases\n TTGGCCAATT*\n\n"));
+        Assert.That(AnalysisTools.Seqret(">p1 prot\nMKVLAAGIVG\n", outputFormat: "gcg").SequenceText, Is.EqualTo("!!AA_SEQUENCE 1.0\n\nprot\n\np1  Length: 10  Type: P  Check: 4069 ..\n\n  1 MKVLAAGIVG\n\n"));
+        var single = AnalysisTools.Seqret(fa, outputFormat: "gcg", outputSingle: true, outputDirectory: "d", outputExtension: "X1");
+        Assert.That(single.SingleFiles!.Keys, Is.EquivalentTo(new[] { "d/s1.x1", "d/s2.x1" }));
+        Assert.That(() => AnalysisTools.Seqret(fa, outputFormat: "embl"), Throws.ArgumentException);          // a writer this port does not have yet
     }
 
     [Test]
