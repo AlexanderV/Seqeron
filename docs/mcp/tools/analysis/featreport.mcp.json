@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "featreport",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "EmbossFeatreportProgram.Featreport",
+  "docRef": "EmbossFeatreportProgram.cs",
+  "description": "EMBOSS 6.6.0 featreport: the first feature table of a feature file (embl, genbank, refseq, refseqp, swiss, pir, gff2, gff3, dasgff, or any: the library tries every reader) is reported for a sequence in a report format (reportFormat: gff default, gff3, embl, genbank, pir, swiss, dasgff, debug, listfile, dbmotif, diffseq, draw, restrict, excel, feattable, motif, nametable, regions, seqtable, simple, srs, summary, table, tagseq, or the report qualifiers as typed: -rformat table -raccshow -rdesshow -rscoreshow N -rstrandshow N -rusashow -rmaxall 3 -rmaxseq 2). The formats gff, gff3, embl, genbank, pir, swiss and dasgff are written by the feature writers of the library (joins, tags, flags); the others list the start, end, strand and score of the features. The features come with an optional range (featureBegin, featureEnd). Equals the installed program on 1 000 runs (every feature format, every report format, ranges, damaged files). A5-8c3h, B09 F262.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "The text of the sequence file (any input format of seqret), or a sequence as letters."
+      },
+      "features": {
+        "type": "string",
+        "description": "The text of the feature file (see the formats above)."
+      },
+      "sequenceFormat": {
+        "type": "string",
+        "description": "The input format of the sequence (-sformat); default: the program finds the format."
+      },
+      "reportFormat": {
+        "type": "string",
+        "description": "The report format name or the report qualifiers as typed (see above); default gff.",
+        "default": "gff"
+      },
+      "qualifiers": {
+        "type": "string",
+        "description": "Sequence input qualifiers as typed after the sequence on the command line: -sbegin1 -send1 -sreverse1, -slower1 -supper1 -snucleotide1 -sprotein1 -scircular1, -sformat1 F, -sid1 name, -sdbname1 db, -squick1, -iquery1 query, -ioffset1 bytes."
+      },
+      "featureBegin": {
+        "type": "integer",
+        "description": "The first position of the features to report (-fbegin2); default 1.",
+        "default": 1
+      },
+      "featureEnd": {
+        "type": "integer",
+        "description": "The last position of the features to report (-fend2); default the length of the table."
+      },
+      "files": {
+        "type": "object",
+        "description": "More files by name (file name -> text) that sequenceValue and featuresValue may name."
+      },
+      "sequenceValue": {
+        "type": "string",
+        "description": "The USA of the sequence input (-sequence): [format::]file[begin:end:r], file:id, file:field:value, file{a|b}, @list, list::list, asis::TEXT, db:id; the text of sequence is the file 'sequence.dat'."
+      },
+      "featuresValue": {
+        "type": "string",
+        "description": "The value of -features: [format::]file[begin:end:r]; the text of features is the file 'features.dat'."
+      },
+      "definitions": {
+        "type": "string",
+        "description": "The text of an EMBOSS configuration file (.embossrc) that defines databases for sequenceValue."
+      }
+    },
+    "required": [
+      "sequence",
+      "features"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "report": {
+        "type": "string",
+        "description": "The text of the report file."
+      },
+      "messages": {
+        "type": "string[]",
+        "description": "What the library printed (warnings and errors)."
+      }
+    },
+    "required": [
+      "report",
+      "messages"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "The sequence cannot be empty"
+    },
+    {
+      "code": 1001,
+      "message": "The features cannot be empty"
+    },
+    {
+      "code": 1001,
+      "message": "Bad value for '-features' and no more retries (the text is no feature file)"
+    },
+    {
+      "code": 1001,
+      "message": "Report format ... needs 7 tags (diffseq) / not supported for ... sequences"
+    },
+    {
+      "code": 1001,
+      "message": "An input on which the reference program never stops or dies by a fault is refused"
+    }
+  ],
+  "examples": [
+    {
+      "name": "The features of an EMBL entry as an Excel table",
+      "input": {
+        "sequence": "ID   X1; SV 1; linear; genomic DNA; STD; UNC; 60 BP.\nXX\nAC   X1;\nXX\nDE   test\nXX\nFH   Key             Location/Qualifiers\nFH\nFT   mRNA            1..40\nFT   exon            45..55\nSQ   Sequence 60 BP; 15 A; 15 C; 15 G; 15 T; 0 other;\n     acgtacgtac gtacgtacgt acgtacgtac gtacgtacgt acgtacgtac gtacgtacgt        60\n//\n",
+        "features": "ID   X1; SV 1; linear; genomic DNA; STD; UNC; 60 BP.\nXX\nAC   X1;\nXX\nDE   test\nXX\nFH   Key             Location/Qualifiers\nFH\nFT   mRNA            1..40\nFT   exon            45..55\nSQ   Sequence 60 BP; 15 A; 15 C; 15 G; 15 T; 0 other;\n     acgtacgtac gtacgtacgt acgtacgtac gtacgtacgt acgtacgtac gtacgtacgt        60\n//\n",
+        "reportFormat": "excel"
+      },
+      "output": {
+        "report": "SeqName\tStart\tEnd\tScore\tStrand\nX1\t1\t40\t0.000\t+\nX1\t45\t55\t0.000\t+\n",
+        "messages": []
+      }
+    }
+  ]
+}

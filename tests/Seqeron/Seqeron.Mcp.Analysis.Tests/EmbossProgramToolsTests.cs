@@ -305,6 +305,41 @@ public class EmbossProgramToolsTests
     }
 
     [Test]
+    public void Union_JoinsTheFeatures_AsTheProgram()
+    {
+        // union 6.6.0 -feature -source (A5-8c3h, F261): the features of the entries moved by the length of the entries before, one source feature per entry (tag origid)
+        const string two = "ID   Y1; SV 1; linear; genomic DNA; STD; UNC; 20 BP.\nXX\nAC   Y1;\nXX\nDE   first\nXX\nFH   Key             Location/Qualifiers\nFH\nFT   CDS             3..12\nFT                   /gene=\"a\"\nSQ   Sequence 20 BP; 5 A; 5 C; 5 G; 5 T; 0 other;\n     acgtacgtac gtacgtacgt                                                    20\n//\n"
+            + "ID   Y2; SV 1; linear; genomic DNA; STD; UNC; 20 BP.\nXX\nAC   Y2;\nXX\nDE   second\nXX\nFH   Key             Location/Qualifiers\nFH\nFT   exon            complement(1..5)\nSQ   Sequence 20 BP; 5 A; 5 C; 5 G; 5 T; 0 other;\n     gtacgtacgt gtacgtacgt                                                    20\n//\n";
+        var r = AnalysisTools.Union(two, feature: true, source: true, featureFormat: "embl");
+        Assert.That(r.SequenceText, Is.EqualTo(">Y1 Y1.1 first\nacgtacgtacgtacgtacgtgtacgtacgtgtacgtacgt\n"));
+        Assert.That(r.FeatureText, Is.EqualTo("FH   Key             Location/Qualifiers\nFH\nFT   source          1..20\nFT                   /note=\"*origid: Y1\"\nFT   CDS             3..12\nFT                   /gene=\"a\"\nFT   source          21..40\nFT                   /note=\"*origid: Y2\"\nFT   exon            complement(21..25)\n"));
+        Assert.That(AnalysisTools.Union(two).FeatureText, Is.Empty);
+    }
+
+    [Test]
+    public void Featreport_ReportsTheFeatureTable_AsTheProgram()
+    {
+        // featreport 6.6.0 (A5-8c3h, F262): the feature table of a feature file reported for a sequence (excel: no header, no date)
+        var r = AnalysisTools.Featreport(EmblWithFeatures, EmblWithFeatures, reportFormat: "excel");
+        Assert.That(r.Report, Is.EqualTo("SeqName\tStart\tEnd\tScore\tStrand\nX1\t3\t29\t0.000\t+\nX1\t1\t40\t0.000\t+\nX1\t45\t55\t0.000\t+\n"));
+        Assert.That(AnalysisTools.Featreport(EmblWithFeatures, EmblWithFeatures).Report, Does.StartWith("##gff-version 3\n##sequence-region X1 1 55\n#!Date "));
+        Assert.That(AnalysisTools.Featreport(EmblWithFeatures, EmblWithFeatures, reportFormat: "gff").Report, Does.Contain("X1\tEMBL\tbiological_region\t3\t29\t.\t+\t0\tID=X1.1;featflags=type:CDS;translation=MKV;gene=g1\n"));
+        Assert.That(() => AnalysisTools.Featreport(EmblWithFeatures, " "), Throws.ArgumentException);
+    }
+
+    [Test]
+    public void Twofeat_ReportsThePairs_AsTheProgram()
+    {
+        // twofeat 6.6.0 (A5-8c3h, F263): a mRNA feature A and an exon feature B, reported as one feature with the tags startA ... (excel: no header) or as the two features
+        var r = AnalysisTools.Twofeat(EmblWithFeatures, aType: "mRNA", bType: "exon", reportFormat: "excel");
+        Assert.That(r.Report, Is.EqualTo("SeqName\tStart\tEnd\tScore\tStrand\tstarta\tenda\tstartb\tendb\nX1\t1\t55\t0.000\t+\t1\t40\t45\t55\n"));
+        Assert.That(AnalysisTools.Twofeat(EmblWithFeatures, aType: "mRNA", bType: "exon", twoOut: true, reportFormat: "excel").Report,
+            Is.EqualTo("SeqName\tStart\tEnd\tScore\tStrand\tstarta\tenda\tstartb\tendb\nX1\t1\t40\t0.000\t+\t.\t.\t.\t.\nX1\t45\t55\t0.000\t+\t.\t.\t.\t.\n"));
+        Assert.That(AnalysisTools.Twofeat(EmblWithFeatures, aType: "mRNA", bType: "exon", overlap: "O", reportFormat: "excel").Messages, Is.EqualTo(new[] { "Warning: No hits in output report file 'stdout'" }));
+        Assert.That(() => AnalysisTools.Twofeat(" "), Throws.ArgumentException);
+    }
+
+    [Test]
     public void Union_JoinsTheSequences_AsTheProgram()
     {
         // union 6.6.0 (A5-8c3h, F253)

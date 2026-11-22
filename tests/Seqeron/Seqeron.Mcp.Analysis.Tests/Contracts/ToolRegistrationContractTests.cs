@@ -125,6 +125,8 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "extractfeat",
         "coderet",
         "showfeat",
+        "featreport",
+        "twofeat",
         "kmers_with_min_count",
         "lempel_ziv_complexity",
         "longdust_score",

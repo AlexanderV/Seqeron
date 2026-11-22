@@ -896,6 +896,13 @@
     "sourceLink": ""
   },
   {
+    "tool": "featreport",
+    "server": "Analysis",
+    "methodId": "EmbossFeatreportProgram.Featreport",
+    "docPath": "docs/mcp/tools/analysis/featreport.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossFeatreportProgram.cs"
+  },
+  {
     "tool": "feattext",
     "server": "Analysis",
     "methodId": "EmbossFeaturePrograms.Feattext",
@@ -1839,6 +1846,13 @@
     "methodId": "RnaSecondaryStructure.GetTerminalMismatchEnergy",
     "docPath": "docs/mcp/tools/analysis/terminal_mismatch_energy.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L639"
+  },
+  {
+    "tool": "twofeat",
+    "server": "Analysis",
+    "methodId": "EmbossTwofeatProgram.Twofeat",
+    "docPath": "docs/mcp/tools/analysis/twofeat.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossTwofeatProgram.cs"
   },
   {
     "tool": "union",

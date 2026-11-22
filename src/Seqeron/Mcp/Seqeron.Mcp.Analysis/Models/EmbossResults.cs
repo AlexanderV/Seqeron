@@ -57,7 +57,7 @@ public record DiffseqDifferenceItem(int Start1, int End1, int Length1, int Start
 public record SeqretToolResult(string SequenceText, string FeatureText, int Sequences, string[] Messages, IReadOnlyDictionary<string, string>? SingleFiles = null);
 
 /// <summary>Result of <c>union</c>: the text of the sequence output file, the overlap of every sequence (empty without overlapFile) and the messages the library printed.</summary>
-public record UnionToolResult(string SequenceText, string OverlapText, string[] Messages);
+public record UnionToolResult(string SequenceText, string OverlapText, string[] Messages, string FeatureText = "");
 
 /// <summary>Result of <c>seqretsplit</c>: the text of the sequence output file (empty when every sequence has a file of its own), the file of every sequence by path, the number of sequences written and the messages the library printed.</summary>
 public record SeqretsplitToolResult(string SequenceText, IReadOnlyDictionary<string, string> SingleFiles, int Sequences, string[] Messages);
@@ -70,6 +70,12 @@ public record ExtractfeatToolResult(string SequenceText, int Sequences, string[]
 
 /// <summary>Result of <c>coderet</c>: the log (the counts of every sequence), the sequence files by name (coding sequences, messenger RNAs, translations, non-coding regions) and the messages the library printed.</summary>
 public record CoderetToolResult(string Log, IReadOnlyDictionary<string, string> Files, string[] Messages);
+
+/// <summary>Result of <c>featreport</c>: the text of the report file and the messages the library printed.</summary>
+public record FeatreportToolResult(string Report, string[] Messages);
+
+/// <summary>Result of <c>twofeat</c>: the text of the report file and the messages the library printed.</summary>
+public record TwofeatToolResult(string Report, string[] Messages);
 
 /// <summary>Result of <c>showfeat</c>: the text of the output file (the features as lines of ASCII graphics), the number of sequences shown and the messages the library printed.</summary>
 public record ShowfeatToolResult(string Text, int Sequences, string[] Messages);

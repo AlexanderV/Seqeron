@@ -92,7 +92,7 @@
 | `write_big_alignment` | `AlignmentCoordinateFormats.WriteBigBed / WriteBigMaf / WriteBigPsl` | [doc](../../mcp/tools/alignment/write_big_alignment.md) |
 | `write_coordinate_alignment` | `AlignmentCoordinateFormats.Write` | [doc](../../mcp/tools/alignment/write_coordinate_alignment.md) |
 
-## Analysis (186 tools)
+## Analysis (188 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -141,6 +141,7 @@
 | `extractfeat` | `EmbossExtractfeatProgram.Extractfeat` | [doc](../../mcp/tools/analysis/extractfeat.md) |
 | `featcopy` | `EmbossFeaturePrograms.Featcopy` | [doc](../../mcp/tools/analysis/featcopy.md) |
 | `featmerge` | `EmbossFeaturePrograms.Featmerge` | [doc](../../mcp/tools/analysis/featmerge.md) |
+| `featreport` | `EmbossFeatreportProgram.Featreport` | [doc](../../mcp/tools/analysis/featreport.md) |
 | `feattext` | `EmbossFeaturePrograms.Feattext` | [doc](../../mcp/tools/analysis/feattext.md) |
 | `find_all_longest_repeats` | `GenomicAnalyzer.FindAllLongestRepeats` | [doc](../../mcp/tools/analysis/find_all_longest_repeats.md) |
 | `find_approximate_direct_repeats` | `RepeatFinder.FindApproximateDirectRepeats` | [doc](../../mcp/tools/analysis/find_approximate_direct_repeats.md) |
@@ -276,6 +277,7 @@
 | `tandem_repeat_bernoulli_statistics` | `RepeatFinder.ComputeBernoulliStatistics` | [doc](../../mcp/tools/analysis/tandem_repeat_bernoulli_statistics.md) |
 | `tandem_repeat_summary` | `RepeatFinder.GetTandemRepeatSummary` | [doc](../../mcp/tools/analysis/tandem_repeat_summary.md) |
 | `terminal_mismatch_energy` | `RnaSecondaryStructure.GetTerminalMismatchEnergy` | [doc](../../mcp/tools/analysis/terminal_mismatch_energy.md) |
+| `twofeat` | `EmbossTwofeatProgram.Twofeat` | [doc](../../mcp/tools/analysis/twofeat.md) |
 | `union` | `EmbossUnionProgram.Union` | [doc](../../mcp/tools/analysis/union.md) |
 | `unique_kmers` | `KmerAnalyzer.FindUniqueKmers` | [doc](../../mcp/tools/analysis/unique_kmers.md) |
 | `validate_dot_bracket` | `RnaSecondaryStructure.ValidateDotBracket` | [doc](../../mcp/tools/analysis/validate_dot_bracket.md) |

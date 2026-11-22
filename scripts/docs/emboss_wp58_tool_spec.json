@@ -12,9 +12,18 @@
   "file": "AnalysisTools.EmbossPrograms.cs",
   "description": "EMBOSS 6.6.0 extractfeat: the features of the sequences of a file that pass the filters are extracted as sequences named SEQUENCE_START_END (with featInName also _TYPE) and described by [type] and the tags of describe, optionally with the sequence before and after the feature and the parts of a join as one sequence (join). Equals the installed program on 1 000 runs (every input format with features, every filter, before / after / join, 22 output formats, damaged files).",
   "output": {
-   "sequenceText": ["string", "The text of the sequence output file (FASTA or the output format)."],
-   "sequences": ["integer", "The number of sequences written."],
-   "messages": ["string[]", "What the library printed (warnings and errors)."]
+   "sequenceText": [
+    "string",
+    "The text of the sequence output file (FASTA or the output format)."
+   ],
+   "sequences": [
+    "integer",
+    "The number of sequences written."
+   ],
+   "messages": [
+    "string[]",
+    "What the library printed (warnings and errors)."
+   ]
   },
   "errors": [
    "The sequence cannot be empty",
@@ -50,9 +59,18 @@
   "file": "AnalysisTools.EmbossPrograms.cs",
   "description": "EMBOSS 6.6.0 coderet: from the nucleotide sequences of a file with feature tables the coding sequences (CDS features, joins as one sequence), the messenger RNAs (mRNA features), the translations (the translation tag of the CDS features) and the non-coding regions (what the CDS, mRNA and exon features leave) are written; the tool returns the log (the counts of every sequence), the files by name (NAME.cds, NAME.mrna, NAME.prot, NAME.noncoding, NAME the first sequence in lower case) and the messages. Equals the installed program on 1 000 runs.",
   "output": {
-   "log": ["string", "The log of the program: the counts of CDS, mRNA, non-coding features and translations of every sequence."],
-   "files": ["object", "The sequence files by name."],
-   "messages": ["string[]", "What the library printed (warnings and errors)."]
+   "log": [
+    "string",
+    "The log of the program: the counts of CDS, mRNA, non-coding features and translations of every sequence."
+   ],
+   "files": [
+    "object",
+    "The sequence files by name."
+   ],
+   "messages": [
+    "string[]",
+    "What the library printed (warnings and errors)."
+   ]
   },
   "errors": [
    "The sequence cannot be empty",
@@ -69,7 +87,10 @@
    },
    "output": {
     "log": "   CDS Trans Total Sequence\n ===== ===== ===== ========\n     1     1     1 X1\n",
-    "files": {"x1.cds": ">x1_cds_1\ngtacgtacgttacgtacgta\n", "x1.prot": ">x1_pro_1\nMKV\n"},
+    "files": {
+     "x1.cds": ">x1_cds_1\ngtacgtacgttacgtacgta\n",
+     "x1.prot": ">x1_pro_1\nMKV\n"
+    },
     "messages": []
    },
    "note": "The sequences are named ACCESSION_cds_N and ACCESSION_pro_N in lower case; the CDS of a join is its parts one after the other."
@@ -88,9 +109,18 @@
   "file": "AnalysisTools.EmbossPrograms.cs",
   "description": "EMBOSS 6.6.0 showfeat: the features of the sequences of a file as lines of ASCII graphics under a scale, one line per feature, filtered by source, type, tag and value, sorted, with the strand, source, positions, type and tags and the annotation ranges. Equals the installed program on 1 000 runs.",
   "output": {
-   "text": ["string", "The text of the output file."],
-   "sequences": ["integer", "The number of sequences shown."],
-   "messages": ["string[]", "What the library printed (warnings and errors)."]
+   "text": [
+    "string",
+    "The text of the output file."
+   ],
+   "sequences": [
+    "integer",
+    "The number of sequences shown."
+   ],
+   "messages": [
+    "string[]",
+    "What the library printed (warnings and errors)."
+   ]
   },
   "errors": [
    "The sequence cannot be empty",
@@ -114,6 +144,95 @@
     "messages": []
    },
    "note": "The scale line shows the width and the length of the sequence; a forward feature starts with | and ends with >, a reverse one starts with < and ends with |."
+  }
+ },
+ {
+  "name": "featreport",
+  "summary": "EMBOSS 6.6.0 'featreport': the first feature table of a feature file reported for a sequence in a report format.",
+  "methodId": "EmbossFeatreportProgram.Featreport",
+  "sourceFile": "EmbossFeatreportProgram.cs",
+  "sourcePath": "Seqeron.Genomics.Analysis/EmbossFeatreportProgram.cs",
+  "algorithmDoc": "Alignment/Pairwise_Output_Formats_And_EMBOSS_Programs.md",
+  "oracleScript": "generate_featreport_oracle.py",
+  "short": "EMBOSS featreport: the feature table of a feature file reported for a sequence (gff default; every report format, joins and tags for the feature formats); equals featreport 6.6.0 on 1 000 runs.",
+  "after": "showfeat",
+  "file": "AnalysisTools.EmbossPrograms.cs",
+  "description": "EMBOSS 6.6.0 featreport: the first feature table of a feature file in any feature format is reported for a sequence in a report format (gff default; gff3, embl, genbank, pir, swiss and dasgff are written by the feature writers of the library, the others list start, end, strand and score), with the report qualifiers and the range of the features. Equals the installed program on 1 000 runs.",
+  "output": {
+   "report": [
+    "string",
+    "The text of the report file."
+   ],
+   "messages": [
+    "string[]",
+    "What the library printed (warnings and errors)."
+   ]
+  },
+  "errors": [
+   "The sequence cannot be empty",
+   "The features cannot be empty",
+   "Bad value for '-features' and no more retries (the text is no feature file)",
+   "Report format ... needs 7 tags (diffseq) / not supported for ... sequences",
+   "An input on which the reference program never stops or dies by a fault is refused"
+  ],
+  "example": {
+   "title": "The features of an EMBL entry as an Excel table",
+   "prompt": "Report the features of this EMBL entry in the excel report format.",
+   "input": {
+    "sequence": "ID   X1; SV 1; linear; genomic DNA; STD; UNC; 60 BP.\nXX\nAC   X1;\nXX\nDE   test\nXX\nFH   Key             Location/Qualifiers\nFH\nFT   mRNA            1..40\nFT   exon            45..55\nSQ   Sequence 60 BP; 15 A; 15 C; 15 G; 15 T; 0 other;\n     acgtacgtac gtacgtacgt acgtacgtac gtacgtacgt acgtacgtac gtacgtacgt        60\n//\n",
+    "features": "ID   X1; SV 1; linear; genomic DNA; STD; UNC; 60 BP.\nXX\nAC   X1;\nXX\nDE   test\nXX\nFH   Key             Location/Qualifiers\nFH\nFT   mRNA            1..40\nFT   exon            45..55\nSQ   Sequence 60 BP; 15 A; 15 C; 15 G; 15 T; 0 other;\n     acgtacgtac gtacgtacgt acgtacgtac gtacgtacgt acgtacgtac gtacgtacgt        60\n//\n",
+    "reportFormat": "excel"
+   },
+   "output": {
+    "report": "SeqName\tStart\tEnd\tScore\tStrand\nX1\t1\t40\t0.000\t+\nX1\t45\t55\t0.000\t+\n",
+    "messages": []
+   },
+   "note": "The excel format has no header; the other formats print the run date and the command line."
+  }
+ },
+ {
+  "name": "twofeat",
+  "summary": "EMBOSS 6.6.0 'twofeat': pairs of features of a sequence in a required relation (overlap, distance, sense) reported.",
+  "methodId": "EmbossTwofeatProgram.Twofeat",
+  "sourceFile": "EmbossTwofeatProgram.cs",
+  "sourcePath": "Seqeron.Genomics.Analysis/EmbossTwofeatProgram.cs",
+  "algorithmDoc": "Alignment/Pairwise_Output_Formats_And_EMBOSS_Programs.md",
+  "oracleScript": "generate_twofeat_oracle.py",
+  "short": "EMBOSS twofeat: pairs of an A and a B feature (source, type, sense, score, tag, value) of a sequence file in a required overlap / distance / sense, reported (table default); equals twofeat 6.6.0 on 1 000 runs.",
+  "after": "featreport",
+  "file": "AnalysisTools.EmbossPrograms.cs",
+  "description": "EMBOSS 6.6.0 twofeat: the features of the sequences of a file that match the criteria of feature A and of feature B are paired when they are in the required overlap, distance (minRange .. maxRange from the nearest, left, right or furthest ends) and sense, and the pairs are reported as a feature covering both (tags startA endA startB endB) or as the two features (twoOut), in the report format. Equals the installed program on 1 000 runs.",
+  "output": {
+   "report": [
+    "string",
+    "The text of the report file."
+   ],
+   "messages": [
+    "string[]",
+    "What the library printed (warnings and errors)."
+   ]
+  },
+  "errors": [
+   "The sequence cannot be empty",
+   "Unable to read sequence ... (no sequence in the file)",
+   "Unknown Overlap / rangetype / sense code",
+   "Report format ... needs 7 tags (diffseq)",
+   "An input on which the reference program never stops or dies by a fault, and the opposite sense on opposite strands (a fatal error of the library), are refused"
+  ],
+  "example": {
+   "title": "A mRNA and an exon of an EMBL entry",
+   "prompt": "Report the pairs of a mRNA feature and an exon feature of this EMBL entry in the excel format.",
+   "input": {
+    "sequence": "ID   X1; SV 1; linear; genomic DNA; STD; UNC; 60 BP.\nXX\nAC   X1;\nXX\nDE   test\nXX\nFH   Key             Location/Qualifiers\nFH\nFT   mRNA            1..40\nFT   exon            45..55\nSQ   Sequence 60 BP; 15 A; 15 C; 15 G; 15 T; 0 other;\n     acgtacgtac gtacgtacgt acgtacgtac gtacgtacgt acgtacgtac gtacgtacgt        60\n//\n",
+    "aType": "mRNA",
+    "bType": "exon",
+    "reportFormat": "excel"
+   },
+   "output": {
+    "report": "SeqName\tStart\tEnd\tScore\tStrand\tstarta\tenda\tstartb\tendb\nX1\t1\t55\t0.000\t+\t1\t40\t45\t55\n",
+    "messages": []
+   },
+   "note": "The feature that covers a pair runs from the first start to the last end and carries the positions of both features as tags."
   }
  }
 ]

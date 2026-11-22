@@ -353,6 +353,8 @@
 | extractfeat | Analysis | EmbossExtractfeatProgram.Extractfeat | AnalysisTools.EmbossPrograms.cs | 0/0 | – | – | Build-Ready |
 | coderet | Analysis | EmbossCoderetProgram.Coderet | AnalysisTools.EmbossPrograms.cs | 0/0 | – | – | Build-Ready |
 | showfeat | Analysis | EmbossShowfeatProgram.Showfeat | AnalysisTools.EmbossPrograms.cs | 0/0 | – | – | Build-Ready |
+| featreport | Analysis | EmbossFeatreportProgram.Featreport | AnalysisTools.EmbossPrograms.cs | 0/0 | – | – | Build-Ready |
+| twofeat | Analysis | EmbossTwofeatProgram.Twofeat | AnalysisTools.EmbossPrograms.cs | 0/0 | – | – | Build-Ready |
 | nucmer_clusters | Analysis | GenomicAnalyzer.FindNucmerClusters | GenomicAnalyzer.NucmerClusters.cs | 0/0 | – | – | Build-Ready |
 | nucmer | Analysis | GenomicAnalyzer.Nucmer | GenomicAnalyzer.Nucmer.cs | 0/0 | – | – | Build-Ready |
 | delta_filter | Analysis | MummerDeltaFilter.Run | Seqeron.Genomics.Alignment/MummerDeltaFilter.cs | 0/0 | – | – | Build-Ready |

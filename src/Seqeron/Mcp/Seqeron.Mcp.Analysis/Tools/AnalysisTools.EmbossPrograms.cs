@@ -496,7 +496,7 @@ public partial class AnalysisTools
     }
 
     [McpServerTool(Name = "union", Title = "Alignment — EMBOSS union (join sequences into one)", ReadOnly = true)]
-    [Description("EMBOSS 6.6.0 union: the sequences of a file (any input format of seqret) are joined into ONE sequence that carries the name, description, accession and type of the first; with findOverlap the bases by which a sequence repeats the end of the one before (the longest end of the previous sequence that is the start of this one) are joined once, and with overlapFile the overlap of every sequence is returned (one number per sequence, the first is 0). The result is written in FASTA or in the output format of outputFormat (fasta unknown pearson, gcg gcg8, nbrf pir, codata, strider, staden, text plain raw, ig, gde, fitch, acedb, mase). The features (-feature, -source) are not joined by this tool yet. Equals the installed program on 200 runs (fragments that overlap by random lengths, the reader inputs, damaged files, every output format, the format-for-sequence-type errors). A5-8c3h, B09 F253.")]
+    [Description("EMBOSS 6.6.0 union: the sequences of a file (any input format of seqret) are joined into ONE sequence that carries the name, description, accession and type of the first; with findOverlap the bases by which a sequence repeats the end of the one before (the longest end of the previous sequence that is the start of this one) are joined once, and with overlapFile the overlap of every sequence is returned (one number per sequence, the first is 0). The result is written in FASTA or in the output format of outputFormat (fasta unknown pearson, gcg gcg8, nbrf pir, codata, strider, staden, text plain raw, ig, gde, fitch, acedb, mase). With feature the features of the sequences are joined into the features of the result (the positions moved by the length of the sequences before; with source one feature of the type source, tag origid = the name of the sequence, for every sequence joined) and returned as featureText in the feature format of featureFormat (gff3 default, gff2, embl, genbank, refseq, bed, dasgff, debug; an unknown name is written as gff3 with the library's errors). Equals the installed program on 200 runs (fragments that overlap by random lengths, the reader inputs, damaged files, every output format, the format-for-sequence-type errors). A5-8c3h, B09 F253.")]
     public static UnionToolResult Union(
         [Description("The text of the sequence file (any input format of seqret), or a sequence as letters.")] string sequence,
         [Description("The input format (-sformat); default: the program finds the format.")] string? sequenceFormat = null,
@@ -506,7 +506,10 @@ public partial class AnalysisTools
         [Description("Sequence input qualifiers as typed after the sequence on the command line: -sbegin1 -send1 -sreverse1, -slower1 -supper1 -snucleotide1 -sprotein1 -scircular1, -sformat1 F, -sid1 name, -sdbname1 db, -squick1, -iquery1 query, -ioffset1 bytes.")] string? qualifiers = null,
         CancellationToken cancellationToken = default,
         [Description("More files by name (file name -> text) that sequence may name with a 'format::' prefix.")] IReadOnlyDictionary<string, string>? files = null,
-        [Description("The USA of the sequence input (-sequence) as the program reads it, instead of the file the text is put in: [format::]file[begin:end:r] (file = the name of an entry of files; the text of sequence is the file 'sequence.dat'), file:id / file:field:query / file{a|b} (id, acc, sv, gi, des, key, org; wildcards * and ?), @list / list::list (a list file of files; # comments; every entry has its own range and format), asis::SEQUENCE; the range qualifiers -sbegin1 -send1 -sreverse1 of qualifiers are applied to the sequences and to their features.")] string? sequenceValue = null)
+        [Description("The USA of the sequence input (-sequence) as the program reads it, instead of the file the text is put in: [format::]file[begin:end:r] (file = the name of an entry of files; the text of sequence is the file 'sequence.dat'), file:id / file:field:query / file{a|b} (id, acc, sv, gi, des, key, org; wildcards * and ?), @list / list::list (a list file of files; # comments; every entry has its own range and format), asis::SEQUENCE; the range qualifiers -sbegin1 -send1 -sreverse1 of qualifiers are applied to the sequences and to their features.")] string? sequenceValue = null,
+        [Description("Join the features of the sequences (-feature); the features are returned as featureText.")] bool feature = false,
+        [Description("Create a source feature for every sequence joined (-source; with feature).")] bool source = false,
+        [Description("The format of the feature output (-offormat2); default gff3 (gff).")] string? featureFormat = null)
     {
         if (string.IsNullOrWhiteSpace(sequence))
             throw new ArgumentException("The sequence cannot be empty", nameof(sequence));
@@ -517,10 +520,10 @@ public partial class AnalysisTools
         try
         {
             var all = new Dictionary<string, string>(files ?? new Dictionary<string, string>()) { [file] = sequence };
-            var o = EmbossUnionProgram.Union(new EmbossUnionRequest(spec, all, q, findOverlap, overlapFile, "stdout", outputFormat, DateTime.Now));
+            var o = EmbossUnionProgram.Union(new EmbossUnionRequest(spec, all, q, findOverlap, overlapFile, "stdout", outputFormat, DateTime.Now) { Feature = feature, Source = source, OutFeatFormat = featureFormat });
             if (o.Died)
                 throw new ArgumentException(string.Join("; ", o.Messages.Where(m => m.Length > 0)), nameof(sequence));
-            return new UnionToolResult(o.SequenceText, o.OverlapText, [.. o.Messages]);
+            return new UnionToolResult(o.SequenceText, o.OverlapText, [.. o.Messages], o.FeatureText);
         }
         catch (Exception e) when (e is NotSupportedException or InvalidOperationException)
         {
@@ -730,6 +733,132 @@ public partial class AnalysisTools
             return new ShowfeatToolResult(o.Text, o.Sequences, [.. o.Messages]);
         }
         catch (Exception e) when (e is NotSupportedException or InvalidOperationException or ArgumentException)
+        {
+            throw new ArgumentException(e.Message, nameof(sequence));
+        }
+    }
+
+    // the report qualifiers of the text as the program numbers them in the header (-rformat -> -rformat3): the entries of the command line the report header echoes
+    private static IEnumerable<string> NumberedReportEntries(string? text, int number)
+    {
+        foreach (string entry in HeaderEntries(text))
+        {
+            if (entry.StartsWith("-r", StringComparison.Ordinal) && entry.Length > 2 && char.IsAsciiLetter(entry[2]))
+            {
+                int blank = entry.IndexOf(' ', StringComparison.Ordinal);
+                string name = blank < 0 ? entry : entry[..blank];
+                yield return (char.IsAsciiDigit(name[^1]) ? name : name + number.ToString(System.Globalization.CultureInfo.InvariantCulture)) + (blank < 0 ? "" : entry[blank..]);
+            }
+            else
+            {
+                yield return entry;
+            }
+        }
+    }
+
+    [McpServerTool(Name = "featreport", Title = "Alignment — EMBOSS featreport (report a feature table)", ReadOnly = true)]
+    [Description("EMBOSS 6.6.0 featreport: the first feature table of a feature file (embl, genbank, refseq, refseqp, swiss, pir, gff2, gff3, dasgff, or any: the library tries every reader) is reported for a sequence in a report format (reportFormat: gff default, gff3, embl, genbank, pir, swiss, dasgff, debug, listfile, dbmotif, diffseq, draw, restrict, excel, feattable, motif, nametable, regions, seqtable, simple, srs, summary, table, tagseq, or the report qualifiers as typed: -rformat table -raccshow -rdesshow -rscoreshow N -rstrandshow N -rusashow -rmaxall 3 -rmaxseq 2). The formats gff, gff3, embl, genbank, pir, swiss and dasgff are written by the feature writers of the library (joins, tags, flags); the others list the start, end, strand and score of the features. The features come with an optional range (featureBegin, featureEnd). Equals the installed program on 1 000 runs (every feature format, every report format, ranges, damaged files). A5-8c3h, B09 F262.")]
+    public static FeatreportToolResult Featreport(
+        [Description("The text of the sequence file (any input format of seqret), or a sequence as letters.")] string sequence,
+        [Description("The text of the feature file (see the formats above).")] string features,
+        [Description("The input format of the sequence (-sformat); default: the program finds the format.")] string? sequenceFormat = null,
+        [Description("The report format name or the report qualifiers as typed (see above); default gff.")] string reportFormat = "gff",
+        [Description("Sequence input qualifiers as typed after the sequence on the command line: -sbegin1 -send1 -sreverse1, -slower1 -supper1 -snucleotide1 -sprotein1 -scircular1, -sformat1 F, -sid1 name, -sdbname1 db, -squick1, -iquery1 query, -ioffset1 bytes.")] string? qualifiers = null,
+        [Description("The first position of the features to report (-fbegin2); default 1.")] int featureBegin = 1,
+        [Description("The last position of the features to report (-fend2); default the length of the table.")] int? featureEnd = null,
+        CancellationToken cancellationToken = default,
+        [Description("More files by name (file name -> text) that sequenceValue and featuresValue may name.")] IReadOnlyDictionary<string, string>? files = null,
+        [Description("The USA of the sequence input (-sequence): [format::]file[begin:end:r], file:id, file:field:value, file{a|b}, @list, list::list, asis::TEXT, db:id; the text of sequence is the file 'sequence.dat'.")] string? sequenceValue = null,
+        [Description("The value of -features: [format::]file[begin:end:r]; the text of features is the file 'features.dat'.")] string? featuresValue = null,
+        [Description("The text of an EMBOSS configuration file (.embossrc) that defines databases for sequenceValue.")] string? definitions = null)
+    {
+        if (string.IsNullOrWhiteSpace(sequence))
+            throw new ArgumentException("The sequence cannot be empty", nameof(sequence));
+        if (string.IsNullOrWhiteSpace(features))
+            throw new ArgumentException("The features cannot be empty", nameof(features));
+        cancellationToken.ThrowIfCancellationRequested();
+        string file = "sequence.dat", featFile = "features.dat";
+        string format = (reportFormat ?? "").Trim();
+        string reportText = format.StartsWith('-') ? format : "-rformat " + format;
+        string spec = SequenceSpec(sequenceValue, sequence, file);
+        try
+        {
+            var (inputs, rq) = global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.ParseInputsAndReport("featreport", (qualifiers ?? "") + " " + reportText);
+            var commandLine = new List<string> { global::Seqeron.Genomics.Analysis.EmbossCommandLineEcho.Parameter("sequence", spec), global::Seqeron.Genomics.Analysis.EmbossCommandLineEcho.Parameter("features", featuresValue ?? featFile), global::Seqeron.Genomics.Analysis.EmbossCommandLineEcho.Parameter("outfile", "stdout") };
+            commandLine.AddRange(NumberedReportEntries(reportText, 3));
+            commandLine.AddRange(HeaderEntries(qualifiers));
+            var all = new Dictionary<string, string>(files ?? new Dictionary<string, string>()) { [file] = sequence, [featFile] = features };
+            var o = EmbossFeatreportProgram.Featreport(new EmbossFeatreportRequest(spec, featuresValue ?? featFile, all, inputs[0] with { Format = sequenceFormat ?? inputs[0].Format }, rq, featureBegin, featureEnd, commandLine, DateTime.Now, "stdout") { Definitions = string.IsNullOrWhiteSpace(definitions) ? null : [definitions] });
+            if (o.Died)
+                throw new ArgumentException(string.Join("; ", o.Messages.Where(m => m.Length > 0)), nameof(sequence));
+            return new FeatreportToolResult(o.Report, [.. o.Messages]);
+        }
+        catch (Exception e) when (e is NotSupportedException or InvalidOperationException)
+        {
+            throw new ArgumentException(e.Message, nameof(sequence));
+        }
+    }
+
+    [McpServerTool(Name = "twofeat", Title = "Alignment — EMBOSS twofeat (neighbouring pairs of features)", ReadOnly = true)]
+    [Description("EMBOSS 6.6.0 twofeat: the features of the sequences of a file (any input format of seqret that carries features) are tested against the criteria of feature A (aSource, aType, aSense 0 / + / -, aMinScore, aMaxScore, aTag, aValue) and of feature B (bSource ... bValue); wildcards * and ?, several patterns separated by blanks, commas, semicolons or bars; the scores are cut to integers) and every pair of an A and a B feature in the required relation is reported: overlap (A any, O overlap, NO none, NW overlap but not within, AW A within B, BW B within A), distance between minRange and maxRange (ignored unless min is less than max; measured from the nearest, left, right or furthest ends: rangeType N / L / R / F), sense (A any, S same, O opposite: the opposite sense stops the program with a fatal error of the library), as a new feature (type typeOut, source twofeat, covering both, tags startA endA startB endB) or, with twoOut, as the two features. The report is in reportFormat (table default; the names of featreport or the report qualifiers as typed). Equals the installed program on 1 000 runs (every input format with features, every option, every report format). A5-8c3h, B09 F263.")]
+    public static TwofeatToolResult Twofeat(
+        [Description("The text of the sequence file with features (any input format of seqret), or a sequence as letters (no features).")] string sequence,
+        [Description("The input format (-sformat); default: the program finds the format.")] string? sequenceFormat = null,
+        [Description("Source of feature A (-asource); default *.")] string aSource = "*",
+        [Description("Type of feature A (-atype); default *.")] string aType = "*",
+        [Description("Sense of feature A (-asense): 0 any, + forward ('-' is read as any by the program).")] string aSense = "0",
+        [Description("Minimum score of feature A (-aminscore).")] float aMinScore = 0f,
+        [Description("Maximum score of feature A (-amaxscore).")] float aMaxScore = 0f,
+        [Description("Tag of feature A (-atag); default *.")] string aTag = "*",
+        [Description("Value of the tags of feature A (-avalue); default *.")] string aValue = "*",
+        [Description("Source of feature B (-bsource); default *.")] string bSource = "*",
+        [Description("Type of feature B (-btype); default *.")] string bType = "*",
+        [Description("Sense of feature B (-bsense).")] string bSense = "0",
+        [Description("Minimum score of feature B (-bminscore).")] float bMinScore = 0f,
+        [Description("Maximum score of feature B (-bmaxscore).")] float bMaxScore = 0f,
+        [Description("Tag of feature B (-btag); default *.")] string bTag = "*",
+        [Description("Value of the tags of feature B (-bvalue); default *.")] string bValue = "*",
+        [Description("Overlap (-overlap): A any, O overlap, NO none, NW overlap but not within, AW A within B, BW B within A.")] string overlap = "A",
+        [Description("Minimum distance between the features (-minrange).")] int minRange = 0,
+        [Description("Maximum distance between the features (-maxrange).")] int maxRange = 0,
+        [Description("Where the distance is measured (-rangetype): N nearest ends, L left ends, R right ends, F furthest ends.")] string rangeType = "N",
+        [Description("Sense of the pair (-sense): A any, S same, O opposite (fatal in the program).")] string sense = "A",
+        [Description("Order of the features (-order): accepted, not used by the program.")] string order = "A",
+        [Description("Report the two features of a pair instead of one feature that covers them (-twoout).")] bool twoOut = false,
+        [Description("The type of the new feature (-typeout); default misc_feature.")] string typeOut = "misc_feature",
+        [Description("The report format name or the report qualifiers as typed (see featreport); default table.")] string reportFormat = "table",
+        [Description("Sequence input qualifiers as typed after the sequence on the command line: -sbegin1 -send1 -sreverse1, -slower1 -supper1 -snucleotide1 -sprotein1 -scircular1, -sformat1 F, -sid1 name, -sdbname1 db, -squick1, -iquery1 query, -ioffset1 bytes.")] string? qualifiers = null,
+        CancellationToken cancellationToken = default,
+        [Description("More files by name (file name -> text) that sequenceValue may name.")] IReadOnlyDictionary<string, string>? files = null,
+        [Description("The USA of the sequence input (-sequence): [format::]file[begin:end:r], file:id, file:field:value, file{a|b}, @list, list::list, asis::TEXT, db:id; the text of sequence is the file 'sequence.dat'.")] string? sequenceValue = null,
+        [Description("The text of an EMBOSS configuration file (.embossrc) that defines databases for sequenceValue.")] string? definitions = null)
+    {
+        if (string.IsNullOrWhiteSpace(sequence))
+            throw new ArgumentException("The sequence cannot be empty", nameof(sequence));
+        cancellationToken.ThrowIfCancellationRequested();
+        string file = "sequence.dat";
+        string format = (reportFormat ?? "").Trim();
+        string reportText = format.StartsWith('-') ? format : "-rformat " + format;
+        string spec = SequenceSpec(sequenceValue, sequence, file);
+        try
+        {
+            var (inputs, rq) = global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.ParseInputsAndReport("twofeat", (qualifiers ?? "") + " " + reportText);
+            var commandLine = new List<string> { global::Seqeron.Genomics.Analysis.EmbossCommandLineEcho.Parameter("sequence", spec), global::Seqeron.Genomics.Analysis.EmbossCommandLineEcho.Parameter("outfile", "stdout") };
+            commandLine.AddRange(NumberedReportEntries(reportText, 2));
+            commandLine.AddRange(HeaderEntries(qualifiers));
+            var all = new Dictionary<string, string>(files ?? new Dictionary<string, string>()) { [file] = sequence };
+            var o = EmbossTwofeatProgram.Twofeat(new EmbossTwofeatRequest(spec, all, inputs[0] with { Format = sequenceFormat ?? inputs[0].Format }, rq, commandLine, DateTime.Now, "stdout")
+            {
+                ASource = aSource, AType = aType, ASense = aSense, AMinScore = aMinScore, AMaxScore = aMaxScore, ATag = aTag, AValue = aValue,
+                BSource = bSource, BType = bType, BSense = bSense, BMinScore = bMinScore, BMaxScore = bMaxScore, BTag = bTag, BValue = bValue,
+                Overlap = overlap, MinRange = minRange, MaxRange = maxRange, RangeType = rangeType, Sense = sense, Order = order, TwoOut = twoOut, TypeOut = typeOut,
+                Definitions = string.IsNullOrWhiteSpace(definitions) ? null : [definitions],
+            });
+            if (o.Died)
+                throw new ArgumentException(string.Join("; ", o.Messages.Where(m => m.Length > 0)), nameof(sequence));
+            return new TwofeatToolResult(o.Report, [.. o.Messages]);
+        }
+        catch (Exception e) when (e is NotSupportedException or InvalidOperationException)
         {
             throw new ArgumentException(e.Message, nameof(sequence));
         }

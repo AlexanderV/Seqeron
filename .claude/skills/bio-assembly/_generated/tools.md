@@ -51,6 +51,7 @@
 | `extractfeat` | Analysis | `EmbossExtractfeatProgram.Extractfeat` | [doc](../../../../docs/mcp/tools/analysis/extractfeat.md) |
 | `featcopy` | Analysis | `EmbossFeaturePrograms.Featcopy` | [doc](../../../../docs/mcp/tools/analysis/featcopy.md) |
 | `featmerge` | Analysis | `EmbossFeaturePrograms.Featmerge` | [doc](../../../../docs/mcp/tools/analysis/featmerge.md) |
+| `featreport` | Analysis | `EmbossFeatreportProgram.Featreport` | [doc](../../../../docs/mcp/tools/analysis/featreport.md) |
 | `feattext` | Analysis | `EmbossFeaturePrograms.Feattext` | [doc](../../../../docs/mcp/tools/analysis/feattext.md) |
 | `find_all_longest_repeats` | Analysis | `GenomicAnalyzer.FindAllLongestRepeats` | [doc](../../../../docs/mcp/tools/analysis/find_all_longest_repeats.md) |
 | `find_approximate_direct_repeats` | Analysis | `RepeatFinder.FindApproximateDirectRepeats` | [doc](../../../../docs/mcp/tools/analysis/find_approximate_direct_repeats.md) |
@@ -186,6 +187,7 @@
 | `tandem_repeat_bernoulli_statistics` | Analysis | `RepeatFinder.ComputeBernoulliStatistics` | [doc](../../../../docs/mcp/tools/analysis/tandem_repeat_bernoulli_statistics.md) |
 | `tandem_repeat_summary` | Analysis | `RepeatFinder.GetTandemRepeatSummary` | [doc](../../../../docs/mcp/tools/analysis/tandem_repeat_summary.md) |
 | `terminal_mismatch_energy` | Analysis | `RnaSecondaryStructure.GetTerminalMismatchEnergy` | [doc](../../../../docs/mcp/tools/analysis/terminal_mismatch_energy.md) |
+| `twofeat` | Analysis | `EmbossTwofeatProgram.Twofeat` | [doc](../../../../docs/mcp/tools/analysis/twofeat.md) |
 | `union` | Analysis | `EmbossUnionProgram.Union` | [doc](../../../../docs/mcp/tools/analysis/union.md) |
 | `unique_kmers` | Analysis | `KmerAnalyzer.FindUniqueKmers` | [doc](../../../../docs/mcp/tools/analysis/unique_kmers.md) |
 | `validate_dot_bracket` | Analysis | `RnaSecondaryStructure.ValidateDotBracket` | [doc](../../../../docs/mcp/tools/analysis/validate_dot_bracket.md) |
