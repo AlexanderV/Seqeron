@@ -77,6 +77,9 @@ public static class EmbossProgramRunner
         ["makeprotseq"] = EmbossSequencePrograms.Makeprotseq,
         ["nthseqset"] = EmbossSequencePrograms.Nthseqset,
         ["listor"] = EmbossSequencePrograms.Listor,
+        ["infoseq"] = EmbossSequencePrograms.Infoseq,
+        ["wordcount"] = EmbossSequencePrograms.Wordcount,
+        ["seqxref"] = EmbossSequencePrograms.Seqxref,
     };
 
     /// <summary>The programs that can be run.</summary>
