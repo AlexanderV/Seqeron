@@ -54,6 +54,7 @@ public static class EmbossCoderetProgram
         public int Count;
         public EmbossSeqOutFormat? Format;
         public bool UnknownReported;
+        public readonly EmbossSeqWriteRun Run = new() { Program = "coderet" };
     }
 
     /// <summary>Runs <c>coderet</c>.</summary>
@@ -94,6 +95,12 @@ public static class EmbossCoderetProgram
         }
 
         var date = r.RunDate ?? DateTime.Now;
+        foreach (var o in new[] { cds, mrna, prot, rest })
+        {
+            o.Run.RunDate = date;
+            o.Run.FileName = o.FileName;
+        }
+
         var remote = new EmbossRemoteSeq(r.Files, r.Definitions, context);
         var log = new StringBuilder();
         if (cds.Wanted)
@@ -174,6 +181,7 @@ public static class EmbossCoderetProgram
             {
                 if (!o.Wanted)
                     continue;
+                EmbossSeqWrite.CloseSet(o.Text, o.Format, o.Run, o.Count);
                 if (o.Count > 0 && o.Format is not null && EmbossSeqWrite.Footer(o.Format) is { Length: > 0 } footer)
                     o.Text.Append(footer);                              // seqCleanDasdna / seqCleanDasseq at the close of the file
                 files[o.FileName] = o.Text.ToString();
@@ -303,7 +311,8 @@ public static class EmbossCoderetProgram
 
         if (!EmbossSeqWrite.IsPorted(o.Format))
             throw new NotSupportedException($"The sequence output format '{o.Format.Name}' is not written by this port.");
-        EmbossSeqWrite.Write(o.Text, o.Format, name, "", "", "", type, residues, o.Count, date, null);
+        if (!EmbossSeqWrite.Save(o.Format, o.Run, name, "", type, residues))
+            EmbossSeqWrite.Write(o.Text, o.Format, name, "", "", "", type, residues, o.Count, date, null, run: o.Run);
         o.Count++;
     }
 }

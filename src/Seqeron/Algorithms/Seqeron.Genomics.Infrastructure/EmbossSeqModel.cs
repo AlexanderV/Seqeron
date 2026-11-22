@@ -140,10 +140,15 @@ internal sealed class EmbossSeqGene
 internal sealed class EmbossSeqDate
 {
     public DateTime? CreDate, ModDate, SeqDate;
-    public string CreRel = "", ModRel = "", SeqRel = "", CreVer = "", ModVer = "", SeqVer = "";
+    /// <summary>The release and version strings: null until a reader sets them (the library prints <c>&lt;null&gt;</c> for such a string), empty for a date object that <c>ajSeqdateClear</c> cleared (it keeps the strings).</summary>
+    public string? CreRel, ModRel, SeqRel, CreVer, ModVer, SeqVer;
 
-    /// <summary>The version strings exist (an object that <c>ajSeqdateClear</c> cleared keeps them, empty): a date set on it gets no default version; a new object has none and the setters make the version <c>1</c>.</summary>
-    public bool VersionsExist;
+    /// <summary>The date object of a sequence that came after one that had a date: cleared (<c>ajSeqdateClear</c>), a string that was set is empty, one that never was stays null.</summary>
+    public static EmbossSeqDate ClearedFrom(EmbossSeqDate prev) => new()
+    {
+        CreRel = prev.CreRel is null ? null : "", ModRel = prev.ModRel is null ? null : "", SeqRel = prev.SeqRel is null ? null : "", CreVer = prev.CreVer is null ? null : "", ModVer = prev.ModVer is null ? null : "",
+        SeqVer = prev.SeqVer is null ? null : "",
+    };
 
     public EmbossSeqDate Clone() => (EmbossSeqDate)MemberwiseClone();
 
@@ -219,8 +224,7 @@ internal sealed class EmbossSeqDate
         if (!Parse(datestr, out var d))
             return false;
         CreDate = d;
-        if (!VersionsExist && CreVer.Length == 0)
-            CreVer = "1";
+        CreVer ??= "1";
         return true;
     }
 
@@ -229,8 +233,7 @@ internal sealed class EmbossSeqDate
         if (!Parse(datestr, out var d))
             return false;
         ModDate = d;
-        if (!VersionsExist && ModVer.Length == 0)
-            ModVer = "1";
+        ModVer ??= "1";
         return true;
     }
 
@@ -239,12 +242,13 @@ internal sealed class EmbossSeqDate
         if (!Parse(datestr, out var d))
             return false;
         SeqDate = d;
-        if (!VersionsExist && SeqVer.Length == 0)
-            SeqVer = "1";
+        SeqVer ??= "1";
         return true;
     }
 
     /// <summary><c>%D</c> of a date with the format <c>dtline</c>: <c>25-MAR-2010</c>.</summary>
+    public static string Str(string? s) => s ?? "<null>";
+
     public static string Format(DateTime d) => d.Day.ToString("00", CultureInfo.InvariantCulture) + "-" + Months[d.Month - 1] + "-" + d.Year.ToString("0000", CultureInfo.InvariantCulture);
 }
 
@@ -272,31 +276,35 @@ internal static class EmbossSeqTables
         ("VRL", "VRL", "VRL", "VRL"), ("VRT", "VRT", "VRT", "VRT"), ("UNA", "UNC", "UNA", "UNA"), ("UNCRNA", "UNC", "", "RNA"), ("", "", "", ""),
     ];
 
-    // the tables map the name of a database format to the internal name; with several entries of one name the last one wins (ajTablePut)
-    private static string? Lookup((string Name, string Embl, string Ddbj, string Gb)[] t, Func<(string Name, string Embl, string Ddbj, string Gb), string> sel, string key)
+    // the tables map the name of a database format to the internal name; with several entries of one name the first one stays
+    private static string? Lookup((string Name, string Embl, string Ddbj, string Gb)[] t, Func<(string Name, string Embl, string Ddbj, string Gb), string> sel, string key, bool firstWins)
     {
         string? found = null;
         foreach (var e in t)
         {
             string k = sel(e);
             if (k.Length > 0 && string.Equals(k, key, StringComparison.OrdinalIgnoreCase))
-                found = e.Name;
+            {
+                if (firstWins)
+                    return e.Name;                   // seqmolInit puts a name only when the table has none (ajTableMatchC)
+                found = e.Name;                      // seqdivInit and seqclsInit put every entry: the last one stays
+            }
         }
 
         return found;
     }
 
     /// <summary><c>ajSeqmolSetEmbl</c>: the internal name of an EMBL molecule type, null when there is none.</summary>
-    public static string? MolFromEmbl(string s) => Lookup(Mol, e => e.Embl, s);
+    public static string? MolFromEmbl(string s) => Lookup(Mol, e => e.Embl, s, true);
 
     /// <summary><c>ajSeqmolSetGb</c>.</summary>
-    public static string? MolFromGb(string s) => Lookup(Mol, e => e.Gb, s);
+    public static string? MolFromGb(string s) => Lookup(Mol, e => e.Gb, s, true);
 
     /// <summary><c>ajSeqdivSetGb</c>: GenBank mixes division and class, so a name that is no division is looked up in the classes; the class tables exist only after the first call of a class function of the process (<paramref name="classTables"/>).</summary>
-    public static string? DivFromGb(string s, bool classTables) => Lookup(Div, e => e.Gb, s) ?? (classTables ? Lookup(Cls, e => e.Gb, s) : null);
+    public static string? DivFromGb(string s, bool classTables) => Lookup(Div, e => e.Gb, s, false) ?? (classTables ? Lookup(Cls, e => e.Gb, s, false) : null);
 
     /// <summary><c>ajSeqclsSetGb</c>.</summary>
-    public static string? ClsFromGb(string s) => Lookup(Cls, e => e.Gb, s);
+    public static string? ClsFromGb(string s) => Lookup(Cls, e => e.Gb, s, false);
 
     private static (string Name, string Embl, string Ddbj, string Gb)? Find((string Name, string Embl, string Ddbj, string Gb)[] t, string name)
     {

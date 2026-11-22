@@ -157,8 +157,7 @@ public static class EmbossSeqretPrograms
 
             if (!EmbossSeqWrite.IsPorted(outFormat))
                 throw new NotSupportedException($"The sequence output format '{outFormat.Name}' is not written by this port.");
-            if (r.Feature && outFormat.Features)
-                throw new NotSupportedException($"The features of the output format '{outFormat.Name}' are written inside the sequence file, which this port does not do.");
+            writeRun.UfoLocal = r.Feature && outFormat.Features;
             // ajSeqoutSetNameDefaultS: an unnamed sequence is called EMBOSS_001, EMBOSS_002 ... (EMBOSS with -ossingle: the file of every unnamed sequence has the same name)
             string name = seq.Name;
             if (name.Length == 0)
@@ -167,6 +166,26 @@ public static class EmbossSeqretPrograms
             var target = outSingle ? new StringBuilder() : seqOut;
             var item = EmbossSeqWrite.Clone(seq, residues, ibegin, writeRun);
             item.Name = name;
+            if (writeRun.UfoLocal)
+            {
+                // seqoutUfoLocal: the features are written into the sequence file, in the feature format of the sequence format
+                if (outFormat.Writer == "Genpept" || (outFormat.Writer is "Gff2" or "Gff3" && seq.Fttable is null))
+                    throw new InvalidOperationException("The writer takes a feature format the feature library does not have (genpept), or a feature table that does not exist (gff2, gff3 for a sequence without features): the reference program dies by a segmentation fault.");
+                string fmt = EmbossSeqWrite.LocalFeatureFormat(outFormat);
+                if (seq.Fttable is { } ftable)
+                {
+                    // the feature table of a PIR entry has no type (ajFeattableIsNuc is true for it) and the writer of refseqp refuses such a table without a message (measured)
+                    string? ftext = outFormat.Writer == "Refseqp" && seq.Formatstr is "nbrf" or "pir" ? null : EmbossReportWriter.WriteFeatureTable(ftable, fmt, runDate, "seqret", context, new EmbossFeatureWriteState(), 0);
+                    if (ftext is null)
+                        context.Warn($"{EmbossSeqWrite.LocalFeatureWriterName(outFormat)} features output failed UFO: ''");
+                    item.FeatureText = ftext ?? "";
+                }
+                else
+                {
+                    item.FeatureText = "";
+                }
+            }
+
             writeRun.Count = outSingle ? 0 : count;
             writeRun.HeaderCount = count;
             EmbossSeqWrite.Write(target, outFormat, item, writeRun);
@@ -180,7 +199,7 @@ public static class EmbossSeqretPrograms
 
             count++;
             written++;
-            if (r.Feature && seq.Fttable is { } table)
+            if (r.Feature && !writeRun.UfoLocal && seq.Fttable is { } table)
             {
                 string? ftext = EmbossReportWriter.WriteFeatureTable(table, featName, runDate, "seqret", context, state, tables);
                 if (ftext is not null)
@@ -213,7 +232,7 @@ public static class EmbossSeqretPrograms
             return new EmbossSeqretOutput(seqOut.ToString(), featOut.ToString(), written, [.. context.Messages]) { Died = true, FeatureFileName = r.OutFeat ?? "", SingleFiles = singles };
         if (count == 0 && !outSingle)                                  // with -ossingle there is no output file that stays empty: the files are opened for the sequences
             context.Warn($"No sequences written to output file '{outName}'");
-        if (r.Feature && tables == 0)
+        if (r.Feature && tables == 0 && outFormat is { Features: false })
             context.Warn($"No features written to output file '{r.OutFeat ?? "o.gff"}'");
         return new EmbossSeqretOutput(seqOut.ToString(), featOut.ToString(), written, [.. context.Messages]) { FeatureFileName = r.OutFeat ?? "", SingleFiles = singles };
     }

@@ -212,6 +212,7 @@ internal sealed partial class EmbossSeqin
         t.SetNuc();
         if (t.Fttable is { } table)
             table.Length = t.Seq.Length;
+        FeatureXrefs(t);
         RefXrefs(t);
         _buff.Clear(0);
         return true;
@@ -1117,6 +1118,7 @@ internal sealed partial class EmbossSeqin
 
         if (t.Fttable is { } table)
             table.Length = t.Seq.Length;
+        FeatureXrefs(t);
         _buff.Clear(0);
         return true;
     }

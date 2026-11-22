@@ -13,7 +13,7 @@ import generate_coderet_oracle as C  # noqa: E402
 
 FMTS = ['own', 'own', 'own', 'own', 'own', 'embl', 'genbank', 'gff3', 'gff2', 'swiss', 'nbrf', 'refseqp', 'own']
 FFORMATS = ['gff3', 'gff3', 'gff', 'gff2', 'embl', 'genbank', 'swiss', 'pir', 'tagseq', 'debug']
-OSFORMATS = ['fasta', 'fasta', 'fasta', 'fasta', 'gcg', 'raw', 'text', 'ig', 'codata', 'fitch', 'mase', 'strider', 'gde', 'acedb', 'unknown']
+OSFORMATS = ['fasta', 'fasta', 'fasta', 'fasta', 'gcg', 'raw', 'text', 'ig', 'codata', 'fitch', 'mase', 'strider', 'gde', 'acedb', 'unknown', 'embl', 'em', 'emblnew', 'emold', 'emblold', 'genbank', 'gb', 'ddbj', 'refseq', 'genpept', 'refseqp', 'swiss', 'sw', 'swissprot', 'uniprot', 'swissnew', 'swold', 'fastq', 'fastq-sanger', 'fastq-illumina', 'fastq-solexa', 'sam', 'gff', 'gff2', 'gff3', 'scf', 'msf', 'clustal', 'aln', 'selex', 'phylip', 'phylipnon', 'phylip3', 'hennig86', 'mega', 'meganon', 'nexus', 'paup', 'nexusnon', 'paupnon', 'jackknifer', 'jackknifernon', 'treecon']
 
 
 def fragments(rnd):

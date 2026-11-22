@@ -102,7 +102,7 @@ internal static partial class EmbossSeqWrite
             ListLines(o, "KW   ", s.Keylist, false);
         EmblTaxonomy(o, s);
         if (run.UfoLocal)
-            throw new NotSupportedException("The features of the output format are written inside the sequence file, which this port does not do.");
+            o.Append(s.FeatureText);
         o.Append(BaseCounts(s.Seq));
         EmblSequence(o, s.Seq);
     }
@@ -136,11 +136,11 @@ internal static partial class EmbossSeqWrite
         if (s.Date is { Exists: true } date)
         {
             if (date.CreDate is { } cre)
-                o.Append("DT   ").Append(EmbossSeqDate.Format(cre)).Append(" (Rel. ").Append(date.CreRel).Append(", Created)\n");
+                o.Append("DT   ").Append(EmbossSeqDate.Format(cre)).Append(" (Rel. ").Append(EmbossSeqDate.Str(date.CreRel)).Append(", Created)\n");
             else if (date.ModDate is { } mod0)
-                o.Append("DT   ").Append(EmbossSeqDate.Format(mod0)).Append(" (Rel. ").Append(date.ModRel).Append(", Created)\n");
+                o.Append("DT   ").Append(EmbossSeqDate.Format(mod0)).Append(" (Rel. ").Append(EmbossSeqDate.Str(date.ModRel)).Append(", Created)\n");
             if (date.ModDate is { } mod)
-                o.Append("DT   ").Append(EmbossSeqDate.Format(mod)).Append(" (Rel. ").Append(date.ModRel).Append(", Last updated, Version ").Append(date.ModVer).Append(")\n");
+                o.Append("DT   ").Append(EmbossSeqDate.Format(mod)).Append(" (Rel. ").Append(EmbossSeqDate.Str(date.ModRel)).Append(", Last updated, Version ").Append(EmbossSeqDate.Str(date.ModVer)).Append(")\n");
             o.Append("XX\n");
         }
 
@@ -214,7 +214,11 @@ internal static partial class EmbossSeqWrite
         }
 
         if (run.UfoLocal)
-            throw new NotSupportedException("The features of the output format are written inside the sequence file, which this port does not do.");
+        {
+            o.Append(s.FeatureText);
+            o.Append("XX\n");
+        }
+
         o.Append(BaseCounts(s.Seq));
         EmblSequence(o, s.Seq);
     }
@@ -440,7 +444,7 @@ internal static partial class EmbossSeqWrite
         }
 
         if (run.UfoLocal)
-            throw new NotSupportedException("The features of the output format are written inside the sequence file, which this port does not do.");
+            o.Append(s.FeatureText);
         o.Append(refseqp ? "ORIGIN      \n" : "ORIGIN\n");
         var sf = NewFormat(s.Seq.Length);
         sf.EndStr = "\n//";

@@ -10,13 +10,14 @@ internal sealed partial class EmbossSeqin
     private int _qualsize;
 
     // the tables of the classes of ajseq.c are made by the first call of a class function (ajSeqclsSetGb), and the sequence object keeps its date object once a reader made one (ajSeqClear clears it, it is not freed)
-    private bool _clsTables, _dateObject;
+    private bool _clsTables;
+    private EmbossSeqDate? _dateProto;
 
     // a sequence that comes after one that had a date has an empty date object
     private void DateObject(EmbossSeq t)
     {
-        if (_dateObject)
-            t.Date = new EmbossSeqDate { VersionsExist = true };
+        if (_dateProto is not null)
+            t.Date = EmbossSeqDate.ClearedFrom(_dateProto);
     }
 
     // ajSeqClear

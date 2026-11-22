@@ -53,7 +53,7 @@ internal static partial class EmbossSeqWrite
     }
 
     /// <summary>The writers of this port.</summary>
-    internal static bool IsPorted(EmbossSeqOutFormat f) => f.Writer is "Swiss" or "Swissnew" or "Genbank" or "Genpept" or "Refseq" or "Refseqp" or "Embl" or "Emblnew" or "Scf" or "Gff2" or "Gff3" or "FastqSanger" or "FastqIllumina" or "FastqSolexa" or "Sam" or "Asn1" or "Dasdna" or "Dasseq" or "Nibble" or "Ncbi" or "Gifasta" or "Fasta" or "Gcg" or "Nbrf" or "Codata" or "Strider" or "Staden" or "Text" or "Ig" or "Iguspto" or "Gde" or "Fitch" or "Acedb" or "Mase";
+    internal static bool IsPorted(EmbossSeqOutFormat f) => f.Save || f.Writer is "Swiss" or "Swissnew" or "Genbank" or "Genpept" or "Refseq" or "Refseqp" or "Embl" or "Emblnew" or "Scf" or "Gff2" or "Gff3" or "FastqSanger" or "FastqIllumina" or "FastqSolexa" or "Sam" or "Asn1" or "Dasdna" or "Dasseq" or "Nibble" or "Ncbi" or "Gifasta" or "Fasta" or "Gcg" or "Nbrf" or "Codata" or "Strider" or "Staden" or "Text" or "Ig" or "Iguspto" or "Gde" or "Fitch" or "Acedb" or "Mase";
 
     /// <summary>The <c>SeqSFormat</c> of the library: the layout of <c>seqWriteSeq</c> (the fields the ported formats set; the others stay at the defaults of <c>seqSeqFormat</c>: no name, no right number, no tab, no padding).</summary>
     private sealed class SeqFormat
@@ -598,15 +598,25 @@ internal static partial class EmbossSeqWrite
                 sf.Width = 60;
                 WriteSeq(o, seq, sf);
                 o.Append(prot ? "##end-Protein\n" : "##end-DNA\n");
+                if (run.UfoLocal)
+                    o.Append(s.FeatureText);
                 break;
             }
 
             case "Gff3":
-                o.Append("##gff-version 3\n");
-                o.Append(CultureInfo.InvariantCulture, $"##sequence-region {name} 1 {seq.Length}\n");
-                o.Append("#!Date ").Append(run.RunDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)).Append('\n');
-                o.Append(prot ? "#!Type Protein\n" : "#!Type DNA\n");
-                o.Append("#!Source-version EMBOSS 6.6.0.0\n");
+                if (run.UfoLocal)
+                {
+                    o.Append(s.FeatureText);
+                }
+                else
+                {
+                    o.Append("##gff-version 3\n");
+                    o.Append(CultureInfo.InvariantCulture, $"##sequence-region {name} 1 {seq.Length}\n");
+                    o.Append("#!Date ").Append(run.RunDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)).Append('\n');
+                    o.Append(prot ? "#!Type Protein\n" : "#!Type DNA\n");
+                    o.Append("#!Source-version EMBOSS 6.6.0.0\n");
+                }
+
                 o.Append("##FASTA\n");
                 WriteFastaEntry(o, DbName(name, run.Setoutdb), acc, sv, desc, seq);
                 break;
@@ -670,6 +680,8 @@ internal static partial class EmbossSeqWrite
             {
                 o.Append(type.Length == 0 ? ">D1;" : prot ? ">P1;" : ">D1;").Append(name).Append('\n');
                 o.Append(CultureInfo.InvariantCulture, $"{desc}, {seq.Length} bases\n");
+                if (run.UfoLocal)
+                    o.Append(s.FeatureText);
                 var sf = NewFormat(seq.Length);
                 sf.Spacer = 11;
                 sf.EndStr = "*\n";

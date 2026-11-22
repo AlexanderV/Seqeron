@@ -68,7 +68,7 @@ public class EmbossSeqout_Oracle_Tests
             string? commandLine = j.TryGetProperty("cmd", out var cm) ? string.Join(' ', cm.EnumerateArray().Select(x => x.GetString())) : null;
             string err = j.GetProperty("err").GetString()!;
             string? sformat = null;
-            bool firstOnly = false, lower = false, upper = false, protein = false, nucleotide = false;
+            bool feature = false, firstOnly = false, lower = false, upper = false, protein = false, nucleotide = false;
             for (int i = 0; i < args.Count; i++)
             {
                 switch (args[i])
@@ -78,6 +78,9 @@ public class EmbossSeqout_Oracle_Tests
                         break;
                     case "-firstonly":
                         firstOnly = true;
+                        break;
+                    case "-feature":
+                        feature = true;
                         break;
                     case "-slower1":
                         lower = true;
@@ -99,7 +102,7 @@ public class EmbossSeqout_Oracle_Tests
             {
                 var date = DateTimeOffset.FromUnixTimeSeconds(j.GetProperty("epoch").GetInt64()).UtcDateTime;
                 var o = EmbossSeqretPrograms.Seqret(new EmbossSeqretRequest("in.dat", new Dictionary<string, string> { ["in.dat"] = text },
-                    new EmbossSequenceQualifiers { Format = sformat, Lower = lower, Upper = upper, Protein = protein, Nucleotide = nucleotide }, false, firstOnly, outseq, osformat, null, null, date)
+                    new EmbossSequenceQualifiers { Format = sformat, Lower = lower, Upper = upper, Protein = protein, Nucleotide = nucleotide }, feature, firstOnly, outseq, osformat, null, null, date)
                 { OutSingle = single, OutDirectory = osdir, OutExtension = osext, CommandLine = commandLine, OutDbName = osdbname });
                 if (memerr)
                     continue;

@@ -103,7 +103,7 @@ internal static partial class EmbossSeqWrite
         if (s.Keylist.Count > 0)
             ListLines(o, "KW   ", s.Keylist, false);
         if (run.UfoLocal)
-            throw new NotSupportedException("The features of the output format are written inside the sequence file, which this port does not do.");
+            o.Append(s.FeatureText);
         o.Append(SwissSq(s.Seq, false));
         SwissSequence(o, s.Seq);
     }
@@ -203,11 +203,11 @@ internal static partial class EmbossSeqWrite
         if (s.Date is { } date)
         {
             if (date.CreDate is { } cre)
-                o.Append("DT   ").Append(EmbossSeqDate.Format(cre)).Append(", integrated into ").Append(date.CreVer).Append(".\n");
+                o.Append("DT   ").Append(EmbossSeqDate.Format(cre)).Append(", integrated into ").Append(EmbossSeqDate.Str(date.CreVer)).Append(".\n");
             if (date.SeqDate is { } seqd)
-                o.Append("DT   ").Append(EmbossSeqDate.Format(seqd)).Append(", sequence version ").Append(date.SeqVer).Append(".\n");
+                o.Append("DT   ").Append(EmbossSeqDate.Format(seqd)).Append(", sequence version ").Append(EmbossSeqDate.Str(date.SeqVer)).Append(".\n");
             if (date.ModDate is { } mod)
-                o.Append("DT   ").Append(EmbossSeqDate.Format(mod)).Append(", entry version ").Append(date.ModVer).Append(".\n");
+                o.Append("DT   ").Append(EmbossSeqDate.Format(mod)).Append(", entry version ").Append(EmbossSeqDate.Str(date.ModVer)).Append(".\n");
         }
 
         if (s.Fulldesc is { } fd && fd.Name.Length > 0)
@@ -379,7 +379,7 @@ internal static partial class EmbossSeqWrite
         }
 
         if (run.UfoLocal)
-            throw new NotSupportedException("The features of the output format are written inside the sequence file, which this port does not do.");
+            o.Append(s.FeatureText);
         o.Append(SwissSq(s.Seq, true));
         SwissSequence(o, s.Seq);
     }

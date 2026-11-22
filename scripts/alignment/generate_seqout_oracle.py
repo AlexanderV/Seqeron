@@ -26,6 +26,7 @@ PROT_ANNOT_INPUTS = ['genpept', 'genpept', 'genpept', 'refseqp', 'refseqp', 'swi
 ANNOT_READY = set(os.environ.get('SEQOUT_READY', 'embl,nbrf,experiment,fasta,ncbi,gcg,pir,sam,genbank,refseq,genpept,refseqp,swiss').split(','))
 
 
+FEATURE_SHARE = float(os.environ.get('SEQOUT_FEATURES', '0'))     # the share of the inputs of the entry writers that are feature-carrying entries read and written with -feature (the features go into the sequence file)
 DBNAME_FORCE = os.environ.get('SEQOUT_OSDBNAME') == '1'     # a run that gives -osdbname to most inputs (the file seqout_oracle_osdbname.jsonl.gz)
 
 
@@ -317,8 +318,16 @@ def main(out, per, seed, formats):
                     src = rnd.choice([x for x in pool if x in ANNOT_READY])
                 else:
                     src = rnd.choice(QUAL_INPUTS if fmt in QUAL_FORMATS and rnd.random() < 0.8 else INPUTS)
-                rich = annot_text(rnd, src) if fmt in ENTRY_FORMATS else None
-                if rich:
+                featmode = fmt in ENTRY_FORMATS and fmt not in ('experiment', 'debug') and rnd.random() < FEATURE_SHARE
+                if featmode:
+                    src = rnd.choice(['embl', 'genbank', 'swiss', 'refseqp', 'genpept', 'gff3', 'pir', 'embl', 'genbank', 'fasta'])
+                    text, how = G.make_input(rnd, gen, src)
+                    rich = None
+                else:
+                    rich = annot_text(rnd, src) if fmt in ENTRY_FORMATS else None
+                if featmode:
+                    pass
+                elif rich:
                     text, how = rich
                 elif src.startswith('q'):
                     text, how = qual_text(rnd, src), 'qual'
@@ -329,6 +338,7 @@ def main(out, per, seed, formats):
                 if rnd.random() < 0.05: text = text.rstrip('\n')
                 spec, args = 'in.dat', []
                 if rnd.random() < 0.7: args = ['-sformat1', 'fasta' if src == 'ncbi' else src]
+                if featmode: args += ['-feature']
                 if rnd.random() < 0.08: args += ['-firstonly']
                 if rnd.random() < 0.08: args += [rnd.choice(['-slower1', '-supper1', '-sprotein1', '-snucleotide1'])]
                 osformat, outseq = fmt, rnd.choice(['o.out', 'out', 'o.txt'])

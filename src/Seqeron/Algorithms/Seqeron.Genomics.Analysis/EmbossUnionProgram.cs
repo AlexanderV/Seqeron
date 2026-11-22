@@ -155,7 +155,11 @@ public static class EmbossUnionProgram
                 if (!EmbossSeqWrite.IsPorted(outFormat))
                     throw new NotSupportedException($"The sequence output format '{outFormat.Name}' is not written by this port.");
                 string name = u.Name.Length > 0 ? u.Name : "EMBOSS_001";
-                EmbossSeqWrite.Write(result, outFormat, name, u.Desc, u.Acc, u.Sv, u.Type, unistr.ToString(), 0, r.RunDate ?? DateTime.Now, u.FullDescMulti, u.Gi, u.Db, u.Setdb);
+                var unionRun = new EmbossSeqWriteRun { RunDate = r.RunDate ?? DateTime.Now, Program = "union", FileName = outName };
+                if (EmbossSeqWrite.Save(outFormat, unionRun, name, u.Desc, u.Type, unistr.ToString()))
+                    EmbossSeqWrite.CloseSet(result, outFormat, unionRun, 0);
+                else
+                    EmbossSeqWrite.Write(result, outFormat, name, u.Desc, u.Acc, u.Sv, u.Type, unistr.ToString(), 0, r.RunDate ?? DateTime.Now, u.FullDescMulti, u.Gi, u.Db, u.Setdb, unionRun);
                 written++;
                 if (EmbossSeqWrite.Footer(outFormat) is { Length: > 0 } footer)
                     result.Append(footer);                              // seqCleanDasdna / seqCleanDasseq at the close of the file

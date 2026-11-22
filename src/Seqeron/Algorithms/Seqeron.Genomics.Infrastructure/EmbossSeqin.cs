@@ -613,7 +613,8 @@ internal sealed partial class EmbossSeqin
     private void Define(EmbossSeq t)
     {
         AccuracySnapshot(t);
-        _dateObject |= t.Date is not null;
+        if (t.Date is not null)
+            _dateProto = t.Date;
         if (_opt.Db.Length > 0)
             t.Db = _opt.Db;
         if (_opt.Entryname.Length > 0 && t.Entryname.Length == 0)

@@ -243,4 +243,44 @@ internal sealed partial class EmbossSeqin
             }
         }
     }
+
+    // ajFeattableGetXrefs: the db_xref tags ("db:id") of the features (and the Dbxref tags of GFF3 features) are cross-references of type db_xref; the first one of the database taxon gives the taxon id
+    private void FeatureXrefs(EmbossSeq t)
+    {
+        if (t.Fttable is not { } table || table.Features.Count == 0)
+            return;
+        uint taxid = 0;
+        foreach (var feat in table.Features)
+        {
+            foreach (var (name, value) in feat.Tags)
+            {
+                if (string.Equals(name, "db_xref", StringComparison.OrdinalIgnoreCase))
+                    AddDbxref(t, feat, value, ref taxid);
+            }
+
+            foreach (var (name, value) in feat.GffTags)
+            {
+                if (name.Equals("Dbxref", StringComparison.OrdinalIgnoreCase))
+                {
+                    var handle = new StrTok(value, ",");
+                    while (handle.Next(out string piece))
+                        AddDbxref(t, feat, piece, ref taxid);
+                }
+            }
+        }
+
+        if (taxid != 0 && t.Taxid.Length == 0)
+            t.Taxid = taxid.ToString(System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    private static void AddDbxref(EmbossSeq t, EmbossSeqFeature feat, string value, ref uint taxid)
+    {
+        int ipos = value.IndexOf(':', StringComparison.Ordinal);
+        if (ipos <= 0)
+            return;
+        var x = new EmbossSeqXref { Db = value[..ipos], Id = value[(ipos + 1)..], Start = feat.GetStart(), End = feat.GetEnd(), Type = 2 };
+        t.Xreflist.Add(x);
+        if (taxid == 0 && string.Equals(x.Db, "taxon", StringComparison.OrdinalIgnoreCase) && !CStr.ToUint(x.Id, out taxid))
+            taxid = 0;
+    }
 }

@@ -26,6 +26,9 @@ internal sealed class EmbossSeqOut
     public EmbossSeqFeatureTable? Fttable;
     public bool Circular, Rev;
 
+    /// <summary>The text of the feature table in the feature format of the sequence format (<c>ajFeattableWrite</c> of <c>ajFeattabOutNewCSF</c>), for the formats that keep the features in the sequence file (<c>seqoutUfoLocal</c>); empty when the sequence has no table.</summary>
+    public string FeatureText = "";
+
     /// <summary><c>outseq-&gt;Offset</c>: the start of the range minus one.</summary>
     public int Offset;
 

@@ -25,6 +25,50 @@ internal static partial class EmbossSeqWrite
         _ => false,
     };
 
+    /// <summary>A program that writes new sequences (extractfeat, coderet, union) gives a set format the sequence to keep: true when it was kept (written when the output is closed with <see cref="CloseSet"/>).</summary>
+    internal static bool Save(EmbossSeqOutFormat f, EmbossSeqWriteRun run, string name, string desc, string type, string seq)
+    {
+        if (!f.Save)
+            return false;
+        if (type.Length > 0)
+            run.OutType = type;
+        ListAppend(run, new EmbossSeqSaved { Name = name, Desc = desc, Type = type, Seq = seq }, "");
+        return true;
+    }
+
+    /// <summary><c>ajSeqoutClose</c> of a set format: the saved sequences are written.</summary>
+    internal static void CloseSet(StringBuilder o, EmbossSeqOutFormat? f, EmbossSeqWriteRun run, int count)
+    {
+        if (f is { Save: true } && run.Saved.Count > 0)
+        {
+            run.Count = count;
+            WriteSaved(o, f, run);
+        }
+    }
+
+    /// <summary>The feature format that a sequence format writes into its file (<c>ajFeattabOutNewCSF</c> of the writer).</summary>
+    internal static string LocalFeatureFormat(EmbossSeqOutFormat f) => f.Writer switch
+    {
+        "Embl" or "Emblnew" or "Experiment" => "embl",
+        "Genbank" => "genbank",
+        "Genpept" => "genpept",
+        "Refseq" => "refseq",
+        "Refseqp" => "refseqp",
+        "Swiss" or "Swissnew" => "swiss",
+        "Nbrf" => "pir",
+        "Gff2" => "gff2",
+        "Gff3" => "gff3",
+        _ => "gff3",
+    };
+
+    /// <summary>The name of the writer function in the warning <c>seqWriteEmbl features output failed UFO</c>.</summary>
+    internal static string LocalFeatureWriterName(EmbossSeqOutFormat f) => f.Writer switch
+    {
+        "Embl" or "Emblnew" or "Experiment" => "seqWriteEmbl",
+        "Swiss" or "Swissnew" => "seqWriteSwiss",
+        _ => "seqWrite" + f.Writer,
+    };
+
     private static string Today(EmbossSeqWriteRun run) => run.RunDate.ToString("dd/MM/yy", CultureInfo.InvariantCulture);
 
     // seqGapSL: the characters of " .~-" become the gap character, the ends of the sequence the pad character (when there is one), and the sequence is padded to a length

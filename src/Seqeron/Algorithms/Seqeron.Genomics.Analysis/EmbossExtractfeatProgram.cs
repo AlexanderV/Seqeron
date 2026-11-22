@@ -71,6 +71,8 @@ public static class EmbossExtractfeatProgram
         var outFormat = EmbossSeqWrite.Find(formatName);
         var output = new StringBuilder();
         var run = new Run(r, context, outFormat, formatName, output, r.RunDate ?? DateTime.Now, new EmbossRemoteSeq(r.Files, r.Definitions, context));
+        run.Out.FileName = outName;
+        run.Out.Program = "extractfeat";
         while (EmbossSeqretPrograms.TryNext(seqall, context, out var seq))
         {
             // the features of the sequence (a copy), the ones that pass the filters
@@ -84,6 +86,7 @@ public static class EmbossExtractfeatProgram
             run.Extract(seq, table);
         }
 
+        EmbossSeqWrite.CloseSet(output, outFormat, run.Out, run.Count);
         if (run.Written > 0 && outFormat is not null && EmbossSeqWrite.Footer(outFormat) is { Length: > 0 } footer)
             output.Append(footer);                                  // seqCleanDasdna / seqCleanDasseq at the close of the file
 
@@ -97,6 +100,7 @@ public static class EmbossExtractfeatProgram
     private sealed class Run(EmbossExtractfeatRequest r, EmbossFeatureReadContext context, EmbossSeqOutFormat? format, string formatName, StringBuilder output, DateTime date, EmbossRemoteSeq remote)
     {
         public int Written, Count;
+        public readonly EmbossSeqWriteRun Out = new() { RunDate = date };
         private bool _unknownReported;
 
         // extractfeat_FeatSeqExtract
@@ -185,7 +189,8 @@ public static class EmbossExtractfeatProgram
 
             if (!EmbossSeqWrite.IsPorted(format))
                 throw new NotSupportedException($"The sequence output format '{format.Name}' is not written by this port.");
-            EmbossSeqWrite.Write(output, format, name, desc, "", "", seq.Type, featstr, Count, date, null);
+            if (!EmbossSeqWrite.Save(format, Out, name, desc, seq.Type, featstr))
+                EmbossSeqWrite.Write(output, format, name, desc, "", "", seq.Type, featstr, Count, date, null, run: Out);
             Count++;
             Written++;
         }
