@@ -92,6 +92,8 @@ public sealed class HandoffOracleTests
     {
         byte[] text = RandomText(3, 40, "AC");
         var set = HandoffQuerySet.Build(text.Length, Reader(text), "AC"u8, [40], 50, 0, 5);
+        // (an empty set would pass Is.All: the audit's mutant "a window as long as the text is no present query" survived until the count was asserted)
+        Assert.That(set, Has.Count.EqualTo(50), "a window as long as the text is a present query");
         Assert.That(set.Select(q => q.Origin), Is.All.EqualTo(0L), "a window as long as the text can only start at 0");
         set = HandoffQuerySet.Build(text.Length, Reader(text), "AC"u8, [39], 200, 0, 5);
         Assert.That(set.Select(q => q.Origin).Distinct().Order(), Is.EqualTo(new long[] { 0, 1 }));
@@ -157,6 +159,32 @@ public sealed class HandoffOracleTests
         for (int i = 0; i < 300; i++) qs.Add(new HandoffQuery(i, false, -1, RandomText(1000 + i, 9, "ACGT")));
         ScanResult r = RollingScan.Run(new MemoryStream(text), qs, 5, 512);
         foreach (HandoffQuery q in qs) Assert.That(r.Counts[q.Index], Is.EqualTo(NaivePositions(text, q.Bytes).Count));
+    }
+
+    [Test]
+    public void TheScan_NeverCountsAWindowWithTheSameHash_ForTwoStringsThatReallyCollide()
+    {
+        // The test above cannot fail: no two 9-letter strings share a 64-bit hash by chance. Two that do, by construction: the Thue-Morse string and its complement, 2^11 letters 'a' / 'b'.
+        // The hash is a polynomial of an odd base modulo 2^64, the difference of the two hashes is the product of (1 - base^(2^j)) for j < 11, and every factor is even: its 2-adic valuation is at
+        // least j + 2 for j >= 1 and 2 for j = 0 (the base ends in binary ...10101), 2 + (3 + 4 + ... + 12) = 77 > 64 in all, so the difference is 0 modulo 2^64. The text holds the complement twice; the query is the string itself.
+        const int k = 11;
+        int len = 1 << k;
+        var tm = new byte[len];
+        var complement = new byte[len];
+        for (int i = 0; i < len; i++)
+        {
+            bool odd = (System.Numerics.BitOperations.PopCount((uint)i) & 1) == 1;
+            tm[i] = odd ? (byte)'b' : (byte)'a';
+            complement[i] = odd ? (byte)'a' : (byte)'b';
+        }
+        byte[] text = [.. complement, (byte)'x', .. complement];
+        var same = new HandoffQuery(0, false, -1, complement);
+        var collides = new HandoffQuery(1, false, -1, tm);
+        Assert.That(tm, Is.Not.EqualTo(complement));
+        ScanResult r = RollingScan.Run(new MemoryStream(text), [same, collides], 5, 1000);
+        Assert.That(r.Counts[0], Is.EqualTo(2), "the complement itself is found twice");
+        Assert.That(r.Counts[1], Is.Zero, "the string with the same hash is not in the text: the byte comparison must reject both windows");
+        Assert.That(r.Positions[1], Is.Empty);
     }
 
     [Test]
