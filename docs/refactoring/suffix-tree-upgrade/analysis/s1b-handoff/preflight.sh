@@ -3,6 +3,7 @@
 # usage: preflight.sh [--n N] [--kind genome|dna|rep|prot] [--quick] [--no-form]
 #   --n      symbols of the run to plan for (default 3000000000); decimal suffixes k m g allowed
 #   --quick  skip the write / mmap / msync test of the data directory
+#   --have   bytes of this run that are already on the volume (the text, the files of an interrupted build): they are not needed again
 # Prints [ ok ] / [warn] / [REFUSE] lines, writes $S1B_DATA/env/env.tsv (what the form takes) and ends with RESULT: OK or REFUSED. Exit code 0 = no refusal (warnings allowed), 3 = at least one refusal.
 set -u
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -10,13 +11,14 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 . "$HERE/s1blib.sh"
 DATA=${S1B_DATA:-/data}
 BENCH=${S1B_BENCH:-/opt/s1b/bin/bench/SuffixTree.Esa.Bench.dll}
-N=3000000000; KIND=genome; QUICK=0; WRITE=1
+N=3000000000; KIND=genome; QUICK=0; WRITE=1; HAVE=0
 while [ $# -gt 0 ]; do
   case $1 in
     --n) N=$(size_n "$2"); shift 2 ;;
     --kind) KIND=$2; shift 2 ;;
     --quick) QUICK=1; shift ;;
     --no-form) WRITE=0; shift ;;
+    --have) HAVE=$2; shift 2 ;;
     *) echo "unknown option $1" >&2; exit 2 ;;
   esac
 done
@@ -77,11 +79,12 @@ if [ ! -d "$DATA" ] || [ ! -w "$DATA" ]; then refuse "$DATA does not exist or is
   AVAIL=$(free_bytes_of "$DATA"); SIZE=$(size_bytes_of "$DATA")
   kv disk_free_bytes "$AVAIL"; kv disk_size_bytes "$SIZE"
   say "     free: $(human "$AVAIL") of $(human "$SIZE") on the file system of the data directory"
-  say "     need at the peak of one run (the text n x 1, the container n x $(container_bpc "$KIND") reserved from the start, the scratch n x $S1B_SCRATCH_BPC at the peak, plus 2 GB and 2 %):"
+  say "     need at the peak of one run (the text n x 1, the container n x $(container_bpc "$KIND") reserved from the start, the scratch n x $S1B_SCRATCH_BPC at its peak, reached when the suffix array is complete, plus 2 GB and 2 %):"
   for n in $(printf '%s\n' 100000000 1000000000 3000000000 "$N" | sort -un); do
     nd=$(need_bytes "$n" "$KIND"); say "       n = $(printf '%13s' "$n"): $(human "$nd") (text $(human "$n"), container $(human "$(awk -v n="$n" -v c="$(container_bpc "$KIND")" 'BEGIN { printf "%.0f", n * c }')"), scratch $(human $((n * S1B_SCRATCH_BPC))))"
   done
   NEED=$(need_bytes "$N" "$KIND")
+  if [ "$HAVE" -gt 0 ]; then NEED=$((NEED > HAVE ? NEED - HAVE : 0)); say "     $(human "$HAVE") of this run are on the volume already (the text, the files of an interrupted build): the need is $(human "$NEED") more"; fi
   if [ "$AVAIL" -ge $((NEED + NEED / 4)) ]; then ok "the run at n = $N fits with room ($(human "$AVAIL") free, $(human "$NEED") needed)"
   elif [ "$AVAIL" -ge "$NEED" ]; then warn "the run at n = $N fits barely ($(human "$AVAIL") free, $(human "$NEED") needed): a second run beside it will not"
   else refuse "the run at n = $N needs about $(human "$NEED") and only $(human "$AVAIL") are free. Free disk (Docker Desktop: the disk image size, Settings > Resources) or plan a smaller --n"; fi

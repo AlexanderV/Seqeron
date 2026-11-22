@@ -9,7 +9,7 @@
 #   s1b.sh hash | verify | structure | queries --n N [--kind K]    the steps after the build, each on its own
 #   s1b.sh chain  --n N [--kind K]   gen, build, hash, e8-verify --container, the Structure level (auto), the query set, the form, the checker
 #   s1b.sh tests <set>...|all      the test sets of the owner's CI policy (esa-default esa-exhaustive esa-fuzz esa-checked emproto persistent); needs the SDK image
-#   s1b.sh form | check            (re)write form.json / form.md from what the steps left; run the checker on it (PASS / FAIL per gate)
+#   s1b.sh form | check [--run LABEL]...   (re)write form.json / form.md from what the steps left; run the checker on it (PASS / FAIL per gate), on the named runs only with --run
 #   s1b.sh status | clean [--n N --kind K | --all]    what is done; remove a run's text, container and scratch
 # options (anywhere): --data DIR  --kind K (genome)  --n N (decimal suffixes k m g)  --tag T (a second run of the same text)  --resume auto|on|off (auto: on from 10^9)  --threads T (4)  --fsync true|false (true)
 #   --psi true|false (true)  --structure auto|yes|no (auto)  --queries yes|no (yes)  --rebuild  --kill-after SECONDS (rehearse a kill)  --dry-run  --force-disk  --interval-ms MS (sampler, 100)  --filter EXPR (tests)
@@ -23,7 +23,7 @@ BENCH=${S1B_BENCH:-/opt/s1b/bin/bench/SuffixTree.Esa.Bench.dll}
 EMPROTO=${S1B_EMPROTO:-/opt/s1b/bin/emproto/SuffixTree.EmProto.dll}
 SRC=${S1B_SRC:-/src}
 KIND=genome; N=; TAG=; RESUME=auto; THREADS=4; FSYNC=true; PSI=true; STRUCT=auto; QUERIES=yes; REBUILD=0; KILL_AFTER=; DRY=0; FORCE_DISK=0; INTERVAL=${S1B_INTERVAL_MS:-100}; FILTER=
-HEARTBEAT=${S1B_HEARTBEAT:-30}; ALL=0; POS=()
+HEARTBEAT=${S1B_HEARTBEAT:-30}; ALL=0; POS=(); CHECK_RUNS=()
 CMD=${1:-help}; [ $# -gt 0 ] && shift
 while [ $# -gt 0 ]; do
   case $1 in
@@ -40,6 +40,7 @@ while [ $# -gt 0 ]; do
     --interval-ms) INTERVAL=$2; shift 2 ;;
     --kill-after) KILL_AFTER=$2; shift 2 ;;
     --filter) FILTER=$2; shift 2 ;;
+    --run) CHECK_RUNS+=(--run "$2"); shift 2 ;;
     --rebuild) REBUILD=1; shift ;;
     --dry-run) DRY=1; shift ;;
     --force-disk) FORCE_DISK=1; shift ;;
@@ -65,6 +66,11 @@ setup_run() { # sets LBL RUN WORK TEXT after N and KIND are known
 run_or_echo() { if [ "$DRY" = 1 ]; then echo "+ $*"; return 0; fi; "$@"; }
 step() { echo; echo "==== $* ($(date -u +%H:%M:%SZ))"; }
 
+record_input() { # the sums file of the text goes into the run's directory: the form and the reference table take the input's SHA-256 from there
+  mkdir -p "$RUN"
+  [ -f "$TEXT.sums" ] && cp "$TEXT.sums" "$RUN/input.sums"
+}
+
 write_run_json() {
   mkdir -p "$RUN"
   [ -f "$RUN/run.json" ] && return 0
@@ -76,7 +82,7 @@ cmd_plan() {
   local n kinds
   echo "S1B plan. MEASURED = taken on the 4-vCPU x86-64 Linux box of the orchestrator at 10^7 / 10^8 (the ADR-004 subsection 1b.9f); ESTIMATE = scaled from it, not measured."
   echo
-  echo "DISK at the peak of one run (the text + the container, reserved from the start + the scratch at its peak; the scratch falls to about 9 bytes per symbol once the suffix array is complete)"
+  echo "DISK at the peak of one run (the text + the container, reserved from the start + the scratch at its peak; MEASURED at 10^8: the scratch is at most 4.2 bytes per symbol during PH1-PH3 and peaks at 11.9 at the start of PH4, when the suffix array is complete, then falls)"
   printf '  %-16s %-10s %-12s %-12s %-12s %-12s\n' "n" "kind" "text" "container" "scratch peak" "total peak"
   for n in 100000000 1000000000 3000000000 ${N:+$N}; do
     for kinds in genome dna; do
@@ -105,7 +111,7 @@ cmd_gen() {
   mkdir -p "$DATA/text"
   if [ -f "$TEXT" ] && [ -f "$sums" ] && [ "$(fsize "$TEXT")" = "$N" ] && grep -q "^n=$N\$" "$sums"; then
     local want have; want=$(sed -n 's/^sha256=//p' "$sums"); have=$(sha256_of "$TEXT")
-    if [ "$want" = "$have" ]; then echo "text ${KIND}_n$N exists, SHA-256 $have matches its sums file: reused"; return 0; fi
+    if [ "$want" = "$have" ]; then echo "text ${KIND}_n$N exists, SHA-256 $have matches its sums file: reused"; record_input; return 0; fi
     echo "text ${KIND}_n$N exists but its SHA-256 differs from the sums file: generated again" >&2
   fi
   local avail; avail=$(free_bytes_of "$DATA")
@@ -117,6 +123,7 @@ cmd_gen() {
   else
     python3 -I "$HERE/s1b_gen.py" --kind "$KIND" --n "$N" --out "$TEXT" --force > "$DATA/gen.$KIND.n$N.log" 2>&1 || { echo "generation failed:" >&2; tail -5 "$DATA/gen.$KIND.n$N.log" >&2; return 4; }
   fi
+  record_input
   echo "  done in $(( $(now_s) - t0 )) s; $(grep -E '^sha256=' "$sums")"
 }
 
@@ -162,7 +169,7 @@ cmd_build() {
   local start; start=$(now_s)
   "${cmd[@]}" > "$RUN/build.$K.out" 2> "$RUN/build.$K.err" &
   local pid=$! killer=
-  python3 -I "$HERE/s1b_sampler.py" --pid "$pid" --out "$RUN/build.$K.series.tsv" --summary "$RUN/build.$K.sampler.json" --interval-ms "$INTERVAL" --disk-interval-ms 1000 --dir "$WORK" &
+  python3 -I "$HERE/s1b_sampler.py" --pid "$pid" --out "$RUN/build.$K.series.tsv" --summary "$RUN/build.$K.sampler.json" --interval-ms "$INTERVAL" --disk-interval-ms "${S1B_DISK_INTERVAL_MS:-1000}" --dir "$WORK" &
   local spid=$!
   if [ -n "$KILL_AFTER" ]; then ( sleep "$KILL_AFTER"; kill -9 "$pid" 2> /dev/null; echo "  (--kill-after: SIGKILL sent to the build after $KILL_AFTER s)" ) & killer=$!; fi
   trap 'kill -9 "$pid" 2>/dev/null; kill "$spid" 2>/dev/null; echo "interrupted: the attempt is recorded; run the same command again" >&2; exit 130' INT TERM
@@ -284,7 +291,7 @@ cmd_tests() {
 
 # ------------------------------------------------------------------------------------------------- form, check, status, clean
 cmd_form() { python3 -I "$HERE/s1b_form.py" "$DATA" --commit "${S1B_COMMIT:-unknown}"; }
-cmd_check() { python3 -I "$HERE/s1b_check.py" "$DATA/form.json" "$@"; }
+cmd_check() { python3 -I "$HERE/s1b_check.py" "$DATA/form.json" ${CHECK_RUNS[@]+"${CHECK_RUNS[@]}"} "$@"; }
 
 cmd_status() {
   echo "data directory: $DATA"
@@ -315,7 +322,10 @@ cmd_chain() {
     return 0
   fi
   mkdir -p "$DATA"; write_run_json
-  "$HERE/preflight.sh" --n "$N" --kind "$KIND" --quick > "$DATA/preflight.last.txt" 2>&1; local prc=$?
+  local have=0 wk
+  wk=$(du -sk "$WORK" 2> /dev/null | cut -f1); have=$(( ${wk:-0} * 1024 ))
+  [ -f "$TEXT" ] && have=$((have + $(fsize "$TEXT")))
+  "$HERE/preflight.sh" --n "$N" --kind "$KIND" --quick --have "$have" > "$DATA/preflight.last.txt" 2>&1; local prc=$?
   sed -n '/^RESULT/p;/\[REFUSE\]/p;/\[warn\]/p' "$DATA/preflight.last.txt"
   if [ "$prc" != 0 ] && [ "$FORCE_DISK" = 0 ]; then cat "$DATA/preflight.last.txt"; echo "chain refused: fix the [REFUSE] lines (s1b.sh preflight --n $N shows everything)" >&2; return 3; fi
   local rc=0
@@ -334,7 +344,7 @@ cmd_chain() {
   if [ $rc = 0 ] && [ "$QUERIES" = yes ]; then cmd_queries || rc=$?; fi
   step "form and checker"
   cmd_form
-  cmd_check || { local crc=$?; [ $rc = 0 ] && rc=$crc; }
+  CHECK_RUNS=(--run "$LBL"); cmd_check || { local crc=$?; [ $rc = 0 ] && rc=$crc; }
   return $rc
 }
 
@@ -350,7 +360,7 @@ case $CMD in
   chain) cmd_chain ;;
   tests) cmd_tests ;;
   form) cmd_form ;;
-  check) cmd_check "${POS[@]+"${POS[@]}"}" ;;
+  check) cmd_check ${POS[@]+"${POS[@]}"} ;;
   status) cmd_status ;;
   clean) cmd_clean ;;
   shell) exec /bin/bash ;;

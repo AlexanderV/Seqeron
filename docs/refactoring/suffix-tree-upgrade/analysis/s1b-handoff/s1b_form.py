@@ -155,11 +155,10 @@ def queries_section(runroot):
 def run_section(data, label, ref):
     runroot = os.path.join(data, 'runs', label)
     meta = read_json(os.path.join(runroot, 'run.json')) or {}
-    sums = read_kv(os.path.join(runroot, 'input.sums')) if os.path.exists(os.path.join(runroot, 'input.sums')) else {}
-    if not sums:
-        for line in read_text(os.path.join(runroot, 'input.sums')).splitlines():
-            k, _, v = line.partition('=')
-            sums[k] = v
+    sums = {}
+    for line in read_text(os.path.join(runroot, 'input.sums')).splitlines():
+        k, _, v = line.partition('=')
+        sums[k] = v
     sha_line = read_text(os.path.join(runroot, 'container.sha256')).split()
     build, rss, disk = build_section(runroot)
     run = {'kind': meta.get('kind'), 'n': meta.get('n'), 'threads': meta.get('threads'), 'psi': meta.get('psi', True), 'resume': meta.get('resume'), 'fsync': meta.get('fsync'),

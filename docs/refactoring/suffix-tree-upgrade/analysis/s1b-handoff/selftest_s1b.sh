@@ -24,7 +24,10 @@ rm -rf "$D"; mkdir -p "$D"
 echo "1. syntax and the unit tests of the Python parts"
 for f in "$HERE"/*.sh; do bash -n "$f"; expect "bash -n $(basename "$f")" $?; done
 for f in "$HERE"/*.py; do python3 -I -c "import ast,sys; ast.parse(open(sys.argv[1]).read())" "$f"; expect "python syntax $(basename "$f")" $?; done
-for t in test_s1b_check.py test_s1b_sampler.py test_s1b_gen.py; do python3 -I "$HERE/$t" > "$W/$t.log" 2>&1; expect "unit tests $t ($(grep -E '^Ran ' "$W/$t.log"))" $?; done
+for t in test_s1b_check.py test_s1b_sampler.py test_s1b_gen.py; do
+  if [ "$t" = test_s1b_gen.py ] && [ ! -f "$HERE/../em/make_1b9e_inputs.py" ]; then echo "  SKIP  $t needs the in-memory generators of the repository (analysis/em, analysis/bench): not in the image"; continue; fi
+  python3 -I "$HERE/$t" > "$W/$t.log" 2>&1; expect "unit tests $t ($(grep -E '^Ran ' "$W/$t.log"))" $?
+done
 
 echo "2. help, plan, dry run"
 run help; expect "help prints the commands" "$([ "$LAST_RC" = 0 ] && grep -q 'chain' "$W/last.out" && echo 0 || echo 1)"
@@ -103,6 +106,16 @@ if [ "$LAST_RC" = 4 ]; then
   expect "  the resumed container equals the uninterrupted one" "$([ "$(sha_of_run genome-n20000000-kon)" = "$REF" ] && echo 0 || echo 1)"
 else
   echo "  SKIP  the kill landed after the end of the build (this machine is faster than the test assumes): rc $LAST_RC"
+fi
+# the pre-flight of a resumed chain counts what the interrupted attempt already holds: with just less free space than a whole run needs (2.54 GB at 2x10^7) the chain must still go on
+run build --n 20m --kind genome --tag kfree --resume on --kill-after 2.5
+if [ "$LAST_RC" = 4 ]; then
+  S1B_FREE_OVERRIDE=2400000000 run chain --n 20m --kind genome --tag kfree --resume on --structure no
+  expect "a resumed chain counts the files of the killed attempt: it is not refused although a whole run would not fit" "$LAST_RC"
+  S1B_FREE_OVERRIDE=2400000000 run preflight --n 20m --kind genome
+  expect "  while a pre-flight that does not know them refuses (3)" "$([ "$LAST_RC" = 3 ] && echo 0 || echo 1)"
+else
+  echo "  SKIP  the kill landed after the end of the build: rc $LAST_RC"
 fi
 run build --n 20m --kind genome --tag koff --resume off --kill-after 2.5
 if [ "$LAST_RC" = 4 ]; then

@@ -13,7 +13,8 @@ The gates are fixed HERE, not read from the form: a form that carries a differen
   P1  the process runs on the architecture it was built for (no emulation)
   X1  the CRC-32C path: the check value, the table path equal to the hardware path (a CPU without the instruction is a warning)
   T1  the test sets: no failed test; a count that differs from the reference head's is a warning
-usage: s1b_check.py <form.json> [--reference reference_hashes.tsv] [--require-tests]      s1b_check.py --gates
+usage: s1b_check.py <form.json> [--reference reference_hashes.tsv] [--require-tests] [--run LABEL]...      s1b_check.py --gates
+  --run   judge only the named runs of the form (the others still serve as references of the identity gate); the environment and the test sets are judged always
 exit code: 0 PASS, 1 FAIL, 2 the file is not a readable form, 3 INCOMPLETE (nothing failed, a required gate has no data)"""
 import json
 import os
@@ -262,6 +263,8 @@ def main(argv):
     if '--reference' in argv:
         ref_path = argv[argv.index('--reference') + 1]
         args = [a for a in args if a != ref_path]
+    only = [argv[i + 1] for i, a in enumerate(argv[:-1]) if a == '--run']
+    args = [a for a in args if a not in only]
     if len(args) != 1:
         print(__doc__)
         return 2
@@ -288,7 +291,12 @@ def main(argv):
     for label, run in runs.items():
         if isinstance(run, dict):
             keys[label] = f"{run.get('kind')}:{run.get('n')}:{'psi' if run.get('psi', True) else 'nopsi'}"
+    if only and [x for x in only if x not in runs]:
+        print('the form has no run ' + ', '.join(x for x in only if x not in runs))
+        return 2
     for label, run in runs.items():
+        if only and label not in only:
+            continue
         if not isinstance(run, dict):
             rep.line('FAIL', 'B1', f'run {label} is not an object')
             continue

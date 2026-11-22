@@ -282,6 +282,23 @@ class CheckerTests(unittest.TestCase):
         f['form_version'] = 99
         self.assertEqual(check(f)[0], 2)
 
+    def test_run_selects_the_runs_that_are_judged_and_the_others_still_serve_as_references(self):
+        f = form()
+        f['runs']['second'] = run_entry(sha='a' * 64)
+        f['runs']['second']['rss']['in_process_peak_mb'] = 500.0
+        self.assertEqual(check(f)[0], 1, 'without --run every run is judged')
+        code, out = check(f, '--run', 'genome-n100000000')
+        self.assertEqual(code, 0, out)
+        self.assertNotIn('run second (', out)
+        self.assertEqual(check(f, '--run', 'second')[0], 1)
+        code, out = check(f, '--run', 'nonexistent')
+        self.assertEqual(code, 2, out)
+        f['runs']['second']['container']['sha256'] = 'f' * 64
+        f['runs']['second']['rss']['in_process_peak_mb'] = 100.0
+        code, out = check(f, '--run', 'genome-n100000000')
+        self.assertEqual(code, 1, 'a run that is judged is compared with the other runs of the same text, judged or not')
+        self.assertTrue([x for x in lines(out, 'FAIL') if ' I1 ' in x], out)
+
     def test_the_gate_numbers_of_the_checker_are_the_ones_of_the_owner_decision(self):
         out = subprocess.run([sys.executable, '-I', CHECK, '--gates'], capture_output=True, text=True).stdout
         self.assertIn('RSSANON_GATE_MB = 320', out)

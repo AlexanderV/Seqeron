@@ -35,10 +35,11 @@ container_bpc() {
     *) echo 13.70 ;;
   esac
 }
-# scratch bytes per symbol at the peak (before the suffix array is complete); the build plans for 12 (SesaBuilder.ScratchBytesPerChar)
-S1B_SCRATCH_BPC=13
+# scratch bytes per symbol at the peak: MEASURED 11.9 (sampled on disk) / 12.0 (the build's own counter) at 10^8, reached at the START of PH4, after the suffix array is complete (during PH1-PH3 it is at most 4.2); the
+# build plans for 12 (SesaBuilder.ScratchBytesPerChar)
+S1B_SCRATCH_BPC=12
 
-# need_bytes N KIND -> the disk that one run needs at its peak: the text, the container (reserved from the start), the scratch at its peak, and 2 GB + 2 % of margin
+# need_bytes N KIND -> the disk that one run needs at its peak: the text, the container (reserved from the start; it grows by the overflow list behind its reserved length), the scratch at its peak, and 2 GB + 2 % of margin
 need_bytes() { awk -v n="$1" -v c="$(container_bpc "$2")" -v s="$S1B_SCRATCH_BPC" 'BEGIN { printf "%.0f", n * (1 + c + s) * 1.02 + 2e9 }'; }
 
 # label of a run
