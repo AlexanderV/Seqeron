@@ -65,12 +65,15 @@ internal sealed class EmbossSeqRef
             Authors = Authors.TrimEnd(';');
     }
 
-    // ajStrQuoteStrip: a string enclosed in double quotes loses them, a doubled quote inside becomes one
+    // ajStrQuoteStrip: a quote at the end and a quote at the start are cut (each on its own), doubled and escaped quotes inside become one
     internal static string QuoteStrip(string s)
     {
-        if (s.Length < 2 || s[0] != '"' || s[^1] != '"')
-            return s;
-        return s[1..^1].Replace("\"\"", "\"", StringComparison.Ordinal);
+        if (s.Length > 0 && s[^1] == '"')
+            s = s[..^1];
+        if (s.Length > 0 && s[0] == '"')
+            s = s[1..];
+        s = s.Replace("\"\"", "\"", StringComparison.Ordinal);
+        return s.Replace("\\\"", "\"", StringComparison.Ordinal);
     }
 
     // ajSeqrefFmtAuthorsGb: the last ", " becomes " and", a blank before an initial ("Smith J.") becomes a comma
@@ -268,8 +271,8 @@ internal static class EmbossSeqTables
     /// <summary><c>ajSeqmolSetGb</c>.</summary>
     public static string? MolFromGb(string s) => Lookup(Mol, e => e.Gb, s);
 
-    /// <summary><c>ajSeqdivSetGb</c>.</summary>
-    public static string? DivFromGb(string s) => Lookup(Div, e => e.Gb, s);
+    /// <summary><c>ajSeqdivSetGb</c>: GenBank mixes division and class, so a name that is no division is looked up in the classes; the class tables exist only after the first call of a class function of the process (<paramref name="classTables"/>).</summary>
+    public static string? DivFromGb(string s, bool classTables) => Lookup(Div, e => e.Gb, s) ?? (classTables ? Lookup(Cls, e => e.Gb, s) : null);
 
     /// <summary><c>ajSeqclsSetGb</c>.</summary>
     public static string? ClsFromGb(string s) => Lookup(Cls, e => e.Gb, s);

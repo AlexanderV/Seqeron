@@ -22,7 +22,8 @@ QUAL_INPUTS = ['qsanger', 'qsanger', 'qillumina', 'qsolexa', 'qsam', 'qexperimen
 INPUTS = ['ncbi', 'ncbi', 'ncbi', 'fasta', 'fasta', 'fasta', 'gcg', 'embl', 'genbank', 'nbrf', 'swiss', 'ig', 'codata', 'strider', 'staden', 'gde', 'fitch', 'treecon', 'pir', 'clustal', 'msf', 'phylip', 'raw', 'textonly', 'asis', 'fastq', 'sam']
 # the entry formats whose readers keep the annotation (references, keywords, taxonomy, comments, dates) that the entry writers print: SEQOUT_INPUTS=annot makes the inputs of the entry writers mostly such texts
 ANNOT_INPUTS = ['embl', 'embl', 'embl', 'embl', 'genbank', 'genbank', 'swiss', 'swiss', 'refseq', 'genpept', 'refseqp', 'experiment', 'nbrf', 'fasta', 'ncbi', 'gcg', 'pir', 'sam']
-ANNOT_READY = set(os.environ.get('SEQOUT_READY', 'embl,nbrf,experiment,fasta,ncbi,gcg,pir,sam').split(','))
+PROT_ANNOT_INPUTS = ['genpept', 'genpept', 'genpept', 'refseqp', 'refseqp', 'swiss', 'swiss', 'swiss', 'fasta', 'ncbi', 'pir', 'gcg']
+ANNOT_READY = set(os.environ.get('SEQOUT_READY', 'embl,nbrf,experiment,fasta,ncbi,gcg,pir,sam,genbank,refseq,genpept,refseqp').split(','))
 
 
 DBNAME_FORCE = os.environ.get('SEQOUT_OSDBNAME') == '1'     # a run that gives -osdbname to most inputs (the file seqout_oracle_osdbname.jsonl.gz)
@@ -200,6 +201,42 @@ def genbank_rich(rnd, kind='genbank'):
     return out
 
 
+def genpept_rich(rnd):
+    """A GenPept / RefSeq protein entry: LOCUS (7 fields), DEFINITION, ACCESSION, VERSION, KEYWORDS, SOURCE with ORGANISM and the lineage, REFERENCE blocks with AUTHORS TITLE JOURNAL PUBMED, COMMENT, ORIGIN."""
+    out = ''
+    for k in range(rnd.choice([1, 1, 2])):
+        n = rnd.choice([12, 60, 61, 130, 301])
+        seq = ''.join(rnd.choice('acdefghiklmnpqrstvwy') for _ in range(n))
+        name = rnd.choice(['NP_000001', 'AAA12345', 'P12345', 'XP_1'])
+        out += 'LOCUS       %-12s %6d aa    linear   %s %s\n' % (name, n, rnd.choice(['PRI', 'BCT', 'VRL', 'ROD', 'UNA', 'FOO']), rdate(rnd))
+        d = rnd.choice(['A short description.', 'protein kinase C alpha type [Homo sapiens] with a long description that wraps over lines of the entry', 'x'])
+        out += 'DEFINITION  %s\n' % '\n            '.join(textwrap.wrap(d, 67))
+        out += 'ACCESSION   %s\n' % ' '.join([name] + rnd.sample(['AB000002', 'X1', 'Y22222'], rnd.choice([0, 1, 2])))
+        out += 'VERSION     %s.%d%s\n' % (name, rnd.randint(1, 3), rnd.choice(['', '  GI:%d' % rnd.randint(1, 99999999)]))
+        if rnd.random() < 0.6: out += 'KEYWORDS    %s.\n' % '; '.join(rnd.sample(['RefSeq', 'kinase', 'cell cycle'], rnd.choice([1, 2, 3])))
+        if rnd.random() < 0.8:
+            sp, common, tax = rnd.choice(TAXA)
+            out += 'SOURCE      %s%s\n  ORGANISM  %s\n' % (sp, (' (%s)' % common) if common else '', sp)
+            out += ''.join('            %s\n' % l for l in textwrap.wrap('; '.join(tax) + '.', 67))
+        for r in range(rnd.choice([0, 1, 2, 3])):
+            out += 'REFERENCE   %d' % (r + 1) + rnd.choice(['', '  (residues 1 to %d)' % n, '  (residues 1 to 50; 60 to 100)']) + '\n'
+            if rnd.random() < 0.9:
+                a = rnd.choice(AUTHORS).replace('. ', '.').replace(', ', ',')
+                lines = textwrap.wrap(a, 67)
+                out += '  AUTHORS   %s\n' % lines[0] + ''.join('            %s\n' % l for l in lines[1:])
+            if rnd.random() < 0.85:
+                lines = textwrap.wrap(rnd.choice(TITLES), 67)
+                out += '  TITLE     %s\n' % lines[0] + ''.join('            %s\n' % l for l in lines[1:])
+            out += '  JOURNAL   %s\n' % rnd.choice(['Nature 1 (1), 1-2 (2000)', 'Submitted (12-JAN-2000) to the INSDC. Some Institute', 'J. Mol. Biol. 100 (2), 200-210 (1990)'])
+            if rnd.random() < 0.5: out += '   PUBMED   %d\n' % rnd.randint(100, 99999999)
+        if rnd.random() < 0.5:
+            c = rnd.choice(['a comment', 'Some comment, with commas, that is long enough to wrap onto more than one line of the entry', 'first paragraph\n\nsecond paragraph'])
+            ls = c.split('\n')
+            out += 'COMMENT     %s\n' % ls[0] + ''.join('            %s\n' % l for l in ls[1:])
+        out += 'ORIGIN\n' + rseq_lines(rnd, seq, 'genbank') + '//\n'
+    return out
+
+
 def swiss_rich(rnd):
     """A Swiss-Prot entry for a protein with ID, AC, DT, DE, GN, OS, OC, OG, OX, RN / RP / RC / RX / RG / RA / RT / RL, CC, DR, KW, FT and SQ lines."""
     out = ''
@@ -247,6 +284,7 @@ def annot_text(rnd, src):
     if src == 'embl' and rnd.random() < 0.85: return embl_rich(rnd), 'rich'
     if src in ('genbank', 'refseq') and rnd.random() < 0.85: return genbank_rich(rnd), 'rich'
     if src == 'swiss' and rnd.random() < 0.85: return swiss_rich(rnd), 'rich'
+    if src in ('genpept', 'refseqp') and rnd.random() < 0.85: return genpept_rich(rnd), 'rich'
     return None
 
 
@@ -274,7 +312,9 @@ def main(out, per, seed, formats):
             made = 0
             while made < per:
                 if fmt in ENTRY_FORMATS:
-                    src = rnd.choice([x for x in ANNOT_INPUTS if x in ANNOT_READY])
+                    # the writers of protein entries are given protein sources (the others reject nucleotide sequences)
+                    pool = PROT_ANNOT_INPUTS if fmt in ('refseqp', 'swiss', 'sw', 'swissprot', 'uniprot', 'swissnew', 'swnew', 'swissprotnew') else ANNOT_INPUTS
+                    src = rnd.choice([x for x in pool if x in ANNOT_READY])
                 else:
                     src = rnd.choice(QUAL_INPUTS if fmt in QUAL_FORMATS and rnd.random() < 0.8 else INPUTS)
                 rich = annot_text(rnd, src) if fmt in ENTRY_FORMATS else None

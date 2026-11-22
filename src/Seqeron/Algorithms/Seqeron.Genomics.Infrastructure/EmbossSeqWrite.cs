@@ -53,7 +53,7 @@ internal static partial class EmbossSeqWrite
     }
 
     /// <summary>The writers of this port.</summary>
-    internal static bool IsPorted(EmbossSeqOutFormat f) => f.Writer is "Embl" or "Emblnew" or "Scf" or "Gff2" or "Gff3" or "FastqSanger" or "FastqIllumina" or "FastqSolexa" or "Sam" or "Asn1" or "Dasdna" or "Dasseq" or "Nibble" or "Ncbi" or "Gifasta" or "Fasta" or "Gcg" or "Nbrf" or "Codata" or "Strider" or "Staden" or "Text" or "Ig" or "Iguspto" or "Gde" or "Fitch" or "Acedb" or "Mase";
+    internal static bool IsPorted(EmbossSeqOutFormat f) => f.Writer is "Genbank" or "Genpept" or "Refseq" or "Refseqp" or "Embl" or "Emblnew" or "Scf" or "Gff2" or "Gff3" or "FastqSanger" or "FastqIllumina" or "FastqSolexa" or "Sam" or "Asn1" or "Dasdna" or "Dasseq" or "Nibble" or "Ncbi" or "Gifasta" or "Fasta" or "Gcg" or "Nbrf" or "Codata" or "Strider" or "Staden" or "Text" or "Ig" or "Iguspto" or "Gde" or "Fitch" or "Acedb" or "Mase";
 
     /// <summary>The <c>SeqSFormat</c> of the library: the layout of <c>seqWriteSeq</c> (the fields the ported formats set; the others stay at the defaults of <c>seqSeqFormat</c>: no name, no right number, no tab, no padding).</summary>
     private sealed class SeqFormat
@@ -562,6 +562,18 @@ internal static partial class EmbossSeqWrite
         {
             case "Scf":
                 WriteScf(o, desc, seq, s.Accuracy);
+                break;
+            case "Genbank":
+                WriteGenbankLike(o, s, run, 0);
+                break;
+            case "Genpept":
+                WriteGenbankLike(o, s, run, 1);
+                break;
+            case "Refseq":
+                WriteGenbankLike(o, s, run, 2);
+                break;
+            case "Refseqp":
+                WriteGenbankLike(o, s, run, 3);
                 break;
             case "Embl":
                 WriteEmblOld(o, s, run);

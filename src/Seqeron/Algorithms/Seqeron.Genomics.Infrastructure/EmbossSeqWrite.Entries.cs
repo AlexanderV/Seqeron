@@ -218,4 +218,237 @@ internal static partial class EmbossSeqWrite
         o.Append(BaseCounts(s.Seq));
         EmblSequence(o, s.Seq);
     }
+
+    // seqWriteGenbank (kind 0), seqWriteGenpept (1), seqWriteRefseq (2), seqWriteRefseqp (3): the writers differ in the LOCUS line, the source line, the unit of the positions of a reference and the layout of the sequence
+    private static void WriteGenbankLike(StringBuilder o, EmbossSeqOut s, EmbossSeqWriteRun run, int kind)
+    {
+        bool refseqp = kind == 3;
+        if (refseqp)
+            o.Append("LOCUS       ").Append(Left(s.Name, 9, int.MaxValue)).Append(' ').Append(Right(s.Seq.Length.ToString(CultureInfo.InvariantCulture), 7)).Append(" aa                   ");
+        else
+            o.Append("LOCUS       ").Append(Left(s.Name, 17, int.MaxValue)).Append(' ').Append(Right(s.Seq.Length.ToString(CultureInfo.InvariantCulture), 10)).Append(" bp   ");
+        if (!refseqp)
+        {
+            o.Append(' ').Append(Left(EmbossSeqTables.MolGb(s.Molecule), 7, int.MaxValue));
+            o.Append(' ').Append(Left(s.Circular ? "circular" : "linear", 8, int.MaxValue));
+        }
+
+        if (s.Division.Length > 0)
+            o.Append(' ').Append(Left(EmbossSeqTables.DivGb(s.Division), 3, int.MaxValue));
+        else if (kind == 0 && s.Class.Length > 0)
+            o.Append(' ').Append(Left(EmbossSeqTables.ClsGb(s.Class), 3, int.MaxValue));
+        else
+            o.Append(" UNC");
+        string pad = refseqp ? "       " : " ";
+        if (s.Date is { } date)
+        {
+            if (date.ModDate is { } mod)
+                o.Append(pad).Append(EmbossSeqDate.Format(mod));
+            else if (date.CreDate is { } cre)
+                o.Append(pad).Append(EmbossSeqDate.Format(cre));
+        }
+        else
+        {
+            o.Append(pad).Append(EmbossSeqDate.Format(run.RunDate));
+        }
+
+        o.Append('\n');
+        if (s.Desc.Length > 0)
+        {
+            string tmp = s.Desc.EndsWith('.') ? s.Desc : s.Desc + ".";
+            bool first = true;
+            foreach (string line in Parts(EmbossStrFmt.Wrap(tmp, 67)))
+            {
+                o.Append(first ? "DEFINITION  " : "            ").Append(line).Append('\n');
+                first = false;
+            }
+        }
+
+        if (s.Acclist.Count > 0)
+        {
+            int ilen = 0;
+            foreach (string cur in s.Acclist)
+            {
+                if (ilen == 0)
+                {
+                    o.Append("ACCESSION   ");
+                    ilen = 11;
+                }
+
+                if (ilen + cur.Length > 79)
+                {
+                    o.Append("\n            ");
+                    ilen = 11;
+                }
+
+                if (ilen > 11)
+                    o.Append(' ');
+                ilen += 1;
+                o.Append(cur);
+                ilen += cur.Length;
+            }
+
+            if (ilen > 0)
+                o.Append('\n');
+        }
+
+        if (s.Sv.Length > 0)
+        {
+            if (s.Gi.Length > 0)
+                o.Append("VERSION     ").Append(s.Sv).Append("  GI:").Append(s.Gi).Append('\n');
+            else
+                o.Append("VERSION     ").Append(s.Sv).Append('\n');
+        }
+
+        if (s.Keylist.Count > 0)
+        {
+            int ilen = 0;
+            foreach (string cur in s.Keylist)
+            {
+                if (ilen == 0)
+                {
+                    o.Append("KEYWORDS    ");
+                    ilen = 11;
+                }
+
+                if (ilen + cur.Length >= 79)
+                {
+                    o.Append(";\n            ");
+                    ilen = 11;
+                }
+
+                if (ilen > 11)
+                    o.Append("; ");
+                ilen += 2;
+                o.Append(cur);
+                ilen += cur.Length;
+            }
+
+            o.Append(".\n");
+        }
+
+        if (s.Tax.Length > 0)
+        {
+            if (kind == 0 && s.Taxcommon.Length > 0)
+                o.Append("SOURCE      ").Append(s.Tax).Append(" (").Append(s.Taxcommon).Append(")\n");
+            else
+                o.Append("SOURCE      ").Append(s.Tax).Append('\n');
+            o.Append("  ORGANISM  ").Append(s.Tax).Append('\n');
+            if (s.Taxlist.Count > 0)
+            {
+                int ilen = 0;
+                foreach (string cur in s.Taxlist)
+                {
+                    if (ilen + cur.Length >= 79)
+                    {
+                        o.Append(";\n");
+                        ilen = 0;
+                    }
+
+                    if (ilen == 0)
+                    {
+                        o.Append("            ");
+                        ilen = 12;
+                    }
+                    else
+                    {
+                        o.Append("; ");
+                        ilen += 2;
+                    }
+
+                    o.Append(cur);
+                    ilen += cur.Length;
+                }
+
+                o.Append(".\n");
+            }
+        }
+
+        foreach (var r in s.Reflist)
+        {
+            o.Append(CultureInfo.InvariantCulture, $"REFERENCE   {r.Number}");
+            if (r.Position.Length > 0)
+                o.Append("  (").Append(refseqp ? "residues " : "bases ").Append(r.Position.Replace("-", " to ", StringComparison.Ordinal)).Append(')');
+            o.Append('\n');
+            if (r.Authors.Length > 0)
+            {
+                bool first = true;
+                foreach (string line in Parts(EmbossStrFmt.WrapAt(r.FmtAuthorsGb(), 68, ',')))
+                {
+                    o.Append(first ? "  AUTHORS   " : "            ").Append(line).Append('\n');
+                    first = false;
+                }
+            }
+
+            string title = r.FmtTitleGb();
+            if (title.Length > 0)
+            {
+                bool first = true;
+                foreach (string line in Parts(EmbossStrFmt.Wrap(title, 68)))
+                {
+                    o.Append(first ? "  TITLE     " : "            ").Append(line).Append('\n');
+                    first = false;
+                }
+            }
+
+            if (r.Location.Length > 0)
+            {
+                bool first = true;
+                foreach (string line in Parts(EmbossStrFmt.Wrap(r.FmtLocationGb(), 68)))
+                {
+                    o.Append(first ? "  JOURNAL   " : "            ").Append(line).Append('\n');
+                    first = false;
+                }
+            }
+
+            if (r.Xref.Length > 0)
+            {
+                foreach (string line in Parts(EmbossStrFmt.Wrap(r.Xref, 75)))
+                {
+                    if (line.StartsWith("PUBMED; ", StringComparison.Ordinal))
+                        o.Append("  PUBMED    ").Append(line[8..]).Append('\n');
+                }
+            }
+        }
+
+        bool firstcmt = true;
+        foreach (string cmt in s.Cmtlist)
+        {
+            bool first = true;
+            foreach (string line in Parts(EmbossStrFmt.WrapAt(cmt, 68, ',')))
+            {
+                if (first)
+                {
+                    if (firstcmt)
+                    {
+                        firstcmt = false;
+                        o.Append("COMMENT     ").Append(line).Append('\n');
+                    }
+                    else
+                    {
+                        o.Append("            \n");
+                        o.Append("            ").Append(line).Append('\n');
+                    }
+
+                    first = false;
+                }
+                else
+                {
+                    o.Append("            ").Append(line).Append('\n');
+                }
+            }
+        }
+
+        if (run.UfoLocal)
+            throw new NotSupportedException("The features of the output format are written inside the sequence file, which this port does not do.");
+        o.Append(refseqp ? "ORIGIN      \n" : "ORIGIN\n");
+        var sf = NewFormat(s.Seq.Length);
+        sf.EndStr = "\n//";
+        sf.Tab = kind is 1 or 2 ? 1 : 0;
+        sf.Spacer = 11;
+        sf.Width = 60;
+        sf.NumLeft = true;
+        sf.NumWidth = kind is 1 or 2 ? 8 : 9;
+        WriteSeq(o, s.Seq, sf);
+    }
 }

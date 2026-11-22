@@ -1,4 +1,4 @@
-#pragma warning disable S1121, S3358, S2325, S1066, S3776, S107, S1854, S1481, S2589 // the readers keep the control flow of ajseqread.c
+#pragma warning disable S1121, S3358, S2325, S1066, S3776, S107, S1854, S1481, S2589, S1643 // the readers keep the control flow of ajseqread.c
 
 using System.Text;
 
@@ -669,9 +669,24 @@ internal sealed partial class EmbossSeqin
                     if (token != "bp")
                         _context.Warn($"bad Genbank LOCUS line '{_line}'");
                     break;
+                case 5:
+                    if (EmbossSeqTables.MolFromGb(token) is { } mol)
+                        t.Molecule = mol;
+                    break;
                 case 6:
                     if (token == "circular")
                         t.Circular = true;
+                    break;
+                case 7:
+                    if (EmbossSeqTables.DivFromGb(token, _clsTables) is { } div)
+                        t.Division = div;
+                    _clsTables = true;                              // ajSeqclsSetGb makes the class tables
+                    if (EmbossSeqTables.ClsFromGb(token) is { } cls)
+                        t.Class = cls;
+                    break;
+                case 8:
+                    t.Date ??= new EmbossSeqDate();
+                    t.Date.SetModify(token);
                     break;
             }
         }
@@ -725,13 +740,24 @@ internal sealed partial class EmbossSeqin
             }
             else if (lineprefix == Gb.Src)
             {
+                var a = new StrTok(_line, " ");
+                a.Next(out _);
+                a.Next(out string source, "\n\r");
+                var b = new StrTok(source, "()");
+                int itaxtype = 1;
+                while (b.Next(out string tax))
+                {
+                    TaxSave(t, tax.Trim(' ', '\t', '\n', '\r', '\f', '\v'), itaxtype);
+                    itaxtype = 3;
+                }
+
                 ok = ReadLine();
                 lineprefix = PrefixGenbank(_line);
                 done = true;
                 while (ok && lineprefix == Gb.More)
                 {
                     done = false;
-                    ok = ReadLine();                                // the line after the lines of a SOURCE block is read again by the loop (a FEATURES line there is lost)
+                    ok = ReadLine();                                // the lines of an ORGANISM block are not taken (the library compares the keyword from the wrong character); the line after the lines of a SOURCE block is read again by the loop (a FEATURES line there is lost)
                     lineprefix = PrefixGenbank(_line);
                 }
             }
@@ -749,21 +775,86 @@ internal sealed partial class EmbossSeqin
                     lineprefix = PrefixGenbank(_line);
                 }
             }
-            else if (lineprefix == Gb.Ref || (ok && lineprefix == Gb.Cc))
+            else if (lineprefix == Gb.Ref)
             {
+                var r = new EmbossSeqRef();
+                var a = new StrTok(_line, " \n\r");
+                a.Next(out _);
+                a.Next(out string num);
+                CStr.ToUint(num, out uint refnum);
+                r.Number = refnum;
+                string pos = "";
+                while (a.Next(out string token))
+                {
+                    if (token is "(bases" or "(residues" or "to")
+                        continue;
+                    if (pos.Length == 0)
+                        pos = token;
+                    if (token.EndsWith(')'))
+                    {
+                        token = token.TrimEnd(')');
+                        pos += "-" + token;
+                    }
+                }
+
+                r.Position = pos;
                 ok = ReadLine();
                 done = true;
+                r.Standard();
+                t.Reflist.Add(r);
+                // the keywords AUTHORS, TITLE and JOURNAL are never recognised (the library compares from the wrong character): only the lines of nine blanks are skipped
                 while (ok && IsMoreMore(_line))
                     ok = ReadLine();
                 lineprefix = PrefixGenbank(_line);
             }
+            else if (ok && lineprefix == Gb.Cc)
+            {
+                var a = new StrTok(_line, " ");
+                a.Next(out _);
+                a.Next(out string tok, "\n\r");
+                string cmt = "";
+                if (cmt.Length > 0)
+                    cmt += "\n";
+                cmt += tok;
+                ok = ReadLine();
+                done = true;
+                while (ok && IsMoreMore(_line))
+                {
+                    var c = new StrTok(_line, " ");
+                    c.Next(out tok, "\n\r");
+                    if (tok.Length > 0)
+                    {
+                        if (cmt.Length > 0)
+                            cmt += "\n";
+                        cmt += tok;
+                    }
+                    else
+                    {
+                        t.Cmtlist.Add(cmt);
+                        cmt = "";
+                    }
+
+                    ok = ReadLine();
+                }
+
+                if (cmt.Length > 0)
+                    t.Cmtlist.Add(cmt);
+                lineprefix = PrefixGenbank(_line);
+            }
             else if (lineprefix == Gb.Key)
             {
+                var a = new StrTok(_line, " ");
+                a.Next(out _);
+                while (a.Next(out string kw, ".;\n\r"))
+                    t.Keylist.Add(kw.Trim(' ', '\t', '\n', '\r', '\f', '\v'));
                 ok = ReadLine();
                 lineprefix = PrefixGenbank(_line);
                 done = true;
                 while (ok && lineprefix == Gb.More)
                 {
+                    var c = new StrTok(_line, " ");
+                    while (c.Next(out string kw, ".;\n\r"))
+                        t.Keylist.Add(kw.Trim(' ', '\t', '\n', '\r', '\f', '\v'));
                     ok = ReadLine();
                     lineprefix = PrefixGenbank(_line);
                 }
@@ -893,6 +984,17 @@ internal sealed partial class EmbossSeqin
                     if (token != "aa")
                         _context.Warn($"bad {(refseqp ? "RefseqP" : "Genpept")} LOCUS line '{_line}'");
                     break;
+                case 6:
+                    if (EmbossSeqTables.DivFromGb(token, _clsTables) is { } div)
+                        t.Division = div;
+                    _clsTables = true;                              // ajSeqclsSetGb makes the class tables
+                    if (EmbossSeqTables.ClsFromGb(token) is { } cls)
+                        t.Class = cls;
+                    break;
+                case 7:
+                    t.Date ??= new EmbossSeqDate();
+                    t.Date.SetModify(token);
+                    break;
             }
         }
 
@@ -944,6 +1046,17 @@ internal sealed partial class EmbossSeqin
             }
             else if (PrefixC(_line, "SOURCE"))
             {
+                var a = new StrTok(_line, " ");
+                a.Next(out _);
+                a.Next(out string source, "\n\r");
+                var b = new StrTok(source, "()");
+                int itaxtype = 1;
+                while (b.Next(out string tax))
+                {
+                    TaxSave(t, tax.Trim(' ', '\t', '\n', '\r', '\f', '\v'), itaxtype);
+                    itaxtype = 3;
+                }
+
                 ok = ReadLine();
                 done = true;
                 while (ok && PrefixC(_line, " "))
@@ -951,10 +1064,19 @@ internal sealed partial class EmbossSeqin
                     done = false;
                     if (PrefixC(_line, "  ORGANISM"))
                     {
+                        var c = new StrTok(_line, " ");
+                        c.Next(out _);
+                        while (c.Next(out string org, ".;\n\r"))
+                            TaxSave(t, org.Trim(' ', '\t', '\n', '\r', '\f', '\v'), 1);
                         ok = ReadLine();
                         done = true;
                         while (ok && PrefixC(_line, "    "))
+                        {
+                            var d2 = new StrTok(_line, " ");
+                            while (d2.Next(out string org2, ".;\n\r"))
+                                TaxSave(t, org2.Trim(' ', '\t', '\n', '\r', '\f', '\v'), 0);
                             ok = ReadLine();
+                        }
                     }
 
                     if (!done)
@@ -975,47 +1097,138 @@ internal sealed partial class EmbossSeqin
             }
             else if (PrefixC(_line, "REFERENCE"))
             {
+                var r = new EmbossSeqRef();
+                var a = new StrTok(_line, " \n\r");
+                a.Next(out _);
+                a.Next(out string num);
+                CStr.ToUint(num, out uint refnum);
+                r.Number = refnum;
+                string pos = "";
+                while (a.Next(out string token))
+                {
+                    if (token is "(bases" or "(residues" or "to")
+                        continue;
+                    if (pos.Length == 0)
+                        pos = token;
+                    if (token.EndsWith(')'))
+                    {
+                        token = token.TrimEnd(')');
+                        pos += "-" + token;
+                    }
+                }
+
+                r.Position = pos;
                 ok = ReadLine();
                 done = true;
+                r.Standard();
+                t.Reflist.Add(r);
                 if (ok && PrefixC(_line, "  AUTHORS"))
                 {
+                    var c = new StrTok(_line, " \n\r");
+                    c.Next(out _);
+                    c.Next(out string authors, "\n\r");
                     ok = ReadLine();
                     while (ok && PrefixC(_line, "          "))
+                    {
+                        string cont = _line.Trim(' ', '\t', '\n', '\r', '\f', '\v');
+                        if (authors.EndsWith(".,", StringComparison.Ordinal) || (refseqp ? cont : authors).StartsWith("and ", StringComparison.Ordinal))
+                            authors += " ";
+                        authors += cont;
                         ok = ReadLine();
+                    }
+
+                    r.AppendAuthors(authors);
                 }
 
                 if (ok && PrefixC(_line, "  TITLE"))
                 {
+                    var c = new StrTok(_line, " ");
+                    c.Next(out _);
+                    c.Next(out string title, "\n\r");
+                    r.AppendTitle(title);
                     ok = ReadLine();
                     while (ok && PrefixC(_line, "          "))
+                    {
+                        var d2 = new StrTok(_line, " ");
+                        d2.Next(out string more, "\n\r");
+                        r.AppendTitle(more);
                         ok = ReadLine();
+                    }
                 }
 
                 if (ok && PrefixC(_line, "  JOURNAL"))
+                {
+                    var c = new StrTok(_line, " ");
+                    c.Next(out _);
+                    c.Next(out string loc, "\n\r");
+                    r.AppendLocation(loc);
                     ok = ReadLine();
+                }
+
                 while (ok && PrefixC(_line, "  "))
                     ok = ReadLine();
             }
             else if (ok && PrefixC(_line, "COMMENT"))
             {
+                var a = new StrTok(_line, " ");
+                a.Next(out _);
+                a.Next(out string tok, "\n\r");
+                string cmt = tok;
                 ok = ReadLine();
                 done = true;
                 while (ok && PrefixC(_line, "          "))
+                {
+                    var c = new StrTok(_line, " ");
+                    c.Next(out tok, "\n\r");
+                    if (tok.Length > 0)
+                    {
+                        if (cmt.Length > 0)
+                            cmt += "\n";
+                        cmt += tok;
+                    }
+                    else
+                    {
+                        t.Cmtlist.Add(cmt);
+                        cmt = "";
+                    }
+
                     ok = ReadLine();
+                }
+
+                if (cmt.Length > 0)
+                    t.Cmtlist.Add(cmt);
             }
             else if (PrefixC(_line, "KEYWORDS"))
             {
+                var a = new StrTok(_line, " ");
+                a.Next(out _);
+                while (a.Next(out string kw, ".;\n\r"))
+                    t.Keylist.Add(kw.Trim(' ', '\t', '\n', '\r', '\f', '\v'));
                 ok = ReadLine();
                 done = true;
                 while (ok && PrefixC(_line, " "))
+                {
+                    var c = new StrTok(_line, " ");
+                    while (c.Next(out string kw, ".;\n\r"))
+                        t.Keylist.Add(kw.Trim(' ', '\t', '\n', '\r', '\f', '\v'));
                     ok = ReadLine();
+                }
             }
             else if (PrefixC(_line, "  ORGANISM"))
             {
+                var a = new StrTok(_line, " ");
+                a.Next(out _);
+                while (a.Next(out string org, ".;\n\r"))
+                    TaxSave(t, org.Trim(' ', '\t', '\n', '\r', '\f', '\v'), 0);
                 ok = ReadLine();
                 done = true;
                 while (ok && PrefixC(_line, "    "))
+                {
+                    var c = new StrTok(_line, " ");
+                    while (c.Next(out string org2, ".;\n\r"))
+                        TaxSave(t, org2.Trim(' ', '\t', '\n', '\r', '\f', '\v'), 0);
                     ok = ReadLine();
+                }
             }
 
             if (!done)

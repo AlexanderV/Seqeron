@@ -347,6 +347,7 @@ internal sealed partial class EmbossSeqin
     {
         var t = new EmbossSeq();
         AccuracyClear();
+        DateObject(t);
         _count++;
         bool ok = !_buff.Unbuffered;
         if (!Table[_format].Binary)
@@ -390,6 +391,7 @@ internal sealed partial class EmbossSeqin
                     break;                                          // something was read: the format is known
                 t = new EmbossSeq();
                 AccuracyClear();
+                DateObject(t);
             }
 
             if (_format == 0)
@@ -426,6 +428,7 @@ internal sealed partial class EmbossSeqin
             var before = (_buff.State, _seqData?.Count ?? -1, _seqData is null);
             t = new EmbossSeq();
             AccuracyClear();
+            DateObject(t);
             int jstat = ReadFmt(t, _format);
             if (jstat is FmtNoMatch or FmtEmpty && (_buff.State, _seqData?.Count ?? -1, _seqData is null) == before)
                 throw new InvalidOperationException("The reference program never stops on this input: the reader does not consume the entry that the query refuses.");
@@ -608,6 +611,7 @@ internal sealed partial class EmbossSeqin
     private void Define(EmbossSeq t)
     {
         AccuracySnapshot(t);
+        _dateObject |= t.Date is not null;
         if (_opt.Db.Length > 0)
             t.Db = _opt.Db;
         if (_opt.Entryname.Length > 0 && t.Entryname.Length == 0)
