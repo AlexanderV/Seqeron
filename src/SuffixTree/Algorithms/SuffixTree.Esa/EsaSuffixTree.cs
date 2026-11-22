@@ -119,6 +119,9 @@ public sealed partial class EsaSuffixTree : ISuffixTree, ISuffixTreeNavigation, 
     /// <summary>The container this tree reads in place, or null for a tree built in memory (1b.7f).</summary>
     internal External.SesaFile? File => _file;
 
+    /// <summary>The id that the calls of this tree carry in the reader cells of their threads (work package 1b.9g; tests-first stub: 0 until the protocol is implemented), or 0 for a tree built in memory.</summary>
+    internal long ReaderId => _disposed * 0L;
+
     // ------------------------------------------------------------------ lifetime
 
     /// <summary>

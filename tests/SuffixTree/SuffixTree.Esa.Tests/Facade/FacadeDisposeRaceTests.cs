@@ -19,7 +19,7 @@ public class FacadeDisposeRaceTests
 {
     internal const string ChildCategory = "DisposeRaceChild";
     internal const string ResultFileVariable = "ESA_DISPOSE_RACE_OUT";
-    private const int ChildTests = 6;
+    private const int ChildTests = 7;
 
     [Test]
     public void ReadsRacingDispose_OfAFileBackedTree_CompleteOrThrowObjectDisposed_AndNeverTouchTheUnmappedView()
@@ -397,6 +397,76 @@ public class FacadeDisposeRaceChildTests
             Assert.That(wrong, Is.Zero, "a call that completed returned a wrong answer (a read of memory that the collector moved?)");
             Assert.That(others, Is.Empty, "a call failed with something other than ObjectDisposedException: " + string.Join(" | ", others.Take(3)));
             Assert.That(disposed, Is.EqualTo(rounds * ReaderThreads), "every reader ends at the disposal");
+        });
+    }
+
+    /// <summary>
+    /// The registry of the reader cells (work package 1b.9g) under a race: threads that start, register a cell (or take over the cell of a thread that has just ended), call the tree a few times and end, while the tree is disposed. The
+    /// releaser scans the list while it grows and while cells change owner; a call must complete with the right answer or throw <see cref="ObjectDisposedException"/>, and nothing may read the unmapped view.
+    /// </summary>
+    [Test]
+    public void ThreadsThatStartAndEnd_WhileTheTreeIsDisposed_RegisterAndTakeOverCellsRacingTheScan_AndNoCallReadsTheUnmappedView()
+    {
+        string text = StringFamilies.RandomDna(30_000, 21);
+        string[] patterns = Enumerable.Range(0, 32).Select(i => text.Substring((i * 311) % (text.Length - 30), 6 + (i % 11))).ToArray();
+        using EsaSuffixTree memory = EsaSuffixTree.Build(text);
+        int[] counts = patterns.Select(memory.CountOccurrences).ToArray();
+        using var dir = new TempDir();
+        string path = SesaTestFile.Write(dir, text);
+        long completed = 0, disposed = 0, wrong = 0, threadsStarted = 0;
+        var others = new ConcurrentBag<string>();
+        const int rounds = 60;
+        for (int round = 0; round < rounds; round++)
+        {
+            EsaSuffixTree tree = OpenFile(path, round);
+            using var stop = new ManualResetEventSlim();
+            void Reader(int seed)
+            {
+                try
+                {
+                    for (int k = 0; k < 3; k++)
+                    {
+                        int i = (seed + k) % patterns.Length;
+                        if (tree.CountOccurrences(patterns[i]) == counts[i]) Interlocked.Increment(ref completed);
+                        else Interlocked.Increment(ref wrong);
+                    }
+                }
+                catch (ObjectDisposedException)
+                {
+                    Interlocked.Increment(ref disposed);
+                }
+                catch (Exception e)
+                {
+                    others.Add($"round {round}: {e.GetType().Name}: {e.Message}");
+                }
+            }
+
+            var spawners = Enumerable.Range(0, 3).Select(s => new Thread(() =>
+            {
+                int seed = s * 7;
+                while (!stop.IsSet)
+                {
+                    var t = new Thread(() => Reader(seed++));
+                    t.Start();
+                    Interlocked.Increment(ref threadsStarted);
+                    t.Join();
+                }
+            })).ToList();
+            foreach (Thread spawner in spawners) spawner.Start();
+            SpinFor(round % 9 * 500);
+            tree.Dispose();
+            SpinFor(1_500);
+            stop.Set();
+            foreach (Thread spawner in spawners) Assert.That(spawner.Join(TimeSpan.FromSeconds(120)), Is.True, "a spawner did not finish (a hang)");
+            Assert.That(() => tree.CountOccurrences(patterns[0]), Throws.TypeOf<ObjectDisposedException>(), $"round {round}");
+        }
+
+        Report($"RESULT short-lived readers rounds={rounds} threads={threadsStarted} completed={completed} disposed={disposed} wrong={wrong} other={others.Count}");
+        Assert.Multiple(() =>
+        {
+            Assert.That(wrong, Is.Zero, "a call that completed returned a wrong answer");
+            Assert.That(others, Is.Empty, "a call failed with something other than ObjectDisposedException: " + string.Join(" | ", others.Take(3)));
+            Assert.That(completed, Is.GreaterThan(0));
         });
     }
 

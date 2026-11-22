@@ -5,8 +5,9 @@ using SuffixTree.Esa.Tests.TestSupport;
 namespace SuffixTree.Esa.Tests.Facade;
 
 /// <summary>
-/// The reader count of a tree over a container (work package 1b.8) once more, for the survivor of the audit of 1b.9b: the count is striped by the managed thread id modulo 8, and a caller on any of the eight stripes must leave
-/// it again, or the disposal would never find the tree idle and the mapping would stay open.
+/// The registration of the readers of a tree over a container (work package 1b.8; since 1b.9g an entry in the cell of the calling thread, before that a count striped by the managed thread id modulo 8): a caller on any thread must leave
+/// again, or the disposal would never find the tree idle and the mapping would stay open. The first test still runs callers on threads of every residue of the old stripe function, which is how the survivor of the audit of 1b.9b was
+/// closed; the second has a caller inside at the disposal.
 /// </summary>
 [TestFixture]
 public class FacadeReaderCountTests
@@ -19,7 +20,7 @@ public class FacadeReaderCountTests
         EsaSuffixTree tree = SesaTestFile.Open(path);
         SesaFile file = tree.File!;
         var covered = new HashSet<int>();
-        // managed thread ids grow with every thread that is made, so eight threads in a row cover the eight residues
+        // managed thread ids grow with every thread that is made, so eight threads in a row cover the eight residues (the stripes of the count of 1b.8; any thread is a case of the cell of 1b.9g)
         for (int attempts = 0; attempts < 400 && covered.Count < 8; attempts++)
         {
             int residue = -1;
