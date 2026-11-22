@@ -1,3 +1,5 @@
+using Seqeron.Genomics.Infrastructure;
+
 namespace Seqeron.Genomics.Alignment;
 
 /// <summary>
@@ -143,7 +145,11 @@ public sealed record EmbossFeatureTag(string Name, string Value);
 /// <param name="Tags">The tags in the order they were added.</param>
 /// <param name="Protein">The feature's own protein flag (<c>feature->Protein</c>) when it differs from its table's (diffseq's <c>ajFeatNewII</c> features in a protein table are not protein features: strand <c>+</c>); null = the table's.</param>
 /// <param name="Between">The feature lies between two positions (<c>AJFEATFLAG_BETWEEN_SEQ</c>, <c>ajFeatNewBetween</c>: start = the position, end = position + 1; embl / genbank write <c>203^204</c>, the GFF has <c>featflags=between:true</c>).</param>
-public sealed record EmbossFeature(string Type, string Source, int Start, int End, double Score, char Strand, int Frame, IReadOnlyList<EmbossFeatureTag> Tags, bool Between = false, bool? Protein = null);
+public sealed record EmbossFeature(string Type, string Source, int Start, int End, double Score, char Strand, int Frame, IReadOnlyList<EmbossFeatureTag> Tags, bool Between = false, bool? Protein = null)
+{
+    /// <summary>The feature comes from a feature table of the feature library (featreport, twofeat): its type is an internal type of the library, named by the vocabulary and not by the small table of the programs that make their own features.</summary>
+    internal bool FromTable { get; init; }
+}
 
 /// <summary>An additional output file named in the report header (<c>ajReportAddFileF</c>: <c># 1: a.gff (Feature file for first sequence)</c>).</summary>
 /// <param name="Name">The file name.</param>
@@ -192,6 +198,15 @@ public sealed record EmbossReport(EmbossReportSequence Sequence, IReadOnlyList<E
 {
     /// <summary>The sequence name (what the old single-sequence layer called <c>SequenceName</c>).</summary>
     public string SequenceName => Sequence.Name;
+
+    /// <summary>
+    /// The full feature table the report was made from (sub-features, flags, GFF3 tags; <c>ajReportWrite</c> of <c>featreport</c> and <c>twofeat</c>): the report formats that are feature output formats (gff, gff3, embl, genbank, pir, swiss, dasgff) write it with the feature writers
+    /// of the library (<c>ajFeattableWrite</c>) instead of the flat <see cref="Features"/>.
+    /// </summary>
+    internal EmbossSeqFeatureTable? FeatureTable { get; init; }
+
+    /// <summary>The table has no type (<c>ajFeattableIsNuc</c> and <c>ajFeattableIsProt</c> are both true): it can be reported for a sequence of either kind.</summary>
+    internal bool TypeUnknown { get; init; }
 }
 
 /// <summary>The options and context of a report file (<c>AjPReport</c>: the ACD report parameter plus the program's header text).</summary>
@@ -265,6 +280,9 @@ public sealed record EmbossReportOptions
 
     /// <summary>The program writes the report even when the feature table is empty (etandem, equicktandem); fuzznuc, fuzzpro and fuzztran write only tables with a feature.</summary>
     public bool WriteEmptyTables { get; init; }
+
+    /// <summary>The state of the feature library of the run: the messages the feature writers print (the report formats that are feature formats of a full table).</summary>
+    internal EmbossFeatureReadContext? Context { get; init; }
 
     /// <summary>The ACD qualifier <c>-rformat</c>'s default is not relevant here: the report type letter of <c>ajReportSetType</c> comes from the first table (set by the layer).</summary>
     public string Name { get; init; } = "";

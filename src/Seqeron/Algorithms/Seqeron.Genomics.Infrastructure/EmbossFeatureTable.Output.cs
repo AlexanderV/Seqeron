@@ -46,6 +46,32 @@ internal sealed partial class EmbossSeqFeatureTable
         return ret;
     }
 
+    /// <summary><c>ajFeattableNewFtableLimit</c>: a copy of the first <paramref name="limit"/> features (the range, reversal and trim state of the table are not copied).</summary>
+    public EmbossSeqFeatureTable NewFtableLimit(int limit)
+    {
+        var ret = new EmbossSeqFeatureTable(_context)
+        {
+            SeqId = SeqId,
+            Type = Type,
+            TypeNull = false,
+            FormatName = FormatName ?? "",
+            Format = Format,
+            Groups = Groups,
+            Start = Start,
+            End = End,
+            Length = Length,
+        };
+        int ift = 0;
+        foreach (var f in Features)
+        {
+            if (ift++ >= limit)
+                break;
+            ret.Add(NewFeat(f));
+        }
+
+        return ret;
+    }
+
     /// <summary><c>ajFeattableAdd</c>: the feature is appended, the length raised to its largest position unless it has a remote id or a label.</summary>
     public void Add(EmbossSeqFeature feature)
     {

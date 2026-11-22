@@ -338,6 +338,15 @@ public static partial class EmbossReportWriter
         sb.Append("MaxHitAll: ").Append(o.MaxAll).Append('\n');
         sb.Append("MaxHitSeq: ").Append(o.MaxSeq).Append('\n');
         sb.Append("Format: ").Append(st.FormatIndex).Append('\n');
+        if (t.FeatureTable is not null)
+        {
+            // ajFeattablePrint of the full table
+            sb.Append("\nFeattable (external): ").Append(t.FeatureTable.Features.Count).Append(" features\n");
+            sb.Append(t.FeatureTable.Debug());
+            Tail(st, t, t.Sequence);
+            return;
+        }
+
         sb.Append("\nFeattable (external): ").Append(t.Features.Count).Append(" features\n");
         sb.Append("  Format: 0 (").Append(t.TableFormat).Append(")  Start: ").Append(t.Start).Append('\n');
         sb.Append("  End: ").Append(t.End).Append('\n');

@@ -225,6 +225,8 @@ public static class EmbossReports
         "fuzztran" => [new("str", "pat", "Pattern"), new("int", "mismatch", "Mismatch"), new("int", "frame", "Frame"), new("int", "start", "PStart"), new("int", "end", "PEnd"), new("str", "translation", "Translation")],
         "etandem" => [new("int", "rpt_size", "Size"), new("int", "rpt_count", "Count"), new("float", "identity", "Identity"), new("str", "consensus", "Consensus")],
         "equicktandem" => [new("int", "rpt_size", "Size"), new("int", "rpt_count", "Count")],
+        "featreport" => [],
+        "twofeat" => [new("int", "starta", "starta"), new("int", "enda", "enda"), new("int", "startb", "startb"), new("int", "endb", "endb")],
         _ => throw new ArgumentException($"Unknown program '{program}'.", nameof(program)),
     };
 }

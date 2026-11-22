@@ -155,7 +155,7 @@ public static partial class EmbossReportWriter
     {
         var o = st.O;
         var flags = EmbossReportFormats.Flags(o.Format);
-        bool tableProt = t.Protein, tableNuc = !t.Protein;
+        bool tableProt = t.Protein || t.TypeUnknown, tableNuc = !t.Protein || t.TypeUnknown;
         bool isnuc = t.Sequence.Nucleotide && tableNuc, isprot = !t.Sequence.Nucleotide && tableProt;
         bool ok = (isnuc && flags.Nuc) || (isprot && flags.Prot);
         if (!ok)
@@ -184,7 +184,7 @@ public static partial class EmbossReportWriter
         if (maxreport != 0 && maxreport < features.Count)
         {
             st.SubTail = AppendTail(st.SubTail, $"HitLimit: {maxreport}/{features.Count}");
-            var limited = t with { Features = [.. features.Take(maxreport)], Groups = t.Groups ?? features.Count, TableFormat = "" };
+            var limited = t with { Features = [.. features.Take(maxreport)], Groups = t.Groups ?? features.Count, TableFormat = "", FeatureTable = t.FeatureTable?.NewFtableLimit(maxreport) };
             Body(st, limited);
             st.CountHit += maxreport;
             st.TotHits += features.Count;
@@ -274,18 +274,26 @@ public static partial class EmbossReportWriter
 
     private static TypeInfo TypeOf(EmbossFeature f)
     {
-        if (Types.TryGetValue(f.Type, out var t))
+        if (!f.FromTable && Types.TryGetValue(f.Type, out var t))
             return t;
-        foreach (var v in Types.Values)
-            if (string.Equals(v.Name, f.Type, StringComparison.Ordinal))
-                return v;
-        throw new ArgumentException($"The feature type '{f.Type}' is not in the vocabulary of the report layer (SO:0000714, SO:0001067, SO:0000657, SO:0000110 as written by fuzznuc, fuzzpro, fuzztran, etandem, equicktandem).");
+        if (!f.FromTable)
+        {
+            foreach (var v in Types.Values)
+                if (string.Equals(v.Name, f.Type, StringComparison.Ordinal))
+                    return v;
+        }
+
+        // a type of the feature library (the tables of featreport and twofeat): its name in the vocabulary of the sequence kind (ajFeatGetType)
+        var vocab = f.Protein == true ? EmbossFeatureVocab.Protein : EmbossFeatureVocab.Dna;
+        string name = EmbossFeatureVocab.TypeExternal(vocab.Types, f.Type);
+        string nucName = EmbossFeatureVocab.TypeExternal(EmbossFeatureVocab.Dna.Types, f.Type);          // ajFeatTypeNuc
+        return new TypeInfo(f.Type, name, nucName, name, "other", null, "", "");
     }
 
     private static string TypeName(EmbossFeature f) => TypeOf(f).Name;
 
     // the regions and draw reports name diffseq's polypeptide_region by its feature-table name misc_feature (the tagseq report keeps the internal name)
-    private static string RegionTypeName(EmbossFeature f) => TypeOf(f).Id == "SO:0000839" ? "misc_feature" : TypeName(f);
+    private static string RegionTypeName(EmbossFeature f) => !f.FromTable && TypeOf(f).Id == "SO:0000839" ? "misc_feature" : TypeName(f);
 
     // ajFeatGetNoteS / ajFeatGetNoteCI: the first note "*name value" whose text after '*' starts (case-insensitively) with name; the value after "*name " ("" when none); false when that note has another character after the name
     private static bool GetNote(EmbossFeature f, string name, out string value, int count = 0)
@@ -518,25 +526,46 @@ public static partial class EmbossReportWriter
         {
             case EmbossReportFormat.Gff:
             case EmbossReportFormat.Gff3:
-                Gff(st, t);
+                if (t.FeatureTable is not null)
+                    TableBody(st, t, "gff", "ajReportWriteGff features output failed format: 'gff'");
+                else
+                    Gff(st, t);
                 break;
             case EmbossReportFormat.Excel:
                 Excel(st, t);
                 break;
             case EmbossReportFormat.Embl:
-                Embl(st, t, true);
+                if (t.FeatureTable is not null)
+                    TableBody(st, t, "embl", "ajReportWriteEmbl features output failed format: 'embl'");
+                else
+                    Embl(st, t, true);
                 break;
             case EmbossReportFormat.Genbank:
-                Embl(st, t, false);
+                if (t.FeatureTable is not null)
+                    TableBody(st, t, "genbank", "ajReportWriteGenbank features output failed format: 'genbank'");
+                else
+                    Embl(st, t, false);
                 break;
             case EmbossReportFormat.Pir:
-                Pir(st, t);
+                if (t.FeatureTable is not null)
+                    TableBody(st, t, "pir", "ajReportWritePir features output failed format: 'pir'");
+                else
+                    Pir(st, t);
                 break;
             case EmbossReportFormat.Swiss:
-                Swiss(st, t);
+                if (t.FeatureTable is not null)
+                    TableBody(st, t, "swiss", "ajReportWriteSwiss features output failed format: 'swiss'");
+                else
+                    Swiss(st, t);
                 break;
             case EmbossReportFormat.DasGff:
-                DasGff(st, t);
+                if (t.FeatureTable is not null)
+                {
+                    st.Opened = true;                                      // the end of the XML is written once, when the report is closed
+                    TableBody(st, t, "dasgff", "ajReportWriteDasgff features output failed format: 'dasgff'");
+                }
+                else
+                    DasGff(st, t);
                 break;
             case EmbossReportFormat.Debug:
                 DebugReport(st, t);
@@ -591,6 +620,17 @@ public static partial class EmbossReportWriter
             default:
                 throw new EmbossReportException($"Report format '{FormatName(st)}' is not written for these programs.");
         }
+    }
+
+    // reportWriteGff / Embl / Genbank / Pir / Swiss / Dasgff of a full feature table: ajFeattabOutNewCSF(format, ...) and ajFeattableWrite, a failure is a warning
+    private static void TableBody(State st, EmbossReport t, string format, string failure)
+    {
+        var context = st.O.Context ?? new EmbossFeatureReadContext();
+        string? text = WriteFeatureTable(t.FeatureTable!, format, st.O.RunDate, st.O.Program, context, new EmbossFeatureWriteState(), 0);
+        if (text is null)
+            context.Warn(failure);
+        else
+            st.Out.Append(text);
     }
 
     // reportWriteExcel (no header, no tail)
