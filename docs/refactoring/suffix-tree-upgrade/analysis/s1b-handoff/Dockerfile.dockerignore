@@ -1,0 +1,35 @@
+# Image build context of the hand-off package s1b-handoff (ADR-004 section 5a, 1b.9f): an ALLOW-LIST, as the E8 package's. Everything is excluded, then exactly what the chain programs, the test sets and the scripts need is
+# let back in. BuildKit reads this file next to the Dockerfile when the build is started from the repository root with -f:
+#   docker build -f docs/refactoring/suffix-tree-upgrade/analysis/s1b-handoff/Dockerfile .
+# Nothing of .git (history, remotes, configuration), wiki, other docs or any bin / obj directory enters the image or the build cache.
+*
+# the programs: the Bench application (sesa resume build, sesa handoff), the prototype's verifier and generator (e8-verify, e8-gen), and the libraries they use
+!apps/SuffixTree.Esa.Bench
+!apps/SuffixTree.EmProto
+!src/SuffixTree/Directory.Build.props
+!src/SuffixTree/Algorithms
+# the test sets of the owner's CI policy: Esa (default, Exhaustive, Fuzz, checked), EmProto, Persistent, with the files they read from the repository
+!tests/SuffixTree/Directory.Build.props
+!tests/SuffixTree/SuffixTree.Esa.Tests
+!tests/SuffixTree/SuffixTree.EmProto.Tests
+!tests/SuffixTree/SuffixTree.Persistent.Tests
+!docs/refactoring/suffix-tree-upgrade/analysis/s1b/harness_member_coverage.tsv
+!docs/refactoring/suffix-tree-upgrade/analysis/bench/MANIFEST.sha256
+# the repository's props and style rules: the TEST build uses them as they are (the Sonar analyzer package is restored from nuget.org at image build time); the chain build replaces the props (see the Dockerfile)
+!Directory.Build.props
+!Directory.Packages.props
+!Seqeron.sln
+!.editorconfig
+# the scripts of this package, the shared helpers of the E8 package, the generators of the benchmark
+!docs/refactoring/suffix-tree-upgrade/analysis/s1b-handoff
+!docs/refactoring/suffix-tree-upgrade/analysis/e8
+!docs/refactoring/suffix-tree-upgrade/analysis/bench/gen/gen_inputs.py
+# whatever sits inside the allowed directories and must not enter: build output, the owner's returned data, the mutation work
+**/bin
+**/obj
+**/mutation
+**/__pycache__
+docs/refactoring/suffix-tree-upgrade/analysis/e8/results
+docs/refactoring/suffix-tree-upgrade/analysis/e8/*.tsv
+docs/refactoring/suffix-tree-upgrade/analysis/e8/*.txt
+docs/refactoring/suffix-tree-upgrade/analysis/s1b-handoff/results
