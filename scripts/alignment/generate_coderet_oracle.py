@@ -127,7 +127,7 @@ def main(out, n, seed):
                 if rnd.random() < SINGLE_SHARE: args += ['-osdirectory%d' % i, rnd.choice(['sub', 'sub', 'sub/', 'nosuch'])]
                 if rnd.random() < SINGLE_SHARE: args += ['-osname%d' % i, rnd.choice(['nm', 'N1', 'a b'])]
             if rnd.random() < 0.04: args += ['-sbegin1', str(rnd.randint(1, 20))]
-            if rnd.random() < 0.03 and not os.environ.get('CODERET_NOREVERSE'): args += ['-sreverse1']      # the rows with -sreverse1 on GFF3 features give the reference a rest region that this port does not reproduce (registered in B09.md)
+            if rnd.random() < 0.03: args += ['-sreverse1']      # a GFF3 table has no length, so ajFeatReverse gives negative positions, which ajFeatGetStart / ajFeatGetEnd return as huge unsigned numbers (B09 WP60, F276)
             clean(work)
             os.mkdir(os.path.join(work, 'sub'))
             open(os.path.join(work, 'in.dat'), 'w', newline='\n', encoding='latin-1').write(text)

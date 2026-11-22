@@ -410,7 +410,7 @@ public static class EmbossExtractfeatProgram
         if (gf.Flags.HasFlag(EmbossLocationBits.RemoteId))
             return remote.Get(gf, seq);
         var tmp = new StringBuilder();
-        AppendSub(tmp, seq.Seq.ToString(), gf.GetStart() - 1, gf.GetEnd() - 1);
+        AppendSub(tmp, seq.Seq.ToString(), unchecked((uint)(gf.GetStart() - 1)), unchecked((uint)(gf.GetEnd() - 1)));            // ajFeatGetStart(gf)-1 is unsigned before it becomes the ajlong of ajStrAppendSubS
         return gf.Strand == '-' ? ReverseComplement(tmp.ToString()) : tmp.ToString();
     }
 
@@ -432,7 +432,7 @@ public static class EmbossExtractfeatProgram
             }
 
             var tmp = new StringBuilder();
-            AppendSub(tmp, seq.Seq.ToString(), part.GetStart() - 1, part.GetEnd() - 1);
+            AppendSub(tmp, seq.Seq.ToString(), unchecked((uint)(part.GetStart() - 1)), unchecked((uint)(part.GetEnd() - 1)));
             result.Append(part.Strand == '-' && !compjoin ? ReverseComplement(tmp.ToString()) : tmp.ToString());
         }
 

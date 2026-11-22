@@ -87,8 +87,8 @@ public static class EmbossCoderetProgram
         public bool Wanted = value is null || value.Length > 0;
         // acdOutFilename: the base name (-osname, else the name of the first sequence; its first word) and the extension (-osextension, else the one of the ACD file)
         public readonly string Extension = options?.Extension is { Length: > 0 } e ? e : extension;
-        public string FileName = value is { Length: > 0 } ? value : FirstWord(options?.Name is { Length: > 0 } n ? n : defaultName) + "." + (options?.Extension is { Length: > 0 } e2 ? e2 : extension);
-        public readonly string Usa = value is { Length: > 0 } ? value : FirstWord(options?.Name is { Length: > 0 } n2 ? n2 : defaultName) + "." + (options?.Extension is { Length: > 0 } e3 ? e3 : extension);
+        public string FileName = value is { Length: > 0 } ? value : EmbossOutPath.FmtWord(options?.Name is { Length: > 0 } n ? n : defaultName) + "." + (options?.Extension is { Length: > 0 } e2 ? e2 : extension);
+        public readonly string Usa = value is { Length: > 0 } ? value : EmbossOutPath.FmtWord(options?.Name is { Length: > 0 } n2 ? n2 : defaultName) + "." + (options?.Extension is { Length: > 0 } e3 ? e3 : extension);
         public string FormatName = format ?? "fasta";
         public readonly string Directory = EmbossOutPath.FixDirectory(options?.Directory);
         public readonly bool Single = options?.Single ?? false;
@@ -101,18 +101,6 @@ public static class EmbossCoderetProgram
         public EmbossSeqOutFormat? Format;
         public bool UnknownReported;
         public readonly EmbossSeqWriteRun Run = new() { Program = "coderet" };
-
-        // ajStrFmtWord: a string with blanks loses the excess white space and its blanks become underscores; the part before the last colon is cut
-        private static string FirstWord(string name)
-        {
-            string t = name;
-            if (t.Length == 0 || t.Any(char.IsWhiteSpace))
-                t = Regex.Replace(t.Trim(), "\\s+", " ", RegexOptions.CultureInvariant).Replace(' ', '_');
-            if (t.EndsWith(':'))
-                t = t[..^1];
-            int colon = t.LastIndexOf(':');
-            return colon >= 0 ? t[(colon + 1)..] : t;
-        }
     }
 
     /// <summary>Runs <c>coderet</c>.</summary>
@@ -132,7 +120,7 @@ public static class EmbossCoderetProgram
         }
 
         // acdOutFilename: the output files without a name are called after the first sequence
-        string baseName = DefaultBaseName(seqall.Peek().Name, r.Sequence);
+        string baseName = EmbossOutPath.DefaultBaseName(seqall.Peek().Name, r.Sequence);
         var cds = new Out(r.CdsOutSeq, r.CdsFormat, baseName, "cds", r.CdsOptions, "nucleotide", "cdsoutseq");
         var mrna = new Out(r.MrnaOutSeq, r.MrnaFormat, baseName, "mrna", r.MrnaOptions, "nucleotide", "mrnaoutseq");
         var prot = new Out(r.TranslationOutSeq, r.TranslationFormat, baseName, "prot", r.TranslationOptions, "protein", "translationoutseq");
@@ -279,27 +267,6 @@ public static class EmbossCoderetProgram
         return new EmbossCoderetOutput(log.ToString(), files, [.. context.Messages]) { Died = context.Fatal };
     }
 
-    // acdInFileSave (the name of the first sequence, else the USA) + ajFilenameTrimAll + ajStrFmtLower, then ajStrFmtWord of acdOutFilename
-    private static string DefaultBaseName(string seqName, string usa)
-    {
-        string name = TrimAll(seqName.Length > 0 ? seqName : usa).ToLowerInvariant();
-        int blank = name.IndexOfAny([' ', '\t', '\n', '\r']);
-        return blank >= 0 ? name[..blank] : name;
-    }
-
-    // ajFilenameTrimAll
-    private static string TrimAll(string name)
-    {
-        var m = Regex.Match(name, ":([A-Za-z0-9_-]+)$", RegexOptions.CultureInvariant);
-        if (m.Success)
-            return m.Groups[1].Value;
-        m = Regex.Match(name, "([A-Za-z0-9_-]+)[.][A-Za-z0-9_-]+$", RegexOptions.CultureInvariant);
-        if (m.Success)
-            return m.Groups[1].Value;
-        m = Regex.Match(name, "([A-Za-z0-9_-]+)[^A-Za-z0-9_-]*$", RegexOptions.CultureInvariant);
-        return m.Success ? m.Groups[1].Value : "";
-    }
-
     // ajFeatGetTagC(feature, "translation", 1): the first tag of that name (any case), or a note that starts with "*translation:"
     private static string? GetTagTranslation(EmbossSeqFeature gf)
     {
@@ -324,9 +291,10 @@ public static class EmbossCoderetProgram
                 continue;
             if (gf.Flags.HasFlag(EmbossLocationBits.BetweenSeq) || gf.Flags.HasFlag(EmbossLocationBits.RemoteId))
                 continue;
-            // ajStrFmtLowerSub: the positions are clipped into the string
-            int begin = EmbossInputSequence.PositionStart(seq.Length, 0, gf.GetStart() - 1);
-            int end = EmbossInputSequence.PositionStart(seq.Length, begin, gf.GetEnd() - 1);
+            // ajStrFmtLowerSub(Pseqstr, ajFeatGetStart(gf)-1, ajFeatGetEnd(gf)-1): ajFeatGetStart / ajFeatGetEnd return an unsigned int, so the positions are unsigned before they become the ajlong of the call:
+            // the negative positions of the features of a reversed GFF3 entry (its table has no length: ajFeatReverse gives 1 + 0 - End) are huge numbers that are clipped to the last residue, not positions counted from the end
+            int begin = EmbossInputSequence.PositionStart(seq.Length, 0, unchecked((uint)(gf.GetStart() - 1)));
+            int end = EmbossInputSequence.PositionStart(seq.Length, begin, unchecked((uint)(gf.GetEnd() - 1)));
             for (int i = begin; i <= end && i < seq.Length; i++)
                 seq[i] = char.ToLowerInvariant(seq[i]);
         }

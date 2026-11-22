@@ -143,6 +143,12 @@ public sealed record EmbossSequenceQualifiers
                 continue;
             }
 
+            if (allowReport && item.Master is { Type: "features" or "featuresall" })
+            {
+                report = ApplyFeatureInput(report, item, raw, commandLine);
+                continue;
+            }
+
             if (featureOutputs && item.Master is { Name: "aoutfeat" or "boutfeat" } && FeatureItems.Contains(item.Name))
             {
                 report = ApplyFeatureOutput(report, item, raw, commandLine);
@@ -188,6 +194,32 @@ public sealed record EmbossSequenceQualifiers
         return q with { FeatureOutputs = outputs };
     }
 
+    // the qualifiers of the FEATURES input of featreport / twofeat-like programs (acdSetFeatures): -fformat, -fopenfile, -iquery, -ioffset, -fask have no effect on the table that is read (the format is set on the wrong field of the input object, the others
+    // are used by the database methods only), -fbegin / -fend give its range, -freverse flags the input as reversed (ajFeattableReverse does nothing for a table that is not flagged: measured on 6.6.0), -fcircular is not used
+    private static EmbossReportQualifiers ApplyFeatureInput(EmbossReportQualifiers q, AcdItem item, string raw, string commandLine)
+    {
+        var f = q.FeatureInput ?? new EmbossFeatureInQualifiers();
+        string suffix = item.PNum > 0 ? item.PNum.ToString(System.Globalization.CultureInfo.InvariantCulture) : "";
+        if (item.Type == "integer")
+        {
+            if (!AcdCommandLine.TryToInt(raw, out int number))
+                throw new ArgumentException($"Invalid integer value '{raw}' for -{item.Name}{suffix}.", nameof(commandLine));
+            f = item.Name switch { "fbegin" => f with { Begin = number }, "fend" => f with { End = number }, _ => f with { Offset = number } };
+        }
+        else if (item.Type == "boolean")
+        {
+            if (!AcdCommandLine.TryToBool(raw, out bool flag))
+                throw new ArgumentException($"Invalid Y/N value '{raw}' for -{item.Name}{suffix}.", nameof(commandLine));
+            f = item.Name switch { "freverse" => f with { Reverse = flag }, "fcircular" => f with { Circular = flag }, _ => f with { Ask = flag } };
+        }
+        else
+        {
+            f = item.Name switch { "fformat" => f with { Format = raw }, "fopenfile" => f with { OpenFile = raw }, _ => f with { Query = raw } };
+        }
+
+        return q with { FeatureInput = f };
+    }
+
     private static readonly HashSet<string> ReportItems = ["rformat", "rname", "rextension", "rdirectory", "raccshow", "rdesshow", "rscoreshow", "rstrandshow", "rusashow", "rmaxall", "rmaxseq"];
 
     private static EmbossReportQualifiers ApplyReport(EmbossReportQualifiers q, AcdItem item, string raw, string commandLine)
@@ -215,7 +247,14 @@ public sealed record EmbossSequenceQualifiers
             };
         }
 
-        return item.Name == "rformat" ? q with { Format = raw } : q;            // rname / rextension / rdirectory: the file name is the caller's business
+        return item.Name switch
+        {
+            "rformat" => q with { Format = raw },
+            "rname" => q with { Name = raw },
+            "rextension" => q with { Extension = raw },
+            "rdirectory" => q with { Directory = raw },
+            _ => q,
+        };
     }
 
     private static EmbossSequenceQualifiers Apply(EmbossSequenceQualifiers q, AcdItem item, string raw, string commandLine, bool fileInput = false)
@@ -357,7 +396,14 @@ public sealed record EmbossSequenceView(string Residues, int Offset, int Offend,
 /// <param name="MaxAll"><c>-rmaxall</c> (0 = no limit).</param>
 /// <param name="MaxSeq"><c>-rmaxseq</c> (0 = no limit).</param>
 /// <param name="FeatureOutputs">The qualifiers of the feature outputs (<c>-aoutfeat</c>, <c>-boutfeat</c>) when the text was resolved with them (<see cref="EmbossSequenceQualifiers.ParseInputsAndReport(string, string?, bool)"/>); null = none.</param>
-public sealed record EmbossReportQualifiers(string? Format = null, bool ShowAccession = false, bool ShowDescription = false, bool? ShowScore = null, bool? ShowStrand = null, bool ShowUsa = false, int MaxAll = 0, int MaxSeq = 0, IReadOnlyList<EmbossFeatureOutQualifiers>? FeatureOutputs = null);
+/// <param name="Name"><c>-rname</c>: the base of the default report file name (null = not given).</param>
+/// <param name="Extension"><c>-rextension</c>: the extension of the default report file name.</param>
+/// <param name="Directory"><c>-rdirectory</c>: the directory of a report file whose name has no directory.</param>
+public sealed record EmbossReportQualifiers(string? Format = null, bool ShowAccession = false, bool ShowDescription = false, bool? ShowScore = null, bool? ShowStrand = null, bool ShowUsa = false, int MaxAll = 0, int MaxSeq = 0, IReadOnlyList<EmbossFeatureOutQualifiers>? FeatureOutputs = null,
+    string? Name = null, string? Extension = null, string? Directory = null, EmbossFeatureInQualifiers? FeatureInput = null);
+
+/// <summary>The associated qualifiers of a FEATURES input (<c>-fformat -fopenfile -iquery -ioffset -fask -fbegin -fend -freverse -fcircular</c>) as typed; null / default = not given.</summary>
+public sealed record EmbossFeatureInQualifiers(string? Format = null, string? OpenFile = null, string? Query = null, int Offset = 0, bool Ask = false, int? Begin = null, int? End = null, bool Reverse = false, bool Circular = false);
 
 /// <summary>The qualifiers of one feature output file of an EMBOSS program.</summary>
 /// <param name="Format"><c>-offormat</c> as typed (null = not given).</param>
