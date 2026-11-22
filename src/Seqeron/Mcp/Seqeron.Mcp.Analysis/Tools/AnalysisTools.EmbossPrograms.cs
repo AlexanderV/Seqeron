@@ -497,7 +497,7 @@ public partial class AnalysisTools
     }
 
     [McpServerTool(Name = "union", Title = "Alignment — EMBOSS union (join sequences into one)", ReadOnly = true)]
-    [Description("EMBOSS 6.6.0 union: the sequences of a file (any input format of seqret) are joined into ONE sequence that carries the name, description, accession and type of the first; with findOverlap the bases by which a sequence repeats the end of the one before (the longest end of the previous sequence that is the start of this one) are joined once, and with overlapFile the overlap of every sequence is returned (one number per sequence, the first is 0). The result is written in FASTA or in the output format of outputFormat (fasta unknown pearson, gcg gcg8, nbrf pir, codata, strider, staden, text plain raw, ig iguspto, gde, fitch, acedb, mase, ncbi, gifasta, nib (nibble), dasdna, das, asn1, embl (em, emblnew, emold, emblold), genbank (gb, ddbj), refseq, genpept, refseqp, swiss (sw, swissprot, uniprot, swissnew, swnew, swold, swissold, swissprotold, swissprotnew), gff2, gff3 (gff), fastq (fastq-sanger, fastq-illumina, fastq-solexa: the quality values of the sequences are written), sam, scf, and the sequence-set formats msf, clustal (aln), selex, phylip, phylipnon (phylip3), hennig86, mega, meganon, nexus (paup), nexusnon (paupnon), jackknifer, jackknifernon, treecon (written when the output is closed), experiment, debug and bam (BGZF blocks deflated as zlib 1.3 does)). With feature the features of the sequences are joined into the features of the result (the positions moved by the length of the sequences before; with source one feature of the type source, tag origid = the name of the sequence, for every sequence joined) and returned as featureText in the feature format of featureFormat (gff3 default, gff2, embl, genbank, refseq, bed, dasgff, debug; an unknown name is written as gff3 with the library's errors). Equals the installed program on 200 runs (fragments that overlap by random lengths, the reader inputs, damaged files, every output format, the format-for-sequence-type errors). A5-8c3h, B09 F253.")]
+    [Description("EMBOSS 6.6.0 union: the sequences of a file (any input format of seqret) are joined into ONE sequence that carries the name, description, accession and type of the first; with findOverlap the bases by which a sequence repeats the end of the one before (the longest end of the previous sequence that is the start of this one) are joined once, and with overlapFile the overlap of every sequence is returned (one number per sequence, the first is 0). The result is written in FASTA or in the output format of outputFormat (fasta unknown pearson, gcg gcg8, nbrf pir, codata, strider, staden, text plain raw, ig iguspto, gde, fitch, acedb, mase, ncbi, gifasta, nib (nibble), dasdna, das, asn1, embl (em, emblnew, emold, emblold), genbank (gb, ddbj), refseq, genpept, refseqp, swiss (sw, swissprot, uniprot, swissnew, swnew, swold, swissold, swissprotold, swissprotnew), gff2, gff3 (gff), fastq (fastq-sanger, fastq-illumina, fastq-solexa: the quality values of the sequences are written), sam, scf, and the sequence-set formats msf, clustal (aln), selex, phylip, phylipnon (phylip3), hennig86, mega, meganon, nexus (paup), nexusnon (paupnon), jackknifer, jackknifernon, treecon (written when the output is closed), experiment, debug and bam (BGZF blocks deflated as zlib 1.3 does)). With feature the features of the sequences are joined into the features of the result (the positions moved by the length of the sequences before; with source one feature of the type source, tag origid = the name of the sequence, for every sequence joined) and returned as featureText in the feature format of featureFormat (gff3 default, gff2, embl, genbank, refseq, bed, dasgff, debug; an unknown name is written as gff3 with the library's errors). Equals the installed program on 200 runs (fragments that overlap by random lengths, the reader inputs, damaged files, every output format, the format-for-sequence-type errors). A5-8c3h, B09 F253. The joined sequence can be written to a file of its own (outputSingle with outputDirectory / outputExtension: -ossingle2 -osdirectory2 -osextension2; returned in singleFiles), as seqret does; equals the installed program on 1 200 runs (every output format including experiment, debug and bam, the output qualifiers, directories that do not exist). A5-8c3h, B09 F277.")]
     public static UnionToolResult Union(
         [Description("The text of the sequence file (any input format of seqret), or a sequence as letters.")] string sequence,
         [Description("The input format (-sformat); default: the program finds the format.")] string? sequenceFormat = null,
@@ -510,7 +510,10 @@ public partial class AnalysisTools
         [Description("The USA of the sequence input (-sequence) as the program reads it, instead of the file the text is put in: [format::]file[begin:end:r] (file = the name of an entry of files; the text of sequence is the file 'sequence.dat'), file:id / file:field:query / file{a|b} (id, acc, sv, gi, des, key, org; wildcards * and ?), @list / list::list (a list file of files; # comments; every entry has its own range and format), asis::SEQUENCE; the range qualifiers -sbegin1 -send1 -sreverse1 of qualifiers are applied to the sequences and to their features.")] string? sequenceValue = null,
         [Description("Join the features of the sequences (-feature); the features are returned as featureText.")] bool feature = false,
         [Description("Create a source feature for every sequence joined (-source; with feature).")] bool source = false,
-        [Description("The format of the feature output (-offormat2); default gff3 (gff).")] string? featureFormat = null)
+        [Description("The format of the feature output (-offormat2); default gff3 (gff).")] string? featureFormat = null,
+        [Description("Write the joined sequence to a file of its own, name.extension in lower case (-ossingle2); the file is returned in singleFiles.")] bool outputSingle = false,
+        [Description("The directory of the file of outputSingle (-osdirectory2).")] string? outputDirectory = null,
+        [Description("The extension of the file of outputSingle (-osextension2); default: the output format as typed.")] string? outputExtension = null)
     {
         if (string.IsNullOrWhiteSpace(sequence))
             throw new ArgumentException("The sequence cannot be empty", nameof(sequence));
@@ -521,10 +524,10 @@ public partial class AnalysisTools
         try
         {
             var all = new Dictionary<string, string>(files ?? new Dictionary<string, string>()) { [file] = sequence };
-            var o = EmbossUnionProgram.Union(new EmbossUnionRequest(spec, all, q, findOverlap, overlapFile, "stdout", outputFormat, DateTime.Now) { Feature = feature, Source = source, OutFeatFormat = featureFormat });
+            var o = EmbossUnionProgram.Union(new EmbossUnionRequest(spec, all, q, findOverlap, overlapFile, "stdout", outputFormat, DateTime.Now) { Feature = feature, Source = source, OutFeatFormat = featureFormat, OutSingle = outputSingle, OutDirectory = outputDirectory, OutExtension = outputExtension });
             if (o.Died)
                 throw new ArgumentException(string.Join("; ", o.Messages.Where(m => m.Length > 0)), nameof(sequence));
-            return new UnionToolResult(o.SequenceText, o.OverlapText, [.. o.Messages], o.FeatureText);
+            return new UnionToolResult(o.SequenceText, o.OverlapText, [.. o.Messages], o.FeatureText, o.SingleFiles);
         }
         catch (Exception e) when (e is NotSupportedException or InvalidOperationException)
         {
@@ -773,7 +776,7 @@ public partial class AnalysisTools
     }
 
     [McpServerTool(Name = "featreport", Title = "Alignment — EMBOSS featreport (report a feature table)", ReadOnly = true)]
-    [Description("EMBOSS 6.6.0 featreport: the first feature table of a feature file (embl, genbank, refseq, refseqp, swiss, pir, gff2, gff3, dasgff, or any: the library tries every reader) is reported for a sequence in a report format (reportFormat: gff default, gff3, embl, genbank, pir, swiss, dasgff, debug, listfile, dbmotif, diffseq, draw, restrict, excel, feattable, motif, nametable, regions, seqtable, simple, srs, summary, table, tagseq, or the report qualifiers as typed: -rformat table -raccshow -rdesshow -rscoreshow N -rstrandshow N -rusashow -rmaxall 3 -rmaxseq 2). The formats gff, gff3, embl, genbank, pir, swiss and dasgff are written by the feature writers of the library (joins, tags, flags); the others list the start, end, strand and score of the features. The features come with an optional range (featureBegin, featureEnd). Equals the installed program on 1 000 runs (every feature format, every report format, ranges, damaged files). A5-8c3h, B09 F262.")]
+    [Description("EMBOSS 6.6.0 featreport: the first feature table of a feature file (embl, genbank, refseq, refseqp, swiss, pir, gff2, gff3, dasgff, or any: the library tries every reader) is reported for a sequence in a report format (reportFormat: gff default, gff3, embl, genbank, pir, swiss, dasgff, debug, listfile, dbmotif, diffseq, draw, restrict, excel, feattable, motif, nametable, regions, seqtable, simple, srs, summary, table, tagseq, or the report qualifiers as typed: -rformat table -raccshow -rdesshow -rscoreshow N -rstrandshow N -rusashow -rmaxall 3 -rmaxseq 2). The formats gff, gff3, embl, genbank, pir, swiss and dasgff are written by the feature writers of the library (joins, tags, flags); the others list the start, end, strand and score of the features. The features come with an optional range (featureBegin, featureEnd). Equals the installed program on 1 000 runs (every feature format, every report format, ranges, damaged files). A5-8c3h, B09 F262. The report file name qualifiers of reportFormat (-rname -rextension -rdirectory: the default file name is the name of the sequence + .featreport, a directory is put in front of a name that has none, a directory that does not exist stops the program) and the qualifiers of the features input in qualifiers (-fformat2 -fopenfile2 -iquery2 -ioffset2 -fask2 -fbegin2 -fend2 -freverse2 -fcircular2; only -fbegin2 / -fend2 change the report, as in the program) are applied as the program applies them; the file name is returned in reportFile. A5-8c3h, B09 F278.")]
     public static FeatreportToolResult Featreport(
         [Description("The text of the sequence file (any input format of seqret), or a sequence as letters.")] string sequence,
         [Description("The text of the feature file (see the formats above).")] string features,
@@ -786,7 +789,8 @@ public partial class AnalysisTools
         [Description("More files by name (file name -> text) that sequenceValue and featuresValue may name.")] IReadOnlyDictionary<string, string>? files = null,
         [Description("The USA of the sequence input (-sequence): [format::]file[begin:end:r], file:id, file:field:value, file{a|b}, @list, list::list, asis::TEXT, db:id; the text of sequence is the file 'sequence.dat'.")] string? sequenceValue = null,
         [Description("The value of -features: [format::]file[begin:end:r]; the text of features is the file 'features.dat'.")] string? featuresValue = null,
-        [Description("The text of an EMBOSS configuration file (.embossrc) that defines databases for sequenceValue.")] string? definitions = null)
+        [Description("The text of an EMBOSS configuration file (.embossrc) that defines databases for sequenceValue.")] string? definitions = null,
+        [Description("The name of the report file (-outfile); default: standard output, or - when reportFormat has -rname / -rextension / -rdirectory - the file named after the sequence (name.featreport) in that directory; it is returned in reportFile.")] string? outputFile = null)
     {
         if (string.IsNullOrWhiteSpace(sequence))
             throw new ArgumentException("The sequence cannot be empty", nameof(sequence));
@@ -800,14 +804,18 @@ public partial class AnalysisTools
         try
         {
             var (inputs, rq) = global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.ParseInputsAndReport("featreport", (qualifiers ?? "") + " " + reportText);
-            var commandLine = new List<string> { global::Seqeron.Genomics.Analysis.EmbossCommandLineEcho.Parameter("sequence", spec), global::Seqeron.Genomics.Analysis.EmbossCommandLineEcho.Parameter("features", featuresValue ?? featFile), global::Seqeron.Genomics.Analysis.EmbossCommandLineEcho.Parameter("outfile", "stdout") };
+            bool named = rq.Name is not null || rq.Extension is not null || rq.Directory is not null;
+            bool defaultName = outputFile is null && named;
+            var commandLine = new List<string> { global::Seqeron.Genomics.Analysis.EmbossCommandLineEcho.Parameter("sequence", spec), global::Seqeron.Genomics.Analysis.EmbossCommandLineEcho.Parameter("features", featuresValue ?? featFile) };
+            if (!defaultName)
+                commandLine.Add(global::Seqeron.Genomics.Analysis.EmbossCommandLineEcho.Parameter("outfile", outputFile ?? "stdout"));
             commandLine.AddRange(NumberedReportEntries(reportText, 3));
             commandLine.AddRange(HeaderEntries(qualifiers));
             var all = new Dictionary<string, string>(files ?? new Dictionary<string, string>()) { [file] = sequence, [featFile] = features };
-            var o = EmbossFeatreportProgram.Featreport(new EmbossFeatreportRequest(spec, featuresValue ?? featFile, all, inputs[0] with { Format = sequenceFormat ?? inputs[0].Format }, rq, featureBegin, featureEnd, commandLine, DateTime.Now, "stdout") { Definitions = string.IsNullOrWhiteSpace(definitions) ? null : [definitions] });
+            var o = EmbossFeatreportProgram.Featreport(new EmbossFeatreportRequest(spec, featuresValue ?? featFile, all, inputs[0] with { Format = sequenceFormat ?? inputs[0].Format }, rq, featureBegin, featureEnd, commandLine, DateTime.Now, outputFile ?? "stdout") { Definitions = string.IsNullOrWhiteSpace(definitions) ? null : [definitions], DefaultReportFile = defaultName });
             if (o.Died)
                 throw new ArgumentException(string.Join("; ", o.Messages.Where(m => m.Length > 0)), nameof(sequence));
-            return new FeatreportToolResult(o.Report, [.. o.Messages]);
+            return new FeatreportToolResult(o.Report, [.. o.Messages], o.ReportFile);
         }
         catch (Exception e) when (e is NotSupportedException or InvalidOperationException)
         {
@@ -816,7 +824,7 @@ public partial class AnalysisTools
     }
 
     [McpServerTool(Name = "twofeat", Title = "Alignment — EMBOSS twofeat (neighbouring pairs of features)", ReadOnly = true)]
-    [Description("EMBOSS 6.6.0 twofeat: the features of the sequences of a file (any input format of seqret that carries features) are tested against the criteria of feature A (aSource, aType, aSense 0 / + / -, aMinScore, aMaxScore, aTag, aValue) and of feature B (bSource ... bValue); wildcards * and ?, several patterns separated by blanks, commas, semicolons or bars; the scores are cut to integers) and every pair of an A and a B feature in the required relation is reported: overlap (A any, O overlap, NO none, NW overlap but not within, AW A within B, BW B within A), distance between minRange and maxRange (ignored unless min is less than max; measured from the nearest, left, right or furthest ends: rangeType N / L / R / F), sense (A any, S same, O opposite: the opposite sense stops the program with a fatal error of the library), as a new feature (type typeOut, source twofeat, covering both, tags startA endA startB endB) or, with twoOut, as the two features. The report is in reportFormat (table default; the names of featreport or the report qualifiers as typed). Equals the installed program on 1 000 runs (every input format with features, every option, every report format). A5-8c3h, B09 F263.")]
+    [Description("EMBOSS 6.6.0 twofeat: the features of the sequences of a file (any input format of seqret that carries features) are tested against the criteria of feature A (aSource, aType, aSense 0 / + / -, aMinScore, aMaxScore, aTag, aValue) and of feature B (bSource ... bValue); wildcards * and ?, several patterns separated by blanks, commas, semicolons or bars; the scores are cut to integers) and every pair of an A and a B feature in the required relation is reported: overlap (A any, O overlap, NO none, NW overlap but not within, AW A within B, BW B within A), distance between minRange and maxRange (ignored unless min is less than max; measured from the nearest, left, right or furthest ends: rangeType N / L / R / F), sense (A any, S same, O opposite: the opposite sense stops the program with a fatal error of the library), as a new feature (type typeOut, source twofeat, covering both, tags startA endA startB endB) or, with twoOut, as the two features. The report is in reportFormat (table default; the names of featreport or the report qualifiers as typed). Equals the installed program on 1 000 runs (every input format with features, every option, every report format). A5-8c3h, B09 F263. The report file name qualifiers of reportFormat (-rname -rextension -rdirectory: the default file name is the name of the sequence + .twofeat) are applied as the program applies them; the file name is returned in reportFile. A5-8c3h, B09 F278.")]
     public static TwofeatToolResult Twofeat(
         [Description("The text of the sequence file with features (any input format of seqret), or a sequence as letters (no features).")] string sequence,
         [Description("The input format (-sformat); default: the program finds the format.")] string? sequenceFormat = null,
@@ -847,7 +855,8 @@ public partial class AnalysisTools
         CancellationToken cancellationToken = default,
         [Description("More files by name (file name -> text) that sequenceValue may name.")] IReadOnlyDictionary<string, string>? files = null,
         [Description("The USA of the sequence input (-sequence): [format::]file[begin:end:r], file:id, file:field:value, file{a|b}, @list, list::list, asis::TEXT, db:id; the text of sequence is the file 'sequence.dat'.")] string? sequenceValue = null,
-        [Description("The text of an EMBOSS configuration file (.embossrc) that defines databases for sequenceValue.")] string? definitions = null)
+        [Description("The text of an EMBOSS configuration file (.embossrc) that defines databases for sequenceValue.")] string? definitions = null,
+        [Description("The name of the report file (-outfile); default: standard output, or - when reportFormat has -rname / -rextension / -rdirectory - the file named after the sequence (name.twofeat) in that directory; it is returned in reportFile.")] string? outputFile = null)
     {
         if (string.IsNullOrWhiteSpace(sequence))
             throw new ArgumentException("The sequence cannot be empty", nameof(sequence));
@@ -859,12 +868,17 @@ public partial class AnalysisTools
         try
         {
             var (inputs, rq) = global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.ParseInputsAndReport("twofeat", (qualifiers ?? "") + " " + reportText);
-            var commandLine = new List<string> { global::Seqeron.Genomics.Analysis.EmbossCommandLineEcho.Parameter("sequence", spec), global::Seqeron.Genomics.Analysis.EmbossCommandLineEcho.Parameter("outfile", "stdout") };
+            bool named = rq.Name is not null || rq.Extension is not null || rq.Directory is not null;
+            bool defaultName = outputFile is null && named;
+            var commandLine = new List<string> { global::Seqeron.Genomics.Analysis.EmbossCommandLineEcho.Parameter("sequence", spec) };
+            if (!defaultName)
+                commandLine.Add(global::Seqeron.Genomics.Analysis.EmbossCommandLineEcho.Parameter("outfile", outputFile ?? "stdout"));
             commandLine.AddRange(NumberedReportEntries(reportText, 2));
             commandLine.AddRange(HeaderEntries(qualifiers));
             var all = new Dictionary<string, string>(files ?? new Dictionary<string, string>()) { [file] = sequence };
-            var o = EmbossTwofeatProgram.Twofeat(new EmbossTwofeatRequest(spec, all, inputs[0] with { Format = sequenceFormat ?? inputs[0].Format }, rq, commandLine, DateTime.Now, "stdout")
+            var o = EmbossTwofeatProgram.Twofeat(new EmbossTwofeatRequest(spec, all, inputs[0] with { Format = sequenceFormat ?? inputs[0].Format }, rq, commandLine, DateTime.Now, outputFile ?? "stdout")
             {
+                DefaultReportFile = defaultName,
                 ASource = aSource, AType = aType, ASense = aSense, AMinScore = aMinScore, AMaxScore = aMaxScore, ATag = aTag, AValue = aValue,
                 BSource = bSource, BType = bType, BSense = bSense, BMinScore = bMinScore, BMaxScore = bMaxScore, BTag = bTag, BValue = bValue,
                 Overlap = overlap, MinRange = minRange, MaxRange = maxRange, RangeType = rangeType, Sense = sense, Order = order, TwoOut = twoOut, TypeOut = typeOut,
@@ -872,7 +886,7 @@ public partial class AnalysisTools
             });
             if (o.Died)
                 throw new ArgumentException(string.Join("; ", o.Messages.Where(m => m.Length > 0)), nameof(sequence));
-            return new TwofeatToolResult(o.Report, [.. o.Messages]);
+            return new TwofeatToolResult(o.Report, [.. o.Messages], o.ReportFile);
         }
         catch (Exception e) when (e is NotSupportedException or InvalidOperationException)
         {

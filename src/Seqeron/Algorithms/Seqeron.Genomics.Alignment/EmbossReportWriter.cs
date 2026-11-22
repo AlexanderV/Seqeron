@@ -1142,7 +1142,7 @@ public static partial class EmbossReportWriter
             if (isize >= 512)
             {
                 if (_res == 0)
-                    throw new InvalidOperationException("The reference program never stops on this input: the reserved size of its work string is 0 and ajStrSetResRound doubles it for ever (a feature of a negative length in the motif report).");
+                    throw new NotSupportedException("The reference program never stops on this input: the reserved size of its work string is 0 and ajStrSetResRound doubles it for ever (a feature of a negative length in the motif report).");
                 ulong trysize = _res;
                 while (trysize < isize)
                     trysize += trysize;

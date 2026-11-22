@@ -297,6 +297,30 @@ public class EmbossProgramToolsTests
     private const string EmblWithFeatures = "ID   X1; SV 1; linear; genomic DNA; STD; UNC; 60 BP.\nXX\nAC   X1;\nXX\nDE   test\nXX\nFH   Key             Location/Qualifiers\nFH\nFT   CDS             join(3..12,20..29)\nFT                   /translation=\"MKV\"\nFT                   /gene=\"g1\"\nFT   mRNA            1..40\nFT   exon            45..55\nSQ   Sequence 60 BP; 15 A; 15 C; 15 G; 15 T; 0 other;\n     acgtacgtac gtacgtacgt acgtacgtac gtacgtacgt acgtacgtac gtacgtacgt        60\n//\n";
 
     [Test]
+    public void Union_WritesTheFileOfOutputSingle_AsTheProgram()
+    {
+        // union 6.6.0 (B09 WP60, F277): -ossingle2 -osdirectory2 -osextension2: one file, name.extension in lower case, in the directory (measured on the installed program)
+        var r = AnalysisTools.Union(EmblWithFeatures, outputSingle: true, outputDirectory: "d", outputExtension: "txt");
+        Assert.That(r.SingleFiles, Is.Not.Null);
+        Assert.That(r.SingleFiles!.Keys, Is.EqualTo(new[] { "d/x1.txt" }));
+        Assert.That(r.SingleFiles["d/x1.txt"], Is.EqualTo(">X1 X1.1 test\nacgtacgtacgtacgtacgtacgtacgtacgtacgtacgtacgtacgtacgtacgtacgt\n"));
+        Assert.That(r.SequenceText, Is.Empty);
+    }
+
+    [Test]
+    public void Featreport_NamesTheReportFile_AsTheProgram()
+    {
+        // featreport 6.6.0 (B09 WP60, F278): -rname3 -rextension3 -rdirectory3 give the report file (a directory is put in front of a name that has none); the default name is the name of the sequence + .featreport
+        var r = AnalysisTools.Featreport(EmblWithFeatures, EmblWithFeatures, reportFormat: "-rformat excel -rname rep -rextension xl -rdirectory d");
+        Assert.That(r.ReportFile, Is.EqualTo("d/rep.xl"));
+        Assert.That(r.Report, Is.EqualTo("SeqName\tStart\tEnd\tScore\tStrand\nX1\t3\t29\t0.000\t+\nX1\t1\t40\t0.000\t+\nX1\t45\t55\t0.000\t+\n"));
+        Assert.That(AnalysisTools.Featreport(EmblWithFeatures, EmblWithFeatures, reportFormat: "-rformat excel -rdirectory d").ReportFile, Is.EqualTo("d/x1.featreport"));
+        Assert.That(AnalysisTools.Featreport(EmblWithFeatures, EmblWithFeatures, reportFormat: "excel").ReportFile, Is.EqualTo("stdout"));
+        // the qualifiers of the features input have no effect on the report (measured)
+        Assert.That(AnalysisTools.Featreport(EmblWithFeatures, EmblWithFeatures, reportFormat: "excel", qualifiers: "-fformat2 genbank -freverse2 -fcircular2 -fask2").Report, Is.EqualTo(r.Report));
+    }
+
+    [Test]
     public void Extractfeat_ExtractsTheFeatures_AsTheProgram()
     {
         // extractfeat 6.6.0 (A5-8c3h, F258): the features that pass the filters as sequences, with the type in the name and the tags in the description
