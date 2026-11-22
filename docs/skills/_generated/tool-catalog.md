@@ -92,7 +92,7 @@
 | `write_big_alignment` | `AlignmentCoordinateFormats.WriteBigBed / WriteBigMaf / WriteBigPsl` | [doc](../../mcp/tools/alignment/write_big_alignment.md) |
 | `write_coordinate_alignment` | `AlignmentCoordinateFormats.Write` | [doc](../../mcp/tools/alignment/write_coordinate_alignment.md) |
 
-## Analysis (182 tools)
+## Analysis (183 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -133,6 +133,7 @@
 | `dust_score` | `SequenceComplexity.CalculateDustScore` | [doc](../../mcp/tools/analysis/dust_score.md) |
 | `dyad_analysis` | `MotifFinder.AnalyzeDyads` | [doc](../../mcp/tools/analysis/dyad_analysis.md) |
 | `emboss_report_file` | `EmbossReportPrograms.Fuzznuc` | [doc](../../mcp/tools/analysis/emboss_report_file.md) |
+| `entret` | `EmbossEntretProgram.Entret` | [doc](../../mcp/tools/analysis/entret.md) |
 | `entropy_profile` | `SequenceStatistics.CalculateEntropyProfile` | [doc](../../mcp/tools/analysis/entropy_profile.md) |
 | `est2genome` | `EmbossEst2genomePrograms.Run` | [doc](../../mcp/tools/analysis/est2genome.md) |
 | `exact_tandems` | `MummerExactTandems.Run` | [doc](../../mcp/tools/analysis/exact_tandems.md) |

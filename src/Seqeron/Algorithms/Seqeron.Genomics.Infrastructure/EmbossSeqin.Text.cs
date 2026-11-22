@@ -342,6 +342,8 @@ internal sealed partial class EmbossSeqin
         }
 
         Append(t, sb.ToString());
+        if (_opt.StoreText && (_opt.FullText ?? _fullText) is { } whole)
+            _store.Clear().Append(whole);                           // the binary reader stores the chunks of the whole file, from its first byte
         _rawEnded = true;
         if (_records == 0)
         {
@@ -711,6 +713,7 @@ internal sealed partial class EmbossSeqin
         }
 
         string verstr = _line;
+        AssignText();
         string? outstr = null;
         string typstr = "";
         bool isseq = false;
@@ -789,6 +792,7 @@ internal sealed partial class EmbossSeqin
         }
 
         string verstr = _line;
+        AssignText();
         string? outstr = null;
         string typstr = "";
         ok = ReadLine();

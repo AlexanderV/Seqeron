@@ -83,6 +83,7 @@ internal sealed partial class EmbossSeqin
             return false;
         }
 
+        AssignText();
         var h = new StrTok(_line, " ;\t\n\r");
         h.Next(out _);
         h.Next(out string token);
@@ -665,6 +666,7 @@ internal sealed partial class EmbossSeqin
             }
         }
 
+        AssignText();
         ok = ReadLine();
         lineprefix = PrefixGenbank(_line);
         bool dofeat = false;
@@ -848,6 +850,8 @@ internal sealed partial class EmbossSeqin
             return false;
         }
 
+        if (refseqp)
+            AssignText();
         if (!refseqp)
         {
             var count = new StrTok(_line, " \n\r");
@@ -883,6 +887,8 @@ internal sealed partial class EmbossSeqin
         }
 
         _ = seqlen;
+        if (!refseqp)
+            AssignText();
         ok = ReadLine();
         bool dofeat = false;
         bool tryfeat = refseqp && _opt.Features && !_opt.UfoGiven;

@@ -91,6 +91,12 @@ internal sealed class EmbossSeqinOptions
     /// <summary>The query of the USA (<c>seqin-&gt;Input-&gt;Query</c>): the entries that do not match are skipped (<c>seqQueryMatch</c>); null = no query.</summary>
     public EmbossQuery? Query;
 
+    /// <summary>The input stores the text of every entry it reads (<c>seqin-&gt;Input-&gt;Text</c>: the ACD attribute <c>entry: Y</c> of <c>entret</c>): <c>thys-&gt;TextPtr</c>.</summary>
+    public bool StoreText;
+
+    /// <summary>The text is the sequence of an <c>asis::</c> USA (a string, not a file): its lines are stored as they are, without the line end this port adds to the last one.</summary>
+    public bool AsisText;
+
     /// <summary><c>-sid</c> (<c>seqin-&gt;Entryname</c>): the name of every sequence read.</summary>
     public string Entryname = "";
 
@@ -179,14 +185,18 @@ internal sealed partial class EmbossSeqin
     {
         var lines = new List<string>();
         var ends = new List<int>();
+        var synthetic = new HashSet<int>();
         foreach (string text in texts)
         {
             lines.AddRange(SplitLines(text));
+            if (text.Length > 0 && text[^1] != '\n' && lines.Count > 0)
+                synthetic.Add(lines.Count - 1);                         // the library returns the last line as it is; this port gives it a line end, which the stored text does not get
             ends.Add(lines.Count);
         }
 
+        _fullText = texts.Count == 1 ? texts[0] : null;
         _lineCount = lines.Count;
-        _buff = new EmbossFeatureLines(lines) { FileEnds = texts.Count > 1 ? ends : null };
+        _buff = new EmbossFeatureLines(lines) { FileEnds = texts.Count > 1 ? ends : null, Synthetic = synthetic };
         _opt = options;
         _context = context;
         _files = files ?? (_ => null);
@@ -249,6 +259,10 @@ internal sealed partial class EmbossSeqin
     // ---------------------------------------------------------------------------------------------------------------- the buffer (ajTextin*)
 
     private long _reads;
+
+    // ajTextinStoreReadline: the text of the lines read since the last reset
+    private readonly StringBuilder _store = new();
+    private readonly string? _fullText;
     private readonly int _lineCount;
 
     private bool ReadLine()
@@ -266,19 +280,31 @@ internal sealed partial class EmbossSeqin
         _line = l;
         _records++;
         _totRecords++;
+        if (_opt.StoreText)
+            _store.Append(_opt.AsisText && _buff.LastSynthetic ? l[..^1] : l);
         return true;
+    }
+
+    // ajStrAssignS(&thys->TextPtr, seqReadLine) when the input stores the text: the text is the line as it is NOW (a reader that trimmed it first stored the trimmed line)
+    private void AssignText()
+    {
+        if (_opt.StoreText)
+            _store.Clear().Append(_line);
     }
 
     private void StoreReset()
     {
         _buff.Reset();
         _records = 0;
+        _store.Clear();                                             // ajFilebuffResetStore
     }
 
     // ajTextinStoreClear: lines < 0 clears all, lines > 0 gives the last lines back
     private void StoreClear(int lines)
     {
         _buff.Clear(lines);
+        if (_opt.StoreText && _line.Length > 0)
+            _store.Length -= Math.Min(_line.Length, _store.Length);   // ajFilebuffClearStore: the last line is cut from the text
         if (lines < 0)
         {
             _totRecords -= _records;
@@ -412,8 +438,11 @@ internal sealed partial class EmbossSeqin
     private int ReadFmt(EmbossSeq t, int format)
     {
         _records = 0;
+        _store.Clear();                                             // ajSeqClear: a new sequence has no text
         if (Dispatch(t, format))
         {
+            if (_opt.StoreText)
+                t.TextPtr = new StringBuilder(_store.ToString());
             _format = format;
             t.Formatstr = Table[format].Name;
             if (t.Db.Length == 0)

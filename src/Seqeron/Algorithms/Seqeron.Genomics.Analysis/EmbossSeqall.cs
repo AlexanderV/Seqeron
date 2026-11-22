@@ -71,8 +71,9 @@ internal sealed class EmbossSeqall
     /// </summary>
     /// <exception cref="InvalidOperationException">The input is one on which the reference program never stops or dies by a fault.</exception>
     /// <param name="single">The input is an ACD <c>sequence</c> (<c>acdSetSeq</c>: <c>ajSeqRead</c>, one sequence, reversed at once) and not a <c>seqall</c> (<c>acdSetSeqall</c>: <c>ajSeqAllRead</c>).</param>
+    /// <param name="storeText">The readers store the text of every entry (the ACD attribute <c>entry: Y</c> of <c>entret</c>).</param>
     /// <param name="definitions">The texts of the configuration files (<c>.embossrc</c>) that define databases for the USAs <c>db:id</c>; null = none.</param>
-    public static EmbossSeqall? Open(string program, string spec, IReadOnlyDictionary<string, string> files, EmbossSequenceQualifiers q, bool features, EmbossFeatureReadContext context, string sequenceType = "gapany", bool single = false, IReadOnlyList<string>? definitions = null)
+    public static EmbossSeqall? Open(string program, string spec, IReadOnlyDictionary<string, string> files, EmbossSequenceQualifiers q, bool features, EmbossFeatureReadContext context, string sequenceType = "gapany", bool single = false, IReadOnlyList<string>? definitions = null, bool storeText = false)
     {
         context.Program = program;
         EmbossNames? names = definitions is { Count: > 0 } ? EmbossNames.Parse([.. definitions]) : null;
@@ -98,6 +99,7 @@ internal sealed class EmbossSeqall
         o.IsNuc = q.Nucleotide;
         o.IsProt = q.Protein;
         o.Query = all._textin.Query;
+        o.StoreText = storeText;
         if (o.UfoGiven)
             o.Features = true;
 
@@ -362,6 +364,7 @@ internal sealed class EmbossSeqall
             _opt.Db = r.DbName;                                     // textAccessDirect: the sequences of a database carry its name
         long fpos = _textin.Query.Fpos;
         _opt.FullText = null;
+        _opt.AsisText = r.Asis;
         if (!r.Asis && fpos > 0)
         {
             _opt.FullText = text;

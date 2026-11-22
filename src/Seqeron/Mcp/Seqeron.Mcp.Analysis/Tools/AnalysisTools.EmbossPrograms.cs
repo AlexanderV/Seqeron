@@ -439,7 +439,8 @@ public partial class AnalysisTools
         [Description("Write every sequence to a file of its own, name.extension in lower case (-ossingle2); the files are returned in singleFiles.")] bool outputSingle = false,
         [Description("The directory of the files of outputSingle (-osdirectory2).")] string? outputDirectory = null,
         [Description("The extension of the files of outputSingle (-osextension2); default: the output format as typed.")] string? outputExtension = null,
-        [Description("The USA of the sequence input (-sequence) as the program reads it, instead of the file the text is put in: [format::]file[begin:end:r] (file = the name of an entry of files; the text of sequence is the file 'sequence.dat'), file:id / file:field:query / file{a|b} (id, acc, sv, gi, des, key, org; wildcards * and ?), @list / list::list (a list file of files; # comments; every entry has its own range and format), asis::SEQUENCE; the range qualifiers -sbegin1 -send1 -sreverse1 of qualifiers are applied to the sequences and to their features.")] string? sequenceValue = null)
+        [Description("The USA of the sequence input (-sequence) as the program reads it, instead of the file the text is put in: [format::]file[begin:end:r] (file = the name of an entry of files; the text of sequence is the file 'sequence.dat'), file:id / file:field:query / file{a|b} (id, acc, sv, gi, des, key, org; wildcards * and ?), @list / list::list (a list file of files; # comments; every entry has its own range and format), asis::SEQUENCE; the range qualifiers -sbegin1 -send1 -sreverse1 of qualifiers are applied to the sequences and to their features.")] string? sequenceValue = null,
+        [Description("The text of an EMBOSS configuration file (.embossrc) that defines databases for sequenceValue: DBNAME name [ type: N format: fasta method: direct directory: \"dir\" filename: \"*.fa\" ], SET name value; the data files are in files.")] string? definitions = null)
     {
         if (string.IsNullOrWhiteSpace(sequence))
             throw new ArgumentException("The sequence cannot be empty", nameof(sequence));
@@ -450,7 +451,7 @@ public partial class AnalysisTools
         try
         {
             var all = new Dictionary<string, string>(files ?? new Dictionary<string, string>()) { [name] = sequence };
-            var o = EmbossSeqretPrograms.Seqret(new EmbossSeqretRequest(spec, all, q, feature, firstOnly, "stdout", outputFormat, "outfeat.gff", featureFormat, DateTime.Now) { OutSingle = outputSingle, OutDirectory = outputDirectory, OutExtension = outputExtension });
+            var o = EmbossSeqretPrograms.Seqret(new EmbossSeqretRequest(spec, all, q, feature, firstOnly, "stdout", outputFormat, "outfeat.gff", featureFormat, DateTime.Now) { OutSingle = outputSingle, OutDirectory = outputDirectory, OutExtension = outputExtension, Definitions = string.IsNullOrWhiteSpace(definitions) ? null : [definitions] });
             if (o.Died)
                 throw new ArgumentException(string.Join("; ", o.Messages.Where(m => m.Length > 0)), nameof(sequence));
             return new SeqretToolResult(o.SequenceText, o.FeatureText, o.Sequences, [.. o.Messages], o.SingleFiles.Count > 0 ? o.SingleFiles : null);
@@ -540,7 +541,8 @@ public partial class AnalysisTools
         [Description("Sequence input qualifiers as typed after the sequence on the command line: -sbegin1 -send1 -sreverse1, -slower1 -supper1 -snucleotide1 -sprotein1 -scircular1, -sformat1 F, -sid1 name, -sdbname1 db, -squick1, -iquery1 query, -ioffset1 bytes.")] string? qualifiers = null,
         CancellationToken cancellationToken = default,
         [Description("More files by name (file name -> text) that sequence may name with a 'format::' prefix.")] IReadOnlyDictionary<string, string>? files = null,
-        [Description("The USA of the sequence input (-sequence) as the program reads it, instead of the file the text is put in: [format::]file[begin:end:r] (file = the name of an entry of files; the text of sequence is the file 'sequence.dat'), file:id / file:field:query / file{a|b} (id, acc, sv, gi, des, key, org; wildcards * and ?), @list / list::list (a list file of files; # comments; every entry has its own range and format), asis::SEQUENCE; the range qualifiers -sbegin1 -send1 -sreverse1 of qualifiers are applied to the sequences and to their features.")] string? sequenceValue = null)
+        [Description("The USA of the sequence input (-sequence) as the program reads it, instead of the file the text is put in: [format::]file[begin:end:r] (file = the name of an entry of files; the text of sequence is the file 'sequence.dat'), file:id / file:field:query / file{a|b} (id, acc, sv, gi, des, key, org; wildcards * and ?), @list / list::list (a list file of files; # comments; every entry has its own range and format), asis::SEQUENCE; the range qualifiers -sbegin1 -send1 -sreverse1 of qualifiers are applied to the sequences and to their features.")] string? sequenceValue = null,
+        [Description("The text of an EMBOSS configuration file (.embossrc) that defines databases for sequenceValue: DBNAME name [ type: N format: fasta method: direct directory: \"dir\" filename: \"*.fa\" ], SET name value; the data files are in files.")] string? definitions = null)
     {
         if (string.IsNullOrWhiteSpace(sequence))
             throw new ArgumentException("The sequence cannot be empty", nameof(sequence));
@@ -551,10 +553,42 @@ public partial class AnalysisTools
         try
         {
             var all = new Dictionary<string, string>(files ?? new Dictionary<string, string>()) { [file] = sequence };
-            var o = EmbossSeqretPrograms.Seqretsplit(new EmbossSeqretRequest(spec, all, q, false, firstOnly, "stdout", outputFormat, null, null, DateTime.Now) { OutSingle = outputSingle, OutDirectory = outputDirectory, OutExtension = outputExtension });
+            var o = EmbossSeqretPrograms.Seqretsplit(new EmbossSeqretRequest(spec, all, q, false, firstOnly, "stdout", outputFormat, null, null, DateTime.Now) { OutSingle = outputSingle, OutDirectory = outputDirectory, OutExtension = outputExtension, Definitions = string.IsNullOrWhiteSpace(definitions) ? null : [definitions] });
             if (o.Died)
                 throw new ArgumentException(string.Join("; ", o.Messages.Where(m => m.Length > 0)), nameof(sequence));
             return new SeqretsplitToolResult(o.SequenceText, o.SingleFiles, o.Sequences, [.. o.Messages]);
+        }
+        catch (Exception e) when (e is NotSupportedException or InvalidOperationException)
+        {
+            throw new ArgumentException(e.Message, nameof(sequence));
+        }
+    }
+
+    [McpServerTool(Name = "entret", Title = "Alignment — EMBOSS entret (retrieve flatfile entries)", ReadOnly = true)]
+    [Description("EMBOSS 6.6.0 entret: the entries of a sequence file (any input format of seqret) are read with the text of every entry stored, and the text of each entry is returned exactly as the file has it (the lines the sequence reader read: the whole alignment for the first sequence of an alignment format, nothing for the later ones). sequenceValue is the USA of the program: a query on the file (file:id, file:acc:value, file:wild*, file{a|b}), a range, a list file or a database defined in definitions (db:id); firstOnly stops after the first entry. The embl, genbank, swiss, gff and the other readers store the lines as the library does (a gff3 entry keeps its version line without the line end). Equals the installed program on 780 runs (every input format, damaged files, queries). A5-8c3h, B09 F257.")]
+    public static EntretToolResult Entret(
+        [Description("The text of the sequence file (any input format of seqret), or a sequence as letters.")] string sequence,
+        [Description("The input format (-sformat); default: the program finds the format.")] string? sequenceFormat = null,
+        [Description("Read one entry and stop (-firstonly).")] bool firstOnly = false,
+        [Description("Sequence input qualifiers as typed after the sequence on the command line: -sformat1 F, -sid1 name, -sdbname1 db, -iquery1 query, -ioffset1 bytes, -sbegin1 -send1 -sreverse1 (the range does not change the text of an entry).")] string? qualifiers = null,
+        CancellationToken cancellationToken = default,
+        [Description("More files by name (file name -> text) that sequenceValue may name: list files, other sequence files, the data files of the databases of definitions.")] IReadOnlyDictionary<string, string>? files = null,
+        [Description("The USA of the sequence input (-sequence): [format::]file[begin:end:r], file:id, file:field:value, file{a|b}, @list, list::list, asis::TEXT, db:id; the text of sequence is the file 'sequence.dat'.")] string? sequenceValue = null,
+        [Description("The text of an EMBOSS configuration file (.embossrc) that defines databases for sequenceValue: DBNAME name [ type: N format: fasta method: direct directory: \"dir\" filename: \"*.fa\" ], SET name value.")] string? definitions = null)
+    {
+        if (string.IsNullOrWhiteSpace(sequence))
+            throw new ArgumentException("The sequence cannot be empty", nameof(sequence));
+        cancellationToken.ThrowIfCancellationRequested();
+        string file = "sequence.dat";
+        var q = global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.ParseFile(qualifiers) with { Format = sequenceFormat };
+        string spec = SequenceSpec(sequenceValue, sequence, file);
+        try
+        {
+            var all = new Dictionary<string, string>(files ?? new Dictionary<string, string>()) { [file] = sequence };
+            var o = EmbossEntretProgram.Entret(new EmbossEntretRequest(spec, all, q, firstOnly) { Definitions = string.IsNullOrWhiteSpace(definitions) ? null : [definitions] });
+            if (o.Died)
+                throw new ArgumentException(string.Join("; ", o.Messages.Where(m => m.Length > 0)), nameof(sequence));
+            return new EntretToolResult(o.Text, o.Entries, [.. o.Messages]);
         }
         catch (Exception e) when (e is NotSupportedException or InvalidOperationException)
         {

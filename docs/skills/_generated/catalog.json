@@ -840,6 +840,13 @@
     "sourceLink": ""
   },
   {
+    "tool": "entret",
+    "server": "Analysis",
+    "methodId": "EmbossEntretProgram.Entret",
+    "docPath": "docs/mcp/tools/analysis/entret.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossEntretProgram.cs"
+  },
+  {
     "tool": "entropy_profile",
     "server": "Analysis",
     "methodId": "SequenceStatistics.CalculateEntropyProfile",

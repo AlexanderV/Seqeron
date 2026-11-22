@@ -20,6 +20,7 @@ internal sealed partial class EmbossSeqin
             return false;
         }
 
+        AssignText();
         var h = new StrTok(_line, " \n\r\t");
         h.Next(out _);
         h.Next(out string token);

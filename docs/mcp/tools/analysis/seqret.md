@@ -36,6 +36,7 @@ EMBOSS 6.6.0 seqret: the sequences of a file are read by the sequence readers of
 | `outputDirectory` | string | No | The directory of the files of outputSingle (-osdirectory2). |
 | `outputExtension` | string | No | The extension of the files of outputSingle (-osextension2); default: the output format as typed. |
 | `sequenceValue` | string | No | The USA of the sequence input (-sequence) as the program reads it, instead of the file the text is put in: [format::]file[begin:end:r] (file = the name of an entry of files; the text of sequence is the file 'sequence.dat'), file:id / file:field:query / file{a\|b} (id, acc, sv, gi, des, key, org; wildcards * and ?), @list / list::list (a list file of files; # comments; every entry has its own range and format), asis::SEQUENCE; the range qualifiers -sbegin1 -send1 -sreverse1 of qualifiers are applied to the sequences and to their features. |
+| `definitions` | string | No | The text of an EMBOSS configuration file (.embossrc) that defines databases for sequenceValue: DBNAME name [ type: N format: fasta method: direct directory: "dir" filename: "*.fa" ], SET name value; the data files are in files. |
 
 ## Output Schema
 

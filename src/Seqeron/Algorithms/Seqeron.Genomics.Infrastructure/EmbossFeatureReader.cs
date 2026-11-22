@@ -119,16 +119,25 @@ internal static class CStr
 internal sealed class EmbossFeatureLines(IReadOnlyList<string> lines)
 {
     private readonly List<string> _buffer = [];
+    private readonly List<bool> _bufferSynthetic = [];
+    private bool _lastSynthetic;
     private int _filePos;
     private int _pos;
     private int _fileIndex;
     private string? _lastRead;
+    private bool _lastReadSynthetic;
 
     /// <summary>
     /// The end (exclusive) of every file in <c>lines</c> when the lines are those of a LIST of files (<c>ajFilebuffNewListinList</c>: the files of a database directory); null = one file. A read past the end of a file finds the end of the file while
     /// the buffer holds lines; when the buffer is clear the next file is opened and read (<c>ajBuffreadLinePos</c>, <c>ajFileReopenNext</c>).
     /// </summary>
     public IReadOnlyList<int>? FileEnds { get; init; }
+
+    /// <summary>The indexes of the lines whose line end was added by this reader (the last line of a text that does not end with a line feed): the text of such a line is stored without it.</summary>
+    public IReadOnlySet<int>? Synthetic { get; init; }
+
+    /// <summary>The last line returned was one whose line end this reader added.</summary>
+    public bool LastSynthetic => _lastSynthetic;
 
     private int CurrentFileEnd => FileEnds is null ? lines.Count : FileEnds[_fileIndex];
 
@@ -156,7 +165,11 @@ internal sealed class EmbossFeatureLines(IReadOnlyList<string> lines)
     public string? Next()
     {
         if (_pos < _buffer.Count)
+        {
+            _lastSynthetic = _bufferSynthetic[_pos];
             return _buffer[_pos++];
+        }
+
         while (_filePos >= CurrentFileEnd)
         {
             // the end of the file: with lines in the buffer this is the end the reader sees; with a clear buffer the next file of the list goes on
@@ -167,11 +180,15 @@ internal sealed class EmbossFeatureLines(IReadOnlyList<string> lines)
             End = false;
         }
 
+        bool synthetic = Synthetic?.Contains(_filePos) ?? false;
         string l = lines[_filePos++];
         _lastRead = l;
+        _lastReadSynthetic = synthetic;
+        _lastSynthetic = synthetic;
         if (Unbuffered)
             return l;
         _buffer.Add(l);
+        _bufferSynthetic.Add(synthetic);
         _pos++;
         return l;
     }
@@ -184,10 +201,15 @@ internal sealed class EmbossFeatureLines(IReadOnlyList<string> lines)
             first = 0;
         if (Unbuffered && _pos == _buffer.Count)
             first = _pos;
-        _buffer.RemoveRange(0, Math.Min(first, _buffer.Count));
+        int removed = Math.Min(first, _buffer.Count);
+        _buffer.RemoveRange(0, removed);
+        _bufferSynthetic.RemoveRange(0, removed);
         _pos = 0;
         if (Unbuffered && _buffer.Count == 0 && keep == 1 && _lastRead is not null)
+        {
             _buffer.Add(_lastRead);                 // unbuffered: only the last line read can be kept
+            _bufferSynthetic.Add(_lastReadSynthetic);
+        }
     }
 
     /// <summary><c>ajFilebuffReset</c>: the next read starts at the first line of the buffer.</summary>
@@ -197,6 +219,7 @@ internal sealed class EmbossFeatureLines(IReadOnlyList<string> lines)
     public void Rewind()
     {
         _buffer.Clear();
+        _bufferSynthetic.Clear();
         _pos = 0;
         _filePos = 0;
         _fileIndex = 0;

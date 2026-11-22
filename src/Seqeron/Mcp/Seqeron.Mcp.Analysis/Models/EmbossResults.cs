@@ -62,6 +62,9 @@ public record UnionToolResult(string SequenceText, string OverlapText, string[] 
 /// <summary>Result of <c>seqretsplit</c>: the text of the sequence output file (empty when every sequence has a file of its own), the file of every sequence by path, the number of sequences written and the messages the library printed.</summary>
 public record SeqretsplitToolResult(string SequenceText, IReadOnlyDictionary<string, string> SingleFiles, int Sequences, string[] Messages);
 
+/// <summary>Result of <c>entret</c>: the text of the output file (the entries as the sequence readers stored them), the number of entries and the messages the library printed.</summary>
+public record EntretToolResult(string Text, int Entries, string[] Messages);
+
 /// <summary>Result of <c>maskfeat</c>: the text of the sequence output file (FASTA), the number of sequences written and the messages the library printed.</summary>
 public record MaskfeatToolResult(string SequenceText, int Sequences, string[] Messages);
 

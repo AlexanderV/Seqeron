@@ -43,6 +43,7 @@
 | `dust_score` | Analysis | `SequenceComplexity.CalculateDustScore` | [doc](../../../../docs/mcp/tools/analysis/dust_score.md) |
 | `dyad_analysis` | Analysis | `MotifFinder.AnalyzeDyads` | [doc](../../../../docs/mcp/tools/analysis/dyad_analysis.md) |
 | `emboss_report_file` | Analysis | `EmbossReportPrograms.Fuzznuc` | [doc](../../../../docs/mcp/tools/analysis/emboss_report_file.md) |
+| `entret` | Analysis | `EmbossEntretProgram.Entret` | [doc](../../../../docs/mcp/tools/analysis/entret.md) |
 | `entropy_profile` | Analysis | `SequenceStatistics.CalculateEntropyProfile` | [doc](../../../../docs/mcp/tools/analysis/entropy_profile.md) |
 | `est2genome` | Analysis | `EmbossEst2genomePrograms.Run` | [doc](../../../../docs/mcp/tools/analysis/est2genome.md) |
 | `exact_tandems` | Analysis | `MummerExactTandems.Run` | [doc](../../../../docs/mcp/tools/analysis/exact_tandems.md) |

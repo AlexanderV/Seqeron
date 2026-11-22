@@ -250,6 +250,22 @@ public class EmbossProgramToolsTests
     }
 
     [Test]
+    public void Entret_ReturnsTheTextOfTheEntries_AsTheProgram()
+    {
+        // entret 6.6.0 (A5-8c3h, F257): the text of every entry as the reader stored it, a query on the file, -firstonly
+        const string fa = ">s1 desc one\nACGTACGTAC\n>s2\nTTGGCCAATT\n";
+        Assert.That(AnalysisTools.Entret(fa).Text, Is.EqualTo(fa));
+        Assert.That(AnalysisTools.Entret(fa, sequenceValue: "sequence.dat:s2").Text, Is.EqualTo(">s2\nTTGGCCAATT\n"));
+        Assert.That(AnalysisTools.Entret(fa, firstOnly: true).Entries, Is.EqualTo(1));
+        const string embl = "ID   X1; SV 1; linear; mRNA; STD; HUM; 10 BP.\nXX\nSQ   Sequence 10 BP;\n     acgtacgtac                                                    10\n//\n";
+        Assert.That(AnalysisTools.Entret(embl).Text, Is.EqualTo(embl));
+        const string defs = "DBNAME tdb [ type: N format: fasta method: direct directory: \"d\" filename: \"*.fa\" ]\n";
+        var files = new Dictionary<string, string> { ["d/a.fa"] = fa };
+        Assert.That(AnalysisTools.Entret("x", sequenceValue: "tdb:s1", files: files, definitions: defs).Text, Is.EqualTo(">s1 desc one\nACGTACGTAC\n"));
+        Assert.That(() => AnalysisTools.Entret(" "), Throws.ArgumentException);
+    }
+
+    [Test]
     public void Union_JoinsTheSequences_AsTheProgram()
     {
         // union 6.6.0 (A5-8c3h, F253)
