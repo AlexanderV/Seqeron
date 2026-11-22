@@ -66,7 +66,7 @@ public record SeqretsplitToolResult(string SequenceText, IReadOnlyDictionary<str
 public record EntretToolResult(string Text, int Entries, string[] Messages);
 
 /// <summary>Result of <c>extractfeat</c>: the text of the sequence output file, the number of sequences written and the messages the library printed.</summary>
-public record ExtractfeatToolResult(string SequenceText, int Sequences, string[] Messages);
+public record ExtractfeatToolResult(string SequenceText, int Sequences, string[] Messages, IReadOnlyDictionary<string, string>? SingleFiles = null);
 
 /// <summary>Result of <c>coderet</c>: the log (the counts of every sequence), the sequence files by name (coding sequences, messenger RNAs, translations, non-coding regions) and the messages the library printed.</summary>
 public record CoderetToolResult(string Log, IReadOnlyDictionary<string, string> Files, string[] Messages);

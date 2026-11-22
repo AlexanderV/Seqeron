@@ -231,7 +231,10 @@ public class EmbossProgramToolsTests
         Assert.That(AnalysisTools.Seqret(">p1 prot\nMKVLAAGIVG\n", outputFormat: "gcg").SequenceText, Is.EqualTo("!!AA_SEQUENCE 1.0\n\nprot\n\np1  Length: 10  Type: P  Check: 4069 ..\n\n  1 MKVLAAGIVG\n\n"));
         var single = AnalysisTools.Seqret(fa, outputFormat: "gcg", outputSingle: true, outputDirectory: "d", outputExtension: "X1");
         Assert.That(single.SingleFiles!.Keys, Is.EquivalentTo(new[] { "d/s1.x1", "d/s2.x1" }));
-        Assert.That(() => AnalysisTools.Seqret(fa, outputFormat: "embl"), Throws.ArgumentException);          // a writer this port does not have yet
+        Assert.That(AnalysisTools.Seqret(fa, outputFormat: "experiment").SequenceText, Is.EqualTo("ID   s1         standard; DNA; UNC; 10 BP.\nEX   desc one\nSQ   Sequence 10 BP; 3 A; 3 C; 2 G; 2 T; 0 other;\n     ACGTACGTAC                                                               10\n//\nID   s2         standard; DNA; UNC; 10 BP.\nSQ   Sequence 10 BP; 2 A; 2 C; 2 G; 4 T; 0 other;\n     TTGGCCAATT                                                               10\n//\n"));
+        // bam: the BGZF file of the installed program (blocks deflated by zlib 1.3), byte for byte
+        var bam = System.Text.Encoding.Latin1.GetBytes(AnalysisTools.Seqret(fa, outputFormat: "bam").SequenceText);
+        Assert.That(Convert.ToHexString(bam).ToLowerInvariant(), Is.EqualTo("1f8b08040000000000ff06004243020061007372f4651467606070f070e10cf3b332d433e60cf6b72acd2bce2f2a494de102ca301801f17f2860060930b0307041c518a0a0d89041c8030819e180285d460c1d2e4a821d085d00ea1c83b28f0000001f8b08040000000000ff0600424302001b0003000000000000000000"));
     }
 
     [Test]
@@ -245,6 +248,19 @@ public class EmbossProgramToolsTests
         Assert.That(AnalysisTools.Seqret(fa, outputFormat: "das").SequenceText, Is.EqualTo("<?xml version=\"1.0\" standalone=\"no\"?>\n<!DOCTYPE DASSEQUENCE SYSTEM \"http://www.biodas.org/dtd/dassequence.dtd\">\n<DASSEQUENCE>\n  <SEQUENCE id=\"a\" start=\"1\" stop=\"10\"\n               moltype=\"DNA\" version=\"0.0\">\n      ACGTACGTAC\n  </SEQUENCE>\n</DASSEQUENCE>\n"));
         Assert.That(AnalysisTools.Seqret(fa, outputFormat: "asn1").SequenceText, Is.EqualTo("  seq {\n    id { local id 1 },\n    descr { title \"desc\" },\n    inst {\n      repr raw, mol dna, length 10, topology linear,\n      seq-data\n        iupacna \"ACGTACGTAC\"\n      } } ,\n"));
         Assert.That(AnalysisTools.Seqret(fa, outputFormat: "nib").SequenceText, Is.EqualTo("\u003A\u00ED\u00E9\u006B\u000A\0\0\0\u0021\u0030\u0021\u0030\u0021"));
+    }
+
+    [Test]
+    public void Seqret_WritesTheEntryQualityAndSetFormats_AsTheProgram()
+    {
+        // seqret 6.6.0 sequence writers embl, fastq, phylip, clustal and treecon (A5-8c3h, WP59 F265 - F271): the texts are the ones of the installed program
+        const string fa = ">a desc\nACGTACGTAC\n>b\nACGTA\n";
+        Assert.That(AnalysisTools.Seqret(fa, outputFormat: "embl").SequenceText, Is.EqualTo("ID   a; SV 1; linear; unassigned DNA; STD; UNC; 10 BP.\nXX\nDE   desc\nXX\nSQ   Sequence 10 BP; 3 A; 3 C; 2 G; 2 T; 0 other;\n     ACGTACGTAC                                                               10\n//\nID   b; SV 1; linear; unassigned DNA; STD; UNC; 5 BP.\nXX\nSQ   Sequence 5 BP; 2 A; 1 C; 1 G; 1 T; 0 other;\n     ACGTA                                                                     5\n//\n"));
+        Assert.That(AnalysisTools.Seqret(fa, outputFormat: "fastq-sanger").SequenceText, Is.EqualTo("@a desc\nACGTACGTAC\n+\n\"\"\"\"\"\"\"\"\"\"\n@b\nACGTA\n+\n\"\"\"\"\"\n"));
+        Assert.That(AnalysisTools.Seqret(fa, outputFormat: "phylip").SequenceText, Is.EqualTo(" 2 10\na         ACGTACGTAC\nb         ACGTA-----\n"));
+        Assert.That(AnalysisTools.Seqret(fa, outputFormat: "clustal").SequenceText, Is.EqualTo("CLUSTAL W (1.83) multiple sequence alignment\n\n\na               ACGTACGTAC\nb               ACGTA-----\n                          \n"));
+        Assert.That(AnalysisTools.Seqret(fa, outputFormat: "treecon").SequenceText, Is.EqualTo("10\na\nACGTACGTAC\nb\nACGTA\n"));
+        Assert.That(AnalysisTools.Seqret(fa, outputFormat: "fasta", outputDbName: "MYDB").SequenceText, Is.EqualTo(">MYDB:a desc\nACGTACGTAC\n>MYDB:b\nACGTA\n"));
     }
 
     [Test]
@@ -289,6 +305,10 @@ public class EmbossProgramToolsTests
         Assert.That(r.Sequences, Is.EqualTo(2));
         Assert.That(AnalysisTools.Extractfeat(EmblWithFeatures, type: "exon", before: 2, after: 3).SequenceText, Is.EqualTo(">X1_45_55 [exon] test\ngtacgtacgtacgtac\n"));
         Assert.That(AnalysisTools.Extractfeat(EmblWithFeatures, type: "gene").Messages, Is.EqualTo(new[] { "Warning: No sequences written to output file 'stdout'" }));
+        // -ossingle2 with -osdirectory2 and -osextension2 (F273): one file per extracted sequence, name.extension in lower case
+        var single = AnalysisTools.Extractfeat(EmblWithFeatures, type: "mRNA exon", featInName: true, outputSingle: true, outputDirectory: "d", outputExtension: "X1");
+        Assert.That(single.SingleFiles!.Keys, Is.EquivalentTo(new[] { "d/x1_1_40_mrna.x1", "d/x1_45_55_exon.x1" }));
+        Assert.That(single.SingleFiles["d/x1_45_55_exon.x1"], Is.EqualTo(">X1_45_55_exon [exon] test\nacgtacgtacg\n"));
         Assert.That(() => AnalysisTools.Extractfeat(" "), Throws.ArgumentException);
     }
 
@@ -302,6 +322,9 @@ public class EmbossProgramToolsTests
         Assert.That(r.Files["x1.prot"], Is.EqualTo(">x1_pro_1\nMKV\n"));
         Assert.That(r.Files["x1.noncoding"], Is.EqualTo(">x1_noncoding_41\nacgt\n>x1_noncoding_56\ntacgt\n"));
         Assert.That(AnalysisTools.Coderet(EmblWithFeatures, cds: false, mrna: false, translation: false).Files.Keys, Is.EqualTo(new[] { "x1.noncoding" }));
+        // -osname, -osextension, -ossingle and -osdirectory of the outputs (F273)
+        Assert.That(AnalysisTools.Coderet(EmblWithFeatures, mrna: false, translation: false, nonCoding: false, outputName: "a b", outputExtension: "ext").Files.Keys, Is.EqualTo(new[] { "a_b.ext" }));
+        Assert.That(AnalysisTools.Coderet(EmblWithFeatures, mrna: false, translation: false, nonCoding: false, outputSingle: true, outputDirectory: "d").Files.Keys, Is.EqualTo(new[] { "d/x1_cds_1.cds" }));
         Assert.That(() => AnalysisTools.Coderet(" "), Throws.ArgumentException);
     }
 
