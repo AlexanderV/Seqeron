@@ -12,12 +12,7 @@ internal sealed partial class EmbossSeqin
     private static readonly Regex RegPhylipSeq2 = new(@"[^ \t\n\r]", RegexOptions.CultureInvariant);
 
     // the number a regular expression group gives ajStrToUint (an unsigned value: a text that does not scan is 0)
-    private static long ToUInt(string s)
-    {
-        if (!CStr.ToInt(s, out int v) || v < 0)
-            return s.Length > 0 && s.All(char.IsAsciiDigit) ? long.MaxValue : 0;
-        return v;
-    }
+    private static long ToUInt(string s) => CStr.ToUint(s, out uint v) ? v : 0;
 
     // seqPhylipReadseq: the letters of the line are appended to the named sequence; false for a blank line, a name that is not in the table and a sequence that is longer than the header says
     private bool PhylipReadseq(string rdline, AlnData data, string? token, long len, ref long ilen, out bool done)

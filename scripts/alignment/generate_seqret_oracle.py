@@ -10,7 +10,7 @@ Each input is read with `-sformat1 F`, with the `F::in.dat` form and (for the fo
 JSONL.GZ rows: id, fmt, how (the way the input was made), text, args (the arguments after the options of seqret), rc, fa, gff, err, hang (the program did not stop within the limit).
 Usage: python3 scripts/alignment/generate_seqret_oracle.py OUT.jsonl.gz PER_FORMAT [seed] [format ...]      (needs EMBOSS 6.6.0 and gcc)
 """
-import gzip, json, os, random, resource, subprocess, sys, tempfile
+import gzip, json, os, random, re, resource, shutil, subprocess, sys, tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import generate_diffseq_features_oracle as D2  # noqa: E402
@@ -36,6 +36,8 @@ WRITER.update({'gcg8': 'gcg', 'em': 'embl', 'sw': 'swiss', 'swissprot': 'swiss',
                'asis': 'text', 'plain': 'text', 'textonly': 'text', 'unknown': 'text', 'gff': 'gff3', 'pfam': None, 'stockholm': None, 'pdb': None, 'pdbseq': None, 'pdbnuc': None, 'pdbnucseq': None, 'experiment': None,
                'biomart': None, 'dbid': 'fasta', 'pearson': 'fasta', 'gifasta': 'fasta', 'ncbi': 'ncbi', 'fastq-sanger': 'fastq-sanger', 'refseq': 'genbank', 'refseqp': 'genbank', 'genpept': 'genbank',
                'gcg': 'gcg', 'ig': 'ig', 'igstrict': 'ig', 'iguspto': 'ig', 'raw': 'raw'})
+# the formats whose reference runs are checked with valgrind (memerr: the run reads or writes memory it does not own)
+VG_FORMATS = {'pdb', 'pdbseq', 'pdbnuc', 'pdbnucseq', 'experiment', 'phylip', 'phylipnon', 'nexus', 'paup', 'mega', 'selex', 'stockholm', 'pfam', 'jackknifer', 'hennig86'}
 # formats the program tries when none is named (the Try flag of seqinFormatDef)
 TRY = {'gcg', 'embl', 'swiss', 'nbrf', 'pdb', 'fasta', 'fastq', 'sam', 'genbank', 'codata', 'strider', 'clustal', 'phylip', 'ace', 'consed', 'acedb', 'msf', 'hennig86', 'jackknifer', 'nexus', 'treecon', 'mega',
        'igstrict', 'iguspto', 'gff2', 'gff3', 'stockholm', 'pfam', 'fitch', 'experiment', 'gde', 'raw'}
@@ -86,14 +88,16 @@ def seqret(d, args, timeout=5, env=None):
     hang = False
     def limit():
         resource.setrlimit(resource.RLIMIT_FSIZE, (4 << 20, 4 << 20))
+    proc = subprocess.Popen(['seqret'] + args, cwd=d, stdout=subprocess.PIPE, stderr=subprocess.PIPE, preexec_fn=limit, env=env)
     try:
-        p = subprocess.run(['seqret'] + args, cwd=d, capture_output=True, timeout=timeout, preexec_fn=limit, env=env)
-        rc, err = p.returncode, p.stderr.decode('latin-1')
+        _, errb = proc.communicate(timeout=timeout)
+        rc, err = proc.returncode, errb.decode('latin-1')
         if rc == -25:
             hang = True
     except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.communicate()
         rc, err, hang = -9, '', True
-        subprocess.run(['pkill', '-9', 'seqret'])
     return rc, err, hang
 
 
@@ -138,23 +142,44 @@ def hand_made(rnd, fmt):
         nuc = fmt.startswith('pdbnuc')
         aa3 = {'A': 'ALA', 'C': 'CYS', 'D': 'ASP', 'E': 'GLU', 'F': 'PHE', 'G': 'GLY', 'H': 'HIS', 'I': 'ILE', 'K': 'LYS', 'L': 'LEU', 'M': 'MET', 'N': 'ASN', 'P': 'PRO', 'Q': 'GLN', 'R': 'ARG', 'S': 'SER', 'T': 'THR', 'V': 'VAL', 'W': 'TRP', 'Y': 'TYR'}
         s = ''.join(rnd.choice(NUC if nuc else PROT) for _ in range(rnd.randint(3, 40)))
-        o = 'HEADER    %s\nTITLE     %s\n' % (name.upper(), desc.upper())
+        o = 'HEADER    %-40s%-9s   %-4s\nTITLE     %s\n' % (rnd.choice(['HYDROLASE', 'TRANSFERASE/DNA', 'DNA', 'PROTEIN']), '01-JAN-00', rnd.choice(['1ABC', '2XYZ', '9ZZ9', '1A2B']), desc.upper())
         for ch in rnd.choice(['A', 'AB', 'ABC', 'B']):
+            if not fmt.endswith('seq') and rnd.random() < 0.15: o += 'MODEL     %4d\n' % rnd.randint(1, 3)
             if fmt.endswith('seq'):
-                toks = [(' ' + c + ' ' if nuc else aa3[c]) for c in s] if True else []
-                toks = [('  ' + c) if nuc else aa3[c] for c in s]
+                toks = [('D' + c) if nuc else aa3[c] for c in s]
                 o += ''.join('SEQRES %3d %s %4d  %s\n' % (k // 13 + 1, ch, len(s), ' '.join(toks[k:k + 13])) for k in range(0, len(toks), 13))
             else:
                 for i, c in enumerate(s):
-                    res = ('  ' + c) if nuc else aa3[c]
+                    res = (' D' + c) if nuc else aa3[c]
                     o += 'ATOM  %5d  %-3s %3s %s%4d    %8.3f%8.3f%8.3f  1.00  0.00           C\n' % (i * 4 + 1, 'CA' if not nuc else "C1'", res, ch, i + 1, rnd.random() * 9, rnd.random() * 9, rnd.random() * 9)
+                if rnd.random() < 0.9: o += 'TER   %5d      %3s %s%4d\n' % (len(s) * 4 + 1, res, ch, len(s))
         return o + 'END\n'
     if fmt in ('ace', 'consed'):
         o = 'AS 1 %d\n\nCO %s %d 1 0 U\n' % (rnd.randint(1, 3), name, len(s))
         o += ''.join(s[j:j + 50] + '\n' for j in range(0, len(s), 50)) + '\nBQ\n' + ' '.join('30' for _ in s) + '\n\nAF r1 U 1\n\nRD r1 %d 0 0\n%s\n\nQA 1 %d 1 %d\n' % (len(s), s, len(s), len(s))
         return o
     if fmt == 'experiment':
-        return 'ID   %s\nEN   %s\nSQ   %s\n' % (name, name, s) if rnd.random() < 0.5 else 'ID   %s\nSQ\n%s\n//\n' % (name, s)
+        o = ''
+        for e in range(rnd.choice([1, 1, 2, 3])):
+            sq = rand_seq(rnd, 'n', rnd.choice([1, 5, 12, 40, 70]))
+            o += 'ID   %s\n' % (name + str(e) if e else name)
+            for _ in range(rnd.randint(0, 6)):
+                k = rnd.choice(['EN', 'EX', 'AC', 'SV', 'DE', 'AV', 'KW', 'OS', 'OC', 'TN', 'FT', 'CC', 'XX', 'LN'])
+                if k == 'AV':
+                    vals = ' '.join(rnd.choice(['30', '5', '-1', '12,30', 'x', '7,y', '99']) for _ in range(rnd.choice([len(sq), len(sq), len(sq) - 1 if len(sq) > 1 else 1, len(sq) + 2])))
+                    o += 'AV   %s\n' % vals
+                elif k == 'AC':
+                    o += 'AC   %s;\n' % rnd.choice(['AB123456', 'X56789; Y12345', 'P12345'])
+                elif k == 'SV':
+                    o += 'SV   %s.%d\n' % (rnd.choice(['AB123456', 'X1']), rnd.randint(1, 3))
+                elif k in ('KW', 'OS', 'OC'):
+                    o += '%s   %s\n' % (k, rnd.choice(['Homo sapiens (human).', 'Eukaryota; Metazoa; Chordata.', 'kinase; transport.']))
+                elif k == 'FT':
+                    o += 'FT   CDS             1..%d\n' % len(sq)
+                else:
+                    o += '%s   %s\n' % (k, rand_desc(rnd) or 'x')
+            o += rnd.choice(['SQ\n', 'SQ   %d BP\n' % len(sq)]) + ''.join('     ' + sq[j:j + 60] + '\n' for j in range(0, len(sq), 60)) + '//\n'
+        return o
     if fmt == 'biomart':
         return '%s\t%s\n' % (name, s) if rnd.random() < 0.5 else '>%s\n%s\n' % (name, s)
     return '>%s\n%s\n' % (name, s)
@@ -193,6 +218,69 @@ def feature_source(rnd, fmt):
 
 
 def make_input(rnd, d, fmt):
+    """(text, how): the input of the format; the writers of seqret 6.6 leave some texts unreadable (jackknifer: the title quote is not closed) so most of those are repaired by hand"""
+    text, how = make_input0(rnd, d, fmt)
+    if fmt == 'jackknifer' and rnd.random() < 0.85 and text.startswith("'"):
+        first, _, rest = text.partition('\n')
+        text, how = first.rstrip() + "'\n" + rest, how + '+closed'
+    if fmt in ('nexus', 'paup') and rnd.random() < 0.5:
+        text, how = nexus_rich(rnd, text), 'nexus-rich'
+    return text, how
+
+
+def nexus_rich(rnd, text):
+    """a hand-made NEXUS file: taxa block with labels, comments, quoted labels, sequential or interleaved matrix, other blocks, gap / datatype / missing / format variants"""
+    nuc = rnd.random() < 0.6
+    alpha = NUC if nuc else PROT
+    ntax = rnd.choice([1, 2, 3, 4])
+    nchar = rnd.choice([5, 12, 33, 60, 80])
+    names = [rand_name(rnd).replace(' ', '_') for _ in range(ntax)]
+    if rnd.random() < 0.15 and ntax > 1:
+        names[1] = names[0]
+    seqs = [''.join(rnd.choice(alpha + '-') for _ in range(nchar)) for _ in range(ntax)]
+    o = '#NEXUS\n'
+    if rnd.random() < 0.5: o += '[comment line]\n'
+    taxa = rnd.random() < 0.6
+    lab = lambda n: ("'%s'" % n) if rnd.random() < 0.2 else n
+    if taxa:
+        o += 'begin taxa;\n  dimensions ntax=%d;\n  taxlabels %s;\nend;\n' % (ntax, ' '.join(lab(n) for n in names))
+    blk = rnd.choice(['data', 'characters', 'DATA', 'Characters'])
+    o += 'begin %s;\n' % blk
+    if taxa and blk.lower() == 'data' or rnd.random() < 0.8:
+        o += '  dimensions %sntax=%d nchar=%d;\n' % ('newtaxa ' if not taxa and rnd.random() < 0.3 else '', ntax, nchar)
+    else:
+        o += '  dimensions nchar=%d;\n' % nchar
+    fm = 'datatype=%s' % rnd.choice(['dna', 'DNA', 'protein', 'rna', 'nucleotide', 'standard', 'continuous', 'mixed'] if rnd.random() < 0.3 else ['dna' if nuc else 'protein'])
+    if rnd.random() < 0.7: fm += ' missing=%s' % rnd.choice('?Nx')
+    gap = rnd.choice(['-', '.', '-', 'x'])
+    if rnd.random() < 0.8: fm += ' gap=%s' % gap
+    inter = rnd.random() < 0.5
+    if inter: fm += ' interleave'
+    if rnd.random() < 0.3: fm += rnd.choice([' nolabels', ' labels', ' respectcase', " symbols=\"ACGT\"", ' transpose'])
+    o += '  format %s;\n' % fm
+    if rnd.random() < 0.2: o += '  charlabels %s;\n' % ' '.join('c%d' % i for i in range(3))
+    if rnd.random() < 0.2: o += '  [a comment\n   over two lines]\n'
+    o += '  matrix\n'
+    w = rnd.choice([10, 20, 50, nchar])
+    if inter:
+        for j in range(0, nchar, w):
+            for n, sq in zip(names, seqs):
+                o += '    %s %s\n' % (lab(n) if rnd.random() < 0.8 else n, sq[j:j + w])
+            if rnd.random() < 0.5: o += '\n'
+    else:
+        for n, sq in zip(names, seqs):
+            o += '    %s\n' % lab(n)
+            for j in range(0, nchar, w): o += '    %s\n' % sq[j:j + w]
+    o += ';\nend;\n'
+    if rnd.random() < 0.4: o += 'begin sets;\n  charset a = 1-3;\n  taxset t = 1 2;\nend;\n'
+    if rnd.random() < 0.3: o += 'begin assumptions;\n  options deftype=unord polytcount=minsteps;\nend;\n'
+    if rnd.random() < 0.3: o += 'begin trees;\n  tree t1 = (a,b);\nend;\n'
+    if rnd.random() < 0.2: o += 'begin notes;\n  text taxon=1 text="x";\nend;\n'
+    if rnd.random() < 0.15: o += 'begin unknownblock;\n  foo bar;\nend;\n'
+    return o
+
+
+def make_input0(rnd, d, fmt):
     """(text, how)"""
     writer = WRITER[fmt]
     r = rnd.random()
@@ -261,7 +349,17 @@ def main(out, per, seed, formats):
                     q = os.path.join(work, nme)
                     return open(q, encoding='latin-1', newline='').read() if os.path.exists(q) and not hang else ''
                 if err.startswith('Read and write (return) sequences\n'): err = err[len('Read and write (return) sequences\n'):]
-                rows.append({'id': len(rows), 'fmt': fmt, 'how': how, 'text': text, 'spec': spec, 'args': args, 'feature': feature, 'epoch': epoch, 'rc': rc, 'fa': rd('o.fa'), 'gff': rd('o.gff'), 'err': err, 'hang': hang})
+                memerr = False
+                if fmt in VG_FORMATS and not hang and shutil.which('valgrind'):
+                    # a reference run that reads or writes freed / uninitialised memory has no defined output: valgrind -q with an exit code (the runs of the formats whose readers do so are refused by the port)
+                    vgargs = [a.replace('o.fa', 'ovg.fa').replace('o.gff', 'ovg.gff') for a in cmd]
+                    try:
+                        vg = subprocess.run(['valgrind', '-q', '--error-exitcode=99', 'seqret'] + vgargs, cwd=work, capture_output=True, timeout=120, env=dict(os.environ))
+                        # a program that dies by itself keeps its own exit code, so the error reports of valgrind are looked for in its output
+                        memerr = vg.returncode == 99 or re.search(rb'^==\d+== (Invalid|Conditional|Use of|Syscall|Mismatched|Source and destination|Process terminating)', vg.stderr, re.M) is not None
+                    except subprocess.TimeoutExpired:
+                        memerr = True
+                rows.append({'id': len(rows), 'fmt': fmt, 'how': how, 'memerr': memerr, 'text': text, 'spec': spec, 'args': args, 'feature': feature, 'epoch': epoch, 'rc': rc, 'fa': rd('o.fa'), 'gff': rd('o.gff'), 'err': err, 'hang': hang})
                 made += 1
     with gzip.open(out, 'wt', encoding='utf-8', newline='\n', compresslevel=9) as fh:
         for r in rows: fh.write(json.dumps(r, ensure_ascii=True) + '\n')

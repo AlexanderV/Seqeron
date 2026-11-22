@@ -56,6 +56,7 @@ public class EmbossSeqret_Oracle_Tests
             var args = j.GetProperty("args").EnumerateArray().Select(x => x.GetString()!).ToList();
             bool feature = !j.TryGetProperty("feature", out var fe) || fe.GetBoolean();
             int rc = j.GetProperty("rc").GetInt32();
+            bool undefinedRun = j.TryGetProperty("memerr", out var me) && me.GetBoolean();
             bool refusal = j.GetProperty("hang").GetBoolean() || rc is -11 or -9 or -25;
             string fa = j.GetProperty("fa").GetString()!, gff = j.GetProperty("gff").GetString()!, err = j.GetProperty("err").GetString()!;
             string id = $"row {j.GetProperty("id")} [{fmt} {j.GetProperty("how").GetString()} {spec} {string.Join(' ', args)}{(feature ? "" : " (no -feature)")}]";
@@ -91,6 +92,8 @@ public class EmbossSeqret_Oracle_Tests
                 var date = DateTimeOffset.FromUnixTimeSeconds(j.GetProperty("epoch").GetInt64()).UtcDateTime;
                 var o = EmbossSeqretPrograms.Seqret(new EmbossSeqretRequest(spec, new Dictionary<string, string> { ["in.dat"] = text },
                     new EmbossSequenceQualifiers { Format = sformat, Lower = lower, Upper = upper, Protein = protein, Nucleotide = nucleotide }, feature, firstOnly, "o.fa", "fasta", "o.gff", "gff3", date));
+                if (undefinedRun)
+                    continue;                               // the reference reads or writes memory it does not own (valgrind): the output has no defined value
                 if (refusal)
                 {
                     failures.Add($"{id}: the reference never stops or dies by a fault, the port returned");
@@ -113,7 +116,7 @@ public class EmbossSeqret_Oracle_Tests
                         withFeatures[fmt] = withFeatures.GetValueOrDefault(fmt) + 1;
                 }
             }
-            catch (InvalidOperationException) when (refusal)
+            catch (InvalidOperationException) when (refusal || undefinedRun)
             {
                 refused++;
             }
@@ -126,11 +129,13 @@ public class EmbossSeqret_Oracle_Tests
         Assert.That(failures, Is.Empty, $"{failures.Count} of {rows}:\n" + string.Join("\n", failures.Take(12)));
         string[] formats = ["fasta", "ncbi", "pearson", "gifasta", "dbid", "gcg", "gcg8", "embl", "em", "swiss", "sw", "swissprot", "uniprot", "nbrf", "pir", "fastq", "fastq-sanger", "fastq-illumina", "fastq-solexa", "sam", "genbank", "gb",
             "ddbj", "refseq", "refseqp", "genpept", "codata", "strider", "ig", "igstrict", "iguspto", "staden", "textonly", "plain", "asis", "unknown", "gff2", "gff3", "gff", "raw", "gde", "clustal", "aln", "msf", "fitch", "mase", "biomart", "treecon", "acedb",
-            "phylip", "phylipnon"];
+            "phylip", "phylipnon", "jackknifer", "hennig86"];
+        // the readers whose reference runs die on every input that reaches their loop (ace / consed: a null table of names; hennig86: a loop over memory) give sequences only for the texts they refuse
+        var fewReads = new Dictionary<string, int> { ["ace"] = 0, ["consed"] = 0, ["hennig86"] = 0 };
         foreach (string f in formats)
         {
             Assert.That(perFormat.GetValueOrDefault(f), Is.GreaterThanOrEqualTo(200), $"inputs of {f}");
-            Assert.That(read.GetValueOrDefault(f), Is.GreaterThanOrEqualTo(60), $"inputs of {f} that gave sequences (about half of the GFF inputs read with -feature are the runs on which the reference dies)");
+            Assert.That(read.GetValueOrDefault(f), Is.GreaterThanOrEqualTo(fewReads.GetValueOrDefault(f, 60)), $"inputs of {f} that gave sequences (about half of the GFF inputs read with -feature are the runs on which the reference dies)");
         }
 
         foreach (string f in new[] { "embl", "genbank", "swiss", "nbrf", "gff3", "refseqp" })

@@ -578,6 +578,10 @@ internal sealed partial class EmbossSeqin
                 return ReadPhylip(t);
             case "phylipnon":
                 return ReadPhylipnon(t);
+            case "jackknifer":
+                return ReadJackknifer(t);
+            case "hennig86":
+                return ReadHennig86(t);
             case "fastq":
                 return ReadFastq(t);
             case "fastq-sanger":
