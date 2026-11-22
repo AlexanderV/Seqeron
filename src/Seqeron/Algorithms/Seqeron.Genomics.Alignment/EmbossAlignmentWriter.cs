@@ -201,6 +201,16 @@ public sealed class EmbossAlignmentWriter
         return this;
     }
 
+    private int _taken, _unnamed;
+
+    /// <summary>The text written since the last call (a program that writes the alignments and another output to one stream needs the order in which they were written).</summary>
+    public string Take()
+    {
+        string text = _out.ToString(_taken, _out.Length - _taken);
+        _taken = _out.Length;
+        return text;
+    }
+
     /// <summary>Writes the tail (<c>ajAlignClose</c>) and returns the whole file.</summary>
     public string Close()
     {
@@ -1034,6 +1044,10 @@ public sealed class EmbossAlignmentWriter
     {
         if (rows.Count == 0)
             return;
+        // the sequence output the alignment is written through (ajSeqoutSetNameDefaultS): a row without a name is called EMBOSS_001, EMBOSS_002 ... in the order of the unnamed rows
+        if (rows.Any(r => r.Name.Length == 0))
+            rows = [.. rows.Select(r => r.Name.Length == 0 ? r with { Name = "EMBOSS_" + (++_unnamed).ToString("000", CultureInfo.InvariantCulture) } : r)];
+
         switch (_format)
         {
             case EmbossAlignFormat.Fasta:

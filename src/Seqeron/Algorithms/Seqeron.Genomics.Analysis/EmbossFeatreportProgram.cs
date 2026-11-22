@@ -171,7 +171,7 @@ internal static class EmbossFeatureReports
     }
 
     // seqMakeUsa: the USA of a sequence (format::file:entry and the range)
-    private static string MakeUsa(EmbossSeq t)
+    internal static string MakeUsa(EmbossSeq t)
     {
         var sb = new System.Text.StringBuilder();
         if (t.Db.Length > 0)

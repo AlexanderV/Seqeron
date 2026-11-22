@@ -207,11 +207,20 @@ public sealed record EmbossReport(EmbossReportSequence Sequence, IReadOnlyList<E
 
     /// <summary>The table has no type (<c>ajFeattableIsNuc</c> and <c>ajFeattableIsProt</c> are both true): it can be reported for a sequence of either kind.</summary>
     internal bool TypeUnknown { get; init; }
+
+    /// <summary>The name of the feature table when it is not the name of the sequence (<c>thys-&gt;Seqid</c>: the table of a program that clears it between sequences has none after the first): the feature-table writers print it.</summary>
+    internal string? TableSeqId { get; init; }
+
+    /// <summary>The name the feature-table writers (gff3, gff2, bed, dasgff) print for the table.</summary>
+    internal string SeqId => TableSeqId ?? Sequence.Name;
 }
 
 /// <summary>The options and context of a report file (<c>AjPReport</c>: the ACD report parameter plus the program's header text).</summary>
 public sealed record EmbossReportOptions
 {
+    /// <summary>The report is <c>multiple</c> (the ACD attribute of the report item: <c>Multi:</c> of the debug format).</summary>
+    public bool Multi { get; init; }
+
     /// <summary>The program name (<c># Program:</c>, the GFF source).</summary>
     public string Program { get; init; } = "";
 

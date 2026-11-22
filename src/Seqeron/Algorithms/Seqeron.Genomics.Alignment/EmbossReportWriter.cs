@@ -270,6 +270,7 @@ public static partial class EmbossReportWriter
         ["SO:0001067"] = new("SO:0001067", "polypeptide_motif", "misc_feature", "polypeptide_motif", "other", null, "Region", "REGION"),
         ["SO:0000657"] = new("SO:0000657", "repeat_region", "repeat_region", "repeat_region", "repeat", "repeat_region", "", ""),
         ["SO:0000110"] = new("SO:0000110", "misc_feature", "misc_feature", "sequence_feature", "other", "misc_feature", "", "", "located_sequence_feature"),
+        ["SO:0005836"] = new("SO:0005836", "misc_signal", "misc_signal", "regulatory_region", "transcription", "misc_signal", "", ""),                                     // marscan's MRS: the feature key of EMBL, regulatory_region in GFF3
         ["SO:0000839"] = new("SO:0000839", "polypeptide_region", "misc_feature", "sequence_feature", "other", null, "Region", "REGION"),          // diffseq's generic feature in a protein table
         ["polypeptide_region"] = new("SO:0000839", "polypeptide_region", "misc_feature", "polypeptide_region", "other", null, "Region", "REGION", null, "Region"),   // wordmatch's misc_feature on a protein table
         ["conflict"] = new("SO:0001085", "sequence_conflict", "conflict", "sequence_conflict", "other", "conflict", "Region", "CONFLICT"),         // diffseq's feature files (-aoutfeat / -boutfeat)
@@ -1260,7 +1261,7 @@ public static partial class EmbossReportWriter
         var sb = st.Out;
         var o = st.O;
         sb.Append("##gff-version 3\n");
-        sb.Append("##sequence-region ").Append(t.Sequence.Name).Append(" 1 ").Append(t.TableLength != 0 ? t.TableLength : UnsignedRegionEnd(t.Features)).Append('\n');
+        sb.Append("##sequence-region ").Append(t.SeqId).Append(" 1 ").Append(t.TableLength != 0 ? t.TableLength : UnsignedRegionEnd(t.Features)).Append('\n');
         sb.Append("#!Date ").Append(EmbossDates.Gff(o.RunDate)).Append('\n');
         sb.Append("#!Type ").Append(t.TableType == "P" ? "Protein" : "DNA").Append('\n');
         sb.Append("#!Source-version EMBOSS 6.6.0.0\n");
@@ -1277,12 +1278,12 @@ public static partial class EmbossReportWriter
                 tmpend = f.Start;
             }
 
-            sb.Append(t.Sequence.Name).Append('\t').Append(f.Source).Append('\t').Append(ti.Gff3Name).Append('\t').Append(Int(tmpbeg)).Append('\t').Append(Int(tmpend)).Append('\t');
+            sb.Append(t.SeqId).Append('\t').Append(f.Source).Append('\t').Append(ti.Gff3Name).Append('\t').Append(Int(tmpbeg)).Append('\t').Append(Int(tmpend)).Append('\t');
             if ((float)f.Score != 0f)
                 sb.Append(CFormat.General((float)f.Score, 4));
             else
                 sb.Append('.');
-            sb.Append('\t').Append(FeatStrand(f, t.Protein)).Append('\t').Append(frameChar).Append("\tID=").Append(t.Sequence.Name).Append('.').Append(group);
+            sb.Append('\t').Append(FeatStrand(f, t.Protein)).Append('\t').Append(frameChar).Append("\tID=").Append(t.SeqId).Append('.').Append(group);
             if (f.Between)
                 sb.Append(";featflags=between:true");
             foreach (var tag in f.Tags)

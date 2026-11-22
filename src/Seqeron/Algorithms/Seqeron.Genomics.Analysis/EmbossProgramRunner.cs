@@ -82,6 +82,11 @@ public static class EmbossProgramRunner
         ["seqxref"] = EmbossSequencePrograms.Seqxref,
         ["showorf"] = EmbossSequencePrograms.Showorf,
         ["prettyseq"] = EmbossSequencePrograms.Prettyseq,
+        ["tcode"] = EmbossSequencePrograms.Tcode,
+        ["checktrans"] = EmbossSequencePrograms.Checktrans,
+        ["plotorf"] = EmbossSequencePrograms.Plotorf,
+        ["wordfinder"] = EmbossSequencePrograms.Wordfinder,
+        ["marscan"] = EmbossSequencePrograms.Marscan,
     };
 
     /// <summary>The programs that can be run.</summary>

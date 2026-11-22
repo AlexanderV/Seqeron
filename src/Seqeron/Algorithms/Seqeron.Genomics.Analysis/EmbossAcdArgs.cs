@@ -31,6 +31,9 @@ internal sealed class EmbossAcdArgs
     /// <summary>The arguments of the run as the library keeps them (<c>ajUtilGetCmdline</c>).</summary>
     public string CommandLine { get; }
 
+    /// <summary>The arguments of the run one entry per argument, as the header of a report prints them.</summary>
+    public IReadOnlyList<string> CommandLineEntries => _line.SavedEntries;
+
     /// <summary>Resolves the tokens of a command line (the qualifiers; the parameters are given as <c>-name value</c>).</summary>
     /// <exception cref="ArgumentException">A token the library would refuse (unknown or ambiguous qualifier, missing value).</exception>
     public static EmbossAcdArgs Parse(string program, IReadOnlyList<string> args)
@@ -87,6 +90,55 @@ internal sealed class EmbossAcdArgs
             return (int)max;
         }
 
+        return v;
+    }
+
+    /// <summary>
+    /// <c>acdSetInt</c> with limits that are not failing (<c>failrange: N</c>) and the attributes <c>minimum</c> / <c>maximum</c>, the usual case of the programs: a value below the minimum is reset to it with the warning
+    /// "integer value out of range V less than (reset to) L", and the value then checked against the maximum ("... more than (reset to) L"): both can happen for one value (the maximum may be below the minimum: a window longer than the sequence).
+    /// B09 WP63, F282.
+    /// </summary>
+    public int IntClamped(string name, int dflt, long min, long max, EmbossFeatureReadContext context)
+    {
+        string? raw = Raw(name);
+        int v = dflt;
+        if (raw is not null && !AcdCommandLine.TryToInt(raw, out v))
+            throw Die(name, $"Error: Invalid integer value '{raw}'");
+        long value = v;
+        if (value < min)
+        {
+            context.Warn($"integer value out of range {value} less than (reset to) {min}");
+            value = min;
+        }
+
+        if (value > max)
+        {
+            context.Warn($"integer value out of range {value} more than (reset to) {max}");
+            value = max;
+        }
+
+        return (int)value;
+    }
+
+    /// <summary>The integer value of an associated qualifier (<c>-rmaxall</c> of the report <c>outfile</c>); null = not given.</summary>
+    public int? IntAssoc(string master, string name)
+    {
+        string? raw = RawAssoc(master, name);
+        if (raw is null)
+            return null;
+        if (!AcdCommandLine.TryToInt(raw, out int v))
+            throw Die(name, $"Error: Invalid integer value '{raw}'");
+        return v;
+    }
+
+    /// <summary>The boolean value of an associated qualifier (<c>-raccshow</c> of the report <c>outfile</c>); null = not given.</summary>
+    public bool? BoolAssoc(string master, string name)
+    {
+        string? raw = RawAssoc(master, name);
+        if (raw is null)
+            return null;
+        if (!AcdCommandLine.TryToBool(raw, out bool v))
+            throw Die(name, $"Error: Invalid boolean value '{raw}'");
         return v;
     }
 

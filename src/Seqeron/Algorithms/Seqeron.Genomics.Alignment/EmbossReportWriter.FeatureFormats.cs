@@ -251,14 +251,14 @@ public static partial class EmbossReportWriter
             sb.Append("<?xml version=\"1.0\" standalone=\"no\"?>\n<DASGFF>\n  <GFF version=\"1.0\" href=\"url\">\n");
         }
 
-        sb.Append("    <SEGMENT id=\"").Append(t.Sequence.Name).Append("\" start=\"").Append(Int(1 + t.Offset + t.Start)).Append("\" stop=\"").Append(Int(1 + t.Offset + t.End)).Append("\"\n");
+        sb.Append("    <SEGMENT id=\"").Append(t.SeqId).Append("\" start=\"").Append(Int(1 + t.Offset + t.Start)).Append("\" stop=\"").Append(Int(1 + t.Offset + t.End)).Append("\"\n");
         sb.Append("                version=\"0.0\">\n");
         int group = 0;
         foreach (var f in t.Features)
         {
             group++;
             var ti = TypeOf(f);
-            sb.Append("      <FEATURE id=\"").Append(t.Sequence.Name).Append('.').Append(f.Source).Append('.').Append(group).Append("\">\n");
+            sb.Append("      <FEATURE id=\"").Append(t.SeqId).Append('.').Append(f.Source).Append('.').Append(group).Append("\">\n");
             sb.Append("         <TYPE id=\"").Append(ti.Id).Append("\" category=\"").Append(ti.DasCategory).Append("\" reference=\"no\" subparts=\"no\">").Append(ti.Gff3Name).Append("</TYPE>\n");
             if (f.Source.Length > 0)
                 sb.Append("         <METHOD id=\"").Append(f.Source).Append("\"></METHOD>\n");
@@ -331,7 +331,7 @@ public static partial class EmbossReportWriter
         sb.Append("Showusa: ").Append(YesNo(st.ShowUsa)).Append('\n');
         sb.Append("Showscore: ").Append(YesNo(o.ShowScore)).Append('\n');
         sb.Append("Showstrand: ").Append(YesNo(o.ShowStrand)).Append('\n');
-        sb.Append("Multi: No\nMintags: 0\n");
+        sb.Append("Multi: ").Append(o.Multi ? "Yes" : "No").Append("\nMintags: 0\n");
         sb.Append("CountSeq: ").Append(st.CountSeq).Append('\n');
         sb.Append("CountHit: ").Append(st.CountHit).Append('\n');
         sb.Append("TotHits: ").Append(st.TotHits).Append('\n');

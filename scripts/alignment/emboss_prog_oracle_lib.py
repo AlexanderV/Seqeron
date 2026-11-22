@@ -131,7 +131,7 @@ def valgrind_bad(prog, args, files, work, env=None, tolerate_underflow=False):
     try:
         vg = subprocess.run(['valgrind', '-q', '--error-exitcode=99', prog, '-auto'] + args, cwd=work, capture_output=True, timeout=120, env=env, stdin=subprocess.DEVNULL)
     except subprocess.TimeoutExpired:
-        return True
+        raise TimeoutError('valgrind did not finish: the row is dropped (a slow machine must not make a refusal)')
     if tolerate_underflow:
         # a read of one byte before a heap block is the high byte of the size field of the chunk header (always 0): the loop `for(...; p[pos]; ...)` of the programs stops there as at a NUL (benign, deterministic)
         records = re.split(rb'\n==\d+== \n', vg.stderr)
@@ -170,8 +170,15 @@ def main(prog, gen, default_n=300, default_seed=20261701):
             if (rc, o, e, outfiles) != (rc2, o2, e2, outfiles2):
                 print('row', len(rows), 'not deterministic: dropped', args, file=sys.stderr)
                 continue
-            if extra.get('vg') and rc >= 0 and not hang and valgrind_bad(prog, args, dict(files, **({'.embossrc': 'SET timetoday "%s"\n' % extra['timetoday']} if extra.get('timetoday') is not None else {})), work, dict(env, **({'HOME': work} if extra.get('timetoday') is not None else {})), tolerate_underflow=extra['vg'] == 'underflow'):
+            try:
+                vgbad = extra.get('vg') and rc >= 0 and not hang and valgrind_bad(prog, args, dict(files, **({'.embossrc': 'SET timetoday "%s"\n' % extra['timetoday']} if extra.get('timetoday') is not None else {})), work, dict(env, **({'HOME': work} if extra.get('timetoday') is not None else {})), tolerate_underflow=extra['vg'] == 'underflow')
+            except TimeoutError as ex:
+                print('row', len(rows), ex, args, file=sys.stderr)
+                continue
+            if vgbad:
                 rc, hang, o, e, outfiles = -11, False, '', '', {}                  # invalid memory access in the reference: refused by the port
+            if rc >= 0 and not hang and 'Memory allocation failed' in e:
+                rc, hang, o, e, outfiles = -11, False, '', '', {}              # the allocation of a gigantic array (an unsigned index below 0): the result depends on the memory of the machine: refused by the port
             row = {'id': len(rows), 'prog': prog, 'args': args, 'files': {k: v for k, v in files.items()}, 'rc': rc, 'out': o, 'err': e, 'outfiles': outfiles, 'hang': hang, 'epoch': epoch}
             row.update({k: v for k, v in extra.items()})
             rows.append(row)

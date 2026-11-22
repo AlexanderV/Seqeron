@@ -47,6 +47,10 @@ internal sealed class AcdCommandLine
     private void Warn(string message) => _warnings.Add(message);
 
     private readonly System.Text.StringBuilder _saved = new("-auto");
+    private readonly List<string> _entries = ["-auto"];
+
+    /// <summary>The same arguments one entry per argument (<c>-auto</c>, <c>-sequence a.fa</c> ...): the lines of the command line a report header prints (<c>ajUtilGetCmdline</c>, entries separated by a new line; B09 WP63, F282).</summary>
+    public IReadOnlyList<string> SavedEntries => _entries;
 
     /// <summary>
     /// The arguments of the run as the library keeps them (<c>acdArgSave</c>, <c>ajUtilGetCmdline</c>, tokens separated by a blank here): every qualifier under its full resolved name with its number or its master
@@ -56,6 +60,13 @@ internal sealed class AcdCommandLine
 
     // acdArgsParse: the part of the loop that appends the token to acdArgSave
     private void Save(AcdItem acd, string qual, string noqual, string value, int number, string master)
+    {
+        int before = _saved.Length;
+        SaveText(acd, qual, noqual, value, number, master);
+        _entries.Add(_saved.ToString(before + 1, _saved.Length - before - 1));
+    }
+
+    private void SaveText(AcdItem acd, string qual, string noqual, string value, int number, string master)
     {
         _saved.Append(" -").Append(noqual);
         if (number != 0)

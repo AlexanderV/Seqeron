@@ -2034,7 +2034,11 @@ public static partial class SequenceAligner
         {
             char c1 = row1[i];
             char c2 = row2[i];
-            sb.Append(c1 == GapChar || c2 == GapChar ? GapMark : classify(char.ToUpperInvariant(c1), char.ToUpperInvariant(c2)).Mark);
+            char mark = c1 == GapChar || c2 == GapChar ? GapMark : classify(char.ToUpperInvariant(c1), char.ToUpperInvariant(c2)).Mark;
+            // the line is made from the consensus character (alignConsStats: the upper case residue of the first row, lower case when only similar): a column whose residue is no letter ('*' of a stop) has none, so it is marked as a gap
+            if ((mark == IdentityMark || mark == SimilarityMark) && !char.IsAsciiLetter(c1))
+                mark = GapMark;
+            sb.Append(mark);
         }
 
         return sb.ToString();

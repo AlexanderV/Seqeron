@@ -367,7 +367,7 @@ public static partial class SequenceAligner
     }
 
     // embAlignPathCalcSWFast: the single-precision banded Smith-Waterman path matrix (DIAG = 0, LEFT = 1, DOWN = 2)
-    private static float SwPathCalcFast(string a, string b, int lena, int lenb, int offset, int pathwidth, float gapopen, float gapextend, float[] path, int[] compass, EmbossScoreTable table)
+    internal static float SwPathCalcFast(string a, string b, int lena, int lenb, int offset, int pathwidth, float gapopen, float gapextend, float[] path, int[] compass, EmbossScoreTable table)
     {
         const int Left = 1;
         const int Down = 2;
@@ -528,7 +528,7 @@ public static partial class SequenceAligner
     }
 
     // embAlignWalkSWMatrixFast: the walk back from the first cell of the maximum; returns the two rows ('.' for gaps) and moves start1 / start2 to the first aligned residue
-    private static (string Row1, string Row2) SwWalkFast(float[] path, int[] compass, float gapopen, float gapextend, string seqA, string seqB, int lena, int lenb, int offset, int width, ref int start1, ref int start2)
+    internal static (string Row1, string Row2) SwWalkFast(float[] path, int[] compass, float gapopen, float gapextend, string seqA, string seqB, int lena, int lenb, int offset, int width, ref int start1, ref int start2)
     {
         const int Left = 1;
         const int Down = 2;

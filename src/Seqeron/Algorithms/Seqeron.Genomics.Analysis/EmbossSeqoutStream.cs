@@ -68,6 +68,17 @@ internal sealed class EmbossSeqoutStream
             _outName = um.Groups[2].Value;
         }
 
+        _format = EmbossSeqWrite.Find(_formatName);
+        if (um.Success && _format is null)
+        {
+            // ajSeqoutUsaProcess: a "format::" prefix that names no output format is a USA the library cannot write to (an unknown -osformat is only reported when the first sequence is written)
+            context.Error($"Unable to write sequence to '{EmbossOutPath.FixDirectory(options.Directory)}{options.OutSeq}'");
+            OpenFailed = true;
+            _run = new EmbossSeqWriteRun();
+            _outDir = _mainPath = "";
+            return;
+        }
+
         _run = new EmbossSeqWriteRun { RunDate = options.RunDate ?? DateTime.Now, RefToday = options.RefToday, Program = program, CommandLine = options.CommandLine, Setoutdb = options.DbName ?? "", FileName = _outName };
         // ajSeqoutOpen (at the start of the run, by acdSetSeqout): -osdirectory is the directory of the output file, too (not only of the files of -ossingle)
         _outDir = EmbossOutPath.FixDirectory(options.Directory);
@@ -76,10 +87,17 @@ internal sealed class EmbossSeqoutStream
         {
             EmbossOutPath.OpenFailed(context, _outName, _outDir, options.OutSeq);
             OpenFailed = true;
-            return;
         }
+    }
 
-        _format = EmbossSeqWrite.Find(_formatName);
+    private int _taken;
+
+    /// <summary>The text the writers appended to the main output since the last call (a program that writes several outputs to one stream needs the order in which they were written).</summary>
+    public string Take()
+    {
+        string text = _seqOut.ToString(_taken, _seqOut.Length - _taken);
+        _taken = _seqOut.Length;
+        return text;
     }
 
     /// <summary>The program dies: the message of <c>acdSetSeqout</c>.</summary>
@@ -101,7 +119,8 @@ internal sealed class EmbossSeqoutStream
             return;
         }
 
-        bool isNuc = seq.Type == "N", isProt = seq.Type == "P";
+        // ajSeqIsNuc / ajSeqIsProt: the type of the sequence, and for a sequence that has none the residues (the type of the object stays unset)
+        bool isNuc = EmbossSeqType.IsNuc(seq.Type, seq.SeqText), isProt = EmbossSeqType.IsProt(seq.Type, seq.SeqText);
         if (!(isNuc && _format.Nucleotide) && !(isProt && _format.Protein))
         {
             string kind = isNuc ? "not supported for nucleotide sequences" : "not supported for protein sequences";

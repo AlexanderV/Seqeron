@@ -113,7 +113,7 @@ public static partial class EmbossReportWriter
     {
         sb.Append("##gff-version 2.0\n");
         sb.Append("##date ").Append(EmbossDates.Gff(date)).Append('\n');
-        string seqid = t.Sequence.Name;
+        string seqid = t.SeqId;
         if (t.TableType == "N")
             sb.Append("##Type DNA ").Append(seqid).Append('\n');
         else if (t.TableType == "P")
@@ -164,7 +164,7 @@ public static partial class EmbossReportWriter
     private static void Bed(StringBuilder sb, EmbossReport t)
     {
         // ajFeattableGetScorerange: the scores are never used (the range stays 0 .. 0 for a score of 0 or more: the program assigns curmax = 0)
-        sb.Append("track name=").Append(t.Sequence.Name).Append(" description=\"EMBOSS:6.6.0.0\" useScore=0\n");
+        sb.Append("track name=").Append(t.SeqId).Append(" description=\"EMBOSS:6.6.0.0\" useScore=0\n");
         foreach (var f in t.Features)
         {
             var ti = TypeOf(f);
@@ -181,7 +181,7 @@ public static partial class EmbossReportWriter
                 iend = f.End - 1;
             }
 
-            sb.Append(t.Sequence.Name).Append('\t').Append(istart).Append('\t').Append(iend).Append('\t').Append(ti.Gff2Name ?? ti.Gff3Name).Append("\t0\t").Append(strand).Append('\t').Append(istart).Append('\t').Append(iend).Append("\t0");
+            sb.Append(t.SeqId).Append('\t').Append(istart).Append('\t').Append(iend).Append('\t').Append(ti.Gff2Name ?? ti.Gff3Name).Append("\t0\t").Append(strand).Append('\t').Append(istart).Append('\t').Append(iend).Append("\t0");
             sb.Append("\t1\t0\t").Append(Int(f.End - f.Start + 1)).Append('\n');
         }
     }

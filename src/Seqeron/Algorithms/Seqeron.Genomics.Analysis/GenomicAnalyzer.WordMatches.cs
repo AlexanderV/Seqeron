@@ -120,7 +120,7 @@ public static partial class GenomicAnalyzer
     /// The matches of the words of one sequence (the indexed one, <c>embWordGetTable</c>) against the other sequences (<c>embWordBuildMatchTable</c>): shared by <see cref="SeqMatchAll"/> and
     /// <see cref="MegaMerge"/>.
     /// </summary>
-    private sealed class PairWordMatcher
+    internal sealed class PairWordMatcher
     {
         private readonly string _indexed;
         private readonly string _upper;
