@@ -158,6 +158,24 @@ internal sealed class EmbossSeqall
         return all;
     }
 
+    /// <summary><c>ajSeqallGetseqBegin</c>: the start position of the stream in <paramref name="seq"/> (the sequence read last), 1 when none was set.</summary>
+    public int GetSeqBegin(EmbossSeq seq)
+    {
+        if (_begin == 0)
+            return 1;
+        int jbegin = _begin > 0 ? _begin - 1 : _begin;
+        return 1 + EmbossInputSequence.PositionStart(seq.Seq.Length, 0, jbegin);
+    }
+
+    /// <summary><c>ajSeqallGetseqEnd</c>: the end position of the stream in <paramref name="seq"/>, its length when none was set.</summary>
+    public int GetSeqEnd(EmbossSeq seq)
+    {
+        if (_end == 0)
+            return seq.Seq.Length;
+        int jend = _end > 0 ? _end - 1 : _end;
+        return 1 + EmbossInputSequence.PositionStart(seq.Seq.Length, GetSeqBegin(seq) - 1, jend);
+    }
+
     /// <summary>The first sequence (the one the ACD read when it opened the input) without taking it.</summary>
     public EmbossSeq Peek() => _first ?? throw new InvalidOperationException("The first sequence was taken.");
 

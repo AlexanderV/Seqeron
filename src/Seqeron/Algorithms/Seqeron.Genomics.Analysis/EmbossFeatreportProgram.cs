@@ -70,7 +70,7 @@ public static class EmbossFeatreportProgram
         var tables = new List<EmbossReport>();
         if (table is not null)
             tables.Add(EmbossFeatureReports.Build(seq, table, options.Tags));
-        string text = EmbossFeatureReports.Write(options, tables, context, null);
+        string text = EmbossFeatureReports.Write(options, tables, context, null, out _);
         return new EmbossFeatureReportOutput(text, [.. context.Messages]);
     }
 }
@@ -121,7 +121,7 @@ internal static class EmbossFeatureReports
     /// <summary>The report table of a feature table: the full table for the feature formats, the flat list of its top-level features for the others.</summary>
     public static EmbossReport Build(EmbossSeq seq, EmbossSeqFeatureTable table, IReadOnlyList<EmbossReportTag> tags)
     {
-        var features = table.Features.Select(f => new EmbossFeature(f.Type, f.Source, f.GetStart(), f.GetEnd(), f.Score, f.Strand, f.Frame, [.. f.Tags.Select(t => new EmbossFeatureTag(t.Name, t.Value))],
+        var features = table.Features.Select(f => new EmbossFeature(f.Type, f.Source, f.Start, f.End, f.Score, f.Strand, f.Frame, [.. f.Tags.Select(t => new EmbossFeatureTag(t.Name, t.Value))],
             f.Flags.HasFlag(EmbossLocationBits.BetweenSeq), f.Protein) { FromTable = true }).ToList();
         var sequence = new EmbossReportSequence(seq.Name, MakeUsa(seq), seq.Acc, seq.Desc, seq.Seq.ToString(), EmbossSeqRange.GetBegin(seq), EmbossSeqRange.GetEnd(seq), seq.Offset, seq.Reversed, seq.Type == "N");
         bool protein = table.Type == "P" || (table.Type.Length == 0 && seq.Type == "P");            // ajReportSetType: a table with no type takes the type of the sequence
@@ -133,15 +133,19 @@ internal static class EmbossFeatureReports
     }
 
     /// <summary>Writes the report file; a format the table is not written in is an error of the library ("Report format ... not supported ...") and the file stays empty.</summary>
-    public static string Write(EmbossReportOptions options, IReadOnlyList<EmbossReport> tables, EmbossFeatureReadContext context, Func<int, (long Sequences, long Length)>? totals)
+    public static string Write(EmbossReportOptions options, IReadOnlyList<EmbossReport> tables, EmbossFeatureReadContext context, Func<int, (long Sequences, long Length)>? totals, out bool failed)
     {
+        failed = false;
         try
         {
             return EmbossReportWriter.WriteFile(options, tables, totals);
         }
         catch (EmbossReportException e)
         {
-            context.Error(e.Message);
+            // ajReportWrite refuses every table of the run: one error for each, and no hit is reported
+            for (int i = 0; i < Math.Max(1, tables.Count); i++)
+                context.Error(e.Message);
+            failed = true;
             return "";
         }
     }
