@@ -89,14 +89,18 @@ cmd_plan() {
       printf '  %-16s %-10s %-12s %-12s %-12s %-12s\n' "$n" "$kinds" "$(human "$n")" "$(human "$(awk -v n="$n" -v c="$(container_bpc "$kinds")" 'BEGIN { printf "%.0f", n * c }')")" "$(human $((n * S1B_SCRATCH_BPC)))" "$(human "$(need_bytes "$n" "$kinds")")"
     done
   done
-  echo "  (container bytes per symbol, MEASURED: dna 13.25, genome-like 13.49; protein-like and repetitive: see the ADR table. Peak total = n x (1 + container + 13) x 1.02 + 2 GB, ESTIMATE for n above 10^8)"
+  echo "  (container bytes per symbol, MEASURED at 10^8: dna 13.25, genome-like 13.49, protein-like 13.63, repetitive 14.25; peak total = n x (1 + container + $S1B_SCRATCH_BPC) x 1.02 + 2 GB: ESTIMATE above 10^8)"
   echo
-  echo "RAM: the gate is RssAnon <= $S1B_GATE_MB MB at every n (default parameters, four threads). MEASURED peaks: 262 MB (dna 10^8), 296 MB (genome 10^8). The page cache is elastic; 8 GB for the VM is plenty."
-  echo "     Structure level of the reader (n <= $S1B_READER_LIMIT only): n / 8 bytes of bitmap + 34 MB (MEASURED 42 MB at 10^7, 109 MB at 10^8; ESTIMATE 0.45 GB at 2x10^9)."
+  echo "RAM: the gate is RssAnon <= $S1B_GATE_MB MB at every n (default parameters, four threads). MEASURED at 10^8: 290 MB genome-like, 258 MB random DNA and repetitive, 262 MB protein-like (the peak is PH4 + PH5; PH1 83, PH2/PH3 137, PH6 190 for the genome-like text)."
+  echo "     At 10^9 and above it is NOT KNOWN: the E8 prototype went 170 -> 226 -> 310 MB at 1, 2.2, 3 Gbp. The page cache is elastic; 8 GB for the VM is plenty."
+  echo "     Structure level of the reader (n <= $S1B_READER_LIMIT only): n / 8 bytes of bitmap + 34-42 MB (MEASURED 45 MB at 10^7, 64 MB at 10^8; ESTIMATE 0.3 GB at 2x10^9)."
   echo
-  echo "TIME of the chain on this box (MEASURED at 10^7 and 10^8, ESTIMATE above; the Mac is 1.5-2x faster per the E8 prototype run: 123-137 ns per symbol there against 205-300 on the box):"
-  echo "  see the table of ADR-004 1b.9f and the RUNBOOK section 6; the step durations are printed by 'chain' as it goes."
-  echo
+  echo "TIME of the build (four threads, PSI on, fsync on, warm cache):"
+  printf '  %-34s %-18s %-18s %-18s\n' "" "10^8" "10^9" "3x10^9"
+  printf '  %-34s %-18s %-18s %-18s\n' "orchestrator box (4 vCPU x86-64)" "16-25 s MEASURED" "3-6 min ESTIMATE" "9-25 min ESTIMATE"
+  printf '  %-34s %-18s %-18s %-18s\n' "your Mac (0.5-0.6x per symbol)" "8-25 s ESTIMATE" "2-6 min ESTIMATE" "5-25 min ESTIMATE"
+  echo "  the other steps of the chain at 3x10^9 (ESTIMATE): gen 1-2 min, SHA-256 of the container 0.5-1.5 min, e8-verify 3-8 min, queries 1-2 min; Structure level: not applicable above $S1B_READER_LIMIT symbols (at 2x10^9: 20-60 min)."
+  echo "  basis: MEASURED 169-249 ns per symbol at 10^8, x30 linear and up to x1.5 for the geometry that has never run (the external levels of PH1); the Mac factor is the E8 prototype run (123-137 ns per symbol on that Mac, 205-300 on the box)."
   echo "STEP RULES: --resume auto = on from 10^9 symbols (a kill after 40 minutes costs the stages that are done, not the run); --structure auto = on up to 3x10^8, off up to the reader's limit (a timed optional step, about one hour at 3x10^9 if it could run), on above it (it records the refusal: the reader takes at most $S1B_READER_LIMIT symbols)."
 }
 
@@ -232,8 +236,8 @@ cmd_structure() {
   dotnet "$BENCH" sesa handoff open --container "$WORK/out.sesa" --level structure --sha true --label "$LBL" > "$RUN/structure.out" 2> "$RUN/structure.err"
   local rc=$?; echo "$rc" > "$RUN/structure.rc"
   awk -F'\t' '$1 == "R" && $3 ~ /^open_(result|seconds|structure_s|sections_s|rssanon_peak_mb)$/ { printf "  %-22s %s %s\n", $3, $4, $6 }' "$RUN/structure.out" | cut -c1-200
-  echo "  exit code $rc in $(( $(now_s) - t0 )) s (0 pass, 3 refused as corrupt, 4 not applicable above the reader's limit)"
-  [ "$rc" = 0 ] || [ "$rc" = 4 ] || return 4
+  echo "  exit code $rc in $(( $(now_s) - t0 )) s (0 pass, 3 refused as corrupt, 4 not applicable above the reader's limit, 5 an exception the reader does not document)"
+  [ "$rc" = 0 ] || [ "$rc" = 4 ] || [ "$rc" = 5 ] || return 4
 }
 
 cmd_queries() {
@@ -341,7 +345,7 @@ cmd_chain() {
     no) do_struct=0 ;;
     *) if [ "$N" -le 300000000 ] || ! is_reader_n "$N"; then do_struct=1; fi ;;
   esac
-  if [ $rc = 0 ] && [ $do_struct = 1 ]; then cmd_structure || rc=$?
+  if [ $rc = 0 ] && [ $do_struct = 1 ]; then cmd_structure || true   # a diagnostic step: its result is in the form and the checker judges it; the queries go on
   elif [ $rc = 0 ]; then echo; echo "Structure level not run here (--structure auto: only up to 3x10^8 symbols, or above the reader's limit). Run it on its own when you want it: s1b.sh structure --n $N --kind $KIND (about $(awk -v n="$N" 'BEGIN { printf "%.0f", (n / 1e8) * 27 / 60 + 0.1 }') min by the 10^8 figure, ESTIMATE)."; fi
   if [ $rc = 0 ] && [ "$QUERIES" = yes ]; then cmd_queries || rc=$?; fi
   step "form and checker"

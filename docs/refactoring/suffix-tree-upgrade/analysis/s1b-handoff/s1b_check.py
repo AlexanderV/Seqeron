@@ -193,6 +193,11 @@ def check_run(label, run, rep, table, others):
                 rep.line('N/A', 'S1', f'the reader takes at most {READER_LIMIT_N:,} symbols (a 32-bit surface, stage S2): not applicable at n = {n:,}; e8-verify --container is the check at this size')
             else:
                 rep.line('FAIL', 'S1', f'the reader refused the Structure level at n = {n:,}, which is within its limit of {READER_LIMIT_N:,}: {st.get("message")}')
+        elif status == 'error':
+            if n > READER_LIMIT_N:
+                rep.line('WARN', 'S1', f'above the reader\'s limit ({READER_LIMIT_N:,} symbols) the reader raised an exception that it does not document instead of refusing: {st.get("message")}')
+            else:
+                rep.line('FAIL', 'S1', f'the reader raised an exception that it does not document: {st.get("message")}')
         elif status == 'not_run':
             rep.line('NOT RUN', 'S1', 'Structure level not run (an optional step)')
         else:

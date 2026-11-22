@@ -12,7 +12,7 @@ namespace SuffixTree.Esa.Bench;
 /// Work package 1b.9f, the hand-off package (<c>analysis/s1b-handoff</c>): the three commands that the production chain of the owner's machine needs besides <c>sesa resume build</c>. <c>sesa handoff env</c>: the CRC-32C path
 /// that this CPU takes (the SSE 4.2 instruction on x86-64, the CRC extension on arm64) checked against the managed table path, and the vector widths. <c>sesa handoff open</c>: the container opened at the level <c>Header</c>,
 /// <c>Sections</c> or <c>Structure</c> with the seconds of each level and the anonymous resident memory before, at the peak and after (a container of 2^31 - 1 symbols or more has no reader: reported as <c>not_applicable</c>,
-/// exit code 4). <c>sesa handoff queries</c>: a fixed deterministic query set answered from the container (the engine, and a search over its suffix array) and compared with an oracle that reads only the input text.
+/// exit code 4; an exception that the reader does not document: <c>error</c>, exit code 5). <c>sesa handoff queries</c>: a fixed deterministic query set answered from the container (the engine, and a search over its suffix array) and compared with an oracle that reads only the input text.
 /// </summary>
 internal static class HandoffCommands
 {
@@ -120,6 +120,12 @@ internal static class HandoffCommands
             result = "corrupt";
             message = e.Message;
         }
+        catch (Exception e) when (e is not OutOfMemoryException)
+        {
+            // something that the reader did not document (the level was never run on a container of this size): reported as it is, with its type, never as a pass
+            result = "error";
+            message = $"{e.GetType().Name}: {e.Message}";
+        }
         double seconds = (Stopwatch.GetTimestamp() - t0) / (double)Stopwatch.Frequency;
         RssStats stats = sampler.Stop();
         long after = reader.Read().RssAnonKb;
@@ -137,7 +143,7 @@ internal static class HandoffCommands
             Row("open_rssanon_after_mb", (after * 1024.0 / 1e6).ToString("R", Inv), "MB", label);
         }
         Row("open_result", result, "", label, message.Replace('\t', ' ').Replace('\n', ' '));
-        return result switch { "ok" => 0, "not_applicable" => 4, _ => 3 };
+        return result switch { "ok" => 0, "not_applicable" => 4, "error" => 5, _ => 3 };
     }
 
     private static int Queries(Dictionary<string, string> o, string label)

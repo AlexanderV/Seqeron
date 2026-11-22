@@ -136,7 +136,7 @@ def structure_section(runroot):
         return {'status': 'not_run'}
     r = rows(path)
     result = (r.get('open_result') or ('missing', '', ''))
-    status = {'ok': 'pass', 'not_applicable': 'not_applicable', 'corrupt': 'fail'}.get(result[0], 'fail')
+    status = {'ok': 'pass', 'not_applicable': 'not_applicable', 'corrupt': 'fail', 'error': 'error'}.get(result[0], 'fail')
     return {'status': status, 'seconds': value(r, 'open_seconds'), 'structure_s': value(r, 'open_structure_s'), 'sections_s': value(r, 'open_sections_s'),
             'rssanon_peak_mb': value(r, 'open_rssanon_peak_mb'), 'message': result[2]}
 

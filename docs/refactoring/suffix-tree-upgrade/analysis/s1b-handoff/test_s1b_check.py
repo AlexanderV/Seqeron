@@ -198,6 +198,14 @@ class CheckerTests(unittest.TestCase):
         code, out = check(form(n=2_000_000_000, engine='not_applicable'))
         self.assertEqual(code, 1, out)
 
+    def test_an_undocumented_exception_of_the_reader_is_a_warning_above_its_limit_and_a_failure_below(self):
+        code, out = check(form(n=3_000_000_000, structure='error', engine='not_applicable'))
+        self.assertEqual(code, 0, out)
+        self.assertTrue([x for x in lines(out, 'WARN') if ' S1 ' in x], out)
+        code, out = check(form(n=2_000_000_000, structure='error'))
+        self.assertEqual(code, 1, out)
+        self.assertTrue([x for x in lines(out, 'FAIL') if ' S1 ' in x], out)
+
     def test_the_structure_level_is_optional(self):
         code, out = check(form(structure='not_run'))
         self.assertEqual(code, 0, out)
