@@ -36,7 +36,7 @@ public class EmbossFeatreport_Oracle_Tests
         using var reader = new StreamReader(gz);
         var failures = new List<string>();
         var formats = new HashSet<string>();
-        int rows = 0, compared = 0, refused = 0, withReport = 0;
+        int rows = 0, compared = 0, refused = 0, withReport = 0, defaultNames = 0, directories = 0, featureQualifiers = 0;
         string? line;
         while ((line = reader.ReadLine()) is not null)
         {
@@ -57,12 +57,18 @@ public class EmbossFeatreport_Oracle_Tests
                 var q = new List<string>();
                 int featureBegin = 1;
                 int? featureEnd = null;
+                string? outfile = null, rname = null, rext = null, rdir = null;
                 for (int i = 0; i < a.Count; i++)
                 {
                     switch (a[i])
                     {
                         case "-auto": break;
-                        case "-sequence": case "-features": case "-outfile": i++; break;
+                        case "-sequence": case "-features": i++; break;
+                        case "-outfile": outfile = a[++i]; break;
+                        case "-rname3": rname = a[++i]; break;
+                        case "-rextension3": rext = a[++i]; break;
+                        case "-rdirectory3": rdir = a[++i]; break;
+                        case "-fformat2": case "-fopenfile2": case "-iquery2": case "-ioffset2": i++; break;        // no effect on the table that is read (values with blanks or a sign cannot go through the text of the qualifiers)
                         case "-fbegin2": featureBegin = int.Parse(a[++i]); break;
                         case "-fend2": featureEnd = int.Parse(a[++i]); break;
                         default:
@@ -74,7 +80,9 @@ public class EmbossFeatreport_Oracle_Tests
                 }
 
                 var (inputs, rq) = EmbossSequenceQualifiers.ParseInputsAndReport("featreport", string.Join(' ', q));
-                var o = EmbossFeatreportProgram.Featreport(new EmbossFeatreportRequest("in.dat", "f.dat", new Dictionary<string, string> { ["in.dat"] = text, ["f.dat"] = ftext }, inputs[0], rq, featureBegin, featureEnd, cmd, date, "o.rep"));
+                rq = rq with { Name = rname, Extension = rext, Directory = rdir };
+                var o = EmbossFeatreportProgram.Featreport(new EmbossFeatreportRequest("in.dat", "f.dat", new Dictionary<string, string> { ["in.dat"] = text, ["f.dat"] = ftext }, inputs[0], rq, featureBegin, featureEnd, cmd, date, outfile ?? "o.rep")
+                { DefaultReportFile = outfile is null, ExistingDirectories = ["sub"] });
                 if (memerr)
                     continue;
                 if (refusal)
@@ -92,6 +100,8 @@ public class EmbossFeatreport_Oracle_Tests
                     why = $"report differs at {FirstDifference(o.Report, expected)}";
                 else if (!got.SequenceEqual(want))
                     why = $"messages '{string.Join("|", got)}' expected '{string.Join("|", want)}'";
+                else if (!o.Died && j.TryGetProperty("outfile", out var of) && of.GetString() is { Length: > 0 } wantFile && o.ReportFile != wantFile)
+                    why = $"report file '{o.ReportFile}' expected '{wantFile}'";
                 if (why is not null)
                 {
                     failures.Add($"{id}: {why}");
@@ -99,6 +109,12 @@ public class EmbossFeatreport_Oracle_Tests
                 }
 
                 compared++;
+                if (!a.Contains("-outfile"))
+                    defaultNames++;
+                if (a.Contains("-rdirectory3") && expected.Length > 0)
+                    directories++;
+                if (a.Any(x => x is "-fformat2" or "-fopenfile2" or "-iquery2" or "-ioffset2" or "-fask2" or "-freverse2" or "-fcircular2"))
+                    featureQualifiers++;
                 if (expected.Length > 0)
                 {
                     withReport++;
@@ -121,7 +137,10 @@ public class EmbossFeatreport_Oracle_Tests
         Assert.That(failures, Is.Empty, $"{failures.Count} of {rows}:\n" + string.Join("\n", failures.Take(12)));
         Assert.That(rows, Is.GreaterThanOrEqualTo(1000));
         Assert.That(compared, Is.GreaterThanOrEqualTo(990), $"compared {compared}, refused {refused}");
-        Assert.That(withReport, Is.GreaterThanOrEqualTo(380));
+        Assert.That(withReport, Is.GreaterThanOrEqualTo(330));
+        Assert.That(defaultNames, Is.GreaterThanOrEqualTo(100), "the runs with the default report file name (-rname3 / -rextension3)");
+        Assert.That(directories, Is.GreaterThanOrEqualTo(30), "the runs with -rdirectory3");
+        Assert.That(featureQualifiers, Is.GreaterThanOrEqualTo(80), "the runs with the qualifiers of the features input");
         Assert.That(formats.Count, Is.GreaterThanOrEqualTo(20));
     }
 }

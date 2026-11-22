@@ -19,6 +19,12 @@ public sealed record EmbossFeatreportRequest(string Sequence, string Features, I
 {
     /// <summary>The texts of the configuration files that define the databases of <c>db:id</c> USAs.</summary>
     public IReadOnlyList<string>? Definitions { get; init; }
+
+    /// <summary>The report file is not named (no <c>-outfile</c>): it is <c>BASE.featreport</c> with the base of <c>-rname</c> or of the name of the sequence and the extension of <c>-rextension</c> (<see cref="ReportFile"/> is not used).</summary>
+    public bool DefaultReportFile { get; init; }
+
+    /// <summary>The directories (without trailing slash) that exist where the program runs; a report file whose directory is not among them cannot be opened. Null: every directory exists.</summary>
+    public IReadOnlyCollection<string>? ExistingDirectories { get; init; }
 }
 
 /// <summary>The output of <c>featreport</c> and <c>twofeat</c>.</summary>
@@ -28,6 +34,9 @@ public sealed record EmbossFeatureReportOutput(string Report, IReadOnlyList<stri
 {
     /// <summary>The program died ("Died: ...").</summary>
     public bool Died { get; init; }
+
+    /// <summary>The path of the report file (<c>-outfile</c>, or the default name built from <c>-rname</c> / <c>-rextension</c> and put in <c>-rdirectory</c>); empty when the program died before the report was opened.</summary>
+    public string ReportFile { get; init; } = "";
 }
 
 /// <summary>
@@ -55,7 +64,8 @@ public static class EmbossFeatreportProgram
         EmbossSeqFeatureTable? table;
         try
         {
-            var input = new EmbossFeatureInput(r.Features, name => r.Files.TryGetValue(name, out string? t) ? t : null, r.FeatureBegin, r.FeatureEnd, context, "features", 1);
+            var fq = r.Report?.FeatureInput;
+            var input = new EmbossFeatureInput(r.Features, name => r.Files.TryGetValue(name, out string? t) ? t : null, fq?.Begin ?? r.FeatureBegin, fq?.End ?? r.FeatureEnd, context, "features", 1);
             table = input.Next();
         }
         catch (EmbossFeatureDiedException e)
@@ -64,14 +74,24 @@ public static class EmbossFeatreportProgram
         }
 
         var seq = seqall.Peek();
+        // acdSetReport: the report is validated (a format that needs more tags than the program has stops the program) and then its file is opened, after the inputs
+        string defaultName = EmbossOutPath.DefaultBaseName(seq.Name, r.Sequence);
         var options = EmbossFeatureReports.Options("featreport", "gff", r.Report, r.CommandLine, r.RunDate, r.ReportFile, context, false);
         if (EmbossFeatureReports.ValidateTags(options, context))
             return new EmbossFeatureReportOutput("", [.. context.Messages, "Died: Report option -outfile: Validation failed"]) { Died = true };
+        string? reportFile = EmbossOutPath.OpenReport(context, "featreport", r.DefaultReportFile ? null : r.ReportFile, r.Report, defaultName, r.ExistingDirectories);
+        if (reportFile is null)
+        {
+            var died = EmbossSeqretPrograms.Died(context, "outfile");
+            return new EmbossFeatureReportOutput("", died.Messages) { Died = true };
+        }
+
+        options = options with { ReportFile = reportFile };
         var tables = new List<EmbossReport>();
         if (table is not null)
             tables.Add(EmbossFeatureReports.Build(seq, table, options.Tags));
         string text = EmbossFeatureReports.Write(options, tables, context, null, out _);
-        return new EmbossFeatureReportOutput(text, [.. context.Messages]);
+        return new EmbossFeatureReportOutput(text, [.. context.Messages]) { ReportFile = reportFile };
     }
 }
 

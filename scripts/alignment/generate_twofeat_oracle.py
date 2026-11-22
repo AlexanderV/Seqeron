@@ -70,15 +70,16 @@ def main(out, n, seed):
             if rnd.random() < 0.08: args.append('-rusashow2')
             if rnd.random() < 0.08: args += ['-rmaxall2', str(rnd.randint(1, 4))]
             if rnd.random() < 0.08: args += ['-rmaxseq2', str(rnd.randint(1, 4))]
-            for nme in os.listdir(work): os.remove(os.path.join(work, nme))
+            args = F.report_file_args(rnd, args, 2)
+            F.clean(work)
             open(os.path.join(work, 'in.dat'), 'w', newline='\n', encoding='latin-1').write(text)
+            os.mkdir(os.path.join(work, 'sub'))
             epoch = rnd.randint(978307200, 2051222400)
             rc, err, hang = F.run('twofeat', work, args, shim, epoch)
-            q = os.path.join(work, 'o.rep')
-            outtext = open(q, encoding='latin-1', newline='').read() if os.path.exists(q) and not hang else ''
+            outfile, outtext = F.report_output(work, hang)
             if err.startswith('Find neighbouring pairs of features in sequence(s)\n'): err = err[len('Find neighbouring pairs of features in sequence(s)\n'):]
             memerr = (not hang) and (rc != 0 or len(rows) % 5 == 0) and F.valgrind('twofeat', work, args)
-            rows.append({'id': len(rows), 'fmt': fmt, 'how': how, 'text': text, 'args': args, 'cmd': F.entries_of(args), 'epoch': epoch, 'rc': rc, 'out': outtext, 'err': err, 'hang': hang, 'memerr': memerr})
+            rows.append({'id': len(rows), 'fmt': fmt, 'how': how, 'text': text, 'args': args, 'cmd': F.entries_of(args), 'epoch': epoch, 'rc': rc, 'out': outtext, 'outfile': outfile, 'err': err, 'hang': hang, 'memerr': memerr})
     with gzip.open(out, 'wt', encoding='utf-8', newline='\n', compresslevel=9) as fh:
         for r in rows: fh.write(json.dumps(r, ensure_ascii=True) + '\n')
     from collections import Counter

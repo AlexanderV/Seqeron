@@ -36,7 +36,7 @@ public class EmbossTwofeat_Oracle_Tests
         using var reader = new StreamReader(gz);
         var failures = new List<string>();
         var formats = new HashSet<string>();
-        int rows = 0, compared = 0, refused = 0, withReport = 0;
+        int rows = 0, compared = 0, refused = 0, withReport = 0, defaultNames = 0, directories = 0;
         string? line;
         while ((line = reader.ReadLine()) is not null)
         {
@@ -59,13 +59,18 @@ public class EmbossTwofeat_Oracle_Tests
                 float amin = 0, amax = 0, bmin = 0, bmax = 0;
                 int minrange = 0, maxrange = 0;
                 bool twoout = false;
+                string? outfile = null, rname = null, rext = null, rdir = null;
                 var inv = CultureInfo.InvariantCulture;
                 for (int i = 0; i < a.Count; i++)
                 {
                     switch (a[i])
                     {
                         case "-auto": break;
-                        case "-sequence": case "-outfile": i++; break;
+                        case "-sequence": i++; break;
+                        case "-outfile": outfile = a[++i]; break;
+                        case "-rname2": rname = a[++i]; break;
+                        case "-rextension2": rext = a[++i]; break;
+                        case "-rdirectory2": rdir = a[++i]; break;
                         case "-asource": asource = a[++i]; break;
                         case "-atype": atype = a[++i]; break;
                         case "-asense": asense = a[++i]; break;
@@ -97,8 +102,10 @@ public class EmbossTwofeat_Oracle_Tests
                 }
 
                 var (inputs, rq) = EmbossSequenceQualifiers.ParseInputsAndReport("twofeat", string.Join(' ', q));
-                var o = EmbossTwofeatProgram.Twofeat(new EmbossTwofeatRequest("in.dat", new Dictionary<string, string> { ["in.dat"] = text }, inputs[0], rq, cmd, date, "o.rep")
+                rq = rq with { Name = rname, Extension = rext, Directory = rdir };
+                var o = EmbossTwofeatProgram.Twofeat(new EmbossTwofeatRequest("in.dat", new Dictionary<string, string> { ["in.dat"] = text }, inputs[0], rq, cmd, date, outfile ?? "o.rep")
                 {
+                    DefaultReportFile = outfile is null, ExistingDirectories = ["sub"],
                     ASource = asource, AType = atype, ASense = asense, AMinScore = amin, AMaxScore = amax, ATag = atag, AValue = avalue, BSource = bsource, BType = btype, BSense = bsense, BMinScore = bmin, BMaxScore = bmax, BTag = btag, BValue = bvalue,
                     Overlap = overlap, MinRange = minrange, MaxRange = maxrange, RangeType = rangetype, Sense = sense, Order = order, TwoOut = twoout, TypeOut = typeout,
                 });
@@ -119,6 +126,8 @@ public class EmbossTwofeat_Oracle_Tests
                     why = $"report differs at {FirstDifference(o.Report, expected)}";
                 else if (!got.SequenceEqual(want))
                     why = $"messages '{string.Join("|", got)}' expected '{string.Join("|", want)}'";
+                else if (!o.Died && j.TryGetProperty("outfile", out var of) && of.GetString() is { Length: > 0 } wantFile && o.ReportFile != wantFile)
+                    why = $"report file '{o.ReportFile}' expected '{wantFile}'";
                 if (why is not null)
                 {
                     failures.Add($"{id}: {why}");
@@ -126,6 +135,10 @@ public class EmbossTwofeat_Oracle_Tests
                 }
 
                 compared++;
+                if (!a.Contains("-outfile"))
+                    defaultNames++;
+                if (a.Contains("-rdirectory2") && expected.Length > 0)
+                    directories++;
                 if (expected.Length > 0)
                 {
                     withReport++;
@@ -148,7 +161,9 @@ public class EmbossTwofeat_Oracle_Tests
         Assert.That(failures, Is.Empty, $"{failures.Count} of {rows}:\n" + string.Join("\n", failures.Take(12)));
         Assert.That(rows, Is.GreaterThanOrEqualTo(1000));
         Assert.That(compared, Is.GreaterThanOrEqualTo(955), $"compared {compared}, refused {refused}");
-        Assert.That(withReport, Is.GreaterThanOrEqualTo(640));
+        Assert.That(withReport, Is.GreaterThanOrEqualTo(600));
+        Assert.That(defaultNames, Is.GreaterThanOrEqualTo(100), "the runs with the default report file name (-rname2 / -rextension2)");
+        Assert.That(directories, Is.GreaterThanOrEqualTo(30), "the runs with -rdirectory2");
         Assert.That(formats.Count, Is.GreaterThanOrEqualTo(20));
     }
 }

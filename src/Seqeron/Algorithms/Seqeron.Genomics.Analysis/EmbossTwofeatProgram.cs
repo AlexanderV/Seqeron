@@ -85,6 +85,12 @@ public sealed record EmbossTwofeatRequest(string Sequence, IReadOnlyDictionary<s
 
     /// <summary>The texts of the configuration files that define the databases of <c>db:id</c> USAs.</summary>
     public IReadOnlyList<string>? Definitions { get; init; }
+
+    /// <summary>The report file is not named (no <c>-outfile</c>): it is <c>BASE.twofeat</c> with the base of <c>-rname</c> or of the name of the sequence and the extension of <c>-rextension</c> (<see cref="ReportFile"/> is not used).</summary>
+    public bool DefaultReportFile { get; init; }
+
+    /// <summary>The directories (without trailing slash) that exist where the program runs; a report file whose directory is not among them cannot be opened. Null: every directory exists.</summary>
+    public IReadOnlyCollection<string>? ExistingDirectories { get; init; }
 }
 
 /// <summary>
@@ -117,6 +123,14 @@ public static class EmbossTwofeatProgram
         var options = EmbossFeatureReports.Options("twofeat", "table", r.Report, r.CommandLine, r.RunDate, r.ReportFile, context, true);
         if (EmbossFeatureReports.ValidateTags(options, context))
             return new EmbossFeatureReportOutput("", [.. context.Messages, "Died: Report option -outfile: Validation failed"]) { Died = true };
+        string? reportFile = EmbossOutPath.OpenReport(context, "twofeat", r.DefaultReportFile ? null : r.ReportFile, r.Report, EmbossOutPath.DefaultBaseName(seqall.Peek().Name, r.Sequence), r.ExistingDirectories);
+        if (reportFile is null)
+        {
+            var died = EmbossSeqretPrograms.Died(context, "outfile");
+            return new EmbossFeatureReportOutput("", died.Messages) { Died = true };
+        }
+
+        options = options with { ReportFile = reportFile };
 
         // the program converts the scores to integers and the senses and the relation codes to numbers
         float aminscore = (int)r.AMinScore, amaxscore = (int)r.AMaxScore, bminscore = (int)r.BMinScore, bmaxscore = (int)r.BMaxScore;
@@ -173,8 +187,8 @@ public static class EmbossTwofeatProgram
         }
 
         if (reported == 0 || failed)
-            context.Warn($"No hits in output report file '{r.ReportFile}'");
-        return new EmbossFeatureReportOutput(text, [.. context.Messages]) { Died = context.Fatal };
+            context.Warn($"No hits in output report file '{reportFile}'");
+        return new EmbossFeatureReportOutput(text, [.. context.Messages]) { Died = context.Fatal, ReportFile = reportFile };
     }
 
     // ajFeattableNewSeq

@@ -77,6 +77,9 @@ public static partial class EmbossReportWriter
         public string SubTail = "";
         public int FormatIndex;
         public bool Opened;
+
+        /// <summary>The feature tables written to this report file so far (<c>ftout-&gt;Count</c>: dasgff writes its XML header for the first one only).</summary>
+        public int FeatureTables;
         public string Leftover = "";          // the static featoutStr of ajfeatwrite.c between two writers (feature output)
     }
 
@@ -626,11 +629,16 @@ public static partial class EmbossReportWriter
     private static void TableBody(State st, EmbossReport t, string format, string failure)
     {
         var context = st.O.Context ?? new EmbossFeatureReadContext();
-        string? text = WriteFeatureTable(t.FeatureTable!, format, st.O.RunDate, st.O.Program, context, new EmbossFeatureWriteState(), 0);
+        string? text = WriteFeatureTable(t.FeatureTable!, format, st.O.RunDate, st.O.Program, context, new EmbossFeatureWriteState(), st.FeatureTables);
         if (text is null)
+        {
             context.Warn(failure);
+        }
         else
+        {
             st.Out.Append(text);
+            st.FeatureTables++;
+        }
     }
 
     // reportWriteExcel (no header, no tail)
@@ -1028,11 +1036,13 @@ public static partial class EmbossReportWriter
         if (jstar >= 0 || jplus >= 0)
             sb.Append('\n');
         int i = 0;
+        var tmpRes = new MotifTmpRes();
         foreach (var f in t.Features)
         {
             uint istart = unchecked((uint)f.Start), iend = unchecked((uint)f.End);
             int ilen = unchecked((int)(iend - istart + 1));
             string subseq = SubS(seqalias, unchecked((long)(istart - 1)), unchecked((long)(iend - 1)));
+            tmpRes.Assign(unchecked(iend - istart + 1));                // ajStrAssignResC(&tmpstr, ilen, "")
             i++;
             sb.Append('(').Append(i).Append(')');
             if (st.O.ShowScore)
@@ -1091,6 +1101,7 @@ public static partial class EmbossReportWriter
                 sb.Append(Int(unchecked((int)istart)).PadLeft(12)).Append(between).Append(Int(unchecked((int)iend))).Append('\n');
             }
 
+            tmpRes.Assign(unchecked(iend - istart + 1));                // the second ajStrAssignResC(&tmpstr, ilen, "") of the feature
             for (int j = 0; j < tags.Count; j++)
                 if (GetNote(f, tags[j].Name, out var v))
                     sb.Append(' ').Append(tags[j].Print).Append(": ").Append(v).Append('\n');
@@ -1098,6 +1109,50 @@ public static partial class EmbossReportWriter
         }
 
         Tail(st, t, t.Sequence);
+    }
+
+    /// <summary>
+    /// The reserved size of <c>tmpstr</c> of <c>reportWriteMotif</c> (<c>ajStrAssignResC</c> / <c>ajStrSetResRound</c>): the feature whose end is before its start has a length of about 2^32; the rounding of such a size wraps to 0, the reserved size
+    /// becomes 0, and the next size of 512 or more doubles it (<c>trysize+=trysize</c>) for ever: the program never stops (measured on 6.6.0: a table with a second feature after one whose location is <c>complement(join(a,b,c,d))</c> with overlapping parts).
+    /// </summary>
+    private sealed class MotifTmpRes
+    {
+        private bool _null = true;
+        private uint _res;
+
+        private static uint Round(uint i, uint v)
+        {
+            uint m = i % v;
+            return m == 0 ? i : unchecked(i + (v - m));
+        }
+
+        public void Assign(uint size)
+        {
+            uint isize = size == 0 ? 1 : size;
+            if (_null)
+            {
+                _null = false;
+                uint r = Round(isize, 32);
+                _res = r == 0 ? 32 : Round(r, 16);
+                return;
+            }
+
+            if (_res >= isize)
+                return;
+            if (isize >= 512)
+            {
+                if (_res == 0)
+                    throw new InvalidOperationException("The reference program never stops on this input: the reserved size of its work string is 0 and ajStrSetResRound doubles it for ever (a feature of a negative length in the motif report).");
+                ulong trysize = _res;
+                while (trysize < isize)
+                    trysize += trysize;
+                _res = Round(unchecked((uint)trysize), 512);
+            }
+            else
+            {
+                _res = Round(isize, 32);
+            }
+        }
     }
 
     // reportWriteTagseq

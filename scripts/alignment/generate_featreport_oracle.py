@@ -13,6 +13,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import generate_seqret_oracle as S  # noqa: E402
 import generate_coderet_oracle as C  # noqa: E402
 
+RFILES = float(os.environ.get('REPORT_FILES_SHARE', '0'))      # the share of the runs with the file name qualifiers -rname3 -rextension3 -rdirectory3 and no -outfile (B09 WP60)
+FQUAL = float(os.environ.get('FEATURE_QUAL_SHARE', '0'))       # the share of the runs with -fformat2 -fopenfile2 -iquery2 -ioffset2 -fask2 -freverse2 -fcircular2 (B09 WP60)
 FMTS = ['own', 'own', 'own', 'embl', 'genbank', 'gff3', 'gff2', 'swiss', 'nbrf', 'refseqp', 'own', 'embl', 'genbank']
 RFORMATS = ['simple', 'embl', 'genbank', 'gff', 'gff3', 'pir', 'swiss', 'dasgff', 'debug', 'listfile', 'dbmotif', 'diffseq', 'draw', 'restrict', 'excel', 'feattable', 'motif', 'nametable', 'regions', 'seqtable', 'srs', 'summary', 'table', 'tagseq']
 RFORMATS_W = ['gff', 'gff', 'gff3', 'table', 'table', 'simple', 'excel', 'embl', 'genbank', 'dasgff', 'debug', 'srs', 'listfile', 'regions', 'feattable', 'seqtable', 'nametable', 'tagseq', 'motif', 'summary', 'draw', 'restrict', 'dbmotif', 'diffseq', 'pir', 'swiss']
@@ -59,6 +61,43 @@ def valgrind(prog, work, args):
         return True
 
 
+def clean(work):
+    for nme in os.listdir(work):
+        p = os.path.join(work, nme)
+        if os.path.isdir(p):
+            for f in os.listdir(p): os.remove(os.path.join(p, f))
+            os.rmdir(p)
+        else:
+            os.remove(p)
+
+
+def report_file_args(rnd, args, num):
+    """the report file qualifiers (-rnameN -rextensionN -rdirectoryN) and a default file name (no -outfile)"""
+    if rnd.random() >= RFILES: return args
+    args = list(args)
+    if rnd.random() < 0.55:
+        i = args.index('-outfile'); del args[i:i + 2]
+    elif rnd.random() < 0.3:
+        i = args.index('-outfile'); args[i + 1] = rnd.choice(['sub/o.rep', 'other/o.rep', 'o.rep', ''])
+    if rnd.random() < 0.5: args += ['-rname%d' % num, rnd.choice(['nm', 'N1', 'a b', 'x:y', 'dir/nm', '  lead'])]
+    if rnd.random() < 0.4: args += ['-rextension%d' % num, rnd.choice(['abc', 'X1', '.dot', ''])]
+    if rnd.random() < 0.5: args += ['-rdirectory%d' % num, rnd.choice(['sub', 'sub', 'sub/', 'nosuch', ''])]
+    return args
+
+
+def report_output(work, hang):
+    """(path of the report file the program wrote, its text): the one file of the work directory that is not an input"""
+    if hang: return '', ''
+    found = []
+    for root, _, names in os.walk(work):
+        for n in sorted(names):
+            rel = os.path.relpath(os.path.join(root, n), work)
+            if rel not in ('in.dat', 'f.dat'): found.append(rel)
+    if not found: return '', ''
+    rel = found[0] if len(found) == 1 else sorted(found)[0]
+    return rel, open(os.path.join(work, rel), encoding='latin-1', newline='').read()
+
+
 def make_text(rnd, gen, fmt):
     if fmt == 'own':
         return ''.join(C.embl_entry(rnd, rnd.choice(['X%d' % rnd.randint(1, 99), 'AB%06d' % rnd.randint(1, 999999), 'Seq_%d' % rnd.randint(1, 9)])) for _ in range(rnd.randint(1, 2))), 'own', 'embl'
@@ -95,16 +134,25 @@ def main(out, n, seed):
             if rnd.random() < 0.12: args.append('-rusashow3')
             if rnd.random() < 0.1: args += ['-rmaxall3', str(rnd.randint(1, 4))]
             if rnd.random() < 0.1: args += ['-rmaxseq3', str(rnd.randint(1, 4))]
-            for nme in os.listdir(work): os.remove(os.path.join(work, nme))
+            args = report_file_args(rnd, args, 3)
+            if rnd.random() < FQUAL:
+                if rnd.random() < 0.4: args += ['-fformat2', rnd.choice(['embl', 'genbank', 'gff3', 'junk', 'swiss', 'EMBL'])]
+                if rnd.random() < 0.3: args.append('-freverse2')
+                if rnd.random() < 0.3: args.append('-fcircular2')
+                if rnd.random() < 0.3: args += ['-fopenfile2', rnd.choice(['f.dat', 'nosuch', 'x y'])]
+                if rnd.random() < 0.2: args.append('-fask2')
+                if rnd.random() < 0.3: args += ['-iquery2', rnd.choice(['X1', 'id:X2', 'seq*', '', 'acc:A'])]
+                if rnd.random() < 0.3: args += ['-ioffset2', rnd.choice(['0', '10', '1000', '-5'])]
+            clean(work)
             open(os.path.join(work, 'in.dat'), 'w', newline='\n', encoding='latin-1').write(text)
             open(os.path.join(work, 'f.dat'), 'w', newline='\n', encoding='latin-1').write(ftext)
+            os.mkdir(os.path.join(work, 'sub'))
             epoch = rnd.randint(978307200, 2051222400)
             rc, err, hang = run('featreport', work, args, shim, epoch)
-            q = os.path.join(work, 'o.rep')
-            outtext = open(q, encoding='latin-1', newline='').read() if os.path.exists(q) and not hang else ''
+            outfile, outtext = report_output(work, hang)
             if err.startswith('Read and write a feature table\n'): err = err[len('Read and write a feature table\n'):]
             memerr = (not hang) and (rc != 0 or len(rows) % 5 == 0) and valgrind('featreport', work, args)
-            rows.append({'id': len(rows), 'fmt': ffmt, 'how': how, 'text': text, 'ftext': ftext, 'args': args, 'cmd': entries_of(args), 'epoch': epoch, 'rc': rc, 'out': outtext, 'err': err, 'hang': hang, 'memerr': memerr})
+            rows.append({'id': len(rows), 'fmt': ffmt, 'how': how, 'text': text, 'ftext': ftext, 'args': args, 'cmd': entries_of(args), 'epoch': epoch, 'rc': rc, 'out': outtext, 'outfile': outfile, 'err': err, 'hang': hang, 'memerr': memerr})
     with gzip.open(out, 'wt', encoding='utf-8', newline='\n', compresslevel=9) as fh:
         for r in rows: fh.write(json.dumps(r, ensure_ascii=True) + '\n')
     from collections import Counter
