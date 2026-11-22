@@ -1,0 +1,268 @@
+[
+ {
+  "id": "A01",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "desc": "a gap of zero length is also cleared (equivalent: the span is empty)",
+  "old": "if (gapEnd > at)",
+  "new": "if (gapEnd >= at)"
+ },
+ {
+  "id": "A02",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "desc": "an overlapping kept range moves the cursor back",
+  "old": "at = Math.Max(at, offset + len);",
+  "new": "at = offset + len;"
+ },
+ {
+  "id": "A03",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "desc": "the kept ranges are not sorted",
+  "old": "keep.OrderBy(k => k.Offset).Append((length, 0))",
+  "new": "keep.Append((length, 0))"
+ },
+ {
+  "id": "A04",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "desc": "no sentinel: the tail behind the last kept range is not cleared",
+  "old": "keep.OrderBy(k => k.Offset).Append((length, 0))",
+  "new": "keep.OrderBy(k => k.Offset)"
+ },
+ {
+  "id": "A05",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "desc": "a range that reaches beyond the length is not capped",
+  "old": "long gapEnd = Math.Min(offset, length);",
+  "new": "long gapEnd = offset;"
+ },
+ {
+  "id": "A06",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "desc": "the cursor stops one byte before the end of a kept range",
+  "old": "at = Math.Max(at, offset + len);",
+  "new": "at = Math.Max(at, offset + len - 1);"
+ },
+ {
+  "id": "A07",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "desc": "the cursor goes one byte past the end of a kept range",
+  "old": "at = Math.Max(at, offset + len);",
+  "new": "at = Math.Max(at, offset + len + 1);"
+ },
+ {
+  "id": "A08",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "desc": "the scanned count is the last chunk only",
+  "old": "scanned += take;",
+  "new": "scanned = take;"
+ },
+ {
+  "id": "A09",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "desc": "a read that returns 0 bytes does not end the loop",
+  "old": "if (n <= 0) throw new IOException($\"the file ends at",
+  "new": "if (n < 0) throw new IOException($\"the file ends at"
+ },
+ {
+  "id": "A10",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "desc": "the last unit of a chunk is looked at whole, also beyond the bytes that were read",
+  "old": "buffer.AsSpan(unit, Math.Min(UnitBytes, take - unit)).IndexOfAnyExcept((byte)0) >= 0",
+  "new": "buffer.AsSpan(unit, UnitBytes).IndexOfAnyExcept((byte)0) >= 0"
+ },
+ {
+  "id": "A11",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "desc": "a unit whose only non-zero byte is the first is thought clean",
+  "old": "IndexOfAnyExcept((byte)0) >= 0)",
+  "new": "IndexOfAnyExcept((byte)0) > 0)"
+ },
+ {
+  "id": "A12",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "desc": "a run of dirty units starts at the last dirty unit",
+  "old": "if (dirtyFrom < 0) dirtyFrom = unit;",
+  "new": "dirtyFrom = unit;"
+ },
+ {
+  "id": "A13",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "desc": "a run of dirty units that starts at the chunk start is not written when it ends inside the chunk",
+  "old": "else if (dirtyFrom >= 0)\n                {",
+  "new": "else if (dirtyFrom > 0)\n                {"
+ },
+ {
+  "id": "A14",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "desc": "a closed run is written one byte short",
+  "old": "cleared += WriteZeros(file, chunk + dirtyFrom, unit - dirtyFrom);",
+  "new": "cleared += WriteZeros(file, chunk + dirtyFrom, unit - dirtyFrom - 1);"
+ },
+ {
+  "id": "A15",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "desc": "a run that reaches the end of the chunk is not written when it starts at the chunk start",
+  "old": "if (dirtyFrom >= 0) cleared += WriteZeros(file, chunk + dirtyFrom, take - dirtyFrom);",
+  "new": "if (dirtyFrom > 0) cleared += WriteZeros(file, chunk + dirtyFrom, take - dirtyFrom);"
+ },
+ {
+  "id": "A16",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "desc": "the last run of a chunk is written at the start of the chunk",
+  "old": "cleared += WriteZeros(file, chunk + dirtyFrom, take - dirtyFrom);",
+  "new": "cleared += WriteZeros(file, chunk, take - dirtyFrom);"
+ },
+ {
+  "id": "A17",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "desc": "a closed run is written at the start of the chunk",
+  "old": "cleared += WriteZeros(file, chunk + dirtyFrom, unit - dirtyFrom);",
+  "new": "cleared += WriteZeros(file, chunk, unit - dirtyFrom);"
+ },
+ {
+  "id": "A18",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "desc": "the chunks overlap by half",
+  "old": "for (long chunk = start; chunk < end; chunk += ChunkBytes)",
+  "new": "for (long chunk = start; chunk < end; chunk += ChunkBytes / 2)"
+ },
+ {
+  "id": "A19",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "desc": "the zeros that are written are one byte short",
+  "old": "RandomAccess.Write(file, s_zeros.AsSpan(0, length), offset);\n        return length;",
+  "new": "RandomAccess.Write(file, s_zeros.AsSpan(0, length - 1), offset);\n        return length;"
+ },
+ {
+  "id": "A20",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "desc": "the count of the cleared bytes is one too much",
+  "old": "        RandomAccess.Write(file, s_zeros.AsSpan(0, length), offset);\n        return length;",
+  "new": "        RandomAccess.Write(file, s_zeros.AsSpan(0, length), offset);\n        return length + 1;"
+ },
+ {
+  "id": "B01",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "desc": "the file is not cleared when it is also cut",
+  "old": "if (keep is not null) cleared = ZeroFill.ClearOutside(handle, RandomAccess.GetLength(handle), keep);",
+  "new": "if (keep is not null && truncateTo is null) cleared = ZeroFill.ClearOutside(handle, RandomAccess.GetLength(handle), keep);"
+ },
+ {
+  "id": "B02",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "desc": "the length that is cleared is the cut, not the file",
+  "old": "cleared = ZeroFill.ClearOutside(handle, RandomAccess.GetLength(handle), keep);",
+  "new": "cleared = ZeroFill.ClearOutside(handle, truncateTo ?? RandomAccess.GetLength(handle), keep);"
+ },
+ {
+  "id": "B03",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "desc": "a file that is not cut is not cleared",
+  "old": "if (truncateTo is not null || keep is not null)",
+  "new": "if (truncateTo is not null)"
+ },
+ {
+  "id": "B04",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "desc": "the result of the clearing is not kept",
+  "old": "return new MappedOutputFile(path, length, ReservationOutcome.Reopened, map) { Cleared = cleared };",
+  "new": "return new MappedOutputFile(path, length, ReservationOutcome.Reopened, map);"
+ },
+ {
+  "id": "B05",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "desc": "the file is cleared before it is cut",
+  "old": "            if (truncateTo is { } cut && RandomAccess.GetLength(handle) > cut) RandomAccess.SetLength(handle, cut);\n            if (keep is not null) cleared = ZeroFill.ClearOutside(handle, RandomAccess.GetLength(handle), keep);",
+  "new": "            if (keep is not null) cleared = ZeroFill.ClearOutside(handle, RandomAccess.GetLength(handle), keep);\n            if (truncateTo is { } cut && RandomAccess.GetLength(handle) > cut) RandomAccess.SetLength(handle, cut);"
+ },
+ {
+  "id": "B06",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "desc": "the file is opened without write access to the clearing (a read-only handle is no change here: the mutant opens it read-only)",
+  "old": "File.OpenHandle(path, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);\n            if (truncateTo",
+  "new": "File.OpenHandle(path, FileMode.Open, FileAccess.ReadWrite, FileShare.Read);\n            if (truncateTo"
+ },
+ {
+  "id": "C01",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResume.cs",
+  "desc": "the ranges of the scratch files are kept as ranges of the container",
+  "old": ".Where(c => c.InContainer).Select(c => (c.Offset, c.Length))];",
+  "new": ".Select(c => (c.Offset, c.Length))];"
+ },
+ {
+  "id": "C02",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResume.cs",
+  "desc": "the ranges of the container are not kept",
+  "old": ".Where(c => c.InContainer).Select(c => (c.Offset, c.Length))];",
+  "new": ".Where(c => !c.InContainer).Select(c => (c.Offset, c.Length))];"
+ },
+ {
+  "id": "C03",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResume.cs",
+  "desc": "a kept range is one byte short",
+  "old": ".Where(c => c.InContainer).Select(c => (c.Offset, c.Length))];",
+  "new": ".Where(c => c.InContainer).Select(c => (c.Offset, c.Length - 1))];"
+ },
+ {
+  "id": "C04",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResume.cs",
+  "desc": "a kept range starts one byte late",
+  "old": ".Where(c => c.InContainer).Select(c => (c.Offset, c.Length))];",
+  "new": ".Where(c => c.InContainer).Select(c => (c.Offset + 1, c.Length))];"
+ },
+ {
+  "id": "C05b",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResume.cs",
+  "desc": "the stages that are not kept are kept too (the stages of the state)",
+  "old": "_skipped.SelectMany(s => s.Checks).Where(c => c.InContainer)",
+  "new": "_state.Stages.SelectMany(s => s.Checks).Where(c => c.InContainer)"
+ },
+ {
+  "id": "C06",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResume.cs",
+  "desc": "the cleared result is not noted",
+  "old": "        _cleared = cleared;\n",
+  "new": ""
+ },
+ {
+  "id": "C07",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResume.cs",
+  "desc": "the scanned count of the report is the cleared count",
+  "old": "ClearScannedBytes = _cleared.ScannedBytes,",
+  "new": "ClearScannedBytes = _cleared.ClearedBytes,"
+ },
+ {
+  "id": "C08",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResume.cs",
+  "desc": "the cleared count of the report is the scanned count",
+  "old": "ClearedBytes = _cleared.ClearedBytes,",
+  "new": "ClearedBytes = _cleared.ScannedBytes,"
+ },
+ {
+  "id": "C09",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResume.cs",
+  "desc": "the time of the clearing is not noted",
+  "old": "        _clearSeconds = seconds;\n",
+  "new": ""
+ },
+ {
+  "id": "D01",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "desc": "a resumed build does not clear the container",
+  "old": "container = MappedOutputFile.OpenExisting(tmp, cut, run.KeptContainerRanges());",
+  "new": "container = MappedOutputFile.OpenExisting(tmp, cut);"
+ },
+ {
+  "id": "D02",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "desc": "a resumed build notes nothing of the clearing",
+  "old": "run.NoteCleared(container.Cleared, Elapsed(tClear));",
+  "new": "run.NoteCleared(default, Elapsed(tClear));"
+ },
+ {
+  "id": "D03",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs",
+  "desc": "a resumed build keeps nothing of its container",
+  "old": "container = MappedOutputFile.OpenExisting(tmp, cut, run.KeptContainerRanges());",
+  "new": "container = MappedOutputFile.OpenExisting(tmp, cut, []);"
+ }
+]
