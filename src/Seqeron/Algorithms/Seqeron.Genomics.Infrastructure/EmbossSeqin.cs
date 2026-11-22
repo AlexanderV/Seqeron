@@ -597,6 +597,11 @@ internal sealed partial class EmbossSeqin
                 return ReadNexus(t);
             case "mega":
                 return ReadMega(t);
+            case "experiment":
+                return ReadExperiment(t);
+            case "ace":
+            case "consed":
+                return ReadAce(t);
             case "selex":
                 return ReadSelex(t);
             case "stockholm":
