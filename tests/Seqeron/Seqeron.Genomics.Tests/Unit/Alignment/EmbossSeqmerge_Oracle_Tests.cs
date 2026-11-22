@@ -156,12 +156,13 @@ public class EmbossSeqmerge_Oracle_Tests
         }
 
         Assert.That(failures, Is.Empty, $"{failures.Count}:\n" + string.Join("\n", failures.Take(12)));
-        foreach (string prog in new[] { "union" })
+        foreach (string prog in new[] { "union", "seqretsplit" })
         {
             Assert.That(perProgram.GetValueOrDefault(prog), Is.GreaterThanOrEqualTo(200), $"runs of {prog}");
             Assert.That(withFiles.GetValueOrDefault(prog), Is.GreaterThanOrEqualTo(150), $"runs of {prog} that gave files");
         }
 
         Assert.That(overlaps, Is.GreaterThan(30), "union runs that found an overlap");
+        Assert.That(renamed, Is.GreaterThan(30), "seqretsplit runs that renamed a duplicate");
     }
 }

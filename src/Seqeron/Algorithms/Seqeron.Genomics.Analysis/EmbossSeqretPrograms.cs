@@ -57,6 +57,13 @@ public static class EmbossSeqretPrograms
     /// <exception cref="InvalidOperationException">The input is one on which the reference program does not stop or dies by a fault (the library dereferences a null pointer).</exception>
     public static EmbossSeqretOutput Seqret(EmbossSeqretRequest r) => Run(r, "seqret", false);
 
+    /// <summary>
+    /// Runs <c>seqretsplit</c> (<c>emboss/seqretsplit.c</c>): <c>seqret</c> that writes every sequence to a file of its own by default (<c>-ossingle</c> is yes in its ACD) and gives a sequence whose name was used by an earlier one
+    /// (any case) a new name <c>name.002</c>, <c>name.003</c> ... with the warning <c>Duplicate name 'x' changed to 'x.002'</c>.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The input is one on which the reference program does not stop or dies by a fault.</exception>
+    public static EmbossSeqretOutput Seqretsplit(EmbossSeqretRequest r) => Run(r, "seqretsplit", true);
+
     private static EmbossSeqretOutput Run(EmbossSeqretRequest r, string program, bool split)
     {
         ArgumentNullException.ThrowIfNull(r);
