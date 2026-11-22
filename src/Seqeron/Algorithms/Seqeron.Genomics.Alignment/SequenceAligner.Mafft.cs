@@ -94,7 +94,7 @@ public sealed record MafftOptions
     /// <summary><c>--quiet</c>: the progress messages are not collected.</summary>
     public bool Quiet { get; init; }
 
-    /// <summary><c>--thread n</c> (default 0 = one thread; -1 = the number of processors). The alignment does not depend on it (verified: 1 700 runs with <c>--thread 4</c> equal the single-thread runs); the program's progress text
+    /// <summary><c>--thread n</c> (default 0 = one thread; -1 = the number of processors). The alignment does not depend on it (verified: the 220 committed sets of <c>--thread 4</c> equal the single-thread runs); the program's progress text
     /// with several threads is written in the order the threads run, which is not reproducible, so the port writes the text of the single-thread run with the thread counts.</summary>
     public int Threads { get; init; }
 

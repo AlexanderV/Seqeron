@@ -465,7 +465,7 @@
 | clustalw_command | Alignment | ClustalWProgram.Run | Alignment/ClustalWProgram.cs | 0/0 | – | – | Build-Ready |
 | multiple_align_kalign | Alignment | SequenceAligner.KalignRun | Alignment/SequenceAligner.Kalign.cs | 0/0 | – | – | Build-Ready |
 | kalign_command | Alignment | KalignProgram.Run | Alignment/KalignProgram.cs | 0/0 | – | – | Build-Ready |
-| multiple_align_mafft | Alignment | SequenceAligner.MultipleAlignMafft | Alignment/SequenceAligner.Mafft.cs | 0/0 | – | – | Build-Ready |
+| multiple_align_mafft | Alignment | SequenceAligner.RunMafft | Alignment/SequenceAligner.Mafft.cs | 0/0 | – | – | Build-Ready |
 | stretcher_align | Alignment | SequenceAligner.StretcherAlign | Alignment/SequenceAligner.Stretcher.cs | 0/0 | – | – | Build-Ready |
 | write_alignment | Alignment | EmbossAlignmentWriter.Format | Alignment/EmbossAlignmentWriter.cs | 0/0 | – | – | Build-Ready |
 | write_coordinate_alignment | Alignment | AlignmentCoordinateFormats.Write | Alignment/AlignmentCoordinateFormats.cs | 0/0 | – | – | Build-Ready |

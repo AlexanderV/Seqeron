@@ -9,8 +9,84 @@
   "description": "EMBOSS 6.6.0 wordfinder: the target sequences (bsequence) are indexed by their words of wordlen residues, every query sequence (asequence) is looked up in the index, the diagonal with the most word residues fixes the start points and a banded Smith-Waterman alignment of width cells (gap penalties gapopen / gapextend, matrix datafile: an EMBOSS matrix name such as EDNAFULL or EBLOSUM62, or the text of a matrix file) is written in the alignment format alignFormat (every -aformat of EMBOSS, default simple, with the sub-header lines Wordscore and Alignlength) as out.txt; the matches and alignments excluded by limitmatch / lowmatch / limitalign / lowalign and the matches per target are written to err.txt. Equals the installed program on 300 runs (every input format of seqret, ranges, the report and graph options, the messages of the library; standard output, error stream, exit status and written files byte for byte). B09 WP63, F282.",
   "inputSchema": {
     "type": "object",
-    "properties": {},
-    "required": []
+    "properties": {
+      "querySequence": {
+        "type": "string",
+        "description": "The text of the query sequence file (-asequence: any input format of seqret; one or more sequences), or a sequence as letters."
+      },
+      "targetSequence": {
+        "type": "string",
+        "description": "The text of the target sequence file (-bsequence), or a sequence as letters."
+      },
+      "gapOpen": {
+        "type": "number",
+        "description": "The gap opening penalty (-gapopen, 0 to 1000, default 30)."
+      },
+      "gapExtend": {
+        "type": "number",
+        "description": "The gap extension penalty (-gapextend, 0 to 10, default 1.5)."
+      },
+      "dataFile": {
+        "type": "string",
+        "description": "The scoring matrix (-datafile): the text of a matrix file."
+      },
+      "matrix": {
+        "type": "string",
+        "description": "The scoring matrix as an EMBOSS data file name (-datafile): EDNAFULL (nucleotides, default), EBLOSUM62 (proteins, default), EPAM250 ..."
+      },
+      "width": {
+        "type": "integer",
+        "description": "The width of the alignment band (-width, at least 1, default 16)."
+      },
+      "wordLength": {
+        "type": "integer",
+        "description": "The word length of the initial matching (-wordlen, at least 3, default 6)."
+      },
+      "limitMatch": {
+        "type": "integer",
+        "description": "The maximum match score, 0 for no limit (-limitmatch)."
+      },
+      "limitAlign": {
+        "type": "integer",
+        "description": "The maximum alignment length, 0 for no limit (-limitalign)."
+      },
+      "lowMatch": {
+        "type": "integer",
+        "description": "The minimum match score (-lowmatch)."
+      },
+      "lowAlign": {
+        "type": "integer",
+        "description": "The minimum alignment length (-lowalign)."
+      },
+      "alignFormat": {
+        "type": "string",
+        "description": "The alignment format (-aformat, default simple): simple, pair, fasta, msf, clustal, mega, nexus, phylip, selex, treecon, markx0 ... markx10, match, multiple, score, srs, tcoffee, unknown, sam, ..."
+      },
+      "alignWidth": {
+        "type": "integer",
+        "description": "The residues per line of the alignment (-awidth)."
+      },
+      "alignQualifiers": {
+        "type": "string",
+        "description": "Alignment qualifiers as typed on the command line: -aaccshow -adesshow -ausashow -aglobal."
+      },
+      "sequenceFormat": {
+        "type": "string",
+        "description": "The input format (-sformat1); default: the program finds the format."
+      },
+      "qualifiers": {
+        "type": "string",
+        "description": "Sequence input qualifiers as typed after the sequence on the command line: -sbegin1 -send1 -sreverse1, -slower1 -supper1 -snucleotide1 -sprotein1 -scircular1, -sid1 name, -sdbname1 db, -squick1, -iquery1 query, -ioffset1 bytes."
+      },
+      "files": {
+        "type": "object",
+        "description": "More files by name (file name -> text) that the program may read (a file named by a USA, @file)."
+      }
+    },
+    "required": [
+      "querySequence",
+      "targetSequence"
+    ]
   },
   "outputSchema": {
     "type": "object",

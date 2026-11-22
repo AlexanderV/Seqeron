@@ -26,6 +26,12 @@ EMBOSS 6.6.0 marscan: the MAR/SAR recognition signatures: the 16 bp site awwrtaa
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
+| `sequence` | string | Yes | The text of the sequence file (any input format of seqret), or a sequence as letters. |
+| `reportFormat` | string | No | The report format (-rformat, default gff): simple, embl, genbank, gff, gff3, pir, swiss, dasgff, debug, listfile, dbmotif, diffseq, draw, restrict, excel, feattable, motif, nametable, regions, seqtable, srs, summary, table, tagseq. |
+| `reportQualifiers` | string | No | Report qualifiers as typed on the command line: -raccshow -rdesshow -rusashow -norscoreshow -norstrandshow -rmaxall N -rmaxseq N (-rformat is the parameter reportFormat). |
+| `sequenceFormat` | string | No | The input format (-sformat1); default: the program finds the format. |
+| `qualifiers` | string | No | Sequence input qualifiers as typed after the sequence on the command line: -sbegin1 -send1 -sreverse1, -slower1 -supper1 -snucleotide1 -sprotein1 -scircular1, -sid1 name, -sdbname1 db, -squick1, -iquery1 query, -ioffset1 bytes. |
+| `files` | object | No | More files by name (file name -> text) that the program may read (a file named by a USA, @file). |
 
 ## Output Schema
 

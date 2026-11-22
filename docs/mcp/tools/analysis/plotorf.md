@@ -14,7 +14,7 @@ EMBOSS 6.6.0 plotorf: Plots the potential open reading frames of a nucleotide se
 
 ## Description
 
-EMBOSS 6.6.0 plotorf: for each of the six frames the stretches from a start codon (start, default ATG) to the next stop codon of the frame (stop, default TAA,TAG,TGA; a stretch that reaches the end of the sequence ends there) as the filled rectangles of six plots; graph: data writes the six data files plotorf1.dat ... plotorf6.dat (returned in files), bedgraph one track file, none draws nothing (the devices that draw with plplot are refused). Equals the installed program on 60 runs (every input format of seqret, ranges, the report and graph options, the messages of the library; standard output, error stream, exit status and written files byte for byte). B09 WP63, F282.
+EMBOSS 6.6.0 plotorf: for each of the six frames the stretches from a start codon (start, default ATG) to the next stop codon of the frame (stop, default TAA,TAG,TGA; a stretch that reaches the end of the sequence ends there) as the filled rectangles of six plots; graph: data writes the six data files plotorf1.dat ... plotorf6.dat (returned in files), bedgraph one track file, none draws nothing (the devices that draw with plplot are refused). Equals the installed program on 300 runs (every input format of seqret, ranges, the report and graph options, the messages of the library; standard output, error stream, exit status and written files byte for byte). B09 WP63, F282.
 
 ## Core Documentation Reference
 

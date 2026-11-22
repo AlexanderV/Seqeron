@@ -861,3 +861,16 @@ F234 - F236 (WP53): `AlignmentCoordinateBigBed_Tests`, `AlignmentCoordinateBigMa
 
 F237 (WP53): `TCoffeeScoreAscii_Oracle_Tests` x2 (`tcoffee_score_oracle.tsv`: 300 alignments scored by the installed t_coffee 13.41, the whole `score_ascii` file compared; the refusals), MCP `BigFormatTests.TCoffeeEvaluate_AsTheProgram`.
 
+
+
+## Audit A2-19b (B09 F283): MAFFT 7.505, stage 2 (three and more sequences, the progressive strategies)
+
+Tests (`Seqeron.Genomics.Tests`, against the installed Debian `mafft` 7.505-1): `SequenceAligner_MafftProgressive_Tests` x33 (`mafft_progressive_oracle.tsv.gz`, `scripts/alignment/generate_mafft_progressive_oracle.py`: **6 530 sets in 28 strategy groups, at least 210 each**; one test per group compares for every set the rows and the program's standard error (SHA-256 of the whole text, the full text for 253 sets): FFT-NS-2 (protein, DNA, 21 - 45 sequences, one-residue to 14-residue and unrelated sequences, `--anysymbol` with unusual symbols and `-` in the input, 20 refusals of the plain command on letters outside the alphabet), FFT-NS-1 (`--retree 1`), NW-NS-2 (`--nofft`), NW-NS-1, `--retree 3`, `--6merpair`, `--10merpair`, `--op` / `--ep`, `--exp`, `--opdist`, `--bl` 30 / 45 / 80, `--jtt`, `--tm`, `--kimura`, `--kappa`, `--fmodel`, `--nwildcard`, `--leavegappyregion`, `--termgappenalty`, `--unweight`, `--averagelinkage`, `--minimumlinkage`, `--mixedlinkage`, `--reorder`, `--fft`, `--thread 4` (rows only: the program's progress text with threads is written by competing threads), `--nuc`, `--amino`; plus `Oracle_HasEveryStrategy`, `Threads_DoNotChangeTheAlignment`, `Reorder_PutsTheSequencesInTheOrderOfTheGuideTree`, `HandRun_ThreeProteins_FftNs2`, `Contracts` (`--retree 0` refused, tuple size 10 for amino acids refused, bad `--bl`, empty residues, cancellation, `Quiet`, the strategy text)), `SequenceAligner_MafftPair_Tests` x886 and `SequenceAligner_Mafft_Tests` x6 (the pair path now runs through the same engine: unchanged), T-Coffee `MafftPair_EveryRowEqualsTheProgram` (460), MCP `MafftTests` x4 (three sequences, `--retree 0`, the standard error, formatted output).
+
+| ID | Test | Sets | Behaviour | Source |
+|----|------|------|-----------|--------|
+| MP1 | `RowsAndStandardError_EqualMafft(<strategy>)` | 6 530 | rows and standard error equal the program | oracle |
+| MP2 | `Oracle_HasEveryStrategy` | - | >= 5 000 sets, every group >= 200, >= 25 groups, >= 10 refusals, >= 150 full texts of standard error, up to 45 sequences | shape |
+| MP3 | `Threads_DoNotChangeTheAlignment` | 40 | `Threads = 4` and `0` give the same rows | oracle (`--thread 4` rows) |
+| MP4 | `Reorder_PutsTheSequencesInTheOrderOfTheGuideTree` | 20 | same rows, other order | property |
+| MP5 | `HandRun_ThreeProteins_FftNs2` / `Contracts` | - | letters preserved, equal lengths; refusals; `Quiet`; strategy text | hand / contract |

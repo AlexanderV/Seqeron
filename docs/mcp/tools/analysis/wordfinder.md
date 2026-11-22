@@ -26,6 +26,24 @@ EMBOSS 6.6.0 wordfinder: the target sequences (bsequence) are indexed by their w
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
+| `querySequence` | string | Yes | The text of the query sequence file (-asequence: any input format of seqret; one or more sequences), or a sequence as letters. |
+| `targetSequence` | string | Yes | The text of the target sequence file (-bsequence), or a sequence as letters. |
+| `gapOpen` | number | No | The gap opening penalty (-gapopen, 0 to 1000, default 30). |
+| `gapExtend` | number | No | The gap extension penalty (-gapextend, 0 to 10, default 1.5). |
+| `dataFile` | string | No | The scoring matrix (-datafile): the text of a matrix file. |
+| `matrix` | string | No | The scoring matrix as an EMBOSS data file name (-datafile): EDNAFULL (nucleotides, default), EBLOSUM62 (proteins, default), EPAM250 ... |
+| `width` | integer | No | The width of the alignment band (-width, at least 1, default 16). |
+| `wordLength` | integer | No | The word length of the initial matching (-wordlen, at least 3, default 6). |
+| `limitMatch` | integer | No | The maximum match score, 0 for no limit (-limitmatch). |
+| `limitAlign` | integer | No | The maximum alignment length, 0 for no limit (-limitalign). |
+| `lowMatch` | integer | No | The minimum match score (-lowmatch). |
+| `lowAlign` | integer | No | The minimum alignment length (-lowalign). |
+| `alignFormat` | string | No | The alignment format (-aformat, default simple): simple, pair, fasta, msf, clustal, mega, nexus, phylip, selex, treecon, markx0 ... markx10, match, multiple, score, srs, tcoffee, unknown, sam, ... |
+| `alignWidth` | integer | No | The residues per line of the alignment (-awidth). |
+| `alignQualifiers` | string | No | Alignment qualifiers as typed on the command line: -aaccshow -adesshow -ausashow -aglobal. |
+| `sequenceFormat` | string | No | The input format (-sformat1); default: the program finds the format. |
+| `qualifiers` | string | No | Sequence input qualifiers as typed after the sequence on the command line: -sbegin1 -send1 -sreverse1, -slower1 -supper1 -snucleotide1 -sprotein1 -scircular1, -sid1 name, -sdbname1 db, -squick1, -iquery1 query, -ioffset1 bytes. |
+| `files` | object | No | More files by name (file name -> text) that the program may read (a file named by a USA, @file). |
 
 ## Output Schema
 
