@@ -119,6 +119,7 @@
     <EmbeddedResource Include="TestData\Alignment\feattext_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\seqret_oracle*.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\seqout_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\seqmerge_oracle*.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\maskfeat_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\descseq_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\featlist_oracle.jsonl.gz" />
