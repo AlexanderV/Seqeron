@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using SuffixTree.Indexing;
 
 namespace SuffixTree.Esa;
@@ -146,15 +147,13 @@ public sealed partial class EsaSuffixTree : ISuffixTree, ISuffixTreeNavigation, 
     /// anything (ADR-004 section 5a, "1b.9g"); the path of a call has no atomic operation and no fence. An in-memory tree takes no entry: <see cref="Dispose"/> releases nothing that a call in flight uses (work package 1b.9b), so the call needs the
     /// flag and nothing else; the scope still holds the tree, which keeps it reachable for the length of the call.
     /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private ReadScope Enter()
     {
-        if (_gate is null)
-        {
-            ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
-            return new ReadScope(this, null);
-        }
-
-        return new ReadScope(this, _gate.Enter());
+        ReaderGate<ReaderGateSeams>? gate = _gate;
+        if (gate is not null) return new ReadScope(gate, gate.Enter());
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+        return default;
     }
 
     /// <summary>What the last reader out (or <see cref="Dispose"/>) runs once, for a tree over a container: the pins of the navigation pack and the mapping.</summary>
@@ -164,12 +163,12 @@ public sealed partial class EsaSuffixTree : ISuffixTree, ISuffixTreeNavigation, 
         _file?.Dispose();
     }
 
-    /// <summary>The registration of one call (a using declaration at the top of every public member): the cell of the thread for a tree over a container, null for an in-memory tree.</summary>
-    private readonly struct ReadScope(EsaSuffixTree owner, ReaderCell? cell) : IDisposable
+    /// <summary>The registration of one call (a using declaration at the top of every public member): the gate and the cell of the thread for a tree over a container, nothing for an in-memory tree.</summary>
+    private readonly struct ReadScope(ReaderGate<ReaderGateSeams>? gate, ReaderCell? cell) : IDisposable
     {
         public void Dispose()
         {
-            if (cell is not null) owner._gate!.Leave(cell);
+            if (gate is not null) gate.Leave(cell!);
         }
     }
 
