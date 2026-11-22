@@ -41,6 +41,7 @@ for kind in genome dna prot rep; do
   run chain --n 1m --kind "$kind" --structure yes --psi true
   expect "chain $kind 1m exits 0" "$LAST_RC"
   has "RESULT: PASS"; expect "chain $kind 1m: the checker says RESULT: PASS" $?
+  if grep -q "^$kind	1000000	psi" "$HERE/reference_hashes.tsv"; then has "equals the reference table"; expect "chain $kind 1m: the container equals the reference container of the table" $?; fi
   [ -f "$D/runs/$kind-n1000000/build.1.sampler.json" ]; expect "chain $kind 1m: the sampler summary exists" $?
 done
 expect "the form names four runs" "$(python3 -I -c "import json;print(0 if len(json.load(open('$D/form.json'))['runs'])==4 else 1)")"
@@ -49,7 +50,7 @@ echo "4. a second run of the same text gives the same container; the form carrie
 run chain --n 1m --kind genome --tag b --structure no
 expect "the second genome run exits 0" "$LAST_RC"
 expect "the two genome containers are identical" "$([ "$(sha_of_run genome-n1000000)" = "$(sha_of_run genome-n1000000-b)" ] && echo 0 || echo 1)"
-has "equals the other run"; expect "the checker compared the two runs" $?
+has "the other run genome-n1000000"; expect "the checker compared the two runs" $?
 run check
 has "Structure level not run" || has "NOT RUN S1" || has "NOT RUN"; expect "a skipped Structure level is reported as NOT RUN, not as a pass" $?
 

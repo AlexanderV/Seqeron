@@ -267,6 +267,15 @@ class CheckerTests(unittest.TestCase):
         self.assertEqual(code, 0, out)
         self.assertTrue([x for x in lines(out, 'WARN') if ' T1 ' in x], out)
 
+    def test_a_filtered_test_run_is_a_warning_not_a_pass_of_the_set(self):
+        f = form()
+        f['tests']['persistent'].update(filter='FullyQualifiedName~Handoff', passed=20, skipped=0)
+        code, out = check(f)
+        self.assertEqual(code, 0, out)
+        self.assertTrue([x for x in lines(out, 'WARN') if ' T1 ' in x and 'filtered' in x], out)
+        f['tests']['persistent'].update(failed=1)
+        self.assertEqual(check(f)[0], 1)
+
     def test_a_form_with_no_tests_is_not_a_failure_unless_they_are_required(self):
         f = form()
         f['tests'] = {}

@@ -12,7 +12,7 @@
 #   s1b.sh form | check [--run LABEL]...   (re)write form.json / form.md from what the steps left; run the checker on it (PASS / FAIL per gate), on the named runs only with --run
 #   s1b.sh status | clean [--n N --kind K | --all]    what is done; remove a run's text, container and scratch
 # options (anywhere): --data DIR  --kind K (genome)  --n N (decimal suffixes k m g)  --tag T (a second run of the same text)  --resume auto|on|off (auto: on from 10^9)  --threads T (4)  --fsync true|false (true)
-#   --psi true|false (true)  --structure auto|yes|no (auto)  --queries yes|no (yes)  --rebuild  --kill-after SECONDS (rehearse a kill)  --dry-run  --force-disk  --interval-ms MS (sampler, 100)  --filter EXPR (tests)
+#   --psi true|false (true)  --structure auto|yes|no (auto)  --queries yes|no (yes)  --rebuild  --kill-after SECONDS (rehearse a kill)  --dry-run  --force-disk  --interval-ms MS (sampler, 100)  --filter EXPR (tests: a dotnet test filter expression such as FullyQualifiedName~Handoff, ANDed with the set's own category)
 # exit codes: 0 ok, 2 usage, 3 refused (pre-flight, disk), 4 a step failed. The chain always ends with the form and the checker, also after a failure.
 set -u
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -259,17 +259,18 @@ cmd_tests() {
   mkdir -p "$DATA/tests"
   local flags=${S1B_MSBUILD_FLAGS:--p:NuGetAudit=false} T=$SRC/tests/SuffixTree rc=0 set dir args envs
   for set in "${sets[@]}"; do
-    envs=(); args=()
+    envs=(); args=(); bf=
     case $set in
       esa-default) dir=$T/SuffixTree.Esa.Tests; args=(test --nologo) ;;
-      esa-exhaustive) dir=$T/SuffixTree.Esa.Tests; args=(test -c Release --nologo --filter "Category=Exhaustive") ;;
-      esa-fuzz) dir=$T/SuffixTree.Esa.Tests; args=(test -c Release --nologo --filter "Category=Fuzz") ;;
+      esa-exhaustive) dir=$T/SuffixTree.Esa.Tests; args=(test -c Release --nologo); bf="Category=Exhaustive" ;;
+      esa-fuzz) dir=$T/SuffixTree.Esa.Tests; args=(test -c Release --nologo); bf="Category=Fuzz" ;;
       esa-checked) dir=$T/SuffixTree.Esa.Tests; args=(test --nologo -p:EsaBounds=true); envs=(ESA_EXPECT_BOUNDS=true) ;;
       emproto) dir=$T/SuffixTree.EmProto.Tests; args=(test -c Release --nologo) ;;
       persistent) dir=$T/SuffixTree.Persistent.Tests; args=(test --nologo) ;;
       *) die "unknown test set '$set'" ;;
     esac
-    if [ -n "$FILTER" ]; then args=("${args[@]/--filter=*/}"); args+=(--filter "$FILTER"); fi
+    # --filter EXPR narrows a set (a smoke test of the driver): it is added to the set's own category with "&"
+    if [ -n "$FILTER" ] && [ -n "$bf" ]; then args+=(--filter "$bf&$FILTER"); elif [ -n "$FILTER" ]; then args+=(--filter "$FILTER"); elif [ -n "$bf" ]; then args+=(--filter "$bf"); fi
     # shellcheck disable=SC2206
     args+=($flags)
     step "test set $set"
@@ -283,6 +284,7 @@ cmd_tests() {
     passed=$(echo "$line" | sed -n 's/.*Passed: *\([0-9]*\).*/\1/p'); failed=$(echo "$line" | sed -n 's/.*Failed: *\([0-9]*\),.*/\1/p'); skipped=$(echo "$line" | sed -n 's/.*Skipped: *\([0-9]*\).*/\1/p')
     local status=pass; { [ "$trc" != 0 ] || [ -z "$line" ] || [ "${failed:-1}" != 0 ]; } && status=fail
     printf '{"status": "%s", "passed": %s, "failed": %s, "skipped": %s, "seconds": %s, "exit_code": %s, "configuration": "%s", "filter": "%s"}\n' "$status" "${passed:-0}" "${failed:-0}" "${skipped:-0}" "$secs" "$trc" "$([ "${args[*]}" != "${args[*]/Release/}" ] && echo Release || echo Debug)" "$(json_escape "$FILTER")" > "$DATA/tests/$set.json"
+    if [ -z "$line" ] && grep -aq "No test matches" "$DATA/tests/$set.log"; then line="the filter matched no test of this set"; fi
     echo "  $set: $status, ${line:-no summary line (see $DATA/tests/$set.log)} in $secs s"
     [ "$status" = pass ] || { tail -15 "$DATA/tests/$set.log" | sed 's/^/    /'; rc=4; }
   done

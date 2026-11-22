@@ -245,6 +245,8 @@ def check_tests(tests, rep, require):
         failed, passed, skipped = t.get('failed'), t.get('passed'), t.get('skipped')
         if t.get('status') == 'fail' or (num(failed) and failed > 0) or not num(passed):
             rep.line('FAIL', 'T1', f"{name}: {failed} failed, {passed} passed, {skipped} skipped")
+        elif t.get('filter'):
+            rep.line('WARN', 'T1', f"{name}: filtered by '{t['filter']}': {passed} passed, 0 failed: not the whole set")
         elif passed != expected['passed'] or skipped != expected['skipped']:
             rep.line('WARN', 'T1', f"{name}: 0 failed, {passed} passed, {skipped} skipped (the reference head has {expected['passed']} + {expected['skipped']} skipped: a platform may skip or add tests)")
         else:
