@@ -123,6 +123,7 @@
     <EmbeddedResource Include="TestData\Alignment\usa_*oracle*.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\entret_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\extractfeat_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\coderet_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\maskfeat_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\descseq_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\featlist_oracle.jsonl.gz" />
