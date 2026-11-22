@@ -1,0 +1,36 @@
+id	file	description	verdict_first_20_tests	verdict_31_tests	killed_by_after
+O01	HandoffOracle.cs	a window as long as the text is no present query	SURVIVED	killed	TheCutPositions_ReachTheLastWindow_AndNeverLeaveTheText
+O02	HandoffOracle.cs	the last window is never cut	killed	killed	TheCutPositions_ReachTheLastWindow_AndNeverLeaveTheText
+O03	HandoffOracle.cs	no absent queries	killed	killed	ALengthAboveTheText_GivesNoPresentQuery_ButTheAbsentOnesStay
+O04	HandoffOracle.cs	the oldest symbol is not removed at global == length	killed	killed	TheScan_CountsOverlappingOccurrences_AndCapsOnlyThePositions
+O05	HandoffOracle.cs	the first window is skipped	killed	killed	TheScan_CountsOverlappingOccurrences_AndCapsOnlyThePositions
+O06	HandoffOracle.cs	no byte comparison (a collision counts)	SURVIVED	killed	TheScan_NeverCountsAWindowWithTheSameHash_ForTwoStringsThatReallyCollide
+O07	HandoffOracle.cs	one position more than the cap	killed	killed	TheScan_CountsOverlappingOccurrences_AndCapsOnlyThePositions
+O08	HandoffOracle.cs	one carried byte too few	killed	killed	TheScan_CountsOverlappingOccurrences_AndCapsOnlyThePositions
+O09	HandoffOracle.cs	the carry is moved to offset 1	killed	killed	TheScan_EqualsTheNaiveCountAndPositions_AtEveryBlockSize
+O10	HandoffOracle.cs	the rolling hash is not kept across blocks	killed	killed	TheScan_CountsOverlappingOccurrences_AndCapsOnlyThePositions
+O11	HandoffOracle.cs	the power of the base is one short	killed	killed	TheScan_CountsOverlappingOccurrences_AndCapsOnlyThePositions
+O12	HandoffOracle.cs	the filter bit is set in the wrong place	killed	killed	TheScan_EqualsTheNaiveCountAndPositions_AtEveryBlockSize
+O13	HandoffOracle.cs	the search leaves out the last row	killed	killed	TheSearch_GivesTheRankRangeOfTheSuffixesThatStartWithTheQuery
+O14	HandoffOracle.cs	the first search skips the equal ones	killed	killed	TheSearch_GivesTheRankRangeOfTheSuffixesThatStartWithTheQuery
+O15	HandoffOracle.cs	the second search stops at the equal ones	killed	killed	TheSearch_GivesTheRankRangeOfTheSuffixesThatStartWithTheQuery
+O16	HandoffOracle.cs	a suffix that is a proper prefix of the query sorts after it	killed	killed	TheSearch_GivesTheRankRangeOfTheSuffixesThatStartWithTheQuery
+O17	HandoffOracle.cs	the comparison is reversed	killed	killed	TheSearch_GivesTheRankRangeOfTheSuffixesThatStartWithTheQuery
+O18	HandoffOracle.cs	the rank 0 is never skipped in the first search	killed	killed	TheSearch_GivesTheRankRangeOfTheSuffixesThatStartWithTheQuery
+Q01	HandoffQueries.cs	a wrong count is not reported	SURVIVED	killed	AnAnswerWithoutPositions_ForACountWithinTheCap_IsReported_WhenTheCountIsRight_AndOnlyOnce
+Q02	HandoffQueries.cs	a wrong exists is not reported	SURVIVED	killed	AWrongExistsFlag_WithTheRightCount_IsReported
+Q03	HandoffQueries.cs	the locate set is not compared at exactly the cap	SURVIVED	killed	AWrongLocateSetAtExactlyTheCap_IsReported
+Q04	HandoffQueries.cs	missing positions are reported only when the count is wrong	SURVIVED	killed	AnAnswerWithoutPositions_ForACountWithinTheCap_IsReported_WhenTheCountIsRight_AndOnlyOnce
+Q05	HandoffQueries.cs	the positions are never compared	SURVIVED	killed	ALocateSetThatDiffersInOrLength_IsReportedWithTheFirstDifference
+Q06	HandoffQueries.cs	a text of another length is not refused	SURVIVED	killed	ATextThatIsNotTheContainersText_IsRefused
+Q07	HandoffQueries.cs	the search gives no positions at exactly the cap	killed	killed	ACapBelowTheCounts_ComparesTheCountsOnly_AndStillPasses
+Q08	HandoffQueries.cs	the positions of the search are not sorted	killed	killed	ACapBelowTheCounts_ComparesTheCountsOnly_AndStillPasses
+Q09	HandoffQueries.cs	the suffix array is read one entry late	killed	killed	ACapBelowTheCounts_ComparesTheCountsOnly_AndStillPasses
+Q10	HandoffQueries.cs	the search says everything exists	killed	killed	ACapBelowTheCounts_ComparesTheCountsOnly_AndStillPasses
+Q11	HandoffQueries.cs	one mismatch is tolerated	SURVIVED	killed	ExactlyOneWrongAnswer_FailsTheRun
+Q12	HandoffQueries.cs	the mismatches of the search do not fail the run	SURVIVED	killed	ADamagedSuffixArray_FailsTheRun_ByTheSearchAlone_WhenTheEngineIsSwitchedOff
+Q13	HandoffQueries.cs	a cut query that the scan misses does not fail the run	SURVIVED	SURVIVED	argued equivalent: a self-check of the scan (a query cut from the text that the scan misses); the same fact is the row q_oracle_present_without_hit, which gate Q1 of the result checker fails on; cannot occur with a correct scan
+Q14	HandoffQueries.cs	the last symbol of the text is never read	killed	killed	ACapBelowTheCounts_ComparesTheCountsOnly_AndStillPasses
+Q15	HandoffQueries.cs	the mismatches of the engine do not fail the run	killed	killed	ADamagedChildTable_IsFoundByTheEngineAndNotByTheSearch
+Q16	HandoffQueries.cs	the positions of the engine are not sorted	killed	killed	ACapBelowTheCounts_ComparesTheCountsOnly_AndStillPasses
+Q17	HandoffQueries.cs	the engine's Contains is not asked	SURVIVED	killed	AnEngineWhoseContainsIsWrong_ButWhoseCountIsRight_FailsTheRun

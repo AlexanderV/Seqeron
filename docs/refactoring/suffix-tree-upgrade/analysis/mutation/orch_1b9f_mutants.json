@@ -1,0 +1,247 @@
+[
+ {
+  "id": "O01",
+  "file": "apps/SuffixTree.Esa.Bench/Links/HandoffOracle.cs",
+  "old": "if (length <= n)\n",
+  "new": "if (length < n)\n",
+  "desc": "a window as long as the text is no present query"
+ },
+ {
+  "id": "O02",
+  "file": "apps/SuffixTree.Esa.Bench/Links/HandoffOracle.cs",
+  "old": "ulong windows = (ulong)(n - length + 1);",
+  "new": "ulong windows = (ulong)(n - length);",
+  "desc": "the last window is never cut"
+ },
+ {
+  "id": "O03",
+  "file": "apps/SuffixTree.Esa.Bench/Links/HandoffOracle.cs",
+  "old": "if (alphabet.IsEmpty) continue;",
+  "new": "if (!alphabet.IsEmpty) continue;",
+  "desc": "no absent queries"
+ },
+ {
+  "id": "O04",
+  "file": "apps/SuffixTree.Esa.Bench/Links/HandoffOracle.cs",
+  "old": "if (global >= length) h -= buffer[at - length] * power;",
+  "new": "if (global > length) h -= buffer[at - length] * power;",
+  "desc": "the oldest symbol is not removed at global == length"
+ },
+ {
+  "id": "O05",
+  "file": "apps/SuffixTree.Esa.Bench/Links/HandoffOracle.cs",
+  "old": "if (global < length - 1) continue;",
+  "new": "if (global < length) continue;",
+  "desc": "the first window is skipped"
+ },
+ {
+  "id": "O06",
+  "file": "apps/SuffixTree.Esa.Bench/Links/HandoffOracle.cs",
+  "old": "if (!window.SequenceEqual(queries[index].Bytes)) continue;",
+  "new": "",
+  "desc": "no byte comparison (a collision counts)"
+ },
+ {
+  "id": "O07",
+  "file": "apps/SuffixTree.Esa.Bench/Links/HandoffOracle.cs",
+  "old": "if (positions[index].Count < cap) positions[index].Add",
+  "new": "if (positions[index].Count <= cap) positions[index].Add",
+  "desc": "one position more than the cap"
+ },
+ {
+  "id": "O08",
+  "file": "apps/SuffixTree.Esa.Bench/Links/HandoffOracle.cs",
+  "old": "int keep = (int)Math.Min(carryMax, consumed);",
+  "new": "int keep = (int)Math.Min(carryMax - 1, consumed);",
+  "desc": "one carried byte too few"
+ },
+ {
+  "id": "O09",
+  "file": "apps/SuffixTree.Esa.Bench/Links/HandoffOracle.cs",
+  "old": "Array.Copy(buffer, carry + got - keep, buffer, 0, keep);",
+  "new": "Array.Copy(buffer, carry + got - keep, buffer, 1, keep);",
+  "desc": "the carry is moved to offset 1"
+ },
+ {
+  "id": "O10",
+  "file": "apps/SuffixTree.Esa.Bench/Links/HandoffOracle.cs",
+  "old": "        g.Hash = h;\n",
+  "new": "",
+  "desc": "the rolling hash is not kept across blocks"
+ },
+ {
+  "id": "O11",
+  "file": "apps/SuffixTree.Esa.Bench/Links/HandoffOracle.cs",
+  "old": "for (int i = 0; i < length; i++) power *= Base;",
+  "new": "for (int i = 0; i < length - 1; i++) power *= Base;",
+  "desc": "the power of the base is one short"
+ },
+ {
+  "id": "O12",
+  "file": "apps/SuffixTree.Esa.Bench/Links/HandoffOracle.cs",
+  "old": "filter[bit >> 6] |= 1UL << (bit & 63);",
+  "new": "filter[bit >> 6] |= 1UL << (bit & 31);",
+  "desc": "the filter bit is set in the wrong place"
+ },
+ {
+  "id": "O13",
+  "file": "apps/SuffixTree.Esa.Bench/Links/HandoffOracle.cs",
+  "old": "long rows = n + 1;",
+  "new": "long rows = n;",
+  "desc": "the search leaves out the last row"
+ },
+ {
+  "id": "O14",
+  "file": "apps/SuffixTree.Esa.Bench/Links/HandoffOracle.cs",
+  "old": "if (Compare(query, buffer, sa(mid), readText) < 0) lo = mid + 1;",
+  "new": "if (Compare(query, buffer, sa(mid), readText) <= 0) lo = mid + 1;",
+  "desc": "the first search skips the equal ones"
+ },
+ {
+  "id": "O15",
+  "file": "apps/SuffixTree.Esa.Bench/Links/HandoffOracle.cs",
+  "old": "if (Compare(query, buffer, sa(mid), readText) <= 0) lo = mid + 1;",
+  "new": "if (Compare(query, buffer, sa(mid), readText) < 0) lo = mid + 1;",
+  "desc": "the second search stops at the equal ones"
+ },
+ {
+  "id": "O16",
+  "file": "apps/SuffixTree.Esa.Bench/Links/HandoffOracle.cs",
+  "old": "return got < query.Length ? -1 : 0;",
+  "new": "return got < query.Length ? 1 : 0;",
+  "desc": "a suffix that is a proper prefix of the query sorts after it"
+ },
+ {
+  "id": "O17",
+  "file": "apps/SuffixTree.Esa.Bench/Links/HandoffOracle.cs",
+  "old": "if (c != 0) return c < 0 ? -1 : 1;",
+  "new": "if (c != 0) return c < 0 ? 1 : -1;",
+  "desc": "the comparison is reversed"
+ },
+ {
+  "id": "O18",
+  "file": "apps/SuffixTree.Esa.Bench/Links/HandoffOracle.cs",
+  "old": "long mid = lo + ((hi - lo) / 2);\n            if (Compare(query, buffer, sa(mid), readText) < 0)",
+  "new": "long mid = lo + ((hi - lo) / 2);\n            if (Compare(query, buffer, sa(mid), readText) < 0 && mid > 0)",
+  "desc": "the rank 0 is never skipped in the first search"
+ },
+ {
+  "id": "Q01",
+  "file": "apps/SuffixTree.Esa.Bench/Links/HandoffQueries.cs",
+  "old": "if (a.Count != truth) found.Add",
+  "new": "if (false) found.Add",
+  "desc": "a wrong count is not reported"
+ },
+ {
+  "id": "Q02",
+  "file": "apps/SuffixTree.Esa.Bench/Links/HandoffQueries.cs",
+  "old": "if (a.Exists != (truth > 0)) found.Add",
+  "new": "if (false) found.Add",
+  "desc": "a wrong exists is not reported"
+ },
+ {
+  "id": "Q03",
+  "file": "apps/SuffixTree.Esa.Bench/Links/HandoffQueries.cs",
+  "old": "if (truth > cap) continue;",
+  "new": "if (truth >= cap) continue;",
+  "desc": "the locate set is not compared at exactly the cap"
+ },
+ {
+  "id": "Q04",
+  "file": "apps/SuffixTree.Esa.Bench/Links/HandoffQueries.cs",
+  "old": "if (a.Count == truth) found.Add(new HandoffMismatch(q.Index, answerer, \"locate\", $\"{who}: no positions",
+  "new": "if (a.Count != truth) found.Add(new HandoffMismatch(q.Index, answerer, \"locate\", $\"{who}: no positions",
+  "desc": "missing positions are reported only when the count is wrong"
+ },
+ {
+  "id": "Q05",
+  "file": "apps/SuffixTree.Esa.Bench/Links/HandoffQueries.cs",
+  "old": "else if (!a.Positions.SequenceEqual(oracle.Positions[q.Index]))",
+  "new": "else if (false)",
+  "desc": "the positions are never compared"
+ },
+ {
+  "id": "Q06",
+  "file": "apps/SuffixTree.Esa.Bench/Links/HandoffQueries.cs",
+  "old": "if (n != textLength)\n        {",
+  "new": "if (false)\n        {",
+  "desc": "a text of another length is not refused"
+ },
+ {
+  "id": "Q07",
+  "file": "apps/SuffixTree.Esa.Bench/Links/HandoffQueries.cs",
+  "old": "if (count <= options.Cap)\n            {\n                positions = [];",
+  "new": "if (count < options.Cap)\n            {\n                positions = [];",
+  "desc": "the search gives no positions at exactly the cap"
+ },
+ {
+  "id": "Q08",
+  "file": "apps/SuffixTree.Esa.Bench/Links/HandoffQueries.cs",
+  "old": "                positions.Sort();\n            }\n            viaSearch",
+  "new": "            }\n            viaSearch",
+  "desc": "the positions of the search are not sorted"
+ },
+ {
+  "id": "Q09",
+  "file": "apps/SuffixTree.Esa.Bench/Links/HandoffQueries.cs",
+  "old": "RandomAccess.Read(container, four, saOffset + (4 * rank));",
+  "new": "RandomAccess.Read(container, four, saOffset + (4 * rank) + 4);",
+  "desc": "the suffix array is read one entry late"
+ },
+ {
+  "id": "Q10",
+  "file": "apps/SuffixTree.Esa.Bench/Links/HandoffQueries.cs",
+  "old": "viaSearch[q.Index] = new QueryAnswer(count, count > 0, positions);",
+  "new": "viaSearch[q.Index] = new QueryAnswer(count, count >= 0, positions);",
+  "desc": "the search says everything exists"
+ },
+ {
+  "id": "Q11",
+  "file": "apps/SuffixTree.Esa.Bench/Links/HandoffQueries.cs",
+  "old": "bool pass = all.Count == 0;",
+  "new": "bool pass = all.Count <= 1;",
+  "desc": "one mismatch is tolerated"
+ },
+ {
+  "id": "Q12",
+  "file": "apps/SuffixTree.Esa.Bench/Links/HandoffQueries.cs",
+  "old": "        all.AddRange(saMismatches);",
+  "new": "",
+  "desc": "the mismatches of the search do not fail the run"
+ },
+ {
+  "id": "Q13",
+  "file": "apps/SuffixTree.Esa.Bench/Links/HandoffQueries.cs",
+  "old": "        all.AddRange(queries.Where(q => q.Present && oracle.Counts[q.Index] == 0)",
+  "new": "        if (false) all.AddRange(queries.Where(q => q.Present && oracle.Counts[q.Index] == 0)",
+  "desc": "a cut query that the scan misses does not fail the run"
+ },
+ {
+  "id": "Q14",
+  "file": "apps/SuffixTree.Esa.Bench/Links/HandoffQueries.cs",
+  "old": "int count = (int)Math.Max(0, Math.Min(buffer.Length, n - pos));",
+  "new": "int count = (int)Math.Max(0, Math.Min(buffer.Length, n - pos - 1));",
+  "desc": "the last symbol of the text is never read"
+ },
+ {
+  "id": "Q15",
+  "file": "apps/SuffixTree.Esa.Bench/Links/HandoffQueries.cs",
+  "old": "                    all.AddRange(engineMismatches);",
+  "new": "",
+  "desc": "the mismatches of the engine do not fail the run"
+ },
+ {
+  "id": "Q16",
+  "file": "apps/SuffixTree.Esa.Bench/Links/HandoffQueries.cs",
+  "old": "positions = [.. tree.FindAllOccurrences(s).Select(p => (long)p)];\n                                positions.Sort();",
+  "new": "positions = [.. tree.FindAllOccurrences(s).Select(p => (long)p)];",
+  "desc": "the positions of the engine are not sorted"
+ },
+ {
+  "id": "Q17",
+  "file": "apps/SuffixTree.Esa.Bench/Links/HandoffQueries.cs",
+  "old": "bool exists = tree.Contains(s);",
+  "new": "bool exists = count > 0;",
+  "desc": "the engine's Contains is not asked"
+ }
+]
