@@ -163,3 +163,4 @@ MCP `water_align` (A3-17). The "at least 90 % reaches the textbook optimum" tole
 - **Audit A5-8c3e (F241 - F243, WP54):** the feature library of EMBOSS 6.6.0 ported - vocabularies, the readers of eleven input formats with the library's file buffer and messages, the feature file of a sequence (`-ufo`, `-fformat`, `-fopenfile`: `diffseq`), the writers gff3 / gff2 / embl / genbank / debug, `featcopy` (MCP `featcopy`); 2 600 + 1 200 + 450 + 1 779 oracle runs equal.
 - **Audit A5-8c3f (F244, F245, WP55):** the feature writers bed / refseq / refseqp / pir / swiss / dasgff / draw for a full table (`featcopy`: 2 750 / 2 750 oracle runs equal) and `featmerge` (MCP `featmerge`: 450 / 450).
 - **Audit A5-8c3f (F246, WP55):** `feattext` (MCP `feattext`): 400 / 400 oracle runs equal.
+- **Audit A5-8c3f (F247, WP55):** the list forms `@list` / `list::list` of the `features` input (`EmbossFeatureInput`; MCP `files` argument): 500 / 500 oracle runs equal.
