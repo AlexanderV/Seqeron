@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Reflection;
 using SuffixTree.Esa.Bench.Links;
 using SuffixTree.Esa.External;
 
@@ -137,6 +138,7 @@ public sealed class HandoffQueryRunTests
         Assert.That(code, Is.EqualTo(3));
         Assert.That(rows["q_result"], Is.EqualTo("FAIL"));
         Assert.That(rows["q_input_length"], Does.Contain("2999").And.Contain("3000"));
+        Assert.That(rows.ContainsKey("q_total"), Is.False, "refused before any query is cut (the audit's mutant that lets the run go on was not seen: its result is FAIL as well)");
     }
 
     [Test]
@@ -158,6 +160,125 @@ public sealed class HandoffQueryRunTests
         foreach (string key in new[] { "q_total", "q_present", "q_absent", "q_oracle_hits_total", "q_set_sha256" })
         {
             Assert.That(second[key], Is.EqualTo(first[key]), key);
+        }
+    }
+
+    private static void ReverseSaBlock(string container, int from, int count)
+    {
+        using SesaFile file = SesaFile.Open(container, new EsaOpenOptions());
+        long offset = file.Parsed.Sa.Offset + (4L * from);
+        using var fs = new FileStream(container, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
+        var block = new byte[4 * count];
+        fs.Position = offset;
+        fs.ReadExactly(block);
+        var reversed = new byte[block.Length];
+        for (int i = 0; i < count; i++) Array.Copy(block, 4 * (count - 1 - i), reversed, 4 * i, 4);
+        fs.Position = offset;
+        fs.Write(reversed);
+    }
+
+    [Test]
+    public void ADamagedSuffixArray_FailsTheRun_ByTheSearchAlone_WhenTheEngineIsSwitchedOff()
+    {
+        // the audit's mutant "the mismatches of the search do not fail the run" was hidden by the engine, which reads the same array and fails the run by itself
+        (string input, string container) = Build(Text(3, 5000, "ACGT", 1000));
+        ReverseSaBlock(container, 1000, 1000);
+        (int code, Dictionary<string, string> rows) = Run(container, input, engine: "false");
+        Assert.That(long.Parse(rows["q_sa_mismatches"]), Is.GreaterThan(0));
+        Assert.That(rows["q_result"], Is.EqualTo("FAIL"));
+        Assert.That(code, Is.EqualTo(3));
+    }
+
+    [Test]
+    public void ExactlyOneWrongAnswer_FailsTheRun()
+    {
+        // one wrong entry of the suffix array in the range of a query that occurs twice: the count and the flag stay right, the locate set has the position of the other occurrence twice: ONE mismatch
+        // (the audit's mutant "one mismatch is tolerated" passed such a run)
+        byte[] text = Text(8, 4000, "ACGT", 0);
+        Array.Copy(text, 0, text, 2000, 200);
+        string textPath = Path.Combine(_dir, "probe.txt");
+        File.WriteAllBytes(textPath, text);
+        ulong seed = 0;
+        long a = -1, b = -1;
+        for (ulong s = 1; s < 500 && a < 0; s++)
+        {
+            IReadOnlyList<HandoffQuery> set = HandoffQuerySet.Build(text.Length, (pos, len) => text.AsSpan((int)pos, len).ToArray(), "ACGT"u8, [16], 1, 0, s);
+            ScanResult r = RollingScan.Run(new MemoryStream(text), set, 10);
+            if (r.Counts[0] == 2) (seed, a, b) = (s, r.Positions[0][0], r.Positions[0][1]);
+        }
+        Assert.That(a, Is.GreaterThanOrEqualTo(0), "a seed whose one query occurs twice");
+        (string input, string container) = Build(text);
+        using (SesaFile file = SesaFile.Open(container, new EsaOpenOptions()))
+        {
+            using var fs = new FileStream(container, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
+            var cell = new byte[4];
+            for (long rank = 0; rank <= text.Length; rank++)
+            {
+                fs.Position = file.Parsed.Sa.Offset + (4 * rank);
+                fs.ReadExactly(cell);
+                if (BinaryPrimitives.ReadUInt32LittleEndian(cell) != (uint)a) continue;
+                BinaryPrimitives.WriteUInt32LittleEndian(cell, (uint)b);
+                fs.Position = file.Parsed.Sa.Offset + (4 * rank);
+                fs.Write(cell);
+                break;
+            }
+        }
+        var rows = new Dictionary<string, string>();
+        int code = HandoffQueryRun.Execute(new HandoffQueryOptions { Container = container, Input = input, Lengths = [16], Present = 1, Absent = 0, Seed = seed, Engine = "false" }, (m, v, _) => rows[m] = v);
+        Assert.That(rows["q_sa_mismatches"], Is.EqualTo("1"), string.Join("; ", rows.Where(r => r.Key.StartsWith("q_", StringComparison.Ordinal)).Select(r => r.Key + "=" + r.Value)));
+        Assert.That(rows["q_result"], Is.EqualTo("FAIL"));
+        Assert.That(code, Is.EqualTo(3));
+    }
+
+    /// <summary>A tree that answers like the real one except that <c>Contains</c> says the opposite.</summary>
+    public class ContainsLies : DispatchProxy
+    {
+        public ISuffixTree? Inner { get; set; }
+
+        protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
+        {
+            try
+            {
+                object? r = targetMethod!.Invoke(Inner, args);
+                return targetMethod.Name == nameof(ISuffixTree.Contains) && r is bool b ? !b : r;
+            }
+            catch (TargetInvocationException e) when (e.InnerException is not null)
+            {
+                throw e.InnerException;
+            }
+        }
+    }
+
+    [Test]
+    public void AnEngineWhoseContainsIsWrong_ButWhoseCountIsRight_FailsTheRun()
+    {
+        // the engine's Contains is asked on its own (the audit's mutant that took "exists" from the count passed this engine)
+        (string input, string container) = Build(Text(9, 4000, "ACGT", 1000));
+        ISuffixTree inner = SuffixIndexFactory.Open(container, new EsaOpenOptions());
+        try
+        {
+            var rows = new Dictionary<string, string>();
+            int code = HandoffQueryRun.Execute(new HandoffQueryOptions
+            {
+                Container = container,
+                Input = input,
+                Lengths = [4, 9, 16],
+                Present = 60,
+                Absent = 40,
+                OpenEngine = _ =>
+                {
+                    ISuffixTree liar = DispatchProxy.Create<ISuffixTree, ContainsLies>();
+                    ((ContainsLies)liar).Inner = inner;
+                    return liar;
+                },
+            }, (m, v, _) => rows[m] = v);
+            Assert.That(rows["q_sa_mismatches"], Is.EqualTo("0"));
+            Assert.That(long.Parse(rows["q_engine_mismatches"]), Is.EqualTo(300), "every query: the flag is the opposite of the truth");
+            Assert.That(code, Is.EqualTo(3));
+        }
+        finally
+        {
+            (inner as IDisposable)?.Dispose();
         }
     }
 }

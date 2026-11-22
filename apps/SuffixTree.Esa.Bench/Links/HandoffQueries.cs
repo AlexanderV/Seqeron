@@ -31,6 +31,9 @@ internal sealed record HandoffQueryOptions
 
     /// <summary><c>auto</c>: the engine answers when the container is within its 32-bit surface; <c>true</c>: it must; <c>false</c>: not at all.</summary>
     internal string Engine { get; init; } = "auto";
+
+    /// <summary>A seam for the tests (a tree that answers wrongly on purpose); <c>null</c> in the product: <see cref="SuffixIndexFactory.Open"/>.</summary>
+    internal Func<string, ISuffixTree>? OpenEngine { get; init; }
 }
 
 /// <summary>What an answerer said about one query: the count, whether it exists, and the positions (sorted, complete) when the count is within the cap.</summary>
@@ -168,7 +171,7 @@ internal static class HandoffQueryRun
             ISuffixTree? tree = null;
             try
             {
-                tree = SuffixIndexFactory.Open(options.Container, new EsaOpenOptions());
+                tree = options.OpenEngine is { } open ? open(options.Container) : SuffixIndexFactory.Open(options.Container, new EsaOpenOptions());
                 status = "ok";
             }
             catch (NotSupportedException e)
