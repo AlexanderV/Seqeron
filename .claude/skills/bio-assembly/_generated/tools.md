@@ -127,6 +127,7 @@
 | `mash_triangle` | Analysis | `MashCommands.Triangle` | [doc](../../../../docs/mcp/tools/analysis/mash_triangle.md) |
 | `mask_approximate_tandem_repeats` | Analysis | `RepeatFinder.MaskApproximateTandemRepeats` | [doc](../../../../docs/mcp/tools/analysis/mask_approximate_tandem_repeats.md) |
 | `mask_low_complexity` | Analysis | `SequenceComplexity.MaskLowComplexity` | [doc](../../../../docs/mcp/tools/analysis/mask_low_complexity.md) |
+| `maskfeat` | Analysis | `EmbossMaskfeatPrograms.Maskfeat` | [doc](../../../../docs/mcp/tools/analysis/maskfeat.md) |
 | `megamerger` | Analysis | `GenomicAnalyzer.MegaMerge` | [doc](../../../../docs/mcp/tools/analysis/megamerger.md) |
 | `minimum_free_energy` | Analysis | `RnaSecondaryStructure.CalculateMinimumFreeEnergy` | [doc](../../../../docs/mcp/tools/analysis/minimum_free_energy.md) |
 | `mismatch_coaxial_stacking` | Analysis | `RnaSecondaryStructure.CalculateMismatchCoaxialStacking` | [doc](../../../../docs/mcp/tools/analysis/mismatch_coaxial_stacking.md) |

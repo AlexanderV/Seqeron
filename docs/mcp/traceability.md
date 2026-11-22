@@ -345,6 +345,7 @@
 | featmerge | Analysis | EmbossFeaturePrograms.Featmerge | EmbossFeaturePrograms.cs | 0/0 | – | – | Build-Ready |
 | feattext | Analysis | EmbossFeaturePrograms.Feattext | EmbossFeaturePrograms.cs | 0/0 | – | – | Build-Ready |
 | seqret | Analysis | EmbossSeqretPrograms.Seqret | EmbossSeqretPrograms.cs | 0/0 | – | – | Build-Ready |
+| maskfeat | Analysis | EmbossMaskfeatPrograms.Maskfeat | EmbossMaskfeatPrograms.cs | 0/0 | – | – | Build-Ready |
 | nucmer_clusters | Analysis | GenomicAnalyzer.FindNucmerClusters | GenomicAnalyzer.NucmerClusters.cs | 0/0 | – | – | Build-Ready |
 | nucmer | Analysis | GenomicAnalyzer.Nucmer | GenomicAnalyzer.Nucmer.cs | 0/0 | – | – | Build-Ready |
 | delta_filter | Analysis | MummerDeltaFilter.Run | Seqeron.Genomics.Alignment/MummerDeltaFilter.cs | 0/0 | – | – | Build-Ready |

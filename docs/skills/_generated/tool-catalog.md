@@ -92,7 +92,7 @@
 | `write_big_alignment` | `AlignmentCoordinateFormats.WriteBigBed / WriteBigMaf / WriteBigPsl` | [doc](../../mcp/tools/alignment/write_big_alignment.md) |
 | `write_coordinate_alignment` | `AlignmentCoordinateFormats.Write` | [doc](../../mcp/tools/alignment/write_coordinate_alignment.md) |
 
-## Analysis (178 tools)
+## Analysis (179 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -217,6 +217,7 @@
 | `mash_triangle` | `MashCommands.Triangle` | [doc](../../mcp/tools/analysis/mash_triangle.md) |
 | `mask_approximate_tandem_repeats` | `RepeatFinder.MaskApproximateTandemRepeats` | [doc](../../mcp/tools/analysis/mask_approximate_tandem_repeats.md) |
 | `mask_low_complexity` | `SequenceComplexity.MaskLowComplexity` | [doc](../../mcp/tools/analysis/mask_low_complexity.md) |
+| `maskfeat` | `EmbossMaskfeatPrograms.Maskfeat` | [doc](../../mcp/tools/analysis/maskfeat.md) |
 | `megamerger` | `GenomicAnalyzer.MegaMerge` | [doc](../../mcp/tools/analysis/megamerger.md) |
 | `minimum_free_energy` | `RnaSecondaryStructure.CalculateMinimumFreeEnergy` | [doc](../../mcp/tools/analysis/minimum_free_energy.md) |
 | `mismatch_coaxial_stacking` | `RnaSecondaryStructure.CalculateMismatchCoaxialStacking` | [doc](../../mcp/tools/analysis/mismatch_coaxial_stacking.md) |

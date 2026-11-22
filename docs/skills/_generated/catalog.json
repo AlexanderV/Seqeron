@@ -1428,6 +1428,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L979"
   },
   {
+    "tool": "maskfeat",
+    "server": "Analysis",
+    "methodId": "EmbossMaskfeatPrograms.Maskfeat",
+    "docPath": "docs/mcp/tools/analysis/maskfeat.md",
+    "sourceLink": ""
+  },
+  {
     "tool": "megamerger",
     "server": "Analysis",
     "methodId": "GenomicAnalyzer.MegaMerge",

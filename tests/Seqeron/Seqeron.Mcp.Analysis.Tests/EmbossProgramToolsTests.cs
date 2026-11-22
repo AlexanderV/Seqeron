@@ -199,6 +199,18 @@ public class EmbossProgramToolsTests
     }
 
     [Test]
+    public void Maskfeat_MasksTheFeatureRegions_AsTheProgram()
+    {
+        // maskfeat 6.6.0 (A5-8c3g, F249): the default type repeat*, a type list, a mask character, lower case
+        const string embl = "ID   SEQA; SV 1; linear; genomic DNA; STD; UNC; 20 BP.\nXX\nFH   Key             Location/Qualifiers\nFH\nFT   repeat_region   3..9\nFT   gene            12..18\nXX\nSQ   Sequence 20 BP; 0 A; 0 C; 0 G; 0 T; 0 other;\n     aacgtacgta cgtacgtacg                                                20\n//\n";
+        Assert.That(AnalysisTools.Maskfeat(embl, "embl").SequenceText, Is.EqualTo(">SEQA SEQA.1\naaNNNNNNNacgtacgtacg\n"));
+        Assert.That(AnalysisTools.Maskfeat(embl, "embl", "repeat* gene", maskChar: "Q").SequenceText, Is.EqualTo(">SEQA SEQA.1\naaQQQQQQQacQQQQQQQcg\n"));
+        Assert.That(AnalysisTools.Maskfeat(embl, "embl", "gene", toLower: true, qualifiers: "-supper1").SequenceText, Is.EqualTo(">SEQA SEQA.1\nAACGTACGTACgtacgtaCG\n"));
+        Assert.That(() => AnalysisTools.Maskfeat(embl, "embl", maskChar: "AB"), Throws.ArgumentException);
+        Assert.That(() => AnalysisTools.Maskfeat(" "), Throws.ArgumentException);
+    }
+
+    [Test]
     public void Diffseq_FeaturesFromSeparateFiles_AsTheProgram()
     {
         // diffseq 6.6.0 a.fa b.fa -wordsize 5 -ufo1 f1.gff -ufo2 swiss::f2.dat (A5-8c3e, F241): the features of the sequences come from the files, whatever their format

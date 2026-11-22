@@ -448,6 +448,38 @@ public partial class AnalysisTools
         }
     }
 
+    [McpServerTool(Name = "maskfeat", Title = "Alignment — EMBOSS maskfeat (mask the regions of features)", ReadOnly = true)]
+    [Description("EMBOSS 6.6.0 maskfeat: the regions of the features of the wanted types are masked in the sequences of a file (any input format of seqret that carries features: embl, genbank, refseq, refseqp, swiss, nbrf, gff2, gff3; the feature types are those of the vocabulary, wildcards * and ? allowed, several types separated by blanks, commas, semicolons or bars; the default repeat* masks repeat_region and repeat_unit): the residues become the mask character (default N for nucleotide and X for protein sequences) or lower case (toLower, or a blank or no mask character), and the sequences are returned in FASTA (the sequence type of the program is any: every character that is no letter and no * is dropped). Equals the installed program on 1 200 runs (every input format with features, damaged files, the runs on which the program refuses an input or dies by a fault). A5-8c3g, B09 F249.")]
+    public static MaskfeatToolResult Maskfeat(
+        [Description("The text of the sequence file with features (see the formats above), or a sequence as letters (nothing to mask).")] string sequence,
+        [Description("The input format (-sformat); default: the program finds the format.")] string? sequenceFormat = null,
+        [Description("The feature types to mask (-type): names separated by blanks, commas, semicolons or bars; * and ? wildcards; default repeat*.")] string type = "repeat*",
+        [Description("Make the masked regions lower case (-tolower).")] bool toLower = false,
+        [Description("The mask character (-maskchar, one character; none or a blank = lower case); default N (nucleotide) / X (protein).")] string? maskChar = null,
+        [Description("Sequence input qualifiers as typed after the sequence on the command line: -slower1 -supper1 -snucleotide1 -sprotein1.")] string? qualifiers = null,
+        CancellationToken cancellationToken = default,
+        [Description("More files by name (file name -> text) that sequence may name with a 'format::' prefix.")] IReadOnlyDictionary<string, string>? files = null)
+    {
+        if (string.IsNullOrWhiteSpace(sequence))
+            throw new ArgumentException("The sequence cannot be empty", nameof(sequence));
+        cancellationToken.ThrowIfCancellationRequested();
+        string name = "sequence.dat";
+        var q = global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.Parse(qualifiers) with { Format = sequenceFormat };
+        string spec = sequence.TrimStart().StartsWith("asis::", StringComparison.OrdinalIgnoreCase) ? sequence.Trim() : name;
+        try
+        {
+            var all = new Dictionary<string, string>(files ?? new Dictionary<string, string>()) { [name] = sequence };
+            var o = EmbossMaskfeatPrograms.Maskfeat(new EmbossMaskfeatRequest(spec, all, q, type, toLower, maskChar));
+            if (o.Died)
+                throw new ArgumentException(string.Join("; ", o.Messages.Where(m => m.Length > 0)), nameof(sequence));
+            return new MaskfeatToolResult(o.SequenceText, o.Sequences, [.. o.Messages]);
+        }
+        catch (Exception e) when (e is NotSupportedException or InvalidOperationException)
+        {
+            throw new ArgumentException(e.Message, nameof(sequence));
+        }
+    }
+
     [McpServerTool(Name = "diffseq", Title = "Alignment — EMBOSS diffseq (differences between two sequences)", ReadOnly = true)]
     [Description("EMBOSS 6.6.0 diffseq: the regions of difference between two nearly identical sequences (336 nucleotide / protein pairs, every -rformat: report and both GFF3 feature files byte for byte). The exact word matches of wordSize symbols (the engine and the minimal non-overlapping set of megamerger) are the regions of identity; the stretches between them are the differences (a difference with length 0 in one sequence is an insertion in the other); with globalDifferences the differences before the first and after the last match are reported too (a start or end that matches by itself is not counted). A nucleotide pair also gets the SNP count and its transitions / transversions. Returns the differences and the program's files: the report in the default format 'diffseq' (7 report tags; reportFormat takes any -rformat or the report qualifiers as typed, e.g. '-rformat table -raccshow'), and the GFF3 files -aoutfeat / -boutfeat. The sequence qualifiers of both inputs (-sbegin1 -send1 -sreverse1 -slower1 -supper1 -snucleotide1 ... and the same with 2, given in reportFormat as typed after the files, e.g. '-sbegin1 20 -send1 200 -sreverse2 -rformat table') are applied as the program applies them: the sequence is cut to the range (positions, lengths and the report numbers refer to the cut sequence, the header shows the original range), reversed sequences are reported on the reverse strand; 260 / 260 runs equal the installed program. The inputs may be the text of a GenBank or EMBL file: its features (type, location with complement / join / order, qualifiers) are read as the program reads them, follow -sbegin / -send / -sreverse, and the features that overlap a difference are listed with it (first_feature / second_feature, the 'Feature:' lines of the diffseq report); the feature files -aoutfeat / -boutfeat are written in any output feature format of the program (-offormat4 / -offormat5: gff, gff2, gff3, bed, embl, genbank, ddbj, refseq, refseqp, pir, swiss, dasgff, draw, debug and their aliases, or the 'format::' prefix of the file name; a format the program refuses for the kind of sequence - embl for protein, pir for nucleotide - gives an empty file; 1 100 runs equal the installed program); 870 runs equal the installed program (420 with the usual qualifiers, 450 with the tags the program checks with a special validator - bad values become notes, correctable ones are corrected), including its loss of the features of a GenBank entry whose SOURCE block is followed directly by FEATURES. The features of a sequence can come from a SEPARATE file: -ufo1 / -ufo2 ([format::]file), -fformat1, -fopenfile1 (and the same with 2) in reportFormat name files given in featureFiles (file name -> text), read in every input format of the EMBOSS feature readers (embl, genbank, refseq, genpept, refseqp, gff2, gff3, the gff3 of EMBOSS before 6.4, swiss, pir, dasgff; with no format every format is tried; featcopy / seqret traces of 7 800 files equal, 450 diffseq runs equal); a UFO switches the features of the sequence file off. Not read: SwissProt / GFF / GenPept files as the SEQUENCE input.")]
     public static DiffseqToolResult Diffseq(
