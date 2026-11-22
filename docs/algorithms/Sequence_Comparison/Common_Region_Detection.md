@@ -73,9 +73,8 @@ When several distinct substrings share the maximal length, multiple answers exis
 
 1. Build the suffix tree of `sequence1` (cached on the `DnaSequence`).
 2. **FindLongestCommonRegion:** call `FindAllLongestCommonSubstrings(sequence2)`, which streams `sequence2` through the tree with suffix links (matching statistics) and tracks the deepest common match; return the substring with the first entries of its (ascending) position lists, or `CommonRegion.None` if empty.
-3. **FindCommonRegions:** compute the matching statistics ms(i) of `sequence2` against the tree of `sequence1`:
-   - *Short matches* (ms(i) < K, K = ⌈log₄(n·m)⌉ + 2): ms(i) ≥ ms(i−1) − 1, so the match is carried over from the previous start and extended one base at a time with `Contains` probes of at most K characters (O(m·K) in total).
-   - *Long matches* (ms(i) ≥ max(K, minLength)): from the canonical suffix-link maximal-exact-match stream `FindMaximalExactMatches(sequence2, max(K, minLength))` (MUMmer `-maxmatch`): the longest match at `i` lies on a diagonal whose maximal run is a MEM, hence ms(i) = max over MEMs with query start ≤ i of (start + length − i). Between unrelated random sequences the expected number of MEMs of length ≥ K is O(1).
+3. **FindCommonRegions** (R14-4a): the matching statistics ms(i) of `sequence2` against `sequence1` come from the **suffix automaton** (DAWG; Blumer et al. 1985, Crochemore & Rytter 2003 §5.3) of the REVERSE of `sequence1` (internal `MatchingStatisticsAutomaton`): reading the reverse of `sequence2` through it, after the character that is `sequence2[i]` the current length is ms(i) (the longest prefix of `sequence2[i..]` that occurs in `sequence1`: Chang & Lawler 1994; Gusfield 1997 §7.8) and the current state identifies the string. A (state, length) pair identifies one distinct substring, so the regions are deduplicated without comparing strings; the lowest occurrence in `sequence1` is `n - 1 - maxEnd(state)` where `maxEnd` is the largest end position of the state in the reversed text (propagated up the suffix links once, longest states first). O(n + m) time, 2n states x (alphabet + 3) ints, no suffix tree; a symbol outside A/C/G/T matches nothing (code -1 in the query, one separator code in the text). The automaton of a `DnaSequence` is cached with the sequence (`ConditionalWeakTable`).
+   - The coordinates-only `FindCommonRegionSpans` returns `(PositionInFirst, PositionInSecond, Length, IsReverseComplement)` without building any string: O(n + m + R) however large the regions are (the MCP `find_common_regions` option `includeSequence = false`).
    - Report each distinct `sequence2[i..i+ms(i)]` (ms(i) ≥ max(1, minLength)) once, in order of first start, with the lowest occurrence in `sequence1` and start `i`.
 
 ### 4.3 Complexity
@@ -83,7 +82,7 @@ When several distinct substrings share the maximal length, multiple answers exis
 | Operation | Time | Space | Notes |
 |-----------|------|-------|-------|
 | FindLongestCommonRegion | O(n + m) | O(n) | suffix-tree construction + suffix-link streaming [3] |
-| FindCommonRegions | O(n + m·K + R) + Σ\|region\| | O(n + m + R) | K = ⌈log₄(n·m)⌉ + 2; R = number of maximal matches of length ≥ max(K, minLength); Σ\|region\| is the size of the reported strings. 1 Mbp random pair: ≈ 4 s (Debug); the former per-start binary search over `Contains` copied up to m characters per probe, O(m²), ≈ 2.6 s at 100 kbp growing quadratically |
+| FindCommonRegions | O(n + m) + Σ\|region\| | O(n + m) | Σ\|region\| is the size of the reported strings (poly-A n against n: n regions of average length n / 2, 384 MB at n = 20 000); `FindCommonRegionSpans` is O(n + m + R). Measured (Debug): poly-A n = 2 500 / 5 000 / 10 000 / 20 000 was 1.45 / 5.97 / 24.3 / 99.6 s (1.5 GB) with the suffix-tree MEM engine, now 7 / 1 / 3 / 5 ms for the coordinates and 11 / 17 / 62 / 231 ms with the strings; (AC)n 10 000 12.5 s -> 20 ms; random 2 Mbp pair, minLength 12: 1.6 s / 181 MB |
 
 ## 5. Implementation Notes
 

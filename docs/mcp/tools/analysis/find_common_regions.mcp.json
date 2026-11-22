@@ -33,6 +33,11 @@
     "type": "string",
     "description": "Which strands of sequence2 (case-insensitive): Forward (default) | ReverseComplement | Both.",
     "default": "Forward"
+   },
+   "includeSequence": {
+    "type": "boolean",
+    "description": "true (default): every region carries its string. false: coordinates only (positionInFirst, positionInSecond, length), no string is built - the cost of mode RightMaximal is then O(n + m + regions) whatever the region lengths (a poly-A pair of length 20 000 has 20 000 regions of average length 10 000: 200 M characters as strings).",
+    "default": true
    }
   },
   "required": [
@@ -50,7 +55,8 @@
      "type": "object",
      "properties": {
       "sequence": {
-       "type": "string"
+       "type": "string",
+       "description": "the common string; omitted when includeSequence is false"
       },
       "positionInFirst": {
        "type": "integer"
@@ -67,7 +73,6 @@
       }
      },
      "required": [
-      "sequence",
       "positionInFirst",
       "positionInSecond",
       "length"

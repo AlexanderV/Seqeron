@@ -113,3 +113,5 @@ Other tests (M1–M4, S1–S4, C1, C2) assert exact sourced values and cover the
 - **Audit A4-2 (F158):** resource guards: `SeqMatchAll` / `MegaMerge` (`WordMatchMaxMatches`).
 
 - **Audit r5 / r6 (A5-7, A6-2, A6-4, A6-5; F172, F177, F179, F180):** `megamerger` merges the trimmed sequences, `seqmatchall` ignores `-sbegin` / `-send` and numbers a `-sreverse` set from the end (180 oracle rows each); the qualifier text resolves like the ACD library; `MegaMerge` / `SeqMatchAll` refuse null members with the parameter name and index; `wordSize = int.MaxValue` finishes at once (the program's `No match found` refusal / no match).
+
+- **Audit R14-4a (F291):** `FindCommonRegions` computes ms(i) with the suffix automaton of the reverse of the first sequence (O(n + m), no suffix tree; poly-A 20 000 99.6 s -> 5 ms coordinates / 231 ms strings); `FindCommonRegionSpans` (coordinates only) + MCP `includeSequence`; the duplicate tree-based `MatchingStatistics` of the facade is deleted.

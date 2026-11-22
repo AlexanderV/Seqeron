@@ -35,12 +35,13 @@ reported. `minLength` below 1 is treated as 1. Both inputs must be valid DNA.
 | `minLength` | integer | Yes | Minimum common-region length (mummer -l); values below 1 are treated as 1. |
 | `mode` | string | No | Which regions (case-insensitive): RightMaximal (default) \| MaximalExactMatches \| MaximalUniqueReference \| MaximalUnique. |
 | `strands` | string | No | Which strands of sequence2 (case-insensitive): Forward (default) \| ReverseComplement \| Both. |
+| `includeSequence` | boolean | No | true (default): every region carries its string. false: coordinates only (positionInFirst, positionInSecond, length), no string is built - the cost of mode RightMaximal is then O(n + m + regions) whatever the region lengths (a poly-A pair of length 20 000 has 20 000 regions of average length 10 000: 200 M characters as strings). |
 
 ## Output Schema
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `items` | array | Regions: `sequence, positionInFirst, positionInSecond, length` |
+| `items` | array | Regions: `sequence` (omitted when `includeSequence` is false), `positionInFirst, positionInSecond, length` |
 
 ## Errors
 

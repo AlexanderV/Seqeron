@@ -231,3 +231,7 @@
 |---|---|---|
 | A4-9 | `GenomicAnalyzer_MegaMerge_Tests.MegaMerge_EqualsMegamerger_OnTheEdgeCaseRows` | 480 rows (`megamerger_edge_oracle.jsonl`): lower-case-only, one lower / one upper, N runs longer than the word, short / identical / nested sequences, status ok / nomerge / abort |
 
+
+## Audit R14-4a (B09 F291): matching statistics by the suffix automaton
+
+`GenomicAnalyzer_CommonRegionsAutomaton_Tests`: the right-maximal regions (DnaSequence, string and coordinates-only overloads, forward / reverse / both strands) equal an independent brute force (ms(i) by naive extension, distinct strings, lowest occurrence by `IndexOf`) on 400 random / low-complexity pairs and 120 reverse-strand pairs; the documented example `ACGTACGT` / `TTACGTGG` min 3 = {TACGT, ACGT, CGT}; poly-A and (AC)n of 20 000 run in linear time, allocate < 60 MB for the coordinates and build no suffix tree; strings equal spans; cancellation; null. MCP `find_common_regions` `includeSequence = false` = the same list without the strings.
