@@ -44,6 +44,7 @@
     <!-- ALIGN-LOCAL-001 (audit A4-9): 720 edge rows of dotmatcher (lower case, ambiguity codes, *, gap characters, default matrix, window >= length); scripts/alignment/generate_dotmatcher_edge_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\dotmatcher_edge_oracle.tsv" />
     <!-- ALIGN-MULTI-001 (audit A4-7): minimap2 2.26 print-seeds on 1 980 cases (frequent minimizers, f / U, H, T, X, for-only / rev-only); scripts/alignment/generate_minimap2_seed_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\emboss_prog_*_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\minimap2_seed_oracle.jsonl.gz" />
     <!-- ALIGN-MULTI-001 (audit A4-7): minimap2 2.26 PAF lines (primary / secondary, long-join, rmq, chaining options); scripts/alignment/generate_minimap2_map_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\minimap2_map_oracle.jsonl.gz" />

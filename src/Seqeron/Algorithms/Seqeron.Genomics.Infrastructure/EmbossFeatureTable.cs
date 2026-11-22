@@ -51,6 +51,9 @@ internal sealed class EmbossFeatureReadContext
     /// <summary><c>ajUtilGetProgram</c>: the source of a feature without one.</summary>
     public string Program = "featcopy";
 
+    /// <summary><c>acdInTypeSeqName</c>: the ACD type (lower case) of the first sequence input of the program; the type of a sequence output that has none of its own (null: no input yet).</summary>
+    public string? InputType;
+
     /// <summary>The library called <c>ajFatal</c>: the program ended at once with the message (no <c>Died:</c> line of the ACD follows).</summary>
     public bool Fatal;
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A6-2 (B09 F177): the qualifier universe of the 16 ported EMBOSS 6.6.0 programs, read from `<program> -help -verbose`, as the C# table
+"""A6-2 (B09 F177): the qualifier universe of the ported EMBOSS 6.6.0 programs, read from `<program> -help -verbose`, as the C# table
 src/Seqeron/Algorithms/Seqeron.Genomics.Infrastructure/EmbossAcdProfiles.g.cs.
 
 The ACD command-line resolver (ajacd.c acdArgsParse / acdIsQual / acdFindQualDetail / acdFindQualAssoc / acdFindQualMaster) matches a qualifier against EVERY qualifier of the program (parameters,
@@ -10,7 +10,10 @@ Usage: python3 scripts/alignment/generate_emboss_acd_profiles.py > src/Seqeron/A
 """
 import re, subprocess, sys
 
-PROGRAMS = ['needle', 'water', 'stretcher', 'matcher', 'supermatcher', 'needleall', 'merger', 'megamerger', 'seqmatchall', 'fuzznuc', 'fuzzpro', 'fuzztran', 'etandem', 'equicktandem', 'dotmatcher', 'distmat', 'diffseq', 'wordmatch', 'est2genome', 'seqret', 'extractfeat', 'showfeat', 'featreport', 'twofeat', 'maskfeat', 'coderet', 'union', 'descseq', 'seqretsplit', 'entret']
+PROGRAMS = ['needle', 'water', 'stretcher', 'matcher', 'supermatcher', 'needleall', 'merger', 'megamerger', 'seqmatchall', 'fuzznuc', 'fuzzpro', 'fuzztran', 'etandem', 'equicktandem', 'dotmatcher', 'distmat', 'diffseq', 'wordmatch', 'est2genome', 'seqret', 'extractfeat', 'showfeat', 'featreport', 'twofeat', 'maskfeat', 'coderet', 'union', 'descseq', 'seqretsplit', 'entret',
+            'getorf', 'sixpack', 'showorf', 'checktrans', 'tcode', 'plotorf', 'showseq', 'prettyseq', 'revseq', 'transeq', 'extractseq', 'cutseq', 'degapseq', 'trimseq', 'trimspace', 'trimest', 'vectorstrip', 'skipseq',
+            'nthseq', 'nthseqset', 'notseq', 'pasteseq', 'listor', 'msbar', 'shuffleseq', 'maskseq', 'maskambignuc', 'maskambigprot', 'nospace', 'notab', 'noreturn', 'makenucseq', 'makeprotseq', 'newseq', 'infoseq',
+            'seqcount', 'wordcount', 'wordfinder', 'splitter', 'yank', 'seqxref', 'patmatmotifs', 'patmatdb', 'preg', 'dreg', 'tfscan', 'marscan']
 
 
 def profile(prog):

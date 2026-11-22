@@ -252,7 +252,9 @@ internal static partial class EmbossSeqWrite
                 b.Append(c switch { 'A' or 'a' => '0', 'T' or 't' or 'U' or 'u' => '1', 'G' or 'g' => '2', 'C' or 'c' => '3', _ => '?' });
             }
 
-            o.Append(seq.Name).Append('\n').Append(b).Append('\n');
+            o.Append(seq.Name).Append('\n');
+            if (b.Length > 0)
+                o.Append(b).Append('\n');                              // ajWritelineNewline of an empty string writes nothing (fwrite returns 0: no newline either)
         }
 
         o.Append(";\n");

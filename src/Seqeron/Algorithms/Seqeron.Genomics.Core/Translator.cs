@@ -1,4 +1,5 @@
 using System.Text;
+using Seqeron.Genomics.Infrastructure;
 
 namespace Seqeron.Genomics.Core
 {
@@ -370,6 +371,45 @@ namespace Seqeron.Genomics.Core
             return FindOrfsGetOrfCore(normalized, settings, searchBothStrands, circular);
         }
 
+        /// <summary>
+        /// The model of the EMBOSS 6.6.0 <c>getorf</c> PROGRAM (B09 WP61, F280): <c>getorf_FindORFs</c> of <c>getorf.c</c> statement by statement on the residues as the program holds them (any case, U kept, the
+        /// reverse strand by <c>ajSeqstrReverse</c>), with the translation tables of the EMBOSS genetic code files <c>EGC.n</c> (<c>ajtrn.c</c>: table 0 = standard with AUG start only; the ambiguity codes by
+        /// <c>trnComplete</c>). Differences from <see cref="FindOrfs(string, OrfFindMode, GeneticCode?, int, int, int, bool, bool, bool)"/> (which classifies codons by the NCBI tables and corrects four quirks of the
+        /// program): a START codon at the last complete codon of its frame opens an ORF that is never written, the full-length record of a circular frame without STOP is always the translation and its frame-3 size
+        /// test is <c>&gt;= maxsize</c>, ambiguity codes follow <c>trnComplete</c>.
+        /// </summary>
+        /// <param name="sequence">The residues of the sequence (nucleotide letters of any case).</param>
+        /// <param name="mode">The getorf <c>-find</c> mode.</param>
+        /// <param name="emboss">The number of the EMBOSS genetic code file (0..6, 9..16, 21..23).</param>
+        /// <param name="minSize">getorf <c>-minsize</c> (nucleotides).</param>
+        /// <param name="maxSize">getorf <c>-maxsize</c> (nucleotides).</param>
+        /// <param name="flanking">getorf <c>-flanking</c>.</param>
+        /// <param name="searchBothStrands">getorf <c>-reverse</c>.</param>
+        /// <param name="methionine">getorf <c>-methionine</c>.</param>
+        /// <param name="circular">getorf <c>-circular</c>.</param>
+        /// <returns>The records in getorf output order; the k-th is <c>name_k</c>.</returns>
+        /// <exception cref="ArgumentException">There is no genetic code file <c>EGC.n</c>.</exception>
+        public static IEnumerable<OrfFeature> FindOrfsGetorfProgram(string sequence, OrfFindMode mode, int emboss = 0,
+            int minSize = GetOrfDefaultMinSize, int maxSize = GetOrfDefaultMaxSize, int flanking = GetOrfDefaultFlanking,
+            bool searchBothStrands = true, bool methionine = true, bool circular = false)
+        {
+            ArgumentNullException.ThrowIfNull(sequence);
+            if (!Enum.IsDefined(mode))
+                throw new ArgumentOutOfRangeException(nameof(mode), mode, "Unknown getorf -find mode (0–6).");
+            EmbossTrn trn;
+            try
+            {
+                trn = EmbossTrn.New(emboss);
+            }
+            catch (EmbossFatalException e)
+            {
+                throw new ArgumentException(e.Message.TrimEnd('\n'), nameof(emboss), e);
+            }
+
+            var settings = new GetOrfSettings(mode, GeneticCode.Standard, minSize, maxSize, flanking, methionine, trn);
+            return FindOrfsGetOrfCore(sequence, settings, searchBothStrands, circular);
+        }
+
         private static GetOrfSettings CreateGetOrfSettings(OrfFindMode mode, GeneticCode? geneticCode,
             int minSize, int maxSize, int flanking, bool methionine)
         {
@@ -382,8 +422,12 @@ namespace Seqeron.Genomics.Core
             return new GetOrfSettings(mode, code, minSize, maxSize, flanking, methionine);
         }
 
+        // Trn != null: the model of the getorf PROGRAM (B09 WP61, F280): the codons are classified by the EMBOSS translation table of that genetic code file (ajtrn.c: wobble and
+        // "most ambiguous codon" resolution of ambiguity codes, start codons of the Starts line), the residues are scanned as they are (case, U) and the control flow is that of getorf_FindORFs
+        // statement by statement (a START at the last codon of its frame opens an ORF that is never written; the full-length record of a circular frame that has no STOP is the translation, in every
+        // mode, and its frame-3 size test is the one of getorf.c).
         private readonly record struct GetOrfSettings(OrfFindMode Mode, GeneticCode Code,
-            int MinSize, int MaxSize, int Flanking, bool Methionine);
+            int MinSize, int MaxSize, int Flanking, bool Methionine, EmbossTrn? Trn = null);
 
         private static IEnumerable<OrfFeature> FindOrfsGetOrfCore(string sequence, GetOrfSettings settings,
             bool searchBothStrands, bool circular)
@@ -402,8 +446,8 @@ namespace Seqeron.Genomics.Core
 
             if (searchBothStrands)
             {
-                foreach (var feature in ScanGetOrf(DnaSequence.GetReverseComplementString(scanned), length, settings,
-                    isReverseComplement: true, circular))
+                string reverse = settings.Trn is not null ? EmbossNuc.ReverseComplement(scanned) : DnaSequence.GetReverseComplementString(scanned);
+                foreach (var feature in ScanGetOrf(reverse, length, settings, isReverseComplement: true, circular))
                     yield return feature;
             }
         }
@@ -445,9 +489,22 @@ namespace Seqeron.Genomics.Core
                 if (finished[frame])
                     continue;
 
-                string codon = sequence.Substring(pos, CodonLength);
-                char aa = s.Code.Translate(codon);
-                bool isStop = aa == '*';
+                char aa;
+                bool isStop, isStartCodon;
+                if (s.Trn is { } trn)
+                {
+                    int type = trn.CodonType(sequence, pos, out aa);
+                    isStop = type == -1;
+                    isStartCodon = type == 1;
+                }
+                else
+                {
+                    string codon = sequence.Substring(pos, CodonLength);
+                    aa = s.Code.Translate(codon);
+                    isStop = aa == '*';
+                    isStartCodon = startToStop && !open[frame] && IsOrfStartCodon(s.Code, codon);
+                }
+
                 // getorf: pos >= seqlen-5 is the last complete codon of this frame.
                 bool isLastCodon = pos + 2 * CodonLength > n;
                 bool pastGenomeEnd = circular && pos >= len;
@@ -483,7 +540,7 @@ namespace Seqeron.Genomics.Core
                         AppendGetOrf(buffer[frame], sequence, pos, aa, storesProtein);
                     }
                 }
-                else if (!open[frame] && IsOrfStartCodon(s.Code, codon))
+                else if (!open[frame] && isStartCodon)
                 {
                     // A START past the end of a circular genome opens nothing (getorf: if(pos < len)).
                     if (pos < len)
@@ -522,7 +579,7 @@ namespace Seqeron.Genomics.Core
 
             // Documented divergence from getorf: on a linear sequence a START that is the last complete
             // codon of its frame is still open here (getorf drops it); report it as a one-codon open ORF.
-            if (startToStop && !circular)
+            if (startToStop && !circular && s.Trn is null)
             {
                 for (int f = 0; f < ReadingFramesPerStrand; f++)
                 {
@@ -542,6 +599,16 @@ namespace Seqeron.Genomics.Core
                 {
                     if (gotStop[f])
                         continue;
+                    if (s.Trn is { } emboss)
+                    {
+                        // getorf.c: ajTrnSeqOrig of the frame, whatever the mode; the size test of frame 3 compares with the maximum the wrong way round (>= maxsize)
+                        string pep = emboss.SeqOrig(sequence, f + 1, false);
+                        if (pep.Length >= min && (f == 2 ? pep.Length >= max : pep.Length <= max)
+                            && TryBuildGetOrfFeature(sequence, len, s, isReverseComplement, f, n - 1, false, new StringBuilder(pep), out var embossFeature))
+                            yield return embossFeature;
+                        continue;
+                    }
+
                     var whole = new StringBuilder();
                     int pos = f;
                     for (; pos + CodonLength <= n; pos += CodonLength)

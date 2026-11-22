@@ -39,6 +39,9 @@ internal sealed class EmbossSeqall
     private bool _rev;
     private EmbossSeq? _first;
 
+    // the sequence object of the stream is one object that every read refills (ajSeqClear does not reset Offset and Offend: they stay from the sequence before; B09 WP61, F280)
+    private EmbossSeq? _last;
+
     /// <summary>The name of the configuration file in the messages of the library (the generator of the oracles replaces the path of the work directory by this name).</summary>
     internal const string ConfigName = "<WORK>/.embossrc";
 
@@ -140,7 +143,11 @@ internal sealed class EmbossSeqall
 
         if (single)
         {
-            // acdSetSeq: the range comes with the sequence (the begin and end of the input); a nucleotide sequence that is to be reversed is reversed at once
+            // acdSetSeq: the range comes with the sequence (the begin and end of the USA), -sbegin / -send replace it; a nucleotide sequence that is to be reversed is reversed at once
+            if (q.Begin != 0)
+                first.Begin = q.Begin;
+            if (q.End != 0)
+                first.End = q.End;
             if (first.Type == "N" && q.Reverse)
             {
                 o.Rev = true;
@@ -212,12 +219,20 @@ internal sealed class EmbossSeqall
             if (seq is null)
                 return null;
             _count++;
+            if (_last is not null)
+            {
+                if (seq.Offset == 0)
+                    seq.Offset = _last.Offset;
+                if (seq.Offend == 0)
+                    seq.Offend = _last.Offend;
+            }
         }
 
         if (_rev)
             EmbossSeqRange.SetRangeRev(seq!, _begin, _end);
         else
             EmbossSeqRange.SetRange(seq!, _begin, _end);
+        _last = seq;
         return seq;
     }
 

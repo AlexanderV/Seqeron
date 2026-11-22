@@ -257,6 +257,21 @@ public sealed record EmbossSequenceQualifiers
         };
     }
 
+    /// <summary>The sequence qualifiers of the input <paramref name="master"/> from the values a resolved command line gave to its associated qualifiers (B09 WP61, F280).</summary>
+    /// <exception cref="ArgumentException">A value that is not valid for its qualifier.</exception>
+    internal static EmbossSequenceQualifiers FromAssociated(AcdItem master, Func<AcdItem, string?> value, bool fileInput)
+    {
+        var q = None;
+        foreach (var item in master.Assoc)
+        {
+            string? raw = value(item);
+            if (raw is not null)
+                q = Apply(q, item, raw, "", fileInput);
+        }
+
+        return q;
+    }
+
     private static EmbossSequenceQualifiers Apply(EmbossSequenceQualifiers q, AcdItem item, string raw, string commandLine, bool fileInput = false)
     {
         if (item.Type == "integer")

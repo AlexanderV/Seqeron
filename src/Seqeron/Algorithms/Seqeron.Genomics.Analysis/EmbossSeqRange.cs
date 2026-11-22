@@ -56,20 +56,7 @@ internal static class EmbossSeqRange
         }
     }
 
-    // ajSeqstrReverse: ajBaseAlphacharComp of every character ("ACGTURYWSMKBDHVNXacgturywsmkbdhvnx" -> "TGCAAYRWSKMVHDBNXtgcaayrwskmvhdbnx", every other character is kept) from the end
-    private static string ReverseComplement(string s)
-    {
-        const string fwd = "ACGTURYWSMKBDHVNXacgturywsmkbdhvnx", rev = "TGCAAYRWSKMVHDBNXtgcaayrwskmvhdbnx";
-        return string.Create(s.Length, s, static (dest, src) =>
-        {
-            for (int i = 0; i < src.Length; i++)
-            {
-                char c = src[src.Length - 1 - i];
-                int k = fwd.IndexOf(c, StringComparison.Ordinal);
-                dest[i] = k >= 0 ? rev[k] : c;
-            }
-        });
-    }
+    private static string ReverseComplement(string s) => EmbossNuc.ReverseComplement(s);
 
     /// <summary>
     /// <c>ajSeqTrim</c>: the sequence is cut to its range (a program that works on the residues of the range: union ...); the offsets and the range of the feature table follow. Nothing is cut when the end is before the begin.

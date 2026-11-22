@@ -695,83 +695,11 @@ internal sealed partial class EmbossSeqin
             return true;
         }
 
-        if (_opt.SequenceType == "dna")
-            return TypeCheckDna(t, text, tail);
-        if (_opt.SequenceType == "any")
-        {
-            // ungapped type: ajStrRemoveGap keeps the letters and '*'
-            var kept = new StringBuilder(t.Seq.Length);
-            foreach (char c in text)
-            {
-                if (char.IsAsciiLetter(c) || c == '*')
-                    kept.Append(c);
-            }
-
-            t.Seq.Clear().Append(kept).Append(tail);
-            return true;
-        }
-
-        var sb = new StringBuilder(t.Seq.Length);
-        bool allGood = true;
-        foreach (char ch in text)
-        {
-            char c = ch is '~' or '.' ? '-' : ch;
-            if (!(char.IsAsciiLetter(c) || c is '*' or '-' or '?'))
-                allGood = false;
-            sb.Append(c);
-        }
-
-        string s = sb.ToString();
-        if (!allGood)
-        {
-            // seqTypeFix: the characters that are not good ones become N (a nucleotide) or X
-            bool nuc = t.Type == "N" || (t.Type.Length == 0 && IsNucleotideText(s));
-            var fixedSeq = new StringBuilder(s.Length);
-            foreach (char c in s)
-                fixedSeq.Append(char.IsAsciiLetter(c) || c is '*' or '-' or '?' ? c : nuc ? 'N' : 'X');
-            s = fixedSeq.ToString();
-        }
-
-        t.Seq.Clear().Append(s.Replace('?', 'X')).Append(tail);
-        return true;
-    }
-
-    // ajSeqTypeCheckIn of the type dna (the type of the sequence input of coderet): the gaps are removed, a sequence that is not nucleic is refused ("Sequence is not nucleic"), the characters that are no nucleotide codes
-    // become N (seqTypeFix), U becomes T and X, ? become N
-    private bool TypeCheckDna(EmbossSeq t, string text, string tail)
-    {
-        var kept = new StringBuilder(text.Length);
-        foreach (char c in text)
-        {
-            if (char.IsAsciiLetter(c) || c == '*')
-                kept.Append(c);
-        }
-
-        string s = kept.ToString();
-        t.Seq.Clear().Append(s).Append(tail);
-        if (!(t.Type == "N" || (t.Type != "P" && IsNucleotideText(s))))
-        {
-            _context.Error("Sequence is not nucleic\n");
-            return false;
-        }
-
-        t.SetNuc();
-        s = t.Seq.ToString();
-        string tailPart = tail;
-        if (tailPart.Length > 0)
-            s = s[..^tailPart.Length];
-        const string good = "ACGTUBDHKMNRSVWXY?";
-        var sb = new StringBuilder(s.Length);
-        foreach (char c in s)
-        {
-            char u = char.ToUpperInvariant(c);
-            char r = good.Contains(u, StringComparison.Ordinal) ? c : 'N';          // seqTypeFixReg: the characters that are no nucleotide codes become N
-            r = r switch { '?' or 'X' => 'N', 'x' => 'n', 'U' => 'T', 'u' => 't', _ => r };
-            sb.Append(r);
-        }
-
-        t.Seq.Clear().Append(sb).Append(tail);
-        return true;
+        // ajSeqTypeCheckIn of the ACD type of the input (EmbossSeqType: the table of ajseqtype.c)
+        t.Seq.Clear().Append(text);
+        bool ok = EmbossSeqType.CheckIn(t, _opt.SequenceType, m => _context.Error(m));
+        t.Seq.Append(tail);
+        return ok;
     }
 
     // ---------------------------------------------------------------------------------------------------------------- the readers
