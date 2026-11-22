@@ -17,7 +17,7 @@ public static partial class SequenceAligner
     /// <param name="matrix">Residue-pair scores (<c>-datafile</c>); default EDNAFULL for nucleotide sequences, BLOSUM62 (EBLOSUM62) otherwise.</param>
     /// <param name="gapOpen">Cost of a gap of length one (<c>-gapopen</c>, default 10).</param>
     /// <param name="gapExtend">Cost of each further gap position (<c>-gapextend</c>, default 0.5).</param>
-    /// <returns>The local alignment: its rows, <see cref="AlignmentResult.StartPosition1"/> / <see cref="AlignmentResult.StartPosition2"/> (0-based first aligned residues), the ends, and the single-precision score.</returns>
+    /// <returns>The local alignment: its rows, <see cref="AlignmentResult.StartPosition1"/> / <see cref="AlignmentResult.StartPosition2"/> (0-based first aligned residues), the 0-based inclusive ends (like every local result), and the single-precision score.</returns>
     public static AlignmentResult WaterAlign(string sequence1, string sequence2, SubstitutionMatrix? matrix = null, double gapOpen = 10, double gapExtend = 0.5)
     {
         ArgumentNullException.ThrowIfNull(sequence1);
@@ -27,12 +27,12 @@ public static partial class SequenceAligner
         RequireEmbossRange(gapOpen, 1, 100, nameof(gapOpen), "-gapopen", "water");
         RequireEmbossRange(gapExtend, 0, 10, nameof(gapExtend), "-gapextend", "water");
         if (sequence1.Length == 0 || sequence2.Length == 0)
-            return new AlignmentResult("", "", 0, AlignmentType.Local, 0, 0, 0, 0);
+            return new AlignmentResult("", "", 0, AlignmentType.Local, -1, -1, -1, -1);
         matrix ??= EmbossSequenceReader.IsNucleotide(sequence1) && EmbossSequenceReader.IsNucleotide(sequence2) ? SubstitutionMatrix.EdnaFull : SubstitutionMatrix.Blosum62;
         var (score, r1, r2, start1, start2) = WaterCore(sequence1, sequence2, matrix, RoundFloat((float)gapOpen, 8), RoundFloat((float)gapExtend, 8));
         int len1 = r1.Count(c => c != '-');
         int len2 = r2.Count(c => c != '-');
-        return new AlignmentResult(r1, r2, (int)Math.Round(score, MidpointRounding.AwayFromZero), AlignmentType.Local, start1, start2, start1 + len1, start2 + len2) { ExactScore = score };
+        return new AlignmentResult(r1, r2, (int)Math.Round(score, MidpointRounding.AwayFromZero), AlignmentType.Local, start1, start2, start1 + len1 - 1, start2 + len2 - 1) { ExactScore = score };
     }
 
     private static (float Score, string Row1, string Row2, int Start1, int Start2) WaterCore(string s1, string s2, SubstitutionMatrix matrix, float gapopen, float gapextend)

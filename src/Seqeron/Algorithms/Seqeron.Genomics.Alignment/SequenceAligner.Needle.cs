@@ -22,7 +22,7 @@ public static partial class SequenceAligner
     /// <param name="endWeight"><c>-endweight</c>: apply the end-gap penalties (default false: end gaps are free).</param>
     /// <param name="endOpen"><c>-endopen</c>: cost of an end gap of length one (default 10; used only with <paramref name="endWeight"/>).</param>
     /// <param name="endExtend"><c>-endextend</c>: cost of each further end-gap position (default 0.5; used only with <paramref name="endWeight"/>).</param>
-    /// <returns>The global alignment (full rows, coordinates 0 .. length); <see cref="AlignmentResult.ExactScore"/> is the single-precision score of the program, <see cref="AlignmentResult.Score"/> its rounding.</returns>
+    /// <returns>The global alignment (full rows, coordinates 0 .. length − 1 like every global result); <see cref="AlignmentResult.ExactScore"/> is the single-precision score of the program, <see cref="AlignmentResult.Score"/> its rounding.</returns>
     public static AlignmentResult NeedleAlign(string sequence1, string sequence2, SubstitutionMatrix? matrix = null, double gapOpen = 10, double gapExtend = 0.5, bool endWeight = false, double endOpen = 10, double endExtend = 0.5)
     {
         ArgumentNullException.ThrowIfNull(sequence1);
@@ -37,7 +37,7 @@ public static partial class SequenceAligner
             throw new ArgumentException("EMBOSS needle cannot align an empty sequence.", sequence1.Length == 0 ? nameof(sequence1) : nameof(sequence2));
         matrix ??= EmbossSequenceReader.IsNucleotide(sequence1) && EmbossSequenceReader.IsNucleotide(sequence2) ? SubstitutionMatrix.EdnaFull : SubstitutionMatrix.Blosum62;
         var (score, r1, r2) = NeedleCore(sequence1, sequence2, matrix, RoundFloat((float)gapOpen, 8), RoundFloat((float)gapExtend, 8), (float)endOpen, (float)endExtend, endWeight);
-        return new AlignmentResult(r1, r2, (int)Math.Round(score, MidpointRounding.AwayFromZero), AlignmentType.Global, 0, 0, sequence1.Length, sequence2.Length) { ExactScore = score };
+        return new AlignmentResult(r1, r2, (int)Math.Round(score, MidpointRounding.AwayFromZero), AlignmentType.Global, 0, 0, sequence1.Length - 1, sequence2.Length - 1) { ExactScore = score };
     }
 
     /// <summary>ajRoundFloat (ajmath.c): keeps FLT_MANT_DIG - nbits (at least 8) mantissa bits, a remainder of exactly one half rounds down.</summary>

@@ -15,7 +15,7 @@ public class EmbossReaderGapCharactersTests
         Assert.That(r.ExactScore, Is.EqualTo(58.0));
         Assert.That(r.AlignedSequence1, Is.EqualTo("ACGTTAGCTT*"));
         Assert.That(r.AlignedSequence2, Is.EqualTo("ACGTTAGCTT-"));
-        Assert.That(r.EndPosition1, Is.EqualTo(11));
+        Assert.That(r.EndPosition1, Is.EqualTo(10));      // 0-based inclusive end (R14-1); the program's Length is 11
         var formatted = AlignmentTools.NeedleAlign("AC-GTTAGC.TT*", "ACGTTAGCTT", format: "pair").Formatted;
         Assert.That(formatted, Does.Contain("# Length: 11").And.Contain("# Score: 58.0"));
         Assert.That(AlignmentTools.WaterAlign("AC-GTTAGC.TT*", "ACGTTAGCTT").ExactScore, Is.EqualTo(58.0));

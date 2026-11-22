@@ -90,6 +90,30 @@ public sealed record EmbossAlignedSequence(
     string Usa = "",
     double Weight = 1.0)
 {
+    /// <summary>
+    /// The residues of a sequence of <paramref name="length"/> residues before and after the residues of its aligned <paramref name="row"/> (R14-1). A row that carries every residue of the sequence (global, fitting and ends-free
+    /// results: the free flanks are in the row) has no flank; a row of a local result carries only the aligned residues, which start at <paramref name="start"/> (a result with no aligned residue, start −1, has the
+    /// whole sequence as its end flank). Derived from the row, so it does not depend on the convention of the end coordinates of the <see cref="AlignmentResult"/>.
+    /// </summary>
+    /// <param name="row">The aligned (gapped) row.</param>
+    /// <param name="start">The 0-based index of the first residue of the row in the sequence (<see cref="AlignmentResult.StartPosition1"/> / <see cref="AlignmentResult.StartPosition2"/>).</param>
+    /// <param name="length">The length of the sequence.</param>
+    public static (int Offset, int Offend) Flanks(string row, int start, int length)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        int consumed = 0;
+        foreach (char c in row)
+        {
+            if (c is not ('-' or '.' or '~' or '?' or ' '))
+                consumed++;
+        }
+
+        if (consumed >= length)
+            return (0, 0);
+        int offset = Math.Clamp(start, 0, length - consumed);
+        return (offset, length - offset - consumed);
+    }
+
     /// <summary>The sequence as aligned after the range / orientation of <paramref name="view"/> (A5-7): the cut residues join the offsets, the reverse-complement flag is set.</summary>
     public EmbossAlignedSequence WithView(EmbossSequenceView view)
     {
@@ -118,15 +142,17 @@ public sealed record EmbossPairAlignment(
     string ExtraSubHeader = "")
 {
     /// <summary>
-    /// The EMBOSS view of an <see cref="AlignmentResult"/> of two named sequences: the rows, the residues before (<see cref="AlignmentResult.StartPosition1"/>) and after (length − <see cref="AlignmentResult.EndPosition1"/>) the aligned part
-    /// of each sequence, and <see cref="AlignmentResult.ExactScore"/>.
+    /// The EMBOSS view of an <see cref="AlignmentResult"/> of two named sequences: the rows, the residues before and after the residues of each row
+    /// (<see cref="EmbossAlignedSequence.Flanks"/>: derived from the rows, so independent of the convention of the end coordinates) and <see cref="AlignmentResult.ExactScore"/>.
     /// </summary>
     public static EmbossPairAlignment From(AlignmentResult alignment, string name1, int length1, string name2, int length2)
     {
         ArgumentNullException.ThrowIfNull(alignment);
+        var (offset1, offend1) = EmbossAlignedSequence.Flanks(alignment.AlignedSequence1, alignment.StartPosition1, length1);
+        var (offset2, offend2) = EmbossAlignedSequence.Flanks(alignment.AlignedSequence2, alignment.StartPosition2, length2);
         return new EmbossPairAlignment(
-            new EmbossAlignedSequence(name1, alignment.AlignedSequence1, alignment.StartPosition1, Math.Max(0, length1 - alignment.EndPosition1)),
-            new EmbossAlignedSequence(name2, alignment.AlignedSequence2, alignment.StartPosition2, Math.Max(0, length2 - alignment.EndPosition2)),
+            new EmbossAlignedSequence(name1, alignment.AlignedSequence1, offset1, offend1),
+            new EmbossAlignedSequence(name2, alignment.AlignedSequence2, offset2, offend2),
             alignment.ExactScore);
     }
     /// <summary>

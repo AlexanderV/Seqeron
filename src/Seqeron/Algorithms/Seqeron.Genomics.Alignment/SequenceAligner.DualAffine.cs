@@ -31,6 +31,7 @@ public static partial class SequenceAligner
     /// <param name="sequence2">The second sequence ("query").</param>
     /// <param name="scoring">Match, mismatch and the two gap functions.</param>
     /// <param name="band">Band half-width, or -1 for the full matrix.</param>
+    /// <returns>The alignment; <see cref="AlignmentResult.EndPosition1"/> / <see cref="AlignmentResult.EndPosition2"/> are 0-based INCLUSIVE like those of every other aligner (length − 1 for a global result).</returns>
     public static AlignmentResult GlobalAlignDualAffine(string sequence1, string sequence2, DualAffineScoring scoring, int band = -1) =>
         DualAffineCore(sequence1, sequence2, scoring, band, local: false);
 
@@ -185,7 +186,9 @@ public static partial class SequenceAligner
 
         var x = Reverse(r1);
         var y = Reverse(r2);
-        return new AlignmentResult(x, y, score, local ? AlignmentType.Local : AlignmentType.Global, ti, tj, ei, ej);
+        if (local && x.Length == 0)
+            return new AlignmentResult("", "", 0, AlignmentType.Local, -1, -1, -1, -1);     // no positive-scoring region: the convention of LocalAlign
+        return new AlignmentResult(x, y, score, local ? AlignmentType.Local : AlignmentType.Global, ti, tj, ei - 1, ej - 1);       // 0-based INCLUSIVE ends (R14-1)
     }
 
     private static int Add(int value, int delta) => value <= DualNegative / 2 ? DualNegative : value + delta;

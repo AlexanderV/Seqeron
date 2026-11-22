@@ -37,7 +37,7 @@ public static partial class SequenceAligner
         RequireStretcherRange(matrix, go, ge, s1.Length, s2.Length);
         var engine = new StretcherEngine(s1, s2, matrix, go - ge, ge);
         var (score, rows1, rows2) = engine.Run();
-        return new AlignmentResult(rows1, rows2, score, AlignmentType.Global, 0, 0, s1.Length, s2.Length);
+        return new AlignmentResult(rows1, rows2, score, AlignmentType.Global, 0, 0, s1.Length - 1, s2.Length - 1);
     }
 
     // static state of stretcher.c made instance state: g = G, hh = H, m = g + hh

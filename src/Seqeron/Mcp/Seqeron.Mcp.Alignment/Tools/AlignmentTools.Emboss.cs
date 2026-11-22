@@ -29,7 +29,7 @@ public partial class AlignmentTools
             return QualifiedPairResult("stretcher", result, format, gapOpen ?? (protein ? 12 : 16), gapExtend ?? (protein ? 2 : 4), true, true);
         }
 
-        return FormatPair(StretcherAlignCore(sequence1, sequence2, matrix, gapOpen, gapExtend, cancellationToken), format, EmbossLength(sequence1), EmbossLength(sequence2), names);
+        return FormatPair(StretcherAlignCore(sequence1, sequence2, matrix, gapOpen, gapExtend, cancellationToken), format, EmbossLength(sequence1), EmbossLength(sequence2), names, "stretcher");
     }
 
     private static AlignmentResultDto StretcherAlignCore(

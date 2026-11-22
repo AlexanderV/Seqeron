@@ -95,7 +95,8 @@ public class EmbossProgramToolTests
         var clustal = AlignmentTools.GlobalAlign("ACGT", "ACGT", format: "clustal");
         Assert.That(clustal.Formatted, Does.StartWith("Biopython 1.88 multiple sequence alignment\n\n\nseq1"));
         var pair = AlignmentTools.LocalAlignAffine("ACGTACGT", "ACGTACGT", format: "pair", names: ["a", "b"]);
-        Assert.That(pair.Formatted, Does.StartWith("########################################\n# Program: needle\n"));
+        Assert.That(pair.Formatted, Does.StartWith("########################################\n# Program: water\n"), "a local result is a water report (R14-1)");
+        Assert.That(AlignmentTools.GlobalAlignAffine("ACGT", "ACGT", format: "pair").Formatted, Does.StartWith("########################################\n# Program: needle\n"));
         var emboss = AlignmentTools.GlobalAlign("ACGT", "ACGT", format: "emboss:fasta", names: ["a", "b"]);
         Assert.That(emboss.Formatted, Is.EqualTo(AlignmentTools.WriteAlignment(["ACGT", "ACGT"], "fasta", ["a", "b"]).Text));
         Assert.Throws<ArgumentException>(() => AlignmentTools.GlobalAlign("ACGT", "ACGT", format: "bogus"));

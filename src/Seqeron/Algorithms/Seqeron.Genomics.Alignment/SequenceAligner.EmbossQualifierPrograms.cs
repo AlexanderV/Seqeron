@@ -83,8 +83,7 @@ public static partial class SequenceAligner
         var list = LocalAlignAffineTopN(v1.Residues, v2.Residues, scoring, alternatives, 0, TopNTieOrder.Sim);
         if (list.Count < alternatives)
             throw new InvalidOperationException($"EMBOSS matcher aborts: only {list.Count} alignment(s) exist for -alternatives {alternatives}.");
-        // the SIM list reports inclusive 0-based ends
-        return new EmbossProgramResult([.. list.Select(r => ProgramPair(r with { EndPosition1 = r.EndPosition1 + 1, EndPosition2 = r.EndPosition2 + 1 }, first, v1, second, v2))], "", MatrixFileName(matrix), warnings.ToString());
+        return new EmbossProgramResult([.. list.Select(r => ProgramPair(r, first, v1, second, v2))], "", MatrixFileName(matrix), warnings.ToString());
     }
 
     /// <summary>

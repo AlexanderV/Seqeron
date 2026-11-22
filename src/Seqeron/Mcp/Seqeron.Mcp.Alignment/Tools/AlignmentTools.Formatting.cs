@@ -46,7 +46,7 @@ public partial class AlignmentTools
         return AlignmentFormats.Write([new BioAlignment { Records = records, ColumnAnnotations = column }], bio);
     }
 
-    private static string? FormatRowsForOutput(string? format, string[] rows, string[]? names, double score, int[]? offsets = null, int[]? offends = null)
+    private static string? FormatRowsForOutput(string? format, string[] rows, string[]? names, double score, int[]? offsets = null, int[]? offends = null, string program = "needle")
     {
         if (string.IsNullOrWhiteSpace(format))
             return null;
@@ -61,17 +61,22 @@ public partial class AlignmentTools
         if (!forceEmboss && AlignmentFormats.TryParseFormat(f, out var bio))
             return WriteBiopythonFormat(bio, rows, names, null);
 
-        return WriteAlignment(rows, f, names, null, offsets, offends, score).Text;
+        return WriteAlignment(rows, f, names, null, offsets, offends, score, program: program).Text;
     }
 
-    private static AlignmentResultDto FormatPair(AlignmentResultDto d, string? format, int length1, int length2, string[]? names)
+    private static AlignmentResultDto FormatPair(AlignmentResultDto d, string? format, int length1, int length2, string[]? names, string? program = null)
     {
         if (string.IsNullOrWhiteSpace(format))
             return d;
         double score = d.ExactScore != 0 ? d.ExactScore : d.Score;
-        int[] offsets = [d.StartPosition1, d.StartPosition2];
-        int[] offends = [Math.Max(0, length1 - d.EndPosition1), Math.Max(0, length2 - d.EndPosition2)];
-        return d with { Formatted = FormatRowsForOutput(format, [d.AlignedSequence1, d.AlignedSequence2], names, score, offsets, offends) };
+        // R14-1: the residues before / after each row come from the rows (EmbossAlignedSequence.Flanks), not from the end coordinates
+        var (offset1, offend1) = EmbossAlignedSequence.Flanks(d.AlignedSequence1, d.StartPosition1, length1);
+        var (offset2, offend2) = EmbossAlignedSequence.Flanks(d.AlignedSequence2, d.StartPosition2, length2);
+        int[] offsets = [offset1, offset2];
+        int[] offends = [offend1, offend2];
+        // the program whose report layout the alignment has: a local alignment is a water report (its SAM line is a local one, -aglobal N), every other one a needle report
+        program ??= string.Equals(d.AlignmentType, "Local", StringComparison.OrdinalIgnoreCase) ? "water" : "needle";
+        return d with { Formatted = FormatRowsForOutput(format, [d.AlignedSequence1, d.AlignedSequence2], names, score, offsets, offends, program) };
     }
 
     private static MultipleAlignmentResultDto FormatMultiple(MultipleAlignmentResultDto d, string? format, string[]? names)

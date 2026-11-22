@@ -85,8 +85,10 @@ public class SequenceAligner_DualAffine_Tests
             var a = Run(r);
             string ungapped1 = a.AlignedSequence1.Replace("-", "");
             string ungapped2 = a.AlignedSequence2.Replace("-", "");
-            bool coordsOk = r.Seq1.ToUpperInvariant().Substring(a.StartPosition1, a.EndPosition1 - a.StartPosition1) == ungapped1
-                && r.Seq2.ToUpperInvariant().Substring(a.StartPosition2, a.EndPosition2 - a.StartPosition2) == ungapped2;
+            // R14-1: End is 0-based INCLUSIVE; an empty local result is -1 / -1
+            bool coordsOk = ungapped1.Length == 0 && ungapped2.Length == 0 && a.StartPosition1 == (r.Mode == "local" ? -1 : 0) && a.EndPosition1 == (r.Mode == "local" ? -1 : r.Seq1.Length - 1)
+                || (ungapped1.Length > 0 || ungapped2.Length > 0) && r.Seq1.ToUpperInvariant().Substring(a.StartPosition1, a.EndPosition1 - a.StartPosition1 + 1) == ungapped1
+                && r.Seq2.ToUpperInvariant().Substring(a.StartPosition2, a.EndPosition2 - a.StartPosition2 + 1) == ungapped2;
             if (a.Score != r.Score || Rescore(a, r.Scoring) != r.Score || !coordsOk)
                 bad.Add($"{r.Id} {r.Mode} band {r.Band}");
         }

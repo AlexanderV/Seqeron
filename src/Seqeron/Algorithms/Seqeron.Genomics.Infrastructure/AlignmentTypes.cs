@@ -285,6 +285,9 @@ public sealed record GapScoreProfile(
 /// (a sequence aligned entirely against gaps, or empty) has <c>End = Start − 1</c>.
 /// −1 for an empty local result.</param>
 /// <remarks>
+/// <b>One End convention (R14-1):</b> every producer (<c>GlobalAlign</c>, <c>LocalAlign</c>, the affine, linear-space, general-gap, top-N, co-optimal, SIM / matcher, EMBOSS <c>NeedleAlign</c> / <c>WaterAlign</c> /
+/// <c>StretcherAlign</c> and the dual-affine aligners) reports the 0-based INCLUSIVE last consumed index; the residues of the sequence before / after the residues of a row are derived from the rows
+/// (<see cref="EmbossAlignedSequence.Flanks"/>), never from an end coordinate.
 /// Empty inputs: a global alignment of an empty side is the all-gap alignment (Needleman-Wunsch optimum, Biopython
 /// <c>PairwiseAligner.score</c>); two empty inputs give score 0, empty rows and coordinates 0/0/−1/−1. A local
 /// alignment with no positive-scoring pair is <c>("", "", 0, Local, −1, −1, −1, −1)</c>.
