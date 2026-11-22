@@ -1,0 +1,250 @@
+[
+ {
+  "id": "N01",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderGate.cs",
+  "old": "        if (Volatile.Read(ref _flags.Disposed) != 0) ThrowDisposed();\n",
+  "new": "",
+  "desc": "a call after Dispose does not read the flag first (E1)",
+  "filter": "FullyQualifiedName~ReaderCell|FullyQualifiedName~ReaderGate|FullyQualifiedName~FileBackedReaderProtocol|FullyQualifiedName~FacadeCallReachability|FullyQualifiedName~FacadeDisposeRace|FullyQualifiedName~FacadeReaderCount|FullyQualifiedName~FacadeLifetime|FullyQualifiedName~FacadeEsaDispose|FullyQualifiedName~MappedSearchTiering"
+ },
+ {
+  "id": "N02",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderGate.cs",
+  "old": "if (IsDisposedAfterStore()) EnterDisposed(cell);",
+  "new": "if (false) EnterDisposed(cell);",
+  "desc": "the flag read after the entry store is ignored (E3)",
+  "filter": "FullyQualifiedName~ReaderCell|FullyQualifiedName~ReaderGate|FullyQualifiedName~FileBackedReaderProtocol|FullyQualifiedName~FacadeCallReachability|FullyQualifiedName~FacadeDisposeRace|FullyQualifiedName~FacadeReaderCount|FullyQualifiedName~FacadeLifetime|FullyQualifiedName~FacadeEsaDispose|FullyQualifiedName~MappedSearchTiering"
+ },
+ {
+  "id": "N03",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderGate.cs",
+  "old": "if (IsDisposedAfterStore()) ReleaseWhenIdle();",
+  "new": "if (false) ReleaseWhenIdle();",
+  "desc": "the last reader out never releases (X2)",
+  "filter": "FullyQualifiedName~ReaderCell|FullyQualifiedName~ReaderGate|FullyQualifiedName~FileBackedReaderProtocol|FullyQualifiedName~FacadeCallReachability|FullyQualifiedName~FacadeDisposeRace|FullyQualifiedName~FacadeReaderCount|FullyQualifiedName~FacadeLifetime|FullyQualifiedName~FacadeEsaDispose|FullyQualifiedName~MappedSearchTiering"
+ },
+ {
+  "id": "N04",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderGate.cs",
+  "old": "if (Interlocked.CompareExchange(ref _flags.Disposed, 1, 0) != 0) return;",
+  "new": "if (Interlocked.CompareExchange(ref _flags.Disposed, 1, 0) == 0) return;",
+  "desc": "Dispose returns at the first call and runs at the second",
+  "filter": "FullyQualifiedName~ReaderCell|FullyQualifiedName~ReaderGate|FullyQualifiedName~FileBackedReaderProtocol|FullyQualifiedName~FacadeCallReachability|FullyQualifiedName~FacadeDisposeRace|FullyQualifiedName~FacadeReaderCount|FullyQualifiedName~FacadeLifetime|FullyQualifiedName~FacadeEsaDispose|FullyQualifiedName~MappedSearchTiering"
+ },
+ {
+  "id": "N05",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderGate.cs",
+  "old": "        _seams.ProcessWideBarrier();\n        Interlocked.MemoryBarrier();",
+  "new": "        Interlocked.MemoryBarrier();",
+  "desc": "no process-wide barrier before the scan",
+  "filter": "FullyQualifiedName~ReaderCell|FullyQualifiedName~ReaderGate|FullyQualifiedName~FileBackedReaderProtocol|FullyQualifiedName~FacadeCallReachability|FullyQualifiedName~FacadeDisposeRace|FullyQualifiedName~FacadeReaderCount|FullyQualifiedName~FacadeLifetime|FullyQualifiedName~FacadeEsaDispose|FullyQualifiedName~MappedSearchTiering"
+ },
+ {
+  "id": "N07",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderGate.cs",
+  "old": "        if (inside) return;",
+  "new": "        if (!inside) return;",
+  "desc": "the release is run only when a reader is inside",
+  "filter": "FullyQualifiedName~ReaderCell|FullyQualifiedName~ReaderGate|FullyQualifiedName~FileBackedReaderProtocol|FullyQualifiedName~FacadeCallReachability|FullyQualifiedName~FacadeDisposeRace|FullyQualifiedName~FacadeReaderCount|FullyQualifiedName~FacadeLifetime|FullyQualifiedName~FacadeEsaDispose|FullyQualifiedName~MappedSearchTiering"
+ },
+ {
+  "id": "N08",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderGate.cs",
+  "old": "if (Interlocked.CompareExchange(ref _flags.Released, 1, 0) != 0) return;",
+  "new": "if (Interlocked.CompareExchange(ref _flags.Released, 1, 0) == 0) return;",
+  "desc": "the claim is inverted",
+  "filter": "FullyQualifiedName~ReaderCell|FullyQualifiedName~ReaderGate|FullyQualifiedName~FileBackedReaderProtocol|FullyQualifiedName~FacadeCallReachability|FullyQualifiedName~FacadeDisposeRace|FullyQualifiedName~FacadeReaderCount|FullyQualifiedName~FacadeLifetime|FullyQualifiedName~FacadeEsaDispose|FullyQualifiedName~MappedSearchTiering"
+ },
+ {
+  "id": "N09",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderGate.cs",
+  "old": "cell.Retract();\n        _seams.AfterRetract();\n        ReleaseWhenIdle();",
+  "new": "_seams.AfterRetract();\n        ReleaseWhenIdle();",
+  "desc": "the refused call keeps its entry",
+  "filter": "FullyQualifiedName~ReaderCell|FullyQualifiedName~ReaderGate|FullyQualifiedName~FileBackedReaderProtocol|FullyQualifiedName~FacadeCallReachability|FullyQualifiedName~FacadeDisposeRace|FullyQualifiedName~FacadeReaderCount|FullyQualifiedName~FacadeLifetime|FullyQualifiedName~FacadeEsaDispose|FullyQualifiedName~MappedSearchTiering"
+ },
+ {
+  "id": "N10",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderGate.cs",
+  "old": "        ReleaseWhenIdle();\n        ThrowDisposed();",
+  "new": "        ThrowDisposed();",
+  "desc": "the refused call does not try the release",
+  "filter": "FullyQualifiedName~ReaderCell|FullyQualifiedName~ReaderGate|FullyQualifiedName~FileBackedReaderProtocol|FullyQualifiedName~FacadeCallReachability|FullyQualifiedName~FacadeDisposeRace|FullyQualifiedName~FacadeReaderCount|FullyQualifiedName~FacadeLifetime|FullyQualifiedName~FacadeEsaDispose|FullyQualifiedName~MappedSearchTiering"
+ },
+ {
+  "id": "N11",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderGate.cs",
+  "old": "if (IsDisposedAfterStore()) ReleaseWhenIdle();",
+  "new": "if (true) ReleaseWhenIdle();",
+  "desc": "every call tries the release on exit",
+  "filter": "FullyQualifiedName~ReaderCell|FullyQualifiedName~ReaderGate|FullyQualifiedName~FileBackedReaderProtocol|FullyQualifiedName~FacadeCallReachability|FullyQualifiedName~FacadeDisposeRace|FullyQualifiedName~FacadeReaderCount|FullyQualifiedName~FacadeLifetime|FullyQualifiedName~FacadeEsaDispose|FullyQualifiedName~MappedSearchTiering"
+ },
+ {
+  "id": "N12",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderGate.cs",
+  "old": "internal bool IsDisposed => Volatile.Read(ref _flags.Disposed) != 0;",
+  "new": "internal bool IsDisposed => Volatile.Read(ref _flags.Disposed) == 0;",
+  "desc": "IsDisposed inverted",
+  "filter": "FullyQualifiedName~ReaderCell|FullyQualifiedName~ReaderGate|FullyQualifiedName~FileBackedReaderProtocol|FullyQualifiedName~FacadeCallReachability|FullyQualifiedName~FacadeDisposeRace|FullyQualifiedName~FacadeReaderCount|FullyQualifiedName~FacadeLifetime|FullyQualifiedName~FacadeEsaDispose|FullyQualifiedName~MappedSearchTiering"
+ },
+ {
+  "id": "N14",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderGate.cs",
+  "old": "        if (Volatile.Read(ref _flags.Released) != 0) return;\n        _seams.ProcessWideBarrier();",
+  "new": "        _seams.ProcessWideBarrier();",
+  "desc": "late callers run the barrier after the claim",
+  "filter": "FullyQualifiedName~ReaderCell|FullyQualifiedName~ReaderGate|FullyQualifiedName~FileBackedReaderProtocol|FullyQualifiedName~FacadeCallReachability|FullyQualifiedName~FacadeDisposeRace|FullyQualifiedName~FacadeReaderCount|FullyQualifiedName~FacadeLifetime|FullyQualifiedName~FacadeEsaDispose|FullyQualifiedName~MappedSearchTiering"
+ },
+ {
+  "id": "N15",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderGate.cs",
+  "old": "bool inside = ReaderCell.AnyInside(_id);",
+  "new": "bool inside = ReaderCell.AnyInside(_id + 1);",
+  "desc": "the scan looks for another id",
+  "filter": "FullyQualifiedName~ReaderCell|FullyQualifiedName~ReaderGate|FullyQualifiedName~FileBackedReaderProtocol|FullyQualifiedName~FacadeCallReachability|FullyQualifiedName~FacadeDisposeRace|FullyQualifiedName~FacadeReaderCount|FullyQualifiedName~FacadeLifetime|FullyQualifiedName~FacadeEsaDispose|FullyQualifiedName~MappedSearchTiering"
+ },
+ {
+  "id": "N16",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderGate.cs",
+  "old": "_id = ReaderCell.NextId();",
+  "new": "_id = 1;",
+  "desc": "all gates share one id",
+  "filter": "FullyQualifiedName~ReaderCell|FullyQualifiedName~ReaderGate|FullyQualifiedName~FileBackedReaderProtocol|FullyQualifiedName~FacadeCallReachability|FullyQualifiedName~FacadeDisposeRace|FullyQualifiedName~FacadeReaderCount|FullyQualifiedName~FacadeLifetime|FullyQualifiedName~FacadeEsaDispose|FullyQualifiedName~MappedSearchTiering"
+ },
+ {
+  "id": "N17",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderCell.cs",
+  "old": "if (_first == 0) Volatile.Write(ref _first, id);",
+  "new": "if (_first != 0) Volatile.Write(ref _first, id);",
+  "desc": "the outermost entry goes to the nested slots",
+  "filter": "FullyQualifiedName~ReaderCell|FullyQualifiedName~ReaderGate|FullyQualifiedName~FileBackedReaderProtocol|FullyQualifiedName~FacadeCallReachability|FullyQualifiedName~FacadeDisposeRace|FullyQualifiedName~FacadeReaderCount|FullyQualifiedName~FacadeLifetime|FullyQualifiedName~FacadeEsaDispose|FullyQualifiedName~MappedSearchTiering"
+ },
+ {
+  "id": "N18",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderCell.cs",
+  "old": "if (_nestedTop == 0) Volatile.Write(ref _first, 0);",
+  "new": "if (_nestedTop != 0) Volatile.Write(ref _first, 0);",
+  "desc": "retract inverted",
+  "filter": "FullyQualifiedName~ReaderCell|FullyQualifiedName~ReaderGate|FullyQualifiedName~FileBackedReaderProtocol|FullyQualifiedName~FacadeCallReachability|FullyQualifiedName~FacadeDisposeRace|FullyQualifiedName~FacadeReaderCount|FullyQualifiedName~FacadeLifetime|FullyQualifiedName~FacadeEsaDispose|FullyQualifiedName~MappedSearchTiering"
+ },
+ {
+  "id": "N19",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderCell.cs",
+  "old": "_nestedTop = index + 1;",
+  "new": "_nestedTop = index;",
+  "desc": "the nesting depth does not grow",
+  "filter": "FullyQualifiedName~ReaderCell|FullyQualifiedName~ReaderGate|FullyQualifiedName~FileBackedReaderProtocol|FullyQualifiedName~FacadeCallReachability|FullyQualifiedName~FacadeDisposeRace|FullyQualifiedName~FacadeReaderCount|FullyQualifiedName~FacadeLifetime|FullyQualifiedName~FacadeEsaDispose|FullyQualifiedName~MappedSearchTiering"
+ },
+ {
+  "id": "N20",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderCell.cs",
+  "old": "Volatile.Write(ref segment.Ids[index % SegmentLength], id);",
+  "new": "Volatile.Write(ref segment.Ids[index % (SegmentLength - 1)], id);",
+  "desc": "the slot of a nested entry is one short",
+  "filter": "FullyQualifiedName~ReaderCell|FullyQualifiedName~ReaderGate|FullyQualifiedName~FileBackedReaderProtocol|FullyQualifiedName~FacadeCallReachability|FullyQualifiedName~FacadeDisposeRace|FullyQualifiedName~FacadeReaderCount|FullyQualifiedName~FacadeLifetime|FullyQualifiedName~FacadeEsaDispose|FullyQualifiedName~MappedSearchTiering"
+ },
+ {
+  "id": "N21",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderCell.cs",
+  "old": "if (Volatile.Read(ref segment.Ids[i]) == id) return true;",
+  "new": "if (false) return true;",
+  "desc": "the scan ignores the nested slots",
+  "filter": "FullyQualifiedName~ReaderCell|FullyQualifiedName~ReaderGate|FullyQualifiedName~FileBackedReaderProtocol|FullyQualifiedName~FacadeCallReachability|FullyQualifiedName~FacadeDisposeRace|FullyQualifiedName~FacadeReaderCount|FullyQualifiedName~FacadeLifetime|FullyQualifiedName~FacadeEsaDispose|FullyQualifiedName~MappedSearchTiering"
+ },
+ {
+  "id": "N22",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderCell.cs",
+  "old": "cell is not null; cell = cell._next)",
+  "new": "cell is not null; cell = null)",
+  "desc": "the scan stops after the first cell",
+  "filter": "FullyQualifiedName~ReaderCell|FullyQualifiedName~ReaderGate|FullyQualifiedName~FileBackedReaderProtocol|FullyQualifiedName~FacadeCallReachability|FullyQualifiedName~FacadeDisposeRace|FullyQualifiedName~FacadeReaderCount|FullyQualifiedName~FacadeLifetime|FullyQualifiedName~FacadeEsaDispose|FullyQualifiedName~MappedSearchTiering"
+ },
+ {
+  "id": "N23",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderCell.cs",
+  "old": "c._owner is { IsAlive: false }",
+  "new": "c._owner is { IsAlive: true }",
+  "desc": "a cell of a live thread is taken over",
+  "filter": "FullyQualifiedName~ReaderCell|FullyQualifiedName~ReaderGate|FullyQualifiedName~FileBackedReaderProtocol|FullyQualifiedName~FacadeCallReachability|FullyQualifiedName~FacadeDisposeRace|FullyQualifiedName~FacadeReaderCount|FullyQualifiedName~FacadeLifetime|FullyQualifiedName~FacadeEsaDispose|FullyQualifiedName~MappedSearchTiering"
+ },
+ {
+  "id": "N24",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderCell.cs",
+  "old": "                Interlocked.Increment(ref s_count);\n",
+  "new": "",
+  "desc": "the cell count is not kept",
+  "filter": "FullyQualifiedName~ReaderCell|FullyQualifiedName~ReaderGate|FullyQualifiedName~FileBackedReaderProtocol|FullyQualifiedName~FacadeCallReachability|FullyQualifiedName~FacadeDisposeRace|FullyQualifiedName~FacadeReaderCount|FullyQualifiedName~FacadeLifetime|FullyQualifiedName~FacadeEsaDispose|FullyQualifiedName~MappedSearchTiering"
+ },
+ {
+  "id": "N25",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderCell.cs",
+  "old": "internal static long NextId() => Interlocked.Increment(ref s_lastId);",
+  "new": "internal static long NextId() => Volatile.Read(ref s_lastId);",
+  "desc": "ids are never new",
+  "filter": "FullyQualifiedName~ReaderCell|FullyQualifiedName~ReaderGate|FullyQualifiedName~FileBackedReaderProtocol|FullyQualifiedName~FacadeCallReachability|FullyQualifiedName~FacadeDisposeRace|FullyQualifiedName~FacadeReaderCount|FullyQualifiedName~FacadeLifetime|FullyQualifiedName~FacadeEsaDispose|FullyQualifiedName~MappedSearchTiering"
+ },
+ {
+  "id": "N26",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderCell.cs",
+  "old": "if (Volatile.Read(ref _first) == id) return true;",
+  "new": "if (false) return true;",
+  "desc": "the scan ignores the outermost entry",
+  "filter": "FullyQualifiedName~ReaderCell|FullyQualifiedName~ReaderGate|FullyQualifiedName~FileBackedReaderProtocol|FullyQualifiedName~FacadeCallReachability|FullyQualifiedName~FacadeDisposeRace|FullyQualifiedName~FacadeReaderCount|FullyQualifiedName~FacadeLifetime|FullyQualifiedName~FacadeEsaDispose|FullyQualifiedName~MappedSearchTiering"
+ },
+ {
+  "id": "N27",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderCell.cs",
+  "old": "if (segment is null && create)",
+  "new": "if (segment is null && !create)",
+  "desc": "a segment is created only when asked not to",
+  "filter": "FullyQualifiedName~ReaderCell|FullyQualifiedName~ReaderGate|FullyQualifiedName~FileBackedReaderProtocol|FullyQualifiedName~FacadeCallReachability|FullyQualifiedName~FacadeDisposeRace|FullyQualifiedName~FacadeReaderCount|FullyQualifiedName~FacadeLifetime|FullyQualifiedName~FacadeEsaDispose|FullyQualifiedName~MappedSearchTiering"
+ },
+ {
+  "id": "N28",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs",
+  "old": "if (cell is not null) Unsafe.As<ReaderGate<ReaderGateSeams>>(holder).Leave(cell);",
+  "new": "if (false) Unsafe.As<ReaderGate<ReaderGateSeams>>(holder).Leave(cell);",
+  "desc": "the scope never leaves",
+  "filter": "FullyQualifiedName~ReaderCell|FullyQualifiedName~ReaderGate|FullyQualifiedName~FileBackedReaderProtocol|FullyQualifiedName~FacadeCallReachability|FullyQualifiedName~FacadeDisposeRace|FullyQualifiedName~FacadeReaderCount|FullyQualifiedName~FacadeLifetime|FullyQualifiedName~FacadeEsaDispose|FullyQualifiedName~MappedSearchTiering"
+ },
+ {
+  "id": "N29",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs",
+  "old": "if (_index.NavigationBuilt) _index.Navigation.Dispose();",
+  "new": ";",
+  "desc": "the pins of the pack are not released",
+  "filter": "FullyQualifiedName~ReaderCell|FullyQualifiedName~ReaderGate|FullyQualifiedName~FileBackedReaderProtocol|FullyQualifiedName~FacadeCallReachability|FullyQualifiedName~FacadeDisposeRace|FullyQualifiedName~FacadeReaderCount|FullyQualifiedName~FacadeLifetime|FullyQualifiedName~FacadeEsaDispose|FullyQualifiedName~MappedSearchTiering"
+ },
+ {
+  "id": "N30",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs",
+  "old": "        _file?.Dispose();\n    }",
+  "new": "    }",
+  "desc": "the container is not released",
+  "filter": "FullyQualifiedName~ReaderCell|FullyQualifiedName~ReaderGate|FullyQualifiedName~FileBackedReaderProtocol|FullyQualifiedName~FacadeCallReachability|FullyQualifiedName~FacadeDisposeRace|FullyQualifiedName~FacadeReaderCount|FullyQualifiedName~FacadeLifetime|FullyQualifiedName~FacadeEsaDispose|FullyQualifiedName~MappedSearchTiering"
+ },
+ {
+  "id": "N31",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs",
+  "old": "        Interlocked.CompareExchange(ref _disposed, 1, 0);\n    }",
+  "new": "    }",
+  "desc": "an in-memory tree is never disposed",
+  "filter": "FullyQualifiedName~ReaderCell|FullyQualifiedName~ReaderGate|FullyQualifiedName~FileBackedReaderProtocol|FullyQualifiedName~FacadeCallReachability|FullyQualifiedName~FacadeDisposeRace|FullyQualifiedName~FacadeReaderCount|FullyQualifiedName~FacadeLifetime|FullyQualifiedName~FacadeEsaDispose|FullyQualifiedName~MappedSearchTiering"
+ },
+ {
+  "id": "N32",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs",
+  "old": "        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);\n        return new ReadScope(this, null);",
+  "new": "        return new ReadScope(this, null);",
+  "desc": "an in-memory call does not check the flag",
+  "filter": "FullyQualifiedName~ReaderCell|FullyQualifiedName~ReaderGate|FullyQualifiedName~FileBackedReaderProtocol|FullyQualifiedName~FacadeCallReachability|FullyQualifiedName~FacadeDisposeRace|FullyQualifiedName~FacadeReaderCount|FullyQualifiedName~FacadeLifetime|FullyQualifiedName~FacadeEsaDispose|FullyQualifiedName~MappedSearchTiering"
+ },
+ {
+  "id": "N33",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs",
+  "old": "if (gate is not null) return new ReadScope(gate, gate.Enter());",
+  "new": "if (gate is not null) return new ReadScope(gate, null);",
+  "desc": "a call over a container is not registered",
+  "filter": "FullyQualifiedName~ReaderCell|FullyQualifiedName~ReaderGate|FullyQualifiedName~FileBackedReaderProtocol|FullyQualifiedName~FacadeCallReachability|FullyQualifiedName~FacadeDisposeRace|FullyQualifiedName~FacadeReaderCount|FullyQualifiedName~FacadeLifetime|FullyQualifiedName~FacadeEsaDispose|FullyQualifiedName~MappedSearchTiering"
+ }
+]

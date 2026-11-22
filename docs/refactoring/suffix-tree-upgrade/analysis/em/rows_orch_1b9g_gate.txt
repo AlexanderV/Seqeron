@@ -1,0 +1,57 @@
+# null idx-idx dna p1
+AB count_present  A      3481643  B      3537783  B/A median-of-paired 1.0035  p25 0.9730 p75 1.0163  n 9
+AB locate         A      4612277  B      5102934  B/A median-of-paired 1.0577  p25 1.0347 p75 1.1129  n 9
+AB count_absent   A      4023440  B      3875364  B/A median-of-paired 0.9836  p25 0.9745 p75 0.9931  n 9
+# null idx-idx dna p2
+AB count_present  A      3798797  B      3741602  B/A median-of-paired 1.0063  p25 0.9977 p75 1.0163  n 9
+AB locate         A      4681440  B      4625079  B/A median-of-paired 0.9684  p25 0.9500 p75 0.9981  n 9
+AB count_absent   A      3825313  B      3764424  B/A median-of-paired 0.9941  p25 0.9495 p75 1.0183  n 9
+# null file-file dna p1
+AB count_present  A      3583720  B      3549564  B/A median-of-paired 0.9905  p25 0.9586 p75 1.0144  n 9
+AB locate         A      5331526  B      5686854  B/A median-of-paired 1.0737  p25 1.0625 p75 1.1079  n 9
+AB count_absent   A      3967340  B      4016356  B/A median-of-paired 1.0290  p25 1.0137 p75 1.0389  n 9
+# null file-file dna p2
+AB count_present  A      3448861  B      3413633  B/A median-of-paired 1.0067  p25 1.0017 p75 1.0472  n 9
+AB locate         A      4523697  B      4660750  B/A median-of-paired 1.0509  p25 1.0277 p75 1.1270  n 9
+AB count_absent   A      4049852  B      4124383  B/A median-of-paired 1.0091  p25 0.9983 p75 1.0301  n 9
+# dna order1 p1
+AB count_present  A      3789322  B      3883130  B/A median-of-paired 1.0223  p25 0.9766 p75 1.0626  n 9
+AB locate         A      4504513  B      4479655  B/A median-of-paired 1.0040  p25 0.9878 p75 1.0562  n 9
+AB count_absent   A      3657594  B      3728376  B/A median-of-paired 0.9942  p25 0.9889 p75 1.0194  n 9
+# dna order1 p2
+AB count_present  A      3494206  B      3637116  B/A median-of-paired 1.0446  p25 0.9887 p75 1.0770  n 9
+AB locate         A      4330404  B      4086743  B/A median-of-paired 0.9436  p25 0.8917 p75 0.9763  n 9
+AB count_absent   A      4297016  B      4175587  B/A median-of-paired 0.9775  p25 0.9667 p75 0.9889  n 9
+# dna order1 p3
+AB count_present  A      3402511  B      3247914  B/A median-of-paired 0.9871  p25 0.9302 p75 1.0340  n 9
+AB locate         A      5022022  B      5059964  B/A median-of-paired 0.9909  p25 0.9851 p75 1.0038  n 9
+AB count_absent   A      4143017  B      4058326  B/A median-of-paired 0.9823  p25 0.9796 p75 1.0179  n 9
+# dna order2 p1
+AB count_present  A      4081637  B      4098056  B/A median-of-paired 0.9880  p25 0.9631 p75 1.0038  n 9
+AB locate         A      4541218  B      4253336  B/A median-of-paired 0.9390  p25 0.9010 p75 0.9475  n 9
+AB count_absent   A      3547701  B      3547398  B/A median-of-paired 0.9904  p25 0.9799 p75 1.0072  n 9
+# dna order2 p2
+AB count_present  A      3494379  B      3603553  B/A median-of-paired 1.0094  p25 0.9945 p75 1.0409  n 9
+AB locate         A      4762644  B      5723506  B/A median-of-paired 1.0538  p25 1.0289 p75 1.1267  n 9
+AB count_absent   A      4440527  B      4352555  B/A median-of-paired 0.9974  p25 0.9802 p75 1.0087  n 9
+# prot order1 p1
+AB count_present  A      6142543  B      5982257  B/A median-of-paired 0.9810  p25 0.9522 p75 1.0067  n 9
+AB locate         A      7786439  B      7995023  B/A median-of-paired 0.9932  p25 0.9501 p75 1.0323  n 9
+AB count_absent   A      5987820  B      5988767  B/A median-of-paired 0.9962  p25 0.9497 p75 1.0090  n 9
+# prot order1 p2
+AB count_present  A      5579277  B      5483063  B/A median-of-paired 0.9881  p25 0.9763 p75 1.0102  n 9
+AB locate         A      7018281  B      6875281  B/A median-of-paired 0.9988  p25 0.9836 p75 1.0068  n 9
+AB count_absent   A      6258008  B      6240847  B/A median-of-paired 0.9893  p25 0.9788 p75 0.9965  n 9
+# prot order1 p3
+AB count_present  A      5946454  B      6167525  B/A median-of-paired 0.9969  p25 0.9893 p75 1.0135  n 9
+AB locate         A      8644447  B      8361701  B/A median-of-paired 0.9685  p25 0.9517 p75 0.9728  n 9
+AB count_absent   A      7105163  B      6989487  B/A median-of-paired 0.9857  p25 0.9726 p75 0.9946  n 9
+# prot order2 p1
+AB count_present  A      6233946  B      5962297  B/A median-of-paired 0.9984  p25 0.9942 p75 1.0085  n 9
+AB locate         A      7942717  B      8219766  B/A median-of-paired 1.0358  p25 1.0309 p75 1.0513  n 9
+AB count_absent   A      6213381  B      6365661  B/A median-of-paired 1.0191  p25 1.0084 p75 1.0709  n 9
+# prot order2 p2
+AB count_present  A      5302929  B      5301235  B/A median-of-paired 1.0010  p25 0.9993 p75 1.0290  n 9
+AB locate         A      6342601  B      6536987  B/A median-of-paired 1.0210  p25 1.0084 p75 1.0622  n 9
+AB count_absent   A      6408199  B      6511696  B/A median-of-paired 1.0055  p25 0.9920 p75 1.0121  n 9
+GATE_DONE
