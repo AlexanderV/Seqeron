@@ -103,3 +103,5 @@ Exact linear-space alignment (Hirschberg 1975 / Myers-Miller 1988 / Huang-Miller
 - **Audit A4-3 (F153):** the EMBOSS reader drops gap characters and every other non-letter (except `*`) from plain input sequences; one shared `EmbossSequenceReader` (Infrastructure) serves merger: 240 oracle rows each equal (`emboss_gap_oracle.tsv`).
 
 - **Audit A4-1 (F157):** `SequenceAligner.Merger` poll the ambient cancellation token (mid-run cancel tests); MCP tools take the request token.
+
+- **Audit R14-1 (B09 F288):** the End coordinates of local / semi-global results follow the single 0-based inclusive convention of every producer (see ALIGN-GLOBAL-001); the EMBOSS formats of `local_align` / `semi_global_align` take the offsets from the rows (a local result is a water report; the fitting rows carry the whole reference, so it runs 1 .. length).

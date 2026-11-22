@@ -80,11 +80,11 @@
       },
       "endPosition1": {
         "type": "integer",
-        "description": "Length of sequence1."
+        "description": "0-based inclusive end in sequence1 (length − 1)."
       },
       "endPosition2": {
         "type": "integer",
-        "description": "Length of sequence2."
+        "description": "0-based inclusive end in sequence2 (length − 1)."
       },
       "exactScore": {
         "type": "number",
@@ -123,8 +123,8 @@
         "alignmentType": "Global",
         "startPosition1": 0,
         "startPosition2": 0,
-        "endPosition1": 33,
-        "endPosition2": 34,
+        "endPosition1": 32,
+        "endPosition2": 33,
         "exactScore": 140.0
       }
     }

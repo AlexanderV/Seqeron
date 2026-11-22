@@ -97,11 +97,11 @@
    },
    "endPosition1": {
     "type": "integer",
-    "description": "End of the aligned part in sequence1."
+    "description": "0-based inclusive end of the aligned part in sequence1 (length − 1: the rows are the whole sequences)."
    },
    "endPosition2": {
     "type": "integer",
-    "description": "End of the aligned part in sequence2."
+    "description": "0-based inclusive end of the aligned part in sequence2 (length − 1: the rows are the whole sequences)."
    },
    "exactScore": {
     "type": "number",
@@ -140,8 +140,8 @@
     "alignmentType": "Global",
     "startPosition1": 0,
     "startPosition2": 0,
-    "endPosition1": 33,
-    "endPosition2": 34,
+    "endPosition1": 32,
+    "endPosition2": 33,
     "exactScore": 146.0,
     "formatted": null
    }

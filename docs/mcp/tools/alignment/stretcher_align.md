@@ -45,8 +45,8 @@ EMBOSS 6.6 stretcher: global alignment by the Myers–Miller linear-space algori
 | `alignmentType` | string | Global. |
 | `startPosition1` | integer | 0. |
 | `startPosition2` | integer | 0. |
-| `endPosition1` | integer | Length of sequence1. |
-| `endPosition2` | integer | Length of sequence2. |
+| `endPosition1` | integer | 0-based inclusive end in sequence1 (length − 1). |
+| `endPosition2` | integer | 0-based inclusive end in sequence2 (length − 1). |
 | `exactScore` | number | The score as a real number. |
 | `formatted` | string | No | The alignment written in the requested format (null when format is omitted). |
 
@@ -81,8 +81,8 @@ EMBOSS 6.6 stretcher: global alignment by the Myers–Miller linear-space algori
   "alignmentType": "Global",
   "startPosition1": 0,
   "startPosition2": 0,
-  "endPosition1": 33,
-  "endPosition2": 34,
+  "endPosition1": 32,
+  "endPosition2": 33,
   "exactScore": 140.0
 }
 ```

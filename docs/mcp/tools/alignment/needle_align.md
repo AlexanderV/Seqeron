@@ -48,8 +48,8 @@ EMBOSS 6.6 needle: global alignment (Needleman-Wunsch with Gotoh's three matrice
 | `alignmentType` | string | Global (needle) / Local (water). |
 | `startPosition1` | integer | 0-based first aligned residue of sequence1. |
 | `startPosition2` | integer | 0-based first aligned residue of sequence2. |
-| `endPosition1` | integer | End of the aligned part in sequence1. |
-| `endPosition2` | integer | End of the aligned part in sequence2. |
+| `endPosition1` | integer | 0-based inclusive end of the aligned part in sequence1 (length − 1: the rows are the whole sequences). |
+| `endPosition2` | integer | 0-based inclusive end of the aligned part in sequence2 (length − 1: the rows are the whole sequences). |
 | `exactScore` | number | The single-precision score of the program. |
 | `formatted` | string | The alignment written in the requested format (null when format is omitted). |
 
@@ -84,8 +84,8 @@ EMBOSS 6.6 needle: global alignment (Needleman-Wunsch with Gotoh's three matrice
   "alignmentType": "Global",
   "startPosition1": 0,
   "startPosition2": 0,
-  "endPosition1": 33,
-  "endPosition2": 34,
+  "endPosition1": 32,
+  "endPosition2": 33,
   "exactScore": 146.0,
   "formatted": null
 }

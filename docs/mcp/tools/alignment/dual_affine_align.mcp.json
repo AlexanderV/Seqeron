@@ -104,11 +104,11 @@
       },
       "endPosition1": {
         "type": "integer",
-        "description": "End (exclusive)."
+        "description": "0-based inclusive end (length − 1 for a global result)."
       },
       "endPosition2": {
         "type": "integer",
-        "description": "End (exclusive)."
+        "description": "0-based inclusive end (length − 1 for a global result)."
       },
       "exactScore": {
         "type": "number",
@@ -148,8 +148,8 @@
         "alignmentType": "Global",
         "startPosition1": 0,
         "startPosition2": 0,
-        "endPosition1": 8,
-        "endPosition2": 8,
+        "endPosition1": 7,
+        "endPosition2": 7,
         "exactScore": 16.0
       }
     }

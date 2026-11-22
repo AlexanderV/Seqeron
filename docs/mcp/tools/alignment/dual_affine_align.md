@@ -49,8 +49,8 @@ Pairwise alignment with the TWO-PIECE (dual) affine gap model of ksw2 / minimap2
 | `alignmentType` | string | Global or Local. |
 | `startPosition1` | integer | 0-based start. |
 | `startPosition2` | integer | 0-based start. |
-| `endPosition1` | integer | End (exclusive). |
-| `endPosition2` | integer | End (exclusive). |
+| `endPosition1` | integer | 0-based inclusive end (length − 1 for a global result). |
+| `endPosition2` | integer | 0-based inclusive end (length − 1 for a global result). |
 | `exactScore` | number | Score as a real number. |
 | `formatted` | string | No | The alignment written in the requested format (null when format is omitted). |
 
@@ -86,8 +86,8 @@ Pairwise alignment with the TWO-PIECE (dual) affine gap model of ksw2 / minimap2
   "alignmentType": "Global",
   "startPosition1": 0,
   "startPosition2": 0,
-  "endPosition1": 8,
-  "endPosition2": 8,
+  "endPosition1": 7,
+  "endPosition2": 7,
   "exactScore": 16.0
 }
 ```

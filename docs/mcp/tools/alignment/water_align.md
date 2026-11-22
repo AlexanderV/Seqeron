@@ -45,8 +45,8 @@ EMBOSS 6.6 water: local alignment (Smith-Waterman with Gotoh's affine gaps) as t
 | `alignmentType` | string | Global (needle) / Local (water). |
 | `startPosition1` | integer | 0-based first aligned residue of sequence1. |
 | `startPosition2` | integer | 0-based first aligned residue of sequence2. |
-| `endPosition1` | integer | End of the aligned part in sequence1. |
-| `endPosition2` | integer | End of the aligned part in sequence2. |
+| `endPosition1` | integer | 0-based inclusive end of the aligned part in sequence1. |
+| `endPosition2` | integer | 0-based inclusive end of the aligned part in sequence2. |
 | `exactScore` | number | The single-precision score of the program. |
 | `formatted` | string | The alignment written in the requested format (null when format is omitted). |
 
@@ -81,8 +81,8 @@ EMBOSS 6.6 water: local alignment (Smith-Waterman with Gotoh's affine gaps) as t
   "alignmentType": "Local",
   "startPosition1": 4,
   "startPosition2": 4,
-  "endPosition1": 20,
-  "endPosition2": 20,
+  "endPosition1": 19,
+  "endPosition2": 19,
   "exactScore": 80.0,
   "formatted": null
 }
