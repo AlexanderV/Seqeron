@@ -26,7 +26,7 @@ internal sealed class EmbossSeqall
     /// Opens the input and reads its first sequence (<c>ajSeqAllRead</c> of the ACD). Null: the program dies ("Unable to read sequence", the messages of the library are in <paramref name="context"/>; the caller adds the <c>Died:</c> line).
     /// </summary>
     /// <exception cref="InvalidOperationException">The input is one on which the reference program never stops or dies by a fault.</exception>
-    public static EmbossSeqall? Open(string program, string spec, IReadOnlyDictionary<string, string> files, EmbossSequenceQualifiers q, bool features, EmbossFeatureReadContext context)
+    public static EmbossSeqall? Open(string program, string spec, IReadOnlyDictionary<string, string> files, EmbossSequenceQualifiers q, bool features, EmbossFeatureReadContext context, string sequenceType = "gapany")
     {
         context.Program = program;
         string? prefix = null;
@@ -57,7 +57,7 @@ internal sealed class EmbossSeqall
             }
         }
 
-        var options = new EmbossSeqinOptions { Format = q.Format, PrefixFormat = prefix, Filename = file, Features = features, UfoGiven = !string.IsNullOrEmpty(q.FeaturesUfo), Lower = q.Lower, Upper = q.Upper, IsNuc = q.Nucleotide, IsProt = q.Protein };
+        var options = new EmbossSeqinOptions { Format = q.Format, PrefixFormat = prefix, Filename = file, Features = features, UfoGiven = !string.IsNullOrEmpty(q.FeaturesUfo), Lower = q.Lower, Upper = q.Upper, IsNuc = q.Nucleotide, IsProt = q.Protein, SequenceType = sequenceType };
         var input = new EmbossSeqin(text, options, context, name => files.TryGetValue(name, out string? t) ? t : null);
         var first = input.Next();
         if (first is null)
@@ -75,6 +75,9 @@ internal sealed class EmbossSeqall
 
         return new EmbossSeqall(input, first);
     }
+
+    /// <summary>The first sequence (the one the ACD read when it opened the input) without taking it.</summary>
+    public EmbossSeq Peek() => _first ?? throw new InvalidOperationException("The first sequence was taken.");
 
     /// <summary><c>ajSeqallNext</c>: the next sequence, or null (the library reads it, and prints its messages, when it is asked).</summary>
     public EmbossSeq? Next()

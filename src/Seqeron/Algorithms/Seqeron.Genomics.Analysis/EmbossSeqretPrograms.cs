@@ -79,14 +79,14 @@ public static class EmbossSeqretPrograms
         return new EmbossSeqretOutput(seqOut.ToString(), featOut.ToString(), written, [.. context.Messages]) { FeatureFileName = r.OutFeat ?? "" };
     }
 
-    internal static EmbossSeqretOutput Died(EmbossFeatureReadContext context)
+    internal static EmbossSeqretOutput Died(EmbossFeatureReadContext context, string parameter = "sequence")
     {
-        context.Messages.Add($"Died: {context.Program} terminated: Bad value for '-sequence' with -auto defined");
+        context.Messages.Add($"Died: {context.Program} terminated: Bad value for '-{parameter}' with -auto defined");
         return new EmbossSeqretOutput("", "", 0, [.. context.Messages]) { Died = true };
     }
 
     // seqWriteFasta
-    internal static void WriteFasta(StringBuilder sb, EmbossSeq s, ref int unnamed)
+    internal static void WriteFasta(StringBuilder sb, EmbossSeq s, ref int unnamed, string sequenceType = "gapany")
     {
         // ajSeqoutSetNameDefaultS: a sequence with no name is called EMBOSS_001, EMBOSS_002, ... in the order of the unnamed sequences written
         string name = s.Name.Length > 0 ? s.Name : "EMBOSS_" + (++unnamed).ToString("000", System.Globalization.CultureInfo.InvariantCulture);
@@ -99,6 +99,8 @@ public static class EmbossSeqretPrograms
             sb.Append(' ').Append(s.Desc);
         sb.Append('\n');
         string seq = s.SeqText;
+        if (sequenceType == "any")
+            seq = new string([.. seq.Where(c => char.IsAsciiLetter(c) || c == '*')]);          // seqClone: ajSeqTypeCheckS of the output type (the type of the input) removes the gaps and every other character
         for (int i = 0; i < seq.Length; i += 60)
             sb.Append(seq, i, Math.Min(60, seq.Length - i)).Append('\n');
     }

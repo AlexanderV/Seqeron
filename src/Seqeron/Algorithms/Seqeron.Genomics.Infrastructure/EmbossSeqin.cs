@@ -71,6 +71,9 @@ internal sealed class EmbossSeqinOptions
 
     /// <summary><c>-sformat</c> found no such format: the program stops ("Unknown input format").</summary>
     public bool Lower, Upper, IsNuc, IsProt, Circular;
+
+    /// <summary>The ACD type of the sequence input: <c>gapany</c> (seqret; gaps kept) or <c>any</c> (most programs: every character that is no letter and no <c>*</c> is removed).</summary>
+    public string SequenceType = "gapany";
     public int Begin, End;
     public bool Rev;
 }
@@ -453,6 +456,20 @@ internal sealed partial class EmbossSeqin
             t.SetNuc();
         if (_opt.IsProt)
             t.SetProt();
+        if (_opt.SequenceType == "any")
+        {
+            // ungapped type: ajStrRemoveGap keeps the letters and '*'
+            var kept = new StringBuilder(t.Seq.Length);
+            foreach (char c in t.SeqText)
+            {
+                if (char.IsAsciiLetter(c) || c == '*')
+                    kept.Append(c);
+            }
+
+            t.Seq.Clear().Append(kept);
+            return true;
+        }
+
         var sb = new StringBuilder(t.Seq.Length);
         bool allGood = true;
         foreach (char ch in t.SeqText)
