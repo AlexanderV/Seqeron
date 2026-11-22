@@ -885,3 +885,15 @@ Tests (`Seqeron.Genomics.Tests`, against the installed Debian `mafft` 7.505-1): 
 | MI2 | `Oracle_HasEveryStrategy` | - | >= 5 000 sets, every group >= 200, >= 20 groups, two-sequence group >= 200 | shape |
 | MI3 | threads refusal | - | `Threads > 0` with `MaxIterate > 0` and no `ThreadsIterate = 0`: `NotSupportedException` | proof of non-determinism |
 | MI4 | strategy text | - | "FFT-NS-i (Standard)" / "Accurate but slow" / "Iterative refinement method (max. N iterations)" | program text |
+
+## Audit A2-19c part 2 (B09 F285): MAFFT 7.505, stage 4 (`--globalpair` / `--localpair` / `--genafpair`, G-INS-1 / L-INS-1 / E-INS-1)
+
+Tests (`Seqeron.Genomics.Tests`, against the installed Debian `mafft` 7.505-1): `SequenceAligner_MafftPairLibrary_Tests` x62 (`mafft_pairlib_oracle.tsv.gz`, `scripts/alignment/generate_mafft_pairlib_oracle.py`: **13 386 sets in 57 strategy groups, at least 210 each**; one test per group compares the rows and the standard error (SHA-256 of the whole text, the full text for every 25th set) with the program: for each of G-INS-1, L-INS-1, E-INS-1 the default, `--op` / `--ep`, `--exp`, the library's own gap options, `--weighti`, `--bl`, `--jtt`, `--tm`, `--kappa`, `--fmodel`, `--nwildcard`, `--leavegappyregion`, `--termgappenalty`, `--unweight`, `--reorder`, `--thread 4` (rows only), `--nuc`, `--amino`, two sequences), the shape test, the hand-run degenerate case, threads, contracts, strategy text; MCP `MafftTests` x6 (+ `pairLibrary`).
+
+| ID | Test | Sets | Behaviour | Source |
+|----|------|------|-----------|--------|
+| MQ1 | `RowsAndStandardError_EqualMafft(<strategy>)` | 13 386 | rows and standard error equal the program | oracle |
+| MQ2 | `Oracle_HasEveryStrategy` | - | >= 9 000 sets, every group >= 200, >= 57 groups, >= 3 000 sets per pair library, >= 10 refusals | shape |
+| MQ3 | `NegativeDistances_ShiftTheMatrixOfEveryStep` | 1 | `--globalpair --fmodel` on six short DNA sequences keeps the sequences apart, like the program | hand run of mafft 7.505 |
+| MQ4 | `Threads_DoNotChangeTheAlignment` | 30 | `Threads = 4` and `0` give the same rows | oracle (`-thread` rows) |
+| MQ5 | `Contracts` / `Strategy_Text_NamesThePairLibrary` | - | the iterative refinement with a pair library and `--weighti 0` are refused; letters outside the alphabet; cancellation; `Quiet`; the strategy texts of G / L / E | contract |
