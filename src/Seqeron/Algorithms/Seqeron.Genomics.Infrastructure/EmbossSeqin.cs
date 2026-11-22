@@ -540,7 +540,7 @@ internal sealed partial class EmbossSeqin
     private bool QueryMatch(EmbossSeq t)
     {
         var query = _opt.Query;
-        if (query is null)
+        if (query is null || query.QryDone)
             return true;
         bool tested = false;
         foreach (var field in query.Fields)

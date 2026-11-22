@@ -19,7 +19,7 @@ internal sealed class EmbossQueryField(string field, string wildquery, char link
 {
     public string Field { get; } = field.ToLowerInvariant();
 
-    public string Wildquery { get; } = wildquery;
+    public string Wildquery { get; set; } = wildquery;
 
     /// <summary>I = init, | = OR, &amp; = AND, ^ = EOR, ! = NOT, E = ELSE.</summary>
     public char Link { get; } = link;
@@ -37,10 +37,16 @@ internal sealed class EmbossQuery
 
     /// <summary>The database of the query (<c>ajNamDbData</c>): its name as typed, the type (<c>Nucleotide</c> ...), the access method, the data directory, the files (a wildcard) and those excluded, the format of the entries.</summary>
     public string DbName = "", DbType = "", Method = "", Directory = "", Exclude = "", Formatstr = "";
+
+    /// <summary><c>IndexDir</c> (the <c>indexdirectory</c> of the definition, else its <c>directory</c>), <c>DbAlias</c> (the <c>dbalias</c> of the definition, else the lower case name: the base name of the index files), <c>Namespace</c> and <c>Organisms</c> (the restrictions of the definition), <c>Application</c> (<c>app</c>).</summary>
+    public string IndexDir = "", DbAlias = "", Namespace = "", Organisms = "", Application = "";
     public bool Wild, CaseId, HasAcc = true;
     public long Fpos;
     public EmbossQueryType QueryType;
     public bool SetQuery;
+
+    /// <summary><c>QryDone</c>: the access method has found the entries the query asks for, so the reader does not test them again (<c>seqQueryMatch</c>); the index methods set it unless the identifiers are case sensitive.</summary>
+    public bool QryDone;
 
     /// <summary><c>ajQueryClear</c>.</summary>
     public void Clear()
@@ -48,9 +54,11 @@ internal sealed class EmbossQuery
         Fields.Clear();
         DbFields = Qlinks = SingleField = QryString = QryFields = Filename = "";
         DbName = DbType = Method = Directory = Exclude = Formatstr = "";
+        IndexDir = DbAlias = Namespace = Organisms = Application = "";
         Fpos = 0;
         QueryType = EmbossQueryType.Unknown;
         SetQuery = false;
+        QryDone = false;
         Wild = false;
         CaseId = false;
         HasAcc = true;
@@ -311,6 +319,9 @@ internal static class EmbossQueryParse
     {
         /// <summary>The files of a database in reading order (one text for a file).</summary>
         public IReadOnlyList<string>? Texts { get; init; }
+
+        /// <summary>The method of the database reads one entry at a time (<c>textin-&gt;Single</c>): the text of the file from the offset of each hit, in the order of the hits.</summary>
+        public IReadOnlyList<string>? HitTexts { get; init; }
     }
 
     /// <summary>
@@ -595,9 +606,15 @@ internal static class EmbossQueryParse
 
         if (dbstat)
         {
-            if (qry.Method != "direct")
-                throw new NotSupportedException($"The database access method '{qry.Method}' is not implemented by this port (only 'direct', which reads the files of the database as they are).");
-            return TextAccessDirect(qry, env, context);
+            switch (qry.Method)
+            {
+                case "direct":
+                    return TextAccessDirect(qry, env, context);
+                case "emboss":
+                    return EmbossIndexAccess.Emboss(qry, env, context);
+                default:
+                    throw new NotSupportedException($"The database access method '{qry.Method}' is not implemented by this port.");
+            }
         }
 
         // a file name that ends with '|' is a command the library runs and reads the output of
@@ -813,10 +830,14 @@ internal static class EmbossQueryParse
 
         string tmp = "";
         DbAttr(env, db, "method", ref qry.Method);
-        string indexdir = "";
-        DbAttr(env, db, "directory", ref indexdir);
+        DbAttr(env, db, "app", ref qry.Application);
+        DbAttr(env, db, "directory", ref qry.IndexDir);
+        DbAttr(env, db, "indexdirectory", ref qry.IndexDir);
         DbAttr(env, db, "indexdirectory", ref qry.Directory);
         DbAttr(env, db, "directory", ref qry.Directory);
+        DbAttr(env, db, "namespace", ref qry.Namespace);
+        DbAttr(env, db, "organisms", ref qry.Organisms);
+        qry.DbAlias = DbAttr(env, db, "dbalias", ref qry.DbAlias) && qry.DbAlias.Length > 0 ? qry.DbAlias : qry.DbName.ToLowerInvariant();
         DbAttr(env, db, "exclude", ref qry.Exclude);
         DbAttr(env, db, "filename", ref qry.Filename);
         if (!DbAttr(env, db, "field", ref qry.DbFields))
@@ -888,8 +909,8 @@ internal static class EmbossQueryParse
             return;
         }
 
-        if (qry.Method != "direct")
-            throw new NotSupportedException($"The database access method '{qry.Method}' is not implemented by this port (only 'direct', which reads the files of the database as they are).");
+        if (qry.Method is not ("direct" or "emboss"))
+            throw new NotSupportedException($"The database access method '{qry.Method}' is not implemented by this port.");
         qry.Qlinks = "|&!^=";
     }
 

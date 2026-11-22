@@ -52,6 +52,9 @@ internal sealed class EmbossBtreeCache
 
     private byte[] _data = [];
 
+    // ajFatal: the library stops with the line of its source
+    private static EmbossFatalException Fatal(int line, string message) => new($"\n   EMBOSS An error in ajindex.c at line {line}:\n{message}");
+
     public string FileName = "";
     public bool Secondary, Compressed;
     public uint KwLimit, IdLimit, RefCount, PriPageSize, SecPageSize, Order, Fill, Level, SOrder, SFill;
@@ -224,9 +227,11 @@ internal sealed class EmbossBtreeCache
     }
 
     // btreeGetBlockC: the pointer of the first key that is greater than the key (strcmp), else the last pointer
-    private static ulong GetBlock(byte[] buf, string key)
+    private ulong GetBlock(byte[] buf, string key)
     {
         uint m = NKeys(buf);
+        if (m == 0)
+            throw Fatal(6950, $"btreeGetBlockC: No keys in node cache {FileName}");
         int lenptr = NodeKeyLen;
         int keyptr = lenptr + (int)m * 4;
         for (uint i = 0; i < m; ++i)
@@ -243,9 +248,11 @@ internal sealed class EmbossBtreeCache
     }
 
     // btreeGetPointers
-    private static ulong[] GetPointers(byte[] buf)
+    private ulong[] GetPointers(byte[] buf)
     {
         uint nkeys = NKeys(buf);
+        if (nkeys == 0)
+            throw Fatal(6844, $"btreeGetPointers: No keys in node cache {FileName}");
         var p = new ulong[nkeys + 1];
         int lenptr = NodeKeyLen;
         int keyptr = lenptr + (int)nkeys * 4;
@@ -263,9 +270,11 @@ internal sealed class EmbossBtreeCache
     }
 
     // btreeGetNumPointers
-    private static ulong[] GetNumPointers(byte[] buf)
+    private ulong[] GetNumPointers(byte[] buf)
     {
         uint nkeys = NKeys(buf);
+        if (nkeys == 0)
+            throw Fatal(21628, $"GetNumKeys: No keys in node cache {FileName}");
         var p = new ulong[nkeys + 1];
         int pptr = NodeKeyLen + (int)nkeys * 8;
         for (uint i = 0; i <= nkeys; ++i)
@@ -320,20 +329,21 @@ internal sealed class EmbossBtreeCache
         return ret;
     }
 
-    // btreeReadIdbucket: the entries of an id bucket
-    private List<EmbossBtId> ReadIdbucket(ulong pagepos, out ulong overflow)
+    // btreeReadIdbucket (all = false) and btreeIdbucketIdlistAll (all = true): the entries of an id bucket
+    private List<EmbossBtId> ReadIdbucket(ulong pagepos, out ulong overflow, bool all = false)
     {
         var list = new List<EmbossBtId>();
         overflow = 0;
+        string who = all ? "IdbucketIdlistAll" : "ReadBucket";
         if (pagepos == 0)
-            throw new EmbossFatalException("\n   EMBOSS An error in ajindex.c at line 4851:\nBucketRead: cannot read bucket from root page");
+            throw all ? Fatal(21449, $"IdbucketIdlistAll: cannot read bucket from root page cache {FileName}") : Fatal(4846, "BucketRead: cannot read bucket from root page");
         var buf = PriPage(pagepos);
         uint nodetype = U32(buf, 0), nentries = U32(buf, 4);
         overflow = U64(buf, 8);
         if (nodetype != BtIdBucket)
-            throw new EmbossFatalException($"\n   EMBOSS An error in ajindex.c at line 4868:\nReadBucket: NodeType mismatch. Not bucket ({nodetype})");
+            throw all ? Fatal(21462, $"IdbucketIdlistAll: NodeType mismatch. Not bucket ({nodetype}) cache {FileName}") : Fatal(4859, $"ReadBucket: NodeType mismatch. Not bucket ({nodetype})");
         if (nentries > Fill)
-            throw new EmbossFatalException($"\n   EMBOSS An error in ajindex.c at line 4875:\nReadBucket: Bucket too full page: {pagepos} entries: {nentries} max: {Fill} cache {FileName}");
+            throw Fatal(all ? 21468 : 4864, $"{who}: Bucket too full page: {pagepos} entries: {nentries} max: {Fill} cache {FileName}");
         uint keyskip = 4 + 4 + 8 + RefCount * 8 + 1;
         int kptr = BucketKeyLen;
         int idptr = kptr + (int)nentries * 4;
@@ -359,14 +369,16 @@ internal sealed class EmbossBtreeCache
     // btreeNumbucketBthitlist / btreeNumbucketBtidlist: the entries (offset, reference offsets, file) of a bucket of a secondary tree of numbers
     private void NumBucket(ulong pagepos, string? idname, List<EmbossBtHit>? hits, List<EmbossBtId>? ids)
     {
+        bool asHits = hits is not null;
+        string who = asHits ? "NumbucketBthitlist" : "NumbucketBtidlist";
         if (pagepos == SecRootBlock)
-            throw new EmbossFatalException("\n   EMBOSS An error in ajindex.c at line 9999:\nNumbucket: cannot read bucket from root page");
+            throw Fatal(asHits ? 22175 : 22080, $"{who}: cannot read bucket from root page cache {FileName}");
         var buf = SecPage(pagepos);
         uint nodetype = U32(buf, 0), nentries = U32(buf, 4);
         if (nodetype != BtNumBucket && nodetype != BtIdBucket)
-            throw new EmbossFatalException($"\n   EMBOSS An error in ajindex.c at line 9999:\nNumbucket: Nodetype mismatch. Not bucket ({nodetype}) cache {FileName}");
+            throw Fatal(asHits ? 22187 : 22092, $"{who}: Nodetype mismatch. Not bucket ({nodetype}) cache {FileName}");
         if (nentries > SFill)
-            throw new EmbossFatalException($"\n   EMBOSS An error in ajindex.c at line 9999:\nNumbucket: Bucket too full page: {pagepos} entries: {nentries} max: {SFill} cache {FileName}");
+            throw Fatal(asHits ? 22193 : 22098, $"{who}: Bucket too full page: {pagepos} entries: {nentries} max: {SFill} cache {FileName}");
         int pptr = BucketKeyLen;
         for (uint i = 0; i < nentries; ++i)
         {
@@ -471,7 +483,7 @@ internal sealed class EmbossBtreeCache
     // btreeIdbucketIdlistAll: the entries of an id bucket (an identifier with duplicates is replaced by its entries)
     private void IdbucketIdlistAll(ulong pagepos, List<EmbossBtId> idlist)
     {
-        foreach (var id in ReadIdbucket(pagepos, out _))
+        foreach (var id in ReadIdbucket(pagepos, out _, true))
         {
             if (id.Dups == 0)
                 idlist.Add(id);
@@ -497,10 +509,12 @@ internal sealed class EmbossBtreeCache
     // btreePribucketIdlist
     private void PribucketIdlist(ulong pagepos, List<EmbossBtPri> list)
     {
+        if (pagepos == 0)
+            throw Fatal(11817, $"PribucketIdlist: cannot read bucket from root page cache {FileName}");
         var buf = PriPage(pagepos);
         uint nodetype = U32(buf, 0), nentries = U32(buf, 4);
         if (nodetype != BtPriBucket)
-            throw new EmbossFatalException($"\n   EMBOSS An error in ajindex.c at line 9999:\nPribucketIdlist: NodeType mismatch. Not primary bucket ({nodetype}) cache {FileName}");
+            throw Fatal(11830, $"PribucketIdlist: NodeType mismatch. Not primary bucket ({nodetype}) cache {FileName}");
         int kptr = BucketKeyLen;
         int code = kptr + (int)nentries * 4;
         for (uint i = 0; i < nentries; ++i)
@@ -532,10 +546,14 @@ internal sealed class EmbossBtreeCache
     private bool PribucketFindId(ulong pagepos, string id, out ulong treeblock)
     {
         treeblock = 0;
+        if (pagepos == 0)
+            throw Fatal(13021, $"PribucketFindId: cannot read bucket from root page cache {FileName}");
         var buf = PriPage(pagepos);
         uint nodetype = U32(buf, 0), nentries = U32(buf, 4);
         if (nodetype != BtPriBucket)
-            throw new EmbossFatalException($"\n   EMBOSS An error in ajindex.c at line 9999:\nPribucketFindId: NodeType mismatch. Not primary bucket ({nodetype}) cache {FileName}");
+            throw Fatal(13034, $"PribucketFindId: NodeType mismatch. Not primary bucket ({nodetype}) cache {FileName}");
+        if (nentries > Fill)
+            throw Fatal(13040, $"PribucketFindId: Bucket too full  page: {pagepos} entries: {nentries} max: {Fill} cache {FileName}");
         int kptr = BucketKeyLen;
         int code = kptr + (int)nentries * 4;
         for (uint i = 0; i < nentries; ++i)
@@ -561,7 +579,9 @@ internal sealed class EmbossBtreeCache
         var buf = SecPage(pagepos);
         uint nodetype = U32(buf, 0), nentries = U32(buf, 4);
         if (nodetype != BtSecBucket)
-            throw new EmbossFatalException($"\n   EMBOSS An error in ajindex.c at line 9999:\nSecbucketIdlist: NodeType mismatch. Not secondary bucket ({nodetype}) cache {FileName}");
+            throw Fatal(13642, $"SecbucketIdlist: NodeType mismatch. Not secondary bucket ({nodetype}) cache {FileName}");
+        if (nentries > SFill)
+            throw Fatal(13648, $"SecbucketIdlist: Bucket too full page: {pagepos} entries: {nentries} max: {SFill} full cache {FileName}");
         int kptr = BucketKeyLen;
         int code = kptr + (int)nentries * 4;
         for (uint i = 0; i < nentries; ++i)
@@ -1060,7 +1080,7 @@ internal sealed class EmbossStrTable
 {
     private static readonly ulong[] Primes = [3, 7, 13, 31, 61, 127, 251, 509, 1021, 2039, 4093, 8191, 16381, 32749, 65521, 131071, 262139, 524287, 1048573, 2097143, 4194301, 8388593, 16777213, 33554393, 67108859, 134217689, 268435399, 536870909, 1073741789, 2147483647, uint.MaxValue];
 
-    private List<string>[] _buckets;
+    private List<string>?[] _buckets;
     private ulong _size;
     private ulong _length;
 
@@ -1071,7 +1091,7 @@ internal sealed class EmbossStrTable
         while (Primes[i] <= hint)
             i++;
         _size = Primes[i - 1];
-        _buckets = new List<string>[_size];
+        _buckets = new List<string>?[_size];
     }
 
     private static ulong Hash(string key, ulong hashsize)
@@ -1111,7 +1131,7 @@ internal sealed class EmbossStrTable
             return;
         var keys = Keys().ToList();
         _size = iprime;
-        _buckets = new List<string>[_size];
+        _buckets = new List<string>?[_size];
         foreach (string k in keys)
         {
             ulong ib = Hash(k, _size);

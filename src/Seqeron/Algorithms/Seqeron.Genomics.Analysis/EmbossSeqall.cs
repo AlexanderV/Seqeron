@@ -27,6 +27,9 @@ internal sealed class EmbossSeqall
     private readonly IReadOnlyDictionary<string, string> _files;
     private List<UsaNode>? _usalist;
     private EmbossSeqin? _input;
+
+    // the access method of an index (textin->Single): one entry per hit, from the offset of the hit in its file
+    private Queue<string>? _hitTexts;
     private int _depth;
     private readonly Dictionary<string, int> _expansions = [];
     private int _count;
@@ -36,6 +39,9 @@ internal sealed class EmbossSeqall
     private bool _rev;
     private EmbossSeq? _first;
 
+    /// <summary>The name of the configuration file in the messages of the library (the generator of the oracles replaces the path of the work directory by this name).</summary>
+    internal const string ConfigName = "<WORK>/.embossrc";
+
     private EmbossSeqall(EmbossFeatureReadContext context, IReadOnlyDictionary<string, string> files, EmbossNames? names)
     {
         _context = context;
@@ -44,6 +50,7 @@ internal sealed class EmbossSeqall
         {
             Files = name => files.TryGetValue(name, out string? t) ? t : null,
             Names = names,
+            IsServer = name => names?.IsServerName(name) ?? false,
             Directory = dir => ListDirectory(files, dir),
         };
     }
@@ -76,9 +83,19 @@ internal sealed class EmbossSeqall
     public static EmbossSeqall? Open(string program, string spec, IReadOnlyDictionary<string, string> files, EmbossSequenceQualifiers q, bool features, EmbossFeatureReadContext context, string sequenceType = "gapany", bool single = false, IReadOnlyList<string>? definitions = null, bool storeText = false)
     {
         context.Program = program;
-        EmbossNames? names = definitions is { Count: > 0 } ? EmbossNames.Parse([.. definitions]) : null;
+        EmbossNames? names = definitions is { Count: > 0 } ? EmbossNames.Parse(name => files.TryGetValue(name, out string? t) ? t : null, ConfigName, [.. definitions]) : null;
         if (names is not null)
+        {
             context.Messages.AddRange(names.Messages);
+            if (names.ErrorCount > 0)
+            {
+                // ajNamInit: the errors of the definitions stop the program before anything is read
+                context.Messages.Add("Died: Error(s) in configuration files");
+                context.Fatal = true;
+                return null;
+            }
+        }
+
         var all = new EmbossSeqall(context, files, names);
         var o = all._opt;
         // ajSeqinUsa, then the associated qualifiers
@@ -230,6 +247,7 @@ internal sealed class EmbossSeqall
     {
         _textin.Clear();
         _input = null;
+        _hitTexts = null;
         _opt.Entryname = "";
         _opt.Rev = false;
         _opt.Begin = 0;
@@ -354,6 +372,18 @@ internal sealed class EmbossSeqall
         t = null;
         if (_input is null)
             return false;
+        if (_hitTexts is not null)
+        {
+            // seqRead with textin->Single: the access method is called again for the next hit; a hit that cannot be read ends the read
+            if (_hitTexts.Count == 0)
+                return false;
+            Func<string, string?> lookup = name => _files.TryGetValue(name, out string? s) ? s : null;
+            t = new EmbossSeqin(_hitTexts.Dequeue(), _opt, _context, lookup).Next();
+            if (t is null)
+                _hitTexts.Clear();
+            return t is not null;
+        }
+
         t = _input.Next();
         return t is not null;
     }
@@ -389,6 +419,14 @@ internal sealed class EmbossSeqall
             text = fpos < text.Length ? text[(int)fpos..] : "";
         }
         Func<string, string?> lookup = name => _files.TryGetValue(name, out string? s) ? s : null;
+        _hitTexts = null;
+        if (r.HitTexts is { } hits)
+        {
+            _hitTexts = new Queue<string>(hits);
+            _input = new EmbossSeqin("", _opt, _context, lookup);                                // the marker that the USA is processed; every hit has its own input
+            return true;
+        }
+
         _input = r.Texts is { Count: > 1 } texts ? new EmbossSeqin(texts, _opt, _context, lookup) : new EmbossSeqin(text, _opt, _context, lookup);
         return true;
     }

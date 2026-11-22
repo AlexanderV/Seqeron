@@ -214,12 +214,21 @@ def build(rnd, method, work, shim, files, defs):
     rnd.shuffle(attrs)
     defs = cfg + 'DBNAME %s [\n  %s\n]\n' % (name, '\n  '.join(attrs))
     open(os.path.join(work, '.embossrc'), 'w').write(defs)
+    viacompress = method == 'emboss' and compressed and rnd.random() < 0.25       # an uncompressed index compressed by dbxcompress, field by field
+    if viacompress:
+        args = [('-nocompressed' if a == '-compressed' else a) for a in args]
     rc, out, err = run(prog, args, work, env)
     if rc != 0:
         return None
+    if viacompress:
+        for f in fields:
+            rc2, _, _ = run('dbxcompress', ['-auto', '-dbname', name, '-field', f, '-outfile', 'cmp.log', '-indexdir', idxdir], work, env)
+            if rc2 != 0:
+                return None
+        if os.path.exists(os.path.join(work, 'cmp.log')): os.remove(os.path.join(work, 'cmp.log'))
     for nme in ('index.log',):
         if os.path.exists(os.path.join(work, nme)): os.remove(os.path.join(work, nme))
-    return {'name': name, 'ents': ents, 'defs': defs, 'files': collect(work), 'fields': fields, 'fmt': fmtname, 'how': '%s/%s/%s%s' % (method, prog, ifmt, '/c' if compressed else '')}
+    return {'name': name, 'ents': ents, 'defs': defs, 'files': collect(work), 'fields': fields, 'fmt': fmtname, 'how': '%s/%s/%s%s%s' % (method, prog, ifmt, '/c' if compressed else '', '+dbxcompress' if viacompress else '')}
 
 
 def main(out, count, seed, method):
@@ -270,7 +279,7 @@ def main(out, count, seed, method):
             if err.startswith('Retrieve sequence entries from flatfile databases and files\n'):
                 err = err[len('Retrieve sequence entries from flatfile databases and files\n'):]
             memerr = False
-            rows.append({'id': len(rows), 'how': info['how'], 'definitions': info['defs'], 'files': info['files'], 'spec': spec, 'args': args if program == 'seqret' else [], 'feature': feature, 'epoch': epoch, 'rc': rc,
+            rows.append({'id': len(rows), 'how': info['how'], 'definitions': info['defs'], 'files': info['files'], 'spec': spec, 'args': args if program == 'seqret' else [a for a in args if a == '-firstonly'], 'feature': feature, 'epoch': epoch, 'rc': rc,
                          'fa': rd('o.fa'), 'gff': rd('o.gff'), 'err': err, 'hang': hang, 'memerr': memerr, 'program': program})
             made += 1
     with gzip.open(out, 'wt', encoding='utf-8', newline='\n', compresslevel=9) as fh:
