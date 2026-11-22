@@ -182,7 +182,10 @@ internal sealed unsafe class MappedSearch
         }
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+    // No AggressiveOptimization (work package 1b.9g): that attribute compiles the loop once, fully optimised and without a profile, and takes it out of tiered compilation and dynamic PGO. The
+    // descent of a short pattern, where every step is a few loads in the cache, runs 25 % faster as the profiled tier-1 code (the same loop of the in-memory tree always was): the 17-32 % that
+    // the mapped path cost on locate of a short pattern when the working set is in the cache was this, not the packed text or the checks. What it costs: the first 10,000-20,000 queries of a
+    // process run as tier-0 code, about 10-40 ms in all (ADR-004 section 5a, "1b.9g").
     private bool Run<TAccess, TLcp, TCells>(TCells cells, TLcp lcp, ReadOnlySpan<byte> pat, Span<ulong> packed, out int lo, out int hi)
         where TAccess : struct, IAccessChecks
         where TLcp : struct, IMappedLcp
