@@ -335,4 +335,88 @@ public partial class AnalysisTools
         return RunEmbossOutfileProgram("seqxref", args, all, nameof(sequence), null);
     }
 
+    [McpServerTool(Name = "showorf", Title = "Genome — EMBOSS showorf (nucleotide sequence and its translations)", ReadOnly = true)]
+    [Description("EMBOSS 6.6.0 showorf: the sequence in blocks of width bases with a ruler and the numbers of the bases, and under it the translations of the frames (F1 F2 F3 forward, R1 R2 R3 reverse: the amino acid under the first base of every codon, the numbers of the first and last residue of the block); the genetic code is the EMBOSS table of the code number. Equals the installed program on 300 runs (every input format of seqret, ranges, the output formats, the messages of the library; byte for byte). B09 WP62, F281.")]
+    public static EmbossProgramToolResult Showorf(
+        [Description("The text of the sequence file (the first sequence is used), or a sequence as letters.")] string sequence,
+        [Description("The frames to translate (-frames): a comma list of 0 none, 1 F1, 2 F2, 3 F3, 4 R1, 5 R2, 6 R3 (default 1,2,3,4,5,6).")] string? frames = null,
+        [Description("The genetic code (-table): 0 .. 6, 9 .. 16, 21 .. 23.")] string? table = null,
+        [Description("The width of the screen (-width, default 50; at least 10).")] int? width = null,
+        [Description("Add a ruler (-ruler, default true).")] bool ruler = true,
+        [Description("Number the translations (-plabel, default true).")] bool plabel = true,
+        [Description("Number the sequence (-nlabel, default true).")] bool nlabel = true,
+        [Description("The input format (-sformat1); default: the program finds the format.")] string? sequenceFormat = null,
+        [Description("Sequence input qualifiers as typed after the sequence on the command line: -sbegin1 -send1 -sreverse1, -slower1 -supper1 -snucleotide1 -sprotein1 -scircular1, -sid1 name, -sdbname1 db, -squick1, -iquery1 query, -ioffset1 bytes.")] string? qualifiers = null,
+        CancellationToken cancellationToken = default,
+        [Description("More files by name (file name -> text) that the program may read (a file named by a USA, @file).")] IReadOnlyDictionary<string, string>? files = null,
+        [Description("The USA of the sequence input (-sequence) as the program reads it, instead of the text: [format::]file[begin:end:r], file:id, @list, asis::SEQUENCE.")] string? sequenceValue = null)
+    {
+        if (string.IsNullOrWhiteSpace(sequence))
+            throw new ArgumentException("The sequence cannot be empty", nameof(sequence));
+        cancellationToken.ThrowIfCancellationRequested();
+        var all = new Dictionary<string, string>(files ?? new Dictionary<string, string>());
+        var args = new List<string>();
+        all["sequence.dat"] = sequence;
+        args.Add("-sequence");
+        args.Add(SequenceSpec(sequenceValue, sequence, "sequence.dat"));
+        if (!string.IsNullOrWhiteSpace(sequenceFormat))
+            args.AddRange(["-sformat1", sequenceFormat]);
+        AddQualifierTokens(args, qualifiers);
+        if (!string.IsNullOrEmpty(frames))
+            args.AddRange(["-frames", frames]);
+        if (!string.IsNullOrEmpty(table))
+            args.AddRange(["-table", table]);
+        if (width.HasValue)
+            args.AddRange(["-width", width.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)]);
+        if (!ruler)
+            args.Add("-noruler");
+        if (!plabel)
+            args.Add("-noplabel");
+        if (!nlabel)
+            args.Add("-nonlabel");
+        return RunEmbossOutfileProgram("showorf", args, all, nameof(sequence), null);
+    }
+
+    [McpServerTool(Name = "prettyseq", Title = "Genome — EMBOSS prettyseq (nucleotide sequence and its translation)", ReadOnly = true)]
+    [Description("EMBOSS 6.6.0 prettyseq: the sequence in blocks of width bases with a ruler and numbers; the bases of the ranges are in lower case and the amino acid is written under the first base of each of their codons (the rest of the sequence in upper case with blanks under it). Equals the installed program on 300 runs (every input format of seqret, ranges, the output formats, the messages of the library; byte for byte). B09 WP62, F281.")]
+    public static EmbossProgramToolResult Prettyseq(
+        [Description("The text of the sequence file (the first sequence is used), or a sequence as letters.")] string sequence,
+        [Description("The ranges to translate (-range '4-57,78-94'; default the whole sequence).")] string? range = null,
+        [Description("The genetic code (-table): 0 .. 6, 9 .. 16, 21 .. 23.")] string? table = null,
+        [Description("Add a ruler (-ruler, default true).")] bool ruler = true,
+        [Description("Number the translations (-plabel, default true).")] bool plabel = true,
+        [Description("Number the sequence (-nlabel, default true).")] bool nlabel = true,
+        [Description("The width of the screen (-width, default 60; at least 10).")] int? width = null,
+        [Description("The input format (-sformat1); default: the program finds the format.")] string? sequenceFormat = null,
+        [Description("Sequence input qualifiers as typed after the sequence on the command line: -sbegin1 -send1 -sreverse1, -slower1 -supper1 -snucleotide1 -sprotein1 -scircular1, -sid1 name, -sdbname1 db, -squick1, -iquery1 query, -ioffset1 bytes.")] string? qualifiers = null,
+        CancellationToken cancellationToken = default,
+        [Description("More files by name (file name -> text) that the program may read (a file named by a USA, @file).")] IReadOnlyDictionary<string, string>? files = null,
+        [Description("The USA of the sequence input (-sequence) as the program reads it, instead of the text: [format::]file[begin:end:r], file:id, @list, asis::SEQUENCE.")] string? sequenceValue = null)
+    {
+        if (string.IsNullOrWhiteSpace(sequence))
+            throw new ArgumentException("The sequence cannot be empty", nameof(sequence));
+        cancellationToken.ThrowIfCancellationRequested();
+        var all = new Dictionary<string, string>(files ?? new Dictionary<string, string>());
+        var args = new List<string>();
+        all["sequence.dat"] = sequence;
+        args.Add("-sequence");
+        args.Add(SequenceSpec(sequenceValue, sequence, "sequence.dat"));
+        if (!string.IsNullOrWhiteSpace(sequenceFormat))
+            args.AddRange(["-sformat1", sequenceFormat]);
+        AddQualifierTokens(args, qualifiers);
+        if (!string.IsNullOrEmpty(range))
+            args.AddRange(["-range", range]);
+        if (!string.IsNullOrEmpty(table))
+            args.AddRange(["-table", table]);
+        if (!ruler)
+            args.Add("-noruler");
+        if (!plabel)
+            args.Add("-noplabel");
+        if (!nlabel)
+            args.Add("-nonlabel");
+        if (width.HasValue)
+            args.AddRange(["-width", width.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)]);
+        return RunEmbossOutfileProgram("prettyseq", args, all, nameof(sequence), null);
+    }
+
 }

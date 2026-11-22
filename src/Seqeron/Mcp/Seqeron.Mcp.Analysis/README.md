@@ -2,7 +2,7 @@
 
 MCP server — **K-mer, motif, repeat, complexity, RNA-structure and comparative-genomics analysis.**
 
-Exposes **220 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+Exposes **222 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
 MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test, with a
 per-tool doc under [`docs/mcp/tools/analysis/`](../../../../docs/mcp/tools/analysis). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
@@ -100,6 +100,8 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `infoseq` | EMBOSS infoseq: displays basic information about sequences; equals infoseq 6.6.0 on 300 runs. |
 | `wordcount` | EMBOSS wordcount: counts the words of a given size in sequences; equals wordcount 6.6.0 on 300 runs. |
 | `seqxref` | EMBOSS seqxref: reports the database cross-references of sequence entries; equals seqxref 6.6.0 on 300 runs. |
+| `showorf` | EMBOSS showorf: displays a nucleotide sequence and its translations in pretty format; equals showorf 6.6.0 on 300 runs. |
+| `prettyseq` | EMBOSS prettyseq: writes a nucleotide sequence and its translation; equals prettyseq 6.6.0 on 300 runs. |
 | `makenucseq` | EMBOSS makenucseq: creates random nucleotide sequences; equals makenucseq 6.6.0 on 300 runs. |
 | `makeprotseq` | EMBOSS makeprotseq: creates random protein sequences; equals makeprotseq 6.6.0 on 300 runs. |
 | `splitter` | EMBOSS splitter: splits sequences into smaller sequences; equals splitter 6.6.0 on 320 runs. |

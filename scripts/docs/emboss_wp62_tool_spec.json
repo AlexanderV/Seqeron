@@ -416,5 +416,98 @@
    },
    "note": "The output is the text the installed program writes."
   }
+ },
+ {
+  "name": "showorf",
+  "summary": "EMBOSS 6.6.0 showorf: Displays a nucleotide sequence and its translations in pretty format, as showorf of EMBOSS 6.6.0.",
+  "methodId": "EmbossProgramRunner.Run",
+  "sourceFile": "EmbossSequencePrograms.Report.cs",
+  "sourcePath": "Seqeron.Genomics.Analysis/EmbossSequencePrograms.Report.cs",
+  "algorithmDoc": "Alignment/Pairwise_Output_Formats_And_EMBOSS_Programs.md",
+  "oracleScript": "generate_emboss_prog_report_oracle.py",
+  "short": "EMBOSS showorf: displays a nucleotide sequence and its translations in pretty format; equals showorf 6.6.0 on 300 runs.",
+  "after": "seqxref",
+  "file": "AnalysisTools.EmbossSequencePrograms2.cs",
+  "description": "EMBOSS 6.6.0 showorf: the sequence in blocks of width bases with a ruler and the numbers of the bases, and under it the translations of the frames (F1 F2 F3 forward, R1 R2 R3 reverse: the amino acid under the first base of every codon, the numbers of the first and last residue of the block); the genetic code is the EMBOSS table of the code number. Equals the installed program on 300 runs (every input format of seqret, ranges, the output formats, the messages of the library; byte for byte). B09 WP62, F281.",
+  "output": {
+   "text": [
+    "string",
+    "The standard output of the program (the sequences) or the text of its output file."
+   ],
+   "files": [
+    "object",
+    "The files the program wrote, by name."
+   ],
+   "messages": [
+    "string[]",
+    "What the library printed on the error stream (warnings and errors)."
+   ]
+  },
+  "errors": [
+   "The sequence cannot be empty",
+   "The program died: the messages of the library (a value it refuses, an input no reader reads, a sequence of the wrong kind)",
+   "An input on which the reference program never stops or dies by a fault is refused"
+  ],
+  "example": {
+   "title": "A run on a small input",
+   "prompt": "Run showorf on this input.",
+   "input": {
+    "sequence": ">s1 d\nATGAAATTTGGGCCCTAGATGCCCAAATTT\n",
+    "frames": "1,4",
+    "width": 30
+   },
+   "output": {
+    "text": "SHOWORF of s1 from 1 to 30\n\n           ---------|---------|---------|\n         1 ATGAAATTTGGGCCCTAGATGCCCAAATTT 30\nF1       1 M  K  F  G  P  *  M  P  K  F   4\nR1      10   H  F  K  P  G  L  H  G  F  K 1\n\n",
+    "files": {},
+    "messages": []
+   },
+   "note": "The output is the text the installed program writes."
+  }
+ },
+ {
+  "name": "prettyseq",
+  "summary": "EMBOSS 6.6.0 prettyseq: Writes a nucleotide sequence and its translation, as prettyseq of EMBOSS 6.6.0.",
+  "methodId": "EmbossProgramRunner.Run",
+  "sourceFile": "EmbossSequencePrograms.Report.cs",
+  "sourcePath": "Seqeron.Genomics.Analysis/EmbossSequencePrograms.Report.cs",
+  "algorithmDoc": "Alignment/Pairwise_Output_Formats_And_EMBOSS_Programs.md",
+  "oracleScript": "generate_emboss_prog_report_oracle.py",
+  "short": "EMBOSS prettyseq: writes a nucleotide sequence and its translation; equals prettyseq 6.6.0 on 300 runs.",
+  "after": "showorf",
+  "file": "AnalysisTools.EmbossSequencePrograms2.cs",
+  "description": "EMBOSS 6.6.0 prettyseq: the sequence in blocks of width bases with a ruler and numbers; the bases of the ranges are in lower case and the amino acid is written under the first base of each of their codons (the rest of the sequence in upper case with blanks under it). Equals the installed program on 300 runs (every input format of seqret, ranges, the output formats, the messages of the library; byte for byte). B09 WP62, F281.",
+  "output": {
+   "text": [
+    "string",
+    "The standard output of the program (the sequences) or the text of its output file."
+   ],
+   "files": [
+    "object",
+    "The files the program wrote, by name."
+   ],
+   "messages": [
+    "string[]",
+    "What the library printed on the error stream (warnings and errors)."
+   ]
+  },
+  "errors": [
+   "The sequence cannot be empty",
+   "The program died: the messages of the library (a value it refuses, an input no reader reads, a sequence of the wrong kind)",
+   "An input on which the reference program never stops or dies by a fault is refused"
+  ],
+  "example": {
+   "title": "A run on a small input",
+   "prompt": "Run prettyseq on this input.",
+   "input": {
+    "sequence": ">s1 d\nATGAAATTTGGGCCCTAGATGCCCAAATTT\n",
+    "range": "4-15"
+   },
+   "output": {
+    "text": "PRETTYSEQ of s1 from 1 to 30\n\n           ---------|---------|---------|\n         1 ATGaaatttgggcccTAGATGCCCAAATTT 30\n         1    K  F  G  P                  4\n\n",
+    "files": {},
+    "messages": []
+   },
+   "note": "The output is the text the installed program writes."
+  }
  }
 ]

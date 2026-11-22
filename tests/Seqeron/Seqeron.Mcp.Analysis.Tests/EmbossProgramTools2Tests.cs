@@ -71,6 +71,20 @@ public class EmbossProgramTools2Tests
     }
 
     [Test]
+    public void Showorf_WritesWhatTheInstalledProgramWrites()
+    {
+        var r = AnalysisTools.Showorf(">s1 d\nATGAAATTTGGGCCCTAGATGCCCAAATTT\n", frames: "1,4", width: 30);
+        Assert.That(r.Text, Is.EqualTo("SHOWORF of s1 from 1 to 30\n\n           ---------|---------|---------|\n         1 ATGAAATTTGGGCCCTAGATGCCCAAATTT 30\nF1       1 M  K  F  G  P  *  M  P  K  F   4\nR1      10   H  F  K  P  G  L  H  G  F  K 1\n\n"));
+    }
+
+    [Test]
+    public void Prettyseq_WritesWhatTheInstalledProgramWrites()
+    {
+        var r = AnalysisTools.Prettyseq(">s1 d\nATGAAATTTGGGCCCTAGATGCCCAAATTT\n", range: "4-15");
+        Assert.That(r.Text, Is.EqualTo("PRETTYSEQ of s1 from 1 to 30\n\n           ---------|---------|---------|\n         1 ATGaaatttgggcccTAGATGCCCAAATTT 30\n         1    K  F  G  P                  4\n\n"));
+    }
+
+    [Test]
     public void Tools_RefuseAnEmptySequenceAndABadValueWithTheMessagesOfTheLibrary()
     {
         Assert.Throws<ArgumentException>(() => AnalysisTools.Shuffleseq(""));

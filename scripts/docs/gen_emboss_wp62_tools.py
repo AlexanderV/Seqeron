@@ -79,6 +79,22 @@ TOOLS = [
          desc="for every entry '#USA: count' and the cross-references db:id (the DR lines of EMBL and Swiss-Prot entries ...) sorted by database name and identifier, equal ones once",
          inputs=[('sequence', 'sequence', SEQ_IN)], opts=[],
          example=("ID   TEST_HUMAN    Reviewed;    10 AA.\nAC   P12345;\nDR   PDB; 1ABC; X-ray; 1.9 A; A=1-10.\nDR   EMBL; X1234; -.\nSQ   SEQUENCE   10 AA;  1000 MW;  ABCD CRC64;\n     MKVLAAGIVG\n//\n", {})),
+    dict(name='showorf', title='Genome — EMBOSS showorf (nucleotide sequence and its translations)', program='showorf', after='seqxref', kind='outfile', single=True,
+         summary="Displays a nucleotide sequence and its translations in pretty format, as showorf of EMBOSS 6.6.0.",
+         desc="the sequence in blocks of width bases with a ruler and the numbers of the bases, and under it the translations of the frames (F1 F2 F3 forward, R1 R2 R3 reverse: the amino acid under the first base of every codon, the numbers of the first and last residue of the block); the genetic code is the EMBOSS table of the code number",
+         inputs=[('sequence', 'sequence', "The text of the sequence file (the first sequence is used), or a sequence as letters.")],
+         opts=[('frames', 'string', None, 'frames', "The frames to translate (-frames): a comma list of 0 none, 1 F1, 2 F2, 3 F3, 4 R1, 5 R2, 6 R3 (default 1,2,3,4,5,6)."),
+               ('table', 'string', None, 'table', 'The genetic code (-table): 0 .. 6, 9 .. 16, 21 .. 23.'), ('width', 'int', None, 'width', 'The width of the screen (-width, default 50; at least 10).'),
+               ('ruler', 'flag', True, 'ruler', 'Add a ruler (-ruler, default true).'), ('plabel', 'flag', True, 'plabel', 'Number the translations (-plabel, default true).'), ('nlabel', 'flag', True, 'nlabel', 'Number the sequence (-nlabel, default true).')],
+         example=(">s1 d\nATGAAATTTGGGCCCTAGATGCCCAAATTT\n", {'frames': '1,4', 'width': 30})),
+    dict(name='prettyseq', title='Genome — EMBOSS prettyseq (nucleotide sequence and its translation)', program='prettyseq', after='showorf', kind='outfile', single=True,
+         summary="Writes a nucleotide sequence and its translation, as prettyseq of EMBOSS 6.6.0.",
+         desc="the sequence in blocks of width bases with a ruler and numbers; the bases of the ranges are in lower case and the amino acid is written under the first base of each of their codons (the rest of the sequence in upper case with blanks under it)",
+         inputs=[('sequence', 'sequence', "The text of the sequence file (the first sequence is used), or a sequence as letters.")],
+         opts=[('range', 'string', None, 'range', "The ranges to translate (-range '4-57,78-94'; default the whole sequence)."), ('table', 'string', None, 'table', 'The genetic code (-table): 0 .. 6, 9 .. 16, 21 .. 23.'),
+               ('ruler', 'flag', True, 'ruler', 'Add a ruler (-ruler, default true).'), ('plabel', 'flag', True, 'plabel', 'Number the translations (-plabel, default true).'), ('nlabel', 'flag', True, 'nlabel', 'Number the sequence (-nlabel, default true).'),
+               ('width', 'int', None, 'width', 'The width of the screen (-width, default 60; at least 10).')],
+         example=(">s1 d\nATGAAATTTGGGCCCTAGATGCCCAAATTT\n", {'range': '4-15'})),
 ]
 
 

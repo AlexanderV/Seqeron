@@ -144,6 +144,8 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "infoseq",
         "wordcount",
         "seqxref",
+        "showorf",
+        "prettyseq",
         "makenucseq",
         "makeprotseq",
         "splitter",
