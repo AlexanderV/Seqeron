@@ -1,0 +1,8 @@
+# new_o2_protO proc 1
+AB count_present  A     15109267  B     15801737  B/A median-of-paired 1.0408  p25 1.0373 p75 1.0499  n 9
+AB locate         A     18104608  B     18677654  B/A median-of-paired 1.0408  p25 1.0362 p75 1.0429  n 9
+AB count_absent   A      3010597  B      3051741  B/A median-of-paired 1.0170  p25 1.0126 p75 1.0231  n 9
+# new_o2_protO proc 2
+AB count_present  A     15349667  B     15780540  B/A median-of-paired 1.0159  p25 1.0131 p75 1.0400  n 9
+AB locate         A     18470512  B     19134428  B/A median-of-paired 1.0320  p25 1.0222 p75 1.0610  n 9
+AB count_absent   A      2335449  B      2407765  B/A median-of-paired 0.9999  p25 0.9743 p75 1.0011  n 9

@@ -1,0 +1,8 @@
+1b9g1_F03	a call reads the release flag where it means the disposal flag (the first read of Enter)	killed(stage 1: 1 failed, first ACallThatStartsAfterDispose_ThrowsObjectDisposed_WithoutPublishingAnEntry_AndWithoutABarrier)
+1b9g1_F04	the read of the flag after the store reads the release flag	killed(stage 1: 10 failed, first ADisposedFileBackedTree_WithACallerInside_ReleasesItsMapping_WhenTheLastCallerLeaves)
+1b9g1_F05	Dispose raises the release flag instead of the disposal flag	killed(stage 1: 22 failed, first ADisposedFileBackedTree_ReleasesItsMapping_WhicheverStripeItsCallersCounted)
+1b9g1_F06	the releaser looks at the disposal flag where it means the claim	killed(stage 1: 20 failed, first ADisposedFileBackedTree_ReleasesItsMapping_WhicheverStripeItsCallersCounted)
+1b9g1_F07	the release is claimed on the disposal flag	killed(stage 1: 19 failed, first ADisposedFileBackedTree_ReleasesItsMapping_WhicheverStripeItsCallersCounted)
+1b9g1_F08	the disposal flag is at the start of the flags object (no room before it)	killed(stage 1: 1 failed, first TheFlagsObject_HasAtLeastACacheLineOfRoomOnBothSidesOfTheFlags)
+1b9g1_F09	the flags object is 80 bytes (no room after the flags)	killed(stage 1: 1 failed, first TheFlagsObject_HasAtLeastACacheLineOfRoomOnBothSidesOfTheFlags)
+1b9g1_F10	the release flag is on another line than the disposal flag	killed(stage 1: 1 failed, first TheFlagsObject_HasAtLeastACacheLineOfRoomOnBothSidesOfTheFlags)

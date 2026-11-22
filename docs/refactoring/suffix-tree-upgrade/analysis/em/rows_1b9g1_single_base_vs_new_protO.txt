@@ -1,0 +1,4 @@
+# single_base_protO proc 1
+AB count_present  A      3563838  B      3938100  B/A median-of-paired 1.0978  p25 1.0616 p75 1.1271  n 9
+AB locate         A      3705126  B      4710705  B/A median-of-paired 1.2692  p25 1.2352 p75 1.2958  n 9
+AB count_absent   A       824766  B       836773  B/A median-of-paired 0.9966  p25 0.9836 p75 1.0196  n 9

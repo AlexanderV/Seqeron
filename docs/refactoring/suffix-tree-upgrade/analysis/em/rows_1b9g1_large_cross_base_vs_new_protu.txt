@@ -1,0 +1,4 @@
+# large_cross_protu proc 1
+AB count_present  A       347382  B       357074  B/A median-of-paired 1.0042  p25 0.9386 p75 1.0551  n 7
+AB locate         A       345852  B       357700  B/A median-of-paired 1.0246  p25 0.9517 p75 1.1020  n 7
+AB count_absent   A       342023  B       359647  B/A median-of-paired 1.0510  p25 1.0226 p75 1.0865  n 7

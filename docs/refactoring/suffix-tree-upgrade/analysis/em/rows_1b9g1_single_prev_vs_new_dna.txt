@@ -1,0 +1,4 @@
+# single_prev_dna proc 1
+AB count_present  A       755994  B       745807  B/A median-of-paired 0.9836  p25 0.9724 p75 1.0008  n 9
+AB locate         A      2391073  B      2261616  B/A median-of-paired 0.9746  p25 0.9729 p75 1.0101  n 9
+AB count_absent   A      1324232  B      1313187  B/A median-of-paired 0.9920  p25 0.9891 p75 0.9933  n 9

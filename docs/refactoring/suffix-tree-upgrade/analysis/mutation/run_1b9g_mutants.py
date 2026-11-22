@@ -18,7 +18,7 @@ BUILD_LIMIT = int(os.environ.get('MUTANT_BUILD_LIMIT', '400'))
 TEST_LIMIT = int(os.environ.get('MUTANT_TEST_LIMIT', '420'))
 FULL_LIMIT = int(os.environ.get('MUTANT_FULL_LIMIT', '2700'))
 STAGE2 = os.environ.get('STAGE2', '1') != '0'
-STAGE1 = ('FullyQualifiedName~ReaderCellTests|FullyQualifiedName~ReaderGateTests|FullyQualifiedName~FileBackedReaderProtocolTests|FullyQualifiedName~FacadeReaderCountTests|FullyQualifiedName~FacadeLifetimeTests'
+STAGE1 = ('FullyQualifiedName~ReaderCellTests|FullyQualifiedName~ReaderGateTests|FullyQualifiedName~ReaderGateFlagsTests|FullyQualifiedName~FileBackedReaderProtocolTests|FullyQualifiedName~FacadeReaderCountTests|FullyQualifiedName~FacadeLifetimeTests'
           '|FullyQualifiedName~FacadeEsaDisposeTests|FullyQualifiedName~FacadeCallReachabilityTests|FullyQualifiedName~MappedSearchTiering1b9gTests')
 STAGE1_RACE = 'FullyQualifiedName~FacadeDisposeRaceTests'  # the child process of the Dispose race (about 20 s): run only when the deterministic tests of stage 1 do not kill
 env = dict(os.environ, PATH=os.environ['PATH'] + ':/root/.dotnet', DOTNET_ROOT='/root/.dotnet', DOTNET_CLI_TELEMETRY_OPTOUT='1', DOTNET_NOLOGO='1')  # SEQERON_BENCH_DIR comes from the caller's environment

@@ -11,6 +11,7 @@ namespace ReadBench;
 /// Engine-level experiments of the diagnosis of 1b.9a: the descent is run on the index directly (no facade), so that one factor at a time can be exchanged. A variant is "ix-" followed by factors:
 ///   ix-memory / ix-memory-packed   the in-memory index (child layout tagged / packed)
 ///   ix-file                        the shipped mapped arm (EsaIndex.TryMatch over a mapped container)
+///   ix-gate                        ix-file inside the reader gate of the build (Enter and Leave around each call: the registration without the rest of the facade; 1b.9g.1)
 ///   ix-bytes                       the mapped arrays, but the text is a byte per symbol (a pinned copy): the packed decode is gone
 ///   ix-raw                         pointers for the mapped arrays and the byte text, nothing checked; the packed child table of the file
 ///   ix-rawtagged                   the same with a tagged child table derived from the file (a managed uint[])
@@ -31,6 +32,7 @@ internal static unsafe class ExperimentsIx
             case "ix-memory-packed": return new IndexQ(EsaIndex.Build(text, ChildLayoutKind.Packed));
             case "ix-file": return new IndexQ(EsaIndex.FromFile(SesaFile.Open(file, new EsaOpenOptions { Access = EsaAccessMode.Checked })));
             case "ix-file-trusted": return new IndexQ(EsaIndex.FromFile(SesaFile.Open(file, new EsaOpenOptions { Access = EsaAccessMode.Trusted })));
+            case "ix-gate": return new GateQ(EsaIndex.FromFile(SesaFile.Open(file, new EsaOpenOptions { Access = EsaAccessMode.Checked })));
         }
 
         SesaFile f = SesaFile.Open(file, new EsaOpenOptions { Access = EsaAccessMode.Checked });
@@ -70,6 +72,33 @@ internal static unsafe class ExperimentsIx
         Array.Fill(map, -1);
         for (int s = 0; s < alphabet.Length; s++) map[alphabet[s]] = s;
         return map;
+    }
+
+    /// <summary>The index behind the facade, called inside the reader gate of the build (<c>Enter</c> and <c>Leave</c> around the call, nothing else of the facade): the registration alone (1b.9g.1).</summary>
+    private sealed class GateQ : Program.Q
+    {
+        private readonly EsaIndex _index;
+        private readonly ReaderGate<ReaderGateSeams> _gate;
+
+        internal GateQ(EsaIndex index)
+        {
+            _index = index;
+            _gate = new ReaderGate<ReaderGateSeams>(this, static () => { });
+        }
+
+        internal override int Count(string pattern)
+        {
+            ReaderCell cell = _gate.Enter();
+            try { return _index.CountOccurrences(pattern.AsSpan()); }
+            finally { _gate.Leave(cell); }
+        }
+
+        internal override int Locate(string pattern)
+        {
+            ReaderCell cell = _gate.Enter();
+            try { return _index.FindAllOccurrences(pattern.AsSpan()).Count; }
+            finally { _gate.Leave(cell); }
+        }
     }
 
     private sealed class IndexQ(EsaIndex index) : Program.Q

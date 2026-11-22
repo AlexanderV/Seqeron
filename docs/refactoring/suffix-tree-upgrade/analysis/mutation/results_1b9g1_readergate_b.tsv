@@ -1,0 +1,8 @@
+1b9g1_G12	Dispose raises the flag without the compare-exchange (every Dispose runs the releaser)	killed(stage 1: 2 failed, first ASecondDispose_WhileAReaderIsStillInside_RunsNoBarrierAndNoScan_OnlyTheDisposeThatRaisedTheFlagDoes)
+1b9g1_G13	the releaser does not look at the claim first (it runs the barrier and the scan after the release)	killed(stage 1: 1 failed, first ADisposeBetweenTheClearingAndTheCheckOfAnExit_ReleasesInTheDisposer_AndTheReaderDoesNotReleaseAgain)
+1b9g1_G20	the release is claimed without the compare-exchange (every attempt that finds no call releases)	killed(stage 1: 1 failed, first ManyReadersThatLeaveTogether_ReleaseOnce)
+1b9g1_G22	the read of the flag after the store reports the opposite	killed(host crash: System.ObjectDisposedException, stage 1)
+1b9g1_G24	IsDisposed reports the opposite	killed(stage 1: 5 failed, first EveryGateHasItsOwnFlagsObject_AndTheFlagsOfTwoGatesAreIndependent)
+1b9g1_G25	IsReleased reports the opposite	killed(stage 1: 5 failed, first EveryGateHasItsOwnFlagsObject_AndTheFlagsOfTwoGatesAreIndependent)
+1b9g1_F01	the flags object is shared by all gates (a static)	killed(host crash: System.ObjectDisposedException, stage 1)
+1b9g1_F02	the flags object is not created for a gate	killed(host crash: System.NullReferenceException, stage 1)

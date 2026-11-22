@@ -1,0 +1,8 @@
+# large4_o1_dna proc 1
+AB count_present  A      3063939  B      3067070  B/A median-of-paired 1.0010  p25 0.9726 p75 1.0240  n 7
+AB locate         A      4101838  B      3897925  B/A median-of-paired 1.0048  p25 0.9507 p75 1.0479  n 7
+AB count_absent   A      3288912  B      3171628  B/A median-of-paired 0.9759  p25 0.9633 p75 1.0018  n 7
+# large4_o1_dna proc 2
+AB count_present  A      3069688  B      3169822  B/A median-of-paired 0.9829  p25 0.9742 p75 1.0319  n 7
+AB locate         A      3370574  B      3525512  B/A median-of-paired 0.9790  p25 0.9428 p75 1.1175  n 7
+AB count_absent   A      2997645  B      2949943  B/A median-of-paired 0.9865  p25 0.9841 p75 1.0230  n 7

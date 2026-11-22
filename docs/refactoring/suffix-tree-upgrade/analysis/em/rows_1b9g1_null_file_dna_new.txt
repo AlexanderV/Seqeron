@@ -1,0 +1,12 @@
+# null_new_dna proc 1
+AB count_present  A      3864847  B      3917222  B/A median-of-paired 0.9672  p25 0.9484 p75 1.0378  n 9
+AB locate         A      6982501  B      6538270  B/A median-of-paired 0.9486  p25 0.9401 p75 0.9665  n 9
+AB count_absent   A      4384991  B      4376437  B/A median-of-paired 0.9866  p25 0.9720 p75 1.0024  n 9
+# null_new_dna proc 2
+AB count_present  A      3839643  B      3881491  B/A median-of-paired 0.9878  p25 0.9820 p75 1.0109  n 9
+AB locate         A      6576297  B      6918568  B/A median-of-paired 1.0394  p25 1.0002 p75 1.1029  n 9
+AB count_absent   A      3896091  B      4139932  B/A median-of-paired 1.0014  p25 0.9909 p75 1.0714  n 9
+# null_new_dna proc 3
+AB count_present  A      3871907  B      3703525  B/A median-of-paired 0.9920  p25 0.9850 p75 0.9943  n 9
+AB locate         A      7362760  B      6846465  B/A median-of-paired 0.9449  p25 0.9327 p75 0.9560  n 9
+AB count_absent   A      4355274  B      4388847  B/A median-of-paired 0.9872  p25 0.9726 p75 1.0275  n 9
