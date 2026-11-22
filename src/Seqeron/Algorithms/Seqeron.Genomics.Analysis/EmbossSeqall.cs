@@ -367,7 +367,8 @@ internal sealed class EmbossSeqall
             _opt.FullText = text;
             text = fpos < text.Length ? text[(int)fpos..] : "";
         }
-        _input = new EmbossSeqin(text, _opt, _context, name => _files.TryGetValue(name, out string? s) ? s : null);
+        Func<string, string?> lookup = name => _files.TryGetValue(name, out string? s) ? s : null;
+        _input = r.Texts is { Count: > 1 } texts ? new EmbossSeqin(texts, _opt, _context, lookup) : new EmbossSeqin(text, _opt, _context, lookup);
         return true;
     }
 

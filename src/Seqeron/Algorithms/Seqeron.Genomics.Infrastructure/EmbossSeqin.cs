@@ -170,10 +170,23 @@ internal sealed partial class EmbossSeqin
     /// <param name="context">The state of the feature library of the run (the messages are collected there).</param>
     /// <param name="files">The other files by name (feature files); null when there are none.</param>
     public EmbossSeqin(string text, EmbossSeqinOptions options, EmbossFeatureReadContext context, Func<string, string?>? files = null)
+        : this([text], options, context, files)
     {
-        var lines = SplitLines(text);
+    }
+
+    /// <param name="texts">The files of a list (the files of a database directory), read one after the other.</param>
+    public EmbossSeqin(IReadOnlyList<string> texts, EmbossSeqinOptions options, EmbossFeatureReadContext context, Func<string, string?>? files = null)
+    {
+        var lines = new List<string>();
+        var ends = new List<int>();
+        foreach (string text in texts)
+        {
+            lines.AddRange(SplitLines(text));
+            ends.Add(lines.Count);
+        }
+
         _lineCount = lines.Count;
-        _buff = new EmbossFeatureLines(lines);
+        _buff = new EmbossFeatureLines(lines) { FileEnds = texts.Count > 1 ? ends : null };
         _opt = options;
         _context = context;
         _files = files ?? (_ => null);

@@ -307,7 +307,11 @@ internal static class EmbossQueryParse
     }
 
     /// <summary>The result of <see cref="ParseRead"/>: success, the text of the file the query reads from (null for a database query) and the offset in it.</summary>
-    internal sealed record ReadResult(bool Ok, string? Text, string Filename, bool Asis, string? DbName = null);
+    internal sealed record ReadResult(bool Ok, string? Text, string Filename, bool Asis, string? DbName = null)
+    {
+        /// <summary>The files of a database in reading order (one text for a file).</summary>
+        public IReadOnlyList<string>? Texts { get; init; }
+    }
 
     /// <summary>
     /// <c>ajQuerystrParseRead</c> for a file (or asis text) query: finds the file, sets the query fields from <c>file:id</c> / <c>file:field:query</c> / <c>file{...}</c> / <c>-iquery</c> and opens the text.
@@ -644,22 +648,17 @@ internal static class EmbossQueryParse
                 accepted.Add(n);
         }
 
-        var text = new StringBuilder();
-        bool any = false;
+        var texts = new List<string>();
         foreach (string n in accepted)
         {
             string? t = env.Files(dir == "./" ? n : dir + n);
-            if (t is null)
-                continue;
-            any = true;
-            text.Append(t);
-            if (t.Length > 0 && !t.EndsWith('\n'))
-                text.Append('\n');
+            if (t is not null)
+                texts.Add(t);
         }
 
-        if (!any)
+        if (texts.Count == 0)
             return new ReadResult(false, null, "", false);
-        return new ReadResult(true, text.ToString(), qry.Filename, false, qry.DbName);
+        return new ReadResult(true, texts[0], qry.Filename, false, qry.DbName) { Texts = texts };
     }
 
     // ajFilenameTestExclude: the name matches a pattern of the include list and none of the exclude list (patterns separated by blanks, commas, semicolons)

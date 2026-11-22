@@ -121,7 +121,18 @@ internal sealed class EmbossFeatureLines(IReadOnlyList<string> lines)
     private readonly List<string> _buffer = [];
     private int _filePos;
     private int _pos;
+    private int _fileIndex;
     private string? _lastRead;
+
+    /// <summary>
+    /// The end (exclusive) of every file in <c>lines</c> when the lines are those of a LIST of files (<c>ajFilebuffNewListinList</c>: the files of a database directory); null = one file. A read past the end of a file finds the end of the file while
+    /// the buffer holds lines; when the buffer is clear the next file is opened and read (<c>ajBuffreadLinePos</c>, <c>ajFileReopenNext</c>).
+    /// </summary>
+    public IReadOnlyList<int>? FileEnds { get; init; }
+
+    private int CurrentFileEnd => FileEnds is null ? lines.Count : FileEnds[_fileIndex];
+
+    private bool HasMoreFiles => FileEnds is not null && _fileIndex + 1 < FileEnds.Count;
 
     /// <summary>The file was read up to its end (<c>File-&gt;End</c>: a read found no more lines).</summary>
     public bool End { get; private set; }
@@ -146,10 +157,14 @@ internal sealed class EmbossFeatureLines(IReadOnlyList<string> lines)
     {
         if (_pos < _buffer.Count)
             return _buffer[_pos++];
-        if (_filePos >= lines.Count)
+        while (_filePos >= CurrentFileEnd)
         {
+            // the end of the file: with lines in the buffer this is the end the reader sees; with a clear buffer the next file of the list goes on
             End = true;
-            return null;
+            if (_buffer.Count > 0 || !HasMoreFiles)
+                return null;
+            _fileIndex++;
+            End = false;
         }
 
         string l = lines[_filePos++];
@@ -184,6 +199,7 @@ internal sealed class EmbossFeatureLines(IReadOnlyList<string> lines)
         _buffer.Clear();
         _pos = 0;
         _filePos = 0;
+        _fileIndex = 0;
         End = false;
     }
 
@@ -194,7 +210,7 @@ internal sealed class EmbossFeatureLines(IReadOnlyList<string> lines)
     public void SetBuffered() => Unbuffered = false;
 
     /// <summary><c>ajFilebuffIsEmpty</c>: nothing is left in the buffer and the file was read to its end.</summary>
-    public bool IsEmpty => _pos >= _buffer.Count && End;
+    public bool IsEmpty => _pos >= _buffer.Count && End && !HasMoreFiles;
 
     /// <summary><c>ajFilebuffIsEnded</c>: the end of the file was reached and the buffer holds no line at all.</summary>
     public bool IsEnded => End && _buffer.Count == 0;

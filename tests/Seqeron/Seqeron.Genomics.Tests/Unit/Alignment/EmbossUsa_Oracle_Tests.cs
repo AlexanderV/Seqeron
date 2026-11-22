@@ -1,5 +1,3 @@
-#pragma warning disable S107
-
 using System.IO.Compression;
 using System.Text.Json;
 using NUnit.Framework;
@@ -31,6 +29,15 @@ public class EmbossUsa_Oracle_Tests
 
     [Test]
     public void UsaForms_EqualSeqret_AllRows() => CompareRows("Seqeron.Genomics.Tests.TestData.Alignment.usa_oracle.jsonl.gz", 1000, 900, 500, 200, 200, 100, 100, 0);
+
+    /// <summary>
+    /// A5-8c3h (B09 F256, WP58): the sequence DATABASES of an EMBOSS configuration (<c>.embossrc</c>: <c>DBNAME name [ type: ... format: ... method: direct directory: ... filename: ... exclude: ... fields: ... caseidmatch: ... hasaccession: ... ]</c>,
+    /// <c>SET</c>) queried by <c>db:id</c>, <c>db-acc:value</c>, <c>db-des:word</c>, <c>db:{a|b}</c>, <c>db:id1,id2</c>, <c>db:wild*</c>, <c>db:*</c>, with ranges, formats, list files and the sequence qualifiers
+    /// (TestData/Alignment/usa_db_oracle.jsonl.gz, scripts/alignment/generate_db_oracle.py: <c>EMBOSSRC=work seqret -auto -sequence SPEC ...</c>). The method <c>direct</c> reads the files of the directory in the order of the directory listing, which the file system
+    /// decides: a database of several files appears only in queries for an identifier that is in one file.
+    /// </summary>
+    [Test]
+    public void SequenceDatabases_EqualSeqret_AllRows() => CompareRows("Seqeron.Genomics.Tests.TestData.Alignment.usa_db_oracle.jsonl.gz", 500, 450, 150, 0, 0, 0, 0, 0);
 
     private static void CompareRows(string name, int minRows, int minCompared, int minOutput, int minLists, int minRanges, int minQueries, int minReversed, int unused)
     {
