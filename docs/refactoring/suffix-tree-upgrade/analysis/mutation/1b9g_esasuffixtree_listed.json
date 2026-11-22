@@ -1,0 +1,79 @@
+[
+ {
+  "id": "1b9g_T01",
+  "desc": "a tree over a container takes the arm of an in-memory tree",
+  "old": "if (gate is not null) return new ReadScope(gate, gate.Enter());",
+  "new": "if (gate is not null && false) return new ReadScope(gate, gate.Enter());",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs"
+ },
+ {
+  "id": "1b9g_T02",
+  "desc": "an in-memory call does not look at the flag",
+  "old": "ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);\n        return default;",
+  "new": "_ = _disposed;\n        return default;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs"
+ },
+ {
+  "id": "1b9g_T03",
+  "desc": "an in-memory call throws when the tree is not disposed",
+  "old": "ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);\n        return default;",
+  "new": "ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) == 0, this);\n        return default;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs"
+ },
+ {
+  "id": "1b9g_T04",
+  "desc": "a scope never leaves its call (the entry stays, the mapping is never released)",
+  "old": "if (gate is not null) gate.Leave(cell!);",
+  "new": "_ = cell;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs"
+ },
+ {
+  "id": "1b9g_T05",
+  "desc": "the release does not unpin the navigation pack",
+  "old": "if (_index.NavigationBuilt) _index.Navigation.Dispose();",
+  "new": "_ = _index;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs"
+ },
+ {
+  "id": "1b9g_T06",
+  "desc": "the release does not unmap the container",
+  "old": "_file?.Dispose();",
+  "new": "_ = _file;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs"
+ },
+ {
+  "id": "1b9g_T07",
+  "desc": "Dispose of a tree over a container does not reach its gate",
+  "old": "            _gate.Dispose();\n            return;",
+  "new": "            return;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs"
+ },
+ {
+  "id": "1b9g_T08",
+  "desc": "Dispose of an in-memory tree does not raise the flag",
+  "old": "Interlocked.CompareExchange(ref _disposed, 1, 0);",
+  "new": "_ = _disposed;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs"
+ },
+ {
+  "id": "1b9g_T09",
+  "desc": "a tree over a container has no gate",
+  "old": "            _gate = new ReaderGate<ReaderGateSeams>(this, ReleaseResources);",
+  "new": "            _ = ReleaseResources;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs"
+ },
+ {
+  "id": "1b9g_T10",
+  "desc": "the reader id of a tree is 0",
+  "old": "internal long ReaderId => _gate?.Id ?? 0;",
+  "new": "internal long ReaderId => 0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs"
+ },
+ {
+  "id": "1b9g_T11",
+  "desc": "Enter is not inlined into the members",
+  "old": "    [MethodImpl(MethodImplOptions.AggressiveInlining)]\n    private ReadScope Enter()",
+  "new": "    private ReadScope Enter()",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs"
+ }
+]

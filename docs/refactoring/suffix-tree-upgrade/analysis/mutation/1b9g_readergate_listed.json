@@ -1,0 +1,212 @@
+[
+ {
+  "id": "1b9g_G01",
+  "desc": "a call stores its entry without looking at the flag first",
+  "old": "        if (Volatile.Read(ref _disposed) != 0) ThrowDisposed();\n        cell.Publish(_id);",
+  "new": "        cell.Publish(_id);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderGate.cs"
+ },
+ {
+  "id": "1b9g_G02",
+  "desc": "the flag is not read again after the entry is stored",
+  "old": "        if (IsDisposedAfterStore()) EnterDisposed(cell);\n        return cell;",
+  "new": "        return cell;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderGate.cs"
+ },
+ {
+  "id": "1b9g_G03",
+  "desc": "the entry is not stored",
+  "old": "        cell.Publish(_id);\n        _seams.AfterPublish();",
+  "new": "        _seams.AfterPublish();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderGate.cs"
+ },
+ {
+  "id": "1b9g_G04",
+  "desc": "the entry is stored under the id of another tree",
+  "old": "cell.Publish(_id);",
+  "new": "cell.Publish(_id + 1);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderGate.cs"
+ },
+ {
+  "id": "1b9g_G05",
+  "desc": "a call that finds the flag raised does not take its entry back",
+  "old": "        cell.Retract();\n        _seams.AfterRetract();\n        ReleaseWhenIdle();\n        ThrowDisposed();",
+  "new": "        _seams.AfterRetract();\n        ReleaseWhenIdle();\n        ThrowDisposed();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderGate.cs"
+ },
+ {
+  "id": "1b9g_G06",
+  "desc": "a call that finds the flag raised does not run the releaser",
+  "old": "        ReleaseWhenIdle();\n        ThrowDisposed();",
+  "new": "        ThrowDisposed();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderGate.cs"
+ },
+ {
+  "id": "1b9g_G07",
+  "desc": "a call that finds the flag raised does not throw",
+  "old": "        ReleaseWhenIdle();\n        ThrowDisposed();\n    }",
+  "new": "        ReleaseWhenIdle();\n    }",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderGate.cs"
+ },
+ {
+  "id": "1b9g_G08",
+  "desc": "a call does not clear its entry when it ends",
+  "old": "        cell.Retract();\n        _seams.AfterRetract();\n        if (IsDisposedAfterStore()) ReleaseWhenIdle();",
+  "new": "        _seams.AfterRetract();\n        if (IsDisposedAfterStore()) ReleaseWhenIdle();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderGate.cs"
+ },
+ {
+  "id": "1b9g_G09",
+  "desc": "a call that ends does not look at the flag",
+  "old": "        if (IsDisposedAfterStore()) ReleaseWhenIdle();",
+  "new": "        _ = cell;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderGate.cs"
+ },
+ {
+  "id": "1b9g_G10",
+  "desc": "a call that ends runs the releaser when the flag is not raised",
+  "old": "        if (IsDisposedAfterStore()) ReleaseWhenIdle();",
+  "new": "        if (!IsDisposedAfterStore()) ReleaseWhenIdle();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderGate.cs"
+ },
+ {
+  "id": "1b9g_G11",
+  "desc": "Dispose raises the flag and does not run the releaser",
+  "old": "        if (Interlocked.CompareExchange(ref _disposed, 1, 0) != 0) return;\n        ReleaseWhenIdle();",
+  "new": "        if (Interlocked.CompareExchange(ref _disposed, 1, 0) != 0) return;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderGate.cs"
+ },
+ {
+  "id": "1b9g_G12",
+  "desc": "Dispose raises the flag without the compare-exchange (every Dispose runs the releaser)",
+  "old": "        if (Interlocked.CompareExchange(ref _disposed, 1, 0) != 0) return;",
+  "new": "        Volatile.Write(ref _disposed, 1);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderGate.cs"
+ },
+ {
+  "id": "1b9g_G13",
+  "desc": "the releaser does not look at the claim first (it runs the barrier and the scan after the release)",
+  "old": "        if (Volatile.Read(ref _released) != 0) return;\n        _seams.ProcessWideBarrier();",
+  "new": "        _seams.ProcessWideBarrier();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderGate.cs"
+ },
+ {
+  "id": "1b9g_G14",
+  "desc": "the releaser runs no process-wide barrier",
+  "old": "        _seams.ProcessWideBarrier();\n        Interlocked.MemoryBarrier();",
+  "new": "        Interlocked.MemoryBarrier();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderGate.cs"
+ },
+ {
+  "id": "1b9g_G15",
+  "desc": "the releaser scans the cells before the barrier",
+  "old": "        _seams.ProcessWideBarrier();\n        Interlocked.MemoryBarrier();\n        _seams.BeforeScan();\n        bool inside = ReaderCell.AnyInside(_id);",
+  "new": "        bool inside = ReaderCell.AnyInside(_id);\n        _seams.ProcessWideBarrier();\n        Interlocked.MemoryBarrier();\n        _seams.BeforeScan();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderGate.cs"
+ },
+ {
+  "id": "1b9g_G16",
+  "desc": "the releaser has no full fence of its own after the barrier",
+  "old": "        Interlocked.MemoryBarrier();\n        _seams.BeforeScan();",
+  "new": "        _seams.BeforeScan();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderGate.cs"
+ },
+ {
+  "id": "1b9g_G17",
+  "desc": "the releaser does not scan the cells",
+  "old": "bool inside = ReaderCell.AnyInside(_id);",
+  "new": "bool inside = false;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderGate.cs"
+ },
+ {
+  "id": "1b9g_G18",
+  "desc": "the releaser scans for the id of another tree",
+  "old": "ReaderCell.AnyInside(_id)",
+  "new": "ReaderCell.AnyInside(_id + 1)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderGate.cs"
+ },
+ {
+  "id": "1b9g_G19",
+  "desc": "the releaser goes on although a call is inside",
+  "old": "        if (inside) return;",
+  "new": "        if (inside && false) return;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderGate.cs"
+ },
+ {
+  "id": "1b9g_G20",
+  "desc": "the release is claimed without the compare-exchange (every attempt that finds no call releases)",
+  "old": "        if (Interlocked.CompareExchange(ref _released, 1, 0) != 0) return;\n        _release();",
+  "new": "        Volatile.Write(ref _released, 1);\n        _release();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderGate.cs"
+ },
+ {
+  "id": "1b9g_G21",
+  "desc": "the release is claimed and never run",
+  "old": "        _release();",
+  "new": "        _ = _release;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderGate.cs"
+ },
+ {
+  "id": "1b9g_G22",
+  "desc": "the read of the flag after the store reports the opposite",
+  "old": "private bool IsDisposedAfterStore() => Volatile.Read(ref _disposed) != 0;",
+  "new": "private bool IsDisposedAfterStore() => Volatile.Read(ref _disposed) == 0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderGate.cs"
+ },
+ {
+  "id": "1b9g_G23",
+  "desc": "the read of the flag after the store is inlined (no call between the store and the read)",
+  "old": "    [MethodImpl(MethodImplOptions.NoInlining)]\n    private bool IsDisposedAfterStore()",
+  "new": "    [MethodImpl(MethodImplOptions.AggressiveInlining)]\n    private bool IsDisposedAfterStore()",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderGate.cs"
+ },
+ {
+  "id": "1b9g_G24",
+  "desc": "IsDisposed reports the opposite",
+  "old": "internal bool IsDisposed => Volatile.Read(ref _disposed) != 0;",
+  "new": "internal bool IsDisposed => Volatile.Read(ref _disposed) == 0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderGate.cs"
+ },
+ {
+  "id": "1b9g_G25",
+  "desc": "IsReleased reports the opposite",
+  "old": "internal bool IsReleased => Volatile.Read(ref _released) != 0;",
+  "new": "internal bool IsReleased => Volatile.Read(ref _released) == 0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderGate.cs"
+ },
+ {
+  "id": "1b9g_G26",
+  "desc": "the exception does not name the owner",
+  "old": "throw new ObjectDisposedException(_owner.GetType().FullName);",
+  "new": "throw new ObjectDisposedException(null);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderGate.cs"
+ },
+ {
+  "id": "1b9g_G27",
+  "desc": "the constructor accepts no owner check",
+  "old": "ArgumentNullException.ThrowIfNull(owner);",
+  "new": "_ = owner;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderGate.cs"
+ },
+ {
+  "id": "1b9g_G28",
+  "desc": "the constructor accepts no release action check",
+  "old": "ArgumentNullException.ThrowIfNull(release);",
+  "new": "_ = release;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderGate.cs"
+ },
+ {
+  "id": "1b9g_G29",
+  "desc": "the id of the gate is 0",
+  "old": "internal long Id => _id;",
+  "new": "internal long Id => 0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderGate.cs"
+ },
+ {
+  "id": "1b9g_G30",
+  "desc": "two gates get the same id",
+  "old": "_id = ReaderCell.NextId();",
+  "new": "_id = 1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderGate.cs"
+ }
+]

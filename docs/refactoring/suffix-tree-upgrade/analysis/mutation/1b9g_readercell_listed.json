@@ -1,0 +1,212 @@
+[
+ {
+  "id": "1b9g_R01",
+  "desc": "the entry of an outermost call is never stored",
+  "old": "if (_first == 0) Volatile.Write(ref _first, id);\n        else PublishNested(id);",
+  "new": "if (_first == 0) { }\n        else PublishNested(id);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderCell.cs"
+ },
+ {
+  "id": "1b9g_R02",
+  "desc": "the entry of an outermost call is stored as 0",
+  "old": "Volatile.Write(ref _first, id);",
+  "new": "Volatile.Write(ref _first, 0);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderCell.cs"
+ },
+ {
+  "id": "1b9g_R03",
+  "desc": "a call nested in a call stores its entry over the outermost one",
+  "old": "        else PublishNested(id);",
+  "new": "        else Volatile.Write(ref _first, id);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderCell.cs"
+ },
+ {
+  "id": "1b9g_R04",
+  "desc": "the entry of an outermost call is never cleared",
+  "old": "if (_nestedTop == 0) Volatile.Write(ref _first, 0);",
+  "new": "if (_nestedTop == 0) { }",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderCell.cs"
+ },
+ {
+  "id": "1b9g_R05",
+  "desc": "the test of the clearing is inverted (an outermost call clears nested slots, a nested one the first)",
+  "old": "if (_nestedTop == 0) Volatile.Write(ref _first, 0);",
+  "new": "if (_nestedTop != 0) Volatile.Write(ref _first, 0);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderCell.cs"
+ },
+ {
+  "id": "1b9g_R06",
+  "desc": "a nested entry is stored but the nesting depth does not grow",
+  "old": "_nestedTop = index + 1;",
+  "new": "_nestedTop = index;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderCell.cs"
+ },
+ {
+  "id": "1b9g_R07",
+  "desc": "a nested entry is cleared one slot too high",
+  "old": "int index = _nestedTop - 1;",
+  "new": "int index = _nestedTop;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderCell.cs"
+ },
+ {
+  "id": "1b9g_R08",
+  "desc": "a nested entry is not cleared",
+  "old": "Volatile.Write(ref segment.Ids[index % SegmentLength], 0);",
+  "new": "Volatile.Write(ref segment.Ids[index % SegmentLength], segment.Ids[index % SegmentLength]);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderCell.cs"
+ },
+ {
+  "id": "1b9g_R09",
+  "desc": "the nesting depth does not fall when a nested entry is cleared",
+  "old": "_nestedTop = index;",
+  "new": "_nestedTop = index + 1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderCell.cs"
+ },
+ {
+  "id": "1b9g_R10",
+  "desc": "a segment holds seven slots in the index of the segment and eight in the index of the slot",
+  "old": "for (int hops = index / SegmentLength; hops > 0; hops--)",
+  "new": "for (int hops = index / (SegmentLength - 1); hops > 0; hops--)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderCell.cs"
+ },
+ {
+  "id": "1b9g_R11",
+  "desc": "a new segment is not linked into the chain",
+  "old": "Volatile.Write(ref link, segment);",
+  "new": "_ = link;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderCell.cs"
+ },
+ {
+  "id": "1b9g_R12",
+  "desc": "a scan stops after the first segment",
+  "old": "segment is not null; segment = Volatile.Read(ref segment.Next))",
+  "new": "segment is not null; segment = null)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderCell.cs"
+ },
+ {
+  "id": "1b9g_R13",
+  "desc": "a scan misses the last slot of a segment",
+  "old": "for (int i = 0; i < SegmentLength; i++)\n                if (Volatile.Read(ref segment.Ids[i]) == id) return true;",
+  "new": "for (int i = 0; i < SegmentLength - 1; i++)\n                if (Volatile.Read(ref segment.Ids[i]) == id) return true;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderCell.cs"
+ },
+ {
+  "id": "1b9g_R14",
+  "desc": "a scan misses the outermost entry",
+  "old": "if (Volatile.Read(ref _first) == id) return true;",
+  "new": "if (Volatile.Read(ref _first) == -1) return true;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderCell.cs"
+ },
+ {
+  "id": "1b9g_R15",
+  "desc": "a scan takes any entry in a nested slot for this tree",
+  "old": "if (Volatile.Read(ref segment.Ids[i]) == id) return true;",
+  "new": "if (Volatile.Read(ref segment.Ids[i]) != 0) return true;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderCell.cs"
+ },
+ {
+  "id": "1b9g_R16",
+  "desc": "a scan of the list skips the first cell",
+  "old": "for (ReaderCell? cell = Volatile.Read(ref s_head); cell is not null; cell = cell._next)",
+  "new": "for (ReaderCell? cell = Volatile.Read(ref s_head)?._next; cell is not null; cell = cell._next)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderCell.cs"
+ },
+ {
+  "id": "1b9g_R17",
+  "desc": "a scan of the list stops after the first cell",
+  "old": "cell is not null; cell = cell._next)",
+  "new": "cell is not null; cell = null)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderCell.cs"
+ },
+ {
+  "id": "1b9g_R18",
+  "desc": "the cell of a thread that is alive is taken over",
+  "old": "if (c._owner is { IsAlive: false }) ended = c;",
+  "new": "if (c._owner is { IsAlive: true }) ended = c;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderCell.cs"
+ },
+ {
+  "id": "1b9g_R19",
+  "desc": "a cell is never taken over",
+  "old": "if (c._owner is { IsAlive: false }) ended = c;",
+  "new": "if (c._owner is { IsAlive: false } && ended is not null) ended = c;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderCell.cs"
+ },
+ {
+  "id": "1b9g_R20",
+  "desc": "a cell that is taken over is not cleared",
+  "old": "ended.Clear();",
+  "new": "_ = ended;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderCell.cs"
+ },
+ {
+  "id": "1b9g_R21",
+  "desc": "a cell that is taken over keeps its old owner",
+  "old": "ended._owner = me;",
+  "new": "_ = me;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderCell.cs"
+ },
+ {
+  "id": "1b9g_R22",
+  "desc": "a new cell is not linked to the list behind it",
+  "old": "cell = new ReaderCell { _owner = me, _next = s_head };",
+  "new": "cell = new ReaderCell { _owner = me, _next = null };",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderCell.cs"
+ },
+ {
+  "id": "1b9g_R23",
+  "desc": "a new cell is not published as the head of the list",
+  "old": "Volatile.Write(ref s_head, cell);",
+  "new": "_ = cell;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderCell.cs"
+ },
+ {
+  "id": "1b9g_R24",
+  "desc": "the count of the cells is not raised",
+  "old": "Interlocked.Increment(ref s_count);",
+  "new": "_ = s_count;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderCell.cs"
+ },
+ {
+  "id": "1b9g_R25",
+  "desc": "the cell of a thread is not remembered by the thread",
+  "old": "t_current = cell;",
+  "new": "_ = cell;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderCell.cs"
+ },
+ {
+  "id": "1b9g_R26",
+  "desc": "every gate gets the id 0",
+  "old": "Interlocked.Increment(ref s_lastId)",
+  "new": "Volatile.Read(ref s_lastId)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderCell.cs"
+ },
+ {
+  "id": "1b9g_R27",
+  "desc": "every call registers its thread anew",
+  "old": "get => t_current ?? Register();",
+  "new": "get => Register();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderCell.cs"
+ },
+ {
+  "id": "1b9g_R28",
+  "desc": "the written fields lie 64 bytes into the cell, not 128",
+  "old": "private const int HotOffset = 128;",
+  "new": "private const int HotOffset = 64;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderCell.cs"
+ },
+ {
+  "id": "1b9g_R29",
+  "desc": "the cell is 192 bytes, not 320",
+  "old": "private const int CellSize = 320;",
+  "new": "private const int CellSize = 192;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderCell.cs"
+ },
+ {
+  "id": "1b9g_R30",
+  "desc": "the depth of a cell does not count the outermost call",
+  "old": "internal int Depth => (_first == 0 ? 0 : 1) + _nestedTop;",
+  "new": "internal int Depth => _nestedTop;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderCell.cs"
+ }
+]

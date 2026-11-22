@@ -1,0 +1,9 @@
+[
+ {
+  "id": "1b9g_M01",
+  "desc": "the mapped descent is compiled with AggressiveOptimization again",
+  "old": "    private bool Run<TAccess, TLcp, TCells>(",
+  "new": "    [MethodImpl(MethodImplOptions.AggressiveOptimization)]\n    private bool Run<TAccess, TLcp, TCells>(",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs"
+ }
+]

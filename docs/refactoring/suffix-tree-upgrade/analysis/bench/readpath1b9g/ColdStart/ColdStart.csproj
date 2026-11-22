@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    A one-file measurement tool of work package 1b.9g (see ../README.md). Outside the shipped code and not part of Seqeron.sln. The assembly carries the name of the Esa bench app because SuffixTree.Esa lets that name see its internals;
+    the build under test comes from EsaDir (a directory with SuffixTree.Esa.dll, SuffixTree.Core.dll and SuffixTree.Persistent.dll):
+      dotnet build ColdStart.csproj -c Release -p:EsaDir=<dir> -o <out dir>      (then copy the three dlls of the build into <out dir> when <out dir> was used before: the build keeps the first references it resolved)
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>SuffixTree.Esa.Bench</AssemblyName>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Optimize>true</Optimize>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <TieredPGO>true</TieredPGO>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="SuffixTree.Core"><HintPath>$(EsaDir)/SuffixTree.Core.dll</HintPath></Reference>
+    <Reference Include="SuffixTree.Esa"><HintPath>$(EsaDir)/SuffixTree.Esa.dll</HintPath></Reference>
+    <Reference Include="SuffixTree.Persistent"><HintPath>$(EsaDir)/SuffixTree.Persistent.dll</HintPath></Reference>
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The Dispose-race client of work package 1b.9g (see README.md). Outside the shipped code and not part of Seqeron.sln. It uses the public API of SuffixTree.Esa only and
+    takes the build under test from EsaDir (a directory that holds SuffixTree.Esa.dll, SuffixTree.Core.dll and SuffixTree.Persistent.dll), so that one source compares the head with a change:
+      dotnet build RaceBench.csproj -c Release -p:EsaDir=<dir> -o <out dir>
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Optimize>true</Optimize>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+    <IsPackable>false</IsPackable>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="SuffixTree.Core"><HintPath>$(EsaDir)/SuffixTree.Core.dll</HintPath></Reference>
+    <Reference Include="SuffixTree.Esa"><HintPath>$(EsaDir)/SuffixTree.Esa.dll</HintPath></Reference>
+    <Reference Include="SuffixTree.Persistent"><HintPath>$(EsaDir)/SuffixTree.Persistent.dll</HintPath></Reference>
+  </ItemGroup>
+
+</Project>

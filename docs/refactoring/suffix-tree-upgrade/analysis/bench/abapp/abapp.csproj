@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The in-process A/B client of work package 1b.9g (see README.md). Outside the shipped code and not part of Seqeron.sln: it is built by hand
+    (dotnet build abapp.csproj -c Release -o <dir>) and loads the SuffixTree.Esa.dll of the builds it compares by reflection, so it references nothing.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Optimize>true</Optimize>
+    <TieredPGO>true</TieredPGO>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+</Project>
