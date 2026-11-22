@@ -232,3 +232,7 @@
 - `Diffseq_FeatureTableInputs_EqualTheProgram_AllRows` is a `TestCase` over two oracles: `diffseq_features_oracle.jsonl.gz` and `diffseq_special_tags_oracle.jsonl.gz` (450 runs whose features carry qualifiers with a special validator: anticodon, bio_material, citation, codon, collection_date, compare, cons_splice, inference, lat_lon, mobile_element, ncRNA_class, PCR_primers, replace, rpt_unit*, transl_except, translation ...; bad values are notes, correctable ones corrected).
 - `Diffseq_FeatureOutputFormats_EqualTheProgram_AllRows` (`diffseq_featout_oracle.jsonl.gz`: 500 runs with `-offormat4` / `-offormat5` of every output feature format, the `format::file` form, `-ofopenfile`, nucleotide and protein pairs; the report and every file written byte for byte); MCP `EmbossProgramToolsTests.Diffseq_FeatureOutputFormats_AsTheProgram`.
 
+
+## Audit R14-3 (B09 F290): no suffix-tree build for one query
+
+`GenomicAnalyzer_FindMotifIndex_Tests`: `FindMotif` / `MotifFinder.FindExactMotif` equal a brute-force scan (ascending, overlapping, case-insensitive; empty / longer / IUPAC-literal motifs) with and without a built tree; one query does not build the tree (`HasSuffixTree` stays false) and allocates < 30 MB on 1 Mbp (the tree: about 170 MB per Mbp); `ReleaseSuffixTree` frees a built tree and the next read rebuilds it.

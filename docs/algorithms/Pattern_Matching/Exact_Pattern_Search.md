@@ -42,7 +42,7 @@ The search logic is:
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
 | `pattern` | `string` or `ReadOnlySpan<char>` | required | Pattern to search in an already built suffix tree | Null string input throws `ArgumentNullException` |
-| `sequence` | `DnaSequence` | required for genomics wrappers | DNA sequence whose cached suffix tree is searched | Wrappers return empty for null or empty motif |
+| `sequence` | `DnaSequence` | required for genomics wrappers | DNA sequence whose cached suffix tree is searched when it is already built (`DnaSequence.HasSuffixTree`); otherwise the linear KMP scan `KmerAnalyzer.FindKmerPositions` gives the same ascending positions without building the index (R14-3: 92 ms against 4.4 s / 540 MB at 2 Mbp; `DnaSequence.ReleaseSuffixTree()` frees a built tree, about 170 MB per Mbp) | Wrappers return empty for null or empty motif |
 | `motif` | `string` | required for genomics wrappers | Exact motif to search | Uppercased before wrapper-level search |
 
 ### 3.2 Output / Return Value
