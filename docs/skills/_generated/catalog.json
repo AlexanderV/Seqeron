@@ -658,6 +658,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L2190"
   },
   {
+    "tool": "coderet",
+    "server": "Analysis",
+    "methodId": "EmbossCoderetProgram.Coderet",
+    "docPath": "docs/mcp/tools/analysis/coderet.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossCoderetProgram.cs"
+  },
+  {
     "tool": "codon_frequencies",
     "server": "Analysis",
     "methodId": "SequenceStatistics.CalculateCodonFrequencies",
@@ -866,6 +873,13 @@
     "methodId": "MummerExactTandems.Run",
     "docPath": "docs/mcp/tools/analysis/exact_tandems.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/MummerExactTandems.cs"
+  },
+  {
+    "tool": "extractfeat",
+    "server": "Analysis",
+    "methodId": "EmbossExtractfeatProgram.Extractfeat",
+    "docPath": "docs/mcp/tools/analysis/extractfeat.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossExtractfeatProgram.cs"
   },
   {
     "tool": "featcopy",
@@ -1776,6 +1790,13 @@
     "methodId": "MultipleAlignmentDisplay.ShowAlign",
     "docPath": "docs/mcp/tools/analysis/showalign.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MultipleAlignmentDisplay.cs"
+  },
+  {
+    "tool": "showfeat",
+    "server": "Analysis",
+    "methodId": "EmbossShowfeatProgram.Showfeat",
+    "docPath": "docs/mcp/tools/analysis/showfeat.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossShowfeatProgram.cs"
   },
   {
     "tool": "spaced_word_distance",

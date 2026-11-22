@@ -1,0 +1,119 @@
+[
+ {
+  "name": "extractfeat",
+  "summary": "EMBOSS 6.6.0 'extractfeat': the features of the sequences of a file (any input format of seqret with features) that pass the source, type, sense, score, tag and value filters, as sequences with the sequence before and after them.",
+  "methodId": "EmbossExtractfeatProgram.Extractfeat",
+  "sourceFile": "EmbossExtractfeatProgram.cs",
+  "sourcePath": "Seqeron.Genomics.Analysis/EmbossExtractfeatProgram.cs",
+  "algorithmDoc": "Alignment/Pairwise_Output_Formats_And_EMBOSS_Programs.md",
+  "oracleScript": "generate_extractfeat_oracle.py",
+  "short": "EMBOSS extractfeat: the features of a sequence file (filters on source, type, sense, score, tag, value; before / after, join, names and descriptions) as sequences in FASTA or another output format; equals extractfeat 6.6.0 on 1 000 runs.",
+  "after": "entret",
+  "file": "AnalysisTools.EmbossPrograms.cs",
+  "description": "EMBOSS 6.6.0 extractfeat: the features of the sequences of a file that pass the filters are extracted as sequences named SEQUENCE_START_END (with featInName also _TYPE) and described by [type] and the tags of describe, optionally with the sequence before and after the feature and the parts of a join as one sequence (join). Equals the installed program on 1 000 runs (every input format with features, every filter, before / after / join, 22 output formats, damaged files).",
+  "output": {
+   "sequenceText": ["string", "The text of the sequence output file (FASTA or the output format)."],
+   "sequences": ["integer", "The number of sequences written."],
+   "messages": ["string[]", "What the library printed (warnings and errors)."]
+  },
+  "errors": [
+   "The sequence cannot be empty",
+   "Unable to read sequence ... (no sequence in the file)",
+   "An input on which the reference program never stops or dies by a fault, and an output format this port does not write, are refused"
+  ],
+  "example": {
+   "title": "The mRNA and exon features of an EMBL entry",
+   "prompt": "Extract the mRNA and exon features of this EMBL entry, with the feature type in the sequence name.",
+   "input": {
+    "sequence": "ID   X1; SV 1; linear; genomic DNA; STD; UNC; 60 BP.\nXX\nAC   X1;\nXX\nDE   test\nXX\nFH   Key             Location/Qualifiers\nFH\nFT   mRNA            1..40\nFT   exon            45..55\nSQ   Sequence 60 BP; 15 A; 15 C; 15 G; 15 T; 0 other;\n     acgtacgtac gtacgtacgt acgtacgtac gtacgtacgt acgtacgtac gtacgtacgt        60\n//\n",
+    "type": "mRNA exon",
+    "featInName": true
+   },
+   "output": {
+    "sequenceText": ">X1_1_40_mRNA [mRNA] test\nacgtacgtacgtacgtacgtacgtacgtacgtacgtacgt\n>X1_45_55_exon [exon] test\nacgtacgtacg\n",
+    "sequences": 2,
+    "messages": []
+   },
+   "note": "The name of a feature sequence is the sequence name with the first and last position of the feature; the description is the type in brackets, the tags of describe and the description of the sequence."
+  }
+ },
+ {
+  "name": "coderet",
+  "summary": "EMBOSS 6.6.0 'coderet': the coding sequences, messenger RNAs, translations and non-coding regions of the sequences of a file with feature tables.",
+  "methodId": "EmbossCoderetProgram.Coderet",
+  "sourceFile": "EmbossCoderetProgram.cs",
+  "sourcePath": "Seqeron.Genomics.Analysis/EmbossCoderetProgram.cs",
+  "algorithmDoc": "Alignment/Pairwise_Output_Formats_And_EMBOSS_Programs.md",
+  "oracleScript": "generate_coderet_oracle.py",
+  "short": "EMBOSS coderet: the CDS, mRNA, translation (the /translation tag) and non-coding regions of a nucleotide sequence file with feature tables, the log of the counts; equals coderet 6.6.0 on 1 000 runs.",
+  "after": "extractfeat",
+  "file": "AnalysisTools.EmbossPrograms.cs",
+  "description": "EMBOSS 6.6.0 coderet: from the nucleotide sequences of a file with feature tables the coding sequences (CDS features, joins as one sequence), the messenger RNAs (mRNA features), the translations (the translation tag of the CDS features) and the non-coding regions (what the CDS, mRNA and exon features leave) are written; the tool returns the log (the counts of every sequence), the files by name (NAME.cds, NAME.mrna, NAME.prot, NAME.noncoding, NAME the first sequence in lower case) and the messages. Equals the installed program on 1 000 runs.",
+  "output": {
+   "log": ["string", "The log of the program: the counts of CDS, mRNA, non-coding features and translations of every sequence."],
+   "files": ["object", "The sequence files by name."],
+   "messages": ["string[]", "What the library printed (warnings and errors)."]
+  },
+  "errors": [
+   "The sequence cannot be empty",
+   "Unable to read sequence ... (no sequence in the file) and Sequence is not nucleic (a protein file)",
+   "An input on which the reference program never stops or dies by a fault, and an output format this port does not write, are refused"
+  ],
+  "example": {
+   "title": "The coding sequence and translation of an EMBL entry",
+   "prompt": "Get the CDS and its translation from this EMBL entry.",
+   "input": {
+    "sequence": "ID   X1; SV 1; linear; genomic DNA; STD; UNC; 60 BP.\nXX\nAC   X1;\nXX\nDE   test\nXX\nFH   Key             Location/Qualifiers\nFH\nFT   CDS             join(3..12,20..29)\nFT                   /translation=\"MKV\"\nSQ   Sequence 60 BP; 15 A; 15 C; 15 G; 15 T; 0 other;\n     acgtacgtac gtacgtacgt acgtacgtac gtacgtacgt acgtacgtac gtacgtacgt        60\n//\n",
+    "mrna": false,
+    "nonCoding": false
+   },
+   "output": {
+    "log": "   CDS Trans Total Sequence\n ===== ===== ===== ========\n     1     1     1 X1\n",
+    "files": {"x1.cds": ">x1_cds_1\ngtacgtacgttacgtacgta\n", "x1.prot": ">x1_pro_1\nMKV\n"},
+    "messages": []
+   },
+   "note": "The sequences are named ACCESSION_cds_N and ACCESSION_pro_N in lower case; the CDS of a join is its parts one after the other."
+  }
+ },
+ {
+  "name": "showfeat",
+  "summary": "EMBOSS 6.6.0 'showfeat': the features of the sequences of a file as lines of ASCII graphics under a scale.",
+  "methodId": "EmbossShowfeatProgram.Showfeat",
+  "sourceFile": "EmbossShowfeatProgram.cs",
+  "sourcePath": "Seqeron.Genomics.Analysis/EmbossShowfeatProgram.cs",
+  "algorithmDoc": "Alignment/Pairwise_Output_Formats_And_EMBOSS_Programs.md",
+  "oracleScript": "generate_showfeat_oracle.py",
+  "short": "EMBOSS showfeat: the features of a sequence file as lines of ASCII graphics (filters, sort, join, collapse, strand / source / position / type / tags, annotation ranges, HTML); equals showfeat 6.6.0 on 1 000 runs.",
+  "after": "coderet",
+  "file": "AnalysisTools.EmbossPrograms.cs",
+  "description": "EMBOSS 6.6.0 showfeat: the features of the sequences of a file as lines of ASCII graphics under a scale, one line per feature, filtered by source, type, tag and value, sorted, with the strand, source, positions, type and tags and the annotation ranges. Equals the installed program on 1 000 runs.",
+  "output": {
+   "text": ["string", "The text of the output file."],
+   "sequences": ["integer", "The number of sequences shown."],
+   "messages": ["string[]", "What the library printed (warnings and errors)."]
+  },
+  "errors": [
+   "The sequence cannot be empty",
+   "Unable to read sequence ... (no sequence in the file)",
+   "Bad range value ... / Odd integer(s) in range specification (annotation)",
+   "An input on which the reference program never stops or dies by a fault is refused"
+  ],
+  "example": {
+   "title": "The features of an EMBL entry, 30 columns wide",
+   "prompt": "Draw the features of this EMBL entry on 30 columns, joins on one line, with strand and tags.",
+   "input": {
+    "sequence": "ID   X1; SV 1; linear; genomic DNA; STD; UNC; 60 BP.\nXX\nAC   X1;\nXX\nDE   test\nXX\nFH   Key             Location/Qualifiers\nFH\nFT   CDS             join(3..12,20..29)\nFT                   /gene=\"g1\"\nFT   mRNA            1..40\nSQ   Sequence 60 BP; 15 A; 15 C; 15 G; 15 T; 0 other;\n     acgtacgtac gtacgtacgt acgtacgtac gtacgtacgt acgtacgtac gtacgtacgt        60\n//\n",
+    "width": 30,
+    "joinFeatures": true,
+    "showStrand": true,
+    "showTags": true
+   },
+   "output": {
+    "text": "X1\ntest\n|============================| 60\n|------------------>           + mRNA \n|---->   |--->                 + CDS  gene=\"g1\"\n\n",
+    "sequences": 1,
+    "messages": []
+   },
+   "note": "The scale line shows the width and the length of the sequence; a forward feature starts with | and ends with >, a reverse one starts with < and ends with |."
+  }
+ }
+]

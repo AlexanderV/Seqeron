@@ -350,6 +350,9 @@
 | union | Analysis | EmbossUnionProgram.Union | EmbossUnionProgram.cs | 0/0 | – | – | Build-Ready |
 | seqretsplit | Analysis | EmbossSeqretPrograms.Seqretsplit | EmbossSeqretPrograms.cs | 0/0 | – | – | Build-Ready |
 | entret | Analysis | EmbossEntretProgram.Entret | AnalysisTools.EmbossPrograms.cs | 0/0 | – | – | Build-Ready |
+| extractfeat | Analysis | EmbossExtractfeatProgram.Extractfeat | AnalysisTools.EmbossPrograms.cs | 0/0 | – | – | Build-Ready |
+| coderet | Analysis | EmbossCoderetProgram.Coderet | AnalysisTools.EmbossPrograms.cs | 0/0 | – | – | Build-Ready |
+| showfeat | Analysis | EmbossShowfeatProgram.Showfeat | AnalysisTools.EmbossPrograms.cs | 0/0 | – | – | Build-Ready |
 | nucmer_clusters | Analysis | GenomicAnalyzer.FindNucmerClusters | GenomicAnalyzer.NucmerClusters.cs | 0/0 | – | – | Build-Ready |
 | nucmer | Analysis | GenomicAnalyzer.Nucmer | GenomicAnalyzer.Nucmer.cs | 0/0 | – | – | Build-Ready |
 | delta_filter | Analysis | MummerDeltaFilter.Run | Seqeron.Genomics.Alignment/MummerDeltaFilter.cs | 0/0 | – | – | Build-Ready |

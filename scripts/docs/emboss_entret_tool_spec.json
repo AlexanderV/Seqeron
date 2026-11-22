@@ -7,10 +7,10 @@
   "sourcePath": "Seqeron.Genomics.Analysis/EmbossEntretProgram.cs",
   "algorithmDoc": "Alignment/Pairwise_Output_Formats_And_EMBOSS_Programs.md",
   "oracleScript": "generate_entret_oracle.py",
-  "short": "EMBOSS entret: the text of the entries of a sequence file (any input format of seqret, a query, a range, a list file or a database) as the readers store it; equals entret 6.6.0 on 780 runs.",
+  "short": "EMBOSS entret: the text of the entries of a sequence file (any input format of seqret, a query, a range, a list file or a database) as the readers store it; equals entret 6.6.0 on 756 runs.",
   "after": "seqretsplit",
   "file": "AnalysisTools.EmbossPrograms.cs",
-  "description": "EMBOSS 6.6.0 entret: the entries of a sequence file (any input format of seqret) are read with the text of every entry stored, and the text of each entry is returned exactly as the file has it. sequenceValue is the USA of the program: a query on the file (file:id, file:acc:value, file:wild*, file{a|b}), a range, a list file or a database defined in definitions (db:id); firstOnly stops after the first entry. Equals the installed program on 780 runs (every input format, damaged files, queries).",
+  "description": "EMBOSS 6.6.0 entret: the entries of a sequence file (any input format of seqret) are read with the text of every entry stored, and the text of each entry is returned exactly as the file has it. sequenceValue is the USA of the program: a query on the file (file:id, file:acc:value, file:wild*, file{a|b}), a range, a list file or a database defined in definitions (db:id); firstOnly stops after the first entry. Equals the installed program on 756 runs (every input format, damaged files, queries).",
   "output": {
    "text": [
     "string",

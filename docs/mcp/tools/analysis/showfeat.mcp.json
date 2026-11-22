@@ -1,0 +1,214 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "showfeat",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "EmbossShowfeatProgram.Showfeat",
+  "docRef": "EmbossShowfeatProgram.cs",
+  "description": "EMBOSS 6.6.0 showfeat: the features of the sequences of a file (any input format of seqret that carries features) as lines of ASCII graphics under a scale: one line per feature (or per part of a join; with joinFeatures the parts of a join on one line, with collapse the features on the same line) with the strand (|---> for forward, <---| for reverse), optionally the strand, source, positions, type and tags with their values. The features are filtered by sourceMatch, typeMatch, tagMatch and valueMatch (wildcards * and ?, several patterns separated by blanks, commas, semicolons or bars; stricttags shows only the tags that match), sorted (sort: start, source, type or nosort; by strand first), the sense is selected by forward / reverse / unknown, and annotation adds ranges with a text (\"5-10 foo,20-30 bar\") as lines of their own. width is the width of the graphics (below 4 no graphics and no scale), html wraps the output in HTML. Equals the installed program on 1 000 runs (every input format with features, every option, damaged files, the runs on which the program dies by a fault). A5-8c3h, B09 F260.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "The text of the sequence file with features (see the formats above), or a sequence as letters (no features)."
+      },
+      "sequenceFormat": {
+        "type": "string",
+        "description": "The input format (-sformat); default: the program finds the format."
+      },
+      "sourceMatch": {
+        "type": "string",
+        "description": "Sources of the features to show (-sourcematch); default *.",
+        "default": "*"
+      },
+      "typeMatch": {
+        "type": "string",
+        "description": "Types of the features to show (-typematch); default *.",
+        "default": "*"
+      },
+      "tagMatch": {
+        "type": "string",
+        "description": "Tags a feature must have (-tagmatch); default *.",
+        "default": "*"
+      },
+      "valueMatch": {
+        "type": "string",
+        "description": "Values the tag must have (-valuematch); default *.",
+        "default": "*"
+      },
+      "sort": {
+        "type": "string",
+        "description": "Sort order (-sort): start (default), source, type or nosort.",
+        "default": "start"
+      },
+      "joinFeatures": {
+        "type": "boolean",
+        "description": "Show the parts of a join on one line (-joinfeatures).",
+        "default": false
+      },
+      "html": {
+        "type": "boolean",
+        "description": "Output as HTML (-html).",
+        "default": false
+      },
+      "id": {
+        "type": "boolean",
+        "description": "Show the name of the sequence (-id); default true.",
+        "default": true
+      },
+      "description": {
+        "type": "boolean",
+        "description": "Show the description of the sequence (-description); default true.",
+        "default": true
+      },
+      "scale": {
+        "type": "boolean",
+        "description": "Show the scale line (-scale); default true.",
+        "default": true
+      },
+      "width": {
+        "type": "integer",
+        "description": "Width of the graphics lines (-width); default 60; below 4 there are no graphics and no scale; negative values are reset to 0 with a warning.",
+        "default": 60
+      },
+      "collapse": {
+        "type": "boolean",
+        "description": "Show all features of a type on one line (-collapse).",
+        "default": false
+      },
+      "forward": {
+        "type": "boolean",
+        "description": "Show forward features (-forward); default true.",
+        "default": true
+      },
+      "reverse": {
+        "type": "boolean",
+        "description": "Show reverse features (-reverse); default true.",
+        "default": true
+      },
+      "unknown": {
+        "type": "boolean",
+        "description": "Show features of unknown sense (-unknown); default true.",
+        "default": true
+      },
+      "showStrand": {
+        "type": "boolean",
+        "description": "Show the strand of the features (-strand).",
+        "default": false
+      },
+      "showSource": {
+        "type": "boolean",
+        "description": "Show the source (-sourceshow).",
+        "default": false
+      },
+      "showPosition": {
+        "type": "boolean",
+        "description": "Show the positions (-position).",
+        "default": false
+      },
+      "showType": {
+        "type": "boolean",
+        "description": "Show the type (-typeshow); default true.",
+        "default": true
+      },
+      "showTags": {
+        "type": "boolean",
+        "description": "Show the tags (-tagshow).",
+        "default": false
+      },
+      "showValues": {
+        "type": "boolean",
+        "description": "Show the values of the tags (-valueshow); default true.",
+        "default": true
+      },
+      "strictTags": {
+        "type": "boolean",
+        "description": "Show only the tags that match tagMatch and valueMatch (-stricttags).",
+        "default": false
+      },
+      "annotation": {
+        "type": "string",
+        "description": "Ranges to show as annotation (-annotation): \"5-10 text,20-30 text\".",
+        "default": ""
+      },
+      "qualifiers": {
+        "type": "string",
+        "description": "Sequence input qualifiers as typed after the sequence on the command line: -sbegin1 -send1 -sreverse1, -slower1 -supper1 -snucleotide1 -sprotein1 -scircular1, -sformat1 F, -sid1 name, -sdbname1 db, -squick1, -iquery1 query, -ioffset1 bytes."
+      },
+      "files": {
+        "type": "object",
+        "description": "More files by name (file name -> text) that sequenceValue may name."
+      },
+      "sequenceValue": {
+        "type": "string",
+        "description": "The USA of the sequence input (-sequence): [format::]file[begin:end:r], file:id, file:field:value, file{a|b}, @list, list::list, asis::TEXT, db:id; the text of sequence is the file 'sequence.dat'."
+      },
+      "definitions": {
+        "type": "string",
+        "description": "The text of an EMBOSS configuration file (.embossrc) that defines databases for sequenceValue."
+      }
+    },
+    "required": [
+      "sequence"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "text": {
+        "type": "string",
+        "description": "The text of the output file."
+      },
+      "sequences": {
+        "type": "integer",
+        "description": "The number of sequences shown."
+      },
+      "messages": {
+        "type": "string[]",
+        "description": "What the library printed (warnings and errors)."
+      }
+    },
+    "required": [
+      "text",
+      "sequences",
+      "messages"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "The sequence cannot be empty"
+    },
+    {
+      "code": 1001,
+      "message": "Unable to read sequence ... (no sequence in the file)"
+    },
+    {
+      "code": 1001,
+      "message": "Bad range value ... / Odd integer(s) in range specification (annotation)"
+    },
+    {
+      "code": 1001,
+      "message": "An input on which the reference program never stops or dies by a fault is refused"
+    }
+  ],
+  "examples": [
+    {
+      "name": "The features of an EMBL entry, 30 columns wide",
+      "input": {
+        "sequence": "ID   X1; SV 1; linear; genomic DNA; STD; UNC; 60 BP.\nXX\nAC   X1;\nXX\nDE   test\nXX\nFH   Key             Location/Qualifiers\nFH\nFT   CDS             join(3..12,20..29)\nFT                   /gene=\"g1\"\nFT   mRNA            1..40\nSQ   Sequence 60 BP; 15 A; 15 C; 15 G; 15 T; 0 other;\n     acgtacgtac gtacgtacgt acgtacgtac gtacgtacgt acgtacgtac gtacgtacgt        60\n//\n",
+        "width": 30,
+        "joinFeatures": true,
+        "showStrand": true,
+        "showTags": true
+      },
+      "output": {
+        "text": "X1\ntest\n|============================| 60\n|------------------>           + mRNA \n|---->   |--->                 + CDS  gene=\"g1\"\n\n",
+        "sequences": 1,
+        "messages": []
+      }
+    }
+  ]
+}

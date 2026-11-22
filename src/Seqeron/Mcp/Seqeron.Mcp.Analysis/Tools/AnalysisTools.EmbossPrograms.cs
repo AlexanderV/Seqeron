@@ -565,7 +565,7 @@ public partial class AnalysisTools
     }
 
     [McpServerTool(Name = "entret", Title = "Alignment — EMBOSS entret (retrieve flatfile entries)", ReadOnly = true)]
-    [Description("EMBOSS 6.6.0 entret: the entries of a sequence file (any input format of seqret) are read with the text of every entry stored, and the text of each entry is returned exactly as the file has it (the lines the sequence reader read: the whole alignment for the first sequence of an alignment format, nothing for the later ones). sequenceValue is the USA of the program: a query on the file (file:id, file:acc:value, file:wild*, file{a|b}), a range, a list file or a database defined in definitions (db:id); firstOnly stops after the first entry. The embl, genbank, swiss, gff and the other readers store the lines as the library does (a gff3 entry keeps its version line without the line end). Equals the installed program on 780 runs (every input format, damaged files, queries). A5-8c3h, B09 F257.")]
+    [Description("EMBOSS 6.6.0 entret: the entries of a sequence file (any input format of seqret) are read with the text of every entry stored, and the text of each entry is returned exactly as the file has it (the lines the sequence reader read: the whole alignment for the first sequence of an alignment format, nothing for the later ones). sequenceValue is the USA of the program: a query on the file (file:id, file:acc:value, file:wild*, file{a|b}), a range, a list file or a database defined in definitions (db:id); firstOnly stops after the first entry. The embl, genbank, swiss, gff and the other readers store the lines as the library does (a gff3 entry keeps its version line without the line end). Equals the installed program on 756 runs (every input format, damaged files, queries). A5-8c3h, B09 F257.")]
     public static EntretToolResult Entret(
         [Description("The text of the sequence file (any input format of seqret), or a sequence as letters.")] string sequence,
         [Description("The input format (-sformat); default: the program finds the format.")] string? sequenceFormat = null,
@@ -591,6 +591,145 @@ public partial class AnalysisTools
             return new EntretToolResult(o.Text, o.Entries, [.. o.Messages]);
         }
         catch (Exception e) when (e is NotSupportedException or InvalidOperationException)
+        {
+            throw new ArgumentException(e.Message, nameof(sequence));
+        }
+    }
+
+    [McpServerTool(Name = "extractfeat", Title = "Alignment — EMBOSS extractfeat (extract features as sequences)", ReadOnly = true)]
+    [Description("EMBOSS 6.6.0 extractfeat: the features of the sequences of a file (any input format of seqret that carries features: embl, genbank, refseq, refseqp, swiss, nbrf, gff2, gff3) that pass the filters (source, type, sense, score, tag, value; wildcards * and ?, several patterns separated by blanks, commas, semicolons or bars) are extracted as sequences, named SEQUENCE_START_END (with featInName also _TYPE) and described by [type] and the tags of describe, optionally with the sequence before and after the feature (before / after: negative values count from the other end of the feature; the missing sequence at the ends is padded with N or X) and with the parts of a join as one sequence (join). The sequences are returned in FASTA or in the output format of outputFormat (fasta unknown pearson, gcg gcg8, nbrf pir, codata, strider, staden, text plain raw, ig iguspto, gde, fitch, acedb, mase). A part of a join that names another entry (J00194.1:100..103) is read from the same file or database. Equals the installed program on 1 000 runs (every input format with features, every filter, before / after / join, 22 output formats, damaged files). A5-8c3h, B09 F258.")]
+    public static ExtractfeatToolResult Extractfeat(
+        [Description("The text of the sequence file with features (see the formats above), or a sequence as letters (no features: nothing is extracted).")] string sequence,
+        [Description("The input format (-sformat); default: the program finds the format.")] string? sequenceFormat = null,
+        [Description("Sequence before each feature (-before): bases / residues; negative: the start is that far before the END of the feature.")] int before = 0,
+        [Description("Sequence after each feature (-after); negative: the end is that far after the START of the feature.")] int after = 0,
+        [Description("Write the parts of a join (CDS, mRNA, ...) as one sequence (-join).")] bool join = false,
+        [Description("Add the feature type to the sequence name (-featinname).")] bool featInName = false,
+        [Description("Tag names to add with their values to the description (-describe): names separated by blanks, commas, semicolons or bars; wildcards.")] string describe = "",
+        [Description("Sources of the features to extract (-source); default *.")] string source = "*",
+        [Description("Types of the features to extract (-type); default *.")] string type = "*",
+        [Description("Sense of the features (-sense): 0 any, 1 forward, -1 reverse.")] int sense = 0,
+        [Description("Minimum score (-minscore); with maxScore both 0 the score is not tested.")] float minScore = 0f,
+        [Description("Maximum score (-maxscore).")] float maxScore = 0f,
+        [Description("Tags a feature must have (-tag); default *.")] string tag = "*",
+        [Description("Values the tag must have (-value); default *.")] string value = "*",
+        [Description("The sequence output format (-osformat); default fasta.")] string? outputFormat = null,
+        [Description("Sequence input qualifiers as typed after the sequence on the command line: -sbegin1 -send1 -sreverse1, -slower1 -supper1 -snucleotide1 -sprotein1 -scircular1, -sformat1 F, -sid1 name, -sdbname1 db, -squick1, -iquery1 query, -ioffset1 bytes.")] string? qualifiers = null,
+        CancellationToken cancellationToken = default,
+        [Description("More files by name (file name -> text) that sequenceValue may name: list files, other sequence files, the data files of the databases of definitions.")] IReadOnlyDictionary<string, string>? files = null,
+        [Description("The USA of the sequence input (-sequence): [format::]file[begin:end:r], file:id, file:field:value, file{a|b}, @list, list::list, asis::TEXT, db:id; the text of sequence is the file 'sequence.dat'.")] string? sequenceValue = null,
+        [Description("The text of an EMBOSS configuration file (.embossrc) that defines databases for sequenceValue: DBNAME name [ type: N format: fasta method: direct directory: \"dir\" filename: \"*.fa\" ], SET name value.")] string? definitions = null)
+    {
+        if (string.IsNullOrWhiteSpace(sequence))
+            throw new ArgumentException("The sequence cannot be empty", nameof(sequence));
+        cancellationToken.ThrowIfCancellationRequested();
+        string file = "sequence.dat";
+        var q = global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.ParseFile(qualifiers) with { Format = sequenceFormat };
+        string spec = SequenceSpec(sequenceValue, sequence, file);
+        try
+        {
+            var all = new Dictionary<string, string>(files ?? new Dictionary<string, string>()) { [file] = sequence };
+            var o = EmbossExtractfeatProgram.Extractfeat(new EmbossExtractfeatRequest(spec, all, q, before, after, join, featInName, describe, source, type, sense, minScore, maxScore, tag, value, "stdout", outputFormat) { Definitions = string.IsNullOrWhiteSpace(definitions) ? null : [definitions] });
+            if (o.Died)
+                throw new ArgumentException(string.Join("; ", o.Messages.Where(m => m.Length > 0)), nameof(sequence));
+            return new ExtractfeatToolResult(o.SequenceText, o.Sequences, [.. o.Messages]);
+        }
+        catch (Exception e) when (e is NotSupportedException or InvalidOperationException)
+        {
+            throw new ArgumentException(e.Message, nameof(sequence));
+        }
+    }
+
+    [McpServerTool(Name = "coderet", Title = "Alignment — EMBOSS coderet (CDS, mRNA, translations, non-coding)", ReadOnly = true)]
+    [Description("EMBOSS 6.6.0 coderet: from the nucleotide sequences of a file with feature tables (embl, genbank, refseq, gff2, gff3, ...) the coding sequences (the CDS features, joins as one sequence; files NAME.cds, sequences ACCESSION_cds_N), the messenger RNAs (mRNA features; NAME.mrna, _mrna_N), the translations (the /translation tag of the CDS features; NAME.prot, _pro_N) and the non-coding regions (what the CDS, mRNA and exon features leave; NAME.noncoding, _noncoding_START) are written, NAME being the first sequence in lower case. The tool returns the log of the program (the counts of every sequence), the files by name and the messages; cds, mrna, translation and nonCoding select the outputs and outputFormat is the sequence output format (fasta unknown pearson, gcg gcg8, nbrf pir, codata, strider, staden, text plain raw, ig iguspto, gde, fitch, acedb, mase). Equals the installed program on 1 000 runs (EMBL entries with joins, complements, orders, partial ends and translations, the reader inputs with features, damaged files, one to four outputs in 22 formats). A5-8c3h, B09 F259.")]
+    public static CoderetToolResult Coderet(
+        [Description("The text of the sequence file with features (nucleotide sequences), see the formats above.")] string sequence,
+        [Description("The input format (-sformat); default: the program finds the format.")] string? sequenceFormat = null,
+        [Description("Write the coding sequences (-cdsoutseq).")] bool cds = true,
+        [Description("Write the messenger RNAs (-mrnaoutseq).")] bool mrna = true,
+        [Description("Write the translations (-translationoutseq).")] bool translation = true,
+        [Description("Write the non-coding regions (-restoutseq).")] bool nonCoding = true,
+        [Description("The sequence output format of the four outputs (-osformat3 .. -osformat6); default fasta.")] string? outputFormat = null,
+        [Description("Sequence input qualifiers as typed after the sequence on the command line: -sbegin1 -send1 -sreverse1, -slower1 -supper1, -sformat1 F, -sid1 name, -sdbname1 db, -squick1, -iquery1 query, -ioffset1 bytes.")] string? qualifiers = null,
+        CancellationToken cancellationToken = default,
+        [Description("More files by name (file name -> text) that sequenceValue may name.")] IReadOnlyDictionary<string, string>? files = null,
+        [Description("The USA of the sequence input (-seqall): [format::]file[begin:end:r], file:id, file:field:value, file{a|b}, @list, list::list, db:id; the text of sequence is the file 'sequence.dat'.")] string? sequenceValue = null,
+        [Description("The text of an EMBOSS configuration file (.embossrc) that defines databases for sequenceValue.")] string? definitions = null)
+    {
+        if (string.IsNullOrWhiteSpace(sequence))
+            throw new ArgumentException("The sequence cannot be empty", nameof(sequence));
+        cancellationToken.ThrowIfCancellationRequested();
+        string file = "sequence.dat";
+        var q = global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.ParseFile(qualifiers) with { Format = sequenceFormat };
+        string spec = SequenceSpec(sequenceValue, sequence, file);
+        try
+        {
+            var all = new Dictionary<string, string>(files ?? new Dictionary<string, string>()) { [file] = sequence };
+            var o = EmbossCoderetProgram.Coderet(new EmbossCoderetRequest(spec, all, q, cds ? null : "", mrna ? null : "", translation ? null : "", nonCoding ? null : "", outputFormat, outputFormat, outputFormat, outputFormat) { Definitions = string.IsNullOrWhiteSpace(definitions) ? null : [definitions] });
+            if (o.Died)
+                throw new ArgumentException(string.Join("; ", o.Messages.Where(m => m.Length > 0)), nameof(sequence));
+            return new CoderetToolResult(o.Report, o.Files, [.. o.Messages]);
+        }
+        catch (Exception e) when (e is NotSupportedException or InvalidOperationException)
+        {
+            throw new ArgumentException(e.Message, nameof(sequence));
+        }
+    }
+
+    [McpServerTool(Name = "showfeat", Title = "Alignment — EMBOSS showfeat (display features)", ReadOnly = true)]
+    [Description("EMBOSS 6.6.0 showfeat: the features of the sequences of a file (any input format of seqret that carries features) as lines of ASCII graphics under a scale: one line per feature (or per part of a join; with joinFeatures the parts of a join on one line, with collapse the features on the same line) with the strand (|---> for forward, <---| for reverse), optionally the strand, source, positions, type and tags with their values. The features are filtered by sourceMatch, typeMatch, tagMatch and valueMatch (wildcards * and ?, several patterns separated by blanks, commas, semicolons or bars; stricttags shows only the tags that match), sorted (sort: start, source, type or nosort; by strand first), the sense is selected by forward / reverse / unknown, and annotation adds ranges with a text (\"5-10 foo,20-30 bar\") as lines of their own. width is the width of the graphics (below 4 no graphics and no scale), html wraps the output in HTML. Equals the installed program on 1 000 runs (every input format with features, every option, damaged files, the runs on which the program dies by a fault). A5-8c3h, B09 F260.")]
+    public static ShowfeatToolResult Showfeat(
+        [Description("The text of the sequence file with features (see the formats above), or a sequence as letters (no features).")] string sequence,
+        [Description("The input format (-sformat); default: the program finds the format.")] string? sequenceFormat = null,
+        [Description("Sources of the features to show (-sourcematch); default *.")] string sourceMatch = "*",
+        [Description("Types of the features to show (-typematch); default *.")] string typeMatch = "*",
+        [Description("Tags a feature must have (-tagmatch); default *.")] string tagMatch = "*",
+        [Description("Values the tag must have (-valuematch); default *.")] string valueMatch = "*",
+        [Description("Sort order (-sort): start (default), source, type or nosort.")] string sort = "start",
+        [Description("Show the parts of a join on one line (-joinfeatures).")] bool joinFeatures = false,
+        [Description("Output as HTML (-html).")] bool html = false,
+        [Description("Show the name of the sequence (-id); default true.")] bool id = true,
+        [Description("Show the description of the sequence (-description); default true.")] bool description = true,
+        [Description("Show the scale line (-scale); default true.")] bool scale = true,
+        [Description("Width of the graphics lines (-width); default 60; below 4 there are no graphics and no scale; negative values are reset to 0 with a warning.")] int width = 60,
+        [Description("Show all features of a type on one line (-collapse).")] bool collapse = false,
+        [Description("Show forward features (-forward); default true.")] bool forward = true,
+        [Description("Show reverse features (-reverse); default true.")] bool reverse = true,
+        [Description("Show features of unknown sense (-unknown); default true.")] bool unknown = true,
+        [Description("Show the strand of the features (-strand).")] bool showStrand = false,
+        [Description("Show the source (-sourceshow).")] bool showSource = false,
+        [Description("Show the positions (-position).")] bool showPosition = false,
+        [Description("Show the type (-typeshow); default true.")] bool showType = true,
+        [Description("Show the tags (-tagshow).")] bool showTags = false,
+        [Description("Show the values of the tags (-valueshow); default true.")] bool showValues = true,
+        [Description("Show only the tags that match tagMatch and valueMatch (-stricttags).")] bool strictTags = false,
+        [Description("Ranges to show as annotation (-annotation): \"5-10 text,20-30 text\".")] string annotation = "",
+        [Description("Sequence input qualifiers as typed after the sequence on the command line: -sbegin1 -send1 -sreverse1, -slower1 -supper1 -snucleotide1 -sprotein1 -scircular1, -sformat1 F, -sid1 name, -sdbname1 db, -squick1, -iquery1 query, -ioffset1 bytes.")] string? qualifiers = null,
+        CancellationToken cancellationToken = default,
+        [Description("More files by name (file name -> text) that sequenceValue may name.")] IReadOnlyDictionary<string, string>? files = null,
+        [Description("The USA of the sequence input (-sequence): [format::]file[begin:end:r], file:id, file:field:value, file{a|b}, @list, list::list, asis::TEXT, db:id; the text of sequence is the file 'sequence.dat'.")] string? sequenceValue = null,
+        [Description("The text of an EMBOSS configuration file (.embossrc) that defines databases for sequenceValue.")] string? definitions = null)
+    {
+        if (string.IsNullOrWhiteSpace(sequence))
+            throw new ArgumentException("The sequence cannot be empty", nameof(sequence));
+        cancellationToken.ThrowIfCancellationRequested();
+        string file = "sequence.dat";
+        var q = global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.ParseFile(qualifiers) with { Format = sequenceFormat };
+        string spec = SequenceSpec(sequenceValue, sequence, file);
+        try
+        {
+            var all = new Dictionary<string, string>(files ?? new Dictionary<string, string>()) { [file] = sequence };
+            var o = EmbossShowfeatProgram.Showfeat(new EmbossShowfeatRequest(spec, all, q)
+            {
+                SourceMatch = sourceMatch, TypeMatch = typeMatch, TagMatch = tagMatch, ValueMatch = valueMatch, Sort = sort, JoinFeatures = joinFeatures, Html = html, Id = id, Description = description, Scale = scale, Width = width,
+                Collapse = collapse, Forward = forward, Reverse = reverse, Unknown = unknown, Strand = showStrand, SourceShow = showSource, Position = showPosition, TypeShow = showType, TagShow = showTags, ValueShow = showValues,
+                StrictTags = strictTags, Annotation = annotation, Definitions = string.IsNullOrWhiteSpace(definitions) ? null : [definitions],
+            });
+            if (o.Died)
+                throw new ArgumentException(string.Join("; ", o.Messages.Where(m => m.Length > 0)), nameof(sequence));
+            return new ShowfeatToolResult(o.Text, o.Sequences, [.. o.Messages]);
+        }
+        catch (Exception e) when (e is NotSupportedException or InvalidOperationException or ArgumentException)
         {
             throw new ArgumentException(e.Message, nameof(sequence));
         }

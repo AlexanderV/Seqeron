@@ -14,7 +14,7 @@ EMBOSS 6.6.0 'entret': the full text of the entries of a sequence file (or of th
 
 ## Description
 
-EMBOSS 6.6.0 entret: the entries of a sequence file (any input format of seqret) are read with the text of every entry stored, and the text of each entry is returned exactly as the file has it (the lines the sequence reader read: the whole alignment for the first sequence of an alignment format, nothing for the later ones). sequenceValue is the USA of the program: a query on the file (file:id, file:acc:value, file:wild*, file{a|b}), a range, a list file or a database defined in definitions (db:id); firstOnly stops after the first entry. The embl, genbank, swiss, gff and the other readers store the lines as the library does (a gff3 entry keeps its version line without the line end). Equals the installed program on 780 runs (every input format, damaged files, queries). A5-8c3h, B09 F257.
+EMBOSS 6.6.0 entret: the entries of a sequence file (any input format of seqret) are read with the text of every entry stored, and the text of each entry is returned exactly as the file has it (the lines the sequence reader read: the whole alignment for the first sequence of an alignment format, nothing for the later ones). sequenceValue is the USA of the program: a query on the file (file:id, file:acc:value, file:wild*, file{a|b}), a range, a list file or a database defined in definitions (db:id); firstOnly stops after the first entry. The embl, genbank, swiss, gff and the other readers store the lines as the library does (a gff3 entry keeps its version line without the line end). Equals the installed program on 756 runs (every input format, damaged files, queries). A5-8c3h, B09 F257.
 
 ## Core Documentation Reference
 

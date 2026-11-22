@@ -17,6 +17,7 @@
 | `calculate_ani` | Analysis | `ComparativeGenomics.CalculateANI` | [doc](../../../../docs/mcp/tools/analysis/calculate_ani.md) |
 | `can_pair` | Analysis | `RnaSecondaryStructure.CanPair` | [doc](../../../../docs/mcp/tools/analysis/can_pair.md) |
 | `chou_fasman_assign` | Analysis | `SequenceStatistics.PredictSecondaryStructureChouFasman` | [doc](../../../../docs/mcp/tools/analysis/chou_fasman_assign.md) |
+| `coderet` | Analysis | `EmbossCoderetProgram.Coderet` | [doc](../../../../docs/mcp/tools/analysis/coderet.md) |
 | `codon_frequencies` | Analysis | `SequenceStatistics.CalculateCodonFrequencies` | [doc](../../../../docs/mcp/tools/analysis/codon_frequencies.md) |
 | `combine_mums` | Analysis | `MummerCombineMums.Run` | [doc](../../../../docs/mcp/tools/analysis/combine_mums.md) |
 | `compare_genomes` | Analysis | `ComparativeGenomics.CompareGenomes` | [doc](../../../../docs/mcp/tools/analysis/compare_genomes.md) |
@@ -47,6 +48,7 @@
 | `entropy_profile` | Analysis | `SequenceStatistics.CalculateEntropyProfile` | [doc](../../../../docs/mcp/tools/analysis/entropy_profile.md) |
 | `est2genome` | Analysis | `EmbossEst2genomePrograms.Run` | [doc](../../../../docs/mcp/tools/analysis/est2genome.md) |
 | `exact_tandems` | Analysis | `MummerExactTandems.Run` | [doc](../../../../docs/mcp/tools/analysis/exact_tandems.md) |
+| `extractfeat` | Analysis | `EmbossExtractfeatProgram.Extractfeat` | [doc](../../../../docs/mcp/tools/analysis/extractfeat.md) |
 | `featcopy` | Analysis | `EmbossFeaturePrograms.Featcopy` | [doc](../../../../docs/mcp/tools/analysis/featcopy.md) |
 | `featmerge` | Analysis | `EmbossFeaturePrograms.Featmerge` | [doc](../../../../docs/mcp/tools/analysis/featmerge.md) |
 | `feattext` | Analysis | `EmbossFeaturePrograms.Feattext` | [doc](../../../../docs/mcp/tools/analysis/feattext.md) |
@@ -177,6 +179,7 @@
 | `show_snps` | Analysis | `MummerShowSnps.Run` | [doc](../../../../docs/mcp/tools/analysis/show_snps.md) |
 | `show_tiling` | Analysis | `MummerShowTiling.Run` | [doc](../../../../docs/mcp/tools/analysis/show_tiling.md) |
 | `showalign` | Analysis | `MultipleAlignmentDisplay.ShowAlign` | [doc](../../../../docs/mcp/tools/analysis/showalign.md) |
+| `showfeat` | Analysis | `EmbossShowfeatProgram.Showfeat` | [doc](../../../../docs/mcp/tools/analysis/showfeat.md) |
 | `spaced_word_distance` | Analysis | `KmerAnalyzer.SpacedWordDistance` | [doc](../../../../docs/mcp/tools/analysis/spaced_word_distance.md) |
 | `standardize_repeat_motif` | Analysis | `RepeatFinder.GetStandardMotif` | [doc](../../../../docs/mcp/tools/analysis/standardize_repeat_motif.md) |
 | `stem_energy` | Analysis | `RnaSecondaryStructure.CalculateStemEnergy` | [doc](../../../../docs/mcp/tools/analysis/stem_energy.md) |

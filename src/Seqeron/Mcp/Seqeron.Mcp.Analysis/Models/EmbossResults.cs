@@ -65,6 +65,15 @@ public record SeqretsplitToolResult(string SequenceText, IReadOnlyDictionary<str
 /// <summary>Result of <c>entret</c>: the text of the output file (the entries as the sequence readers stored them), the number of entries and the messages the library printed.</summary>
 public record EntretToolResult(string Text, int Entries, string[] Messages);
 
+/// <summary>Result of <c>extractfeat</c>: the text of the sequence output file, the number of sequences written and the messages the library printed.</summary>
+public record ExtractfeatToolResult(string SequenceText, int Sequences, string[] Messages);
+
+/// <summary>Result of <c>coderet</c>: the log (the counts of every sequence), the sequence files by name (coding sequences, messenger RNAs, translations, non-coding regions) and the messages the library printed.</summary>
+public record CoderetToolResult(string Log, IReadOnlyDictionary<string, string> Files, string[] Messages);
+
+/// <summary>Result of <c>showfeat</c>: the text of the output file (the features as lines of ASCII graphics), the number of sequences shown and the messages the library printed.</summary>
+public record ShowfeatToolResult(string Text, int Sequences, string[] Messages);
+
 /// <summary>Result of <c>maskfeat</c>: the text of the sequence output file (FASTA), the number of sequences written and the messages the library printed.</summary>
 public record MaskfeatToolResult(string SequenceText, int Sequences, string[] Messages);
 

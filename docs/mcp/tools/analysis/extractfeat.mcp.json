@@ -1,0 +1,157 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "extractfeat",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "EmbossExtractfeatProgram.Extractfeat",
+  "docRef": "EmbossExtractfeatProgram.cs",
+  "description": "EMBOSS 6.6.0 extractfeat: the features of the sequences of a file (any input format of seqret that carries features: embl, genbank, refseq, refseqp, swiss, nbrf, gff2, gff3) that pass the filters (source, type, sense, score, tag, value; wildcards * and ?, several patterns separated by blanks, commas, semicolons or bars) are extracted as sequences, named SEQUENCE_START_END (with featInName also _TYPE) and described by [type] and the tags of describe, optionally with the sequence before and after the feature (before / after: negative values count from the other end of the feature; the missing sequence at the ends is padded with N or X) and with the parts of a join as one sequence (join). The sequences are returned in FASTA or in the output format of outputFormat (fasta unknown pearson, gcg gcg8, nbrf pir, codata, strider, staden, text plain raw, ig iguspto, gde, fitch, acedb, mase). A part of a join that names another entry (J00194.1:100..103) is read from the same file or database. Equals the installed program on 1 000 runs (every input format with features, every filter, before / after / join, 22 output formats, damaged files). A5-8c3h, B09 F258.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "The text of the sequence file with features (see the formats above), or a sequence as letters (no features: nothing is extracted)."
+      },
+      "sequenceFormat": {
+        "type": "string",
+        "description": "The input format (-sformat); default: the program finds the format."
+      },
+      "before": {
+        "type": "integer",
+        "description": "Sequence before each feature (-before): bases / residues; negative: the start is that far before the END of the feature.",
+        "default": 0
+      },
+      "after": {
+        "type": "integer",
+        "description": "Sequence after each feature (-after); negative: the end is that far after the START of the feature.",
+        "default": 0
+      },
+      "join": {
+        "type": "boolean",
+        "description": "Write the parts of a join (CDS, mRNA, ...) as one sequence (-join).",
+        "default": false
+      },
+      "featInName": {
+        "type": "boolean",
+        "description": "Add the feature type to the sequence name (-featinname).",
+        "default": false
+      },
+      "describe": {
+        "type": "string",
+        "description": "Tag names to add with their values to the description (-describe): names separated by blanks, commas, semicolons or bars; wildcards.",
+        "default": ""
+      },
+      "source": {
+        "type": "string",
+        "description": "Sources of the features to extract (-source); default *.",
+        "default": "*"
+      },
+      "type": {
+        "type": "string",
+        "description": "Types of the features to extract (-type); default *.",
+        "default": "*"
+      },
+      "sense": {
+        "type": "integer",
+        "description": "Sense of the features (-sense): 0 any, 1 forward, -1 reverse.",
+        "default": 0
+      },
+      "minScore": {
+        "type": "number",
+        "description": "Minimum score (-minscore); with maxScore both 0 the score is not tested.",
+        "default": 0
+      },
+      "maxScore": {
+        "type": "number",
+        "description": "Maximum score (-maxscore).",
+        "default": 0
+      },
+      "tag": {
+        "type": "string",
+        "description": "Tags a feature must have (-tag); default *.",
+        "default": "*"
+      },
+      "value": {
+        "type": "string",
+        "description": "Values the tag must have (-value); default *.",
+        "default": "*"
+      },
+      "outputFormat": {
+        "type": "string",
+        "description": "The sequence output format (-osformat); default fasta."
+      },
+      "qualifiers": {
+        "type": "string",
+        "description": "Sequence input qualifiers as typed after the sequence on the command line: -sbegin1 -send1 -sreverse1, -slower1 -supper1 -snucleotide1 -sprotein1 -scircular1, -sformat1 F, -sid1 name, -sdbname1 db, -squick1, -iquery1 query, -ioffset1 bytes."
+      },
+      "files": {
+        "type": "object",
+        "description": "More files by name (file name -> text) that sequenceValue may name: list files, other sequence files, the data files of the databases of definitions."
+      },
+      "sequenceValue": {
+        "type": "string",
+        "description": "The USA of the sequence input (-sequence): [format::]file[begin:end:r], file:id, file:field:value, file{a|b}, @list, list::list, asis::TEXT, db:id; the text of sequence is the file 'sequence.dat'."
+      },
+      "definitions": {
+        "type": "string",
+        "description": "The text of an EMBOSS configuration file (.embossrc) that defines databases for sequenceValue: DBNAME name [ type: N format: fasta method: direct directory: \"dir\" filename: \"*.fa\" ], SET name value."
+      }
+    },
+    "required": [
+      "sequence"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "sequenceText": {
+        "type": "string",
+        "description": "The text of the sequence output file (FASTA or the output format)."
+      },
+      "sequences": {
+        "type": "integer",
+        "description": "The number of sequences written."
+      },
+      "messages": {
+        "type": "string[]",
+        "description": "What the library printed (warnings and errors)."
+      }
+    },
+    "required": [
+      "sequenceText",
+      "sequences",
+      "messages"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "The sequence cannot be empty"
+    },
+    {
+      "code": 1001,
+      "message": "Unable to read sequence ... (no sequence in the file)"
+    },
+    {
+      "code": 1001,
+      "message": "An input on which the reference program never stops or dies by a fault, and an output format this port does not write, are refused"
+    }
+  ],
+  "examples": [
+    {
+      "name": "The mRNA and exon features of an EMBL entry",
+      "input": {
+        "sequence": "ID   X1; SV 1; linear; genomic DNA; STD; UNC; 60 BP.\nXX\nAC   X1;\nXX\nDE   test\nXX\nFH   Key             Location/Qualifiers\nFH\nFT   mRNA            1..40\nFT   exon            45..55\nSQ   Sequence 60 BP; 15 A; 15 C; 15 G; 15 T; 0 other;\n     acgtacgtac gtacgtacgt acgtacgtac gtacgtacgt acgtacgtac gtacgtacgt        60\n//\n",
+        "type": "mRNA exon",
+        "featInName": true
+      },
+      "output": {
+        "sequenceText": ">X1_1_40_mRNA [mRNA] test\nacgtacgtacgtacgtacgtacgtacgtacgtacgtacgt\n>X1_45_55_exon [exon] test\nacgtacgtacg\n",
+        "sequences": 2,
+        "messages": []
+      }
+    }
+  ]
+}

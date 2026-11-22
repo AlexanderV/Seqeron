@@ -265,6 +265,45 @@ public class EmbossProgramToolsTests
         Assert.That(() => AnalysisTools.Entret(" "), Throws.ArgumentException);
     }
 
+    private const string EmblWithFeatures = "ID   X1; SV 1; linear; genomic DNA; STD; UNC; 60 BP.\nXX\nAC   X1;\nXX\nDE   test\nXX\nFH   Key             Location/Qualifiers\nFH\nFT   CDS             join(3..12,20..29)\nFT                   /translation=\"MKV\"\nFT                   /gene=\"g1\"\nFT   mRNA            1..40\nFT   exon            45..55\nSQ   Sequence 60 BP; 15 A; 15 C; 15 G; 15 T; 0 other;\n     acgtacgtac gtacgtacgt acgtacgtac gtacgtacgt acgtacgtac gtacgtacgt        60\n//\n";
+
+    [Test]
+    public void Extractfeat_ExtractsTheFeatures_AsTheProgram()
+    {
+        // extractfeat 6.6.0 (A5-8c3h, F258): the features that pass the filters as sequences, with the type in the name and the tags in the description
+        var r = AnalysisTools.Extractfeat(EmblWithFeatures, type: "mRNA exon", describe: "gene", featInName: true);
+        Assert.That(r.SequenceText, Is.EqualTo(">X1_1_40_mRNA [mRNA] test\nacgtacgtacgtacgtacgtacgtacgtacgtacgtacgt\n>X1_45_55_exon [exon] test\nacgtacgtacg\n"));
+        Assert.That(r.Sequences, Is.EqualTo(2));
+        Assert.That(AnalysisTools.Extractfeat(EmblWithFeatures, type: "exon", before: 2, after: 3).SequenceText, Is.EqualTo(">X1_45_55 [exon] test\ngtacgtacgtacgtac\n"));
+        Assert.That(AnalysisTools.Extractfeat(EmblWithFeatures, type: "gene").Messages, Is.EqualTo(new[] { "Warning: No sequences written to output file 'stdout'" }));
+        Assert.That(() => AnalysisTools.Extractfeat(" "), Throws.ArgumentException);
+    }
+
+    [Test]
+    public void Coderet_WritesTheCodingSequences_AsTheProgram()
+    {
+        // coderet 6.6.0 (A5-8c3h, F259): the CDS, mRNA, translation and the non-coding regions of a sequence with features, the log of the counts
+        var r = AnalysisTools.Coderet(EmblWithFeatures);
+        Assert.That(r.Log, Is.EqualTo("   CDS  mRNA non-c Trans Total Sequence\n ===== ===== ===== ===== ===== ========\n     1     1     0     1     2 X1\n"));
+        Assert.That(r.Files["x1.cds"], Is.EqualTo(">x1_cds_1\ngtacgtacgttacgtacgta\n"));
+        Assert.That(r.Files["x1.prot"], Is.EqualTo(">x1_pro_1\nMKV\n"));
+        Assert.That(r.Files["x1.noncoding"], Is.EqualTo(">x1_noncoding_41\nacgt\n>x1_noncoding_56\ntacgt\n"));
+        Assert.That(AnalysisTools.Coderet(EmblWithFeatures, cds: false, mrna: false, translation: false).Files.Keys, Is.EqualTo(new[] { "x1.noncoding" }));
+        Assert.That(() => AnalysisTools.Coderet(" "), Throws.ArgumentException);
+    }
+
+    [Test]
+    public void Showfeat_DrawsTheFeatures_AsTheProgram()
+    {
+        // showfeat 6.6.0 (A5-8c3h, F260): the features as lines of ASCII graphics, the options of the line, the parts of a join on one line
+        var r = AnalysisTools.Showfeat(EmblWithFeatures, width: 30, joinFeatures: true, showStrand: true, showTags: true);
+        Assert.That(r.Text, Is.EqualTo("X1\ntest\n|============================| 60\n|------------------>           + mRNA \n|---->   |--->                 + CDS  gene=\"g1\"\n                     |---->    + exon \n\n"));
+        Assert.That(r.Sequences, Is.EqualTo(1));
+        Assert.That(AnalysisTools.Showfeat(EmblWithFeatures, id: false, description: false, scale: false, width: 3, showPosition: true).Text, Is.EqualTo("1-40 mRNA\n3-12 CDS\n20-29 CDS\n45-55 exon\n\n"));
+        Assert.That(AnalysisTools.Showfeat(EmblWithFeatures, width: -5).Messages, Is.EqualTo(new[] { "Warning: integer value out of range -5 less than (reset to) 0" }));
+        Assert.That(() => AnalysisTools.Showfeat(" "), Throws.ArgumentException);
+    }
+
     [Test]
     public void Union_JoinsTheSequences_AsTheProgram()
     {
