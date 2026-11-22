@@ -56,4 +56,36 @@ public class FindCommonRegionsTests
             Assert.That(items[^1].PositionInSecond, Is.EqualTo(14));
         });
     }
+
+    [Test]
+    public void FindCommonRegions_IncludeSequenceFalse_IsTheSameListAsCoordinatesOnly()
+    {
+        // R14-4a: coordinates only; the strings are the substrings of the first sequence at positionInFirst
+        const string reference = "AGGAAGAAGGAGGCCGATTACT";
+        const string query = "CGTGGAAGGAGGCCGA";
+        foreach (string strands in new[] { "Forward", "ReverseComplement", "Both" })
+        {
+            var full = AnalysisTools.FindCommonRegions(reference, query, 2, strands: strands).Items;
+            var spans = AnalysisTools.FindCommonRegions(reference, query, 2, strands: strands, includeSequence: false).Items;
+            Assert.That(spans.Select(s => s.Sequence), Is.All.Null, strands);
+            Assert.That(spans.Select(s => (s.PositionInFirst, s.PositionInSecond, s.Length, s.IsReverseComplement)),
+                Is.EqualTo(full.Select(s => (s.PositionInFirst, s.PositionInSecond, s.Length, s.IsReverseComplement))), strands);
+            Assert.That(full.Select(s => s.Sequence), Is.All.Not.Null);
+        }
+
+        // the other modes materialise and then omit the string
+        var mem = AnalysisTools.FindCommonRegions(reference, query, 4, "MaximalExactMatches", includeSequence: false).Items;
+        Assert.That(mem, Is.Not.Empty);
+        Assert.That(mem.Select(s => s.Sequence), Is.All.Null);
+    }
+
+    [Test]
+    public void FindCommonRegions_PolyA20000_CoordinatesOnly_IsFast()
+    {
+        string polyA = new('A', 20_000);
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var items = AnalysisTools.FindCommonRegions(polyA, polyA, 1, includeSequence: false).Items;
+        Assert.That(items, Has.Length.EqualTo(20_000));
+        Assert.That(sw.Elapsed.TotalSeconds, Is.LessThan(20), "99.6 s with the suffix-tree engine (R14-4a)");
+    }
 }

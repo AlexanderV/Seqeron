@@ -791,16 +791,15 @@ public static partial class GenomicAnalyzer
     /// A common substring is non-empty, so values of
     /// <paramref name="minLength"/> below 1 are treated as 1 (the empty string is not a region).
     /// <para>
-    /// Algorithm: ms(i) values below K = ⌈log₄(n·m)⌉ + 2 are found by extending the match from ms(i−1) − 1
-    /// (ms(i) ≥ ms(i−1) − 1) with <see cref="SuffixTree.SuffixTree.Contains(ReadOnlySpan{char})"/> probes of at most K
-    /// characters; every ms(i) ≥ max(K, minLength) is recovered from the canonical suffix-link
-    /// maximal-exact-match stream <see cref="SuffixTree.SuffixTree.FindMaximalExactMatches(string, int)"/>
-    /// (MUMmer <c>-maxmatch</c>): the longest match at i lies on a diagonal whose maximal run is a MEM, so
-    /// ms(i) = max over MEMs starting at or before i of (end − i). The expected number of MEMs of length ≥ K between
-    /// unrelated random sequences is O(1), so no start position ever re-scans a long match.
-    /// Time O(n + m·K + R) plus the cost of materialising the reported regions (the output itself is
-    /// Σ|region|); R is the number of maximal matches of length ≥ max(K, minLength). No O(m²) substring is built
-    /// (the former per-start binary search copied up to m characters per probe).
+    /// Algorithm (R14-4a): the matching statistics ms(i) come from the suffix automaton of the reverse of
+    /// <paramref name="sequence1"/> (<c>MatchingStatisticsAutomaton</c>: reading the reverse of the query gives, after each
+    /// character, the longest prefix of query[i..] that occurs in the text and the automaton state of that prefix), and the first
+    /// (lowest) occurrence in <paramref name="sequence1"/> is the largest end position of that state in the reversed text. A
+    /// (state, length) pair identifies a distinct substring, so the reported regions are deduplicated without comparing
+    /// strings. Time O(n + m) plus the cost of materialising the reported regions (the output itself is Σ|region|; the
+    /// coordinates-only <see cref="FindCommonRegionSpans(DnaSequence, DnaSequence, int, StrandSelection, CancellationToken)"/> builds
+    /// no string at all). Measured on poly-A n against n: 20 000 99.6 s / 1.5 GB with the former suffix-tree engine, now the
+    /// string output dominates (200 M characters); no suffix tree is built.
     /// See docs/algorithms/Sequence_Comparison/Common_Region_Detection.md.
     /// </para>
     /// </summary>
@@ -834,117 +833,9 @@ public static partial class GenomicAnalyzer
         // A common region is a NON-EMPTY contiguous substring; the empty string is not a region,
         // so the effective minimum length is at least 1 (Wikipedia "Longest common substring").
         int effectiveMinLength = Math.Max(1, minLength);
-        int[] matchLengths = MatchingStatistics(sequence1.SuffixTree, sequence2.Sequence, sequence1.Length, effectiveMinLength, cancellationToken);
-        return EnumerateCommonRegions(sequence1.SuffixTree, sequence2.Sequence, matchLengths, effectiveMinLength, cancellationToken);
-    }
-
-    private static IEnumerable<CommonRegion> EnumerateCommonRegions(
-        global::SuffixTree.SuffixTree tree, string seq2, int[] matchLengths, int effectiveMinLength, CancellationToken cancellationToken)
-    {
-        var found = new HashSet<string>(StringComparer.Ordinal);
-        var foundLookup = found.GetAlternateLookup<ReadOnlySpan<char>>();
-
-        for (int i = 0; i < matchLengths.Length; i++)
-        {
-            if ((i & 0x3FF) == 0)
-                AlignmentCancellation.Poll(cancellationToken);
-            int length = matchLengths[i];
-            if (length < effectiveMinLength)
-            {
-                continue;
-            }
-
-            ReadOnlySpan<char> match = seq2.AsSpan(i, length);
-            if (!foundLookup.Add(match))
-            {
-                continue;
-            }
-
-            // First (lowest) occurrence in sequence1: FindAllOccurrences is in tree order, not sorted.
-            var occurrences = tree.FindAllOccurrences(match);
-            int first = occurrences[0];
-            for (int k = 1; k < occurrences.Count; k++)
-            {
-                if (occurrences[k] < first)
-                {
-                    first = occurrences[k];
-                }
-            }
-
-            yield return new CommonRegion(match.ToString(), first, i);
-        }
-    }
-
-    /// <summary>
-    /// Matching statistics of <paramref name="query"/> against the text of <paramref name="tree"/>:
-    /// entry i is ms(i) = the length of the longest prefix of query[i..] occurring in the text — exact
-    /// wherever it is ≥ <paramref name="minLength"/>, and a value &lt; <paramref name="minLength"/> elsewhere.
-    /// </summary>
-    private static int[] MatchingStatistics(global::SuffixTree.SuffixTree tree, string query, int textLength, int minLength, CancellationToken cancellationToken = default)
-    {
-        int m = query.Length;
-        var ms = new int[m];
-        if (m == 0 || textLength == 0)
-        {
-            return ms;
-        }
-
-        // K ≈ log4(n·m) + 2: between random sequences the expected number of right-maximal matches of
-        // length ≥ K is n·m/4^K ≤ 1/16, so the maximal-exact-match stream below is output-sized.
-        int shortLimit = (int)Math.Ceiling(Math.Log((double)textLength + 1, 4) + Math.Log((double)m + 1, 4)) + 2;
-        int memLength = Math.Max(minLength, shortLimit);
-
-        bool needMems = true;
-        if (minLength < shortLimit)
-        {
-            // Phase 1: exact ms(i) up to shortLimit by extension from ms(i-1)-1 (ms(i) >= ms(i-1)-1).
-            needMems = false;
-            int length = 0;
-            for (int i = 0; i < m; i++)
-            {
-                if ((i & 0x3FF) == 0)
-                    AlignmentCancellation.Poll(cancellationToken);
-                if (length > 0)
-                {
-                    length--;
-                }
-
-                while (length < shortLimit && i + length < m && tree.Contains(query.AsSpan(i, length + 1)))
-                {
-                    length++;
-                }
-
-                ms[i] = length;
-                needMems |= length >= shortLimit;
-            }
-        }
-
-        if (!needMems)
-        {
-            return ms;
-        }
-
-        // Phase 2: ms(i) >= memLength from the maximal exact matches (sorted by query position).
-        var mems = tree.FindMaximalExactMatches(query, memLength);
-        int next = 0;
-        int maxEnd = 0;
-        for (int i = 0; i < m; i++)
-        {
-            if ((i & 0x3FF) == 0)
-                AlignmentCancellation.Poll(cancellationToken);
-            while (next < mems.Count && mems[next].PositionInQuery <= i)
-            {
-                maxEnd = Math.Max(maxEnd, mems[next].PositionInQuery + mems[next].Length);
-                next++;
-            }
-
-            if (minLength >= shortLimit || ms[i] >= shortLimit)
-            {
-                ms[i] = maxEnd - i;
-            }
-        }
-
-        return ms;
+        string query = sequence2.Sequence;
+        return AutomatonSpans(AutomatonOf(sequence1, cancellationToken), query, effectiveMinLength, reverse: false, cancellationToken)
+            .Select(span => SpanToRegion(span, query));
     }
 
     // Default k-mer length. Mash uses k=21 for whole genomes; for short DNA
@@ -1478,6 +1369,16 @@ public readonly struct CommonRegion
     /// <summary>True for <see cref="None"/> (no common region).</summary>
     public bool IsEmpty => string.IsNullOrEmpty(Sequence);
 }
+
+/// <summary>
+/// A common region of two sequences as coordinates only (<see cref="GenomicAnalyzer.FindCommonRegionSpans(DnaSequence, DnaSequence, int, StrandSelection, CancellationToken)"/>): the same record as
+/// <see cref="CommonRegion"/> without the string.
+/// </summary>
+/// <param name="PositionInFirst">0-based start in the first sequence (the lowest occurrence of the common string).</param>
+/// <param name="PositionInSecond">0-based forward-strand start in the second sequence (for a reverse-complement region the window that spells the reverse complement of the common string).</param>
+/// <param name="Length">Length of the common region.</param>
+/// <param name="IsReverseComplement">True when the region is shared with the reverse complement of the second sequence.</param>
+public readonly record struct CommonRegionSpan(int PositionInFirst, int PositionInSecond, int Length, bool IsReverseComplement = false);
 
 /// <summary>
 /// Information about an Open Reading Frame found by <see cref="GenomicAnalyzer.FindOpenReadingFrames(DnaSequence, int)"/>.

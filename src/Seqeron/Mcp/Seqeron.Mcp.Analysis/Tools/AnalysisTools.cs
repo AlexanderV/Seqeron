@@ -836,14 +836,24 @@ public partial class AnalysisTools
         [Description("Minimum common-region length (mummer -l); values below 1 are treated as 1.")] int minLength,
         [Description("Which regions (case-insensitive): RightMaximal (default) | MaximalExactMatches | MaximalUniqueReference | MaximalUnique.")] string mode = "RightMaximal",
         [Description("Which strands of sequence2 (case-insensitive): Forward (default) | ReverseComplement | Both.")] string strands = "Forward",
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        [Description("true (default): every region carries its string. false: coordinates only (positionInFirst, positionInSecond, length), no string is built - the cost of mode RightMaximal is then O(n + m + regions) whatever the region lengths (a poly-A pair of length 20 000 has 20 000 regions of average length 10 000: 200 M characters as strings).")] bool includeSequence = true)
     {
         var s1 = RequireIupacDna(sequence1, nameof(sequence1));
         var s2 = RequireIupacDna(sequence2, nameof(sequence2));
         var regionMode = ParseExactEnumName<CommonRegionMode>(mode, nameof(mode));
         var strandSelection = ParseExactEnumName<StrandSelection>(strands, nameof(strands));
+        if (!includeSequence && regionMode == CommonRegionMode.RightMaximal)
+        {
+            // R14-4a: the coordinates-only engine of the library (the suffix automaton, no string)
+            var spans = GenomicAnalyzer.FindCommonRegionSpans(s1, s2, minLength, strandSelection, cancellationToken)
+                .Select(r => new CommonRegionItem(null, r.PositionInFirst, r.PositionInSecond, r.Length, r.IsReverseComplement))
+                .ToArray();
+            return new FindCommonRegionsResult(spans);
+        }
+
         var items = GenomicAnalyzer.FindCommonRegions(s1, s2, minLength, regionMode, strandSelection, cancellationToken)
-            .Select(r => new CommonRegionItem(r.Sequence, r.PositionInFirst, r.PositionInSecond, r.Length, r.IsReverseComplement))
+            .Select(r => new CommonRegionItem(includeSequence ? r.Sequence : null, r.PositionInFirst, r.PositionInSecond, r.Length, r.IsReverseComplement))
             .ToArray();
         return new FindCommonRegionsResult(items);
     }

@@ -174,7 +174,8 @@ public record FindKnownMotifsResult(
 
 /// <summary>A common region between two sequences.</summary>
 public record CommonRegionItem(
-    string Sequence,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    string? Sequence,
     int PositionInFirst,
     int PositionInSecond,
     int Length,

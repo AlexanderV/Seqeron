@@ -115,7 +115,7 @@ public static partial class GenomicAnalyzer
     {
         ArgumentNullException.ThrowIfNull(sequence1);
         ArgumentNullException.ThrowIfNull(sequence2);
-        return CommonRegionsCore(sequence1.SuffixTree, sequence1.Length, sequence2.Sequence, minLength, mode, strands, cancellationToken);
+        return CommonRegionsCore(() => sequence1.SuffixTree, new Lazy<MatchingStatisticsAutomaton>(() => AutomatonOf(sequence1, cancellationToken)), sequence2.Sequence, minLength, mode, strands, cancellationToken);
     }
 
     /// <summary>
@@ -139,44 +139,52 @@ public static partial class GenomicAnalyzer
         ArgumentNullException.ThrowIfNull(sequence2);
         if (sequence1.Length == 0 || sequence2.Length == 0)
             return Array.Empty<CommonRegion>();
-        return CommonRegionsCore(BuildMaskedTree(sequence1, BuildLetterMask(NucleotideAlphabet)), sequence1.Length, sequence2.ToUpperInvariant(), minLength, mode, strands, cancellationToken);
+        return CommonRegionsCore(() => BuildMaskedTree(sequence1, BuildLetterMask(NucleotideAlphabet)), new Lazy<MatchingStatisticsAutomaton>(() => new MatchingStatisticsAutomaton(AutomatonText(sequence1.ToUpperInvariant()), AutomatonAlphabet, cancellationToken)), sequence2.ToUpperInvariant(), minLength, mode, strands, cancellationToken);
     }
 
     private static List<CommonRegion> CommonRegionsCore(
-        global::SuffixTree.SuffixTree tree, int textLength, string queryUpper, int minLength, CommonRegionMode mode,
+        Func<global::SuffixTree.SuffixTree> treeFactory, Lazy<MatchingStatisticsAutomaton> automaton, string queryUpper, int minLength, CommonRegionMode mode,
         StrandSelection strands, CancellationToken cancellationToken)
     {
         AlignmentCancellation.Poll(cancellationToken);
         if (!Enum.IsDefined(mode))
             throw new ArgumentOutOfRangeException(nameof(mode), mode, "Unknown common-region mode.");
         int effectiveMinLength = Math.Max(1, minLength);
+        var tree = new Lazy<global::SuffixTree.SuffixTree>(treeFactory);
         var result = new List<CommonRegion>();
         if (strands.HasFlag(StrandSelection.Forward))
-            result.AddRange(RegionsOnStrand(QueryText(queryUpper), reverse: false));
+            result.AddRange(RegionsOnStrand(queryUpper, reverse: false));
         if (strands.HasFlag(StrandSelection.ReverseComplement))
-            result.AddRange(RegionsOnStrand(QueryText(ReverseComplementAcgt(queryUpper)), reverse: true));
+            result.AddRange(RegionsOnStrand(ReverseComplementAcgt(queryUpper), reverse: true));
         return result;
 
-        IEnumerable<CommonRegion> RegionsOnStrand(string query, bool reverse)
+        IEnumerable<CommonRegion> RegionsOnStrand(string strandQuery, bool reverse)
         {
             IEnumerable<CommonRegion> regions;
             switch (mode)
             {
                 case CommonRegionMode.RightMaximal:
+                    // R14-4a: the suffix automaton of the text (no suffix tree); a region of the reverse strand is converted below like the others
+                    regions = AutomatonSpans(automaton.Value, strandQuery, effectiveMinLength, reverse: false, cancellationToken).Select(span => SpanToRegion(span, strandQuery));
+                    break;
+                case CommonRegionMode.MaximalExactMatches:
                     {
-                        int[] lengths = MatchingStatistics(tree, query, textLength, effectiveMinLength, cancellationToken);
-                        regions = EnumerateCommonRegions(tree, query, lengths, effectiveMinLength, cancellationToken);
+                        string query = QueryText(strandQuery);
+                        regions = FromMatches(tree.Value.FindMaximalExactMatches(query, effectiveMinLength), query);
                         break;
                     }
-                case CommonRegionMode.MaximalExactMatches:
-                    regions = FromMatches(tree.FindMaximalExactMatches(query, effectiveMinLength), query);
-                    break;
                 case CommonRegionMode.MaximalUniqueReference:
-                    regions = FromMatches(tree.FindMaximalUniqueMatches(query, effectiveMinLength, global::SuffixTree.MumUniqueness.Reference), query);
-                    break;
+                    {
+                        string query = QueryText(strandQuery);
+                        regions = FromMatches(tree.Value.FindMaximalUniqueMatches(query, effectiveMinLength, global::SuffixTree.MumUniqueness.Reference), query);
+                        break;
+                    }
                 case CommonRegionMode.MaximalUnique:
-                    regions = FromMatches(tree.FindMaximalUniqueMatches(query, effectiveMinLength, global::SuffixTree.MumUniqueness.Both), query);
-                    break;
+                    {
+                        string query = QueryText(strandQuery);
+                        regions = FromMatches(tree.Value.FindMaximalUniqueMatches(query, effectiveMinLength, global::SuffixTree.MumUniqueness.Both), query);
+                        break;
+                    }
                 default:
                     throw new InvalidOperationException("Unknown common-region mode.");
             }
@@ -185,13 +193,131 @@ public static partial class GenomicAnalyzer
             {
                 AlignmentCancellation.Poll(cancellationToken);
                 yield return reverse
-                    ? new CommonRegion(region.Sequence, region.PositionInFirst, query.Length - region.PositionInSecond - region.Length, isReverseComplement: true)
+                    ? new CommonRegion(region.Sequence, region.PositionInFirst, strandQuery.Length - region.PositionInSecond - region.Length, isReverseComplement: true)
                     : region;
             }
         }
 
         static IEnumerable<CommonRegion> FromMatches(IReadOnlyList<(int PositionInText, int PositionInQuery, int Length)> matches, string query)
             => matches.Select(m => new CommonRegion(query.Substring(m.PositionInQuery, m.Length), m.PositionInText, m.PositionInQuery));
+    }
+
+    #endregion
+
+    #region Right-maximal common regions by suffix automaton (R14-4a)
+
+    // Symbols of the automaton: A C G T = 0..3 and one separator code (4) for every other symbol of the text; a query symbol outside A/C/G/T is code -1,
+    // which no text symbol equals, so a match never contains it or a text separator (MUMmer -n: any other symbol matches nothing).
+    private const int AutomatonAlphabet = 5;
+
+    private static byte[] AutomatonText(string upper)
+    {
+        var codes = new byte[upper.Length];
+        for (int i = 0; i < codes.Length; i++)
+        {
+            codes[i] = upper[i] switch { 'A' => 0, 'C' => 1, 'G' => 2, 'T' => 3, _ => 4 };
+        }
+
+        return codes;
+    }
+
+    private static sbyte[] AutomatonQuery(string upper)
+    {
+        var codes = new sbyte[upper.Length];
+        for (int i = 0; i < codes.Length; i++)
+        {
+            codes[i] = upper[i] switch { 'A' => 0, 'C' => 1, 'G' => 2, 'T' => 3, _ => -1 };
+        }
+
+        return codes;
+    }
+
+    // The automaton of a DnaSequence is cached with the sequence (a reference searched with many queries pays the O(n) build once; the cache lives as long as the sequence).
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<DnaSequence, MatchingStatisticsAutomaton> AutomatonCache = new();
+
+    private static MatchingStatisticsAutomaton AutomatonOf(DnaSequence sequence, CancellationToken cancellationToken)
+        => AutomatonCache.GetValue(sequence, s => new MatchingStatisticsAutomaton(AutomatonText(s.Sequence), AutomatonAlphabet, cancellationToken));
+
+    // Eager matching statistics (cancellation is polled there), lazy enumeration of the distinct regions in order of their first start in the query.
+    private static IEnumerable<CommonRegionSpan> AutomatonSpans(MatchingStatisticsAutomaton automaton, string queryUpper, int minLength, bool reverse, CancellationToken cancellationToken)
+    {
+        var (lengths, states) = automaton.Match(AutomatonQuery(queryUpper), cancellationToken);
+        int queryLength = queryUpper.Length;
+        return Enumerate();
+
+        IEnumerable<CommonRegionSpan> Enumerate()
+        {
+            var seen = new HashSet<(int State, int Length)>();   // not a packed long: state ^ length is 0 for every region of a poly-A pair
+            for (int i = 0; i < lengths.Length; i++)
+            {
+                if ((i & 0x3FF) == 0)
+                    AlignmentCancellation.Poll(cancellationToken);
+                int length = lengths[i];
+                if (length < minLength)
+                    continue;
+                // a (state, length) pair is one distinct string
+                if (!seen.Add((states[i], length)))
+                    continue;
+                yield return new CommonRegionSpan(automaton.FirstOccurrence(states[i]), reverse ? queryLength - i - length : i, length, reverse);
+            }
+        }
+    }
+
+    private static CommonRegion SpanToRegion(CommonRegionSpan span, string strandQuery)
+        => new(strandQuery.Substring(span.IsReverseComplement ? strandQuery.Length - span.PositionInSecond - span.Length : span.PositionInSecond, span.Length), span.PositionInFirst, span.PositionInSecond, span.IsReverseComplement);
+
+    /// <summary>
+    /// The right-maximal common regions of <see cref="FindCommonRegions(DnaSequence, DnaSequence, int)"/> as <b>coordinates only</b> (R14-4a): no string is built, so the cost is
+    /// O(n + m + R) however large the regions are (a poly-A pair of length n has n regions of average length n / 2, 200 M characters at n = 20 000, which the string result must
+    /// materialise). Each region is the substring of the first sequence at <see cref="CommonRegionSpan.PositionInFirst"/> (its lowest occurrence) of <see cref="CommonRegionSpan.Length"/>
+    /// characters; the order, the positions and the reverse-strand convention are those of <see cref="FindCommonRegions(DnaSequence, DnaSequence, int, CommonRegionMode, StrandSelection, CancellationToken)"/>
+    /// with the default mode (forward regions by their start in the second sequence, then the reverse-complement ones).
+    /// </summary>
+    /// <param name="sequence1">Reference (indexed) sequence.</param>
+    /// <param name="sequence2">Query sequence.</param>
+    /// <param name="minLength">Minimum region length; values below 1 are treated as 1.</param>
+    /// <param name="strands">Strands to search (default forward).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ArgumentNullException">A sequence is null.</exception>
+    public static IReadOnlyList<CommonRegionSpan> FindCommonRegionSpans(
+        DnaSequence sequence1, DnaSequence sequence2, int minLength, StrandSelection strands = StrandSelection.Forward, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(sequence1);
+        ArgumentNullException.ThrowIfNull(sequence2);
+        return SpansCore(() => AutomatonOf(sequence1, cancellationToken), sequence2.Sequence, minLength, strands, cancellationToken);
+    }
+
+    /// <summary>
+    /// <see cref="FindCommonRegionSpans(DnaSequence, DnaSequence, int, StrandSelection, CancellationToken)"/> on nucleotide <b>strings</b> (N runs, IUPAC codes, lower case): only A/C/G/T match, any other
+    /// symbol matches nothing and ends a region.
+    /// </summary>
+    /// <param name="sequence1">Reference (indexed) sequence.</param>
+    /// <param name="sequence2">Query sequence.</param>
+    /// <param name="minLength">Minimum region length; values below 1 are treated as 1.</param>
+    /// <param name="strands">Strands to search (default forward).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ArgumentNullException">A sequence is null.</exception>
+    public static IReadOnlyList<CommonRegionSpan> FindCommonRegionSpans(
+        string sequence1, string sequence2, int minLength, StrandSelection strands = StrandSelection.Forward, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(sequence1);
+        ArgumentNullException.ThrowIfNull(sequence2);
+        if (sequence1.Length == 0 || sequence2.Length == 0)
+            return Array.Empty<CommonRegionSpan>();
+        return SpansCore(() => new MatchingStatisticsAutomaton(AutomatonText(sequence1.ToUpperInvariant()), AutomatonAlphabet, cancellationToken), sequence2.ToUpperInvariant(), minLength, strands, cancellationToken);
+    }
+
+    private static List<CommonRegionSpan> SpansCore(Func<MatchingStatisticsAutomaton> automaton, string queryUpper, int minLength, StrandSelection strands, CancellationToken cancellationToken)
+    {
+        AlignmentCancellation.Poll(cancellationToken);
+        int effectiveMinLength = Math.Max(1, minLength);
+        var built = automaton();
+        var result = new List<CommonRegionSpan>();
+        if (strands.HasFlag(StrandSelection.Forward))
+            result.AddRange(AutomatonSpans(built, queryUpper, effectiveMinLength, reverse: false, cancellationToken));
+        if (strands.HasFlag(StrandSelection.ReverseComplement))
+            result.AddRange(AutomatonSpans(built, ReverseComplementAcgt(queryUpper), effectiveMinLength, reverse: true, cancellationToken));
+        return result;
     }
 
     #endregion
