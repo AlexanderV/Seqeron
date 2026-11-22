@@ -39,6 +39,14 @@ public class EmbossUsa_Oracle_Tests
     [Test]
     public void SequenceDatabases_EqualSeqret_AllRows() => CompareRows("Seqeron.Genomics.Tests.TestData.Alignment.usa_db_oracle.jsonl.gz", 500, 450, 150, 0, 0, 0, 0, 0);
 
+    /// <summary>
+    /// A5-8c3h (B09 WP60, F275): the same databases written inside the other blocks of the configuration file: <c>SERVER</c> and <c>RESOURCE</c> (<c>RES</c>) definitions, <c>INCLUDE</c> of another file, <c>IF</c> / <c>IFDEF</c> / <c>ELSE</c> / <c>ENDIF</c>,
+    /// <c>SET</c> / <c>ENV</c> / <c>ALIAS</c>, and the errors (a bad definition type, a bad attribute of a resource, an include file that is missing, an <c>ENDIF</c> without an <c>IF</c>: the program stops with
+    /// "Died: Error(s) in configuration files" after the messages with the file and the line) (TestData/Alignment/usa_db_config_oracle.jsonl.gz, scripts/alignment/generate_db_oracle.py with CONFIG_SHARE=1).
+    /// </summary>
+    [Test]
+    public void ConfigurationBlocks_EqualSeqret_AllRows() => CompareRows("Seqeron.Genomics.Tests.TestData.Alignment.usa_db_config_oracle.jsonl.gz", 400, 380, 80, 0, 0, 0, 0, 0);
+
     private static void CompareRows(string name, int minRows, int minCompared, int minOutput, int minLists, int minRanges, int minQueries, int minReversed, int unused)
     {
         _ = unused;

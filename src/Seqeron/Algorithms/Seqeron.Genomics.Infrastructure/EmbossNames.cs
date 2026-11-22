@@ -35,21 +35,59 @@ internal sealed class EmbossNames
         ("edamid", true), ("edamtpc", true), ("taxon", true),
     ];
 
+    // the attributes of a server definition (namSvrAttrs) and of a resource definition (namRsAttrs)
+    private static readonly string[] SvrAttrs =
+    [
+        "method", "type", "cachedirectory", "cachefile", "accession", "app", "appall", "appentry", "appquery", "caseidmatch", "comment", "directory", "field", "filters", "format", "formatall", "formatentry", "formatquery", "hasaccession", "httpversion", "identifier",
+        "indexdirectory", "methodall", "methodentry", "methodquery", "proxy", "query", "return", "sequence", "serverversion", "special", "url", "view", "edamdat", "edamfmt", "edamid", "edamtpc", "taxon",
+    ];
+
+    private static readonly string[] RsAttrs = ["type", "release", "pagesize", "secpagesize", "cachesize", "seccachesize", "fields", "value"];
+
     private static readonly Regex VarExp = new(@"^\$([A-Za-z0-9_]+)", RegexOptions.CultureInvariant);
 
     private readonly Dictionary<string, string> _vars = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, string> _aliases = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, EmbossDatabase> _databases = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _servers = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, Dictionary<string, string>> _resources = new(StringComparer.OrdinalIgnoreCase);
+    private Func<string, string?> _files = _ => null;
+    private readonly HashSet<string> _included = new(StringComparer.Ordinal);
+    private string _fileName = ".embossrc";
+    private bool _ifNow = true;
+    private readonly Stack<bool> _ifStack = new();
 
     /// <summary>The messages the library printed while reading the definitions (<c>Warning: ...</c>, <c>Error: ...</c>).</summary>
     public List<string> Messages { get; } = [];
 
-    /// <summary>The definitions in the text of the files (in the order the library reads them: later definitions of a name replace earlier ones).</summary>
-    public static EmbossNames Parse(params string[] texts)
+    /// <summary><c>namErrorCount</c>: the errors of the definitions; the program stops ("Died: Error(s) in configuration files") when there are any.</summary>
+    public int ErrorCount { get; private set; }
+
+    /// <summary><c>ajNamServer</c>: a defined server.</summary>
+    public bool IsServerName(string name) => _servers.Contains(name);
+
+    private int _line = 1;
+
+    // namError: ajErr("File %S line %d: %S")
+    private void NamError(string message)
     {
-        var names = new EmbossNames();
+        ErrorCount++;
+        Messages.Add($"Error: File {_fileName} line {_line}: {message}");
+    }
+
+    /// <summary>The definitions in the text of the files (in the order the library reads them: later definitions of a name replace earlier ones).</summary>
+    public static EmbossNames Parse(params string[] texts) => Parse(null, null, texts);
+
+    /// <summary>The definitions in the texts of the files; <paramref name="files"/> gives the files that <c>INCLUDE</c> names (null when there are none), <paramref name="fileName"/> is the name of the files in the messages.</summary>
+    public static EmbossNames Parse(Func<string, string?>? files, string? fileName, params string[] texts)
+    {
+        var names = new EmbossNames { _files = files ?? (_ => null) };
         foreach (string text in texts)
+        {
+            names._fileName = fileName ?? ".embossrc";
             names.ProcessFile(text);
+        }
+
         return names;
     }
 
@@ -127,10 +165,12 @@ internal sealed class EmbossNames
         return true;
     }
 
-    // namProcessFile: the words of the file (blanks split, a quote opens a part that the parse joins again, "]" is a word of its own) and the parse of the words
-    private void ProcessFile(string text)
+    // namProcessFile: the words of the file (blanks split, a quote opens a part that the parse joins again, "]" is a word of its own) and the parse of the words. Returns false when the file had errors.
+    private bool ProcessFile(string text)
     {
+        int preverrors = ErrorCount;
         var words = new List<string>();
+        var counts = new Queue<int>();
         var lines = text.Split('\n').ToList();
         if (lines.Count > 0 && lines[^1].Length == 0)
             lines.RemoveAt(lines.Count - 1);
@@ -141,6 +181,7 @@ internal sealed class EmbossNames
             string line = raw;
             if (line.EndsWith('\r'))
                 line = line[..^1];
+            counts.Enqueue(words.Count);                                   // the number of words before the line
             if (line.Length == 0 || line[0] == '#')
                 continue;
             foreach (char c in line)
@@ -188,73 +229,226 @@ internal sealed class EmbossNames
             }
         }
 
-        ListParse(words);
+        counts.Enqueue(words.Count);
+        ListParse(words, counts);
+        return ErrorCount <= preverrors;
     }
 
-    private enum ParseType { None, Env, Db, Alias }
+    private enum ParseType { None, Env, Svr, Db, Resource, IFile, Alias, If, IfDef, Else, EndIf }
 
-    // namListParse for the definitions of variables, aliases and databases
-    private void ListParse(List<string> words)
+    private ParseType _parseType = ParseType.None;
+    private string? _name, _value;
+
+    private static string TypeName(ParseType t) => t switch { ParseType.Env => "SET", ParseType.Svr => "SERVER", ParseType.Db => "DBNAME", ParseType.Resource => "RESOURCE", ParseType.IFile => "INCLUDE", ParseType.Alias => "ALIAS", ParseType.If or ParseType.IfDef => "IF", ParseType.Else => "ELSE", ParseType.EndIf => "ENDIF", _ => "unknown" };
+
+    // ajCharPrefixS(text, word): the text starts with the word
+    private static bool PrefixOf(string keyword, string word) => word.Length > 0 && keyword.StartsWith(word, StringComparison.Ordinal);
+
+    private static int AttrIndex(string[] attrs, string name)
     {
-        var type = ParseType.None;
-        string? name = null, value = null;
+        string lower = name.ToLowerInvariant();
+        int found = 0, j = -1;
+        for (int i = 0; i < attrs.Length; i++)
+        {
+            if (attrs[i] == lower)
+                return i;
+            if (attrs[i].StartsWith(lower, StringComparison.Ordinal))
+            {
+                found++;
+                j = i;
+            }
+        }
+
+        return found == 1 ? j : -1;
+    }
+
+    // namRsAttrFieldS: a resource of the type Index has the attributes NAMElen, NAMEpagesize ... for every field it indexes
+    private static bool RsAttrField(Dictionary<string, string>? rs, string str)
+    {
+        if (rs is null || !rs.TryGetValue("type", out string? type) || type != "Index")
+            return false;
+        string prefix;
+        if (str.EndsWith("len", StringComparison.Ordinal))
+            prefix = str[..^3];
+        else if (str.EndsWith("seccachesize", StringComparison.Ordinal))
+            prefix = str[..^12];
+        else if (str.EndsWith("cachesize", StringComparison.Ordinal))
+            prefix = str[..^9];
+        else if (str.EndsWith("secpagesize", StringComparison.Ordinal))
+            prefix = str[..^11];
+        else if (str.EndsWith("pagesize", StringComparison.Ordinal))
+            prefix = str[..^8];
+        else
+            return false;
+        if (prefix.Length == 0)
+            return false;
+        string fields = rs.TryGetValue("fields", out string? f) ? f : "id,acc,sv,key,des,org,nam,isa,xref";
+        return fields.Split([' ', ',', ';'], StringSplitOptions.RemoveEmptyEntries).Contains(prefix, StringComparer.Ordinal);
+    }
+
+    // ajNamGetValueS: a variable of the definitions (the environment is not part of this port)
+    private bool GetValue(string name, out string value)
+    {
+        value = "";
+        string upper = name.StartsWith("EMBOSS_", StringComparison.OrdinalIgnoreCase) ? name.ToUpperInvariant() : "EMBOSS_" + name.ToUpperInvariant();
+        if (_vars.TryGetValue(upper, out string? v) || _vars.TryGetValue(name, out v))
+        {
+            value = v;
+            return true;
+        }
+
+        return false;
+    }
+
+    // namListParse
+    private void ListParse(List<string> words, Queue<int> counts)
+    {
+        var db = (EmbossDatabase?)null;
+        Dictionary<string, List<string>>? svLists = null;
+        Dictionary<string, string>? svAttrs = null, rsAttrs = null;
+        int dbInput = -1, svrInput = -1, rsInput = -1;
+        string? rsName = null;
         char quoteOpen = '\0', quoteClose = '\0';
-        EmbossDatabase? db = null;
-        int dbInput = -1;
-        bool saveit = false, dbsave = false;
+        bool saveit = false, dbsave = false, svrsave = false, rssave = false, saveifblock = false;
+        int wordcount = 0, linecount = 0, lineword = 0;
+        _name = _value = null;
+        _line = 1;
+        string savedFile = _fileName;
         foreach (string curword0 in words)
         {
             string curword = curword0;
-            if (type == ParseType.None)
+            while (counts.Count > 0 && lineword < wordcount)
+            {
+                lineword = counts.Dequeue();
+                linecount++;
+                _line = linecount - 1;
+            }
+
+            wordcount++;
+            if (_parseType == ParseType.None)
             {
                 string lower = curword.TrimEnd(':').ToLowerInvariant();
-                if (lower.Length > 0 && "env".StartsWith(lower, StringComparison.Ordinal) || lower.Length > 0 && "setenv".StartsWith(lower, StringComparison.Ordinal) || lower == "set")
-                    type = ParseType.Env;
-                else if (lower.Length > 0 && "dbname".StartsWith(lower, StringComparison.Ordinal) || lower == "db")
-                    type = ParseType.Db;
-                else if (lower.Length > 0 && "alias".StartsWith(lower, StringComparison.Ordinal))
-                    type = ParseType.Alias;
-                else if (lower.Length > 0 && ("server".StartsWith(lower, StringComparison.Ordinal) || "resource".StartsWith(lower, StringComparison.Ordinal) || "include".StartsWith(lower, StringComparison.Ordinal) || "if".StartsWith(lower, StringComparison.Ordinal) || "ifdef".StartsWith(lower, StringComparison.Ordinal) || "else".StartsWith(lower, StringComparison.Ordinal) || "endif".StartsWith(lower, StringComparison.Ordinal)))
-                    throw new NotSupportedException($"The definition type '{curword}' (server, resource, include, if) of the EMBOSS configuration is not read by this port.");
-                else
-                    Messages.Add($"Error: Invalid definition type '{curword}'");
+                if (PrefixOf("env", lower) || PrefixOf("setenv", lower))
+                {
+                    _parseType = ParseType.Env;
+                }
+                else if (PrefixOf("server", lower))
+                {
+                    _parseType = ParseType.Svr;
+                }
+                else if (PrefixOf("dbname", lower))
+                {
+                    _parseType = ParseType.Db;
+                }
+                else if (PrefixOf("resource", lower))
+                {
+                    _parseType = ParseType.Resource;
+                }
+                else if (PrefixOf("alias", lower))
+                {
+                    _parseType = ParseType.Alias;
+                }
+                else if (PrefixOf("include", lower))
+                {
+                    _parseType = ParseType.IFile;
+                }
+                else if (PrefixOf("if", lower))
+                {
+                    _parseType = ParseType.If;
+                    saveifblock = false;
+                }
+                else if (PrefixOf("ifdef", lower))
+                {
+                    _parseType = ParseType.IfDef;
+                    saveifblock = false;
+                }
+                else if (PrefixOf("else", lower))
+                {
+                    _parseType = ParseType.Else;
+                }
+                else if (PrefixOf("endif", lower))
+                {
+                    _parseType = ParseType.EndIf;
+                }
+
+                if (_parseType == ParseType.None)
+                    NamError($"Invalid definition type '{lower}'");
             }
             else if (quoteOpen != '\0' && curword == "]")
             {
-                Messages.Add($"Error: ']' found, unclosed quotes in '{value}'");
+                NamError($"']' found, unclosed quotes in '{_value}'");
                 quoteOpen = '\0';
-                type = ParseType.None;
+                _parseType = ParseType.None;
             }
             else if (quoteOpen != '\0')
             {
-                value = string.Concat(value, " ", curword);
+                _value = string.Concat(_value, " ", curword);
                 if (curword.Length > 0 && curword[^1] == quoteClose)
                 {
-                    value = value[..^1];
+                    _value = _value[..^1];
                     quoteOpen = quoteClose = '\0';
-                    if (type is ParseType.Env or ParseType.Alias)
-                        saveit = true;
-                    else if (type == ParseType.Db)
-                        dbsave = true;
+                    switch (_parseType)
+                    {
+                        case ParseType.Env or ParseType.Alias:
+                            saveit = true;
+                            break;
+                        case ParseType.Svr:
+                            svrsave = true;
+                            break;
+                        case ParseType.Db:
+                            dbsave = true;
+                            break;
+                        case ParseType.Resource:
+                            rssave = true;
+                            break;
+                        case ParseType.If or ParseType.IfDef:
+                            saveifblock = true;
+                            break;
+                    }
                 }
             }
-            else if (type is ParseType.Env or ParseType.Alias)
+            else if (_parseType is ParseType.If or ParseType.IfDef)
             {
-                if (name is not null && value is not null)
+                if (curword.StartsWith('\''))
+                    quoteOpen = quoteClose = '\'';
+                else if (curword.StartsWith('"'))
+                    quoteOpen = quoteClose = '"';
+                _value = curword;
+                if (quoteOpen != '\0')
+                {
+                    _value = _value[1..];
+                    if (_value.Length == 0)
+                        Messages.Add($"Error: Bare quote {quoteOpen} found in namListParse");
+                }
+                else
+                {
+                    saveifblock = true;
+                }
+
+                if (curword.Length > 0 && quoteClose != '\0' && curword[^1] == quoteClose)
+                {
+                    quoteOpen = quoteClose = '\0';
+                    _value = _value[..^1];
+                    saveifblock = true;
+                }
+            }
+            else if (_parseType is ParseType.Env or ParseType.Alias)
+            {
+                if (_name is not null && _value is not null)
                 {
                     saveit = true;
                 }
-                else if (name is not null)
+                else if (_name is not null)
                 {
                     if (curword.StartsWith('\''))
                         quoteOpen = quoteClose = '\'';
                     else if (curword.StartsWith('"'))
                         quoteOpen = quoteClose = '"';
-                    value = curword;
+                    _value = curword;
                     if (quoteOpen != '\0')
                     {
-                        value = value[1..];
-                        if (value.Length == 0)
+                        _value = _value[1..];
+                        if (_value.Length == 0)
                             Messages.Add($"Error: Bare quote {quoteOpen} found in namListParse");
                     }
                     else
@@ -266,28 +460,89 @@ internal sealed class EmbossNames
                     {
                         quoteOpen = quoteClose = '\0';
                         saveit = true;
-                        value = value[..^1];
+                        _value = _value[..^1];
                     }
 
                     if (saveit)
-                        value = Resolve(value);
+                        _value = Resolve(_value);
                 }
                 else
                 {
-                    name = curword;
+                    _name = curword;
                 }
             }
-            else if (type == ParseType.Db)
+            else if (_parseType == ParseType.Svr)
             {
                 if (curword == "[")
                 {
-                    db = new EmbossDatabase(name ?? "");
+                    svAttrs = [];
+                    svLists = [];
                 }
                 else if (curword == "]")
                 {
                     saveit = true;
                 }
-                else if (name is not null)
+                else if (_name is not null)
+                {
+                    if (svrInput >= 0)
+                    {
+                        if (curword.StartsWith('\''))
+                            quoteOpen = quoteClose = '\'';
+                        else if (curword.StartsWith('"'))
+                            quoteOpen = quoteClose = '"';
+                        _value = curword;
+                        if (quoteOpen != '\0')
+                        {
+                            _value = _value[1..];
+                            if (_value.Length == 0)
+                                Messages.Add($"Error: Bare quote {quoteOpen} found in namListParse");
+                        }
+                        else
+                        {
+                            svrsave = true;
+                        }
+
+                        if (curword.Length > 0 && quoteClose != '\0' && curword[^1] == quoteClose)
+                        {
+                            quoteOpen = quoteClose = '\0';
+                            _value = _value[..^1];
+                            svrsave = true;
+                        }
+
+                        if (quoteOpen == '\0')
+                            svrsave = true;
+                        if (svrsave)
+                            _value = Resolve(_value);
+                    }
+                    else if (curword.EndsWith(':'))
+                    {
+                        svrInput = AttrIndex(SvrAttrs, curword.TrimEnd(':'));
+                        if (svrInput < 0)
+                            Messages.Add($"Warning: {_fileName}: bad attribute '{curword.TrimEnd(':').ToLowerInvariant()}' for server '{_name}'");
+                    }
+                    else
+                    {
+                        Messages.Add($"Warning: {_fileName}: unexpected token '{curword}' for server '{_name}'");
+                    }
+                }
+                else
+                {
+                    _name = curword;
+                    if (!IsDbname(_name))
+                        Messages.Add($"Error: Invalid server name '{_name}'");                    // ajErr, not namError: the program goes on
+                }
+            }
+            else if (_parseType == ParseType.Db)
+            {
+                if (curword == "[")
+                {
+                    db = new EmbossDatabase(_name ?? "");
+                }
+                else if (curword == "]")
+                {
+                    saveit = true;
+                }
+                else if (_name is not null)
                 {
                     if (dbInput >= 0)
                     {
@@ -295,11 +550,11 @@ internal sealed class EmbossNames
                             quoteOpen = quoteClose = '\'';
                         else if (curword.StartsWith('"'))
                             quoteOpen = quoteClose = '"';
-                        value = curword;
+                        _value = curword;
                         if (quoteOpen != '\0')
                         {
-                            value = value[1..];
-                            if (value.Length == 0)
+                            _value = _value[1..];
+                            if (_value.Length == 0)
                                 Messages.Add($"Error: Bare quote {quoteOpen} found in namListParse");
                         }
                         else
@@ -310,32 +565,145 @@ internal sealed class EmbossNames
                         if (curword.Length > 0 && quoteClose != '\0' && curword[^1] == quoteClose)
                         {
                             quoteOpen = quoteClose = '\0';
-                            value = value[..^1];
+                            _value = _value[..^1];
                             dbsave = true;
                         }
 
                         if (quoteOpen == '\0')
                             dbsave = true;
                         if (dbsave)
-                            value = Resolve(value);
+                            _value = Resolve(_value);
                     }
                     else if (curword.EndsWith(':'))
                     {
                         dbInput = DbAttr(curword.TrimEnd(':'));
                         if (dbInput < 0)
-                            Messages.Add($"Warning: .embossrc: bad attribute '{curword.TrimEnd(':').ToLowerInvariant()}' for database '{name}'");
+                            Messages.Add($"Warning: {_fileName}: bad attribute '{curword.TrimEnd(':').ToLowerInvariant()}' for database '{_name}'");
                     }
                     else
                     {
-                        Messages.Add($"Warning: .embossrc: unexpected token '{curword}' for database '{name}'");
+                        Messages.Add($"Warning: {_fileName}: unexpected token '{curword}' for database '{_name}'");
                     }
                 }
                 else
                 {
-                    name = curword;
-                    if (!IsDbname(name))
-                        Messages.Add($"Error: Invalid database name '{name}'");
+                    _name = curword;
+                    if (!IsDbname(_name))
+                        Messages.Add($"Error: Invalid database name '{_name}'");
                 }
+            }
+            else if (_parseType == ParseType.Resource)
+            {
+                if (curword == "[")
+                {
+                    rsAttrs = [];
+                }
+                else if (curword == "]")
+                {
+                    saveit = true;
+                }
+                else if (_name is not null)
+                {
+                    if (curword.EndsWith(':'))
+                    {
+                        string lower = curword.ToLowerInvariant().TrimEnd(':');
+                        rsInput = AttrIndex(RsAttrs, lower);
+                        rsName = null;
+                        if (rsInput < 0)
+                        {
+                            if (RsAttrField(rsAttrs, lower))
+                                rsName = lower;
+                            else
+                                NamError($"Bad attribute '{lower}' for resource '{_name}'");
+                        }
+                    }
+                    else if (rsName is not null || rsInput >= 0)
+                    {
+                        if (curword.StartsWith('\''))
+                            quoteOpen = quoteClose = '\'';
+                        else if (curword.StartsWith('"'))
+                            quoteOpen = quoteClose = '"';
+                        _value = curword;
+                        if (quoteOpen != '\0')
+                        {
+                            _value = _value[1..];
+                            if (_value.Length == 0)
+                                Messages.Add($"Error: Bare quote {quoteOpen} found in namListParse");
+                        }
+                        else
+                        {
+                            rssave = true;
+                        }
+
+                        if (curword.Length > 0 && quoteClose != '\0' && curword[^1] == quoteClose)
+                        {
+                            quoteOpen = quoteClose = '\0';
+                            _value = _value[..^1];
+                            rssave = true;
+                        }
+
+                        if (quoteOpen == '\0')
+                            rssave = true;
+                    }
+
+                    if (rssave)
+                        _value = Resolve(_value ?? "");
+                }
+                else
+                {
+                    _name = curword;
+                }
+            }
+            else if (_parseType == ParseType.IFile)
+            {
+                _parseType = ParseType.None;
+                string saveword = curword;
+                string includefn = Resolve(curword);
+                if (!_included.Add(includefn))
+                {
+                    NamError(includefn == saveword ? $"{includefn} already read ... skipping" : $"{saveword} ({includefn}) already read ... skipping");
+                }
+                else
+                {
+                    string? incText = _files(includefn);
+                    if (incText is null)
+                    {
+                        NamError(includefn == saveword ? $"Failed to open include file '{includefn}'" : $"Failed to open include file '{saveword}' ({includefn})");
+                    }
+                    else
+                    {
+                        string parentFile = _fileName;
+                        _fileName = includefn;
+                        bool ok = ProcessFile(incText);
+                        _fileName = parentFile;
+                        _line = linecount - 1;
+                        if (!ok)
+                            NamError(includefn == saveword ? $"Error(s) found in included file {includefn}" : $"Error(s) found in included file {saveword} ({includefn})");
+                    }
+                }
+            }
+
+            if (svrsave)
+            {
+                if (svrInput >= 0)
+                {
+                    string key = SvrAttrs[svrInput];
+                    if (key is "field" or "special" or "edamdat" or "edamfmt" or "edamid" or "edamtpc" or "taxon")
+                    {
+                        if (!svLists!.TryGetValue(key, out var l))
+                            svLists[key] = l = [];
+                        l.Add(_value ?? "");
+                    }
+                    else
+                    {
+                        if (svAttrs!.TryGetValue(key, out string? prev))
+                            Messages.Add($"Warning: duplicate server keyword value for '{key}' = '{prev}'");
+                        svAttrs[key] = _value ?? "";
+                    }
+                }
+
+                svrInput = -1;
+                svrsave = false;
             }
 
             if (dbsave)
@@ -347,35 +715,113 @@ internal sealed class EmbossNames
                     {
                         if (!db.Lists.TryGetValue(attrName, out var list))
                             db.Lists[attrName] = list = [];
-                        list.Add(value ?? "");
+                        list.Add(_value ?? "");
                     }
                     else
                     {
                         if (db.Attributes.TryGetValue(attrName, out string? previous))
                             Messages.Add($"Warning: duplicate db keyword value for '{attrName}' = '{previous}'");
-                        db.Attributes[attrName] = value ?? "";
+                        db.Attributes[attrName] = _value ?? "";
                     }
                 }
 
-                value = null;
                 dbInput = -1;
                 dbsave = false;
             }
 
-            if (saveit)
+            if (rssave)
             {
-                if (type == ParseType.Db && name is not null && db is not null)
-                    _databases[name] = db;
-                else if (type == ParseType.Env && name is not null)
-                    _vars[name] = value ?? "";
-                else if (type == ParseType.Alias && name is not null)
-                    _aliases[name] = value ?? "";
-                name = null;
-                value = null;
+                string? key = rsInput >= 0 ? RsAttrs[rsInput] : rsName;
+                if (key is not null && rsAttrs is not null)
+                    rsAttrs[key] = _value ?? "";
+                rsInput = -1;
+                rsName = null;
+                rssave = false;
+            }
+
+            if (_parseType == ParseType.EndIf)
+            {
+                if (_ifStack.Count == 0)
+                {
+                    NamError("endif not in if-block");
+                }
+                else
+                {
+                    _ifNow = _ifStack.Pop();
+                }
+
+                _parseType = ParseType.None;
+            }
+            else if (_parseType == ParseType.Else)
+            {
+                _ifNow = !_ifNow;
+                _parseType = ParseType.None;
+            }
+
+            if (saveifblock)
+            {
+                if (_parseType is ParseType.If or ParseType.IfDef)
+                {
+                    string v = Resolve(_value ?? "");
+                    _ifStack.Push(_ifNow);
+                    if (_parseType == ParseType.If)
+                    {
+                        string test = GetValue(v, out string tv) ? tv : "";
+                        _ifNow = test.Length > 0 && char.ToUpperInvariant(test[0]) is 'Y' or 'T' or '1';
+                    }
+                    else
+                    {
+                        _ifNow = GetValue(v, out _);
+                    }
+
+                    _parseType = ParseType.None;
+                    _value = null;
+                }
+
+                saveifblock = false;
+            }
+            else if (saveit)
+            {
+                if (_ifNow)
+                {
+                    switch (_parseType)
+                    {
+                        case ParseType.Svr when _name is not null:
+                            _servers.Add(_name);
+                            break;
+                        case ParseType.Db when _name is not null && db is not null:
+                            _databases[_name] = db;
+                            break;
+                        case ParseType.Resource when _name is not null:
+                            _resources[_name] = rsAttrs ?? [];
+                            break;
+                        case ParseType.Env when _name is not null:
+                            _vars[_name] = _value ?? "";
+                            break;
+                        case ParseType.Alias when _name is not null:
+                            _aliases[_name] = _value ?? "";
+                            break;
+                    }
+                }
+
+                _name = null;
+                _value = null;
                 db = null;
+                svAttrs = null;
+                rsAttrs = null;
                 saveit = false;
-                type = ParseType.None;
+                _parseType = ParseType.None;
             }
         }
+
+        if (_parseType != ParseType.None)
+        {
+            NamError($"Unexpected end of file in {TypeName(_parseType)} definition");
+            _parseType = ParseType.None;
+        }
+
+        _included.Clear();
+        _fileName = savedFile;
+        _ = svLists;
     }
 }

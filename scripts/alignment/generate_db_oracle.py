@@ -53,6 +53,47 @@ QUERIES = ['{db}:{id}', '{db}:{id}', '{db}:{idw}', '{db}:*', '{db}-id:{id}', '{d
            '{db}:{id}[2:9]', '{db}:{id}[3:20:r]', '{DB}:{id}', '{db}:{ID}', '{db}:nosuchid', '{db}', '{db}:', '{db}-nofield:x', '{db}-org:Homo*', '{db}-key:kinase*', '{db}:*{tail}']
 
 
+CONFIG_SHARE = float(os.environ.get('CONFIG_SHARE', '0'))      # the share of the rows with server / resource / include / if blocks in the configuration (B09 WP60)
+
+
+def wrap_config(rnd, defs, files):
+    """the DBNAME definitions inside blocks of the other kinds (SERVER, RESOURCE, INCLUDE, IF ... ENDIF, SET), valid and with errors"""
+    kind = rnd.choice(['include', 'include', 'if', 'ifdef', 'else', 'resource', 'server', 'set', 'bad', 'badres', 'badinclude', 'endif', 'dup', 'quotes', 'nested', 'misc'])
+    res = 'RES r%d [ type: Index\n  idlen: 15\n  acclen: %d\n  deslen: 30\n]\n' % (rnd.randint(1, 9), rnd.choice([15, 20]))
+    svr = 'SERVER s%d [ method: dbfetch type: Nucleotide url: "http://example.org/x" comment: "test" ]\n' % rnd.randint(1, 9)
+    if kind == 'include':
+        files['inc.rc'] = (res if rnd.random() < 0.5 else '') + defs
+        return rnd.choice([res, svr, '']) + 'INCLUDE inc.rc\n' + rnd.choice(['', 'INCLUDE inc.rc\n'])
+    if kind == 'if':
+        return 'SET flag %s\n' % rnd.choice(['Y', 'N', 'yes', '1', '0', 'x']) + 'IF flag\n' + defs + rnd.choice(['', 'ELSE\n# nothing\n']) + 'ENDIF\n'
+    if kind == 'ifdef':
+        return rnd.choice(['SET flag 1\n', '']) + 'IFDEF flag\n' + defs + rnd.choice(['', 'ELSE\n' + svr]) + 'ENDIF\n'
+    if kind == 'else':
+        return 'IF nosuchvar\n' + svr + 'ELSE\n' + defs + 'ENDIF\n'
+    if kind == 'resource':
+        return res + rnd.choice(['RESOURCE r9 [ type: Index fields: "id acc" idlen: 12 acclen: 12 pagesize: 2048 ]\n', 'RES r8 [ type: Index release: 1 ]\n']) + defs
+    if kind == 'server':
+        return svr + rnd.choice(['SERVER s5 [ method: das ]\n', 'SERVER s6 [ type: Protein field: "id ! x" field: "acc ! y" ]\n', '']) + defs
+    if kind == 'set':
+        return 'SET tdir db\nSET x "a b"\nENV y z\nALIAS al x\n' + defs
+    if kind == 'bad':
+        return rnd.choice(['FOO bar\n', 'SERVER 1x [ method: das ]\n', 'DBNAME 9z [ type: N ]\n', 'SET\n']) + defs
+    if kind == 'badres':
+        return rnd.choice(['RES r1 [ type: Index bogus: 3 ]\n', 'RES r2 [ type: Index foolen: 12 ]\n', 'RES r3 [ idlen: 1 ]\n', 'RES r4 [ type: Index fields: "id" acclen: 5 ]\n']) + defs
+    if kind == 'badinclude':
+        files['inc.rc'] = 'FOO bar\n'
+        return rnd.choice(['INCLUDE nosuchfile\n', 'INCLUDE inc.rc\n', 'INCLUDE\n']) + defs
+    if kind == 'endif':
+        return rnd.choice(['ENDIF\n', 'ELSE\n', 'IF\n']) + defs
+    if kind == 'dup':
+        return defs + defs
+    if kind == 'quotes':
+        return 'SET q "unclosed\n' + defs
+    if kind == 'nested':
+        return 'SET a 1\nIF a\nIFDEF nosuch\n' + svr + 'ELSE\n' + defs + 'ENDIF\nENDIF\n'
+    return 'SET v1 1\nDBNAME zz [ bogus: 1 type: N ]\n' + defs
+
+
 def main(out, count, seed):
     global GEN
     rnd = random.Random(seed)
@@ -95,7 +136,12 @@ def main(out, count, seed):
                 dbs.append({'name': name, 'fmt': fmt, 'kind': kind, 'texts': matching or texts, 'multi': len(matching) > 1})
             if not dbs:
                 continue
+            config_row = rnd.random() < CONFIG_SHARE
+            if config_row:
+                defs = wrap_config(rnd, defs, files)
             db = rnd.choice(dbs)
+            if config_row and db['multi']:
+                continue
             # ids, accessions, words of the entries of the database file(s)
             ids, accs, svs, words = [], [], [], []
             for t in db['texts'].values():
@@ -176,6 +222,7 @@ def main(out, count, seed):
                     if os.path.exists(cp): os.remove(cp)
                 if hits != 1:
                     continue
+            err = err.replace(work, '<WORK>')
             if err.startswith('Read and write (return) sequences\n'):
                 err = err[len('Read and write (return) sequences\n'):]
             if 'ajSysCreate' in err:
