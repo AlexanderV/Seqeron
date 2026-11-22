@@ -874,3 +874,14 @@ Tests (`Seqeron.Genomics.Tests`, against the installed Debian `mafft` 7.505-1): 
 | MP3 | `Threads_DoNotChangeTheAlignment` | 40 | `Threads = 4` and `0` give the same rows | oracle (`--thread 4` rows) |
 | MP4 | `Reorder_PutsTheSequencesInTheOrderOfTheGuideTree` | 20 | same rows, other order | property |
 | MP5 | `HandRun_ThreeProteins_FftNs2` / `Contracts` | - | letters preserved, equal lengths; refusals; `Quiet`; strategy text | hand / contract |
+
+## Audit A2-19c (B09 F284): MAFFT 7.505, stage 3 (`--maxiterate`, FFT-NS-i / NW-NS-i)
+
+Tests (`Seqeron.Genomics.Tests`, against the installed Debian `mafft` 7.505-1): `SequenceAligner_MafftIterative_Tests` x26 (`mafft_iterative_oracle.tsv.gz`, `scripts/alignment/generate_mafft_iterative_oracle.py`: **5 360 sets in 23 strategy groups, at least 210 each**; one test per group compares the rows and the standard error (SHA-256 of the whole text, the full text for every 25th set) with the program: `--maxiterate` 1 / 2 / 5 / 1000, `--nofft`, `--retree 1`, `--bl`, `--jtt`, `--tm`, `--op` / `--ep`, `--exp`, `--leavegappyregion`, `--unweight`, linkage options, `--reorder`, `--kappa`, `--fmodel`, `--nwildcard`, `--6merpair` / `--10merpair`, `--thread 4 --threadit 0` (rows only), `--anysymbol`, `--nuc` / `--amino`, two sequences), the shape test, the refusal of `Threads > 0` with an iteration (the program is non-deterministic there: ten runs, ten different alignments), the strategy text; `SequenceAligner_MafftProgressive_Tests` x33 (shared helpers, unchanged oracle), MCP `MafftTests` x5 (+ `maxIterate`).
+
+| ID | Test | Sets | Behaviour | Source |
+|----|------|------|-----------|--------|
+| MI1 | `RowsAndStandardError_EqualMafft(<strategy>)` | 5 360 | rows and standard error equal the program | oracle |
+| MI2 | `Oracle_HasEveryStrategy` | - | >= 5 000 sets, every group >= 200, >= 20 groups, two-sequence group >= 200 | shape |
+| MI3 | threads refusal | - | `Threads > 0` with `MaxIterate > 0` and no `ThreadsIterate = 0`: `NotSupportedException` | proof of non-determinism |
+| MI4 | strategy text | - | "FFT-NS-i (Standard)" / "Accurate but slow" / "Iterative refinement method (max. N iterations)" | program text |
