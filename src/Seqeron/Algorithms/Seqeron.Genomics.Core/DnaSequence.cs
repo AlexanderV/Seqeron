@@ -47,6 +47,17 @@ namespace Seqeron.Genomics.Core
         public SuffixTree.SuffixTree SuffixTree => _suffixTree ??= global::SuffixTree.SuffixTree.Build(_sequence);
 
         /// <summary>
+        /// Whether the suffix tree of this sequence is already built (R14-3). Reading <see cref="SuffixTree"/> builds it (O(n) with a large constant: about 170 MB per Mbp), so a caller that makes
+        /// one query and does not need the index checks this first and scans linearly when it is <c>false</c>.
+        /// </summary>
+        public bool HasSuffixTree => _suffixTree is not null;
+
+        /// <summary>
+        /// Releases the cached suffix tree (R14-3: about 170 MB per Mbp); the next read of <see cref="SuffixTree"/> builds it again. Does nothing when no tree is built.
+        /// </summary>
+        public void ReleaseSuffixTree() => _suffixTree = null;
+
+        /// <summary>
         /// Gets the complement of this DNA sequence.
         /// A ↔ T, C ↔ G
         /// </summary>

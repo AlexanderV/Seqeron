@@ -13,7 +13,8 @@ public static partial class MotifFinder
 
     /// <summary>
     /// Finds all occurrences of an exact motif in a sequence.
-    /// Uses SuffixTree for O(m+k) pattern matching where m=motif length, k=occurrences.
+    /// Uses the SuffixTree of the sequence for O(m+k) pattern matching where m=motif length, k=occurrences when that tree is already built
+    /// (<see cref="DnaSequence.HasSuffixTree"/>); otherwise the linear KMP scan <see cref="KmerAnalyzer.FindKmerPositions"/> (same positions, ascending), so a one-off query does not build the index (R14-3).
     /// </summary>
     /// <param name="sequence">DNA sequence to search.</param>
     /// <param name="motif">Motif pattern to find.</param>
@@ -29,6 +30,15 @@ public static partial class MotifFinder
         if (string.IsNullOrEmpty(motif)) yield break;
 
         string motifUpper = motif.ToUpperInvariant();
+
+        // R14-3: a sequence whose suffix tree is not built yet is searched by the linear scan (KMP, 92 ms at 2 Mbp, no index): the first suffix-tree query costs 4.4 s / 540 MB at 2 Mbp for one answer.
+        // The same positions in the same ascending order; a caller that wants the index reads DnaSequence.SuffixTree once and every later query takes the O(m + occ) route.
+        if (!sequence.HasSuffixTree)
+        {
+            foreach (int pos in KmerAnalyzer.FindKmerPositions(sequence.Sequence, motifUpper))
+                yield return pos;
+            yield break;
+        }
 
         // Use SuffixTree for efficient pattern matching
         var positions = sequence.SuffixTree.FindAllOccurrences(motifUpper);

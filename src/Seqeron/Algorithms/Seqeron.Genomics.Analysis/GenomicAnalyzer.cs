@@ -429,13 +429,12 @@ public static partial class GenomicAnalyzer
     /// is not a motif); a null sequence throws <see cref="ArgumentNullException"/>.
     /// <para>
     /// Delegates to the canonical <see cref="MotifFinder.FindExactMotif"/> (same engine, same order;
-    /// the two used to be copies that differed only in sorting and null handling). That engine is the
-    /// sequence's cached suffix tree: an O(n) build with a large constant (measured 0.9 s / 170 MB at
-    /// 1 Mbp, 23 s / 1.7 GB at 10 Mbp) paid once per <see cref="DnaSequence"/>, then O(m + occ) per
-    /// query. For a single one-off query over a very large sequence the linear scan
-    /// <see cref="KmerAnalyzer.FindKmerPositions"/> (KMP, 71 ms at 10 Mbp, no index) is the cheaper
-    /// call and returns the same positions; <see cref="FindKnownMotifs(DnaSequence, IEnumerable{string})"/>
-    /// chooses between the two itself.
+    /// the two used to be copies that differed only in sorting and null handling). That engine uses the
+    /// sequence's cached suffix tree when it is already built (<see cref="DnaSequence.HasSuffixTree"/>: O(m + occ) per
+    /// query) and otherwise the linear scan <see cref="KmerAnalyzer.FindKmerPositions"/> (KMP, 92 ms at 2 Mbp, 71 ms at 10 Mbp, no index)
+    /// with the same positions (R14-3: the call used to build the tree for one query, 4.4 s / 540 MB at 2 Mbp, 23 s / 1.7 GB at 10 Mbp). A caller that issues many
+    /// queries reads <see cref="DnaSequence.SuffixTree"/> once to pay the O(n) build (about 170 MB per Mbp; <see cref="DnaSequence.ReleaseSuffixTree"/> frees it);
+    /// <see cref="FindKnownMotifs(DnaSequence, IEnumerable{string})"/> chooses between the two itself.
     /// </para>
     /// </summary>
     public static IReadOnlyList<int> FindMotif(DnaSequence sequence, string motif)
