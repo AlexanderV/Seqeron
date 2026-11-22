@@ -118,3 +118,6 @@ public record MashSketchFileResult(string Msh, int Bytes, int Sketches);
 
 /// <summary>Result of <c>emboss_report_file</c>: the <c>-outfile</c> report text of the program and, for etandem / equicktandem, the <c>-origfile</c> text.</summary>
 public record EmbossReportFileResult(string Report, [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? OriginalFile = null);
+
+/// <summary>What an EMBOSS sequence program of B09 WP61 leaves: its standard output, the files it wrote and what the library printed on the error stream.</summary>
+public record EmbossProgramToolResult(string Text, IReadOnlyDictionary<string, string> Files, string[] Messages);

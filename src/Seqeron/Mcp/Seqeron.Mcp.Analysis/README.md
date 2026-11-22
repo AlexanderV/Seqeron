@@ -2,7 +2,7 @@
 
 MCP server — **K-mer, motif, repeat, complexity, RNA-structure and comparative-genomics analysis.**
 
-Exposes **188 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+Exposes **211 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
 MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test, with a
 per-tool doc under [`docs/mcp/tools/analysis/`](../../../../docs/mcp/tools/analysis). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
@@ -78,6 +78,29 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `union` | EMBOSS union: the sequences of a file joined into one (with the overlaps of consecutive sequences found and counted), written in any of 14 sequence formats; 200 runs equal union 6.6.0. |
 | `seqretsplit` | EMBOSS seqretsplit: every sequence of a file written to a file of its own (duplicate names renamed), in any of 14 sequence formats; 200 runs equal seqretsplit 6.6.0. |
 | `entret` | EMBOSS entret: the text of the entries of a sequence file (any input format of seqret, a query, a range, a list file or a database) as the readers store it; equals entret 6.6.0 on 756 runs. |
+| `getorf` | EMBOSS getorf: finds and extracts the open reading frames (orfs) of nucleotide sequences; equals getorf 6.6.0 on 800 runs. |
+| `revseq` | EMBOSS revseq: reverses and complements nucleotide sequences; equals revseq 6.6.0 on 320 runs. |
+| `transeq` | EMBOSS transeq: translates nucleotide sequences to protein in the chosen frames; equals transeq 6.6.0 on 320 runs. |
+| `extractseq` | EMBOSS extractseq: extracts regions of a sequence; equals extractseq 6.6.0 on 320 runs. |
+| `cutseq` | EMBOSS cutseq: removes a section from a sequence; equals cutseq 6.6.0 on 320 runs. |
+| `degapseq` | EMBOSS degapseq: removes the gap characters from sequences; equals degapseq 6.6.0 on 320 runs. |
+| `trimseq` | EMBOSS trimseq: trims the ambiguity characters and gaps from the ends of sequences; equals trimseq 6.6.0 on 320 runs. |
+| `skipseq` | EMBOSS skipseq: reads and writes sequences, skipping the first n; equals skipseq 6.6.0 on 320 runs. |
+| `nthseq` | EMBOSS nthseq: writes the n-th sequence of a file; equals nthseq 6.6.0 on 320 runs. |
+| `notseq` | EMBOSS notseq: writes the sequences that are not on a list; equals notseq 6.6.0 on 320 runs. |
+| `pasteseq` | EMBOSS pasteseq: inserts one sequence into another; equals pasteseq 6.6.0 on 320 runs. |
+| `trimest` | EMBOSS trimest: removes the poly-a tails of est sequences; equals trimest 6.6.0 on 320 runs. |
+| `newseq` | EMBOSS newseq: makes a sequence from a name, a description, a type and the residues; equals newseq 6.6.0 on 320 runs. |
+| `yank` | EMBOSS yank: writes the usa (the universal sequence address) of a sequence; equals yank 6.6.0 on 320 runs. |
+| `seqcount` | EMBOSS seqcount: counts the sequences of a file; equals seqcount 6.6.0 on 320 runs. |
+| `splitter` | EMBOSS splitter: splits sequences into smaller sequences; equals splitter 6.6.0 on 320 runs. |
+| `maskseq` | EMBOSS maskseq: masks regions of a sequence with a character or lower case; equals maskseq 6.6.0 on 320 runs. |
+| `maskambignuc` | EMBOSS maskambignuc: masks all ambiguity nucleotide codes with n; equals maskambignuc 6.6.0 on 320 runs. |
+| `maskambigprot` | EMBOSS maskambigprot: masks all ambiguity amino acid codes with x; equals maskambigprot 6.6.0 on 320 runs. |
+| `trimspace` | EMBOSS trimspace: cleans up whitespace in a text file; equals trimspace 6.6.0 on 320 runs. |
+| `nospace` | EMBOSS nospace: removes whitespace from a text file; equals nospace 6.6.0 on 320 runs. |
+| `notab` | EMBOSS notab: replaces the tabs of a text file with blanks; equals notab 6.6.0 on 320 runs. |
+| `noreturn` | EMBOSS noreturn: changes the line ends of a text file; equals noreturn 6.6.0 on 320 runs. |
 | `extractfeat` | EMBOSS extractfeat: the features of a sequence file (filters on source, type, sense, score, tag, value; before / after, join, names and descriptions) as sequences in FASTA or another output format; equals extractfeat 6.6.0 on 1 000 runs. |
 | `coderet` | EMBOSS coderet: the CDS, mRNA, translation (the /translation tag) and non-coding regions of a nucleotide sequence file with feature tables, the log of the counts; equals coderet 6.6.0 on 1 000 runs. |
 | `showfeat` | EMBOSS showfeat: the features of a sequence file as lines of ASCII graphics (filters, sort, join, collapse, strand / source / position / type / tags, annotation ranges, HTML); equals showfeat 6.6.0 on 1 000 runs. |
