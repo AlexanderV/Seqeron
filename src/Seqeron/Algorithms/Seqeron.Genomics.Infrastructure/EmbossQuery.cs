@@ -612,6 +612,8 @@ internal static class EmbossQueryParse
                     return TextAccessDirect(qry, env, context);
                 case "emboss":
                     return EmbossIndexAccess.Emboss(qry, env, context);
+                case "emblcd":
+                    return EmbossCdAccess.Access(qry, env, context);
                 default:
                     throw new NotSupportedException($"The database access method '{qry.Method}' is not implemented by this port.");
             }
@@ -909,7 +911,7 @@ internal static class EmbossQueryParse
             return;
         }
 
-        if (qry.Method is not ("direct" or "emboss"))
+        if (qry.Method is not ("direct" or "emboss" or "emblcd"))
             throw new NotSupportedException($"The database access method '{qry.Method}' is not implemented by this port.");
         qry.Qlinks = "|&!^=";
     }

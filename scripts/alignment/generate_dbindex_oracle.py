@@ -153,7 +153,7 @@ def build(rnd, method, work, shim, files, defs):
     texts = {}
     if method in ('emboss', 'emblcd') and rnd.random() < 0.45:
         indexer = 'fasta'
-        ifmt = rnd.choice(['simple', 'idacc', 'idsv', 'gcgid', 'gcgidacc', 'dbid', 'ncbi']) if method == 'emboss' else rnd.choice(['simple', 'idacc', 'idsv', 'gcgid', 'gcgidacc', 'dbid', 'ncbi'])
+        ifmt = rnd.choice(['simple', 'idacc', 'idsv', 'gcgid', 'gcgidacc', 'dbid', 'ncbi']) if method == 'emboss' else rnd.choice(['simple', 'idacc', 'gcgid', 'gcgidacc', 'dbid', 'ncbi'])
         fmtname, ext = 'fasta', 'fasta'
         for i in range(nfiles):
             t, e = fasta_entries(rnd, ifmt, nuc, rnd.choice([1, 2, 3, 5, 8, 15]))
@@ -161,7 +161,7 @@ def build(rnd, method, work, shim, files, defs):
             ents += e
     else:
         indexer = 'flat'
-        ifmt = rnd.choice(['embl', 'swiss', 'gb', 'refseq']) if method == 'emboss' else rnd.choice(['embl', 'swiss', 'genbank'])
+        ifmt = rnd.choice(['embl', 'swiss', 'gb', 'refseq'])
         fmtname = {'embl': 'embl', 'swiss': 'swiss', 'gb': 'genbank', 'genbank': 'genbank', 'refseq': 'refseq'}[ifmt]
         nuc = ifmt != 'swiss'
         kind = 'N' if nuc else 'P'

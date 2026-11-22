@@ -30,6 +30,9 @@ public class EmbossDbIndex_Oracle_Tests
     [Test]
     public void MethodEmboss_EqualsSeqretAndEntret_AllRows() => CompareRows("Seqeron.Genomics.Tests.TestData.Alignment.dbindex_emboss_oracle.jsonl.gz", 1000, 1000, 380);
 
+    [Test]
+    public void MethodEmblcd_EqualsSeqretAndEntret_AllRows() => CompareRows("Seqeron.Genomics.Tests.TestData.Alignment.dbindex_emblcd_oracle.jsonl.gz", 1000, 1000, 300);
+
     private static void CompareRows(string name, int minRows, int minCompared, int minOutput)
     {
         using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(name) ?? throw new InvalidOperationException($"Embedded oracle '{name}' not found.");

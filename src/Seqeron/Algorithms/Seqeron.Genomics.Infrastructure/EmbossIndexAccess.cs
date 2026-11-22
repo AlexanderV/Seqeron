@@ -13,13 +13,18 @@ internal sealed class EmbossHitTable
     private static readonly ulong[] Primes = [3, 7, 13, 31, 61, 127, 251, 509, 1021, 2039, 4093, 8191, 16381, 32749, 65521, 131071, 262139, 524287, 1048573, 2097143, 4194301, 8388593, 16777213, 33554393, 67108859, 134217689, 268435399, 536870909, 1073741789, 2147483647, uint.MaxValue];
 
     private List<EmbossBtHit>?[] _buckets;
+    private readonly bool _ulongKeys;
+
     public ulong Size { get; private set; }
 
     public ulong Length { get; private set; }
 
     /// <summary><c>ajTableNewFunctionLen(size, ...)</c>: the number of buckets is the largest prime that is at most size / 4 (3 at least).</summary>
-    public EmbossHitTable(ulong size)
+    /// <param name="size">The number of hits the table is made for.</param>
+    /// <param name="ulongKeys">The table of <c>textCdQryQuery</c> (<c>ajTableulongNew</c>): the key of a hit is <c>(file &lt;&lt; 4) + offset</c> (sizeof(ajulong)/2 is the shift of the library), hashed as <c>key &gt;&gt; 2</c>, and two hits are the same when their keys are.</param>
+    public EmbossHitTable(ulong size, bool ulongKeys = false)
     {
+        _ulongKeys = ulongKeys;
         ulong hint = size / 4;
         int i = 1;
         while (Primes[i] <= hint)
@@ -34,11 +39,11 @@ internal sealed class EmbossHitTable
         ulong minsize = Length / 8;
         if (Size < minsize)
             ResizeHashsize(6 * minsize / 4);
-        ulong i = EmbossBtHit.Hash(hit, Size);
+        ulong i = HashOf(hit, Size);
         var b = _buckets[i] ??= [];
         for (int k = 0; k < b.Count; k++)
         {
-            if (EmbossBtHit.Compare(hit, b[k]) == 0)
+            if (Same(hit, b[k]))
             {
                 b[k] = hit;
                 return;
@@ -48,6 +53,10 @@ internal sealed class EmbossHitTable
         b.Insert(0, hit);
         Length++;
     }
+
+    private ulong HashOf(EmbossBtHit h, ulong size) => _ulongKeys ? ((((ulong)h.Dbno << 4) + h.Offset) >> 2) % size : EmbossBtHit.Hash(h, size);
+
+    private bool Same(EmbossBtHit a, EmbossBtHit b) => _ulongKeys ? (((ulong)a.Dbno << 4) + a.Offset) == (((ulong)b.Dbno << 4) + b.Offset) : EmbossBtHit.Compare(a, b) == 0;
 
     /// <summary><c>ajTableToarrayValues</c>.</summary>
     public List<EmbossBtHit> Values()
@@ -76,7 +85,7 @@ internal sealed class EmbossHitTable
         _buckets = new List<EmbossBtHit>?[Size];
         foreach (var h in all)
         {
-            ulong ib = EmbossBtHit.Hash(h, Size);
+            ulong ib = HashOf(h, Size);
             (_buckets[ib] ??= []).Insert(0, h);
         }
     }
@@ -89,13 +98,13 @@ internal sealed class EmbossHitTable
             b.ResizeHashsize(a.Size);
     }
 
-    private static int IndexOf(List<EmbossBtHit>? b, EmbossBtHit h)
+    private int IndexOf(List<EmbossBtHit>? b, EmbossBtHit h)
     {
         if (b is null)
             return -1;
         for (int k = 0; k < b.Count; k++)
         {
-            if (EmbossBtHit.Compare(h, b[k]) == 0)
+            if (Same(h, b[k]))
                 return k;
         }
 
