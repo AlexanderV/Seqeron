@@ -10,7 +10,7 @@
   "short": "EMBOSS extractfeat: the features of a sequence file (filters on source, type, sense, score, tag, value; before / after, join, names and descriptions) as sequences in FASTA or another output format; equals extractfeat 6.6.0 on 1 000 runs.",
   "after": "entret",
   "file": "AnalysisTools.EmbossPrograms.cs",
-  "description": "EMBOSS 6.6.0 extractfeat: the features of the sequences of a file that pass the filters are extracted as sequences named SEQUENCE_START_END (with featInName also _TYPE) and described by [type] and the tags of describe, optionally with the sequence before and after the feature and the parts of a join as one sequence (join). Equals the installed program on 1 000 runs (every input format with features, every filter, before / after / join, 22 output formats, damaged files).",
+  "description": "EMBOSS 6.6.0 extractfeat: the features of the sequences of a file that pass the filters are extracted as sequences named SEQUENCE_START_END (with featInName also _TYPE) and described by [type] and the tags of describe, optionally with the sequence before and after the feature and the parts of a join as one sequence (join). Equals the installed program on 1 000 runs (every input format with features, every filter, before / after / join, 29 output format names, damaged files).",
   "output": {
    "sequenceText": [
     "string",

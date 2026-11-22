@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import generate_seqret_oracle as S  # noqa: E402
 
 FMTS = ['embl', 'embl', 'embl', 'embl', 'embl', 'genbank', 'gff3', 'gff2', 'fasta', 'nbrf', 'swiss', 'refseqp', 'embl-own']
-OSFORMATS = ['fasta', 'fasta', 'fasta', 'fasta', 'gcg', 'gcg8', 'pir', 'nbrf', 'raw', 'text', 'plain', 'staden', 'ig', 'iguspto', 'codata', 'fitch', 'mase', 'strider', 'gde', 'acedb', 'unknown', 'pearson']   # the writers ported so far (the others are registered: B09 WP58)
+OSFORMATS = ['fasta', 'fasta', 'fasta', 'fasta', 'gcg', 'gcg8', 'pir', 'nbrf', 'raw', 'text', 'plain', 'staden', 'ig', 'iguspto', 'codata', 'fitch', 'mase', 'strider', 'gde', 'acedb', 'ncbi', 'gifasta', 'dasdna', 'das', 'asn1', 'nib', 'nibble', 'unknown', 'pearson']   # the writers ported so far (the others are registered: B09 WP58)
 
 
 def wrap_ft(tag, value, quote=True):

@@ -84,6 +84,9 @@ public static class EmbossExtractfeatProgram
             run.Extract(seq, table);
         }
 
+        if (run.Written > 0 && outFormat is not null && EmbossSeqWrite.Footer(outFormat) is { Length: > 0 } footer)
+            output.Append(footer);                                  // seqCleanDasdna / seqCleanDasseq at the close of the file
+
         if (context.Fatal)
             return new EmbossSeqretOutput(output.ToString(), "", run.Written, [.. context.Messages]) { Died = true };
         if (run.Count == 0)

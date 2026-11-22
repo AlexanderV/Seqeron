@@ -86,6 +86,8 @@ public static class EmbossSeqretPrograms
         var featOut = new StringBuilder();
         var singles = new Dictionary<string, string>();
         var state = new EmbossFeatureWriteState();
+        var writeRun = new EmbossSeqWriteRun();
+        string? lastSingle = null;
         int tables = 0, unnamed = 0, written = 0, count = 0;
         // ajSeqoutUsaProcess: "format::file" names the output format (an empty format is "unknown")
         string outName = r.OutSeq;
@@ -134,14 +136,15 @@ public static class EmbossSeqretPrograms
             string name = seq.Name;
             if (name.Length == 0)
                 name = outSingle ? "EMBOSS" : "EMBOSS_" + (++unnamed).ToString("000", System.Globalization.CultureInfo.InvariantCulture);
-            string residues = EmbossSeqRange.Cut(seq, out _, out _, out _);                  // seqClone: the range of the sequence
+            string residues = EmbossSeqRange.Cut(seq, out int ibegin, out _, out _);                  // seqClone: the range of the sequence
             var target = outSingle ? new StringBuilder() : seqOut;
-            EmbossSeqWrite.Write(target, outFormat, name, seq.Desc, seq.Acc, seq.Sv, seq.Type, residues, outSingle ? 0 : count, runDate, seq.FullDescMulti);
+            EmbossSeqWrite.Write(target, outFormat, name, seq.Desc, seq.Acc, seq.Sv, seq.Type, residues, outSingle ? 0 : count, runDate, seq.FullDescMulti, seq.Gi, seq.Db, seq.Setdb, writeRun, ibegin - 1, count);
             if (outSingle)
             {
                 string file = (name + "." + (r.OutExtension ?? r.OutSeqFormat ?? "fasta")).ToLowerInvariant();
                 string dir = r.OutDirectory ?? "";
-                singles[dir.Length > 0 ? Path.Combine(dir, file) : file] = target.ToString();
+                lastSingle = dir.Length > 0 ? Path.Combine(dir, file) : file;
+                singles[lastSingle] = target.ToString();
             }
 
             count++;
@@ -160,9 +163,18 @@ public static class EmbossSeqretPrograms
                 break;
         }
 
+        // seqCleanDasdna / seqCleanDasseq: the footer of a DAS file is written when the file that is open at the end of the run is closed (with -ossingle only the last file has it)
+        if (written > 0 && EmbossSeqWrite.Footer(outFormat!) is { Length: > 0 } footer)
+        {
+            if (lastSingle is not null)
+                singles[lastSingle] += footer;
+            else
+                seqOut.Append(footer);
+        }
+
         if (context.Fatal)
             return new EmbossSeqretOutput(seqOut.ToString(), featOut.ToString(), written, [.. context.Messages]) { Died = true, FeatureFileName = r.OutFeat ?? "", SingleFiles = singles };
-        if (count == 0)
+        if (count == 0 && !outSingle)                                  // with -ossingle there is no output file that stays empty: the files are opened for the sequences
             context.Warn($"No sequences written to output file '{outName}'");
         if (r.Feature && tables == 0)
             context.Warn($"No features written to output file '{r.OutFeat ?? "o.gff"}'");

@@ -11,9 +11,32 @@ import gzip, json, os, random, subprocess, sys, tempfile
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import generate_seqret_oracle as G  # noqa: E402
 
-FORMATS = ['unknown', 'fasta', 'pearson', 'gcg', 'gcg8', 'nbrf', 'pir', 'codata', 'strider', 'staden', 'text', 'plain', 'raw', 'ig', 'iguspto', 'gde', 'fitch', 'acedb', 'mase']
+FORMATS = ['unknown', 'fasta', 'pearson', 'gcg', 'gcg8', 'nbrf', 'pir', 'codata', 'strider', 'staden', 'text', 'plain', 'raw', 'ig', 'iguspto', 'gde', 'fitch', 'acedb', 'mase', 'ncbi', 'gifasta', 'nib', 'nibble', 'dasdna', 'das', 'asn1']
 # the inputs of the readers whose reference runs are defined (the nexus and mega readers of the library read freed or foreign memory on some inputs, see generate_seqret_oracle.py: memerr)
-INPUTS = ['fasta', 'fasta', 'fasta', 'gcg', 'embl', 'genbank', 'nbrf', 'swiss', 'ig', 'codata', 'strider', 'staden', 'gde', 'fitch', 'treecon', 'pir', 'clustal', 'msf', 'phylip', 'raw', 'textonly', 'asis', 'fastq', 'sam']
+INPUTS = ['ncbi', 'ncbi', 'ncbi', 'fasta', 'fasta', 'fasta', 'gcg', 'embl', 'genbank', 'nbrf', 'swiss', 'ig', 'codata', 'strider', 'staden', 'gde', 'fitch', 'treecon', 'pir', 'clustal', 'msf', 'phylip', 'raw', 'textonly', 'asis', 'fastq', 'sam']
+
+
+def ncbi_text(rnd):
+    """Entries with the identifiers of the NCBI FASTA headers (gi, database, accession.version, name, description) in every form the NCBI reader knows, so that Gi, Db, Setdb, Sv and Acc reach the ncbi and gifasta writers."""
+    dbs = ['gb', 'emb', 'dbj', 'sp', 'ref', 'pir', 'prf', 'tpd', 'tpe', 'tpg', 'lcl', 'bbs', 'gnl|mydb', 'gnl|BL_ORD_ID', 'pdb', 'gnl|Seq', 'unk', 'GB', 'LCL']
+    out = []
+    for i in range(rnd.randint(1, 4)):
+        seq = ''.join(rnd.choice('ACGT') for _ in range(rnd.choice([5, 30, 60, 61, 130])))
+        acc = rnd.choice(['AB%06d' % rnd.randint(1, 999999), 'NM_%06d' % rnd.randint(1, 999999), 'P%05d' % rnd.randint(1, 99999), 'X%d' % rnd.randint(1, 99)])
+        ver = acc + rnd.choice(['', '.1', '.2', '.12'])
+        db = rnd.choice(dbs)
+        gi = str(rnd.randint(1, 99999999))
+        name = rnd.choice(['NAME_%d' % rnd.randint(1, 9), 'abc', ver, acc, gi])
+        desc = rnd.choice(['', 'some protein', 'x', 'alpha beta gamma'])
+        k = rnd.random()
+        if k < 0.3: head = 'gi|%s|%s|%s|%s' % (gi, db if '|' not in db else 'gnl', ver, name) if '|' not in db else 'gi|%s|%s|%s' % (gi, db, name)
+        elif k < 0.45: head = 'gi|%s' % gi
+        elif k < 0.6: head = '%s|%s|%s' % (db if '|' not in db else db.replace('|', '|'), ver, name) if '|' not in db else '%s|%s' % (db, name)
+        elif k < 0.7: head = 'lcl|%s' % name
+        elif k < 0.8: head = 'gnl|BL_ORD_ID|%d' % rnd.randint(0, 20)
+        else: head = name
+        out.append('>%s%s\n%s\n' % (head, (' ' + desc) if desc else '', seq))
+    return ''.join(out)
 
 
 def collect(work):
@@ -40,11 +63,11 @@ def main(out, per, seed, formats):
             made = 0
             while made < per:
                 src = rnd.choice(INPUTS)
-                text, how = G.make_input(rnd, gen, src)
+                text, how = (ncbi_text(rnd), 'ncbi') if src == 'ncbi' else G.make_input(rnd, gen, src)
                 if rnd.random() < 0.15: text, how = G.damaged(rnd, text), how + '+damaged'
                 if rnd.random() < 0.05: text = text.rstrip('\n')
                 spec, args = 'in.dat', []
-                if rnd.random() < 0.7: args = ['-sformat1', src]
+                if rnd.random() < 0.7: args = ['-sformat1', 'fasta' if src == 'ncbi' else src]
                 if rnd.random() < 0.08: args += ['-firstonly']
                 if rnd.random() < 0.08: args += [rnd.choice(['-slower1', '-supper1', '-sprotein1', '-snucleotide1'])]
                 osformat, outseq = fmt, rnd.choice(['o.out', 'out', 'o.txt'])

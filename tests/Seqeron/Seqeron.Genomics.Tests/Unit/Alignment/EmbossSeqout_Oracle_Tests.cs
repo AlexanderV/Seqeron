@@ -30,17 +30,25 @@ public class EmbossSeqout_Oracle_Tests
     [Test]
     public void SequenceWriters_EqualSeqret_AllRows()
     {
-        const string name = "Seqeron.Genomics.Tests.TestData.Alignment.seqout_oracle.jsonl.gz";
-        using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(name) ?? throw new InvalidOperationException($"Embedded oracle '{name}' not found.");
-        using var gz = new GZipStream(stream, CompressionMode.Decompress);
-        using var reader = new StreamReader(gz);
+        var assembly = System.Reflection.Assembly.GetExecutingAssembly();
         var failures = new List<string>();
         var perFormat = new Dictionary<string, int>();
         var written = new Dictionary<string, int>();
         var refusedBy = new Dictionary<string, int>();
         int rows = 0, singles = 0, refused = 0;
-        string? line;
-        while ((line = reader.ReadLine()) is not null)
+        var lines = new List<string>();
+        foreach (string resource in assembly.GetManifestResourceNames().Where(n => n.Contains("TestData.Alignment.seqout_oracle", StringComparison.Ordinal)).Order(StringComparer.Ordinal))
+        {
+            using var stream = assembly.GetManifestResourceStream(resource)!;
+            using var gz = new GZipStream(stream, CompressionMode.Decompress);
+            using var reader = new StreamReader(gz);
+            string? text0;
+            while ((text0 = reader.ReadLine()) is not null)
+                lines.Add(text0);
+        }
+
+        Assert.That(lines, Is.Not.Empty, "Embedded oracles 'seqout_oracle*.jsonl.gz' not found.");
+        foreach (string line in lines)
         {
             var j = JsonDocument.Parse(line).RootElement;
             rows++;
@@ -136,7 +144,7 @@ public class EmbossSeqout_Oracle_Tests
         }
 
         Assert.That(failures, Is.Empty, $"{failures.Count} of {rows}:\n" + string.Join("\n", failures.Take(12)));
-        string[] formats = ["unknown", "fasta", "pearson", "gcg", "gcg8", "nbrf", "pir", "codata", "strider", "staden", "text", "plain", "raw", "ig", "iguspto", "gde", "fitch", "acedb", "mase"];
+        string[] formats = ["unknown", "fasta", "pearson", "gcg", "gcg8", "nbrf", "pir", "codata", "strider", "staden", "text", "plain", "raw", "ig", "iguspto", "gde", "fitch", "acedb", "mase", "ncbi", "gifasta", "nib", "nibble", "dasdna", "das", "asn1"];
         foreach (string f in formats)
         {
             Assert.That(perFormat.GetValueOrDefault(f), Is.GreaterThanOrEqualTo(200), $"inputs of {f}");

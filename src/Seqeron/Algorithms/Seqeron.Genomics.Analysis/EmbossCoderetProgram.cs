@@ -174,6 +174,8 @@ public static class EmbossCoderetProgram
             {
                 if (!o.Wanted)
                     continue;
+                if (o.Count > 0 && o.Format is not null && EmbossSeqWrite.Footer(o.Format) is { Length: > 0 } footer)
+                    o.Text.Append(footer);                              // seqCleanDasdna / seqCleanDasseq at the close of the file
                 files[o.FileName] = o.Text.ToString();
                 if (o.Count == 0)
                     context.Warn($"No sequences written to output file '{o.FileName}'");

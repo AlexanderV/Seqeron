@@ -8,6 +8,12 @@ namespace Seqeron.Genomics.Infrastructure;
 /// <summary>One sequence output format of <c>seqOutFormat</c> (<c>ajseqwrite.c</c>): the name, whether it is an alias, the kinds of sequence it takes, whether the writer keeps the sequences and writes them when the output is closed, and the writer.</summary>
 internal sealed record EmbossSeqOutFormat(string Name, bool Alias, bool Save, bool Nucleotide, bool Protein, bool Features, string Writer);
 
+/// <summary>The state of the sequence writers that lasts for a program run: the counters of the names <c>gnl|BL_ORD_ID|N</c> of the ncbi and gifasta writers (a <c>static</c> of each writer).</summary>
+internal sealed class EmbossSeqWriteRun
+{
+    public int NcbiOrdinal, GifastaOrdinal;
+}
+
 /// <summary>
 /// The sequence writers of EMBOSS 6.6.0 <c>ajseqwrite.c</c> (<c>seqOutFormat</c>, <c>seqSeqFormat</c>, <c>seqWriteSeq</c> and the <c>seqWrite*</c> functions) for the formats that write one entry per sequence from the
 /// name, description, accession, type and residues: fasta, gcg, nbrf, codata, strider, staden, text, ig, iguspto, gde, fitch, acedb, mase. A5-8c3h, B09 F252.
@@ -53,12 +59,12 @@ internal static class EmbossSeqWrite
     }
 
     /// <summary>The writers of this port.</summary>
-    internal static bool IsPorted(EmbossSeqOutFormat f) => f.Writer is "Fasta" or "Gcg" or "Nbrf" or "Codata" or "Strider" or "Staden" or "Text" or "Ig" or "Iguspto" or "Gde" or "Fitch" or "Acedb" or "Mase";
+    internal static bool IsPorted(EmbossSeqOutFormat f) => f.Writer is "Asn1" or "Dasdna" or "Dasseq" or "Nibble" or "Ncbi" or "Gifasta" or "Fasta" or "Gcg" or "Nbrf" or "Codata" or "Strider" or "Staden" or "Text" or "Ig" or "Iguspto" or "Gde" or "Fitch" or "Acedb" or "Mase";
 
     /// <summary>The <c>SeqSFormat</c> of the library: the layout of <c>seqWriteSeq</c> (the fields the ported formats set; the others stay at the defaults of <c>seqSeqFormat</c>: no name, no right number, no tab, no padding).</summary>
     private sealed class SeqFormat
     {
-        public int Spacer, Width = 50, NumWidth;
+        public int Spacer, Width = 50, NumWidth, LinePos;
         public bool NumLeft, SkipBefore;
         public string EndStr = "";
     }
@@ -82,7 +88,7 @@ internal static class EmbossSeqWrite
         const int maxSeqWidth = 250;
         int seqlen = seq.Length;
         int width = Math.Min(sf.Width, maxSeqWidth);
-        int l1 = 0, l = 0, i = 0, ibase = 1;
+        int l1 = sf.LinePos, l = 0, i = 0, ibase = 1;
         var s = new StringBuilder();
         while (i < seqlen)
         {
@@ -141,6 +147,145 @@ internal static class EmbossSeqWrite
         return (int)(check % 10000);
     }
 
+    // seqWriteNibble: the file is rewound before every sequence (ajFileSeek(outseq->File, 0L, SEEK_SET)), so the entry of a later sequence overwrites the start of the file and the rest of a longer earlier entry stays;
+    // the magic number 0x6BE9ED3A and the length are written little endian, the residues as 4-bit codes (A 2, C 1, G 3, T and U 0, any other 4), the first of two in the high nibble
+    private static void WriteNibble(StringBuilder o, string seq)
+    {
+        var bytes = new StringBuilder();
+        bytes.Append((char)0x3A).Append((char)0xED).Append((char)0xE9).Append((char)0x6B);
+        int len = seq.Length;
+        bytes.Append((char)(len & 0xFF)).Append((char)((len >> 8) & 0xFF)).Append((char)((len >> 16) & 0xFF)).Append((char)((len >> 24) & 0xFF));
+        int current = 0;
+        bool fullbyte = true;
+        foreach (char c in seq)
+        {
+            if (c == '\0')
+                break;
+            current |= c switch { 'A' or 'a' => 2, 'C' or 'c' => 1, 'G' or 'g' => 3, 'T' or 't' or 'U' or 'u' => 0, _ => 4 };
+            fullbyte = !fullbyte;
+            if (fullbyte)
+            {
+                bytes.Append((char)(current & 0xFF));
+                current = 0;
+            }
+            else
+            {
+                current <<= 4;
+            }
+        }
+
+        if (!fullbyte)
+            bytes.Append((char)(current & 0xFF));
+        if (o.Length > bytes.Length)
+            o.Remove(0, bytes.Length).Insert(0, bytes.ToString());
+        else
+            o.Clear().Append(bytes);
+    }
+
+    /// <summary>The footer of a DAS file (<c>seqCleanDasdna</c> / <c>seqCleanDasseq</c>, called when the file open at the end of the run is closed), empty for the other formats.</summary>
+    internal static string Footer(EmbossSeqOutFormat f) => f.Writer switch { "Dasdna" => "</DASDNA>\n", "Dasseq" => "</DASSEQUENCE>\n", _ => "" };
+
+    // seqWriteDasdna (dasseq false) / seqWriteDasseq (dasseq true)
+    private static void WriteDas(StringBuilder o, string name, string sv, string type, string seq, int offset, int count, bool dasseq)
+    {
+        int ilen = seq.Length;
+        if (count == 0)
+        {
+            o.Append("<?xml version=\"1.0\" standalone=\"no\"?>\n");
+            o.Append(dasseq ? "<!DOCTYPE DASSEQUENCE SYSTEM \"http://www.biodas.org/dtd/dassequence.dtd\">\n" : "<!DOCTYPE DASDNA SYSTEM \"http://www.biodas.org/dtd/dasdna.dtd\">\n<DASDNA>\n");
+        }
+
+        if (dasseq)
+        {
+            o.Append("<DASSEQUENCE>\n");
+            o.Append(CultureInfo.InvariantCulture, $"  <SEQUENCE id=\"{name}\" start=\"{1 + offset}\" stop=\"{ilen + offset}\"\n");
+            o.Append(type.Length > 0 && type[0] == 'P' ? "               moltype=\"Protein\"" : "               moltype=\"DNA\"");
+            o.Append(sv.Length > 0 ? $" version=\"{sv}\">\n" : " version=\"0.0\">\n");
+        }
+        else
+        {
+            o.Append(CultureInfo.InvariantCulture, $"  <SEQUENCE id=\"{name}\" start=\"{1 + offset}\" stop=\"{ilen + offset}\" version=\"{sv}\">\n");
+            o.Append(CultureInfo.InvariantCulture, $"    <DNA length=\"{ilen}\">\n");
+        }
+
+        for (int i = 0; i < ilen; i += 50)
+            o.Append("      ").Append(seq, i, Math.Min(50, ilen - i)).Append('\n');
+        if (!dasseq)
+            o.Append("    </DNA>\n");
+        o.Append("  </SEQUENCE>\n");
+    }
+
+    // seqWriteAsn1: the sequence as an ASN.1 value, the lines of the residues of 78 characters (the first one after the 17 characters of `iupacna "`)
+    private static void WriteAsn1(StringBuilder o, string desc, string type, string seq)
+    {
+        o.Append("  seq {\n");
+        o.Append("    id { local id 1 },\n");
+        o.Append("    descr { title \"").Append(desc).Append("\" },\n");
+        o.Append("    inst {\n");
+        bool prot = type.Length > 0 && type[0] == 'P';
+        if (prot)
+            o.Append("      repr raw, mol aa, length ").Append(seq.Length.ToString(CultureInfo.InvariantCulture)).Append(", topology linear,\n {\n");
+        else
+            o.Append("      repr raw, mol dna, length ").Append(seq.Length.ToString(CultureInfo.InvariantCulture)).Append(", topology linear,\n");
+        o.Append("      seq-data\n");
+        o.Append(prot ? "        iupacaa \"" : "        iupacna \"");
+        WriteSeq(o, seq, new SeqFormat { LinePos = 17, Spacer = 0, Width = 78, EndStr = "\"\n      } } ," });
+    }
+
+    private static readonly string[] NcbiDatabases = ["gb", "emb", "dbj", "sp", "ref", "pir", "prf", "tpd", "tpe", "tpg"];
+
+    // seqWriteNcbi / seqWriteGifasta (the writers differ in the GI part and in the databases lcl and bbs)
+    private static void WriteNcbi(StringBuilder o, string name, string desc, string acc, string sv, string seq, string gi, string db, string setdb, bool gifasta, EmbossSeqWriteRun? run)
+    {
+        run ??= new EmbossSeqWriteRun();
+        string dbname = setdb.Length > 0 ? setdb : db.Length > 0 ? db : "unk";
+        string version = sv.Length > 0 ? sv : acc;
+        bool known = Array.IndexOf(NcbiDatabases, dbname) >= 0;
+        if (gi.Length > 0 && db.Length == 0 && string.Equals(gi, name, StringComparison.OrdinalIgnoreCase))
+        {
+            o.Append(">gi|").Append(gi);
+        }
+        else
+        {
+            o.Append('>');
+            if (gi.Length > 0)
+                o.Append("gi|").Append(gi).Append('|');
+            else if (gifasta)
+                o.Append("gi|000000|");
+            if (known)
+            {
+                o.Append(dbname).Append('|').Append(version).Append('|');
+            }
+            else if (string.Equals(dbname, "lcl", StringComparison.OrdinalIgnoreCase))
+            {
+                o.Append(gifasta ? dbname : "lcl").Append('|');
+            }
+            else if (!gifasta && string.Equals(dbname, "bbs", StringComparison.OrdinalIgnoreCase))
+            {
+                o.Append("bbs|");
+            }
+            else if (string.Equals(dbname, "BL_ORD_ID", StringComparison.OrdinalIgnoreCase))
+            {
+                int n = gifasta ? run.GifastaOrdinal++ : run.NcbiOrdinal++;
+                o.Append("gnl|").Append(dbname).Append('|').Append(n).Append(' ');
+            }
+            else
+            {
+                o.Append("gnl|").Append(dbname).Append('|');
+            }
+
+            if (!string.Equals(version, name, StringComparison.OrdinalIgnoreCase))
+                o.Append(name);
+        }
+
+        if (version.Length > 0 && !known)
+            o.Append(" (").Append(version).Append(')');
+        if (desc.Length > 0)
+            o.Append(' ').Append(desc);
+        o.Append('\n');
+        WriteLines60(o, seq);
+    }
+
     private static void WriteLines60(StringBuilder o, string seq)
     {
         for (int i = 0; i < seq.Length; i += 60)
@@ -160,11 +305,36 @@ internal static class EmbossSeqWrite
     /// <exception cref="InvalidOperationException">The writer is one on which the reference program dies by a fault (iguspto).</exception>
     /// <param name="runDate">The date of the run (the header of mase).</param>
     /// <param name="fullDescMulti">The comment lines of the full description (<c>Fulldesc-&gt;Multi</c>); null when the reader made no full description.</param>
-    internal static void Write(StringBuilder o, EmbossSeqOutFormat format, string name, string desc, string acc, string sv, string type, string seq, int count, DateTime runDate, IReadOnlyList<string>? fullDescMulti = null)
+    /// <param name="offset">The offset of the sequence (<c>outseq->Offset</c>: the start of the range of the sequence minus one; the DAS writers print it).</param>
+    /// <param name="headerCount">The number of sequences written before this one to ALL the files of the run (<c>outseq->Count</c>, which <c>-ossingle</c> does not reset): the DAS writers write their header when it is 0; -1 = <paramref name="count"/>.</param>
+    /// <param name="gi">The GI number of the sequence (the ncbi and gifasta writers).</param>
+    /// <param name="db">The database the sequence was read from (<c>Db</c>).</param>
+    /// <param name="setdb">The database name of the sequence (<c>Setdb</c>: from the header of an NCBI FASTA entry, else <c>-osdbname</c>).</param>
+    /// <param name="run">The state of the writers that lasts for the run (the counter of the <c>BL_ORD_ID</c> names of ncbi and gifasta).</param>
+    internal static void Write(StringBuilder o, EmbossSeqOutFormat format, string name, string desc, string acc, string sv, string type, string seq, int count, DateTime runDate, IReadOnlyList<string>? fullDescMulti = null,
+        string gi = "", string db = "", string setdb = "", EmbossSeqWriteRun? run = null, int offset = 0, int headerCount = -1)
     {
         bool prot = type.Length > 0 && type[0] == 'P';
         switch (format.Writer)
         {
+            case "Asn1":
+                WriteAsn1(o, desc, type, seq);
+                break;
+            case "Dasdna":
+                WriteDas(o, name, sv, type, seq, offset, headerCount >= 0 ? headerCount : count, false);
+                break;
+            case "Dasseq":
+                WriteDas(o, name, sv, type, seq, offset, headerCount >= 0 ? headerCount : count, true);
+                break;
+            case "Nibble":
+                WriteNibble(o, seq);
+                break;
+            case "Ncbi":
+                WriteNcbi(o, name, desc, acc, sv, seq, gi, db, setdb, false, run);
+                break;
+            case "Gifasta":
+                WriteNcbi(o, name, desc, acc, sv, seq, gi, db, setdb, true, run);
+                break;
             case "Fasta":
                 o.Append('>').Append(name);
                 if (sv.Length > 0)

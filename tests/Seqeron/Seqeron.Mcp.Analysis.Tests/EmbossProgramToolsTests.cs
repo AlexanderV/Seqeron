@@ -235,6 +235,19 @@ public class EmbossProgramToolsTests
     }
 
     [Test]
+    public void Seqret_WritesTheNcbiDasAndAsn1Formats_AsTheProgram()
+    {
+        // seqret 6.6.0 sequence writers ncbi, gifasta, das, dasdna and asn1 (A5-8c3h, F264): the entries are the ones of the installed program
+        const string fa = ">a desc\nACGTACGTAC\n";
+        Assert.That(AnalysisTools.Seqret(fa, outputFormat: "ncbi").SequenceText, Is.EqualTo(">gnl|unk|a desc\nACGTACGTAC\n"));
+        Assert.That(AnalysisTools.Seqret(fa, outputFormat: "gifasta").SequenceText, Is.EqualTo(">gi|000000|gnl|unk|a desc\nACGTACGTAC\n"));
+        Assert.That(AnalysisTools.Seqret(fa, outputFormat: "dasdna").SequenceText, Is.EqualTo("<?xml version=\"1.0\" standalone=\"no\"?>\n<!DOCTYPE DASDNA SYSTEM \"http://www.biodas.org/dtd/dasdna.dtd\">\n<DASDNA>\n  <SEQUENCE id=\"a\" start=\"1\" stop=\"10\" version=\"\">\n    <DNA length=\"10\">\n      ACGTACGTAC\n    </DNA>\n  </SEQUENCE>\n</DASDNA>\n"));
+        Assert.That(AnalysisTools.Seqret(fa, outputFormat: "das").SequenceText, Is.EqualTo("<?xml version=\"1.0\" standalone=\"no\"?>\n<!DOCTYPE DASSEQUENCE SYSTEM \"http://www.biodas.org/dtd/dassequence.dtd\">\n<DASSEQUENCE>\n  <SEQUENCE id=\"a\" start=\"1\" stop=\"10\"\n               moltype=\"DNA\" version=\"0.0\">\n      ACGTACGTAC\n  </SEQUENCE>\n</DASSEQUENCE>\n"));
+        Assert.That(AnalysisTools.Seqret(fa, outputFormat: "asn1").SequenceText, Is.EqualTo("  seq {\n    id { local id 1 },\n    descr { title \"desc\" },\n    inst {\n      repr raw, mol dna, length 10, topology linear,\n      seq-data\n        iupacna \"ACGTACGTAC\"\n      } } ,\n"));
+        Assert.That(AnalysisTools.Seqret(fa, outputFormat: "nib").SequenceText, Is.EqualTo("\u003A\u00ED\u00E9\u006B\u000A\0\0\0\u0021\u0030\u0021\u0030\u0021"));
+    }
+
+    [Test]
     public void Seqret_ReadsTheUsaForms_AsTheProgram()
     {
         // seqret 6.6.0 USA forms (A5-8c3h, F255): ranges, strands, list files, queries on files, -sbegin / -send / -sreverse, -sid; the texts are the ones of the installed program

@@ -18,7 +18,7 @@ SOURCES = ['*', 'EMBL', 'embl', 'GenBank', 'genbank', 'gene*', 'embl|gff', 'SWIS
 TAGS = ['*', 'gene', 'note', 'product', 'label', 'db_xref', 'gene|label', 'number', 'codon_start', 'translation', 'x', '', 'ge*', '*note*', 'organism', 'mol_type']
 VALUES = ['*', 'a*', 'x', 'pax*', '1', '10', '*1', 'abc', 'a|b', 'a b', 'gene*', 'hypothetical*', '*protein', '?']
 DESCRIBE = ['gene', 'note', 'product', 'gene|label', 'gene note', '*', 'x', 'db_xref', 'label', 'ge*', 'codon_start', 'number', '']
-OSFORMATS = ['fasta', 'fasta', 'fasta', 'fasta', 'gcg', 'gcg8', 'pir', 'nbrf', 'raw', 'text', 'plain', 'staden', 'ig', 'iguspto', 'codata', 'fitch', 'mase', 'strider', 'gde', 'acedb', 'unknown', 'pearson']   # the writers ported so far (the others are registered: B09 WP58)
+OSFORMATS = ['fasta', 'fasta', 'fasta', 'fasta', 'gcg', 'gcg8', 'pir', 'nbrf', 'raw', 'text', 'plain', 'staden', 'ig', 'iguspto', 'codata', 'fitch', 'mase', 'strider', 'gde', 'acedb', 'ncbi', 'gifasta', 'dasdna', 'das', 'asn1', 'nib', 'nibble', 'unknown', 'pearson']   # the writers ported so far (the others are registered: B09 WP58)
 
 
 def main(out, n, seed):
