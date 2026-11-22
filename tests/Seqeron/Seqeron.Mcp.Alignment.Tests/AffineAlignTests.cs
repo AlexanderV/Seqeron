@@ -61,8 +61,10 @@ public class AffineAlignTests
     public void SemiGlobalAlignAffine_Schema_ValidatesCorrectly()
     {
         Assert.DoesNotThrow(() => AlignmentTools.SemiGlobalAlignAffine("ACGT", "ACGTAC"));
-        Assert.Throws<ArgumentException>(() => AlignmentTools.SemiGlobalAlignAffine("ACXT", "ACGT"));
-        Assert.Throws<ArgumentException>(() => AlignmentTools.SemiGlobalAlignAffine("ACGT", "AC-T"));
+        // R14-2: any letters are accepted like global_align_affine; only null is refused
+        Assert.DoesNotThrow(() => AlignmentTools.SemiGlobalAlignAffine("ACXT", "ACGT"));
+        Assert.DoesNotThrow(() => AlignmentTools.SemiGlobalAlignAffine("ACGT", "AC-T"));
+        Assert.Throws<ArgumentException>(() => AlignmentTools.SemiGlobalAlignAffine(null!, "ACGT"));
     }
 
     [Test]

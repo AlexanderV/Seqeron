@@ -10,9 +10,11 @@ public class SemiGlobalAlignTests
     public void SemiGlobalAlign_Schema_ValidatesCorrectly()
     {
         Assert.DoesNotThrow(() => AlignmentTools.SemiGlobalAlign("ACGT", "TTACGTTT"));
-        // Binding validates DNA for both inputs.
-        Assert.Throws<ArgumentException>(() => AlignmentTools.SemiGlobalAlign("ACXT", "TTACGTTT"));
-        Assert.Throws<ArgumentException>(() => AlignmentTools.SemiGlobalAlign("ACGT", "TTZZTT"));
+        // R14-2: any letters are accepted like global_align / local_align (the strict ACGT DnaSequence is gone); only null is refused.
+        Assert.DoesNotThrow(() => AlignmentTools.SemiGlobalAlign("ACXT", "TTACGTTT"));
+        Assert.DoesNotThrow(() => AlignmentTools.SemiGlobalAlign("ACGT", "TTZZTT"));
+        Assert.Throws<ArgumentException>(() => AlignmentTools.SemiGlobalAlign(null!, "TTACGTTT"));
+        Assert.Throws<ArgumentException>(() => AlignmentTools.SemiGlobalAlign("ACGT", null!));
     }
 
     [Test]

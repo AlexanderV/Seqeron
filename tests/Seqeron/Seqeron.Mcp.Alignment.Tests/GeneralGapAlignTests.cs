@@ -57,12 +57,13 @@ public class GeneralGapAlignTests
     }
 
     [Test]
-    public void Validation_ShortTable_UnknownMode_NaN_InvalidDna()
+    public void Validation_ShortTable_UnknownMode_NaN_NullSequence()
     {
         Assert.Throws<ArgumentException>(() => AlignmentTools.GeneralGapAlign("ACGTACGT", "ACGT", new[] { -1.0, -2.0 }));
         Assert.Throws<ArgumentException>(() => AlignmentTools.GeneralGapAlign("ACGT", "ACGT", Table(k => -k, 4), "sideways"));
         Assert.Throws<ArgumentException>(() => AlignmentTools.GeneralGapAlign("ACGT", "ACGT", new[] { -1.0, double.NaN, -3.0, -4.0 }));
-        Assert.Throws<ArgumentException>(() => AlignmentTools.GeneralGapAlign("ACXT", "ACGT", Table(k => -k, 4)));
+        Assert.DoesNotThrow(() => AlignmentTools.GeneralGapAlign("ACXT", "ACGT", Table(k => -k, 4)));      // R14-2: any letters, like global_align
+        Assert.Throws<ArgumentException>(() => AlignmentTools.GeneralGapAlign(null!, "ACGT", Table(k => -k, 4)));
         Assert.Throws<ArgumentException>(() => AlignmentTools.GeneralGapAlign("ACGT", "ACGT", Table(k => -k, 4), "semi_global", endGaps: "Nope"));
     }
 }

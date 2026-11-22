@@ -50,10 +50,10 @@ public class MatrixAlignTests
     }
 
     [Test]
-    public void SemiGlobal_Matrix_AcceptsProtein_WhileScalarModeStillRequiresDna()
+    public void SemiGlobal_Matrix_AcceptsProtein_AndTheScalarModeAcceptsAnyLettersToo()
     {
         Assert.DoesNotThrow(() => AlignmentTools.SemiGlobalAlignAffine("MVHL", Hbb, gapOpen: -9.5, gapExtend: -0.5, matrix: "BLOSUM62"));
-        Assert.Throws<ArgumentException>(() => AlignmentTools.SemiGlobalAlignAffine("MVHL", Hbb));
+        Assert.DoesNotThrow(() => AlignmentTools.SemiGlobalAlignAffine("MVHL", Hbb), "R14-2: the scalar model scores any letters (match / mismatch), no longer ACGT only");
     }
 
     [Test]
