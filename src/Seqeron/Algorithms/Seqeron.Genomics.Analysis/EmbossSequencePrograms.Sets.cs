@@ -74,7 +74,7 @@ internal static partial class EmbossSequencePrograms
         try
         {
             op = a.List("operator", "OR", ListorValues, 1, 1, ",")[0];
-            outfile = a.Raw("outfile") ?? DefaultOutfile(a, files, "listor", "firstsequences");
+            outfile = a.Raw("outfile") ?? DefaultOutfile(a, files, "listor", "firstsequences", "", "list");      // the set is named by its file
             if (outfile.Length == 0)
                 throw a.Die("outfile", "Error: Output file is required");
         }

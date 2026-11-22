@@ -214,7 +214,7 @@ internal static partial class EmbossSequencePrograms
         try
         {
             newfile = a.Bool("newfile", false);
-            outfile = a.Raw("outfile") ?? DefaultOutfile(a, files, "yank", "sequence");
+            outfile = a.Raw("outfile") ?? DefaultOutfile(a, files, "yank", "sequence", seq.Name);
             if (outfile.Length == 0)
                 throw a.Die("outfile", "Error: Output file is required");
         }
@@ -275,13 +275,14 @@ internal static partial class EmbossSequencePrograms
         var all = EmbossProgramBase.Open("seqcount", a, files, ctx, "gapany");
         if (all is null)
             return EmbossProgramBase.Died(ctx);
+        string firstName = all.Peek().Name;
         uint count = 0;
         while (EmbossSeqretPrograms.TryNext(all, ctx, out _))
             count++;
         string outfile;
         try
         {
-            outfile = a.Raw("outfile") ?? DefaultOutfile(a, files, "seqcount", "sequence");
+            outfile = a.Raw("outfile") ?? DefaultOutfile(a, files, "seqcount", "sequence", firstName);
             if (outfile.Length == 0)
                 throw a.Die("outfile", "Error: Output file is required");
         }
@@ -465,21 +466,22 @@ internal static partial class EmbossSequencePrograms
 
     internal static EmbossRunResult Maskambigprot(EmbossAcdArgs a, IReadOnlyDictionary<string, string> files) => Maskambig(a, files, "maskambigprot", "gapproteinsimple");
 
-    // the default name of an output file: the base name of the first input file (up to the last dot) and the extension of the program
-    internal static string DefaultOutfile(EmbossAcdArgs a, IReadOnlyDictionary<string, string> files, string program, string inputParameter)
+    // the default name of an output file (acdOutFilename of the saved name acdInFName): the name of the first sequence in lower case (acdInFileSave of the object name, trimmed by ajFilenameTrimAll), for an input that is no sequence
+    // the base name of the first input file (up to the last dot); the extension is the program
+    internal static string DefaultOutfile(EmbossAcdArgs a, IReadOnlyDictionary<string, string> files, string program, string inputParameter, string? firstSequenceName = null, string? extension = null)
     {
         string input = a.Raw(inputParameter) ?? "";
+        if (firstSequenceName is not null)
+            return EmbossOutPath.DefaultBaseName(firstSequenceName, input) + "." + (extension ?? program);
         int colon = input.IndexOf("::", StringComparison.Ordinal);
         if (colon >= 0)
             input = input[(colon + 2)..];
         int bracket = input.IndexOf('[', StringComparison.Ordinal);
         if (bracket > 0)
             input = input[..bracket];
-        int dot = input.LastIndexOf('.');
         string slashless = input[(input.LastIndexOf('/') + 1)..];
         int dot2 = slashless.LastIndexOf('.');
         string baseName = dot2 > 0 ? slashless[..dot2] : slashless;
-        _ = dot;
         return baseName + "." + program;
     }
 

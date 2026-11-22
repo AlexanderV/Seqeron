@@ -223,13 +223,13 @@ def gen_yank(rnd, i, d):
     files = {'in.dat': text}
     if rnd.random() < 0.3: files['out.txt'] = 'earlier line\n'
     if rnd.random() < 0.2: args.append('-newfile')
-    return args + ['-outfile', 'out.txt'], files
+    return (args + ['-outfile', 'out.txt'] if rnd.random() < 0.9 else args), files
 
 
 def gen_seqcount(rnd, i, d):
     kind = rnd.choice(['n', 'p'])
     text, fmt, args = common(rnd, d, 'seqcount', kind, nseq=rnd.randint(1, 7), lens=(1, 60))
-    return args + ['-outfile', 'out.txt'], {'in.dat': text}
+    return (args + ['-outfile', 'out.txt'] if rnd.random() < 0.9 else args), {'in.dat': text}
 
 
 def gen_splitter(rnd, i, d):

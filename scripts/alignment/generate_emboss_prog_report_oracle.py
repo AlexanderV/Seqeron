@@ -8,7 +8,7 @@ import emboss_prog_oracle_lib as L  # noqa: E402
 import generate_seqret_oracle as S  # noqa: E402
 import generate_emboss_prog_seq_oracle as G  # noqa: E402
 
-SET_FORMATS = ['fasta'] * 6 + ['clustal', 'msf', 'phylip', 'nexus', 'mega', 'selex', 'stockholm', 'gcg', 'embl', 'genbank', 'pir', 'ncbi', 'raw']
+SET_FORMATS = ['fasta'] * 4 + ['clustal', 'msf', 'clustal', 'msf', 'selex', 'stockholm', 'phylip', 'nexus', 'mega', 'selex', 'stockholm', 'gcg', 'embl', 'genbank', 'pir', 'ncbi', 'raw']
 
 
 def related_seqs(rnd, kind, base=None):
@@ -34,7 +34,7 @@ def gen_listor(rnd, i, d):
     if rnd.random() < 0.85: args += ['-operator', rnd.choice(['OR', 'AND', 'XOR', 'NOT', 'or', 'and', 'xor', 'not', 'A', 'X', 'N', 'O', 'AN', 'XO', 'No', 'merger', 'only those in both sets', 'XOR - only those not in both sets'])]
     if rnd.random() < 0.04: args += ['-operator', rnd.choice(['foo', '', 'NOR', 'OR,AND', '*'])]
     args += G.seq_quals(rnd, fa, '1', 0.2) + G.seq_quals(rnd, fb, '2', 0.2)
-    args += ['-outfile', rnd.choice(['out.list', 'stdout'])]
+    if rnd.random() < 0.9: args += ['-outfile', rnd.choice(['out.list', 'stdout'])]   # (no -outfile: the default file name BASE.program of the name of the first sequence)
     return args, {'a.dat': ta, 'b.dat': tb}
 
 
@@ -52,7 +52,7 @@ def multi_set_text(rnd, d, kind, fmt, nsets):
 def gen_nthseqset(rnd, i, d):
     kind = rnd.choice(['n', 'n', 'p'])
     fmt = rnd.choice(SET_FORMATS)
-    nsets = rnd.choice([1, 1, 1, 2, 3]) if fmt in ('phylip', 'clustal', 'msf', 'selex', 'stockholm') else 1
+    nsets = rnd.choice([1, 2, 2, 3]) if fmt in ('clustal', 'msf', 'selex', 'stockholm') else rnd.choice([1, 1, 1, 2, 3]) if fmt == 'phylip' else 1       # the sets of clustal / msf / selex / stockholm are one set for the reader (no Multidone): the oracle is run on several datasets in one file
     if nsets > 1:
         text = ''.join(multi_set_text(rnd, d, kind, fmt, nsets))
     else:
@@ -123,7 +123,7 @@ def gen_wordcount(rnd, i, d):
     args = ['-sequence', 'in.dat'] + G.seq_quals(rnd, fmt, '1', 0.1)
     if rnd.random() < 0.8: args += ['-wordsize', str(rnd.choice([1, 2, 2, 3, 3, 4, 5, 6, 8, 12, 0, -1]))]
     if rnd.random() < 0.4: args += ['-mincount', str(rnd.choice([1, 2, 3, 5, 0]))]
-    args += ['-outfile', rnd.choice(['out.txt', 'stdout'])]
+    if rnd.random() < 0.9: args += ['-outfile', rnd.choice(['out.txt', 'stdout'])]   # (no -outfile: the default file name BASE.program of the name of the first sequence)
     return args, {'in.dat': text}
 
 
@@ -150,7 +150,7 @@ def gen_seqxref(rnd, i, d):
     else:
         text, fmt = G.seq_file(rnd, d, items, fmt)
     args = ['-sequence', 'in.dat'] + G.seq_quals(rnd, fmt, '1', 0.1)
-    args += ['-outfile', rnd.choice(['out.txt', 'stdout'])]
+    if rnd.random() < 0.9: args += ['-outfile', rnd.choice(['out.txt', 'stdout'])]   # (no -outfile: the default file name BASE.program of the name of the first sequence)
     return args, {'in.dat': text}
 
 
@@ -164,7 +164,7 @@ def gen_showorf(rnd, i, d):
     if rnd.random() < 0.5: args += ['-width', str(rnd.choice([10, 20, 30, 50, 60, 100, 5, 0, -3, 1000]))]
     for o in ['-noruler', '-noplabel', '-nonlabel']:
         if rnd.random() < 0.2: args.append(o)
-    args += ['-outfile', rnd.choice(['out.txt', 'stdout'])]
+    if rnd.random() < 0.9: args += ['-outfile', rnd.choice(['out.txt', 'stdout'])]   # (no -outfile: the default file name BASE.program of the name of the first sequence)
     return args, {'in.dat': text}, {'vg': 'underflow'}
 
 
@@ -188,7 +188,7 @@ def gen_prettyseq(rnd, i, d):
     if rnd.random() < 0.5: args += ['-width', str(rnd.choice([10, 20, 30, 50, 60, 100, 5, 0, -3, 1000]))]
     for o in ['-noruler', '-noplabel', '-nonlabel']:
         if rnd.random() < 0.2: args.append(o)
-    args += ['-outfile', rnd.choice(['out.txt', 'stdout'])]
+    if rnd.random() < 0.9: args += ['-outfile', rnd.choice(['out.txt', 'stdout'])]   # (no -outfile: the default file name BASE.program of the name of the first sequence)
     return args, {'in.dat': text}, {'vg': 'underflow'}
 
 

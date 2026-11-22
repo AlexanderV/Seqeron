@@ -246,7 +246,7 @@ internal static partial class EmbossSequencePrograms
         {
             wordsize = a.IntLimited("wordsize", EmbossSeqType.IsProt(first.Type, first.SeqText) ? 2 : 4, 1, int.MaxValue, ctx);
             mincount = a.IntLimited("mincount", 1, 1, int.MaxValue, ctx);
-            outfile = a.Raw("outfile") ?? DefaultOutfile(a, files, "wordcount", "sequence");
+            outfile = a.Raw("outfile") ?? DefaultOutfile(a, files, "wordcount", "sequence", first.Name);
             if (outfile.Length == 0)
                 throw a.Die("outfile", "Error: Output file is required");
         }
@@ -276,7 +276,7 @@ internal static partial class EmbossSequencePrograms
         string outfile;
         try
         {
-            outfile = a.Raw("outfile") ?? DefaultOutfile(a, files, "seqxref", "sequence");
+            outfile = a.Raw("outfile") ?? DefaultOutfile(a, files, "seqxref", "sequence", all.Peek().Name);
             if (outfile.Length == 0)
                 throw a.Die("outfile", "Error: Output file is required");
         }
@@ -368,7 +368,7 @@ internal static partial class EmbossSequencePrograms
         {
             frames = a.List("frames", "1,2,3,4,5,6", "0: None, 1: F1,2: F2,3: F3,4: R1,5: R2,6: R3", 0, 6, ",");
             codestr = a.List("table", "0", TableValues, 1, 1)[0];
-            outfile = a.Raw("outfile") ?? DefaultOutfile(a, files, "showorf", "sequence");
+            outfile = a.Raw("outfile") ?? DefaultOutfile(a, files, "showorf", "sequence", all.Peek().Name);
             if (outfile.Length == 0)
                 throw a.Die("outfile", "Error: Output file is required");
             isrule = a.Bool("ruler", true);
@@ -768,7 +768,7 @@ internal static partial class EmbossSequencePrograms
             isp = a.Bool("plabel", true);
             isn = a.Bool("nlabel", true);
             width = a.IntLimited("width", 60, 10, int.MaxValue, ctx);
-            outfile = a.Raw("outfile") ?? DefaultOutfile(a, files, "prettyseq", "sequence");
+            outfile = a.Raw("outfile") ?? DefaultOutfile(a, files, "prettyseq", "sequence", all.Peek().Name);
             if (outfile.Length == 0)
                 throw a.Die("outfile", "Error: Output file is required");
         }
@@ -825,6 +825,14 @@ internal static partial class EmbossSequencePrograms
         var q = new char[len + 8];
         substr.CopyTo(0, q, 0, len);
         uint iq;
+        // the string of the translation is a block of ajRound(len + 1, 32) bytes (STRSIZE of ajstr.c): an access beyond it is outside the block (valgrind: invalid read / write)
+        uint capacity = (uint)((len + 1 + 31) / 32 * 32);
+        void Inside(uint index)
+        {
+            if (index >= capacity)
+                throw new InvalidOperationException("prettyseq_Translate reads or writes beyond the end of the string of the translation (heap overflow, valgrind: invalid read / write): the reference program has no defined result.");
+        }
+
         for (iq = 0; iq < limit; ++iq)
         {
             if (char.IsAsciiLetterUpper(p[iq]))
@@ -836,8 +844,10 @@ internal static partial class EmbossSequencePrograms
             if (p[iq + 1] == '\0' || char.IsAsciiLetterUpper(p[iq + 1]) || p[iq + 2] == '\0' || char.IsAsciiLetterUpper(p[iq + 2]))
             {
                 q[iq] = ' ';
+                Inside(iq + 1);
                 if (q[iq + 1] != '\0')
                     q[iq + 1] = ' ';
+                Inside(iq + 2);
                 if (q[iq + 2] != '\0')
                     q[iq + 2] = ' ';
                 iq += 2;
@@ -858,13 +868,18 @@ internal static partial class EmbossSequencePrograms
             }
 
             q[iq] = c;
+            Inside(iq + 2);
             q[iq + 1] = q[iq + 2] = ' ';
             iq += 2;
         }
 
         uint jj = (uint)len - limit;
         while (jj-- != 0)
+        {
+            Inside(iq);
             q[iq++] = ' ';
+        }
+
         string pro = new(q, 0, len);
         string text = new(p, 0, len);
 
