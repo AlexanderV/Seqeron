@@ -10,7 +10,7 @@ public static partial class SequenceAligner
     /// The state that MAFFT's binaries keep in global variables (<c>defs.c</c>, <c>arguments()</c> of <c>disttbfast.c</c>, <c>constants()</c> of <c>constants.c</c>): the parsed
     /// command line of <c>disttbfast</c> (the script <c>mafft</c> turns every option into such an argument list), the scoring matrices and the penalties scaled to integers.
     /// </summary>
-    internal sealed class MafftGlobals
+    internal sealed partial class MafftGlobals
     {
         internal const int NotSpecified = 100009;
 

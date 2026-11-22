@@ -81,7 +81,7 @@ public static partial class SequenceAligner
                     len[i] = new double[2];
                 var dep = new Treedep[njob];
                 Report("Constructing a UPGMA tree (efffree=" + (calcpairdists ? 0 : 1) + ") ... ");
-                MuscleSupgMemsave(njob, mtx, topol0, topol1, len, dep);
+                MuscleSupg(njob, mtx, topol0, topol1, len, dep);
                 Report("\ndone.\n\n");
                 var tree = new GuideTree(topol0, topol1, dep, len);
                 int[] lm = tree.Order(njob - 2, 2);
@@ -458,7 +458,7 @@ public static partial class SequenceAligner
         }
 
         /// <summary><c>fixed_musclesupg_double_realloc_nobk_halfmtx_memsave</c>: the UPGMA (mixed linkage, <c>-X</c>) of the half matrix <paramref name="eff"/> (MUSCLE's nearest-neighbour bookkeeping); step k joins the two closest groups.</summary>
-        private void MuscleSupgMemsave(int nseq, double[][] eff, int[][] topol0, int[][] topol1, double[][] len, Treedep[] dep)
+        private void MuscleSupg(int nseq, double[][] eff, int[][] topol0, int[][] topol1, double[][] len, Treedep[] dep, bool fullMembership = false)
         {
             double sueff1 = 1 - G.SueffGlobal;
             double sueff05 = G.SueffGlobal * 0.5;
@@ -511,11 +511,11 @@ public static partial class SequenceAligner
                 int prevnode = hist[im];
                 dep[k].Child0 = prevnode;
                 int nmemim = nmemar[im];
-                topol0[k] = new[] { prevnode == -1 ? im : Math.Min(topol0[prevnode][0], topol1[prevnode][0]) };
+                topol0[k] = GroupMembers(prevnode, im, topol0, topol1, fullMembership);
                 prevnode = hist[jm];
                 dep[k].Child1 = prevnode;
                 int nmemjm = nmemar[jm];
-                topol1[k] = new[] { prevnode == -1 ? jm : Math.Min(topol0[prevnode][0], topol1[prevnode][0]) };
+                topol1[k] = GroupMembers(prevnode, jm, topol0, topol1, fullMembership);
                 minscore *= 0.5;
                 len[k][0] = minscore - tmptmplen[im];
                 len[k][1] = minscore - tmptmplen[jm];
@@ -583,6 +583,26 @@ public static partial class SequenceAligner
                     }
                 }
             }
+        }
+
+        /// <summary>The members of the group formed at step <paramref name="prevnode"/> (the two groups, the one whose first member is smaller first); only the first member with the memory-saving tree of <c>disttbfast</c>.</summary>
+        private static int[] GroupMembers(int prevnode, int leaf, int[][] topol0, int[][] topol1, bool full)
+        {
+            if (prevnode == -1)
+                return new[] { leaf };
+            int[] pt1 = topol0[prevnode], pt2 = topol1[prevnode];
+            if (!full)
+                return new[] { Math.Min(pt1[0], pt2[0]) };
+            int[] a = pt1, b = pt2;
+            if (pt1[0] > pt2[0])
+            {
+                a = pt2;
+                b = pt1;
+            }
+            var res = new int[a.Length + b.Length];
+            a.CopyTo(res, 0);
+            b.CopyTo(res, a.Length);
+            return res;
         }
 
         /// <summary><c>setnearest</c>: the group nearest to <paramref name="pos"/> among the groups that are still in the list.</summary>
@@ -737,17 +757,26 @@ public static partial class SequenceAligner
                 for (int k = 0; k < clus2; k++)
                     aseq[localmem1[k]] = mseq2[k];
             }
+            FreeStatics();
+        }
+
+        /// <summary>The end of <c>treebase</c> / <c>TreeDependentIteration</c>: <c>A__align( NULL ... )</c>, <c>Falign( NULL ... )</c> release the work arrays of the dynamic programs; the next call allocates (and clears) them again.</summary>
+        private void FreeStatics()
+        {
+            _aOrlgth1 = 0;
+            _aOrlgth2 = 0;
+            _arAlloclen = 0;
         }
 
         /// <summary><c>fastconjuction_noname</c>: the rows of a group and their weights, normalised to 1; returns the total weight before normalising.</summary>
-        private static double FastConjunction(int[] memlist, string[] seq, string[] aseq, double[] peff, double[] eff)
+        private static double FastConjunction(int[] memlist, string[] seq, string[] aseq, double[] peff, double[] eff, double mineff = 0.0)
         {
             double total = 0.0;
             for (int k = 0; k < memlist.Length; k++)
             {
                 int m = memlist[k];
                 aseq[k] = seq[m];
-                peff[k] = eff[m] < 0.0 ? 0.0 : eff[m];
+                peff[k] = eff[m] < mineff ? mineff : eff[m];
                 total += peff[k];
             }
             for (int m = 0; m < memlist.Length; m++)

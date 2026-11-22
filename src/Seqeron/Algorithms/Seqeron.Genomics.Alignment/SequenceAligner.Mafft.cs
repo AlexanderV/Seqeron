@@ -98,6 +98,12 @@ public sealed record MafftOptions
     /// with several threads is written in the order the threads run, which is not reproducible, so the port writes the text of the single-thread run with the thread counts.</summary>
     public int Threads { get; init; }
 
+    /// <summary><c>--threadit n</c>: the number of threads of the iterative refinement (default: the script's rule, <c>min(--thread, 8)</c>). With more than zero threads the installed program is NON-DETERMINISTIC (the branches are refined in the order the threads finish: ten runs of the same input gave ten different alignments, B09.md F284), so such a run is refused; <c>--thread 4 --threadit 0</c> is deterministic and equals the single-thread run.</summary>
+    public int? ThreadsIterate { get; init; }
+
+    /// <summary><c>--maxiterate n</c>: the number of cycles of iterative refinement (FFT-NS-i: <c>dndpre</c> distances of the first alignment and <c>dvtditr</c>, the tree-dependent refinement of every branch of the guide tree); default 0 = the progressive method. The script lets at most 16 iterations run.</summary>
+    public int MaxIterate { get; init; }
+
     /// <summary><c>--reorder</c> (accepted; the two sequences keep their input order).</summary>
     public bool Reorder { get; init; }
 
@@ -255,6 +261,19 @@ public static partial class SequenceAligner
             var run = new MafftRun(g);
             var result = run.Disttbfast(replaced);
             log.Append(run.Log);
+            if (MafftScript.Iterations(o) > 0)
+            {
+                int threads = o.Threads < 0 ? Environment.ProcessorCount : o.Threads;
+                int threadsIt = o.ThreadsIterate ?? Math.Min(threads, 8);
+                if (threadsIt > 0)
+                    throw new NotSupportedException("The iterative refinement of MAFFT with threads (--thread n --maxiterate m without --threadit 0) is non-deterministic in the program (the branches are refined in the order the threads finish: repeated runs of one input give different alignments); use Threads = 0 or ThreadsIterate = 0, which equal the single-thread program.");
+                var run2 = new MafftRun(MafftGlobals.ParseDndpre(MafftScript.DndpreArguments(o)));
+                var hat2 = run2.Dndpre(result.Rows);
+                log.Append(run2.Log);
+                var run3 = new MafftRun(MafftGlobals.ParseDvtditr(MafftScript.DvtditrArguments(o)));
+                result = run3.Dvtditr(result.Rows, hat2);
+                log.Append(run3.Log);
+            }
             string[] rows = o.AnySymbol
                 ? result.Rows.Select((r, i) => Restore(originals[i], r)).ToArray()
                 : result.Rows;

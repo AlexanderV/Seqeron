@@ -449,40 +449,51 @@ public static partial class SequenceAligner
             for (int j = 0; j < clus2; j++)
                 tmpseq2[j] = seq2[j];
 
-            var vec1R = new double[nlen + 1];
-            var vec1I = new double[nlen + 1];
-            var vec2R = new double[nlen + 1];
-            var vec2I = new double[nlen + 1];
-            bool scoreVec = G.FftScore != 0 && G.Scoremtx != -1;
-            for (int i = 0; i < clus1; i++)
-                SeqVec(vec1R, vec1I, eff1[i], tmpseq1[i], scoreVec);
-            for (int i = 0; i < clus2; i++)
-                SeqVec(vec2R, vec2I, eff2[i], tmpseq2[i], scoreVec);
-            Fft(nlen, vec2R, vec2I);
-            Fft(nlen, vec1R, vec1I);
-            var nR = new double[nlen];
-            var nI = new double[nlen];
-            for (int l = 0; l < nlen; l++)
-            {
-                double x = vec1R[l], xi = vec1I[l], y = vec2R[l], yi = vec2I[l];
-                double vr = x * y + xi * yi;
-                double vi = -x * yi + xi * y;
-                nR[l] = 0.0 + vr;
-                nI[l] = 0.0 + vi;
-            }
-            Fft(-nlen, nR, nI);
-            var soukan = new double[nlen + 1];
-            for (int m = 0; m <= nlen2; m++)
-                soukan[m] = nR[nlen2 - m];
-            for (int m = nlen2 + 1; m < nlen; m++)
-                soukan[m] = nR[nlen + nlen2 - m];
+            bool kobetsu = G.Kobetsubunkatsu != 0;
             int[] kouho = _fKouho;
-            GetKouho(kouho, NKouho, soukan, nlen);
+            if (!kobetsu)
+            {
+                var vec1R = new double[nlen + 1];
+                var vec1I = new double[nlen + 1];
+                var vec2R = new double[nlen + 1];
+                var vec2I = new double[nlen + 1];
+                bool scoreVec = G.FftScore != 0 && G.Scoremtx != -1;
+                for (int i = 0; i < clus1; i++)
+                    SeqVec(vec1R, vec1I, eff1[i], tmpseq1[i], scoreVec);
+                for (int i = 0; i < clus2; i++)
+                    SeqVec(vec2R, vec2I, eff2[i], tmpseq2[i], scoreVec);
+                Fft(nlen, vec2R, vec2I);
+                Fft(nlen, vec1R, vec1I);
+                var nR = new double[nlen];
+                var nI = new double[nlen];
+                for (int l = 0; l < nlen; l++)
+                {
+                    double x = vec1R[l], xi = vec1I[l], y = vec2R[l], yi = vec2I[l];
+                    double vr = x * y + xi * yi;
+                    double vi = -x * yi + xi * y;
+                    nR[l] = 0.0 + vr;
+                    nI[l] = 0.0 + vi;
+                }
+                Fft(-nlen, nR, nI);
+                var soukan = new double[nlen + 1];
+                for (int m = 0; m <= nlen2; m++)
+                    soukan[m] = nR[nlen2 - m];
+                for (int m = nlen2 + 1; m < nlen; m++)
+                    soukan[m] = nR[nlen + nlen2 - m];
+                GetKouho(kouho, NKouho, soukan, nlen);
+
+            }
 
             int count = 0;
             var tmpptr1Off = 0;
             var tmpptr2Off = 0;
-            for (int k = 0; k < NKouho; k++)
+            int maxk = NKouho;
+            if (kobetsu)
+            {
+                maxk = 1;
+                kouho[0] = 0;
+            }
+            for (int k = 0; k < maxk; k++)
             {
                 int lag = kouho[k];
                 if (lag <= -len1 || len2 <= lag)
@@ -545,32 +556,49 @@ public static partial class SequenceAligner
                 sorted1[i].Number = i;
             for (int i = 0; i < count; i++)
                 sorted2[i].Number = i;
-            if (_fCrossscoresize < count + 2)
-            {
-                _fCrossscoresize = count + 2;
-                _fCrossscore = new double[_fCrossscoresize][];
-                for (int i = 0; i < _fCrossscoresize; i++)
-                    _fCrossscore[i] = new double[_fCrossscoresize];
-            }
-            double[][] crossscore = _fCrossscore;
             int[] cut1 = _fCut1, cut2 = _fCut2;
-            for (int i = 0; i < count + 2; i++)
-                for (int j = 0; j < count + 2; j++)
-                    crossscore[i][j] = 0.0;
-            for (int i = 0; i < count; i++)
+            if (kobetsu)
             {
-                crossscore[_fSegment1[i].Number + 1][_fSegment1[i].Pair!.Number + 1] = _fSegment1[i].Score;
-                cut1[i + 1] = sorted1[i].Center;
-                cut2[i + 1] = sorted2[i].Center;
+                for (int i = 0; i < count; i++)
+                {
+                    cut1[i + 1] = sorted1[i].Center;
+                    cut2[i + 1] = sorted2[i].Center;
+                }
+                cut1[0] = 0;
+                cut2[0] = 0;
+                cut1[count + 1] = len1;
+                cut2[count + 1] = len2;
+                count += 2;
             }
-            crossscore[0][0] = 10000000.0;
-            cut1[0] = 0;
-            cut2[0] = 0;
-            crossscore[count + 1][count + 1] = 10000000.0;
-            cut1[count + 1] = len1;
-            cut2[count + 1] = len2;
-            count += 2;
-            BlockAlign2(cut1, cut2, crossscore, ref count);
+            else
+            {
+                if (_fCrossscoresize < count + 2)
+                {
+                    _fCrossscoresize = count + 2;
+                    _fCrossscore = new double[_fCrossscoresize][];
+                    for (int i = 0; i < _fCrossscoresize; i++)
+                        _fCrossscore[i] = new double[_fCrossscoresize];
+                }
+                double[][] crossscore = _fCrossscore;
+                for (int i = 0; i < count + 2; i++)
+                    for (int j = 0; j < count + 2; j++)
+                        crossscore[i][j] = 0.0;
+                for (int i = 0; i < count; i++)
+                {
+                    crossscore[_fSegment1[i].Number + 1][_fSegment1[i].Pair!.Number + 1] = _fSegment1[i].Score;
+                    cut1[i + 1] = sorted1[i].Center;
+                    cut2[i + 1] = sorted2[i].Center;
+                }
+                crossscore[0][0] = 10000000.0;
+                cut1[0] = 0;
+                cut2[0] = 0;
+                crossscore[count + 1][count + 1] = 10000000.0;
+                cut1[count + 1] = len1;
+                cut2[count + 1] = len2;
+                count += 2;
+                BlockAlign2(cut1, cut2, crossscore, ref count);
+
+            }
 
             var result1 = new System.Text.StringBuilder[clus1];
             var result2 = new System.Text.StringBuilder[clus2];
@@ -618,6 +646,11 @@ public static partial class SequenceAligner
                     tmpres1[j] = seq1[j].Substring(cut1[i], cut1[i + 1] - cut1[i]);
                 for (int j = 0; j < clus2; j++)
                     tmpres2[j] = seq2[j].Substring(cut2[i], cut2[i + 1] - cut2[i]);
+                if (kobetsu && G.FftKeika != 0)
+                {
+                    CommonGapPick(tmpres1);
+                    CommonGapPick(tmpres2);
+                }
                 if (G.Alg == 'A')
                 {
                     if (clus1 == 1 && clus2 == 1)

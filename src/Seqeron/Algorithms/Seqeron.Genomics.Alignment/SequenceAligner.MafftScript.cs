@@ -47,6 +47,99 @@ public static partial class SequenceAligner
             return f;
         }
 
+        /// <summary><c>$model</c> of the script: the scoring matrix (<c>-b</c> / <c>-j</c> / <c>-m</c>), <c>-k</c>, <c>-a</c>, <c>-:</c>.</summary>
+        internal static List<string> ModelArguments(MafftOptions o)
+        {
+            var args = new List<string>();
+            switch (o.ScoringModel)
+            {
+                case MafftScoringModel.Blosum:
+                    args.Add("-b");
+                    args.Add(o.Blosum.ToString(CultureInfo.InvariantCulture));
+                    break;
+                case MafftScoringModel.Jtt:
+                    args.Add("-j");
+                    args.Add(o.Pam.ToString(CultureInfo.InvariantCulture));
+                    break;
+                case MafftScoringModel.Tm:
+                    args.Add("-m");
+                    args.Add(o.Pam.ToString(CultureInfo.InvariantCulture));
+                    break;
+            }
+            if (o.Kappa is { } kappa)
+            {
+                args.Add("-k");
+                args.Add(kappa.ToString(CultureInfo.InvariantCulture));
+            }
+            if (o.FrequencyModel)
+                args.Add("-a");
+            if (o.WildcardN)
+                args.Add("-:");
+            return args;
+        }
+
+        /// <summary>The number of refinement iterations that the script passes to <c>dvtditr</c> (<c>--maxiterate</c>, at most 16).</summary>
+        internal static int Iterations(MafftOptions o) => Math.Min(o.MaxIterate, 16);
+
+        /// <summary><c>dndpre $seqtype $model -M 2 -C $numthreads</c>.</summary>
+        internal static List<string> DndpreArguments(MafftOptions o)
+        {
+            var args = new List<string>();
+            if (o.SequenceType == MafftSequenceType.Nucleotide)
+                args.Add("-D");
+            else if (o.SequenceType == MafftSequenceType.Amino)
+                args.Add("-P");
+            args.AddRange(ModelArguments(o));
+            args.Add("-M");
+            args.Add("2");
+            args.Add("-C");
+            args.Add((o.Threads < 0 ? Environment.ProcessorCount : o.Threads).ToString(CultureInfo.InvariantCulture));
+            return args;
+        }
+
+        /// <summary><c>dvtditr -W $minimumweight -E $fixthreshold -s $unalignlevel $legacygapopt -C $numthreadsit -t $randomseed -F -z 50 $seqtype $model -f -$gop -Q $spfactor -h $aof -I $iterate $weightopt -p BAATARI2 -K $nadd</c>.</summary>
+        internal static List<string> DvtditrArguments(MafftOptions o, int nadd = 0)
+        {
+            string gop = Text(o.GapOpen);
+            string aof = AwkPrint(0.0 + 0.0 + MafftGlobals.CAtof(AwkPrint(-1.0 * o.Offset)));
+            if (o.Offset == 0.0)
+                aof = "0";
+            int threads = o.Threads < 0 ? Environment.ProcessorCount : o.Threads;
+            int threadsIt = o.ThreadsIterate ?? (threads < 8 ? threads : 8);
+            var args = new List<string> { "-W", "0.00001", "-E", "0.0", "-s", "0.0" };
+            if (o.LegacyGapPenalty)
+                args.Add("-L");
+            args.Add("-C");
+            args.Add(threadsIt.ToString(CultureInfo.InvariantCulture));
+            args.Add("-t");
+            args.Add("0");
+            args.Add("-F");
+            args.Add("-z");
+            args.Add("50");
+            if (o.SequenceType == MafftSequenceType.Nucleotide)
+                args.Add("-D");
+            else if (o.SequenceType == MafftSequenceType.Amino)
+                args.Add("-P");
+            args.AddRange(ModelArguments(o));
+            args.Add("-f");
+            args.Add("-" + gop);
+            args.Add("-Q");
+            args.Add("100.0");
+            args.Add("-h");
+            args.Add(aof);
+            args.Add("-I");
+            args.Add(Iterations(o).ToString(CultureInfo.InvariantCulture));
+            if (o.Unweight)
+                args.Add("-u");
+            args.Add("-X");
+            args.Add(o.TreeMixing is { } mix ? Text(mix) : "0.1");
+            args.Add("-p");
+            args.Add("BAATARI2");
+            args.Add("-K");
+            args.Add(nadd.ToString(CultureInfo.InvariantCulture));
+            return args;
+        }
+
         /// <summary>The name of the strategy and its description that the script prints at the end of the run (<c>strategy</c>, <c>explanation</c>, <c>performance</c> of <c>mafft.tmpl</c>).</summary>
         internal static (string Strategy, string Explanation, string Performance) Strategy(MafftOptions o, int nseq)
         {
@@ -55,10 +148,16 @@ public static partial class SequenceAligner
                 cycle = 1;
             if (cycle > 3)
                 cycle = 3;
-            string strategy = (o.Fft ? "FFT-" : "NW-") + "NS-" + cycle.ToString(CultureInfo.InvariantCulture);
+            int iterate = Iterations(o);
+            string strategy = (o.Fft ? "FFT-" : "NW-") + "NS-" + (iterate > 0 ? "i" : cycle.ToString(CultureInfo.InvariantCulture));
             string explanation = "?";
             string performance = "Not tested.";
-            if (strategy is "FFT-NS-2" or "NW-NS-2")
+            if (strategy is "FFT-NS-i" or "NW-NS-i")
+            {
+                explanation = "Iterative refinement method (max. " + iterate.ToString(CultureInfo.InvariantCulture) + " iterations)";
+                performance = iterate > 2 ? "Accurate but slow" : "Standard";
+            }
+            else if (strategy is "FFT-NS-2" or "NW-NS-2")
             {
                 explanation = "Progressive method (guide trees were built " + cycle.ToString(CultureInfo.InvariantCulture) + " times.)";
                 performance = "Fast but rough";
@@ -127,30 +226,7 @@ public static partial class SequenceAligner
                 args.Add("-D");
             else if (o.SequenceType == MafftSequenceType.Amino)
                 args.Add("-P");
-            switch (o.ScoringModel)
-            {
-                case MafftScoringModel.Blosum:
-                    args.Add("-b");
-                    args.Add(o.Blosum.ToString(CultureInfo.InvariantCulture));
-                    break;
-                case MafftScoringModel.Jtt:
-                    args.Add("-j");
-                    args.Add(o.Pam.ToString(CultureInfo.InvariantCulture));
-                    break;
-                case MafftScoringModel.Tm:
-                    args.Add("-m");
-                    args.Add(o.Pam.ToString(CultureInfo.InvariantCulture));
-                    break;
-            }
-            if (o.Kappa is { } kappa)
-            {
-                args.Add("-k");
-                args.Add(kappa.ToString(CultureInfo.InvariantCulture));
-            }
-            if (o.FrequencyModel)
-                args.Add("-a");
-            if (o.WildcardN)
-                args.Add("-:");
+            args.AddRange(ModelArguments(o));
             args.Add("-g");
             args.Add(gexp);
             args.Add("-f");

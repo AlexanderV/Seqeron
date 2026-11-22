@@ -19,9 +19,11 @@ public class SequenceAligner_MafftProgressive_Tests
 {
     internal sealed record Row(string Id, string Strategy, string Options, string[] Seqs, int Rc, string[] Rows, string Sha, string Stderr);
 
-    internal static readonly Lazy<List<Row>> Oracle = new(() =>
+    internal static readonly Lazy<List<Row>> Oracle = new(() => LoadOracle("mafft_progressive_oracle.tsv.gz"));
+
+    internal static List<Row> LoadOracle(string file)
     {
-        const string name = "Seqeron.Genomics.Tests.TestData.Alignment.mafft_progressive_oracle.tsv.gz";
+        string name = "Seqeron.Genomics.Tests.TestData.Alignment." + file;
         using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(name) ?? throw new InvalidOperationException(name);
         using var gz = new GZipStream(stream, CompressionMode.Decompress);
         using var reader = new StreamReader(gz);
@@ -35,7 +37,7 @@ public class SequenceAligner_MafftProgressive_Tests
             list.Add(new Row(f[0], f[1], f[2], f[3].Split('|'), int.Parse(f[4], CultureInfo.InvariantCulture), f[5].Length == 0 ? [] : f[5].Split('|'), f[6], Unescape(f[7])));
         }
         return list;
-    });
+    }
 
     private static string Unescape(string s)
     {
@@ -98,6 +100,8 @@ public class SequenceAligner_MafftProgressive_Tests
                 case "--mixedlinkage": o = o with { TreeMixing = D() }; break;
                 case "--reorder": o = o with { Reorder = true }; break;
                 case "--thread": o = o with { Threads = I() }; break;
+                case "--threadit": o = o with { ThreadsIterate = I() }; break;
+                case "--maxiterate": o = o with { MaxIterate = I() }; break;
                 default: throw new InvalidOperationException(t[i - 1]);
             }
         }
@@ -123,11 +127,13 @@ public class SequenceAligner_MafftProgressive_Tests
     }
 
     [TestCaseSource(nameof(Strategies))]
-    public void RowsAndStandardError_EqualMafft(string strategy)
+    public void RowsAndStandardError_EqualMafft(string strategy) => CompareStrategy(Oracle.Value, strategy);
+
+    internal static void CompareStrategy(List<Row> oracle, string strategy)
     {
         var failures = new List<string>();
         int n = 0;
-        foreach (var r in Oracle.Value.Where(x => x.Strategy == strategy))
+        foreach (var r in oracle.Where(x => x.Strategy == strategy))
         {
             n++;
             var o = ParseOptions(r.Options);
@@ -165,7 +171,7 @@ public class SequenceAligner_MafftProgressive_Tests
         Assert.That(failures, Is.Empty, string.Join("\n", failures.Take(5)));
     }
 
-    private static bool Throws<T>(Action a) where T : Exception
+    internal static bool Throws<T>(Action a) where T : Exception
     {
         try
         {

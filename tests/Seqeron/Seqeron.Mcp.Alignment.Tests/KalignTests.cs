@@ -89,6 +89,20 @@ public class MafftTests
     }
 
     [Test]
+    public void MultipleAlignMafft_MaxIterate_RefinesAndRefusesThreads()
+    {
+        var seqs = new[] { "MKVLAAGIVGLLLAQ", "MKVLAGIVALLAQ", "MKILAAGIVGLLAQ", "MKVLAAGIVGLLAQ" };
+        var r = AlignmentTools.MultipleAlignMafft(seqs, anySymbol: false, maxIterate: 2);
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.AlignedSequences, Has.Length.EqualTo(4));
+            Assert.That(r.StandardError, Does.Contain("FFT-NS-i (Standard)").And.Contain("Iterative refinement method (max. 2 iterations)"));
+            Assert.Throws<NotSupportedException>(() => AlignmentTools.MultipleAlignMafft(seqs, maxIterate: 2, threads: 4), "the program is non-deterministic with threads in the iterative step");
+            Assert.That(AlignmentTools.MultipleAlignMafft(seqs, anySymbol: false, maxIterate: 2, threads: 4, threadsIterate: 0).AlignedSequences, Is.EqualTo(r.AlignedSequences));
+        });
+    }
+
+    [Test]
     public void MultipleAlignMafft_Validation()
     {
         Assert.Multiple(() =>
