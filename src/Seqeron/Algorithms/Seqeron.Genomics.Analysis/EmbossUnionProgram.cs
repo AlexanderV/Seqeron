@@ -17,6 +17,12 @@ namespace Seqeron.Genomics.Analysis;
 public sealed record EmbossUnionRequest(string Sequence, IReadOnlyDictionary<string, string> Files, EmbossSequenceQualifiers? Qualifiers = null, bool FindOverlap = false, bool OverlapFile = false,
     string OutSeq = "stdout", string? OutSeqFormat = null, DateTime? RunDate = null)
 {
+    /// <summary><c>-osdbname</c> (<c>outseq-&gt;Setoutdb</c>): the database name that the writers put in front of the names or into the identifiers.</summary>
+    public string? OutDbName { get; init; }
+
+    /// <summary>The arguments of the command line of the run, which the SAM writer prints on its <c>@PG</c> line (<c>ajUtilGetCmdline</c>); null: empty.</summary>
+    public string? CommandLine { get; init; }
+
     /// <summary><c>-feature</c>: the features of the sequences are read and joined into the features of the output (written to the feature file).</summary>
     public bool Feature { get; init; }
 
@@ -64,6 +70,9 @@ public static class EmbossUnionProgram
             return new EmbossUnionOutput("", "", [.. context.Messages]) { Died = true };
         }
 
+        // acdSetSeqout (ajSeqoutOpen): the feature output of -feature with a format the library does not know is announced when the output is opened
+        if (r.Feature && EmbossReportWriter.FeatureFormatIndex(r.OutFeatFormat ?? "gff") < 0)
+            context.Error($"unknown output feature format '{r.OutFeatFormat}' will write as gff3 instead\n");
         var overlapOut = new StringBuilder();
         var unistr = new StringBuilder();
         EmbossSeq? uniseq = null;
@@ -137,29 +146,61 @@ public static class EmbossUnionProgram
         }
 
         int written = 0;
+        EmbossSeqWriteRun? savedRun = null;
+        bool typeFailed = false;
         if (outFormat is null)
             context.Error($"unknown output sequence format '{formatName}'");
         else
         {
             var u = uniseq!;
-            bool isNuc = u.Type == "N", isProt = u.Type == "P";
+            // ajSeqAssignSeqS replaces the residues and keeps the type of the copy of the first sequence
+            string utype = u.Type;
+            bool isNuc = utype == "N", isProt = utype == "P";
             if (!(isNuc && outFormat.Nucleotide) && !(isProt && outFormat.Protein))
             {
                 string kind = isNuc ? "not supported for nucleotide sequences" : "not supported for protein sequences";
                 if (!isNuc && !isProt)
                     kind = "failed: unknown sequence type";
                 context.Error($"Sequence format '{formatName}' {kind}");
+                typeFailed = true;
             }
             else
             {
                 if (!EmbossSeqWrite.IsPorted(outFormat))
                     throw new NotSupportedException($"The sequence output format '{outFormat.Name}' is not written by this port.");
                 string name = u.Name.Length > 0 ? u.Name : "EMBOSS_001";
-                var unionRun = new EmbossSeqWriteRun { RunDate = r.RunDate ?? DateTime.Now, Program = "union", FileName = outName };
-                if (EmbossSeqWrite.Save(outFormat, unionRun, name, u.Desc, u.Type, unistr.ToString()))
-                    EmbossSeqWrite.CloseSet(result, outFormat, unionRun, 0);
+                var unionRun = new EmbossSeqWriteRun { RunDate = r.RunDate ?? DateTime.Now, Program = "union", FileName = outName, CommandLine = r.CommandLine ?? "", Setoutdb = r.OutDbName ?? "" };
+                if (r.Feature && outFormat.Features)
+                {
+                    // seqoutUfoLocal: the features go into the sequence file in the feature format of the sequence format
+                    unionRun.UfoLocal = true;
+                    if (outFormat.Writer == "Genpept" || (outFormat.Writer is "Gff2" or "Gff3" && newTable is null))
+                        throw new InvalidOperationException("The writer takes a feature format the feature library does not have (genpept), or a feature table that does not exist (gff2, gff3): the reference program dies by a segmentation fault.");
+                    if (newTable is not null)
+                    {
+                        string? ftext = EmbossReportWriter.WriteFeatureTable(newTable, EmbossSeqWrite.LocalFeatureFormat(outFormat), r.RunDate ?? DateTime.Now, "union", context, new EmbossFeatureWriteState(), 0);
+                        if (ftext is null)
+                            context.Warn($"{EmbossSeqWrite.LocalFeatureWriterName(outFormat)} features output failed UFO: ''");
+                        unionRun.FeatureText = ftext ?? "";
+                    }
+                }
+
+                if (EmbossSeqWrite.Save(outFormat, unionRun, name, u.Desc, utype, unistr.ToString()))
+                    savedRun = unionRun;
                 else
-                    EmbossSeqWrite.Write(result, outFormat, name, u.Desc, u.Acc, u.Sv, u.Type, unistr.ToString(), 0, r.RunDate ?? DateTime.Now, u.FullDescMulti, u.Gi, u.Db, u.Setdb, unionRun);
+                {
+                    // uniseq is a copy of the first sequence (ajSeqNewSeq): its accession, taxonomy, keywords, citations, dates ... go to the writer with the joined residues
+                    var item = EmbossSeqWrite.Clone(u, unistr.ToString(), 1, unionRun);
+                    item.Name = name;
+                    item.Type = utype;
+                    item.Fttable = null;
+                    item.Molecule = item.Class = item.Division = item.Evidence = "";                  // ajSeqNewSeq does not copy them
+                    item.Date = null;
+                    item.FeatureText = unionRun.FeatureText;
+                    unionRun.Count = 0;
+                    unionRun.HeaderCount = 0;
+                    EmbossSeqWrite.Write(result, outFormat, item, unionRun);
+                }
                 written++;
                 if (EmbossSeqWrite.Footer(outFormat) is { Length: > 0 } footer)
                     result.Append(footer);                              // seqCleanDasdna / seqCleanDasseq at the close of the file
@@ -175,30 +216,32 @@ public static class EmbossUnionProgram
             string featFormat = r.OutFeatFormat ?? "gff";
             int featIndex = EmbossReportWriter.FeatureFormatIndex(featFormat);
             featureFile = r.OutFeatName ?? TrimAll(outName) + "." + featFormat;
-            if (written > 0)
+            if (written > 0 && !outFormat!.Features)
             {
-                if (outFormat!.Features)
-                    throw new NotSupportedException($"The features of the output format '{outFormat.Name}' are written inside the sequence file, which this port does not do.");
                 if (featIndex < 0)
                 {
-                    // ajFeattabOutOpen / featoutUfoProcess: an unknown feature format is written as gff3 (the message is printed twice, with the two names of the fallback)
-                    context.Error($"unknown output feature format '{featFormat}' will write as gff3 instead\n");
+                    // ajFeattabOutOpen / featoutUfoProcess: an unknown feature format is written as gff3 (the message is printed twice, with the two names of the fallback; the first one when the output is opened)
                     context.Error($"unknown output feature format '{featFormat}' will write as gff instead\n");
                 }
 
                 string featName = EmbossReportWriter.FeatureFormatName(featIndex < 0 ? 1 : featIndex);
                 string? text = EmbossReportWriter.WriteFeatureTable(newTable, featName, r.RunDate ?? DateTime.Now, "union", context, new EmbossFeatureWriteState(), 0);
                 if (text is null)
-                    context.Warn("ajSeqWriteSeq features output failed UFO: ''");
+                    context.Warn(outFormat.Save ? "seqWriteListAppend features output failed UFO: ''" : "ajSeqWriteSeq features output failed UFO: ''");
                 else
                     featureText = text;
                 tableWritten = text is not null;
             }
 
-            if (!tableWritten)
+            // seqWriteListAppend writes the features and, when that succeeds, clears the output object (seqDeclone): the type of the sequence is gone when the set is written
+            if (tableWritten && savedRun is not null)
+                savedRun.OutType = "";
+            if (!tableWritten && !typeFailed && outFormat is not { Features: true })
                 context.Warn($"No features written to output file '{featureFile}'");
         }
 
+        if (savedRun is not null)
+            EmbossSeqWrite.CloseSet(result, outFormat, savedRun, 1);
         return new EmbossUnionOutput(result.ToString(), overlapOut.ToString(), [.. context.Messages]) { FeatureText = featureText, FeatureFileName = featureFile };
     }
 

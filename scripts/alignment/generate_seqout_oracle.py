@@ -13,10 +13,10 @@ import generate_seqret_oracle as G  # noqa: E402
 
 FORMATS = ['unknown', 'fasta', 'pearson', 'gcg', 'gcg8', 'nbrf', 'pir', 'codata', 'strider', 'staden', 'text', 'plain', 'raw', 'ig', 'iguspto', 'gde', 'fitch', 'acedb', 'mase', 'ncbi', 'gifasta', 'nib', 'nibble', 'dasdna', 'das', 'asn1',
            'fastq-sanger', 'fastq-illumina', 'fastq-solexa', 'fastq', 'sam', 'gff2', 'gff3', 'gff',
-           'msf', 'clustal', 'aln', 'selex', 'phylip', 'phylipnon', 'phylip3', 'hennig86', 'mega', 'meganon', 'nexus', 'paup', 'nexusnon', 'paupnon', 'jackknifer', 'jackknifernon', 'treecon', 'scf', 'embl', 'em', 'emblnew', 'emold', 'emblold']
+           'msf', 'clustal', 'aln', 'selex', 'phylip', 'phylipnon', 'phylip3', 'hennig86', 'mega', 'meganon', 'nexus', 'paup', 'nexusnon', 'paupnon', 'jackknifer', 'jackknifernon', 'treecon', 'scf', 'experiment', 'debug', 'bam', 'embl', 'em', 'emblnew', 'emold', 'emblold']
 # the writers that print the accuracy values (quality) of the sequences: their inputs are mostly texts with random qualities, and every run is checked with valgrind (the buffer of the values keeps what it had)
-ENTRY_FORMATS = {'embl', 'em', 'emblnew', 'emold', 'emblold', 'genbank', 'gb', 'ddbj', 'refseq', 'genpept', 'refseqp', 'swiss', 'sw', 'swissprot', 'uniprot', 'swissnew', 'swnew', 'swold', 'swissold', 'swissprotold', 'swissprotnew', 'experiment', 'debug'}
-QUAL_FORMATS = {'fastq-sanger', 'fastq-illumina', 'fastq-solexa', 'fastq', 'sam', 'scf', 'bam', 'experiment', 'debug'}
+ENTRY_FORMATS = {'embl', 'em', 'emblnew', 'emold', 'emblold', 'genbank', 'gb', 'ddbj', 'refseq', 'genpept', 'refseqp', 'swiss', 'sw', 'swissprot', 'uniprot', 'swissnew', 'swnew', 'swold', 'swissold', 'swissprotold', 'swissprotnew', 'debug'}
+QUAL_FORMATS = {'fastq-sanger', 'fastq-illumina', 'fastq-solexa', 'fastq', 'sam', 'scf', 'bam', 'debug', 'experiment'}
 QUAL_INPUTS = ['qsanger', 'qsanger', 'qillumina', 'qsolexa', 'qsam', 'qexperiment', 'fastq-sanger', 'fastq-illumina', 'fastq-solexa', 'sam', 'experiment']
 # the inputs of the readers whose reference runs are defined (the nexus and mega readers of the library read freed or foreign memory on some inputs, see generate_seqret_oracle.py: memerr)
 INPUTS = ['ncbi', 'ncbi', 'ncbi', 'fasta', 'fasta', 'fasta', 'gcg', 'embl', 'genbank', 'nbrf', 'swiss', 'ig', 'codata', 'strider', 'staden', 'gde', 'fitch', 'treecon', 'pir', 'clustal', 'msf', 'phylip', 'raw', 'textonly', 'asis', 'fastq', 'sam']
@@ -27,6 +27,7 @@ ANNOT_READY = set(os.environ.get('SEQOUT_READY', 'embl,nbrf,experiment,fasta,ncb
 
 
 FEATURE_SHARE = float(os.environ.get('SEQOUT_FEATURES', '0'))     # the share of the inputs of the entry writers that are feature-carrying entries read and written with -feature (the features go into the sequence file)
+DIR_FORCE = os.environ.get('SEQOUT_DIR') == '1'     # a run that gives -osdirectory2 (an existing directory or one that does not exist) to most inputs, -ossingle2 or not (the file seqout_oracle_dir.jsonl.gz)
 DBNAME_FORCE = os.environ.get('SEQOUT_OSDBNAME') == '1'     # a run that gives -osdbname to most inputs (the file seqout_oracle_osdbname.jsonl.gz)
 
 
@@ -312,13 +313,15 @@ def main(out, per, seed, formats):
         for fmt in formats:
             made = 0
             while made < per:
-                if fmt in ENTRY_FORMATS:
+                if fmt in ('experiment', 'debug'):
+                    src = rnd.choice(QUAL_INPUTS + [x for x in ANNOT_INPUTS if x in ANNOT_READY])
+                elif fmt in ENTRY_FORMATS:
                     # the writers of protein entries are given protein sources (the others reject nucleotide sequences)
                     pool = PROT_ANNOT_INPUTS if fmt in ('refseqp', 'swiss', 'sw', 'swissprot', 'uniprot', 'swissnew', 'swnew', 'swissprotnew', 'swold', 'swissold', 'swissprotold') else ANNOT_INPUTS
                     src = rnd.choice([x for x in pool if x in ANNOT_READY])
                 else:
                     src = rnd.choice(QUAL_INPUTS if fmt in QUAL_FORMATS and rnd.random() < 0.8 else INPUTS)
-                featmode = fmt in ENTRY_FORMATS and fmt not in ('experiment', 'debug') and rnd.random() < FEATURE_SHARE
+                featmode = fmt in ENTRY_FORMATS and fmt != 'debug' and rnd.random() < FEATURE_SHARE
                 if featmode:
                     src = rnd.choice(['embl', 'genbank', 'swiss', 'refseqp', 'genpept', 'gff3', 'pir', 'embl', 'genbank', 'fasta'])
                     text, how = G.make_input(rnd, gen, src)
@@ -341,12 +344,13 @@ def main(out, per, seed, formats):
                 if featmode: args += ['-feature']
                 if rnd.random() < 0.08: args += ['-firstonly']
                 if rnd.random() < 0.08: args += [rnd.choice(['-slower1', '-supper1', '-sprotein1', '-snucleotide1'])]
-                osformat, outseq = fmt, rnd.choice(['o.out', 'out', 'o.txt'])
+                osformat, outseq = fmt, rnd.choice(['o.out', 'out', 'o.txt'] + (['sub/o.out', 'nosuch/o.out', './o.out'] if DIR_FORCE else []))
                 if rnd.random() < 0.3:
                     osformat, outseq = None, '%s::%s' % (rnd.choice([fmt, fmt.upper()]), outseq)
                 single = rnd.random() < 0.25
                 osext = rnd.choice(['abc', 'X1', 'Txt']) if single and rnd.random() < 0.4 else None
                 osdir = rnd.choice(['sub', 'sub/']) if single and rnd.random() < 0.4 else None
+                if DIR_FORCE and rnd.random() < 0.9: osdir = rnd.choice(['sub', 'sub', 'sub/', 'nosuch'])
                 osname = rnd.choice(['nm', 'N1']) if rnd.random() < 0.2 else None
                 osdbname = rnd.choice(['MYDB', 'db1', 'sp', 'gb', 'lcl', 'BL_ORD_ID']) if DBNAME_FORCE and rnd.random() < 0.9 else None
                 if rnd.random() < 0.03: osformat, outseq = 'bogus', 'o.out'
@@ -379,6 +383,14 @@ def main(out, per, seed, formats):
                         memerr = vg.returncode == 99 or re.search(rb'^==\d+== (Invalid|Conditional|Use of|Syscall|Mismatched|Source and destination|Process terminating)', vg.stderr, re.M) is not None
                     except subprocess.TimeoutExpired:
                         memerr = True
+                if fmt in QUAL_FORMATS and not hang and not memerr:
+                    # a run whose output depends on what the heap held (an array read past its end) is not defined: the same run with the allocator filling the memory it hands out gives another output
+                    env2 = dict(env, MALLOC_PERTURB_='165')
+                    for nme in os.listdir(work):
+                        p2 = os.path.join(work, nme)
+                        if nme != 'in.dat' and os.path.isfile(p2): os.remove(p2)
+                    rc2, err2, hang2 = G.seqret(work, cmd, env=env2)
+                    if hang2 or rc2 != rc or collect(work) != files: memerr = True
                 if err.startswith('Read and write (return) sequences\n'): err = err[len('Read and write (return) sequences\n'):]
                 rows.append({'id': len(rows), 'fmt': fmt, 'how': how + '/' + src, 'text': text, 'spec': spec, 'args': args, 'osformat': osformat, 'outseq': outseq, 'single': single, 'osext': osext, 'osdir': osdir, 'osname': osname, 'osdbname': osdbname,
                              'epoch': epoch, 'rc': rc, 'files': files, 'err': err, 'hang': hang, 'memerr': memerr, 'cmd': cmd})

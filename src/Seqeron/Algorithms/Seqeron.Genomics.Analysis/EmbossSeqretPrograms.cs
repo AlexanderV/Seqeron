@@ -38,6 +38,9 @@ public sealed record EmbossSeqretRequest(string Sequence, IReadOnlyDictionary<st
 
     /// <summary>The arguments of the command line of the program run, which the SAM writer prints on its <c>@PG</c> line (<c>ajUtilGetCmdline</c>); null: built from the request.</summary>
     public string? CommandLine { get; init; }
+
+    /// <summary>The directories (without trailing slash) that exist where the program runs; a file whose directory is not among them cannot be opened (the program dies). Null: every directory exists.</summary>
+    public IReadOnlyCollection<string>? ExistingDirectories { get; init; }
 }
 
 /// <summary>The output of <c>seqret</c>: the sequence file, the feature file and the messages the library printed.</summary>
@@ -52,6 +55,9 @@ public sealed record EmbossSeqretOutput(string SequenceText, string FeatureText,
 
     /// <summary>The name of the feature output file.</summary>
     public string FeatureFileName { get; init; } = "";
+
+    /// <summary>The path of the sequence output file (<c>-osdirectory</c> + <c>-outseq</c>).</summary>
+    public string SequenceFileName { get; init; } = "";
 
     /// <summary>The program died ("Died: ...").</summary>
     public bool Died { get; init; }
@@ -107,6 +113,15 @@ public static class EmbossSeqretPrograms
         }
 
         writeRun.FileName = outName;
+
+        // ajSeqoutOpen (at the start of the run, by acdSetSeqout): -osdirectory is the directory of the output file, too (not only of the files of -ossingle)
+        string outDir = EmbossOutPath.FixDirectory(r.OutDirectory);
+        string mainPath = outSingle ? outName : EmbossOutPath.Combine(outDir, outName);
+        if (!outSingle && !EmbossOutPath.DirectoryExists(r.ExistingDirectories, mainPath))
+        {
+            EmbossOutPath.OpenFailed(context, outName, outDir, r.OutSeq);
+            return Died(context, "outseq");
+        }
 
         var outFormat = EmbossSeqWrite.Find(formatName);
         EmbossSeq? seq;
@@ -188,13 +203,35 @@ public static class EmbossSeqretPrograms
 
             writeRun.Count = outSingle ? 0 : count;
             writeRun.HeaderCount = count;
+            if (outFormat.Writer == "Debug")
+            {
+                string ext = r.OutExtension ?? r.OutSeqFormat ?? "fasta";
+                string dirName = r.OutDirectory ?? "";
+                if (dirName.Length > 0 && !dirName.EndsWith('/'))
+                    dirName += "/";
+                writeRun.Debug = new EmbossSeqDebugInfo
+                {
+                    Usa = r.OutSeq, InputFormat = seq.Formatstr, OutputFormat = formatName, Filename = outName, Directory = dirName, Entryname = seq.Entryname, Single = outSingle, Features = r.Feature,
+                    FileNameOpen = outSingle ? (name + "." + ext).ToLowerInvariant() : outName, Extension = ext,
+                };
+            }
+
             EmbossSeqWrite.Write(target, outFormat, item, writeRun);
             if (outSingle)
             {
                 string file = (name + "." + (r.OutExtension ?? r.OutSeqFormat ?? "fasta")).ToLowerInvariant();
-                string dir = r.OutDirectory ?? "";
-                lastSingle = dir.Length > 0 ? Path.Combine(dir, file) : file;
-                singles[lastSingle] = target.ToString();
+                string path = EmbossOutPath.Combine(outDir, file);
+                if (!EmbossOutPath.DirectoryExists(r.ExistingDirectories, path))
+                {
+                    if (!EmbossOutPath.SingleOpenSurvives(outFormat))
+                        throw new InvalidOperationException("The directory of a file of -ossingle does not exist: the library warns and the reference program dies by a segmentation fault.");
+                    EmbossOutPath.SingleOpenFailed(context, file, outDir);
+                }
+                else
+                {
+                    lastSingle = path;
+                    singles[lastSingle] = target.ToString();
+                }
             }
 
             count++;
@@ -219,22 +256,31 @@ public static class EmbossSeqretPrograms
             EmbossSeqWrite.WriteSaved(seqOut, outFormat, writeRun);
         }
 
+        // seqCleanBam: the BGZF blocks of a BAM file are written when the output is closed (with -ossingle into the only file the writer can use)
+        if (outFormat is { Writer: "Bam" } && EmbossSeqWrite.FinishBam(writeRun) is { } bam)
+        {
+            if (lastSingle is not null)
+                singles[lastSingle] += bam;
+            else
+                seqOut.Append(bam);
+        }
+
         // seqCleanDasdna / seqCleanDasseq: the footer of a DAS file is written when the file that is open at the end of the run is closed (with -ossingle only the last file has it)
         if (written > 0 && EmbossSeqWrite.Footer(outFormat!) is { Length: > 0 } footer)
         {
             if (lastSingle is not null)
                 singles[lastSingle] += footer;
-            else
+            else if (!outSingle)
                 seqOut.Append(footer);
         }
 
         if (context.Fatal)
-            return new EmbossSeqretOutput(seqOut.ToString(), featOut.ToString(), written, [.. context.Messages]) { Died = true, FeatureFileName = r.OutFeat ?? "", SingleFiles = singles };
+            return new EmbossSeqretOutput(seqOut.ToString(), featOut.ToString(), written, [.. context.Messages]) { Died = true, FeatureFileName = r.OutFeat ?? "", SingleFiles = singles, SequenceFileName = mainPath };
         if (count == 0 && !outSingle)                                  // with -ossingle there is no output file that stays empty: the files are opened for the sequences
             context.Warn($"No sequences written to output file '{outName}'");
         if (r.Feature && tables == 0 && outFormat is { Features: false })
             context.Warn($"No features written to output file '{r.OutFeat ?? "o.gff"}'");
-        return new EmbossSeqretOutput(seqOut.ToString(), featOut.ToString(), written, [.. context.Messages]) { FeatureFileName = r.OutFeat ?? "", SingleFiles = singles };
+        return new EmbossSeqretOutput(seqOut.ToString(), featOut.ToString(), written, [.. context.Messages]) { FeatureFileName = r.OutFeat ?? "", SingleFiles = singles, SequenceFileName = mainPath };
     }
 
     // seqretsplit_Name: a name that is in the table (any case) gets name.002, name.003 ... (the counter of the run grows with every duplicate); the name of the sequence is then put into the table

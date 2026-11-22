@@ -12,7 +12,31 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import generate_seqret_oracle as S  # noqa: E402
 
 FMTS = ['embl', 'embl', 'embl', 'embl', 'embl', 'genbank', 'gff3', 'gff2', 'fasta', 'nbrf', 'swiss', 'refseqp', 'embl-own']
-OSFORMATS = ['fasta', 'fasta', 'fasta', 'fasta', 'gcg', 'gcg8', 'pir', 'nbrf', 'raw', 'text', 'plain', 'staden', 'ig', 'iguspto', 'codata', 'fitch', 'mase', 'strider', 'gde', 'acedb', 'ncbi', 'gifasta', 'dasdna', 'das', 'asn1', 'nib', 'nibble', 'unknown', 'pearson', 'embl', 'em', 'emblnew', 'emold', 'emblold', 'genbank', 'gb', 'ddbj', 'refseq', 'genpept', 'refseqp', 'swiss', 'sw', 'swissprot', 'uniprot', 'swissnew', 'swold', 'fastq', 'fastq-sanger', 'fastq-illumina', 'fastq-solexa', 'sam', 'gff', 'gff2', 'gff3', 'scf', 'msf', 'clustal', 'aln', 'selex', 'phylip', 'phylipnon', 'phylip3', 'hennig86', 'mega', 'meganon', 'nexus', 'paup', 'nexusnon', 'paupnon', 'jackknifer', 'jackknifernon', 'treecon']   # the writers ported so far (every writer but experiment, debug and bam: B09 WP59)
+SINGLE_SHARE = float(os.environ.get('SINGLE_SHARE', '0'))      # the share of the outputs with -ossingleN / -osextensionN / -osdirectoryN / -osnameN (B09 WP59, F272)
+OSFORMATS = ['fasta', 'fasta', 'fasta', 'fasta', 'gcg', 'gcg8', 'pir', 'nbrf', 'raw', 'text', 'plain', 'staden', 'ig', 'iguspto', 'codata', 'fitch', 'mase', 'strider', 'gde', 'acedb', 'ncbi', 'gifasta', 'dasdna', 'das', 'asn1', 'nib', 'nibble', 'unknown', 'pearson', 'embl', 'em', 'emblnew', 'emold', 'emblold', 'genbank', 'gb', 'ddbj', 'refseq', 'genpept', 'refseqp', 'swiss', 'sw', 'swissprot', 'uniprot', 'swissnew', 'swold', 'fastq', 'fastq-sanger', 'fastq-illumina', 'fastq-solexa', 'sam', 'gff', 'gff2', 'gff3', 'scf', 'msf', 'clustal', 'aln', 'selex', 'phylip', 'phylipnon', 'phylip3', 'hennig86', 'mega', 'meganon', 'nexus', 'paup', 'nexusnon', 'paupnon', 'jackknifer', 'jackknifernon', 'treecon', 'experiment', 'debug']   # the writers ported so far (every writer but bam: B09 WP59)
+
+
+def clean(work, keep=None):
+    for nme in os.listdir(work):
+        p = os.path.join(work, nme)
+        if nme == keep:
+            continue
+        if os.path.isdir(p):
+            for f in os.listdir(p): os.remove(os.path.join(p, f))
+            os.rmdir(p)
+        else:
+            os.remove(p)
+
+
+def collect(work):
+    files = {}
+    for root, _, names in os.walk(work):
+        for n in sorted(names):
+            rel = os.path.relpath(os.path.join(root, n), work)
+            if rel == 'in.dat':
+                continue
+            files[rel] = open(os.path.join(root, n), encoding='latin-1', newline='').read()
+    return files
 
 
 def wrap_ft(tag, value, quote=True):
@@ -96,9 +120,16 @@ def main(out, n, seed):
                 else: args += [opt, rnd.choice(OSFORMATS) + '::' + nm]
             for i in range(3, 7):
                 if rnd.random() < 0.3: args += ['-osformat%d' % i, rnd.choice(OSFORMATS)]
+                if rnd.random() < 0.1: args += ['-osdbname%d' % i, rnd.choice(['MYDB', 'db1', 'sp', 'gb', 'lcl', 'BL_ORD_ID'])]
+            for i in range(3, 7):
+                if rnd.random() < SINGLE_SHARE: args += ['-ossingle%d' % i]
+                if rnd.random() < SINGLE_SHARE: args += ['-osextension%d' % i, rnd.choice(['abc', 'X1', 'Txt'])]
+                if rnd.random() < SINGLE_SHARE: args += ['-osdirectory%d' % i, rnd.choice(['sub', 'sub', 'sub/', 'nosuch'])]
+                if rnd.random() < SINGLE_SHARE: args += ['-osname%d' % i, rnd.choice(['nm', 'N1', 'a b'])]
             if rnd.random() < 0.04: args += ['-sbegin1', str(rnd.randint(1, 20))]
-            if rnd.random() < 0.03: args += ['-sreverse1']
-            for nme in os.listdir(work): os.remove(os.path.join(work, nme))
+            if rnd.random() < 0.03 and not os.environ.get('CODERET_NOREVERSE'): args += ['-sreverse1']      # the rows with -sreverse1 on GFF3 features give the reference a rest region that this port does not reproduce (registered in B09.md)
+            clean(work)
+            os.mkdir(os.path.join(work, 'sub'))
             open(os.path.join(work, 'in.dat'), 'w', newline='\n', encoding='latin-1').write(text)
             epoch = rnd.randint(978307200, 2051222400)
             env = dict(os.environ, LD_PRELOAD=shim, FAKE_EPOCH=str(epoch))
@@ -114,16 +145,12 @@ def main(out, n, seed):
             except subprocess.TimeoutExpired:
                 rc, err, hang = -9, '', True
                 subprocess.run(['pkill', '-9', 'coderet'])
-            files = {}
-            if not hang:
-                for nme in sorted(os.listdir(work)):
-                    if nme == 'in.dat': continue
-                    files[nme] = open(os.path.join(work, nme), encoding='latin-1', newline='').read()
+            files = collect(work) if not hang else {}
             log = files.pop('o.cod', '')
             memerr = False
             if not hang and shutil.which('valgrind') and (rc != 0 or len(rows) % 4 == 0):
-                for nme in os.listdir(work):
-                    if nme != 'in.dat': os.remove(os.path.join(work, nme))
+                clean(work, keep='in.dat')
+                os.mkdir(os.path.join(work, 'sub'))
                 try:
                     vg = subprocess.run(['valgrind', '-q', '--error-exitcode=99', 'coderet'] + cmd, cwd=work, capture_output=True, timeout=120)
                     memerr = vg.returncode == 99 or re.search(rb'^==\d+== (Invalid|Conditional|Use of|Syscall|Mismatched|Source and destination|Process terminating)', vg.stderr, re.M) is not None

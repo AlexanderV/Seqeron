@@ -73,6 +73,7 @@ def main(out, n, seed):
             outseq = rnd.choice(['o.fa', 'o.fa', 'q.seq', 'plain', 'a.b.c', 'fasta::z.w'])
             args += ['-outseq', outseq]
             if rnd.random() < 0.3: args += ['-osformat2', rnd.choice(OSFORMATS)]
+            if rnd.random() < 0.12: args += ['-osdbname2', rnd.choice(['MYDB', 'db1', 'sp', 'gb', 'lcl', 'BL_ORD_ID'])]
             if rnd.random() < 0.55: args += ['-offormat2', rnd.choice(FFORMATS)]
             if rnd.random() < 0.3: args += ['-ofname2', 'f.out']
             if rnd.random() < 0.04: args += ['-sbegin1', str(rnd.randint(1, 10))]

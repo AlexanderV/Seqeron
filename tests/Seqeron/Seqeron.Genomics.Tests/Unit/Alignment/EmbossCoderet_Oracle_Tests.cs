@@ -26,10 +26,15 @@ public class EmbossCoderet_Oracle_Tests
         return $"offset {i} (got '{(i < a.Length ? a[i..Math.Min(a.Length, i + 30)] : "<end>").Replace("\n", "\\n")}', expected '{(i < b.Length ? b[i..Math.Min(b.Length, i + 30)] : "<end>").Replace("\n", "\\n")}')";
     }
 
+    // acdArgSave (ajUtilGetCmdline): an argument that is empty, has a blank or one of the characters *?[]{}|!&^ is in double quotes
+    private static string Quote(string x) => x.Length == 0 || x.Any(char.IsWhiteSpace) || x.IndexOfAny(['*', '?', '[', ']', '{', '}', '|', '!', '&', '^']) >= 0 ? "\"" + x + "\"" : x;
+
     private static EmbossCoderetRequest Request(string text, List<string> a, DateTime date)
     {
         var q = new List<string>();
-        string? cds = null, mrna = null, trn = null, rest = null, f3 = null, f4 = null, f5 = null, f6 = null;
+        string? cds = null, mrna = null, trn = null, rest = null, f3 = null, f4 = null, f5 = null, f6 = null, d3 = null, d4 = null, d5 = null, d6 = null;
+        string?[] name = new string?[4], ext = new string?[4], dir = new string?[4];
+        bool[] single = new bool[4];
         for (int i = 0; i < a.Count; i++)
         {
             switch (a[i])
@@ -42,6 +47,14 @@ public class EmbossCoderet_Oracle_Tests
                 case "-osformat4": f4 = a[++i]; break;
                 case "-osformat5": f5 = a[++i]; break;
                 case "-osformat6": f6 = a[++i]; break;
+                case "-osdbname3": d3 = a[++i]; break;
+                case "-osdbname4": d4 = a[++i]; break;
+                case "-osdbname5": d5 = a[++i]; break;
+                case "-osdbname6": d6 = a[++i]; break;
+                case "-ossingle3" or "-ossingle4" or "-ossingle5" or "-ossingle6": single[a[i][^1] - '3'] = true; break;
+                case "-osname3" or "-osname4" or "-osname5" or "-osname6": name[a[i][^1] - '3'] = a[++i]; break;
+                case "-osextension3" or "-osextension4" or "-osextension5" or "-osextension6": ext[a[i][^1] - '3'] = a[++i]; break;
+                case "-osdirectory3" or "-osdirectory4" or "-osdirectory5" or "-osdirectory6": dir[a[i][^1] - '3'] = a[++i]; break;
                 default:
                     q.Add(a[i]);
                     if (a[i] is "-sformat1" or "-sbegin1")
@@ -51,7 +64,9 @@ public class EmbossCoderet_Oracle_Tests
         }
 
         var quals = EmbossSequenceQualifiers.ParseFile(string.Join(' ', q));
-        return new EmbossCoderetRequest("in.dat", new Dictionary<string, string> { ["in.dat"] = text }, quals, cds, mrna, trn, rest, f3, f4, f5, f6) { RunDate = date };
+        return new EmbossCoderetRequest("in.dat", new Dictionary<string, string> { ["in.dat"] = text }, quals, cds, mrna, trn, rest, f3, f4, f5, f6) { RunDate = date, CdsOutDbName = d3, MrnaOutDbName = d4, TranslationOutDbName = d5, RestOutDbName = d6, ExistingDirectories = ["sub"],
+            CdsOptions = new EmbossSeqoutOptions(name[0], ext[0], dir[0], single[0]), MrnaOptions = new EmbossSeqoutOptions(name[1], ext[1], dir[1], single[1]),
+            TranslationOptions = new EmbossSeqoutOptions(name[2], ext[2], dir[2], single[2]), RestOptions = new EmbossSeqoutOptions(name[3], ext[3], dir[3], single[3]), CommandLine = "-auto -seqall in.dat " + string.Join(' ', a.Select(Quote)) + " -outfile o.cod" };
     }
 
     [Test]
@@ -63,7 +78,7 @@ public class EmbossCoderet_Oracle_Tests
         using var reader = new StreamReader(gz);
         var failures = new List<string>();
         var formats = new HashSet<string>();
-        int rows = 0, compared = 0, refused = 0, withFiles = 0, sequencesWritten = 0;
+        int rows = 0, compared = 0, refused = 0, withFiles = 0, sequencesWritten = 0, singles = 0, directories = 0;
         string? line;
         while ((line = reader.ReadLine()) is not null)
         {
@@ -109,6 +124,10 @@ public class EmbossCoderet_Oracle_Tests
                 }
 
                 compared++;
+                if (expectedFiles.Values.Any(v => v.Length > 0) && args.Any(x => x.StartsWith("-ossingle", StringComparison.Ordinal)))
+                    singles++;
+                if (expectedFiles.Values.Any(v => v.Length > 0) && args.Any(x => x.StartsWith("-osdirectory", StringComparison.Ordinal)))
+                    directories++;
                 if (expectedFiles.Values.Any(v => v.Length > 0))
                 {
                     withFiles++;
@@ -133,6 +152,8 @@ public class EmbossCoderet_Oracle_Tests
         Assert.That(rows, Is.GreaterThanOrEqualTo(1000));
         Assert.That(compared, Is.GreaterThanOrEqualTo(900), $"compared {compared}, refused {refused}");
         Assert.That(withFiles, Is.GreaterThanOrEqualTo(430));
+        Assert.That(singles, Is.GreaterThanOrEqualTo(40), "the -ossingle runs");
+        Assert.That(directories, Is.GreaterThanOrEqualTo(40), "the -osdirectory runs");
         Assert.That(formats.Count, Is.GreaterThanOrEqualTo(3));
         Assert.That(sequencesWritten, Is.GreaterThan(0));
     }

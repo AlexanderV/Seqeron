@@ -18,7 +18,31 @@ SOURCES = ['*', 'EMBL', 'embl', 'GenBank', 'genbank', 'gene*', 'embl|gff', 'SWIS
 TAGS = ['*', 'gene', 'note', 'product', 'label', 'db_xref', 'gene|label', 'number', 'codon_start', 'translation', 'x', '', 'ge*', '*note*', 'organism', 'mol_type']
 VALUES = ['*', 'a*', 'x', 'pax*', '1', '10', '*1', 'abc', 'a|b', 'a b', 'gene*', 'hypothetical*', '*protein', '?']
 DESCRIBE = ['gene', 'note', 'product', 'gene|label', 'gene note', '*', 'x', 'db_xref', 'label', 'ge*', 'codon_start', 'number', '']
-OSFORMATS = ['fasta', 'fasta', 'fasta', 'fasta', 'gcg', 'gcg8', 'pir', 'nbrf', 'raw', 'text', 'plain', 'staden', 'ig', 'iguspto', 'codata', 'fitch', 'mase', 'strider', 'gde', 'acedb', 'ncbi', 'gifasta', 'dasdna', 'das', 'asn1', 'nib', 'nibble', 'unknown', 'pearson', 'embl', 'em', 'emblnew', 'emold', 'emblold', 'genbank', 'gb', 'ddbj', 'refseq', 'genpept', 'refseqp', 'swiss', 'sw', 'swissprot', 'uniprot', 'swissnew', 'swold', 'fastq', 'fastq-sanger', 'fastq-illumina', 'fastq-solexa', 'sam', 'gff', 'gff2', 'gff3', 'scf', 'msf', 'clustal', 'aln', 'selex', 'phylip', 'phylipnon', 'phylip3', 'hennig86', 'mega', 'meganon', 'nexus', 'paup', 'nexusnon', 'paupnon', 'jackknifer', 'jackknifernon', 'treecon']   # the writers ported so far (every writer but experiment, debug and bam: B09 WP59)
+OSFORMATS = ['fasta', 'fasta', 'fasta', 'fasta', 'gcg', 'gcg8', 'pir', 'nbrf', 'raw', 'text', 'plain', 'staden', 'ig', 'iguspto', 'codata', 'fitch', 'mase', 'strider', 'gde', 'acedb', 'ncbi', 'gifasta', 'dasdna', 'das', 'asn1', 'nib', 'nibble', 'unknown', 'pearson', 'embl', 'em', 'emblnew', 'emold', 'emblold', 'genbank', 'gb', 'ddbj', 'refseq', 'genpept', 'refseqp', 'swiss', 'sw', 'swissprot', 'uniprot', 'swissnew', 'swold', 'fastq', 'fastq-sanger', 'fastq-illumina', 'fastq-solexa', 'sam', 'gff', 'gff2', 'gff3', 'scf', 'msf', 'clustal', 'aln', 'selex', 'phylip', 'phylipnon', 'phylip3', 'hennig86', 'mega', 'meganon', 'nexus', 'paup', 'nexusnon', 'paupnon', 'jackknifer', 'jackknifernon', 'treecon', 'experiment', 'debug']   # the writers ported so far (every writer but bam: B09 WP59)
+
+
+SINGLE_SHARE = float(os.environ.get('SINGLE_SHARE', '0'))      # the share of the runs with -ossingle2 [-osextension2 E] [-osdirectory2 sub] (the files of the run are collected: B09 WP59, F272)
+
+
+def clean(work):
+    for nme in os.listdir(work):
+        p = os.path.join(work, nme)
+        if os.path.isdir(p):
+            for f in os.listdir(p): os.remove(os.path.join(p, f))
+            os.rmdir(p)
+        else:
+            os.remove(p)
+
+
+def collect(work):
+    files = {}
+    for root, _, names in os.walk(work):
+        for n in names:
+            rel = os.path.relpath(os.path.join(root, n), work)
+            if rel in ('in.dat', 'ovg.out'):
+                continue
+            files[rel] = open(os.path.join(root, n), encoding='latin-1', newline='').read()
+    return files
 
 
 def main(out, n, seed):
@@ -51,7 +75,14 @@ def main(out, n, seed):
             if rnd.random() < 0.05: args += ['-sbegin1', str(rnd.randint(1, 20))]
             if rnd.random() < 0.05: args += ['-firstonly'] if False else []
             osf = rnd.choice(OSFORMATS)
-            for nme in os.listdir(work): os.remove(os.path.join(work, nme))
+            if rnd.random() < 0.15: args += ['-osdbname2', rnd.choice(['MYDB', 'db1', 'sp', 'gb', 'lcl', 'BL_ORD_ID'])]
+            if rnd.random() < SINGLE_SHARE:
+                args.append('-ossingle2')
+                if rnd.random() < 0.4: args += ['-osextension2', rnd.choice(['abc', 'X1', 'Txt'])]
+            if rnd.random() < SINGLE_SHARE: args += ['-osdirectory2', rnd.choice(['sub', 'sub', 'sub/', 'nosuch'])]      # the directory of the main file, too (-ossingle or not)
+            if rnd.random() < 0.1 * (1 if SINGLE_SHARE else 0): args += ['-osname2', rnd.choice(['nm', 'N1'])]
+            clean(work)
+            os.mkdir(os.path.join(work, 'sub'))
             open(os.path.join(work, 'in.dat'), 'w', newline='\n', encoding='latin-1').write(text)
             cmd = ['-auto', '-sequence', spec] + args + ['-outseq', 'o.out', '-osformat2', osf]
             hang = False
@@ -69,8 +100,9 @@ def main(out, n, seed):
                 subprocess.run(['pkill', '-9', 'extractfeat'])
             q = os.path.join(work, 'o.out')
             outtext = open(q, encoding='latin-1', newline='').read() if os.path.exists(q) and not hang else ''
+            files = collect(work) if not hang else {}
             if err.startswith('Extract features from sequence(s)\n'): err = err[len('Extract features from sequence(s)\n'):]
-            if not outtext and not hang and rnd.random() < 0.65:
+            if not outtext and not any(files.values()) and not hang and rnd.random() < 0.65:
                 continue                                    # keep the share of runs without output small
             memerr = False
             if not hang and shutil.which('valgrind') and (rc != 0 or len(rows) % 6 == 0):
@@ -80,7 +112,7 @@ def main(out, n, seed):
                     memerr = vg.returncode == 99 or re.search(rb'^==\d+== (Invalid|Conditional|Use of|Syscall|Mismatched|Source and destination|Process terminating)', vg.stderr, re.M) is not None
                 except subprocess.TimeoutExpired:
                     memerr = True
-            rows.append({'id': len(rows), 'fmt': fmt, 'how': how, 'text': text, 'spec': spec, 'args': args + ['-osformat2', osf], 'epoch': epoch, 'rc': rc, 'out': outtext, 'err': err, 'hang': hang, 'memerr': memerr})
+            rows.append({'id': len(rows), 'fmt': fmt, 'how': how, 'text': text, 'spec': spec, 'args': args + ['-osformat2', osf], 'epoch': epoch, 'rc': rc, 'out': outtext, 'files': files, 'err': err, 'hang': hang, 'memerr': memerr})
     with gzip.open(out, 'wt', encoding='utf-8', newline='\n', compresslevel=9) as fh:
         for r in rows: fh.write(json.dumps(r, ensure_ascii=True) + '\n')
     from collections import Counter

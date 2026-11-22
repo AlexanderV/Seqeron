@@ -53,7 +53,7 @@ internal static partial class EmbossSeqWrite
     }
 
     /// <summary>The writers of this port.</summary>
-    internal static bool IsPorted(EmbossSeqOutFormat f) => f.Save || f.Writer is "Swiss" or "Swissnew" or "Genbank" or "Genpept" or "Refseq" or "Refseqp" or "Embl" or "Emblnew" or "Scf" or "Gff2" or "Gff3" or "FastqSanger" or "FastqIllumina" or "FastqSolexa" or "Sam" or "Asn1" or "Dasdna" or "Dasseq" or "Nibble" or "Ncbi" or "Gifasta" or "Fasta" or "Gcg" or "Nbrf" or "Codata" or "Strider" or "Staden" or "Text" or "Ig" or "Iguspto" or "Gde" or "Fitch" or "Acedb" or "Mase";
+    internal static bool IsPorted(EmbossSeqOutFormat f) => f.Save || f.Writer is "Debug" or "Experiment" or "Swiss" or "Swissnew" or "Genbank" or "Genpept" or "Refseq" or "Refseqp" or "Embl" or "Emblnew" or "Scf" or "Gff2" or "Gff3" or "FastqSanger" or "FastqIllumina" or "FastqSolexa" or "Sam" or "Bam" or "Asn1" or "Dasdna" or "Dasseq" or "Nibble" or "Ncbi" or "Gifasta" or "Fasta" or "Gcg" or "Nbrf" or "Codata" or "Strider" or "Staden" or "Text" or "Ig" or "Iguspto" or "Gde" or "Fitch" or "Acedb" or "Mase";
 
     /// <summary>The <c>SeqSFormat</c> of the library: the layout of <c>seqWriteSeq</c> (the fields the ported formats set; the others stay at the defaults of <c>seqSeqFormat</c>: no name, no right number, no tab, no padding).</summary>
     private sealed class SeqFormat
@@ -321,7 +321,10 @@ internal static partial class EmbossSeqWrite
             o.Append(' ').Append(acc);
         if (desc.Length > 0)
             o.Append(' ').Append(desc);
-        o.Append('\n').Append(seq).Append('\n').Append("+\n");
+        o.Append('\n');
+        if (seq.Length > 0)
+            o.Append(seq).Append('\n');                 // a sequence of no residue has no line (measured: coderet CDS of length 0)
+        o.Append("+\n");
         int ilen = seq.Length;
         if (writer == "FastqSanger")
         {
@@ -369,7 +372,8 @@ internal static partial class EmbossSeqWrite
             o.Append(';', ilen);
         }
 
-        o.Append('\n');
+        if (ilen > 0)
+            o.Append('\n');
     }
 
     private static void Uint4(StringBuilder o, int v)
@@ -492,7 +496,7 @@ internal static partial class EmbossSeqWrite
         run.Count = count;
         run.HeaderCount = headerCount >= 0 ? headerCount : count;
         run.RunDate = runDate;
-        var s = new EmbossSeqOut { Name = name, Desc = desc, Acc = acc, Sv = sv, Type = type, Seq = seq, Gi = gi, Db = db, Setdb = setdb, Offset = offset, FullDescMulti = fullDescMulti is null ? null : [.. fullDescMulti] };
+        var s = new EmbossSeqOut { Name = name, Desc = desc, Acc = acc, Acclist = acc.Length > 0 ? [acc] : [], Sv = sv, Type = type, Seq = seq, Gi = gi, Db = db, Setdb = run.Setoutdb.Length > 0 ? run.Setoutdb : setdb, Offset = offset, FeatureText = run.FeatureText, FullDescMulti = fullDescMulti is null ? null : [.. fullDescMulti] };
         Write(o, format, s, run);
     }
 
@@ -563,6 +567,12 @@ internal static partial class EmbossSeqWrite
             case "Scf":
                 WriteScf(o, desc, seq, s.Accuracy);
                 break;
+            case "Experiment":
+                WriteExperiment(o, s, run);
+                break;
+            case "Debug":
+                WriteDebug(o, s, run);
+                break;
             case "Swiss":
                 WriteSwissOld(o, s, run);
                 break;
@@ -627,6 +637,9 @@ internal static partial class EmbossSeqWrite
                 break;
             case "Sam":
                 WriteSam(o, run, name, seq, s.Accuracy);
+                break;
+            case "Bam":
+                WriteBam(run, name, seq, s.Accuracy);
                 break;
             case "Asn1":
                 WriteAsn1(o, desc, type, seq);

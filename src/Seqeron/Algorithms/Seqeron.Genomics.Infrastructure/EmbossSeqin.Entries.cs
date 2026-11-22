@@ -408,10 +408,12 @@ internal sealed partial class EmbossSeqin
                                     case 3:
                                         pdesc = new StringBuilder(token);
                                         (descistop ? descmaster.Ec : subdesc!.Ec).Add(pdesc);
+                                        t.Xreflist.Add(new EmbossSeqXref { Type = 3, Db = "ENZYME", Id = token });
                                         break;
                                     case 4:
                                         pdesc = new StringBuilder(token);
                                         subdesc!.Allergen.Add(pdesc);
+                                        t.Xreflist.Add(new EmbossSeqXref { Type = 4, Db = "Allergen", Id = token });
                                         break;
                                     case 5:
                                         pdesc = new StringBuilder(token);
@@ -420,6 +422,7 @@ internal sealed partial class EmbossSeqin
                                     case 6:
                                         pdesc = new StringBuilder(token);
                                         subdesc!.Cdantigen.Add(pdesc);
+                                        t.Xreflist.Add(new EmbossSeqXref { Type = 4, Db = "CD_Antigen", Id = token });
                                         break;
                                     case 7:
                                         pdesc = new StringBuilder(token.Length > 4 ? token[4..] : "");

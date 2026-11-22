@@ -22,12 +22,49 @@ namespace Seqeron.Genomics.Analysis;
 public sealed record EmbossCoderetRequest(string Sequence, IReadOnlyDictionary<string, string> Files, EmbossSequenceQualifiers? Qualifiers = null, string? CdsOutSeq = null, string? MrnaOutSeq = null, string? TranslationOutSeq = null,
     string? RestOutSeq = null, string? CdsFormat = null, string? MrnaFormat = null, string? TranslationFormat = null, string? RestFormat = null)
 {
+    /// <summary><c>-osdbname3</c> .. <c>-osdbname6</c> (<c>outseq-&gt;Setoutdb</c>): the database name that the writers put in front of the names or into the identifiers, of the CDS, mRNA, translation and non-coding outputs.</summary>
+    public string? CdsOutDbName { get; init; }
+
+    /// <summary>See <see cref="CdsOutDbName"/>.</summary>
+    public string? MrnaOutDbName { get; init; }
+
+    /// <summary>See <see cref="CdsOutDbName"/>.</summary>
+    public string? TranslationOutDbName { get; init; }
+
+    /// <summary>See <see cref="CdsOutDbName"/>.</summary>
+    public string? RestOutDbName { get; init; }
+
+    /// <summary>The arguments of the command line of the run, which the SAM writer prints on its <c>@PG</c> line (<c>ajUtilGetCmdline</c>); null: empty.</summary>
+    public string? CommandLine { get; init; }
+
     /// <summary>The texts of the configuration files that define the databases of <c>db:id</c> USAs.</summary>
     public IReadOnlyList<string>? Definitions { get; init; }
 
     /// <summary>The date of the run (the header of some sequence formats); null = now.</summary>
     public DateTime? RunDate { get; init; }
+
+    /// <summary>The associated qualifiers of the CDS output (<c>-osname3</c>, <c>-osextension3</c>, <c>-osdirectory3</c>, <c>-ossingle3</c>).</summary>
+    public EmbossSeqoutOptions? CdsOptions { get; init; }
+
+    /// <summary>The associated qualifiers of the mRNA output (<c>-osname4</c> ...).</summary>
+    public EmbossSeqoutOptions? MrnaOptions { get; init; }
+
+    /// <summary>The associated qualifiers of the translation output (<c>-osname5</c> ...).</summary>
+    public EmbossSeqoutOptions? TranslationOptions { get; init; }
+
+    /// <summary>The associated qualifiers of the non-coding output (<c>-osname6</c> ...).</summary>
+    public EmbossSeqoutOptions? RestOptions { get; init; }
+
+    /// <summary>The directories (without trailing slash) that exist where the program runs; a file whose directory is not among them cannot be opened. Null: every directory exists.</summary>
+    public IReadOnlyCollection<string>? ExistingDirectories { get; init; }
 }
+
+/// <summary>The associated qualifiers of one sequence output of <c>coderet</c> (<c>-osname3</c> .. <c>-osname6</c>, <c>-osextension</c>, <c>-osdirectory</c>, <c>-ossingle</c>).</summary>
+/// <param name="Name">The base of the default file name (<c>-osname</c>); an output given a file name does not use it.</param>
+/// <param name="Extension">The extension of the default file name and of the files of <c>-ossingle</c> (<c>-osextension</c>; default <c>cds</c>, <c>mrna</c>, <c>prot</c>, <c>noncoding</c>).</param>
+/// <param name="Directory">The directory of the file (<c>-osdirectory</c>).</param>
+/// <param name="Single">One file per sequence (<c>-ossingle</c>), named <c>name.extension</c> in lower case.</param>
+public sealed record EmbossSeqoutOptions(string? Name = null, string? Extension = null, string? Directory = null, bool Single = false);
 
 /// <summary>The output of <c>coderet</c>.</summary>
 /// <param name="Report">The text of the log file (<c>-outfile</c>): the counts of every sequence.</param>
@@ -45,16 +82,37 @@ public sealed record EmbossCoderetOutput(string Report, IReadOnlyDictionary<stri
 /// </summary>
 public static class EmbossCoderetProgram
 {
-    private sealed class Out(string? value, string? format, string defaultName, string extension)
+    private sealed class Out(string? value, string? format, string defaultName, string extension, EmbossSeqoutOptions? options, string outputType, string parameter)
     {
         public bool Wanted = value is null || value.Length > 0;
-        public string FileName = value is { Length: > 0 } ? value : defaultName + "." + extension;
+        // acdOutFilename: the base name (-osname, else the name of the first sequence; its first word) and the extension (-osextension, else the one of the ACD file)
+        public readonly string Extension = options?.Extension is { Length: > 0 } e ? e : extension;
+        public string FileName = value is { Length: > 0 } ? value : FirstWord(options?.Name is { Length: > 0 } n ? n : defaultName) + "." + (options?.Extension is { Length: > 0 } e2 ? e2 : extension);
+        public readonly string Usa = value is { Length: > 0 } ? value : FirstWord(options?.Name is { Length: > 0 } n2 ? n2 : defaultName) + "." + (options?.Extension is { Length: > 0 } e3 ? e3 : extension);
         public string FormatName = format ?? "fasta";
+        public readonly string Directory = EmbossOutPath.FixDirectory(options?.Directory);
+        public readonly bool Single = options?.Single ?? false;
+        public readonly string OutputType = outputType;
+        public readonly string Parameter = parameter;
         public readonly StringBuilder Text = new();
+        public readonly Dictionary<string, string> Singles = [];
+        public string? LastSingle;
         public int Count;
         public EmbossSeqOutFormat? Format;
         public bool UnknownReported;
         public readonly EmbossSeqWriteRun Run = new() { Program = "coderet" };
+
+        // ajStrFmtWord: a string with blanks loses the excess white space and its blanks become underscores; the part before the last colon is cut
+        private static string FirstWord(string name)
+        {
+            string t = name;
+            if (t.Length == 0 || t.Any(char.IsWhiteSpace))
+                t = Regex.Replace(t.Trim(), "\\s+", " ", RegexOptions.CultureInvariant).Replace(' ', '_');
+            if (t.EndsWith(':'))
+                t = t[..^1];
+            int colon = t.LastIndexOf(':');
+            return colon >= 0 ? t[(colon + 1)..] : t;
+        }
     }
 
     /// <summary>Runs <c>coderet</c>.</summary>
@@ -75,10 +133,10 @@ public static class EmbossCoderetProgram
 
         // acdOutFilename: the output files without a name are called after the first sequence
         string baseName = DefaultBaseName(seqall.Peek().Name, r.Sequence);
-        var cds = new Out(r.CdsOutSeq, r.CdsFormat, baseName, "cds");
-        var mrna = new Out(r.MrnaOutSeq, r.MrnaFormat, baseName, "mrna");
-        var prot = new Out(r.TranslationOutSeq, r.TranslationFormat, baseName, "prot");
-        var rest = new Out(r.RestOutSeq, r.RestFormat, baseName, "noncoding");
+        var cds = new Out(r.CdsOutSeq, r.CdsFormat, baseName, "cds", r.CdsOptions, "nucleotide", "cdsoutseq");
+        var mrna = new Out(r.MrnaOutSeq, r.MrnaFormat, baseName, "mrna", r.MrnaOptions, "nucleotide", "mrnaoutseq");
+        var prot = new Out(r.TranslationOutSeq, r.TranslationFormat, baseName, "prot", r.TranslationOptions, "protein", "translationoutseq");
+        var rest = new Out(r.RestOutSeq, r.RestFormat, baseName, "noncoding", r.RestOptions, "nucleotide", "restoutseq");
         foreach (var o in new[] { cds, mrna, prot, rest })
         {
             if (!o.Wanted)
@@ -94,11 +152,26 @@ public static class EmbossCoderetProgram
             o.Format = EmbossSeqWrite.Find(o.FormatName);
         }
 
+        // acdSetSeqoutall (ajSeqoutOpen) in the order of the ACD file: a file that cannot be opened ends the program
+        foreach (var o in new[] { cds, mrna, prot, rest })
+        {
+            if (!o.Wanted || o.Single)
+                continue;
+            if (!EmbossOutPath.DirectoryExists(r.ExistingDirectories, EmbossOutPath.Combine(o.Directory, o.FileName)))
+            {
+                EmbossOutPath.OpenFailed(context, o.FileName, o.Directory, o.Usa);
+                var died2 = EmbossSeqretPrograms.Died(context, o.Parameter);
+                return new EmbossCoderetOutput("", new Dictionary<string, string>(), died2.Messages) { Died = true };
+            }
+        }
+
         var date = r.RunDate ?? DateTime.Now;
         foreach (var o in new[] { cds, mrna, prot, rest })
         {
             o.Run.RunDate = date;
             o.Run.FileName = o.FileName;
+            o.Run.CommandLine = r.CommandLine ?? "";
+            o.Run.Setoutdb = (o == cds ? r.CdsOutDbName : o == mrna ? r.MrnaOutDbName : o == prot ? r.TranslationOutDbName : r.RestOutDbName) ?? "";
         }
 
         var remote = new EmbossRemoteSeq(r.Files, r.Definitions, context);
@@ -135,13 +208,13 @@ public static class EmbossCoderetProgram
                     if (cds.Wanted && EmbossExtractfeatProgram.TypeMatchC(gf, "CDS"))
                     {
                         icds++;
-                        PutSeq(seq, EmbossExtractfeatProgram.GetSeqJoin(gf, seq, remote), icds, "cds", false, cds, context, date);
+                        PutSeq(seq, EmbossExtractfeatProgram.GetSeqJoin(gf, seq, remote), icds, "cds", false, cds, context, date, r);
                     }
 
                     if (mrna.Wanted && EmbossExtractfeatProgram.TypeMatchC(gf, "mRNA"))
                     {
                         imrna++;
-                        PutSeq(seq, EmbossExtractfeatProgram.GetSeqJoin(gf, seq, remote), imrna, "mrna", false, mrna, context, date);
+                        PutSeq(seq, EmbossExtractfeatProgram.GetSeqJoin(gf, seq, remote), imrna, "mrna", false, mrna, context, date, r);
                     }
 
                     if (rest.Wanted)
@@ -155,12 +228,12 @@ public static class EmbossCoderetProgram
                     if (prot.Wanted && EmbossExtractfeatProgram.TypeMatchC(gf, "CDS") && GetTagTranslation(gf) is { } trn)
                     {
                         itran++;
-                        PutSeq(seq, trn, itran, "pro", true, prot, context, date);
+                        PutSeq(seq, trn, itran, "pro", true, prot, context, date, r);
                     }
                 }
 
                 if (rest.Wanted)
-                    PutRest(seq, copyseq!.ToString(), rest, context, date);
+                    PutRest(seq, copyseq!.ToString(), rest, context, date, r);
             }
 
             if (cds.Wanted)
@@ -181,11 +254,24 @@ public static class EmbossCoderetProgram
             {
                 if (!o.Wanted)
                     continue;
-                EmbossSeqWrite.CloseSet(o.Text, o.Format, o.Run, o.Count);
+                if (!o.Single)
+                    EmbossSeqWrite.CloseSet(o.Text, o.Format, o.Run, o.Count);
+                else if (o.Format is { Writer: "Bam" } && EmbossSeqWrite.FinishBam(o.Run) is { } bam)
+                    o.Singles[o.LastSingle!] += bam;
                 if (o.Count > 0 && o.Format is not null && EmbossSeqWrite.Footer(o.Format) is { Length: > 0 } footer)
-                    o.Text.Append(footer);                              // seqCleanDasdna / seqCleanDasseq at the close of the file
-                files[o.FileName] = o.Text.ToString();
-                if (o.Count == 0)
+                {
+                    // seqCleanDasdna / seqCleanDasseq at the close of the file that is open at the end of the run (with -ossingle only the last file has it)
+                    if (o.LastSingle is not null)
+                        o.Singles[o.LastSingle] += footer;
+                    else if (!o.Single)
+                        o.Text.Append(footer);
+                }
+
+                if (!o.Single)
+                    files[EmbossOutPath.Combine(o.Directory, o.FileName)] = o.Text.ToString();
+                foreach (var kv in o.Singles)
+                    files[kv.Key] = kv.Value;
+                if (o.Count == 0 && !o.Single)
                     context.Warn($"No sequences written to output file '{o.FileName}'");
             }
         }
@@ -247,14 +333,14 @@ public static class EmbossCoderetProgram
     }
 
     // coderet_put_seq
-    private static void PutSeq(EmbossSeq seq, string strseq, int n, string name, bool protein, Out o, EmbossFeatureReadContext context, DateTime date)
+    private static void PutSeq(EmbossSeq seq, string strseq, int n, string name, bool protein, Out o, EmbossFeatureReadContext context, DateTime date, EmbossCoderetRequest r)
     {
         string fn = $"{seq.Acc}_{name}_{n}".ToLowerInvariant();
-        Write(o, fn, protein ? "P" : "N", strseq, context, date);
+        Write(o, fn, protein ? "P" : "N", strseq, context, date, r);
     }
 
     // coderet_put_rest
-    private static void PutRest(EmbossSeq seq, string copy, Out o, EmbossFeatureReadContext context, DateTime date)
+    private static void PutRest(EmbossSeq seq, string copy, Out o, EmbossFeatureReadContext context, DateTime date, EmbossCoderetRequest r)
     {
         string strseq = seq.Seq.ToString();
         int i = 0, j = 0;
@@ -265,7 +351,7 @@ public static class EmbossCoderetProgram
             {
                 if (isup)
                 {
-                    Write(o, $"{seq.Acc}_noncoding_{i + 1}".ToLowerInvariant(), "N", Sub(strseq, i, j - 1), context, date);
+                    Write(o, $"{seq.Acc}_noncoding_{i + 1}".ToLowerInvariant(), "N", Sub(strseq, i, j - 1), context, date, r);
                     isup = false;
                 }
             }
@@ -279,7 +365,7 @@ public static class EmbossCoderetProgram
         }
 
         if (isup)
-            Write(o, $"{seq.Acc}_noncoding_{i + 1}".ToLowerInvariant(), "N", Sub(strseq, i, j), context, date);
+            Write(o, $"{seq.Acc}_noncoding_{i + 1}".ToLowerInvariant(), "N", Sub(strseq, i, j), context, date, r);
     }
 
     // ajStrAssignSubS: the positions are clipped into the string
@@ -292,7 +378,7 @@ public static class EmbossCoderetProgram
     }
 
     // ajSeqoutWriteSeq
-    private static void Write(Out o, string name, string type, string residues, EmbossFeatureReadContext context, DateTime date)
+    private static void Write(Out o, string name, string type, string residues, EmbossFeatureReadContext context, DateTime date, EmbossCoderetRequest r)
     {
         if (o.Format is null)
         {
@@ -311,8 +397,44 @@ public static class EmbossCoderetProgram
 
         if (!EmbossSeqWrite.IsPorted(o.Format))
             throw new NotSupportedException($"The sequence output format '{o.Format.Name}' is not written by this port.");
-        if (!EmbossSeqWrite.Save(o.Format, o.Run, name, "", type, residues))
-            EmbossSeqWrite.Write(o.Text, o.Format, name, "", "", "", type, residues, o.Count, date, null, run: o.Run);
+        if (o.Format.Save)
+        {
+            // -ossingle: seqWriteListAppend writes the list at once, to a file that is not open (see seqret)
+            if (o.Single && EmbossSeqWrite.WritesToNullFileDies(o.Format, Math.Max(residues.Length, o.Run.Saved.Count == 0 ? 0 : o.Run.Saved.Max(x => x.Seq.Length))))
+                throw new InvalidOperationException("A set format with -ossingle writes the saved list to a file that is not open (the reference program dies by a fault).");
+            EmbossSeqWrite.Save(o.Format, o.Run, name, "", type, residues);
+        }
+        else
+        {
+            var target = o.Single ? new StringBuilder() : o.Text;
+            if (o.Format.Writer == "Debug")
+            {
+                o.Run.Debug = new EmbossSeqDebugInfo
+                {
+                    Usa = o.Usa, InputFormat = "", OutputFormat = o.FormatName, Filename = o.FileName, Directory = o.Directory, Entryname = name, Single = o.Single, Features = false, OutputType = o.OutputType,
+                    FileNameOpen = o.Single ? (name + "." + o.Extension).ToLowerInvariant() : o.FileName, Extension = o.Extension,
+                };
+            }
+
+            EmbossSeqWrite.Write(target, o.Format, name, "", "", "", type, residues, o.Single ? 0 : o.Count, date, null, run: o.Run, headerCount: o.Count);
+            if (o.Single)
+            {
+                string file = (name + "." + o.Extension).ToLowerInvariant();
+                string path = EmbossOutPath.Combine(o.Directory, file);
+                if (!EmbossOutPath.DirectoryExists(r.ExistingDirectories, path))
+                {
+                    if (!EmbossOutPath.SingleOpenSurvives(o.Format))
+                        throw new InvalidOperationException("The directory of a file of -ossingle does not exist: the library warns and the reference program dies by a segmentation fault.");
+                    EmbossOutPath.SingleOpenFailed(context, file, o.Directory);
+                }
+                else
+                {
+                    o.LastSingle = path;
+                    o.Singles[o.LastSingle] = target.ToString();
+                }
+            }
+        }
+
         o.Count++;
     }
 }

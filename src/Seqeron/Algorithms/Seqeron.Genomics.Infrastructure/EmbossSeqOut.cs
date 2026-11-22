@@ -33,6 +33,9 @@ internal sealed class EmbossSeqOut
     public int Offset;
 
     public bool IsProtein => Type.Length > 0 && Type[0] == 'P';
+
+    /// <summary>The number of features of the table (<c>ajFeattableGetSize</c>), the sequence version of the type of its <c>Input format</c> (the <c>debug</c> writer).</summary>
+    public int FeatureCount => Fttable?.Features.Count ?? 0;
 }
 
 /// <summary>The state of the output object of a program run (<c>AjPSeqout</c>) and of the writers (the <c>static</c> variables of <c>ajseqwrite.c</c>) that lasts from one sequence to the next.</summary>
@@ -54,13 +57,22 @@ internal sealed class EmbossSeqWriteRun
     public float[]? OutAccuracy;
     public int OutQualsize;
 
+    /// <summary>The feature text for the next sequence written through the sequence-argument form of <c>Write</c> (programs that write one new sequence: union).</summary>
+    public string FeatureText = "";
+
     /// <summary>The features of the sequences are written to the sequence file (<c>seqoutUfoLocal</c>: the feature output is wanted and no feature file is named).</summary>
     public bool UfoLocal;
 
     /// <summary>The sequences saved for the formats that write a set (<c>outseq-&gt;Savelist</c>), and the name of the output file (<c>%F</c>).</summary>
     public List<EmbossSeqSaved> Saved = [];
 
+    /// <summary>The bytes of the BAM file that the run has made so far (the writer keeps them until the output is closed, <see cref="EmbossSeqWrite.FinishBam"/>); null: the run has written no BAM sequence.</summary>
+    public List<byte>? Bam;
+
     public string FileName = "";
+
+    /// <summary>The information of the <c>debug</c> writer (null: the program does not give it).</summary>
+    public EmbossSeqDebugInfo? Debug;
 
     /// <summary><c>outseq-&gt;Molecule</c>, <c>Class</c>, <c>Division</c>.</summary>
     public string OutMolecule = "", OutClass = "", OutDivision = "";
@@ -73,6 +85,13 @@ internal sealed class EmbossSeqWriteRun
 
     /// <summary>The name of the database for the names of the sequences (<c>-osdbname</c>, <c>outseq-&gt;Setoutdb</c>).</summary>
     public string Setoutdb = "";
+}
+
+/// <summary>What the <c>debug</c> writer prints about the output object besides the sequence: the names the program gave it.</summary>
+internal sealed class EmbossSeqDebugInfo
+{
+    public string Usa = "", Ufo = "", InputFormat = "", OutputFormat = "", Filename = "", Directory = "", Entryname = "", FileNameOpen = "", Extension = "", OutputType = "gapany";
+    public bool Single, Features;
 }
 
 /// <summary>A sequence in the save list of the output object (<c>outseq-&gt;Savelist</c>, <c>seqWriteListAppend</c>): the formats that write a set of sequences keep the sequences until the file is closed.</summary>

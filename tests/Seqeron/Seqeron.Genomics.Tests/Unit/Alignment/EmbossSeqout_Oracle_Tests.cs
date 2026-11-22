@@ -103,7 +103,7 @@ public class EmbossSeqout_Oracle_Tests
                 var date = DateTimeOffset.FromUnixTimeSeconds(j.GetProperty("epoch").GetInt64()).UtcDateTime;
                 var o = EmbossSeqretPrograms.Seqret(new EmbossSeqretRequest("in.dat", new Dictionary<string, string> { ["in.dat"] = text },
                     new EmbossSequenceQualifiers { Format = sformat, Lower = lower, Upper = upper, Protein = protein, Nucleotide = nucleotide }, feature, firstOnly, outseq, osformat, null, null, date)
-                { OutSingle = single, OutDirectory = osdir, OutExtension = osext, CommandLine = commandLine, OutDbName = osdbname });
+                { OutSingle = single, OutDirectory = osdir, OutExtension = osext, CommandLine = commandLine, OutDbName = osdbname, ExistingDirectories = ["sub"] });
                 if (memerr)
                     continue;
                 if (refusal)
@@ -115,10 +115,15 @@ public class EmbossSeqout_Oracle_Tests
                 var ours = new Dictionary<string, string>();
                 var um = System.Text.RegularExpressions.Regex.Match(outseq, "^([A-Za-z0-9-]*)::?(.*)$");
                 string mainName = um.Success ? um.Groups[2].Value : outseq;
+                // ajFileNewOutNamePathS: -osdirectory (with a trailing slash) is put in front of the name of the file unless it has a slash
+                string dirFixed = string.IsNullOrEmpty(osdir) ? "" : osdir.EndsWith('/') ? osdir : osdir + "/";
+                string mainPath = dirFixed.Length == 0 || mainName.Contains('/') ? mainName : dirFixed + mainName;
+                if (mainPath.StartsWith("./", StringComparison.Ordinal))
+                    mainPath = mainPath[2..];                       // the same file
                 if (!o.Died)
                 {
                     if (!single)
-                        ours[mainName] = o.SequenceText;
+                        ours[mainPath] = o.SequenceText;
                     foreach (var kv in o.SingleFiles)
                         ours[kv.Key] = kv.Value;
                 }
@@ -152,7 +157,7 @@ public class EmbossSeqout_Oracle_Tests
         }
 
         Assert.That(failures, Is.Empty, $"{failures.Count} of {rows}:\n" + string.Join("\n", failures.Take(25)));
-        string[] formats = ["unknown", "fasta", "pearson", "gcg", "gcg8", "nbrf", "pir", "codata", "strider", "staden", "text", "plain", "raw", "ig", "iguspto", "gde", "fitch", "acedb", "mase", "ncbi", "gifasta", "nib", "nibble", "dasdna", "das", "asn1", "fastq-sanger", "fastq-illumina", "fastq-solexa", "fastq", "sam", "gff2", "gff3", "gff", "msf", "clustal", "aln", "selex", "phylip", "phylipnon", "phylip3", "hennig86", "mega", "meganon", "nexus", "paup", "nexusnon", "paupnon", "jackknifer", "jackknifernon", "treecon", "scf", "embl", "em", "emblnew", "emold", "emblold", "genbank", "gb", "ddbj", "refseq", "genpept", "refseqp", "swiss", "sw", "swissprot", "uniprot", "swissnew", "swnew", "swold", "swissold", "swissprotold", "swissprotnew"];
+        string[] formats = ["unknown", "fasta", "pearson", "gcg", "gcg8", "nbrf", "pir", "codata", "strider", "staden", "text", "plain", "raw", "ig", "iguspto", "gde", "fitch", "acedb", "mase", "ncbi", "gifasta", "nib", "nibble", "dasdna", "das", "asn1", "fastq-sanger", "fastq-illumina", "fastq-solexa", "fastq", "sam", "gff2", "gff3", "gff", "msf", "clustal", "aln", "selex", "phylip", "phylipnon", "phylip3", "hennig86", "mega", "meganon", "nexus", "paup", "nexusnon", "paupnon", "jackknifer", "jackknifernon", "treecon", "scf", "experiment", "debug", "bam", "embl", "em", "emblnew", "emold", "emblold", "genbank", "gb", "ddbj", "refseq", "genpept", "refseqp", "swiss", "sw", "swissprot", "uniprot", "swissnew", "swnew", "swold", "swissold", "swissprotold", "swissprotnew"];
         foreach (string f in formats)
         {
             Assert.That(perFormat.GetValueOrDefault(f), Is.GreaterThanOrEqualTo(200), $"inputs of {f}");

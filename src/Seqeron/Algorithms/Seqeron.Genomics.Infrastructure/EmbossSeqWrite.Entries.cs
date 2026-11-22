@@ -455,4 +455,212 @@ internal static partial class EmbossSeqWrite
         sf.NumWidth = kind is 1 or 2 ? 8 : 9;
         WriteSeq(o, s.Seq, sf);
     }
+
+    // seqWriteExperiment: the Staden experiment file (EMBL like lines with EX for the description and AV for the accuracy values); a protein is written by the Swiss-Prot writer
+    private static void WriteExperiment(StringBuilder o, EmbossSeqOut s, EmbossSeqWriteRun run)
+    {
+        if (s.IsProtein)
+        {
+            WriteSwissOld(o, s, run);
+            return;
+        }
+
+        o.Append("ID   ").Append(Left(s.Name, 10, int.MaxValue)).Append(CultureInfo.InvariantCulture, $" standard; DNA; UNC; {s.Seq.Length} BP.\n");
+        if (s.Acclist.Count > 0)
+            ListLines(o, "AC   ", s.Acclist, true);
+        if (s.Sv.Length > 0)
+            o.Append("SV   ").Append(s.Sv).Append('\n');
+        if (s.Desc.Length > 0)
+            o.Append("EX   ").Append(s.Desc).Append('\n');
+        if (s.Keylist.Count > 0)
+            ListLines(o, "KW   ", s.Keylist, false);
+        if (s.Tax.Length > 0)
+            o.Append("OS   ").Append(s.Tax).Append('\n');
+        if (s.Taxlist.Count > 0)
+            ListLines(o, "OC   ", s.Taxlist, false);
+        if (run.UfoLocal)
+            o.Append(s.FeatureText);
+        if (s.Accuracy is not null)
+        {
+            int ilen = s.Seq.Length;
+            for (int i = 0; i < ilen; i += 20)
+            {
+                o.Append("AV  ");
+                int jend = Math.Min(i + 20, ilen);
+                for (int j = i; j < jend; j++)
+                    o.Append(' ').Append(((int)AccuracyAt(s.Accuracy, j)).ToString(CultureInfo.InvariantCulture).PadLeft(2));
+                o.Append('\n');
+            }
+        }
+
+        o.Append(BaseCounts(s.Seq));
+        var sf = NewFormat(s.Seq.Length);
+        sf.EndStr = "\n//";
+        sf.Tab = 4;
+        sf.Spacer = 11;
+        sf.Width = 60;
+        sf.NumRight = true;
+        sf.NumWidth = 9;
+        sf.NumJust = true;
+        WriteSeq(o, s.Seq, sf);
+    }
+
+    private static readonly string[] XrefTypes = ["unknown", "DRline", "db_xref", "ECnumber", "DescTag", "TaxId", "RXline"];
+
+    private static string Yes(bool b) => b ? "Yes" : "No";
+
+    // seqWriteDebug: a trace of the output object
+    private static void WriteDebug(StringBuilder o, EmbossSeqOut s, EmbossSeqWriteRun run)
+    {
+        var d = run.Debug ?? throw new NotSupportedException("The program that writes the sequences gives no information for the debug writer.");
+        var c = CultureInfo.InvariantCulture;
+        o.Append("Sequence output trace\n=====================\n\n");
+        o.Append("  Name: '").Append(DbName(s.Name, "")).Append("'\n");
+        o.Append("  Accession: '").Append(s.Acc).Append("'\n");
+        if (s.Acclist.Count > 0)
+        {
+            o.Append(c, $"  Acclist: ({s.Acclist.Count})");
+            foreach (string a in s.Acclist)
+                o.Append(' ').Append(a).Append('\n');
+            o.Append('\n');
+        }
+
+        o.Append("  SeqVersion: '").Append(s.Sv).Append("'\n");
+        o.Append("  GenInfo Id: '").Append(s.Gi).Append("'\n");
+        o.Append("  Description: '").Append(s.Desc).Append("'\n");
+        if (s.Keylist.Count > 0)
+        {
+            o.Append(c, $"  Keywordlist: ({s.Keylist.Count})\n");
+            foreach (string k in s.Keylist)
+                o.Append("    '").Append(k).Append("'\n");
+        }
+
+        o.Append("  Taxonomy: '").Append(s.Tax).Append("'\n");
+        o.Append("  Taxcommon: '").Append(s.Taxcommon).Append("'\n");
+        o.Append("  TaxId: '").Append(s.Taxid).Append("'\n");
+        o.Append("  Organelle: '").Append(s.Organelle).Append("'\n");
+        if (s.Taxlist.Count > 0)
+        {
+            o.Append(c, $"  Taxlist: ({s.Taxlist.Count})\n");
+            foreach (string k in s.Taxlist)
+                o.Append("    '").Append(k).Append("'\n");
+        }
+
+        o.Append("  Type: '").Append(s.Type).Append("'\n");
+        o.Append("  Output type: '").Append(d.OutputType).Append("'\n");
+        o.Append("  Molecule: '").Append(s.Molecule).Append("'\n");
+        o.Append("  Class: '").Append(s.Class).Append("'\n");
+        o.Append("  Division: '").Append(s.Division).Append("'\n");
+        o.Append("  Database: '").Append(s.Db).Append("'\n");
+        o.Append("  Set database: '").Append(s.Setdb).Append("'\n");
+        o.Append("  Output database: '").Append(run.Setoutdb).Append("'\n");
+        o.Append("  Full name: ''\n");
+        if (s.Date is { } date)
+        {
+            if (date.CreDate is { } cre)
+                o.Append("  Created: '").Append(EmbossSeqDate.Format(cre)).Append("' Rel. '").Append(EmbossSeqDate.Str(date.CreRel)).Append("' Ver. '").Append(EmbossSeqDate.Str(date.CreVer)).Append("'\n");
+            if (date.ModDate is { } mod)
+                o.Append("  Modified: '").Append(EmbossSeqDate.Format(mod)).Append("' Rel. '").Append(EmbossSeqDate.Str(date.ModRel)).Append("' Ver. '").Append(EmbossSeqDate.Str(date.ModVer)).Append("'\n");
+            if (date.SeqDate is { } sd)
+                o.Append("  Seq modified: '").Append(EmbossSeqDate.Format(sd)).Append("' Rel. '").Append(EmbossSeqDate.Str(date.SeqRel)).Append("' Ver. '").Append(EmbossSeqDate.Str(date.SeqVer)).Append("'\n");
+        }
+
+        if (s.Cmtlist.Count > 0)
+        {
+            o.Append(c, $"  Commentlist: ({s.Cmtlist.Count})\n");
+            foreach (string k in s.Cmtlist)
+                o.Append("    '").Append(k).Append("'\n");
+        }
+
+        if (s.Xreflist.Count > 0)
+        {
+            o.Append(c, $"  Xreflist: ({s.Xreflist.Count})\n");
+            int i = 0;
+            foreach (var x in s.Xreflist)
+            {
+                if (x.Type < XrefTypes.Length)
+                    o.Append(c, $"{i++,3} Type: '{x.Type}' {XrefTypes[x.Type]}\n");
+                else
+                    o.Append(c, $"{i++,3} Type: '{x.Type}' ..BAD..\n");
+                o.Append("       Db: '").Append(x.Db).Append("'\n");
+                o.Append("       Id: '").Append(x.Id).Append("'\n");
+                if (x.Secid.Length > 0)
+                    o.Append("    Secid: '").Append(x.Secid).Append("'\n");
+                if (x.Terid.Length > 0)
+                    o.Append("    Terid: '").Append(x.Terid).Append("'\n");
+                if (x.Quatid.Length > 0)
+                    o.Append("   Quatid: '").Append(x.Quatid).Append("'\n");
+                if (x.Start != 0 || x.End != 0)
+                    o.Append(c, $"    Range: {x.Start}..{x.End}\n");
+            }
+        }
+
+        if (s.Reflist.Count > 0)
+        {
+            o.Append(c, $"  Citationlist: ({s.Reflist.Count})\n");
+            foreach (var r in s.Reflist)
+            {
+                o.Append(c, $"    Number: {r.Number}\n");
+                if (r.Position.Length > 0)
+                    o.Append("      Position: '").Append(r.Position).Append("'\n");
+                if (r.Groupname.Length > 0)
+                    o.Append("      Groupname: '").Append(r.Groupname).Append("'\n");
+                if (r.Authors.Length > 0)
+                    o.Append("      Authors: '").Append(r.Authors).Append("'\n");
+                if (r.Title.Length > 0)
+                    o.Append("      Title: '").Append(r.Title).Append("'\n");
+                if (r.Comment.Length > 0)
+                    o.Append("      Comment: '").Append(r.Comment).Append("'\n");
+                if (r.Xref.Length > 0)
+                    o.Append("      Xref: '").Append(r.Xref).Append("'\n");
+                if (r.Location.Length > 0)
+                    o.Append("      Location: '").Append(r.Location).Append("'\n");
+                if (r.Loctype.Length > 0)
+                    o.Append("      Loctype: '").Append(r.Loctype).Append("'\n");
+            }
+        }
+
+        o.Append("  Usa: '").Append(d.Usa).Append("'\n");
+        o.Append("  Ufo: '").Append(d.Ufo).Append("'\n");
+        o.Append("  Input format: '").Append(d.InputFormat).Append("'\n");
+        o.Append("  Output format: '").Append(d.OutputFormat).Append("'\n");
+        o.Append("  Filename: '").Append(d.Filename).Append("'\n");
+        o.Append("  Output directory: '").Append(d.Directory).Append("'\n");
+        o.Append("  Entryname: '").Append(d.Entryname).Append("'\n");
+        o.Append("  File name: '").Append(d.FileNameOpen).Append("'\n");
+        o.Append("  Known file name: '<null>'\n");
+        o.Append("  Extension: '").Append(d.Extension).Append("'\n");
+        o.Append("  Single: '").Append(Yes(d.Single)).Append("'\n");
+        o.Append("  Features: '").Append(Yes(d.Features)).Append("'\n");
+        o.Append("  Rev: '").Append(Yes(s.Rev)).Append("'\n");
+        o.Append("  Circular: '").Append(Yes(s.Circular)).Append("'\n");
+        o.Append(c, $"  Offset: '{s.Offset}'\n");
+        o.Append(c, $"  Count: '{run.HeaderCount}'\n");
+        o.Append("  Documentation:...\n\n");
+        o.Append("  Features filename: '<null>'\n");
+        o.Append("  Features format: '<null>'\n");
+        o.Append(c, $"  Feature table size: '{s.FeatureCount}'\n");
+        if (s.Accuracy is not null)
+        {
+            int ilen = s.Seq.Length;
+            o.Append("  Accuracy: \n");
+            for (int i = 0; i < ilen; i += 20)
+            {
+                o.Append("    ");
+                int jend = Math.Min(i + 20, ilen);
+                for (int j = i; j < jend; j++)
+                    o.Append(' ').Append(((int)AccuracyAt(s.Accuracy, j)).ToString(c).PadLeft(2));
+                o.Append('\n');
+            }
+        }
+
+        var sf = NewFormat(s.Seq.Length);
+        sf.NumRight = true;
+        sf.NumLeft = true;
+        sf.NumJust = true;
+        sf.Tab = 1;
+        sf.Spacer = 11;
+        sf.Width = 50;
+        WriteSeq(o, s.Seq, sf);
+    }
 }

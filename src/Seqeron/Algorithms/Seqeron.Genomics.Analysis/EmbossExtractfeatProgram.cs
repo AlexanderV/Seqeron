@@ -27,11 +27,29 @@ namespace Seqeron.Genomics.Analysis;
 public sealed record EmbossExtractfeatRequest(string Sequence, IReadOnlyDictionary<string, string> Files, EmbossSequenceQualifiers? Qualifiers = null, int Before = 0, int After = 0, bool Join = false, bool FeatInName = false,
     string Describe = "", string Source = "*", string Type = "*", int Sense = 0, float MinScore = 0f, float MaxScore = 0f, string Tag = "*", string Value = "*", string OutSeq = "stdout", string? OutSeqFormat = null)
 {
+    /// <summary><c>-osdbname</c> (<c>outseq-&gt;Setoutdb</c>): the database name that the writers put in front of the names or into the identifiers.</summary>
+    public string? OutDbName { get; init; }
+
+    /// <summary>The arguments of the command line of the run, which the SAM writer prints on its <c>@PG</c> line (<c>ajUtilGetCmdline</c>); null: empty.</summary>
+    public string? CommandLine { get; init; }
+
     /// <summary>The texts of the configuration files that define the databases of <c>db:id</c> USAs.</summary>
     public IReadOnlyList<string>? Definitions { get; init; }
 
     /// <summary>The date of the run (the header of some sequence formats); null = now.</summary>
     public DateTime? RunDate { get; init; }
+
+    /// <summary><c>-ossingle</c>: one file per sequence, named <c>name.extension</c> in lower case; null = false.</summary>
+    public bool? OutSingle { get; init; }
+
+    /// <summary><c>-osdirectory</c>: the directory of the files of <c>-ossingle</c>.</summary>
+    public string? OutDirectory { get; init; }
+
+    /// <summary><c>-osextension</c>: the extension of the files of <c>-ossingle</c> (default: the name of the output format).</summary>
+    public string? OutExtension { get; init; }
+
+    /// <summary>The directories (without trailing slash) that exist where the program runs; a file whose directory is not among them cannot be opened. Null: every directory exists.</summary>
+    public IReadOnlyCollection<string>? ExistingDirectories { get; init; }
 }
 
 /// <summary>
@@ -68,11 +86,23 @@ public static class EmbossExtractfeatProgram
             outName = um.Groups[2].Value;
         }
 
+        // ajSeqoutOpen (at the start of the run, by acdSetSeqout): -osdirectory is the directory of the output file, too
+        string outDir = EmbossOutPath.FixDirectory(r.OutDirectory);
+        bool outSingle = r.OutSingle ?? false;
+        string mainPath = outSingle ? outName : EmbossOutPath.Combine(outDir, outName);
+        if (!outSingle && !EmbossOutPath.DirectoryExists(r.ExistingDirectories, mainPath))
+        {
+            EmbossOutPath.OpenFailed(context, outName, outDir, r.OutSeq);
+            return EmbossSeqretPrograms.Died(context, "outseq");
+        }
+
         var outFormat = EmbossSeqWrite.Find(formatName);
         var output = new StringBuilder();
         var run = new Run(r, context, outFormat, formatName, output, r.RunDate ?? DateTime.Now, new EmbossRemoteSeq(r.Files, r.Definitions, context));
         run.Out.FileName = outName;
         run.Out.Program = "extractfeat";
+        run.Out.CommandLine = r.CommandLine ?? "";
+        run.Out.Setoutdb = r.OutDbName ?? "";
         while (EmbossSeqretPrograms.TryNext(seqall, context, out var seq))
         {
             // the features of the sequence (a copy), the ones that pass the filters
@@ -86,21 +116,33 @@ public static class EmbossExtractfeatProgram
             run.Extract(seq, table);
         }
 
-        EmbossSeqWrite.CloseSet(output, outFormat, run.Out, run.Count);
+        if (!run.Single)
+            EmbossSeqWrite.CloseSet(output, outFormat, run.Out, run.Count);
+        else if (outFormat is { Writer: "Bam" } && EmbossSeqWrite.FinishBam(run.Out) is { } bam)
+            run.Singles[run.LastSingle!] += bam;
         if (run.Written > 0 && outFormat is not null && EmbossSeqWrite.Footer(outFormat) is { Length: > 0 } footer)
-            output.Append(footer);                                  // seqCleanDasdna / seqCleanDasseq at the close of the file
+        {
+            // seqCleanDasdna / seqCleanDasseq at the close of the file that is open at the end of the run (with -ossingle only the last file has it)
+            if (run.LastSingle is not null)
+                run.Singles[run.LastSingle] += footer;
+            else if (!run.Single)
+                output.Append(footer);
+        }
 
         if (context.Fatal)
-            return new EmbossSeqretOutput(output.ToString(), "", run.Written, [.. context.Messages]) { Died = true };
-        if (run.Count == 0)
+            return new EmbossSeqretOutput(output.ToString(), "", run.Written, [.. context.Messages]) { Died = true, SingleFiles = run.Singles, SequenceFileName = mainPath };
+        if (run.Count == 0 && !run.Single)
             context.Warn($"No sequences written to output file '{outName}'");
-        return new EmbossSeqretOutput(output.ToString(), "", run.Written, [.. context.Messages]);
+        return new EmbossSeqretOutput(output.ToString(), "", run.Written, [.. context.Messages]) { SingleFiles = run.Singles, SequenceFileName = mainPath };
     }
 
     private sealed class Run(EmbossExtractfeatRequest r, EmbossFeatureReadContext context, EmbossSeqOutFormat? format, string formatName, StringBuilder output, DateTime date, EmbossRemoteSeq remote)
     {
         public int Written, Count;
         public readonly EmbossSeqWriteRun Out = new() { RunDate = date };
+        public readonly bool Single = r.OutSingle ?? false;
+        public readonly Dictionary<string, string> Singles = [];
+        public string? LastSingle;
         private bool _unknownReported;
 
         // extractfeat_FeatSeqExtract
@@ -189,8 +231,49 @@ public static class EmbossExtractfeatProgram
 
             if (!EmbossSeqWrite.IsPorted(format))
                 throw new NotSupportedException($"The sequence output format '{format.Name}' is not written by this port.");
-            if (!EmbossSeqWrite.Save(format, Out, name, desc, seq.Type, featstr))
-                EmbossSeqWrite.Write(output, format, name, desc, "", "", seq.Type, featstr, Count, date, null, run: Out);
+            if (format.Save)
+            {
+                // -ossingle: seqWriteListAppend writes the list at once, to a file that is not open (see seqret)
+                if (Single && EmbossSeqWrite.WritesToNullFileDies(format, Math.Max(featstr.Length, Out.Saved.Count == 0 ? 0 : Out.Saved.Max(x => x.Seq.Length))))
+                    throw new InvalidOperationException("A set format with -ossingle writes the saved list to a file that is not open (the reference program dies by a fault).");
+                EmbossSeqWrite.Save(format, Out, name, desc, seq.Type, featstr);
+            }
+            else
+            {
+                var target = Single ? new StringBuilder() : output;
+                if (format.Writer == "Debug")
+                {
+                    string ext = r.OutExtension ?? r.OutSeqFormat ?? "fasta";
+                    string dirName = r.OutDirectory ?? "";
+                    if (dirName.Length > 0 && !dirName.EndsWith('/'))
+                        dirName += "/";
+                    Out.Debug = new EmbossSeqDebugInfo
+                    {
+                        Usa = r.OutSeq, InputFormat = "", OutputFormat = formatName, Filename = Out.FileName, Directory = dirName, Entryname = "", Single = Single, Features = false, OutputType = "any",
+                        FileNameOpen = Single ? (name + "." + ext).ToLowerInvariant() : Out.FileName, Extension = ext,
+                    };
+                }
+
+                EmbossSeqWrite.Write(target, format, name, desc, "", "", seq.Type, featstr, Single ? 0 : Count, date, null, run: Out, headerCount: Count);
+                if (Single)
+                {
+                    string file = (name + "." + (r.OutExtension ?? r.OutSeqFormat ?? "fasta")).ToLowerInvariant();
+                    string dirFixed = EmbossOutPath.FixDirectory(r.OutDirectory);
+                    string path = EmbossOutPath.Combine(dirFixed, file);
+                    if (!EmbossOutPath.DirectoryExists(r.ExistingDirectories, path))
+                    {
+                        if (!EmbossOutPath.SingleOpenSurvives(format))
+                            throw new InvalidOperationException("The directory of a file of -ossingle does not exist: the library warns and the reference program dies by a segmentation fault.");
+                        EmbossOutPath.SingleOpenFailed(context, file, dirFixed);
+                    }
+                    else
+                    {
+                        LastSingle = path;
+                        Singles[LastSingle] = target.ToString();
+                    }
+                }
+            }
+
             Count++;
             Written++;
         }

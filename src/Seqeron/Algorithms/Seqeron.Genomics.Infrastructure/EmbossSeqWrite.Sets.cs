@@ -44,6 +44,9 @@ internal static partial class EmbossSeqWrite
             run.Count = count;
             WriteSaved(o, f, run);
         }
+
+        if (f is { Writer: "Bam" } && FinishBam(run) is { } bam)
+            o.Append(bam);
     }
 
     /// <summary>The feature format that a sequence format writes into its file (<c>ajFeattabOutNewCSF</c> of the writer).</summary>
@@ -595,7 +598,7 @@ internal static partial class EmbossSeqWrite
             checktot %= 10000;
         }
 
-        string type = run.OutType.Length > 0 ? run.OutType : seqs[0].Type;
+        string type = run.OutType.Length > 0 ? run.OutType : EmbossSequenceReader.IsNucleotide(seqs[0].Seq) ? "N" : "P";               // ajSeqType of the first sequence
         if (type.Length > 0 && type[0] == 'P')
         {
             o.Append("!!AA_MULTIPLE_ALIGNMENT 1.0\n\n");
