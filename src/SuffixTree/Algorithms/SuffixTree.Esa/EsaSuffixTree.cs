@@ -1,4 +1,3 @@
-using System.Runtime.InteropServices;
 using SuffixTree.Indexing;
 
 namespace SuffixTree.Esa;
@@ -13,8 +12,9 @@ namespace SuffixTree.Esa;
 /// </summary>
 /// <remarks>
 /// Lifetime: <see cref="Dispose"/> is idempotent; every member of a disposed tree throws <see cref="ObjectDisposedException"/> (before any argument check). Reads are safe for concurrent readers, and so is
-/// a <see cref="Dispose"/> that arrives while another thread is inside a call. For a tree over a container (work package 1b.8) every public member counts itself as a reader for the length of the call (a count per thread stripe),
-/// <see cref="Dispose"/> raises a flag and the pins of the navigation pack and the mapped container are released by whoever finds the tree disposed and no reader inside, so a call that was in flight when <see cref="Dispose"/> ran
+/// a <see cref="Dispose"/> that arrives while another thread is inside a call. For a tree over a container (work package 1b.8) every public member registers itself as a reader for the length of the call: since work package 1b.9g
+/// by a plain store of the tree's id into the cell of the calling thread (<see cref="ReaderCell"/>, no atomic operation and no fence on the path of a call), and <see cref="Dispose"/> raises a flag, runs a process-wide barrier
+/// and reads the cells (<see cref="ReaderGate{TSeams}"/>; the proof is in ADR-004 section 5a, "1b.9g"). The pins of the navigation pack and the mapped container are released by whoever finds the tree disposed and no reader inside, so a call that was in flight when <see cref="Dispose"/> ran
 /// completes with its answer, and a call that starts afterwards throws <see cref="ObjectDisposedException"/>; nothing reads the mapping after it was unmapped. For an in-memory tree (work package 1b.9b) there is nothing to wait for:
 /// <see cref="Dispose"/> only raises the flag and releases nothing that a reader uses (the arrays are managed memory, the pins of the navigation pack are released by the finalizer of the pack's pinned array when the tree is
 /// unreachable), so its members check the flag and take no count, and the same two statements hold. <see cref="Dispose"/> does not wait for the readers (a
@@ -31,8 +31,7 @@ public sealed partial class EsaSuffixTree : ISuffixTree, ISuffixTreeNavigation, 
     private readonly ITextSource _text;
     private readonly EsaStatistics _statistics;
     private int _disposed;
-    private readonly StripeCount[] _readers = new StripeCount[Stripes];
-    private int _released;
+    private readonly ReaderGate<ReaderGateSeams>? _gate;
     private string? _longestRepeat;
     private readonly External.SesaFile? _file;
     private readonly ITextSource? _guardedText;
@@ -54,6 +53,7 @@ public sealed partial class EsaSuffixTree : ISuffixTree, ISuffixTreeNavigation, 
         {
             _guardedText = new GuardedTextSource(this, _text);
             _guardedIndexText = new GuardedIndexText(this, _contract.Text);
+            _gate = new ReaderGate<ReaderGateSeams>(this, ReleaseResources);
         }
     }
 
@@ -119,8 +119,8 @@ public sealed partial class EsaSuffixTree : ISuffixTree, ISuffixTreeNavigation, 
     /// <summary>The container this tree reads in place, or null for a tree built in memory (1b.7f).</summary>
     internal External.SesaFile? File => _file;
 
-    /// <summary>The id that the calls of this tree carry in the reader cells of their threads (work package 1b.9g; tests-first stub: 0 until the protocol is implemented), or 0 for a tree built in memory.</summary>
-    internal long ReaderId => _disposed * 0L;
+    /// <summary>The id that the calls of this tree carry in the reader cells of their threads (work package 1b.9g), or 0 for a tree built in memory, whose calls are not registered.</summary>
+    internal long ReaderId => _gate?.Id ?? 0;
 
     // ------------------------------------------------------------------ lifetime
 
@@ -130,66 +130,46 @@ public sealed partial class EsaSuffixTree : ISuffixTree, ISuffixTreeNavigation, 
     /// </summary>
     public void Dispose()
     {
-        if (Interlocked.CompareExchange(ref _disposed, 1, 0) != 0) return;
+        if (_gate is not null)
+        {
+            _gate.Dispose();
+            return;
+        }
+
         // an in-memory tree releases nothing here: what a reader of it uses (the arrays, and the pins of the navigation pack, which go with the finalizer of the pack's pinned array) stays valid until the tree is unreachable
-        if (_file is not null) ReleaseWhenIdle();
+        Interlocked.CompareExchange(ref _disposed, 1, 0);
     }
 
     /// <summary>
-    /// Counts a call as a reader in the stripe of its thread, or throws <see cref="ObjectDisposedException"/> when the tree is disposed. The count is raised first and the flag read after it, and <see cref="Dispose"/> sets the
-    /// flag first and reads the counts after it (every step is a full fence), so a call is either seen by <see cref="Dispose"/> or sees the flag and goes away before it has touched anything. The count is striped (one cache line per
-    /// stripe) so that readers on different threads do not write one line: the single count of the first version cost about 100 ns per call with four readers on one tree.
+    /// Registers a call as a reader, or throws <see cref="ObjectDisposedException"/> when the tree is disposed. A tree over a container goes through its <see cref="ReaderGate{TSeams}"/>: the id of the tree is stored in the cell of the
+    /// calling thread and the flag is read after it, and <see cref="Dispose"/> raises the flag, runs a process-wide barrier and reads the cells, so a call is either seen by the releaser or sees the flag and goes away before it has touched
+    /// anything (ADR-004 section 5a, "1b.9g"); the path of a call has no atomic operation and no fence. An in-memory tree takes no entry: <see cref="Dispose"/> releases nothing that a call in flight uses (work package 1b.9b), so the call needs the
+    /// flag and nothing else; the scope still holds the tree, which keeps it reachable for the length of the call.
     /// </summary>
     private ReadScope Enter()
     {
-        if (_file is null)
+        if (_gate is null)
         {
-            // an in-memory tree takes no count: Dispose releases nothing that a call in flight uses (work package 1b.9b), so the call needs the flag and nothing else; the scope still holds the tree, which keeps it reachable for the length of the call
             ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
-            return new ReadScope(this, -1);
+            return new ReadScope(this, null);
         }
-        int stripe = Environment.CurrentManagedThreadId & (Stripes - 1);
-        Interlocked.Increment(ref _readers[stripe].Count);
-        if (Volatile.Read(ref _disposed) != 0)
-        {
-            Leave(stripe);
-            ObjectDisposedException.ThrowIf(true, this);
-        }
-        return new ReadScope(this, stripe);
+
+        return new ReadScope(this, _gate.Enter());
     }
 
-    private void Leave(int stripe)
+    /// <summary>What the last reader out (or <see cref="Dispose"/>) runs once, for a tree over a container: the pins of the navigation pack and the mapping.</summary>
+    private void ReleaseResources()
     {
-        Interlocked.Decrement(ref _readers[stripe].Count);
-        if (Volatile.Read(ref _disposed) != 0) ReleaseWhenIdle();
-    }
-
-    /// <summary>Releases the pack and the container once, when the tree is disposed and no call is inside (called by <see cref="Dispose"/> and by the last call that leaves).</summary>
-    private void ReleaseWhenIdle()
-    {
-        for (int i = 0; i < Stripes; i++)
-            if (Volatile.Read(ref _readers[i].Count) != 0) return;
-        if (Interlocked.CompareExchange(ref _released, 1, 0) != 0) return;
         if (_index.NavigationBuilt) _index.Navigation.Dispose();
         _file?.Dispose();
     }
 
-    private const int Stripes = 8;
-
-    /// <summary>One reader count on a cache line of its own (the elements of an array of these are 64 bytes apart).</summary>
-    [StructLayout(LayoutKind.Explicit, Size = 64)]
-    private struct StripeCount
-    {
-        [FieldOffset(0)]
-        internal int Count;
-    }
-
-    /// <summary>The count of one call (a using declaration at the top of every public member).</summary>
-    private readonly struct ReadScope(EsaSuffixTree owner, int stripe) : IDisposable
+    /// <summary>The registration of one call (a using declaration at the top of every public member): the cell of the thread for a tree over a container, null for an in-memory tree.</summary>
+    private readonly struct ReadScope(EsaSuffixTree owner, ReaderCell? cell) : IDisposable
     {
         public void Dispose()
         {
-            if (stripe >= 0) owner.Leave(stripe);
+            if (cell is not null) owner._gate!.Leave(cell);
         }
     }
 
