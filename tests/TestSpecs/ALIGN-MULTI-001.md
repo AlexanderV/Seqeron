@@ -897,3 +897,14 @@ Tests (`Seqeron.Genomics.Tests`, against the installed Debian `mafft` 7.505-1): 
 | MQ3 | `NegativeDistances_ShiftTheMatrixOfEveryStep` | 1 | `--globalpair --fmodel` on six short DNA sequences keeps the sequences apart, like the program | hand run of mafft 7.505 |
 | MQ4 | `Threads_DoNotChangeTheAlignment` | 30 | `Threads = 4` and `0` give the same rows | oracle (`-thread` rows) |
 | MQ5 | `Contracts` / `Strategy_Text_NamesThePairLibrary` | - | the iterative refinement with a pair library and `--weighti 0` are refused; letters outside the alphabet; cancellation; `Quiet`; the strategy texts of G / L / E | contract |
+
+## Audit A2-19c part 3 (B09 F286): MAFFT 7.505, stage 5 (`--maxiterate` with `--globalpair` / `--localpair` / `--genafpair`, G-INS-i / L-INS-i / E-INS-i)
+
+Tests (`Seqeron.Genomics.Tests`, against the installed Debian `mafft` 7.505-1): `SequenceAligner_MafftPairLibraryIterative_Tests` x63 (`mafft_pairlib_iterative_oracle.tsv.gz`, `scripts/alignment/generate_mafft_pairlib_iterative_oracle.py`: **13 620 sets in 60 strategy groups, at least 210 each**; one test per group compares the rows and the standard error (SHA-256 of the whole text, the full text for every 25th set) with the program: for each of G-INS-i, L-INS-i, E-INS-i `--maxiterate` 1000 / 1 / 2 / 5, the library's gap options, `--op` / `--ep`, `--weighti`, `--bl`, `--jtt`, `--tm`, `--kappa`, `--fmodel`, `--nwildcard`, `--leavegappyregion`, `--unweight`, `--reorder`, `--thread 4 --threadit 0` (rows only), `--nuc`, `--amino`, two sequences), the shape test, the refusal of threads in the iterative step, the strategy texts.
+
+| ID | Test | Sets | Behaviour | Source |
+|----|------|------|-----------|--------|
+| MR1 | `RowsAndStandardError_EqualMafft(<strategy>)` | 13 620 | rows and standard error equal the program | oracle |
+| MR2 | `Oracle_HasEveryStrategy` | - | >= 9 000 sets, every group >= 200, >= 60 groups, >= 3 000 sets per pair library, >= 10 refusals | shape |
+| MR3 | threads refusal | - | `Threads > 0` with an iteration and a pair library: `NotSupportedException`; `ThreadsIterate = 0` equals the single-thread run | proof of non-determinism (F284) |
+| MR4 | strategy text | - | "G-INS-i (Suitable for sequences of similar lengths, very slow)" / "L-INS-i ..." / "E-INS-i ..." with "(<N)" | program text |
