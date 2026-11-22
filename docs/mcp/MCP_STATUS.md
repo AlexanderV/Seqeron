@@ -1,6 +1,6 @@
 # MCP Completion — Source of Truth & Campaign Ledger
 
-> Reality-based ledger of the 595 MCP tools across 11 servers. Campaign COMPLETE (2026-07-01):
+> Reality-based ledger of the 597 MCP tools across 11 servers. Campaign COMPLETE (2026-07-01):
 > every tool has a gold-standard binding (`[McpServerTool(Name/Title/ReadOnly)]` + `[Description]`,
 > structured record, input validation, real `Seqeron.Genomics` delegation), a Schema+Binding NUnit
 > test, and `{tool}.md` + `{tool}.mcp.json` docs. Supersedes `docs/mcp-plan.md` / `docs/mcp-checklist.md` (v4).
@@ -9,9 +9,9 @@
 
 | Metric | Done | Total |
 |---|---:|---:|
-| Gold-standard binding | 595 | 595 |
-| Schema+Binding tests | 595 | 595 |
-| Docs (.md + .mcp.json) | 595 | 595 |
+| Gold-standard binding | 597 | 597 |
+| Schema+Binding tests | 597 | 597 |
+| Docs (.md + .mcp.json) | 597 | 597 |
 
 ## Per-server summary
 
@@ -21,7 +21,7 @@
 | Sequence | Seqeron.Mcp.Sequence | 35 | 35/35 | 35/35 | 35/35 | ✅ done |
 | Parsers | Seqeron.Mcp.Parsers | 41 | 41/41 | 41/41 | 41/41 | ✅ done |
 | Alignment | Seqeron.Mcp.Alignment | 83 | 83/83 | 83/83 | 83/83 | ✅ done |
-| Analysis | Seqeron.Mcp.Analysis | 180 | 180/180 | 180/180 | 180/180 | ✅ done |
+| Analysis | Seqeron.Mcp.Analysis | 182 | 182/182 | 182/182 | 182/182 | ✅ done |
 | Annotation | Seqeron.Mcp.Annotation | 97 | 97/97 | 97/97 | 97/97 | ✅ done |
 | Chromosome | Seqeron.Mcp.Chromosome | 32 | 32/32 | 32/32 | 32/32 | ✅ done |
 | Metagenomics | Seqeron.Mcp.Metagenomics | 19 | 19/19 | 19/19 | 19/19 | ✅ done |
@@ -228,7 +228,7 @@
 | 82 | `parse_big_alignment` | ☑ | ☑ | ☑ |
 | 83 | `tcoffee_evaluate` | ☑ | ☑ | ☑ |
 
-### Analysis (Seqeron.Mcp.Analysis) — 180 tools
+### Analysis (Seqeron.Mcp.Analysis) — 182 tools
 
 | # | tool | B | T | D |
 |---:|---|:--:|:--:|:--:|
@@ -412,6 +412,8 @@
 | 178 | `seqret` | ☑ | ☑ | ☑ |
 | 179 | `maskfeat` | ☑ | ☑ | ☑ |
 | 180 | `descseq` | ☑ | ☑ | ☑ |
+| 181 | `union` | ☑ | ☑ | ☑ |
+| 182 | `seqretsplit` | ☑ | ☑ | ☑ |
 
 ### Annotation (Seqeron.Mcp.Annotation) — 97 tools
 

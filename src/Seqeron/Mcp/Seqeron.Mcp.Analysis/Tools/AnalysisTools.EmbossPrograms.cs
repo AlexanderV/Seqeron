@@ -484,6 +484,72 @@ public partial class AnalysisTools
         }
     }
 
+    [McpServerTool(Name = "union", Title = "Alignment — EMBOSS union (join sequences into one)", ReadOnly = true)]
+    [Description("EMBOSS 6.6.0 union: the sequences of a file (any input format of seqret) are joined into ONE sequence that carries the name, description, accession and type of the first; with findOverlap the bases by which a sequence repeats the end of the one before (the longest end of the previous sequence that is the start of this one) are joined once, and with overlapFile the overlap of every sequence is returned (one number per sequence, the first is 0). The result is written in FASTA or in the output format of outputFormat (fasta unknown pearson, gcg gcg8, nbrf pir, codata, strider, staden, text plain raw, ig, gde, fitch, acedb, mase). The features (-feature, -source) are not joined by this tool yet. Equals the installed program on 200 runs (fragments that overlap by random lengths, the reader inputs, damaged files, every output format, the format-for-sequence-type errors). A5-8c3h, B09 F253.")]
+    public static UnionToolResult Union(
+        [Description("The text of the sequence file (any input format of seqret), or a sequence as letters.")] string sequence,
+        [Description("The input format (-sformat); default: the program finds the format.")] string? sequenceFormat = null,
+        [Description("Look for the overlaps of consecutive sequences when joining (-findoverlap).")] bool findOverlap = false,
+        [Description("Return the overlap of every sequence (-overlapfile).")] bool overlapFile = false,
+        [Description("The sequence output format (-osformat); default fasta.")] string outputFormat = "fasta",
+        [Description("Sequence input qualifiers as typed after the sequence on the command line: -slower1 -supper1 -snucleotide1 -sprotein1.")] string? qualifiers = null,
+        CancellationToken cancellationToken = default,
+        [Description("More files by name (file name -> text) that sequence may name with a 'format::' prefix.")] IReadOnlyDictionary<string, string>? files = null)
+    {
+        if (string.IsNullOrWhiteSpace(sequence))
+            throw new ArgumentException("The sequence cannot be empty", nameof(sequence));
+        cancellationToken.ThrowIfCancellationRequested();
+        string file = "sequence.dat";
+        var q = global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.Parse(qualifiers) with { Format = sequenceFormat };
+        string spec = sequence.TrimStart().StartsWith("asis::", StringComparison.OrdinalIgnoreCase) ? sequence.Trim() : file;
+        try
+        {
+            var all = new Dictionary<string, string>(files ?? new Dictionary<string, string>()) { [file] = sequence };
+            var o = EmbossUnionProgram.Union(new EmbossUnionRequest(spec, all, q, findOverlap, overlapFile, "stdout", outputFormat, DateTime.Now));
+            if (o.Died)
+                throw new ArgumentException(string.Join("; ", o.Messages.Where(m => m.Length > 0)), nameof(sequence));
+            return new UnionToolResult(o.SequenceText, o.OverlapText, [.. o.Messages]);
+        }
+        catch (Exception e) when (e is NotSupportedException or InvalidOperationException)
+        {
+            throw new ArgumentException(e.Message, nameof(sequence));
+        }
+    }
+
+    [McpServerTool(Name = "seqretsplit", Title = "Alignment — EMBOSS seqretsplit (write every sequence to its own file)", ReadOnly = true)]
+    [Description("EMBOSS 6.6.0 seqretsplit: the sequences of a file (any input format of seqret) are written each to a file of its own, name.extension in lower case (the extension is the output format as typed, or outputExtension; outputDirectory is the directory), in FASTA or in the output format of outputFormat (the formats of the union tool). A sequence whose name an earlier sequence used (in any case) gets the name name.002, name.003 ... and the library warns 'Duplicate name ... changed to ...'. With outputSingle false the sequences go to one file (sequenceText), as seqret writes them. Equals the installed program on 200 runs (duplicate names in any case, the reader inputs, damaged files, every output format, directories and extensions). A5-8c3h, B09 F254.")]
+    public static SeqretsplitToolResult Seqretsplit(
+        [Description("The text of the sequence file (any input format of seqret), or a sequence as letters.")] string sequence,
+        [Description("The input format (-sformat); default: the program finds the format.")] string? sequenceFormat = null,
+        [Description("Read one sequence and stop (-firstonly).")] bool firstOnly = false,
+        [Description("The sequence output format (-osformat); default fasta.")] string outputFormat = "fasta",
+        [Description("Write every sequence to a file of its own (-ossingle2; the default of the program).")] bool outputSingle = true,
+        [Description("The directory of the files (-osdirectory2).")] string? outputDirectory = null,
+        [Description("The extension of the files (-osextension2); default: the output format as typed.")] string? outputExtension = null,
+        [Description("Sequence input qualifiers as typed after the sequence on the command line: -slower1 -supper1 -snucleotide1 -sprotein1.")] string? qualifiers = null,
+        CancellationToken cancellationToken = default,
+        [Description("More files by name (file name -> text) that sequence may name with a 'format::' prefix.")] IReadOnlyDictionary<string, string>? files = null)
+    {
+        if (string.IsNullOrWhiteSpace(sequence))
+            throw new ArgumentException("The sequence cannot be empty", nameof(sequence));
+        cancellationToken.ThrowIfCancellationRequested();
+        string file = "sequence.dat";
+        var q = global::Seqeron.Genomics.Infrastructure.EmbossSequenceQualifiers.Parse(qualifiers) with { Format = sequenceFormat };
+        string spec = sequence.TrimStart().StartsWith("asis::", StringComparison.OrdinalIgnoreCase) ? sequence.Trim() : file;
+        try
+        {
+            var all = new Dictionary<string, string>(files ?? new Dictionary<string, string>()) { [file] = sequence };
+            var o = EmbossSeqretPrograms.Seqretsplit(new EmbossSeqretRequest(spec, all, q, false, firstOnly, "stdout", outputFormat, null, null, DateTime.Now) { OutSingle = outputSingle, OutDirectory = outputDirectory, OutExtension = outputExtension });
+            if (o.Died)
+                throw new ArgumentException(string.Join("; ", o.Messages.Where(m => m.Length > 0)), nameof(sequence));
+            return new SeqretsplitToolResult(o.SequenceText, o.SingleFiles, o.Sequences, [.. o.Messages]);
+        }
+        catch (Exception e) when (e is NotSupportedException or InvalidOperationException)
+        {
+            throw new ArgumentException(e.Message, nameof(sequence));
+        }
+    }
+
     [McpServerTool(Name = "descseq", Title = "Alignment — EMBOSS descseq (alter the name or description of a sequence)", ReadOnly = true)]
     [Description("EMBOSS 6.6.0 descseq: the name and / or the description of the FIRST sequence of a file (any input format of seqret) is replaced by name / description, or appended to the existing ones (append), and the sequence is returned in FASTA (the header is the name, the sequence version or accession, and the description). Equals the installed program on 1 000 runs (19 input formats, names and descriptions with blanks, tabs and punctuation, damaged files). A5-8c3g, B09 F250.")]
     public static DescseqToolResult Descseq(

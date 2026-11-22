@@ -56,6 +56,12 @@ public record DiffseqDifferenceItem(int Start1, int End1, int Length1, int Start
 /// <summary>Result of <c>seqret</c>: the text of the sequence output file, the text of the feature output file (empty when no feature was written), the number of sequences written, the messages the library printed and, with outputSingle, the file of every sequence by path (directory/name.extension).</summary>
 public record SeqretToolResult(string SequenceText, string FeatureText, int Sequences, string[] Messages, IReadOnlyDictionary<string, string>? SingleFiles = null);
 
+/// <summary>Result of <c>union</c>: the text of the sequence output file, the overlap of every sequence (empty without overlapFile) and the messages the library printed.</summary>
+public record UnionToolResult(string SequenceText, string OverlapText, string[] Messages);
+
+/// <summary>Result of <c>seqretsplit</c>: the text of the sequence output file (empty when every sequence has a file of its own), the file of every sequence by path, the number of sequences written and the messages the library printed.</summary>
+public record SeqretsplitToolResult(string SequenceText, IReadOnlyDictionary<string, string> SingleFiles, int Sequences, string[] Messages);
+
 /// <summary>Result of <c>maskfeat</c>: the text of the sequence output file (FASTA), the number of sequences written and the messages the library printed.</summary>
 public record MaskfeatToolResult(string SequenceText, int Sequences, string[] Messages);
 

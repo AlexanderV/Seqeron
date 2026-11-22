@@ -1715,6 +1715,13 @@
     "sourceLink": ""
   },
   {
+    "tool": "seqretsplit",
+    "server": "Analysis",
+    "methodId": "EmbossSeqretPrograms.Seqretsplit",
+    "docPath": "docs/mcp/tools/analysis/seqretsplit.md",
+    "sourceLink": ""
+  },
+  {
     "tool": "shared_motifs_significance",
     "server": "Analysis",
     "methodId": "MotifFinder.FindSharedMotifs",
@@ -1804,6 +1811,13 @@
     "methodId": "RnaSecondaryStructure.GetTerminalMismatchEnergy",
     "docPath": "docs/mcp/tools/analysis/terminal_mismatch_energy.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L639"
+  },
+  {
+    "tool": "union",
+    "server": "Analysis",
+    "methodId": "EmbossUnionProgram.Union",
+    "docPath": "docs/mcp/tools/analysis/union.md",
+    "sourceLink": ""
   },
   {
     "tool": "unique_kmers",

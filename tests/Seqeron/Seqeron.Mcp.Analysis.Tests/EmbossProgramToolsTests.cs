@@ -235,6 +235,30 @@ public class EmbossProgramToolsTests
     }
 
     [Test]
+    public void Union_JoinsTheSequences_AsTheProgram()
+    {
+        // union 6.6.0 (A5-8c3h, F253)
+        const string fa = ">f1\nACGTACGTAC\n>f2\nCGTACGTACGGG\n>f3\nGGGTTTAAA\n";
+        var r = AnalysisTools.Union(fa, findOverlap: true, overlapFile: true);
+        Assert.That(r.SequenceText, Is.EqualTo(">f1\nACGTACGTACGGGTTTAAA\n"));
+        Assert.That(r.OverlapText, Is.EqualTo("0\n9\n3\n"));
+        Assert.That(AnalysisTools.Union(fa).SequenceText, Is.EqualTo(">f1\nACGTACGTACCGTACGTACGGGGGGTTTAAA\n"));
+        Assert.That(() => AnalysisTools.Union(" "), Throws.ArgumentException);
+    }
+
+    [Test]
+    public void Seqretsplit_WritesOneFilePerSequence_AsTheProgram()
+    {
+        // seqretsplit 6.6.0 (A5-8c3h, F254)
+        var r = AnalysisTools.Seqretsplit(">a\nACGT\n>A\nGG\n>b\nTT\n");
+        Assert.That(r.SingleFiles.Keys, Is.EquivalentTo(new[] { "a.fasta", "a.002.fasta", "b.fasta" }));
+        Assert.That(r.SingleFiles["a.002.fasta"], Is.EqualTo(">A.002\nGG\n"));
+        Assert.That(r.Messages, Does.Contain("Warning: Duplicate name 'A' changed to 'A.002'"));
+        Assert.That(AnalysisTools.Seqretsplit(">a\nACGT\n>b\nTT\n", outputSingle: false).SequenceText, Is.EqualTo(">a\nACGT\n>b\nTT\n"));
+        Assert.That(() => AnalysisTools.Seqretsplit(" "), Throws.ArgumentException);
+    }
+
+    [Test]
     public void Diffseq_FeaturesFromSeparateFiles_AsTheProgram()
     {
         // diffseq 6.6.0 a.fa b.fa -wordsize 5 -ufo1 f1.gff -ufo2 swiss::f2.dat (A5-8c3e, F241): the features of the sequences come from the files, whatever their format

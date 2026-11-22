@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "union",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "EmbossUnionProgram.Union",
+  "docRef": "Seqeron.Genomics.Analysis/EmbossUnionProgram.cs",
+  "description": "EMBOSS 6.6.0 union: the sequences of a file (any input format of seqret) are joined into ONE sequence that carries the name, description, accession and type of the first; with findOverlap the bases by which a sequence repeats the end of the one before (the longest end of the previous sequence that is the start of this one) are joined once, and with overlapFile the overlap of every sequence is returned (one number per sequence, the first is 0). The result is written in FASTA or in the output format of outputFormat (fasta unknown pearson, gcg gcg8, nbrf pir, codata, strider, staden, text plain raw, ig, gde, fitch, acedb, mase). The features (-feature, -source) are not joined by this tool yet. Equals the installed program on 200 runs (fragments that overlap by random lengths, the reader inputs, damaged files, every output format, the format-for-sequence-type errors). A5-8c3h, B09 F253.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "The text of the sequence file (any input format of seqret), or a sequence as letters."
+      },
+      "sequenceFormat": {
+        "type": "string",
+        "description": "The input format (-sformat); default: the program finds the format."
+      },
+      "findOverlap": {
+        "type": "boolean",
+        "description": "Look for the overlaps of consecutive sequences when joining (-findoverlap).",
+        "default": false
+      },
+      "overlapFile": {
+        "type": "boolean",
+        "description": "Return the overlap of every sequence (-overlapfile).",
+        "default": false
+      },
+      "outputFormat": {
+        "type": "string",
+        "description": "The sequence output format (-osformat); default fasta.",
+        "default": "fasta"
+      },
+      "qualifiers": {
+        "type": "string",
+        "description": "Sequence input qualifiers as typed after the sequence on the command line: -slower1 -supper1 -snucleotide1 -sprotein1."
+      },
+      "files": {
+        "type": "object",
+        "description": "More files by name (file name -> text) that sequence may name with a 'format::' prefix."
+      }
+    },
+    "required": [
+      "sequence"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "sequenceText": {
+        "type": "string",
+        "description": "The text of the sequence output file."
+      },
+      "overlapText": {
+        "type": "string",
+        "description": "The overlap of every sequence, one number per line (empty without overlapFile)."
+      },
+      "messages": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "What the library printed on its error stream (Warning: ..., Error: ...), in order."
+      }
+    },
+    "required": [
+      "sequenceText",
+      "overlapText",
+      "messages"
+    ]
+  },
+  "errors": [
+    {
+      "code": "InvalidParams",
+      "message": "Invalid arguments (an empty sequence, a text no sequence reader reads, an input of a binary format this port does not read, an output format this port does not write)."
+    }
+  ],
+  "examples": [
+    {
+      "name": "Join overlapping fragments",
+      "input": {
+        "sequence": ">f1\nACGTACGTAC\n>f2\nCGTACGTACGGG\n>f3\nGGGTTTAAA\n",
+        "findOverlap": true,
+        "overlapFile": true
+      },
+      "output": {
+        "sequenceText": ">f1\nACGTACGTACGGGTTTAAA\n",
+        "overlapText": "0\n9\n3\n",
+        "messages": []
+      }
+    }
+  ]
+}

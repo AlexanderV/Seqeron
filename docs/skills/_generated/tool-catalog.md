@@ -92,7 +92,7 @@
 | `write_big_alignment` | `AlignmentCoordinateFormats.WriteBigBed / WriteBigMaf / WriteBigPsl` | [doc](../../mcp/tools/alignment/write_big_alignment.md) |
 | `write_coordinate_alignment` | `AlignmentCoordinateFormats.Write` | [doc](../../mcp/tools/alignment/write_coordinate_alignment.md) |
 
-## Analysis (180 tools)
+## Analysis (182 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -258,6 +258,7 @@
 | `scan_with_pwm_both_strands` | `MotifFinder.ScanWithPwmBothStrands` | [doc](../../mcp/tools/analysis/scan_with_pwm_both_strands.md) |
 | `seqmatchall` | `GenomicAnalyzer.SeqMatchAll` | [doc](../../mcp/tools/analysis/seqmatchall.md) |
 | `seqret` | `EmbossSeqretPrograms.Seqret` | [doc](../../mcp/tools/analysis/seqret.md) |
+| `seqretsplit` | `EmbossSeqretPrograms.Seqretsplit` | [doc](../../mcp/tools/analysis/seqretsplit.md) |
 | `shared_motifs_significance` | `MotifFinder.FindSharedMotifs` | [doc](../../mcp/tools/analysis/shared_motifs_significance.md) |
 | `show_aligns` | `MummerShowAligns.Run` | [doc](../../mcp/tools/analysis/show_aligns.md) |
 | `show_coords` | `MummerShowCoords.Run` | [doc](../../mcp/tools/analysis/show_coords.md) |
@@ -271,6 +272,7 @@
 | `tandem_repeat_bernoulli_statistics` | `RepeatFinder.ComputeBernoulliStatistics` | [doc](../../mcp/tools/analysis/tandem_repeat_bernoulli_statistics.md) |
 | `tandem_repeat_summary` | `RepeatFinder.GetTandemRepeatSummary` | [doc](../../mcp/tools/analysis/tandem_repeat_summary.md) |
 | `terminal_mismatch_energy` | `RnaSecondaryStructure.GetTerminalMismatchEnergy` | [doc](../../mcp/tools/analysis/terminal_mismatch_energy.md) |
+| `union` | `EmbossUnionProgram.Union` | [doc](../../mcp/tools/analysis/union.md) |
 | `unique_kmers` | `KmerAnalyzer.FindUniqueKmers` | [doc](../../mcp/tools/analysis/unique_kmers.md) |
 | `validate_dot_bracket` | `RnaSecondaryStructure.ValidateDotBracket` | [doc](../../mcp/tools/analysis/validate_dot_bracket.md) |
 | `windowed_complexity` | `SequenceComplexity.CalculateWindowedComplexity` | [doc](../../mcp/tools/analysis/windowed_complexity.md) |

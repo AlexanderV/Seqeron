@@ -168,6 +168,7 @@
 | `scan_with_pwm_both_strands` | Analysis | `MotifFinder.ScanWithPwmBothStrands` | [doc](../../../../docs/mcp/tools/analysis/scan_with_pwm_both_strands.md) |
 | `seqmatchall` | Analysis | `GenomicAnalyzer.SeqMatchAll` | [doc](../../../../docs/mcp/tools/analysis/seqmatchall.md) |
 | `seqret` | Analysis | `EmbossSeqretPrograms.Seqret` | [doc](../../../../docs/mcp/tools/analysis/seqret.md) |
+| `seqretsplit` | Analysis | `EmbossSeqretPrograms.Seqretsplit` | [doc](../../../../docs/mcp/tools/analysis/seqretsplit.md) |
 | `shared_motifs_significance` | Analysis | `MotifFinder.FindSharedMotifs` | [doc](../../../../docs/mcp/tools/analysis/shared_motifs_significance.md) |
 | `show_aligns` | Analysis | `MummerShowAligns.Run` | [doc](../../../../docs/mcp/tools/analysis/show_aligns.md) |
 | `show_coords` | Analysis | `MummerShowCoords.Run` | [doc](../../../../docs/mcp/tools/analysis/show_coords.md) |
@@ -181,6 +182,7 @@
 | `tandem_repeat_bernoulli_statistics` | Analysis | `RepeatFinder.ComputeBernoulliStatistics` | [doc](../../../../docs/mcp/tools/analysis/tandem_repeat_bernoulli_statistics.md) |
 | `tandem_repeat_summary` | Analysis | `RepeatFinder.GetTandemRepeatSummary` | [doc](../../../../docs/mcp/tools/analysis/tandem_repeat_summary.md) |
 | `terminal_mismatch_energy` | Analysis | `RnaSecondaryStructure.GetTerminalMismatchEnergy` | [doc](../../../../docs/mcp/tools/analysis/terminal_mismatch_energy.md) |
+| `union` | Analysis | `EmbossUnionProgram.Union` | [doc](../../../../docs/mcp/tools/analysis/union.md) |
 | `unique_kmers` | Analysis | `KmerAnalyzer.FindUniqueKmers` | [doc](../../../../docs/mcp/tools/analysis/unique_kmers.md) |
 | `validate_dot_bracket` | Analysis | `RnaSecondaryStructure.ValidateDotBracket` | [doc](../../../../docs/mcp/tools/analysis/validate_dot_bracket.md) |
 | `windowed_complexity` | Analysis | `SequenceComplexity.CalculateWindowedComplexity` | [doc](../../../../docs/mcp/tools/analysis/windowed_complexity.md) |
