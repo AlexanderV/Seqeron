@@ -257,3 +257,11 @@ Matrix-scored `LocalAlign`/`LocalAlignAffine` (BLOSUM62/PAM250/EDNAFULL, fractio
 | A5-8c3e | `EmbossFeatureReaders_Oracle_Tests.FeatureFileOfASequence_EqualsSeqretDebug_AllRows` | 1 200 `seqret -feature -ufo1` runs (`featread_ufo_oracle.jsonl.gz`) | done |
 | A5-8c3e | `EmbossDiffseq_Oracle_Tests.Diffseq_FeatureFilesOfTheSequences_EqualTheProgram_AllRows` | 450 `diffseq -ufo1 / -ufo2` runs (`diffseq_ufo_oracle.jsonl.gz`, `generate_diffseq_ufo_oracle.py`) | done |
 | A5-8c3e | `EmbossFeatureReaders_Oracle_Tests.Featcopy_WritesEveryFormat_EqualsTheProgram_AllRows`, MCP `EmbossProgramToolsTests.Featcopy_...`, `Diffseq_FeaturesFromSeparateFiles_...`, `ToolRegistrationContractTests`, `ToolDocsContractTests` | 1 800 `featcopy` output-format runs (`featwrite_oracle.jsonl.gz`) | done |
+
+## Audit A5-8c3h (B09 F255 - F256, WP58): USA forms of the sequence input and sequence databases
+
+| Item | Tests | Oracle | Status |
+|---|---|---|---|
+| A5-8c3h (2d) | `EmbossUsa_Oracle_Tests.UsaForms_EqualSeqret_AllRows` | 1 500 `seqret -auto [-feature] -sequence SPEC ...` runs (`usa_oracle.jsonl.gz`, `generate_usa_oracle.py`): `[b:e:r]` ranges, `:b:e` / `:b..e:r`, `format::`, `@list` / `list::` list files, `file:id` / `file:field:value` / `file{a\|b}` / `%offset` queries, `-sbegin1 -send1 -sreverse1 -sid1 -sdbname1 -squick1 -iquery1 -ioffset1`; sequences, features, messages byte for byte (27 refused with proof) | done |
+| A5-8c3h (2d) | MCP `EmbossProgramToolsTests.Seqret_ReadsTheUsaForms_AsTheProgram`, `ToolDocsContractTests`, `ToolRegistrationContractTests` | ranges, strands, list files, queries and `-sid` on the texts of the installed program | done |
+| A5-8c3h (3) | `EmbossUsa_Oracle_Tests.SequenceDatabases_EqualSeqret_AllRows` | 600 `EMBOSSRC=work seqret ...` runs (`usa_db_oracle.jsonl.gz`, `generate_db_oracle.py`): databases of a configuration file with the method `direct`, `db:id` / `db-field:value` / `db:{a\|b}` / wildcard queries (14 refused with proof) | done |

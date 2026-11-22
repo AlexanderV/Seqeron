@@ -29,8 +29,9 @@ EMBOSS 6.6.0 union: the sequences of a file (any input format of seqret) are joi
 | `findOverlap` | boolean | No | Look for the overlaps of consecutive sequences when joining (-findoverlap). (default: false) |
 | `overlapFile` | boolean | No | Return the overlap of every sequence (-overlapfile). (default: false) |
 | `outputFormat` | string | No | The sequence output format (-osformat); default fasta. (default: fasta) |
-| `qualifiers` | string | No | Sequence input qualifiers as typed after the sequence on the command line: -slower1 -supper1 -snucleotide1 -sprotein1. |
+| `qualifiers` | string | No | Sequence input qualifiers as typed after the sequence on the command line: -sbegin1 -send1 -sreverse1, -slower1 -supper1 -snucleotide1 -sprotein1 -scircular1, -sformat1 F, -sid1 name, -sdbname1 db, -squick1, -iquery1 query, -ioffset1 bytes. |
 | `files` | object | No | More files by name (file name -> text) that sequence may name with a 'format::' prefix. |
+| `sequenceValue` | string | No | The USA of the sequence input (-sequence) as the program reads it, instead of the file the text is put in: [format::]file[begin:end:r] (file = the name of an entry of files; the text of sequence is the file 'sequence.dat'), file:id / file:field:query / file{a\|b} (id, acc, sv, gi, des, key, org; wildcards * and ?), @list / list::list (a list file of files; # comments; every entry has its own range and format), asis::SEQUENCE; the range qualifiers -sbegin1 -send1 -sreverse1 of qualifiers are applied to the sequences and to their features. |
 
 ## Output Schema
 

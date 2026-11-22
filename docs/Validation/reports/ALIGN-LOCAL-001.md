@@ -170,4 +170,6 @@ MCP `water_align` (A3-17). The "at least 90 % reaches the textbook optimum" tole
 - **Audit A5-8c3h (F251, WP57):** the sequence readers of phylip, phylipnon, nexus / paup, mega, selex, stockholm / pfam, jackknifer, hennig86, experiment, ace / consed, pdb, pdbseq, pdbnuc and pdbnucseq: 3 400 / 3 400 oracle runs equal (the runs on which the reference reads freed memory, overruns an array, loops or dies are refused).
 - **Audit A5-8c3h (F252, WP57):** the sequence writers of gcg, nbrf, codata, strider, staden, text, ig, iguspto, gde, fitch, acedb, mase and the `-osformat` / `-ossingle` / `-osdirectory` / `-osextension` options of `seqret`: 3 800 / 3 800 oracle runs equal.
 - **Audit A5-8c3h (F253, F254, WP57):** `union` and `seqretsplit` (MCP `union`, `seqretsplit`): 200 / 200 oracle runs equal each.
+- **Audit A5-8c3h (F255, WP58):** the USA forms of the sequence input (ranges, list files, queries on files, `-sbegin` / `-send` / `-sreverse` on the output and its features, `-sid`, `-sdbname`, `-iquery`, `-ioffset`, `-squick`) of seqret, seqretsplit, union, maskfeat and descseq: 1 500 / 1 500 oracle runs equal (27 refused with proof); MCP `sequenceValue`.
+- **Audit A5-8c3h (F256, WP58):** the sequence databases of an EMBOSS configuration file (`DBNAME`, method `direct`, `db:id` queries): 600 / 600 oracle runs equal (14 refused with proof).
 

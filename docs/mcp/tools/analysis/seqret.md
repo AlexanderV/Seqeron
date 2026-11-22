@@ -29,12 +29,13 @@ EMBOSS 6.6.0 seqret: the sequences of a file are read by the sequence readers of
 | `feature` | boolean | No | Read and write the features of the sequences (-feature). (default: false) |
 | `firstOnly` | boolean | No | Read one sequence and stop (-firstonly). (default: false) |
 | `featureFormat` | string | No | The feature output format (-offormat2): gff3 (default), gff, gff2, bed, embl, em, genbank, gb, ddbj, refseq, refseqp, pir, nbrf, swiss, sw, swissprot, uniprot, dasgff, draw, debug. |
-| `qualifiers` | string | No | Sequence input qualifiers as typed after the sequence on the command line: -slower1 -supper1 -snucleotide1 -sprotein1 (also -sformat1 F); the range qualifiers are not applied by this tool yet. |
+| `qualifiers` | string | No | Sequence input qualifiers as typed after the sequence on the command line: -sbegin1 -send1 -sreverse1 (the range and the strand: applied to the sequences and to their features), -slower1 -supper1 -snucleotide1 -sprotein1 -scircular1, -sformat1 F, -sid1 name, -sdbname1 db, -squick1, -iquery1 query, -ioffset1 bytes. |
 | `files` | object | No | More files by name (file name -> text) that sequence may name with a 'format::' prefix. |
 | `outputFormat` | string | No | The sequence output format (-osformat2): fasta (default; unknown, pearson), gcg (gcg8), nbrf (pir), codata, strider, staden, text (plain, raw), ig, gde, fitch, acedb, mase. iguspto is accepted by the library but its writer dies on every sequence that has no full description (all but swiss and iguspto input), so such a run is refused. Other output formats of the library (embl, genbank, swiss, msf, clustal, phylip, nexus, ...) are not written yet. |
 | `outputSingle` | boolean | No | Write every sequence to a file of its own, name.extension in lower case (-ossingle2); the files are returned in singleFiles. (default: false) |
 | `outputDirectory` | string | No | The directory of the files of outputSingle (-osdirectory2). |
 | `outputExtension` | string | No | The extension of the files of outputSingle (-osextension2); default: the output format as typed. |
+| `sequenceValue` | string | No | The USA of the sequence input (-sequence) as the program reads it, instead of the file the text is put in: [format::]file[begin:end:r] (file = the name of an entry of files; the text of sequence is the file 'sequence.dat'), file:id / file:field:query / file{a\|b} (id, acc, sv, gi, des, key, org; wildcards * and ?), @list / list::list (a list file of files; # comments; every entry has its own range and format), asis::SEQUENCE; the range qualifiers -sbegin1 -send1 -sreverse1 of qualifiers are applied to the sequences and to their features. |
 
 ## Output Schema
 

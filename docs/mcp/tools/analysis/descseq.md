@@ -29,8 +29,9 @@ EMBOSS 6.6.0 descseq: the name and / or the description of the FIRST sequence of
 | `name` | string | No | The new name (-name); empty = the name is kept. (default: ) |
 | `description` | string | No | The new description (-description); empty = the description is kept. (default: ) |
 | `append` | boolean | No | Append the name and the description to the existing ones (-append). (default: false) |
-| `qualifiers` | string | No | Sequence input qualifiers as typed after the sequence on the command line: -slower1 -supper1 -snucleotide1 -sprotein1. |
+| `qualifiers` | string | No | Sequence input qualifiers as typed after the sequence on the command line: -sbegin1 -send1 -sreverse1, -slower1 -supper1 -snucleotide1 -sprotein1 -scircular1, -sformat1 F, -sid1 name, -sdbname1 db, -squick1, -iquery1 query, -ioffset1 bytes. |
 | `files` | object | No | More files by name (file name -> text) that sequence may name with a 'format::' prefix. |
+| `sequenceValue` | string | No | The USA of the sequence input (-sequence) as the program reads it, instead of the file the text is put in: [format::]file[begin:end:r] (file = the name of an entry of files; the text of sequence is the file 'sequence.dat'), file:id / file:field:query / file{a\|b} (id, acc, sv, gi, des, key, org; wildcards * and ?), @list / list::list (a list file of files; # comments; every entry has its own range and format), asis::SEQUENCE; the range qualifiers -sbegin1 -send1 -sreverse1 of qualifiers are applied to the sequences and to their features. |
 
 ## Output Schema
 
