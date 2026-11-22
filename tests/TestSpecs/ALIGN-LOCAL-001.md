@@ -282,3 +282,8 @@ Matrix-scored `LocalAlign`/`LocalAlignAffine` (BLOSUM62/PAM250/EDNAFULL, fractio
 ## WP61 (F280): EMBOSS sequence programs
 
 `EmbossPrograms_Oracle_Tests.Program_EqualsTheInstalledProgram_AllRows` (one case per `emboss_prog_<program>_oracle.jsonl.gz`: standard output, error stream, exit status and written files equal the installed EMBOSS 6.6.0 program; at least 200 rows per program) and `EmbossSequenceProgramToolsTests` (the MCP tools).
+
+## WP62 (F281): EMBOSS random, set and report programs
+
+`EmbossPrograms_Oracle_Tests.Program_EqualsTheInstalledProgram_AllRows` now also runs the oracles of shuffleseq, msbar, makenucseq, makeprotseq, nthseqset, listor, infoseq, wordcount, seqxref, showorf and prettyseq (300 rows each) under the clock of the recorded run: the date the writers print (`epoch`), the microseconds of `gettimeofday` (`usec`) or the variable `timetoday`; the 23 oracles of WP61 were re-recorded under a fixed date (the rows with a date no longer depend on the day of the run). Runs on which the reference reads or writes invalid memory (valgrind) are refused by the port (`InvalidOperationException`). `EmbossProgramTools2Tests` (the MCP tools): the expected text is what the installed program writes for the example of the tool document (the clock of the random programs fixed).
+

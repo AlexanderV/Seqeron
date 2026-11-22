@@ -1,0 +1,21 @@
+# one command per line: <program> <arguments> (run in a directory that holds nothing else; the output of each goes to out/rows/NNN/)
+seqret -auto -sequence embl:J00231 -outseq stdout
+seqret -auto -sequence swissprot:P12345 -outseq stdout
+seqret -auto -sequence uniprot:P12345 -outseq stdout
+seqret -auto -sequence genbank:J00231 -outseq stdout
+seqret -auto -sequence refseq:NM_000518 -outseq stdout
+seqret -auto -sequence pdb:1abc -outseq stdout
+seqret -auto -sequence embl-id:J00231 -outseq stdout
+seqret -auto -sequence embl-acc:J00231 -outseq stdout
+seqret -auto -sequence embl:NOSUCHENTRY -outseq stdout
+seqret -auto -sequence nosuchdb:J00231 -outseq stdout
+seqret -auto -sequence embl:J0* -outseq stdout
+entret -auto -sequence embl:J00231 -outseq stdout
+entret -auto -sequence swissprot:P12345 -outseq stdout
+showdb -auto
+showdb -auto -only -name
+drfinddata -auto -query embl
+drfinddata -auto -query protein
+drfinddata -auto -query "uniprot"
+dbtell -auto -database embl
+dbtell -auto -database swissprot

@@ -179,3 +179,6 @@ MCP `water_align` (A3-17). The "at least 90 % reaches the textbook optimum" tole
 
 
 WP61 (F280): 23 EMBOSS sequence programs (getorf, transeq, revseq, extractseq, cutseq, degapseq, trimseq, skipseq, nthseq, notseq, pasteseq, trimest, newseq, yank, seqcount, splitter, maskseq, maskambignuc, maskambigprot, trimspace, nospace, notab, noreturn) run from the command line (`EmbossProgramRunner`), each equal to the installed program on 320 runs (getorf 800); new `EmbossTrn`, `EmbossSeqType`, `EmbossSeqoutStream`, `EmbossAcdArgs`; see B09.md F280.
+
+WP62 (F281): 11 more EMBOSS programs (shuffleseq, msbar, makenucseq, makeprotseq, nthseqset, listor, infoseq, wordcount, seqxref, showorf, prettyseq) run from the command line (`EmbossProgramRunner`), each equal to the installed program on 300 runs under a fixed clock; the clock / `timetoday` infrastructure (`EmbossRunEnvironment`), the generator of `ajmath.c` (`EmbossRandom`), the set input (`EmbossSeqset`), `ajSeqoutWriteSet`; see B09.md F281.
+
