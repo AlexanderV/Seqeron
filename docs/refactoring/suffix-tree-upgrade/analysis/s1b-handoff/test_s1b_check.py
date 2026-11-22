@@ -235,6 +235,14 @@ class CheckerTests(unittest.TestCase):
         self.assertEqual(code, 1, out)
         self.assertTrue([x for x in lines(out, 'FAIL') if ' P1 ' in x], out)
 
+    def test_a_native_run_without_an_image_is_not_an_emulation(self):
+        f = form()
+        f['environment'].update(image_arch='unknown', arch='x86_64', process_arch='X64', os_arch='X64')
+        code, out = check(f)
+        self.assertEqual(code, 0, out)
+        f['environment'].update(image_arch='arm64')
+        self.assertEqual(check(f)[0], 1, 'an arm64 image on an x86-64 kernel is an emulation')
+
     def test_an_arm64_cpu_without_the_hardware_crc_is_a_warning_and_a_table_path_that_differs_is_a_failure(self):
         f = form()
         f['environment'].update(crc32c_hardware=False)

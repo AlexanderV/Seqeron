@@ -80,7 +80,7 @@ def check_environment(env, rep):
         rep.line('FAIL', 'P1', f'emulation: {emulation}. Timings under emulation mean nothing and the arm64 path is not exercised; build and run the image for the Docker daemon\'s architecture')
     elif proc and osarch and proc != osarch:
         rep.line('FAIL', 'P1', f'the .NET process is {proc} on an {osarch} OS')
-    elif image and arch and same.get(str(arch).lower()) != same.get(str(image).lower()):
+    elif image not in (None, 'unknown') and arch and same.get(str(arch).lower()) != same.get(str(image).lower()):
         rep.line('FAIL', 'P1', f'the image is for {image} but the kernel reports {arch}')
     else:
         rep.line('PASS', 'P1', f'native: kernel {arch}, image {image}, .NET process {proc}')
