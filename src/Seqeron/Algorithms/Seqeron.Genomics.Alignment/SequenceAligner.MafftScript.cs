@@ -149,10 +149,25 @@ public static partial class SequenceAligner
             if (cycle > 3)
                 cycle = 3;
             int iterate = Iterations(o);
-            string strategy = (o.Fft ? "FFT-" : "NW-") + "NS-" + (iterate > 0 ? "i" : cycle.ToString(CultureInfo.InvariantCulture));
+            string prefix = o.PairLibrary switch { MafftPairLibrary.Global => "G-", MafftPairLibrary.Local => "L-", MafftPairLibrary.Genaf => "E-", _ => o.Fft ? "FFT-" : "NW-" };
+            if (o.PairLibrary != MafftPairLibrary.None)
+            {
+                cycle = 1; // the script sets the number of tree builds to 1 when a pair library is used
+                if (o.WeightI > 0.0)
+                    prefix += "I";
+            }
+            string strategy = prefix + "NS-" + (iterate > 0 ? "i" : cycle.ToString(CultureInfo.InvariantCulture));
             string explanation = "?";
             string performance = "Not tested.";
-            if (strategy is "FFT-NS-i" or "NW-NS-i")
+            if (strategy == "L-INS-1")
+            {
+                explanation = "Progressive method incorporating LOCAL pairwise alignment information";
+            }
+            else if (strategy == "G-INS-1")
+            {
+                explanation = "Progressive method incorporating GLOBAL pairwise alignment information";
+            }
+            else if (strategy is "FFT-NS-i" or "NW-NS-i")
             {
                 explanation = "Iterative refinement method (max. " + iterate.ToString(CultureInfo.InvariantCulture) + " iterations)";
                 performance = iterate > 2 ? "Accurate but slow" : "Standard";
@@ -179,7 +194,79 @@ public static partial class SequenceAligner
                 + "For more information, see 'mafft --help', 'mafft --man' and the mafft page.\n\n"
                 + "The default gap scoring scheme has been changed in version 7.110 (2013 Oct).\n"
                 + "It tends to insert more gaps into gap-rich regions than previous versions.\n"
-                + "To disable this change, add the --leavegappyregion option.\n\n";
+                + "To disable this change, add the --leavegappyregion option.\n"
+                + GenafNote(o)
+                + "\n";
+        }
+
+        private static string GenafNote(MafftOptions o)
+        {
+            if (o.PairLibrary != MafftPairLibrary.Genaf)
+                return "";
+            return o.OldGenafParameters
+                ? "\nObsolete parameters used for this calculation.\nAlso try the new parameters for E-INS-i, by not specifying --oldgenafpair.\n"
+                : "\nParameters for the E-INS-i option have been changed in version 7.243 (2015 Jun).\nTo switch to the old parameters, use --oldgenafpair, instead of --genafpair.\n";
+        }
+
+        /// <summary>
+        /// The command <c>tbfast _ (pair library arguments) _ -+ n (arguments of the progressive stage)</c> that the script builds for <c>--globalpair</c> / <c>--localpair</c> / <c>--genafpair</c>: the two argument lists.
+        /// </summary>
+        internal static (List<string> Pair, List<string> Tb) TbfastArguments(MafftOptions o, int nseq)
+        {
+            _ = nseq;
+            int threads = o.Threads < 0 ? Environment.ProcessorCount : o.Threads;
+            int threadsTb = threads < 16 ? threads : 16;
+            string gop = Text(o.GapOpen);
+            string gopdist = o.GapOpenDistance is { } gd ? Text(gd) : gop;
+            string aof = AwkPrint(0.0 + 0.0 + MafftGlobals.CAtof(AwkPrint(-1.0 * o.Offset)));
+            if (o.Offset == 0.0)
+                aof = "0";
+            string weighti = Text(o.WeightI);
+            bool genaf = o.PairLibrary == MafftPairLibrary.Genaf;
+            if (genaf)
+                aof = "0.000"; // E-INS: the offset of the progressive stage is 0 whatever --ep says
+            var pair = new List<string> { "-u", "0.0", "-l", weighti, "-C", threads.ToString(CultureInfo.InvariantCulture) };
+            if (o.SequenceType == MafftSequenceType.Nucleotide)
+                pair.Add("-D");
+            else if (o.SequenceType == MafftSequenceType.Amino)
+                pair.Add("-P");
+            pair.AddRange(ModelArguments(o));
+            switch (o.PairLibrary)
+            {
+                case MafftPairLibrary.Global:
+                    pair.AddRange(new[] { "-g", Text(o.GlobalPairExtension), "-f", Text(o.GlobalPairOpen), "-Q", "100.0", "-h", AwkPrint(0.0 + 0.0 + o.GlobalPairOffset), "-A" });
+                    break;
+                case MafftPairLibrary.Local:
+                    pair.AddRange(new[] { "-g", Text(o.LocalPairExtension), "-f", Text(o.LocalPairOpen), "-Q", "100.0", "-h", AwkPrint(0.0 + 0.0 + o.LocalPairOffset), "-L" });
+                    break;
+                default:
+                    // the new parameters of E-INS-i (7.243): no offset, no extension in the pair stage and the score of the pair is the plain sum of the matrix scores of its aligned columns (-Z)
+                    pair.AddRange(o.OldGenafParameters
+                        ? new[] { "-g", Text(o.LocalPairExtension), "-f", Text(o.LocalPairOpen), "-Q", "100.0", "-h", AwkPrint(0.0 + 0.0 + o.LocalPairOffset), "-O", Text(o.GenafOpen), "-E", Text(o.GenafExtension), "-N" }
+                        : new[] { "-g", "0.0", "-f", Text(o.LocalPairOpen), "-Q", "100.0", "-h", AwkPrint(0.0 + 0.0 + 0.0), "-O", Text(o.GenafOpen), "-E", Text(o.GenafExtension), "-N", "-Z" });
+                    break;
+            }
+            var tb = new List<string> { "-+", Iterations(o).ToString(CultureInfo.InvariantCulture), "-W", "0.00001", "-V", "-" + gopdist, "-s", "0.0" };
+            if (o.LegacyGapPenalty)
+                tb.Add("-L");
+            if (o.PairLibrary != MafftPairLibrary.Global && !o.TerminalGapPenalty)
+                tb.Add("-O");
+            tb.Add("-C");
+            tb.Add(threadsTb.ToString(CultureInfo.InvariantCulture));
+            if (o.Unweight)
+                tb.Add("-u");
+            if (o.SequenceType == MafftSequenceType.Nucleotide)
+                tb.Add("-D");
+            else if (o.SequenceType == MafftSequenceType.Amino)
+                tb.Add("-P");
+            tb.AddRange(ModelArguments(o));
+            tb.AddRange(new[] { "-f", "-" + gop, "-Q", "100.0", "-h", aof });
+            if (o.ForceFft)
+                tb.Add("-G");
+            else if (o.Fft)
+                tb.Add("-F");
+            tb.AddRange(new[] { "-l", weighti, "-X", o.TreeMixing is { } mix ? Text(mix) : "0.1" });
+            return (pair, tb);
         }
 
         /// <summary>The text of a number as the user wrote it on the command line (the script passes it on unchanged).</summary>

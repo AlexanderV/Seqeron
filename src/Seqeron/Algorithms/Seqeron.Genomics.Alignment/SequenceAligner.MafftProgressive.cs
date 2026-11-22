@@ -682,11 +682,13 @@ public static partial class SequenceAligner
         // -------------------------------------------------------------------- treebase
 
         /// <summary><c>treebase</c> (<c>disttbfast.c</c>, all groups aligned: <c>mergeoralign[l] == 'a'</c>): joins the groups in the order of the guide tree.</summary>
-        private void TreeBase(string[] aseq, GuideTree tree, double[] effarr, ref int alloclen)
+        private void TreeBase(string[] aseq, GuideTree tree, double[] effarr, ref int alloclen, MafftLocalHom[][]? localhom = null)
         {
             int njob = _njob;
             var memhist = new int[njob - 1][];
             var cpmxhist = new double[njob - 1][][];
+            if (localhom != null)
+                CalcImportanceHalf(njob, effarr, aseq, localhom, alloclen);
             for (int l = 0; l < njob - 1; l++)
             {
                 int m1 = tree.Topol0[l];
@@ -702,7 +704,9 @@ public static partial class SequenceAligner
                     localmem1.CopyTo(h, clus1);
                     memhist[l] = h;
                 }
-                double[][] dynamicmtx = G.NDisConsweightMulti;
+                // tbfast makes the matrix of every step with makedynamicmtx (disttbfast only when --amax > 0): the matrix is shifted by the (negative) offset of the distance of the step from the tips, which is
+                // zero for ordinary distances and not for the negative distances that a pair library can give
+                double[][] dynamicmtx = localhom != null ? MakeDynamicMtx(G.NDisConsweightMulti, tree.Dep[l].DistFromTip) : G.NDisConsweightMulti;
                 int len1 = aseq[m1].Length;
                 int len2 = aseq[m2].Length;
                 if (G.NeverMemSave == 0 && G.Alg != 'M' && (len1 > 30000 || len2 > 30000))
@@ -717,8 +721,25 @@ public static partial class SequenceAligner
                 var mseq2 = new string[clus2];
                 var effarr1 = new double[clus1];
                 var effarr2 = new double[clus2];
-                double orieff1 = FastConjunction(localmem0, aseq, mseq1, effarr1, effarr);
-                double orieff2 = FastConjunction(localmem1, aseq, mseq2, effarr2, effarr);
+                double minimumWeight = localhom != null ? G.MinimumWeight : 0.0;
+                double orieff1 = FastConjunction(localmem0, aseq, mseq1, effarr1, effarr, minimumWeight);
+                double orieff2 = FastConjunction(localmem1, aseq, mseq2, effarr2, effarr, minimumWeight);
+                if (localhom != null)
+                {
+                    // tbfast, constraint == 2: the importance of the blocks of the pairwise alignments enters the match scores of A__align
+                    if (l < 1000 || l % 100 == 0)
+                        Report("\rSTEP " + (l + 1).ToString(CultureInfo.InvariantCulture).PadLeft(5) + " /" + (njob - 1) + " ");
+                    var shrink = ShrinkLocalHom(localmem0, localmem1, localhom);
+                    var imp = FillImp(clus1, clus2, mseq1[0].Length, mseq2[0].Length, mseq1, mseq2, effarr1, effarr2, shrink, localmem0, localmem1);
+                    AAlign(dynamicmtx, G.Penalty, G.PenaltyEx, mseq1, mseq2, effarr1, effarr2, clus1, clus2, alloclen, null, null, null, null, G.Outgap, G.Outgap,
+                        cpmxhist, child0, child1, l, orieff1, orieff2, imp);
+                    _nlen[m1] = (int)(0.5 * (_nlen[m1] + _nlen[m2]));
+                    for (int k = 0; k < clus1; k++)
+                        aseq[localmem0[k]] = mseq1[k];
+                    for (int k = 0; k < clus2; k++)
+                        aseq[localmem1[k]] = mseq2[k];
+                    continue;
+                }
                 if (l < 500 || l % 100 == 0)
                     Report("\rSTEP " + (l + 1).ToString(CultureInfo.InvariantCulture).PadLeft(5) + " / " + (njob - 1) + " ");
                 bool ffttry = _nlen[m1] > clus1 && _nlen[m2] > clus2;
@@ -760,12 +781,42 @@ public static partial class SequenceAligner
             FreeStatics();
         }
 
+        /// <summary><c>makedynamicmtx</c> with <c>dist2offset</c> (<c>mltaln9.c</c>): a copy of the matrix, the letters' scores raised by <c>offset x 600</c> where the offset is half the distance (at most 0) minus <c>--amax</c>.</summary>
+        private double[][] MakeDynamicMtx(double[][] inp, double distfromtip)
+        {
+            double offset = (distfromtip * 2.0) * 0.5 - G.SpecificityConsideration;
+            if (offset > 0.0)
+                offset = 0.0;
+            int n = G.Nalphabets;
+            var res = new double[n][];
+            for (int i = 0; i < n; i++)
+            {
+                res[i] = new double[n];
+                Array.Copy(inp[i], res[i], n);
+            }
+            if (offset == 0.0)
+                return res;
+            for (int i = 0; i < n; i++)
+            {
+                if (G.Amino[i] == '-')
+                    continue;
+                for (int j = 0; j < n; j++)
+                {
+                    if (G.Amino[j] == '-')
+                        continue;
+                    res[i][j] = inp[i][j] + offset * 600;
+                }
+            }
+            return res;
+        }
+
         /// <summary>The end of <c>treebase</c> / <c>TreeDependentIteration</c>: <c>A__align( NULL ... )</c>, <c>Falign( NULL ... )</c> release the work arrays of the dynamic programs; the next call allocates (and clears) them again.</summary>
         private void FreeStatics()
         {
             _aOrlgth1 = 0;
             _aOrlgth2 = 0;
             _arAlloclen = 0;
+            _impMtx = null;
         }
 
         /// <summary><c>fastconjuction_noname</c>: the rows of a group and their weights, normalised to 1; returns the total weight before normalising.</summary>

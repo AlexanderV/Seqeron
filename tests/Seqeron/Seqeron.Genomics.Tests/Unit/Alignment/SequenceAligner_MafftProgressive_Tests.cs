@@ -102,6 +102,18 @@ public class SequenceAligner_MafftProgressive_Tests
                 case "--thread": o = o with { Threads = I() }; break;
                 case "--threadit": o = o with { ThreadsIterate = I() }; break;
                 case "--maxiterate": o = o with { MaxIterate = I() }; break;
+                case "--globalpair": o = o with { PairLibrary = MafftPairLibrary.Global }; break;
+                case "--localpair": o = o with { PairLibrary = MafftPairLibrary.Local }; break;
+                case "--genafpair": o = o with { PairLibrary = MafftPairLibrary.Genaf }; break;
+                case "--weighti": o = o with { WeightI = D() }; break;
+                case "--gop": o = o with { GlobalPairOpen = D() }; break;
+                case "--gep": o = o with { GlobalPairOffset = D() }; break;
+                case "--gexp": o = o with { GlobalPairExtension = D() }; break;
+                case "--lop": o = o with { LocalPairOpen = D() }; break;
+                case "--lep": o = o with { LocalPairOffset = D() }; break;
+                case "--lexp": o = o with { LocalPairExtension = D() }; break;
+                case "--LOP": o = o with { GenafOpen = D() }; break;
+                case "--LEXP": o = o with { GenafExtension = D() }; break;
                 default: throw new InvalidOperationException(t[i - 1]);
             }
         }

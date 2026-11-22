@@ -24,6 +24,19 @@ public enum MafftScoringModel
     Tm = 2,
 }
 
+/// <summary>The pairwise alignment information that the progressive alignment incorporates (<c>--globalpair</c> G-INS, <c>--localpair</c> L-INS, <c>--genafpair</c> E-INS); <see cref="None"/> = the 6-mer distances of FFT-NS.</summary>
+public enum MafftPairLibrary
+{
+    /// <summary>No pair library (the default: FFT-NS / NW-NS).</summary>
+    None = 0,
+    /// <summary><c>--globalpair</c>: the global alignment (Needleman-Wunsch, <c>Galign11</c>) of every pair.</summary>
+    Global = 1,
+    /// <summary><c>--localpair</c>: the local alignment (Smith-Waterman, <c>Lalign11</c>) of every pair.</summary>
+    Local = 2,
+    /// <summary><c>--genafpair</c> / <c>--localgenafpair</c>: the local alignment with generalised affine gap costs (<c>genalign11</c>) of every pair.</summary>
+    Genaf = 3,
+}
+
 /// <summary>
 /// Options of the MAFFT 7.505 command <c>mafft [--anysymbol] [--nuc | --amino] [--op x] [--ep y] [--bl n | --jtt n | --tm n] [--retree n] [--fft | --nofft] [--6merpair | --10merpair] ... input</c>: the plain progressive
 /// methods (FFT-NS-1, FFT-NS-2, NW-NS-1, NW-NS-2) for any number of sequences. The options that need the later stages of the port (<c>--maxiterate</c>, <c>--localpair</c>, <c>--globalpair</c>,
@@ -103,6 +116,34 @@ public sealed record MafftOptions
 
     /// <summary><c>--maxiterate n</c>: the number of cycles of iterative refinement (FFT-NS-i: <c>dndpre</c> distances of the first alignment and <c>dvtditr</c>, the tree-dependent refinement of every branch of the guide tree); default 0 = the progressive method. The script lets at most 16 iterations run.</summary>
     public int MaxIterate { get; init; }
+
+    /// <summary><c>--globalpair</c> / <c>--localpair</c> / <c>--genafpair</c>: every pair of sequences is aligned first (all against all) and the blocks of these alignments constrain the progressive alignment (G-INS-1, L-INS-1, E-INS-1; with <see cref="MaxIterate"/> the refinement of G-INS-i, L-INS-i, E-INS-i).</summary>
+    public MafftPairLibrary PairLibrary { get; init; }
+
+    /// <summary><c>--weighti x</c>: the weight of the pair library against the substitution scores (default 2.7). 0 switches the constraints off, which this port does not support.</summary>
+    public double WeightI { get; init; } = 2.7;
+
+    /// <summary><c>--gop x</c> / <c>--gep x</c> / <c>--gexp x</c>: gap opening penalty, offset and gap extension of the global pair alignments (as the script passes them, the opening and extension are negative; defaults -2.00, 0.10, -0.10).</summary>
+    public double GlobalPairOpen { get; init; } = -2.00;
+    /// <summary>See <see cref="GlobalPairOpen"/>: <c>--gep</c> (default 0.10).</summary>
+    public double GlobalPairOffset { get; init; } = 0.10;
+    /// <summary>See <see cref="GlobalPairOpen"/>: <c>--gexp</c> (default -0.10).</summary>
+    public double GlobalPairExtension { get; init; } = -0.10;
+
+    /// <summary><c>--lop x</c> / <c>--lep x</c> / <c>--lexp x</c>: gap opening penalty, offset and gap extension of the local pair alignments (defaults -2.00, 0.100, -0.100).</summary>
+    public double LocalPairOpen { get; init; } = -2.00;
+    /// <summary>See <see cref="LocalPairOpen"/>: <c>--lep</c> (default 0.100).</summary>
+    public double LocalPairOffset { get; init; } = 0.100;
+    /// <summary>See <see cref="LocalPairOpen"/>: <c>--lexp</c> (default -0.100).</summary>
+    public double LocalPairExtension { get; init; } = -0.100;
+
+    /// <summary><c>--LOP x</c> / <c>--LEXP x</c>: the second gap opening penalty and the extension of the generalised affine gap costs of <c>--genafpair</c> (defaults -6.00 and -0.000).</summary>
+    public double GenafOpen { get; init; } = -6.00;
+    /// <summary>See <see cref="GenafOpen"/>: <c>--LEXP</c> (default -0.000).</summary>
+    public double GenafExtension { get; init; } = -0.000;
+
+    /// <summary><c>--oldgenafpair</c>: the parameters of E-INS-i before version 7.243 (the offset and the extension of the pair stage as given, the alignment score of the pair).</summary>
+    public bool OldGenafParameters { get; init; }
 
     /// <summary><c>--reorder</c> (accepted; the two sequences keep their input order).</summary>
     public bool Reorder { get; init; }
@@ -242,6 +283,13 @@ public static partial class SequenceAligner
                 throw new ArgumentException("--op, --ep and --exp must be finite.", nameof(o));
             if (o.Retree == 0)
                 throw new NotSupportedException("--retree 0 (the guide tree only) of MAFFT is not available in this port.");
+            if (o.PairLibrary != MafftPairLibrary.None)
+            {
+                if (!(o.WeightI >= 0.0001))
+                    throw new NotSupportedException("--weighti 0 (the pair library without constraints) of MAFFT is not available in this port.");
+                if (MafftScript.Iterations(o) > 0)
+                    throw new NotSupportedException("The iterative refinement with a pair library (G-INS-i, L-INS-i, E-INS-i: --maxiterate with --globalpair / --localpair / --genafpair) is not available in this port yet; with --maxiterate 0 the progressive G-INS-1 / L-INS-1 / E-INS-1 are.");
+            }
             var originals = list.Select(x => LoadResidues(x, o.AnySymbol)).ToArray();
             foreach (var s in originals)
                 if (NoGaps(s).Length == 0)
@@ -255,12 +303,26 @@ public static partial class SequenceAligner
                 : originals.Select(s => nuc1 ? s.ToLowerInvariant() : s.ToUpperInvariant()).ToArray();
             bool nuc = GuessNucleotide(replaced, o);
             replaced = nuc ? replaced.Select(s => s.ToLowerInvariant()).ToArray() : replaced.Select(s => s.ToUpperInvariant()).ToArray();
-            var g = MafftGlobals.Parse(MafftScript.DisttbfastArguments(o, list.Count));
-            if (g.Dorp == '\0')
-                g.Dorp = nuc ? 'd' : 'p';
-            var run = new MafftRun(g);
-            var result = run.Disttbfast(replaced);
-            log.Append(run.Log);
+            MafftRun.Result result;
+            if (o.PairLibrary != MafftPairLibrary.None)
+            {
+                var (pairArgs, tbArgs) = MafftScript.TbfastArguments(o, list.Count);
+                var tg = MafftGlobals.ParseTbfast(tbArgs);
+                if (tg.Dorp == '\0')
+                    tg.Dorp = nuc ? 'd' : 'p';
+                var trun = new MafftRun(tg);
+                result = trun.Tbfast(replaced, MafftGlobals.ParsePairlocalalign(pairArgs));
+                log.Append(trun.Log);
+            }
+            else
+            {
+                var g = MafftGlobals.Parse(MafftScript.DisttbfastArguments(o, list.Count));
+                if (g.Dorp == '\0')
+                    g.Dorp = nuc ? 'd' : 'p';
+                var run = new MafftRun(g);
+                result = run.Disttbfast(replaced);
+                log.Append(run.Log);
+            }
             if (MafftScript.Iterations(o) > 0)
             {
                 int threads = o.Threads < 0 ? Environment.ProcessorCount : o.Threads;

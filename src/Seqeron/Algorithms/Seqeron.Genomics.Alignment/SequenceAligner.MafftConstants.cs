@@ -73,6 +73,7 @@ public static partial class SequenceAligner
         internal int Nalphabets = 26;
         internal int NscoredAlphabets = 20;
         internal int Penalty, PenaltyEx, PenaltyDist, PenaltyShift, Offset, OffsetFft;
+        internal int PenaltyOp, PenaltyExOp;
         internal int[] AminoN = new int[256];
         internal int[] AminoGrp = new int[256];
         internal char[] Amino = new char[26];
@@ -220,13 +221,16 @@ public static partial class SequenceAligner
         private static int Shishagonyuu(double v)
         {
             if (v > 0.0)
-                return (int)(v + 0.5);
+                return CInt(v + 0.5);
             if (v == 0.0)
                 return 0;
             if (v < 0.0)
-                return (int)(v - 0.5);
+                return CInt(v - 0.5);
             return 0;
         }
+
+        /// <summary>The conversion of a double to int on x86-64 (<c>cvttsd2si</c>): truncation, and "integer indefinite" (<see cref="int.MinValue"/>) for infinities and values out of range (C# saturates them).</summary>
+        internal static int CInt(double v) => v >= -2147483648.0 && v < 2147483648.0 ? (int)v : int.MinValue;
 
         /// <summary><c>constants( nseq, seq )</c> of <c>constants.c</c>: the scoring matrices, penalties, the FFT tables of the alphabet in use. <paramref name="seq"/> are the sequences (used by <c>--fmodel</c> only).</summary>
         internal void Constants(IReadOnlyList<string> seq)
@@ -246,6 +250,8 @@ public static partial class SequenceAligner
                 if (Ppenalty == NotSpecified) Ppenalty = -1530;
                 if (PenaltyDistIsUnset()) PpenaltyDist = Ppenalty;
                 if (PpenaltyEx == NotSpecified) PpenaltyEx = 0;
+                if (PpenaltyOp == NotSpecified) PpenaltyOp = -1530;
+                if (PpenaltyExGenaf == NotSpecified) PpenaltyExGenaf = 0;
                 if (Poffset == NotSpecified) Poffset = -369;
                 if (PamN == NotSpecified) PamN = 200;
                 if (KimuraR == NotSpecified) KimuraR = 2;
@@ -253,6 +259,8 @@ public static partial class SequenceAligner
                 PenaltyDist = (int)(3 * 600.0 / 1000.0 * PpenaltyDist + 0.5);
                 PenaltyShift = (int)(PenaltyShiftFactor * Penalty);
                 PenaltyEx = (int)(3 * 600.0 / 1000.0 * PpenaltyEx + 0.5);
+                PenaltyOp = (int)(3 * 600.0 / 1000.0 * PpenaltyOp + 0.5);
+                PenaltyExOp = (int)(3 * 600.0 / 1000.0 * PpenaltyExGenaf + 0.5);
                 Offset = (int)(1 * 600.0 / 1000.0 * Poffset + 0.5);
                 OffsetFft = (int)(1 * 600.0 / 1000.0 * (-0) + 0.5);
                 string amino = MafftNucAlphabet;
@@ -290,6 +298,8 @@ public static partial class SequenceAligner
                 if (Ppenalty == NotSpecified) Ppenalty = -1530;
                 if (PenaltyDistIsUnset()) PpenaltyDist = Ppenalty;
                 if (PpenaltyEx == NotSpecified) PpenaltyEx = 0;
+                if (PpenaltyOp == NotSpecified) PpenaltyOp = -1530;
+                if (PpenaltyExGenaf == NotSpecified) PpenaltyExGenaf = 0;
                 if (Poffset == NotSpecified) Poffset = -123;
                 if (PamN == NotSpecified) PamN = 0;
                 if (KimuraR == NotSpecified) KimuraR = 1;
@@ -321,6 +331,8 @@ public static partial class SequenceAligner
                 if (Ppenalty == NotSpecified) Ppenalty = -1530;
                 if (PenaltyDistIsUnset()) PpenaltyDist = Ppenalty;
                 if (PpenaltyEx == NotSpecified) PpenaltyEx = 0;
+                if (PpenaltyOp == NotSpecified) PpenaltyOp = -1530;
+                if (PpenaltyExGenaf == NotSpecified) PpenaltyExGenaf = 0;
                 if (Poffset == NotSpecified) Poffset = -123;
                 if (PamN == NotSpecified) PamN = 200;
                 if (KimuraR == NotSpecified) KimuraR = 1;
@@ -429,6 +441,8 @@ public static partial class SequenceAligner
             PenaltyDist = (int)(600.0 / 1000.0 * PpenaltyDist + 0.5);
             PenaltyShift = (int)(PenaltyShiftFactor * Penalty);
             PenaltyEx = (int)(600.0 / 1000.0 * PpenaltyEx + 0.5);
+            PenaltyOp = (int)(600.0 / 1000.0 * PpenaltyOp + 0.5);
+            PenaltyExOp = (int)(600.0 / 1000.0 * PpenaltyExGenaf + 0.5);
             Offset = (int)(600.0 / 1000.0 * Poffset + 0.5);
             OffsetFft = (int)(600.0 / 1000.0 * (-0) + 0.5);
         }

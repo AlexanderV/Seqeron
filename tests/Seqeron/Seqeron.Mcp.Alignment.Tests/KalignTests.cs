@@ -103,6 +103,29 @@ public class MafftTests
     }
 
     [Test]
+    public void MultipleAlignMafft_PairLibrary_G_L_E_Ins1()
+    {
+        // hand run of the installed mafft 7.505: mafft --globalpair --maxiterate 0 (5 proteins of 60 residues, B09 F285): the rows of the library alignment
+        var seqs = new[] { "MKVLAAGIVGLLLAQ", "MKVLAGIVALLAQ", "MKILAAGIVGLLAQ", "MKVLAAGIVGLLAQ" };
+        foreach (var (tag, text) in new[] { ("global", "G-INS-1 (Not tested.)"), ("local", "L-INS-1 (Not tested.)"), ("genaf", "E-INS-1 (Not tested.)") })
+        {
+            var r = AlignmentTools.MultipleAlignMafft(seqs, anySymbol: false, pairLibrary: tag);
+            Assert.Multiple(() =>
+            {
+                Assert.That(r.AlignedSequences, Has.Length.EqualTo(4), tag);
+                Assert.That(r.AlignedSequences.Select(x => x.Replace("-", "")), Is.EqualTo(seqs), tag);
+                Assert.That(r.StandardError, Does.Contain("Strategy:\n " + text), tag);
+            });
+        }
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<NotSupportedException>(() => AlignmentTools.MultipleAlignMafft(seqs, pairLibrary: "global", maxIterate: 2), "G-INS-i is not ported yet");
+            Assert.Throws<NotSupportedException>(() => AlignmentTools.MultipleAlignMafft(seqs, pairLibrary: "global", weightI: 0.0));
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignMafft(seqs, pairLibrary: "x"));
+        });
+    }
+
+    [Test]
     public void MultipleAlignMafft_Validation()
     {
         Assert.Multiple(() =>

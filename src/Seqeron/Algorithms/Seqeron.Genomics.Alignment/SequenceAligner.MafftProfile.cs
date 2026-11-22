@@ -182,7 +182,7 @@ public static partial class SequenceAligner
         /// segment that <c>Falign</c> hands over (<c>null</c> for <c>treebase</c>).
         /// </summary>
         internal double AAlign(double[][] dyn, int penaltyL, int penaltyExL, string[] seq1, string[] seq2, double[] eff1, double[] eff2, int icyc, int jcyc, int alloclen,
-            string? sgap1, string? sgap2, string? egap1, string? egap2, int headgp, int tailgp, double[][][]? hist, int child0, int child1, int resultIndex, double orieff1, double orieff2)
+            string? sgap1, string? sgap2, string? egap1, string? egap2, int headgp, int tailgp, double[][][]? hist, int child0, int child1, int resultIndex, double orieff1, double orieff2, double[][]? imp = null)
         {
             int na = G.Nalphabets;
             int lgth1 = seq1[0].Length;
@@ -373,7 +373,13 @@ public static partial class SequenceAligner
 
             double[] currentw = w1, previousw = w2;
             MatchCalc(dyn, initverticalw, cpmx2pt, cpmx1pt, 0, lgth1, doublework, intwork, true);
+            if (imp != null)
+                for (int i = 0; i < lgth1; i++)
+                    initverticalw[i] += imp[i][0];
             MatchCalc(dyn, currentw, cpmx1pt, cpmx2pt, 0, lgth2, doublework, intwork, true);
+            if (imp != null)
+                for (int j = 0; j < lgth2; j++)
+                    currentw[j] += imp[0][j];
             if (headgp == 1)
             {
                 for (int i = 1; i < lgth1 + 1; i++)
@@ -418,6 +424,12 @@ public static partial class SequenceAligner
                 (previousw, currentw) = (currentw, previousw);
                 previousw[0] = initverticalw[i - 1];
                 MatchCalc(dyn, currentw, cpmx1pt, cpmx2pt, i, lgth2, doublework, intwork, false);
+                if (imp != null)
+                {
+                    var impRow = imp[i];
+                    for (int j = 0; j < lgth2; j++)
+                        currentw[j] += impRow[j];
+                }
                 currentw[0] = initverticalw[i];
                 mi = previousw[0] + ogcp2[1] * gapfreq1pt[i - 1];
                 mpi = 0;
@@ -457,8 +469,8 @@ public static partial class SequenceAligner
                 lastverticalw[i] = currentw[lgth2 - 1];
             }
 
-            var (gt1, gt2, mseq1, mseq2, wmo) = Atracking(currentw, lastverticalw, fpenalty, fpenaltyEx, seq1, seq2, ijp, icyc, jcyc, tailgp);
-            if (tailgp == 0)
+            var (gt1, gt2, mseq1, mseq2, wmo) = Atracking(currentw, lastverticalw, fpenalty, fpenaltyEx, seq1, seq2, ijp, icyc, jcyc, tailgp, imp != null);
+            if (tailgp == 0 && imp == null)
                 wm = wmo;
 
             if (hist != null && G.SpecificityConsideration == 0.0)
@@ -506,11 +518,32 @@ public static partial class SequenceAligner
 
         /// <summary><c>Atracking</c> of <c>Salignmm.c</c> (no shift): the trace back, the gap tables of the two groups ('o' = a column of the group, '-' = a new gap) and the aligned rows.</summary>
         private static (string Gt1, string Gt2, string[] Mseq1, string[] Mseq2, double Wm) Atracking(double[] lasthorizontalw, double[] lastverticalw, double fpenalty, double fpenaltyEx,
-            string[] seq1, string[] seq2, int[][] ijp, int icyc, int jcyc, int tailgp)
+            string[] seq1, string[] seq2, int[][] ijp, int icyc, int jcyc, int tailgp, bool localhom = false)
         {
             int lgth1 = seq1[0].Length, lgth2 = seq2[0].Length;
             double wm = 0.0;
-            if (tailgp != 1)
+            if (tailgp != 1 && localhom)
+            {
+                // Atracking_localhom: the end of the alignment is the cell of the last row / column with the largest value (no end-gap term)
+                wm = lastverticalw[0];
+                for (int i = 0; i < lgth1; i++)
+                {
+                    if (lastverticalw[i] >= wm)
+                    {
+                        wm = lastverticalw[i];
+                        ijp[lgth1][lgth2] = +(lgth1 - i);
+                    }
+                }
+                for (int j = 0; j < lgth2; j++)
+                {
+                    if (lasthorizontalw[j] >= wm)
+                    {
+                        wm = lasthorizontalw[j];
+                        ijp[lgth1][lgth2] = -(lgth2 - j);
+                    }
+                }
+            }
+            else if (tailgp != 1)
             {
                 double g;
                 wm = lasthorizontalw[lgth2 - 1] - 1.0;
