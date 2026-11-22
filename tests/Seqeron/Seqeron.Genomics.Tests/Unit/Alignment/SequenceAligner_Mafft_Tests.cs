@@ -117,7 +117,7 @@ public class SequenceAligner_Mafft_Tests
         {
             Assert.That(SequenceAligner.MultipleAlignMafft([]).AlignedSequences, Is.Empty);
             Assert.That(SequenceAligner.MultipleAlignMafft(["ACGT"]).AlignedSequences, Is.EqualTo(new[] { "ACGT" }), "A3-4: one sequence is written back (mafft 7.505 'Only 1 sequence found' is a warning)");
-            Assert.Throws<NotSupportedException>(() => SequenceAligner.MultipleAlignMafft(["ACGT", "ACGA", "ACGG"]));
+            Assert.That(SequenceAligner.MultipleAlignMafft(["ACGTACGT", "ACGAACGT", "ACGGACGT"]).AlignedSequences, Has.Length.EqualTo(3), "three sequences: the progressive stage (A2-19b, SequenceAligner_MafftProgressive_Tests)");
             Assert.Throws<ArgumentException>(() => SequenceAligner.MultipleAlignMafft(["ACGT", "---"]), "no residues");
             Assert.Throws<ArgumentException>(() => SequenceAligner.MultipleAlignMafft(["ACGT", "AC=GT"]), "'=' stops the program with --anysymbol");
             Assert.Throws<ArgumentException>(() => SequenceAligner.MultipleAlignMafft(["ACGT", "ACGé"]));

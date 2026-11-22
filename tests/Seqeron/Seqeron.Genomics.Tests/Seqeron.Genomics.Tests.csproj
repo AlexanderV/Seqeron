@@ -295,6 +295,9 @@
     <!-- ALIGN-MULTI-001 (audit A2-19, B09 F119): MAFFT 7.505 (installed Debian mafft 7.505-1) alignments of two sequences (amino acids, DNA / RNA, IUPAC and unusual symbols with the anysymbol option, the options op, ep and bl,
          nuc, amino and the accepted options, the plain command); scripts/alignment/generate_mafft_pair_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\mafft_pair_oracle.tsv" />
+    <!-- ALIGN-MULTI-001 (audit A2-19b, B09 F283): MAFFT 7.505 progressive strategies (three and more sequences: FFT-NS-1 / -2, NW-NS-1 / -2 and every option of disttbfast), rows and standard error;
+         scripts/alignment/generate_mafft_progressive_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\mafft_progressive_oracle.tsv.gz" />
     <!-- ALIGN-MULTI-001 (audit A2-27, B09 F120): EMBOSS 6.6.0 -aformat output formats (needle / water) and the sequence-set formats (seqret), byte for byte;
          scripts/alignment/generate_emboss_aformat_oracle.py, scripts/alignment/generate_emboss_seqout_oracle.py (faked run dates: scripts/alignment/faketime.c). -->
     <EmbeddedResource Include="TestData\Alignment\emboss_aformat_oracle.tsv" />

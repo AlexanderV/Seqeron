@@ -13,11 +13,21 @@ public enum MafftSequenceType
     Amino = 2,
 }
 
+/// <summary>The scoring matrix of the amino-acid alignment (<c>--bl n</c>: BLOSUM, <c>--jtt n</c>: the JTT PAM matrix, <c>--tm n</c>: the transmembrane PAM matrix; for nucleotides <c>--jtt n</c> / <c>--kimura n</c> set the PAM distance of the Kimura matrix).</summary>
+public enum MafftScoringModel
+{
+    /// <summary><c>--bl n</c> (default 62).</summary>
+    Blosum = 0,
+    /// <summary><c>--jtt n</c> / <c>--kimura n</c>.</summary>
+    Jtt = 1,
+    /// <summary><c>--tm n</c>.</summary>
+    Tm = 2,
+}
+
 /// <summary>
-/// Options of the MAFFT 7.505 command <c>mafft --anysymbol [--nuc | --amino] [--op x] [--ep y] [--bl n] [--retree n] [--fft | --nofft] input</c> (stage 1 of the port: the alignment of TWO sequences,
-/// B09.md A2-19). The options of the command line that have no effect on the alignment of a pair are accepted and recorded (<see cref="Threads"/>, <see cref="Retree"/>, <see cref="Fft"/>,
-/// <see cref="Reorder"/>); the options that need the later stages (<c>--maxiterate</c>, <c>--localpair</c>, <c>--globalpair</c>, <c>--genafpair</c>, <c>--jtt</c>, <c>--tm</c>, three and more sequences) are refused with
-/// <see cref="NotSupportedException"/> naming the registered sub-item.
+/// Options of the MAFFT 7.505 command <c>mafft [--anysymbol] [--nuc | --amino] [--op x] [--ep y] [--bl n | --jtt n | --tm n] [--retree n] [--fft | --nofft] [--6merpair | --10merpair] ... input</c>: the plain progressive
+/// methods (FFT-NS-1, FFT-NS-2, NW-NS-1, NW-NS-2) for any number of sequences. The options that need the later stages of the port (<c>--maxiterate</c>, <c>--localpair</c>, <c>--globalpair</c>,
+/// <c>--genafpair</c>) are not options of this record.
 /// </summary>
 public sealed record MafftOptions
 {
@@ -42,8 +52,51 @@ public sealed record MafftOptions
     /// <summary><c>--fft</c> (default) / <c>--nofft</c> (accepted; verified equal on the committed pairs, see the Evidence).</summary>
     public bool Fft { get; init; } = true;
 
-    /// <summary><c>--thread n</c> (accepted, no effect).</summary>
-    public int Threads { get; init; } = 1;
+    /// <summary><c>--opdist x</c>: the gap opening penalty of the distance calculation (<c>-V</c>; default = <see cref="GapOpen"/>).</summary>
+    public double? GapOpenDistance { get; init; }
+
+    /// <summary><c>--exp x</c>: gap extension penalty (the script passes <c>-g -x</c>; default 0).</summary>
+    public double GapExtension { get; init; }
+
+    /// <summary><c>--termgappenalty</c>: penalise gaps at the ends of the alignment (the script then leaves out <c>-O</c>).</summary>
+    public bool TerminalGapPenalty { get; init; }
+
+    /// <summary><c>--unweight</c> (<c>-u</c>): no weighting of the sequences by the guide tree.</summary>
+    public bool Unweight { get; init; }
+
+    /// <summary><c>--bl</c> / <c>--jtt</c> / <c>--tm</c>: the model of the scoring matrix of amino acids.</summary>
+    public MafftScoringModel ScoringModel { get; init; }
+
+    /// <summary>The PAM distance of <c>--jtt n</c> / <c>--tm n</c> / <c>--kimura n</c> (default 200).</summary>
+    public int Pam { get; init; } = 200;
+
+    /// <summary><c>--kappa n</c>: the transition / transversion ratio of the Kimura matrix of nucleotides (default 2).</summary>
+    public int? Kappa { get; init; }
+
+    /// <summary><c>--fmodel</c>: the frequencies of the letters of the data (not the model's) in the scoring matrix.</summary>
+    public bool FrequencyModel { get; init; }
+
+    /// <summary><c>--nwildcard</c>: <c>n</c> scores like a wildcard in nucleotide sequences.</summary>
+    public bool WildcardN { get; init; }
+
+    /// <summary><c>--fft</c> given explicitly (<c>-G</c>: the FFT is used for every pair of groups, not only those with more residues than sequences).</summary>
+    public bool ForceFft { get; init; }
+
+    /// <summary><c>--6merpair</c> (6, default) / <c>--10merpair</c> (10, nucleotides only): the length of the k-mers of the distance.</summary>
+    public int TupleSize { get; init; } = 6;
+
+    /// <summary><c>--mixedlinkage x</c> (<c>--averagelinkage</c> = 1, <c>--minimumlinkage</c> = 0): the share of the average linkage of the UPGMA guide tree (default 0.1).</summary>
+    public double? TreeMixing { get; init; }
+
+    /// <summary><c>--leavegappyregion</c> / <c>--legacygappenalty</c>: the gap penalty of MAFFT before 7.110 (not scaled by the gap frequency of the columns).</summary>
+    public bool LegacyGapPenalty { get; init; }
+
+    /// <summary><c>--quiet</c>: the progress messages are not collected.</summary>
+    public bool Quiet { get; init; }
+
+    /// <summary><c>--thread n</c> (default 0 = one thread; -1 = the number of processors). The alignment does not depend on it (verified: 1 700 runs with <c>--thread 4</c> equal the single-thread runs); the program's progress text
+    /// with several threads is written in the order the threads run, which is not reproducible, so the port writes the text of the single-thread run with the thread counts.</summary>
+    public int Threads { get; init; }
 
     /// <summary><c>--reorder</c> (accepted; the two sequences keep their input order).</summary>
     public bool Reorder { get; init; }
@@ -51,6 +104,11 @@ public sealed record MafftOptions
     /// <summary>Cancellation of the call.</summary>
     public CancellationToken CancellationToken { get; init; }
 }
+
+/// <summary>The result of a run of <c>mafft</c>: the alignment and the text that the program writes to standard error (progress, strategy; empty with <c>--quiet</c>).</summary>
+/// <param name="Alignment">Rows in the order of the output (the input order, or the order of the guide tree with <c>--reorder</c>).</param>
+/// <param name="StandardError">The messages of the binaries and of the script, byte for byte.</param>
+public sealed record MafftRunResult(MultipleAlignmentResult Alignment, string StandardError);
 
 public static partial class SequenceAligner
 {
@@ -73,7 +131,13 @@ public static partial class SequenceAligner
     /// <param name="options">Parameters; default = <c>mafft --anysymbol</c>.</param>
     /// <exception cref="ArgumentException">An empty sequence among two, a letter outside the alphabet with <c>AnySymbol = false</c>, an unusable parameter.</exception>
     /// <exception cref="NotSupportedException">Three or more sequences (only the alignment of two sequences is available).</exception>
-    public static MultipleAlignmentResult MultipleAlignMafft(IEnumerable<string> sequences, MafftOptions? options = null)
+    public static MultipleAlignmentResult MultipleAlignMafft(IEnumerable<string> sequences, MafftOptions? options = null) => RunMafft(sequences, options).Alignment;
+
+    /// <summary>
+    /// <see cref="MultipleAlignMafft"/> with the messages of the program: the same alignment, and the standard error of <c>mafft</c> (the banner lines of the binaries <c>disttbfast</c> ... and the strategy text of the script,
+    /// empty with <see cref="MafftOptions.Quiet"/>).
+    /// </summary>
+    public static MafftRunResult RunMafft(IEnumerable<string> sequences, MafftOptions? options = null)
     {
         var o = options ?? new MafftOptions();
         var list = new List<string>();
@@ -82,28 +146,11 @@ public static partial class SequenceAligner
         // Empty input: the program accepts it ("Warning: Only 0 sequence found.", exit status 0, empty output: installed mafft 7.505), so does the port (Kalign, POA and ProbCons refuse it, as their
         // programs do: see EmptyInputMessage). One sequence: the program writes it back ("Only 1 sequence found" is a warning), here too.
         if (list.Count == 0)
-            return MultipleAlignmentResult.Empty;
+            return new MafftRunResult(MultipleAlignmentResult.Empty, "");
         if (list.Count == 1)
-            return MafftEngine.SingleSequence(list[0], o);
-        if (list.Count > 2)
-            throw new NotSupportedException("MAFFT's progressive stage for three or more sequences (6-mer distances, guide tree, A__align) is not implemented in this library; only the alignment of two sequences is available.");
+            return new MafftRunResult(MafftEngine.SingleSequence(list[0], o), "");
         using var cancelScope = AlignmentCancellation.Enter(o.CancellationToken);
-        var rows = MafftEngine.AlignPair(list[0], list[1], o);
-        var aligned = rows.ToList();
-        string consensus = BuildConsensus(aligned, aligned.Max(r => r.Length), anySymbol: true);
-        bool nucleotide = MafftEngine.IsNucleotide(list, o);
-        var sp = nucleotide ? MatrixScoring.Emboss(SubstitutionMatrix.EdnaFull, 10, 0.5) : MatrixScoring.Emboss(SubstitutionMatrix.Blosum62, 10, 0.2);
-        string[] scored = rows.Select(r => r.ToUpperInvariant()).ToArray();
-        double exact;
-        try
-        {
-            exact = MatrixSumOfPairsScore(scored, sp, MsaGapModel.Affine);
-        }
-        catch (ArgumentException)
-        {
-            exact = double.NaN;
-        }
-        return new MultipleAlignmentResult(rows, consensus, double.IsNaN(exact) ? 0 : (int)Math.Round(exact, MidpointRounding.AwayFromZero)) { ExactTotalScore = exact };
+        return MafftEngine.AlignMany(list, o);
     }
 
     internal static class MafftEngine
@@ -111,13 +158,14 @@ public static partial class SequenceAligner
         /// <summary>The 26 x 26 integer scoring matrix of <c>constants()</c> (<c>n_dis</c>) in the order of the program's alphabet (<c>ARNDCQEGHILKMFPSTWYVBZX.-J</c> for amino acids, <c>agctuAGCTUnNbdhkmnrsvwyx-O</c> for nucleotides) and the integer gap opening penalty / extension.</summary>
         internal static (int[,] Matrix, int Penalty, int PenaltyEx) ScoringMatrix(bool nucleotide, MafftOptions o)
         {
-            var sc = Scoring.Create(nucleotide, o);
-            string alphabet = nucleotide ? MafftNucAlphabet : MafftAminoAlphabet;
+            var g = MafftGlobals.Parse(MafftScript.DisttbfastArguments(o, 3));
+            g.Dorp = nucleotide ? 'd' : 'p';
+            g.Constants(Array.Empty<string>());
             var m = new int[26, 26];
             for (int i = 0; i < 26; i++)
                 for (int j = 0; j < 26; j++)
-                    m[i, j] = (int)sc.Matrix[(byte)alphabet[i]][(byte)alphabet[j]];
-            return (m, (int)sc.Penalty, (int)sc.PenaltyEx);
+                    m[i, j] = g.NDis[i][j];
+            return (m, g.Penalty, g.PenaltyEx);
         }
 
         // -------------------------------------------------------------------- front end (replaceu.c, io.c)
@@ -173,49 +221,70 @@ public static partial class SequenceAligner
         /// <summary>One sequence: the program writes it back without aligning (installed mafft 7.505, "Warning: Only 1 sequence found."): the residues of the input, gaps removed; the original letters with <c>--anysymbol</c>, otherwise nucleotides in lower and amino acids in upper case.</summary>
         internal static MultipleAlignmentResult SingleSequence(string sequence, MafftOptions o)
         {
-            string residues = LoadResidues(sequence, o.AnySymbol);
+            string residues = NoGaps(LoadResidues(sequence, o.AnySymbol));
             if (!o.AnySymbol)
                 residues = GuessNucleotide(new[] { residues }, o) ? residues.ToLowerInvariant() : residues.ToUpperInvariant();
             return new MultipleAlignmentResult(new[] { residues }, BuildConsensus(new List<string> { residues }, residues.Length, anySymbol: true), 0) { ExactTotalScore = 0 };
         }
 
-        /// <summary>The alignment of a pair; rows carry the original letters (restoreu.c).</summary>
-        internal static string[] AlignPair(string a, string b, MafftOptions o)
+        /// <summary>Three or more sequences: <c>replaceu</c>, <c>disttbfast</c> (<see cref="MafftRun.Disttbfast"/>), <c>restoreu</c>.</summary>
+        internal static MafftRunResult AlignMany(IReadOnlyList<string> list, MafftOptions o)
         {
             if (o.Blosum is not (30 or 45 or 50 or 62 or 80 or 90 or 100 or 0))
                 throw new ArgumentException($"--bl must be 30, 45, 50, 62, 80, 90, 100 or 0, got {o.Blosum}.", nameof(o));
-            if (!double.IsFinite(o.GapOpen) || !double.IsFinite(o.Offset))
-                throw new ArgumentException("--op and --ep must be finite.", nameof(o));
-            var originals = new[] { LoadResidues(a, o.AnySymbol), LoadResidues(b, o.AnySymbol) };
-            if (originals[0].Length == 0 || originals[1].Length == 0)
-                throw new ArgumentException("A sequence without residues cannot be aligned.", nameof(a));
-            // replaceu: guess on the original letters (unless forced), then replace
+            if (!double.IsFinite(o.GapOpen) || !double.IsFinite(o.Offset) || !double.IsFinite(o.GapExtension))
+                throw new ArgumentException("--op, --ep and --exp must be finite.", nameof(o));
+            if (o.Retree == 0)
+                throw new NotSupportedException("--retree 0 (the guide tree only) of MAFFT is not available in this port.");
+            var originals = list.Select(x => LoadResidues(x, o.AnySymbol)).ToArray();
+            foreach (var s in originals)
+                if (NoGaps(s).Length == 0)
+                    throw new ArgumentException("A sequence without residues cannot be aligned.", nameof(list));
             bool nuc1 = GuessNucleotide(originals, o);
-            string[] replaced;
+            var log = new System.Text.StringBuilder();
             if (o.AnySymbol)
-                replaced = originals.Select(s => ReplaceUnusual(s, nuc1)).ToArray();
-            else
-                replaced = originals.Select(s => nuc1 ? s.ToLowerInvariant() : s.ToUpperInvariant()).ToArray();
-            // disttbfast: the guess again, on the replaced letters
+                log.Append("inputfile = orig\n").Append(originals.Length).Append(" x ").Append(originals.Max(x => x.Length)).Append(" - ").Append(originals.Min(x => x.Length)).Append(' ').Append(nuc1 ? 'd' : 'p').Append('\n');
+            string[] replaced = o.AnySymbol
+                ? originals.Select(s => ReplaceUnusual(s, nuc1)).ToArray()
+                : originals.Select(s => nuc1 ? s.ToLowerInvariant() : s.ToUpperInvariant()).ToArray();
             bool nuc = GuessNucleotide(replaced, o);
-            if (nuc)
-                replaced = replaced.Select(s => s.ToLowerInvariant()).ToArray();
-            else
-                replaced = replaced.Select(s => s.ToUpperInvariant()).ToArray();
-            var scoring = Scoring.Create(nuc, o);
-            foreach (var s in replaced)
-                foreach (char ch in s)
-                    if (!scoring.Known.Contains(ch))
-                        throw new ArgumentException($"Alphabet '{ch}' is unknown (MAFFT stops: try --anysymbol).", nameof(a));
+            replaced = nuc ? replaced.Select(s => s.ToLowerInvariant()).ToArray() : replaced.Select(s => s.ToUpperInvariant()).ToArray();
+            var g = MafftGlobals.Parse(MafftScript.DisttbfastArguments(o, list.Count));
+            if (g.Dorp == '\0')
+                g.Dorp = nuc ? 'd' : 'p';
+            var run = new MafftRun(g);
+            var result = run.Disttbfast(replaced);
+            log.Append(run.Log);
+            string[] rows = o.AnySymbol
+                ? result.Rows.Select((r, i) => Restore(originals[i], r)).ToArray()
+                : result.Rows;
+            if (o.Reorder)
+                rows = result.Order.Select(i => rows[i]).ToArray();
+            string stderr = o.Quiet ? "" : log.ToString() + MafftScript.Epilogue(o, list.Count);
+            return new MafftRunResult(ToResult(rows, nuc), stderr);
+        }
 
-            var (m1, m2) = G__align11(scoring, replaced[0], replaced[1], headgp: 0, tailgp: 0);
-            // --anysymbol: restoreu puts the original letters back; the plain command writes the aligned letters as they are (nucleotides lower case, amino acids upper case)
-            return o.AnySymbol ? new[] { Restore(originals[0], m1), Restore(originals[1], m2) } : new[] { m1, m2 };
+        internal static MultipleAlignmentResult ToResult(string[] rows, bool nucleotide)
+        {
+            var aligned = rows.ToList();
+            string consensus = BuildConsensus(aligned, aligned.Max(r => r.Length), anySymbol: true);
+            var sp = nucleotide ? MatrixScoring.Emboss(SubstitutionMatrix.EdnaFull, 10, 0.5) : MatrixScoring.Emboss(SubstitutionMatrix.Blosum62, 10, 0.2);
+            string[] scored = rows.Select(r => r.ToUpperInvariant()).ToArray();
+            double exact;
+            try
+            {
+                exact = MatrixSumOfPairsScore(scored, sp, MsaGapModel.Affine);
+            }
+            catch (ArgumentException)
+            {
+                exact = double.NaN;
+            }
+            return new MultipleAlignmentResult(rows, consensus, double.IsNaN(exact) ? 0 : (int)Math.Round(exact, MidpointRounding.AwayFromZero)) { ExactTotalScore = exact };
         }
 
         /// <summary>
-        /// The residues of an input sequence. <c>--anysymbol</c> (replaceu reads the raw lines): every character except blanks, '\r', '\n' and the gap '-' is a residue (digits, '*', '#' ...; '=', '&lt;', '&gt;'
-        /// stop the program). Plain: <c>onlyAlpha_*</c> keeps letters, '.' and '*' (read as a gap), so only letters and '.' remain.
+        /// The sequence as the program holds it after reading. <c>--anysymbol</c> (replaceu reads the raw lines, <c>charfilter</c>): every character except blanks, '\r' and '\n' stays (digits, '*', '#' ...; '=', '&lt;', '&gt;'
+        /// stop the program); the gap '-' stays too (its positions count in the lengths and are removed by <c>gappick0</c> before the alignment). Plain: <c>onlyAlpha_*</c> and <c>kake2hiku</c> keep letters, '.', '-' and '*' (read as '-').
         /// </summary>
         private static string LoadResidues(string s, bool anySymbol)
         {
@@ -228,12 +297,16 @@ public static partial class SequenceAligner
                 {
                     if (ch is '=' or '<' or '>')
                         throw new ArgumentException("Characters '= < >' can be used only in the title lines in the --anysymbol mode.", nameof(s));
-                    if (ch is not (' ' or '\r' or '\n' or '-'))
+                    if (ch is not (' ' or '\r' or '\n'))
                         sb.Append(ch);
                 }
-                else if (IsAsciiLetter(ch) || ch == '.')
+                else if (IsAsciiLetter(ch) || ch is '.' or '-')
                 {
                     sb.Append(ch);
+                }
+                else if (ch == '*')
+                {
+                    sb.Append('-'); // kake2hiku: a star is read as a gap
                 }
             }
             return sb.ToString();
@@ -241,8 +314,11 @@ public static partial class SequenceAligner
 
         internal static bool IsNucleotide(IReadOnlyList<string> seqs, MafftOptions o) => GuessNucleotide(seqs.Select(x => LoadResidues(x, o.AnySymbol)).ToList(), o);
 
+        private static string NoGaps(string s) => s.Replace("-", "", StringComparison.Ordinal);
+
         private static string Restore(string original, string alignedReplaced)
         {
+            original = NoGaps(original);
             var sb = new System.Text.StringBuilder(alignedReplaced.Length);
             int k = 0;
             foreach (char c in alignedReplaced)
@@ -250,414 +326,6 @@ public static partial class SequenceAligner
             return sb.ToString();
         }
 
-        // -------------------------------------------------------------------- constants.c
-
-        private sealed class Scoring
-        {
-            public readonly double[][] Matrix = new double[256][];
-            public readonly HashSet<char> Known = new();
-            public double Penalty, PenaltyEx;
-
-            private Scoring()
-            {
-                for (int i = 0; i < 256; i++)
-                    Matrix[i] = new double[256];
-            }
-
-            private static int ToInt(double v) => (int)v; // C cast: truncation toward zero
-
-            private static double Shishagonyuu(double v)
-            {
-                if (v > 0.0)
-                    return (int)(v + 0.5);
-                if (v == 0.0)
-                    return 0;
-                if (v < 0.0)
-                    return (int)(v - 0.5);
-                return 0;
-            }
-
-            /// <summary>constants.c, protein branch with scoremtx == 1 (BLOSUM): the matrix scaled to 600 / (frequency-weighted mean of the diagonal), shifted by the offset, rounded to integers.</summary>
-            private static int[,] AminoMatrix(int blosum, int offset)
-            {
-                var tri = MafftTables.BlosumLowerTriangle[blosum];
-                var freq = MafftTables.BlosumFrequencies;
-                var d = new double[20, 20];
-                int count = 0;
-                for (int i = 0; i < 20; i++)
-                    for (int j = 0; j <= i; j++)
-                        d[i, j] = d[j, i] = tri[count++];
-                double average = 0.0;
-                for (int i = 0; i < 20; i++)
-                    for (int j = 0; j < 20; j++)
-                        average += d[i, j] * freq[i] * freq[j];
-                for (int i = 0; i < 20; i++)
-                    for (int j = 0; j < 20; j++)
-                        d[i, j] -= average;
-                average = 0.0;
-                for (int i = 0; i < 20; i++)
-                    average += d[i, i] * freq[i];
-                for (int i = 0; i < 20; i++)
-                    for (int j = 0; j < 20; j++)
-                        d[i, j] *= 600.0 / average;
-                for (int i = 0; i < 20; i++)
-                    for (int j = 0; j < 20; j++)
-                        d[i, j] -= offset;
-                for (int i = 0; i < 20; i++)
-                    for (int j = 0; j < 20; j++)
-                        d[i, j] = Shishagonyuu(d[i, j]);
-                var n = new int[26, 26];
-                for (int i = 0; i < 20; i++)
-                    for (int j = 0; j < 20; j++)
-                        n[i, j] = (int)d[i, j];
-                return n;
-            }
-
-            /// <summary>constants.c, nucleotide branch: the Kimura two-parameter PAM matrix of 200 steps (kappa 2, equal frequencies), log10 odds * 1000, centred, scaled to 600 / mean diagonal, shifted by the offset; ambiguity codes by <c>ambiguousscore</c>.</summary>
-            private static int[,] NucleotideMatrix(string amino, int offset)
-            {
-                const int kimuraR = 2, pamN = 200;
-                var freq = new[] { 0.25, 0.25, 0.25, 0.25 };
-                var r = new double[4, 4];
-                r[0, 0] = 0.0; r[0, 1] = kimuraR; r[0, 2] = 1.0; r[0, 3] = 1.0;
-                r[1, 0] = kimuraR; r[1, 1] = 0.0; r[1, 2] = 1.0; r[1, 3] = 1.0;
-                r[2, 0] = 1.0; r[2, 1] = 1.0; r[2, 2] = 0.0; r[2, 3] = kimuraR;
-                r[3, 0] = 1.0; r[3, 1] = 1.0; r[3, 2] = kimuraR; r[3, 3] = 0.0;
-                var mut = new double[4];
-                double total = 0.0;
-                for (int i = 0; i < 4; i++)
-                {
-                    double tmp = 0.0;
-                    for (int j = 0; j < 4; j++)
-                        tmp += r[i, j] * freq[j];
-                    mut[i] = tmp;
-                    total += tmp * freq[i];
-                }
-                var pam1 = new double[4, 4];
-                for (int i = 0; i < 4; i++)
-                    for (int j = 0; j < 4; j++)
-                        pam1[i, j] = i != j ? 0.01 / total * r[i, j] * freq[j] : 1.0 - 0.01 / total * mut[i];
-                var pamx = new double[11, 11];
-                for (int i = 0; i < 4; i++)
-                    pamx[i, i] = 1.0;
-                var row = new double[4];
-                for (int x = 0; x < pamN; x++)
-                {
-                    for (int i = 0; i < 4; i++)
-                    {
-                        for (int k = 0; k < 4; k++)
-                            row[k] = pamx[i, k];
-                        for (int j = 0; j < 4; j++)
-                        {
-                            double s = 0.0;
-                            for (int k = 0; k < 4; k++)
-                                s += row[k] * pam1[k, j];
-                            pamx[i, j] = s;
-                        }
-                    }
-                }
-                for (int i = 0; i < 4; i++)
-                    for (int j = 0; j < 4; j++)
-                        pamx[i, j] /= freq[j];
-                for (int i = 0; i < 4; i++)
-                {
-                    for (int j = 0; j < 4; j++)
-                    {
-                        if (pamx[i, j] == 0.0)
-                            pamx[i, j] = 0.00001;
-                        pamx[i, j] = Math.Log10(pamx[i, j]) * 1000.0;
-                    }
-                }
-                double average = 0.0;
-                for (int i = 0; i < 4; i++)
-                    for (int j = 0; j < 4; j++)
-                        average += pamx[i, j] * freq[i] * freq[j];
-                for (int i = 0; i < 4; i++)
-                    for (int j = 0; j < 4; j++)
-                        pamx[i, j] -= average;
-                average = 0.0;
-                for (int i = 0; i < 4; i++)
-                    average += pamx[i, i] * 1.0 / 4.0;
-                for (int i = 0; i < 4; i++)
-                    for (int j = 0; j < 4; j++)
-                        pamx[i, j] *= 600.0 / average;
-                for (int i = 0; i < 4; i++)
-                    for (int j = 0; j < 4; j++)
-                        pamx[i, j] -= offset;
-                for (int i = 0; i < 4; i++)
-                    for (int j = 0; j < 4; j++)
-                        pamx[i, j] = Shishagonyuu(pamx[i, j]);
-                for (int i = 0; i < 5; i++)
-                {
-                    pamx[4, i] = pamx[3, i];
-                    pamx[i, 4] = pamx[i, 3];
-                }
-                for (int i = 5; i < 10; i++)
-                    for (int j = 5; j < 10; j++)
-                        pamx[i, j] = pamx[i - 5, j - 5];
-                var n = new int[26, 26];
-                for (int i = 0; i < 10; i++)
-                    for (int j = 0; j < 10; j++)
-                        n[i, j] = (int)Shishagonyuu(pamx[i, j]);
-                AmbiguousScore(amino, n);
-                return n;
-            }
-
-            private static void AmbiguousScore(string amino, int[,] n)
-            {
-                int Idx(char c) => amino.LastIndexOf(c); // amino_n[c] = the last index of the letter
-                int a = Idx('a'), g = Idx('g'), c = Idx('c'), t = Idx('t');
-                int r = Idx('r'), y = Idx('y'), k = Idx('k'), m = Idx('m'), s = Idx('s'), w = Idx('w'), b = Idx('b'), d = Idx('d'), h = Idx('h'), v = Idx('v');
-                for (int i = 0; i < 26; i++)
-                {
-                    n[i, r] = (int)Shishagonyuu((double)1 / 2 * (n[a, i] + n[g, i]));
-                    n[i, y] = (int)Shishagonyuu((double)1 / 2 * (n[c, i] + n[t, i]));
-                    n[i, k] = (int)Shishagonyuu((double)1 / 2 * (n[g, i] + n[t, i]));
-                    n[i, m] = (int)Shishagonyuu((double)1 / 2 * (n[a, i] + n[c, i]));
-                    n[i, s] = (int)Shishagonyuu((double)1 / 2 * (n[g, i] + n[c, i]));
-                    n[i, w] = (int)Shishagonyuu((double)1 / 2 * (n[a, i] + n[t, i]));
-                    n[i, b] = (int)Shishagonyuu((double)1 / 3 * (n[c, i] + n[g, i] + n[t, i]));
-                    n[i, d] = (int)Shishagonyuu((double)1 / 3 * (n[a, i] + n[g, i] + n[t, i]));
-                    n[i, h] = (int)Shishagonyuu((double)1 / 3 * (n[a, i] + n[c, i] + n[t, i]));
-                    n[i, v] = (int)Shishagonyuu((double)1 / 3 * (n[a, i] + n[c, i] + n[g, i]));
-                    n[r, i] = n[i, r];
-                    n[y, i] = n[i, y];
-                    n[k, i] = n[i, k];
-                    n[m, i] = n[i, m];
-                    n[s, i] = n[i, s];
-                    n[w, i] = n[i, w];
-                    n[b, i] = n[i, b];
-                    n[d, i] = n[i, d];
-                    n[h, i] = n[i, h];
-                    n[v, i] = n[i, v];
-                }
-                n[r, r] = (int)Shishagonyuu((double)1 / 2 * (n[a, a] + n[g, g]));
-                n[y, y] = (int)Shishagonyuu((double)1 / 2 * (n[c, c] + n[t, t]));
-                n[k, k] = (int)Shishagonyuu((double)1 / 2 * (n[g, g] + n[t, t]));
-                n[m, m] = (int)Shishagonyuu((double)1 / 2 * (n[a, a] + n[c, c]));
-                n[s, s] = (int)Shishagonyuu((double)1 / 2 * (n[g, g] + n[c, c]));
-                n[w, w] = (int)Shishagonyuu((double)1 / 2 * (n[a, a] + n[t, t]));
-                n[b, b] = (int)Shishagonyuu((double)1 / 3 * (n[c, c] + n[g, g] + n[t, t]));
-                n[d, d] = (int)Shishagonyuu((double)1 / 3 * (n[a, a] + n[g, g] + n[t, t]));
-                n[h, h] = (int)Shishagonyuu((double)1 / 3 * (n[a, a] + n[c, c] + n[t, t]));
-                n[v, v] = (int)Shishagonyuu((double)1 / 3 * (n[a, a] + n[c, c] + n[g, g]));
-            }
-
-            internal static Scoring Create(bool nuc, MafftOptions o)
-            {
-                var sc = new Scoring();
-                // the script passes -f -op, -h -ep (and -g 0): arguments(): (int)(atof(x) * 1000 - 0.5)
-                int ppenalty = ToInt(-o.GapOpen * 1000 - 0.5);
-                int ppenaltyEx = ToInt(0.0 * 1000 - 0.5);
-                int poffset = ToInt(-o.Offset * 1000 - 0.5);
-                string amino;
-                int[,] nDis;
-                if (nuc)
-                {
-                    amino = MafftNucAlphabet;
-                    sc.Penalty = ToInt(3 * 600.0 / 1000.0 * ppenalty + 0.5);
-                    sc.PenaltyEx = ToInt(3 * 600.0 / 1000.0 * ppenaltyEx + 0.5);
-                    int offset = ToInt(1 * 600.0 / 1000.0 * poffset + 0.5);
-                    nDis = NucleotideMatrix(amino, offset);
-                }
-                else
-                {
-                    amino = MafftAminoAlphabet;
-                    sc.Penalty = ToInt(600.0 / 1000.0 * ppenalty + 0.5);
-                    sc.PenaltyEx = ToInt(600.0 / 1000.0 * ppenaltyEx + 0.5);
-                    int offset = ToInt(600.0 / 1000.0 * poffset + 0.5);
-                    nDis = AminoMatrix(o.Blosum, offset);
-                }
-                for (int i = 0; i < 26; i++)
-                {
-                    sc.Known.Add(amino[i]);
-                    for (int j = 0; j < 26; j++)
-                        sc.Matrix[(byte)amino[i]][(byte)amino[j]] = (double)nDis[i, j] * 1.0; // consweight_multi = 1.0
-                }
-                return sc;
-            }
-        }
-
-        // -------------------------------------------------------------------- Galign11.c (trywarp = 0: -Q 100 >= 10)
-
-        private static (string, string) G__align11(Scoring sc, string seq1, string seq2, int headgp, int tailgp)
-        {
-            int lgth1 = seq1.Length, lgth2 = seq2.Length;
-            double fpenalty = sc.Penalty, fpenaltyEx = sc.PenaltyEx;
-            const double termGapFac = 0.0, termGapFacEx = 0.0;
-            RequireCells(((long)lgth1 + 1) * ((long)lgth2 + 1), MafftMaxPairCells, nameof(MafftMaxPairCells), "MAFFT", "keeps an int trace-back matrix ijp[len1 + 1][len2 + 1] (G__align11)",
-                string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{lgth1:N0} x {lgth2:N0} residues = {((long)lgth1 + 1) * ((long)lgth2 + 1):N0} cells"), "The program has no limit and is killed when the allocation (4 bytes per cell plus the row arrays) fails", "use the progressive / FFT variants of MAFFT (not ported) or Kalign for sequences of this length");
-            var m = new double[lgth2 + 2];
-            var mp = new int[lgth2 + 2];
-            var w1 = new double[lgth2 + 2];
-            var w2 = new double[lgth2 + 2];
-            var initverticalw = new double[lgth1 + 2];
-            var lastverticalw = new double[lgth1 + 2];
-            var ijp = new int[lgth1 + 1][];
-            for (int i = 0; i <= lgth1; i++)
-                ijp[i] = new int[lgth2 + 1];
-
-            double[] currentw = w1, previousw = w2;
-            for (int j = 0; j < lgth1; j++)
-                initverticalw[j] = sc.Matrix[(byte)seq2[0]][(byte)seq1[j]];
-            for (int j = 0; j < lgth2; j++)
-                currentw[j] = sc.Matrix[(byte)seq1[0]][(byte)seq2[j]];
-            if (headgp == 1)
-            {
-                for (int i = 1; i < lgth1 + 1; i++)
-                    initverticalw[i] += fpenalty;
-                for (int j = 1; j < lgth2 + 1; j++)
-                    currentw[j] += fpenalty;
-            }
-            else
-            {
-                for (int i = 1; i < lgth1 + 1; i++)
-                {
-                    initverticalw[i] += fpenalty * termGapFac;
-                    initverticalw[i] += fpenaltyEx * i * termGapFacEx;
-                }
-                for (int j = 1; j < lgth2 + 1; j++)
-                {
-                    currentw[j] += fpenalty * termGapFac;
-                    currentw[j] += fpenaltyEx * j * termGapFacEx;
-                }
-            }
-            for (int j = 1; j < lgth2 + 1; ++j)
-            {
-                m[j] = currentw[j - 1];
-                mp[j] = 0;
-            }
-            lastverticalw[0] = lgth2 == 0 ? 0.0 : currentw[lgth2 - 1];
-            int lasti = tailgp != 0 ? lgth1 + 1 : lgth1;
-            int lastj = lgth2 + 1;
-            double mi;
-            int mpi;
-            for (int i = 1; i < lasti; i++)
-            {
-                AlignmentCancellation.ThrowIfRequested();
-                (previousw, currentw) = (currentw, previousw);
-                previousw[0] = initverticalw[i - 1];
-                for (int j = 0; j < lgth2; j++)
-                    currentw[j] = sc.Matrix[(byte)seq1[i]][(byte)seq2[j]];
-                currentw[0] = initverticalw[i];
-                mi = previousw[0];
-                mpi = 0;
-                double fpenaltyExI = i < lgth1 ? fpenaltyEx : 0.0;
-                var ijpRow = ijp[i];
-                for (int j = 1; j < lastj; j++)
-                {
-                    double wm = previousw[j - 1];
-                    ijpRow[j] = 0;
-                    double g;
-                    if ((g = mi + fpenalty) > wm)
-                    {
-                        wm = g;
-                        ijpRow[j] = -(j - mpi);
-                    }
-                    if ((g = previousw[j - 1]) >= mi)
-                    {
-                        mi = g;
-                        mpi = j - 1;
-                    }
-                    mi += fpenaltyExI;
-                    if ((g = m[j] + fpenalty) > wm)
-                    {
-                        wm = g;
-                        ijpRow[j] = +(i - mp[j]);
-                    }
-                    if ((g = previousw[j - 1]) >= m[j])
-                    {
-                        m[j] = g;
-                        mp[j] = i - 1;
-                    }
-                    if (j < lgth2)
-                        m[j] += fpenaltyEx;
-                    currentw[j] += wm;
-                }
-                lastverticalw[i] = currentw[lgth2 - 1];
-            }
-            return Atracking(currentw, lastverticalw, seq1, seq2, ijp, tailgp);
-        }
-
-        private static (string, string) Atracking(double[] lasthorizontalw, double[] lastverticalw, string seq1, string seq2, int[][] ijp, int tailgp)
-        {
-            int lgth1 = seq1.Length, lgth2 = seq2.Length;
-            for (int i = 0; i < lgth1 + 1; i++)
-                ijp[i][0] = i + 1;
-            for (int j = 0; j < lgth2 + 1; j++)
-                ijp[0][j] = -(j + 1);
-            if (tailgp != 1)
-            {
-                double wm = lasthorizontalw[lgth2 - 1] - 1.0;
-                double g;
-                for (int j = lgth2 - 2; j >= 0; j--)
-                {
-                    if ((g = lasthorizontalw[j] + 0.0) > wm)
-                    {
-                        wm = g;
-                        ijp[lgth1][lgth2] = -(lgth2 - j);
-                    }
-                }
-                for (int i = lgth1 - 2; i >= 0; i--)
-                {
-                    if ((g = lastverticalw[i] + 0.0) > wm)
-                    {
-                        wm = g;
-                        ijp[lgth1][lgth2] = +(lgth1 - i);
-                    }
-                }
-                if (lasthorizontalw[lgth2 - 1] > wm)
-                    ijp[lgth1][lgth2] = 0;
-            }
-            var a = new char[lgth1 + lgth2 + 1];
-            var b = new char[lgth1 + lgth2 + 1];
-            int pa = lgth1 + lgth2, pb = lgth1 + lgth2;
-            int iin = lgth1, jin = lgth2;
-            int limk = lgth1 + lgth2 + 1;
-            int k = 0;
-            while (k < limk)
-            {
-                int ifi, jfi;
-                if (ijp[iin][jin] < 0)
-                {
-                    ifi = iin - 1;
-                    jfi = jin + ijp[iin][jin];
-                }
-                else if (ijp[iin][jin] > 0)
-                {
-                    ifi = iin - ijp[iin][jin];
-                    jfi = jin - 1;
-                }
-                else
-                {
-                    ifi = iin - 1;
-                    jfi = jin - 1;
-                }
-                int l = iin - ifi;
-                while (--l > 0)
-                {
-                    a[--pa] = seq1[ifi + l];
-                    b[--pb] = '-';
-                    k++;
-                }
-                l = jin - jfi;
-                while (--l > 0)
-                {
-                    a[--pa] = '-';
-                    b[--pb] = seq2[jfi + l];
-                    k++;
-                }
-                if (iin <= 0 || jin <= 0)
-                    break;
-                a[--pa] = seq1[ifi];
-                b[--pb] = seq2[jfi];
-                k++;
-                iin = ifi;
-                jin = jfi;
-                k++;
-            }
-            return (new string(a, pa, lgth1 + lgth2 - pa), new string(b, pb, lgth1 + lgth2 - pb));
-        }
     }
 
     #endregion

@@ -62,7 +62,7 @@ public class KalignTests
     }
 }
 
-/// <summary>multiple_align_mafft (audit A2-19, B09 F119): the alignment of two sequences of MAFFT 7.505; delegates to SequenceAligner.MultipleAlignMafft (oracle comparison in the library tests).</summary>
+/// <summary>multiple_align_mafft (audit A2-19 / A2-19b, B09 F119 / F283): MAFFT 7.505, progressive strategies; delegates to SequenceAligner.RunMafft (oracle comparison in the library tests).</summary>
 [TestFixture]
 public class MafftTests
 {
@@ -77,11 +77,25 @@ public class MafftTests
     }
 
     [Test]
+    public void MultipleAlignMafft_ThreeSequences_CarriesTheProgramsStandardError()
+    {
+        var r = AlignmentTools.MultipleAlignMafft(["MKVLAAGIVGLLLAQ", "MKVLAGIVALLAQ", "MKILAAGIVGLLAQ"], anySymbol: false);
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.StandardError, Does.Contain("Strategy:\n FFT-NS-2 (Fast but rough)"));
+            Assert.That(AlignmentTools.MultipleAlignMafft(["MKVLAAGIVGLLLAQ", "MKVLAGIVALLAQ", "MKILAAGIVGLLAQ"], quiet: true).StandardError, Is.Empty);
+            Assert.That(AlignmentTools.MultipleAlignMafft(["MKVLAAGIVGLLLAQ", "MKVLAGIVALLAQ", "MKILAAGIVGLLAQ"], format: "fasta", names: ["a", "b", "c"]).Formatted, Does.StartWith(">a"));
+        });
+    }
+
+    [Test]
     public void MultipleAlignMafft_Validation()
     {
         Assert.Multiple(() =>
         {
-            Assert.Throws<NotSupportedException>(() => AlignmentTools.MultipleAlignMafft(["ACGT", "ACGA", "ACGG"]), "three sequences: the progressive stage is registered (A2-19b)");
+            Assert.That(AlignmentTools.MultipleAlignMafft(["ACGTACGT", "ACGAACGT", "ACGGACGT"]).AlignedSequences, Has.Length.EqualTo(3), "three sequences: the progressive stage (A2-19b)");
+            Assert.Throws<NotSupportedException>(() => AlignmentTools.MultipleAlignMafft(["ACGT", "ACGA", "ACGG"], retree: 0), "--retree 0 (the guide tree only) is not available");
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignMafft(["ACGT", "ACGA", "ACGG"], scoringModel: "pam"));
             Assert.That(AlignmentTools.MultipleAlignMafft(["ACGT"]).AlignedSequences, Is.EqualTo(new[] { "ACGT" }), "one sequence is written back (A3-4; --anysymbol keeps the letters)");
             Assert.That(AlignmentTools.MultipleAlignMafft([]).AlignedSequences, Is.Empty, "mafft exits 0 with an empty output (A3-4)");
             Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignMafft(["ACGT", "ACGA"], sequenceType: "rna"));

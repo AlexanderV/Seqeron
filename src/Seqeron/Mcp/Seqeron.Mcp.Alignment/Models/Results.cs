@@ -120,6 +120,15 @@ public record MultipleAlignmentResultDto(
     double ExactTotalScore = 0,
     string? Formatted = null);
 
+/// <summary>MAFFT 7.505 run (<c>multiple_align_mafft</c>): the alignment and the standard error of the program (progress, strategy; empty with quiet).</summary>
+public record MafftRunResultDto(
+    string[] AlignedSequences,
+    string Consensus,
+    int TotalScore,
+    double ExactTotalScore,
+    string StandardError,
+    string? Formatted = null);
+
 /// <summary>MUSCLE 3.8 run: the alignment and the files the program can write (-tree1, -tree2, -distmx1, -distmx2, -computeweights).</summary>
 public record MuscleRunResultDto(
     string[] AlignedSequences,
