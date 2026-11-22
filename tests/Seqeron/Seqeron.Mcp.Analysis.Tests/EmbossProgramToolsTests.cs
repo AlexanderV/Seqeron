@@ -194,7 +194,8 @@ public class EmbossProgramToolsTests
         Assert.That(fa.SequenceText, Is.EqualTo(">s1 first\nACGTNN\n>s2\nMKVL*\n"));
         Assert.That(AnalysisTools.Seqret("asis::ACGT.ACGT").SequenceText, Is.EqualTo(">asis\nACGT-ACGT\n"));
         Assert.That(AnalysisTools.Seqret(">a\nACGT\n>b\nTT\n", firstOnly: true).Sequences, Is.EqualTo(1));
-        Assert.That(() => AnalysisTools.Seqret("CLUSTAL W\n\nseq1 ACGT\nseq2 ACGA\n"), Throws.ArgumentException);
+        Assert.That(AnalysisTools.Seqret("CLUSTAL W (1.83) multiple sequence alignment\n\n\nseq1      ACGT\nseq2      ACGA\n\n").SequenceText, Is.EqualTo(">seq1\nACGT\n>seq2\nACGA\n"));
+        Assert.That(() => AnalysisTools.Seqret("#NEXUS\nbegin data;\n"), Throws.ArgumentException);          // an alignment format this port does not read yet
         Assert.That(() => AnalysisTools.Seqret(" "), Throws.ArgumentException);
     }
 
