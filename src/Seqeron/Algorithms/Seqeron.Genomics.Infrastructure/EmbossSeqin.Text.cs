@@ -341,23 +341,23 @@ internal sealed partial class EmbossSeqin
         id = desc = "";
         if (!PrefixC(line, "@"))
             return false;
-        ExtractFirstWord(line, out string rest, out string word);
+        _ = ExtractFirstWord(line, out string rest, out string word);
         desc = rest.Trim('\n');
         id = word.Length > 1 ? word[1..] : "";
         return true;
     }
 
     // ajStrExtractWord: the first word (leading blanks skipped) and the rest after the blanks that follow it
-    private static void ExtractFirstWord(string s, out string rest, out string word)
+    private static bool ExtractFirstWord(string s, out string rest, out string word)
     {
         rest = word = "";
         if (s.Length == 0)
-            return;
+            return false;
         int i = 0;
         while (i < s.Length && EmbossSeqFeatureTable.IsCSpace(s[i]))
             i++;
         if (i >= s.Length)
-            return;
+            return false;
         int e = i;
         while (e < s.Length && !EmbossSeqFeatureTable.IsCSpace(s[e]))
             e++;
@@ -366,6 +366,7 @@ internal sealed partial class EmbossSeqin
         while (j < s.Length && EmbossSeqFeatureTable.IsCSpace(s[j]))
             j++;
         rest = j < s.Length ? s[j..] : "";
+        return true;
     }
 
     // seqqualAppendWarn: the printable characters of the line

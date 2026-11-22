@@ -9,7 +9,7 @@ namespace Seqeron.Genomics.Tests.Unit.Alignment;
 /// <summary>
 /// A5-8c3g (B09 F248 ...): the sequence READERS of EMBOSS 6.6.0 (<c>ajseqread.c</c>, <c>seqinFormatDef</c>) through the installed
 /// <c>seqret -auto [-feature] -sequence in.dat [-sformat1 F] -outseq o.fa -osformat2 fasta -offormat2 gff3 -ofname2 o.gff</c> (the FASTA file of every sequence the reader returned, the GFF3 file of the feature tables, the messages
-/// of the library on its error stream, byte for byte). TestData/Alignment/seqret_oracle.jsonl.gz, scripts/alignment/generate_seqret_oracle.py: 200 inputs of each of 39 input formats (the inputs are real writer outputs of the same
+/// of the library on its error stream, byte for byte). TestData/Alignment/seqret_oracle.jsonl.gz, scripts/alignment/generate_seqret_oracle.py: 200 inputs of each of 49 input formats (the inputs are real writer outputs of the same
 /// installation - header lines, line widths, numbering - and entries with feature tables converted by <c>seqret -feature</c>; 30 % damaged: a line deleted, duplicated, cut, replaced, CRLF line ends, blank lines), read with
 /// <c>-sformat1 F</c>, <c>F::in.dat</c>, an upper-case name, no format at all (every format of the table is tried in turn), <c>-firstonly</c>, <c>-slower</c> / <c>-supper</c> / <c>-snucleotide</c> / <c>-sprotein</c>, with and without
 /// <c>-feature</c>. The runs on which the reference dies by a fault (a GFF3 file with its features and none in it: <c>ajFeattableIsCircular</c> of a null table, valgrind: Invalid read of size 4) are refused with
@@ -120,7 +120,7 @@ public class EmbossSeqret_Oracle_Tests
 
         Assert.That(failures, Is.Empty, $"{failures.Count} of {rows}:\n" + string.Join("\n", failures.Take(12)));
         string[] formats = ["fasta", "ncbi", "pearson", "gifasta", "dbid", "gcg", "gcg8", "embl", "em", "swiss", "sw", "swissprot", "uniprot", "nbrf", "pir", "fastq", "fastq-sanger", "fastq-illumina", "fastq-solexa", "sam", "genbank", "gb",
-            "ddbj", "refseq", "refseqp", "genpept", "codata", "strider", "ig", "igstrict", "iguspto", "staden", "textonly", "plain", "asis", "unknown", "gff2", "gff3", "gff", "raw"];
+            "ddbj", "refseq", "refseqp", "genpept", "codata", "strider", "ig", "igstrict", "iguspto", "staden", "textonly", "plain", "asis", "unknown", "gff2", "gff3", "gff", "raw", "gde", "clustal", "aln", "msf", "fitch", "mase", "biomart", "treecon", "acedb"];
         foreach (string f in formats)
         {
             Assert.That(perFormat.GetValueOrDefault(f), Is.GreaterThanOrEqualTo(200), $"inputs of {f}");

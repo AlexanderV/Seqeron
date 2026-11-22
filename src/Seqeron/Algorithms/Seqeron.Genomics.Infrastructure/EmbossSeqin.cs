@@ -559,6 +559,21 @@ internal sealed partial class EmbossSeqin
                 return ReadRaw(t);
             case "gde":
                 return ReadGde(t);
+            case "clustal":
+            case "aln":
+                return ReadClustal(t);
+            case "msf":
+                return ReadMsf(t);
+            case "fitch":
+                return ReadFitch(t);
+            case "mase":
+                return ReadMase(t);
+            case "biomart":
+                return ReadBiomart(t);
+            case "treecon":
+                return ReadTreecon(t);
+            case "acedb":
+                return ReadAcedb(t);
             case "fastq":
                 return ReadFastq(t);
             case "fastq-sanger":
