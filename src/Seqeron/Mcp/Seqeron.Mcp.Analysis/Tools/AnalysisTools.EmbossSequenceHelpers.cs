@@ -11,14 +11,14 @@ public partial class AnalysisTools
             args.AddRange(qualifiers.Split([' ', '\t', '\r', '\n'], StringSplitOptions.RemoveEmptyEntries));
     }
 
-    private static EmbossProgramToolResult RunEmbossSequenceProgram(string program, List<string> args, IReadOnlyDictionary<string, string> files, string outputFormat, string parameter)
+    private static EmbossProgramToolResult RunEmbossSequenceProgram(string program, List<string> args, IReadOnlyDictionary<string, string> files, string outputFormat, string parameter, EmbossRunEnvironment? environment = null)
     {
         args.AddRange(["-outseq", "stdout"]);
         if (!string.IsNullOrWhiteSpace(outputFormat) && !string.Equals(outputFormat, "fasta", StringComparison.OrdinalIgnoreCase))
             args.AddRange(["-osformat", outputFormat]);
         try
         {
-            var r = EmbossProgramRunner.Run(program, args, files);
+            var r = EmbossProgramRunner.Run(program, args, files, environment ?? new EmbossRunEnvironment());
             var messages = r.Stderr.Split('\n', StringSplitOptions.RemoveEmptyEntries);
             if (r.ExitCode != 0)
                 throw new ArgumentException(string.Join("; ", messages), parameter);
@@ -30,12 +30,12 @@ public partial class AnalysisTools
         }
     }
 
-    private static EmbossProgramToolResult RunEmbossOutfileProgram(string program, List<string> args, IReadOnlyDictionary<string, string> files, string parameter)
+    private static EmbossProgramToolResult RunEmbossOutfileProgram(string program, List<string> args, IReadOnlyDictionary<string, string> files, string parameter, EmbossRunEnvironment? environment = null)
     {
         args.AddRange(["-outfile", "out.txt"]);
         try
         {
-            var r = EmbossProgramRunner.Run(program, args, files);
+            var r = EmbossProgramRunner.Run(program, args, files, environment ?? new EmbossRunEnvironment());
             var messages = r.Stderr.Split('\n', StringSplitOptions.RemoveEmptyEntries);
             if (r.ExitCode != 0)
                 throw new ArgumentException(string.Join("; ", messages), parameter);

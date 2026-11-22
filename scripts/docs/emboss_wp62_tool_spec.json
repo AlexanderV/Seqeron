@@ -1,0 +1,420 @@
+[
+ {
+  "name": "shuffleseq",
+  "summary": "EMBOSS 6.6.0 shuffleseq: Shuffles sequences keeping their composition, as shuffleseq of EMBOSS 6.6.0.",
+  "methodId": "EmbossProgramRunner.Run",
+  "sourceFile": "EmbossSequencePrograms.Random.cs",
+  "sourcePath": "Seqeron.Genomics.Analysis/EmbossSequencePrograms.Random.cs",
+  "algorithmDoc": "Alignment/Pairwise_Output_Formats_And_EMBOSS_Programs.md",
+  "oracleScript": "generate_emboss_prog_random_oracle.py",
+  "short": "EMBOSS shuffleseq: shuffles sequences keeping their composition; equals shuffleseq 6.6.0 on 300 runs.",
+  "after": "seqcount",
+  "file": "AnalysisTools.EmbossSequencePrograms2.cs",
+  "description": "EMBOSS 6.6.0 shuffleseq: every sequence is written shuffle times with its residues in random order (a random number for every position, then the Shell sort of the positions by it: ajStrRandom of the EMBOSS library); the random numbers are ajRandomDouble (Wichmann-Hill with the 101-term lagged generator of ajmath.c), seeded from the microseconds of the clock. Equals the installed program on 300 runs (every input format of seqret, ranges, the output formats, the messages of the library; byte for byte). B09 WP62, F281.",
+  "output": {
+   "text": [
+    "string",
+    "The standard output of the program (the sequences) or the text of its output file."
+   ],
+   "files": [
+    "object",
+    "The files the program wrote, by name."
+   ],
+   "messages": [
+    "string[]",
+    "What the library printed on the error stream (warnings and errors)."
+   ]
+  },
+  "errors": [
+   "The sequence cannot be empty",
+   "The program died: the messages of the library (a value it refuses, an input no reader reads, a sequence of the wrong kind)",
+   "An input on which the reference program never stops or dies by a fault is refused"
+  ],
+  "example": {
+   "title": "A run on a small input",
+   "prompt": "Run shuffleseq on this input.",
+   "input": {
+    "sequence": ">s1 d\nACGTACGTACGTAAAACCCGGGTTT\n",
+    "shuffle": 2,
+    "microseconds": 7
+   },
+   "output": {
+    "text": ">s1 d\nAGGCTCGTCCGAATTGTTCAGACAA\n>s1 d\nAACGAAATCCCAGTGTGGTTCATGC\n",
+    "files": {},
+    "messages": []
+   },
+   "note": "The output is the text the installed program writes."
+  }
+ },
+ {
+  "name": "msbar",
+  "summary": "EMBOSS 6.6.0 msbar: Mutates sequences with point, codon and block mutations, as msbar of EMBOSS 6.6.0.",
+  "methodId": "EmbossProgramRunner.Run",
+  "sourceFile": "EmbossSequencePrograms.Random.cs",
+  "sourcePath": "Seqeron.Genomics.Analysis/EmbossSequencePrograms.Random.cs",
+  "algorithmDoc": "Alignment/Pairwise_Output_Formats_And_EMBOSS_Programs.md",
+  "oracleScript": "generate_emboss_prog_random_oracle.py",
+  "short": "EMBOSS msbar: mutates sequences with point, codon and block mutations; equals msbar 6.6.0 on 300 runs.",
+  "after": "shuffleseq",
+  "file": "AnalysisTools.EmbossSequencePrograms2.cs",
+  "description": "EMBOSS 6.6.0 msbar: count times the block, codon (nucleic sequences) and point mutations of the lists are done at random places: insertions, deletions, changes, duplications and moves (1 = a random one of them, 0 = none; a comma list of at most 4); the result is tried again (10 times) when it equals a sequence of otherSequence. Equals the installed program on 300 runs (every input format of seqret, ranges, the output formats, the messages of the library; byte for byte). B09 WP62, F281.",
+  "output": {
+   "text": [
+    "string",
+    "The standard output of the program (the sequences) or the text of its output file."
+   ],
+   "files": [
+    "object",
+    "The files the program wrote, by name."
+   ],
+   "messages": [
+    "string[]",
+    "What the library printed on the error stream (warnings and errors)."
+   ]
+  },
+  "errors": [
+   "The sequence cannot be empty",
+   "The program died: the messages of the library (a value it refuses, an input no reader reads, a sequence of the wrong kind)",
+   "An input on which the reference program never stops or dies by a fault is refused"
+  ],
+  "example": {
+   "title": "A run on a small input",
+   "prompt": "Run msbar on this input.",
+   "input": {
+    "sequence": ">s1 d\nACGTACGTACGTAAAACCCGGGTTT\n",
+    "point": "2,3",
+    "count": 3,
+    "microseconds": 7
+   },
+   "output": {
+    "text": ">s1 d\nACGTAGTACGCATAAACCCGGGTTT\n",
+    "files": {},
+    "messages": []
+   },
+   "note": "The output is the text the installed program writes."
+  }
+ },
+ {
+  "name": "makenucseq",
+  "summary": "EMBOSS 6.6.0 makenucseq: Creates random nucleotide sequences, as makenucseq of EMBOSS 6.6.0.",
+  "methodId": "EmbossProgramRunner.Run",
+  "sourceFile": "EmbossSequencePrograms.Random.cs",
+  "sourcePath": "Seqeron.Genomics.Analysis/EmbossSequencePrograms.Random.cs",
+  "algorithmDoc": "Alignment/Pairwise_Output_Formats_And_EMBOSS_Programs.md",
+  "oracleScript": "generate_emboss_prog_random_oracle.py",
+  "short": "EMBOSS makenucseq: creates random nucleotide sequences; equals makenucseq 6.6.0 on 300 runs.",
+  "after": "msbar",
+  "file": "AnalysisTools.EmbossSequencePrograms2.cs",
+  "description": "EMBOSS 6.6.0 makenucseq: amount sequences of length lower case nucleotides, each residue picked at random from ACGT (or from the codons of the codon usage file with the frequencies of the file, the end cut to the length), with the insert put at start; the names are EMBOSS_001, EMBOSS_002 .... Equals the installed program on 300 runs (every input format of seqret, ranges, the output formats, the messages of the library; byte for byte). B09 WP62, F281.",
+  "output": {
+   "text": [
+    "string",
+    "The standard output of the program (the sequences) or the text of its output file."
+   ],
+   "files": [
+    "object",
+    "The files the program wrote, by name."
+   ],
+   "messages": [
+    "string[]",
+    "What the library printed on the error stream (warnings and errors)."
+   ]
+  },
+  "errors": [
+   "The sequence cannot be empty",
+   "The program died: the messages of the library (a value it refuses, an input no reader reads, a sequence of the wrong kind)",
+   "An input on which the reference program never stops or dies by a fault is refused"
+  ],
+  "example": {
+   "title": "A run on a small input",
+   "prompt": "Run makenucseq on this input.",
+   "input": {
+    "amount": 2,
+    "length": 20,
+    "microseconds": 7
+   },
+   "output": {
+    "text": ">EMBOSS_001\ntcactctggtccagtttgcc\n>EMBOSS_002\ncgcaagcttagactaaaatt\n",
+    "files": {},
+    "messages": []
+   },
+   "note": "The output is the text the installed program writes."
+  }
+ },
+ {
+  "name": "makeprotseq",
+  "summary": "EMBOSS 6.6.0 makeprotseq: Creates random protein sequences, as makeprotseq of EMBOSS 6.6.0.",
+  "methodId": "EmbossProgramRunner.Run",
+  "sourceFile": "EmbossSequencePrograms.Random.cs",
+  "sourcePath": "Seqeron.Genomics.Analysis/EmbossSequencePrograms.Random.cs",
+  "algorithmDoc": "Alignment/Pairwise_Output_Formats_And_EMBOSS_Programs.md",
+  "oracleScript": "generate_emboss_prog_random_oracle.py",
+  "short": "EMBOSS makeprotseq: creates random protein sequences; equals makeprotseq 6.6.0 on 300 runs.",
+  "after": "makenucseq",
+  "file": "AnalysisTools.EmbossSequencePrograms2.cs",
+  "description": "EMBOSS 6.6.0 makeprotseq: amount sequences of length lower case residues, each picked at random from the 20 amino acids (or with the composition of the first sequence of a pepstats file), with the insert put at start; the names are EMBOSS_001, EMBOSS_002 .... Equals the installed program on 300 runs (every input format of seqret, ranges, the output formats, the messages of the library; byte for byte). B09 WP62, F281.",
+  "output": {
+   "text": [
+    "string",
+    "The standard output of the program (the sequences) or the text of its output file."
+   ],
+   "files": [
+    "object",
+    "The files the program wrote, by name."
+   ],
+   "messages": [
+    "string[]",
+    "What the library printed on the error stream (warnings and errors)."
+   ]
+  },
+  "errors": [
+   "The sequence cannot be empty",
+   "The program died: the messages of the library (a value it refuses, an input no reader reads, a sequence of the wrong kind)",
+   "An input on which the reference program never stops or dies by a fault is refused"
+  ],
+  "example": {
+   "title": "A run on a small input",
+   "prompt": "Run makeprotseq on this input.",
+   "input": {
+    "amount": 2,
+    "length": 12,
+    "microseconds": 7
+   },
+   "output": {
+    "text": ">EMBOSS_001\nwhdhyktqmtli\n>EMBOSS_002\namsvsphggmgd\n",
+    "files": {},
+    "messages": []
+   },
+   "note": "The output is the text the installed program writes."
+  }
+ },
+ {
+  "name": "nthseqset",
+  "summary": "EMBOSS 6.6.0 nthseqset: Writes the n-th set of sequences of an input of several sets, as nthseqset of EMBOSS 6.6.0.",
+  "methodId": "EmbossProgramRunner.Run",
+  "sourceFile": "EmbossSequencePrograms.Sets.cs",
+  "sourcePath": "Seqeron.Genomics.Analysis/EmbossSequencePrograms.Sets.cs",
+  "algorithmDoc": "Alignment/Pairwise_Output_Formats_And_EMBOSS_Programs.md",
+  "oracleScript": "generate_emboss_prog_report_oracle.py",
+  "short": "EMBOSS nthseqset: writes the n-th set of sequences of an input of several sets; equals nthseqset 6.6.0 on 300 runs.",
+  "after": "msbar",
+  "file": "AnalysisTools.EmbossSequencePrograms2.cs",
+  "description": "EMBOSS 6.6.0 nthseqset: the sets of the input (a file of several alignments: phylip, nexus ... or one set of all the sequences of the file) are counted and the number-th is written; with fewer sets the library reports 'No such sequence set - only N sequence sets were input.'. Equals the installed program on 300 runs (every input format of seqret, ranges, the output formats, the messages of the library; byte for byte). B09 WP62, F281.",
+  "output": {
+   "text": [
+    "string",
+    "The standard output of the program (the sequences) or the text of its output file."
+   ],
+   "files": [
+    "object",
+    "The files the program wrote, by name."
+   ],
+   "messages": [
+    "string[]",
+    "What the library printed on the error stream (warnings and errors)."
+   ]
+  },
+  "errors": [
+   "The sequence cannot be empty",
+   "The program died: the messages of the library (a value it refuses, an input no reader reads, a sequence of the wrong kind)",
+   "An input on which the reference program never stops or dies by a fault is refused"
+  ],
+  "example": {
+   "title": "A run on a small input",
+   "prompt": "Run nthseqset on this input.",
+   "input": {
+    "sequence": ">a\nAC\n>b\nGT\n",
+    "number": 1
+   },
+   "output": {
+    "text": ">a\nAC\n>b\nGT\n",
+    "files": {},
+    "messages": []
+   },
+   "note": "The output is the text the installed program writes."
+  }
+ },
+ {
+  "name": "listor",
+  "summary": "EMBOSS 6.6.0 listor: Writes a list file of the logical OR / AND / XOR / NOT of two sets of sequences, as listor of EMBOSS 6.6.0.",
+  "methodId": "EmbossProgramRunner.Run",
+  "sourceFile": "EmbossSequencePrograms.Sets.cs",
+  "sourcePath": "Seqeron.Genomics.Analysis/EmbossSequencePrograms.Sets.cs",
+  "algorithmDoc": "Alignment/Pairwise_Output_Formats_And_EMBOSS_Programs.md",
+  "oracleScript": "generate_emboss_prog_report_oracle.py",
+  "short": "EMBOSS listor: writes a list file of the logical or / and / xor / not of two sets of sequences; equals listor 6.6.0 on 300 runs.",
+  "after": "nthseqset",
+  "file": "AnalysisTools.EmbossSequencePrograms2.cs",
+  "description": "EMBOSS 6.6.0 listor: the USAs of the sequences of the first set and the second set that are (OR: all, AND: in both, XOR: in one only, NOT: in the first and not in the second); sequences are equal when their residues are equal ignoring the case. Equals the installed program on 300 runs (every input format of seqret, ranges, the output formats, the messages of the library; byte for byte). B09 WP62, F281.",
+  "output": {
+   "text": [
+    "string",
+    "The standard output of the program (the sequences) or the text of its output file."
+   ],
+   "files": [
+    "object",
+    "The files the program wrote, by name."
+   ],
+   "messages": [
+    "string[]",
+    "What the library printed on the error stream (warnings and errors)."
+   ]
+  },
+  "errors": [
+   "The sequence cannot be empty",
+   "The program died: the messages of the library (a value it refuses, an input no reader reads, a sequence of the wrong kind)",
+   "An input on which the reference program never stops or dies by a fault is refused"
+  ],
+  "example": {
+   "title": "A run on a small input",
+   "prompt": "Run listor on this input.",
+   "input": {
+    "firstSequences": ">a\nAC\n>b\nGT\n",
+    "secondSequences": ">c\nac\n>d\nTT\n",
+    "operator": "AND"
+   },
+   "output": {
+    "text": "fasta::firstsequences.dat:a\n",
+    "files": {},
+    "messages": []
+   },
+   "note": "The output is the text the installed program writes."
+  }
+ },
+ {
+  "name": "infoseq",
+  "summary": "EMBOSS 6.6.0 infoseq: Displays basic information about sequences, as infoseq of EMBOSS 6.6.0.",
+  "methodId": "EmbossProgramRunner.Run",
+  "sourceFile": "EmbossSequencePrograms.Report.cs",
+  "sourcePath": "Seqeron.Genomics.Analysis/EmbossSequencePrograms.Report.cs",
+  "algorithmDoc": "Alignment/Pairwise_Output_Formats_And_EMBOSS_Programs.md",
+  "oracleScript": "generate_emboss_prog_report_oracle.py",
+  "short": "EMBOSS infoseq: displays basic information about sequences; equals infoseq 6.6.0 on 300 runs.",
+  "after": "listor",
+  "file": "AnalysisTools.EmbossSequencePrograms2.cs",
+  "description": "EMBOSS 6.6.0 infoseq: for every sequence the USA, database, name, accession, GI, version, type, length, percent GC (nucleic), organism and description, in columns (or delimited, or as an HTML table), with a heading line. Equals the installed program on 300 runs (every input format of seqret, ranges, the output formats, the messages of the library; byte for byte). B09 WP62, F281.",
+  "output": {
+   "text": [
+    "string",
+    "The standard output of the program (the sequences) or the text of its output file."
+   ],
+   "files": [
+    "object",
+    "The files the program wrote, by name."
+   ],
+   "messages": [
+    "string[]",
+    "What the library printed on the error stream (warnings and errors)."
+   ]
+  },
+  "errors": [
+   "The sequence cannot be empty",
+   "The program died: the messages of the library (a value it refuses, an input no reader reads, a sequence of the wrong kind)",
+   "An input on which the reference program never stops or dies by a fault is refused"
+  ],
+  "example": {
+   "title": "A run on a small input",
+   "prompt": "Run infoseq on this input.",
+   "input": {
+    "sequence": ">a desc here\nACGTACGTAC\n>b\nMKVLAAGIV\n"
+   },
+   "output": {
+    "text": "USA                      Database  Name           Accession      Type Length %GC    Organism            Description \nfasta::sequence.dat:a    -              a              -              N    10     50.00                      desc here\nfasta::sequence.dat:b    -              b              -              P    9                          \n",
+    "files": {},
+    "messages": []
+   },
+   "note": "The output is the text the installed program writes."
+  }
+ },
+ {
+  "name": "wordcount",
+  "summary": "EMBOSS 6.6.0 wordcount: Counts the words of a given size in sequences, as wordcount of EMBOSS 6.6.0.",
+  "methodId": "EmbossProgramRunner.Run",
+  "sourceFile": "EmbossSequencePrograms.Report.cs",
+  "sourcePath": "Seqeron.Genomics.Analysis/EmbossSequencePrograms.Report.cs",
+  "algorithmDoc": "Alignment/Pairwise_Output_Formats_And_EMBOSS_Programs.md",
+  "oracleScript": "generate_emboss_prog_report_oracle.py",
+  "short": "EMBOSS wordcount: counts the words of a given size in sequences; equals wordcount 6.6.0 on 300 runs.",
+  "after": "infoseq",
+  "file": "AnalysisTools.EmbossSequencePrograms2.cs",
+  "description": "EMBOSS 6.6.0 wordcount: the words of wordSize residues (default 4 for nucleic, 2 for protein sequences; words with the ambiguity code N / X are skipped) of all the sequences with their counts, the most frequent first (equal counts in the order of the hash table of the library), at least minCount. Equals the installed program on 300 runs (every input format of seqret, ranges, the output formats, the messages of the library; byte for byte). B09 WP62, F281.",
+  "output": {
+   "text": [
+    "string",
+    "The standard output of the program (the sequences) or the text of its output file."
+   ],
+   "files": [
+    "object",
+    "The files the program wrote, by name."
+   ],
+   "messages": [
+    "string[]",
+    "What the library printed on the error stream (warnings and errors)."
+   ]
+  },
+  "errors": [
+   "The sequence cannot be empty",
+   "The program died: the messages of the library (a value it refuses, an input no reader reads, a sequence of the wrong kind)",
+   "An input on which the reference program never stops or dies by a fault is refused"
+  ],
+  "example": {
+   "title": "A run on a small input",
+   "prompt": "Run wordcount on this input.",
+   "input": {
+    "sequence": ">a\nACGTACGTACGTTTTT\n",
+    "wordSize": 3
+   },
+   "output": {
+    "text": "TTT\t3\nCGT\t3\nACG\t3\nTAC\t2\nGTA\t2\nGTT\t1\n",
+    "files": {},
+    "messages": []
+   },
+   "note": "The output is the text the installed program writes."
+  }
+ },
+ {
+  "name": "seqxref",
+  "summary": "EMBOSS 6.6.0 seqxref: Reports the database cross-references of sequence entries, as seqxref of EMBOSS 6.6.0.",
+  "methodId": "EmbossProgramRunner.Run",
+  "sourceFile": "EmbossSequencePrograms.Report.cs",
+  "sourcePath": "Seqeron.Genomics.Analysis/EmbossSequencePrograms.Report.cs",
+  "algorithmDoc": "Alignment/Pairwise_Output_Formats_And_EMBOSS_Programs.md",
+  "oracleScript": "generate_emboss_prog_report_oracle.py",
+  "short": "EMBOSS seqxref: reports the database cross-references of sequence entries; equals seqxref 6.6.0 on 300 runs.",
+  "after": "wordcount",
+  "file": "AnalysisTools.EmbossSequencePrograms2.cs",
+  "description": "EMBOSS 6.6.0 seqxref: for every entry '#USA: count' and the cross-references db:id (the DR lines of EMBL and Swiss-Prot entries ...) sorted by database name and identifier, equal ones once. Equals the installed program on 300 runs (every input format of seqret, ranges, the output formats, the messages of the library; byte for byte). B09 WP62, F281.",
+  "output": {
+   "text": [
+    "string",
+    "The standard output of the program (the sequences) or the text of its output file."
+   ],
+   "files": [
+    "object",
+    "The files the program wrote, by name."
+   ],
+   "messages": [
+    "string[]",
+    "What the library printed on the error stream (warnings and errors)."
+   ]
+  },
+  "errors": [
+   "The sequence cannot be empty",
+   "The program died: the messages of the library (a value it refuses, an input no reader reads, a sequence of the wrong kind)",
+   "An input on which the reference program never stops or dies by a fault is refused"
+  ],
+  "example": {
+   "title": "A run on a small input",
+   "prompt": "Run seqxref on this input.",
+   "input": {
+    "sequence": "ID   TEST_HUMAN    Reviewed;    10 AA.\nAC   P12345;\nDR   PDB; 1ABC; X-ray; 1.9 A; A=1-10.\nDR   EMBL; X1234; -.\nSQ   SEQUENCE   10 AA;  1000 MW;  ABCD CRC64;\n     MKVLAAGIVG\n//\n"
+   },
+   "output": {
+    "text": "#swiss::sequence.dat:TEST_HUMAN: 2\nEMBL:X1234\nPDB:1ABC\n",
+    "files": {},
+    "messages": []
+   },
+   "note": "The output is the text the installed program writes."
+  }
+ }
+]
