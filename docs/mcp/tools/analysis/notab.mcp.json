@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "notab",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "EmbossProgramRunner.Run",
+  "docRef": "EmbossSequencePrograms.cs",
+  "description": "EMBOSS 6.6.0 notab: every tab becomes the blanks up to the next multiple of eight columns. Equals the installed program on 320 runs (every input format of seqret, ranges, the output formats, the messages of the library; byte for byte). B09 WP61, F280.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "text": {
+        "type": "string",
+        "description": "The text of the file to process."
+      }
+    },
+    "required": [
+      "text"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "text": {
+        "type": "string",
+        "description": "The standard output of the program: the sequences written to the standard output."
+      },
+      "files": {
+        "type": "object",
+        "description": "The files the program wrote, by name."
+      },
+      "messages": {
+        "type": "string[]",
+        "description": "What the library printed on the error stream (warnings and errors)."
+      }
+    },
+    "required": [
+      "text",
+      "files",
+      "messages"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "The sequence cannot be empty"
+    },
+    {
+      "code": 1001,
+      "message": "The program died: the messages of the library (a value it refuses, an input no reader reads, a sequence of the wrong kind)"
+    },
+    {
+      "code": 1001,
+      "message": "An input on which the reference program never stops or dies by a fault is refused"
+    }
+  ],
+  "examples": [
+    {
+      "name": "A run on a small input",
+      "input": {
+        "text": "a\tb\n12345678\tc\n"
+      },
+      "output": {
+        "text": "a       b\n12345678        c\n",
+        "files": {},
+        "messages": []
+      }
+    }
+  ]
+}

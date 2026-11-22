@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "extractseq",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "EmbossProgramRunner.Run",
+  "docRef": "EmbossSequencePrograms.cs",
+  "description": "EMBOSS 6.6.0 extractseq: the regions (default the whole range of the sequence) are joined into one sequence, or with separate written one sequence per region named name_start_end. Equals the installed program on 320 runs (every input format of seqret, ranges, the output formats, the messages of the library; byte for byte). B09 WP61, F280.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "The text of the sequence file (the first sequence is used), or a sequence as letters."
+      },
+      "regions": {
+        "type": "string",
+        "description": "The regions (-regions): '4-57,78-94', '1:45 67=99'; default the range of the sequence."
+      },
+      "separate": {
+        "type": "boolean",
+        "description": "Write every region as a separate sequence (-separate).",
+        "default": false
+      },
+      "sequenceFormat": {
+        "type": "string",
+        "description": "The input format (-sformat1); default: the program finds the format."
+      },
+      "qualifiers": {
+        "type": "string",
+        "description": "Sequence input qualifiers as typed after the sequence on the command line: -sbegin1 -send1 -sreverse1, -slower1 -supper1 -snucleotide1 -sprotein1 -scircular1, -sid1 name, -sdbname1 db, -squick1, -iquery1 query, -ioffset1 bytes."
+      },
+      "outputFormat": {
+        "type": "string",
+        "description": "The sequence output format (-osformat): fasta (default), embl, genbank, gcg, nbrf, ig, raw, msf, clustal, phylip, nexus, ... every format of seqret.",
+        "default": "fasta"
+      },
+      "files": {
+        "type": "object",
+        "description": "More files by name (file name -> text) that the program may read (a file named by a USA, @file)."
+      },
+      "sequenceValue": {
+        "type": "string",
+        "description": "The USA of the sequence input (-sequence) as the program reads it, instead of the text: [format::]file[begin:end:r], file:id, @list, asis::SEQUENCE."
+      }
+    },
+    "required": [
+      "sequence"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "text": {
+        "type": "string",
+        "description": "The standard output of the program: the sequences written to the standard output."
+      },
+      "files": {
+        "type": "object",
+        "description": "The files the program wrote, by name."
+      },
+      "messages": {
+        "type": "string[]",
+        "description": "What the library printed on the error stream (warnings and errors)."
+      }
+    },
+    "required": [
+      "text",
+      "files",
+      "messages"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "The sequence cannot be empty"
+    },
+    {
+      "code": 1001,
+      "message": "The program died: the messages of the library (a value it refuses, an input no reader reads, a sequence of the wrong kind)"
+    },
+    {
+      "code": 1001,
+      "message": "An input on which the reference program never stops or dies by a fault is refused"
+    }
+  ],
+  "examples": [
+    {
+      "name": "A run on a small input",
+      "input": {
+        "sequence": ">s1 d\nACGTACGTACGTACGTACGT\n",
+        "regions": "3-5,8-10",
+        "separate": true
+      },
+      "output": {
+        "text": ">s1_3_5 d\nGTA\n>s1_8_10 d\nTAC\n",
+        "files": {},
+        "messages": []
+      }
+    }
+  ]
+}

@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "trimspace",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "EmbossProgramRunner.Run",
+  "docRef": "EmbossSequencePrograms.cs",
+  "description": "EMBOSS 6.6.0 trimspace: every line loses its leading and trailing white space and every run of blanks becomes one (tabs and carriage returns are blanks). Equals the installed program on 320 runs (every input format of seqret, ranges, the output formats, the messages of the library; byte for byte). B09 WP61, F280.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "text": {
+        "type": "string",
+        "description": "The text of the file to process."
+      }
+    },
+    "required": [
+      "text"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "text": {
+        "type": "string",
+        "description": "The standard output of the program: the sequences written to the standard output."
+      },
+      "files": {
+        "type": "object",
+        "description": "The files the program wrote, by name."
+      },
+      "messages": {
+        "type": "string[]",
+        "description": "What the library printed on the error stream (warnings and errors)."
+      }
+    },
+    "required": [
+      "text",
+      "files",
+      "messages"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "The sequence cannot be empty"
+    },
+    {
+      "code": 1001,
+      "message": "The program died: the messages of the library (a value it refuses, an input no reader reads, a sequence of the wrong kind)"
+    },
+    {
+      "code": 1001,
+      "message": "An input on which the reference program never stops or dies by a fault is refused"
+    }
+  ],
+  "examples": [
+    {
+      "name": "A run on a small input",
+      "input": {
+        "text": "  a \t b   c  \n\n x\ty\n"
+      },
+      "output": {
+        "text": "a b c\n\nx y\n",
+        "files": {},
+        "messages": []
+      }
+    }
+  ]
+}

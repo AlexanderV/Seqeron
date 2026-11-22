@@ -735,11 +735,25 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L305"
   },
   {
+    "tool": "cutseq",
+    "server": "Analysis",
+    "methodId": "EmbossProgramRunner.Run",
+    "docPath": "docs/mcp/tools/analysis/cutseq.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossSequencePrograms.cs"
+  },
+  {
     "tool": "dangling_end_energy",
     "server": "Analysis",
     "methodId": "RnaSecondaryStructure.GetDanglingEndEnergy",
     "docPath": "docs/mcp/tools/analysis/dangling_end_energy.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L649"
+  },
+  {
+    "tool": "degapseq",
+    "server": "Analysis",
+    "methodId": "EmbossProgramRunner.Run",
+    "docPath": "docs/mcp/tools/analysis/degapseq.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossSequencePrograms.cs"
   },
   {
     "tool": "delta2blocks",
@@ -880,6 +894,13 @@
     "methodId": "EmbossExtractfeatProgram.Extractfeat",
     "docPath": "docs/mcp/tools/analysis/extractfeat.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossExtractfeatProgram.cs"
+  },
+  {
+    "tool": "extractseq",
+    "server": "Analysis",
+    "methodId": "EmbossProgramRunner.Run",
+    "docPath": "docs/mcp/tools/analysis/extractseq.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossSequencePrograms.cs"
   },
   {
     "tool": "featcopy",
@@ -1295,6 +1316,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.AlignmentConsensus.cs#L152"
   },
   {
+    "tool": "getorf",
+    "server": "Analysis",
+    "methodId": "EmbossProgramRunner.Run",
+    "docPath": "docs/mcp/tools/analysis/getorf.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossGetorfProgram.cs"
+  },
+  {
     "tool": "hairpin_loop_energy",
     "server": "Analysis",
     "methodId": "RnaSecondaryStructure.CalculateHairpinLoopEnergy",
@@ -1463,11 +1491,32 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L979"
   },
   {
+    "tool": "maskambignuc",
+    "server": "Analysis",
+    "methodId": "EmbossProgramRunner.Run",
+    "docPath": "docs/mcp/tools/analysis/maskambignuc.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossSequencePrograms.cs"
+  },
+  {
+    "tool": "maskambigprot",
+    "server": "Analysis",
+    "methodId": "EmbossProgramRunner.Run",
+    "docPath": "docs/mcp/tools/analysis/maskambigprot.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossSequencePrograms.cs"
+  },
+  {
     "tool": "maskfeat",
     "server": "Analysis",
     "methodId": "EmbossMaskfeatPrograms.Maskfeat",
     "docPath": "docs/mcp/tools/analysis/maskfeat.md",
     "sourceLink": ""
+  },
+  {
+    "tool": "maskseq",
+    "server": "Analysis",
+    "methodId": "EmbossProgramRunner.Run",
+    "docPath": "docs/mcp/tools/analysis/maskseq.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossSequencePrograms.cs"
   },
   {
     "tool": "megamerger",
@@ -1540,6 +1589,48 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/MummerPlot.cs"
   },
   {
+    "tool": "newseq",
+    "server": "Analysis",
+    "methodId": "EmbossProgramRunner.Run",
+    "docPath": "docs/mcp/tools/analysis/newseq.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossSequencePrograms.cs"
+  },
+  {
+    "tool": "noreturn",
+    "server": "Analysis",
+    "methodId": "EmbossProgramRunner.Run",
+    "docPath": "docs/mcp/tools/analysis/noreturn.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossSequencePrograms.cs"
+  },
+  {
+    "tool": "nospace",
+    "server": "Analysis",
+    "methodId": "EmbossProgramRunner.Run",
+    "docPath": "docs/mcp/tools/analysis/nospace.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossSequencePrograms.cs"
+  },
+  {
+    "tool": "notab",
+    "server": "Analysis",
+    "methodId": "EmbossProgramRunner.Run",
+    "docPath": "docs/mcp/tools/analysis/notab.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossSequencePrograms.cs"
+  },
+  {
+    "tool": "notseq",
+    "server": "Analysis",
+    "methodId": "EmbossProgramRunner.Run",
+    "docPath": "docs/mcp/tools/analysis/notseq.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossSequencePrograms.cs"
+  },
+  {
+    "tool": "nthseq",
+    "server": "Analysis",
+    "methodId": "EmbossProgramRunner.Run",
+    "docPath": "docs/mcp/tools/analysis/nthseq.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossSequencePrograms.cs"
+  },
+  {
     "tool": "nucmer",
     "server": "Analysis",
     "methodId": "GenomicAnalyzer.Nucmer",
@@ -1573,6 +1664,13 @@
     "methodId": "RnaSecondaryStructure.ParseDotBracket",
     "docPath": "docs/mcp/tools/analysis/parse_dot_bracket.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L2068"
+  },
+  {
+    "tool": "pasteseq",
+    "server": "Analysis",
+    "methodId": "EmbossProgramRunner.Run",
+    "docPath": "docs/mcp/tools/analysis/pasteseq.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossSequencePrograms.cs"
   },
   {
     "tool": "predict_chou_fasman",
@@ -1687,6 +1785,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/ComparativeGenomics.cs#L841"
   },
   {
+    "tool": "revseq",
+    "server": "Analysis",
+    "methodId": "EmbossProgramRunner.Run",
+    "docPath": "docs/mcp/tools/analysis/revseq.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossSequencePrograms.cs"
+  },
+  {
     "tool": "rna_complement_base",
     "server": "Analysis",
     "methodId": "RnaSecondaryStructure.GetComplement",
@@ -1727,6 +1832,13 @@
     "methodId": "MotifFinder.ScanWithPwmBothStrands",
     "docPath": "docs/mcp/tools/analysis/scan_with_pwm_both_strands.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.PwmScoring.cs#L100"
+  },
+  {
+    "tool": "seqcount",
+    "server": "Analysis",
+    "methodId": "EmbossProgramRunner.Run",
+    "docPath": "docs/mcp/tools/analysis/seqcount.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossSequencePrograms.cs"
   },
   {
     "tool": "seqmatchall",
@@ -1806,11 +1918,25 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossShowfeatProgram.cs"
   },
   {
+    "tool": "skipseq",
+    "server": "Analysis",
+    "methodId": "EmbossProgramRunner.Run",
+    "docPath": "docs/mcp/tools/analysis/skipseq.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossSequencePrograms.cs"
+  },
+  {
     "tool": "spaced_word_distance",
     "server": "Analysis",
     "methodId": "KmerAnalyzer.SpacedWordDistance",
     "docPath": "docs/mcp/tools/analysis/spaced_word_distance.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L2340"
+  },
+  {
+    "tool": "splitter",
+    "server": "Analysis",
+    "methodId": "EmbossProgramRunner.Run",
+    "docPath": "docs/mcp/tools/analysis/splitter.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossSequencePrograms.cs"
   },
   {
     "tool": "standardize_repeat_motif",
@@ -1846,6 +1972,34 @@
     "methodId": "RnaSecondaryStructure.GetTerminalMismatchEnergy",
     "docPath": "docs/mcp/tools/analysis/terminal_mismatch_energy.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L639"
+  },
+  {
+    "tool": "transeq",
+    "server": "Analysis",
+    "methodId": "EmbossProgramRunner.Run",
+    "docPath": "docs/mcp/tools/analysis/transeq.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossSequencePrograms.cs"
+  },
+  {
+    "tool": "trimest",
+    "server": "Analysis",
+    "methodId": "EmbossProgramRunner.Run",
+    "docPath": "docs/mcp/tools/analysis/trimest.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossSequencePrograms.cs"
+  },
+  {
+    "tool": "trimseq",
+    "server": "Analysis",
+    "methodId": "EmbossProgramRunner.Run",
+    "docPath": "docs/mcp/tools/analysis/trimseq.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossSequencePrograms.cs"
+  },
+  {
+    "tool": "trimspace",
+    "server": "Analysis",
+    "methodId": "EmbossProgramRunner.Run",
+    "docPath": "docs/mcp/tools/analysis/trimspace.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossSequencePrograms.cs"
   },
   {
     "tool": "twofeat",
@@ -1895,6 +2049,13 @@
     "methodId": "GenomicAnalyzer.Wordmatch",
     "docPath": "docs/mcp/tools/analysis/wordmatch.md",
     "sourceLink": ""
+  },
+  {
+    "tool": "yank",
+    "server": "Analysis",
+    "methodId": "EmbossProgramRunner.Run",
+    "docPath": "docs/mcp/tools/analysis/yank.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossSequencePrograms.cs"
   },
   {
     "tool": "align_mirna_to_target",

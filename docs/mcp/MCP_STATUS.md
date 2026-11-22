@@ -1,6 +1,6 @@
 # MCP Completion — Source of Truth & Campaign Ledger
 
-> Reality-based ledger of the 603 MCP tools across 11 servers. Campaign COMPLETE (2026-07-01):
+> Reality-based ledger of the 626 MCP tools across 11 servers. Campaign COMPLETE (2026-07-01):
 > every tool has a gold-standard binding (`[McpServerTool(Name/Title/ReadOnly)]` + `[Description]`,
 > structured record, input validation, real `Seqeron.Genomics` delegation), a Schema+Binding NUnit
 > test, and `{tool}.md` + `{tool}.mcp.json` docs. Supersedes `docs/mcp-plan.md` / `docs/mcp-checklist.md` (v4).
@@ -9,9 +9,9 @@
 
 | Metric | Done | Total |
 |---|---:|---:|
-| Gold-standard binding | 603 | 603 |
-| Schema+Binding tests | 603 | 603 |
-| Docs (.md + .mcp.json) | 603 | 603 |
+| Gold-standard binding | 626 | 626 |
+| Schema+Binding tests | 626 | 626 |
+| Docs (.md + .mcp.json) | 626 | 626 |
 
 ## Per-server summary
 
@@ -21,7 +21,7 @@
 | Sequence | Seqeron.Mcp.Sequence | 35 | 35/35 | 35/35 | 35/35 | ✅ done |
 | Parsers | Seqeron.Mcp.Parsers | 41 | 41/41 | 41/41 | 41/41 | ✅ done |
 | Alignment | Seqeron.Mcp.Alignment | 83 | 83/83 | 83/83 | 83/83 | ✅ done |
-| Analysis | Seqeron.Mcp.Analysis | 188 | 188/188 | 188/188 | 188/188 | ✅ done |
+| Analysis | Seqeron.Mcp.Analysis | 211 | 211/211 | 211/211 | 211/211 | ✅ done |
 | Annotation | Seqeron.Mcp.Annotation | 97 | 97/97 | 97/97 | 97/97 | ✅ done |
 | Chromosome | Seqeron.Mcp.Chromosome | 32 | 32/32 | 32/32 | 32/32 | ✅ done |
 | Metagenomics | Seqeron.Mcp.Metagenomics | 19 | 19/19 | 19/19 | 19/19 | ✅ done |
@@ -228,7 +228,7 @@
 | 82 | `parse_big_alignment` | ☑ | ☑ | ☑ |
 | 83 | `tcoffee_evaluate` | ☑ | ☑ | ☑ |
 
-### Analysis (Seqeron.Mcp.Analysis) — 188 tools
+### Analysis (Seqeron.Mcp.Analysis) — 211 tools
 
 | # | tool | B | T | D |
 |---:|---|:--:|:--:|:--:|
@@ -420,6 +420,29 @@
 | 186 | `showfeat` | ☑ | ☑ | ☑ |
 | 187 | `featreport` | ☑ | ☑ | ☑ |
 | 188 | `twofeat` | ☑ | ☑ | ☑ |
+| 189 | `getorf` | ☑ | ☑ | ☑ |
+| 190 | `revseq` | ☑ | ☑ | ☑ |
+| 191 | `transeq` | ☑ | ☑ | ☑ |
+| 192 | `extractseq` | ☑ | ☑ | ☑ |
+| 193 | `cutseq` | ☑ | ☑ | ☑ |
+| 194 | `degapseq` | ☑ | ☑ | ☑ |
+| 195 | `trimseq` | ☑ | ☑ | ☑ |
+| 196 | `skipseq` | ☑ | ☑ | ☑ |
+| 197 | `nthseq` | ☑ | ☑ | ☑ |
+| 198 | `notseq` | ☑ | ☑ | ☑ |
+| 199 | `pasteseq` | ☑ | ☑ | ☑ |
+| 200 | `trimest` | ☑ | ☑ | ☑ |
+| 201 | `newseq` | ☑ | ☑ | ☑ |
+| 202 | `yank` | ☑ | ☑ | ☑ |
+| 203 | `seqcount` | ☑ | ☑ | ☑ |
+| 204 | `splitter` | ☑ | ☑ | ☑ |
+| 205 | `maskseq` | ☑ | ☑ | ☑ |
+| 206 | `maskambignuc` | ☑ | ☑ | ☑ |
+| 207 | `maskambigprot` | ☑ | ☑ | ☑ |
+| 208 | `trimspace` | ☑ | ☑ | ☑ |
+| 209 | `nospace` | ☑ | ☑ | ☑ |
+| 210 | `notab` | ☑ | ☑ | ☑ |
+| 211 | `noreturn` | ☑ | ☑ | ☑ |
 
 ### Annotation (Seqeron.Mcp.Annotation) — 97 tools
 

@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "getorf",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "EmbossProgramRunner.Run",
+  "docRef": "EmbossGetorfProgram.cs",
+  "description": "EMBOSS 6.6.0 getorf: the regions between STOP codons or between START and STOP codons of the six frames (the circular sequence and the nucleotides around the codons too) are returned as protein or nucleotide sequences named name_1, name_2, ... with the header [start - end] (REVERSE SENSE) and the description of the sequence; the scan is Translator.FindOrfsGetorfProgram (the model of getorf_FindORFs over the EMBOSS genetic code files). Equals the installed program on 800 runs (every input format of seqret, ranges, the output formats, the messages of the library; byte for byte). B09 WP61, F280.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "The text of the sequence file (any input format of seqret), or a sequence as letters."
+      },
+      "table": {
+        "type": "string",
+        "description": "The genetic code (-table): 0 standard with AUG start only, 1 .. 6, 9 .. 16, 21 .. 23 (the EMBOSS EGC files)."
+      },
+      "minSize": {
+        "type": "integer",
+        "description": "The minimum size of an ORF in nucleotides (-minsize, default 30)."
+      },
+      "maxSize": {
+        "type": "integer",
+        "description": "The maximum size of an ORF in nucleotides (-maxsize, default 1000000)."
+      },
+      "find": {
+        "type": "string",
+        "description": "The type of output (-find): 0 protein between STOP codons, 1 protein between START and STOP, 2 nucleotides between STOP codons, 3 nucleotides between START and STOP, 4 nucleotides around START codons, 5 around initial STOP codons, 6 around ending STOP codons."
+      },
+      "methionine": {
+        "type": "boolean",
+        "description": "A START codon at the beginning of a protein is an M (-methionine, default true).",
+        "default": true
+      },
+      "circular": {
+        "type": "boolean",
+        "description": "The sequence is circular (-circular).",
+        "default": false
+      },
+      "reverse": {
+        "type": "boolean",
+        "description": "ORFs of the reverse complement are found as well (-reverse, default true).",
+        "default": true
+      },
+      "flanking": {
+        "type": "integer",
+        "description": "The number of nucleotides on each side of the codon for find 4 .. 6 (-flanking, default 100)."
+      },
+      "sequenceFormat": {
+        "type": "string",
+        "description": "The input format (-sformat1); default: the program finds the format."
+      },
+      "qualifiers": {
+        "type": "string",
+        "description": "Sequence input qualifiers as typed after the sequence on the command line: -sbegin1 -send1 -sreverse1, -slower1 -supper1 -snucleotide1 -sprotein1 -scircular1, -sid1 name, -sdbname1 db, -squick1, -iquery1 query, -ioffset1 bytes."
+      },
+      "outputFormat": {
+        "type": "string",
+        "description": "The sequence output format (-osformat): fasta (default), embl, genbank, gcg, nbrf, ig, raw, msf, clustal, phylip, nexus, ... every format of seqret.",
+        "default": "fasta"
+      },
+      "files": {
+        "type": "object",
+        "description": "More files by name (file name -> text) that the program may read (a file named by a USA, @file)."
+      },
+      "sequenceValue": {
+        "type": "string",
+        "description": "The USA of the sequence input (-sequence) as the program reads it, instead of the text: [format::]file[begin:end:r], file:id, @list, asis::SEQUENCE."
+      }
+    },
+    "required": [
+      "sequence"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "text": {
+        "type": "string",
+        "description": "The standard output of the program: the sequences written to the standard output."
+      },
+      "files": {
+        "type": "object",
+        "description": "The files the program wrote, by name."
+      },
+      "messages": {
+        "type": "string[]",
+        "description": "What the library printed on the error stream (warnings and errors)."
+      }
+    },
+    "required": [
+      "text",
+      "files",
+      "messages"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "The sequence cannot be empty"
+    },
+    {
+      "code": 1001,
+      "message": "The program died: the messages of the library (a value it refuses, an input no reader reads, a sequence of the wrong kind)"
+    },
+    {
+      "code": 1001,
+      "message": "An input on which the reference program never stops or dies by a fault is refused"
+    }
+  ],
+  "examples": [
+    {
+      "name": "A run on a small input",
+      "input": {
+        "sequence": ">s1 desc here\nATGAAATTTGGGCCCTAGATGCCCTAAGGGATGAAATAA\n",
+        "minSize": 6
+      },
+      "output": {
+        "text": ">s1_1 [1 - 15] desc here\nMKFGP\n>s1_2 [19 - 24] desc here\nMP\n>s1_3 [5 - 31] desc here\nNLGPRCPKG\n>s1_4 [3 - 38] desc here\nEIWALDALRDEI\n>s1_5 [28 - 36] desc here\nGMK\n>s1_6 [38 - 27] (REVERSE SENSE) desc here\nYFIP\n>s1_7 [23 - 18] (REVERSE SENSE) desc here\nGI\n>s1_8 [14 - 3] (REVERSE SENSE) desc here\nGPNF\n>s1_9 [37 - 2] (REVERSE SENSE) desc here\nISSLRASRAQIS\n>s1_10 [39 - 1] (REVERSE SENSE) desc here\nLFHPLGHLGPKFH\n",
+        "files": {},
+        "messages": []
+      }
+    }
+  ]
+}

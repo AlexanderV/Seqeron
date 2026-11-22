@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "newseq",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "EmbossProgramRunner.Run",
+  "docRef": "EmbossSequencePrograms.cs",
+  "description": "EMBOSS 6.6.0 newseq: the sequence is written in the chosen format with the gaps and the ambiguity codes of its type (nucleic: gapnucleotide; protein: gapprotein) as the output sequence check leaves them. Equals the installed program on 320 runs (every input format of seqret, ranges, the output formats, the messages of the library; byte for byte). B09 WP61, F280.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "description": "The name of the sequence (-name)."
+      },
+      "description": {
+        "type": "string",
+        "description": "The description of the sequence (-description).",
+        "default": ""
+      },
+      "type": {
+        "type": "string",
+        "description": "N nucleic or P protein (-type).",
+        "default": "N"
+      },
+      "residues": {
+        "type": "string",
+        "description": "The residues (-sequence).",
+        "default": ""
+      },
+      "outputFormat": {
+        "type": "string",
+        "description": "The sequence output format (-osformat): fasta (default), embl, genbank, gcg, nbrf, ig, raw, msf, clustal, phylip, nexus, ... every format of seqret.",
+        "default": "fasta"
+      }
+    },
+    "required": [
+      "name"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "text": {
+        "type": "string",
+        "description": "The standard output of the program: the sequences written to the standard output."
+      },
+      "files": {
+        "type": "object",
+        "description": "The files the program wrote, by name."
+      },
+      "messages": {
+        "type": "string[]",
+        "description": "What the library printed on the error stream (warnings and errors)."
+      }
+    },
+    "required": [
+      "text",
+      "files",
+      "messages"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "The sequence cannot be empty"
+    },
+    {
+      "code": 1001,
+      "message": "The program died: the messages of the library (a value it refuses, an input no reader reads, a sequence of the wrong kind)"
+    },
+    {
+      "code": 1001,
+      "message": "An input on which the reference program never stops or dies by a fault is refused"
+    }
+  ],
+  "examples": [
+    {
+      "name": "A run on a small input",
+      "input": {
+        "name": "nn",
+        "description": "d d",
+        "type": "N",
+        "residues": "ACGTRXYZ"
+      },
+      "output": {
+        "text": ">nn d d\nACGTRXYZ\n",
+        "files": {},
+        "messages": []
+      }
+    }
+  ]
+}
