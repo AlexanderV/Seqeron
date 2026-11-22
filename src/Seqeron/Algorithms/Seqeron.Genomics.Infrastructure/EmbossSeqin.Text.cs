@@ -949,7 +949,9 @@ internal sealed partial class EmbossSeqin
     private bool ReadUnported(EmbossSeq t, string format)
     {
         _ = t;
-        if (_format != 0 && Table[_format].Name == format)
+        // seqReadNibble (measured on 6.6.0, valgrind clean): the reader fails on every file, with or without the magic number (it ends with ajTextinGetRecords(), which is false for the input it read without records) -
+        // so a run with -sformat1 nibble / nib ends with "Unable to read sequence"; the other binary formats are not read by this port
+        if (_format != 0 && Table[_format].Name == format && format is not ("nibble" or "nib"))
             throw new InvalidOperationException($"The sequence format '{format}' is not read by this port.");
         bool ok = ReadLine();
         string[] binary = ["nibble", "nib", "abi", "bam", "scf"];
