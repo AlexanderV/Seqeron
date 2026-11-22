@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace SuffixTree.Esa;
 
@@ -64,8 +65,7 @@ internal sealed class ReaderGate<TSeams> : IDisposable
     private readonly Action _release;
     private readonly long _id;
     private readonly TSeams _seams;
-    private int _disposed;
-    private int _released;
+    private readonly GateFlags _flags = new();
 
     /// <param name="owner">The object that the <see cref="ObjectDisposedException"/> names.</param>
     /// <param name="release">What the last reader out (or <see cref="Dispose"/>) runs once: the unmapping and the unpinning.</param>
@@ -84,10 +84,10 @@ internal sealed class ReaderGate<TSeams> : IDisposable
     internal long Id => _id;
 
     /// <summary>Whether <see cref="Dispose"/> has run.</summary>
-    internal bool IsDisposed => Volatile.Read(ref _disposed) != 0;
+    internal bool IsDisposed => Volatile.Read(ref _flags.Disposed) != 0;
 
     /// <summary>Whether the release has been claimed (and runs or has run).</summary>
-    internal bool IsReleased => Volatile.Read(ref _released) != 0;
+    internal bool IsReleased => Volatile.Read(ref _flags.Released) != 0;
 
     /// <summary>
     /// A call begins: the flag is read (a call that starts after <see cref="Dispose"/> throws without publishing anything), the entry is stored in the cell of the thread, and the flag is read again; a flag that is raised by then is
@@ -99,7 +99,7 @@ internal sealed class ReaderGate<TSeams> : IDisposable
     internal ReaderCell Enter()
     {
         ReaderCell cell = ReaderCell.Current;
-        if (Volatile.Read(ref _disposed) != 0) ThrowDisposed();
+        if (Volatile.Read(ref _flags.Disposed) != 0) ThrowDisposed();
         cell.Publish(_id);
         _seams.AfterPublish();
         if (IsDisposedAfterStore()) EnterDisposed(cell);
@@ -118,13 +118,13 @@ internal sealed class ReaderGate<TSeams> : IDisposable
     /// <summary>Raises the flag and runs the release if no call is inside. Idempotent; does not wait for the calls that are inside.</summary>
     public void Dispose()
     {
-        if (Interlocked.CompareExchange(ref _disposed, 1, 0) != 0) return;
+        if (Interlocked.CompareExchange(ref _flags.Disposed, 1, 0) != 0) return;
         ReleaseWhenIdle();
     }
 
     // The read of the flag that follows the store of the entry (or the clearing of it). A separate method that is not inlined, so that no compiler can move the store behind the read: a store may not move across a call of a method the compiler cannot see through.
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private bool IsDisposedAfterStore() => Volatile.Read(ref _disposed) != 0;
+    private bool IsDisposedAfterStore() => Volatile.Read(ref _flags.Disposed) != 0;
 
     [MethodImpl(MethodImplOptions.NoInlining)]
     private void EnterDisposed(ReaderCell cell)
@@ -144,14 +144,28 @@ internal sealed class ReaderGate<TSeams> : IDisposable
     /// </summary>
     private void ReleaseWhenIdle()
     {
-        if (Volatile.Read(ref _released) != 0) return;
+        if (Volatile.Read(ref _flags.Released) != 0) return;
         _seams.ProcessWideBarrier();
         Interlocked.MemoryBarrier();
         _seams.BeforeScan();
         bool inside = ReaderCell.AnyInside(_id);
         _seams.AfterScan(inside);
         if (inside) return;
-        if (Interlocked.CompareExchange(ref _released, 1, 0) != 0) return;
+        if (Interlocked.CompareExchange(ref _flags.Released, 1, 0) != 0) return;
         _release();
     }
+}
+
+/// <summary>
+/// The flags that every call reads, in an object of their own (work package 1b.9g.1): the gate is a small object that sits among whatever the allocator placed next to it, and when that neighbour is written often the line of the flag bounces
+/// between the cores that read it at every call. The fields are 64 bytes into an object of 192 (a cache line of room on each side, the header and the table pointer on top); the layout is pinned by <c>ReaderGateFlagsTests</c>. One object per gate.
+/// </summary>
+[StructLayout(LayoutKind.Explicit, Size = 192)]
+internal sealed class GateFlags
+{
+    [FieldOffset(64)]
+    internal int Disposed;
+
+    [FieldOffset(68)]
+    internal int Released;
 }
