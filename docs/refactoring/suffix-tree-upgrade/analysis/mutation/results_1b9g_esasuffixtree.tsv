@@ -1,0 +1,12 @@
+1b9g_T01	a tree over a container takes the arm of an in-memory tree	killed(host crash: Fatal error., stage 1)
+1b9g_T02	an in-memory call does not look at the flag	killed(stage 1: 31 failed, first Dispose_AfterAPackWasBuilt_DoesNotReleaseThePinOfTheSuffixArray_ThatIsLeftToTheFinalizer)
+1b9g_T03	an in-memory call throws when the tree is not disposed	killed(stage 1: 36 failed, first TheScopeOfACallOfAnInMemoryTree_HoldsTheTree)
+1b9g_T04	a scope never leaves its call (the entry stays, the mapping is never released)	killed(stage 1: 12 failed, first TheScopeOfACallOfAnInMemoryTree_HoldsTheTree)
+1b9g_T05	the release does not unpin the navigation pack	survived
+1b9g_T06	the release does not unmap the container	killed(stage 1: 4 failed, first ADisposedFileBackedTree_ReleasesItsMapping_WhicheverStripeItsCallersCounted)
+1b9g_T07	Dispose of a tree over a container does not reach its gate	killed(stage 1: 5 failed, first ADisposedFileBackedTree_ReleasesItsMapping_WhicheverStripeItsCallersCounted)
+1b9g_T08	Dispose of an in-memory tree does not raise the flag	killed(stage 1: 31 failed, first Dispose_AfterAPackWasBuilt_DoesNotReleaseThePinOfTheSuffixArray_ThatIsLeftToTheFinalizer)
+1b9g_T09	a tree over a container has no gate	BUILD-ERROR CS8183
+1b9g_T10	the reader id of a tree is 0	killed(stage 1: 5 failed, first TheScopeOfACallOfATreeOverAContainer_HoldsTheGate_WhichHoldsTheTree_AndTheCellOfTheThread)
+1b9g_T12	the scope of an in-memory call holds nothing (the tree may be collected under a reader)	killed(stage 1: 1 failed, first TheScopeOfACallOfAnInMemoryTree_HoldsTheTree)
+1b9g_T11	Enter is not inlined into the members	survived

@@ -1,0 +1,8 @@
+# single_protu proc 1
+AB count_present  A       594639  B       583054  B/A median-of-paired 1.0219  p25 0.9844 p75 1.0440  n 9
+AB locate         A       499365  B       528953  B/A median-of-paired 1.0512  p25 1.0437 p75 1.0621  n 9
+AB count_absent   A       822468  B       836610  B/A median-of-paired 1.0072  p25 1.0011 p75 1.0171  n 9
+# single_protu proc 2
+AB count_present  A       781634  B       647596  B/A median-of-paired 1.0140  p25 0.9192 p75 1.0162  n 9
+AB locate         A       605733  B       540512  B/A median-of-paired 1.0802  p25 1.0279 p75 1.1011  n 9
+AB count_absent   A       594592  B       607395  B/A median-of-paired 1.0155  p25 0.9167 p75 1.0305  n 9

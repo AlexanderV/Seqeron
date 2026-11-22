@@ -15,12 +15,14 @@ OPS = ('count_present', 'locate', 'count_absent')
 ROW = re.compile(r'^AB (\S+)\s+A\s+(\d+)\s+B\s+(\d+)\s+B/A median-of-paired ([\d.]+)')
 
 
-def load(path):
+def load(paths):
+    """Rows of one or several files (a list of paths, or one path) merged: the processes of all of them count."""
     ops = {}
-    for line in open(path, errors='replace'):
-        m = ROW.match(line)
-        if m:
-            ops.setdefault(m.group(1), []).append((float(m.group(4)), int(m.group(2)), int(m.group(3))))
+    for path in ([paths] if isinstance(paths, str) else paths):
+        for line in open(path, errors='replace'):
+            m = ROW.match(line)
+            if m:
+                ops.setdefault(m.group(1), []).append((float(m.group(4)), int(m.group(2)), int(m.group(3))))
     return ops
 
 
@@ -55,10 +57,10 @@ def main():
     print('|---|---|---|---|---|')
     for build in ('before', 'after'):
         for text in ('dna', 'protu', 'protr', 'protO'):
-            f1 = find(d, '%s_idx_vs_file4_%s.txt' % (build, text))
-            f2 = find(d, '%s_file_vs_idx4_%s.txt' % (build, text))
-            c1 = [cell(load(f1[0]), op) if f1 else None for op in OPS]
-            c2 = [cell(load(f2[0]), op) if f2 else None for op in OPS]
+            f1 = find(d, '%s_idx_vs_file4_%s.txt' % (build, text)) + find(d, '%s_idx_vs_file4_%s_more.txt' % (build, text))
+            f2 = find(d, '%s_file_vs_idx4_%s.txt' % (build, text)) + find(d, '%s_file_vs_idx4_%s_more.txt' % (build, text))
+            c1 = [cell(load(f1), op) if f1 else None for op in OPS]
+            c2 = [cell(load(f2), op) if f2 else None for op in OPS]
             if not any(c1) and not any(c2):
                 continue
             bal = []
@@ -81,12 +83,27 @@ def main():
         for p in find(d, '%s_large_mem_vs_file_*.txt' % build):
             o = load(p)
             print('| %s | %s | %s |' % (build, os.path.basename(p)[len(build + '_large_mem_vs_file_'):-4], ' | '.join(fmt(cell(o, op)) for op in OPS)))
+    print()
+    print('### Item 2: one thread, the cache-resident sets, in-memory tree (A) against the file-backed tree (B) of the same build')
+    print('| build | text | count present | locate | count absent |')
+    print('|---|---|---|---|---|')
+    for build in ('base', 'final'):
+        for p in find(d, 'item2_%s_mem_vs_file1_*.txt' % build):
+            o = load(p)
+            print('| %s | %s | %s |' % ('head' if build == 'base' else 'final', os.path.basename(p)[len('item2_%s_mem_vs_file1_' % build):-4], ' | '.join(fmt(cell(o, op)) for op in OPS)))
+    print()
+    print('### Large sets, one thread: the file-backed tree of the head (A) against the final build (B)')
+    print('| text | count present | locate | count absent |')
+    print('|---|---|---|---|')
+    for p in find(d, 'large_cross_base_vs_final_*.txt'):
+        o = load(p)
+        print('| %s | %s |' % (os.path.basename(p)[len('large_cross_base_vs_final_'):-4], ' | '.join(fmt(cell(o, op)) for op in OPS)))
     if len(sys.argv) > 2:
         print()
         print('### ReadBench mt: four threads on one tree, checked (facade) / ix-file (index behind it)')
         print('| rows file | processes | count | locate | absent |')
         print('|---|---|---|---|---|')
-        for p in find(sys.argv[2], 'threads_*.tsv'):
+        for p in find(sys.argv[2], 'threads_*.tsv') + find(sys.argv[2].replace('w_before', 'w_after'), 'threads_*.tsv'):
             ratios = {1: [], 2: [], 3: []}
             for line in open(p):
                 f = line.rstrip('\n').split('\t')

@@ -1,0 +1,160 @@
+# Decompose build base text dna access C
+patterns P 2000 L 500 A 2000; mean locate hits 154.6
+count present (CountOccurrences)   mem   1377.4 ns  file   1371.6 ns  diff    -5.8 ns  ratio file/mem 0.996
+count absent                       mem   1364.2 ns  file   1352.0 ns  diff   -12.2 ns  ratio file/mem 0.991
+locate (FindAllOccurrences)        mem    732.4 ns  file    845.1 ns  diff   112.7 ns  ratio file/mem 1.154
+count of the locate patterns       mem    224.2 ns  file    308.8 ns  diff    84.6 ns  ratio file/mem 1.377
+TryMatch of the locate patterns    mem    219.9 ns  file    298.6 ns  diff    78.7 ns  ratio file/mem 1.358
+Sa.ToArray of the intervals        mem    104.8 ns  file    104.8 ns  diff    -0.1 ns  ratio file/mem 0.999
+Sa.CopyTo into a reused buffer     mem     15.2 ns  file     15.4 ns  diff     0.2 ns  ratio file/mem 1.011
+new int[count] only (no copy)      mem     85.7 ns  file     85.4 ns  diff    -0.3 ns  ratio file/mem 0.996
+# Decompose build base text dna access T
+patterns P 2000 L 500 A 2000; mean locate hits 154.6
+count present (CountOccurrences)   mem   1385.3 ns  file   1369.5 ns  diff   -15.8 ns  ratio file/mem 0.989
+count absent                       mem   1367.3 ns  file   1337.7 ns  diff   -29.6 ns  ratio file/mem 0.978
+locate (FindAllOccurrences)        mem    723.9 ns  file    771.0 ns  diff    47.1 ns  ratio file/mem 1.065
+count of the locate patterns       mem    218.4 ns  file    278.1 ns  diff    59.7 ns  ratio file/mem 1.273
+TryMatch of the locate patterns    mem    220.1 ns  file    285.4 ns  diff    65.3 ns  ratio file/mem 1.297
+Sa.ToArray of the intervals        mem    103.4 ns  file    103.0 ns  diff    -0.3 ns  ratio file/mem 0.997
+Sa.CopyTo into a reused buffer     mem     15.2 ns  file     15.3 ns  diff     0.1 ns  ratio file/mem 1.007
+new int[count] only (no copy)      mem     86.1 ns  file     85.9 ns  diff    -0.2 ns  ratio file/mem 0.998
+# Decompose build base text protu access C
+patterns P 2000 L 500 A 2000; mean locate hits 4.3
+count present (CountOccurrences)   mem   1141.5 ns  file   1216.4 ns  diff    74.9 ns  ratio file/mem 1.066
+count absent                       mem   1604.9 ns  file   1711.1 ns  diff   106.2 ns  ratio file/mem 1.066
+locate (FindAllOccurrences)        mem   2029.2 ns  file   2199.8 ns  diff   170.6 ns  ratio file/mem 1.084
+count of the locate patterns       mem   1940.0 ns  file   2090.5 ns  diff   150.5 ns  ratio file/mem 1.078
+TryMatch of the locate patterns    mem   1920.5 ns  file   2085.3 ns  diff   164.9 ns  ratio file/mem 1.086
+Sa.ToArray of the intervals        mem      9.8 ns  file     10.1 ns  diff     0.3 ns  ratio file/mem 1.026
+Sa.CopyTo into a reused buffer     mem      6.2 ns  file      6.1 ns  diff    -0.0 ns  ratio file/mem 0.992
+new int[count] only (no copy)      mem      6.7 ns  file      6.7 ns  diff     0.0 ns  ratio file/mem 1.004
+# Decompose build base text protu access T
+patterns P 2000 L 500 A 2000; mean locate hits 4.3
+count present (CountOccurrences)   mem   2052.9 ns  file   2107.6 ns  diff    54.6 ns  ratio file/mem 1.027
+count absent                       mem   2069.9 ns  file   2106.0 ns  diff    36.0 ns  ratio file/mem 1.017
+locate (FindAllOccurrences)        mem   1865.2 ns  file   2073.2 ns  diff   207.9 ns  ratio file/mem 1.111
+count of the locate patterns       mem    881.3 ns  file   1009.9 ns  diff   128.5 ns  ratio file/mem 1.146
+TryMatch of the locate patterns    mem    910.4 ns  file   1023.8 ns  diff   113.4 ns  ratio file/mem 1.125
+Sa.ToArray of the intervals        mem     11.0 ns  file     11.6 ns  diff     0.6 ns  ratio file/mem 1.053
+Sa.CopyTo into a reused buffer     mem      6.6 ns  file      7.0 ns  diff     0.4 ns  ratio file/mem 1.060
+new int[count] only (no copy)      mem      7.8 ns  file      7.8 ns  diff     0.0 ns  ratio file/mem 1.002
+# Decompose build base text protr access C
+patterns P 2000 L 500 A 2000; mean locate hits 37.6
+count present (CountOccurrences)   mem   2128.5 ns  file   2153.3 ns  diff    24.9 ns  ratio file/mem 1.012
+count absent                       mem   1398.8 ns  file   1450.5 ns  diff    51.7 ns  ratio file/mem 1.037
+locate (FindAllOccurrences)        mem   1285.8 ns  file   1428.7 ns  diff   142.9 ns  ratio file/mem 1.111
+count of the locate patterns       mem   1155.0 ns  file   1316.3 ns  diff   161.3 ns  ratio file/mem 1.140
+TryMatch of the locate patterns    mem   1761.8 ns  file   1954.1 ns  diff   192.2 ns  ratio file/mem 1.109
+Sa.ToArray of the intervals        mem     30.1 ns  file     30.3 ns  diff     0.2 ns  ratio file/mem 1.007
+Sa.CopyTo into a reused buffer     mem      9.0 ns  file      9.2 ns  diff     0.2 ns  ratio file/mem 1.024
+new int[count] only (no copy)      mem     23.2 ns  file     23.1 ns  diff    -0.0 ns  ratio file/mem 0.998
+# Decompose build base text protr access T
+patterns P 2000 L 500 A 2000; mean locate hits 37.6
+count present (CountOccurrences)   mem   1691.4 ns  file   1757.6 ns  diff    66.2 ns  ratio file/mem 1.039
+count absent                       mem   1598.0 ns  file   1621.6 ns  diff    23.5 ns  ratio file/mem 1.015
+locate (FindAllOccurrences)        mem    956.0 ns  file   1083.0 ns  diff   127.0 ns  ratio file/mem 1.133
+count of the locate patterns       mem    821.5 ns  file    975.6 ns  diff   154.1 ns  ratio file/mem 1.188
+TryMatch of the locate patterns    mem    818.1 ns  file    968.4 ns  diff   150.2 ns  ratio file/mem 1.184
+Sa.ToArray of the intervals        mem     25.5 ns  file     26.1 ns  diff     0.6 ns  ratio file/mem 1.024
+Sa.CopyTo into a reused buffer     mem      8.2 ns  file      8.1 ns  diff    -0.1 ns  ratio file/mem 0.983
+new int[count] only (no copy)      mem     25.5 ns  file     25.6 ns  diff     0.1 ns  ratio file/mem 1.005
+# Decompose build base text protu-20 access C
+patterns P 2000 L 500 A 2000; mean locate hits 1.0
+count present (CountOccurrences)   mem   1176.6 ns  file   1254.5 ns  diff    77.9 ns  ratio file/mem 1.066
+count absent                       mem   1172.3 ns  file   1223.5 ns  diff    51.2 ns  ratio file/mem 1.044
+locate (FindAllOccurrences)        mem   1025.4 ns  file   1172.4 ns  diff   147.0 ns  ratio file/mem 1.143
+count of the locate patterns       mem   1460.7 ns  file   1586.0 ns  diff   125.3 ns  ratio file/mem 1.086
+TryMatch of the locate patterns    mem   1462.6 ns  file   1583.5 ns  diff   120.9 ns  ratio file/mem 1.083
+Sa.ToArray of the intervals        mem      8.5 ns  file      9.2 ns  diff     0.7 ns  ratio file/mem 1.084
+Sa.CopyTo into a reused buffer     mem      6.1 ns  file      6.1 ns  diff    -0.0 ns  ratio file/mem 0.992
+new int[count] only (no copy)      mem      5.6 ns  file      5.6 ns  diff    -0.0 ns  ratio file/mem 0.999
+# Decompose build base text protu-20 access T
+patterns P 2000 L 500 A 2000; mean locate hits 1.0
+count present (CountOccurrences)   mem   1156.7 ns  file   1228.7 ns  diff    72.0 ns  ratio file/mem 1.062
+count absent                       mem   1160.5 ns  file   1203.3 ns  diff    42.8 ns  ratio file/mem 1.037
+locate (FindAllOccurrences)        mem   1021.9 ns  file   1150.6 ns  diff   128.7 ns  ratio file/mem 1.126
+count of the locate patterns       mem    966.7 ns  file   1096.4 ns  diff   129.8 ns  ratio file/mem 1.134
+TryMatch of the locate patterns    mem   1007.6 ns  file   1129.7 ns  diff   122.1 ns  ratio file/mem 1.121
+Sa.ToArray of the intervals        mem      9.5 ns  file     10.1 ns  diff     0.6 ns  ratio file/mem 1.059
+Sa.CopyTo into a reused buffer     mem      7.1 ns  file      7.0 ns  diff    -0.1 ns  ratio file/mem 0.980
+new int[count] only (no copy)      mem      6.5 ns  file      6.5 ns  diff     0.0 ns  ratio file/mem 1.000
+# Decompose build final text dna access C
+patterns P 2000 L 500 A 2000; mean locate hits 154.6
+count present (CountOccurrences)   mem   1389.6 ns  file   1359.8 ns  diff   -29.8 ns  ratio file/mem 0.979
+count absent                       mem   1361.9 ns  file   1318.6 ns  diff   -43.4 ns  ratio file/mem 0.968
+locate (FindAllOccurrences)        mem    698.8 ns  file    618.4 ns  diff   -80.4 ns  ratio file/mem 0.885
+count of the locate patterns       mem    221.4 ns  file    203.3 ns  diff   -18.1 ns  ratio file/mem 0.918
+TryMatch of the locate patterns    mem    225.2 ns  file    217.3 ns  diff    -7.9 ns  ratio file/mem 0.965
+Sa.ToArray of the intervals        mem    108.1 ns  file    102.4 ns  diff    -5.7 ns  ratio file/mem 0.947
+Sa.CopyTo into a reused buffer     mem     15.0 ns  file     15.3 ns  diff     0.3 ns  ratio file/mem 1.017
+new int[count] only (no copy)      mem     75.8 ns  file     80.2 ns  diff     4.5 ns  ratio file/mem 1.059
+# Decompose build final text dna access T
+patterns P 2000 L 500 A 2000; mean locate hits 154.6
+count present (CountOccurrences)   mem   1401.1 ns  file   1350.1 ns  diff   -51.0 ns  ratio file/mem 0.964
+count absent                       mem   1374.7 ns  file   1319.3 ns  diff   -55.5 ns  ratio file/mem 0.960
+locate (FindAllOccurrences)        mem    635.5 ns  file    720.7 ns  diff    85.2 ns  ratio file/mem 1.134
+count of the locate patterns       mem    204.7 ns  file    217.7 ns  diff    13.0 ns  ratio file/mem 1.063
+TryMatch of the locate patterns    mem    203.8 ns  file    212.2 ns  diff     8.4 ns  ratio file/mem 1.041
+Sa.ToArray of the intervals        mem     93.8 ns  file     93.5 ns  diff    -0.3 ns  ratio file/mem 0.997
+Sa.CopyTo into a reused buffer     mem     14.6 ns  file     14.7 ns  diff     0.1 ns  ratio file/mem 1.008
+new int[count] only (no copy)      mem     78.0 ns  file     78.0 ns  diff    -0.0 ns  ratio file/mem 1.000
+# Decompose build final text protu access C
+patterns P 2000 L 500 A 2000; mean locate hits 4.3
+count present (CountOccurrences)   mem   1682.3 ns  file   1742.1 ns  diff    59.8 ns  ratio file/mem 1.036
+count absent                       mem   1682.5 ns  file   1733.2 ns  diff    50.7 ns  ratio file/mem 1.030
+locate (FindAllOccurrences)        mem   1568.9 ns  file   1584.5 ns  diff    15.6 ns  ratio file/mem 1.010
+count of the locate patterns       mem   1487.6 ns  file   1507.0 ns  diff    19.4 ns  ratio file/mem 1.013
+TryMatch of the locate patterns    mem   1480.3 ns  file   1501.5 ns  diff    21.2 ns  ratio file/mem 1.014
+Sa.ToArray of the intervals        mem     10.2 ns  file     10.6 ns  diff     0.4 ns  ratio file/mem 1.038
+Sa.CopyTo into a reused buffer     mem      6.6 ns  file      7.0 ns  diff     0.4 ns  ratio file/mem 1.060
+new int[count] only (no copy)      mem      6.6 ns  file      6.6 ns  diff     0.0 ns  ratio file/mem 1.006
+# Decompose build final text protu access T
+patterns P 2000 L 500 A 2000; mean locate hits 4.3
+count present (CountOccurrences)   mem   1179.0 ns  file   1377.8 ns  diff   198.8 ns  ratio file/mem 1.169
+count absent                       mem   2076.5 ns  file   1969.8 ns  diff  -106.7 ns  ratio file/mem 0.949
+locate (FindAllOccurrences)        mem   1911.0 ns  file   1900.2 ns  diff   -10.8 ns  ratio file/mem 0.994
+count of the locate patterns       mem   1894.5 ns  file   1827.9 ns  diff   -66.6 ns  ratio file/mem 0.965
+TryMatch of the locate patterns    mem   1861.8 ns  file   1772.9 ns  diff   -88.9 ns  ratio file/mem 0.952
+Sa.ToArray of the intervals        mem     10.6 ns  file     11.0 ns  diff     0.4 ns  ratio file/mem 1.035
+Sa.CopyTo into a reused buffer     mem      6.3 ns  file      6.2 ns  diff    -0.1 ns  ratio file/mem 0.985
+new int[count] only (no copy)      mem      6.7 ns  file      6.7 ns  diff    -0.0 ns  ratio file/mem 0.997
+# Decompose build final text protr access C
+patterns P 2000 L 500 A 2000; mean locate hits 37.6
+count present (CountOccurrences)   mem   1130.0 ns  file   1172.3 ns  diff    42.3 ns  ratio file/mem 1.037
+count absent                       mem   1048.2 ns  file   1209.3 ns  diff   161.1 ns  ratio file/mem 1.154
+locate (FindAllOccurrences)        mem   2052.8 ns  file   2140.5 ns  diff    87.7 ns  ratio file/mem 1.043
+count of the locate patterns       mem   1348.3 ns  file   1304.7 ns  diff   -43.7 ns  ratio file/mem 0.968
+TryMatch of the locate patterns    mem    818.3 ns  file    882.5 ns  diff    64.2 ns  ratio file/mem 1.078
+Sa.ToArray of the intervals        mem     24.7 ns  file     24.6 ns  diff    -0.1 ns  ratio file/mem 0.995
+Sa.CopyTo into a reused buffer     mem      8.2 ns  file      8.1 ns  diff    -0.2 ns  ratio file/mem 0.978
+new int[count] only (no copy)      mem     20.5 ns  file     20.6 ns  diff     0.1 ns  ratio file/mem 1.004
+# Decompose build final text protr access T
+patterns P 2000 L 500 A 2000; mean locate hits 37.6
+count present (CountOccurrences)   mem   1114.2 ns  file   1134.9 ns  diff    20.7 ns  ratio file/mem 1.019
+count absent                       mem   1016.8 ns  file   1019.4 ns  diff     2.6 ns  ratio file/mem 1.003
+locate (FindAllOccurrences)        mem   1415.4 ns  file   1380.9 ns  diff   -34.5 ns  ratio file/mem 0.976
+count of the locate patterns       mem    890.3 ns  file    964.0 ns  diff    73.6 ns  ratio file/mem 1.083
+TryMatch of the locate patterns    mem    828.9 ns  file    814.7 ns  diff   -14.3 ns  ratio file/mem 0.983
+Sa.ToArray of the intervals        mem     25.2 ns  file     25.3 ns  diff     0.2 ns  ratio file/mem 1.006
+Sa.CopyTo into a reused buffer     mem      8.1 ns  file      8.0 ns  diff    -0.2 ns  ratio file/mem 0.978
+new int[count] only (no copy)      mem     19.9 ns  file     19.9 ns  diff     0.1 ns  ratio file/mem 1.003
+# Decompose build final text protu-20 access C
+patterns P 2000 L 500 A 2000; mean locate hits 1.0
+count present (CountOccurrences)   mem   1148.4 ns  file   1213.6 ns  diff    65.3 ns  ratio file/mem 1.057
+count absent                       mem   1143.9 ns  file   1191.8 ns  diff    47.9 ns  ratio file/mem 1.042
+locate (FindAllOccurrences)        mem   1013.8 ns  file   1081.9 ns  diff    68.1 ns  ratio file/mem 1.067
+count of the locate patterns       mem   1006.2 ns  file   1062.0 ns  diff    55.8 ns  ratio file/mem 1.055
+TryMatch of the locate patterns    mem    960.5 ns  file   1032.4 ns  diff    71.9 ns  ratio file/mem 1.075
+Sa.ToArray of the intervals        mem      8.1 ns  file      8.1 ns  diff    -0.0 ns  ratio file/mem 0.999
+Sa.CopyTo into a reused buffer     mem      6.5 ns  file      6.5 ns  diff    -0.1 ns  ratio file/mem 0.986
+new int[count] only (no copy)      mem      5.6 ns  file      5.6 ns  diff    -0.0 ns  ratio file/mem 0.992
+# Decompose build final text protu-20 access T
+patterns P 2000 L 500 A 2000; mean locate hits 1.0
+count present (CountOccurrences)   mem   1198.6 ns  file   1267.9 ns  diff    69.4 ns  ratio file/mem 1.058
+count absent                       mem   1695.7 ns  file   1731.3 ns  diff    35.7 ns  ratio file/mem 1.021
+locate (FindAllOccurrences)        mem   1960.9 ns  file   2004.6 ns  diff    43.7 ns  ratio file/mem 1.022
+count of the locate patterns       mem   1936.1 ns  file   1958.6 ns  diff    22.4 ns  ratio file/mem 1.012
+TryMatch of the locate patterns    mem   1926.5 ns  file   1962.9 ns  diff    36.4 ns  ratio file/mem 1.019
+Sa.ToArray of the intervals        mem      8.2 ns  file      8.7 ns  diff     0.4 ns  ratio file/mem 1.054
+Sa.CopyTo into a reused buffer     mem      6.2 ns  file      6.1 ns  diff    -0.1 ns  ratio file/mem 0.986
+new int[count] only (no copy)      mem      5.6 ns  file      5.6 ns  diff     0.0 ns  ratio file/mem 1.003

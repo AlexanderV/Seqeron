@@ -89,7 +89,7 @@ FILES = {
         m('T06', 'the release does not unmap the container', "_file?.Dispose();", "_ = _file;"),
         m('T07', 'Dispose of a tree over a container does not reach its gate', "            _gate.Dispose();\n            return;", "            return;"),
         m('T08', 'Dispose of an in-memory tree does not raise the flag', "Interlocked.CompareExchange(ref _disposed, 1, 0);", "_ = _disposed;"),
-        m('T09', 'a tree over a container has no gate', "            _gate = new ReaderGate<ReaderGateSeams>(this, ReleaseResources);", "            _ = ReleaseResources;"),
+        m('T09', 'a tree over a container has no gate', "            _gate = new ReaderGate<ReaderGateSeams>(this, ReleaseResources);", "            _gate = null;"),
         m('T10', 'the reader id of a tree is 0', "internal long ReaderId => _gate?.Id ?? 0;", "internal long ReaderId => 0;"),
         m('T12', 'the scope of an in-memory call holds nothing (the tree may be collected under a reader)', "        return new ReadScope(this, null);", "        return default;"),
         m('T11', 'Enter is not inlined into the members', "    [MethodImpl(MethodImplOptions.AggressiveInlining)]\n    private ReadScope Enter()", "    private ReadScope Enter()"),

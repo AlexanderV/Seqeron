@@ -1,0 +1,8 @@
+# item2_base_dna proc 1
+AB count_present  A       735770  B       734968  B/A median-of-paired 0.9819  p25 0.9413 p75 1.0127  n 9
+AB locate         A      2284390  B      2023231  B/A median-of-paired 0.8833  p25 0.8811 p75 0.8847  n 9
+AB count_absent   A      1273788  B      1245643  B/A median-of-paired 0.9570  p25 0.9472 p75 0.9779  n 9
+# item2_base_dna proc 2
+AB count_present  A       762341  B       791802  B/A median-of-paired 0.9927  p25 0.9830 p75 1.0334  n 9
+AB locate         A      1852646  B      1505443  B/A median-of-paired 0.8468  p25 0.8043 p75 0.8842  n 9
+AB count_absent   A      1051665  B       971169  B/A median-of-paired 0.9645  p25 0.9591 p75 0.9676  n 9

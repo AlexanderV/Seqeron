@@ -370,6 +370,53 @@ public class ReaderGateTests
     }
 
     [Test]
+    public void ASecondDispose_WhileAReaderIsStillInside_RunsNoBarrierAndNoScan_OnlyTheDisposeThatRaisedTheFlagDoes()
+    {
+        var s = new Setup();
+        using var inside = new ManualResetEventSlim();
+        using var leave = new ManualResetEventSlim();
+        Thread reader = Inside(s, "reader", inside, leave);
+        Assert.That(inside.Wait(Wait), Is.True);
+        s.Gate.Dispose();
+        Assert.That(s.Probe.Count("barrier"), Is.EqualTo(1));
+        s.Gate.Dispose();
+        s.Gate.Dispose();
+        Assert.Multiple(() =>
+        {
+            Assert.That(s.Probe.Count("barrier"), Is.EqualTo(1), "a Dispose that finds the flag raised returns at once");
+            Assert.That(s.Probe.Count("before-scan"), Is.EqualTo(1));
+            Assert.That(s.Releases, Is.Zero);
+        });
+        leave.Set();
+        Join(reader);
+        Assert.That(s.Releases, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void TheScan_FollowsTheBarrier_AndSeesAnEntryThatIsStoredWhileTheBarrierRuns()
+    {
+        // an entry that is still in a store buffer becomes visible at the barrier: the hook stores one in the cell of the disposing thread when the barrier runs; a scan that came before the barrier would miss it and release
+        var s = new Setup();
+        s.Probe.Hook = e =>
+        {
+            if (e.EndsWith(":barrier", StringComparison.Ordinal)) ReaderCell.Current.Publish(s.Gate.Id);
+        };
+        s.Gate.Dispose();
+        try
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(s.Releases, Is.Zero, "the scan saw the entry: it came after the barrier");
+                Assert.That(s.Probe.Count("scan-inside"), Is.EqualTo(1));
+            });
+        }
+        finally
+        {
+            ReaderCell.Current.Retract();
+        }
+    }
+
+    [Test]
     public void ADisposeFromInsideACall_ReleasesWhenTheOutermostCallLeaves()
     {
         var s = new Setup();

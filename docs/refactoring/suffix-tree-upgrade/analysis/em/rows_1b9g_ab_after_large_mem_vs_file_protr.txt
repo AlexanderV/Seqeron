@@ -1,0 +1,12 @@
+# after_large_protr proc 1
+AB count_present  A       388042  B       387500  B/A median-of-paired 0.9979  p25 0.9858 p75 1.0146  n 7
+AB locate         A       353108  B       346476  B/A median-of-paired 0.9845  p25 0.9367 p75 1.0441  n 7
+AB count_absent   A       423607  B       429448  B/A median-of-paired 1.0365  p25 0.9969 p75 1.0614  n 7
+# after_large_protr proc 2
+AB count_present  A       440173  B       473474  B/A median-of-paired 0.9593  p25 0.9260 p75 1.0498  n 7
+AB locate         A       571059  B       542526  B/A median-of-paired 1.0512  p25 0.8708 p75 1.0777  n 7
+AB count_absent   A       703857  B       665096  B/A median-of-paired 0.9497  p25 0.9083 p75 0.9958  n 7
+# after_large_protr proc 3
+AB count_present  A       619751  B       595260  B/A median-of-paired 0.9606  p25 0.9294 p75 1.0060  n 7
+AB locate         A       520919  B       519239  B/A median-of-paired 0.9968  p25 0.8536 p75 1.1009  n 7
+AB count_absent   A       646706  B       636795  B/A median-of-paired 0.9282  p25 0.8523 p75 0.9893  n 7

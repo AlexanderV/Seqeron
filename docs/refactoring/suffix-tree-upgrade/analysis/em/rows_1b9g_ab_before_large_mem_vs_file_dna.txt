@@ -1,0 +1,12 @@
+# before_large_dna proc 1
+AB count_present  A       639681  B       634421  B/A median-of-paired 0.9345  p25 0.9154 p75 1.0457  n 7
+AB locate         A       539412  B       556910  B/A median-of-paired 1.0174  p25 0.9058 p75 1.3957  n 7
+AB count_absent   A       558983  B       631504  B/A median-of-paired 1.1062  p25 0.9761 p75 1.2124  n 7
+# before_large_dna proc 2
+AB count_present  A       560027  B       573516  B/A median-of-paired 1.0294  p25 0.9819 p75 1.0329  n 7
+AB locate         A       529658  B       539414  B/A median-of-paired 1.0328  p25 0.9009 p75 1.3916  n 7
+AB count_absent   A       663286  B       657609  B/A median-of-paired 0.9975  p25 0.9447 p75 1.0673  n 7
+# before_large_dna proc 3
+AB count_present  A       686873  B       681001  B/A median-of-paired 1.0090  p25 0.9386 p75 1.0143  n 7
+AB locate         A       800963  B       826699  B/A median-of-paired 1.0321  p25 0.8928 p75 1.4981  n 7
+AB count_absent   A       593364  B       592423  B/A median-of-paired 1.0425  p25 0.9468 p75 1.0488  n 7

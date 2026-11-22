@@ -59,7 +59,7 @@
   "id": "1b9g_T09",
   "desc": "a tree over a container has no gate",
   "old": "            _gate = new ReaderGate<ReaderGateSeams>(this, ReleaseResources);",
-  "new": "            _ = ReleaseResources;",
+  "new": "            _gate = null;",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs"
  },
  {

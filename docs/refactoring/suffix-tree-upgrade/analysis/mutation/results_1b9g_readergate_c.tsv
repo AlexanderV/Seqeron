@@ -1,0 +1,1 @@
+1b9g_G12	Dispose raises the flag without the compare-exchange (every Dispose runs the releaser)	killed(stage 1: 1 failed, first ASecondDispose_WhileAReaderIsStillInside_RunsNoBarrierAndNoScan_OnlyTheDisposeThatRaisedTheFlagDoes)

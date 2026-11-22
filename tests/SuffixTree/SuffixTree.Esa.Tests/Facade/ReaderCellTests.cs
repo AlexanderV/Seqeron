@@ -196,6 +196,7 @@ public class ReaderCellTests
         Assert.That(holding.Wait(Wait), Is.True);
         Assert.Multiple(() =>
         {
+            Assert.That(ReaderCell.CellCount, Is.GreaterThanOrEqualTo(n + 1), "twelve threads and this one are alive: the registry has at least thirteen cells");
             Assert.That(cells.Distinct().Count(), Is.EqualTo(n), "no two live threads share a cell");
             foreach (long id in ids) Assert.That(ReaderCell.AnyInside(id), Is.True);
         });

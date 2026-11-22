@@ -1,0 +1,13 @@
+# Mutants of the audit of 1b.9g that no test of the unit tests kills, argued (id -> argument). Quoted in ADR-004 (1b.9g) and PROGRESS-S1.md.
+# EQUIVALENT: the mutant behaves like the original on every input that a caller or a test can reach (the argument says why); DEFENCE: a line of the proof that no test can observe on the platforms that were run (x64, Linux): not
+# equivalent in the abstract, not killed, reported as such; KILLED_BY_UNIT_TESTS: none in this audit.
+EQUIVALENT = {
+    '1b9g_R10': 'the nested entries are placed at (segment index / 7, slot index % 8) instead of (index / 8, index % 8): seven consecutive indices of one segment have seven distinct slots modulo 8, so the placement is still injective, a retraction of the same index reaches the same slot, and the scan walks every segment of the chain; only the number of segments that a depth of 14 or more allocates changes (one more at depth 37), which nothing reads',
+    '1b9g_T05': 'for a tree over a container the navigation pack holds no pin: its suffix array is read in place (the field is null), its inverse and the levels of the LCP pyramid are allocated on the pinned object heap (no GC handle), so Dispose of the pack frees nothing; the mapping itself is released by the next line, which the mutant keeps (and which ADisposedFileBackedTree_ReleasesItsMapping... pins)',
+    '1b9g_T11': 'Enter without AggressiveInlining: the JIT inlines or not, and the call returns the same scope; the attribute is a performance statement (about 1 ns per call), and a test cannot tell the two code shapes apart',
+}
+DEFENCE = {
+    '1b9g_G16': 'the full fence between the process-wide barrier and the scan: on Linux x64 and arm64 the membarrier call that backs the barrier orders the calling thread as well (the kernel issues a full barrier before and after), so the fence is redundant there and no test can see its absence; the proof keeps it because the documented contract of MemoryBarrierProcessWide is about the other threads and not about the caller, and the fence costs nothing next to the barrier (stated as a step of the proof)',
+    '1b9g_G23': 'the read of the flag after the store of the entry is a call that the JIT may not inline (the compiler barrier of the proof); inlined, the read stays after the store in every build that was run (both accesses are volatile, and the JIT of this runtime does not reorder two volatile accesses with each other; the language permits the reorder of a release store with a later load, which is why the proof asks for the call), so no run can show a difference; the attribute keeps the proof independent of that behaviour of one JIT',
+}
+KILLED_BY_UNIT_TESTS = {}

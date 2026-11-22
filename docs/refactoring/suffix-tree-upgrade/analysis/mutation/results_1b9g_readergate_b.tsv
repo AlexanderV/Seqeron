@@ -1,0 +1,19 @@
+1b9g_G12	Dispose raises the flag without the compare-exchange (every Dispose runs the releaser)	survived
+1b9g_G13	the releaser does not look at the claim first (it runs the barrier and the scan after the release)	killed(stage 1: 1 failed, first ADisposeBetweenTheClearingAndTheCheckOfAnExit_ReleasesInTheDisposer_AndTheReaderDoesNotReleaseAgain)
+1b9g_G14	the releaser runs no process-wide barrier	killed(stage 1: 6 failed, first ADisposeBetweenTheClearingAndTheCheckOfAnExit_ReleasesInTheDisposer_AndTheReaderDoesNotReleaseAgain)
+1b9g_G15	the releaser scans the cells before the barrier	survived
+1b9g_G16	the releaser has no full fence of its own after the barrier	survived
+1b9g_G17	the releaser does not scan the cells	killed(stage 1: 8 failed, first ADisposedFileBackedTree_WithACallerInside_ReleasesItsMapping_WhenTheLastCallerLeaves)
+1b9g_G18	the releaser scans for the id of another tree	killed(stage 1: 8 failed, first ADisposedFileBackedTree_WithACallerInside_ReleasesItsMapping_WhenTheLastCallerLeaves)
+1b9g_G19	the releaser goes on although a call is inside	killed(stage 1: 8 failed, first ADisposedFileBackedTree_WithACallerInside_ReleasesItsMapping_WhenTheLastCallerLeaves)
+1b9g_G20	the release is claimed without the compare-exchange (every attempt that finds no call releases)	killed(stage 1: 1 failed, first ManyReadersThatLeaveTogether_ReleaseOnce)
+1b9g_G21	the release is claimed and never run	killed(stage 1: 16 failed, first ADisposedFileBackedTree_ReleasesItsMapping_WhicheverStripeItsCallersCounted)
+1b9g_G22	the read of the flag after the store reports the opposite	killed(host crash: System.ObjectDisposedException, stage 1)
+1b9g_G23	the read of the flag after the store is inlined (no call between the store and the read)	survived
+1b9g_G24	IsDisposed reports the opposite	killed(stage 1: 3 failed, first ACallOfALiveGate_TakesNoBarrier_NoScan_AndNoRelease)
+1b9g_G25	IsReleased reports the opposite	killed(stage 1: 3 failed, first ACallOfALiveGate_TakesNoBarrier_NoScan_AndNoRelease)
+1b9g_G26	the exception does not name the owner	killed(stage 1: 1 failed, first TheExceptionOfAFailedEnter_NamesTheOwner)
+1b9g_G27	the constructor accepts no owner check	killed(stage 1: 1 failed, first TheArgumentsOfTheConstructor_AreChecked)
+1b9g_G28	the constructor accepts no release action check	killed(stage 1: 1 failed, first TheArgumentsOfTheConstructor_AreChecked)
+1b9g_G29	the id of the gate is 0	killed(stage 1: 11 failed, first TheScopeOfACallOfATreeOverAContainer_HoldsTheGate_WhichHoldsTheTree_AndTheCellOfTheThread)
+1b9g_G30	two gates get the same id	killed(stage 1: 6 failed, first ManyTreesOverContainers_OneThread_AddNothingToTheRegistry_AndEveryOneIsReleasedByItsDispose)

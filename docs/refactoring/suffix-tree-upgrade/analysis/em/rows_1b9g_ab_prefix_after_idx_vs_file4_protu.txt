@@ -1,0 +1,2 @@
+# after_o1_protu proc 1
+AB count_present  A      2457793  B      2494920  B/A median-of-paired 1.0094  p25 0.9967 p75 1.0279  n 9

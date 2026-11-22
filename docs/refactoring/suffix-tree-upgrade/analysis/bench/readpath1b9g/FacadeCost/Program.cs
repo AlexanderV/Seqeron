@@ -6,6 +6,7 @@ using SuffixTree.Esa;
 //                                               1 and 4 threads on the one tree; the difference between the two trees is the registration
 //   FacadeCost gate                             (compile with -p:Gate=true against a build of 1b.9g or later) the pieces of the new protocol on their own: the cell of the thread, the store and the clearing of an entry, a whole
 //                                               Enter + Leave of a gate, and the striped count of 1b.8 emulated (Interlocked.Increment, read of the flag, Interlocked.Decrement, read of the flag)
+//   FacadeCost barrier                          the cost of Interlocked.MemoryBarrierProcessWide() in microseconds with 0, 1, 2 and 4 other threads of the process spinning (median, 90th and 99th percentile of 2,000 calls)
 // Each figure is the median of 7 (facade) or 5 (gate) runs of 10^8 (5 x 10^7 for the count) calls per thread; the range is the minimum and the maximum.
 internal static class M
 {
@@ -108,7 +109,38 @@ internal static class M
         }
 #endif
 
-        Console.Error.WriteLine("usage: FacadeCost facade <container> <text file> | FacadeCost gate");
+        if (args.Length >= 1 && args[0] == "barrier")
+        {
+            Interlocked.MemoryBarrierProcessWide();
+            foreach (int spinning in new[] { 0, 1, 2, 4 })
+            {
+                using var stop = new ManualResetEventSlim();
+                List<Thread> spinners = Enumerable.Range(0, spinning).Select(_ => new Thread(() =>
+                {
+                    long x = 0;
+                    while (!stop.IsSet) x++;
+                    Interlocked.Add(ref s_sink, x);
+                })).ToList();
+                spinners.ForEach(t => t.Start());
+                Thread.Sleep(50);
+                var micros = new List<double>();
+                for (int i = 0; i < 2000; i++)
+                {
+                    long t0 = Stopwatch.GetTimestamp();
+                    Interlocked.MemoryBarrierProcessWide();
+                    micros.Add(Stopwatch.GetElapsedTime(t0).TotalMicroseconds);
+                }
+
+                micros.Sort();
+                Console.WriteLine($"barrier spinning threads {spinning}: median {micros[1000]:F1} us  p90 {micros[1800]:F1} us  p99 {micros[1980]:F1} us  max {micros[^1]:F1} us");
+                stop.Set();
+                spinners.ForEach(t => t.Join());
+            }
+
+            return 0;
+        }
+
+        Console.Error.WriteLine("usage: FacadeCost facade <container> <text file> | FacadeCost gate | FacadeCost barrier");
         return 2;
     }
 }

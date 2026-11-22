@@ -1,0 +1,12 @@
+# after_o1_protO proc 1
+AB count_present  A     16100775  B     15875759  B/A median-of-paired 0.9809  p25 0.9625 p75 0.9864  n 9
+AB locate         A     19436123  B     18541740  B/A median-of-paired 0.9574  p25 0.9491 p75 0.9620  n 9
+AB count_absent   A      2953698  B      2685209  B/A median-of-paired 0.9774  p25 0.9633 p75 0.9907  n 9
+# after_o1_protO proc 2
+AB count_present  A     16278987  B     15881886  B/A median-of-paired 0.9754  p25 0.9604 p75 0.9872  n 9
+AB locate         A     19254578  B     18845967  B/A median-of-paired 0.9902  p25 0.9788 p75 0.9975  n 9
+AB count_absent   A      3006270  B      2961574  B/A median-of-paired 0.9963  p25 0.9873 p75 0.9991  n 9
+# after_o1_protO proc 3
+AB count_present  A     16249814  B     15361657  B/A median-of-paired 0.9476  p25 0.9291 p75 0.9610  n 9
+AB locate         A     19708439  B     18193804  B/A median-of-paired 0.9231  p25 0.9201 p75 0.9409  n 9
+AB count_absent   A      2687257  B      2742752  B/A median-of-paired 1.0025  p25 0.9730 p75 1.0288  n 9

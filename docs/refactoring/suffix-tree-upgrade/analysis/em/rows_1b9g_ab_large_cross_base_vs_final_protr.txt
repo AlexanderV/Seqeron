@@ -1,0 +1,8 @@
+# large_cross_protr proc 1
+AB count_present  A       492492  B       485988  B/A median-of-paired 0.9934  p25 0.9314 p75 0.9999  n 7
+AB locate         A       697168  B       708787  B/A median-of-paired 1.0029  p25 0.9951 p75 1.0214  n 7
+AB count_absent   A       548375  B       553968  B/A median-of-paired 1.0052  p25 0.9926 p75 1.0431  n 7
+# large_cross_protr proc 2
+AB count_present  A       413593  B       414631  B/A median-of-paired 0.9938  p25 0.9693 p75 1.0285  n 7
+AB locate         A       407222  B       406454  B/A median-of-paired 1.0070  p25 0.9783 p75 1.0247  n 7
+AB count_absent   A       481134  B       477162  B/A median-of-paired 0.9934  p25 0.9898 p75 1.0005  n 7

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Single-site mutants of the code of work package 1b.9g (prefix 1b9g_), each built and run in the Release configuration with a WATCHDOG (a mutant that breaks the protocol may hang or crash the test host: the whole process
    group is killed on expiry, a hang or a host crash counts as killed and is re-run alone to classify). The runs do NOT use NUnit.StopOnError. Stage 1 runs the tests of the changed classes (the registry, the protocol of the gate,
-   the tree-level tests, the lifetime and reader tests of the facade, the child process of the Dispose race, the pin of the compilation of the mapped descent); a survivor of stage 1 runs stage 2, the whole default set of
+   the tree-level tests, the lifetime and reader tests of the facade, the pin of the compilation of the mapped descent; then, if nothing failed, the child process of the Dispose race); a survivor of stage 1 runs stage 2, the whole default set of
    SuffixTree.Esa.Tests (the categories that `dotnet test` runs by default). Analyzers are off for the mutant builds. The source file is restored after every mutant (and at the end, also on an exception). The mutants run in a separate
    git worktree, never in the working checkout.
    usage: run_1b9g_mutants.py <worktree> <1b9g_<file>_listed.json> <result.tsv> [<start>:<end> slice]
@@ -19,7 +19,8 @@ TEST_LIMIT = int(os.environ.get('MUTANT_TEST_LIMIT', '420'))
 FULL_LIMIT = int(os.environ.get('MUTANT_FULL_LIMIT', '2700'))
 STAGE2 = os.environ.get('STAGE2', '1') != '0'
 STAGE1 = ('FullyQualifiedName~ReaderCellTests|FullyQualifiedName~ReaderGateTests|FullyQualifiedName~FileBackedReaderProtocolTests|FullyQualifiedName~FacadeReaderCountTests|FullyQualifiedName~FacadeLifetimeTests'
-          '|FullyQualifiedName~FacadeEsaDisposeTests|FullyQualifiedName~FacadeDisposeRaceTests|FullyQualifiedName~MappedSearchTiering1b9gTests')
+          '|FullyQualifiedName~FacadeEsaDisposeTests|FullyQualifiedName~FacadeCallReachabilityTests|FullyQualifiedName~MappedSearchTiering1b9gTests')
+STAGE1_RACE = 'FullyQualifiedName~FacadeDisposeRaceTests'  # the child process of the Dispose race (about 20 s): run only when the deterministic tests of stage 1 do not kill
 env = dict(os.environ, PATH=os.environ['PATH'] + ':/root/.dotnet', DOTNET_ROOT='/root/.dotnet', DOTNET_CLI_TELEMETRY_OPTOUT='1', DOTNET_NOLOGO='1')  # SEQERON_BENCH_DIR comes from the caller's environment
 mutants_file, out = sys.argv[2], sys.argv[3]
 sl = sys.argv[4] if len(sys.argv) > 4 else ''
@@ -90,6 +91,8 @@ try:
             results.append((m['id'], m['desc'], b))
         else:
             r = unit(proj, STAGE1, TEST_LIMIT, 'stage 1')
+            if r == 'survived':
+                r = unit(proj, STAGE1_RACE, TEST_LIMIT, 'stage 1, race')
             if r == 'survived' and STAGE2:
                 r = unit(proj, '', FULL_LIMIT, 'stage 2')
                 if r == 'survived':

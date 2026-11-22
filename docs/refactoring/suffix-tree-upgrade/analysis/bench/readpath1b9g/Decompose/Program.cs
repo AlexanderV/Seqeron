@@ -3,7 +3,10 @@ using System.Globalization;
 using SuffixTree.Esa;
 using SuffixTree.Esa.External;
 
-// throwaway decomposition of the per-call cost of the index (memory vs mapped) at one thread: usage prof <patternfile> <container> <text file> <alphabet-kind: dna|prot>
+// The decomposition of the per-call cost of the index at one thread (work package 1b.9g, item 2): the in-memory index of the text and the index over the container, in one process, in blocks of 0.25 s in alternating order
+// (median of 7 blocks per figure), the descent alone and the materialisation of the list separately, so that a difference between the two indexes has a place.
+// usage: <pattern file> <container> <text file> [C|T]      (C = Checked access, the default; T = Trusted)
+// rows (ns per call): count of present patterns, of absent patterns, locate (FindAllOccurrences), count of the locate patterns, TryMatch of the locate patterns (the descent), Sa.ToArray of the intervals, Sa.CopyTo into a reused buffer, new int[count]
 internal static class P
 {
     static double Time(Func<long> body, double minSeconds = 0.4)

@@ -1,0 +1,8 @@
+# large_cross_dna proc 1
+AB count_present  A       702864  B       731021  B/A median-of-paired 1.0280  p25 1.0125 p75 1.0317  n 7
+AB locate         A      1027637  B      1020992  B/A median-of-paired 1.0035  p25 0.9843 p75 1.0815  n 7
+AB count_absent   A       730682  B       749641  B/A median-of-paired 1.0336  p25 0.9993 p75 1.0550  n 7
+# large_cross_dna proc 2
+AB count_present  A       538741  B       537115  B/A median-of-paired 1.0153  p25 0.9970 p75 1.0370  n 7
+AB locate         A       669757  B       721474  B/A median-of-paired 1.0097  p25 0.9884 p75 1.0774  n 7
+AB count_absent   A       677632  B       687187  B/A median-of-paired 1.0083  p25 1.0017 p75 1.0241  n 7
