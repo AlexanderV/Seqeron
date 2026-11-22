@@ -118,11 +118,32 @@ internal sealed class EmbossSeqXref
     public EmbossSeqXref Clone() => (EmbossSeqXref)MemberwiseClone();
 }
 
+/// <summary>A gene of a Swiss-Prot entry (<c>AjPSeqGene</c>, a <c>GN</c> line group).</summary>
+internal sealed class EmbossSeqGene
+{
+    public string Name = "", Synonyms = "", Oln = "", Orf = "";
+
+    public EmbossSeqGene Clone() => (EmbossSeqGene)MemberwiseClone();
+
+    private static string Append(string old, string s) => (old.Length > 0 ? old + " " : "") + s;
+
+    public void AppendName(string s) => Name = Append(Name, s);
+
+    public void AppendSynonyms(string s) => Synonyms = Append(Synonyms, s);
+
+    public void AppendOln(string s) => Oln = Append(Oln, s);
+
+    public void AppendOrf(string s) => Orf = Append(Orf, s);
+}
+
 /// <summary>The dates of an entry (<c>AjPSeqDate</c>): the dates are kept as the day, month and year the entry gave (the <c>tm</c> of <c>mktime</c> after <c>ajTimeNewDayFmt</c> with the format <c>dtline</c>: <c>25-MAR-2010</c>).</summary>
 internal sealed class EmbossSeqDate
 {
     public DateTime? CreDate, ModDate, SeqDate;
     public string CreRel = "", ModRel = "", SeqRel = "", CreVer = "", ModVer = "", SeqVer = "";
+
+    /// <summary>The version strings exist (an object that <c>ajSeqdateClear</c> cleared keeps them, empty): a date set on it gets no default version; a new object has none and the setters make the version <c>1</c>.</summary>
+    public bool VersionsExist;
 
     public EmbossSeqDate Clone() => (EmbossSeqDate)MemberwiseClone();
 
@@ -198,7 +219,7 @@ internal sealed class EmbossSeqDate
         if (!Parse(datestr, out var d))
             return false;
         CreDate = d;
-        if (CreVer.Length == 0)
+        if (!VersionsExist && CreVer.Length == 0)
             CreVer = "1";
         return true;
     }
@@ -208,7 +229,7 @@ internal sealed class EmbossSeqDate
         if (!Parse(datestr, out var d))
             return false;
         ModDate = d;
-        if (ModVer.Length == 0)
+        if (!VersionsExist && ModVer.Length == 0)
             ModVer = "1";
         return true;
     }
@@ -218,7 +239,7 @@ internal sealed class EmbossSeqDate
         if (!Parse(datestr, out var d))
             return false;
         SeqDate = d;
-        if (SeqVer.Length == 0)
+        if (!VersionsExist && SeqVer.Length == 0)
             SeqVer = "1";
         return true;
     }

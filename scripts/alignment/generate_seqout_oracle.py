@@ -23,7 +23,7 @@ INPUTS = ['ncbi', 'ncbi', 'ncbi', 'fasta', 'fasta', 'fasta', 'gcg', 'embl', 'gen
 # the entry formats whose readers keep the annotation (references, keywords, taxonomy, comments, dates) that the entry writers print: SEQOUT_INPUTS=annot makes the inputs of the entry writers mostly such texts
 ANNOT_INPUTS = ['embl', 'embl', 'embl', 'embl', 'genbank', 'genbank', 'swiss', 'swiss', 'refseq', 'genpept', 'refseqp', 'experiment', 'nbrf', 'fasta', 'ncbi', 'gcg', 'pir', 'sam']
 PROT_ANNOT_INPUTS = ['genpept', 'genpept', 'genpept', 'refseqp', 'refseqp', 'swiss', 'swiss', 'swiss', 'fasta', 'ncbi', 'pir', 'gcg']
-ANNOT_READY = set(os.environ.get('SEQOUT_READY', 'embl,nbrf,experiment,fasta,ncbi,gcg,pir,sam,genbank,refseq,genpept,refseqp').split(','))
+ANNOT_READY = set(os.environ.get('SEQOUT_READY', 'embl,nbrf,experiment,fasta,ncbi,gcg,pir,sam,genbank,refseq,genpept,refseqp,swiss').split(','))
 
 
 DBNAME_FORCE = os.environ.get('SEQOUT_OSDBNAME') == '1'     # a run that gives -osdbname to most inputs (the file seqout_oracle_osdbname.jsonl.gz)
@@ -313,7 +313,7 @@ def main(out, per, seed, formats):
             while made < per:
                 if fmt in ENTRY_FORMATS:
                     # the writers of protein entries are given protein sources (the others reject nucleotide sequences)
-                    pool = PROT_ANNOT_INPUTS if fmt in ('refseqp', 'swiss', 'sw', 'swissprot', 'uniprot', 'swissnew', 'swnew', 'swissprotnew') else ANNOT_INPUTS
+                    pool = PROT_ANNOT_INPUTS if fmt in ('refseqp', 'swiss', 'sw', 'swissprot', 'uniprot', 'swissnew', 'swnew', 'swissprotnew', 'swold', 'swissold', 'swissprotold') else ANNOT_INPUTS
                     src = rnd.choice([x for x in pool if x in ANNOT_READY])
                 else:
                     src = rnd.choice(QUAL_INPUTS if fmt in QUAL_FORMATS and rnd.random() < 0.8 else INPUTS)

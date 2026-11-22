@@ -12,6 +12,9 @@ internal sealed class EmbossSeqOut
     public List<EmbossSeqRef> Reflist = [];
     public List<EmbossSeqXref> Xreflist = [];
     public EmbossSeqDate? Date;
+    public List<EmbossSeqGene> Genelist = [];
+    public string Evidence = "";
+    public EmbossSeqin.Desc? Fulldesc;
 
     /// <summary><c>Fulldesc-&gt;Multi</c>; null when the reader made no full description.</summary>
     public List<string>? FullDescMulti;
@@ -75,6 +78,6 @@ internal sealed class EmbossSeqSaved
     public string Name = "", Desc = "", Type = "", Seq = "";
     public float Weight = 1.0f;
 
-    /// <summary>The name of the first gene (<c>Genelist</c>); null when the sequence has none.</summary>
+    /// <summary>The name of the first gene (<c>Genelist</c>, as <c>ajListPeek</c> returns it); null when the sequence has none.</summary>
     public string? Gene;
 }

@@ -16,7 +16,7 @@ internal sealed partial class EmbossSeqin
     private void DateObject(EmbossSeq t)
     {
         if (_dateObject)
-            t.Date = new EmbossSeqDate();
+            t.Date = new EmbossSeqDate { VersionsExist = true };
     }
 
     // ajSeqClear

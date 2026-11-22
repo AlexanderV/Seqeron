@@ -229,13 +229,13 @@ internal sealed partial class EmbossSeqin
 
     // ---------------------------------------------------------------------------------------------------------------- swiss
 
-    private sealed class SubDesc
+    internal sealed class SubDesc
     {
         public StringBuilder Name = new();
         public readonly List<StringBuilder> Short = [], Ec = [], Inn = [], Allergen = [], Biotech = [], Cdantigen = [];
     }
 
-    private sealed class Desc
+    internal sealed class Desc
     {
         public StringBuilder Name = new();
         public readonly List<StringBuilder> Short = [], Ec = [];
@@ -310,6 +310,9 @@ internal sealed partial class EmbossSeqin
         bool descistop = true;
         bool isdescflag = false;
         StringBuilder pdesc = desc;
+        var annot = new AnnotState();
+        string taxstr = "", genetoken = "", cmtstr = "", datestr = "", datetype = "", relstr = "";
+        EmbossSeqGene? seqgene = null;
         while (ok && lineprefix != Sw.Sq)
         {
             if (lineprefix == Sw.Ex)
@@ -454,6 +457,193 @@ internal sealed partial class EmbossSeqin
                         break;
                     }
 
+                case Sw.Gn:
+                {
+                    bool isnewgene = false;
+                    if (seqgene is null)
+                    {
+                        isnewgene = true;
+                        seqgene = new EmbossSeqGene();
+                    }
+
+                    var a = new StrTok(_line, " ");
+                    a.Next(out _);
+                    a.Next(out token, ";=\n\r");
+                    if (token == "and")
+                    {
+                        isnewgene = true;
+                        seqgene = new EmbossSeqGene();
+                    }
+                    else
+                    {
+                        while (token.Length > 0)
+                        {
+                            bool isgenetoken = true;
+                            token = token.Trim(' ', '\t', '\n', '\r', '\f', '\v');
+                            if (token == "Name")
+                            {
+                                a.Next(out string v, ";\n\r");
+                                seqgene.Name = v;
+                            }
+                            else if (token == "Synonyms")
+                            {
+                                a.Next(out string v, ";\n\r");
+                                seqgene.Synonyms = v;
+                            }
+                            else if (token == "OrderedLocusNames")
+                            {
+                                a.Next(out string v, ";\n\r");
+                                seqgene.Oln = v;
+                            }
+                            else if (token == "ORFNames")
+                            {
+                                a.Next(out string v, ";\n\r");
+                                seqgene.Orf = v;
+                            }
+                            else
+                            {
+                                isgenetoken = false;
+                                if (genetoken == "Name")
+                                    seqgene.AppendName(token);
+                                else if (genetoken == "Synonyms")
+                                    seqgene.AppendSynonyms(token);
+                                else if (genetoken == "OrderedLocusNames")
+                                    seqgene.AppendOln(token);
+                                else if (genetoken == "ORFNames")
+                                    seqgene.AppendOrf(token);
+                            }
+
+                            a.Next(out token, "=;\n\r");
+                            if (isgenetoken)
+                                genetoken = token;
+                        }
+
+                        if (isnewgene)
+                            t.Genelist.Add(seqgene);
+                    }
+
+                    break;
+                }
+
+                case Sw.Pe:
+                {
+                    var a = new StrTok(_line, " \n\r");
+                    a.Next(out _);
+                    a.Next(out token, "\n\r");
+                    if (token.Length > 0)
+                        t.Evidence = token;
+                    break;
+                }
+
+                case Sw.Os:
+                {
+                    var a = new StrTok(_line, " \n\r");
+                    a.Next(out _);
+                    while (a.Next(out token, "\n\r"))
+                    {
+                        if (taxstr.Length > 0)
+                            taxstr += " ";
+                        taxstr += token;
+                    }
+
+                    break;
+                }
+
+                case Sw.Og:
+                {
+                    var a = new StrTok(_line, " \n\r");
+                    a.Next(out _);
+                    a.Next(out string t2);
+                    while (a.Next(out token))
+                        t2 += " " + token;
+                    if (t2.EndsWith('.'))
+                        t2 = t2[..^1];
+                    TaxSave(t, t2, 2);
+                    break;
+                }
+
+                case Sw.Ox:
+                case Sw.Oh:
+                {
+                    var a = new StrTok(_line, " =;\n\r");
+                    a.Next(out _);
+                    a.Next(out token);
+                    if (token == "NCBI_TaxID")
+                    {
+                        a.Next(out string id);
+                        if (t.Taxid.Length == 0)
+                            t.Taxid = id;
+                        t.Xreflist.Add(new EmbossSeqXref { Type = 5, Db = "taxon", Id = id });
+                    }
+
+                    break;
+                }
+
+                case Sw.Cc:
+                {
+                    string tok = _line.Length > 5 ? _line[5..] : "";
+                    if (cmtstr.Length > 0)
+                    {
+                        cmtstr += "\n";
+                        if (tok.StartsWith("-!- ", StringComparison.Ordinal) || (tok.StartsWith("--------", StringComparison.Ordinal) && cmtstr.StartsWith("-!- ", StringComparison.Ordinal)))
+                        {
+                            t.Cmtlist.Add(cmtstr);
+                            cmtstr = "";
+                        }
+                    }
+
+                    cmtstr += tok;
+                    break;
+                }
+
+                case Sw.Kw:
+                case Sw.Oc:
+                case Sw.Dr:
+                case Sw.Rn:
+                case Sw.Rg:
+                case Sw.Rx:
+                case Sw.Rp:
+                case Sw.Ra:
+                case Sw.Rt:
+                case Sw.Rl:
+                case Sw.Rc:
+                    AnnotationLine(lineprefix, t, annot);
+                    break;
+                case Sw.Dt:
+                {
+                    t.Date ??= new EmbossSeqDate();
+                    var a = new StrTok(_line, " (),.\n\r");
+                    int icount = 0;
+                    while (a.Next(out token))
+                    {
+                        icount++;
+                        if (icount == 2)
+                            datestr = token;
+                        else if (icount == 3)
+                            datetype = token;
+                        else if (icount == 5)
+                            relstr = token;
+                    }
+
+                    if (datetype == "integrated")
+                    {
+                        t.Date.SetCreate(datestr);
+                        t.Date.CreVer = relstr;
+                    }
+                    else if (datetype == "sequence")
+                    {
+                        t.Date.SetModseq(datestr);
+                        t.Date.SeqVer = relstr;
+                    }
+                    else if (datetype == "entry")
+                    {
+                        t.Date.SetModify(datestr);
+                        t.Date.ModVer = relstr;
+                    }
+
+                    break;
+                }
+
                 case Sw.Unk:
                 case Sw.End:
                 case Sw.More:
@@ -467,6 +657,30 @@ internal sealed partial class EmbossSeqin
             lineprefix = PrefixSwiss(_line);
         }
 
+        if (taxstr.Length > 0)
+        {
+            taxstr = taxstr.Trim(' ', '\t', '\n', '\r', '\f', '\v');
+            if (taxstr.EndsWith('.'))
+                taxstr = taxstr[..^1];
+            var tk = new StrTok(taxstr, "()");
+            int itaxtype = 1;
+            while (tk.Next(out token))
+            {
+                TaxSave(t, token.Trim(' ', '\t', '\n', '\r', '\f', '\v'), itaxtype);
+                itaxtype = 3;
+            }
+        }
+
+        if (annot.Ref is not null)
+        {
+            annot.Ref.Standard();
+            t.Reflist.Add(annot.Ref);
+            annot.Ref = null;
+        }
+
+        if (cmtstr.Length > 0)
+            t.Cmtlist.Add(cmtstr);
+        t.Fulldesc = full;
         if (dofeat)
             t.Fttable = ReadFeatureLines(featureLines!, "swissprot", t.Name);
         ok = ReadLine();
@@ -524,6 +738,8 @@ internal sealed partial class EmbossSeqin
 
         t.Desc = desc.ToString();
         t.SetProt();
+        if (t.Reflist.Count > 0)
+            RefXrefs(t);
         _buff.Clear(0);
         return true;
     }

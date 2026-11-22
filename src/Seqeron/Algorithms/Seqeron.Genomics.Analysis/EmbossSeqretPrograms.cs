@@ -147,7 +147,7 @@ public static class EmbossSeqretPrograms
                     throw new InvalidOperationException("A set format with -ossingle writes the saved list to a file that is not open (the reference program dies by a fault).");
                 if (seq.Type.Length > 0)
                     writeRun.OutType = seq.Type;
-                EmbossSeqWrite.ListAppend(writeRun, new EmbossSeqSaved { Name = copy.Name, Desc = copy.Desc, Type = copy.Type, Seq = copy.SeqText, Weight = copy.Weight }, seq.Entryname);
+                EmbossSeqWrite.ListAppend(writeRun, new EmbossSeqSaved { Name = copy.Name, Desc = copy.Desc, Type = copy.Type, Seq = copy.SeqText, Weight = copy.Weight, Gene = seq.Genelist.Count > 0 ? seq.Genelist[0].Name : null }, seq.Entryname);
                 count++;
                 written++;
                 if (r.FirstOnly)

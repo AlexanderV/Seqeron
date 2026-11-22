@@ -149,7 +149,7 @@ public class EmbossSeqout_Oracle_Tests
         }
 
         Assert.That(failures, Is.Empty, $"{failures.Count} of {rows}:\n" + string.Join("\n", failures.Take(25)));
-        string[] formats = ["unknown", "fasta", "pearson", "gcg", "gcg8", "nbrf", "pir", "codata", "strider", "staden", "text", "plain", "raw", "ig", "iguspto", "gde", "fitch", "acedb", "mase", "ncbi", "gifasta", "nib", "nibble", "dasdna", "das", "asn1", "fastq-sanger", "fastq-illumina", "fastq-solexa", "fastq", "sam", "gff2", "gff3", "gff", "msf", "clustal", "aln", "selex", "phylip", "phylipnon", "phylip3", "hennig86", "mega", "meganon", "nexus", "paup", "nexusnon", "paupnon", "jackknifer", "jackknifernon", "treecon", "scf", "embl", "em", "emblnew", "emold", "emblold", "genbank", "gb", "ddbj", "refseq", "genpept", "refseqp"];
+        string[] formats = ["unknown", "fasta", "pearson", "gcg", "gcg8", "nbrf", "pir", "codata", "strider", "staden", "text", "plain", "raw", "ig", "iguspto", "gde", "fitch", "acedb", "mase", "ncbi", "gifasta", "nib", "nibble", "dasdna", "das", "asn1", "fastq-sanger", "fastq-illumina", "fastq-solexa", "fastq", "sam", "gff2", "gff3", "gff", "msf", "clustal", "aln", "selex", "phylip", "phylipnon", "phylip3", "hennig86", "mega", "meganon", "nexus", "paup", "nexusnon", "paupnon", "jackknifer", "jackknifernon", "treecon", "scf", "embl", "em", "emblnew", "emold", "emblold", "genbank", "gb", "ddbj", "refseq", "genpept", "refseqp", "swiss", "sw", "swissprot", "uniprot", "swissnew", "swnew", "swold", "swissold", "swissprotold", "swissprotnew"];
         foreach (string f in formats)
         {
             Assert.That(perFormat.GetValueOrDefault(f), Is.GreaterThanOrEqualTo(200), $"inputs of {f}");

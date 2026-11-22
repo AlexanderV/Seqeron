@@ -25,8 +25,10 @@ internal sealed class EmbossSeq
     public List<EmbossSeqXref> Xreflist = [];
     public EmbossSeqDate? Date;
 
-    /// <summary>The name of the first gene of the entry (<c>Genelist</c>); null when it has none.</summary>
-    public string? Gene;
+    /// <summary>The genes of the entry (<c>Genelist</c>), the evidence level (<c>PE</c>) and the full description of a Swiss-Prot entry (<c>Fulldesc</c>: null for the other formats).</summary>
+    public List<EmbossSeqGene> Genelist = [];
+    public string Evidence = "";
+    public EmbossSeqin.Desc? Fulldesc;
 
     /// <summary>The keywords of the entry (<c>thys-&gt;Keylist</c>).</summary>
     public List<string> Keylist = [];
