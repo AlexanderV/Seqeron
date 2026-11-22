@@ -38,6 +38,34 @@ public class ReaderCellTests
         return seen;
     }
 
+    /// <summary>
+    /// Orchestrator's audit of 1b.9g: the outermost call of a thread is stored in the first field of its cell and only the calls nested in it go to the segments. A mutant that sends the outermost call to the segments is
+    /// invisible to every behaviour (the scan reads both places) and costs a segment and a call that is not inlined at every call: the 5.5 ns of the registration that the gate of 1b.9g rests on.
+    /// </summary>
+    [Test]
+    public void TheOutermostEntry_IsInTheFirstField_AndOnlyTheNestedOnesAreInTheSegments()
+    {
+        OnThread(() =>
+        {
+            ReaderCell cell = ReaderCell.Current;
+            FieldInfo first = typeof(ReaderCell).GetField("_first", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            FieldInfo top = typeof(ReaderCell).GetField("_nestedTop", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            long id = ReaderCell.NextId();
+            long inner = ReaderCell.NextId();
+            cell.Publish(id);
+            Assert.That((long)first.GetValue(cell)!, Is.EqualTo(id), "the outermost entry is in the first field");
+            Assert.That((int)top.GetValue(cell)!, Is.EqualTo(0), "and the nesting depth is still 0");
+            cell.Publish(inner);
+            Assert.That((long)first.GetValue(cell)!, Is.EqualTo(id), "a nested call leaves the first field alone");
+            Assert.That((int)top.GetValue(cell)!, Is.EqualTo(1));
+            cell.Retract();
+            Assert.That((int)top.GetValue(cell)!, Is.EqualTo(0));
+            Assert.That((long)first.GetValue(cell)!, Is.EqualTo(id));
+            cell.Retract();
+            Assert.That((long)first.GetValue(cell)!, Is.EqualTo(0L), "the outermost entry is cleared by the outermost exit");
+        });
+    }
+
     [Test]
     public void Current_IsOneCellPerThread_StableOnThatThread_AndAnotherCellOnAnotherThread()
     {
