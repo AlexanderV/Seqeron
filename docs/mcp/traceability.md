@@ -365,6 +365,15 @@
 | newseq | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossSequencePrograms.cs | 0/0 | – | – | Build-Ready |
 | yank | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossSequencePrograms.cs | 0/0 | – | – | Build-Ready |
 | seqcount | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossSequencePrograms.cs | 0/0 | – | – | Build-Ready |
+| shuffleseq | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossSequencePrograms2.cs | 0/0 | – | – | Build-Ready |
+| msbar | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossSequencePrograms2.cs | 0/0 | – | – | Build-Ready |
+| nthseqset | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossSequencePrograms2.cs | 0/0 | – | – | Build-Ready |
+| listor | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossSequencePrograms2.cs | 0/0 | – | – | Build-Ready |
+| infoseq | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossSequencePrograms2.cs | 0/0 | – | – | Build-Ready |
+| wordcount | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossSequencePrograms2.cs | 0/0 | – | – | Build-Ready |
+| seqxref | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossSequencePrograms2.cs | 0/0 | – | – | Build-Ready |
+| makenucseq | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossSequencePrograms2.cs | 0/0 | – | – | Build-Ready |
+| makeprotseq | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossSequencePrograms2.cs | 0/0 | – | – | Build-Ready |
 | splitter | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossSequencePrograms.cs | 0/0 | – | – | Build-Ready |
 | maskseq | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossSequencePrograms.cs | 0/0 | – | – | Build-Ready |
 | maskambignuc | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossSequencePrograms.cs | 0/0 | – | – | Build-Ready |

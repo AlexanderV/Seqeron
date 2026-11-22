@@ -2,7 +2,7 @@
 
 MCP server — **K-mer, motif, repeat, complexity, RNA-structure and comparative-genomics analysis.**
 
-Exposes **211 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+Exposes **220 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
 MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test, with a
 per-tool doc under [`docs/mcp/tools/analysis/`](../../../../docs/mcp/tools/analysis). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
@@ -93,6 +93,15 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `newseq` | EMBOSS newseq: makes a sequence from a name, a description, a type and the residues; equals newseq 6.6.0 on 320 runs. |
 | `yank` | EMBOSS yank: writes the usa (the universal sequence address) of a sequence; equals yank 6.6.0 on 320 runs. |
 | `seqcount` | EMBOSS seqcount: counts the sequences of a file; equals seqcount 6.6.0 on 320 runs. |
+| `shuffleseq` | EMBOSS shuffleseq: shuffles sequences keeping their composition; equals shuffleseq 6.6.0 on 300 runs. |
+| `msbar` | EMBOSS msbar: mutates sequences with point, codon and block mutations; equals msbar 6.6.0 on 300 runs. |
+| `nthseqset` | EMBOSS nthseqset: writes the n-th set of sequences of an input of several sets; equals nthseqset 6.6.0 on 300 runs. |
+| `listor` | EMBOSS listor: writes a list file of the logical or / and / xor / not of two sets of sequences; equals listor 6.6.0 on 300 runs. |
+| `infoseq` | EMBOSS infoseq: displays basic information about sequences; equals infoseq 6.6.0 on 300 runs. |
+| `wordcount` | EMBOSS wordcount: counts the words of a given size in sequences; equals wordcount 6.6.0 on 300 runs. |
+| `seqxref` | EMBOSS seqxref: reports the database cross-references of sequence entries; equals seqxref 6.6.0 on 300 runs. |
+| `makenucseq` | EMBOSS makenucseq: creates random nucleotide sequences; equals makenucseq 6.6.0 on 300 runs. |
+| `makeprotseq` | EMBOSS makeprotseq: creates random protein sequences; equals makeprotseq 6.6.0 on 300 runs. |
 | `splitter` | EMBOSS splitter: splits sequences into smaller sequences; equals splitter 6.6.0 on 320 runs. |
 | `maskseq` | EMBOSS maskseq: masks regions of a sequence with a character or lower case; equals maskseq 6.6.0 on 320 runs. |
 | `maskambignuc` | EMBOSS maskambignuc: masks all ambiguity nucleotide codes with n; equals maskambignuc 6.6.0 on 320 runs. |

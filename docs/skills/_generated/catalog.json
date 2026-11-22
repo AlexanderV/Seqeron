@@ -1337,6 +1337,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L973"
   },
   {
+    "tool": "infoseq",
+    "server": "Analysis",
+    "methodId": "EmbossProgramRunner.Run",
+    "docPath": "docs/mcp/tools/analysis/infoseq.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossSequencePrograms.Report.cs"
+  },
+  {
     "tool": "internal_loop_energy",
     "server": "Analysis",
     "methodId": "RnaSecondaryStructure.CalculateInternalLoopEnergy",
@@ -1407,11 +1414,32 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L1722"
   },
   {
+    "tool": "listor",
+    "server": "Analysis",
+    "methodId": "EmbossProgramRunner.Run",
+    "docPath": "docs/mcp/tools/analysis/listor.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossSequencePrograms.Sets.cs"
+  },
+  {
     "tool": "longdust_score",
     "server": "Analysis",
     "methodId": "SequenceComplexity.CalculateLongdustScore",
     "docPath": "docs/mcp/tools/analysis/longdust_score.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L1273"
+  },
+  {
+    "tool": "makenucseq",
+    "server": "Analysis",
+    "methodId": "EmbossProgramRunner.Run",
+    "docPath": "docs/mcp/tools/analysis/makenucseq.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossSequencePrograms.Random.cs"
+  },
+  {
+    "tool": "makeprotseq",
+    "server": "Analysis",
+    "methodId": "EmbossProgramRunner.Run",
+    "docPath": "docs/mcp/tools/analysis/makeprotseq.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossSequencePrograms.Random.cs"
   },
   {
     "tool": "mapview",
@@ -1547,6 +1575,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L627"
   },
   {
+    "tool": "msbar",
+    "server": "Analysis",
+    "methodId": "EmbossProgramRunner.Run",
+    "docPath": "docs/mcp/tools/analysis/msbar.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossSequencePrograms.Random.cs"
+  },
+  {
     "tool": "multibranch_loop_energy",
     "server": "Analysis",
     "methodId": "RnaSecondaryStructure.CalculateMultibranchLoopEnergy",
@@ -1629,6 +1664,13 @@
     "methodId": "EmbossProgramRunner.Run",
     "docPath": "docs/mcp/tools/analysis/nthseq.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossSequencePrograms.cs"
+  },
+  {
+    "tool": "nthseqset",
+    "server": "Analysis",
+    "methodId": "EmbossProgramRunner.Run",
+    "docPath": "docs/mcp/tools/analysis/nthseqset.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossSequencePrograms.Sets.cs"
   },
   {
     "tool": "nucmer",
@@ -1862,6 +1904,13 @@
     "sourceLink": ""
   },
   {
+    "tool": "seqxref",
+    "server": "Analysis",
+    "methodId": "EmbossProgramRunner.Run",
+    "docPath": "docs/mcp/tools/analysis/seqxref.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossSequencePrograms.Report.cs"
+  },
+  {
     "tool": "shared_motifs_significance",
     "server": "Analysis",
     "methodId": "MotifFinder.FindSharedMotifs",
@@ -1916,6 +1965,13 @@
     "methodId": "EmbossShowfeatProgram.Showfeat",
     "docPath": "docs/mcp/tools/analysis/showfeat.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossShowfeatProgram.cs"
+  },
+  {
+    "tool": "shuffleseq",
+    "server": "Analysis",
+    "methodId": "EmbossProgramRunner.Run",
+    "docPath": "docs/mcp/tools/analysis/shuffleseq.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossSequencePrograms.Random.cs"
   },
   {
     "tool": "skipseq",
@@ -2042,6 +2098,13 @@
     "methodId": "GcSkewCalculator.CalculateWindowedGcSkew",
     "docPath": "docs/mcp/tools/analysis/windowed_gc_skew.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L147"
+  },
+  {
+    "tool": "wordcount",
+    "server": "Analysis",
+    "methodId": "EmbossProgramRunner.Run",
+    "docPath": "docs/mcp/tools/analysis/wordcount.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossSequencePrograms.Report.cs"
   },
   {
     "tool": "wordmatch",

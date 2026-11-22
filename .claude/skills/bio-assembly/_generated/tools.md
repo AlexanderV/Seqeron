@@ -114,6 +114,7 @@
 | `getorf` | Analysis | `EmbossProgramRunner.Run` | [doc](../../../../docs/mcp/tools/analysis/getorf.md) |
 | `hairpin_loop_energy` | Analysis | `RnaSecondaryStructure.CalculateHairpinLoopEnergy` | [doc](../../../../docs/mcp/tools/analysis/hairpin_loop_energy.md) |
 | `hydrophobicity_profile` | Analysis | `SequenceStatistics.CalculateHydrophobicityProfile` | [doc](../../../../docs/mcp/tools/analysis/hydrophobicity_profile.md) |
+| `infoseq` | Analysis | `EmbossProgramRunner.Run` | [doc](../../../../docs/mcp/tools/analysis/infoseq.md) |
 | `internal_loop_energy` | Analysis | `RnaSecondaryStructure.CalculateInternalLoopEnergy` | [doc](../../../../docs/mcp/tools/analysis/internal_loop_energy.md) |
 | `is_disorder_promoting` | Analysis | `DisorderPredictor.IsDisorderPromoting` | [doc](../../../../docs/mcp/tools/analysis/is_disorder_promoting.md) |
 | `kmer_d2_statistics` | Analysis | `KmerAnalyzer.BackgroundAdjustedD2` | [doc](../../../../docs/mcp/tools/analysis/kmer_d2_statistics.md) |
@@ -124,7 +125,10 @@
 | `kmer_spectrum` | Analysis | `KmerAnalyzer.GetKmerSpectrum` | [doc](../../../../docs/mcp/tools/analysis/kmer_spectrum.md) |
 | `kmers_with_min_count` | Analysis | `KmerAnalyzer.FindKmersWithMinCount` | [doc](../../../../docs/mcp/tools/analysis/kmers_with_min_count.md) |
 | `lempel_ziv_complexity` | Analysis | `SequenceComplexity.CalculateLempelZivComplexity` | [doc](../../../../docs/mcp/tools/analysis/lempel_ziv_complexity.md) |
+| `listor` | Analysis | `EmbossProgramRunner.Run` | [doc](../../../../docs/mcp/tools/analysis/listor.md) |
 | `longdust_score` | Analysis | `SequenceComplexity.CalculateLongdustScore` | [doc](../../../../docs/mcp/tools/analysis/longdust_score.md) |
+| `makenucseq` | Analysis | `EmbossProgramRunner.Run` | [doc](../../../../docs/mcp/tools/analysis/makenucseq.md) |
+| `makeprotseq` | Analysis | `EmbossProgramRunner.Run` | [doc](../../../../docs/mcp/tools/analysis/makeprotseq.md) |
 | `mapview` | Analysis | `MummerMapview.Run` | [doc](../../../../docs/mcp/tools/analysis/mapview.md) |
 | `mash_bounds` | Analysis | `MashCommands.Bounds` | [doc](../../../../docs/mcp/tools/analysis/mash_bounds.md) |
 | `mash_dist` | Analysis | `MashCommands.Dist` | [doc](../../../../docs/mcp/tools/analysis/mash_dist.md) |
@@ -144,6 +148,7 @@
 | `minimum_free_energy` | Analysis | `RnaSecondaryStructure.CalculateMinimumFreeEnergy` | [doc](../../../../docs/mcp/tools/analysis/minimum_free_energy.md) |
 | `mismatch_coaxial_stacking` | Analysis | `RnaSecondaryStructure.CalculateMismatchCoaxialStacking` | [doc](../../../../docs/mcp/tools/analysis/mismatch_coaxial_stacking.md) |
 | `most_frequent_kmers` | Analysis | `KmerAnalyzer.FindMostFrequentKmers` | [doc](../../../../docs/mcp/tools/analysis/most_frequent_kmers.md) |
+| `msbar` | Analysis | `EmbossProgramRunner.Run` | [doc](../../../../docs/mcp/tools/analysis/msbar.md) |
 | `multibranch_loop_energy` | Analysis | `RnaSecondaryStructure.CalculateMultibranchLoopEnergy` | [doc](../../../../docs/mcp/tools/analysis/multibranch_loop_energy.md) |
 | `multiple_alignment_statistics` | Analysis | `MultipleAlignmentStatistics.Calculate` | [doc](../../../../docs/mcp/tools/analysis/multiple_alignment_statistics.md) |
 | `mummer` | Analysis | `MummerProgram.Run` | [doc](../../../../docs/mcp/tools/analysis/mummer.md) |
@@ -156,6 +161,7 @@
 | `notab` | Analysis | `EmbossProgramRunner.Run` | [doc](../../../../docs/mcp/tools/analysis/notab.md) |
 | `notseq` | Analysis | `EmbossProgramRunner.Run` | [doc](../../../../docs/mcp/tools/analysis/notseq.md) |
 | `nthseq` | Analysis | `EmbossProgramRunner.Run` | [doc](../../../../docs/mcp/tools/analysis/nthseq.md) |
+| `nthseqset` | Analysis | `EmbossProgramRunner.Run` | [doc](../../../../docs/mcp/tools/analysis/nthseqset.md) |
 | `nucmer` | Analysis | `GenomicAnalyzer.Nucmer` | [doc](../../../../docs/mcp/tools/analysis/nucmer.md) |
 | `nucmer2xfig` | Analysis | `MummerNucmer2Xfig.Run` | [doc](../../../../docs/mcp/tools/analysis/nucmer2xfig.md) |
 | `nucmer_clusters` | Analysis | `GenomicAnalyzer.FindNucmerClusters` | [doc](../../../../docs/mcp/tools/analysis/nucmer_clusters.md) |
@@ -189,6 +195,7 @@
 | `seqmatchall` | Analysis | `GenomicAnalyzer.SeqMatchAll` | [doc](../../../../docs/mcp/tools/analysis/seqmatchall.md) |
 | `seqret` | Analysis | `EmbossSeqretPrograms.Seqret` | [doc](../../../../docs/mcp/tools/analysis/seqret.md) |
 | `seqretsplit` | Analysis | `EmbossSeqretPrograms.Seqretsplit` | [doc](../../../../docs/mcp/tools/analysis/seqretsplit.md) |
+| `seqxref` | Analysis | `EmbossProgramRunner.Run` | [doc](../../../../docs/mcp/tools/analysis/seqxref.md) |
 | `shared_motifs_significance` | Analysis | `MotifFinder.FindSharedMotifs` | [doc](../../../../docs/mcp/tools/analysis/shared_motifs_significance.md) |
 | `show_aligns` | Analysis | `MummerShowAligns.Run` | [doc](../../../../docs/mcp/tools/analysis/show_aligns.md) |
 | `show_coords` | Analysis | `MummerShowCoords.Run` | [doc](../../../../docs/mcp/tools/analysis/show_coords.md) |
@@ -197,6 +204,7 @@
 | `show_tiling` | Analysis | `MummerShowTiling.Run` | [doc](../../../../docs/mcp/tools/analysis/show_tiling.md) |
 | `showalign` | Analysis | `MultipleAlignmentDisplay.ShowAlign` | [doc](../../../../docs/mcp/tools/analysis/showalign.md) |
 | `showfeat` | Analysis | `EmbossShowfeatProgram.Showfeat` | [doc](../../../../docs/mcp/tools/analysis/showfeat.md) |
+| `shuffleseq` | Analysis | `EmbossProgramRunner.Run` | [doc](../../../../docs/mcp/tools/analysis/shuffleseq.md) |
 | `skipseq` | Analysis | `EmbossProgramRunner.Run` | [doc](../../../../docs/mcp/tools/analysis/skipseq.md) |
 | `spaced_word_distance` | Analysis | `KmerAnalyzer.SpacedWordDistance` | [doc](../../../../docs/mcp/tools/analysis/spaced_word_distance.md) |
 | `splitter` | Analysis | `EmbossProgramRunner.Run` | [doc](../../../../docs/mcp/tools/analysis/splitter.md) |
@@ -215,6 +223,7 @@
 | `validate_dot_bracket` | Analysis | `RnaSecondaryStructure.ValidateDotBracket` | [doc](../../../../docs/mcp/tools/analysis/validate_dot_bracket.md) |
 | `windowed_complexity` | Analysis | `SequenceComplexity.CalculateWindowedComplexity` | [doc](../../../../docs/mcp/tools/analysis/windowed_complexity.md) |
 | `windowed_gc_skew` | Analysis | `GcSkewCalculator.CalculateWindowedGcSkew` | [doc](../../../../docs/mcp/tools/analysis/windowed_gc_skew.md) |
+| `wordcount` | Analysis | `EmbossProgramRunner.Run` | [doc](../../../../docs/mcp/tools/analysis/wordcount.md) |
 | `wordmatch` | Analysis | `GenomicAnalyzer.Wordmatch` | [doc](../../../../docs/mcp/tools/analysis/wordmatch.md) |
 | `yank` | Analysis | `EmbossProgramRunner.Run` | [doc](../../../../docs/mcp/tools/analysis/yank.md) |
 | `calculate_similarity` | Core | `GenomicAnalyzer.CalculateSimilarity` | [doc](../../../../docs/mcp/tools/core/calculate_similarity.md) |

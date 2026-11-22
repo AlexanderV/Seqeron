@@ -1,0 +1,166 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "infoseq",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "EmbossProgramRunner.Run",
+  "docRef": "EmbossSequencePrograms.Report.cs",
+  "description": "EMBOSS 6.6.0 infoseq: for every sequence the USA, database, name, accession, GI, version, type, length, percent GC (nucleic), organism and description, in columns (or delimited, or as an HTML table), with a heading line. Equals the installed program on 300 runs (every input format of seqret, ranges, the output formats, the messages of the library; byte for byte). B09 WP62, F281.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "The text of the sequence file (any input format of seqret), or a sequence as letters."
+      },
+      "columns": {
+        "type": "boolean",
+        "description": "Print the information in aligned columns (-columns, default true).",
+        "default": true
+      },
+      "delimiter": {
+        "type": "string",
+        "description": "The delimiter of the records without columns (-delimiter, default |)."
+      },
+      "html": {
+        "type": "boolean",
+        "description": "Format the output as an HTML table (-html).",
+        "default": false
+      },
+      "only": {
+        "type": "boolean",
+        "description": "Display only the columns that are asked for (-only).",
+        "default": false
+      },
+      "heading": {
+        "type": "boolean",
+        "description": "Display the column headings (-heading, default true).",
+        "default": true
+      },
+      "usa": {
+        "type": "boolean",
+        "description": "The USA column (-usa).",
+        "default": true
+      },
+      "database": {
+        "type": "boolean",
+        "description": "The database column (-database).",
+        "default": true
+      },
+      "name": {
+        "type": "boolean",
+        "description": "The name column (-name).",
+        "default": true
+      },
+      "accession": {
+        "type": "boolean",
+        "description": "The accession column (-accession).",
+        "default": true
+      },
+      "gi": {
+        "type": "boolean",
+        "description": "The GI column (-gi).",
+        "default": false
+      },
+      "seqversion": {
+        "type": "boolean",
+        "description": "The version column (-seqversion).",
+        "default": false
+      },
+      "type": {
+        "type": "boolean",
+        "description": "The type column (-type).",
+        "default": true
+      },
+      "length": {
+        "type": "boolean",
+        "description": "The length column (-length).",
+        "default": true
+      },
+      "pgc": {
+        "type": "boolean",
+        "description": "The percent GC column (-pgc).",
+        "default": true
+      },
+      "organism": {
+        "type": "boolean",
+        "description": "The organism column (-organism).",
+        "default": true
+      },
+      "description": {
+        "type": "boolean",
+        "description": "The description column (-description).",
+        "default": true
+      },
+      "sequenceFormat": {
+        "type": "string",
+        "description": "The input format (-sformat1); default: the program finds the format."
+      },
+      "qualifiers": {
+        "type": "string",
+        "description": "Sequence input qualifiers as typed after the sequence on the command line: -sbegin1 -send1 -sreverse1, -slower1 -supper1 -snucleotide1 -sprotein1 -scircular1, -sid1 name, -sdbname1 db, -squick1, -iquery1 query, -ioffset1 bytes."
+      },
+      "files": {
+        "type": "object",
+        "description": "More files by name (file name -> text) that the program may read (a file named by a USA, @file)."
+      },
+      "sequenceValue": {
+        "type": "string",
+        "description": "The USA of the sequence input (-sequence) as the program reads it, instead of the text: [format::]file[begin:end:r], file:id, @list, asis::SEQUENCE."
+      }
+    },
+    "required": [
+      "sequence"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "text": {
+        "type": "string",
+        "description": "The standard output of the program (the sequences) or the text of its output file."
+      },
+      "files": {
+        "type": "object",
+        "description": "The files the program wrote, by name."
+      },
+      "messages": {
+        "type": "string[]",
+        "description": "What the library printed on the error stream (warnings and errors)."
+      }
+    },
+    "required": [
+      "text",
+      "files",
+      "messages"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "The sequence cannot be empty"
+    },
+    {
+      "code": 1001,
+      "message": "The program died: the messages of the library (a value it refuses, an input no reader reads, a sequence of the wrong kind)"
+    },
+    {
+      "code": 1001,
+      "message": "An input on which the reference program never stops or dies by a fault is refused"
+    }
+  ],
+  "examples": [
+    {
+      "name": "A run on a small input",
+      "input": {
+        "sequence": ">a desc here\nACGTACGTAC\n>b\nMKVLAAGIV\n"
+      },
+      "output": {
+        "text": "USA                      Database  Name           Accession      Type Length %GC    Organism            Description \nfasta::sequence.dat:a    -              a              -              N    10     50.00                      desc here\nfasta::sequence.dat:b    -              b              -              P    9                          \n",
+        "files": {},
+        "messages": []
+      }
+    }
+  ]
+}
