@@ -153,7 +153,7 @@ public sealed partial class EsaSuffixTree : ISuffixTree, ISuffixTreeNavigation, 
         ReaderGate<ReaderGateSeams>? gate = _gate;
         if (gate is not null) return new ReadScope(gate, gate.Enter());
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
-        return default;
+        return new ReadScope(this, null);
     }
 
     /// <summary>What the last reader out (or <see cref="Dispose"/>) runs once, for a tree over a container: the pins of the navigation pack and the mapping.</summary>
@@ -163,12 +163,16 @@ public sealed partial class EsaSuffixTree : ISuffixTree, ISuffixTreeNavigation, 
         _file?.Dispose();
     }
 
-    /// <summary>The registration of one call (a using declaration at the top of every public member): the gate and the cell of the thread for a tree over a container, nothing for an in-memory tree.</summary>
-    private readonly struct ReadScope(ReaderGate<ReaderGateSeams>? gate, ReaderCell? cell) : IDisposable
+    /// <summary>
+    /// The registration of one call (a using declaration at the top of every public member). It holds the object that keeps the tree reachable for the length of the call: the gate of a tree over a container (which holds the tree)
+    /// together with the cell of the thread, or the in-memory tree itself (and no cell): the collector must not finalize the pins of the navigation pack under a reader that reads through pointers while the compiler already
+    /// regards <c>this</c> as dead.
+    /// </summary>
+    private readonly struct ReadScope(object holder, ReaderCell? cell) : IDisposable
     {
         public void Dispose()
         {
-            if (gate is not null) gate.Leave(cell!);
+            if (cell is not null) Unsafe.As<ReaderGate<ReaderGateSeams>>(holder).Leave(cell);
         }
     }
 

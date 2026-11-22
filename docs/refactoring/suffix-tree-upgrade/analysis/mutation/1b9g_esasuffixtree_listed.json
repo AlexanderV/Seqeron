@@ -9,21 +9,21 @@
  {
   "id": "1b9g_T02",
   "desc": "an in-memory call does not look at the flag",
-  "old": "ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);\n        return default;",
-  "new": "_ = _disposed;\n        return default;",
+  "old": "ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);\n        return new ReadScope(this, null);",
+  "new": "_ = _disposed;\n        return new ReadScope(this, null);",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs"
  },
  {
   "id": "1b9g_T03",
   "desc": "an in-memory call throws when the tree is not disposed",
-  "old": "ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);\n        return default;",
-  "new": "ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) == 0, this);\n        return default;",
+  "old": "ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);\n        return new ReadScope(this, null);",
+  "new": "ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) == 0, this);\n        return new ReadScope(this, null);",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs"
  },
  {
   "id": "1b9g_T04",
   "desc": "a scope never leaves its call (the entry stays, the mapping is never released)",
-  "old": "if (gate is not null) gate.Leave(cell!);",
+  "old": "if (cell is not null) Unsafe.As<ReaderGate<ReaderGateSeams>>(holder).Leave(cell);",
   "new": "_ = cell;",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs"
  },
@@ -67,6 +67,13 @@
   "desc": "the reader id of a tree is 0",
   "old": "internal long ReaderId => _gate?.Id ?? 0;",
   "new": "internal long ReaderId => 0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs"
+ },
+ {
+  "id": "1b9g_T12",
+  "desc": "the scope of an in-memory call holds nothing (the tree may be collected under a reader)",
+  "old": "        return new ReadScope(this, null);",
+  "new": "        return default;",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs"
  },
  {
