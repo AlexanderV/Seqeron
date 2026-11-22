@@ -425,9 +425,14 @@ internal sealed partial class EmbossSeqin
 
         if (t.Type.Length == 0)
         {
-            if (IsNucleotideText(t.SeqText))
+            // the library looks at the residues as a C string: the text from a NUL character on is not seen
+            string text = t.SeqText;
+            int nul = text.IndexOf('\0');
+            if (nul >= 0)
+                text = text[..nul];
+            if (IsNucleotideText(text))
                 t.SetNuc();
-            else if (!AnyProteinBad(t.SeqText))
+            else if (!AnyProteinBad(text))
                 t.SetProt();
         }
 
@@ -456,23 +461,28 @@ internal sealed partial class EmbossSeqin
             t.SetNuc();
         if (_opt.IsProt)
             t.SetProt();
+        // the library checks the residues as a C string: the text behind a NUL character (the mega reader can leave one) is not looked at
+        string whole = t.SeqText;
+        int nul = whole.IndexOf('\0');
+        string tail = nul >= 0 ? whole[nul..] : "";
+        string text = nul >= 0 ? whole[..nul] : whole;
         if (_opt.SequenceType == "any")
         {
             // ungapped type: ajStrRemoveGap keeps the letters and '*'
             var kept = new StringBuilder(t.Seq.Length);
-            foreach (char c in t.SeqText)
+            foreach (char c in text)
             {
                 if (char.IsAsciiLetter(c) || c == '*')
                     kept.Append(c);
             }
 
-            t.Seq.Clear().Append(kept);
+            t.Seq.Clear().Append(kept).Append(tail);
             return true;
         }
 
         var sb = new StringBuilder(t.Seq.Length);
         bool allGood = true;
-        foreach (char ch in t.SeqText)
+        foreach (char ch in text)
         {
             char c = ch is '~' or '.' ? '-' : ch;
             if (!(char.IsAsciiLetter(c) || c is '*' or '-' or '?'))
@@ -491,7 +501,7 @@ internal sealed partial class EmbossSeqin
             s = fixedSeq.ToString();
         }
 
-        t.Seq.Clear().Append(s.Replace('?', 'X'));
+        t.Seq.Clear().Append(s.Replace('?', 'X')).Append(tail);
         return true;
     }
 
@@ -585,6 +595,8 @@ internal sealed partial class EmbossSeqin
             case "nexus":
             case "paup":
                 return ReadNexus(t);
+            case "mega":
+                return ReadMega(t);
             case "fastq":
                 return ReadFastq(t);
             case "fastq-sanger":

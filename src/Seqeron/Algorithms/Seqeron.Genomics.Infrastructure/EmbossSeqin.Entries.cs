@@ -51,6 +51,9 @@ internal sealed partial class EmbossSeqin
 
     private static bool PrefixC(string s, string p) => s.StartsWith(p, StringComparison.Ordinal);
 
+    // ajStrPrefixCaseC
+    private static bool PrefixCase(string s, string p) => s.StartsWith(p, StringComparison.OrdinalIgnoreCase);
+
     // ---------------------------------------------------------------------------------------------------------------- embl
 
     // seqReadEmbl (the lines of the references, cross-references, keywords, comments and dates are read and not stored; a CO (contig) entry is not supported: its pieces are read from databases)

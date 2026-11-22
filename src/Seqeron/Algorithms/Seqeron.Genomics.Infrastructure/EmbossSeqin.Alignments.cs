@@ -16,6 +16,7 @@ internal sealed partial class EmbossSeqin
         public float Weight = 1.0f;
         public uint Check;
         public uint Len;
+        public string Desc = "";
     }
 
     internal sealed class AlnData
