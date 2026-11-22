@@ -147,7 +147,7 @@
       },
       "definitions": {
         "type": "string",
-        "description": "The text of an EMBOSS configuration file (.embossrc) that defines databases for sequenceValue."
+        "description": "The text of an EMBOSS configuration file (.embossrc) that defines databases for sequenceValue: DBNAME definitions (methods direct, emboss and emblcd), RES / RESOURCE, SERVER, INCLUDE (the included file is an entry of files), IF / IFDEF / ELSE / ENDIF and SET blocks; the files of a database, and for the methods emboss (dbxfasta / dbxflat index files NAME.ent, .xid, .pxid ...) and emblcd (dbifasta / dbiflat files division.lkp, entrynam.idx, acnum.trg ...) its index files as latin-1 text, are entries of files by path."
       },
       "outputFile": {
         "type": "string",

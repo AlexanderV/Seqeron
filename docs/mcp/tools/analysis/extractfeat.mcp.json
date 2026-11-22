@@ -96,7 +96,7 @@
       },
       "definitions": {
         "type": "string",
-        "description": "The text of an EMBOSS configuration file (.embossrc) that defines databases for sequenceValue: DBNAME name [ type: N format: fasta method: direct directory: \"dir\" filename: \"*.fa\" ], SET name value."
+        "description": "The text of an EMBOSS configuration file (.embossrc) that defines databases for sequenceValue: DBNAME name [ type: N format: fasta method: direct directory: \"dir\" filename: \"*.fa\" ] (methods direct, emboss and emblcd), RES / RESOURCE, SERVER, INCLUDE (the included file is an entry of files), IF / IFDEF / ELSE / ENDIF, SET name value; the index files of the methods emboss (dbxfasta / dbxflat: NAME.ent, NAME.xid, NAME.pxid ...) and emblcd (dbifasta / dbiflat: division.lkp, entrynam.idx, acnum.trg ...) are entries of files by path, as latin-1 text."
       },
       "outputSingle": {
         "type": "boolean",

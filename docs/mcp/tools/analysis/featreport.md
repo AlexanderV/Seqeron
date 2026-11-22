@@ -36,7 +36,7 @@ EMBOSS 6.6.0 featreport: the first feature table of a feature file (embl, genban
 | `files` | object | No | More files by name (file name -> text) that sequenceValue and featuresValue may name. |
 | `sequenceValue` | string | No | The USA of the sequence input (-sequence): [format::]file[begin:end:r], file:id, file:field:value, file{a\|b}, @list, list::list, asis::TEXT, db:id; the text of sequence is the file 'sequence.dat'. |
 | `featuresValue` | string | No | The value of -features: [format::]file[begin:end:r]; the text of features is the file 'features.dat'. |
-| `definitions` | string | No | The text of an EMBOSS configuration file (.embossrc) that defines databases for sequenceValue. |
+| `definitions` | string | No | The text of an EMBOSS configuration file (.embossrc) that defines databases for sequenceValue: DBNAME definitions (methods direct, emboss and emblcd), RES / RESOURCE, SERVER, INCLUDE (the included file is an entry of files), IF / IFDEF / ELSE / ENDIF and SET blocks; the files of a database, and for the methods emboss (dbxfasta / dbxflat index files NAME.ent, .xid, .pxid ...) and emblcd (dbifasta / dbiflat files division.lkp, entrynam.idx, acnum.trg ...) its index files as latin-1 text, are entries of files by path. |
 | `outputFile` | string | No | The name of the report file (-outfile); default: standard output, or - when reportFormat has -rname / -rextension / -rdirectory - the file named after the sequence (name.featreport) in that directory; it is returned in reportFile. |
 
 ## Output Schema

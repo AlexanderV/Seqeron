@@ -32,7 +32,7 @@ EMBOSS 6.6.0 entret: the entries of a sequence file (any input format of seqret)
 | `qualifiers` | string | No | Sequence input qualifiers as typed after the sequence on the command line: -sformat1 F, -sid1 name, -sdbname1 db, -iquery1 query, -ioffset1 bytes, -sbegin1 -send1 -sreverse1 (the range does not change the text of an entry). |
 | `files` | object | No | More files by name (file name -> text) that sequenceValue may name: list files, other sequence files, the data files of the databases of definitions. |
 | `sequenceValue` | string | No | The USA of the sequence input (-sequence): [format::]file[begin:end:r], file:id, file:field:value, file{a\|b}, @list, list::list, asis::TEXT, db:id; the text of sequence is the file 'sequence.dat'. |
-| `definitions` | string | No | The text of an EMBOSS configuration file (.embossrc) that defines databases for sequenceValue: DBNAME name [ type: N format: fasta method: direct directory: "dir" filename: "*.fa" ], SET name value. |
+| `definitions` | string | No | The text of an EMBOSS configuration file (.embossrc) that defines databases for sequenceValue: DBNAME name [ type: N format: fasta method: direct directory: "dir" filename: "*.fa" ] (methods direct, emboss and emblcd), RES / RESOURCE, SERVER, INCLUDE (the included file is an entry of files), IF / IFDEF / ELSE / ENDIF, SET name value; the index files of the methods emboss (dbxfasta / dbxflat: NAME.ent, NAME.xid, NAME.pxid ...) and emblcd (dbifasta / dbiflat: division.lkp, entrynam.idx, acnum.trg ...) are entries of files by path, as latin-1 text. |
 
 ## Output Schema
 

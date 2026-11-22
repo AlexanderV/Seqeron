@@ -581,7 +581,7 @@ public partial class AnalysisTools
         CancellationToken cancellationToken = default,
         [Description("More files by name (file name -> text) that sequenceValue may name: list files, other sequence files, the data files of the databases of definitions.")] IReadOnlyDictionary<string, string>? files = null,
         [Description("The USA of the sequence input (-sequence): [format::]file[begin:end:r], file:id, file:field:value, file{a|b}, @list, list::list, asis::TEXT, db:id; the text of sequence is the file 'sequence.dat'.")] string? sequenceValue = null,
-        [Description("The text of an EMBOSS configuration file (.embossrc) that defines databases for sequenceValue: DBNAME name [ type: N format: fasta method: direct directory: \"dir\" filename: \"*.fa\" ], SET name value.")] string? definitions = null)
+        [Description("The text of an EMBOSS configuration file (.embossrc) that defines databases for sequenceValue: DBNAME name [ type: N format: fasta method: direct directory: \"dir\" filename: \"*.fa\" ] (methods direct, emboss and emblcd), RES / RESOURCE, SERVER, INCLUDE (the included file is an entry of files), IF / IFDEF / ELSE / ENDIF, SET name value; the index files of the methods emboss (dbxfasta / dbxflat: NAME.ent, NAME.xid, NAME.pxid ...) and emblcd (dbifasta / dbiflat: division.lkp, entrynam.idx, acnum.trg ...) are entries of files by path, as latin-1 text.")] string? definitions = null)
     {
         if (string.IsNullOrWhiteSpace(sequence))
             throw new ArgumentException("The sequence cannot be empty", nameof(sequence));
@@ -625,7 +625,7 @@ public partial class AnalysisTools
         CancellationToken cancellationToken = default,
         [Description("More files by name (file name -> text) that sequenceValue may name: list files, other sequence files, the data files of the databases of definitions.")] IReadOnlyDictionary<string, string>? files = null,
         [Description("The USA of the sequence input (-sequence): [format::]file[begin:end:r], file:id, file:field:value, file{a|b}, @list, list::list, asis::TEXT, db:id; the text of sequence is the file 'sequence.dat'.")] string? sequenceValue = null,
-        [Description("The text of an EMBOSS configuration file (.embossrc) that defines databases for sequenceValue: DBNAME name [ type: N format: fasta method: direct directory: \"dir\" filename: \"*.fa\" ], SET name value.")] string? definitions = null,
+        [Description("The text of an EMBOSS configuration file (.embossrc) that defines databases for sequenceValue: DBNAME name [ type: N format: fasta method: direct directory: \"dir\" filename: \"*.fa\" ] (methods direct, emboss and emblcd), RES / RESOURCE, SERVER, INCLUDE (the included file is an entry of files), IF / IFDEF / ELSE / ENDIF, SET name value; the index files of the methods emboss (dbxfasta / dbxflat: NAME.ent, NAME.xid, NAME.pxid ...) and emblcd (dbifasta / dbiflat: division.lkp, entrynam.idx, acnum.trg ...) are entries of files by path, as latin-1 text.")] string? definitions = null,
         [Description("Write every extracted sequence to a file of its own, name.extension in lower case (-ossingle2); the files are returned in singleFiles.")] bool outputSingle = false,
         [Description("The directory of the files of outputSingle (-osdirectory2).")] string? outputDirectory = null,
         [Description("The extension of the files of outputSingle (-osextension2); default: the output format as typed.")] string? outputExtension = null,
@@ -665,7 +665,7 @@ public partial class AnalysisTools
         CancellationToken cancellationToken = default,
         [Description("More files by name (file name -> text) that sequenceValue may name.")] IReadOnlyDictionary<string, string>? files = null,
         [Description("The USA of the sequence input (-seqall): [format::]file[begin:end:r], file:id, file:field:value, file{a|b}, @list, list::list, db:id; the text of sequence is the file 'sequence.dat'.")] string? sequenceValue = null,
-        [Description("The text of an EMBOSS configuration file (.embossrc) that defines databases for sequenceValue.")] string? definitions = null,
+        [Description("The text of an EMBOSS configuration file (.embossrc) that defines databases for sequenceValue: DBNAME definitions (methods direct, emboss and emblcd), RES / RESOURCE, SERVER, INCLUDE (the included file is an entry of files), IF / IFDEF / ELSE / ENDIF and SET blocks; the files of a database, and for the methods emboss (dbxfasta / dbxflat index files NAME.ent, .xid, .pxid ...) and emblcd (dbifasta / dbiflat files division.lkp, entrynam.idx, acnum.trg ...) its index files as latin-1 text, are entries of files by path.")] string? definitions = null,
         [Description("Write every sequence of the four outputs to a file of its own, name.extension in lower case (-ossingle3 .. -ossingle6); the files are in files.")] bool outputSingle = false,
         [Description("The directory of the output files (-osdirectory3 .. -osdirectory6).")] string? outputDirectory = null,
         [Description("The extension of the output files (-osextension3 .. -osextension6); default cds, mrna, prot and noncoding.")] string? outputExtension = null,
@@ -730,7 +730,7 @@ public partial class AnalysisTools
         CancellationToken cancellationToken = default,
         [Description("More files by name (file name -> text) that sequenceValue may name.")] IReadOnlyDictionary<string, string>? files = null,
         [Description("The USA of the sequence input (-sequence): [format::]file[begin:end:r], file:id, file:field:value, file{a|b}, @list, list::list, asis::TEXT, db:id; the text of sequence is the file 'sequence.dat'.")] string? sequenceValue = null,
-        [Description("The text of an EMBOSS configuration file (.embossrc) that defines databases for sequenceValue.")] string? definitions = null)
+        [Description("The text of an EMBOSS configuration file (.embossrc) that defines databases for sequenceValue: DBNAME definitions (methods direct, emboss and emblcd), RES / RESOURCE, SERVER, INCLUDE (the included file is an entry of files), IF / IFDEF / ELSE / ENDIF and SET blocks; the files of a database, and for the methods emboss (dbxfasta / dbxflat index files NAME.ent, .xid, .pxid ...) and emblcd (dbifasta / dbiflat files division.lkp, entrynam.idx, acnum.trg ...) its index files as latin-1 text, are entries of files by path.")] string? definitions = null)
     {
         if (string.IsNullOrWhiteSpace(sequence))
             throw new ArgumentException("The sequence cannot be empty", nameof(sequence));
@@ -789,7 +789,7 @@ public partial class AnalysisTools
         [Description("More files by name (file name -> text) that sequenceValue and featuresValue may name.")] IReadOnlyDictionary<string, string>? files = null,
         [Description("The USA of the sequence input (-sequence): [format::]file[begin:end:r], file:id, file:field:value, file{a|b}, @list, list::list, asis::TEXT, db:id; the text of sequence is the file 'sequence.dat'.")] string? sequenceValue = null,
         [Description("The value of -features: [format::]file[begin:end:r]; the text of features is the file 'features.dat'.")] string? featuresValue = null,
-        [Description("The text of an EMBOSS configuration file (.embossrc) that defines databases for sequenceValue.")] string? definitions = null,
+        [Description("The text of an EMBOSS configuration file (.embossrc) that defines databases for sequenceValue: DBNAME definitions (methods direct, emboss and emblcd), RES / RESOURCE, SERVER, INCLUDE (the included file is an entry of files), IF / IFDEF / ELSE / ENDIF and SET blocks; the files of a database, and for the methods emboss (dbxfasta / dbxflat index files NAME.ent, .xid, .pxid ...) and emblcd (dbifasta / dbiflat files division.lkp, entrynam.idx, acnum.trg ...) its index files as latin-1 text, are entries of files by path.")] string? definitions = null,
         [Description("The name of the report file (-outfile); default: standard output, or - when reportFormat has -rname / -rextension / -rdirectory - the file named after the sequence (name.featreport) in that directory; it is returned in reportFile.")] string? outputFile = null)
     {
         if (string.IsNullOrWhiteSpace(sequence))
@@ -855,7 +855,7 @@ public partial class AnalysisTools
         CancellationToken cancellationToken = default,
         [Description("More files by name (file name -> text) that sequenceValue may name.")] IReadOnlyDictionary<string, string>? files = null,
         [Description("The USA of the sequence input (-sequence): [format::]file[begin:end:r], file:id, file:field:value, file{a|b}, @list, list::list, asis::TEXT, db:id; the text of sequence is the file 'sequence.dat'.")] string? sequenceValue = null,
-        [Description("The text of an EMBOSS configuration file (.embossrc) that defines databases for sequenceValue.")] string? definitions = null,
+        [Description("The text of an EMBOSS configuration file (.embossrc) that defines databases for sequenceValue: DBNAME definitions (methods direct, emboss and emblcd), RES / RESOURCE, SERVER, INCLUDE (the included file is an entry of files), IF / IFDEF / ELSE / ENDIF and SET blocks; the files of a database, and for the methods emboss (dbxfasta / dbxflat index files NAME.ent, .xid, .pxid ...) and emblcd (dbifasta / dbiflat files division.lkp, entrynam.idx, acnum.trg ...) its index files as latin-1 text, are entries of files by path.")] string? definitions = null,
         [Description("The name of the report file (-outfile); default: standard output, or - when reportFormat has -rname / -rextension / -rdirectory - the file named after the sequence (name.twofeat) in that directory; it is returned in reportFile.")] string? outputFile = null)
     {
         if (string.IsNullOrWhiteSpace(sequence))

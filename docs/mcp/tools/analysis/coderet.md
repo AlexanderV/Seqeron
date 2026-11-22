@@ -36,7 +36,7 @@ EMBOSS 6.6.0 coderet: from the nucleotide sequences of a file with feature table
 | `qualifiers` | string | No | Sequence input qualifiers as typed after the sequence on the command line: -sbegin1 -send1 -sreverse1, -slower1 -supper1, -sformat1 F, -sid1 name, -sdbname1 db, -squick1, -iquery1 query, -ioffset1 bytes. |
 | `files` | object | No | More files by name (file name -> text) that sequenceValue may name. |
 | `sequenceValue` | string | No | The USA of the sequence input (-seqall): [format::]file[begin:end:r], file:id, file:field:value, file{a\|b}, @list, list::list, db:id; the text of sequence is the file 'sequence.dat'. |
-| `definitions` | string | No | The text of an EMBOSS configuration file (.embossrc) that defines databases for sequenceValue. |
+| `definitions` | string | No | The text of an EMBOSS configuration file (.embossrc) that defines databases for sequenceValue: DBNAME definitions (methods direct, emboss and emblcd), RES / RESOURCE, SERVER, INCLUDE (the included file is an entry of files), IF / IFDEF / ELSE / ENDIF and SET blocks; the files of a database, and for the methods emboss (dbxfasta / dbxflat index files NAME.ent, .xid, .pxid ...) and emblcd (dbifasta / dbiflat files division.lkp, entrynam.idx, acnum.trg ...) its index files as latin-1 text, are entries of files by path. |
 | `outputSingle` | boolean | No | Write every sequence of the four outputs to a file of its own, name.extension in lower case (-ossingle3 .. -ossingle6); the files are in files. (default: false) |
 | `outputDirectory` | string | No | The directory of the output files (-osdirectory3 .. -osdirectory6). |
 | `outputExtension` | string | No | The extension of the output files (-osextension3 .. -osextension6); default cds, mrna, prot and noncoding. |

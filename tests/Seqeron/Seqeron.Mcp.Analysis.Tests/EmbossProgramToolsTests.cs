@@ -296,6 +296,41 @@ public class EmbossProgramToolsTests
 
     private const string EmblWithFeatures = "ID   X1; SV 1; linear; genomic DNA; STD; UNC; 60 BP.\nXX\nAC   X1;\nXX\nDE   test\nXX\nFH   Key             Location/Qualifiers\nFH\nFT   CDS             join(3..12,20..29)\nFT                   /translation=\"MKV\"\nFT                   /gene=\"g1\"\nFT   mRNA            1..40\nFT   exon            45..55\nSQ   Sequence 60 BP; 15 A; 15 C; 15 G; 15 T; 0 other;\n     acgtacgtac gtacgtacgt acgtacgtac gtacgtacgt acgtacgtac gtacgtacgt        60\n//\n";
 
+    // the index files dbxfasta 6.6.0 made for a FASTA file of two entries (the field id, compressed pages), gzip + base64 of their bytes
+    private static readonly Dictionary<string, string> DbxIndexFiles = new()
+    {
+        ["idx/tdb.ent"] = "H4sIAAAAAAAC/1NW8CvNTUotUshPU0jLzEkttlIw5FJWCErNSU0sTrVSMNAzAHJdEkuAbCAwMNAHI67gzLz0nFSwlrzE3FSFlMSSxCSgDq5EvbRELgC3kTO+VgAAAA==",
+        ["idx/tdb.pxid"] = "H4sIAAAAAAAC/z2PywrCMBBF9/MV/YRkbNR9QRAFRd24LOlUB9IHSavo12vbZLLLublnJrdPT1k6+4ragWsmD0XX9J5CmPmdApzLB4X0cAVXsr0QBSdfkU/pRsOOnROtWcORXiRALTL+LpNR5VsoSvsUhCoaMTYQZ2O6ZrmWBeaK0TgBK5LJUHRjO6TGXzA6ZxNCOLwdNxxzbeBCdc1OPvQDgBCNYRgBAAA=",
+        ["idx/tdb.xid"] = "H4sIAAAAAAAC/2NkQABGIGZhIAxAaopTCw0ZfKECsVCaA00hiM+ExBeFYrBmdAAUNIJzFBlGwSgYBaNgFIyCUTA0AQAD30AfXQgAAA==",
+    };
+
+    private static Dictionary<string, string> DbxFiles()
+    {
+        var files = new Dictionary<string, string>();
+        foreach (var (name, text) in DbxIndexFiles)
+        {
+            using var gz = new System.IO.Compression.GZipStream(new MemoryStream(Convert.FromBase64String(text)), System.IO.Compression.CompressionMode.Decompress);
+            using var ms = new MemoryStream();
+            gz.CopyTo(ms);
+            files[name] = System.Text.Encoding.Latin1.GetString(ms.ToArray());
+        }
+
+        files["db/a.fa"] = ">seq1 first one\nACGTACGTACGTAAAA\n>seq2 second one\nGGGGCCCCAAAATTTT\n";
+        return files;
+    }
+
+    [Test]
+    public void Seqret_ReadsTheIndexOfTheMethodEmboss_AsTheProgram()
+    {
+        // B09 WP60 (F275): a database of the method emboss: the B+tree index files of dbxfasta are searched (seqret -sequence tdb:seq2 / tdb:seq* with the installed 6.6.0 gives the same entries)
+        const string definitions = "RES tdb [ type: Index idlen: 15 acclen: 15 svlen: 15 keylen: 15 deslen: 15 orglen: 15 ]\nSET PAGESIZE 2048\nDBNAME tdb [ type: N format: fasta method: emboss directory: \"db\" indexdirectory: \"idx\" fields: \"id\" hasaccession: N filename: \"*.fa\" ]\n";
+        var one = AnalysisTools.Seqret("x", sequenceValue: "tdb:seq2", files: DbxFiles(), definitions: definitions);
+        Assert.That(one.SequenceText, Is.EqualTo(">seq2 second one\nGGGGCCCCAAAATTTT\n"));
+        var all = AnalysisTools.Seqret("x", sequenceValue: "tdb:seq*", files: DbxFiles(), definitions: definitions);
+        Assert.That(all.SequenceText, Is.EqualTo(">seq1 first one\nACGTACGTACGTAAAA\n>seq2 second one\nGGGGCCCCAAAATTTT\n"));
+        Assert.That(AnalysisTools.Entret("x", sequenceValue: "tdb:seq1", files: DbxFiles(), definitions: definitions).Text, Is.EqualTo(">seq1 first one\nACGTACGTACGTAAAA\n"));
+    }
+
     [Test]
     public void Union_WritesTheFileOfOutputSingle_AsTheProgram()
     {
