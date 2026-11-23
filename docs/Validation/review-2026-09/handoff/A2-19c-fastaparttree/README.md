@@ -1,5 +1,5 @@
 **RUN 3 (returned/A2-19c-fastaparttree-out.run3.zip): `fasta34` built and installed (sha256 7491909b...b587da), `mafft --fastaparttree` ran on all 60 sets (return code 0, 7127 bytes of standard error per run). STATUS: RETURNED, usable; integration = MAFFT stage 4 (`--fastaparttree` oracle = out/results.tsv). No further run.**
-(Run 1: no fasta34; run 2 `returned/A2-19c-fastaparttree-out.run2.zip`: stdio.h missing; both kept as returned data.)
+(Run 3 was repeated on a second run: `returned/A2-19c-fastaparttree-out.run3-repeat.zip`, results.tsv and versions.txt byte-identical to run 3, so the oracle is deterministic.) (Run 1: no fasta34; run 2 `returned/A2-19c-fastaparttree-out.run2.zip`: stdio.h missing; both kept as returned data.)
 
 # Hand-off A2-19c-fastaparttree: `mafft --fastaparttree` (MAFFT 7.505, `splittbfast` with the pairwise scores of `fasta34`)
 
