@@ -83,6 +83,7 @@ public static class EmbossProgramRunner
         ["showorf"] = EmbossSequencePrograms.Showorf,
         ["prettyseq"] = EmbossSequencePrograms.Prettyseq,
         ["tcode"] = EmbossSequencePrograms.Tcode,
+        ["plotcon"] = EmbossSequencePrograms.Plotcon,
         ["checktrans"] = EmbossSequencePrograms.Checktrans,
         ["plotorf"] = EmbossSequencePrograms.Plotorf,
         ["wordfinder"] = EmbossSequencePrograms.Wordfinder,

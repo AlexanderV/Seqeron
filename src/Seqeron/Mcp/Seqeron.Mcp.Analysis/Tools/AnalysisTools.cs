@@ -1727,7 +1727,7 @@ public partial class AnalysisTools
     }
 
     [McpServerTool(Name = "multiple_alignment_statistics", Title = "Alignment — Multiple Alignment Statistics", ReadOnly = true)]
-    [Description("Statistics of a gapped multiple alignment: per-sequence comparison with a reference row or the EMBOSS cons consensus (EMBOSS infoalign: seqLength, alignLength, gap runs, gap length, identities, similarities, differences, % change; verified against infoalign 6.6.0), per-column residue counts / gap fraction / most common residue / ClustalW conservation symbol ('*' identical, ':' strong, '.' weak group; ClustalW 2.1; DNA columns only '*'), gap percent, fully conserved and gap-free columns, and the pairwise percent-identity matrix (distmat uncorrected, identity over columns where neither row has a gap; gapWeight 1 = Biopython DistanceCalculator('identity')). Rows are upper-cased, '.'/'~' read as '-'.")]
+    [Description("Statistics of a gapped multiple alignment: per-sequence comparison with a reference row or the EMBOSS cons consensus (EMBOSS infoalign: seqLength, alignLength, gap runs, gap length, identities, similarities, differences, % change; verified against infoalign 6.6.0), per-column residue counts / gap fraction / most common residue / ClustalW conservation symbol ('*' identical, ':' strong, '.' weak group; ClustalW 2.1; DNA columns only '*') / Shannon entropy in bits of the non-gap residues / information content in bits (against a uniform 4-letter background for a nucleotide column, 20 letters otherwise; the per-column Jensen-Shannon divergence and sum of pairs of Capra and Singh are the tool msa_conservation), gap percent, fully conserved and gap-free columns, and the pairwise percent-identity matrix (distmat uncorrected, identity over columns where neither row has a gap; gapWeight 1 = Biopython DistanceCalculator('identity')). Rows are upper-cased, '.'/'~' read as '-'.")]
     public static MultipleAlignmentStatisticsResult MultipleAlignmentStatistics(
         [Description("At least two aligned sequences of equal length (DNA or protein, gaps '-').")] string[] sequences,
         [Description("'auto' (type of the first row as EMBOSS), 'nucleotide' (EDNAFULL) or 'protein' (EBLOSUM62; also enables ':'/'.' conservation).")] string residueType = "auto",
@@ -1755,7 +1755,7 @@ public partial class AnalysisTools
                 i.Identities, i.Similarities, i.Differences, i.PercentChange)).ToArray(),
             stats.Columns.Select(c => new MsaColumnItem(c.Index,
                 c.Counts.ToDictionary(kv => kv.Key.ToString(), kv => kv.Value), c.GapCount, c.GapFraction,
-                c.MostCommonResidue.ToString(), c.MostCommonCount, c.Conservation.ToString())).ToArray());
+                c.MostCommonResidue.ToString(), c.MostCommonCount, c.Conservation.ToString(), c.ShannonEntropy, c.InformationContent())).ToArray());
     }
 
     [McpServerTool(Name = "alignment_distance_matrix", Title = "Alignment — Pairwise Distance Matrix (distmat)", ReadOnly = true)]

@@ -3936,5 +3936,49 @@ internal static partial class EmbossAcdProfiles
             G die boolean
             G version boolean
             """),
+        ("plotcon", """
+            P sequences 1 seqset
+            Q winsize integer
+            Q graph xygraph
+            Q scorefile matrix
+            A sequences sbegin 1 integer
+            A sequences send 1 integer
+            A sequences sreverse 1 boolean
+            A sequences sask 1 boolean
+            A sequences snucleotide 1 boolean
+            A sequences sprotein 1 boolean
+            A sequences slower 1 boolean
+            A sequences supper 1 boolean
+            A sequences scircular 1 boolean
+            A sequences squick 1 boolean
+            A sequences sformat 1 string
+            A sequences iquery 1 string
+            A sequences ioffset 1 integer
+            A sequences sdbname 1 string
+            A sequences sid 1 string
+            A sequences ufo 1 string
+            A sequences fformat 1 string
+            A sequences fopenfile 1 string
+            A graph gprompt 0 boolean
+            A graph gdesc 0 string
+            A graph gtitle 0 string
+            A graph gsubtitle 0 string
+            A graph gxtitle 0 string
+            A graph gytitle 0 string
+            A graph goutfile 0 string
+            A graph gdirectory 0 string
+            G auto boolean
+            G stdout boolean
+            G filter boolean
+            G options boolean
+            G debug boolean
+            G verbose boolean
+            G help boolean
+            G warning boolean
+            G error boolean
+            G fatal boolean
+            G die boolean
+            G version boolean
+            """),
     ];
 }

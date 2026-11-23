@@ -246,7 +246,8 @@ internal sealed class EmbossGraphXy
     public string Stdout { get; private set; } = "";
 
     // ajFmtPrintF("%f"): a float as a double with 6 decimals
-    private static string F(float v) => CFormat.Fixed(v, 6);
+    // ajFmt writes a NaN as its sign and "000nan" (plotcon of one sequence or of -winsize 0 divides 0 by 0: the default NaN of the processor has the sign bit set)
+    private static string F(float v) => float.IsNaN(v) ? (float.IsNegative(v) ? "-000nan" : "000nan") : CFormat.Fixed(v, 6);
 
     private bool Open(string name, EmbossFeatureReadContext context, out StringBuilder? sb)
     {

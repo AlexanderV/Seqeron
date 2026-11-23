@@ -41,7 +41,74 @@ public sealed record MsaColumnStatistics(
     double GapFraction,
     char MostCommonResidue,
     int MostCommonCount,
-    char Conservation);
+    char Conservation)
+{
+    /// <summary>The letters of the column (every symbol of <see cref="Counts"/> repeated by its count; the order of the rows is not kept, which the unweighted scores do not need).</summary>
+    public string Column => string.Concat(Counts.Select(kv => new string(kv.Key, kv.Value)));
+
+    /// <summary>The number of rows of the column (gaps included).</summary>
+    public int RowCount => Counts.Values.Sum();
+
+    /// <summary>
+    /// Shannon entropy of the column in bits, <c>-sum p log2 p</c> over the distinct non-gap symbols with p their share of the non-gap rows (0 for a column that is all gaps or has one symbol; at most log2 of the number of different symbols).
+    /// </summary>
+    public double ShannonEntropy
+    {
+        get
+        {
+            int n = Counts.Where(kv => kv.Key != '-').Sum(kv => kv.Value);
+            if (n == 0)
+                return 0.0;
+            double h = 0;
+            foreach (var (symbol, count) in Counts)
+            {
+                if (symbol == '-' || count == 0)
+                    continue;
+                double p = (double)count / n;
+                h -= p * Math.Log2(p);
+            }
+
+            return h == 0 ? 0.0 : h;
+        }
+    }
+
+    /// <summary>
+    /// Information content of the column in <paramref name="logBase"/> units as <c>Bio.Align.AlignInfo.SummaryInfo.information_content</c> counts it for a gap-ignoring column: <c>sum p log(p / e) / log(logBase)</c> over the non-gap symbols
+    /// with p their share of the non-gap rows and e their expected frequency (<paramref name="expected"/>; null = uniform over the 20 amino acids, or 4 for a column of A, C, G, T / U only).
+    /// </summary>
+    /// <exception cref="ArgumentException">A symbol of the column has no expected frequency.</exception>
+    public double InformationContent(IReadOnlyDictionary<char, double>? expected = null, double logBase = 2)
+    {
+        int n = Counts.Where(kv => kv.Key != '-').Sum(kv => kv.Value);
+        if (n == 0)
+            return 0.0;
+        if (expected is null)
+        {
+            bool nucleotide = Counts.Keys.All(c => c is 'A' or 'C' or 'G' or 'T' or 'U' or '-');
+            double uniform = nucleotide ? 0.25 : 0.05;
+            expected = Counts.Keys.Where(c => c != '-').ToDictionary(c => c, _ => uniform);
+        }
+
+        double total = 0;
+        foreach (var (symbol, count) in Counts)
+        {
+            if (symbol == '-' || count == 0)
+                continue;
+            if (!expected.TryGetValue(symbol, out double e))
+                throw new ArgumentException($"Frequency table provided does not contain observed letter {symbol}");
+            double p = (double)count / n;
+            total += p * Math.Log(p / e) / Math.Log(logBase);
+        }
+
+        return total;
+    }
+
+    /// <summary>The Jensen-Shannon divergence of the column from a background distribution (Capra and Singh 2007, <see cref="ConservationScores.JsDivergence"/>; default background BLOSUM62, gap penalty on).</summary>
+    public double JensenShannonDivergence(IReadOnlyList<double>? background = null, bool gapPenalty = true) => ConservationScores.JsDivergence(Column, background ?? ConservationScores.BlosumBackground, null, gapPenalty);
+
+    /// <summary>The sum-of-pairs column score (Capra and Singh 2007, <see cref="ConservationScores.SumOfPairs"/>; default matrix BLOSUM62, gap penalty on).</summary>
+    public double SumOfPairs(double[,]? similarity = null, bool gapPenalty = true) => ConservationScores.SumOfPairs(Column, similarity, null, gapPenalty);
+}
 
 /// <summary>Summary of a multiple alignment.</summary>
 /// <param name="SequenceCount">Rows.</param>

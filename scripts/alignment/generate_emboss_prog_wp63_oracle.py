@@ -261,7 +261,31 @@ def gen_marscan(rnd, i, d):
     return args, files
 
 
-GENS = {'tcode': gen_tcode, 'checktrans': gen_checktrans, 'plotorf': gen_plotorf, 'wordfinder': gen_wordfinder, 'marscan': gen_marscan}
+def gen_plotcon(rnd, i, d):
+    """plotcon (B09 WP67, F308): an alignment (equal lengths mostly; the set is padded with gaps otherwise) in a random input format, -winsize, -scorefile and the graph qualifiers"""
+    kind = rnd.choice(['p', 'p', 'p', 'n'])
+    nseq = rnd.choice([1, 2, 2, 3, 3, 4, 6, 10])
+    lens = rnd.choice([(1, 10), (5, 40), (20, 120), (50, 300)])
+    items = G.seqs_for(rnd, 'x', kind, nseq, lens, gaps=True, endpad=rnd.random() < 0.3)
+    if rnd.random() < 0.8:
+        width = max(len(s) for _, _, s in items)
+        items = [(n, de, s + '-' * (width - len(s))) for n, de, s in items]
+    text, fmt = G.seq_file(rnd, d, items)
+    files = {'in.dat': text}
+    args = ['-sequences', 'in.dat'] + G.seq_quals(rnd, fmt, '', 0.1)
+    if rnd.random() < 0.7:
+        args += ['-winsize', str(rnd.choice([4, 4, 1, 2, 3, 5, 7, 10, 20, 100, 0, -1, 'x', '2.5']))]
+    if rnd.random() < 0.15:
+        args += ['-scorefile', rnd.choice(MATRICES_P if kind == 'p' else MATRICES_N)]
+    elif rnd.random() < 0.04:
+        args += ['-scorefile', rnd.choice(['nonexist', '', 'EDNAFULL', 'EBLOSUM62'])]
+    args += ['-graph', rnd.choice(['data', 'data', 'data', 'data', 'none', 'null', 'bedgraph', 'DATA', 'da', 'bed', 'te', 'bog', 'text'])]
+    args += graph_quals(rnd, p_dev=0.0)
+    if 'sub' in ' '.join(args): files['sub/keep'] = 'x'
+    return args, files, ({'vg': True} if rnd.random() < 0.3 else {})
+
+
+GENS = {'plotcon': gen_plotcon, 'tcode': gen_tcode, 'checktrans': gen_checktrans, 'plotorf': gen_plotorf, 'wordfinder': gen_wordfinder, 'marscan': gen_marscan}
 
 if __name__ == '__main__':
     prog = sys.argv.pop(1)

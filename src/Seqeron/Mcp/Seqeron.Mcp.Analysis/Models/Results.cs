@@ -517,7 +517,7 @@ public record ScanWithPwmResult(MotifMatchItem[] Items);
 public record ConsensusResult(string Consensus);
 
 /// <summary>One column of <c>multiple_alignment_statistics</c>.</summary>
-public record MsaColumnItem(int Index, Dictionary<string, int> Counts, int GapCount, double GapFraction, string MostCommonResidue, int MostCommonCount, string Conservation);
+public record MsaColumnItem(int Index, Dictionary<string, int> Counts, int GapCount, double GapFraction, string MostCommonResidue, int MostCommonCount, string Conservation, double ShannonEntropy = 0, double InformationContent = 0);
 
 /// <summary>One sequence of <c>multiple_alignment_statistics</c> (EMBOSS infoalign columns).</summary>
 public record MsaSequenceItem(int Index, int SequenceLength, int AlignmentLength, int GapRuns, int GapLength, int Identities, int Similarities, int Differences, double PercentChange);
@@ -527,6 +527,12 @@ public record MultipleAlignmentStatisticsResult(
     int SequenceCount, int AlignmentLength, int FullyConservedColumns, int GapFreeColumns, double GapPercent,
     double? MeanPairwiseIdentity, string ConservationLine, double?[][] PairwiseIdentity,
     MsaSequenceItem[] Sequences, MsaColumnItem[] Columns);
+
+/// <summary>The result of <c>alignment_summary_info</c> (Bio.Align.AlignInfo.SummaryInfo of Biopython 1.79): the operation, its value as JSON and, for the operations that print, the text.</summary>
+public record AlignmentSummaryInfoResult(string Operation, string ResultJson, string? Text = null);
+
+/// <summary>The result of <c>msa_conservation</c> (Capra and Singh 2007): the score of every column (windowed when asked), the sequence weights used and the columns as text.</summary>
+public record MsaConservationResult(string Method, int WindowSize, double[] Scores, double[] SequenceWeights, string[] Columns);
 
 /// <summary>Result of <c>alignment_distance_matrix</c>; NaN entries are null.</summary>
 public record AlignmentDistanceMatrixResult(string Method, double?[][] Matrix);
