@@ -163,22 +163,19 @@ public class EsaDistinctSubstringTests
     [Test]
     public void NoAllocationProportionalToTheTextForTheTotal_AndOnlyTheResultForTheLengths()
     {
+        // What the code allocates, read in windows in which no collection can run (work package 1b.9h): the plain counter of the thread read more than 1 KB too high now and then, when a background
+        // collection that another thread had started made the allocation context of the thread parsable (see AllocationMeter), and the test failed under load.
         string text = StringFamilies.RandomDna(200_000, 11);
         EsaIndex esa = EsaIndex.Build(text);
         esa.CountDistinctSubstrings();                           // JIT
         esa.CountDistinctSubstringsByLength(10);
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        esa.CountDistinctSubstrings();
-        long total = GC.GetAllocatedBytesForCurrentThread() - before;
-        before = GC.GetAllocatedBytesForCurrentThread();
-        esa.CountDistinctSubstringsByLength(10);
-        long small = GC.GetAllocatedBytesForCurrentThread() - before;
-        before = GC.GetAllocatedBytesForCurrentThread();
-        long[] full = esa.CountDistinctSubstringsByLength(text.Length);
-        long large = GC.GetAllocatedBytesForCurrentThread() - before;
-        Assert.That(total, Is.LessThan(1024), "CountDistinctSubstrings allocates nothing proportional to n");
-        Assert.That(small, Is.LessThan(1024), "ByLength(10) allocates the 11-element result only");
-        Assert.That(large, Is.LessThan(8L * (text.Length + 1) + 1024), "ByLength(n) allocates the result array only: 8 bytes per length, no second array");
+        long[]? full = null;
+        AllocationReading total = AllocationMeter.Measure(() => esa.CountDistinctSubstrings());
+        AllocationReading small = AllocationMeter.Measure(() => esa.CountDistinctSubstringsByLength(10));
+        AllocationReading large = AllocationMeter.Measure(() => full = esa.CountDistinctSubstringsByLength(text.Length));
+        total.AssertLessThan(1024, "CountDistinctSubstrings allocates nothing proportional to n");
+        small.AssertLessThan(1024, "ByLength(10) allocates the 11-element result only");
+        large.AssertLessThan(8L * (text.Length + 1) + 1024, "ByLength(n) allocates the result array only: 8 bytes per length, no second array");
         Assert.That(full, Has.Length.EqualTo(text.Length + 1));
     }
 
