@@ -41,7 +41,7 @@ public static partial class SequenceAligner
     private static GapSubstitution MatrixSubstitution(SubstitutionMatrix matrix)
     {
         ArgumentNullException.ThrowIfNull(matrix);
-        return new GapSubstitution((a, b) => matrix.GetScore(a, b), null, matrix);
+        return new GapSubstitution((a, b) => (double)matrix.GetValue(a, b), null, matrix);
     }
 
     // ----- global -----

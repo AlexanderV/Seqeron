@@ -287,12 +287,25 @@ internal readonly struct PairScoring
 
         // Smallest integer scale that makes every gap score integral (0.5 -> 2, 0.1 -> 10, integers -> 1); a profile adds its six members.
         var values = ProfileValues(profile ?? new GapScoreProfile(), open, extend);
+        // R14-8: the cells of a fractional matrix (BENNER22, GONNET1992, JONES, ...) join the gap scores in the search for the smallest integer unit, so the program scores them exactly
+        if (matrix.IsFractional)
+        {
+            var cells = new HashSet<decimal>();
+            for (int i = 0; i < matrix.Alphabet.Length; i++)
+            {
+                for (int j = 0; j < matrix.Alphabet.Length; j++)
+                    cells.Add(matrix.ValueAt(i, j));
+            }
+
+            values = [.. values, .. cells];
+        }
+
         var (scale, ints) = ScaleOf(values, null);
         long gapOpen = ints.Open;
         long gapExtend = ints.Extend;
         ScaledGapProfile? scaledGaps = profile is null ? null : ints.Gaps;
 
-        long maxAbs = Math.Max((long)matrix.MaxAbsScore * scale, Math.Max(Math.Abs(gapOpen) + Math.Abs(gapExtend), scaledGaps?.MaxAbsStep ?? 0));
+        long maxAbs = Math.Max((long)Math.Ceiling(matrix.MaxAbsValue * scale), Math.Max(Math.Abs(gapOpen) + Math.Abs(gapExtend), scaledGaps?.MaxAbsStep ?? 0));
         if (maxAbs * pathLength * pairs >= MaxPathScore)
             throw RangeError(scale, sizeText, nameof(scoring));
 
@@ -305,7 +318,7 @@ internal readonly struct PairScoring
         var table = new int[dim * dim];
         for (int i = 0; i < dim; i++)
             for (int j = 0; j < dim; j++)
-                table[i * dim + j] = checked((int)(matrix.ScoreAt(i, j) * scale));
+                table[i * dim + j] = checked((int)(matrix.ValueAt(i, j) * scale));
 
         return new PairScoring((int)gapOpen, (int)gapExtend, (int)scale, table, index, dim, !IsNucleotideAlphabet(matrix.Alphabet), maxAbs, scaledGaps);
     }
@@ -1922,9 +1935,9 @@ public static partial class SequenceAligner
     private static Func<char, char, (bool Similar, char Mark)> MatrixClassifier(SubstitutionMatrix matrix) =>
         (a, b) =>
         {
-            bool self1 = matrix.TryGetScore(a, a, out int s1) && s1 > 0;
-            bool self2 = matrix.TryGetScore(b, b, out int s2) && s2 > 0;
-            bool pair = matrix.TryGetScore(a, b, out int sp) && sp > 0;
+            bool self1 = matrix.IsPositive(a, a);
+            bool self2 = matrix.IsPositive(b, b);
+            bool pair = matrix.IsPositive(a, b);
             int himatch = (self1 ? 1 : 0) + (pair ? 1 : 0);
             char mark = GapMark;
             if (himatch == 1)

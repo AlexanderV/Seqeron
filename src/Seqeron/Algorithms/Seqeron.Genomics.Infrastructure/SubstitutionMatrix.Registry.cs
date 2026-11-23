@@ -38,7 +38,15 @@ public sealed partial class SubstitutionMatrix
         else if (!EmbossIndex.Value.ContainsKey(key) && EmbossIndex.Value.ContainsKey("E" + key))
             key = "E" + key;
         if (!EmbossIndex.Value.TryGetValue(key, out int idx))
-            return false;
+        {
+            // the Biopython 1.88 matrices that are not EMBOSS files (R14-8): BLASTN, BLASTP, DAYHOFF, FENG, GENETIC, GONNET1992, HOXD70, JOHNSON, JONES, LEVIN, MCLACHLAN, MDM78, MEGABLAST, RAO, RISLER, STR, TRANS, BENNER6 / 22 / 74
+            int b = Array.FindIndex(BiopythonData, d => d.Name == key);
+            if (b < 0)
+                return false;
+            matrix = Registry.GetOrAdd("BIOPYTHON:" + key, _ => FromBiopythonRow(BiopythonData[b]));
+            return true;
+        }
+
         matrix = key switch
         {
             "EBLOSUM62" => Blosum62,
@@ -49,12 +57,15 @@ public sealed partial class SubstitutionMatrix
         return true;
     }
 
+    /// <summary>The names of the built-in matrices that come from Biopython 1.88 and not from the EMBOSS data directory (R14-8; the integer ones BLASTN, BLASTP, FENG, HOXD70, LEVIN, MCLACHLAN, MEGABLAST, RAO, STR, TRANS and the fractional ones BENNER6 / 22 / 74, DAYHOFF, GENETIC, GONNET1992, JOHNSON, JONES, MDM78, RISLER).</summary>
+    public static IReadOnlyList<string> BiopythonNames { get; } = BiopythonData.Select(d => d.Name).ToArray();
+
     /// <summary>Looks up a built-in matrix (<see cref="TryGet"/>).</summary>
     /// <exception cref="ArgumentException">Unknown name; the message lists the names.</exception>
     public static SubstitutionMatrix Get(string name) =>
         TryGet(name, out var m)
             ? m
-            : throw new ArgumentException($"Unknown matrix '{name}'. Built-in: {string.Join(", ", BuiltInNames)} (NCBI names without the leading E also accepted; ENUC.4.2 is rectangular and not supported).", nameof(name));
+            : throw new ArgumentException($"Unknown matrix '{name}'. Built-in: {string.Join(", ", BuiltInNames.Concat(BiopythonNames))} (NCBI names without the leading E also accepted; ENUC.4.2 is rectangular and not supported).", nameof(name));
 
     /// <summary>True for a nucleotide matrix: every symbol is an IUPAC nucleotide code (A C G T U and the ambiguity codes R Y S W K M B D H V N, X).</summary>
     public bool IsNucleotide => Alphabet.All(c => "ACGTURYSWKMBDHVNX".Contains(c));
@@ -67,6 +78,22 @@ public sealed partial class SubstitutionMatrix
         foreach (var token in row.Scores.Split(' '))
         {
             scores[k / n, k % n] = int.Parse(token, CultureInfo.InvariantCulture);
+            k++;
+        }
+
+        if (k != n * n)
+            throw new InvalidOperationException($"Matrix {row.Name}: {k} scores for a {n} x {n} table.");
+        return new SubstitutionMatrix(row.Name, row.Alphabet, scores);
+    }
+
+    private static SubstitutionMatrix FromBiopythonRow((string Name, string Alphabet, string Description, string Scores) row)
+    {
+        int n = row.Alphabet.Length;
+        var scores = new decimal[n, n];
+        int k = 0;
+        foreach (var token in row.Scores.Split(' '))
+        {
+            scores[k / n, k % n] = decimal.Parse(token, NumberStyles.Float, CultureInfo.InvariantCulture);
             k++;
         }
 

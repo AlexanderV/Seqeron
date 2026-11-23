@@ -431,6 +431,16 @@ public sealed partial class SubstitutionMatrix
     /// <summary>Upper-case symbols in row/column order.</summary>
     public string Alphabet { get; }
 
+    /// <summary>
+    /// The power of ten the cells are stored in (R14-8): 1 for an integer matrix (BLOSUM62, EDNAFULL, ...), 10 or 100 for a matrix with fractional scores (BENNER22 ..., GONNET1992, JONES, MDM78, ...: the
+    /// smallest power of ten, at most 10^6, that makes every cell an integer). The real score of a pair is <see cref="GetValue"/>; the integer accessors <see cref="TryGetScore"/> / <see cref="GetScore"/> /
+    /// <see cref="ScoreAt"/> / <see cref="MaxAbsScore"/> exist only when <see cref="IsFractional"/> is false.
+    /// </summary>
+    public int Denominator { get; } = 1;
+
+    /// <summary>True when a cell has a fractional score (<see cref="Denominator"/> above 1): the pairwise aligners score such a matrix exactly in integer units of 1 / scale, the integer accessors refuse it.</summary>
+    public bool IsFractional => Denominator != 1;
+
     /// <summary>Creates a matrix from a square score table in <paramref name="alphabet"/> order.</summary>
     /// <exception cref="ArgumentException">Duplicate/non-ASCII/lower-case symbols or a non-square table.</exception>
     public SubstitutionMatrix(string name, string alphabet, int[,] scores)
@@ -455,9 +465,50 @@ public sealed partial class SubstitutionMatrix
         _scores = (int[,])scores.Clone();
     }
 
+    /// <summary>
+    /// Creates a matrix with fractional scores (R14-8): the cells are stored exactly as integers in units of 1 / <see cref="Denominator"/>, the smallest power of ten (at most 10^6) that makes every cell integral
+    /// (a table of whole numbers gives the same matrix as the integer constructor).
+    /// </summary>
+    /// <param name="name">Matrix name.</param>
+    /// <param name="alphabet">Upper-case ASCII symbols in row / column order.</param>
+    /// <param name="scores">Square table of real scores.</param>
+    /// <exception cref="ArgumentException">Duplicate / lower-case / non-ASCII symbols, a non-square table, or a cell with more than 6 decimals.</exception>
+    public SubstitutionMatrix(string name, string alphabet, decimal[,] scores)
+        : this(name, alphabet, ScaleToIntegers(scores, out int denominator))
+    {
+        Denominator = denominator;      // out variable of the initializer, in scope in the body
+    }
+
+    private static int[,] ScaleToIntegers(decimal[,] scores, out int denominator)
+    {
+        ArgumentNullException.ThrowIfNull(scores);
+        int d = 1;
+        while (d <= 1_000_000 && !scores.Cast<decimal>().All(v => (v * d) == decimal.Truncate(v * d)))
+            d *= 10;
+        if (d > 1_000_000)
+            throw new ArgumentException("A matrix score has more than 6 decimals.", nameof(scores));
+        denominator = d;
+        var ints = new int[scores.GetLength(0), scores.GetLength(1)];
+        for (int i = 0; i < ints.GetLength(0); i++)
+        {
+            for (int j = 0; j < ints.GetLength(1); j++)
+                ints[i, j] = checked((int)(scores[i, j] * d));
+        }
+
+        return ints;
+    }
+
+    private void RequireInteger()
+    {
+        if (IsFractional)
+            throw new InvalidOperationException($"The matrix {Name} has fractional scores (denominator {Denominator}): use GetValue / TryGetValue, or the aligners, which score it exactly.");
+    }
+
     /// <summary>Looks up the score of an aligned pair; false when either symbol is not in <see cref="Alphabet"/>.</summary>
+    /// <exception cref="InvalidOperationException">The matrix is fractional (<see cref="IsFractional"/>): use <see cref="TryGetValue"/>.</exception>
     public bool TryGetScore(char a, char b, out int score)
     {
+        RequireInteger();
         score = 0;
         a = char.ToUpperInvariant(a);
         b = char.ToUpperInvariant(b);
@@ -466,6 +517,26 @@ public sealed partial class SubstitutionMatrix
         score = _scores[_index[a], _index[b]];
         return true;
     }
+
+    /// <summary>The real score of an aligned pair (exact for a fractional matrix, the integer for an integer one); false when either symbol is not in <see cref="Alphabet"/>.</summary>
+    public bool TryGetValue(char a, char b, out decimal value)
+    {
+        value = 0;
+        a = char.ToUpperInvariant(a);
+        b = char.ToUpperInvariant(b);
+        if (a >= 128 || b >= 128 || _index[a] < 0 || _index[b] < 0)
+            return false;
+        value = (decimal)_scores[_index[a], _index[b]] / Denominator;
+        return true;
+    }
+
+    /// <summary>The real score of an aligned pair (<see cref="TryGetValue"/>).</summary>
+    /// <exception cref="ArgumentException">A symbol is not in <see cref="Alphabet"/>.</exception>
+    public decimal GetValue(char a, char b) =>
+        TryGetValue(a, b, out decimal v) ? v : throw new ArgumentException($"Symbol pair '{a}','{b}' is not in matrix {Name} ({Alphabet}).");
+
+    /// <summary>True when the pair scores above zero (a "similar" pair, <c>score &gt; 0</c> of the statistics and the report marks); false when it is not positive or a symbol is not in <see cref="Alphabet"/>. Works for fractional matrices.</summary>
+    public bool IsPositive(char a, char b) => TryGetValue(a, b, out decimal v) && v > 0;
 
     /// <summary>True when <paramref name="symbol"/> (case-insensitive) is in <see cref="Alphabet"/>.</summary>
     public bool Contains(char symbol)
@@ -479,6 +550,7 @@ public sealed partial class SubstitutionMatrix
     {
         get
         {
+            RequireInteger();
             int max = 0;
             foreach (int v in _scores)
                 max = Math.Max(max, Math.Abs(v));
@@ -490,7 +562,30 @@ public sealed partial class SubstitutionMatrix
     public int IndexOf(char upperSymbol) => upperSymbol < 128 ? _index[upperSymbol] : -1;
 
     /// <summary>Raw cell by row/column index (see <see cref="IndexOf"/>).</summary>
-    public int ScoreAt(int row, int column) => _scores[row, column];
+    /// <exception cref="InvalidOperationException">The matrix is fractional: use <see cref="ScaledScoreAt"/> / <see cref="ValueAt"/>.</exception>
+    public int ScoreAt(int row, int column)
+    {
+        RequireInteger();
+        return _scores[row, column];
+    }
+
+    /// <summary>The cell in units of 1 / <see cref="Denominator"/> (the stored integer; equals <see cref="ScoreAt"/> for an integer matrix).</summary>
+    public int ScaledScoreAt(int row, int column) => _scores[row, column];
+
+    /// <summary>The real score of a cell by row / column index.</summary>
+    public decimal ValueAt(int row, int column) => (decimal)_scores[row, column] / Denominator;
+
+    /// <summary>Largest absolute real score of the matrix (also for a fractional matrix).</summary>
+    public decimal MaxAbsValue
+    {
+        get
+        {
+            int max = 0;
+            foreach (int v in _scores)
+                max = Math.Max(max, Math.Abs(v));
+            return (decimal)max / Denominator;
+        }
+    }
 
     /// <summary>Score of an aligned pair.</summary>
     /// <exception cref="ArgumentException">A symbol is not in <see cref="Alphabet"/>.</exception>

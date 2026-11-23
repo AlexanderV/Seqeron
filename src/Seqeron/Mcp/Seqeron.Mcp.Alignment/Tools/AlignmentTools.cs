@@ -205,7 +205,7 @@ public partial class AlignmentTools
     }
 
     private const string MatrixParamDescription =
-        "Optional substitution matrix: any built-in matrix by EMBOSS or NCBI name - BLOSUM62, PAM250, EBLOSUM30 ... EBLOSUM90, EPAM10 ... EPAM500 (protein) or EDNAFULL, EDNAMAT, EDNASIMPLE, ENUC.4.4 (IUPAC DNA). When given, match/mismatch are ignored, residues are scored by the published table (any protein or IUPAC symbol of the matrix; case-insensitive) and gapOpen/gapExtend may be fractional (the EMBOSS needle/water models: gapOpen = -(G - E), gapExtend = -E for -gapopen G -gapextend E). The result then also carries the real-valued exactScore.";
+        "Optional substitution matrix: any built-in matrix by EMBOSS, NCBI or Biopython name - BLOSUM62, PAM250, EBLOSUM30 ... EBLOSUM90, EPAM10 ... EPAM500, BLASTP (BLOSUM62 with the residues U = selenocysteine, O = pyrrolysine and J = leucine / isoleucine, as blastp scores them), GONNET1992, JONES, DAYHOFF, MDM78, BENNER6 / 22 / 74, JOHNSON, RISLER, GENETIC, FENG, LEVIN, MCLACHLAN, RAO, STR (protein; the fractional ones are scored exactly) or EDNAFULL, EDNAMAT, EDNASIMPLE, ENUC.4.4, BLASTN, MEGABLAST, HOXD70, TRANS (IUPAC DNA); or THE TEXT of a matrix instead of a name: several lines in the NCBI / EMBOSS / Biopython data-file format (a header line of symbols, then one row per symbol: the symbol and its scores; # lines are comments; scores may be decimals). When given, match/mismatch are ignored, residues are scored by the published table (any protein or IUPAC symbol of the matrix; case-insensitive) and gapOpen/gapExtend may be fractional (the EMBOSS needle/water models: gapOpen = -(G - E), gapExtend = -E for -gapopen G -gapextend E). The result then also carries the real-valued exactScore.";
 
     /// <summary>
     /// The pairwise tools DELEGATE to the library, whose contract (F39) accepts an empty sequence (the all-gap alignment of the other sequence;
@@ -241,9 +241,12 @@ public partial class AlignmentTools
     {
         if (string.IsNullOrWhiteSpace(name))
             return null;
+        // R14-8: a text with a line break is the matrix itself (NCBI / EMBOSS / Biopython format), not a name
+        if (name.Contains('\n') || name.Contains('\r'))
+            return global::Seqeron.Genomics.Infrastructure.SubstitutionMatrix.Parse(name, "USER");
         return global::Seqeron.Genomics.Infrastructure.SubstitutionMatrix.TryGet(name, out var m)
             ? m
-            : throw new ArgumentException($"Unknown matrix '{name}'. Supported: the EMBOSS data matrices (EBLOSUM30 ... EBLOSUM90, EBLOSUM62-12, EBLOSUMN, EPAM10 ... EPAM500, EDNAFULL, EDNAMAT, EDNASIMPLE, ENUC.4.4) and their NCBI names (BLOSUM62, PAM250, BLOSUM45, PAM30, NUC.4.4, ...).", nameof(name));
+            : throw new ArgumentException($"Unknown matrix '{name}'. Supported: the EMBOSS data matrices (EBLOSUM30 ... EBLOSUM90, EBLOSUM62-12, EBLOSUMN, EPAM10 ... EPAM500, EDNAFULL, EDNAMAT, EDNASIMPLE, ENUC.4.4) and their NCBI names (BLOSUM62, PAM250, BLOSUM45, PAM30, NUC.4.4, ...), the Biopython matrices BLASTN, BLASTP, FENG, HOXD70, LEVIN, MCLACHLAN, MEGABLAST, RAO, STR, TRANS and the fractional BENNER6 / 22 / 74, DAYHOFF, GENETIC, GONNET1992, JOHNSON, JONES, MDM78, RISLER, or the text of a matrix (several lines).", nameof(name));
     }
 
     [McpServerTool(Name = "global_align_affine", Title = "Pairwise — Global Alignment, Affine Gaps (Gotoh)", ReadOnly = true)]

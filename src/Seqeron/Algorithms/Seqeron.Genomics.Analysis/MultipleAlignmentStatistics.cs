@@ -351,7 +351,7 @@ public static partial class MultipleAlignmentStatistics
             char r = char.ToUpperInvariant(reference[i]);
             if (r == s)
                 ident++;
-            else if (matrix.TryGetScore(r, s, out int score) && score > 0)
+            else if (matrix.IsPositive(r, s))
                 sim++;
             else
                 diff++;
