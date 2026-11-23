@@ -97,3 +97,5 @@ LRS values (ATCGATCGA, AAAAAAAAAA, ATATATA, ACGT) all match. ✓
 
 - **Audit r1 (A1-21):** `FindPalindromes(string, …)` overload (canonical raw-string `RepeatFinder`, only A/C/G/T pair); 861-row ambiguous oracle (B09.md F50).
 - **Audit r3 (A3-13, F139):** `FindPalindromes` vs EMBOSS `palindrome -gaplimit 0` compared on 330 sequences: per-centre longest = EMBOSS hit set; nested palindromes are extra (documented).
+
+- **Audit R14-4b (F292):** `FindRepeats` / `FindMaximalRepeats` (string and both-strand variants too) refuse an output larger than `RepeatOutputLimits` (default 512 MB) with the typed `RepeatOutputLimitException` before anything is materialised; MCP `find_repeats` `maxOutputMegabytes`; poly-A 20 000 refused instead of 30 s / 1.92 GB.

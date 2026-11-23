@@ -46,6 +46,7 @@ supermaximal repeats `find_supermaximal_repeats`.
 | `minLength` | integer | Yes | Minimum repeat length (>= 1). |
 | `maximalOnly` | boolean | No | Report only maximal repeats (Gusfield 1997 sec. 7.12; default false = every repeated substring). (default: false) |
 | `bothStrands` | boolean | No | Search both strands: classes of a string and its reverse complement (MUMmer repeat-match default). Default false = forward strand only. (default: false) |
+| `maxOutputMegabytes` | integer | No | Limit of the output in megabytes (default 512; 0 = no limit): the size of the result (label characters, occurrences, repeats) is computed from the suffix tree before anything is built, and a larger one is REFUSED with the sizes in the message (every repeated substring of a low-complexity sequence is quadratic: poly-A of length 20 000 is 19 998 repeats, 200 M occurrences, 1.9 GB; 50 000 about 12 GB). Raise minLength, set maximalOnly or raise this limit. |
 
 ## Output Schema
 
@@ -60,6 +61,7 @@ supermaximal repeats `find_supermaximal_repeats`.
 | 1001 | Sequence cannot be null or empty |
 | 1001 | Invalid DNA sequence |
 | 1002 | Minimum repeat length must be at least 1 |
+| 1003 | The repeats of this sequence would be N substrings with M occurrences and C characters (about X MB), which exceeds the limit of L MB (RepeatOutputLimits): raise minLength, ask for the maximal repeats only, or raise maxOutputMegabytes (0 = no limit) |
 
 ## Examples
 

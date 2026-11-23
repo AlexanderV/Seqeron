@@ -181,3 +181,5 @@
 ## 2026-11 audit round 3 (A3-13, B09 F139): `FindPalindromes` vs EMBOSS palindrome
 
 See the GENOMIC-COMMON-001 Evidence file section "EMBOSS palindrome vs `GenomicAnalyzer.FindPalindromes`": per-centre longest palindromes of `FindPalindromes(2m, 2M)` equal `palindrome -gaplimit 0 -nummismatches 0` on 330 / 330 sequences; the facade additionally lists nested palindromes; gap / mismatch-tolerant inverted repeats are the B04 `RepeatFinder` methods.
+
+**Audit R14-4b (B09 F292).** Measured: `FindRepeats(poly-A(20 000), 1)` 30.5 s / 1.92 GB for 19 999 repeats with 200 009 999 occurrences (n(n+1)/2 - 1: A^k, k = 1 .. n-1, occurs n - k + 1 times; Gusfield 1997 §7.1: the occurrences of a locus are the leaves below its node); the maximal repeats of poly-A are the same set (the text start is its own left context, Gusfield §7.12.1). With the guard the call is refused in under a second from the tree's leaf counts and label lengths.
