@@ -353,6 +353,60 @@ public class MappedFileRegistryTests
     }
 
     [Test]
+    public void TwoMappingsOfOneFile_AreOneFileInTheList()
+    {
+        RequireChecked();
+        string path = RankFile(out DifferenceCover cover, out long n);
+        int before = MappedFileRegistry.Count;
+        using RankTable first = RankTable.Open(path, cover, n);
+        using RankTable second = RankTable.Open(path, cover, n);
+        Assert.That(MappedFileRegistry.Count, Is.EqualTo(before + 1), "the list holds files, not mappings");
+    }
+
+    [Test]
+    public void ARelativeNameAndTheAbsoluteNameOfAFile_AreTheSameFile()
+    {
+        RequireChecked();
+        string path = RankFile(out DifferenceCover cover, out long n);
+        string relative = Path.GetRelativePath(Directory.GetCurrentDirectory(), path);
+        Assert.That(Path.IsPathRooted(relative), Is.False, "the temporary directory and the working directory share a root");
+        using (RankTable.Open(relative, cover, n))
+            Assert.Throws<EsaMemoryViolationException>(() => new CountedFile(path, FileMode.Create, FileAccess.ReadWrite), "mapped by its relative name, created by its absolute name");
+        using (RankTable.Open(path, cover, n))
+            Assert.Throws<EsaMemoryViolationException>(() => new CountedFile(relative, FileMode.Create, FileAccess.ReadWrite), "mapped by its absolute name, created by its relative name");
+    }
+
+    [Test]
+    public void ANameThatWasNeverListed_IsTakenOffWithoutAnError_AndLeavesTheListAsItWas()
+    {
+        RequireChecked();
+        string path = RankFile(out DifferenceCover cover, out long n);
+        using RankTable table = RankTable.Open(path, cover, n);
+        int before = MappedFileRegistry.Count;
+        System.Reflection.MethodInfo unmap = typeof(MappedFileRegistry).GetMethod("Unmap", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!;     // the list exists in the checked build only
+        Assert.DoesNotThrow(() => unmap.Invoke(null, new object[] { Path.Combine(_dir.File("never"), "listed") }));
+        Assert.That(MappedFileRegistry.Count, Is.EqualTo(before));
+        Assert.Throws<EsaMemoryViolationException>(() => new CountedFile(path, FileMode.Create, FileAccess.ReadWrite), "the file that is listed is still listed");
+    }
+
+    [Test]
+    public void TwoNamesThatDifferInCaseOnly_AreTwoFiles_WhereTheFileSystemSaysSo()
+    {
+        RequireChecked();
+        string upper = _dir.File("Ranks.bin"), lower = _dir.File("ranks.bin");
+        string path = RankFile(out DifferenceCover cover, out long n);
+        File.Copy(path, upper);
+        if (File.Exists(lower)) Assert.Ignore("the file system does not tell 'Ranks.bin' from 'ranks.bin'");
+        File.Copy(path, lower);
+        using (RankTable.Open(upper, cover, n))
+        {
+            using var created = new CountedFile(lower, FileMode.Create, FileAccess.ReadWrite);
+            Assert.That(created.Length, Is.Zero, "the other file is not the one that is mapped");
+            Assert.That(new FileInfo(upper).Length, Is.Not.Zero, "and the one that is mapped is as it was");
+        }
+    }
+
+    [Test]
     public void AReaderOverMemory_AndAFailedOpen_ListNothing()
     {
         RequireChecked();

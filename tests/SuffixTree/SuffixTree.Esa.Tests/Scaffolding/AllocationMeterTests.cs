@@ -52,6 +52,33 @@ public class AllocationMeterTests
     }
 
     [Test]
+    public void ARegionThatTheCodeEnds_IsReported_AlthoughNoCollectionRan()
+    {
+        AllocationReading reading = AllocationMeter.Measure(() => GC.EndNoGCRegion());
+        Assert.That(reading.GcFree, Is.False, "without the region a collection may run in the rest of the window");
+    }
+
+    [Test]
+    public void ACollectionThatIsFollowedByANewRegion_IsReported_AlthoughTheModeIsTheRegionAgain()
+    {
+        AllocationReading reading = AllocationMeter.Measure(() =>
+        {
+            GC.Collect();
+            Assert.That(GC.TryStartNoGCRegion(1 << 20), Is.True, "the code opens a region of its own after the collection");
+        });
+        Assert.That(reading.GcFree, Is.False, "the mode is the no-GC region at the end, but a collection ran inside the window");
+        Assert.That(System.Runtime.GCSettings.LatencyMode, Is.Not.EqualTo(System.Runtime.GCLatencyMode.NoGCRegion), "the meter ended the region it opened, and the one the code opened is gone with it");
+    }
+
+    [Test]
+    public void SeveralMegabytesOfLargeObjects_FitTheRegion()
+    {
+        AllocationReading reading = AllocationMeter.Measure(() => s_sink = new byte[8_000_000]);
+        Assert.That(reading.Bytes, Is.InRange(8_000_000, 8_000_000 + Slack + ArrayHeaderBytes));
+        Assert.That(reading.GcFree, Is.True, "8 MB of large objects are inside the 32 MB that the region reserves for them");
+    }
+
+    [Test]
     public void TheRegionIsLeft_AfterTheWindow_AlsoWhenTheCodeThrows()
     {
         Assert.Throws<InvalidOperationException>(() => AllocationMeter.Measure(() => throw new InvalidOperationException("the code under test failed")));
