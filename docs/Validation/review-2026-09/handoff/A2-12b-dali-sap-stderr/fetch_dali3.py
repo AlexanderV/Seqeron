@@ -110,6 +110,12 @@ for f in got:
                                                'echo "RC: $rc" >> $L; echo "--- STDOUT" >> $L; cat /tmp/dali_out_$$.txt >> $L; echo "--- STDERR" >> $L; cat /tmp/dali_err_$$.txt >> $L\n'
                                                'cat /tmp/dali_out_$$.txt; cat /tmp/dali_err_$$.txt >&2; rm -f /tmp/dali_out_$$.txt /tmp/dali_err_$$.txt; exit $rc\n')
         os.chmod(out + '/DaliLite.wrap', 0o755)
+        # Run 5 of the package (s4 returned): DaliLite 3.3 has its installation directory compiled into the program / scripts: every call runs
+        # `perl /data/backup/zope_data/dali_server/DaliLite_3.3//Bin/forwarder.pl ...` and stops with "Can't open perl script" (354 calls). The program is made to find itself at the path it expects.
+        root = os.path.dirname(os.path.dirname(exe))
+        os.makedirs('/data/backup/zope_data/dali_server', exist_ok=True)
+        if not os.path.exists('/data/backup/zope_data/dali_server/DaliLite_3.3'): os.symlink(root, '/data/backup/zope_data/dali_server/DaliLite_3.3')
+        print('INSTALL PATH', '/data/backup/zope_data/dali_server/DaliLite_3.3', '->', root)
         open(out + '/BUILD_OK', 'w').write(exe + '\n')
         print('BUILD_OK', exe)
         break
