@@ -232,5 +232,6 @@ What the code promises, what it does not, and where each statement is pinned. "A
 ---
 
 Samples compiled and run on commit 04620cd5 (the head of branch `claude/stoic-maxwell-0olr2z` when the samples were run; `src/` and `apps/` are those of `12495c3e`), .NET 10.0.403, x86-64 Linux: the six `csharp` blocks of this file were extracted and run verbatim, in order, against containers built with the Bench command.
-Tests: `tests/SuffixTree/SuffixTree.Esa.Tests` (default set 4,945 passed + 37 skipped in 14 min 31 s, Release; categories Exhaustive, Fuzz, Vectors and the checked build `-p:EsaBounds=true` are run by hand, see `docs/refactoring/suffix-tree-upgrade/PROGRESS-S1.md`).
+The second sample (the walk) was changed by work package 1b.12 (its loop advances one variable) and compiled and run again on commit `08c904cd`, same runtime and machine: its comments (count 2, `GetChildren` 6 children of the root, edge symbol `a`, `abra` explicit, the link of `abra` with count 2) are what it prints.
+Tests: `tests/SuffixTree/SuffixTree.Esa.Tests` (default set 5,051 passed + 37 skipped in 13 min 35 s, Release; categories Exhaustive, Fuzz, Vectors and the checked build `-p:EsaBounds=true` are run by hand, see `docs/refactoring/suffix-tree-upgrade/PROGRESS-S1.md`).
 Design and evidence: `docs/refactoring/suffix-tree-upgrade/` (`PLAN.md`, `BENCHMARK.md`, `adr/ADR-001` to `ADR-004`).
