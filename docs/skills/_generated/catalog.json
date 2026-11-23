@@ -105,6 +105,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.ClustalWProfile.cs"
   },
   {
+    "tool": "codon_aligner",
+    "server": "Alignment",
+    "methodId": "CodonAligner.Align",
+    "docPath": "docs/mcp/tools/alignment/codon_aligner.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/CodonAligner.cs"
+  },
+  {
     "tool": "compute_consensus",
     "server": "Alignment",
     "methodId": "SequenceAssembler.ComputeConsensus",
@@ -411,6 +418,13 @@
     "methodId": "SequenceAligner.MultipleAlignTCoffeeProgram",
     "docPath": "docs/mcp/tools/alignment/multiple_align_tcoffee.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.TCoffeeLibrary.cs#L446"
+  },
+  {
+    "tool": "multiple_seq_alignment",
+    "server": "Alignment",
+    "methodId": "MultipleSeqAlignment",
+    "docPath": "docs/mcp/tools/alignment/multiple_seq_alignment.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/MultipleSeqAlignment.cs"
   },
   {
     "tool": "muscle_msa_command",

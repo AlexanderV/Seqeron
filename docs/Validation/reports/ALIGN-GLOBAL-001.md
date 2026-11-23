@@ -131,3 +131,6 @@ Scalar `ScoringMatrix` and `MatrixScoring` now share one contract: gap scores <=
 - **Audit R14-11 (F304):** the parasail 1.3.4 score API (`ParasailAligner`, `ParasailProfile`, MCP `parasail_score`): score-only with end coordinates in O(min(m, n)) memory, statistics without a traceback, tables, last row / column, one query against many references, for nw / sw / 11 sg variants; 3 120 parasail results equal.
 
 - **Audit R14-12 (F305):** banded (Ukkonen / Chao-Pearson-Miller) and X-drop alignment: `BandedAlign`, `GlobalAlign[Affine]Banded`, `LocalAlign[Affine]Banded`, `SemiGlobalAlign[Affine]Banded`, `GlobalAlignBandedExact` (proven optimum), MCP `banded_align`; equal to the full programs when the full alignment lies in the band; 30 000 x 30 000 affine global 98 s -> 0.9 s.
+
+- **Audit R14-10b (F307):** `PairwiseAligner` Score / Align with gap-score functions (Waterman-Smith-Beyer) and gap scores above zero, `CodonAligner`, `MultipleSeqAlignment` / `SeqRecord`, MCP `codon_aligner` / `multiple_seq_alignment` / `gapFunctionsJson`; 1 501 + 1 500 + 1 200 Biopython 1.88 oracle cases (7 030 operations) equal; 100 inputs on which the reference reads uninitialised memory are refused.
+

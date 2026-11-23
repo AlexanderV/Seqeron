@@ -21,6 +21,7 @@
 | `clustalw_profile_align` | Alignment | `SequenceAligner.AlignClustalWProfiles` | [doc](../../../../docs/mcp/tools/alignment/clustalw_profile_align.md) |
 | `clustalw_quick_pairwise_align` | Alignment | `SequenceAligner.ClustalWQuickPairwiseAlign` | [doc](../../../../docs/mcp/tools/alignment/clustalw_quick_pairwise_align.md) |
 | `clustalw_sequences_to_profile` | Alignment | `SequenceAligner.AlignClustalWSequencesToProfile` | [doc](../../../../docs/mcp/tools/alignment/clustalw_sequences_to_profile.md) |
+| `codon_aligner` | Alignment | `CodonAligner.Align` | [doc](../../../../docs/mcp/tools/alignment/codon_aligner.md) |
 | `compute_consensus` | Alignment | `SequenceAssembler.ComputeConsensus` | [doc](../../../../docs/mcp/tools/alignment/compute_consensus.md) |
 | `damerau_alignment` | Alignment | `ApproximateMatcher.GetDamerauLevenshteinAlignment` | [doc](../../../../docs/mcp/tools/alignment/damerau_alignment.md) |
 | `damerau_levenshtein_distance` | Alignment | `ApproximateMatcher.DamerauLevenshteinDistance` | [doc](../../../../docs/mcp/tools/alignment/damerau_levenshtein_distance.md) |
@@ -65,6 +66,7 @@
 | `multiple_align_probcons` | Alignment | `SequenceAligner.ProbConsRun` | [doc](../../../../docs/mcp/tools/alignment/multiple_align_probcons.md) |
 | `multiple_align_progressive` | Alignment | `SequenceAligner.MultipleAlignProgressive` | [doc](../../../../docs/mcp/tools/alignment/multiple_align_progressive.md) |
 | `multiple_align_tcoffee` | Alignment | `SequenceAligner.MultipleAlignTCoffeeProgram` | [doc](../../../../docs/mcp/tools/alignment/multiple_align_tcoffee.md) |
+| `multiple_seq_alignment` | Alignment | `MultipleSeqAlignment` | [doc](../../../../docs/mcp/tools/alignment/multiple_seq_alignment.md) |
 | `muscle_msa_command` | Alignment | `SequenceAligner.MuscleProfileAlign` | [doc](../../../../docs/mcp/tools/alignment/muscle_msa_command.md) |
 | `needle_align` | Alignment | `SequenceAligner.NeedleAlign` | [doc](../../../../docs/mcp/tools/alignment/needle_align.md) |
 | `needleall_align` | Alignment | `SequenceAligner.NeedleAll` | [doc](../../../../docs/mcp/tools/alignment/needleall_align.md) |

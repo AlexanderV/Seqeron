@@ -49,6 +49,10 @@
         "type": "string",
         "description": "Gap scores: a JSON object of Biopython property names to numbers (see the description)."
       },
+      "gapFunctionsJson": {
+        "type": "string",
+        "description": "Gap-score functions of (position, length) (Biopython's Waterman-Smith-Beyer algorithm): a JSON object gap_score / insertion_score / deletion_score -> {\"kind\": lin | log | sq | pos | step | tab | zero | bonus, \"p\": [a, b, c]}: lin -(a + b*length), log -(a + b*ln(length + 1)), sq -(a + b*length^2), pos -(a + b*position + c*length), step -a up to c positions and -b beyond, tab -(((position*7 + length*3) mod b)*0.5 + a), zero 0, bonus a*length - b."
+      },
       "strand": {
         "type": "string",
         "description": "+ (default) or -: align sequenceA with the reverse complement of sequenceB.",
@@ -110,11 +114,11 @@
     },
     {
       "code": 1002,
-      "message": "Unknown mode / strand / preset, gap-score property, or a gap score above zero"
+      "message": "Unknown mode / strand / preset, gap-score property, or an unknown gap-function family (gapFunctionsJson)"
     },
     {
       "code": 1003,
-      "message": "Gap-score functions are not available"
+      "message": "The reference raises RuntimeError on this input (a local alignment whose traceback meets a cell without a move; reproduced with the message of Biopython)"
     }
   ],
   "examples": [

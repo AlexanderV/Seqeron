@@ -2,7 +2,7 @@
 
 MCP server — **Pairwise and multiple sequence alignment, overlap/assembly and approximate matching.**
 
-Exposes **89 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+Exposes **91 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
 MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test, with a
 per-tool doc under [`docs/mcp/tools/alignment/`](../../../../docs/mcp/tools/alignment). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
@@ -56,6 +56,8 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `pairwise_aligner` | Bio.Align.PairwiseAligner of Biopython 1.88: global / local / **fogsaa**, the **wildcard** letter, matrix or scalar scoring, the twelve gap scores by name, strand `-`; score, algorithm, warnings and every optimal alignment. |
 | `alignment_counts` | Bio.Align `alignment.counts(scoring)` of an alignment of any number of sequences: identities, mismatches, positives, gaps by side / direction / opened / extended and the scores. |
 | `alignment_operation` | The operations of Bio.Align's Alignment object on an alignment given by its block coordinates: shape, rows, slices `[rows, cols]`, aligned, indices, inverse_indices, frequencies, substitutions, reverse_complement, sort, add, map, mapall, from_same_reference, parse_printed, text. |
+| `codon_aligner` | Bio.Align.CodonAligner of Biopython 1.88: a protein aligned to its nucleotide sequence over the three translated frames with frame-shift scores (-2, -1, +1, +2); score and every alignment as vertices (refuses the inputs on which Biopython's iterator reads uninitialised memory). |
+| `multiple_seq_alignment` | The legacy Bio.Align.MultipleSeqAlignment of Biopython 1.88: rows / columns / slices / add / sort / substitutions / alignment / append / extend / delete and the column annotations on an alignment of records. |
 | `parasail_score` | parasail 1.3.4 score API: optimal score with end coordinates, statistics (matches / similar / length) without a traceback, score tables and the last row / column, for nw / sw and every sg variant with affine gaps; one query against many references (profile reuse, optional parallel); O(min(m, n)) memory. |
 | `banded_align` | Banded (Ukkonen / Chao-Pearson-Miller) and X-drop alignment: global with an exact doubling mode and a proof, local and semi-global by diagonal range, linear or affine gaps, scalar or matrix scoring; O(length1 x band) time and memory. |
 | `local_align_co_optimal` | ALL distinct co-optimal local alignments (Biopython `PairwiseAligner(mode='local').align` set), capped at `maxAlignments`; linear or `affine` gaps, scalar or `matrix` scoring. |

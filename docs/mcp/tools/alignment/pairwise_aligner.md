@@ -34,6 +34,7 @@ Bio.Align.PairwiseAligner of Biopython 1.88 on two sequences: the optimal score,
 | `wildcard` | string | No | A single wildcard letter that scores 0 against every letter (scalar scoring only). |
 | `scoring` | string | No | Scoring preset: blastn, megablast or blastp (matrix and gap scores of Bio.Align); individual settings below override it. |
 | `gapScoresJson` | string | No | Gap scores: a JSON object of Biopython property names to numbers (see the description). |
+| `gapFunctionsJson` | string | No | Gap-score functions of (position, length) (Biopython's Waterman-Smith-Beyer algorithm): a JSON object gap_score / insertion_score / deletion_score -> {"kind": lin \| log \| sq \| pos \| step \| tab \| zero \| bonus, "p": [a, b, c]}: lin -(a + b*length), log -(a + b*ln(length + 1)), sq -(a + b*length^2), pos -(a + b*position + c*length), step -a up to c positions and -b beyond, tab -(((position*7 + length*3) mod b)*0.5 + a), zero 0, bonus a*length - b. |
 | `strand` | string | No | + (default) or -: align sequenceA with the reverse complement of sequenceB. |
 | `maxAlignments` | integer | No | Return at most this many alignments (default 100; the number of optimal alignments can be exponential). |
 | `scoreOnly` | boolean | No | true: only the score (no alignments; memory O(n) for large inputs). (default: false) |
@@ -53,8 +54,8 @@ Bio.Align.PairwiseAligner of Biopython 1.88 on two sequences: the optimal score,
 | Code | Message |
 |------|---------|
 | 1001 | Sequence is required |
-| 1002 | Unknown mode / strand / preset, gap-score property, or a gap score above zero |
-| 1003 | Gap-score functions are not available |
+| 1002 | Unknown mode / strand / preset, gap-score property, or an unknown gap-function family (gapFunctionsJson) |
+| 1003 | The reference raises RuntimeError on this input (a local alignment whose traceback meets a cell without a move; reproduced with the message of Biopython) |
 
 ## Examples
 

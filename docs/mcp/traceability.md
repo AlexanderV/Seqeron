@@ -460,6 +460,8 @@
 | pairwise_aligner | Alignment | PairwiseAligner.Align | Alignment/PairwiseAligner.Align.cs | 0/0 | – | – | Build-Ready |
 | alignment_counts | Alignment | AlignmentOperations.Counts | Alignment/AlignmentOperations.Counts.cs | 0/0 | – | – | Build-Ready |
 | alignment_operation | Alignment | AlignmentOperations | Alignment/AlignmentOperations.cs | 0/0 | – | – | Build-Ready |
+| codon_aligner | Alignment | CodonAligner.Align | Alignment/CodonAligner.cs | 0/0 | – | – | Build-Ready |
+| multiple_seq_alignment | Alignment | MultipleSeqAlignment | Alignment/MultipleSeqAlignment.cs | 0/0 | – | – | Build-Ready |
 | parasail_score | Alignment | ParasailAligner.Run | Alignment/ParasailAligner.cs | 0/0 | – | – | Build-Ready |
 | banded_align | Alignment | SequenceAligner.BandedAlign | Alignment/SequenceAligner.Banded.cs | 0/0 | – | – | Build-Ready |
 | merge_contigs | Alignment | SequenceAssembler.MergeContigs | Alignment/SequenceAssembler.cs#L450 | 0/0 | – | – | Build-Ready |

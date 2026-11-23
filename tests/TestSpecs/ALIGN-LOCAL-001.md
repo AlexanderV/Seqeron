@@ -294,3 +294,8 @@ Matrix-scored `LocalAlign`/`LocalAlignAffine` (BLOSUM62/PAM250/EDNAFULL, fractio
 ## WP67 (F306): EMBOSS PROSITE programs and the regular expression engine
 
 `EmbossPrograms_Oracle_Tests.Program_EqualsTheInstalledProgram_AllRows` also runs the oracles of patmatmotifs, patmatdb and prosextract (300 rows each; standard output, error stream, exit status and every written file byte for byte; the data of a row are files of the row, in the work directory or in the data directory `edata/`; rows on which the reference dies by a signal are refused). `EmbossProsite_Returned_Oracle_Tests` locks the 85 runs of the user-run Docker package `handoff/WP62-patmatmotifs-prosite` on the real PROSITE release 2026_04 (85 / 85 equal). `EmbossPcre_Oracle_Tests` locks the regular expression engine of the library (PCRE 7 of `libepcre`): 41 670 rows of (expression, subject, first match or compile error with its message and offset) from `scripts/alignment/generate_emboss_pcre_oracle.py`. MCP: `EmbossProgramTools4Tests` (patmatmotifs, patmatdb, prosextract: the text of the installed program for the example of each tool document; the refusals).
+
+## Audit R14-10b (B09 F307): local alignment with gap scores above zero and gap-score functions
+
+The local variants of `PairwiseAligner_GapFunctions_Oracle_Tests` (Waterman-Smith-Beyer local, Gotoh local with floors, Smith-Waterman with a positive gap score; 1 501 rows in all, more than 250 of them local with a gap score above zero): the set of alignments equals the reference including the end points it fails to clear (suboptimal alignments listed, the optimum missed); the initial end-point cursor of the traceback is `(nA, nB)` as in the C code (a cursor at the origin changed 5 of the 1 501 rows).
+

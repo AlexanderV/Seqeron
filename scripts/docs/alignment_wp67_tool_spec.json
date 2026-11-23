@@ -1,0 +1,109 @@
+[
+ {
+  "name": "codon_aligner",
+  "short": "Bio.Align.CodonAligner of Biopython 1.88: a protein aligned to its nucleotide sequence over the three translated frames with frame-shift scores (-2, -1, +1, +2); score and every alignment as vertices (refuses the inputs on which Biopython's iterator reads uninitialised memory).",
+  "methodId": "CodonAligner.Align",
+  "sourceFile": "CodonAligner.cs",
+  "sourcePath": "Seqeron.Genomics.Alignment/CodonAligner.cs",
+  "algorithmDoc": "Alignment/Pairwise_Output_Formats_And_EMBOSS_Programs.md",
+  "oracleScript": "generate_codon_aligner_oracle.py",
+  "description": "Bio.Align.CodonAligner of Biopython 1.88: the optimal score and every alignment of a protein and its nucleotide sequence (DNA or RNA) over the three translated frames, with scores for the frame shifts -2 / -1 / +1 / +2; see the tool description in the code for the parameters.",
+  "output": {
+   "score": [
+    "number",
+    "The optimal score"
+   ],
+   "count": [
+    "integer",
+    "Number of alignments returned"
+   ],
+   "alignments": [
+    "array",
+    "coordinates: the vertices (target = residues, query = nucleotides) of every alignment"
+   ]
+  },
+  "errors": [
+   "A codon has a letter outside IUPAC (Biopython: TranslationError)",
+   "Unknown genetic code table, or a wildcard that is not a single character",
+   "The reference iterator reads memory its traceback never wrote on this input (InvalidOperationException; scoreOnly = true still gives the score)"
+  ],
+  "example": {
+   "title": "A frame shift between codon 7 and 8",
+   "prompt": "Align this protein to its nucleotide sequence allowing frame shifts.",
+   "input": {
+    "protein": "MLGSNESRVCPKLSPS",
+    "nucleotides": "ATGCTGGGCTCGAACGAGTCCGTGTATGCCCTAAGCTGAGCCCGTCG"
+   },
+   "output": {
+    "score": 13.0,
+    "count": 1,
+    "alignments": [
+     {
+      "coordinates": [
+       [
+        0,
+        7,
+        7,
+        16
+       ],
+       [
+        0,
+        21,
+        20,
+        47
+       ]
+      ]
+     }
+    ]
+   },
+   "note": "The query goes back by one nucleotide at the frame shift (21 -> 20): the codon of residue 8 overlaps the previous one by one nucleotide (Bio.Align doctest of CodonAligner.align)."
+  },
+  "after": "alignment_operation"
+ },
+ {
+  "name": "multiple_seq_alignment",
+  "short": "The legacy Bio.Align.MultipleSeqAlignment of Biopython 1.88: rows / columns / slices / add / sort / substitutions / alignment / append / extend / delete and the column annotations on an alignment of records.",
+  "methodId": "MultipleSeqAlignment",
+  "sourceFile": "MultipleSeqAlignment.cs",
+  "sourcePath": "Seqeron.Genomics.Alignment/MultipleSeqAlignment.cs",
+  "algorithmDoc": "Alignment/Pairwise_Output_Formats_And_EMBOSS_Programs.md",
+  "oracleScript": "generate_multiple_seq_alignment_oracle.py",
+  "description": "One operation of the legacy Bio.Align.MultipleSeqAlignment of Biopython 1.88 (summary, length, alignment_length, row, rows, row_columns, cell, column, slice, add, sort, substitutions, alignment, append, extend, delete_row, delete_rows, column_annotations, set_column_annotation) on an alignment of records; see the tool description in the code for the parameters.",
+  "output": {
+   "operation": [
+    "string",
+    "The operation"
+   ],
+   "resultJson": [
+    "string",
+    "The value as JSON: an alignment {records, annotations, column_annotations}, a record, a string, a number or a matrix {letters, values}"
+   ],
+   "text": [
+    "string",
+    "str(alignment) when the value is an alignment"
+   ]
+  },
+  "errors": [
+   "Sequences must all be the same length",
+   "list index out of range / index out of range (a row or a column that does not exist)",
+   "Any per-letter annotation should be a Python sequence (list, tuple or string) of the same length as the biological sequence, here N.",
+   "When adding two alignments they must have the same length (i.e. same number of rows)"
+  ],
+  "example": {
+   "title": "A sub-alignment of rows 1-4 and columns 3-5",
+   "prompt": "Take rows 1 to 4 and columns 3 to 5 of this alignment.",
+   "input": {
+    "operation": "slice",
+    "recordsJson": "[{\"id\": \"Alpha\", \"seq\": \"AAAACGT\"}, {\"id\": \"Beta\", \"seq\": \"AAA-CGT\"}, {\"id\": \"Gamma\", \"seq\": \"AAAAGGT\"}, {\"id\": \"Delta\", \"seq\": \"AAAACGT\"}, {\"id\": \"Epsilon\", \"seq\": \"AAA-GGT\"}]",
+    "rows": "1:5",
+    "columns": "3:6"
+   },
+   "output": {
+    "operation": "slice",
+    "text": "Alignment with 4 rows and 3 columns\n-CG Beta\nAGG Gamma\nACG Delta\n-GG Epsilon"
+   },
+   "note": "The doctest of MultipleSeqAlignment.__getitem__: align[1:5, 3:6]."
+  },
+  "after": "codon_aligner"
+ }
+]

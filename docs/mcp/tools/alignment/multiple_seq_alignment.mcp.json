@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "multiple_seq_alignment",
+  "serverName": "Alignment",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MultipleSeqAlignment",
+  "docRef": "Seqeron.Genomics.Alignment/MultipleSeqAlignment.cs",
+  "description": "One operation of the legacy Bio.Align.MultipleSeqAlignment of Biopython 1.88 on an alignment of records (rows of one length with identifier, name, description, annotations, per-letter annotations, cross-references; alignment annotations and per-column annotations): summary (str(alignment): at most 20 rows, 50 letters), length (the number of rows), alignment_length, row (alignment[i], negative from the end), rows (alignment[a:b:c]: a sub-alignment; the column annotations are kept when all rows are), row_columns (alignment[i, a:b:c]: the part of a row), cell (alignment[i, j]), column (alignment[a:b:c, j]: the letters of a column), slice (alignment[rows, columns]: a sub-alignment with sliced column annotations), add (alignment + otherJson: columns appended pairwise, common annotations kept, per-column annotations concatenated), sort (by id, length, sequence, description or gaps; reverse), substitutions (the weighted letter-pair counts: the 'weight' annotations multiply, gaps are skipped, the matrix is symmetric with the counts shared between both sides), alignment (the modern Alignment object: gap-free sequences and block coordinates; Biopython 1.88 empties the letter annotations of the source rows in this call, so the returned rows keep theirs and the source is not returned), append / extend (a record / records of the alignment length), delete_row / delete_rows, column_annotations (the restricted dictionary: set_column_annotation adds one entry of the length the dictionary was created with). Slices are Python slices ('1:3', ':', '::-1', '-2:'). Errors are Biopython's (Sequences must all be the same length; list index out of range; index out of range; the per-column and per-letter annotation messages). Feature objects of records and file output through AlignIO are not part of the tool (use write_alignment for the text formats). VERIFICATION: results and error messages equal to Biopython 1.88 on 7 030 operations of 1 200 recorded alignments (scripts/alignment/generate_multiple_seq_alignment_oracle.py).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "operation": {
+        "type": "string",
+        "description": "The operation: summary, length, alignment_length, row, rows, row_columns, cell, column, slice, add, sort, substitutions, alignment, append, extend, delete_row, delete_rows, column_annotations, set_column_annotation."
+      },
+      "recordsJson": {
+        "type": "string",
+        "description": "The rows as a JSON array of records {\"id\": ..., \"name\": ..., \"description\": ..., \"seq\": \"ACGT-\", \"annotations\": {...}, \"letter_annotations\": {\"key\": \"string or array, one entry per letter\"}, \"dbxrefs\": [...]}; only seq is required (id / name / description default to <unknown id> / <unknown name> / <unknown description>)."
+      },
+      "annotationsJson": {
+        "type": "string",
+        "description": "Annotations of the whole alignment (JSON object)."
+      },
+      "columnAnnotationsJson": {
+        "type": "string",
+        "description": "Per-column annotations (JSON object: key -> string or array with one entry per column)."
+      },
+      "row": {
+        "type": "integer",
+        "description": "Row index (row, row_columns, cell, delete_row); negative counts from the end.",
+        "default": 0
+      },
+      "rows": {
+        "type": "string",
+        "description": "Row slice 'a:b:c' (rows, column, slice, delete_rows; default ':')."
+      },
+      "columns": {
+        "type": "string",
+        "description": "Column slice 'a:b:c' (row_columns, slice; default ':')."
+      },
+      "column": {
+        "type": "integer",
+        "description": "Column index (cell, column); negative counts from the end.",
+        "default": 0
+      },
+      "otherJson": {
+        "type": "string",
+        "description": "add: the second alignment as a JSON object {\"records\": [...], \"annotations\": {...}, \"column_annotations\": {...}}."
+      },
+      "newRecordsJson": {
+        "type": "string",
+        "description": "append: one record (JSON object); extend: a JSON array of records."
+      },
+      "sortKey": {
+        "type": "string",
+        "description": "sort key: id (default), length, sequence, description or gaps.",
+        "default": "id"
+      },
+      "reverse": {
+        "type": "boolean",
+        "description": "sort: descending.",
+        "default": false
+      },
+      "annotationKey": {
+        "type": "string",
+        "description": "set_column_annotation: the key."
+      },
+      "annotationValueJson": {
+        "type": "string",
+        "description": "set_column_annotation: the value (JSON: a string or an array)."
+      }
+    },
+    "required": [
+      "operation",
+      "recordsJson"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "operation": {
+        "type": "string",
+        "description": "The operation"
+      },
+      "resultJson": {
+        "type": "string",
+        "description": "The value as JSON: an alignment {records, annotations, column_annotations}, a record, a string, a number or a matrix {letters, values}"
+      },
+      "text": {
+        "type": "string",
+        "description": "str(alignment) when the value is an alignment"
+      }
+    },
+    "required": [
+      "operation",
+      "resultJson",
+      "text"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Sequences must all be the same length"
+    },
+    {
+      "code": 1002,
+      "message": "list index out of range / index out of range (a row or a column that does not exist)"
+    },
+    {
+      "code": 1003,
+      "message": "Any per-letter annotation should be a Python sequence (list, tuple or string) of the same length as the biological sequence, here N."
+    },
+    {
+      "code": 1004,
+      "message": "When adding two alignments they must have the same length (i.e. same number of rows)"
+    }
+  ],
+  "examples": [
+    {
+      "name": "A sub-alignment of rows 1-4 and columns 3-5",
+      "input": {
+        "operation": "slice",
+        "recordsJson": "[{\"id\": \"Alpha\", \"seq\": \"AAAACGT\"}, {\"id\": \"Beta\", \"seq\": \"AAA-CGT\"}, {\"id\": \"Gamma\", \"seq\": \"AAAAGGT\"}, {\"id\": \"Delta\", \"seq\": \"AAAACGT\"}, {\"id\": \"Epsilon\", \"seq\": \"AAA-GGT\"}]",
+        "rows": "1:5",
+        "columns": "3:6"
+      },
+      "output": {
+        "operation": "slice",
+        "text": "Alignment with 4 rows and 3 columns\n-CG Beta\nAGG Gamma\nACG Delta\n-GG Epsilon"
+      }
+    }
+  ]
+}

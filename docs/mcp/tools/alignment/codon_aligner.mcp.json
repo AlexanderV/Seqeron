@@ -1,0 +1,145 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "codon_aligner",
+  "serverName": "Alignment",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "CodonAligner.Align",
+  "docRef": "Seqeron.Genomics.Alignment/CodonAligner.cs",
+  "description": "Bio.Align.CodonAligner of Biopython 1.88: aligns a nucleotide sequence to its protein by dynamic programming over the three translated frames of the nucleotide sequence (genetic code by NCBI table number; DNA or RNA, a codon with a letter outside IUPAC is an error, ambiguous codons translate to X). Every residue is aligned to one codon; between two codons the nucleotide sequence may advance by 1, 2, 4 or 5 instead of 3 (a frame shift) at frameshiftMinusTwoScore / MinusOne / PlusOne / PlusTwo (default -3 each, or all four with frameshiftScore); leading and trailing nucleotides are free; residues and translated codons score matchScore / mismatchScore (defaults 1 / 0), 0 against the wildcard letter (default X). Returns the optimal score and every alignment of it as the vertices (target = residue positions, query = nucleotide positions; a frame shift is two vertices at the same residue position, the query going back for -2 / -1 and skipping for +1 / +2). Biopython's path iterator reads memory its traceback never wrote when the optimal alignment skips leading residues (it then lists one-vertex alignments for ever, with a heap overflow): those inputs are refused with an error, as the score() is defined for all inputs (scoreOnly = true). VERIFICATION: score, aligned score and every alignment in the order of the iterator equal to Biopython 1.88 on 1 400 of 1 500 recorded inputs (the other 100 are the refused ones; scripts/alignment/generate_codon_aligner_oracle.py).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "protein": {
+        "type": "string",
+        "description": "The protein sequence (amino-acid letters)."
+      },
+      "nucleotides": {
+        "type": "string",
+        "description": "The nucleotide sequence (DNA or RNA)."
+      },
+      "tableNumber": {
+        "type": "integer",
+        "description": "NCBI genetic code table number (default 1, the standard code).",
+        "default": 1
+      },
+      "matchScore": {
+        "type": "number",
+        "description": "Score of a residue equal to the translated codon (default 1).",
+        "default": 1
+      },
+      "mismatchScore": {
+        "type": "number",
+        "description": "Score of a residue different from the translated codon (default 0).",
+        "default": 0
+      },
+      "wildcard": {
+        "type": "string",
+        "description": "A single wildcard letter that scores 0 against every letter (default X).",
+        "default": "X"
+      },
+      "frameshiftScore": {
+        "type": "number",
+        "description": "Score of all four frame shifts (default -3); the four below override it.",
+        "default": -3
+      },
+      "frameshiftMinusTwoScore": {
+        "type": "number",
+        "description": "Score of the shift -2 (the next codon overlaps the previous one by two nucleotides)."
+      },
+      "frameshiftMinusOneScore": {
+        "type": "number",
+        "description": "Score of the shift -1."
+      },
+      "frameshiftPlusOneScore": {
+        "type": "number",
+        "description": "Score of the shift +1 (one nucleotide is skipped between two codons)."
+      },
+      "frameshiftPlusTwoScore": {
+        "type": "number",
+        "description": "Score of the shift +2."
+      },
+      "maxAlignments": {
+        "type": "integer",
+        "description": "Return at most this many alignments (default 100).",
+        "default": 100
+      },
+      "scoreOnly": {
+        "type": "boolean",
+        "description": "true: only the score (defined for every input).",
+        "default": false
+      }
+    },
+    "required": [
+      "protein",
+      "nucleotides"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "score": {
+        "type": "number",
+        "description": "The optimal score"
+      },
+      "count": {
+        "type": "integer",
+        "description": "Number of alignments returned"
+      },
+      "alignments": {
+        "type": "array",
+        "description": "coordinates: the vertices (target = residues, query = nucleotides) of every alignment"
+      }
+    },
+    "required": [
+      "score",
+      "count",
+      "alignments"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "A codon has a letter outside IUPAC (Biopython: TranslationError)"
+    },
+    {
+      "code": 1002,
+      "message": "Unknown genetic code table, or a wildcard that is not a single character"
+    },
+    {
+      "code": 1003,
+      "message": "The reference iterator reads memory its traceback never wrote on this input (InvalidOperationException; scoreOnly = true still gives the score)"
+    }
+  ],
+  "examples": [
+    {
+      "name": "A frame shift between codon 7 and 8",
+      "input": {
+        "protein": "MLGSNESRVCPKLSPS",
+        "nucleotides": "ATGCTGGGCTCGAACGAGTCCGTGTATGCCCTAAGCTGAGCCCGTCG"
+      },
+      "output": {
+        "score": 13.0,
+        "count": 1,
+        "alignments": [
+          {
+            "coordinates": [
+              [
+                0,
+                7,
+                7,
+                16
+              ],
+              [
+                0,
+                21,
+                20,
+                47
+              ]
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}
