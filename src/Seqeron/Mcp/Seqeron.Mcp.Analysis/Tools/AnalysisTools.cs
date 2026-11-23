@@ -837,7 +837,7 @@ public partial class AnalysisTools
     public static FindCommonRegionsResult FindCommonRegions(
         [Description("First nucleotide sequence (the reference): A/C/G/T plus IUPAC codes such as N (case-insensitive).")] string sequence1,
         [Description("Second nucleotide sequence (the query).")] string sequence2,
-        [Description("Minimum common-region length (mummer -l); values below 1 are treated as 1.")] int minLength,
+        [Description("Minimum common-region length (mummer -l; >= 1 like find_repeats / find_open_reading_frames; the library treats values below 1 as 1).")] int minLength,
         [Description("Which regions (case-insensitive): RightMaximal (default) | MaximalExactMatches | MaximalUniqueReference | MaximalUnique.")] string mode = "RightMaximal",
         [Description("Which strands of sequence2 (case-insensitive): Forward (default) | ReverseComplement | Both.")] string strands = "Forward",
         CancellationToken cancellationToken = default,
@@ -845,6 +845,8 @@ public partial class AnalysisTools
     {
         var s1 = RequireIupacDna(sequence1, nameof(sequence1));
         var s2 = RequireIupacDna(sequence2, nameof(sequence2));
+        if (minLength < 1)
+            throw new ArgumentOutOfRangeException(nameof(minLength), "Minimum common-region length must be at least 1");
         var regionMode = ParseExactEnumName<CommonRegionMode>(mode, nameof(mode));
         var strandSelection = ParseExactEnumName<StrandSelection>(strands, nameof(strands));
         if (!includeSequence && regionMode == CommonRegionMode.RightMaximal)

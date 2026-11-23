@@ -235,3 +235,8 @@
 ## Audit R14-4a (B09 F291): matching statistics by the suffix automaton
 
 `GenomicAnalyzer_CommonRegionsAutomaton_Tests`: the right-maximal regions (DnaSequence, string and coordinates-only overloads, forward / reverse / both strands) equal an independent brute force (ms(i) by naive extension, distinct strings, lowest occurrence by `IndexOf`) on 400 random / low-complexity pairs and 120 reverse-strand pairs; the documented example `ACGTACGT` / `TTACGTGG` min 3 = {TACGT, ACGT, CGT}; poly-A and (AC)n of 20 000 run in linear time, allocate < 60 MB for the coordinates and build no suffix tree; strings equal spans; cancellation; null. MCP `find_common_regions` `includeSequence = false` = the same list without the strings.
+
+
+## Audit R14-22 (B09 F295): argument contract
+
+`GenomicAnalyzer_ArgumentContract_Tests` (minLength <= 0 = minLength 1 for every finder; tandem structural parameters throw) and MCP `find_common_regions` refuses `minLength < 1`; see `docs/algorithms/Sequence_Comparison/Genomic_Argument_Contract.md`.

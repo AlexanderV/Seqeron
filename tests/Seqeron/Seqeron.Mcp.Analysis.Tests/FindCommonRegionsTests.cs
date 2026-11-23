@@ -88,4 +88,18 @@ public class FindCommonRegionsTests
         Assert.That(items, Has.Length.EqualTo(20_000));
         Assert.That(sw.Elapsed.TotalSeconds, Is.LessThan(20), "99.6 s with the suffix-tree engine (R14-4a)");
     }
+
+    [Test]
+    public void MinLength_BelowOne_IsRefused_LikeFindRepeatsAndFindOpenReadingFrames()
+    {
+        // R14-22: one MCP contract for a minimum length: >= 1 (the library treats <= 0 as 1)
+        foreach (int v in new[] { 0, -1, -5 })
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => AnalysisTools.FindCommonRegions("ACGTACGT", "ACGT", v), $"find_common_regions {v}");
+            Assert.Throws<ArgumentOutOfRangeException>(() => AnalysisTools.FindRepeats("ACGTACGT", v), $"find_repeats {v}");
+            Assert.Throws<ArgumentOutOfRangeException>(() => AnalysisTools.FindOpenReadingFrames("ATGAAATAG", v), $"find_open_reading_frames {v}");
+        }
+
+        Assert.DoesNotThrow(() => AnalysisTools.FindCommonRegions("ACGTACGT", "ACGT", 1));
+    }
 }

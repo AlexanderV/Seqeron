@@ -22,7 +22,7 @@
    },
    "minLength": {
     "type": "integer",
-    "description": "Minimum common-region length (mummer -l); values below 1 are treated as 1."
+    "description": "Minimum common-region length (mummer -l; >= 1 like find_repeats / find_open_reading_frames; the library treats values below 1 as 1)."
    },
    "mode": {
     "type": "string",

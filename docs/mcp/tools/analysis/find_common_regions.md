@@ -18,7 +18,7 @@ For each start position in `sequence2`, finds the **single longest** contiguous 
 length ≥ `minLength` that also occurs in `sequence1`, located with the suffix tree of `sequence1` (matching statistics: suffix-link maximal-exact-match stream plus
 short `Contains` probes). Distinct such substrings are reported once, with the **first (lowest)** occurrence
 position in `sequence1` and the start position in `sequence2`. Shorter prefixes sharing a start position with a longer match are not
-reported. `minLength` below 1 is treated as 1. Both inputs must be valid DNA.
+reported. `minLength` must be at least 1 (the library treats a value below 1 as 1; the tool refuses it like `find_repeats` and `find_open_reading_frames`). Both inputs must be valid DNA.
 
 **Modes, strands, IUPAC input.** `mode` selects `RightMaximal` (default), `MaximalExactMatches` (`mummer -maxmatch`), `MaximalUniqueReference` (`-mumreference`) or `MaximalUnique` (`-mum`); `strands` `Forward` / `ReverseComplement` / `Both` (`mummer -r` / `-b`, `-c` position convention). Verified against mummer 3.23 on 4716 mode x strand cases. Only A/C/G/T match; N ends every region.
 
@@ -32,7 +32,7 @@ reported. `minLength` below 1 is treated as 1. Both inputs must be valid DNA.
 |-----------|------|----------|-------------|
 | `sequence1` | string | Yes | First nucleotide sequence (the reference): A/C/G/T plus IUPAC codes such as N (case-insensitive). |
 | `sequence2` | string | Yes | Second nucleotide sequence (the query). |
-| `minLength` | integer | Yes | Minimum common-region length (mummer -l); values below 1 are treated as 1. |
+| `minLength` | integer | Yes | Minimum common-region length (mummer -l; >= 1 like find_repeats / find_open_reading_frames; the library treats values below 1 as 1). |
 | `mode` | string | No | Which regions (case-insensitive): RightMaximal (default) \| MaximalExactMatches \| MaximalUniqueReference \| MaximalUnique. |
 | `strands` | string | No | Which strands of sequence2 (case-insensitive): Forward (default) \| ReverseComplement \| Both. |
 | `includeSequence` | boolean | No | true (default): every region carries its string. false: coordinates only (positionInFirst, positionInSecond, length), no string is built - the cost of mode RightMaximal is then O(n + m + regions) whatever the region lengths (a poly-A pair of length 20 000 has 20 000 regions of average length 10 000: 200 M characters as strings). |
