@@ -1,6 +1,6 @@
 # ADR-001: Index contract and how the ESA plugs into the existing generic algorithms
 
-Status: **proposed** (work package S1-0, 2026-11-03). Authorization: [PROCESS.md](../PROCESS.md). Plan: [PLAN.md](../PLAN.md) stage S1. Companions: [ADR-002](ADR-002-sa-construction.md) (construction), [ADR-003](ADR-003-esa-container-format.md) (container).
+Status: **implemented and measured in S1a / S1b (2026-11-23)** (written as "proposed" in work package S1-0, 2026-11-03; the stages that implement it were authorised by the owner, see `PROGRESS-S1.md`; status line corrected after the review of 1b.10, finding R07). Authorization: [PROCESS.md](../PROCESS.md). Plan: [PLAN.md](../PLAN.md) stage S1. Companions: [ADR-002](ADR-002-sa-construction.md) (construction), [ADR-003](ADR-003-esa-container-format.md) (container).
 Paths are repo-relative; `file:line` refers to the tree at commit `b0922125` (branch `claude/stoic-maxwell-0olr2z`). Anything not checked against the code or by a measurement is marked **UNVERIFIED**.
 
 ## 1. Decisions already taken (not reopened here)

@@ -1,6 +1,6 @@
 # ADR-002: Suffix-array construction (SA-IS), LCP, memory plan and optimization roadmap
 
-Status: **proposed** (work package S1-0, 2026-11-03). Rules: [PROCESS.md](../PROCESS.md) (managed only, no copied libsais code, optimization stopping rule at `PROCESS.md:25-29`). Contract and ESA model: [ADR-001](ADR-001-index-contract.md). Container: [ADR-003](ADR-003-esa-container-format.md). Numbers: [BENCHMARK.md](../BENCHMARK.md). **UNVERIFIED** marks anything not checked against code or a measurement; no benchmark was run for this ADR (the machine is busy), so every performance figure below is an estimate or a quoted measurement of another tool.
+Status: **implemented and measured in S1a / S1b (2026-11-23)** (written as "proposed" in work package S1-0, 2026-11-03; the stages that implement it were authorised by the owner, see `PROGRESS-S1.md`; status line corrected after the review of 1b.10, finding R07). Rules: [PROCESS.md](../PROCESS.md) (managed only, no copied libsais code, optimization stopping rule at `PROCESS.md:25-29`). Contract and ESA model: [ADR-001](ADR-001-index-contract.md). Container: [ADR-003](ADR-003-esa-container-format.md). Numbers: [BENCHMARK.md](../BENCHMARK.md). **UNVERIFIED** marks anything not checked against code or a measurement; no benchmark was run for this ADR (the machine is busy), so every performance figure below is an estimate or a quoted measurement of another tool.
 
 ## 1. Gate and reference numbers
 

@@ -1,6 +1,6 @@
 # ADR-003: ESA persistent container (a separate format kind next to v6)
 
-Status: **proposed** (work package S1-0, 2026-11-03). Contract: [ADR-001](ADR-001-index-contract.md). Construction and LCP encodings: [ADR-002](ADR-002-sa-construction.md). Paths are repo-relative, `file:line` at commit `b0922125`. **UNVERIFIED** = not checked against code or a measurement.
+Status: **implemented and measured in S1a / S1b (2026-11-23)** (written as "proposed" in work package S1-0, 2026-11-03; the stages that implement it were authorised by the owner, see `PROGRESS-S1.md`; status line corrected after the review of 1b.10, finding R07). Contract: [ADR-001](ADR-001-index-contract.md). Construction and LCP encodings: [ADR-002](ADR-002-sa-construction.md). Paths are repo-relative, `file:line` at commit `b0922125`. **UNVERIFIED** = not checked against code or a measurement.
 
 **Amendment 2026-11-18 (owner decisions, ADR-004 section 6c; the four gaps found by work package 1b.7b):** (1) TEXT codec 4 is defined (section 4, note below the table; the layout of the verified prototype file, changed in no byte); (2) `TEXT_SHA256` is the SHA-256 of the code units as **bytes** (one byte per code unit) for codecs 1, 2 and 4 and UTF-16LE for codec 3 (section 3); (3) the symbol counts have their own optional section kind 13 `COUNTS` (section 4); (4) the width of codec 4 is `b = max(1, ceil(log2 SIGMA))`, i.e. 3 bits for sigma 5-8. Validation at level `Header` is extended accordingly (section 6).
 

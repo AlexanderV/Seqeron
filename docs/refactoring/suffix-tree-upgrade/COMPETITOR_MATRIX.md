@@ -31,7 +31,7 @@ Not scored (scouting list, `analysis/results/scout.md`): Movi 2, Move-r / Move-r
 | 1 | ropebwt3 | 2.48 | 44.4% |
 | 2 | GenomeTools | 2.30 | 46.3% |
 | 3 | BWA/Bt2 | 2.30 | 40.1% |
-| 4 | Seqeron **(this project)** | 2.28 | 72.8% |
+| 4 | Seqeron **(this project)** | 2.20 | 72.8% |
 | 5 | r-index | 2.13 | 45.7% |
 | 6 | MUMmer4 | 2.07 | 48.1% |
 | 7 | rust-bio | 2.02 | 48.1% |
@@ -59,12 +59,12 @@ Unverified (`U`) cells among competitors: 47 of 288 property cells, 11 of 972 fu
 | C7 | Both strands (reverse complement) | 3 | 1v | 1v | 1v | 3v | 3v | 1v | 1v | 3v | 0v | 0v | 3v | 3v | 4v |
 | C8 | Tree / interval navigation API | 2 | 3v | 4v | 2v | 2u | 2v | 1v | 0v | 2v | 2v | 1v | 1v | 1v | 1v |
 | C9 | Analytics (LRS, distinct substrings, k-mer stats) | 2 | 3v | 1v | 0v | 3v | 1v | 1v | 0v | 2v | 2v | 3v | 0v | 1v | 1v |
-| C10 | Construction speed | 3 | 3v | 2v | 1u | 1u | 2u | 4v | 3v | 2v | 3v | 3u | 2u | 3v | 3v |
+| C10 | Construction speed | 3 | 3u | 2v | 1u | 1u | 2u | 4v | 3v | 2v | 3v | 3u | 2u | 3v | 3v |
 | C11 | Index memory | 3 | 2v | 4v | 2u | 3u | 1v | 3v | 3v | 2u | 3v | 2u | 3u | 3v | 4v |
 | C12 | Query speed | 3 | 4v | 1v | 3u | 2u | 3u | 1u | 3v | 4v | 2v | 3u | 3u | 2v | 3v |
 | C13 | Scale (> 2^32 chars) | 3 | 2v | 3v | 2u | 3v | 3v | 3u | 3u | 3u | 3u | 1v | 3v | 3v | 4v |
-| C14 | External / larger-than-RAM | 2 | 3v | 2v | 0v | 3v | 2v | 0v | 0v | 0v | 1u | 0v | 2v | 2u | 2v |
-| C15 | Parallel construction | 2 | 2v | 0v | 0v | 1u | 1v | 2v | 0v | 0v | 2u | 0v | 2u | 2v | 3u |
+| C14 | External / larger-than-RAM | 2 | 2v | 2v | 0v | 3v | 2v | 0v | 0v | 0v | 1u | 0v | 2v | 2u | 2v |
+| C15 | Parallel construction | 2 | 1v | 0v | 0v | 1u | 1v | 2v | 0v | 0v | 2u | 0v | 2u | 2v | 3u |
 | C16 | Concurrent queries | 2 | 3v | 2u | 3v | 2u | 3v | 2u | 2u | 3u | 2u | 2u | 3v | 2v | 2v |
 | C17 | Online / dynamic updates | 1 | 0v | 0v | 0v | 0v | 0v | 0v | 0v | 0v | 2v | 0v | 0v | 0v | 3v |
 | C18 | Compression (succinct index) | 2 | 0v | 3v | 3u | 3v | 1v | 1v | 0v | 3u | 1v | 3v | 3v | 4v | 4v |
@@ -74,7 +74,7 @@ Unverified (`U`) cells among competitors: 47 of 288 property cells, 11 of 972 fu
 | C22 | Distribution & exposure | 1 | 1v | 2v | 2v | 3v | 3v | 2u | 1v | 1v | 2v | 2v | 3v | 3v | 3v |
 | C23 | Verification | 3 | 3v | 3u | 3u | 3u | 3v | 1v | 3v | 2v | 3v | 2v | 3u | 2v | 1v |
 | C24 | Maintenance & licence | 1 | 2u | 3v | 3v | 3v | 3v | 3v | 3v | 3v | 3v | 2v | 3v | 2v | 3v |
-| | **weighted mean** | | **2.28** | **1.89** | **1.74** | **2.30** | **2.07** | **1.44** | **1.50** | **2.02** | **1.87** | **1.72** | **2.30** | **2.13** | **2.48** |
+| | **weighted mean** | | **2.20** | **1.89** | **1.74** | **2.30** | **2.07** | **1.44** | **1.50** | **2.02** | **1.87** | **1.72** | **2.30** | **2.13** | **2.48** |
 
 `v` verified, `u` unverified (optimistic for the competitor).
 

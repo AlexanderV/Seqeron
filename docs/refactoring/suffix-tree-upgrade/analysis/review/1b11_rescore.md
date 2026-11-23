@@ -187,3 +187,18 @@ The row "first place over 2000 random weightings" of the headline table is a fig
 - **C12 = 4** (the best-tool rows are of 2026-11-03 and the Seqeron rows of 2026-11-23; the same-session libsais control shows no drift, +-5 %, and the margin to the 1.5x line is 30 %).
 - **F18 / F20 = 1** (`TryExtendLeft` is correct and public but flagged Degraded by the library itself; an argument for 2 exists).
 - **C19 = 2, C20 = 3 and C23 = 3 kept** (the candidates for 3 / 4 weighed in section 3; C23 is the one where the volume of tests is far above level 3 and the level-4 definition has no measurement).
+
+
+## 9. Corrections after the review of 1b.10 (2026-11-23, by the orchestrator)
+
+The independent review of S1 (`1b10_review.md`, finding R05 and its section 4) found that two cells of this ledger contradict the ledger's own F03 (build from a file without loading the text, held at 1 because the builder is `internal` and the only route is the Bench / `s1b.sh` command line), and that the base of C10 was not stated. The orchestrator accepted the reasoning (the same doubt is written in section 8 above) and corrected the evidence files by appending new rows; the 1b.11 rows stay in the files and the later row wins, as in the other evidence files.
+
+| cell | after 1b.11 | after the review | the row that now decides |
+|---|---|---|---|
+| C14 external / larger-than-RAM | 3 | **2** | the last `K0 C14` row of `audit/K0_audit.tsv`: build and query with bounded RAM are measured (RssAnon 251-286 MB at 10^8), but the builder is internal; level 3 needs a public builder |
+| C15 parallel construction | 2 | **1** | the last `K0 C15` row of `audit/bench_overrides.tsv`: four worker threads by default, but only in the internal builder (Bench `--threads`); the 1 / 2 / 4 thread figures are the E6 prototype's; the public `CreateEsa` is single-threaded |
+| C10 construction speed | 3 (V) | 3 (**U**) | the last `K0 C10` row of `audit/bench_overrides.tsv`: the sentence now names the base, 3.5x of libsais SA only (0.328 s) and 2.0x of libsais SA+LCP (0.564 s, ADR-002 amendments); the comparison base is not like for like, hence `U` |
+
+Effect: weighted property mean **2.28 -> 2.20**, rank **4 of 13 unchanged** (ropebwt3 2.48, GenomeTools 2.30, BWA/Bowtie2 2.30, Seqeron 2.20, r-index 2.13); function coverage unchanged (72.8 %, 56.8 % on the tree layer). First place over 2000 random weightings (the method of `plan_model.py`, seed 7, weights 1-3): **2.9 % -> 0.4 %** (worst gap -0.88, median -0.34, best +0.15). Diff of the regenerated matrix against the one before the correction: 5 line pairs, all in the Seqeron column (C10 flag, C14, C15, the weighted-mean cell) and the ranking line; no competitor cell changed.
+
+**What raises them again:** a public builder entry (or the Bench command shipped and documented as the tool, as the competitors' command lines are scored): C14 -> 3, C15 -> 2 and F03 -> 2 move together, because they stand on the same builder. C10 stays 3 until an SA+LCP build within 1.5x of the best tool is measured on the public path.

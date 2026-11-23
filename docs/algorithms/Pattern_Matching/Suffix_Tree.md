@@ -18,8 +18,8 @@ Two interchangeable backends share a single `ISuffixTree` interface (a third, th
 
 | Backend | Project | Target | Backing |
 |---------|---------|--------|---------|
-| **In-memory** | `SuffixTree` | .NET 8 | Heap-allocated node objects |
-| **Persistent** | `SuffixTree.Persistent` | .NET 9 | Memory-mapped files (MMF) |
+| **In-memory** | `SuffixTree` | .NET 10 | Heap-allocated node objects |
+| **Persistent** | `SuffixTree.Persistent` | .NET 10 | Memory-mapped files (MMF) |
 | **Enhanced suffix array** | `SuffixTree.Esa` | .NET 10 | Arrays in memory, or a memory-mapped SESA container |
 
 Shared algorithms are written once against `ISuffixTreeNavigator<TNode>`
@@ -475,14 +475,14 @@ using var loaded = (IDisposable)SuffixTreeSerializer.LoadFromFile("saved.tree");
 
 ```
 src/SuffixTree/Algorithms/
-├── SuffixTree.Core/              ← Interfaces + shared algorithms (.NET 8)
+├── SuffixTree.Core/              ← Interfaces + shared algorithms (.NET 10)
 │   ├── ISuffixTree.cs
 │   ├── ISuffixTreeNavigator.cs
 │   ├── ITextSource.cs
 │   ├── StringTextSource.cs
 │   ├── MumUniqueness.cs          ← MUM mode (-mum / -mumreference)
 │   └── SuffixTreeAlgorithms.cs   ← LCS, Anchors, MEM/MUM (generic, JIT-specialized)
-├── SuffixTree/                   ← In-memory implementation (.NET 8)
+├── SuffixTree/                   ← In-memory implementation (.NET 10)
 │   ├── SuffixTree.cs             ← Build, factory methods
 │   ├── SuffixTree.Construction.cs ← Ukkonen's algorithm
 │   ├── SuffixTree.Search.cs      ← Contains, FindAll, Count
@@ -490,7 +490,7 @@ src/SuffixTree/Algorithms/
 │   ├── SuffixTree.Navigator.cs   ← ISuffixTreeNavigator<SuffixTreeNode>
 │   ├── SuffixTree.Diagnostics.cs ← PrintTree, Traverse, ComputeStatistics
 │   └── SuffixTreeNode.cs         ← Hybrid children storage (inline ≤ 4 → Dictionary)
-└── SuffixTree.Persistent/       ← Disk-backed implementation (.NET 9)
+└── SuffixTree.Persistent/       ← Disk-backed implementation (.NET 10)
     ├── PersistentSuffixTree.cs
     ├── PersistentSuffixTreeBuilder.cs
     ├── PersistentSuffixTreeFactory.cs

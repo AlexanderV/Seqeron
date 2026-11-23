@@ -17,7 +17,7 @@ the stages, the projection, the gates and the estimates below are unchanged. The
 
 Not delivered or not measured: a public entry that builds a container (the builder is `internal`), arm64, macOS, Windows and 3x10^9 symbols (the owner's run is pending).
 
-The Seqeron column of the matrix was re-scored on 2026-11-23 (1b.11, `analysis/review/1b11_rescore.md`): property mean **2.28** (rank 4 of 13; 1.80 and rank 9 on 2026-11-03), function coverage **72.8 %** (**56.8 %** on the tree layer; 55.6 % and 39.5 % before); the review argues for 2.20 on two of the cells (C14, C15) without a change of rank.
+The Seqeron column of the matrix was re-scored on 2026-11-23 (1b.11, `analysis/review/1b11_rescore.md`): property mean **2.20** (rank 4 of 13; 1.80 and rank 9 on 2026-11-03; 2.28 as first re-scored, lowered after the review of 1b.10: C14 3 -> 2, C15 2 -> 1), function coverage **72.8 %** (**56.8 %** on the tree layer; 55.6 % and 39.5 % before); the review of 1b.10 found one blocker in the navigation members (R01), the subject of work package 1b.12 (`analysis/review/1b10_review.md`).
 **S2-S8 are not approved and wait for the owner.**
 
 Evidence: [COMPETITOR_MATRIX.md](COMPETITOR_MATRIX.md) (13 tools x 24 properties and x 81 functions, sourced per cell),
