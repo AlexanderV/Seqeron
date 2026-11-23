@@ -362,7 +362,8 @@ Tool schemas and examples: [Core](docs/mcp/tools/core) · [Sequence](docs/mcp/to
   translation; RNA secondary structure; epigenetics; oncology; chromosome-level analysis; and
   molecular tools (primer / probe / CRISPR design, codon optimization, restriction analysis).
 - **A high-performance suffix tree** (Ukkonen) for fast substring queries, plus a persistent
-  on-disk variant.
+  on-disk variant and an enhanced-suffix-array backend with a memory-mapped container
+  ([`SuffixTree.Esa`](src/SuffixTree/Algorithms/SuffixTree.Esa/README.md)).
 - **11 MCP servers** exposing the toolsets to LLM/agent workflows — one per domain, plus the core
   suffix-tree server. (Oncology ships as a C# module only — it has no MCP server; reach it through the
   C# API or the [`seqeron-oncology`](.claude/skills/seqeron-oncology) skill.)
@@ -446,7 +447,7 @@ Directory.Packages.props     # Central Package Management — every NuGet versio
 .editorconfig                # Shared formatting / code-style baseline
 .github/workflows/dotnet.yml # CI: restore → build (warnings-as-errors) → full test suite
 src/
-├── SuffixTree/              # Ukkonen suffix tree (+ persistent) and its MCP server
+├── SuffixTree/              # Ukkonen suffix tree (+ persistent, + enhanced suffix array) and its MCP server
 └── Seqeron/
     ├── Algorithms/          # The genomics modules (Core, IO, Alignment, Analysis, Annotation,
     │                        #   Phylogenetics, Population, Metagenomics, MolTools, Chromosome,
@@ -635,7 +636,7 @@ Performance-critical libraries and all MCP-server executables are configured for
 NativeAOT compilation — no JIT/CLR at runtime, native instruction sets for the build CPU, and a
 much smaller binary.
 
-**Libraries** (`SuffixTree.Core`, `SuffixTree`, `SuffixTree.Persistent`) opt into
+**Libraries** (`SuffixTree.Core`, `SuffixTree`, `SuffixTree.Persistent`, `SuffixTree.Esa`) opt into
 `IsAotCompatible` + `IsTrimmable`. **Executables** (every `Seqeron.Mcp.*`, `SuffixTree.Mcp.Core`,
 and the `SuffixTree.Console` harness) enable full `PublishAot`:
 

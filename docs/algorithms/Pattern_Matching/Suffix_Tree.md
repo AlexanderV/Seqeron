@@ -1,7 +1,7 @@
 # Suffix Tree (Ukkonen)
 
 **Algorithm Group:** Pattern Matching / String Indexing
-**Projects:** `SuffixTree.Core`, `SuffixTree`, `SuffixTree.Persistent`
+**Projects:** `SuffixTree.Core`, `SuffixTree`, `SuffixTree.Persistent`, `SuffixTree.Esa`
 
 ---
 
@@ -12,12 +12,15 @@ O(m) substring search and serves as the core index structure for pattern
 matching, repeat detection, and sequence comparison in this repository.
 
 The implementation follows Ukkonen's online construction algorithm (1995).
-Two interchangeable backends share a single `ISuffixTree` interface:
+Two interchangeable backends share a single `ISuffixTree` interface (a third, the enhanced suffix array
+`SuffixTree.Esa`, implements the same interface; see its
+[README](../../../src/SuffixTree/Algorithms/SuffixTree.Esa/README.md)):
 
 | Backend | Project | Target | Backing |
 |---------|---------|--------|---------|
 | **In-memory** | `SuffixTree` | .NET 8 | Heap-allocated node objects |
 | **Persistent** | `SuffixTree.Persistent` | .NET 9 | Memory-mapped files (MMF) |
+| **Enhanced suffix array** | `SuffixTree.Esa` | .NET 10 | Arrays in memory, or a memory-mapped SESA container |
 
 Shared algorithms are written once against `ISuffixTreeNavigator<TNode>`
 with a `struct` constraint, enabling JIT specialization for each backend.

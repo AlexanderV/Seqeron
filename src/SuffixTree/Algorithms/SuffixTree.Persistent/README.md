@@ -14,6 +14,8 @@ is identical either way.
 
 **Size:** measured on 10 Mbp random DNA, the in-memory tree takes about 169 bytes of managed heap per character, the persistent file about 56 bytes per character (45–64 depending on the alphabet and repetitiveness); see `docs/refactoring/suffix-tree-upgrade/BENCHMARK.md`.
 
+**See also:** [`SuffixTree.Esa`](../SuffixTree.Esa/README.md), the enhanced-suffix-array backend of the same `ISuffixTree` API: 10 bytes per character in memory, about 13 times faster to build, and its own memory-mapped container format (SESA).
+
 ---
 
 ## Features
