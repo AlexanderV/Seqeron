@@ -1785,6 +1785,20 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossSequencePrograms.cs"
   },
   {
+    "tool": "patmatdb",
+    "server": "Analysis",
+    "methodId": "EmbossProgramRunner.Run",
+    "docPath": "docs/mcp/tools/analysis/patmatdb.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossSequencePrograms.Prosite.cs"
+  },
+  {
+    "tool": "patmatmotifs",
+    "server": "Analysis",
+    "methodId": "EmbossProgramRunner.Run",
+    "docPath": "docs/mcp/tools/analysis/patmatmotifs.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossSequencePrograms.Prosite.cs"
+  },
+  {
     "tool": "plotorf",
     "server": "Analysis",
     "methodId": "EmbossProgramRunner.Run",
@@ -1874,6 +1888,13 @@
     "methodId": "PromerProgram.Run",
     "docPath": "docs/mcp/tools/analysis/promer.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/PromerProgram.cs"
+  },
+  {
+    "tool": "prosextract",
+    "server": "Analysis",
+    "methodId": "EmbossProgramRunner.Run",
+    "docPath": "docs/mcp/tools/analysis/prosextract.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossSequencePrograms.Prosite.cs"
   },
   {
     "tool": "prosite_to_regex",

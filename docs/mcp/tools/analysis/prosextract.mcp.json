@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "prosextract",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "EmbossProgramRunner.Run",
+  "docRef": "EmbossSequencePrograms.Prosite.cs",
+  "description": "EMBOSS 6.6.0 prosextract: for every PATTERN entry of prosite.dat (the text of the SIB file) the file PROSITE/prosite.lines (returned as the text) holds the identifier, the accession, the first word of the description, the pattern and its regular expression; for every {PSnnnnn; NAME} entry of prosite.doc one documentation file PROSITE/PSnnnnn (returned in files, by the path of the data directory /usr/share/EMBOSS/data/PROSITE/PSnnnnn) holds the text between {BEGIN} and {END}. Equals the installed program on 300 runs (every input format of seqret, ranges, the report options, the messages of the library; standard output, error stream, exit status and written files byte for byte). B09 WP67, F306.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "prositeDat": {
+        "type": "string",
+        "description": "The text of the PROSITE data file prosite.dat (ftp.expasy.org/databases/prosite)."
+      },
+      "prositeDoc": {
+        "type": "string",
+        "description": "The text of the PROSITE documentation file prosite.doc."
+      },
+      "files": {
+        "type": "object",
+        "description": "More files by name (file name -> text) that the program may read (a file named by a USA, @file, the PROSITE data files of the data directory)."
+      }
+    },
+    "required": [
+      "prositeDat",
+      "prositeDoc"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "text": {
+        "type": "string",
+        "description": "The text of the main output of the program (the report, or its standard output)."
+      },
+      "files": {
+        "type": "object",
+        "description": "The other files the program wrote (sequences, features, graph data), by name."
+      },
+      "messages": {
+        "type": "string[]",
+        "description": "What the library printed on the error stream (warnings and errors)."
+      }
+    },
+    "required": [
+      "text",
+      "files",
+      "messages"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "The sequence cannot be empty"
+    },
+    {
+      "code": 1001,
+      "message": "The program died: the messages of the library (a value it refuses, an input no reader reads, a sequence of the wrong kind)"
+    },
+    {
+      "code": 1001,
+      "message": "An input on which the reference program never stops or dies by a fault is refused"
+    }
+  ],
+  "examples": [
+    {
+      "name": "A run on a small input",
+      "input": {
+        "prositeDat": "ID   A_PAT; PATTERN.\nAC   PS99999;\nDT   01-APR-1990 CREATED.\nDE   Test pattern site.\nPA   A-x(2)-C.\n//\n",
+        "prositeDoc": "{PDOC99999}\n{PS99999; A_PAT}\n{BEGIN}\nDocumentation of A_PAT.\n{END}\n"
+      },
+      "output": {
+        "text": "A_PAT PS99999\n Test\n A-x(2)-C\n^A[^BJOUXZ]{2}C\n\n",
+        "files": {
+          "/usr/share/EMBOSS/data/PROSITE/PS99999": "Documentation of A_PAT.\n"
+        },
+        "messages": []
+      }
+    }
+  ]
+}

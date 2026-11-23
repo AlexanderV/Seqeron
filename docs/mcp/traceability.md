@@ -376,6 +376,9 @@
 | tcode | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossSequencePrograms3.cs | 0/0 | – | – | Build-Ready |
 | checktrans | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossSequencePrograms3.cs | 0/0 | – | – | Build-Ready |
 | marscan | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossSequencePrograms3.cs | 0/0 | – | – | Build-Ready |
+| patmatmotifs | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossSequencePrograms4.cs | 0/0 | – | – | Build-Ready |
+| patmatdb | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossSequencePrograms4.cs | 0/0 | – | – | Build-Ready |
+| prosextract | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossSequencePrograms4.cs | 0/0 | – | – | Build-Ready |
 | find_longest_common_region_multi | Analysis | GenomicAnalyzer.FindLongestCommonRegion | AnalysisTools.cs | 0/0 | – | – | Build-Ready |
 | find_repeat_pairs | Analysis | GenomicAnalyzer.FindRepeatPairs | AnalysisTools.cs | 0/0 | – | – | Build-Ready |
 | plotorf | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossSequencePrograms3.cs | 0/0 | – | – | Build-Ready |

@@ -98,7 +98,7 @@
 | `write_big_alignment` | `AlignmentCoordinateFormats.WriteBigBed / WriteBigMaf / WriteBigPsl` | [doc](../../mcp/tools/alignment/write_big_alignment.md) |
 | `write_coordinate_alignment` | `AlignmentCoordinateFormats.Write` | [doc](../../mcp/tools/alignment/write_coordinate_alignment.md) |
 
-## Analysis (229 tools)
+## Analysis (232 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -268,6 +268,8 @@
 | `oligo_analysis` | `MotifFinder.DiscoverMotifs` | [doc](../../mcp/tools/analysis/oligo_analysis.md) |
 | `parse_dot_bracket` | `RnaSecondaryStructure.ParseDotBracket` | [doc](../../mcp/tools/analysis/parse_dot_bracket.md) |
 | `pasteseq` | `EmbossProgramRunner.Run` | [doc](../../mcp/tools/analysis/pasteseq.md) |
+| `patmatdb` | `EmbossProgramRunner.Run` | [doc](../../mcp/tools/analysis/patmatdb.md) |
+| `patmatmotifs` | `EmbossProgramRunner.Run` | [doc](../../mcp/tools/analysis/patmatmotifs.md) |
 | `plotorf` | `EmbossProgramRunner.Run` | [doc](../../mcp/tools/analysis/plotorf.md) |
 | `predict_chou_fasman` | `SequenceStatistics.PredictSecondaryStructure` | [doc](../../mcp/tools/analysis/predict_chou_fasman.md) |
 | `predict_coiled_coils` | `ProteinMotifFinder.PredictCoiledCoils` | [doc](../../mcp/tools/analysis/predict_coiled_coils.md) |
@@ -281,6 +283,7 @@
 | `predict_transmembrane_helices` | `ProteinMotifFinder.PredictTransmembraneHelices` | [doc](../../mcp/tools/analysis/predict_transmembrane_helices.md) |
 | `prettyseq` | `EmbossProgramRunner.Run` | [doc](../../mcp/tools/analysis/prettyseq.md) |
 | `promer` | `PromerProgram.Run` | [doc](../../mcp/tools/analysis/promer.md) |
+| `prosextract` | `EmbossProgramRunner.Run` | [doc](../../mcp/tools/analysis/prosextract.md) |
 | `prosite_to_regex` | `ProteinMotifFinder.ConvertPrositeToRegex` | [doc](../../mcp/tools/analysis/prosite_to_regex.md) |
 | `pwm_score_pvalue` | `MotifFinder.PwmScorePValue` | [doc](../../mcp/tools/analysis/pwm_score_pvalue.md) |
 | `pwm_score_thresholds` | `PositionWeightMatrix.ScoreDistribution` | [doc](../../mcp/tools/analysis/pwm_score_thresholds.md) |

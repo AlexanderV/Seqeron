@@ -172,6 +172,8 @@
 | `oligo_analysis` | Analysis | `MotifFinder.DiscoverMotifs` | [doc](../../../../docs/mcp/tools/analysis/oligo_analysis.md) |
 | `parse_dot_bracket` | Analysis | `RnaSecondaryStructure.ParseDotBracket` | [doc](../../../../docs/mcp/tools/analysis/parse_dot_bracket.md) |
 | `pasteseq` | Analysis | `EmbossProgramRunner.Run` | [doc](../../../../docs/mcp/tools/analysis/pasteseq.md) |
+| `patmatdb` | Analysis | `EmbossProgramRunner.Run` | [doc](../../../../docs/mcp/tools/analysis/patmatdb.md) |
+| `patmatmotifs` | Analysis | `EmbossProgramRunner.Run` | [doc](../../../../docs/mcp/tools/analysis/patmatmotifs.md) |
 | `plotorf` | Analysis | `EmbossProgramRunner.Run` | [doc](../../../../docs/mcp/tools/analysis/plotorf.md) |
 | `predict_chou_fasman` | Analysis | `SequenceStatistics.PredictSecondaryStructure` | [doc](../../../../docs/mcp/tools/analysis/predict_chou_fasman.md) |
 | `predict_coiled_coils` | Analysis | `ProteinMotifFinder.PredictCoiledCoils` | [doc](../../../../docs/mcp/tools/analysis/predict_coiled_coils.md) |
@@ -185,6 +187,7 @@
 | `predict_transmembrane_helices` | Analysis | `ProteinMotifFinder.PredictTransmembraneHelices` | [doc](../../../../docs/mcp/tools/analysis/predict_transmembrane_helices.md) |
 | `prettyseq` | Analysis | `EmbossProgramRunner.Run` | [doc](../../../../docs/mcp/tools/analysis/prettyseq.md) |
 | `promer` | Analysis | `PromerProgram.Run` | [doc](../../../../docs/mcp/tools/analysis/promer.md) |
+| `prosextract` | Analysis | `EmbossProgramRunner.Run` | [doc](../../../../docs/mcp/tools/analysis/prosextract.md) |
 | `prosite_to_regex` | Analysis | `ProteinMotifFinder.ConvertPrositeToRegex` | [doc](../../../../docs/mcp/tools/analysis/prosite_to_regex.md) |
 | `pwm_score_pvalue` | Analysis | `MotifFinder.PwmScorePValue` | [doc](../../../../docs/mcp/tools/analysis/pwm_score_pvalue.md) |
 | `pwm_score_thresholds` | Analysis | `PositionWeightMatrix.ScoreDistribution` | [doc](../../../../docs/mcp/tools/analysis/pwm_score_thresholds.md) |
