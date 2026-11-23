@@ -162,7 +162,7 @@ and is now less true (tree layer only 56.8 % against sdsl 52.5 %, whole library 
 | 100 Mbp (10^8) container, 4 threads | 17.88 s [15.88-19.43], RssAnon 253.2 MB [247.1-256.1], 1,325,019,393 bytes (13.25 B/char); genome-like 20.86 s, 286.3 MB, 13.49 B/char | `results_1b9_chain.txt:9-10`, ADR-004 1b.9 table C |
 | not met | first `Open` of a fresh process 15.24 ms [13.09-15.37] against the 10 ms of 1b.7 (8.5 ms with ReadyToRun); protein count on the file-backed tree 0.934 of the in-memory tree at four threads | ADR-004 1b.9 A9 (`results_1b9_rows.tsv:527`, `warm_open` = the page-cache-warm first call, 0.015237 s) and the `abapp` gate table, `results_1b9_open_r2r.txt` |
 
-The row "first place over 2000 random weightings" of the headline table is a figure of `plan_model.py`, which this scorer does not read; it is marked "not recomputed" instead of being carried as a current number.
+The row "first place over 2000 random weightings" of the headline table is a figure of `plan_model.py`, which this scorer does not read; it was marked "not recomputed" instead of being carried as a current number; **the orchestrator recomputed it afterwards (2.9 % of 2000 weightings, same method as `plan_model.py`: seed 7, weights 1-3 per property, run on the regenerated matrix; worst gap -0.76, median -0.26, best +0.23) and the README carries that figure.**
 
 ## 7. Defects and questions (reported, not fixed; outside the files of this package)
 

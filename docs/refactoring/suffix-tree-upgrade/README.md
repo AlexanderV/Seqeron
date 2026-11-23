@@ -20,7 +20,7 @@ The plan stays a plan: `PLAN.md` is unchanged and its projected columns below ar
 |---|---|---|---|---|
 | property mean (24, weighted, 0-4) | 2.28 (rank 4 of 13) | 2.48 (ropebwt3) | 2.80 | 3.02 |
 | function coverage (81) | 72.8% (56.8% on the tree layer only; was 39.5%) | 52.5% (sdsl) | 93.8% | 95.1% |
-| first place over 2000 random weightings | not recomputed (0% on 2026-11-03) | - | 99.5% | 100% |
+| first place over 2000 random weightings | 2.9% (0% on 2026-11-03; recomputed by the orchestrator on the regenerated matrix with the method of `plan_model.py`: seed 7, weights 1-3 per property; worst gap -0.76, median -0.26, best +0.23) | - | 99.5% | 100% |
 
 Measured at 10 Mbp random DNA on 2026-11-23 (5 fresh processes per row, median [min-max], one thread unless stated; `ADR-004` section 5a "1b.9", rows `analysis/bench/results_1b9_*`;
 x86-64 Linux, 4 vCPU): the enhanced suffix array (suffix array, LCP, child table) is built in memory in 1.138 s [1.118-1.174] (the public `CreateEsa` 0.841 s [0.832-0.907]; libsais in the same session 0.344 s,

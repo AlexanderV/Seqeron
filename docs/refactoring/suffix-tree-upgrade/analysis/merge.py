@@ -8,7 +8,7 @@ def load(paths):
             for r in csv.DictReader(f, delimiter="\t"):
                 d[r["competitor_id"]][r["cap_id"]] = (int(r["score"]), r["flag"], r["evidence"], r["url"])
     return d
-paths = [p for p in glob.glob("results/K*.tsv") if not p.endswith(("meta.tsv","survey.tsv"))] + []
+paths = [p for p in glob.glob("results/K*.tsv") if not p.endswith(("meta.tsv","survey.tsv"))] + ["audit/K0_audit.tsv"]  # as build_docs.py: the later row wins, so the re-scored Seqeron rows of audit/ replace the old copy results/K0.tsv
 d = load(paths)
 for k,v in load(["audit/bench_overrides.tsv"]).items():
     d[k].update(v)
