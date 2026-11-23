@@ -9,8 +9,8 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/* \
  && mafft --version 2>&1 | head -1
 
-# fasta34: the FASTA 3.4 package of W. R. Pearson. fetch_fasta34.py tries the upstream archive locations in order (see README.md) and builds `fasta34` with the Makefile of the
-# package (x64 target); put the tarball into ./inputs/ by hand (fasta34*.tar.gz) when the download fails: it is then used instead.
+# fasta34: the FASTA 3.4 package of W. R. Pearson (release 34.26.5, inputs/fasta-34.26.5.shar.Z, parsed not executed by fetch_fasta34.py) and builds `fasta34` with the Makefile of the
+# package (Makefile.linux).
 COPY fetch_fasta34.py /opt/fetch_fasta34.py
 COPY inputs /opt/inputs
 RUN mkdir -p /opt/fasta34src && cd /opt/fasta34src && python3 -I /opt/fetch_fasta34.py /opt/inputs \

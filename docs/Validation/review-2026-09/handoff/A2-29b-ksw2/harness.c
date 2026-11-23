@@ -7,14 +7,18 @@
 #include <string.h>
 #include "ksw2.h"
 
-int main(void)
+int main(int argc, char **argv)
 {
+    int start = argc > 1 ? atoi(argv[1]) : 0; /* skip the cases with id < start: used to resume after a crash of the program under test */
+    setvbuf(stdout, NULL, _IOLBF, 0);
     static char variant[16], qs[1000000], ts[1000000];
     int id, flag, w, zdrop, eb, q, e, q2, e2, m;
     int8_t mat[400];
     while (scanf("%d %15s %d %d %d %d %d %d %d %d %d", &id, variant, &flag, &w, &zdrop, &eb, &q, &e, &q2, &e2, &m) == 11) {
         for (int i = 0; i < m * m; ++i) { int v; if (scanf("%d", &v) != 1) return 2; mat[i] = (int8_t)v; }
         if (scanf("%999999s %999999s", qs, ts) != 2) return 2;
+        if (id < start) continue;
+        fprintf(stderr, "CASE %d %s\n", id, variant); fflush(stderr); /* the last CASE line of a crashed run names the case */
         int ql = strcmp(qs, "-") ? (int)strlen(qs) : 0, tl = strcmp(ts, "-") ? (int)strlen(ts) : 0;
         uint8_t *qq = malloc(ql + 1), *tt = malloc(tl + 1);
         for (int i = 0; i < ql; ++i) qq[i] = qs[i] - '0';
@@ -36,6 +40,7 @@ int main(void)
             for (int i = 0; i < ez.n_cigar; ++i) printf("%d%c", ez.cigar[i] >> 4, "MIDN"[ez.cigar[i] & 0xf]);
             printf("\n");
         }
+        fflush(stdout);
         free(qq); free(tt); if (ez.cigar) free(ez.cigar);
     }
     return 0;
