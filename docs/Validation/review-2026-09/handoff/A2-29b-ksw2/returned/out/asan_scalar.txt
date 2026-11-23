@@ -1,0 +1,81 @@
+CASE 0 extz
+CASE 1 extz
+CASE 2 extz
+CASE 3 extz
+CASE 4 extz
+CASE 5 extz
+CASE 6 extz
+CASE 7 extz
+CASE 8 extz
+CASE 9 extz
+CASE 10 extz
+CASE 11 extz
+CASE 12 extz
+CASE 13 extz
+CASE 14 extz
+CASE 15 extz
+CASE 16 extz
+CASE 17 extz
+CASE 18 extz
+CASE 19 extz
+CASE 20 extz
+CASE 21 extz
+CASE 22 extz
+CASE 23 extz
+CASE 24 extz
+CASE 25 extz
+ksw2_extz.c:116:11: runtime error: store to address 0x507000000228 with insufficient space for an object of type 'int32_t'
+0x507000000228: note: pointer points here
+ 00 00 00 c0  00 00 00 00 00 00 00 00  b9 96 6e cc b9 96 6e cc  40 02 00 00 70 50 00 00  02 11 00 00
+              ^ 
+=================================================================
+==239==ERROR: AddressSanitizer: heap-buffer-overflow on address 0x507000000228 at pc 0x55555556e7dc bp 0x7ffffffc5550 sp 0x7ffffffc5540
+WRITE of size 4 at 0x507000000228 thread T0
+    #0 0x55555556e7db in ksw_extz /work/ksw2/ksw2_extz.c:116
+    #1 0x55555556a1f1 in main /work/ksw2/harness.c:33
+    #2 0x7ffffe8f01c9 in __libc_start_call_main ../sysdeps/nptl/libc_start_call_main.h:58
+    #3 0x7ffffe8f028a in __libc_start_main_impl ../csu/libc-start.c:360
+    #4 0x5555555694e4 in _start (/work/h_scalar_asan+0x154e4) (BuildId: f71e932c7c7e8d298180db2a62f689a5f27848d8)
+
+0x507000000228 is located 0 bytes after 72-byte region [0x5070000001e0,0x507000000228)
+allocated by thread T0 here:
+    #0 0x7fffff1ee340 in calloc ../../../../src/libsanitizer/asan/asan_malloc_linux.cpp:77
+    #1 0x55555556c6e3 in ksw_extz /work/ksw2/ksw2_extz.c:19
+    #2 0x55555556a1f1 in main /work/ksw2/harness.c:33
+    #3 0x7ffffe8f01c9 in __libc_start_call_main ../sysdeps/nptl/libc_start_call_main.h:58
+    #4 0x7ffffe8f028a in __libc_start_main_impl ../csu/libc-start.c:360
+    #5 0x5555555694e4 in _start (/work/h_scalar_asan+0x154e4) (BuildId: f71e932c7c7e8d298180db2a62f689a5f27848d8)
+
+SUMMARY: AddressSanitizer: heap-buffer-overflow /work/ksw2/ksw2_extz.c:116 in ksw_extz
+Shadow bytes around the buggy address:
+  0x506fffffff80: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  0x507000000000: fa fa fa fa fd fd fd fd fd fd fd fd fd fa fa fa
+  0x507000000080: fa fa fd fd fd fd fd fd fd fd fd fa fa fa fa fa
+  0x507000000100: fd fd fd fd fd fd fd fd fd fa fa fa fa fa fd fd
+  0x507000000180: fd fd fd fd fd fd fd fa fa fa fa fa 00 00 00 00
+=>0x507000000200: 00 00 00 00 00[fa]fa fa fa fa 00 00 00 00 00 00
+  0x507000000280: 00 00 05 fa fa fa fa fa fa fa fa fa fa fa fa fa
+  0x507000000300: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+  0x507000000380: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+  0x507000000400: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+  0x507000000480: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+Shadow byte legend (one shadow byte represents 8 application bytes):
+  Addressable:           00
+  Partially addressable: 01 02 03 04 05 06 07 
+  Heap left redzone:       fa
+  Freed heap region:       fd
+  Stack left redzone:      f1
+  Stack mid redzone:       f2
+  Stack right redzone:     f3
+  Stack after return:      f5
+  Stack use after scope:   f8
+  Global redzone:          f9
+  Global init order:       f6
+  Poisoned by user:        f7
+  Container overflow:      fc
+  Array cookie:            ac
+  Intra object redzone:    bb
+  ASan internal:           fe
+  Left alloca redzone:     ca
+  Right alloca redzone:    cb
+==239==ABORTING

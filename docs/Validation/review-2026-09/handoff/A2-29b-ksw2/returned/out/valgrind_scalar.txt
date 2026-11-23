@@ -1,0 +1,78 @@
+CASE 0 extz
+CASE 1 extz
+CASE 2 extz
+CASE 3 extz
+CASE 4 extz
+CASE 5 extz
+CASE 6 extz
+CASE 7 extz
+CASE 8 extz
+CASE 9 extz
+CASE 10 extz
+CASE 11 extz
+CASE 12 extz
+CASE 13 extz
+CASE 14 extz
+CASE 15 extz
+CASE 16 extz
+CASE 17 extz
+CASE 18 extz
+CASE 19 extz
+CASE 20 extz
+CASE 21 extz
+CASE 22 extz
+CASE 23 extz
+CASE 24 extz
+CASE 25 extz
+==253== Invalid write of size 4
+==253==    at 0x10A585: ksw_extz (in /work/h_scalar)
+==253==    by 0x10960B: main (in /work/h_scalar)
+==253==  Address 0x4a81458 is 0 bytes after a block of size 72 alloc'd
+==253==    at 0x484D953: calloc (in /usr/libexec/valgrind/vgpreload_memcheck-amd64-linux.so)
+==253==    by 0x109E94: ksw_extz (in /work/h_scalar)
+==253==    by 0x10960B: main (in /work/h_scalar)
+==253== 
+==253== Invalid write of size 4
+==253==    at 0x10A1EB: ksw_extz (in /work/h_scalar)
+==253==    by 0x10960B: main (in /work/h_scalar)
+==253==  Address 0x4a8145c is 4 bytes after a block of size 72 alloc'd
+==253==    at 0x484D953: calloc (in /usr/libexec/valgrind/vgpreload_memcheck-amd64-linux.so)
+==253==    by 0x109E94: ksw_extz (in /work/h_scalar)
+==253==    by 0x10960B: main (in /work/h_scalar)
+==253== 
+CASE 26 extz
+--253-- VALGRIND INTERNAL ERROR: Valgrind received a signal 11 (SIGSEGV) - exiting
+--253-- si_code=1;  Faulting address: 0xC4A81478;  sp: 0x1002daddf0
+
+valgrind: the 'impossible' happened:
+   Killed by fatal signal
+
+host stacktrace:
+==253==    at 0x5804EF19: ??? (in /usr/libexec/valgrind/memcheck-amd64-linux)
+==253==    by 0x5800525C: ??? (in /usr/libexec/valgrind/memcheck-amd64-linux)
+==253==    by 0x5800544D: ??? (in /usr/libexec/valgrind/memcheck-amd64-linux)
+==253==    by 0x5809E9C8: ??? (in /usr/libexec/valgrind/memcheck-amd64-linux)
+==253==    by 0x580EB087: ??? (in /usr/libexec/valgrind/memcheck-amd64-linux)
+
+sched status:
+  running_tid=1
+
+Thread 1: status = VgTs_Runnable (lwpid 253)
+==253==    at 0x4846828: malloc (in /usr/libexec/valgrind/vgpreload_memcheck-amd64-linux.so)
+==253==    by 0x109450: main (in /work/h_scalar)
+client stack range: [0x1FFEFFE000 0x1FFF000FFF] client SP: 0x1FFF000850
+valgrind stack range: [0x1002CAE000 0x1002DADFFF] top usage: 18232 of 1048576
+
+
+Note: see also the FAQ in the source distribution.
+It contains workarounds to several common problems.
+In particular, if Valgrind aborted or crashed after
+identifying problems in your program, there's a good chance
+that fixing those problems will prevent Valgrind aborting or
+crashing, especially if it happened in m_mallocfree.c.
+
+If that doesn't help, please report this bug to: www.valgrind.org
+
+In the bug report, send all the above text, the valgrind
+version, and what OS and version you are using.  Thanks.
+

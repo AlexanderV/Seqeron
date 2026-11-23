@@ -1,0 +1,24 @@
+af86ba0aa0f746c40bc108abeb5590826cd38f1113395e84dc001e38dfb39eab  mm2/harness.c
+ce9dae2af60f3e9a0422d7137b7eab284a9b6124d935bc8adfb0d496609622eb  mm2/ksw2.h
+46911ad50e3b03e02354371bb756f6c0ce30d0f22feb87c30822874abe7452f1  mm2/ksw2_extd2_sse.c
+74c491c834396b574df1246beb27186118e4e7a2d3373b66134b713998409f7d  mm2/ksw2_extz2_sse.c
+af86ba0aa0f746c40bc108abeb5590826cd38f1113395e84dc001e38dfb39eab  ksw2/harness.c
+1e531580a40dc1b29db7a63f0f50403995e1c637da68c7c14164df34f0979d9c  ksw2/ksw2.h
+006d64ffe710a3e207c0686ebb33b9f2596011d54ee9e0e6d5c1a4e1a4ef3bfa  ksw2/ksw2_extd.c
+23265ae6e7e62ffb3a8c92e14b3f65ea9539f3f46eb8f47f9c393c0f48b33a20  ksw2/ksw2_extz.c
+x86_64
+gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+sse2
+sse4_1
+2026-11-23T15:44:23Z
+CHECKSUM MISMATCH (see checksums.txt)
+    81 /out/asan_scalar.txt
+  2000 /out/asan_sse41.txt
+     6 /out/checksums.txt
+  1967 /out/ksw2_oracle.txt
+   967 /out/ksw2_scalar.txt
+  1000 /out/ksw2_sse2.txt
+  1000 /out/ksw2_sse41.txt
+    78 /out/valgrind_scalar.txt
+    22 /out/versions.txt
+  7121 total

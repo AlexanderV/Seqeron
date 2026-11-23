@@ -1,0 +1,6 @@
+mm2/ksw2.h: FAILED
+mm2/ksw2_extz2_sse.c: OK
+mm2/ksw2_extd2_sse.c: OK
+ksw2/ksw2_extz.c: OK
+ksw2/ksw2_extd.c: OK
+sha256sum: WARNING: 1 computed checksum did NOT match
