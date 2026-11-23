@@ -5,7 +5,7 @@
 FROM --platform=linux/amd64 ubuntu:24.04
 
 RUN apt-get update \
- && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates curl git build-essential gfortran autoconf automake libtool m4 perl python3 tcsh zip file \
+ && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates curl git build-essential gfortran autoconf automake libtool m4 perl python3 tcsh zip file strace binutils \
         t-coffee tm-align mustang ncbi-blast+ \
  && rm -rf /var/lib/apt/lists/*
 

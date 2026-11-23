@@ -140,7 +140,7 @@ for f in got:
             print('LDD AFTER make', missing())
         if 'not found' in missing() or 'undefined' in missing():
             sh('apt-get update -qq; DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends libf2c2 2>&1 | tail -3')
-            open(out + '/g2cshim.c', 'w').write('void f_setarg(int argc, char **argv) { (void)argc; (void)argv; }\nvoid f_setsig(void) { }\n')
+            open(out + '/g2cshim.c', 'w').write('#include <time.h>\n#include <string.h>\nvoid f_setarg(int argc, char **argv) { (void)argc; (void)argv; }\nvoid f_setsig(void) { }\n/* g77 intrinsic FDATE (a CHARACTER function): the result and its length come first; ctime text blank-padded */\nvoid G77_fdate_0(char *ret, int len) { time_t t = time(0); char *s = ctime(&t); int n = (int)strlen(s) - 1, i; for (i = 0; i < len; i++) ret[i] = i < n ? s[i] : (char)32; }\n')
             r = sh(f'ls /usr/lib/*/libf2c.so.2; D=$(dirname $(ls /usr/lib/*/libf2c.so.2 | head -1)); rm -f $D/libg2c.so.0; gcc -shared -fPIC -o $D/libg2c.so.0 -Wl,-soname,libg2c.so.0 {out}/g2cshim.c -Wl,--no-as-needed -L$D -l:libf2c.so.2 2>&1; ldconfig; ls -l $D/libg2c.so.0')
             print('G2C SHIM', r.stdout, r.stderr)
             print('LDD AFTER shim', missing())
