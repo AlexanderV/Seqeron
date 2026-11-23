@@ -497,7 +497,7 @@ public static partial class SequenceAligner
             int bj = _rowBestCol[bi];
 
             var result = _affine
-                ? AffineTraceback(_a, _b, _mm!, _xx!, _yy!, _sc, local: true, EndGaps.None, bi, bj, StateMatch, best)
+                ? AffineTraceback(_a, _b, new FullAffineStates(_mm!, _xx!, _yy!), _sc, local: true, EndGaps.None, bi, bj, StateMatch, best)
                 : TracebackLocal(_a, _b, _h!, bi, bj, _sc, _forbidden);
 
             var fresh = new List<(int Row, int Column)>(AlignedPairs(result));

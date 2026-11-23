@@ -848,7 +848,7 @@ public static partial class SequenceAligner
             }
         }
 
-        return AffineTraceback(seq1, seq2, mm, xx, yy, scoring, local, ends, ci, cj, state, best);
+        return AffineTraceback(seq1, seq2, new FullAffineStates(mm, xx, yy), scoring, local, ends, ci, cj, state, best);
     }
 
     private static (int[,] M, int[,] X, int[,] Y) AffineNewMatrices(int m, int n) =>
@@ -941,14 +941,38 @@ public static partial class SequenceAligner
         return (bestLocal, bestI, bestJ);
     }
 
+    /// <summary>Read access to the three Gotoh matrices (M, X, Y) of the traceback: the full matrices of the aligners, or the diagonal band of the banded aligners (cells outside the band are unreachable).</summary>
+    internal interface IAffineStates
+    {
+        /// <summary>M(i, j).</summary>
+        int M(int i, int j);
+
+        /// <summary>X(i, j).</summary>
+        int X(int i, int j);
+
+        /// <summary>Y(i, j).</summary>
+        int Y(int i, int j);
+    }
+
+    /// <summary>The full matrices of the aligners.</summary>
+    internal readonly struct FullAffineStates(int[,] mm, int[,] xx, int[,] yy) : IAffineStates
+    {
+        public int M(int i, int j) => mm[i, j];
+
+        public int X(int i, int j) => xx[i, j];
+
+        public int Y(int i, int j) => yy[i, j];
+    }
+
     /// <summary>
     /// Gotoh traceback from state <paramref name="state"/> at cell (<paramref name="ci"/>, <paramref name="cj"/>) of the
     /// filled matrices; ties M &gt; X &gt; Y, a local alignment stops when the predecessor value is 0. Shared by
     /// <see cref="AffineAlignCore"/> and the Waterman-Eggert declumper.
     /// </summary>
-    private static AlignmentResult AffineTraceback(
-        string seq1, string seq2, int[,] mm, int[,] xx, int[,] yy, PairScoring scoring,
+    private static AlignmentResult AffineTraceback<TStates>(
+        string seq1, string seq2, TStates st, PairScoring scoring,
         bool local, EndGaps ends, int ci, int cj, byte state, int best)
+        where TStates : struct, IAffineStates
     {
         int m = seq1.Length;
         int n = seq2.Length;
@@ -978,34 +1002,34 @@ public static partial class SequenceAligner
         {
             if (state == StateMatch)
             {
-                int prev = mm[ci, cj] - (scoring.Sub(seq1[ci - 1], seq2[cj - 1]));
+                int prev = st.M(ci, cj) - (scoring.Sub(seq1[ci - 1], seq2[cj - 1]));
                 chars1.Add(seq1[ci - 1]);
                 chars2.Add(seq2[cj - 1]);
                 ci--; cj--;
                 if (local && prev == 0) break; // Smith-Waterman: the local alignment starts here
-                state = PickState(prev, mm[ci, cj], StateMatch, xx[ci, cj], StateGapInSeq2, StateGapInSeq1);
+                state = PickState(prev, st.M(ci, cj), StateMatch, st.X(ci, cj), StateGapInSeq2, StateGapInSeq1);
             }
             else if (state == StateGapInSeq2)
             {
-                int cur = xx[ci, cj];
+                int cur = st.X(ci, cj);
                 int e = local ? scoring.XInteriorExt : scoring.XExt(cj, n);
                 int oe = (local ? scoring.XInteriorOpen : scoring.XOpen(cj, n)) + e;
                 chars1.Add(seq1[ci - 1]);
                 chars2.Add('-');
                 ci--;
                 if (ci == 0 && cj == 0) break; // leading gap reached the origin
-                state = PickState(cur, mm[ci, cj] + oe, StateMatch, xx[ci, cj] + e, StateGapInSeq2, StateGapInSeq1);
+                state = PickState(cur, st.M(ci, cj) + oe, StateMatch, st.X(ci, cj) + e, StateGapInSeq2, StateGapInSeq1);
             }
             else // StateGapInSeq1
             {
-                int cur = yy[ci, cj];
+                int cur = st.Y(ci, cj);
                 int e = local ? scoring.YInteriorExt : scoring.YExt(ci, m);
                 int oe = (local ? scoring.YInteriorOpen : scoring.YOpen(ci, m)) + e;
                 chars1.Add('-');
                 chars2.Add(seq2[cj - 1]);
                 cj--;
                 if (ci == 0 && cj == 0) break;
-                state = PickState(cur, mm[ci, cj] + oe, StateMatch, yy[ci, cj] + e, StateGapInSeq1, StateGapInSeq2);
+                state = PickState(cur, st.M(ci, cj) + oe, StateMatch, st.Y(ci, cj) + e, StateGapInSeq1, StateGapInSeq2);
             }
         }
 

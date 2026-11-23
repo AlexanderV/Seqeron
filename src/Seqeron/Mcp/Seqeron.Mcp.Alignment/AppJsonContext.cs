@@ -45,6 +45,7 @@ namespace Seqeron.Mcp.Alignment;
 [JsonSerializable(typeof(AlignmentCountsResult))]
 [JsonSerializable(typeof(AlignmentOperationResult))]
 [JsonSerializable(typeof(ParasailScoreResult))]
+[JsonSerializable(typeof(BandedAlignResult))]
 [JsonSerializable(typeof(ParasailScoreItem))]
 [JsonSerializable(typeof(PairAlignmentItem))]
 [JsonSerializable(typeof(PairAlignmentItem[]))]

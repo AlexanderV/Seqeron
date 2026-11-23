@@ -405,3 +405,6 @@ public record ParasailScoreItem(
 
 /// <summary>The results of <c>parasail_score</c>: the function that ran and one item per reference, in order.</summary>
 public record ParasailScoreResult(string Function, int Count, ParasailScoreItem[] Results);
+
+/// <summary>The result of <c>banded_align</c>: the alignment, the diagonals j - i of the band that was computed, whether the banded optimum is proven to be the full optimum (exact mode), the rounds and the number of band cells filled.</summary>
+public record BandedAlignResult(AlignmentResultDto Alignment, int DiagonalLow, int DiagonalHigh, bool? Proven, int Rounds, long Cells);

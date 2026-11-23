@@ -7,6 +7,69 @@ namespace Seqeron.Genomics.Alignment;
 // Do not edit by hand; run the script. The overload enters the ambient cancellation scope (SequenceAligner.Cancellation.cs) and calls the original, which polls it at its row / iteration boundaries.
 public static partial class SequenceAligner
 {
+    /// <summary><see cref="BandedAlign(string, string, BandedAlignOptions)"/> that observes <paramref name="cancellationToken"/> (audit R14-15): the dynamic programs poll it at their row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result.</summary>
+    /// <inheritdoc cref="BandedAlign(string, string, BandedAlignOptions)"/>
+    /// <param name="cancellationToken">The token to observe; <c>CancellationToken.None</c> = never cancelled (the ambient scope of an outer call still applies).</param>
+    public static AlignmentResult BandedAlign(string sequence1, string sequence2, BandedAlignOptions options, CancellationToken cancellationToken)
+    {
+        using var cancelScope = AlignmentCancellation.Enter(cancellationToken);
+        return BandedAlign(sequence1, sequence2, options);
+    }
+
+    /// <summary><see cref="GlobalAlignBanded(string, string, ScoringMatrix?, int)"/> that observes <paramref name="cancellationToken"/> (audit R14-15): the dynamic programs poll it at their row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result.</summary>
+    /// <inheritdoc cref="GlobalAlignBanded(string, string, ScoringMatrix?, int)"/>
+    /// <param name="cancellationToken">The token to observe; <c>CancellationToken.None</c> = never cancelled (the ambient scope of an outer call still applies).</param>
+    public static AlignmentResult GlobalAlignBanded(string sequence1, string sequence2, ScoringMatrix? scoring, int bandWidth, CancellationToken cancellationToken)
+    {
+        using var cancelScope = AlignmentCancellation.Enter(cancellationToken);
+        return GlobalAlignBanded(sequence1, sequence2, scoring, bandWidth);
+    }
+
+    /// <summary><see cref="GlobalAlignAffineBanded(string, string, ScoringMatrix?, int)"/> that observes <paramref name="cancellationToken"/> (audit R14-15): the dynamic programs poll it at their row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result.</summary>
+    /// <inheritdoc cref="GlobalAlignAffineBanded(string, string, ScoringMatrix?, int)"/>
+    /// <param name="cancellationToken">The token to observe; <c>CancellationToken.None</c> = never cancelled (the ambient scope of an outer call still applies).</param>
+    public static AlignmentResult GlobalAlignAffineBanded(string sequence1, string sequence2, ScoringMatrix? scoring, int bandWidth, CancellationToken cancellationToken)
+    {
+        using var cancelScope = AlignmentCancellation.Enter(cancellationToken);
+        return GlobalAlignAffineBanded(sequence1, sequence2, scoring, bandWidth);
+    }
+
+    /// <summary><see cref="LocalAlignBanded(string, string, ScoringMatrix?, int, int)"/> that observes <paramref name="cancellationToken"/> (audit R14-15): the dynamic programs poll it at their row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result.</summary>
+    /// <inheritdoc cref="LocalAlignBanded(string, string, ScoringMatrix?, int, int)"/>
+    /// <param name="cancellationToken">The token to observe; <c>CancellationToken.None</c> = never cancelled (the ambient scope of an outer call still applies).</param>
+    public static AlignmentResult LocalAlignBanded(string sequence1, string sequence2, ScoringMatrix? scoring, int diagonalLow, int diagonalHigh, CancellationToken cancellationToken)
+    {
+        using var cancelScope = AlignmentCancellation.Enter(cancellationToken);
+        return LocalAlignBanded(sequence1, sequence2, scoring, diagonalLow, diagonalHigh);
+    }
+
+    /// <summary><see cref="LocalAlignAffineBanded(string, string, ScoringMatrix?, int, int)"/> that observes <paramref name="cancellationToken"/> (audit R14-15): the dynamic programs poll it at their row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result.</summary>
+    /// <inheritdoc cref="LocalAlignAffineBanded(string, string, ScoringMatrix?, int, int)"/>
+    /// <param name="cancellationToken">The token to observe; <c>CancellationToken.None</c> = never cancelled (the ambient scope of an outer call still applies).</param>
+    public static AlignmentResult LocalAlignAffineBanded(string sequence1, string sequence2, ScoringMatrix? scoring, int diagonalLow, int diagonalHigh, CancellationToken cancellationToken)
+    {
+        using var cancelScope = AlignmentCancellation.Enter(cancellationToken);
+        return LocalAlignAffineBanded(sequence1, sequence2, scoring, diagonalLow, diagonalHigh);
+    }
+
+    /// <summary><see cref="SemiGlobalAlignBanded(string, string, ScoringMatrix?, EndGaps, int, int)"/> that observes <paramref name="cancellationToken"/> (audit R14-15): the dynamic programs poll it at their row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result.</summary>
+    /// <inheritdoc cref="SemiGlobalAlignBanded(string, string, ScoringMatrix?, EndGaps, int, int)"/>
+    /// <param name="cancellationToken">The token to observe; <c>CancellationToken.None</c> = never cancelled (the ambient scope of an outer call still applies).</param>
+    public static AlignmentResult SemiGlobalAlignBanded(string sequence1, string sequence2, ScoringMatrix? scoring, EndGaps endGaps, int diagonalLow, int diagonalHigh, CancellationToken cancellationToken)
+    {
+        using var cancelScope = AlignmentCancellation.Enter(cancellationToken);
+        return SemiGlobalAlignBanded(sequence1, sequence2, scoring, endGaps, diagonalLow, diagonalHigh);
+    }
+
+    /// <summary><see cref="SemiGlobalAlignAffineBanded(string, string, ScoringMatrix?, EndGaps, int, int)"/> that observes <paramref name="cancellationToken"/> (audit R14-15): the dynamic programs poll it at their row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result.</summary>
+    /// <inheritdoc cref="SemiGlobalAlignAffineBanded(string, string, ScoringMatrix?, EndGaps, int, int)"/>
+    /// <param name="cancellationToken">The token to observe; <c>CancellationToken.None</c> = never cancelled (the ambient scope of an outer call still applies).</param>
+    public static AlignmentResult SemiGlobalAlignAffineBanded(string sequence1, string sequence2, ScoringMatrix? scoring, EndGaps endGaps, int diagonalLow, int diagonalHigh, CancellationToken cancellationToken)
+    {
+        using var cancelScope = AlignmentCancellation.Enter(cancellationToken);
+        return SemiGlobalAlignAffineBanded(sequence1, sequence2, scoring, endGaps, diagonalLow, diagonalHigh);
+    }
+
     /// <summary><see cref="GlobalAlignCoOptimal(string, string, ScoringMatrix?, GapScoreProfile, int)"/> that observes <paramref name="cancellationToken"/> (audit R14-15): the dynamic programs poll it at their row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result.</summary>
     /// <inheritdoc cref="GlobalAlignCoOptimal(string, string, ScoringMatrix?, GapScoreProfile, int)"/>
     /// <param name="cancellationToken">The token to observe; <c>CancellationToken.None</c> = never cancelled (the ambient scope of an outer call still applies).</param>

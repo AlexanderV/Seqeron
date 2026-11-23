@@ -23,6 +23,7 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "assemble_de_bruijn",
         "assemble_olc",
         "assembly_stats",
+        "banded_align",
         "calculate_coverage",
         "clustalw_command",
         "clustalw_guide_tree",
