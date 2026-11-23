@@ -185,6 +185,8 @@ public class DifferenceCoverTable1b9hTests
             ("one residue short", DefaultResidues[..^1]),
             ("one residue more", [.. DefaultResidues, p - 1]),
             ("not sorted", Replace(Replace(DefaultResidues, 2, DefaultResidues[3]), 3, DefaultResidues[2])),
+            ("the first two swapped (a perfect set, not in order)", Replace(Replace(DefaultResidues, 0, DefaultResidues[1]), 1, DefaultResidues[0])),
+            ("the whole set reversed (a perfect set, not in order)", [.. DefaultResidues.Reverse()]),
             ("empty", []),
             ("the last residue replaced by one that is no residue: the right shape, not a perfect set", Replace(DefaultResidues, 31, Enumerable.Range(DefaultResidues[30] + 1, p - DefaultResidues[30] - 1).First(v => v != DefaultResidues[31]))),
         };

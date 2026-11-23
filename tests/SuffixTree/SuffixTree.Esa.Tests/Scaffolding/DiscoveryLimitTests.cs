@@ -4,6 +4,7 @@ namespace SuffixTree.Esa.Tests.Scaffolding;
 
 /// <summary>The limit on what a test source runs at test discovery (work package 1b.9h): a value that comes back in time is returned, a failure is thrown again with its own type, and a computation that does not come back gives false at the limit.</summary>
 [TestFixture]
+[HangLimit(30)]       // the tests of a limit are the ones that hang when the limit is gone: a failed test, not a stopped host
 public class DiscoveryLimitTests
 {
     [Test]
