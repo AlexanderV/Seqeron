@@ -8,7 +8,7 @@ cp ../../../../../scripts/alignment/generate_tcoffee_external_oracle.py ./genera
 docker build --platform linux/amd64 -t "$IMAGE" .
 rm -rf out; mkdir -p out returned
 docker run --rm --platform linux/amd64 -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" -v "$PWD":/work "$IMAGE" /work/in_container.sh 2>&1 | tee out/run_console.log
-rm -f returned/A2-12b-out.run7.zip returned/A2-12b-out.run7.tar.gz
-if command -v zip > /dev/null; then zip -qr returned/A2-12b-out.run7.zip out; else tar czf returned/A2-12b-out.run7.tar.gz out; fi
+rm -f returned/A2-12b-out.run8.zip returned/A2-12b-out.run8.tar.gz
+if command -v zip > /dev/null; then zip -qr returned/A2-12b-out.run8.zip out; else tar czf returned/A2-12b-out.run8.tar.gz out; fi
 ls -l returned
 echo "Send back: docs/Validation/review-2026-09/handoff/A2-12b-dali-sap-stderr/returned/ (the archive above)."

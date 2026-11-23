@@ -121,6 +121,34 @@ for f in got:
         # Run 5 of the package (s4 returned): DaliLite 3.3 has its installation directory compiled into the program / scripts: every call runs
         # `perl /data/backup/zope_data/dali_server/DaliLite_3.3//Bin/forwarder.pl ...` and stops with "Can't open perl script" (354 calls). The program is made to find itself at the path it expects.
         root = os.path.dirname(os.path.dirname(exe))
+        # Run 7 (s4 with full-backbone structures): DSSP ran, but `puu` and `puutos` (Fortran programs shipped PRECOMPILED in Bin/, "make: Nothing to be done") need the old g77 runtime:
+        # `error while loading shared libraries: libg2c.so.0` (137 calls ended with status 127). Make the programs runnable and log every step (the log decides the next step if this is not enough):
+        # (A) rebuild the Fortran programs from the sources with gfortran (`make -B`), (B) else give the loader a libg2c.so.0 (Ubuntu's libf2c2 provides the f2c runtime with the same entry points).
+        bindir = os.path.dirname(exe)
+        def missing():
+            r = sh(f'cd {bindir} && for f in puu puutos dssp dalicon; do [ -e $f ] && (file $f | cut -c1-120; ldd $f 2>&1 | grep -i "not found"); done; true')
+            return r.stdout
+        print('LDD BEFORE', missing())
+        if 'not found' in missing():
+            r = sh(f'cd {bindir} && make -B FC=gfortran F77=gfortran G77=gfortran FFLAGS="-O2 -std=legacy -fallow-argument-mismatch -w" 2>&1 | tail -40')
+            print('MAKE -B', r.stdout, r.stderr)
+            print('LDD AFTER make -B', missing())
+        if 'not found' in missing():
+            is32 = 'ELF 32-bit' in missing()
+            cmds = ['apt-get update -qq']
+            if is32: cmds += ['dpkg --add-architecture i386', 'apt-get update -qq', 'DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends libf2c2:i386 libc6-i386']
+            else: cmds += ['DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends libf2c2']
+            for c in cmds:
+                r = sh(c + ' 2>&1 | tail -5'); print('CMD', c, r.stdout)
+            r = sh('ls /usr/lib/*/libf2c* /usr/lib/libf2c* 2>/dev/null')
+            print('LIBF2C', r.stdout)
+            for lib in r.stdout.split():
+                if lib.endswith('libf2c.so.2') or lib.endswith('libf2c.so'):
+                    d = os.path.dirname(lib)
+                    if not os.path.exists(d + '/libg2c.so.0'): os.symlink(lib, d + '/libg2c.so.0')
+                    print('LINK', d + '/libg2c.so.0', '->', lib)
+            print(sh('ldconfig').stdout)
+            print('LDD AFTER libf2c', missing())
         os.makedirs('/data/backup/zope_data/dali_server', exist_ok=True)
         if not os.path.exists('/data/backup/zope_data/dali_server/DaliLite_3.3'): os.symlink(root, '/data/backup/zope_data/dali_server/DaliLite_3.3')
         print('INSTALL PATH', '/data/backup/zope_data/dali_server/DaliLite_3.3', '->', root)
