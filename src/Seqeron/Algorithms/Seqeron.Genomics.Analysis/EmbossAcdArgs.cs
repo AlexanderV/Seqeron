@@ -138,7 +138,7 @@ internal sealed class EmbossAcdArgs
         if (raw is null)
             return null;
         if (!AcdCommandLine.TryToBool(raw, out bool v))
-            throw Die(name, $"Error: Invalid boolean value '{raw}'");
+            throw Die(name, $"Error: Invalid Y/N value '{raw}'");
         return v;
     }
 
@@ -160,7 +160,7 @@ internal sealed class EmbossAcdArgs
         if (raw is null)
             return dflt;
         if (!AcdCommandLine.TryToBool(raw, out bool v))
-            throw Die(name, $"Error: Invalid boolean value '{raw}'");
+            throw Die(name, $"Error: Invalid Y/N value '{raw}'");
         return v;
     }
 
@@ -326,7 +326,7 @@ internal sealed class EmbossAcdArgs
         string? single = RawAssoc(master, "ossingle");
         bool isSingle = false;
         if (single is not null && !AcdCommandLine.TryToBool(single, out isSingle))
-            throw Die("ossingle", $"Error: Invalid boolean value '{single}'");
+            throw Die("ossingle", $"Error: Invalid Y/N value '{single}'");
 
         return new EmbossOutseqOptions(Raw(master) ?? "stdout", format, isSingle, RawAssoc(master, "osdirectory"), RawAssoc(master, "osextension"), RawAssoc(master, "osdbname"), RawAssoc(master, "osname")) { CommandLine = CommandLine, RunDate = EmbossRunEnvironment.Current.RunDate, RefToday = EmbossRunEnvironment.Current.Now };
     }

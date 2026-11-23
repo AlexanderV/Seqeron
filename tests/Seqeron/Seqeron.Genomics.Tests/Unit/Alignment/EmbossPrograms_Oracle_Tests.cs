@@ -53,7 +53,11 @@ public class EmbossPrograms_Oracle_Tests
             var clock = new EmbossRunEnvironment(
                 j.TryGetProperty("epoch", out var epoch) ? DateTimeOffset.FromUnixTimeSeconds(epoch.GetInt64()).UtcDateTime : null,
                 j.TryGetProperty("usec", out var usec) && usec.ValueKind == JsonValueKind.Number ? usec.GetInt32() : null,
-                j.TryGetProperty("timetoday", out var timetoday) && timetoday.ValueKind == JsonValueKind.String ? timetoday.GetString() : null);
+                j.TryGetProperty("timetoday", out var timetoday) && timetoday.ValueKind == JsonValueKind.String ? timetoday.GetString() : null)
+            {
+                // the run had its data directory WORK/edata/ (EMBOSS_DATA; the PROSITE programs: scripts/alignment/emboss_prog_oracle_lib.py, run(edata=True))
+                DataDirectory = j.TryGetProperty("edata", out var edata) && edata.ValueKind == JsonValueKind.True ? "edata/" : null,
+            };
             try
             {
                 var r = EmbossProgramRunner.Run(program, args, files, clock);

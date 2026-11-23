@@ -87,6 +87,9 @@ public static class EmbossProgramRunner
         ["plotorf"] = EmbossSequencePrograms.Plotorf,
         ["wordfinder"] = EmbossSequencePrograms.Wordfinder,
         ["marscan"] = EmbossSequencePrograms.Marscan,
+        ["patmatmotifs"] = EmbossSequencePrograms.Patmatmotifs,
+        ["patmatdb"] = EmbossSequencePrograms.Patmatdb,
+        ["prosextract"] = EmbossSequencePrograms.Prosextract,
     };
 
     /// <summary>The programs that can be run.</summary>

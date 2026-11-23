@@ -265,7 +265,12 @@ internal sealed partial class EmbossSeqin
         if (parts.Count > 0 && parts[^1].Length == 0)
             parts.RemoveAt(parts.Count - 1);
         for (int i = 0; i < parts.Count; i++)
-            parts[i] += "\n";
+        {
+            // fgets reads the whole line, the library takes its length with strlen: a line ends at its first NUL (the text after it is lost, the missing line feed is added)
+            int nul = parts[i].IndexOf('\0', StringComparison.Ordinal);
+            parts[i] = (nul >= 0 ? parts[i][..nul] : parts[i]) + "\n";
+        }
+
         return parts;
     }
 

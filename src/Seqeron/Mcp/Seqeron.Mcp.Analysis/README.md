@@ -2,7 +2,7 @@
 
 MCP server — **K-mer, motif, repeat, complexity, RNA-structure and comparative-genomics analysis.**
 
-Exposes **229 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+Exposes **232 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
 MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test, with a
 per-tool doc under [`docs/mcp/tools/analysis/`](../../../../docs/mcp/tools/analysis). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
@@ -106,6 +106,9 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `tcode` | EMBOSS tcode: identifies protein-coding regions of a nucleotide sequence with the fickett testcode statistic; equals tcode 6.6.0 on 300 runs. |
 | `checktrans` | EMBOSS checktrans: reports the stop codons and the open reading frames of a protein translation; equals checktrans 6.6.0 on 300 runs. |
 | `marscan` | EMBOSS marscan: finds matrix/scaffold recognition (mrs) signatures in dna sequences; equals marscan 6.6.0 on 300 runs. |
+| `patmatmotifs` | EMBOSS patmatmotifs: scans a protein sequence with the patterns of the prosite database; equals patmatmotifs 6.6.0 on 300 runs. |
+| `patmatdb` | EMBOSS patmatdb: searches protein sequences with a prosite sequence motif; equals patmatdb 6.6.0 on 300 runs. |
+| `prosextract` | EMBOSS prosextract: builds the prosite motif database for patmatmotifs from prosite.dat and prosite.doc; equals prosextract 6.6.0 on 300 runs. |
 | `plotorf` | EMBOSS plotorf: plots the potential open reading frames of a nucleotide sequence; equals plotorf 6.6.0 on 300 runs. |
 | `wordfinder` | EMBOSS wordfinder: matches large sequences against one or more other sequences by their words; equals wordfinder 6.6.0 on 300 runs. |
 | `prettyseq` | EMBOSS prettyseq: writes a nucleotide sequence and its translation; equals prettyseq 6.6.0 on 300 runs. |

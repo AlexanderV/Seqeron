@@ -45,6 +45,11 @@
     <EmbeddedResource Include="TestData\Alignment\dotmatcher_edge_oracle.tsv" />
     <!-- ALIGN-MULTI-001 (audit A4-7): minimap2 2.26 print-seeds on 1 980 cases (frequent minimizers, f / U, H, T, X, for-only / rev-only); scripts/alignment/generate_minimap2_seed_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\emboss_prog_*_oracle.jsonl.gz" />
+    <!-- B09 WP67 (F306): PCRE 7 (libepcre of EMBOSS 6.6.0) compile errors and matches of the expressions the PROSITE conversion can write; scripts/alignment/generate_emboss_pcre_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\emboss_pcre_oracle.tsv.gz" />
+    <!-- B09 WP67 (F306): patmatmotifs 6.6.0 on the real PROSITE release 2026_04 (85 runs of the user-run Docker package handoff/WP62-patmatmotifs-prosite); scripts/alignment/convert_patmatmotifs_prosite_returned.py. -->
+    <EmbeddedResource Include="TestData\Alignment\emboss_prosite_returned_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_prosite_release_data.json.gz" />
     <EmbeddedResource Include="TestData\Alignment\minimap2_seed_oracle.jsonl.gz" />
     <!-- ALIGN-MULTI-001 (audit A4-7): minimap2 2.26 PAF lines (primary / secondary, long-join, rmq, chaining options); scripts/alignment/generate_minimap2_map_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\minimap2_map_oracle.jsonl.gz" />

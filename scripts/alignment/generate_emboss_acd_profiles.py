@@ -13,7 +13,7 @@ import re, subprocess, sys
 PROGRAMS = ['needle', 'water', 'stretcher', 'matcher', 'supermatcher', 'needleall', 'merger', 'megamerger', 'seqmatchall', 'fuzznuc', 'fuzzpro', 'fuzztran', 'etandem', 'equicktandem', 'dotmatcher', 'distmat', 'diffseq', 'wordmatch', 'est2genome', 'seqret', 'extractfeat', 'showfeat', 'featreport', 'twofeat', 'maskfeat', 'coderet', 'union', 'descseq', 'seqretsplit', 'entret',
             'getorf', 'sixpack', 'showorf', 'checktrans', 'tcode', 'plotorf', 'showseq', 'prettyseq', 'revseq', 'transeq', 'extractseq', 'cutseq', 'degapseq', 'trimseq', 'trimspace', 'trimest', 'vectorstrip', 'skipseq',
             'nthseq', 'nthseqset', 'notseq', 'pasteseq', 'listor', 'msbar', 'shuffleseq', 'maskseq', 'maskambignuc', 'maskambigprot', 'nospace', 'notab', 'noreturn', 'makenucseq', 'makeprotseq', 'newseq', 'infoseq',
-            'seqcount', 'wordcount', 'wordfinder', 'splitter', 'yank', 'seqxref', 'patmatmotifs', 'patmatdb', 'preg', 'dreg', 'tfscan', 'marscan']
+            'seqcount', 'wordcount', 'wordfinder', 'splitter', 'yank', 'seqxref', 'patmatmotifs', 'patmatdb', 'preg', 'dreg', 'tfscan', 'marscan', 'prosextract']
 
 
 def profile(prog):

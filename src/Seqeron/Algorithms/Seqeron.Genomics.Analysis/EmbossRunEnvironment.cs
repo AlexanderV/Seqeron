@@ -12,6 +12,23 @@ public sealed record EmbossRunEnvironment(DateTime? Now = null, int? Microsecond
 {
     private static readonly AsyncLocal<EmbossRunEnvironment?> CurrentValue = new();
 
+    /// <summary>The data directory of the run (<c>EMBOSS_DATA</c>: where <c>ajDatafileNewInNameS</c> looks after the work directory and where <c>ajDatafileNewOutNameS</c> writes; a file by its path in the files of the run); null = the installation of EMBOSS 6.6.0 (<see cref="DefaultDataDirectory"/>).</summary>
+    public string? DataDirectory { get; init; }
+
+    /// <summary>The data directory of the Debian / Ubuntu package <c>emboss-data</c> 6.6.0.</summary>
+    public const string DefaultDataDirectory = "/usr/share/EMBOSS/data/";
+
+    /// <summary>The data directory with the trailing slash (<c>ajDirnameFix</c>).</summary>
+    internal string DataDir
+    {
+        get
+        {
+            if (string.IsNullOrEmpty(DataDirectory))
+                return DefaultDataDirectory;
+            return DataDirectory.EndsWith('/') ? DataDirectory : DataDirectory + "/";
+        }
+    }
+
     /// <summary>The environment of the run in progress (the default environment outside a run).</summary>
     internal static EmbossRunEnvironment Current => CurrentValue.Value ?? new EmbossRunEnvironment();
 

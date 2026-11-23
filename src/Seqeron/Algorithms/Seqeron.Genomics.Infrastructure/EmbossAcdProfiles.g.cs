@@ -3920,5 +3920,21 @@ internal static partial class EmbossAcdProfiles
             G die boolean
             G version boolean
             """),
+        ("prosextract", """
+            P prositedir 1 directory
+            A prositedir extension 1 string
+            G auto boolean
+            G stdout boolean
+            G filter boolean
+            G options boolean
+            G debug boolean
+            G verbose boolean
+            G help boolean
+            G warning boolean
+            G error boolean
+            G fatal boolean
+            G die boolean
+            G version boolean
+            """),
     ];
 }

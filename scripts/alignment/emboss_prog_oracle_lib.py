@@ -76,11 +76,23 @@ def clock_shim(d):
     return shim
 
 
-def run(prog, args, files, work, timeout=8, env=None, timetoday=None):
-    """runs the program; returns (rc, stdout, stderr, outfiles, hang). timetoday: the value of the EMBOSS variable of that name (HOME = the work directory with a .embossrc that holds `SET timetoday "VALUE"`): the date of the run and seed 0"""
+NO_PROSITE = ['unshare', '-m', 'sh', '-c', 'mount -t tmpfs none /usr/share/EMBOSS/data/PROSITE && exec "$@"', 'sh']
+
+
+def launcher(prog, edata):
+    """the command that starts the program: a run with an EMBOSS data directory of its own (edata) sees no PROSITE data of the installation (a private mount over its directory), so that the data are the files of the row"""
+    return NO_PROSITE + [prog] if edata else [prog]
+
+
+def run(prog, args, files, work, timeout=8, env=None, timetoday=None, edata=False):
+    """runs the program; returns (rc, stdout, stderr, outfiles, hang). timetoday: the value of the EMBOSS variable of that name (HOME = the work directory with a .embossrc that holds `SET timetoday "VALUE"`): the date of the run and seed 0.
+    edata: the run has the data directory WORK/edata/ (EMBOSS_DATA; its subdirectory PROSITE exists) and no PROSITE data of the installation; the work directory is cut from the paths of the output"""
     for nme in os.listdir(work):
         path = os.path.join(work, nme)
         shutil.rmtree(path) if os.path.isdir(path) else os.remove(path)
+    if edata:
+        os.makedirs(os.path.join(work, 'edata', 'PROSITE'))
+        env = dict(env or os.environ, EMBOSS_DATA=os.path.join(work, 'edata') + '/')
     if timetoday is not None:
         rc_text = 'SET timetoday "%s"\n' % timetoday
         open(os.path.join(work, '.embossrc'), 'w').write(rc_text)
@@ -95,7 +107,7 @@ def run(prog, args, files, work, timeout=8, env=None, timetoday=None):
     def limit():
         resource.setrlimit(resource.RLIMIT_FSIZE, (8 << 20, 8 << 20))
     hang = False
-    proc = subprocess.Popen([prog, '-auto'] + args, cwd=work, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.DEVNULL, preexec_fn=limit, env=env)
+    proc = subprocess.Popen(launcher(prog, edata) + ['-auto'] + args, cwd=work, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.DEVNULL, preexec_fn=limit, env=env)
     try:
         outb, errb = proc.communicate(timeout=timeout)
         rc = proc.returncode
@@ -114,7 +126,11 @@ def run(prog, args, files, work, timeout=8, env=None, timetoday=None):
                 outfiles[rel] = open(os.path.join(root, nme), 'rb').read().decode('latin-1')
             elif open(os.path.join(root, nme), 'rb').read().decode('latin-1') != files[rel]:
                 outfiles[rel] = open(os.path.join(root, nme), 'rb').read().decode('latin-1')
-    return rc, outb.decode('latin-1'), errb.decode('latin-1'), outfiles, hang
+    out, err = outb.decode('latin-1'), errb.decode('latin-1')
+    if edata:
+        cut = lambda t: t.replace(work + '/', '')
+        out, err, outfiles = cut(out), cut(err), {k: cut(v) for k, v in outfiles.items()}
+    return rc, out, err, outfiles, hang
 
 
 def valgrind_bad(prog, args, files, work, env=None, tolerate_underflow=False):
@@ -162,8 +178,8 @@ def main(prog, gen, default_n=300, default_seed=20261701):
             env = dict(os.environ, LD_PRELOAD=shim, FAKE_EPOCH=str(epoch), TZ='UTC')
             if 'usec' in extra:
                 env['FAKE_USEC'] = str(extra['usec'])
-            rc, o, e, outfiles, hang = run(prog, args, files, work, env=env, timetoday=extra.get('timetoday'))
-            rc2, o2, e2, outfiles2, hang2 = run(prog, args, files, work, env=env, timetoday=extra.get('timetoday'))
+            rc, o, e, outfiles, hang = run(prog, args, files, work, env=env, timetoday=extra.get('timetoday'), edata=extra.get('edata', False))
+            rc2, o2, e2, outfiles2, hang2 = run(prog, args, files, work, env=env, timetoday=extra.get('timetoday'), edata=extra.get('edata', False))
             if hang and rc == -9:
                 print('row', len(rows), 'timed out: dropped', args, file=sys.stderr)       # slow rather than defined (e.g. the 28 s of an NCBI header with two barred tokens): no row
                 continue
