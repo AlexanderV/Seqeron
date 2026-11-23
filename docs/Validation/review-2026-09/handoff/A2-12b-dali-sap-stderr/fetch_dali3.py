@@ -20,7 +20,31 @@ def get(url, binary=False):
 
 
 got = []
-for page in PAGES:
+# Step 0 (run 2 of the package showed that the links of the snapshot page resolve to captured-less URLs, "http:/" joined and the /v3/ part lost): ask the CDX index of the archive which
+# tarball URLs of the DaliLite download area were captured with status 200 and fetch the newest capture of each in raw mode (timestamp + "id_"). Logged; never raises.
+try:
+    cdx = get('http://web.archive.org/cdx/search/cdx?url=ekhidna.biocenter.helsinki.fi/dali_lite/downloads/*&matchType=prefix&output=txt&fl=timestamp,original,statuscode&filter=statuscode:200&limit=2000')
+    print('CDX', len(cdx.splitlines()), 'lines')
+    newest = {}
+    for ln in cdx.splitlines():
+        f = ln.split()
+        if len(f) >= 2 and re.search(r'(tar\.gz|tgz|\.zip)$', f[1], re.I):
+            if f[1] not in newest or f[0] > newest[f[1]]: newest[f[1]] = f[0]
+    print('CDX tarballs', newest)
+    for orig, ts in sorted(newest.items()):
+        url = 'http://web.archive.org/web/%sid_/%s' % (ts, orig)
+        name = '_'.join(orig.split('/')[-2:]) if '/v3/' in orig else os.path.basename(orig)
+        try:
+            data = get(url, True)
+            if data[:5].lower() in (b'<!doc', b'<html'): raise ValueError('HTML instead of an archive')
+            open(out + '/src/' + name, 'wb').write(data)
+            print('DOWNLOADED', url, len(data))
+            got.append(out + '/src/' + name)
+        except Exception as e:  # noqa: BLE001
+            print('DOWNLOAD FAILED', url, e)
+except Exception as e:  # noqa: BLE001
+    print('CDX FAILED', e)
+for page in ([] if got else PAGES):
     try:
         html = get(page)
         print('PAGE', page, len(html))
@@ -32,6 +56,7 @@ for page in PAGES:
     for l in links:
         if re.search(r'\.(tar\.gz|tgz|zip|tar)$', l, re.I) or re.search(r'DaliLite', l):
             url = urllib.parse.urljoin(page, l) if hasattr(urllib, 'parse') else l
+            url = re.sub(r'(web\.archive\.org/web/\d+)/http:/(?!/)', r'\1id_/http://', url)
             if not url.startswith('http'): url = 'http://web.archive.org' + l
             name = os.path.basename(url.split('?')[0]) or 'download'
             try:
