@@ -227,6 +227,23 @@ class SyntheticClosure(unittest.TestCase):
         self.assertEqual(rc, 0, out)
         self.assertNotIn('MISSING', out)
 
+    def test_a_resource_file_of_a_project_is_a_needed_source(self):
+        rc, out = self.check({'src/Lib/Strings.resx': '<root/>'}, ALL[:2] + ['!src/Lib/Lib.csproj', '!src/Lib/Lib.cs', '!src/Other'])
+        self.assertEqual(rc, 1, out)
+        self.assertEqual(missing_of(out), ['src/Lib/Strings.resx'])
+
+    def test_build_output_in_a_directory_below_the_project_directory_is_not_a_needed_source(self):
+        files = {'src/Lib/sub/bin/Gen.cs': 'x', 'src/Lib/sub/obj/Gen2.cs': 'x'}
+        rc, out = self.check(files, ALL + ['**/bin', '**/obj'])
+        self.assertEqual(rc, 0, out)
+        self.assertNotIn('MISSING', out)
+
+    def test_a_question_mark_in_a_linked_path_matches_one_character(self):
+        files = {'shared/A.cs': 'x', 'shared/B.cs': 'x', 'shared/CC.cs': 'x', 'apps/App/App.csproj': proj(r'<ProjectReference Include="..\..\src\Lib\Lib.csproj" />', r'<Compile Include="..\..\shared\?.cs" />')}
+        rc, out = self.check(files, ALL + ['!shared/A.cs'])
+        self.assertEqual(rc, 1, out)
+        self.assertEqual(missing_of(out), ['shared/B.cs'], 'B.cs matches ?.cs and is not in the list; CC.cs does not match; a ? that was read as a character would name shared/?.cs')
+
     def test_an_item_inside_the_project_directory_without_a_link_is_not_a_needed_path(self):
         rc, out = self.check({'apps/App/notes.txt': 'x', 'apps/App/App.csproj': proj(r'<ProjectReference Include="..\..\src\Lib\Lib.csproj" />', '<None Include="notes.txt" />')},
                              ['*', '!apps/App/App.csproj', '!apps/App/Program.cs', '!src/Lib', '!src/Other'])
@@ -373,6 +390,34 @@ class SyntheticTestProjects(unittest.TestCase):
     def test_all_three_test_projects_in_the_list_pass(self):
         rc, out = self.check(ALL + ['!tests/SuffixTree'], '--allow-tests')
         self.assertEqual(rc, 0, out)
+
+
+@unittest.skipUnless(in_checkout() and shutil.which('dotnet'), 'needs the git checkout of the repository and the dotnet SDK (the full check publishes the program with an empty package cache; about 10 s)')
+class FullCheck(unittest.TestCase):
+    """The checker without --static-only: its exit code carries the closure as well, not only the copy and the publish. A COPY source that the context does not hold passes the publish (it is not read by it) and
+    must still fail the check; the unit tests above stop at the static mode, which has an exit code of its own."""
+
+    def test_a_copy_source_that_is_not_in_the_context_fails_the_full_check_although_the_publish_passes(self):
+        dockerfile = os.path.join(ROOT, E8, 'Dockerfile')
+        with open(dockerfile) as f:
+            text = f.read()
+        tmp = tempfile.NamedTemporaryFile('w', suffix='.Dockerfile', delete=False)
+        try:
+            tmp.write(text + '\nCOPY a-file-that-the-context-does-not-hold.txt /x\n')
+            tmp.close()
+            p = subprocess.run([sys.executable, '-I', CHECK, ROOT, '--dockerfile', tmp.name], capture_output=True, text=True, timeout=600)
+        finally:
+            os.unlink(tmp.name)
+        out = p.stdout + p.stderr
+        self.assertIn('publish apps/SuffixTree.EmProto/SuffixTree.EmProto.csproj: OK', out)
+        self.assertEqual(missing_of(out), ['a-file-that-the-context-does-not-hold.txt'], out[-800:])
+        self.assertEqual(p.returncode, 1, out[-800:])
+
+    def test_the_full_check_of_the_real_list_passes(self):
+        p = subprocess.run([sys.executable, '-I', CHECK, ROOT], capture_output=True, text=True, timeout=600)
+        out = p.stdout + p.stderr
+        self.assertEqual(p.returncode, 0, out[-800:])
+        self.assertIn('context closure: OK', out)
 
 
 if __name__ == '__main__':
