@@ -4,6 +4,9 @@ Measured on one machine, 3 repeats (median) unless stated.  Seqeron = commit `24
 `bench/seqeron/snapshot` and built from there, nothing under `/home/user/Seqeron` was touched).  All numbers below are generated from `bench.tsv`
 by `lib/make_report.py`; raw per-repeat rows are in `runs/raw*.tsv`.  Environment: `ENV.txt`.  Provenance and licences of every third-party source: `SOURCES.txt`.
 
+Newer measurements (2026-11-23, the enhanced-suffix-array backend and its external-memory container): `adr/ADR-004-external-memory-construction.md`, section 5a "1b.9: the S1 gate measurement" (gate tables, the same-session libsais control).
+Their rows are `analysis/bench/results_1b9_*` and `analysis/bench/bench_esa.tsv`; no section 9 or BENCHMARK-ESA page exists yet. The numbers of this file are those of commit `242318429a5e` and are unchanged.
+
 ## 0. Read this first (what is and is not comparable)
 
 * **Different data structures.** Seqeron and `sdsl cst_sct3` / Python `suffix-trees` are *suffix trees*; Go `index/suffixarray`, libsais, libdivsufsort and pydivsufsort
