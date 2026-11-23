@@ -1,0 +1,58 @@
+[
+ {
+  "id": "1b12_r2_D01",
+  "desc": "Extend: an empty pattern returns a locus built from the locus after the write (the same for two variables)",
+  "old": "        result = default;\n        EsaText text = _index.TextView;\n        foreach (char symbol in pattern)",
+  "new": "        result = default;\n        if (pattern.IsEmpty) { result = new IndexLocus(node.Lb, node.Rb, locus.Length, node.Depth); return true; }\n        EsaText text = _index.TextView;\n        foreach (char symbol in pattern)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.cs",
+  "filter": "(FullyQualifiedName~IndexAliasingTests|FullyQualifiedName~IndexAliasingPropertyTests|FullyQualifiedName~FacadeAliasingTests)"
+ },
+ {
+  "id": "1b12_r2_D02",
+  "desc": "TryExtendRight(symbol): the result is cleared before the call of Extend",
+  "old": "        ReadOnlySpan<char> one = [(char)symbol];\n        return Extend(locus, one, out result);",
+  "new": "        ReadOnlySpan<char> one = [(char)symbol];\n        result = default;\n        return Extend(locus, one, out result);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.cs",
+  "filter": "(FullyQualifiedName~IndexAliasingTests|FullyQualifiedName~IndexAliasingPropertyTests|FullyQualifiedName~FacadeAliasingTests)"
+ },
+ {
+  "id": "1b12_r2_D03",
+  "desc": "TryExtendRight(span): the result is cleared before the call of Extend",
+  "old": "public bool TryExtendRight(in IndexLocus locus, ReadOnlySpan<char> pattern, out IndexLocus result) => Extend(locus, pattern, out result);",
+  "new": "public bool TryExtendRight(in IndexLocus locus, ReadOnlySpan<char> pattern, out IndexLocus result)\n    {\n        result = default;\n        return Extend(locus, pattern, out result);\n    }",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.cs",
+  "filter": "(FullyQualifiedName~IndexAliasingTests|FullyQualifiedName~IndexAliasingPropertyTests|FullyQualifiedName~FacadeAliasingTests)"
+ },
+ {
+  "id": "1b12_r2_E01",
+  "desc": "Extend: a mismatch inside an edge leaves the partial locus in the result",
+  "old": "if (at >= (uint)_n || text[(int)at] != symbol) return false;",
+  "new": "if (at >= (uint)_n || text[(int)at] != symbol) { result = new IndexLocus(node.Lb, node.Rb, length, node.Depth); return false; }",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.cs",
+  "filter": "(FullyQualifiedName~IndexAliasingTests|FullyQualifiedName~IndexAliasingPropertyTests|FullyQualifiedName~FacadeAliasingTests)"
+ },
+ {
+  "id": "1b12_r2_E02",
+  "desc": "Extend: a missing child leaves the partial locus in the result",
+  "old": "if (!FindChild(node, symbol, out EsaNode next)) return false;",
+  "new": "if (!FindChild(node, symbol, out EsaNode next)) { result = new IndexLocus(node.Lb, node.Rb, length, node.Depth); return false; }",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.cs",
+  "filter": "(FullyQualifiedName~IndexAliasingTests|FullyQualifiedName~IndexAliasingPropertyTests|FullyQualifiedName~FacadeAliasingTests)"
+ },
+ {
+  "id": "1b12_r2_L01",
+  "desc": "Locate: the destination is cleared before the locus is checked (the same unless the destination overlaps the locus)",
+  "old": "        ArgumentOutOfRangeException.ThrowIfNegative(skip);\n        CheckLocus(locus, nameof(locus));\n        int from",
+  "new": "        ArgumentOutOfRangeException.ThrowIfNegative(skip);\n        positions.Clear();\n        CheckLocus(locus, nameof(locus));\n        int from",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.cs",
+  "filter": "(FullyQualifiedName~IndexAliasingTests|FullyQualifiedName~IndexAliasingPropertyTests|FullyQualifiedName~FacadeAliasingTests)"
+ },
+ {
+  "id": "1b12_r2_Q02",
+  "desc": "EQUIVALENT: TryExtendRight(symbol) hands Extend a copy of the locus",
+  "old": "        ReadOnlySpan<char> one = [(char)symbol];\n        return Extend(locus, one, out result);",
+  "new": "        ReadOnlySpan<char> one = [(char)symbol];\n        IndexLocus copy = locus;\n        return Extend(copy, one, out result);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.cs",
+  "filter": "(FullyQualifiedName~IndexAliasingTests|FullyQualifiedName~IndexAliasingPropertyTests|FullyQualifiedName~FacadeAliasingTests)"
+ }
+]

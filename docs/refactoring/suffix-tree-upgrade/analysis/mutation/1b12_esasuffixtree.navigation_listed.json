@@ -1,0 +1,58 @@
+[
+ {
+  "id": "1b12_C01",
+  "desc": "facade TryExtendRight(symbol): the result is cleared before the call",
+  "old": "        using ReadScope scope = Enter();\n        return _contract.TryExtendRight(in locus, symbol, out result);",
+  "new": "        using ReadScope scope = Enter();\n        result = default;\n        return _contract.TryExtendRight(in locus, symbol, out result);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.Navigation.cs",
+  "filter": "(FullyQualifiedName~IndexAliasingTests|FullyQualifiedName~IndexAliasingPropertyTests|FullyQualifiedName~FacadeAliasingTests)"
+ },
+ {
+  "id": "1b12_C02",
+  "desc": "facade TryExtendRight(span): the result is cleared before the call",
+  "old": "        using ReadScope scope = Enter();\n        return _contract.TryExtendRight(in locus, pattern, out result);",
+  "new": "        using ReadScope scope = Enter();\n        result = default;\n        return _contract.TryExtendRight(in locus, pattern, out result);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.Navigation.cs",
+  "filter": "(FullyQualifiedName~IndexAliasingTests|FullyQualifiedName~IndexAliasingPropertyTests|FullyQualifiedName~FacadeAliasingTests)"
+ },
+ {
+  "id": "1b12_C03",
+  "desc": "facade TryExtendLeft: the result is cleared before the call",
+  "old": "        using ReadScope scope = Enter();\n        return _contract.TryExtendLeft(in locus, symbol, out result);",
+  "new": "        using ReadScope scope = Enter();\n        result = default;\n        return _contract.TryExtendLeft(in locus, symbol, out result);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.Navigation.cs",
+  "filter": "(FullyQualifiedName~IndexAliasingTests|FullyQualifiedName~IndexAliasingPropertyTests|FullyQualifiedName~FacadeAliasingTests)"
+ },
+ {
+  "id": "1b12_C04",
+  "desc": "facade TryParent: the result is cleared before the call",
+  "old": "        using ReadScope scope = Enter();\n        return _contract.TryParent(in locus, out parent);",
+  "new": "        using ReadScope scope = Enter();\n        parent = default;\n        return _contract.TryParent(in locus, out parent);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.Navigation.cs",
+  "filter": "(FullyQualifiedName~IndexAliasingTests|FullyQualifiedName~IndexAliasingPropertyTests|FullyQualifiedName~FacadeAliasingTests)"
+ },
+ {
+  "id": "1b12_C05",
+  "desc": "facade TryChild: the result is cleared before the call",
+  "old": "        using ReadScope scope = Enter();\n        return _contract.TryChild(in node, firstSymbol, out child);",
+  "new": "        using ReadScope scope = Enter();\n        child = default;\n        return _contract.TryChild(in node, firstSymbol, out child);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.Navigation.cs",
+  "filter": "(FullyQualifiedName~IndexAliasingTests|FullyQualifiedName~IndexAliasingPropertyTests|FullyQualifiedName~FacadeAliasingTests)"
+ },
+ {
+  "id": "1b12_C06",
+  "desc": "facade TrySuffixLink: the result is cleared before the call",
+  "old": "        using ReadScope scope = Enter();\n        return _contract.TrySuffixLink(in node, out link);",
+  "new": "        using ReadScope scope = Enter();\n        link = default;\n        return _contract.TrySuffixLink(in node, out link);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.Navigation.cs",
+  "filter": "(FullyQualifiedName~IndexAliasingTests|FullyQualifiedName~IndexAliasingPropertyTests|FullyQualifiedName~FacadeAliasingTests)"
+ },
+ {
+  "id": "1b12_C07",
+  "desc": "facade GetChildren: the first slot of the destination is cleared before the call",
+  "old": "        using ReadScope scope = Enter();\n        return _contract.GetChildren(in node, children);",
+  "new": "        using ReadScope scope = Enter();\n        if (children.Length > 0) children[0] = default;\n        return _contract.GetChildren(in node, children);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.Navigation.cs",
+  "filter": "(FullyQualifiedName~IndexAliasingTests|FullyQualifiedName~IndexAliasingPropertyTests|FullyQualifiedName~FacadeAliasingTests)"
+ }
+]

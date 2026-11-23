@@ -1,0 +1,18 @@
+[
+ {
+  "id": "1b12_r2_L02",
+  "desc": "facade Locate: the destination is cleared before the call",
+  "old": "        using ReadScope scope = Enter();\n        return _contract.Locate(in locus, skip, positions);",
+  "new": "        using ReadScope scope = Enter();\n        positions.Clear();\n        return _contract.Locate(in locus, skip, positions);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.Navigation.cs",
+  "filter": "(FullyQualifiedName~IndexAliasingTests|FullyQualifiedName~IndexAliasingPropertyTests|FullyQualifiedName~FacadeAliasingTests)"
+ },
+ {
+  "id": "1b12_r2_Q01",
+  "desc": "EQUIVALENT: facade TryParent hands the index a copy of the locus",
+  "old": "        using ReadScope scope = Enter();\n        return _contract.TryParent(in locus, out parent);",
+  "new": "        using ReadScope scope = Enter();\n        IndexLocus copy = locus;\n        return _contract.TryParent(in copy, out parent);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.Navigation.cs",
+  "filter": "(FullyQualifiedName~IndexAliasingTests|FullyQualifiedName~IndexAliasingPropertyTests|FullyQualifiedName~FacadeAliasingTests)"
+ }
+]

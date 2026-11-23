@@ -1,0 +1,7 @@
+1b12_C01	facade TryExtendRight(symbol): the result is cleared before the call	killed(stage 1, the new classes: 25 failed, first RandomWalks_TheAliasedCallAndTheSeparateCallGiveTheSameAnswer_AndTheAnswerOfTheOracle)
+1b12_C02	facade TryExtendRight(span): the result is cleared before the call	killed(stage 1, the new classes: 18 failed, first RandomWalks_TheAliasedCallAndTheSeparateCallGiveTheSameAnswer_AndTheAnswerOfTheOracle)
+1b12_C03	facade TryExtendLeft: the result is cleared before the call	killed(stage 1, the new classes: 21 failed, first RandomWalks_TheAliasedCallAndTheSeparateCallGiveTheSameAnswer_AndTheAnswerOfTheOracle)
+1b12_C04	facade TryParent: the result is cleared before the call	killed(stage 1, the new classes: 14 failed, first RandomWalks_TheAliasedCallAndTheSeparateCallGiveTheSameAnswer_AndTheAnswerOfTheOracle)
+1b12_C05	facade TryChild: the result is cleared before the call	killed(stage 1, the new classes: 14 failed, first RandomWalks_TheAliasedCallAndTheSeparateCallGiveTheSameAnswer_AndTheAnswerOfTheOracle)
+1b12_C06	facade TrySuffixLink: the result is cleared before the call	killed(stage 1, the new classes: 14 failed, first RandomWalks_TheAliasedCallAndTheSeparateCallGiveTheSameAnswer_AndTheAnswerOfTheOracle)
+1b12_C07	facade GetChildren: the first slot of the destination is cleared before the call	killed(stage 1, the new classes: 8 failed, first RandomWalks_TheAliasedCallAndTheSeparateCallGiveTheSameAnswer_AndTheAnswerOfTheOracle)

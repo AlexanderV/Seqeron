@@ -1,0 +1,108 @@
+# the 106 new tests of work package 1b.12 run at the unfixed head 15acebec + the test commit 6af59503 (src of 12495c3e): outcome per fixture and test (Release, dotnet test --filter FullyQualifiedName~Aliasing; the same command at the fixed head 08c904cd: 106 passed); the first line of the failure message
+fixture	test	outcome	first line of the message
+Contract.IndexAliasingPropertyTests(esa)	RandomWalks_TheAliasedCallAndTheSeparateCallGiveTheSameAnswer_AndTheAnswerOfTheOracle	Failed	System.ArgumentException : [0..0] depth 0 aux 0 is not a locus of this index (text length 11) (Parameter 'locus')
+Contract.IndexAliasingPropertyTests(esa-facade)	RandomWalks_TheAliasedCallAndTheSeparateCallGiveTheSameAnswer_AndTheAnswerOfTheOracle	Failed	System.ArgumentException : [0..0] depth 0 aux 0 is not a locus of this index (text length 11) (Parameter 'locus')
+Contract.IndexAliasingPropertyTests(esa-facade-packed)	RandomWalks_TheAliasedCallAndTheSeparateCallGiveTheSameAnswer_AndTheAnswerOfTheOracle	Failed	System.ArgumentException : [0..0] depth 0 aux 0 is not a locus of this index (text length 11) (Parameter 'locus')
+Contract.IndexAliasingPropertyTests(esa-file)	RandomWalks_TheAliasedCallAndTheSeparateCallGiveTheSameAnswer_AndTheAnswerOfTheOracle	Failed	System.ArgumentException : [0..0] depth 0 aux 0 is not a locus of this index (text length 11) (Parameter 'locus')
+Contract.IndexAliasingPropertyTests(esa-file-trusted)	RandomWalks_TheAliasedCallAndTheSeparateCallGiveTheSameAnswer_AndTheAnswerOfTheOracle	Failed	System.ArgumentException : [0..0] depth 0 aux 0 is not a locus of this index (text length 11) (Parameter 'locus')
+Contract.IndexAliasingPropertyTests(esa-packed)	RandomWalks_TheAliasedCallAndTheSeparateCallGiveTheSameAnswer_AndTheAnswerOfTheOracle	Failed	System.ArgumentException : [0..0] depth 0 aux 0 is not a locus of this index (text length 11) (Parameter 'locus')
+Contract.IndexAliasingPropertyTests(esa-reference3)	RandomWalks_TheAliasedCallAndTheSeparateCallGiveTheSameAnswer_AndTheAnswerOfTheOracle	Failed	System.ArgumentException : [0..0] depth 0 aux 0 is not a locus of this index (text length 11) (Parameter 'locus')
+Contract.IndexAliasingPropertyTests(ukkonen-adapter)	RandomWalks_TheAliasedCallAndTheSeparateCallGiveTheSameAnswer_AndTheAnswerOfTheOracle	Passed	
+Contract.IndexAliasingTests(esa)	GetChildren_TheChildrenMayOverwriteTheVariableThatHoldsTheNode	Passed	
+Contract.IndexAliasingTests(esa)	GetChildren_TheChildrenOfTheSecondChild_MayBeWrittenOverTheArrayThatHoldsIt	Passed	
+Contract.IndexAliasingTests(esa)	Locate_ThePositionsMayBeWrittenOverTheBytesOfTheLocus	Passed	
+Contract.IndexAliasingTests(esa)	TheNaturalLoop_OneVariableAdvancedAlongEverySubstring_ReachesTheLocusOfTheOracle	Failed	'abracadabra' 'ab' symbol 2
+Contract.IndexAliasingTests(esa)	TheResultMayAliasTheLocus_AdvancingOneVariableAlongAString	Failed	aliased step 'b'
+Contract.IndexAliasingTests(esa)	TryChild_TheResultMayAliasTheNode	Passed	
+Contract.IndexAliasingTests(esa)	TryExtendLeft_TheResultMayAliasTheLocus	Failed	System.ArgumentException : [0..0] depth 0 aux 0 is not a locus of this index (text length 11) (Parameter 'locus')
+Contract.IndexAliasingTests(esa)	TryExtendRight_Span_TheResultMayAliasTheLocus	Failed	'abracadabra' "a" TryExtendRight("") (one variable): expected True [1..5] depth 1 aux 1, got True [1..5] depth 0 aux 1
+Contract.IndexAliasingTests(esa)	TryExtendRight_Symbol_TheResultMayAliasTheLocus	Failed	'abracadabra' "a" TryExtendRight(97) (one variable): expected False [0..0] depth 0 aux 0, got True [1..5] depth 1 aux 1
+Contract.IndexAliasingTests(esa)	TryParent_TheResultMayAliasTheLocus	Passed	
+Contract.IndexAliasingTests(esa)	TrySuffixLink_TheResultMayAliasTheNode	Passed	
+Contract.IndexAliasingTests(esa-facade)	GetChildren_TheChildrenMayOverwriteTheVariableThatHoldsTheNode	Passed	
+Contract.IndexAliasingTests(esa-facade)	GetChildren_TheChildrenOfTheSecondChild_MayBeWrittenOverTheArrayThatHoldsIt	Passed	
+Contract.IndexAliasingTests(esa-facade)	Locate_ThePositionsMayBeWrittenOverTheBytesOfTheLocus	Passed	
+Contract.IndexAliasingTests(esa-facade)	TheNaturalLoop_OneVariableAdvancedAlongEverySubstring_ReachesTheLocusOfTheOracle	Failed	'abracadabra' 'ab' symbol 2
+Contract.IndexAliasingTests(esa-facade)	TheResultMayAliasTheLocus_AdvancingOneVariableAlongAString	Failed	aliased step 'b'
+Contract.IndexAliasingTests(esa-facade)	TryChild_TheResultMayAliasTheNode	Passed	
+Contract.IndexAliasingTests(esa-facade)	TryExtendLeft_TheResultMayAliasTheLocus	Failed	System.ArgumentException : [0..0] depth 0 aux 0 is not a locus of this index (text length 11) (Parameter 'locus')
+Contract.IndexAliasingTests(esa-facade)	TryExtendRight_Span_TheResultMayAliasTheLocus	Failed	'abracadabra' "a" TryExtendRight("") (one variable): expected True [1..5] depth 1 aux 1, got True [1..5] depth 0 aux 1
+Contract.IndexAliasingTests(esa-facade)	TryExtendRight_Symbol_TheResultMayAliasTheLocus	Failed	'abracadabra' "a" TryExtendRight(97) (one variable): expected False [0..0] depth 0 aux 0, got True [1..5] depth 1 aux 1
+Contract.IndexAliasingTests(esa-facade)	TryParent_TheResultMayAliasTheLocus	Passed	
+Contract.IndexAliasingTests(esa-facade)	TrySuffixLink_TheResultMayAliasTheNode	Passed	
+Contract.IndexAliasingTests(esa-facade-packed)	GetChildren_TheChildrenMayOverwriteTheVariableThatHoldsTheNode	Passed	
+Contract.IndexAliasingTests(esa-facade-packed)	GetChildren_TheChildrenOfTheSecondChild_MayBeWrittenOverTheArrayThatHoldsIt	Passed	
+Contract.IndexAliasingTests(esa-facade-packed)	Locate_ThePositionsMayBeWrittenOverTheBytesOfTheLocus	Passed	
+Contract.IndexAliasingTests(esa-facade-packed)	TheNaturalLoop_OneVariableAdvancedAlongEverySubstring_ReachesTheLocusOfTheOracle	Failed	'abracadabra' 'ab' symbol 2
+Contract.IndexAliasingTests(esa-facade-packed)	TheResultMayAliasTheLocus_AdvancingOneVariableAlongAString	Failed	aliased step 'b'
+Contract.IndexAliasingTests(esa-facade-packed)	TryChild_TheResultMayAliasTheNode	Passed	
+Contract.IndexAliasingTests(esa-facade-packed)	TryExtendLeft_TheResultMayAliasTheLocus	Failed	System.ArgumentException : [0..0] depth 0 aux 0 is not a locus of this index (text length 11) (Parameter 'locus')
+Contract.IndexAliasingTests(esa-facade-packed)	TryExtendRight_Span_TheResultMayAliasTheLocus	Failed	'abracadabra' "a" TryExtendRight("") (one variable): expected True [1..5] depth 1 aux 1, got True [1..5] depth 0 aux 1
+Contract.IndexAliasingTests(esa-facade-packed)	TryExtendRight_Symbol_TheResultMayAliasTheLocus	Failed	'abracadabra' "a" TryExtendRight(97) (one variable): expected False [0..0] depth 0 aux 0, got True [1..5] depth 1 aux 1
+Contract.IndexAliasingTests(esa-facade-packed)	TryParent_TheResultMayAliasTheLocus	Passed	
+Contract.IndexAliasingTests(esa-facade-packed)	TrySuffixLink_TheResultMayAliasTheNode	Passed	
+Contract.IndexAliasingTests(esa-file)	GetChildren_TheChildrenMayOverwriteTheVariableThatHoldsTheNode	Passed	
+Contract.IndexAliasingTests(esa-file)	GetChildren_TheChildrenOfTheSecondChild_MayBeWrittenOverTheArrayThatHoldsIt	Passed	
+Contract.IndexAliasingTests(esa-file)	Locate_ThePositionsMayBeWrittenOverTheBytesOfTheLocus	Passed	
+Contract.IndexAliasingTests(esa-file)	TheNaturalLoop_OneVariableAdvancedAlongEverySubstring_ReachesTheLocusOfTheOracle	Failed	'abracadabra' 'ab' symbol 2
+Contract.IndexAliasingTests(esa-file)	TheResultMayAliasTheLocus_AdvancingOneVariableAlongAString	Failed	aliased step 'b'
+Contract.IndexAliasingTests(esa-file)	TryChild_TheResultMayAliasTheNode	Passed	
+Contract.IndexAliasingTests(esa-file)	TryExtendLeft_TheResultMayAliasTheLocus	Failed	System.ArgumentException : [0..0] depth 0 aux 0 is not a locus of this index (text length 11) (Parameter 'locus')
+Contract.IndexAliasingTests(esa-file)	TryExtendRight_Span_TheResultMayAliasTheLocus	Failed	'abracadabra' "a" TryExtendRight("") (one variable): expected True [1..5] depth 1 aux 1, got True [1..5] depth 0 aux 1
+Contract.IndexAliasingTests(esa-file)	TryExtendRight_Symbol_TheResultMayAliasTheLocus	Failed	'abracadabra' "a" TryExtendRight(97) (one variable): expected False [0..0] depth 0 aux 0, got True [1..5] depth 1 aux 1
+Contract.IndexAliasingTests(esa-file)	TryParent_TheResultMayAliasTheLocus	Passed	
+Contract.IndexAliasingTests(esa-file)	TrySuffixLink_TheResultMayAliasTheNode	Passed	
+Contract.IndexAliasingTests(esa-file-trusted)	GetChildren_TheChildrenMayOverwriteTheVariableThatHoldsTheNode	Passed	
+Contract.IndexAliasingTests(esa-file-trusted)	GetChildren_TheChildrenOfTheSecondChild_MayBeWrittenOverTheArrayThatHoldsIt	Passed	
+Contract.IndexAliasingTests(esa-file-trusted)	Locate_ThePositionsMayBeWrittenOverTheBytesOfTheLocus	Passed	
+Contract.IndexAliasingTests(esa-file-trusted)	TheNaturalLoop_OneVariableAdvancedAlongEverySubstring_ReachesTheLocusOfTheOracle	Failed	'abracadabra' 'ab' symbol 2
+Contract.IndexAliasingTests(esa-file-trusted)	TheResultMayAliasTheLocus_AdvancingOneVariableAlongAString	Failed	aliased step 'b'
+Contract.IndexAliasingTests(esa-file-trusted)	TryChild_TheResultMayAliasTheNode	Passed	
+Contract.IndexAliasingTests(esa-file-trusted)	TryExtendLeft_TheResultMayAliasTheLocus	Failed	System.ArgumentException : [0..0] depth 0 aux 0 is not a locus of this index (text length 11) (Parameter 'locus')
+Contract.IndexAliasingTests(esa-file-trusted)	TryExtendRight_Span_TheResultMayAliasTheLocus	Failed	'abracadabra' "a" TryExtendRight("") (one variable): expected True [1..5] depth 1 aux 1, got True [1..5] depth 0 aux 1
+Contract.IndexAliasingTests(esa-file-trusted)	TryExtendRight_Symbol_TheResultMayAliasTheLocus	Failed	'abracadabra' "a" TryExtendRight(97) (one variable): expected False [0..0] depth 0 aux 0, got True [1..5] depth 1 aux 1
+Contract.IndexAliasingTests(esa-file-trusted)	TryParent_TheResultMayAliasTheLocus	Passed	
+Contract.IndexAliasingTests(esa-file-trusted)	TrySuffixLink_TheResultMayAliasTheNode	Passed	
+Contract.IndexAliasingTests(esa-packed)	GetChildren_TheChildrenMayOverwriteTheVariableThatHoldsTheNode	Passed	
+Contract.IndexAliasingTests(esa-packed)	GetChildren_TheChildrenOfTheSecondChild_MayBeWrittenOverTheArrayThatHoldsIt	Passed	
+Contract.IndexAliasingTests(esa-packed)	Locate_ThePositionsMayBeWrittenOverTheBytesOfTheLocus	Passed	
+Contract.IndexAliasingTests(esa-packed)	TheNaturalLoop_OneVariableAdvancedAlongEverySubstring_ReachesTheLocusOfTheOracle	Failed	'abracadabra' 'ab' symbol 2
+Contract.IndexAliasingTests(esa-packed)	TheResultMayAliasTheLocus_AdvancingOneVariableAlongAString	Failed	aliased step 'b'
+Contract.IndexAliasingTests(esa-packed)	TryChild_TheResultMayAliasTheNode	Passed	
+Contract.IndexAliasingTests(esa-packed)	TryExtendLeft_TheResultMayAliasTheLocus	Failed	System.ArgumentException : [0..0] depth 0 aux 0 is not a locus of this index (text length 11) (Parameter 'locus')
+Contract.IndexAliasingTests(esa-packed)	TryExtendRight_Span_TheResultMayAliasTheLocus	Failed	'abracadabra' "a" TryExtendRight("") (one variable): expected True [1..5] depth 1 aux 1, got True [1..5] depth 0 aux 1
+Contract.IndexAliasingTests(esa-packed)	TryExtendRight_Symbol_TheResultMayAliasTheLocus	Failed	'abracadabra' "a" TryExtendRight(97) (one variable): expected False [0..0] depth 0 aux 0, got True [1..5] depth 1 aux 1
+Contract.IndexAliasingTests(esa-packed)	TryParent_TheResultMayAliasTheLocus	Passed	
+Contract.IndexAliasingTests(esa-packed)	TrySuffixLink_TheResultMayAliasTheNode	Passed	
+Contract.IndexAliasingTests(esa-reference3)	GetChildren_TheChildrenMayOverwriteTheVariableThatHoldsTheNode	Passed	
+Contract.IndexAliasingTests(esa-reference3)	GetChildren_TheChildrenOfTheSecondChild_MayBeWrittenOverTheArrayThatHoldsIt	Passed	
+Contract.IndexAliasingTests(esa-reference3)	Locate_ThePositionsMayBeWrittenOverTheBytesOfTheLocus	Passed	
+Contract.IndexAliasingTests(esa-reference3)	TheNaturalLoop_OneVariableAdvancedAlongEverySubstring_ReachesTheLocusOfTheOracle	Failed	'abracadabra' 'ab' symbol 2
+Contract.IndexAliasingTests(esa-reference3)	TheResultMayAliasTheLocus_AdvancingOneVariableAlongAString	Failed	aliased step 'b'
+Contract.IndexAliasingTests(esa-reference3)	TryChild_TheResultMayAliasTheNode	Passed	
+Contract.IndexAliasingTests(esa-reference3)	TryExtendLeft_TheResultMayAliasTheLocus	Failed	System.ArgumentException : [0..0] depth 0 aux 0 is not a locus of this index (text length 11) (Parameter 'locus')
+Contract.IndexAliasingTests(esa-reference3)	TryExtendRight_Span_TheResultMayAliasTheLocus	Failed	'abracadabra' "a" TryExtendRight("") (one variable): expected True [1..5] depth 1 aux 1, got True [1..5] depth 0 aux 1
+Contract.IndexAliasingTests(esa-reference3)	TryExtendRight_Symbol_TheResultMayAliasTheLocus	Failed	'abracadabra' "a" TryExtendRight(97) (one variable): expected False [0..0] depth 0 aux 0, got True [1..5] depth 1 aux 1
+Contract.IndexAliasingTests(esa-reference3)	TryParent_TheResultMayAliasTheLocus	Passed	
+Contract.IndexAliasingTests(esa-reference3)	TrySuffixLink_TheResultMayAliasTheNode	Passed	
+Facade.FacadeAliasingTests(esa)	EveryLocusOfAText_ThroughTheFacade_IsTheSameWhetherTheResultAliasesOrNot	Failed	System.ArgumentException : [0..0] depth 0 aux 0 is not a locus of this index (text length 11) (Parameter 'locus')
+Facade.FacadeAliasingTests(esa)	GetChildren_ChildrenWrittenOverTheArrayThatHoldsTheNode	Passed	
+Facade.FacadeAliasingTests(esa)	TheResultMayAliasTheLocus	Failed	Assert.That(tree.TryExtendRight(alias, c, out alias), Is.True)
+Facade.FacadeAliasingTests(esa)	TryExtendLeft_AliasedCallEqualsTheSeparateCall	Failed	System.ArgumentException : [0..0] depth 0 aux 0 is not a locus of this index (text length 11) (Parameter 'locus')
+Facade.FacadeAliasingTests(esa)	TryExtendRight_SpanOverload_AliasedCallEqualsTheSeparateCall	Failed	'abr' + 'a'
+Facade.FacadeAliasingTests(esa)	TryExtendRight_SymbolOverload_AliasedCallEqualsTheSeparateCall	Failed	'abr' at 'b'
+Facade.FacadeAliasingTests(esa)	TryParent_TryChild_TrySuffixLink_AliasedCallEqualsTheSeparateCall	Passed	
+Facade.FacadeAliasingTests(esa-packed)	EveryLocusOfAText_ThroughTheFacade_IsTheSameWhetherTheResultAliasesOrNot	Failed	System.ArgumentException : [0..0] depth 0 aux 0 is not a locus of this index (text length 11) (Parameter 'locus')
+Facade.FacadeAliasingTests(esa-packed)	GetChildren_ChildrenWrittenOverTheArrayThatHoldsTheNode	Passed	
+Facade.FacadeAliasingTests(esa-packed)	TheResultMayAliasTheLocus	Failed	Assert.That(tree.TryExtendRight(alias, c, out alias), Is.True)
+Facade.FacadeAliasingTests(esa-packed)	TryExtendLeft_AliasedCallEqualsTheSeparateCall	Failed	System.ArgumentException : [0..0] depth 0 aux 0 is not a locus of this index (text length 11) (Parameter 'locus')
+Facade.FacadeAliasingTests(esa-packed)	TryExtendRight_SpanOverload_AliasedCallEqualsTheSeparateCall	Failed	'abr' + 'a'
+Facade.FacadeAliasingTests(esa-packed)	TryExtendRight_SymbolOverload_AliasedCallEqualsTheSeparateCall	Failed	'abr' at 'b'
+Facade.FacadeAliasingTests(esa-packed)	TryParent_TryChild_TrySuffixLink_AliasedCallEqualsTheSeparateCall	Passed	
+Facade.FacadeAliasingTests(esa-reference3)	EveryLocusOfAText_ThroughTheFacade_IsTheSameWhetherTheResultAliasesOrNot	Failed	System.ArgumentException : [0..0] depth 0 aux 0 is not a locus of this index (text length 11) (Parameter 'locus')
+Facade.FacadeAliasingTests(esa-reference3)	GetChildren_ChildrenWrittenOverTheArrayThatHoldsTheNode	Passed	
+Facade.FacadeAliasingTests(esa-reference3)	TheResultMayAliasTheLocus	Failed	Assert.That(tree.TryExtendRight(alias, c, out alias), Is.True)
+Facade.FacadeAliasingTests(esa-reference3)	TryExtendLeft_AliasedCallEqualsTheSeparateCall	Failed	System.ArgumentException : [0..0] depth 0 aux 0 is not a locus of this index (text length 11) (Parameter 'locus')
+Facade.FacadeAliasingTests(esa-reference3)	TryExtendRight_SpanOverload_AliasedCallEqualsTheSeparateCall	Failed	'abr' + 'a'
+Facade.FacadeAliasingTests(esa-reference3)	TryExtendRight_SymbolOverload_AliasedCallEqualsTheSeparateCall	Failed	'abr' at 'b'
+Facade.FacadeAliasingTests(esa-reference3)	TryParent_TryChild_TrySuffixLink_AliasedCallEqualsTheSeparateCall	Passed	

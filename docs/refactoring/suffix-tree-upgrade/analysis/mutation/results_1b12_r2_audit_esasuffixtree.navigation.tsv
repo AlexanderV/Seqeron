@@ -1,0 +1,2 @@
+1b12_r2_L02	facade Locate: the destination is cleared before the call	killed(stage 1, the new classes: 4 failed, first Locate_ThePositionsMayBeWrittenOverTheBytesOfTheLocus)
+1b12_r2_Q01	EQUIVALENT: facade TryParent hands the index a copy of the locus	survived (stages 1 and 2)

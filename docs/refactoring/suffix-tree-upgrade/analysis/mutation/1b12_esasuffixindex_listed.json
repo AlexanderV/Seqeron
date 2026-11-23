@@ -1,0 +1,162 @@
+[
+ {
+  "id": "1b12_A01",
+  "desc": "Extend: the depth is read after the write to the result (the original defect)",
+  "old": "        long length = locus.Length;\n        result = default;\n        EsaText text = _index.TextView;",
+  "new": "        result = default;\n        long length = locus.Length;\n        EsaText text = _index.TextView;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.cs",
+  "filter": "(FullyQualifiedName~IndexAliasingTests|FullyQualifiedName~IndexAliasingPropertyTests|FullyQualifiedName~FacadeAliasingTests)"
+ },
+ {
+  "id": "1b12_A02",
+  "desc": "Extend: the locus is resolved after the write to the result",
+  "old": "        EsaNode node = Resolve(locus, nameof(locus));\n        long length = locus.Length;\n        result = default;",
+  "new": "        result = default;\n        EsaNode node = Resolve(locus, nameof(locus));\n        long length = locus.Length;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.cs",
+  "filter": "(FullyQualifiedName~IndexAliasingTests|FullyQualifiedName~IndexAliasingPropertyTests|FullyQualifiedName~FacadeAliasingTests)"
+ },
+ {
+  "id": "1b12_A03",
+  "desc": "Extend: the depth is taken from the (cleared) result, the wrong local",
+  "old": "        long length = locus.Length;\n        result = default;\n        EsaText text = _index.TextView;",
+  "new": "        result = default;\n        long length = result.Length;\n        EsaText text = _index.TextView;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.cs",
+  "filter": "(FullyQualifiedName~IndexAliasingTests|FullyQualifiedName~IndexAliasingPropertyTests|FullyQualifiedName~FacadeAliasingTests)"
+ },
+ {
+  "id": "1b12_A04",
+  "desc": "Extend: the depth local is not copied from the locus (starts at zero)",
+  "old": "        long length = locus.Length;\n        result = default;\n        EsaText text = _index.TextView;",
+  "new": "        result = default;\n        long length = 0;\n        EsaText text = _index.TextView;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.cs",
+  "filter": "(FullyQualifiedName~IndexAliasingTests|FullyQualifiedName~IndexAliasingPropertyTests|FullyQualifiedName~FacadeAliasingTests)"
+ },
+ {
+  "id": "1b12_A05",
+  "desc": "Extend: the depth moves by two per symbol",
+  "old": "            length++;\n        }\n        result = new IndexLocus(node.Lb, node.Rb, length, node.Depth);",
+  "new": "            length += 2;\n        }\n        result = new IndexLocus(node.Lb, node.Rb, length, node.Depth);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.cs",
+  "filter": "(FullyQualifiedName~IndexAliasingTests|FullyQualifiedName~IndexAliasingPropertyTests|FullyQualifiedName~FacadeAliasingTests)"
+ },
+ {
+  "id": "1b12_A06",
+  "desc": "Extend: the depth of the result is one short",
+  "old": "result = new IndexLocus(node.Lb, node.Rb, length, node.Depth);",
+  "new": "result = new IndexLocus(node.Lb, node.Rb, length - 1, node.Depth);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.cs",
+  "filter": "(FullyQualifiedName~IndexAliasingTests|FullyQualifiedName~IndexAliasingPropertyTests|FullyQualifiedName~FacadeAliasingTests)"
+ },
+ {
+  "id": "1b12_A07",
+  "desc": "Extend: the aux of the result is the matched length, not the depth of the node below",
+  "old": "result = new IndexLocus(node.Lb, node.Rb, length, node.Depth);",
+  "new": "result = new IndexLocus(node.Lb, node.Rb, length, length);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.cs",
+  "filter": "(FullyQualifiedName~IndexAliasingTests|FullyQualifiedName~IndexAliasingPropertyTests|FullyQualifiedName~FacadeAliasingTests)"
+ },
+ {
+  "id": "1b12_A08",
+  "desc": "Extend: a failed extension leaves the locus in the result, not the default",
+  "old": "        long length = locus.Length;\n        result = default;\n        EsaText text = _index.TextView;",
+  "new": "        result = locus;\n        long length = locus.Length;\n        EsaText text = _index.TextView;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.cs",
+  "filter": "(FullyQualifiedName~IndexAliasingTests|FullyQualifiedName~IndexAliasingPropertyTests|FullyQualifiedName~FacadeAliasingTests)"
+ },
+ {
+  "id": "1b12_A09",
+  "desc": "TryExtendRight(symbol): the locus is checked after the write to the result (a symbol that is no code unit)",
+  "old": "            Resolve(locus, nameof(locus));\n            result = default;\n            return false;\n        }\n        ReadOnlySpan<char> one",
+  "new": "            result = default;\n            Resolve(locus, nameof(locus));\n            return false;\n        }\n        ReadOnlySpan<char> one",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.cs",
+  "filter": "(FullyQualifiedName~IndexAliasingTests|FullyQualifiedName~IndexAliasingPropertyTests|FullyQualifiedName~FacadeAliasingTests)"
+ },
+ {
+  "id": "1b12_A10",
+  "desc": "TryExtendRight(symbol): a symbol that is no code unit leaves the locus in the result",
+  "old": "            Resolve(locus, nameof(locus));\n            result = default;\n            return false;\n        }\n        ReadOnlySpan<char> one",
+  "new": "            Resolve(locus, nameof(locus));\n            result = locus;\n            return false;\n        }\n        ReadOnlySpan<char> one",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.cs",
+  "filter": "(FullyQualifiedName~IndexAliasingTests|FullyQualifiedName~IndexAliasingPropertyTests|FullyQualifiedName~FacadeAliasingTests)"
+ },
+ {
+  "id": "1b12_A11",
+  "desc": "TryExtendRight(symbol): the code unit U+FFFF is refused",
+  "old": "if ((uint)symbol > char.MaxValue)\n        {\n            Resolve(locus, nameof(locus));",
+  "new": "if ((uint)symbol >= char.MaxValue)\n        {\n            Resolve(locus, nameof(locus));",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.cs",
+  "filter": "(FullyQualifiedName~IndexAliasingTests|FullyQualifiedName~IndexAliasingPropertyTests|FullyQualifiedName~FacadeAliasingTests)"
+ },
+ {
+  "id": "1b12_A12",
+  "desc": "TryExtendLeft: the copy of the locus is taken after the write to the result",
+  "old": "        IndexLocus at = locus; // a copy: result may be the same variable as locus (the contract), and result is written before the locus is read again\n        Resolve(at, nameof(locus));\n        result = default;\n",
+  "new": "        Resolve(locus, nameof(locus));\n        result = default;\n        IndexLocus at = locus;\n",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.cs",
+  "filter": "(FullyQualifiedName~IndexAliasingTests|FullyQualifiedName~IndexAliasingPropertyTests|FullyQualifiedName~FacadeAliasingTests)"
+ },
+ {
+  "id": "1b12_A13",
+  "desc": "TryExtendLeft: the empty-string branch reads the locus, not the copy",
+  "old": "if (at.Length == 0) return TryExtendRight(at, symbol, out result);",
+  "new": "if (locus.Length == 0) return TryExtendRight(locus, symbol, out result);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.cs",
+  "filter": "(FullyQualifiedName~IndexAliasingTests|FullyQualifiedName~IndexAliasingPropertyTests|FullyQualifiedName~FacadeAliasingTests)"
+ },
+ {
+  "id": "1b12_A14",
+  "desc": "TryExtendLeft: the first rank is read from the locus, not the copy",
+  "old": "for (int rank = (int)at.Lo, last = (int)at.Hi;",
+  "new": "for (int rank = (int)locus.Lo, last = (int)at.Hi;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.cs",
+  "filter": "(FullyQualifiedName~IndexAliasingTests|FullyQualifiedName~IndexAliasingPropertyTests|FullyQualifiedName~FacadeAliasingTests)"
+ },
+ {
+  "id": "1b12_A15",
+  "desc": "TryExtendLeft: the last rank is read from the locus, not the copy",
+  "old": "for (int rank = (int)at.Lo, last = (int)at.Hi;",
+  "new": "for (int rank = (int)at.Lo, last = (int)locus.Hi;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.cs",
+  "filter": "(FullyQualifiedName~IndexAliasingTests|FullyQualifiedName~IndexAliasingPropertyTests|FullyQualifiedName~FacadeAliasingTests)"
+ },
+ {
+  "id": "1b12_A16",
+  "desc": "TryExtendLeft: the depth of the result is read from the locus, not the copy",
+  "old": "result = new IndexLocus(low, high, at.Length + 1, aux);",
+  "new": "result = new IndexLocus(low, high, locus.Length + 1, aux);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.cs",
+  "filter": "(FullyQualifiedName~IndexAliasingTests|FullyQualifiedName~IndexAliasingPropertyTests|FullyQualifiedName~FacadeAliasingTests)"
+ },
+ {
+  "id": "1b12_A17",
+  "desc": "TryExtendLeft: the depth of the result is one too long",
+  "old": "result = new IndexLocus(low, high, at.Length + 1, aux);",
+  "new": "result = new IndexLocus(low, high, at.Length + 2, aux);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.cs",
+  "filter": "(FullyQualifiedName~IndexAliasingTests|FullyQualifiedName~IndexAliasingPropertyTests|FullyQualifiedName~FacadeAliasingTests)"
+ },
+ {
+  "id": "1b12_A18",
+  "desc": "TryExtendLeft: no preceding symbol leaves the locus in the result, not the default",
+  "old": "        if (high < 0) return false;",
+  "new": "        if (high < 0) { result = at; return false; }",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.cs",
+  "filter": "(FullyQualifiedName~IndexAliasingTests|FullyQualifiedName~IndexAliasingPropertyTests|FullyQualifiedName~FacadeAliasingTests)"
+ },
+ {
+  "id": "1b12_A19",
+  "desc": "TryExtendLeft: a symbol that is no code unit leaves the locus in the result (the result is set to the copy at the start)",
+  "old": "        Resolve(at, nameof(locus));\n        result = default;\n        if ((uint)symbol > char.MaxValue) return false;",
+  "new": "        Resolve(at, nameof(locus));\n        result = at;\n        if ((uint)symbol > char.MaxValue) return false;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.cs",
+  "filter": "(FullyQualifiedName~IndexAliasingTests|FullyQualifiedName~IndexAliasingPropertyTests|FullyQualifiedName~FacadeAliasingTests)"
+ },
+ {
+  "id": "1b12_A20",
+  "desc": "TryExtendLeft: the locus is not checked",
+  "old": "        Resolve(at, nameof(locus));\n        result = default;\n        if ((uint)symbol > char.MaxValue) return false;",
+  "new": "        result = default;\n        if ((uint)symbol > char.MaxValue) return false;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.cs",
+  "filter": "(FullyQualifiedName~IndexAliasingTests|FullyQualifiedName~IndexAliasingPropertyTests|FullyQualifiedName~FacadeAliasingTests)"
+ }
+]

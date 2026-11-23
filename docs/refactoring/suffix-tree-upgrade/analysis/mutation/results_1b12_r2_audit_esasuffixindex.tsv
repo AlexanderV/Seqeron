@@ -1,0 +1,7 @@
+1b12_r2_D01	Extend: an empty pattern returns a locus built from the locus after the write (the same for two variables)	killed(stage 1, the new classes: 17 failed, first RandomWalks_TheAliasedCallAndTheSeparateCallGiveTheSameAnswer_AndTheAnswerOfTheOracle)
+1b12_r2_D02	TryExtendRight(symbol): the result is cleared before the call of Extend	killed(stage 1, the new classes: 37 failed, first RandomWalks_TheAliasedCallAndTheSeparateCallGiveTheSameAnswer_AndTheAnswerOfTheOracle)
+1b12_r2_D03	TryExtendRight(span): the result is cleared before the call of Extend	killed(stage 1, the new classes: 27 failed, first RandomWalks_TheAliasedCallAndTheSeparateCallGiveTheSameAnswer_AndTheAnswerOfTheOracle)
+1b12_r2_E01	Extend: a mismatch inside an edge leaves the partial locus in the result	killed(stage 1, the new classes: 21 failed, first RandomWalks_TheAliasedCallAndTheSeparateCallGiveTheSameAnswer_AndTheAnswerOfTheOracle)
+1b12_r2_E02	Extend: a missing child leaves the partial locus in the result	killed(stage 1, the new classes: 31 failed, first RandomWalks_TheAliasedCallAndTheSeparateCallGiveTheSameAnswer_AndTheAnswerOfTheOracle)
+1b12_r2_L01	Locate: the destination is cleared before the locus is checked (the same unless the destination overlaps the locus)	killed(stage 1, the new classes: 7 failed, first Locate_ThePositionsMayBeWrittenOverTheBytesOfTheLocus)
+1b12_r2_Q02	EQUIVALENT: TryExtendRight(symbol) hands Extend a copy of the locus	survived (stages 1 and 2)

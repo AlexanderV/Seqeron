@@ -1,0 +1,82 @@
+[
+ {
+  "id": "1b12_B01",
+  "desc": "TryParent: the write to the result is before the read of the locus",
+  "old": "        EsaNode node = Resolve(locus, nameof(locus)); // the locus is copied into the handle before parent is written: parent may be the same variable as locus\n        parent = default;",
+  "new": "        parent = default;\n        EsaNode node = Resolve(locus, nameof(locus));",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.Tree.cs",
+  "filter": "(FullyQualifiedName~IndexAliasingTests|FullyQualifiedName~IndexAliasingPropertyTests|FullyQualifiedName~FacadeAliasingTests)"
+ },
+ {
+  "id": "1b12_B02",
+  "desc": "TryParent: the parent depth is bounded by the matched length of the locus, read after the write (the same for two variables)",
+  "old": "        int parentDepth = node.ParentDepth;",
+  "new": "        int parentDepth = (int)Math.Min(node.ParentDepth, locus.Length);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.Tree.cs",
+  "filter": "(FullyQualifiedName~IndexAliasingTests|FullyQualifiedName~IndexAliasingPropertyTests|FullyQualifiedName~FacadeAliasingTests)"
+ },
+ {
+  "id": "1b12_B03",
+  "desc": "TryParent: the root test reads the locus after the write (the same for two variables)",
+  "old": "        if (node.Depth == 0) return false;",
+  "new": "        if (locus.Aux == 0) return false;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.Tree.cs",
+  "filter": "(FullyQualifiedName~IndexAliasingTests|FullyQualifiedName~IndexAliasingPropertyTests|FullyQualifiedName~FacadeAliasingTests)"
+ },
+ {
+  "id": "1b12_B04",
+  "desc": "TryChild: the write to the result is before the read of the node",
+  "old": "        EsaNode resolved = ResolveNode(node, nameof(node)); // copied before child is written: child may be the same variable as node\n        child = default;",
+  "new": "        child = default;\n        EsaNode resolved = ResolveNode(node, nameof(node));",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.Tree.cs",
+  "filter": "(FullyQualifiedName~IndexAliasingTests|FullyQualifiedName~IndexAliasingPropertyTests|FullyQualifiedName~FacadeAliasingTests)"
+ },
+ {
+  "id": "1b12_B05",
+  "desc": "TryChild: the node is compared with its handle after the write (the same for two variables)",
+  "old": "if (!FindChild(resolved, firstSymbol, out EsaNode found)) return false;",
+  "new": "if (node.Aux != resolved.Depth || !FindChild(resolved, firstSymbol, out EsaNode found)) return false;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.Tree.cs",
+  "filter": "(FullyQualifiedName~IndexAliasingTests|FullyQualifiedName~IndexAliasingPropertyTests|FullyQualifiedName~FacadeAliasingTests)"
+ },
+ {
+  "id": "1b12_B06",
+  "desc": "TrySuffixLink: the write to the result is before the read of the node",
+  "old": "        EsaNode resolved = ResolveNode(node, nameof(node)); // copied before link is written: link may be the same variable as node\n        link = default;",
+  "new": "        link = default;\n        EsaNode resolved = ResolveNode(node, nameof(node));",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.Tree.cs",
+  "filter": "(FullyQualifiedName~IndexAliasingTests|FullyQualifiedName~IndexAliasingPropertyTests|FullyQualifiedName~FacadeAliasingTests)"
+ },
+ {
+  "id": "1b12_B07",
+  "desc": "TrySuffixLink: the node is compared with its handle after the write (the same for two variables)",
+  "old": "if (resolved.Depth == 0 || resolved.IsLeaf) return false;",
+  "new": "if (resolved.Depth == 0 || resolved.IsLeaf || node.Aux != resolved.Depth) return false;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.Tree.cs",
+  "filter": "(FullyQualifiedName~IndexAliasingTests|FullyQualifiedName~IndexAliasingPropertyTests|FullyQualifiedName~FacadeAliasingTests)"
+ },
+ {
+  "id": "1b12_B08",
+  "desc": "GetChildren: the first slot of the destination is cleared before the node is read",
+  "old": "        EsaNode resolved = ResolveNode(node, nameof(node)); // copied before the first child is written: children may hold the variable that holds node",
+  "new": "        if (children.Length > 0) children[0] = default;\n        EsaNode resolved = ResolveNode(node, nameof(node));",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.Tree.cs",
+  "filter": "(FullyQualifiedName~IndexAliasingTests|FullyQualifiedName~IndexAliasingPropertyTests|FullyQualifiedName~FacadeAliasingTests)"
+ },
+ {
+  "id": "1b12_B09",
+  "desc": "GetChildren: the number is returned only if the node still has its depth after the writes (the same for a separate array)",
+  "old": "        };\n        return count;\n    }",
+  "new": "        };\n        return node.Length == resolved.Depth ? count : 0;\n    }",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.Tree.cs",
+  "filter": "(FullyQualifiedName~IndexAliasingTests|FullyQualifiedName~IndexAliasingPropertyTests|FullyQualifiedName~FacadeAliasingTests)"
+ },
+ {
+  "id": "1b12_B10",
+  "desc": "GetChildren: an exact fit is taken for too small",
+  "old": "if (count > children.Length) return count;",
+  "new": "if (count >= children.Length) return count;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.Tree.cs",
+  "filter": "(FullyQualifiedName~IndexAliasingTests|FullyQualifiedName~IndexAliasingPropertyTests|FullyQualifiedName~FacadeAliasingTests)"
+ }
+]
