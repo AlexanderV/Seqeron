@@ -20,9 +20,37 @@ def get(url, binary=False):
 
 
 got = []
-# Step 0 (run 2 of the package showed that the links of the snapshot page resolve to captured-less URLs, "http:/" joined and the /v3/ part lost): ask the CDX index of the archive which
+
+
+def curl_resume(url, dest, attempts=40):
+    """Run 3 of the package: the archive cuts the transfer (IncompleteRead after 13 032 of 1 354 361 bytes of DaliLite.tar.gz). Resume with `curl -C -` until the file is complete (curl exits 0)
+    or the attempts are used up. Only the program archive is wanted (the DAT / GTG / dump archives are 0.7 - 6 GB databases of structures, not needed for `DaliLite -pairwise`)."""
+    for k in range(attempts):
+        r = subprocess.run(['curl', '-sS', '-L', '-A', 'Seqeron-review/1.0', '-C', '-', '--connect-timeout', '30', '--max-time', '300', '-o', dest, url], capture_output=True, text=True)
+        size = os.path.getsize(dest) if os.path.exists(dest) else 0
+        print('CURL attempt', k + 1, 'rc', r.returncode, 'bytes', size, (r.stderr or '').strip()[:160])
+        if r.returncode == 0 and size > 0:
+            return True
+    return False
+
+
+# Step 00: the program archive alone, by the URLs that run 3 showed to exist (2012id_ and the 2014 snapshot of the page), resumed with curl until complete.
+for ts in ('2012', '20140722051239', '2016', '2011'):
+    url = 'http://web.archive.org/web/%sid_/http://ekhidna.biocenter.helsinki.fi/dali_lite/downloads/v3/DaliLite.tar.gz' % ts
+    dest = out + '/src/DaliLite.tar.gz'
+    if os.path.exists(dest): os.remove(dest)
+    if curl_resume(url, dest):
+        with open(dest, 'rb') as fh: head = fh.read(8)
+        if head[:2] == b'\x1f\x8b':
+            print('DOWNLOADED (curl, resumed)', url, os.path.getsize(dest))
+            got.append(dest)
+            break
+        print('NOT A GZIP', url, head)
+        os.remove(dest)
+# Step 0 (run 3 showed: CDX returned 0 lines; run 2 of the package showed that the links of the snapshot page resolve to captured-less URLs, "http:/" joined and the /v3/ part lost): ask the CDX index of the archive which
 # tarball URLs of the DaliLite download area were captured with status 200 and fetch the newest capture of each in raw mode (timestamp + "id_"). Logged; never raises.
 try:
+    if got: raise RuntimeError('program archive already downloaded')
     cdx = get('http://web.archive.org/cdx/search/cdx?url=ekhidna.biocenter.helsinki.fi/dali_lite/downloads/*&matchType=prefix&output=txt&fl=timestamp,original,statuscode&filter=statuscode:200&limit=2000')
     print('CDX', len(cdx.splitlines()), 'lines')
     newest = {}
