@@ -1,0 +1,47 @@
+P01	glob: '**/' no longer matches zero directories	survived
+P02	glob: '**' stops at a slash	survived
+P03	glob: '*' crosses a slash	survived
+P04	glob: '?' crosses a slash	survived
+P05	allow-list: '!' is not a negation	killed(4: test_a_build_output_directory_is_not_a_needed_path,test_the_e8_allow_list_holds_everything_the_image_build_need,test_the_handoff_allow_list_holds_everything_the_image_build,test_the_missing_list_of_the_e8_context_without_the_line_is_)
+P06	allow-list: a comment line is a pattern	survived
+P07	allow-list: the patterns are read with a leading slash	survived
+P08	excluded: a file below an excluded directory is not excluded	killed(5: test_a_copy_source_that_the_list_does_not_let_in_fails,test_a_linked_source_outside_the_project_directory_is_a_need,test_the_e8_allow_list_without_the_persistent_line_fails_and,test_the_handoff_allow_list_without_the_algorithms_line_fail)
+P09	excluded: a '!' line excludes	killed(4: test_a_build_output_directory_is_not_a_needed_path,test_the_e8_allow_list_holds_everything_the_image_build_need,test_the_handoff_allow_list_holds_everything_the_image_build,test_the_missing_list_of_the_e8_context_without_the_line_is_)
+P10	excluded: a '!' line is not looked at	killed(4: test_a_build_output_directory_is_not_a_needed_path,test_the_e8_allow_list_holds_everything_the_image_build_need,test_the_handoff_allow_list_holds_everything_the_image_build,test_the_missing_list_of_the_e8_context_without_the_line_is_)
+P11	excluded: the first matching pattern wins	killed(4: test_a_build_output_directory_is_not_a_needed_path,test_the_e8_allow_list_holds_everything_the_image_build_need,test_the_handoff_allow_list_holds_everything_the_image_build,test_the_missing_list_of_the_e8_context_without_the_line_is_)
+P12	project paths: a backslash is not a separator	killed(7: test_a_build_output_directory_is_not_a_needed_path,test_a_linked_source_outside_the_project_directory_is_a_need,test_the_e8_allow_list_holds_everything_the_image_build_need,test_the_e8_allow_list_without_the_persistent_line_fails_and)
+P13	closure: a project reference is not followed	killed(2: test_the_e8_allow_list_without_the_persistent_line_fails_and,test_the_missing_list_of_the_e8_context_without_the_line_is_)
+P14	closure: the project referenced is not needed itself	killed(1: test_the_e8_allow_list_without_the_persistent_line_fails_and)
+P15	closure: the sources of a project are not needed	survived
+P16	closure: the project file is not needed	survived
+P17	closure: build output is a needed source (bin)	survived
+P18	closure: build output is a needed source (obj)	survived
+P19	closure: a link inside the project directory is a needed path	survived
+P20	closure: a link outside the project directory is not looked at	survived
+P21	closure: a linked wildcard is taken literally	killed(1: test_the_handoff_allow_list_holds_everything_the_image_build)
+P22	closure: a wildcard that matches no tracked file is not named	survived
+P23	closure: an item with a variable in its path is followed	survived
+P24	closure: a project already walked is walked again (no memo)	survived
+P25	closure: only Compile items are links	survived
+P26	closure: a project that is not tracked is not named	survived
+P27	closure: a needed path that the list lets in is missing	killed(7: test_a_build_output_directory_is_not_a_needed_path,test_a_linked_source_outside_the_project_directory_is_a_need,test_the_e8_allow_list_holds_everything_the_image_build_need,test_the_e8_allow_list_without_the_persistent_line_fails_and)
+P28	closure: a needed path that the list drops is not missing	killed(4: test_a_linked_source_outside_the_project_directory_is_a_need,test_the_e8_allow_list_without_the_persistent_line_fails_and,test_the_handoff_allow_list_without_the_algorithms_line_fail,test_the_missing_list_of_the_e8_context_without_the_line_is_)
+P29	closure: a needed path that is not tracked is not named	survived
+P30	COPY: a source taken from another stage is checked	killed(4: test_a_build_output_directory_is_not_a_needed_path,test_the_e8_allow_list_holds_everything_the_image_build_need,test_the_handoff_allow_list_holds_everything_the_image_build,test_the_missing_list_of_the_e8_context_without_the_line_is_)
+P31	COPY: the whole context is a source	killed(4: test_a_build_output_directory_is_not_a_needed_path,test_the_e8_allow_list_holds_everything_the_image_build_need,test_the_handoff_allow_list_holds_everything_the_image_build,test_the_missing_list_of_the_e8_context_without_the_line_is_)
+P32	COPY: a source with a leading ./ keeps it	survived
+P33	COPY: only the first source of a line is checked	survived
+P34	COPY: the last argument (the destination) is a source	killed(4: test_a_build_output_directory_is_not_a_needed_path,test_the_e8_allow_list_holds_everything_the_image_build_need,test_the_handoff_allow_list_holds_everything_the_image_build,test_the_missing_list_of_the_e8_context_without_the_line_is_)
+P35	COPY: a continued line is read as two	survived
+P36	COPY: a directory source that has files in the context is missing	killed(1: test_the_handoff_allow_list_holds_everything_the_image_build)
+P37	COPY: a source that is not in the context is not named	killed(1: test_a_copy_source_that_the_list_does_not_let_in_fails)
+P38	COPY: a wildcard source is looked for among the tracked files, not the context	killed(1: test_a_copy_source_that_the_list_does_not_let_in_fails)
+P39	COPY: a wildcard that matches nothing is not named	killed(1: test_a_copy_source_that_the_list_does_not_let_in_fails)
+P40	COPY: the Dockerfile is not read	killed(1: test_a_copy_source_that_the_list_does_not_let_in_fails)
+P41	exit code: a missing path does not fail the static check	killed(4: test_a_copy_source_that_the_list_does_not_let_in_fails,test_a_linked_source_outside_the_project_directory_is_a_need,test_the_e8_allow_list_without_the_persistent_line_fails_and,test_the_handoff_allow_list_without_the_algorithms_line_fail)
+P42	exit code: a clean closure fails the static check	killed(3: test_a_build_output_directory_is_not_a_needed_path,test_the_e8_allow_list_holds_everything_the_image_build_need,test_the_handoff_allow_list_holds_everything_the_image_build)
+P43	options: --static-only is not an option	killed(3: test_a_build_output_directory_is_not_a_needed_path,test_the_e8_allow_list_holds_everything_the_image_build_need,test_the_handoff_allow_list_holds_everything_the_image_build)
+P44	options: --ignore-file is ignored	killed(5: test_a_copy_source_that_the_list_does_not_let_in_fails,test_a_linked_source_outside_the_project_directory_is_a_need,test_the_e8_allow_list_without_the_persistent_line_fails_and,test_the_handoff_allow_list_without_the_algorithms_line_fail)
+P45	options: --dockerfile is ignored	survived
+P46	roots: the test projects are not roots with --allow-tests	survived
+P47	roots: the projects to publish are not roots	killed(3: test_a_linked_source_outside_the_project_directory_is_a_need,test_the_e8_allow_list_without_the_persistent_line_fails_and,test_the_missing_list_of_the_e8_context_without_the_line_is_)
