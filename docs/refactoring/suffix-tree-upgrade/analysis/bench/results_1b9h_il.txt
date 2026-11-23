@@ -1,0 +1,22 @@
+# work package 1b.9h: ilcompare of the production build (Release, default) before (the build of 80ff6231) and after (fe036baf): the opcodes and the non-token operands of every method, tokens and local signatures left out (they move when a type or a method is added)
+# dotnet ilcompare.dll <old>/SuffixTree.Esa.dll <new>/SuffixTree.Esa.dll RankTable MappedTextReader CountedFile MappedOutputFile MappedFileRegistry SuffixOrder BucketSorter
+methods: old 3439, new 3443, byte for byte the same 3431
+  ONLY IN OLD  DifferenceCover+<>c__DisplayClass28_0::.ctor#3
+  ONLY IN OLD  DifferenceCover+<>c__DisplayClass28_0::<Pruned>b__1#4
+  ONLY IN OLD  DifferenceCover+<>c__DisplayClass28_1::.ctor#3
+  ONLY IN OLD  DifferenceCover+<>c__DisplayClass28_1::<Pruned>b__0#4
+  ONLY IN NEW  DifferenceCover+<>c__DisplayClass37_0::.ctor#3
+  ONLY IN NEW  DifferenceCover+<>c__DisplayClass37_0::<Pruned>b__1#4
+  ONLY IN NEW  DifferenceCover+<>c__DisplayClass37_1::.ctor#3
+  ONLY IN NEW  DifferenceCover+<>c__DisplayClass37_1::<Pruned>b__0#4
+  ONLY IN NEW  SuffixTree.Esa.External.DifferenceCover::Create#12
+  DIFFERENT    SuffixTree.Esa.External.DifferenceCover::Create#6
+  ONLY IN NEW  SuffixTree.Esa.External.DifferenceCover::CreateBySearch#6
+  ONLY IN NEW  SuffixTree.Esa.External.DifferenceCover::FromTable#12
+  ONLY IN NEW  SuffixTree.Esa.External.DifferenceCover::get_DefaultSingerResidues#8
+  ONLY IN NEW  SuffixTree.Esa.External.DifferenceCover::get_Searches#3
+  DIFFERENT    SuffixTree.Esa.External.DifferenceCover::SingerSet#5
+  ONLY IN NEW  SuffixTree.Esa.External.MappedFileRegistry::get_Count#3   old [] new [84A0936FF1FBA6D2811D094757231685673447AED2170738872305076026A316 il=2 eh=0]
+  ONLY IN OLD  SuffixTree.Esa.External.TiedComparer::.ctor#6
+  ONLY IN OLD  SuffixTree.Esa.External.TiedComparer::Compare#5
+in the named types (RankTable, MappedTextReader, CountedFile, MappedOutputFile, MappedFileRegistry, SuffixOrder, BucketSorter): 1 method(s) differ

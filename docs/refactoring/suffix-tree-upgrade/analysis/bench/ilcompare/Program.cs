@@ -1,12 +1,44 @@
+using System.Reflection.Emit;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
 using System.Security.Cryptography;
 
-// ilcompare <old.dll> <new.dll> [type-substring ...]: every method body of both assemblies (the IL bytes, the local variable signature, the exception regions' count) by the full name of its type and its method;
+// ilcompare <old.dll> <new.dll> [type-substring ...]: every method body of both assemblies (the opcodes and the operands that are not metadata tokens, the length of the local variable signature, the exception regions' count) by the full name of its type and its method; a metadata
+// token (a call, a field, a type, a string) is left out of the comparison, because every token moves when a type or a method is added to the assembly, so that the same method in two builds is the same when its instructions are the same;
 // prints the methods that exist in only one build and the methods whose IL differs, and the number of the methods that are byte for byte the same. With type substrings only the types whose name contains one are listed
 // in detail (the count line is always over the whole assembly). Exit code 0 when every method of the named types is identical, 1 otherwise (2 on a usage error).
 static class P
 {
+    static readonly Dictionary<short, OpCode> Ops = typeof(OpCodes).GetFields().Where(f => f.FieldType == typeof(OpCode)).Select(f => (OpCode)f.GetValue(null)!).ToDictionary(o => o.Value);
+
+    /// <summary>The IL with the operands that are metadata tokens (calls, fields, types, strings, signatures) zeroed.</summary>
+    static byte[] StripTokens(byte[] il)
+    {
+        byte[] r = (byte[])il.Clone();
+        int i = 0;
+        while (i < il.Length)
+        {
+            short v = il[i++];
+            if (v == 0xFE) v = (short)(0xFE00 | il[i++]);
+            OpCode op = Ops[v];
+            int size = op.OperandType switch
+            {
+                OperandType.InlineNone => 0,
+                OperandType.ShortInlineBrTarget or OperandType.ShortInlineI or OperandType.ShortInlineVar => 1,
+                OperandType.InlineVar => 2,
+                OperandType.InlineI8 or OperandType.InlineR => 8,
+                OperandType.InlineSwitch => 4 + (BitConverter.ToInt32(il, i) * 4),
+                _ => 4,
+            };
+            if (op.OperandType is OperandType.InlineMethod or OperandType.InlineField or OperandType.InlineType or OperandType.InlineTok or OperandType.InlineString or OperandType.InlineSig)
+            {
+                for (int k = 0; k < size; k++) r[i + k] = 0;
+            }
+            i += size;
+        }
+        return r;
+    }
+
     static Dictionary<string, string> Bodies(string path)
     {
         using var stream = File.OpenRead(path);
@@ -28,8 +60,8 @@ static class P
                 if (m.RelativeVirtualAddress != 0)
                 {
                     MethodBodyBlock b = pe.GetMethodBody(m.RelativeVirtualAddress);
-                    byte[] il = b.GetILBytes() ?? [];
-                    byte[] locals = b.LocalSignature.IsNil ? [] : md.GetBlobBytes(md.GetStandaloneSignature(b.LocalSignature).Signature);
+                    byte[] il = StripTokens(b.GetILBytes() ?? []);
+                    byte[] locals = b.LocalSignature.IsNil ? [] : [(byte)md.GetBlobBytes(md.GetStandaloneSignature(b.LocalSignature).Signature).Length]; // the length of the local signature, not its bytes: they hold type tokens
                     body = Convert.ToHexString(SHA256.HashData([.. il, .. locals])) + " il=" + il.Length + " eh=" + b.ExceptionRegions.Length;
                 }
                 string unique = key;

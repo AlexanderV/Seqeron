@@ -1,0 +1,60 @@
+== new dna 1m
+RESULT: OK (0 warning(s))
+  done in 0 s; sha256=29ece8aa18e4251e2735ad3ac679e9493a5c4595dfd8ad54a2e80f5460bc520d
+  PASS    I1 container SHA-256 56b6c09b88908013... equals the reference table and the reference in the form
+  PASS    I2 the input text equals the reference text
+SUMMARY: 9 PASS, 0 FAIL, 0 WARN, 0 N/A, 2 NOT RUN
+RESULT: INCOMPLETE (nothing failed; a required gate has no data)
+== new genome 1m
+RESULT: OK (0 warning(s))
+  done in 0 s; sha256=4b8ee87b9737dee27e781e08b59210c92996643255b70286c4b7a79cdd7dd8d2
+  PASS    I1 container SHA-256 8f0aeeb092936ed4... equals the reference table and the reference in the form
+  PASS    I2 the input text equals the reference text
+SUMMARY: 9 PASS, 0 FAIL, 0 WARN, 0 N/A, 2 NOT RUN
+RESULT: INCOMPLETE (nothing failed; a required gate has no data)
+== new prot 1m
+RESULT: OK (0 warning(s))
+  done in 0 s; sha256=1f7bc52334662fc8fc1748a4a1339934fa33fb1006c35b028466cc2b9eb05472
+  PASS    I1 container SHA-256 69fdcbec9a176979... equals the reference table and the reference in the form
+  PASS    I2 the input text equals the reference text
+SUMMARY: 9 PASS, 0 FAIL, 0 WARN, 0 N/A, 2 NOT RUN
+RESULT: INCOMPLETE (nothing failed; a required gate has no data)
+== new rep 1m
+RESULT: OK (0 warning(s))
+  done in 0 s; sha256=311e100b7fd2810e221daab5c6cabc4cb335f5531c8922371e8b62b880aa16f6
+  PASS    I1 container SHA-256 807e7635918f9589... equals the reference table and the reference in the form
+  PASS    I2 the input text equals the reference text
+SUMMARY: 9 PASS, 0 FAIL, 0 WARN, 0 N/A, 2 NOT RUN
+RESULT: INCOMPLETE (nothing failed; a required gate has no data)
+== new dna 10m
+RESULT: OK (0 warning(s))
+  done in 0 s; sha256=67e49c4bc074f073c89cc0f6bc48bdfcf6b0bd5bc79321bdd30c8c36d2b6d8ee
+  PASS    I1 container SHA-256 21718e29fe670d49... equals the reference table and the reference in the form
+  PASS    I2 the input text equals the reference text
+SUMMARY: 9 PASS, 0 FAIL, 0 WARN, 0 N/A, 2 NOT RUN
+RESULT: INCOMPLETE (nothing failed; a required gate has no data)
+== new genome 10m
+RESULT: OK (0 warning(s))
+  done in 0 s; sha256=deeb854ea1eea5b26d62b931fddd826262f72d2f5daff600c7d28418af6bfcf1
+  PASS    I1 container SHA-256 0205b2083bdb880f... equals the reference table and the reference in the form
+  PASS    I2 the input text equals the reference text
+SUMMARY: 9 PASS, 0 FAIL, 0 WARN, 0 N/A, 2 NOT RUN
+RESULT: INCOMPLETE (nothing failed; a required gate has no data)
+== new prot 10m
+RESULT: OK (0 warning(s))
+  done in 1 s; sha256=fb5a97f5a55f67ea729a8221f08380fa28cdae1c57afea53590ebe927005c689
+  PASS    I1 container SHA-256 0f7c6c4421ea1c5f... equals the reference table and the reference in the form
+  PASS    I2 the input text equals the reference text
+SUMMARY: 9 PASS, 0 FAIL, 0 WARN, 0 N/A, 2 NOT RUN
+RESULT: INCOMPLETE (nothing failed; a required gate has no data)
+== new rep 10m
+RESULT: OK (0 warning(s))
+  done in 0 s; sha256=08aa77fbf4f30bbcb41b6f277d260498aca626a006d4be75029de5127b91d986
+  PASS    I1 container SHA-256 7d20ffc15344b7b0... equals the reference table and the reference in the form
+  PASS    I2 the input text equals the reference text
+SUMMARY: 9 PASS, 0 FAIL, 0 WARN, 0 N/A, 2 NOT RUN
+RESULT: INCOMPLETE (nothing failed; a required gate has no data)
+
+real	0m30.578s
+user	0m30.441s
+sys	0m6.414s

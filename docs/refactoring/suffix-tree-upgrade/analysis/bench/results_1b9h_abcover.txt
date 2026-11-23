@@ -1,0 +1,8 @@
+== null experiment (A = B = the head build), 20 calls per pass, 9 blocks
+AB cover  A 272.3872 ms  B 271.1012 ms  B/A median-of-paired 0.9953  p25 0.9899 p75 0.9973  min 0.9838 max 0.9981  n 9  (calls per pass 20; A - B = 1.2860 ms)
+== A/B (A = head build, B = new build)
+AB cover  A 272.9152 ms  B 0.0182 ms  B/A median-of-paired 0.0001  p25 0.0000 p75 0.0001  min 0.0000 max 0.0005  n 9  (calls per pass 20; A - B = 272.8970 ms)
+== A/B again, swapped (A = new, B = head)
+AB cover  A 0.0210 ms  B 272.0202 ms  B/A median-of-paired 12945.0706  p25 8784.0668 p75 18902.6395  min 1690.0050 max 26277.7081  n 9  (calls per pass 20; A - B = -271.9992 ms)
+== null experiment, new build on both sides
+AB cover  A 0.0492 ms  B 0.0460 ms  B/A median-of-paired 0.9827  p25 0.9224 p75 1.0097  min 0.7539 max 1.0559  n 9  (calls per pass 20; A - B = 0.0032 ms)

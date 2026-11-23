@@ -1,0 +1,20 @@
+== in-process: before = esa_new, after = the Bench's own build (new)
+R	resume-abhead	pair_ratio_total	1.0154929762117313	after / before	dna_10m pair 1: 1.886 / 1.858 s, first before
+R	resume-abhead	pair_ratio_total	1.17016341071836	after / before	dna_10m pair 2: 1.854 / 1.584 s, first after
+R	resume-abhead	pair_ratio_total	1.0129117720431478	after / before	dna_10m pair 3: 1.927 / 1.903 s, first before
+R	resume-abhead	pair_ratio_total	1.1034525586476582	after / before	dna_10m pair 4: 1.905 / 1.727 s, first after
+R	resume-abhead	pair_ratio_total	0.827913523820204	after / before	dna_10m pair 5: 1.479 / 1.787 s, first before
+R	resume-abhead	pair_ratio_total	0.923400103974274	after / before	dna_10m pair 6: 1.447 / 1.567 s, first after
+R	resume-abhead	pair_ratio_total	0.7890116094731505	after / before	dna_10m pair 7: 1.504 / 1.907 s, first before
+R	resume-abhead	pair_ratio_total	1.2243481585815226	after / before	dna_10m pair 8: 1.826 / 1.491 s, first after
+R	resume-abhead	ratio_total_median	1.0154929762117313	after / before	dna_10m: min 0.7890 max 1.2243 over 8 pairs, Resume off
+== in-process: before = esa_head, after = the Bench's own build (new)
+R	resume-abhead	pair_ratio_total	0.8248749924882819	after / before	dna_10m pair 1: 1.572 / 1.906 s, first before
+R	resume-abhead	pair_ratio_total	0.8963522877455629	after / before	dna_10m pair 2: 1.576 / 1.759 s, first after
+R	resume-abhead	pair_ratio_total	0.8409995104089452	after / before	dna_10m pair 3: 1.491 / 1.773 s, first before
+R	resume-abhead	pair_ratio_total	0.8221261952995448	after / before	dna_10m pair 4: 1.475 / 1.794 s, first after
+R	resume-abhead	pair_ratio_total	0.8523045403770043	after / before	dna_10m pair 5: 1.641 / 1.925 s, first before
+R	resume-abhead	pair_ratio_total	0.9249040027850438	after / before	dna_10m pair 6: 1.977 / 2.137 s, first after
+R	resume-abhead	pair_ratio_total	0.7261244402436761	after / before	dna_10m pair 7: 1.509 / 2.078 s, first before
+R	resume-abhead	pair_ratio_total	0.9408520528161123	after / before	dna_10m pair 8: 1.781 / 1.893 s, first after
+R	resume-abhead	ratio_total_median	0.8523045403770043	after / before	dna_10m: min 0.7261 max 0.9409 over 8 pairs, Resume off

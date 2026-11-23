@@ -1,0 +1,19 @@
+dna_10m pair 0 old total_s 2.484 rssanon_mb 101.5
+dna_10m pair 0 new total_s 2.173 rssanon_mb 99.8
+dna_10m pair 1 new total_s 2.348 rssanon_mb 99.7
+dna_10m pair 1 old total_s 2.664 rssanon_mb 102.2
+dna_10m pair 2 old total_s 2.325 rssanon_mb 102.2
+dna_10m pair 2 new total_s 2.018 rssanon_mb 100.4
+dna_10m pair 3 new total_s 2.304 rssanon_mb 99.6
+dna_10m pair 3 old total_s 2.553 rssanon_mb 101.7
+dna_10m pair 4 old total_s 2.472 rssanon_mb 101.6
+dna_10m pair 4 new total_s 2.203 rssanon_mb 100.3
+dna_10m pair 5 new total_s 2.298 rssanon_mb 100.4
+dna_10m pair 5 old total_s 2.633 rssanon_mb 101.6
+dna_10m pair 6 old total_s 2.443 rssanon_mb 102.2
+dna_10m pair 6 new total_s 2.385 rssanon_mb 99.8
+dna_10m pair 7 new total_s 2.162 rssanon_mb 99.7
+dna_10m pair 7 old total_s 2.596 rssanon_mb 101.6
+dna_10m pair 8 old total_s 2.258 rssanon_mb 102.2
+dna_10m pair 8 new total_s 2.115 rssanon_mb 99.7
+dna_10m: old median 2.513 s [2.258-2.664], new median 2.250 s [2.018-2.385], new/old per pair median 0.8862 [0.8328-0.9762] over 8 pairs; saving median 0.288 s; rssanon peak old 102.2 new 100.4 MB (max over the pairs)
