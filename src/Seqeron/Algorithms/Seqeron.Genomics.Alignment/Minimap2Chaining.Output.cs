@@ -382,6 +382,20 @@ public static partial class Minimap2Chaining
         return sb.ToString();
     }
 
+    /// <summary><c>mm_gen_cs</c> of an alignment given directly: the aligned residues of the target and the query (every other letter than A, C, G, T / U is <c>n</c>, as the program encodes it) and its CIGAR (R14-9: the <c>cs</c> string of an <see cref="AlignmentResult"/>).</summary>
+    internal static string CsOfAlignment(string targetResidues, string queryResidues, IReadOnlyList<(char Operation, int Length)> cigar, bool longCs)
+    {
+        var t = new byte[targetResidues.Length];
+        for (int i = 0; i < t.Length; i++)
+            t[i] = (byte)Nt4(targetResidues[i]);
+        var q = new byte[queryResidues.Length];
+        for (int i = 0; i < q.Length; i++)
+            q[i] = (byte)Nt4(queryResidues[i]);
+        var sb = new StringBuilder();
+        WriteCs(sb, t, q, new MinimapAlignment(cigar, 0, 0, 0, 0, 0), !longCs);
+        return sb.ToString();
+    }
+
     private static string CigarText(MinimapAlignment p)
     {
         var sb = new StringBuilder();

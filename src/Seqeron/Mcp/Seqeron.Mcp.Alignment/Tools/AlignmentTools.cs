@@ -25,11 +25,12 @@ public partial class AlignmentTools
         [Description("Gap-open score (ignored by this linear-gap tool; kept for schema compatibility). May be fractional when matrix is given.")] double gapOpen = -2,
         [Description("Gap score charged per gap position (<= 0). May be fractional (e.g. -0.5) when matrix is given.")] double gapExtend = -1,
         [Description(MatrixParamDescription)] string? matrix = null,
-        [Description(FormatParamDescription)] string? format = null,
+        [Description(PairFormatParamDescription)] string? format = null,
         [Description(NamesParamDescription)] string[]? names = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        [Description(TrimEndGapsParamDescription)] bool trimEndGaps = false)
     {
-        return FormatPair(GlobalAlignCore(sequence1, sequence2, match, mismatch, gapOpen, gapExtend, matrix, cancellationToken), format, sequence1.Length, sequence2.Length, names);
+        return FormatPair(GlobalAlignCore(sequence1, sequence2, match, mismatch, gapOpen, gapExtend, matrix, cancellationToken), format, sequence1.Length, sequence2.Length, names, sequence1: sequence1, sequence2: sequence2, trimEndGaps: trimEndGaps);
     }
 
     private static AlignmentResultDto GlobalAlignCore(
@@ -65,7 +66,7 @@ public partial class AlignmentTools
         [Description("Gap-open score (ignored by this linear-gap tool; kept for schema compatibility). May be fractional when matrix is given.")] double gapOpen = -2,
         [Description("Gap score charged per gap position (<= 0). May be fractional (e.g. -0.5) when matrix is given.")] double gapExtend = -1,
         [Description(MatrixParamDescription)] string? matrix = null,
-        [Description(FormatParamDescription)] string? format = null,
+        [Description(PairFormatParamDescription)] string? format = null,
         [Description(NamesParamDescription)] string[]? names = null,
         CancellationToken cancellationToken = default,
         [Description(SignificanceParamDescription + " This linear-gap tool has gap existence 0 and extension -gapExtend (the linear rows of the blastn tables).")] bool significance = false,
@@ -73,7 +74,7 @@ public partial class AlignmentTools
         [Description(DbSequencesParamDescription)] long dbSequences = 1)
     {
         var dto = WithSignificance(LocalAlignCore(sequence1, sequence2, match, mismatch, gapOpen, gapExtend, matrix, cancellationToken), significance, matrix, match, mismatch, 0, gapExtend, sequence1.Length, sequence2.Length, dbLength, dbSequences);
-        return FormatPair(dto, format, sequence1.Length, sequence2.Length, names);
+        return FormatPair(dto, format, sequence1.Length, sequence2.Length, names, sequence1: sequence1, sequence2: sequence2);
     }
 
     private static AlignmentResultDto LocalAlignCore(
@@ -110,11 +111,12 @@ public partial class AlignmentTools
         [Description("Gap score charged per gap position (<= 0). May be fractional (e.g. -0.5) when matrix is given.")] double gapExtend = -1,
         [Description(MatrixParamDescription)] string? matrix = null,
         [Description(EndGapsParamDescription)] string? endGaps = null,
-        [Description(FormatParamDescription)] string? format = null,
+        [Description(PairFormatParamDescription)] string? format = null,
         [Description(NamesParamDescription)] string[]? names = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        [Description(TrimEndGapsParamDescription)] bool trimEndGaps = false)
     {
-        return FormatPair(SemiGlobalAlignCore(sequence1, sequence2, match, mismatch, gapOpen, gapExtend, matrix, endGaps, cancellationToken), format, sequence1.Length, sequence2.Length, names);
+        return FormatPair(SemiGlobalAlignCore(sequence1, sequence2, match, mismatch, gapOpen, gapExtend, matrix, endGaps, cancellationToken), format, sequence1.Length, sequence2.Length, names, sequence1: sequence1, sequence2: sequence2, queryFirst: true, trimEndGaps: trimEndGaps);
     }
 
     private static AlignmentResultDto SemiGlobalAlignCore(
@@ -259,11 +261,12 @@ public partial class AlignmentTools
         [Description("Gap-open score added once per gap run (negative = penalty). May be fractional when matrix is given; EMBOSS gapopen G / gapextend E = gapOpen -(G - E), gapExtend -E.")] double gapOpen = -2,
         [Description("Gap score per gap position, in addition to gapOpen for the first one. May be fractional (e.g. -0.5) when matrix is given.")] double gapExtend = -1,
         [Description(MatrixParamDescription)] string? matrix = null,
-        [Description(FormatParamDescription)] string? format = null,
+        [Description(PairFormatParamDescription)] string? format = null,
         [Description(NamesParamDescription)] string[]? names = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        [Description(TrimEndGapsParamDescription)] bool trimEndGaps = false)
     {
-        return FormatPair(GlobalAlignAffineCore(sequence1, sequence2, match, mismatch, gapOpen, gapExtend, matrix, cancellationToken), format, sequence1.Length, sequence2.Length, names);
+        return FormatPair(GlobalAlignAffineCore(sequence1, sequence2, match, mismatch, gapOpen, gapExtend, matrix, cancellationToken), format, sequence1.Length, sequence2.Length, names, sequence1: sequence1, sequence2: sequence2, trimEndGaps: trimEndGaps);
     }
 
     private static AlignmentResultDto GlobalAlignAffineCore(
@@ -299,7 +302,7 @@ public partial class AlignmentTools
         [Description("Gap-open score added once per gap run (negative = penalty). May be fractional when matrix is given; EMBOSS gapopen G / gapextend E = gapOpen -(G - E), gapExtend -E.")] double gapOpen = -2,
         [Description("Gap score per gap position, in addition to gapOpen for the first one. May be fractional (e.g. -0.5) when matrix is given.")] double gapExtend = -1,
         [Description(MatrixParamDescription)] string? matrix = null,
-        [Description(FormatParamDescription)] string? format = null,
+        [Description(PairFormatParamDescription)] string? format = null,
         [Description(NamesParamDescription)] string[]? names = null,
         CancellationToken cancellationToken = default,
         [Description(SignificanceParamDescription)] bool significance = false,
@@ -307,7 +310,7 @@ public partial class AlignmentTools
         [Description(DbSequencesParamDescription)] long dbSequences = 1)
     {
         var dto = WithSignificance(LocalAlignAffineCore(sequence1, sequence2, match, mismatch, gapOpen, gapExtend, matrix, cancellationToken), significance, matrix, match, mismatch, gapOpen, gapExtend, sequence1.Length, sequence2.Length, dbLength, dbSequences);
-        return FormatPair(dto, format, sequence1.Length, sequence2.Length, names);
+        return FormatPair(dto, format, sequence1.Length, sequence2.Length, names, sequence1: sequence1, sequence2: sequence2);
     }
 
     private static AlignmentResultDto LocalAlignAffineCore(
@@ -447,11 +450,12 @@ public partial class AlignmentTools
         [Description("Gap score per gap position, in addition to gapOpen for the first one. May be fractional (e.g. -0.5) when matrix is given.")] double gapExtend = -1,
         [Description(MatrixParamDescription)] string? matrix = null,
         [Description(EndGapsParamDescription)] string? endGaps = null,
-        [Description(FormatParamDescription)] string? format = null,
+        [Description(PairFormatParamDescription)] string? format = null,
         [Description(NamesParamDescription)] string[]? names = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        [Description(TrimEndGapsParamDescription)] bool trimEndGaps = false)
     {
-        return FormatPair(SemiGlobalAlignAffineCore(sequence1, sequence2, match, mismatch, gapOpen, gapExtend, matrix, endGaps, cancellationToken), format, sequence1.Length, sequence2.Length, names);
+        return FormatPair(SemiGlobalAlignAffineCore(sequence1, sequence2, match, mismatch, gapOpen, gapExtend, matrix, endGaps, cancellationToken), format, sequence1.Length, sequence2.Length, names, sequence1: sequence1, sequence2: sequence2, queryFirst: true, trimEndGaps: trimEndGaps);
     }
 
     private static AlignmentResultDto SemiGlobalAlignAffineCore(
@@ -489,11 +493,12 @@ public partial class AlignmentTools
         [Description("Score for mismatching base (ignored with matrix).")] int mismatch = -1,
         [Description(MatrixParamDescription)] string? matrix = null,
         [Description("semi_global only: which end gaps are free, see semi_global_align (default 'Fitting').")] string? endGaps = null,
-        [Description(FormatParamDescription)] string? format = null,
+        [Description(PairFormatParamDescription)] string? format = null,
         [Description(NamesParamDescription)] string[]? names = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        [Description(TrimEndGapsParamDescription)] bool trimEndGaps = false)
     {
-        return FormatPair(GeneralGapAlignCore(sequence1, sequence2, gapScores, mode, match, mismatch, matrix, endGaps, cancellationToken), format, sequence1.Length, sequence2.Length, names);
+        return FormatPair(GeneralGapAlignCore(sequence1, sequence2, gapScores, mode, match, mismatch, matrix, endGaps, cancellationToken), format, sequence1.Length, sequence2.Length, names, sequence1: sequence1, sequence2: sequence2, queryFirst: mode.Trim().StartsWith("semi", StringComparison.OrdinalIgnoreCase), trimEndGaps: trimEndGaps);
     }
 
     private static AlignmentResultDto GeneralGapAlignCore(

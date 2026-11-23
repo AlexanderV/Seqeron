@@ -97,6 +97,78 @@ public static partial class AlignmentCoordinateFormats
     /// <summary>The query / target residues of a record as Python's <c>bytes(seq)</c>; null = the contents are (partly) undefined.</summary>
     private static string? Contents(BioCoordSequence s) => s.Length < 0 ? null : s.Slice(0, s.Length);
 
+    /// <summary>The <c>MD</c> value of <c>Bio/Align/sam.py</c> (<c>md=True</c>): mismatches and deletions from the target residues of the coordinate blocks (<paramref name="ts"/> / <paramref name="qs"/> as the writer walks them, already oriented to the forward strand).</summary>
+    private static string MdTag(BioCoordSequence target, string queryText, long[] ts, long[] qs, string? operations)
+    {
+        int m = ts.Length;
+        long tS = ts[0], qS = qs[0];
+        long number = 0;
+        var md = new StringBuilder();
+        for (int i = 1; i < m; i++)
+        {
+            long tEnd = ts[i], qE = qs[i];
+            long tCount = tEnd - tS, qCount = qE - qS;
+            if (operations is not null && i - 1 >= operations.Length)
+                break;
+            if (tCount == 0)
+            {
+                qS = qE;
+            }
+            else if (qCount == 0)
+            {
+                if (operations is null || operations[i - 1] != 'N')
+                {
+                    if (number != 0)
+                    {
+                        md.Append(Str(number));
+                        number = 0;
+                    }
+
+                    md.Append('^').Append(target.Slice(tS, tEnd) ?? throw new ArgumentException("UndefinedSequenceError"));
+                }
+
+                tS = tEnd;
+            }
+            else
+            {
+                if (tCount != qCount)
+                    throw new ArgumentException("Unequal step sizes in alignment");
+                string tt = target.Slice(tS, tEnd) ?? throw new ArgumentException("UndefinedSequenceError");
+                for (long k = 0; k < tt.Length && qS + k < queryText.Length; k++)
+                {
+                    char tc = tt[(int)k], qc = queryText[(int)(qS + k)];
+                    if (tc == qc)
+                    {
+                        number++;
+                    }
+                    else
+                    {
+                        md.Append(Str(number)).Append(tc);
+                        number = 0;
+                    }
+                }
+
+                tS = tEnd;
+                qS = qE;
+            }
+        }
+
+        if (number != 0)
+            md.Append(Str(number));
+        return md.ToString();
+    }
+
+    /// <summary>The <c>MD</c> value of a pairwise alignment on the forward strand (target first, query second), as <c>alignment.format("sam", md=True)</c> writes it; the query residues outside the known parts are never read.</summary>
+    internal static string MdTag(BioCoordAlignment alignment)
+    {
+        var (target, query) = Pair(alignment);
+        var text = new char[Math.Max(0, query.Length)];
+        Array.Fill(text, '\0');
+        foreach (var (start, residues) in query.Parts ?? [])
+            residues.CopyTo(0, text, (int)start, residues.Length);
+        return MdTag(target, new string(text), alignment.Coordinates[0], alignment.Coordinates[1], null);
+    }
+
     /// <summary><c>Bio/Align/sam.py</c> <c>AlignmentWriter.format_alignment</c>.</summary>
     private static string FormatSam(BioCoordAlignment alignment, CoordinateWriteOptions options)
     {
@@ -244,61 +316,7 @@ public static partial class AlignmentCoordinateFormats
         {
             if (queryText == "*")
                 throw new ArgumentException("requested MD tag with undefined sequence");
-            long tS = ts[0], qS = qs[0];
-            long number = 0;
-            var md = new StringBuilder();
-            for (int i = 1; i < m; i++)
-            {
-                long tEnd = ts[i], qE = qs[i];
-                long tCount = tEnd - tS, qCount = qE - qS;
-                if (operations is not null && i - 1 >= operations.Length)
-                    break;
-                if (tCount == 0)
-                {
-                    qS = qE;
-                }
-                else if (qCount == 0)
-                {
-                    if (operations is null || operations[i - 1] != 'N')
-                    {
-                        if (number != 0)
-                        {
-                            md.Append(Str(number));
-                            number = 0;
-                        }
-
-                        md.Append('^').Append(target.Slice(tS, tEnd) ?? throw new ArgumentException("UndefinedSequenceError"));
-                    }
-
-                    tS = tEnd;
-                }
-                else
-                {
-                    if (tCount != qCount)
-                        throw new ArgumentException("Unequal step sizes in alignment");
-                    string tt = target.Slice(tS, tEnd) ?? throw new ArgumentException("UndefinedSequenceError");
-                    for (long k = 0; k < tt.Length && qS + k < queryText.Length; k++)
-                    {
-                        char tc = tt[(int)k], qc = queryText[(int)(qS + k)];
-                        if (tc == qc)
-                        {
-                            number++;
-                        }
-                        else
-                        {
-                            md.Append(Str(number)).Append(tc);
-                            number = 0;
-                        }
-                    }
-
-                    tS = tEnd;
-                    qS = qE;
-                }
-            }
-
-            if (number != 0)
-                md.Append(Str(number));
-            fields.Add("MD:Z:" + md);
+            fields.Add("MD:Z:" + MdTag(target, queryText, ts, qs, operations));
         }
 
         if (TryAttr(alignment, "score", out var sc))

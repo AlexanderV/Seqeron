@@ -57,6 +57,9 @@
     <EmbeddedResource Include="TestData\Alignment\minimap2_align_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\minimap2_pair_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\minimap2_options_oracle.jsonl.gz" />
+    <!-- R14-9 (B09 F302): the coordinates and the Bio.Align text formats of 210 alignments of Biopython 1.88 PairwiseAligner, described by their rows; scripts/alignment/generate_alignment_result_bridge_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\alignment_result_bridge_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Alignment\alignment_result_cigar_oracle.jsonl" />
     <!-- A5-10 (B09 F174): Mash 2.3 bounds / dist / triangle text; scripts/alignment/generate_mash_commands_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\mash_commands_oracle.jsonl.gz" />
     <!-- A5-8 (B09 F176): the gff / excel feature reports of fuzznuc, fuzzpro, fuzztran, etandem, equicktandem; scripts/alignment/generate_emboss_report_oracle.py. -->

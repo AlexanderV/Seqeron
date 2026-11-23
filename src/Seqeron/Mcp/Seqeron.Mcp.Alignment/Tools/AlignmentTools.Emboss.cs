@@ -219,11 +219,12 @@ public partial class AlignmentTools
         [Description("Long regime: gap open score (<= 0; -O second value as -24).")] int gapOpen2 = -24,
         [Description("Long regime: gap extension score per position (<= 0; -E second value as -1).")] int gapExtend2 = -1,
         [Description("Band half-width (cells with |i - j| <= band); -1 = full matrix.")] int band = -1,
-        [Description(FormatParamDescription)] string? format = null,
+        [Description(PairFormatParamDescription)] string? format = null,
         [Description(NamesParamDescription)] string[]? names = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        [Description(TrimEndGapsParamDescription)] bool trimEndGaps = false)
     {
-        return FormatPair(DualAffineAlignCore(sequence1, sequence2, mode, match, mismatch, gapOpen1, gapExtend1, gapOpen2, gapExtend2, band, cancellationToken), format, sequence1.Length, sequence2.Length, names);
+        return FormatPair(DualAffineAlignCore(sequence1, sequence2, mode, match, mismatch, gapOpen1, gapExtend1, gapOpen2, gapExtend2, band, cancellationToken), format, sequence1.Length, sequence2.Length, names, sequence1: sequence1, sequence2: sequence2, trimEndGaps: trimEndGaps);
     }
 
     private static AlignmentResultDto DualAffineAlignCore(
