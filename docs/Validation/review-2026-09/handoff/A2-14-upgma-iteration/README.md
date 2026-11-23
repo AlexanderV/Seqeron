@@ -1,4 +1,4 @@
-**STATUS: AWAITING-USER (since 2026-11-19).** Integration target: `TestData/Alignment/clustalw_upgma_iteration_oracle.tsv` (audit item A2-14d); nothing has been returned yet (`returned/` is empty).
+**STATUS: INTEGRATED (2026-11-23, B09.md F297)** - `returned/A2-14-upgma-iteration-out.zip` (800 sets with rows, 0 without) is `TestData/Alignment/clustalw_upgma_iteration_oracle.tsv`, locked by `SequenceAligner_ClustalWUpgmaIteration_Tests`; the port equals the program on 800 / 800 sets.
 
 # TEMPORARY hand-off package A2-14-upgma-iteration - oracle for ClustalW 2.1 `-CLUSTERING=UPGMA` with `-ITERATION` and the profile commands (Docker, for the user's Mac)
 

@@ -919,3 +919,7 @@ Tests (`Seqeron.Genomics.Tests`, against the installed Debian `mafft` 7.505-1): 
 | MA1 | `RowsAndStandardError_EqualMafft(<strategy>)` | 2 508 | rows and standard error equal the program | oracle |
 | MA2 | `Oracle_HasEveryBranchOfTheRule` | - | >= 2 000 sets, every group >= 200, sets of 100 - 199, 200 - 499 and 500+ sequences, refusals, full texts | shape |
 | MA3 | `Rule_PicksTheStrategyOfTheScript` | 4 | 5 / 100 / 200 / 500 sequences: L-INS-i (<16), L-INS-i (<2), FFT-NS-i (2 iterations), FFT-NS-2 | strategy text |
+
+## Audit A2-14d (B09 F297): ClustalW UPGMA with iteration and the profile commands
+
+`SequenceAligner_ClustalWUpgmaIteration_Tests` (`clustalw_upgma_iteration_oracle.tsv`, 800 sets of the user-run `-O0` build): inventory (250 align-alignment, 200 align-tree, 175 profile, 175 sequences; 400 DNA), rows equal the program per mode (`MultipleAlignClustalW` with `Clustering = Upgma` + `Iteration`, `AlignClustalWProfiles`, `AlignClustalWSequencesToProfile`), and UPGMA differs from NJ on > 20 of the 450 align sets (the oracle is not vacuous).

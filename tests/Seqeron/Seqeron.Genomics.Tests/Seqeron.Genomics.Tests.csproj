@@ -255,6 +255,9 @@
     <!-- ALIGN-MULTI-001 (audit A2-14, B09 F101): ClustalW 2.1 `-CLUSTERING=UPGMA -ALIGN` (unmodified Debian source built at -O0 by the user in a docker package; the installed binary and the -O2 build crash on
          every UPGMA run), 600 sets; scripts/alignment/generate_clustalw_upgma_oracle.py, handoff/A2-14-clustalw-upgma/returned. -->
     <EmbeddedResource Include="TestData\Alignment\clustalw_upgma_oracle.tsv" />
+    <!-- ALIGN-MULTI-001 (audit A2-14d, B09 F297): ClustalW 2.1 `-CLUSTERING=UPGMA` with `-ITERATION=alignment | tree`, `-PROFILE` and `-SEQUENCES` (same -O0 build, user-run docker package), 800 sets;
+         scripts/alignment/generate_clustalw_upgma_iteration_oracle.py, handoff/A2-14-upgma-iteration/returned. -->
+    <EmbeddedResource Include="TestData\Alignment\clustalw_upgma_iteration_oracle.tsv" />
     <!-- ALIGN-MULTI-001 (audit A2-14, B09 F102): ClustalW 2.1 `-ITERATION=TREE | ALIGNMENT -NUMITER` (rows + the "FINAL score" lines), 700 sets (350 DNA, 350 protein);
          scripts/alignment/generate_clustalw_iteration_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\clustalw_iteration_oracle.tsv" />
