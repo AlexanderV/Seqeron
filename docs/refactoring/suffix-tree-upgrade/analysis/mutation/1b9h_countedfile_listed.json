@@ -1,0 +1,42 @@
+[
+ {
+  "id": "1b9h_K01",
+  "desc": "CountedFile: a file that is mapped may be created",
+  "old": "if (mode is FileMode.Create or FileMode.Truncate) MappedFileRegistry.RequireNotMapped(path);",
+  "new": "if (mode is FileMode.Create or FileMode.Truncate) { }",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/CountedFile.cs",
+  "filter": "(FullyQualifiedName~MappedFileRegistryTests|FullyQualifiedName~RankTableBounds1b9hTests|FullyQualifiedName~MappedTextBounds1b9hTests)"
+ },
+ {
+  "id": "1b9h_K02",
+  "desc": "CountedFile: only Create is looked at (not Truncate)",
+  "old": "if (mode is FileMode.Create or FileMode.Truncate) MappedFileRegistry.RequireNotMapped(path);",
+  "new": "if (mode is FileMode.Create) MappedFileRegistry.RequireNotMapped(path);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/CountedFile.cs",
+  "filter": "(FullyQualifiedName~MappedFileRegistryTests|FullyQualifiedName~RankTableBounds1b9hTests|FullyQualifiedName~MappedTextBounds1b9hTests)"
+ },
+ {
+  "id": "1b9h_K03",
+  "desc": "CountedFile: only Truncate is looked at (not Create)",
+  "old": "if (mode is FileMode.Create or FileMode.Truncate) MappedFileRegistry.RequireNotMapped(path);",
+  "new": "if (mode is FileMode.Truncate) MappedFileRegistry.RequireNotMapped(path);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/CountedFile.cs",
+  "filter": "(FullyQualifiedName~MappedFileRegistryTests|FullyQualifiedName~RankTableBounds1b9hTests|FullyQualifiedName~MappedTextBounds1b9hTests)"
+ },
+ {
+  "id": "1b9h_K04",
+  "desc": "CountedFile: a file that is mapped may not be opened for reading either",
+  "old": "if (mode is FileMode.Create or FileMode.Truncate) MappedFileRegistry.RequireNotMapped(path);",
+  "new": "MappedFileRegistry.RequireNotMapped(path);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/CountedFile.cs",
+  "filter": "(FullyQualifiedName~MappedFileRegistryTests|FullyQualifiedName~RankTableBounds1b9hTests|FullyQualifiedName~MappedTextBounds1b9hTests)"
+ },
+ {
+  "id": "1b9h_K05",
+  "desc": "CountedFile: OpenOrCreate is looked at too",
+  "old": "if (mode is FileMode.Create or FileMode.Truncate) MappedFileRegistry.RequireNotMapped(path);",
+  "new": "if (mode is FileMode.Create or FileMode.Truncate or FileMode.OpenOrCreate) MappedFileRegistry.RequireNotMapped(path);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/CountedFile.cs",
+  "filter": "(FullyQualifiedName~MappedFileRegistryTests|FullyQualifiedName~RankTableBounds1b9hTests|FullyQualifiedName~MappedTextBounds1b9hTests)"
+ }
+]

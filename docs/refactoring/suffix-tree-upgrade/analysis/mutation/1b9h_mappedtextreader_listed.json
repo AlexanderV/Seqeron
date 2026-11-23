@@ -150,5 +150,29 @@
   "new": "MemoryViolationKind.CanaryOverwritten,\n            $\"out-of-bounds read of the mapped text",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs",
   "filter": "(FullyQualifiedName~MappedTextBounds1b9hTests|FullyQualifiedName~MappedTextReaderTests)"
+ },
+ {
+  "id": "1b9h_T20",
+  "desc": "OpenCore: the reader is not put in the list of the mapped files",
+  "old": "reader._registered = MappedFileRegistry.Map(path);",
+  "new": "reader._registered = null;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs",
+  "filter": "(FullyQualifiedName~MappedTextBounds1b9hTests|FullyQualifiedName~MappedTextReaderTests)"
+ },
+ {
+  "id": "1b9h_T21",
+  "desc": "Dispose: the reader is not taken out of the list",
+  "old": "        if (_registered is not null) MappedFileRegistry.Unmap(_registered);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs",
+  "filter": "(FullyQualifiedName~MappedTextBounds1b9hTests|FullyQualifiedName~MappedTextReaderTests)"
+ },
+ {
+  "id": "1b9h_T22",
+  "desc": "Dispose: a second Dispose takes it out again (the field is not cleared first)",
+  "old": "        if (_registered is not null) MappedFileRegistry.Unmap(_registered);\n",
+  "new": "        if (_registered is not null) { MappedFileRegistry.Unmap(_registered); MappedFileRegistry.Unmap(_registered); }\n",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs",
+  "filter": "(FullyQualifiedName~MappedTextBounds1b9hTests|FullyQualifiedName~MappedTextReaderTests)"
  }
 ]

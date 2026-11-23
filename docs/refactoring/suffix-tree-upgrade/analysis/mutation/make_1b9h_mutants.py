@@ -8,11 +8,18 @@ import json, os, sys
 ROOT = sys.argv[1]
 HERE = os.path.dirname(os.path.abspath(__file__))
 SRC = 'src/SuffixTree/Algorithms/SuffixTree.Esa/External/'
+REG = '(FullyQualifiedName~MappedFileRegistryTests|FullyQualifiedName~RankTableBounds1b9hTests|FullyQualifiedName~MappedTextBounds1b9hTests)'
 FILES = {
     'ranktable': (SRC + 'Dcs/RankTable.cs', '(FullyQualifiedName~RankTableBounds1b9hTests|FullyQualifiedName~RankTableTests|FullyQualifiedName~SuffixOrderTests)'),
     'mappedtextreader': (SRC + 'MappedTextReader.cs', '(FullyQualifiedName~MappedTextBounds1b9hTests|FullyQualifiedName~MappedTextReaderTests)'),
     'differencecover': (SRC + 'Dcs/DifferenceCover.cs', '(FullyQualifiedName~DifferenceCoverTable1b9hTests|FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SaCoverGap1b9cTests)'),
     'hanglimit': ('tests/SuffixTree/SuffixTree.Esa.Tests/TestSupport/HangLimitAttribute.cs', '(FullyQualifiedName~HangBreakerTests)'),
+    'mappedfileregistry': (SRC + 'MappedFileRegistry.cs', REG),
+    'countedfile': (SRC + 'CountedFile.cs', REG),
+    'mappedoutputfile': (SRC + 'MappedOutputFile.cs', REG),
+    'esaanalysis': ('src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Analysis.cs', '(FullyQualifiedName~EsaDistinctSubstringTests)'),
+    'discoverylimit': ('tests/SuffixTree/SuffixTree.Esa.Tests/TestSupport/DiscoveryLimit.cs', '(FullyQualifiedName~DiscoveryLimitTests)'),
+    'allocationmeter': ('tests/SuffixTree/SuffixTree.Esa.Tests/TestSupport/AllocationMeter.cs', '(FullyQualifiedName~AllocationMeterTests|FullyQualifiedName~EsaDistinctSubstringTests)'),
 }
 G = {k: [] for k in FILES}
 
@@ -103,6 +110,90 @@ H('H11', 'ApplyToContext: the product is not checked', 'checked(Seconds * 1000);
 H('H13', 'the attribute: the limit of a method is in tenths of seconds', 'PropertyAttribute(PropertyNames.Timeout, checked(seconds * 1000))', 'PropertyAttribute(PropertyNames.Timeout, checked(seconds * 100))')
 H('H14', 'the attribute: the limit of a method is not the limit of the property Timeout', 'PropertyAttribute(PropertyNames.Timeout, checked(seconds * 1000))', 'PropertyAttribute(PropertyNames.Category, checked(seconds * 1000))')
 H('H12', 'BeforeTest: a refused test is not failed', '            Assert.Fail($"not started:', '            Assert.Pass($"not started:')
+
+# the registry of the mapped files (the checked build; run with CHECKED=1) and where it is called from
+Gm = lambda *a: m('mappedfileregistry', *a)  # noqa: E731
+Gm('G01', 'Map: the path is not made absolute', '        string full = Path.GetFullPath(path);\n        lock (s_mapped) s_mapped[full]', '        string full = path;\n        lock (s_mapped) s_mapped[full]')
+Gm('G02', 'Map: a second mapping of the file does not count', 's_mapped[full] = s_mapped.GetValueOrDefault(full) + 1;', 's_mapped[full] = 1;')
+Gm('G03', 'Map: a mapping counts twice', 's_mapped[full] = s_mapped.GetValueOrDefault(full) + 1;', 's_mapped[full] = s_mapped.GetValueOrDefault(full) + 2;')
+Gm('G04', 'Unmap: the file is removed while a mapping is left', 'if (count <= 1) s_mapped.Remove(full);', 'if (count <= 2) s_mapped.Remove(full);')
+Gm('G05', 'Unmap: the last mapping is not removed', 'if (count <= 1) s_mapped.Remove(full);', 'if (count < 1) s_mapped.Remove(full);')
+Gm('G06', 'Unmap: the count is not reduced', 'else s_mapped[full] = count - 1;', 'else s_mapped[full] = count;')
+Gm('G07', 'Unmap: an unknown file is an error', 'if (!s_mapped.TryGetValue(full, out int count)) return;', 'int count = s_mapped[full];')
+Gm('G08', 'RequireNotMapped: the path is not made absolute', '        string full = Path.GetFullPath(path);\n        bool mapped;', '        string full = path;\n        bool mapped;')
+Gm('G09', 'RequireNotMapped: nothing is refused', '        if (mapped)\n        {\n            throw', '        if (false && mapped)\n        {\n            throw')
+Gm('G10', 'RequireNotMapped: everything is refused', '        if (mapped)\n        {\n            throw', '        if (true)\n        {\n            throw')
+Gm('G11', 'RequireNotMapped: the violation is of the other kind', 'throw new EsaMemoryViolationException(MemoryViolationKind.OutOfBounds, $"the file', 'throw new EsaMemoryViolationException(MemoryViolationKind.CanaryOverwritten, $"the file')
+Gm('G12', 'Count: always zero', '            lock (s_mapped) return s_mapped.Count;', '            lock (s_mapped) return 0;')
+Gm('G13', 'Count: the mappings, not the files', '            lock (s_mapped) return s_mapped.Count;', '            lock (s_mapped) return s_mapped.Values.Sum();')
+Gm('G14', 'the names are compared without regard to case', 'new(StringComparer.Ordinal);', 'new(StringComparer.OrdinalIgnoreCase);')
+
+Km = lambda *a: m('countedfile', *a)  # noqa: E731
+Km('K01', 'CountedFile: a file that is mapped may be created', 'if (mode is FileMode.Create or FileMode.Truncate) MappedFileRegistry.RequireNotMapped(path);', 'if (mode is FileMode.Create or FileMode.Truncate) { }')
+Km('K02', 'CountedFile: only Create is looked at (not Truncate)', 'if (mode is FileMode.Create or FileMode.Truncate) MappedFileRegistry.RequireNotMapped(path);', 'if (mode is FileMode.Create) MappedFileRegistry.RequireNotMapped(path);')
+Km('K03', 'CountedFile: only Truncate is looked at (not Create)', 'if (mode is FileMode.Create or FileMode.Truncate) MappedFileRegistry.RequireNotMapped(path);', 'if (mode is FileMode.Truncate) MappedFileRegistry.RequireNotMapped(path);')
+Km('K04', 'CountedFile: a file that is mapped may not be opened for reading either', 'if (mode is FileMode.Create or FileMode.Truncate) MappedFileRegistry.RequireNotMapped(path);', 'MappedFileRegistry.RequireNotMapped(path);')
+Km('K05', 'CountedFile: OpenOrCreate is looked at too', 'if (mode is FileMode.Create or FileMode.Truncate) MappedFileRegistry.RequireNotMapped(path);', 'if (mode is FileMode.Create or FileMode.Truncate or FileMode.OpenOrCreate) MappedFileRegistry.RequireNotMapped(path);')
+
+Om = lambda *a: m('mappedoutputfile', *a)  # noqa: E731
+Om('K06', 'MappedOutputFile.Create: a file that is mapped may be created', '        MappedFileRegistry.RequireNotMapped(path);\n', '')
+
+Rm = lambda *a: m('ranktable', *a)  # noqa: E731
+Rm('R19', 'Open: the table is not put in the list of the mapped files', 'table._registered = MappedFileRegistry.Map(path);', 'table._registered = null;')
+Rm('R20', 'Dispose: the table is not taken out of the list', 'if (view is not null && _registered is not null) MappedFileRegistry.Unmap(_registered);', 'if (view is not null && _registered is not null) { }')
+Rm('R21', 'Dispose: a second Dispose takes it out again', 'if (view is not null && _registered is not null) MappedFileRegistry.Unmap(_registered);', 'if (_registered is not null) MappedFileRegistry.Unmap(_registered);')
+
+Tm = lambda *a: m('mappedtextreader', *a)  # noqa: E731
+Tm('T20', 'OpenCore: the reader is not put in the list of the mapped files', 'reader._registered = MappedFileRegistry.Map(path);', 'reader._registered = null;')
+Tm('T21', 'Dispose: the reader is not taken out of the list', '        if (_registered is not null) MappedFileRegistry.Unmap(_registered);\n', '')
+Tm('T22', 'Dispose: a second Dispose takes it out again (the field is not cleared first)', '        if (_registered is not null) MappedFileRegistry.Unmap(_registered);\n', '        if (_registered is not null) { MappedFileRegistry.Unmap(_registered); MappedFileRegistry.Unmap(_registered); }\n')
+
+# the discovery limit (test support)
+Dm = lambda *a: m('discoverylimit', *a)  # noqa: E731
+Dm('D01', 'the exception of the computation is lost', 'error = ExceptionDispatchInfo.Capture(e);', 'error = null;')
+Dm('D02', 'the exception of the computation is not thrown again', '        error?.Throw();\n', '')
+Dm('D03', 'the computation runs on a foreground thread', 'IsBackground = true, Name = "discovery-limit"', 'IsBackground = false, Name = "discovery-limit"')
+Dm('D04', 'the limit is not used', 'if (!done.Wait(limit))', 'if (!done.Wait(Timeout.InfiniteTimeSpan))')
+Dm('D05', 'a computation that does not return gives true', '            value = default;\n            return false;', '            value = default;\n            return true;')
+Dm('D06', 'a computation that returns gives false', '        value = result;\n        return true;', '        value = result;\n        return false;')
+Dm('D07', 'a computation that does not return leaves its (partial) value', '            value = default;\n            return false;', '            value = result;\n            return false;')
+Dm('D08', 'the done signal is not set when the computation fails', '            finally\n            {\n                done.Set();\n            }', '            finally\n            {\n            }\n            if (error is null) done.Set();')
+Dm('D09', 'the computation is run on the calling thread', '        thread.Start();\n        if (!done.Wait(limit))', '        thread.Start(); thread.Join();\n        if (!done.Wait(limit))')
+
+# the allocation meter (test support)
+Am = lambda *a: m('allocationmeter', *a)  # noqa: E731
+Am('A01', 'AssertLessThan: the limit is inclusive', 'if (Bytes < limit) return;', 'if (Bytes <= limit) return;')
+Am('A02', 'AssertLessThan: the limit is one byte lower', 'if (Bytes < limit) return;', 'if (Bytes < limit - 1) return;')
+Am('A03', 'AssertLessThan: a reading in a window without collections is inconclusive', 'if (GcFree) Assert.Fail(', 'if (!GcFree) Assert.Fail(')
+Am('A04', 'AssertLessThan: a reading in a window with a collection is a pass', '        Assert.Inconclusive(', '        Assert.Pass(')
+Am('A05', 'AssertLessThan: a reading in a window without collections is a pass', 'if (GcFree) Assert.Fail(', 'if (GcFree) Assert.Pass(')
+Am('A06', 'Measure: no region is opened', 'bool opened = !alreadyOpen && TryStartRegion();', 'bool opened = false;')
+Am('A07', 'Measure: the region is never left', '            if (opened) EndRegion();', '            if (opened) { }')
+Am('A08', 'Measure: the reading is the counter after the code', 'return new AllocationReading(after - before, gcFree);', 'return new AllocationReading(after, gcFree);')
+Am('A09', 'Measure: the counter is read before the region is opened', '        bool alreadyOpen = GCSettings.LatencyMode == GCLatencyMode.NoGCRegion;\n        bool opened = !alreadyOpen && TryStartRegion();\n        try\n        {\n            int collections = GC.CollectionCount(0);                // every collection counts in generation 0, whatever its generation\n            long before = GC.GetAllocatedBytesForCurrentThread();\n            code();', '        long before = GC.GetAllocatedBytesForCurrentThread();\n        bool alreadyOpen = GCSettings.LatencyMode == GCLatencyMode.NoGCRegion;\n        bool opened = !alreadyOpen && TryStartRegion();\n        try\n        {\n            int collections = GC.CollectionCount(0);                // every collection counts in generation 0, whatever its generation\n            code();')
+Am('A10', 'Measure: the window is free of collections whatever happened', 'bool gcFree = (alreadyOpen || opened) && GCSettings.LatencyMode == GCLatencyMode.NoGCRegion && GC.CollectionCount(0) == collections;', 'bool gcFree = true;')
+Am('A11', 'Measure: the window is free of collections when a region was opened', 'bool gcFree = (alreadyOpen || opened) && GCSettings.LatencyMode == GCLatencyMode.NoGCRegion && GC.CollectionCount(0) == collections;', 'bool gcFree = alreadyOpen || opened;')
+Am('A12', 'Measure: the region need not have been opened', 'bool gcFree = (alreadyOpen || opened) && GCSettings.LatencyMode == GCLatencyMode.NoGCRegion && GC.CollectionCount(0) == collections;', 'bool gcFree = GCSettings.LatencyMode == GCLatencyMode.NoGCRegion && GC.CollectionCount(0) == collections;')
+Am('A13', 'Measure: the latency mode is not looked at', 'bool gcFree = (alreadyOpen || opened) && GCSettings.LatencyMode == GCLatencyMode.NoGCRegion && GC.CollectionCount(0) == collections;', 'bool gcFree = (alreadyOpen || opened) && GC.CollectionCount(0) == collections;')
+Am('A14', 'Measure: the number of collections is not looked at', 'bool gcFree = (alreadyOpen || opened) && GCSettings.LatencyMode == GCLatencyMode.NoGCRegion && GC.CollectionCount(0) == collections;', 'bool gcFree = (alreadyOpen || opened) && GCSettings.LatencyMode == GCLatencyMode.NoGCRegion;')
+Am('A15', 'Measure: the code is not checked for null', '        ArgumentNullException.ThrowIfNull(code);\n        bool alreadyOpen', '        bool alreadyOpen')
+Am('A16', 'the budget of the region is too small for the large array', 'RegionBytes = 64L << 20', 'RegionBytes = 1L << 20')
+Am('A17', 'the region has no room for large objects', 'RegionLargeObjectBytes = 32L << 20', 'RegionLargeObjectBytes = 1L << 10')
+Am('A18', 'TryStartRegion: a region that another thread opened is an error', '        catch (InvalidOperationException)           // another thread opened a region between the check and the start: the window is measured without the promise (and that region is gone: a failed start ends it)\n        {\n            return false;\n        }\n', '')
+Am('A21', 'Measure: a region that is already open is not looked for (a start inside it ends it)', 'bool opened = !alreadyOpen && TryStartRegion();', 'bool opened = TryStartRegion();')
+Am('A22', 'Measure: a region that was open is ended by the meter', '            if (opened) EndRegion();', '            if (opened || alreadyOpen) EndRegion();')
+Am('A19', 'EndRegion: the region is ended whatever the mode', '            if (GCSettings.LatencyMode == GCLatencyMode.NoGCRegion) GC.EndNoGCRegion();', '            GC.EndNoGCRegion();')
+Am('A20', 'EndRegion: the exception of a region that was left is not caught', '        catch (InvalidOperationException)           // the region was left by a collection (the budget was exceeded or a collection was induced) between the check and the call: nothing is left to end\n        {\n        }\n', '        finally { }\n')
+
+# the code that the 1b.3 test measures: mutants that allocate (the test must stay red against each)
+Zm = lambda *a: m('esaanalysis', *a)  # noqa: E731
+Zm('Z01', 'CountDistinctSubstrings allocates a long per symbol', '        long n = Length;\n        long total = n * (n + 1) / 2;\n        CompactLcp.Cursor lcp', '        long n = Length;\n        GC.KeepAlive(new long[Length]);\n        long total = n * (n + 1) / 2;\n        CompactLcp.Cursor lcp')
+Zm('Z02', 'CountDistinctSubstrings allocates a byte per symbol', '        long n = Length;\n        long total = n * (n + 1) / 2;\n        CompactLcp.Cursor lcp', '        long n = Length;\n        GC.KeepAlive(new byte[Length]);\n        long total = n * (n + 1) / 2;\n        CompactLcp.Cursor lcp')
+Zm('Z03', 'CountDistinctSubstrings allocates 2 KB', '        long n = Length;\n        long total = n * (n + 1) / 2;\n        CompactLcp.Cursor lcp', '        long n = Length;\n        GC.KeepAlive(new byte[2000]);\n        long total = n * (n + 1) / 2;\n        CompactLcp.Cursor lcp')
+Zm('Z04', 'ByLength allocates a second array of the size of the result', '        var counts = new long[m + 1];\n', '        var counts = new long[m + 1];\n        GC.KeepAlive(new long[m + 1]);\n')
+Zm('Z05', 'ByLength(10) allocates a byte per symbol', '        var counts = new long[m + 1];\n', '        var counts = new long[m + 1];\n        GC.KeepAlive(new byte[n]);\n')
+Zm('Z06', 'ByLength allocates a copy of the result on return', '        counts[0] = 1;\n        return counts;', '        counts[0] = 1;\n        return (long[])counts.Clone();')
+Zm('Z07', 'CountDistinctSubstrings allocates a boxed value per rank', '        for (int rank = 1; rank <= Length; rank++) total -= lcp.Get(rank);', '        for (int rank = 1; rank <= Length; rank++) { object box = lcp.Get(rank); total -= (int)box; }')
 
 out = []
 for key, (rel, filt) in FILES.items():

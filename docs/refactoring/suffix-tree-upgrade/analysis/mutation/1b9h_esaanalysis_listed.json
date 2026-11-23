@@ -1,0 +1,58 @@
+[
+ {
+  "id": "1b9h_Z01",
+  "desc": "CountDistinctSubstrings allocates a long per symbol",
+  "old": "        long n = Length;\n        long total = n * (n + 1) / 2;\n        CompactLcp.Cursor lcp",
+  "new": "        long n = Length;\n        GC.KeepAlive(new long[Length]);\n        long total = n * (n + 1) / 2;\n        CompactLcp.Cursor lcp",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Analysis.cs",
+  "filter": "(FullyQualifiedName~EsaDistinctSubstringTests)"
+ },
+ {
+  "id": "1b9h_Z02",
+  "desc": "CountDistinctSubstrings allocates a byte per symbol",
+  "old": "        long n = Length;\n        long total = n * (n + 1) / 2;\n        CompactLcp.Cursor lcp",
+  "new": "        long n = Length;\n        GC.KeepAlive(new byte[Length]);\n        long total = n * (n + 1) / 2;\n        CompactLcp.Cursor lcp",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Analysis.cs",
+  "filter": "(FullyQualifiedName~EsaDistinctSubstringTests)"
+ },
+ {
+  "id": "1b9h_Z03",
+  "desc": "CountDistinctSubstrings allocates 2 KB",
+  "old": "        long n = Length;\n        long total = n * (n + 1) / 2;\n        CompactLcp.Cursor lcp",
+  "new": "        long n = Length;\n        GC.KeepAlive(new byte[2000]);\n        long total = n * (n + 1) / 2;\n        CompactLcp.Cursor lcp",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Analysis.cs",
+  "filter": "(FullyQualifiedName~EsaDistinctSubstringTests)"
+ },
+ {
+  "id": "1b9h_Z04",
+  "desc": "ByLength allocates a second array of the size of the result",
+  "old": "        var counts = new long[m + 1];\n",
+  "new": "        var counts = new long[m + 1];\n        GC.KeepAlive(new long[m + 1]);\n",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Analysis.cs",
+  "filter": "(FullyQualifiedName~EsaDistinctSubstringTests)"
+ },
+ {
+  "id": "1b9h_Z05",
+  "desc": "ByLength(10) allocates a byte per symbol",
+  "old": "        var counts = new long[m + 1];\n",
+  "new": "        var counts = new long[m + 1];\n        GC.KeepAlive(new byte[n]);\n",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Analysis.cs",
+  "filter": "(FullyQualifiedName~EsaDistinctSubstringTests)"
+ },
+ {
+  "id": "1b9h_Z06",
+  "desc": "ByLength allocates a copy of the result on return",
+  "old": "        counts[0] = 1;\n        return counts;",
+  "new": "        counts[0] = 1;\n        return (long[])counts.Clone();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Analysis.cs",
+  "filter": "(FullyQualifiedName~EsaDistinctSubstringTests)"
+ },
+ {
+  "id": "1b9h_Z07",
+  "desc": "CountDistinctSubstrings allocates a boxed value per rank",
+  "old": "        for (int rank = 1; rank <= Length; rank++) total -= lcp.Get(rank);",
+  "new": "        for (int rank = 1; rank <= Length; rank++) { object box = lcp.Get(rank); total -= (int)box; }",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Analysis.cs",
+  "filter": "(FullyQualifiedName~EsaDistinctSubstringTests)"
+ }
+]

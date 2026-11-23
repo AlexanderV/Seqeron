@@ -1,0 +1,74 @@
+[
+ {
+  "id": "1b9h_D01",
+  "desc": "the exception of the computation is lost",
+  "old": "error = ExceptionDispatchInfo.Capture(e);",
+  "new": "error = null;",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/TestSupport/DiscoveryLimit.cs",
+  "filter": "(FullyQualifiedName~DiscoveryLimitTests)"
+ },
+ {
+  "id": "1b9h_D02",
+  "desc": "the exception of the computation is not thrown again",
+  "old": "        error?.Throw();\n",
+  "new": "",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/TestSupport/DiscoveryLimit.cs",
+  "filter": "(FullyQualifiedName~DiscoveryLimitTests)"
+ },
+ {
+  "id": "1b9h_D03",
+  "desc": "the computation runs on a foreground thread",
+  "old": "IsBackground = true, Name = \"discovery-limit\"",
+  "new": "IsBackground = false, Name = \"discovery-limit\"",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/TestSupport/DiscoveryLimit.cs",
+  "filter": "(FullyQualifiedName~DiscoveryLimitTests)"
+ },
+ {
+  "id": "1b9h_D04",
+  "desc": "the limit is not used",
+  "old": "if (!done.Wait(limit))",
+  "new": "if (!done.Wait(Timeout.InfiniteTimeSpan))",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/TestSupport/DiscoveryLimit.cs",
+  "filter": "(FullyQualifiedName~DiscoveryLimitTests)"
+ },
+ {
+  "id": "1b9h_D05",
+  "desc": "a computation that does not return gives true",
+  "old": "            value = default;\n            return false;",
+  "new": "            value = default;\n            return true;",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/TestSupport/DiscoveryLimit.cs",
+  "filter": "(FullyQualifiedName~DiscoveryLimitTests)"
+ },
+ {
+  "id": "1b9h_D06",
+  "desc": "a computation that returns gives false",
+  "old": "        value = result;\n        return true;",
+  "new": "        value = result;\n        return false;",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/TestSupport/DiscoveryLimit.cs",
+  "filter": "(FullyQualifiedName~DiscoveryLimitTests)"
+ },
+ {
+  "id": "1b9h_D07",
+  "desc": "a computation that does not return leaves its (partial) value",
+  "old": "            value = default;\n            return false;",
+  "new": "            value = result;\n            return false;",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/TestSupport/DiscoveryLimit.cs",
+  "filter": "(FullyQualifiedName~DiscoveryLimitTests)"
+ },
+ {
+  "id": "1b9h_D08",
+  "desc": "the done signal is not set when the computation fails",
+  "old": "            finally\n            {\n                done.Set();\n            }",
+  "new": "            finally\n            {\n            }\n            if (error is null) done.Set();",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/TestSupport/DiscoveryLimit.cs",
+  "filter": "(FullyQualifiedName~DiscoveryLimitTests)"
+ },
+ {
+  "id": "1b9h_D09",
+  "desc": "the computation is run on the calling thread",
+  "old": "        thread.Start();\n        if (!done.Wait(limit))",
+  "new": "        thread.Start(); thread.Join();\n        if (!done.Wait(limit))",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/TestSupport/DiscoveryLimit.cs",
+  "filter": "(FullyQualifiedName~DiscoveryLimitTests)"
+ }
+]

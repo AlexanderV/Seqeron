@@ -142,5 +142,29 @@
   "new": "long samples",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs",
   "filter": "(FullyQualifiedName~RankTableBounds1b9hTests|FullyQualifiedName~RankTableTests|FullyQualifiedName~SuffixOrderTests)"
+ },
+ {
+  "id": "1b9h_R19",
+  "desc": "Open: the table is not put in the list of the mapped files",
+  "old": "table._registered = MappedFileRegistry.Map(path);",
+  "new": "table._registered = null;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs",
+  "filter": "(FullyQualifiedName~RankTableBounds1b9hTests|FullyQualifiedName~RankTableTests|FullyQualifiedName~SuffixOrderTests)"
+ },
+ {
+  "id": "1b9h_R20",
+  "desc": "Dispose: the table is not taken out of the list",
+  "old": "if (view is not null && _registered is not null) MappedFileRegistry.Unmap(_registered);",
+  "new": "if (view is not null && _registered is not null) { }",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs",
+  "filter": "(FullyQualifiedName~RankTableBounds1b9hTests|FullyQualifiedName~RankTableTests|FullyQualifiedName~SuffixOrderTests)"
+ },
+ {
+  "id": "1b9h_R21",
+  "desc": "Dispose: a second Dispose takes it out again",
+  "old": "if (view is not null && _registered is not null) MappedFileRegistry.Unmap(_registered);",
+  "new": "if (_registered is not null) MappedFileRegistry.Unmap(_registered);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs",
+  "filter": "(FullyQualifiedName~RankTableBounds1b9hTests|FullyQualifiedName~RankTableTests|FullyQualifiedName~SuffixOrderTests)"
  }
 ]

@@ -1,0 +1,114 @@
+[
+ {
+  "id": "1b9h_G01",
+  "desc": "Map: the path is not made absolute",
+  "old": "        string full = Path.GetFullPath(path);\n        lock (s_mapped) s_mapped[full]",
+  "new": "        string full = path;\n        lock (s_mapped) s_mapped[full]",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedFileRegistry.cs",
+  "filter": "(FullyQualifiedName~MappedFileRegistryTests|FullyQualifiedName~RankTableBounds1b9hTests|FullyQualifiedName~MappedTextBounds1b9hTests)"
+ },
+ {
+  "id": "1b9h_G02",
+  "desc": "Map: a second mapping of the file does not count",
+  "old": "s_mapped[full] = s_mapped.GetValueOrDefault(full) + 1;",
+  "new": "s_mapped[full] = 1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedFileRegistry.cs",
+  "filter": "(FullyQualifiedName~MappedFileRegistryTests|FullyQualifiedName~RankTableBounds1b9hTests|FullyQualifiedName~MappedTextBounds1b9hTests)"
+ },
+ {
+  "id": "1b9h_G03",
+  "desc": "Map: a mapping counts twice",
+  "old": "s_mapped[full] = s_mapped.GetValueOrDefault(full) + 1;",
+  "new": "s_mapped[full] = s_mapped.GetValueOrDefault(full) + 2;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedFileRegistry.cs",
+  "filter": "(FullyQualifiedName~MappedFileRegistryTests|FullyQualifiedName~RankTableBounds1b9hTests|FullyQualifiedName~MappedTextBounds1b9hTests)"
+ },
+ {
+  "id": "1b9h_G04",
+  "desc": "Unmap: the file is removed while a mapping is left",
+  "old": "if (count <= 1) s_mapped.Remove(full);",
+  "new": "if (count <= 2) s_mapped.Remove(full);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedFileRegistry.cs",
+  "filter": "(FullyQualifiedName~MappedFileRegistryTests|FullyQualifiedName~RankTableBounds1b9hTests|FullyQualifiedName~MappedTextBounds1b9hTests)"
+ },
+ {
+  "id": "1b9h_G05",
+  "desc": "Unmap: the last mapping is not removed",
+  "old": "if (count <= 1) s_mapped.Remove(full);",
+  "new": "if (count < 1) s_mapped.Remove(full);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedFileRegistry.cs",
+  "filter": "(FullyQualifiedName~MappedFileRegistryTests|FullyQualifiedName~RankTableBounds1b9hTests|FullyQualifiedName~MappedTextBounds1b9hTests)"
+ },
+ {
+  "id": "1b9h_G06",
+  "desc": "Unmap: the count is not reduced",
+  "old": "else s_mapped[full] = count - 1;",
+  "new": "else s_mapped[full] = count;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedFileRegistry.cs",
+  "filter": "(FullyQualifiedName~MappedFileRegistryTests|FullyQualifiedName~RankTableBounds1b9hTests|FullyQualifiedName~MappedTextBounds1b9hTests)"
+ },
+ {
+  "id": "1b9h_G07",
+  "desc": "Unmap: an unknown file is an error",
+  "old": "if (!s_mapped.TryGetValue(full, out int count)) return;",
+  "new": "int count = s_mapped[full];",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedFileRegistry.cs",
+  "filter": "(FullyQualifiedName~MappedFileRegistryTests|FullyQualifiedName~RankTableBounds1b9hTests|FullyQualifiedName~MappedTextBounds1b9hTests)"
+ },
+ {
+  "id": "1b9h_G08",
+  "desc": "RequireNotMapped: the path is not made absolute",
+  "old": "        string full = Path.GetFullPath(path);\n        bool mapped;",
+  "new": "        string full = path;\n        bool mapped;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedFileRegistry.cs",
+  "filter": "(FullyQualifiedName~MappedFileRegistryTests|FullyQualifiedName~RankTableBounds1b9hTests|FullyQualifiedName~MappedTextBounds1b9hTests)"
+ },
+ {
+  "id": "1b9h_G09",
+  "desc": "RequireNotMapped: nothing is refused",
+  "old": "        if (mapped)\n        {\n            throw",
+  "new": "        if (false && mapped)\n        {\n            throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedFileRegistry.cs",
+  "filter": "(FullyQualifiedName~MappedFileRegistryTests|FullyQualifiedName~RankTableBounds1b9hTests|FullyQualifiedName~MappedTextBounds1b9hTests)"
+ },
+ {
+  "id": "1b9h_G10",
+  "desc": "RequireNotMapped: everything is refused",
+  "old": "        if (mapped)\n        {\n            throw",
+  "new": "        if (true)\n        {\n            throw",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedFileRegistry.cs",
+  "filter": "(FullyQualifiedName~MappedFileRegistryTests|FullyQualifiedName~RankTableBounds1b9hTests|FullyQualifiedName~MappedTextBounds1b9hTests)"
+ },
+ {
+  "id": "1b9h_G11",
+  "desc": "RequireNotMapped: the violation is of the other kind",
+  "old": "throw new EsaMemoryViolationException(MemoryViolationKind.OutOfBounds, $\"the file",
+  "new": "throw new EsaMemoryViolationException(MemoryViolationKind.CanaryOverwritten, $\"the file",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedFileRegistry.cs",
+  "filter": "(FullyQualifiedName~MappedFileRegistryTests|FullyQualifiedName~RankTableBounds1b9hTests|FullyQualifiedName~MappedTextBounds1b9hTests)"
+ },
+ {
+  "id": "1b9h_G12",
+  "desc": "Count: always zero",
+  "old": "            lock (s_mapped) return s_mapped.Count;",
+  "new": "            lock (s_mapped) return 0;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedFileRegistry.cs",
+  "filter": "(FullyQualifiedName~MappedFileRegistryTests|FullyQualifiedName~RankTableBounds1b9hTests|FullyQualifiedName~MappedTextBounds1b9hTests)"
+ },
+ {
+  "id": "1b9h_G13",
+  "desc": "Count: the mappings, not the files",
+  "old": "            lock (s_mapped) return s_mapped.Count;",
+  "new": "            lock (s_mapped) return s_mapped.Values.Sum();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedFileRegistry.cs",
+  "filter": "(FullyQualifiedName~MappedFileRegistryTests|FullyQualifiedName~RankTableBounds1b9hTests|FullyQualifiedName~MappedTextBounds1b9hTests)"
+ },
+ {
+  "id": "1b9h_G14",
+  "desc": "the names are compared without regard to case",
+  "old": "new(StringComparer.Ordinal);",
+  "new": "new(StringComparer.OrdinalIgnoreCase);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedFileRegistry.cs",
+  "filter": "(FullyQualifiedName~MappedFileRegistryTests|FullyQualifiedName~RankTableBounds1b9hTests|FullyQualifiedName~MappedTextBounds1b9hTests)"
+ }
+]

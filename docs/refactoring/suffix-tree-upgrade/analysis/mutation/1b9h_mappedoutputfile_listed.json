@@ -1,0 +1,10 @@
+[
+ {
+  "id": "1b9h_K06",
+  "desc": "MappedOutputFile.Create: a file that is mapped may be created",
+  "old": "        MappedFileRegistry.RequireNotMapped(path);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs",
+  "filter": "(FullyQualifiedName~MappedFileRegistryTests|FullyQualifiedName~RankTableBounds1b9hTests|FullyQualifiedName~MappedTextBounds1b9hTests)"
+ }
+]
