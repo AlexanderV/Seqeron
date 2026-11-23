@@ -235,10 +235,21 @@ public sealed class SesaResume1b9e1Tests
 
     // ------------------------------------------------------------------ one bad byte in a gap, in the header page, in a slot that is never written
 
+    /// <summary>How long the reference build of <see cref="GapCases"/> may take at test discovery (it takes well under a second; ten times the slowest run of it in the loaded set is far less than this).</summary>
+    private const long NoReference = -1;
+
+    internal static readonly TimeSpan ReferenceBuildLimit = TimeSpan.FromSeconds(60);
+
     public static IEnumerable<TestCaseData> GapCases()
     {
-        Built reference = Reference(s_text);
-        List<(long Offset, long Length)> gaps = Gaps(reference);
+        // the reference build runs at test DISCOVERY (the names of the cases carry the gaps of its container): a build that never returns would stop the discovery of the whole assembly and every run with it, so it runs under a limit, and a build that
+        // does not return gives one case that fails and says so (work package 1b.9h)
+        if (!TestSupport.DiscoveryLimit.TryRun(ReferenceBuildLimit, () => Gaps(Reference(s_text)), out List<(long Offset, long Length)>? found) || found is null)
+        {
+            yield return new TestCaseData("-", NoReference).SetName("TheReferenceBuildOfTheGapCases_ReturnsAtDiscovery");
+            yield break;
+        }
+        List<(long Offset, long Length)> gaps = found;
         foreach (string point in Boundaries)
         {
             for (int g = 0; g < gaps.Count; g++)
@@ -255,6 +266,7 @@ public sealed class SesaResume1b9e1Tests
     [TestCaseSource(nameof(GapCases))]
     public void OneBadByteInAGapOfTheLayout_OrInTheHeaderPage_IsNotInTheContainer(string point, long at)
     {
+        if (at == NoReference) Assert.Fail($"the reference build of the gap cases did not return within {ReferenceBuildLimit.TotalSeconds:F0} s at test discovery (a hang of the builder): no gap is known, no case could be made");
         Built reference = Reference(s_text);
         using var c = new ResumeCase(s_text);
         Fails(c, Opts(), point);
