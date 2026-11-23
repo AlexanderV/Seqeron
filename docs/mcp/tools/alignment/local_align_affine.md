@@ -33,6 +33,9 @@ Local pairwise alignment with affine gap costs (Smith–Waterman 1981 with Gotoh
 | `matrix` | string | No | Optional substitution matrix: any built-in matrix by EMBOSS or NCBI name - BLOSUM62, PAM250, EBLOSUM30 ... EBLOSUM90, EPAM10 ... EPAM500 (protein) or EDNAFULL, EDNAMAT, EDNASIMPLE, ENUC.4.4 (IUPAC DNA). When given, match/mismatch are ignored, residues are scored by the published table (any protein or IUPAC symbol of the matrix; case-insensitive) and gapOpen/gapExtend may be fractional (the EMBOSS needle/water models: gapOpen = -(G - E), gapExtend = -E for -gapopen G -gapextend E). The result then also carries the real-valued exactScore. |
 | `format` | string | No | Optional output format; the alignment written in that format is returned in the result field 'formatted'. Biopython Bio.Align names: fasta, a2m, clustal, phylip, nexus, stockholm (byte for byte as Bio.Align.write; 'emboss:' + name selects the EMBOSS writer of the same name). EMBOSS -aformat names: pair, simple, srspair, srs, markx0, markx1, markx2, markx3, markx10, match, score, sam, tcoffee (two rows) and msf, mega, meganon, nexusnon, paup, paupnon, phylipnon, selex, treecon (any number of rows; EMBOSS prints the run date: now, UTC). Omit for no formatted text. |
 | `names` | array of string | No | Optional names of the rows for the formatted output (default seq1, seq2, ...). |
+| `significance` | boolean | No | true: add the BLAST+ statistics of the score (bitScore, eValue, pValue and the Karlin-Altschul parameters) to the result. Protein matrices of the NCBI tables (BLOSUM45 / 50 / 62 / 90, PAM30 / 70 / 250 with the gap costs the tables list, e.g. BLOSUM62 existence 11 extension 1 = gapOpen -11, gapExtend -1) get Spouge's finite-size E-value exactly as blastp -comp_based_stats 0; match / mismatch with the blastn reward / penalty pairs and gap costs of the tables (e.g. 2 / -3 with gapOpen -5, gapExtend -2) the length-adjusted Karlin-Altschul E-value as blastn -task blastn. Costs outside the tables are refused (default false). |
+| `dbLength` | integer | No | With significance: the length of the database the subject (sequence2) belongs to, for the E-value (default: the length of sequence2, a pairwise comparison, as blastp / blastn -subject). |
+| `dbSequences` | integer | No | With significance on nucleotides: the number of sequences of the database (default 1). |
 
 ## Output Schema
 
@@ -48,6 +51,7 @@ Local pairwise alignment with affine gap costs (Smith–Waterman 1981 with Gotoh
 | `endPosition2` | integer | 0-based end in sequence2. |
 | `exactScore` | number | Real-valued score (equals `score` for integer scoring; with matrix / fractional gaps `score` is this value rounded half away from zero). |
 | `formatted` | string | No | The alignment written in the requested format (null when format is omitted). |
+| `significance` | object | No | BLAST+ statistics of the score (only with significance=true): bitScore, eValue, pValue, method, lambda, k, h, lengthAdjustment, searchSpace |
 
 ## Errors
 

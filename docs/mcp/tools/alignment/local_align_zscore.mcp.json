@@ -1,0 +1,107 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "toolName": "local_align_zscore",
+ "serverName": "Alignment",
+ "version": "1.0.0",
+ "stability": "stable",
+ "methodId": "AlignmentSignificance.ShuffleZScore",
+ "docRef": "Seqeron.Genomics.Alignment/AlignmentSignificance.Gapped.cs",
+ "description": "The shuffle Z-score of the best local alignment score of two sequences (the idea of EMBOSS prss and FASTA ssearch): sequence2 is shuffled `shuffles` times (a seeded Fisher-Yates shuffle, reproducible), every shuffle is aligned locally to sequence1 with the same linear-gap scoring as local_align, and z = (score - mean) / standard deviation of the shuffled scores. A large z (above about 5-8) means the score is far above what the composition of the sequences gives by chance. Use local_align_affine / local_align / water_align with significance=true for the analytic bit score and E-value of the Karlin-Altschul statistics.",
+ "inputSchema": {
+  "type": "object",
+  "properties": {
+   "sequence1": {
+    "type": "string",
+    "description": "First sequence.",
+    "minLength": 1
+   },
+   "sequence2": {
+    "type": "string",
+    "description": "Second sequence (the one that is shuffled).",
+    "minLength": 1
+   },
+   "match": {
+    "type": "integer",
+    "description": "Score for matching base.",
+    "default": 1
+   },
+   "mismatch": {
+    "type": "integer",
+    "description": "Score for mismatching base.",
+    "default": -1
+   },
+   "gapExtend": {
+    "type": "number",
+    "description": "Gap score charged per gap position (<= 0; the linear model of local_align).",
+    "default": -1
+   },
+   "shuffles": {
+    "type": "integer",
+    "description": "Number of shuffles (>= 2; default 1000).",
+    "default": 1000
+   },
+   "seed": {
+    "type": "integer",
+    "description": "Seed of the shuffles (default 1).",
+    "default": 1
+   }
+  },
+  "required": [
+   "sequence1",
+   "sequence2"
+  ]
+ },
+ "outputSchema": {
+  "type": "object",
+  "properties": {
+   "score": {
+    "type": "integer"
+   },
+   "mean": {
+    "type": "number"
+   },
+   "standardDeviation": {
+    "type": "number"
+   },
+   "zScore": {
+    "type": "number"
+   },
+   "shuffles": {
+    "type": "integer"
+   },
+   "seed": {
+    "type": "integer"
+   }
+  },
+  "required": [
+   "score",
+   "mean",
+   "standardDeviation",
+   "zScore",
+   "shuffles",
+   "seed"
+  ]
+ },
+ "errors": [
+  {
+   "code": 1001,
+   "message": "Sequence is required (null); an empty string is accepted"
+  },
+  {
+   "code": 1002,
+   "message": "shuffles must be at least 2 / gapExtend is not an integer"
+  }
+ ],
+ "examples": [
+  {
+   "name": "Shared 40-mer",
+   "input": {
+    "sequence1": "TTTTACGTTGCAAGGCTTAACCGGTTAACGTACGGTACCATGCAGGGG",
+    "sequence2": "CCCCAAAAACGTTGCAAGGCTTAACCGGTTAACGTACGGTACCATGCATTTTCCCC",
+    "shuffles": 200,
+    "seed": 7
+   },
+   "output": "z-score above 5 (the value is reproducible for the seed)"
+  }
+ ]
+}

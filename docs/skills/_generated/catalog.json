@@ -266,6 +266,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.TopN.cs"
   },
   {
+    "tool": "local_align_zscore",
+    "server": "Alignment",
+    "methodId": "AlignmentSignificance.ShuffleZScore",
+    "docPath": "docs/mcp/tools/alignment/local_align_zscore.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/AlignmentSignificance.Gapped.cs"
+  },
+  {
     "tool": "merge_contigs",
     "server": "Alignment",
     "methodId": "SequenceAssembler.MergeContigs",

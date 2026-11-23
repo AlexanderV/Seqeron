@@ -252,3 +252,7 @@
 | ID | Tests | Locks |
 |---|---|---|
 | A3-13c2 | `MultipleAlignmentDisplay_ShowAlign_Tests.ShowAlign_Html_EqualsShowalign_AllCases`, `EmbossRangeSpec_WorkedValues`; MCP `ShowAlign_Html_WrapsAndColoursAsShowalign` | 300 showalign 6.6.0 HTML texts (`showalign_html_oracle.jsonl`): `<pre>` wrapper, `<font color=...>` ranges (empty colour = red, nested tags of overlapping ranges, ranges beyond the alignment), the program's range syntax (`a-b`, `a:b`, `a..b`, `a+n`, the `3-5,7-9` text quirk, `@file`), the refused values (`0-9`, `9-3`, odd count) |
+
+## Audit R14-7 (B09 F300): significance statistics
+
+`AlignmentSignificance_Tests`: the bit score and the E-value of 2 283 BLAST+ 2.12.0 HSPs (protein: Spouge finite-size E-value; blastn: length-adjusted Karlin-Altschul) equal; the ungapped lambda / K / H of BLOSUM45 / 50 / 62 / 90 and PAM30 / 70 / 250 equal the first NCBI table row; blastn ungapped values; the NCBI worked example (-2 / 0 / 3: 0.330, 0.154) and the +-1 walk (ln 3, 1/3); tabulated BLOSUM62 11/1 = (0.267, 0.041, 0.14, 1.9, -30), blastn 2/-3 5/2, the gcd scaling; length adjustment 13 for 430 x 880; P-value without cancellation; `ForMatrix` refuses the EMBOSS BLOSUM80; the shuffle Z-score is reproducible and large for a shared 40-mer. MCP `LocalAlignSignificanceTests` / `LocalAlignZScoreTests`: significance of `local_align_affine` (BLOSUM62 11/1: bit score 103.219, E 1.24008e-33; blastn 2/-3 5/2: 132.031, 1.21e-34), dbLength scaling, linear row, water integer gap costs, refusals.
