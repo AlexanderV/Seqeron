@@ -181,7 +181,49 @@ public static partial class GenomicAnalyzer
     public static IEnumerable<RepeatInfo> FindMaximalRepeats(string sequence, int minLength, string alphabet, CancellationToken cancellationToken = default)
         => EnumerateTextRepeats(sequence, minLength, maximalOnly: true, alphabet, cancellationToken);
 
-    private static IEnumerable<RepeatInfo> EnumerateTextRepeats(string sequence, int minLength, bool maximalOnly, string alphabet, CancellationToken cancellationToken)
+    /// <summary><see cref="FindRepeats(string, int)"/> with explicit <see cref="RepeatOutputLimits"/> (R14-4b; see <see cref="FindRepeats(DnaSequence, int, RepeatOutputLimits, CancellationToken)"/>).</summary>
+    /// <param name="sequence">Nucleotide string. Must not be <c>null</c>.</param>
+    /// <param name="minLength">Minimum repeat length; values ≤ 0 are treated as 1.</param>
+    /// <param name="limits">The limit of the output.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> or <paramref name="limits"/> is <c>null</c>.</exception>
+    /// <exception cref="RepeatOutputLimitException">(on enumeration) the output exceeds <paramref name="limits"/>.</exception>
+    public static IEnumerable<RepeatInfo> FindRepeats(string sequence, int minLength, RepeatOutputLimits limits, CancellationToken cancellationToken = default)
+        => EnumerateTextRepeats(sequence, minLength, maximalOnly: false, NucleotideAlphabet, cancellationToken, limits ?? throw new ArgumentNullException(nameof(limits)));
+
+    /// <summary><see cref="FindMaximalRepeats(string, int)"/> with explicit <see cref="RepeatOutputLimits"/> (R14-4b).</summary>
+    /// <param name="sequence">Nucleotide string. Must not be <c>null</c>.</param>
+    /// <param name="minLength">Minimum repeat length; values ≤ 0 are treated as 1.</param>
+    /// <param name="limits">The limit of the output.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> or <paramref name="limits"/> is <c>null</c>.</exception>
+    /// <exception cref="RepeatOutputLimitException">(on enumeration) the output exceeds <paramref name="limits"/>.</exception>
+    public static IEnumerable<RepeatInfo> FindMaximalRepeats(string sequence, int minLength, RepeatOutputLimits limits, CancellationToken cancellationToken = default)
+        => EnumerateTextRepeats(sequence, minLength, maximalOnly: true, NucleotideAlphabet, cancellationToken, limits ?? throw new ArgumentNullException(nameof(limits)));
+
+    /// <summary><see cref="FindRepeats(string, int, string, CancellationToken)"/> with explicit <see cref="RepeatOutputLimits"/> (R14-4b).</summary>
+    /// <param name="sequence">Text. Must not be <c>null</c>.</param>
+    /// <param name="minLength">Minimum repeat length; values ≤ 0 are treated as 1.</param>
+    /// <param name="alphabet">The matching alphabet (letters A-Z).</param>
+    /// <param name="limits">The limit of the output.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> or <paramref name="limits"/> is <c>null</c>.</exception>
+    /// <exception cref="RepeatOutputLimitException">(on enumeration) the output exceeds <paramref name="limits"/>.</exception>
+    public static IEnumerable<RepeatInfo> FindRepeats(string sequence, int minLength, string alphabet, RepeatOutputLimits limits, CancellationToken cancellationToken = default)
+        => EnumerateTextRepeats(sequence, minLength, maximalOnly: false, alphabet, cancellationToken, limits ?? throw new ArgumentNullException(nameof(limits)));
+
+    /// <summary><see cref="FindMaximalRepeats(string, int, string, CancellationToken)"/> with explicit <see cref="RepeatOutputLimits"/> (R14-4b).</summary>
+    /// <param name="sequence">Text. Must not be <c>null</c>.</param>
+    /// <param name="minLength">Minimum repeat length; values ≤ 0 are treated as 1.</param>
+    /// <param name="alphabet">The matching alphabet (letters A-Z).</param>
+    /// <param name="limits">The limit of the output.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> or <paramref name="limits"/> is <c>null</c>.</exception>
+    /// <exception cref="RepeatOutputLimitException">(on enumeration) the output exceeds <paramref name="limits"/>.</exception>
+    public static IEnumerable<RepeatInfo> FindMaximalRepeats(string sequence, int minLength, string alphabet, RepeatOutputLimits limits, CancellationToken cancellationToken = default)
+        => EnumerateTextRepeats(sequence, minLength, maximalOnly: true, alphabet, cancellationToken, limits ?? throw new ArgumentNullException(nameof(limits)));
+
+    private static IEnumerable<RepeatInfo> EnumerateTextRepeats(string sequence, int minLength, bool maximalOnly, string alphabet, CancellationToken cancellationToken, RepeatOutputLimits? limits = null)
     {
         ArgumentNullException.ThrowIfNull(sequence);
         var letters = BuildLetterMask(alphabet);
@@ -192,7 +234,7 @@ public static partial class GenomicAnalyzer
             AlignmentCancellation.Poll(cancellationToken);
             if (sequence.Length == 0)
                 yield break;
-            foreach (var repeat in EnumerateRepeatsCore(BuildMaskedTree(sequence, letters), minLength, maximalOnly, cancellationToken))
+            foreach (var repeat in EnumerateRepeatsCore(BuildMaskedTree(sequence, letters), minLength, maximalOnly, cancellationToken, limits))
                 yield return repeat;
         }
     }
@@ -205,13 +247,13 @@ public static partial class GenomicAnalyzer
         tree.Traverse(loci);
 
         int maxDepth = 0;
-        foreach (var (_, _, depth) in loci.Nodes)
+        foreach (var (_, _, depth, _) in loci.Nodes)
             maxDepth = Math.Max(maxDepth, depth);
 
         var result = new List<RepeatInfo>();
         if (maxDepth == 0)
             return result;
-        foreach (var (edgeEnd, _, depth) in loci.Nodes)
+        foreach (var (edgeEnd, _, depth, _) in loci.Nodes)
         {
             if (depth != maxDepth)
                 continue;
@@ -257,12 +299,14 @@ public static partial class GenomicAnalyzer
     /// <param name="minLength">Minimum repeat length; values ≤ 0 are treated as 1.</param>
     /// <param name="maximalOnly">Report only maximal repeats (default: every repeated substring).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
+    /// <param name="limits">The limit of the output (R14-4b; <c>null</c> = <see cref="RepeatOutputLimits.Default"/>): a larger one throws <see cref="RepeatOutputLimitException"/> before anything is materialised.</param>
+    /// <exception cref="RepeatOutputLimitException">The output exceeds <paramref name="limits"/>.</exception>
     /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is <c>null</c>.</exception>
     public static IReadOnlyList<StrandedRepeatInfo> FindRepeatsBothStrands(
-        DnaSequence sequence, int minLength, bool maximalOnly = false, CancellationToken cancellationToken = default)
+        DnaSequence sequence, int minLength, bool maximalOnly = false, CancellationToken cancellationToken = default, RepeatOutputLimits? limits = null)
     {
         ArgumentNullException.ThrowIfNull(sequence);
-        return StrandedRepeatsCore(sequence.Sequence, minLength, maximalOnly, longestOnly: false, cancellationToken);
+        return StrandedRepeatsCore(sequence.Sequence, minLength, maximalOnly, longestOnly: false, cancellationToken, limits);
     }
 
     /// <summary>
@@ -273,12 +317,14 @@ public static partial class GenomicAnalyzer
     /// <param name="minLength">Minimum repeat length; values ≤ 0 are treated as 1.</param>
     /// <param name="maximalOnly">Report only maximal repeats.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
+    /// <param name="limits">The limit of the output (R14-4b; <c>null</c> = <see cref="RepeatOutputLimits.Default"/>): a larger one throws <see cref="RepeatOutputLimitException"/> before anything is materialised.</param>
+    /// <exception cref="RepeatOutputLimitException">The output exceeds <paramref name="limits"/>.</exception>
     /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is <c>null</c>.</exception>
     public static IReadOnlyList<StrandedRepeatInfo> FindRepeatsBothStrands(
-        string sequence, int minLength, bool maximalOnly = false, CancellationToken cancellationToken = default)
+        string sequence, int minLength, bool maximalOnly = false, CancellationToken cancellationToken = default, RepeatOutputLimits? limits = null)
     {
         ArgumentNullException.ThrowIfNull(sequence);
-        return StrandedRepeatsCore(sequence, minLength, maximalOnly, longestOnly: false, cancellationToken);
+        return StrandedRepeatsCore(sequence, minLength, maximalOnly, longestOnly: false, cancellationToken, limits);
     }
 
     /// <summary>
@@ -316,7 +362,7 @@ public static partial class GenomicAnalyzer
         return all.Count == 0 ? StrandedRepeatInfo.None : all[0];
     }
 
-    private static List<StrandedRepeatInfo> StrandedRepeatsCore(string sequence, int minLength, bool maximalOnly, bool longestOnly, CancellationToken cancellationToken)
+    private static List<StrandedRepeatInfo> StrandedRepeatsCore(string sequence, int minLength, bool maximalOnly, bool longestOnly, CancellationToken cancellationToken, RepeatOutputLimits? limits = null)
     {
         AlignmentCancellation.Poll(cancellationToken);
         var result = new List<StrandedRepeatInfo>();
@@ -335,7 +381,7 @@ public static partial class GenomicAnalyzer
 
         IEnumerable<RepeatInfo> repeats = longestOnly
             ? LongestRepeatsCore(tree, cancellationToken)
-            : EnumerateRepeatsCore(tree, minLength, maximalOnly, cancellationToken);
+            : EnumerateRepeatsCore(tree, minLength, maximalOnly, cancellationToken, limits);
         foreach (var repeat in repeats)
         {
             AlignmentCancellation.Poll(cancellationToken);

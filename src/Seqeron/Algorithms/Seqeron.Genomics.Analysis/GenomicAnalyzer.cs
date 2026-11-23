@@ -112,17 +112,37 @@ public static partial class GenomicAnalyzer
     public static IEnumerable<RepeatInfo> FindRepeats(DnaSequence sequence, int minLength, CancellationToken cancellationToken)
         => EnumerateRepeats(sequence, minLength, maximalOnly: false, cancellationToken);
 
-    private static IEnumerable<RepeatInfo> EnumerateRepeats(DnaSequence sequence, int minLength, bool maximalOnly, CancellationToken cancellationToken)
+    private static IEnumerable<RepeatInfo> EnumerateRepeats(DnaSequence sequence, int minLength, bool maximalOnly, CancellationToken cancellationToken, RepeatOutputLimits? limits = null)
     {
         ArgumentNullException.ThrowIfNull(sequence);
-        return EnumerateRepeatsCore(sequence.SuffixTree, minLength, maximalOnly, cancellationToken);
+        return EnumerateRepeatsCore(sequence.SuffixTree, minLength, maximalOnly, cancellationToken, limits);
     }
+
+    /// <summary><see cref="FindRepeats(DnaSequence, int)"/> with explicit <see cref="RepeatOutputLimits"/> (R14-4b): the size of the output is computed from the suffix tree before any repeat is materialised and a larger one throws <see cref="RepeatOutputLimitException"/> when the enumeration starts.</summary>
+    /// <param name="sequence">DNA sequence to analyze. Must not be <c>null</c>.</param>
+    /// <param name="minLength">Minimum repeat length; values ≤ 0 are treated as 1.</param>
+    /// <param name="limits">The limit of the output (<see cref="RepeatOutputLimits.Unlimited"/> for none).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> or <paramref name="limits"/> is <c>null</c>.</exception>
+    /// <exception cref="RepeatOutputLimitException">(on enumeration) the output exceeds <paramref name="limits"/>.</exception>
+    public static IEnumerable<RepeatInfo> FindRepeats(DnaSequence sequence, int minLength, RepeatOutputLimits limits, CancellationToken cancellationToken = default)
+        => EnumerateRepeats(sequence, minLength, maximalOnly: false, cancellationToken, limits ?? throw new ArgumentNullException(nameof(limits)));
+
+    /// <summary><see cref="FindMaximalRepeats(DnaSequence, int)"/> with explicit <see cref="RepeatOutputLimits"/> (see <see cref="FindRepeats(DnaSequence, int, RepeatOutputLimits, CancellationToken)"/>).</summary>
+    /// <param name="sequence">DNA sequence to analyze. Must not be <c>null</c>.</param>
+    /// <param name="minLength">Minimum repeat length; values ≤ 0 are treated as 1.</param>
+    /// <param name="limits">The limit of the output (<see cref="RepeatOutputLimits.Unlimited"/> for none).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> or <paramref name="limits"/> is <c>null</c>.</exception>
+    /// <exception cref="RepeatOutputLimitException">(on enumeration) the output exceeds <paramref name="limits"/>.</exception>
+    public static IEnumerable<RepeatInfo> FindMaximalRepeats(DnaSequence sequence, int minLength, RepeatOutputLimits limits, CancellationToken cancellationToken = default)
+        => EnumerateRepeats(sequence, minLength, maximalOnly: true, cancellationToken, limits ?? throw new ArgumentNullException(nameof(limits)));
 
     // The engine behind every repeat enumeration: it works on any suffix tree whose text holds upper-case letters
     // (A-Z) and, optionally, separator characters above 'Z' (see MaskedText). A separator is never part of a repeat and
     // always ends one: a node whose path label starts with a separator is skipped (it can only be a run of the same
     // separator), and a separator before a suffix counts as a left context different from every other.
-    private static IEnumerable<RepeatInfo> EnumerateRepeatsCore(global::SuffixTree.SuffixTree tree, int minLength, bool maximalOnly, CancellationToken cancellationToken)
+    private static IEnumerable<RepeatInfo> EnumerateRepeatsCore(global::SuffixTree.SuffixTree tree, int minLength, bool maximalOnly, CancellationToken cancellationToken, RepeatOutputLimits? limits = null)
     {
         AlignmentCancellation.Poll(cancellationToken);
 
@@ -136,8 +156,10 @@ public static partial class GenomicAnalyzer
         // always precedes the internal nodes below it.
         var loci = new RepeatLocusCollector(effectiveMinLength, maximalOnly, tree.Text, cancellationToken);
         tree.Traverse(loci);
+        // R14-4b: the size of the output is known from the tree (leaf counts and label lengths) before a single repeat is materialised
+        RepeatOutputLimitException.Check(loci.Nodes, effectiveMinLength, maximalOnly, limits ?? RepeatOutputLimits.Default);
 
-        foreach (var (edgeEnd, parentDepth, depth) in loci.Nodes)
+        foreach (var (edgeEnd, parentDepth, depth, _) in loci.Nodes)
         {
             AlignmentCancellation.Poll(cancellationToken);
             // Path label of the node: the `depth` characters of the text ending at the end of its incoming edge
@@ -172,11 +194,11 @@ public static partial class GenomicAnalyzer
     {
         private bool _rootSeen;
         private int _visited;
-        private readonly List<(int EdgeEnd, int ParentDepth, int Depth)> _nodes = new();
+        private readonly List<(int EdgeEnd, int ParentDepth, int Depth, int Leaves)> _nodes = new();
         private readonly List<bool> _leftDiverse = new();
         private readonly Stack<(int Mask, int Index)> _frames = new();
 
-        public IEnumerable<(int EdgeEnd, int ParentDepth, int Depth)> Nodes
+        public IEnumerable<(int EdgeEnd, int ParentDepth, int Depth, int Leaves)> Nodes
             => maximalOnly ? _nodes.Where((_, i) => _leftDiverse[i]) : _nodes;
 
         public void VisitNode(int startIndex, int endIndex, int leafCount, int childCount, int depth)
@@ -208,7 +230,7 @@ public static partial class GenomicAnalyzer
             if (stringDepth >= minLength && text[endIndex - stringDepth] <= 'Z')
             {
                 index = _nodes.Count;
-                _nodes.Add((endIndex, depth, stringDepth));
+                _nodes.Add((endIndex, depth, stringDepth, leafCount));
                 _leftDiverse.Add(!maximalOnly);
             }
             if (maximalOnly)

@@ -654,23 +654,27 @@ public partial class AnalysisTools
         [Description("Minimum repeat length (>= 1).")] int minLength,
         [Description("Report only maximal repeats (Gusfield 1997 sec. 7.12; default false = every repeated substring).")] bool maximalOnly = false,
         [Description("Search both strands: classes of a string and its reverse complement (MUMmer repeat-match default). Default false = forward strand only.")] bool bothStrands = false,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        [Description("Limit of the output in megabytes (default 512; 0 = no limit): the size of the result (label characters, occurrences, repeats) is computed from the suffix tree before anything is built, and a larger one is REFUSED with the sizes in the message (every repeated substring of a low-complexity sequence is quadratic: poly-A of length 20 000 is 19 998 repeats, 200 M occurrences, 1.9 GB; 50 000 about 12 GB). Raise minLength, set maximalOnly or raise this limit.")] long maxOutputMegabytes = 512)
     {
         var nucleotides = RequireIupacDna(sequence, nameof(sequence));
         if (minLength < 1)
             throw new ArgumentOutOfRangeException(nameof(minLength), "Minimum repeat length must be at least 1");
+        if (maxOutputMegabytes < 0)
+            throw new ArgumentOutOfRangeException(nameof(maxOutputMegabytes), "The output limit must be at least 0 (0 = no limit).");
+        var limits = maxOutputMegabytes == 0 ? RepeatOutputLimits.Unlimited : new RepeatOutputLimits(Math.Min(maxOutputMegabytes, long.MaxValue / 1048576) * 1048576);
 
         if (bothStrands)
         {
-            var classes = GenomicAnalyzer.FindRepeatsBothStrands(nucleotides, minLength, maximalOnly, cancellationToken)
+            var classes = GenomicAnalyzer.FindRepeatsBothStrands(nucleotides, minLength, maximalOnly, cancellationToken, limits)
                 .Select(r => new RepeatItem(r.Sequence, r.Positions.ToArray(), r.Length, r.Count, r.ReversePositions.ToArray()))
                 .ToArray();
             return new FindRepeatsResult(classes);
         }
 
         var repeats = maximalOnly
-            ? GenomicAnalyzer.FindMaximalRepeats(nucleotides, minLength, cancellationToken)
-            : GenomicAnalyzer.FindRepeats(nucleotides, minLength, cancellationToken);
+            ? GenomicAnalyzer.FindMaximalRepeats(nucleotides, minLength, limits, cancellationToken)
+            : GenomicAnalyzer.FindRepeats(nucleotides, minLength, limits, cancellationToken);
         var items = repeats
             .Select(r => new RepeatItem(r.Sequence, r.Positions.ToArray(), r.Length, r.Count))
             .ToArray();

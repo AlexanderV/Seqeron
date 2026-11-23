@@ -1,4 +1,5 @@
 using NUnit.Framework;
+using Seqeron.Genomics.Analysis;
 using Seqeron.Mcp.Analysis.Tools;
 
 namespace Seqeron.Mcp.Analysis.Tests;
@@ -68,5 +69,22 @@ public class FindRepeatsTests
         // ATCGATCGA: A@{0,4,8} is left-diverse (start, T, T) and right-diverse (T, T, end); ATCGA@{0,4} too.
         var atcga = AnalysisTools.FindRepeats("ATCGATCGA", 1, maximalOnly: true).Items;
         Assert.That(atcga.Select(r => r.Sequence), Is.EqualTo(new[] { "A", "ATCGA" }));
+    }
+
+    [Test]
+    public void FindRepeats_OutputGuard_RefusesPolyA20000_AndTheOptionRaisesOrRemovesIt()
+    {
+        // R14-4b: poly-A of length 20 000 is 19 999 repeats with 200 M occurrences (1.9 GB, 30 s): refused with the sizes in the message
+        string polyA = new('A', 20_000);
+        var ex = Assert.Throws<RepeatOutputLimitException>(() => AnalysisTools.FindRepeats(polyA, 1));
+        Assert.That(ex!.Message, Does.Contain("19,999 substrings").And.Contain("exceeds the limit of 512 MB").And.Contain("minLength"));
+        Assert.Throws<RepeatOutputLimitException>(() => AnalysisTools.FindRepeats(polyA, 1, bothStrands: true));
+        // the start of the text is its own left context, so every A^k of poly-A is a maximal repeat too: maximalOnly is refused as well; a larger minLength is fine; the limit is a parameter
+        Assert.Throws<RepeatOutputLimitException>(() => AnalysisTools.FindRepeats(polyA, 1, maximalOnly: true));
+        Assert.That(AnalysisTools.FindRepeats(polyA, 19_990).Items, Has.Length.EqualTo(10));
+        Assert.That(AnalysisTools.FindRepeats(new string('A', 600), 1, maxOutputMegabytes: 2).Items, Has.Length.EqualTo(599), "600 bases: 180 299 occurrences, 1.14 MB estimated");
+        Assert.Throws<RepeatOutputLimitException>(() => AnalysisTools.FindRepeats(new string('A', 3_000), 1, maxOutputMegabytes: 2));
+        Assert.That(AnalysisTools.FindRepeats(new string('A', 3_000), 1, maxOutputMegabytes: 0).Items, Has.Length.EqualTo(2_999), "0 = no limit");
+        Assert.Throws<ArgumentOutOfRangeException>(() => AnalysisTools.FindRepeats("AAAA", 1, maxOutputMegabytes: -1));
     }
 }
