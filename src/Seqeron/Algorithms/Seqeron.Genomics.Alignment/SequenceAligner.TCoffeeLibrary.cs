@@ -218,12 +218,19 @@ public static partial class SequenceAligner
             // SEQ_TYPE P: both sequences need a usable _P_ template, otherwise the job is proba_pair's ("Method TMalign cannot be applied to [x vs y], proba_pair will be used instead")
             if (structure is null || !structure.Usable[x] || !structure.Usable[y])
                 return TcProbaPairEntries(seqs[x], seqs[y], kind, matrix).Select(e => (x, e.R1, y, e.R2, e.Weight)).ToList();
-            // dali_pair: pdb_pair with EXECUTABLE2 DaliLite, which is not installed: the first pair of two usable structures stops the program ("ERROR: UNSPECIFIED UNSPECIFIED", exit status 1)
-            if (method == TCoffeePairMethod.DaliPair) throw new TCoffeeAbortedException("ERROR: UNSPECIFIED UNSPECIFIED -- dali_pair needs DaliLite (EXECUTABLE2 DaliLite), which is not installed");
+            // dali_pair: pdb_pair with EXECUTABLE2 DaliLite. No `DaliLite` command (the installed program, DaliLite v5 has none): the glue's `DaliLite -pairwise pdb1.pdb pdb2.pdb` cannot start, the glue script exits with status 1 and the first pair of
+            // two usable structures stops the program (stderr "ERROR: UNSPECIFIED UNSPECIFIED", "COM: <glue> -mode=pdb_pair -method=DaliLite -pdbfile1=... -pdbfile2=... -outfile=... -tmpdir=...", exit status 1)
+            if (method == TCoffeePairMethod.DaliPair && !structure.DaliInstalled) throw new TCoffeeAbortedException(DaliLiteMissingMessage);
             // sap_pair with SAP installed: the glue of util_dp_drivers.c reads SAP's own output file instead of an alignment (groups = the process-static residue groups, see TcProcessGroups)
             if (method == TCoffeePairMethod.SapPair && structure.SapInstalled) return TcSapPairEntries(structure.Output(TCoffeePairMethod.SapPair, x, y), seqs, x, y, groups ?? new TcProcessGroups());
             string? output = structure.Output(structureTool, x, y);
-            if (output is not null) structureRows = structureTool == TCoffeePairMethod.TMalignPair ? TCoffeeTMalignAlignment(output) : TCoffeeMustangAlignment(output);
+            if (output is not null)
+                structureRows = structureTool switch
+                {
+                    TCoffeePairMethod.TMalignPair => TCoffeeTMalignAlignment(output),
+                    TCoffeePairMethod.DaliPair => TCoffeeDaliLiteAlignment(output),
+                    _ => TCoffeeMustangAlignment(output),
+                };
             if (structureRows is null) return new List<(int, int, int, int, int)>(); // the structure aligner failed: no entry
         }
 
@@ -541,6 +548,8 @@ public sealed partial record TCoffeeProgramOptions
     /// What the external structure aligner of each method wrote for a pair of structures (the structure aligner is the external program; this library is T-Coffee's side): per method, keyed by the INPUT indices of the two sequences in the
     /// order the program calls the aligner (names sorted unless <see cref="InOrderInput"/>; first = the sequence that comes first), the standard output of <c>TMalign pdb1 pdb2</c> (its last four lines are what matters,
     /// see <see cref="SequenceAligner.TCoffeeTMalignAlignment"/>) or the content of the <c>results.afasta</c> of <c>mustang -i pdb1 pdb2 -F fasta</c> (<see cref="SequenceAligner.TCoffeeMustangAlignment"/>). A missing pair = the aligner failed.
+    /// An entry for <see cref="TCoffeePairMethod.DaliPair"/> (even an empty dictionary) says that a <c>DaliLite</c> command exists (DaliLite v3.3: <c>DaliLite -pairwise pdb1.pdb pdb2.pdb</c>): its values are the standard output of that call
+    /// (<see cref="SequenceAligner.TCoffeeDaliLiteAlignment"/>); a pair without value, or whose output has no <c>Query</c> / <c>Sbjct</c> lines, adds no library entry; without an entry the program stops at the first pair of two usable structures.
     /// An entry for <see cref="TCoffeePairMethod.SapPair"/> (even an empty dictionary) says that SAP 1.1.3 is installed: its values are the files <c>&lt;template1&gt;_&lt;template2&gt;.sap_results</c> of the program's cache
     /// (the raw output of <c>sap file1 file2</c>, see <see cref="SequenceAligner.TCoffeeSapAlignedResidues"/>), and <c>sap_pair</c> is then the glue of util_dp_drivers.c instead of the TM-align replacement; without an entry the program
     /// switches to TM-align (the installed program).
@@ -733,6 +742,7 @@ public static partial class SequenceAligner
                 Usable = perm.Select(i => !string.IsNullOrEmpty(options.StructureTemplates[i]) && TcPdbTemplateUsable(sequences[i], options.StructureTemplates[i]!)).ToArray(),
                 Output = (method, x, y) => outputs != null && outputs.TryGetValue(method, out var byPair) && byPair.TryGetValue((perm[x], perm[y]), out var text) ? text : null,
                 SapInstalled = outputs != null && outputs.ContainsKey(TCoffeePairMethod.SapPair),
+                DaliInstalled = outputs != null && outputs.ContainsKey(TCoffeePairMethod.DaliPair),
             };
         }
 

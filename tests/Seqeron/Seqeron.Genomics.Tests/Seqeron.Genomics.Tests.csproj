@@ -360,6 +360,7 @@
     <!-- ALIGN-GLOBAL-001 / ALIGN-LOCAL-001 (audit A2-29b, B09 F125): ksw2 exact cases (independent Gotoh program); scripts/alignment/generate_ksw2_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\ksw2_exact_oracle.tsv" />
     <EmbeddedResource Include="TestData\Alignment\ksw2_real_oracle.tsv.gz" />
+    <EmbeddedResource Include="TestData\Alignment\tcoffee_sap_dali_runs_oracle.tsv.gz" />
     <!-- ALIGN-MULTI-001 (audit A2-27b, B09 F126): Biopython 1.88 Bio.Align writers / readers of fasta, a2m, clustal, phylip, nexus, stockholm; scripts/alignment/generate_biopython_msa_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\biopython_msa_oracle.tsv.gz" />
     <!-- GENOMIC-COMMON-001 (B09 F15-F16): independent Python (DP + suffix automaton + brute-force matching statistics)

@@ -22,7 +22,12 @@ The external programs run on the SAME files the program hands them (the template
 with their output and must reproduce every row. Every run uses `-n_core 1 -no_warning` and a private HOME whose `.t_coffee/plugins/linux` links the installed helpers (the program
 extends PATH / MAFFT_BINARIES with that directory, see SequenceAligner.TCoffeeLibrary.cs and docs): TMalign, mustang, legacy_blast.pl (= /usr/bin/legacy_blast of ncbi-blast+-legacy).
 
-usage: generate_tcoffee_external_oracle.py OUT_DIR [FEATURE ...]   (env SCALE, SEED)
+FULL_BACKBONE=1 (hand-off image A2-12b, the DaliLite v3.3 run only): the structure sets keep EXACTLY the sequences, templates and edits of the default run (the random draws of the sequence side are unchanged; the new coordinates use a
+second generator seeded from them) but every residue gets the four backbone atoms N, CA, C, O of ideal peptide geometry (bond lengths 1.458 / 1.525 / 1.329 / 1.231 A, angles 111.2 / 116.2 / 121.7 / 120.8 deg, trans peptide) built from
+phi / psi torsions of helix (-57, -47), strand (-120, 130) and coil segments, with HEADER / HELIX / SHEET-free, SEQRES / ATOM / TER / END lines, because DaliLite 3.3 answers a CA-only file ("suspect pdb1.pdb is CA-only", no alignment) and its
+secondary-structure step (dsspcmbi) needs the carbonyl oxygen.
+
+usage: generate_tcoffee_external_oracle.py OUT_DIR [FEATURE ...]   (env SCALE, SEED, FULL_BACKBONE, WORKERS = number of parallel jobs, default the CPU count)
 """
 import base64, json, math, os, random, subprocess, sys, tempfile, zlib
 from concurrent.futures import ThreadPoolExecutor
@@ -84,26 +89,104 @@ def pdb_text(seq, pts, chain='A'):
     return '\n'.join(out) + '\n'
 
 
+FULL_BACKBONE = bool(os.environ.get('FULL_BACKBONE'))
+B_NCA, B_CAC, B_CN, B_CO = 1.458, 1.525, 1.329, 1.231
+A_NCAC, A_CACN, A_CNCA, A_CACO = math.radians(111.2), math.radians(116.2), math.radians(121.7), math.radians(120.8)
+
+
+def _sub(a, b): return (a[0] - b[0], a[1] - b[1], a[2] - b[2])
+def _cross(a, b): return (a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0])
+def _unit(a):
+    l = math.sqrt(a[0] * a[0] + a[1] * a[1] + a[2] * a[2]) or 1.0
+    return (a[0] / l, a[1] / l, a[2] / l)
+
+
+def place(a, b, c, bond, angle, tors):
+    """NeRF: the atom d with |c d| = bond, angle b-c-d = angle and torsion a-b-c-d = tors."""
+    bc = _unit(_sub(c, b))
+    n = _unit(_cross(_sub(b, a), bc))
+    m = _cross(n, bc)
+    d = (-bond * math.cos(angle), bond * math.sin(angle) * math.cos(tors), bond * math.sin(angle) * math.sin(tors))
+    return tuple(c[k] + d[0] * bc[k] + d[1] * m[k] + d[2] * n[k] for k in range(3))
+
+
+def backbone(torsions):
+    """[(N, CA, C, O) per residue] from a list of (phi, psi) in degrees (omega = 180, the first phi and the last psi only orient the ends)."""
+    n_i, ca, c = (0.0, 0.0, 0.0), (B_NCA, 0.0, 0.0), None
+    c = (ca[0] - B_CAC * math.cos(A_NCAC), B_CAC * math.sin(A_NCAC), 0.0)
+    res = []
+    for i, (phi, psi) in enumerate(torsions):
+        o = place(n_i, ca, c, B_CO, A_CACO, math.radians(psi + 180.0))
+        res.append((n_i, ca, c, o))
+        if i + 1 == len(torsions): break
+        n_next = place(n_i, ca, c, B_CN, A_CACN, math.radians(psi))
+        ca_next = place(ca, c, n_next, B_NCA, A_CNCA, math.pi)
+        c_next = place(c, n_next, ca_next, B_CAC, A_NCAC, math.radians(torsions[i + 1][0]))
+        n_i, ca, c = n_next, ca_next, c_next
+    return res
+
+
+def ss_torsions(n, rng):
+    """Helix / strand / coil segments of 4 - 12 residues: (phi, psi) with a spread of 6 - 8 degrees (coil: polyproline-II / extended region, which keeps the random fold free of overlaps)."""
+    out = []
+    while len(out) < n:
+        kind = rng.choice('HHEEC')
+        for _ in range(rng.randint(4, 12)):
+            if kind == 'H': out.append((rng.gauss(-57, 6), rng.gauss(-47, 6)))
+            elif kind == 'E': out.append((rng.gauss(-120, 8), rng.gauss(130, 8)))
+            else: out.append((rng.uniform(-100, -60), rng.uniform(110, 160)))
+    return out[:n]
+
+
+def pdb_text_full(seq, residues, chain='A'):
+    """A PDB file with N, CA, C, O of every residue (atom names in the standard columns, element symbols, occupancy 1.00)."""
+    out = ['REMARK   1 SYNTHETIC FULL BACKBONE', 'HEADER    SYNTHETIC                               01-JAN-00   0SYN']
+    for i in range(0, len(seq), 13):
+        out.append('SEQRES %3d %s %4d  %s' % (i // 13 + 1, chain, len(seq), ' '.join(AA3[c] for c in seq[i:i + 13])))
+    k = 0
+    for i, (c, atoms) in enumerate(zip(seq, residues)):
+        for name, q in zip((' N  ', ' CA ', ' C  ', ' O  '), atoms):
+            k += 1
+            out.append('ATOM  %5d %4s %3s %s%4d    %8.3f%8.3f%8.3f  1.00 20.00           %s' % (k, name, AA3[c], chain, i + 1, q[0], q[1], q[2], name.strip()[0]))
+    k += 1
+    out += ['TER   %5d      %3s %s%4d' % (k, AA3[seq[-1]], chain, len(seq)), 'END']
+    return '\n'.join(out) + '\n'
+
+
+def rigid_full(residues, rng, noise):
+    flat = [q for atoms in residues for q in atoms]
+    moved = rigid(flat, rng, noise)
+    return [tuple(moved[4 * i:4 * i + 4]) for i in range(len(residues))]
+
+
 def make_structure_set(rng, krange, lrange, p_none):
-    """Returns (sequences, pdb sequences or '' per sequence, coordinates or None per sequence)."""
+    """Returns (sequences, pdb sequences or '' per sequence, coordinates or None per sequence).
+    With FULL_BACKBONE the coordinates are residues of four atoms (N, CA, C, O) and every random draw of the default run is still made, in the same order (the CA walk is built and discarded):
+    the sequences, the templates and the edits are the same as without the flag; the backbone uses its own generator."""
     k = rng.randint(*krange)
     n = rng.randint(*lrange)
     base = ''.join(rng.choice(PROTEIN) for _ in range(n))
     bpts = walk(n, rng) if rng.random() < 0.7 else helix(n, rng)
+    rng2 = random.Random(n * 7919 + k * 104729 + sum(map(ord, base)))
+    btors = ss_torsions(n, rng2) if FULL_BACKBONE else None
     seqs, pdbseqs, coords = [], [], []
     for _ in range(k):
         if rng.random() < 0.8:
-            s = list(base); pts = list(bpts)
+            s = list(base); pts = list(bpts); tors = list(btors) if FULL_BACKBONE else None
             for _ in range(rng.randint(0, max(1, n // 5))):
                 op = rng.choice('sid'); p = rng.randrange(len(s))
                 if op == 's': s[p] = rng.choice(PROTEIN)
                 elif op == 'i':
                     s.insert(p, rng.choice(PROTEIN))
                     q = pts[p]; pts.insert(p, (q[0] + rng.uniform(-1.5, 1.5), q[1] + rng.uniform(-1.5, 1.5), q[2] + rng.uniform(-1.5, 1.5)))
-                elif len(s) > 8: del s[p]; del pts[p]
+                    if FULL_BACKBONE: tors.insert(p, tors[p])           # the inserted residue continues the local conformation
+                elif len(s) > 8:
+                    del s[p]; del pts[p]
+                    if FULL_BACKBONE: del tors[p]
         else:
             m = rng.randint(max(8, lrange[0] - 2), lrange[1])
             s = [rng.choice(PROTEIN) for _ in range(m)]; pts = walk(m, rng)
+            tors = ss_torsions(m, rng2) if FULL_BACKBONE else None
         seq = ''.join(s)
         seqs.append(seq)
         if rng.random() < p_none:
@@ -117,7 +200,9 @@ def make_structure_set(rng, krange, lrange, p_none):
             cut = rng.randint(len(ps) // 3, len(ps) // 2)
             ps = ps[:cut]; pp = pp[:cut]
         pdbseqs.append(''.join(ps))
-        coords.append(rigid(pp[:len(ps)], rng, rng.choice([0.0, 0.3, 0.8])))
+        noise = rng.choice([0.0, 0.3, 0.8])
+        moved = rigid(pp[:len(ps)], rng, noise)
+        coords.append(rigid_full(backbone(tors[:len(ps)]), rng2, noise) if FULL_BACKBONE else moved)
     return seqs, pdbseqs, coords
 
 
@@ -142,7 +227,7 @@ def run_structure(feature, flags, seqs, pdbseqs, coords):
             for i, (n, ps, pts) in enumerate(zip(names, pdbseqs, coords)):
                 if pts is None: files.append(None); continue
                 path = f'{d}/p{i}.pdb'
-                with open(path, 'w') as g: g.write(pdb_text(ps, pts))
+                with open(path, 'w') as g: g.write(pdb_text_full(ps, pts) if FULL_BACKBONE else pdb_text(ps, pts))
                 files.append(path)
                 tpl.write(f'>{n} _P_ {path}\n')
         with open(d + '/s.fa', 'w') as f:
@@ -290,7 +375,7 @@ def main():
     scale = float(os.environ.get('SCALE', '1')); seed = int(os.environ.get('SEED', '7'))
     os.makedirs(out, exist_ok=True)
     jobs = [(f, fl, i, seed) for f in feats for fl, n in PLAN[f] for i in range(max(1, int(n * scale)))]
-    with ThreadPoolExecutor(max_workers=os.cpu_count() or 4) as ex:
+    with ThreadPoolExecutor(max_workers=int(os.environ.get('WORKERS') or 0) or os.cpu_count() or 4) as ex:
         res = list(ex.map(job, jobs))
     path = os.path.join(out, 'tcoffee_external_oracle.tsv')
     new = not os.path.exists(path)

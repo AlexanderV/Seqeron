@@ -95,8 +95,9 @@ public class SequenceAligner_TCoffeeExternal_Tests
 
     /// <summary>
     /// A2-12: <c>-method sap_pair</c>: SAP is not installed, so the program runs TM-align instead ("SAP is not installed. TMalign will be used instead"); the rows equal <c>TMalign_pair</c> with the same structures (150 sets).
-    /// <c>-mode 3dcoffee</c> (= <c>-in Msap_pair -template_file SELF_P_</c>, added to the default method proba_pair) equals <c>-method proba_pair,sap_pair</c> on 7 of its 8 committed sets (every sequence also makes the program look its name
-    /// up on the network, which fails offline and takes about a minute per set) and differs on the eighth for a reason that is not understood (fewer library contributions): the mode is reported as not available and its 8 sets are kept.
+    /// <c>-mode 3dcoffee</c> (= <c>-in Msap_pair -template_file SELF_P_</c>) is the method list sap_pair ALONE: the 8 committed sets (the sequence names q000, ... are no PDB entries, so no structure is found and every pair is aligned by proba_pair)
+    /// equal it; they differ from <c>-method proba_pair,sap_pair</c> on one set because that list has the proba_pair library twice (B09 F311: the "not understood" eighth set of the first run). The runs of the real SAP
+    /// are in <see cref="SequenceAligner_TCoffeeSapDaliRuns_Tests"/>.
     /// </summary>
     [Test]
     public void SapPair_IsTMalignWhenSapIsNotInstalled()
@@ -104,15 +105,17 @@ public class SequenceAligner_TCoffeeExternal_Tests
         AssertStructureFeature("sap_pair", 140);
         var threeD = Oracle().Where(c => c.Feature == "sap_3dcoffee").ToList();
         Assert.That(threeD.Count, Is.EqualTo(8));
-        Assert.Throws<NotSupportedException>(() => TCoffeeProgramOptions.FromCommandLine(threeD[0].Flags));
-        int equalToProbaPlusSap = 0;
+        int equalToSapAlone = 0, equalToProbaPlusSap = 0;
         foreach (var c in threeD)
         {
             var pdb = c.Extra.GetProperty("pdb").EnumerateArray().Select(e => e.GetString() is { Length: > 0 } s ? s : null).ToArray();
+            string alone = string.Join('|', SequenceAligner.MultipleAlignTCoffeeProgram(c.Seqs, TCoffeeProgramOptions.FromCommandLine(c.Flags)).AlignedSequences);
+            if (alone == c.Rows) equalToSapAlone++;
             var options = TCoffeeProgramOptions.FromCommandLine("-method proba_pair,sap_pair") with { StructureTemplates = pdb, StructureAlignerOutputs = Outputs(c) };
             if (string.Join('|', SequenceAligner.MultipleAlignTCoffeeProgram(c.Seqs, options).AlignedSequences) == c.Rows) equalToProbaPlusSap++;
         }
 
+        Assert.That(equalToSapAlone, Is.EqualTo(8), "-mode 3dcoffee sets that equal -method sap_pair alone");
         Assert.That(equalToProbaPlusSap, Is.EqualTo(7), "-mode 3dcoffee sets that equal proba_pair,sap_pair (7 of 8)");
     }
 

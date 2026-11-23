@@ -45,6 +45,37 @@ public static partial class SequenceAligner
     }
 
     /// <summary>
+    /// The text t_coffee prints (standard error) and the status it exits with when the command <c>DaliLite</c> does not exist (DaliLite v5 has only <c>dali.pl</c> and its helpers): the glue <c>tc_generic_method.pl -mode=pdb_pair -method=DaliLite</c> runs
+    /// <c>DaliLite -pairwise pdb1.pdb pdb2.pdb &gt;tmp1</c> through its <c>safe_system</c>, which cannot start it and exits with status 1; t_coffee reports "ERROR: UNSPECIFIED UNSPECIFIED" with the glue command line and ends with
+    /// "TERMINATION STATUS: FAILURE" (exit status 1). Oracle: 4 x 60 sets (<c>handoff/A2-12b-dali-sap-stderr</c>, runs 3, 4, 5 and the committed run).
+    /// </summary>
+    internal const string DaliLiteMissingMessage = "ERROR: UNSPECIFIED UNSPECIFIED (COM: <glue>.pl -mode=pdb_pair -method=DaliLite -pdbfile1=<f> -pdbfile2=<f> -outfile=<f> -tmpdir=<d>): no DaliLite command, the glue's `DaliLite -pairwise pdb1.pdb pdb2.pdb` cannot run; exit status 1";
+
+    /// <summary>
+    /// The alignment the glue <c>tc_generic_method.pl</c> (<c>seq2pdb_pair</c>, <c>-method=DaliLite</c>) takes from the standard output of <c>DaliLite -pairwise pdb1.pdb pdb2.pdb</c> (DaliLite v3): the first token after every <c>Query</c> is
+    /// appended to the first row, the first token after every <c>Sbjct</c> to the second one (Perl <c>/Query\s+(\S+)/</c>, anywhere in the line), every '.' becomes '-'. No <c>result.aln</c> is written when either row stays empty.
+    /// </summary>
+    /// <param name="daliLiteOutput">The standard output of <c>DaliLite -pairwise</c>.</param>
+    /// <returns>The two rows, or <c>null</c> when the output has no <c>Query</c> or no <c>Sbjct</c> token (the pair adds no library entry).</returns>
+    public static (string RowA, string RowB)? TCoffeeDaliLiteAlignment(string daliLiteOutput)
+    {
+        ArgumentNullException.ThrowIfNull(daliLiteOutput);
+        var a = new System.Text.StringBuilder();
+        var b = new System.Text.StringBuilder();
+        foreach (string line in daliLiteOutput.Split('\n'))
+        {
+            var q = DaliQueryToken.Match(line);
+            if (q.Success) a.Append(q.Groups[1].Value);
+            else if (DaliSbjctToken.Match(line) is { Success: true } sb) b.Append(sb.Groups[1].Value);
+        }
+
+        return a.Length == 0 || b.Length == 0 ? null : (a.ToString().Replace('.', '-'), b.ToString().Replace('.', '-'));
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex DaliQueryToken = new(@"Query\s+(\S+)", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+    private static readonly System.Text.RegularExpressions.Regex DaliSbjctToken = new(@"Sbjct\s+(\S+)", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+    /// <summary>
     /// The aligned residue pairs the glue <c>sap_pair</c> of T-Coffee 13.41 (<c>util_dp_drivers.c</c> L2049) reads from the output of SAP 1.1.3 (<c>sap file1 file2</c>, the file <c>&lt;template1&gt;_&lt;template2&gt;.sap_results</c> of the cache):
     /// the characters after the second token that starts with "Percent" (<c>is_sap_file</c> needs two of them) are scanned line by line - every '*' removed, lines with "eighted" or "RMSd" skipped, the rest read as
     /// <c>" %c %*d %*f %*d %c"</c> - and a pair is kept when both characters are letters. <c>First</c> is the residue of the SECOND structure file (the program names it sequence s2), <c>Second</c> that of the first one (s1).
@@ -95,10 +126,11 @@ public static partial class SequenceAligner
     private static List<(int S1, int R1, int S2, int R2, int W)> TcSapPairEntries(string? sapResults, IReadOnlyList<string> seqs, int x, int y, TcProcessGroups groups)
     {
         var entries = new List<(int, int, int, int, int)>();
-        // "SAP failed to align" (no results file, or one without the two "Percent" tokens): by the source the job returns without an entry and the program goes on, but in the oracle EVERY run in which a pair of two usable
-        // structures has no results file ended with exit status 1 and no alignment (5 of 5 sets; the 125 sets without such a pair ran through): the program stops where SAP left nothing
+        // "SAP failed to align" (no results file, or one without the two "Percent" tokens): the job returns without an entry (util_dp_drivers.c L2144-2150), and in the oracle EVERY run in which a pair of two usable
+        // structures has no results file ended with exit status 1 and no alignment ("You have not provided any method or enough Sequences[FATAL]", the only line t_coffee printed with -no_warning): 76 of 76 stopped sets of 520
+        // (runs 1, 3, 4, 5 of handoff/A2-12b; the 444 other sets ran through): the program stops where SAP left nothing
         if (sapResults is null || TCoffeeSapAlignedResidues(sapResults) is not var (resS2, resS1))
-            throw new TCoffeeAbortedException($"SAP 1.1.3 left no result for the pair of structures {x} / {y}: the program stops (exit status 1)");
+            throw new TCoffeeAbortedException($"You have not provided any method or enough Sequences [FATAL] (SAP 1.1.3 left no result for the pair of structures {x} / {y}: \"SAP failed to align\" is a warning that -no_warning hides, the library of the method ends empty and t_coffee.c L5005 stops with exit status 1)");
         if (resS1.Length == 0) return entries;                                                                // tot = 0: no library file
         // the library file names sequence s2 with the first string and s1 with the second; fix_seq_seq maps both compact strings to the sequences
         // read_seq_in_n_list types the two strings of the library file (get_sequence_type): PROTEIN selects blosum62mt in fix_seq_seq, anything else idmat
@@ -158,5 +190,8 @@ public static partial class SequenceAligner
 
         /// <summary>SAP is installed (the caller supplied the results of <see cref="TCoffeePairMethod.SapPair"/>, possibly none): <c>sap_pair</c> is the real glue, not the TM-align replacement.</summary>
         public bool SapInstalled;
+
+        /// <summary>A <c>DaliLite</c> command exists (the caller supplied the outputs of <see cref="TCoffeePairMethod.DaliPair"/>, possibly none).</summary>
+        public bool DaliInstalled;
     }
 }

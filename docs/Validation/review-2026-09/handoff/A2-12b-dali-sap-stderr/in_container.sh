@@ -12,6 +12,8 @@ mkdir -p out
 cp /opt/dalilite3/fetch.log out/dalilite3_fetch.log 2>/dev/null; cp /opt/dali5/bin.list out/dali5_bin.list 2>/dev/null; cp /opt/dali5/bin_after_build.list out/dali5_bin_after_build.list 2>/dev/null; cp /opt/dali5/build.log out/dali5_build.log 2>/dev/null
 cp /opt/sap/build.log out/sap_build.log 2>/dev/null
 mkdir -p out/s1 out/s2 out/s3 out/s4 out/s5
+# Steps (1) - (3) are FINAL (runs 1 - 6 returned and integrated by B09 WP68); they run only with RUN_S1_S3=1 (docker run -e RUN_S1_S3=1 ...).
+if [ "${RUN_S1_S3:-0}" = 1 ]; then
 # (1) the SAME 130 sets as the integrated A2-12 run (feature sap_real, same seeds), with t_coffee's stderr / stdout recorded for every set: why the 5 sets with a missing SAP result stop (exit 1).
 export SAP_REAL=1 TC_STDERR=1 PATH=/opt/sap/bin:$PATH
 python3 -I /work/generate_tcoffee_external_oracle.py /work/out/s1 sap_real > out/gen_s1.log 2>&1 || echo "s1 failed"
@@ -20,10 +22,12 @@ python3 -I /work/generate_tcoffee_external_oracle.py /work/out/s2 sap_3dcoffee >
 unset SAP_REAL
 # (3) dali_pair (the 60 sets of the committed oracle, same seeds) with DaliLite v5's bin/ on the PATH: no `DaliLite` command there, so t_coffee must stop as it does without DaliLite
 PATH=/opt/dali5/DaliLite.v5/bin:$PATH python3 -I /work/generate_tcoffee_external_oracle.py /work/out/s3 dali_pair > out/gen_s3.log 2>&1 || echo "s3 failed"
-# (4) dali_pair with the real DaliLite v3 behind the logging wrapper (only when fetch_dali3.py built it); extra.dali = every call of `DaliLite` (arguments, return code, stdout, stderr)
+fi
+# (4) dali_pair with the real DaliLite v3.3 behind the logging wrapper (only when fetch_dali3.py built it); extra.dali = every call of `DaliLite` (arguments, return code, stdout, stderr; call_*.txt.saved = the files that DaliLite removes,
+#     the directory listing and the files left in the working directory). RUN 7: FULL_BACKBONE=1 - the structures have N, CA, C, O of every residue (the CA-only files of runs 5 and 6 gave "suspect pdb1.pdb is CA-only", no alignment).
 if [ -f /opt/dalilite3/BUILD_OK ]; then
   mkdir -p /tmp/dali_log
-  DALI_REAL=1 python3 -I /work/generate_tcoffee_external_oracle.py /work/out/s4 dali_pair > out/gen_s4.log 2>&1 || echo "s4 failed"
+  DALI_REAL=1 FULL_BACKBONE=1 WORKERS=1 python3 -I /work/generate_tcoffee_external_oracle.py /work/out/s4 dali_pair > out/gen_s4.log 2>&1 || echo "s4 failed"
 fi
 chown -R "${HOST_UID:-0}:${HOST_GID:-0}" out 2>/dev/null
 ls -l out

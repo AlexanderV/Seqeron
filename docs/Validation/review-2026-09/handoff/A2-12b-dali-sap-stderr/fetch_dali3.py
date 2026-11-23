@@ -105,10 +105,18 @@ for f in got:
     print(r.stdout, r.stderr)
     exe = sh(f'find {out}/DaliLite.v3 -type f -name DaliLite -perm -u+x | head -1').stdout.strip()
     if exe:
+        # the wrapper logs every call (arguments, working directory, return code, stdout, stderr) into $DALI_LOG_DIR/call_*.txt and, in call_*.txt.saved, every file that DaliLite's own `rm` removes (the result files:
+        # `rm -f ... fort.* subunits.puu units.puu dali.lock list0 domains.puu dali.default puu.default seq.* ...`: a shim `rm` earlier on the PATH copies each file, at most 30 000 bytes, `cat -v`, before it is removed) and the
+        # directory listing / the remaining files at the end of the call: the glue's input (`DaliLite -pairwise pdb1.pdb pdb2.pdb > tmp1`) is the standard output, the files show how it was made
+        os.makedirs(out + '/shim', exist_ok=True)
+        open(out + '/shim/rm', 'w').write('#!/bin/bash\nif [ -n "$DALI_CALL_LOG" ]; then for a in "$@"; do case "$a" in -*) ;; *) if [ -f "$a" ]; then { echo "=== REMOVED $a ($(stat -c %s "$a") bytes)"; head -c 30000 "$a" | cat -v; echo; } >> "$DALI_CALL_LOG"; fi;; esac; done; fi\nexec /bin/rm "$@"\n')
+        os.chmod(out + '/shim/rm', 0o755)
         open(out + '/DaliLite.wrap', 'w').write('#!/bin/bash\nD=${DALI_LOG_DIR:-/tmp/dali_log}\nmkdir -p $D\nL=$D/call_$$_$(date +%s%N).txt\n{ echo "ARGS: $*"; echo "CWD: $PWD"; } > $L\n'
+                                               f'export DALI_CALL_LOG=$L.saved; PATH={out}/shim:$PATH; : > $DALI_CALL_LOG\n'
                                                f'{exe} "$@" > /tmp/dali_out_$$.txt 2>/tmp/dali_err_$$.txt; rc=$?\n'
                                                'echo "RC: $rc" >> $L; echo "--- STDOUT" >> $L; cat /tmp/dali_out_$$.txt >> $L; echo "--- STDERR" >> $L; cat /tmp/dali_err_$$.txt >> $L\n'
-                                               'cat /tmp/dali_out_$$.txt; cat /tmp/dali_err_$$.txt >&2; rm -f /tmp/dali_out_$$.txt /tmp/dali_err_$$.txt; exit $rc\n')
+                                               '{ echo "=== LS"; ls -la 2>&1; for f in *; do case "$f" in pdb1.pdb|pdb2.pdb) ;; *) if [ -f "$f" ]; then echo "=== REMAINING $f ($(stat -c %s "$f") bytes)"; head -c 30000 "$f" | cat -v; echo; fi;; esac; done; } >> $DALI_CALL_LOG 2>&1\n'
+                                               'cat /tmp/dali_out_$$.txt; cat /tmp/dali_err_$$.txt >&2; /bin/rm -f /tmp/dali_out_$$.txt /tmp/dali_err_$$.txt; exit $rc\n')
         os.chmod(out + '/DaliLite.wrap', 0o755)
         # Run 5 of the package (s4 returned): DaliLite 3.3 has its installation directory compiled into the program / scripts: every call runs
         # `perl /data/backup/zope_data/dali_server/DaliLite_3.3//Bin/forwarder.pl ...` and stops with "Can't open perl script" (354 calls). The program is made to find itself at the path it expects.

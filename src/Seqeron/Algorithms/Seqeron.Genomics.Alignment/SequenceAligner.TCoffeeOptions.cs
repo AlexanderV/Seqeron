@@ -86,10 +86,11 @@ public sealed partial record TCoffeeProgramOptions
                 return this; // no influence on the rows (checked: -n_core 1, 2, 3, 4, 8)
             case "-mode":
             case "-special_mode":
-                // 3dcoffee = `-in Msap_pair -template_file SELF_P_ -profile_template_file SELF_P_`; expresso fetches the structures from the RCSB (network)
+                // 3dcoffee = `-in Msap_pair -template_file SELF_P_ -profile_template_file SELF_P_`: the method list is sap_pair ALONE (the default proba_pair is not added); the templates are looked up by the sequence NAMES (network): the structures of
+                // the sequences are given as TCoffeeProgramOptions.StructureTemplates, and when the names are no PDB entries (the oracle: q000, ...) every pair is aligned by proba_pair. expresso fetches the structures from the RCSB (network)
                 return StringValue(flag, values) switch
                 {
-                    "3dcoffee" => throw new NotSupportedException("-mode 3dcoffee (= -in Msap_pair -template_file SELF_P_ -profile_template_file SELF_P_) equals -method proba_pair,sap_pair on 7 of the 8 committed sets; on the eighth the program's library holds fewer pair contributions (profile templates / network look-ups of the sequence names: not understood), so the mode is not claimed - use -method proba_pair,sap_pair."),
+                    "3dcoffee" => this with { Methods = [TCoffeePairMethod.SapPair] },
                     "expresso" => throw new NotSupportedException("-mode expresso downloads the structures of the sequences from the RCSB PDB (blast against the PDB, network): not reproducible offline."),
                     var m => throw new ArgumentException($"The t_coffee mode {m} is not supported (3dcoffee)."),
                 };
