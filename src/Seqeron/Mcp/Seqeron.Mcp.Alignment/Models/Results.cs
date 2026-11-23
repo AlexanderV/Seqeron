@@ -396,3 +396,12 @@ public record AlignmentCountsResult(
 
 /// <summary>The result of <c>alignment_operation</c>: the operation and its value as JSON (an alignment as {sequences, coordinates, attrs}, a list, a string or a number), and the text for the pretty print.</summary>
 public record AlignmentOperationResult(string Operation, string ResultJson, string? Text = null);
+
+/// <summary>One result of <c>parasail_score</c> (parasail 1.3.4 score API): score, the end coordinates and, when asked, the statistics, the tables and the last row / column.</summary>
+public record ParasailScoreItem(
+    int Score, int EndQuery, int EndReference, int? Matches, int? Similar, int? Length,
+    int[][]? ScoreTable, int[][]? MatchesTable, int[][]? SimilarTable, int[][]? LengthTable,
+    int[]? ScoreRow, int[]? ScoreColumn, int[]? MatchesRow, int[]? MatchesColumn, int[]? SimilarRow, int[]? SimilarColumn, int[]? LengthRow, int[]? LengthColumn);
+
+/// <summary>The results of <c>parasail_score</c>: the function that ran and one item per reference, in order.</summary>
+public record ParasailScoreResult(string Function, int Count, ParasailScoreItem[] Results);

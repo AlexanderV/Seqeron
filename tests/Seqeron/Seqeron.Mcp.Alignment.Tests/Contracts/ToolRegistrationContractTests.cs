@@ -78,6 +78,7 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "needle_align",
         "needleall_align",
         "pairwise_aligner",
+        "parasail_score",
         "poa_command",
         "probcons_command",
         "quality_trim_reads",
