@@ -609,6 +609,7 @@ public class SaBuilderTests
 
 /// <summary>The scale-down rule of ADR-004 (E3, E3b, E6) for PH1 and PH2 / PH3.</summary>
 [TestFixture]
+[HangLimit(30)]
 public class SaBuildRulesTests
 {
     private static SaBuildOptions Options(long scale = 0, long rule = 0, SaBuildTuning? tuning = null, int threads = 4) => new() { ScratchDir = "s", ScaleN = scale, RuleN = rule, Tuning = tuning ?? new SaBuildTuning(), Threads = threads };
@@ -718,6 +719,7 @@ public class SaBuildRulesTests
 
 /// <summary>The target of the DIST primitive can be created through the reservation of <see cref="MappedOutputFile"/> (a change of work package 1b.7d to 1b.7a: PH1's rank file is one of its targets).</summary>
 [TestFixture]
+[HangLimit(30)]
 public class DistTargetCreationTests
 {
     private TempDir _dir = null!;

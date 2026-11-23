@@ -1,4 +1,5 @@
 using SuffixTree.Esa.External;
+using SuffixTree.Esa.Tests.TestSupport;
 
 namespace SuffixTree.Esa.Tests.External;
 
@@ -8,6 +9,7 @@ namespace SuffixTree.Esa.Tests.External;
 /// SplitMix64 stream and the same greedy removal, written again outside the production code), not read off the code under test.
 /// </summary>
 [TestFixture]
+[HangLimit(30)]
 public class SaCoverGap1b9cTests
 {
     [TestCase(10, 4, 21)]

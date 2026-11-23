@@ -6,6 +6,7 @@ namespace SuffixTree.Esa.Tests.External;
 
 /// <summary>The scratch side of DIST: chunk files of fixed-size tuples, a write buffer per chunk, sequential readers, deletion as soon as a chunk is consumed.</summary>
 [TestFixture]
+[HangLimit(30)]
 public class DistScratchTests
 {
     [StructLayout(LayoutKind.Sequential)]

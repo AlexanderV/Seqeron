@@ -9,6 +9,7 @@ namespace SuffixTree.Esa.Tests.External;
 /// not build it, the cover that the build made once and the seconds of the recording that are not the seconds of a phase.
 /// </summary>
 [TestFixture]
+[HangLimit(30)]
 public sealed class SaCheckpoint1b9eTests
 {
     private const string Text = "mississippimississippimississippiabracadabraabracadabra";

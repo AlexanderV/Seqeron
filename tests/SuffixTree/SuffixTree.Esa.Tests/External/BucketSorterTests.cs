@@ -48,6 +48,7 @@ internal sealed class MemorySaSink(int entries) : ISaSliceSink
 
 /// <summary>The comparator of PH3 (the difference-cover comparison) against the definition, on every pair of positions.</summary>
 [TestFixture]
+[HangLimit(30)]
 public class SuffixOrderTests
 {
     private TempDir _dir = null!;

@@ -7,6 +7,7 @@ namespace SuffixTree.Esa.Tests.External;
 
 /// <summary>The difference cover of PH1 (work package 1b.7d): the cover property of every period that can be asked for, proved by exhaustion in the test itself, and the tables the comparator reads.</summary>
 [TestFixture]
+[HangLimit(30)]
 public class DifferenceCoverTests
 {
     /// <summary>Every residue difference (b - a) mod X, the definition of a difference cover, computed here and not by the class under test.</summary>
@@ -22,6 +23,7 @@ public class DifferenceCoverTests
 
     [Test]
     [CancelAfter(600_000)]
+    [HangLimit(180)]
     public void EveryPeriodFrom2To4096_IsACover_ByExhaustion_WithSortedDistinctResidues()
     {
         for (int x = 2; x <= 4096; x++)
@@ -38,6 +40,7 @@ public class DifferenceCoverTests
     }
 
     [Test]
+    [HangLimit(50)]
     public void TheSingerPeriods_ArePerfectDifferenceSets_OfQPlusOneResidues()
     {
         foreach (int q in new[] { 2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43 })
@@ -162,6 +165,7 @@ public class DifferenceCoverTests
 
 /// <summary>The arithmetic of the sample of one text: which positions are in it, where a position lives in the rank file and in the reduced string.</summary>
 [TestFixture]
+[HangLimit(30)]
 public class SampleGeometryTests
 {
     [Test]
@@ -435,6 +439,7 @@ public unsafe class ReducedTextReaderTests
 
 /// <summary>The remainder by the period without a division, and the read-only rank file that PH3 looks the sample ranks up in.</summary>
 [TestFixture]
+[HangLimit(30)]
 public class RankTableTests
 {
     private TempDir _dir = null!;
@@ -446,6 +451,7 @@ public class RankTableTests
     public void TearDown() => _dir.Dispose();
 
     [Test]
+    [HangLimit(40)]
     public void FastMod32_IsDivisionAndRemainder_ForEveryDivisorUpTo2100_AndTheExtremesOfTheDomain()
     {
         var rng = new SplitMix64(3);
@@ -688,6 +694,7 @@ public class SaPlumbingTests
 
 /// <summary>The runs of the sample buckets (memory or scratch file), the ledger of the scratch bytes, and the reader that scatters a run into the name window.</summary>
 [TestFixture]
+[HangLimit(30)]
 public class BucketRunTests
 {
     private TempDir _dir = null!;
@@ -824,6 +831,7 @@ public class BucketRunTests
 
 /// <summary>The inverse permutation of the suffix array of a reduced string, written straight into the rank file by DIST.</summary>
 [TestFixture]
+[HangLimit(30)]
 public class RankInverterTests
 {
     private TempDir _dir = null!;
