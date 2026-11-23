@@ -1,0 +1,5 @@
+1b9h_G01	Map: the path is not made absolute	killed(1 failed: ARelativeNameAndTheAbsoluteNameOfAFile_AreTheSameFile)[listed]			9
+1b9h_G07	Unmap: an unknown file is an error	killed(1 failed: ANameThatWasNeverListed_IsTakenOffWithoutAnError_AndLeavesTh)[listed]			3
+1b9h_G08	RequireNotMapped: the path is not made absolute	killed(1 failed: ARelativeNameAndTheAbsoluteNameOfAFile_AreTheSameFile)[listed]			4
+1b9h_G13	Count: the mappings, not the files	killed(1 failed: TwoMappingsOfOneFile_AreOneFileInTheList)[listed]			6
+1b9h_G14	the names are compared without regard to case	killed(1 failed: TwoNamesThatDifferInCaseOnly_AreTwoFiles_WhereTheFileSystemS)[listed]			4

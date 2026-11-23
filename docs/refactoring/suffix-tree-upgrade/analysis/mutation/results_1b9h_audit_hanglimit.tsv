@@ -1,0 +1,14 @@
+1b9h_H01	Begin: a test begun again under its own name is taken for a runaway	killed(1 failed: ARefusedTest_DoesNotMarkItselfAsInside_AndTheEndOfAnotherTes)[listed]			8
+1b9h_H02	Begin: a runaway is never recorded	killed(3 failed: ARefusedTest_DoesNotMarkItselfAsInside_AndTheEndOfAnotherTes,ATestThatDidNotComeBack_IsNamed_ByTheNextOne_AndByEveryOneAf,TheThreadThatIsStuck_ComingBackLater_DoesNotOpenTheBreaker)[listed]			6
+1b9h_H03	Begin: the first runaway is replaced by a later one	survived			5
+1b9h_H04	Begin: the test that begins is marked as inside also when it is refused	survived			5
+1b9h_H05	Begin: the test that begins is never marked as inside	killed(3 failed: ARefusedTest_DoesNotMarkItselfAsInside_AndTheEndOfAnotherTes,ATestThatDidNotComeBack_IsNamed_ByTheNextOne_AndByEveryOneAf,TheThreadThatIsStuck_ComingBackLater_DoesNotOpenTheBreaker)[listed]			7
+1b9h_H06	Begin: no test is refused	killed(3 failed: ARefusedTest_DoesNotMarkItselfAsInside_AndTheEndOfAnotherTes,ATestThatDidNotComeBack_IsNamed_ByTheNextOne_AndByEveryOneAf,TheThreadThatIsStuck_ComingBackLater_DoesNotOpenTheBreaker)[listed]			6
+1b9h_H07	End: the end of any test clears the mark	killed(1 failed: ARefusedTest_DoesNotMarkItselfAsInside_AndTheEndOfAnotherTes)[listed]			7
+1b9h_H08	End: the end of a test does not clear the mark	killed(1 failed: TestsThatComeBack_OneAfterTheOther_AreAllStarted)[listed]			7
+1b9h_H09	End: the end of the runaway opens the breaker	killed(1 failed: TheThreadThatIsStuck_ComingBackLater_DoesNotOpenTheBreaker)[listed]			23
+1b9h_H10	ApplyToContext: the limit is in tenths of seconds	killed(1 failed: TheAttribute_SetsTheLimitInMilliseconds_OnTheContextOfTheTes)[listed]			8
+1b9h_H11	ApplyToContext: the product is not checked	survived			7
+1b9h_H13	the attribute: the limit of a method is in tenths of seconds	killed(1 failed: TheAttribute_SetsTheLimitInMilliseconds_OnTheContextOfTheTes)[listed]			7
+1b9h_H14	the attribute: the limit of a method is not the limit of the property Timeout	killed(1 failed: TheAttribute_SetsTheLimitInMilliseconds_OnTheContextOfTheTes)[listed]			9
+1b9h_H12	BeforeTest: a refused test is not failed	survived			8

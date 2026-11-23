@@ -1,0 +1,21 @@
+1b9h_R01	ReadChecked: the last position of the text is refused	killed(6 failed: APositionBeyondTheText_ThatIsInTheSample_IsAMemoryViolation_,TheLastPositionsOfTheText_AreRead_InBothBuilds_AndAreTheRank,Rank_IsTheValueOfTheSlotOfThePosition_AtEverySamplePosition)[listed]			8
+1b9h_R02	ReadChecked: one position beyond the text is accepted	killed(1 failed: APositionBeyondTheText_ThatIsInTheSample_IsAMemoryViolation_)[listed]			12
+1b9h_R03	ReadChecked: no check of the position (a negative or a far position is folded into the table)	killed(1 failed: APositionBeyondTheText_ThatIsInTheSample_IsAMemoryViolation_)[listed]			8
+1b9h_R04	ReadChecked: a residue outside the sample reads an arbitrary slot	killed(1 failed: APositionOfTheTextWhoseResidueIsNotInTheSample_IsAMemoryViol)[listed]			11
+1b9h_R05	ReadChecked: the residue check refuses only below minus one	killed(1 failed: APositionOfTheTextWhoseResidueIsNotInTheSample_IsAMemoryViol)[listed]			9
+1b9h_R06	ReadChecked: the last slot of the table is refused	killed(5 failed: TheLastPositionsOfTheText_AreRead_InBothBuilds_AndAreTheRank,Rank_IsTheValueOfTheSlotOfThePosition_AtEverySamplePosition,Compare_IsTheDefinition_ForEveryPairOfPositions_EveryPeriod_)[listed]			8
+1b9h_R07	ReadChecked: no check of the slot	survived			43
+1b9h_R08	ReadChecked: a read after Dispose is accepted	killed(host crash: Fatal error.)[listed]			4
+1b9h_R09	ReadChecked: the slot ignores the class of the residue	killed(6 failed: APositionBeyondTheText_ThatIsInTheSample_IsAMemoryViolation_,TheLastPositionsOfTheText_AreRead_InBothBuilds_AndAreTheRank,Rank_IsTheValueOfTheSlotOfThePosition_AtEverySamplePosition)[listed]			8
+1b9h_R10	ReadChecked: the slot is of the next block	killed(7 failed: APositionBeyondTheText_ThatIsInTheSample_IsAMemoryViolation_,ARankAfterDispose_IsAMemoryViolation_NotAReadOfTheReleasedMa,TheLastPositionsOfTheText_AreRead_InBothBuilds_AndAreTheRank)[listed]			8
+1b9h_R11	Rank: the checked build reads through the raw pointer	killed(host crash: Fatal error.)[listed]			11
+1b9h_R12	ThrowOutOfBounds: the message does not say that the table is disposed	killed(1 failed: ARankAfterDispose_IsAMemoryViolation_NotAReadOfTheReleasedMa)[listed]			11
+1b9h_R13	ThrowOutOfBounds: the violation is of the other kind	killed(1 failed: APositionBeyondTheText_ThatIsInTheSample_IsAMemoryViolation_)[listed]			12
+1b9h_R14	ReadSlot: the last slot is refused	killed(3 failed: TheLastPositionsOfTheText_AreRead_InBothBuilds_AndAreTheRank,Rank_IsTheValueOfTheSlotOfThePosition_AtEverySamplePosition,Verify_FindsARepeatedRank_AZeroRank_AndAnUsedUnusedSlot)[listed]			10
+1b9h_R15	ReadSlot: no check of the slot	survived			49
+1b9h_R16	ReadSlot: a read after Dispose is accepted	survived			41
+1b9h_R17	Verify: the checked build reads the slots through the raw pointer	survived			35
+1b9h_R18	Verify after Dispose does not throw the disposed exception	killed(2 failed: TheVerificationOfADisposedTable_IsRefused_AsADisposedObject_,ADisposedTable_ReleasesItsMapping)[listed]			7
+1b9h_R19	Open: the table is not put in the list of the mapped files	killed(2 failed: TheCreationOfAFileThatIsMapped_IsAMemoryViolation_AndTheFile,TwoMappingsOfOneFile_AreCounted_TheFileIsFreeWhenTheLastIsDi)[seen]			42
+1b9h_R20	Dispose: the table is not taken out of the list	killed(3 failed: TheCreationOfAFileThatIsMapped_IsAMemoryViolation_AndTheFile,TwoMappingsOfOneFile_AreCounted_TheFileIsFreeWhenTheLastIsDi,WithVerifyRanks_ASlotOfTheRankFileThatWasDamagedAfterPh1_IsR)[seen]			46
+1b9h_R21	Dispose: a second Dispose takes it out again	survived			37

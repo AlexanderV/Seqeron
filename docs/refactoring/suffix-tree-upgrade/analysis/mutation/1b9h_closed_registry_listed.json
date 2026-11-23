@@ -1,0 +1,42 @@
+[
+ {
+  "id": "1b9h_G01",
+  "desc": "Map: the path is not made absolute",
+  "old": "        string full = Path.GetFullPath(path);\n        lock (s_mapped) s_mapped[full]",
+  "new": "        string full = path;\n        lock (s_mapped) s_mapped[full]",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedFileRegistry.cs",
+  "filter": "(FullyQualifiedName~MappedFileRegistryTests|FullyQualifiedName~RankTableBounds1b9hTests|FullyQualifiedName~MappedTextBounds1b9hTests)"
+ },
+ {
+  "id": "1b9h_G07",
+  "desc": "Unmap: an unknown file is an error",
+  "old": "if (!s_mapped.TryGetValue(full, out int count)) return;",
+  "new": "int count = s_mapped[full];",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedFileRegistry.cs",
+  "filter": "(FullyQualifiedName~MappedFileRegistryTests|FullyQualifiedName~RankTableBounds1b9hTests|FullyQualifiedName~MappedTextBounds1b9hTests)"
+ },
+ {
+  "id": "1b9h_G08",
+  "desc": "RequireNotMapped: the path is not made absolute",
+  "old": "        string full = Path.GetFullPath(path);\n        bool mapped;",
+  "new": "        string full = path;\n        bool mapped;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedFileRegistry.cs",
+  "filter": "(FullyQualifiedName~MappedFileRegistryTests|FullyQualifiedName~RankTableBounds1b9hTests|FullyQualifiedName~MappedTextBounds1b9hTests)"
+ },
+ {
+  "id": "1b9h_G13",
+  "desc": "Count: the mappings, not the files",
+  "old": "            lock (s_mapped) return s_mapped.Count;",
+  "new": "            lock (s_mapped) return s_mapped.Values.Sum();",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedFileRegistry.cs",
+  "filter": "(FullyQualifiedName~MappedFileRegistryTests|FullyQualifiedName~RankTableBounds1b9hTests|FullyQualifiedName~MappedTextBounds1b9hTests)"
+ },
+ {
+  "id": "1b9h_G14",
+  "desc": "the names are compared without regard to case",
+  "old": "new(StringComparer.Ordinal);",
+  "new": "new(StringComparer.OrdinalIgnoreCase);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedFileRegistry.cs",
+  "filter": "(FullyQualifiedName~MappedFileRegistryTests|FullyQualifiedName~RankTableBounds1b9hTests|FullyQualifiedName~MappedTextBounds1b9hTests)"
+ }
+]

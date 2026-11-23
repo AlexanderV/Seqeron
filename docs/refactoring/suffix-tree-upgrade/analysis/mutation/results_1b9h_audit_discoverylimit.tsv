@@ -1,0 +1,9 @@
+1b9h_D01	the exception of the computation is lost	killed(1 failed: AComputationThatThrows_ThrowsAgainWithItsOwnTypeAndMessage)[listed]			8
+1b9h_D02	the exception of the computation is not thrown again	killed(1 failed: AComputationThatThrows_ThrowsAgainWithItsOwnTypeAndMessage)[listed]			8
+1b9h_D03	the computation runs on a foreground thread	killed(1 failed: TheComputation_RunsOnAThreadOfItsOwn_ThatDoesNotKeepTheHostA)[listed]			13
+1b9h_D04	the limit is not used	killed(hang)[listed]			372
+1b9h_D05	a computation that does not return gives true	killed(1 failed: AComputationThatDoesNotReturn_GivesFalse_AtTheLimit_AndLeave)[listed]			7
+1b9h_D06	a computation that returns gives false	killed(2 failed: AComputationThatReturns_GivesItsValue,TheComputation_RunsOnAThreadOfItsOwn_ThatDoesNotKeepTheHostA)[listed]			7
+1b9h_D07	a computation that does not return leaves its (partial) value	survived			32
+1b9h_D08	the done signal is not set when the computation fails	killed(1 failed: AComputationThatThrows_ThrowsAgainWithItsOwnTypeAndMessage)[listed]			37
+1b9h_D09	the computation is run on the calling thread	killed(hang)[listed]			365

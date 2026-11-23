@@ -1,0 +1,10 @@
+[
+ {
+  "id": "1b9h_C15",
+  "desc": "FromTable: the second residue is not compared with the first",
+  "old": "(i > 0 && residues[i] <= residues[i - 1])",
+  "new": "(i > 1 && residues[i] <= residues[i - 1])",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTable1b9hTests|FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SaCoverGap1b9cTests)"
+ }
+]

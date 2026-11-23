@@ -1,0 +1,12 @@
+1b9h_C14	FromTable: the order is not looked at	killed(1 failed: TheTableIsCheckedWhenItIsUsed_AndADamagedTableIsRefused)[listed]			43
+1b9h_C15	FromTable: the second residue is not compared with the first	survived			121
+1b9h_C16	FromTable: either check is enough	survived			117
+1b9h_C17	FromTable: the perfect-set check is dropped	survived			99
+1b9h_C18	FromTable: the cover check is dropped	survived			90
+1b9h_C19	FromTable: the table is not checked at all	killed(2 failed: ADamagedTableOfTheDefaultPeriod_IsRefused_TheSearchRuns_AndT,TheTableIsCheckedWhenItIsUsed_AndADamagedTableIsRefused)[listed]			20
+1b9h_C20	SingerSet: the search is not counted	killed(2 failed: ADamagedTableOfTheDefaultPeriod_IsRefused_TheSearchRuns_AndT,TheDefaultPeriod_IsServedByTheTable_WithoutTheSearch_AndEver)[listed]			20
+1b9h_C21	SingerSet: the search is counted twice	killed(2 failed: ADamagedTableOfTheDefaultPeriod_IsRefused_TheSearchRuns_AndT,TheDefaultPeriod_IsServedByTheTable_WithoutTheSearch_AndEver)[listed]			20
+1b9h_C22	CreateBySearch: the table is used	killed(1 failed: TheDefaultPeriod_IsServedByTheTable_WithoutTheSearch_AndEver)[listed]			19
+1b9h_C23	the table: one residue is another perfect set (shifted by one)	killed(5 failed: AShiftedPerfectSet_IsStillAPerfectSet_ButOnlyTheSearchsOwnSe,EveryCallGetsAFreshCover_AndNoCallerCanChangeTheCoverOfAnoth,ParallelCallers_GetTheSameCover_AndNeverShareAnObject)[listed]			28
+1b9h_C24	the table: one residue is changed	killed(1 failed: TheDefaultPeriod_IsServedByTheTable_WithoutTheSearch_AndEver)[listed]			104
+1b9h_C25	the table: the last residue is dropped	killed(1 failed: TheDefaultPeriod_IsServedByTheTable_WithoutTheSearch_AndEver)[listed]			87

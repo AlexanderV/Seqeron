@@ -1,0 +1,2 @@
+1b9h_D04	the limit is not used	killed(4 failed: AComputationThatDoesNotReturn_GivesFalse_AtTheLimit_AndLeave,AComputationThatReturns_GivesItsValue,AComputationThatThrows_ThrowsAgainWithItsOwnTypeAndMessage)[listed]			40
+1b9h_D09	the computation is run on the calling thread	killed(4 failed: AComputationThatDoesNotReturn_GivesFalse_AtTheLimit_AndLeave,AComputationThatReturns_GivesItsValue,AComputationThatThrows_ThrowsAgainWithItsOwnTypeAndMessage)[listed]			37

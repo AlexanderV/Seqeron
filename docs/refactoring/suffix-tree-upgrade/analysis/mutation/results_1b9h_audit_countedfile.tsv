@@ -1,0 +1,5 @@
+1b9h_K01	CountedFile: a file that is mapped may be created	killed(3 failed: TheCreationOfAFileThatIsMapped_IsAMemoryViolation_AndTheFile,TheTextReader_ListsItsFile_AndTakesItOffAtDispose,TwoMappingsOfOneFile_AreCounted_TheFileIsFreeWhenTheLastIsDi)[listed]			4
+1b9h_K02	CountedFile: only Create is looked at (not Truncate)	killed(1 failed: TheCreationOfAFileThatIsMapped_IsAMemoryViolation_AndTheFile)[listed]			4
+1b9h_K03	CountedFile: only Truncate is looked at (not Create)	killed(3 failed: TheCreationOfAFileThatIsMapped_IsAMemoryViolation_AndTheFile,TheTextReader_ListsItsFile_AndTakesItOffAtDispose,TwoMappingsOfOneFile_AreCounted_TheFileIsFreeWhenTheLastIsDi)[listed]			7
+1b9h_K04	CountedFile: a file that is mapped may not be opened for reading either	killed(1 failed: TheCreationOfAFileThatIsMapped_IsAMemoryViolation_AndTheFile)[listed]			5
+1b9h_K05	CountedFile: OpenOrCreate is looked at too	killed(1 failed: TheCreationOfAFileThatIsMapped_IsAMemoryViolation_AndTheFile)[listed]			6

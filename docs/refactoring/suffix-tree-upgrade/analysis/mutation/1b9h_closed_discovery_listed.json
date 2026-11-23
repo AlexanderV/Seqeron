@@ -1,0 +1,18 @@
+[
+ {
+  "id": "1b9h_D04",
+  "desc": "the limit is not used",
+  "old": "if (!done.Wait(limit))",
+  "new": "if (!done.Wait(Timeout.InfiniteTimeSpan))",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/TestSupport/DiscoveryLimit.cs",
+  "filter": "(FullyQualifiedName~DiscoveryLimitTests)"
+ },
+ {
+  "id": "1b9h_D09",
+  "desc": "the computation is run on the calling thread",
+  "old": "        thread.Start();\n        if (!done.Wait(limit))",
+  "new": "        thread.Start(); thread.Join();\n        if (!done.Wait(limit))",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/TestSupport/DiscoveryLimit.cs",
+  "filter": "(FullyQualifiedName~DiscoveryLimitTests)"
+ }
+]

@@ -1,0 +1,22 @@
+1b9h_T01	the checked region is the data without the padding	killed(26 failed: ABulkRead_ThatWouldLeaveTheRegion_IsAMemoryViolation_AtTheEx,AWindow_ThatIsNotWhollyInsideTheRegion_IsAMemoryViolation_At,TheBulkReadOfAWholeText_IsTheSymbols_InBothBuilds)[listed]			3
+1b9h_T02	the checked region is one byte short	killed(3 failed: ABulkRead_ThatWouldLeaveTheRegion_IsAMemoryViolation_AtTheEx,AWindow_ThatIsNotWhollyInsideTheRegion_IsAMemoryViolation_At,TheVectorCommonPrefix_ThatWouldLoadBeyondTheRegion_IsAMemory)[listed]			7
+1b9h_T03	the checked region is one byte long	killed(3 failed: ABulkRead_ThatWouldLeaveTheRegion_IsAMemoryViolation_AtTheEx,AWindow_ThatIsNotWhollyInsideTheRegion_IsAMemoryViolation_At,TheVectorCommonPrefix_ThatWouldLoadBeyondTheRegion_IsAMemory)[listed]			7
+1b9h_T04	CheckRead: a read that ends exactly at the end of the region is refused	killed(3 failed: ABulkRead_ThatWouldLeaveTheRegion_IsAMemoryViolation_AtTheEx,AWindow_ThatIsNotWhollyInsideTheRegion_IsAMemoryViolation_At,TheVectorCommonPrefix_ThatWouldLoadBeyondTheRegion_IsAMemory)[listed]			6
+1b9h_T05	CheckRead: a read of one byte beyond the region is accepted	killed(3 failed: ABulkRead_ThatWouldLeaveTheRegion_IsAMemoryViolation_AtTheEx,AWindow_ThatIsNotWhollyInsideTheRegion_IsAMemoryViolation_At,TheVectorCommonPrefix_ThatWouldLoadBeyondTheRegion_IsAMemory)[listed]			7
+1b9h_T06	CheckRead: a negative offset is accepted	survived			115
+1b9h_T07	CheckRead: the count is not looked at	killed(3 failed: ABulkRead_ThatWouldLeaveTheRegion_IsAMemoryViolation_AtTheEx,AWindow_ThatIsNotWhollyInsideTheRegion_IsAMemoryViolation_At,TheVectorCommonPrefix_ThatWouldLoadBeyondTheRegion_IsAMemory)[listed]			7
+1b9h_T08	WindowAt: the window is checked as eight bytes (the ninth carries the shift)	killed(1 failed: AWindow_ThatIsNotWhollyInsideTheRegion_IsAMemoryViolation_At)[listed]			7
+1b9h_T09	WindowAt: the window is checked as ten bytes	killed(1 failed: AWindow_ThatIsNotWhollyInsideTheRegion_IsAMemoryViolation_At)[listed]			7
+1b9h_T10	WindowAt: the check is of the symbol and not of the byte	killed(15 failed: AWindow_ThatIsNotWhollyInsideTheRegion_IsAMemoryViolation_At,TheWindowOfAPositionInTheText_IsReadInBothBuilds_UpToTheLast,ASection_AtAFileOffsetAboveTwoToThe32_IsOpenedAndRead)[listed]			5
+1b9h_T11	WindowAt: no check	killed(host crash: Fatal error.)[listed]			3
+1b9h_T12	LoadShifted: the load of 32 + 8 bytes is checked as 32	killed(1 failed: TheVectorCommonPrefix_ThatWouldLoadBeyondTheRegion_IsAMemory)[listed]			7
+1b9h_T13	LoadShifted: the load is checked as 41 bytes	killed(1 failed: TheVectorCommonPrefix_ThatWouldLoadBeyondTheRegion_IsAMemory)[listed]			7
+1b9h_T14	LoadShifted: no check	killed(1 failed: TheVectorCommonPrefix_ThatWouldLoadBeyondTheRegion_IsAMemory)[listed]			7
+1b9h_T15	ReadSymbols: the two bytes of the window are not counted	killed(1 failed: ABulkRead_ThatWouldLeaveTheRegion_IsAMemoryViolation_AtTheEx)[listed]			6
+1b9h_T16	ReadSymbols: the bytes are rounded down	survived			99
+1b9h_T17	ReadSymbols: the first byte is taken from the symbol number	killed(4 failed: ABulkRead_ThatWouldLeaveTheRegion_IsAMemoryViolation_AtTheEx,TheBulkReadOfAWholeText_IsTheSymbols_InBothBuilds,ReadSymbols_LargeRandomWindows_AndTheWholeText)[listed]			7
+1b9h_T18	ReadSymbols: no check	killed(1 failed: ABulkRead_ThatWouldLeaveTheRegion_IsAMemoryViolation_AtTheEx)[listed]			8
+1b9h_T19	ThrowOutOfBounds: the violation is of the other kind	killed(1 failed: AWindow_ThatIsNotWhollyInsideTheRegion_IsAMemoryViolation_At)[listed]			7
+1b9h_T20	OpenCore: the reader is not put in the list of the mapped files	killed(1 failed: TheTextReader_ListsItsFile_AndTakesItOffAtDispose)[seen]			98
+1b9h_T21	Dispose: the reader is not taken out of the list	killed(19 failed: ADiskThatFillsInTheReservationOfTheTail_IsAnIoException_AndL,TheTextReader_ListsItsFile_AndTakesItOffAtDispose,TheSystemSource_OnLinux_ReservesTheBlocks_AndTheSparseFileDo)[seen]			92
+1b9h_T22	Dispose: a second Dispose takes it out again (the field is not cleared first)	survived			98

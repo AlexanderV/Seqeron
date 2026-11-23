@@ -9,7 +9,7 @@ if os.path.exists(p):
     exec(open(p).read())  # defines CLOSED = {id: ('test' | 'equivalent', text)}
 listed = {}
 for f in sorted(glob.glob(os.path.join(HERE, '1b9h_*_listed.json'))):
-    if 'g1_' in f:
+    if 'g1_' in f or 'closed_' in f:
         continue
     for m in json.load(open(f)):
         listed[m['id']] = (os.path.basename(f), m['desc'])

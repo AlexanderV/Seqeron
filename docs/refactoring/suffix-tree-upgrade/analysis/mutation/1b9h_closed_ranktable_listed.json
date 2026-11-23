@@ -1,0 +1,10 @@
+[
+ {
+  "id": "1b9h_R21",
+  "desc": "Dispose: a second Dispose takes it out again",
+  "old": "if (view is not null && _registered is not null) MappedFileRegistry.Unmap(_registered);",
+  "new": "if (_registered is not null) MappedFileRegistry.Unmap(_registered);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs",
+  "filter": "(FullyQualifiedName~RankTableBounds1b9hTests|FullyQualifiedName~RankTableTests|FullyQualifiedName~SuffixOrderTests)"
+ }
+]

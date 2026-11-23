@@ -45,6 +45,10 @@ internal sealed class HangBreaker
 public sealed class HangLimitAttribute(int seconds) : PropertyAttribute(PropertyNames.Timeout, checked(seconds * 1000)), IApplyToContext, ITestAction
 {
     private static readonly HangBreaker Shared = new();
+    private readonly HangBreaker _breaker = Shared;
+
+    /// <summary>The attribute with a breaker of its own (the tests of the attribute: the breaker of the host must not be opened by a test of it).</summary>
+    internal HangLimitAttribute(int seconds, HangBreaker breaker) : this(seconds) => _breaker = breaker;
 
     /// <summary>The limit in seconds.</summary>
     public int Seconds { get; } = seconds;
@@ -60,7 +64,7 @@ public sealed class HangLimitAttribute(int seconds) : PropertyAttribute(Property
     public void BeforeTest(ITest test)
     {
         ArgumentNullException.ThrowIfNull(test);
-        if (Shared.Begin(test.FullName) is { } runaway)
+        if (_breaker.Begin(test.FullName) is { } runaway)
         {
             Assert.Fail($"not started: the earlier test {runaway} did not come back within its limit and its thread is still running in this host, so another call could hang the same way");
         }
@@ -69,6 +73,6 @@ public sealed class HangLimitAttribute(int seconds) : PropertyAttribute(Property
     public void AfterTest(ITest test)
     {
         ArgumentNullException.ThrowIfNull(test);
-        Shared.End(test.FullName);
+        _breaker.End(test.FullName);
     }
 }

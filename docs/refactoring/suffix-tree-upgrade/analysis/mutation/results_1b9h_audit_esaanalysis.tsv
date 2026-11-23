@@ -1,0 +1,7 @@
+1b9h_Z01	CountDistinctSubstrings allocates a long per symbol	killed(1 failed: NoAllocationProportionalToTheTextForTheTotal_AndOnlyTheResul)[listed]			12
+1b9h_Z02	CountDistinctSubstrings allocates a byte per symbol	killed(1 failed: NoAllocationProportionalToTheTextForTheTotal_AndOnlyTheResul)[listed]			8
+1b9h_Z03	CountDistinctSubstrings allocates 2 KB	killed(1 failed: NoAllocationProportionalToTheTextForTheTotal_AndOnlyTheResul)[listed]			8
+1b9h_Z04	ByLength allocates a second array of the size of the result	killed(1 failed: NoAllocationProportionalToTheTextForTheTotal_AndOnlyTheResul)[listed]			8
+1b9h_Z05	ByLength(10) allocates a byte per symbol	killed(1 failed: NoAllocationProportionalToTheTextForTheTotal_AndOnlyTheResul)[listed]			8
+1b9h_Z06	ByLength allocates a copy of the result on return	killed(1 failed: NoAllocationProportionalToTheTextForTheTotal_AndOnlyTheResul)[listed]			9
+1b9h_Z07	CountDistinctSubstrings allocates a boxed value per rank	killed(1 failed: NoAllocationProportionalToTheTextForTheTotal_AndOnlyTheResul)[listed]			9

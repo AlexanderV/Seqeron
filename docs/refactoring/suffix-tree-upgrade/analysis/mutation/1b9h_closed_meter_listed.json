@@ -1,0 +1,34 @@
+[
+ {
+  "id": "1b9h_A04",
+  "desc": "AssertLessThan: a reading in a window with a collection is a pass",
+  "old": "        Assert.Inconclusive(",
+  "new": "        Assert.Pass(",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/TestSupport/AllocationMeter.cs",
+  "filter": "(FullyQualifiedName~AllocationMeterTests|FullyQualifiedName~EsaDistinctSubstringTests)"
+ },
+ {
+  "id": "1b9h_A13",
+  "desc": "Measure: the latency mode is not looked at",
+  "old": "bool gcFree = (alreadyOpen || opened) && GCSettings.LatencyMode == GCLatencyMode.NoGCRegion && GC.CollectionCount(0) == collections;",
+  "new": "bool gcFree = (alreadyOpen || opened) && GC.CollectionCount(0) == collections;",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/TestSupport/AllocationMeter.cs",
+  "filter": "(FullyQualifiedName~AllocationMeterTests|FullyQualifiedName~EsaDistinctSubstringTests)"
+ },
+ {
+  "id": "1b9h_A14",
+  "desc": "Measure: the number of collections is not looked at",
+  "old": "bool gcFree = (alreadyOpen || opened) && GCSettings.LatencyMode == GCLatencyMode.NoGCRegion && GC.CollectionCount(0) == collections;",
+  "new": "bool gcFree = (alreadyOpen || opened) && GCSettings.LatencyMode == GCLatencyMode.NoGCRegion;",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/TestSupport/AllocationMeter.cs",
+  "filter": "(FullyQualifiedName~AllocationMeterTests|FullyQualifiedName~EsaDistinctSubstringTests)"
+ },
+ {
+  "id": "1b9h_A17",
+  "desc": "the region has no room for large objects",
+  "old": "RegionLargeObjectBytes = 32L << 20",
+  "new": "RegionLargeObjectBytes = 1L << 10",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/TestSupport/AllocationMeter.cs",
+  "filter": "(FullyQualifiedName~AllocationMeterTests|FullyQualifiedName~EsaDistinctSubstringTests)"
+ }
+]

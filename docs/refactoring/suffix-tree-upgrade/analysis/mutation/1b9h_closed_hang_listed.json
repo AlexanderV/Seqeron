@@ -1,0 +1,10 @@
+[
+ {
+  "id": "1b9h_H12",
+  "desc": "BeforeTest: a refused test is not failed",
+  "old": "            Assert.Fail($\"not started:",
+  "new": "            Assert.Pass($\"not started:",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/TestSupport/HangLimitAttribute.cs",
+  "filter": "(FullyQualifiedName~HangBreakerTests)"
+ }
+]

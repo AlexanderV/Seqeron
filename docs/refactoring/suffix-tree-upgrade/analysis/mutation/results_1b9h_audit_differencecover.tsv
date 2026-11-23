@@ -1,0 +1,13 @@
+1b9h_C01	Create: the table is used for every period (and checked for none)	survived			146
+1b9h_C02	Create: the table is never used	killed(2 failed: ADamagedTableOfTheDefaultPeriod_IsRefused_TheSearchRuns_AndT,TheDefaultPeriod_IsServedByTheTable_WithoutTheSearch_AndEver)[listed]			138
+1b9h_C03	Create: the table is used without the check	killed(1 failed: ADamagedTableOfTheDefaultPeriod_IsRefused_TheSearchRuns_AndT)[listed]			21
+1b9h_C04	Create: the default period is a different one	killed(5 failed: ADifferentPeriod_GivesADifferentCover_AndNeverTheTableOfTheD,TheCoverOfTheDefaultPeriod_IsWhatTheSearchFinds_ResidueForRe,TheCoverThatTheBuilderTakesForItsDefaults_IsTheCoverOfTheDef)[listed]			27
+1b9h_C05	Create: the cover of the table is of the kind Pruned	killed(6 failed: ADamagedTableOfTheDefaultPeriod_IsRefused_TheSearchRuns_AndT,EveryCallGetsAFreshCover_AndNoCallerCanChangeTheCoverOfAnoth,TheCoverOfTheDefaultPeriod_IsWhatTheSearchFinds_ResidueForRe)[listed]			22
+1b9h_C07	FromTable: the table of q residues is accepted	killed(4 failed: ADamagedTableOfTheDefaultPeriod_IsRefused_TheSearchRuns_AndT,AShiftedPerfectSet_IsStillAPerfectSet_ButOnlyTheSearchsOwnSe,TheDefaultPeriod_IsServedByTheTable_WithoutTheSearch_AndEver)[listed]			98
+1b9h_C08	FromTable: a table of any length is accepted	survived			95
+1b9h_C09	FromTable: a period that is no Singer period is accepted (the length is not looked at)	survived			93
+1b9h_C10	FromTable: a residue of zero is refused	killed(1 failed: AShiftedPerfectSet_IsStillAPerfectSet_ButOnlyTheSearchsOwnSe)[listed]			21
+1b9h_C11	FromTable: a residue below zero is accepted	killed(1 failed: TheTableIsCheckedWhenItIsUsed_AndADamagedTableIsRefused)[listed]			21
+1b9h_C12	FromTable: a residue equal to the period is accepted	killed(1 failed: TheTableIsCheckedWhenItIsUsed_AndADamagedTableIsRefused)[listed]			21
+1b9h_C13	FromTable: a repeated residue is accepted (sorted, not strictly)	survived			126
+1b9h_C14	FromTable: the order is not looked at	killed(1 failed: TheTableIsCheckedWhenItIsUsed_AndADamagedTableIsRefused)[listed]			21

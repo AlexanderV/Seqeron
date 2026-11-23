@@ -1,0 +1,3 @@
+1b9h_T06	CheckRead: a negative offset is accepted	killed(1 failed: TheGuardOfTheRawReads_RefusesANegativeOffset_AndACountThatLe)[listed]			8
+1b9h_T16	ReadSymbols: the bytes are rounded down	killed(1 failed: ABulkRead_ThatWouldLeaveTheRegion_IsAMemoryViolation_AtTheEx)[listed]			8
+1b9h_T22	Dispose: a second Dispose takes it out again (the field is not cleared first)	killed(1 failed: ADisposeThatIsRepeated_TakesOffOnlyItsOwnMapping)[seen]			128

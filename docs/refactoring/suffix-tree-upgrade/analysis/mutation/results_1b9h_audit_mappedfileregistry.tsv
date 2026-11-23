@@ -1,0 +1,14 @@
+1b9h_G01	Map: the path is not made absolute	survived			39
+1b9h_G02	Map: a second mapping of the file does not count	killed(1 failed: TwoMappingsOfOneFile_AreCounted_TheFileIsFreeWhenTheLastIsDi)[listed]			9
+1b9h_G03	Map: a mapping counts twice	killed(3 failed: TheCreationOfAFileThatIsMapped_IsAMemoryViolation_AndTheFile,TheTextReader_ListsItsFile_AndTakesItOffAtDispose,TwoMappingsOfOneFile_AreCounted_TheFileIsFreeWhenTheLastIsDi)[listed]			16
+1b9h_G04	Unmap: the file is removed while a mapping is left	killed(1 failed: TwoMappingsOfOneFile_AreCounted_TheFileIsFreeWhenTheLastIsDi)[listed]			6
+1b9h_G05	Unmap: the last mapping is not removed	killed(3 failed: TheCreationOfAFileThatIsMapped_IsAMemoryViolation_AndTheFile,TheTextReader_ListsItsFile_AndTakesItOffAtDispose,TwoMappingsOfOneFile_AreCounted_TheFileIsFreeWhenTheLastIsDi)[listed]			16
+1b9h_G06	Unmap: the count is not reduced	killed(1 failed: TwoMappingsOfOneFile_AreCounted_TheFileIsFreeWhenTheLastIsDi)[listed]			18
+1b9h_G07	Unmap: an unknown file is an error	survived			14
+1b9h_G08	RequireNotMapped: the path is not made absolute	survived			6
+1b9h_G09	RequireNotMapped: nothing is refused	killed(3 failed: TheCreationOfAFileThatIsMapped_IsAMemoryViolation_AndTheFile,TheTextReader_ListsItsFile_AndTakesItOffAtDispose,TwoMappingsOfOneFile_AreCounted_TheFileIsFreeWhenTheLastIsDi)[listed]			8
+1b9h_G10	RequireNotMapped: everything is refused	killed(4 failed: TheCreationOfAFileThatIsMapped_IsAMemoryViolation_AndTheFile,TheCreationOfAFileThatIsNotMapped_IsNotRefused_InBothBuilds,TheTextReader_ListsItsFile_AndTakesItOffAtDispose)[listed]			7
+1b9h_G11	RequireNotMapped: the violation is of the other kind	killed(1 failed: TheCreationOfAFileThatIsMapped_IsAMemoryViolation_AndTheFile)[listed]			6
+1b9h_G12	Count: always zero	killed(1 failed: TheTextReader_ListsItsFile_AndTakesItOffAtDispose)[listed]			7
+1b9h_G13	Count: the mappings, not the files	survived			6
+1b9h_G14	the names are compared without regard to case	survived			8

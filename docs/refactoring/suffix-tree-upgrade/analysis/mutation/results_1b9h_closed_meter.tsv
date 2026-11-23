@@ -1,0 +1,4 @@
+1b9h_A04	AssertLessThan: a reading in a window with a collection is a pass	killed(1 failed: AReadingAboveTheLimit_WithACollection_IsInconclusive_NotAFai)[listed]			12
+1b9h_A13	Measure: the latency mode is not looked at	killed(1 failed: ARegionThatTheCodeEnds_IsReported_AlthoughNoCollectionRan)[listed]			10
+1b9h_A14	Measure: the number of collections is not looked at	killed(1 failed: ACollectionThatIsFollowedByANewRegion_IsReported_AlthoughThe)[listed]			10
+1b9h_A17	the region has no room for large objects	survived			11

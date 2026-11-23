@@ -1,3 +1,5 @@
+using NUnit.Framework.Interfaces;
+using NUnit.Framework.Internal;
 using SuffixTree.Esa.Tests.TestSupport;
 
 namespace SuffixTree.Esa.Tests.Scaffolding;
@@ -51,6 +53,31 @@ public class HangBreakerTests
         Assert.That(fresh.Begin("A"), Is.Null);
         Assert.That(fresh.Begin("A"), Is.Null, "the same test begun again (a repeat) is not a test that did not come back");
         Assert.That(fresh.Runaway, Is.Null);
+    }
+
+    [Test]
+    public void TheAttribute_FailsATestThatBeginsWhileAnotherIsStillInside_AndNamesIt()
+    {
+        var attribute = new HangLimitAttribute(5, new HangBreaker());
+        ITest first = new TestSuite("the.first.test"), second = new TestSuite("the.second.test"), third = new TestSuite("the.third.test");
+        Assert.DoesNotThrow(() => attribute.BeforeTest(first), "the first test begins");
+        var refused = Assert.Throws<AssertionException>(() => attribute.BeforeTest(second));
+        Assert.That(refused!.Message, Does.Contain("not started").And.Contain("the.first.test"));
+        attribute.AfterTest(first);
+        var again = Assert.Throws<AssertionException>(() => attribute.BeforeTest(third), "the first test came back late and the breaker stays open");
+        Assert.That(again!.Message, Does.Contain("the.first.test"));
+    }
+
+    [Test]
+    public void TheAttribute_StartsEveryTestThatComesBack()
+    {
+        var attribute = new HangLimitAttribute(5, new HangBreaker());
+        for (int i = 0; i < 5; i++)
+        {
+            ITest test = new TestSuite("test" + i);
+            Assert.DoesNotThrow(() => attribute.BeforeTest(test));
+            attribute.AfterTest(test);
+        }
     }
 
     [Test]

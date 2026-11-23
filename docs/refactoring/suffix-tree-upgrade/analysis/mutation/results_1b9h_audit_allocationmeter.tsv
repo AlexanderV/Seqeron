@@ -1,0 +1,22 @@
+1b9h_A01	AssertLessThan: the limit is inclusive	killed(1 failed: TheLimitIsExclusive)[listed]			43
+1b9h_A02	AssertLessThan: the limit is one byte lower	killed(1 failed: TheLimitIsExclusive)[listed]			26
+1b9h_A03	AssertLessThan: a reading in a window without collections is inconclusive	killed(3 failed: AReadingAboveTheLimit_WithACollection_IsInconclusive_NotAFai,AReadingAboveTheLimit_WithoutACollection_IsAFailureOfTheCode,TheLimitIsExclusive)[listed]			25
+1b9h_A04	AssertLessThan: a reading in a window with a collection is a pass	NO-RESULT[listed]			26
+1b9h_A05	AssertLessThan: a reading in a window without collections is a pass	killed(2 failed: AReadingAboveTheLimit_WithoutACollection_IsAFailureOfTheCode,TheLimitIsExclusive)[listed]			21
+1b9h_A06	Measure: no region is opened	killed(5 failed: ALargeArray_ReadsItsSize_WhateverTheStateOfTheThreadsAllocat,ASmallArray_ReadsItsSize,CodeThatAllocatesNothing_ReadsZero_InAWindowWithoutCollectio)[listed]			19
+1b9h_A07	Measure: the region is never left	killed(3 failed: ARegionThatIsAlreadyOpen_IsUsedAsItIs_AndLeftOpen,TheReading_IsExact_WhileAnotherThreadAllocatesLargeObjects_A,TheRegionIsLeft_AfterTheWindow_AlsoWhenTheCodeThrows)[listed]			15
+1b9h_A08	Measure: the reading is the counter after the code	killed(6 failed: NoAllocationProportionalToTheTextForTheTotal_AndOnlyTheResul,ALargeArray_ReadsItsSize_WhateverTheStateOfTheThreadsAllocat,ASmallArray_ReadsItsSize)[listed]			15
+1b9h_A09	Measure: the counter is read before the region is opened	survived			19
+1b9h_A10	Measure: the window is free of collections whatever happened	killed(2 failed: ACollectionInTheWindow_IsReported,ARegionThatIsAlreadyOpen_IsUsedAsItIs_AndLeftOpen)[listed]			18
+1b9h_A11	Measure: the window is free of collections when a region was opened	killed(2 failed: ACollectionInTheWindow_IsReported,ARegionThatIsAlreadyOpen_IsUsedAsItIs_AndLeftOpen)[listed]			19
+1b9h_A12	Measure: the region need not have been opened	survived			18
+1b9h_A13	Measure: the latency mode is not looked at	survived			15
+1b9h_A14	Measure: the number of collections is not looked at	survived			16
+1b9h_A15	Measure: the code is not checked for null	killed(1 failed: NoCode_IsAnArgumentError)[listed]			14
+1b9h_A16	the budget of the region is too small for the large array	killed(5 failed: ALargeArray_ReadsItsSize_WhateverTheStateOfTheThreadsAllocat,ASmallArray_ReadsItsSize,CodeThatAllocatesNothing_ReadsZero_InAWindowWithoutCollectio)[listed]			16
+1b9h_A17	the region has no room for large objects	survived			22
+1b9h_A18	TryStartRegion: a region that another thread opened is an error	survived			23
+1b9h_A21	Measure: a region that is already open is not looked for (a start inside it ends it)	killed(1 failed: ARegionThatIsAlreadyOpen_IsUsedAsItIs_AndLeftOpen)[listed]			25
+1b9h_A22	Measure: a region that was open is ended by the meter	killed(1 failed: ARegionThatIsAlreadyOpen_IsUsedAsItIs_AndLeftOpen)[listed]			20
+1b9h_A19	EndRegion: the region is ended whatever the mode	survived			13
+1b9h_A20	EndRegion: the exception of a region that was left is not caught	survived			15

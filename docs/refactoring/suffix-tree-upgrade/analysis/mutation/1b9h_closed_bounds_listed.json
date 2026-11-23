@@ -1,0 +1,26 @@
+[
+ {
+  "id": "1b9h_T06",
+  "desc": "CheckRead: a negative offset is accepted",
+  "old": "if (offset < 0 || count > _bytes - offset) ThrowOutOfBounds(offset, count);",
+  "new": "if (count > _bytes - offset) ThrowOutOfBounds(offset, count);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs",
+  "filter": "(FullyQualifiedName~MappedTextBounds1b9hTests|FullyQualifiedName~MappedTextReaderTests)"
+ },
+ {
+  "id": "1b9h_T16",
+  "desc": "ReadSymbols: the bytes are rounded down",
+  "old": "(((long)destination.Length * _bits) + 7 >> 3) + 2",
+  "new": "(((long)destination.Length * _bits) >> 3) + 2",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs",
+  "filter": "(FullyQualifiedName~MappedTextBounds1b9hTests|FullyQualifiedName~MappedTextReaderTests)"
+ },
+ {
+  "id": "1b9h_T22",
+  "desc": "Dispose: a second Dispose takes it out again (the field is not cleared first)",
+  "old": "        if (_registered is not null) MappedFileRegistry.Unmap(_registered);\n",
+  "new": "        if (_registered is not null) { MappedFileRegistry.Unmap(_registered); MappedFileRegistry.Unmap(_registered); }\n",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs",
+  "filter": "(FullyQualifiedName~MappedTextBounds1b9hTests|FullyQualifiedName~MappedTextReaderTests)"
+ }
+]
