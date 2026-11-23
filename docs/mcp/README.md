@@ -25,14 +25,14 @@ guessing a number. Same math as the C# API; the tool call is just a different fr
 - **Auditable** — each answer comes with the exact tools called, in order (see the worked workflows).
 
 > **New here?** If you use Claude Code or Copilot, you usually don't touch MCP directly — the
-> [Agent Skills](../../.claude/skills) attach the right server *on demand* and keep the 649 tool
+> [Agent Skills](../../.claude/skills) attach the right server *on demand* and keep the 650 tool
 > schemas out of the model's context. This guide is for wiring the servers into any MCP client
 > yourself, or understanding what runs underneath.
 
 ## The servers
 
 Tools are split into focused, per-domain servers so you attach only what a task needs — a smaller
-tool surface loads faster and is easier for the model to reason about. **649 tools across 11 servers:**
+tool surface loads faster and is easier for the model to reason about. **650 tools across 11 servers:**
 
 | Server | What it's for | Tools |
 |--------|---------------|------:|
@@ -159,7 +159,7 @@ tm_diff_c = 4.1
 
 ## Tool catalog & schemas
 
-Every one of the 649 tools ships a per-tool doc (`{tool}.md`) and machine-readable schema
+Every one of the 650 tools ships a per-tool doc (`{tool}.md`) and machine-readable schema
 (`{tool}.mcp.json`) under [`tools/<server>/`](tools), and each server's own `README.md` lists its
 full tool table.
 

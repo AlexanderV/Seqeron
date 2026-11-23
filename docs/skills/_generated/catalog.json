@@ -49,6 +49,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAssembler.cs#L574"
   },
   {
+    "tool": "banded_align",
+    "server": "Alignment",
+    "methodId": "SequenceAligner.BandedAlign",
+    "docPath": "docs/mcp/tools/alignment/banded_align.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.Banded.cs"
+  },
+  {
     "tool": "calculate_coverage",
     "server": "Alignment",
     "methodId": "SequenceAssembler.CalculateCoverage",

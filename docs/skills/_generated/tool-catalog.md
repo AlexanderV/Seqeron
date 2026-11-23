@@ -4,7 +4,7 @@
 
 <!-- BEGIN generated: do not edit by hand -->
 
-## Alignment (88 tools)
+## Alignment (89 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -15,6 +15,7 @@
 | `assemble_de_bruijn` | `SequenceAssembler.AssembleDeBruijn` | [doc](../../mcp/tools/alignment/assemble_de_bruijn.md) |
 | `assemble_olc` | `SequenceAssembler.AssembleOLC` | [doc](../../mcp/tools/alignment/assemble_olc.md) |
 | `assembly_stats` | `SequenceAssembler.CalculateStats` | [doc](../../mcp/tools/alignment/assembly_stats.md) |
+| `banded_align` | `SequenceAligner.BandedAlign` | [doc](../../mcp/tools/alignment/banded_align.md) |
 | `calculate_coverage` | `SequenceAssembler.CalculateCoverage` | [doc](../../mcp/tools/alignment/calculate_coverage.md) |
 | `clustalw_command` | `ClustalWProgram.Run` | [doc](../../mcp/tools/alignment/clustalw_command.md) |
 | `clustalw_guide_tree` | `SequenceAligner.ClustalWGuideTreeText` | [doc](../../mcp/tools/alignment/clustalw_guide_tree.md) |
