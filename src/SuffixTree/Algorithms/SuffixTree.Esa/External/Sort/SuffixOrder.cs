@@ -100,12 +100,6 @@ internal sealed class SuffixOrder(MappedTextReader text, RankTable ranks, SortWo
     }
 }
 
-/// <summary>Struct comparer over positions for <see cref="Span{T}"/> sorting: key ties of a leaf bucket.</summary>
-internal readonly struct TiedComparer(SuffixOrder order) : IComparer<uint>
-{
-    public int Compare(uint x, uint y) => order.CompareTied(x, y);
-}
-
 /// <summary>Struct comparer over positions: full comparison (splitter sample).</summary>
 internal readonly struct FullComparer(SuffixOrder order) : IComparer<uint>
 {
