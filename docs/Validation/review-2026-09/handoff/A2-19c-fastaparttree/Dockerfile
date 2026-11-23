@@ -5,7 +5,7 @@ ARG BASE=debian:12-slim
 FROM --platform=linux/amd64 ${BASE}
 
 RUN apt-get update \
- && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates gcc make python3 zip file procps mafft \
+ && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates gcc libc6-dev make python3 zip file procps mafft \
  && rm -rf /var/lib/apt/lists/* \
  && mafft --version 2>&1 | head -1
 

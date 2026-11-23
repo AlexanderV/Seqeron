@@ -1,3 +1,5 @@
+**RUN 2 (returned/A2-19c-fastaparttree-out.run2.zip): the source was found and extracted, the build stopped at `stdio.h: No such file or directory` (the image had gcc without libc6-dev). Dockerfile fixed (libc6-dev added): RUN 3 NEEDED, `./run.sh` once more.**
+
 **STATUS: RERUN-NEEDED (2026-11-23).** Run 1 (returned/A2-19c-fastaparttree-out.zip) could not build `fasta34`: all four source URLs of the first version failed (404/403/DNS), so `mafft --fastaparttree` returned its own "install fasta34" refusal for all 60 sets (the refusal text is kept as returned data). The package now carries the real source `inputs/fasta-34.26.5.shar.Z` (downloaded from fasta.bioch.virginia.edu, sha256 d1611406...ad7bfd02) and `fetch_fasta34.py` parses the shell archive (does not execute it) and builds it with `make -f Makefile.linux fasta34`. Run `./run.sh` again; return the new `returned/A2-19c-fastaparttree-out.zip`.
 
 # Hand-off A2-19c-fastaparttree: `mafft --fastaparttree` (MAFFT 7.505, `splittbfast` with the pairwise scores of `fasta34`)
