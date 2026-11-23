@@ -397,6 +397,15 @@ public record AlignmentCountsResult(
 /// <summary>The result of <c>alignment_operation</c>: the operation and its value as JSON (an alignment as {sequences, coordinates, attrs}, a list, a string or a number), and the text for the pretty print.</summary>
 public record AlignmentOperationResult(string Operation, string ResultJson, string? Text = null);
 
+/// <summary>One alignment of <c>codon_aligner</c>: the vertices of the path (target = residues, query = nucleotides; a frame shift adds two vertices with the same residue position).</summary>
+public record CodonAlignmentDto(long[][] Coordinates);
+
+/// <summary>The result of <c>codon_aligner</c> (Bio.Align.CodonAligner): the optimal score and the alignments in the order of the iterator of Biopython.</summary>
+public record CodonAlignerResult(double Score, int Count, CodonAlignmentDto[] Alignments);
+
+/// <summary>The result of <c>multiple_seq_alignment</c> (the legacy Bio.Align.MultipleSeqAlignment): the operation, its value as JSON (an alignment as {records, annotations, column_annotations}, a record, a string, a number, a matrix) and the text of <c>str(alignment)</c> when the value is an alignment.</summary>
+public record MultipleSeqAlignmentResult(string Operation, string ResultJson, string? Text = null);
+
 /// <summary>One result of <c>parasail_score</c> (parasail 1.3.4 score API): score, the end coordinates and, when asked, the statistics, the tables and the last row / column.</summary>
 public record ParasailScoreItem(
     int Score, int EndQuery, int EndReference, int? Matches, int? Similar, int? Length,

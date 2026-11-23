@@ -39,14 +39,6 @@ public sealed partial class PairwiseAligner
             throw new ArgumentException("strand must be '+' or '-'.", nameof(strand));
     }
 
-    private void RequireSupported()
-    {
-        if (InsertionScoreFunction is not null || DeletionScoreFunction is not null)
-            throw new NotSupportedException("Scoring and aligning with gap-score functions (position and length dependent Waterman-Smith-Beyer scores) are not available through the library's aligners; AlignmentOperations.Counts accepts them. Use GeneralGapAlign for a length-only gap function.");
-        for (int i = 0; i < 6; i++)
-            if (_open[i] > 0 || _extend[i] > 0)
-                throw new NotSupportedException("Gap scores above zero are not supported by the library's aligners.");
-    }
 
     // the alphabet-wide scalar matrix of match / mismatch / wildcard scoring (the aligners score letters through SubstitutionMatrix when the scores are not integers or a wildcard letter exists)
     private SubstitutionMatrix ScalarMatrix(string a, string b)
@@ -179,16 +171,20 @@ public sealed partial class PairwiseAligner
     /// <summary>
     /// <c>aligner.score(sequenceA, sequenceB, strand)</c>: the optimal alignment score. Letters are compared case-insensitively (the sequences are upper-cased); strand <c>-</c> aligns A with the reverse complement of B.
     /// </summary>
-    /// <exception cref="NotSupportedException">Gap-score functions, or gap scores above zero (not available through the library's aligners).</exception>
     public double Score(string sequenceA, string sequenceB, char strand = '+')
     {
         ArgumentNullException.ThrowIfNull(sequenceA);
         ArgumentNullException.ThrowIfNull(sequenceB);
         RequireStrand(strand);
-        RequireSupported();
         string b = strand == '-' ? AlignmentCoordinateFormats.ReverseComplement(sequenceB) : sequenceB;
         if (Mode == PairwiseAlignerMode.Fogsaa)
             return RunFogsaaScored(sequenceA, b, strand).Score;
+        if (UsesWaterman)
+            return WsbScore(sequenceA.ToUpperInvariant(), b.ToUpperInvariant(), strand);
+        if (UsesSmithWaterman)
+            return SmithWatermanScore(sequenceA.ToUpperInvariant(), b.ToUpperInvariant());
+        if (UsesGotohLocal)
+            return GotohLocalScore(sequenceA.ToUpperInvariant(), b.ToUpperInvariant());
         return RunDp(sequenceA, b, strand, all: false).Score;
     }
 
@@ -196,13 +192,11 @@ public sealed partial class PairwiseAligner
     /// <c>aligner.align(sequenceA, sequenceB, strand)</c>: every alignment of the optimal score (one alignment in <c>fogsaa</c> mode) as coordinates of the target (A) and the query (B; on strand <c>-</c> the query coordinates decrease). The enumeration is the
     /// library's co-optimal enumeration (the same SET of alignments as Biopython's; the order is not Biopython's: compare with <see cref="AlignmentOperations.Compare"/>). A local alignment without a positive score gives no alignment and the score 0.
     /// </summary>
-    /// <exception cref="NotSupportedException">Gap-score functions, or gap scores above zero.</exception>
     public PairwiseAlignments Align(string sequenceA, string sequenceB, char strand = '+')
     {
         ArgumentNullException.ThrowIfNull(sequenceA);
         ArgumentNullException.ThrowIfNull(sequenceB);
         RequireStrand(strand);
-        RequireSupported();
         string b = strand == '-' ? AlignmentCoordinateFormats.ReverseComplement(sequenceB) : sequenceB;
         double score;
         List<AlignmentResult> results;
@@ -212,6 +206,22 @@ public sealed partial class PairwiseAligner
             score = s;
             string rowA = new([.. columns.Select(c => c.A)]), rowB = new([.. columns.Select(c => c.B)]);
             results = [new AlignmentResult(rowA, rowB, (int)Math.Round(s, MidpointRounding.AwayFromZero), AlignmentType.Global, 0, 0, sequenceA.Length - 1, b.Length - 1) { ExactScore = s }];
+        }
+        else if (UsesWaterman || UsesGotohLocal)
+        {
+            string wa = sequenceA.ToUpperInvariant(), wb = b.ToUpperInvariant();
+            (double, List<AlignmentResult>) run;
+            if (UsesWaterman)
+                run = WsbAlign(wa, wb, strand);
+            else if (UsesSmithWaterman)
+                run = SmithWatermanAlign(wa, wb);
+            else
+                run = GotohLocalAlign(wa, wb);
+            var (s, found) = run;
+            score = s;
+            results = [.. found.Where(r => r.AlignedSequence1.Length > 0)];
+            if (Mode == PairwiseAlignerMode.Local && results.Count == 0)
+                return new PairwiseAlignments(score, []);
         }
         else
         {

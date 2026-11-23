@@ -48,7 +48,7 @@ public partial class AlignmentTools
 
     private static int[] ParseIntList(string text) => [.. (JsonNode.Parse(text) as JsonArray ?? throw new ArgumentException("A list of integers is needed, e.g. [1, 2, -1].", nameof(text))).Select(x => x!.GetValue<int>())];
 
-    private static PairwiseAligner BuildAligner(string? mode, double? matchScore, double? mismatchScore, string? matrix, string? wildcard, string? scoring, string? gapScoresJson)
+    private static PairwiseAligner BuildAligner(string? mode, double? matchScore, double? mismatchScore, string? matrix, string? wildcard, string? scoring, string? gapScoresJson, string? gapFunctionsJson = null)
     {
         var aligner = new PairwiseAligner(string.IsNullOrWhiteSpace(scoring) ? null : scoring.Trim().ToLowerInvariant());
         if (!string.IsNullOrWhiteSpace(mode))
@@ -82,13 +82,26 @@ public partial class AlignmentTools
                 aligner.SetGapScore(key, value!.GetValue<double>());
         }
 
+        if (!string.IsNullOrWhiteSpace(gapFunctionsJson))
+        {
+            // B09 WP67 (F307): gap-score functions of (position, length) by family name: {"gap_score": {"kind": "lin", "p": [2, 0.5]}, "insertion_score": ..., "deletion_score": ...}
+            var functions = JsonNode.Parse(gapFunctionsJson) as JsonObject ?? throw new ArgumentException("gapFunctionsJson must be a JSON object {\"gap_score\": {\"kind\": \"lin\", \"p\": [2, 0.5]}}.", nameof(gapFunctionsJson));
+            foreach (var (key, value) in functions)
+            {
+                var spec = value as JsonObject ?? throw new ArgumentException($"gapFunctionsJson: '{key}' must be an object {{\"kind\": ..., \"p\": [...]}}.", nameof(gapFunctionsJson));
+                string kind = spec["kind"]?.GetValue<string>() ?? throw new ArgumentException($"gapFunctionsJson: '{key}' has no kind.", nameof(gapFunctionsJson));
+                double[] p = spec["p"] is JsonArray arr ? [.. arr.Select(x => x!.GetValue<double>())] : [];
+                aligner.SetGapFunction(key, GapScoreFunctions.Create(kind, p));
+            }
+        }
+
         return aligner;
     }
 
     private const string AlignerParamNote = "gapScoresJson: a JSON object of Biopython gap-score properties (open_gap_score, extend_gap_score, gap_score, left_gap_score, right_open_gap_score, end_gap_score, target_gap_score, query_extend_gap_score, open_internal_insertion_score ... every name of the property tree; insertion = a gap in the target (sequence A), deletion = a gap in the query); the default of every gap score is -1.";
 
     [McpServerTool(Name = "pairwise_aligner", Title = "Pairwise — Biopython PairwiseAligner (global / local / FOGSAA, wildcard, strand)", ReadOnly = true)]
-    [Description("Bio.Align.PairwiseAligner of Biopython 1.88 on two sequences: the optimal score, the algorithm Biopython selects (Needleman-Wunsch, Gotoh, Smith-Waterman, FOGSAA) and every alignment of the optimal score (target = sequenceA, query = sequenceB; block coordinates, printed rows, the Bio.Align text). mode global / local / fogsaa (the Fast Optimal Global Sequence Alignment Algorithm: one optimal alignment found by branch and bound, with Biopython's warnings when match < mismatch or a gap score exceeds the mismatch score), matchScore / mismatchScore or a substitution matrix (name or text), the wildcard letter (scores 0 against every letter, scalar scoring only), the presets scoring = blastn / megablast / blastp, the twelve gap scores by name, strand '-' (sequenceA against the reverse complement of sequenceB; the query coordinates decrease). " + AlignerParamNote + " Letters are compared case-insensitively. Gap-score functions and gap scores above zero are not available; use general_gap_align for a length-only gap function. VERIFICATION: score, algorithm name, warnings and the alignments (as a set; FOGSAA the alignment itself) equal to Biopython 1.88 on 698 / 698 recorded configurations (scripts/alignment/generate_pairwise_aligner_oracle.py).")]
+    [Description("Bio.Align.PairwiseAligner of Biopython 1.88 on two sequences: the optimal score, the algorithm Biopython selects (Needleman-Wunsch, Gotoh, Smith-Waterman, FOGSAA) and every alignment of the optimal score (target = sequenceA, query = sequenceB; block coordinates, printed rows, the Bio.Align text). mode global / local / fogsaa (the Fast Optimal Global Sequence Alignment Algorithm: one optimal alignment found by branch and bound, with Biopython's warnings when match < mismatch or a gap score exceeds the mismatch score), matchScore / mismatchScore or a substitution matrix (name or text), the wildcard letter (scores 0 against every letter, scalar scoring only), the presets scoring = blastn / megablast / blastp, the twelve gap scores by name, strand '-' (sequenceA against the reverse complement of sequenceB; the query coordinates decrease). " + AlignerParamNote + " Letters are compared case-insensitively. Gap-score functions of (position, length) (gapFunctionsJson: Biopython's Waterman-Smith-Beyer algorithm for gap_score / insertion_score / deletion_score, strands + and -; the functions are named families because a tool cannot receive code) and gap scores above zero (Needleman-Wunsch, Gotoh, Smith-Waterman and Waterman-Smith-Beyer with a positive score, local alignments included) are supported; FOGSAA ignores gap functions, as in Biopython. VERIFICATION: score, algorithm name, warnings and the alignments (as a set; FOGSAA the alignment itself) equal to Biopython 1.88 on 698 / 698 recorded configurations (scripts/alignment/generate_pairwise_aligner_oracle.py) and on 1 501 / 1 501 configurations with gap-score functions or gap scores above zero (scripts/alignment/generate_pairwise_wsb_oracle.py; including the RuntimeError the reference raises on one local alignment).")]
     public static PairwiseAlignerResult PairwiseAlignerAlign(
         [Description("The target sequence (any letters).")] string sequenceA,
         [Description("The query sequence (any letters).")] string sequenceB,
@@ -99,6 +112,7 @@ public partial class AlignmentTools
         [Description("A single wildcard letter that scores 0 against every letter (scalar scoring only).")] string? wildcard = null,
         [Description("Scoring preset: blastn, megablast or blastp (matrix and gap scores of Bio.Align); individual settings below override it.")] string? scoring = null,
         [Description("Gap scores: a JSON object of Biopython property names to numbers (see the description).")] string? gapScoresJson = null,
+        [Description("Gap-score functions of (position, length) (Biopython's Waterman-Smith-Beyer algorithm): a JSON object gap_score / insertion_score / deletion_score -> {\"kind\": lin | log | sq | pos | step | tab | zero | bonus, \"p\": [a, b, c]}: lin -(a + b*length), log -(a + b*ln(length + 1)), sq -(a + b*length^2), pos -(a + b*position + c*length), step -a up to c positions and -b beyond, tab -(((position*7 + length*3) mod b)*0.5 + a), zero 0, bonus a*length - b.")] string? gapFunctionsJson = null,
         [Description("+ (default) or -: align sequenceA with the reverse complement of sequenceB.")] string strand = "+",
         [Description("Return at most this many alignments (default 100; the number of optimal alignments can be exponential).")] int maxAlignments = 100,
         [Description("true: only the score (no alignments; memory O(n) for large inputs).")] bool scoreOnly = false,
@@ -112,7 +126,7 @@ public partial class AlignmentTools
         if (maxAlignments < 1)
             throw new ArgumentOutOfRangeException(nameof(maxAlignments), "maxAlignments must be at least 1.");
         bool presetScalars = !string.IsNullOrWhiteSpace(scoring);
-        var aligner = BuildAligner(mode, presetScalars && matchScore == 1 ? null : matchScore, presetScalars && mismatchScore == 0 ? null : mismatchScore, matrix, wildcard, scoring, gapScoresJson);
+        var aligner = BuildAligner(mode, presetScalars && matchScore == 1 ? null : matchScore, presetScalars && mismatchScore == 0 ? null : mismatchScore, matrix, wildcard, scoring, gapScoresJson, gapFunctionsJson);
         if (scoreOnly)
             return new PairwiseAlignerResult(aligner.Score(sequenceA, sequenceB, strand[0]), aligner.Algorithm, [.. aligner.Warnings], 0, []);
         var found = aligner.Align(sequenceA, sequenceB, strand[0]);

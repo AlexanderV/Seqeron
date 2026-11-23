@@ -47,6 +47,12 @@
     <EmbeddedResource Include="TestData\Alignment\emboss_prog_*_oracle.jsonl.gz" />
     <!-- B09 WP67 (F306): PCRE 7 (libepcre of EMBOSS 6.6.0) compile errors and matches of the expressions the PROSITE conversion can write; scripts/alignment/generate_emboss_pcre_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\emboss_pcre_oracle.tsv.gz" />
+    <!-- B09 WP67 (F307, R14-10b): Biopython 1.88 PairwiseAligner with gap-score functions (Waterman-Smith-Beyer) and gap scores above zero; scripts/alignment/generate_pairwise_wsb_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\pairwise_wsb_oracle.jsonl.gz" />
+    <!-- B09 WP67 (F307, R14-10b): Biopython 1.88 CodonAligner; scripts/alignment/generate_codon_aligner_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\codon_aligner_oracle.jsonl.gz" />
+    <!-- B09 WP67 (F307, R14-10b): legacy Bio.Align.MultipleSeqAlignment 1.88; scripts/alignment/generate_multiple_seq_alignment_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\multiple_seq_alignment_oracle.jsonl.gz" />
     <!-- B09 WP67 (F306): patmatmotifs 6.6.0 on the real PROSITE release 2026_04 (85 runs of the user-run Docker package handoff/WP62-patmatmotifs-prosite); scripts/alignment/convert_patmatmotifs_prosite_returned.py. -->
     <EmbeddedResource Include="TestData\Alignment\emboss_prosite_returned_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\emboss_prosite_release_data.json.gz" />
