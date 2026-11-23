@@ -1,0 +1,13 @@
+# Orchestrator check of the first Open of a fresh process, 1b.9 (2026-11-23): the same gate1b9 `open` command, the same container (dna_10m, 132,515,457 bytes, page cache warm), five fresh processes of
+# a build published with ReadyToRun against three of the plain JIT build; seconds. Build of the ReadyToRun variant (the consumer publishes; the library is compiled ahead of time, 506 kB -> 1.3 MB):
+#   dotnet publish docs/refactoring/suffix-tree-upgrade/analysis/bench/gate1b9/Gate1b9.csproj -c Release -r linux-x64 --self-contained false -p:PublishReadyToRun=true -p:EsaDir=<esa dir> -o <out>
+# variant	first_open_s	first_query_s
+r2r	0.008532712	0.001876503
+r2r	0.00764464	0.001577681
+r2r	0.007364358	0.00160444
+r2r	0.008504647	0.00191682
+r2r	0.008580213	0.00184723
+jit	0.014806723	0.004979906
+jit	0.014952276	0.005003289
+jit	0.014946469	0.005028556
+# median r2r 0.008505 s [0.007364-0.008580] (gate 1b.7: <= 10 ms: met); median jit 0.014952 s [0.014807-0.014952] (not met)
