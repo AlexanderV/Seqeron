@@ -105,15 +105,16 @@ internal sealed partial class EsaSuffixIndex : ISuffixTreeNavigation, ISuffixArr
     /// <inheritdoc />
     public bool TryExtendLeft(in IndexLocus locus, int symbol, out IndexLocus result)
     {
-        Resolve(locus, nameof(locus));
+        IndexLocus at = locus; // a copy: result may be the same variable as locus (the contract), and result is written before the locus is read again
+        Resolve(at, nameof(locus));
         result = default;
         if ((uint)symbol > char.MaxValue) return false;
-        if (locus.Length == 0) return TryExtendRight(locus, symbol, out result); // the empty string: a symbol on the left is a symbol on the right
+        if (at.Length == 0) return TryExtendRight(at, symbol, out result); // the empty string: a symbol on the left is a symbol on the right
         EsaNavigationPack pack = _index.Navigation;
         SaView sa = _index.Sa;
         EsaText text = _index.TextView;
         int low = int.MaxValue, high = -1;
-        for (int rank = (int)locus.Lo, last = (int)locus.Hi; rank <= last; rank++)
+        for (int rank = (int)at.Lo, last = (int)at.Hi; rank <= last; rank++)
         {
             // the suffixes that start with symbol + locus string are the predecessors of the occurrences that are preceded by the symbol: a contiguous rank interval
             int position = sa[rank];
@@ -126,7 +127,7 @@ internal sealed partial class EsaSuffixIndex : ISuffixTreeNavigation, ISuffixArr
         }
         if (high < 0) return false;
         long aux = low == high ? _n - sa[low] + 1 : pack.Pyramid.Min(low + 1, high);
-        result = new IndexLocus(low, high, locus.Length + 1, aux);
+        result = new IndexLocus(low, high, at.Length + 1, aux);
         return true;
     }
 
@@ -142,12 +143,13 @@ internal sealed partial class EsaSuffixIndex : ISuffixTreeNavigation, ISuffixArr
 
     /// <summary>
     /// The extension by a pattern: inside an edge the next symbol is the text at the first suffix of the interval; at a node the child whose edge starts with the symbol is found by walking the l-indices.
+    /// <paramref name="result"/> may be the same variable as <paramref name="locus"/> (the contract): everything that is needed from the locus is read before the first write to the result.
     /// </summary>
     private bool Extend(in IndexLocus locus, ReadOnlySpan<char> pattern, out IndexLocus result)
     {
         EsaNode node = Resolve(locus, nameof(locus));
-        result = default;
         long length = locus.Length;
+        result = default;
         EsaText text = _index.TextView;
         foreach (char symbol in pattern)
         {

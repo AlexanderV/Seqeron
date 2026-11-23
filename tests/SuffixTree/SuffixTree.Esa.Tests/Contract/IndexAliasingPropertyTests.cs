@@ -113,6 +113,7 @@ public class IndexAliasingPropertyTests(IndexEngineFactory factory)
             }
             refused += walker.Refused;
         }
+        TestContext.Out.WriteLine($"[{factory.Name}] {walks} walks, {StepsPerWalk} steps each; answered / not answered per member: {string.Join(", ", Enum.GetValues<Member>().Select(m => $"{m} {ok.GetValueOrDefault(m)}/{failed.GetValueOrDefault(m)}"))}; refused by both forms: {refused}");
         Assert.That(walks, Is.GreaterThan(300), "a few hundred walks");
         bool navigation = factory.Name != "ukkonen-adapter";
         foreach (Member member in Enum.GetValues<Member>())

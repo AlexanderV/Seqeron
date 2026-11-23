@@ -24,7 +24,7 @@ internal sealed partial class EsaSuffixIndex
     /// </summary>
     public bool TryParent(in IndexLocus locus, out IndexLocus parent)
     {
-        EsaNode node = Resolve(locus, nameof(locus));
+        EsaNode node = Resolve(locus, nameof(locus)); // the locus is copied into the handle before parent is written: parent may be the same variable as locus
         parent = default;
         if (node.Depth == 0) return false;
         int parentDepth = node.ParentDepth;
@@ -43,7 +43,7 @@ internal sealed partial class EsaSuffixIndex
     /// <inheritdoc />
     public bool TryChild(in IndexLocus node, int firstSymbol, out IndexLocus child)
     {
-        EsaNode resolved = ResolveNode(node, nameof(node));
+        EsaNode resolved = ResolveNode(node, nameof(node)); // copied before child is written: child may be the same variable as node
         child = default;
         if (!FindChild(resolved, firstSymbol, out EsaNode found)) return false;
         child = ToLocus(found);
@@ -53,7 +53,7 @@ internal sealed partial class EsaSuffixIndex
     /// <inheritdoc />
     public int GetChildren(in IndexLocus node, Span<IndexLocus> children)
     {
-        EsaNode resolved = ResolveNode(node, nameof(node));
+        EsaNode resolved = ResolveNode(node, nameof(node)); // copied before the first child is written: children may hold the variable that holds node
         if (resolved.IsLeaf) return 0;
         int count = _isMapped ? WalkChildren(_mapped, resolved, default, false) : _kind switch
         {
@@ -76,7 +76,7 @@ internal sealed partial class EsaSuffixIndex
     /// </summary>
     public bool TrySuffixLink(in IndexLocus node, out IndexLocus link)
     {
-        EsaNode resolved = ResolveNode(node, nameof(node));
+        EsaNode resolved = ResolveNode(node, nameof(node)); // copied before link is written: link may be the same variable as node
         link = default;
         if (resolved.Depth == 0 || resolved.IsLeaf) return false;
         link = ToLocus(_index.Navigation.SuffixLink(resolved));

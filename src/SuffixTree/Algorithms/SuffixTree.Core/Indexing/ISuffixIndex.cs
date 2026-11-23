@@ -38,15 +38,18 @@ public interface ISuffixIndex
     /// Appends <paramref name="symbol"/> to the locus string. Returns false, and leaves <paramref name="result"/> default, when the extended string
     /// does not occur in the text or <paramref name="symbol"/> is not a code unit (outside 0..65535, the terminator included).
     /// </summary>
+    /// <remarks><paramref name="result"/> may be the same variable as <paramref name="locus"/> (<c>index.TryExtendRight(l, c, out l)</c>): the answer is the same as with two variables.</remarks>
     bool TryExtendRight(in IndexLocus locus, int symbol, out IndexLocus result);
 
     /// <summary>
     /// Appends <paramref name="pattern"/> to the locus string; an empty pattern returns the locus itself. Returns false, and leaves
     /// <paramref name="result"/> default, when the extended string does not occur in the text.
     /// </summary>
+    /// <remarks><paramref name="result"/> may be the same variable as <paramref name="locus"/>: the answer is the same as with two variables.</remarks>
     bool TryExtendRight(in IndexLocus locus, ReadOnlySpan<char> pattern, out IndexLocus result);
 
     /// <summary>Prepends <paramref name="symbol"/> to the locus string; same failure convention as <see cref="TryExtendRight(in IndexLocus, int, out IndexLocus)"/>.</summary>
+    /// <remarks><paramref name="result"/> may be the same variable as <paramref name="locus"/>: the answer is the same as with two variables.</remarks>
     bool TryExtendLeft(in IndexLocus locus, int symbol, out IndexLocus result);
 
     /// <summary>
