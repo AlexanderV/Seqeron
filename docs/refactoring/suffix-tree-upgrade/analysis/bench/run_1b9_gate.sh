@@ -7,7 +7,7 @@
 #     steady <input> [repeats]               gate1b9 steady: 5 builds in one process, the last three reported (default 3 processes)
 #     entry <input> [repeats]                gate1b9 entry: EsaSuffixTreeFactory.CreateEsa, one call, cold (default 5)
 #     query <input> [repeats]                Bench query: 20-mer count (present, absent) and 8-mer locate of the in-memory ESA, one thread (default 5)
-#     nav <input> <op> [repeats]             Bench nav: MEM / MUM / anchors of memq100k on the production navigator (default 5)
+#     nav <input> <op> [repeats] [ukkonen]   Bench nav: MEM / MUM / anchors of memq100k on the production navigator, ESA only (default 5); a 4th argument "ukkonen" adds the in-memory Ukkonen tree in the same process
 #     container <input> [work dir]           builds the container of a benchmark text with the production builder (sesa build, 4 threads) and prints its sections
 #     open <container> <input> [repeats] [cold]   gate1b9 open: first (cold JIT) and warm Open; with "cold" the page cache is dropped before every process
 #     patterns <input> <file>                the abapp pattern file of a benchmark input: P = present20, L = locate8 (locate4 on protein), A = absent20
@@ -47,7 +47,8 @@ case $group in
   steady)  x=$1; m --input "$x" --repeats "${2:-3}" --phase steady -- $GATE steady "$D/data/$x.txt" "$x" 5 ;;
   entry)   x=$1; m --input "$x" --repeats "${2:-5}" --phase entry  -- $GATE entry  "$D/data/$x.txt" "$x" ;;
   query)   x=$1; m --input "$x" --repeats "${2:-5}" --phase query  -- $BENCH query --input "$D/data/$x.txt" --name "$x" --queries "$D" --min-seconds 2 ;;
-  nav)     x=$1; op=$2; m --input "$x" --repeats "${3:-5}" --phase "nav_$op" -- $BENCH nav --input "$D/data/$x.txt" --name "$x" --queries "$D" --op "$op" --min-length 20 --calls 10 ;;
+  nav)     x=$1; op=$2; uk=false; ph="nav_$op"; [ "${4:-}" = ukkonen ] && { uk=true; ph="nav_${op}_ukk"; }
+           m --input "$x" --repeats "${3:-5}" --phase "$ph" -- $BENCH nav --input "$D/data/$x.txt" --name "$x" --queries "$D" --op "$op" --min-length 20 --calls 10 --ukkonen $uk ;;
   container)
     x=$1; W=${2:-$OUT/work_$x}; mkdir -p "$W"
     $BENCH sesa build --input "$D/data/$x.txt" --work "$W" --label "$x" --threads 4 --keep true --rss true | cut -c1-200
