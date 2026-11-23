@@ -30,7 +30,7 @@ public static partial class SequenceAligner
         /// progressive alignment (<c>treebase</c>), and for <c>-E 2</c> the distances of the first alignment, a second tree and a second progressive alignment.
         /// <paramref name="seq"/> are the sequences as the program holds them after <c>replaceu</c>.
         /// </summary>
-        internal Result Disttbfast(IReadOnlyList<string> seq0)
+        internal Result Disttbfast(IReadOnlyList<string> seq0, IReadOnlyList<string>? names = null)
         {
             int njob = seq0.Count;
             _njob = njob;
@@ -64,8 +64,8 @@ public static partial class SequenceAligner
                 throw new ArgumentException("tuplesize must be 6 for aa sequence");
             if (G.Dorp == 'd' && G.TupleSize != 6 && G.TupleSize != 10)
                 throw new ArgumentException("tuplesize must be 6 or 10 for dna sequence");
-            if (G.TreeIn != 0 || G.NoAlign != 0 || G.DistOut != 0 || G.TreeOut != 0)
-                throw new NotSupportedException("--treein / --treeout / --distout of MAFFT are not available in this port.");
+            if (G.TreeIn != 0)
+                throw new NotSupportedException("--treein of MAFFT is not available in this port.");
 
             double[][] mtx = SixmerDistanceMatrix(seq);
             int nguidetree = G.NGuideTree;
@@ -80,12 +80,28 @@ public static partial class SequenceAligner
                 for (int i = 0; i < njob; i++)
                     len[i] = new double[2];
                 var dep = new Treedep[njob];
-                Report("Constructing a UPGMA tree (efffree=" + (calcpairdists ? 0 : 1) + ") ... ");
-                MuscleSupg(njob, mtx, topol0, topol1, len, dep);
+                if (G.DistOut != 0)
+                {
+                    DistFile = WriteHat2(mtx, names ?? DefaultNames(njob));
+                    if (G.TreeOut == 0 && G.NoAlign != 0)
+                        return NoAlignResult(seq, njob);
+                }
+                if (G.TreeOut != 0)
+                {
+                    Report("Constructing a UPGMA tree (treeout, efffree=" + (calcpairdists ? 0 : 1) + ") ... ");
+                    MuscleSupg(njob, mtx, topol0, topol1, len, dep, false, names ?? DefaultNames(njob));
+                }
+                else
+                {
+                    Report("Constructing a UPGMA tree (efffree=" + (calcpairdists ? 0 : 1) + ") ... ");
+                    MuscleSupg(njob, mtx, topol0, topol1, len, dep);
+                }
                 Report("\ndone.\n\n");
                 var tree = new GuideTree(topol0, topol1, dep, len);
                 int[] lm = tree.Order(njob - 2, 2);
                 Array.Copy(lm, order, njob);
+                if ((G.TreeOut != 0 || G.DistOut != 0) && G.NoAlign != 0)
+                    return NoAlignResult(seq, njob);
                 double[] eff = new double[njob];
                 if (G.Tbrweight != 0)
                 {
@@ -458,8 +474,16 @@ public static partial class SequenceAligner
         }
 
         /// <summary><c>fixed_musclesupg_double_realloc_nobk_halfmtx_memsave</c>: the UPGMA (mixed linkage, <c>-X</c>) of the half matrix <paramref name="eff"/> (MUSCLE's nearest-neighbour bookkeeping); step k joins the two closest groups.</summary>
-        private void MuscleSupg(int nseq, double[][] eff, int[][] topol0, int[][] topol1, double[][] len, Treedep[] dep, bool fullMembership = false)
+        private void MuscleSupg(int nseq, double[][] eff, int[][] topol0, int[][] topol1, double[][] len, Treedep[] dep, bool fullMembership = false, IReadOnlyList<string>? treeNames = null)
         {
+            string[]? tree = null;
+            double[]? density = null;
+            if (treeNames != null)
+            {
+                tree = new string[nseq];
+                for (int i = 0; i < nseq; i++)
+                    tree[i] = "\n" + (i + 1).ToString(CultureInfo.InvariantCulture) + "_" + TreeLabel(treeNames[i]) + "\n";
+            }
             double sueff1 = 1 - G.SueffGlobal;
             double sueff05 = G.SueffGlobal * 0.5;
             Func<double, double, double> cluster = G.TreeMethod switch
@@ -484,6 +508,12 @@ public static partial class SequenceAligner
             var nearest = new int[nseq];
             for (int i = 0; i < nseq; i++)
                 SetNearest(eff, next, mindisfrom, nearest, i);
+            if (tree != null && G.TreeOut == 2)
+            {
+                density = new double[nseq];
+                for (int i = 0; i < nseq; i++)
+                    density[i] = SetDensity(eff, next, nseq, i);
+            }
             for (int i = 0; i < nseq; i++)
             {
                 hist[i] = -1;
@@ -559,6 +589,11 @@ public static partial class SequenceAligner
                             nearest[i] = im;
                     }
                 }
+                if (tree != null)
+                {
+                    tree[im] = "(" + tree[im] + ":" + MafftGlobals.F(len[k][0], 7, 5) + "," + tree[jm] + ":" + MafftGlobals.F(len[k][1], 7, 5) + ")";
+                    tree[jm] = null!;
+                }
                 int acjmprev = prev[jm];
                 int acjmnext = next[jm];
                 next[acjmprev] = acjmnext;
@@ -583,6 +618,117 @@ public static partial class SequenceAligner
                     }
                 }
             }
+            if (tree != null)
+            {
+                var file = new StringBuilder(tree[im]);
+                file.Append(";\n");
+                if (G.TreeOut == 2)
+                {
+                    var gt = new GuideTree(topol0, topol1, dep, len);
+                    file.Append("\nDensity:");
+                    for (int k = 0; k < nseq; k++)
+                        file.Append("\nSequence ").Append(k + 1).Append(", ").Append(MafftGlobals.F(density![k], 7, 4));
+                    file.Append("\n\nNode info:");
+                    for (int k = 0; k < nseq - 1; k++)
+                    {
+                        file.Append("\nNode ").Append(k + 1).Append(", Height=").Append(dep[k].DistFromTip.ToString("F6", CultureInfo.InvariantCulture)).Append('\n');
+                        foreach (int child in new[] { 0, 1 })
+                        {
+                            int[] mem = gt.Order(k, child);
+                            file.Append(Densest(mem, density!) + 1).Append(':');
+                            foreach (int mm in mem)
+                                file.Append(' ').Append(mm + 1);
+                            file.Append('\n');
+                        }
+                    }
+                }
+                TreeFile = file.ToString();
+            }
+        }
+
+        /// <summary>The text of the file <c>infile.tree</c> (<c>--treeout</c> / <c>--nodeout</c>) after the last guide tree, and the distance file <c>hat2</c> (<c>--distout</c>) written for the last guide tree.</summary>
+        internal string? TreeFile, DistFile;
+
+        private static IReadOnlyList<string> DefaultNames(int n) => Enumerable.Range(0, n).Select(i => "=seq" + (i + 1).ToString(CultureInfo.InvariantCulture)).ToArray();
+
+        /// <summary>The name of a sequence in the tree file: letters, digits, '/', '=', '-', '{' and '}' stay, everything else is replaced by '_'; the first character (the '=' of the program's name) and a prefix up to <c>_oe_</c> are cut.</summary>
+        private static string TreeLabel(string name)
+        {
+            var sb = new StringBuilder();
+            foreach (char c in name.Length > 999 ? name[..999] : name)
+                sb.Append(char.IsAsciiLetterOrDigit(c) || c is '/' or '=' or '-' or '{' or '}' ? c : '_');
+            string nameptr = sb.Length > 0 ? sb.ToString()[1..] : "";
+            int oe = nameptr.IndexOf("_oe_", StringComparison.Ordinal);
+            if (oe >= 0)
+                nameptr = nameptr[(oe + 4)..];
+            return nameptr.Length > 900 ? nameptr[..900] : nameptr;
+        }
+
+        /// <summary><c>setdensity</c>: the sum of 2 - distance over the sequences that are closer than 1.</summary>
+        private static double SetDensity(double[][] eff, int[] next, int nseq, int pos)
+        {
+            double d = 0.0;
+            for (int j = next[pos]; j != -1 && j < nseq; j = next[j])
+                if (eff[pos][j - pos] < 1.0)
+                    d += 2.0 - eff[pos][j - pos];
+            for (int j = 0; j != -1 && j != pos; j = next[j])
+                if (eff[j][pos - j] < 1.0)
+                    d += 2.0 - eff[j][pos - j];
+            return d;
+        }
+
+        private static int Densest(int[] members, double[] density)
+        {
+            double dmax = -100.0;
+            int pmax = -1;
+            foreach (int m in members)
+            {
+                if (density[m] > dmax)
+                {
+                    dmax = density[m];
+                    pmax = m;
+                }
+            }
+            return pmax;
+        }
+
+        /// <summary><c>WriteFloatHat2_pointer_halfmtx</c>: the distance file of <c>--distout</c>.</summary>
+        private static string WriteHat2(double[][] mtx, IReadOnlyList<string> names)
+        {
+            int n = names.Count;
+            double max = 0.0;
+            for (int i = 0; i < n - 1; i++)
+                for (int j = 1; j < n - i; j++)
+                    if (mtx[i][j] > max)
+                        max = mtx[i][j];
+            var sb = new StringBuilder();
+            sb.Append(MafftGlobals.F(1, 5, 0)).Append('\n').Append(n.ToString(CultureInfo.InvariantCulture).PadLeft(5)).Append('\n');
+            sb.Append(' ').Append(Hat2Number(max * 2.5)).Append('\n');
+            for (int i = 0; i < n; i++)
+                sb.Append((i + 1).ToString(CultureInfo.InvariantCulture).PadLeft(4)).Append(". ").Append(names[i]).Append('\n');
+            for (int i = 0; i < n; i++)
+            {
+                for (int j = i + 1; j < n; j++)
+                {
+                    sb.Append(Hat2Number(mtx[i][j - i]));
+                    int ijsa = j - i;
+                    if (ijsa % 12 == 0 || ijsa == n - i - 1)
+                        sb.Append('\n');
+                }
+            }
+            return sb.ToString();
+        }
+
+        /// <summary><c>%#6.3f</c>.</summary>
+        private static string Hat2Number(double v) => v.ToString("F3", CultureInfo.InvariantCulture).PadLeft(6);
+
+        /// <summary>The output of <c>disttbfast -T</c> (<c>--retree 0</c>, or the guide tree / distances only): the sequences as they were read, not aligned.</summary>
+        private Result NoAlignResult(string[] seq, int njob)
+        {
+            Report("\n");
+            Report("disttbfast (" + (G.Dorp == 'd' ? "nuc" : "aa") + ") Version 7.505\nalg=" + G.Alg + ", model=" + G.ModelName + ", amax=" + G.SpecificityConsideration.ToString("F1", CultureInfo.InvariantCulture) + "\n"
+                + G.Nthread.ToString(CultureInfo.InvariantCulture) + " thread(s)\n\n");
+            return new Result((string[])seq.Clone(), Enumerable.Range(0, njob).ToArray());
         }
 
         /// <summary>The members of the group formed at step <paramref name="prevnode"/> (the two groups, the one whose first member is smaller first); only the first member with the memory-saving tree of <c>disttbfast</c>.</summary>

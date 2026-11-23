@@ -368,3 +368,8 @@ Input contract: ProbCons drops gap characters like the program's reader, POA rea
 ## Audit r2 (A2-12, B09 F296): `sap_pair` with the real SAP
 
 `TCoffeeProgramOptions.StructureAlignerOutputs[SapPair]` (the raw `.sap_results` of SAP 1.1.3) switches `sap_pair` from the TM-align replacement to the program's own glue `sap_pair` (util_dp_drivers.c L2049): one library entry of weight 100 per aligned residue pair, mapped with `fix_seq_seq` (matrix blosum62mt for the typed library-file set). 130 / 130 user-run sets equal `t_coffee` 13.41 (115 rows, 15 stops). MCP `multiple_align_tcoffee` accepts `sap_pair` items. DaliLite and the reason of the stop where SAP left no file: `handoff/A2-12b-dali-sap-stderr` (awaiting the user's run).
+
+
+## Audit r2 addendum (A2-19c stage 4, B09 F312 - F314, WP69): MAFFT 7.505 - the tree-splitting family, `--retree 0`, the tree and distance files
+
+`--parttree`, `--dpparttree` (installed `mafft`: rows, names, tree files and standard error equal on every committed set), `--fastaparttree` (the scoring of FASTA 3.4 ported; 60 / 60 rows equal the user's run of the real `fasta34`; the raw battery is registered as a Docker package), `--retree 0`, `--treeout`, `--nodeout`, `--distout` (1 029 / 1 029). Tree / distance files with a pair library or `--maxiterate`, `--treein`, `--pileup`, `--randomchain` and `--large` remain registered (B09.md A2-19c-s4b / s4c).

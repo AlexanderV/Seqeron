@@ -80,6 +80,8 @@ public static partial class SequenceAligner
         internal int[][] NDis = null!;
         internal double[][] NDisConsweightMulti = null!;
         internal int[][] NDisFft = null!;
+        /// <summary><c>n_disLN</c> of <c>constants()</c>: the scores of the letters shifted by the offset (<c>offset - offsetLN</c>), the matrix of the local-type scores of <c>splittbfast</c>.</summary>
+        internal double[][] NDisLN = null!;
         internal double[][] AminoDisConsweightMulti = null!;
         internal int[][] AminoDis = null!;
         internal double[] Polarity = new double[256];
@@ -402,6 +404,16 @@ public static partial class SequenceAligner
                 for (int i = 0; i < 20; i++)
                     for (int j = 0; j < 20; j++)
                         NDisFft[i][j] = NDis[i][j] + Offset - OffsetFft;
+            }
+            NDisLN = new double[26][];
+            for (int i = 0; i < 26; i++)
+                NDisLN[i] = new double[26];
+            {
+                int offsetLN = (int)(1 * 600.0 / 1000.0 * 100 + 0.5);
+                int lim = Dorp == 'd' ? 10 : 20;
+                for (int i = 0; i < lim; i++)
+                    for (int j = 0; j < lim; j++)
+                        NDisLN[i][j] = (double)NDis[i][j] + Offset - offsetLN;
             }
             if (FftThreshold == NotSpecified)
                 FftThreshold = 80;

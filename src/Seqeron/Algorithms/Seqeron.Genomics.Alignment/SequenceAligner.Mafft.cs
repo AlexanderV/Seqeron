@@ -37,6 +37,19 @@ public enum MafftPairLibrary
     Genaf = 3,
 }
 
+/// <summary>The tree-splitting methods of MAFFT for very many sequences (<c>splittbfast</c>): the sequences are classified by their distance to a few representatives, recursively.</summary>
+public enum MafftPartTree
+{
+    /// <summary>None (the progressive / iterative methods).</summary>
+    None = 0,
+    /// <summary><c>--parttree</c>: the 6-mer distance.</summary>
+    KmerDistance = 1,
+    /// <summary><c>--dpparttree</c>: the score of the global alignment of every sequence with the representatives (dynamic programming).</summary>
+    DynamicProgramming = 2,
+    /// <summary><c>--fastaparttree</c>: the optimised score of FASTA 3.4 (<c>fasta34</c>, ported).</summary>
+    Fasta = 3,
+}
+
 /// <summary>
 /// Options of the MAFFT 7.505 command <c>mafft [--anysymbol] [--nuc | --amino] [--op x] [--ep y] [--bl n | --jtt n | --tm n] [--retree n] [--fft | --nofft] [--6merpair | --10merpair] ... input</c>: the plain progressive
 /// methods (FFT-NS-1, FFT-NS-2, NW-NS-1, NW-NS-2) for any number of sequences. The options that need the later stages of the port (<c>--maxiterate</c>, <c>--localpair</c>, <c>--globalpair</c>,
@@ -149,6 +162,28 @@ public sealed record MafftOptions
     /// </summary>
     public bool Auto { get; init; }
 
+    /// <summary><c>--parttree</c> / <c>--dpparttree</c> / <c>--fastaparttree</c> (given after a pair library option, which it then replaces; <see cref="Auto"/> replaces it): <c>splittbfast</c> classifies the sequences by their distance to <see cref="PartSize"/> representatives, follows the UPGMA tree of the representatives recursively and aligns the groups in the order of the tree
+    /// (<see cref="Retree"/> passes; every pass after the first takes its distances from the alignment of the previous one). <c>--maxiterate</c> and a pair library cannot be combined with it (the program stops).</summary>
+    public MafftPartTree PartTree { get; init; }
+
+    /// <summary><c>--partsize n</c>: the number of sequences that represent a group in <see cref="PartTree"/> (default 50).</summary>
+    public int PartSize { get; init; } = 50;
+
+    /// <summary><c>--groupsize n</c>: groups of <c>n</c> or more sequences are not aligned as a whole (with <see cref="PartTree"/>; the alignment is then not complete, the rows have different lengths; default -1 = everything is aligned; 1 = only the order of the sequences and the tree).</summary>
+    public int GroupSize { get; init; } = -1;
+
+    /// <summary><c>--treeout</c>: the guide tree is returned in <see cref="MafftRunResult.TreeFile"/> (the file <c>input.tree</c> of the program).</summary>
+    public bool TreeOut { get; init; }
+
+    /// <summary><c>--nodeout</c>: as <see cref="TreeOut"/> with the numbers of the nodes (progressive methods only).</summary>
+    public bool NodeOut { get; init; }
+
+    /// <summary><c>--distout</c>: the matrix of distances is returned in <see cref="MafftRunResult.DistanceFile"/> (the file <c>input.hat2</c>).</summary>
+    public bool DistOut { get; init; }
+
+    /// <summary>The names of the sequences (the lines after '&gt;'): they appear in the files <see cref="MafftRunResult.TreeFile"/> and <see cref="MafftRunResult.DistanceFile"/> (<c>--treeout</c>, <c>--nodeout</c>, <c>--distout</c>); default <c>seq1</c>, <c>seq2</c> ...</summary>
+    public IReadOnlyList<string>? Names { get; init; }
+
     /// <summary><c>--oldgenafpair</c>: the parameters of E-INS-i before version 7.243 (the offset and the extension of the pair stage as given, the alignment score of the pair).</summary>
     public bool OldGenafParameters { get; init; }
 
@@ -162,7 +197,20 @@ public sealed record MafftOptions
 /// <summary>The result of a run of <c>mafft</c>: the alignment and the text that the program writes to standard error (progress, strategy; empty with <c>--quiet</c>).</summary>
 /// <param name="Alignment">Rows in the order of the output (the input order, or the order of the guide tree with <c>--reorder</c>).</param>
 /// <param name="StandardError">The messages of the binaries and of the script, byte for byte.</param>
-public sealed record MafftRunResult(MultipleAlignmentResult Alignment, string StandardError);
+public sealed record MafftRunResult(MultipleAlignmentResult Alignment, string StandardError)
+{
+    /// <summary>The index in the input of every row of the output (the identity unless <c>--reorder</c> or a tree-splitting method changed the order).</summary>
+    public int[] InputIndex { get; init; } = Array.Empty<int>();
+
+    /// <summary>The guide tree file of <see cref="MafftOptions.TreeOut"/> / <see cref="MafftOptions.NodeOut"/> (<c>input.tree</c>), or null.</summary>
+    public string? TreeFile { get; init; }
+
+    /// <summary>The distance matrix file of <see cref="MafftOptions.DistOut"/> (<c>input.hat2</c>), or null.</summary>
+    public string? DistanceFile { get; init; }
+
+    /// <summary>With <see cref="MafftOptions.GroupSize"/> 2 or more the program writes <c>Group-n</c> / <c>Group-para</c> in front of the name of every sequence: that label per row of the output; otherwise null.</summary>
+    public string[]? GroupLabels { get; init; }
+}
 
 public static partial class SequenceAligner
 {
@@ -288,8 +336,13 @@ public static partial class SequenceAligner
                 throw new ArgumentException($"--bl must be 30, 45, 50, 62, 80, 90, 100 or 0, got {o.Blosum}.", nameof(o));
             if (!double.IsFinite(o.GapOpen) || !double.IsFinite(o.Offset) || !double.IsFinite(o.GapExtension))
                 throw new ArgumentException("--op, --ep and --exp must be finite.", nameof(o));
-            if (o.Retree == 0)
-                throw new NotSupportedException("--retree 0 (the guide tree only) of MAFFT is not available in this port.");
+            bool anyOut = o.TreeOut || o.NodeOut || o.DistOut;
+            if (o.NodeOut && o.MaxIterate > 0 && o.Retree != 0)
+                throw new ArgumentException("The --nodeout option supports only the progressive method (--maxiterate 0) for now (MAFFT stops).");
+            if (o.PartTree == MafftPartTree.None && !o.Auto && (o.PairLibrary != MafftPairLibrary.None || (o.MaxIterate > 0 && o.Retree != 0)) && (anyOut || o.Retree == 0))
+                throw new NotSupportedException("--retree 0 / --treeout / --nodeout / --distout with a pair library (--globalpair, --localpair, --genafpair) or with --maxiterate (tbfast / dvtditr write the tree and the distances) are not available in this port.");
+            if (o.Auto && (anyOut || o.Retree == 0))
+                throw new NotSupportedException("--auto with --treeout / --nodeout / --distout is not available in this port.");
             if (o.PairLibrary != MafftPairLibrary.None && !(o.WeightI >= 0.0001))
                 throw new NotSupportedException("--weighti 0 (the pair library without constraints) of MAFFT is not available in this port.");
             var originals = list.Select(x => LoadResidues(x, o.AnySymbol)).ToArray();
@@ -307,7 +360,10 @@ public static partial class SequenceAligner
                 : originals.Select(s => nuc1 ? s.ToLowerInvariant() : s.ToUpperInvariant()).ToArray();
             bool nuc = GuessNucleotide(replaced, o);
             replaced = nuc ? replaced.Select(s => s.ToLowerInvariant()).ToArray() : replaced.Select(s => s.ToUpperInvariant()).ToArray();
+            if (o.PartTree != MafftPartTree.None)
+                return AlignPartTree(list.Count, originals, replaced, nuc, o, log);
             MafftRun.Result result;
+            string? treeFile = null, distFile = null;
             double[][]? pairHat2 = null;
             MafftLocalHom[][]? pairHat3 = null;
             if (o.PairLibrary != MafftPairLibrary.None)
@@ -328,7 +384,13 @@ public static partial class SequenceAligner
                 if (g.Dorp == '\0')
                     g.Dorp = nuc ? 'd' : 'p';
                 var run = new MafftRun(g);
-                result = run.Disttbfast(replaced);
+                var header = o.Names ?? Enumerable.Range(0, list.Count).Select(i => "seq" + (i + 1).ToString(System.Globalization.CultureInfo.InvariantCulture)).ToArray();
+                if (header.Count != list.Count)
+                    throw new ArgumentException("Names must have one entry per sequence.", nameof(o));
+                var programNames = header.Select((h, i) => "=" + (o.AnySymbol ? "_os_" + i.ToString(System.Globalization.CultureInfo.InvariantCulture) + "_oe_" : "") + h).ToArray();
+                result = run.Disttbfast(replaced, programNames);
+                treeFile = run.TreeFile;
+                distFile = run.DistFile;
                 log.Append(run.Log);
             }
             if (MafftScript.Iterations(o) > 0)
@@ -358,25 +420,71 @@ public static partial class SequenceAligner
             if (o.Reorder)
                 rows = result.Order.Select(i => rows[i]).ToArray();
             string stderr = o.Quiet ? "" : log.ToString() + MafftScript.Epilogue(o, list.Count);
-            return new MafftRunResult(ToResult(rows, nuc), stderr);
+            int[] inputIndex = o.Reorder ? result.Order.ToArray() : Enumerable.Range(0, rows.Length).ToArray();
+            return new MafftRunResult(ToResult(rows, nuc), stderr)
+            {
+                InputIndex = inputIndex,
+                TreeFile = o.TreeOut || o.NodeOut ? treeFile : null,
+                DistanceFile = o.DistOut ? distFile : null,
+            };
+        }
+
+        /// <summary>
+        /// <c>mafft --parttree | --dpparttree | --fastaparttree</c>: <c>splittbfast</c> once, and <c>-Z</c> passes (the distances of the alignment of the previous pass) as the script runs them (<c>cycle</c> passes in all).
+        /// </summary>
+        private static MafftRunResult AlignPartTree(int nseq, string[] originals, string[] replaced, bool nuc, MafftOptions o, System.Text.StringBuilder log)
+        {
+            if (o.MaxIterate > 0)
+                throw new ArgumentException("--parttree / --dpparttree / --fastaparttree cannot be combined with --maxiterate (MAFFT: 'Impossible' for more than 1 iteration; with 1 iteration dvtditr stops, no distance matrix 'hat2' exists).");
+            if (o.DistOut)
+                throw new ArgumentException("--distout with --parttree / --dpparttree / --fastaparttree: the program has no distance matrix to copy and its 'cp' fails with a message that names a random temporary directory.");
+            var (cycle, groupsize) = MafftScript.PartTreeCycle(o, nseq);
+            int passes = Math.Max(cycle, 1);
+            string[] rows = replaced;
+            int[] index = Enumerable.Range(0, nseq).ToArray();
+            string? tree = null;
+            string[]? labels = null;
+            for (int pass = 0; pass < passes; pass++)
+            {
+                var g = MafftGlobals.ParseSplittbfast(MafftScript.SplittbfastArguments(o, nseq, pass > 0, cycle, groupsize));
+                var run = new MafftRun(g);
+                var res = run.Splittbfast(rows);
+                log.Append(run.Log);
+                rows = res.Rows;
+                index = res.Order.Select(i => index[i]).ToArray();
+                tree = res.Tree ?? tree;
+                labels = res.GroupLabels;
+            }
+            if (o.AnySymbol)
+                rows = rows.Select((r, k) => Restore(originals[index[k]], r)).ToArray();
+            string stderr = o.Quiet ? "" : log.ToString() + MafftScript.Epilogue(o, nseq);
+            bool labelled = groupsize > 1 && groupsize <= nseq;
+            return new MafftRunResult(ToResult(rows, nuc), stderr)
+            {
+                InputIndex = index,
+                TreeFile = o.TreeOut || o.NodeOut ? tree : null,
+                GroupLabels = labelled ? labels : null,
+            };
         }
 
         /// <summary>The rule of <c>--auto</c> in <c>mafft.tmpl</c> (<c>nlen</c> and <c>nseq</c> of <c>countlen</c>).</summary>
         private static MafftOptions ApplyAuto(MafftOptions o, int nseq, int nlen)
         {
             if (nlen < 3000 && nseq < 100)
-                return o with { Auto = false, PairLibrary = MafftPairLibrary.Local, MaxIterate = 1000, Retree = 1 };
+                return o with { Auto = false, PartTree = MafftPartTree.None, PairLibrary = MafftPairLibrary.Local, MaxIterate = 1000, Retree = 1 };
             if (nlen < 1000 && nseq < 200)
-                return o with { Auto = false, PairLibrary = MafftPairLibrary.Local, MaxIterate = 2, Retree = 1 };
+                return o with { Auto = false, PartTree = MafftPartTree.None, PairLibrary = MafftPairLibrary.Local, MaxIterate = 2, Retree = 1 };
             if (nlen < 10000 && nseq < 500)
-                return o with { Auto = false, PairLibrary = MafftPairLibrary.None, MaxIterate = 2, Retree = 2 };
+                return o with { Auto = false, PartTree = MafftPartTree.None, PairLibrary = MafftPairLibrary.None, MaxIterate = 2, Retree = 2 };
             if (nseq < 20000)
-                return o with { Auto = false, PairLibrary = MafftPairLibrary.None, MaxIterate = 0, Retree = 2 };
+                return o with { Auto = false, PartTree = MafftPartTree.None, PairLibrary = MafftPairLibrary.None, MaxIterate = 0, Retree = 2 };
             throw new NotSupportedException("--auto for 20 000 or more sequences (the memory-saving tree, --parttree) is not available in this port.");
         }
 
         internal static MultipleAlignmentResult ToResult(string[] rows, bool nucleotide)
         {
+            if (rows.Select(r => r.Length).Distinct().Count() > 1)
+                return new MultipleAlignmentResult(rows, "", 0); // --groupsize: the groups are not aligned with each other
             var aligned = rows.ToList();
             string consensus = BuildConsensus(aligned, aligned.Max(r => r.Length), anySymbol: true);
             var sp = nucleotide ? MatrixScoring.Emboss(SubstitutionMatrix.EdnaFull, 10, 0.5) : MatrixScoring.Emboss(SubstitutionMatrix.Blosum62, 10, 0.2);

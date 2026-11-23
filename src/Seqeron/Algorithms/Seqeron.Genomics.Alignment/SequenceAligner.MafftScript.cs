@@ -79,7 +79,7 @@ public static partial class SequenceAligner
         }
 
         /// <summary>The number of refinement iterations that the script passes to <c>dvtditr</c> (<c>--maxiterate</c>, at most 16).</summary>
-        internal static int Iterations(MafftOptions o) => Math.Min(o.MaxIterate, 16);
+        internal static int Iterations(MafftOptions o) => o.Retree == 0 ? 0 : Math.Min(o.MaxIterate, 16);
 
         /// <summary><c>dndpre $seqtype $model -M 2 -C $numthreads</c>.</summary>
         internal static List<string> DndpreArguments(MafftOptions o)
@@ -147,6 +147,55 @@ public static partial class SequenceAligner
             return args;
         }
 
+        /// <summary>The number of passes of <c>splittbfast</c> (<c>cycle</c>) and the group size the script gives it, after the rules of <c>mafft.tmpl</c> for <c>--retree 0</c> (with <c>--treeout</c>: no alignment, <c>-s 1</c>), two sequences, at most 3 passes, <c>--dpparttree</c> / <c>--fastaparttree</c> / <c>--groupsize</c> (one pass).</summary>
+        internal static (int Cycle, int GroupSize) PartTreeCycle(MafftOptions o, int nseq)
+        {
+            int cycle = o.Retree;
+            int groupsize = o.GroupSize;
+            if (cycle == 0 && (o.TreeOut || o.NodeOut))
+                groupsize = 1;
+            if (nseq == 2)
+                cycle = 1;
+            if (cycle > 3)
+                cycle = 3;
+            if (o.PartTree is MafftPartTree.DynamicProgramming or MafftPartTree.Fasta)
+                cycle = 1;
+            if (groupsize > -1)
+                cycle = 1;
+            return (cycle, groupsize);
+        }
+
+        /// <summary><c>splittbfast $legacygapopt [-Z] $splitopt $partorderopt $parttreeoutopt $seqtype $model -f -gop -Q 100.0 -h aof -p partsize -s groupsize $treealg -i infile</c>.</summary>
+        internal static List<string> SplittbfastArguments(MafftOptions o, int nseq, bool fromAlignment, int cycle, int groupsize)
+        {
+            _ = nseq;
+            _ = cycle;
+            string aof = AwkPrint(0.0 + 0.0 + MafftGlobals.CAtof(AwkPrint(-1.0 * o.Offset)));
+            if (o.Offset == 0.0)
+                aof = "0";
+            var args = new List<string>();
+            if (o.LegacyGapPenalty)
+                args.Add("-L");
+            if (fromAlignment)
+                args.Add("-Z");
+            if (o.PartTree == MafftPartTree.DynamicProgramming)
+                args.Add("-U");
+            else if (o.PartTree == MafftPartTree.Fasta)
+                args.Add("-S");
+            if (!o.Reorder)
+                args.Add("-x");
+            if (o.TreeOut || o.NodeOut)
+                args.Add("-t");
+            if (o.SequenceType == MafftSequenceType.Nucleotide)
+                args.Add("-D");
+            else if (o.SequenceType == MafftSequenceType.Amino)
+                args.Add("-P");
+            args.AddRange(ModelArguments(o));
+            args.AddRange(new[] { "-f", "-" + Text(o.GapOpen), "-Q", "100.0", "-h", aof, "-p", o.PartSize.ToString(CultureInfo.InvariantCulture), "-s", groupsize.ToString(CultureInfo.InvariantCulture),
+                "-X", o.TreeMixing is { } mix ? Text(mix) : "0.1", "-i", "infile" });
+            return args;
+        }
+
         /// <summary>The name of the strategy and its description that the script prints at the end of the run (<c>strategy</c>, <c>explanation</c>, <c>performance</c> of <c>mafft.tmpl</c>).</summary>
         internal static (string Strategy, string Explanation, string Performance) Strategy(MafftOptions o, int nseq)
         {
@@ -155,6 +204,12 @@ public static partial class SequenceAligner
                 cycle = 1;
             if (cycle > 3)
                 cycle = 3;
+            if (o.PartTree != MafftPartTree.None)
+            {
+                cycle = PartTreeCycle(o, nseq).Cycle;
+                string kind = o.PartTree switch { MafftPartTree.Fasta => "FastaPartTree-", MafftPartTree.DynamicProgramming => "DPPartTree-", _ => "PartTree-" };
+                return ((o.Fft ? "FFT-" : "NW-") + "NS-" + kind + cycle.ToString(CultureInfo.InvariantCulture), "?", "Not tested.");
+            }
             int iterate = Iterations(o);
             string prefix = o.PairLibrary switch { MafftPairLibrary.Global => "G-", MafftPairLibrary.Local => "L-", MafftPairLibrary.Genaf => "E-", _ => o.Fft ? "FFT-" : "NW-" };
             if (o.PairLibrary != MafftPairLibrary.None)
@@ -294,6 +349,32 @@ public static partial class SequenceAligner
         /// <summary>The text of a number as the user wrote it on the command line (the script passes it on unchanged).</summary>
         internal static string Text(double v) => v.ToString("R", CultureInfo.InvariantCulture);
 
+        /// <summary><c>$treeoutopt $distoutopt</c> of the script: <c>--retree 0</c> computes only the guide tree (<c>-t -T</c> / <c>-^ -T</c>) or the distances (<c>-y -T</c>), otherwise the tree and the distances are written along with the alignment.</summary>
+        internal static List<string> TreeOutArguments(MafftOptions o, int cycle)
+        {
+            var args = new List<string>();
+            bool tree = o.TreeOut || o.NodeOut;
+            if (cycle == 0)
+            {
+                if (tree)
+                    args.AddRange(o.NodeOut ? new[] { "-^", "-T" } : new[] { "-t", "-T" });
+                if (o.DistOut)
+                    args.AddRange(new[] { "-y", "-T" });
+                else if (!tree)
+                    args.AddRange(new[] { "-t", "-T" });
+            }
+            else
+            {
+                if (o.NodeOut)
+                    args.Add("-^");
+                else if (o.TreeOut)
+                    args.Add("-t");
+                if (o.DistOut)
+                    args.Add("-y");
+            }
+            return args;
+        }
+
         /// <summary>
         /// The arguments that <c>mafft</c> (7.505, <c>core/mafft.tmpl</c>) passes to <c>disttbfast</c> for the plain progressive methods (the default FFT-NS-2, <c>--retree 1</c>, <c>--nofft</c>, <c>--6merpair</c>, ...).
         /// <paramref name="nseq"/> is the number of sequences (the script sets the number of tree builds to 1 for two sequences).
@@ -331,6 +412,7 @@ public static partial class SequenceAligner
             args.Add(threads.ToString(CultureInfo.InvariantCulture) + "-" + threadsTb.ToString(CultureInfo.InvariantCulture));
             if (o.Unweight)
                 args.Add("-u");
+            args.AddRange(TreeOutArguments(o, o.Retree));
             if (o.SequenceType == MafftSequenceType.Nucleotide)
                 args.Add("-D");
             else if (o.SequenceType == MafftSequenceType.Amino)

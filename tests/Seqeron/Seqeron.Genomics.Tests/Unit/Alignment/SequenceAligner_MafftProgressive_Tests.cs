@@ -103,6 +103,14 @@ public class SequenceAligner_MafftProgressive_Tests
                 case "--threadit": o = o with { ThreadsIterate = I() }; break;
                 case "--maxiterate": o = o with { MaxIterate = I() }; break;
                 case "--auto": o = o with { Auto = true }; break;
+                case "--parttree": o = o with { PartTree = MafftPartTree.KmerDistance }; break;
+                case "--dpparttree": o = o with { PartTree = MafftPartTree.DynamicProgramming }; break;
+                case "--fastaparttree": o = o with { PartTree = MafftPartTree.Fasta }; break;
+                case "--partsize": o = o with { PartSize = I() }; break;
+                case "--groupsize": o = o with { GroupSize = I() }; break;
+                case "--treeout": o = o with { TreeOut = true }; break;
+                case "--nodeout": o = o with { NodeOut = true }; break;
+                case "--distout": o = o with { DistOut = true }; break;
                 case "--globalpair": o = o with { PairLibrary = MafftPairLibrary.Global }; break;
                 case "--localpair": o = o with { PairLibrary = MafftPairLibrary.Local }; break;
                 case "--genafpair": o = o with { PairLibrary = MafftPairLibrary.Genaf }; break;
@@ -235,7 +243,8 @@ public class SequenceAligner_MafftProgressive_Tests
         Assert.Multiple(() =>
         {
             Assert.That(SequenceAligner.MultipleAlignMafft(three).AlignedSequences, Has.Length.EqualTo(3));
-            Assert.Throws<NotSupportedException>(() => SequenceAligner.MultipleAlignMafft(three, new MafftOptions { Retree = 0 }));
+            Assert.That(SequenceAligner.MultipleAlignMafft(three, new MafftOptions { Retree = 0 }).AlignedSequences, Is.EqualTo(three), "--retree 0: the guide tree only, the sequences are not aligned (F313)");
+            Assert.Throws<NotSupportedException>(() => SequenceAligner.MultipleAlignMafft(three, new MafftOptions { Retree = 0, PairLibrary = MafftPairLibrary.Local }), "tbfast writes the tree: registered");
             Assert.Throws<ArgumentException>(() => SequenceAligner.MultipleAlignMafft(three, new MafftOptions { TupleSize = 10, SequenceType = MafftSequenceType.Amino }), "tuplesize must be 6 for aa sequence");
             Assert.Throws<ArgumentException>(() => SequenceAligner.MultipleAlignMafft([.. three, "ACG-"], new MafftOptions { Blosum = 63 }));
             Assert.Throws<ArgumentException>(() => SequenceAligner.MultipleAlignMafft([.. three, "---"]), "no residues");

@@ -150,7 +150,11 @@ public record MafftRunResultDto(
     int TotalScore,
     double ExactTotalScore,
     string StandardError,
-    string? Formatted = null);
+    string? Formatted = null,
+    string? TreeFile = null,
+    string? DistanceFile = null,
+    int[]? InputIndex = null,
+    string[]? GroupLabels = null);
 
 /// <summary>MUSCLE 3.8 run: the alignment and the files the program can write (-tree1, -tree2, -distmx1, -distmx2, -computeweights).</summary>
 public record MuscleRunResultDto(

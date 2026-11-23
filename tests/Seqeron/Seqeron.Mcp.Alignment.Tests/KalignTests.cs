@@ -140,7 +140,8 @@ public class MafftTests
         Assert.Multiple(() =>
         {
             Assert.That(AlignmentTools.MultipleAlignMafft(["ACGTACGT", "ACGAACGT", "ACGGACGT"]).AlignedSequences, Has.Length.EqualTo(3), "three sequences: the progressive stage (A2-19b)");
-            Assert.Throws<NotSupportedException>(() => AlignmentTools.MultipleAlignMafft(["ACGT", "ACGA", "ACGG"], retree: 0), "--retree 0 (the guide tree only) is not available");
+            Assert.That(AlignmentTools.MultipleAlignMafft(["ACGT", "ACGA", "ACGG"], retree: 0, treeOut: true).TreeFile, Does.EndWith(";\n"), "--retree 0: the guide tree only (B09 F313)");
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignMafft(["ACGT", "ACGA", "ACGG"], partTree: "bogus"));
             Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignMafft(["ACGT", "ACGA", "ACGG"], scoringModel: "pam"));
             Assert.That(AlignmentTools.MultipleAlignMafft(["ACGT"]).AlignedSequences, Is.EqualTo(new[] { "ACGT" }), "one sequence is written back (A3-4; --anysymbol keeps the letters)");
             Assert.That(AlignmentTools.MultipleAlignMafft([]).AlignedSequences, Is.Empty, "mafft exits 0 with an empty output (A3-4)");

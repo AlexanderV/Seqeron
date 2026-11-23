@@ -923,3 +923,11 @@ Tests (`Seqeron.Genomics.Tests`, against the installed Debian `mafft` 7.505-1): 
 ## Audit A2-14d (B09 F297): ClustalW UPGMA with iteration and the profile commands
 
 `SequenceAligner_ClustalWUpgmaIteration_Tests` (`clustalw_upgma_iteration_oracle.tsv`, 800 sets of the user-run `-O0` build): inventory (250 align-alignment, 200 align-tree, 175 profile, 175 sequences; 400 DNA), rows equal the program per mode (`MultipleAlignClustalW` with `Clustering = Upgma` + `Iteration`, `AlignClustalWProfiles`, `AlignClustalWSequencesToProfile`), and UPGMA differs from NJ on > 20 of the 450 align sets (the oracle is not vacuous).
+
+
+## Audit A2-19c stage 4 (B09 F312 - F314): MAFFT 7.505, `--parttree` / `--dpparttree` / `--fastaparttree`, `--retree 0`, `--treeout` / `--nodeout` / `--distout`
+
+Tests (`Seqeron.Genomics.Tests`, against the installed Debian `mafft` 7.505-1 and the user's run 3 with the real `fasta34`):
+- `SequenceAligner_MafftPartTree_Tests` (`mafft_parttree_oracle.tsv.gz`, `scripts/alignment/generate_mafft_parttree_oracle.py`: sets in 14 groups of at least 200; `parttree` and `dpparttree` with `--partsize`, `--groupsize`, `--reorder`, `--treeout`, `--retree` 0 / 1 / 3, `--anysymbol`, model options): one test per group compares rows, output order and names (`Group-n` labels), the guide tree file and the standard error (SHA-256 of the whole text, the full text for every 25th set up to 40 sequences) with the program; shape of the oracle; contracts (strategy text, the refused combinations, `TreeFile`).
+- `SequenceAligner_MafftTreeOut_Tests` (`mafft_treeout_oracle.tsv.gz`, `generate_mafft_treeout_oracle.py`: 1 029 sets in 5 groups): rows, order, `input.tree` (with `--nodeout` densities and nodes), `input.hat2` and standard error of `--retree 0`, `--treeout`, `--nodeout`, `--distout`.
+- `SequenceAligner_MafftFastaPartTree_Tests` (`mafft_fastaparttree_oracle.tsv.gz`, `import_fastaparttree_run.py`: the 60 sets of the user's run 3): rows equal; contracts. The raw `fasta34` battery (`handoff/A2-19c-fasta34-battery`) is registered.
