@@ -1,4 +1,4 @@
-**STATUS: AWAITING-USER (since 2026-11-23).** Integration target: (1) the cause of the exit status 1 of `sap_pair` with the real SAP (`TcSapPairEntries` in `SequenceAligner.TCoffeeStructure.cs`), (2) the `dali_pair` oracle with a real DaliLite (`generate_tcoffee_external_oracle.py` feature `dali_pair`, `SequenceAligner_TCoffeeExternal_Tests.DaliAndFuguePair_*`), (3) `-mode 3dcoffee` with the real SAP.
+**STATUS: RETURNED (2026-11-23, returned/A2-12b-out.zip); NO FURTHER RUN NEEDED; INTEGRATION = B09 WP68.** (Earlier: AWAITING-USER since 2026-11-23.) Integration target: (1) the cause of the exit status 1 of `sap_pair` with the real SAP (`TcSapPairEntries` in `SequenceAligner.TCoffeeStructure.cs`), (2) the `dali_pair` oracle with a real DaliLite (`generate_tcoffee_external_oracle.py` feature `dali_pair`, `SequenceAligner_TCoffeeExternal_Tests.DaliAndFuguePair_*`), (3) `-mode 3dcoffee` with the real SAP.
 
 # TEMPORARY hand-off package A2-12b - what is left of item A2-12 after the user's first run (Docker, for the user's Mac)
 
