@@ -1,0 +1,13 @@
+dna_100m pair 0 old total_s 19.718 rssanon_mb 249.2
+dna_100m pair 0 new total_s 18.029 rssanon_mb 253.7
+dna_100m pair 1 new total_s 16.102 rssanon_mb 253.5
+dna_100m pair 1 old total_s 16.261 rssanon_mb 251.8
+dna_100m pair 2 old total_s 16.238 rssanon_mb 251.2
+dna_100m pair 2 new total_s 17.103 rssanon_mb 251.8
+dna_100m pair 3 new total_s 16.767 rssanon_mb 254.8
+dna_100m pair 3 old total_s 18.501 rssanon_mb 252.1
+dna_100m pair 4 old total_s 17.094 rssanon_mb 255.8
+dna_100m pair 4 new total_s 17.510 rssanon_mb 250.6
+dna_100m pair 5 new total_s 15.993 rssanon_mb 249.6
+dna_100m pair 5 old total_s 17.934 rssanon_mb 249.6
+dna_100m: old median 17.094 s [16.238-18.501], new median 16.767 s [15.993-17.510], new/old per pair median 0.9902 [0.8918-1.0533] over 5 pairs; saving median 0.159 s; rssanon peak old 255.8 new 254.8 MB (max over the pairs)
