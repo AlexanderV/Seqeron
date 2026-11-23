@@ -105,7 +105,7 @@ for f in got:
     print(r.stdout, r.stderr)
     exe = sh(f'find {out}/DaliLite.v3 -type f -name DaliLite -perm -u+x | head -1').stdout.strip()
     if exe:
-        open(out + '/DaliLite.wrap', 'w').write('#!/bin/bash\nmkdir -p /tmp/dali_log\nL=/tmp/dali_log/call_$$_$(date +%s%N).txt\n{ echo "ARGS: $*"; echo "CWD: $PWD"; } > $L\n'
+        open(out + '/DaliLite.wrap', 'w').write('#!/bin/bash\nD=${DALI_LOG_DIR:-/tmp/dali_log}\nmkdir -p $D\nL=$D/call_$$_$(date +%s%N).txt\n{ echo "ARGS: $*"; echo "CWD: $PWD"; } > $L\n'
                                                f'{exe} "$@" > /tmp/dali_out_$$.txt 2>/tmp/dali_err_$$.txt; rc=$?\n'
                                                'echo "RC: $rc" >> $L; echo "--- STDOUT" >> $L; cat /tmp/dali_out_$$.txt >> $L; echo "--- STDERR" >> $L; cat /tmp/dali_err_$$.txt >> $L\n'
                                                'cat /tmp/dali_out_$$.txt; cat /tmp/dali_err_$$.txt >&2; rm -f /tmp/dali_out_$$.txt /tmp/dali_err_$$.txt; exit $rc\n')

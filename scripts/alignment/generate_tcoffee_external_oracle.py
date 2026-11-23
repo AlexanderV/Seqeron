@@ -163,16 +163,16 @@ def run_structure(feature, flags, seqs, pdbseqs, coords):
                         wd = f'{d}/m{i}_{j}'; os.makedirs(wd)
                         r = subprocess.run(['mustang', '-i', files[i], files[j], '-F', 'fasta'], capture_output=True, text=True, encoding='latin-1', cwd=wd)
                         if r.returncode == 0 and os.path.exists(wd + '/results.afasta'): out[tool][f'{i},{j}'] = open(wd + '/results.afasta').read()   # the glue script keeps the result only when mustang exits with status 0 (it segfaults on some pairs after writing the file)
-        env = dict(os.environ, HOME=d)
+        env = dict(os.environ, HOME=d, DALI_LOG_DIR=d + '/dali_log')   # one log directory per job: the jobs run in parallel threads (run 3 of A2-12b lost files of a shared /tmp/dali_log)
         cmd = ['t_coffee', '-seq', d + '/s.fa'] + ([] if self_templates else ['-template_file', d + '/tpl.fa']) + ['-n_core', '1', '-no_warning', '-outfile', d + '/o.fa', '-output', 'fasta_aln'] + flags.split()
         r = subprocess.run(cmd, capture_output=True, text=True, encoding='latin-1', cwd=d, env=env)
         try: rows = read_fasta_rows(d + '/o.fa', names)
         except (FileNotFoundError, KeyError): rows = f'FAIL:{r.returncode}'
         extra = {'pdb': pdbseqs, 'out': out}
         if os.environ.get('TC_STDERR'): extra['stderr'] = r.stderr[-6000:]; extra['stdout'] = r.stdout[-2000:]   # hand-off image A2-12b: what t_coffee printed (why it stops)
-        if os.environ.get('DALI_REAL') and os.path.isdir('/tmp/dali_log'):   # the logging wrapper of DaliLite appends one file per call
-            extra['dali'] = {fn: open('/tmp/dali_log/' + fn, encoding='latin-1').read() for fn in sorted(os.listdir('/tmp/dali_log'))}
-            for fn in os.listdir('/tmp/dali_log'): os.remove('/tmp/dali_log/' + fn)
+        if os.environ.get('DALI_REAL'):   # the logging wrapper of DaliLite writes one file per call into $DALI_LOG_DIR
+            ld = d + '/dali_log'
+            extra['dali'] = {fn: open(ld + '/' + fn, encoding='latin-1').read() for fn in sorted(os.listdir(ld))} if os.path.isdir(ld) else {}
         cache = d + '/.t_coffee/cache'
         if os.environ.get('SAP_REAL') and os.path.isdir(cache):   # SAP's raw output: t_coffee keeps <template1>_<template2>.sap_results in its cache
             extra['sap'] = {fn: open(cache + '/' + fn, encoding='latin-1').read() for fn in sorted(os.listdir(cache)) if fn.endswith('.sap_results')}
