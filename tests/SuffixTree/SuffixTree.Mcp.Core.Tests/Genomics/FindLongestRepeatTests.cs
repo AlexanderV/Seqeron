@@ -14,7 +14,7 @@ public class FindLongestRepeatTests
     {
         Assert.Throws<ArgumentException>(() => SuffixTreeGenomicsTools.FindLongestRepeat(""));
         Assert.Throws<ArgumentException>(() => SuffixTreeGenomicsTools.FindLongestRepeat(null!));
-        Assert.Throws<ArgumentException>(() => SuffixTreeGenomicsTools.FindLongestRepeat("ATGN")); // invalid DNA symbol
+        Assert.DoesNotThrow(() => SuffixTreeGenomicsTools.FindLongestRepeat("ATGN")); // R14-17: N / IUPAC codes are accepted (they never repeat)
     }
 
     [Test]

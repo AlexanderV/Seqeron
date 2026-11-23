@@ -5,7 +5,7 @@ using Seqeron.Genomics.Alignment;
 namespace Seqeron.Genomics.Tests;
 
 /// <summary>
-/// ALIGN-MULTI-001 (audit A2-12, B09 F296): the glue <c>sap_pair</c> of T-Coffee 13.41 (<c>util_dp_drivers.c</c> L2049) with the REAL SAP 1.1.3 installed.
+/// ALIGN-MULTI-001 (audit A2-12, B09 F298): the glue <c>sap_pair</c> of T-Coffee 13.41 (<c>util_dp_drivers.c</c> L2049) with the REAL SAP 1.1.3 installed.
 /// Oracle: the 130 <c>sap_real</c> sets of TestData/Alignment/tcoffee_external_oracle.tsv, run by the user in the Docker package <c>handoff/A2-12-sap-dali</c>
 /// (Ubuntu 24.04 linux/amd64, t_coffee 13.41.0.28bdc39 + SAP 1.1.3 built from the GitHub archive, sha256 of the binary in the returned ENV.txt): the rows t_coffee wrote together with the raw
 /// <c>&lt;template1&gt;_&lt;template2&gt;.sap_results</c> files of its cache, i.e. SAP's own output for every pair of structures.

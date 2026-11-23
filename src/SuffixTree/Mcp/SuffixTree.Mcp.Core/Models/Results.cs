@@ -99,12 +99,38 @@ public record SuffixTreeKCommonSubstringsResult(string[] Substrings, int Length,
 /// <summary>
 /// Result of find_longest_repeat operation.
 /// </summary>
-public record FindLongestRepeatResult(string Repeat, int[] Positions, int Length);
+/// <param name="Repeat">The repeated string.</param>
+/// <param name="Positions">0-based forward-strand starts of the string.</param>
+/// <param name="Length">Length of the repeat (0 when nothing repeats).</param>
+/// <param name="ReversePositions">With bothStrands: the 0-based forward-strand starts of the windows that spell the reverse complement of the repeat (omitted otherwise).</param>
+public record FindLongestRepeatResult(
+    string Repeat,
+    int[] Positions,
+    int Length,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    int[]? ReversePositions = null);
 
 /// <summary>
 /// Result of find_longest_common_region operation.
 /// </summary>
-public record FindLongestCommonRegionResult(string Region, int Position1, int Position2, int Length);
+/// <param name="Region">The common string as it reads in the first sequence (with maxMismatches: the window of the first sequence).</param>
+/// <param name="Position1">0-based start in the first sequence.</param>
+/// <param name="Position2">0-based forward-strand start in the second sequence (for a reverse-complement region: the window that spells the reverse complement).</param>
+/// <param name="Length">Length of the region (0 when there is none).</param>
+/// <param name="IsReverseComplement">True when the region is shared with the reverse complement of the second sequence (omitted when false).</param>
+/// <param name="Mismatches">With maxMismatches > 0: the number of mismatching positions of the window pair (omitted otherwise).</param>
+/// <param name="Region2">With maxMismatches > 0: the window of the second sequence (the reverse complement strand for a reverse region; omitted otherwise).</param>
+public record FindLongestCommonRegionResult(
+    string Region,
+    int Position1,
+    int Position2,
+    int Length,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    bool IsReverseComplement = false,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    int? Mismatches = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    string? Region2 = null);
 
 /// <summary>
 /// Result of calculate_similarity operation.

@@ -697,6 +697,42 @@ public partial class AnalysisTools
         return new FindAllLongestRepeatsResult(items, items.Length == 0 ? 0 : items[0].Length);
     }
 
+    [McpServerTool(Name = "find_longest_common_region_multi", Title = "Genome — Longest Common Substring of Several Sequences", ReadOnly = true)]
+    [Description("The longest substring shared by at least minSupport of N >= 2 nucleotide sequences (the k-common substring problem, Gusfield 1997 sec. 7.6; Rosalind LCSM when minSupport = N), by the canonical generalized suffix tree. EVERY distinct longest string is returned (ordinal order) with its first 0-based occurrence in each sequence (-1 where a sequence does not contain it, possible when minSupport < N) and its support. Only A/C/G/T match (case-insensitive); N and other IUPAC codes end a region. Empty items when no non-empty string is shared by minSupport sequences.")]
+    public static FindLongestCommonRegionMultiResult FindLongestCommonRegionMulti(
+        [Description("At least two nucleotide sequences: A/C/G/T plus IUPAC codes such as N (case-insensitive).")] string[] sequences,
+        [Description("Number of sequences that must contain the substring, 2 .. N (default: all N).")] int? minSupport = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(sequences);
+        if (sequences.Length < 2)
+            throw new ArgumentException("At least two sequences are required.", nameof(sequences));
+        var list = new List<string>(sequences.Length);
+        for (int i = 0; i < sequences.Length; i++)
+            list.Add(RequireIupacDna(sequences[i], $"{nameof(sequences)}[{i}]"));
+        cancellationToken.ThrowIfCancellationRequested();
+        var items = GenomicAnalyzer.FindLongestCommonRegion(list, minSupport)
+            .Select(r => new MultiCommonRegionItem(r.Sequence, r.Positions.ToArray(), r.Length, r.Support))
+            .ToArray();
+        cancellationToken.ThrowIfCancellationRequested();
+        return new FindLongestCommonRegionMultiResult(items, items.Length == 0 ? 0 : items[0].Length);
+    }
+
+    [McpServerTool(Name = "find_repeat_pairs", Title = "Genome — Maximal Repeated Pairs (repeat-match)", ReadOnly = true)]
+    [Description("Maximal exact repeated PAIRS of a nucleotide sequence on the forward strand (direct repeats) and/or as reverse complements (MUMmer repeat-match default, REPuter): every pair of occurrences that cannot be extended on either side, as the 0-based forward-strand starts of both copies, the length and the spacing (negative when the copies overlap). For a reverse-complement pair the window at secondPosition spells the reverse complement of the window at firstPosition (firstPosition <= secondPosition; equal for a palindromic site). The union of the canonical direct and reverse-complement repeat finders with every length / spacing filter lifted, ordered by (first, second, length), a forward pair before a reverse pair on a tie. Only A/C/G/T match (case-insensitive).")]
+    public static FindRepeatPairsResult FindRepeatPairs(
+        [Description("Nucleotide sequence: A/C/G/T plus IUPAC codes such as N (case-insensitive); non-A/C/G/T symbols never repeat.")] string sequence,
+        [Description("Minimum repeat length (repeat-match -n; default 5, >= 2).")] int minLength = 5,
+        [Description("Which strands (case-insensitive): Both (default) | Forward | ReverseComplement.")] string strands = "Both")
+    {
+        var nucleotides = RequireIupacDna(sequence, nameof(sequence));
+        var selection = ParseExactEnumName<StrandSelection>(strands, nameof(strands));
+        var items = GenomicAnalyzer.FindRepeatPairs(nucleotides, minLength, selection)
+            .Select(p => new RepeatPairItem(p.FirstPosition, p.SecondPosition, p.Length, p.Spacing, p.IsReverseComplement))
+            .ToArray();
+        return new FindRepeatPairsResult(items);
+    }
+
     [McpServerTool(Name = "find_tandem_repeats", Title = "Genome — Tandem Repeats", ReadOnly = true)]
     [Description("Exact tandem repeats (e.g. ATGATGATG): every maximal run of a primitive unit of length minUnitLength..maxUnitLength with >= minRepetitions complete copies, reported once at its left end (ATATATAT = AT x4 at 0, not also ATAT x2); ordered by unit length then start; 0-based. Facade over RepeatFinder.FindMicrosatellites (Kolpakov-Kucherov maximal repetitions). IUPAC input (e.g. N runs of an assembly) is accepted: only units made of A/C/G/T repeat, a window containing N or another ambiguity code never forms a repeat. canonicalRotation=true reports the lexicographically least rotation of each unit (Booth 1980; groups ATG / TGA / GAT) as unit and the unit as spelled in the sequence as originalUnit; position and repetitions are unchanged. Approximate (interrupted) repeats: find_approximate_tandem_repeats (TRF).")]
     public static FindTandemRepeatsResult FindTandemRepeats(

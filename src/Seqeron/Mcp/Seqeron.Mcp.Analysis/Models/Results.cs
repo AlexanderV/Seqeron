@@ -185,6 +185,24 @@ public record CommonRegionItem(
 /// <summary>Result of <c>find_common_regions</c>.</summary>
 public record FindCommonRegionsResult(CommonRegionItem[] Items);
 
+/// <summary>A longest common substring of several sequences (<c>find_longest_common_region_multi</c>): the string, its first 0-based occurrence in every sequence (-1 = absent) and the number of sequences that contain it.</summary>
+public record MultiCommonRegionItem(string Sequence, int[] Positions, int Length, int Support);
+
+/// <summary>Result of <c>find_longest_common_region_multi</c>: every distinct longest common string and their common length.</summary>
+public record FindLongestCommonRegionMultiResult(MultiCommonRegionItem[] Items, int Length);
+
+/// <summary>A maximal repeated pair (<c>find_repeat_pairs</c>): forward-strand starts of both copies, length, spacing and whether the second copy is the reverse complement of the first.</summary>
+public record RepeatPairItem(
+    int FirstPosition,
+    int SecondPosition,
+    int Length,
+    int Spacing,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    bool IsReverseComplement = false);
+
+/// <summary>Result of <c>find_repeat_pairs</c>.</summary>
+public record FindRepeatPairsResult(RepeatPairItem[] Items);
+
 /// <summary>Result of <c>find_all_longest_repeats</c>: every longest repeat with all its positions.</summary>
 public record FindAllLongestRepeatsResult(RepeatItem[] Items, int Length);
 

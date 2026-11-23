@@ -15,7 +15,7 @@ public class CalculateSimilarityTests
         Assert.Throws<ArgumentException>(() => SuffixTreeGenomicsTools.CalculateSimilarity("", "ATGC"));
         Assert.Throws<ArgumentException>(() => SuffixTreeGenomicsTools.CalculateSimilarity(null!, "ATGC"));
         Assert.Throws<ArgumentException>(() => SuffixTreeGenomicsTools.CalculateSimilarity("ATGC", ""));
-        Assert.Throws<ArgumentException>(() => SuffixTreeGenomicsTools.CalculateSimilarity("ATGN", "ATGC")); // invalid DNA symbol
+        Assert.DoesNotThrow(() => SuffixTreeGenomicsTools.CalculateSimilarity("ATGN", "ATGC")); // R14-17: N / IUPAC codes are accepted (a k-mer window with one is skipped)
     }
 
     [TestCase("ATAT", "ATAT", 2, 100.0)]

@@ -511,7 +511,7 @@ public class MultipleAlignTests
         Assert.That(AlignmentTools.MultipleAlignTCoffee(blastSet, ["blastp_msa"], blastXml: xml).AlignedSequences, Is.EqualTo(expectedBlast), "blastp_msa from the HSPs of the local all-against-all search");
     }
 
-    // B09 F296 (A2-12): sap_pair with the REAL SAP 1.1.3 installed: the output of the tool item 'sap_pair' is SAP's own results file (an oracle set of the user-run Docker package A2-12: rows written by
+    // B09 F298 (A2-12): sap_pair with the REAL SAP 1.1.3 installed: the output of the tool item 'sap_pair' is SAP's own results file (an oracle set of the user-run Docker package A2-12: rows written by
     // t_coffee 13.41 with SAP 1.1.3 on the PATH of its plug-in directory), read by the program's glue; without such an item the method is the TM-align replacement.
     [Test]
     public void MultipleAlignTCoffee_SapPair_WithTheRealSapResults()

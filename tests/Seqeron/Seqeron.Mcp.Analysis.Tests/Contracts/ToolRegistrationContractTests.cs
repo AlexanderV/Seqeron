@@ -47,6 +47,8 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "dyad_analysis",
         "entropy_profile",
         "find_all_longest_repeats",
+        "find_longest_common_region_multi",
+        "find_repeat_pairs",
         "find_approximate_direct_repeats",
         "find_approximate_tandem_repeats",
         "find_clump_windows",

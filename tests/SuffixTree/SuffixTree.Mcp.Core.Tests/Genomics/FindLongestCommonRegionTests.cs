@@ -15,7 +15,9 @@ public class FindLongestCommonRegionTests
         Assert.Throws<ArgumentException>(() => SuffixTreeGenomicsTools.FindLongestCommonRegion("", "ATGC"));
         Assert.Throws<ArgumentException>(() => SuffixTreeGenomicsTools.FindLongestCommonRegion(null!, "ATGC"));
         Assert.Throws<ArgumentException>(() => SuffixTreeGenomicsTools.FindLongestCommonRegion("ATGC", ""));
-        Assert.Throws<ArgumentException>(() => SuffixTreeGenomicsTools.FindLongestCommonRegion("ATGC", "ATGN")); // invalid DNA symbol
+        Assert.DoesNotThrow(() => SuffixTreeGenomicsTools.FindLongestCommonRegion("ATGC", "ATGN")); // R14-17: N / IUPAC codes are accepted (they match nothing)
+        Assert.Throws<ArgumentException>(() => SuffixTreeGenomicsTools.FindLongestCommonRegion("ATGC", "ATGC", "Sideways"));
+        Assert.Throws<ArgumentOutOfRangeException>(() => SuffixTreeGenomicsTools.FindLongestCommonRegion("ATGC", "ATGC", "Forward", -1));
     }
 
     [Test]

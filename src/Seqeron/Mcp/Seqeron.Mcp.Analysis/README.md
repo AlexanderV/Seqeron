@@ -2,7 +2,7 @@
 
 MCP server — **K-mer, motif, repeat, complexity, RNA-structure and comparative-genomics analysis.**
 
-Exposes **227 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+Exposes **229 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
 MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test, with a
 per-tool doc under [`docs/mcp/tools/analysis/`](../../../../docs/mcp/tools/analysis). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
@@ -50,6 +50,8 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `dyad_analysis` | RSAT dyad-analysis: over-represented spaced dyads M1 n{s} M2 (any / dr / ir / rep) with monad-based expected frequencies, z-scores and binomial occ_P / occ_E / occ_sig… |
 | `entropy_profile` | Shannon entropy in sliding windows along the sequence; optional k-mer (block) entropy (`k`) and trailing partial windows (`includePartialWindow`). |
 | `find_all_longest_repeats` | Every longest repeated substring of a DNA sequence (all length ties) with all positions; `bothStrands` gives the longest repeat classes over both strands (MUMmer repeat-match); IUPAC input accepted (B09 A2-36 / A2-33). |
+| `find_longest_common_region_multi` | Longest substring shared by at least minSupport of N >= 2 sequences (k-common substring, Rosalind LCSM) with its first occurrence in each. |
+| `find_repeat_pairs` | Maximal exact repeated pairs (MUMmer repeat-match list) on the forward strand and as reverse complements. |
 | `find_approximate_direct_repeats` | Finds **all maximal k-mismatch (Hamming) direct repeats** (Kurtz et al. 2000 REPuter; Vmatch -h k): two copies of equal length length at 0-… |
 | `find_approximate_tandem_repeats` | Finds approximate (imperfect / interrupted) tandem repeats with the **Tandem Repeats Finder** model (Benson 1999; TRF 4.10.0 trf File Match… |
 | `find_clump_windows` | (L, t)-clump k-mers with the maximal runs of window starts in which they form clumps (same k-mer set as `find_clumps`). |
