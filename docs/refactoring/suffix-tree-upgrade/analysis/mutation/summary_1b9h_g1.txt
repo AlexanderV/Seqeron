@@ -1,0 +1,49 @@
+## crash set, checked build (13 rows from the run at 466cc62a with other jobs beside it, M45 from the quiet run at 098aeca9 with the scratch on a disk)
+d:B20	crash	RunReader: a used-up run is read again	assertion	82	ARunReader_ScattersTheRecordsBelowTheLimit_WithTheOffset_FromMemoryAnd	156
+d:C21	crash	CompareCore: the witness is the difference	assertion	28	AHookThatThrows_AtALeafOrAPartition_ReachesTheCaller_NotWrapped	11
+d:C22	crash	CompareCore: the offset is not made positive	assertion	20	AnArenaBudgetThatIsTooSmall_EndsWithTheBudgetException_AndGivesEveryth	11
+d:C23	crash	CompareCore: the offset is the witness	assertion	27	AHookThatThrows_AtALeafOrAPartition_ReachesTheCaller_NotWrapped	8
+d:C24	crash	CompareCore: the offset is the residue difference the other way	assertion	26	AHookThatThrows_AtALeafOrAPartition_ReachesTheCaller_NotWrapped	11
+d:C37	crash	CompareCore: the second rank is at the wrong offset	assertion	25	AHookThatThrows_AtALeafOrAPartition_ReachesTheCaller_NotWrapped	10
+d:D19	crash	SingerPrime: any q below the period counts	assertion	583	AHookThatThrows_AtALeafOrAPartition_ReachesTheCaller_NotWrapped	78
+d:D24	crash	Witness: the table is filled with 0	assertion	588	AHookThatThrows_AtALeafOrAPartition_ReachesTheCaller_NotWrapped	94
+d:H02	crash	Run: no upper bound on K	assertion	2	TheOptions_AreChecked	118
+d:L10	crash	BuildLevel: the level below gets the same level number	assertion	381	AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALevel_IsAnIoEx	86
+d:M45	crash	InRange: the lower key is inclusive of smaller keys	assertion	78	AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALevel_IsAnIoEx	38
+d:R02	crash	FastMod32: Mod is the division	assertion	59	AHookThatThrows_AtALeafOrAPartition_ReachesTheCaller_NotWrapped	26
+d:R17	crash	Verify after Dispose does not throw	assertion	2	TheVerificationOfADisposedTable_IsRefused_AsADisposedObject_NeverReadF	32
+e:W42	crash	the output buffer is one entry short	assertion	37	ABwtFileThatIsNotWritten_IsRemovedWhenTheSuffixArrayIsDamaged	7
+crash mutants, verdict assertion: 14
+
+## hang set, checked build
+d:M46	hang	InRange: the upper key bound	assertion	87	AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALevel_IsAnIoEx	74
+d:M47	hang	Cmp: the position tie-break is dropped	assertion	89	AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALevel_IsAnIoEx	38
+d:M50	hang	Split: all of the reservoir is used though it is not full	assertion	85	ARankFileOfTheBuild_IsAValidTable_AndTheTableVerifiesIt	44
+d:M54	hang	Split: the splitters are the first quantile	assertion	87	ALeafThatOutgrowsItsCapacity_IsSplitAgain_AndTheRanksAreStillRight	50
+d:M57	hang	Split: the last child has no upper bound of its own	assertion	89	AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALevel_IsAnIoEx	39
+d:M58	hang	Split: the first child has no lower bound of its own	assertion	89	AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALevel_IsAnIoEx	41
+d:M63	hang	Execute: a leaf is split and a split is collected	assertion	89	AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALevel_IsAnIoEx	38
+d:P03	hang	WorkPool: a finished task is counted twice	assertion	42	AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALevel_IsAnIoEx	111
+d:P05	hang	WorkPool: first in first out	assertion	42	AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALevel_IsAnIoEx	116
+d:P06	hang	WorkPool: a task is not counted as active when taken	assertion	42	AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALevel_IsAnIoEx	106
+d:S09	hang	TrySlotOfRed: the search does not advance	assertion	96	AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALevel_IsAnIoEx	47
+e:P07	hang	a read of 0 is accepted	assertion	71	ABwtThatDoesNotMatchTheCounts_ALengthThatIsWrong_AndBadArguments_AreRe	34
+e:S09	hang	a view of zero bytes is accepted	assertion	6	TheChecksumPass_EqualsTheBitwiseDefinition_AcrossViews_AndRefusesRange	44
+e:W05	hang	a read of under one entry is accepted	assertion	66	ASuffixArrayRangeThatDoesNotFitTheFile_AndASymbolOutsideTheAlphabet_Ar	34
+hang mutants, verdict assertion: 14
+## hang set, default build
+d:M46	hang	InRange: the upper key bound	assertion	87	AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALevel_IsAnIoEx	38
+d:M47	hang	Cmp: the position tie-break is dropped	assertion	89	AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALevel_IsAnIoEx	35
+d:M50	hang	Split: all of the reservoir is used though it is not full	assertion	85	ARankFileOfTheBuild_IsAValidTable_AndTheTableVerifiesIt	35
+d:M54	hang	Split: the splitters are the first quantile	assertion	87	ALeafThatOutgrowsItsCapacity_IsSplitAgain_AndTheRanksAreStillRight	44
+d:M57	hang	Split: the last child has no upper bound of its own	assertion	89	AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALevel_IsAnIoEx	34
+d:M58	hang	Split: the first child has no lower bound of its own	assertion	89	AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALevel_IsAnIoEx	34
+d:M63	hang	Execute: a leaf is split and a split is collected	assertion	89	AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALevel_IsAnIoEx	33
+d:P03	hang	WorkPool: a finished task is counted twice	assertion	42	AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALevel_IsAnIoEx	105
+d:P05	hang	WorkPool: first in first out	assertion	42	AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALevel_IsAnIoEx	107
+d:P06	hang	WorkPool: a task is not counted as active when taken	assertion	42	AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALevel_IsAnIoEx	107
+d:S09	hang	TrySlotOfRed: the search does not advance	assertion	96	AFullDisk_AtTheCreationOfTheRankFile_OrOfAScratchFileOfALevel_IsAnIoEx	55
+e:P07	hang	a read of 0 is accepted	assertion	71	ABwtThatDoesNotMatchTheCounts_ALengthThatIsWrong_AndBadArguments_AreRe	41
+e:S09	hang	a view of zero bytes is accepted	assertion	6	TheChecksumPass_EqualsTheBitwiseDefinition_AcrossViews_AndRefusesRange	52
+e:W05	hang	a read of under one entry is accepted	assertion	66	ASuffixArrayRangeThatDoesNotFitTheFile_AndASymbolOutsideTheAlphabet_Ar	37
+hang mutants, verdict assertion: 14
