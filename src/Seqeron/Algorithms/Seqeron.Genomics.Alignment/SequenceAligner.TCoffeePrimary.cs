@@ -170,7 +170,7 @@ public enum TCoffeePairMethod
 
     /// <summary>
     /// <c>sap_pair</c> (audit A2-12): when SAP is not installed - the case of the installed program - the method list of the program switches to TM-align ("SAP is not installed. TMalign will be used instead"), so this method behaves exactly as
-    /// <see cref="TMalignPair"/> (<c>-mode 3dcoffee</c> adds it to the default <c>proba_pair</c>: 7 of 8 sets equal <c>-method proba_pair,sap_pair</c>, see <see cref="TCoffeeProgramOptions"/>). The real SAP (Taylor, Orengo 1989) is not reproduced: its glue (<c>sap_pair</c> of util_dp_drivers.c) is another parser (docs/Validation/review-2026-09/handoff/A2-12).
+    /// <see cref="TMalignPair"/> (<c>-mode 3dcoffee</c> adds it to the default <c>proba_pair</c>: 7 of 8 sets equal <c>-method proba_pair,sap_pair</c>, see <see cref="TCoffeeProgramOptions"/>). With the real SAP 1.1.3 installed (<see cref="TCoffeeProgramOptions.StructureAlignerOutputs"/> has an entry for this method: the raw <c>.sap_results</c> files) the glue <c>sap_pair</c> of util_dp_drivers.c is ported (<see cref="SequenceAligner.TCoffeeSapAlignedResidues"/>): every aligned residue pair of SAP's output becomes a library entry of weight 100 (130 sets of the user-run oracle).
     /// </summary>
     SapPair = 21,
 

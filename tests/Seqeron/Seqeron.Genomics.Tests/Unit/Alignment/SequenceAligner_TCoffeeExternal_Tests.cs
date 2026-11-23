@@ -12,10 +12,10 @@ namespace Seqeron.Genomics.Tests;
 [TestFixture]
 public class SequenceAligner_TCoffeeExternal_Tests
 {
-    private sealed record Case(string Feature, string Flags, string[] Seqs, string Rows, JsonElement Extra);
+    internal sealed record Case(string Feature, string Flags, string[] Seqs, string Rows, JsonElement Extra);
 
     /// <summary>The parsed oracle, ONE copy per fixture (audit A3-15): the method used to re-read and re-parse the whole embedded TSV (6.0 MB / 3.2 MB as UTF-16 strings, 20 321 / several thousand rows) on every call, i.e. in every test.</summary>
-    private static List<Case> Oracle() => OracleRows.Value;
+    internal static List<Case> Oracle() => OracleRows.Value;
 
     private static readonly Lazy<List<Case>> OracleRows = new(ReadOracleRows);
 
@@ -38,7 +38,7 @@ public class SequenceAligner_TCoffeeExternal_Tests
         return list;
     }
 
-    private static Dictionary<TCoffeePairMethod, IReadOnlyDictionary<(int, int), string>> Outputs(Case c)
+    internal static Dictionary<TCoffeePairMethod, IReadOnlyDictionary<(int, int), string>> Outputs(Case c)
     {
         var map = new Dictionary<TCoffeePairMethod, IReadOnlyDictionary<(int, int), string>>();
         foreach (var tool in c.Extra.GetProperty("out").EnumerateObject())

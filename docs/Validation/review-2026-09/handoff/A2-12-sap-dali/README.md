@@ -1,4 +1,4 @@
-**STATUS: AWAITING-USER (since 2026-11-19).** Integration target: the SAP / DaliLite oracle rows of item A2-12 (`sap_pair`, `dali_pair`).
+**STATUS: INTEGRATED (2026-11-23, B09.md F296)** - `returned/A2-12-out.zip`: the 130 `sap_real` rows are in `tcoffee_external_oracle.tsv` and locked by `SequenceAligner_TCoffeeSap_Tests` (glue `sap_pair` ported); the DaliLite v5 probe failed on a missing `dali.conf` and asked the wrong question (the glue calls DaliLite v3's `DaliLite -pairwise`): continued in `handoff/A2-12b-dali-sap-stderr` (AWAITING-USER).
 
 # TEMPORARY hand-off package A2-12 - the real SAP 1.1.3 and DaliLite v5 next to t_coffee 13.41 (Docker, for the user's Mac)
 

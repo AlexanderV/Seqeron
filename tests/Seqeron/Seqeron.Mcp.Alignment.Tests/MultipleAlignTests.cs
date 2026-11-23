@@ -511,6 +511,23 @@ public class MultipleAlignTests
         Assert.That(AlignmentTools.MultipleAlignTCoffee(blastSet, ["blastp_msa"], blastXml: xml).AlignedSequences, Is.EqualTo(expectedBlast), "blastp_msa from the HSPs of the local all-against-all search");
     }
 
+    // B09 F296 (A2-12): sap_pair with the REAL SAP 1.1.3 installed: the output of the tool item 'sap_pair' is SAP's own results file (an oracle set of the user-run Docker package A2-12: rows written by
+    // t_coffee 13.41 with SAP 1.1.3 on the PATH of its plug-in directory), read by the program's glue; without such an item the method is the TM-align replacement.
+    [Test]
+    public void MultipleAlignTCoffee_SapPair_WithTheRealSapResults()
+    {
+        string[] pair = ["TFSVMQWIMNHWCITMGQPMCD", "IHQGVRCMPWSHNKIPNQHWNSSLDGVDTDSQWGSY"];
+        const string sap = " file1 = 571_1.4135.sap_tmp\n prot1->Compound =  CHAIN: A;\n file2 = 571_2.2450.sap_tmp\n prot2->Compound =  CHAIN: A;\nARNDCQEGHILKMFPSTWYVBZX\nmatrix constant = 8\n\n score = 0.132805\n\nPercent sel on aln =   41.18\nPercent aln in sel =   31.82\n"
+            + " *K   14   0.0   1 T**\n *I   15   0.0   2 F  \n  P   16   0.0   3 S* \n  N   17   0.0   4 V* \n  Q   18   0.1   5 M* \n *H   19   0.1   6 Q* \n**W   20   0.0   7 W* \n *N   21   0.0   8 I* \n *S   22   0.1   9 M* \n *S   23   0.1  10 N  \n  L   24   0.1  11 H* \n  D   25   0.0  12 W* \n"
+            + " *G   26   0.0  13 C* \n *V   27   0.0  14 I  \n**D   28   0.0  15 T  \n  T   29   0.0  16 M  \n *D   30   0.0  17 G* \n  S   31   0.1  18 Q  \n *Q   32   0.2  19 P* \n *W   33   0.0  20 M* \n  G   34   0.0  21 C  \n *S   35   0.0  22 D  \n"
+            + "571_2.2450.sap_tmp Weighted RMSd =  10.788 over 22 atoms 15.028649 1.041443   4.5 4.087417\n";
+        var result = AlignmentTools.MultipleAlignTCoffee(pair, ["sap_pair"], structureTemplates: pair, structureAlignerOutputs: [new StructureAlignerOutputInput("sap_pair", 0, 1, sap)]);
+        Assert.That(result.AlignedSequences, Is.EqualTo(new[] { "-------------TFSVMQWIMNHWCITMGQPMCD-", "IHQGVRCMPWSHNKIPNQHWNSSLDGVDTDSQWGSY" }), "rows written by t_coffee 13.41 with SAP 1.1.3");
+        Assert.Throws<global::Seqeron.Genomics.Alignment.TCoffeeAbortedException>(
+            () => AlignmentTools.MultipleAlignTCoffee(pair, ["sap_pair"], structureTemplates: pair, structureAlignerOutputs: [new StructureAlignerOutputInput("sap_pair", 1, 0, sap)]),
+            "SAP installed, no results file for the pair of two usable structures: the program stopped in every such oracle set");
+    }
+
     private const string BlastTwoSequenceXml = """
 <?xml version="1.0"?>
 <!DOCTYPE BlastOutput PUBLIC "-//NCBI//NCBI BlastOutput/EN" "http://www.ncbi.nlm.nih.gov/dtd/NCBI_BlastOutput.dtd">

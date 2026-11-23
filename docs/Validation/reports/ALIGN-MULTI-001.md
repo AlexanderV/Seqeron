@@ -364,3 +364,7 @@ Input contract: ProbCons drops gap characters like the program's reader, POA rea
 ## Audit r2 addendum (A2-19c, B09 F287, WP64): MAFFT 7.505, stage 6 - `--auto`
 
 `MafftOptions.Auto` = `mafft --auto`: the strategy follows from the number of sequences and the longest sequence (L-INS-i, `--localpair --maxiterate 2`, FFT-NS-i, FFT-NS-2; 20 000 sequences and more refused). Verified against the installed `mafft` 7.505-1 on 2 508 sets in 11 strategy groups (every branch): rows 2 508 / 2 508, standard error 2 288 / 2 288. Code commit `791157446`. Still registered (DOABLE): `--weighti 0`, `--add` / `--addfragments` / `--keeplength` / `--seed` / `--merge`, `--clustalout` / `--inputorder`, the `parttree` family, `--retree 0`.
+
+## Audit r2 (A2-12, B09 F296): `sap_pair` with the real SAP
+
+`TCoffeeProgramOptions.StructureAlignerOutputs[SapPair]` (the raw `.sap_results` of SAP 1.1.3) switches `sap_pair` from the TM-align replacement to the program's own glue `sap_pair` (util_dp_drivers.c L2049): one library entry of weight 100 per aligned residue pair, mapped with `fix_seq_seq` (matrix blosum62mt for the typed library-file set). 130 / 130 user-run sets equal `t_coffee` 13.41 (115 rows, 15 stops). MCP `multiple_align_tcoffee` accepts `sap_pair` items. DaliLite and the reason of the stop where SAP left no file: `handoff/A2-12b-dali-sap-stderr` (awaiting the user's run).

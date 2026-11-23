@@ -43,6 +43,8 @@ def setup_plugins(d):
     for tool in ('TMalign', 'mustang'):
         if os.path.exists('/usr/bin/' + tool) and not os.path.exists(plug + '/' + tool): os.symlink('/usr/bin/' + tool, plug + '/' + tool)
     if os.environ.get('SAP_REAL') and os.path.exists('/opt/sap/bin/sap') and not os.path.exists(plug + '/sap'): os.symlink('/opt/sap/bin/sap', plug + '/sap')   # the hand-off image A2-12 installs the REAL SAP
+    # hand-off image A2-12b: a DaliLite v3 (`DaliLite -pairwise a.pdb b.pdb`, the command line of t_coffee's glue) behind a logging wrapper
+    if os.environ.get('DALI_REAL') and os.path.exists('/opt/dalilite3/DaliLite.wrap') and not os.path.exists(plug + '/DaliLite'): os.symlink('/opt/dalilite3/DaliLite.wrap', plug + '/DaliLite')
 
 
 # ----- synthetic structures ---------------------------------------------------------------------------------------------------------------------------------------
@@ -167,6 +169,10 @@ def run_structure(feature, flags, seqs, pdbseqs, coords):
         try: rows = read_fasta_rows(d + '/o.fa', names)
         except (FileNotFoundError, KeyError): rows = f'FAIL:{r.returncode}'
         extra = {'pdb': pdbseqs, 'out': out}
+        if os.environ.get('TC_STDERR'): extra['stderr'] = r.stderr[-6000:]; extra['stdout'] = r.stdout[-2000:]   # hand-off image A2-12b: what t_coffee printed (why it stops)
+        if os.environ.get('DALI_REAL') and os.path.isdir('/tmp/dali_log'):   # the logging wrapper of DaliLite appends one file per call
+            extra['dali'] = {fn: open('/tmp/dali_log/' + fn, encoding='latin-1').read() for fn in sorted(os.listdir('/tmp/dali_log'))}
+            for fn in os.listdir('/tmp/dali_log'): os.remove('/tmp/dali_log/' + fn)
         cache = d + '/.t_coffee/cache'
         if os.environ.get('SAP_REAL') and os.path.isdir(cache):   # SAP's raw output: t_coffee keeps <template1>_<template2>.sap_results in its cache
             extra['sap'] = {fn: open(cache + '/' + fn, encoding='latin-1').read() for fn in sorted(os.listdir(cache)) if fn.endswith('.sap_results')}

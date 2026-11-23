@@ -59,7 +59,13 @@ public static partial class SequenceAligner
     private static int[] TcFixIndex(string segment, string full) => TcFixIndex(segment, full, out _);
 
     /// <summary>As <see cref="TcFixIndex(string, string)"/>; <paramref name="aligned"/> tells that the sequences differ and were reconciled by an alignment (whose <c>aln2sim(B, "idmat")</c> is a call of <c>is_in_same_group_aa</c>).</summary>
-    private static int[] TcFixIndex(string segment, string full, out bool aligned)
+    private static int[] TcFixIndex(string segment, string full, out bool aligned) => TcFixIndex(segment, full, out aligned, TcMatrix.IdMat);
+
+    /// <summary>
+    /// As above with the matrix of <c>align_two_sequences</c> in <c>fix_seq_seq</c>: "blosum62mt" when the type of the sequence set that is mapped (<c>S0-&gt;type</c>) is PROTEIN, else "idmat". The sets built by <c>aln2seq</c> have no type
+    /// (idmat); the sets read from a library file (<c>read_seq_in_n_list</c>, <c>get_sequence_type</c>) have one.
+    /// </summary>
+    private static int[] TcFixIndex(string segment, string full, out bool aligned, TcMatrix matrix)
     {
         aligned = false;
         var index = new int[segment.Length + 1];
@@ -71,7 +77,7 @@ public static partial class SequenceAligner
 
         // align_two_sequences(..., "idmat" | "blosum62mt", -4, -1): the matrix follows the type of the sequences built by aln2seq, which is never set -> idmat
         aligned = true;
-        var (ra, rb) = TcMyersMiller(segment.ToLowerInvariant(), full.ToLowerInvariant(), TcMatrix.IdMat, -4, -1);
+        var (ra, rb) = TcMyersMiller(segment.ToLowerInvariant(), full.ToLowerInvariant(), matrix, -4, -1);
         int nr0 = 0, nr1 = 0;
         for (int c = 0; c < ra.Length; c++)
         {
@@ -214,6 +220,8 @@ public static partial class SequenceAligner
                 return TcProbaPairEntries(seqs[x], seqs[y], kind, matrix).Select(e => (x, e.R1, y, e.R2, e.Weight)).ToList();
             // dali_pair: pdb_pair with EXECUTABLE2 DaliLite, which is not installed: the first pair of two usable structures stops the program ("ERROR: UNSPECIFIED UNSPECIFIED", exit status 1)
             if (method == TCoffeePairMethod.DaliPair) throw new TCoffeeAbortedException("ERROR: UNSPECIFIED UNSPECIFIED -- dali_pair needs DaliLite (EXECUTABLE2 DaliLite), which is not installed");
+            // sap_pair with SAP installed: the glue of util_dp_drivers.c reads SAP's own output file instead of an alignment (groups = the process-static residue groups, see TcProcessGroups)
+            if (method == TCoffeePairMethod.SapPair && structure.SapInstalled) return TcSapPairEntries(structure.Output(TCoffeePairMethod.SapPair, x, y), seqs, x, y, groups ?? new TcProcessGroups());
             string? output = structure.Output(structureTool, x, y);
             if (output is not null) structureRows = structureTool == TCoffeePairMethod.TMalignPair ? TCoffeeTMalignAlignment(output) : TCoffeeMustangAlignment(output);
             if (structureRows is null) return new List<(int, int, int, int, int)>(); // the structure aligner failed: no entry
@@ -533,6 +541,9 @@ public sealed partial record TCoffeeProgramOptions
     /// What the external structure aligner of each method wrote for a pair of structures (the structure aligner is the external program; this library is T-Coffee's side): per method, keyed by the INPUT indices of the two sequences in the
     /// order the program calls the aligner (names sorted unless <see cref="InOrderInput"/>; first = the sequence that comes first), the standard output of <c>TMalign pdb1 pdb2</c> (its last four lines are what matters,
     /// see <see cref="SequenceAligner.TCoffeeTMalignAlignment"/>) or the content of the <c>results.afasta</c> of <c>mustang -i pdb1 pdb2 -F fasta</c> (<see cref="SequenceAligner.TCoffeeMustangAlignment"/>). A missing pair = the aligner failed.
+    /// An entry for <see cref="TCoffeePairMethod.SapPair"/> (even an empty dictionary) says that SAP 1.1.3 is installed: its values are the files <c>&lt;template1&gt;_&lt;template2&gt;.sap_results</c> of the program's cache
+    /// (the raw output of <c>sap file1 file2</c>, see <see cref="SequenceAligner.TCoffeeSapAlignedResidues"/>), and <c>sap_pair</c> is then the glue of util_dp_drivers.c instead of the TM-align replacement; without an entry the program
+    /// switches to TM-align (the installed program).
     /// </summary>
     public IReadOnlyDictionary<TCoffeePairMethod, IReadOnlyDictionary<(int First, int Second), string>>? StructureAlignerOutputs { get; init; }
 
@@ -721,6 +732,7 @@ public static partial class SequenceAligner
             {
                 Usable = perm.Select(i => !string.IsNullOrEmpty(options.StructureTemplates[i]) && TcPdbTemplateUsable(sequences[i], options.StructureTemplates[i]!)).ToArray(),
                 Output = (method, x, y) => outputs != null && outputs.TryGetValue(method, out var byPair) && byPair.TryGetValue((perm[x], perm[y]), out var text) ? text : null,
+                SapInstalled = outputs != null && outputs.ContainsKey(TCoffeePairMethod.SapPair),
             };
         }
 

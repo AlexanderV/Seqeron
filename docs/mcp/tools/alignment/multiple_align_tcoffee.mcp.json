@@ -51,7 +51,7 @@
       },
       "structureAlignerOutputs": {
         "type": "array",
-        "description": "What the EXTERNAL structure aligner (TM-align / MUSTANG, not reimplemented) wrote for pairs of structures: method 'TMalign_pair' or 'mustang_pair', the input indices of the two sequences in the order the program calls it (names sorted), and the output (TMalign: its standard output, the last four lines matter; mustang: the content of results.afasta). A missing pair = the aligner failed (no library entries). sap_pair uses the TMalign entries (SAP is not installed: the program switches to TM-align)."
+        "description": "What the EXTERNAL structure aligner (TM-align / MUSTANG, not reimplemented) wrote for pairs of structures: method 'TMalign_pair', 'mustang_pair' or 'sap_pair', the input indices of the two sequences in the order the program calls it (names sorted), and the output (TMalign: its standard output, the last four lines matter; mustang: the content of results.afasta; sap_pair: the content of the file <template1>_<template2>.sap_results = the raw output of SAP 1.1.3). A missing pair = the aligner failed (no library entries). Without any 'sap_pair' item the method sap_pair uses the TMalign entries (SAP not installed: the program switches to TM-align); with at least one 'sap_pair' item SAP is installed and the program's own sap_pair glue reads the SAP files (a pair of two usable structures without a file stops the program, as it did in the oracle)."
       },
       "blastXml": {
         "type": "string",
