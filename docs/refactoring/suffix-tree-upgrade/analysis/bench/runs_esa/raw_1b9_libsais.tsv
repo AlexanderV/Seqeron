@@ -1,0 +1,616 @@
+tool	version	input	n	operation	metric	value	unit	repeat	notes
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	build	peak_rss_hwm_after_build	52383744	bytes	1	VmHWM right after build
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	build	time	0.30303868899864028	s	1	libsais single-thread SA construction, int32 SA, byte alphabet
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	build	throughput	32999086.793319877	chars/s	1	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	build	index_bytes	40000000	bytes	1	SA only (4 B/char); text (1 B/char) is extra
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	build	bytes_per_char	4	bytes/char	1	SA only
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	build	bytes_per_char_incl_text	5	bytes/char	1	SA + 1 B/char text
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	build_omp2	time	0.23164755799734849	s	1	libsais_omp
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	build_omp2	identical_to_serial	1	bool	1	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	build_omp4	time	0.15621186900170869	s	1	libsais_omp
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	build_omp4	identical_to_serial	1	bool	1	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_present20	throughput	968546.10775691841	queries/s	1	passes=10
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_present20	time_per_pass	0.10324753690001671	s	1	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_present20	checksum	100000	count	1	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_absent20	throughput	969014.29219678382	queries/s	1	passes=10
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_absent20	time_per_pass	0.10319765230015036	s	1	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_absent20	checksum	1	count	1	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	contains_present20	throughput	1330447.9591705278	queries/s	1	passes=14
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	contains_present20	time_per_pass	0.075162654285512484	s	1	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	contains_present20	checksum	100000	count	1	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	contains_absent20	throughput	1342970.7845786193	queries/s	1	passes=14
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	contains_absent20	time_per_pass	0.074461783642878546	s	1	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	contains_absent20	checksum	1	count	1	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	locate8	throughput	887200.10482314182	patterns/s	1	passes=888
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	locate8	positions_per_s	135175582.37106353	positions/s	1	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	locate8	total_hits	152362	count	1	occurrences returned per pass (oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	locate8	checksum	761250397446	count	1	sum of positions (oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_present20	latency_p50	983.99686976335943	ns	1	per-query clock_gettime (incl. ~25ns timer overhead)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_present20	latency_p99	1481.999788666144	ns	1	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_present20	latency_mean	1054.6436237927917	ns	1	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_present20_1t	throughput	966554.2311511914	queries/s	1	threads=1 reps=10 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_present20_1t	checksum_ok	1	bool	1	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	locate8_1t	throughput	828065.70547848882	patterns/s	1	threads=1 reps=400 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	locate8_1t	checksum_ok	1	bool	1	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_present20_4t	throughput	2597392.3275852511	queries/s	1	threads=4 reps=10 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_present20_4t	checksum_ok	1	bool	1	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	locate8_4t	throughput	2150262.8718542918	patterns/s	1	threads=4 reps=400 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	locate8_4t	checksum_ok	1	bool	1	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	all_process	peak_rss_hwm	92930048	bytes	1	VmHWM at end of process
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	all_process	ext_peak_rss	92930048	bytes	1	wait4 ru_maxrss of the whole process (independent of harness)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	all_process	ext_wall	10.384983539581299	s	1	process wall time incl. startup, text read, queries
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	all_process	ext_cpu_user_sys	15.943592	s	1	user+sys CPU seconds
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	build	peak_rss_hwm_after_build	52383744	bytes	2	VmHWM right after build
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	build	time	0.33853194599942071	s	2	libsais single-thread SA construction, int32 SA, byte alphabet
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	build	throughput	29539309.711164191	chars/s	2	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	build	index_bytes	40000000	bytes	2	SA only (4 B/char); text (1 B/char) is extra
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	build	bytes_per_char	4	bytes/char	2	SA only
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	build	bytes_per_char_incl_text	5	bytes/char	2	SA + 1 B/char text
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	build_omp2	time	0.27219142700050725	s	2	libsais_omp
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	build_omp2	identical_to_serial	1	bool	2	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	build_omp4	time	0.19630154799961019	s	2	libsais_omp
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	build_omp4	identical_to_serial	1	bool	2	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_present20	throughput	703778.2831555244	queries/s	2	passes=8
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_present20	time_per_pass	0.14209020424959817	s	2	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_present20	checksum	100000	count	2	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_absent20	throughput	785572.76527260954	queries/s	2	passes=8
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_absent20	time_per_pass	0.12729565537483722	s	2	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_absent20	checksum	1	count	2	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	contains_present20	throughput	1319842.025056134	queries/s	2	passes=14
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	contains_present20	time_per_pass	0.07576664335699336	s	2	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	contains_present20	checksum	100000	count	2	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	contains_absent20	throughput	1304633.8913759259	queries/s	2	passes=14
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	contains_absent20	time_per_pass	0.076649856071526301	s	2	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	contains_absent20	checksum	1	count	2	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	locate8	throughput	891205.84290982236	patterns/s	2	passes=892
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	locate8	positions_per_s	135785904.63742635	positions/s	2	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	locate8	total_hits	152362	count	2	occurrences returned per pass (oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	locate8	checksum	761250397446	count	2	sum of positions (oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_present20	latency_p50	1046.9993867445737	ns	2	per-query clock_gettime (incl. ~25ns timer overhead)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_present20	latency_p99	1648.997567826882	ns	2	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_present20	latency_mean	1127.2204174383539	ns	2	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_present20_1t	throughput	588181.26793820341	queries/s	2	threads=1 reps=10 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_present20_1t	checksum_ok	1	bool	2	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	locate8_1t	throughput	519020.83351487061	patterns/s	2	threads=1 reps=400 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	locate8_1t	checksum_ok	1	bool	2	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_present20_4t	throughput	2478556.5910584736	queries/s	2	threads=4 reps=10 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_present20_4t	checksum_ok	1	bool	2	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	locate8_4t	throughput	2109028.7565795472	patterns/s	2	threads=4 reps=400 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	locate8_4t	checksum_ok	1	bool	2	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	all_process	peak_rss_hwm	92930048	bytes	2	VmHWM at end of process
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	all_process	ext_peak_rss	92930048	bytes	2	wait4 ru_maxrss of the whole process (independent of harness)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	all_process	ext_wall	11.749367475509644	s	2	process wall time incl. startup, text read, queries
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	all_process	ext_cpu_user_sys	17.894234	s	2	user+sys CPU seconds
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	build	peak_rss_hwm_after_build	52387840	bytes	3	VmHWM right after build
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	build	time	0.38889671600190923	s	3	libsais single-thread SA construction, int32 SA, byte alphabet
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	build	throughput	25713768.176820774	chars/s	3	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	build	index_bytes	40000000	bytes	3	SA only (4 B/char); text (1 B/char) is extra
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	build	bytes_per_char	4	bytes/char	3	SA only
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	build	bytes_per_char_incl_text	5	bytes/char	3	SA + 1 B/char text
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	build_omp2	time	0.33064066700171679	s	3	libsais_omp
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	build_omp2	identical_to_serial	1	bool	3	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	build_omp4	time	0.21365038099975209	s	3	libsais_omp
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	build_omp4	identical_to_serial	1	bool	3	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_present20	throughput	580476.77134550526	queries/s	3	passes=6
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_present20	time_per_pass	0.17227218199999092	s	3	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_present20	checksum	100000	count	3	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_absent20	throughput	567050.79670456366	queries/s	3	passes=6
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_absent20	time_per_pass	0.17635104400020887	s	3	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_absent20	checksum	1	count	3	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	contains_present20	throughput	675403.79957020772	queries/s	3	passes=7
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	contains_present20	time_per_pass	0.14805957571401709	s	3	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	contains_present20	checksum	100000	count	3	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	contains_absent20	throughput	697773.83352404705	queries/s	3	passes=7
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	contains_absent20	time_per_pass	0.14331291200038063	s	3	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	contains_absent20	checksum	1	count	3	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	locate8	throughput	508749.63768847456	patterns/s	3	passes=509
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	locate8	positions_per_s	77514112.297491357	positions/s	3	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	locate8	total_hits	152362	count	3	occurrences returned per pass (oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	locate8	checksum	761250397446	count	3	sum of positions (oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_present20	latency_p50	1674.9982023611665	ns	3	per-query clock_gettime (incl. ~25ns timer overhead)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_present20	latency_p99	2737.0006137061864	ns	3	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_present20	latency_mean	1774.1943325381744	ns	3	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_present20_1t	throughput	931097.97400665004	queries/s	3	threads=1 reps=6 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_present20_1t	checksum_ok	1	bool	3	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	locate8_1t	throughput	540557.28028316551	patterns/s	3	threads=1 reps=400 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	locate8_1t	checksum_ok	1	bool	3	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_present20_4t	throughput	2613721.7880283995	queries/s	3	threads=4 reps=6 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_present20_4t	checksum_ok	1	bool	3	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	locate8_4t	throughput	2098607.6556653553	patterns/s	3	threads=4 reps=400 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	locate8_4t	checksum_ok	1	bool	3	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	all_process	peak_rss_hwm	92844032	bytes	3	VmHWM at end of process
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	all_process	ext_peak_rss	92844032	bytes	3	wait4 ru_maxrss of the whole process (independent of harness)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	all_process	ext_wall	10.35974669456482	s	3	process wall time incl. startup, text read, queries
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	all_process	ext_cpu_user_sys	15.007041	s	3	user+sys CPU seconds
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	build	peak_rss_hwm_after_build	52387840	bytes	4	VmHWM right after build
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	build	time	0.32192025699987425	s	4	libsais single-thread SA construction, int32 SA, byte alphabet
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	build	throughput	31063593.491116982	chars/s	4	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	build	index_bytes	40000000	bytes	4	SA only (4 B/char); text (1 B/char) is extra
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	build	bytes_per_char	4	bytes/char	4	SA only
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	build	bytes_per_char_incl_text	5	bytes/char	4	SA + 1 B/char text
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	build_omp2	time	0.25595162299941876	s	4	libsais_omp
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	build_omp2	identical_to_serial	1	bool	4	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	build_omp4	time	0.20400321000124677	s	4	libsais_omp
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	build_omp4	identical_to_serial	1	bool	4	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_present20	throughput	907585.5645715862	queries/s	4	passes=10
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_present20	time_per_pass	0.11018244879996927	s	4	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_present20	checksum	100000	count	4	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_absent20	throughput	918182.3424713047	queries/s	4	passes=10
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_absent20	time_per_pass	0.10891082890011602	s	4	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_absent20	checksum	1	count	4	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	contains_present20	throughput	1214976.1216633916	queries/s	4	passes=13
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	contains_present20	time_per_pass	0.082306144307669735	s	4	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	contains_present20	checksum	100000	count	4	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	contains_absent20	throughput	1191259.4814023408	queries/s	4	passes=12
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	contains_absent20	time_per_pass	0.083944767333377968	s	4	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	contains_absent20	checksum	1	count	4	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	locate8	throughput	859720.36219441867	patterns/s	4	passes=860
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	locate8	positions_per_s	130988713.82466602	positions/s	4	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	locate8	total_hits	152362	count	4	occurrences returned per pass (oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	locate8	checksum	761250397446	count	4	sum of positions (oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_present20	latency_p50	1073.0000212788582	ns	4	per-query clock_gettime (incl. ~25ns timer overhead)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_present20	latency_p99	1690.0012269616127	ns	4	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_present20	latency_mean	1158.857924638148	ns	4	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_present20_1t	throughput	806827.31609083479	queries/s	4	threads=1 reps=9 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_present20_1t	checksum_ok	1	bool	4	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	locate8_1t	throughput	690853.8849010386	patterns/s	4	threads=1 reps=400 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	locate8_1t	checksum_ok	1	bool	4	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_present20_4t	throughput	2361594.8936659293	queries/s	4	threads=4 reps=9 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_present20_4t	checksum_ok	1	bool	4	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	locate8_4t	throughput	2158669.5835420433	patterns/s	4	threads=4 reps=400 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	locate8_4t	checksum_ok	1	bool	4	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	all_process	peak_rss_hwm	92934144	bytes	4	VmHWM at end of process
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	all_process	ext_peak_rss	92934144	bytes	4	wait4 ru_maxrss of the whole process (independent of harness)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	all_process	ext_wall	10.794758081436157	s	4	process wall time incl. startup, text read, queries
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	all_process	ext_cpu_user_sys	15.941578	s	4	user+sys CPU seconds
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	build	peak_rss_hwm_after_build	52330496	bytes	5	VmHWM right after build
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	build	time	0.38384710800164612	s	5	libsais single-thread SA construction, int32 SA, byte alphabet
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	build	throughput	26052039.448886808	chars/s	5	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	build	index_bytes	40000000	bytes	5	SA only (4 B/char); text (1 B/char) is extra
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	build	bytes_per_char	4	bytes/char	5	SA only
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	build	bytes_per_char_incl_text	5	bytes/char	5	SA + 1 B/char text
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	build_omp2	time	0.3133784800011199	s	5	libsais_omp
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	build_omp2	identical_to_serial	1	bool	5	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	build_omp4	time	0.22646078599791508	s	5	libsais_omp
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	build_omp4	identical_to_serial	1	bool	5	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_present20	throughput	567655.81089097401	queries/s	5	passes=6
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_present20	time_per_pass	0.17616308699992564	s	5	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_present20	checksum	100000	count	5	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_absent20	throughput	568469.74864619854	queries/s	5	passes=6
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_absent20	time_per_pass	0.17591085583383878	s	5	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_absent20	checksum	1	count	5	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	contains_present20	throughput	711356.26091793668	queries/s	5	passes=8
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	contains_present20	time_per_pass	0.14057653737518194	s	5	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	contains_present20	checksum	100000	count	5	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	contains_absent20	throughput	671645.13838675129	queries/s	5	passes=7
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	contains_absent20	time_per_pass	0.14888814685712401	s	5	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	contains_absent20	checksum	1	count	5	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	locate8	throughput	510960.85069123545	patterns/s	5	passes=511
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	locate8	positions_per_s	77851017.133018017	positions/s	5	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	locate8	total_hits	152362	count	5	occurrences returned per pass (oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	locate8	checksum	761250397446	count	5	sum of positions (oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_present20	latency_p50	1680.0004232209176	ns	5	per-query clock_gettime (incl. ~25ns timer overhead)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_present20	latency_p99	2717.9994503967464	ns	5	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_present20	latency_mean	1781.7225914768965	ns	5	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_present20_1t	throughput	674154.82490405312	queries/s	5	threads=1 reps=6 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_present20_1t	checksum_ok	1	bool	5	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	locate8_1t	throughput	851650.18368991965	patterns/s	5	threads=1 reps=400 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	locate8_1t	checksum_ok	1	bool	5	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_present20_4t	throughput	2387044.3938897476	queries/s	5	threads=4 reps=10 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	count_present20_4t	checksum_ok	1	bool	5	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	locate8_4t	throughput	2158503.7724531638	patterns/s	5	threads=4 reps=400 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	locate8_4t	checksum_ok	1	bool	5	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	all_process	peak_rss_hwm	92811264	bytes	5	VmHWM at end of process
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	all_process	ext_peak_rss	92811264	bytes	5	wait4 ru_maxrss of the whole process (independent of harness)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	all_process	ext_wall	11.164883852005005	s	5	process wall time incl. startup, text read, queries
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session start	dna_10m	10000000	all_process	ext_cpu_user_sys	16.766392	s	5	user+sys CPU seconds
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	build	peak_rss_hwm_after_build	52326400	bytes	1	VmHWM right after build
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	build	time	0.38767609600108699	s	1	libsais single-thread SA construction, int32 SA, byte alphabet
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	build	throughput	25794729.422708489	chars/s	1	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	build	index_bytes	40000000	bytes	1	SA only (4 B/char); text (1 B/char) is extra
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	build	bytes_per_char	4	bytes/char	1	SA only
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	build	bytes_per_char_incl_text	5	bytes/char	1	SA + 1 B/char text
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	build_omp2	time	0.32973663099983241	s	1	libsais_omp
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	build_omp2	identical_to_serial	1	bool	1	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	build_omp4	time	0.20831632499903208	s	1	libsais_omp
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	build_omp4	identical_to_serial	1	bool	1	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_present20	throughput	590062.72531984223	queries/s	1	passes=6
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_present20	time_per_pass	0.16947350800001004	s	1	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_present20	checksum	100000	count	1	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_absent20	throughput	597039.35052154015	queries/s	1	passes=6
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_absent20	time_per_pass	0.16749314749965075	s	1	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_absent20	checksum	1	count	1	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	contains_present20	throughput	718496.75899680506	queries/s	1	passes=8
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	contains_present20	time_per_pass	0.13917947262507369	s	1	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	contains_present20	checksum	100000	count	1	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	contains_absent20	throughput	721422.66562460025	queries/s	1	passes=8
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	contains_absent20	time_per_pass	0.13861499612494299	s	1	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	contains_absent20	checksum	1	count	1	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	locate8	throughput	511444.15481982887	patterns/s	1	passes=512
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	locate8	positions_per_s	77924654.316658765	positions/s	1	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	locate8	total_hits	152362	count	1	occurrences returned per pass (oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	locate8	checksum	761250397446	count	1	sum of positions (oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_present20	latency_p50	1649.9980119988322	ns	1	per-query clock_gettime (incl. ~25ns timer overhead)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_present20	latency_p99	2712.0004233438522	ns	1	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_present20	latency_mean	1772.5797162347531	ns	1	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_present20_1t	throughput	584288.22984075756	queries/s	1	threads=1 reps=5 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_present20_1t	checksum_ok	1	bool	1	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	locate8_1t	throughput	550558.91757250589	patterns/s	1	threads=1 reps=400 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	locate8_1t	checksum_ok	1	bool	1	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_present20_4t	throughput	2543615.0354311871	queries/s	1	threads=4 reps=7 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_present20_4t	checksum_ok	1	bool	1	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	locate8_4t	throughput	2077974.0191746405	patterns/s	1	threads=4 reps=400 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	locate8_4t	checksum_ok	1	bool	1	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	all_process	peak_rss_hwm	92692480	bytes	1	VmHWM at end of process
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	all_process	ext_peak_rss	92692480	bytes	1	wait4 ru_maxrss of the whole process (independent of harness)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	all_process	ext_wall	10.876059770584106	s	1	process wall time incl. startup, text read, queries
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	all_process	ext_cpu_user_sys	16.300811	s	1	user+sys CPU seconds
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	build	peak_rss_hwm_after_build	52338688	bytes	2	VmHWM right after build
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	build	time	0.34417422000115039	s	2	libsais single-thread SA construction, int32 SA, byte alphabet
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	build	throughput	29055052.40911587	chars/s	2	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	build	index_bytes	40000000	bytes	2	SA only (4 B/char); text (1 B/char) is extra
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	build	bytes_per_char	4	bytes/char	2	SA only
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	build	bytes_per_char_incl_text	5	bytes/char	2	SA + 1 B/char text
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	build_omp2	time	0.27037748499787995	s	2	libsais_omp
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	build_omp2	identical_to_serial	1	bool	2	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	build_omp4	time	0.21308653199957917	s	2	libsais_omp
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	build_omp4	identical_to_serial	1	bool	2	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_present20	throughput	799580.1860200878	queries/s	2	passes=8
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_present20	time_per_pass	0.12506563037504748	s	2	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_present20	checksum	100000	count	2	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_absent20	throughput	996243.12830722216	queries/s	2	passes=10
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_absent20	time_per_pass	0.10037710390024586	s	2	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_absent20	checksum	1	count	2	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	contains_present20	throughput	1314202.1484604692	queries/s	2	passes=14
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	contains_present20	time_per_pass	0.076091794642966962	s	2	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	contains_present20	checksum	100000	count	2	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	contains_absent20	throughput	1332035.2649700788	queries/s	2	passes=14
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	contains_absent20	time_per_pass	0.075073087499861552	s	2	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	contains_absent20	checksum	1	count	2	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	locate8	throughput	896050.45980668801	patterns/s	2	passes=897
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	locate8	positions_per_s	136524040.15706661	positions/s	2	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	locate8	total_hits	152362	count	2	occurrences returned per pass (oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	locate8	checksum	761250397446	count	2	sum of positions (oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_present20	latency_p50	998.99989436380565	ns	2	per-query clock_gettime (incl. ~25ns timer overhead)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_present20	latency_p99	1551.0013327002525	ns	2	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_present20	latency_mean	1074.9712726465136	ns	2	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_present20_1t	throughput	946349.57542413007	queries/s	2	threads=1 reps=10 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_present20_1t	checksum_ok	1	bool	2	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	locate8_1t	throughput	888725.28838687378	patterns/s	2	threads=1 reps=400 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	locate8_1t	checksum_ok	1	bool	2	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_present20_4t	throughput	2722996.8783005872	queries/s	2	threads=4 reps=10 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_present20_4t	checksum_ok	1	bool	2	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	locate8_4t	throughput	2239850.7215658203	patterns/s	2	threads=4 reps=400 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	locate8_4t	checksum_ok	1	bool	2	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	all_process	peak_rss_hwm	92819456	bytes	2	VmHWM at end of process
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	all_process	ext_peak_rss	92819456	bytes	2	wait4 ru_maxrss of the whole process (independent of harness)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	all_process	ext_wall	10.391286134719849	s	2	process wall time incl. startup, text read, queries
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	all_process	ext_cpu_user_sys	16.239852	s	2	user+sys CPU seconds
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	build	peak_rss_hwm_after_build	52334592	bytes	3	VmHWM right after build
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	build	time	0.31551876099911169	s	3	libsais single-thread SA construction, int32 SA, byte alphabet
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	build	throughput	31693836.424605362	chars/s	3	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	build	index_bytes	40000000	bytes	3	SA only (4 B/char); text (1 B/char) is extra
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	build	bytes_per_char	4	bytes/char	3	SA only
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	build	bytes_per_char_incl_text	5	bytes/char	3	SA + 1 B/char text
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	build_omp2	time	0.28819938299784553	s	3	libsais_omp
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	build_omp2	identical_to_serial	1	bool	3	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	build_omp4	time	0.18435038500319934	s	3	libsais_omp
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	build_omp4	identical_to_serial	1	bool	3	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_present20	throughput	997026.23763640737	queries/s	3	passes=10
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_present20	time_per_pass	0.10029826320023857	s	3	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_present20	checksum	100000	count	3	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_absent20	throughput	1000661.6638721145	queries/s	3	passes=11
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_absent20	time_per_pass	0.099933877363748091	s	3	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_absent20	checksum	1	count	3	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	contains_present20	throughput	1317397.4600513687	queries/s	3	passes=14
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	contains_present20	time_per_pass	0.07590723607141367	s	3	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	contains_present20	checksum	100000	count	3	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	contains_absent20	throughput	1299043.444165085	queries/s	3	passes=13
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	contains_absent20	time_per_pass	0.076979719538380426	s	3	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	contains_absent20	checksum	1	count	3	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	locate8	throughput	721136.05088609573	patterns/s	3	passes=722
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	locate8	positions_per_s	109873730.98510732	positions/s	3	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	locate8	total_hits	152362	count	3	occurrences returned per pass (oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	locate8	checksum	761250397446	count	3	sum of positions (oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_present20	latency_p50	1322.0014807302505	ns	3	per-query clock_gettime (incl. ~25ns timer overhead)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_present20	latency_p99	2107.0009097456932	ns	3	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_present20	latency_mean	1406.8687367398679	ns	3	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_present20_1t	throughput	988090.3432984621	queries/s	3	threads=1 reps=8 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_present20_1t	checksum_ok	1	bool	3	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	locate8_1t	throughput	906178.34479614382	patterns/s	3	threads=1 reps=400 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	locate8_1t	checksum_ok	1	bool	3	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_present20_4t	throughput	2537121.5973311779	queries/s	3	threads=4 reps=8 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_present20_4t	checksum_ok	1	bool	3	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	locate8_4t	throughput	2189760.1832215292	patterns/s	3	threads=4 reps=400 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	locate8_4t	checksum_ok	1	bool	3	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	all_process	peak_rss_hwm	92880896	bytes	3	VmHWM at end of process
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	all_process	ext_peak_rss	92880896	bytes	3	wait4 ru_maxrss of the whole process (independent of harness)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	all_process	ext_wall	10.016019821166992	s	3	process wall time incl. startup, text read, queries
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	all_process	ext_cpu_user_sys	14.905634	s	3	user+sys CPU seconds
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	build	peak_rss_hwm_after_build	52387840	bytes	4	VmHWM right after build
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	build	time	0.37699603600049159	s	4	libsais single-thread SA construction, int32 SA, byte alphabet
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	build	throughput	26525477.843451276	chars/s	4	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	build	index_bytes	40000000	bytes	4	SA only (4 B/char); text (1 B/char) is extra
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	build	bytes_per_char	4	bytes/char	4	SA only
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	build	bytes_per_char_incl_text	5	bytes/char	4	SA + 1 B/char text
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	build_omp2	time	0.30541083200296271	s	4	libsais_omp
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	build_omp2	identical_to_serial	1	bool	4	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	build_omp4	time	0.19887157400080469	s	4	libsais_omp
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	build_omp4	identical_to_serial	1	bool	4	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_present20	throughput	617954.98106434359	queries/s	4	passes=7
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_present20	time_per_pass	0.16182408600018658	s	4	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_present20	checksum	100000	count	4	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_absent20	throughput	637888.39549366536	queries/s	4	passes=7
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_absent20	time_per_pass	0.15676723499979875	s	4	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_absent20	checksum	1	count	4	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	contains_present20	throughput	926388.51030852587	queries/s	4	passes=10
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	contains_present20	time_per_pass	0.10794607110001379	s	4	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	contains_present20	checksum	100000	count	4	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	contains_absent20	throughput	931946.14702587936	queries/s	4	passes=10
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	contains_absent20	time_per_pass	0.1073023375000048	s	4	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	contains_absent20	checksum	1	count	4	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	locate8	throughput	621702.2630557894	patterns/s	4	passes=622
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	locate8	positions_per_s	94723800.20370619	positions/s	4	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	locate8	total_hits	152362	count	4	occurrences returned per pass (oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	locate8	checksum	761250397446	count	4	sum of positions (oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_present20	latency_p50	1295.9972082171589	ns	4	per-query clock_gettime (incl. ~25ns timer overhead)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_present20	latency_p99	2073.9971660077572	ns	4	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_present20	latency_mean	1381.1802438795078	ns	4	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_present20_1t	throughput	622499.21251492784	queries/s	4	threads=1 reps=8 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_present20_1t	checksum_ok	1	bool	4	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	locate8_1t	throughput	543564.1971862216	patterns/s	4	threads=1 reps=400 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	locate8_1t	checksum_ok	1	bool	4	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_present20_4t	throughput	2568188.0945128379	queries/s	4	threads=4 reps=8 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_present20_4t	checksum_ok	1	bool	4	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	locate8_4t	throughput	1891583.1078823793	patterns/s	4	threads=4 reps=400 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	locate8_4t	checksum_ok	1	bool	4	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	all_process	peak_rss_hwm	92934144	bytes	4	VmHWM at end of process
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	all_process	ext_peak_rss	92934144	bytes	4	wait4 ru_maxrss of the whole process (independent of harness)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	all_process	ext_wall	11.382912635803223	s	4	process wall time incl. startup, text read, queries
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	all_process	ext_cpu_user_sys	17.049730999999998	s	4	user+sys CPU seconds
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	build	peak_rss_hwm_after_build	52391936	bytes	5	VmHWM right after build
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	build	time	0.3454042080011277	s	5	libsais single-thread SA construction, int32 SA, byte alphabet
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	build	throughput	28951587.063372869	chars/s	5	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	build	index_bytes	40000000	bytes	5	SA only (4 B/char); text (1 B/char) is extra
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	build	bytes_per_char	4	bytes/char	5	SA only
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	build	bytes_per_char_incl_text	5	bytes/char	5	SA + 1 B/char text
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	build_omp2	time	0.279218421997939	s	5	libsais_omp
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	build_omp2	identical_to_serial	1	bool	5	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	build_omp4	time	0.20532799899956444	s	5	libsais_omp
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	build_omp4	identical_to_serial	1	bool	5	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_present20	throughput	680332.79672751098	queries/s	5	passes=8
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_present20	time_per_pass	0.14698688712496732	s	5	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_present20	checksum	100000	count	5	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_absent20	throughput	596601.18274947442	queries/s	5	passes=6
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_absent20	time_per_pass	0.16761616116673395	s	5	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_absent20	checksum	1	count	5	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	contains_present20	throughput	747437.09472767136	queries/s	5	passes=8
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	contains_present20	time_per_pass	0.13379052324989971	s	5	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	contains_present20	checksum	100000	count	5	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	contains_absent20	throughput	740079.17916458903	queries/s	5	passes=8
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	contains_absent20	time_per_pass	0.13512067737519828	s	5	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	contains_absent20	checksum	1	count	5	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	locate8	throughput	523889.09424901643	patterns/s	5	passes=524
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	locate8	positions_per_s	79820790.177968651	positions/s	5	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	locate8	total_hits	152362	count	5	occurrences returned per pass (oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	locate8	checksum	761250397446	count	5	sum of positions (oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_present20	latency_p50	1600.9980754461139	ns	5	per-query clock_gettime (incl. ~25ns timer overhead)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_present20	latency_p99	2650.9987947065383	ns	5	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_present20	latency_mean	1699.8839764710203	ns	5	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_present20_1t	throughput	749085.80150881724	queries/s	5	threads=1 reps=7 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_present20_1t	checksum_ok	1	bool	5	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	locate8_1t	throughput	665996.39346693247	patterns/s	5	threads=1 reps=400 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	locate8_1t	checksum_ok	1	bool	5	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_present20_4t	throughput	2465464.6469743471	queries/s	5	threads=4 reps=6 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	count_present20_4t	checksum_ok	1	bool	5	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	locate8_4t	throughput	2103463.285252328	patterns/s	5	threads=4 reps=400 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	locate8_4t	checksum_ok	1	bool	5	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	all_process	peak_rss_hwm	92938240	bytes	5	VmHWM at end of process
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	all_process	ext_peak_rss	92938240	bytes	5	wait4 ru_maxrss of the whole process (independent of harness)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	all_process	ext_wall	10.593846797943115	s	5	process wall time incl. startup, text read, queries
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session mid	dna_10m	10000000	all_process	ext_cpu_user_sys	15.619801	s	5	user+sys CPU seconds
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	build	peak_rss_hwm_after_build	52383744	bytes	1	VmHWM right after build
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	build	time	0.3049467269993329	s	1	libsais single-thread SA construction, int32 SA, byte alphabet
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	build	throughput	32792612.986536093	chars/s	1	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	build	index_bytes	40000000	bytes	1	SA only (4 B/char); text (1 B/char) is extra
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	build	bytes_per_char	4	bytes/char	1	SA only
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	build	bytes_per_char_incl_text	5	bytes/char	1	SA + 1 B/char text
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	build_omp2	time	0.23895464300221647	s	1	libsais_omp
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	build_omp2	identical_to_serial	1	bool	1	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	build_omp4	time	0.1754259670015017	s	1	libsais_omp
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	build_omp4	identical_to_serial	1	bool	1	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_present20	throughput	1005703.3786016395	queries/s	1	passes=11
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_present20	time_per_pass	0.099432896545543117	s	1	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_present20	checksum	100000	count	1	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_absent20	throughput	1005153.9469642938	queries/s	1	passes=11
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_absent20	time_per_pass	0.099487248000183506	s	1	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_absent20	checksum	1	count	1	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	contains_present20	throughput	1352948.2599480683	queries/s	1	passes=14
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	contains_present20	time_per_pass	0.073912656500137272	s	1	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	contains_present20	checksum	100000	count	1	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	contains_absent20	throughput	1358745.6583398695	queries/s	1	passes=14
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	contains_absent20	time_per_pass	0.073597291285685582	s	1	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	contains_absent20	checksum	1	count	1	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	locate8	throughput	683874.01033327018	patterns/s	1	passes=685
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	locate8	positions_per_s	104196411.96239772	positions/s	1	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	locate8	total_hits	152362	count	1	occurrences returned per pass (oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	locate8	checksum	761250397446	count	1	sum of positions (oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_present20	latency_p50	1594.9990483932197	ns	1	per-query clock_gettime (incl. ~25ns timer overhead)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_present20	latency_p99	2582.0008886512369	ns	1	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_present20	latency_mean	1703.1228798077973	ns	1	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_present20_1t	throughput	921459.60634157166	queries/s	1	threads=1 reps=7 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_present20_1t	checksum_ok	1	bool	1	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	locate8_1t	throughput	841994.31489387818	patterns/s	1	threads=1 reps=400 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	locate8_1t	checksum_ok	1	bool	1	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_present20_4t	throughput	2501873.085364691	queries/s	1	threads=4 reps=7 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_present20_4t	checksum_ok	1	bool	1	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	locate8_4t	throughput	2033260.7451599685	patterns/s	1	threads=4 reps=400 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	locate8_4t	checksum_ok	1	bool	1	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	all_process	peak_rss_hwm	92930048	bytes	1	VmHWM at end of process
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	all_process	ext_peak_rss	92930048	bytes	1	wait4 ru_maxrss of the whole process (independent of harness)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	all_process	ext_wall	10.01789402961731	s	1	process wall time incl. startup, text read, queries
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	all_process	ext_cpu_user_sys	15.035111	s	1	user+sys CPU seconds
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	build	peak_rss_hwm_after_build	52338688	bytes	2	VmHWM right after build
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	build	time	0.36295540999708464	s	2	libsais single-thread SA construction, int32 SA, byte alphabet
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	build	throughput	27551593.734559081	chars/s	2	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	build	index_bytes	40000000	bytes	2	SA only (4 B/char); text (1 B/char) is extra
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	build	bytes_per_char	4	bytes/char	2	SA only
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	build	bytes_per_char_incl_text	5	bytes/char	2	SA + 1 B/char text
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	build_omp2	time	0.28925473799972679	s	2	libsais_omp
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	build_omp2	identical_to_serial	1	bool	2	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	build_omp4	time	0.18339041500075837	s	2	libsais_omp
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	build_omp4	identical_to_serial	1	bool	2	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_present20	throughput	732303.8759233302	queries/s	2	passes=8
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_present20	time_per_pass	0.13655533349992766	s	2	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_present20	checksum	100000	count	2	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_absent20	throughput	733921.25991946121	queries/s	2	passes=8
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_absent20	time_per_pass	0.13625439874977019	s	2	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_absent20	checksum	1	count	2	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	contains_present20	throughput	905595.06023808126	queries/s	2	passes=10
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	contains_present20	time_per_pass	0.11042463060002775	s	2	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	contains_present20	checksum	100000	count	2	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	contains_absent20	throughput	892504.57078936812	queries/s	2	passes=9
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	contains_absent20	time_per_pass	0.11204424411132802	s	2	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	contains_absent20	checksum	1	count	2	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	locate8	throughput	513648.72128946299	patterns/s	2	passes=514
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	locate8	positions_per_s	78260546.473105162	positions/s	2	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	locate8	total_hits	152362	count	2	occurrences returned per pass (oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	locate8	checksum	761250397446	count	2	sum of positions (oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_present20	latency_p50	1614.0002117026597	ns	2	per-query clock_gettime (incl. ~25ns timer overhead)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_present20	latency_p99	2613.0001060664654	ns	2	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_present20	latency_mean	1707.62475710945	ns	2	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_present20_1t	throughput	615317.52278395591	queries/s	2	threads=1 reps=7 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_present20_1t	checksum_ok	1	bool	2	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	locate8_1t	throughput	840737.77043344663	patterns/s	2	threads=1 reps=400 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	locate8_1t	checksum_ok	1	bool	2	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_present20_4t	throughput	2582075.2839489719	queries/s	2	threads=4 reps=6 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_present20_4t	checksum_ok	1	bool	2	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	locate8_4t	throughput	2182509.9144445476	patterns/s	2	threads=4 reps=400 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	locate8_4t	checksum_ok	1	bool	2	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	all_process	peak_rss_hwm	92811264	bytes	2	VmHWM at end of process
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	all_process	ext_peak_rss	92811264	bytes	2	wait4 ru_maxrss of the whole process (independent of harness)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	all_process	ext_wall	10.46313190460205	s	2	process wall time incl. startup, text read, queries
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	all_process	ext_cpu_user_sys	14.782112	s	2	user+sys CPU seconds
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	build	peak_rss_hwm_after_build	52330496	bytes	3	VmHWM right after build
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	build	time	0.30401722700116807	s	3	libsais single-thread SA construction, int32 SA, byte alphabet
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	build	throughput	32892872.876449134	chars/s	3	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	build	index_bytes	40000000	bytes	3	SA only (4 B/char); text (1 B/char) is extra
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	build	bytes_per_char	4	bytes/char	3	SA only
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	build	bytes_per_char_incl_text	5	bytes/char	3	SA + 1 B/char text
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	build_omp2	time	0.24114413200004492	s	3	libsais_omp
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	build_omp2	identical_to_serial	1	bool	3	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	build_omp4	time	0.17218400799902156	s	3	libsais_omp
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	build_omp4	identical_to_serial	1	bool	3	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_present20	throughput	1000426.2652624679	queries/s	3	passes=11
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_present20	time_per_pass	0.099957391636218584	s	3	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_present20	checksum	100000	count	3	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_absent20	throughput	999048.85553654667	queries/s	3	passes=11
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_absent20	time_per_pass	0.10009520500005403	s	3	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_absent20	checksum	1	count	3	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	contains_present20	throughput	1318972.6741552851	queries/s	3	passes=14
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	contains_present20	time_per_pass	0.075816582071378688	s	3	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	contains_present20	checksum	100000	count	3	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	contains_absent20	throughput	1271777.2433879019	queries/s	3	passes=13
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	contains_absent20	time_per_pass	0.078630122153789186	s	3	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	contains_absent20	checksum	1	count	3	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	locate8	throughput	856809.91928990325	patterns/s	3	passes=857
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	locate8	positions_per_s	130545272.92284822	positions/s	3	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	locate8	total_hits	152362	count	3	occurrences returned per pass (oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	locate8	checksum	761250397446	count	3	sum of positions (oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_present20	latency_p50	992.0004231389612	ns	3	per-query clock_gettime (incl. ~25ns timer overhead)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_present20	latency_p99	1518.9980331342667	ns	3	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_present20	latency_mean	1068.9816726153392	ns	3	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_present20_1t	throughput	612118.03000183764	queries/s	3	threads=1 reps=10 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_present20_1t	checksum_ok	1	bool	3	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	locate8_1t	throughput	880281.43636505899	patterns/s	3	threads=1 reps=400 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	locate8_1t	checksum_ok	1	bool	3	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_present20_4t	throughput	2602932.6545961383	queries/s	3	threads=4 reps=10 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_present20_4t	checksum_ok	1	bool	3	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	locate8_4t	throughput	2187707.8224241394	patterns/s	3	threads=4 reps=400 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	locate8_4t	checksum_ok	1	bool	3	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	all_process	peak_rss_hwm	92790784	bytes	3	VmHWM at end of process
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	all_process	ext_peak_rss	92790784	bytes	3	wait4 ru_maxrss of the whole process (independent of harness)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	all_process	ext_wall	11.084888696670532	s	3	process wall time incl. startup, text read, queries
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	all_process	ext_cpu_user_sys	16.145281999999998	s	3	user+sys CPU seconds
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	build	peak_rss_hwm_after_build	52338688	bytes	4	VmHWM right after build
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	build	time	0.31255451700053527	s	4	libsais single-thread SA construction, int32 SA, byte alphabet
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	build	throughput	31994418.432874143	chars/s	4	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	build	index_bytes	40000000	bytes	4	SA only (4 B/char); text (1 B/char) is extra
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	build	bytes_per_char	4	bytes/char	4	SA only
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	build	bytes_per_char_incl_text	5	bytes/char	4	SA + 1 B/char text
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	build_omp2	time	0.28613412200138555	s	4	libsais_omp
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	build_omp2	identical_to_serial	1	bool	4	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	build_omp4	time	0.17141410899785114	s	4	libsais_omp
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	build_omp4	identical_to_serial	1	bool	4	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_present20	throughput	977479.40049882769	queries/s	4	passes=10
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_present20	time_per_pass	0.10230394619975414	s	4	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_present20	checksum	100000	count	4	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_absent20	throughput	994839.37717990845	queries/s	4	passes=10
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_absent20	time_per_pass	0.10051873929987779	s	4	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_absent20	checksum	1	count	4	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	contains_present20	throughput	1323952.0875026812	queries/s	4	passes=14
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	contains_present20	time_per_pass	0.07553143421422906	s	4	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	contains_present20	checksum	100000	count	4	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	contains_absent20	throughput	1315886.6279220732	queries/s	4	passes=14
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	contains_absent20	time_per_pass	0.075994388785537534	s	4	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	contains_absent20	checksum	1	count	4	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	locate8	throughput	884369.35267697868	patterns/s	4	passes=885
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	locate8	positions_per_s	134744283.31256983	positions/s	4	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	locate8	total_hits	152362	count	4	occurrences returned per pass (oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	locate8	checksum	761250397446	count	4	sum of positions (oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_present20	latency_p50	983.0000635702163	ns	4	per-query clock_gettime (incl. ~25ns timer overhead)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_present20	latency_p99	1510.9981177374721	ns	4	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_present20	latency_mean	1053.0655230831931	ns	4	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_present20_1t	throughput	911683.95525526116	queries/s	4	threads=1 reps=11 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_present20_1t	checksum_ok	1	bool	4	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	locate8_1t	throughput	898215.57417402242	patterns/s	4	threads=1 reps=400 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	locate8_1t	checksum_ok	1	bool	4	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_present20_4t	throughput	3690229.3642127775	queries/s	4	threads=4 reps=10 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_present20_4t	checksum_ok	1	bool	4	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	locate8_4t	throughput	3265992.9807747598	patterns/s	4	threads=4 reps=400 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	locate8_4t	checksum_ok	1	bool	4	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	all_process	peak_rss_hwm	92819456	bytes	4	VmHWM at end of process
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	all_process	ext_peak_rss	92819456	bytes	4	wait4 ru_maxrss of the whole process (independent of harness)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	all_process	ext_wall	9.85761308670044	s	4	process wall time incl. startup, text read, queries
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	all_process	ext_cpu_user_sys	14.914839	s	4	user+sys CPU seconds
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	build	peak_rss_hwm_after_build	52318208	bytes	5	VmHWM right after build
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	build	time	0.34729584300293936	s	5	libsais single-thread SA construction, int32 SA, byte alphabet
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	build	throughput	28793894.892417021	chars/s	5	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	build	index_bytes	40000000	bytes	5	SA only (4 B/char); text (1 B/char) is extra
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	build	bytes_per_char	4	bytes/char	5	SA only
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	build	bytes_per_char_incl_text	5	bytes/char	5	SA + 1 B/char text
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	build_omp2	time	0.25956298299934133	s	5	libsais_omp
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	build_omp2	identical_to_serial	1	bool	5	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	build_omp4	time	0.18276629300089553	s	5	libsais_omp
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	build_omp4	identical_to_serial	1	bool	5	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_present20	throughput	733769.05554844427	queries/s	5	passes=8
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_present20	time_per_pass	0.1362826617501014	s	5	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_present20	checksum	100000	count	5	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_absent20	throughput	714889.14838690741	queries/s	5	passes=8
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_absent20	time_per_pass	0.13988182674984273	s	5	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_absent20	checksum	1	count	5	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	contains_present20	throughput	854282.97727194242	queries/s	5	passes=9
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	contains_present20	time_per_pass	0.11705723122253807	s	5	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	contains_present20	checksum	100000	count	5	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	contains_absent20	throughput	735454.14652175538	queries/s	5	passes=8
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	contains_absent20	time_per_pass	0.13597040749982625	s	5	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	contains_absent20	checksum	1	count	5	sum of results (cross-tool oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	locate8	throughput	502337.14905247447	patterns/s	5	passes=503
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	locate8	positions_per_s	76537092.70393312	positions/s	5	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	locate8	total_hits	152362	count	5	occurrences returned per pass (oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	locate8	checksum	761250397446	count	5	sum of positions (oracle)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_present20	latency_p50	1639.000402064994	ns	5	per-query clock_gettime (incl. ~25ns timer overhead)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_present20	latency_p99	2655.0005713943392	ns	5	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_present20	latency_mean	1740.5017268902063	ns	5	
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_present20_1t	throughput	1004157.6199484647	queries/s	5	threads=1 reps=7 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_present20_1t	checksum_ok	1	bool	5	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	locate8_1t	throughput	905659.10328464268	patterns/s	5	threads=1 reps=400 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	locate8_1t	checksum_ok	1	bool	5	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_present20_4t	throughput	2464128.2288946221	queries/s	5	threads=4 reps=7 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	count_present20_4t	checksum_ok	1	bool	5	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	locate8_4t	throughput	2058735.812505821	patterns/s	5	threads=4 reps=400 each thread runs the full query set; one shared SA
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	locate8_4t	checksum_ok	1	bool	5	every thread's result equals the single-thread result
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	all_process	peak_rss_hwm	92798976	bytes	5	VmHWM at end of process
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	all_process	ext_peak_rss	92798976	bytes	5	wait4 ru_maxrss of the whole process (independent of harness)
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	all_process	ext_wall	10.266012907028198	s	5	process wall time incl. startup, text read, queries
+libsais	libsais v2.9.1 (1aae634) gcc-13.3.0 -O3 (OpenMP build; serial rows use libsais()) session end	dna_10m	10000000	all_process	ext_cpu_user_sys	14.864398	s	5	user+sys CPU seconds

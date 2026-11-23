@@ -1,0 +1,452 @@
+# work package 1b.9, part C: the production chain (analysis/s1b-handoff/s1b.sh chain) on the head, one process after the other on the quiet machine; key lines of run_1b9_session3.sh (first log: dna, genome, prot, rep at 10^7 and 10^8; second log: dna at 10^7 and 10^8 again, with the container hash printed after every repeat)
+# table by chain_table_1b9.py
+| kind | n | builds | time inside SesaBuilder.Build s: median [min-max] | RssAnon peak MB (independent sampler): median [min-max] | container bytes (B/char) | Structure s | checker | = reference (I1) |
+|---|---|---|---|---|---|---|---|---|
+| dna | 10m | 6 | 2.33 [2.04-2.39] | 99.7 [99.7-99.8] | 132,515,457 (13.25) | 1.9 | 11 PASS, 0 FAIL (2 chains) | yes |
+| genome | 10m | 1 | 2.23 [2.23-2.23] | 101.8 [101.8-101.8] | 134,804,304 (13.48) | 1.4 | 11 PASS, 0 FAIL (1 chain) | yes |
+| prot | 10m | 1 | 2.12 [2.12-2.12] | 100.1 [100.1-100.1] | 136,263,297 (13.63) | 1.3 | 11 PASS, 0 FAIL (1 chain) | yes |
+| rep | 10m | 1 | 3.00 [3.00-3.00] | 99.7 [99.7-99.7] | 142,515,458 (14.25) | 2.0 | 11 PASS, 0 FAIL (1 chain) | yes |
+| dna | 100m | 6 | 17.88 [15.88-19.43] | 253.2 [247.1-256.1] | 1,325,019,393 (13.25) | 24.9 | 11 PASS, 0 FAIL (2 chains) | yes |
+| genome | 100m | 1 | 20.86 [20.86-20.86] | 286.3 [286.3-286.3] | 1,348,644,448 (13.49) | 26.5 | 11 PASS, 0 FAIL (1 chain) | yes |
+| prot | 100m | 1 | 19.34 [19.34-19.34] | 261.6 [261.6-261.6] | 1,362,519,008 (13.63) | 22.5 | 11 PASS, 0 FAIL (1 chain) | yes |
+| rep | 100m | 1 | 26.50 [26.50-26.50] | 251.4 [251.4-251.4] | 1,425,019,394 (14.25) | 23.3 | 11 PASS, 0 FAIL (1 chain) | yes |
+
+# ---- first log
+== 18:23:35Z start session 3 | 3.93 3.64 2.88
+ 18:23:35 up  8:21,  0 user,  load average: 3.93, 3.64, 2.88
+== 18:23:35Z chain dna 10m | 3.93 3.64 2.88
+exit 0
+RESULT: OK (0 warning(s))
+  done in 1 s; sha256=67e49c4bc074f073c89cc0f6bc48bdfcf6b0bd5bc79321bdd30c8c36d2b6d8ee
+  markers:  checksummed	2.0694 header-written	2.0738 header-synced	2.0759 magic-written	2.0760   total_s            2.069890869 s
+  ph1_s              0.073072949 s
+  ph23_s             0.469588061 s
+  ph45_s             1.069418259 s
+  bwt_s              0.182060836 s
+  psi_s              0.102654483 s
+  file_size          132515457 bytes
+  scratch_peak       120000000 bytes
+  rssanon_peak_mb    99.876864 MB
+  independent sampler: RssAnon peak 99.7 MB (gate 320 MB)
+  verify_wall_s	0.687127	whole verification, 4 threads, LCE cap 65536
+  open_seconds           1.583623981 dna-n10000000 wall time of the open at the level, including the mapping
+  open_rssanon_peak_mb   42.467328 dna-n10000000 81 samples at 20 ms; NOT the gate of the build (320 MB), the structure pass holds a bitmap of n / 8 bytes
+  q_result               PASS dna-n10000000 every answer equals the oracle's
+  PASS    P1 native: kernel x86_64, image unknown, .NET process X64
+  PASS    X1 CRC-32C on the CPU instruction (Sse42.X64.Crc32), equal to the table path
+  info    4 cores, 16869113856 bytes of memory, cgroup 1, ext2/ext3/ext4, .NET 10.0.14, RssAnon source: proc
+  PASS    B1 finished in 1 attempt(s), 2.07 s inside the build, container 132,515,457 bytes (13.25 per symbol)
+  PASS    R1 RssAnon peak 99.9 MB (the build's own sampler, 10 ms) <= 320 MB; margin 220.1 MB
+  PASS    R2 RssAnon peak 99.7 MB (independent sampler of /proc/<pid>/status) <= 320 MB
+  PASS    I1 container SHA-256 21718e29fe670d49... equals the reference table and the reference in the form
+  PASS    I2 the input text equals the reference text
+  PASS    V1 e8-verify --container: 11 of 11 checks pass in 0.687127 s
+  PASS    S1 Structure level of the reader: pass in 1.583623981 s, RssAnon peak 42.467328 MB
+  PASS    Q1 1500 queries (count, exists, locate) answered by the suffix-array search and the engine equal the oracle
+  PASS    D1 peak scratch 12.00 bytes per symbol (<= 13); sampled peak of everything on the volume 142,524,416 bytes
+SUMMARY: 11 PASS, 0 FAIL, 0 WARN, 0 N/A, 0 NOT RUN
+RESULT: PASS
+== 18:23:41Z rebuild dna 10m #1 | 3.69 3.60 2.87
+exit 0
+  markers:  checksummed	2.3165 header-written	2.3222 header-synced	2.3244 magic-written	2.3245   total_s            2.318511751 s
+  ph1_s              0.07090706 s
+  ph23_s             0.488509015 s
+  ph45_s             1.308999977 s
+  bwt_s              0.174291137 s
+  psi_s              0.108183766 s
+  file_size          132515457 bytes
+  scratch_peak       120000000 bytes
+  rssanon_peak_mb    99.848192 MB
+  independent sampler: RssAnon peak 99.7 MB (gate 320 MB)
+== 18:23:43Z rebuild dna 10m #2 | 3.48 3.55 2.86
+exit 0
+  markers:  checksummed	2.0446 header-written	2.0482 header-synced	2.0501 magic-written	2.0503   total_s            2.044212863 s
+  ph1_s              0.084575288 s
+  ph23_s             0.502332051 s
+  ph45_s             1.075600898 s
+  bwt_s              0.111023885 s
+  psi_s              0.102353293 s
+  file_size          132515457 bytes
+  scratch_peak       120000000 bytes
+  rssanon_peak_mb    100.098048 MB
+  independent sampler: RssAnon peak 99.8 MB (gate 320 MB)
+== 18:23:46Z chain genome 10m | 3.28 3.51 2.85
+exit 0
+RESULT: OK (0 warning(s))
+  done in 0 s; sha256=deeb854ea1eea5b26d62b931fddd826262f72d2f5daff600c7d28418af6bfcf1
+  markers:  checksummed	2.2307 header-written	2.2343 header-synced	2.2361 magic-written	2.2362   total_s            2.231072251 s
+  ph1_s              0.165125711 s
+  ph23_s             0.680128285 s
+  ph45_s             1.021556894 s
+  bwt_s              0.112445502 s
+  psi_s              0.099003329 s
+  file_size          134804304 bytes
+  scratch_peak       120000000 bytes
+  rssanon_peak_mb    101.953536 MB
+  independent sampler: RssAnon peak 101.8 MB (gate 320 MB)
+  verify_wall_s	0.603602	whole verification, 4 threads, LCE cap 65536
+  open_seconds           1.393819022 genome-n10000000 wall time of the open at the level, including the mapping
+  open_rssanon_peak_mb   43.204608 genome-n10000000 71 samples at 20 ms; NOT the gate of the build (320 MB), the structure pass holds a bitmap of n / 8 bytes
+  q_result               PASS genome-n10000000 every answer equals the oracle's
+  PASS    P1 native: kernel x86_64, image unknown, .NET process X64
+  PASS    X1 CRC-32C on the CPU instruction (Sse42.X64.Crc32), equal to the table path
+  info    4 cores, 16869113856 bytes of memory, cgroup 1, ext2/ext3/ext4, .NET 10.0.14, RssAnon source: proc
+  PASS    B1 finished in 1 attempt(s), 2.231 s inside the build, container 134,804,304 bytes (13.48 per symbol)
+  PASS    R1 RssAnon peak 102.0 MB (the build's own sampler, 10 ms) <= 320 MB; margin 218.0 MB
+  PASS    R2 RssAnon peak 101.8 MB (independent sampler of /proc/<pid>/status) <= 320 MB
+  PASS    I1 container SHA-256 0205b2083bdb880f... equals the reference table and the reference in the form
+  PASS    I2 the input text equals the reference text
+  PASS    V1 e8-verify --container: 11 of 11 checks pass in 0.603602 s
+  PASS    S1 Structure level of the reader: pass in 1.393819022 s, RssAnon peak 43.204608 MB
+  PASS    Q1 1500 queries (count, exists, locate) answered by the suffix-array search and the engine equal the oracle
+  PASS    D1 peak scratch 12.00 bytes per symbol (<= 13); sampled peak of everything on the volume 200,077,312 bytes
+SUMMARY: 11 PASS, 0 FAIL, 0 WARN, 0 N/A, 0 NOT RUN
+RESULT: PASS
+== 18:23:51Z chain prot 10m | 3.10 3.47 2.84
+exit 0
+RESULT: OK (0 warning(s))
+  done in 1 s; sha256=fb5a97f5a55f67ea729a8221f08380fa28cdae1c57afea53590ebe927005c689
+  markers:  checksummed	2.1177 header-written	2.1214 header-synced	2.1233 magic-written	2.1234   total_s            2.118214981 s
+  ph1_s              0.07496434 s
+  ph23_s             0.734969714 s
+  ph45_s             0.935978231 s
+  bwt_s              0.122210304 s
+  psi_s              0.095749717 s
+  file_size          136263297 bytes
+  scratch_peak       120000000 bytes
+  rssanon_peak_mb    100.368384 MB
+  independent sampler: RssAnon peak 100.1 MB (gate 320 MB)
+  verify_wall_s	0.64771	whole verification, 4 threads, LCE cap 65536
+  open_seconds           1.342063129 prot-n10000000 wall time of the open at the level, including the mapping
+  open_rssanon_peak_mb   42.405888 prot-n10000000 69 samples at 20 ms; NOT the gate of the build (320 MB), the structure pass holds a bitmap of n / 8 bytes
+  q_result               PASS prot-n10000000 every answer equals the oracle's
+  PASS    P1 native: kernel x86_64, image unknown, .NET process X64
+  PASS    X1 CRC-32C on the CPU instruction (Sse42.X64.Crc32), equal to the table path
+  info    4 cores, 16869113856 bytes of memory, cgroup 1, ext2/ext3/ext4, .NET 10.0.14, RssAnon source: proc
+  PASS    B1 finished in 1 attempt(s), 2.118 s inside the build, container 136,263,297 bytes (13.63 per symbol)
+  PASS    R1 RssAnon peak 100.4 MB (the build's own sampler, 10 ms) <= 320 MB; margin 219.6 MB
+  PASS    R2 RssAnon peak 100.1 MB (independent sampler of /proc/<pid>/status) <= 320 MB
+  PASS    I1 container SHA-256 0f7c6c4421ea1c5f... equals the reference table and the reference in the form
+  PASS    I2 the input text equals the reference text
+  PASS    V1 e8-verify --container: 11 of 11 checks pass in 0.64771 s
+  PASS    S1 Structure level of the reader: pass in 1.342063129 s, RssAnon peak 42.405888 MB
+  PASS    Q1 1500 queries (count, exists, locate) answered by the suffix-array search and the engine equal the oracle
+  PASS    D1 peak scratch 12.00 bytes per symbol (<= 13); sampled peak of everything on the volume 243,888,128 bytes
+SUMMARY: 11 PASS, 0 FAIL, 0 WARN, 0 N/A, 0 NOT RUN
+RESULT: PASS
+== 18:23:57Z chain rep 10m | 2.93 3.43 2.83
+exit 0
+RESULT: OK (0 warning(s))
+  done in 1 s; sha256=08aa77fbf4f30bbcb41b6f277d260498aca626a006d4be75029de5127b91d986
+  markers:  checksummed	3.0028 header-written	3.0065 header-synced	3.0084 magic-written	3.0085   total_s            3.002876896 s
+  ph1_s              0.21678397 s
+  ph23_s             1.215883292 s
+  ph45_s             1.144533938 s
+  bwt_s              0.162524901 s
+  psi_s              0.103926093 s
+  file_size          142515458 bytes
+  scratch_peak       120000000 bytes
+  rssanon_peak_mb    99.844096 MB
+  independent sampler: RssAnon peak 99.7 MB (gate 320 MB)
+  verify_wall_s	0.771767	whole verification, 4 threads, LCE cap 65536
+  open_seconds           1.956448117 rep-n10000000 wall time of the open at the level, including the mapping
+  open_rssanon_peak_mb   44.691456 rep-n10000000 99 samples at 20 ms; NOT the gate of the build (320 MB), the structure pass holds a bitmap of n / 8 bytes
+  q_result               PASS rep-n10000000 every answer equals the oracle's
+  PASS    P1 native: kernel x86_64, image unknown, .NET process X64
+  PASS    X1 CRC-32C on the CPU instruction (Sse42.X64.Crc32), equal to the table path
+  info    4 cores, 16869113856 bytes of memory, cgroup 1, ext2/ext3/ext4, .NET 10.0.14, RssAnon source: proc
+  PASS    B1 finished in 1 attempt(s), 3.003 s inside the build, container 142,515,458 bytes (14.25 per symbol)
+  PASS    R1 RssAnon peak 99.8 MB (the build's own sampler, 10 ms) <= 320 MB; margin 220.2 MB
+  PASS    R2 RssAnon peak 99.7 MB (independent sampler of /proc/<pid>/status) <= 320 MB
+  PASS    I1 container SHA-256 7d20ffc15344b7b0... equals the reference table and the reference in the form
+  PASS    I2 the input text equals the reference text
+  PASS    V1 e8-verify --container: 11 of 11 checks pass in 0.771767 s
+  PASS    S1 Structure level of the reader: pass in 1.956448117 s, RssAnon peak 44.691456 MB
+  PASS    Q1 1500 queries (count, exists, locate) answered by the suffix-array search and the engine equal the oracle
+  PASS    D1 peak scratch 12.00 bytes per symbol (<= 13); sampled peak of everything on the volume 166,690,816 bytes
+SUMMARY: 11 PASS, 0 FAIL, 0 WARN, 0 N/A, 0 NOT RUN
+RESULT: PASS
+== 18:24:04Z chain dna 100m | 2.69 3.37 2.81
+exit 0
+RESULT: OK (0 warning(s))
+  done in 2 s; sha256=32bca5fd93e3b8a6bcb456338261c012fc291eacb4321041a0215e1a973fffac
+  markers: 7 checksummed	15.8835 header-written	15.8877 header-synced	15.8884 magic-written	15.8885   total_s            15.883680178 s
+  ph1_s              0.326691396 s
+  ph23_s             5.60299226 s
+  ph45_s             6.811359407 s
+  bwt_s              1.421525575 s
+  psi_s              0.88543889 s
+  file_size          1325019393 bytes
+  scratch_peak       1200000000 bytes
+  rssanon_peak_mb    252.727296 MB
+  independent sampler: RssAnon peak 252.5 MB (gate 320 MB)
+  verify_wall_s	4.050472	whole verification, 4 threads, LCE cap 65536
+  open_seconds           22.535469 dna-n100000000 wall time of the open at the level, including the mapping
+  open_rssanon_peak_mb   57.176064 dna-n100000000 1128 samples at 20 ms; NOT the gate of the build (320 MB), the structure pass holds a bitmap of n / 8 bytes
+  q_result               PASS dna-n100000000 every answer equals the oracle's
+  PASS    P1 native: kernel x86_64, image unknown, .NET process X64
+  PASS    X1 CRC-32C on the CPU instruction (Sse42.X64.Crc32), equal to the table path
+  info    4 cores, 16869113856 bytes of memory, cgroup 1, ext2/ext3/ext4, .NET 10.0.14, RssAnon source: proc
+  PASS    B1 finished in 1 attempt(s), 15.884 s inside the build, container 1,325,019,393 bytes (13.25 per symbol)
+  PASS    R1 RssAnon peak 252.7 MB (the build's own sampler, 10 ms) <= 320 MB; margin 67.3 MB
+  PASS    R2 RssAnon peak 252.5 MB (independent sampler of /proc/<pid>/status) <= 320 MB
+  PASS    I1 container SHA-256 d6717e642c1b1a1e... equals the reference table and the reference in the form
+  PASS    I2 the input text equals the reference text
+  PASS    V1 e8-verify --container: 11 of 11 checks pass in 4.050472 s
+  PASS    S1 Structure level of the reader: pass in 22.535469 s, RssAnon peak 57.176064 MB
+  PASS    Q1 1500 queries (count, exists, locate) answered by the suffix-array search and the engine equal the oracle
+  PASS    D1 peak scratch 12.00 bytes per symbol (<= 13); sampled peak of everything on the volume 2,282,270,720 bytes
+SUMMARY: 11 PASS, 0 FAIL, 0 WARN, 0 N/A, 0 NOT RUN
+RESULT: PASS
+== 18:24:51Z rebuild dna 100m #1 | 2.07 3.13 2.75
+exit 0
+  markers: 5 checksummed	18.6672 header-written	18.6724 header-synced	18.6732 magic-written	18.6733   total_s            18.669019184 s
+  ph1_s              0.304792165 s
+  ph23_s             6.157656488 s
+  ph45_s             8.231550125 s
+  bwt_s              2.082117898 s
+  psi_s              0.979828873 s
+  file_size          1325019393 bytes
+  scratch_peak       1200000000 bytes
+  rssanon_peak_mb    247.750656 MB
+  independent sampler: RssAnon peak 247.1 MB (gate 320 MB)
+== 18:25:11Z rebuild dna 100m #2 | 2.02 3.03 2.73
+exit 0
+  markers: 0 checksummed	17.9587 header-written	17.9637 header-synced	17.9645 magic-written	17.9647   total_s            17.959378747 s
+  ph1_s              0.301999982 s
+  ph23_s             5.840628068 s
+  ph45_s             7.971430084 s
+  bwt_s              1.867163133 s
+  psi_s              1.05842718 s
+  file_size          1325019393 bytes
+  scratch_peak       1200000000 bytes
+  rssanon_peak_mb    256.253952 MB
+  independent sampler: RssAnon peak 256.1 MB (gate 320 MB)
+== 18:25:32Z chain genome 100m | 2.05 2.98 2.72
+exit 0
+RESULT: OK (0 warning(s))
+  done in 1 s; sha256=ca4b2719849c6505a607784114f027708739b09e6961cf5ef4e15f1fdec0caee
+  markers: 1 checksummed	20.8562 header-written	20.8613 header-synced	20.8621 magic-written	20.8623   total_s            20.855913117 s
+  ph1_s              1.103734269 s
+  ph23_s             6.46497008 s
+  ph45_s             8.689734061 s
+  bwt_s              2.679212708 s
+  psi_s              0.992280121 s
+  file_size          1348644448 bytes
+  scratch_peak       1200000000 bytes
+  rssanon_peak_mb    287.305728 MB
+  independent sampler: RssAnon peak 286.3 MB (gate 320 MB)
+  verify_wall_s	6.347679	whole verification, 4 threads, LCE cap 65536
+  open_seconds           26.511084842 genome-n100000000 wall time of the open at the level, including the mapping
+  open_rssanon_peak_mb   63.81568 genome-n100000000 1327 samples at 20 ms; NOT the gate of the build (320 MB), the structure pass holds a bitmap of n / 8 bytes
+  q_result               PASS genome-n100000000 every answer equals the oracle's
+  PASS    P1 native: kernel x86_64, image unknown, .NET process X64
+  PASS    X1 CRC-32C on the CPU instruction (Sse42.X64.Crc32), equal to the table path
+  info    4 cores, 16869113856 bytes of memory, cgroup 1, ext2/ext3/ext4, .NET 10.0.14, RssAnon source: proc
+  PASS    B1 finished in 1 attempt(s), 20.856 s inside the build, container 1,348,644,448 bytes (13.49 per symbol)
+  PASS    R1 RssAnon peak 287.3 MB (the build's own sampler, 10 ms) <= 320 MB; margin 32.7 MB
+  PASS    R2 RssAnon peak 286.3 MB (independent sampler of /proc/<pid>/status) <= 320 MB
+  PASS    I1 container SHA-256 18f5e260c66f91ba... equals the reference table and the reference in the form
+  PASS    I2 the input text equals the reference text
+  PASS    V1 e8-verify --container: 11 of 11 checks pass in 6.347679 s
+  PASS    S1 Structure level of the reader: pass in 26.511084842 s, RssAnon peak 63.81568 MB
+  PASS    Q1 1500 queries (count, exists, locate) answered by the suffix-array search and the engine equal the oracle
+  PASS    D1 peak scratch 12.00 bytes per symbol (<= 13); sampled peak of everything on the volume 2,537,553,920 bytes
+SUMMARY: 11 PASS, 0 FAIL, 0 WARN, 0 N/A, 0 NOT RUN
+RESULT: PASS
+== 18:26:29Z chain prot 100m | 1.95 2.82 2.68
+exit 0
+RESULT: OK (0 warning(s))
+  done in 11 s; sha256=7f7a1083fcd84985f18be2ada9d2ceee54991da47863614f4610fbb4455ff6ab
+  markers: 2 checksummed	19.2798 header-written	19.2844 header-synced	19.3420 magic-written	19.3423   total_s            19.336250197 s
+  ph1_s              0.329176044 s
+  ph23_s             7.147087065 s
+  ph45_s             7.694317529 s
+  bwt_s              2.203088058 s
+  psi_s              0.931704706 s
+  file_size          1362519008 bytes
+  scratch_peak       1200000000 bytes
+  rssanon_peak_mb    261.840896 MB
+  independent sampler: RssAnon peak 261.6 MB (gate 320 MB)
+  verify_wall_s	4.475755	whole verification, 4 threads, LCE cap 65536
+  open_seconds           22.5159697 prot-n100000000 wall time of the open at the level, including the mapping
+  open_rssanon_peak_mb   56.799232 prot-n100000000 1127 samples at 20 ms; NOT the gate of the build (320 MB), the structure pass holds a bitmap of n / 8 bytes
+  q_result               PASS prot-n100000000 every answer equals the oracle's
+  PASS    P1 native: kernel x86_64, image unknown, .NET process X64
+  PASS    X1 CRC-32C on the CPU instruction (Sse42.X64.Crc32), equal to the table path
+  info    4 cores, 16869113856 bytes of memory, cgroup 1, ext2/ext3/ext4, .NET 10.0.14, RssAnon source: proc
+  PASS    B1 finished in 1 attempt(s), 19.336 s inside the build, container 1,362,519,008 bytes (13.63 per symbol)
+  PASS    R1 RssAnon peak 261.8 MB (the build's own sampler, 10 ms) <= 320 MB; margin 58.2 MB
+  PASS    R2 RssAnon peak 261.6 MB (independent sampler of /proc/<pid>/status) <= 320 MB
+  PASS    I1 container SHA-256 3388bde1cd7339b4... equals the reference table and the reference in the form
+  PASS    I2 the input text equals the reference text
+  PASS    V1 e8-verify --container: 11 of 11 checks pass in 4.475755 s
+  PASS    S1 Structure level of the reader: pass in 22.5159697 s, RssAnon peak 56.799232 MB
+  PASS    Q1 1500 queries (count, exists, locate) answered by the suffix-array search and the engine equal the oracle
+  PASS    D1 peak scratch 12.00 bytes per symbol (<= 13); sampled peak of everything on the volume 2,562,551,808 bytes
+SUMMARY: 11 PASS, 0 FAIL, 0 WARN, 0 N/A, 0 NOT RUN
+RESULT: PASS
+== 18:27:30Z chain rep 100m | 1.45 2.52 2.59
+exit 0
+RESULT: OK (0 warning(s))
+  done in 2 s; sha256=b906c7950e184565ca557c6ef5e864cb02f9ff8ea8cc6bcb3ede114d98c12ab7
+  markers: 1 checksummed	26.5045 header-written	26.5097 header-synced	26.5104 magic-written	26.5105   total_s            26.501519551 s
+  ph1_s              0.636287143 s
+  ph23_s             13.92045235 s
+  ph45_s             8.058421498 s
+  bwt_s              1.926813226 s
+  psi_s              1.00686919 s
+  file_size          1425019394 bytes
+  scratch_peak       1200000000 bytes
+  rssanon_peak_mb    251.977728 MB
+  independent sampler: RssAnon peak 251.4 MB (gate 320 MB)
+  verify_wall_s	5.01834	whole verification, 4 threads, LCE cap 65536
+  open_seconds           23.330337527 rep-n100000000 wall time of the open at the level, including the mapping
+  open_rssanon_peak_mb   56.659968 rep-n100000000 1168 samples at 20 ms; NOT the gate of the build (320 MB), the structure pass holds a bitmap of n / 8 bytes
+  q_result               PASS rep-n100000000 every answer equals the oracle's
+  PASS    P1 native: kernel x86_64, image unknown, .NET process X64
+  PASS    X1 CRC-32C on the CPU instruction (Sse42.X64.Crc32), equal to the table path
+  info    4 cores, 16869113856 bytes of memory, cgroup 1, ext2/ext3/ext4, .NET 10.0.14, RssAnon source: proc
+  PASS    B1 finished in 1 attempt(s), 26.502 s inside the build, container 1,425,019,394 bytes (14.25 per symbol)
+  PASS    R1 RssAnon peak 252.0 MB (the build's own sampler, 10 ms) <= 320 MB; margin 68.0 MB
+  PASS    R2 RssAnon peak 251.4 MB (independent sampler of /proc/<pid>/status) <= 320 MB
+  PASS    I1 container SHA-256 c2517e4061a109a8... equals the reference table and the reference in the form
+  PASS    I2 the input text equals the reference text
+  PASS    V1 e8-verify --container: 11 of 11 checks pass in 5.01834 s
+  PASS    S1 Structure level of the reader: pass in 23.330337527 s, RssAnon peak 56.659968 MB
+  PASS    Q1 1500 queries (count, exists, locate) answered by the suffix-array search and the engine equal the oracle
+  PASS    D1 peak scratch 12.00 bytes per symbol (<= 13); sampled peak of everything on the volume 2,525,052,928 bytes
+SUMMARY: 11 PASS, 0 FAIL, 0 WARN, 0 N/A, 0 NOT RUN
+RESULT: PASS
+== 18:28:31Z end session 3 | 1.82 2.46 2.56
+ 18:28:31 up  8:26,  0 user,  load average: 1.82, 2.46, 2.56
+/dev/vda        252G   21G   18G  54% /
+
+# ---- second log
+== 18:30:05Z start session 3 | 0.84 1.98 2.38
+ 18:30:05 up  8:27,  0 user,  load average: 0.84, 1.98, 2.38
+== 18:30:05Z chain dna 10m | 0.84 1.98 2.38
+exit 0
+RESULT: OK (0 warning(s))
+  done in 1 s; sha256=67e49c4bc074f073c89cc0f6bc48bdfcf6b0bd5bc79321bdd30c8c36d2b6d8ee
+  markers:  checksummed	2.3442 header-written	2.3490 header-synced	2.3508 magic-written	2.3509   total_s            2.344720835 s
+  ph1_s              0.085477739 s
+  ph23_s             0.495898832 s
+  ph45_s             1.300650457 s
+  bwt_s              0.185682732 s
+  psi_s              0.105156969 s
+  file_size          132515457 bytes
+  scratch_peak       120000000 bytes
+  rssanon_peak_mb    99.81952 MB
+  independent sampler: RssAnon peak 99.7 MB (gate 320 MB)
+  verify_wall_s	0.778233	whole verification, 4 threads, LCE cap 65536
+  open_seconds           2.176178443 dna-n10000000 wall time of the open at the level, including the mapping
+  open_rssanon_peak_mb   44.683264 dna-n10000000 110 samples at 20 ms; NOT the gate of the build (320 MB), the structure pass holds a bitmap of n / 8 bytes
+  q_result               PASS dna-n10000000 every answer equals the oracle's
+  PASS    P1 native: kernel x86_64, image unknown, .NET process X64
+  PASS    X1 CRC-32C on the CPU instruction (Sse42.X64.Crc32), equal to the table path
+  info    4 cores, 16869113856 bytes of memory, cgroup 1, ext2/ext3/ext4, .NET 10.0.14, RssAnon source: proc
+  PASS    B1 finished in 2 attempt(s), 4.389 s inside the build, container 132,515,457 bytes (13.25 per symbol)
+  PASS    R1 RssAnon peak 100.1 MB (the build's own sampler, 10 ms) <= 320 MB; margin 219.9 MB
+  PASS    R2 RssAnon peak 99.8 MB (independent sampler of /proc/<pid>/status) <= 320 MB
+  PASS    I1 container SHA-256 21718e29fe670d49... equals the reference table and the reference in the form
+  PASS    I2 the input text equals the reference text
+  PASS    V1 e8-verify --container: 11 of 11 checks pass in 0.778233 s
+  PASS    S1 Structure level of the reader: pass in 2.176178443 s, RssAnon peak 44.683264 MB
+  PASS    Q1 1500 queries (count, exists, locate) answered by the suffix-array search and the engine equal the oracle
+  PASS    D1 peak scratch 12.00 bytes per symbol (<= 13); sampled peak of everything on the volume 228,519,936 bytes
+SUMMARY: 11 PASS, 0 FAIL, 0 WARN, 0 N/A, 0 NOT RUN
+RESULT: PASS
+== 18:30:12Z rebuild dna 10m #1 | 0.94 1.97 2.37
+exit 0
+  markers:  checksummed	2.3776 header-written	2.3826 header-synced	2.3845 magic-written	2.3847   total_s            2.378598835 s
+  ph1_s              0.085157131 s
+  ph23_s             0.521238085 s
+  ph45_s             1.3139702 s
+  bwt_s              0.173967545 s
+  psi_s              0.110849447 s
+  file_size          132515457 bytes
+  scratch_peak       120000000 bytes
+  rssanon_peak_mb    99.966976 MB
+  independent sampler: RssAnon peak 99.8 MB (gate 320 MB)
+
+==== SHA-256 of the container (18:30:14Z)
+  21718e29fe670d499912bb8d0ab2f823c2357174c9307d8143a44a5d9de60026  (133 MB in 0 s)
+== 18:30:14Z rebuild dna 10m #2 | 0.94 1.97 2.37
+exit 0
+  markers:  checksummed	2.3877 header-written	2.3927 header-synced	2.3947 magic-written	2.3949   total_s            2.385804103 s
+  ph1_s              0.084555513 s
+  ph23_s             0.525120369 s
+  ph45_s             1.278345137 s
+  bwt_s              0.172306791 s
+  psi_s              0.109944494 s
+  file_size          132515457 bytes
+  scratch_peak       120000000 bytes
+  rssanon_peak_mb    99.856384 MB
+  independent sampler: RssAnon peak 99.7 MB (gate 320 MB)
+
+==== SHA-256 of the container (18:30:17Z)
+  21718e29fe670d499912bb8d0ab2f823c2357174c9307d8143a44a5d9de60026  (133 MB in 0 s)
+== 18:30:17Z chain dna 100m | 0.94 1.95 2.36
+exit 0
+RESULT: OK (0 warning(s))
+  done in 2 s; sha256=32bca5fd93e3b8a6bcb456338261c012fc291eacb4321041a0215e1a973fffac
+  markers: 9 checksummed	19.4309 header-written	19.4363 header-synced	19.4369 magic-written	19.4370   total_s            19.429633686 s
+  ph1_s              0.337036205 s
+  ph23_s             6.686194959 s
+  ph45_s             8.269487914 s
+  bwt_s              2.137038565 s
+  psi_s              1.024743218 s
+  file_size          1325019393 bytes
+  scratch_peak       1200000000 bytes
+  rssanon_peak_mb    251.977728 MB
+  independent sampler: RssAnon peak 251.3 MB (gate 320 MB)
+  verify_wall_s	4.769429	whole verification, 4 threads, LCE cap 65536
+  open_seconds           27.343910997 dna-n100000000 wall time of the open at the level, including the mapping
+  open_rssanon_peak_mb   57.188352 dna-n100000000 1369 samples at 20 ms; NOT the gate of the build (320 MB), the structure pass holds a bitmap of n / 8 bytes
+  q_result               PASS dna-n100000000 every answer equals the oracle's
+  PASS    P1 native: kernel x86_64, image unknown, .NET process X64
+  PASS    X1 CRC-32C on the CPU instruction (Sse42.X64.Crc32), equal to the table path
+  info    4 cores, 16869113856 bytes of memory, cgroup 1, ext2/ext3/ext4, .NET 10.0.14, RssAnon source: proc
+  PASS    B1 finished in 2 attempt(s), 37.389 s inside the build, container 1,325,019,393 bytes (13.25 per symbol)
+  PASS    R1 RssAnon peak 256.3 MB (the build's own sampler, 10 ms) <= 320 MB; margin 63.7 MB
+  PASS    R2 RssAnon peak 256.1 MB (independent sampler of /proc/<pid>/status) <= 320 MB
+  PASS    I1 container SHA-256 d6717e642c1b1a1e... equals the reference table and the reference in the form
+  PASS    I2 the input text equals the reference text
+  PASS    V1 e8-verify --container: 11 of 11 checks pass in 4.769429 s
+  PASS    S1 Structure level of the reader: pass in 27.343910997 s, RssAnon peak 57.188352 MB
+  PASS    Q1 1500 queries (count, exists, locate) answered by the suffix-array search and the engine equal the oracle
+  PASS    D1 peak scratch 12.00 bytes per symbol (<= 13); sampled peak of everything on the volume 2,334,654,464 bytes
+SUMMARY: 11 PASS, 0 FAIL, 0 WARN, 0 N/A, 0 NOT RUN
+RESULT: PASS
+== 18:31:13Z rebuild dna 100m #1 | 1.33 1.91 2.32
+exit 0
+  markers: 5 checksummed	17.8024 header-written	17.8067 header-synced	17.8072 magic-written	17.8073   total_s            17.794875986 s
+  ph1_s              0.349152123 s
+  ph23_s             6.037235872 s
+  ph45_s             7.872076627 s
+  bwt_s              1.726136556 s
+  psi_s              0.876794519 s
+  file_size          1325019393 bytes
+  scratch_peak       1200000000 bytes
+  rssanon_peak_mb    254.42304 MB
+  independent sampler: RssAnon peak 253.8 MB (gate 320 MB)
+
+==== SHA-256 of the container (18:31:31Z)
+  d6717e642c1b1a1e51118b1d3c91154f0f1a61fcac89eb150b728c52b719b916  (1.3 GB in 1 s)
+== 18:31:32Z rebuild dna 100m #2 | 1.24 1.85 2.30
+exit 0
+  markers: 2 checksummed	16.3193 header-written	16.3244 header-synced	16.3251 magic-written	16.3253   total_s            16.320115262 s
+  ph1_s              0.301345024 s
+  ph23_s             5.704933495 s
+  ph45_s             7.099870445 s
+  bwt_s              1.345808756 s
+  psi_s              0.991820021 s
+  file_size          1325019393 bytes
+  scratch_peak       1200000000 bytes
+  rssanon_peak_mb    255.307776 MB
+  independent sampler: RssAnon peak 255.1 MB (gate 320 MB)
+
+==== SHA-256 of the container (18:31:50Z)
+  d6717e642c1b1a1e51118b1d3c91154f0f1a61fcac89eb150b728c52b719b916  (1.3 GB in 1 s)
+== 18:31:51Z end session 3 (dna only) | 1.31 1.82 2.28

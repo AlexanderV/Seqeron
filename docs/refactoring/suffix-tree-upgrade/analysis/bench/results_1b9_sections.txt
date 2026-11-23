@@ -1,0 +1,47 @@
+# the default container (with PSI) and the container written with PSI off (sesa build --psi false), the same texts
+# out.sesa  n=10000000  file 132515457 bytes = 13.2515 B/char
+  TEXT              2,500,064 B    0.2500 B/char
+  ALPHABET                  8 B    0.0000 B/char
+  SA               40,000,004 B    4.0000 B/char
+  LCP              10,000,001 B    1.0000 B/char
+  CHILD            40,000,004 B    4.0000 B/char
+  BUILD_INFO              196 B    0.0000 B/char
+  PSI              40,000,004 B    4.0000 B/char
+  COUNTS                   32 B    0.0000 B/char
+  Core              92,500,309 B    9.2500 B/char   (sections) ; file without PSI about 9.2515
+  Full             132,500,313 B   13.2500 B/char   (sections, with PSI) ; file 13.2515
+  Full+nav                         13.3790 B/char   (Core + ISA + LCP pyramid built in memory on first use)
+# out.sesa  n=10000000  file 92513921 bytes = 9.2514 B/char
+  TEXT              2,500,064 B    0.2500 B/char
+  ALPHABET                  8 B    0.0000 B/char
+  SA               40,000,004 B    4.0000 B/char
+  LCP              10,000,001 B    1.0000 B/char
+  CHILD            40,000,004 B    4.0000 B/char
+  BUILD_INFO              195 B    0.0000 B/char
+  COUNTS                   32 B    0.0000 B/char
+  Core              92,500,308 B    9.2500 B/char   (sections) ; file without PSI about 9.2514
+  Full              92,500,308 B    9.2500 B/char   (sections, with PSI) ; file 9.2514
+  Full+nav                         13.3790 B/char   (Core + ISA + LCP pyramid built in memory on first use)
+# out.sesa  n=1000000  file 13640257 bytes = 13.6403 B/char
+  TEXT                625,064 B    0.6251 B/char
+  ALPHABET                 40 B    0.0000 B/char
+  SA                4,000,004 B    4.0000 B/char
+  LCP               1,000,001 B    1.0000 B/char
+  CHILD             4,000,004 B    4.0000 B/char
+  BUILD_INFO              196 B    0.0002 B/char
+  PSI               4,000,004 B    4.0000 B/char
+  COUNTS                  160 B    0.0002 B/char
+  Core               9,625,469 B    9.6255 B/char   (sections) ; file without PSI about 9.6403
+  Full              13,625,473 B   13.6255 B/char   (sections, with PSI) ; file 13.6403
+  Full+nav                         13.7545 B/char   (Core + ISA + LCP pyramid built in memory on first use)
+# out.sesa  n=1000000  file 9638465 bytes = 9.6385 B/char
+  TEXT                625,064 B    0.6251 B/char
+  ALPHABET                 40 B    0.0000 B/char
+  SA                4,000,004 B    4.0000 B/char
+  LCP               1,000,001 B    1.0000 B/char
+  CHILD             4,000,004 B    4.0000 B/char
+  BUILD_INFO              195 B    0.0002 B/char
+  COUNTS                  160 B    0.0002 B/char
+  Core               9,625,468 B    9.6255 B/char   (sections) ; file without PSI about 9.6385
+  Full               9,625,468 B    9.6255 B/char   (sections, with PSI) ; file 9.6385
+  Full+nav                         13.7545 B/char   (Core + ISA + LCP pyramid built in memory on first use)

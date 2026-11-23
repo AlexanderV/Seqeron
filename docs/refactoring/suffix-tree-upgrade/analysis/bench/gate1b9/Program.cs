@@ -11,9 +11,11 @@ using SuffixTree.Esa;
 //   build  <text file> <name> [sa_vectors.tsv]     the production in-memory pipeline stage by stage, exactly the three calls of EsaIndex.Build:
 //                                                  TextPreparation.Prepare, SaisKernel.Build(prepared), LcpKernel.Build(Direct), then the child-table scan (EsaIndex.FromArrays
 //                                                  with the default layout of the length); build_sa_s = prepare + SA-IS, build_total_s = SA + LCP + child (the gate metric)
+//   lean   <text file> <name> [sa_vectors.tsv]     the same stages, but nothing is read or counted before the build (no /proc read, no GC counter): see the note at `Lean` in this file
 //   steady <text file> <name> [builds=5]           the same stages <builds> times in one process, the last three reported
 //   entry  <text file> <name>                      one call of the public factory EsaSuffixTreeFactory.CreateEsa(text) (what a user calls), one process
-//   open   <container> <pattern file>              the first Open of a container in this process (cold JIT), the first query after it, then the warm Open at the three levels
+//   open   <container> <pattern file>              the first Open of a container in this process (cold JIT; nothing before it but the arguments), the first query after it, then the warm Open at the three levels
+//   openp  <container> <pattern file>              the same with the pattern file read before the first Open (the order of the first session of 1b.9)
 //
 // The `Checked` and `Trusted` throughput and the facade are measured by abapp (analysis/bench/abapp), the child-table-free query rows by the Bench command `query`.
 return Gate.Run(args);
@@ -116,18 +118,27 @@ static class Gate
         return null;
     }
 
-    private static int Build(string[] a)
+    // `build` reads /proc/self/status and the GC counters BEFORE the first stage (as the Bench command `build` does); the code of those calls is compiled cold just before the build. `lean` moves them behind the build:
+    // the first cold build of a process then starts from the load of the text, as a call of the public factory does (`entry`). The two are reported side by side (1b.9: the cold build of a fresh process is
+    // sensitive to what the process compiled just before it: the tiering of the kernels).
+    private static int Build(string[] a, bool lean = false)
     {
         string text = LoadText(a[0]);
         string name = a[1];
         int n = text.Length;
-        Row("build", "input_chars", n, "chars");
-        Row("build", "peak_rss_hwm_after_load", StatusBytes("VmHWM"), "bytes", "VmHWM after loading the text as a managed string (2 B/char), before the build");
-        long allocated0 = GC.GetTotalAllocatedBytes(precise: true);
-        int g0 = GC.CollectionCount(0), g1 = GC.CollectionCount(1), g2 = GC.CollectionCount(2);
+        long allocated0 = 0;
+        int g0 = 0, g1 = 0, g2 = 0;
+        if (!lean)
+        {
+            Row("build", "input_chars", n, "chars");
+            Row("build", "peak_rss_hwm_after_load", StatusBytes("VmHWM"), "bytes", "VmHWM after loading the text as a managed string (2 B/char), before the build");
+            allocated0 = GC.GetTotalAllocatedBytes(precise: true);
+            g0 = GC.CollectionCount(0); g1 = GC.CollectionCount(1); g2 = GC.CollectionCount(2);
+        }
         Stages s = Stage(text);
-        long allocated = GC.GetTotalAllocatedBytes(precise: true) - allocated0;
+        long allocated = lean ? 0 : GC.GetTotalAllocatedBytes(precise: true) - allocated0;
         long hwm = StatusBytes("VmHWM");
+        if (lean) Row("build", "input_chars", n, "chars");
         const string note = "Stopwatch around the library call only; input already in memory; production kernels (SA-IS pointer, direct LCP) and the child scan of the default layout";
         Row("build", "build_prepare_s", s.Prepare, "s", note);
         Row("build", "build_sais_s", s.Sais, "s", "SaisKernel.Build(prepared)");
@@ -138,10 +149,13 @@ static class Gate
         Row("build", "throughput", n / s.Total, "chars/s", "SA + LCP + child");
         Row("build", "peak_rss_hwm_after_build", hwm, "bytes", "VmHWM of the whole process after the build (runtime, text as a string, SA, LCP, child table, transient arrays)");
         Row("build", "peak_rss_bytes_per_char", hwm / (double)n, "bytes/char", "gate of PROGRESS-S1: <= 24 B/char");
-        Row("build", "gc_allocated_bytes", allocated, "bytes", "GC.GetTotalAllocatedBytes delta during the build");
-        Row("build", "gc_collections_gen0", GC.CollectionCount(0) - g0, "count");
-        Row("build", "gc_collections_gen1", GC.CollectionCount(1) - g1, "count");
-        Row("build", "gc_collections_gen2", GC.CollectionCount(2) - g2, "count");
+        if (!lean)
+        {
+            Row("build", "gc_allocated_bytes", allocated, "bytes", "GC.GetTotalAllocatedBytes delta during the build");
+            Row("build", "gc_collections_gen0", GC.CollectionCount(0) - g0, "count");
+            Row("build", "gc_collections_gen1", GC.CollectionCount(1) - g1, "count");
+            Row("build", "gc_collections_gen2", GC.CollectionCount(2) - g2, "count");
+        }
 
         long saBytes = 4L * (n + 1);
         long lcpBytes = s.Lcp.PayloadBytes;
@@ -213,16 +227,18 @@ static class Gate
 
     private static string[] FirstLines(string path, int k) => File.ReadLines(path).Take(k).ToArray();
 
-    private static int Open(string[] a)
+    // `open` makes the very first Open of the process before anything else is read or compiled (the pattern file is read after it); `openp` reads the 1000 patterns first (the order of the first session of 1b.9).
+    private static int Open(string[] a, bool patternsFirst)
     {
         string container = a[0];
-        string[] patterns = FirstLines(a[1], 1000);
-        long size = new FileInfo(container).Length;
-        Row("open", "container_bytes", size, "bytes");
-
+        string[] patterns = patternsFirst ? FirstLines(a[1], 1000) : [];
         long t0 = Stopwatch.GetTimestamp();
         ISuffixTree first = SuffixIndexFactory.Open(container);
-        Row("open", "first_open_s", Seconds(t0), "s", "SuffixIndexFactory.Open at the Header level, Checked, the FIRST call of this process (cold JIT; the page cache is as the runner left it)");
+        double firstOpen = Seconds(t0);
+        if (!patternsFirst) patterns = FirstLines(a[1], 1000);
+        long size = new FileInfo(container).Length;
+        Row("open", "container_bytes", size, "bytes");
+        Row("open", "first_open_s", firstOpen, "s", "SuffixIndexFactory.Open at the Header level, Checked, the FIRST call of this process (cold JIT; the page cache is as the runner left it)" + (patternsFirst ? "; the pattern file was read before" : "; nothing but the arguments before it"));
         long t1 = Stopwatch.GetTimestamp();
         int c = first.CountOccurrences(patterns[0]);
         Row("open", "first_query_s", Seconds(t1), "s", $"the first CountOccurrences of a 20-mer after the open (cold): result {c}");
@@ -274,9 +290,11 @@ static class Gate
             return args.Length == 0 ? 2 : args[0] switch
             {
                 "build" => Build(args[1..]),
+                "lean" => Build(args[1..], lean: true),
                 "steady" => Steady(args[1..]),
                 "entry" => Entry(args[1..]),
-                "open" => Open(args[1..]),
+                "open" => Open(args[1..], patternsFirst: false),
+                "openp" => Open(args[1..], patternsFirst: true),
                 _ => 2,
             };
         }
