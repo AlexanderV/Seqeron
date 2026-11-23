@@ -31,18 +31,18 @@ Not scored (scouting list, `analysis/results/scout.md`): Movi 2, Move-r / Move-r
 | 1 | ropebwt3 | 2.48 | 44.4% |
 | 2 | GenomeTools | 2.30 | 46.3% |
 | 3 | BWA/Bt2 | 2.30 | 40.1% |
-| 4 | r-index | 2.13 | 45.7% |
-| 5 | MUMmer4 | 2.07 | 48.1% |
-| 6 | rust-bio | 2.02 | 48.1% |
-| 7 | sdsl | 1.89 | 52.5% |
-| 8 | Python | 1.87 | 42.0% |
-| 9 | Seqeron **(this project)** | 1.80 | 55.6% |
+| 4 | Seqeron **(this project)** | 2.28 | 72.8% |
+| 5 | r-index | 2.13 | 45.7% |
+| 6 | MUMmer4 | 2.07 | 48.1% |
+| 7 | rust-bio | 2.02 | 48.1% |
+| 8 | sdsl | 1.89 | 52.5% |
+| 9 | Python | 1.87 | 42.0% |
 | 10 | SeqAn3 | 1.74 | 40.1% |
 | 11 | .NET | 1.72 | 48.8% |
 | 12 | Go | 1.50 | 17.3% |
 | 13 | libsais | 1.44 | 25.3% |
 
-Seqeron function coverage counts functions that live in the wider Seqeron.Genomics library (motif scans, approximate matching, repeat finders) as 1-2. **Suffix-tree layer only** (those rows set to 0): 39.5%. The best competitor, sdsl, is 52.5%. The functional lead is therefore thin and depends on how the library boundary is drawn.
+Seqeron function coverage counts functions that live in the wider Seqeron.Genomics library (motif scans, approximate matching, repeat finders) as 1-2. **Suffix-tree layer only** (those rows set to 0): 56.8%. The best competitor, sdsl, is 52.5%. The functional lead is therefore thin and depends on how the library boundary is drawn.
 
 Unverified (`U`) cells among competitors: 47 of 288 property cells, 11 of 972 function cells. Each was scored optimistically, so a competitor's real score can only be lower.
 
@@ -57,14 +57,14 @@ Unverified (`U`) cells among competitors: 47 of 288 property cells, 11 of 972 fu
 | C5 | Matching statistics / streaming anchors | 2 | 2v | 1v | 1v | 3v | 3v | 1v | 1v | 2v | 0v | 0v | 3v | 4v | 3v |
 | C6 | Generalized index (many texts) | 2 | 2v | 1v | 2v | 2v | 2v | 2v | 1v | 2v | 2v | 1v | 2v | 2v | 2v |
 | C7 | Both strands (reverse complement) | 3 | 1v | 1v | 1v | 3v | 3v | 1v | 1v | 3v | 0v | 0v | 3v | 3v | 4v |
-| C8 | Tree / interval navigation API | 2 | 2v | 4v | 2v | 2u | 2v | 1v | 0v | 2v | 2v | 1v | 1v | 1v | 1v |
+| C8 | Tree / interval navigation API | 2 | 3v | 4v | 2v | 2u | 2v | 1v | 0v | 2v | 2v | 1v | 1v | 1v | 1v |
 | C9 | Analytics (LRS, distinct substrings, k-mer stats) | 2 | 3v | 1v | 0v | 3v | 1v | 1v | 0v | 2v | 2v | 3v | 0v | 1v | 1v |
-| C10 | Construction speed | 3 | 1v | 2v | 1u | 1u | 2u | 4v | 3v | 2v | 3v | 3u | 2u | 3v | 3v |
-| C11 | Index memory | 3 | 1v | 4v | 2u | 3u | 1v | 3v | 3v | 2u | 3v | 2u | 3u | 3v | 4v |
-| C12 | Query speed | 3 | 2v | 1v | 3u | 2u | 3u | 1u | 3v | 4v | 2v | 3u | 3u | 2v | 3v |
-| C13 | Scale (> 2^32 chars) | 3 | 1v | 3v | 2u | 3v | 3v | 3u | 3u | 3u | 3u | 1v | 3v | 3v | 4v |
-| C14 | External / larger-than-RAM | 2 | 2u | 2v | 0v | 3v | 2v | 0v | 0v | 0v | 1u | 0v | 2v | 2u | 2v |
-| C15 | Parallel construction | 2 | 0v | 0v | 0v | 1u | 1v | 2v | 0v | 0v | 2u | 0v | 2u | 2v | 3u |
+| C10 | Construction speed | 3 | 3v | 2v | 1u | 1u | 2u | 4v | 3v | 2v | 3v | 3u | 2u | 3v | 3v |
+| C11 | Index memory | 3 | 2v | 4v | 2u | 3u | 1v | 3v | 3v | 2u | 3v | 2u | 3u | 3v | 4v |
+| C12 | Query speed | 3 | 4v | 1v | 3u | 2u | 3u | 1u | 3v | 4v | 2v | 3u | 3u | 2v | 3v |
+| C13 | Scale (> 2^32 chars) | 3 | 2v | 3v | 2u | 3v | 3v | 3u | 3u | 3u | 3u | 1v | 3v | 3v | 4v |
+| C14 | External / larger-than-RAM | 2 | 3v | 2v | 0v | 3v | 2v | 0v | 0v | 0v | 1u | 0v | 2v | 2u | 2v |
+| C15 | Parallel construction | 2 | 2v | 0v | 0v | 1u | 1v | 2v | 0v | 0v | 2u | 0v | 2u | 2v | 3u |
 | C16 | Concurrent queries | 2 | 3v | 2u | 3v | 2u | 3v | 2u | 2u | 3u | 2u | 2u | 3v | 2v | 2v |
 | C17 | Online / dynamic updates | 1 | 0v | 0v | 0v | 0v | 0v | 0v | 0v | 0v | 2v | 0v | 0v | 0v | 3v |
 | C18 | Compression (succinct index) | 2 | 0v | 3v | 3u | 3v | 1v | 1v | 0v | 3u | 1v | 3v | 3v | 4v | 4v |
@@ -74,7 +74,7 @@ Unverified (`U`) cells among competitors: 47 of 288 property cells, 11 of 972 fu
 | C22 | Distribution & exposure | 1 | 1v | 2v | 2v | 3v | 3v | 2u | 1v | 1v | 2v | 2v | 3v | 3v | 3v |
 | C23 | Verification | 3 | 3v | 3u | 3u | 3u | 3v | 1v | 3v | 2v | 3v | 2v | 3u | 2v | 1v |
 | C24 | Maintenance & licence | 1 | 2u | 3v | 3v | 3v | 3v | 3v | 3v | 3v | 3v | 2v | 3v | 2v | 3v |
-| | **weighted mean** | | **1.80** | **1.89** | **1.74** | **2.30** | **2.07** | **1.44** | **1.50** | **2.02** | **1.87** | **1.72** | **2.30** | **2.13** | **2.48** |
+| | **weighted mean** | | **2.28** | **1.89** | **1.74** | **2.30** | **2.07** | **1.44** | **1.50** | **2.02** | **1.87** | **1.72** | **2.30** | **2.13** | **2.48** |
 
 `v` verified, `u` unverified (optimistic for the competitor).
 
@@ -90,12 +90,12 @@ Unverified (`U`) cells among competitors: 47 of 288 property cells, 11 of 972 fu
 | F04 | Append characters to an existing index (online) | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 0 | 0 | 1 |
 | F05 | Delete / replace text in an existing index (dynamic) | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | F06 | Merge two indexes | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 2 |
-| F07 | Expose suffix array SA[i] / inverse SA | 1 | 2 | 1 | 1 | 2 | 2 | 0 | 2 | 2 | 2 | 1 | 2 | 1 |
-| F08 | Expose LCP array / PLCP | 1 | 2 | 0 | 1 | 2 | 2 | 0 | 2 | 2 | 2 | 0 | 0 | 0 |
+| F07 | Expose suffix array SA[i] / inverse SA | 2 | 2 | 1 | 1 | 2 | 2 | 0 | 2 | 2 | 2 | 1 | 2 | 1 |
+| F08 | Expose LCP array / PLCP | 2 | 2 | 0 | 1 | 2 | 2 | 0 | 2 | 2 | 2 | 0 | 0 | 0 |
 | F09 | Expose BWT / LF-mapping / psi | 1 | 2 | 0 | 1 | 1 | 2 | 0 | 2 | 2 | 2 | 1 | 2 | 2 |
-| F10 | Expose child table / LCP-interval tree (enhanced suffix array tree) | 1 | 2 | 0 | 0 | 2 | 0 | 0 | 0 | 1 | 1 | 0 | 0 | 0 |
+| F10 | Expose child table / LCP-interval tree (enhanced suffix array tree) | 2 | 2 | 0 | 0 | 2 | 0 | 0 | 0 | 1 | 1 | 0 | 0 | 0 |
 | F11 | Sampled / compressed locate (SA sampling trade-off) | 0 | 2 | 2 | 2 | 1 | 0 | 0 | 2 | 0 | 2 | 2 | 2 | 2 |
-| | **group coverage** | **36%** | **68%** | **32%** | **50%** | **59%** | **45%** | **14%** | **55%** | **59%** | **59%** | **41%** | **55%** | **64%** |
+| | **group coverage** | **50%** | **68%** | **32%** | **50%** | **59%** | **45%** | **14%** | **55%** | **59%** | **59%** | **41%** | **55%** | **64%** |
 
 ### B Exact search
 
@@ -104,17 +104,17 @@ Unverified (`U`) cells among competitors: 47 of 288 property cells, 11 of 972 fu
 | F12 | Existence test | 2 | 2 | 2 | 1 | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 2 |
 | F13 | Count occurrences | 2 | 2 | 2 | 1 | 1 | 2 | 1 | 2 | 2 | 2 | 2 | 2 | 2 |
 | F14 | Locate all occurrences | 2 | 2 | 2 | 2 | 1 | 1 | 2 | 2 | 2 | 2 | 2 | 2 | 2 |
-| F15 | Locate with limit / lazy iterator / top-k | 0 | 1 | 2 | 0 | 1 | 1 | 2 | 2 | 1 | 2 | 2 | 2 | 2 |
+| F15 | Locate with limit / lazy iterator / top-k | 2 | 1 | 2 | 0 | 1 | 1 | 2 | 2 | 1 | 2 | 2 | 2 | 2 |
 | F16 | Occurrences returned in text order | 2 | 1 | 1 | 0 | 0 | 0 | 1 | 0 | 1 | 2 | 1 | 1 | 0 |
-| F17 | Reusable handle for a pattern (SA interval / node) for later steps | 0 | 2 | 2 | 0 | 2 | 1 | 0 | 2 | 2 | 0 | 2 | 2 | 1 |
-| F18 | Extend a match by one character to the left (backward step) | 0 | 2 | 2 | 0 | 0 | 0 | 0 | 2 | 0 | 1 | 1 | 2 | 1 |
-| F19 | Extend a match by one character to the right | 0 | 2 | 2 | 0 | 2 | 0 | 0 | 2 | 0 | 0 | 1 | 0 | 1 |
-| F20 | Bidirectional extension (either side, same search state) | 0 | 2 | 2 | 0 | 0 | 0 | 0 | 2 | 0 | 0 | 1 | 0 | 1 |
+| F17 | Reusable handle for a pattern (SA interval / node) for later steps | 2 | 2 | 2 | 0 | 2 | 1 | 0 | 2 | 2 | 0 | 2 | 2 | 1 |
+| F18 | Extend a match by one character to the left (backward step) | 1 | 2 | 2 | 0 | 0 | 0 | 0 | 2 | 0 | 1 | 1 | 2 | 1 |
+| F19 | Extend a match by one character to the right | 2 | 2 | 2 | 0 | 2 | 0 | 0 | 2 | 0 | 0 | 1 | 0 | 1 |
+| F20 | Bidirectional extension (either side, same search state) | 1 | 2 | 2 | 0 | 0 | 0 | 0 | 2 | 0 | 0 | 1 | 0 | 1 |
 | F21 | Extract substring / display text from the index | 2 | 2 | 0 | 2 | 1 | 0 | 2 | 1 | 1 | 2 | 1 | 1 | 1 |
 | F22 | Map text position -> document id + offset (collections) | 1 | 1 | 2 | 2 | 2 | 1 | 0 | 1 | 1 | 1 | 2 | 2 | 2 |
 | F23 | Document listing / document counting for a pattern | 1 | 1 | 1 | 0 | 0 | 0 | 0 | 1 | 1 | 1 | 1 | 1 | 1 |
 | F24 | Top-k / ranked document retrieval | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |
-| | **group coverage** | **46%** | **81%** | **77%** | **31%** | **46%** | **31%** | **38%** | **73%** | **50%** | **58%** | **69%** | **69%** | **62%** |
+| | **group coverage** | **77%** | **81%** | **77%** | **31%** | **46%** | **31%** | **38%** | **73%** | **50%** | **58%** | **69%** | **69%** | **62%** |
 
 ### C Pattern types
 
@@ -143,16 +143,16 @@ Unverified (`U`) cells among competitors: 47 of 288 property cells, 11 of 972 fu
 
 | id | function | Seqeron | sdsl | SeqAn3 | GenomeTools | MUMmer4 | libsais | Go | rust-bio | Python | .NET | BWA/Bt2 | r-index | ropebwt3 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| F36 | Matching statistics array of a query against the index | 0 | 1 | 0 | 2 | 1 | 0 | 0 | 1 | 0 | 0 | 1 | 2 | 1 |
+| F36 | Matching statistics array of a query against the index | 1 | 1 | 0 | 2 | 1 | 0 | 0 | 1 | 0 | 0 | 1 | 2 | 1 |
 | F37 | Maximal exact matches (MEM) query vs index, all occurrences | 2 | 1 | 0 | 2 | 2 | 0 | 0 | 1 | 2 | 2 | 1 | 1 | 2 |
 | F38 | Maximal unique matches (MUM; both / reference variants) | 2 | 0 | 0 | 0 | 2 | 0 | 0 | 0 | 1 | 2 | 0 | 0 | 1 |
 | F39 | Super-maximal exact matches (SMEM) | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 0 | 2 | 2 | 2 |
 | F40 | Chaining / clustering of matches into alignments (nucmer-style) | 0 | 0 | 0 | 2 | 2 | 0 | 0 | 2 | 0 | 2 | 2 | 1 | 1 |
 | F41 | Longest common substring of two texts | 2 | 1 | 0 | 1 | 1 | 1 | 0 | 1 | 2 | 2 | 1 | 1 | 1 |
 | F42 | LCS over k texts / k-common substrings | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 2 | 2 | 0 | 0 | 0 |
-| F43 | Shortest unique substring / minimal unique substrings | 0 | 1 | 0 | 2 | 1 | 1 | 0 | 2 | 1 | 2 | 0 | 0 | 0 |
+| F43 | Shortest unique substring / minimal unique substrings | 1 | 1 | 0 | 2 | 1 | 1 | 0 | 2 | 1 | 2 | 0 | 0 | 0 |
 | F44 | Minimal absent words | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| | **group coverage** | **50%** | **28%** | **0%** | **50%** | **50%** | **11%** | **0%** | **50%** | **44%** | **67%** | **39%** | **39%** | **44%** |
+| | **group coverage** | **61%** | **28%** | **0%** | **50%** | **50%** | **11%** | **0%** | **50%** | **44%** | **67%** | **39%** | **39%** | **44%** |
 
 ### F Repeats & text statistics
 
@@ -173,19 +173,19 @@ Unverified (`U`) cells among competitors: 47 of 288 property cells, 11 of 972 fu
 
 | id | function | Seqeron | sdsl | SeqAn3 | GenomeTools | MUMmer4 | libsais | Go | rust-bio | Python | .NET | BWA/Bt2 | r-index | ropebwt3 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| F54 | Child by character | 0 | 2 | 2 | 0 | 2 | 0 | 0 | 2 | 1 | 0 | 0 | 0 | 1 |
-| F55 | Parent | 0 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 |
-| F56 | Suffix link | 0 | 2 | 0 | 0 | 2 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 |
-| F57 | Weiner link (inverse suffix link) | 0 | 2 | 2 | 0 | 0 | 0 | 0 | 2 | 0 | 0 | 0 | 1 | 1 |
-| F58 | String depth of a node | 1 | 2 | 2 | 0 | 2 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 |
-| F59 | Lowest common ancestor / LCP(i,j) of two suffixes | 0 | 2 | 0 | 0 | 1 | 1 | 0 | 1 | 2 | 2 | 0 | 1 | 0 |
-| F60 | Level ancestor / ancestor at a given depth | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 |
-| F61 | Leaf rank / leaf label (suffix start) | 1 | 2 | 1 | 0 | 2 | 2 | 0 | 2 | 2 | 2 | 0 | 1 | 1 |
+| F54 | Child by character | 2 | 2 | 2 | 0 | 2 | 0 | 0 | 2 | 1 | 0 | 0 | 0 | 1 |
+| F55 | Parent | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 |
+| F56 | Suffix link | 2 | 2 | 0 | 0 | 2 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 |
+| F57 | Weiner link (inverse suffix link) | 1 | 2 | 2 | 0 | 0 | 0 | 0 | 2 | 0 | 0 | 0 | 1 | 1 |
+| F58 | String depth of a node | 2 | 2 | 2 | 0 | 2 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 |
+| F59 | Lowest common ancestor / LCP(i,j) of two suffixes | 2 | 2 | 0 | 0 | 1 | 1 | 0 | 1 | 2 | 2 | 0 | 1 | 0 |
+| F60 | Level ancestor / ancestor at a given depth | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 |
+| F61 | Leaf rank / leaf label (suffix start) | 2 | 2 | 1 | 0 | 2 | 2 | 0 | 2 | 2 | 2 | 0 | 1 | 1 |
 | F62 | Subtree leaf count / size | 2 | 2 | 2 | 0 | 2 | 1 | 0 | 1 | 1 | 0 | 0 | 1 | 1 |
-| F63 | Enumerate children / sibling traversal | 1 | 2 | 2 | 0 | 1 | 0 | 0 | 1 | 1 | 0 | 0 | 0 | 0 |
+| F63 | Enumerate children / sibling traversal | 2 | 2 | 2 | 0 | 1 | 0 | 0 | 1 | 1 | 0 | 0 | 0 | 0 |
 | F64 | DFS / visitor traversal over the whole tree | 2 | 2 | 1 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 1 |
-| F65 | Edge / path label access | 1 | 2 | 2 | 0 | 1 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 |
-| | **group coverage** | **33%** | **96%** | **58%** | **0%** | **54%** | **17%** | **0%** | **38%** | **54%** | **17%** | **0%** | **17%** | **21%** |
+| F65 | Edge / path label access | 2 | 2 | 2 | 0 | 1 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 |
+| | **group coverage** | **92%** | **96%** | **58%** | **0%** | **54%** | **17%** | **0%** | **38%** | **54%** | **17%** | **0%** | **17%** | **21%** |
 
 ### H Persistence, interoperability, operations
 
@@ -210,63 +210,48 @@ Unverified (`U`) cells among competitors: 47 of 288 property cells, 11 of 972 fu
 | F76 | ASCII / byte text | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 0 | 2 | 0 |
 | F77 | Unicode text | 2 | 1 | 1 | 1 | 0 | 2 | 1 | 1 | 2 | 2 | 0 | 1 | 0 |
 | F78 | Integer alphabet (arbitrary symbols) | 1 | 2 | 1 | 1 | 0 | 2 | 0 | 2 | 2 | 1 | 0 | 0 | 0 |
-| F79 | 2-bit packed DNA | 0 | 1 | 2 | 2 | 0 | 0 | 0 | 1 | 0 | 1 | 2 | 1 | 1 |
+| F79 | 2-bit packed DNA | 1 | 1 | 2 | 2 | 0 | 0 | 0 | 1 | 0 | 1 | 2 | 1 | 1 |
 | F80 | Protein alphabet | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 0 | 2 | 0 |
 | F81 | Policy for N / unknown symbols / separators | 1 | 1 | 2 | 2 | 2 | 2 | 1 | 2 | 1 | 2 | 2 | 2 | 2 |
-| | **group coverage** | **67%** | **75%** | **83%** | **83%** | **50%** | **83%** | **50%** | **83%** | **75%** | **83%** | **33%** | **67%** | **25%** |
+| | **group coverage** | **75%** | **75%** | **83%** | **83%** | **50%** | **83%** | **50%** | **83%** | **75%** | **83%** | **33%** | **67%** | **25%** |
 
-| | **TOTAL coverage** | **55.6%** | **52.5%** | **40.1%** | **46.3%** | **48.1%** | **25.3%** | **17.3%** | **48.1%** | **42.0%** | **48.8%** | **40.1%** | **45.7%** | **44.4%** |
+| | **TOTAL coverage** | **72.8%** | **52.5%** | **40.1%** | **46.3%** | **48.1%** | **25.3%** | **17.3%** | **48.1%** | **42.0%** | **48.8%** | **40.1%** | **45.7%** | **44.4%** |
 
 ## 5. Where Seqeron is behind or ahead (functions)
 
-Seqeron scores below the best competitor on **44 of 81** functions. Largest first (n2 = how many competitors score 2):
+Seqeron scores below the best competitor on **29 of 81** functions. Largest first (n2 = how many competitors score 2):
 
 | id | function | Seqeron | best | n2 |
 |---|---|---|---|---|
 | F11 | Sampled / compressed locate (SA sampling trade-off) | 0 | 2 | 8 |
-| F15 | Locate with limit / lazy iterator / top-k | 0 | 2 | 7 |
-| F17 | Reusable handle for a pattern (SA interval / node) for later steps | 0 | 2 | 7 |
 | F40 | Chaining / clustering of matches into alignments (nucmer-style) | 0 | 2 | 5 |
-| F18 | Extend a match by one character to the left (backward step) | 0 | 2 | 4 |
-| F19 | Extend a match by one character to the right | 0 | 2 | 4 |
-| F54 | Child by character | 0 | 2 | 4 |
-| F20 | Bidirectional extension (either side, same search state) | 0 | 2 | 3 |
-| F43 | Shortest unique substring / minimal unique substrings | 0 | 2 | 3 |
-| F57 | Weiner link (inverse suffix link) | 0 | 2 | 3 |
-| F59 | Lowest common ancestor / LCP(i,j) of two suffixes | 0 | 2 | 3 |
-| F79 | 2-bit packed DNA | 0 | 2 | 3 |
 | F34 | Approximate search tolerant of N / ambiguity in the text | 0 | 2 | 2 |
-| F36 | Matching statistics array of a query against the index | 0 | 2 | 2 |
-| F56 | Suffix link | 0 | 2 | 2 |
 | F04 | Append characters to an existing index (online) | 0 | 2 | 1 |
 | F06 | Merge two indexes | 0 | 2 | 1 |
 | F33 | Search schemes / bidirectional pigeonhole for approximate search | 0 | 2 | 1 |
 | F53 | Mappability / uniqueness map | 0 | 2 | 1 |
-| F55 | Parent | 0 | 2 | 1 |
 | F02 | Build one index over several texts (collection / generalized) | 1 | 2 | 10 |
 | F81 | Policy for N / unknown symbols / separators | 1 | 2 | 9 |
-| F07 | Expose suffix array SA[i] / inverse SA | 1 | 2 | 7 |
 | F09 | Expose BWT / LF-mapping / psi | 1 | 2 | 7 |
-| F08 | Expose LCP array / PLCP | 1 | 2 | 6 |
 | F22 | Map text position -> document id + offset (collections) | 1 | 2 | 6 |
 | F29 | Search both strands (reverse complement) in one call | 1 | 2 | 6 |
 | F35 | Seed generation for read mapping (MEM / SMEM seeds) | 1 | 2 | 6 |
-| F61 | Leaf rank / leaf label (suffix start) | 1 | 2 | 6 |
 | F75 | Batch query API (many patterns in one call, parallel) | 1 | 2 | 6 |
 | F32 | k edits (Levenshtein, indels) on the index | 1 | 2 | 5 |
 | F70 | Command-line tool | 1 | 2 | 5 |
 | F03 | Build from a file or stream without loading the whole text first | 1 | 2 | 4 |
+| F18 | Extend a match by one character to the left (backward step) | 1 | 2 | 4 |
 | F39 | Super-maximal exact matches (SMEM) | 1 | 2 | 4 |
 | F50 | k-mer counting / spectrum from the index | 1 | 2 | 4 |
 | F78 | Integer alphabet (arbitrary symbols) | 1 | 2 | 4 |
+| F20 | Bidirectional extension (either side, same search state) | 1 | 2 | 3 |
 | F31 | k mismatches (Hamming) on the index | 1 | 2 | 3 |
-| F58 | String depth of a node | 1 | 2 | 3 |
-| F10 | Expose child table / LCP-interval tree (enhanced suffix array tree) | 1 | 2 | 2 |
-| F63 | Enumerate children / sibling traversal | 1 | 2 | 2 |
-| F65 | Edge / path label access | 1 | 2 | 2 |
+| F43 | Shortest unique substring / minimal unique substrings | 1 | 2 | 3 |
+| F57 | Weiner link (inverse suffix link) | 1 | 2 | 3 |
+| F79 | 2-bit packed DNA | 1 | 2 | 3 |
+| F36 | Matching statistics array of a query against the index | 1 | 2 | 2 |
 | F52 | LZ factorization / longest previous factor | 1 | 2 | 1 |
 | F24 | Top-k / ranked document retrieval | 0 | 1 | 0 |
-| F60 | Level ancestor / ancestor at a given depth | 0 | 1 | 0 |
 
 Seqeron scores above every competitor on: F25 (IUPAC / degenerate symbols in the pattern), F47 (Supermaximal repeats), F68 (Versioned on-disk format with documented layout), F71 (Server / RPC / MCP-style tool surface).
 
