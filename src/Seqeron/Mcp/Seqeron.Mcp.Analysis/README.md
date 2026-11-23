@@ -2,7 +2,7 @@
 
 MCP server — **K-mer, motif, repeat, complexity, RNA-structure and comparative-genomics analysis.**
 
-Exposes **232 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+Exposes **235 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
 MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test, with a
 per-tool doc under [`docs/mcp/tools/analysis/`](../../../../docs/mcp/tools/analysis). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
@@ -109,6 +109,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `patmatmotifs` | EMBOSS patmatmotifs: scans a protein sequence with the patterns of the prosite database; equals patmatmotifs 6.6.0 on 300 runs. |
 | `patmatdb` | EMBOSS patmatdb: searches protein sequences with a prosite sequence motif; equals patmatdb 6.6.0 on 300 runs. |
 | `prosextract` | EMBOSS prosextract: builds the prosite motif database for patmatmotifs from prosite.dat and prosite.doc; equals prosextract 6.6.0 on 300 runs. |
+| `plotcon` | EMBOSS plotcon: plots the similarity of a multiple alignment along its length (matrix score of every pair of residues, windowed); equals plotcon 6.6.0 on 400 + 1 500 runs. |
 | `plotorf` | EMBOSS plotorf: plots the potential open reading frames of a nucleotide sequence; equals plotorf 6.6.0 on 300 runs. |
 | `wordfinder` | EMBOSS wordfinder: matches large sequences against one or more other sequences by their words; equals wordfinder 6.6.0 on 300 runs. |
 | `prettyseq` | EMBOSS prettyseq: writes a nucleotide sequence and its translation; equals prettyseq 6.6.0 on 300 runs. |
@@ -219,6 +220,8 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `most_frequent_kmers` | Returns all k-mers tied for the maximum occurrence count; optional `canonical` (jellyfish count -C) / `acgtOnly`. |
 | `multibranch_loop_energy` | Free energy of an RNA multibranch loop (Turner 2004 affine model: offset + asymmetry + helix term + stacking + strain). |
 | `multiple_alignment_statistics` | Statistics of a gapped multiple alignment: per-sequence comparison with a reference row or the EMBOSS cons consensus (EMBOSS infoalign: seqLength, al… |
+| `alignment_summary_info` | Bio.Align.AlignInfo.SummaryInfo of Biopython 1.79: consensus, replacement dictionary, PSSM, information content; equal to the Biopython test values. |
+| `msa_conservation` | Capra and Singh (2007) column conservation: Jensen-Shannon divergence (default), Shannon entropy, property / relative entropy, sum of pairs; window, gap penalty, Henikoff weights. |
 | `oligo_analysis` | RSAT oligo-analysis over-representation of the k-mers of one DNA sequence (or a set with extraSequences): occurrences, expected frequency under a background model (equipr… |
 | `parse_dot_bracket` | Parses dot-bracket notation into a list of base-pair coordinates. |
 | `predict_chou_fasman` | Propensity profile: per-window mean Chou-Fasman helix/sheet/turn parameters (window 1 = per residue); not an assignment (see `chou_fasman_assign`). |

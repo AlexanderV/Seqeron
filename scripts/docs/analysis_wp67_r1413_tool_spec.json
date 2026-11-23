@@ -1,0 +1,149 @@
+[
+ {
+  "name": "plotcon",
+  "summary": "EMBOSS 6.6.0 plotcon: the similarity of a multiple alignment along its length (the data of the plot, -graph data).",
+  "methodId": "EmbossProgramRunner.Run",
+  "sourceFile": "EmbossSequencePrograms.Plotcon.cs",
+  "sourcePath": "Seqeron.Genomics.Analysis/EmbossSequencePrograms.Plotcon.cs",
+  "algorithmDoc": "Alignment/Multiple_Sequence_Alignment.md",
+  "oracleScript": "generate_emboss_prog_wp63_oracle.py",
+  "file": "AnalysisTools.Plotcon.cs",
+  "after": "prosextract",
+  "short": "EMBOSS plotcon: plots the similarity of a multiple alignment along its length (matrix score of every pair of residues, windowed); equals plotcon 6.6.0 on 400 + 1 500 runs.",
+  "description": "EMBOSS 6.6.0 plotcon: the similarity of a multiple alignment along its length: per column the sum over all pairs of sequences of the matrix score (EBLOSUM62 for protein, EDNAFULL for nucleic acids), averaged over a window of winsize columns; the result is the data file of -graph data. See the tool description in the code for the parameters.",
+  "output": {
+   "text": [
+    "string",
+    "The data file plotcon1.dat of -graph data (the title, the extent and x / y of every column)"
+   ],
+   "files": [
+    "object",
+    "The other files the program wrote, by name"
+   ],
+   "messages": [
+    "string[]",
+    "What the program wrote to its error stream"
+   ]
+  },
+  "errors": [
+   "The sequences cannot be empty",
+   "The program died: the messages of the library (a matrix it cannot read, a value it refuses, an input no reader reads)",
+   "An input on which the reference program has no defined result is refused with the reason"
+  ],
+  "example": {
+   "title": "Three proteins, window of 4 columns",
+   "prompt": "Plot the similarity of this alignment.",
+   "input": {
+    "sequences": ">a\nMKTAYIAKQRQISFVKSH\n>b\nMKTAYLAKQRQISFVRSH\n>c\nMKSAYIAK-RQISFVKSH\n"
+   },
+   "output": {
+    "text": "##2D Plot ... 3.000000\t1.020833 ... (18 points)"
+   },
+   "note": "The first window (columns 1-4) has the pair scores 2 x 15 + 2 x 15 + 2 x 7 + 2 x 12 = 98 (BLOSUM62: M/M 5, K/K 5, T/T 5, T/S 1, A/A 4) divided by 3 x 2 x 4 x 4 = 96: 1.020833 at point 3."
+  }
+ },
+ {
+  "name": "alignment_summary_info",
+  "summary": "Bio.Align.AlignInfo.SummaryInfo of Biopython 1.79: dumb / gap consensus, replacement dictionary, position-specific score matrix, information content (ic_vector), get_column, print_info_content.",
+  "methodId": "SummaryInfo",
+  "sourceFile": "AlignInfo.cs",
+  "sourcePath": "Seqeron.Genomics.Analysis/AlignInfo.cs",
+  "algorithmDoc": "Alignment/Multiple_Sequence_Alignment.md",
+  "oracleScript": "alignment_summary_info_reference.py",
+  "file": "AnalysisTools.AlignInfo.cs",
+  "after": "multiple_alignment_statistics",
+  "short": "Bio.Align.AlignInfo.SummaryInfo of Biopython 1.79: consensus, replacement dictionary, PSSM, information content; equal to the Biopython test values.",
+  "description": "One member of Bio.Align.AlignInfo.SummaryInfo of Biopython 1.79 on an alignment of records: dumb_consensus, gap_consensus, replacement_dictionary, pos_specific_score_matrix, information_content, ic_vector, print_info_content, get_column. See the tool description in the code for the parameters.",
+  "output": {
+   "operation": [
+    "string",
+    "The operation"
+   ],
+   "resultJson": [
+    "string",
+    "The value as JSON: a consensus string, [[a, b, weight], ...], {rows, text} of the PSSM, {value, ic_vector}, a column"
+   ],
+   "text": [
+    "string",
+    "The printed table of the PSSM or print_info_content"
+   ]
+  },
+  "errors": [
+   "Unknown operation, or an alignment that is not a JSON array of records",
+   "information_content without an expected-frequency table (Biopython's TypeError), a range outside the first row, a negative pseudo count, a letter missing in the table",
+   "A residue that is not among the counted letters (PSSM)"
+  ],
+  "example": {
+   "title": "The consensus of three proteins",
+   "prompt": "Give the dumb consensus of this protein alignment.",
+   "input": {
+    "operation": "dumb_consensus",
+    "recordsJson": "[{\"id\": \"ID001\", \"seq\": \"MHQAIFIYQIGYP*LKSGYIQSIRSPEYDNW-\"}, {\"id\": \"ID002\", \"seq\": \"MH--IFIYQIGYAYLKSGYIQSIRSPEY-NW*\"}, {\"id\": \"ID003\", \"seq\": \"MHQAIFIYQIGYPYLKSGYIQSIRSPEYDNW*\"}]"
+   },
+   "output": {
+    "operation": "dumb_consensus",
+    "resultJson": "\"MHQAIFIYQIGYXXLKSGYIQSIRSPEYDNW*\""
+   },
+   "note": "The value of Tests/test_AlignInfo.py of Biopython 1.79."
+  }
+ },
+ {
+  "name": "msa_conservation",
+  "summary": "The per-column conservation scores of Capra and Singh (2007): Jensen-Shannon divergence, Shannon / property entropy, relative entropy, sum of pairs, with gap penalty, sequence weights and a window.",
+  "methodId": "ConservationScores",
+  "sourceFile": "ConservationScores.cs",
+  "sourcePath": "Seqeron.Genomics.Analysis/ConservationScores.cs",
+  "algorithmDoc": "Alignment/Multiple_Sequence_Alignment.md",
+  "oracleScript": "conservation_scores_reference.py",
+  "file": "AnalysisTools.AlignInfo.cs",
+  "after": "alignment_summary_info",
+  "short": "Capra and Singh (2007) column conservation: Jensen-Shannon divergence (default), Shannon entropy, property / relative entropy, sum of pairs; window, gap penalty, Henikoff weights.",
+  "description": "The conservation score of every column of a protein alignment as in the program of Capra and Singh (2007): js_divergence, shannon_entropy, property_entropy, relative_entropy or sum_of_pairs, with the gap penalty, the sequence weights of Henikoff and Henikoff and a smoothing window. See the tool description in the code for the parameters.",
+  "output": {
+   "method": [
+    "string",
+    "The method"
+   ],
+   "windowSize": [
+    "integer",
+    "The window size"
+   ],
+   "scores": [
+    "number[]",
+    "The score of every column"
+   ],
+   "sequenceWeights": [
+    "number[]",
+    "The weights of the rows (empty without sequenceWeights)"
+   ],
+   "columns": [
+    "string[]",
+    "The columns as text"
+   ]
+  },
+  "errors": [
+   "At least one sequence is required",
+   "Unknown method or background",
+   "Rows of unequal length, a letter outside the 20 amino acids in sum_of_pairs or the weights"
+  ],
+  "example": {
+   "title": "Five conserved columns",
+   "prompt": "Score the conservation of these columns.",
+   "input": {
+    "sequences": [
+     "AAAAA",
+     "AAAAC",
+     "ACDEF",
+     "AAA--",
+     "ARNDC"
+    ],
+    "method": "js_divergence"
+   },
+   "output": {
+    "method": "JsDivergence",
+    "scores": "[...]"
+   },
+   "note": "The first column is five A (score 0.79906: the divergence of a conserved alanine column from the BLOSUM62 background, A 7.8 %)."
+  }
+ }
+]

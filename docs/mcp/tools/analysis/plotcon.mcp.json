@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "plotcon",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "EmbossProgramRunner.Run",
+  "docRef": "EmbossSequencePrograms.Plotcon.cs",
+  "description": "EMBOSS 6.6.0 plotcon: plots the similarity of a multiple alignment along its length (the data of the plot: x = the column, y = the similarity; -graph data). Every column scores the sum over all pairs of sequences of the integer matrix score of the two residues (scorefile: EBLOSUM62 for protein, EDNAFULL for nucleic sets, or a matrix file in files; a residue that the matrix does not contain, such as a gap, scores nothing) times the weight of the sequence; the score of the window of winsize columns that ends at column k is the sum of the column scores of every row over the window, put at the middle of the window, divided by numseq (numseq - 1) winsize^2 in single precision as the program computes it (a set of one sequence or winsize 0 gives NaN: the data file prints -000nan as the program does); the first winsize / 2 columns and the last ones have no window and stay 0. sequences is the text of the alignment (any input format of seqret) or the sequences; shorter sequences are padded with gaps. The result text is the data file plotcon1.dat (the other files and messages in files / messages); graph qualifiers (-gtitle, -gxtitle, -goutfile, -gdirectory ...) are accepted as typed on the command line, the title and the y label are set by the program. VERIFICATION: standard output, error stream, exit status and written files equal to the installed plotcon 6.6.0 on 400 recorded runs plus a fresh check of 1 500 runs (every input format, ranges, matrices, window sizes including 0 and negative, the graph devices that write text, the messages of the library).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequences": {
+        "type": "string",
+        "description": "The text of the alignment (any input format of seqret, e.g. aligned FASTA, Clustal, MSF), or sequences as text; at least one sequence."
+      },
+      "winsize": {
+        "type": "integer",
+        "description": "Number of columns to average the similarity over (-winsize, default 4)."
+      },
+      "scorefile": {
+        "type": "string",
+        "description": "The scoring matrix (-scorefile): an EMBOSS matrix name (EBLOSUM62 default for protein, EDNAFULL default for nucleic acids, EBLOSUM30 ... EBLOSUM90, EPAM10 ... EPAM500, EDNAMAT, EDNASIMPLE, ENUC.4.4) or the name of a matrix file given in files."
+      },
+      "sequenceFormat": {
+        "type": "string",
+        "description": "The input format (-sformat); default: the program finds the format."
+      },
+      "qualifiers": {
+        "type": "string",
+        "description": "Sequence input qualifiers as typed after the sequence on the command line: -sbegin -send -sreverse, -slower -supper, -snucleotide -sprotein, -sid name, -sdbname db, -squick, -iquery query, -ioffset bytes."
+      },
+      "graphQualifiers": {
+        "type": "string",
+        "description": "Graph qualifiers as typed on the command line: -gtitle T -gsubtitle T -gxtitle T -gytitle T -gdesc T -goutfile NAME -gdirectory DIR."
+      },
+      "files": {
+        "type": "object",
+        "description": "More files by name (file name -> text) that the program may read (a matrix file, a file named by a USA, @file)."
+      }
+    },
+    "required": [
+      "sequences"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "text": {
+        "type": "string",
+        "description": "The data file plotcon1.dat of -graph data (the title, the extent and x / y of every column)"
+      },
+      "files": {
+        "type": "object",
+        "description": "The other files the program wrote, by name"
+      },
+      "messages": {
+        "type": "string[]",
+        "description": "What the program wrote to its error stream"
+      }
+    },
+    "required": [
+      "text",
+      "files",
+      "messages"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "The sequences cannot be empty"
+    },
+    {
+      "code": 1001,
+      "message": "The program died: the messages of the library (a matrix it cannot read, a value it refuses, an input no reader reads)"
+    },
+    {
+      "code": 1001,
+      "message": "An input on which the reference program has no defined result is refused with the reason"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Three proteins, window of 4 columns",
+      "input": {
+        "sequences": ">a\nMKTAYIAKQRQISFVKSH\n>b\nMKTAYLAKQRQISFVRSH\n>c\nMKSAYIAK-RQISFVKSH\n"
+      },
+      "output": {
+        "text": "##2D Plot ... 3.000000\t1.020833 ... (18 points)"
+      }
+    }
+  ]
+}

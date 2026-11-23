@@ -1,6 +1,6 @@
 # multiple_alignment_statistics
 
-Statistics of a gapped multiple alignment: per-sequence comparison with a reference row or the EMBOSS cons consensus (EMBOSS infoalign: seqLength, alignLength, gap runs, gap length, identities, similarities, differences, % change; verified against infoalign 6.6.0), per-column residue counts / gap fraction / most common residue / ClustalW conservation symbol ('*' identical, ':' strong, '.' weak group; ClustalW 2.1; DNA columns only '*'), gap percent, fully conserved and gap-free columns, and the pairwise percent-identity matrix (distmat uncorrected, identity over columns where neither row has a gap; gapWeight 1 = Biopython DistanceCalculator('identity')). Rows are upper-cased, '.'/'~' read as '-'.
+Statistics of a gapped multiple alignment: per-sequence comparison with a reference row or the EMBOSS cons consensus (EMBOSS infoalign: seqLength, alignLength, gap runs, gap length, identities, similarities, differences, % change; verified against infoalign 6.6.0), per-column residue counts / gap fraction / most common residue / ClustalW conservation symbol ('*' identical, ':' strong, '.' weak group; ClustalW 2.1; DNA columns only '*') / Shannon entropy in bits of the non-gap residues / information content in bits (against a uniform 4-letter background for a nucleotide column, 20 letters otherwise; the per-column Jensen-Shannon divergence and sum of pairs of Capra and Singh are the tool msa_conservation), gap percent, fully conserved and gap-free columns, and the pairwise percent-identity matrix (distmat uncorrected, identity over columns where neither row has a gap; gapWeight 1 = Biopython DistanceCalculator('identity')). Rows are upper-cased, '.'/'~' read as '-'.
 
 ## Overview
 
@@ -14,7 +14,7 @@ Statistics of a gapped multiple alignment: per-sequence comparison with a refere
 
 ## Description
 
-Statistics of a gapped multiple alignment: per-sequence comparison with a reference row or the EMBOSS cons consensus (EMBOSS infoalign: seqLength, alignLength, gap runs, gap length, identities, similarities, differences, % change; verified against infoalign 6.6.0), per-column residue counts / gap fraction / most common residue / ClustalW conservation symbol ('*' identical, ':' strong, '.' weak group; ClustalW 2.1; DNA columns only '*'), gap percent, fully conserved and gap-free columns, and the pairwise percent-identity matrix (distmat uncorrected, identity over columns where neither row has a gap; gapWeight 1 = Biopython DistanceCalculator('identity')). Rows are upper-cased, '.'/'~' read as '-'.
+Statistics of a gapped multiple alignment: per-sequence comparison with a reference row or the EMBOSS cons consensus (EMBOSS infoalign: seqLength, alignLength, gap runs, gap length, identities, similarities, differences, % change; verified against infoalign 6.6.0), per-column residue counts / gap fraction / most common residue / ClustalW conservation symbol ('*' identical, ':' strong, '.' weak group; ClustalW 2.1; DNA columns only '*') / Shannon entropy in bits of the non-gap residues / information content in bits (against a uniform 4-letter background for a nucleotide column, 20 letters otherwise; the per-column Jensen-Shannon divergence and sum of pairs of Capra and Singh are the tool msa_conservation), gap percent, fully conserved and gap-free columns, and the pairwise percent-identity matrix (distmat uncorrected, identity over columns where neither row has a gap; gapWeight 1 = Biopython DistanceCalculator('identity')). Rows are upper-cased, '.'/'~' read as '-'.
 
 ## Core Documentation Reference
 
@@ -43,7 +43,7 @@ Statistics of a gapped multiple alignment: per-sequence comparison with a refere
 | `conservationLine` | string | ClustalW conservation line ('*', ':', '.', ' '). |
 | `pairwiseIdentity` | array<array<number>> | Percent-identity matrix (null = undefined). |
 | `sequences` | array<object> | Per-row infoalign statistics: index, sequenceLength, alignmentLength, gapRuns, gapLength, identities, similarities, differences, percentChange. |
-| `columns` | array<object> | Per-column: index, counts, gapCount, gapFraction, mostCommonResidue, mostCommonCount, conservation. |
+| `columns` | array<object> | Per-column: index, counts, gapCount, gapFraction, mostCommonResidue, mostCommonCount, conservation, shannonEntropy (bits, non-gap residues), informationContent (bits against a uniform background). |
 
 ## Errors
 

@@ -100,11 +100,12 @@
 | `write_big_alignment` | `AlignmentCoordinateFormats.WriteBigBed / WriteBigMaf / WriteBigPsl` | [doc](../../mcp/tools/alignment/write_big_alignment.md) |
 | `write_coordinate_alignment` | `AlignmentCoordinateFormats.Write` | [doc](../../mcp/tools/alignment/write_coordinate_alignment.md) |
 
-## Analysis (232 tools)
+## Analysis (235 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
 | `alignment_distance_matrix` | `MultipleAlignmentStatistics.CalculateDistanceMatrix` | [doc](../../mcp/tools/analysis/alignment_distance_matrix.md) |
+| `alignment_summary_info` | `SummaryInfo` | [doc](../../mcp/tools/analysis/alignment_summary_info.md) |
 | `alphabet_pwm_score_pvalue` | `MotifFinder.AlphabetPwmScorePValue` | [doc](../../mcp/tools/analysis/alphabet_pwm_score_pvalue.md) |
 | `alphabet_pwm_score_thresholds` | `AlphabetPositionWeightMatrix.ScoreDistribution` | [doc](../../mcp/tools/analysis/alphabet_pwm_score_thresholds.md) |
 | `analyze_gc_content` | `GcSkewCalculator.AnalyzeGcContent` | [doc](../../mcp/tools/analysis/analyze_gc_content.md) |
@@ -250,6 +251,7 @@
 | `minimum_free_energy` | `RnaSecondaryStructure.CalculateMinimumFreeEnergy` | [doc](../../mcp/tools/analysis/minimum_free_energy.md) |
 | `mismatch_coaxial_stacking` | `RnaSecondaryStructure.CalculateMismatchCoaxialStacking` | [doc](../../mcp/tools/analysis/mismatch_coaxial_stacking.md) |
 | `most_frequent_kmers` | `KmerAnalyzer.FindMostFrequentKmers` | [doc](../../mcp/tools/analysis/most_frequent_kmers.md) |
+| `msa_conservation` | `ConservationScores` | [doc](../../mcp/tools/analysis/msa_conservation.md) |
 | `msbar` | `EmbossProgramRunner.Run` | [doc](../../mcp/tools/analysis/msbar.md) |
 | `multibranch_loop_energy` | `RnaSecondaryStructure.CalculateMultibranchLoopEnergy` | [doc](../../mcp/tools/analysis/multibranch_loop_energy.md) |
 | `multiple_alignment_statistics` | `MultipleAlignmentStatistics.Calculate` | [doc](../../mcp/tools/analysis/multiple_alignment_statistics.md) |
@@ -272,6 +274,7 @@
 | `pasteseq` | `EmbossProgramRunner.Run` | [doc](../../mcp/tools/analysis/pasteseq.md) |
 | `patmatdb` | `EmbossProgramRunner.Run` | [doc](../../mcp/tools/analysis/patmatdb.md) |
 | `patmatmotifs` | `EmbossProgramRunner.Run` | [doc](../../mcp/tools/analysis/patmatmotifs.md) |
+| `plotcon` | `EmbossProgramRunner.Run` | [doc](../../mcp/tools/analysis/plotcon.md) |
 | `plotorf` | `EmbossProgramRunner.Run` | [doc](../../mcp/tools/analysis/plotorf.md) |
 | `predict_chou_fasman` | `SequenceStatistics.PredictSecondaryStructure` | [doc](../../mcp/tools/analysis/predict_chou_fasman.md) |
 | `predict_coiled_coils` | `ProteinMotifFinder.PredictCoiledCoils` | [doc](../../mcp/tools/analysis/predict_coiled_coils.md) |

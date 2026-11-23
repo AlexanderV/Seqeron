@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "alignment_summary_info",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SummaryInfo",
+  "docRef": "AlignInfo.cs",
+  "description": "One member of Bio.Align.AlignInfo.SummaryInfo of Biopython 1.79 (the last release that has the class; 1.88 keeps only get_column) on an alignment of records: dumb_consensus (per column the unique most common residue when its share of the residues, gaps not counted, reaches threshold, else the ambiguous letter; requireMultiple), gap_consensus (the same with the gap symbols counted), replacement_dictionary (letters: for every ordered pair of letters the summed product of the 'weight' annotations of the two rows that carry them in one column, the earlier row's letter first), pos_specific_score_matrix (the PSSM: per column the weighted count of every letter, with the consensus or axisSeq as the axis; charsToIgnore, the gap symbol is always ignored; the table text is str(pssm)), information_content (sum over the columns start..end-1 of the sum of f ln(f / e) / ln(logBase) with f the weighted frequency of the letter, gaps and charsToIgnore not counted, e from eFreqTableJson, pseudoCount k: f = (count + e k) / (total + k); the per-column values are ic_vector), ic_vector (the vector after information_content), print_info_content (position, letter of row repRecord, value with three decimals; needs eFreqTableJson), get_column. Errors and their messages are Biopython's (information_content without an expected-frequency table fails as it does there: TypeError; a negative pseudo count, a letter missing in the table, a range outside the first row, logBase 1 ...). VERIFICATION: the values of Biopython's own test suite (Tests/test_AlignInfo.py: ic 7.32029999423075, 133.061475107, 7.546, the printed PSSMs) and hand-derived values; the recorded run of 6 199 calls on the real class is the user-run package handoff/R14-13-aligninfo-biopython179 (its README says whether it has been integrated).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "operation": {
+        "type": "string",
+        "description": "The operation: dumb_consensus, gap_consensus, replacement_dictionary, pos_specific_score_matrix, information_content, ic_vector, print_info_content, get_column."
+      },
+      "recordsJson": {
+        "type": "string",
+        "description": "The rows as a JSON array of records {\"id\": ..., \"seq\": \"ACGT-\", \"annotations\": {\"weight\": 0.5}}; only seq is required (id defaults to <unknown id>); the 'weight' annotation of a row weights it (default 1.0)."
+      },
+      "threshold": {
+        "type": "number",
+        "description": "consensus: share the most common residue needs (default 0.7).",
+        "default": 0.7
+      },
+      "ambiguous": {
+        "type": "string",
+        "description": "consensus: the letter of a column without a clear consensus (default X).",
+        "default": "X"
+      },
+      "requireMultiple": {
+        "type": "boolean",
+        "description": "consensus: a column with one residue only is ambiguous.",
+        "default": false
+      },
+      "letters": {
+        "type": "string",
+        "description": "replacement_dictionary: the letters to count (required)."
+      },
+      "axisSeq": {
+        "type": "string",
+        "description": "pos_specific_score_matrix: the axis sequence (default the dumb consensus)."
+      },
+      "charsToIgnoreJson": {
+        "type": "string",
+        "description": "pos_specific_score_matrix / information_content: a JSON array of letters that are not counted, e.g. [\"-\", \"*\"]."
+      },
+      "start": {
+        "type": "integer",
+        "description": "information_content: first column (0-based, default 0).",
+        "default": 0
+      },
+      "end": {
+        "type": "integer",
+        "description": "information_content: end column, exclusive (default the length of the first row)."
+      },
+      "eFreqTableJson": {
+        "type": "string",
+        "description": "information_content: expected frequency of each letter as a JSON object {\"A\": 0.25, \"C\": 0.25, ...} (gap symbols have none)."
+      },
+      "logBase": {
+        "type": "number",
+        "description": "information_content: logarithm base (default 2: bits).",
+        "default": 2
+      },
+      "pseudoCount": {
+        "type": "number",
+        "description": "information_content: pseudo count k (default 0).",
+        "default": 0
+      },
+      "col": {
+        "type": "integer",
+        "description": "get_column: the column (negative from the end).",
+        "default": 0
+      },
+      "repRecord": {
+        "type": "integer",
+        "description": "print_info_content: the row whose letters label the positions (default 0).",
+        "default": 0
+      }
+    },
+    "required": [
+      "operation",
+      "recordsJson"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "operation": {
+        "type": "string",
+        "description": "The operation"
+      },
+      "resultJson": {
+        "type": "string",
+        "description": "The value as JSON: a consensus string, [[a, b, weight], ...], {rows, text} of the PSSM, {value, ic_vector}, a column"
+      },
+      "text": {
+        "type": "string",
+        "description": "The printed table of the PSSM or print_info_content"
+      }
+    },
+    "required": [
+      "operation",
+      "resultJson",
+      "text"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Unknown operation, or an alignment that is not a JSON array of records"
+    },
+    {
+      "code": 1001,
+      "message": "information_content without an expected-frequency table (Biopython's TypeError), a range outside the first row, a negative pseudo count, a letter missing in the table"
+    },
+    {
+      "code": 1001,
+      "message": "A residue that is not among the counted letters (PSSM)"
+    }
+  ],
+  "examples": [
+    {
+      "name": "The consensus of three proteins",
+      "input": {
+        "operation": "dumb_consensus",
+        "recordsJson": "[{\"id\": \"ID001\", \"seq\": \"MHQAIFIYQIGYP*LKSGYIQSIRSPEYDNW-\"}, {\"id\": \"ID002\", \"seq\": \"MH--IFIYQIGYAYLKSGYIQSIRSPEY-NW*\"}, {\"id\": \"ID003\", \"seq\": \"MHQAIFIYQIGYPYLKSGYIQSIRSPEYDNW*\"}]"
+      },
+      "output": {
+        "operation": "dumb_consensus",
+        "resultJson": "\"MHQAIFIYQIGYXXLKSGYIQSIRSPEYDNW*\""
+      }
+    }
+  ]
+}

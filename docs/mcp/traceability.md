@@ -202,6 +202,8 @@
 | validate_probe | MolTools | ProbeDesigner.ValidateProbe | ProbeDesigner.cs#L2155 | 0/0 | – | – | Build-Ready |
 | alignment_distance_matrix | Analysis | MultipleAlignmentStatistics.CalculateDistanceMatrix | MultipleAlignmentStatistics.cs#L220 | 1/1 | ✓ | ✓ | Ready |
 | multiple_alignment_statistics | Analysis | MultipleAlignmentStatistics.Calculate | MultipleAlignmentStatistics.cs#L110 | 3/3 | ✓ | ✓ | Ready |
+| alignment_summary_info | Analysis | SummaryInfo | AnalysisTools.AlignInfo.cs | 0/0 | – | – | Build-Ready |
+| msa_conservation | Analysis | ConservationScores | AnalysisTools.AlignInfo.cs | 0/0 | – | – | Build-Ready |
 | alphabet_pwm_score_pvalue | Analysis | MotifFinder.AlphabetPwmScorePValue | MotifFinder.PwmPValue.cs#L190 | 2/2 | ✓ | ✓ | Ready |
 | alphabet_pwm_score_thresholds | Analysis | AlphabetPositionWeightMatrix.ScoreDistribution | MotifFinder.AlphabetPwm.cs#L394 | 1/1 | ✓ | ✓ | Ready |
 | analyze_gc_content | Analysis | GcSkewCalculator.AnalyzeGcContent | GcSkewCalculator.cs#L1002 | 0/0 | – | – | Build-Ready |
@@ -379,6 +381,7 @@
 | patmatmotifs | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossSequencePrograms4.cs | 0/0 | – | – | Build-Ready |
 | patmatdb | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossSequencePrograms4.cs | 0/0 | – | – | Build-Ready |
 | prosextract | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossSequencePrograms4.cs | 0/0 | – | – | Build-Ready |
+| plotcon | Analysis | EmbossProgramRunner.Run | AnalysisTools.Plotcon.cs | 0/0 | – | – | Build-Ready |
 | find_longest_common_region_multi | Analysis | GenomicAnalyzer.FindLongestCommonRegion | AnalysisTools.cs | 0/0 | – | – | Build-Ready |
 | find_repeat_pairs | Analysis | GenomicAnalyzer.FindRepeatPairs | AnalysisTools.cs | 0/0 | – | – | Build-Ready |
 | plotorf | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossSequencePrograms3.cs | 0/0 | – | – | Build-Ready |

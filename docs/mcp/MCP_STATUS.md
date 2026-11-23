@@ -1,6 +1,6 @@
 # MCP Completion — Source of Truth & Campaign Ledger
 
-> Reality-based ledger of the 655 MCP tools across 11 servers. Campaign COMPLETE (2026-07-01):
+> Reality-based ledger of the 658 MCP tools across 11 servers. Campaign COMPLETE (2026-07-01):
 > every tool has a gold-standard binding (`[McpServerTool(Name/Title/ReadOnly)]` + `[Description]`,
 > structured record, input validation, real `Seqeron.Genomics` delegation), a Schema+Binding NUnit
 > test, and `{tool}.md` + `{tool}.mcp.json` docs. Supersedes `docs/mcp-plan.md` / `docs/mcp-checklist.md` (v4).
@@ -9,9 +9,9 @@
 
 | Metric | Done | Total |
 |---|---:|---:|
-| Gold-standard binding | 655 | 655 |
-| Schema+Binding tests | 655 | 655 |
-| Docs (.md + .mcp.json) | 655 | 655 |
+| Gold-standard binding | 658 | 658 |
+| Schema+Binding tests | 658 | 658 |
+| Docs (.md + .mcp.json) | 658 | 658 |
 
 ## Per-server summary
 
@@ -21,7 +21,7 @@
 | Sequence | Seqeron.Mcp.Sequence | 35 | 35/35 | 35/35 | 35/35 | ✅ done |
 | Parsers | Seqeron.Mcp.Parsers | 41 | 41/41 | 41/41 | 41/41 | ✅ done |
 | Alignment | Seqeron.Mcp.Alignment | 91 | 91/91 | 91/91 | 91/91 | ✅ done |
-| Analysis | Seqeron.Mcp.Analysis | 232 | 232/232 | 232/232 | 232/232 | ✅ done |
+| Analysis | Seqeron.Mcp.Analysis | 235 | 235/235 | 235/235 | 235/235 | ✅ done |
 | Annotation | Seqeron.Mcp.Annotation | 97 | 97/97 | 97/97 | 97/97 | ✅ done |
 | Chromosome | Seqeron.Mcp.Chromosome | 32 | 32/32 | 32/32 | 32/32 | ✅ done |
 | Metagenomics | Seqeron.Mcp.Metagenomics | 19 | 19/19 | 19/19 | 19/19 | ✅ done |
@@ -236,7 +236,7 @@
 | 90 | `codon_aligner` | ☑ | ☑ | ☑ |
 | 91 | `multiple_seq_alignment` | ☑ | ☑ | ☑ |
 
-### Analysis (Seqeron.Mcp.Analysis) — 232 tools
+### Analysis (Seqeron.Mcp.Analysis) — 235 tools
 
 | # | tool | B | T | D |
 |---:|---|:--:|:--:|:--:|
@@ -472,6 +472,9 @@
 | 230 | `patmatmotifs` | ☑ | ☑ | ☑ |
 | 231 | `patmatdb` | ☑ | ☑ | ☑ |
 | 232 | `prosextract` | ☑ | ☑ | ☑ |
+| 233 | `plotcon` | ☑ | ☑ | ☑ |
+| 234 | `alignment_summary_info` | ☑ | ☑ | ☑ |
+| 235 | `msa_conservation` | ☑ | ☑ | ☑ |
 
 ### Annotation (Seqeron.Mcp.Annotation) — 97 tools
 

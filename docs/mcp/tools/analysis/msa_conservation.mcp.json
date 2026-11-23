@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "msa_conservation",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ConservationScores",
+  "docRef": "ConservationScores.cs",
+  "description": "The conservation score of every column of a protein alignment as in the program of Capra and Singh (2007, Bioinformatics 23:1875): method js_divergence (Jensen-Shannon divergence in bits of the column distribution from the background, 0 for a column that looks like the background, close to 1 for a conserved column of a rare residue; the default method), shannon_entropy (the information score 1 - h with h = sum f ln f / ln(min(21, rows)): 1 conserved, 0 maximal entropy), property_entropy (the same over the groups AVLIMC, FWYH, STNQ, KR, DE, GP and the gap), relative_entropy (Kullback-Leibler divergence from the background / ln 20) or sum_of_pairs (the weighted mean BLOSUM62 score of all pairs of residues of the column). Frequencies carry the pseudo count 1e-7; gapPenalty (default true) multiplies each score by the weighted fraction of non-gap rows; sequenceWeights weights the rows by the position-based weights of Henikoff and Henikoff (1994); windowSize smooths the scores over that many columns on either side (the score of a column 0.5 of itself + 0.5 of the mean of its non-negative neighbours); background blosum62 (default) or swissprot, or a JSON array of 20 / 21 numbers in the order A R N D C Q E G H I L K M F P S T W Y V (-). Rows are upper-cased and read as the program's readers do (B = D, Z = Q, X and . = gap); a letter that is not one of the 20 amino acids is ignored by the entropies and is an error for sum_of_pairs and the weights. VERIFICATION: equal to an independent implementation of the formulas of the paper (every score of the unit tests to 1e-13) and to hand-derived values (the program itself is a Python 2 CGI script that is not run here).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequences": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "At least one aligned protein sequence; equal lengths, gaps '-'."
+      },
+      "method": {
+        "type": "string",
+        "description": "js_divergence (default), shannon_entropy, property_entropy, relative_entropy or sum_of_pairs.",
+        "default": "js_divergence"
+      },
+      "background": {
+        "type": "string",
+        "description": "Background distribution: blosum62 (default), swissprot, or a JSON array of 20 / 21 numbers.",
+        "default": "blosum62"
+      },
+      "sequenceWeights": {
+        "type": "boolean",
+        "description": "Weight the rows (Henikoff and Henikoff 1994).",
+        "default": false
+      },
+      "gapPenalty": {
+        "type": "boolean",
+        "description": "Multiply every score by the weighted fraction of non-gap rows (default true).",
+        "default": true
+      },
+      "windowSize": {
+        "type": "integer",
+        "description": "Window size on either side (default 0: no smoothing).",
+        "default": 0
+      }
+    },
+    "required": [
+      "sequences"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "method": {
+        "type": "string",
+        "description": "The method"
+      },
+      "windowSize": {
+        "type": "integer",
+        "description": "The window size"
+      },
+      "scores": {
+        "type": "number[]",
+        "description": "The score of every column"
+      },
+      "sequenceWeights": {
+        "type": "number[]",
+        "description": "The weights of the rows (empty without sequenceWeights)"
+      },
+      "columns": {
+        "type": "string[]",
+        "description": "The columns as text"
+      }
+    },
+    "required": [
+      "method",
+      "windowSize",
+      "scores",
+      "sequenceWeights",
+      "columns"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "At least one sequence is required"
+    },
+    {
+      "code": 1001,
+      "message": "Unknown method or background"
+    },
+    {
+      "code": 1001,
+      "message": "Rows of unequal length, a letter outside the 20 amino acids in sum_of_pairs or the weights"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Five conserved columns",
+      "input": {
+        "sequences": [
+          "AAAAA",
+          "AAAAC",
+          "ACDEF",
+          "AAA--",
+          "ARNDC"
+        ],
+        "method": "js_divergence"
+      },
+      "output": {
+        "method": "JsDivergence",
+        "scores": "[...]"
+      }
+    }
+  ]
+}
