@@ -58,6 +58,7 @@ files, so two files without the fragment mode pair the wrong reads with the stor
 | `minimap2_pair_oracle.jsonl.gz` | 2 100 command lines of the paired mode (two files, interleaved, FR / FF, PAF with / without `-c`, SAM, options) | 2 100 / 2 100 equal |
 | `minimap2_options_oracle.jsonl.gz` | 2 401 command lines: index parts / split-prefix, chaining and seeding options, output flags, `--alt`, `--qstrand`, all-vs-all, unusual input, a 610 kb query with `CG:B:I`, option errors (stdout + stderr at `-v 2` + exit status + `-o` files) | 2 401 / 2 401 equal |
 | `ksw2_c_oracle.tsv` | the C `ksw_ll_i16`, `ksw_exts2_sse`, `ksw_extz2_sse`, `ksw_extd2_sse` (v2.26, `gcc -msse4.1`) on 4 x 500 random inputs, every field of `ksw_extz_t` and the CIGAR | 2 000 / 2 000 equal |
+| `ksw2_real_oracle.tsv.gz` | the user's run of the REAL `ksw_extz` / `ksw_extd` (lh3/ksw2) and `ksw_extz2_sse` / `ksw_extd2_sse` (minimap2 v2.26) on 4 x 500 inputs (band, Z-drop, end bonus, generic matrices, approximate flags, score only, left / right gaps, reversed CIGAR): every field of `ksw_extz_t` and the CIGAR | 1 958 / 1 958 compared equal; 42 scalar cases refused as undefined behaviour of the reference (heap overflow at `ksw2_extz.c:116`: ASan / valgrind; `Ksw2Result.ReferenceUndefined`); B09 F310 |
 
 `valgrind -q --track-origins=yes` on two cases of every group of the three program oracles: no invalid access, no use of uninitialised values. The program has one SSE4.1 code path (no run-time dispatch), so its output does not depend on the CPU.
 

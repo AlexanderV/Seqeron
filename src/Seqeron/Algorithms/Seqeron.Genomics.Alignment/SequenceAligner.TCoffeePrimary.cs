@@ -170,13 +170,16 @@ public enum TCoffeePairMethod
 
     /// <summary>
     /// <c>sap_pair</c> (audit A2-12): when SAP is not installed - the case of the installed program - the method list of the program switches to TM-align ("SAP is not installed. TMalign will be used instead"), so this method behaves exactly as
-    /// <see cref="TMalignPair"/> (<c>-mode 3dcoffee</c> adds it to the default <c>proba_pair</c>: 7 of 8 sets equal <c>-method proba_pair,sap_pair</c>, see <see cref="TCoffeeProgramOptions"/>). With the real SAP 1.1.3 installed (<see cref="TCoffeeProgramOptions.StructureAlignerOutputs"/> has an entry for this method: the raw <c>.sap_results</c> files) the glue <c>sap_pair</c> of util_dp_drivers.c is ported (<see cref="SequenceAligner.TCoffeeSapAlignedResidues"/>): every aligned residue pair of SAP's output becomes a library entry of weight 100 (130 sets of the user-run oracle).
+    /// <see cref="TMalignPair"/> (<c>-mode 3dcoffee</c> = <c>-in Msap_pair -template_file SELF_P_</c> is this method ALONE: 40 / 40 sets of the user-run oracle equal it, see <see cref="TCoffeeProgramOptions"/>). With the real SAP 1.1.3 installed (<see cref="TCoffeeProgramOptions.StructureAlignerOutputs"/> has an entry for this method: the raw <c>.sap_results</c> files) the glue <c>sap_pair</c> of util_dp_drivers.c is ported (<see cref="SequenceAligner.TCoffeeSapAlignedResidues"/>): every aligned residue pair of SAP's output becomes a library entry of weight 100 (130 sets of the user-run oracle).
     /// </summary>
     SapPair = 21,
 
     /// <summary>
-    /// <c>dali_pair</c> (audit A2-12): <c>pdb_pair</c> with <c>EXECUTABLE2 DaliLite</c>; DaliLite is not installed, so the program stops ("ERROR: UNSPECIFIED UNSPECIFIED", exit status 1) at the first pair of two sequences that both carry a usable
-    /// structure (<see cref="TCoffeeProgramOptions.StructureTemplates"/>) and raises <see cref="TCoffeeAbortedException"/>; pairs without two structures are aligned by <c>proba_pair</c> as for every structure method.
+    /// <c>dali_pair</c> (audit A2-12): <c>pdb_pair</c> with <c>EXECUTABLE2 DaliLite</c> (glue <c>tc_generic_method.pl -mode=pdb_pair -method=DaliLite</c>: <c>DaliLite -pairwise pdb1.pdb pdb2.pdb &gt;tmp1</c>, the <c>Query</c> / <c>Sbjct</c> tokens, '.' as '-').
+    /// Without a <c>DaliLite</c> command (the installed program; DaliLite v5 has none) the program stops ("ERROR: UNSPECIFIED UNSPECIFIED", exit status 1) at the first pair of two sequences that both carry a usable
+    /// structure (<see cref="TCoffeeProgramOptions.StructureTemplates"/>) and raises <see cref="TCoffeeAbortedException"/> (300 sets of the user-run oracle); pairs without two structures are aligned by <c>proba_pair</c> as for every structure method.
+    /// With a <c>DaliLite</c> command (an entry of <see cref="TCoffeeProgramOptions.StructureAlignerOutputs"/> for this method: its standard output per pair, see <see cref="SequenceAligner.TCoffeeDaliLiteAlignment"/>) a pair whose output has no <c>Query</c> / <c>Sbjct</c> lines adds no entry
+    /// (the real DaliLite 3.3 on CA-only structures: 120 sets).
     /// </summary>
     DaliPair = 22,
 
