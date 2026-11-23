@@ -34,6 +34,8 @@ jobs:
           python-version: '3.x'
       - name: Catalog is fresh (no drift vs docs/mcp/tools)
         run: python3 scripts/skills/gen-catalog.py --check
+      - name: The prose tool-count checker detects a stale total (self-test)
+        run: python3 -m unittest scripts/skills/test_gen_catalog_counts.py
       - name: .github/skills mirrors .claude/skills byte-identically
         run: python3 scripts/skills/sync-github-skills.py --check
       - name: All skill relative links resolve

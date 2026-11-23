@@ -250,6 +250,56 @@ def check_documented_counts(per_server):
             m = re.search(r"\(all (\d+)\)", text)
             if m and per_server.get(server) is not None and int(m.group(1)) != per_server[server]:
                 problems.append("%s/README.md says 'all %s', the tool docs hold %d" % (project, m.group(1), per_server[server]))
+    problems.extend(check_prose_total_counts(total))
+    return problems
+
+
+# R14-5 (B09): the TOTAL tool count quoted in the prose of the front pages, the skills and their mirror drifted again (483 / 504 / 486 / 474 while the catalogue held 642).
+# Every file below may quote the total ("642 tools", "all 642 MCP tool schemas", "(642 tools)"); every such number must equal the number of tool docs.
+PROSE_TOTAL_FILES = (
+    "README.md",
+    "docs/mcp/README.md",
+    ".github/copilot-instructions.md",
+    ".github/skills/README.md",
+    ".claude/skills/README.md",
+    ".claude/skills/marketplace.json",
+    ".claude/skills/seqeron-discovery/SKILL.md",
+    ".claude/skills/seqeron-setup/SKILL.md",
+    ".claude/skills/seqeron-dev/reference/api-conventions.md",
+    ".github/skills/seqeron-discovery/SKILL.md",
+    ".github/skills/seqeron-setup/SKILL.md",
+    ".github/skills/seqeron-dev/reference/api-conventions.md",
+)
+
+# (docs/mcp-plan.md is the historical plan: it quotes the planned 241 tools and is not checked)
+# (docs/mcp-plan.md is the historical plan: it quotes the planned 241 tools and is not checked)
+# "483 tools", "**483** tools", "483 strict-schema tools", "483 MCP tools", "~483 tools", "all 504 schemas", "all 474 MCP tool schemas", "ledger of the 642 MCP tools"
+PROSE_TOTAL_RE = re.compile(
+    r"(?<![\d,.])(\d{3})(?:\*\*|%20)?\s*(?:strict-schema\s+|MCP\s+)?tools?\b"
+    r"|all\s+(\d{3})\s+(?:MCP\s+)?(?:tool\s+)?schemas"
+    r"|(\d{3})\s+MCP\s+tool\s+schemas"
+    r"|tool\s+among\s+(\d{3})\b"
+)
+
+
+def prose_total_mentions(text):
+    """(number, 1-based line) of every quoted total in `text`."""
+    found = []
+    for m in PROSE_TOTAL_RE.finditer(text):
+        n = next(int(g) for g in m.groups() if g)
+        found.append((n, text.count("\n", 0, m.start()) + 1))
+    return found
+
+
+def check_prose_total_counts(total):
+    problems = []
+    for rel in PROSE_TOTAL_FILES:
+        path = os.path.join(REPO_ROOT, *rel.split("/"))
+        if not os.path.isfile(path):
+            continue
+        for n, line in prose_total_mentions(open(path, encoding="utf-8").read()):
+            if n != total:
+                problems.append("%s:%d says %d tools, the tool docs hold %d" % (rel, line, n, total))
     return problems
 
 # ---------------------------------------------------------------------------
