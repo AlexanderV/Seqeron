@@ -7,6 +7,20 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.GapProfile.cs"
   },
   {
+    "tool": "alignment_counts",
+    "server": "Alignment",
+    "methodId": "AlignmentOperations.Counts",
+    "docPath": "docs/mcp/tools/alignment/alignment_counts.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/AlignmentOperations.Counts.cs"
+  },
+  {
+    "tool": "alignment_operation",
+    "server": "Alignment",
+    "methodId": "AlignmentOperations",
+    "docPath": "docs/mcp/tools/alignment/alignment_operation.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/AlignmentOperations.cs"
+  },
+  {
     "tool": "alignment_statistics",
     "server": "Alignment",
     "methodId": "SequenceAligner.CalculateStatistics",
@@ -411,6 +425,13 @@
     "methodId": "SequenceAligner.NeedleAll",
     "docPath": "docs/mcp/tools/alignment/needleall_align.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.NeedleAll.cs"
+  },
+  {
+    "tool": "pairwise_aligner",
+    "server": "Alignment",
+    "methodId": "PairwiseAligner.Align",
+    "docPath": "docs/mcp/tools/alignment/pairwise_aligner.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/PairwiseAligner.Align.cs"
   },
   {
     "tool": "parse_big_alignment",

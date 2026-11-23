@@ -125,3 +125,5 @@ Scalar `ScoringMatrix` and `MatrixScoring` now share one contract: gap scores <=
 - **Audit R14-8 (F301):** all 30 named matrices of Biopython 1.88 (fractional ones exact), SCHNEIDER codon matrix, `SubstitutionMatrix.Parse` / `ToText`, matrix text in the MCP `matrix` parameter, U / O / J = the `BLASTP` matrix (blastp oracle); 29 matrices cell-equal and 812 scores equal to Biopython.
 
 - **Audit R14-9 (F302):** `AlignmentResultCoordinates` (`ToBioCoordAlignment`, `ToCigar` standard / extended / with soft clips, `ToMd`, `ToCs`, `Format`) and the `format` names bed / psl / chain / maf / sam / exonerate / cigar / md / cs of the pairwise MCP tools; Biopython 2 100 texts, parasail 667 and minimap2 120 records equal.
+
+- **Audit R14-10 (F303):** `PairwiseAligner` (FOGSAA port, wildcard, strand, presets, the twelve gap scores), `AlignmentOperations` + `AlignmentCounts` (every `Bio.Align.Alignment` operation of the audit and the rest of its public members), the co-optimal enumerators with direction-specific gap scores, MCP `pairwise_aligner` / `alignment_counts` / `alignment_operation`; 1 873 + 700 Biopython 1.88 oracle tests; remainder R14-10b registered.

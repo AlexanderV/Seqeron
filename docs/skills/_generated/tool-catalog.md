@@ -4,11 +4,13 @@
 
 <!-- BEGIN generated: do not edit by hand -->
 
-## Alignment (84 tools)
+## Alignment (87 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
 | `align_gap_profile` | `SequenceAligner.GlobalAlignAffine(GapScoreProfile)` | [doc](../../mcp/tools/alignment/align_gap_profile.md) |
+| `alignment_counts` | `AlignmentOperations.Counts` | [doc](../../mcp/tools/alignment/alignment_counts.md) |
+| `alignment_operation` | `AlignmentOperations` | [doc](../../mcp/tools/alignment/alignment_operation.md) |
 | `alignment_statistics` | `SequenceAligner.CalculateStatistics` | [doc](../../mcp/tools/alignment/alignment_statistics.md) |
 | `assemble_de_bruijn` | `SequenceAssembler.AssembleDeBruijn` | [doc](../../mcp/tools/alignment/assemble_de_bruijn.md) |
 | `assemble_olc` | `SequenceAssembler.AssembleOLC` | [doc](../../mcp/tools/alignment/assemble_olc.md) |
@@ -67,6 +69,7 @@
 | `muscle_msa_command` | `SequenceAligner.MuscleProfileAlign` | [doc](../../mcp/tools/alignment/muscle_msa_command.md) |
 | `needle_align` | `SequenceAligner.NeedleAlign` | [doc](../../mcp/tools/alignment/needle_align.md) |
 | `needleall_align` | `SequenceAligner.NeedleAll` | [doc](../../mcp/tools/alignment/needleall_align.md) |
+| `pairwise_aligner` | `PairwiseAligner.Align` | [doc](../../mcp/tools/alignment/pairwise_aligner.md) |
 | `parse_big_alignment` | `AlignmentCoordinateFormats.ParseBigBed / ParseBigMaf / ParseBigPsl` | [doc](../../mcp/tools/alignment/parse_big_alignment.md) |
 | `parse_coordinate_alignment` | `AlignmentCoordinateFormats.Parse` | [doc](../../mcp/tools/alignment/parse_coordinate_alignment.md) |
 | `poa_command` | `PoaProgram.Run` | [doc](../../mcp/tools/alignment/poa_command.md) |

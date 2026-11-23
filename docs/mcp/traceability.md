@@ -454,6 +454,9 @@
 | local_align_co_optimal | Alignment | SequenceAligner.LocalAlignCoOptimal | Alignment/SequenceAligner.TopN.cs | 0/0 | – | – | Build-Ready |
 | local_align_top_n | Alignment | SequenceAligner.LocalAlignTopN | Alignment/SequenceAligner.TopN.cs | 0/0 | – | – | Build-Ready |
 | local_align_zscore | Alignment | AlignmentSignificance.ShuffleZScore | Alignment/AlignmentSignificance.Gapped.cs | 0/0 | – | – | Build-Ready |
+| pairwise_aligner | Alignment | PairwiseAligner.Align | Alignment/PairwiseAligner.Align.cs | 0/0 | – | – | Build-Ready |
+| alignment_counts | Alignment | AlignmentOperations.Counts | Alignment/AlignmentOperations.Counts.cs | 0/0 | – | – | Build-Ready |
+| alignment_operation | Alignment | AlignmentOperations | Alignment/AlignmentOperations.cs | 0/0 | – | – | Build-Ready |
 | merge_contigs | Alignment | SequenceAssembler.MergeContigs | Alignment/SequenceAssembler.cs#L450 | 0/0 | – | – | Build-Ready |
 | multiple_align | Alignment | SequenceAligner.MultipleAlign | Alignment/SequenceAligner.cs#L1203 | 0/0 | – | – | Build-Ready |
 | multiple_align_anchored | Alignment | SequenceAligner.MultipleAlignAnchored | Alignment/SequenceAligner.cs#L1242 | 0/0 | – | – | Build-Ready |

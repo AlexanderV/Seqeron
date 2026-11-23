@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "pairwise_aligner",
+  "serverName": "Alignment",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "PairwiseAligner.Align",
+  "docRef": "Seqeron.Genomics.Alignment/PairwiseAligner.Align.cs",
+  "description": "Bio.Align.PairwiseAligner of Biopython 1.88 on two sequences: the optimal score, the algorithm Biopython selects (Needleman-Wunsch, Gotoh, Smith-Waterman, FOGSAA) and every alignment of the optimal score (target = sequenceA, query = sequenceB; block coordinates, printed rows, the Bio.Align text). mode global / local / fogsaa (the Fast Optimal Global Sequence Alignment Algorithm: one optimal alignment found by branch and bound, with Biopython's warnings when match < mismatch or a gap score exceeds the mismatch score), matchScore / mismatchScore or a substitution matrix (name or text), the wildcard letter (scores 0 against every letter, scalar scoring only), the presets scoring = blastn / megablast / blastp, the twelve gap scores by name, strand '-' (sequenceA against the reverse complement of sequenceB; the query coordinates decrease). gapScoresJson: a JSON object of Biopython gap-score properties (open_gap_score, extend_gap_score, gap_score, left_gap_score, right_open_gap_score, end_gap_score, target_gap_score, query_extend_gap_score, open_internal_insertion_score ... every name of the property tree; insertion = a gap in the target (sequence A), deletion = a gap in the query); the default of every gap score is -1. Letters are compared case-insensitively. Gap-score functions and gap scores above zero are not available; use general_gap_align for a length-only gap function. VERIFICATION: score, algorithm name, warnings and the alignments (as a set; FOGSAA the alignment itself) equal to Biopython 1.88 on 698 / 698 recorded configurations (scripts/alignment/generate_pairwise_aligner_oracle.py).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequenceA": {
+        "type": "string",
+        "description": "The target sequence (any letters)."
+      },
+      "sequenceB": {
+        "type": "string",
+        "description": "The query sequence (any letters)."
+      },
+      "mode": {
+        "type": "string",
+        "description": "global (default), local or fogsaa.",
+        "default": "global"
+      },
+      "matchScore": {
+        "type": "number",
+        "description": "Score of an identical pair (default 1; ignored with a matrix).",
+        "default": 1
+      },
+      "mismatchScore": {
+        "type": "number",
+        "description": "Score of a different pair (default 0; ignored with a matrix).",
+        "default": 0
+      },
+      "matrix": {
+        "type": "string",
+        "description": "Optional substitution matrix: any built-in matrix by EMBOSS, NCBI or Biopython name - BLOSUM62, PAM250, EBLOSUM30 ... EBLOSUM90, EPAM10 ... EPAM500, BLASTP (BLOSUM62 with the residues U = selenocysteine, O = pyrrolysine and J = leucine / isoleucine, as blastp scores them), GONNET1992, JONES, DAYHOFF, MDM78, BENNER6 / 22 / 74, JOHNSON, RISLER, GENETIC, FENG, LEVIN, MCLACHLAN, RAO, STR (protein; the fractional ones are scored exactly) or EDNAFULL, EDNAMAT, EDNASIMPLE, ENUC.4.4, BLASTN, MEGABLAST, HOXD70, TRANS (IUPAC DNA); or THE TEXT of a matrix instead of a name: several lines in the NCBI / EMBOSS / Biopython data-file format (a header line of symbols, then one row per symbol: the symbol and its scores; # lines are comments; scores may be decimals). When given, match/mismatch are ignored, residues are scored by the published table (any protein or IUPAC symbol of the matrix; case-insensitive) and gapOpen/gapExtend may be fractional (the EMBOSS needle/water models: gapOpen = -(G - E), gapExtend = -E for -gapopen G -gapextend E). The result then also carries the real-valued exactScore."
+      },
+      "wildcard": {
+        "type": "string",
+        "description": "A single wildcard letter that scores 0 against every letter (scalar scoring only)."
+      },
+      "scoring": {
+        "type": "string",
+        "description": "Scoring preset: blastn, megablast or blastp (matrix and gap scores of Bio.Align); individual settings below override it."
+      },
+      "gapScoresJson": {
+        "type": "string",
+        "description": "Gap scores: a JSON object of Biopython property names to numbers (see the description)."
+      },
+      "strand": {
+        "type": "string",
+        "description": "+ (default) or -: align sequenceA with the reverse complement of sequenceB.",
+        "default": "+"
+      },
+      "maxAlignments": {
+        "type": "integer",
+        "description": "Return at most this many alignments (default 100; the number of optimal alignments can be exponential).",
+        "default": 100
+      },
+      "scoreOnly": {
+        "type": "boolean",
+        "description": "true: only the score (no alignments; memory O(n) for large inputs).",
+        "default": false
+      }
+    },
+    "required": [
+      "sequenceA",
+      "sequenceB"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "score": {
+        "type": "number"
+      },
+      "algorithm": {
+        "type": "string"
+      },
+      "warnings": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "count": {
+        "type": "integer"
+      },
+      "alignments": {
+        "type": "array",
+        "items": {
+          "type": "object"
+        }
+      }
+    },
+    "required": [
+      "score",
+      "algorithm",
+      "warnings",
+      "count",
+      "alignments"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Sequence is required"
+    },
+    {
+      "code": 1002,
+      "message": "Unknown mode / strand / preset, gap-score property, or a gap score above zero"
+    },
+    {
+      "code": 1003,
+      "message": "Gap-score functions are not available"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Example",
+      "input": {
+        "sequenceA": "TTACGTTT",
+        "sequenceB": "ACGT",
+        "mode": "fogsaa",
+        "matchScore": 2,
+        "mismatchScore": -1,
+        "gapScoresJson": "{\"gap_score\": -2}"
+      },
+      "output": "score 0.0, one alignment with coordinates [[0, 2, 6, 8], [0, 0, 4, 4]] (--ACGT--)"
+    }
+  ]
+}
