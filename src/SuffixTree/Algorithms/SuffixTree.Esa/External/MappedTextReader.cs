@@ -42,6 +42,7 @@ internal sealed unsafe class MappedTextReader : IDisposable
     private bool _disposed;
 #if ESA_BOUNDS
     private readonly long _bytes; // the checked build: the bytes behind _p (data and padding); every raw read below lies inside them
+    private string? _registered; // the checked build: the file that this reader maps, in the list of the mapped files (MappedFileRegistry)
 #endif
 
     private MappedTextReader(byte* data, long n, int bits, MemoryMappedFile? map, MemoryMappedViewAccessor? view)
@@ -277,6 +278,9 @@ internal sealed unsafe class MappedTextReader : IDisposable
         if (_disposed) return;
         _disposed = true;
         _limit = 0;
+#if ESA_BOUNDS
+        if (_registered is not null) MappedFileRegistry.Unmap(_registered);
+#endif
         if (_view is not null)
         {
             _view.SafeMemoryMappedViewHandle.ReleasePointer();
@@ -313,7 +317,11 @@ internal sealed unsafe class MappedTextReader : IDisposable
                 view.SafeMemoryMappedViewHandle.ReleasePointer();
                 throw;
             }
-            return new MappedTextReader(data, n, bits, map, view);
+            var reader = new MappedTextReader(data, n, bits, map, view);
+#if ESA_BOUNDS
+            reader._registered = MappedFileRegistry.Map(path);
+#endif
+            return reader;
         }
         catch
         {

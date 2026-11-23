@@ -41,6 +41,9 @@ internal sealed unsafe class RankTable : IDisposable
     private readonly uint* _ranks;
     private MemoryMappedFile? _map;
     private MemoryMappedViewAccessor? _view;
+#if ESA_BOUNDS
+    private string? _registered; // the checked build: the file that this table maps, in the list of the mapped files (MappedFileRegistry)
+#endif
 
     private RankTable(DifferenceCover cover, long n, long slots, MemoryMappedFile map, MemoryMappedViewAccessor view, uint* ranks)
     {
@@ -83,7 +86,11 @@ internal sealed unsafe class RankTable : IDisposable
             view = map.CreateViewAccessor(0, bytes, MemoryMappedFileAccess.Read);
             byte* p = null;
             view.SafeMemoryMappedViewHandle.AcquirePointer(ref p);
-            return new RankTable(cover, n, slots, map, view, (uint*)(p + view.PointerOffset));
+            var table = new RankTable(cover, n, slots, map, view, (uint*)(p + view.PointerOffset));
+#if ESA_BOUNDS
+            table._registered = MappedFileRegistry.Map(path);
+#endif
+            return table;
         }
         catch
         {
@@ -161,6 +168,9 @@ internal sealed unsafe class RankTable : IDisposable
     {
         MemoryMappedViewAccessor? view = Interlocked.Exchange(ref _view, null);
         MemoryMappedFile? map = Interlocked.Exchange(ref _map, null);
+#if ESA_BOUNDS
+        if (view is not null && _registered is not null) MappedFileRegistry.Unmap(_registered);
+#endif
         if (view is not null)
         {
             view.SafeMemoryMappedViewHandle.ReleasePointer();

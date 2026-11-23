@@ -234,6 +234,9 @@ internal sealed class MappedOutputFile : IDisposable
         ArgumentNullException.ThrowIfNull(path);
         ArgumentOutOfRangeException.ThrowIfNegative(length);
         options ??= new MappedFileOptions();
+#if ESA_BOUNDS
+        MappedFileRegistry.RequireNotMapped(path);
+#endif
         ReservationMode mode = options.Reservation == ReservationMode.Auto ? AutoMode : options.Reservation;
         IReservationSource source = options.Source ?? SystemReservationSource.Instance;
         try

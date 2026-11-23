@@ -15,6 +15,9 @@ internal sealed class CountedFile : IDisposable
     {
         Path = path;
         _counters = counters;
+#if ESA_BOUNDS
+        if (mode is FileMode.Create or FileMode.Truncate) MappedFileRegistry.RequireNotMapped(path);
+#endif
         _handle = File.OpenHandle(path, mode, access, FileShare.ReadWrite, FileOptions.None);
     }
 

@@ -267,3 +267,110 @@ public class MappedTextBounds1b9hTests
         }
     }
 }
+
+/// <summary>
+/// The list of the files that the process has mapped for reading, in the checked build (work package 1b.9h, the mutant <c>L10</c> of 1b.9c): creating a file again truncates it under a live mapping, and the next read of the mapping is a bus error
+/// that ends the process; two levels of the sample recursion that were given one file name did exactly that. In the checked build the creation is refused, before the file is touched.
+/// </summary>
+[TestFixture]
+public class MappedFileRegistryTests
+{
+    private TempDir _dir = null!;
+
+    [SetUp]
+    public void SetUp() => _dir = new TempDir();
+
+    [TearDown]
+    public void TearDown() => _dir.Dispose();
+
+    private static void RequireChecked()
+    {
+        if (!EsaBuild.BoundsChecked) Assert.Ignore("only the checked build (-p:EsaBounds=true) keeps the list of the mapped files; the production build creates the file and the next read of the mapping is a bus error");
+    }
+
+    private string RankFile(out DifferenceCover cover, out long n)
+    {
+        cover = DifferenceCover.Create(7);
+        SaCase c = SaCase.Of("banana");
+        n = c.N;
+        string path = _dir.File("ranks");
+        File.WriteAllBytes(path, MemoryMarshal.AsBytes(DcsOracle.ExpectedRanks(c.Symbols, cover, out _).AsSpan()).ToArray());
+        return path;
+    }
+
+    [Test]
+    public void TheCreationOfAFileThatIsMapped_IsAMemoryViolation_AndTheFileIsNotTouched()
+    {
+        RequireChecked();
+        string path = RankFile(out DifferenceCover cover, out long n);
+        long length = new FileInfo(path).Length;
+        using (RankTable.Open(path, cover, n))
+        {
+            var e = Assert.Throws<EsaMemoryViolationException>(() => new CountedFile(path, FileMode.Create, FileAccess.ReadWrite));
+            Assert.That(e!.Kind, Is.EqualTo(MemoryViolationKind.OutOfBounds));
+            Assert.That(e.Message, Does.Contain(path).And.Contain("mapped"));
+            Assert.Throws<EsaMemoryViolationException>(() => new CountedFile(path, FileMode.Truncate, FileAccess.ReadWrite));
+            Assert.Throws<EsaMemoryViolationException>(() => MappedOutputFile.Create(path, 4096));
+            Assert.That(new FileInfo(path).Length, Is.EqualTo(length), "the file is as it was: nothing was truncated");
+            using var reader = new CountedFile(path, FileMode.Open, FileAccess.Read);
+            Assert.That(reader.Length, Is.EqualTo(length), "opening it for reading is not a creation");
+            using var append = new CountedFile(path, FileMode.OpenOrCreate, FileAccess.Read);
+            Assert.That(append.Length, Is.EqualTo(length), "OpenOrCreate of a file that exists does not truncate it");
+        }
+        using (var created = new CountedFile(path, FileMode.Create, FileAccess.ReadWrite)) Assert.That(created.Length, Is.Zero, "once the table is disposed the file may be created again");
+    }
+
+    [Test]
+    public void TheTextReader_ListsItsFile_AndTakesItOffAtDispose()
+    {
+        RequireChecked();
+        byte[] symbols = TextOracle.Random(100, 4, 5);
+        string path = _dir.File("text");
+        File.WriteAllBytes(path, TextOracle.Pack(symbols, 2));
+        int before = MappedFileRegistry.Count;
+        MappedTextReader reader = MappedTextReader.Open(path, symbols.Length, 2);
+        Assert.That(MappedFileRegistry.Count, Is.EqualTo(before + 1));
+        Assert.Throws<EsaMemoryViolationException>(() => new CountedFile(path, FileMode.Create, FileAccess.ReadWrite));
+        reader.Dispose();
+        reader.Dispose();
+        Assert.That(MappedFileRegistry.Count, Is.EqualTo(before), "a second Dispose takes nothing off twice");
+        using var created = new CountedFile(path, FileMode.Create, FileAccess.ReadWrite);
+        Assert.That(created.Length, Is.Zero);
+    }
+
+    [Test]
+    public void TwoMappingsOfOneFile_AreCounted_TheFileIsFreeWhenTheLastIsDisposed()
+    {
+        RequireChecked();
+        string path = RankFile(out DifferenceCover cover, out long n);
+        RankTable first = RankTable.Open(path, cover, n);
+        RankTable second = RankTable.Open(path, cover, n);
+        first.Dispose();
+        Assert.Throws<EsaMemoryViolationException>(() => new CountedFile(path, FileMode.Create, FileAccess.ReadWrite), "one mapping is still alive");
+        second.Dispose();
+        using var created = new CountedFile(path, FileMode.Create, FileAccess.ReadWrite);
+        Assert.That(created.Length, Is.Zero);
+    }
+
+    [Test]
+    public void AReaderOverMemory_AndAFailedOpen_ListNothing()
+    {
+        RequireChecked();
+        int before = MappedFileRegistry.Count;
+        using (var t = new PinnedText(TextOracle.Random(40, 4, 3), 2)) Assert.That(MappedFileRegistry.Count, Is.EqualTo(before));
+        string path = RankFile(out DifferenceCover cover, out long n);
+        Assert.Throws<InvalidDataException>(() => RankTable.Open(path, cover, n + 100), "a file of another length");
+        Assert.Throws<InvalidDataException>(() => MappedTextReader.Open(path, 1000, 2), "a file that is no packed text of that length");
+        Assert.That(MappedFileRegistry.Count, Is.EqualTo(before));
+    }
+
+    [Test]
+    public void TheCreationOfAFileThatIsNotMapped_IsNotRefused_InBothBuilds()
+    {
+        string path = _dir.File("free");
+        using (var created = new CountedFile(path, FileMode.Create, FileAccess.ReadWrite)) created.WriteAt(new byte[8], 0);
+        using (var again = new CountedFile(path, FileMode.Create, FileAccess.ReadWrite)) Assert.That(again.Length, Is.Zero);
+        using MappedOutputFile file = MappedOutputFile.Create(path, 4096);
+        Assert.That(file.Length, Is.EqualTo(4096));
+    }
+}
