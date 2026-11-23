@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "parasail_score",
+  "serverName": "Alignment",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ParasailAligner.Run",
+  "docRef": "Seqeron.Genomics.Alignment/ParasailAligner.cs",
+  "description": "The score API of parasail 1.3.4 for one query against one or many references: the optimal score with its end coordinates (endQuery, endReference: 0-based index of the last aligned residue), the statistics of the optimal alignment WITHOUT a traceback (matches, similar = positive pairs, length: parasail nw_stats / sw_stats / sg_stats), the full score tables (table; with statistics also the matches / similar / length tables) and the last row and column of the score matrix (rowcol), for global (function nw), local (sw) and every semi-global variant (sg = all end gaps free, sg_qb / sg_qe / sg_db / sg_de, sg_qx, sg_dx and the combinations sg_qb_db, sg_qb_de, sg_qe_db, sg_qe_de: q = query, d = database = reference; b = beginning, e = end, x = both ends). Gaps are parasail's affine penalties: a gap of length k costs open + (k - 1) * extend (both >= 0; BLAST-style 11 / 1 is open 11, extend 1). The program keeps O(min(length)) cells (the table needs m * n) and the query is prepared once for the whole list of references (profile reuse); parallel runs the references on all cores. Scoring: matrix (name or text; integer scores) or match / mismatch over the letters of the sequences. VERIFICATION: equal to parasail 1.3.4 (nw, sw and the eleven sg variants x plain, _stats, _table, _rowcol, _stats_table, _stats_rowcol) on 520 / 520 recorded pairs.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "query": {
+        "type": "string",
+        "description": "The query (parasail s1)."
+      },
+      "references": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "The references (parasail s2, the database sequences), at least one."
+      },
+      "function": {
+        "type": "string",
+        "description": "parasail function: nw (global), sw (local) or a semi-global variant sg, sg_qb, sg_qe, sg_db, sg_de, sg_qx, sg_dx, sg_qb_db, sg_qb_de, sg_qe_db, sg_qe_de (default sw).",
+        "default": "sw"
+      },
+      "open": {
+        "type": "integer",
+        "description": "Penalty of the first gap position (>= 0; default 11).",
+        "default": 11
+      },
+      "extend": {
+        "type": "integer",
+        "description": "Penalty of each further gap position (>= 0; default 1).",
+        "default": 1
+      },
+      "matrix": {
+        "type": "string",
+        "description": "Optional substitution matrix: any built-in matrix by EMBOSS, NCBI or Biopython name - BLOSUM62, PAM250, EBLOSUM30 ... EBLOSUM90, EPAM10 ... EPAM500, BLASTP (BLOSUM62 with the residues U = selenocysteine, O = pyrrolysine and J = leucine / isoleucine, as blastp scores them), GONNET1992, JONES, DAYHOFF, MDM78, BENNER6 / 22 / 74, JOHNSON, RISLER, GENETIC, FENG, LEVIN, MCLACHLAN, RAO, STR (protein; the fractional ones are scored exactly) or EDNAFULL, EDNAMAT, EDNASIMPLE, ENUC.4.4, BLASTN, MEGABLAST, HOXD70, TRANS (IUPAC DNA); or THE TEXT of a matrix instead of a name: several lines in the NCBI / EMBOSS / Biopython data-file format (a header line of symbols, then one row per symbol: the symbol and its scores; # lines are comments; scores may be decimals). When given, match/mismatch are ignored, residues are scored by the published table (any protein or IUPAC symbol of the matrix; case-insensitive) and gapOpen/gapExtend may be fractional (the EMBOSS needle/water models: gapOpen = -(G - E), gapExtend = -E for -gapopen G -gapextend E). The result then also carries the real-valued exactScore."
+      },
+      "match": {
+        "type": "integer",
+        "description": "Score of an identical pair when no matrix is given (default 2).",
+        "default": 2
+      },
+      "mismatch": {
+        "type": "integer",
+        "description": "Score of a different pair when no matrix is given (default -3).",
+        "default": -3
+      },
+      "statistics": {
+        "type": "boolean",
+        "description": "true: matches, similar and length of the optimal alignment (the *_stats functions).",
+        "default": false
+      },
+      "table": {
+        "type": "boolean",
+        "description": "true: the score tables (and, with statistics, the matches / similar / length tables); at most 4 000 000 cells per reference.",
+        "default": false
+      },
+      "rowcol": {
+        "type": "boolean",
+        "description": "true: the last row and the last column of the score matrix (the *_rowcol functions).",
+        "default": false
+      },
+      "parallel": {
+        "type": "boolean",
+        "description": "true: score the references in parallel (the results keep their order).",
+        "default": false
+      }
+    },
+    "required": [
+      "query",
+      "references"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "function": {
+        "type": "string"
+      },
+      "count": {
+        "type": "integer"
+      },
+      "results": {
+        "type": "array",
+        "items": {
+          "type": "object"
+        }
+      }
+    },
+    "required": [
+      "function",
+      "count",
+      "results"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Sequence is required"
+    },
+    {
+      "code": 1002,
+      "message": "Unknown function, a gap penalty below zero, a letter outside the matrix, an empty reference list or a table above 4 000 000 cells"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Example",
+      "input": {
+        "query": "ACGTACGTAC",
+        "references": [
+          "TTACGTACGTAA"
+        ],
+        "function": "sw",
+        "open": 5,
+        "extend": 2,
+        "statistics": true
+      },
+      "output": "score 18, endQuery 8, endReference 10, 9 matches, 9 similar, length 9"
+    }
+  ]
+}

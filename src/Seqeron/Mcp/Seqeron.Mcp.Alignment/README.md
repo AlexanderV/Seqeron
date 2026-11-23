@@ -2,7 +2,7 @@
 
 MCP server — **Pairwise and multiple sequence alignment, overlap/assembly and approximate matching.**
 
-Exposes **87 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+Exposes **88 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
 MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test, with a
 per-tool doc under [`docs/mcp/tools/alignment/`](../../../../docs/mcp/tools/alignment). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
@@ -56,6 +56,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `pairwise_aligner` | Bio.Align.PairwiseAligner of Biopython 1.88: global / local / **fogsaa**, the **wildcard** letter, matrix or scalar scoring, the twelve gap scores by name, strand `-`; score, algorithm, warnings and every optimal alignment. |
 | `alignment_counts` | Bio.Align `alignment.counts(scoring)` of an alignment of any number of sequences: identities, mismatches, positives, gaps by side / direction / opened / extended and the scores. |
 | `alignment_operation` | The operations of Bio.Align's Alignment object on an alignment given by its block coordinates: shape, rows, slices `[rows, cols]`, aligned, indices, inverse_indices, frequencies, substitutions, reverse_complement, sort, add, map, mapall, from_same_reference, parse_printed, text. |
+| `parasail_score` | parasail 1.3.4 score API: optimal score with end coordinates, statistics (matches / similar / length) without a traceback, score tables and the last row / column, for nw / sw and every sg variant with affine gaps; one query against many references (profile reuse, optional parallel); O(min(m, n)) memory. |
 | `local_align_co_optimal` | ALL distinct co-optimal local alignments (Biopython `PairwiseAligner(mode='local').align` set), capped at `maxAlignments`; linear or `affine` gaps, scalar or `matrix` scoring. |
 | `merge_contigs` | Concatenates two contigs, collapsing the specified suffix/prefix overlap of overlapLength bases. |
 | `minimap2_map` | minimap2 2.26 as a program: PAF / SAM text of `minimap2 [options] ref.fa query.fa [query2.fa]` with the base-level alignment (`-c` / `-a`, cs, MD, eqx, splice), paired reads, the index in parts, the other options and the program's option checks; 7 201 oracle command lines equal the installed program (B09 A3-9c2 / A5-9b / A5-9c). |

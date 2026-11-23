@@ -4,7 +4,7 @@
 
 <!-- BEGIN generated: do not edit by hand -->
 
-## Alignment (87 tools)
+## Alignment (88 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -70,6 +70,7 @@
 | `needle_align` | `SequenceAligner.NeedleAlign` | [doc](../../mcp/tools/alignment/needle_align.md) |
 | `needleall_align` | `SequenceAligner.NeedleAll` | [doc](../../mcp/tools/alignment/needleall_align.md) |
 | `pairwise_aligner` | `PairwiseAligner.Align` | [doc](../../mcp/tools/alignment/pairwise_aligner.md) |
+| `parasail_score` | `ParasailAligner.Run` | [doc](../../mcp/tools/alignment/parasail_score.md) |
 | `parse_big_alignment` | `AlignmentCoordinateFormats.ParseBigBed / ParseBigMaf / ParseBigPsl` | [doc](../../mcp/tools/alignment/parse_big_alignment.md) |
 | `parse_coordinate_alignment` | `AlignmentCoordinateFormats.Parse` | [doc](../../mcp/tools/alignment/parse_coordinate_alignment.md) |
 | `poa_command` | `PoaProgram.Run` | [doc](../../mcp/tools/alignment/poa_command.md) |

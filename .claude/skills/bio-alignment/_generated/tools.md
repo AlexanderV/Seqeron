@@ -68,6 +68,7 @@
 | `needle_align` | Alignment | `SequenceAligner.NeedleAlign` | [doc](../../../../docs/mcp/tools/alignment/needle_align.md) |
 | `needleall_align` | Alignment | `SequenceAligner.NeedleAll` | [doc](../../../../docs/mcp/tools/alignment/needleall_align.md) |
 | `pairwise_aligner` | Alignment | `PairwiseAligner.Align` | [doc](../../../../docs/mcp/tools/alignment/pairwise_aligner.md) |
+| `parasail_score` | Alignment | `ParasailAligner.Run` | [doc](../../../../docs/mcp/tools/alignment/parasail_score.md) |
 | `parse_big_alignment` | Alignment | `AlignmentCoordinateFormats.ParseBigBed / ParseBigMaf / ParseBigPsl` | [doc](../../../../docs/mcp/tools/alignment/parse_big_alignment.md) |
 | `parse_coordinate_alignment` | Alignment | `AlignmentCoordinateFormats.Parse` | [doc](../../../../docs/mcp/tools/alignment/parse_coordinate_alignment.md) |
 | `poa_command` | Alignment | `PoaProgram.Run` | [doc](../../../../docs/mcp/tools/alignment/poa_command.md) |

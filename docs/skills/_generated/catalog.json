@@ -434,6 +434,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/PairwiseAligner.Align.cs"
   },
   {
+    "tool": "parasail_score",
+    "server": "Alignment",
+    "methodId": "ParasailAligner.Run",
+    "docPath": "docs/mcp/tools/alignment/parasail_score.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/ParasailAligner.cs"
+  },
+  {
     "tool": "parse_big_alignment",
     "server": "Alignment",
     "methodId": "AlignmentCoordinateFormats.ParseBigBed / ParseBigMaf / ParseBigPsl",
