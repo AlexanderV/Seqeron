@@ -1,0 +1,34 @@
+# work package 1b.9: the test sets run on the final head (driver run_1b9_tests.sh; full logs not kept, these are its summary lines; Release, --no-build after the clean solution build)
+== 18:32:31Z start tests; head 6336a21a904b; git diff 12495c3e..HEAD -- src apps: 0 lines | 0.73 1.62 2.19
+== 18:32:31Z build: dotnet build -c Release --no-incremental Seqeron.sln | 0.73 1.62 2.19
+exit 0
+    0 Warning(s)
+    0 Error(s)
+Time Elapsed 00:02:41.95
+== 18:35:13Z SuffixTree.Tests default (Release) | 5.42 3.95 3.03
+exit 0
+Passed!  - Failed:     0, Passed:   494, Skipped:     0, Total:   494, Duration: 1 s - SuffixTree.Tests.dll (net10.0)
+== 18:35:16Z SuffixTree.Tests Category=Performance (the two explicit fixtures, idle machine) | 5.42 3.95 3.03
+exit 0
+Passed!  - Failed:     0, Passed:    12, Skipped:     0, Total:    12, Duration: 5 s - SuffixTree.Tests.dll (net10.0)
+== 18:35:22Z SuffixTree.Mcp.Core.Tests (Release) | 4.82 3.86 3.01
+exit 0
+Passed!  - Failed:     0, Passed:   137, Skipped:     0, Total:   137, Duration: 135 ms - SuffixTree.Mcp.Core.Tests.dll (net10.0)
+== 18:35:24Z SuffixTree.Esa.Tests Category=Vectors (Release; inputs in SEQERON_BENCH_DIR=/tmp/stbench) | 4.82 3.86 3.01
+exit 0
+Passed!  - Failed:     0, Passed:   632, Skipped:     0, Total:   632, Duration: 59 s - SuffixTree.Esa.Tests.dll (net10.0)
+== 18:36:25Z 1b.8 differential harness, 600 s, master seed 20261123, 4 workers, FUZZ_HANG_S 900 | 2.77 3.45 2.92
+exit 0, rows in docs/refactoring/suffix-tree-upgrade/analysis/em/rows_1b9_fuzz_10min.tsv
+# test process exit code 0, wall clock 719 s, ended 2026-11-23T18:48:24Z
+# Passed!  - Failed:     0, Passed:     1, Skipped:     0, Total:     1, Duration: 11 m 58 s - SuffixTree.Esa.Tests.dll (net10.0)
+# lane tiny done: 4793 cases in 144.1 s, 0 failure(s)
+# lane small done: 1235 cases in 143.9 s, 0 failure(s)
+# lane large done: 90 cases in 107.8 s, 0 failure(s)
+# lane xl done: 7 cases in 142.2 s, 0 failure(s)
+# lane corruption done: 105044 cases in 108.0 s, 0 failure(s)
+# lane concurrency done: 58 cases in 72.1 s, 0 failure(s)
+== 18:48:24Z end tests | 2.84 3.13 3.11
+# --- the build log summary
+    0 Warning(s)
+    0 Error(s)
+Time Elapsed 00:02:41.95
