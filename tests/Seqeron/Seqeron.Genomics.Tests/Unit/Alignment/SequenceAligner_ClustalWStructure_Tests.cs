@@ -45,7 +45,7 @@ public class SequenceAligner_ClustalWStructure_Tests
     private static readonly Lazy<List<Row>> Oracle = new(() =>
     {
         const string name = "Seqeron.Genomics.Tests.TestData.Alignment.clustalw_structure_oracle.tsv";
-        using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(name)
+        using var stream = TestDataResource.Open(name)
             ?? throw new InvalidOperationException($"Embedded oracle '{name}' not found.");
         using var reader = new StreamReader(stream);
         reader.ReadLine();

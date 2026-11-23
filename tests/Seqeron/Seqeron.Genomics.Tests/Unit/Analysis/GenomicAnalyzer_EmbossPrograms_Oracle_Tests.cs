@@ -10,7 +10,7 @@ public class GenomicAnalyzer_EmbossPrograms_Oracle_Tests
     private static List<string[]> ReadRows(string file)
     {
         string name = "Seqeron.Genomics.Tests.TestData.Analysis." + file;
-        using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(name)
+        using var stream = TestDataResource.Open(name)
             ?? throw new InvalidOperationException($"Embedded oracle '{name}' not found.");
         using var reader = new StreamReader(stream);
         var rows = new List<string[]>();

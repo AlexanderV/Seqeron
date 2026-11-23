@@ -17,7 +17,7 @@ public class Minimap2Chaining_Tests
     private static List<Case> ReadOracle()
     {
         const string name = "Seqeron.Genomics.Tests.TestData.Alignment.minimap2_chain_oracle.jsonl";
-        using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(name)
+        using var stream = TestDataResource.Open(name)
             ?? throw new InvalidOperationException($"Embedded oracle '{name}' not found.");
         using var reader = new StreamReader(stream);
         var cases = new List<Case>();

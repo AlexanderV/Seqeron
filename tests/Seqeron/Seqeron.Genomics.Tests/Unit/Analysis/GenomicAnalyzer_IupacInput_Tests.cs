@@ -15,7 +15,7 @@ public class GenomicAnalyzer_IupacInput_Tests
     private static IEnumerable<string[]> ReadRows(string resource)
     {
         string name = "Seqeron.Genomics.Tests.TestData.Analysis." + resource;
-        using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(name)
+        using var stream = TestDataResource.Open(name)
             ?? throw new InvalidOperationException($"Embedded oracle '{name}' not found.");
         using var reader = new StreamReader(stream);
         string? line;

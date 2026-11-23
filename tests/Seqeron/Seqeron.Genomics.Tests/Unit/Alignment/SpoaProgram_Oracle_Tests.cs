@@ -21,7 +21,7 @@ public class SpoaProgram_Oracle_Tests
     private static readonly Lazy<List<Row>> Rows = new(() =>
     {
         const string name = "Seqeron.Genomics.Tests.TestData.Alignment.spoa_oracle.tsv";
-        using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(name) ?? throw new InvalidOperationException(name);
+        using var stream = TestDataResource.Open(name) ?? throw new InvalidOperationException(name);
         using var reader = new StreamReader(stream);
         reader.ReadLine();
         var list = new List<Row>();

@@ -33,7 +33,7 @@ public class GenomicAnalyzer_FindOpenReadingFrames_OrfFinderCli_Tests
     private static Oracle ReadOracle()
     {
         const string name = "Seqeron.Genomics.Tests.TestData.Analysis.orffinder_cli_oracle.tsv";
-        using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(name)
+        using var stream = TestDataResource.Open(name)
             ?? throw new InvalidOperationException($"Embedded oracle '{name}' not found.");
         using var reader = new StreamReader(stream);
         var oracle = new Oracle();

@@ -36,7 +36,7 @@
     <EmbeddedResource Include="TestData\Alignment\mgaps_oracle.tsv" />
     <!-- ALIGN-MULTI-001 (audit A3-9c, B09 F151): minimap2 2.26 seed arrays (print-seeds) and chains (print-chains) + PAF chain scores of 450 related random pairs;
          scripts/alignment/generate_minimap2_chain_oracle.py. -->
-    <EmbeddedResource Include="TestData\Alignment\minimap2_chain_oracle.jsonl" />
+    <EmbeddedResource Include="TestData\Alignment\minimap2_chain_oracle.jsonl.gz" />
     <!-- ALIGN-LOCAL-001 (audit A2-28d, B09 F145): EMBOSS matcher 6.6.0 (Huang-Miller SIM) alignment lists in the program's own tie order; scripts/alignment/generate_matcher_sim_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\matcher_sim_oracle.tsv" />
     <!-- ALIGN-LOCAL-001 (audit A2-28d, B09 F152): EMBOSS dotmatcher 6.6.0 plot segments of 600 DNA / protein pairs (graph data); scripts/alignment/generate_dotmatcher_oracle.py. -->
@@ -53,7 +53,7 @@
     <!-- A3-9c2 / A5-9b / A5-9c (B09 WP45): minimap2 2.26 as a program (-c / -a base-level alignment, the paired-read mode, the other options): the whole standard output of 7 201 command lines;
          scripts/alignment/generate_minimap2_{align,pair,options}_oracle.py. -->
     <!-- A3-9c2 (B09 WP45): the C ksw_ll_i16, ksw_exts2_sse, ksw_extz2_sse and ksw_extd2_sse of minimap2 v2.26 (compiled with -msse4.1) on 500 + 500 + 500 + 500 random inputs; scripts/alignment/ksw2/generate_ksw2_oracle.py. -->
-    <EmbeddedResource Include="TestData\Alignment\ksw2_c_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Alignment\ksw2_c_oracle.tsv.gz" />
     <EmbeddedResource Include="TestData\Alignment\minimap2_align_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\minimap2_pair_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\minimap2_options_oracle.jsonl.gz" />
@@ -141,7 +141,7 @@
     <!-- A4-3 (B09 F153): the EMBOSS programs 6.6.0 on plain sequences that contain gap characters and other non-letters (the reader drops them); scripts/alignment/generate_emboss_gap_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\emboss_gap_oracle.tsv" />
     <!-- A5-7 (B09 F172): the sequence-input qualifiers (-sbegin -send -sreverse -slower -supper -scircular -snucleotide -sprotein) on the 16 EMBOSS programs 6.6.0; scripts/alignment/generate_emboss_seqopts_oracle.py. -->
-    <EmbeddedResource Include="TestData\Alignment\emboss_seqopts_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_seqopts_oracle.tsv.gz" />
     <EmbeddedResource Include="TestData\Alignment\emboss_acd_args_oracle.tsv" />
     <EmbeddedResource Include="TestData\Alignment\supermatcher_wordlen_oracle.tsv" />
     <EmbeddedResource Include="TestData\Alignment\matcher_gap_oracle.tsv" />
@@ -159,10 +159,10 @@
     <EmbeddedResource Include="TestData\Alignment\tcoffee_program_library_oracle.tsv" />
     <EmbeddedResource Include="TestData\Alignment\tcoffee_program_msa_oracle.tsv" />
     <EmbeddedResource Include="TestData\Alignment\tcoffee_program_big_oracle.tsv" />
-    <EmbeddedResource Include="TestData\Alignment\tcoffee_program_options_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Alignment\tcoffee_program_options_oracle.tsv.gz" />
     <!-- ALIGN-MULTI-001 (audit A2-9 / A2-10, B09): the program's methods that run an EXTERNAL program (TMalign_pair, mustang_pair on synthetic CA-only PDB files, blastp_msa on a local BLAST database) together with
          what the external program wrote - `generate_tcoffee_external_oracle.py`. -->
-    <EmbeddedResource Include="TestData\Alignment\tcoffee_external_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Alignment\tcoffee_external_oracle.tsv.gz" />
     <!-- ALIGN-GLOBAL-001 (audit A1-7b, B09 F59): all co-optimal global / ends-free alignments; Biopython 1.88 PairwiseAligner(mode='global').align() set (all 16 end-gap policies,
          linear/affine, scalar + BLOSUM62 with fractional gaps) + exhaustive column-sequence enumeration of tiny inputs; scripts/alignment/generate_global_cooptimal_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\global_cooptimal_oracle.tsv" />
@@ -189,7 +189,7 @@
     <EmbeddedResource Include="TestData\Alignment\clustalw_quick_oracle.tsv" />
     <!-- ALIGN-MULTI-001 (audit A1-10b, B09 F56): ClustalW 2.1 multiple alignment of DNA (`clustalw -TYPE=DNA -ALIGN -OUTPUT=FASTA -OUTORDER=INPUT`)
          with option variants on 1 000 sets; scripts/alignment/generate_clustalw_msa_full_oracle.py. -->
-    <EmbeddedResource Include="TestData\Alignment\clustalw_msa_full_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Alignment\clustalw_msa_full_oracle.tsv.gz" />
     <!-- ALIGN-MULTI-001 (audit A1-12, B09 F53): ClustalW 2.1 neighbour-joining guide tree (.dnd) + progressive step order on 420
          DNA sets (scripts/alignment/generate_clustalw_guidetree_oracle.py); Biopython 1.88 UPGMA / NJ on 400 random distance
          matrices (scripts/alignment/generate_guidetree_biopython_oracle.py). -->
@@ -219,16 +219,16 @@
          -MATRIX / -PWMATRIX / -GAPOPEN / -GAPEXT / -PWGAPOPEN / -PWGAPEXT / -MAXDIV / -NOWEIGHTS / -NEGATIVE / -QUICKTREE / -NOPGAP / -NOHGAP / -NOVGAP / -GAPDIST /
          -HGAPRESIDUES / -ENDGAPS variants) on 1 000 sets and the EMBOSS references of the matrix series tables;
          scripts/alignment/generate_clustalw_protein_msa_oracle.py. -->
-    <EmbeddedResource Include="TestData\Alignment\clustalw_protein_msa_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Alignment\clustalw_protein_msa_oracle.tsv.gz" />
     <EmbeddedResource Include="TestData\Alignment\clustalw_protein_series_reference.tsv" />
     <!-- ALIGN-MULTI-001 (audit A1-10d, B09 F64): ClustalW 2.1 user-defined matrix files (`-MATRIX=file`, `-PWMATRIX=file`, CLUSTAL_SERIES files) -
          `clustalw -TYPE=PROTEIN -ALIGN -OUTPUT=FASTA -OUTORDER=INPUT` rows + "Sequences (i:j) Aligned. Score:" lines on 240 sets with the matrix files embedded;
          scripts/alignment/generate_clustalw_user_matrix_oracle.py. -->
-    <EmbeddedResource Include="TestData\Alignment\clustalw_user_matrix_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Alignment\clustalw_user_matrix_oracle.tsv.gz" />
     <!-- ALIGN-MULTI-001 (audit A1-10d part 2, B09 F67): ClustalW 2.1 end-gap options of the profile stage (UserParameters::useEndGaps / endGapPenalties, reachable only through the
          patched `-ENDGAPS` handler of the Docker package docs/Validation/review-2026-09/handoff/A1-10d, run by the user): 340 sets x 4 modes (control / useendgaps / endgappen / both),
          34 sets x 2 modes abort (no output file); scripts/alignment/build_clustalw_end_gaps_oracle.py. -->
-    <EmbeddedResource Include="TestData\Alignment\clustalw_end_gaps_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Alignment\clustalw_end_gaps_oracle.tsv.gz" />
     <!-- ALIGN-MULTI-001 (audit A1-10d part 3, B09 F68): ClustalW 2.1 nucleotide matrices (`-DNAMATRIX` / `-PWDNAMATRIX` = IUB, CLUSTALW or a file; `-TRANSWEIGHT`) - the command line
          (a file is read and validated but not used: PROTEIN-slot defect) and the interactive menu (the file is used), rows + pairwise scores + first-pass group scores, matrix files embedded;
          scripts/alignment/generate_clustalw_dna_matrix_oracle.py. -->
@@ -266,26 +266,26 @@
     <EmbeddedResource Include="TestData\Alignment\clustalw_profile_oracle.tsv" />
     <!-- ALIGN-MULTI-001 (audit A2-14b, B09 F104): ClustalW 2.1 guide-tree files (-NEWTREE, -USETREE, -NEWTREE1/2, -USETREE1/2) and -OUTORDER=ALIGNED|INPUT, 3 300 sets
          (align / newtree / usetree incl. malformed trees / profile / sequences, DNA and protein); scripts/alignment/generate_clustalw_commands_oracle.py. -->
-    <EmbeddedResource Include="TestData\Alignment\clustalw_commands_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Alignment\clustalw_commands_oracle.tsv.gz" />
     <!-- ALIGN-MULTI-001 (audit A2-14d, B09 F105): the seven ClustalW 2.1 alignment file formats (-OUTPUT CLUSTAL / GCG / GDE / PHYLIP / PIR / NEXUS / FASTA with -CASE -SEQNOS -SEQNO_RANGE -RANGE -OUTORDER), 2 310 files
          compared byte for byte; scripts/alignment/generate_clustalw_output_oracle.py. -->
-    <EmbeddedResource Include="TestData\Alignment\clustalw_output_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Alignment\clustalw_output_oracle.tsv.gz" />
     <!-- ALIGN-MULTI-001 (audit A2-14c, B09 F106): ClustalW 2.1 secondary-structure gap-penalty masks of -PROFILE / -SEQUENCES (CLUSTAL and GDE profile files with !SS_ / !GM_ / "SS_ lines), 1 200 sets, output files compared
          byte for byte; scripts/alignment/generate_clustalw_structure_oracle.py. -->
-    <EmbeddedResource Include="TestData\Alignment\clustalw_structure_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Alignment\clustalw_structure_oracle.tsv.gz" />
     <!-- ALIGN-MULTI-001 (audit A2-20, B09 F118): Kalign 3.3.5 (installed Debian kalign 1:3.3.5-1, AVX2 build): rows of every committed run (DNA / RNA / protein, every type and gap-penalty option, 1 / 2 / 4 threads,
          long sets, >= 100 / 1000 sequences); scripts/alignment/generate_kalign_oracle.py. -->
-    <EmbeddedResource Include="TestData\Alignment\kalign_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Alignment\kalign_oracle.tsv.gz" />
     <!-- ProbCons 1.12 (B09 A2-23): 400+ runs of the installed program (arguments, input files, stdout, stderr, written files); scripts/alignment/generate_probcons_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\probcons_oracle.tsv" />
     <!-- POA 2.0 (B09 A2-26): 350+ runs of the installed program (arguments, matrix / FASTA / pair-score files, stdout, PO / PIR / CLUSTAL outputs); scripts/alignment/generate_poa_oracle.py. -->
-    <EmbeddedResource Include="TestData\Alignment\poa_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Alignment\poa_oracle.tsv.gz" />
     <!-- POA 2.0 MSA / PO file input (B09 A2-26b, F223): -read_msa / -read_msa2 / -read_msa_list / -subset / -remove runs of the installed program; scripts/alignment/generate_poa_msa_oracle.py. -->
-    <EmbeddedResource Include="TestData\Alignment\poa_msa_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Alignment\poa_msa_oracle.tsv.gz" />
     <!-- spoa 4.0.8 command line (B09 A2-26c, F232): runs of the installed program; scripts/alignment/generate_spoa_oracle.py. -->
-    <EmbeddedResource Include="TestData\Alignment\spoa_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Alignment\spoa_oracle.tsv.gz" />
     <!-- EMBOSS alignment formats of three or more rows (B09 A2-27d, F233): runs of the installed aligncopy; scripts/alignment/generate_emboss_multirow_oracle.py. -->
-    <EmbeddedResource Include="TestData\Alignment\emboss_multirow_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_multirow_oracle.tsv.gz" />
     <!-- T-Coffee score_ascii evaluation (B09 A2-27d, F237): runs of the installed t_coffee 13.41; scripts/alignment/generate_tcoffee_score_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\tcoffee_score_oracle.tsv" />
     <!-- ALIGN-MULTI-001 (audit A2-20, B09 F118): whole Kalign 3.3.5 command lines (argument parser quirks, types, gap options, thread counts, formats, input files, refusals) and the text the program writes;
@@ -294,7 +294,7 @@
     <!-- ALIGN-MULTI-001 (audit A2-20b, B09 F222): Kalign 3.3.5 formats msf / clu, MSF / Clustal inputs, several inputs, non-quiet output (time shim); scripts/alignment/generate_kalign_formats_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\kalign_formats_oracle.tsv" />
     <!-- ALIGN-MULTI-001 (audit A2-27c, B09 F224+): Bio.Align coordinate formats (bed, psl, chain, ...) written and read by Biopython 1.88; scripts/alignment/generate_biopython_coord_oracle.py. -->
-    <EmbeddedResource Include="TestData\Alignment\biopython_coord_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Alignment\biopython_coord_oracle.tsv.gz" />
     <!-- ALIGN-MULTI-001 (audit A2-19, B09 F119): MAFFT 7.505 (installed Debian mafft 7.505-1) alignments of two sequences (amino acids, DNA / RNA, IUPAC and unusual symbols with the anysymbol option, the options op, ep and bl,
          nuc, amino and the accepted options, the plain command); scripts/alignment/generate_mafft_pair_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\mafft_pair_oracle.tsv" />
@@ -315,8 +315,8 @@
     <EmbeddedResource Include="TestData\Alignment\mafft_auto_oracle.tsv.gz" />
     <!-- ALIGN-MULTI-001 (audit A2-27, B09 F120): EMBOSS 6.6.0 -aformat output formats (needle / water) and the sequence-set formats (seqret), byte for byte;
          scripts/alignment/generate_emboss_aformat_oracle.py, scripts/alignment/generate_emboss_seqout_oracle.py (faked run dates: scripts/alignment/faketime.c). -->
-    <EmbeddedResource Include="TestData\Alignment\emboss_aformat_oracle.tsv" />
-    <EmbeddedResource Include="TestData\Alignment\emboss_seqout_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_aformat_oracle.tsv.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_seqout_oracle.tsv.gz" />
     <!-- ALIGN-GLOBAL-001 (audit A2-28, B09 F121): EMBOSS 6.6.0 stretcher rows and scores; scripts/alignment/generate_stretcher_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\stretcher_oracle.tsv" />
     <!-- ALIGN-GLOBAL-001 (audit A2-28, B09 F122): EMBOSS 6.6.0 needle with -endweight / -endopen / -endextend; scripts/alignment/generate_needle_oracle.py. -->
@@ -326,11 +326,11 @@
     <!-- ALIGN-GLOBAL-001 / ALIGN-LOCAL-001 (audit A2-29, B09 F123): ksw2-style dual affine gaps (Biopython callable gap score + independent WSB program; banded); scripts/alignment/generate_dual_affine_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\dual_affine_oracle.tsv" />
     <!-- ALIGN-LOCAL-001 / ALIGN-GLOBAL-001 (audit A2-28c, B09 F124): EMBOSS supermatcher and needleall whole output files; scripts/alignment/generate_emboss_multi_oracle.py. -->
-    <EmbeddedResource Include="TestData\Alignment\emboss_multi_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_multi_oracle.tsv.gz" />
     <!-- ALIGN-GLOBAL-001 / ALIGN-LOCAL-001 (audit A2-29b, B09 F125): ksw2 exact cases (independent Gotoh program); scripts/alignment/generate_ksw2_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\ksw2_exact_oracle.tsv" />
     <!-- ALIGN-MULTI-001 (audit A2-27b, B09 F126): Biopython 1.88 Bio.Align writers / readers of fasta, a2m, clustal, phylip, nexus, stockholm; scripts/alignment/generate_biopython_msa_oracle.py. -->
-    <EmbeddedResource Include="TestData\Alignment\biopython_msa_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Alignment\biopython_msa_oracle.tsv.gz" />
     <!-- GENOMIC-COMMON-001 (B09 F15-F16): independent Python (DP + suffix automaton + brute-force matching statistics)
          oracle for FindLongestCommonRegion / FindCommonRegions; scripts/analysis/generate_common_region_oracle.py. -->
     <EmbeddedResource Include="TestData\Analysis\common_region_oracle.tsv" />
@@ -382,11 +382,11 @@
     <EmbeddedResource Include="TestData\Alignment\gap_profile_oracle.tsv" />
     <!-- GENOMIC-SIMILARITY-001 (B09 A3-11): sourmash 4.9.4 ANI with confidence intervals (1120 rows, scripts/analysis/generate_ani_ci_oracle.py) and mash 2.3 dist
          distance / p-value / shared hashes (400 rows, scripts/analysis/generate_mash_dist_oracle.py). -->
-    <EmbeddedResource Include="TestData\Analysis\ani_ci_oracle.tsv" />
-    <EmbeddedResource Include="TestData\Analysis\mash_dist_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Analysis\ani_ci_oracle.tsv.gz" />
+    <EmbeddedResource Include="TestData\Analysis\mash_dist_oracle.tsv.gz" />
     <!-- GENOMIC-COMMON-001 / GENOMIC-REPEAT-001 / ALIGN-SEMI-001 (B09 A3-13): EMBOSS seqmatchall (330 sets), palindrome -gaplimit 0 (330 sequences) and merger (450 read pairs) 6.6.0;
          scripts/analysis/generate_seqmatchall_oracle.py, generate_palindrome_gap0_oracle.py, scripts/alignment/generate_merger_oracle.py. -->
-    <EmbeddedResource Include="TestData\Analysis\seqmatchall_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Analysis\seqmatchall_oracle.tsv.gz" />
     <EmbeddedResource Include="TestData\Analysis\palindrome_gap0_oracle.tsv" />
     <!-- GENOMIC-MOTIFS-001 (B09 A3-12): EMBOSS fuzzpro (900 random patterns) and fuzztran (760 DNA / pattern / frame / table cases) 6.6.0;
          scripts/analysis/generate_fuzzpro_oracle.py, generate_fuzztran_oracle.py. -->
@@ -401,7 +401,7 @@
     <EmbeddedResource Include="TestData\Analysis\similarity_oracle.tsv" />
     <!-- GENOMIC-SIMILARITY-001 (B09 A2-31): exact canonical sets (== sourmash scaled=1), sourmash 4.9.4 FracMinHash (scaled 2..10) and bottom-s MinHash (num), containment ANI /
          Jaccard ANI (sourmash distance_utils), 4290 rows; scripts/analysis/generate_similarity_sketch_oracle.py. -->
-    <EmbeddedResource Include="TestData\Analysis\similarity_sketch_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Analysis\similarity_sketch_oracle.tsv.gz" />
     <!-- GENOMIC-REPEAT-001 (B09 F28-F30): independent Python (brute force + suffix array/Kasai LCP) oracle for repeated
          substrings, Gusfield maximal repeats and all longest repeats; scripts/analysis/generate_repeat_oracle.py. -->
     <EmbeddedResource Include="TestData\Analysis\repeat_oracle.tsv" />
@@ -414,7 +414,7 @@
     <EmbeddedResource Include="TestData\Analysis\exact_tandems_oracle.tsv" />
     <!-- GENOMIC-REPEAT-001 (B09 A2-33 / A2-35): MUMmer 3.23 repeat-match (both strands and -f) pairs + brute-force both-strand repeat classes over S # revcomp(S),
          1900 (sequence, L) rows incl. N runs; scripts/analysis/generate_strand_repeat_oracle.py. -->
-    <EmbeddedResource Include="TestData\Analysis\strand_repeat_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Analysis\strand_repeat_oracle.tsv.gz" />
     <!-- GENOMIC-REPEAT-001 (B09 F27): Biopython reverse-complement palindrome windows (Rosalind REVP definition);
          scripts/analysis/generate_palindrome_oracle.py. -->
     <EmbeddedResource Include="TestData\Analysis\palindrome_oracle.tsv" />
@@ -423,12 +423,12 @@
     <EmbeddedResource Include="TestData\Analysis\orf_oracle.tsv" />
     <!-- GENOMIC-ORF-001 (A1-18 / A1-19): the NCBI ORFfinder 0.4.3 standalone program run in Docker over 629 inputs (user-run, 1750 runs):
          54 820 (option set, sequence) results; scripts/analysis/generate_orffinder_oracle.py. -->
-    <EmbeddedResource Include="TestData\Analysis\orffinder_cli_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Analysis\orffinder_cli_oracle.tsv.gz" />
     <!-- GENOMIC-TANDEM / GENOMIC-REPEAT / GENOMIC-ORF-001 (B09 A1-21): the same oracle generators in ambiguous mode, sequences with N and other
          IUPAC symbols for the string overloads of FindTandemRepeats / FindPalindromes / FindOpenReadingFrames. -->
     <EmbeddedResource Include="TestData\Analysis\tandem_iupac_oracle.tsv" />
     <EmbeddedResource Include="TestData\Analysis\palindrome_iupac_oracle.tsv" />
-    <EmbeddedResource Include="TestData\Analysis\orf_ambiguous_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Analysis\orf_ambiguous_oracle.tsv.gz" />
     <EmbeddedResource Include="TestData\Restriction\emboss_restrict_bothstrand.tsv" />
     <!-- ONCO-MHC-001: one MHCflurry models_class1_pan affinity network (smallest member, feedforward
          [512,512]), exported from the Apache-2.0 weights_*.npz dense kernels/biases. Embedded so the

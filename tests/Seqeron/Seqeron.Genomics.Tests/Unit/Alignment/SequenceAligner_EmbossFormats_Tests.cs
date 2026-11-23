@@ -44,7 +44,7 @@ public class SequenceAligner_EmbossFormats_Tests
     private static readonly Lazy<List<Row>> Oracle = new(() =>
     {
         const string name = "Seqeron.Genomics.Tests.TestData.Alignment.emboss_aformat_oracle.tsv";
-        using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(name)
+        using var stream = TestDataResource.Open(name)
             ?? throw new InvalidOperationException($"Embedded oracle '{name}' not found.");
         using var reader = new StreamReader(stream);
         reader.ReadLine();
@@ -178,7 +178,7 @@ public class SequenceAligner_EmbossFormats_Tests
     private static readonly Lazy<List<SeqOutRow>> SeqOutOracle = new(() =>
     {
         const string name = "Seqeron.Genomics.Tests.TestData.Alignment.emboss_seqout_oracle.tsv";
-        using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(name)
+        using var stream = TestDataResource.Open(name)
             ?? throw new InvalidOperationException($"Embedded oracle '{name}' not found.");
         using var reader = new StreamReader(stream);
         reader.ReadLine();

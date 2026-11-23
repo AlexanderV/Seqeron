@@ -20,7 +20,7 @@ public class GenomicAnalyzer_StrandRepeats_Oracle_Tests
     private static List<Row> ReadOracleRows()
     {
         const string name = "Seqeron.Genomics.Tests.TestData.Analysis.strand_repeat_oracle.tsv";
-        using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(name)
+        using var stream = TestDataResource.Open(name)
             ?? throw new InvalidOperationException($"Embedded oracle '{name}' not found.");
         using var reader = new StreamReader(stream);
         var rows = new List<Row>();

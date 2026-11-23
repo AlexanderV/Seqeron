@@ -15,7 +15,7 @@ public class Ksw2SpliceLocal_Tests
     private static readonly Lazy<List<string[]>> Rows = new(() =>
     {
         const string name = "Seqeron.Genomics.Tests.TestData.Alignment.ksw2_c_oracle.tsv";
-        using var stream = typeof(Ksw2SpliceLocal_Tests).Assembly.GetManifestResourceStream(name) ?? throw new InvalidOperationException($"Embedded oracle '{name}' not found.");
+        using var stream = TestDataResource.Open(name) ?? throw new InvalidOperationException($"Embedded oracle '{name}' not found.");
         using var reader = new StreamReader(stream);
         var rows = new List<string[]>();
         string? line;

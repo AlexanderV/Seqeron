@@ -29,7 +29,7 @@ public class SequenceAligner_ClustalWProteinMultiple_Tests
     private static IEnumerable<string[]> ReadTsv(string resource)
     {
         string name = "Seqeron.Genomics.Tests.TestData.Alignment." + resource;
-        using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(name)
+        using var stream = TestDataResource.Open(name)
             ?? throw new InvalidOperationException($"Embedded oracle '{name}' not found.");
         using var reader = new StreamReader(stream);
         reader.ReadLine();

@@ -34,7 +34,7 @@ public class SequenceAligner_PoaMsaOracle_Tests
     private static List<Row> Load()
     {
         const string name = "Seqeron.Genomics.Tests.TestData.Alignment.poa_msa_oracle.tsv";
-        using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(name)
+        using var stream = TestDataResource.Open(name)
             ?? throw new InvalidOperationException($"Embedded oracle '{name}' not found.");
         using var reader = new StreamReader(stream);
         var list = new List<Row>();

@@ -22,7 +22,7 @@ public class SequenceAligner_TCoffeeOptions_Tests
     private static List<Case> ReadOracleRows()
     {
         const string name = "Seqeron.Genomics.Tests.TestData.Alignment.tcoffee_program_options_oracle.tsv";
-        using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(name)
+        using var stream = TestDataResource.Open(name)
             ?? throw new InvalidOperationException($"Embedded oracle '{name}' not found.");
         using var reader = new StreamReader(stream);
         reader.ReadLine();
@@ -96,7 +96,7 @@ public class SequenceAligner_TCoffeeOptions_Tests
     private static readonly Lazy<Dictionary<string, List<string>>> UbCases = new(() =>
     {
         const string name = "Seqeron.Genomics.Tests.TestData.Alignment.tcoffee_options_ub_cases.tsv";
-        using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(name)
+        using var stream = TestDataResource.Open(name)
             ?? throw new InvalidOperationException($"Embedded data '{name}' not found.");
         using var reader = new StreamReader(stream);
         var map = new Dictionary<string, List<string>>();

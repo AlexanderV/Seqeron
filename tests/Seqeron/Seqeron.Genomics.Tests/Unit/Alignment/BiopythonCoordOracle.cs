@@ -11,7 +11,7 @@ internal static class BiopythonCoordOracle
     internal static List<Row> Load()
     {
         const string name = "Seqeron.Genomics.Tests.TestData.Alignment.biopython_coord_oracle.tsv";
-        using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(name) ?? throw new InvalidOperationException(name);
+        using var stream = TestDataResource.Open(name) ?? throw new InvalidOperationException(name);
         using var reader = new StreamReader(stream);
         reader.ReadLine();
         var list = new List<Row>();
