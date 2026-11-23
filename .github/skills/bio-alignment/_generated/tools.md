@@ -64,6 +64,7 @@
 | `muscle_msa_command` | Alignment | `SequenceAligner.MuscleProfileAlign` | [doc](../../../../docs/mcp/tools/alignment/muscle_msa_command.md) |
 | `needle_align` | Alignment | `SequenceAligner.NeedleAlign` | [doc](../../../../docs/mcp/tools/alignment/needle_align.md) |
 | `needleall_align` | Alignment | `SequenceAligner.NeedleAll` | [doc](../../../../docs/mcp/tools/alignment/needleall_align.md) |
+| `parse_big_alignment` | Alignment | `AlignmentCoordinateFormats.ParseBigBed / ParseBigMaf / ParseBigPsl` | [doc](../../../../docs/mcp/tools/alignment/parse_big_alignment.md) |
 | `parse_coordinate_alignment` | Alignment | `AlignmentCoordinateFormats.Parse` | [doc](../../../../docs/mcp/tools/alignment/parse_coordinate_alignment.md) |
 | `poa_command` | Alignment | `PoaProgram.Run` | [doc](../../../../docs/mcp/tools/alignment/poa_command.md) |
 | `probcons_command` | Alignment | `ProbConsProgram.Run` | [doc](../../../../docs/mcp/tools/alignment/probcons_command.md) |
@@ -72,10 +73,12 @@
 | `semi_global_align` | Alignment | `SequenceAligner.SemiGlobalAlign` | [doc](../../../../docs/mcp/tools/alignment/semi_global_align.md) |
 | `semi_global_align_affine` | Alignment | `SequenceAligner.SemiGlobalAlignAffine` | [doc](../../../../docs/mcp/tools/alignment/semi_global_align_affine.md) |
 | `sequence_identity` | Alignment | `SequenceAssembler.CalculateIdentity` | [doc](../../../../docs/mcp/tools/alignment/sequence_identity.md) |
+| `spoa_command` | Alignment | `SpoaProgram.Run` | [doc](../../../../docs/mcp/tools/alignment/spoa_command.md) |
 | `stretcher_align` | Alignment | `SequenceAligner.StretcherAlign` | [doc](../../../../docs/mcp/tools/alignment/stretcher_align.md) |
 | `sum_of_pairs_score` | Alignment | `SequenceAligner.SumOfPairsScore` | [doc](../../../../docs/mcp/tools/alignment/sum_of_pairs_score.md) |
 | `supermatcher_align` | Alignment | `SequenceAligner.Supermatcher` | [doc](../../../../docs/mcp/tools/alignment/supermatcher_align.md) |
 | `tcoffee_blast_msa_library` | Alignment | `SequenceAligner.TCoffeeBlastMsaLibraryEntries` | [doc](../../../../docs/mcp/tools/alignment/tcoffee_blast_msa_library.md) |
+| `tcoffee_evaluate` | Alignment | `SequenceAligner.TCoffeeEvaluate` | [doc](../../../../docs/mcp/tools/alignment/tcoffee_evaluate.md) |
 | `tcoffee_guide_tree` | Alignment | `SequenceAligner.TCoffeeGuideTree` | [doc](../../../../docs/mcp/tools/alignment/tcoffee_guide_tree.md) |
 | `tcoffee_ktup_similarity` | Alignment | `SequenceAligner.TCoffeeKtupSimilarity` | [doc](../../../../docs/mcp/tools/alignment/tcoffee_ktup_similarity.md) |
 | `tcoffee_lalign_top_alignments` | Alignment | `SequenceAligner.TCoffeeLalignTopAlignments` | [doc](../../../../docs/mcp/tools/alignment/tcoffee_lalign_top_alignments.md) |
@@ -84,6 +87,7 @@
 | `tcoffee_tblastx_library` | Alignment | `SequenceAligner.TCoffeeTblastxLibraryEntries` | [doc](../../../../docs/mcp/tools/alignment/tcoffee_tblastx_library.md) |
 | `water_align` | Alignment | `SequenceAligner.WaterAlign` | [doc](../../../../docs/mcp/tools/alignment/water_align.md) |
 | `write_alignment` | Alignment | `EmbossAlignmentWriter.Format` | [doc](../../../../docs/mcp/tools/alignment/write_alignment.md) |
+| `write_big_alignment` | Alignment | `AlignmentCoordinateFormats.WriteBigBed / WriteBigMaf / WriteBigPsl` | [doc](../../../../docs/mcp/tools/alignment/write_big_alignment.md) |
 | `write_coordinate_alignment` | Alignment | `AlignmentCoordinateFormats.Write` | [doc](../../../../docs/mcp/tools/alignment/write_coordinate_alignment.md) |
 | `calculate_similarity` | Core | `GenomicAnalyzer.CalculateSimilarity` | [doc](../../../../docs/mcp/tools/core/calculate_similarity.md) |
 | `count_approximate_occurrences` | Core | `ApproximateMatcher.CountApproximateOccurrences` | [doc](../../../../docs/mcp/tools/core/count_approximate_occurrences.md) |
