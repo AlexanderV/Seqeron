@@ -3,12 +3,14 @@
 #   docker build -f docs/refactoring/suffix-tree-upgrade/analysis/e8/Dockerfile .
 # Nothing of .git (history, remotes, configuration), wiki, tests, other docs or any bin / obj directory enters the image or the build cache.
 *
-# the program: apps/SuffixTree.EmProto, the two product libraries it references, the linked sources of the benchmark project
+# the program: apps/SuffixTree.EmProto, the three product libraries it references (Esa, Core and, since 1b.7f, Persistent), the linked sources of the benchmark project
 !apps/SuffixTree.EmProto
 !apps/SuffixTree.Esa.Bench/PairedStats.cs
 !apps/SuffixTree.Esa.Bench/Links
 !src/SuffixTree/Algorithms/SuffixTree.Esa
 !src/SuffixTree/Algorithms/SuffixTree.Core
+# SuffixTree.Esa references SuffixTree.Persistent since 1b.7f (SuffixIndexFactory.Open reads a v6 file through it): the publish of EmProto fails with CS0234 without it (work package 1b.9h, check_docker_context.py --static-only)
+!src/SuffixTree/Algorithms/SuffixTree.Persistent
 # the style rules the projects read (.editorconfig); the root Directory.Build.props and Directory.Packages.props are NOT sent: the Dockerfile supplies its own props (no package restore from the network)
 !.editorconfig
 # the scripts and the props of the image

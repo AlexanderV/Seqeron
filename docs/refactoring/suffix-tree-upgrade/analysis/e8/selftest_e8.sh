@@ -62,4 +62,14 @@ import importlib.util
 spec = importlib.util.spec_from_file_location('s', '$HERE/sample_e8.py'); m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
 v, d = m.cg_find(); print(v, d, m.cg_limit(v, d) if d else None, m.cg_snapshot(v, d) if d else None)")
 echo "INFO real hierarchy through python: $REAL"
+# ---- the image build context (work package 1b.9h): the static closure of the allow-list against the projects and the COPY lines that the image build uses (needs the git checkout; no Docker, no dotnet)
+if [ -f "$HERE/test_docker_context.py" ] && ROOT=$(git -C "$HERE" rev-parse --show-toplevel 2> /dev/null); then
+  python3 -I "$HERE/test_docker_context.py" > "$T/ctx-tests.log" 2>&1; check "image context: the unit tests of the closure check ($(grep -E '^Ran ' "$T/ctx-tests.log"))" "$?" 0
+  python3 -I "$HERE/check_docker_context.py" "$ROOT" --static-only > "$T/ctx.out" 2>&1; check "image context: the E8 allow-list holds everything the image build needs" "$?" 0
+  grep -vxF '!src/SuffixTree/Algorithms/SuffixTree.Persistent' "$HERE/Dockerfile.dockerignore" > "$T/no-persistent.ignore"
+  python3 -I "$HERE/check_docker_context.py" "$ROOT" --static-only --ignore-file "$T/no-persistent.ignore" > "$T/ctx-no.out" 2>&1; check "image context: the E8 allow-list WITHOUT the Persistent line fails" "$?" 1
+  check "image context: ... and names the project that is missing" "$(grep -c 'MISSING src/SuffixTree/Algorithms/SuffixTree.Persistent/SuffixTree.Persistent.csproj' "$T/ctx-no.out")" 1
+else
+  echo "SKIP image context: no git checkout of the repository here (the check needs git ls-files)"
+fi
 [ "$FAILS" = 0 ] && echo "ALL PASS" || { echo "$FAILS FAILED"; exit 1; }

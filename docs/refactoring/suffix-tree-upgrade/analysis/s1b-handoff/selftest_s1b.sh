@@ -29,6 +29,14 @@ for t in test_s1b_check.py test_s1b_sampler.py test_s1b_gen.py; do
   python3 -I "$HERE/$t" > "$W/$t.log" 2>&1; expect "unit tests $t ($(grep -E '^Ran ' "$W/$t.log"))" $?
 done
 
+if [ -f "$HERE/../e8/test_docker_context.py" ] && git -C "$HERE" rev-parse --is-inside-work-tree > /dev/null 2>&1; then   # the allow-lists of both images against what their builds need (work package 1b.9h); in an image there is no checkout
+  python3 -I "$HERE/../e8/test_docker_context.py" > "$W/test_docker_context.py.log" 2>&1; expect "unit tests test_docker_context.py, the static closure of the image contexts ($(grep -E '^Ran ' "$W/test_docker_context.py.log"))" $?
+  python3 -I "$HERE/../e8/check_docker_context.py" "$(git -C "$HERE" rev-parse --show-toplevel)" --static-only --package-dir docs/refactoring/suffix-tree-upgrade/analysis/s1b-handoff --allow-tests --allow-tsv \
+    --publish apps/SuffixTree.Esa.Bench/SuffixTree.Esa.Bench.csproj --publish apps/SuffixTree.EmProto/SuffixTree.EmProto.csproj > "$W/ctx.out" 2>&1; expect "the allow-list of this package holds everything its image build needs (static closure)" $?
+else
+  echo "  SKIP  the static closure of the image contexts needs the repository checkout (analysis/e8/check_docker_context.py): not in the image"
+fi
+
 echo "2. help, plan, dry run"
 run help; expect "help prints the commands" "$([ "$LAST_RC" = 0 ] && grep -q 'chain' "$W/last.out" && echo 0 || echo 1)"
 run plan --n 3g; expect "plan prints the three sizes" "$(grep -q '3000000000' "$W/last.out" && grep -q '1000000000' "$W/last.out" && grep -q 'ESTIMATE' "$W/last.out" && echo 0 || echo 1)"
