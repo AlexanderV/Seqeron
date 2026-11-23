@@ -45,6 +45,13 @@ internal sealed class EmbossQuery
     public EmbossQueryType QueryType;
     public bool SetQuery;
 
+    /// <summary><c>InDrcat</c> / <c>DbUrl</c>: the database was found in the data resource catalogue (<c>ajResourceGetDbdata</c>): the entries are fetched from the URL of the catalogue entry.</summary>
+    public bool InDrcat;
+    public string DbUrl = "";
+
+    /// <summary><c>DataType</c> of the query (<c>ajQueryGetDatatype</c>): <c>sequence</c> for the sequence readers, <c>obo</c> / <c>resource</c> for the ontology and data resource readers of the drfind programs.</summary>
+    public string DataType = "sequence";
+
     /// <summary><c>QryDone</c>: the access method has found the entries the query asks for, so the reader does not test them again (<c>seqQueryMatch</c>); the index methods set it unless the identifiers are case sensitive.</summary>
     public bool QryDone;
 
@@ -58,6 +65,8 @@ internal sealed class EmbossQuery
         Fpos = 0;
         QueryType = EmbossQueryType.Unknown;
         SetQuery = false;
+        InDrcat = false;
+        DbUrl = "";
         QryDone = false;
         Wild = false;
         CaseId = false;
@@ -115,7 +124,7 @@ internal sealed class EmbossQuery
                 return true;
             if (f.Field == "id")
                 continue;
-            if (wild.IsMatch(f.Wildquery))
+            if (f.Wildquery.Contains('*', StringComparison.Ordinal))      // measured on drfinddata of EMBOSS 6.6.0: a '?' of a field other than id (edam-nam:pro?ein) is not a wildcard (the keyword is searched as it is)
             {
                 Wild = true;
                 return true;
@@ -377,7 +386,7 @@ internal static class EmbossQueryParse
             }
         }
 
-        bool regstat = false, dbstat = false;
+        bool regstat = false, dbstat = false, drcatstat = false;
         string queryDb = pqry, braceopen = "", braceclose = "";
         if (!isSpecial)
         {
@@ -386,7 +395,7 @@ internal static class EmbossQueryParse
             if (regstat)
             {
                 queryDb = m.Groups[1].Value;
-                if (DbFind(ref queryDb, env, out dbstat))
+                if (DbFind(ref queryDb, env, qry, findFormat, out dbstat, out drcatstat))
                 {
                     qry.SingleField = m.Groups[3].Value;
                     braceopen = m.Groups[4].Value;
@@ -409,7 +418,7 @@ internal static class EmbossQueryParse
                     braceopen = m.Groups[5].Value;
                     qry.QryFields = m.Groups[6].Value;
                     braceclose = m.Groups[7].Value;
-                    regstat = DbFind(ref queryDb, env, out dbstat);
+                    regstat = DbFind(ref queryDb, env, qry, findFormat, out dbstat, out drcatstat);
                 }
             }
         }
@@ -459,7 +468,7 @@ internal static class EmbossQueryParse
             qry.DbName = queryDb;
             if (env.QuerySvr.Length > 0)
                 throw new NotSupportedException("A server (server:database) is not read by this port: the data come from a network service.");
-            if (!NamDbData(qry, env, context, findFormat))
+            if (!drcatstat && !NamDbData(qry, env, context, findFormat))
             {
                 qry.QryFields = "";
                 return new ReadResult(false, null, "", false);
@@ -614,6 +623,9 @@ internal static class EmbossQueryParse
                     return EmbossIndexAccess.Emboss(qry, env, context);
                 case "emblcd":
                     return EmbossCdAccess.Access(qry, env, context);
+                case "url":
+                    // the entry of the data resource catalogue is fetched from its URL (ajHttpGet): this port has no network, the fetch fails and the library reports that it could not read the sequence
+                    return new ReadResult(false, null, "", false);
                 default:
                     throw new NotSupportedException($"The database access method '{qry.Method}' is not implemented by this port.");
             }
@@ -789,7 +801,7 @@ internal static class EmbossQueryParse
                     continue;
                 }
 
-                if (IsSequenceType(token))
+                if (qry.DataType == "sequence" ? IsSequenceType(token) : token.Equals(qry.DataType, StringComparison.OrdinalIgnoreCase))
                 {
                     qry.DbType = token;
                     break;
@@ -798,7 +810,7 @@ internal static class EmbossQueryParse
 
             if (qry.DbType.Length == 0)
             {
-                context.Error($"Database {qry.DbName} type(s) '{liststr}' do not match query type 'sequence'");
+                context.Error($"Database {qry.DbName} type(s) '{liststr}' do not match query type '{qry.DataType}'");
                 return false;
             }
         }
@@ -856,7 +868,7 @@ internal static class EmbossQueryParse
     private static bool ToBool(string s) => s.Length > 0 && (char.ToUpperInvariant(s[0]) is 'Y' or 'T' or '1');
 
     // namInformatTest: the format is one of the formats of the sequence reader
-    private static bool FormatTest(string format, string dbtype) => DbTypes.Contains(dbtype, StringComparer.OrdinalIgnoreCase) && IsSequenceType(dbtype) && EmbossSeqin.FormatNameKnown(format);
+    private static bool FormatTest(string format, string dbtype) => DbTypes.Contains(dbtype, StringComparer.OrdinalIgnoreCase) && (IsSequenceType(dbtype) ? EmbossSeqin.FormatNameKnown(format) : format.Equals(dbtype.Equals("obo", StringComparison.OrdinalIgnoreCase) ? "obo" : "drcat", StringComparison.OrdinalIgnoreCase));
 
     // ajNamDbQuery / ajNamFileQuery for a query that has fields
     private static void SetQuery(EmbossQuery qry, bool dbstat, EmbossQueryEnv env, EmbossFeatureReadContext context)
@@ -870,6 +882,8 @@ internal static class EmbossQueryParse
         if (qry.SetQuery)
             return;
         qry.SetQuery = true;
+        if (qry.InDrcat)
+            return;
         var db = env.Names!.Database(qry.DbName);
         if (db is null)
             return;
@@ -950,10 +964,11 @@ internal static class EmbossQueryParse
         }
     }
 
-    // queryDbfind for the databases of this port (none are defined): a name that is a file; the library then looks at the data resource catalogue (DRCAT), which this port has not
-    private static bool DbFind(ref string db, EmbossQueryEnv env, out bool dbstat)
+    // queryDbfind: a defined database, an existing file, else the data resource catalogue (DRCAT): the entry must have a query line whose format the reader knows (ajResourceGetDbdata)
+    private static bool DbFind(ref string db, EmbossQueryEnv env, EmbossQuery qry, Func<string, bool> findFormat, out bool dbstat, out bool drcatstat)
     {
         dbstat = false;
+        drcatstat = false;
         bool ret = false;
         if (RegDb.IsMatch(db))
         {
@@ -972,7 +987,11 @@ internal static class EmbossQueryParse
                 }
                 else
                 {
-                    dbstat = false;
+                    var drcat = EmbossDrcat.Lookup(db);
+                    if (drcat is not null && GetDbdata(drcat, qry, findFormat))
+                        drcatstat = true;
+                    else
+                        dbstat = false;
                 }
             }
         }
@@ -983,6 +1002,35 @@ internal static class EmbossQueryParse
         {
             ret = true;
             dbstat = false;
+        }
+
+        return ret;
+    }
+
+    // ajResourceGetDbdata for a sequence query: the method is url, the query is an entry query, and the last query line whose format (or the EDAM term of its format) the reader knows gives the format and the URL
+    private static bool GetDbdata(EmbossResource resource, EmbossQuery qry, Func<string, bool> findFormat)
+    {
+        qry.InDrcat = true;
+        qry.DbType = "Sequence";
+        qry.Method = "url";
+        qry.QueryType = EmbossQueryType.Entry;
+        qry.HasAcc = false;
+        bool ret = false;
+        foreach (var q in resource.Query)
+        {
+            if (findFormat(q.Format))
+            {
+                qry.Formatstr = q.Format;
+                qry.DbUrl = q.Url;
+                ret = true;
+            }
+
+            if (q.FormatTerm.Length > 0 && findFormat(q.FormatTerm))
+            {
+                qry.Formatstr = q.FormatTerm;
+                qry.DbUrl = q.Url;
+                ret = true;
+            }
         }
 
         return ret;

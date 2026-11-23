@@ -299,25 +299,56 @@ internal static class EmbossIndexAccess
         return line[a..b];
     }
 
-    // ajFilenameTestInclude on the name of a file of the database (without its directory)
+    // ajFilenameTestInclude: true unless an exclude pattern matches the name (as given or without its directory); an include pattern that matches (either way) brings it back
     private static bool Included(string path, string exclude, string include)
     {
         string name = path[(path.LastIndexOf('/') + 1)..];
-        bool ret = false;
+        bool ret = true;
         char[] sep = [' ', '\t', ',', ';', '\n'];
-        foreach (string token in include.Split(sep, StringSplitOptions.RemoveEmptyEntries))
-        {
-            if (EmbossWild.Match(name, token))
-                ret = true;
-        }
-
         foreach (string token in exclude.Split(sep, StringSplitOptions.RemoveEmptyEntries))
         {
-            if (EmbossWild.Match(name, token))
+            if (EmbossWild.Match(path, token) || EmbossWild.Match(name, token))
                 ret = false;
         }
 
+        foreach (string token in include.Split(sep, StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (EmbossWild.Match(path, token) || EmbossWild.Match(name, token))
+                ret = true;
+        }
+
         return ret;
+    }
+
+    // textEmbossQryNamespace: the hits are restricted to the entries of the namespaces of the database definition (words of the attribute: the hits of the field ns for each of them, in one table)
+    private static void Namespace(EmbossHitTable results, EmbossQuery qry, string alias, EmbossBtreeCache idcache, EmbossQueryEnv env, EmbossFeatureReadContext context)
+    {
+        var nscache = EmbossBtreeCache.OpenRead(alias, EmbossBtreeCache.FieldExtension("ns"), qry.IndexDir, env.Files, context);
+        if (nscache is null)
+            throw new InvalidOperationException("The index of the field ns of a database with a namespace attribute cannot be opened: the reference program fails.");
+        var nslist = new List<EmbossBtHit>();
+        ulong fdhits = 0;
+        foreach (string nsqry in qry.Namespace.Split([' ', '\t', ',', ';', '|'], StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (nscache.Secondary)
+            {
+                if (!qry.Wild)
+                    nscache.KeyFetchHit(idcache, nsqry, nslist);
+                else
+                    nscache.KeyFetchwildHit(idcache, nsqry, nslist);
+            }
+            else
+            {
+                nscache.IdentFetchwildHit(nsqry, nslist);
+            }
+
+            fdhits += (ulong)nslist.Count;                                  // the list is not emptied between the words: the count is cumulative
+        }
+
+        var nstable = new EmbossHitTable(fdhits);
+        foreach (var h in nslist)
+            nstable.Put(h);
+        results.MergeAnd(nstable);
     }
 
     /// <summary><c>textAccessEmboss</c> for the whole query: the hits in order, then the text of the file of every hit from its offset.</summary>
@@ -330,8 +361,8 @@ internal static class EmbossIndexAccess
             return fail;
         }
 
-        if (qry.Namespace.Length > 0 || qry.Organisms.Length > 0)
-            throw new NotSupportedException("The namespace and organisms attributes of a database definition (textEmbossQryNamespace / textEmbossQryOrganisms) are not read by this port.");
+        if (qry.Organisms.Length > 0)
+            throw new NotSupportedException("The organisms attribute of a database definition (textEmbossQryOrganisms) is not read by this port.");
         string alias = qry.DbAlias.Length > 0 ? qry.DbAlias : qry.DbName.ToLowerInvariant();
         if (qry.QueryType == EmbossQueryType.All)
         {
@@ -380,6 +411,16 @@ internal static class EmbossIndexAccess
                     continue;
                 if (!caches[i].Secondary)
                     caches[i].IdentFetchHit(wild[i], hits, context);
+            }
+
+            if (qry.Namespace.Length > 0)
+            {
+                // textEmbossQryEntry: the hits go into the results table (hash order), restricted to the namespace
+                var rt = new EmbossHitTable(100);
+                foreach (var h in hits)
+                    rt.Put(h);
+                Namespace(rt, qry, alias, idcache, env, context);
+                hits = rt.Values();
             }
         }
         else
@@ -438,6 +479,8 @@ internal static class EmbossIndexAccess
                 lasthits = fdhits;
             }
 
+            if (qry.Namespace.Length > 0)
+                Namespace(table, qry, alias, idcache, env, context);
             hits.AddRange(table.Values());
         }
 
@@ -460,7 +503,9 @@ internal static class EmbossIndexAccess
             string? t = h.Dbno < dbfiles.Count ? env.Files(dbfiles[(int)h.Dbno]) : null;
             if (t is null)
                 break;
-            hitTexts.Add(h.Offset < (ulong)t.Length ? t[(int)h.Offset..] : "");
+            // an ontology term or a catalogue entry is read from its offset up to its end: the first 32 KB hold it (the entries of EDAM.obo and DRCAT.dat are under 6 KB); a sequence reader reads on to the following entries
+            int start = (int)Math.Min(h.Offset, (ulong)t.Length);
+            hitTexts.Add(qry.DataType == "sequence" ? t[start..] : t.Substring(start, Math.Min(32768, t.Length - start)));
         }
 
         if (hitTexts.Count == 0)

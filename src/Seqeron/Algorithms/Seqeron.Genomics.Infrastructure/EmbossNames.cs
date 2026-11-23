@@ -16,6 +16,9 @@ internal sealed class EmbossDatabase(string name)
     /// <summary>The attributes that can be given more than once.</summary>
     public Dictionary<string, List<string>> Lists { get; } = [];
 
+    /// <summary>The short name of the definition file (<c>standard</c>, <c>user</c>, or the name of an included file without its directory): <c>NamPEntry.file</c>.</summary>
+    public string Defined { get; init; } = "user";
+
     public string? Get(string attribute) => Attributes.GetValueOrDefault(attribute);
 }
 
@@ -54,6 +57,7 @@ internal sealed class EmbossNames
     private Func<string, string?> _files = _ => null;
     private readonly HashSet<string> _included = new(StringComparer.Ordinal);
     private string _fileName = ".embossrc";
+    private string _shortName = "user";
     private bool _ifNow = true;
     private readonly Stack<bool> _ifStack = new();
 
@@ -90,6 +94,30 @@ internal sealed class EmbossNames
 
         return names;
     }
+
+    /// <summary>
+    /// The configuration the library always has: the definitions of <c>emboss.standard</c> of the installation (the ontologies, the taxonomy and the data resource catalogue as databases, the public servers; <c>$emboss_standard</c> is the installation
+    /// directory) read first, then the texts of the user's files (B09 WP67, F309).
+    /// </summary>
+    public static EmbossNames ParseWithStandard(Func<string, string?>? files, string? fileName, params string[] texts)
+    {
+        var names = new EmbossNames { _files = files ?? (_ => null) };
+        names._vars["emboss_standard"] = "/usr/share/EMBOSS";
+        names._fileName = "emboss.standard";
+        names._shortName = "standard";
+        names.ProcessFile(EmbossDrcat.ReadResource("emboss.standard.gz"));
+        names._shortName = "user";
+        foreach (string text in texts)
+        {
+            names._fileName = fileName ?? ".embossrc";
+            names.ProcessFile(text);
+        }
+
+        return names;
+    }
+
+    /// <summary>The names of the defined databases as defined (<c>ajNamListListDatabases</c>; the caller sorts them).</summary>
+    public List<string> DatabaseNames() => [.. _databases.Values.Select(d => d.Name)];
 
     /// <summary><c>ajNamDatabase</c>: the name is a defined database (any case).</summary>
     public bool IsDatabase(string name) => _databases.ContainsKey(name);
@@ -536,7 +564,7 @@ internal sealed class EmbossNames
             {
                 if (curword == "[")
                 {
-                    db = new EmbossDatabase(_name ?? "");
+                    db = new EmbossDatabase(_name ?? "") { Defined = _shortName };
                 }
                 else if (curword == "]")
                 {

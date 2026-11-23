@@ -87,7 +87,7 @@ internal sealed class EmbossSeqall
     public static EmbossSeqall? Open(string program, string spec, IReadOnlyDictionary<string, string> files, EmbossSequenceQualifiers q, bool features, EmbossFeatureReadContext context, string sequenceType = "gapany", bool single = false, IReadOnlyList<string>? definitions = null, bool storeText = false)
     {
         context.Program = program;
-        EmbossNames? names = definitions is { Count: > 0 } ? EmbossNames.Parse(name => files.TryGetValue(name, out string? t) ? t : null, ConfigName, [.. definitions]) : null;
+        EmbossNames? names = EmbossNames.ParseWithStandard(name => files.TryGetValue(name, out string? t) ? t : null, ConfigName, [.. definitions ?? []]);
         if (names is not null)
         {
             context.Messages.AddRange(names.Messages);

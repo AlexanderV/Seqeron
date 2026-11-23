@@ -96,6 +96,11 @@ internal sealed class EmbossBtreeCache
     }
 
     /// <summary><c>ajBtreeCacheNewReadC</c>: opens the index of a field; null when the parameter file or the index file cannot be read (the library prints "Cannot open param file ...").</summary>
+    // the bytes of an index file are made once per text (the data of the installation are the same strings on every call)
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<string, byte[]> Bytes = new();
+
+    private static byte[] BytesOf(string text) => Bytes.GetValue(text, t => Encoding.Latin1.GetBytes(t));
+
     public static EmbossBtreeCache? OpenRead(string file, string ext, string idir, Func<string, string?> files, EmbossFeatureReadContext context)
     {
         string pname = IndexName(file, ext, idir, "p");
@@ -183,7 +188,7 @@ internal sealed class EmbossBtreeCache
         string? text = files(c.FileName);
         if (text is null)
             return null;
-        c._data = Encoding.Latin1.GetBytes(text);
+        c._data = BytesOf(text);
         return c;
     }
 

@@ -2,7 +2,7 @@
 
 MCP server — **K-mer, motif, repeat, complexity, RNA-structure and comparative-genomics analysis.**
 
-Exposes **235 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+Exposes **238 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
 MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test, with a
 per-tool doc under [`docs/mcp/tools/analysis/`](../../../../docs/mcp/tools/analysis). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
@@ -109,6 +109,9 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `patmatmotifs` | EMBOSS patmatmotifs: scans a protein sequence with the patterns of the prosite database; equals patmatmotifs 6.6.0 on 300 runs. |
 | `patmatdb` | EMBOSS patmatdb: searches protein sequences with a prosite sequence motif; equals patmatdb 6.6.0 on 300 runs. |
 | `prosextract` | EMBOSS prosextract: builds the prosite motif database for patmatmotifs from prosite.dat and prosite.doc; equals prosextract 6.6.0 on 300 runs. |
+| `drfinddata` | EMBOSS drfinddata: finds the data resources of the DRCAT catalogue by the EDAM data term of their output; equals drfinddata 6.6.0 on 233 runs. |
+| `dbtell` | EMBOSS dbtell: the definition of a database of the standard EMBOSS configuration; equals dbtell 6.6.0 on 302 runs. |
+| `showdb` | EMBOSS showdb: the table of the databases of the standard EMBOSS configuration; equals showdb 6.6.0 on 301 runs. |
 | `plotcon` | EMBOSS plotcon: plots the similarity of a multiple alignment along its length (matrix score of every pair of residues, windowed); equals plotcon 6.6.0 on 400 + 1 500 runs. |
 | `plotorf` | EMBOSS plotorf: plots the potential open reading frames of a nucleotide sequence; equals plotorf 6.6.0 on 300 runs. |
 | `wordfinder` | EMBOSS wordfinder: matches large sequences against one or more other sequences by their words; equals wordfinder 6.6.0 on 300 runs. |

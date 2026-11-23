@@ -3980,5 +3980,94 @@ internal static partial class EmbossAcdProfiles
             G die boolean
             G version boolean
             """),
+        ("drfinddata", """
+            P query 1 string
+            P outfile 2 outresource
+            Q sensitive boolean
+            Q subclasses boolean
+            A outfile odirectory 2 string
+            A outfile oformat 2 string
+            G auto boolean
+            G stdout boolean
+            G filter boolean
+            G options boolean
+            G debug boolean
+            G verbose boolean
+            G help boolean
+            G warning boolean
+            G error boolean
+            G fatal boolean
+            G die boolean
+            G version boolean
+            """),
+        ("dbtell", """
+            P database 1 string
+            Q full boolean
+            Q outfile outfile
+            Q server string
+            A outfile odirectory 0 string
+            G auto boolean
+            G stdout boolean
+            G filter boolean
+            G options boolean
+            G debug boolean
+            G verbose boolean
+            G help boolean
+            G warning boolean
+            G error boolean
+            G fatal boolean
+            G die boolean
+            G version boolean
+            """),
+        ("showdb", """
+            Q database string
+            Q html boolean
+            Q protein boolean
+            Q nucleic boolean
+            Q sequence boolean
+            Q feature boolean
+            Q text boolean
+            Q taxonomy boolean
+            Q resource boolean
+            Q assembly boolean
+            Q obo boolean
+            Q xml boolean
+            Q standard boolean
+            Q user boolean
+            Q include boolean
+            Q full boolean
+            Q access boolean
+            Q methods boolean
+            Q taxscope boolean
+            Q fields boolean
+            Q numfields boolean
+            Q aliases boolean
+            Q numaliases boolean
+            Q examples boolean
+            Q numexamples boolean
+            Q defined boolean
+            Q release boolean
+            Q outfile outfile
+            Q only toggle
+            Q heading boolean
+            Q type boolean
+            Q id boolean
+            Q query boolean
+            Q all boolean
+            Q comment boolean
+            A outfile odirectory 0 string
+            G auto boolean
+            G stdout boolean
+            G filter boolean
+            G options boolean
+            G debug boolean
+            G verbose boolean
+            G help boolean
+            G warning boolean
+            G error boolean
+            G fatal boolean
+            G die boolean
+            G version boolean
+            """),
     ];
 }

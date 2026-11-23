@@ -53,6 +53,12 @@
     <EmbeddedResource Include="TestData\Alignment\codon_aligner_oracle.jsonl.gz" />
     <!-- B09 WP67 (F307, R14-10b): legacy Bio.Align.MultipleSeqAlignment 1.88; scripts/alignment/generate_multiple_seq_alignment_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\multiple_seq_alignment_oracle.jsonl.gz" />
+    <!-- B09 WP67 (F309): USAs of the data resource catalogue (DRCAT) through seqret / entret; scripts/alignment/generate_emboss_drcat_usa_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\emboss_drcat_usa_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_drcat_returned_rows.jsonl.gz" />
+    <!-- B09 WP67 (F308, R14-13): the 64 cases / 6 199 calls the user ran on Bio.Align.AlignInfo.SummaryInfo of Biopython 1.79 (handoff/R14-13-aligninfo-biopython179/returned). -->
+    <EmbeddedResource Include="TestData\Alignment\r14_13_aligninfo_cases.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\r14_13_aligninfo_results.jsonl.gz" />
     <!-- B09 WP67 (F306): patmatmotifs 6.6.0 on the real PROSITE release 2026_04 (85 runs of the user-run Docker package handoff/WP62-patmatmotifs-prosite); scripts/alignment/convert_patmatmotifs_prosite_returned.py. -->
     <EmbeddedResource Include="TestData\Alignment\emboss_prosite_returned_oracle.jsonl.gz" />
     <EmbeddedResource Include="TestData\Alignment\emboss_prosite_release_data.json.gz" />
