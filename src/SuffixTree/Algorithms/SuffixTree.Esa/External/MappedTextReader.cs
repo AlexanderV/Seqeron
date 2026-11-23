@@ -40,6 +40,9 @@ internal sealed unsafe class MappedTextReader : IDisposable
     private long _limit;
     private bool _useVectors = Avx2.IsSupported;
     private bool _disposed;
+#if ESA_BOUNDS
+    private readonly long _bytes; // the checked build: the bytes behind _p (data and padding); every raw read below lies inside them
+#endif
 
     private MappedTextReader(byte* data, long n, int bits, MemoryMappedFile? map, MemoryMappedViewAccessor? view)
     {
@@ -52,6 +55,9 @@ internal sealed unsafe class MappedTextReader : IDisposable
         _vectorSymbols = 256 / bits;
         _map = map;
         _view = view;
+#if ESA_BOUNDS
+        _bytes = PackedTextFormat.TotalBytes(n, bits);
+#endif
     }
 
     /// <summary>Number of symbols n.</summary>
@@ -133,6 +139,9 @@ internal sealed unsafe class MappedTextReader : IDisposable
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (_bits > PackedTextFormat.MaxBits) throw new NotSupportedException($"a reduced string of {_bits} bits per symbol has no one-byte symbols to unpack");
         if (start < 0 || start > _n || destination.Length > _n - start) throw new ArgumentOutOfRangeException(nameof(start), $"range [{start}, {start + destination.Length}) outside [0, {_n})");
+#if ESA_BOUNDS
+        CheckRead(start * _bits >> 3, (((long)destination.Length * _bits) + 7 >> 3) + 2);
+#endif
         if (_bits == 8)
         {
             new ReadOnlySpan<byte>(_p + start, destination.Length).CopyTo(destination);
@@ -337,11 +346,27 @@ internal sealed unsafe class MappedTextReader : IDisposable
     private ulong WindowAt(long i)
     {
         long bit = i * _bits;
+#if ESA_BOUNDS
+        CheckRead(bit >> 3, 9);
+#endif
         byte* q = _p + (bit >> 3);
         int s = (int)(bit & 7);
         ulong w = BinaryPrimitives.ReverseEndianness(Unsafe.ReadUnaligned<ulong>(q));
         return s == 0 ? w : (w << s) | ((ulong)q[8] >> (8 - s));
     }
+
+#if ESA_BOUNDS
+    /// <summary>The checked build: a raw read of <paramref name="count"/> bytes from byte <paramref name="offset"/> of the mapped text must lie inside the region (data and the 64 bytes of padding).</summary>
+    private void CheckRead(long offset, long count)
+    {
+        if (offset < 0 || count > _bytes - offset) ThrowOutOfBounds(offset, count);
+    }
+
+    private void ThrowOutOfBounds(long offset, long count)
+        => throw new EsaMemoryViolationException(
+            MemoryViolationKind.OutOfBounds,
+            $"out-of-bounds read of the mapped text: {count} bytes from byte {offset} of a region of {_bytes} bytes ({_n} symbols of {_bits} bits)");
+#endif
 
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static void ThrowNegative(long i, long j, long max)
@@ -362,6 +387,9 @@ internal sealed unsafe class MappedTextReader : IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private Vector256<ulong> LoadShifted(long bit)
     {
+#if ESA_BOUNDS
+        CheckRead(bit >> 3, 40);
+#endif
         byte* q = _p + (bit >> 3);
         ulong s = (ulong)(bit & 7);
         Vector256<ulong> lo = Avx2.Shuffle(Vector256.Load(q), ReverseInLane).AsUInt64();

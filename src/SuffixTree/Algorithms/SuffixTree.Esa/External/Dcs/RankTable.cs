@@ -93,14 +93,42 @@ internal sealed unsafe class RankTable : IDisposable
         }
     }
 
-    /// <summary>The rank of the sample suffix at <paramref name="p"/> (a position of <c>[0, n]</c> whose residue is in D; a position outside the sample reads an arbitrary slot).</summary>
+    /// <summary>
+    /// The rank of the sample suffix at <paramref name="p"/> (a position of <c>[0, n]</c> whose residue is in D; a position outside the sample reads an arbitrary slot). In the checked build (<c>ESA_BOUNDS</c>, <c>-p:EsaBounds=true</c>) a
+    /// position below 0 or above the last block, a residue outside D and a read after <see cref="Dispose"/> throw <see cref="EsaMemoryViolationException"/> where the production build reads through the raw pointer.
+    /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal uint Rank(long p)
     {
         uint block = _mod.Div((uint)p);
         uint r = (uint)p - (block * _mod.Divisor);
+#if ESA_BOUNDS
+        return ReadChecked(p, block, r);
+#else
         return _ranks[((long)block * _classes) + _indexOf[r]];
+#endif
     }
+
+#if ESA_BOUNDS
+    private uint ReadChecked(long p, uint block, uint r)
+    {
+        int index = _indexOf[r];
+        long slot = ((long)block * _classes) + index;
+        if ((ulong)p > (ulong)N || index < 0 || (ulong)slot >= (ulong)Slots || _view is null) ThrowOutOfBounds(p, r, slot);
+        return _ranks[slot];
+    }
+
+    private uint ReadSlot(long slot)
+    {
+        if ((ulong)slot >= (ulong)Slots || _view is null) ThrowOutOfBounds(-1, 0, slot);
+        return _ranks[slot];
+    }
+
+    private void ThrowOutOfBounds(long p, uint r, long slot)
+        => throw new EsaMemoryViolationException(
+            MemoryViolationKind.OutOfBounds,
+            $"out-of-bounds read of the rank table: position {p} (residue {r}) of a text of {N} symbols, slot {slot} of {Slots}{(_view is null ? "; the table is disposed" : string.Empty)}");
+#endif
 
     /// <summary>Reads every slot once: the ranks of the real slots are distinct values in <c>[1, S + |D|]</c> and the unused slots of the last block are zero.</summary>
     /// <exception cref="InvalidDataException">A slot holds something else.</exception>
@@ -112,7 +140,11 @@ internal sealed unsafe class RankTable : IDisposable
         var seen = new ulong[(top / 64) + 1];
         for (long slot = 0; slot < Slots; slot++)
         {
+#if ESA_BOUNDS
+            uint v = ReadSlot(slot);
+#else
             uint v = _ranks[slot];
+#endif
             if (slot >= samples)
             {
                 if (v != 0) throw new InvalidDataException($"the unused slot {slot} holds {v}, not 0");

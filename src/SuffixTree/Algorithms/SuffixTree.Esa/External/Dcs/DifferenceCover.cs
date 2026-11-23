@@ -105,7 +105,7 @@ internal sealed class DifferenceCover
     /// build paid once in a fresh process (11 % of a build of 10<sup>7</sup> symbols), so the result of the search is part of the code. It is read-only data (no caller can change it) and <see cref="FromTable"/> checks it
     /// every time it is used.
     /// </summary>
-    private static ReadOnlySpan<int> DefaultSingerResidues => [0];
+    private static ReadOnlySpan<int> DefaultSingerResidues => [1, 2, 21, 28, 67, 108, 209, 222, 233, 291, 300, 306, 314, 350, 458, 468, 486, 543, 588, 631, 686, 734, 805, 810, 845, 857, 861, 882, 899, 931, 961, 992];
 
     /// <summary>A cover of Z_<paramref name="period"/>: the Singer set when the period is <c>q^2 + q + 1</c> with q prime, otherwise the pruned square-root construction. Deterministic. The Singer set of <see cref="DefaultSingerPeriod"/> comes from the table that is checked when it is used (a new object every time, no search), every other one from the search.</summary>
     internal static DifferenceCover Create(int period) => Create(period, DefaultSingerResidues);
