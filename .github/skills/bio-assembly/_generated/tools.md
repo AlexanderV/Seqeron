@@ -32,6 +32,7 @@
 | `cumulative_gc_skew` | Analysis | `GcSkewCalculator.CalculateCumulativeGcSkew` | [doc](../../../../docs/mcp/tools/analysis/cumulative_gc_skew.md) |
 | `cutseq` | Analysis | `EmbossProgramRunner.Run` | [doc](../../../../docs/mcp/tools/analysis/cutseq.md) |
 | `dangling_end_energy` | Analysis | `RnaSecondaryStructure.GetDanglingEndEnergy` | [doc](../../../../docs/mcp/tools/analysis/dangling_end_energy.md) |
+| `dbtell` | Analysis | `EmbossProgramRunner.Run` | [doc](../../../../docs/mcp/tools/analysis/dbtell.md) |
 | `degapseq` | Analysis | `EmbossProgramRunner.Run` | [doc](../../../../docs/mcp/tools/analysis/degapseq.md) |
 | `delta2blocks` | Analysis | `MummerDelta2Blocks.Run` | [doc](../../../../docs/mcp/tools/analysis/delta2blocks.md) |
 | `delta2maf` | Analysis | `MummerDelta2Maf.Run` | [doc](../../../../docs/mcp/tools/analysis/delta2maf.md) |
@@ -45,6 +46,7 @@
 | `discover_motifs` | Analysis | `MotifFinder.DiscoverMotifs` | [doc](../../../../docs/mcp/tools/analysis/discover_motifs.md) |
 | `disorder_propensity` | Analysis | `DisorderPredictor.GetDisorderPropensity` | [doc](../../../../docs/mcp/tools/analysis/disorder_propensity.md) |
 | `dnadiff` | Analysis | `GenomicAnalyzer.Dnadiff` | [doc](../../../../docs/mcp/tools/analysis/dnadiff.md) |
+| `drfinddata` | Analysis | `EmbossProgramRunner.Run` | [doc](../../../../docs/mcp/tools/analysis/drfinddata.md) |
 | `dust_score` | Analysis | `SequenceComplexity.CalculateDustScore` | [doc](../../../../docs/mcp/tools/analysis/dust_score.md) |
 | `dyad_analysis` | Analysis | `MotifFinder.AnalyzeDyads` | [doc](../../../../docs/mcp/tools/analysis/dyad_analysis.md) |
 | `emboss_report_file` | Analysis | `EmbossReportPrograms.Fuzznuc` | [doc](../../../../docs/mcp/tools/analysis/emboss_report_file.md) |
@@ -215,6 +217,7 @@
 | `show_snps` | Analysis | `MummerShowSnps.Run` | [doc](../../../../docs/mcp/tools/analysis/show_snps.md) |
 | `show_tiling` | Analysis | `MummerShowTiling.Run` | [doc](../../../../docs/mcp/tools/analysis/show_tiling.md) |
 | `showalign` | Analysis | `MultipleAlignmentDisplay.ShowAlign` | [doc](../../../../docs/mcp/tools/analysis/showalign.md) |
+| `showdb` | Analysis | `EmbossProgramRunner.Run` | [doc](../../../../docs/mcp/tools/analysis/showdb.md) |
 | `showfeat` | Analysis | `EmbossShowfeatProgram.Showfeat` | [doc](../../../../docs/mcp/tools/analysis/showfeat.md) |
 | `showorf` | Analysis | `EmbossProgramRunner.Run` | [doc](../../../../docs/mcp/tools/analysis/showorf.md) |
 | `shuffleseq` | Analysis | `EmbossProgramRunner.Run` | [doc](../../../../docs/mcp/tools/analysis/shuffleseq.md) |

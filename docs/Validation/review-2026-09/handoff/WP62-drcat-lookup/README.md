@@ -1,3 +1,5 @@
+**STATUS: INTEGRATED (2026-11-23, B09.md F309, `returned/WP62-drcat-lookup-out.zip`: 20 rows, EMBOSS 6.6.0.0 on x86_64, DRCAT.dat sha256 `ea870d34...` = the file of the audit machine, network present).** Rows 001-013 (seqret / entret on catalogue databases): the 6 seqret runs that end by themselves fail the fetch with the messages the port reports; 5 runs (embl / uniprot fetches) did not end within the 60 s limit (not a result a port without network can have: documented, asserted as the failed fetch); 2 entret runs used `-outseq`, which entret does not have. Rows 014-020: `showdb`, `drfinddata` (3 queries), `dbtell` (2 databases) equal the port (`EmbossPrograms_Oracle_Tests`, `EmbossDrcat_Oracle_Tests`). No further run.
+
 # Hand-off WP62-drcat-lookup (temporary Docker package for the user's Mac)
 
 **Why.** A USA `db:id` of a database that the configuration does not define is looked up by `queryDbfind` (`ajquery.c`) in the DRCAT resource catalogue (`DRCAT.dat` of the EMBOSS data) and fetched over the network from the URL / method of
@@ -15,5 +17,4 @@ ls -l returned
 ```
 **Send back.** The archive `returned/WP62-drcat-lookup-out.zip` (or the `out` directory) placed in `docs/Validation/review-2026-09/handoff/WP62-drcat-lookup/returned/`.
 
-**How it is integrated.** The next session reads `out/rows` into oracle rows of `seqret` / `entret` for the USAs of DRCAT databases (the fetched entries become test files, the messages of failures decide the messages of the port) and implements
-`queryDbfind` / the URL access methods of `ajquery.c` against them; the oracle of `seqret` (`emboss_prog_seqret...`) gets the rows that run without network once the catalogue is a data file of the port.
+**How it was integrated (F309).** The catalogue (`DRCAT.dat`, `EDAM.obo`, `emboss.standard` and the index files of the installation) is embedded in `Seqeron.Genomics.Infrastructure`; `queryDbfind` / `ajResourceGetDbdata` are ported (a USA of a database that only DRCAT defines is looked up in the catalogue; the fetch fails without network as the library reports it), and so are `drfinddata`, `dbtell` and `showdb`; 899 USA runs of seqret / entret, 233 / 302 / 301 runs of the three programs and the rows of this package are the oracles (`EmbossDrcat_Oracle_Tests`, `EmbossPrograms_Oracle_Tests`).

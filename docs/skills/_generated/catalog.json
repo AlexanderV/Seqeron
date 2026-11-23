@@ -819,6 +819,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L649"
   },
   {
+    "tool": "dbtell",
+    "server": "Analysis",
+    "methodId": "EmbossProgramRunner.Run",
+    "docPath": "docs/mcp/tools/analysis/dbtell.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossSequencePrograms.Dbtell.cs"
+  },
+  {
     "tool": "degapseq",
     "server": "Analysis",
     "methodId": "EmbossProgramRunner.Run",
@@ -908,6 +915,13 @@
     "methodId": "GenomicAnalyzer.Dnadiff",
     "docPath": "docs/mcp/tools/analysis/dnadiff.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.Dnadiff.cs"
+  },
+  {
+    "tool": "drfinddata",
+    "server": "Analysis",
+    "methodId": "EmbossProgramRunner.Run",
+    "docPath": "docs/mcp/tools/analysis/drfinddata.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossSequencePrograms.Drfinddata.cs"
   },
   {
     "tool": "dust_score",
@@ -2098,6 +2112,13 @@
     "methodId": "MultipleAlignmentDisplay.ShowAlign",
     "docPath": "docs/mcp/tools/analysis/showalign.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MultipleAlignmentDisplay.cs"
+  },
+  {
+    "tool": "showdb",
+    "server": "Analysis",
+    "methodId": "EmbossProgramRunner.Run",
+    "docPath": "docs/mcp/tools/analysis/showdb.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/EmbossSequencePrograms.Dbtell.cs"
   },
   {
     "tool": "showfeat",

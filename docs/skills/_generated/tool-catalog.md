@@ -100,7 +100,7 @@
 | `write_big_alignment` | `AlignmentCoordinateFormats.WriteBigBed / WriteBigMaf / WriteBigPsl` | [doc](../../mcp/tools/alignment/write_big_alignment.md) |
 | `write_coordinate_alignment` | `AlignmentCoordinateFormats.Write` | [doc](../../mcp/tools/alignment/write_coordinate_alignment.md) |
 
-## Analysis (235 tools)
+## Analysis (238 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -130,6 +130,7 @@
 | `cumulative_gc_skew` | `GcSkewCalculator.CalculateCumulativeGcSkew` | [doc](../../mcp/tools/analysis/cumulative_gc_skew.md) |
 | `cutseq` | `EmbossProgramRunner.Run` | [doc](../../mcp/tools/analysis/cutseq.md) |
 | `dangling_end_energy` | `RnaSecondaryStructure.GetDanglingEndEnergy` | [doc](../../mcp/tools/analysis/dangling_end_energy.md) |
+| `dbtell` | `EmbossProgramRunner.Run` | [doc](../../mcp/tools/analysis/dbtell.md) |
 | `degapseq` | `EmbossProgramRunner.Run` | [doc](../../mcp/tools/analysis/degapseq.md) |
 | `delta2blocks` | `MummerDelta2Blocks.Run` | [doc](../../mcp/tools/analysis/delta2blocks.md) |
 | `delta2maf` | `MummerDelta2Maf.Run` | [doc](../../mcp/tools/analysis/delta2maf.md) |
@@ -143,6 +144,7 @@
 | `discover_motifs` | `MotifFinder.DiscoverMotifs` | [doc](../../mcp/tools/analysis/discover_motifs.md) |
 | `disorder_propensity` | `DisorderPredictor.GetDisorderPropensity` | [doc](../../mcp/tools/analysis/disorder_propensity.md) |
 | `dnadiff` | `GenomicAnalyzer.Dnadiff` | [doc](../../mcp/tools/analysis/dnadiff.md) |
+| `drfinddata` | `EmbossProgramRunner.Run` | [doc](../../mcp/tools/analysis/drfinddata.md) |
 | `dust_score` | `SequenceComplexity.CalculateDustScore` | [doc](../../mcp/tools/analysis/dust_score.md) |
 | `dyad_analysis` | `MotifFinder.AnalyzeDyads` | [doc](../../mcp/tools/analysis/dyad_analysis.md) |
 | `emboss_report_file` | `EmbossReportPrograms.Fuzznuc` | [doc](../../mcp/tools/analysis/emboss_report_file.md) |
@@ -313,6 +315,7 @@
 | `show_snps` | `MummerShowSnps.Run` | [doc](../../mcp/tools/analysis/show_snps.md) |
 | `show_tiling` | `MummerShowTiling.Run` | [doc](../../mcp/tools/analysis/show_tiling.md) |
 | `showalign` | `MultipleAlignmentDisplay.ShowAlign` | [doc](../../mcp/tools/analysis/showalign.md) |
+| `showdb` | `EmbossProgramRunner.Run` | [doc](../../mcp/tools/analysis/showdb.md) |
 | `showfeat` | `EmbossShowfeatProgram.Showfeat` | [doc](../../mcp/tools/analysis/showfeat.md) |
 | `showorf` | `EmbossProgramRunner.Run` | [doc](../../mcp/tools/analysis/showorf.md) |
 | `shuffleseq` | `EmbossProgramRunner.Run` | [doc](../../mcp/tools/analysis/shuffleseq.md) |

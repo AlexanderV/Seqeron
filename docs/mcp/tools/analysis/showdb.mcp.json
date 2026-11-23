@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "showdb",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "EmbossProgramRunner.Run",
+  "docRef": "EmbossSequencePrograms.Dbtell.cs",
+  "description": "EMBOSS 6.6.0 showdb: the table of the databases of the standard configuration of the installation (taxon, drcat and the ontologies), grouped by type and sorted by definition file and name, with the columns selected by qualifiers (-full all columns; -only with -type -id -query -all -comment -methods -taxscope -fields -numfields -aliases -numaliases -examples -numexamples -defined -release -heading -access to choose the columns; -noprotein -nonucleic -nosequence -nofeature -notext -notaxonomy -noresource -noobo -noxml and -nostandard -nouser -noinclude to leave databases out; -html for an HTML table); with database only that database (a name the configuration does not define stops the program). The databases of a user configuration file (.embossrc) are not read. Equals the installed program on 301 runs (standard output, error stream, exit status and written files byte for byte). B09 WP67, F309.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "database": {
+        "type": "string",
+        "description": "The name of one database to give information on (-database); default: all."
+      },
+      "qualifiers": {
+        "type": "string",
+        "description": "Qualifiers as typed on the command line, e.g. \"-full -nodefined\" or \"-only -type -comment -noheading\"."
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "text": {
+        "type": "string",
+        "description": "The text the program writes to standard output."
+      },
+      "files": {
+        "type": "object",
+        "description": "The other files the program wrote, by name (none)."
+      },
+      "messages": {
+        "type": "string[]",
+        "description": "What the library printed on the error stream (warnings and errors)."
+      }
+    },
+    "required": [
+      "text",
+      "files",
+      "messages"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "The program died: the messages of the library (a value it refuses)"
+    },
+    {
+      "code": 1001,
+      "message": "An input on which the reference program dies by a fault is refused"
+    }
+  ],
+  "examples": [
+    {
+      "name": "A run on the standard configuration",
+      "input": {
+        "database": "taxon"
+      },
+      "output": {
+        "text": "# Name         Type     Comment\n# ============ ======== =======\ntaxon          Taxonomy NCBI taxonomy\n",
+        "files": {},
+        "messages": []
+      }
+    }
+  ]
+}

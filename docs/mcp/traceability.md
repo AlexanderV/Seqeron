@@ -381,6 +381,9 @@
 | patmatmotifs | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossSequencePrograms4.cs | 0/0 | – | – | Build-Ready |
 | patmatdb | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossSequencePrograms4.cs | 0/0 | – | – | Build-Ready |
 | prosextract | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossSequencePrograms4.cs | 0/0 | – | – | Build-Ready |
+| drfinddata | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossDataPrograms.cs | 0/0 | – | – | Build-Ready |
+| dbtell | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossDataPrograms.cs | 0/0 | – | – | Build-Ready |
+| showdb | Analysis | EmbossProgramRunner.Run | AnalysisTools.EmbossDataPrograms.cs | 0/0 | – | – | Build-Ready |
 | plotcon | Analysis | EmbossProgramRunner.Run | AnalysisTools.Plotcon.cs | 0/0 | – | – | Build-Ready |
 | find_longest_common_region_multi | Analysis | GenomicAnalyzer.FindLongestCommonRegion | AnalysisTools.cs | 0/0 | – | – | Build-Ready |
 | find_repeat_pairs | Analysis | GenomicAnalyzer.FindRepeatPairs | AnalysisTools.cs | 0/0 | – | – | Build-Ready |

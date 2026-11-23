@@ -1,4 +1,4 @@
-**STATUS: RETURNED (2026-11-23, returned/R14-13-aligninfo-biopython179-out.zip: cases.jsonl 64 cases, results.jsonl 64 results, Biopython 1.79 on Python 3.9.25). Integration = oracle test of SummaryInfo/Pssm against results.jsonl (WP67 / WP68). No further run.**
+**STATUS: INTEGRATED (2026-11-23, B09.md F308, `returned/e6f5e012-R14-13-aligninfo-biopython179-out.zip`: cases.jsonl 64 cases, results.jsonl 64 results, Biopython 1.79 on Python 3.9.25).** The 6 199 calls are embedded as `r14_13_aligninfo_{cases,results}.jsonl.gz` and `AlignInfo_Returned_Oracle_Tests` requires every value and every exception (kind and message) of `SummaryInfo` / `Pssm` to equal the returned one: 6 199 / 6 199, no divergence of the port (the 128 calls with `chars_to_ignore` given as a string are Python's `isinstance` check, counted). No further run.
 
 # Hand-off R14-13-aligninfo-biopython179 (temporary Docker package for the user's Mac)
 
@@ -17,6 +17,6 @@ ls -l returned                # a minute or two (emulated on Apple Silicon)
 ```
 **Send back.** The archive `returned/R14-13-aligninfo-biopython179-out.zip` (or the `out` directory) placed in `docs/Validation/review-2026-09/handoff/R14-13-aligninfo-biopython179/returned/`.
 
-**How it is integrated.** The next session unzips it into an empty scratch directory (data only), copies `cases.jsonl` + `results.jsonl` to `tests/Seqeron/Seqeron.Genomics.Tests/TestData/Alignment/` (gzip), and adds the test `AlignInfo_Returned_Oracle_Tests` that builds each alignment as a `MultipleSeqAlignment`, runs the same calls on `SummaryInfo`
+**How it is integrated.** The session that integrated it unzipped it into an empty scratch directory (data only), copies `cases.jsonl` + `results.jsonl` to `tests/Seqeron/Seqeron.Genomics.Tests/TestData/Alignment/` (gzip), and added the test `AlignInfo_Returned_Oracle_Tests` that builds each alignment as a `MultipleSeqAlignment`, runs the same calls on `SummaryInfo`
 and requires every value and every error message to be equal (floats to the bit: both sides compute `count / total * log(...)` with the same `libm`). A call on which the port differs is a defect of the port (fixed), unless Biopython itself misbehaves (then the row is refused with the evidence, as for the other oracles).
-After that this README gets `STATUS: INTEGRATED`.
+This README has `STATUS: INTEGRATED`.

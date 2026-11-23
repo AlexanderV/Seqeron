@@ -299,3 +299,7 @@ Matrix-scored `LocalAlign`/`LocalAlignAffine` (BLOSUM62/PAM250/EDNAFULL, fractio
 
 The local variants of `PairwiseAligner_GapFunctions_Oracle_Tests` (Waterman-Smith-Beyer local, Gotoh local with floors, Smith-Waterman with a positive gap score; 1 501 rows in all, more than 250 of them local with a gap score above zero): the set of alignments equals the reference including the end points it fails to clear (suboptimal alignments listed, the optimum missed); the initial end-point cursor of the traceback is `(nA, nB)` as in the C code (a cursor at the origin changed 5 of the 1 501 rows).
 
+
+## WP67 (F309): EMBOSS data resource programs and the DRCAT lookup
+
+`EmbossDrcat_Oracle_Tests` (899 runs of `seqret` / `entret` on the names of the catalogue databases: 892 equal, 7 that ask a public server not compared; the catalogue has 675 entries, 41 `IDalt`; the user's rows with network access: 6 failed fetches equal, 5 fetches that never ended and 2 `entret -outseq` documented) and `EmbossPrograms_Oracle_Tests` (`drfinddata` 233, `dbtell` 302, `showdb` 301 runs; standard output, error stream, exit status and written files byte for byte; the segmentation faults of the reference are refused). MCP `EmbossDataProgramToolsTests`.
