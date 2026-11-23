@@ -20,7 +20,7 @@ for texts that do not fit the heap (build the container offline), and for code t
 | build 10 Mbp random DNA, 1 thread | 14.6 s | 14.9 s | **1.138 s** [1.118-1.174] (public `CreateEsa` 0.841 s [0.832-0.907]) | 2.33 s [2.04-2.39] at 10^7, 4 threads; 17.9 s [15.9-19.4] at 10^8, 4 threads |
 | size per character | 169 B (+2 B text) | 56.2 B (file) | **10.00 B** (+2 B for the caller's string it shares) | 9.25 B (core) / 13.25 B (with the Psi section) on disk |
 | peak memory of the build | 1,761 MB | 1,179 MB (46 MB anonymous) | 153.8 MB (15.4 B/char) | RssAnon 253 MB [247-256] at 10^8 (286 MB on genome-like text; gate 320 MB), whatever n |
-| count of 20-mers, 1 thread | 589,810 /s | 388,371 /s | 647,176 /s [611,792-824,474] | 0.99-1.03 of the in-memory tree on DNA, 4 threads (0.93 on a 20-letter text) |
+| count of 20-mers, 1 thread | 589,810 /s | 388,371 /s | 647,176 /s [611,792-824,474] | 1.00-1.03 of the in-memory tree on DNA, 4 threads (0.93 on a 20-letter text) |
 | locate of 1,000 8-mers | 49,653 patterns/s | 39,943 patterns/s | 990,228 patterns/s [876,565-1,627,933] (`FindAllOccurrences`); 2,173,239 /s with the lazy `Locate` | as in memory |
 | alphabet | UTF-16 | UTF-16 (ASCII stored in 1 B) | UTF-16 | **bytes only (0-255)** |
 | longest text | 1,073,741,823 | 1,073,741,823 | 1,073,741,823 (a `string` cannot be longer) | 2,147,483,646 (a 32-bit surface; 64 bits is stage S2) |
@@ -39,13 +39,13 @@ has two timing states (1.2-1.4x between groups of fresh processes), so read a ra
 | **Long navigation surface** | `IndexLocus` (a suffix-array interval and a depth), `TryExtendRight` / `TryExtendLeft`, lazy paged `Locate`, `TryParent`, `TryChild`, `GetChildren`, `TrySuffixLink`, `EdgeSymbol`, `SuffixAt`, `RankOf`, `LcpAt`, `Lcp`, `Lca`. `Support(IndexOperation)` says which operations are native and which build something first. |
 | **Container (SESA)** | One file, memory-mapped read-only, read in place; CRC-32C per section; three validation levels; `Checked` / `Trusted` access; deterministic bytes. |
 | **Concurrent readers** | Any number of threads over one tree; `Dispose` while calls are in flight is safe (section "Threads and disposal"). |
-| **Managed code only** | No native binaries, no P/Invoke. `IsAotCompatible` and `IsTrimmable` are set; NativeAOT is not measured. |
+| **Managed code only** | `SuffixTree.Esa` has no native binaries and no P/Invoke of its own. (The v6 loader that `SuffixIndexFactory.Open` can dispatch to, in the referenced `SuffixTree.Persistent`, has advisory `posix_madvise` / `PrefetchVirtualMemory` imports that a SESA file never reaches.) `IsAotCompatible` and `IsTrimmable` are set; a console program that builds an in-memory tree, opens a container at the `Structure` level, walks to a parent and calls the dispatcher published with `PublishAot` (linux-x64) without a trim or AOT warning and ran correctly (speed not measured). |
 
 ---
 
 ## Quick start
 
-All samples below were compiled and run against this repository (see the footer). `using SuffixTree; using SuffixTree.Esa; using SuffixTree.Indexing;`.
+All samples below were compiled and run against this repository (see the footer), in a console project with implicit usings and `using SuffixTree; using SuffixTree.Esa; using SuffixTree.Indexing; using System.Text;`.
 
 ### An in-memory index of a string
 
@@ -97,7 +97,7 @@ These need suffix links, so the first call builds the navigation pack (the inver
 
 ```csharp
 using EsaSuffixTree file = EsaSuffixTreeFactory.Open("genome.sesa");        // Header level, Checked access: the defaults
-file.TextLength;  file.CountOccurrences("GATTACA");
+Console.WriteLine($"{file.TextLength} symbols, {file.CountOccurrences("GATTACA")} x GATTACA");
 
 using var strict = EsaSuffixTreeFactory.Open("genome.sesa",
     new EsaOpenOptions { Validation = EsaValidationLevel.Structure, VerifyTextSha256 = true });   // re-derive everything once
@@ -198,7 +198,7 @@ Measured on one machine (4 vCPU Intel Xeon under KVM, 15 GB, Ubuntu 24.04, .NET 
 | first `Open` of a fresh process | 132 MB container | 15.2 ms [13.1-15.4] (JIT); 8.5 ms [7.4-8.6] with ReadyToRun; 12.9 us for the next `Open` in the same process | `results_1b9_open_r2r.txt` |
 | first queries of a process | `Checked`, mapped | the first 10,000-20,000 run as tier-0 code, 10-40 ms in all | ADR-004 1b.9g |
 
-Not measured: arm64, Windows, macOS, a text above 10^8 symbols in memory, the cold-cache latency of a query on a mapped file, NativeAOT, the same on a second machine.
+Not measured: arm64, Windows, macOS, a text above 10^8 symbols in memory, the cold-cache latency of a query on a mapped file, the speed of a NativeAOT build, the same on a second machine.
 
 ---
 
@@ -232,6 +232,6 @@ What the code promises, what it does not, and where each statement is pinned. "A
 
 ---
 
-Samples compiled and run on commit 04620cd5 (the head of branch `claude/stoic-maxwell-0olr2z` when the samples were run; `src/` and `apps/` are those of `12495c3e`), .NET 10.0.403, x86-64 Linux.
+Samples compiled and run on commit 04620cd5 (the head of branch `claude/stoic-maxwell-0olr2z` when the samples were run; `src/` and `apps/` are those of `12495c3e`), .NET 10.0.403, x86-64 Linux: the six `csharp` blocks of this file were extracted and run verbatim, in order, against containers built with the Bench command.
 Tests: `tests/SuffixTree/SuffixTree.Esa.Tests` (default set 4,945 passed + 37 skipped in 14 min 31 s, Release; categories Exhaustive, Fuzz, Vectors and the checked build `-p:EsaBounds=true` are run by hand, see `docs/refactoring/suffix-tree-upgrade/PROGRESS-S1.md`).
 Design and evidence: `docs/refactoring/suffix-tree-upgrade/` (`PLAN.md`, `BENCHMARK.md`, `adr/ADR-001` to `ADR-004`).

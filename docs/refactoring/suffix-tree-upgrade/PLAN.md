@@ -6,6 +6,20 @@ there; the original stage text was not found in the repository or its history, s
 competitor analysis and their numbering is new.
 (The earlier `suffix-tree-controlled-refactoring-plan.md` is an unrelated, finished internal refactoring.)
 
+**Status (2026-11-23).** S0, S1a and S1b are done and measured (an enhanced-suffix-array backend `SuffixTree.Esa`, an external-memory builder, the persistent container SESA with a memory-mapped reader, a concurrent reader protocol, a hand-off package for the owner's machine;
+records `PROGRESS-S0.md`, `PROGRESS-S1.md`, `adr/ADR-001` to `ADR-004`; the independent review of S1 is `analysis/review/1b10_review.md`, the user documentation is `src/SuffixTree/Algorithms/SuffixTree.Esa/README.md`). The paragraph above is the status of 2026-11-03 and is kept as written;
+the stages, the projection, the gates and the estimates below are unchanged. The gate of section S1 on 10 Mbp random DNA (1 thread, Release, five fresh processes, `adr/ADR-004` section 5a "1b.9", rows `analysis/bench/results_1b9_*`):
+- build SA + LCP + child table **1.138 s** [1.118-1.174] against <= 3.3 s (the public `CreateEsa` 0.841 s; the container at 10^8 symbols in 17.9 s on four threads, RssAnon 253 MB against the 320 MB gate): met;
+- size **10.00 B/char** in memory, 9.25 (core) / 13.25 (with Psi) B/char in the container, against <= 16; peak RSS of the in-memory build 15.4 B/char (<= 24): met;
+- count of 20-mers **647,176 /s** against >= 450k (3,098,222 /s at four threads): met;
+- locate of 1,000 8-mers **990,228 patterns/s** against >= 250k: met;
+- **not met as written, two gates:** the file-backed tree on a 20-letter text counts at 0.934 of the in-memory tree at four threads (locate 0.967; the gate is 0.97; DNA 1.02-1.03), and the first `Open` of a container in a fresh process takes 15.2 ms [13.1-15.4] against 10 ms (8.5 ms [7.4-8.6] with ReadyToRun; 13 us warm);
+
+Not delivered or not measured: a public entry that builds a container (the builder is `internal`), arm64, macOS, Windows and 3x10^9 symbols (the owner's run is pending).
+
+The Seqeron column of the matrix was re-scored on 2026-11-23 (1b.11, `analysis/review/1b11_rescore.md`): property mean **2.28** (rank 4 of 13; 1.80 and rank 9 on 2026-11-03), function coverage **72.8 %** (**56.8 %** on the tree layer; 55.6 % and 39.5 % before); the review argues for 2.20 on two of the cells (C14, C15) without a change of rank.
+**S2-S8 are not approved and wait for the owner.**
+
 Evidence: [COMPETITOR_MATRIX.md](COMPETITOR_MATRIX.md) (13 tools x 24 properties and x 81 functions, sourced per cell),
 [BENCHMARK.md](BENCHMARK.md) (measurements on one machine), `analysis/` (data, scripts, hand-off package).
 
