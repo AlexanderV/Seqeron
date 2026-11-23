@@ -2,7 +2,7 @@
 
 MCP server — **Pairwise and multiple sequence alignment, overlap/assembly and approximate matching.**
 
-Exposes **83 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+Exposes **84 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
 MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test, with a
 per-tool doc under [`docs/mcp/tools/alignment/`](../../../../docs/mcp/tools/alignment). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
@@ -52,6 +52,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `local_align` | Local pairwise alignment (Smith-Waterman, zero floor). Linear gap model: every gap position scores gapExtend; gapOpen is IGNORED (use local… |
 | `local_align_affine` | Local pairwise alignment with affine gap costs (Smith-Waterman 1981 with Gotoh 1982 gaps): a gap of length k scores gapOpen + k·gapExtend; … |
 | `local_align_top_n` | Waterman-Eggert (1987) top-N NON-INTERSECTING local alignments (EMBOSS matcher -alternatives / lalign declumping): best alignment, then the best one sharing no aligned residue pair with it, ... up to `maxAlignments` of score >= `minScore`; linear or `affine` gaps, scalar or `matrix` scoring. |
+| `local_align_zscore` | Shuffle Z-score of the best local score (EMBOSS prss / FASTA idea; seeded). `local_align`, `local_align_affine` and `water_align` also report bit score, E-value and P-value with `significance` (BLAST+ statistics: Spouge E-value for the NCBI protein matrices, length-adjusted Karlin-Altschul for blastn). |
 | `local_align_co_optimal` | ALL distinct co-optimal local alignments (Biopython `PairwiseAligner(mode='local').align` set), capped at `maxAlignments`; linear or `affine` gaps, scalar or `matrix` scoring. |
 | `merge_contigs` | Concatenates two contigs, collapsing the specified suffix/prefix overlap of overlapLength bases. |
 | `minimap2_map` | minimap2 2.26 as a program: PAF / SAM text of `minimap2 [options] ref.fa query.fa [query2.fa]` with the base-level alignment (`-c` / `-a`, cs, MD, eqx, splice), paired reads, the index in parts, the other options and the program's option checks; 7 201 oracle command lines equal the installed program (B09 A3-9c2 / A5-9b / A5-9c). |

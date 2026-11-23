@@ -35,6 +35,7 @@ namespace Seqeron.Mcp.Alignment;
 // SequenceAligner outputs
 [JsonSerializable(typeof(AlignmentResultDto))]
 [JsonSerializable(typeof(LocalAlignmentListResult))]
+[JsonSerializable(typeof(AlignmentZScoreResult))]
 [JsonSerializable(typeof(AlignmentStatisticsDto))]
 [JsonSerializable(typeof(FormatAlignmentResult))]
 [JsonSerializable(typeof(WriteAlignmentResult))]

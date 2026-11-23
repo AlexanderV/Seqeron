@@ -86,7 +86,9 @@ public partial class AlignmentTools
         [Description(FormatParamDescription)] string? format = null,
         [Description(NamesParamDescription)] string[]? names = null,
         CancellationToken cancellationToken = default,
-        [Description(SequenceQualifiersDescription)] string? sequenceQualifiers = null)
+        [Description(SequenceQualifiersDescription)] string? sequenceQualifiers = null,
+        [Description(SignificanceParamDescription + " EMBOSS gap costs G / E must be integers: BLAST existence G - E, extension E (not with sequenceQualifiers).")] bool significance = false,
+        [Description(DbLengthParamDescription)] long? dbLength = null)
     {
         using var cancelScope = global::Seqeron.Genomics.Alignment.SequenceAligner.BeginCancellationScope(cancellationToken);
         if (sequenceQualifiers is not null)
@@ -98,7 +100,16 @@ public partial class AlignmentTools
         RequireSequence(sequence1, nameof(sequence1));
         RequireSequence(sequence2, nameof(sequence2));
         var r = global::Seqeron.Genomics.Alignment.SequenceAligner.WaterAlign(sequence1, sequence2, ResolveMatrix(matrix), gapOpen, gapExtend);
-        return FormatPair(ToAlignmentDto(r), format, EmbossLength(sequence1), EmbossLength(sequence2), names);
+        var dto = ToAlignmentDto(r);
+        if (significance)
+        {
+            if (sequenceQualifiers is not null)
+                throw new ArgumentException("significance cannot be combined with sequenceQualifiers.", nameof(significance));
+            string used = matrix ?? (global::Seqeron.Genomics.Infrastructure.EmbossSequenceReader.IsNucleotide(global::Seqeron.Genomics.Infrastructure.EmbossSequenceReader.Clean(sequence1)) && global::Seqeron.Genomics.Infrastructure.EmbossSequenceReader.IsNucleotide(global::Seqeron.Genomics.Infrastructure.EmbossSequenceReader.Clean(sequence2)) ? "EDNAFULL" : "EBLOSUM62");
+            dto = WithSignificance(dto, true, used, 0, 0, -(gapOpen - gapExtend), -gapExtend, EmbossLength(sequence1), EmbossLength(sequence2), dbLength, 1);
+        }
+
+        return FormatPair(dto, format, EmbossLength(sequence1), EmbossLength(sequence2), names);
     }
 
     [McpServerTool(Name = "write_alignment", Title = "Alignment — Write an alignment file (EMBOSS -aformat)", ReadOnly = true)]

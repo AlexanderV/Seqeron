@@ -301,6 +301,8 @@
     <!-- ALIGN-MULTI-001 (audit A2-19b, B09 F283): MAFFT 7.505 progressive strategies (three and more sequences: FFT-NS-1 / -2, NW-NS-1 / -2 and every option of disttbfast), rows and standard error;
          scripts/alignment/generate_mafft_progressive_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\mafft_progressive_oracle.tsv.gz" />
+    <!-- R14-7 (B09 F300): BLAST+ 2.12.0 bit scores / E-values of 2 283 HSPs (scripts/alignment/generate_significance_oracle.py) -->
+    <EmbeddedResource Include="TestData\Alignment\blast_significance_oracle.tsv.gz" />
     <!-- ALIGN-MULTI-001 (audit A2-19c part 1, B09 F284): MAFFT 7.505 option maxiterate (FFT-NS-i / NW-NS-i: dndpre + dvtditr), rows and standard error;
          scripts/alignment/generate_mafft_iterative_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\mafft_iterative_oracle.tsv.gz" />

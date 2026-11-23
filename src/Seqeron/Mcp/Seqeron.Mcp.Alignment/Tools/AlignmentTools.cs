@@ -67,9 +67,13 @@ public partial class AlignmentTools
         [Description(MatrixParamDescription)] string? matrix = null,
         [Description(FormatParamDescription)] string? format = null,
         [Description(NamesParamDescription)] string[]? names = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        [Description(SignificanceParamDescription + " This linear-gap tool has gap existence 0 and extension -gapExtend (the linear rows of the blastn tables).")] bool significance = false,
+        [Description(DbLengthParamDescription)] long? dbLength = null,
+        [Description(DbSequencesParamDescription)] long dbSequences = 1)
     {
-        return FormatPair(LocalAlignCore(sequence1, sequence2, match, mismatch, gapOpen, gapExtend, matrix, cancellationToken), format, sequence1.Length, sequence2.Length, names);
+        var dto = WithSignificance(LocalAlignCore(sequence1, sequence2, match, mismatch, gapOpen, gapExtend, matrix, cancellationToken), significance, matrix, match, mismatch, 0, gapExtend, sequence1.Length, sequence2.Length, dbLength, dbSequences);
+        return FormatPair(dto, format, sequence1.Length, sequence2.Length, names);
     }
 
     private static AlignmentResultDto LocalAlignCore(
@@ -294,9 +298,13 @@ public partial class AlignmentTools
         [Description(MatrixParamDescription)] string? matrix = null,
         [Description(FormatParamDescription)] string? format = null,
         [Description(NamesParamDescription)] string[]? names = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        [Description(SignificanceParamDescription)] bool significance = false,
+        [Description(DbLengthParamDescription)] long? dbLength = null,
+        [Description(DbSequencesParamDescription)] long dbSequences = 1)
     {
-        return FormatPair(LocalAlignAffineCore(sequence1, sequence2, match, mismatch, gapOpen, gapExtend, matrix, cancellationToken), format, sequence1.Length, sequence2.Length, names);
+        var dto = WithSignificance(LocalAlignAffineCore(sequence1, sequence2, match, mismatch, gapOpen, gapExtend, matrix, cancellationToken), significance, matrix, match, mismatch, gapOpen, gapExtend, sequence1.Length, sequence2.Length, dbLength, dbSequences);
+        return FormatPair(dto, format, sequence1.Length, sequence2.Length, names);
     }
 
     private static AlignmentResultDto LocalAlignAffineCore(

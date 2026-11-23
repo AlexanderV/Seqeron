@@ -15,7 +15,30 @@ public record AlignmentResultDto(
     int EndPosition1,
     int EndPosition2,
     double ExactScore = 0,
-    string? Formatted = null);
+    string? Formatted = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    AlignmentSignificanceDto? Significance = null);
+
+/// <summary>The statistical significance of a local alignment score (BLAST+ statistics, <c>significance</c> option of the local tools).</summary>
+/// <param name="BitScore">(lambda S - ln K) / ln 2.</param>
+/// <param name="EValue">Expected number of chance alignments with at least this score in the search space.</param>
+/// <param name="PValue">1 - exp(-E).</param>
+/// <param name="Method">SpougeFiniteSizeCorrection (protein matrices, as BLAST+) or LengthAdjustedKarlinAltschul (nucleotides).</param>
+/// <param name="Lambda">Karlin-Altschul lambda of the scoring system.</param>
+/// <param name="K">Karlin-Altschul K.</param>
+/// <param name="H">Relative entropy H.</param>
+/// <param name="LengthAdjustment">Edge-effect length adjustment (0 with the finite-size correction).</param>
+/// <param name="SearchSpace">Effective search space.</param>
+public record AlignmentSignificanceDto(double BitScore, double EValue, double PValue, string Method, double Lambda, double K, double H, int LengthAdjustment, double SearchSpace);
+
+/// <summary>Shuffle Z-score of a local alignment score (<c>local_align_zscore</c>).</summary>
+/// <param name="Score">The best local score of the pair.</param>
+/// <param name="Mean">Mean of the best local scores of the shuffles of sequence2.</param>
+/// <param name="StandardDeviation">Sample standard deviation of the shuffled scores.</param>
+/// <param name="ZScore">(Score - Mean) / StandardDeviation (0 when every shuffled score is equal).</param>
+/// <param name="Shuffles">Number of shuffles.</param>
+/// <param name="Seed">Seed of the shuffles.</param>
+public record AlignmentZScoreResult(int Score, double Mean, double StandardDeviation, double ZScore, int Shuffles, int Seed);
 
 /// <summary>List of alignments (local Waterman–Eggert top-N, local / global co-optimal enumeration), in the order found.</summary>
 public record LocalAlignmentListResult(AlignmentResultDto[] Alignments, int Count);
