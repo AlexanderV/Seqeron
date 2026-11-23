@@ -9,6 +9,7 @@ namespace SuffixTree.Esa.Tests.External;
 /// an overrun of native memory that, in the production build, corrupts the neighbour at random (the earlier audit saw a hang or a crash) and in the quiet re-run did nothing at all, so no assertion noticed it.
 /// </summary>
 [TestFixture]
+[HangLimit(30)]
 public class SaNamesGap1b9cTests
 {
     [Test]

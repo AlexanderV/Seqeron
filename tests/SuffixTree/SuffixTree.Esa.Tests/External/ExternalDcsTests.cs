@@ -9,6 +9,7 @@ namespace SuffixTree.Esa.Tests.External;
 /// recursion ran), on every string of the exhaustive tiers, on the families, for every thread count and bucket capacity, with the failure modes of the stage.
 /// </summary>
 [TestFixture]
+[HangLimit(30)]
 public class ExternalDcsTests
 {
     private TempDir _dir = null!;
@@ -89,6 +90,7 @@ public class ExternalDcsTests
     }
 
     [Test]
+    [HangLimit(150)]
     public void EveryString_OverSigma1To3_OfTheDefaultTier_IsTheOracle()
     {
         int count = 0;
@@ -172,6 +174,7 @@ public class ExternalDcsTests
     }
 
     [Test]
+    [HangLimit(290)]
     public void TheOutput_IsIdentical_ForEveryThreadCount_BucketCapacity_AndSeed()
     {
         foreach ((string name, string text) in SaRun.Families(12_000).Where(f => f.Name is "a^n" or "fibonacci" or "tandem" or "random-dna" or "genome-like"))
@@ -220,6 +223,7 @@ public class ExternalDcsTests
     }
 
     [Test]
+    [HangLimit(40)]
     public void ALeafThatOutgrowsItsCapacity_IsSplitAgain_AndTheRanksAreStillRight()
     {
         // the splitters come from a reservoir, so a bucket can hold more than K_s records: it overflows during its scan and is split once more

@@ -92,12 +92,57 @@ internal sealed class DifferenceCover
         return true;
     }
 
-    /// <summary>A cover of Z_<paramref name="period"/>: the Singer set when the period is <c>q^2 + q + 1</c> with q prime, otherwise the pruned square-root construction. Deterministic.</summary>
-    internal static DifferenceCover Create(int period)
+    private static long s_searches;
+
+    /// <summary>How many searches for a Singer set this process has made (the tests count them: the default period must not make one).</summary>
+    internal static long Searches => Interlocked.Read(ref s_searches);
+
+    /// <summary>The period of the default of the builder (nominal 1024, the nearest Singer period): <c>q^2 + q + 1</c> with q = 31.</summary>
+    internal const int DefaultSingerPeriod = 993;
+
+    /// <summary>
+    /// The Singer set of <see cref="DefaultSingerPeriod"/>, as <see cref="SingerSet"/> finds it (32 residues; a test compares the two): the search for a primitive cubic over GF(31) costs 0.27 s, which every production
+    /// build paid once in a fresh process (11 % of a build of 10<sup>7</sup> symbols), so the result of the search is part of the code. It is read-only data (no caller can change it) and <see cref="FromTable"/> checks it
+    /// every time it is used.
+    /// </summary>
+    private static ReadOnlySpan<int> DefaultSingerResidues => [0];
+
+    /// <summary>A cover of Z_<paramref name="period"/>: the Singer set when the period is <c>q^2 + q + 1</c> with q prime, otherwise the pruned square-root construction. Deterministic. The Singer set of <see cref="DefaultSingerPeriod"/> comes from the table that is checked when it is used (a new object every time, no search), every other one from the search.</summary>
+    internal static DifferenceCover Create(int period) => Create(period, DefaultSingerResidues);
+
+    /// <summary><see cref="Create(int)"/> with the table of the default period given (the tests give a damaged one: it is refused and the search runs).</summary>
+    internal static DifferenceCover Create(int period, ReadOnlySpan<int> tableOfTheDefaultPeriod)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(period, 2);
+        if (SingerPrime(period) is int q)
+        {
+            if (period == DefaultSingerPeriod && FromTable(period, tableOfTheDefaultPeriod) is { } known) return known;
+            return new DifferenceCover(period, SingerSet(q), CoverKind.Singer);
+        }
+        return new DifferenceCover(period, Pruned(period), CoverKind.Pruned);
+    }
+
+    /// <summary>The cover of <see cref="Create(int)"/> made by the search alone, without the table (what the table was made from; the tests compare the two).</summary>
+    internal static DifferenceCover CreateBySearch(int period)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(period, 2);
         if (SingerPrime(period) is int q) return new DifferenceCover(period, SingerSet(q), CoverKind.Singer);
         return new DifferenceCover(period, Pruned(period), CoverKind.Pruned);
+    }
+
+    /// <summary>
+    /// The Singer cover of <paramref name="period"/> (<c>q^2 + q + 1</c>) from a table of residues, or null when the table is not one: q + 1 residues, strictly increasing, all in <c>[0, period)</c>, covering every
+    /// difference (<see cref="Verify"/>) and every non-zero difference exactly once (<see cref="IsPerfect"/>). The residues are copied, so the result shares nothing with the table.
+    /// </summary>
+    internal static DifferenceCover? FromTable(int period, ReadOnlySpan<int> residues)
+    {
+        if (SingerPrime(period) is not int q || residues.Length != q + 1) return null;
+        for (int i = 0; i < residues.Length; i++)
+        {
+            if (residues[i] < 0 || residues[i] >= period || (i > 0 && residues[i] <= residues[i - 1])) return null;
+        }
+        var cover = new DifferenceCover(period, residues.ToArray(), CoverKind.Singer);
+        return cover.Verify() && cover.IsPerfect() ? cover : null;
     }
 
     /// <summary>The Singer modulus <c>q^2 + q + 1</c> (q prime) closest to <paramref name="target"/> (ratio-wise); for the nominal X = 512 / 1024 / 2048 of ADR-004 this gives 553 / 993 / 1893.</summary>
@@ -157,6 +202,7 @@ internal sealed class DifferenceCover
     /// </summary>
     private static int[] SingerSet(int q)
     {
+        Interlocked.Increment(ref s_searches);
         int n = (q * q) + q + 1;
         long order = ((long)q * q * q) - 1;
         for (int c0 = 1; c0 < q; c0++)

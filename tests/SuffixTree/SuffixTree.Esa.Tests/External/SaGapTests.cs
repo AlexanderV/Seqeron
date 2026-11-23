@@ -9,6 +9,7 @@ namespace SuffixTree.Esa.Tests.External;
 /// difference covers pinned.
 /// </summary>
 [TestFixture]
+[HangLimit(30)]
 public class SaGapTests
 {
     private TempDir _dir = null!;
@@ -254,6 +255,7 @@ public class SaGapTests
     }
 
     [Test]
+    [HangLimit(40)]
     public void APh1ThatFailsAtAnyCallOfTheHook_OrUnderAnyArenaCap_LeavesNothing_AndGivesTheAccountBack()
     {
         SaCase c = SaCase.Of(SaRun.GenomeLike(2500, 6));

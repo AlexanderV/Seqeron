@@ -9,6 +9,7 @@ namespace SuffixTree.Esa.Tests.External;
 /// capacities, the failure modes, the counters, the verdict of the RssAnon gate and the platform without <c>/proc</c> or <c>fallocate</c>.
 /// </summary>
 [TestFixture]
+[HangLimit(30)]
 public class SaBuilderTests
 {
     private TempDir _dir = null!;
@@ -24,6 +25,7 @@ public class SaBuilderTests
     private SaBuildOptions Tiny(int v, int threads = 1) => SaTiny.Build(Scratch, v, threads);
 
     [Test]
+    [HangLimit(40)]
     public void SmallTexts_AreTheSuffixArray_WithRotatingTinyParameters()
     {
         int v = 0;
@@ -55,6 +57,7 @@ public class SaBuilderTests
     }
 
     [Test]
+    [HangLimit(60)]
     public void Families_AtEveryTinyVariant_AreTheSuffixArray()
     {
         int v = 0;
@@ -72,6 +75,7 @@ public class SaBuilderTests
     }
 
     [Test]
+    [HangLimit(80)]
     public void Families_WithTheDefaultParameters_AndWithTheScaledGeometry_AreTheSuffixArray()
     {
         foreach ((string name, string text) in SaRun.Families(40_000))
@@ -90,6 +94,7 @@ public class SaBuilderTests
     }
 
     [Test]
+    [HangLimit(450)]
     public void TheOutput_IsIdenticalForEveryThreadCount_BucketCapacity_AndSeed()
     {
         foreach ((string name, string text) in SaRun.Families(3_000).Where(f => f.Name is "a^n" or "fibonacci" or "tandem" or "random-dna" or "genome-like" or "n-runs"))

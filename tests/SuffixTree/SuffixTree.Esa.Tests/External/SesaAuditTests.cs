@@ -8,6 +8,7 @@ namespace SuffixTree.Esa.Tests.External;
 /// PH6 against the shared budget, and the limits of the arguments of the stages.
 /// </summary>
 [TestFixture]
+[HangLimit(30)]
 public class SesaAuditTests
 {
     private TempDir _dir = null!;

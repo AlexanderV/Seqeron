@@ -576,6 +576,7 @@ public class RankTableTests
 
 /// <summary>The generator of the splitters and the work list of the bucket tasks.</summary>
 [TestFixture]
+[HangLimit(30)]
 public class SaPlumbingTests
 {
     [Test]

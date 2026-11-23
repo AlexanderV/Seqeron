@@ -10,6 +10,7 @@ namespace SuffixTree.Esa.Tests.External;
 /// rents again on its own thread sees the very same array exactly when the code between the two calls returned its own. Each test names the mutants it kills (ids of <c>analysis/mutation/1b7d_*_listed.json</c>).
 /// </summary>
 [TestFixture]
+[HangLimit(30)]
 public class SaPositionGap1b9cTests
 {
     private TempDir _dir = null!;

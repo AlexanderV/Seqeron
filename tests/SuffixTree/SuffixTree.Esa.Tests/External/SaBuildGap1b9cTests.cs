@@ -10,6 +10,7 @@ namespace SuffixTree.Esa.Tests.External;
 /// and the scratch bytes of a build that failed. Each test names the mutants it kills.
 /// </summary>
 [TestFixture]
+[HangLimit(30)]
 public class SaBuildGap1b9cTests
 {
     private TempDir _dir = null!;

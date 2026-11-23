@@ -1,0 +1,194 @@
+[
+ {
+  "id": "1b9h_C01",
+  "desc": "Create: the table is used for every period (and checked for none)",
+  "old": "if (period == DefaultSingerPeriod && FromTable(period, tableOfTheDefaultPeriod) is { } known) return known;",
+  "new": "if (FromTable(period, tableOfTheDefaultPeriod) is { } known) return known;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTable1b9hTests|FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SaCoverGap1b9cTests)"
+ },
+ {
+  "id": "1b9h_C02",
+  "desc": "Create: the table is never used",
+  "old": "if (period == DefaultSingerPeriod && FromTable(period, tableOfTheDefaultPeriod) is { } known) return known;",
+  "new": "if (period != period && FromTable(period, tableOfTheDefaultPeriod) is { } known) return known;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTable1b9hTests|FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SaCoverGap1b9cTests)"
+ },
+ {
+  "id": "1b9h_C03",
+  "desc": "Create: the table is used without the check",
+  "old": "if (period == DefaultSingerPeriod && FromTable(period, tableOfTheDefaultPeriod) is { } known) return known;",
+  "new": "if (period == DefaultSingerPeriod) return new DifferenceCover(period, tableOfTheDefaultPeriod.ToArray(), CoverKind.Singer);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTable1b9hTests|FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SaCoverGap1b9cTests)"
+ },
+ {
+  "id": "1b9h_C04",
+  "desc": "Create: the default period is a different one",
+  "old": "internal const int DefaultSingerPeriod = 993;",
+  "new": "internal const int DefaultSingerPeriod = 553;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTable1b9hTests|FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SaCoverGap1b9cTests)"
+ },
+ {
+  "id": "1b9h_C05",
+  "desc": "Create: the cover of the table is of the kind Pruned",
+  "old": "var cover = new DifferenceCover(period, residues.ToArray(), CoverKind.Singer);",
+  "new": "var cover = new DifferenceCover(period, residues.ToArray(), CoverKind.Pruned);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTable1b9hTests|FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SaCoverGap1b9cTests)"
+ },
+ {
+  "id": "1b9h_C07",
+  "desc": "FromTable: the table of q residues is accepted",
+  "old": "residues.Length != q + 1) return null;",
+  "new": "residues.Length != q) return null;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTable1b9hTests|FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SaCoverGap1b9cTests)"
+ },
+ {
+  "id": "1b9h_C08",
+  "desc": "FromTable: a table of any length is accepted",
+  "old": "if (SingerPrime(period) is not int q || residues.Length != q + 1) return null;",
+  "new": "if (SingerPrime(period) is not int q) return null;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTable1b9hTests|FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SaCoverGap1b9cTests)"
+ },
+ {
+  "id": "1b9h_C09",
+  "desc": "FromTable: a period that is no Singer period is accepted (the length is not looked at)",
+  "old": "if (SingerPrime(period) is not int q || residues.Length != q + 1) return null;",
+  "new": "int q = 31; if (residues.Length != q + 1) return null;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTable1b9hTests|FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SaCoverGap1b9cTests)"
+ },
+ {
+  "id": "1b9h_C10",
+  "desc": "FromTable: a residue of zero is refused",
+  "old": "if (residues[i] < 0 || residues[i] >= period ||",
+  "new": "if (residues[i] < 1 || residues[i] >= period ||",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTable1b9hTests|FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SaCoverGap1b9cTests)"
+ },
+ {
+  "id": "1b9h_C11",
+  "desc": "FromTable: a residue below zero is accepted",
+  "old": "if (residues[i] < 0 || residues[i] >= period ||",
+  "new": "if (residues[i] < -1 || residues[i] >= period ||",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTable1b9hTests|FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SaCoverGap1b9cTests)"
+ },
+ {
+  "id": "1b9h_C12",
+  "desc": "FromTable: a residue equal to the period is accepted",
+  "old": "if (residues[i] < 0 || residues[i] >= period ||",
+  "new": "if (residues[i] < 0 || residues[i] > period ||",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTable1b9hTests|FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SaCoverGap1b9cTests)"
+ },
+ {
+  "id": "1b9h_C13",
+  "desc": "FromTable: a repeated residue is accepted (sorted, not strictly)",
+  "old": "(i > 0 && residues[i] <= residues[i - 1])",
+  "new": "(i > 0 && residues[i] < residues[i - 1])",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTable1b9hTests|FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SaCoverGap1b9cTests)"
+ },
+ {
+  "id": "1b9h_C14",
+  "desc": "FromTable: the order is not looked at",
+  "old": "|| (i > 0 && residues[i] <= residues[i - 1])) return null;",
+  "new": ") return null;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTable1b9hTests|FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SaCoverGap1b9cTests)"
+ },
+ {
+  "id": "1b9h_C15",
+  "desc": "FromTable: the second residue is not compared with the first",
+  "old": "(i > 0 && residues[i] <= residues[i - 1])",
+  "new": "(i > 1 && residues[i] <= residues[i - 1])",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTable1b9hTests|FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SaCoverGap1b9cTests)"
+ },
+ {
+  "id": "1b9h_C16",
+  "desc": "FromTable: either check is enough",
+  "old": "return cover.Verify() && cover.IsPerfect() ? cover : null;",
+  "new": "return cover.Verify() || cover.IsPerfect() ? cover : null;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTable1b9hTests|FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SaCoverGap1b9cTests)"
+ },
+ {
+  "id": "1b9h_C17",
+  "desc": "FromTable: the perfect-set check is dropped",
+  "old": "return cover.Verify() && cover.IsPerfect() ? cover : null;",
+  "new": "return cover.Verify() ? cover : null;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTable1b9hTests|FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SaCoverGap1b9cTests)"
+ },
+ {
+  "id": "1b9h_C18",
+  "desc": "FromTable: the cover check is dropped",
+  "old": "return cover.Verify() && cover.IsPerfect() ? cover : null;",
+  "new": "return cover.IsPerfect() ? cover : null;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTable1b9hTests|FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SaCoverGap1b9cTests)"
+ },
+ {
+  "id": "1b9h_C19",
+  "desc": "FromTable: the table is not checked at all",
+  "old": "return cover.Verify() && cover.IsPerfect() ? cover : null;",
+  "new": "return cover;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTable1b9hTests|FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SaCoverGap1b9cTests)"
+ },
+ {
+  "id": "1b9h_C20",
+  "desc": "SingerSet: the search is not counted",
+  "old": "        Interlocked.Increment(ref s_searches);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTable1b9hTests|FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SaCoverGap1b9cTests)"
+ },
+ {
+  "id": "1b9h_C21",
+  "desc": "SingerSet: the search is counted twice",
+  "old": "        Interlocked.Increment(ref s_searches);\n",
+  "new": "        Interlocked.Add(ref s_searches, 2);\n",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTable1b9hTests|FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SaCoverGap1b9cTests)"
+ },
+ {
+  "id": "1b9h_C22",
+  "desc": "CreateBySearch: the table is used",
+  "old": "if (SingerPrime(period) is int q) return new DifferenceCover(period, SingerSet(q), CoverKind.Singer);\n        return new DifferenceCover(period, Pruned(period), CoverKind.Pruned);\n    }\n\n    /// <summary>\n    /// The Singer cover",
+  "new": "if (SingerPrime(period) is int q) return FromTable(period, DefaultSingerResidues) ?? new DifferenceCover(period, SingerSet(q), CoverKind.Singer);\n        return new DifferenceCover(period, Pruned(period), CoverKind.Pruned);\n    }\n\n    /// <summary>\n    /// The Singer cover",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTable1b9hTests|FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SaCoverGap1b9cTests)"
+ },
+ {
+  "id": "1b9h_C23",
+  "desc": "the table: one residue is another perfect set (shifted by one)",
+  "old": "[1, 2, 21, 28, 67, 108, 209, 222, 233, 291, 300, 306, 314, 350, 458, 468, 486, 543, 588, 631, 686, 734, 805, 810, 845, 857, 861, 882, 899, 931, 961, 992]",
+  "new": "[0, 2, 3, 22, 29, 68, 109, 210, 223, 234, 292, 301, 307, 315, 351, 459, 469, 487, 544, 589, 632, 687, 735, 806, 811, 846, 858, 862, 883, 900, 932, 962]",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTable1b9hTests|FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SaCoverGap1b9cTests)"
+ },
+ {
+  "id": "1b9h_C24",
+  "desc": "the table: one residue is changed",
+  "old": "[1, 2, 21, 28, 67, 108,",
+  "new": "[1, 3, 21, 28, 67, 108,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTable1b9hTests|FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SaCoverGap1b9cTests)"
+ },
+ {
+  "id": "1b9h_C25",
+  "desc": "the table: the last residue is dropped",
+  "old": "931, 961, 992];",
+  "new": "931, 961];",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs",
+  "filter": "(FullyQualifiedName~DifferenceCoverTable1b9hTests|FullyQualifiedName~DifferenceCoverTests|FullyQualifiedName~SaCoverGap1b9cTests)"
+ }
+]

@@ -12,6 +12,7 @@ namespace SuffixTree.Esa.Tests.External;
 /// (the cost-only mutants of <c>SuffixOrder.CompareCore</c>). The pass-through of the arena guards to PH1 (Q76) changes nothing that a counter or an output shows on correct code and is argued in the audit, not tested.
 /// </summary>
 [TestFixture]
+[HangLimit(30)]
 public class SesaGapTests
 {
     private TempDir _dir = null!;
@@ -64,6 +65,7 @@ public class SesaGapTests
     }
 
     [Test]
+    [HangLimit(130)]
     public void Q52_ThePh3Cap_IsEnforcedOnItsOwn_WhenPh1Fits()
     {
         string text = StringFamilies.RandomDna(30_000, 5);

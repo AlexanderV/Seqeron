@@ -7,6 +7,7 @@ namespace SuffixTree.Esa.Tests.External;
 /// The gap that the audit of work package 1b.9c showed in the comparer of the leaf sort (<c>External/Sort/SuffixOrder.cs</c>, mutant C38 of <c>analysis/mutation/1b7d_sort_suffixorder_listed.json</c>).
 /// </summary>
 [TestFixture]
+[HangLimit(30)]
 public class SaSortStatsGap1b9cTests
 {
     private TempDir _dir = null!;
@@ -20,8 +21,8 @@ public class SaSortStatsGap1b9cTests
     [Test]
     public void ALeafOfEqualKeys_IsSortedByTheTiedComparison_AndTheSortCountsEveryOneOfThem()
     {
-        // C38 (TiedComparer is the full comparison): a text of one symbol is one leaf (no partition, whose splitters use the tied comparison directly) in which every key ties, so the comparer of the leaf sort is the only
-        // source of tied comparisons, and every comparison that it makes is one
+        // C38 (the tied comparison of the leaf sort is the full comparison; the struct comparer that this mutant was made for, TiedComparer, had no user and was removed in 1b.9h, the leaf sort calls CompareTied itself): a text of
+        // one symbol is one leaf (no partition, whose splitters use the tied comparison directly) in which every key ties, so the leaf sort is the only source of tied comparisons, and every comparison that it makes is one
         SaCase c = SaCase.Of(StringFamilies.AllSame(200));
         DifferenceCover cover = DifferenceCover.Create(7);
         string textPath = SaRun.WriteText(_dir, c);

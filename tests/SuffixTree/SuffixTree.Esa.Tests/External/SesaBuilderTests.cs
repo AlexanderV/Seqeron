@@ -7,6 +7,7 @@ namespace SuffixTree.Esa.Tests.External;
 
 /// <summary>The container writer end to end (gate G1 of work package 1b.7e): every section and the header against the in-RAM index and against ADR-003, written by the independent reader <see cref="SesaOracle"/>.</summary>
 [TestFixture]
+[HangLimit(30)]
 public sealed class SesaBuilderTests
 {
     private static readonly string[] Samples =
@@ -30,6 +31,7 @@ public sealed class SesaBuilderTests
     }
 
     [Test]
+    [HangLimit(400)]
     public void EveryStringOfSmallAlphabets_GivesTheInMemoryIndex()
     {
         using var dir = new TempDir();
@@ -49,6 +51,7 @@ public sealed class SesaBuilderTests
     }
 
     [Test]
+    [HangLimit(120)]
     public void TheFamilies_GiveTheInMemoryIndex_AtTheDefaultAndATinyGeometry()
     {
         using var dir = new TempDir();
@@ -106,6 +109,7 @@ public sealed class SesaBuilderTests
     }
 
     [Test]
+    [HangLimit(490)]
     public void TheBytes_DoNotDependOnThreadsSizesSeedsOrArenaCaps()
     {
         using var dir = new TempDir();

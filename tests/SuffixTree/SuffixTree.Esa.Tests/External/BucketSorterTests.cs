@@ -177,6 +177,7 @@ public class SuffixOrderTests
 
 /// <summary>PH2 and PH3 of work package 1b.7d (the partition into lexicographic buckets and the bucket sort) against the definition of the suffix array.</summary>
 [TestFixture]
+[HangLimit(30)]
 public class BucketSorterTests
 {
     private TempDir _dir = null!;
@@ -236,6 +237,7 @@ public class BucketSorterTests
     }
 
     [Test]
+    [HangLimit(100)]
     public void EveryString_OverSigma1To3_OfTheDefaultTier_IsTheSuffixArray()
     {
         int count = 0;
@@ -276,6 +278,7 @@ public class BucketSorterTests
     }
 
     [Test]
+    [HangLimit(40)]
     public void TheOutput_IsIdenticalForEveryThreadCount_LeafCapacity_FanOut_AndSeed()
     {
         foreach ((string name, string text) in SaRun.Families(9000).Where(f => f.Name is "a^n" or "fibonacci" or "tandem" or "random-dna" or "genome-like"))
@@ -462,7 +465,9 @@ public class BucketSorterTests
         string textPath = SaRun.WriteText(_dir, c);
         using MappedTextReader reader = MappedTextReader.Open(textPath, c.N, c.Bits);
         using RankTable ranks = RankTable.Open(SaInputs.WriteRankFile(_dir, c, cover), cover, c.N);
-        SortOptions ok = SaTiny.Sort(Scratch, 1);
+        // a small arena budget on every option set: a bound that is not enforced would allocate its buffers from the native heap, 8 GB for the capacity below (the mutant that dropped the bound killed the test host, work package 1b.9h, G1); with the budget the
+        // allocation is refused with an exception that is not the one expected here, so the test fails by an assertion
+        SortOptions ok = SaTiny.Sort(Scratch, 1) with { Budget = new ArenaBudget(8 << 20) };
         var sink = new MemorySaSink(c.N + 1);
         foreach ((string what, SortOptions bad) in new (string, SortOptions)[]
         {

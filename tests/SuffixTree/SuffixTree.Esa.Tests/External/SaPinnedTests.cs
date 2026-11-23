@@ -10,6 +10,7 @@ namespace SuffixTree.Esa.Tests.External;
 /// is a change of the algorithm, not of its output, and has to be understood before the figure is moved.
 /// </summary>
 [TestFixture]
+[HangLimit(30)]
 public class SaPinnedTests
 {
     private TempDir _dir = null!;
@@ -42,6 +43,7 @@ public class SaPinnedTests
     [TestCase(3)]
     [TestCase(4)]
     [TestCase(5)]
+    [HangLimit(50)]
     public void TheBuild_HasThePinnedShape_AndCounts(int which)
     {
         (string name, string text, int variant) = which switch

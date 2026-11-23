@@ -8,6 +8,7 @@ namespace SuffixTree.Esa.Tests.External;
 /// and the "second line of defence" mutants that it only argued. Each test names the mutants it kills (ids of <c>analysis/mutation/1b7d_*_listed.json</c>); every one of them was run against the test before it counted.
 /// </summary>
 [TestFixture]
+[HangLimit(30)]
 public class SaGap1b9cTests
 {
     private TempDir _dir = null!;
@@ -159,6 +160,7 @@ public class SaGap1b9cTests
     // ---------------------------------------------------------------- L14: the floor of the spill of the sort of a level
 
     [Test]
+    [HangLimit(60)]
     public void TheSortOfALevel_SpillsAtLeast64BytesWhateverTheIoBufferIs_SoTinyBuffersAndTheFloorGiveTheSameFiles()
     {
         // L14 (the sort spill has no floor): the sort of a level takes the buffer of the options but not below 64 bytes, so an I/O buffer of 16 bytes and one of 64 spill the same buckets to the same number of position files

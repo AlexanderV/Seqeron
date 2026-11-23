@@ -1,0 +1,114 @@
+[
+ {
+  "id": "1b9h_H01",
+  "desc": "Begin: a test begun again under its own name is taken for a runaway",
+  "old": "if (before is not null && before != name)",
+  "new": "if (before is not null)",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/TestSupport/HangLimitAttribute.cs",
+  "filter": "(FullyQualifiedName~HangBreakerTests)"
+ },
+ {
+  "id": "1b9h_H02",
+  "desc": "Begin: a runaway is never recorded",
+  "old": "if (before is not null && before != name) Interlocked.CompareExchange(ref _runaway, before, null);",
+  "new": "if (before is not null && before != name) { }",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/TestSupport/HangLimitAttribute.cs",
+  "filter": "(FullyQualifiedName~HangBreakerTests)"
+ },
+ {
+  "id": "1b9h_H03",
+  "desc": "Begin: the first runaway is replaced by a later one",
+  "old": "Interlocked.CompareExchange(ref _runaway, before, null);",
+  "new": "Interlocked.Exchange(ref _runaway, before);",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/TestSupport/HangLimitAttribute.cs",
+  "filter": "(FullyQualifiedName~HangBreakerTests)"
+ },
+ {
+  "id": "1b9h_H04",
+  "desc": "Begin: the test that begins is marked as inside also when it is refused",
+  "old": "if (runaway is null) Volatile.Write(ref _inside, name);",
+  "new": "Volatile.Write(ref _inside, name);",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/TestSupport/HangLimitAttribute.cs",
+  "filter": "(FullyQualifiedName~HangBreakerTests)"
+ },
+ {
+  "id": "1b9h_H05",
+  "desc": "Begin: the test that begins is never marked as inside",
+  "old": "if (runaway is null) Volatile.Write(ref _inside, name);",
+  "new": "if (runaway is null) { }",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/TestSupport/HangLimitAttribute.cs",
+  "filter": "(FullyQualifiedName~HangBreakerTests)"
+ },
+ {
+  "id": "1b9h_H06",
+  "desc": "Begin: no test is refused",
+  "old": "string? runaway = Volatile.Read(ref _runaway);\n        if (runaway is null)",
+  "new": "string? runaway = null;\n        if (runaway is null)",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/TestSupport/HangLimitAttribute.cs",
+  "filter": "(FullyQualifiedName~HangBreakerTests)"
+ },
+ {
+  "id": "1b9h_H07",
+  "desc": "End: the end of any test clears the mark",
+  "old": "Interlocked.CompareExchange(ref _inside, null, name);",
+  "new": "Interlocked.Exchange(ref _inside, null);",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/TestSupport/HangLimitAttribute.cs",
+  "filter": "(FullyQualifiedName~HangBreakerTests)"
+ },
+ {
+  "id": "1b9h_H08",
+  "desc": "End: the end of a test does not clear the mark",
+  "old": "internal void End(string name) => Interlocked.CompareExchange(ref _inside, null, name);",
+  "new": "internal void End(string name) { }",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/TestSupport/HangLimitAttribute.cs",
+  "filter": "(FullyQualifiedName~HangBreakerTests)"
+ },
+ {
+  "id": "1b9h_H09",
+  "desc": "End: the end of the runaway opens the breaker",
+  "old": "internal void End(string name) => Interlocked.CompareExchange(ref _inside, null, name);",
+  "new": "internal void End(string name) { Interlocked.CompareExchange(ref _inside, null, name); if (_runaway == name) _runaway = null; }",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/TestSupport/HangLimitAttribute.cs",
+  "filter": "(FullyQualifiedName~HangBreakerTests)"
+ },
+ {
+  "id": "1b9h_H10",
+  "desc": "ApplyToContext: the limit is in tenths of seconds",
+  "old": "checked(Seconds * 1000);",
+  "new": "checked(Seconds * 100);",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/TestSupport/HangLimitAttribute.cs",
+  "filter": "(FullyQualifiedName~HangBreakerTests)"
+ },
+ {
+  "id": "1b9h_H11",
+  "desc": "ApplyToContext: the product is not checked",
+  "old": "checked(Seconds * 1000);",
+  "new": "unchecked(Seconds * 1000);",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/TestSupport/HangLimitAttribute.cs",
+  "filter": "(FullyQualifiedName~HangBreakerTests)"
+ },
+ {
+  "id": "1b9h_H13",
+  "desc": "the attribute: the limit of a method is in tenths of seconds",
+  "old": "PropertyAttribute(PropertyNames.Timeout, checked(seconds * 1000))",
+  "new": "PropertyAttribute(PropertyNames.Timeout, checked(seconds * 100))",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/TestSupport/HangLimitAttribute.cs",
+  "filter": "(FullyQualifiedName~HangBreakerTests)"
+ },
+ {
+  "id": "1b9h_H14",
+  "desc": "the attribute: the limit of a method is not the limit of the property Timeout",
+  "old": "PropertyAttribute(PropertyNames.Timeout, checked(seconds * 1000))",
+  "new": "PropertyAttribute(PropertyNames.Category, checked(seconds * 1000))",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/TestSupport/HangLimitAttribute.cs",
+  "filter": "(FullyQualifiedName~HangBreakerTests)"
+ },
+ {
+  "id": "1b9h_H12",
+  "desc": "BeforeTest: a refused test is not failed",
+  "old": "            Assert.Fail($\"not started:",
+  "new": "            Assert.Pass($\"not started:",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/TestSupport/HangLimitAttribute.cs",
+  "filter": "(FullyQualifiedName~HangBreakerTests)"
+ }
+]

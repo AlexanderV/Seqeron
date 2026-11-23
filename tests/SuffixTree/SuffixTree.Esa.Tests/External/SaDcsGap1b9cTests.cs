@@ -7,6 +7,7 @@ namespace SuffixTree.Esa.Tests.External;
 /// The gaps that the audit of work package 1b.9c showed in the base case and in the statistics of PH1 (<c>External/Dcs/ExternalDcs.cs</c>; the mutants A05, A07 and L28 of <c>analysis/mutation/1b7d_dcs_externaldcs_listed.json</c>).
 /// </summary>
 [TestFixture]
+[HangLimit(30)]
 public class SaDcsGap1b9cTests
 {
     private TempDir _dir = null!;

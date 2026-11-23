@@ -28,6 +28,7 @@ public sealed class InjectedFailureException(string at) : Exception($"injected a
 
 /// <summary>Failure modes, atomic publication and cleanup of the container writer (gate G1 of work package 1b.7e): nothing is left behind, no descriptor and no mapping stays open, a target appears only complete.</summary>
 [TestFixture]
+[HangLimit(30)]
 public sealed class SesaFailureTests
 {
     private static string Text => StringFamilies.RandomDna(1500, 11) + new string('A', 300) + StringFamilies.RandomDna(900, 12);
@@ -145,6 +146,7 @@ public sealed class SesaFailureTests
     }
 
     [Test]
+    [HangLimit(60)]
     public void TheLatePreflight_AfterB2_CountsTheGrowthAndTheSpillBoundOfTheStack_ExactlyToTheByte()
     {
         using var dir = new TempDir();
@@ -183,6 +185,7 @@ public sealed class SesaFailureTests
     }
 
     [Test]
+    [HangLimit(230)]
     public void AFailureAtEveryHookPoint_LeavesNothing_AndKeepsTheTypeOfTheException()
     {
         using var dir = new TempDir();
@@ -201,6 +204,7 @@ public sealed class SesaFailureTests
     }
 
     [Test]
+    [HangLimit(130)]
     public void AFailureInsideAStage_LeavesNothing_AtEveryTracePoint()
     {
         using var dir = new TempDir();

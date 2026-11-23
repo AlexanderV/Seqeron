@@ -10,6 +10,7 @@ namespace SuffixTree.Esa.Tests.External;
 /// was run against the test before it counted.
 /// </summary>
 [TestFixture]
+[HangLimit(30)]
 public class SesaGap1b9cTests
 {
     // ---------------------------------------------------------------- V11: a failed output writer of B3 leaves no writer open on the file of the container
@@ -251,6 +252,7 @@ public class SesaGap1b9cTests
     // ---------------------------------------------------------------- B90: the option IncludePsi decides, at every thread count
 
     [Test]
+    [HangLimit(280)]
     public void WithoutIncludePsi_NoPsiSectionIsWritten_AtAnyThreadCount_AndWithItTheSectionIsThere()
     {
         // B90 ("IncludePsi || Threads > 1000"): the plan, not another option, decides whether PH6 runs

@@ -10,6 +10,7 @@ namespace SuffixTree.Esa.Tests.External;
 /// which the brief of 1b.7f suggested, does not: its LCP is U32, which has no overflow list). The whole file is checked against ADR-003 and read back by the reader at every level.
 /// </summary>
 [TestFixture]
+[HangLimit(30)]
 public class SesaOverflowSectionTests
 {
     private static string RepeatText(int random, int repeat, ulong seed)
@@ -21,6 +22,7 @@ public class SesaOverflowSectionTests
     [TestCase(2_100_000, 140_000, "U8")]
     [TestCase(1_500_000, 200_000, "U16")]
     [CancelAfter(600_000)]
+    [HangLimit(60)]
     public void AnOverflowListOfAMebibyte_IsAlignedToTheLargeBoundary_AndTheWholeFileConforms(int random, int repeat, string kind)
     {
         LcpKind expectedKind = Enum.Parse<LcpKind>(kind);

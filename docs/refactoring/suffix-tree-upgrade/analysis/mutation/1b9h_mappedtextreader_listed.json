@@ -1,0 +1,154 @@
+[
+ {
+  "id": "1b9h_T01",
+  "desc": "the checked region is the data without the padding",
+  "old": "        _bytes = PackedTextFormat.TotalBytes(n, bits);",
+  "new": "        _bytes = PackedTextFormat.DataBytes(n, bits);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs",
+  "filter": "(FullyQualifiedName~MappedTextBounds1b9hTests|FullyQualifiedName~MappedTextReaderTests)"
+ },
+ {
+  "id": "1b9h_T02",
+  "desc": "the checked region is one byte short",
+  "old": "        _bytes = PackedTextFormat.TotalBytes(n, bits);",
+  "new": "        _bytes = PackedTextFormat.TotalBytes(n, bits) - 1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs",
+  "filter": "(FullyQualifiedName~MappedTextBounds1b9hTests|FullyQualifiedName~MappedTextReaderTests)"
+ },
+ {
+  "id": "1b9h_T03",
+  "desc": "the checked region is one byte long",
+  "old": "        _bytes = PackedTextFormat.TotalBytes(n, bits);",
+  "new": "        _bytes = PackedTextFormat.TotalBytes(n, bits) + 1;",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs",
+  "filter": "(FullyQualifiedName~MappedTextBounds1b9hTests|FullyQualifiedName~MappedTextReaderTests)"
+ },
+ {
+  "id": "1b9h_T04",
+  "desc": "CheckRead: a read that ends exactly at the end of the region is refused",
+  "old": "if (offset < 0 || count > _bytes - offset) ThrowOutOfBounds(offset, count);",
+  "new": "if (offset < 0 || count >= _bytes - offset) ThrowOutOfBounds(offset, count);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs",
+  "filter": "(FullyQualifiedName~MappedTextBounds1b9hTests|FullyQualifiedName~MappedTextReaderTests)"
+ },
+ {
+  "id": "1b9h_T05",
+  "desc": "CheckRead: a read of one byte beyond the region is accepted",
+  "old": "if (offset < 0 || count > _bytes - offset) ThrowOutOfBounds(offset, count);",
+  "new": "if (offset < 0 || count > _bytes - offset + 1) ThrowOutOfBounds(offset, count);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs",
+  "filter": "(FullyQualifiedName~MappedTextBounds1b9hTests|FullyQualifiedName~MappedTextReaderTests)"
+ },
+ {
+  "id": "1b9h_T06",
+  "desc": "CheckRead: a negative offset is accepted",
+  "old": "if (offset < 0 || count > _bytes - offset) ThrowOutOfBounds(offset, count);",
+  "new": "if (count > _bytes - offset) ThrowOutOfBounds(offset, count);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs",
+  "filter": "(FullyQualifiedName~MappedTextBounds1b9hTests|FullyQualifiedName~MappedTextReaderTests)"
+ },
+ {
+  "id": "1b9h_T07",
+  "desc": "CheckRead: the count is not looked at",
+  "old": "if (offset < 0 || count > _bytes - offset) ThrowOutOfBounds(offset, count);",
+  "new": "if (offset < 0 || 0 > _bytes - offset) ThrowOutOfBounds(offset, count);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs",
+  "filter": "(FullyQualifiedName~MappedTextBounds1b9hTests|FullyQualifiedName~MappedTextReaderTests)"
+ },
+ {
+  "id": "1b9h_T08",
+  "desc": "WindowAt: the window is checked as eight bytes (the ninth carries the shift)",
+  "old": "        CheckRead(bit >> 3, 9);",
+  "new": "        CheckRead(bit >> 3, 8);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs",
+  "filter": "(FullyQualifiedName~MappedTextBounds1b9hTests|FullyQualifiedName~MappedTextReaderTests)"
+ },
+ {
+  "id": "1b9h_T09",
+  "desc": "WindowAt: the window is checked as ten bytes",
+  "old": "        CheckRead(bit >> 3, 9);",
+  "new": "        CheckRead(bit >> 3, 10);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs",
+  "filter": "(FullyQualifiedName~MappedTextBounds1b9hTests|FullyQualifiedName~MappedTextReaderTests)"
+ },
+ {
+  "id": "1b9h_T10",
+  "desc": "WindowAt: the check is of the symbol and not of the byte",
+  "old": "        CheckRead(bit >> 3, 9);",
+  "new": "        CheckRead(i, 9);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs",
+  "filter": "(FullyQualifiedName~MappedTextBounds1b9hTests|FullyQualifiedName~MappedTextReaderTests)"
+ },
+ {
+  "id": "1b9h_T11",
+  "desc": "WindowAt: no check",
+  "old": "        CheckRead(bit >> 3, 9);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs",
+  "filter": "(FullyQualifiedName~MappedTextBounds1b9hTests|FullyQualifiedName~MappedTextReaderTests)"
+ },
+ {
+  "id": "1b9h_T12",
+  "desc": "LoadShifted: the load of 32 + 8 bytes is checked as 32",
+  "old": "        CheckRead(bit >> 3, 40);",
+  "new": "        CheckRead(bit >> 3, 32);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs",
+  "filter": "(FullyQualifiedName~MappedTextBounds1b9hTests|FullyQualifiedName~MappedTextReaderTests)"
+ },
+ {
+  "id": "1b9h_T13",
+  "desc": "LoadShifted: the load is checked as 41 bytes",
+  "old": "        CheckRead(bit >> 3, 40);",
+  "new": "        CheckRead(bit >> 3, 41);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs",
+  "filter": "(FullyQualifiedName~MappedTextBounds1b9hTests|FullyQualifiedName~MappedTextReaderTests)"
+ },
+ {
+  "id": "1b9h_T14",
+  "desc": "LoadShifted: no check",
+  "old": "        CheckRead(bit >> 3, 40);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs",
+  "filter": "(FullyQualifiedName~MappedTextBounds1b9hTests|FullyQualifiedName~MappedTextReaderTests)"
+ },
+ {
+  "id": "1b9h_T15",
+  "desc": "ReadSymbols: the two bytes of the window are not counted",
+  "old": "(((long)destination.Length * _bits) + 7 >> 3) + 2",
+  "new": "(((long)destination.Length * _bits) + 7 >> 3)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs",
+  "filter": "(FullyQualifiedName~MappedTextBounds1b9hTests|FullyQualifiedName~MappedTextReaderTests)"
+ },
+ {
+  "id": "1b9h_T16",
+  "desc": "ReadSymbols: the bytes are rounded down",
+  "old": "(((long)destination.Length * _bits) + 7 >> 3) + 2",
+  "new": "(((long)destination.Length * _bits) >> 3) + 2",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs",
+  "filter": "(FullyQualifiedName~MappedTextBounds1b9hTests|FullyQualifiedName~MappedTextReaderTests)"
+ },
+ {
+  "id": "1b9h_T17",
+  "desc": "ReadSymbols: the first byte is taken from the symbol number",
+  "old": "CheckRead(start * _bits >> 3,",
+  "new": "CheckRead(start,",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs",
+  "filter": "(FullyQualifiedName~MappedTextBounds1b9hTests|FullyQualifiedName~MappedTextReaderTests)"
+ },
+ {
+  "id": "1b9h_T18",
+  "desc": "ReadSymbols: no check",
+  "old": "        CheckRead(start * _bits >> 3, (((long)destination.Length * _bits) + 7 >> 3) + 2);\n",
+  "new": "",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs",
+  "filter": "(FullyQualifiedName~MappedTextBounds1b9hTests|FullyQualifiedName~MappedTextReaderTests)"
+ },
+ {
+  "id": "1b9h_T19",
+  "desc": "ThrowOutOfBounds: the violation is of the other kind",
+  "old": "MemoryViolationKind.OutOfBounds,\n            $\"out-of-bounds read of the mapped text",
+  "new": "MemoryViolationKind.CanaryOverwritten,\n            $\"out-of-bounds read of the mapped text",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs",
+  "filter": "(FullyQualifiedName~MappedTextBounds1b9hTests|FullyQualifiedName~MappedTextReaderTests)"
+ }
+]

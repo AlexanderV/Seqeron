@@ -11,6 +11,7 @@ namespace SuffixTree.Esa.Tests.External;
 /// every size between a third of what it needs and more than it needs, with a pre-flight that cannot tell the free space: the build is a success or an <see cref="IOException"/>, nothing is left, and the process lives.
 /// </summary>
 [TestFixture]
+[HangLimit(30)]
 public sealed class FullDisk1b9dTests
 {
     /// <summary>An LCP of two bytes per entry and no overflow list: 32,600 symbols, a run of 2,600 equal letters.</summary>
@@ -147,6 +148,7 @@ public sealed class FullDisk1b9dTests
     // ------------------------------------------------------------------ a disk that fills inside the reservation
 
     [Test]
+    [HangLimit(100)]
     public void ADiskThatFillsInTheReservationOfTheTail_IsAnIoException_AndLeavesNothing()
     {
         foreach ((string name, string text) in new[] { ("overflow", TextOverflow), ("u16", TextU16), ("u32", TextU32) })
@@ -187,6 +189,7 @@ public sealed class FullDisk1b9dTests
     }
 
     [Test]
+    [HangLimit(40)]
     public void TheVolumeFillsRightAfterTheGrowth_TheLcpIsStillWritten_AndTheBuildEndsWithoutASignal()
     {
         foreach ((string name, string text) in new[] { ("overflow", TextOverflow), ("u16", TextU16), ("u32", TextU32) })
@@ -227,6 +230,7 @@ public sealed class FullDisk1b9dTests
     }
 
     [Test]
+    [HangLimit(160)]
     public void AFullDisk_AtEveryBoundaryOfTheBuild_IsASuccessOrAnIoException_NeverASignal_AndNothingIsLeft()
     {
         foreach ((string name, string text) in new[] { ("u16", TextU16), ("overflow", TextOverflow) })
@@ -268,6 +272,7 @@ public sealed class FullDisk1b9dTests
     }
 
     [Test]
+    [HangLimit(70)]
     public void AFullDisk_AtEveryPointThatThePhasesReport_IsASuccessOrAnIoException_NeverASignal_AndNothingIsLeft()
     {
         foreach ((string name, string text) in new[] { ("u16", TextU16), ("u8", TextU8) })
@@ -312,6 +317,7 @@ public sealed class FullDisk1b9dTests
     }
 
     [Test]
+    [HangLimit(180)]
     public void AVolumeOfAnySize_GivesASuccessOrAnIoException_NeverASignal_WhateverThePreflightKnows()
     {
         int builds = 0, failures = 0;

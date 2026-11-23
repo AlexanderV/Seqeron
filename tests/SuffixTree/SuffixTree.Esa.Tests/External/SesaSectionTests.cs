@@ -6,6 +6,7 @@ namespace SuffixTree.Esa.Tests.External;
 
 /// <summary>The stages of the builder that were given an overload or an option for the container (work package 1b.7e): <see cref="MappedOutputFile.Grow"/>, the suffix array as a section, PH4 over a range with a placed LCP, and PH4 + PH5 into sections.</summary>
 [TestFixture]
+[HangLimit(30)]
 public sealed class SesaSectionTests
 {
     private static long Align64(long x) => (x + 63) / 64 * 64;
@@ -319,6 +320,7 @@ public sealed class SesaSectionTests
     }
 
     [Test]
+    [HangLimit(70)]
     public void TheSectionStage_EveryStringOfSmallAlphabets_EqualsTheOracle()
     {
         using var dir = new TempDir();

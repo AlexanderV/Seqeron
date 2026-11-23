@@ -98,6 +98,7 @@ internal static class Ph6Run
 
 /// <summary>PH6 of ADR-004 section 3.3: the BWT pass and the Psi distribution against the definitions (gate G1 of work package 1b.7e).</summary>
 [TestFixture]
+[HangLimit(30)]
 public sealed class Ph6Tests
 {
     private static readonly BwtOptions TinyBwt = new() { ReadBytes = 8, WindowBytes = 4 };
@@ -119,6 +120,7 @@ public sealed class Ph6Tests
     }
 
     [Test]
+    [HangLimit(120)]
     public void TheDefaultWindows_OfARealRun_AreNotSmallerThanOneMiB()
     {
         using var dir = new TempDir();
@@ -133,6 +135,7 @@ public sealed class Ph6Tests
     }
 
     [Test]
+    [HangLimit(80)]
     public void EveryStringOfSmallAlphabets_GivesTheDefinitionsBwtAndPsi()
     {
         using var dir = new TempDir();

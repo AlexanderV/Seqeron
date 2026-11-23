@@ -1,0 +1,146 @@
+[
+ {
+  "id": "1b9h_R01",
+  "desc": "ReadChecked: the last position of the text is refused",
+  "old": "(ulong)p > (ulong)N ||",
+  "new": "(ulong)p >= (ulong)N ||",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs",
+  "filter": "(FullyQualifiedName~RankTableBounds1b9hTests|FullyQualifiedName~RankTableTests|FullyQualifiedName~SuffixOrderTests)"
+ },
+ {
+  "id": "1b9h_R02",
+  "desc": "ReadChecked: one position beyond the text is accepted",
+  "old": "(ulong)p > (ulong)N ||",
+  "new": "(ulong)p > (ulong)(N + 1) ||",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs",
+  "filter": "(FullyQualifiedName~RankTableBounds1b9hTests|FullyQualifiedName~RankTableTests|FullyQualifiedName~SuffixOrderTests)"
+ },
+ {
+  "id": "1b9h_R03",
+  "desc": "ReadChecked: no check of the position (a negative or a far position is folded into the table)",
+  "old": "(ulong)p > (ulong)N || index < 0 ||",
+  "new": "index < 0 ||",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs",
+  "filter": "(FullyQualifiedName~RankTableBounds1b9hTests|FullyQualifiedName~RankTableTests|FullyQualifiedName~SuffixOrderTests)"
+ },
+ {
+  "id": "1b9h_R04",
+  "desc": "ReadChecked: a residue outside the sample reads an arbitrary slot",
+  "old": " || index < 0 || (ulong)slot >= (ulong)Slots",
+  "new": " || (ulong)slot >= (ulong)Slots",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs",
+  "filter": "(FullyQualifiedName~RankTableBounds1b9hTests|FullyQualifiedName~RankTableTests|FullyQualifiedName~SuffixOrderTests)"
+ },
+ {
+  "id": "1b9h_R05",
+  "desc": "ReadChecked: the residue check refuses only below minus one",
+  "old": "index < 0 || (ulong)slot",
+  "new": "index < -1 || (ulong)slot",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs",
+  "filter": "(FullyQualifiedName~RankTableBounds1b9hTests|FullyQualifiedName~RankTableTests|FullyQualifiedName~SuffixOrderTests)"
+ },
+ {
+  "id": "1b9h_R06",
+  "desc": "ReadChecked: the last slot of the table is refused",
+  "old": "(ulong)slot >= (ulong)Slots || _view is null) ThrowOutOfBounds(p, r, slot);",
+  "new": "(ulong)slot >= (ulong)Slots - 1 || _view is null) ThrowOutOfBounds(p, r, slot);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs",
+  "filter": "(FullyQualifiedName~RankTableBounds1b9hTests|FullyQualifiedName~RankTableTests|FullyQualifiedName~SuffixOrderTests)"
+ },
+ {
+  "id": "1b9h_R07",
+  "desc": "ReadChecked: no check of the slot",
+  "old": " || (ulong)slot >= (ulong)Slots || _view is null) ThrowOutOfBounds(p, r, slot);",
+  "new": " || _view is null) ThrowOutOfBounds(p, r, slot);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs",
+  "filter": "(FullyQualifiedName~RankTableBounds1b9hTests|FullyQualifiedName~RankTableTests|FullyQualifiedName~SuffixOrderTests)"
+ },
+ {
+  "id": "1b9h_R08",
+  "desc": "ReadChecked: a read after Dispose is accepted",
+  "old": "(ulong)slot >= (ulong)Slots || _view is null) ThrowOutOfBounds(p, r, slot);",
+  "new": "(ulong)slot >= (ulong)Slots) ThrowOutOfBounds(p, r, slot);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs",
+  "filter": "(FullyQualifiedName~RankTableBounds1b9hTests|FullyQualifiedName~RankTableTests|FullyQualifiedName~SuffixOrderTests)"
+ },
+ {
+  "id": "1b9h_R09",
+  "desc": "ReadChecked: the slot ignores the class of the residue",
+  "old": "long slot = ((long)block * _classes) + index;\n        if ((ulong)p",
+  "new": "long slot = ((long)block * _classes);\n        if ((ulong)p",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs",
+  "filter": "(FullyQualifiedName~RankTableBounds1b9hTests|FullyQualifiedName~RankTableTests|FullyQualifiedName~SuffixOrderTests)"
+ },
+ {
+  "id": "1b9h_R10",
+  "desc": "ReadChecked: the slot is of the next block",
+  "old": "long slot = ((long)block * _classes) + index;\n        if ((ulong)p",
+  "new": "long slot = (((long)block + 1) * _classes) + index;\n        if ((ulong)p",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs",
+  "filter": "(FullyQualifiedName~RankTableBounds1b9hTests|FullyQualifiedName~RankTableTests|FullyQualifiedName~SuffixOrderTests)"
+ },
+ {
+  "id": "1b9h_R11",
+  "desc": "Rank: the checked build reads through the raw pointer",
+  "old": "        return ReadChecked(p, block, r);\n#else",
+  "new": "        return _ranks[((long)block * _classes) + _indexOf[r]];\n#else",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs",
+  "filter": "(FullyQualifiedName~RankTableBounds1b9hTests|FullyQualifiedName~RankTableTests|FullyQualifiedName~SuffixOrderTests)"
+ },
+ {
+  "id": "1b9h_R12",
+  "desc": "ThrowOutOfBounds: the message does not say that the table is disposed",
+  "old": "{(_view is null ? \"; the table is disposed\" : string.Empty)}",
+  "new": "{(_view is null ? string.Empty : string.Empty)}",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs",
+  "filter": "(FullyQualifiedName~RankTableBounds1b9hTests|FullyQualifiedName~RankTableTests|FullyQualifiedName~SuffixOrderTests)"
+ },
+ {
+  "id": "1b9h_R13",
+  "desc": "ThrowOutOfBounds: the violation is of the other kind",
+  "old": "MemoryViolationKind.OutOfBounds,\n            $\"out-of-bounds read of the rank table",
+  "new": "MemoryViolationKind.CanaryOverwritten,\n            $\"out-of-bounds read of the rank table",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs",
+  "filter": "(FullyQualifiedName~RankTableBounds1b9hTests|FullyQualifiedName~RankTableTests|FullyQualifiedName~SuffixOrderTests)"
+ },
+ {
+  "id": "1b9h_R14",
+  "desc": "ReadSlot: the last slot is refused",
+  "old": "if ((ulong)slot >= (ulong)Slots || _view is null) ThrowOutOfBounds(-1, 0, slot);",
+  "new": "if ((ulong)slot >= (ulong)Slots - 1 || _view is null) ThrowOutOfBounds(-1, 0, slot);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs",
+  "filter": "(FullyQualifiedName~RankTableBounds1b9hTests|FullyQualifiedName~RankTableTests|FullyQualifiedName~SuffixOrderTests)"
+ },
+ {
+  "id": "1b9h_R15",
+  "desc": "ReadSlot: no check of the slot",
+  "old": "if ((ulong)slot >= (ulong)Slots || _view is null) ThrowOutOfBounds(-1, 0, slot);",
+  "new": "if (_view is null) ThrowOutOfBounds(-1, 0, slot);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs",
+  "filter": "(FullyQualifiedName~RankTableBounds1b9hTests|FullyQualifiedName~RankTableTests|FullyQualifiedName~SuffixOrderTests)"
+ },
+ {
+  "id": "1b9h_R16",
+  "desc": "ReadSlot: a read after Dispose is accepted",
+  "old": "if ((ulong)slot >= (ulong)Slots || _view is null) ThrowOutOfBounds(-1, 0, slot);",
+  "new": "if ((ulong)slot >= (ulong)Slots) ThrowOutOfBounds(-1, 0, slot);",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs",
+  "filter": "(FullyQualifiedName~RankTableBounds1b9hTests|FullyQualifiedName~RankTableTests|FullyQualifiedName~SuffixOrderTests)"
+ },
+ {
+  "id": "1b9h_R17",
+  "desc": "Verify: the checked build reads the slots through the raw pointer",
+  "old": "            uint v = ReadSlot(slot);\n#else",
+  "new": "            uint v = _ranks[slot];\n#else",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs",
+  "filter": "(FullyQualifiedName~RankTableBounds1b9hTests|FullyQualifiedName~RankTableTests|FullyQualifiedName~SuffixOrderTests)"
+ },
+ {
+  "id": "1b9h_R18",
+  "desc": "Verify after Dispose does not throw the disposed exception",
+  "old": "ObjectDisposedException.ThrowIf(_view is null, this);\n        long samples",
+  "new": "long samples",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs",
+  "filter": "(FullyQualifiedName~RankTableBounds1b9hTests|FullyQualifiedName~RankTableTests|FullyQualifiedName~SuffixOrderTests)"
+ }
+]
