@@ -1,4 +1,4 @@
-**STATUS: AWAITING THE USER'S RUN (created 2026-11-23, B09.md F308).** The C# port (`SummaryInfo`, `Pssm`, `SummaryInfo.PrintInfoContent`) is already checked against the values published in the Biopython 1.79 test suite (`Tests/test_AlignInfo.py`: the nucleotide, protein and pseudo-count alignments, `ic` 7.32029999423075 / 133.061475107 / 7.546, the two printed PSSMs) and against hand-derived values; this run is the rest of the evidence (6 199 calls of 64 alignments on the real class).
+**STATUS: RETURNED (2026-11-23, returned/R14-13-aligninfo-biopython179-out.zip: cases.jsonl 64 cases, results.jsonl 64 results, Biopython 1.79 on Python 3.9.25). Integration = oracle test of SummaryInfo/Pssm against results.jsonl (WP67 / WP68). No further run.**
 
 # Hand-off R14-13-aligninfo-biopython179 (temporary Docker package for the user's Mac)
 
