@@ -1,39 +1,99 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "toolName": "find_longest_common_region",
-  "serverName": "Core",
-  "version": "1.0.0",
-  "stability": "stable",
-  "methodId": "GenomicAnalyzer.FindLongestCommonRegion",
-  "docRef": "Seqeron.Genomics/GenomicAnalyzer.cs#L178",
-  "description": "Find the longest common region between two DNA sequences.",
-  "inputSchema": {
-    "type": "object",
-    "properties": {
-      "sequence1": { "type": "string", "minLength": 1 },
-      "sequence2": { "type": "string", "minLength": 1 }
-    },
-    "required": ["sequence1", "sequence2"]
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "toolName": "find_longest_common_region",
+ "serverName": "Core",
+ "version": "1.1.0",
+ "stability": "stable",
+ "methodId": "GenomicAnalyzer.FindLongestCommonRegion",
+ "docRef": "Seqeron.Genomics/GenomicAnalyzer.cs#L178",
+ "description": "Find the longest common region (longest common substring) between two nucleotide sequences. Case-insensitive; only A/C/G/T match, N / IUPAC codes / other symbols match nothing and end a region. strands: Forward (default) | ReverseComplement | Both (the region may be shared with the reverse complement of the second sequence; position2 is then the forward-strand start of the window that spells it and isReverseComplement is true). maxMismatches > 0: the longest pair of equal-length windows that differ in at most that many positions (Hamming, no gaps; Flouri et al. 2015), returned with region2 and the mismatch count. Cancellation is checked before and after the search (the search itself is not interruptible).",
+ "inputSchema": {
+  "type": "object",
+  "properties": {
+   "sequence1": {
+    "type": "string",
+    "minLength": 1,
+    "description": "The first nucleotide sequence (A/C/G/T plus IUPAC codes such as N, case-insensitive)"
+   },
+   "sequence2": {
+    "type": "string",
+    "minLength": 1,
+    "description": "The second nucleotide sequence"
+   },
+   "strands": {
+    "type": "string",
+    "description": "Which strands of the second sequence (case-insensitive): Forward (default) | ReverseComplement | Both",
+    "default": "Forward"
+   },
+   "maxMismatches": {
+    "type": "integer",
+    "description": "Largest number of mismatching positions of the two windows (default 0 = exact common substring)",
+    "default": 0
+   }
   },
-  "outputSchema": {
-    "type": "object",
-    "properties": {
-      "region": { "type": "string" },
-      "position1": { "type": "integer" },
-      "position2": { "type": "integer" },
-      "length": { "type": "integer" }
-    },
-    "required": ["region", "position1", "position2", "length"]
-  },
-  "errors": [
-    { "code": 1001, "message": "Sequence1 cannot be null or empty" },
-    { "code": 1003, "message": "Sequence2 cannot be null or empty" }
-  ],
-  "examples": [
-    {
-      "name": "Find common region",
-      "input": { "sequence1": "ATGCATGC", "sequence2": "CATGCAT" },
-      "output": { "region": "ATGC", "position1": 0, "position2": 1, "length": 4 }
-    }
+  "required": [
+   "sequence1",
+   "sequence2"
   ]
+ },
+ "outputSchema": {
+  "type": "object",
+  "properties": {
+   "region": {
+    "type": "string"
+   },
+   "position1": {
+    "type": "integer"
+   },
+   "position2": {
+    "type": "integer"
+   },
+   "length": {
+    "type": "integer"
+   },
+   "isReverseComplement": {
+    "type": "boolean",
+    "description": "true for a region shared with the reverse complement of sequence2; omitted when false"
+   },
+   "mismatches": {
+    "type": "integer",
+    "description": "with maxMismatches > 0: mismatching positions of the window pair; omitted otherwise"
+   },
+   "region2": {
+    "type": "string",
+    "description": "with maxMismatches > 0: the window of the second sequence (reverse-complement strand for a reverse region); omitted otherwise"
+   }
+  },
+  "required": [
+   "region",
+   "position1",
+   "position2",
+   "length"
+  ]
+ },
+ "errors": [
+  {
+   "code": 1001,
+   "message": "Sequence1 cannot be null or empty"
+  },
+  {
+   "code": 1003,
+   "message": "Sequence2 cannot be null or empty"
+  }
+ ],
+ "examples": [
+  {
+   "name": "Find common region",
+   "input": {
+    "sequence1": "ATGCATGC",
+    "sequence2": "CATGCAT"
+   },
+   "output": {
+    "region": "ATGC",
+    "position1": 0,
+    "position2": 1,
+    "length": 4
+   }
+  }
+ ]
 }

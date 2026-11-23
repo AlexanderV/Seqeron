@@ -1050,6 +1050,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.CommonRegions.cs"
   },
   {
+    "tool": "find_longest_common_region_multi",
+    "server": "Analysis",
+    "methodId": "GenomicAnalyzer.FindLongestCommonRegion",
+    "docPath": "docs/mcp/tools/analysis/find_longest_common_region_multi.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.CommonRegions.cs"
+  },
+  {
     "tool": "find_low_complexity_intervals",
     "server": "Analysis",
     "methodId": "SequenceComplexity.FindLowComplexityIntervals",
@@ -1167,6 +1174,13 @@
     "methodId": "MotifFinder.FindRegulatoryElements",
     "docPath": "docs/mcp/tools/analysis/find_regulatory_elements_both_strands.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.cs#L1026"
+  },
+  {
+    "tool": "find_repeat_pairs",
+    "server": "Analysis",
+    "methodId": "GenomicAnalyzer.FindRepeatPairs",
+    "docPath": "docs/mcp/tools/analysis/find_repeat_pairs.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.Repeats.cs"
   },
   {
     "tool": "find_repeats",

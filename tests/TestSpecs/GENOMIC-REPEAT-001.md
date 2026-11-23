@@ -249,3 +249,7 @@ Assumption register: assumption 1 (tie-break unspecified) is **retired** — the
 ## Audit R14-4b (B09 F292): output guard of the repeat finders
 
 `GenomicAnalyzer_RepeatOutputLimits_Tests`: the estimate of the output (repeats, occurrences, label characters, bytes = 2 B per character + 4 B per occurrence + 96 B per repeat) equals the real output on 60 seeded sequences in both modes; poly-A of length 20 000 (19 999 repeats, 200 009 999 occurrences) is refused by default with `RepeatOutputLimitException` before anything is materialised (< 300 MB allocated, < 20 s), maximal repeats too (the start of the text is its own left context), a random 20 000-mer passes; `MaxBytes` = the estimate passes, one less throws, `MaxOccurrences` separately; string, string + alphabet and both-strand overloads are guarded; null limits. MCP `find_repeats`: `maxOutputMegabytes` (512, 0 = none, negative throws).
+
+## Audit R14-17 (B09 F298): find_repeat_pairs
+
+MCP `FindRepeatPairsTests`: `repeat-match -n 3` of ACGTTTACGAAAT = the direct pair (0, 6, 3) and three reverse pairs of lengths 4, 3, 3; N ends a copy; validation (minLength >= 2, strands).

@@ -13,12 +13,12 @@
    "sequence1": {
     "type": "string",
     "minLength": 1,
-    "description": "The first DNA sequence"
+    "description": "The first nucleotide sequence (N runs, IUPAC codes and lower case accepted: a k-mer window with a symbol other than A/C/G/T is skipped)"
    },
    "sequence2": {
     "type": "string",
     "minLength": 1,
-    "description": "The second DNA sequence"
+    "description": "The second nucleotide sequence"
    },
    "kmerSize": {
     "type": "integer",

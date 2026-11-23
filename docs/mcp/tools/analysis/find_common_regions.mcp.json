@@ -92,6 +92,10 @@
   {
    "code": 1001,
    "message": "Invalid DNA sequence"
+  },
+  {
+   "code": 1002,
+   "message": "Minimum common-region length must be at least 1"
   }
  ],
  "examples": [

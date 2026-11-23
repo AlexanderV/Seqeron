@@ -117,3 +117,5 @@ Other tests (M1–M4, S1–S4, C1, C2) assert exact sourced values and cover the
 - **Audit R14-4a (F291):** `FindCommonRegions` computes ms(i) with the suffix automaton of the reverse of the first sequence (O(n + m), no suffix tree; poly-A 20 000 99.6 s -> 5 ms coordinates / 231 ms strings); `FindCommonRegionSpans` (coordinates only) + MCP `includeSequence`; the duplicate tree-based `MatchingStatistics` of the facade is deleted.
 
 - **Audit R14-22 (F295):** one argument contract for the genomic-analysis methods (minimum LENGTH <= 0 = 1 in the library, refused by the MCP tools; structural parameters throw); `find_common_regions` now refuses `minLength < 1`.
+
+- **Audit R14-17 (F298):** MCP `find_longest_common_region_multi` (minSupport) and `find_repeat_pairs`; `find_longest_repeat` / `find_longest_common_region` / `calculate_similarity` accept N / IUPAC / lower case, both strands, strands, maxMismatches and a cancellation token.

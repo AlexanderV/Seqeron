@@ -240,3 +240,7 @@
 ## Audit R14-22 (B09 F295): argument contract
 
 `GenomicAnalyzer_ArgumentContract_Tests` (minLength <= 0 = minLength 1 for every finder; tandem structural parameters throw) and MCP `find_common_regions` refuses `minLength < 1`; see `docs/algorithms/Sequence_Comparison/Genomic_Argument_Contract.md`.
+
+## Audit R14-17 (B09 F298): MCP gaps
+
+MCP `FindLongestCommonRegionMultiTests` (Rosalind LCSM GATTACA / TAGACCA / ATACA = AC, CA, TA with first occurrences; minSupport 2; N runs; no common string; validation), SuffixTree.Mcp.Core `FindLongestRepeatCommonRegionOptionsTests` (N / lower case, strands ReverseComplement / Both, k-mismatch LCS, both-strand longest repeat with reversePositions, cancellation, IUPAC similarity): expected values from an independent brute force.

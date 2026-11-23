@@ -1,0 +1,131 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "toolName": "find_longest_common_region_multi",
+ "serverName": "Analysis",
+ "version": "1.0.0",
+ "stability": "stable",
+ "methodId": "GenomicAnalyzer.FindLongestCommonRegion",
+ "docRef": "Seqeron.Genomics.Analysis/GenomicAnalyzer.CommonRegions.cs",
+ "description": "The longest substring shared by at least minSupport of N >= 2 nucleotide sequences (the k-common substring problem, Gusfield 1997 sec. 7.6; Rosalind LCSM when minSupport = N), by the canonical generalized suffix tree. EVERY distinct longest string is returned (ordinal order) with its first 0-based occurrence in each sequence (-1 where a sequence does not contain it, possible when minSupport < N) and its support. Only A/C/G/T match (case-insensitive); N and other IUPAC codes end a region. Empty items when no non-empty string is shared by minSupport sequences.",
+ "inputSchema": {
+  "type": "object",
+  "properties": {
+   "sequences": {
+    "type": "array",
+    "items": {
+     "type": "string"
+    },
+    "description": "At least two nucleotide sequences: A/C/G/T plus IUPAC codes such as N (case-insensitive).",
+    "minItems": 2
+   },
+   "minSupport": {
+    "type": "integer",
+    "description": "Number of sequences that must contain the substring, 2 .. N (default: all N)."
+   }
+  },
+  "required": [
+   "sequences"
+  ]
+ },
+ "outputSchema": {
+  "type": "object",
+  "properties": {
+   "items": {
+    "type": "array",
+    "items": {
+     "type": "object",
+     "properties": {
+      "sequence": {
+       "type": "string"
+      },
+      "positions": {
+       "type": "array",
+       "items": {
+        "type": "integer"
+       },
+       "description": "first 0-based occurrence in each input sequence, -1 = absent"
+      },
+      "length": {
+       "type": "integer"
+      },
+      "support": {
+       "type": "integer",
+       "description": "number of sequences that contain the string"
+      }
+     },
+     "required": [
+      "sequence",
+      "positions",
+      "length",
+      "support"
+     ]
+    }
+   },
+   "length": {
+    "type": "integer",
+    "description": "common length of the strings (0 when none)"
+   }
+  },
+  "required": [
+   "items",
+   "length"
+  ]
+ },
+ "errors": [
+  {
+   "code": 1001,
+   "message": "Fewer than two sequences, a sequence is null / empty or not a nucleotide sequence"
+  },
+  {
+   "code": 1002,
+   "message": "minSupport outside [2, N]"
+  }
+ ],
+ "examples": [
+  {
+   "name": "Rosalind LCSM sample",
+   "input": {
+    "sequences": [
+     "GATTACA",
+     "TAGACCA",
+     "ATACA"
+    ]
+   },
+   "output": {
+    "items": [
+     {
+      "sequence": "AC",
+      "positions": [
+       4,
+       3,
+       2
+      ],
+      "length": 2,
+      "support": 3
+     },
+     {
+      "sequence": "CA",
+      "positions": [
+       5,
+       5,
+       3
+      ],
+      "length": 2,
+      "support": 3
+     },
+     {
+      "sequence": "TA",
+      "positions": [
+       3,
+       0,
+       1
+      ],
+      "length": 2,
+      "support": 3
+     }
+    ],
+    "length": 2
+   }
+  }
+ ]
+}

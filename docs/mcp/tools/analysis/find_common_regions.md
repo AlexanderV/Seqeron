@@ -15,8 +15,7 @@ Right-maximal common regions (longest shared substring per start position in `se
 ## Description
 
 For each start position in `sequence2`, finds the **single longest** contiguous substring of
-length ≥ `minLength` that also occurs in `sequence1`, located with the suffix tree of `sequence1` (matching statistics: suffix-link maximal-exact-match stream plus
-short `Contains` probes). Distinct such substrings are reported once, with the **first (lowest)** occurrence
+length ≥ `minLength` that also occurs in `sequence1`, located with the matching statistics of the suffix automaton of the reverse of `sequence1` (O(n + m), no suffix tree; B09 F291). Distinct such substrings are reported once, with the **first (lowest)** occurrence
 position in `sequence1` and the start position in `sequence2`. Shorter prefixes sharing a start position with a longer match are not
 reported. `minLength` must be at least 1 (the library treats a value below 1 as 1; the tool refuses it like `find_repeats` and `find_open_reading_frames`). Both inputs must be valid DNA.
 
@@ -49,6 +48,7 @@ reported. `minLength` must be at least 1 (the library treats a value below 1 as 
 |------|---------|
 | 1001 | Sequence cannot be null or empty |
 | 1001 | Invalid DNA sequence |
+| 1002 | Minimum common-region length must be at least 1 |
 
 ## Examples
 
@@ -72,7 +72,7 @@ reported. `minLength` must be at least 1 (the library treats a value below 1 as 
 
 ## Performance
 
-- **Time Complexity:** O(n + m·K + R) with K = ⌈log₄(n·m)⌉ + 2 and R the number of maximal matches of length ≥ max(K, minLength); the output itself is Σ|region|. A 1 Mbp pair runs in seconds (the former per-start binary search was O(m²)). **Space Complexity:** O(n + m + R).
+- **Time Complexity:** O(n + m) for the matching statistics plus the size of the reported strings (Σ|region|; `includeSequence = false` removes it). poly-A of length 20 000 against itself: 99.6 s / 1.5 GB with the former suffix-tree engine, 5 ms for the coordinates and 231 ms with the strings now.
 
 ## See Also
 

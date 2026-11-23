@@ -73,6 +73,7 @@
 | `find_known_motifs` | Analysis | `GenomicAnalyzer.FindKnownMotifs` | [doc](../../../../docs/mcp/tools/analysis/find_known_motifs.md) |
 | `find_longdust_regions` | Analysis | `SequenceComplexity.FindLongdustRegions` | [doc](../../../../docs/mcp/tools/analysis/find_longdust_regions.md) |
 | `find_longest_common_region_mismatches` | Analysis | `GenomicAnalyzer.FindLongestCommonRegionWithMismatches` | [doc](../../../../docs/mcp/tools/analysis/find_longest_common_region_mismatches.md) |
+| `find_longest_common_region_multi` | Analysis | `GenomicAnalyzer.FindLongestCommonRegion` | [doc](../../../../docs/mcp/tools/analysis/find_longest_common_region_multi.md) |
 | `find_low_complexity_intervals` | Analysis | `SequenceComplexity.FindLowComplexityIntervals` | [doc](../../../../docs/mcp/tools/analysis/find_low_complexity_intervals.md) |
 | `find_low_complexity_regions` | Analysis | `SequenceComplexity.FindLowComplexityRegions` | [doc](../../../../docs/mcp/tools/analysis/find_low_complexity_regions.md) |
 | `find_microsatellites` | Analysis | `RepeatFinder.FindMicrosatellites` | [doc](../../../../docs/mcp/tools/analysis/find_microsatellites.md) |
@@ -90,6 +91,7 @@
 | `find_reciprocal_best_hits` | Analysis | `ComparativeGenomics.FindReciprocalBestHits` | [doc](../../../../docs/mcp/tools/analysis/find_reciprocal_best_hits.md) |
 | `find_regulatory_elements` | Analysis | `MotifFinder.FindRegulatoryElements` | [doc](../../../../docs/mcp/tools/analysis/find_regulatory_elements.md) |
 | `find_regulatory_elements_both_strands` | Analysis | `MotifFinder.FindRegulatoryElements` | [doc](../../../../docs/mcp/tools/analysis/find_regulatory_elements_both_strands.md) |
+| `find_repeat_pairs` | Analysis | `GenomicAnalyzer.FindRepeatPairs` | [doc](../../../../docs/mcp/tools/analysis/find_repeat_pairs.md) |
 | `find_repeats` | Analysis | `GenomicAnalyzer.FindRepeats` | [doc](../../../../docs/mcp/tools/analysis/find_repeats.md) |
 | `find_reverse_complement_repeats` | Analysis | `RepeatFinder.FindReverseComplementRepeats` | [doc](../../../../docs/mcp/tools/analysis/find_reverse_complement_repeats.md) |
 | `find_rna_inverted_repeats` | Analysis | `RnaSecondaryStructure.FindInvertedRepeats` | [doc](../../../../docs/mcp/tools/analysis/find_rna_inverted_repeats.md) |

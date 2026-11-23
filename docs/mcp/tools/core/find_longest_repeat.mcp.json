@@ -1,37 +1,79 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "toolName": "find_longest_repeat",
-  "serverName": "Core",
-  "version": "1.0.1",
-  "stability": "stable",
-  "methodId": "GenomicAnalyzer.FindLongestRepeat",
-  "docRef": "Seqeron.Genomics/GenomicAnalyzer.cs#L29",
-  "description": "Find the longest repeated region in a DNA sequence (overlapping occurrences allowed). Returns the repeat sequence and all positions; on a length tie the substring whose first occurrence is leftmost.",
-  "inputSchema": {
-    "type": "object",
-    "properties": {
-      "sequence": { "type": "string", "minLength": 1, "description": "DNA sequence (A, T, G, C)" }
-    },
-    "required": ["sequence"]
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "toolName": "find_longest_repeat",
+ "serverName": "Core",
+ "version": "1.1.0",
+ "stability": "stable",
+ "methodId": "GenomicAnalyzer.FindLongestRepeat",
+ "docRef": "Seqeron.Genomics/GenomicAnalyzer.cs#L29",
+ "description": "Find the longest repeated region in a nucleotide sequence (overlapping occurrences allowed). Returns the repeat sequence and all positions; on a length tie the substring whose first occurrence is leftmost. Case-insensitive; only A/C/G/T match, N / IUPAC codes / other symbols never repeat and end a repeat. bothStrands=true: the longest repeat over both strands (a string and its reverse complement are one class; reversePositions lists the windows that spell the reverse complement).",
+ "inputSchema": {
+  "type": "object",
+  "properties": {
+   "sequence": {
+    "type": "string",
+    "minLength": 1,
+    "description": "The nucleotide sequence to analyze (A/C/G/T plus IUPAC codes such as N, case-insensitive)"
+   },
+   "bothStrands": {
+    "type": "boolean",
+    "description": "Search both strands (default false = forward strand only)",
+    "default": false
+   }
   },
-  "outputSchema": {
-    "type": "object",
-    "properties": {
-      "repeat": { "type": "string" },
-      "positions": { "type": "array", "items": { "type": "integer" } },
-      "length": { "type": "integer" }
-    },
-    "required": ["repeat", "positions", "length"]
-  },
-  "errors": [
-    { "code": 1001, "message": "Sequence cannot be null or empty" },
-    { "code": 2001, "message": "Invalid DNA sequence" }
-  ],
-  "examples": [
-    {
-      "name": "Find repeats in DNA",
-      "input": { "sequence": "ATGATGATG" },
-      "output": { "repeat": "ATGATG", "positions": [0, 3], "length": 6 }
-    }
+  "required": [
+   "sequence"
   ]
+ },
+ "outputSchema": {
+  "type": "object",
+  "properties": {
+   "repeat": {
+    "type": "string"
+   },
+   "positions": {
+    "type": "array",
+    "items": {
+     "type": "integer"
+    }
+   },
+   "length": {
+    "type": "integer"
+   },
+   "reversePositions": {
+    "type": "array",
+    "items": {
+     "type": "integer"
+    },
+    "description": "with bothStrands: 0-based forward-strand starts of the windows that spell the reverse complement of the repeat; omitted otherwise"
+   }
+  },
+  "required": [
+   "repeat",
+   "positions",
+   "length"
+  ]
+ },
+ "errors": [
+  {
+   "code": 1001,
+   "message": "Sequence cannot be null or empty"
+  }
+ ],
+ "examples": [
+  {
+   "name": "Find repeats in DNA",
+   "input": {
+    "sequence": "ATGATGATG"
+   },
+   "output": {
+    "repeat": "ATGATG",
+    "positions": [
+     0,
+     3
+    ],
+    "length": 6
+   }
+  }
+ ]
 }

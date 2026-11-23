@@ -1,6 +1,6 @@
 # calculate_similarity
 
-Calculate similarity between two DNA sequences.
+Calculate similarity between two nucleotide sequences (N runs, IUPAC codes and lower case accepted: a k-mer window with a symbol other than A/C/G/T is skipped, Mash `-n` / Jellyfish rule; the call observes the cancellation token before and after the computation).
 
 ## Overview
 

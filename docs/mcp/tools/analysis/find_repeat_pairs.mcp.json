@@ -1,0 +1,102 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "toolName": "find_repeat_pairs",
+ "serverName": "Analysis",
+ "version": "1.0.0",
+ "stability": "stable",
+ "methodId": "GenomicAnalyzer.FindRepeatPairs",
+ "docRef": "Seqeron.Genomics.Analysis/GenomicAnalyzer.Repeats.cs",
+ "description": "Maximal exact repeated PAIRS of a nucleotide sequence on the forward strand (direct repeats) and/or as reverse complements (MUMmer repeat-match default, REPuter): every pair of occurrences that cannot be extended on either side, as the 0-based forward-strand starts of both copies, the length and the spacing (negative when the copies overlap). For a reverse-complement pair the window at secondPosition spells the reverse complement of the window at firstPosition (firstPosition <= secondPosition; equal for a palindromic site). The union of the canonical direct and reverse-complement repeat finders with every length / spacing filter lifted, ordered by (first, second, length), a forward pair before a reverse pair on a tie. Only A/C/G/T match (case-insensitive).",
+ "inputSchema": {
+  "type": "object",
+  "properties": {
+   "sequence": {
+    "type": "string",
+    "description": "Nucleotide sequence: A/C/G/T plus IUPAC codes such as N (case-insensitive); non-A/C/G/T symbols never repeat.",
+    "minLength": 1
+   },
+   "minLength": {
+    "type": "integer",
+    "description": "Minimum repeat length (repeat-match -n; default 5, >= 2).",
+    "default": 5
+   },
+   "strands": {
+    "type": "string",
+    "description": "Which strands (case-insensitive): Both (default) | Forward | ReverseComplement.",
+    "default": "Both"
+   }
+  },
+  "required": [
+   "sequence"
+  ]
+ },
+ "outputSchema": {
+  "type": "object",
+  "properties": {
+   "items": {
+    "type": "array",
+    "items": {
+     "type": "object",
+     "properties": {
+      "firstPosition": {
+       "type": "integer"
+      },
+      "secondPosition": {
+       "type": "integer"
+      },
+      "length": {
+       "type": "integer"
+      },
+      "spacing": {
+       "type": "integer",
+       "description": "secondPosition - firstPosition - length (negative when the copies overlap)"
+      },
+      "isReverseComplement": {
+       "type": "boolean",
+       "description": "true when the second copy is the reverse complement of the first; omitted when false"
+      }
+     },
+     "required": [
+      "firstPosition",
+      "secondPosition",
+      "length",
+      "spacing"
+     ]
+    }
+   }
+  },
+  "required": [
+   "items"
+  ]
+ },
+ "errors": [
+  {
+   "code": 1001,
+   "message": "Sequence cannot be null or empty / invalid nucleotide sequence"
+  },
+  {
+   "code": 1002,
+   "message": "minLength must be at least 2 / unknown strands"
+  }
+ ],
+ "examples": [
+  {
+   "name": "Direct pair of ACGTTTACGAAAT (repeat-match -n 3: 1 7 3)",
+   "input": {
+    "sequence": "ACGTTTACGAAAT",
+    "minLength": 3,
+    "strands": "Forward"
+   },
+   "output": {
+    "items": [
+     {
+      "firstPosition": 0,
+      "secondPosition": 6,
+      "length": 3,
+      "spacing": 3
+     }
+    ]
+   }
+  }
+ ]
+}
