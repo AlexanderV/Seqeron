@@ -378,3 +378,21 @@ public record DotMatcherSegmentDto(int Start1, int Start2, int End1, int End2);
 
 /// <summary>Result of <c>dotmatcher</c>: the segments in drawing order.</summary>
 public record DotMatcherResult(DotMatcherSegmentDto[] Segments);
+
+/// <summary>One alignment found by <c>pairwise_aligner</c>: the printed rows, the block coordinates (target, query), the score and the Biopython text.</summary>
+public record PairwiseAlignmentDto(string AlignedSequence1, string AlignedSequence2, long[][] Coordinates, double Score, string Text);
+
+/// <summary>The result of <c>pairwise_aligner</c> (Bio.Align.PairwiseAligner): the optimal score, the algorithm Biopython selects, its warnings and the optimal alignments.</summary>
+public record PairwiseAlignerResult(double Score, string Algorithm, string[] Warnings, int Count, PairwiseAlignmentDto[] Alignments);
+
+/// <summary>The counts of an alignment (Bio.Align AlignmentCounts): aligned letters, identities, mismatches, positives and the gaps by side and direction, with the scores when a scoring was given.</summary>
+public record AlignmentCountsResult(
+    long Aligned, long Identities, long Mismatches, long? Positives,
+    long Gaps, long OpenGaps, long ExtendGaps, long LeftGaps, long InternalGaps, long RightGaps,
+    long OpenLeftInsertions, long ExtendLeftInsertions, long OpenLeftDeletions, long ExtendLeftDeletions,
+    long OpenInternalInsertions, long ExtendInternalInsertions, long OpenInternalDeletions, long ExtendInternalDeletions,
+    long OpenRightInsertions, long ExtendRightInsertions, long OpenRightDeletions, long ExtendRightDeletions,
+    double? GapScore, double? SubstitutionScore, double? Score, string Text);
+
+/// <summary>The result of <c>alignment_operation</c>: the operation and its value as JSON (an alignment as {sequences, coordinates, attrs}, a list, a string or a number), and the text for the pretty print.</summary>
+public record AlignmentOperationResult(string Operation, string ResultJson, string? Text = null);

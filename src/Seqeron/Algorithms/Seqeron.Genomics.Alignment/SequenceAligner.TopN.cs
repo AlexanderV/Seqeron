@@ -465,13 +465,13 @@ public static partial class SequenceAligner
             if (!_affine)
             {
                 int old = _h![i, j];
-                int value = LocalLinearCell(_h, i, j, sub, _sc.GapExtend, forbidden);
+                int value = LocalLinearCell(_h, i, j, sub, _sc.XInteriorExt, _sc.YInteriorExt, forbidden);
                 _h[i, j] = value;
                 return value != old;
             }
 
             int om = _mm![i, j], ox = _xx![i, j], oy = _yy![i, j];
-            AffineCell(_mm, _xx, _yy, i, j, sub, startFloor: 0, _sc.GapExtend, _sc.GapOpen + _sc.GapExtend, forbidden);
+            AffineCell(_mm, _xx, _yy, i, j, sub, startFloor: 0, _sc.XInteriorExt, _sc.XInteriorOpen + _sc.XInteriorExt, _sc.YInteriorExt, _sc.YInteriorOpen + _sc.YInteriorExt, forbidden);
             return om != _mm[i, j] || ox != _xx[i, j] || oy != _yy[i, j];
         }
 
@@ -628,8 +628,8 @@ public static partial class SequenceAligner
         {
             var stack = new Stack<(int I, int J, byte State, int Branch, int Depth)>();
             stack.Push((i0, j0, startState, 0, 0));
-            int e = _sc.GapExtend;
-            int oe = _sc.GapOpen + e;
+            // gap scores per direction (a GapScoreProfile's interior scores; uniform without one)
+            int ex = _sc.XInteriorExt, oex = _sc.XInteriorOpen + ex, ey = _sc.YInteriorExt, oey = _sc.YInteriorOpen + ey;
             while (stack.Count > 0 && output.Count < cap)
             {
                 var (i, j, state, branch, depth) = stack.Pop();
@@ -640,7 +640,7 @@ public static partial class SequenceAligner
                 bool pushed = false;
                 for (int cand = 0; cand < 3 && !pushed; cand++)
                 {
-                    if (!TryPredecessor(i, j, state, cand, e, oe, out int pi, out int pj, out byte pstate, out byte kind, out bool starts))
+                    if (!TryPredecessor(i, j, state, cand, ex, oex, ey, oey, out int pi, out int pj, out byte pstate, out byte kind, out bool starts))
                         continue;
                     if (!starts && pstate == StateMatch && IsEndPoint(pi, pj))
                         continue;   // would extend a shorter optimal alignment by a zero-score tail
@@ -669,7 +669,7 @@ public static partial class SequenceAligner
         /// alignment begins with the consumed column.
         /// </summary>
         private bool TryPredecessor(
-            int i, int j, byte state, int cand, int e, int oe,
+            int i, int j, byte state, int cand, int ex, int oex, int ey, int oey,
             out int pi, out int pj, out byte pstate, out byte kind, out bool starts)
         {
             pi = i; pj = j; pstate = StateMatch; kind = 0; starts = false;
@@ -683,10 +683,10 @@ public static partial class SequenceAligner
                         if (_forbidden.Contains(PackCell(i, j)) || v != h[i - 1, j - 1] + _sc.Sub(_a[i - 1], _b[j - 1])) return false;
                         pi = i - 1; pj = j - 1; kind = 0; break;
                     case 1:
-                        if (v != h[i - 1, j] + e) return false;
+                        if (v != h[i - 1, j] + ex) return false;
                         pi = i - 1; kind = 1; break;
                     default:
-                        if (v != h[i, j - 1] + e) return false;
+                        if (v != h[i, j - 1] + ey) return false;
                         pj = j - 1; kind = 2; break;
                 }
                 starts = pi == 0 || pj == 0 || h[pi, pj] <= 0;
@@ -715,7 +715,7 @@ public static partial class SequenceAligner
                 int cur = xx[i, j];
                 pi = i - 1; kind = 1;
                 if (pi == 0) return false;
-                int pv = cand switch { 0 => mm[pi, j] + oe, 1 => xx[pi, j] + e, _ => yy[pi, j] + oe };
+                int pv = cand switch { 0 => mm[pi, j] + oex, 1 => xx[pi, j] + ex, _ => yy[pi, j] + oex };
                 if (pv != cur) return false;
                 pstate = cand switch { 0 => StateMatch, 1 => StateGapInSeq2, _ => StateGapInSeq1 };
                 return true;
@@ -725,7 +725,7 @@ public static partial class SequenceAligner
                 int cur = yy[i, j];
                 pj = j - 1; kind = 2;
                 if (pj == 0) return false;
-                int pv = cand switch { 0 => mm[i, pj] + oe, 1 => yy[i, pj] + e, _ => xx[i, pj] + oe };
+                int pv = cand switch { 0 => mm[i, pj] + oey, 1 => yy[i, pj] + ey, _ => xx[i, pj] + oey };
                 if (pv != cur) return false;
                 pstate = cand switch { 0 => StateMatch, 1 => StateGapInSeq1, _ => StateGapInSeq2 };
                 return true;

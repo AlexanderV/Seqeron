@@ -593,6 +593,13 @@ public static partial class AlignmentCoordinateFormats
         }
 
         Flush();
+        if (cols == 0)
+        {
+            // PrintedAlignmentParser: no column at all gives the two coordinates 0, 0
+            foreach (var c in coords)
+                c.Add(0);
+        }
+
         return (seqs, [.. coords.Select(l => l.ToArray())]);
     }
 }

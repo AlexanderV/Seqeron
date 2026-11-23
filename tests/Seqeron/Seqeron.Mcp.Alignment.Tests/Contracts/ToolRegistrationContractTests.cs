@@ -17,6 +17,8 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
     protected override string[] ExpectedToolNames { get; } =
     {
         "align_gap_profile",
+        "alignment_counts",
+        "alignment_operation",
         "alignment_statistics",
         "assemble_de_bruijn",
         "assemble_olc",
@@ -75,6 +77,7 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "muscle_msa_command",
         "needle_align",
         "needleall_align",
+        "pairwise_aligner",
         "poa_command",
         "probcons_command",
         "quality_trim_reads",

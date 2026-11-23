@@ -7,6 +7,78 @@ namespace Seqeron.Genomics.Alignment;
 // Do not edit by hand; run the script. The overload enters the ambient cancellation scope (SequenceAligner.Cancellation.cs) and calls the original, which polls it at its row / iteration boundaries.
 public static partial class SequenceAligner
 {
+    /// <summary><see cref="GlobalAlignCoOptimal(string, string, ScoringMatrix?, GapScoreProfile, int)"/> that observes <paramref name="cancellationToken"/> (audit R14-15): the dynamic programs poll it at their row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result.</summary>
+    /// <inheritdoc cref="GlobalAlignCoOptimal(string, string, ScoringMatrix?, GapScoreProfile, int)"/>
+    /// <param name="cancellationToken">The token to observe; <c>CancellationToken.None</c> = never cancelled (the ambient scope of an outer call still applies).</param>
+    public static IReadOnlyList<AlignmentResult> GlobalAlignCoOptimal(string sequence1, string sequence2, ScoringMatrix? scoring, GapScoreProfile gapScores, int maxAlignments, CancellationToken cancellationToken)
+    {
+        using var cancelScope = AlignmentCancellation.Enter(cancellationToken);
+        return GlobalAlignCoOptimal(sequence1, sequence2, scoring, gapScores, maxAlignments);
+    }
+
+    /// <summary><see cref="GlobalAlignAffineCoOptimal(string, string, ScoringMatrix?, GapScoreProfile, int)"/> that observes <paramref name="cancellationToken"/> (audit R14-15): the dynamic programs poll it at their row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result.</summary>
+    /// <inheritdoc cref="GlobalAlignAffineCoOptimal(string, string, ScoringMatrix?, GapScoreProfile, int)"/>
+    /// <param name="cancellationToken">The token to observe; <c>CancellationToken.None</c> = never cancelled (the ambient scope of an outer call still applies).</param>
+    public static IReadOnlyList<AlignmentResult> GlobalAlignAffineCoOptimal(string sequence1, string sequence2, ScoringMatrix? scoring, GapScoreProfile gapScores, int maxAlignments, CancellationToken cancellationToken)
+    {
+        using var cancelScope = AlignmentCancellation.Enter(cancellationToken);
+        return GlobalAlignAffineCoOptimal(sequence1, sequence2, scoring, gapScores, maxAlignments);
+    }
+
+    /// <summary><see cref="GlobalAlignCoOptimal(string, string, MatrixScoring, GapScoreProfile, int)"/> that observes <paramref name="cancellationToken"/> (audit R14-15): the dynamic programs poll it at their row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result.</summary>
+    /// <inheritdoc cref="GlobalAlignCoOptimal(string, string, MatrixScoring, GapScoreProfile, int)"/>
+    /// <param name="cancellationToken">The token to observe; <c>CancellationToken.None</c> = never cancelled (the ambient scope of an outer call still applies).</param>
+    public static IReadOnlyList<AlignmentResult> GlobalAlignCoOptimal(string sequence1, string sequence2, MatrixScoring scoring, GapScoreProfile gapScores, int maxAlignments, CancellationToken cancellationToken)
+    {
+        using var cancelScope = AlignmentCancellation.Enter(cancellationToken);
+        return GlobalAlignCoOptimal(sequence1, sequence2, scoring, gapScores, maxAlignments);
+    }
+
+    /// <summary><see cref="GlobalAlignAffineCoOptimal(string, string, MatrixScoring, GapScoreProfile, int)"/> that observes <paramref name="cancellationToken"/> (audit R14-15): the dynamic programs poll it at their row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result.</summary>
+    /// <inheritdoc cref="GlobalAlignAffineCoOptimal(string, string, MatrixScoring, GapScoreProfile, int)"/>
+    /// <param name="cancellationToken">The token to observe; <c>CancellationToken.None</c> = never cancelled (the ambient scope of an outer call still applies).</param>
+    public static IReadOnlyList<AlignmentResult> GlobalAlignAffineCoOptimal(string sequence1, string sequence2, MatrixScoring scoring, GapScoreProfile gapScores, int maxAlignments, CancellationToken cancellationToken)
+    {
+        using var cancelScope = AlignmentCancellation.Enter(cancellationToken);
+        return GlobalAlignAffineCoOptimal(sequence1, sequence2, scoring, gapScores, maxAlignments);
+    }
+
+    /// <summary><see cref="LocalAlignCoOptimal(string, string, ScoringMatrix?, GapScoreProfile, int)"/> that observes <paramref name="cancellationToken"/> (audit R14-15): the dynamic programs poll it at their row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result.</summary>
+    /// <inheritdoc cref="LocalAlignCoOptimal(string, string, ScoringMatrix?, GapScoreProfile, int)"/>
+    /// <param name="cancellationToken">The token to observe; <c>CancellationToken.None</c> = never cancelled (the ambient scope of an outer call still applies).</param>
+    public static IReadOnlyList<AlignmentResult> LocalAlignCoOptimal(string sequence1, string sequence2, ScoringMatrix? scoring, GapScoreProfile gapScores, int maxAlignments, CancellationToken cancellationToken)
+    {
+        using var cancelScope = AlignmentCancellation.Enter(cancellationToken);
+        return LocalAlignCoOptimal(sequence1, sequence2, scoring, gapScores, maxAlignments);
+    }
+
+    /// <summary><see cref="LocalAlignAffineCoOptimal(string, string, ScoringMatrix?, GapScoreProfile, int)"/> that observes <paramref name="cancellationToken"/> (audit R14-15): the dynamic programs poll it at their row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result.</summary>
+    /// <inheritdoc cref="LocalAlignAffineCoOptimal(string, string, ScoringMatrix?, GapScoreProfile, int)"/>
+    /// <param name="cancellationToken">The token to observe; <c>CancellationToken.None</c> = never cancelled (the ambient scope of an outer call still applies).</param>
+    public static IReadOnlyList<AlignmentResult> LocalAlignAffineCoOptimal(string sequence1, string sequence2, ScoringMatrix? scoring, GapScoreProfile gapScores, int maxAlignments, CancellationToken cancellationToken)
+    {
+        using var cancelScope = AlignmentCancellation.Enter(cancellationToken);
+        return LocalAlignAffineCoOptimal(sequence1, sequence2, scoring, gapScores, maxAlignments);
+    }
+
+    /// <summary><see cref="LocalAlignCoOptimal(string, string, MatrixScoring, GapScoreProfile, int)"/> that observes <paramref name="cancellationToken"/> (audit R14-15): the dynamic programs poll it at their row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result.</summary>
+    /// <inheritdoc cref="LocalAlignCoOptimal(string, string, MatrixScoring, GapScoreProfile, int)"/>
+    /// <param name="cancellationToken">The token to observe; <c>CancellationToken.None</c> = never cancelled (the ambient scope of an outer call still applies).</param>
+    public static IReadOnlyList<AlignmentResult> LocalAlignCoOptimal(string sequence1, string sequence2, MatrixScoring scoring, GapScoreProfile gapScores, int maxAlignments, CancellationToken cancellationToken)
+    {
+        using var cancelScope = AlignmentCancellation.Enter(cancellationToken);
+        return LocalAlignCoOptimal(sequence1, sequence2, scoring, gapScores, maxAlignments);
+    }
+
+    /// <summary><see cref="LocalAlignAffineCoOptimal(string, string, MatrixScoring, GapScoreProfile, int)"/> that observes <paramref name="cancellationToken"/> (audit R14-15): the dynamic programs poll it at their row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result.</summary>
+    /// <inheritdoc cref="LocalAlignAffineCoOptimal(string, string, MatrixScoring, GapScoreProfile, int)"/>
+    /// <param name="cancellationToken">The token to observe; <c>CancellationToken.None</c> = never cancelled (the ambient scope of an outer call still applies).</param>
+    public static IReadOnlyList<AlignmentResult> LocalAlignAffineCoOptimal(string sequence1, string sequence2, MatrixScoring scoring, GapScoreProfile gapScores, int maxAlignments, CancellationToken cancellationToken)
+    {
+        using var cancelScope = AlignmentCancellation.Enter(cancellationToken);
+        return LocalAlignAffineCoOptimal(sequence1, sequence2, scoring, gapScores, maxAlignments);
+    }
+
     /// <summary><see cref="GlobalAlignDualAffine(string, string, DualAffineScoring, int)"/> that observes <paramref name="cancellationToken"/> (audit R14-15): the dynamic programs poll it at their row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result.</summary>
     /// <inheritdoc cref="GlobalAlignDualAffine(string, string, DualAffineScoring, int)"/>
     /// <param name="cancellationToken">The token to observe; <c>CancellationToken.None</c> = never cancelled (the ambient scope of an outer call still applies).</param>

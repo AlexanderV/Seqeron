@@ -208,7 +208,7 @@ public static partial class AlignmentCoordinateFormats
         return (a.Sequences[0], a.Sequences[1]);
     }
 
-    private static string ReverseComplement(string s)
+    internal static string ReverseComplement(string s)
     {
         const bool rna = false; // Seq.reverse_complement always uses the DNA table (U -> A, A -> T)
         var sb = new StringBuilder(s.Length);
@@ -250,7 +250,7 @@ public static partial class AlignmentCoordinateFormats
         return sb.ToString();
     }
 
-    private static BioCoordSequence ReverseComplement(BioCoordSequence s)
+    internal static BioCoordSequence ReverseComplement(BioCoordSequence s)
     {
         if (s.Parts is null)
             return s;

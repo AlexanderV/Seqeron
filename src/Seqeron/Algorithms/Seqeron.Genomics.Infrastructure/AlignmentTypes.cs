@@ -193,6 +193,36 @@ public sealed record GapScoreProfile(
     private static bool IsFree(GapScore? g) => g is { Open: 0, Extend: 0 };
 
     /// <summary>
+    /// Resolves the name of a Biopython <c>PairwiseAligner</c> gap-score property (see <see cref="FromBiopython"/>) to the slots it sets: slot = direction (0 target / insertion, 1 query / deletion) * 3 + position (0 internal, 1 left, 2 right),
+    /// whether it sets the open and / or the extend score, and its specificity (more specific names override more general ones).
+    /// </summary>
+    /// <exception cref="ArgumentException">An unknown name.</exception>
+    public static (int Specificity, int[] Slots, bool SetOpen, bool SetExtend) ParseBiopythonName(string name)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        var tokens = name.Split('_');
+        if (tokens.Length < 2 || tokens[^1] != "score" || tokens.Distinct().Count() != tokens.Length)
+            throw new ArgumentException($"Unknown Biopython gap-score property '{name}'.", nameof(name));
+        var body = tokens[..^1];
+        if (body.Any(t => t is not ("target" or "query" or "insertion" or "deletion" or "gap" or "internal" or "left" or "right" or "end" or "open" or "extend")))
+            throw new ArgumentException($"Unknown Biopython gap-score property '{name}'.", nameof(name));
+        bool target = body.Contains("target") || body.Contains("insertion");
+        bool query = body.Contains("query") || body.Contains("deletion");
+        bool gap = body.Contains("gap");
+        if (!(target || query || gap) || (target && query))
+            throw new ArgumentException($"Unknown Biopython gap-score property '{name}'.", nameof(name));
+        int[] dirs = [0, 1];
+        if (target) dirs = [0];
+        else if (query) dirs = [1];
+        var positions = new List<int>();
+        if (body.Contains("internal")) positions.Add(0);
+        if (body.Contains("left") || body.Contains("end")) positions.Add(1);
+        if (body.Contains("right") || body.Contains("end")) positions.Add(2);
+        if (positions.Count == 0) positions.AddRange([0, 1, 2]);
+        return (body.Count(t => t is not "gap"), dirs.SelectMany(d => positions.Select(p => d * 3 + p)).Distinct().ToArray(), !body.Contains("extend"), !body.Contains("open"));
+    }
+
+    /// <summary>
     /// The profile of a Biopython <c>PairwiseAligner</c> from its gap-score properties (name → value, Biopython convention: the
     /// <c>open</c> scores are the score of the first gap position, the <c>extend</c> scores of each further one). Both name families of Biopython 1.88 are accepted:
     /// the current <c>[open_|extend_][internal_|left_|right_|end_]{insertion|deletion|gap}_score</c> (insertion = a gap in the target = sequence 1,
@@ -217,28 +247,8 @@ public sealed record GapScoreProfile(
         {
             if (!double.IsFinite(value))
                 throw new ArgumentException($"Gap score '{name}' must be finite, got {value}.", nameof(properties));
-            var tokens = name.Split('_');
-            if (tokens.Length < 2 || tokens[^1] != "score" || tokens.Distinct().Count() != tokens.Length)
-                throw new ArgumentException($"Unknown Biopython gap-score property '{name}'.", nameof(properties));
-            var body = tokens[..^1];
-            if (body.Any(t => t is not ("target" or "query" or "insertion" or "deletion" or "gap" or "internal" or "left" or "right" or "end" or "open" or "extend")))
-                throw new ArgumentException($"Unknown Biopython gap-score property '{name}'.", nameof(properties));
-            bool target = body.Contains("target") || body.Contains("insertion");
-            bool query = body.Contains("query") || body.Contains("deletion");
-            bool gap = body.Contains("gap");
-            if (!(target || query || gap) || (target && query))
-                throw new ArgumentException($"Unknown Biopython gap-score property '{name}'.", nameof(properties));
-            int[] dirs = [0, 1];
-            if (target) dirs = [0];
-            else if (query) dirs = [1];
-            var positions = new List<int>();
-            if (body.Contains("internal")) positions.Add(0);
-            if (body.Contains("left") || body.Contains("end")) positions.Add(1);
-            if (body.Contains("right") || body.Contains("end")) positions.Add(2);
-            if (positions.Count == 0) positions.AddRange([0, 1, 2]);
-            bool setOpen = !body.Contains("extend"), setExtend = !body.Contains("open");
-            int specificity = body.Count(t => t is not "gap");
-            parsed.Add((name, specificity, dirs.SelectMany(d => positions.Select(p => d * 3 + p)).Distinct().ToArray(), setOpen, setExtend, value));
+            var (specificity, slots, setOpen, setExtend) = ParseBiopythonName(name);
+            parsed.Add((name, specificity, slots, setOpen, setExtend, value));
         }
 
         foreach (var item in parsed.OrderBy(x => x.Specificity).ThenBy(x => x.Name, StringComparer.Ordinal))

@@ -439,7 +439,6 @@ public static partial class SequenceAligner
         private bool Predecessor(int i, int j, byte state, int cand, out int pi, out int pj, out byte pstate, out byte kind)
         {
             pi = i; pj = j; pstate = StateMatch; kind = 0;
-            int e = _sc.GapExtend;
             if (!_affine)
             {
                 var f = _f!;
@@ -450,15 +449,14 @@ public static partial class SequenceAligner
                         if (i == 0 || j == 0 || v != f[i - 1, j - 1] + _sc.Sub(_a[i - 1], _b[j - 1])) return false;
                         pi = i - 1; pj = j - 1; kind = 0; return true;
                     case 1:
-                        if (i == 0 || v != f[i - 1, j] + e) return false;
+                        if (i == 0 || v != f[i - 1, j] + _sc.XExt(j, _n)) return false;
                         pi = i - 1; kind = 1; return true;
                     default:
-                        if (j == 0 || v != f[i, j - 1] + e) return false;
+                        if (j == 0 || v != f[i, j - 1] + _sc.YExt(i, _m)) return false;
                         pj = j - 1; kind = 2; return true;
                 }
             }
 
-            int oe = _sc.GapOpen + e;
             switch (state)
             {
                 case StateMatch:
@@ -477,7 +475,8 @@ public static partial class SequenceAligner
                     pi = i - 1; kind = 1;
                     pstate = cand switch { 0 => StateMatch, 1 => StateGapInSeq2, _ => StateGapInSeq1 };
                     int pv = Value(pi, pj, pstate);
-                    return pv > AffineNegInf && pv + (pstate == StateGapInSeq2 ? e : oe) == cur;
+                    int xe = _sc.XExt(j, _n);
+                    return pv > AffineNegInf && pv + (pstate == StateGapInSeq2 ? xe : _sc.XOpen(j, _n) + xe) == cur;
                 }
                 default:
                 {
@@ -486,7 +485,8 @@ public static partial class SequenceAligner
                     pj = j - 1; kind = 2;
                     pstate = cand switch { 0 => StateMatch, 1 => StateGapInSeq1, _ => StateGapInSeq2 };
                     int pv = Value(pi, pj, pstate);
-                    return pv > AffineNegInf && pv + (pstate == StateGapInSeq1 ? e : oe) == cur;
+                    int ye = _sc.YExt(i, _m);
+                    return pv > AffineNegInf && pv + (pstate == StateGapInSeq1 ? ye : _sc.YOpen(i, _m) + ye) == cur;
                 }
             }
         }
