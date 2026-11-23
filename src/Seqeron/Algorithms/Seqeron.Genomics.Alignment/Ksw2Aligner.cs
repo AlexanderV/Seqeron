@@ -32,6 +32,27 @@ public enum Ksw2Option
     SpliceComplex = 0x800,
 }
 
+/// <summary>
+/// Undefined behaviour of the REFERENCE C program on an input (the port itself is well defined and gives the value the C code produces when the undefined access happens to be harmless); the real-program oracle (B09 F310, ASan + valgrind of
+/// <c>ksw_extz</c> / <c>ksw_extd</c> of lh3/ksw2) refuses such inputs because the printed result of an aborted or memory-corrupting run is not a reference value.
+/// </summary>
+[Flags]
+public enum Ksw2ReferenceUndefined
+{
+    /// <summary>The C function is well defined on this input.</summary>
+    None = 0,
+    /// <summary>
+    /// <c>ksw_extz</c> / <c>ksw_extd</c> line <c>eh[j].h = h1, eh[j].e = KSW_NEG_INF;</c> after a row whose band lies completely to the right of the query (<c>st &gt; qlen</c>, the loop ran no cell, <c>j = st &gt; qlen</c>) writes
+    /// beyond the <c>qlen + 1</c> entries of <c>eh</c> (heap buffer overflow; AddressSanitizer: "0 bytes after a block of size 8 * (qlen + 1)", valgrind: invalid write). Reached when <c>tlen &gt; qlen + w + 1</c> and the Z-drop did not stop the loop before that row.
+    /// </summary>
+    WritesBeyondRowBuffer = 1,
+    /// <summary>
+    /// The global backtrack starts at the corner <c>(tlen - 1, qlen - 1)</c> although the band of the last row ends left of it (<c>tlen - 1 + w &lt; qlen - 1</c>): <c>ksw_backtrack</c> then reads cells of the <c>kmalloc</c>-ed (uninitialised)
+    /// traceback matrix that the DP never wrote (and beyond its end), so the CIGAR is undefined.
+    /// </summary>
+    ReadsUnwrittenTraceback = 2,
+}
+
 /// <summary>The result of a ksw2 extension (<c>ksw_extz_t</c>).</summary>
 /// <param name="Max">Best score of the extension (<c>max</c>), 0 when nothing scored.</param>
 /// <param name="ZDropped">The extension stopped by the Z-drop rule (or because the band became empty).</param>
@@ -46,6 +67,9 @@ public enum Ksw2Option
 /// <param name="Cigar">The BAM-style CIGAR operations (<c>M</c>, <c>I</c> = query-only, <c>D</c> = target-only) as (operation, length).</param>
 public sealed record Ksw2Result(int Max, bool ZDropped, int MaxQ, int MaxT, int Mqe, int MqeT, int Mte, int MteQ, int Score, bool ReachEnd, IReadOnlyList<(char Operation, int Length)> Cigar)
 {
+    /// <summary>Undefined behaviour that the C reference program has on this input (<see cref="Ksw2ReferenceUndefined.None"/> for every SIMD function and for all inputs the scalar functions handle without an out-of-range access).</summary>
+    public Ksw2ReferenceUndefined ReferenceUndefined { get; init; }
+
     /// <summary>The CIGAR as text (<c>*</c> when empty).</summary>
     public string CigarString => Cigar.Count == 0 ? "*" : string.Concat(Cigar.Select(c => c.Length.ToString(System.Globalization.CultureInfo.InvariantCulture) + c.Operation));
 }
@@ -111,6 +135,7 @@ public static partial class Ksw2Aligner
         internal bool ZDropped;
         internal int MaxQ, MaxT, Mqe, MqeT, Mte, MteQ, Score;
         internal bool ReachEnd;
+        internal Ksw2ReferenceUndefined Undefined;
         internal List<uint> Cigar = [];
 
         internal Ez()
@@ -121,7 +146,7 @@ public static partial class Ksw2Aligner
         }
 
         internal Ksw2Result ToResult() => new(Max, ZDropped, MaxQ, MaxT, Mqe, MqeT, Mte, MteQ, Score, ReachEnd,
-            [.. Cigar.Select(c => ("MIDN"[(int)(c & 0xf)], (int)(c >> 4)))]);
+            [.. Cigar.Select(c => ("MIDN"[(int)(c & 0xf)], (int)(c >> 4)))]) { ReferenceUndefined = Undefined };
     }
 
     private static void PushCigar(List<uint> cigar, uint op, int len)
@@ -418,6 +443,8 @@ public static partial class Ksw2Aligner
                 eh[j] = h1;
                 ee[j] = NegInf;
             }
+            else
+                ez.Undefined |= Ksw2ReferenceUndefined.WritesBeyondRowBuffer;     // the C code writes eh[j] here
 
             if (en == qlen - 1 && eh[qlen] > ez.Mqe)
             {
@@ -441,7 +468,11 @@ public static partial class Ksw2Aligner
         {
             bool rev = (flag & Ksw2Option.ReverseCigar) != 0;
             if (!ez.ZDropped && (flag & Ksw2Option.ExtensionOnly) == 0)
+            {
+                if (tlen > 0 && qlen > 0 && Math.Min((long)tlen - 1 + w, qlen - 1) < qlen - 1)
+                    ez.Undefined |= Ksw2ReferenceUndefined.ReadsUnwrittenTraceback;     // the corner is right of the band of the last row
                 ez.Cigar = Backtrack(false, rev, z!, off!, null, nCol, tlen - 1, qlen - 1);
+            }
             else if (ez.MaxT >= 0 && ez.MaxQ >= 0)
                 ez.Cigar = Backtrack(false, rev, z!, off!, null, nCol, ez.MaxT, ez.MaxQ);
         }
@@ -593,8 +624,8 @@ public static partial class Ksw2Aligner
                     d = h > f2 ? d : 4;
                     h = h > f2 ? h : f2;
                     h1 = h;
-                    maxJ = max >= h ? maxJ : j;
-                    max = max >= h ? max : h;
+                    maxJ = max > h ? maxJ : j;          // ksw_extd.c keeps "max > h" in its KSW_EZ_RIGHT loop (ksw_extz.c has "max >= h"): the last maximum of a row, as without the flag (B09 F310)
+                    max = max > h ? max : h;
                     h -= gapoe;
                     e1 -= gape;
                     d |= e1 >= h ? 1 << 3 : 0;
@@ -621,6 +652,8 @@ public static partial class Ksw2Aligner
                 eh[j] = h1;
                 ee[j] = NegInf;
             }
+            else
+                ez.Undefined |= Ksw2ReferenceUndefined.WritesBeyondRowBuffer;     // the C code writes eh[j] here
 
             if (en == qlen - 1 && eh[qlen] > ez.Mqe)
             {
@@ -644,7 +677,11 @@ public static partial class Ksw2Aligner
         {
             bool rev = (flag & Ksw2Option.ReverseCigar) != 0;
             if (!ez.ZDropped && (flag & Ksw2Option.ExtensionOnly) == 0)
+            {
+                if (tlen > 0 && qlen > 0 && Math.Min((long)tlen - 1 + w, qlen - 1) < qlen - 1)
+                    ez.Undefined |= Ksw2ReferenceUndefined.ReadsUnwrittenTraceback;     // the corner is right of the band of the last row
                 ez.Cigar = Backtrack(false, rev, z!, off!, null, nCol, tlen - 1, qlen - 1);
+            }
             else if (ez.MaxT >= 0 && ez.MaxQ >= 0)
                 ez.Cigar = Backtrack(false, rev, z!, off!, null, nCol, ez.MaxT, ez.MaxQ);
         }
