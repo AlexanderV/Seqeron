@@ -236,19 +236,37 @@ public class MappedTextBounds1b9hTests
     public void ABulkRead_ThatWouldLeaveTheRegion_IsAMemoryViolation_AtTheExactByte()
     {
         RequireChecked();
-        foreach (int bits in new[] { 3, 8 })
+        foreach (int bits in new[] { 3, 5, 8 })
         {
-            byte[] s = TextOracle.Random(120, 1 << bits, (ulong)(bits * 7));
-            using var t = new PinnedText(s, bits);
-            long total = TotalBytes(s.Length, bits);
-            LieAboutTheLength(t.Reader, 1L << 40);
-            var dest = new byte[64];
-            long lastGood = 0; // the read touches the bytes from the first symbol's byte up to two bytes after the last symbol's
-            while ((((lastGood + 1) * bits) >> 3) + ((((long)dest.Length * bits) + 7) >> 3) + 2 <= total) lastGood++;
-            Assert.DoesNotThrow(() => t.Reader.ReadSymbols(lastGood, dest), $"b = {bits}: the read from symbol {lastGood} ends inside the region");
-            var e = Assert.Throws<EsaMemoryViolationException>(() => t.Reader.ReadSymbols(lastGood + 1, dest), $"b = {bits}: the read from symbol {lastGood + 1} ends outside it");
-            Assert.That(e!.Message, Does.Contain("mapped text"));
+            foreach (int length in new[] { 64, 5, 37 })       // the bytes of the range are rounded up: 5 symbols of 3 bits are 15 bits, two bytes
+            {
+                byte[] s = TextOracle.Random(120, 1 << bits, (ulong)(bits * 7));
+                using var t = new PinnedText(s, bits);
+                long total = TotalBytes(s.Length, bits);
+                LieAboutTheLength(t.Reader, 1L << 40);
+                var dest = new byte[length];
+                long lastGood = 0; // the read touches the bytes from the first symbol's byte up to two bytes after the last symbol's
+                while ((((lastGood + 1) * bits) >> 3) + ((((long)dest.Length * bits) + 7) >> 3) + 2 <= total) lastGood++;
+                Assert.DoesNotThrow(() => t.Reader.ReadSymbols(lastGood, dest), $"b = {bits}, {length} symbols: the read from symbol {lastGood} ends inside the region");
+                var e = Assert.Throws<EsaMemoryViolationException>(() => t.Reader.ReadSymbols(lastGood + 1, dest), $"b = {bits}, {length} symbols: the read from symbol {lastGood + 1} ends outside it");
+                Assert.That(e!.Message, Does.Contain("mapped text"));
+            }
         }
+    }
+
+    [Test]
+    public void TheGuardOfTheRawReads_RefusesANegativeOffset_AndACountThatLeavesTheRegion()
+    {
+        RequireChecked();
+        byte[] s = TextOracle.Random(100, 4, 3);
+        using var t = new PinnedText(s, 2);
+        MethodInfo check = typeof(MappedTextReader).GetMethod("CheckRead", BindingFlags.Instance | BindingFlags.NonPublic)!;     // the guard exists in the checked build only; every caller refuses a negative index first
+        long total = TotalBytes(s.Length, 2);
+        Assert.DoesNotThrow(() => check.Invoke(t.Reader, new object[] { 0L, total }), "the whole region");
+        Assert.DoesNotThrow(() => check.Invoke(t.Reader, new object[] { total - 1, 1L }), "the last byte");
+        Assert.That(Assert.Throws<TargetInvocationException>(() => check.Invoke(t.Reader, new object[] { -1L, 1L }))!.InnerException, Is.TypeOf<EsaMemoryViolationException>(), "a byte before the region");
+        Assert.That(Assert.Throws<TargetInvocationException>(() => check.Invoke(t.Reader, new object[] { total - 1, 2L }))!.InnerException, Is.TypeOf<EsaMemoryViolationException>(), "one byte too many");
+        Assert.That(Assert.Throws<TargetInvocationException>(() => check.Invoke(t.Reader, new object[] { total, 1L }))!.InnerException, Is.TypeOf<EsaMemoryViolationException>(), "the first byte after the region");
     }
 
     [Test]
@@ -350,6 +368,26 @@ public class MappedFileRegistryTests
         second.Dispose();
         using var created = new CountedFile(path, FileMode.Create, FileAccess.ReadWrite);
         Assert.That(created.Length, Is.Zero);
+    }
+
+    [Test]
+    public void ADisposeThatIsRepeated_TakesOffOnlyItsOwnMapping()
+    {
+        RequireChecked();
+        string path = RankFile(out DifferenceCover cover, out long n);
+        RankTable first = RankTable.Open(path, cover, n);
+        using RankTable second = RankTable.Open(path, cover, n);
+        first.Dispose();
+        first.Dispose();
+        Assert.Throws<EsaMemoryViolationException>(() => new CountedFile(path, FileMode.Create, FileAccess.ReadWrite), "the second table of the file is alive: a table that was disposed twice took off only one mapping");
+        byte[] symbols = TextOracle.Random(100, 4, 5);
+        string text = _dir.File("text2");
+        File.WriteAllBytes(text, TextOracle.Pack(symbols, 2));
+        MappedTextReader a = MappedTextReader.Open(text, symbols.Length, 2);
+        using MappedTextReader b = MappedTextReader.Open(text, symbols.Length, 2);
+        a.Dispose();
+        a.Dispose();
+        Assert.Throws<EsaMemoryViolationException>(() => new CountedFile(text, FileMode.Create, FileAccess.ReadWrite), "the second reader of the file is alive: a reader that was disposed twice took off only one mapping");
     }
 
     [Test]
