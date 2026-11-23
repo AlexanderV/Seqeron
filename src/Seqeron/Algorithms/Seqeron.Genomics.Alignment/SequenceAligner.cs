@@ -481,6 +481,7 @@ public static partial class SequenceAligner
     /// <remarks>Same linear-gap Needleman-Wunsch dynamic program as
     /// <see cref="GlobalAlign(string, string, ScoringMatrix?)"/> (shared core), with periodic
     /// cancellation checks and progress reports.</remarks>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static AlignmentResult GlobalAlign(
         string sequence1,
         string sequence2,
@@ -502,6 +503,7 @@ public static partial class SequenceAligner
     /// <summary>
     /// Performs global alignment on DNA sequences with cancellation support.
     /// </summary>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static AlignmentResult GlobalAlign(
         DnaSequence sequence1,
         DnaSequence sequence2,
