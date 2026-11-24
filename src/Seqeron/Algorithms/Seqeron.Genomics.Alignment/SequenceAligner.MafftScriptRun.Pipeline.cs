@@ -51,6 +51,8 @@ public static partial class SequenceAligner
                 NamesAreProgramTitles = true,
                 MinimumWeight = Num(_minimumweight),
                 FixThreshold = Num(_fixthreshold),
+                ShiftPenalty = Num(_spfactor),
+                UnalignLevel = Num(_unalignlevel),
                 AaMatrix = _sbstmodel.Contains("-b -1", StringComparison.Ordinal) ? (_files.TryGetValue(_scorematrix, out var aaText) ? MafftProgramIo.DropEmptyLines(MafftProgramIo.CarriageReturnsToNewlines(aaText)) : "")
                     : _sbstmodel.Contains("-b -2", StringComparison.Ordinal) ? (_files.TryGetValue(_scorematrix, out var textMatrix) ? MafftProgramIo.DropEmptyLines(MafftProgramIo.CarriageReturnsToNewlines(textMatrix)) : "") : null,
                 TextMode = _f2clext == "-E",
@@ -188,6 +190,80 @@ public static partial class SequenceAligner
             return 1;
         }
 
+        /// <summary>
+        /// The seed part of the script (<c>mafft.tmpl</c> 2374 - 2415): for every seed file (<c>seedN</c>, the numbers count down) <c>multi2hat3s -t nseq -o seedoffset -i seedN</c> writes the seed sequences (<c>&gt;_seed_name</c>, with gaps) in front of the
+        /// input and its blocks to <c>hat3.seed</c>; the offset grows by the number of lines of the file that start with '&gt;', '|' or '='. With <c>--seedtable</c> the file of the user is <c>hat3.seed</c>. A failing program stops the script with status 1.
+        /// With <c>--anysymbol</c> every seed file goes through <c>replaceu -o seedoffset</c> first (the records of the engine keep the original rows, <c>restoreu</c> reads the seeds and the input from <c>orig</c>) and the input is read again with its own offset.
+        /// </summary>
+        private (bool Failed, string Hat3, List<MafftProgramIo.Record> SeedRecords, string? ReplaceuLog, List<string>? AnySymbolTitles) SeedStage(int nseq, List<MafftProgramIo.Record> inputRecords)
+        {
+            var records = new List<MafftProgramIo.Record>();
+            if (_seed == "x")
+                return (false, MafftScript.NormalizeScriptFile(ReadFile(_seedtablefile)), records, null, null);
+            var files = _seedfiles.Split(' ', StringSplitOptions.RemoveEmptyEntries).Skip(1).ToList();
+            var hat3 = new StringBuilder();
+            var log = new StringBuilder();
+            var titles = _anysymbol ? new List<string>() : null;
+            var seqtype = _seqtype == "-D" ? MafftSequenceType.Nucleotide : _seqtype == "-P" ? MafftSequenceType.Amino : MafftSequenceType.Auto;
+            if (_anysymbol)
+            {
+                var originalsOfInput = inputRecords.Select(r => MafftEngine.PlainOrAnyResidues(r.Raw, true)).ToList();
+                log.Append(MafftEngine.ReplaceuLog(originalsOfInput, MafftEngine.GuessNucleotide(originalsOfInput, new MafftOptions { SequenceType = seqtype })));
+            }
+            int seedoffset = 0;
+            for (int k = 0; k < files.Count; k++)
+            {
+                string text = MafftProgramIo.CarriageReturnsToNewlines(ReadFile(files[k]));
+                int count = MafftProgramIo.SplitLines(text).Count(l => l.Length > 0 && l[0] is '>' or '|' or '=');
+                string fileName = "seed" + (files.Count - k).ToString(CultureInfo.InvariantCulture);
+                List<string>? originals = null;
+                var seedRecs = MafftProgramIo.Records(text);
+                if (_anysymbol)
+                {
+                    if (seedRecs.Any(r => r.Raw.IndexOfAny(new[] { '=', '<', '>' }) >= 0))
+                        throw new NotSupportedException("--seed --anysymbol with '=', '<' or '>' in a seed sequence: replaceu stops (not ported yet).");
+                    originals = seedRecs.Select(r => MafftEngine.PlainOrAnyResidues(r.Raw, true)).ToList();
+                    bool nucSeed = MafftEngine.GuessNucleotide(originals, new MafftOptions { SequenceType = seqtype });
+                    log.Append("inputfile = ").Append(fileName).Append("\nseedoffset = ").Append(seedoffset.ToString(CultureInfo.InvariantCulture)).Append('\n')
+                        .Append(originals.Count.ToString(CultureInfo.InvariantCulture)).Append(" x ").Append(originals.Count == 0 ? 0 : originals.Max(x => x.Length).ToString(CultureInfo.InvariantCulture)).Append(" - ")
+                        .Append(originals.Count == 0 ? 0 : originals.Min(x => x.Length).ToString(CultureInfo.InvariantCulture)).Append(' ').Append(nucSeed ? 'd' : 'p').Append('\n');
+                    var clean = new StringBuilder();
+                    for (int i = 0; i < seedRecs.Count; i++)
+                        clean.Append(">_os_").Append((i + seedoffset).ToString(CultureInfo.InvariantCulture)).Append("_oe_").Append(seedRecs[i].Name).Append('\n').Append(MafftEngine.ReplaceUnusual(originals[i], nucSeed)).Append('\n');
+                    text = clean.ToString();
+                }
+                var m = MafftRun.Multi2Hat3s(text, nseq, seedoffset, fileName);
+                log.Append(m.Log);
+                if (m.Failure != null)
+                {
+                    log.Append(m.Failure.Text);
+                    Prog(log.ToString());
+                    return (true, "", records, null, null);
+                }
+                var produced = MafftProgramIo.Records(m.Rows);
+                for (int i = 0; i < produced.Count; i++)
+                {
+                    records.Add(_anysymbol ? new MafftProgramIo.Record(produced[i].Name, originals![i]) : produced[i]);
+                    titles?.Add(produced[i].Name.Length > MafftProgramIo.NameLimit ? produced[i].Name[..MafftProgramIo.NameLimit] : produced[i].Name);
+                }
+                hat3.Append(m.Hat3);
+                seedoffset += count;
+            }
+            if (_anysymbol)
+            {
+                var originalsOfInput = inputRecords.Select(r => MafftEngine.PlainOrAnyResidues(r.Raw, true)).ToList();
+                bool nucInput = MafftEngine.GuessNucleotide(originalsOfInput, new MafftOptions { SequenceType = seqtype });
+                log.Append("inputfile = orig2\nseedoffset = ").Append(seedoffset.ToString(CultureInfo.InvariantCulture)).Append('\n')
+                    .Append(originalsOfInput.Count.ToString(CultureInfo.InvariantCulture)).Append(" x ").Append(originalsOfInput.Count == 0 ? 0 : originalsOfInput.Max(x => x.Length).ToString(CultureInfo.InvariantCulture)).Append(" - ")
+                    .Append(originalsOfInput.Count == 0 ? 0 : originalsOfInput.Min(x => x.Length).ToString(CultureInfo.InvariantCulture)).Append(' ').Append(nucInput ? 'd' : 'p').Append('\n');
+            }
+            else
+            {
+                Prog(log.ToString());
+            }
+            return (false, hat3.ToString(), records, _anysymbol ? log.ToString() : null, titles);
+        }
+
         private static string Prefix(int i) => "_os_" + i.ToString(CultureInfo.InvariantCulture) + "_oe_";
 
         private static string Truncate(string s, int n) => s.Length > n ? s[..n] : s;
@@ -227,15 +303,29 @@ public static partial class SequenceAligner
                 Err("Impossible\n");
                 return 1;
             }
-            bool engine = _fragment == 0 && _seed == "x" && _seedtable == "x" && !_newdash && _adjustdirection == 0 && _anchoropt.Length == 0
+            bool seedRun = _seed != "x" || _seedtable != "x";
+            bool engine = _fragment == 0 && !_newdash && _adjustdirection == 0 && _anchoropt.Length == 0
                 && _distance is "ktuples" or "global" or "local" or "localgenaf" or "parttree";
             if (_nadd > 0 && _distance == "parttree")
                 throw new NotSupportedException("--add with --parttree: the script refuses it (Impossible).");
-            if (Num(_unalignlevel) > 0.0 || Num(_spfactor) < 100.0)
-                throw new NotSupportedException("--allowshift / --unalignlevel / --shiftpenalty (the warp and the unaligned level of the alignment programs) are not ported yet.");
-            if (!engine || cycletbfast > 1 && _distance != "parttree")
+            if (Num(_unalignlevel) > 0.0)
+                throw new NotSupportedException("--allowshift / --unalignlevel (the unaligned level of the alignment programs: scoring matrices by distance class) are not ported yet.");
+            if (!engine || cycletbfast > 1 && _distance != "parttree" && !seedRun)
                 throw new NotSupportedException("The strategy '" + strategy + "' of the script (distance " + _distance + ") is not ported yet.");
             var recs = MafftProgramIo.Records(infile);
+            string? seedHat3 = null;
+            string? seedReplaceuLog = null;
+            List<string>? seedTitles = null;
+            if (seedRun)
+            {
+                var seedStage = SeedStage(nseq, recs);
+                if (seedStage.Failed)
+                    return 1;
+                seedHat3 = seedStage.Hat3;
+                seedReplaceuLog = seedStage.ReplaceuLog;
+                seedTitles = seedStage.AnySymbolTitles;
+                recs = seedStage.SeedRecords.Concat(recs).ToList();
+            }
             string pre;
             var names = new List<string>();
             foreach (var r in recs)
@@ -244,7 +334,12 @@ public static partial class SequenceAligner
             var shown = new List<string>();
             for (int i = 0; i < recs.Count; i++)
                 shown.Add(Title(i, names[i]));
+            if (seedTitles != null)
+                for (int i = 0; i < seedTitles.Count; i++)
+                    shown[i] = seedTitles[i];
             var o = BuildOptions(shown, false);
+            if (seedHat3 != null)
+                o = o with { SeedTable = seedHat3, SeedCycle = cycletbfast, ReplaceuLogOverride = seedReplaceuLog };
             MafftRunResult res;
             var seqs = recs.Select(r => r.Raw).ToList();
             if (_anysymbol && seqs.Any(s => s.IndexOfAny(new[] { '=', '<', '>' }) >= 0))

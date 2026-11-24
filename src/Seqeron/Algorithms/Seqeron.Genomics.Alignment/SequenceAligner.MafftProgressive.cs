@@ -90,9 +90,9 @@ public static partial class SequenceAligner
                 throw unknownLetter;
             Report("\n");
             if (G.Dorp == 'p' && G.TupleSize != 6)
-                throw new ArgumentException("tuplesize must be 6 for aa sequence");
+                throw new MafftProgramFailureException("tuplesize must be 6 for aa sequence\n");
             if (G.Dorp == 'd' && G.TupleSize != 6 && G.TupleSize != 10)
-                throw new ArgumentException("tuplesize must be 6 or 10 for dna sequence");
+                throw new MafftProgramFailureException("tuplesize must be 6 or 10 for dna sequence\n");
             int nguidetree = G.NGuideTree;
             int randomseed = 0;
             char treein = '\0';
@@ -1114,7 +1114,7 @@ public static partial class SequenceAligner
         // -------------------------------------------------------------------- treebase
 
         /// <summary><c>treebase</c> (<c>disttbfast.c</c>, all groups aligned: <c>mergeoralign[l] == 'a'</c>): joins the groups in the order of the guide tree.</summary>
-        private void TreeBase(string[] aseq, GuideTree tree, double[] effarr, ref int alloclen, MafftLocalHom[][]? localhom = null, bool tbfast = false, MafftAddState? add = null, NodePairData? nodePair = null)
+        private void TreeBase(string[] aseq, GuideTree tree, double[] effarr, ref int alloclen, MafftLocalHom[][]? localhom = null, bool tbfast = false, MafftAddState? add = null, NodePairData? nodePair = null, double[]? effarrKozo = null, MafftLocalHom[][]? seedHom = null, int nseed = 0)
         {
             bool constraint = localhom != null || nodePair != null && G.Constraint == 2;
             int njob = _njob;
@@ -1124,6 +1124,17 @@ public static partial class SequenceAligner
             var cpmxhist = new double[njob - 1][][];
             if (localhom != null)
                 CalcImportanceHalf(njob, effarr, aseq, localhom, alloclen);
+            int[]? seedIn1 = null, seedIn2 = null;
+            if (constraint && nodePair != null && seedHom != null && nseed > 0)
+            {
+                // compacttree == 3 with seeds: dontcalcimportance_half( nseed, ... ) (the importance of a block is its score), the positions of the seeds of both groups in the table of the seeds
+                for (int i = 0; i < nseed; i++)
+                    for (int j = i + 1; j < nseed; j++)
+                        for (var t = seedHom[i][j - i]; t != null; t = t.Next)
+                            t.Importance = t.Opt;
+                seedIn1 = new int[njob];
+                seedIn2 = new int[njob];
+            }
             for (int l = 0; l < njob - 1; l++)
             {
                 int m1 = tree.Topol0[l];
@@ -1157,8 +1168,23 @@ public static partial class SequenceAligner
                 var effarr1 = new double[clus1];
                 var effarr2 = new double[clus2];
                 double minimumWeight = constraint || tbfast ? G.MinimumWeight : 0.0;
-                double orieff1 = FastConjunction(localmem0, aseq, mseq1, effarr1, effarr, minimumWeight);
-                double orieff2 = FastConjunction(localmem1, aseq, mseq2, effarr2, effarr, minimumWeight);
+                double[]? effarr1Kozo = null, effarr2Kozo = null;
+                double orieff1, orieff2;
+                if (effarrKozo != null)
+                {
+                    // structures (blocks of kind 'k'): fastconjuction_noname_kozo, no minimum weight, no reuse of the profiles of the children (cpmxchild0 = cpmxchild1 = NULL; orieff1 / orieff2 are not set and not used)
+                    effarr1Kozo = new double[clus1];
+                    effarr2Kozo = new double[clus2];
+                    FastConjunctionKozo(localmem0, aseq, mseq1, effarr1, effarr, effarr1Kozo, effarrKozo);
+                    FastConjunctionKozo(localmem1, aseq, mseq2, effarr2, effarr, effarr2Kozo, effarrKozo);
+                    orieff1 = orieff2 = 1.0;
+                    child0 = child1 = -1;
+                }
+                else
+                {
+                    orieff1 = FastConjunction(localmem0, aseq, mseq1, effarr1, effarr, minimumWeight);
+                    orieff2 = FastConjunction(localmem1, aseq, mseq2, effarr2, effarr, minimumWeight);
+                }
                 int len1nocommongap = len1;
                 int[]? gapmap = null;
                 char mergeOrAlign = add?.MergeOrAlign[l] ?? 'a';
@@ -1179,8 +1205,19 @@ public static partial class SequenceAligner
                     // tbfast, constraint == 2: the importance of the blocks of the pairwise alignments enters the match scores of A__align
                     if (l < 1000 || l % 100 == 0)
                         Report("\rSTEP " + MafftGlobals.D5(l + 1) + " /" + (njob - 1) + " ");
+                    MafftLocalHom?[][]? seedShrink = null;
+                    if (seedIn1 != null)
+                    {
+                        seedShrink = ShrinkSeedHom(localmem0, localmem1, nseed, seedIn1, seedIn2!, seedHom!);
+                        for (int i = 0; i < njob; i++)
+                            Report("seedinlh1[" + i.ToString(CultureInfo.InvariantCulture) + "]=" + seedIn1[i].ToString(CultureInfo.InvariantCulture) + "\n");
+                        for (int i = 0; i < njob; i++)
+                            Report("seedinlh2[" + i.ToString(CultureInfo.InvariantCulture) + "]=" + seedIn2![i].ToString(CultureInfo.InvariantCulture) + "\n");
+                    }
+                    if (G.Alg == 'M')
+                        throw new MafftProgramFailureException("\n\nMemory saving mode is not supported.\n\n");
                     var shrink = nodePair != null ? NodeShrink(nodePair, l, clus1, clus2) : ShrinkLocalHom(localmem0, localmem1, localhom!);
-                    var imp = FillImp(clus1, clus2, mseq1[0].Length, mseq2[0].Length, mseq1, mseq2, effarr1, effarr2, shrink, localmem0, localmem1);
+                    var imp = FillImp(clus1, clus2, mseq1[0].Length, mseq2[0].Length, mseq1, mseq2, effarr1, effarr2, shrink, localmem0, localmem1, false, effarr1Kozo, effarr2Kozo, seedShrink, seedIn1, seedIn2);
                     AAlign(dynamicmtx, G.Penalty, G.PenaltyEx, mseq1, mseq2, effarr1, effarr2, clus1, clus2, alloclen, null, null, null, null, G.Outgap, G.Outgap,
                         cpmxhist, child0, child1, l, orieff1, orieff2, imp);
                     _nlen[m1] = (int)(0.5 * (_nlen[m1] + _nlen[m2]));
@@ -1646,6 +1683,37 @@ public static partial class SequenceAligner
             _impMtx = null;
         }
 
+        /// <summary><c>fastconjuction_noname_kozo</c>: the rows of a group, their weights (normalised to 1) and the structure weights (normalised to 1, plus the weight of the sequence when positive; all 0 when no member has a structure weight).</summary>
+        private static void FastConjunctionKozo(int[] memlist, string[] seq, string[] aseq, double[] peff, double[] eff, double[] peffKozo, double[] effKozo)
+        {
+            double total = 0.0, totalKozo = 0.0;
+            for (int k = 0; k < memlist.Length; k++)
+            {
+                int m = memlist[k];
+                aseq[k] = seq[m];
+                peff[k] = eff[m];
+                peffKozo[k] = effKozo[m];
+                total += peff[k];
+                totalKozo += peffKozo[k];
+            }
+            for (int m = 0; m < memlist.Length; m++)
+                peff[m] /= total;
+            if (totalKozo != 0.0)
+            {
+                for (int m = 0; m < memlist.Length; m++)
+                {
+                    peffKozo[m] /= totalKozo;
+                    if (peffKozo[m] > 0.0)
+                        peffKozo[m] += peff[m];
+                }
+            }
+            else
+            {
+                for (int m = 0; m < memlist.Length; m++)
+                    peffKozo[m] = 0.0;
+            }
+        }
+
         /// <summary><c>fastconjuction_noname</c>: the rows of a group and their weights, normalised to 1; returns the total weight before normalising.</summary>
         private static double FastConjunction(int[] memlist, string[] seq, string[] aseq, double[] peff, double[] eff, double mineff = 0.0)
         {
@@ -1681,8 +1749,11 @@ public static partial class SequenceAligner
                 seq2[0] = new string(G.NewGapChar, lgth1);
                 return 0.0;
             }
-            if (G.TryWarp)
-                throw new NotSupportedException("--allowshift / --shiftpenalty (the warp of G__align11) is not available in this port.");
+            // G__align11_noalign (the distance only) has no warp
+            bool trywarp = G.TryWarp && !noalign;
+            if (trywarp && (headgp == 0 || tailgp == 0))
+                throw new MafftProgramFailureException("At present, headgp and tailgp must be 1.\n");
+            var warp = trywarp ? new WarpState(lgth1, lgth2, G.PenaltyShift) : null;
             var amino = new double[256][];
             for (int i = 0; i < 256; i++)
                 amino[i] = new double[256];
@@ -1790,14 +1861,17 @@ public static partial class SequenceAligner
                     }
                     if (j < lgth2)
                         m[j] += fpenaltyEx;
+                    if (warp != null)
+                        wm = warp.Step(i, j, wm, currentw[j], fpenaltyEx, ijpRow);
                     currentw[j] += wm;
                 }
+                warp?.EndRow(lastj);
                 lastverticalw[i] = currentw[lgth2 - 1];
             }
             (string, string, double) tracked;
             try
             {
-                tracked = Atracking11(G.NewGapChar, currentw, lastverticalw, s1, s2, ijp, tailgp);
+                tracked = Atracking11(G.NewGapChar, currentw, lastverticalw, s1, s2, ijp, tailgp, warp);
             }
             catch (IndexOutOfRangeException)
             {
@@ -1813,7 +1887,7 @@ public static partial class SequenceAligner
             return wm;
         }
 
-        private static (string, string, double) Atracking11(char gap, double[] lasthorizontalw, double[] lastverticalw, string seq1, string seq2, int[][] ijp, int tailgp)
+        private static (string, string, double) Atracking11(char gap, double[] lasthorizontalw, double[] lastverticalw, string seq1, string seq2, int[][] ijp, int tailgp, WarpState? warp = null)
         {
             int lgth1 = seq1.Length, lgth2 = seq2.Length;
             for (int i = 0; i < lgth1 + 1; i++)
@@ -1856,7 +1930,12 @@ public static partial class SequenceAligner
             while (k < limk)
             {
                 int ifi, jfi;
-                if (ijp[iin][jin] < 0)
+                if (warp != null && ijp[iin][jin] >= warp.Base)
+                {
+                    ifi = warp.Is[ijp[iin][jin] - warp.Base];
+                    jfi = warp.Js[ijp[iin][jin] - warp.Base];
+                }
+                else if (ijp[iin][jin] < 0)
                 {
                     ifi = iin - 1;
                     jfi = jin + ijp[iin][jin];
@@ -1870,6 +1949,24 @@ public static partial class SequenceAligner
                 {
                     ifi = iin - 1;
                     jfi = jin - 1;
+                }
+                if (warp != null && ifi == -warp.Base && jfi == -warp.Base)
+                {
+                    int rest = iin;
+                    while (--rest >= 0)
+                    {
+                        a[--pa] = seq1[rest];
+                        b[--pb] = gap;
+                        k++;
+                    }
+                    rest = jin;
+                    while (--rest >= 0)
+                    {
+                        a[--pa] = gap;
+                        b[--pb] = seq2[rest];
+                        k++;
+                    }
+                    break;
                 }
                 int l = iin - ifi;
                 while (--l > 0)

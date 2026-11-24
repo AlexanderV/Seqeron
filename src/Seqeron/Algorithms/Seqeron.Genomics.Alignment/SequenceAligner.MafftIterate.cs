@@ -344,8 +344,10 @@ public static partial class SequenceAligner
         /// the two groups are re-aligned (<see cref="Falign"/> with the groups' own columns as anchors), and the new alignment is kept when its score is not lower than the old one; a pass over all branches is an iteration (forward
         /// and backward alternately) and the refinement ends when <c>2 n</c> branches in a row do not change or the score oscillates. <paramref name="aseq"/> is the alignment of the segment, the result is returned.
         /// </summary>
-        private string[] TreeDependentIteration(int locnjob, string[] segment, int[][][] topol, double[][] len, double[][] distmtx, int[][] skipthisbranch, int alloclen, MafftLocalHom[][]? localhom = null)
+        private string[] TreeDependentIteration(int locnjob, string[] segment, int[][][] topol, double[][] len, double[][] distmtx, int[][] skipthisbranch, int alloclen, MafftLocalHom[][]? localhom = null, bool[]? kozo = null)
         {
+            bool anyKozo = kozo != null && kozo.Any(x => x);
+            var effarrKozo = new double[locnjob];
             var aseq = (string[])segment.Clone();
             var bseq = (string[])segment.Clone();
             _ = distmtx;
@@ -407,10 +409,16 @@ public static partial class SequenceAligner
                         {
                             for (int i = 0; i < locnjob; i++)
                                 effarr[i] = 1.0;
+                            if (anyKozo)
+                                for (int i = 0; i < locnjob; i++)
+                                    effarrKozo[i] = kozo![i] ? 1.0 : 0.0;
                         }
                         else if (G.Weight == 4)
                         {
                             stopol!.WeightFromABranch(effarr, l, k);
+                            if (anyKozo)
+                                for (int i = 0; i < locnjob; i++)
+                                    effarrKozo[i] = kozo![i] ? effarr[i] : 0.0; // a single weight
                         }
                         for (int i = 0; i < locnjob; i++)
                             aseq[i] = bseq[i];
@@ -419,8 +427,19 @@ public static partial class SequenceAligner
                         var mseq2 = new string[memlist1.Length];
                         var effarr1 = new double[memlist0.Length];
                         var effarr2 = new double[memlist1.Length];
-                        FastConjunction(memlist0, aseq, mseq1, effarr1, effarr, G.MinimumWeight);
-                        FastConjunction(memlist1, aseq, mseq2, effarr2, effarr, G.MinimumWeight);
+                        double[]? effarr1Kozo = null, effarr2Kozo = null;
+                        if (anyKozo)
+                        {
+                            effarr1Kozo = new double[memlist0.Length];
+                            effarr2Kozo = new double[memlist1.Length];
+                            FastConjunctionKozo(memlist0, aseq, mseq1, effarr1, effarr, effarr1Kozo, effarrKozo);
+                            FastConjunctionKozo(memlist1, aseq, mseq2, effarr2, effarr, effarr2Kozo, effarrKozo);
+                        }
+                        else
+                        {
+                            FastConjunction(memlist0, aseq, mseq1, effarr1, effarr, G.MinimumWeight);
+                            FastConjunction(memlist1, aseq, mseq2, effarr2, effarr, G.MinimumWeight);
+                        }
                         int clus1 = memlist0.Length, clus2 = memlist1.Length;
                         double mscore = IntergroupScore(mseq1, mseq2, effarr1, effarr2, clus1, clus2, length); // computed with -Z too ("Oscilation check no tame hitsuyou"): -Z only skips the score of the new alignment (tscore = mscore + 1)
                         double impmatchdouble = 0.0;
@@ -429,7 +448,7 @@ public static partial class SequenceAligner
                             // msshrinklocalhom_fast_half, part_imp_match_init_strict, the importance on the diagonal of the groups' own alignment
                             var shrink = ShrinkLocalHom(memlist0, memlist1, localhom);
                             double oimpmatchdouble = 0.0;
-                            PartFillImp(clus1, clus2, length, length, mseq1, mseq2, effarr1, effarr2, shrink, memlist0, memlist1);
+                            PartFillImp(clus1, clus2, length, length, mseq1, mseq2, effarr1, effarr2, shrink, memlist0, memlist1, effarr1Kozo, effarr2Kozo);
                             for (int i = length - 1; i >= 0; i--)
                                 oimpmatchdouble += _partImpMtx![i][i];
                             mscore = oimpmatchdouble + mscore;
@@ -543,8 +562,8 @@ public static partial class SequenceAligner
                 node[i] = rootnode[i] / total;
         }
 
-        private void PartFillImp(int clus1, int clus2, int lgth1, int lgth2, string[] seq1, string[] seq2, double[] eff1, double[] eff2, MafftLocalHom?[][] localhom, int[] orinum1, int[] orinum2)
-            => FillImp(clus1, clus2, lgth1, lgth2, seq1, seq2, eff1, eff2, localhom, orinum1, orinum2, true);
+        private void PartFillImp(int clus1, int clus2, int lgth1, int lgth2, string[] seq1, string[] seq2, double[] eff1, double[] eff2, MafftLocalHom?[][] localhom, int[] orinum1, int[] orinum2, double[]? eff1Kozo = null, double[]? eff2Kozo = null)
+            => FillImp(clus1, clus2, lgth1, lgth2, seq1, seq2, eff1, eff2, localhom, orinum1, orinum2, true, eff1Kozo, eff2Kozo);
 
         /// <summary><c>OneClusterAndTheOther_fast</c>: the sequences of the group (step, branch) and all the others.</summary>
         private static (int[] Mem1, int[] Mem2) OneClusterAndTheOther(int locnjob, int[][][] topol, int step, int branch)
@@ -567,7 +586,7 @@ public static partial class SequenceAligner
         /// <c>dvtditr</c> (<c>dvtditr.c</c>): the iterative refinement of the alignment <paramref name="rows"/> (the output of <c>disttbfast</c>): the guide tree is the UPGMA of the distances <paramref name="hat2"/> of <c>dndpre</c>, the alignment is cut
         /// into segments at the windows with a high column score (<see cref="SearchAnchors"/>; <c>--bunkatsunashi</c> = <c>-B</c> keeps one), and every segment is refined by <see cref="TreeDependentIteration"/>.
         /// </summary>
-        internal Result Dvtditr(string[] rows, double[][] hat2, MafftLocalHom[][]? localhom = null, IReadOnlyList<string>? names = null)
+        internal Result Dvtditr(string[] rows, double[][] hat2, MafftLocalHom[][]? localhom = null, IReadOnlyList<string>? names = null, bool[]? kozo = null)
         {
             int njob = rows.Length;
             MafftSubalignments? merge = G.Subalignment ? ReadSubalignmentsTable(njob) : null;
@@ -676,7 +695,7 @@ public static partial class SequenceAligner
                     seg[j] = seqG[j].Substring(offset, tmplen);
                 offset += tmplen;
                 Report("Segment " + (iseg + 1).ToString(CultureInfo.InvariantCulture).PadLeft(3) + "/" + (nseg - 1).ToString(CultureInfo.InvariantCulture).PadLeft(3) + " " + (pos + 1).ToString(CultureInfo.InvariantCulture).PadLeft(4) + "-" + (pos + 1 + tmplen).ToString(CultureInfo.InvariantCulture).PadLeft(4) + "\n");
-                var bseq = TreeDependentIteration(njob, seg, topol, len, eff, skipthisbranch, alloclen, localhom);
+                var bseq = TreeDependentIteration(njob, seg, topol, len, eff, skipthisbranch, alloclen, localhom, kozo);
                 for (int i = 0; i < njob; i++)
                     resG[i].Append(bseq[i]);
             }

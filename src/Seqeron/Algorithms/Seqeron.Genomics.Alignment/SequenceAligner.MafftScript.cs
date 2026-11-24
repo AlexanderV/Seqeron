@@ -127,7 +127,7 @@ public static partial class SequenceAligner
             var args = new List<string> { "-W", Text(o.MinimumWeight) };
             if (o.NoSegmentation)
                 args.Add("-B");
-            args.AddRange(new[] { "-E", Text(o.FixThreshold), "-s", "0.0" });
+            args.AddRange(new[] { "-E", Text(o.FixThreshold), "-s", Text(o.UnalignLevel) });
             if (o.LegacyGapPenalty)
                 args.Add("-L");
             args.AddRange(MergeArguments(o));
@@ -141,7 +141,7 @@ public static partial class SequenceAligner
             args.AddRange(MemoryArguments(o));
             if (o.NoScore)
                 args.Add("-Z");
-            if (o.PairLibrary != MafftPairLibrary.None)
+            if (o.PairLibrary != MafftPairLibrary.None || o.SeedTable != null)
             {
                 args.Add("-l");
                 args.Add(Text(o.WeightI));
@@ -156,7 +156,7 @@ public static partial class SequenceAligner
             args.Add("-f");
             args.Add("-" + gop);
             args.Add("-Q");
-            args.Add("100.0");
+            args.Add(Text(o.ShiftPenalty));
             args.Add("-h");
             args.Add(aof);
             args.Add("-I");
@@ -173,6 +173,46 @@ public static partial class SequenceAligner
                 args.AddRange(new[] { "-S", "-B" });
             args.Add("-K");
             args.Add(nadd.ToString(CultureInfo.InvariantCulture));
+            return args;
+        }
+
+        /// <summary>The command of the later passes of a seed run (<c>tbfast -W $minimumweight -V -$gopdist -s $unalignlevel $legacygapopt $mergearg $termgapopt $outnum -C $numthreadstb $weightopt $treeoutopt $distoutopt $memopt $seqtype $model -f -$gop -Q 100.0 -h $aof $param_fft -l $weighti -J $treealg $scoreoutarg</c>).</summary>
+        internal static List<string> TbfastJArguments(MafftOptions o)
+        {
+            int threads = o.Threads < 0 ? Environment.ProcessorCount : o.Threads;
+            int threadsTb = o.ThreadsProgressive ?? (threads < 16 ? threads : 16);
+            string gop = Text(o.GapOpen);
+            string gopdist = o.GapOpenDistance is { } gd ? Text(gd) : gop;
+            string aof = AwkPrint(0.0 + 0.0 + MafftGlobals.CAtof(AwkPrint(-1.0 * o.Offset)));
+            if (o.Offset == 0.0)
+                aof = "0";
+            var args = new List<string> { "-W", Text(o.MinimumWeight), "-V", "-" + gopdist, "-s", Text(o.UnalignLevel) };
+            if (o.LegacyGapPenalty)
+                args.Add("-L");
+            args.AddRange(MergeArguments(o));
+            if (!o.TerminalGapPenalty)
+                args.Add("-O");
+            if (o.OutNumber)
+                args.Add("-n");
+            args.Add("-C");
+            args.Add(threadsTb.ToString(CultureInfo.InvariantCulture));
+            if (o.Unweight)
+                args.Add("-u");
+            args.AddRange(TreeOutArguments(o, 1));
+            args.AddRange(MemoryArguments(o));
+            if (o.SequenceType == MafftSequenceType.Nucleotide)
+                args.Add("-D");
+            else if (o.SequenceType == MafftSequenceType.Amino)
+                args.Add("-P");
+            args.AddRange(ModelArguments(o));
+            args.AddRange(new[] { "-f", "-" + gop, "-Q", Text(o.ShiftPenalty), "-h", aof });
+            if (o.ForceFft)
+                args.Add("-G");
+            else if (o.Fft)
+                args.Add("-F");
+            args.AddRange(new[] { "-l", Text(o.WeightI), "-J", "-X", o.TreeMixing is { } mix ? Text(mix) : "0.1" });
+            if (o.ScoreOut)
+                args.AddRange(new[] { "-S", "-B" });
             return args;
         }
 
@@ -228,7 +268,7 @@ public static partial class SequenceAligner
             else if (o.SequenceType == MafftSequenceType.Amino)
                 args.Add("-P");
             args.AddRange(ModelArguments(o));
-            args.AddRange(new[] { "-f", "-" + Text(o.GapOpen), "-Q", "100.0", "-h", aof, "-p", o.PartSize.ToString(CultureInfo.InvariantCulture), "-s", groupsize.ToString(CultureInfo.InvariantCulture),
+            args.AddRange(new[] { "-f", "-" + Text(o.GapOpen), "-Q", Text(o.ShiftPenalty), "-h", aof, "-p", o.PartSize.ToString(CultureInfo.InvariantCulture), "-s", groupsize.ToString(CultureInfo.InvariantCulture),
                 "-X", o.TreeMixing is { } mix ? Text(mix) : "0.1", "-i", "infile" });
             return args;
         }
@@ -415,7 +455,7 @@ public static partial class SequenceAligner
             bool genaf = o.PairLibrary == MafftPairLibrary.Genaf;
             if (genaf)
                 aof = "0.000"; // E-INS: the offset of the progressive stage is 0 whatever --ep says
-            var pair = new List<string> { "-u", "0.0", "-l", weighti, "-C", threads.ToString(CultureInfo.InvariantCulture) };
+            var pair = new List<string> { "-u", Text(o.UnalignLevel), "-l", weighti, "-C", threads.ToString(CultureInfo.InvariantCulture) };
             if (o.SequenceType == MafftSequenceType.Nucleotide)
                 pair.Add("-D");
             else if (o.SequenceType == MafftSequenceType.Amino)
@@ -424,22 +464,22 @@ public static partial class SequenceAligner
             switch (o.PairLibrary)
             {
                 case MafftPairLibrary.Global:
-                    pair.AddRange(new[] { "-g", Text(o.GlobalPairExtension), "-f", Text(o.GlobalPairOpen), "-Q", "100.0", "-h", AwkPrint(0.0 + 0.0 + o.GlobalPairOffset), "-A" });
+                    pair.AddRange(new[] { "-g", Text(o.GlobalPairExtension), "-f", Text(o.GlobalPairOpen), "-Q", Text(o.ShiftPenalty), "-h", AwkPrint(0.0 + 0.0 + o.GlobalPairOffset), "-A" });
                     break;
                 case MafftPairLibrary.Local:
-                    pair.AddRange(new[] { "-g", Text(o.LocalPairExtension), "-f", Text(o.LocalPairOpen), "-Q", "100.0", "-h", AwkPrint(0.0 + 0.0 + o.LocalPairOffset), "-L" });
+                    pair.AddRange(new[] { "-g", Text(o.LocalPairExtension), "-f", Text(o.LocalPairOpen), "-Q", Text(o.ShiftPenalty), "-h", AwkPrint(0.0 + 0.0 + o.LocalPairOffset), "-L" });
                     break;
                 default:
                     // the new parameters of E-INS-i (7.243): no offset, no extension in the pair stage and the score of the pair is the plain sum of the matrix scores of its aligned columns (-Z)
                     pair.AddRange(o.OldGenafParameters
-                        ? new[] { "-g", Text(o.LocalPairExtension), "-f", Text(o.LocalPairOpen), "-Q", "100.0", "-h", AwkPrint(0.0 + 0.0 + o.LocalPairOffset), "-O", Text(o.GenafOpen), "-E", Text(o.GenafExtension), "-N" }
-                        : new[] { "-g", "0.0", "-f", Text(o.LocalPairOpen), "-Q", "100.0", "-h", AwkPrint(0.0 + 0.0 + 0.0), "-O", Text(o.GenafOpen), "-E", Text(o.GenafExtension), "-N", "-Z" });
+                        ? new[] { "-g", Text(o.LocalPairExtension), "-f", Text(o.LocalPairOpen), "-Q", Text(o.ShiftPenalty), "-h", AwkPrint(0.0 + 0.0 + o.LocalPairOffset), "-O", Text(o.GenafOpen), "-E", Text(o.GenafExtension), "-N" }
+                        : new[] { "-g", "0.0", "-f", Text(o.LocalPairOpen), "-Q", Text(o.ShiftPenalty), "-h", AwkPrint(0.0 + 0.0 + 0.0), "-O", Text(o.GenafOpen), "-E", Text(o.GenafExtension), "-N", "-Z" });
                     break;
             }
             var tb = new List<string>();
             if (o.GuideTree is not (MafftGuideTree.MemSaveTree or MafftGuideTree.StepAdd))
                 tb.AddRange(new[] { "-+", Iterations(o).ToString(CultureInfo.InvariantCulture) });
-            tb.AddRange(new[] { "-W", Text(o.MinimumWeight), "-V", "-" + gopdist, "-s", "0.0" });
+            tb.AddRange(new[] { "-W", Text(o.MinimumWeight), "-V", "-" + gopdist, "-s", Text(o.UnalignLevel) });
             if (o.LegacyGapPenalty)
                 tb.Add("-L");
             if (o.PairLibrary != MafftPairLibrary.Global && !o.TerminalGapPenalty)
@@ -460,7 +500,7 @@ public static partial class SequenceAligner
             else if (o.SequenceType == MafftSequenceType.Amino)
                 tb.Add("-P");
             tb.AddRange(ModelArguments(o));
-            tb.AddRange(new[] { "-f", "-" + gop, "-Q", "100.0", "-h", aof });
+            tb.AddRange(new[] { "-f", "-" + gop, "-Q", Text(o.ShiftPenalty), "-h", aof });
             if (o.ForceFft)
                 tb.Add("-G");
             else if (o.Fft)
@@ -591,6 +631,8 @@ public static partial class SequenceAligner
             if (cycle > 3)
                 cycle = 3;
             int cycledisttbfast = cycle == 0 ? 1 : cycle;
+            if (o.SeedTable != null)
+                cycledisttbfast = 1; // a seed: the other passes are made by tbfast -J
             string gop = Text(o.GapOpen);
             string gopdist = o.GapOpenDistance is { } gd ? Text(gd) : gop;
             string aof = AwkPrint(0.0 + 0.0 + MafftGlobals.CAtof(AwkPrint(-1.0 * o.Offset)));
@@ -602,7 +644,7 @@ public static partial class SequenceAligner
                 "-q", o.SparsePickup.ToString(CultureInfo.InvariantCulture),
                 "-E", cycledisttbfast.ToString(CultureInfo.InvariantCulture),
                 "-V", "-" + gopdist,
-                "-s", "0.0",
+                "-s", Text(o.UnalignLevel),
             };
             if (o.LegacyGapPenalty)
                 args.Add("-L");
@@ -634,7 +676,7 @@ public static partial class SequenceAligner
             args.Add("-f");
             args.Add("-" + gop);
             args.Add("-Q");
-            args.Add("100.0");
+            args.Add(Text(o.ShiftPenalty));
             args.Add("-h");
             args.Add(aof);
             if (o.ForceFft)

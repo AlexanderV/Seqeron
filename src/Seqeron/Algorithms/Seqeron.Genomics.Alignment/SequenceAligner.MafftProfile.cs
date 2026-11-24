@@ -333,8 +333,9 @@ public static partial class SequenceAligner
                     seq2[i] = new string(G.NewGapChar, lgth1);
                 return 0.0;
             }
-            if (G.TryWarp)
-                throw new NotSupportedException("--allowshift / --shiftpenalty (the warp of A__align) is not available in this port.");
+            bool trywarp = G.TryWarp;
+            if (trywarp && (headgp == 0 || tailgp == 0))
+                throw new MafftProgramFailureException("At present, headgp and tailgp must be 1 to allow shift.\n");
 
             if (lgth1 > _aOrlgth1 || lgth2 > _aOrlgth2)
             {
@@ -359,6 +360,7 @@ public static partial class SequenceAligner
 
             double fpenalty = penaltyL;
             double fpenaltyEx = penaltyExL;
+            var warp = trywarp ? new WarpState(lgth1, lgth2, G.PenaltyShift) : null;
             var w1 = new double[lgth2 + 2];
             var w2 = new double[lgth2 + 2];
             var initverticalw = new double[lgth1 + 2];
@@ -486,15 +488,18 @@ public static partial class SequenceAligner
                         mp[j] = i - 1;
                     }
                     m[j] += fpenaltyEx;
+                    if (warp != null)
+                        wm = warp.Step(i, j, wm, currentw[j], fpenaltyEx, ijpRow);
                     currentw[j] += wm;
                 }
+                warp?.EndRow(lastj);
                 lastverticalw[i] = currentw[lgth2 - 1];
             }
 
             (string Gt1, string Gt2, string[] Mseq1, string[] Mseq2, double Wm) tracked;
             try
             {
-                tracked = Atracking(G.NewGapChar, currentw, lastverticalw, fpenalty, fpenaltyEx, seq1, seq2, ijp, icyc, jcyc, tailgp, imp != null);
+                tracked = Atracking(G.NewGapChar, currentw, lastverticalw, fpenalty, fpenaltyEx, seq1, seq2, ijp, icyc, jcyc, tailgp, imp != null, warp);
             }
             catch (IndexOutOfRangeException)
             {
@@ -549,7 +554,7 @@ public static partial class SequenceAligner
 
         /// <summary><c>Atracking</c> of <c>Salignmm.c</c> (no shift): the trace back, the gap tables of the two groups ('o' = a column of the group, '-' = a new gap) and the aligned rows.</summary>
         private static (string Gt1, string Gt2, string[] Mseq1, string[] Mseq2, double Wm) Atracking(char gap, double[] lasthorizontalw, double[] lastverticalw, double fpenalty, double fpenaltyEx,
-            string[] seq1, string[] seq2, int[][] ijp, int icyc, int jcyc, int tailgp, bool localhom = false)
+            string[] seq1, string[] seq2, int[][] ijp, int icyc, int jcyc, int tailgp, bool localhom = false, WarpState? warp = null)
         {
             int lgth1 = seq1[0].Length, lgth2 = seq2[0].Length;
             double wm = 0.0;
@@ -614,7 +619,12 @@ public static partial class SequenceAligner
             while (k < limk)
             {
                 int ifi, jfi;
-                if (ijp[iin][jin] < 0)
+                if (warp != null && ijp[iin][jin] >= warp.Base)
+                {
+                    ifi = warp.Is[ijp[iin][jin] - warp.Base];
+                    jfi = warp.Js[ijp[iin][jin] - warp.Base];
+                }
+                else if (ijp[iin][jin] < 0)
                 {
                     ifi = iin - 1;
                     jfi = jin + ijp[iin][jin];
@@ -628,6 +638,25 @@ public static partial class SequenceAligner
                 {
                     ifi = iin - 1;
                     jfi = jin - 1;
+                }
+                if (warp != null && ifi == -warp.Base && jfi == -warp.Base)
+                {
+                    // a jump from the beginning of the matrix: the rest of both sequences is unaligned
+                    int rest = iin;
+                    while (--rest >= 0)
+                    {
+                        gt1[--p1] = 'o';
+                        gt2[--p2] = '-';
+                        k++;
+                    }
+                    rest = jin;
+                    while (--rest >= 0)
+                    {
+                        gt1[--p1] = '-';
+                        gt2[--p2] = 'o';
+                        k++;
+                    }
+                    break;
                 }
                 int l = iin - ifi;
                 while (--l > 0)

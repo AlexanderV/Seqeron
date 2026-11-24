@@ -240,7 +240,8 @@ internal static class MafftProgramIo
     private static readonly string[] StrongProtein = { "STA", "NEQK", "NHQK", "NDEQ", "QHRK", "MILV", "MILF", "HY", "FYW" };
     private static readonly string[] WeakerProtein = { "CSA", "ATV", "SAG", "STNK", "STPA", "SGND", "SNDEQK", "NDEQHK", "NEQHRK", "FVLIM", "HFY" };
     private static readonly string[] StrongDna = { "TU" };
-    private static readonly string[] WeakerDna = { "AG", "CT", "CU" };
+    // f2cl.c sets weaker[2] = "CU" but nweaker = 2: the third group is never tested (a column of C and U gets no mark; mafft 7.505-1 --clustalout)
+    private static readonly string[] WeakerDna = { "AG", "CT" };
 
     /// <summary><c>setmark_clustal</c>: '*' identical, ':' strong, '.' weaker group; letters outside the first <c>nalpha</c> letters of the program's alphabet give no mark.</summary>
     private static string SetMarkClustal(int nlen, string[] seq, bool nucleotide)

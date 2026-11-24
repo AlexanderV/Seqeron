@@ -234,6 +234,13 @@ public sealed record MafftOptions
     /// <summary><c>--skipiterate x</c> (<c>dvtditr -E</c>): a group is not refined when ... (the program's "fix" threshold; default 0.0).</summary>
     public double FixThreshold { get; init; }
 
+    /// <summary><c>--shiftpenalty x</c> (<c>-Q</c> of the programs; <c>--allowshift</c> sets 2.0): the penalty of a shift of the alignment (a jump to a better cell of an earlier part of the matrix) in units of the gap opening penalty; a value below 10
+    /// switches the dynamic programs of the global pair method to the "trywarp" mode (default 100: no shift).</summary>
+    public double ShiftPenalty { get; init; } = 100.0;
+
+    /// <summary><c>--unalignlevel x</c> (<c>-s</c> of tbfast, disttbfast and dvtditr, <c>-u</c> of the pair programs; <c>--allowshift</c> sets 0.8): the level at which dissimilar sequences are left unaligned (scoring matrices by the distance of a join); default 0.0.</summary>
+    public double UnalignLevel { get; init; }
+
     /// <summary><c>--randomseed n</c> (<c>dvtditr -t</c>; default 0).</summary>
     public int RandomSeed { get; init; }
 
@@ -299,6 +306,19 @@ public sealed record MafftOptions
     /// the matrix scores +1 for a match and -1 for a mismatch (<see cref="AaMatrix"/>, <c>--textmatrix</c>: the lines "0x41 0x42 3.5" of the file <c>_aamtx</c> replace entries), and the frequencies are those of the data.
     /// </summary>
     public bool TextMode { get; init; }
+
+    /// <summary>
+    /// <c>--seed file</c> / <c>--seedtable file</c> (<c>hat3.seed</c> of the script): the blocks of the structural alignments of the seeds, one line per block "i j overlapaa score start1 end1 start2 end2 k" (the sequence numbers are 0-based and count the
+    /// seed sequences first; <c>multi2hat3s</c> writes them for every seed alignment). With it the progressive stage of <c>disttbfast</c> is followed by <see cref="SeedCycle"/> - 1 passes of <c>tbfast -J</c> (the distances from the alignment, the
+    /// blocks of kind 'k' weighted by the structure weights) and the iterative refinement uses the blocks too (<c>dvtditr -l</c>).
+    /// </summary>
+    public string? SeedTable { get; init; }
+
+    /// <summary>With <see cref="SeedTable"/>: the number of tree builds of the script (at least 2; <c>disttbfast -E 1</c> is the first, <c>tbfast -J</c> the others).</summary>
+    public int SeedCycle { get; init; } = 2;
+
+    /// <summary>The standard error of the runs of <c>replaceu</c> that the script made before the first program (one per seed file and one for the input, with <c>--seed --anysymbol</c>), replacing the line of the single run.</summary>
+    internal string? ReplaceuLogOverride { get; init; }
 
     /// <summary>
     /// <c>--merge table</c> (the script writes <c>-H 0</c> for every program and copies the file to <c>_subalignmentstable</c>): the text of that file, one line per subalignment with the numbers (1-based, in the input order) of its sequences,
@@ -462,7 +482,7 @@ public static partial class SequenceAligner
         private static bool IsAsciiLetter(char c) => (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
 
         /// <summary>replaceu.c: letters outside the usual alphabet are replaced (X for amino acids, n for nucleotides), the rest is upper- / lower-cased.</summary>
-        private static string ReplaceUnusual(string s, bool nucleotide)
+        internal static string ReplaceUnusual(string s, bool nucleotide)
         {
             const string usualP = "ARNDCQEGHILKMFPSTWYVarndcqeghilkmfpstwyv-.";
             const string usualN = "ATGCUatgcuBDHKMNRSVWYXbdhkmnrsvwyx-";
@@ -533,7 +553,7 @@ public static partial class SequenceAligner
             bool nuc1 = GuessNucleotide(originals, o);
             var log = new System.Text.StringBuilder();
             if (o.AnySymbol)
-                log.Append(ReplaceuLog(originals, nuc1));
+                log.Append(o.ReplaceuLogOverride ?? ReplaceuLog(originals, nuc1));
             string[] replaced = originals;
             if (!o.TextMode)
                 replaced = o.AnySymbol
@@ -555,6 +575,7 @@ public static partial class SequenceAligner
             string? treeFile = null, distFile = null;
             double[][]? pairHat2 = null;
             MafftLocalHom[][]? pairHat3 = null;
+            bool[]? seedKozo = null;
             if (o.PairLibrary != MafftPairLibrary.None)
             {
                 var (pairArgs, tbArgs) = MafftScript.TbfastArguments(o, list.Count);
@@ -584,10 +605,11 @@ public static partial class SequenceAligner
                 if (tg.Dorp == '\0')
                     tg.Dorp = nuc ? 'd' : 'p';
                 var trun = new MafftRun(tg) { GuideTreeText = tbGuideTree };
-                result = GuardRun(trun, log, () => trun.Tbfast(replaced, MafftGlobals.ParsePairlocalalign(pairArgs), programNames, nodePair));
+                result = GuardRun(trun, log, () => trun.Tbfast(replaced, MafftGlobals.ParsePairlocalalign(pairArgs), programNames, nodePair, o.SeedTable));
                 log.Append(trun.Log);
                 pairHat2 = trun.Hat2Table;
                 pairHat3 = trun.Hat3Table;
+                seedKozo = trun.Kozo;
                 treeFile = trun.TreeFile ?? treeFile;
                 distFile = trun.DistFile;
             }
@@ -603,6 +625,32 @@ public static partial class SequenceAligner
                 treeFile = run.TreeFile;
                 distFile = run.DistFile;
                 log.Append(run.Log);
+                if (o.SeedTable != null)
+                {
+                    // --seed / --seedtable: the later passes of the script are tbfast -J on the alignment of the pass before (distances from the alignment, the blocks of the seeds as constraints)
+                    for (int pass = 1; pass < o.SeedCycle; pass++)
+                    {
+                        var tg = MafftGlobals.ParseTbfast(MafftScript.TbfastJArguments(o));
+                        if (tg.Dorp == '\0')
+                            tg.Dorp = nuc ? 'd' : 'p';
+                        var trun = new MafftRun(tg);
+                        var previousRows = result.Rows;
+                        result = GuardRun(trun, log, () => trun.Tbfast(previousRows, null, programNames, null, o.SeedTable));
+                        log.Append(trun.Log);
+                        treeFile = trun.TreeFile ?? treeFile;
+                        distFile = trun.DistFile ?? distFile;
+                    }
+                    seedKozo = new bool[list.Count];
+                    try
+                    {
+                        if (o.WeightI >= 0.0001 && result.Rows.Length > 0) // fastathreshold < 0.0001: constraint = 0, dvtditr does not read hat3 (and it does not run when the disttbfast stopped)
+                            pairHat3 = MafftRun.ReadLocalHomTable2Half(o.SeedTable, list.Count, seedKozo);
+                    }
+                    catch (MafftProgramFailureException e)
+                    {
+                        throw new MafftProgramFailureException(log + e.Text, e.ExitCode);
+                    }
+                }
             }
             if (result.Rows.Length == 0 && list.Count > 0)
             {
@@ -646,7 +694,7 @@ public static partial class SequenceAligner
                     distFile = run2.DistFile; // dndpre rewrites the file hat2
                 }
                 var run3 = new MafftRun(MafftGlobals.ParseDvtditr(MafftScript.DvtditrArguments(o))) { GuideTreeText = guideTreeText };
-                result = GuardRun(run3, log, () => run3.Dvtditr(result.Rows, hat2, pairHat3, activeNames));
+                result = GuardRun(run3, log, () => run3.Dvtditr(result.Rows, hat2, pairHat3, activeNames, seedKozo));
                 if (result.Order.Length == 0)
                     result = result with { Order = previousOrder }; // --skipiterate with a large value: dvtditr leaves the file 'order' as it was
                 log.Append(run3.Log);

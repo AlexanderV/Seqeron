@@ -24,6 +24,8 @@ public static partial class SequenceAligner
         internal int PpenaltyOp = NotSpecified, PpenaltyExGenaf = NotSpecified;
         internal bool UseNaiveScore;
         internal int Constraint;
+        /// <summary><c>tbutree</c> of <c>tbfast</c>: 1 = the distances come from the pair stage / the files, 0 (<c>-J</c>) = from the alignment that is read.</summary>
+        internal bool TbUtree = true;
         internal double FastaThreshold;
         internal int OutputHat23;
 
@@ -121,6 +123,7 @@ public static partial class SequenceAligner
                         case 'X': g.TreeMethod = 'X'; g.SueffGlobal = CAtof(Next()); rest = true; break;
                         case 'n': g.OutNumber = 1; break;
                         case 'A': g.Alg = 'A'; break;
+                        case 'M': g.Alg = 'M'; break;
                         case 'N': g.NeverMemSave = 1; break;
                         case 'B': break;
                         case 'K': g.AddProfile = false; break;
@@ -134,6 +137,7 @@ public static partial class SequenceAligner
                         case 'G': g.ForceFft = true; g.UseFft = true; break;
                         case 'u': g.Tbrweight = 0; g.Weight = 0; break;
                         case 'U': g.TreeIn = 1; break;
+                        case 'J': g.TbUtree = false; break;
                         case 'v': g.Tbrweight = 3; break;
                         case 'W': g.MinimumWeight = CAtof(Next()); rest = true; break;
                         case ':': g.NWildcard = 1; break;
@@ -695,7 +699,7 @@ public static partial class SequenceAligner
         }
 
         /// <summary><c>putlocalhom2</c> (<c>io.c</c>, <c>divpairscore</c> 0): the ungapped runs of the aligned pair become blocks; every block gets the mean score per aligned column of all blocks (<c>opt</c>).</summary>
-        private void PutLocalHom2(string al1, string al2, MafftLocalHom head, int off1, int off2)
+        internal void PutLocalHom2(string al1, string al2, MafftLocalHom head, int off1, int off2, char korh = 'h')
         {
             var tmppt = head;
             int pos1 = off1, pos2 = off2, start1 = 0, start2 = 0, end1, end2;
@@ -720,7 +724,7 @@ public static partial class SequenceAligner
                     tmppt.Start2 = start2;
                     tmppt.End1 = end1;
                     tmppt.End2 = end2;
-                    tmppt.Korh = 'h';
+                    tmppt.Korh = korh;
                     isumscore += iscore;
                     sumoverlap += end2 - start2 + 1;
                     iscore = 0;
@@ -755,7 +759,7 @@ public static partial class SequenceAligner
                 tmppt.Start2 = start2;
                 tmppt.End1 = end1;
                 tmppt.End2 = end2;
-                tmppt.Korh = 'h';
+                tmppt.Korh = korh;
                 isumscore += iscore;
                 sumoverlap += end2 - start2 + 1;
             }
@@ -917,7 +921,7 @@ public static partial class SequenceAligner
         private int _partImpAllocLen;
 
         /// <summary><c>imp_match_init_strict</c> / <c>fillimp</c>: the matrix of the importance of every pair of columns of two groups, from the blocks of every pair of their sequences, weighted by the weights of the sequences and <c>fastathreshold</c>.</summary>
-        private double[][] FillImp(int clus1, int clus2, int lgth1, int lgth2, string[] seq1, string[] seq2, double[] eff1, double[] eff2, MafftLocalHom?[][] localhom, int[] orinum1, int[] orinum2, bool part = false)
+        private double[][] FillImp(int clus1, int clus2, int lgth1, int lgth2, string[] seq1, string[] seq2, double[] eff1, double[] eff2, MafftLocalHom?[][] localhom, int[] orinum1, int[] orinum2, bool part = false, double[]? eff1Kozo = null, double[]? eff2Kozo = null, MafftLocalHom?[][]? seedShrink = null, int[]? seedIn1 = null, int[]? seedIn2 = null)
         {
             // impmtx of Salignmm.c (partSalignmm.c for the refinement, <paramref name="part"/>) is static: it is allocated (zeroed) when a group is longer than any before and only [0, lgth1) x [0, lgth2) is cleared by a call, so the row lgth1 read by the
             // dynamic program after the last residue (end gaps penalised) holds what earlier, larger calls left there
@@ -942,6 +946,55 @@ public static partial class SequenceAligner
             for (int i = 0; i < lgth1; i++)
                 Array.Clear(impmtx[i], 0, lgth2);
             double effijx = 1.0 * G.FastaThreshold;
+            if (seedShrink != null)
+            {
+                // fillimp_file (nodepair): the blocks of the seeds come first, weighted by the structure weights; a block of another kind is a defect of the file (the program stops)
+                for (int i = 0; i < clus1; i++)
+                {
+                    if (seedIn1![i] == -1)
+                        continue;
+                    for (int j = 0; j < clus2; j++)
+                    {
+                        if (seedIn2![j] == -1)
+                            continue;
+                        double effijKozo = (eff1Kozo?[i] ?? 0.0) * (eff2Kozo?[j] ?? 0.0) * effijx;
+                        bool swapSeed = orinum1[i] > orinum2[j];
+                        for (var t = seedShrink[seedIn1[i]][seedIn2[j]]; t != null; t = t.Next)
+                        {
+                            MoveReg(seq1[i], seq2[j], t, swapSeed, out int start1, out int start2, out int end1, out int end2);
+                            int k1 = start1, k2 = start2;
+                            string s1 = seq1[i], s2 = seq2[j];
+                            while (k1 < s1.Length && k2 < s2.Length)
+                            {
+                                char c1 = s1[k1], c2 = s2[k2];
+                                if (c1 != '-' && c2 != '-')
+                                {
+                                    if (t.Korh != 'k')
+                                        throw new MafftProgramFailureException("okashii\n");
+                                    impmtx[k1][k2] += t.Importance * effijKozo;
+                                    k1++;
+                                    k2++;
+                                }
+                                else if (c1 != '-' && c2 == '-')
+                                {
+                                    k2++;
+                                }
+                                else if (c1 == '-' && c2 != '-')
+                                {
+                                    k1++;
+                                }
+                                else
+                                {
+                                    k1++;
+                                    k2++;
+                                }
+                                if (k1 > end1 || k2 > end2)
+                                    break;
+                            }
+                        }
+                    }
+                }
+            }
             for (int i = 0; i < clus1; i++)
             {
                 bool swap = false;
@@ -949,6 +1002,7 @@ public static partial class SequenceAligner
                 {
                     swap = orinum1[i] > orinum2[j];
                     double effij = eff1[i] * eff2[j] * effijx;
+                    double effijKozo = (eff1Kozo?[i] ?? 0.0) * (eff2Kozo?[j] ?? 0.0) * effijx; // the blocks of kind 'k' (a structure) are weighted by the structure weights
                     for (var t = localhom[i][j]; t != null; t = t.Next)
                     {
                         MoveReg(seq1[i], seq2[j], t, swap, out int start1, out int start2, out int end1, out int end2);
@@ -959,7 +1013,7 @@ public static partial class SequenceAligner
                             char c1 = s1[k1], c2 = s2[k2];
                             if (c1 != '-' && c2 != '-')
                             {
-                                impmtx[k1][k2] += t.Importance * effij;
+                                impmtx[k1][k2] += t.Importance * (t.Korh == 'k' ? effijKozo : effij);
                                 k1++;
                                 k2++;
                             }
@@ -985,6 +1039,36 @@ public static partial class SequenceAligner
             return impmtx;
         }
 
+        /// <summary><c>fastshrinklocalhom_half_seed</c>: the positions of the members of two groups among the seeds (the members below <paramref name="nseed"/>, -1 for the others; the entries behind the groups keep their old values, as the program's
+        /// arrays do) and the blocks of every pair of seeds (null when the pair has none).</summary>
+        private static MafftLocalHom?[][] ShrinkSeedHom(int[] mem1, int[] mem2, int nseed, int[] pos1, int[] pos2, MafftLocalHom[][] localhom)
+        {
+            int sk1 = 0;
+            for (int k1 = 0; k1 < mem1.Length; k1++)
+                pos1[k1] = mem1[k1] >= nseed ? -1 : sk1++;
+            int sk2 = 0;
+            for (int k2 = 0; k2 < mem2.Length; k2++)
+                pos2[k2] = mem2[k2] >= nseed ? -1 : sk2++;
+            var shrink = new MafftLocalHom?[sk1][];
+            int r = 0;
+            foreach (int a in mem1)
+            {
+                if (a >= nseed)
+                    continue;
+                shrink[r] = new MafftLocalHom?[sk2];
+                int c = 0;
+                foreach (int b in mem2)
+                {
+                    if (b >= nseed)
+                        continue;
+                    var head = a < b ? localhom[a][b - a] : localhom[b][a - b];
+                    shrink[r][c++] = head.Opt == -1 ? null : head;
+                }
+                r++;
+            }
+            return shrink;
+        }
+
         /// <summary><c>fastshrinklocalhom_half</c>: the blocks of every pair (member of group 1, member of group 2); null when the pair has none.</summary>
         private static MafftLocalHom?[][] ShrinkLocalHom(int[] mem1, int[] mem2, MafftLocalHom[][] localhom)
         {
@@ -1006,6 +1090,9 @@ public static partial class SequenceAligner
 
         /// <summary>The pair library as <c>dvtditr</c> reads it from the file <c>hat3</c> (<c>-+ n</c> with n &gt; 0 writes it, five decimals), null without <c>-+</c>.</summary>
         internal MafftLocalHom[][]? Hat3Table;
+
+        /// <summary><c>kozoarivec</c>: the sequences that a block of kind 'k' (a structure) names; null when there is none.</summary>
+        internal bool[]? Kozo;
 
         /// <summary>The distances of the pair library as <c>dvtditr</c> reads them from the file <c>hat2</c> (six-character fields with three decimals), [i][j] for i &lt; j.</summary>
         internal double[][]? Hat2Table;
@@ -1091,11 +1178,53 @@ public static partial class SequenceAligner
             return res;
         }
 
+        /// <summary>The distance matrix of <c>tbfast -J</c> from the alignment that is read (<c>naivepairscorefast</c> of every pair, 2 (1 - score / min(self scores)), at most 10); the rows must be equally long.</summary>
+        private double[][] TbfastMsaDistances(string[] seq, int njob)
+        {
+            Report("Making a distance matrix from msa .. \n");
+            for (int i = 1; i < njob; i++)
+                if (_nlen[i] != _nlen[0])
+                    throw new MafftProgramFailureException("Input pre-aligned seqences or make hat2.\n");
+            var skip = new int[njob][];
+            for (int i = 0; i < njob; i++)
+                skip[i] = MakeSkipTable(seq[i]);
+            var selfscore = new int[njob];
+            for (int i = 0; i < njob; i++)
+                selfscore[i] = (int)NaivePairScoreFast(seq[i], seq[i], skip[i], skip[i], G.PenaltyDist);
+            var iscore = new double[njob][];
+            for (int i = 0; i < njob; i++)
+                iscore[i] = new double[njob - i];
+            int ien = njob - 1;
+            for (int i = 0; i < ien; i++)
+            {
+                if (i % 10 == 0)
+                    Report("\r" + MafftGlobals.D5(i) + " / " + ien.ToString(CultureInfo.InvariantCulture));
+                double ssi = selfscore[i];
+                for (int j = i + 1; j < njob; j++)
+                {
+                    double ssj = selfscore[j];
+                    double bunbo = Math.Min(ssi, ssj);
+                    if (bunbo == 0.0)
+                    {
+                        iscore[i][j - i] = 2.0;
+                    }
+                    else
+                    {
+                        iscore[i][j - i] = (1.0 - NaivePairScoreFast(seq[i], seq[j], skip[i], skip[j], G.PenaltyDist) / bunbo) * 2.0;
+                    }
+                    if (iscore[i][j - i] > 10)
+                        iscore[i][j - i] = 10.0;
+                }
+            }
+            Report("\rdone.                                           \n");
+            return iscore;
+        }
+
         /// <summary>
         /// <c>tbfast _ (pair library arguments) _ -+ n ...</c> (<c>main</c> of <c>tbfast.c</c> with <c>pairlocalalign</c> called inside): the pairwise alignments of all pairs give the guide tree (UPGMA of their distances) and the
         /// constraints (the importance of the aligned blocks) of the progressive alignment of the groups (<c>A__align</c> with <c>constraint</c> 2).
         /// </summary>
-        internal Result Tbfast(IReadOnlyList<string> seq0, MafftGlobals pairG, IReadOnlyList<string>? names = null, NodePairData? nodePair = null)
+        internal Result Tbfast(IReadOnlyList<string> seq0, MafftGlobals? pairG, IReadOnlyList<string>? names = null, NodePairData? nodePair = null, string? hat3Text = null)
         {
             _isTbfast = true;
             int njob = seq0.Count;
@@ -1131,6 +1260,12 @@ public static partial class SequenceAligner
                 }
             }
             Report("treein = " + ((int)treein).ToString(CultureInfo.InvariantCulture) + "\ncompacttree = " + _compactTree.ToString(CultureInfo.InvariantCulture) + "\n");
+            if (njob < 2)
+            {
+                // an empty file (the stopped disttbfast of --seed with --merge leaves an empty 'pre'): the program says so and exits with status 0
+                Report("Warning: Only " + njob.ToString(CultureInfo.InvariantCulture) + " sequence found.\n");
+                return new Result(Array.Empty<string>(), Array.Empty<int>());
+            }
             Report(StackSizeText(njob));
             MafftSubalignments? merge = G.Subalignment ? ReadSubalignmentsTable(njob) : null;
             var topol0 = new int[njob][];
@@ -1147,10 +1282,45 @@ public static partial class SequenceAligner
 
             MafftLocalHom[][] localhom = null!;
             double[][] iscore = null!;
-            if (_compactTree == 3)
+            var kozo = new bool[njob];
+            int nkozo = 0;
+            int nseed = 0;
+            MafftLocalHom[][]? seedHom = null;
+            if (pairG == null)
+            {
+                // callpairlocalalign == 0 (the later cycles of the script: tbfast -J): the blocks come from the file hat3 (--seed: the structures of the seed alignments), the distances from the alignment that is read
+                if (G.Constraint == 2)
+                {
+                    Report("Loading 'hat3' ... ");
+                    if (hat3Text == null)
+                        throw new MafftProgramFailureException("Make hat3.\n");
+                    localhom = ReadLocalHomTable2Half(hat3Text, njob, kozo);
+                    Report("\ndone.\n");
+                    nkozo = kozo.Count(x => x);
+                    Kozo = nkozo > 0 ? kozo : null;
+                }
+            }
+            else if (_compactTree == 3)
             {
                 // the pair library is the blocks that nodepair wrote for every node, the guide tree is nodepair's
                 Report("Checking 'hat3.seed' ... ");
+                if (!string.IsNullOrEmpty(hat3Text) && (char.IsAsciiLetterOrDigit(hat3Text[0]) || hat3Text[0] == ' '))
+                {
+                    // the sequences of the seed alignments are the first ones of the input (names that start with "_see" after the first character)
+                    nseed = 0;
+                    while (nseed < njob && fileNames[nseed].Length >= 5 && string.CompareOrdinal(fileNames[nseed], 1, "_seed", 0, 4) == 0)
+                        nseed++;
+                    seedHom = ReadLocalHomTable2Half(hat3Text.Substring(1), nseed, kozo, null, afterFirstCharacter: true); // fgetc( prep ) has consumed the first character
+                    nkozo = 0;
+                    for (int i = 0; i < njob; i++)
+                    {
+                        Report("kozoarivec[" + i.ToString(CultureInfo.InvariantCulture) + "] = " + (kozo[i] ? "1" : "0") + "\n");
+                        if (kozo[i])
+                            nkozo++;
+                    }
+                    if (nkozo != nseed)
+                        throw new MafftProgramFailureException("problem in input file?  nkozo != nseed\n");
+                }
                 if (G.Constraint != 2 && G.Constraint != 0)
                     throw new NotSupportedException("The progressive method of tbfast without a pair library is not available in this port.");
             }
@@ -1189,7 +1359,11 @@ public static partial class SequenceAligner
                         }
                     }
                     Report("Loading 'hat3.seed' ... ");
+                    if (!string.IsNullOrEmpty(hat3Text))
+                        ReadLocalHomTable2Half(hat3Text, njob, kozo, localhom); // --seed: the blocks of the seeds are added to the chains of the pair stage
                     Report("\ndone.\n");
+                    nkozo = kozo.Count(x => x);
+                    Kozo = nkozo > 0 ? kozo : null;
                     if (G.OutputHat23 != 0)
                     {
                         // the files hat3 and hat2 that dvtditr reads: the values go through their text
@@ -1221,18 +1395,88 @@ public static partial class SequenceAligner
             Report("Gap Penalty = " + MafftGlobals.F((double)G.Ppenalty / 1000, 5, 2, true) + ", " + MafftGlobals.F((double)G.PpenaltyEx / 1000, 5, 2, true) + ", " + MafftGlobals.F((double)G.Poffset / 1000, 5, 2, true) + "\n");
             if (G.DistOut != 0 && G.TreeOut == 0 && G.NoAlign != 0)
                 return NoAlignResult(seq, njob, "tbfast");
-            if (merge != null && treein == '\0')
+            if (treein == '\0' && _compactTree != 3)
             {
-                // --merge: the UPGMA tree in which every subalignment is a group (the branch of the program that precedes compacttree == 3)
-                Report("tbutree = 1, compacttree = " + _compactTree.ToString(CultureInfo.InvariantCulture) + "\n");
+                Report("tbutree = " + (G.TbUtree ? "1" : "0") + ", compacttree = " + _compactTree.ToString(CultureInfo.InvariantCulture) + "\n");
+                if (!G.TbUtree)
+                    iscore = TbfastMsaDistances(seq, njob);
+                double[][]? iscoreKozo = null;
+                if (nkozo > 0)
+                {
+                    // the distances of the sequences that have a structure
+                    iscoreKozo = new double[nkozo][];
+                    for (int i = 0; i < nkozo; i++)
+                        iscoreKozo[i] = new double[nkozo - i];
+                    int ik = 0;
+                    for (int i = 0; i < njob - 1; i++)
+                    {
+                        int jk = ik + 1;
+                        for (int j = i + 1; j < njob; j++)
+                        {
+                            if (kozo[i] && kozo[j])
+                                iscoreKozo[ik][jk - ik] = iscore[i][j - i];
+                            if (kozo[j])
+                                jk++;
+                        }
+                        if (kozo[i])
+                            ik++;
+                    }
+                }
                 Report("Constructing a UPGMA tree ... ");
-                ConstrainedSupg(njob, iscore, topol0, topol1, len, dep, merge, fileNames);
+                if (merge != null)
+                    ConstrainedSupg(njob, iscore, topol0, topol1, len, dep, merge, fileNames); // --merge: the UPGMA tree in which every subalignment is a group (the branch of the program that precedes compacttree == 3)
+                else if (G.TreeOut != 0)
+                    MuscleSupg(njob, iscore, topol0, topol1, len, dep, false, fileNames);
+                else
+                    MuscleSupg(njob, iscore, topol0, topol1, len, dep);
+                if (nkozo > 0)
+                {
+                    // fixed_musclesupg_double_realloc_nobk_halfmtx( nkozo ... ): the tree of the structures is built (its progress is written) and not used
+                    var t0 = new int[nkozo][];
+                    var t1 = new int[nkozo][];
+                    var lk = new double[nkozo][];
+                    for (int i = 0; i < nkozo; i++)
+                        lk[i] = new double[2];
+                    MuscleSupg(nkozo, iscoreKozo!, t0, t1, lk, new Treedep[nkozo]);
+                }
                 Report("\ndone.\n\n");
             }
             else if (_compactTree == 3)
             {
                 // treein_bin: the tree that nodepair wrote
                 Report("tbutree = 1, compacttree = 3\n");
+                double[][]? iscoreKozo3 = null;
+                if (nkozo > 0)
+                {
+                    // the distances between the seeds: the dynamic program without the alignment on the rows of the seed alignments (gaps included); the program prints every pair
+                    var selfscore = new int[njob];
+                    for (int i = 0; i < njob; i++)
+                        selfscore[i] = kozo[i] ? (int)NaivePairScore11(seq[i], seq[i], 0) : -1;
+                    iscoreKozo3 = new double[nkozo][];
+                    for (int i = 0; i < nkozo; i++)
+                        iscoreKozo3[i] = new double[nkozo - i];
+                    int ik = 0;
+                    for (int i = 0; i < njob - 1; i++)
+                    {
+                        int jk = ik + 1;
+                        for (int j = i + 1; j < njob; j++)
+                        {
+                            if (kozo[i] && kozo[j])
+                            {
+                                Report("seq0=" + seq[i] + "\n");
+                                Report("seq1=" + seq[j] + "\n");
+                                Report("selfscore0=" + selfscore[0].ToString(CultureInfo.InvariantCulture) + "\n");
+                                Report("selfscore1=" + selfscore[1].ToString(CultureInfo.InvariantCulture) + "\n");
+                                iscoreKozo3[ik][jk - ik] = Score2Dist(G__align11Noalign(G.NDisConsweightMulti, seq[i], seq[j]), selfscore[i], selfscore[j]);
+                                Report("iscore_kozo[" + ik.ToString(CultureInfo.InvariantCulture) + "][" + jk.ToString(CultureInfo.InvariantCulture) + "]=" + MafftGlobals.F(iscoreKozo3[ik][jk - ik], 0, 6) + "\n");
+                            }
+                            if (kozo[j])
+                                jk++;
+                        }
+                        if (kozo[i])
+                            ik++;
+                    }
+                }
                 for (int i = 0; i < njob - 1; i++)
                 {
                     topol0[i] = nodePair!.Topol0[i];
@@ -1241,16 +1485,15 @@ public static partial class SequenceAligner
                     len[i][1] = nodePair.Len[i][1];
                     dep[i] = nodePair.Dep[i];
                 }
-                Report("\ndone.\n\n");
-            }
-            else if (treein == '\0')
-            {
-                Report("tbutree = 1, compacttree = " + _compactTree.ToString(CultureInfo.InvariantCulture) + "\n");
-                Report("Constructing a UPGMA tree ... ");
-                if (G.TreeOut != 0)
-                    MuscleSupg(njob, iscore, topol0, topol1, len, dep, false, fileNames);
-                else
-                    MuscleSupg(njob, iscore, topol0, topol1, len, dep);
+                if (nkozo > 0)
+                {
+                    var t0 = new int[nkozo][];
+                    var t1 = new int[nkozo][];
+                    var lk = new double[nkozo][];
+                    for (int i = 0; i < nkozo; i++)
+                        lk[i] = new double[2];
+                    MuscleSupg(nkozo, iscoreKozo3!, t0, t1, lk, new Treedep[nkozo]);
+                }
                 Report("\ndone.\n\n");
             }
             var tree = new GuideTree(topol0, topol1, dep, len);
@@ -1269,6 +1512,18 @@ public static partial class SequenceAligner
             {
                 for (int i = 0; i < njob; i++)
                     eff[i] = 1.0;
+            }
+            double[]? effKozo = null;
+            if (nkozo > 0)
+            {
+                effKozo = new double[njob];
+                for (int i = 0; i < njob; i++)
+                {
+                    if (!kozo[i])
+                        effKozo[i] = 0.0;
+                    else
+                        effKozo[i] = G.Tbrweight != 0 ? eff[i] : 1.0;
+                }
             }
             var bseq = new string[njob];
             string? originalGaps = null;
@@ -1295,7 +1550,7 @@ public static partial class SequenceAligner
             }
             int alloclen = _nlenmax * 2 + 1;
             Report("Progressive alignment ... \n");
-            TreeBase(bseq, tree, eff, ref alloclen, localhom, tbfast: G.Constraint == 0, add: addState, nodePair: _compactTree == 3 ? nodePair : null);
+            TreeBase(bseq, tree, eff, ref alloclen, localhom, tbfast: G.Constraint == 0, add: addState, nodePair: _compactTree == 3 ? nodePair : null, effarrKozo: effKozo, seedHom: seedHom, nseed: nseed);
             Report("\ndone.\n");
             var (deletedRuns, deleteMap, newNames, ndeleted) = KeepLength(njob, seq, bseq, originalGaps, addbk, fileNames);
             if (G.SpScoreOut != 0)

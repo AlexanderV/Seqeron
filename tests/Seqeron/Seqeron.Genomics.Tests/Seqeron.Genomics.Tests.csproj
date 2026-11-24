@@ -369,6 +369,11 @@
     <!-- ALIGN-MULTI-001 (audit A2-19c-s5, B09 F341 ff.): mafft text and textmatrix options (the 256-letter alphabet, extendedmtx, overridematrix, f2cl -E) with the progressive, pair-library, iterative methods and its refusals: installed mafft,
          scripts/alignment/generate_mafft_wp74_oracle.py text text-format text-pair text-iter text-matrix text-err. -->
     <EmbeddedResource Include="TestData\Alignment\mafft_wp74_text_oracle.tsv.gz" />
+    <!-- ALIGN-MULTI-001 (audit A2-19c-s5, B09 F342 ff.): mafft seed and seedtable options (multi2hat3s, tbfast pass with the blocks of the seeds, dvtditr with the structure weights) with the progressive, iterative and pair-library
+         strategies, several seed files, anysymbol and its refusals: installed mafft, scripts/alignment/generate_mafft_wp74_oracle.py seed seed-multi seedtable seed-err. -->
+    <EmbeddedResource Include="TestData\Alignment\mafft_wp74_seed_oracle.tsv.gz" />
+    <!-- ALIGN-MULTI-001 (audit A2-19c-s5, B09 F343): mafft shiftpenalty with globalpair (the warp of A__align, G__align11 and partA__align): installed mafft, scripts/alignment/generate_mafft_wp74_oracle.py shift. -->
+    <EmbeddedResource Include="TestData\Alignment\mafft_wp74_shift_oracle.tsv.gz" />
     <!-- ALIGN-MULTI-001 (audit A2-27, B09 F120): EMBOSS 6.6.0 -aformat output formats (needle / water) and the sequence-set formats (seqret), byte for byte;
          scripts/alignment/generate_emboss_aformat_oracle.py, scripts/alignment/generate_emboss_seqout_oracle.py (faked run dates: scripts/alignment/faketime.c). -->
     <EmbeddedResource Include="TestData\Alignment\emboss_aformat_oracle.tsv.gz" />

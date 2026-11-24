@@ -43,8 +43,10 @@ public static partial class SequenceAligner
                     seq2[i] = new string('-', lgth1);
                 return;
             }
-            if (G.TryWarp)
-                throw new NotSupportedException("--allowshift / --shiftpenalty (the warp of partA__align) is not available in this port.");
+            bool trywarp = G.TryWarp;
+            if (trywarp && G.Outgap == 0)
+                throw new MafftProgramFailureException("At present, outgap must be 1.\n");
+            var warp = trywarp ? new WarpState(lgth1, lgth2, G.PenaltyShift) : null;
             if (lgth1 > _pOrlgth1 || lgth2 > _pOrlgth2)
             {
                 int ll1 = Math.Max((int)(1.3 * lgth1), _pOrlgth1) + 100;
@@ -206,8 +208,11 @@ public static partial class SequenceAligner
                         m[j] = g;
                         mp[j] = i - 1;
                     }
+                    if (warp != null)
+                        wm = warp.Step(i, j, wm, currentw[j], 0.0, ijpRow); // USE_PENALTY_EX is 0 in partSalignmm.c: the jump costs the shift penalty only
                     currentw[j] += wm;
                 }
+                warp?.EndRow(lastj);
                 lastverticalw[i] = currentw[lgth2 - 1];
             }
             if (outgap == 0)
@@ -257,7 +262,12 @@ public static partial class SequenceAligner
             while (kk < limk)
             {
                 int ifi, jfi;
-                if (ijp[iin][jin] < 0)
+                if (warp != null && ijp[iin][jin] >= warp.Base)
+                {
+                    ifi = warp.Is[ijp[iin][jin] - warp.Base];
+                    jfi = warp.Js[ijp[iin][jin] - warp.Base];
+                }
+                else if (ijp[iin][jin] < 0)
                 {
                     ifi = iin - 1;
                     jfi = jin + ijp[iin][jin];
@@ -271,6 +281,30 @@ public static partial class SequenceAligner
                 {
                     ifi = iin - 1;
                     jfi = jin - 1;
+                }
+                if (warp != null && ifi == -warp.Base && jfi == -warp.Base)
+                {
+                    int rest = iin;
+                    while (--rest >= 0)
+                    {
+                        p--;
+                        for (int i = 0; i < icyc; i++)
+                            a1[i][p] = seq1[i][rest];
+                        for (int j = 0; j < jcyc; j++)
+                            a2[j][p] = '-';
+                        kk++;
+                    }
+                    rest = jin;
+                    while (--rest >= 0)
+                    {
+                        p--;
+                        for (int i = 0; i < icyc; i++)
+                            a1[i][p] = '-';
+                        for (int j = 0; j < jcyc; j++)
+                            a2[j][p] = seq2[j][rest];
+                        kk++;
+                    }
+                    break;
                 }
                 int l = iin - ifi;
                 while (--l > 0)

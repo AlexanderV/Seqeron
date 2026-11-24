@@ -755,8 +755,8 @@ public static partial class SequenceAligner
                     case "--dashserver": Shift(); break;
                     case "--originalseqonly": break;
                     case "--excludehomologs": _exclude_ho = true; break;
-                    case "--seedtable": Shift(); _seedtable = "y"; _seedtablefile = Cur; NeedPort("--seedtable"); break;
-                    case "--seed": Shift(); _seed = "m"; _seedfiles += " " + Cur; NeedPort("--seed"); break;
+                    case "--seedtable": Shift(); _seedtable = "y"; _seedtablefile = Cur; break;
+                    case "--seed": Shift(); _seed = "m"; _seedfiles += " " + Cur; break;
                     case "--minimumweight": Shift(); _minimumweight = Cur; break;
                     case "--similaritylevel": Shift(); _similarityoffset = Cur; break;
                     case "--unalignlevel": Shift(); _unalignlevel = Cur; _unalignspecified = true; break;

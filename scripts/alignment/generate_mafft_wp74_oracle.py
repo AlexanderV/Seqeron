@@ -4,7 +4,9 @@
 
 Groups: merge (--merge table: subalignments that the programs keep, the constrained UPGMA tree, disttbfast), merge-pair (--merge with --localpair / --globalpair / --genafpair: tbfast), merge-iter (--merge with --maxiterate: dvtditr),
 merge-err (tables and groups the programs refuse), merge-tree (--merge with --treein); text (--text: an alphabet of 256 characters, default progressive method), text-pair / text-iter (with a pair library / --maxiterate),
-text-matrix (--textmatrix: the entries of the file _aamtx), text-err (stops: '=' '<' '>' in a text, a malformed matrix file), text-format (clustal / phylip output, --reorder, --treeout ...).
+text-matrix (--textmatrix: the entries of the file _aamtx), text-err (stops: '=' '<' '>' in a text, a malformed matrix file), text-format (clustal / phylip output, --reorder, --treeout ...);
+seed (--seed file: multi2hat3s, disttbfast -E 1, tbfast -J, dvtditr -l with the structure weights), seed-multi (two or three seed files), seedtable (--seedtable: the hat3.seed file of the user), seed-err (stops),
+shift (--shiftpenalty x with --globalpair: trywarp of A__align, G__align11, partA__align for x below 10, the stops of the script for the other methods), seed-large (--seed with --large / --memsavetree / --stepadd and a pair library: nodepair and the seeds of tbfast -U), seed-opt (--seed with the other options of the script: --auto, --retree 0, --large, --treein, --merge, --add, ...).
 
 It reuses the infrastructure of WP70 - WP73 (generate_mafft_command_oracle.py: sets, option runner; mafft_command_oracle_lib.py: runner, writer).
 
@@ -221,6 +223,7 @@ def build(rng, want):
             base = rng.choice([[], ['--retree', '1'], ['--maxiterate', '2'], ['--localpair'], ['--nofft'], ['--treeout'], ['--clustalout'], ['--maxiterate', '2', '--localpair']])
             out.append(('merge-tree-%04d' % k, 'merge-tree', ['--merge', TABLE, '--treein', TREE] + base, L.fasta(seqs, names), extra))
     build_text(rng, want, int(210 * SCALE), out)
+    build_seed(rng, want, int(210 * SCALE), out)
     return out
 
 
@@ -361,19 +364,221 @@ def build_text(rng, want, n, out):
     return out
 
 
+
+SEED_BASES = [[], [], [], ['--retree', '1'], ['--retree', '3'], ['--maxiterate', '3'], ['--maxiterate', '1000'], ['--nofft'], ['--op', '2', '--ep', '0.1'], ['--treeout'], ['--distout'], ['--clustalout'], ['--reorder'], ['--quiet'], ['--6merpair'],
+              ['--unweight'], ['--thread', '2', '--threadit', '0'], ['--weighti', '1'], ['--weighti', '0'], ['--minimumweight', '0.1'], ['--bl', '80'], ['--mixedlinkage', '0.5'], ['--outnum'], ['--maxiterate', '2', '--bunkatsunashi'],
+              ['--amino'], ['--nuc'], ['--core'], ['--skipiterate', '0.3'], ['--localpair'], ['--globalpair'], ['--genafpair'], ['--localpair', '--maxiterate', '2'], ['--globalpair', '--maxiterate', '1000'],
+              ['--genafpair', '--maxiterate', '3'], ['--localpair', '--weighti', '0'], ['--localpair', '--treeout', '--distout'], ['--localpair', '--clustalout']]
+
+
+SEED_OPT_STOP = [['--large'], ['--pileup'], ['--randomchain'], ['--randomchain', '--randomseed', '5'], ['--memsavetree'], ['--stepadd'], ['--youngestlinkage'], ['--dpparttree'], ['--parttree']]
+SEED_OPT = [['--auto'], ['--retree', '0'], ['--retree', '2'], ['--memsave'], ['--nomemsave'],
+            ['--phylipout'], ['--inputorder'], ['--namelength', '10', '--clustalout'], ['--oldgenafpair'], ['--lop', '-1.0', '--lep', '0.2', '--localpair'], ['--gop', '1.0', '--gep', '0.1'], ['--leavegappyregion'], ['--termgappenalty', '0.5'],
+            ['--fft'], ['--10merpair'], ['--kimura', '200'], ['--jtt', '100'], ['--tm', '100'], ['--fmodel'], ['--nwildcard'], ['--text'], ['--scoreout'], ['--noscore'], ['--preservecase'], ['--lexp', '-0.2', '--localpair'],
+            ['--averagelinkage'], ['--minimumlinkage'], ['--kappa', '3', '--nuc'], ['--opdist', '1.0'], ['--exp', '0.2'], ['--sparsepickup', '3'], ['--smoothing'], ['--thread', '2', '--threadtb', '2', '--threadit', '0'], ['--outnum', '--reorder'],
+            ['--maxiterate', '2', '--skipiterate', '0.5'], ['--core', '--coreext'], ['--corethr', '0.5', '--corewin', '3', '--core'], ['--anysymbol', '--treeout'], ['--amino', '--aamatrix', 'x.mtx']]
+
+
+def seed_case(rng, nseedfiles=1, tag=''):
+    """Seed alignments (families aligned by the installed mafft) and the sequences to align (members of the same families, unaligned, and a few unrelated ones)."""
+    alpha = L.pick_alpha(rng)
+    fams = families(rng, alpha, nseedfiles + rng.choice([0, 1]), (3, 5), None)
+    seeds = []
+    for f in fams[:nseedfiles]:
+        rows = aligned_rows(f)
+        names = ['q%d' % i for i in range(len(rows))]
+        seeds.append(L.fasta(rows, names))
+    inputs = []
+    for f in fams:
+        inputs += [L.mut(rng, rng.choice(f), alpha, 0.08, 0.03) for _ in range(rng.randint(1, 3))]
+    for _ in range(rng.choice([0, 1, 2])):
+        inputs.append(''.join(rng.choice(alpha) for _ in range(rng.choice([20, 50]))))
+    if len(inputs) < 2:
+        inputs.append(''.join(rng.choice(alpha) for _ in range(30)))
+    return seeds, L.fasta(inputs, C.names_for(rng, len(inputs)), rng.choice([None, 40]))
+
+
+def odd_rows(rng, fasta_text):
+    """Puts a few unusual letters (U, X, #, digits, a star) into the sequences of a FASTA text (for --anysymbol)."""
+    recs = fasta_text.split('>')[1:]
+    out = []
+    for r in recs:
+        name, _, body = r.partition('\n')
+        body = list(body.replace('\n', ''))
+        for _ in range(rng.randrange(0, 3)):
+            if body:
+                body[rng.randrange(len(body))] = rng.choice('UXBZ#*7')
+        out.append('>' + name + '\n' + ''.join(body) + '\n')
+    return ''.join(out)
+
+
+def build_seed(rng, want, n, out):
+    if not want or 'seed' in want:
+        for k in range(n):
+            seeds, text = seed_case(rng)
+            base = list(rng.choice(SEED_BASES))
+            files = {'seed1.fa': seeds[0]}
+            if rng.random() < 0.2:
+                base = ['--anysymbol'] + rng.choice([[], ['--maxiterate', '3'], ['--clustalout'], ['--reorder'], ['--retree', '3'], ['--treeout']])
+                files['seed1.fa'] = odd_rows(rng, seeds[0])
+                text = odd_rows(rng, text)
+            out.append(('seed-%04d' % k, 'seed', ['--seed', 'seed1.fa'] + base, text, files))
+    if not want or 'seed-multi' in want:
+        for k in range(n):
+            ns = rng.choice([2, 2, 3])
+            seeds, text = seed_case(rng, ns)
+            args = []
+            files = {}
+            base = list(rng.choice(SEED_BASES))
+            anysym = rng.random() < 0.2
+            for i, sd in enumerate(seeds):
+                args += ['--seed', 'seed%d.fa' % (i + 1)]
+                files['seed%d.fa' % (i + 1)] = odd_rows(rng, sd) if anysym else sd
+            if anysym:
+                base = ['--anysymbol'] + rng.choice([[], ['--maxiterate', '3'], ['--clustalout']])
+                text = odd_rows(rng, text)
+            out.append(('seed-multi-%04d' % k, 'seed-multi', args + base, text, files))
+    if not want or 'seedtable' in want:
+        for k in range(n):
+            seeds, text = seed_case(rng)
+            # a table of the blocks of the seed alignment over the sequences of the input: pairs (i, j) of the input with blocks of the seed
+            nin = text.count('>')
+            lines = []
+            for _ in range(rng.randint(1, 3 * nin)):
+                i = rng.randrange(nin - 1)
+                j = rng.randrange(i + 1, nin)
+                st1 = rng.randrange(0, 15)
+                ln = rng.randint(3, 12)
+                lines.append('%d %d %d %.3f %d %d %d %d %s' % (i, j, ln, rng.choice([2400.0, 12000.5, 14632.917, 3000.25]), st1, st1 + ln - 1, st1 + rng.randrange(0, 3), st1 + ln - 1, rng.choice('kk h'.replace(' ', ''))))
+            tbl = '\n'.join(lines) + '\n'
+            out.append(('seedtable-%04d' % k, 'seedtable', ['--seedtable', 'tab.txt'] + list(rng.choice(SEED_BASES)), text, {'tab.txt': tbl}))
+    if not want or 'seed-err' in want:
+        for k in range(n):
+            seeds, text = seed_case(rng)
+            kind = rng.choice(['single', 'unaligned', 'both', 'badtable', 'twofiles-one', 'noseq', 'unknownletter', 'anysymbol', 'pair', 'crlf'])
+            args = ['--seed', 'seed1.fa']
+            files = {'seed1.fa': seeds[0]}
+            if kind == 'single':
+                files['seed1.fa'] = seeds[0].split('>')[1].join(['>', ''])
+            elif kind == 'unaligned':
+                rows = [r for r in seeds[0].split('>')[1:]]
+                files['seed1.fa'] = '>' + rows[0] + '>' + rows[1].rstrip('\n') + 'ACGT\n' + ''.join('>' + r for r in rows[2:])
+            elif kind == 'both':
+                args = ['--seed', 'seed1.fa', '--seedtable', 'tab.txt']
+                files['tab.txt'] = '0 1 5 100.0 0 4 0 4 k\n'
+            elif kind == 'badtable':
+                args = ['--seedtable', 'tab.txt']
+                files = {'tab.txt': rng.choice(['1 0 5 100.0 0 4 0 4 k\n', '5 1 5 100.0 0 4 0 4 k\n', '2 2 5 100.0 0 4 0 4 k\n', '0 1 5 100.0 0 4 0 4 k\n0 1 5 100.0 6 9 6 9 k\n'])}
+            elif kind == 'twofiles-one':
+                args = ['--seed', 'seed1.fa', '--seed', 'seed2.fa']
+                files['seed2.fa'] = seeds[0]
+            elif kind == 'noseq':
+                files['seed1.fa'] = '>a\n>b\n'
+            elif kind == 'unknownletter':
+                files['seed1.fa'] = seeds[0].replace('\n', 'U\n', 1) if '>' in seeds[0] else seeds[0]
+            elif kind == 'anysymbol':
+                args += ['--anysymbol']
+            elif kind == 'pair':
+                args += ['--localpair']
+            elif kind == 'crlf':
+                files['seed1.fa'] = seeds[0].replace('\n', '\r\n')
+            out.append(('seed-err-%04d' % k, 'seed-err', args + rng.choice([[], ['--maxiterate', '3'], ['--quiet']]), text, files))
+    if not want or 'seed-opt' in want:
+        for k in range(int(n * 1.3)):
+            seeds, text = seed_case(rng)
+            nin = text.count('>')
+            nseed = seeds[0].count('>')
+            files = {'seed1.fa': seeds[0]}
+            kind = rng.choice(['plain'] * 5 + ['treein'] * 2 + ['merge'] * 2 + ['add'])
+            args = ['--seed', 'seed1.fa']
+            if kind == 'treein':
+                files[TREE] = consistent_tree(rng, nin + rng.choice([0, nseed, nseed]), [])
+                args += ['--treein', TREE]
+            elif kind == 'merge':
+                k2 = nin + nseed
+                members = list(range(1, k2 + 1))
+                rng.shuffle(members)
+                files[TABLE] = table_text(rng, [sorted(members[:rng.randint(2, max(2, k2 // 2))])], negative=0.1)
+                args += ['--merge', TABLE]
+            elif kind == 'add':
+                files['add.fa'] = seed_case(rng)[1]
+                args += [rng.choice(['--add', '--addprofile']), 'add.fa']
+            elif kind == 'addprofile':
+                args += ['--keeplength', '--add', 'seed1.fa'] if rng.random() < 0.5 else ['--mapout']
+            elif kind == 'seedtable':
+                args = ['--seedtable', 'tab.txt', '--seed', 'seed1.fa']
+                files['tab.txt'] = '0 1 5 100.0 0 4 0 4 k\n'
+            # the tree builders that the iterative refinement (which a seed forces) does not support stop with a message: a few of them
+            opt = list(rng.choice(SEED_OPT_STOP if rng.random() < 0.12 else SEED_OPT))
+            if rng.random() < 0.4:
+                # the nodepair branch of tbfast with seeds (a pair library with --large / --memsavetree / --stepadd / --youngestlinkage) is registered as A2-19c-seed-nodepair
+                opt += rng.choice([['--maxiterate', '2'], ['--localpair'], ['--genafpair', '--maxiterate', '2'], ['--globalpair', '--weighti', '0'], ['--retree', '1']])
+            out.append(('seed-opt-%04d' % k, 'seed-opt', args + opt, text, files))
+    if not want or 'seed-large' in want:
+        # the nodepair branch of tbfast with seeds: a seed with --large / --memsavetree / --stepadd and a pair library (no iterative refinement)
+        for k in range(int(n * 1.3)):
+            ns = rng.choice([1, 1, 2, 3])
+            seeds, text = seed_case(rng, ns)
+            args = []
+            files = {}
+            anysym = rng.random() < 0.12
+            for i, sd in enumerate(seeds):
+                args += ['--seed', 'seed%d.fa' % (i + 1)]
+                files['seed%d.fa' % (i + 1)] = odd_rows(rng, sd) if anysym else sd
+            if anysym:
+                args.append('--anysymbol')
+                text = odd_rows(rng, text)
+            args += [rng.choice(['--large', '--memsavetree', '--stepadd']), rng.choice(['--globalpair', '--localpair', '--genafpair', '--oldgenafpair'])]
+            args += rng.choice([[], [], ['--weighti', '0'], ['--weighti', '1.5'], ['--retree', '1'], ['--treeout'], ['--distout'], ['--clustalout'], ['--reorder'], ['--op', '2', '--ep', '0.1'], ['--thread', '2'], ['--lhlimit', '3'], ['--unweight'], ['--minimumweight', '0.1']])
+            out.append(('seed-large-%04d' % k, 'seed-large', args, text, files))
+    return out
+
+
+def run_case(case):
+    """C.run_case without the runs that end in a segmentation fault of a program (the shell names a process id in its message, and a crash is not a result that can be compared)."""
+    res, bad = C.run_case(case)
+    if res is not None and 'Segmentation fault' in res['err']:
+        return None, case[0]
+    return res, bad
+
+
+SHIFT_VALUES = ['1.0', '1.5', '2', '2.5', '3', '4.5', '9.9', '10', '20', '50', '99']
+SHIFT_BASES = [[], [], [], ['--retree', '1'], ['--retree', '2'], ['--retree', '0'], ['--maxiterate', '1'], ['--maxiterate', '2'], ['--maxiterate', '1000'], ['--weighti', '0'], ['--weighti', '1'], ['--weighti', '3'], ['--treeout'], ['--distout'],
+               ['--treeout', '--distout'], ['--reorder'], ['--clustalout'], ['--nofft'], ['--fft'], ['--6merpair'], ['--thread', '2', '--threadit', '0'], ['--amino'], ['--nuc'], ['--leavegappyregion'], ['--op', '2', '--ep', '0.1'], ['--outnum'],
+               ['--unweight'], ['--minimumweight', '0.1'], ['--maxiterate', '2', '--skipiterate', '0.3'], ['--maxiterate', '2', '--bunkatsunashi'], ['--maxiterate', '2', '--core'], ['--anysymbol'], ['--maxiterate', '3', '--treeout'],
+               ['--large'], ['--memsavetree'], ['--stepadd'], ['--large', '--weighti', '0'], ['--memsave'], ['--nwildcard'], ['--bl', '80'], ['--averagelinkage'], ['--lhlimit', '3', '--large'], ['--phylipout'], ['--inputorder']]
+
+
+def build_shift(rng, want, n, out):
+    """--shiftpenalty x with --globalpair (the only method the script allows): trywarp in A__align, G__align11 and partA__align when x < 10; the script's stops for the other methods."""
+    if not want or 'shift' in want:
+        for k in range(n):
+            seqs, names, groups = make_case(rng, size_range=(2, 4))
+            seqs = [x.replace('-', '') for x in seqs]
+            x = rng.choice(SHIFT_VALUES)
+            args = ['--globalpair', '--shiftpenalty', x] + list(rng.choice(SHIFT_BASES))
+            if rng.random() < 0.1:
+                args = ['--shiftpenalty', x] + rng.choice([['--localpair'], ['--genafpair'], ['--oldgenafpair'], [], ['--retree', '2'], ['--addfragments', 'frag.fa']])
+            if rng.random() < 0.03:
+                args = ['--globalpair', '--shiftpenalty', rng.choice(['0.5', '0', '1', '-2'])] + rng.choice([[], ['--retree', '1']])
+            files = {'frag.fa': L.fasta(seqs[:2], ['f0', 'f1'])} if 'frag.fa' in args else {}
+            out.append(('shift-%04d' % k, 'shift', args, L.fasta(seqs, names, rng.choice([None, None, 30])), files))
+    return out
+
+
 def main():
     rng = random.Random(7450515)
     want = set(sys.argv[1:])
     allcases = []
     refused = 0
-    for c in build(rng, want):
+    for c in build(rng, want) + build_shift(random.Random(7450516), want, int(260 * SCALE), []):
         nseq = c[3].count('\n>') + (1 if c[3].startswith('>') else 0)
         if TABLE in c[4] and table_overruns(c[4][TABLE], nseq):
             refused += 1
             continue
         allcases.append(c)
     print('refused (table behind the block):', refused, file=sys.stderr)
-    L.run_all(allcases, C.run_case, OUT, os.environ.get('MC_TSV'), THREADS)
+    L.run_all(allcases, run_case, OUT, os.environ.get('MC_TSV'), THREADS)
 
 
 if __name__ == '__main__':

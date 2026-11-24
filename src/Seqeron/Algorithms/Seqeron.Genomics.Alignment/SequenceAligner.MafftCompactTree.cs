@@ -114,6 +114,17 @@ public static partial class SequenceAligner
                 }
             }
 
+            /// <summary><c>%s</c>: the next word (non-blank characters); false at the end of the text.</summary>
+            internal bool Word(out string value)
+            {
+                SkipSpace();
+                int start = _pos;
+                while (More && Peek is not (' ' or '\t' or '\n' or '\r' or '\v' or '\f'))
+                    _pos++;
+                value = _s[start.._pos];
+                return value.Length > 0;
+            }
+
             /// <summary><c>%x</c> into an <c>unsigned int</c>: <c>strtoul</c> with base 16 (optional sign, optional 0x); the value is truncated to 32 bits; false when no hexadecimal number follows.</summary>
             internal bool Hex(out uint value)
             {
