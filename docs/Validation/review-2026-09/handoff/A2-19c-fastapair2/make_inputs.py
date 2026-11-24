@@ -58,5 +58,43 @@ for i in range(240):
     seqs = [s if len(s) >= 2 else s + alpha[0] * 2 for s in seqs]
     opts = (OPTS_PROT if prot else OPTS_DNA)
     rows.append('%d\t%s\t%s' % (i + 1, opts[(i // 6 * 5 + i % 6) % len(opts)] if not prot else opts[(i // 6) % len(opts)], '|'.join(seqs)))
+# the options that name other files (the alignment in.fa made by the installed mafft 7.505 - this script is run once by the author; new.fa / seed.fa / table.txt / tree.txt written by the container script): column 4 = JSON of the files
+import json, subprocess
+
+
+def mafft_rows(seqs):
+    out = subprocess.run(['mafft', '--quiet', '-'], input=''.join('>a%d\n%s\n' % (i, q) for i, q in enumerate(seqs)).encode(), capture_output=True).stdout.decode()
+    rows = []
+    for rec in out.split('>')[1:]:
+        rows.append(''.join(rec.split('\n')[1:]))
+    return rows
+
+
+EXTRA_OPTS = [['--fastapair', '--add', 'new.fa'], ['--fastswpair', '--add', 'new.fa'], ['--fastapair', '--addprofile', 'new.fa'], ['--fastapair', '--add', 'new.fa', '--keeplength'], ['--fastapair', '--add', 'new.fa', '--mapout'],
+              ['--fastswpair', '--add', 'new.fa', '--maxiterate', '2'], ['--fastapair', '--seed', 'seed.fa'], ['--fastapair', '--merge', 'table.txt'], ['--fastapair', '--treein', 'tree.txt'], ['--fastapair', '--parttree'],
+              ['--fastapair', '--text'], ['--fastapair', '--maxiterate', '5', '--core'], ['--fastapair', '--thread', '2'], ['--fastapair', '--clustalout'], ['--fastapair', '--phylipout'], ['--fastapair', '--inputorder']]
+for i in range(48):
+    prot = i % 3 != 0
+    alpha = P if prot else N
+    length = rng.choice([40, 80, 150])
+    base = ''.join(rng.choice(alpha) for _ in range(length))
+    fam = [mut(base, alpha, rng.choice([0.05, 0.15]), rng.choice([0.0, 0.03])) for _ in range(rng.randint(3, 7))]
+    new = [mut(base[5:length - 5], alpha, 0.1, 0.02) for _ in range(rng.randint(1, 3))]
+    opts = EXTRA_OPTS[i % len(EXTRA_OPTS)]
+    extra = {}
+    in_fa_seqs = fam
+    if '--add' in opts or '--addprofile' in opts:
+        in_fa_seqs = mafft_rows(fam)
+        extra['in.fa'] = ''.join('>s%d\n%s\n' % (j, q) for j, q in enumerate(in_fa_seqs))
+        extra['new.fa'] = ''.join('>n%d\n%s\n' % (j, q) for j, q in enumerate(new))
+    elif '--seed' in opts:
+        extra['seed.fa'] = ''.join('>seed%d\n%s\n' % (j, q) for j, q in enumerate(mafft_rows(fam[:3])))
+    elif '--merge' in opts:
+        extra['table.txt'] = '1 2 3\n4 5\n'
+        fam = (fam + [mut(base, alpha, 0.1, 0.02) for _ in range(5)])[:6]
+        in_fa_seqs = fam
+    elif '--treein' in opts:
+        extra['tree.txt'] = 'very compact\n'
+    rows.append('%d\t%s\t%s\t%s' % (len(rows) + 1, ' '.join(opts), '|'.join(in_fa_seqs), json.dumps(extra)))
 open('inputs/sets.tsv', 'w').write('\n'.join(rows) + '\n')
 print('sets', len(rows))

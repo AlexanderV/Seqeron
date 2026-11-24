@@ -29,11 +29,15 @@ def pack_dir(d):
 
 rows = []
 for line in open('inputs/sets.tsv'):
-    k, opt, seqs = line.rstrip('\n').split('\t')
+    cols = line.rstrip('\n').split('\t')
+    k, opt, seqs = cols[:3]
+    extra = json.loads(cols[3]) if len(cols) > 3 else {}      # files that the options name (new.fa, seed.fa, table.txt ...)
     seqs = seqs.split('|')
     with tempfile.TemporaryDirectory() as td:
         fa = os.path.join(td, 'in.fa')
-        open(fa, 'w').write(''.join('>s%d\n%s\n' % (i, s) for i, s in enumerate(seqs)))
+        open(fa, 'w').write(extra.pop('in.fa', None) or ''.join('>s%d\n%s\n' % (i, s) for i, s in enumerate(seqs)))
+        for fname, text in extra.items():
+            open(os.path.join(td, fname), 'w').write(text)
         p, d = run_logged(['mafft'] + opt.split() + [fa], td)
         tree = open(fa + '.tree', 'rb').read().decode('latin-1') if os.path.exists(fa + '.tree') else ''
         hat2 = open(fa + '.hat2', 'rb').read().decode('latin-1') if os.path.exists(fa + '.hat2') else ''
