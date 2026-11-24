@@ -762,11 +762,29 @@ public static partial class SequenceAligner
                 SortBestZ(b, jj);
         }
 
+        /// <summary>One line of the list <c>The best scores are:</c> of <c>fasta34 -m10</c> (<c>showbest</c>, <c>mshowbest.c</c>): the library sequence (0-based), the frame (0 = forward, 1 = reverse complement, DNA only), its length, the
+        /// optimised score, the bit score (<c>zs_to_bit</c>) and the E-value (<c>E(n)</c>, n = number of library sequences).</summary>
+        internal sealed record Hit(int Sequence, int Frame, int Length, int Opt, double Bits, double EValue);
+
+        /// <summary>What <c>fasta34 -z3 -m10 -p|-n -Q -H -b n -E n -d0 query library 2|6</c> prints before and in the list of the best scores.</summary>
+        /// <param name="Scores">The <c>opt</c> of every library sequence on the list (the forward frame for DNA), 0 for those that are not.</param>
+        /// <param name="QueryLength">The query length (<c>n0</c>, residues the program keeps).</param>
+        /// <param name="LibraryResidues">The residues in the library (<c>N residues in M sequences</c>).</param>
+        /// <param name="LibrarySequences">The sequences counted by that line (and printed as <c>E(M)</c>).</param>
+        /// <param name="Join">The <c>join</c> threshold (<c>cgap</c>) of the line <c>join: x, opt: y</c>.</param>
+        /// <param name="OptCut">The <c>opt</c> threshold (<c>optcut</c>) of that line.</param>
+        /// <param name="Hits">The printed lines of the list in print order (empty with <paramref name="NoSignificant"/>).</param>
+        /// <param name="NoSignificant">The program printed <c>!! No library sequences with E() &lt; n</c> (or scanned no sequence at all).</param>
+        internal sealed record Listing(double[] Scores, int QueryLength, long LibraryResidues, int LibrarySequences, int Join, int OptCut, IReadOnlyList<Hit> Hits, bool NoSignificant);
+
         /// <summary>
         /// <c>fasta34 -z3 -m10 -p|-n -Q -H -b n -E n -d0 query library 2|6</c> read by <c>ReadFasta34m10_scoreonly[_nuc]</c>: the <c>opt</c> score of every library sequence that is on the list of the best scores (0 for those that are not).
         /// The library is the sequences of <paramref name="library"/> in this order.
         /// </summary>
-        internal static double[] Search(string query, IReadOnlyList<string> library, bool nucleotide, int mshow = -1)
+        internal static double[] Search(string query, IReadOnlyList<string> library, bool nucleotide, int mshow = -1) => SearchListing(query, library, nucleotide, mshow).Scores;
+
+        /// <summary>The scores of <see cref="Search"/> together with everything the program prints about the search: the header values, the order of the list, the bit scores and E-values.</summary>
+        internal static Listing SearchListing(string query, IReadOnlyList<string> library, bool nucleotide, int mshow = -1)
         {
             var m = nucleotide ? Dna.Value : Protein.Value;
             int nin = library.Count;
@@ -803,8 +821,10 @@ public static partial class SequenceAligner
                     entries.Add(new Entry { Seq = s, Frame = itt, N1 = n1, Opt = opt });
                 }
             }
+            var hits = new List<Hit>();
+            Listing Result(bool none) => new(res, n0, dbLength, dbEntries, frames[0].Cgap, frames[0].OptCut, hits, none);
             if (entries.Count == 0)
-                return res;
+                return Result(true);
             // process_hist (-z 3: Altschul / Gish parameters) and scale_scores
             double a_n0 = n0;
             double a_n0f = Math.Log(m.K * a_n0) / m.H;
@@ -817,7 +837,7 @@ public static partial class SequenceAligner
             // showbest (quiet, -b n -E n): the list is printed in batches of 20, 30, 40 ... entries until -b entries are shown
             int nbest = entries.Count;
             if (!(entries[0].E < eCut))
-                return res;
+                return Result(true);
             int nshow = Math.Min(mshow, 20);
             int istart = 0;
             var seen = new bool[nin];
@@ -831,9 +851,10 @@ public static partial class SequenceAligner
                     var bbp = entries[ib];
                     last = bbp;
                     if (bbp.E > eCut)
-                        return res;
+                        return Result(false);
                     if (bbp.E < 0.0)
                         continue;
+                    hits.Add(new Hit(bbp.Seq, bbp.Frame, bbp.N1, bbp.Opt, ZsToBit(bbp.Z, n0, bbp.N1), bbp.E));
                     if ((!nucleotide || bbp.Frame == 0) && !seen[bbp.Seq])
                     {
                         res[bbp.Seq] += bbp.Opt;
@@ -850,7 +871,14 @@ public static partial class SequenceAligner
                 }
                 break;
             }
-            return res;
+            return Result(false);
+        }
+
+        /// <summary><c>zs_to_bit</c> (<c>scaleswn.c</c>): the bit score printed with <c>-H</c> (<c>z_bits</c>).</summary>
+        private static double ZsToBit(double zs, int n0, int n1)
+        {
+            double z = (zs - 50.0) / 10.0;
+            return (PiSqrt6 * z + EulerG + Math.Log((double)n0 * n1)) / Math.Log(2.0);
         }
 
         /// <summary><c>getfastascoremtx</c>: the diagonal of the scoring matrix of FASTA (the score of six equal residues, divided by six) for protein; the fixed scores of the nucleotide alphabet (no call of <c>fasta34</c>).</summary>

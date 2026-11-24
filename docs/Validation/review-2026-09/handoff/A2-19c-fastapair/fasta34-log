@@ -1,0 +1,10 @@
+#!/bin/bash
+# Logging wrapper (FASTA_4_MAFFT): runs the real fasta34 with the same arguments and keeps, per call, the arguments, the query file, the library file and the raw standard output in $FASTALOG/<n>.*
+D=${FASTALOG:-/tmp/fastalog}; mkdir -p "$D"
+n=$(ls "$D" | grep -c '\.args$'); n=$((n + 1)); n=$(printf '%05d' $n)
+echo "$@" > "$D/$n.args"
+# the query and library files are the last-but-two and last-but-one words that are not options / the ktup number: the program writes them as <dir>/query-<pid>, <dir>/data-<pid>
+for a in "$@"; do case "$a" in */query-*) cp "$a" "$D/$n.query";; */data-*) cp "$a" "$D/$n.data";; esac; done
+/usr/local/bin/fasta34 "$@" > "$D/$n.out"; rc=$?
+cat "$D/$n.out"
+exit $rc
