@@ -17,7 +17,7 @@ sys.path.insert(0, HERE)
 import skip_accounting as sa  # noqa: E402
 import trx_lib  # noqa: E402
 
-REPO = os.path.abspath(os.path.join(HERE, *[".."] * 4))
+REPO = os.path.abspath(os.path.join(HERE, *[".."] * 5))
 REAL_LIST = os.path.join(REPO, "tests", "SuffixTree", "SuffixTree.Esa.Tests", "skips.tsv")
 NS = "http://microsoft.com/schemas/VisualStudio/TeamTest/2010"
 HEADER = "kind\ttest\tin_builds\treason\thow_to_unskip"
