@@ -39,11 +39,14 @@ class H(BaseHTTPRequestHandler):
             with open(LOG, 'a') as f:
                 f.write(json.dumps({'n': SEQ[0], 'method': self.command, 'path': self.path, 'request_b64': base64.b64encode(body).decode(), 'status': status,
                                     'content_type': ctype, 'response_b64': base64.b64encode(rbody).decode()}) + '\n')
-        self.send_response(status)
-        self.send_header('Content-Type', ctype or 'application/octet-stream')
-        self.send_header('Content-Length', str(len(rbody)))
-        self.end_headers()
-        self.wfile.write(rbody)
+        try:  # the client may have closed the connection already (its own timeout); the exchange is logged above
+            self.send_response(status)
+            self.send_header('Content-Type', ctype or 'application/octet-stream')
+            self.send_header('Content-Length', str(len(rbody)))
+            self.end_headers()
+            self.wfile.write(rbody)
+        except (BrokenPipeError, ConnectionResetError):
+            pass
 
     do_GET = _go
     do_POST = _go
