@@ -1,0 +1,14 @@
+# summary of the A/B cells after the audit, session 8 (pooled median over the processes of the per-process median of the ratios B/A; verdict against 0.97). A = S1 head, B = 0bfb2114. The libsais drift control at the start and the end of the session: 1.019 and 1.024 (ok)
+mode	input	kind	threads	operation	processes	pooled_median	p25	p75	min	max	verdict
+ab	dna_10m	file	1	count_present	5	1.0040	0.9908	1.0086	0.9766	1.0273	ok
+ab	dna_10m	file	1	count_absent	5	1.0144	1.0061	1.0170	1.0031	1.0945	ok
+ab	dna_10m	file	1	locate	5	1.0780	1.0440	1.1613	1.0264	1.2643	ok
+ab	dna_10m	idx	4	count_present	5	0.9948	0.9876	1.0171	0.9730	1.0273	ok
+ab	dna_10m	idx	4	count_absent	5	1.0115	1.0055	1.0241	0.9776	1.0310	ok
+ab	dna_10m	idx	4	locate	5	1.0472	1.0169	1.0762	0.9562	1.0762	ok
+ab	dna_10m	mem	1	count_present	5	1.0335	1.0312	1.0357	1.0283	1.0422	ok
+ab	dna_10m	mem	1	count_absent	5	1.0355	1.0341	1.0386	0.9913	1.0847	ok
+ab	dna_10m	mem	1	locate	5	1.0300	1.0037	1.0655	0.9871	1.1556	ok
+ab	prot_1m	file	4	count_present	5	1.0328	1.0245	1.0467	0.9704	1.0988	ok
+ab	prot_1m	file	4	count_absent	5	1.0306	1.0150	1.0575	0.9630	1.0704	ok
+ab	prot_1m	file	4	locate	5	1.0588	1.0009	1.0848	0.9900	1.0941	ok
