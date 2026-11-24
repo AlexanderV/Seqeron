@@ -1,0 +1,2 @@
+s21_C09	CRC: a tail of one zero byte is not combined	killed(stage 1, the owning class: 1 failed, first OfSparse_AtTheEdgesOfTheSection_HasHeadsGapsAndTailsOfZeroOneAndTwoBytes)
+s21_E18	encoder: a container of width 5 is re-encoded	killed(stage 1, the owning class: 1 failed, first TheEncoder_RefusesWhatIsNotAContainerOfWidth4)

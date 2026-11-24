@@ -68,7 +68,7 @@ public abstract class LargeFixtureBase
                 TestContext.Out.WriteLine($"LARGE-CLEANUP could not delete {path}");
             }
         }
-        string line = string.Create(CultureInfo.InvariantCulture, $"LARGE-REPORT test={TestContext.CurrentContext.Test.Name} outcome={TestContext.CurrentContext.Result.Outcome.Status} seconds={seconds:F2} rss_anon_peak_mb={peak:F1} disk_mb={allocated / 1048576.0:F2} nominal_gb={nominal / 1073741824.0:F2}");
+        string line = string.Create(CultureInfo.InvariantCulture, $"LARGE-REPORT test={TestContext.CurrentContext.Test.Name} outcome={TestContext.CurrentContext.Result.Outcome.Status} seconds={seconds:F2} rss_anon_start_mb={_startKb / 1024.0:F1} rss_anon_peak_mb={peak:F1} disk_mb={allocated / 1048576.0:F2} nominal_gb={nominal / 1073741824.0:F2}");
         TestContext.Out.WriteLine(line);
         TestContext.Progress.WriteLine(line);
     }

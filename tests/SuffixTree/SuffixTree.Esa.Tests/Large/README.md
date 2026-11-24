@@ -27,6 +27,6 @@ Everything that makes a text of 2^31, 2^32, 2^33 or 2^40 symbols testable on a 1
 
 The volume has about 17 GB free and 252 GB nominal. A sparse file is made only after a probe (`SetLength` of 1 GiB, then `stat` blocks, which must be below 1 MiB); on a filesystem that does not make sparse files the whole `Large` fixture is inconclusive with the message, and nothing is written. No dense region above 64 MiB is ever written, the nominal size of one container is capped at 200 GB, at least 2 GB must stay free, every file a test made is deleted in the tear-down (a failed write deletes its own file), and a sparse file is never mapped and written to as a whole. Every `Large` test prints one line:
 
-`LARGE-REPORT test=<name> outcome=<status> seconds=<s> rss_anon_peak_mb=<MB> disk_mb=<MB that the files occupy> nominal_gb=<GB>`
+`LARGE-REPORT test=<name> outcome=<status> seconds=<s> rss_anon_start_mb=<MB> rss_anon_peak_mb=<MB> disk_mb=<MB that the files occupy> nominal_gb=<GB>`
 
-(`rss_anon_peak_mb` is the process total, sampled every 20 ms; the host itself is about 100 MB.)
+(`rss_anon_*` are the process totals, the peak sampled every 20 ms; the test host itself is about 100 MB, so what a test added is peak minus start.)
