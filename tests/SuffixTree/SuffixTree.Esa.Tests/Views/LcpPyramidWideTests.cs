@@ -189,6 +189,16 @@ public unsafe class LcpPyramidWideTests
     }
 
     [Test]
+    public void ALcpArrayWhoseLevelsHoldMoreThanInt32MinimaButLessThanUInt32_IsRefusedByTheCountOfTheLevels_BeforeAnythingIsAllocated()
+    {
+        // Orchestrator verification of S2.3: a^n at 2^33 with fanout 4 has 2^31 + 2^29 ... = about 2.86 x 10^9 block minima, between int.MaxValue and uint.MaxValue; the 32-bit table of levels cannot index them and the pyramid says so
+        // by name (a limit of 4 x 10^9 instead of 2 x 10^9 would let the count wrap to a negative int and fail later and elsewhere). The check is on sizes: nothing is allocated and no value is read, so the test is instant.
+        var f = new PowerOfA(1L << 33);
+        CompactLcp lcp = CompactLcp.FromReaders(LcpKind.U64, new PosGen<W8>(f, GenSection.LcpBase), new PosGen<W5>(f, GenSection.LcpPairsOfPowerOfA, long.MaxValue), isChecked: false);
+        Assert.That(() => LcpPyramid.Build(lcp, 4), Throws.TypeOf<NotSupportedException>().With.Message.Contains("block minima"));
+    }
+
+    [Test]
     public void AnEscapeThatTheListDoesNotHold_IsInvalidData_ThroughThePyramid()
     {
         long[] v = [.. Enumerable.Range(0, 120).Select(i => i == 60 ? 700L : 2L)];
