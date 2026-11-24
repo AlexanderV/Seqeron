@@ -532,8 +532,6 @@ public static partial class SequenceAligner
                     NeedPort("--addfragments / --addfull / --addlong / --addtotop (the program addsingle)");
                 else if (_distance != "ktuples")
                     NeedPort("--add / --addprofile with a pair library (tbfast -I)");
-                else if (_iterate > 0)
-                    NeedPort("--add / --addprofile with --maxiterate (dvtditr -K)");
                 else if (_add2ndhalfarg.Contains("-p", StringComparison.Ordinal))
                     NeedPort("--smoothing");
             }

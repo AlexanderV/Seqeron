@@ -607,6 +607,22 @@ public static partial class SequenceAligner
                 MuscleSupg(njob, eff, topol0, topol1, len, new Treedep[njob], fullMembership: true, treeNames: names ?? DefaultNames(njob));
             else
                 throw new InvalidOperationException("Incorrect treemethod.");
+            List<int[]>? subtable = null;
+            if (G.AutoSubalignment > 0.0)
+            {
+                // --skipiterate x (dvtditr -E x): the groups of the tree whose branches (summed from a tip) pass x are subalignments that the refinement does not change inside
+                subtable = new List<int[]>();
+                if (GenerateSubalignmentsTable(njob, topol0, topol1, len, G.AutoSubalignment, subtable, out int maxmem))
+                {
+                    Report("################################################################################################ \n#\n# WARNING: Iterative refinment was not done because you gave a large --fix value ("
+                        + MafftGlobals.F(G.AutoSubalignment, 6, 3) + ").\n#\n################################################################################################ \n");
+                    Report("dvtditr (" + (G.Dorp == 'd' ? "nuc" : "aa") + ") Version 7.505\nalg=" + G.Alg + ", model=" + G.ModelName + ", amax=" + G.SpecificityConsideration.ToString("F1", CultureInfo.InvariantCulture) + "\n"
+                        + G.Nthread.ToString(CultureInfo.InvariantCulture) + " thread(s)\n\n");
+                    // the program leaves the file 'order' of the previous program and writes the alignment as it was (without the common gaps)
+                    return new Result(seqG, Array.Empty<int>());
+                }
+                Report("nsubalignments = " + subtable.Count.ToString(CultureInfo.InvariantCulture) + ", maxmem = " + maxmem.ToString(CultureInfo.InvariantCulture) + "\n");
+            }
             var order = new int[njob];
             Array.Copy(topol0[njob - 2], 0, order, 0, topol0[njob - 2].Length);
             Array.Copy(topol1[njob - 2], 0, order, topol0[njob - 2].Length, topol1[njob - 2].Length);
@@ -628,6 +644,19 @@ public static partial class SequenceAligner
             var skipthisbranch = new int[njob][];
             for (int i = 0; i < njob; i++)
                 skipthisbranch[i] = new int[2];
+            if (subtable != null)
+                CheckSubalignments(njob, topol, subtable, skipthisbranch);
+            if (G.Nadd > 0)
+            {
+                // --add with --maxiterate (dvtditr -K n): the branches that cut the original alignment (the first njob - n sequences) are not refined
+                var reftable = Enumerable.Range(0, njob - G.Nadd).ToArray();
+                for (int j = 0; j < njob - 1; j++)
+                {
+                    for (int k = 0; k < 2; k++)
+                        if (topol[j][k].Any(reftable.Contains) && !SameMember(topol[j][k], reftable))
+                            skipthisbranch[j][k] = 1;
+                }
+            }
             int nseg = anchors.Count;
             var resG = new StringBuilder[njob];
             for (int i = 0; i < njob; i++)
@@ -654,6 +683,62 @@ public static partial class SequenceAligner
                 + G.Nthread.ToString(CultureInfo.InvariantCulture) + " thread(s)\n\n");
             return new Result(resG.Select(b => b.ToString()).ToArray(), order);
         }
+
+        /// <summary><c>generatesubalignmentstable</c> (mltaln9.c): true when the whole tree lies below the threshold (nothing is refined).</summary>
+        private bool GenerateSubalignmentsTable(int nseq, int[][] topol0, int[][] topol1, double[][] len, double threshold, List<int[]> table, out int maxmem)
+        {
+            Report("\n\n\n");
+            maxmem = 0;
+            var distfromtip = new double[nseq];
+            for (int i = 0; i < nseq - 1; i++)
+            {
+                int rep0 = topol0[i][0];
+                double distfromtip0 = distfromtip[rep0];
+                distfromtip[rep0] += len[i][0];
+                int rep1 = topol1[i][0];
+                double distfromtip1 = distfromtip[rep1];
+                distfromtip[rep1] += len[i][1];
+                if (topol0[i].Length > 1 && distfromtip0 <= threshold && threshold < distfromtip[rep0])
+                {
+                    table.Add((int[])topol0[i].Clone());
+                    maxmem = Math.Max(maxmem, topol0[i].Length);
+                }
+                if (topol1[i].Length > 1 && distfromtip1 <= threshold && threshold < distfromtip[rep1])
+                {
+                    table.Add((int[])topol1[i].Clone());
+                    maxmem = Math.Max(maxmem, topol1[i].Length);
+                }
+            }
+            return distfromtip[0] <= threshold;
+        }
+
+        /// <summary>The check of dvtditr for every subalignment: the branches that lie inside it are skipped by the refinement, and it must be a group of the tree.</summary>
+        private void CheckSubalignments(int njob, int[][][] topol, List<int[]> subtable, int[][] skipthisbranch)
+        {
+            for (int i = 0; i < subtable.Count; i++)
+            {
+                Report("\nChecking subalignment " + (i + 1).ToString(CultureInfo.InvariantCulture) + ":\n");
+                foreach (int m in subtable[i])
+                    Report(" " + (m + 1).ToString(CultureInfo.InvariantCulture) + " ");
+                Report("\n");
+                for (int j = 0; j < njob - 1; j++)
+                {
+                    for (int k = 0; k < 2; k++)
+                        if (IncludeMember(topol[j][k], subtable[i]) && !SameMember(topol[j][k], subtable[i]))
+                            skipthisbranch[j][k] = 1;
+                }
+                bool found = false;
+                for (int j = 0; j < njob - 1 && !found; j++)
+                    found = SameMember(topol[j][0], subtable[i]) || SameMember(topol[j][1], subtable[i]);
+                if (!found)
+                    throw new InvalidOperationException("A subalignment made from the guide tree is a group of the tree.");
+                Report(" -> OK\n");
+            }
+        }
+
+        private static bool IncludeMember(int[] mem, int[] cand) => mem.All(cand.Contains);
+
+        private static bool SameMember(int[] mem, int[] cand) => mem.Length == cand.Length && mem.All(cand.Contains);
 
         private static void CommonGapPick(string[] seq)
         {

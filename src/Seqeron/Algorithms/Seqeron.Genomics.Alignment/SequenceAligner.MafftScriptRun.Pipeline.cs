@@ -50,6 +50,11 @@ public static partial class SequenceAligner
                 NamesAreProgramTitles = true,
                 MinimumWeight = Num(_minimumweight),
                 FixThreshold = Num(_fixthreshold),
+                AaMatrix = _sbstmodel.Contains("-b -1", StringComparison.Ordinal) ? (_files.TryGetValue(_scorematrix, out var aaText) ? MafftProgramIo.DropEmptyLines(MafftProgramIo.CarriageReturnsToNewlines(aaText)) : "") : null,
+                CoreOut = _coreout,
+                CoreExtend = _coreext.Trim() == "-c",
+                CoreThreshold = _corethr,
+                CoreWindow = _corewin,
                 RandomSeed = _randomseed,
                 NoSegmentation = _bunkatsuopt.Trim() == "-B",
                 OneIteration = _oneiterationopt.Trim() == "-r",
@@ -210,7 +215,7 @@ public static partial class SequenceAligner
                 Err("Impossible\n");
                 return 1;
             }
-            bool engine = _fragment == 0 && _seed == "x" && _seedtable == "x" && !_newdash && !_treein && _mergetable == "/dev/null" && _adjustdirection == 0 && !_coreout && _anchoropt.Length == 0
+            bool engine = _fragment == 0 && _seed == "x" && _seedtable == "x" && !_newdash && _mergetable == "/dev/null" && _adjustdirection == 0 && _anchoropt.Length == 0
                 && _distance is "ktuples" or "global" or "local" or "localgenaf" or "parttree";
             if (_nadd > 0 && _distance == "parttree")
                 throw new NotSupportedException("--add with --parttree: the script refuses it (Impossible).");
@@ -264,6 +269,8 @@ public static partial class SequenceAligner
                 progress = res.StandardError;
             }
             Prog(progress);
+            if (res.TerminalText.Length > 0)
+                Err(res.TerminalText); // the standard error of setcore is not redirected to the progress file
             if (_anysymbol && res.NotUsedFile != null && res.InputIndex.Length != recs.Count)
             {
                 // restoreu: the alignment file holds the picked sequences only
@@ -278,6 +285,9 @@ public static partial class SequenceAligner
             var index = res.InputIndex.Length == rows.Count ? res.InputIndex : Enumerable.Range(0, rows.Count).ToArray();
             string TitleOf(int k) => res.ChangedNames?[k] is { } changed ? changed[1..] : shown[k];
             var outNames = index.Select(k => _anysymbol ? RemovePrefix(TitleOf(k)) : TitleOf(k)).ToList();
+            bool coreRaw = res.CoreNames != null && _outorder != "aligned" && _outputformat != "clustal" && _outputformat != "phylip";
+            if (res.CoreNames != null)
+                outNames = res.CoreNames.Select(nm => coreRaw ? nm : Truncate(nm, MafftProgramIo.NameLimit)).ToList(); // setcore writes the names as it read them: with the '=' of the programs and the prefix of replaceu; f2cl cuts them at 254 characters with the '='.
             if (res.GroupLabels is { } labels)
             {
                 // splittbfast: sprintf( tmpname, "Group-%d %s", ... ), tmpname[B-1] = 0, then restoreu removes the prefix of replaceu
@@ -292,6 +302,8 @@ public static partial class SequenceAligner
                 pre = MafftProgramIo.Clustal(strategy, outNames, rows, _namelength, nuc);
             else if (_outputformat == "phylip")
                 pre = MafftProgramIo.Phylip(outNames, rows, _namelength);
+            else if (coreRaw)
+                pre = string.Concat(outNames.Select((nm, k) => ">" + nm + "\n" + rows[k] + "\n")); // cat of the file written by setcore: one line per sequence
             else
                 pre = (_outorder == "aligned" ? "" : res.OutputPrefix) + MafftProgramIo.Fasta(outNames, rows);
             if (_outputfile == "")

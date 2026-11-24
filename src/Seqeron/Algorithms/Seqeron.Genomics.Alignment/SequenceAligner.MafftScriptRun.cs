@@ -580,7 +580,6 @@ public static partial class SequenceAligner
                             Err("Cannot open " + _scorematrix + "\n\n");
                             Exit(0);
                         }
-                        NeedPort("--aamatrix");
                         break;
                     case "--textmatrix":
                         Shift();

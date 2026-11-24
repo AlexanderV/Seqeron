@@ -87,6 +87,15 @@ public static partial class SequenceAligner
             return Math.Min(o.MaxIterate, limit);
         }
 
+        /// <summary>The command line of <c>setcore</c> (<c>--core</c>): <c>-w corewin -i corethr [-c]</c>.</summary>
+        internal static List<string> SetcoreArguments(MafftOptions o)
+        {
+            var args = new List<string> { "-w", o.CoreWindow, "-i", o.CoreThreshold };
+            if (o.CoreExtend)
+                args.Add("-c");
+            return args;
+        }
+
         /// <summary><c>dndpre $seqtype $model -M 2 -C $numthreads</c>.</summary>
         internal static List<string> DndpreArguments(MafftOptions o)
         {
@@ -106,6 +115,7 @@ public static partial class SequenceAligner
         /// <summary><c>dvtditr -W $minimumweight -E $fixthreshold -s $unalignlevel $legacygapopt -C $numthreadsit -t $randomseed -F -z 50 $seqtype $model -f -$gop -Q $spfactor -h $aof -I $iterate $weightopt -p BAATARI2 -K $nadd</c>.</summary>
         internal static List<string> DvtditrArguments(MafftOptions o, int nadd = 0)
         {
+            nadd = Math.Max(nadd, o.AddCount); // --add / --addprofile with --maxiterate: dvtditr -K n
             string gop = Text(o.GapOpen);
             string aof = AwkPrint(0.0 + 0.0 + MafftGlobals.CAtof(AwkPrint(-1.0 * o.Offset)));
             if (o.Offset == 0.0)

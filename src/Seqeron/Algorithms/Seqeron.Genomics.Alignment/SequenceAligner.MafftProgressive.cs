@@ -1351,7 +1351,7 @@ public static partial class SequenceAligner
                 for (int i = njob - nadd; i < njob; i++)
                 {
                     if (seq[i].Length != alignmentlength)
-                        throw new MafftProgramFailureException(Log + "###############################################################################\n# ERROR!\n# The additional sequences must be aligned\n".Replace("additional sequences", nadd.ToString(CultureInfo.InvariantCulture) + " additional sequences", StringComparison.Ordinal)
+                        throw new MafftProgramFailureException("###############################################################################\n# ERROR!\n# The additional sequences must be aligned\n".Replace("additional sequences", nadd.ToString(CultureInfo.InvariantCulture) + " additional sequences", StringComparison.Ordinal)
                             + "# Otherwise, try the '--add' option, instead of '--addprofile' option.\n###############################################################################\n");
                 }
                 bool found = false;
@@ -1375,7 +1375,7 @@ public static partial class SequenceAligner
                     }
                 }
                 if (!found)
-                    throw new MafftProgramFailureException(Log + "###############################################################################\n# ERROR!\n# There is no appropriate position to add the " + nadd.ToString(CultureInfo.InvariantCulture)
+                    throw new MafftProgramFailureException("###############################################################################\n# ERROR!\n# There is no appropriate position to add the " + nadd.ToString(CultureInfo.InvariantCulture)
                         + " sequences in the guide tree.\n# Check whether the " + nadd.ToString(CultureInfo.InvariantCulture) + " sequences form a monophyletic cluster.\n# If not, try the '--add' option, instead of the '--addprofile' option.\n############################################################################### \n");
                 var added = new string[nadd];
                 for (int i = 0; i < nadd; i++)

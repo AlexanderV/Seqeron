@@ -288,6 +288,24 @@ public sealed record MafftOptions
     /// <summary><c>--reorder</c> (accepted; the two sequences keep their input order).</summary>
     public bool Reorder { get; init; }
 
+    /// <summary>
+    /// <c>--aamatrix file</c> (the script writes <c>-b -1</c> and copies the file to <c>_aamtx</c>): the text of that file, the lower half of a 20 x 20 matrix with the letters in the first line, optionally a line "frequency" or "norescale";
+    /// used when <see cref="Blosum"/> is -1.
+    /// </summary>
+    public string? AaMatrix { get; init; }
+
+    /// <summary><c>--core</c>: only the core of the alignment is written (<c>setcore</c>; it needs the file hat2 of the run: the iterative methods, the pair libraries with <c>--maxiterate</c> or <c>--distout</c>).</summary>
+    public bool CoreOut { get; init; }
+
+    /// <summary><c>--coreext</c>: the next <see cref="CoreWindow"/> residues of every sequence on both sides of the core are written too.</summary>
+    public bool CoreExtend { get; init; }
+
+    /// <summary><c>--corethr x</c> (default 0.5; the text of the script's argument).</summary>
+    public string CoreThreshold { get; init; } = "0.5";
+
+    /// <summary><c>--corewin n</c> (default 100; the text of the script's argument).</summary>
+    public string CoreWindow { get; init; } = "100";
+
     /// <summary>Cancellation of the call.</summary>
     public CancellationToken CancellationToken { get; init; }
 }
@@ -311,6 +329,12 @@ public sealed record MafftRunResult(MultipleAlignmentResult Alignment, string St
 
     /// <summary>The guide tree file of <see cref="MafftOptions.TreeOut"/> / <see cref="MafftOptions.NodeOut"/> (<c>input.tree</c>), or null.</summary>
     public string? TreeFile { get; init; }
+
+    /// <summary>--core: the names of the rows as <c>setcore</c> writes them (with the leading '=' and the prefix of <c>replaceu</c>), or null.</summary>
+    public string[]? CoreNames { get; init; }
+
+    /// <summary>--core: the text of <c>setcore</c> on the terminal. The script does not redirect it to the progress file, so it is not part of <see cref="MultipleAlignmentResult"/>'s standard error here, and it shows with <c>--quiet</c> too; it follows the text of the programs.</summary>
+    public string TerminalText { get; init; } = "";
 
     /// <summary>The distance matrix file of <see cref="MafftOptions.DistOut"/> (<c>input.hat2</c>), or null.</summary>
     public string? DistanceFile { get; init; }
@@ -452,7 +476,13 @@ public static partial class SequenceAligner
         /// <summary>Three or more sequences: <c>replaceu</c>, <c>disttbfast</c> (<see cref="MafftRun.Disttbfast"/>), <c>restoreu</c>.</summary>
         internal static MafftRunResult AlignMany(IReadOnlyList<string> list, MafftOptions o, bool epilogue = true)
         {
-            if (o.Blosum is not (30 or 45 or 50 or 62 or 80 or 90 or 100 or 0))
+            using var aaMatrix = MafftGlobals.UseAaMatrix(o.AaMatrix);
+            return AlignManyCore(list, o, epilogue);
+        }
+
+        private static MafftRunResult AlignManyCore(IReadOnlyList<string> list, MafftOptions o, bool epilogue)
+        {
+            if (o.Blosum is not (30 or 45 or 50 or 62 or 80 or 90 or 100 or 0) && !(o.Blosum == -1 && o.AaMatrix != null))
                 throw new ArgumentException($"--bl must be 30, 45, 50, 62, 80, 90, 100 or 0, got {o.Blosum}.", nameof(o));
             if (!double.IsFinite(o.GapOpen) || !double.IsFinite(o.Offset) || !double.IsFinite(o.GapExtension))
                 throw new ArgumentException("--op, --ep and --exp must be finite.", nameof(o));
@@ -555,6 +585,7 @@ public static partial class SequenceAligner
             {
                 int threads = o.Threads < 0 ? Environment.ProcessorCount : o.Threads;
                 int threadsIt = o.ThreadsIterate ?? Math.Min(threads, 8);
+                var previousOrder = result.Order;
                 if (threadsIt > 0)
                     throw new NotSupportedException("The iterative refinement of MAFFT with threads (--thread n --maxiterate m without --threadit 0) is non-deterministic in the program (the branches are refined in the order the threads finish: repeated runs of one input give different alignments); use Threads = 0 or ThreadsIterate = 0, which equal the single-thread program.");
                 double[][] hat2;
@@ -571,22 +602,43 @@ public static partial class SequenceAligner
                 }
                 var run3 = new MafftRun(MafftGlobals.ParseDvtditr(MafftScript.DvtditrArguments(o))) { GuideTreeText = guideTreeText };
                 result = GuardRun(run3, log, () => run3.Dvtditr(result.Rows, hat2, pairHat3, activeNames));
+                if (result.Order.Length == 0)
+                    result = result with { Order = previousOrder }; // --skipiterate with a large value: dvtditr leaves the file 'order' as it was
                 log.Append(run3.Log);
                 treeFile = run3.TreeFile; // dvtditr writes the file infile.tree (fixed_musclesupg_double_treeout) whatever the options say
             }
-            string[] rows = o.AnySymbol
+            string[] rows = o.AnySymbol && !o.CoreOut
                 ? result.Rows.Select((r, i) => Restore(DeleteRuns(originals[picked?[i] ?? i], deletedRuns, i), r)).ToArray()
                 : result.Rows;
+            string[]? coreNames = null;
+            string coreText = "";
+            if (o.CoreOut)
+            {
+                // setcore replaces restoreu: the alignment keeps the symbols of replaceu and the names keep '='
+                var crun = new MafftRun(MafftGlobals.ParseSetcore(MafftScript.SetcoreArguments(o)));
+                (rows, coreNames) = crun.SetCore(result.Rows, activeNames, distFile);
+                coreText = crun.Log.ToString();
+            }
             if (picked != null && o.Reorder)
                 throw new NotSupportedException("--sparsepickup with --reorder: the program stops before it writes the file 'order'.");
-            if (o.Reorder)
-                rows = result.Order.Select(i => rows[i]).ToArray();
+            if (o.Reorder && rows.Length == result.Order.Length)
+            {
+                var previous = rows;
+                var previousNames = coreNames;
+                rows = result.Order.Select(i => previous[i]).ToArray();
+                if (previousNames != null)
+                    coreNames = result.Order.Select(i => previousNames[i]).ToArray();
+            }
             string stderr = "";
             if (!o.Quiet)
                 stderr = epilogue ? log + MafftScript.Epilogue(o, list.Count) : log.ToString();
             int[] inputIndex = picked ?? (o.Reorder ? result.Order.ToArray() : Enumerable.Range(0, rows.Length).ToArray());
+            if (coreNames != null && rows.Length != inputIndex.Length)
+                inputIndex = Enumerable.Range(0, rows.Length).ToArray();
             return new MafftRunResult(ToResult(rows, nuc), stderr)
             {
+                CoreNames = coreNames,
+                TerminalText = coreText,
                 InputIndex = inputIndex,
                 OutputPrefix = outputPrefix,
                 TreeFile = o.TreeOut || o.NodeOut ? treeFile : null,
@@ -623,14 +675,29 @@ public static partial class SequenceAligner
                 tree = res.Tree ?? tree;
                 labels = res.GroupLabels;
             }
-            if (o.AnySymbol)
+            string[]? coreNames = null;
+            string coreText = "";
+            if (o.AnySymbol && !o.CoreOut)
                 rows = rows.Select((r, k) => Restore(originals[index[k]], r)).ToArray();
+            if (o.CoreOut)
+            {
+                // setcore: the program splittbfast writes no file hat2 ("Make hat2." and an empty output)
+                if (groupsize > 1 && groupsize <= nseq)
+                    throw new NotSupportedException("--core with --groupsize: the sequences are not aligned with each other and setcore reads them as an alignment (undefined).");
+                var crun = new MafftRun(MafftGlobals.ParseSetcore(MafftScript.SetcoreArguments(o)));
+                (rows, coreNames) = crun.SetCore(rows, index.Select(k => partNames[k]).ToArray(), null);
+                coreText = crun.Log.ToString();
+                if (rows.Length == 0)
+                    index = Array.Empty<int>();
+            }
             string stderr = "";
             if (!o.Quiet)
                 stderr = epilogue ? log + MafftScript.Epilogue(o, nseq) : log.ToString();
             bool labelled = groupsize > 1 && groupsize <= nseq;
             return new MafftRunResult(ToResult(rows, nuc), stderr)
             {
+                CoreNames = coreNames,
+                TerminalText = coreText,
                 InputIndex = index,
                 TreeFile = o.TreeOut || o.NodeOut ? tree : null,
                 GroupLabels = labelled ? labels : null,

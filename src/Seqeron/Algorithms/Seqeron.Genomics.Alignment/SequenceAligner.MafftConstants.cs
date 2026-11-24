@@ -315,7 +315,7 @@ public static partial class SequenceAligner
                 if (NWildcard != 0)
                     NScore(nDis);
             }
-            else if (Dorp == 'p' && Scoremtx == 1 && Nblosum >= 0)
+            else if (Dorp == 'p' && Scoremtx == 1 && Nblosum >= -1)
             {
                 charsize = 0x80;
                 if (Ppenalty == NotSpecified) Ppenalty = -1530;
@@ -335,14 +335,14 @@ public static partial class SequenceAligner
                     AminoGrp[Amino[i]] = grp[i];
                 for (int i = 0; i < 26; i++)
                     AminoN[Amino[i]] = i;
-                Report("rescale = 1\n");
-                nDis = BlosumMatrix(seq);
-                ModelName = "BLOSUM" + Nblosum.ToString(CultureInfo.InvariantCulture) + ", " + F(-(double)Ppenalty / 1000, 4, 2) + ", " + F(-(double)Poffset / 1000, 4, 2, true) + ", " + F(-(double)PpenaltyEx / 1000, 4, 2, true) + ", "
+                nDis = BlosumMatrix(seq, out bool rescale);
+                Report("rescale = " + (rescale ? "1" : "0") + "\n");
+                ModelName = (Nblosum == -1 ? "User-defined" : "BLOSUM" + Nblosum.ToString(CultureInfo.InvariantCulture)) + ", " + F(-(double)Ppenalty / 1000, 4, 2) + ", " + F(-(double)Poffset / 1000, 4, 2, true) + ", " + F(-(double)PpenaltyEx / 1000, 4, 2, true) + ", "
                     + (TryWarp ? F(-(double)PenaltyShift / 600, 4, 2) : "noshift");
             }
             else if (Dorp == 'p' && Scoremtx == 1)
             {
-                throw new NotSupportedException("A user-defined amino-acid matrix (--aamatrix) / the text mode of MAFFT is not available in this port.");
+                throw new NotSupportedException("The text mode of MAFFT (--text / --textmatrix: an alphabet of 256 characters) is not available in this port.");
             }
             else if (Dorp == 'p' && Scoremtx == 2)
             {
@@ -683,10 +683,15 @@ public static partial class SequenceAligner
         }
 
         /// <summary>The BLOSUM branch of <c>constants()</c> (<c>--bl</c>, default 62): the matrix scaled to 600 / (frequency-weighted mean of the diagonal), shifted by the offset, rounded to integers.</summary>
-        private int[,] BlosumMatrix(IReadOnlyList<string> seq)
+        private int[,] BlosumMatrix(IReadOnlyList<string> seq, out bool rescale)
         {
-            var tri = MafftTables.BlosumLowerTriangle[Nblosum];
+            rescale = true;
+            double[] tri;
             double[] freq = MafftTables.BlosumFrequencies;
+            if (Nblosum == -1)
+                (tri, freq, rescale) = LoadAaMatrix(AaMatrixText);
+            else
+                tri = MafftTables.BlosumLowerTriangle[Nblosum];
             double[] freq1 = freq;
             if (Fmodel == 1)
             {
@@ -706,15 +711,18 @@ public static partial class SequenceAligner
                     for (int j = 0; j < 20; j++)
                         average += d[i, j] * freq1[i] * freq1[j];
             }
-            for (int i = 0; i < 20; i++)
-                for (int j = 0; j < 20; j++)
-                    d[i, j] -= average;
+            if (rescale)
+            {
+                for (int i = 0; i < 20; i++)
+                    for (int j = 0; j < 20; j++)
+                        d[i, j] -= average;
+            }
             average = 0.0;
             for (int i = 0; i < 20; i++)
                 average += d[i, i] * freq1[i];
             for (int i = 0; i < 20; i++)
                 for (int j = 0; j < 20; j++)
-                    d[i, j] *= 600.0 / average;
+                    d[i, j] *= rescale ? 600.0 / average : 600.0;
             for (int i = 0; i < 20; i++)
                 for (int j = 0; j < 20; j++)
                     d[i, j] -= Offset;

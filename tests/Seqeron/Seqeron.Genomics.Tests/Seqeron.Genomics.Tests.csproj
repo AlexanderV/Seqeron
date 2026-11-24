@@ -358,6 +358,8 @@
     <EmbeddedResource Include="TestData\Alignment\mafft_compacttree_oracle.tsv.gz" />
     <EmbeddedResource Include="TestData\Alignment\mafft_memsave_oracle.tsv.gz" />
     <EmbeddedResource Include="TestData\Alignment\mafft_auto20k_oracle.tsv.gz" />
+    <!-- ALIGN-MULTI-001 (audit A2-19c-s5, B09 F330 ff.): the options of the script mafft with their own programs - skipiterate (dvtditr -E), core (setcore): installed mafft, scripts/alignment/generate_mafft_s5_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\mafft_s5_oracle.tsv.gz" />
     <!-- ALIGN-MULTI-001 (audit A2-27, B09 F120): EMBOSS 6.6.0 -aformat output formats (needle / water) and the sequence-set formats (seqret), byte for byte;
          scripts/alignment/generate_emboss_aformat_oracle.py, scripts/alignment/generate_emboss_seqout_oracle.py (faked run dates: scripts/alignment/faketime.c). -->
     <EmbeddedResource Include="TestData\Alignment\emboss_aformat_oracle.tsv.gz" />
