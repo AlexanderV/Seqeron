@@ -200,7 +200,7 @@ def contract_cases(rng):
                 ['--groupsize', 'x'], ['--partsize', 'x'], ['--bl', 'x'], ['--kappa', 'x'], ['--weighti', 'x'], ['--opdist', 'x'], ['--mixedlinkage', '2'], ['--mixedlinkage', '-1'], ['--similaritylevel', '2'], ['--similaritylevel', '0.1', '--unalignlevel', '0.1'],
                 ['--unalignlevel', '2'], ['--allowshift'], ['--shiftpenalty', '0.5'], ['--skipiterate', '-1'], ['--progress', 'x'], ['--maxambiguous', '2'], ['--algq'], ['--globalgenafpair'],
                 ['--topin', 'x'], ['--pdbidlist', 'x'], ['--pdbfilelist', 'x'], ['--merge', 'nofile'], ['--aamatrix', 'nofile'], ['--treein', 'nofile'], ['--add', 'nofile'], ['--addfragments', 'nofile'], ['--keeplength'], ['--mapout'],
-                ['--lastpair'], ['--lastmultipair', '--add', 'x'], ['--larapair'], ['--foldalignpair'], ['--scarnapair'], ['--dafspair'], ['--mccaskill'], ['--contrafold'], ['--dafs'], ['--rnaalifold'], ['--blastpair'], ['--fastapair'],
+                ['--lastpair'], ['--lastmultipair', '--add', 'x'], ['--larapair'], ['--foldalignpair'], ['--scarnapair'], ['--dafspair'], ['--mccaskill'], ['--contrafold'], ['--dafs'], ['--rnaalifold'], ['--blastpair'],  # --fastapair: the installation of this oracle has no fasta34; the option is ported and verified in the fastapair oracle (B09 WP75, F346 - F349)
                 ['--multipair'], ['--6mermultipair'], ['--parttree', '--maxiterate', '2'], ['--parttree', '--seed', 'x'], ['--text', '--anysymbol'], ['--retree', '0', '--nodeout', '--maxiterate', '2'], ['--help'], ['--info'], ['--version'],
                 ['--parttree', '--merge', 'nofile'], ['--bestfirst', '--threadit', '0'], ['--dash'], ['--anchors', 'nofile']]
     for i, o in enumerate(bad_opts):

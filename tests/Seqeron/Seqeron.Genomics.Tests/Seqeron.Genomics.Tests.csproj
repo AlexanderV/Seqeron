@@ -350,6 +350,8 @@
     <EmbeddedResource Include="TestData\Alignment\mafft_fastaparttree_oracle.tsv.gz" />
     <EmbeddedResource Include="TestData\Alignment\mafft_fastaparttree_full_oracle.tsv.gz" />
     <EmbeddedResource Include="TestData\Alignment\fasta34_battery_oracle.tsv.gz" />
+    <EmbeddedResource Include="TestData\Alignment\fasta34_align_oracle.tsv.gz" />
+    <EmbeddedResource Include="TestData\Alignment\mafft_fastapair_oracle.tsv.gz" />
     <!-- ALIGN-MULTI-001 (audit A2-19c stage 4, B09 WP70, F315 ff.): the command line of the script mafft 7.505 (options, messages, output formats, files; installed Debian mafft 7.505-1),
          scripts/alignment/generate_mafft_command_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\mafft_command_oracle.tsv.gz" />

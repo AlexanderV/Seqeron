@@ -250,15 +250,7 @@ public static partial class SequenceAligner
             }
             _ = _sw;
 
-            // ---- the programs that must be installed (mafft.tmpl 1640 - 1740)
-            if (_distance == "fasta" || _partdist == "fasta")
-            {
-                if (_distance == "fasta")
-                {
-                    Err("\n== Install FASTA ========================================================\nThis option requires the fasta34 program (FASTA version x.xx or higher)\ninstalled in your PATH.  If you have the fasta34 program but have renamed\n(like /usr/local/bin/myfasta), set the FASTA_4_MAFFT environment variable\nto point your fasta34 (like setenv FASTA_4_MAFFT /usr/local/bin/myfasta).\n=========================================================================\n\n");
-                    Exit(1);
-                }
-            }
+            // ---- the programs that must be installed (mafft.tmpl 1640 - 1740): fasta34 is part of the port (the installation of the oracle has it)
             if (_distance is "last" or "lastmulti")
             {
                 Err("\n== Install LAST ============================================================\nLAST (Kielbasa, Wan, Sato, Horton, Frith 2011 Genome Res. 21:487) is required.\nhttp://last.cbrc.jp/\nhttp://mafft.cbrc.jp/alignment/software/xxxxxxx.html \n============================================================================\n\n");

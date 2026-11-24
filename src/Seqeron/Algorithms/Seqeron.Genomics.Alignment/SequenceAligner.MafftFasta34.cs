@@ -11,7 +11,7 @@ public static partial class SequenceAligner
     /// <c>scaleswn.c</c> (<c>-z 3</c>: <c>proc_hist_a</c>, <c>find_za</c>, <c>zs_to_E</c>, <c>scale_scores</c>), <c>compacc.c</c> (<c>sortbeste</c>), <c>apam.c</c> / <c>upam.h</c> (BLOSUM50, +5/-4), <c>initfa.c</c>) that <c>splittbfast -S</c> of MAFFT 7.505
     /// (<c>mafft --fastaparttree</c>) uses: the command <c>fasta34 -z3 -m10 -p|-n -Q -H -b n -E n -d0 query library 2|6</c> and the <c>opt</c> that <c>ReadFasta34m10_scoreonly</c> reads from the list of best scores.
     /// </summary>
-    internal static class MafftFasta34
+    internal static partial class MafftFasta34
     {
         private const int Na = 123, Nmap = 33, MaxSav = 10, BigNum = 1000000000;
         private const double EulerG = 0.57721566490153286060, PiSqrt6 = 1.28254983016186409554, ZsMax = 400.0;
@@ -49,6 +49,8 @@ public static partial class SequenceAligner
             internal double Lambda, K, H;
             internal bool Nucleotide;
             internal int[] CNt = Array.Empty<int>();
+
+            internal Molecule Clone() => (Molecule)MemberwiseClone();
         }
 
         private static readonly Lazy<Molecule> Protein = new(() => BuildProtein());
@@ -97,7 +99,7 @@ public static partial class SequenceAligner
             m.GDel = -10;
             m.GGap = -2;
             m.BestScale = 300; m.BestOff = 36; m.BkFact = 6; m.BkTup = 2; m.BestMax = 50; m.ScFact = 3; m.PamFact = 1; m.OptWid = 16;
-            m.Lambda = 0.158; m.K = 0.019; m.H = 0.10; // bl50_p {12, 2}
+            m.Lambda = 0.158f; m.K = 0.019f; m.H = 0.10f; // bl50_p {12, 2}: the table of the program holds floats (alt_parms.h)
             return m;
         }
 
@@ -129,7 +131,7 @@ public static partial class SequenceAligner
             m.GDel = -12;
             m.GGap = -4;
             m.BestScale = 80; m.BestOff = 45; m.BkFact = 5; m.BkTup = 6; m.BestMax = 80; m.ScFact = 1; m.PamFact = 0; m.OptWid = 16;
-            m.Lambda = 0.192; m.K = 0.177; m.H = 0.36; // nt54_p {16, 4}
+            m.Lambda = 0.192f; m.K = 0.177f; m.H = 0.36f; // nt54_p {16, 4}
             m.CNt = new[] { 0, 4, 3, 2, 1, 1, 7, 6, 11, 9, 10, 8, 13, 12, 15, 14, 16, 16 };
             return m;
         }
@@ -255,8 +257,8 @@ public static partial class SequenceAligner
                 for (int i0 = 1; i0 <= m.Nsq; i0++)
                     f.Pamh1[i0] = fact;
             f.Noff = n0 - 1;
-            f.BssCc = new int[m.OptWid * 2 + 8];
-            f.BssDd = new int[m.OptWid * 2 + 8];
+            f.BssCc = new int[m.OptWid * 4 + 16];
+            f.BssDd = new int[m.OptWid * 4 + 16];
             return f;
         }
 
@@ -520,8 +522,11 @@ public static partial class SequenceAligner
             return bestScore;
         }
 
-        /// <summary><c>do_fasta</c>: the three scores (initn, init1, opt) of the query against one library sequence.</summary>
-        private static int DoFasta(Molecule m, FStr f, int[] aa1, int n1)
+        /// <summary><c>do_fasta</c>: the three scores (initn, init1, opt) of the query against one library sequence, with the band offset <c>hoff</c> that <c>dmatch</c> used (the value the alignment of <c>bd_walign</c> needs).</summary>
+        private readonly record struct FastaScores(int Initn, int Init1, int Opt, int Hoff);
+
+        /// <summary><c>do_fasta</c> with <c>optflag</c> 1 and the given <c>optcut</c> / <c>optwid</c> (<c>do_walign</c> calls it with 0 and twice the width).</summary>
+        private static FastaScores DoFastaFull(Molecule m, FStr f, int[] aa1, int n1, int optCut, int optWid)
         {
             int ktup = m.Ktup, kt1 = ktup - 1;
             int[] hsq = m.Hsq;
@@ -530,7 +535,7 @@ public static partial class SequenceAligner
             int xdrop = -m.PamL;
             bool doExtend = !m.Nucleotide || n0 < 50 || n1 < 50;
             if (n1 < ktup)
-                return 0;
+                return default;
             int nd = n0 + n1;
             if (f.DScore.Length < nd)
             {
@@ -642,7 +647,7 @@ public static partial class SequenceAligner
                 }
             }
             if (nsave <= 0)
-                return 0;
+                return default;
             int scorN = Sconn(f, f.Vptr, nsave, f.Cgap, f.Pgap, noff);
             int best = f.Vptr[0];
             for (int ib = 1; ib < nsave; ib++)
@@ -651,15 +656,16 @@ public static partial class SequenceAligner
             int init1 = f.VScore[best];
             int initn = Math.Max(scorN, init1);
             int opt = initn;
-            if (initn > f.OptCut)
+            int hoff = 0;
+            if (initn > optCut)
             {
-                int hoff = noff - f.VDp[best];
-                int window = Math.Min(n1, m.OptWid);
+                hoff = noff - f.VDp[best];
+                int window = Math.Min(n1, optWid);
                 int low = -window / 2 - hoff;
                 int up = low + window;
                 opt = FlocalAlign(f, aa0, aa1, n0, n1, low, up, m.Pam2, -m.GDel, -m.GGap);
             }
-            return opt;
+            return new FastaScores(initn, init1, opt, hoff);
         }
 
         private static int[] Encode(string s, int[] ascii)
@@ -677,7 +683,7 @@ public static partial class SequenceAligner
 
         private sealed class Entry
         {
-            internal int Seq, Frame, N1, Opt;
+            internal int Seq, Frame, N1, Opt, Initn, Init1;
             internal double Z, E;
         }
 
@@ -787,61 +793,93 @@ public static partial class SequenceAligner
         internal static Listing SearchListing(string query, IReadOnlyList<string> library, bool nucleotide, int mshow = -1)
         {
             var m = nucleotide ? Dna.Value : Protein.Value;
-            int nin = library.Count;
-            if (mshow < 0)
-                mshow = nin;
-            double eCut = nin;
-            var res = new double[nin];
             int[] q0 = Encode(query, m.Ascii);
+            var lib = library.Select(x => Encode(x, m.Ascii)).ToList();
+            return SearchCore(m, q0, lib, mshow < 0 ? library.Count : mshow, library.Count).Listing;
+        }
+
+        /// <summary>Everything the search of <c>fasta34</c> leaves for the display: the frames of the query, the entries in the order of the list, the statistics of the library and the number of entries that <c>showbest</c> shows (<c>nshow</c>).</summary>
+        private sealed class CoreResult
+        {
+            internal Listing Listing = null!;
+            internal Molecule M = null!;
+            internal List<FStr> Frames = null!;
+            internal List<int[]> Library = null!;
+            internal List<Entry> Entries = new();
+            internal int N0, Nshow;
+            internal long DbLength;
+            internal int DbEntries;
+            internal List<(int Score, int N1)> Stats = new();
+        }
+
+        private static CoreResult SearchCore(Molecule m, int[] q0, IReadOnlyList<int[]> library, int mshow, double eCut)
+        {
+            int nin = library.Count;
+            var res = new double[nin];
             int n0 = q0.Length - 2;
             if (n0 <= 0)
                 throw new InvalidOperationException("Query sequence length <= 0");
             var frames = new List<FStr> { InitWork(m, q0, n0) };
-            if (nucleotide)
+            if (m.Nucleotide)
             {
                 var rc = new int[n0 + 2];
                 for (int i = 0; i < n0; i++)
                     rc[i + 1] = m.CNt[q0[n0 - i]];
                 frames.Add(InitWork(m, rc, n0));
             }
-            var entries = new List<Entry>();
+            var core = new CoreResult { M = m, Frames = frames, Library = new List<int[]>(library), N0 = n0 };
+            var entries = core.Entries;
             long dbLength = 0;
             int dbEntries = 0;
             for (int s = 0; s < nin; s++)
             {
-                int[] aa1 = Encode(library[s], m.Ascii);
+                int[] aa1 = library[s];
                 int n1 = aa1.Length - 2;
                 if (n1 <= 1)
                     continue;
                 dbEntries++;
                 dbLength += n1;
+                int tBest = -1;
                 for (int itt = 0; itt < frames.Count; itt++)
                 {
-                    int opt = DoFasta(m, frames[itt], aa1, n1);
-                    entries.Add(new Entry { Seq = s, Frame = itt, N1 = n1, Opt = opt });
+                    var sc = DoFastaFull(m, frames[itt], aa1, n1, frames[itt].OptCut, m.OptWid);
+                    entries.Add(new Entry { Seq = s, Frame = itt, N1 = n1, Opt = sc.Opt, Initn = sc.Initn, Init1 = sc.Init1 });
+                    if (sc.Opt > tBest)
+                        tBest = sc.Opt;
                 }
+                core.Stats.Add((tBest, n1));
             }
+            core.DbLength = dbLength;
+            core.DbEntries = dbEntries;
             var hits = new List<Hit>();
             Listing Result(bool none) => new(res, n0, dbLength, dbEntries, frames[0].Cgap, frames[0].OptCut, hits, none);
             if (entries.Count == 0)
-                return Result(true);
+            {
+                core.Listing = Result(true);
+                return core;
+            }
             // process_hist (-z 3: Altschul / Gish parameters) and scale_scores
             double a_n0 = n0;
             double a_n0f = Math.Log(m.K * a_n0) / m.H;
             foreach (var e in entries)
             {
                 e.Z = FindZa(m, a_n0, a_n0f, e.Opt, e.N1);
-                e.E = ZsToE(e.Z, e.N1, nucleotide, dbEntries, dbLength, dbEntries);
+                e.E = ZsToE(e.Z, e.N1, m.Nucleotide, dbEntries, dbLength, dbEntries);
             }
             SortBestE(entries, entries.Count);
             // showbest (quiet, -b n -E n): the list is printed in batches of 20, 30, 40 ... entries until -b entries are shown
             int nbest = entries.Count;
             if (!(entries[0].E < eCut))
-                return Result(true);
+            {
+                core.Listing = Result(true);
+                core.Nshow = 0;
+                return core;
+            }
             int nshow = Math.Min(mshow, 20);
             int istart = 0;
             var seen = new bool[nin];
-            while (true)
+            bool done = false;
+            while (!done)
             {
                 int istop = Math.Min(nbest, nshow);
                 int ib;
@@ -851,16 +889,22 @@ public static partial class SequenceAligner
                     var bbp = entries[ib];
                     last = bbp;
                     if (bbp.E > eCut)
-                        return Result(false);
+                    {
+                        nshow = ib;
+                        done = true;
+                        break;
+                    }
                     if (bbp.E < 0.0)
                         continue;
                     hits.Add(new Hit(bbp.Seq, bbp.Frame, bbp.N1, bbp.Opt, ZsToBit(bbp.Z, n0, bbp.N1), bbp.E));
-                    if ((!nucleotide || bbp.Frame == 0) && !seen[bbp.Seq])
+                    if ((!m.Nucleotide || bbp.Frame == 0) && !seen[bbp.Seq])
                     {
                         res[bbp.Seq] += bbp.Opt;
                         seen[bbp.Seq] = true;
                     }
                 }
+                if (done)
+                    break;
                 if (ib < nbest && last != null && last.E < eCut)
                 {
                     if (istop >= mshow)
@@ -871,7 +915,9 @@ public static partial class SequenceAligner
                 }
                 break;
             }
-            return Result(false);
+            core.Nshow = nshow;
+            core.Listing = Result(false);
+            return core;
         }
 
         /// <summary><c>zs_to_bit</c> (<c>scaleswn.c</c>): the bit score printed with <c>-H</c> (<c>z_bits</c>).</summary>

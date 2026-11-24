@@ -188,6 +188,9 @@ public static partial class SequenceAligner
             return (outRows, names.ToArray());
         }
 
+        /// <summary>The matrix of a file <c>hat2</c> as <c>readhat2_pointer</c> reads it (upper triangle).</summary>
+        internal static double[][] ReadHat2Full(string text, int njob) => ReadHat2Text(text, njob);
+
         /// <summary><c>readhat2_pointer</c> (the matrix of the file <c>hat2</c>: fixed fields of 6 characters, a line break after 12 values and after the last of a row).</summary>
         private static double[][] ReadHat2Text(string text, int njob)
         {

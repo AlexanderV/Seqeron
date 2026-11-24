@@ -71,7 +71,7 @@ public static partial class SequenceAligner
                 ThreadsProgressive = _numthreadstb,
                 MemoryMode = _memopt.Trim() == "-M -B" ? MafftMemoryMode.MemSave : _memopt.Trim() == "-N" ? MafftMemoryMode.NoMemSave : MafftMemoryMode.Default,
                 PartTree = _distance != "parttree" ? MafftPartTree.None : _partdist == "fasta" ? MafftPartTree.Fasta : _partdist == "localalign" ? MafftPartTree.DynamicProgramming : MafftPartTree.KmerDistance,
-                PairLibrary = _distance switch { "global" => MafftPairLibrary.Global, "local" => MafftPairLibrary.Local, "localgenaf" => MafftPairLibrary.Genaf, _ => MafftPairLibrary.None },
+                PairLibrary = _distance switch { "global" => MafftPairLibrary.Global, "local" => MafftPairLibrary.Local, "localgenaf" => MafftPairLibrary.Genaf, "fasta" => _sw ? MafftPairLibrary.FastaSmithWaterman : MafftPairLibrary.Fasta, _ => MafftPairLibrary.None },
                 WeightI = Num(_weighti),
                 GlobalPairOpen = Num(_pggop),
                 GlobalPairOffset = Num(_pgaof),
@@ -305,7 +305,7 @@ public static partial class SequenceAligner
             }
             bool seedRun = _seed != "x" || _seedtable != "x";
             bool engine = _fragment == 0 && !_newdash && _adjustdirection == 0 && _anchoropt.Length == 0
-                && _distance is "ktuples" or "global" or "local" or "localgenaf" or "parttree";
+                && _distance is "ktuples" or "global" or "local" or "localgenaf" or "parttree" or "fasta";
             if (_nadd > 0 && _distance == "parttree")
                 throw new NotSupportedException("--add with --parttree: the script refuses it (Impossible).");
             if (!engine || cycletbfast > 1 && _distance != "parttree" && !seedRun)
@@ -382,7 +382,7 @@ public static partial class SequenceAligner
                 Err("ERROR!!\nIn input file,\nnjob = " + recs.Count.ToString(CultureInfo.InvariantCulture) + "\nbut in alignment file,\nnjob = " + res.InputIndex.Length.ToString(CultureInfo.InvariantCulture) + "\n");
                 return 1;
             }
-            string before = _partdist == "fasta" && _distance == "parttree" ? "Pairwise alignments were computed by FASTA\n(Pearson & Lipman, 1988, PNAS 85:2444-2448)\n" : "";
+            string before = _partdist == "fasta" && _distance == "parttree" || _distance == "fasta" ? "Pairwise alignments were computed by FASTA\n(Pearson & Lipman, 1988, PNAS 85:2444-2448)\n" : "";
             Prog(MafftScript.EpilogueText(strategy, explanation, performance, before, MafftScript.GenafNoteText(_distance is "localgenaf" or "globalgenaf", _oldgenafparam)));
 
             // the output (the file pre, then f2cl for the other formats)

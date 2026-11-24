@@ -1236,7 +1236,7 @@ public static partial class SequenceAligner
         /// <c>tbfast _ (pair library arguments) _ -+ n ...</c> (<c>main</c> of <c>tbfast.c</c> with <c>pairlocalalign</c> called inside): the pairwise alignments of all pairs give the guide tree (UPGMA of their distances) and the
         /// constraints (the importance of the aligned blocks) of the progressive alignment of the groups (<c>A__align</c> with <c>constraint</c> 2).
         /// </summary>
-        internal Result Tbfast(IReadOnlyList<string> seq0, MafftGlobals? pairG, IReadOnlyList<string>? names = null, NodePairData? nodePair = null, string? hat3Text = null)
+        internal Result Tbfast(IReadOnlyList<string> seq0, MafftGlobals? pairG, IReadOnlyList<string>? names = null, NodePairData? nodePair = null, string? hat3Text = null, string? hat2Text = null)
         {
             _isTbfast = true;
             int njob = seq0.Count;
@@ -1430,6 +1430,27 @@ public static partial class SequenceAligner
                 Report("tbutree = " + (G.TbUtree ? "1" : "0") + ", compacttree = " + _compactTree.ToString(CultureInfo.InvariantCulture) + "\n");
                 if (!G.TbUtree)
                     iscore = TbfastMsaDistances(seq, njob);
+                else if (pairG == null && hat2Text != null)
+                {
+                    // callpairlocalalign == 0 with the distances of the files (dndfast7: --fastapair / --fastswpair): readhat2_doublehalf_pointer, and --distout writes the file again
+                    Report("Loading 'hat2' ... ");
+                    var full = ReadHat2Text(hat2Text, njob);
+                    iscore = new double[njob][];
+                    for (int i = 0; i < njob; i++)
+                    {
+                        iscore[i] = new double[njob - i];
+                        for (int j = i + 1; j < njob; j++)
+                            iscore[i][j - i] = full[i][j];
+                    }
+
+                    Report("done.\n");
+                    if (G.DistOut != 0)
+                    {
+                        Report("\nwriting hat2 (2)\n");
+                        DistFile = WriteHat2(iscore, fileNames);
+                    }
+                }
+
                 double[][]? iscoreKozo = null;
                 if (nkozo > 0)
                 {

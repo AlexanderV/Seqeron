@@ -46,6 +46,10 @@ public enum MafftPairLibrary
     Local = 2,
     /// <summary><c>--genafpair</c> / <c>--localgenafpair</c>: the local alignment with generalised affine gap costs (<c>genalign11</c>) of every pair.</summary>
     Genaf = 3,
+    /// <summary><c>--fastapair</c>: the optimised score and the local alignments of FASTA 3.4 (<c>fasta34 -z3 -m10</c>, ported) of every sequence with the ones that follow it (<c>dndfast7</c>): the scores give the guide tree, the alignments the pair library (F-INS-1).</summary>
+    Fasta = 4,
+    /// <summary><c>--fastswpair</c>: as <see cref="Fasta"/> with the Smith-Waterman alignment of <c>fasta34 -A</c> (H-INS-1).</summary>
+    FastaSmithWaterman = 5,
 }
 
 /// <summary>The tree-splitting methods of MAFFT for very many sequences (<c>splittbfast</c>): the sequences are classified by their distance to a few representatives, recursively.</summary>
@@ -576,7 +580,34 @@ public static partial class SequenceAligner
             double[][]? pairHat2 = null;
             MafftLocalHom[][]? pairHat3 = null;
             bool[]? seedKozo = null;
-            if (o.PairLibrary != MafftPairLibrary.None)
+            if (o.PairLibrary is MafftPairLibrary.Fasta or MafftPairLibrary.FastaSmithWaterman)
+            {
+                // the script: dndfast7 [-A] < infile (hat2, hat3), then tbfast without a pair stage: it loads hat3 and hat2 (hat3.seed in front of hat3)
+                var d7 = MafftRun.Dndfast7(programNames, replaced, o.PairLibrary == MafftPairLibrary.FastaSmithWaterman);
+                log.Append(d7.Err);
+                if (d7.Segfault)
+                    throw new MafftProgramFailureException(log + MafftProgram.ProgramPath + ": line 2816: <pid> Segmentation fault      \"$prefix/dndfast7\" $swopt < infile > /dev/null 2>> \"$progressfile\"\n", 1);
+                if (d7.ExitCode != 0)
+                    throw new MafftProgramFailureException(log.ToString(), d7.ExitCode);
+                string hat3Text = (o.SeedTable ?? "") + d7.Hat3;
+                var (_, fastaTbArgs) = MafftScript.TbfastArguments(o, list.Count);
+                var tg = MafftGlobals.ParseTbfast(fastaTbArgs);
+                if (tg.Dorp == '\0')
+                    tg.Dorp = nuc ? 'd' : 'p';
+                var trun = new MafftRun(tg) { GuideTreeText = MafftScript.GuideTreeFile(o) };
+                result = GuardRun(trun, log, () => trun.Tbfast(replaced, null, programNames, null, hat3Text, d7.Hat2));
+                log.Append(trun.Log);
+                treeFile = trun.TreeFile;
+                distFile = trun.DistFile ?? d7.Hat2;
+                if (o.WeightI >= 0.0001 && result.Rows.Length > 0)
+                {
+                    seedKozo = new bool[list.Count];
+                    pairHat3 = MafftRun.ReadLocalHomTable2Half(hat3Text, list.Count, seedKozo);
+                }
+
+                pairHat2 = MafftRun.ReadHat2Full(d7.Hat2, list.Count);
+            }
+            else if (o.PairLibrary != MafftPairLibrary.None)
             {
                 var (pairArgs, tbArgs) = MafftScript.TbfastArguments(o, list.Count);
                 NodePairData? nodePair = null;

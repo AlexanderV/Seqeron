@@ -395,14 +395,14 @@ public static partial class SequenceAligner
                 cycle = 1;
             if (cycle > 3)
                 cycle = 3;
-            string distance = o.PartTree != MafftPartTree.None ? "parttree" : o.PairLibrary switch { MafftPairLibrary.Global => "global", MafftPairLibrary.Local => "local", MafftPairLibrary.Genaf => "localgenaf", _ => "ktuples" };
+            string distance = o.PartTree != MafftPartTree.None ? "parttree" : o.PairLibrary switch { MafftPairLibrary.Global => "global", MafftPairLibrary.Local => "local", MafftPairLibrary.Genaf => "localgenaf", MafftPairLibrary.Fasta or MafftPairLibrary.FastaSmithWaterman => "fasta", _ => "ktuples" };
             string partdist = o.PartTree switch { MafftPartTree.Fasta => "fasta", MafftPartTree.DynamicProgramming => "localalign", _ => "ktuples" };
             if (o.PartTree != MafftPartTree.None)
                 cycle = PartTreeCycle(o, nseq).Cycle;
             else if (o.PairLibrary != MafftPairLibrary.None)
                 cycle = 1; // the script sets the number of tree builds to 1 when a pair library is used
             string weighti = o.PairLibrary != MafftPairLibrary.None ? Text(o.WeightI) : "0.0";
-            string strategy = StrategyName("none", distance, false, o.Fft, weighti, false, Iterations(o), partdist, 0, cycle, out string explanation, out string performance);
+            string strategy = StrategyName("none", distance, o.PairLibrary == MafftPairLibrary.FastaSmithWaterman, o.Fft, weighti, false, Iterations(o), partdist, 0, cycle, out string explanation, out string performance);
             return (strategy, explanation, performance);
         }
 
@@ -410,7 +410,7 @@ public static partial class SequenceAligner
         internal static string Epilogue(MafftOptions o, int nseq)
         {
             var (strategy, explanation, performance) = Strategy(o, nseq);
-            string before = o.PartTree == MafftPartTree.Fasta ? FastaNote : "";
+            string before = o.PartTree == MafftPartTree.Fasta || o.PairLibrary is MafftPairLibrary.Fasta or MafftPairLibrary.FastaSmithWaterman ? FastaNote : "";
             return EpilogueText(strategy, explanation, performance, before, GenafNote(o));
         }
 
@@ -461,8 +461,14 @@ public static partial class SequenceAligner
             else if (o.SequenceType == MafftSequenceType.Amino)
                 pair.Add("-P");
             pair.AddRange(ModelArguments(o));
+            bool fasta = o.PairLibrary is MafftPairLibrary.Fasta or MafftPairLibrary.FastaSmithWaterman;
+            if (fasta)
+                pair.Clear(); // dndfast7 makes the pair library: the progressive stage has no pair arguments
             switch (o.PairLibrary)
             {
+                case MafftPairLibrary.Fasta:
+                case MafftPairLibrary.FastaSmithWaterman:
+                    break;
                 case MafftPairLibrary.Global:
                     pair.AddRange(new[] { "-g", Text(o.GlobalPairExtension), "-f", Text(o.GlobalPairOpen), "-Q", Text(o.ShiftPenalty), "-h", AwkPrint(0.0 + 0.0 + o.GlobalPairOffset), "-A" });
                     break;
@@ -477,12 +483,12 @@ public static partial class SequenceAligner
                     break;
             }
             var tb = new List<string>();
-            if (o.GuideTree is not (MafftGuideTree.MemSaveTree or MafftGuideTree.StepAdd))
+            if (o.GuideTree is not (MafftGuideTree.MemSaveTree or MafftGuideTree.StepAdd) && !fasta)
                 tb.AddRange(new[] { "-+", Iterations(o).ToString(CultureInfo.InvariantCulture) });
             tb.AddRange(new[] { "-W", Text(o.MinimumWeight), "-V", "-" + gopdist, "-s", Text(o.UnalignLevel) });
             if (o.LegacyGapPenalty)
                 tb.Add("-L");
-            if (o.PairLibrary != MafftPairLibrary.Global && !o.TerminalGapPenalty)
+            if (o.PairLibrary != MafftPairLibrary.Global && !fasta && !o.TerminalGapPenalty)
                 tb.Add("-O");
             if (o.OutNumber)
                 tb.Add("-n");
