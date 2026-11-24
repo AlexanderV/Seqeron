@@ -253,7 +253,11 @@ public class Sesa5EncoderTests
             return copy;
         }
 
-        Assert.Throws<InvalidDataException>(() => Sesa5Image.Parse(Damage(b => b[sa.Offset + sa.Length - 1] = 1)), "the padding is zero");
+        for (int j = 1; j <= 3; j++)
+        {
+            int back = j;
+            Assert.Throws<InvalidDataException>(() => Sesa5Image.Parse(Damage(b => b[sa.Offset + sa.Length - back] = 1)), $"the padding is zero (byte {4 - j} of 3)");
+        }
         Assert.Throws<InvalidDataException>(() => Sesa5Image.Parse(Damage(b => b[10] = 0)), "POS_WIDTH 5 needs minor 1");
         Assert.Throws<InvalidDataException>(() => Sesa5Image.Parse(Damage(b => b[72] = 4)), "POS_WIDTH 4");
         Assert.Throws<InvalidDataException>(() => Sesa5Image.Parse(Damage(b => b[128 + (64 * child.Index) + 36] = 2)), "CHILD codec 2 does not exist at width 5");

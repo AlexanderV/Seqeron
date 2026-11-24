@@ -26,7 +26,7 @@ public class SparseContainerTests
 
     public static IEnumerable<TestCaseData> LayoutShapes()
     {
-        foreach (long n in new long[] { 0, 1, 2, 7, 100, 1000, 65_535, 300_000, 1_000_003 })
+        foreach (long n in new long[] { 0, 1, 2, 7, 100, 1000, 65_535, 131_071, 200_000, 300_000, 1_000_003 })
             foreach (int sigma in new[] { 1, 2, 4, 5, 20 })
                 foreach (bool psi in new[] { false, true })
                     if (n > 0 || sigma == 1) yield return new TestCaseData(n, sigma, psi).SetArgDisplayNames($"n={n}", $"sigma={sigma}", $"psi={psi}");
@@ -218,9 +218,12 @@ public class SparseContainerTests
         ClosedFormText f = new PowerOfA(1000);
         SparseSpec spec = SparseSpec.For(f);
         string Path(string name) => dir.File(name);
-        // more than 64 MiB of real data
-        Assert.Throws<ArgumentException>(() => SparseContainer.Write(Path("a"), spec, Big()), "dense region above 64 MiB");
+        // more than 64 MiB of real data, in a section that is big enough to hold it (so that it is the size that is refused, not the place of the patch)
+        ClosedFormText big = new PowerOfA(20_000_000);
+        SparseSpec bigSpec = SparseSpec.For(big);
+        Assert.Throws<ArgumentException>(() => SparseContainer.Write(Path("a"), bigSpec, Big()), "dense region above 64 MiB");
         Assert.That(File.Exists(Path("a")), Is.False);
+        Assert.That(SparseContainer.Plan(bigSpec).DataBytes(SesaFormat.KindSa), Is.GreaterThan(LargeDisk.MaxDenseBytes), "the patch fits its section: only its size is the reason");
         // a patch outside its section, into the padding, overlapping, in a section that does not exist
         Assert.Throws<ArgumentException>(() => SparseContainer.Write(Path("b"), spec, [new SparsePatch(SesaFormat.KindSa, 4 * 1001 - 2, new byte[4])]), "past the end of SA");
         Assert.Throws<ArgumentException>(() => SparseContainer.Write(Path("c"), spec, [new SparsePatch(SesaFormat.KindSa, -1, new byte[4])]), "before the start");
@@ -243,6 +246,24 @@ public class SparseContainerTests
         Assert.That(File.ReadAllText(Path("keep")), Is.EqualTo("keep"));
 
         static IReadOnlyList<SparsePatch> Big() => [new SparsePatch(SesaFormat.KindSa, 0, new byte[(int)LargeDisk.MaxDenseBytes])];
+    }
+
+    [Test]
+    public void APosition_IsStoredLittleEndian_InFourOrFiveBytes_AndNotMore()
+    {
+        var bytes = new byte[16];
+        SparseContainer.PutPosition(bytes, 1, 5, 0x12_3456_789AL);
+        Assert.That(bytes[5..10], Is.EqualTo(new byte[] { 0x9A, 0x78, 0x56, 0x34, 0x12 }));
+        Assert.That(bytes[..5], Is.EqualTo(new byte[5]), "the neighbours are untouched");
+        SparseContainer.PutPosition(bytes, 0, 5, (1L << 40) - 1);
+        Assert.That(bytes[..5], Is.EqualTo(new byte[] { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => SparseContainer.PutPosition(bytes, 0, 5, 1L << 40), "2^40 does not fit 5 bytes");
+        Assert.Throws<ArgumentOutOfRangeException>(() => SparseContainer.PutPosition(bytes, 0, 5, -1));
+        SparseContainer.PutPosition(bytes, 2, 4, uint.MaxValue);
+        Assert.That(bytes[8..12], Is.EqualTo(new byte[] { 0xFF, 0xFF, 0xFF, 0xFF }));
+        SparseContainer.PutPosition(bytes, 3, 4, 0x0102_0304);
+        Assert.That(bytes[12..16], Is.EqualTo(new byte[] { 4, 3, 2, 1 }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => SparseContainer.PutPosition(bytes, 0, 4, uint.MaxValue + 1L), "2^32 does not fit 4 bytes");
     }
 
     [Test]

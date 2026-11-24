@@ -1,0 +1,778 @@
+[
+ {
+  "id": "s21_P01",
+  "desc": "a^n SuffixAt: off by one",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/PowerOfA.cs",
+  "old": "return Length - rank;",
+  "new": "return Length - rank - 1;",
+  "filter": "(FullyQualifiedName~Large.ClosedFormSelfTests)"
+ },
+ {
+  "id": "s21_P02",
+  "desc": "a^n RankOf: off by one",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/PowerOfA.cs",
+  "old": "return Length - position;",
+  "new": "return Length - position + 1;",
+  "filter": "(FullyQualifiedName~Large.ClosedFormSelfTests)"
+ },
+ {
+  "id": "s21_P03",
+  "desc": "a^n Lcp: r instead of r - 1",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/PowerOfA.cs",
+  "old": "return rank <= 1 ? 0 : rank - 1;",
+  "new": "return rank <= 1 ? 0 : rank;",
+  "filter": "(FullyQualifiedName~Large.ClosedFormSelfTests)"
+ },
+ {
+  "id": "s21_P04",
+  "desc": "a^n LcpSum: n narrowed to int",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/PowerOfA.cs",
+  "old": "(Int128)Length * (Length - 1) / 2",
+  "new": "(Int128)(int)Length * (Length - 1) / 2",
+  "filter": "(FullyQualifiedName~Large.ClosedFormSelfTests)"
+ },
+ {
+  "id": "s21_P05",
+  "desc": "a^n InternalCount: n - 2",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/PowerOfA.cs",
+  "old": "Length == 0 ? 0 : Length - 1;",
+  "new": "Length == 0 ? 0 : Length - 2;",
+  "filter": "(FullyQualifiedName~Large.ClosedFormSelfTests)"
+ },
+ {
+  "id": "s21_P06",
+  "desc": "a^n LrsRank: n - 2",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/PowerOfA.cs",
+  "old": "internal override long LrsRank => Length >= 2 ? Length - 1 : -1;",
+  "new": "internal override long LrsRank => Length >= 2 ? Length - 2 : -1;",
+  "filter": "(FullyQualifiedName~Large.ClosedFormSelfTests)"
+ },
+ {
+  "id": "s21_P07",
+  "desc": "a^n RangeOfRun: first rank L + 1",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/PowerOfA.cs",
+  "old": "new RankRange(length, Length);",
+  "new": "new RankRange(length + 1, Length);",
+  "filter": "(FullyQualifiedName~Large.ClosedFormSelfTests)"
+ },
+ {
+  "id": "s21_P08",
+  "desc": "a^n RangeOfRun: a run of n symbols is absent",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/PowerOfA.cs",
+  "old": "return length > Length ? RankRange.Empty",
+  "new": "return length >= Length ? RankRange.Empty",
+  "filter": "(FullyQualifiedName~Large.ClosedFormSelfTests)"
+ },
+ {
+  "id": "s21_P09",
+  "desc": "a^n Down: one past the end",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/PowerOfA.cs",
+  "old": "return i < Length ? i + 1 : 0;",
+  "new": "return i <= Length ? i + 1 : 0;",
+  "filter": "(FullyQualifiedName~Large.ClosedFormSelfTests)"
+ },
+ {
+  "id": "s21_P10",
+  "desc": "a^n SuffixAt: the rank narrowed to int",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/PowerOfA.cs",
+  "old": "return Length - rank;",
+  "new": "return Length - (long)(int)rank;",
+  "filter": "(FullyQualifiedName~Large.ClosedFormSelfTests)"
+ },
+ {
+  "id": "s21_P11",
+  "desc": "a^n SymbolCount: n - 1",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/PowerOfA.cs",
+  "old": "code == 0 ? Length : 0;",
+  "new": "code == 0 ? Length - 1 : 0;",
+  "filter": "(FullyQualifiedName~Large.ClosedFormSelfTests)"
+ },
+ {
+  "id": "s21_K01",
+  "desc": "(a^k b)* SuffixAt: the position of the j-th element of a block is off by one period",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/PeriodicAkB.cs",
+  "old": "return ((_q - 1 - j) * _p) + phase;",
+  "new": "return ((_q - j) * _p) + phase;",
+  "filter": "(FullyQualifiedName~Large.ClosedFormSelfTests)"
+ },
+ {
+  "id": "s21_K02",
+  "desc": "(a^k b)* SuffixAt: the rank narrowed to int",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/PeriodicAkB.cs",
+  "old": "if (rank <= _t) return Length - rank; // the pure runs (all ranks when q = 0)\n        long x = rank - 1 - _t;",
+  "new": "if (rank <= _t) return Length - rank; // the pure runs (all ranks when q = 0)\n        long x = (int)(rank - 1 - _t);",
+  "filter": "(FullyQualifiedName~Large.ClosedFormSelfTests)"
+ },
+ {
+  "id": "s21_K03",
+  "desc": "(a^k b)* RankOf: the partial period starts one late",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/PeriodicAkB.cs",
+  "old": "if (position >= _q * _p) return Length - position;",
+  "new": "if (position > _q * _p) return Length - position;",
+  "filter": "(FullyQualifiedName~Large.ClosedFormSelfTests)"
+ },
+ {
+  "id": "s21_K04",
+  "desc": "(a^k b)* RankOf: the index in the block is off by one",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/PeriodicAkB.cs",
+  "old": "return Rank(phase, _q - 1 - c);",
+  "new": "return Rank(phase, _q - c);",
+  "filter": "(FullyQualifiedName~Large.ClosedFormSelfTests)"
+ },
+ {
+  "id": "s21_K05",
+  "desc": "(a^k b)* Lcp: the first element of block 0 has LCP t + 1",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/PeriodicAkB.cs",
+  "old": "if (rank == _t + 1) return _t;",
+  "new": "if (rank == _t + 1) return _t + 1;",
+  "filter": "(FullyQualifiedName~Large.ClosedFormSelfTests)"
+ },
+ {
+  "id": "s21_K06",
+  "desc": "(a^k b)* Lcp: t + j p - phase + 1",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/PeriodicAkB.cs",
+  "old": "return j == 0 ? _k - phase : _t + (j * _p) - phase;",
+  "new": "return j == 0 ? _k - phase : _t + (j * _p) - phase + 1;",
+  "filter": "(FullyQualifiedName~Large.ClosedFormSelfTests)"
+ },
+ {
+  "id": "s21_K07",
+  "desc": "(a^k b)* Lcp: j narrowed to int",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/PeriodicAkB.cs",
+  "old": "return j == 0 ? _k - phase : _t + (j * _p) - phase;",
+  "new": "return j == 0 ? _k - phase : _t + ((int)j * _p) - phase;",
+  "filter": "(FullyQualifiedName~Large.ClosedFormSelfTests)"
+ },
+ {
+  "id": "s21_K08",
+  "desc": "(a^k b)* InternalCount: max(t, k) for max(t, k - 1)",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/PeriodicAkB.cs",
+  "old": "Math.Max(_t, _k - 1);\n\n    internal override long LrsDepth",
+  "new": "Math.Max(_t, _k);\n\n    internal override long LrsDepth",
+  "filter": "(FullyQualifiedName~Large.ClosedFormSelfTests)"
+ },
+ {
+  "id": "s21_K09",
+  "desc": "(a^k b)* LrsRank: t + q",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/PeriodicAkB.cs",
+  "old": "if (_q >= 2) return _t + _q - 1;",
+  "new": "if (_q >= 2) return _t + _q;",
+  "filter": "(FullyQualifiedName~Large.ClosedFormSelfTests)"
+ },
+ {
+  "id": "s21_K10",
+  "desc": "(a^k b)* RangeOfRun: the last rank misses one phase",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/PeriodicAkB.cs",
+  "old": "long last = _t + ((_k - length + 1) * _q);",
+  "new": "long last = _t + ((_k - length) * _q);",
+  "filter": "(FullyQualifiedName~Large.ClosedFormSelfTests)"
+ },
+ {
+  "id": "s21_K11",
+  "desc": "(a^k b)* RangeOfRun: the pure run a^t is not a start of the range",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/PeriodicAkB.cs",
+  "old": "long first = length <= _t ? length : _t + 1;",
+  "new": "long first = length < _t ? length : _t + 1;",
+  "filter": "(FullyQualifiedName~Large.ClosedFormSelfTests)"
+ },
+ {
+  "id": "s21_K12",
+  "desc": "(a^k b)* Occurrences: one period too many",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/PeriodicAkB.cs",
+  "old": "long cMax = room / _p;",
+  "new": "long cMax = (room + _p - 1) / _p;",
+  "filter": "(FullyQualifiedName~Large.ClosedFormSelfTests)"
+ },
+ {
+  "id": "s21_K13",
+  "desc": "(a^k b)* Down: the chain extends one element too far",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/PeriodicAkB.cs",
+  "old": "return j <= _q - 2 ? i + 1 : 0;",
+  "new": "return j <= _q - 1 ? i + 1 : 0;",
+  "filter": "(FullyQualifiedName~Large.ClosedFormSelfTests)"
+ },
+ {
+  "id": "s21_K14",
+  "desc": "(a^k b)* Down: the chain of block 0 is a last child also when t < k",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/PeriodicAkB.cs",
+  "old": "(phase >= 1 || _t == _k) ? i + 1 : 0;",
+  "new": "(phase >= 0 || _t == _k) ? i + 1 : 0;",
+  "filter": "(FullyQualifiedName~Large.ClosedFormSelfTests)"
+ },
+ {
+  "id": "s21_K15",
+  "desc": "(a^k b)* Up: the chain (0, 1) ends one late",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/PeriodicAkB.cs",
+  "old": "j == _t + _q ? _t + 2 : 0;",
+  "new": "j == _t + _q + 1 ? _t + 2 : 0;",
+  "filter": "(FullyQualifiedName~Large.ClosedFormSelfTests)"
+ },
+ {
+  "id": "s21_K16",
+  "desc": "(a^k b)* Up: an interval of value k beyond max(t, k - 1)",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/PeriodicAkB.cs",
+  "old": "if (v >= 1 && v <= Math.Max(_t, _k - 1)) return FirstOfValue(v);",
+  "new": "if (v >= 1 && v <= Math.Max(_t, _k)) return FirstOfValue(v);",
+  "filter": "(FullyQualifiedName~Large.ClosedFormSelfTests)"
+ },
+ {
+  "id": "s21_K17",
+  "desc": "(a^k b)* Next: the second l-index of the root is Rank(k, 1)",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/PeriodicAkB.cs",
+  "old": "if (k == 1) return Rank(_k, 0);",
+  "new": "if (k == 1) return Rank(_k, 1);",
+  "filter": "(FullyQualifiedName~Large.ClosedFormSelfTests)"
+ },
+ {
+  "id": "s21_K18",
+  "desc": "(a^k b)* Next: intervals of value up to min(t, k) have two l-indices",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/PeriodicAkB.cs",
+  "old": "k - 1 <= Math.Min(_t, _k - 1) ?",
+  "new": "k - 1 <= Math.Min(_t, _k) ?",
+  "filter": "(FullyQualifiedName~Large.ClosedFormSelfTests)"
+ },
+ {
+  "id": "s21_K19",
+  "desc": "(a^k b)* LcpSum: (q - 1) k t becomes q k t",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/PeriodicAkB.cs",
+  "old": "((q - 1) * k * t)",
+  "new": "(q * k * t)",
+  "filter": "(FullyQualifiedName~Large.ClosedFormSelfTests)"
+ },
+ {
+  "id": "s21_K20",
+  "desc": "(a^k b)* InfiniteCodeAt: the b is one symbol early",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/PeriodicAkB.cs",
+  "old": "position % _p == _k ? 1 : 0;",
+  "new": "position % _p == _k - 1 ? 1 : 0;",
+  "filter": "(FullyQualifiedName~Large.ClosedFormSelfTests)"
+ },
+ {
+  "id": "s21_K21",
+  "desc": "(a^k b)* FirstOfValue: v < t for v <= t",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/PeriodicAkB.cs",
+  "old": "v <= _t ? v + 1 : 1 + _t + ((_k - v) * _q);",
+  "new": "v < _t ? v + 1 : 1 + _t + ((_k - v) * _q);",
+  "filter": "(FullyQualifiedName~Large.ClosedFormSelfTests)"
+ },
+ {
+  "id": "s21_K22",
+  "desc": "(a^k b)* RangeOfFactor: the start narrowed to int",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/PeriodicAkB.cs",
+  "old": "long phase = start % _p;",
+  "new": "long phase = (int)start % _p;",
+  "filter": "(FullyQualifiedName~Large.ClosedFormSelfTests)"
+ },
+ {
+  "id": "s21_D01",
+  "desc": "u^m: the rank of a short suffix lacks the empty suffix",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/DeBruijnRepeat.cs",
+  "old": "_specialRank[l - 1] = 1 + smallerLong + smallerShort;",
+  "new": "_specialRank[l - 1] = smallerLong + smallerShort;",
+  "filter": "(FullyQualifiedName~Large.ClosedFormSelfTests)"
+ },
+ {
+  "id": "s21_D02",
+  "desc": "u^m: the windows of the short suffixes are not taken out of the count",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/DeBruijnRepeat.cs",
+  "old": "long smallerLong = (_m * below) - Enumerable.Range(1, specials).Count(other => _windowOfRotation[_period - other] < below);",
+  "new": "long smallerLong = _m * below;",
+  "filter": "(FullyQualifiedName~Large.ClosedFormSelfTests)"
+ },
+ {
+  "id": "s21_D03",
+  "desc": "u^m: the window LCP stops one digit early",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/DeBruijnRepeat.cs",
+  "old": "while (common < _order && (a / divisor)",
+  "new": "while (common < _order - 1 && (a / divisor)",
+  "filter": "(FullyQualifiedName~Large.ClosedFormSelfTests)"
+ },
+ {
+  "id": "s21_D04",
+  "desc": "u^m: InternalCount + 1",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/DeBruijnRepeat.cs",
+  "old": "return words + (Length - _period - _order + 1);",
+  "new": "return words + (Length - _period - _order + 2);",
+  "filter": "(FullyQualifiedName~Large.ClosedFormSelfTests)"
+ },
+ {
+  "id": "s21_D05",
+  "desc": "u^m: RangeOf forgets the occurrences that wrap around the period",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/DeBruijnRepeat.cs",
+  "old": "long count = (_m * span) - wrapped;",
+  "new": "long count = _m * span;",
+  "filter": "(FullyQualifiedName~Large.ClosedFormSelfTests)"
+ },
+ {
+  "id": "s21_D06",
+  "desc": "u^m: InfiniteCodeAt narrows the position",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/DeBruijnRepeat.cs",
+  "old": "_u[position % _period];",
+  "new": "_u[(int)position % _period];",
+  "filter": "(FullyQualifiedName~Large.ClosedFormSelfTests)"
+ },
+ {
+  "id": "s21_D07",
+  "desc": "u^m: RankOf, the index in a block is off by one",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/DeBruijnRepeat.cs",
+  "old": "long pure = (_m * _windowOfRotation[r]) + (_m - 1 - c);",
+  "new": "long pure = (_m * _windowOfRotation[r]) + (_m - c);",
+  "filter": "(FullyQualifiedName~Large.ClosedFormSelfTests)"
+ },
+ {
+  "id": "s21_D08",
+  "desc": "u^m: SuffixAt skips a special index one late",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/DeBruijnRepeat.cs",
+  "old": "foreach (long q in _sortedPure)\n            if (q <= pure) pure++;",
+  "new": "foreach (long q in _sortedPure)\n            if (q < pure) pure++;",
+  "filter": "(FullyQualifiedName~Large.ClosedFormSelfTests)"
+ },
+ {
+  "id": "s21_D09",
+  "desc": "u^m: InRotation counts one position more",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/DeBruijnRepeat.cs",
+  "old": "long cMax = room / _period;",
+  "new": "long cMax = (room / _period) + 1;",
+  "filter": "(FullyQualifiedName~Large.ClosedFormSelfTests)"
+ },
+ {
+  "id": "s21_D10",
+  "desc": "u^m: LrsRank + 1",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/DeBruijnRepeat.cs",
+  "old": "internal override long LrsRank => RankOf(_period);",
+  "new": "internal override long LrsRank => RankOf(_period) + 1;",
+  "filter": "(FullyQualifiedName~Large.ClosedFormSelfTests)"
+ },
+ {
+  "id": "s21_D11",
+  "desc": "u^m: the short suffixes are those of length at most d",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/DeBruijnRepeat.cs",
+  "old": "position < Length && Length - position < _order;",
+  "new": "position < Length && Length - position <= _order;",
+  "filter": "(FullyQualifiedName~Large.ClosedFormSelfTests)"
+ },
+ {
+  "id": "s21_C01",
+  "desc": "CRC: one bit of the polynomial",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/Crc32CCombine.cs",
+  "old": "private const uint ReflectedPolynomial = 0x82F63B78;",
+  "new": "private const uint ReflectedPolynomial = 0x82F63B79;",
+  "filter": "(FullyQualifiedName~Large.Crc32CCombineTests)"
+ },
+ {
+  "id": "s21_C02",
+  "desc": "CRC: Multiply stops after 31 coefficients",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/Crc32CCombine.cs",
+  "old": "for (int i = 0; i < 32; i++)",
+  "new": "for (int i = 0; i < 31; i++)",
+  "filter": "(FullyQualifiedName~Large.Crc32CCombineTests)"
+ },
+ {
+  "id": "s21_C03",
+  "desc": "CRC: Multiply adds with OR, not XOR",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/Crc32CCombine.cs",
+  "old": "if ((a & m) != 0) product ^= b;",
+  "new": "if ((a & m) != 0) product |= b;",
+  "filter": "(FullyQualifiedName~Large.Crc32CCombineTests)"
+ },
+ {
+  "id": "s21_C04",
+  "desc": "CRC: the base of the power is x^2",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/Crc32CCombine.cs",
+  "old": "uint square = One >> 1; // x",
+  "new": "uint square = One >> 2; // x",
+  "filter": "(FullyQualifiedName~Large.Crc32CCombineTests)"
+ },
+ {
+  "id": "s21_C05",
+  "desc": "CRC: 7 bits per byte",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/Crc32CCombine.cs",
+  "old": "checked(8UL * (ulong)zeroBytes)",
+  "new": "checked(7UL * (ulong)zeroBytes)",
+  "filter": "(FullyQualifiedName~Large.Crc32CCombineTests)"
+ },
+ {
+  "id": "s21_C06",
+  "desc": "CRC: OfZeros misses the final inversion",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/Crc32CCombine.cs",
+  "old": "Shift(0xFFFFFFFF, length) ^ 0xFFFFFFFF;",
+  "new": "Shift(0xFFFFFFFF, length);",
+  "filter": "(FullyQualifiedName~Large.Crc32CCombineTests)"
+ },
+ {
+  "id": "s21_C07",
+  "desc": "CRC: wrong carry, the zero run before a patch is one byte short",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/Crc32CCombine.cs",
+  "old": "if (offset > at) crc = Combine(crc, OfZeros(offset - at), offset - at);",
+  "new": "if (offset > at) crc = Combine(crc, OfZeros(offset - at), offset - at - 1);",
+  "filter": "(FullyQualifiedName~Large.Crc32CCombineTests)"
+ },
+ {
+  "id": "s21_C08",
+  "desc": "CRC: the length of a patch is one too many",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/Crc32CCombine.cs",
+  "old": "crc = Combine(crc, Crc32C.Compute(data), data.Length);",
+  "new": "crc = Combine(crc, Crc32C.Compute(data), data.Length + 1);",
+  "filter": "(FullyQualifiedName~Large.Crc32CCombineTests)"
+ },
+ {
+  "id": "s21_C09",
+  "desc": "CRC: a tail of one zero byte is not combined",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/Crc32CCombine.cs",
+  "old": "if (length > at) crc = Combine(crc, OfZeros(length - at), length - at);",
+  "new": "if (length > at + 1) crc = Combine(crc, OfZeros(length - at), length - at);",
+  "filter": "(FullyQualifiedName~Large.Crc32CCombineTests)"
+ },
+ {
+  "id": "s21_C10",
+  "desc": "CRC: the number of zero bytes narrowed to int",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/Crc32CCombine.cs",
+  "old": "checked(8UL * (ulong)zeroBytes)",
+  "new": "checked(8UL * (ulong)(int)zeroBytes)",
+  "filter": "(FullyQualifiedName~Large.Crc32CCombineTests)"
+ },
+ {
+  "id": "s21_C11",
+  "desc": "CRC: Combine joins the wrong pieces",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/Crc32CCombine.cs",
+  "old": "Shift(crcOfFirst, lengthOfSecond) ^ crcOfSecond;",
+  "new": "Shift(crcOfSecond, lengthOfSecond) ^ crcOfFirst;",
+  "filter": "(FullyQualifiedName~Large.Crc32CCombineTests)"
+ },
+ {
+  "id": "s21_C12",
+  "desc": "CRC: Multiply reduces nothing",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/Crc32CCombine.cs",
+  "old": "b = (b & 1) != 0 ? (b >> 1) ^ ReflectedPolynomial : b >> 1;",
+  "new": "b >>= 1;",
+  "filter": "(FullyQualifiedName~Large.Crc32CCombineTests)"
+ },
+ {
+  "id": "s21_S01",
+  "desc": "sparse: a position section has 2 bytes of padding, not 3",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/SparseContainer.cs",
+  "old": "(width == 5 ? ZeroPadding5 : 0);",
+  "new": "(width == 5 ? ZeroPadding5 - 1 : 0);",
+  "filter": "(FullyQualifiedName~Large.SparseContainerTests)"
+ },
+ {
+  "id": "s21_S02",
+  "desc": "sparse: TEXT has 63 bytes of padding",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/SparseContainer.cs",
+  "old": "/ 8 + TextPadding;",
+  "new": "/ 8 + TextPadding - 1;",
+  "filter": "(FullyQualifiedName~Large.SparseContainerTests)"
+ },
+ {
+  "id": "s21_S03",
+  "desc": "sparse: a wrong offset in the section table (CHILD overlaps SA)",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/SparseContainer.cs",
+  "old": "long childOffset = SesaFormat.AlignedOffset(saOffset + arrayLength, arrayLength);",
+  "new": "long childOffset = SesaFormat.AlignedOffset(saOffset, arrayLength);",
+  "filter": "(FullyQualifiedName~Large.SparseContainerTests)"
+ },
+ {
+  "id": "s21_S04",
+  "desc": "sparse: width 5 from 2^32 - 4",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/SparseContainer.cs",
+  "old": "n <= MaxContainer4 ? 4 : 5;",
+  "new": "n < MaxContainer4 ? 4 : 5;",
+  "filter": "(FullyQualifiedName~Large.SparseContainerTests)"
+ },
+ {
+  "id": "s21_S05",
+  "desc": "sparse: U8 up to 255",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/SparseContainer.cs",
+  "old": "maxLcp <= 254 ? 1",
+  "new": "maxLcp <= 255 ? 1",
+  "filter": "(FullyQualifiedName~Large.SparseContainerTests)"
+ },
+ {
+  "id": "s21_S06",
+  "desc": "sparse: a width-5 container says version 1.0",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/SparseContainer.cs",
+  "old": "BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(10), 1);",
+  "new": "BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(10), 0);",
+  "filter": "(FullyQualifiedName~Large.SparseContainerTests)"
+ },
+ {
+  "id": "s21_S07",
+  "desc": "sparse: the header CRC is not recomputed after the version",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/SparseContainer.cs",
+  "old": "BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(10), 1);\n            ResealHeader(page);",
+  "new": "BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(10), 1);",
+  "filter": "(FullyQualifiedName~Large.SparseContainerTests)"
+ },
+ {
+  "id": "s21_S08",
+  "desc": "sparse: big-endian entries",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/SparseContainer.cs",
+  "old": "target[offset + i] = (byte)(value >> (8 * i));",
+  "new": "target[offset + i] = (byte)(value >> (8 * (width - 1 - i)));",
+  "filter": "(FullyQualifiedName~Large.SparseContainerTests)"
+ },
+ {
+  "id": "s21_S09",
+  "desc": "sparse: the section CRC ignores the patches",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/SparseContainer.cs",
+  "old": "Crc = Crc32CCombine.OfSparse(s.Length, parts) }",
+  "new": "Crc = Crc32CCombine.OfZeros(s.Length) }",
+  "filter": "(FullyQualifiedName~Large.SparseContainerTests)"
+ },
+ {
+  "id": "s21_S10",
+  "desc": "sparse: the tail of the entries starts one rank late",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/SparseContainer.cs",
+  "old": "long tailFrom = Math.Max(head, rows - entriesPerEnd);",
+  "new": "long tailFrom = Math.Max(head, rows - entriesPerEnd + 1);",
+  "filter": "(FullyQualifiedName~Large.SparseContainerTests)"
+ },
+ {
+  "id": "s21_S11",
+  "desc": "sparse: the CHILD cell is the down field only",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/SparseContainer.cs",
+  "old": "PutPosition(child, at, w, f.PackedCell(r));",
+  "new": "PutPosition(child, at, w, f.Down(r));",
+  "filter": "(FullyQualifiedName~Large.SparseContainerTests)"
+ },
+ {
+  "id": "s21_S12",
+  "desc": "sparse: the dense limit is 128 MiB",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/SparseContainer.cs",
+  "old": "if (dense > LargeDisk.MaxDenseBytes) throw",
+  "new": "if (dense > 2 * LargeDisk.MaxDenseBytes) throw",
+  "filter": "(FullyQualifiedName~Large.SparseContainerTests)"
+ },
+ {
+  "id": "s21_S13",
+  "desc": "sparse: a position of exactly 2^40 is accepted at width 5",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/SparseContainer.cs",
+  "old": "(width == 5 && value >= 1L << 40)",
+  "new": "(width == 5 && value > 1L << 40)",
+  "filter": "(FullyQualifiedName~Large.SparseContainerTests)"
+ },
+ {
+  "id": "s21_S14",
+  "desc": "sparse: the text bits are least significant first",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/SparseContainer.cs",
+  "old": "data[(bit + b) >> 3] |= (byte)(0x80 >> (int)((bit + b) & 7));",
+  "new": "data[(bit + b) >> 3] |= (byte)(0x01 << (int)((bit + b) & 7));",
+  "filter": "(FullyQualifiedName~Large.SparseContainerTests)"
+ },
+ {
+  "id": "s21_S15",
+  "desc": "sparse: PSI of the last suffix",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/SparseContainer.cs",
+  "old": "return position + 1 >= f.Length ? 0 : f.RankOf(position + 1);",
+  "new": "return position + 1 > f.Length ? 0 : f.RankOf(position + 1);",
+  "filter": "(FullyQualifiedName~Large.SparseContainerTests)"
+ },
+ {
+  "id": "s21_S16",
+  "desc": "sparse: the LCP is aligned for the narrowest codec of the width",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/SparseContainer.cs",
+  "old": "int widestLcp = width == 5 ? 8 : 4;",
+  "new": "int widestLcp = width == 5 ? 4 : 2;",
+  "filter": "(FullyQualifiedName~Large.SparseContainerTests)"
+ },
+ {
+  "id": "s21_E01",
+  "desc": "encoder: 2 bytes of padding",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/Sesa5Encoder.cs",
+  "old": "private const int Padding = 3;",
+  "new": "private const int Padding = 2;",
+  "filter": "(FullyQualifiedName~Large.Sesa5EncoderTests)"
+ },
+ {
+  "id": "s21_E02",
+  "desc": "encoder: swapped endianness",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/Sesa5Encoder.cs",
+  "old": "bytes[(5 * i) + j] = (byte)(values[i] >> (8 * j));",
+  "new": "bytes[(5 * i) + j] = (byte)(values[i] >> (8 * (4 - j)));",
+  "filter": "(FullyQualifiedName~Large.Sesa5EncoderTests)"
+ },
+ {
+  "id": "s21_E03",
+  "desc": "encoder: the fifth byte is not stored",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/Sesa5Encoder.cs",
+  "old": "for (int j = 0; j < 5; j++) bytes[(5 * i) + j]",
+  "new": "for (int j = 0; j < 4; j++) bytes[(5 * i) + j]",
+  "filter": "(FullyQualifiedName~Large.Sesa5EncoderTests)"
+ },
+ {
+  "id": "s21_E04",
+  "desc": "encoder: a next link to k is dropped, not the one to k + 1",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/Sesa5Encoder.cs",
+  "old": "(kind == 1 && value == (uint)k + 1)",
+  "new": "(kind == 1 && value == (uint)k)",
+  "filter": "(FullyQualifiedName~Large.Sesa5EncoderTests)"
+ },
+ {
+  "id": "s21_E05",
+  "desc": "encoder: a next link to k + 1 is kept",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/Sesa5Encoder.cs",
+  "old": "packed[k] = kind == 0 || (kind == 1 && value == (uint)k + 1) ? 0 : value;",
+  "new": "packed[k] = kind == 0 ? 0 : value;",
+  "filter": "(FullyQualifiedName~Large.Sesa5EncoderTests)"
+ },
+ {
+  "id": "s21_E06",
+  "desc": "encoder: the version stays 1.0",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/Sesa5Encoder.cs",
+  "old": "BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(10), 1);",
+  "new": "BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(10), 0);",
+  "filter": "(FullyQualifiedName~Large.Sesa5EncoderTests)"
+ },
+ {
+  "id": "s21_E07",
+  "desc": "encoder: the header CRC is not recomputed after the version",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/Sesa5Encoder.cs",
+  "old": "BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(10), 1);\n        SparseContainer.ResealHeader(page);",
+  "new": "BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(10), 1);",
+  "filter": "(FullyQualifiedName~Large.Sesa5EncoderTests)"
+ },
+ {
+  "id": "s21_E08",
+  "desc": "encoder: a section is not aligned",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/Sesa5Encoder.cs",
+  "old": "long at = SesaFormat.AlignedOffset(offset, payload.Length);",
+  "new": "long at = offset;",
+  "filter": "(FullyQualifiedName~Large.Sesa5EncoderTests)"
+ },
+ {
+  "id": "s21_E09",
+  "desc": "encoder: the CRC of the 1.0 section is kept",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/Sesa5Encoder.cs",
+  "old": "s.HasCrc ? Crc32C.Compute(payload) : 0",
+  "new": "s.HasCrc ? s.Crc : 0",
+  "filter": "(FullyQualifiedName~Large.Sesa5EncoderTests)"
+ },
+ {
+  "id": "s21_E10",
+  "desc": "encoder: POS_WIDTH stays 4",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/Sesa5Encoder.cs",
+  "old": "PosWidth = 5,",
+  "new": "PosWidth = 4,",
+  "filter": "(FullyQualifiedName~Large.Sesa5EncoderTests)"
+ },
+ {
+  "id": "s21_E11",
+  "desc": "encoder: FILE_SIZE is 64 too large",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/Sesa5Encoder.cs",
+  "old": "FileSize = offset,",
+  "new": "FileSize = offset + 64,",
+  "filter": "(FullyQualifiedName~Large.Sesa5EncoderTests)"
+ },
+ {
+  "id": "s21_E12",
+  "desc": "encoder: a pair of the overflow list has 8 bytes",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/Sesa5Encoder.cs",
+  "old": "return (PackPositions(pairs), 10, s.Codec);",
+  "new": "return (PackPositions(pairs), 8, s.Codec);",
+  "filter": "(FullyQualifiedName~Large.Sesa5EncoderTests)"
+ },
+ {
+  "id": "s21_E13",
+  "desc": "encoder: ELEM_WIDTH 4 in the table",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/Sesa5Encoder.cs",
+  "old": "return (PackPositions(cells), 5, codec);",
+  "new": "return (PackPositions(cells), 4, codec);",
+  "filter": "(FullyQualifiedName~Large.Sesa5EncoderTests)"
+ },
+ {
+  "id": "s21_E14",
+  "desc": "encoder: BUILD_INFO still says tagged",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/Sesa5Encoder.cs",
+  "old": ".Replace(\"child=layout A, tagged\", \"child=layout A, packed\", StringComparison.Ordinal);",
+  "new": ";",
+  "filter": "(FullyQualifiedName~Large.Sesa5EncoderTests)"
+ },
+ {
+  "id": "s21_E15",
+  "desc": "encoder: a tagged CHILD keeps its codec id",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/Sesa5Encoder.cs",
+  "old": "codec = SesaFormat.ChildCodecPacked;",
+  "new": "codec = s.Codec;",
+  "filter": "(FullyQualifiedName~Large.Sesa5EncoderTests)"
+ },
+ {
+  "id": "s21_E16",
+  "desc": "encoder: LRS_RANK is lost",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/Sesa5Encoder.cs",
+  "old": "LrsRank = o.LrsRank,",
+  "new": "LrsRank = -1,",
+  "filter": "(FullyQualifiedName~Large.Sesa5EncoderTests)"
+ },
+ {
+  "id": "s21_E17",
+  "desc": "encoder: TEXT_SHA256 is lost",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/Sesa5Encoder.cs",
+  "old": "TextSha256 = o.TextSha256,",
+  "new": "TextSha256 = new byte[32],",
+  "filter": "(FullyQualifiedName~Large.Sesa5EncoderTests)"
+ },
+ {
+  "id": "s21_E18",
+  "desc": "encoder: a container of width 5 is re-encoded",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/Sesa5Encoder.cs",
+  "old": "if (o.PosWidth != 4) throw",
+  "new": "if (o.PosWidth != 4 && false) throw",
+  "filter": "(FullyQualifiedName~Large.Sesa5EncoderTests)"
+ },
+ {
+  "id": "s21_E19",
+  "desc": "encoder: a damaged header CRC is not noticed",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/Sesa5Encoder.cs",
+  "old": "if (o.HeaderCrc != o.ExpectedHeaderCrc()) throw",
+  "new": "if (o.HeaderCrc != o.ExpectedHeaderCrc() && false) throw",
+  "filter": "(FullyQualifiedName~Large.Sesa5EncoderTests)"
+ },
+ {
+  "id": "s21_E20",
+  "desc": "encoder: a wrong FILE_SIZE is not noticed",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/Sesa5Encoder.cs",
+  "old": "if (o.FileSize != container.Length) throw",
+  "new": "if (o.FileSize != container.Length && false) throw",
+  "filter": "(FullyQualifiedName~Large.Sesa5EncoderTests)"
+ },
+ {
+  "id": "s21_E21",
+  "desc": "encoder: the primary row of PSI is lost",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/Sesa5Encoder.cs",
+  "old": "s.Count, elemWidth, codec, s.Param0, s.Param1,",
+  "new": "s.Count, elemWidth, codec, 0, s.Param1,",
+  "filter": "(FullyQualifiedName~Large.Sesa5EncoderTests)"
+ },
+ {
+  "id": "s21_E22",
+  "desc": "encoder: the sections are laid out in table order, not file order",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/Sesa5Encoder.cs",
+  "old": "foreach (OracleSection s in o.Sections.OrderBy(x => x.Offset))",
+  "new": "foreach (OracleSection s in o.Sections.OrderByDescending(x => x.Offset))",
+  "filter": "(FullyQualifiedName~Large.Sesa5EncoderTests)"
+ },
+ {
+  "id": "s21_I01",
+  "desc": "reader: a 4-byte mask",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/Sesa5Image.cs",
+  "old": "return BinaryPrimitives.ReadUInt64LittleEndian(load) & Mask40;",
+  "new": "return BinaryPrimitives.ReadUInt64LittleEndian(load) & 0xFFFF_FFFFUL;",
+  "filter": "(FullyQualifiedName~Large.Sesa5EncoderTests)"
+ },
+ {
+  "id": "s21_I02",
+  "desc": "reader: the value of a pair at +4",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/Sesa5Image.cs",
+  "old": "(10 * i) + 5), 8)) & Mask40;",
+  "new": "(10 * i) + 4), 8)) & Mask40;",
+  "filter": "(FullyQualifiedName~Large.Sesa5EncoderTests)"
+ },
+ {
+  "id": "s21_I03",
+  "desc": "reader: the padding is 2 bytes",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/Sesa5Image.cs",
+  "old": "file.AsSpan((int)(s.Offset + (width * s.Count)), 3)",
+  "new": "file.AsSpan((int)(s.Offset + (width * s.Count)), 2)",
+  "filter": "(FullyQualifiedName~Large.Sesa5EncoderTests)"
+ }
+]
