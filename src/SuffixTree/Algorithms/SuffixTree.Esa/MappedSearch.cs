@@ -282,7 +282,7 @@ internal sealed unsafe class MappedSearch
     /// load and wider shifts cost 1-3 points on a text of 5-bit symbols, work package 1b.9a; the sections end with at least 64 bytes of padding, so the second byte exists for the last symbol).
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int Symbol(byte* text, int bits, long i)
+    internal static int Symbol(byte* text, int bits, long i)
     {
         long bit = i * bits;
         uint w = BinaryPrimitives.ReverseEndianness(Unsafe.ReadUnaligned<ushort>(text + (bit >> 3)));
