@@ -134,6 +134,19 @@ public class Sesa5EncoderTests
     }
 
     [Test]
+    public void TheTaggedValue_KeepsAllThirtyBits_AndTheKindIsDropped()
+    {
+        // orchestrator gap closing (S2.1): no text that a test can build holds a rank above 2^29, so the 30-bit mask of the value is pinned by hand-made cells
+        uint top = (1u << 30) - 1;
+        uint[] tagged = [(2u << 30) | (1u << 29) | 7u, (3u << 30) | top, (1u << 30) | (1u << 29), (1u << 30) | 3u, (1u << 30) | 4u, 0u, (2u << 30) | 5u];
+        // cells 3 and 4 are "next" cells that hold 3 and 4, not k + 1 = 4 and 5: they are not the implicit value and stay; cell 2 holds 2^29 and stays
+        uint[] packed = Sesa5Encoder.TaggedToPacked(tagged);
+        Assert.That(packed, Is.EqualTo(new uint[] { (1u << 29) | 7u, top, 1u << 29, 3u, 4u, 0u, 5u }));
+        // and the implicit next l-index (value k + 1) of a "next" cell is the empty cell
+        Assert.That(Sesa5Encoder.TaggedToPacked([(1u << 30) | 1u, (1u << 30) | 2u, (1u << 30) | 4u]), Is.EqualTo(new uint[] { 0u, 0u, 4u }));
+    }
+
+    [Test]
     public void TheS1Reader_RefusesTheEncodedContainer_WithTheDocumentedDamageMessage()
     {
         // ADR-005 section 6: "SesaHeaderReader.cs:96-97: any other width but 4 is InvalidDataException("POS_WIDTH is 5: 4 or 8")". S2.7 replaces this test by the golden refusal of the frozen 1.0 reader.

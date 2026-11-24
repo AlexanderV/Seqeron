@@ -96,6 +96,13 @@ public class ClosedFormSelfTests
                 long nn = n, kk = k;
                 yield return Case($"(a^{k} b)* n={n}", () => new PeriodicAkB(nn, kk));
             }
+        // the tiny texts: a leaf child between two l-indices makes the next l-index equal to rank + 1 (the cell then holds the up / down field), which no text of 7 symbols or more of these families has (orchestrator gap closing, S2.1)
+        for (long k = 1; k <= 4; k++)
+            for (long n = 1; n <= 24; n++)
+            {
+                long nn = n, kk = k;
+                yield return Case($"(a^{k} b)* n={n} (tiny)", () => new PeriodicAkB(nn, kk));
+            }
     }
 
     [TestCaseSource(nameof(PackedShapes))]
