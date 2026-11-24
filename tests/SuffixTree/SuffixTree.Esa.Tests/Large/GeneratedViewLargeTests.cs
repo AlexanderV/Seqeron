@@ -329,12 +329,34 @@ public unsafe class GeneratedViewLargeTests : LargeFixtureBase
         text.CopyTo(n - 16, block);
         Assert.That(block[15], Is.EqualTo('b'));
         Assert.That(text.AsIndexText().CopyTo(n - 5, block), Is.EqualTo(5));
-        Assert.That(() => text.AsTextSource().Length, Throws.TypeOf<NotSupportedException>());
+        ITextSource source = text.AsTextSource();
+        Assert.That(() => source.Length, Throws.TypeOf<NotSupportedException>());
+        Assert.That(() => source[-1], Throws.TypeOf<IndexOutOfRangeException>(), "a caller's negative index is an index error whatever the length of the text");
+        Assert.That(() => source[int.MinValue], Throws.TypeOf<IndexOutOfRangeException>());
+        Assert.That(source[2], Is.EqualTo('a'));
     }
 
     // ---------------------------------------------------------------------------------------------- the sparse shells: pointers over a mapping
 
     private static readonly long[] EndRanks = [0, 1, 2, 17, 255, 256, 1000, 4094, 4095];
+
+    [Test]
+    public void TheViewsOfAContainerOfIntMaxValueSymbols_AreTheWideForms_AndTheEngineRefusesThem()
+    {
+        // 2^31 - 1 symbols: n + 1 = 2^31 entries, one more than a 32-bit count holds: the boundary of the 32-bit forms
+        long n = int.MaxValue;
+        ClosedFormText f = new PowerOfA(n);
+        SparseSpec spec = SparseSpec.For(f);
+        string path = WriteContainer("viewsmax", spec, SparseContainer.EndPatches(f, SparseContainer.Plan(spec), 4096));
+        using SesaFile file = SesaFile.Open(path, new EsaOpenOptions { Validation = EsaValidationLevel.Header });
+        Assert.That(file.Sa.Length, Is.EqualTo(TwoTo31));
+        Assert.That(file.Lcp.Length, Is.EqualTo(TwoTo31));
+        Assert.That(file.Lcp.IsWide, Is.True);
+        Assert.That(file.Child.Mapped.Length, Is.EqualTo(TwoTo31));
+        foreach (long r in new long[] { 0, 1, n - 1, n }) Assert.That(file.Sa[r], Is.EqualTo(f.SuffixAt(r)), $"SA[{r}]");
+        Assert.That(file.Lcp[n], Is.EqualTo(n - 1));
+        Assert.That(() => EsaIndex.FromFile(file), Throws.TypeOf<NotSupportedException>());
+    }
 
     [Test]
     public void TheViewsOfAnOpenedContainerOf2To31Plus10Symbols_ReadTheEndsOfTheText()
@@ -365,6 +387,11 @@ public unsafe class GeneratedViewLargeTests : LargeFixtureBase
         Assert.That(() => file.Child.Mapped.FirstLIndex(n + 1, 0, true), Throws.TypeOf<InvalidDataException>());
         Assert.That(() => file.TextView[n], Throws.TypeOf<InvalidDataException>());
         // the int surface says what it cannot hold, it does not read a null
+        Assert.That(() => file.Statistics, Throws.TypeOf<NotSupportedException>().With.Message.Contains("32-bit"), "the statistics of the header are 32-bit until S2.4: they say so, they do not wrap");
+        SesaSection saSection = file.Parsed.Sa;
+        Assert.That(saSection.Length, Is.GreaterThan(int.MaxValue));
+        Assert.That(() => file.Payload(saSection), Throws.TypeOf<NotSupportedException>().With.Message.Contains("blocks"), "a section above 2^31 bytes is never one span (risk R8)");
+        Assert.That(file.Payload(file.Parsed.Alphabet).Length, Is.EqualTo(file.Parsed.Alphabet.Length));
         Assert.That(() => EsaIndex.FromFile(file), Throws.TypeOf<NotSupportedException>().With.Message.Contains("32-bit"), "the 32-bit engine refuses the text with the exception that names its limit (S2.4 lifts it); it does not meet a null");
     }
 

@@ -47,8 +47,9 @@ internal sealed partial class EsaIndex
         Lcp = lcp;
         Child = child;
         Statistics = statistics;
-        // a container of 2^31 - 1 symbols or more can be opened (its header read) but has no tree here: no child table, nothing to search
-        _mappedSearch = file.Header.TextLength < int.MaxValue ? new MappedSearch(file) : null;
+        // the 32-bit descent exists for a container whose views it can read (fewer than 2^31 - 1 symbols, POS_WIDTH 4, an LCP array of 8, 16 or 32 bits); for any other the constructor says so with NotSupportedException instead of leaving a null that
+        // the first search would meet (S2.4 replaces the descent and lifts the limit)
+        _mappedSearch = new MappedSearch(file);
     }
 
     /// <summary>

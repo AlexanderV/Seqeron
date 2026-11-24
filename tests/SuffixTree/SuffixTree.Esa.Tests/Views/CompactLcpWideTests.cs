@@ -223,4 +223,45 @@ public unsafe class CompactLcpWideTests
         Assert.That(CompactLcp.SelectKind(1000, 900, 900), Is.EqualTo(LcpKind.U32));
         Assert.That(() => CompactLcp.FromDense([0, 0, 1], LcpKind.U64), Throws.TypeOf<ArgumentOutOfRangeException>().Or.TypeOf<NotSupportedException>());
     }
+    [Test]
+    public void AValueEqualToTheTextLength_IsTheLargestThatCheckedModeAccepts([Values("U32", "U64")] string kindName)
+    {
+        var kind = Enum.Parse<LcpKind>(kindName);
+        int width = kind == LcpKind.U32 ? 4 : 8;
+        // n + 1 = 8 entries: a value of 8 is allowed (the text has 7 symbols; the check is "larger than n + 1"), 9 is not
+        ulong[] values = [0, 0, 8, 1, 9, 2, 3, 0];
+        using var guarded = new GuardedImage(ViewImage.Encode(values, width, 0), flush: true);
+        CompactLcp strict = CompactLcp.FromMappedWide(kind, values.Length, guarded.Data, null, 0, 4, isChecked: true);
+        Assert.That(strict[2L], Is.EqualTo(8));
+        Assert.That(() => strict[4L], Throws.TypeOf<InvalidDataException>());
+        Assert.That(strict[1L], Is.EqualTo(0));
+    }
+
+    [Test]
+    public void AU64ValueThatIsNoSignedNumber_IsInvalidData_InBothModes([Values(true, false)] bool isChecked)
+    {
+        ulong[] values = [0, 0, 1UL << 63, ulong.MaxValue, 5];
+        using var guarded = new GuardedImage(ViewImage.Encode(values, 8, 0), flush: true);
+        CompactLcp lcp = CompactLcp.FromMappedWide(LcpKind.U64, values.Length, guarded.Data, null, 0, 5, isChecked);
+        Assert.That(() => lcp[2L], Throws.TypeOf<InvalidDataException>());
+        Assert.That(() => lcp[3L], Throws.TypeOf<InvalidDataException>());
+        Assert.That(lcp[4L], Is.EqualTo(5), "an ordinary value after the damaged ones is still read");
+    }
+
+    [Test]
+    public void TheReaderOfAnotherWidthThanTheKind_IsRefused()
+    {
+        var bytes = new byte[64];
+        fixed (byte* b = bytes)
+        {
+            nint q = (nint)b;
+            Assert.That(() => CompactLcp.FromReaders(LcpKind.U8, new Pos16<TrustedAccess>((byte*)q, 4), new Pos32<TrustedAccess>((byte*)q, 0), true), Throws.TypeOf<ArgumentException>());
+            Assert.That(() => CompactLcp.FromReaders(LcpKind.U16, new Pos8<TrustedAccess>((byte*)q, 4), new Pos32<TrustedAccess>((byte*)q, 0), true), Throws.TypeOf<ArgumentException>());
+            Assert.That(() => CompactLcp.FromReaders(LcpKind.U32, new Pos64<TrustedAccess>((byte*)q, 4), new Pos32<TrustedAccess>((byte*)q, 0), true), Throws.TypeOf<ArgumentException>());
+            Assert.That(() => CompactLcp.FromReaders(LcpKind.U64, new Pos32<TrustedAccess>((byte*)q, 4), new Pos32<TrustedAccess>((byte*)q, 0), true), Throws.TypeOf<ArgumentException>());
+            Assert.That(() => CompactLcp.FromReaders(LcpKind.U8, new Pos8<TrustedAccess>((byte*)q, 4), new Pos32<TrustedAccess>((byte*)q, 3), true), Throws.TypeOf<ArgumentException>(), "an odd number of fields is no list of pairs");
+            Assert.That(() => CompactLcp.FromReaders(LcpKind.U8, new Pos8<TrustedAccess>((byte*)q, 0), new Pos32<TrustedAccess>((byte*)q, 0), true), Throws.TypeOf<ArgumentOutOfRangeException>(), "no entry at all");
+            Assert.That(() => CompactLcp.FromReaders(LcpKind.U8, new Pos8<TrustedAccess>((byte*)q, 4), new Pos32<TrustedAccess>((byte*)q, 2), true), Throws.Nothing);
+        }
+    }
 }
