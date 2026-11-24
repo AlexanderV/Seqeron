@@ -32,6 +32,9 @@ public class BuildExpectationTests
         yield return new TestCaseData(" true ", true, false).SetName("Verdict_TrueWithBlanks_CheckedBuild_Holds");
         // false: only the default build holds
         yield return new TestCaseData("false", false, false).SetName("Verdict_False_DefaultBuild_Holds");
+        yield return new TestCaseData("False", false, false).SetName("Verdict_FalseCapitalised_DefaultBuild_Holds");
+        yield return new TestCaseData("FALSE", false, false).SetName("Verdict_FalseUpperCase_DefaultBuild_Holds");
+        yield return new TestCaseData(" false ", false, false).SetName("Verdict_FalseWithBlanks_DefaultBuild_Holds");
         yield return new TestCaseData("false", true, true).SetName("Verdict_False_CheckedBuild_Fails");
         yield return new TestCaseData("FALSE", true, true).SetName("Verdict_FalseUpperCase_CheckedBuild_Fails");
         // anything else is a mistake of the workflow, and fails whatever the build is (a typo must not read as "not set" or as "false")
