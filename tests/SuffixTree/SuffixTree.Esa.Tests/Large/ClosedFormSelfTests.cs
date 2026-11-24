@@ -36,6 +36,13 @@ public class ClosedFormSelfTests
             int mm = m;
             yield return Case($"(ab)^{m}", () => PeriodicAkB.AbRepeat(mm));
         }
+        // u^m of a de Bruijn word: sigma letters, order d, m >= 2 copies, n up to 2,000
+        foreach ((int sigma, int order, int maxM) in new[] { (2, 1, 12), (2, 2, 12), (2, 3, 12), (2, 4, 14), (2, 5, 20), (2, 6, 30), (3, 1, 6), (3, 2, 10), (3, 3, 9), (3, 4, 10), (4, 1, 6), (4, 2, 10), (4, 3, 10), (4, 4, 7), (5, 2, 8), (5, 3, 6) })
+            for (int m = 2; m <= maxM; m++)
+            {
+                int ss = sigma, oo = order, mm = m;
+                yield return Case($"u^{m} de Bruijn {sigma}^{order}", () => new DeBruijnRepeat(ss, oo, mm));
+            }
     }
 
     private static TestCaseData Case(string name, Func<ClosedFormText> make) => new TestCaseData(make).SetArgDisplayNames(name);
@@ -53,6 +60,12 @@ public class ClosedFormSelfTests
                 yield return Case($"(a^{k} b)* n={n}", () => new PeriodicAkB(nn, kk));
             }
         yield return Case("(ab)^500000", () => PeriodicAkB.AbRepeat(500_000));
+        foreach ((int sigma, int order, long m) in new[] { (2, 10, 900L), (4, 5, 900L), (3, 6, 1300L), (4, 3, 15_000L), (2, 4, 60_000L), (4, 4, 3_000L), (2, 8, 3_900L) })
+        {
+            int ss = sigma, oo = order;
+            long mm = m;
+            yield return Case($"u^{m} de Bruijn {sigma}^{order}", () => new DeBruijnRepeat(ss, oo, mm));
+        }
     }
 
     [TestCaseSource(nameof(LargerShapes))]
@@ -132,6 +145,13 @@ public class ClosedFormSelfTests
                 long nn = n, kk = k;
                 yield return Case($"(a^{k} b)* n={n}", () => new PeriodicAkB(nn, kk));
             }
+        // u^m of the de Bruijn word of order 10 over four letters (4^10 = 2^20 symbols a period): n = 2^31 (m = 2^11), 2^32 + 2^20, 2^33 (m = 2^13) and 2^40 (m = 2^20)
+        foreach (long m in new[] { 1L << 11, (1L << 11) + 7, (1L << 12) + 1, 1L << 13, 1L << 20 })
+        {
+            long mm = m;
+            yield return Case($"u^{m} de Bruijn 4^10", () => new DeBruijnRepeat(4, 10, mm));
+        }
+        yield return Case("u^2049 de Bruijn 2^20 (period 2^20, two letters)", () => new DeBruijnRepeat(2, 20, 2049));
         yield return Case("(ab)^(2^32 + 5)", () => PeriodicAkB.AbRepeat(TwoTo32 + 5));
         yield return Case("(a^5 b)^(2^31) exactly", () => new PeriodicAkB(6 * TwoTo31, 5));
     }
@@ -168,7 +188,7 @@ public class ClosedFormSelfTests
             }
             if (r <= 1 && f.Lcp(r) != 0) Assert.Fail($"{who}: Lcp({r}) must be 0");
             // the child table: the relations between a stored field and the LCP values at the boundaries
-            long down = f.Down(r), up = f.Up(r), next = f.Next(r);
+            long down = f.HasChildTable ? f.Down(r) : 0, up = f.HasChildTable ? f.Up(r) : 0, next = f.HasChildTable ? f.Next(r) : 0;
             if (down != 0 && (down <= r || down > n || (r > 0 && f.Lcp(down) <= f.Lcp(r)))) Assert.Fail($"{who}: Down({r}) = {down} is not an l-index of an interval that starts at {r}");
             if (up != 0 && (up > r || r == n || f.Lcp(up) <= f.Lcp(r + 1))) Assert.Fail($"{who}: Up({r}) = {up} is not the first l-index of a non-last child that ends at {r}");
             if (next != 0 && (next <= r || next > n || f.Lcp(next) != f.Lcp(r))) Assert.Fail($"{who}: Next({r}) = {next} is not the next l-index of {r}");
@@ -177,7 +197,7 @@ public class ClosedFormSelfTests
         }
         Assert.That(f.RankOf(n), Is.EqualTo(0), $"{who}: RankOf(n)");
         Assert.That(f.SuffixAt(0), Is.EqualTo(n), $"{who}: SuffixAt(0)");
-        Assert.That(f.Up(n), Is.EqualTo(0), $"{who}: nothing ends a non-last child at n");
+        if (f.HasChildTable) Assert.That(f.Up(n), Is.EqualTo(0), $"{who}: nothing ends a non-last child at n");
 
         // positions: the inverse in the other direction
         foreach (long p in new long[] { 0, 1, 2, 3, TwoTo31 - 1, TwoTo31, TwoTo31 + 1, TwoTo32 - 1, TwoTo32, TwoTo32 + 1, n / 2, n - 3, n - 2, n - 1, n })
@@ -187,16 +207,24 @@ public class ClosedFormSelfTests
             if (rank < 0 || rank > n || f.SuffixAt(rank) != p) Assert.Fail($"{who}: SuffixAt(RankOf({p}) = {rank}) = {(rank >= 0 && rank <= n ? f.SuffixAt(rank) : -1)}");
         }
 
-        // the sum of the LCP array against the number of distinct substrings
-        Int128 all = (Int128)n * (n + 1) / 2;
-        Int128 distinct = f is PowerOfA ? n : PeriodicOracle.DistinctSubstringsOfAkB(n, f.Period - 1);
-        if (all - f.LcpSum != distinct) Assert.Fail($"{who}: n (n + 1) / 2 - sum LCP is {all - f.LcpSum}, the number of distinct substrings is {distinct}");
+        // the sum of the LCP array against the number of distinct substrings (the sum of u^m is a pass over the ranks: only the small shapes)
+        if (f is not DeBruijnRepeat)
+        {
+            Int128 all = (Int128)n * (n + 1) / 2;
+            Int128 distinct = f is PowerOfA ? n : PeriodicOracle.DistinctSubstringsOfAkB(n, f.Period - 1);
+            if (all - f.LcpSum != distinct) Assert.Fail($"{who}: n (n + 1) / 2 - sum LCP is {all - f.LcpSum}, the number of distinct substrings is {distinct}");
+        }
 
         // the statistics, each from first principles. The longest repeat of a periodic text is the text without its first period (a^n: without one symbol) and occurs one period earlier;
         // the internal nodes are the non-empty right-special factors: for a^n the a^j with j < n; for (a^k b)* the a^j with j < k and the repeated suffixes of the text (n - period of them), the a^j that are suffixes counted once
         long t = n % f.Period;
         long expectedLrs = f is PowerOfA ? n - 1 : n - f.Period;
-        long expectedInternal = f is PowerOfA ? n - 1 : n - f.Period + (f.Period - 2) - Math.Min(t, f.Period - 2);
+        long expectedInternal = f switch
+        {
+            PowerOfA => n - 1,
+            DeBruijnRepeat d => n - f.Period - d.Order + 1 + (f.Period - d.Sigma) / (d.Sigma - 1),
+            _ => n - f.Period + (f.Period - 2) - Math.Min(t, f.Period - 2),
+        };
         Assert.That(f.LrsDepth, Is.EqualTo(expectedLrs), $"{who}: LrsDepth");
         long other = f.LrsPosition - f.Period >= 0 ? f.LrsPosition - f.Period : f.LrsPosition + f.Period;
         Assert.That(PeriodicOracle.Lcp(f, f.LrsPosition, other), Is.GreaterThanOrEqualTo(f.LrsDepth), $"{who}: the longest repeat occurs again one period away");

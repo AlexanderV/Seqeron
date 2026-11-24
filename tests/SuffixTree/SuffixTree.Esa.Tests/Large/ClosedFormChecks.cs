@@ -47,7 +47,7 @@ internal static class ClosedFormChecks
             else up[iv.Rb] = first;
             for (int t = 0; t + 1 < iv.LIndices.Count; t++) next[iv.LIndices[t]] = iv.LIndices[t + 1];
         }
-        for (int i = 0; i <= n; i++)
+        for (int i = 0; i <= n && f.HasChildTable; i++)
         {
             Same(who, $"Down({i})", down[i], f.Down(i));
             Same(who, $"Up({i})", up[i], f.Up(i));
@@ -149,7 +149,7 @@ internal static class ClosedFormChecks
         for (int p = 0; p <= n; p++)
             if (f.RankOf(p) != isa[p]) Assert.Fail($"{who}: RankOf({p}) is {f.RankOf(p)}, the S1 index has {isa[p]}");
         ChildTable child = index.Child;
-        for (int i = 0; i <= n; i++)
+        for (int i = 0; i <= n && f.HasChildTable; i++)
         {
             if (f.Down(i) != child.FirstLIndex(i, 0, true)) Assert.Fail($"{who}: Down({i}) is {f.Down(i)}, the S1 child table has {child.FirstLIndex(i, 0, true)}");
             if (f.Up(i) != child.FirstLIndex(0, i, false)) Assert.Fail($"{who}: Up({i}) is {f.Up(i)}, the S1 child table has {child.FirstLIndex(0, i, false)}");
@@ -179,6 +179,7 @@ internal static class ClosedFormChecks
     /// <summary>The cell of CHILD codec 1 (packed) of a closed form against the raw cells of the in-memory index.</summary>
     internal static void PackedCellsAgainstTheS1Index(ClosedFormText f)
     {
+        if (!f.HasChildTable) throw new InvalidOperationException($"{f} has no child table");
         LcpChildCase c = LcpChildCase.Of(f.Materialize());
         uint[] packed = c.Packed;
         for (int r = 0; r <= f.Length; r++)
@@ -267,5 +268,22 @@ internal static class PeriodicOracle
         Int128 body = (Int128)p * (n - p - k);                             // lengths k + 1 .. n - p: the period
         Int128 tail = (Int128)p * (p + 1) / 2;                             // lengths n - p + 1 .. n: n - l + 1 windows
         return head + body + tail;
+    }
+
+    /// <summary>
+    /// The number of distinct non-empty substrings of <c>u^m</c> (m >= 2) for a de Bruijn word of order d over sigma letters: sigma^l factors of each length l below d, and for l >= d one per rotation
+    /// (<c>min(P, n - l + 1)</c>, P = sigma^d): <c>D = (sigma^d - sigma) / (sigma - 1) + P (n - P - d + 2) + P (P - 1) / 2</c>.
+    /// </summary>
+    internal static Int128 DistinctSubstringsOfDeBruijn(long n, int sigma, int order)
+    {
+        Int128 p = 1;
+        for (int i = 0; i < order; i++) p *= sigma;
+        Int128 words = 0, power = sigma;
+        for (int l = 1; l < order; l++)
+        {
+            words += power;
+            power *= sigma;
+        }
+        return words + (p * (n - (long)p - order + 2)) + (p * (p - 1) / 2);
     }
 }

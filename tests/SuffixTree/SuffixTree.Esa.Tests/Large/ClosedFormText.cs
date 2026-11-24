@@ -49,6 +49,9 @@ public abstract class ClosedFormText
     /// <summary>The period of the infinite word of which the text is a prefix (1 for <c>a^n</c>).</summary>
     internal abstract long Period { get; }
 
+    /// <summary>Whether <see cref="Down"/>, <see cref="Up"/>, <see cref="Next"/> (and <see cref="PackedCell"/>) have a closed form; false for <c>u^m</c> of a de Bruijn word, whose child table is the engine's own scan.</summary>
+    internal virtual bool HasChildTable => true;
+
     /// <summary>The number of distinct letters in the text (0 for the empty text).</summary>
     internal abstract int Sigma { get; }
 
