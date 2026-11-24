@@ -28,8 +28,9 @@ public static partial class SequenceAligner
             var g = new MafftGlobals { Nthread = 1, Ppenalty = -1530, PpenaltyEx = NotSpecified, Poffset = -123, PpenaltyDist = NotSpecified, KimuraR = NotSpecified, PamN = NotSpecified, Alg = 'A', Outgap = 1 };
             g.PenaltyShiftFactor = 1000.0;
             int k = 0;
+            bool illegal = false;
             string Next() => k < argv.Count ? argv[k++] : throw new ArgumentException("A MAFFT option is missing its argument.");
-            while (k < argv.Count && argv[k].Length > 0 && argv[k][0] == '-')
+            while (k < argv.Count && argv[k].Length > 0 && argv[k][0] == '-' && !illegal)
             {
                 string a = argv[k++];
                 bool rest = false;
@@ -66,10 +67,13 @@ public static partial class SequenceAligner
                         case 'X': g.TreeMethod = 'X'; g.SueffGlobal = CAtof(Next()); g.Report("sueff_global = " + g.SueffGlobal.ToString("F6", CultureInfo.InvariantCulture) + "\n"); rest = true; break;
                         case 'E': g.TreeMethod = 'E'; break;
                         case 'q': g.TreeMethod = 'q'; break;
+                        case '@': g.Report("illegal option @\n"); illegal = true; break; // --sp: the script passes -@ to every program, splittbfast does not know it
                         default: throw new NotSupportedException($"The MAFFT option -{c} of splittbfast is not available in this port.");
                     }
                 }
             }
+            if (illegal)
+                throw new MafftProgramFailureException(g.Log + "options: Check source file !\n");
             return g;
         }
     }

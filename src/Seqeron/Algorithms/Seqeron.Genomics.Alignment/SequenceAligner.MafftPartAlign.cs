@@ -423,7 +423,7 @@ public static partial class SequenceAligner
             private readonly int[][][] intwork;
             private readonly List<(int I, int J)>[] mask;
 
-            internal ClassProfiles(SequenceAligner.MafftRun run, VariousDist vd, string[] seq1, string[] seq2, int icyc, int jcyc, int lgth1, int lgth2)
+            internal ClassProfiles(SequenceAligner.MafftRun run, VariousDist vd, string[] seq1, string[] seq2, int icyc, int jcyc, int lgth1, int lgth2, bool report = true)
             {
                 this.run = run;
                 this.vd = vd;
@@ -441,7 +441,7 @@ public static partial class SequenceAligner
                     if (mask[c].Count > 0)
                         complex = true;
                 }
-                if (complex)
+                if (complex && report)
                     run.Report("Found a complex grouping. This step may be a bit slow.\n");
                 cpmx1s = new double[nc][][];
                 cpmx2s = new double[nc][][];

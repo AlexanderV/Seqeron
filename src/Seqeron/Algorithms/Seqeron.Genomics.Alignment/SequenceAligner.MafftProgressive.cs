@@ -1133,6 +1133,7 @@ public static partial class SequenceAligner
         private void TreeBase(string[] aseq, GuideTree tree, double[] effarr, ref int alloclen, MafftLocalHom[][]? localhom = null, bool tbfast = false, MafftAddState? add = null, NodePairData? nodePair = null, double[]? effarrKozo = null, MafftLocalHom[][]? seedHom = null, int nseed = 0)
         {
             bool constraint = localhom != null || nodePair != null && G.Constraint == 2;
+            double dumdb = 0.0;
             int njob = _njob;
             // tbfast without constraints (--weighti 0): the FFT is tried again for a group only when the last FFT alignment of its first member had segments (fftlog)
             int[]? fftlog = tbfast ? Enumerable.Repeat(1, njob).ToArray() : null;
@@ -1233,9 +1234,12 @@ public static partial class SequenceAligner
                     if (G.Alg == 'M')
                         throw new MafftProgramFailureException("\n\nMemory saving mode is not supported.\n\n");
                     var shrink = nodePair != null ? NodeShrink(nodePair, l, clus1, clus2) : ShrinkLocalHom(localmem0, localmem1, localhom!);
-                    var imp = FillImp(clus1, clus2, mseq1[0].Length, mseq2[0].Length, mseq1, mseq2, effarr1, effarr2, shrink, localmem0, localmem1, false, effarr1Kozo, effarr2Kozo, seedShrink, seedIn1, seedIn2);
-                    AAlign(dynamicmtx, G.Penalty, G.PenaltyEx, mseq1, mseq2, effarr1, effarr2, clus1, clus2, alloclen, null, null, null, null, G.Outgap, G.Outgap,
-                        cpmxhist, child0, child1, l, orieff1, orieff2, imp);
+                    var imp = FillImp(clus1, clus2, mseq1[0].Length, mseq2[0].Length, mseq1, mseq2, effarr1, effarr2, shrink, localmem0, localmem1, false, effarr1Kozo, effarr2Kozo, seedShrink, seedIn1, seedIn2, G.Alg == 'd');
+                    if (G.Alg == 'd')
+                        DAlign(dynamicmtx, mseq1, mseq2, effarr1, effarr2, clus1, clus2, alloclen, imp, ref dumdb, G.Outgap, G.Outgap);
+                    else
+                        AAlign(dynamicmtx, G.Penalty, G.PenaltyEx, mseq1, mseq2, effarr1, effarr2, clus1, clus2, alloclen, null, null, null, null, G.Outgap, G.Outgap,
+                            cpmxhist, child0, child1, l, orieff1, orieff2, imp);
                     _nlen[m1] = (int)(0.5 * (_nlen[m1] + _nlen[m2]));
                     MergeAfterAlignment(aseq, njob, add, mergeOrAlign, gapmap, len1, len1nocommongap, clus1, clus2, mseq1, mseq2, localmem0, localmem1, alloclen);
                     continue;
@@ -1255,10 +1259,16 @@ public static partial class SequenceAligner
                     {
                         Report(" d\b\b");
                         fftlog[m1] = 0;
-                        if (G.Alg != 'A')
+                        if (G.Alg == 'd')
+                        {
+                            double noImp = 0.0;
+                            DAlign(dynamicmtx, mseq1, mseq2, effarr1, effarr2, clus1, clus2, alloclen, null, ref noImp, G.Outgap, G.Outgap);
+                        }
+                        else if (G.Alg != 'A')
                             throw new NotSupportedException("Only the default algorithm (A) of MAFFT is available in this port.");
-                        AAlign(dynamicmtx, G.Penalty, G.PenaltyEx, mseq1, mseq2, effarr1, effarr2, clus1, clus2, alloclen, null, null, null, null, G.Outgap, G.Outgap,
-                            cpmxhist, child0, child1, l, orieff1, orieff2);
+                        else
+                            AAlign(dynamicmtx, G.Penalty, G.PenaltyEx, mseq1, mseq2, effarr1, effarr2, clus1, clus2, alloclen, null, null, null, null, G.Outgap, G.Outgap,
+                                cpmxhist, child0, child1, l, orieff1, orieff2);
                     }
                     _nlen[m1] = (int)(0.5 * (_nlen[m1] + _nlen[m2]));
                     MergeAfterAlignment(aseq, njob, add, mergeOrAlign, gapmap, len1, len1nocommongap, clus1, clus2, mseq1, mseq2, localmem0, localmem1, alloclen);
@@ -1317,6 +1327,17 @@ public static partial class SequenceAligner
                                     Report(" h");
                                 AAlign(dynamicmtx, G.Penalty, G.PenaltyEx, mseq1, mseq2, effarr1, effarr2, clus1, clus2, alloclen, null, null, null, null, G.Outgap, G.Outgap,
                                     cpmxhist, child0, child1, l, orieff1, orieff2);
+                            }
+                            break;
+                        case 'd':
+                            if (clus1 == 1 && clus2 == 1)
+                            {
+                                G__align11(dynamicmtx, mseq1, mseq2, alloclen, G.Outgap, G.Outgap);
+                            }
+                            else
+                            {
+                                double noImp = 0.0;
+                                DAlignLs(dynamicmtx, mseq1, mseq2, effarr1, effarr2, clus1, clus2, alloclen, ref noImp, G.Outgap, G.Outgap);
                             }
                             break;
                         default:
@@ -1659,6 +1680,18 @@ public static partial class SequenceAligner
                             Report("m");
                         MsAlign(dynamicmtx, mseq1, mseq2, effarr1, effarr2, clus1, clus2, alloclen, null, null, null, null, G.Outgap, G.Outgap, null, -1, -1, 0, orieff1, orieff2);
                     }
+                    else if (G.Alg == 'd')
+                    {
+                        if (clus1 == 1 && clus2 == 1)
+                        {
+                            G__align11(dynamicmtx, mseq1, mseq2, alloclen, G.Outgap, G.Outgap);
+                        }
+                        else
+                        {
+                            double noImp = 0.0;
+                            DAlignLs(dynamicmtx, mseq1, mseq2, effarr1, effarr2, clus1, clus2, alloclen, ref noImp, G.Outgap, G.Outgap);
+                        }
+                    }
                     else if (G.Alg != 'A')
                         throw new NotSupportedException("Only the default algorithm (A) of MAFFT is available in this port.");
                     else if (clus1 == 1 && clus2 == 1)
@@ -1719,8 +1752,10 @@ public static partial class SequenceAligner
             _aOrlgth2 = 0;
             if (!_isTbfast)
                 _gCap.Reset(); // disttbfast calls G__align11( NULL ... ) with A__align( NULL ... ); tbfast does not
+            _dCap.Reset();
             _arAlloclen = 0;
             _impMtx = null;
+            _dImpMtx = null;
         }
 
         /// <summary><c>fastconjuction_noname_kozo</c>: the rows of a group, their weights (normalised to 1) and the structure weights (normalised to 1, plus the weight of the sequence when positive; all 0 when no member has a structure weight).</summary>

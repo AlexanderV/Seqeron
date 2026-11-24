@@ -26,8 +26,9 @@ public static partial class SequenceAligner
             g.TreeMethod = 'X';
             g.SueffGlobal = 0.1;
             int k = 0;
+            bool illegal = false;
             string Next() => k < argv.Count ? argv[k++] : "";
-            while (k < argv.Count && argv[k].Length > 0 && argv[k][0] == '-')
+            while (k < argv.Count && argv[k].Length > 0 && argv[k][0] == '-' && !illegal)
             {
                 string a = argv[k++];
                 bool rest = false;
@@ -91,11 +92,14 @@ public static partial class SequenceAligner
                         case 'Z': g.MapOut = 1; break;
                         case '%': g.DiffOut = true; break;
                         case ':': g.NWildcard = 1; break;
+                        case '@': g.Report("illegal option @\n"); illegal = true; break; // --sp: addsingle does not know -@
                         default:
                             throw new NotSupportedException($"The MAFFT option -{c} of addsingle is not available in this port.");
                     }
                 }
             }
+            if (illegal)
+                throw new MafftProgramFailureException(g.Log + "options: Check source file !\n");
             if (g.FastaThreshold < 0.0001)
                 g.Constraint = 0;
             return g;

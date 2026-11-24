@@ -71,6 +71,8 @@ public static partial class SequenceAligner
                 RandomSeed = _randomseed,
                 NoSegmentation = _bunkatsuopt.Trim() == "-B",
                 OneIteration = _oneiterationopt.Trim() == "-r",
+                SumOfPairs = _sprigorous,
+                SumOfPairsRefinement = _algoptit.Contains("-@", StringComparison.Ordinal),
                 NoScore = _scorecalcopt.Trim() == "-Z",
                 ParallelizationStrategy = _parallelizationstrategy,
                 ScoreOut = _scoreoutarg.Trim().Length > 0,

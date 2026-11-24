@@ -165,6 +165,8 @@ public static partial class SequenceAligner
                 args.Add("-u");
             if (o.GuideTree != MafftGuideTree.Default)
                 args.Add("-U");
+            if (o.SumOfPairsRefinement)
+                args.AddRange(new[] { "-@", "-B", "-Z", "-z", "1000" });
             args.Add("-X");
             args.Add(o.TreeMixing is { } mix ? Text(mix) : "0.1");
             args.Add("-p");
@@ -210,11 +212,16 @@ public static partial class SequenceAligner
                 args.Add("-G");
             else if (o.Fft)
                 args.Add("-F");
-            args.AddRange(new[] { "-l", Text(o.WeightI), "-J", "-X", o.TreeMixing is { } mix ? Text(mix) : "0.1" });
+            args.AddRange(new[] { "-l", Text(o.WeightI) });
+            args.AddRange(SpArguments(o));
+            args.AddRange(new[] { "-J", "-X", o.TreeMixing is { } mix ? Text(mix) : "0.1" });
             if (o.ScoreOut)
                 args.AddRange(new[] { "-S", "-B" });
             return args;
         }
+
+        /// <summary><c>$algopt</c> of <c>--sp</c>: <c>-@</c>.</summary>
+        private static IEnumerable<string> SpArguments(MafftOptions o) => o.SumOfPairs ? new[] { "-@" } : Array.Empty<string>();
 
         /// <summary><c>$memopt</c>: <c>--memsave</c> = <c>-M -B</c>, <c>--nomemsave</c> = <c>-N</c>.</summary>
         internal static IEnumerable<string> MemoryArguments(MafftOptions o) => o.MemoryMode switch
@@ -255,6 +262,7 @@ public static partial class SequenceAligner
                 args.Add("-L");
             if (fromAlignment)
                 args.Add("-Z");
+            args.AddRange(SpArguments(o));
             if (o.PartTree == MafftPartTree.DynamicProgramming)
                 args.Add("-U");
             else if (o.PartTree == MafftPartTree.Fasta)
@@ -511,7 +519,9 @@ public static partial class SequenceAligner
                 tb.Add("-G");
             else if (o.Fft)
                 tb.Add("-F");
-            tb.AddRange(new[] { "-l", weighti, "-X", o.TreeMixing is { } mix ? Text(mix) : "0.1" });
+            tb.AddRange(new[] { "-l", weighti });
+            tb.AddRange(SpArguments(o));
+            tb.AddRange(new[] { "-X", o.TreeMixing is { } mix ? Text(mix) : "0.1" });
             if (o.ScoreOut)
                 tb.AddRange(new[] { "-S", "-B" });
             return (pair, tb);
@@ -645,6 +655,7 @@ public static partial class SequenceAligner
                 args.Add(Text(o.WeightI));
             }
 
+            args.AddRange(SpArguments(o));
             args.Add("-X");
             args.Add(o.TreeMixing is { } mix ? Text(mix) : "0.1");
             return args;
@@ -751,6 +762,7 @@ public static partial class SequenceAligner
                 args.Add("-G");
             else if (o.Fft)
                 args.Add("-F");
+            args.AddRange(SpArguments(o));
             args.Add("-X");
             args.Add(o.TreeMixing is { } mix ? Text(mix) : "0.1");
             return args;
@@ -881,6 +893,7 @@ public static partial class SequenceAligner
                 args.Add("-G");
             else if (o.Fft)
                 args.Add("-F");
+            args.AddRange(SpArguments(o));
             args.Add("-X");
             args.Add(o.TreeMixing is { } mix ? Text(mix) : "0.1");
             if (o.ScoreOut)

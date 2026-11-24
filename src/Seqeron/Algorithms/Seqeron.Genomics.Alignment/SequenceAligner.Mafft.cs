@@ -266,6 +266,13 @@ public sealed record MafftOptions
     /// <summary><c>--bunkatsunashi</c> (<c>dvtditr -B</c>): the alignment is not divided at anchors before the iterative refinement.</summary>
     public bool NoSegmentation { get; init; }
 
+    /// <summary><c>--sp</c> (<c>-@</c> of the programs, <c>alg = 'd'</c>): the dynamic program <c>D__align</c> / <c>D__align_variousdist</c> (<c>Dalignmm.c</c>), which weights the gap penalty of every cell by the probability that the gap is new
+    /// (the distribution of the lengths of the gaps of both groups); no FFT, no terminal gap penalty, no memory-saving mode; the iterative refinement (<c>-@ -B -Z -z 1000</c>) runs on one thread.</summary>
+    public bool SumOfPairs { get; init; }
+
+    /// <summary>The iterative refinement of <c>--sp</c> (<c>$algoptit</c> = <c>-@ -B -Z -z 1000</c>): the script sets it only when <c>--maxiterate</c> was positive at the place where it handles <c>--sp</c> (an iteration that <c>--seed</c> adds later runs with the default dynamic program).</summary>
+    public bool SumOfPairsRefinement { get; init; }
+
     /// <summary><c>--oneiteration</c> (<c>disttbfast -r</c>).</summary>
     public bool OneIteration { get; init; }
 
@@ -733,7 +740,15 @@ public static partial class SequenceAligner
                         : (files ?? new MafftRun.AddSingleFiles()) with { Hat2 = hat2, Hat3 = pairs.Hat3 };
                 }
 
-                var ag = MafftGlobals.ParseAddsingle(MafftScript.AddsingleArguments(o));
+                MafftGlobals ag;
+                try
+                {
+                    ag = MafftGlobals.ParseAddsingle(MafftScript.AddsingleArguments(o));
+                }
+                catch (MafftProgramFailureException e)
+                {
+                    throw new MafftProgramFailureException(log + e.Text, e.ExitCode); // --sp: addsingle does not know -@ (the stop follows the output of the programs before it)
+                }
                 if (ag.Dorp == '\0')
                     ag.Dorp = nuc ? 'd' : 'p';
                 var arun = new MafftRun(ag) { GuideTreeText = guideTreeText };
@@ -939,7 +954,15 @@ public static partial class SequenceAligner
             string[]? labels = null;
             for (int pass = 0; pass < passes; pass++)
             {
-                var g = MafftGlobals.ParseSplittbfast(MafftScript.SplittbfastArguments(o, nseq, pass > 0, cycle, groupsize));
+                MafftGlobals g;
+                try
+                {
+                    g = MafftGlobals.ParseSplittbfast(MafftScript.SplittbfastArguments(o, nseq, pass > 0, cycle, groupsize));
+                }
+                catch (MafftProgramFailureException e)
+                {
+                    throw new MafftProgramFailureException(log + e.Text, e.ExitCode); // --sp: splittbfast does not know -@
+                }
                 var run = new MafftRun(g);
                 var res = GuardRun(run, log, () => run.Splittbfast(rows, partNames));
                 log.Append(run.Log);

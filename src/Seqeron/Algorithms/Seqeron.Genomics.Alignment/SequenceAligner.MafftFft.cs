@@ -712,6 +712,18 @@ public static partial class SequenceAligner
                             new string(sgap1), new string(sgap2), new string(egap1), new string(egap2), headgp, tailgp, null, -1, -1, -1, 0.0, 0.0);
                     }
                 }
+                else if (G.Alg == 'd')
+                {
+                    if (clus1 == 1 && clus2 == 1)
+                    {
+                        totalscore += G__align11(dyn, tmpres1, tmpres2, alloclen, headgp, tailgp);
+                    }
+                    else
+                    {
+                        double dumdb = 0.0;
+                        totalscore += DAlign(dyn, tmpres1, tmpres2, eff1, eff2, clus1, clus2, alloclen, null, ref dumdb, headgp, tailgp);
+                    }
+                }
                 else
                 {
                     throw new NotSupportedException("Only the default algorithm (A) of MAFFT is available in this port.");

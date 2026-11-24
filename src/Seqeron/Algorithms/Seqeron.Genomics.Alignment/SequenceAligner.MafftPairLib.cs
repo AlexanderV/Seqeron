@@ -143,6 +143,7 @@ public static partial class SequenceAligner
                         case 'v': g.Tbrweight = 3; break;
                         case 'W': g.MinimumWeight = CAtof(Next()); rest = true; break;
                         case ':': g.NWildcard = 1; break;
+                        case '@': g.Alg = 'd'; break;
                         case '+': g.OutputHat23 = CAtoi(Next()); g.Report("outputhat23=" + g.OutputHat23.ToString(CultureInfo.InvariantCulture) + "\n"); rest = true; break;
                         default: throw new NotSupportedException($"The MAFFT option -{c} of tbfast is not available in this port.");
                     }
@@ -933,13 +934,26 @@ public static partial class SequenceAligner
         private int _impAllocLen;
         private double[][]? _partImpMtx;
         private int _partImpAllocLen;
+        private double[][]? _dImpMtx;
+        private int _dImpAllocLen;
 
         /// <summary><c>imp_match_init_strict</c> / <c>fillimp</c>: the matrix of the importance of every pair of columns of two groups, from the blocks of every pair of their sequences, weighted by the weights of the sequences and <c>fastathreshold</c>.</summary>
-        private double[][] FillImp(int clus1, int clus2, int lgth1, int lgth2, string[] seq1, string[] seq2, double[] eff1, double[] eff2, MafftLocalHom?[][] localhom, int[] orinum1, int[] orinum2, bool part = false, double[]? eff1Kozo = null, double[]? eff2Kozo = null, MafftLocalHom?[][]? seedShrink = null, int[]? seedIn1 = null, int[]? seedIn2 = null)
+        private double[][] FillImp(int clus1, int clus2, int lgth1, int lgth2, string[] seq1, string[] seq2, double[] eff1, double[] eff2, MafftLocalHom?[][] localhom, int[] orinum1, int[] orinum2, bool part = false, double[]? eff1Kozo = null, double[]? eff2Kozo = null, MafftLocalHom?[][]? seedShrink = null, int[]? seedIn1 = null, int[]? seedIn2 = null, bool dmtx = false)
         {
             // impmtx of Salignmm.c (partSalignmm.c for the refinement, <paramref name="part"/>) is static: it is allocated (zeroed) when a group is longer than any before and only [0, lgth1) x [0, lgth2) is cleared by a call, so the row lgth1 read by the
             // dynamic program after the last residue (end gaps penalised) holds what earlier, larger calls left there
-            if (part)
+            if (dmtx)
+            {
+                // imp_match_init_strictD: the matrix of Dalignmm.c (its own static)
+                if (_dImpMtx == null || _dImpAllocLen < lgth1 + 2 || _dImpAllocLen < lgth2 + 2)
+                {
+                    _dImpAllocLen = Math.Max(lgth1, lgth2) + 2;
+                    _dImpMtx = new double[_dImpAllocLen][];
+                    for (int i = 0; i < _dImpAllocLen; i++)
+                        _dImpMtx[i] = new double[_dImpAllocLen];
+                }
+            }
+            else if (part)
             {
                 if (_partImpMtx == null || _partImpAllocLen < lgth1 + 2 || _partImpAllocLen < lgth2 + 2)
                 {
@@ -956,7 +970,11 @@ public static partial class SequenceAligner
                 for (int i = 0; i < _impAllocLen; i++)
                     _impMtx[i] = new double[_impAllocLen];
             }
-            var impmtx = part ? _partImpMtx! : _impMtx!;
+            double[][] impmtx;
+            if (dmtx)
+                impmtx = _dImpMtx!;
+            else
+                impmtx = part ? _partImpMtx! : _impMtx!;
             for (int i = 0; i < lgth1; i++)
                 Array.Clear(impmtx[i], 0, lgth2);
             double effijx = 1.0 * G.FastaThreshold;

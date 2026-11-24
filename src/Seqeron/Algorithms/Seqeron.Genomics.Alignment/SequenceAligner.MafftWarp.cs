@@ -76,6 +76,41 @@ public static partial class SequenceAligner
             return wm;
         }
 
+        /// <summary><see cref="Step"/> of <c>D__align</c> (<c>Dalignmm.c</c>): the jump costs the shift penalty only (no extension term for the distance of the best cell).</summary>
+        internal double StepD(int i, int j, double wm, double cur, double penaltyShift, int[] ijpRow)
+        {
+            double g = prevwmrecords[j - 1] + penaltyShift;
+            if (g > wm)
+            {
+                int n = Is.Count;
+                if (n > 0 && prevwarpi[j - 1] == Is[n - 1] && prevwarpj[j - 1] == Js[n - 1])
+                {
+                    ijpRow[j] = Base + n - 1;
+                }
+                else
+                {
+                    ijpRow[j] = Base + n;
+                    Is.Add(prevwarpi[j - 1]);
+                    Js.Add(prevwarpj[j - 1]);
+                }
+                wm = g;
+            }
+            double curm = cur + wm;
+            if (wmrecords[j - 1] > wmrecords[j])
+            {
+                wmrecords[j] = wmrecords[j - 1];
+                warpi[j] = warpi[j - 1];
+                warpj[j] = warpj[j - 1];
+            }
+            if (curm > wmrecords[j])
+            {
+                wmrecords[j] = curm;
+                warpi[j] = i;
+                warpj[j] = j;
+            }
+            return wm;
+        }
+
         /// <summary>The end of a row: the records become the records of the row before (<c>fltncpy</c> / <c>intncpy</c> of <paramref name="count"/> entries).</summary>
         internal void EndRow(int count)
         {

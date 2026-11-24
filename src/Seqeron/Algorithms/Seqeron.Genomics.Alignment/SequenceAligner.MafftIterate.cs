@@ -439,7 +439,16 @@ public static partial class SequenceAligner
                             Report(" skip.      \r");
                             continue;
                         }
-                        stopol?.DistFromABranch(distarr, len, l, k);
+                        if (locnjob == 2)
+                        {
+                            // distFromABranch for two sequences: the two branch lengths of the only node
+                            distarr[0] = len[0][0];
+                            distarr[1] = len[0][1];
+                        }
+                        else
+                        {
+                            stopol?.DistFromABranch(distarr, len, l, k);
+                        }
                         var (memlist0, memlist1) = OneClusterAndTheOther(locnjob, topol, l, k);
                         int s1 = memlist0[0], s2 = memlist1[0];
                         if (smalldistmtx != null)
@@ -489,9 +498,26 @@ public static partial class SequenceAligner
                         int clus1 = memlist0.Length, clus2 = memlist1.Length;
                         if (various != null)
                             ClassifyPairs(various, clus1, effarr1, clus2, effarr2, smalldistmtx!);
-                        double mscore = IntergroupScore(mseq1, mseq2, effarr1, effarr2, clus1, clus2, length); // computed with -Z too ("Oscilation check no tame hitsuyou"): -Z only skips the score of the new alignment (tscore = mscore + 1)
+                        string[] scoreSeq1 = mseq1, scoreSeq2 = mseq2;
+                        if (G.Alg == 'd')
+                        {
+                            // "Ichijiteki, koredeha scorecheck ga dekinai": the common gaps of both groups are removed in place, the score of the old alignment is taken over the old length from the buffers of the program (the NUL of
+                            // the shortened row and what the rows held behind it before)
+                            (scoreSeq1, mseq1) = CommonGapPickInPlace(mseq1);
+                            (scoreSeq2, mseq2) = CommonGapPickInPlace(mseq2);
+                        }
+                        double mscore = IntergroupScore(scoreSeq1, scoreSeq2, effarr1, effarr2, clus1, clus2, length); // computed with -Z too ("Oscilation check no tame hitsuyou"): -Z only skips the score of the new alignment (tscore = mscore + 1)
                         double impmatchdouble = 0.0;
-                        if (localhom != null)
+                        if (localhom != null && G.Alg == 'd')
+                        {
+                            // constraint == 2 with D__align: the importance matrix of the groups (imp_match_init_strictD, summed over the diagonal only when the score is checked), the dynamic program with the importance
+                            if (G.ScoreCheck != 0)
+                                throw new NotSupportedException("The iterative refinement with D__align and the score check is not reachable from the script (--sp passes -Z).");
+                            var shrink = ShrinkLocalHom(memlist0, memlist1, localhom);
+                            var imp = FillImp(clus1, clus2, length, length, mseq1, mseq2, effarr1, effarr2, shrink, memlist0, memlist1, false, effarr1Kozo, effarr2Kozo, dmtx: true);
+                            DAlign(G.NDisConsweightMulti, mseq1, mseq2, effarr1, effarr2, clus1, clus2, alloclen, imp, ref impmatchdouble, 1, 1, various);
+                        }
+                        else if (localhom != null)
                         {
                             // msshrinklocalhom_fast_half, part_imp_match_init_strict, the importance on the diagonal of the groups' own alignment
                             var shrink = ShrinkLocalHom(memlist0, memlist1, localhom);
@@ -499,7 +525,8 @@ public static partial class SequenceAligner
                             PartFillImp(clus1, clus2, length, length, mseq1, mseq2, effarr1, effarr2, shrink, memlist0, memlist1, effarr1Kozo, effarr2Kozo);
                             for (int i = length - 1; i >= 0; i--)
                                 oimpmatchdouble += _partImpMtx![i][i];
-                            mscore = oimpmatchdouble + mscore;
+                            if (G.ScoreCheck != 0)
+                                mscore = oimpmatchdouble + mscore;
                             if (!G.UseFft)
                                 throw new InvalidOperationException("Unexpected error.  Please contact katoh@ifrec.osaka-u.ac.jp");
                             FalignLocalHom(mseq1, mseq2, effarr1, effarr2, clus1, clus2, alloclen, out impmatchdouble, various);
@@ -551,7 +578,7 @@ public static partial class SequenceAligner
                                 converged++;
                             }
                         }
-                        Report("\r");
+                        Report(G.Alg == 'd' ? "\n" : "\r");
                         history[iterate][l][k] = tscore;
                         if (converged >= locnjob * 2)
                         {
@@ -662,6 +689,8 @@ public static partial class SequenceAligner
         internal Result Dvtditr(string[] rows, double[][] hat2, MafftLocalHom[][]? localhom = null, IReadOnlyList<string>? names = null, bool[]? kozo = null)
         {
             int njob = rows.Length;
+            if (G.SpScoreOut != 0)
+                throw UndefinedBehaviour("dvtditr with -S (--maxiterate n --scoreout, every algorithm): sumofpairsscore reads a block of 48 bytes that the program has freed (valgrind: invalid read; the program ends with a segmentation fault whose message names a process id)");
             MafftSubalignments? merge = G.Subalignment ? ReadSubalignmentsTable(njob) : null;
             for (int i = 1; i < njob; i++)
                 if (rows[i].Length != rows[0].Length)
@@ -858,6 +887,40 @@ public static partial class SequenceAligner
         private static bool IncludeMember(int[] mem, int[] cand) => mem.All(cand.Contains);
 
         private static bool SameMember(int[] mem, int[] cand) => mem.Length == cand.Length && mem.All(cand.Contains);
+
+        /// <summary><c>commongappick</c> of the rows of a group in place (<c>io.c</c>): returns the compacted rows and the rows as the program's buffers hold them afterwards (the shortened row, its NUL, then the old characters behind the new end).</summary>
+        private static (string[] Buffers, string[] Rows) CommonGapPickInPlace(string[] seq)
+        {
+            int len = seq[0].Length;
+            var keep = new List<int>();
+            for (int i = 0; i < len; i++)
+            {
+                bool any = false;
+                for (int j = 0; j < seq.Length; j++)
+                {
+                    if (seq[j][i] != '-')
+                    {
+                        any = true;
+                        break;
+                    }
+                }
+                if (any)
+                    keep.Add(i);
+            }
+            var buffers = new string[seq.Length];
+            var rows = new string[seq.Length];
+            for (int j = 0; j < seq.Length; j++)
+            {
+                var sb = new StringBuilder(len);
+                foreach (int i in keep)
+                    sb.Append(seq[j][i]);
+                rows[j] = sb.ToString();
+                if (keep.Count < len)
+                    sb.Append('\0').Append(seq[j], keep.Count + 1, len - keep.Count - 1);
+                buffers[j] = sb.ToString();
+            }
+            return (buffers, rows);
+        }
 
         private static void CommonGapPick(string[] seq)
         {

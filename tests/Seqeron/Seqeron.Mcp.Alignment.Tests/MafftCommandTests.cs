@@ -88,7 +88,10 @@ public class MafftCommandTests
             Assert.That(missing.Stderr, Does.StartWith("/usr/bin/mafft: Cannot open nofile.fa."));
             Assert.That(version.Stderr, Is.EqualTo("v7.505 (2022/Apr/10)\n"));
             Assert.That(AlignmentTools.MafftCommand(["--lastpair", "in.fa"], Files()).Stderr, Does.Contain("== Install LAST"));
-            Assert.Throws<NotSupportedException>(() => AlignmentTools.MafftCommand(["--sp", "in.fa"], Files()), "--sp (D__align) is registered, not ported yet");
+            var sp = AlignmentTools.MafftCommand(["--sp", "in.fa"], Files());
+            Assert.That(sp.ExitCode, Is.Zero, "--sp (D__align of Dalignmm.c) is ported (B09 F357)");
+            Assert.That(sp.Stderr, Does.Contain("alg=d, model=").And.Contain("sequences, len="));
+            Assert.Throws<NotSupportedException>(() => AlignmentTools.MafftCommand(["--maxiterate", "2", "--scoreout", "in.fa"], Files()), "dvtditr -S reads a freed block: a segmentation fault of the program");
         });
     }
 

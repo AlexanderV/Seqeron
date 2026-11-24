@@ -241,7 +241,6 @@ public static partial class SequenceAligner
                 _termgapopt = " ";
                 _fft = false;
                 _memopt = " -N ";
-                NeedPort("--sp");
             }
             if (_er == 1)
             {
