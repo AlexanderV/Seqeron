@@ -1,0 +1,16 @@
+kind	layout	n	threads	metric	median	min	max	unit	reps	notes
+descent	v1	100000000	4	count20_present_ns_per_query_per_thread	554.8	508.5	673.9	ns/query	11	verify_clone n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v1b	100000000	4	count20_present_ns_per_query_per_thread	537.1	488.1	675.3	ns/query	11	verify_clone n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v2	100000000	4	count20_present_ns_per_query_per_thread	563.4	522.4	684.2	ns/query	11	verify_clone n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 packed
+descent	v3	100000000	4	count20_present_ns_per_query_per_thread	590.9	537.4	714.2	ns/query	11	verify_clone n=100000000 L=20 patterns=200000 bytes(SA+child)=1000000010 sa=w5 child=w5 tagged
+descent	v8h	100000000	4	count20_present_ns_per_query_per_thread	579.5	549.7	690.9	ns/query	11	verify_clone n=100000000 L=20 patterns=200000 bytes(SA+child)=600131078 sa=w4 child=d16h tagged escapes=7172 (0.01 %) childBytes=200131074
+descent	v1	100000000	4	count20_absent_ns_per_query_per_thread	630.2	606.4	677.2	ns/query	11	verify_clone n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v1b	100000000	4	count20_absent_ns_per_query_per_thread	642.3	602.0	685.4	ns/query	11	verify_clone n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v2	100000000	4	count20_absent_ns_per_query_per_thread	666.3	636.3	736.5	ns/query	11	verify_clone n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 packed
+descent	v3	100000000	4	count20_absent_ns_per_query_per_thread	678.6	646.8	720.4	ns/query	11	verify_clone n=100000000 L=20 patterns=200000 bytes(SA+child)=1000000010 sa=w5 child=w5 tagged
+descent	v8h	100000000	4	count20_absent_ns_per_query_per_thread	648.7	633.0	690.3	ns/query	11	verify_clone n=100000000 L=20 patterns=200000 bytes(SA+child)=600131078 sa=w4 child=d16h tagged escapes=7172 (0.01 %) childBytes=200131074
+descent	v1	100000000	4	locate8_ns_per_query_per_thread	671.7	598.6	708.1	ns/query	11	verify_clone n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v1b	100000000	4	locate8_ns_per_query_per_thread	625.3	572.5	694.2	ns/query	11	verify_clone n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v2	100000000	4	locate8_ns_per_query_per_thread	689.2	645.2	732.3	ns/query	11	verify_clone n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 packed
+descent	v3	100000000	4	locate8_ns_per_query_per_thread	824.4	810.5	846.7	ns/query	11	verify_clone n=100000000 L=20 patterns=200000 bytes(SA+child)=1000000010 sa=w5 child=w5 tagged
+descent	v8h	100000000	4	locate8_ns_per_query_per_thread	709.5	605.8	765.4	ns/query	11	verify_clone n=100000000 L=20 patterns=200000 bytes(SA+child)=600131078 sa=w4 child=d16h tagged escapes=7172 (0.01 %) childBytes=200131074

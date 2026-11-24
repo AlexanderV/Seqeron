@@ -18,3 +18,5 @@
 2026-11-24T02:09:43Z	text-end	libsais_dna_10m_build_s	0.3018	0.3002	0.3220	0.920	ok
 2026-11-24T02:10:55Z	descent-500m-start	libsais_dna_10m_build_s	0.2967	0.2964	0.3226	0.905	ok
 2026-11-24T02:19:48Z	descent-500m-end	libsais_dna_10m_build_s	0.3264	0.2990	0.3343	0.995	ok
+2026-11-24T02:28:19Z	abapp-null-dna_100m-start	libsais_dna_10m_build_s	0.3055	0.2965	0.3560	0.932	ok
+2026-11-24T02:35:40Z	abapp-null-dna_100m-end	libsais_dna_10m_build_s	0.3001	0.2969	0.3278	0.915	ok
