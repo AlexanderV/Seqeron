@@ -27,7 +27,7 @@ second generator seeded from them) but every residue gets the four backbone atom
 phi / psi torsions of helix (-57, -47), strand (-120, 130) and coil segments, with HEADER / HELIX / SHEET-free, SEQRES / ATOM / TER / END lines, because DaliLite 3.3 answers a CA-only file ("suspect pdb1.pdb is CA-only", no alignment) and its
 secondary-structure step (dsspcmbi) needs the carbonyl oxygen.
 
-usage: generate_tcoffee_external_oracle.py OUT_DIR [FEATURE ...]   (env SCALE, SEED, FULL_BACKBONE, WORKERS = number of parallel jobs, default the CPU count)
+usage: generate_tcoffee_external_oracle.py OUT_DIR [FEATURE ...]   (env SCALE, SEED, FULL_BACKBONE, WORKERS = number of parallel jobs, default the CPU count, ONLY = comma separated 0-based positions of the jobs to run)
 """
 import base64, json, math, os, random, subprocess, sys, tempfile, zlib
 from concurrent.futures import ThreadPoolExecutor
@@ -375,6 +375,9 @@ def main():
     scale = float(os.environ.get('SCALE', '1')); seed = int(os.environ.get('SEED', '7'))
     os.makedirs(out, exist_ok=True)
     jobs = [(f, fl, i, seed) for f in feats for fl, n in PLAN[f] for i in range(max(1, int(n * scale)))]
+    if os.environ.get('ONLY'):   # hand-off image A2-12b-s5-stderr: only the sets with these positions in the job list (comma separated, 0-based), e.g. the 15 sets of run 10 that stopped
+        only = {int(x) for x in os.environ['ONLY'].split(',')}
+        jobs = [j for k, j in enumerate(jobs) if k in only]
     with ThreadPoolExecutor(max_workers=int(os.environ.get('WORKERS') or 0) or os.cpu_count() or 4) as ex:
         res = list(ex.map(job, jobs))
     path = os.path.join(out, 'tcoffee_external_oracle.tsv')

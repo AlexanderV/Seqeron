@@ -5,7 +5,7 @@ using Seqeron.Genomics.Alignment;
 namespace Seqeron.Genomics.Tests;
 
 /// <summary>
-/// ALIGN-MULTI-001 (audit A2-12b, B09 F311): the structure methods of T-Coffee 13.41 that call SAP / DaliLite, against the runs 1, 3, 4, 5 and 6 of the user's Docker package <c>handoff/A2-12b-dali-sap-stderr</c>
+/// ALIGN-MULTI-001 (audit A2-12b, B09 F311, F322): the structure methods of T-Coffee 13.41 that call SAP / DaliLite, against the runs 1, 3, 4, 5, 6 and 10 of the user's Docker package <c>handoff/A2-12b-dali-sap-stderr</c>
 /// (TestData/Alignment/tcoffee_sap_dali_runs_oracle.tsv.gz, scripts/alignment/convert_tcoffee_sap_dali_returned.py): the same 130 <c>sap_real</c> sets, 8 <c>-mode 3dcoffee</c> sets and 60 <c>dali_pair</c> sets in every run, with t_coffee's standard error.
 /// SAP and the structure aligners are NOT deterministic in the user's environment (the same sets and files, pairs of structures without a result in one run and with an identical one in another, a process killed by the kernel in some runs), so each row is
 /// checked against the port FED WITH ITS OWN RUN'S SAP OUTPUT: t_coffee's side of the interface is a function of what the external program wrote.
@@ -17,7 +17,7 @@ public class SequenceAligner_TCoffeeSapDaliRuns_Tests
     {
         public bool Failed => Rows.StartsWith("FAIL:", StringComparison.Ordinal);
         public string?[] Pdb => Extra.GetProperty("pdb").EnumerateArray().Select(e => e.GetString() is { Length: > 0 } s ? s : null).ToArray();
-        public string[] Err => Extra.GetProperty("err").EnumerateArray().Select(e => e.GetString()!).ToArray();
+        public string[] Err => Extra.TryGetProperty("err", out var err) ? err.EnumerateArray().Select(e => e.GetString()!).ToArray() : [];     // run 10 (s4f) did not record t_coffee's standard error
         public bool Killed => Rows == "FAIL:-9" || Err.Any(l => l.Contains("Killed", StringComparison.Ordinal));
     }
 
@@ -338,6 +338,105 @@ public class SequenceAligner_TCoffeeSapDaliRuns_Tests
         foreach (int i in differing) Assert.That(Unreproducible.Value.ContainsKey(i), Is.True);
         Assert.That(r5.Keys.Count(i => r5[i].Rows == r6[i].Rows), Is.GreaterThan(30), "the other sets agree");
         TestContext.Out.WriteLine($"s4: {differing.Count} of 60 sets end differently in run 5 and run 6; the files, the pdb sequences and the DaliLite behaviour (no alignment) are the same");
+    }
+
+    // ---- s4f (run 10): the REAL DaliLite 3.3 on full-backbone structures --------------------------------------------------------------------------------------------------------------------
+
+    private sealed record DaliCall(string Args, int Rc, string Out, string Err, string Saved);
+
+    private static List<DaliCall> DaliCalls(Row r) => r.Extra.GetProperty("calls").EnumerateArray()
+        .Select(c => new DaliCall(c.GetProperty("args").GetString()!, c.GetProperty("rc").GetInt32(), c.GetProperty("out").GetString()!, c.GetProperty("err").GetString()!, c.GetProperty("saved").GetString()!)).ToList();
+
+    /// <summary>The usable pairs (x &lt; y) in the order of the pair jobs of the program (one worker): the k-th logged call of DaliLite is the job of the k-th pair.</summary>
+    private static List<(int X, int Y)> UsablePairList(Row r)
+    {
+        var pdb = r.Pdb;
+        var usable = Enumerable.Range(0, r.Seqs.Length).Select(i => pdb[i] is { } p && SequenceAligner.TcPdbTemplateUsable(r.Seqs[i], p)).ToArray();
+        var list = new List<(int, int)>();
+        for (int i = 0; i < usable.Length; i++)
+            for (int j = i + 1; j < usable.Length; j++)
+                if (usable[i] && usable[j]) list.Add((i, j));
+        return list;
+    }
+
+    /// <summary>
+    /// Run 10 of the package (A2-12b-s5): the real DaliLite 3.3 with its programs (DSSP, <c>puu</c>, <c>puutos</c>, <c>dalicon</c>) runs end to end on the full-backbone structures of the 60 <c>dali_pair</c> sets. t_coffee wrote 45 alignments and stopped (exit status 1) on 15 sets.
+    /// The glue (<c>tc_generic_method.pl</c>, <c>seq2pdb_pair</c>) takes <c>Query</c> / <c>Sbjct</c> from the STANDARD OUTPUT of <c>DaliLite -pairwise pdb1.pdb pdb2.pdb &gt;tmp1</c>; DaliLite 3.3 never prints them there (272 calls, no line: the alignment goes to <c>molXA.html</c>),
+    /// so <c>dali_pair</c> adds no library entry and the sets whose pairs all have structures end with an empty library. Every row equals the port FED WITH the standard output of every logged call.
+    /// </summary>
+    [Test]
+    public void DaliPair_RealDaliLite33_EveryRowEqualsThePortFedWithTheStandardOutputOfEveryCall()
+    {
+        var rows = Section("s4f").ToList();
+        Assert.That(rows, Has.Count.EqualTo(60));
+        var failures = new List<string>();
+        int alignments = 0, stops = 0, calls = 0, withQuery = 0;
+        foreach (var r in rows)
+        {
+            Assert.That(r.Run, Is.EqualTo("10"));
+            var dali = DaliCalls(r);
+            var pairs = UsablePairList(r);
+            Assert.That(dali, Has.Count.EqualTo(pairs.Count), $"{Describe(r)}: one DaliLite call per pair of usable structures");
+            var outputs = new Dictionary<(int, int), string>();
+            for (int k = 0; k < dali.Count; k++)
+            {
+                calls++;
+                Assert.That(dali[k].Args, Is.EqualTo("-pairwise pdb1.pdb pdb2.pdb"), Describe(r));
+                Assert.That(dali[k].Rc, Is.EqualTo(0), Describe(r));
+                Assert.That(dali[k].Out, Does.StartWith("system_cmd: echo lock"), Describe(r));
+                if (SequenceAligner.TCoffeeDaliLiteAlignment(dali[k].Out) is not null) withQuery++;
+                outputs[pairs[k]] = dali[k].Out;
+            }
+
+            var options = Options(r, TCoffeePairMethod.DaliPair, outputs);
+            string? got = null, message = null;
+            try { got = Run(r, options); } catch (TCoffeeAbortedException ex) { message = ex.Message; }
+            if (r.Failed)
+            {
+                stops++;
+                Assert.That(r.Rows, Is.EqualTo("FAIL:1"), Describe(r));
+                if (message is null) failures.Add($"{Describe(r)}: t_coffee stopped with status 1, the port aligned to {got}");
+                else Assert.That(message, Does.Contain("You have not provided any method or enough Sequences"), Describe(r));    // the empty library (t_coffee.c L5005); t_coffee's own text of this run was not recorded
+                continue;
+            }
+
+            alignments++;
+            if (got != r.Rows) failures.Add($"{Describe(r)}: got {got ?? message} expected {r.Rows}");
+        }
+
+        Assert.That(failures, Is.Empty, $"{failures.Count} of 60 sets differ; first: {failures.FirstOrDefault()}");
+        Assert.That((alignments, stops, calls, withQuery), Is.EqualTo((45, 15, 272, 0)));
+        TestContext.Out.WriteLine($"s4f: 60 sets: {alignments} alignments equal byte for byte, {stops} stops (exit status 1) reproduced, {calls} DaliLite calls, {withQuery} with Query / Sbjct on the standard output");
+    }
+
+    /// <summary>
+    /// What DaliLite 3.3 does with the structures (run 10, 272 calls, all return code 0): 135 calls analyse nothing ("Analyse () vs. ()": chains without residues), 137 compare the parsed units; 48 of those leave a non-empty <c>mol1A.dccp</c> and write the
+    /// structural alignment as a <c>Query</c> / <c>Sbjct</c> block of <c>molXA.html</c> / <c>index.html</c> - FILES, never the standard output the glue reads. The block read as the glue reads a stream is a well-formed alignment (equal rows,
+    /// letters and '-' only after '.' becomes '-').
+    /// </summary>
+    [Test]
+    public void DaliLite33_WritesTheAlignmentToHtmlFilesOnly_NeverToTheStandardOutput()
+    {
+        int calls = 0, empty = 0, dccp = 0, blocks = 0;
+        foreach (var r in Section("s4f"))
+            foreach (var c in DaliCalls(r))
+            {
+                calls++;
+                if (c.Out.Contains("Analyse () vs. ()", StringComparison.Ordinal)) empty++;
+                Assert.That(System.Text.RegularExpressions.Regex.IsMatch(c.Out, @"Query\s+\S|Sbjct\s+\S"), Is.False, "no Query / Sbjct on the standard output");
+                var ls = System.Text.RegularExpressions.Regex.Match(c.Saved, @"^\S+\s+\d+\s+\w+\s+\w+\s+(\d+) \S+ +\d+ +\S+ mol1A\.dccp$", System.Text.RegularExpressions.RegexOptions.Multiline);
+                bool hasBlock = System.Text.RegularExpressions.Regex.IsMatch(c.Saved, @"^Query\s+\S+\s+\d+\s*$", System.Text.RegularExpressions.RegexOptions.Multiline);
+                if (ls.Success && int.Parse(ls.Groups[1].Value) > 0) dccp++;
+                if (!hasBlock) continue;
+                blocks++;
+                string index = c.Saved[c.Saved.IndexOf("=== REMAINING index.html", StringComparison.Ordinal)..];
+                var rowsOfBlock = SequenceAligner.TCoffeeDaliLiteAlignment(index);
+                Assert.That(rowsOfBlock, Is.Not.Null);
+                Assert.That(rowsOfBlock!.Value.RowA, Has.Length.EqualTo(rowsOfBlock.Value.RowB.Length));
+                Assert.That(rowsOfBlock.Value.RowA + rowsOfBlock.Value.RowB, Does.Match("^[A-Za-z-]+$"));
+            }
+
+        Assert.That((calls, empty, dccp, blocks), Is.EqualTo((272, 135, 48, 48)));
     }
 
     // ---- the DaliLite v3 glue -------------------------------------------------------------------------------------------------------------------------------------------------------------------------
