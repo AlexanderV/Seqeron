@@ -6,12 +6,12 @@ rm -rf out; mkdir -p out/sets out/direct out/http
 {
   echo "uname -m: $(uname -m)"; echo "date (UTC): $(date -u +%FT%TZ)"
   echo "mafft-src sha256: $(cat /opt/mafft-src.sha256)"
-  go version
+  cat /opt/go-build.log 2>&1
   ls -l /usr/local/libexec/mafft/dash_client 2>&1; sha256sum /usr/local/libexec/mafft/dash_client 2>&1
   mafft --version 2>&1 | head -1
   [ -e /opt/DASH_CLIENT_BUILD_FAILED ] && echo "DASH_CLIENT_BUILD_FAILED (see mafft.build.log)"
 } > out/versions.txt 2>&1
-cp /opt/mafft.build.log out/mafft.build.log 2>/dev/null
+cp /opt/mafft.build.log out/mafft.build.log 2>/dev/null; cp /opt/go-build.log out/go-build.log 2>/dev/null
 [ -e /opt/DASH_CLIENT_BUILD_FAILED ] && { cat out/versions.txt; echo "The image has no dash_client: nothing to run." >&2; exit 1; }
 python3 make_inputs.py inputs > /dev/null
 PORT=8765
