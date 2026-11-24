@@ -1,0 +1,45 @@
+S2.2 red runs (work package S2.2, 2026-11-24, this machine, Release): the guard of the checked build and the skip accounting, red where red is the point.
+
+1. THE EXISTING GUARD (S1 head 65d76a58, BufAndArenaTests.BuildMode_IsReported_AndMatchesTheExpectedMode), DEFAULT build, ESA_EXPECT_BOUNDS=true: RED. It did what R04 asks.
+     Failed BuildMode_IsReported_AndMatchesTheExpectedMode [23 ms]
+     Error Message:
+        Assert.That(EsaBuild.BoundsChecked, Is.EqualTo(bool.Parse(expected!)))
+     Expected: True
+     But was:  False
+        at SuffixTree.Esa.Tests.Safety.BufAndArenaTests.BuildMode_IsReported_AndMatchesTheExpectedMode() 22
+   1)    at SuffixTree.Esa.Tests.Safety.BufAndArenaTests.BuildMode_IsReported_AndMatchesTheExpectedMode() 22
+    ESA_BOUNDS (checked accessor): False
+   Failed!  - Failed:     1, Passed:     0, Skipped:     0, Total:     1, Duration: 23 ms - SuffixTree.Esa.Tests.dll (net10.0)
+   the same test, default build: no variable -> Passed (1); =false -> Passed (1); =1 -> Failed: System.FormatException : String '1' was not recognized as a valid Boolean.
+
+2. TESTS FIRST (commit c9a76f4e): BuildExpectationTests and the live test against a stub rule that never fails: 34 of 41 RED.
+   Failed!  - Failed:    34, Passed:     7, Skipped:     0, Total:    41, Duration: 48 ms - SuffixTree.Esa.Tests.dll (net10.0)
+
+3. THE RULE (commit be894838), DEFAULT build:
+   no variable: Passed! 41 of 41;  ESA_EXPECT_BOUNDS=false: Passed! 41 of 41;
+   ESA_EXPECT_BOUNDS=true (the dishonest configuration): RED, one test:
+     Failed BuildMode_IsReported_AndMatchesTheExpectedMode [16 ms]
+      ESA_EXPECT_BOUNDS=true but SuffixTree.Esa was compiled WITHOUT ESA_BOUNDS: this is a default build, in which the 19 tests that need the checked accessor are skipped (and a skipped test is green). Build with -p:EsaBounds=true (dotnet build ... -p:EsaBounds=true, then dotnet test --no-build), or unset the variable.
+   Failed!  - Failed:     1, Passed:    40, Skipped:     0, Total:    41, Duration: 38 ms - SuffixTree.Esa.Tests.dll (net10.0)
+   ESA_EXPECT_BOUNDS=1: RED: ESA_EXPECT_BOUNDS is '1': it must be unset, 'true' or 'false'
+   the checked build with ESA_EXPECT_BOUNDS=true (the honest one): see the nightly list by hand (the checked run: 6,691 passed + 18 skipped, the guard among them)
+
+4. THE SKIP ACCOUNTING, tests first (commit 57d78db3): test_skip_accounting.py against a stub that accounts nothing:
+   Ran 32 tests in 0.028s
+   FAILED (failures=35)
+
+5. ONE Assert.Ignore("x") ADDED to a test (BufAndArenaTests.InBoundsUse_ReadsWritesSlicesAndSpans_AndLeavesTheCanariesIntact; a separate git worktree, the full default set, Release):
+   dotnet test says GREEN:  Passed!  - Failed:     0, Passed:  6671, Skipped:    38, Total:  6709, Duration: 13 m 45 s - SuffixTree.Esa.Tests.dll (net10.0)
+   skip_accounting.py --mode default --list tests/SuffixTree/SuffixTree.Esa.Tests/skips.tsv --trx <that run> --propose  ->  exit 1:
+   ### Skip accounting (default build)
+   - results in the run: 7569
+   - executed: 6671
+   - skipped (ignore rows of the list): 37
+   - explicit, not selected: 860
+   - unlisted skips: 1
+   FAIL: UNLISTED SKIP SuffixTree.Esa.Tests.Safety.BufAndArenaTests.InBoundsUse_ReadsWritesSlicesAndSpans_AndLeavesTheCanariesIntact [NotExecuted]: x
+   rows to add (complete the reason and how_to_unskip; add a row only for a skip that is meant to stay):
+   ignore	SuffixTree.Esa.Tests.Safety.BufAndArenaTests.InBoundsUse_ReadsWritesSlicesAndSpans_AndLeavesTheCanariesIntact	both	x	TODO
+   1 discrepancy(ies) between the run and skips.tsv
+
+   the same script over the trx of the unmodified head (6,632 passed + 37 skipped, 897 not executed): exit 0, 37 skipped, 860 explicit not selected, 0 unlisted.

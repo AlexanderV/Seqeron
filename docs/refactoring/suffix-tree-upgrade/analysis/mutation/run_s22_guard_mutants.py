@@ -5,8 +5,8 @@ textual change, built in the Release configuration (analyzers off) and run again
     dotnet test <project> -c Release --no-build --filter "FullyQualifiedName~BuildExpectationTests|FullyQualifiedName~BufAndArenaTests.BuildMode"
 
 It is KILLED when a test fails (a build error is not a result: the mutant is reported `build-error` and has to be rewritten). Then, for information, the same mutant is run with
-ESA_EXPECT_BOUNDS=true in the default build (the dishonest configuration): `red` when the live guard still fails there (as it must), `GREEN` when the mutant has made the guard
-pass in a configuration that it must reject. Run it in a separate git worktree, never in the working checkout; the source files are restored after every mutant.
+ESA_EXPECT_BOUNDS=true in the default build (the dishonest configuration): the evidence says whether the live guard (BufAndArenaTests.BuildMode_...) still fails there, as it must, or
+PASSES a dishonest build (the mutant has made the CI guard blind; the tests of the rule are what kill it in the default configuration). Run it in a separate git worktree, never in the working checkout; the source files are restored after every mutant.
 
 usage: run_s22_guard_mutants.py <worktree> <result.tsv>      (environment: MUTANT_BUILD_LIMIT s, default 400)
 """
@@ -110,7 +110,8 @@ def main():
                 verdict = "killed" if (failed > 0 or hung) else "SURVIVED"
                 evidence = f"{failed} failed of {failed + passed}: " + ", ".join(n.replace('SuffixTree.Esa.Tests.Safety.', '') for n in names[:3]) + (" ..." if len(names) > 3 else "")
                 red = test({"ESA_EXPECT_BOUNDS": "true"})
-                evidence += f" | default build + ESA_EXPECT_BOUNDS=true: {'red' if red[0] > 0 else 'GREEN (the guard passes a dishonest build)'}"
+                live = any(n.endswith("BuildMode_IsReported_AndMatchesTheExpectedMode") for n in red[2])
+                evidence += f" | default build + ESA_EXPECT_BOUNDS=true: the live guard {'still fails (red)' if live else 'PASSES a dishonest build'}"
                 rows.append((mid, verdict, what, evidence))
             finally:
                 open(path, "w", encoding="utf-8").write(originals[path])

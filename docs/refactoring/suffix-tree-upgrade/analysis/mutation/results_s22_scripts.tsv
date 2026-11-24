@@ -1,0 +1,56 @@
+id	result	mutant	evidence
+C01	control-ok	the unchanged scripts pass their tests	OK
+C02	control-ok	the unchanged workflow passes the checker	all checks hold
+A01	killed	ignores the unlisted skip (no failure)	10 failing: FAIL: test_a_partial_run_still_fails_on_an_unlisted_skip_and_on_a_stale_row; FAIL: test_a_name_that_only_starts_like_a_listed_one_is_unlisted; FAIL: test_a_new_explicit_method_is_an_unlisted_skip_until_it_is_listed
+A02	killed	ignores the stale list entry of an ignore row	5 failing: FAIL: test_a_both_row_that_ran_in_a_checked_run_is_stale; FAIL: test_a_both_row_whose_test_ran_is_stale; FAIL: test_a_default_row_whose_test_ran_is_stale_in_a_default_run
+A03	killed	mis-parses the trx: a NotExecuted result counts as executed	29 failing: FAIL: test_a_both_row_that_ran_in_a_checked_run_is_stale; FAIL: test_a_both_row_whose_test_ran_is_stale; FAIL: test_a_default_row_that_is_still_skipped_in_a_checked_run_is_the_failure_the_job_exists_for
+A04	killed	counts an Explicit as a skip	2 failing: FAIL: test_a_checked_run_expects_the_bounds_tests_to_run_and_the_backend_test_to_skip; FAIL: test_a_default_run_is_accounted_without_a_failure
+A05	killed	accepts a duplicate name in the list	2 failing: FAIL: test_a_duplicate_test_name_is_refused; FAIL: test_the_same_name_with_two_kinds_is_a_duplicate
+A06	killed	a skipped checked-build test is not a failure in the checked mode	2 failing: FAIL: test_a_default_row_that_is_still_skipped_in_a_checked_run_is_the_failure_the_job_exists_for; FAIL: test_exit_codes_and_the_output
+A07	killed	never reports a listed test that is absent from the run	2 failing: FAIL: test_a_row_without_a_result_is_absent_unless_the_run_is_partial; FAIL: test_exit_codes_and_the_output
+A08	killed	an explicit fixture matches by prefix (esa-file-w5 also covers esa-file-w5-trusted)	1 failing: FAIL: test_a_name_that_only_starts_like_a_listed_one_is_unlisted
+A09	killed	the key is the test name without its class	35 failing: FAIL: test_a_both_row_that_ran_in_a_checked_run_is_stale; FAIL: test_a_both_row_whose_test_ran_is_stale; FAIL: test_a_default_row_that_is_still_skipped_in_a_checked_run_is_the_failure_the_job_exists_for
+A10	killed	an Inconclusive result counts as executed	2 failing: FAIL: test_an_inconclusive_test_is_a_skip_that_must_be_listed; FAIL: test_only_the_outcomes_that_ran_count_as_executed
+A11	killed	an empty run is accepted	1 failing: FAIL: test_an_empty_run_a_broken_file_and_a_foreign_xml_are_refused
+A12	killed	exits 0 with failures	2 failing: FAIL: test_exit_codes_and_the_output; FAIL: UNLISTED SKIP SuffixTree.Esa.Tests.External.BoundsTests.AnOrdinaryTest [NotExecuted]: x
+A13	killed	an explicit fixture is stale only when every test of it ran	1 failing: FAIL: test_an_explicit_class_with_one_test_that_ran_is_stale
+A14	killed	does not check the header of the list	1 failing: FAIL: test_a_wrong_header_a_wrong_column_count_and_unknown_words_are_refused
+A15	killed	a host row must be skipped like a both row	13 failing: FAIL: test_a_both_row_that_ran_in_a_checked_run_is_stale; FAIL: test_a_both_row_whose_test_ran_is_stale; FAIL: test_a_default_row_whose_test_ran_is_stale_in_a_default_run
+A16	killed	a default row is never stale in a default run	1 failing: FAIL: test_a_default_row_whose_test_ran_is_stale_in_a_default_run
+A17	killed	an ignore row matches by prefix of the key	1 failing: FAIL: test_a_name_that_only_starts_like_a_listed_one_is_unlisted
+A18	killed	a row with a wrong number of columns is padded or cut	1 failing: FAIL: test_a_wrong_header_a_wrong_column_count_and_unknown_words_are_refused
+A19	killed	an unknown kind is accepted	1 failing: FAIL: test_a_wrong_header_a_wrong_column_count_and_unknown_words_are_refused
+A20	killed	only Passed counts as executed (a Failed test is read as a skip)	1 failing: FAIL: test_a_failed_test_is_not_a_skip_and_the_failure_is_left_to_the_test_step
+A21	killed	only the first result of a name is judged for a stale row	2 failing: FAIL: test_a_row_with_two_results_of_one_name_needs_both_skipped; FAIL: test_an_explicit_class_with_one_test_that_ran_is_stale
+A22	killed	a result without a definition gets an empty class	1 failing: FAIL: test_a_result_without_a_definition_is_refused
+A23	killed	reads only the first result of the trx	29 failing: FAIL: test_a_both_row_that_ran_in_a_checked_run_is_stale; FAIL: test_a_both_row_whose_test_ran_is_stale; FAIL: test_a_default_row_that_is_still_skipped_in_a_checked_run_is_the_failure_the_job_exists_for
+A24	killed	an unknown mode is accepted by the command line	1 failing: FAIL: test_exit_codes_and_the_output
+W01	killed	pull_request without paths	1 check(s): pull_request.paths is None, expected ['src/SuffixTree/**', 'tests/SuffixTree/**', '.github/workflows/suf
+W02	killed	push without paths	1 check(s): push.paths is None, expected ['src/SuffixTree/**', 'tests/SuffixTree/**', '.github/workflows/suffix-tree
+W03	killed	push on every branch (the owner's CI minutes)	1 check(s): push.branches is None: the push trigger must name master and nothing else (the owner's CI minutes)
+W04	killed	push also on the claude branches	1 check(s): push.branches is ['master', 'claude/**']: the push trigger must name master and nothing else (the owner'
+W05	killed	the if: of the exhaustive job dropped (it would run on a pull request)	16 check(s): scenario pull_request: jobs ['checked', 'exhaustive'] would run, expected ['checked']
+W06	killed	the checked job does not run on a pull request	1 check(s): scenario pull_request: jobs [] would run, expected ['checked']
+W07	killed	the large job has no weekly clause	3 check(s): scenario schedule weekly: jobs [] would run, expected ['large']
+W08	killed	the harness runs on a pull request	1 check(s): scenario pull_request: jobs ['checked', 'harness'] would run, expected ['checked']
+W09	killed	a write token	1 check(s): permissions is {'contents': 'write'}, expected {'contents': 'read'}
+W10	killed	no timeout on the fuzz job	1 check(s): fuzz: timeout-minutes is None, expected an integer in [45, 240]
+W11	killed	the large job turns the workflow red (continue-on-error dropped)	1 check(s): large: continue-on-error is None; only `large` has it, and it is true
+W12	killed	the checked job cannot fail the workflow	1 check(s): checked: continue-on-error is True; only `large` has it, and it is true
+W13	killed	the checked build is not checked	1 check(s): checked: the build step lacks -p:EsaBounds=true
+W14	killed	the guard variable is not set	1 check(s): checked: env ESA_EXPECT_BOUNDS must be the string 'true'
+W15	killed	a fixed seed (not rotating)	1 check(s): harness: the seed is not derived from the UTC date
+W16	killed	an unpinned action	1 check(s): checked: the action 'actions/checkout@main' is not one of ['actions/checkout@v4', 'actions/setup-dotnet@
+W17	killed	the nightly cron changed (the if: literal no longer matches)	1 check(s): the crons are ['17 1 * * 1', '43 2 * * 6'], expected ['17 1 * * *', '43 2 * * 6']
+W18	killed	the accounting step is not in checked mode	1 check(s): checked: the skip accounting step is missing, not in checked mode, not on skips.tsv or not run after a f
+W19	killed	the .trx is not uploaded after a failure	1 check(s): checked: the upload does not run after a failure (if: !cancelled())
+W20	killed	a network step (curl)	1 check(s): a run script contains 'curl': no network step except dotnet restore and setup-dotnet
+W21	killed	a secret	1 check(s): the workflow mentions a secret, the token or a repository variable
+W22	killed	the input `set` cannot select large	1 check(s): workflow_dispatch input `set` options are ['nightly', 'all', 'checked', 'exhaustive', 'fuzz', 'harness',
+W23	killed	no manual dispatch	4 check(s): the events are ['pull_request', 'push', 'schedule', 'workflow_dispatch_off']: exactly pull_request, push
+W24	killed	the fuzz test step rebuilds	2 check(s): fuzz: the test step rebuilds (a second build can drop the build flags)
+W25	killed	the vectors job runs the wrong category	1 check(s): vectors: the test step does not run with --filter "Category=Vectors"
+W26	killed	the harness budget is 60 s	1 check(s): harness: budget is '60', expected '600'
+W27	killed	the input is not called set (the if: reads inputs.set)	2 check(s): workflow_dispatch input `set` options are None, expected ['nightly', 'all', 'checked', 'exhaustive', 'fu
+W28	killed	the vectors job has no input directory	1 check(s): vectors: SEQERON_BENCH_DIR is not set (through GITHUB_ENV: the runner context is not available in a job-
+W29	killed	a job-level env that uses the runner context (not available there)	1 check(s): a job-level or workflow-level env uses the runner context (not available there)
