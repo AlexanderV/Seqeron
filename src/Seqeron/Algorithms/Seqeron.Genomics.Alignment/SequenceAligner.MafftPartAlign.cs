@@ -23,7 +23,7 @@ public static partial class SequenceAligner
         /// alignment the importance matrix was built from. The rows are replaced by the aligned rows; <paramref name="impmatch"/> is the sum of the importance of the cells of the path.
         /// </summary>
         private void PartAAlign(string[] seq1, string[] seq2, double[] eff1, double[] eff2, int icyc, int jcyc, int alloclen, out double impmatch, int start1, int start2, int[] gapmap1, int[] gapmap2,
-            string sgap1, string sgap2, string egap1, string egap2)
+            string sgap1, string sgap2, string egap1, string egap2, VariousDist? various = null)
         {
             impmatch = _lastImpMatch;
             int na = G.Nalphabets;
@@ -84,8 +84,14 @@ public static partial class SequenceAligner
             }
             double[][] cpmx1pt = _pCpmx1, cpmx2pt = _pCpmx2;
             double[] ogcp1 = _pOgcp1, ogcp2 = _pOgcp2, fgcp1 = _pFgcp1, fgcp2 = _pFgcp2, gapfreq1 = _pGapfreq1, gapfreq2 = _pGapfreq2;
-            CpmxCalcNew(seq1, cpmx1pt, eff1, lgth1, icyc);
-            CpmxCalcNew(seq2, cpmx2pt, eff2, lgth2, jcyc);
+            ClassProfiles? classes = null;
+            if (various != null)
+                classes = new ClassProfiles(this, various, seq1, seq2, icyc, jcyc, lgth1, lgth2);
+            else
+            {
+                CpmxCalcNew(seq1, cpmx1pt, eff1, lgth1, icyc);
+                CpmxCalcNew(seq2, cpmx2pt, eff2, lgth2, jcyc);
+            }
             double headgapfreq1, headgapfreq2;
             NewOpeningGapCount(ogcp1, icyc, seq1, eff1, lgth1, sgap1);
             NewOpeningGapCount(ogcp2, jcyc, seq2, eff2, lgth2, sgap2);
@@ -128,13 +134,19 @@ public static partial class SequenceAligner
             var dyn = G.NDisConsweightMulti;
             var impmtx = _partImpMtx!;
             double[] currentw = w1, previousw = w2;
-            MatchCalc(dyn, initverticalw, cpmx2pt, cpmx1pt, 0, lgth1, doublework, intwork, true);
+            if (classes == null)
+                MatchCalc(dyn, initverticalw, cpmx2pt, cpmx1pt, 0, lgth1, doublework, intwork, true);
+            else
+                classes.Match(initverticalw, true, 0, lgth1, true, seq1, seq2, eff1, eff2);
             {
                 int j1 = gapmap2[0] + start2;
                 for (int i = 0; i < lgth1; i++)
                     initverticalw[i] += impmtx[start1 + gapmap1[i]][j1];
             }
-            MatchCalc(dyn, currentw, cpmx1pt, cpmx2pt, 0, lgth2, doublework, intwork, true);
+            if (classes == null)
+                MatchCalc(dyn, currentw, cpmx1pt, cpmx2pt, 0, lgth2, doublework, intwork, true);
+            else
+                classes.Match(currentw, false, 0, lgth2, true, seq1, seq2, eff1, eff2);
             {
                 var row = impmtx[gapmap1[0] + start1];
                 for (int j = 0; j < lgth2; j++)
@@ -169,7 +181,10 @@ public static partial class SequenceAligner
                 AlignmentCancellation.ThrowIfRequested();
                 (previousw, currentw) = (currentw, previousw);
                 previousw[0] = initverticalw[i - 1];
-                MatchCalc(dyn, currentw, cpmx1pt, cpmx2pt, i, lgth2, doublework, intwork, false);
+                if (classes == null)
+                    MatchCalc(dyn, currentw, cpmx1pt, cpmx2pt, i, lgth2, doublework, intwork, false);
+                else
+                    classes.Match(currentw, false, i, lgth2, false, seq1, seq2, eff1, eff2);
                 {
                     var row = impmtx[gapmap1[i] + start1];
                     for (int j = 0; j < lgth2; j++)
@@ -385,10 +400,156 @@ public static partial class SequenceAligner
         }
 
         /// <summary>
+        /// The scoring matrices by distance class of <c>--unalignlevel</c> in the iterative refinement (<c>tditeration.c</c>, <c>A__align_variousdist</c>, <c>partA__align_variousdist</c>): <c>Which[i][j]</c> is the class of the pair of
+        /// the i-th sequence of the first and the j-th of the second group (<c>classifypairs</c>), <c>Matrices[c]</c> the scoring matrix of the class (<c>makescoringmatrices</c>), <c>Eff1s[c][i]</c> / <c>Eff2s[c][j]</c> the weight of the sequence
+        /// when it has a pair of the class and 0 otherwise.
+        /// </summary>
+        internal sealed class VariousDist
+        {
+            internal int[][] Which = Array.Empty<int[]>();
+            internal double[][][] Matrices = Array.Empty<double[][]>();
+            internal double[][] Eff1s = Array.Empty<double[]>(), Eff2s = Array.Empty<double[]>();
+            internal int MaxDistClass;
+        }
+
+        /// <summary>The profiles of the two groups for every distance class (<c>cpmx_calc_new( seq, cpmx1s[c], eff1s[c], ... )</c>), the pairs of a class that the weights of the class let through but the class does not own (the mask lists of
+        /// <c>match_calc_del</c>), and the sum of the match scores over the classes.</summary>
+        private sealed class ClassProfiles
+        {
+            private readonly SequenceAligner.MafftRun run;
+            private readonly VariousDist vd;
+            private readonly double[][][] cpmx1s, cpmx2s;
+            private readonly double[][][] doublework;
+            private readonly int[][][] intwork;
+            private readonly List<(int I, int J)>[] mask;
+
+            internal ClassProfiles(SequenceAligner.MafftRun run, VariousDist vd, string[] seq1, string[] seq2, int icyc, int jcyc, int lgth1, int lgth2)
+            {
+                this.run = run;
+                this.vd = vd;
+                int na = run.G.Nalphabets;
+                int nc = vd.MaxDistClass;
+                mask = new List<(int, int)>[nc];
+                bool complex = false;
+                for (int c = 0; c < nc; c++)
+                {
+                    mask[c] = new List<(int, int)>();
+                    for (int i = 0; i < icyc; i++)
+                        for (int j = 0; j < jcyc; j++)
+                            if (vd.Eff1s[c][i] * vd.Eff2s[c][j] != 0.0 && c != vd.Which[i][j])
+                                mask[c].Add((i, j));
+                    if (mask[c].Count > 0)
+                        complex = true;
+                }
+                if (complex)
+                    run.Report("Found a complex grouping. This step may be a bit slow.\n");
+                cpmx1s = new double[nc][][];
+                cpmx2s = new double[nc][][];
+                doublework = new double[nc][][];
+                intwork = new int[nc][][];
+                int ll = Math.Max(lgth1, lgth2) + 2;
+                for (int c = 0; c < nc; c++)
+                {
+                    cpmx1s[c] = new double[na][];
+                    cpmx2s[c] = new double[na][];
+                    for (int a = 0; a < na; a++)
+                    {
+                        cpmx1s[c][a] = new double[lgth1 + 2];
+                        cpmx2s[c][a] = new double[lgth2 + 2];
+                    }
+                    run.CpmxCalcNew(seq1, cpmx1s[c], vd.Eff1s[c], lgth1, icyc);
+                    run.CpmxCalcNew(seq2, cpmx2s[c], vd.Eff2s[c], lgth2, jcyc);
+                    doublework[c] = new double[ll][];
+                    intwork[c] = new int[ll][];
+                    for (int i = 0; i < ll; i++)
+                    {
+                        doublework[c][i] = new double[na];
+                        intwork[c][i] = new int[na + 1];
+                    }
+                }
+            }
+
+            private static char At(string s, int index) => index < s.Length ? s[index] : '\0'; // the terminating NUL of the C string
+
+            /// <summary>
+            /// <c>fillzero</c>, then for every class <c>match_calc_add</c> and, when the class has masked pairs, <c>match_calc_del</c>: the match scores of the column <paramref name="pos"/> of the first group against every column of the second
+            /// (<paramref name="vertical"/>: the column of the second group against every column of the first, the roles of the groups swapped as the program calls it).
+            /// </summary>
+            internal void Match(double[] match, bool vertical, int pos, int len, bool initialize, string[] seq1, string[] seq2, double[] eff1, double[] eff2)
+            {
+                Array.Clear(match, 0, len);
+                for (int c = 0; c < vd.MaxDistClass; c++)
+                {
+                    if (vertical)
+                        run.MatchCalcAdd(vd.Matrices[c], match, cpmx2s[c], cpmx1s[c], pos, len, doublework[c], intwork[c], initialize);
+                    else
+                        run.MatchCalcAdd(vd.Matrices[c], match, cpmx1s[c], cpmx2s[c], pos, len, doublework[c], intwork[c], initialize);
+                    if (mask[c].Count == 0)
+                        continue;
+                    var m = vd.Matrices[c];
+                    for (int k = 0; k < len; k++)
+                    {
+                        foreach (var (i, j) in mask[c])
+                        {
+                            // match_calc_del: the pair (i, j) is counted by the profiles of the class (the weights of the class let it through) although its own class is another one
+                            char ca = vertical ? At(seq2[j], pos) : At(seq1[i], pos);
+                            char cb = vertical ? At(seq1[i], k) : At(seq2[j], k);
+                            int c1 = run.G.AminoN[ca], c2 = run.G.AminoN[cb];
+                            if (ca == '-' || cb == '-')
+                                continue;
+                            if (c1 < 0 || c2 < 0)
+                                continue;
+                            match[k] -= vertical ? m[c1][c2] * eff2[j] * eff1[i] : m[c1][c2] * eff1[i] * eff2[j];
+                        }
+                    }
+                }
+            }
+        }
+
+        /// <summary><c>match_calc_add</c>: as <see cref="MatchCalc"/> but the products are added to the values that <paramref name="match"/> holds.</summary>
+        internal void MatchCalcAdd(double[][] mtx, double[] match, double[][] cpmx1, double[][] cpmx2, int i1, int lgth2, double[][] doublework, int[][] intwork, bool initialize)
+        {
+            int na = G.Nalphabets;
+            if (initialize)
+            {
+                for (int j = 0; j < lgth2; j++)
+                {
+                    int count = 0;
+                    for (int l = 0; l < na; l++)
+                    {
+                        if (cpmx2[l][j] != 0.0)
+                        {
+                            doublework[j][count] = cpmx2[l][j];
+                            intwork[j][count] = l;
+                            count++;
+                        }
+                    }
+                    intwork[j][count] = -1;
+                }
+            }
+            var scarr = new double[na];
+            for (int l = 0; l < na; l++)
+            {
+                scarr[l] = 0.0;
+                for (int j = 0; j < na; j++)
+                    scarr[l] += mtx[j][l] * cpmx1[j][i1];
+            }
+            for (int j = 0; j < lgth2; j++)
+            {
+                double m = match[j];
+                int[] idx = intwork[j];
+                double[] val = doublework[j];
+                for (int k = 0; idx[k] > -1; k++)
+                    m += scarr[idx[k]] * val[k];
+                match[j] = m;
+            }
+        }
+
+        /// <summary>
         /// <c>Falign_localhom</c> (<c>Falign_localhom.c</c>) for <c>kobetsubunkatsu</c> (the refinement: the groups' own columns as anchors, no FFT): the alignment is cut at the centres of the alignable regions, every piece is freed of its
         /// common gaps and aligned by <see cref="PartAAlign"/>; <paramref name="totalimpmatch"/> is the sum of the importance of the paths.
         /// </summary>
-        private void FalignLocalHom(string[] seq1, string[] seq2, double[] eff1, double[] eff2, int clus1, int clus2, int alloclen, out double totalimpmatch)
+        private void FalignLocalHom(string[] seq1, string[] seq2, double[] eff1, double[] eff2, int clus1, int clus2, int alloclen, out double totalimpmatch, VariousDist? various = null)
         {
             if (G.Kobetsubunkatsu == 0)
                 throw new NotSupportedException("The FFT variant of Falign_localhom is not available in this port.");
@@ -489,7 +650,7 @@ public static partial class SequenceAligner
                 if (G.Alg != 'A')
                     throw new NotSupportedException("Only the default algorithm (A) of MAFFT is available in this port.");
                 PartAAlign(tmpres1, tmpres2, eff1, eff2, clus1, clus2, alloclen, out double impmatch, cut1[i], cut2[i], gapmap1, gapmap2,
-                    new string(sgap1), new string(sgap2), new string(egap1), new string(egap2));
+                    new string(sgap1), new string(sgap2), new string(egap1), new string(egap2), various);
                 totalimpmatch += impmatch;
                 int nl = tmpres1[0].Length;
                 if (totallen + nl > alloclen)

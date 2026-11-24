@@ -75,6 +75,9 @@ public static partial class SequenceAligner
         internal int TupleSize = 6;
         internal int LegacyGapCost;
         internal double SpecificityConsideration;
+
+        /// <summary><c>ndistclass</c> of <c>defs.c</c>: the number of classes of distance for the scoring matrices of <c>--unalignlevel</c>.</summary>
+        internal int NDistClass = 10;
         internal int NGuideTree = 1;
         internal int NWildcard;
         internal int NeverMemSave;

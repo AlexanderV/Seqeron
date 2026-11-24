@@ -374,6 +374,10 @@
     <EmbeddedResource Include="TestData\Alignment\mafft_wp74_seed_oracle.tsv.gz" />
     <!-- ALIGN-MULTI-001 (audit A2-19c-s5, B09 F343): mafft shiftpenalty with globalpair (the warp of A__align, G__align11 and partA__align): installed mafft, scripts/alignment/generate_mafft_wp74_oracle.py shift. -->
     <EmbeddedResource Include="TestData\Alignment\mafft_wp74_shift_oracle.tsv.gz" />
+    <!-- ALIGN-MULTI-001 (audit A2-19c-s5, B09 F344): mafft unalignlevel and allowshift with globalpair, no iterative refinement (the scoring matrix shifted by the distance of every step and of every pair): installed mafft, scripts/alignment/generate_mafft_wp74_oracle.py unalign. -->
+    <EmbeddedResource Include="TestData\Alignment\mafft_wp74_unalign_oracle.tsv.gz" />
+    <!-- ALIGN-MULTI-001 (audit A2-19c-s5, B09 F345): mafft unalignlevel and allowshift with globalpair and the iterative refinement (one scoring matrix per class of distance in dvtditr): installed mafft, scripts/alignment/generate_mafft_wp74_oracle.py unalign-iter. -->
+    <EmbeddedResource Include="TestData\Alignment\mafft_wp74_unaligniter_oracle.tsv.gz" />
     <!-- ALIGN-MULTI-001 (audit A2-27, B09 F120): EMBOSS 6.6.0 -aformat output formats (needle / water) and the sequence-set formats (seqret), byte for byte;
          scripts/alignment/generate_emboss_aformat_oracle.py, scripts/alignment/generate_emboss_seqout_oracle.py (faked run dates: scripts/alignment/faketime.c). -->
     <EmbeddedResource Include="TestData\Alignment\emboss_aformat_oracle.tsv.gz" />

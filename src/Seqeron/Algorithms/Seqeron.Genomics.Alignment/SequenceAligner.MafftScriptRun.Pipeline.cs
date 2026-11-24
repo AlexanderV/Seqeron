@@ -308,8 +308,6 @@ public static partial class SequenceAligner
                 && _distance is "ktuples" or "global" or "local" or "localgenaf" or "parttree";
             if (_nadd > 0 && _distance == "parttree")
                 throw new NotSupportedException("--add with --parttree: the script refuses it (Impossible).");
-            if (Num(_unalignlevel) > 0.0)
-                throw new NotSupportedException("--allowshift / --unalignlevel (the unaligned level of the alignment programs: scoring matrices by distance class) are not ported yet.");
             if (!engine || cycletbfast > 1 && _distance != "parttree" && !seedRun)
                 throw new NotSupportedException("The strategy '" + strategy + "' of the script (distance " + _distance + ") is not ported yet.");
             var recs = MafftProgramIo.Records(infile);

@@ -344,12 +344,31 @@ public static partial class SequenceAligner
         /// the two groups are re-aligned (<see cref="Falign"/> with the groups' own columns as anchors), and the new alignment is kept when its score is not lower than the old one; a pass over all branches is an iteration (forward
         /// and backward alternately) and the refinement ends when <c>2 n</c> branches in a row do not change or the score oscillates. <paramref name="aseq"/> is the alignment of the segment, the result is returned.
         /// </summary>
+        private int _maxDistClass = -1;
+
         private string[] TreeDependentIteration(int locnjob, string[] segment, int[][][] topol, double[][] len, double[][] distmtx, int[][] skipthisbranch, int alloclen, MafftLocalHom[][]? localhom = null, bool[]? kozo = null)
         {
             bool anyKozo = kozo != null && kozo.Any(x => x);
             var effarrKozo = new double[locnjob];
             var aseq = (string[])segment.Clone();
             var bseq = (string[])segment.Clone();
+            // --unalignlevel: one scoring matrix per distance class of the pair of groups (makescoringmatrices); the distance of a pair is the sum of the distances of its two sequences from the branch (<c>USEDISTONTREE</c>)
+            VariousDist? various = null;
+            double[][]? smalldistmtx = null;
+            if (G.SpecificityConsideration != 0.0)
+            {
+                various = new VariousDist { MaxDistClass = _maxDistClass, Matrices = new double[_maxDistClass][][], Eff1s = new double[_maxDistClass][], Eff2s = new double[_maxDistClass][] };
+                for (int c = 0; c < _maxDistClass; c++)
+                {
+                    double rep = 2.0 * c / G.NDistClass;
+                    various.Matrices[c] = MakeDynamicMtx(G.NDisConsweightMulti, rep * 0.5);
+                    various.Eff1s[c] = new double[locnjob];
+                    various.Eff2s[c] = new double[locnjob];
+                }
+                smalldistmtx = new double[locnjob][];
+                for (int i = 0; i < locnjob; i++)
+                    smalldistmtx[i] = new double[locnjob];
+            }
             _ = distmtx;
             var effarr = new double[locnjob];
             var distarr = new double[locnjob];
@@ -405,6 +424,15 @@ public static partial class SequenceAligner
                         stopol?.DistFromABranch(distarr, len, l, k);
                         var (memlist0, memlist1) = OneClusterAndTheOther(locnjob, topol, l, k);
                         int s1 = memlist0[0], s2 = memlist1[0];
+                        if (smalldistmtx != null)
+                        {
+                            for (int i = 0; i < memlist0.Length; i++)
+                                for (int j = 0; j < memlist1.Length; j++)
+                                {
+                                    int im = memlist0[i], jm = memlist1[j];
+                                    smalldistmtx[i][j] = distarr[im] + distarr[jm]; // USEDISTONTREE (tddis.c): the distance of the two sequences from the branch
+                                }
+                        }
                         if (G.Weight == 0)
                         {
                             for (int i = 0; i < locnjob; i++)
@@ -441,6 +469,8 @@ public static partial class SequenceAligner
                             FastConjunction(memlist1, aseq, mseq2, effarr2, effarr, G.MinimumWeight);
                         }
                         int clus1 = memlist0.Length, clus2 = memlist1.Length;
+                        if (various != null)
+                            ClassifyPairs(various, clus1, effarr1, clus2, effarr2, smalldistmtx!);
                         double mscore = IntergroupScore(mseq1, mseq2, effarr1, effarr2, clus1, clus2, length); // computed with -Z too ("Oscilation check no tame hitsuyou"): -Z only skips the score of the new alignment (tscore = mscore + 1)
                         double impmatchdouble = 0.0;
                         if (localhom != null)
@@ -454,7 +484,7 @@ public static partial class SequenceAligner
                             mscore = oimpmatchdouble + mscore;
                             if (!G.UseFft)
                                 throw new InvalidOperationException("Unexpected error.  Please contact katoh@ifrec.osaka-u.ac.jp");
-                            FalignLocalHom(mseq1, mseq2, effarr1, effarr2, clus1, clus2, alloclen, out impmatchdouble);
+                            FalignLocalHom(mseq1, mseq2, effarr1, effarr2, clus1, clus2, alloclen, out impmatchdouble, various);
                         }
                         else if (G.UseFft)
                             Falign(G.NDisConsweightMulti, mseq1, mseq2, effarr1, effarr2, clus1, clus2, alloclen);
@@ -533,6 +563,31 @@ public static partial class SequenceAligner
             return bseq;
         }
 
+        /// <summary><c>classifypairs</c>: the class of every pair of the two groups from its distance (<c>(int)( dist / 2 * ndistclass )</c>, at most <c>maxdistclass - 1</c>); the weights of a sequence are kept for the classes in which it has a pair.</summary>
+        private static void ClassifyPairs(VariousDist vd, int n1, double[] eff1, int n2, double[] eff2, double[][] smalldistmtx)
+        {
+            int nc = vd.MaxDistClass;
+            for (int c = 0; c < nc; c++)
+            {
+                Array.Clear(vd.Eff1s[c], 0, n1);
+                Array.Clear(vd.Eff2s[c], 0, n2);
+            }
+            vd.Which = new int[n1][];
+            for (int i = 0; i < n1; i++)
+            {
+                vd.Which[i] = new int[n2];
+                for (int j = 0; j < n2; j++)
+                {
+                    int c = (int)(smalldistmtx[i][j] / 2.0 * 10);
+                    if (c >= nc)
+                        c = nc - 1;
+                    vd.Eff1s[c][i] = eff1[i];
+                    vd.Eff2s[c][j] = eff2[j];
+                    vd.Which[i][j] = c;
+                }
+            }
+        }
+
         /// <summary><c>counteff_simple</c> (<c>mltaln9.c</c>): the weight of a sequence from the lengths of the branches between it and the root of the tree, with the complete member lists of the groups.</summary>
         private static void CountEffSimpleFull(int nseq, int[][][] topol, double[][] len, double[] node)
         {
@@ -601,6 +656,19 @@ public static partial class SequenceAligner
                     seqG[i] = seqG[i].ToLowerInvariant();
             if (localhom != null)
                 Report("Loading 'hat3' ... done.\n");
+            if (G.SpecificityConsideration != 0.0)
+            {
+                // calcmaxdistclass: the classes of distance up to the one whose offset is 0
+                int cmax = 0;
+                for (; cmax < G.NDistClass; cmax++)
+                {
+                    double rep = 2.0 * cmax / G.NDistClass;
+                    if (Math.Min(0.0, rep * 0.5 - G.SpecificityConsideration) == 0.0)
+                        break;
+                }
+                Report("ndistclass = " + G.NDistClass.ToString(CultureInfo.InvariantCulture) + ", maxdistclass = " + (cmax + 1).ToString(CultureInfo.InvariantCulture) + "\n");
+                _maxDistClass = cmax + 1;
+            }
             G.Constants(seqG);
             if (CheckAlphabet(seqG) is { } unknownLetter)
                 throw unknownLetter;

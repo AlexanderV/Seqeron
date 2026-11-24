@@ -6,7 +6,7 @@ Groups: merge (--merge table: subalignments that the programs keep, the constrai
 merge-err (tables and groups the programs refuse), merge-tree (--merge with --treein); text (--text: an alphabet of 256 characters, default progressive method), text-pair / text-iter (with a pair library / --maxiterate),
 text-matrix (--textmatrix: the entries of the file _aamtx), text-err (stops: '=' '<' '>' in a text, a malformed matrix file), text-format (clustal / phylip output, --reorder, --treeout ...);
 seed (--seed file: multi2hat3s, disttbfast -E 1, tbfast -J, dvtditr -l with the structure weights), seed-multi (two or three seed files), seedtable (--seedtable: the hat3.seed file of the user), seed-err (stops),
-shift (--shiftpenalty x with --globalpair: trywarp of A__align, G__align11, partA__align for x below 10, the stops of the script for the other methods), seed-large (--seed with --large / --memsavetree / --stepadd and a pair library: nodepair and the seeds of tbfast -U), seed-opt (--seed with the other options of the script: --auto, --retree 0, --large, --treein, --merge, --add, ...).
+unalign (--unalignlevel x / --allowshift with --globalpair, no iterative refinement: the pair stage with the shifted scoring matrix, tbfast with the matrix of every step, expdist of a user tree), unalign-iter (the same with --maxiterate: dvtditr -s, one scoring matrix per distance class), shift (--shiftpenalty x with --globalpair: trywarp of A__align, G__align11, partA__align for x below 10, the stops of the script for the other methods), seed-large (--seed with --large / --memsavetree / --stepadd and a pair library: nodepair and the seeds of tbfast -U), seed-opt (--seed with the other options of the script: --auto, --retree 0, --large, --treein, --merge, --add, ...).
 
 It reuses the infrastructure of WP70 - WP73 (generate_mafft_command_oracle.py: sets, option runner; mafft_command_oracle_lib.py: runner, writer).
 
@@ -566,12 +566,71 @@ def build_shift(rng, want, n, out):
     return out
 
 
+UNALIGN_BASES = [[], [], [], ['--retree', '1'], ['--retree', '2'], ['--retree', '0'], ['--weighti', '1'], ['--weighti', '3'], ['--treeout'], ['--distout'], ['--treeout', '--distout'], ['--reorder'], ['--clustalout'], ['--nofft'], ['--fft'],
+                 ['--6merpair'], ['--thread', '2'], ['--amino'], ['--nuc'], ['--leavegappyregion'], ['--op', '2', '--ep', '0.1'], ['--outnum'], ['--unweight'], ['--minimumweight', '0.1'], ['--anysymbol'], ['--large'], ['--memsavetree'], ['--stepadd'],
+                 ['--nwildcard'], ['--bl', '80'], ['--averagelinkage'], ['--phylipout'], ['--inputorder'], ['--shiftpenalty', '2'], ['--shiftpenalty', '5'], ['--shiftpenalty', '50'], ['--treein', 'tree.txt'], ['--add', 'add.fa'], ['--addprofile', 'add.fa']]
+
+
+def build_unalign(rng, want, n, out):
+    """--unalignlevel x / --allowshift with --globalpair, without the iterative refinement: the pair stage aligns a distant pair again with the shifted scoring matrix, tbfast shifts the matrix of every step."""
+    if not want or 'unalign' in want:
+        for k in range(n):
+            seqs, names, groups = make_case(rng, size_range=(2, 4))
+            seqs = [x.replace('-', '') for x in seqs]
+            files = {}
+            kind = rng.choice(['unalign', 'unalign', 'unalign', 'allowshift', 'allowshift'])
+            if kind == 'unalign':
+                args = ['--globalpair', '--unalignlevel', rng.choice(['0.1', '0.2', '0.3', '0.5', '0.8', '1.0', '0.05', '0.99'])]
+            else:
+                args = ['--globalpair', '--allowshift']
+            extra = list(rng.choice(UNALIGN_BASES))
+            if rng.random() < 0.1:
+                extra = rng.choice([['--localpair'], ['--genafpair'], ['--parttree'], ['--similaritylevel', '0.3'], ['--unalignlevel', '1.5'], ['--addfragments', 'add.fa']])
+            args += extra
+            if 'tree.txt' in args:
+                files['tree.txt'] = consistent_tree(rng, len(seqs), [])
+            if 'add.fa' in args:
+                files['add.fa'] = L.fasta(seqs[:2], ['f0', 'f1'])
+            out.append(('unalign-%04d' % k, 'unalign', args, L.fasta(seqs, names, rng.choice([None, None, 30])), files))
+    return out
+
+
+UNALIGN_ITER_BASES = [[], [], [], ['--retree', '1'], ['--retree', '2'], ['--weighti', '1'], ['--weighti', '3'], ['--treeout'], ['--distout'], ['--treeout', '--distout'], ['--reorder'], ['--clustalout'], ['--nofft'], ['--fft'], ['--6merpair'],
+                      ['--thread', '2', '--threadit', '0'], ['--amino'], ['--nuc'], ['--leavegappyregion'], ['--op', '2', '--ep', '0.1'], ['--outnum'], ['--unweight'], ['--minimumweight', '0.1'], ['--anysymbol'], ['--nwildcard'],
+                      ['--bl', '80'], ['--averagelinkage'], ['--skipiterate', '0.3'], ['--bunkatsunashi'], ['--core'], ['--shiftpenalty', '2'], ['--shiftpenalty', '50'], ['--treein', 'tree.txt'], ['--memsave'], ['--nomemsave'], ['--randomseed', '3'],
+                      ['--large'], ['--memsavetree'], ['--stepadd'], ['--add', 'add.fa'], ['--addprofile', 'add.fa']]
+
+
+def build_unalign_iter(rng, want, n, out):
+    """--unalignlevel x / --allowshift with --globalpair and --maxiterate: the refinement aligns the groups of a branch with one scoring matrix per distance class (dvtditr -s)."""
+    if not want or 'unalign-iter' in want:
+        for k in range(n):
+            seqs, names, groups = make_case(rng, size_range=(2, 4))
+            seqs = [x.replace('-', '') for x in seqs]
+            files = {}
+            kind = rng.choice(['unalign', 'unalign', 'unalign', 'allowshift', 'allowshift'])
+            if kind == 'unalign':
+                args = ['--globalpair', '--unalignlevel', rng.choice(['0.1', '0.2', '0.3', '0.5', '0.8', '1.0', '0.05', '0.99'])]
+            else:
+                args = ['--globalpair', '--allowshift']
+            args += ['--maxiterate', rng.choice(['1', '2', '3', '1000'])]
+            args += list(rng.choice(UNALIGN_ITER_BASES))
+            if rng.random() < 0.05:
+                args += rng.choice([['--localpair'], ['--genafpair'], ['--parttree']])
+            if 'tree.txt' in args:
+                files['tree.txt'] = consistent_tree(rng, len(seqs), [])
+            if 'add.fa' in args:
+                files['add.fa'] = L.fasta(seqs[:2], ['f0', 'f1'])
+            out.append(('unalign-iter-%04d' % k, 'unalign-iter', args, L.fasta(seqs, names, rng.choice([None, None, 30])), files))
+    return out
+
+
 def main():
     rng = random.Random(7450515)
     want = set(sys.argv[1:])
     allcases = []
     refused = 0
-    for c in build(rng, want) + build_shift(random.Random(7450516), want, int(260 * SCALE), []):
+    for c in build(rng, want) + build_shift(random.Random(7450516), want, int(260 * SCALE), []) + build_unalign(random.Random(7450517), want, int(300 * SCALE), []) + build_unalign_iter(random.Random(7450518), want, int(330 * SCALE), []):
         nseq = c[3].count('\n>') + (1 if c[3].startswith('>') else 0)
         if TABLE in c[4] and table_overruns(c[4][TABLE], nseq):
             refused += 1

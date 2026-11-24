@@ -170,7 +170,7 @@ public static partial class SequenceAligner
         /// <c>pairlocalalign</c> as <c>tbfast</c> calls it (<c>pairlocalalign( njob, nlenmax, name, seq, iscore, localhomtable, ...)</c>): the pairwise alignment of every pair of sequences, the distance of every pair
         /// (<c>iscore[i][j - i]</c>) and the ungapped blocks of the alignments (<c>localhomtable[i][j - i]</c>). The messages go to <see cref="MafftGlobals.Log"/>.
         /// </summary>
-        internal (double[][] Iscore, MafftLocalHom[][] LocalHom) PairLocalAlign(string[] seq)
+        internal (double[][] Iscore, MafftLocalHom[][] LocalHom) PairLocalAlign(string[] seq, double[][]? expdist = null)
         {
             int njob = seq.Length;
             G.Constants(seq);
@@ -250,6 +250,18 @@ public static partial class SequenceAligner
                             pscore = G__align11(G.NDisConsweightMulti, m1, m2, _nlenmax * 2, G.Outgap, G.Outgap);
                             if (tx != 0)
                                 pscore = G__align11Noalign(G.NDisConsweightMulti, dseq[i], dseq[j]);
+                            if (G.SpecificityConsideration > 0.0)
+                            {
+                                // --unalignlevel: a pair that is distant enough is aligned again with the scoring matrix shifted by the offset of its distance (the score stays that of the first alignment, the blocks come from the second)
+                                double dist = expdist != null ? expdist[i][j] : Score2Dist(pscore, selfscore[i], selfscore[j]);
+                                if (dist * 0.5 - G.SpecificityConsideration < 0.0)
+                                {
+                                    var dynamicmtx = MakeDynamicMtx(G.NDisConsweightMulti, 0.5 * dist);
+                                    m1[0] = bseq[i];
+                                    m2[0] = bseq[j];
+                                    G__align11(dynamicmtx, m1, m2, _nlenmax * 2, G.Outgap, G.Outgap);
+                                }
+                            }
                         }
                         else
                         {
@@ -1274,10 +1286,28 @@ public static partial class SequenceAligner
             for (int i = 0; i < njob; i++)
                 len[i] = new double[2];
             var dep = new Treedep[njob];
+            double[][]? expdist = null;
             if (treein != '\0')
             {
                 LoadTree(njob, topol0, topol1, len, dep, G.TreeOut != 0, names ?? DefaultNames(njob));
                 Report("\ndone.\n\n");
+                if (pairG != null && G.SpecificityConsideration > 0.0)
+                {
+                    // the distances of the pairs along the user tree (the pair stage needs them for --unalignlevel)
+                    var userTree = new GuideTree(topol0, topol1, dep, len);
+                    expdist = new double[njob][];
+                    for (int i = 0; i < njob; i++)
+                        expdist[i] = new double[njob];
+                    for (int i = 0; i < njob - 1; i++)
+                    {
+                        foreach (int a in userTree.Order(i, 0))
+                            foreach (int b in userTree.Order(i, 1))
+                            {
+                                expdist[a][b] += len[i][0] + len[i][1];
+                                expdist[b][a] += len[i][0] + len[i][1];
+                            }
+                    }
+                }
             }
 
             MafftLocalHom[][] localhom = null!;
@@ -1334,7 +1364,7 @@ public static partial class SequenceAligner
                 (double[][] Iscore, MafftLocalHom[][] LocalHom) pairResult;
                 try
                 {
-                    pairResult = pairRun.PairLocalAlign(seq);
+                    pairResult = pairRun.PairLocalAlign(seq, expdist);
                 }
                 catch (MafftProgramFailureException)
                 {
