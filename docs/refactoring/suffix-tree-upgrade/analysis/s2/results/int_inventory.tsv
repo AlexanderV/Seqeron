@@ -1,0 +1,797 @@
+file	line	category	text
+src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs	39	VIEW	private readonly int[] _next;
+src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs	40	VIEW	private readonly int[] _up;
+src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs	41	VIEW	private readonly int[] _down;
+src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs	43	VIEW	private Reference3Child(int[] next, int[] up, int[] down)
+src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs	65	SIG	public int FirstLIndex(int lb, int rb, bool lastChild) => lastChild ? _down[lb] : _up[rb];
+src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs	67	SIG	public int NextLIndex(int k, int rb)
+src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs	82	VIEW	private readonly int[] _cld;
+src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs	85	VIEW	private PackedChild(int[] cld, CompactLcp lcp)
+src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs	102	SIG	public int FirstLIndex(int lb, int rb, bool lastChild) => _cld[lastChild ? lb : rb];
+src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs	104	SIG	public int NextLIndex(int k, int rb)
+src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs	121	LIMIT	internal const int MaxLength = (1 << 30) - 1;
+src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs	128	VIEW	private readonly uint[] _cld;
+src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs	130	VIEW	private TaggedChild(uint[] cld) => _cld = cld;
+src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs	135	LIMIT	if (n > MaxLength)
+src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs	149	CAST	internal static int ValueOf(uint field) => (int)(field & ValueMask);
+src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs	149	SIG	internal static int ValueOf(uint field) => (int)(field & ValueMask);
+src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs	165	SIG	public int FirstLIndex(int lb, int rb, bool lastChild) => ValueOf(_cld[lastChild ? lb : rb]);
+src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs	167	SIG	public int NextLIndex(int k, int rb)
+src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs	187	VIEW	private readonly int* _cld;
+src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs	193	VIEW	internal MappedChild(int* cld, int count, CompactLcp lcp, bool isChecked, bool tagged = false)
+src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs	203	SIG	internal int Length => _count;
+src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs	209	VIEW	internal int* Pointer => _cld;
+src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs	214	SIG	public int FirstLIndex(int lb, int rb, bool lastChild)
+src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs	222	SIG	public int NextLIndex(int k, int rb)
+src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs	228	CAST	return (cell & TaggedKindMask) == TaggedNext ? (int)(cell & TaggedValueMask) : -1;
+src/SuffixTree/Algorithms/SuffixTree.Esa/ChildTable.cs	108	SIG	internal int FirstLIndex(int lb, int rb, bool lastChild) => IsMapped ? Mapped.FirstLIndex(lb, rb, lastChild) : Kind switch
+src/SuffixTree/Algorithms/SuffixTree.Esa/ChildTable.cs	116	SIG	internal int NextLIndex(int k, int rb) => IsMapped ? Mapped.NextLIndex(k, rb) : Kind switch
+src/SuffixTree/Algorithms/SuffixTree.Esa/ChildWriteTrace.cs	52	SIG	internal int StackPeak { get; private set; }
+src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs	32	VIEW	private readonly int[]? _u32;
+src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs	33	VIEW	private readonly int[] _overflowRank;
+src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs	34	VIEW	private readonly int[] _overflowValue;
+src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs	38	VIEW	private readonly uint* _mappedPairs;
+src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs	41	VIEW	private int[]? _mappedRanks;
+src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs	42	VIEW	private int[]? _mappedValues;
+src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs	44	VIEW	private CompactLcp(LcpKind kind, int length, byte[]? u8, ushort[]? u16, int[]? u32, int[] overflowRank, int[] overflowValue)
+src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs	55	VIEW	private CompactLcp(LcpKind kind, int length, byte* baseArray, uint* pairs, int pairCount, bool isChecked)
+src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs	73	VIEW	internal static CompactLcp FromMapped(LcpKind kind, int length, byte* baseArray, uint* pairs, int pairCount, bool isChecked)
+src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs	91	SIG	internal int Length { get; }
+src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs	94	SIG	internal int OverflowCount => IsMapped ? _mappedPairCount : _overflowRank.Length;
+src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs	103	SIG	private int EscapeValue => Kind switch { LcpKind.U8 => U8Escape, LcpKind.U16 => U16Escape, _ => -1 };
+src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs	112	VIEW	internal int[]? BaseU32 => _u32;
+src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs	115	VIEW	internal int[] OverflowRanks => IsMapped ? MappedArrays().Ranks : _overflowRank;
+src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs	118	VIEW	internal int[] OverflowValues => IsMapped ? MappedArrays().Values : _overflowValue;
+src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs	132	SIG	private int EscapedValue(int rank)
+src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs	140	SIG	private int FindOverflow(int rank)
+src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs	146	CAST	int mid = (int)(((uint)lo + (uint)hi) >> 1);
+src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs	155	SIG	private int OverflowRankAt(int index) => IsMapped ? MappedWord(2 * (long)index) : _overflowRank[index];
+src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs	157	SIG	private int OverflowValueAt(int index) => IsMapped ? MappedWord((2 * (long)index) + 1) : _overflowValue[index];
+src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs	160	SIG	private int MappedWord(long word)
+src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs	163	LIMIT	if (v > int.MaxValue) throw Corrupt($"the overflow list holds {v}");
+src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs	164	CAST	return (int)v;
+src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs	168	VIEW	private (int[] Ranks, int[] Values) MappedArrays()
+src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs	189	VIEW	internal int[] ToArray()
+src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs	217	VIEW	internal static CompactLcp FromDense(ReadOnlySpan<int> lcp)
+src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs	230	VIEW	internal static CompactLcp FromDense(ReadOnlySpan<int> lcp, LcpKind kind)
+src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs	233	LIMIT	int escape = kind switch { LcpKind.U8 => U8Escape, LcpKind.U16 => U16Escape, _ => int.MaxValue };
+src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs	250	VIEW	internal static CompactLcp FromParts(LcpKind kind, int length, byte[]? u8, ushort[]? u16, int[]? u32, int[] overflowRank, int[] overflowValue)
+src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs	264	LIMIT	int escape = kind switch { LcpKind.U8 => U8Escape, LcpKind.U16 => U16Escape, _ => int.MaxValue };
+src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs	281	SIG	private int BaseValue(int rank)
+src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs	293	SIG	private int MappedValue(int rank)
+src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs	302	VIEW	int v = ((int*)_mappedBase)[rank];
+src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs	324	SIG	internal int Get(int rank)
+src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs	352	VIEW	private readonly int[]? _u32;
+src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs	353	VIEW	private readonly int[] _overflowRank;
+src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs	354	VIEW	private readonly int[] _overflowValue;
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Analysis.cs	30	VIEW	internal IReadOnlyList<(string Substring, IReadOnlyList<int> Positions)> FindAllLongestRepeatedSubstrings()
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Analysis.cs	33	VIEW	if (length == 0) return Array.Empty<(string, IReadOnlyList<int>)>();
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Analysis.cs	35	VIEW	var results = new List<(string Substring, IReadOnlyList<int> Positions)>();
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Analysis.cs	56	VIEW	private (string Substring, IReadOnlyList<int> Positions) Tie(int lb, int rb, int length)
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Analysis.cs	58	VIEW	int[] positions = Sa.ToArray(lb, rb - lb + 1);
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Matching.cs	37	VIEW	internal (string Substring, IReadOnlyList<int> PositionsInText, IReadOnlyList<int> PositionsInOther) FindAllLongestCommonSubstrings(string other)
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Matching.cs	45	VIEW	internal IReadOnlyList<(string Substring, IReadOnlyList<int> PositionsInText, IReadOnlyList<int> PositionsInOther)> FindAllDistinctLongestCommonSubstrings(string other)
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Matching.cs	85	VIEW	private (string Substring, List<int> PositionsInText, List<int> PositionsInOther) FindAllLcsInternal(string other, bool firstOnly)
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Navigation.cs	21	SIG	internal int NavigationBuildCount => Volatile.Read(ref _navigationBuilds);
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Search.cs	11	VIEW	private int[]? _symbolOf;
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Search.cs	13	VIEW	private int[] SymbolOf => _symbolOf ??= BuildSymbolMap(IsMapped ? TextView.Alphabet : Prepared.Alphabet);
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Search.cs	15	VIEW	private static int[] BuildSymbolMap(char[] alphabet)
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Search.cs	34	SIG	internal int CountOccurrences(string pattern)
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Search.cs	42	VIEW	internal IReadOnlyList<int> FindAllOccurrences(string pattern)
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Search.cs	42	SIG	internal IReadOnlyList<int> FindAllOccurrences(string pattern)
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Search.cs	55	SIG	internal int CountOccurrences(ReadOnlySpan<char> pattern)
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Search.cs	65	VIEW	internal IReadOnlyList<int> FindAllOccurrences(ReadOnlySpan<char> pattern)
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Search.cs	65	SIG	internal IReadOnlyList<int> FindAllOccurrences(ReadOnlySpan<char> pattern)
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Search.cs	82	VIEW	internal int Locate(int lo, int hi, long skip, Span<int> positions)
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Search.cs	82	SIG	internal int Locate(int lo, int hi, long skip, Span<int> positions)
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Search.cs	88	CAST	int count = (int)Math.Min(available, positions.Length);
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Search.cs	89	CAST	Sa.CopyTo((int)(lo + skip), positions[..count]);
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Search.cs	94	SIG	internal int Locate(int lo, int hi, long skip, Span<long> positions)
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Search.cs	100	CAST	int count = (int)Math.Min(available, positions.Length);
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Search.cs	101	CAST	int start = (int)(lo + skip);
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Search.cs	128	VIEW	int[] map = SymbolOf;
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Search.cs	151	VIEW	internal static bool Descend<TChild, TSym>(TChild child, int[] sa, CompactLcp lcp, ReadOnlySpan<TSym> text, ReadOnlySpan<TSym> pat, out int lo, out int hi)
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Search.cs	225	VIEW	int[] map = SymbolOf;
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Search.cs	245	CAST	int n = (int)text.Length;
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Search.cs	261	CAST	int key = (uint)p < (uint)n ? (int)text.Symbol(p) : -1;
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Traverse.cs	35	VIEW	int[] occurrence = LeftmostOccurrence.Compute(sa, Lcp);
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Traverse.cs	81	SIG	private int CountChildren(int first, int rb)
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.cs	27	LIMIT	internal static ChildLayoutKind DefaultLayoutFor(int n) => n <= TaggedChild.MaxLength ? ChildLayoutKind.Tagged : ChildLayoutKind.Packed;
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.cs	29	VIEW	private EsaIndex(string text, PreparedText prepared, int[] sa, CompactLcp lcp, ChildTable child, EsaStatistics statistics)
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.cs	51	LIMIT	_mappedSearch = file.Header.TextLength < int.MaxValue ? new MappedSearch(file) : null;
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.cs	78	SIG	internal int Length => _length;
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.cs	86	VIEW	internal int[] SuffixArray => _sa.Array ?? throw new NotSupportedException("an index that reads a container has no managed suffix array: use Sa");
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.cs	109	VIEW	int[] sa = SaisKernel.Build(prepared);
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.cs	118	VIEW	internal static EsaIndex FromArrays(string text, PreparedText prepared, int[] sa, CompactLcp lcp, ChildLayoutKind layout)
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndexText.cs	14	SIG	public int SymbolAt(long position)
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndexText.cs	17	CAST	return position >= text.Length ? -1 : text[(int)position];
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndexText.cs	21	SIG	public int CopyTo(long start, Span<char> destination)
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndexText.cs	25	CAST	int count = (int)Math.Min(destination.Length, text.Length - start);
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndexText.cs	26	CAST	text.AsSpan((int)start, count).CopyTo(destination);
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaLimits.cs	16	LIMIT	if (textLength >= Array.MaxLength)
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaLimits.cs	18	LIMIT	$"A text of {textLength} symbols needs {textLength + 1} suffix-array entries, more than the 32-bit path supports ({Array.MaxLength}); use the 64-bit path.");
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigationPack.cs	17	VIEW	private readonly PinnedArray<int>? _sa;
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigationPack.cs	18	VIEW	private readonly PinnedArray<int> _isa;
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigationPack.cs	20	VIEW	private readonly Buf<int> _saBuf;
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigationPack.cs	21	VIEW	private readonly Buf<int> _isaBuf;
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigationPack.cs	24	VIEW	private EsaNavigationPack(EsaIndex index, PinnedArray<int>? sa, Buf<int> saBuf, PinnedArray<int> isa, LcpPyramid pyramid)
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigationPack.cs	43	VIEW	var sa = PinnedArray<int>.Pin(index.SuffixArray, "sa");
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigationPack.cs	44	VIEW	PinnedArray<int>? isa = null;
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigationPack.cs	49	VIEW	isa = PinnedArray<int>.Allocate(index.SuffixArray.Length, zero: false, "isa");
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigationPack.cs	50	VIEW	Buf<int> saBuf = sa.Buf;
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigationPack.cs	51	VIEW	Buf<int> isaBuf = isa.Buf;
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigationPack.cs	72	VIEW	PinnedArray<int>? isa = null;
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigationPack.cs	78	VIEW	isa = PinnedArray<int>.Allocate(count, zero: false, "isa");
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigationPack.cs	79	VIEW	Buf<int> isaBuf = isa.Buf;
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigationPack.cs	88	VIEW	return new EsaNavigationPack(index, null, new Buf<int>(sa.Pointer, count, "sa"), isa, pyramid);
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigationPack.cs	108	VIEW	internal Buf<int> Sa => _saBuf;
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigationPack.cs	111	SIG	internal int Isa(int position)
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigationPack.cs	122	VIEW	internal int[] IsaArray => _isa.Array;
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigationPack.cs	141	VIEW	Buf<int> sa = _saBuf;
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigationPack.cs	142	VIEW	Buf<int> isa = _isaBuf;
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigator.cs	19	VIEW	private readonly Buf<int> _sa;
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigator.cs	73	SIG	public int GetEdgeSymbol(EsaNode node, int offset)
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigator.cs	77	CAST	return index < (uint)_n ? _text[(int)index] : -1;
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigator.cs	82	SIG	public int LengthOf(EsaNode node)
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigator.cs	113	VIEW	public void CollectLeaves(EsaNode node, int depth, List<int> results)
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigator.cs	120	VIEW	if (sa.Array is { } array) results.AddRange(new ReadOnlySpan<int>(array, from, count));
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNavigator.cs	126	SIG	public int FindAnyLeafPosition(EsaNode node, int depthFromRoot)
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNode.cs	22	SIG	internal int EdgeLength => Depth - ParentDepth;
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNode.cs	25	SIG	internal int RankCount => Rb - Lb + 1;
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.Arrays.cs	11	CAST	return _index.Sa[(int)rank];
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.Arrays.cs	18	CAST	return _index.Navigation.Isa((int)position);
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.Arrays.cs	25	CAST	return _index.Lcp[(int)rank];
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.Arrays.cs	33	CAST	if (rankA == rankB) return _n - _index.Sa[(int)rankA];
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.Arrays.cs	34	CAST	return _index.Navigation.Pyramid.Min((int)Math.Min(rankA, rankB) + 1, (int)Math.Max(rankA, rankB));
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.Arrays.cs	48	CAST	int rank = (int)rankA;
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.Arrays.cs	52	CAST	int lo = (int)Math.Min(rankA, rankB);
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.Arrays.cs	53	CAST	int hi = (int)Math.Max(rankA, rankB);
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.Tree.cs	54	SIG	public int GetChildren(in IndexLocus node, Span<IndexLocus> children)
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.Tree.cs	90	SIG	public int EdgeSymbol(in IndexLocus node, long offset)
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.Tree.cs	96	CAST	return index < _n ? _index.TextView[(int)index] : -1;
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.Tree.cs	129	CAST	int symbol = at < (uint)_n ? text[(int)at] : -1;
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.cs	116	LIMIT	int low = int.MaxValue, high = -1;
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.cs	117	CAST	for (int rank = (int)at.Lo, last = (int)at.Hi; rank <= last; rank++)
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.cs	135	SIG	public int Locate(in IndexLocus locus, long skip, Span<long> positions)
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.cs	139	CAST	int from = (int)Math.Max(locus.Lo, 1);
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.cs	141	CAST	return _index.Locate(from, (int)locus.Hi, skip, positions);
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.cs	159	CAST	if (at >= (uint)_n || text[(int)at] != symbol) return false;
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.cs	195	CAST	int depth = (int)locus.Aux;
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.cs	197	CAST	int lb = (int)locus.Lo;
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.cs	198	CAST	int rb = (int)locus.Hi;
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.Navigation.cs	90	SIG	public int Locate(in IndexLocus locus, long skip, Span<long> positions)
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.Navigation.cs	118	SIG	public int GetChildren(in IndexLocus node, Span<IndexLocus> children)
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.Navigation.cs	132	SIG	public int EdgeSymbol(in IndexLocus node, long offset)
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs	74	LIMIT	internal const long MaxTextLength = int.MaxValue - 1L;
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs	85	LIMIT	if (textLength > MaxTextLength)
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs	86	LIMIT	throw new NotSupportedException($"A text of {textLength} symbols is beyond the 32-bit ISuffixTree surface (at most {MaxTextLength}); use the long API (ISuffixIndex).");
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs	91	SIG	internal static int CheckedNodeCount(long nodeCount)
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs	93	LIMIT	if (nodeCount > int.MaxValue)
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs	94	LIMIT	throw new NotSupportedException($"The suffix tree has {nodeCount} nodes, more than the 32-bit ISuffixTree surface can report ({int.MaxValue}); use the 64-bit ISuffixIndex
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs	95	CAST	return (int)nodeCount;
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs	248	VIEW	public IReadOnlyList<int> FindAllOccurrences(string pattern)
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs	248	SIG	public IReadOnlyList<int> FindAllOccurrences(string pattern)
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs	256	VIEW	public IReadOnlyList<int> FindAllOccurrences(ReadOnlySpan<char> pattern)
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs	256	SIG	public IReadOnlyList<int> FindAllOccurrences(ReadOnlySpan<char> pattern)
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs	263	SIG	public int CountOccurrences(string pattern)
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs	271	SIG	public int CountOccurrences(ReadOnlySpan<char> pattern)
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs	347	VIEW	public (string Substring, IReadOnlyList<int> PositionsInText, IReadOnlyList<int> PositionsInOther) FindAllLongestCommonSubstrings(string other)
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs	354	VIEW	public IReadOnlyList<(string Substring, IReadOnlyList<int> PositionsInText, IReadOnlyList<int> PositionsInOther)> FindAllDistinctLongestCommonSubstrings(string other)
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs	396	VIEW	public IReadOnlyList<(string Substring, IReadOnlyList<int> Positions)> FindAllLongestRepeatedSubstrings()
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs	414	SIG	public int Length => inner.Length;
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs	453	SIG	public int SymbolAt(long position)
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixTree.cs	459	SIG	public int CopyTo(long start, Span<char> destination)
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaText.cs	35	SIG	internal int Length => _length;
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaText.cs	122	SIG	public int Length => text.Length;
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaText.cs	144	SIG	public int SymbolAt(long position)
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaText.cs	147	CAST	return position >= text.Length ? -1 : text[(int)position];
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaText.cs	150	SIG	public int CopyTo(long start, Span<char> destination)
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaText.cs	154	CAST	int count = (int)Math.Min(destination.Length, text.Length - start);
+src/SuffixTree/Algorithms/SuffixTree.Esa/EsaText.cs	155	CAST	text.CopyTo((int)start, destination[..count]);
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpIntervalScan.cs	28	VIEW	internal struct ArrayLcpStream(int[] lcp) : ILcpStream
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpIntervalScan.cs	32	SIG	public int Next() => lcp[_next++];
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpIntervalScan.cs	47	SIG	public int Next() => _cursor.Get(_next++);
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpIntervalScan.cs	74	VIEW	int[] ell = new int[capacity], lb = new int[capacity], first = new int[capacity], last = new int[capacity];
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.Direct.cs	30	SIG	internal int LongRanks { get; set; }
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.Direct.cs	33	SIG	internal int LongPositions { get; set; }
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.Direct.cs	112	VIEW	internal static CompactLcp BuildDirect<TSym>(Buf<TSym> text, int n, Buf<int> sa, NativeArena arena, LcpTrace? trace = null, DirectReport? report = null)
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.Direct.cs	122	VIEW	internal static CompactLcp? TryDirect<TSym>(Buf<TSym> text, int n, Buf<int> sa, NativeArena arena, LcpTrace? trace = null, DirectReport? report = null)
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.Direct.cs	128	VIEW	Buf<int> longRanks = arena.Allocate<int>(longCap + 1, zero: false, "longRanks");
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.Direct.cs	130	VIEW	Buf<int> escapeRanks = arena.Allocate<int>(escapeCap + 1, zero: false, "escapeRanks");
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.Direct.cs	131	VIEW	Buf<int> escapeValues = arena.Allocate<int>(escapeCap + 1, zero: false, "escapeValues");
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.Direct.cs	198	VIEW	private static int ScanDirect<TSym>(Buf<TSym> text, int n, Buf<int> sa, Buf<byte> dst, Buf<int> longRanks, int longCap)
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.Direct.cs	243	VIEW	internal static int ResolveLong<TSym>(Buf<TSym> text, int n, Buf<int> sa, Buf<byte> dst, Buf<int> longRanks, int longs, Buf<int> escapeRanks, Buf<int> escapeValues, int e
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.Direct.cs	306	VIEW	private static CompactLcp ResolveInTextOrder<TSym>(Buf<TSym> text, int n, Buf<int> sa, NativeArena arena, Buf<byte> dst, byte[] lcp8, int longs, Buf<int> longRanks, Direc
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.Direct.cs	312	VIEW	Buf<int> values = arena.Allocate<int>(longs + 1, zero: false, "longValues"); // first the text positions, then (same memory) the LCP values
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.Direct.cs	314	VIEW	Buf<int> predecessors = arena.Allocate<int>(longs + 1, zero: false, "longPredecessors");
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.Direct.cs	316	VIEW	Buf<int> before = arena.Allocate<int>(words + 1, zero: false, "bitsBefore");
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.Direct.cs	366	CAST	if (t + ahead < distinct) text.Prefetch((int)(uint)sorted[t + ahead] + width);
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.Direct.cs	368	CAST	int p = (int)(uint)record;
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.Direct.cs	369	CAST	int k = (int)(record >> 32);
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.Direct.cs	410	VIEW	private static CompactLcp Materialize(int n, Buf<byte> dst, byte[] lcp8, int longs, Buf<int> longRanks, Buf<int> values)
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.Direct.cs	424	CAST	int escapes = kind switch { LcpKind.U8 => (int)escapes8, LcpKind.U16 => (int)escapes16, _ => 0 };
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.Direct.cs	427	VIEW	fixed (int* pRank = overflowRank)
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.Direct.cs	428	VIEW	fixed (int* pValue = overflowValue)
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.Direct.cs	430	VIEW	var escapedRanks = new Buf<int>(pRank, escapes, "overflowRank");
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.Direct.cs	431	VIEW	var escapedValues = new Buf<int>(pValue, escapes, "overflowValue");
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.Direct.cs	482	VIEW	int[] lcp32 = GC.AllocateUninitializedArray<int>(n + 1);
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.Direct.cs	484	VIEW	fixed (int* pLcp = lcp32)
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.Direct.cs	486	VIEW	var wide = new Buf<int>(pLcp, n + 1, "lcp32");
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.Direct.cs	511	VIEW	private static void Widen(ReadOnlySpan<byte> src, Span<int> dst)
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.cs	35	VIEW	internal static CompactLcp Build(LcpKernelKind kind, PreparedText prepared, int[] sa, LcpTrace? trace = null)
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.cs	49	VIEW	internal static CompactLcp Build(PreparedText prepared, ReadOnlySpan<int> sa, LcpTrace? trace = null)
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.cs	56	VIEW	internal static CompactLcp Build(PreparedText prepared, ReadOnlySpan<int> sa, NativeArena arena, LcpTrace? trace = null, bool direct = false)
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.cs	63	VIEW	fixed (int* pSa = sa)
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.cs	65	VIEW	var saBuf = new Buf<int>(pSa, n + 1, "sa");
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.cs	75	VIEW	internal static CompactLcp Build<TSym>(Buf<TSym> text, int n, Buf<int> sa, NativeArena arena, LcpTrace? trace = null)
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.cs	78	VIEW	Buf<int> plcp = ComputePlcp(text, n, sa, arena, out long escapes8, out long escapes16, trace);
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.cs	81	CAST	int escapes = kind switch { LcpKind.U8 => (int)escapes8, LcpKind.U16 => (int)escapes16, _ => 0 };
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.cs	97	VIEW	internal static Buf<int> ComputePlcp<TSym>(Buf<TSym> text, int n, Buf<int> sa, NativeArena arena, out long escapes8, out long escapes16, LcpTrace? trace = null)
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.cs	102	VIEW	Buf<int> phi = arena.Allocate<int>(n, zero: true, "phi");
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.cs	124	VIEW	private static int FillPhi(Buf<int> sa, Buf<int> phi, int n)
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.cs	124	SIG	private static int FillPhi(Buf<int> sa, Buf<int> phi, int n)
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.cs	138	VIEW	private static (long Escapes8, long Escapes16) PlcpLoop<TSym>(Buf<TSym> text, int n, Buf<int> phi)
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.cs	171	VIEW	private static CompactLcp WriteCompact(Buf<int> plcp, Buf<int> sa, int n, LcpKind kind, int escapes)
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.cs	175	VIEW	fixed (int* pRank = overflowRank)
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.cs	176	VIEW	fixed (int* pValue = overflowValue)
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.cs	178	VIEW	var ranks = new Buf<int>(pRank, escapes, "overflowRank");
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.cs	179	VIEW	var values = new Buf<int>(pValue, escapes, "overflowValue");
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.cs	196	VIEW	int[] lcp = GC.AllocateUninitializedArray<int>(n + 1);
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.cs	197	VIEW	fixed (int* p = lcp) WriteU32(plcp, sa, n, new Buf<int>(p, n + 1, "lcp32"));
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.cs	204	VIEW	private static void WriteU32(Buf<int> plcp, Buf<int> sa, int n, Buf<int> dst)
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.cs	214	VIEW	private static void WriteU8(Buf<int> plcp, Buf<int> sa, int n, Buf<byte> dst, Buf<int> ranks, Buf<int> values, int escapes)
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpKernel.cs	236	VIEW	private static void WriteU16(Buf<int> plcp, Buf<int> sa, int n, Buf<ushort> dst, Buf<int> ranks, Buf<int> values, int escapes)
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs	32	VIEW	private readonly PinnedArray<int>? _pinned32;
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs	33	VIEW	private readonly PinnedArray<int> _levelData;
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs	34	VIEW	private readonly Buf<int> _levels;
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs	65	CAST	size = (int)(((long)size + fanout - 1) / fanout);
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs	67	CAST	_offset[levels] = (int)total;
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs	75	VIEW	_levelData = PinnedArray<int>.Allocate(checked((int)total), zero: false, "lcp-pyramid");
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs	75	CAST	_levelData = PinnedArray<int>.Allocate(checked((int)total), zero: false, "lcp-pyramid");
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs	94	VIEW	_reader32 = new Reader32(new Buf<int>((int*)lcp.MappedBase, _length, "lcp-u32"));
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs	120	VIEW	_pinned32 = PinnedArray<int>.Pin(lcp.BaseU32!, "lcp-u32");
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs	139	SIG	internal int Length => _length;
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs	142	SIG	internal int Fanout => _fanout;
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs	145	SIG	internal int Levels => _levelCount;
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs	153	SIG	internal int ValueAt(int rank)
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs	166	SIG	internal int Min(int lo, int hi)
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs	180	SIG	internal int PrevLess(int pos, int bound)
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs	195	SIG	internal int NextLess(int pos, int bound)
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs	208	SIG	internal int PreviousSmaller(int p) => PrevLess(p - 1, ValueAt(p));
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs	211	SIG	internal int NextSmaller(int p) => NextLess(p + 1, ValueAt(p));
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs	257	LIMIT	int min = int.MaxValue;
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs	268	LIMIT	int min = int.MaxValue;
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs	290	LIMIT	int min = int.MaxValue;
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs	419	VIEW	private readonly struct Reader8(Buf<byte> entries, int[] overflowRanks, int[] overflowValues) : IBaseReader
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs	422	SIG	public int Value(int rank)
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs	437	VIEW	private readonly struct Reader16(Buf<ushort> entries, int[] overflowRanks, int[] overflowValues) : IBaseReader
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs	440	SIG	public int Value(int rank)
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs	455	VIEW	private readonly struct Reader32(Buf<int> entries) : IBaseReader
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs	458	SIG	public int Value(int rank) => entries[rank];
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs	471	VIEW	private static int Resolve(int[] overflowRanks, int[] overflowValues, int rank)
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs	471	SIG	private static int Resolve(int[] overflowRanks, int[] overflowValues, int rank)
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpReference.cs	7	VIEW	internal static CompactLcp Build<TReader>(TReader text, ReadOnlySpan<int> sa, LcpTrace? trace = null)
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpReference.cs	12	VIEW	internal static int[] ComputePlcp<TReader>(TReader text, ReadOnlySpan<int> sa)
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpReferenceOfT.cs	21	SIG	private static int ToInt(TIdx value) => int.CreateChecked(value);
+src/SuffixTree/Algorithms/SuffixTree.Esa/LcpReferenceOfT.cs	41	CAST	int escapes = kind switch { LcpKind.U8 => (int)escapes8, LcpKind.U16 => (int)escapes16, _ => 0 };
+src/SuffixTree/Algorithms/SuffixTree.Esa/LeftmostOccurrence.cs	14	VIEW	internal static int[] Compute(int[] sa, CompactLcp lcp)
+src/SuffixTree/Algorithms/SuffixTree.Esa/LeftmostOccurrence.cs	21	VIEW	internal static int[] Compute(SaView sa, CompactLcp lcp)
+src/SuffixTree/Algorithms/SuffixTree.Esa/LeftmostOccurrence.cs	30	VIEW	int[] ell = new int[capacity], first = new int[capacity], min = new int[capacity];
+src/SuffixTree/Algorithms/SuffixTree.Esa/LeftmostOccurrence.cs	33	LIMIT	min[0] = int.MaxValue;
+src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs	61	VIEW	internal readonly unsafe struct Lcp32Reader<TAccess>(int* values, int length) : IMappedLcp
+src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs	87	VIEW	internal readonly unsafe struct PackedCells<TAccess, TLcp>(int* cld, TLcp lcp, int n) : IMappedCells
+src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs	92	SIG	public int First(int lb, int rb, bool lastChild) => cld[lastChild ? lb : rb];
+src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs	95	SIG	public int Next(int k, int rb)
+src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs	107	VIEW	internal readonly unsafe struct TaggedCells(uint* cld) : IMappedCells
+src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs	114	CAST	public int First(int lb, int rb, bool lastChild) => (int)(cld[lastChild ? lb : rb] & ValueMask);
+src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs	114	SIG	public int First(int lb, int rb, bool lastChild) => (int)(cld[lastChild ? lb : rb] & ValueMask);
+src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs	117	SIG	public int Next(int k, int rb)
+src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs	120	CAST	return (cell & KindMask) == NextKind ? (int)(cell & ValueMask) : -1;
+src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs	137	VIEW	private readonly int* _sa;
+src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs	138	VIEW	private readonly int* _child;
+src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs	154	CAST	_n = (int)file.TextReader.Length;
+src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs	166	CAST	int words = (int)((((long)pattern.Length * _bits) + 63) / 64) + 2;
+src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs	171	VIEW	case 1: { var lcp = new Lcp8Reader(_lcp.MappedBase, _lcp); return Run<CheckedAccess, Lcp8Reader, TaggedCells>(new TaggedCells((uint*)_child), lcp, pattern, packed, out lo
+src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs	173	VIEW	case 3: { var lcp = new Lcp16Reader((ushort*)_lcp.MappedBase, _lcp); return Run<CheckedAccess, Lcp16Reader, TaggedCells>(new TaggedCells((uint*)_child), lcp, pattern, pac
+src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs	174	VIEW	case 4: { var lcp = new Lcp32Reader<CheckedAccess>((int*)_lcp.MappedBase, _lcp.Length); return Run<CheckedAccess, Lcp32Reader<CheckedAccess>, PackedCells<CheckedAccess, L
+src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs	175	VIEW	case 5: { var lcp = new Lcp32Reader<CheckedAccess>((int*)_lcp.MappedBase, _lcp.Length); return Run<CheckedAccess, Lcp32Reader<CheckedAccess>, TaggedCells>(new TaggedCells
+src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs	177	VIEW	case 7: { var lcp = new Lcp8Reader(_lcp.MappedBase, _lcp); return Run<TrustedAccess, Lcp8Reader, TaggedCells>(new TaggedCells((uint*)_child), lcp, pattern, packed, out lo
+src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs	179	VIEW	case 9: { var lcp = new Lcp16Reader((ushort*)_lcp.MappedBase, _lcp); return Run<TrustedAccess, Lcp16Reader, TaggedCells>(new TaggedCells((uint*)_child), lcp, pattern, pac
+src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs	180	VIEW	case 10: { var lcp = new Lcp32Reader<TrustedAccess>((int*)_lcp.MappedBase, _lcp.Length); return Run<TrustedAccess, Lcp32Reader<TrustedAccess>, PackedCells<TrustedAccess, 
+src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs	181	VIEW	default: { var lcp = new Lcp32Reader<TrustedAccess>((int*)_lcp.MappedBase, _lcp.Length); return Run<TrustedAccess, Lcp32Reader<TrustedAccess>, TaggedCells>(new TaggedCell
+src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs	194	VIEW	int* sa = _sa;
+src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs	271	CAST	int s = (int)(bit & 7);
+src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs	282	SIG	private static int Symbol(byte* text, int bits, long i)
+src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs	286	CAST	return (int)(((w << (int)(bit & 7)) & 0xFFFF) >> (16 - bits));
+src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs	314	CAST	int w = (int)(bit >> 6);
+src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs	315	CAST	int s = (int)(bit & 63);
+src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs	327	CAST	int w = (int)(bit >> 6);
+src/SuffixTree/Algorithms/SuffixTree.Esa/MappedSearch.cs	328	CAST	int room = 64 - (int)(bit & 63) - bits;
+src/SuffixTree/Algorithms/SuffixTree.Esa/PinnedArray.cs	39	SIG	internal int Length => _array.Length;
+src/SuffixTree/Algorithms/SuffixTree.Esa/PreparedText.cs	23	SIG	internal int Length { get; }
+src/SuffixTree/Algorithms/SuffixTree.Esa/PreparedText.cs	26	SIG	internal int AlphabetSize => Alphabet.Length;
+src/SuffixTree/Algorithms/SuffixTree.Esa/PreparedText.cs	47	SIG	internal int SymbolAt(int index) => _bytes is not null ? _bytes[index] : _ushorts![index];
+src/SuffixTree/Algorithms/SuffixTree.Esa/PtrText.cs	19	SIG	public int Length { get; } = length;
+src/SuffixTree/Algorithms/SuffixTree.Esa/PtrText.cs	29	SIG	public int Length { get; } = length;
+src/SuffixTree/Algorithms/SuffixTree.Esa/PtrText.cs	37	VIEW	internal readonly struct IntPtrText(Buf<int> data, int length) : IPtrText
+src/SuffixTree/Algorithms/SuffixTree.Esa/PtrText.cs	39	SIG	public int Length { get; } = length;
+src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderCell.cs	63	SIG	internal static int CellCount => Volatile.Read(ref s_count);
+src/SuffixTree/Algorithms/SuffixTree.Esa/ReaderCell.cs	66	SIG	internal int Depth => (_first == 0 ? 0 : 1) + _nestedTop;
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs	12	VIEW	private readonly int[]? _array;
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs	13	VIEW	private readonly int* _pointer;
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs	18	VIEW	internal SaView(int[] array)
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs	27	VIEW	internal SaView(int* pointer, int count, bool isChecked)
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs	36	SIG	internal int Length => _count;
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs	52	SIG	internal int At(long rank)
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs	55	CAST	return this[(int)rank];
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs	59	VIEW	internal void CopyTo(int start, Span<int> destination)
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs	63	VIEW	else new ReadOnlySpan<int>(_pointer + start, destination.Length).CopyTo(destination);
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs	67	VIEW	internal int[] ToArray(int start, int count)
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs	75	VIEW	internal int* Pointer => _pointer;
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs	78	VIEW	internal int[]? Array => _array;
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisInduction.cs	26	VIEW	internal static void InduceL<TTyped>(TTyped tt, Buf<int> sa, Buf<int> bkt, int n)
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisInduction.cs	32	CAST	tt.Prefetch((ahead - 1) & -(int)((uint)-ahead >> 31));
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisInduction.cs	34	CAST	int positive = (int)((uint)-p >> 31); // 1 for p > 0; empty slots (-1) and suffix 0 induce nothing
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisInduction.cs	47	VIEW	internal static void InduceS<TTyped>(TTyped tt, Buf<int> sa, Buf<int> bkt, int n)
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisInduction.cs	53	CAST	tt.Prefetch((ahead - 1) & -(int)((uint)-ahead >> 31));
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisInduction.cs	55	CAST	int positive = (int)((uint)-p >> 31);
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisInduction.cs	71	VIEW	internal static int NameLmsSubstrings<TTyped>(TTyped tt, Buf<int> sa, int n, int m)
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisKernel.cs	34	VIEW	internal static int[] Build(SaisKernelKind kind, PreparedText prepared, SaisTrace? trace = null)
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisKernel.cs	44	VIEW	internal static int[] Build(PreparedText prepared, SaisTrace? trace = null)
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisKernel.cs	51	VIEW	internal static int[] Build(PreparedText prepared, NativeArena arena, SaisTrace? trace = null)
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisKernel.cs	57	VIEW	int[] sa = GC.AllocateUninitializedArray<int>(n + 1);
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisKernel.cs	58	VIEW	fixed (int* pSa = sa)
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisKernel.cs	60	VIEW	var saBuf = new Buf<int>(pSa, n + 1, "sa");
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisKernel.cs	74	VIEW	internal static void Build<TProbe>(Buf<byte> text, int n, int sigma, Buf<int> sa, NativeArena arena, TProbe probe, SaisTrace? trace = null)
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisKernel.cs	82	VIEW	internal static void Build<TProbe>(Buf<ushort> text, int n, int sigma, Buf<int> sa, NativeArena arena, TProbe probe, SaisTrace? trace = null)
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisKernel.cs	96	VIEW	private static void Sais<TText, TProbe>(TText t, int n, int sigma, Buf<int> sa, NativeArena arena, TProbe probe, SaisTrace? trace, int level)
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisKernel.cs	109	VIEW	Buf<int> counts = arena.Allocate<int>(sigma, zero: true, "counts");
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisKernel.cs	133	VIEW	private static void Level<TTyped, TProbe>(TTyped tt, int n, int sigma, int m, Buf<int> counts, Buf<int> sa, NativeArena arena, TProbe probe, SaisTrace? trace, int level)
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisKernel.cs	138	VIEW	Buf<int> bkt = arena.Allocate<int>(sigma, zero: false, "bkt");
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisKernel.cs	198	VIEW	private static void CountSymbols<TText>(TText t, int n, int sigma, Buf<int> counts)
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisKernel.cs	235	VIEW	private static void SetBucketHeads(Buf<int> counts, Buf<int> bkt, int sigma)
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisKernel.cs	245	VIEW	private static void SetBucketTails(Buf<int> counts, Buf<int> bkt, int sigma)
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisKernel.cs	259	VIEW	private static void PlaceLmsSuffixes<TTyped>(TTyped tt, Buf<int> bkt, Buf<int> sa, int n)
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisKernel.cs	277	VIEW	private static void CompactSortedLms<TTyped>(TTyped tt, Buf<int> sa, int n, int m)
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisKernel.cs	284	CAST	int positive = (int)((uint)-p >> 31);
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisKernel.cs	299	VIEW	private static void CompactNames(Buf<int> sa, int n, int m)
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisKernel.cs	306	CAST	j -= (int)((uint)~v >> 31); // 1 for v >= 0
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisKernel.cs	314	VIEW	private static void SolveReduced<TTyped, TProbe>(TTyped tt, Buf<int> sa, int n, int m, int names, NativeArena arena, TProbe probe, SaisTrace? trace, int level)
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisKernel.cs	319	VIEW	Buf<int> sa1 = sa.Slice(0, m + 1);
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisKernel.cs	320	VIEW	Buf<int> s1 = sa.Slice(n + 1 - m, m);
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisKernel.cs	354	VIEW	private static void PlaceSortedLms<TTyped>(TTyped tt, Buf<int> bkt, Buf<int> sa, int m)
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisProbe.cs	14	VIEW	void Counts(int level, ReadOnlySpan<int> counts);
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisProbe.cs	17	VIEW	void Tails(int level, ReadOnlySpan<int> tails);
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisProbe.cs	20	VIEW	void Heads(int level, ReadOnlySpan<int> heads);
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisProbe.cs	23	VIEW	void LmsSorted(int level, ReadOnlySpan<int> positions);
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisProbe.cs	26	VIEW	void Reduced(int level, int names, ReadOnlySpan<int> reduced);
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisProbe.cs	33	VIEW	void SaState(int level, SaisPhase phase, ReadOnlySpan<int> sa);
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisProbe.cs	36	VIEW	void LmsPositions(int level, ReadOnlySpan<int> positions);
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisProbe.cs	44	VIEW	public void Counts(int level, ReadOnlySpan<int> counts)
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisProbe.cs	48	VIEW	public void Tails(int level, ReadOnlySpan<int> tails)
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisProbe.cs	52	VIEW	public void Heads(int level, ReadOnlySpan<int> heads)
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisProbe.cs	56	VIEW	public void LmsSorted(int level, ReadOnlySpan<int> positions)
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisProbe.cs	60	VIEW	public void Reduced(int level, int names, ReadOnlySpan<int> reduced)
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisProbe.cs	64	VIEW	public void LmsPositions(int level, ReadOnlySpan<int> positions)
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisProbe.cs	68	VIEW	public void SaState(int level, SaisPhase phase, ReadOnlySpan<int> sa)
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisReference.cs	11	VIEW	internal static int[] BuildSuffixArray(ReadOnlySpan<char> text, SaisTrace? trace = null)
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisReference.cs	16	VIEW	internal static int[] Build<TReader>(TReader text, int alphabetSize, SaisTrace? trace = null)
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisReference.cs	21	VIEW	internal static void Build<TReader>(TReader text, int alphabetSize, Span<int> sa, SaisTrace? trace = null)
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisReference.cs	44	SIG	internal static int CountLms(bool[] isS)
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisReferenceOfT.cs	35	SIG	private static int ToInt(TIdx value) => int.CreateChecked(value);
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisTrace.cs	42	SIG	internal int Depth => Levels.Count;
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisTrace.cs	45	CAST	internal long Ticks(int level, SaisPhase phase) => level < _ticks.Count ? _ticks[level][(int)phase] : 0;
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisTrace.cs	48	CAST	internal long TotalTicks(SaisPhase phase) => _ticks.Sum(t => t[(int)phase]);
+src/SuffixTree/Algorithms/SuffixTree.Esa/SaisTrace.cs	59	CAST	_ticks[level][(int)phase] += now - begin;
+src/SuffixTree/Algorithms/SuffixTree.Esa/SuffixIndexFactory.cs	39	SIG	private static int ReadMagic(SafeFileHandle handle, Span<byte> magic)
+src/SuffixTree/Algorithms/SuffixTree.Esa/SymbolReaders.cs	34	SIG	public int Length => _data.Length;
+src/SuffixTree/Algorithms/SuffixTree.Esa/SymbolReaders.cs	44	SIG	public int Length => _data.Length;
+src/SuffixTree/Algorithms/SuffixTree.Esa/SymbolReaders.cs	50	VIEW	internal readonly ref struct IntSymbols(ReadOnlySpan<int> data) : ISymbolReader
+src/SuffixTree/Algorithms/SuffixTree.Esa/SymbolReaders.cs	52	VIEW	private readonly ReadOnlySpan<int> _data = data;
+src/SuffixTree/Algorithms/SuffixTree.Esa/SymbolReaders.cs	54	SIG	public int Length => _data.Length;
+src/SuffixTree/Algorithms/SuffixTree.Esa/SymbolReaders.cs	65	SIG	public int Length => _data.Length;
+src/SuffixTree/Algorithms/SuffixTree.Esa/TextPreparation.cs	11	SIG	internal static int CountDistinct(ReadOnlySpan<char> text)
+src/SuffixTree/Algorithms/SuffixTree.Esa/TextPreparation.cs	34	VIEW	Span<int> prefix = stackalloc int[MapWords];
+src/SuffixTree/Algorithms/SuffixTree.Esa/TextPreparation.cs	73	VIEW	private static int Rank(char c, ReadOnlySpan<ulong> map, ReadOnlySpan<int> prefix)
+src/SuffixTree/Algorithms/SuffixTree.Esa/TextPreparation.cs	73	SIG	private static int Rank(char c, ReadOnlySpan<ulong> map, ReadOnlySpan<int> prefix)
+src/SuffixTree/Algorithms/SuffixTree.Esa/TypedText.cs	46	SIG	public int Symbol(int i) => text[i];
+src/SuffixTree/Algorithms/SuffixTree.Esa/TypedText.cs	48	SIG	public int IsS(int i) => types[i];
+src/SuffixTree/Algorithms/SuffixTree.Esa/TypedText.cs	83	SIG	public int Symbol(int i) => packed[i] >> 1;
+src/SuffixTree/Algorithms/SuffixTree.Esa/TypedText.cs	85	SIG	public int IsS(int i) => packed[i] & 1;
+src/SuffixTree/Algorithms/SuffixTree.Esa/Memory/Buf.cs	53	SIG	internal int CheckedLength => _length;
+src/SuffixTree/Algorithms/SuffixTree.Esa/Memory/NativeArena.cs	56	SIG	internal int BlockCount => _blocks.Count;
+src/SuffixTree/Algorithms/SuffixTree.Esa/Memory/NativeArena.cs	95	SIG	internal int Mark()
+src/SuffixTree/Algorithms/SuffixTree.Esa/Memory/NativeArena.cs	161	SIG	private int Id { get; } = id;
+src/SuffixTree/Algorithms/SuffixTree.Esa/Memory/NativeArena.cs	190	CAST	=> (byte)(((int)(i * 167) + (Id * 31) + (before ? 0x35 : 0x5A)) ^ 0xA5 ^ (int)(i >> 3));
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/ArenaBudget.cs	133	SIG	internal int Mark()
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/CountedFile.cs	29	SIG	internal int ReadAt(Span<byte> buffer, long offset)
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs	17	SIG	internal int IoBufferBytes { get; init; } = 64 * 1024;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs	20	SIG	internal int ReadBytes { get; init; } = 1 << 20;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs	23	SIG	internal int WindowBytes { get; init; } = MappedWindowWriter.DefaultWindowBytes;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs	77	LIMIT	if (chunkEntries > uint.MaxValue)
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs	185	CAST	int readEntries = (int)Math.Min(options.ReadBytes / 4, sourceEntries);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs	199	VIEW	Buf<uint> readBuf = arena.Allocate<uint>(readEntries, zero: false, "dist.src");
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs	206	CAST	Buf<TValue> chunkArray = arena.Allocate<TValue>((int)Math.Min(chunkEntries, slots), zero: false, "dist.chunk");
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs	213	CAST	int length = (int)Math.Min(chunkEntries, slots - startSlot);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs	256	LIMIT	if (n >= uint.MaxValue - 2) throw new NotSupportedException("positions are 32-bit: n must be below 2^32 - 2");
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs	258	LIMIT	return Scatter(saPath, n + 1, ref mapper, isaPath, new DistTarget<uint>(n + 1, uint.MaxValue, true), options);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs	258	VIEW	return Scatter(saPath, n + 1, ref mapper, isaPath, new DistTarget<uint>(n + 1, uint.MaxValue, true), options);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs	266	LIMIT	if (n >= uint.MaxValue - 2) throw new NotSupportedException("positions are 32-bit: n must be below 2^32 - 2");
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs	268	LIMIT	return Scatter(saPath, n + 1, ref mapper, phiPath, new DistTarget<uint>(n, uint.MaxValue, true), options);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs	268	VIEW	return Scatter(saPath, n + 1, ref mapper, phiPath, new DistTarget<uint>(n, uint.MaxValue, true), options);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs	276	VIEW	private static void Distribute<TValue, TMapper>(CountedFile source, long sourceEntries, ref TMapper mapper, Buf<uint> readBuf, int readEntries, DistWriter<DistEntry<TValu
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs	282	CAST	int take = (int)Math.Min(readEntries, sourceEntries - first);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dist.cs	317	CAST	ref TValue slot = ref array[(int)at];
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/DistScratch.cs	87	SIG	internal int Read(Span<T> buffer)
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/DistScratch.cs	89	CAST	int take = (int)Math.Min(buffer.Length, Count - _position);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/DistScratch.cs	109	VIEW	private readonly int[] _filled;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/DistScratch.cs	128	CAST	_buffers = arena.Allocate<T>(checked((int)(chunkCount * _capacity)), zero: false, "dist.tuples");
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/DistScratch.cs	132	SIG	internal int Capacity => _capacity;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/DistScratch.cs	150	SIG	internal int Pending(long chunk) => _filled[Local(chunk)];
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/DistScratch.cs	172	SIG	private int Local(long chunk)
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/DistScratch.cs	176	CAST	return (int)local;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs	55	SIG	internal int Threads { get; init; } = 4;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs	117	SIG	internal int LcpWorkers { get; init; }
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs	119	SIG	internal int LcpReadBytes { get; init; }
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs	121	SIG	internal int LcpTupleBytes { get; init; }
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs	123	SIG	internal int WindowBytes { get; init; }
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs	126	SIG	internal int BlockEntries { get; init; }
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs	128	SIG	internal int ChildWindowBytes { get; init; }
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs	130	SIG	internal int ChildSlots { get; init; }
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs	164	CAST	int workers = t.LcpWorkers ?? (int)Math.Clamp(options.ArenaCapBytes / Math.Max(1, perTask), 1, options.Threads);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs	263	LIMIT	if (n > PackedTextFormat.MaxSymbols) throw new NotSupportedException($"{n} symbols: positions are 32-bit, the limit is {PackedTextFormat.MaxSymbols}");
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/LcpChildBuilder.cs	264	LIMIT	if (options.Codec == ChildCodec.Tagged && n > TaggedChild.MaxLength) throw new NotSupportedException($"the tagged codec holds ranks in 30 bits; a text of {n} symbols need
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedFileRegistry.cs	55	SIG	internal static int Count => 0;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs	86	CAST	int take = (int)Math.Min(ChunkBytes, end - at);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs	124	CAST	int take = (int)Math.Min(ChunkBytes, end - chunk);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedOutputFile.cs	149	SIG	private static int WriteZeros(SafeFileHandle file, long offset, int length)
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs	68	SIG	internal int Bits => _bits;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs	74	SIG	internal int KeySymbols => _keySymbols;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs	77	SIG	internal int KeyShift => _keyShift;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs	80	SIG	internal int VectorSymbols => _vectorSymbols;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs	157	CAST	int shift = 16 - (int)(bit & 7) - bits;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs	187	LIMIT	if (mask == uint.MaxValue)
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs	219	SIG	internal int CompareSuffixes(long i, long j, long skip, ref long steps, out long lce)
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs	258	CAST	int take = (int)Math.Min(block.Length, _n - at);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs	346	CAST	int unused = (int)((dataBytes * 8) - (n * bits));
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedTextReader.cs	361	CAST	int s = (int)(bit & 7);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/MappedWindowWriter.cs	73	CAST	int take = (int)Math.Min(data.Length, _viewEnd - offset);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextFormat.cs	27	LIMIT	internal const long MaxSymbols = uint.MaxValue - 3L;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextFormat.cs	30	SIG	internal static int BitsFor(long sigma)
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextFormat.cs	77	SIG	internal int Sigma => Letters.Length;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs	9	SIG	internal int BlockSymbols { get; init; } = 1 << 20;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs	12	SIG	internal int WindowBytes { get; init; } = MappedWindowWriter.DefaultWindowBytes;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs	15	SIG	internal int MinBits { get; init; } = PackedTextFormat.MinBits;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs	18	LIMIT	internal long MaxSymbols { get; init; } = PackedTextFormat.MaxSymbols;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs	58	LIMIT	if (n > options.MaxSymbols) throw new NotSupportedException($"the input has {n} symbols, above the limit of {options.MaxSymbols} (the positions of the builder are 32-bit:
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs	67	CAST	int take = (int)Math.Min(block.Length, n - at);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs	109	CAST	int take = (int)Math.Min(block.Length, n - at);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/PackedTextWriter.cs	118	CAST	int bytes = (int)PackedTextFormat.DataBytes(take, bits);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/ProcIo.cs	21	SIG	public int TryRead(string path, Span<byte> buffer)
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/ProcIo.cs	46	SIG	internal static int SafeRead(IProcSource source, string path, Span<byte> buffer)
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/RssReader.cs	118	CAST	int sleep = (int)((next - now) * 1000 / Stopwatch.Frequency);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/SeededRandom.cs	24	SIG	internal int NextInt(int bound)
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/SeededRandom.cs	27	CAST	return (int)(Next() % (ulong)bound);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/SpillStack.cs	69	SIG	internal int BlockEntries => _block;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs	14	SIG	internal int FanOut { get; init; } = 64;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs	17	SIG	internal int Oversample { get; init; } = 16;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs	20	SIG	internal int Threads { get; init; } = 1;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs	29	SIG	internal int SpillBytes { get; init; } = 64 * 1024;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs	61	SIG	internal int MaxDepth { get; set; }
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs	113	LIMIT	ArgumentOutOfRangeException.ThrowIfGreaterThan(options.LeafCapacity, int.MaxValue / 2);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs	118	LIMIT	if (text.Length > PackedTextFormat.MaxSymbols) throw new NotSupportedException($"{text.Length} symbols: positions are 32-bit, the limit is {PackedTextFormat.MaxSymbols}")
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs	201	CAST	leaf ??= new LeafSorter(arena, (int)_o.LeafCapacity);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs	253	CAST	int fan = (int)Math.Min(Math.Min(_o.FanOut, m), Math.Max(2, ((2 * m) + _o.LeafCapacity - 1) / _o.LeafCapacity));
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs	254	CAST	int sampleCount = (int)Math.Min(m, (long)fan * oversample);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs	260	CAST	sample[t] = src.At(lo + rng.NextInt((int)(hi - lo)));
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs	273	VIEW	uint[]? chunk = null;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs	277	CAST	for (int b = 0; b < fan; b++) writers[b] = new PosWriter(_files, _o.SpillBytes, (int)Math.Min((m / fan) + 16, 1 << 16));
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/BucketSorter.cs	282	CAST	int take = (int)Math.Min(1 << 14, m - start);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/LeafSorter.cs	11	VIEW	private readonly Buf<uint> _pos;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/LeafSorter.cs	12	VIEW	private readonly Buf<uint> _pos2;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/LeafSorter.cs	27	CAST	int m = checked((int)bucket.Count);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs	38	VIEW	internal sealed class MemoryPositions(uint[] data, int count) : IPosSource
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs	40	VIEW	private uint[]? _data = data;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs	44	CAST	public void Read(long start, Span<uint> dest) => _data.AsSpan((int)start, dest.Length).CopyTo(dest);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs	50	VIEW	uint[]? d = Interlocked.Exchange(ref _data, null);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs	108	VIEW	private uint[] _buffer;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/PositionStore.cs	171	VIEW	uint[] bigger = ArrayPool<uint>.Shared.Rent(Math.Min(_capacity, _buffer.Length * 2));
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs	62	SIG	internal int Compare(uint i, uint j) => CompareCore(i, j, tied: false);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs	65	SIG	internal int CompareTied(uint i, uint j) => CompareCore(i, j, tied: true);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs	68	SIG	private int CompareCore(long i, long j, bool tied)
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs	79	CAST	int x = (int)mod.Divisor;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs	82	CAST	int delta = (int)rj - (int)ri;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs	85	CAST	int l = a - (int)ri;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sort/SuffixOrder.cs	106	SIG	public int Compare(uint x, uint y) => order.Compare(x, y);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/BwtPass.cs	9	SIG	internal int ReadBytes { get; init; } = 1 << 20;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/BwtPass.cs	12	SIG	internal int WindowBytes { get; init; } = MappedWindowWriter.DefaultWindowBytes;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/BwtPass.cs	54	LIMIT	if (n > PackedTextFormat.MaxSymbols) throw new NotSupportedException($"{n} symbols: positions are 32-bit, the limit is {PackedTextFormat.MaxSymbols}");
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/BwtPass.cs	62	CAST	int readEntries = (int)Math.Min(options.ReadBytes / sizeof(uint), rows);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/BwtPass.cs	64	VIEW	Buf<uint> saBuf = arena.Allocate<uint>(readEntries, zero: false, "bwt.sa");
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/BwtPass.cs	75	CAST	int take = (int)Math.Min(readEntries, rows - first);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs	10	SIG	internal int WindowBytes { get; init; } = MappedWindowWriter.DefaultWindowBytes;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs	13	SIG	internal int SymbolsPerPass { get; init; } = 64;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs	16	SIG	internal int ReadBytes { get; init; } = 1 << 20;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs	63	LIMIT	if (n > PackedTextFormat.MaxSymbols) throw new NotSupportedException($"{n} symbols: positions are 32-bit, the limit is {PackedTextFormat.MaxSymbols}");
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs	90	CAST	int readLen = (int)Math.Min(options.ReadBytes, rows);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs	100	CAST	int take = (int)Math.Min(readLen, rows - first);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs	108	CAST	cursors.Scan(b, (int)skip, first);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs	109	CAST	cursors.Scan(b + skip + 1, take - (int)skip - 1, first + skip + 1);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs	141	VIEW	private readonly nuint* _cur;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs	142	VIEW	private readonly nuint* _end;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs	144	VIEW	private static nuint* AllocateBlock(int entries)
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs	146	VIEW	nuint* block = (nuint*)NativeMemory.AllocZeroed((nuint)Math.Max(1, entries), (nuint)sizeof(nuint));
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs	151	VIEW	private static void FreeBlock(nuint* block)
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs	185	VIEW	nuint* cur = _cur, end = _end;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs	192	VIEW	uint* p = (uint*)cur[s];
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs	193	VIEW	if (p == (uint*)end[s]) p = Advance((int)s);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs	193	CAST	if (p == (uint*)end[s]) p = Advance((int)s);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs	206	VIEW	long written = _next[s] - ((uint*)_end[s] - (uint*)_cur[s]) - _first[s];
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs	220	VIEW	private uint* Advance(int s)
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs	225	CAST	int entries = (int)Math.Min(_entriesPerWindow, remaining);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Ph6/PsiStream.cs	231	VIEW	uint* w = (uint*)(p + view.PointerOffset);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/BucketRun.cs	103	SIG	internal int ReadAt(long start, Span<ulong> dest)
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/BucketRun.cs	106	CAST	int take = (int)Math.Min(dest.Length, left);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/BucketRun.cs	150	CAST	window[(int)(slot - windowStart)] = offset + (uint)v;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/BucketRun.cs	165	CAST	_len = (int)run.Count;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs	23	VIEW	private DifferenceCover(int period, int[] residues, CoverKind kind)
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs	44	SIG	internal int Period { get; }
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs	48	VIEW	internal int[] Residues { get; }
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs	53	VIEW	internal int[] IndexOf { get; }
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs	56	VIEW	internal int[] Witness { get; }
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs	63	SIG	internal int PeriodBits => BitOperations.Log2((uint)Period - 1) + 1;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs	108	VIEW	private static ReadOnlySpan<int> DefaultSingerResidues => [1, 2, 21, 28, 67, 108, 209, 222, 233, 291, 300, 306, 314, 350, 458, 468, 486, 543, 588, 631, 686, 734, 805, 810
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs	114	VIEW	internal static DifferenceCover Create(int period, ReadOnlySpan<int> tableOfTheDefaultPeriod)
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs	137	VIEW	internal static DifferenceCover? FromTable(int period, ReadOnlySpan<int> residues)
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs	149	SIG	internal static int NearestSingerPeriod(int target)
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs	203	VIEW	private static int[] SingerSet(int q)
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs	216	VIEW	var zero = new List<int>();
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs	220	CAST	if (k < n && a0 == 0) zero.Add((int)k);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs	244	VIEW	private static int[] Pruned(int x)
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs	251	VIEW	List<int> best = [.. start];
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs	258	VIEW	List<int> d = [.. start];
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs	260	VIEW	List<int> order = [.. Enumerable.Range(0, d.Count).Select(i => d[i]).OrderBy(_ => rng.Next())];
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/DifferenceCover.cs	269	VIEW	var delta = new List<int>(2 * d.Count);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs	19	SIG	internal int FanOut { get; init; } = 1024;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs	22	SIG	internal int ReservoirSize { get; init; } = 16384;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs	25	SIG	internal int Threads { get; init; } = 1;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs	34	SIG	internal int RunSpillBytes { get; init; } = 64 * 1024;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs	37	SIG	internal int IoBufferBytes { get; init; } = 64 * 1024;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs	43	SIG	internal int WindowBytes { get; init; } = MappedWindowWriter.DefaultWindowBytes;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs	71	SIG	internal int Level { get; set; }
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs	117	SIG	internal int MaxLevel => Levels.Count - 1;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs	149	LIMIT	ArgumentOutOfRangeException.ThrowIfGreaterThan(options.BucketCapacity, int.MaxValue / 2);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs	160	LIMIT	if (text.Length > PackedTextFormat.MaxSymbols) throw new NotSupportedException($"{text.Length} symbols: positions are 32-bit, the limit is {PackedTextFormat.MaxSymbols}")
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs	331	VIEW	private static void BaseCase(Buf<int> red, SampleGeometry g, long sigma, string rankPath, bool scratchOutput, int level, Context c, BudgetedArena arena)
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs	334	CAST	int n = checked((int)g.RedLength);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs	335	VIEW	Buf<int> sa = arena.Allocate<int>(n + 1, zero: false, "base.sa");
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs	336	CAST	SaisReference.Build(new IntSymbols(red.AsSpan(n)), checked((int)sigma), sa.AsSpan(n + 1));
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs	337	VIEW	Span<int> rank = red.AsSpan(n); // the reduced string is dead now: it receives the inverse permutation
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs	338	VIEW	ReadOnlySpan<int> saSpan = sa.AsSpan(n + 1);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs	343	VIEW	Buf<uint> chunk = arena.Allocate<uint>((int)Math.Min(chunkSlots, slots), zero: false, "base.chunk");
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs	343	CAST	Buf<uint> chunk = arena.Allocate<uint>((int)Math.Min(chunkSlots, slots), zero: false, "base.chunk");
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs	351	CAST	int len = (int)Math.Min(chunkSlots, slots - start);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/ExternalDcs.cs	356	CAST	window[i] = slot < g.Samples ? (uint)rank[(int)g.RedIndexOfSlot(slot)] : 0;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/NameSinks.cs	59	VIEW	private readonly int[] _filled;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/NameSinks.cs	78	CAST	int c = (int)(firstSlot % m);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/NameSinks.cs	118	CAST	Red = arena.Allocate<int>(checked((int)geometry.RedLength), zero: true, "reduced.string");
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/NameSinks.cs	122	VIEW	internal Buf<int> Red { get; }
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/NameSinks.cs	128	CAST	int c = (int)(firstSlot % m);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/NameSinks.cs	129	VIEW	Span<int> red = Red.AsSpan(checked((int)_g.RedLength));
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/NameSinks.cs	129	CAST	Span<int> red = Red.AsSpan(checked((int)_g.RedLength));
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/NameSinks.cs	132	CAST	red[(int)(_g.RedStart[c] + block)] = (int)names[i];
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankInverter.cs	35	VIEW	DistStats stats = Dist.Scatter(saPath, g.RedLength + 1, ref mapper, rankPath, new DistTarget<uint>(g.Slots, 0, false), options);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs	39	VIEW	private readonly int[] _indexOf;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs	41	VIEW	private readonly uint* _ranks;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs	48	VIEW	private RankTable(DifferenceCover cover, long n, long slots, MemoryMappedFile map, MemoryMappedViewAccessor view, uint* ranks)
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs	89	VIEW	var table = new RankTable(cover, n, slots, map, view, (uint*)(p + view.PointerOffset));
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/RankTable.cs	161	CAST	ulong bit = 1UL << (int)(v & 63);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleGeometry.cs	39	SIG	internal int Period { get; }
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleGeometry.cs	42	SIG	internal int Classes { get; }
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleGeometry.cs	65	CAST	internal long SlotOf(long p) => (p / Period * Classes) + Cover.IndexOf[(int)(p % Period)];
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleGeometry.cs	68	CAST	internal long PositionOfSlot(long slot) => (slot / Classes * Period) + Cover.Residues[(int)(slot % Classes)];
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleGeometry.cs	71	CAST	internal long RedIndexOfSlot(long slot) => RedStart[(int)(slot % Classes)] + (slot / Classes);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs	11	SIG	internal int Compare(long pa, long pb)
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs	176	CAST	int windowSlots = (int)Math.Min(Math.Max(1, _o.ChunkSlots), s);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs	177	VIEW	Buf<uint> window = arena.Allocate<uint>(windowSlots, zero: false, "merge.window");
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs	180	CAST	int bufRecords = (int)Math.Clamp(fair, 1, Math.Max(1, _o.IoBufferBytes / 8));
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs	190	CAST	Span<uint> span = window.AsSpan((int)(end - start));
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs	307	SIG	public int Compare(uint a, uint b)
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs	321	VIEW	private Buf<uint> _pos;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs	322	VIEW	private Buf<uint> _pos2;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs	324	VIEW	private uint[]? _reservoir;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs	356	SIG	private int Cmp(uint a, uint b)
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs	365	CAST	int cap = (int)Math.Min(owner._o.BucketCapacity, Math.Max(1, owner._g.Samples)); // a text with fewer sample positions than K_s needs no larger buffers
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs	374	VIEW	int[] residues = g.Cover.Residues;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs	410	VIEW	uint[] reservoir = _reservoir ??= new uint[cap];
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs	417	VIEW	int[] residues = g.Cover.Residues;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs	436	CAST	if (j < (ulong)cap) reservoir[(int)j] = (uint)p;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs	440	CAST	int size = (int)Math.Min(count, cap);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs	444	CAST	int fan = (int)Math.Min(Math.Max(2, ((2 * count) + bucket - 1) / bucket), Math.Max(2, owner._o.FanOut));
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs	452	CAST	int i = (int)((long)t * size / fan);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs	588	VIEW	internal static void RadixSort(Buf<ulong> keys1, Buf<ulong> keys2, Buf<uint> pos1, Buf<uint> pos2, int m)
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs	594	VIEW	Span<int> hist = stackalloc int[8 * 256];
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs	598	CAST	hist[(int)(k & 0xFF)]++;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs	599	CAST	hist[256 + (int)((k >> 8) & 0xFF)]++;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs	600	CAST	hist[512 + (int)((k >> 16) & 0xFF)]++;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs	601	CAST	hist[768 + (int)((k >> 24) & 0xFF)]++;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs	602	CAST	hist[1024 + (int)((k >> 32) & 0xFF)]++;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs	603	CAST	hist[1280 + (int)((k >> 40) & 0xFF)]++;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs	604	CAST	hist[1536 + (int)((k >> 48) & 0xFF)]++;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs	605	CAST	hist[1792 + (int)(k >> 56)]++;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs	611	VIEW	Span<int> h = hist.Slice(d * 256, 256);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs	613	CAST	if (h[(int)((first >> shift) & 0xFF)] == m) continue; // all keys have the same digit
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Dcs/SampleNamer.cs	628	CAST	int at = h[(int)((k >> shift) & 0xFF)]++;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs	61	SIG	internal int Threads { get; init; } = 4;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs	64	SIG	internal int Period { get; init; } = 1024;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs	167	SIG	internal int DcsRunSpillBytes { get; init; }
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs	169	SIG	internal int DcsFanOut { get; init; }
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs	171	SIG	internal int DcsReservoir { get; init; }
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs	173	SIG	internal int DcsIoBytes { get; init; }
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs	180	SIG	internal int FanOut { get; init; }
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs	182	SIG	internal int Oversample { get; init; }
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs	184	SIG	internal int SpillBytes { get; init; }
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs	187	SIG	internal int WindowBytes { get; init; }
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs	247	CAST	DcsRunSpillBytes = t.DcsRunSpillBytes ?? (int)Scale(RunSpillReference, 0),
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs	259	LIMIT	ArgumentOutOfRangeException.ThrowIfGreaterThan(p.DcsBucketCapacity, int.MaxValue / 2);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs	269	LIMIT	ArgumentOutOfRangeException.ThrowIfGreaterThan(p.BucketCapacity, int.MaxValue / 2);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs	286	SIG	internal int Period { get; init; }
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs	288	SIG	internal int CoverResidues { get; init; }
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs	339	SIG	internal int RecursionLevels => Dcs.MaxLevel;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sa/SaBuilder.cs	373	LIMIT	if (n > PackedTextFormat.MaxSymbols) throw new NotSupportedException($"{n} symbols: positions are 32-bit, the limit is {PackedTextFormat.MaxSymbols}");
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/AlignedWindowWriter.cs	160	CAST	ulong bit = 1UL << (int)(w & 63);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs	21	SIG	internal int BlockEntries { get; init; } = 256 * 1024;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs	24	SIG	internal int WindowBytes { get; init; } = 1 << 20;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs	27	SIG	internal int WindowSlots { get; init; } = 8;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs	286	LIMIT	internal const uint None = uint.MaxValue;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs	299	LIMIT	if (n > PackedTextFormat.MaxSymbols) throw new NotSupportedException($"{n} symbols: positions are 32-bit, the limit is {PackedTextFormat.MaxSymbols}");
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Child/ChildScan.cs	300	LIMIT	if (options.Codec == ChildCodec.Tagged && n > TaggedChild.MaxLength) throw new NotSupportedException($"the tagged codec holds ranks in 30 bits; a text of {n} symbols need
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/ExternalLcp.cs	29	SIG	internal int Threads { get; init; } = 4;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/ExternalLcp.cs	32	SIG	internal int Workers { get; init; }
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/ExternalLcp.cs	35	SIG	internal int ReadBufferBytes { get; init; } = 1 << 20;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/ExternalLcp.cs	38	SIG	internal int TupleBufferBytes { get; init; } = 32 * 1024;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/ExternalLcp.cs	41	SIG	internal int WindowBytes { get; init; } = MappedWindowWriter.DefaultWindowBytes;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/ExternalLcp.cs	92	SIG	internal int Workers { get; set; }
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs	109	SIG	private int ReadEntries(int tupleBytes) => Math.Max(1, _o.ReadBufferBytes / tupleBytes);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs	111	CAST	private int ChunkEntries(long chunkLength) => checked((int)Math.Min(chunkLength, _g.R));
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs	111	SIG	private int ChunkEntries(long chunkLength) => checked((int)Math.Min(chunkLength, _g.R));
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs	155	VIEW	Buf<uint> read = arena.Allocate<uint>(readEntries, zero: false, "b1.sa");
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs	161	CAST	int take = (int)Math.Min(readEntries, n + 1 - first);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs	179	VIEW	Buf<uint> phi = arena.Allocate<uint>(maxChunk, zero: false, "b2.phi");
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs	180	VIEW	Buf<uint> rank = arena.Allocate<uint>(maxChunk, zero: false, "b2.rank");
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs	190	CAST	int length = (int)_g.TextChunkLength(c);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs	204	CAST	ref ulong word = ref seen[(int)(at >> 6)];
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs	205	CAST	ulong bit = 1UL << (int)(at & 63);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs	208	CAST	phi[(int)at] = t.Phi;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs	209	CAST	rank[(int)at] = t.Rank;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs	231	VIEW	Buf<uint> dense = arena.Allocate<uint>(maxChunk, zero: false, "b3.dense");
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs	281	CAST	int length = (int)_g.RankChunkLength(c);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs	295	CAST	dense[(int)at] = t.Value;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs	335	CAST	workers = (int)Math.Clamp(fit, 1, workers);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpBuild.cs	337	CAST	workers = (int)Math.Max(1, Math.Min(workers, chunks));
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpGeometry.cs	17	LIMIT	if (n > PackedTextFormat.MaxSymbols) throw new NotSupportedException($"{n} symbols: positions are 32-bit, the limit is {PackedTextFormat.MaxSymbols}");
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpOutputWriter.cs	20	VIEW	private readonly Buf<uint> _pairs;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpOutputWriter.cs	85	SIG	private int Convert(long firstRank, ReadOnlySpan<uint> part, Span<byte> bytes)
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpWidth.cs	19	SIG	internal static int Bytes(LcpKind kind) => kind switch { LcpKind.U8 => 1, LcpKind.U16 => 2, _ => 4 };
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/LcpWidth.cs	22	LIMIT	internal static uint Escape(LcpKind kind) => kind switch { LcpKind.U8 => byte.MaxValue, LcpKind.U16 => ushort.MaxValue, _ => uint.MaxValue };
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Lcp/PlcpScan.cs	19	VIEW	internal static PlcpChunkResult Run(MappedTextReader text, long firstIndex, Buf<uint> phi, int count)
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/Crc32C.cs	17	VIEW	private static readonly uint[] Tables = BuildTables();
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/Crc32C.cs	48	VIEW	private static uint[] BuildTables()
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/Crc32C.cs	71	VIEW	uint[] t = Tables;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs	31	LIMIT	if (n > PackedTextFormat.MaxSymbols) throw new NotSupportedException($"{n} symbols: positions are 32-bit, the limit is {PackedTextFormat.MaxSymbols}");
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SectionLcpChildBuilder.cs	32	LIMIT	if (options.Codec == ChildCodec.Tagged && n > TaggedChild.MaxLength) throw new NotSupportedException($"the tagged child table holds ranks in 30 bits (CHILD codec 2); a te
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs	47	SIG	internal int Threads { get; init; } = 4;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs	56	SIG	internal int Period { get; init; } = 1024;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs	82	SIG	internal int TextBlockSymbols { get; init; } = 1 << 20;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs	85	SIG	internal int TextWindowBytes { get; init; } = MappedWindowWriter.DefaultWindowBytes;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs	191	SIG	internal int Sigma { get; init; }
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs	193	SIG	internal int Bits { get; init; }
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs	287	SIG	internal int StateWrites { get; init; }
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs	316	LIMIT	ChildCodec codec = requested ?? (n <= TaggedChild.MaxLength ? ChildCodec.Tagged : ChildCodec.Packed);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs	317	LIMIT	if (codec == ChildCodec.Tagged && n > TaggedChild.MaxLength) throw new NotSupportedException($"the tagged child table holds ranks in 30 bits (CHILD codec 2); a text of {n
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaBuilder.cs	778	VIEW	private static SesaSection[] BuildSections(SesaPlan plan, SesaTail tail, PackedTextInfo info, long primaryRow, string buildInfo, int infoLength, uint[] crcs, (int Kind, l
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFile.cs	51	LIMIT	_text = EsaText.FromPacked(_reader, parsed.Letters, (int)Math.Min(n, int.MaxValue));
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFile.cs	51	CAST	_text = EsaText.FromPacked(_reader, parsed.Letters, (int)Math.Min(n, int.MaxValue));
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFile.cs	52	LIMIT	if (n < int.MaxValue)
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFile.cs	55	VIEW	_sa = new SaView((int*)(data + parsed.Sa.Offset), (int)(n + 1), isChecked);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFile.cs	55	CAST	_sa = new SaView((int*)(data + parsed.Sa.Offset), (int)(n + 1), isChecked);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFile.cs	56	VIEW	uint* pairs = parsed.Overflow is { } o ? (uint*)(data + o.Offset) : null;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFile.cs	57	CAST	_lcp = CompactLcp.FromMapped(parsed.LcpKind, (int)(n + 1), data + parsed.Lcp.Offset, pairs, (int)parsed.Lcp.Param0, isChecked);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFile.cs	58	VIEW	_child = ChildTable.FromMapped(new MappedChild((int*)(data + parsed.Child.Offset), (int)(n + 1), _lcp, isChecked, parsed.Child.Codec == SesaFormat.ChildCodecTagged));
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFile.cs	58	CAST	_child = ChildTable.FromMapped(new MappedChild((int*)(data + parsed.Child.Offset), (int)(n + 1), _lcp, isChecked, parsed.Child.Codec == SesaFormat.ChildCodecTagged));
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFile.cs	192	CAST	int n = (int)h.TextLength;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFile.cs	194	CAST	return new EsaStatistics(n, h.NodeCount, (int)(h.NodeCount - 1 - (n + 1L)), n, n, (int)h.LrsDepth, h.LrsDepth == 0 ? 0 : (int)h.LrsRank, 0);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFile.cs	199	VIEW	internal uint* PsiPointer => _parsed.Psi is { } s ? (uint*)(_data + s.Offset) : null;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFile.cs	205	CAST	return new ReadOnlySpan<byte>(_data + section.Offset, checked((int)section.Length));
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFormat.cs	32	SIG	internal int PosWidth { get; init; } = 4;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFormat.cs	34	SIG	internal int Sigma { get; init; }
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaHeaderReader.cs	47	LIMIT	private const long MaxTextLength = uint.MaxValue - 3L;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaHeaderReader.cs	58	LIMIT	if (codec == SesaFormat.ChildCodecTagged && textLength > TaggedChild.MaxLength) throw new InvalidDataException($"CHILD codec 2 holds ranks in 30 bits, but the text has {t
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaHeaderReader.cs	98	LIMIT	if (n < 0 || n > MaxTextLength) throw new InvalidDataException($"TEXT_LEN is {n}: a text of at most {MaxTextLength} symbols fits 4-byte positions");
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaHeaderReader.cs	272	SIG	private static int U16(byte* p, int offset) => Unsafe.ReadUnaligned<ushort>(p + offset);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaHeaderReader.cs	278	SIG	private static int I32(byte* p, int offset) => Unsafe.ReadUnaligned<int>(p + offset);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaLayout.cs	12	SIG	internal int Bits { get; init; }
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaLayout.cs	14	SIG	internal int Sigma { get; init; }
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaLayout.cs	59	SIG	internal int LcpWidth { get; init; }
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResume.cs	57	CAST	Letters = [.. info.Letters.Select(l => (int)l)],
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResume.cs	236	CAST	if (!s.Letters.SequenceEqual(_info.Letters.Select(l => (int)l)) || !s.Counts.SequenceEqual(_info.Counts)) return "the state is of another input (alphabet or symbol counts
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResume.cs	508	VIEW	int[] words = [cover.Period, .. cover.Residues];
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs	33	SIG	internal static int IndexOf(string name) => Array.IndexOf(Order, name);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs	64	SIG	internal int Version { get; init; } = CurrentVersion;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs	71	SIG	internal int Bits { get; init; }
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs	73	SIG	internal int Sigma { get; init; }
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs	79	VIEW	internal IReadOnlyList<int> Letters { get; init; } = [];
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs	79	SIG	internal IReadOnlyList<int> Letters { get; init; } = [];
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaResumeState.cs	226	VIEW	var letters = new List<int>();
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs	14	SIG	internal static int ChunkSymbols { get; set; } = DefaultChunkSymbols;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs	20	SIG	internal static int StackEntries { get; set; } = 1 << 22;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs	72	CAST	if (s.Offset > end && new ReadOnlySpan<byte>(file.Data + end, checked((int)(s.Offset - end))).IndexOfAnyExcept((byte)0) >= 0)
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs	86	CAST	var span = new ReadOnlySpan<byte>(data + done, (int)take);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs	114	CAST	int n = (int)n64;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs	141	LIMIT	if (symbols >= int.MaxValue - 1L) throw new NotSupportedException($"the structure pass of a text of {symbols} symbols needs 64-bit indexes (S2); the 32-bit pass takes at 
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs	147	VIEW	int* sa = (int*)(file.Data + ps.Sa.Offset);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs	149	VIEW	if (ps.Psi is { } psi && (*(uint*)(file.Data + psi.Offset) != 0 || psi.Param0 != 0)) throw new InvalidDataException("the PSI array of an empty text must be [0] with the p
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs	151	VIEW	if (*(int*)(file.Data + ps.Child.Offset) != 0) throw new InvalidDataException("the child table of an empty text must be [0]: the file is damaged");
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs	167	CAST	int take = (int)Math.Min(block.Length, n - at);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs	199	VIEW	int* sa = (int*)(file.Data + ps.Sa.Offset);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs	235	VIEW	int* sa = (int*)(file.Data + ps.Sa.Offset);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs	236	VIEW	uint* psi = file.PsiPointer;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs	247	CAST	int c1 = (int)Math.Min((long)n, (long)c0 + chunk);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs	269	CAST	h = (int)text.Lce(p, f, long.MaxValue, ref steps);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs	274	CAST	h = carry + (int)text.Lce(p + carry, f + carry, long.MaxValue, ref steps);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs	302	VIEW	int* cld = (int*)(file.Data + ps.Child.Offset);
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs	321	VIEW	private static long CountNonZero(int* cells, long count)
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs	327	VIEW	var span = new ReadOnlySpan<int>(cells + done, (int)Math.Min(piece, count - done));
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs	327	CAST	var span = new ReadOnlySpan<int>(cells + done, (int)Math.Min(piece, count - done));
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs	390	VIEW	private readonly int* _cells;
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs	399	VIEW	internal ChildCompareSink(int* cells, int n, ulong[] seen, bool tagged)
+src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs	499	CAST	int take = (int)Math.Min(_half, _spilled);
+src/SuffixTree/Algorithms/SuffixTree.Core/ISuffixTree.cs	66	VIEW	IReadOnlyList<(string Substring, IReadOnlyList<int> Positions)> FindAllLongestRepeatedSubstrings()
+src/SuffixTree/Algorithms/SuffixTree.Core/ISuffixTreeAnalysis.cs	56	VIEW	(string Substring, IReadOnlyList<int> PositionsInText, IReadOnlyList<int> PositionsInOther) FindAllLongestCommonSubstrings(string other);
+src/SuffixTree/Algorithms/SuffixTree.Core/ISuffixTreeAnalysis.cs	73	VIEW	IReadOnlyList<(string Substring, IReadOnlyList<int> PositionsInText, IReadOnlyList<int> PositionsInOther)>
+src/SuffixTree/Algorithms/SuffixTree.Core/ISuffixTreeNavigator.cs	53	VIEW	void CollectLeaves(TNode node, int depth, List<int> results);
+src/SuffixTree/Algorithms/SuffixTree.Core/ISuffixTreeSearch.cs	55	VIEW	IReadOnlyList<int> FindAllOccurrences(string pattern);
+src/SuffixTree/Algorithms/SuffixTree.Core/ISuffixTreeSearch.cs	66	VIEW	IReadOnlyList<int> FindAllOccurrences(ReadOnlySpan<char> pattern);
+src/SuffixTree/Algorithms/SuffixTree.Core/StringTextSource.cs	30	SIG	public int Length => _value.Length;
+src/SuffixTree/Algorithms/SuffixTree.Core/SuffixTreeAlgorithms.KCommon.cs	90	VIEW	public static int[] LongestCommonSubstringLengthsBySupport(
+src/SuffixTree/Algorithms/SuffixTree.Core/SuffixTreeAlgorithms.KCommon.cs	123	VIEW	public static (string Text, int[] Owner, int[] Starts) BuildGeneralizedText(IReadOnlyList<string> texts)
+src/SuffixTree/Algorithms/SuffixTree.Core/SuffixTreeAlgorithms.KCommon.cs	134	LIMIT	if (total > int.MaxValue)
+src/SuffixTree/Algorithms/SuffixTree.Core/SuffixTreeAlgorithms.KCommon.cs	217	VIEW	private readonly int[] _owner;
+src/SuffixTree/Algorithms/SuffixTree.Core/SuffixTreeAlgorithms.KCommon.cs	218	VIEW	private readonly int[] _lastLeafTime;
+src/SuffixTree/Algorithms/SuffixTree.Core/SuffixTreeAlgorithms.KCommon.cs	224	VIEW	public ColorCountingCollector(int[] owner, int textCount)
+src/SuffixTree/Algorithms/SuffixTree.Core/SuffixTreeAlgorithms.Repeats.cs	86	VIEW	private readonly int[] _cut;       // u(p): length of the longest prefix of suffix p free of unique symbols
+src/SuffixTree/Algorithms/SuffixTree.Core/SuffixTreeAlgorithms.Repeats.cs	87	VIEW	private readonly int[] _leftClass; // text[p-1], or UniqueLeftClass
+src/SuffixTree/Algorithms/SuffixTree.Core/SuffixTreeAlgorithms.Repeats.cs	88	VIEW	private readonly int[] _next;      // linked lists of leaf positions
+src/SuffixTree/Algorithms/SuffixTree.Core/SuffixTreeAlgorithms.Repeats.cs	280	VIEW	public static IReadOnlyList<(string Substring, IReadOnlyList<int> PositionsInText, IReadOnlyList<int> PositionsInOther)>
+src/SuffixTree/Algorithms/SuffixTree.Core/SuffixTreeAlgorithms.Repeats.cs	286	VIEW	var results = new List<(string Substring, IReadOnlyList<int> PositionsInText, IReadOnlyList<int> PositionsInOther)>();
+src/SuffixTree/Algorithms/SuffixTree.Core/SuffixTreeAlgorithms.Repeats.cs	297	VIEW	((List<int>)results[slot].PositionsInOther).Add(start);
+src/SuffixTree/Algorithms/SuffixTree.Core/SuffixTreeAlgorithms.Repeats.cs	301	VIEW	var inText = new List<int>();
+src/SuffixTree/Algorithms/SuffixTree.Core/SuffixTreeAlgorithms.Repeats.cs	305	VIEW	results.Add((substring, inText, new List<int> { start }));
+src/SuffixTree/Algorithms/SuffixTree.Core/SuffixTreeAlgorithms.Repeats.cs	317	VIEW	public static IReadOnlyList<(string Substring, IReadOnlyList<int> PositionsInText, IReadOnlyList<int> PositionsInOther)>
+src/SuffixTree/Algorithms/SuffixTree.Core/SuffixTreeAlgorithms.Repeats.cs	322	VIEW	var results = new List<(string Substring, IReadOnlyList<int> PositionsInText, IReadOnlyList<int> PositionsInOther)>();
+src/SuffixTree/Algorithms/SuffixTree.Core/SuffixTreeAlgorithms.Repeats.cs	357	VIEW	((List<int>)results[slot].PositionsInOther).Add(q);
+src/SuffixTree/Algorithms/SuffixTree.Core/SuffixTreeAlgorithms.Repeats.cs	361	VIEW	var textPositions = new List<int>();
+src/SuffixTree/Algorithms/SuffixTree.Core/SuffixTreeAlgorithms.Repeats.cs	368	VIEW	results.Add((s, textPositions, new List<int> { q }));
+src/SuffixTree/Algorithms/SuffixTree.Core/SuffixTreeAlgorithms.Repeats.cs	378	LIMIT	private static (int MaxLength, List<(TNode Node, int MatchEndInOther, int DepthFromRoot)> Matches)
+src/SuffixTree/Algorithms/SuffixTree.Core/SuffixTreeAlgorithms.cs	36	VIEW	public static (string Substring, List<int> PositionsInText, List<int> PositionsInOther)
+src/SuffixTree/Algorithms/SuffixTree.Core/SuffixTreeAlgorithms.cs	45	VIEW	return (string.Empty, new List<int>(), new List<int>());
+src/SuffixTree/Algorithms/SuffixTree.Core/SuffixTreeAlgorithms.cs	47	VIEW	var positionsInText = new List<int>();
+src/SuffixTree/Algorithms/SuffixTree.Core/SuffixTreeAlgorithms.cs	48	VIEW	var positionsInOther = new List<int>();
+src/SuffixTree/Algorithms/SuffixTree.Core/SuffixTreeAlgorithms.cs	193	VIEW	var leaves = new List<int>();
+src/SuffixTree/Algorithms/SuffixTree.Core/SuffixTreeAlgorithms.cs	378	VIEW	List<int> textStarts, int length, List<(int PositionInText, int Length)> hits)
+src/SuffixTree/Algorithms/SuffixTree.Core/SuffixTreeAlgorithms.cs	531	VIEW	private static void SortAndDeduplicateInPlace(List<int> values)
+src/SuffixTree/Algorithms/SuffixTree.Core/SuffixTreeAlgorithms.cs	648	SIG	private static int CountOverlapping(string haystack, ReadOnlySpan<char> word)
+src/SuffixTree/Algorithms/SuffixTree.Core/SuffixTreeAlgorithms.cs	672	VIEW	public static IReadOnlyList<(string Substring, IReadOnlyList<int> Positions)> FindAllLongestRepeatedSubstrings(ISuffixTree tree)
+src/SuffixTree/Algorithms/SuffixTree.Core/SuffixTreeAlgorithms.cs	680	VIEW	return Array.Empty<(string, IReadOnlyList<int>)>();
+src/SuffixTree/Algorithms/SuffixTree.Core/SuffixTreeAlgorithms.cs	682	VIEW	var results = new List<(string Substring, IReadOnlyList<int> Positions)>(collector.EdgeEnds.Count);
+src/SuffixTree/Algorithms/SuffixTree.Core/SuffixTreeAlgorithms.cs	686	VIEW	var positions = new List<int>(tree.FindAllOccurrences(substring));
+src/SuffixTree/Algorithms/SuffixTree.Core/SuffixTreeAlgorithms.cs	703	SIG	public int MaxDepth { get; private set; }
+src/SuffixTree/Algorithms/SuffixTree.Core/SuffixTreeAlgorithms.cs	705	VIEW	public List<int> EdgeEnds { get; } = new();
+src/SuffixTree/Algorithms/SuffixTree.Core/SuffixTreeLimits.cs	22	LIMIT	public const int MaxTextLength = int.MaxValue / 2;
+src/SuffixTree/Algorithms/SuffixTree.Core/SuffixTreeLimits.cs	32	LIMIT	if (length > MaxTextLength)
+src/SuffixTree/Algorithms/SuffixTree.Core/SuffixTreeLimits.cs	41	LIMIT	public static bool IsTextLengthSupported(int length) => length <= MaxTextLength;
+src/SuffixTree/Algorithms/SuffixTree.Core/SuffixTreeLimits.cs	44	LIMIT	"The text has " + length + " characters; a suffix tree supports at most " + MaxTextLength +
+src/SuffixTree/Algorithms/SuffixTree.Core/SuffixTreeSearchContracts.cs	25	VIEW	public static IReadOnlyList<int> BuildAllStartPositions(int textLength)
+src/SuffixTree/Algorithms/SuffixTree.Core/SuffixTreeSearchContracts.cs	25	SIG	public static IReadOnlyList<int> BuildAllStartPositions(int textLength)
+src/SuffixTree/Algorithms/SuffixTree.Core/SuffixTreeSearchContracts.cs	27	VIEW	var all = new List<int>(textLength);
+src/SuffixTree/Algorithms/SuffixTree.Core/Indexing/IndexLocus.cs	44	SIG	public override int GetHashCode() => HashCode.Combine(Lo, Hi, Length, Aux);

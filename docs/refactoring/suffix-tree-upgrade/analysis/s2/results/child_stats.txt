@@ -1,0 +1,26 @@
+# widthbench stats: how far child cells and PSI increments are from their own index (ADR-005 section 2.5), 2026-11-24
+## work_dna100
+n=100000000 sigma=4 posWidth=4
+child cells: 100000001, empty 1 (0.00 %), codec 2
+  next      37854196 cells: |v-k|<=127 37.68 % of all cells, <=32767 0.17 %, larger 0.00 %
+  up        42604682 cells: |v-k|<=127 42.34 % of all cells, <=32767 0.26 %, larger 0.00 %
+  down      19541122 cells: |v-k|<=127 19.52 % of all cells, <=32767 0.02 %, larger 0.00 %
+  cells whose value is within 127 of the index (a signed byte): 99.54 % of all cells; the rest 0.46 % would need an escape (of which empty cells need none)
+psi: increments <= 255 100.000 %, larger 0.000 %, decreases (bucket starts) 3 (0.000003 %)
+## work_genome100
+n=100000000 sigma=5 posWidth=4
+child cells: 100000001, empty 1 (0.00 %), codec 2
+  next      33949353 cells: |v-k|<=127 33.63 % of all cells, <=32767 0.32 %, larger 0.00 %
+  up        43115315 cells: |v-k|<=127 42.69 % of all cells, <=32767 0.42 %, larger 0.00 %
+  down      22935332 cells: |v-k|<=127 22.87 % of all cells, <=32767 0.07 %, larger 0.00 %
+  cells whose value is within 127 of the index (a signed byte): 99.19 % of all cells; the rest 0.81 % would need an escape (of which empty cells need none)
+psi: increments <= 255 99.997 %, larger 0.003 %, decreases (bucket starts) 4 (0.000004 %)
+lcp overflow entries 1390028 (1.3900 % of ranks), lcp codec 1
+## work_rep10
+n=10000000 sigma=4 posWidth=4
+child cells: 10000001, empty 1 (0.00 %), codec 2
+  next       1431752 cells: |v-k|<=127 13.97 % of all cells, <=32767 0.35 %, larger 0.00 %
+  up         4611816 cells: |v-k|<=127 45.73 % of all cells, <=32767 0.39 %, larger 0.00 %
+  down       3956432 cells: |v-k|<=127 39.52 % of all cells, <=32767 0.05 %, larger 0.00 %
+  cells whose value is within 127 of the index (a signed byte): 99.22 % of all cells; the rest 0.78 % would need an escape (of which empty cells need none)
+psi: increments <= 255 99.919 %, larger 0.081 %, decreases (bucket starts) 3 (0.000030 %)

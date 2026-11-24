@@ -27,7 +27,8 @@ dotnet $S2_OUT/bin/wb/WidthBench.dll selftest                                   
 | `results/bchar_table.tsv` | bytes per character per section for each width at n = 10^8 .. 6.2x10^9 (arithmetic from the section layouts) | `python3 scripts/bchar.py --tsv results/bchar_table.tsv` | instant |
 | `results/int_inventory.tsv` | every place where a 32-bit type limits a size or a position (file, line, category), by pattern | `python3 scripts/int_inventory.py > results/int_inventory.tsv` | instant |
 | `results/drift_s2.tsv` | the libsais `dna_10m` single-thread build (S1 reference 0.328 s) at the start and end of every session; more than 10 % off = "drift" | `scripts/drift.sh <label>` | 1 min |
-| `results/build_500m_core.txt` | the production chain on 5x10^8 random DNA (Core profile), times and RssAnon by phase | see below | 80 s |
+| `results/build_chain_rows.txt` | the production chain (Bench `sesa build`) on 10^8 and 5x10^8 random DNA, Core and Full: phase times, RssAnon, container sizes | see below | 18 s / 80 s / 105 s |
+| `results/libsais_check_500m.txt` | SHA-256 of the libsais suffix array of the 5x10^8 text against SA[1..n] of the container (the checksum method of the S2 gate; equal) | `scripts/check_sa_vs_libsais.sh <text> <container> <libsais source dir>` | 40 s, 2 GB of disk |
 
 Containers used by the descent rows (all built by `sesa build` of the Bench, 4 threads, default parameters):
 

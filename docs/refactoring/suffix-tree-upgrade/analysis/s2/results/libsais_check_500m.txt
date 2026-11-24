@@ -1,0 +1,6 @@
+# SHA-256 of the libsais suffix array (int32 LE, SA[1..n]) against SA[1..n] of the container built by the production chain, 2026-11-24
+# dna_10m: the committed vector analysis/sa_vectors.tsv (9adbdf36...) is reproduced by scripts/sa_dump.c; dna_500m: first 10^8 bytes = dna_100m (SHA-256 of the text 32bca5fd93e3b8a6bcb456338261c012fc291eacb4321041a0215e1a973fffac for the first 10^8)
+libsais n=500000000 time=34.829 s
+real	0m35.997s
+libsais_sa_sha256 6edf12d4c1a17c249303b7fefd49d3b8592f0c3b6d7a76576c0f9a7997047a39
+container_sa_1_to_n_sha256 6edf12d4c1a17c249303b7fefd49d3b8592f0c3b6d7a76576c0f9a7997047a39 n 500000000

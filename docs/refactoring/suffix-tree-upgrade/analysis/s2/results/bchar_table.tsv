@@ -1,0 +1,37 @@
+option	n	core_B_per_char	full_B_per_char	sa_B	child_B	psi_B	can_hold_n
+w4 fixed 32-bit (today)	100000000	9.25	13.25	4.0	4.0	4.0	True
+w4 fixed 32-bit (today)	1000000000	9.25	13.25	4.0	4.0	4.0	True
+w4 fixed 32-bit (today)	3000000000	9.25	13.25	4.0	4.0	4.0	True
+w4 fixed 32-bit (today)	6200000000.0	9.25	13.25	4.0	4.0	4.0	False
+w5 fixed 40-bit	100000000	11.25	16.25	5.0	5.0	5.0	True
+w5 fixed 40-bit	1000000000	11.25	16.25	5.0	5.0	5.0	True
+w5 fixed 40-bit	3000000000	11.25	16.25	5.0	5.0	5.0	True
+w5 fixed 40-bit	6200000000.0	11.25	16.25	5.0	5.0	5.0	True
+w8 fixed 64-bit	100000000	17.25	25.25	8.0	8.0	8.0	True
+w8 fixed 64-bit	1000000000	17.25	25.25	8.0	8.0	8.0	True
+w8 fixed 64-bit	3000000000	17.25	25.25	8.0	8.0	8.0	True
+w8 fixed 64-bit	6200000000.0	17.25	25.25	8.0	8.0	8.0	True
+hybrid, all three arrays	100000000	9.75	14.0	4.25	4.25	4.25	True
+hybrid, all three arrays	1000000000	9.75	14.0	4.25	4.25	4.25	True
+hybrid, all three arrays	3000000000	9.75	14.0	4.25	4.25	4.25	True
+hybrid, all three arrays	6200000000.0	12.823	18.609	5.786	5.786	5.786	True
+hybrid SA + PSI, fixed CHILD	100000000	9.5	13.75	4.25	4.0	4.25	True
+hybrid SA + PSI, fixed CHILD	1000000000	9.5	13.75	4.25	4.0	4.25	True
+hybrid SA + PSI, fixed CHILD	3000000000	9.5	13.75	4.25	4.0	4.25	True
+hybrid SA + PSI, fixed CHILD	6200000000.0	12.036	17.823	5.786	5.0	5.786	True
+p34 (34 bits, 15 per line)	100000000	9.783	14.05	4.267	4.267	4.267	True
+p34 (34 bits, 15 per line)	1000000000	9.783	14.05	4.267	4.267	4.267	True
+p34 (34 bits, 15 per line)	3000000000	9.783	14.05	4.267	4.267	4.267	True
+p34 (34 bits, 15 per line)	6200000000.0	9.783	14.05	4.267	4.267	4.267	True
+w by n (4, then 5) + CHILD d16	100000000	7.251	11.251	4.0	2.001	4.0	True
+w by n (4, then 5) + CHILD d16	1000000000	7.251	11.251	4.0	2.001	4.0	True
+w by n (4, then 5) + CHILD d16	3000000000	7.251	11.251	4.0	2.001	4.0	True
+w by n (4, then 5) + CHILD d16	6200000000.0	8.251	13.251	5.0	2.001	5.0	True
+w by n (4, then 5) + CHILD d8	100000000	6.3	10.3	4.0	1.05	4.0	True
+w by n (4, then 5) + CHILD d8	1000000000	6.3	10.3	4.0	1.05	4.0	True
+w by n (4, then 5) + CHILD d8	3000000000	6.3	10.3	4.0	1.05	4.0	True
+w by n (4, then 5) + CHILD d8	6200000000.0	7.3	12.3	5.0	1.05	5.0	True
+w by n (4, then 5), CHILD as is	100000000	9.25	13.25	4.0	4.0	4.0	True
+w by n (4, then 5), CHILD as is	1000000000	9.25	13.25	4.0	4.0	4.0	True
+w by n (4, then 5), CHILD as is	3000000000	9.25	13.25	4.0	4.0	4.0	True
+w by n (4, then 5), CHILD as is	6200000000.0	11.25	16.25	5.0	5.0	5.0	True

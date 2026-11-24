@@ -1,0 +1,60 @@
+# the production chain (apps/SuffixTree.Esa.Bench sesa build, 4 threads, default parameters, fsync on) on this machine, 2026-11-24, head 703d6036; R rows of the Bench; nothing else running
+## dna_100m_Full (sesa100.log)
+R	sesa	total_s	17.62652933	s	dna_100m SesaBuilder.Build, inside the call
+R	sesa	wall_s	17.631697827	s	dna_100m around the call
+R	sesa	scan_s	0.154650161	s	dna_100m
+R	sesa	pack_s	0.331455908	s	dna_100m
+R	sesa	ph1_s	0.304917337	s	dna_100m
+R	sesa	ph23_s	5.784543122	s	dna_100m
+R	sesa	ph45_s	8.00234152	s	dna_100m
+R	sesa	bwt_s	1.734502668	s	dna_100m
+R	sesa	psi_s	0.912336839	s	dna_100m
+R	sesa	crc_s	0.302148227	s	dna_100m
+R	sesa	proc_write_bytes	4319969280	bytes	dna_100m pages dirtied (a page that is written again counts again)
+R	sesa	rssanon_peak_mb	251.22816	MB	dna_100m verdict Within
+R	sesa	rssanon_ph0_mb	10.637312	MB	dna_100m
+R	sesa	rssanon_ph1_mb	55.6032	MB	dna_100m
+R	sesa	rssanon_ph23_mb	100.552704	MB	dna_100m
+R	sesa	rssanon_ph45_mb	251.183104	MB	dna_100m
+R	sesa	rssanon_ph6_mb	142.659584	MB	dna_100m
+R	sesa	rssanon_seal_mb	142.700544	MB	dna_100m
+## dna_500m_Core_no_PSI (sesa500.log)
+R	sesa	total_s	78.980574072	s	dna_500m SesaBuilder.Build, inside the call
+R	sesa	wall_s	78.985167851	s	dna_500m around the call
+R	sesa	scan_s	0.689018147	s	dna_500m
+R	sesa	pack_s	1.469611329	s	dna_500m
+R	sesa	ph1_s	1.868650776	s	dna_500m
+R	sesa	ph23_s	29.204597706	s	dna_500m
+R	sesa	ph45_s	44.715744251	s	dna_500m
+R	sesa	bwt_s	0	s	dna_500m
+R	sesa	psi_s	0	s	dna_500m
+R	sesa	crc_s	1.005810978	s	dna_500m
+R	sesa	proc_write_bytes	19081195520	bytes	dna_500m pages dirtied (a page that is written again counts again)
+R	sesa	rssanon_peak_mb	342.151168	MB	dna_500m verdict Exceeded
+R	sesa	rssanon_ph0_mb	12.14464	MB	dna_500m
+R	sesa	rssanon_ph1_mb	65.08544	MB	dna_500m
+R	sesa	rssanon_ph23_mb	104.738816	MB	dna_500m
+R	sesa	rssanon_ph45_mb	342.114304	MB	dna_500m
+R	sesa	rssanon_seal_mb	226.402304	MB	dna_500m
+## dna_500m_Full (sesa500full.log)
+R	sesa	total_s	104.673545501	s	dna_500m_full SesaBuilder.Build, inside the call
+R	sesa	wall_s	104.679149114	s	dna_500m_full around the call
+R	sesa	scan_s	0.727304826	s	dna_500m_full
+R	sesa	pack_s	1.606847151	s	dna_500m_full
+R	sesa	ph1_s	1.928742398	s	dna_500m_full
+R	sesa	ph23_s	29.172973473	s	dna_500m_full
+R	sesa	ph45_s	48.336782059	s	dna_500m_full
+R	sesa	bwt_s	16.772505447	s	dna_500m_full
+R	sesa	psi_s	4.296022624	s	dna_500m_full
+R	sesa	crc_s	1.459593715	s	dna_500m_full
+R	sesa	proc_write_bytes	21636489216	bytes	dna_500m_full pages dirtied (a page that is written again counts again)
+R	sesa	rssanon_peak_mb	344.63744	MB	dna_500m_full verdict Exceeded
+R	sesa	rssanon_ph0_mb	12.148736	MB	dna_500m_full
+R	sesa	rssanon_ph1_mb	65.31072	MB	dna_500m_full
+R	sesa	rssanon_ph23_mb	102.387712	MB	dna_500m_full
+R	sesa	rssanon_ph45_mb	344.63744	MB	dna_500m_full
+R	sesa	rssanon_ph6_mb	232.3456	MB	dna_500m_full
+R	sesa	rssanon_seal_mb	232.456192	MB	dna_500m_full
+## genome_100m (genome-like, e8-gen): total_s 18.304, rssanon_peak_mb 287.183 (Within); container 1,348,644,448 B = 13.486 B/char
+## rep_10m: total_s 3.113, rssanon_peak_mb 99.734 (Within); container 142,515,458 B = 14.252 B/char
+## container sizes: dna_100m 1,325,019,393 B (13.250 B/char); dna_500m Core 4,625,016,065 B (9.250); dna_500m Full 6,625,019,137 B (13.250)
