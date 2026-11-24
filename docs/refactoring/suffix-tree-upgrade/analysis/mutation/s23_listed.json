@@ -1,0 +1,1514 @@
+[
+ {
+  "id": "s23_R01",
+  "desc": "Pos8: the bound is element > count",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/PosReaders.cs",
+  "old": "if (TAccess.IsChecked && (ulong)index >= (ulong)_count) PosReader.ThrowOutside(index, _count);\n        return _p[index];",
+  "new": "if (TAccess.IsChecked && (ulong)index > (ulong)_count) PosReader.ThrowOutside(index, _count);\n        return _p[index];",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.PosReaderTests)"
+ },
+ {
+  "id": "s23_R02",
+  "desc": "Pos16: the bound is element > count",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/PosReaders.cs",
+  "old": "if (TAccess.IsChecked && (ulong)index >= (ulong)_count) PosReader.ThrowOutside(index, _count);\n        return Unsafe.ReadUnaligned<ushort>(",
+  "new": "if (TAccess.IsChecked && (ulong)index > (ulong)_count) PosReader.ThrowOutside(index, _count);\n        return Unsafe.ReadUnaligned<ushort>(",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.PosReaderTests)"
+ },
+ {
+  "id": "s23_R03",
+  "desc": "Pos32: the bound is element > count",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/PosReaders.cs",
+  "old": "if (TAccess.IsChecked && (ulong)index >= (ulong)_count) PosReader.ThrowOutside(index, _count);\n        return Unsafe.ReadUnaligned<uint>(",
+  "new": "if (TAccess.IsChecked && (ulong)index > (ulong)_count) PosReader.ThrowOutside(index, _count);\n        return Unsafe.ReadUnaligned<uint>(",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.PosReaderTests)"
+ },
+ {
+  "id": "s23_R04",
+  "desc": "Pos40: the bound is element > count",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/PosReaders.cs",
+  "old": "if (TAccess.IsChecked && (ulong)index >= (ulong)_count) PosReader.ThrowOutside(index, _count);\n        return Unsafe.ReadUnaligned<ulong>(_p + (5 * index))",
+  "new": "if (TAccess.IsChecked && (ulong)index > (ulong)_count) PosReader.ThrowOutside(index, _count);\n        return Unsafe.ReadUnaligned<ulong>(_p + (5 * index))",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.PosReaderTests)"
+ },
+ {
+  "id": "s23_R05",
+  "desc": "Pos64: the bound is element > count",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/PosReaders.cs",
+  "old": "if (TAccess.IsChecked && (ulong)index >= (ulong)_count) PosReader.ThrowOutside(index, _count);\n        return Unsafe.ReadUnaligned<ulong>(_p + (8 * index))",
+  "new": "if (TAccess.IsChecked && (ulong)index > (ulong)_count) PosReader.ThrowOutside(index, _count);\n        return Unsafe.ReadUnaligned<ulong>(_p + (8 * index))",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.PosReaderTests)"
+ },
+ {
+  "id": "s23_R06",
+  "desc": "Pos8: Checked mode does not check",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/PosReaders.cs",
+  "old": "if (TAccess.IsChecked && (ulong)index >= (ulong)_count) PosReader.ThrowOutside(index, _count);\n        return _p[index];",
+  "new": "if (false && (ulong)index >= (ulong)_count) PosReader.ThrowOutside(index, _count);\n        return _p[index];",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.PosReaderTests)"
+ },
+ {
+  "id": "s23_R07",
+  "desc": "Pos16: Checked mode does not check",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/PosReaders.cs",
+  "old": "if (TAccess.IsChecked && (ulong)index >= (ulong)_count) PosReader.ThrowOutside(index, _count);\n        return Unsafe.ReadUnaligned<ushort>(",
+  "new": "if (false && (ulong)index >= (ulong)_count) PosReader.ThrowOutside(index, _count);\n        return Unsafe.ReadUnaligned<ushort>(",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.PosReaderTests)"
+ },
+ {
+  "id": "s23_R08",
+  "desc": "Pos32: Checked mode does not check",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/PosReaders.cs",
+  "old": "if (TAccess.IsChecked && (ulong)index >= (ulong)_count) PosReader.ThrowOutside(index, _count);\n        return Unsafe.ReadUnaligned<uint>(",
+  "new": "if (false && (ulong)index >= (ulong)_count) PosReader.ThrowOutside(index, _count);\n        return Unsafe.ReadUnaligned<uint>(",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.PosReaderTests)"
+ },
+ {
+  "id": "s23_R09",
+  "desc": "Pos40: Checked mode does not check",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/PosReaders.cs",
+  "old": "if (TAccess.IsChecked && (ulong)index >= (ulong)_count) PosReader.ThrowOutside(index, _count);\n        return Unsafe.ReadUnaligned<ulong>(_p + (5 * index))",
+  "new": "if (false && (ulong)index >= (ulong)_count) PosReader.ThrowOutside(index, _count);\n        return Unsafe.ReadUnaligned<ulong>(_p + (5 * index))",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.PosReaderTests)"
+ },
+ {
+  "id": "s23_R10",
+  "desc": "Pos64: Checked mode does not check",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/PosReaders.cs",
+  "old": "if (TAccess.IsChecked && (ulong)index >= (ulong)_count) PosReader.ThrowOutside(index, _count);\n        return Unsafe.ReadUnaligned<ulong>(_p + (8 * index))",
+  "new": "if (false && (ulong)index >= (ulong)_count) PosReader.ThrowOutside(index, _count);\n        return Unsafe.ReadUnaligned<ulong>(_p + (8 * index))",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.PosReaderTests)"
+ },
+ {
+  "id": "s23_R11",
+  "desc": "Pos40: the mask keeps 32 bits",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/PosReaders.cs",
+  "old": "return Unsafe.ReadUnaligned<ulong>(_p + (5 * index)) & PosReader.Mask40;",
+  "new": "return Unsafe.ReadUnaligned<ulong>(_p + (5 * index)) & 0xFFFF_FFFFUL;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.PosReaderTests)"
+ },
+ {
+  "id": "s23_R12",
+  "desc": "Pos40: the mask keeps 48 bits",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/PosReaders.cs",
+  "old": "return Unsafe.ReadUnaligned<ulong>(_p + (5 * index)) & PosReader.Mask40;",
+  "new": "return Unsafe.ReadUnaligned<ulong>(_p + (5 * index)) & 0xFFFF_FFFF_FFFFUL;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.PosReaderTests)"
+ },
+ {
+  "id": "s23_R13",
+  "desc": "Pos40: the stride is 4",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/PosReaders.cs",
+  "old": "return Unsafe.ReadUnaligned<ulong>(_p + (5 * index)) & PosReader.Mask40;",
+  "new": "return Unsafe.ReadUnaligned<ulong>(_p + (4 * index)) & PosReader.Mask40;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.PosReaderTests)"
+ },
+ {
+  "id": "s23_R14",
+  "desc": "Pos40: the index is narrowed to int in the address",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/PosReaders.cs",
+  "old": "return Unsafe.ReadUnaligned<ulong>(_p + (5 * index)) & PosReader.Mask40;",
+  "new": "return Unsafe.ReadUnaligned<ulong>(_p + (5 * (int)index)) & PosReader.Mask40;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.PosReaderTests)"
+ },
+ {
+  "id": "s23_R15",
+  "desc": "Pos32: the index is narrowed to int in the address",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/PosReaders.cs",
+  "old": "return Unsafe.ReadUnaligned<uint>(_p + (4 * index));",
+  "new": "return Unsafe.ReadUnaligned<uint>(_p + (4 * (int)index));",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.PosReaderTests)"
+ },
+ {
+  "id": "s23_R16",
+  "desc": "Pos64: the index is narrowed to int in the address",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/PosReaders.cs",
+  "old": "return Unsafe.ReadUnaligned<ulong>(_p + (8 * index));",
+  "new": "return Unsafe.ReadUnaligned<ulong>(_p + (8 * (int)index));",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.PosReaderTests)"
+ },
+ {
+  "id": "s23_R17",
+  "desc": "Pos16: the index is narrowed to int in the address",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/PosReaders.cs",
+  "old": "return Unsafe.ReadUnaligned<ushort>(_p + (2 * index));",
+  "new": "return Unsafe.ReadUnaligned<ushort>(_p + (2 * (int)index));",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.PosReaderTests)"
+ },
+ {
+  "id": "s23_R18",
+  "desc": "Pos8: the index is narrowed to int",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/PosReaders.cs",
+  "old": "return _p[index];",
+  "new": "return _p[(int)index];",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.PosReaderTests)"
+ },
+ {
+  "id": "s23_R19",
+  "desc": "Pos32: the word is sign-extended",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/PosReaders.cs",
+  "old": "return Unsafe.ReadUnaligned<uint>(_p + (4 * index));",
+  "new": "return (ulong)Unsafe.ReadUnaligned<int>(_p + (4 * index));",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.PosReaderTests)"
+ },
+ {
+  "id": "s23_R20",
+  "desc": "Pos16: the word is sign-extended",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/PosReaders.cs",
+  "old": "return Unsafe.ReadUnaligned<ushort>(_p + (2 * index));",
+  "new": "return (ulong)Unsafe.ReadUnaligned<short>(_p + (2 * index));",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.PosReaderTests)"
+ },
+ {
+  "id": "s23_R21",
+  "desc": "PosInt: the entry is sign-extended",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/PosReaders.cs",
+  "old": "public ulong Get(long index) => (uint)_values[index];",
+  "new": "public ulong Get(long index) => (ulong)_values[index];",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.PosReaderTests)"
+ },
+ {
+  "id": "s23_R22",
+  "desc": "Mask40 loses its lowest bit",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/PosReaders.cs",
+  "old": "internal const ulong Mask40 = 0xFF_FFFF_FFFFUL;",
+  "new": "internal const ulong Mask40 = 0xFF_FFFF_FFFEUL;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.PosReaderTests)"
+ },
+ {
+  "id": "s23_R23",
+  "desc": "the padding is 4 bytes",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/PosReaders.cs",
+  "old": "internal const int Padding40 = 3;",
+  "new": "internal const int Padding40 = 4;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.PosReaderTests)"
+ },
+ {
+  "id": "s23_R24",
+  "desc": "Pos40 says 4 bytes per element",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/PosReaders.cs",
+  "old": "public static int ElementBytes => 5;",
+  "new": "public static int ElementBytes => 4;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.PosReaderTests)"
+ },
+ {
+  "id": "s23_R25",
+  "desc": "a negative count is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/PosReaders.cs",
+  "old": "internal static void CheckCount(long count) => ArgumentOutOfRangeException.ThrowIfNegative(count);",
+  "new": "internal static void CheckCount(long count) { }",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.PosReaderTests)"
+ },
+ {
+  "id": "s23_R26",
+  "desc": "PosInt counts one element less",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/PosReaders.cs",
+  "old": "public long Count => _values.Length;",
+  "new": "public long Count => _values.Length - 1;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.PosReaderTests)"
+ },
+ {
+  "id": "s23_R27",
+  "desc": "Pos40 counts one element less",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/PosReaders.cs",
+  "old": "public static int ElementBytes => 5;\n\n    public long Count => _count;",
+  "new": "public static int ElementBytes => 5;\n\n    public long Count => _count - 1;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.PosReaderTests)"
+ },
+ {
+  "id": "s23_R28",
+  "desc": "Pos64 says 4 bytes per element",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/PosReaders.cs",
+  "old": "public static int ElementBytes => 8;",
+  "new": "public static int ElementBytes => 4;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.PosReaderTests)"
+ },
+ {
+  "id": "s23_S01",
+  "desc": "SaView.FromMapped accepts a width of 8",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs",
+  "old": "if (posWidth is not (4 or 5)) throw new ArgumentOutOfRangeException(nameof(posWidth), posWidth, \"the stored width of a position is 4 or 5 bytes\");",
+  "new": "if (posWidth is not (4 or 5 or 8)) throw new ArgumentOutOfRangeException(nameof(posWidth), posWidth, \"the stored width of a position is 4 or 5 bytes\");",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.SaViewTests)"
+ },
+ {
+  "id": "s23_S02",
+  "desc": "SaView.FromMapped sets the 5-byte flag for width 4",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs",
+  "old": "if (posWidth == 5) flags |= FiveBytes;",
+  "new": "if (posWidth == 4) flags |= FiveBytes;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.SaViewTests)"
+ },
+ {
+  "id": "s23_S03",
+  "desc": "SaView.Load40: the mask keeps 32 bits",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs",
+  "old": "Unsafe.ReadUnaligned<ulong>((byte*)_pointer + (5 * rank)) & PosReader.Mask40;",
+  "new": "Unsafe.ReadUnaligned<ulong>((byte*)_pointer + (5 * rank)) & 0xFFFF_FFFFUL;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.SaViewTests)"
+ },
+ {
+  "id": "s23_S04",
+  "desc": "SaView.Load40: the rank is narrowed to int",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs",
+  "old": "Unsafe.ReadUnaligned<ulong>((byte*)_pointer + (5 * rank)) & PosReader.Mask40;",
+  "new": "Unsafe.ReadUnaligned<ulong>((byte*)_pointer + (5 * (int)rank)) & PosReader.Mask40;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.SaViewTests)"
+ },
+ {
+  "id": "s23_S05",
+  "desc": "SaView.Load40: the stride is 4",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs",
+  "old": "Unsafe.ReadUnaligned<ulong>((byte*)_pointer + (5 * rank)) & PosReader.Mask40;",
+  "new": "Unsafe.ReadUnaligned<ulong>((byte*)_pointer + (4 * rank)) & PosReader.Mask40;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.SaViewTests)"
+ },
+ {
+  "id": "s23_S06",
+  "desc": "SaView[long]: the bound is rank > count",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs",
+  "old": "if ((_flags & Checked) != 0 && (ulong)rank >= (ulong)_count) ThrowOutside(rank);\n            return (_flags & FiveBytes) != 0 ? (long)Load40(rank) : (uint)_pointer[rank];",
+  "new": "if ((_flags & Checked) != 0 && (ulong)rank > (ulong)_count) ThrowOutside(rank);\n            return (_flags & FiveBytes) != 0 ? (long)Load40(rank) : (uint)_pointer[rank];",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.SaViewTests)"
+ },
+ {
+  "id": "s23_S07",
+  "desc": "SaView[long]: a 4-byte entry is sign-extended",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs",
+  "old": "return (_flags & FiveBytes) != 0 ? (long)Load40(rank) : (uint)_pointer[rank];\n        }\n    }\n\n    /// <summary>The same read, always bounded",
+  "new": "return (_flags & FiveBytes) != 0 ? (long)Load40(rank) : _pointer[rank];\n        }\n    }\n\n    /// <summary>The same read, always bounded",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.SaViewTests)"
+ },
+ {
+  "id": "s23_S08",
+  "desc": "SaView[int]: the bound is rank > count",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs",
+  "old": "if ((_flags & Checked) != 0 && (ulong)rank >= (ulong)_count) ThrowOutside(rank);\n            if ((_flags & Bridged) != 0) return IntBridge.Value(",
+  "new": "if ((_flags & Checked) != 0 && (ulong)rank > (ulong)_count) ThrowOutside(rank);\n            if ((_flags & Bridged) != 0) return IntBridge.Value(",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.SaViewTests)"
+ },
+ {
+  "id": "s23_S09",
+  "desc": "SaView[int]: a 5-byte entry is narrowed without the check",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs",
+  "old": "return IntBridge.Value(ReadUnchecked(rank), \"a suffix array entry\");\n            return _pointer[rank];",
+  "new": "return (int)ReadUnchecked(rank);\n            return _pointer[rank];",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.SaViewTests)"
+ },
+ {
+  "id": "s23_S10",
+  "desc": "SaView.At: the bound is rank > count",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs",
+  "old": "if ((ulong)rank >= (ulong)_count) ThrowOutside(rank);\n        return this[rank];",
+  "new": "if ((ulong)rank > (ulong)_count) ThrowOutside(rank);\n        return this[rank];",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.SaViewTests)"
+ },
+ {
+  "id": "s23_S11",
+  "desc": "SaView.CopyTo(int): the range may end one past the section",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs",
+  "old": "if (start < 0 || destination.Length > _count - start) ThrowOutside(start);\n        if (_array is not null) _array.AsSpan((int)start",
+  "new": "if (start < 0 || destination.Length > _count - start + 1) ThrowOutside(start);\n        if (_array is not null) _array.AsSpan((int)start",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.SaViewTests)"
+ },
+ {
+  "id": "s23_S12",
+  "desc": "SaView.CopyTo(long): the range may end one past the section",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs",
+  "old": "if (start < 0 || destination.Length > _count - start) ThrowOutside(start);\n        for (int i = 0; i < destination.Length; i++) destination[i] = ReadUnchecked(start + i);",
+  "new": "if (start < 0 || destination.Length > _count - start + 1) ThrowOutside(start);\n        for (int i = 0; i < destination.Length; i++) destination[i] = ReadUnchecked(start + i);",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.SaViewTests)"
+ },
+ {
+  "id": "s23_S13",
+  "desc": "SaView.CopyTo(int): a 5-byte entry is narrowed without the check",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs",
+  "old": "destination[i] = IntBridge.Value(ReadUnchecked(start + i), \"a suffix array entry\");",
+  "new": "destination[i] = (int)ReadUnchecked(start + i);",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.SaViewTests)"
+ },
+ {
+  "id": "s23_S14",
+  "desc": "SaView.CopyTo(int): the start is narrowed in the pointer",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs",
+  "old": "new ReadOnlySpan<int>(_pointer + start, destination.Length)",
+  "new": "new ReadOnlySpan<int>(_pointer + (int)start, destination.Length)",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.SaViewTests)"
+ },
+ {
+  "id": "s23_S15",
+  "desc": "SaView.ReadUnchecked: the 5-byte test is inverted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs",
+  "old": "return (_flags & FiveBytes) != 0 ? (long)Load40(rank) : (uint)_pointer[rank];\n    }",
+  "new": "return (_flags & FiveBytes) == 0 ? (long)Load40(rank) : (uint)_pointer[rank];\n    }",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.SaViewTests)"
+ },
+ {
+  "id": "s23_S16",
+  "desc": "SaView.StoredWidth: 4 and 5 swapped",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs",
+  "old": "internal int StoredWidth => (_flags & FiveBytes) != 0 ? 5 : 4;",
+  "new": "internal int StoredWidth => (_flags & FiveBytes) != 0 ? 4 : 5;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.SaViewTests)"
+ },
+ {
+  "id": "s23_S17",
+  "desc": "SaView.Pointer: of a 5-byte section is returned",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs",
+  "old": "internal int* Pointer => (_flags & FiveBytes) == 0 ? _pointer : throw",
+  "new": "internal int* Pointer => (_flags & FiveBytes) != 0 ? _pointer : throw",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.SaViewTests)"
+ },
+ {
+  "id": "s23_S18",
+  "desc": "SaView.ToArray: a negative count is not refused",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs",
+  "old": "ArgumentOutOfRangeException.ThrowIfNegative(count);\n        var result = new int[count];",
+  "new": "var result = new int[count];",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.SaViewTests)"
+ },
+ {
+  "id": "s23_S19",
+  "desc": "SaView.ToLongArray: a negative count is not refused",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs",
+  "old": "ArgumentOutOfRangeException.ThrowIfNegative(count);\n        var result = new long[count];\n        CopyTo(start, result);\n        return result;\n    }\n\n    /// <summary>\n    /// The pointer",
+  "new": "var result = new long[count];\n        CopyTo(start, result);\n        return result;\n    }\n\n    /// <summary>\n    /// The pointer",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.SaViewTests)"
+ },
+ {
+  "id": "s23_S20",
+  "desc": "SaView.FromMapped: a negative count is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs",
+  "old": "ArgumentOutOfRangeException.ThrowIfNegative(count);\n        return new SaView((int*)section, count, FlagsOf(",
+  "new": "return new SaView((int*)section, count, FlagsOf(",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.SaViewTests)"
+ },
+ {
+  "id": "s23_S21",
+  "desc": "SaView<TPos>.At: the bound is rank > count",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs",
+  "old": "if ((ulong)rank >= (ulong)_reader.Count) SaViewErrors.Outside(rank, _reader.Count);",
+  "new": "if ((ulong)rank > (ulong)_reader.Count) SaViewErrors.Outside(rank, _reader.Count);",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.SaViewTests)"
+ },
+ {
+  "id": "s23_S22",
+  "desc": "SaView<TPos>: the range may end one past the section",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs",
+  "old": "if (start < 0 || length > _reader.Count - start) SaViewErrors.Outside(start, _reader.Count);",
+  "new": "if (start < 0 || length > _reader.Count - start + 1) SaViewErrors.Outside(start, _reader.Count);",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.SaViewTests)"
+ },
+ {
+  "id": "s23_S23",
+  "desc": "SaView<TPos>.CopyTo(int): the position is narrowed without the check",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs",
+  "old": "destination[i] = IntBridge.Value((long)_reader.Get(start + i), \"a suffix array entry\");",
+  "new": "destination[i] = (int)_reader.Get(start + i);",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.SaViewTests)"
+ },
+ {
+  "id": "s23_S24",
+  "desc": "SaView<TPos>.CopyTo(long): the start is narrowed",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs",
+  "old": "for (int i = 0; i < destination.Length; i++) destination[i] = (long)_reader.Get(start + i);",
+  "new": "for (int i = 0; i < destination.Length; i++) destination[i] = (long)_reader.Get((int)start + i);",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.SaViewTests)"
+ },
+ {
+  "id": "s23_S25",
+  "desc": "SaView<TPos>[long]: the entry is narrowed to int",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs",
+  "old": "get => (long)_reader.Get(rank);",
+  "new": "get => (int)_reader.Get(rank);",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.SaViewTests)"
+ },
+ {
+  "id": "s23_S26",
+  "desc": "SaView<TPos>: a range starting at 0 is refused",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs",
+  "old": "if (start < 0 || length > _reader.Count - start) SaViewErrors.Outside(start, _reader.Count);",
+  "new": "if (start <= 0 || length > _reader.Count - start) SaViewErrors.Outside(start, _reader.Count);",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.SaViewTests)"
+ },
+ {
+  "id": "s23_S27",
+  "desc": "SaView.FlagsOf: a 4-byte section of more than int.MaxValue entries is not marked",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs",
+  "old": "else if (count > int.MaxValue) flags |= FourBytesWide;",
+  "new": "else if (count > long.MaxValue) flags |= FourBytesWide;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.SaViewTests)"
+ },
+ {
+  "id": "s23_S28",
+  "desc": "SaView: the bridged forms are the 5-byte section only",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs",
+  "old": "private const byte Bridged = FiveBytes | FourBytesWide;",
+  "new": "private const byte Bridged = FiveBytes;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.SaViewTests)"
+ },
+ {
+  "id": "s23_S29",
+  "desc": "SaView.this[int]: the bridge is tested for the 5-byte flag only",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs",
+  "old": "if ((_flags & Bridged) != 0) return IntBridge.Value(ReadUnchecked(rank), \"a suffix array entry\");",
+  "new": "if ((_flags & FiveBytes) != 0) return IntBridge.Value(ReadUnchecked(rank), \"a suffix array entry\");",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.SaViewTests)"
+ },
+ {
+  "id": "s23_S30",
+  "desc": "SaView.CopyTo(int): the bridge is tested for the 5-byte flag only",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs",
+  "old": "else if ((_flags & Bridged) == 0) new ReadOnlySpan<int>(_pointer + start, destination.Length).CopyTo(destination);",
+  "new": "else if ((_flags & FiveBytes) == 0) new ReadOnlySpan<int>(_pointer + start, destination.Length).CopyTo(destination);",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.SaViewTests)"
+ },
+ {
+  "id": "s23_S31",
+  "desc": "SaView.CopyTo(long): the start is narrowed",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs",
+  "old": "destination[i] = ReadUnchecked(start + i);",
+  "new": "destination[i] = ReadUnchecked((int)start + i);",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.SaViewTests)"
+ },
+ {
+  "id": "s23_S32",
+  "desc": "SaView.ReadUnchecked: the 4-byte index is narrowed",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs",
+  "old": ": (uint)_pointer[rank];\n    }\n\n    private ulong Load40",
+  "new": ": (uint)_pointer[(int)rank];\n    }\n\n    private ulong Load40",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.SaViewTests)"
+ },
+ {
+  "id": "s23_S33",
+  "desc": "SaView[long]: the 4-byte index is narrowed",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs",
+  "old": "(uint)_pointer[rank];\n        }\n    }\n\n    /// <summary>The same read, always bounded in both modes",
+  "new": "(uint)_pointer[(int)rank];\n        }\n    }\n\n    /// <summary>The same read, always bounded in both modes",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.SaViewTests)"
+ },
+ {
+  "id": "s23_S34",
+  "desc": "SaView.Load40: the stride is computed in int",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs",
+  "old": "(byte*)_pointer + (5 * rank)",
+  "new": "(byte*)_pointer + (5 * (int)rank)",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.SaViewTests)"
+ },
+ {
+  "id": "s23_B01",
+  "desc": "IntBridge.Length refuses int.MaxValue",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/IntBridge.cs",
+  "old": "if ((ulong)length > int.MaxValue) ThrowLength(length, member);",
+  "new": "if ((ulong)length >= int.MaxValue) ThrowLength(length, member);",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.IntBridgeTests)"
+ },
+ {
+  "id": "s23_B02",
+  "desc": "IntBridge.Value refuses int.MaxValue",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/IntBridge.cs",
+  "old": "if ((ulong)value > int.MaxValue) ThrowValue(value, what);",
+  "new": "if ((ulong)value >= int.MaxValue) ThrowValue(value, what);",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.IntBridgeTests)"
+ },
+ {
+  "id": "s23_B03",
+  "desc": "IntBridge.Length compares as uint",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/IntBridge.cs",
+  "old": "if ((ulong)length > int.MaxValue) ThrowLength(length, member);",
+  "new": "if ((uint)length > int.MaxValue) ThrowLength(length, member);",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.IntBridgeTests)"
+ },
+ {
+  "id": "s23_B04",
+  "desc": "IntBridge.Value compares as uint",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/IntBridge.cs",
+  "old": "if ((ulong)value > int.MaxValue) ThrowValue(value, what);",
+  "new": "if ((uint)value > int.MaxValue) ThrowValue(value, what);",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.IntBridgeTests)"
+ },
+ {
+  "id": "s23_B05",
+  "desc": "IntBridge.Length accepts a negative length",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/IntBridge.cs",
+  "old": "if ((ulong)length > int.MaxValue) ThrowLength(length, member);",
+  "new": "if (length > int.MaxValue) ThrowLength(length, member);",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.IntBridgeTests)"
+ },
+ {
+  "id": "s23_B06",
+  "desc": "IntBridge.Value accepts a negative value",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/IntBridge.cs",
+  "old": "if ((ulong)value > int.MaxValue) ThrowValue(value, what);",
+  "new": "if (value > int.MaxValue) ThrowValue(value, what);",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.IntBridgeTests)"
+ },
+ {
+  "id": "s23_C01",
+  "desc": "FromMappedWide: a U64 array may have an overflow list",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs",
+  "old": "if (kind is LcpKind.U32 or LcpKind.U64 && pairCount != 0) throw new InvalidDataException(\"an LCP array of 32 or 64 bits per entry has no overflow list\");\n        long fields",
+  "new": "if (kind is LcpKind.U32 && pairCount != 0) throw new InvalidDataException(\"an LCP array of 32 or 64 bits per entry has no overflow list\");\n        long fields",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.CompactLcpWideTests)"
+ },
+ {
+  "id": "s23_C02",
+  "desc": "FromMappedWide: the pair fields of width 5 are read as 4 bytes",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs",
+  "old": "posWidth == 5\n            ? FromReaders(kind, baseEntries, new Pos40<TrustedAccess>(pairs, fields), isChecked)",
+  "new": "posWidth == 4\n            ? FromReaders(kind, baseEntries, new Pos40<TrustedAccess>(pairs, fields), isChecked)",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.CompactLcpWideTests)"
+ },
+ {
+  "id": "s23_C03",
+  "desc": "FromMappedWide: one field per pair",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs",
+  "old": "long fields = 2 * pairCount;",
+  "new": "long fields = pairCount;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.CompactLcpWideTests)"
+ },
+ {
+  "id": "s23_C04",
+  "desc": "FromReaders: the width of the base reader is not checked",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs",
+  "old": "if (TBase.ElementBytes != LcpStore.WidthOf(kind)) throw",
+  "new": "if (false) throw",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.CompactLcpWideTests)"
+ },
+ {
+  "id": "s23_C05",
+  "desc": "FromReaders: an odd number of fields is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs",
+  "old": "if ((pairs.Count & 1) != 0) throw",
+  "new": "if ((pairs.Count & 2) != 0) throw",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.CompactLcpWideTests)"
+ },
+ {
+  "id": "s23_C06",
+  "desc": "FromReaders: a U32 array with an overflow list is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs",
+  "old": "if (kind is LcpKind.U32 or LcpKind.U64 && pairs.Count != 0) throw",
+  "new": "if (kind is LcpKind.U32 && pairs.Count != 0) throw",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.CompactLcpWideTests)"
+ },
+ {
+  "id": "s23_C07",
+  "desc": "this[long] of the managed form: the rank is compared as uint",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs",
+  "old": "if (_store is not null) return _store.Value(rank);\n            if ((ulong)rank >= (ulong)Length) ThrowRankOutside(rank);",
+  "new": "if (_store is not null) return _store.Value(rank);\n            if ((uint)rank >= (uint)Length) ThrowRankOutside(rank);",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.CompactLcpWideTests)"
+ },
+ {
+  "id": "s23_C08",
+  "desc": "PayloadBytes: a pair of the wide form is 8 bytes",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs",
+  "old": "((_store is null ? 8L : 2L * _store.PosWidth) * OverflowCount)",
+  "new": "((_store is null ? 8L : 8L) * OverflowCount)",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.CompactLcpWideTests)"
+ },
+ {
+  "id": "s23_C09",
+  "desc": "OverflowCount of the wide form is 0",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs",
+  "old": "if (_store is not null) return _store.PairCount;",
+  "new": "if (_store is not null) return 0;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.CompactLcpWideTests)"
+ },
+ {
+  "id": "s23_C10",
+  "desc": "OverflowCountInt: narrowed without the check",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs",
+  "old": "if (_store is not null) return IntBridge.Length(_store.PairCount, \"the overflow list of the LCP array\");",
+  "new": "if (_store is not null) return (int)_store.PairCount;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.CompactLcpWideTests)"
+ },
+ {
+  "id": "s23_C11",
+  "desc": "FindOverflow of the wide form: narrowed without the check",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs",
+  "old": "return found < 0 ? -1 : IntBridge.Length(found, \"an index of the overflow list of the LCP array\");",
+  "new": "return found < 0 ? -1 : (int)found;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.CompactLcpWideTests)"
+ },
+ {
+  "id": "s23_C12",
+  "desc": "OverflowRankAt of the wide form: narrowed without the check",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs",
+  "old": "if (_store is not null) return IntBridge.Value(_store.PairRank(index), \"a rank of the overflow list of the LCP array\");",
+  "new": "if (_store is not null) return (int)_store.PairRank(index);",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.CompactLcpWideTests)"
+ },
+ {
+  "id": "s23_C13",
+  "desc": "OverflowValueAt of the wide form: narrowed without the check",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs",
+  "old": "if (_store is not null) return IntBridge.Value(_store.PairValue(index), \"a value of the overflow list of the LCP array\");",
+  "new": "if (_store is not null) return (int)_store.PairValue(index);",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.CompactLcpWideTests)"
+ },
+ {
+  "id": "s23_C14",
+  "desc": "ToArray: the length is narrowed without the check",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs",
+  "old": "var result = new int[IntBridge.Length(Length, \"the LCP array (ToArray)\")];",
+  "new": "var result = new int[(int)Length];",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.CompactLcpWideTests)"
+ },
+ {
+  "id": "s23_C15",
+  "desc": "BaseValue of the wide form: the entry is narrowed without the check",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs",
+  "old": "return _store is null ? MappedValue(rank) : IntBridge.Value(_store.BaseEntry(rank), \"an LCP value\");",
+  "new": "return _store is null ? MappedValue(rank) : (int)_store.BaseEntry(rank);",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.CompactLcpWideTests)"
+ },
+ {
+  "id": "s23_C16",
+  "desc": "FromMapped: a U64 array is read as U32",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs",
+  "old": "if (kind == LcpKind.U64) throw new ArgumentOutOfRangeException(nameof(kind), kind, \"the 32-bit form reads no U64 array: use FromMappedWide\");",
+  "new": "",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.CompactLcpWideTests)"
+ },
+ {
+  "id": "s23_C17",
+  "desc": "FromDense: the managed form accepts U64",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs",
+  "old": "if (kind == LcpKind.U64) throw new ArgumentOutOfRangeException(nameof(kind), kind, \"the managed form has no U64 kind (LCP codec 4 is read from a container)\");\n        if (lcp.IsEmpty)",
+  "new": "if (lcp.IsEmpty)",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.CompactLcpWideTests)"
+ },
+ {
+  "id": "s23_C18",
+  "desc": "FromMappedWide: a width of 8 is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs",
+  "old": "if (posWidth is not (4 or 5)) throw new ArgumentOutOfRangeException(nameof(posWidth), posWidth, \"the stored width of a position is 4 or 5 bytes\");\n        if (kind is",
+  "new": "if (posWidth is not (4 or 5 or 8)) throw new ArgumentOutOfRangeException(nameof(posWidth), posWidth, \"the stored width of a position is 4 or 5 bytes\");\n        if (kind is",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.CompactLcpWideTests)"
+ },
+ {
+  "id": "s23_C19",
+  "desc": "FromMappedWide: a length of 0 is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/CompactLcp.cs",
+  "old": "ArgumentOutOfRangeException.ThrowIfLessThan(length, 1);\n        ArgumentOutOfRangeException.ThrowIfNegative(pairCount);\n        if (posWidth",
+  "new": "ArgumentOutOfRangeException.ThrowIfLessThan(length, 0);\n        ArgumentOutOfRangeException.ThrowIfNegative(pairCount);\n        if (posWidth",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.CompactLcpWideTests)"
+ },
+ {
+  "id": "s23_L01",
+  "desc": "LcpStore.BaseEntry: the bound is rank > length",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpStore.cs",
+  "old": "if ((ulong)rank >= (ulong)_length) throw new InvalidDataException($\"the LCP array is read at rank",
+  "new": "if ((ulong)rank > (ulong)_length) throw new InvalidDataException($\"the LCP array is read at rank",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.CompactLcpWideTests)"
+ },
+ {
+  "id": "s23_L02",
+  "desc": "LcpStore.BaseEntry: a value above long.MaxValue is not refused",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpStore.cs",
+  "old": "if (v > long.MaxValue || (_checked && v > (ulong)_length))",
+  "new": "if (_checked && v > (ulong)_length)",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.CompactLcpWideTests)"
+ },
+ {
+  "id": "s23_L03",
+  "desc": "LcpStore.BaseEntry: a value equal to the length is refused",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpStore.cs",
+  "old": "(_checked && v > (ulong)_length)",
+  "new": "(_checked && v >= (ulong)_length)",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.CompactLcpWideTests)"
+ },
+ {
+  "id": "s23_L04",
+  "desc": "LcpStore.BaseEntry: Trusted mode checks as well",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpStore.cs",
+  "old": "(_checked && v > (ulong)_length)",
+  "new": "(v > (ulong)_length)",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.CompactLcpWideTests)"
+ },
+ {
+  "id": "s23_L05",
+  "desc": "LcpStore: the escape of U8 is 65,535",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpStore.cs",
+  "old": "_escape = kind == LcpKind.U8 ? byte.MaxValue : ushort.MaxValue;",
+  "new": "_escape = ushort.MaxValue;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.CompactLcpWideTests)"
+ },
+ {
+  "id": "s23_L06",
+  "desc": "LcpStore.Value: an escape is not resolved",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpStore.cs",
+  "old": "if (!_hasEscape || (ulong)b != _escape) return b;",
+  "new": "if (!_hasEscape || (ulong)b == _escape) return b;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.CompactLcpWideTests)"
+ },
+ {
+  "id": "s23_L07",
+  "desc": "LcpStore.Find: the search moves right by 0",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpStore.cs",
+  "old": "if (v < (ulong)rank) lo = mid + 1;",
+  "new": "if (v <= (ulong)rank) lo = mid + 1;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.CompactLcpWideTests)"
+ },
+ {
+  "id": "s23_L08",
+  "desc": "LcpStore.Find: the pair of rank r is read at element mid",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpStore.cs",
+  "old": "ulong v = _pairs.Get(2 * mid);",
+  "new": "ulong v = _pairs.Get(mid);",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.CompactLcpWideTests)"
+ },
+ {
+  "id": "s23_L09",
+  "desc": "LcpStore.PairRank: element index instead of 2 x index",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpStore.cs",
+  "old": "internal override long PairRank(long index) => Field(2 * index, \"the overflow list\");",
+  "new": "internal override long PairRank(long index) => Field(index, \"the overflow list\");",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.CompactLcpWideTests)"
+ },
+ {
+  "id": "s23_L10",
+  "desc": "LcpStore.PairValue: the value is read at 2 x index",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpStore.cs",
+  "old": "internal override long PairValue(long index) => Field((2 * index) + 1, \"the overflow list\");",
+  "new": "internal override long PairValue(long index) => Field(2 * index, \"the overflow list\");",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.CompactLcpWideTests)"
+ },
+ {
+  "id": "s23_L11",
+  "desc": "LcpStore: the pair count is a quarter of the fields",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpStore.cs",
+  "old": "_pairCount = pairs.Count >> 1;",
+  "new": "_pairCount = pairs.Count >> 2;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.CompactLcpWideTests)"
+ },
+ {
+  "id": "s23_L12",
+  "desc": "LcpStore.Find: the middle is narrowed to int",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpStore.cs",
+  "old": "long mid = lo + ((hi - lo) >> 1);",
+  "new": "long mid = (int)(lo + ((hi - lo) >> 1));",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.CompactLcpWideTests)"
+ },
+ {
+  "id": "s23_L13",
+  "desc": "LcpStore.Field: a field above int.MaxValue is refused",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpStore.cs",
+  "old": "if (v > long.MaxValue) throw new InvalidDataException($\"{what} holds {v}: the file is damaged\");",
+  "new": "if (v > int.MaxValue) throw new InvalidDataException($\"{what} holds {v}: the file is damaged\");",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.CompactLcpWideTests)"
+ },
+ {
+  "id": "s23_L14",
+  "desc": "LcpStore.WidthOf: U32 is 8 bytes",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpStore.cs",
+  "old": "LcpKind.U32 => 4,",
+  "new": "LcpKind.U32 => 8,",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.CompactLcpWideTests)"
+ },
+ {
+  "id": "s23_L15",
+  "desc": "LcpStore.Value: the value of the escape is the rank field",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpStore.cs",
+  "old": "return PairValue(k);",
+  "new": "return PairRank(k);",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.CompactLcpWideTests)"
+ },
+ {
+  "id": "s23_L16",
+  "desc": "LcpStore.Find: the search upper bound is the count",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpStore.cs",
+  "old": "long lo = 0, hi = _pairCount - 1;",
+  "new": "long lo = 0, hi = _pairCount;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.CompactLcpWideTests)"
+ },
+ {
+  "id": "s23_L17",
+  "desc": "LcpStore.BaseEntry: the value is narrowed to int",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpStore.cs",
+  "old": "return (long)v;\n    }\n\n    internal override long Value(long rank)",
+  "new": "return (int)v;\n    }\n\n    internal override long Value(long rank)",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.CompactLcpWideTests)"
+ },
+ {
+  "id": "s23_L18",
+  "desc": "LcpStore.Find: the sought rank is narrowed",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpStore.cs",
+  "old": "if (v == (ulong)rank) return mid;",
+  "new": "if (v == (ulong)(int)rank) return mid;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.CompactLcpWideTests)"
+ },
+ {
+  "id": "s23_H01",
+  "desc": "ChildCells: the cell of a last child is at the right bound",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs",
+  "old": "ulong cell = _reader.Get(lastChild ? lb : rb);",
+  "new": "ulong cell = _reader.Get(lastChild ? rb : lb);",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.ChildCellsTests)"
+ },
+ {
+  "id": "s23_H02",
+  "desc": "ChildCells.NextLIndex: k = rb is not the last",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs",
+  "old": "if (k >= rb) return -1;\n        long lk = _lcp[k];",
+  "new": "if (k > rb) return -1;\n        long lk = _lcp[k];",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.ChildCellsTests)"
+ },
+ {
+  "id": "s23_H03",
+  "desc": "ChildCells.NextLIndex: k + 1 is the next when the LCP differs",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs",
+  "old": "if (_lcp[k + 1] == lk) return k + 1;\n        long v = (long)_reader.Get(k);",
+  "new": "if (_lcp[k + 1] != lk) return k + 1;\n        long v = (long)_reader.Get(k);",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.ChildCellsTests)"
+ },
+ {
+  "id": "s23_H04",
+  "desc": "ChildCells.NextLIndex: a cell with another LCP is the next",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs",
+  "old": "long v = (long)_reader.Get(k);\n        return _lcp[v] == lk ? v : -1;",
+  "new": "long v = (long)_reader.Get(k);\n        return _lcp[v] != lk ? v : -1;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.ChildCellsTests)"
+ },
+ {
+  "id": "s23_H05",
+  "desc": "ChildCells.NextLIndex (tagged): any kind but next is the next",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs",
+  "old": "return (cell & TaggedKindMask) == TaggedNext ? (long)(cell & TaggedValueMask) : -1;",
+  "new": "return (cell & TaggedKindMask) != TaggedNext ? (long)(cell & TaggedValueMask) : -1;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.ChildCellsTests)"
+ },
+ {
+  "id": "s23_H06",
+  "desc": "ChildCells: the tagged value has 29 bits",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs",
+  "old": "private const ulong TaggedValueMask = (1UL << 30) - 1;",
+  "new": "private const ulong TaggedValueMask = (1UL << 29) - 1;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.ChildCellsTests)"
+ },
+ {
+  "id": "s23_H07",
+  "desc": "ChildCells: the next kind is 2",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs",
+  "old": "private const ulong TaggedNext = 1UL << 30;",
+  "new": "private const ulong TaggedNext = 2UL << 30;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.ChildCellsTests)"
+ },
+ {
+  "id": "s23_H08",
+  "desc": "ChildCells: a tagged table over 5-byte cells is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs",
+  "old": "if (tagged && TPos.ElementBytes != 4) throw",
+  "new": "if (tagged && TPos.ElementBytes > 5) throw",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.ChildCellsTests)"
+ },
+ {
+  "id": "s23_H09",
+  "desc": "MappedChild.FromMappedWide: a tagged table over 5-byte cells is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs",
+  "old": "if (tagged && posWidth == 5) throw new ArgumentException",
+  "new": "if (tagged && posWidth == 55) throw new ArgumentException",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.ChildCellsTests)"
+ },
+ {
+  "id": "s23_H10",
+  "desc": "MappedChild.PayloadBytes: no padding",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs",
+  "old": "internal long PayloadBytes => _five ? (5 * _count) + PosReader.Padding40 : 4 * _count;",
+  "new": "internal long PayloadBytes => _five ? (5 * _count) : 4 * _count;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.ChildCellsTests)"
+ },
+ {
+  "id": "s23_H11",
+  "desc": "MappedChild.FirstLIndex(int) of 5-byte cells: narrowed without the check",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs",
+  "old": "if (_bridged) return IntBridge.Value(FirstLIndex((long)lb, rb, lastChild), \"a first l-index\");",
+  "new": "if (_bridged) return (int)FirstLIndex((long)lb, rb, lastChild);",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.ChildCellsTests)"
+ },
+ {
+  "id": "s23_H12",
+  "desc": "MappedChild.NextLIndex(int) of 5-byte cells: narrowed without the check",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs",
+  "old": "return next < 0 ? -1 : IntBridge.Value(next, \"an l-index\");",
+  "new": "return (int)next;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.ChildCellsTests)"
+ },
+ {
+  "id": "s23_H13",
+  "desc": "MappedChild.FirstLIndex(long): Checked mode reads as Trusted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs",
+  "old": "if (_five) return _checked ? Cells(new Pos40<CheckedAccess>((byte*)_cld, _count)).FirstLIndex(lb, rb, lastChild) : Cells(new Pos40<TrustedAccess>((byte*)_cld, _count)).FirstLIndex(lb, rb, lastChild);\n        return _checked ? Cells(new Pos32<CheckedAccess>((byte*)_cld, _count)).FirstLIndex(lb, rb, lastChild)",
+  "new": "if (_five) return !_checked ? Cells(new Pos40<CheckedAccess>((byte*)_cld, _count)).FirstLIndex(lb, rb, lastChild) : Cells(new Pos40<TrustedAccess>((byte*)_cld, _count)).FirstLIndex(lb, rb, lastChild);\n        return _checked ? Cells(new Pos32<CheckedAccess>((byte*)_cld, _count)).FirstLIndex(lb, rb, lastChild)",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.ChildCellsTests)"
+ },
+ {
+  "id": "s23_H14",
+  "desc": "MappedChild.NextLIndex(long): the 4-byte table is read as 5-byte",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs",
+  "old": "if (_five) return _checked ? Cells(new Pos40<CheckedAccess>((byte*)_cld, _count)).NextLIndex(k, rb) : Cells(new Pos40<TrustedAccess>((byte*)_cld, _count)).NextLIndex(k, rb);",
+  "new": "if (!_five) return _checked ? Cells(new Pos40<CheckedAccess>((byte*)_cld, _count)).NextLIndex(k, rb) : Cells(new Pos40<TrustedAccess>((byte*)_cld, _count)).NextLIndex(k, rb);",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.ChildCellsTests)"
+ },
+ {
+  "id": "s23_H15",
+  "desc": "MappedChild.Pointer: the pointer of a 5-byte table is returned",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs",
+  "old": "internal int* Pointer => _five ? throw new NotSupportedException",
+  "new": "internal int* Pointer => !_five ? throw new NotSupportedException",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.ChildCellsTests)"
+ },
+ {
+  "id": "s23_H16",
+  "desc": "MappedChild.Cells: the table is never tagged",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs",
+  "old": "where TPos : struct, IPosReader => new(reader, _lcp, _tagged);",
+  "new": "where TPos : struct, IPosReader => new(reader, _lcp, false);",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.ChildCellsTests)"
+ },
+ {
+  "id": "s23_H17",
+  "desc": "MappedChild: a negative count is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs",
+  "old": "ArgumentOutOfRangeException.ThrowIfNegative(count);\n        _cld = cld;",
+  "new": "_cld = cld;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.ChildCellsTests)"
+ },
+ {
+  "id": "s23_H18",
+  "desc": "MappedChild.FromMappedWide: a width of 8 is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs",
+  "old": "if (posWidth is not (4 or 5)) throw new ArgumentOutOfRangeException(nameof(posWidth), posWidth, \"the stored width of a cell is 4 or 5 bytes\");",
+  "new": "if (posWidth is not (4 or 5 or 8)) throw new ArgumentOutOfRangeException(nameof(posWidth), posWidth, \"the stored width of a cell is 4 or 5 bytes\");",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.ChildCellsTests)"
+ },
+ {
+  "id": "s23_H19",
+  "desc": "ChildCells.FirstLIndex: the tagged value keeps the kind bits",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs",
+  "old": "return _tagged ? (long)(cell & TaggedValueMask) : (long)cell;",
+  "new": "return _tagged ? (long)cell : (long)cell;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.ChildCellsTests)"
+ },
+ {
+  "id": "s23_H20",
+  "desc": "ChildCells.NextLIndex: the next of a packed cell is read at k + 1",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs",
+  "old": "long v = (long)_reader.Get(k);\n        return _lcp[v] == lk",
+  "new": "long v = (long)_reader.Get(k + 1);\n        return _lcp[v] == lk",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.ChildCellsTests)"
+ },
+ {
+  "id": "s23_H21",
+  "desc": "MappedChild.NextLIndex(int) of 4-byte cells: the right bound is not tested",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs",
+  "old": "if (k >= rb) return -1;\n        if (_checked && (ulong)k >= (ulong)_count) ThrowOutside(k);\n        int lk = _lcp[k];",
+  "new": "if (k > rb) return -1;\n        if (_checked && (ulong)k >= (ulong)_count) ThrowOutside(k);\n        int lk = _lcp[k];",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.ChildCellsTests)"
+ },
+ {
+  "id": "s23_H22",
+  "desc": "MappedChild: a table of more than int.MaxValue 4-byte cells is not bridged",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs",
+  "old": "_bridged = five || count > int.MaxValue;",
+  "new": "_bridged = five;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.ChildCellsTests)"
+ },
+ {
+  "id": "s23_H23",
+  "desc": "MappedChild.FirstLIndex(int): the bridge is tested for the 5-byte flag only",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs",
+  "old": "public int FirstLIndex(int lb, int rb, bool lastChild)\n    {\n        if (_bridged) return",
+  "new": "public int FirstLIndex(int lb, int rb, bool lastChild)\n    {\n        if (_five) return",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.ChildCellsTests)"
+ },
+ {
+  "id": "s23_H24",
+  "desc": "MappedChild.NextLIndex(int): the bridge is tested for the 5-byte flag only",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ChildLayouts.cs",
+  "old": "public int NextLIndex(int k, int rb)\n    {\n        if (_bridged)\n        {",
+  "new": "public int NextLIndex(int k, int rb)\n    {\n        if (_five)\n        {",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.ChildCellsTests)"
+ },
+ {
+  "id": "s23_T01",
+  "desc": "ChildTable.Rank accepts int.MaxValue + 1",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ChildTable.cs",
+  "old": "private static int Rank(long rank, string name) => (ulong)rank <= int.MaxValue ?",
+  "new": "private static int Rank(long rank, string name) => (ulong)rank <= (ulong)int.MaxValue + 1 ?",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.ChildCellsTests)"
+ },
+ {
+  "id": "s23_T02",
+  "desc": "ChildTable.Rank compares as uint",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ChildTable.cs",
+  "old": "private static int Rank(long rank, string name) => (ulong)rank <= int.MaxValue ?",
+  "new": "private static int Rank(long rank, string name) => (uint)rank <= int.MaxValue ?",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.ChildCellsTests)"
+ },
+ {
+  "id": "s23_T03",
+  "desc": "ChildTable.FirstLIndex(long): a mapped table is read as managed",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ChildTable.cs",
+  "old": "internal long FirstLIndex(long lb, long rb, bool lastChild) => IsMapped ? Mapped.FirstLIndex(lb, rb, lastChild) :",
+  "new": "internal long FirstLIndex(long lb, long rb, bool lastChild) => !IsMapped ? Mapped.FirstLIndex(lb, rb, lastChild) :",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.ChildCellsTests)"
+ },
+ {
+  "id": "s23_T04",
+  "desc": "ChildTable.NextLIndex(long): the right bound is not converted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/ChildTable.cs",
+  "old": ": NextLIndex(Rank(k, nameof(k)), Rank(rb, nameof(rb)));",
+  "new": ": NextLIndex(Rank(k, nameof(k)), (int)rb);",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.ChildCellsTests)"
+ },
+ {
+  "id": "s23_P01",
+  "desc": "LcpPyramid.Bound: the bound is narrowed to int",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs",
+  "old": "private static int Bound(long bound) => (int)Math.Clamp(bound, int.MinValue, int.MaxValue);",
+  "new": "private static int Bound(long bound) => (int)bound;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.LcpPyramidWideTests|FullyQualifiedName~SuffixTree.Esa.Tests.Navigation.LcpPyramidTests)"
+ },
+ {
+  "id": "s23_P02",
+  "desc": "LcpPyramid.Rank accepts int.MaxValue + 1",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs",
+  "old": "private static int Rank(long rank, string name) => (ulong)rank <= int.MaxValue ?",
+  "new": "private static int Rank(long rank, string name) => (ulong)rank <= (ulong)int.MaxValue + 1 ?",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.LcpPyramidWideTests|FullyQualifiedName~SuffixTree.Esa.Tests.Navigation.LcpPyramidTests)"
+ },
+ {
+  "id": "s23_P03",
+  "desc": "LcpPyramid.PrevLess(long): a position at the length is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs",
+  "old": "ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(pos, _longLength);\n        return _wideLcp is not null ? PrevLessWide",
+  "new": "ArgumentOutOfRangeException.ThrowIfGreaterThan(pos, _longLength);\n        return _wideLcp is not null ? PrevLessWide",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.LcpPyramidWideTests|FullyQualifiedName~SuffixTree.Esa.Tests.Navigation.LcpPyramidTests)"
+ },
+ {
+  "id": "s23_P04",
+  "desc": "LcpPyramid.NextLess(long): a position at the length reads",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs",
+  "old": "if (pos >= _longLength) return _longLength;\n        ArgumentOutOfRangeException.ThrowIfNegative(pos);\n        return _wideLcp",
+  "new": "if (pos > _longLength) return _longLength;\n        ArgumentOutOfRangeException.ThrowIfNegative(pos);\n        return _wideLcp",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.LcpPyramidWideTests|FullyQualifiedName~SuffixTree.Esa.Tests.Navigation.LcpPyramidTests)"
+ },
+ {
+  "id": "s23_P05",
+  "desc": "LcpPyramid.ValueAtWide: the bound is rank > length",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs",
+  "old": "if ((ulong)rank >= (ulong)_longLength) throw new ArgumentOutOfRangeException(nameof(rank));\n        return _wideLcp![rank];",
+  "new": "if ((ulong)rank > (ulong)_longLength) throw new ArgumentOutOfRangeException(nameof(rank));\n        return _wideLcp![rank];",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.LcpPyramidWideTests|FullyQualifiedName~SuffixTree.Esa.Tests.Navigation.LcpPyramidTests)"
+ },
+ {
+  "id": "s23_P06",
+  "desc": "LcpPyramid.MinWide: the first partial block ends one entry early",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs",
+  "old": "for (long j = lo, end = lo | (long)(f - 1); j <= end; j++) min = Math.Min(min, lcp[j]);",
+  "new": "for (long j = lo, end = lo | (long)(f - 2); j <= end; j++) min = Math.Min(min, lcp[j]);",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.LcpPyramidWideTests|FullyQualifiedName~SuffixTree.Esa.Tests.Navigation.LcpPyramidTests)"
+ },
+ {
+  "id": "s23_P07",
+  "desc": "LcpPyramid.MinWide: the last partial block starts one entry late",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs",
+  "old": "for (long j = hi & ~(long)(f - 1); j <= hi; j++) min = Math.Min(min, lcp[j]);",
+  "new": "for (long j = (hi & ~(long)(f - 1)) + 1; j <= hi; j++) min = Math.Min(min, lcp[j]);",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.LcpPyramidWideTests|FullyQualifiedName~SuffixTree.Esa.Tests.Navigation.LcpPyramidTests)"
+ },
+ {
+  "id": "s23_P08",
+  "desc": "LcpPyramid.MinWide: the whole blocks start at the first partial one",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs",
+  "old": "int l = (int)(loBlock + 1), r = (int)(hiBlock - 1);",
+  "new": "int l = (int)loBlock, r = (int)(hiBlock - 1);",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.LcpPyramidWideTests|FullyQualifiedName~SuffixTree.Esa.Tests.Navigation.LcpPyramidTests)"
+ },
+ {
+  "id": "s23_P09",
+  "desc": "LcpPyramid.PrevLessWide: the block index is narrowed before the shift",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs",
+  "old": "int idx = (int)(pos >> _logFanout);\n        for (int k = 1; k <= _levelCount; k++)\n        {\n            int off = _offset[k - 1];\n            for (int b = idx - 1",
+  "new": "int idx = (int)pos >> _logFanout;\n        for (int k = 1; k <= _levelCount; k++)\n        {\n            int off = _offset[k - 1];\n            for (int b = idx - 1",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.LcpPyramidWideTests|FullyQualifiedName~SuffixTree.Esa.Tests.Navigation.LcpPyramidTests)"
+ },
+ {
+  "id": "s23_P10",
+  "desc": "LcpPyramid.NextLessWide: the block index is narrowed before the shift",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs",
+  "old": "int idx = (int)(pos >> _logFanout);\n        for (int k = 1; k <= _levelCount; k++)\n        {\n            int off = _offset[k - 1];\n            for (int b = idx + 1",
+  "new": "int idx = (int)pos >> _logFanout;\n        for (int k = 1; k <= _levelCount; k++)\n        {\n            int off = _offset[k - 1];\n            for (int b = idx + 1",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.LcpPyramidWideTests|FullyQualifiedName~SuffixTree.Esa.Tests.Navigation.LcpPyramidTests)"
+ },
+ {
+  "id": "s23_P11",
+  "desc": "LcpPyramid.RightmostBelowWide: the first position of a block is computed in int",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs",
+  "old": "long first = (long)b * f;\n        for (long position = Math.Min(first + f - 1, _longLength - 1)",
+  "new": "long first = b * f;\n        for (long position = Math.Min(first + f - 1, _longLength - 1)",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.LcpPyramidWideTests|FullyQualifiedName~SuffixTree.Esa.Tests.Navigation.LcpPyramidTests)"
+ },
+ {
+  "id": "s23_P12",
+  "desc": "LcpPyramid.LeftmostBelowWide: the end of a block is computed in int",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs",
+  "old": "long end = Math.Min(((long)b * f) + f - 1, _longLength - 1);\n        for (long position = (long)b * f;",
+  "new": "long end = Math.Min((b * f) + f - 1, _longLength - 1);\n        for (long position = (long)b * f;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.LcpPyramidWideTests|FullyQualifiedName~SuffixTree.Esa.Tests.Navigation.LcpPyramidTests)"
+ },
+ {
+  "id": "s23_P13",
+  "desc": "LcpPyramid.BordersWide: a right border at the length reads",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs",
+  "old": "rightValue = right < _longLength ? lcp[right] : -1;",
+  "new": "rightValue = right <= _longLength ? lcp[right] : -1;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.LcpPyramidWideTests|FullyQualifiedName~SuffixTree.Esa.Tests.Navigation.LcpPyramidTests)"
+ },
+ {
+  "id": "s23_P14",
+  "desc": "LcpPyramid.BordersWide: a left border of 0 has no value",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs",
+  "old": "leftValue = left >= 0 ? lcp[left] : -1;",
+  "new": "leftValue = left > 0 ? lcp[left] : -1;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.LcpPyramidWideTests|FullyQualifiedName~SuffixTree.Esa.Tests.Navigation.LcpPyramidTests)"
+ },
+ {
+  "id": "s23_P15",
+  "desc": "LcpPyramid.Min(long): the right end may be at the length (non-wide form)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs",
+  "old": "if ((ulong)hi >= (ulong)_longLength) throw new ArgumentOutOfRangeException(nameof(hi)",
+  "new": "if ((ulong)hi > (ulong)_longLength) throw new ArgumentOutOfRangeException(nameof(hi)",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.LcpPyramidWideTests|FullyQualifiedName~SuffixTree.Esa.Tests.Navigation.LcpPyramidTests)"
+ },
+ {
+  "id": "s23_P16",
+  "desc": "LcpPyramid.Min(long): lo = hi is refused (wide form)",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs",
+  "old": "if ((ulong)lo > (ulong)hi || hi >= _longLength) throw new ArgumentOutOfRangeException(nameof(lo)",
+  "new": "if ((ulong)lo >= (ulong)hi || hi >= _longLength) throw new ArgumentOutOfRangeException(nameof(lo)",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.LcpPyramidWideTests|FullyQualifiedName~SuffixTree.Esa.Tests.Navigation.LcpPyramidTests)"
+ },
+ {
+  "id": "s23_P17",
+  "desc": "LcpPyramid.Borders(long): b at the length is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs",
+  "old": "if ((ulong)a >= (ulong)_longLength || b < a || b >= _longLength) throw new ArgumentOutOfRangeException(nameof(a));\n        Borders((int)a",
+  "new": "if ((ulong)a >= (ulong)_longLength || b < a || b > _longLength) throw new ArgumentOutOfRangeException(nameof(a));\n        Borders((int)a",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.LcpPyramidWideTests|FullyQualifiedName~SuffixTree.Esa.Tests.Navigation.LcpPyramidTests)"
+ },
+ {
+  "id": "s23_P18",
+  "desc": "LcpPyramid.FillWide: a block minimum of int.MaxValue is refused",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs",
+  "old": "if (min > int.MaxValue) throw new NotSupportedException($\"the LCP array has a block whose minimum",
+  "new": "if (min >= int.MaxValue) throw new NotSupportedException($\"the LCP array has a block whose minimum",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.LcpPyramidWideTests|FullyQualifiedName~SuffixTree.Esa.Tests.Navigation.LcpPyramidTests)"
+ },
+ {
+  "id": "s23_P19",
+  "desc": "LcpPyramid.FillWide: the block start is computed in int",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs",
+  "old": "long start = b * f;\n            long end = Math.Min(_longLength, start + f);",
+  "new": "long start = (int)b * (int)f;\n            long end = Math.Min(_longLength, start + f);",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.LcpPyramidWideTests|FullyQualifiedName~SuffixTree.Esa.Tests.Navigation.LcpPyramidTests)"
+ },
+ {
+  "id": "s23_P20",
+  "desc": "LcpPyramid: the levels of a wide pyramid are not filled above the first",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs",
+  "old": "FillUpperLevels();\n    }\n\n    private void FillUpperLevels()",
+  "new": "if (_levelCount < 0) FillUpperLevels();\n    }\n\n    private void FillUpperLevels()",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.LcpPyramidWideTests|FullyQualifiedName~SuffixTree.Esa.Tests.Navigation.LcpPyramidTests)"
+ },
+ {
+  "id": "s23_P21",
+  "desc": "LcpPyramid.ValueAt(int): the wide guard is dropped",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs",
+  "old": "if (_wideLcp is not null) return IntBridge.Value(ValueAtWide(rank), \"an LCP value\");",
+  "new": "",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.LcpPyramidWideTests|FullyQualifiedName~SuffixTree.Esa.Tests.Navigation.LcpPyramidTests)"
+ },
+ {
+  "id": "s23_P22",
+  "desc": "LcpPyramid.ctor: the sizes of the levels are rounded down",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs",
+  "old": "size = (size + fanout - 1) / fanout;",
+  "new": "size = size / fanout;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.LcpPyramidWideTests|FullyQualifiedName~SuffixTree.Esa.Tests.Navigation.LcpPyramidTests)"
+ },
+ {
+  "id": "s23_P23",
+  "desc": "LcpPyramid.ctor: the block count is checked against int too late",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs",
+  "old": "if (total + size > int.MaxValue) throw new NotSupportedException",
+  "new": "if (total + size > long.MaxValue) throw new NotSupportedException",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.LcpPyramidWideTests|FullyQualifiedName~SuffixTree.Esa.Tests.Navigation.LcpPyramidTests)"
+ },
+ {
+  "id": "s23_P24",
+  "desc": "LcpPyramid.PrevLessWide: the bound is compared with <=",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs",
+  "old": "for (long j = pos, start = pos & ~(long)(f - 1); j >= start; j--)\n            if (lcp[j] < bound) return j;",
+  "new": "for (long j = pos, start = pos & ~(long)(f - 1); j >= start; j--)\n            if (lcp[j] <= bound) return j;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.LcpPyramidWideTests|FullyQualifiedName~SuffixTree.Esa.Tests.Navigation.LcpPyramidTests)"
+ },
+ {
+  "id": "s23_P25",
+  "desc": "LcpPyramid.NextLessWide: the last block position is the length",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs",
+  "old": "for (long j = pos, end = Math.Min(pos | (long)(f - 1), _longLength - 1); j <= end; j++)",
+  "new": "for (long j = pos, end = Math.Min(pos | (long)(f - 1), _longLength); j <= end; j++)",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.LcpPyramidWideTests|FullyQualifiedName~SuffixTree.Esa.Tests.Navigation.LcpPyramidTests)"
+ },
+ {
+  "id": "s23_P26",
+  "desc": "LcpPyramid.PrevLess(int) of the wide form: -1 (no entry) is a damaged number",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs",
+  "old": "return found < 0 ? -1 : IntBridge.Value(found, \"a rank\");",
+  "new": "return IntBridge.Value(found, \"a rank\");",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.LcpPyramidWideTests|FullyQualifiedName~SuffixTree.Esa.Tests.Navigation.LcpPyramidTests)"
+ },
+ {
+  "id": "s23_P27",
+  "desc": "LcpPyramid.Borders(int) of the wide form: a left border of -1 is a damaged number",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs",
+  "old": "left = l < 0 ? -1 : IntBridge.Value(l, \"a rank\");",
+  "new": "left = IntBridge.Value(l, \"a rank\");",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.LcpPyramidWideTests|FullyQualifiedName~SuffixTree.Esa.Tests.Navigation.LcpPyramidTests)"
+ },
+ {
+  "id": "s23_P28",
+  "desc": "LcpPyramid.NextLess(int) of the wide form: a rank above int is a damaged file",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs",
+  "old": "IntBridge.Length(NextLess((long)pos, bound), \"a rank of the LCP array (NextLess)\")",
+  "new": "IntBridge.Value(NextLess((long)pos, bound), \"a rank\")",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.LcpPyramidWideTests|FullyQualifiedName~SuffixTree.Esa.Tests.Navigation.LcpPyramidTests)"
+ },
+ {
+  "id": "s23_P29",
+  "desc": "LcpPyramid.Borders(int) of the wide form: a right border above int is a damaged file",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/LcpPyramid.cs",
+  "old": "right = IntBridge.Length(r, \"a rank of the LCP array (Borders)\");",
+  "new": "right = IntBridge.Value(r, \"a rank\");",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.LcpPyramidWideTests|FullyQualifiedName~SuffixTree.Esa.Tests.Navigation.LcpPyramidTests)"
+ },
+ {
+  "id": "s23_E01",
+  "desc": "EsaText[long]: the bound is index > length",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaText.cs",
+  "old": "if (_string is not null) return _string[checked((int)index)];\n            if ((ulong)index >= (ulong)_length) ThrowOutside(index);",
+  "new": "if (_string is not null) return _string[checked((int)index)];\n            if ((ulong)index > (ulong)_length) ThrowOutside(index);",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.TextViewTests)"
+ },
+ {
+  "id": "s23_E17",
+  "desc": "EsaText[int]: the bound is index > length",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaText.cs",
+  "old": "if (_string is not null) return _string[index];\n            if ((ulong)index >= (ulong)_length) ThrowOutside(index);",
+  "new": "if (_string is not null) return _string[index];\n            if ((ulong)index > (ulong)_length) ThrowOutside(index);",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.TextViewTests)"
+ },
+ {
+  "id": "s23_E02",
+  "desc": "EsaText[long]: the index is compared as uint",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaText.cs",
+  "old": "if (_string is not null) return _string[checked((int)index)];\n            if ((ulong)index >= (ulong)_length) ThrowOutside(index);",
+  "new": "if (_string is not null) return _string[checked((int)index)];\n            if ((uint)index >= (uint)_length) ThrowOutside(index);",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.TextViewTests)"
+ },
+ {
+  "id": "s23_E03",
+  "desc": "EsaText.CheckRange: a range may end one past the text",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaText.cs",
+  "old": "if (start < 0 || length < 0 || start > _length - length) ThrowOutside(start);",
+  "new": "if (start < 0 || length < 0 || start > _length - length + 1) ThrowOutside(start);",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.TextViewTests)"
+ },
+ {
+  "id": "s23_E04",
+  "desc": "EsaText.CheckRange: a negative length is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaText.cs",
+  "old": "if (start < 0 || length < 0 || start > _length - length) ThrowOutside(start);",
+  "new": "if (start < 0 || start > _length - length) ThrowOutside(start);",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.TextViewTests)"
+ },
+ {
+  "id": "s23_E05",
+  "desc": "EsaText.Substring(long): a start at the length is refused",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaText.cs",
+  "old": "if ((ulong)start > (ulong)_length) ThrowOutside(start);\n        return Substring(start, IntBridge.Length",
+  "new": "if ((ulong)start >= (ulong)_length) ThrowOutside(start);\n        return Substring(start, IntBridge.Length",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.TextViewTests)"
+ },
+ {
+  "id": "s23_E06",
+  "desc": "EsaText.Substring(long): the rest is narrowed without the check",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaText.cs",
+  "old": "return Substring(start, IntBridge.Length(_length - start, \"the rest of the text (Substring)\"));",
+  "new": "return Substring(start, (int)(_length - start));",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.TextViewTests)"
+ },
+ {
+  "id": "s23_E07",
+  "desc": "PackedTextSource.Length: narrowed without the check",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaText.cs",
+  "old": "public int Length => IntBridge.Length(text.Length, \"the length of the text (ITextSource.Length; the 64-bit member is IIndexText.Length)\");",
+  "new": "public int Length => (int)text.Length;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.TextViewTests)"
+ },
+ {
+  "id": "s23_E08",
+  "desc": "PackedTextSource[int]: the index is compared as uint",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaText.cs",
+  "old": "if ((ulong)index >= (ulong)text.Length) throw new IndexOutOfRangeException",
+  "new": "if ((uint)index >= (uint)text.Length) throw new IndexOutOfRangeException",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.TextViewTests)"
+ },
+ {
+  "id": "s23_E09",
+  "desc": "PackedTextSource.CheckRange: a range may end one past the text",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaText.cs",
+  "old": "if (start > text.Length - length) throw new ArgumentOutOfRangeException(nameof(length)",
+  "new": "if (start > text.Length - length + 1) throw new ArgumentOutOfRangeException(nameof(length)",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.TextViewTests)"
+ },
+ {
+  "id": "s23_E10",
+  "desc": "PackedTextSource.CheckRange: a negative start is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaText.cs",
+  "old": "ArgumentOutOfRangeException.ThrowIfNegative(start);\n            ArgumentOutOfRangeException.ThrowIfNegative(length);\n            if (start > text.Length - length)",
+  "new": "ArgumentOutOfRangeException.ThrowIfNegative(length);\n            if (start > text.Length - length)",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.TextViewTests)"
+ },
+ {
+  "id": "s23_E11",
+  "desc": "PackedIndexText.SymbolAt: the terminator starts one late",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaText.cs",
+  "old": "return position >= text.Length ? -1 : text[position];",
+  "new": "return position > text.Length ? -1 : text[position];",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.TextViewTests)"
+ },
+ {
+  "id": "s23_E12",
+  "desc": "PackedIndexText.CopyTo: a start beyond the length by one is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaText.cs",
+  "old": "ArgumentOutOfRangeException.ThrowIfGreaterThan(start, text.Length);\n            int count",
+  "new": "ArgumentOutOfRangeException.ThrowIfGreaterThan(start, text.Length + 1);\n            int count",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.TextViewTests)"
+ },
+ {
+  "id": "s23_E13",
+  "desc": "PackedIndexText.CopyTo: the count is not clipped to the text",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaText.cs",
+  "old": "int count = (int)Math.Min(destination.Length, text.Length - start);\n            text.CopyTo(start, destination[..count]);",
+  "new": "int count = destination.Length;\n            text.CopyTo(start, destination[..count]);",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.TextViewTests)"
+ },
+ {
+  "id": "s23_E14",
+  "desc": "EsaText.CopyChars: the start is narrowed",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaText.cs",
+  "old": "_reader!.ReadSymbols(start + done, buffer[..take]);",
+  "new": "_reader!.ReadSymbols((int)start + done, buffer[..take]);",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.TextViewTests)"
+ },
+ {
+  "id": "s23_E15",
+  "desc": "EsaText[long]: the packed symbol is read at the index narrowed to int",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaText.cs",
+  "old": "if (_string is not null) return _string[checked((int)index)];\n            if ((ulong)index >= (ulong)_length) ThrowOutside(index);\n            return Letter(_reader!.Symbol(index));",
+  "new": "if (_string is not null) return _string[checked((int)index)];\n            if ((ulong)index >= (ulong)_length) ThrowOutside(index);\n            return Letter(_reader!.Symbol((int)index));",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.TextViewTests)"
+ },
+ {
+  "id": "s23_E16",
+  "desc": "PackedIndexText.SymbolAt: a negative position is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaText.cs",
+  "old": "ArgumentOutOfRangeException.ThrowIfNegative(position);\n            return position >= text.Length",
+  "new": "return position >= text.Length",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.TextViewTests)"
+ },
+ {
+  "id": "s23_F01",
+  "desc": "SesaFile: a container of int.MaxValue symbols gets the 32-bit views",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFile.cs",
+  "old": "bool narrow = n < int.MaxValue && posWidth == 4",
+  "new": "bool narrow = n <= int.MaxValue && posWidth == 4",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.External.SesaReader|FullyQualifiedName~SuffixTree.Esa.Tests.External.SesaFailure)"
+ },
+ {
+  "id": "s23_F02",
+  "desc": "SesaFile: the 32-bit views for every width",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFile.cs",
+  "old": "bool narrow = n < int.MaxValue && posWidth == 4",
+  "new": "bool narrow = n < int.MaxValue",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.External.SesaReader|FullyQualifiedName~SuffixTree.Esa.Tests.External.SesaFailure)"
+ },
+ {
+  "id": "s23_F03",
+  "desc": "SesaFile: the suffix array view has n entries",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFile.cs",
+  "old": "_sa = SaView.FromMapped(data + parsed.Sa.Offset, n + 1, posWidth, isChecked);",
+  "new": "_sa = SaView.FromMapped(data + parsed.Sa.Offset, n, posWidth, isChecked);",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.External.SesaReader|FullyQualifiedName~SuffixTree.Esa.Tests.External.SesaFailure)"
+ },
+ {
+  "id": "s23_F04",
+  "desc": "SesaFile.Statistics: the length is narrowed without the check",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFile.cs",
+  "old": "int n = IntBridge.Length(h.TextLength, \"the length of the text (EsaStatistics is 32-bit until S2.4)\");",
+  "new": "int n = (int)h.TextLength;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.External.SesaReader|FullyQualifiedName~SuffixTree.Esa.Tests.External.SesaFailure)"
+ },
+ {
+  "id": "s23_F05",
+  "desc": "SesaFile: the wide LCP array takes the width 4 for width 5",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFile.cs",
+  "old": "_lcp = CompactLcp.FromMappedWide(parsed.LcpKind, n + 1, data + parsed.Lcp.Offset, pairs, parsed.Lcp.Param0, posWidth, isChecked);",
+  "new": "_lcp = CompactLcp.FromMappedWide(parsed.LcpKind, n + 1, data + parsed.Lcp.Offset, pairs, parsed.Lcp.Param0, 4, isChecked);",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.External.SesaReader|FullyQualifiedName~SuffixTree.Esa.Tests.External.SesaFailure)"
+ },
+ {
+  "id": "s23_F06",
+  "desc": "SesaFile.Payload: a section above int.MaxValue is narrowed",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFile.cs",
+  "old": "if (section.Length > int.MaxValue) throw new NotSupportedException",
+  "new": "if (section.Length > long.MaxValue) throw new NotSupportedException",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.External.SesaReader|FullyQualifiedName~SuffixTree.Esa.Tests.External.SesaFailure)"
+ },
+ {
+  "id": "s23_F07",
+  "desc": "SesaFile: the text view has n + 1 symbols",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFile.cs",
+  "old": "_text = EsaText.FromPacked(_reader, parsed.Letters, n);",
+  "new": "_text = EsaText.FromPacked(_reader, parsed.Letters, n + 1);",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.External.SesaReader|FullyQualifiedName~SuffixTree.Esa.Tests.External.SesaFailure)"
+ },
+ {
+  "id": "s23_F08",
+  "desc": "SesaFile: the wide child table is not tagged when the file says so",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFile.cs",
+  "old": "bool tagged = parsed.Child.Codec == SesaFormat.ChildCodecTagged;",
+  "new": "bool tagged = false;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.External.SesaReader|FullyQualifiedName~SuffixTree.Esa.Tests.External.SesaFailure)"
+ },
+ {
+  "id": "s23_Z01",
+  "desc": "SesaVerifier.IsZero: a gap of non-zero bytes is accepted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs",
+  "old": "IndexOfAnyExcept((byte)0) >= 0) return false;",
+  "new": "IndexOfAnyExcept((byte)0) >= 0) return true;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.External.SesaReader|FullyQualifiedName~SuffixTree.Esa.Tests.External.SesaFailure)"
+ },
+ {
+  "id": "s23_Z02",
+  "desc": "SesaVerifier.IsZero: the last block of a gap is not looked at",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaVerifier.cs",
+  "old": "for (long done = 0; done < length; done += ZeroScanBlock)",
+  "new": "for (long done = 0; done + ZeroScanBlock < length; done += ZeroScanBlock)",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.External.SesaReader|FullyQualifiedName~SuffixTree.Esa.Tests.External.SesaFailure)"
+ }
+]

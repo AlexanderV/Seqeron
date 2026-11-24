@@ -88,6 +88,10 @@ m('S27', 'SaView.FlagsOf: a 4-byte section of more than int.MaxValue entries is 
 m('S28', 'SaView: the bridged forms are the 5-byte section only', SV, 'private const byte Bridged = FiveBytes | FourBytesWide;', 'private const byte Bridged = FiveBytes;')
 m('S29', 'SaView.this[int]: the bridge is tested for the 5-byte flag only', SV, 'if ((_flags & Bridged) != 0) return IntBridge.Value(ReadUnchecked(rank), "a suffix array entry");', 'if ((_flags & FiveBytes) != 0) return IntBridge.Value(ReadUnchecked(rank), "a suffix array entry");')
 m('S30', 'SaView.CopyTo(int): the bridge is tested for the 5-byte flag only', SV, 'else if ((_flags & Bridged) == 0) new ReadOnlySpan<int>(_pointer + start, destination.Length).CopyTo(destination);', 'else if ((_flags & FiveBytes) == 0) new ReadOnlySpan<int>(_pointer + start, destination.Length).CopyTo(destination);')
+m('S31', 'SaView.CopyTo(long): the start is narrowed', SV, 'destination[i] = ReadUnchecked(start + i);', 'destination[i] = ReadUnchecked((int)start + i);')
+m('S32', 'SaView.ReadUnchecked: the 4-byte index is narrowed', SV, ': (uint)_pointer[rank];\n    }\n\n    private ulong Load40', ': (uint)_pointer[(int)rank];\n    }\n\n    private ulong Load40')
+m('S33', 'SaView[long]: the 4-byte index is narrowed', SV, '(uint)_pointer[rank];\n        }\n    }\n\n    /// <summary>The same read, always bounded in both modes', '(uint)_pointer[(int)rank];\n        }\n    }\n\n    /// <summary>The same read, always bounded in both modes')
+m('S34', 'SaView.Load40: the stride is computed in int', SV, '(byte*)_pointer + (5 * rank)', '(byte*)_pointer + (5 * (int)rank)')
 
 IB = 'IntBridge.cs'
 m('B01', 'IntBridge.Length refuses int.MaxValue', IB, 'if ((ulong)length > int.MaxValue) ThrowLength(length, member);', 'if ((ulong)length >= int.MaxValue) ThrowLength(length, member);')

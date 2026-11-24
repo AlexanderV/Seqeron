@@ -1,0 +1,38 @@
+mutants listed: 189; round 1 (the first verdict of every id): {'killed': 158, 'survived': 31}
+equivalent (argued)        6
+killed in stage 1          151
+killed in stage 2          3
+killed in stage 3          29
+
+id	description	round 1	final
+s23_C01	FromMappedWide: a U64 array may have an overflow list	survived round 1	killed (round 2)
+s23_C06	FromReaders: a U32 array with an overflow list is accepted	survived round 1	killed (round 2)
+s23_C10	OverflowCountInt: narrowed without the check	survived round 1	killed (round 2)
+s23_C11	FindOverflow of the wide form: narrowed without the check	survived round 1	killed (round 2)
+s23_C12	OverflowRankAt of the wide form: narrowed without the check	survived round 1	killed (round 2)
+s23_C13	OverflowValueAt of the wide form: narrowed without the check	survived round 1	killed (round 2)
+s23_C16	FromMapped: a U64 array is read as U32	survived round 1	killed (round 2)
+s23_C17	FromDense: the managed form accepts U64	survived round 1	killed (round 2)
+s23_C18	FromMappedWide: a width of 8 is accepted	survived round 1	killed (round 2)
+s23_C19	FromMappedWide: a length of 0 is accepted	survived round 1	killed (round 2)
+s23_E12	PackedIndexText.CopyTo: a start beyond the length by one is accepted	survived round 1	killed (round 2)
+s23_F02	SesaFile: the 32-bit views for every width	survived round 1	equivalent
+s23_F05	SesaFile: the wide LCP array takes the width 4 for width 5	survived round 1	equivalent
+s23_H12	MappedChild.NextLIndex(int) of 5-byte cells: narrowed without the check	survived round 1	killed (round 2)
+s23_H18	MappedChild.FromMappedWide: a width of 8 is accepted	survived round 1	killed (round 2)
+s23_L07	LcpStore.Find: the search moves right by 0	survived round 1	equivalent
+s23_P02	LcpPyramid.Rank accepts int.MaxValue + 1	survived round 1	killed (round 2)
+s23_P04	LcpPyramid.NextLess(long): a position at the length reads	survived round 1	equivalent
+s23_P06	LcpPyramid.MinWide: the first partial block ends one entry early	survived round 1	killed (round 2)
+s23_P07	LcpPyramid.MinWide: the last partial block starts one entry late	survived round 1	killed (round 2)
+s23_P11	LcpPyramid.RightmostBelowWide: the first position of a block is computed in int	survived round 1	killed (round 2)
+s23_P13	LcpPyramid.BordersWide: a right border at the length reads	survived round 1	killed (round 2)
+s23_P14	LcpPyramid.BordersWide: a left border of 0 has no value	survived round 1	killed (round 2)
+s23_P15	LcpPyramid.Min(long): the right end may be at the length (non-wide form)	survived round 1	killed (round 2)
+s23_P17	LcpPyramid.Borders(long): b at the length is accepted	survived round 1	equivalent
+s23_P18	LcpPyramid.FillWide: a block minimum of int.MaxValue is refused	survived round 1	killed (round 2)
+s23_P23	LcpPyramid.ctor: the block count is checked against int too late	survived round 1	killed (round 2)
+s23_S14	SaView.CopyTo(int): the start is narrowed in the pointer	survived round 1	equivalent
+s23_S18	SaView.ToArray: a negative count is not refused	survived round 1	killed (round 2)
+s23_S19	SaView.ToLongArray: a negative count is not refused	survived round 1	killed (round 2)
+s23_T01	ChildTable.Rank accepts int.MaxValue + 1	survived round 1	killed (round 2)
