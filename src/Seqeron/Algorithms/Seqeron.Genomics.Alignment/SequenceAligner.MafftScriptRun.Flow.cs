@@ -530,10 +530,6 @@ public static partial class SequenceAligner
                 _nadd = nadd;
                 if (_fragment != 0)
                     NeedPort("--addfragments / --addfull / --addlong / --addtotop (the program addsingle)");
-                else if (_distance != "ktuples")
-                    NeedPort("--add / --addprofile with a pair library (tbfast -I)");
-                else if (_add2ndhalfarg.Contains("-p", StringComparison.Ordinal))
-                    NeedPort("--smoothing");
             }
             else if (_add2ndhalfarg != " ")
             {

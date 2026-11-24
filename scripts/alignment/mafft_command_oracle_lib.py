@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Shared helpers of the MAFFT command-line oracle generators (B09 WP70): deterministic sequence sets and one run of the installed `mafft` script
 (Debian 7.505-1) on a directory that holds the input file and the extra files the options name.  Every run is repeated; a case whose two runs differ is reported."""
-import os, random, subprocess, tempfile
+import gzip, hashlib, json, os, random, subprocess, sys, tempfile
+from concurrent.futures import ThreadPoolExecutor
 
 P = 'ACDEFGHIKLMNPQRSTVWY'
 N = 'ACGT'
@@ -113,3 +114,31 @@ def run_checked(args, text, extra=None):
     a = run_once(args, text, extra)
     b = run_once(args, text, extra)
     return a, a == b
+
+
+def run_all(allcases, run_case, out_jsonl, tsv=None, threads=8):
+    """Runs every case (run_case: case -> (record or None, id)), writes the JSONL and, when `tsv` is given, the TSV the tests read (gzip when the name ends in .gz): id, group, args, input, files, rc, out, sha256(err), err (kept for
+    short texts and every 25th), outfiles.  Returns the list of dropped (non-deterministic) ids."""
+    dropped = []
+    ft = (gzip.open(tsv, 'wt', encoding='utf-8', newline='\n') if tsv.endswith('.gz') else open(tsv, 'w', encoding='utf-8', newline='\n')) if tsv else None
+    full = 0
+    done = 0
+    with ThreadPoolExecutor(threads) as ex, open(out_jsonl, 'w') as fo:
+        for res, bad in ex.map(run_case, allcases):
+            done += 1
+            if res is None:
+                dropped.append(bad)
+                continue
+            fo.write(json.dumps(res) + '\n')
+            if ft:
+                sha = '-' if res['nostderr'] else hashlib.sha256(res['err'].encode('utf-8')).hexdigest()
+                keep = (not res['nostderr']) and len(res['err']) < 200000 and (full % 25 == 0 or len(res['err']) < 400)
+                full += 1
+                cols = [res['id'], res['group'], json.dumps(res['args']), res['input'], json.dumps(res['files']), str(res['rc']), res['out'], sha, res['err'] if keep else '', json.dumps(res['outfiles'])]
+                ft.write('\t'.join(esc(c) for c in cols) + '\n')
+            if done % 200 == 0:
+                print(done, '/', len(allcases), file=sys.stderr)
+    if ft:
+        ft.close()
+    print('cases', len(allcases), 'written', len(allcases) - len(dropped), 'non-deterministic (dropped)', len(dropped), dropped[:10], file=sys.stderr)
+    return dropped

@@ -61,13 +61,17 @@ public static partial class SequenceAligner
             var seq = (string[])rows.Clone();
             if (G.Dorp == '\0')
                 G.Dorp = GuessNucleotideFromRows(rows) ? 'd' : 'p';
-            if (G.Dorp == 'd')
-                for (int i = 0; i < njob; i++)
-                    seq[i] = seq[i].ToLowerInvariant();
+            // load1SeqWithoutName_realloc: onlyAlpha_lower for a nucleotide alignment, onlyAlpha_upper otherwise (the rows are read again as the guessed alphabet says)
+            for (int i = 0; i < njob; i++)
+                seq[i] = G.Dorp == 'd' ? seq[i].ToLowerInvariant() : seq[i].ToUpperInvariant();
             G.Constants(seq);
             Report("Gap Penalty = " + MafftGlobals.F((double)G.Ppenalty / 1000, 5, 2, true) + ", " + MafftGlobals.F((double)G.PpenaltyEx / 1000, 5, 2, true) + ", " + MafftGlobals.F((double)G.Poffset / 1000, 5, 2, true) + "\n");
-            if (CheckAlphabet(seq, "Illeagal") != null)
-                throw new NotSupportedException("--core: the alignment holds a letter that setcore does not know (it guesses the alphabet again from the letters; with --anysymbol and a forced --nuc / --amino the symbols of replaceu differ from the program's): registered in B09.md Leftovers (A2-19c-s5 --core).");
+            if (CheckAlphabet(seq, "Illeagal") is { } unknownLetter)
+            {
+                // seqcheck: the box and "Illeagal character" go to the standard error of setcore, which the script does not redirect; its exit status is not tested, the file pre2 stays empty
+                Report(unknownLetter.Text);
+                return (Array.Empty<string>(), Array.Empty<string>());
+            }
             Report("Loading 'hat2' ... ");
             if (hat2Text == null)
             {

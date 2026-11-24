@@ -357,43 +357,7 @@ public static partial class SequenceAligner
                 Report("Iterative refinement (one vs others)\n");
                 DoOneIteration(bseq!, lastTree!, lastEff!, ref lastAlloclen);
             }
-            List<(int Row, int Pos, int Len)>? deletedRuns = null;
-            string? deleteMap = null;
-            string?[]? newNames = null;
-            int ndeleted = 0;
-            if (G.Nadd > 0 && G.KeepLength != 0)
-            {
-                int nadd = G.Nadd;
-                var oldRows = bseq!.Take(njob - nadd).ToArray();
-                var addRows = bseq!.Skip(njob - nadd).ToArray();
-                var deletelist = DeleteNewInsertions(njob - nadd, nadd, oldRows, addRows);
-                deletedRuns = new List<(int Row, int Pos, int Len)>();
-                for (int i = 0; i < nadd; i++)
-                    foreach (var d in deletelist[i])
-                        deletedRuns.Add((njob - nadd + i, d.Pos, d.Len));
-                ndeleted = bseq![0].Length - oldRows[0].Length;
-                for (int i = 0; i < njob - nadd; i++)
-                    bseq![i] = oldRows[i];
-                for (int i = 0; i < nadd; i++)
-                    bseq![njob - nadd + i] = addRows[i];
-                RestoreOriginalGaps(njob, bseq!, originalGaps!);
-                if (G.MapOut != 0)
-                {
-                    var allNames = names ?? DefaultNames(njob);
-                    var addNames = allNames.Skip(njob - nadd).ToArray();
-                    var realn = G.MapOut == 1 ? bseq!.Skip(njob - nadd).ToArray() : seq.Skip(njob - nadd).ToArray();
-                    if (G.MapOut == 1)
-                    {
-                        deleteMap = ReconstructDeleteMap(nadd, addbk!, deletelist, realn, addNames);
-                    }
-                    else
-                    {
-                        var changed = new string?[nadd];
-                        deleteMap = ReconstructDeleteMapCompact(nadd, addbk!, deletelist, realn, addNames, changed!);
-                        newNames = changed;
-                    }
-                }
-            }
+            var (deletedRuns, deleteMap, newNames, ndeleted) = KeepLength(njob, seq, bseq!, originalGaps, addbk, names);
             if (G.SpScoreOut != 0)
                 ReportSumOfPairs(bseq!);
             Report("disttbfast (" + (G.Dorp == 'd' ? "nuc" : "aa") + ") Version 7.505\nalg=" + G.Alg + ", model=" + G.ModelName + ", amax=" + G.SpecificityConsideration.ToString("F1", CultureInfo.InvariantCulture) + "\n"
@@ -1203,10 +1167,7 @@ public static partial class SequenceAligner
                     AAlign(dynamicmtx, G.Penalty, G.PenaltyEx, mseq1, mseq2, effarr1, effarr2, clus1, clus2, alloclen, null, null, null, null, G.Outgap, G.Outgap,
                         cpmxhist, child0, child1, l, orieff1, orieff2, imp);
                     _nlen[m1] = (int)(0.5 * (_nlen[m1] + _nlen[m2]));
-                    for (int k = 0; k < clus1; k++)
-                        aseq[localmem0[k]] = mseq1[k];
-                    for (int k = 0; k < clus2; k++)
-                        aseq[localmem1[k]] = mseq2[k];
+                    MergeAfterAlignment(aseq, njob, add, mergeOrAlign, gapmap, len1, len1nocommongap, clus1, clus2, mseq1, mseq2, localmem0, localmem1, alloclen);
                     continue;
                 }
                 if (tbfast)
@@ -1230,10 +1191,7 @@ public static partial class SequenceAligner
                             cpmxhist, child0, child1, l, orieff1, orieff2);
                     }
                     _nlen[m1] = (int)(0.5 * (_nlen[m1] + _nlen[m2]));
-                    for (int k = 0; k < clus1; k++)
-                        aseq[localmem0[k]] = mseq1[k];
-                    for (int k = 0; k < clus2; k++)
-                        aseq[localmem1[k]] = mseq2[k];
+                    MergeAfterAlignment(aseq, njob, add, mergeOrAlign, gapmap, len1, len1nocommongap, clus1, clus2, mseq1, mseq2, localmem0, localmem1, alloclen);
                     continue;
                 }
                 if (l < 500 || l % 100 == 0)
@@ -1242,6 +1200,7 @@ public static partial class SequenceAligner
                 {
                     Report("\nlen1=" + len1.ToString(CultureInfo.InvariantCulture) + ", len2=" + len2.ToString(CultureInfo.InvariantCulture) + ", Switching to the memsave mode\n");
                     G.Alg = 'M';
+                    G.Common.FreeIp();
                 }
                 bool ffttry = _nlen[m1] > clus1 && _nlen[m2] > clus2;
                 if (G.ForceFft || (G.UseFft && ffttry))
@@ -1290,47 +1249,102 @@ public static partial class SequenceAligner
                     }
                 }
                 _nlen[m1] = (int)(0.5 * (_nlen[m1] + _nlen[m2]));
-                if (mergeOrAlign == '1')
-                    throw new MafftProgramFailureException(Log + "Check source!!!\n");
-                if (mergeOrAlign == '2')
+                MergeAfterAlignment(aseq, njob, add, mergeOrAlign, gapmap, len1, len1nocommongap, clus1, clus2, mseq1, mseq2, localmem0, localmem1, alloclen);
+            }
+            G.NewGapChar = '-';
+            FreeStatics();
+        }
+
+        /// <summary><c>--keeplength</c> / <c>--mapout</c> of <c>disttbfast</c> and <c>tbfast</c> (<c>deletenewinsertions_whole</c>, <c>restoreoriginalgaps</c>, <c>reconstructdeletemap</c>): the letters of the added sequences that would insert columns into the
+        /// alignment are deleted, the columns that the old alignment had only gaps in are put back, and the map of the deleted letters is written.</summary>
+        private (List<(int Row, int Pos, int Len)>? DeletedRuns, string? DeleteMap, string?[]? NewNames, int NDeleted) KeepLength(int njob, string[] seq, string[] bseq, string? originalGaps, string[]? addbk, IReadOnlyList<string>? names)
+        {
+            List<(int Row, int Pos, int Len)>? deletedRuns = null;
+            string? deleteMap = null;
+            string?[]? newNames = null;
+            int ndeleted = 0;
+            if (G.Nadd > 0 && G.KeepLength != 0)
+            {
+                int nadd = G.Nadd;
+                var oldRows = bseq.Take(njob - nadd).ToArray();
+                var addRows = bseq.Skip(njob - nadd).ToArray();
+                var deletelist = DeleteNewInsertions(njob - nadd, nadd, oldRows, addRows);
+                deletedRuns = new List<(int Row, int Pos, int Len)>();
+                for (int i = 0; i < nadd; i++)
+                    foreach (var d in deletelist[i])
+                        deletedRuns.Add((njob - nadd + i, d.Pos, d.Len));
+                ndeleted = bseq[0].Length - oldRows[0].Length;
+                for (int i = 0; i < njob - nadd; i++)
+                    bseq[i] = oldRows[i];
+                for (int i = 0; i < nadd; i++)
+                    bseq[njob - nadd + i] = addRows[i];
+                RestoreOriginalGaps(njob, bseq, originalGaps!);
+                if (G.MapOut != 0)
                 {
-                    // restore the columns that only gaps of the old group had, put the new columns into the other old sequences
-                    int gapmaplen = mseq1[0].Length - len1nocommongap + len1;
-                    gapmap = AdjustGapMap(gapmaplen, gapmap!, mseq1[0]);
-                    for (int k = 0; k < clus1; k++)
-                        aseq[localmem0[k]] = mseq1[k];
-                    for (int k = 0; k < clus2; k++)
-                        aseq[localmem1[k]] = mseq2[k];
-                    gapmap = RestoreCommonGaps(njob, njob - (clus1 + clus2), aseq, localmem0, localmem1, gapmap, '-');
-                    for (int k = 0; k < clus1; k++)
-                        mseq1[k] = aseq[localmem0[k]];
-                    for (int k = 0; k < clus2; k++)
-                        mseq2[k] = aseq[localmem1[k]];
-                    var gaplen = FindNewGaps(mseq1, 0);
-                    InsertNewGaps(njob, add!.AlreadyAligned, aseq, localmem0, localmem1, gaplen, gapmap, alloclen, '-');
-                    for (int k = 0; k < clus1; k++)
-                        mseq1[k] = aseq[localmem0[k]];
-                    for (int k = 0; k < clus2; k++)
-                        mseq2[k] = aseq[localmem1[k]];
-                    Eq2DashMatome(mseq1, clus1);
-                    Eq2DashMatome(mseq2, clus2);
-                    foreach (int m in localmem1)
-                        add.AlreadyAligned[m] = true;
+                    var allNames = names ?? DefaultNames(njob);
+                    var addNames = allNames.Skip(njob - nadd).ToArray();
+                    var realn = G.MapOut == 1 ? bseq.Skip(njob - nadd).ToArray() : seq.Skip(njob - nadd).ToArray();
+                    if (G.MapOut == 1)
+                    {
+                        deleteMap = ReconstructDeleteMap(nadd, addbk!, deletelist, realn, addNames);
+                    }
+                    else
+                    {
+                        var changed = new string?[nadd];
+                        deleteMap = ReconstructDeleteMapCompact(nadd, addbk!, deletelist, realn, addNames, changed!);
+                        newNames = changed;
+                    }
                 }
+            }
+            return (deletedRuns, deleteMap, newNames, ndeleted);
+        }
+
+        /// <summary>The end of a step of <c>treebase</c> (<c>disttbfast.c</c>, <c>tbfast.c</c>): with <c>--add</c> the columns that only gaps of the old group had are restored and the new columns are put into the other old sequences
+        /// (<c>mergeoralign</c> '2'); then the rows of both groups go back into the alignment.</summary>
+        private void MergeAfterAlignment(string[] aseq, int njob, MafftAddState? add, char mergeOrAlign, int[]? gapmap, int len1, int len1nocommongap, int clus1, int clus2, string[] mseq1, string[] mseq2, int[] localmem0, int[] localmem1, int alloclen)
+        {
+            if (mergeOrAlign == '1')
+                throw new MafftProgramFailureException(Log + "Check source!!!\n");
+            if (mergeOrAlign == '2')
+            {
+                // restore the columns that only gaps of the old group had, put the new columns into the other old sequences
+                int gapmaplen = mseq1[0].Length - len1nocommongap + len1;
+                gapmap = AdjustGapMap(gapmaplen, gapmap!, mseq1[0]);
                 for (int k = 0; k < clus1; k++)
                     aseq[localmem0[k]] = mseq1[k];
                 for (int k = 0; k < clus2; k++)
                     aseq[localmem1[k]] = mseq2[k];
+                bool smoothing = G.Smoothing != 0;
+                gapmap = smoothing ? RestoreCommonGapsSmoothly(njob, njob - (clus1 + clus2), aseq, localmem0, localmem1, gapmap, '-') : RestoreCommonGaps(njob, njob - (clus1 + clus2), aseq, localmem0, localmem1, gapmap, '-');
+                for (int k = 0; k < clus1; k++)
+                    mseq1[k] = aseq[localmem0[k]];
+                for (int k = 0; k < clus2; k++)
+                    mseq2[k] = aseq[localmem1[k]];
+                var gaplen = FindNewGaps(mseq1, 0);
+                if (smoothing)
+                    InsertNewGapsBothOrders(njob, add!.AlreadyAligned, aseq, localmem0, localmem1, gaplen, gapmap, gapmaplen, alloclen, '-');
+                else
+                    InsertNewGaps(njob, add!.AlreadyAligned, aseq, localmem0, localmem1, gaplen, gapmap, alloclen, '-');
+                for (int k = 0; k < clus1; k++)
+                    mseq1[k] = aseq[localmem0[k]];
+                for (int k = 0; k < clus2; k++)
+                    mseq2[k] = aseq[localmem1[k]];
+                Eq2DashMatome(mseq1, clus1);
+                Eq2DashMatome(mseq2, clus2);
+                foreach (int m in localmem1)
+                    add.AlreadyAligned[m] = true;
             }
-            G.NewGapChar = '-';
-            FreeStatics();
+            for (int k = 0; k < clus1; k++)
+                aseq[localmem0[k]] = mseq1[k];
+            for (int k = 0; k < clus2; k++)
+                aseq[localmem1[k]] = mseq2[k];
         }
 
         /// <summary>
         /// The part of <c>main</c> of <c>disttbfast.c</c> for <c>-I n</c> (<c>--add</c> with <c>-K</c>, <c>--addprofile</c> without): the checks, which step of the tree does what (<c>mergeoralign</c>) and the rows of <paramref name="bseq"/>.
         /// Returns null when the program stops after its message (the original sequences are not aligned).
         /// </summary>
-        private MafftAddState? PrepareAdd(int njob, int nadd, string[] seq, string[] bseq, GuideTree tree, IReadOnlyList<string> names)
+        private MafftAddState? PrepareAdd(int njob, int nadd, string[] seq, string[] bseq, GuideTree tree, IReadOnlyList<string> names, bool tbfastMessages = false)
         {
             _ = names;
             int alignmentlength = seq[0].Length;
@@ -1338,6 +1352,9 @@ public static partial class SequenceAligner
             {
                 if (seq[i].Length != alignmentlength)
                 {
+                    if (tbfastMessages)
+                        throw new MafftProgramFailureException("#################################################################################\n# ERROR!                                                                        #\n# The original" + (njob - nadd).ToString(CultureInfo.InvariantCulture).PadLeft(4)
+                            + " sequences must be aligned                                    #\n#################################################################################\n");
                     Report("#################################################################################\n# ERROR!\n# The original " + (njob - nadd).ToString(CultureInfo.InvariantCulture) + " sequences must be aligned\n# alignmentlength = "
                         + alignmentlength.ToString(CultureInfo.InvariantCulture) + ", but strlen(seq[" + i.ToString(CultureInfo.InvariantCulture) + "])=" + seq[i].Length.ToString(CultureInfo.InvariantCulture) + "\n#################################################################################\n");
                     return null;
@@ -1351,8 +1368,13 @@ public static partial class SequenceAligner
                 for (int i = njob - nadd; i < njob; i++)
                 {
                     if (seq[i].Length != alignmentlength)
+                    {
+                        if (tbfastMessages)
+                            throw new MafftProgramFailureException("###############################################################################\n# ERROR!                                                                      #\n# The" + nadd.ToString(CultureInfo.InvariantCulture).PadLeft(4)
+                                + " additional sequences must be aligned                                #\n# Otherwise, try the '--add' option, instead of '--addprofile' option.        #\n###############################################################################\n");
                         throw new MafftProgramFailureException("###############################################################################\n# ERROR!\n# The additional sequences must be aligned\n".Replace("additional sequences", nadd.ToString(CultureInfo.InvariantCulture) + " additional sequences", StringComparison.Ordinal)
                             + "# Otherwise, try the '--add' option, instead of '--addprofile' option.\n###############################################################################\n");
+                    }
                 }
                 bool found = false;
                 for (int i = 0; i < njob - 1; i++)
@@ -1374,6 +1396,9 @@ public static partial class SequenceAligner
                         mergeoralign[i] = 'n';
                     }
                 }
+                if (!found && tbfastMessages)
+                    throw new MafftProgramFailureException("###############################################################################\n# ERROR!                                                                      #\n# There is no appropriate position to add the" + nadd.ToString(CultureInfo.InvariantCulture).PadLeft(4)
+                        + " sequences in the guide tree.#\n# Check whether the" + nadd.ToString(CultureInfo.InvariantCulture).PadLeft(4) + " sequences form a monophyletic cluster.                #\n# If not, try the '--add' option, instead of the '--addprofile' option.       #\n############################################################################### \n");
                 if (!found)
                     throw new MafftProgramFailureException("###############################################################################\n# ERROR!\n# There is no appropriate position to add the " + nadd.ToString(CultureInfo.InvariantCulture)
                         + " sequences in the guide tree.\n# Check whether the " + nadd.ToString(CultureInfo.InvariantCulture) + " sequences form a monophyletic cluster.\n# If not, try the '--add' option, instead of the '--addprofile' option.\n############################################################################### \n");
@@ -1512,6 +1537,7 @@ public static partial class SequenceAligner
                 {
                     Report("\nlen1=" + len1.ToString(CultureInfo.InvariantCulture) + ", len2=" + len2.ToString(CultureInfo.InvariantCulture) + ", Switching to the memsave mode\n");
                     G.Alg = 'M';
+                    G.Common.FreeIp();
                 }
                 bool ffttry = _nlen[m1] > clus1 && _nlen[m2] > clus2;
                 if (G.ForceFft || (G.UseFft && ffttry))
@@ -1597,6 +1623,8 @@ public static partial class SequenceAligner
         {
             _aOrlgth1 = 0;
             _aOrlgth2 = 0;
+            if (!_isTbfast)
+                _gCap.Reset(); // disttbfast calls G__align11( NULL ... ) with A__align( NULL ... ); tbfast does not
             _arAlloclen = 0;
             _impMtx = null;
         }
@@ -1620,7 +1648,7 @@ public static partial class SequenceAligner
         // -------------------------------------------------------------------- Galign11.c
 
         /// <summary><c>G__align11</c>: the alignment of two single sequences (Gotoh with the penalties of the program, free end gaps when <paramref name="headgp"/> / <paramref name="tailgp"/> are 0); in place.</summary>
-        internal double G__align11(double[][] dynamicmtx, string[] seq1, string[] seq2, int alloclen, int headgp, int tailgp)
+        internal double G__align11(double[][] dynamicmtx, string[] seq1, string[] seq2, int alloclen, int headgp, int tailgp, bool noalign = false)
         {
             string s1 = seq1[0], s2 = seq2[0];
             int lgth1 = s1.Length, lgth2 = s2.Length;
@@ -1655,9 +1683,19 @@ public static partial class SequenceAligner
             var w2 = new double[lgth2 + 2];
             var initverticalw = new double[lgth1 + 2];
             var lastverticalw = new double[lgth1 + 2];
-            var ijp = new int[lgth1 + 1][];
-            for (int i = 0; i <= lgth1; i++)
-                ijp[i] = new int[lgth2 + 1];
+            int[][] ijp;
+            if (noalign)
+            {
+                // G__align11_noalign keeps no trace-back matrix (and does not touch commonIP)
+                ijp = new int[lgth1 + 1][];
+                for (int i = 0; i <= lgth1; i++)
+                    ijp[i] = new int[lgth2 + 1];
+            }
+            else
+            {
+                _gCap.Fit(lgth1, lgth2);
+                ijp = G.Common.IpFor(_gCap.Orlgth1, _gCap.Orlgth2);
+            }
             double[] currentw = w1, previousw = w2;
             for (int j = 0; j < lgth1; j++)
                 initverticalw[j] = amino[s2[0]][s1[j]];
@@ -1739,7 +1777,16 @@ public static partial class SequenceAligner
                 }
                 lastverticalw[i] = currentw[lgth2 - 1];
             }
-            var (a, b, wmo) = Atracking11(G.NewGapChar, currentw, lastverticalw, s1, s2, ijp, tailgp);
+            (string, string, double) tracked;
+            try
+            {
+                tracked = Atracking11(G.NewGapChar, currentw, lastverticalw, s1, s2, ijp, tailgp);
+            }
+            catch (IndexOutOfRangeException)
+            {
+                throw StaleTraceBack();
+            }
+            var (a, b, wmo) = tracked;
             if (tailgp == 0)
                 wm = wmo;
             if (alloclen < a.Length)

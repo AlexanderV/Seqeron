@@ -121,14 +121,7 @@ public static partial class SequenceAligner
                 {
                     if (!Word("nan"))
                         return false;
-                    if (More && Peek == '(')
-                    {
-                        int k = _pos + 1;
-                        while (k < _s.Length && (char.IsAsciiLetterOrDigit(_s[k]) || _s[k] == '_'))
-                            k++;
-                        if (k < _s.Length && _s[k] == ')')
-                            _pos = k + 1;
-                    }
+                    // glibc scanf reads "nan" only: an n-char-sequence "nan(0x12)" is not consumed ("(0x12)" then fails the next number); strtod would take it
                     value = BitConverter.Int64BitsToDouble(0x7FF8000000000000L); // strtod("nan") is a positive NaN
                     if (buf.Length > 0 && buf[0] == '-')
                         value = -value;

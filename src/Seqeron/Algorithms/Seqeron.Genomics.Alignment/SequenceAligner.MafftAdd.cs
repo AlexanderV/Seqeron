@@ -130,6 +130,324 @@ public static partial class SequenceAligner
             return tmpgapmap.ToArray();
         }
 
+        /// <summary><c>smoothing1rightmulti</c> (<c>addfunctions.c</c>): a column of the reference row that holds a letter between a run of removed common gaps ('+') in front and inserted columns ('=') behind it is moved to the end of the inserted run.</summary>
+        private int Smoothing1RightMulti(int len, char[] reference)
+        {
+            var hit = new List<int>();
+            for (int i = 1; i < len - 1; i++)
+            {
+                if (reference[i - 1] == '+' && reference[i] != '+' && reference[i] != '=' && reference[i + 1] == '=')
+                    hit.Add(i);
+            }
+            int nhit = hit.Count;
+            if (nhit == 0)
+                return 0;
+            int val = 0;
+            int shiftto = -1;
+            for (int k = 0; k < nhit; k++)
+            {
+                int j;
+                for (j = hit[k] + 1; j <= len; j++)
+                {
+                    if (j >= reference.Length || reference[j] != '=')
+                    {
+                        shiftto = j - 1;
+                        break;
+                    }
+                }
+                if (j == len && reference[len - 1] == '=')
+                    throw UndefinedBehaviour("--smoothing: the inserted columns reach the end of the alignment; the program prints \"hit[i].end = %d\" without an argument");
+                if (shiftto < len - 1 && reference[shiftto + 1] == '+')
+                    continue;
+                val += 1;
+                int shiftfrom = hit[k];
+                if (reference[shiftto] != '=')
+                    throw new MafftProgramFailureException(Log + "Error in smoothing1left!\n");
+                reference[shiftto] = reference[shiftfrom];
+                reference[shiftfrom] = '=';
+            }
+            Report(" " + val.ToString(CultureInfo.InvariantCulture) + " out of " + nhit.ToString(CultureInfo.InvariantCulture) + " have been smoothed (right).\n");
+            return val;
+        }
+
+        /// <summary><c>smoothing1leftmulti</c>: the mirror image of <see cref="Smoothing1RightMulti"/>.</summary>
+        private int Smoothing1LeftMulti(int len, char[] reference)
+        {
+            var hit = new List<int>();
+            for (int i = 1; i < len - 1; i++)
+            {
+                if (reference[i - 1] == '=' && reference[i] != '+' && reference[i] != '=' && reference[i + 1] == '+')
+                    hit.Add(i);
+            }
+            int nhit = hit.Count;
+            if (nhit == 0)
+                return 0;
+            int val = 0;
+            int shiftto = -1;
+            for (int k = 0; k < nhit; k++)
+            {
+                int j;
+                for (j = hit[k] - 1; j > -1; j--)
+                {
+                    if (reference[j] != '=')
+                    {
+                        shiftto = j + 1;
+                        break;
+                    }
+                }
+                if (j == -1 && reference[0] == '=')
+                    throw UndefinedBehaviour("--smoothing: the inserted columns reach the start of the alignment; the program prints \"hit[i].end = %d\" without an argument");
+                if (shiftto > 0 && reference[shiftto - 1] == '+')
+                    continue;
+                val += 1;
+                int shiftfrom = hit[k];
+                if (reference[shiftto] != '=')
+                    throw new MafftProgramFailureException(Log + "Error in smoothing1left!\n");
+                reference[shiftto] = reference[shiftfrom];
+                reference[shiftfrom] = '=';
+            }
+            Report(" " + val.ToString(CultureInfo.InvariantCulture) + " out of " + nhit.ToString(CultureInfo.InvariantCulture) + " have been smoothed (left).\n");
+            return val;
+        }
+
+        /// <summary><c>reflectsmoothing</c>: the other rows of a group get the inserted columns where the smoothed reference row has them.</summary>
+        private static void ReflectSmoothing(char[] reference, int[] mem, string[] seq, int len)
+        {
+            for (int j = 1; j < mem.Length; j++)
+            {
+                int i = mem[j];
+                string tmpseq = seq[i].Replace("=", "", StringComparison.Ordinal);
+                var chars = new char[len];
+                int k = 0, p = 0;
+                while (p < len)
+                {
+                    while (p < len && reference[p] == '=')
+                        chars[p++] = '=';
+                    if (p < len)
+                        chars[p] = k < tmpseq.Length ? tmpseq[k] : '\0';
+                    p++;
+                    k++;
+                }
+                seq[i] = new string(chars);
+            }
+        }
+
+        /// <summary>
+        /// <c>restorecommongapssmoothly</c> (<c>--smoothing</c>): as <see cref="RestoreCommonGaps"/>, but the removed columns are marked '+' and the letters next to the columns that the alignment inserted ('=') are moved across them
+        /// (<c>smoothing1rightmulti</c>, <c>smoothing1leftmulti</c>) before the marks become gaps; the gap map that is returned ends in -1 as the program's array does.
+        /// </summary>
+        private int[] RestoreCommonGapsSmoothly(int njob, int n0, string[] seq, int[] ex1, int[] ex2, int[] gapmap, char gapchar)
+        {
+            _ = njob;
+            if (n0 == 0)
+                return gapmap;
+            var mem = new List<int>(ex1);
+            mem.AddRange(ex2);
+            int rep1 = ex1[0];
+            int rep2 = ex2[0];
+            int len = seq[rep1].Length;
+            int len1 = len + 1;
+            var sb = new StringBuilder();
+            foreach (int i in mem)
+            {
+                sb.Clear();
+                for (int j = 0; j < len1; j++)
+                {
+                    int klim = j < gapmap.Length ? gapmap[j] : 0;
+                    sb.Append('+', klim);
+                    if (j < len)
+                        sb.Append(seq[i][j]);
+                }
+                seq[i] = sb.ToString();
+            }
+            int leninserted = seq[rep1].Length;
+            int totalres = 0;
+            var r1 = seq[rep1].ToCharArray();
+            totalres += Smoothing1RightMulti(leninserted, r1);
+            totalres += Smoothing1LeftMulti(leninserted, r1);
+            seq[rep1] = new string(r1);
+            if (totalres != 0)
+                ReflectSmoothing(r1, ex1, seq, leninserted);
+            totalres = 0;
+            var r2 = seq[rep2].ToCharArray();
+            totalres += Smoothing1RightMulti(leninserted, r2);
+            totalres += Smoothing1LeftMulti(leninserted, r2);
+            seq[rep2] = new string(r2);
+            if (totalres != 0)
+                ReflectSmoothing(r2, ex2, seq, leninserted);
+            foreach (int i in mem)
+                seq[i] = seq[i].Replace('+', gapchar);
+            var tmpgapmap = new List<int>();
+            for (int j = 0; j < len1; j++)
+            {
+                int g = j < gapmap.Length ? gapmap[j] : 0;
+                tmpgapmap.Add(g);
+                for (int k = 0; k < g; k++)
+                    tmpgapmap.Add(0);
+            }
+            tmpgapmap.Add(-1);
+            return tmpgapmap.ToArray();
+        }
+
+        private static int CountNoGapLen(int[] gaplen, int start, int term)
+        {
+            int v = 0;
+            for (int q = start; q < term; q++)
+            {
+                if ((q < gaplen.Length ? gaplen[q] : 0) == 0)
+                    v++;
+                else
+                    break;
+            }
+            return v;
+        }
+
+        private static int CountGapMap(int[] gapmap, int start, int term)
+        {
+            int v = 0;
+            for (int q = start; q < term; q++)
+            {
+                if ((q < gapmap.Length ? gapmap[q] : 0) == 0)
+                    v++;
+                else
+                    break;
+            }
+            return v;
+        }
+
+        /// <summary>
+        /// <c>insertnewgaps_bothorders</c> (<c>--smoothing</c>): <see cref="InsertNewGaps"/> for a gap map that has an entry for every column of the restored rows (the output of <see cref="RestoreCommonGapsSmoothly"/>): the
+        /// removed columns and the inserted columns can follow each other in any order.
+        /// </summary>
+        private void InsertNewGapsBothOrders(int njob, bool[] alreadyaligned, string[] seq, int[] ex1, int[] ex2, int[] gaplen, int[] gapmap, int gapmaplen, int alloclen, char gapchar)
+        {
+            int Gm(int q) => q < gapmap.Length ? gapmap[q] : 0;
+            int Gl(int q) => q < gaplen.Length ? gaplen[q] : 0;
+            var mar = new int[njob];
+            for (int i = 0; i < njob; i++)
+                if (!alreadyaligned[i])
+                    mar[i] = 3;
+            foreach (int k in ex1)
+                mar[k] = 1;
+            foreach (int k in ex2)
+                mar[k] = 2;
+            var list0 = new List<int>();
+            var list1 = new List<int>();
+            var list2 = new List<int>();
+            for (int i = 0; i < njob; i++)
+            {
+                if (mar[i] == 2)
+                    list2.Add(i);
+                if (mar[i] == 1)
+                    list1.Add(i);
+                if (mar[i] == 0)
+                    list0.Add(i);
+            }
+            int ngroup0 = list0.Count, ngroup1 = list1.Count, ngroup2 = list2.Count;
+            if (ngroup0 == 0)
+                return;
+            int rep = list0[0];
+            int len = seq[rep].Length;
+            int len0 = len + 1;
+            var aseq = new StringBuilder[njob];
+            for (int i = 0; i < njob; i++)
+                aseq[i] = new StringBuilder();
+            int posin12 = 0;
+            for (int j = 0; j < len0; j++)
+            {
+                int gapshiftb = 0, gapshifta = 0;
+                if (Gl(j) != 0 || Gm(posin12) != 0)
+                {
+                    var mseq0 = new string[ngroup0];
+                    var mseq1 = new string[ngroup1];
+                    var mseq2 = new string[ngroup2];
+                    for (int i = 0; i < ngroup0; i++)
+                        mseq0[i] = "";
+                    for (int i = 0; i < ngroup1; i++)
+                        mseq1[i] = "";
+                    for (int i = 0; i < ngroup2; i++)
+                        mseq2[i] = "";
+                    gapshiftb = Gm(posin12);
+                    if (gapshiftb < 0)
+                        throw UndefinedBehaviour("--smoothing: the gap map is read behind its end (a negative length is copied)");
+                    if (gapshiftb != 0)
+                    {
+                        for (int i = 0; i < ngroup0; i++)
+                            mseq0[i] += CopyN(seq[list0[i]], j, gapshiftb);
+                        for (int i = 0; i < ngroup1; i++)
+                            mseq1[i] += CopyN(seq[list1[i]], posin12, gapshiftb);
+                        for (int i = 0; i < ngroup2; i++)
+                            mseq2[i] += CopyN(seq[list2[i]], posin12, gapshiftb);
+                        posin12 += gapshiftb;
+                    }
+                    j += gapshiftb;
+                    while (true)
+                    {
+                        int gapshiftn = Gl(j);
+                        if (gapshiftn != 0)
+                        {
+                            string gaps = new string(gapchar, gapshiftn);
+                            for (int i = 0; i < ngroup0; i++)
+                                mseq0[i] += gaps;
+                            for (int i = 0; i < ngroup1; i++)
+                                mseq1[i] += CopyN(seq[list1[i]], posin12, gapshiftn);
+                            for (int i = 0; i < ngroup2; i++)
+                                mseq2[i] += CopyN(seq[list2[i]], posin12, gapshiftn);
+                            posin12 += gapshiftn;
+                        }
+                        gapshifta = Gm(posin12);
+                        if (gapshifta < 0)
+                            throw UndefinedBehaviour("--smoothing: the gap map is read behind its end (a negative length is copied)");
+                        if (gapshifta != 0)
+                        {
+                            for (int i = 0; i < ngroup0; i++)
+                                mseq0[i] += CopyN(seq[list0[i]], j, gapshifta);
+                            for (int i = 0; i < ngroup1; i++)
+                                mseq1[i] += CopyN(seq[list1[i]], posin12, gapshifta);
+                            for (int i = 0; i < ngroup2; i++)
+                                mseq2[i] += CopyN(seq[list2[i]], posin12, gapshifta);
+                            posin12 += gapshifta;
+                        }
+                        int jinc = 0;
+                        for (int i = 1; i <= gapshifta; i++)
+                            jinc += 1 + Gl(j + i);
+                        j += gapshifta;
+                        if (jinc == gapshifta)
+                            break;
+                        Report("(a) There are overlapped " + jinc.ToString(CultureInfo.InvariantCulture) + " gaps in gaplist[] and gapmap[]. j=" + (j - gapshifta - jinc).ToString(CultureInfo.InvariantCulture) + "-" + j.ToString(CultureInfo.InvariantCulture)
+                            + ", posin12=" + (posin12 - gapshifta).ToString(CultureInfo.InvariantCulture) + "-" + posin12.ToString(CultureInfo.InvariantCulture) + ", jinc=" + jinc.ToString(CultureInfo.InvariantCulture) + ", gapshifta=" + gapshifta.ToString(CultureInfo.InvariantCulture) + "\n");
+                    }
+                    if (gapshiftb + gapshifta != 0)
+                        ProfileAlignment(ngroup0, ngroup1, ngroup2, mseq0, mseq1, mseq2, alloclen);
+                    for (int i = 0; i < ngroup0; i++)
+                        aseq[list0[i]].Append(mseq0[i]);
+                    for (int i = 0; i < ngroup1; i++)
+                        aseq[list1[i]].Append(mseq1[i]);
+                    for (int i = 0; i < ngroup2; i++)
+                        aseq[list2[i]].Append(mseq2[i]);
+                }
+                int blocklen = 1 + CountNoGapLen(gaplen, j + 1, len0);
+                int blockmap = 1 + CountGapMap(gapmap, posin12 + 1, gapmaplen);
+                if (blockmap < blocklen)
+                    blocklen = blockmap;
+                for (int i = 0; i < ngroup0; i++)
+                    aseq[list0[i]].Append(CopyN(seq[list0[i]], j, blocklen));
+                for (int i = 0; i < ngroup1; i++)
+                    aseq[list1[i]].Append(CopyN(seq[list1[i]], posin12, blocklen));
+                for (int i = 0; i < ngroup2; i++)
+                    aseq[list2[i]].Append(CopyN(seq[list2[i]], posin12, blocklen));
+                j += blocklen - 1;
+                posin12 += blocklen - 1;
+                posin12++;
+            }
+            foreach (int i in list0)
+                seq[i] = aseq[i].ToString();
+            foreach (int i in list1)
+                seq[i] = aseq[i].ToString();
+            foreach (int i in list2)
+                seq[i] = aseq[i].ToString();
+        }
+
         /// <summary><c>findnewgaps</c>: the number of inserted ('=') columns in front of every old column of the row <paramref name="rep"/>.</summary>
         private static int[] FindNewGaps(string[] seq, int rep)
         {

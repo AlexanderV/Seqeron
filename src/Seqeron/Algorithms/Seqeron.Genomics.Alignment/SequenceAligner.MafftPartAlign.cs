@@ -72,9 +72,7 @@ public static partial class SequenceAligner
             var lastverticalw = new double[lgth1 + 2];
             var m = new double[lgth2 + 2];
             var mp = new int[lgth2 + 2];
-            var ijp = new int[lgth1 + 1][];
-            for (int i = 0; i <= lgth1; i++)
-                ijp[i] = new int[lgth2 + 1];
+            var ijp = G.Common.IpFor(_pOrlgth1, _pOrlgth2);
             var doublework = new double[Math.Max(lgth1, lgth2) + 2][];
             var intwork = new int[Math.Max(lgth1, lgth2) + 2][];
             for (int i = 0; i < doublework.Length; i++)

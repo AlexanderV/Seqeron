@@ -506,6 +506,7 @@ public static partial class SequenceAligner
             {
                 Report("\nlen1=" + len1.ToString(CultureInfo.InvariantCulture) + ", len2=" + len2.ToString(CultureInfo.InvariantCulture) + ", Switching to the memsave mode\n");
                 G.Alg = 'M';
+                G.Common.FreeIp();
             }
             Report("\bd");
             switch (G.Alg)

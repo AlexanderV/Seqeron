@@ -123,6 +123,12 @@ public static partial class SequenceAligner
                         case 'A': g.Alg = 'A'; break;
                         case 'N': g.NeverMemSave = 1; break;
                         case 'B': break;
+                        case 'K': g.AddProfile = false; break;
+                        case 'I': g.Nadd = CAtoi(Next()); rest = true; break;
+                        case 'Y': g.KeepLength = 1; break;
+                        case 'z': g.MapOut = 2; break;
+                        case 'Z': g.MapOut = 1; break;
+                        case 'p': g.Smoothing = 1; break;
                         case 'F': g.UseFft = true; break;
                         case 'G': g.ForceFft = true; g.UseFft = true; break;
                         case 'u': g.Tbrweight = 0; g.Weight = 0; break;
@@ -234,11 +240,16 @@ public static partial class SequenceAligner
                             G__align11(G.NDisConsweightMulti, m1, m2, _nlenmax * 2, G.Outgap, G.Outgap);
                             pscore = NaivePairScore11(m1[0], m2[0], 0);
                         }
-                        else
+                        else if (G.StoreLocalhom != 0)
                         {
                             pscore = G__align11(G.NDisConsweightMulti, m1, m2, _nlenmax * 2, G.Outgap, G.Outgap);
                             if (tx != 0)
                                 pscore = G__align11Noalign(G.NDisConsweightMulti, dseq[i], dseq[j]);
+                        }
+                        else
+                        {
+                            // no pair library is kept (--weighti 0): the score only, G__align11_noalign
+                            pscore = G__align11Noalign(G.NDisConsweightMulti, dseq[i], dseq[j]);
                         }
                     }
                     else if (G.Alg == 'N')
@@ -260,15 +271,21 @@ public static partial class SequenceAligner
                         L__align11(G.NDisConsweightMulti, 0.0, m1, m2, _nlenmax * 2, true, out off1, out off2);
                         pscore = NaivePairScore11(m1[0], m2[0], 0);
                     }
-                    else
+                    else if (G.StoreLocalhom != 0)
                     {
                         pscore = L__align11(G.NDisConsweightMulti, 0.0, m1, m2, _nlenmax * 2, true, out off1, out off2);
                         if (tx != 0)
                             pscore = L__align11(G.NDisConsweightMulti, 0.0, new[] { dseq[i] }, new[] { dseq[j] }, _nlenmax * 2, false, out _, out _);
                     }
+                    else
+                    {
+                        // no pair library is kept (--weighti 0): the score only, L__align11_noalign (it keeps no trace-back matrix and does not touch commonIP)
+                        pscore = L__align11(G.NDisConsweightMulti, 0.0, new[] { dseq[i] }, new[] { dseq[j] }, _nlenmax * 2, false, out _, out _);
+                    }
                     if (m1[0].Length != 0 && m2[0].Length != 0)
                     {
-                        PutLocalHom2(m1[0], m2[0], localhom[i][j - i], off1, off2);
+                        if (G.StoreLocalhom != 0)
+                            PutLocalHom2(m1[0], m2[0], localhom[i][j - i], off1, off2);
                         pscore = Score2Dist(pscore, selfscore[i], selfscore[j]);
                     }
                     else
@@ -293,7 +310,7 @@ public static partial class SequenceAligner
             }
             var a = new[] { s1 };
             var b = new[] { s2 };
-            return G__align11(dynamicmtx, a, b, _nlenmax * 2, 1, 1);
+            return G__align11(dynamicmtx, a, b, _nlenmax * 2, 1, 1, noalign: true);
         }
 
         /// <summary>
@@ -320,9 +337,8 @@ public static partial class SequenceAligner
             {
                 RequireCells(((long)lgth1 + 1) * ((long)lgth2 + 1), MafftMaxPairCells, nameof(MafftMaxPairCells), "MAFFT", "keeps an int trace-back matrix ijp[len1 + 1][len2 + 1] (L__align11)",
                     string.Create(CultureInfo.InvariantCulture, $"{lgth1:N0} x {lgth2:N0} residues = {((long)lgth1 + 1) * ((long)lgth2 + 1):N0} cells"), "The program has no limit and is killed when the allocation (4 bytes per cell plus the row arrays) fails", "use Kalign for sequences of this length");
-                ijp = new int[lgth1 + 1][];
-                for (int i = 0; i <= lgth1; i++)
-                    ijp[i] = new int[lgth2 + 1];
+                _lCap.Fit(lgth1, lgth2);
+                ijp = G.Common.IpFor(_lCap.Orlgth1, _lCap.Orlgth2);
             }
             var w1 = new double[lgth2 + 2];
             var w2 = new double[lgth2 + 2];
@@ -499,13 +515,9 @@ public static partial class SequenceAligner
             double localthr = -(double)G.Offset;
             RequireCells(2 * ((long)lgth1 + 1) * ((long)lgth2 + 1), MafftMaxPairCells, nameof(MafftMaxPairCells), "MAFFT", "keeps two int trace-back matrices ijpi, ijpj[len1 + 1][len2 + 1] (genL__align11)",
                 string.Create(CultureInfo.InvariantCulture, $"{lgth1:N0} x {lgth2:N0} residues = {((long)lgth1 + 1) * ((long)lgth2 + 1):N0} cells"), "The program has no limit and is killed when the allocation (8 bytes per cell plus the row arrays) fails", "use Kalign for sequences of this length");
-            var ijpi = new int[lgth1 + 1][];
-            var ijpj = new int[lgth1 + 1][];
-            for (int i = 0; i <= lgth1; i++)
-            {
-                ijpi[i] = new int[lgth2 + 1];
-                ijpj[i] = new int[lgth2 + 1];
-            }
+            _genCap.Fit(lgth1, lgth2);
+            var ijpi = G.Common.IpFor(_genCap.Orlgth1, _genCap.Orlgth2, withJp: true);
+            var ijpj = G.Common.JpFor(lgth1, lgth2);
             var w1 = new double[lgth2 + 2];
             var w2 = new double[lgth2 + 2];
             var m = new double[lgth2 + 2];
@@ -1084,6 +1096,7 @@ public static partial class SequenceAligner
         /// </summary>
         internal Result Tbfast(IReadOnlyList<string> seq0, MafftGlobals pairG, IReadOnlyList<string>? names = null, NodePairData? nodePair = null)
         {
+            _isTbfast = true;
             int njob = seq0.Count;
             _njob = njob;
             var seq = new string[njob];
@@ -1144,6 +1157,7 @@ public static partial class SequenceAligner
                 if (G.Constraint != 2 && G.Constraint != 0)
                     throw new NotSupportedException("The progressive method of tbfast without a pair library is not available in this port.");
                 pairG.Dorp = G.Dorp;
+                pairG.Common = G.Common; // one process: tbfast calls pairlocalalign itself, the trace-back matrices are shared
                 var pairRun = new MafftRun(pairG) { _njob = njob, _nlenmax = _nlenmax };
                 (double[][] Iscore, MafftLocalHom[][] LocalHom) pairResult;
                 try
@@ -1238,6 +1252,8 @@ public static partial class SequenceAligner
             {
                 G.Weight = 3;
                 CountEffSimple(njob, tree, eff);
+                for (int i = njob - G.Nadd; i < njob; i++)
+                    eff[i] /= 100.0;
             }
             else
             {
@@ -1245,17 +1261,39 @@ public static partial class SequenceAligner
                     eff[i] = 1.0;
             }
             var bseq = new string[njob];
-            for (int i = 0; i < njob; i++)
-                bseq[i] = seq[i].Replace("-", "");
+            string? originalGaps = null;
+            string[]? addbk = null;
+            if (G.Nadd > 0 && G.KeepLength != 0)
+            {
+                originalGaps = RecordOriginalGaps(njob - G.Nadd, seq);
+                if (G.MapOut != 0)
+                    addbk = seq.Skip(njob - G.Nadd).Select(x => x.Replace("-", "", StringComparison.Ordinal)).ToArray();
+            }
+            MafftAddState? addState = null;
+            if (G.Nadd > 0)
+            {
+                addState = PrepareAdd(njob, G.Nadd, seq, bseq, tree, fileNames, tbfastMessages: true);
+            }
+            else
+            {
+                for (int i = 0; i < njob; i++)
+                    bseq[i] = seq[i].Replace("-", "");
+            }
             int alloclen = _nlenmax * 2 + 1;
             Report("Progressive alignment ... \n");
-            TreeBase(bseq, tree, eff, ref alloclen, localhom, tbfast: G.Constraint == 0, nodePair: _compactTree == 3 ? nodePair : null);
+            TreeBase(bseq, tree, eff, ref alloclen, localhom, tbfast: G.Constraint == 0, add: addState, nodePair: _compactTree == 3 ? nodePair : null);
             Report("\ndone.\n");
+            var (deletedRuns, deleteMap, newNames, ndeleted) = KeepLength(njob, seq, bseq, originalGaps, addbk, fileNames);
             if (G.SpScoreOut != 0)
                 ReportSumOfPairs(bseq);
             Report("tbfast (" + (G.Dorp == 'd' ? "nuc" : "aa") + ") Version 7.505\nalg=" + G.Alg + ", model=" + G.ModelName + ", amax=" + G.SpecificityConsideration.ToString("F1", CultureInfo.InvariantCulture) + "\n"
                 + Math.Max(G.Nthread, 1).ToString(CultureInfo.InvariantCulture) + " thread(s)\n\n");
-            return new Result(bseq, order);
+            if (ndeleted > 0)
+            {
+                Report("\nTo keep the alignment length, " + ndeleted.ToString(CultureInfo.InvariantCulture) + " letters were DELETED.\n");
+                Report(G.MapOut != 0 ? "The deleted letters are shown in the (filename).map file.\n" : "To know the positions of deleted letters, rerun the same command with the --mapout option.\n");
+            }
+            return new Result(bseq, order) { Deleted = deletedRuns, DeleteMap = deleteMap, NewNames = newNames };
         }
     }
 

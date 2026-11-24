@@ -445,6 +445,7 @@ public static partial class SequenceAligner
                 tb.Add("-O");
             if (o.OutNumber)
                 tb.Add("-n");
+            tb.AddRange(AddArguments(o));
             tb.Add("-C");
             tb.Add((o.ThreadsProgressive ?? threadsTb).ToString(CultureInfo.InvariantCulture));
             if (o.Unweight)
@@ -542,6 +543,31 @@ public static partial class SequenceAligner
             return args;
         }
 
+        /// <summary><c>$addarg $add2ndhalfarg</c> of the script: <c>-K -I n</c> (<c>--add</c>) or <c>-I n</c> (<c>--addprofile</c>), <c>-p</c> (<c>--smoothing</c>), <c>-Y</c> (<c>--keeplength</c>), <c>-Z -Y</c> (<c>--mapout</c>), <c>-z -Y</c> (<c>--compactmapout</c>).</summary>
+        private static IEnumerable<string> AddArguments(MafftOptions o)
+        {
+            if (o.AddCount <= 0)
+                yield break;
+            if (!o.AddProfile)
+                yield return "-K";
+            yield return "-I";
+            yield return o.AddCount.ToString(CultureInfo.InvariantCulture);
+            if (o.Smoothing)
+                yield return "-p";
+            if (o.KeepLength && o.MapOut == 0)
+                yield return "-Y";
+            if (o.MapOut == 1)
+            {
+                yield return "-Z";
+                yield return "-Y";
+            }
+            else if (o.MapOut == 2)
+            {
+                yield return "-z";
+                yield return "-Y";
+            }
+        }
+
         /// <summary>
         /// The arguments that <c>mafft</c> (7.505, <c>core/mafft.tmpl</c>) passes to <c>disttbfast</c> for the plain progressive methods (the default FFT-NS-2, <c>--retree 1</c>, <c>--nofft</c>, <c>--6merpair</c>, ...).
         /// <paramref name="nseq"/> is the number of sequences (the script sets the number of tree builds to 1 for two sequences).
@@ -577,21 +603,7 @@ public static partial class SequenceAligner
             int threadsTb = o.ThreadsProgressive ?? (threads < 16 ? threads : 16);
             if (o.OutNumber)
                 args.Add("-n");
-            if (o.AddCount > 0)
-            {
-                if (!o.AddProfile)
-                    args.Add("-K");
-                args.Add("-I");
-                args.Add(o.AddCount.ToString(CultureInfo.InvariantCulture));
-                if (o.Smoothing)
-                    args.Add("-p");
-                if (o.KeepLength && o.MapOut == 0)
-                    args.Add("-Y");
-                if (o.MapOut == 1)
-                    args.AddRange(new[] { "-Z", "-Y" });
-                else if (o.MapOut == 2)
-                    args.AddRange(new[] { "-z", "-Y" });
-            }
+            args.AddRange(AddArguments(o));
             args.Add("-C");
             args.Add(threads.ToString(CultureInfo.InvariantCulture) + "-" + threadsTb.ToString(CultureInfo.InvariantCulture));
             args.AddRange(MemoryArguments(o));

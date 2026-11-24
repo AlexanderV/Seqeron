@@ -466,9 +466,9 @@ public static partial class SequenceAligner
                                 tscore = mscore + 1.0;
                             }
                             if (double.IsNaN(mscore))
-                                throw new InvalidOperationException("mscore became NaN");
+                                throw new MafftProgramFailureException("\n\nmscore became NaN\n");
                             if (double.IsNaN(tscore))
-                                throw new InvalidOperationException("tscore became NaN");
+                                throw new MafftProgramFailureException("\n\ntscore became NaN\n");
                             if (tscore > mscore - cut / 100.0 * mscore)
                             {
                                 for (int i = 0; i < locnjob; i++)

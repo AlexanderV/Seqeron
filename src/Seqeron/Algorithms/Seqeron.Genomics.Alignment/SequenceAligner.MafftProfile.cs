@@ -365,9 +365,7 @@ public static partial class SequenceAligner
             var lastverticalw = new double[lgth1 + 2];
             var m = new double[lgth2 + 2];
             var mp = new int[lgth2 + 2];
-            var ijp = new int[lgth1 + 1][];
-            for (int i = 0; i <= lgth1; i++)
-                ijp[i] = new int[lgth2 + 1];
+            var ijp = G.Common.IpFor(_aOrlgth1, _aOrlgth2);
             var doublework = new double[Math.Max(lgth1, lgth2) + 2][];
             var intwork = new int[Math.Max(lgth1, lgth2) + 2][];
             for (int i = 0; i < doublework.Length; i++)
@@ -493,7 +491,16 @@ public static partial class SequenceAligner
                 lastverticalw[i] = currentw[lgth2 - 1];
             }
 
-            var (gt1, gt2, mseq1, mseq2, wmo) = Atracking(G.NewGapChar, currentw, lastverticalw, fpenalty, fpenaltyEx, seq1, seq2, ijp, icyc, jcyc, tailgp, imp != null);
+            (string Gt1, string Gt2, string[] Mseq1, string[] Mseq2, double Wm) tracked;
+            try
+            {
+                tracked = Atracking(G.NewGapChar, currentw, lastverticalw, fpenalty, fpenaltyEx, seq1, seq2, ijp, icyc, jcyc, tailgp, imp != null);
+            }
+            catch (IndexOutOfRangeException)
+            {
+                throw StaleTraceBack();
+            }
+            var (gt1, gt2, mseq1, mseq2, wmo) = tracked;
             if (tailgp == 0 && imp == null)
                 wm = wmo;
 
