@@ -121,6 +121,9 @@ for f in got:
         # Run 5 of the package (s4 returned): DaliLite 3.3 has its installation directory compiled into the program / scripts: every call runs
         # `perl /data/backup/zope_data/dali_server/DaliLite_3.3//Bin/forwarder.pl ...` and stops with "Can't open perl script" (354 calls). The program is made to find itself at the path it expects.
         root = os.path.dirname(os.path.dirname(exe))
+        os.makedirs('/data/backup/zope_data/dali_server', exist_ok=True)
+        if not os.path.exists('/data/backup/zope_data/dali_server/DaliLite_3.3'): os.symlink(root, '/data/backup/zope_data/dali_server/DaliLite_3.3')
+        print('INSTALL PATH', '/data/backup/zope_data/dali_server/DaliLite_3.3', '->', root)
         # Run 7 / 8 (s4 with full-backbone structures): DSSP runs, but `puu`, `puutos`, `dalicon` (Fortran programs shipped PRECOMPILED in Bin/ for the old g77 runtime) need `libg2c.so.0`.
         # Run 8: (A) `make -B` with my own FFLAGS failed in util.f (labels / `if ... then` lines cut at column 72: the Makefile's own flags, with the g77 line-length switch, were replaced);
         # (B) Ubuntu's libf2c2 linked as libg2c.so.0 loads, but `puu` then stops with `undefined symbol: f_setarg` (g77's libg2c has f_setarg / f_setsig in its main support, the f2c library has not).
