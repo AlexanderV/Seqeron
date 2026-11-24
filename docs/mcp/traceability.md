@@ -513,6 +513,7 @@
 | multiple_align_poa | Alignment | SequenceAligner.PoaRun | Alignment/SequenceAligner.Poa.cs | 0/0 | – | – | Build-Ready |
 | poa_command | Alignment | PoaProgram.Run | Alignment/PoaProgram.cs | 0/0 | – | – | Build-Ready |
 | spoa_command | Alignment | SpoaProgram.Run | Alignment/SpoaProgram.cs | 0/0 | – | – | Build-Ready |
+| mafft_command | Alignment | MafftProgram.Run | Alignment/MafftProgram.cs | 0/0 | – | – | Build-Ready |
 | write_big_alignment | Alignment | AlignmentCoordinateFormats.WriteBigBed / WriteBigMaf / WriteBigPsl | Alignment/AlignmentCoordinateFormats.BigBed.cs | 0/0 | – | – | Build-Ready |
 | parse_big_alignment | Alignment | AlignmentCoordinateFormats.ParseBigBed / ParseBigMaf / ParseBigPsl | Alignment/AlignmentCoordinateFormats.BigBedRead.cs | 0/0 | – | – | Build-Ready |
 | tcoffee_evaluate | Alignment | SequenceAligner.TCoffeeEvaluate | Alignment/SequenceAligner.TCoffeeEvaluate.cs | 0/0 | – | – | Build-Ready |

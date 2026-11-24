@@ -2,7 +2,7 @@
 
 MCP server — **Pairwise and multiple sequence alignment, overlap/assembly and approximate matching.**
 
-Exposes **91 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+Exposes **92 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
 MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test, with a
 per-tool doc under [`docs/mcp/tools/alignment/`](../../../../docs/mcp/tools/alignment). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
@@ -75,6 +75,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `multiple_align_poa` | POA 2.0 partial-order MSA (graph DP with the program's affine gap model, fusion into align rings, local / `global` / `progressive` / `pairScores`, `fuseAll`, heaviest bundle consensus); returns the rows and the program's PO / PIR / CLUSTAL texts; equal to the installed program on 359 / 359 command lines. |
 | `poa_command` | POA 2.0 as a command line (`-read_fasta -read_msa -read_msa2 -read_msa_list -subset -remove -do_global -do_progressive -read_pairscores -fuse_all -hb -hbmin -best -preserve_seqorder -tolower -toupper -pir -clustal -po -printmatrix -v MATRIX`, files as text); equal to the program on 359 / 359 command lines. |
 | `spoa_command` | SPOA 4.0.8 as a command line (`-m -n -g -e -q -c -l -r -d -s --version --help`, FASTA / FASTQ / gzip input; the program's getopt_long loop, bioparser parsers and the SIMD engine emulated lane by lane; consensus / MSA / GFA / DOT output) |
+| `mafft_command` | MAFFT 7.505 as a command line (the script mafft: options parsed as the script does, the pipeline of ported programs, FASTA / CLUSTAL / PHYLIP output, tree and distance files, the program's standard error); equal to the installed program on the committed command lines. |
 | `write_big_alignment` | bigBed / bigMaf / bigPsl writers of Biopython `Bio.Align` (base64 bytes): BED3 - BED12 and custom autoSQL fields, the MAF block of every alignment, the 13 PSL fields; equal to Biopython 1.88 on 775 committed files (the compressed blocks of Biopython's zlib fed back) |
 | `parse_big_alignment` | bigBed / bigMaf / bigPsl readers of Biopython `Bio.Align` (base64 bytes): alignments, chromosomes and the autoSQL declaration; equal to Biopython 1.88 on 1 710 committed files |
 | `tcoffee_evaluate` | T-Coffee 13.41 evaluation of an alignment (`score_ascii`, evaluate mode `triplet`): residue, column, sequence and alignment scores of the relaxed library; the file equals the installed `t_coffee` on 300 / 300 alignments |

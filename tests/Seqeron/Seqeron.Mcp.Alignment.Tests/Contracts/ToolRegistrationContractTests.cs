@@ -58,6 +58,7 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "local_align_co_optimal",
         "local_align_top_n",
         "local_align_zscore",
+        "mafft_command",
         "merge_contigs",
         "merger",
         "minimap2_chains",

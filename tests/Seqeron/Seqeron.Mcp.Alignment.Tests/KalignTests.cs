@@ -121,7 +121,7 @@ public class MafftTests
         {
             Assert.That(AlignmentTools.MultipleAlignMafft(seqs, anySymbol: false, pairLibrary: "global", maxIterate: 2).StandardError, Does.Contain("G-INS-i (Suitable for sequences of similar lengths, very slow)"), "G-INS-i");
             Assert.Throws<NotSupportedException>(() => AlignmentTools.MultipleAlignMafft(seqs, pairLibrary: "global", maxIterate: 2, threads: 4), "the program is non-deterministic with threads in the iterative step");
-            Assert.Throws<NotSupportedException>(() => AlignmentTools.MultipleAlignMafft(seqs, pairLibrary: "global", weightI: 0.0));
+            Assert.That(AlignmentTools.MultipleAlignMafft(seqs, pairLibrary: "global", weightI: 0.0).AlignedSequences, Has.Length.EqualTo(seqs.Length), "--weighti 0 is ported (F317)");
             Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignMafft(seqs, pairLibrary: "x"));
         });
     }

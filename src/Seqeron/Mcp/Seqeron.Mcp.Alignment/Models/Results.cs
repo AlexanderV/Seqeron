@@ -101,6 +101,13 @@ public record KalignCommandResultDto(
     Dictionary<string, string> Files,
     string[] Messages);
 
+/// <summary>The result of one run of the <c>mafft</c> script: return code, standard output (the alignment in the requested format), standard error (messages of the script and the programs it runs) and the files the run wrote.</summary>
+public record MafftCommandResultDto(
+    int ExitCode,
+    string Stdout,
+    string Stderr,
+    Dictionary<string, string> Files);
+
 /// <summary>ProbCons 1.12 alignment: rows in output order, the input index of each row, the guide tree the program prints and the optional column annotation.</summary>
 public record ProbConsResultDto(
     string[] AlignedSequences,

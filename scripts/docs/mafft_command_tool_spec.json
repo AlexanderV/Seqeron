@@ -1,0 +1,58 @@
+[
+ {
+  "name": "mafft_command",
+  "short": "MAFFT 7.505 as a command line (the script mafft: options parsed as the script does, the pipeline of ported programs, FASTA / CLUSTAL / PHYLIP output, tree and distance files, the program's standard error); equal to the installed program on the committed command lines.",
+  "methodId": "MafftProgram.Run",
+  "sourceFile": "MafftProgram.cs",
+  "sourcePath": "Seqeron.Genomics.Alignment/MafftProgram.cs",
+  "algorithmDoc": "Alignment/Multiple_Sequence_Alignment.md",
+  "oracleScript": "generate_mafft_command_oracle.py",
+  "description": "The script mafft of MAFFT 7.505 as a function of its command line and the text of the files it names (MafftProgram.Run): the options are parsed as the script does, the strategy is derived as the script does and the ported programs run in the script's order; output = FASTA / CLUSTAL / PHYLIP text, the files (--out, name.tree, name.hat2, name.notused) and the standard error byte for byte. See the tool description in the code for the options.",
+  "output": {
+   "exitCode": [
+    "integer",
+    "0 = success, 1 = the script or a program stops with an error (usage text, unknown option, missing file, unknown letter ...)."
+   ],
+   "stdout": [
+    "string",
+    "The alignment in the output format (empty with --out)."
+   ],
+   "stderr": [
+    "string",
+    "The messages of the script and of the programs it runs (empty with --quiet), or the usage text."
+   ],
+   "files": [
+    "object",
+    "The files the run wrote: --out, name.tree (--treeout / --nodeout), name.hat2 (--distout), name.notused (--sparsepickup), the --progress file."
+   ]
+  },
+  "errors": [
+   "arguments is null or empty",
+   "an option whose program is not ported yet (NotSupported, the message names the option)",
+   "the file '-' is read from stdin",
+   "a refused command line is an exit status 1 with the script's own message in stderr"
+  ],
+  "example": {
+   "title": "Three proteins, CLUSTAL output",
+   "prompt": "Align these three sequences with MAFFT and give the CLUSTAL format.",
+   "input": {
+    "arguments": [
+     "--quiet",
+     "--clustalout",
+     "ex.fa"
+    ],
+    "files": {
+     "ex.fa": ">a first\nMKVLAAGIVGLLLA\n>b\nMKVLAGIVGLLA\n>c\nMKVIAAGLVGLLLA\n"
+    }
+   },
+   "output": {
+    "exitCode": 0,
+    "stdout": "CLUSTAL format alignment by MAFFT FFT-NS-2 (v7.505)\n\n\na               MKVLAAGIVGLLLA\nb               MKVL-AGIVGLLA-\nc               MKVIAAGLVGLLLA\n                ***: **:****  \n",
+    "stderr": "",
+    "files": {}
+   },
+   "note": "The output equals `mafft --quiet --clustalout ex.fa` of the installed Debian mafft 7.505-1."
+  },
+  "after": "spoa_command"
+ }
+]

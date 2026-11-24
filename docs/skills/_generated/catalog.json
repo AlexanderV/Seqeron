@@ -301,6 +301,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/AlignmentSignificance.Gapped.cs"
   },
   {
+    "tool": "mafft_command",
+    "server": "Alignment",
+    "methodId": "MafftProgram.Run",
+    "docPath": "docs/mcp/tools/alignment/mafft_command.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/MafftProgram.cs"
+  },
+  {
     "tool": "merge_contigs",
     "server": "Alignment",
     "methodId": "SequenceAssembler.MergeContigs",

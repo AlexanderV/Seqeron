@@ -1,0 +1,23 @@
+using System.ComponentModel;
+using ModelContextProtocol.Server;
+
+namespace Seqeron.Mcp.Alignment.Tools;
+
+// B09 WP70 (F315 ff.): the script mafft of MAFFT 7.505 as a command line; delegates to MafftProgram.Run.
+public partial class AlignmentTools
+{
+    [McpServerTool(Name = "mafft_command", Title = "MAFFT 7.505 — command line (options string + FASTA, returns the alignment, tree files and standard error of the program)", ReadOnly = true)]
+    [Description("The script mafft of MAFFT 7.505 (Katoh & Standley 2013; mafft [options] in.fa > out) as a function of its command line and the text of the files it names (MafftProgram.Run): the options are parsed exactly as the script does (every option and the checks of its argument; unknown options and missing files print the script's usage text and return 1; --version, --help), the strategy is derived as the script does (the default FFT-NS-2, --retree n, --maxiterate n, --localpair / --globalpair / --genafpair = L-INS / G-INS / E-INS, --oldgenafpair, --weighti x (0 = the pair library without constraints), --auto (the rule of the script), --parttree / --dpparttree / --fastaparttree with --partsize / --groupsize, --nofft / --fft, --6merpair / --10merpair, --averagelinkage / --minimumlinkage / --mixedlinkage x, --unweight, --nuc / --amino, --op / --ep / --exp / --opdist, --bl / --jtt / --kimura / --tm / --kappa / --fmodel / --nwildcard / --nzero, --similaritylevel, --gop / --gep / --gexp / --lop / --lep / --lexp / --LOP / --LEXP, --leavegappyregion, --termgappenalty, --minimumweight, --randomseed, --noscore, --bunkatsunashi, --outnum, --scoreout, --thread / --threadtb / --threadit, --anysymbol / --preservecase, --quiet, --progress file, --out file) and run on the ported programs (replaceu, disttbfast, tbfast + pairlocalalign, splittbfast, dndpre, dvtditr, restoreu, f2cl) in the script's order. The output formats are the program's: FASTA of 60 residues per line (--inputorder, --reorder), --clustalout (CLUSTAL with the strategy name and the marks of f2cl), --phylipout, --namelength n; --treeout / --nodeout / --distout write the guide tree and distance files next to the input (name.tree, name.hat2) and are returned in files, as is --out. The arguments are those of the program, the LAST one is the input file; every file the arguments name is given as text in files (file name -> content); the file '-' is standard input (stdin). Options whose binaries are not ported yet (see the registered list in docs/Validation/review-2026-09/B09.md) are refused with a NotSupported error that names the option; options for programs that are not installed in the reference installation (--lastpair, --larapair, --foldalignpair, --scarnapair, --dafspair, --mccaskill, --contrafold, --fastapair) give the script's own message 'Install ...' and return 1, as the reference does. Without arguments the program starts an interactive wizard (refused). The standard error equals the installed Debian mafft 7.505-1 byte for byte (the progress text with several threads, which differs from run to run in the program, is written as of one thread); standard output and files equal it on every case of scripts/alignment/generate_mafft_command_oracle.py (B09.md F315 ff.).")]
+    public static MafftCommandResultDto MafftCommand(
+        [Description("The command-line arguments of mafft, one per element, the input file LAST (for example [\"--localpair\", \"--maxiterate\", \"1000\", \"--clustalout\", \"in.fa\"]). To split a command string like a shell, use the C# API MafftProgram.SplitCommandLine.")] string[] arguments,
+        [Description("The text of the files the arguments name: file name -> content (the input FASTA, --add / --merge / --seed / --aamatrix / --treein files ...).")] Dictionary<string, string>? files = null,
+        [Description("Text of standard input (read when the input file is '-').")] string? stdin = null,
+        CancellationToken cancellationToken = default)
+    {
+        using var cancelScope = global::Seqeron.Genomics.Alignment.SequenceAligner.BeginCancellationScope(cancellationToken);
+        if (arguments == null || arguments.Length == 0)
+            throw new ArgumentException("arguments must contain the command-line arguments of mafft (the input file last).", nameof(arguments));
+        var result = global::Seqeron.Genomics.Alignment.MafftProgram.Run(arguments, files, stdin);
+        return new MafftCommandResultDto(result.ExitCode, result.Stdout, result.Stderr, new Dictionary<string, string>(result.Files));
+    }
+}

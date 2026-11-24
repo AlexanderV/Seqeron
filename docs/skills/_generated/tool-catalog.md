@@ -4,7 +4,7 @@
 
 <!-- BEGIN generated: do not edit by hand -->
 
-## Alignment (91 tools)
+## Alignment (92 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -51,6 +51,7 @@
 | `local_align_co_optimal` | `SequenceAligner.LocalAlignCoOptimal` | [doc](../../mcp/tools/alignment/local_align_co_optimal.md) |
 | `local_align_top_n` | `SequenceAligner.LocalAlignTopN` | [doc](../../mcp/tools/alignment/local_align_top_n.md) |
 | `local_align_zscore` | `AlignmentSignificance.ShuffleZScore` | [doc](../../mcp/tools/alignment/local_align_zscore.md) |
+| `mafft_command` | `MafftProgram.Run` | [doc](../../mcp/tools/alignment/mafft_command.md) |
 | `merge_contigs` | `SequenceAssembler.MergeContigs` | [doc](../../mcp/tools/alignment/merge_contigs.md) |
 | `merger` | `SequenceAligner.Merger` | [doc](../../mcp/tools/alignment/merger.md) |
 | `minimap2_chains` | `Minimap2Chaining.MapChains` | [doc](../../mcp/tools/alignment/minimap2_chains.md) |

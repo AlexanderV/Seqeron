@@ -49,6 +49,7 @@
 | `local_align_co_optimal` | Alignment | `SequenceAligner.LocalAlignCoOptimal` | [doc](../../../../docs/mcp/tools/alignment/local_align_co_optimal.md) |
 | `local_align_top_n` | Alignment | `SequenceAligner.LocalAlignTopN` | [doc](../../../../docs/mcp/tools/alignment/local_align_top_n.md) |
 | `local_align_zscore` | Alignment | `AlignmentSignificance.ShuffleZScore` | [doc](../../../../docs/mcp/tools/alignment/local_align_zscore.md) |
+| `mafft_command` | Alignment | `MafftProgram.Run` | [doc](../../../../docs/mcp/tools/alignment/mafft_command.md) |
 | `merge_contigs` | Alignment | `SequenceAssembler.MergeContigs` | [doc](../../../../docs/mcp/tools/alignment/merge_contigs.md) |
 | `merger` | Alignment | `SequenceAligner.Merger` | [doc](../../../../docs/mcp/tools/alignment/merger.md) |
 | `minimap2_chains` | Alignment | `Minimap2Chaining.MapChains` | [doc](../../../../docs/mcp/tools/alignment/minimap2_chains.md) |

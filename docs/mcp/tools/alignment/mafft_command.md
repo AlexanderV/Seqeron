@@ -1,0 +1,73 @@
+# mafft_command
+
+MAFFT 7.505 as a command line (the script mafft: options parsed as the script does, the pipeline of ported programs, FASTA / CLUSTAL / PHYLIP output, tree and distance files, the program's standard error); equal to the installed program on the committed command lines.
+
+## Overview
+
+| Property | Value |
+|----------|-------|
+| **Server** | Alignment |
+| **Tool Name** | `mafft_command` |
+| **Method ID** | `MafftProgram.Run` |
+| **Version** | 1.0.0 |
+| **Stability** | Stable |
+
+## Description
+
+The script mafft of MAFFT 7.505 (Katoh & Standley 2013; mafft [options] in.fa > out) as a function of its command line and the text of the files it names (MafftProgram.Run): the options are parsed exactly as the script does (every option and the checks of its argument; unknown options and missing files print the script's usage text and return 1; --version, --help), the strategy is derived as the script does (the default FFT-NS-2, --retree n, --maxiterate n, --localpair / --globalpair / --genafpair = L-INS / G-INS / E-INS, --oldgenafpair, --weighti x (0 = the pair library without constraints), --auto (the rule of the script), --parttree / --dpparttree / --fastaparttree with --partsize / --groupsize, --nofft / --fft, --6merpair / --10merpair, --averagelinkage / --minimumlinkage / --mixedlinkage x, --unweight, --nuc / --amino, --op / --ep / --exp / --opdist, --bl / --jtt / --kimura / --tm / --kappa / --fmodel / --nwildcard / --nzero, --similaritylevel, --gop / --gep / --gexp / --lop / --lep / --lexp / --LOP / --LEXP, --leavegappyregion, --termgappenalty, --minimumweight, --randomseed, --noscore, --bunkatsunashi, --outnum, --scoreout, --thread / --threadtb / --threadit, --anysymbol / --preservecase, --quiet, --progress file, --out file) and run on the ported programs (replaceu, disttbfast, tbfast + pairlocalalign, splittbfast, dndpre, dvtditr, restoreu, f2cl) in the script's order. The output formats are the program's: FASTA of 60 residues per line (--inputorder, --reorder), --clustalout (CLUSTAL with the strategy name and the marks of f2cl), --phylipout, --namelength n; --treeout / --nodeout / --distout write the guide tree and distance files next to the input (name.tree, name.hat2) and are returned in files, as is --out. The arguments are those of the program, the LAST one is the input file; every file the arguments name is given as text in files (file name -> content); the file '-' is standard input (stdin). Options whose binaries are not ported yet (see the registered list in docs/Validation/review-2026-09/B09.md) are refused with a NotSupported error that names the option; options for programs that are not installed in the reference installation (--lastpair, --larapair, --foldalignpair, --scarnapair, --dafspair, --mccaskill, --contrafold, --fastapair) give the script's own message 'Install ...' and return 1, as the reference does. Without arguments the program starts an interactive wizard (refused). The standard error equals the installed Debian mafft 7.505-1 byte for byte (the progress text with several threads, which differs from run to run in the program, is written as of one thread); standard output and files equal it on every case of scripts/alignment/generate_mafft_command_oracle.py (B09.md F315 ff.).
+
+## Core Documentation Reference
+
+- Source: [MafftProgram.cs](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/MafftProgram.cs)
+- Algorithm: [Multiple_Sequence_Alignment.md](../../../algorithms/Alignment/Multiple_Sequence_Alignment.md)
+- Oracle: [generate_mafft_command_oracle.py](../../../../scripts/alignment/generate_mafft_command_oracle.py)
+
+## Input Schema
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `arguments` | array<string> | Yes | The command-line arguments of mafft, one per element, the input file LAST (for example ["--localpair", "--maxiterate", "1000", "--clustalout", "in.fa"]). To split a command string like a shell, use the C# API MafftProgram.SplitCommandLine. |
+| `files` | object | No | The text of the files the arguments name: file name -> content (the input FASTA, --add / --merge / --seed / --aamatrix / --treein files ...). |
+| `stdin` | string | No | Text of standard input (read when the input file is '-'). |
+
+## Output Schema
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `exitCode` | integer | 0 = success, 1 = the script or a program stops with an error (usage text, unknown option, missing file, unknown letter ...). |
+| `stdout` | string | The alignment in the output format (empty with --out). |
+| `stderr` | string | The messages of the script and of the programs it runs (empty with --quiet), or the usage text. |
+| `files` | object | The files the run wrote: --out, name.tree (--treeout / --nodeout), name.hat2 (--distout), name.notused (--sparsepickup), the --progress file. |
+
+## Errors
+
+| Code | Message |
+|------|---------|
+| 1001 | arguments is null or empty |
+| 1002 | an option whose program is not ported yet (NotSupported, the message names the option) |
+| 1003 | the file '-' is read from stdin |
+| 1004 | a refused command line is an exit status 1 with the script's own message in stderr |
+
+## Examples
+
+### Example 1: Three proteins, CLUSTAL output
+
+**User Prompt:**
+> Align these three sequences with MAFFT and give the CLUSTAL format.
+
+**Expected Tool Call:**
+```json
+{"tool": "mafft_command", "arguments": {"arguments": ["--quiet", "--clustalout", "ex.fa"], "files": {"ex.fa": ">a first\nMKVLAAGIVGLLLA\n>b\nMKVLAGIVGLLA\n>c\nMKVIAAGLVGLLLA\n"}}}
+```
+
+**Response:**
+```json
+{"exitCode": 0, "stdout": "CLUSTAL format alignment by MAFFT FFT-NS-2 (v7.505)\n\n\na               MKVLAAGIVGLLLA\nb               MKVL-AGIVGLLA-\nc               MKVIAAGLVGLLLA\n                ***: **:****  \n", "stderr": "", "files": {}}
+```
+
+The output equals `mafft --quiet --clustalout ex.fa` of the installed Debian mafft 7.505-1.
+
+## See Also
+
+- [pairwise_aligner](pairwise_aligner.md)
+- [alignment_operation](alignment_operation.md)
