@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    ST-S2 work package S2-0 (ADR-005 section 5): the micro-benchmarks of the stored position width (4, 5 and 8 bytes, a hybrid with escapes, a 34-bit line-packed form),
+    of the packed text and of the descent over a real container with the width swapped. Outside Seqeron.sln, outside the shipped code, managed code only (BCL
+    NativeMemory and MemoryMappedFile; no P/Invoke). Build by hand: dotnet build WidthBench.csproj -c Release -o <dir>; see ../README.md.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Optimize>true</Optimize>
+    <TieredPGO>true</TieredPGO>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+    <IsPackable>false</IsPackable>
+    <RunAnalyzers>false</RunAnalyzers>
+    <EnableNETAnalyzers>false</EnableNETAnalyzers>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <ServerGarbageCollector>false</ServerGarbageCollector>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- only for the oracle of the descent measurement (the option check): the product reader opens the same container -->
+    <ProjectReference Include="..\..\..\..\..\..\src\SuffixTree\Algorithms\SuffixTree.Esa\SuffixTree.Esa.csproj" />
+  </ItemGroup>
+
+</Project>

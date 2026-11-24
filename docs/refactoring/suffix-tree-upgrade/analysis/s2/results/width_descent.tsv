@@ -1,0 +1,193 @@
+kind	layout	n	threads	metric	median	min	max	unit	reps	notes
+descent	v0	10000000	1	count20_present_ns_per_query_per_thread	1187.1	911.0	1379.5	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=80000008 sa=w4 child=w4 tagged, int arithmetic (the code of MappedSearch.Run)
+descent	v1	10000000	1	count20_present_ns_per_query_per_thread	975.6	791.8	1243.5	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=80000008 sa=w4 child=w4 tagged
+descent	v1b	10000000	1	count20_present_ns_per_query_per_thread	1284.4	792.5	1361.8	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=80000008 sa=w4 child=w4 tagged
+descent	v2	10000000	1	count20_present_ns_per_query_per_thread	1272.6	997.0	1440.9	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=80000008 sa=w4 child=w4 packed
+descent	v3	10000000	1	count20_present_ns_per_query_per_thread	1343.9	1013.3	1542.3	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=100000010 sa=w5 child=w5 tagged
+descent	v4	10000000	1	count20_present_ns_per_query_per_thread	1371.0	1056.6	1594.2	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=100000010 sa=w5 child=w5 packed
+descent	v5	10000000	1	count20_present_ns_per_query_per_thread	1379.1	1167.6	1909.7	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=160000016 sa=w8 child=w8 tagged
+descent	v6	10000000	1	count20_present_ns_per_query_per_thread	1527.4	1240.6	1805.8	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=107863200 sa=hyb child=w5 tagged escapes=3072635 (30.7 %)
+descent	v7	10000000	1	count20_present_ns_per_query_per_thread	1480.5	1228.4	1725.8	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=85333376 sa=p34 child=p34 packed
+descent	v0	10000000	1	count20_absent_ns_per_query_per_thread	1445.9	1178.9	1513.7	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=80000008 sa=w4 child=w4 tagged, int arithmetic (the code of MappedSearch.Run)
+descent	v1	10000000	1	count20_absent_ns_per_query_per_thread	1422.1	1174.4	1581.3	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=80000008 sa=w4 child=w4 tagged
+descent	v1b	10000000	1	count20_absent_ns_per_query_per_thread	1417.2	1154.3	1559.9	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=80000008 sa=w4 child=w4 tagged
+descent	v2	10000000	1	count20_absent_ns_per_query_per_thread	1477.3	1336.7	1513.5	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=80000008 sa=w4 child=w4 packed
+descent	v3	10000000	1	count20_absent_ns_per_query_per_thread	1516.9	1325.7	1733.1	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=100000010 sa=w5 child=w5 tagged
+descent	v4	10000000	1	count20_absent_ns_per_query_per_thread	1598.6	1477.2	1619.2	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=100000010 sa=w5 child=w5 packed
+descent	v5	10000000	1	count20_absent_ns_per_query_per_thread	1682.0	1364.7	1829.3	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=160000016 sa=w8 child=w8 tagged
+descent	v6	10000000	1	count20_absent_ns_per_query_per_thread	1874.4	1593.5	1981.0	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=107863200 sa=hyb child=w5 tagged escapes=3072635 (30.7 %)
+descent	v7	10000000	1	count20_absent_ns_per_query_per_thread	1809.7	1574.4	1993.4	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=85333376 sa=p34 child=p34 packed
+descent	v0	10000000	1	locate8_ns_per_query_per_thread	1271.2	880.8	1566.1	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=80000008 sa=w4 child=w4 tagged, int arithmetic (the code of MappedSearch.Run)
+descent	v1	10000000	1	locate8_ns_per_query_per_thread	729.4	660.0	1387.8	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=80000008 sa=w4 child=w4 tagged
+descent	v1b	10000000	1	locate8_ns_per_query_per_thread	1108.3	642.5	1138.8	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=80000008 sa=w4 child=w4 tagged
+descent	v2	10000000	1	locate8_ns_per_query_per_thread	1014.0	852.1	1471.8	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=80000008 sa=w4 child=w4 packed
+descent	v3	10000000	1	locate8_ns_per_query_per_thread	1408.4	904.8	1552.0	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=100000010 sa=w5 child=w5 tagged
+descent	v4	10000000	1	locate8_ns_per_query_per_thread	1516.4	1004.2	1776.1	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=100000010 sa=w5 child=w5 packed
+descent	v5	10000000	1	locate8_ns_per_query_per_thread	1640.8	1108.5	1883.3	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=160000016 sa=w8 child=w8 tagged
+descent	v6	10000000	1	locate8_ns_per_query_per_thread	2062.0	1451.4	2139.7	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=107863200 sa=hyb child=w5 tagged escapes=3072635 (30.7 %)
+descent	v7	10000000	1	locate8_ns_per_query_per_thread	1774.8	1400.3	2058.6	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=85333376 sa=p34 child=p34 packed
+descent	v0	10000000	4	count20_present_ns_per_query_per_thread	343.9	334.1	360.2	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=80000008 sa=w4 child=w4 tagged, int arithmetic (the code of MappedSearch.Run)
+descent	v1	10000000	4	count20_present_ns_per_query_per_thread	335.6	326.9	345.5	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=80000008 sa=w4 child=w4 tagged
+descent	v1b	10000000	4	count20_present_ns_per_query_per_thread	333.6	326.3	348.9	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=80000008 sa=w4 child=w4 tagged
+descent	v2	10000000	4	count20_present_ns_per_query_per_thread	360.9	353.3	367.3	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=80000008 sa=w4 child=w4 packed
+descent	v3	10000000	4	count20_present_ns_per_query_per_thread	376.7	368.7	382.3	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=100000010 sa=w5 child=w5 tagged
+descent	v4	10000000	4	count20_present_ns_per_query_per_thread	389.0	377.6	401.6	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=100000010 sa=w5 child=w5 packed
+descent	v5	10000000	4	count20_present_ns_per_query_per_thread	421.9	409.8	432.4	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=160000016 sa=w8 child=w8 tagged
+descent	v6	10000000	4	count20_present_ns_per_query_per_thread	440.3	433.7	455.1	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=107863200 sa=hyb child=w5 tagged escapes=3072635 (30.7 %)
+descent	v7	10000000	4	count20_present_ns_per_query_per_thread	420.0	412.3	442.3	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=85333376 sa=p34 child=p34 packed
+descent	v0	10000000	4	count20_absent_ns_per_query_per_thread	351.9	326.3	410.1	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=80000008 sa=w4 child=w4 tagged, int arithmetic (the code of MappedSearch.Run)
+descent	v1	10000000	4	count20_absent_ns_per_query_per_thread	344.4	330.7	352.1	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=80000008 sa=w4 child=w4 tagged
+descent	v1b	10000000	4	count20_absent_ns_per_query_per_thread	342.5	326.8	356.5	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=80000008 sa=w4 child=w4 tagged
+descent	v2	10000000	4	count20_absent_ns_per_query_per_thread	357.4	346.7	363.2	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=80000008 sa=w4 child=w4 packed
+descent	v3	10000000	4	count20_absent_ns_per_query_per_thread	388.5	376.1	405.9	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=100000010 sa=w5 child=w5 tagged
+descent	v4	10000000	4	count20_absent_ns_per_query_per_thread	381.6	371.2	386.5	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=100000010 sa=w5 child=w5 packed
+descent	v5	10000000	4	count20_absent_ns_per_query_per_thread	416.8	398.9	446.1	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=160000016 sa=w8 child=w8 tagged
+descent	v6	10000000	4	count20_absent_ns_per_query_per_thread	453.5	433.8	471.3	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=107863200 sa=hyb child=w5 tagged escapes=3072635 (30.7 %)
+descent	v7	10000000	4	count20_absent_ns_per_query_per_thread	413.1	399.8	450.4	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=85333376 sa=p34 child=p34 packed
+descent	v0	10000000	4	locate8_ns_per_query_per_thread	345.6	324.0	361.6	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=80000008 sa=w4 child=w4 tagged, int arithmetic (the code of MappedSearch.Run)
+descent	v1	10000000	4	locate8_ns_per_query_per_thread	285.6	279.3	381.1	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=80000008 sa=w4 child=w4 tagged
+descent	v1b	10000000	4	locate8_ns_per_query_per_thread	274.9	272.1	287.2	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=80000008 sa=w4 child=w4 tagged
+descent	v2	10000000	4	locate8_ns_per_query_per_thread	325.5	318.0	332.3	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=80000008 sa=w4 child=w4 packed
+descent	v3	10000000	4	locate8_ns_per_query_per_thread	357.1	339.5	375.8	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=100000010 sa=w5 child=w5 tagged
+descent	v4	10000000	4	locate8_ns_per_query_per_thread	368.7	357.7	419.0	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=100000010 sa=w5 child=w5 packed
+descent	v5	10000000	4	locate8_ns_per_query_per_thread	405.6	395.6	435.7	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=160000016 sa=w8 child=w8 tagged
+descent	v6	10000000	4	locate8_ns_per_query_per_thread	507.2	491.6	538.8	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=107863200 sa=hyb child=w5 tagged escapes=3072635 (30.7 %)
+descent	v7	10000000	4	locate8_ns_per_query_per_thread	451.2	438.4	460.1	ns/query	11	dna_10m n=10000000 L=20 patterns=200000 bytes(SA+child)=85333376 sa=p34 child=p34 packed
+descent	v0	100000000	1	count20_present_ns_per_query_per_thread	2274.7	2143.9	2756.1	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged, int arithmetic (the code of MappedSearch.Run)
+descent	v1	100000000	1	count20_present_ns_per_query_per_thread	2171.5	1965.0	3240.6	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v1b	100000000	1	count20_present_ns_per_query_per_thread	2168.6	2038.8	2560.7	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v2	100000000	1	count20_present_ns_per_query_per_thread	2295.3	2181.8	3298.2	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 packed
+descent	v3	100000000	1	count20_present_ns_per_query_per_thread	2368.4	2161.4	2518.8	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=1000000010 sa=w5 child=w5 tagged
+descent	v4	100000000	1	count20_present_ns_per_query_per_thread	2563.4	2213.3	3378.0	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=1000000010 sa=w5 child=w5 packed
+descent	v5	100000000	1	count20_present_ns_per_query_per_thread	2276.2	2091.8	3780.9	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=1600000016 sa=w8 child=w8 tagged
+descent	v6	100000000	1	count20_present_ns_per_query_per_thread	2654.6	2418.9	4028.8	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=1078631700 sa=hyb child=w5 tagged escapes=30726335 (30.7 %)
+descent	v7	100000000	1	count20_present_ns_per_query_per_thread	2624.3	2529.0	3538.4	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=853333376 sa=p34 child=p34 packed
+descent	v0	100000000	1	count20_absent_ns_per_query_per_thread	2432.3	2079.2	3082.6	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged, int arithmetic (the code of MappedSearch.Run)
+descent	v1	100000000	1	count20_absent_ns_per_query_per_thread	2125.3	1992.5	2929.8	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v1b	100000000	1	count20_absent_ns_per_query_per_thread	2211.1	1953.4	2896.3	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v2	100000000	1	count20_absent_ns_per_query_per_thread	2610.5	2122.1	3109.6	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 packed
+descent	v3	100000000	1	count20_absent_ns_per_query_per_thread	2337.5	2131.6	3286.1	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=1000000010 sa=w5 child=w5 tagged
+descent	v4	100000000	1	count20_absent_ns_per_query_per_thread	2912.4	2242.1	3397.3	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=1000000010 sa=w5 child=w5 packed
+descent	v5	100000000	1	count20_absent_ns_per_query_per_thread	2196.0	2043.2	2318.8	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=1600000016 sa=w8 child=w8 tagged
+descent	v6	100000000	1	count20_absent_ns_per_query_per_thread	3691.3	2439.0	3911.2	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=1078631700 sa=hyb child=w5 tagged escapes=30726335 (30.7 %)
+descent	v7	100000000	1	count20_absent_ns_per_query_per_thread	2478.6	2415.1	3430.1	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=853333376 sa=p34 child=p34 packed
+descent	v0	100000000	1	locate8_ns_per_query_per_thread	2714.5	2680.5	4589.0	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged, int arithmetic (the code of MappedSearch.Run)
+descent	v1	100000000	1	locate8_ns_per_query_per_thread	2361.0	2026.2	3370.2	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v1b	100000000	1	locate8_ns_per_query_per_thread	2152.7	2030.1	3471.6	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v2	100000000	1	locate8_ns_per_query_per_thread	2766.6	2492.7	2996.0	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 packed
+descent	v3	100000000	1	locate8_ns_per_query_per_thread	3260.1	2663.3	4842.3	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=1000000010 sa=w5 child=w5 tagged
+descent	v4	100000000	1	locate8_ns_per_query_per_thread	3171.4	2907.0	3371.1	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=1000000010 sa=w5 child=w5 packed
+descent	v5	100000000	1	locate8_ns_per_query_per_thread	3542.0	3242.1	5142.1	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=1600000016 sa=w8 child=w8 tagged
+descent	v6	100000000	1	locate8_ns_per_query_per_thread	7028.2	6754.5	8172.2	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=1078631700 sa=hyb child=w5 tagged escapes=30726335 (30.7 %)
+descent	v7	100000000	1	locate8_ns_per_query_per_thread	5004.3	4539.2	6646.0	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=853333376 sa=p34 child=p34 packed
+descent	v0	100000000	4	count20_present_ns_per_query_per_thread	558.1	438.9	736.7	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged, int arithmetic (the code of MappedSearch.Run)
+descent	v1	100000000	4	count20_present_ns_per_query_per_thread	546.3	420.8	709.2	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v1b	100000000	4	count20_present_ns_per_query_per_thread	550.2	427.2	697.7	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v2	100000000	4	count20_present_ns_per_query_per_thread	586.2	477.8	724.8	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 packed
+descent	v3	100000000	4	count20_present_ns_per_query_per_thread	601.9	471.5	738.8	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=1000000010 sa=w5 child=w5 tagged
+descent	v4	100000000	4	count20_present_ns_per_query_per_thread	602.2	501.0	770.4	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=1000000010 sa=w5 child=w5 packed
+descent	v5	100000000	4	count20_present_ns_per_query_per_thread	615.9	483.2	789.2	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=1600000016 sa=w8 child=w8 tagged
+descent	v6	100000000	4	count20_present_ns_per_query_per_thread	696.6	556.7	866.4	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=1078631700 sa=hyb child=w5 tagged escapes=30726335 (30.7 %)
+descent	v7	100000000	4	count20_present_ns_per_query_per_thread	680.9	600.6	851.0	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=853333376 sa=p34 child=p34 packed
+descent	v0	100000000	4	count20_absent_ns_per_query_per_thread	647.9	443.1	703.2	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged, int arithmetic (the code of MappedSearch.Run)
+descent	v1	100000000	4	count20_absent_ns_per_query_per_thread	641.6	433.9	725.1	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v1b	100000000	4	count20_absent_ns_per_query_per_thread	646.8	525.7	683.2	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v2	100000000	4	count20_absent_ns_per_query_per_thread	701.4	585.8	813.3	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 packed
+descent	v3	100000000	4	count20_absent_ns_per_query_per_thread	722.0	613.0	750.0	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=1000000010 sa=w5 child=w5 tagged
+descent	v4	100000000	4	count20_absent_ns_per_query_per_thread	720.2	661.9	760.8	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=1000000010 sa=w5 child=w5 packed
+descent	v5	100000000	4	count20_absent_ns_per_query_per_thread	729.6	670.5	811.2	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=1600000016 sa=w8 child=w8 tagged
+descent	v6	100000000	4	count20_absent_ns_per_query_per_thread	817.8	671.8	850.2	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=1078631700 sa=hyb child=w5 tagged escapes=30726335 (30.7 %)
+descent	v7	100000000	4	count20_absent_ns_per_query_per_thread	795.3	660.0	860.5	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=853333376 sa=p34 child=p34 packed
+descent	v0	100000000	4	locate8_ns_per_query_per_thread	817.5	800.1	982.5	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged, int arithmetic (the code of MappedSearch.Run)
+descent	v1	100000000	4	locate8_ns_per_query_per_thread	681.4	659.7	745.3	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v1b	100000000	4	locate8_ns_per_query_per_thread	659.2	642.5	901.6	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v2	100000000	4	locate8_ns_per_query_per_thread	744.0	709.8	1360.8	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 packed
+descent	v3	100000000	4	locate8_ns_per_query_per_thread	860.6	833.6	1206.0	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=1000000010 sa=w5 child=w5 tagged
+descent	v4	100000000	4	locate8_ns_per_query_per_thread	862.2	847.6	886.9	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=1000000010 sa=w5 child=w5 packed
+descent	v5	100000000	4	locate8_ns_per_query_per_thread	976.7	958.0	1064.7	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=1600000016 sa=w8 child=w8 tagged
+descent	v6	100000000	4	locate8_ns_per_query_per_thread	1957.1	1928.9	2241.1	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=1078631700 sa=hyb child=w5 tagged escapes=30726335 (30.7 %)
+descent	v7	100000000	4	locate8_ns_per_query_per_thread	1501.6	1458.5	2234.1	ns/query	11	dna_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=853333376 sa=p34 child=p34 packed
+descent	v1	100000000	1	count20_present_ns_per_query_per_thread	2202.4	1913.4	3170.4	ns/query	11	dna_100m_delta n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v1b	100000000	1	count20_present_ns_per_query_per_thread	2096.9	1841.4	3096.3	ns/query	11	dna_100m_delta n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v2	100000000	1	count20_present_ns_per_query_per_thread	2261.8	2014.4	3146.7	ns/query	11	dna_100m_delta n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 packed
+descent	v8	100000000	1	count20_present_ns_per_query_per_thread	3679.4	2692.3	3909.5	ns/query	11	dna_100m_delta n=100000000 L=20 patterns=200000 bytes(SA+child)=600057382 sa=w4 child=d16 tagged escapes=7172 (0.01 %) childBytes=200057378
+descent	v9	100000000	1	count20_present_ns_per_query_per_thread	4011.7	3703.4	5144.1	ns/query	11	dna_100m_delta n=100000000 L=20 patterns=200000 bytes(SA+child)=503674133 sa=w4 child=d8 packed escapes=459266 (0.46 %) childBytes=103674129
+descent	v1	100000000	1	count20_absent_ns_per_query_per_thread	2169.6	1946.0	3127.0	ns/query	11	dna_100m_delta n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v1b	100000000	1	count20_absent_ns_per_query_per_thread	2033.7	1919.0	3183.8	ns/query	11	dna_100m_delta n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v2	100000000	1	count20_absent_ns_per_query_per_thread	2427.2	2186.6	2958.2	ns/query	11	dna_100m_delta n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 packed
+descent	v8	100000000	1	count20_absent_ns_per_query_per_thread	2921.6	2795.9	3772.4	ns/query	11	dna_100m_delta n=100000000 L=20 patterns=200000 bytes(SA+child)=600057382 sa=w4 child=d16 tagged escapes=7172 (0.01 %) childBytes=200057378
+descent	v9	100000000	1	count20_absent_ns_per_query_per_thread	3830.0	3659.9	4191.5	ns/query	11	dna_100m_delta n=100000000 L=20 patterns=200000 bytes(SA+child)=503674133 sa=w4 child=d8 packed escapes=459266 (0.46 %) childBytes=103674129
+descent	v1	100000000	1	locate8_ns_per_query_per_thread	2340.5	2034.8	2818.1	ns/query	11	dna_100m_delta n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v1b	100000000	1	locate8_ns_per_query_per_thread	2474.1	1975.5	2683.2	ns/query	11	dna_100m_delta n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v2	100000000	1	locate8_ns_per_query_per_thread	2947.5	2266.8	3246.1	ns/query	11	dna_100m_delta n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 packed
+descent	v8	100000000	1	locate8_ns_per_query_per_thread	2987.2	2788.3	3418.1	ns/query	11	dna_100m_delta n=100000000 L=20 patterns=200000 bytes(SA+child)=600057382 sa=w4 child=d16 tagged escapes=7172 (0.01 %) childBytes=200057378
+descent	v9	100000000	1	locate8_ns_per_query_per_thread	3623.3	3353.6	4340.3	ns/query	11	dna_100m_delta n=100000000 L=20 patterns=200000 bytes(SA+child)=503674133 sa=w4 child=d8 packed escapes=459266 (0.46 %) childBytes=103674129
+descent	v1	100000000	4	count20_present_ns_per_query_per_thread	460.1	439.5	656.9	ns/query	11	dna_100m_delta n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v1b	100000000	4	count20_present_ns_per_query_per_thread	457.5	421.9	644.6	ns/query	11	dna_100m_delta n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v2	100000000	4	count20_present_ns_per_query_per_thread	491.5	469.7	698.3	ns/query	11	dna_100m_delta n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 packed
+descent	v8	100000000	4	count20_present_ns_per_query_per_thread	672.6	639.6	875.9	ns/query	11	dna_100m_delta n=100000000 L=20 patterns=200000 bytes(SA+child)=600057382 sa=w4 child=d16 tagged escapes=7172 (0.01 %) childBytes=200057378
+descent	v9	100000000	4	count20_present_ns_per_query_per_thread	897.0	840.6	1054.8	ns/query	11	dna_100m_delta n=100000000 L=20 patterns=200000 bytes(SA+child)=503674133 sa=w4 child=d8 packed escapes=459266 (0.46 %) childBytes=103674129
+descent	v1	100000000	4	count20_absent_ns_per_query_per_thread	645.2	541.9	698.0	ns/query	11	dna_100m_delta n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v1b	100000000	4	count20_absent_ns_per_query_per_thread	662.1	538.6	699.6	ns/query	11	dna_100m_delta n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v2	100000000	4	count20_absent_ns_per_query_per_thread	699.5	575.4	750.8	ns/query	11	dna_100m_delta n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 packed
+descent	v8	100000000	4	count20_absent_ns_per_query_per_thread	812.1	735.9	947.8	ns/query	11	dna_100m_delta n=100000000 L=20 patterns=200000 bytes(SA+child)=600057382 sa=w4 child=d16 tagged escapes=7172 (0.01 %) childBytes=200057378
+descent	v9	100000000	4	count20_absent_ns_per_query_per_thread	1098.3	1031.9	1239.2	ns/query	11	dna_100m_delta n=100000000 L=20 patterns=200000 bytes(SA+child)=503674133 sa=w4 child=d8 packed escapes=459266 (0.46 %) childBytes=103674129
+descent	v1	100000000	4	locate8_ns_per_query_per_thread	544.4	529.4	607.9	ns/query	11	dna_100m_delta n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v1b	100000000	4	locate8_ns_per_query_per_thread	517.1	490.5	677.5	ns/query	11	dna_100m_delta n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v2	100000000	4	locate8_ns_per_query_per_thread	579.9	560.2	603.5	ns/query	11	dna_100m_delta n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 packed
+descent	v8	100000000	4	locate8_ns_per_query_per_thread	713.6	682.7	759.8	ns/query	11	dna_100m_delta n=100000000 L=20 patterns=200000 bytes(SA+child)=600057382 sa=w4 child=d16 tagged escapes=7172 (0.01 %) childBytes=200057378
+descent	v9	100000000	4	locate8_ns_per_query_per_thread	928.4	886.5	997.9	ns/query	11	dna_100m_delta n=100000000 L=20 patterns=200000 bytes(SA+child)=503674133 sa=w4 child=d8 packed escapes=459266 (0.46 %) childBytes=103674129
+descent	v1	100000000	1	count20_present_ns_per_query_per_thread	2986.7	2075.6	3168.2	ns/query	11	dna_100m_hash n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v1b	100000000	1	count20_present_ns_per_query_per_thread	2878.7	2127.6	3120.0	ns/query	11	dna_100m_hash n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v8h	100000000	1	count20_present_ns_per_query_per_thread	3178.3	2499.1	3349.5	ns/query	11	dna_100m_hash n=100000000 L=20 patterns=200000 bytes(SA+child)=600131078 sa=w4 child=d16h tagged escapes=7172 (0.01 %) childBytes=200131074
+descent	v9h	100000000	1	count20_present_ns_per_query_per_thread	3200.3	2344.9	3617.2	ns/query	11	dna_100m_hash n=100000000 L=20 patterns=200000 bytes(SA+child)=508388613 sa=w4 child=d8h packed escapes=459266 (0.46 %) childBytes=108388609
+descent	v1	100000000	1	count20_absent_ns_per_query_per_thread	2819.6	2484.7	2989.2	ns/query	11	dna_100m_hash n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v1b	100000000	1	count20_absent_ns_per_query_per_thread	2650.0	2344.2	2886.1	ns/query	11	dna_100m_hash n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v8h	100000000	1	count20_absent_ns_per_query_per_thread	2776.4	2443.8	3358.7	ns/query	11	dna_100m_hash n=100000000 L=20 patterns=200000 bytes(SA+child)=600131078 sa=w4 child=d16h tagged escapes=7172 (0.01 %) childBytes=200131074
+descent	v9h	100000000	1	count20_absent_ns_per_query_per_thread	2872.1	2685.4	3214.5	ns/query	11	dna_100m_hash n=100000000 L=20 patterns=200000 bytes(SA+child)=508388613 sa=w4 child=d8h packed escapes=459266 (0.46 %) childBytes=108388609
+descent	v1	100000000	1	locate8_ns_per_query_per_thread	2988.8	2542.0	3232.5	ns/query	11	dna_100m_hash n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v1b	100000000	1	locate8_ns_per_query_per_thread	2883.1	2567.4	3375.7	ns/query	11	dna_100m_hash n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v8h	100000000	1	locate8_ns_per_query_per_thread	3226.9	2614.0	4130.3	ns/query	11	dna_100m_hash n=100000000 L=20 patterns=200000 bytes(SA+child)=600131078 sa=w4 child=d16h tagged escapes=7172 (0.01 %) childBytes=200131074
+descent	v9h	100000000	1	locate8_ns_per_query_per_thread	3556.9	2889.5	3742.8	ns/query	11	dna_100m_hash n=100000000 L=20 patterns=200000 bytes(SA+child)=508388613 sa=w4 child=d8h packed escapes=459266 (0.46 %) childBytes=108388609
+descent	v1	100000000	4	count20_present_ns_per_query_per_thread	651.2	624.1	695.6	ns/query	11	dna_100m_hash n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v1b	100000000	4	count20_present_ns_per_query_per_thread	652.1	622.7	716.0	ns/query	11	dna_100m_hash n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v8h	100000000	4	count20_present_ns_per_query_per_thread	656.0	620.4	760.7	ns/query	11	dna_100m_hash n=100000000 L=20 patterns=200000 bytes(SA+child)=600131078 sa=w4 child=d16h tagged escapes=7172 (0.01 %) childBytes=200131074
+descent	v9h	100000000	4	count20_present_ns_per_query_per_thread	721.7	703.4	772.8	ns/query	11	dna_100m_hash n=100000000 L=20 patterns=200000 bytes(SA+child)=508388613 sa=w4 child=d8h packed escapes=459266 (0.46 %) childBytes=108388609
+descent	v1	100000000	4	count20_absent_ns_per_query_per_thread	623.8	602.7	672.6	ns/query	11	dna_100m_hash n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v1b	100000000	4	count20_absent_ns_per_query_per_thread	614.7	564.1	639.7	ns/query	11	dna_100m_hash n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v8h	100000000	4	count20_absent_ns_per_query_per_thread	633.8	594.2	681.3	ns/query	11	dna_100m_hash n=100000000 L=20 patterns=200000 bytes(SA+child)=600131078 sa=w4 child=d16h tagged escapes=7172 (0.01 %) childBytes=200131074
+descent	v9h	100000000	4	count20_absent_ns_per_query_per_thread	705.5	681.2	758.2	ns/query	11	dna_100m_hash n=100000000 L=20 patterns=200000 bytes(SA+child)=508388613 sa=w4 child=d8h packed escapes=459266 (0.46 %) childBytes=108388609
+descent	v1	100000000	4	locate8_ns_per_query_per_thread	562.0	549.6	580.4	ns/query	11	dna_100m_hash n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v1b	100000000	4	locate8_ns_per_query_per_thread	549.5	536.1	590.3	ns/query	11	dna_100m_hash n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v8h	100000000	4	locate8_ns_per_query_per_thread	566.0	558.1	669.2	ns/query	11	dna_100m_hash n=100000000 L=20 patterns=200000 bytes(SA+child)=600131078 sa=w4 child=d16h tagged escapes=7172 (0.01 %) childBytes=200131074
+descent	v9h	100000000	4	locate8_ns_per_query_per_thread	624.5	602.9	644.6	ns/query	11	dna_100m_hash n=100000000 L=20 patterns=200000 bytes(SA+child)=508388613 sa=w4 child=d8h packed escapes=459266 (0.46 %) childBytes=108388609
+descent	v1	100000000	1	count20_present_ns_per_query_per_thread	2692.9	1836.6	3133.7	ns/query	11	genome_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v1b	100000000	1	count20_present_ns_per_query_per_thread	2577.5	1760.7	3121.0	ns/query	11	genome_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v2	100000000	1	count20_present_ns_per_query_per_thread	2741.0	1978.7	3328.9	ns/query	11	genome_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 packed
+descent	v8h	100000000	1	count20_present_ns_per_query_per_thread	2744.0	2106.7	3310.5	ns/query	11	genome_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=600131078 sa=w4 child=d16h tagged escapes=7444 (0.01 %) childBytes=200131074
+descent	v9h	100000000	1	count20_present_ns_per_query_per_thread	2894.6	2126.1	3579.7	ns/query	11	genome_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=516777221 sa=w4 child=d8h packed escapes=812121 (0.81 %) childBytes=116777217
+descent	v1	100000000	1	count20_absent_ns_per_query_per_thread	245.1	223.2	345.4	ns/query	11	genome_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v1b	100000000	1	count20_absent_ns_per_query_per_thread	234.0	208.9	297.4	ns/query	11	genome_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v2	100000000	1	count20_absent_ns_per_query_per_thread	292.1	274.4	363.7	ns/query	11	genome_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 packed
+descent	v8h	100000000	1	count20_absent_ns_per_query_per_thread	295.2	269.3	444.1	ns/query	11	genome_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=600131078 sa=w4 child=d16h tagged escapes=7444 (0.01 %) childBytes=200131074
+descent	v9h	100000000	1	count20_absent_ns_per_query_per_thread	322.3	305.8	397.4	ns/query	11	genome_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=516777221 sa=w4 child=d8h packed escapes=812121 (0.81 %) childBytes=116777217
+descent	v1	100000000	1	locate8_ns_per_query_per_thread	6284.4	5513.5	7046.9	ns/query	11	genome_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v1b	100000000	1	locate8_ns_per_query_per_thread	6214.7	5392.0	7133.7	ns/query	11	genome_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v2	100000000	1	locate8_ns_per_query_per_thread	6387.5	5552.2	6784.5	ns/query	11	genome_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 packed
+descent	v8h	100000000	1	locate8_ns_per_query_per_thread	6390.7	5855.0	6636.9	ns/query	11	genome_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=600131078 sa=w4 child=d16h tagged escapes=7444 (0.01 %) childBytes=200131074
+descent	v9h	100000000	1	locate8_ns_per_query_per_thread	6647.4	5760.0	7518.1	ns/query	11	genome_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=516777221 sa=w4 child=d8h packed escapes=812121 (0.81 %) childBytes=116777217
+descent	v1	100000000	4	count20_present_ns_per_query_per_thread	700.2	462.2	745.9	ns/query	11	genome_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v1b	100000000	4	count20_present_ns_per_query_per_thread	686.6	563.1	723.5	ns/query	11	genome_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v2	100000000	4	count20_present_ns_per_query_per_thread	733.5	572.6	766.8	ns/query	11	genome_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 packed
+descent	v8h	100000000	4	count20_present_ns_per_query_per_thread	718.7	535.7	749.5	ns/query	11	genome_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=600131078 sa=w4 child=d16h tagged escapes=7444 (0.01 %) childBytes=200131074
+descent	v9h	100000000	4	count20_present_ns_per_query_per_thread	785.9	651.8	822.9	ns/query	11	genome_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=516777221 sa=w4 child=d8h packed escapes=812121 (0.81 %) childBytes=116777217
+descent	v1	100000000	4	count20_absent_ns_per_query_per_thread	60.3	59.2	72.1	ns/query	11	genome_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v1b	100000000	4	count20_absent_ns_per_query_per_thread	59.8	58.1	92.5	ns/query	11	genome_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v2	100000000	4	count20_absent_ns_per_query_per_thread	77.5	72.2	102.4	ns/query	11	genome_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 packed
+descent	v8h	100000000	4	count20_absent_ns_per_query_per_thread	73.3	69.2	91.8	ns/query	11	genome_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=600131078 sa=w4 child=d16h tagged escapes=7444 (0.01 %) childBytes=200131074
+descent	v9h	100000000	4	count20_absent_ns_per_query_per_thread	86.1	82.0	106.9	ns/query	11	genome_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=516777221 sa=w4 child=d8h packed escapes=812121 (0.81 %) childBytes=116777217
+descent	v1	100000000	4	locate8_ns_per_query_per_thread	1403.4	1205.8	1598.7	ns/query	11	genome_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v1b	100000000	4	locate8_ns_per_query_per_thread	1359.6	1174.9	1831.8	ns/query	11	genome_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 tagged
+descent	v2	100000000	4	locate8_ns_per_query_per_thread	1442.7	1253.4	1925.3	ns/query	11	genome_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=800000008 sa=w4 child=w4 packed
+descent	v8h	100000000	4	locate8_ns_per_query_per_thread	1349.0	1225.8	1882.7	ns/query	11	genome_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=600131078 sa=w4 child=d16h tagged escapes=7444 (0.01 %) childBytes=200131074
+descent	v9h	100000000	4	locate8_ns_per_query_per_thread	1530.3	1260.4	1929.4	ns/query	11	genome_100m n=100000000 L=20 patterns=200000 bytes(SA+child)=516777221 sa=w4 child=d8h packed escapes=812121 (0.81 %) childBytes=116777217

@@ -1,0 +1,217 @@
+kind	layout	n	threads	metric	median	min	max	unit	reps	notes
+null	none	0	1	generator_ns_per_op	0.262	0.260	0.263	ns/op	7	null no read
+null	w4	4096	1	chase_ns_per_read	2.354	2.352	2.402	ns/op	7	null cache-resident 4096 entries
+null	w4	4096	1	thr_ns_per_read	1.641	1.639	1.647	ns/op	7	null cache-resident 4096 entries
+null	w4	4096	1	scan1500_ns_per_entry	0.496	0.495	0.498	ns/op	7	null cache-resident 4096 entries
+null	w5	4096	1	chase_ns_per_read	3.428	3.278	3.481	ns/op	7	null cache-resident 4096 entries
+null	w5	4096	1	thr_ns_per_read	1.744	1.741	1.746	ns/op	7	null cache-resident 4096 entries
+null	w5	4096	1	scan1500_ns_per_entry	0.647	0.646	0.650	ns/op	7	null cache-resident 4096 entries
+null	w8	4096	1	chase_ns_per_read	2.626	2.622	2.670	ns/op	7	null cache-resident 4096 entries
+null	w8	4096	1	thr_ns_per_read	1.639	1.637	1.643	ns/op	7	null cache-resident 4096 entries
+null	w8	4096	1	scan1500_ns_per_entry	0.493	0.491	0.494	ns/op	7	null cache-resident 4096 entries
+null	hyb	4096	1	chase_ns_per_read	4.385	2.992	4.613	ns/op	7	null cache-resident 4096 entries
+null	hyb	4096	1	thr_ns_per_read	4.599	4.591	4.607	ns/op	7	null cache-resident 4096 entries
+null	hyb	4096	1	scan1500_ns_per_entry	0.578	0.577	4.118	ns/op	7	null cache-resident 4096 entries
+null	p34	4096	1	chase_ns_per_read	6.988	6.854	7.423	ns/op	7	null cache-resident 4096 entries
+null	p34	4096	1	thr_ns_per_read	3.602	3.528	3.676	ns/op	7	null cache-resident 4096 entries
+null	p34	4096	1	scan1500_ns_per_entry	1.793	1.790	1.816	ns/op	7	null cache-resident 4096 entries
+thr	w4	10000000	1	thr_ns_per_read	6.257	3.424	6.759	ns/read	5	anon n=10000000 V=6.2e9 bytes=40000000 B/entry=4.000 escapes=0 V=6200000000 touch=99
+scan	w4	10000000	1	scan8_ns_per_entry	1.579	1.532	3.353	ns/entry	5	anon n=10000000 V=6.2e9 bytes=40000000 B/entry=4.000 escapes=0 V=6200000000 touch=99
+scan	w4	10000000	1	scan1500_ns_per_entry	0.655	0.563	0.668	ns/entry	5	anon n=10000000 V=6.2e9 bytes=40000000 B/entry=4.000 escapes=0 V=6200000000 touch=99
+scan	w4	10000000	1	scan100000_ns_per_entry	0.562	0.557	0.924	ns/entry	5	anon n=10000000 V=6.2e9 bytes=40000000 B/entry=4.000 escapes=0 V=6200000000 touch=99
+thr	w4	10000000	4	thr_ns_per_read	1.707	1.516	1.882	ns/read	5	anon n=10000000 V=6.2e9 bytes=40000000 B/entry=4.000 escapes=0 V=6200000000 touch=99
+scan	w4	10000000	4	scan8_ns_per_entry	0.776	0.775	0.849	ns/entry	5	anon n=10000000 V=6.2e9 bytes=40000000 B/entry=4.000 escapes=0 V=6200000000 touch=99
+scan	w4	10000000	4	scan1500_ns_per_entry	0.165	0.163	0.239	ns/entry	5	anon n=10000000 V=6.2e9 bytes=40000000 B/entry=4.000 escapes=0 V=6200000000 touch=99
+scan	w4	10000000	4	scan100000_ns_per_entry	0.230	0.228	0.291	ns/entry	5	anon n=10000000 V=6.2e9 bytes=40000000 B/entry=4.000 escapes=0 V=6200000000 touch=99
+thr	w5	10000000	1	thr_ns_per_read	4.074	3.881	7.929	ns/read	5	anon n=10000000 V=6.2e9 bytes=50000000 B/entry=5.000 escapes=0 V=6200000000 touch=9
+scan	w5	10000000	1	scan8_ns_per_entry	2.168	2.028	4.252	ns/entry	5	anon n=10000000 V=6.2e9 bytes=50000000 B/entry=5.000 escapes=0 V=6200000000 touch=9
+scan	w5	10000000	1	scan1500_ns_per_entry	0.779	0.751	0.924	ns/entry	5	anon n=10000000 V=6.2e9 bytes=50000000 B/entry=5.000 escapes=0 V=6200000000 touch=9
+scan	w5	10000000	1	scan100000_ns_per_entry	0.803	0.776	0.823	ns/entry	5	anon n=10000000 V=6.2e9 bytes=50000000 B/entry=5.000 escapes=0 V=6200000000 touch=9
+thr	w5	10000000	4	thr_ns_per_read	1.723	1.700	1.902	ns/read	5	anon n=10000000 V=6.2e9 bytes=50000000 B/entry=5.000 escapes=0 V=6200000000 touch=9
+scan	w5	10000000	4	scan8_ns_per_entry	0.950	0.921	0.977	ns/entry	5	anon n=10000000 V=6.2e9 bytes=50000000 B/entry=5.000 escapes=0 V=6200000000 touch=9
+scan	w5	10000000	4	scan1500_ns_per_entry	0.221	0.218	0.280	ns/entry	5	anon n=10000000 V=6.2e9 bytes=50000000 B/entry=5.000 escapes=0 V=6200000000 touch=9
+scan	w5	10000000	4	scan100000_ns_per_entry	0.308	0.305	0.314	ns/entry	5	anon n=10000000 V=6.2e9 bytes=50000000 B/entry=5.000 escapes=0 V=6200000000 touch=9
+thr	w8	10000000	1	thr_ns_per_read	6.323	5.253	8.186	ns/read	5	anon n=10000000 V=6.2e9 bytes=80000000 B/entry=8.000 escapes=0 V=6200000000 touch=116
+scan	w8	10000000	1	scan8_ns_per_entry	3.647	3.002	3.759	ns/entry	5	anon n=10000000 V=6.2e9 bytes=80000000 B/entry=8.000 escapes=0 V=6200000000 touch=116
+scan	w8	10000000	1	scan1500_ns_per_entry	0.828	0.761	0.974	ns/entry	5	anon n=10000000 V=6.2e9 bytes=80000000 B/entry=8.000 escapes=0 V=6200000000 touch=116
+scan	w8	10000000	1	scan100000_ns_per_entry	0.804	0.707	0.832	ns/entry	5	anon n=10000000 V=6.2e9 bytes=80000000 B/entry=8.000 escapes=0 V=6200000000 touch=116
+thr	w8	10000000	4	thr_ns_per_read	1.769	1.758	1.858	ns/read	5	anon n=10000000 V=6.2e9 bytes=80000000 B/entry=8.000 escapes=0 V=6200000000 touch=116
+scan	w8	10000000	4	scan8_ns_per_entry	0.827	0.822	0.834	ns/entry	5	anon n=10000000 V=6.2e9 bytes=80000000 B/entry=8.000 escapes=0 V=6200000000 touch=116
+scan	w8	10000000	4	scan1500_ns_per_entry	0.203	0.197	0.265	ns/entry	5	anon n=10000000 V=6.2e9 bytes=80000000 B/entry=8.000 escapes=0 V=6200000000 touch=116
+scan	w8	10000000	4	scan100000_ns_per_entry	0.179	0.176	0.275	ns/entry	5	anon n=10000000 V=6.2e9 bytes=80000000 B/entry=8.000 escapes=0 V=6200000000 touch=116
+thr	hyb	10000000	1	thr_ns_per_read	18.266	11.557	20.251	ns/read	5	anon n=10000000 V=6.2e9 bytes=57863590 B/entry=5.786 escapes=3072718 V=6200000000 touch=254
+scan	hyb	10000000	1	scan8_ns_per_entry	9.652	6.131	10.012	ns/entry	5	anon n=10000000 V=6.2e9 bytes=57863590 B/entry=5.786 escapes=3072718 V=6200000000 touch=254
+scan	hyb	10000000	1	scan1500_ns_per_entry	3.077	2.958	3.119	ns/entry	5	anon n=10000000 V=6.2e9 bytes=57863590 B/entry=5.786 escapes=3072718 V=6200000000 touch=254
+scan	hyb	10000000	1	scan100000_ns_per_entry	3.400	3.386	3.447	ns/entry	5	anon n=10000000 V=6.2e9 bytes=57863590 B/entry=5.786 escapes=3072718 V=6200000000 touch=254
+thr	hyb	10000000	4	thr_ns_per_read	4.525	4.486	4.654	ns/read	5	anon n=10000000 V=6.2e9 bytes=57863590 B/entry=5.786 escapes=3072718 V=6200000000 touch=254
+scan	hyb	10000000	4	scan8_ns_per_entry	2.378	2.376	2.388	ns/entry	5	anon n=10000000 V=6.2e9 bytes=57863590 B/entry=5.786 escapes=3072718 V=6200000000 touch=254
+scan	hyb	10000000	4	scan1500_ns_per_entry	0.796	0.794	0.835	ns/entry	5	anon n=10000000 V=6.2e9 bytes=57863590 B/entry=5.786 escapes=3072718 V=6200000000 touch=254
+scan	hyb	10000000	4	scan100000_ns_per_entry	0.762	0.760	0.792	ns/entry	5	anon n=10000000 V=6.2e9 bytes=57863590 B/entry=5.786 escapes=3072718 V=6200000000 touch=254
+thr	p34	10000000	1	thr_ns_per_read	8.422	7.294	14.156	ns/read	5	anon n=10000000 V=6.2e9 bytes=42666688 B/entry=4.267 escapes=0 V=6200000000 touch=182
+scan	p34	10000000	1	scan8_ns_per_entry	5.025	4.902	8.234	ns/entry	5	anon n=10000000 V=6.2e9 bytes=42666688 B/entry=4.267 escapes=0 V=6200000000 touch=182
+scan	p34	10000000	1	scan1500_ns_per_entry	1.931	1.878	1.944	ns/entry	5	anon n=10000000 V=6.2e9 bytes=42666688 B/entry=4.267 escapes=0 V=6200000000 touch=182
+scan	p34	10000000	1	scan100000_ns_per_entry	1.895	1.855	2.062	ns/entry	5	anon n=10000000 V=6.2e9 bytes=42666688 B/entry=4.267 escapes=0 V=6200000000 touch=182
+thr	p34	10000000	4	thr_ns_per_read	3.303	3.282	3.360	ns/read	5	anon n=10000000 V=6.2e9 bytes=42666688 B/entry=4.267 escapes=0 V=6200000000 touch=182
+scan	p34	10000000	4	scan8_ns_per_entry	1.986	1.982	2.000	ns/entry	5	anon n=10000000 V=6.2e9 bytes=42666688 B/entry=4.267 escapes=0 V=6200000000 touch=182
+scan	p34	10000000	4	scan1500_ns_per_entry	0.484	0.482	0.487	ns/entry	5	anon n=10000000 V=6.2e9 bytes=42666688 B/entry=4.267 escapes=0 V=6200000000 touch=182
+scan	p34	10000000	4	scan100000_ns_per_entry	0.493	0.482	0.506	ns/entry	5	anon n=10000000 V=6.2e9 bytes=42666688 B/entry=4.267 escapes=0 V=6200000000 touch=182
+thr	w4	100000000	1	thr_ns_per_read	12.707	12.217	16.111	ns/read	5	anon n=100000000 V=6.2e9 bytes=400000000 B/entry=4.000 escapes=0 V=6200000000 touch=146
+scan	w4	100000000	1	scan8_ns_per_entry	7.597	5.535	7.647	ns/entry	5	anon n=100000000 V=6.2e9 bytes=400000000 B/entry=4.000 escapes=0 V=6200000000 touch=146
+scan	w4	100000000	1	scan1500_ns_per_entry	0.905	0.867	1.104	ns/entry	5	anon n=100000000 V=6.2e9 bytes=400000000 B/entry=4.000 escapes=0 V=6200000000 touch=146
+scan	w4	100000000	1	scan100000_ns_per_entry	2.006	1.616	2.036	ns/entry	5	anon n=100000000 V=6.2e9 bytes=400000000 B/entry=4.000 escapes=0 V=6200000000 touch=146
+thr	w4	100000000	4	thr_ns_per_read	3.465	2.874	3.824	ns/read	5	anon n=100000000 V=6.2e9 bytes=400000000 B/entry=4.000 escapes=0 V=6200000000 touch=146
+scan	w4	100000000	4	scan8_ns_per_entry	1.640	1.366	1.676	ns/entry	5	anon n=100000000 V=6.2e9 bytes=400000000 B/entry=4.000 escapes=0 V=6200000000 touch=146
+scan	w4	100000000	4	scan1500_ns_per_entry	0.233	0.219	0.350	ns/entry	5	anon n=100000000 V=6.2e9 bytes=400000000 B/entry=4.000 escapes=0 V=6200000000 touch=146
+scan	w4	100000000	4	scan100000_ns_per_entry	0.448	0.380	0.558	ns/entry	5	anon n=100000000 V=6.2e9 bytes=400000000 B/entry=4.000 escapes=0 V=6200000000 touch=146
+thr	w5	100000000	1	thr_ns_per_read	13.814	13.762	14.555	ns/read	5	anon n=100000000 V=6.2e9 bytes=500000000 B/entry=5.000 escapes=0 V=6200000000 touch=28
+scan	w5	100000000	1	scan8_ns_per_entry	8.286	7.093	8.868	ns/entry	5	anon n=100000000 V=6.2e9 bytes=500000000 B/entry=5.000 escapes=0 V=6200000000 touch=28
+scan	w5	100000000	1	scan1500_ns_per_entry	1.194	1.173	1.301	ns/entry	5	anon n=100000000 V=6.2e9 bytes=500000000 B/entry=5.000 escapes=0 V=6200000000 touch=28
+scan	w5	100000000	1	scan100000_ns_per_entry	2.325	2.049	2.337	ns/entry	5	anon n=100000000 V=6.2e9 bytes=500000000 B/entry=5.000 escapes=0 V=6200000000 touch=28
+thr	w5	100000000	4	thr_ns_per_read	4.023	3.817	4.236	ns/read	5	anon n=100000000 V=6.2e9 bytes=500000000 B/entry=5.000 escapes=0 V=6200000000 touch=28
+scan	w5	100000000	4	scan8_ns_per_entry	2.032	1.747	2.085	ns/entry	5	anon n=100000000 V=6.2e9 bytes=500000000 B/entry=5.000 escapes=0 V=6200000000 touch=28
+scan	w5	100000000	4	scan1500_ns_per_entry	0.284	0.282	0.309	ns/entry	5	anon n=100000000 V=6.2e9 bytes=500000000 B/entry=5.000 escapes=0 V=6200000000 touch=28
+scan	w5	100000000	4	scan100000_ns_per_entry	0.501	0.465	0.726	ns/entry	5	anon n=100000000 V=6.2e9 bytes=500000000 B/entry=5.000 escapes=0 V=6200000000 touch=28
+thr	w8	100000000	1	thr_ns_per_read	12.618	12.506	16.160	ns/read	5	anon n=100000000 V=6.2e9 bytes=800000000 B/entry=8.000 escapes=0 V=6200000000 touch=217
+scan	w8	100000000	1	scan8_ns_per_entry	5.862	5.759	5.914	ns/entry	5	anon n=100000000 V=6.2e9 bytes=800000000 B/entry=8.000 escapes=0 V=6200000000 touch=217
+scan	w8	100000000	1	scan1500_ns_per_entry	1.216	1.187	1.338	ns/entry	5	anon n=100000000 V=6.2e9 bytes=800000000 B/entry=8.000 escapes=0 V=6200000000 touch=217
+scan	w8	100000000	1	scan100000_ns_per_entry	1.286	1.269	1.301	ns/entry	5	anon n=100000000 V=6.2e9 bytes=800000000 B/entry=8.000 escapes=0 V=6200000000 touch=217
+thr	w8	100000000	4	thr_ns_per_read	3.375	3.170	3.672	ns/read	5	anon n=100000000 V=6.2e9 bytes=800000000 B/entry=8.000 escapes=0 V=6200000000 touch=217
+scan	w8	100000000	4	scan8_ns_per_entry	1.687	1.489	1.745	ns/entry	5	anon n=100000000 V=6.2e9 bytes=800000000 B/entry=8.000 escapes=0 V=6200000000 touch=217
+scan	w8	100000000	4	scan1500_ns_per_entry	0.318	0.310	0.330	ns/entry	5	anon n=100000000 V=6.2e9 bytes=800000000 B/entry=8.000 escapes=0 V=6200000000 touch=217
+scan	w8	100000000	4	scan100000_ns_per_entry	0.317	0.284	0.415	ns/entry	5	anon n=100000000 V=6.2e9 bytes=800000000 B/entry=8.000 escapes=0 V=6200000000 touch=217
+thr	hyb	100000000	1	thr_ns_per_read	36.849	29.280	41.907	ns/read	5	anon n=100000000 V=6.2e9 bytes=578615640 B/entry=5.786 escapes=30723128 V=6200000000 touch=212
+scan	hyb	100000000	1	scan8_ns_per_entry	20.215	14.422	21.070	ns/entry	5	anon n=100000000 V=6.2e9 bytes=578615640 B/entry=5.786 escapes=30723128 V=6200000000 touch=212
+scan	hyb	100000000	1	scan1500_ns_per_entry	3.332	3.159	3.348	ns/entry	5	anon n=100000000 V=6.2e9 bytes=578615640 B/entry=5.786 escapes=30723128 V=6200000000 touch=212
+scan	hyb	100000000	1	scan100000_ns_per_entry	3.432	3.398	3.505	ns/entry	5	anon n=100000000 V=6.2e9 bytes=578615640 B/entry=5.786 escapes=30723128 V=6200000000 touch=212
+thr	hyb	100000000	4	thr_ns_per_read	9.920	9.560	10.255	ns/read	5	anon n=100000000 V=6.2e9 bytes=578615640 B/entry=5.786 escapes=30723128 V=6200000000 touch=212
+scan	hyb	100000000	4	scan8_ns_per_entry	4.851	4.811	4.941	ns/entry	5	anon n=100000000 V=6.2e9 bytes=578615640 B/entry=5.786 escapes=30723128 V=6200000000 touch=212
+scan	hyb	100000000	4	scan1500_ns_per_entry	0.846	0.840	0.925	ns/entry	5	anon n=100000000 V=6.2e9 bytes=578615640 B/entry=5.786 escapes=30723128 V=6200000000 touch=212
+scan	hyb	100000000	4	scan100000_ns_per_entry	0.824	0.772	0.836	ns/entry	5	anon n=100000000 V=6.2e9 bytes=578615640 B/entry=5.786 escapes=30723128 V=6200000000 touch=212
+thr	p34	100000000	1	thr_ns_per_read	27.155	26.318	34.384	ns/read	5	anon n=100000000 V=6.2e9 bytes=426666688 B/entry=4.267 escapes=0 V=6200000000 touch=153
+scan	p34	100000000	1	scan8_ns_per_entry	18.839	13.702	19.588	ns/entry	5	anon n=100000000 V=6.2e9 bytes=426666688 B/entry=4.267 escapes=0 V=6200000000 touch=153
+scan	p34	100000000	1	scan1500_ns_per_entry	2.110	2.011	2.123	ns/entry	5	anon n=100000000 V=6.2e9 bytes=426666688 B/entry=4.267 escapes=0 V=6200000000 touch=153
+scan	p34	100000000	1	scan100000_ns_per_entry	2.801	2.749	3.440	ns/entry	5	anon n=100000000 V=6.2e9 bytes=426666688 B/entry=4.267 escapes=0 V=6200000000 touch=153
+thr	p34	100000000	4	thr_ns_per_read	8.021	7.971	8.481	ns/read	5	anon n=100000000 V=6.2e9 bytes=426666688 B/entry=4.267 escapes=0 V=6200000000 touch=153
+scan	p34	100000000	4	scan8_ns_per_entry	4.597	4.322	5.898	ns/entry	5	anon n=100000000 V=6.2e9 bytes=426666688 B/entry=4.267 escapes=0 V=6200000000 touch=153
+scan	p34	100000000	4	scan1500_ns_per_entry	0.534	0.530	0.539	ns/entry	5	anon n=100000000 V=6.2e9 bytes=426666688 B/entry=4.267 escapes=0 V=6200000000 touch=153
+scan	p34	100000000	4	scan100000_ns_per_entry	0.798	0.785	0.836	ns/entry	5	anon n=100000000 V=6.2e9 bytes=426666688 B/entry=4.267 escapes=0 V=6200000000 touch=153
+thr	w4	500000000	1	thr_ns_per_read	22.922	22.395	23.403	ns/read	5	anon n=500000000 V=6.2e9 bytes=2000000000 B/entry=4.000 escapes=0 V=6200000000 touch=69
+scan	w4	500000000	1	scan8_ns_per_entry	7.207	7.155	8.493	ns/entry	5	anon n=500000000 V=6.2e9 bytes=2000000000 B/entry=4.000 escapes=0 V=6200000000 touch=69
+scan	w4	500000000	1	scan1500_ns_per_entry	1.088	0.976	1.127	ns/entry	5	anon n=500000000 V=6.2e9 bytes=2000000000 B/entry=4.000 escapes=0 V=6200000000 touch=69
+scan	w4	500000000	1	scan100000_ns_per_entry	1.803	1.722	2.045	ns/entry	5	anon n=500000000 V=6.2e9 bytes=2000000000 B/entry=4.000 escapes=0 V=6200000000 touch=69
+thr	w4	500000000	4	thr_ns_per_read	5.773	5.464	5.847	ns/read	5	anon n=500000000 V=6.2e9 bytes=2000000000 B/entry=4.000 escapes=0 V=6200000000 touch=69
+scan	w4	500000000	4	scan8_ns_per_entry	2.173	1.980	2.438	ns/entry	5	anon n=500000000 V=6.2e9 bytes=2000000000 B/entry=4.000 escapes=0 V=6200000000 touch=69
+scan	w4	500000000	4	scan1500_ns_per_entry	0.280	0.259	0.304	ns/entry	5	anon n=500000000 V=6.2e9 bytes=2000000000 B/entry=4.000 escapes=0 V=6200000000 touch=69
+scan	w4	500000000	4	scan100000_ns_per_entry	0.445	0.439	0.551	ns/entry	5	anon n=500000000 V=6.2e9 bytes=2000000000 B/entry=4.000 escapes=0 V=6200000000 touch=69
+thr	w5	500000000	1	thr_ns_per_read	24.200	21.775	25.756	ns/read	5	anon n=500000000 V=6.2e9 bytes=2500000000 B/entry=5.000 escapes=0 V=6200000000 touch=134
+scan	w5	500000000	1	scan8_ns_per_entry	10.662	9.274	10.744	ns/entry	5	anon n=500000000 V=6.2e9 bytes=2500000000 B/entry=5.000 escapes=0 V=6200000000 touch=134
+scan	w5	500000000	1	scan1500_ns_per_entry	1.441	1.304	1.486	ns/entry	5	anon n=500000000 V=6.2e9 bytes=2500000000 B/entry=5.000 escapes=0 V=6200000000 touch=134
+scan	w5	500000000	1	scan100000_ns_per_entry	2.627	1.710	2.637	ns/entry	5	anon n=500000000 V=6.2e9 bytes=2500000000 B/entry=5.000 escapes=0 V=6200000000 touch=134
+thr	w5	500000000	4	thr_ns_per_read	6.146	6.127	6.171	ns/read	5	anon n=500000000 V=6.2e9 bytes=2500000000 B/entry=5.000 escapes=0 V=6200000000 touch=134
+scan	w5	500000000	4	scan8_ns_per_entry	2.532	2.043	2.663	ns/entry	5	anon n=500000000 V=6.2e9 bytes=2500000000 B/entry=5.000 escapes=0 V=6200000000 touch=134
+scan	w5	500000000	4	scan1500_ns_per_entry	0.366	0.342	0.502	ns/entry	5	anon n=500000000 V=6.2e9 bytes=2500000000 B/entry=5.000 escapes=0 V=6200000000 touch=134
+scan	w5	500000000	4	scan100000_ns_per_entry	0.594	0.556	0.633	ns/entry	5	anon n=500000000 V=6.2e9 bytes=2500000000 B/entry=5.000 escapes=0 V=6200000000 touch=134
+thr	w8	500000000	1	thr_ns_per_read	19.766	15.449	25.159	ns/read	5	anon n=500000000 V=6.2e9 bytes=4000000000 B/entry=8.000 escapes=0 V=6200000000 touch=13
+scan	w8	500000000	1	scan8_ns_per_entry	8.438	7.507	8.669	ns/entry	5	anon n=500000000 V=6.2e9 bytes=4000000000 B/entry=8.000 escapes=0 V=6200000000 touch=13
+scan	w8	500000000	1	scan1500_ns_per_entry	1.491	1.352	1.536	ns/entry	5	anon n=500000000 V=6.2e9 bytes=4000000000 B/entry=8.000 escapes=0 V=6200000000 touch=13
+scan	w8	500000000	1	scan100000_ns_per_entry	1.233	1.211	1.368	ns/entry	5	anon n=500000000 V=6.2e9 bytes=4000000000 B/entry=8.000 escapes=0 V=6200000000 touch=13
+thr	w8	500000000	4	thr_ns_per_read	6.478	6.171	6.550	ns/read	5	anon n=500000000 V=6.2e9 bytes=4000000000 B/entry=8.000 escapes=0 V=6200000000 touch=13
+scan	w8	500000000	4	scan8_ns_per_entry	2.104	1.903	2.167	ns/entry	5	anon n=500000000 V=6.2e9 bytes=4000000000 B/entry=8.000 escapes=0 V=6200000000 touch=13
+scan	w8	500000000	4	scan1500_ns_per_entry	0.381	0.373	0.402	ns/entry	5	anon n=500000000 V=6.2e9 bytes=4000000000 B/entry=8.000 escapes=0 V=6200000000 touch=13
+scan	w8	500000000	4	scan100000_ns_per_entry	0.342	0.338	0.444	ns/entry	5	anon n=500000000 V=6.2e9 bytes=4000000000 B/entry=8.000 escapes=0 V=6200000000 touch=13
+thr	hyb	500000000	1	thr_ns_per_read	45.610	37.833	55.542	ns/read	5	anon n=500000000 V=6.2e9 bytes=2893103205 B/entry=5.786 escapes=153620641 V=6200000000 touch=242
+scan	hyb	500000000	1	scan8_ns_per_entry	18.533	18.361	26.828	ns/entry	5	anon n=500000000 V=6.2e9 bytes=2893103205 B/entry=5.786 escapes=153620641 V=6200000000 touch=242
+scan	hyb	500000000	1	scan1500_ns_per_entry	3.422	3.223	3.468	ns/entry	5	anon n=500000000 V=6.2e9 bytes=2893103205 B/entry=5.786 escapes=153620641 V=6200000000 touch=242
+scan	hyb	500000000	1	scan100000_ns_per_entry	3.432	3.415	3.551	ns/entry	5	anon n=500000000 V=6.2e9 bytes=2893103205 B/entry=5.786 escapes=153620641 V=6200000000 touch=242
+thr	hyb	500000000	4	thr_ns_per_read	13.420	13.191	14.467	ns/read	5	anon n=500000000 V=6.2e9 bytes=2893103205 B/entry=5.786 escapes=153620641 V=6200000000 touch=242
+scan	hyb	500000000	4	scan8_ns_per_entry	6.195	5.972	6.805	ns/entry	5	anon n=500000000 V=6.2e9 bytes=2893103205 B/entry=5.786 escapes=153620641 V=6200000000 touch=242
+scan	hyb	500000000	4	scan1500_ns_per_entry	0.808	0.775	0.912	ns/entry	5	anon n=500000000 V=6.2e9 bytes=2893103205 B/entry=5.786 escapes=153620641 V=6200000000 touch=242
+scan	hyb	500000000	4	scan100000_ns_per_entry	0.683	0.678	0.726	ns/entry	5	anon n=500000000 V=6.2e9 bytes=2893103205 B/entry=5.786 escapes=153620641 V=6200000000 touch=242
+thr	p34	500000000	1	thr_ns_per_read	36.372	35.860	41.077	ns/read	5	anon n=500000000 V=6.2e9 bytes=2133333376 B/entry=4.267 escapes=0 V=6200000000 touch=196
+scan	p34	500000000	1	scan8_ns_per_entry	20.977	18.382	21.841	ns/entry	5	anon n=500000000 V=6.2e9 bytes=2133333376 B/entry=4.267 escapes=0 V=6200000000 touch=196
+scan	p34	500000000	1	scan1500_ns_per_entry	2.143	2.083	2.161	ns/entry	5	anon n=500000000 V=6.2e9 bytes=2133333376 B/entry=4.267 escapes=0 V=6200000000 touch=196
+scan	p34	500000000	1	scan100000_ns_per_entry	3.208	3.095	3.503	ns/entry	5	anon n=500000000 V=6.2e9 bytes=2133333376 B/entry=4.267 escapes=0 V=6200000000 touch=196
+thr	p34	500000000	4	thr_ns_per_read	10.247	10.113	13.209	ns/read	5	anon n=500000000 V=6.2e9 bytes=2133333376 B/entry=4.267 escapes=0 V=6200000000 touch=196
+scan	p34	500000000	4	scan8_ns_per_entry	5.192	5.112	5.797	ns/entry	5	anon n=500000000 V=6.2e9 bytes=2133333376 B/entry=4.267 escapes=0 V=6200000000 touch=196
+scan	p34	500000000	4	scan1500_ns_per_entry	0.562	0.551	0.573	ns/entry	5	anon n=500000000 V=6.2e9 bytes=2133333376 B/entry=4.267 escapes=0 V=6200000000 touch=196
+scan	p34	500000000	4	scan100000_ns_per_entry	0.799	0.780	0.866	ns/entry	5	anon n=500000000 V=6.2e9 bytes=2133333376 B/entry=4.267 escapes=0 V=6200000000 touch=196
+thr	w4	1000000000	1	thr_ns_per_read	19.805	19.688	20.005	ns/read	5	anon n=1000000000 V=6.2e9 bytes=4000000000 B/entry=4.000 escapes=0 V=6200000000 touch=133
+scan	w4	1000000000	1	scan8_ns_per_entry	7.677	7.614	9.166	ns/entry	5	anon n=1000000000 V=6.2e9 bytes=4000000000 B/entry=4.000 escapes=0 V=6200000000 touch=133
+scan	w4	1000000000	1	scan1500_ns_per_entry	1.078	0.957	1.111	ns/entry	5	anon n=1000000000 V=6.2e9 bytes=4000000000 B/entry=4.000 escapes=0 V=6200000000 touch=133
+scan	w4	1000000000	1	scan100000_ns_per_entry	1.806	1.550	1.845	ns/entry	5	anon n=1000000000 V=6.2e9 bytes=4000000000 B/entry=4.000 escapes=0 V=6200000000 touch=133
+thr	w4	1000000000	4	thr_ns_per_read	6.306	6.285	6.523	ns/read	5	anon n=1000000000 V=6.2e9 bytes=4000000000 B/entry=4.000 escapes=0 V=6200000000 touch=133
+scan	w4	1000000000	4	scan8_ns_per_entry	2.175	2.155	2.322	ns/entry	5	anon n=1000000000 V=6.2e9 bytes=4000000000 B/entry=4.000 escapes=0 V=6200000000 touch=133
+scan	w4	1000000000	4	scan1500_ns_per_entry	0.285	0.271	0.341	ns/entry	5	anon n=1000000000 V=6.2e9 bytes=4000000000 B/entry=4.000 escapes=0 V=6200000000 touch=133
+scan	w4	1000000000	4	scan100000_ns_per_entry	0.489	0.480	0.560	ns/entry	5	anon n=1000000000 V=6.2e9 bytes=4000000000 B/entry=4.000 escapes=0 V=6200000000 touch=133
+thr	w5	1000000000	1	thr_ns_per_read	25.875	25.442	26.136	ns/read	5	anon n=1000000000 V=6.2e9 bytes=5000000000 B/entry=5.000 escapes=0 V=6200000000 touch=102
+scan	w5	1000000000	1	scan8_ns_per_entry	10.796	10.692	11.092	ns/entry	5	anon n=1000000000 V=6.2e9 bytes=5000000000 B/entry=5.000 escapes=0 V=6200000000 touch=102
+scan	w5	1000000000	1	scan1500_ns_per_entry	1.451	1.420	1.478	ns/entry	5	anon n=1000000000 V=6.2e9 bytes=5000000000 B/entry=5.000 escapes=0 V=6200000000 touch=102
+scan	w5	1000000000	1	scan100000_ns_per_entry	2.487	2.402	2.638	ns/entry	5	anon n=1000000000 V=6.2e9 bytes=5000000000 B/entry=5.000 escapes=0 V=6200000000 touch=102
+thr	w5	1000000000	4	thr_ns_per_read	6.557	6.364	6.706	ns/read	5	anon n=1000000000 V=6.2e9 bytes=5000000000 B/entry=5.000 escapes=0 V=6200000000 touch=102
+scan	w5	1000000000	4	scan8_ns_per_entry	2.647	2.570	2.743	ns/entry	5	anon n=1000000000 V=6.2e9 bytes=5000000000 B/entry=5.000 escapes=0 V=6200000000 touch=102
+scan	w5	1000000000	4	scan1500_ns_per_entry	0.372	0.367	0.424	ns/entry	5	anon n=1000000000 V=6.2e9 bytes=5000000000 B/entry=5.000 escapes=0 V=6200000000 touch=102
+scan	w5	1000000000	4	scan100000_ns_per_entry	0.624	0.618	0.674	ns/entry	5	anon n=1000000000 V=6.2e9 bytes=5000000000 B/entry=5.000 escapes=0 V=6200000000 touch=102
+thr	w8	1000000000	1	thr_ns_per_read	26.604	26.119	27.601	ns/read	5	anon n=1000000000 V=6.2e9 bytes=8000000000 B/entry=8.000 escapes=0 V=6200000000 touch=18
+scan	w8	1000000000	1	scan8_ns_per_entry	8.806	8.681	9.260	ns/entry	5	anon n=1000000000 V=6.2e9 bytes=8000000000 B/entry=8.000 escapes=0 V=6200000000 touch=18
+scan	w8	1000000000	1	scan1500_ns_per_entry	1.551	1.473	1.675	ns/entry	5	anon n=1000000000 V=6.2e9 bytes=8000000000 B/entry=8.000 escapes=0 V=6200000000 touch=18
+scan	w8	1000000000	1	scan100000_ns_per_entry	1.180	1.163	1.310	ns/entry	5	anon n=1000000000 V=6.2e9 bytes=8000000000 B/entry=8.000 escapes=0 V=6200000000 touch=18
+thr	w8	1000000000	4	thr_ns_per_read	6.789	6.656	7.273	ns/read	5	anon n=1000000000 V=6.2e9 bytes=8000000000 B/entry=8.000 escapes=0 V=6200000000 touch=18
+scan	w8	1000000000	4	scan8_ns_per_entry	1.686	1.620	2.203	ns/entry	5	anon n=1000000000 V=6.2e9 bytes=8000000000 B/entry=8.000 escapes=0 V=6200000000 touch=18
+scan	w8	1000000000	4	scan1500_ns_per_entry	0.370	0.344	0.378	ns/entry	5	anon n=1000000000 V=6.2e9 bytes=8000000000 B/entry=8.000 escapes=0 V=6200000000 touch=18
+scan	w8	1000000000	4	scan100000_ns_per_entry	0.316	0.295	0.329	ns/entry	5	anon n=1000000000 V=6.2e9 bytes=8000000000 B/entry=8.000 escapes=0 V=6200000000 touch=18
+thr	hyb	1000000000	1	thr_ns_per_read	45.840	39.824	49.059	ns/read	5	anon n=1000000000 V=6.2e9 bytes=5786250675 B/entry=5.786 escapes=307250135 V=6200000000 touch=237
+scan	hyb	1000000000	1	scan8_ns_per_entry	23.671	23.114	24.666	ns/entry	5	anon n=1000000000 V=6.2e9 bytes=5786250675 B/entry=5.786 escapes=307250135 V=6200000000 touch=237
+scan	hyb	1000000000	1	scan1500_ns_per_entry	3.343	3.280	3.407	ns/entry	5	anon n=1000000000 V=6.2e9 bytes=5786250675 B/entry=5.786 escapes=307250135 V=6200000000 touch=237
+scan	hyb	1000000000	1	scan100000_ns_per_entry	3.465	3.463	3.472	ns/entry	5	anon n=1000000000 V=6.2e9 bytes=5786250675 B/entry=5.786 escapes=307250135 V=6200000000 touch=237
+thr	hyb	1000000000	4	thr_ns_per_read	11.749	10.360	12.273	ns/read	5	anon n=1000000000 V=6.2e9 bytes=5786250675 B/entry=5.786 escapes=307250135 V=6200000000 touch=237
+scan	hyb	1000000000	4	scan8_ns_per_entry	7.318	6.120	7.807	ns/entry	5	anon n=1000000000 V=6.2e9 bytes=5786250675 B/entry=5.786 escapes=307250135 V=6200000000 touch=237
+scan	hyb	1000000000	4	scan1500_ns_per_entry	0.770	0.755	0.862	ns/entry	5	anon n=1000000000 V=6.2e9 bytes=5786250675 B/entry=5.786 escapes=307250135 V=6200000000 touch=237
+scan	hyb	1000000000	4	scan100000_ns_per_entry	0.673	0.665	0.675	ns/entry	5	anon n=1000000000 V=6.2e9 bytes=5786250675 B/entry=5.786 escapes=307250135 V=6200000000 touch=237
+thr	p34	1000000000	1	thr_ns_per_read	36.708	36.022	43.316	ns/read	5	anon n=1000000000 V=6.2e9 bytes=4266666688 B/entry=4.267 escapes=0 V=6200000000 touch=155
+scan	p34	1000000000	1	scan8_ns_per_entry	15.784	15.579	21.184	ns/entry	5	anon n=1000000000 V=6.2e9 bytes=4266666688 B/entry=4.267 escapes=0 V=6200000000 touch=155
+scan	p34	1000000000	1	scan1500_ns_per_entry	2.168	2.027	2.228	ns/entry	5	anon n=1000000000 V=6.2e9 bytes=4266666688 B/entry=4.267 escapes=0 V=6200000000 touch=155
+scan	p34	1000000000	1	scan100000_ns_per_entry	2.819	2.803	3.389	ns/entry	5	anon n=1000000000 V=6.2e9 bytes=4266666688 B/entry=4.267 escapes=0 V=6200000000 touch=155
+thr	p34	1000000000	4	thr_ns_per_read	11.425	10.999	14.781	ns/read	5	anon n=1000000000 V=6.2e9 bytes=4266666688 B/entry=4.267 escapes=0 V=6200000000 touch=155
+scan	p34	1000000000	4	scan8_ns_per_entry	6.074	5.640	6.805	ns/entry	5	anon n=1000000000 V=6.2e9 bytes=4266666688 B/entry=4.267 escapes=0 V=6200000000 touch=155
+scan	p34	1000000000	4	scan1500_ns_per_entry	0.811	0.781	0.937	ns/entry	5	anon n=1000000000 V=6.2e9 bytes=4266666688 B/entry=4.267 escapes=0 V=6200000000 touch=155
+scan	p34	1000000000	4	scan100000_ns_per_entry	1.220	0.917	1.391	ns/entry	5	anon n=1000000000 V=6.2e9 bytes=4266666688 B/entry=4.267 escapes=0 V=6200000000 touch=155
+chase	w4	10000000	1	chase_ns_per_read	47.429	28.717	53.868	ns/read	7	anon n=10000000 V=6.2e9 chain restarts every 1024 bytes=40000000 B/entry=4.000 escapes=0 V=6200000000 touch=99
+chase	w4	10000000	4	chase_ns_per_read	46.240	45.369	51.702	ns/read	7	anon n=10000000 V=6.2e9 chain restarts every 1024 bytes=40000000 B/entry=4.000 escapes=0 V=6200000000 touch=99
+chase	w5	10000000	1	chase_ns_per_read	50.981	33.575	59.278	ns/read	7	anon n=10000000 V=6.2e9 chain restarts every 1024 bytes=50000000 B/entry=5.000 escapes=0 V=6200000000 touch=9
+chase	w5	10000000	4	chase_ns_per_read	60.432	54.727	64.855	ns/read	7	anon n=10000000 V=6.2e9 chain restarts every 1024 bytes=50000000 B/entry=5.000 escapes=0 V=6200000000 touch=9
+chase	w8	10000000	1	chase_ns_per_read	52.674	51.107	58.150	ns/read	7	anon n=10000000 V=6.2e9 chain restarts every 1024 bytes=80000000 B/entry=8.000 escapes=0 V=6200000000 touch=116
+chase	w8	10000000	4	chase_ns_per_read	82.560	56.417	101.824	ns/read	7	anon n=10000000 V=6.2e9 chain restarts every 1024 bytes=80000000 B/entry=8.000 escapes=0 V=6200000000 touch=116
+chase	hyb	10000000	1	chase_ns_per_read	98.596	85.667	107.435	ns/read	7	anon n=10000000 V=6.2e9 chain restarts every 1024 bytes=57863590 B/entry=5.786 escapes=3072718 V=6200000000 touch=254
+chase	hyb	10000000	4	chase_ns_per_read	99.970	95.253	107.144	ns/read	7	anon n=10000000 V=6.2e9 chain restarts every 1024 bytes=57863590 B/entry=5.786 escapes=3072718 V=6200000000 touch=254
+chase	p34	10000000	1	chase_ns_per_read	53.161	39.344	59.873	ns/read	7	anon n=10000000 V=6.2e9 chain restarts every 1024 bytes=42666688 B/entry=4.267 escapes=0 V=6200000000 touch=182
+chase	p34	10000000	4	chase_ns_per_read	63.313	57.138	75.023	ns/read	7	anon n=10000000 V=6.2e9 chain restarts every 1024 bytes=42666688 B/entry=4.267 escapes=0 V=6200000000 touch=182
+chase	w4	100000000	1	chase_ns_per_read	124.127	94.442	149.347	ns/read	7	anon n=100000000 V=6.2e9 chain restarts every 1024 bytes=400000000 B/entry=4.000 escapes=0 V=6200000000 touch=146
+chase	w4	100000000	4	chase_ns_per_read	126.475	121.579	135.877	ns/read	7	anon n=100000000 V=6.2e9 chain restarts every 1024 bytes=400000000 B/entry=4.000 escapes=0 V=6200000000 touch=146
+chase	w5	100000000	1	chase_ns_per_read	143.887	111.388	164.090	ns/read	7	anon n=100000000 V=6.2e9 chain restarts every 1024 bytes=500000000 B/entry=5.000 escapes=0 V=6200000000 touch=28
+chase	w5	100000000	4	chase_ns_per_read	141.228	135.766	147.419	ns/read	7	anon n=100000000 V=6.2e9 chain restarts every 1024 bytes=500000000 B/entry=5.000 escapes=0 V=6200000000 touch=28
+chase	w8	100000000	1	chase_ns_per_read	159.276	120.419	169.477	ns/read	7	anon n=100000000 V=6.2e9 chain restarts every 1024 bytes=800000000 B/entry=8.000 escapes=0 V=6200000000 touch=217
+chase	w8	100000000	4	chase_ns_per_read	147.579	142.779	150.041	ns/read	7	anon n=100000000 V=6.2e9 chain restarts every 1024 bytes=800000000 B/entry=8.000 escapes=0 V=6200000000 touch=217
+chase	hyb	100000000	1	chase_ns_per_read	249.342	200.838	274.286	ns/read	7	anon n=100000000 V=6.2e9 chain restarts every 1024 bytes=578615640 B/entry=5.786 escapes=30723128 V=6200000000 touch=212
+chase	hyb	100000000	4	chase_ns_per_read	245.924	223.547	281.400	ns/read	7	anon n=100000000 V=6.2e9 chain restarts every 1024 bytes=578615640 B/entry=5.786 escapes=30723128 V=6200000000 touch=212
+chase	p34	100000000	1	chase_ns_per_read	133.459	109.422	172.198	ns/read	7	anon n=100000000 V=6.2e9 chain restarts every 1024 bytes=426666688 B/entry=4.267 escapes=0 V=6200000000 touch=153
+chase	p34	100000000	4	chase_ns_per_read	132.464	129.711	138.240	ns/read	7	anon n=100000000 V=6.2e9 chain restarts every 1024 bytes=426666688 B/entry=4.267 escapes=0 V=6200000000 touch=153
+chase	w4	500000000	1	chase_ns_per_read	179.561	156.319	215.642	ns/read	7	anon n=500000000 V=6.2e9 chain restarts every 1024 bytes=2000000000 B/entry=4.000 escapes=0 V=6200000000 touch=69
+chase	w4	500000000	4	chase_ns_per_read	222.583	208.152	235.605	ns/read	7	anon n=500000000 V=6.2e9 chain restarts every 1024 bytes=2000000000 B/entry=4.000 escapes=0 V=6200000000 touch=69
+chase	w5	500000000	1	chase_ns_per_read	219.133	190.158	275.489	ns/read	7	anon n=500000000 V=6.2e9 chain restarts every 1024 bytes=2500000000 B/entry=5.000 escapes=0 V=6200000000 touch=134
+chase	w5	500000000	4	chase_ns_per_read	227.936	210.668	232.921	ns/read	7	anon n=500000000 V=6.2e9 chain restarts every 1024 bytes=2500000000 B/entry=5.000 escapes=0 V=6200000000 touch=134
+chase	w8	500000000	1	chase_ns_per_read	250.098	231.857	274.035	ns/read	7	anon n=500000000 V=6.2e9 chain restarts every 1024 bytes=4000000000 B/entry=8.000 escapes=0 V=6200000000 touch=13
+chase	w8	500000000	4	chase_ns_per_read	250.610	239.010	261.505	ns/read	7	anon n=500000000 V=6.2e9 chain restarts every 1024 bytes=4000000000 B/entry=8.000 escapes=0 V=6200000000 touch=13
+chase	hyb	500000000	1	chase_ns_per_read	304.842	289.814	442.203	ns/read	7	anon n=500000000 V=6.2e9 chain restarts every 1024 bytes=2893103205 B/entry=5.786 escapes=153620641 V=6200000000 touch=242
+chase	hyb	500000000	4	chase_ns_per_read	375.837	368.323	383.845	ns/read	7	anon n=500000000 V=6.2e9 chain restarts every 1024 bytes=2893103205 B/entry=5.786 escapes=153620641 V=6200000000 touch=242
+chase	p34	500000000	1	chase_ns_per_read	197.455	184.638	278.426	ns/read	7	anon n=500000000 V=6.2e9 chain restarts every 1024 bytes=2133333376 B/entry=4.267 escapes=0 V=6200000000 touch=196
+chase	p34	500000000	4	chase_ns_per_read	178.388	167.724	180.660	ns/read	7	anon n=500000000 V=6.2e9 chain restarts every 1024 bytes=2133333376 B/entry=4.267 escapes=0 V=6200000000 touch=196
+chase	w4	1000000000	1	chase_ns_per_read	186.317	181.780	235.198	ns/read	7	anon n=1000000000 V=6.2e9 chain restarts every 1024 bytes=4000000000 B/entry=4.000 escapes=0 V=6200000000 touch=133
+chase	w4	1000000000	4	chase_ns_per_read	165.595	159.406	173.108	ns/read	7	anon n=1000000000 V=6.2e9 chain restarts every 1024 bytes=4000000000 B/entry=4.000 escapes=0 V=6200000000 touch=133
+chase	w5	1000000000	1	chase_ns_per_read	208.773	192.731	251.184	ns/read	7	anon n=1000000000 V=6.2e9 chain restarts every 1024 bytes=5000000000 B/entry=5.000 escapes=0 V=6200000000 touch=102
+chase	w5	1000000000	4	chase_ns_per_read	214.414	175.003	221.529	ns/read	7	anon n=1000000000 V=6.2e9 chain restarts every 1024 bytes=5000000000 B/entry=5.000 escapes=0 V=6200000000 touch=102
+chase	w8	1000000000	1	chase_ns_per_read	208.995	174.731	249.564	ns/read	7	anon n=1000000000 V=6.2e9 chain restarts every 1024 bytes=8000000000 B/entry=8.000 escapes=0 V=6200000000 touch=18
+chase	w8	1000000000	4	chase_ns_per_read	243.971	235.231	257.887	ns/read	7	anon n=1000000000 V=6.2e9 chain restarts every 1024 bytes=8000000000 B/entry=8.000 escapes=0 V=6200000000 touch=18
+chase	hyb	1000000000	1	chase_ns_per_read	373.012	290.289	399.175	ns/read	7	anon n=1000000000 V=6.2e9 chain restarts every 1024 bytes=5786250675 B/entry=5.786 escapes=307250135 V=6200000000 touch=237
+chase	hyb	1000000000	4	chase_ns_per_read	295.514	261.842	455.533	ns/read	7	anon n=1000000000 V=6.2e9 chain restarts every 1024 bytes=5786250675 B/entry=5.786 escapes=307250135 V=6200000000 touch=237
+chase	p34	1000000000	1	chase_ns_per_read	198.740	185.343	256.851	ns/read	7	anon n=1000000000 V=6.2e9 chain restarts every 1024 bytes=4266666688 B/entry=4.267 escapes=0 V=6200000000 touch=155
+chase	p34	1000000000	4	chase_ns_per_read	179.019	168.651	303.764	ns/read	7	anon n=1000000000 V=6.2e9 chain restarts every 1024 bytes=4266666688 B/entry=4.267 escapes=0 V=6200000000 touch=155
