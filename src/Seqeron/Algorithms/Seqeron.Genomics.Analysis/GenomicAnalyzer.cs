@@ -177,7 +177,7 @@ public static partial class GenomicAnalyzer
             }
 
             for (int length = Math.Max(parentDepth + 1, effectiveMinLength); length < depth; length++)
-                yield return new RepeatInfo(label.Substring(0, length), new List<int>(positions));
+                yield return new RepeatInfo(label, 0, length, new List<int>(positions));
 
             yield return new RepeatInfo(label, positions);
         }
@@ -728,7 +728,28 @@ public static partial class GenomicAnalyzer
             return sorted;
         }
 
+        // B09 WP78 (R14-18): the linear route of a DnaSequence (validated upper-case A/C/G/T) and a motif of A/C/G/T is the bit-parallel scan of the canonical Hamming matcher with 0 mismatches
+        // (2 bits per base, XOR + popcount; same positions, ascending, overlapping); KMP stays for the other motifs and for plain strings.
+        if (indexed is not null && motif.Length is > 0 and <= 32 && IsAcgtOnly(motif))
+        {
+            var positions = new List<int>();
+            foreach (var hit in ApproximateMatcher.FindWithMismatches(text, motif, 0, cancellationToken))
+                positions.Add(hit.Position);
+            return positions;
+        }
+
         return KmerAnalyzer.FindKmerPositions(text, motif).ToList();
+    }
+
+    private static bool IsAcgtOnly(string motif)
+    {
+        foreach (char c in motif)
+        {
+            if (c is not ('A' or 'C' or 'G' or 'T'))
+                return false;
+        }
+
+        return true;
     }
 
     private static List<KnownMotifHit> MergeStrandHits(List<int> forward, List<int> reverse)
@@ -1212,8 +1233,9 @@ public static partial class GenomicAnalyzer
             }
 
             yield return new OrfInfo(
-                strand.Substring(region.Start, length),
+                strand,
                 region.Start,
+                length,
                 region.FrameOffset + 1,
                 isReverseComplement,
                 region.IsTerminated,
@@ -1261,30 +1283,54 @@ public readonly record struct KnownMotifHit(int Position, bool IsReverseStrand, 
 /// <summary>
 /// Information about a repeated region.
 /// </summary>
-public readonly struct RepeatInfo
+public readonly struct RepeatInfo : IEquatable<RepeatInfo>
 {
     /// <summary>The empty result: no repeated substring.</summary>
     public static readonly RepeatInfo None = new(string.Empty, Array.Empty<int>());
+
+    private readonly string? _sequence;
+    private readonly LazySubstring? _lazy;
 
     /// <summary>Creates a repeat record.</summary>
     /// <param name="sequence">The repeated substring.</param>
     /// <param name="positions">The 0-based start positions of its occurrences.</param>
     public RepeatInfo(string sequence, IReadOnlyList<int> positions)
     {
-        Sequence = sequence;
+        _sequence = sequence;
+        _lazy = null;
         Positions = positions;
     }
 
-    /// <summary>The repeated substring.</summary>
-    public string Sequence { get; }
+    /// <summary>A repeat whose string is cut out of <paramref name="source"/> on first access (R14-19: the enumerations of all repeats of a text do not build the O(depth²) prefix strings unless they are read).</summary>
+    internal RepeatInfo(string source, int start, int length, IReadOnlyList<int> positions)
+    {
+        _sequence = null;
+        _lazy = new LazySubstring(source, start, length);
+        Positions = positions;
+    }
+
+    /// <summary>The repeated substring (built on first access for the results of the enumerations of repeats).</summary>
+    public string Sequence => _sequence ?? _lazy?.Value!;
+    /// <summary>The repeated substring without building a string: a view of the text it is cut from.</summary>
+    public ReadOnlyMemory<char> SequenceMemory => _sequence is not null ? _sequence.AsMemory() : _lazy?.Memory ?? default;
     /// <summary>The 0-based start positions of its occurrences.</summary>
     public IReadOnlyList<int> Positions { get; }
     /// <summary>Length of the repeated substring.</summary>
-    public int Length => Sequence.Length;
+    public int Length => _sequence?.Length ?? _lazy?.Length ?? 0;
     /// <summary>Number of occurrences.</summary>
     public int Count => Positions.Count;
     /// <summary>True for <see cref="None"/> (no repeated substring).</summary>
-    public bool IsEmpty => string.IsNullOrEmpty(Sequence);
+    public bool IsEmpty => Length == 0;
+
+    /// <inheritdoc />
+    public bool Equals(RepeatInfo other) => Equals(Positions, other.Positions) && SequenceMemory.Span.SequenceEqual(other.SequenceMemory.Span);
+
+    /// <inheritdoc />
+    public override bool Equals(object? obj) => obj is RepeatInfo other && Equals(other);
+
+    /// <inheritdoc />
+    public override int GetHashCode() => HashCode.Combine(Length, Positions);
+
 }
 
 /// <summary>
@@ -1353,10 +1399,13 @@ public readonly struct PalindromeInfo
 /// <summary>
 /// Information about a common region between two sequences.
 /// </summary>
-public readonly struct CommonRegion
+public readonly struct CommonRegion : IEquatable<CommonRegion>
 {
     /// <summary>The empty result: no common region (positions -1).</summary>
     public static readonly CommonRegion None = new(string.Empty, -1, -1);
+
+    private readonly string? _sequence;
+    private readonly LazySubstring? _lazy;
 
     /// <summary>Creates a common-region record.</summary>
     /// <param name="sequence">The common string as it reads in the first sequence.</param>
@@ -1365,14 +1414,41 @@ public readonly struct CommonRegion
     /// <param name="isReverseComplement">True when the region is shared with the reverse complement of the second sequence.</param>
     public CommonRegion(string sequence, int positionInFirst, int positionInSecond, bool isReverseComplement = false)
     {
-        Sequence = sequence;
+        _sequence = sequence;
+        _lazy = null;
         PositionInFirst = positionInFirst;
         PositionInSecond = positionInSecond;
         IsReverseComplement = isReverseComplement;
     }
 
-    /// <summary>The common string as it reads in the first sequence.</summary>
-    public string Sequence { get; }
+    /// <summary>A region whose string is cut out of <paramref name="source"/> on first access (R14-19: the regions of long matches are not materialised unless they are read).</summary>
+    internal CommonRegion(string source, int start, int length, int positionInFirst, int positionInSecond, bool isReverseComplement)
+    {
+        _sequence = null;
+        _lazy = new LazySubstring(source, start, length);
+        PositionInFirst = positionInFirst;
+        PositionInSecond = positionInSecond;
+        IsReverseComplement = isReverseComplement;
+    }
+
+    /// <summary>The common string as it reads in the first sequence (built on first access for the regions of <see cref="GenomicAnalyzer.FindCommonRegions(DnaSequence, DnaSequence, int)"/>).</summary>
+    public string Sequence => _sequence ?? _lazy?.Value!;
+
+    /// <summary>The common string without building a string: a view of the text it is cut from.</summary>
+    public ReadOnlyMemory<char> SequenceMemory => _sequence is not null ? _sequence.AsMemory() : _lazy?.Memory ?? default;
+
+    /// <summary>The same string with other positions (the string is built only if it already was).</summary>
+    internal CommonRegion WithPositions(int positionInFirst, int positionInSecond, bool isReverseComplement)
+        => _lazy is not null ? new CommonRegion(_lazy, positionInFirst, positionInSecond, isReverseComplement) : new CommonRegion(_sequence!, positionInFirst, positionInSecond, isReverseComplement);
+
+    private CommonRegion(LazySubstring lazy, int positionInFirst, int positionInSecond, bool isReverseComplement)
+    {
+        _sequence = null;
+        _lazy = lazy;
+        PositionInFirst = positionInFirst;
+        PositionInSecond = positionInSecond;
+        IsReverseComplement = isReverseComplement;
+    }
 
     /// <summary>0-based start in the first sequence.</summary>
     public int PositionInFirst { get; }
@@ -1387,9 +1463,41 @@ public readonly struct CommonRegion
     /// <summary>True when the region is shared with the reverse complement of the second sequence (<c>mummer -r / -b</c>).</summary>
     public bool IsReverseComplement { get; }
     /// <summary>Length of the common region.</summary>
-    public int Length => Sequence.Length;
+    public int Length => _sequence?.Length ?? _lazy?.Length ?? 0;
     /// <summary>True for <see cref="None"/> (no common region).</summary>
-    public bool IsEmpty => string.IsNullOrEmpty(Sequence);
+    public bool IsEmpty => Length == 0;
+
+    /// <inheritdoc />
+    public bool Equals(CommonRegion other) => PositionInFirst == other.PositionInFirst && PositionInSecond == other.PositionInSecond && IsReverseComplement == other.IsReverseComplement
+        && SequenceMemory.Span.SequenceEqual(other.SequenceMemory.Span);
+
+    /// <inheritdoc />
+    public override bool Equals(object? obj) => obj is CommonRegion other && Equals(other);
+
+    /// <inheritdoc />
+    public override int GetHashCode() => HashCode.Combine(Length, PositionInFirst, PositionInSecond, IsReverseComplement);
+
+}
+
+/// <summary>A substring of a text that is cut out on first access (the result records keep the text and the coordinates, not the characters).</summary>
+internal sealed class LazySubstring
+{
+    private readonly string _source;
+    private readonly int _start;
+    private string? _value;
+
+    public LazySubstring(string source, int start, int length)
+    {
+        _source = source;
+        _start = start;
+        Length = length;
+    }
+
+    public int Length { get; }
+
+    public string Value => _value ??= _source.Substring(_start, Length);
+
+    public ReadOnlyMemory<char> Memory => _value is not null ? _value.AsMemory() : _source.AsMemory(_start, Length);
 }
 
 /// <summary>
@@ -1405,8 +1513,11 @@ public readonly record struct CommonRegionSpan(int PositionInFirst, int Position
 /// <summary>
 /// Information about an Open Reading Frame found by <see cref="GenomicAnalyzer.FindOpenReadingFrames(DnaSequence, int)"/>.
 /// </summary>
-public readonly struct OrfInfo
+public readonly struct OrfInfo : IEquatable<OrfInfo>
 {
+    private readonly string? _sequence;
+    private readonly LazySubstring? _lazy;
+
     /// <summary>Creates an ORF record.</summary>
     /// <param name="sequence">The ORF's nucleotides on the scanned strand.</param>
     /// <param name="position">0-based start in the scanned strand.</param>
@@ -1418,7 +1529,8 @@ public readonly struct OrfInfo
     public OrfInfo(string sequence, int position, int frame, bool isReverseComplement, bool isTerminated = true,
         int regionStart = 0, int regionLength = -1)
     {
-        Sequence = sequence;
+        _sequence = sequence;
+        _lazy = null;
         Position = position;
         Frame = frame;
         IsReverseComplement = isReverseComplement;
@@ -1427,8 +1539,24 @@ public readonly struct OrfInfo
         RegionLength = regionLength;
     }
 
-    /// <summary>The ORF's nucleotides, start codon through the stop codon inclusive (through the last complete codon for an open-ended ORF), 5'→3' on the scanned strand.</summary>
-    public string Sequence { get; }
+    /// <summary>An ORF whose nucleotides are cut out of the scanned strand on first access (R14-19: nested ORFs share one stop codon, the strings of all of them add up to O(n²) characters, the records are O(n)).</summary>
+    internal OrfInfo(string strand, int start, int length, int frame, bool isReverseComplement, bool isTerminated, int regionStart, int regionLength)
+    {
+        _sequence = null;
+        _lazy = new LazySubstring(strand, start, length);
+        Position = start;
+        Frame = frame;
+        IsReverseComplement = isReverseComplement;
+        IsTerminated = isTerminated;
+        RegionStart = regionStart;
+        RegionLength = regionLength;
+    }
+
+    /// <summary>The ORF's nucleotides, start codon through the stop codon inclusive (through the last complete codon for an open-ended ORF), 5'→3' on the scanned strand. For the ORFs of <see cref="GenomicAnalyzer.FindOpenReadingFrames(DnaSequence, int)"/> the string is built on first access (see <see cref="SequenceMemory"/> for a view without a copy).</summary>
+    public string Sequence => _sequence ?? _lazy?.Value!;
+
+    /// <summary>The ORF's nucleotides as a view of the scanned strand (no string is built): the coordinate-only access to the sequence.</summary>
+    public ReadOnlyMemory<char> SequenceMemory => _sequence is not null ? _sequence.AsMemory() : _lazy?.Memory ?? default;
 
     /// <summary>0-based start of the ORF in the <i>scanned strand</i>: the searched region of the input sequence (the whole input by default), or its reverse complement when <see cref="IsReverseComplement"/>. See <see cref="GetForwardStrandRange()"/> for input coordinates.</summary>
     public int Position { get; }
@@ -1463,9 +1591,9 @@ public readonly struct OrfInfo
     private const int CodonNucleotides = 3;
 
     /// <summary>Length of the ORF in nucleotides (stop codon included).</summary>
-    public int Length => Sequence.Length;
+    public int Length => _sequence?.Length ?? _lazy?.Length ?? 0;
     /// <summary>Number of complete codons (stop codon included).</summary>
-    public int CodonCount => Sequence.Length / 3;
+    public int CodonCount => Length / 3;
 
     /// <summary>
     /// The ORF's location in input (forward-strand) coordinates: 0-based inclusive <c>(Start, End)</c> with
@@ -1495,6 +1623,17 @@ public readonly struct OrfInfo
 
         return GetForwardStrandRange(RegionStart + RegionLength);
     }
+
+    /// <inheritdoc />
+    public bool Equals(OrfInfo other) => Position == other.Position && Frame == other.Frame && IsReverseComplement == other.IsReverseComplement && IsTerminated == other.IsTerminated
+        && RegionStart == other.RegionStart && RegionLength == other.RegionLength && SequenceMemory.Span.SequenceEqual(other.SequenceMemory.Span);
+
+    /// <inheritdoc />
+    public override bool Equals(object? obj) => obj is OrfInfo other && Equals(other);
+
+    /// <inheritdoc />
+    public override int GetHashCode() => HashCode.Combine(Position, Frame, IsReverseComplement, IsTerminated, RegionStart, RegionLength, Length);
+
 }
 
 /// <summary>Which codons open an ORF in <see cref="GenomicAnalyzer.FindOpenReadingFrames(DnaSequence, int, OrfSearchOptions)"/> (NCBI ORFfinder start-codon modes).</summary>

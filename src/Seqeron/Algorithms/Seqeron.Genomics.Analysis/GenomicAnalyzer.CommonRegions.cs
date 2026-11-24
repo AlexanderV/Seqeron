@@ -193,13 +193,13 @@ public static partial class GenomicAnalyzer
             {
                 AlignmentCancellation.Poll(cancellationToken);
                 yield return reverse
-                    ? new CommonRegion(region.Sequence, region.PositionInFirst, strandQuery.Length - region.PositionInSecond - region.Length, isReverseComplement: true)
+                    ? region.WithPositions(region.PositionInFirst, strandQuery.Length - region.PositionInSecond - region.Length, isReverseComplement: true)
                     : region;
             }
         }
 
         static IEnumerable<CommonRegion> FromMatches(IReadOnlyList<(int PositionInText, int PositionInQuery, int Length)> matches, string query)
-            => matches.Select(m => new CommonRegion(query.Substring(m.PositionInQuery, m.Length), m.PositionInText, m.PositionInQuery));
+            => matches.Select(m => new CommonRegion(query, m.PositionInQuery, m.Length, m.PositionInText, m.PositionInQuery, isReverseComplement: false));
     }
 
     #endregion

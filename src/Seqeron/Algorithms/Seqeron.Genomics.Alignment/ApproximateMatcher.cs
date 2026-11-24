@@ -121,6 +121,13 @@ namespace Seqeron.Genomics.Alignment
             if (pat.Length > seq.Length)
                 yield break;
 
+            if (CanScanPacked(pat, iupacPattern, out bool onlyBases))
+            {
+                foreach (var hit in FindWithMismatchesPacked(seq, pat, maxMismatches, iupacPattern, onlyBases, cancellationToken))
+                    yield return hit;
+                yield break;
+            }
+
             const int checkInterval = 1000;
             for (int i = 0; i <= seq.Length - pat.Length; i++)
             {

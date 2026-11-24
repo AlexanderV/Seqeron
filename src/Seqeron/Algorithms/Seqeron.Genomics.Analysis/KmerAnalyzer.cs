@@ -6,7 +6,7 @@ namespace Seqeron.Genomics.Analysis;
 /// <summary>
 /// Analyzes k-mers (substrings of length k) in DNA/RNA sequences.
 /// </summary>
-public static class KmerAnalyzer
+public static partial class KmerAnalyzer
 {
     /// <summary>
     /// Counts all overlapping k-mers in a sequence (sliding window of length k, step 1).
@@ -1470,6 +1470,9 @@ public static class KmerAnalyzer
     private static (int Shared, int CountA, int CountB) SharedAndSetSizes(string a, string b, int k, KmerCountingOptions options)
     {
         ThrowIfKNotPositive(k);
+
+        if (TryPackedSetSizes(a ?? string.Empty, b ?? string.Empty, k, options, out var packed))
+            return packed;
 
         var setA = DistinctKmers(a ?? string.Empty, k, options);
         var setB = DistinctKmers(b ?? string.Empty, k, options);

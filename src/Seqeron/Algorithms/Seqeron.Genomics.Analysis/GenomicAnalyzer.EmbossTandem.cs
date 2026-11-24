@@ -77,11 +77,13 @@ public static partial class GenomicAnalyzer
 
         var reportRoot = new EtandemCons(0) { BestScore = unchecked(threshold - 1) };       // etandem.c: reportRoot->bestScore = thresh - 1 (a 32-bit wrap for int.MinValue)
         var ring = new int[Math.Max(nbase, 1)];
+        var pool = new Stack<EtandemCons>(); // candidates that died without being reported: their tables are reused by the next candidate of the same unit size (B09 WP78, R14-18: no allocation per base)
 
         for (int n = minRepeat; n <= maxRepeat; n++)
         {
             AlignmentCancellation.Poll(cancellationToken);
             if (n > nbase) break; // ibase < n - 1 for every position: no candidate ever starts (same for every larger size)
+            pool.Clear();
             var root = new EtandemCons(0);
             for (int ibase = 0; ibase < nbase; ibase++)
             {
@@ -90,15 +92,14 @@ public static partial class GenomicAnalyzer
                 ring[phase] = codes[ibase];
                 if (ibase < n - 1) continue;
 
-                root.Next = new EtandemCons(n)
-                {
-                    Start = ibase - n + 1,
-                    Score = -n,
-                    BestScore = -n,
-                    Phase = phase, // phase of the last base of the pattern
-                    Repeat = n,
-                    Next = root.Next,
-                };
+                var fresh = pool.Count > 0 ? pool.Pop().Reset(n) : new EtandemCons(n);
+                fresh.Start = ibase - n + 1;
+                fresh.Score = -n;
+                fresh.BestScore = -n;
+                fresh.Phase = phase; // phase of the last base of the pattern
+                fresh.Repeat = n;
+                fresh.Next = root.Next;
+                root.Next = fresh;
 
                 // add the last n-mer to the active candidates
                 var olda = root;
@@ -117,7 +118,8 @@ public static partial class GenomicAnalyzer
                         else if (a.Score < 0)
                         {
                             olda.Next = a.Next;
-                            EtandemReport(a, threshold, uniform, reportRoot);
+                            if (!EtandemReport(a, threshold, uniform, reportRoot))
+                                pool.Push(a);
                             a = olda;
                         }
                     }
@@ -130,7 +132,7 @@ public static partial class GenomicAnalyzer
                 a = olda.Next;
                 while (a is not null)
                 {
-                    if (a.Phase == phase) a = EtandemDeduplicate(olda, a, n);
+                    if (a.Phase == phase) a = EtandemDeduplicate(olda, a, n, pool);
                     olda = a;
                     a = a.Next;
                 }
@@ -140,7 +142,8 @@ public static partial class GenomicAnalyzer
             while ((c = root.Next) is not null)
             {
                 root.Next = c.Next;
-                EtandemReport(c, threshold, uniform, reportRoot);
+                if (!EtandemReport(c, threshold, uniform, reportRoot))
+                    pool.Push(c);
             }
         }
 
@@ -302,7 +305,7 @@ public static partial class GenomicAnalyzer
     /// "Remove duplicate max tables" for the candidate <paramref name="a"/> (preceded by <paramref name="olda"/>): against every later candidate with the same consensus table
     /// the one with the lower best score goes (ties: <paramref name="a"/>). Returns the node the outer scan continues from (<paramref name="olda"/> when <paramref name="a"/> was removed).
     /// </summary>
-    private static EtandemCons EtandemDeduplicate(EtandemCons olda, EtandemCons a, int n)
+    private static EtandemCons EtandemDeduplicate(EtandemCons olda, EtandemCons a, int n, Stack<EtandemCons> pool)
     {
         var oldb = a;
         var b = a.Next;
@@ -315,11 +318,13 @@ public static partial class GenomicAnalyzer
                 if (a.BestScore > b.BestScore)
                 {
                     oldb.Next = b.Next; // remove b
+                    pool.Push(b);
                     b = oldb;
                 }
                 else
                 {
                     olda.Next = a.Next; // remove a
+                    pool.Push(a);
                     return olda;
                 }
             }
@@ -338,7 +343,8 @@ public static partial class GenomicAnalyzer
         _ => 4,
     };
 
-    private static void EtandemReport(EtandemCons a, int threshold, bool uniform, EtandemCons reportRoot)
+    // true when the candidate was linked into the report list (it must stay intact), false when it is dropped
+    private static bool EtandemReport(EtandemCons a, int threshold, bool uniform, EtandemCons reportRoot)
     {
         if (a.BestScore >= threshold)
         {
@@ -353,8 +359,11 @@ public static partial class GenomicAnalyzer
             {
                 a.Next = reportRoot.Next;
                 reportRoot.Next = a;
+                return true;
             }
         }
+
+        return false;
     }
 
     private static EmbossTandemRepeat EtandemBasicReport(EtandemCons a)
@@ -377,6 +386,17 @@ public static partial class GenomicAnalyzer
             Tab = new int[5 * n + 5];
             Max = new int[n + 1];
             BestMax = new int[n + 1];
+        }
+
+        /// <summary>Back to the state of a new candidate of the same unit size (all tables zero).</summary>
+        public EtandemCons Reset(int n)
+        {
+            Array.Clear(Tab, 0, 5 * n + 5);
+            Array.Clear(Max, 0, n + 1);
+            Array.Clear(BestMax, 0, n + 1);
+            Start = Score = BestScore = IBest = Phase = Repeat = 0;
+            Next = null;
+            return this;
         }
 
         public int[] Tab { get; }
