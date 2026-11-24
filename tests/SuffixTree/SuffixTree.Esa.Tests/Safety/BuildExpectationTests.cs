@@ -66,8 +66,10 @@ public class BuildExpectationTests
         string unchecked_ = BuildExpectation.Verdict("true", boundsChecked: false)!;
         Assert.That(unchecked_, Does.Contain("-p:EsaBounds=true").And.Contain("ESA_BOUNDS"), "the fix of the default build is named");
         Assert.That(unchecked_, Does.Contain("skipped"), "the reason (a skipped test is green) is named");
+        Assert.That(unchecked_, Does.Contain("compiled WITHOUT ESA_BOUNDS"), "the message of a default build says that the build was NOT checked");
         string checked_ = BuildExpectation.Verdict("false", boundsChecked: true)!;
         Assert.That(checked_, Does.Contain("false").And.Contain("ESA_BOUNDS"));
+        Assert.That(checked_, Does.Contain("compiled WITH ESA_BOUNDS").And.Not.Contain("WITHOUT"), "the message of a checked build says that the build WAS checked (a polarity swap would send the reader the wrong way)");
         string garbage = BuildExpectation.Verdict("1", boundsChecked: true)!;
         Assert.That(garbage, Does.Contain("'1'").And.Contain("true").And.Contain("false").And.Contain("unset"), "the accepted values are listed and the value is quoted");
     }

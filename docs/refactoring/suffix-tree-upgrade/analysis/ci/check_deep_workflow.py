@@ -338,6 +338,12 @@ def main(path):
     check(henv.get("ESA_FUZZ_HANG_S") == "900", "harness: ESA_FUZZ_HANG_S is not 900")
     check(re.search(r"\^\[0-9\]\{1,18\}\$", htext) is not None, "harness: the `seed` input is not validated as digits (shell injection)")
     check("inputs.seed" not in "\n".join(str(s.get("run", "")) for s in steps_of(harness)), "harness: inputs.seed is expanded inside a run script (use an env variable)")
+    check("inputs.seed" in str((harness.get("env") or {}).get("SEED_INPUT", "")), "harness: the `seed` input does not reach the seed step (SEED_INPUT must be ${{ inputs.seed }})")
+    # no step may be switched off or made conditional in a way the file's own policy does not name: the only `if` of a step is `!cancelled()` (summary, upload, accounting)
+    for job_name, job in jobs.items():
+        for step in steps_of(job):
+            if "if" in step:
+                check(re.sub(r"\s+", "", str(step["if"])) == "${{!cancelled()}}", f"{job_name}: step {step.get('name')!r} has `if: {step['if']}` (the only step condition allowed is ${{{{ !cancelled() }}}})")
 
     vectors = jobs.get("vectors") or {}
     vtext = run_text(vectors)

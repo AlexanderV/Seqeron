@@ -45,6 +45,14 @@ class Summary(unittest.TestCase):
         self.assertIn("`A.f1`: boom second line", out)
         self.assertIn("10 min 00 s", out)
 
+    def test_an_error_a_timeout_and_an_aborted_test_are_failures_too(self):
+        path = self.trx([("A", "p1", "Passed", ""), ("A", "e1", "Error", "crashed"), ("A", "t1", "Timeout", "too slow"), ("A", "a1", "Aborted", "host died")])
+        code, out = self.run_cli(path)
+        self.assertEqual(code, 0)
+        self.assertIn("1 passed, 3 failed, 0 not executed", out)
+        for name, message in (("e1", "crashed"), ("t1", "too slow"), ("a1", "host died")):
+            self.assertIn(f"`A.{name}`: {message}", out)
+
     def test_the_red_tests_are_split_into_expected_unexpected_and_green(self):
         path = self.trx([(LARGE, "Red1", "Failed", "refused"), (LARGE, "Red2", "Passed", ""), (LARGE, "NewFailure", "Failed", "a real finding"), ("Other", "Fine", "Passed", "")])
         listed = self.expected_file(f"{LARGE}.Red1", f"{LARGE}.Red2", f"{LARGE}.Gone")

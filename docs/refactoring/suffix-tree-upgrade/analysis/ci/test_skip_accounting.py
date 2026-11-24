@@ -174,6 +174,24 @@ class AnUnlistedSkip(Base):
         results.append((C + "Other.BoundsTests", "OnlyChecked1", "NotExecuted", "x"))
         self.assertEqual(len(self.failures_of(self.account(text, results), "UNLISTED SKIP")), 1)
 
+    def test_a_fixture_that_is_skipped_in_its_setup_and_is_not_listed_fails_and_is_proposed_once_as_a_class_row(self):
+        # an [Explicit] fixture (or a OneTimeSetUp ignore) that nobody listed: every one of its results is an unlisted skip; the proposal is ONE explicit-class row
+        text, results = run_rows()
+        results.append((C + "Fuzz.NewHeavyTests", "T1", "NotExecuted", "OneTimeSetUp: heavy"))
+        results.append((C + "Fuzz.NewHeavyTests", "T2", "NotExecuted", "OneTimeSetUp: heavy"))
+        report = self.account(text, results)
+        self.assertEqual(len(self.failures_of(report, "UNLISTED SKIP")), 2, report.failures)
+        self.assertEqual(report.proposals, [f"explicit-class\t{C}Fuzz.NewHeavyTests\tboth\theavy\tTODO"])
+
+    def test_the_proposal_of_a_test_that_needs_the_checked_build_is_a_default_row_and_any_other_skip_a_both_row(self):
+        text, results = run_rows()
+        results.append((C + "External.NewBounds", "ByTheBuild", "NotExecuted", "only the checked build keeps the list"))
+        results.append((C + "External.NewBounds", "ByTheFlag", "NotExecuted", "needs -p:EsaBounds=true"))
+        results.append((C + "External.NewBounds", "ByTheBackend", "NotExecuted", "the backend has no such surface"))
+        report = self.account(text, results)
+        rows = {p.split("\t")[1].rsplit(".", 1)[1]: p.split("\t")[2] for p in report.proposals}
+        self.assertEqual(rows, {"ByTheBuild": "default", "ByTheFlag": "default", "ByTheBackend": "both"})
+
     def test_the_failure_names_the_reason_and_proposes_the_row(self):
         text, results = run_rows()
         results = [(c, n, "NotExecuted", "because of reasons") if n == "AnOrdinaryTest" else (c, n, o, m) for c, n, o, m in results]
