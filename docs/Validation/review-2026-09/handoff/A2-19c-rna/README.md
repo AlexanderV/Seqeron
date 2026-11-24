@@ -1,0 +1,23 @@
+**STATUS: DOABLE-AWAITING-USER (created 2026-11-24 by B09 WP78; result to be returned as `returned/A2-19c-rna-out.zip`).** The RNA options of the script `mafft` (`--mccaskill`, `--scarnapair`, `--rnaalifold`, `--dafs` / `--dafspair`, `--contrafold`, `--larapair`, `--foldalignpair`) run programs that the Debian binary package `mafft` 7.505-1 does not have: the installed script stops with "Install MXSCARNA" / "Install DAFS" / "Install CONTRAfold" (reproduced by the port, equal on every case of the command oracle), and `--rnaalifold` runs the progressive stage up to the first RNA profile step and ends with `sh: 1: RNAalifold: not found` / `Cannot open /tmp/_rnaalifoldin` (RNAalifold of ViennaRNA is not installed here). Their real behaviour (the base-pairing probabilities of McCaskill's algorithm inside tbfast / dvtditr, `mxscarnamod`, the RNA profile scores `-o -c -r -R -e`) can only be observed with the extended build and ViennaRNA.
+
+# TEMPORARY hand-off package A2-19c-rna (for the user's Mac)
+
+**What the package does.** The image (`Dockerfile`, Debian 12, `--platform linux/amd64`) installs ViennaRNA (`vienna-rna`: `RNAalifold`) and builds MAFFT 7.505 *with its extensions* from the official source archive `mafft-7.505-with-extensions-src.tgz` (`build_ext.sh`: `core` and `extensions`, `make` / `make install` into `/opt/mafft-ext`; every step is logged and never fails the image build; the programs that exist are listed in `out/versions.txt`). `make_inputs.py` (fixed seed) writes `inputs/sets.tsv`: 150 sets, 144 RNA families with stems (2 - 8 sequences) for 18 option lines (`--mccaskill` with `--globalpair` / `--localpair` / `--genafpair` / `--scarnapair` / `--maxiterate`, `--scarnapair`, `--rnaalifold`, `--dafs`, `--dafspair`, `--contrafold`, output options), and DNA / protein sets for the refusals. `in_container.sh` runs each set twice with `mafft <options> in.fa` (the extended build when it exists) and records return code, standard output, standard error, files and whether both runs are equal.
+
+## Run it (Apple Silicon: the image is x86-64 and is emulated)
+
+```bash
+git pull
+cd docs/Validation/review-2026-09/handoff/A2-19c-rna
+RNA_QUICK=1 ./run.sh     # optional: 6 sets, a check of the package
+./run.sh                 # the 150 sets
+ls -l returned/          # A2-19c-rna-out.zip : commit it under docs/Validation/review-2026-09/handoff/A2-19c-rna/returned/
+```
+`run.sh` never stops on an error inside the container (`set +e` around `docker build` / `docker run`): whatever happens, `out/` is zipped into `returned/A2-19c-rna-out.zip` (steps in `out/steps.log`, the build log in `out/build_ext.log`, the programs and their checksums in `out/versions.txt`). `RUN_TIMEOUT=300` (seconds per run) can be raised.
+
+## How the next session integrates it
+
+1. A converter (`scripts/alignment/convert_rna_returned.py`, to be written with the first result) turns the deterministic runs into `TestData/Alignment/mafft_rna_oracle.tsv.gz` (the format of the other mafft oracles).
+2. `tbfast` / `dvtditr` / `disttbfast` get the RNA branch the options switch on: `rnaprediction` ('m' = McCaskill inside the program: `rna.c`, `mccaskillwrap.c` of the extensions; 'r' = `RNAalifold -p`), the scoring of RNA profiles (`-o -c -r -R -e -s`), the base-pairing probabilities as the `rnakozo` tables of `Salignmm` / `MSalignmm` / `partSalignmm`; `--scarnapair` is `mxscarnamod` through `tbfast _ ... -s`.
+3. Tests: `SequenceAligner_MafftRna_Tests` (`Oracle_HasEveryGroup`, `Group_EqualsMafft`), then `MafftProgram.Run` / `mafft_command` stop answering `--mccaskill` etc. with the installed refusal (the refusal stays for an installation without the programs: the reference installation).
+4. If a program of the extensions cannot be built (see `out/build_ext.log`), the option stays registered as DOABLE-awaiting-user with that log as the proof; `--dafs` needs DAFS (http://www.ncrna.org/, not part of the MAFFT archive), `--contrafold` needs CONTRAfold, `--larapair` LaRA, `--foldalignpair` FOLDALIGN: if the archive does not contain them the package records the script's own "Install ..." text, which is what the port already reproduces.

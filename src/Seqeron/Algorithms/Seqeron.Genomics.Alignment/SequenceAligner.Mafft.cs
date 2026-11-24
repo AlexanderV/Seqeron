@@ -50,6 +50,8 @@ public enum MafftPairLibrary
     Fasta = 4,
     /// <summary><c>--fastswpair</c>: as <see cref="Fasta"/> with the Smith-Waterman alignment of <c>fasta34 -A</c> (H-INS-1).</summary>
     FastaSmithWaterman = 5,
+    /// <summary><c>--hybridpair</c> (no fragment option): <c>pairlocalalign -Y</c> (the local alignments of the pairs: <c>hat3</c>), <c>disttbfast -E 1 -T -y</c> (the 6-mer distances: <c>hat2</c>) and <c>tbfast</c> that reads both files (Hybrid-INS-1).</summary>
+    Hybrid = 6,
 }
 
 /// <summary>How the distances between the new and the old sequences are made when fragments are added (<c>--addfragments</c> and the other options of the program <c>addsingle</c>; <c>--6merpair</c> ... <c>--hybridpair</c>).</summary>
@@ -657,6 +659,41 @@ public static partial class SequenceAligner
                 }
 
                 pairHat2 = MafftRun.ReadHat2Full(d7.Hat2, list.Count);
+            }
+            else if (o.PairLibrary == MafftPairLibrary.Hybrid)
+            {
+                // --hybridpair without a fragment option (mafft.tmpl 2615 - 2624): pairlocalalign -Y (the blocks of the old sequences against the new ones: hat3; nothing without --add), hat3.seed in front of hat3,
+                // disttbfast -E 1 -T -y (the 6-mer distances: hat2) and tbfast, which loads both files
+                var pg = MafftGlobals.ParsePairlocalalign(MafftScript.PairlocalalignFragmentArguments(o));
+                if (pg.Dorp == '\0')
+                    pg.Dorp = nuc ? 'd' : 'p';
+                var prun = new MafftRun(pg);
+                var pairs = GuardRun(prun, log, () => prun.PairlocalalignProgram(replaced, programNames));
+                log.Append(prun.Log);
+                string hat3Text = (o.SeedTable ?? "") + pairs.Hat3;
+                var hg = MafftGlobals.Parse(MafftScript.HybridDisttbfastArguments(o));
+                if (hg.Dorp == '\0')
+                    hg.Dorp = nuc ? 'd' : 'p';
+                var hrun = new MafftRun(hg) { GuideTreeText = guideTreeText, DistFileRewrittenLater = true };
+                GuardRun(hrun, log, () => hrun.Disttbfast(replaced, programNames));
+                log.Append(hrun.Log);
+                string hat2Text = hrun.DistFile ?? pairs.Hat2;
+                var (_, hybridTbArgs) = MafftScript.TbfastArguments(o, list.Count);
+                var tg = MafftGlobals.ParseTbfast(hybridTbArgs);
+                if (tg.Dorp == '\0')
+                    tg.Dorp = nuc ? 'd' : 'p';
+                var trun = new MafftRun(tg) { GuideTreeText = MafftScript.GuideTreeFile(o) };
+                result = GuardRun(trun, log, () => trun.Tbfast(replaced, null, programNames, null, hat3Text, hat2Text));
+                log.Append(trun.Log);
+                treeFile = trun.TreeFile;
+                distFile = trun.DistFile ?? hat2Text;
+                if (o.WeightI >= 0.0001 && result.Rows.Length > 0)
+                {
+                    seedKozo = new bool[list.Count];
+                    pairHat3 = MafftRun.ReadLocalHomTable2Half(hat3Text, list.Count, seedKozo);
+                }
+
+                pairHat2 = MafftRun.ReadHat2Full(hat2Text, list.Count);
             }
             else if (o.PairLibrary != MafftPairLibrary.None)
             {

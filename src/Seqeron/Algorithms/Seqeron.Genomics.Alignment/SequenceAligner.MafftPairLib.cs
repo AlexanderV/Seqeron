@@ -1349,6 +1349,15 @@ public static partial class SequenceAligner
                     nkozo = kozo.Count(x => x);
                     Kozo = nkozo > 0 ? kozo : null;
                 }
+                else if (G.DistOut != 0 || G.OutputHat23 != 0)
+                {
+                    // constraint == 0 (--weighti 0, --retree 0): the program writes the distances it holds before it loads the file (none yet: all zeros) to hat2
+                    Report("\nwriting hat2 (1)\n");
+                    var zero = new double[njob][];
+                    for (int i = 0; i < njob; i++)
+                        zero[i] = new double[njob - i];
+                    DistFile = WriteHat2(zero, fileNames);
+                }
             }
             else if (_compactTree == 3)
             {
@@ -1625,7 +1634,7 @@ public static partial class SequenceAligner
             Report("\ndone.\n");
             var (deletedRuns, deleteMap, newNames, ndeleted) = KeepLength(njob, seq, bseq, originalGaps, addbk, fileNames);
             if (G.SpScoreOut != 0)
-                ReportSumOfPairs(bseq);
+                throw UndefinedBehaviour("tbfast with -S (--scoreout with a pair library, --hybridpair, --seed ...: every run of tbfast): sumofpairsscore runs after freeconstants() and reads a table that the program has released (valgrind: 'Invalid read of size 8', address 0x308 = NULL + 97 * 8; the program ends with a segmentation fault whose message names a process id)");
             Report("tbfast (" + G.KindName + ") Version 7.505\nalg=" + G.Alg + ", model=" + G.ModelName + ", amax=" + G.SpecificityConsideration.ToString("F1", CultureInfo.InvariantCulture) + "\n"
                 + Math.Max(G.Nthread, 1).ToString(CultureInfo.InvariantCulture) + " thread(s)\n\n");
             if (ndeleted > 0)

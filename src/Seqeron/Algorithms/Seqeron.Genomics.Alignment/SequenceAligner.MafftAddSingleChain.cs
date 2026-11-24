@@ -26,6 +26,8 @@ public static partial class SequenceAligner
             if (G.Alg is not ('L' or 'Y'))
                 throw new NotSupportedException("pairlocalalign of this algorithm is not available in the chain of addsingle.");
             bool part = G.Alg == 'Y';
+            if (part && nadd == 0 && G.Nthread > 0)
+                throw UndefinedBehaviour("pairlocalalign -Y with threads and no sequence added (--hybridpair --thread n without --add): the threads take the pair (njob - nadd - 1, njob) of the job list that does not exist (valgrind: 'Invalid read of size 1', address 0x0 in a thread; segmentation fault whose message names a process id)");
             var seq = seq0.ToArray();
             _njob = njob;
             _nlenmax = seq.Max(x => x.Length);

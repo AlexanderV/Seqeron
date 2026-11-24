@@ -272,8 +272,12 @@ public static partial class SequenceAligner
                         addfileText = FilterAmbiguous(addfileText);
                     infile += addfileText;
                     _infilename = input;
+                    // mafft.tmpl 1121 - 1130: `cat "$file" | tr | grep > $TMPFILE/...` for each of these files; the shell prints the message of cat for a file that does not exist (the options that check the file earlier stop there)
                     foreach (var f in new[] { _scorematrix, _mergetable, _treeinfile, _codonposfile, _codonscorefile, _seedtablefile, _laraparams, _pdblist, _ownlist, _anchorfile })
-                        _ = f;
+                    {
+                        if (!Readable(f))
+                            Err("cat: " + f + ": No such file or directory\n");
+                    }
                     var seedList = _seedfiles.Split(' ', StringSplitOptions.RemoveEmptyEntries);
                     for (int s = 1; s < seedList.Length; s++)
                     {
@@ -357,7 +361,7 @@ public static partial class SequenceAligner
 
         private bool Readable(string name) => name == "/dev/null" || _files.ContainsKey(name);
 
-        private string ReadFile(string name) => name == "/dev/null" ? "" : _files[name];
+        private string ReadFile(string name) => name == "/dev/null" || !_files.ContainsKey(name) ? "" : _files[name];
 
         // ---------------------------------------------------------------- the option loop (mafft.tmpl 238 - 1036)
 
