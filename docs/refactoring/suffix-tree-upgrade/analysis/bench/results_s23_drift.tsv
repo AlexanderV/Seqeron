@@ -1,0 +1,9 @@
+# libsais drift control (dna_10m single-thread SA build, 5 fresh processes, median; S1 reference 0.328 s; > 10 % off = machine in a different state). columns: time, label, metric, median, min, max, ratio, verdict
+2026-11-24T08:57:56Z	ab-session1-start	libsais_dna_10m_build_s	0.3769	0.3333	0.3958	1.149	drift
+2026-11-24T09:28:29Z	ab-session1-after-null	libsais_dna_10m_build_s	0.3320	0.3163	0.3625	1.012	ok
+2026-11-24T09:35:28Z	ab-session2-start	libsais_dna_10m_build_s	0.3214	0.3193	0.4150	0.980	ok
+2026-11-24T10:27:05Z	ab-session2-middle	libsais_dna_10m_build_s	0.3650	0.3290	0.4358	1.113	drift
+2026-11-24T11:17:02Z	ab-session2-end	libsais_dna_10m_build_s	0.3492	0.3271	0.3727	1.065	ok
+2026-11-24T11:18:59Z	ab-session3-start	libsais_dna_10m_build_s	0.3339	0.3118	0.3927	1.018	ok
+2026-11-24T11:55:22Z	ab-session3-end	libsais_dna_10m_build_s	0.3937	0.3318	0.4098	1.200	drift
+2026-11-24T11:57:27Z	gate-start	libsais_dna_10m_build_s	0.3285	0.2998	0.3848	1.002	ok

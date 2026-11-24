@@ -37,6 +37,19 @@ internal sealed class EsaText
     /// <summary>True when the text is the packed section of a container.</summary>
     internal bool IsPacked => _reader is not null;
 
+    /// <summary>The code unit at <paramref name="index"/> (the 32-bit engine's read: the body of S1, on the hot path of the navigator and the traversal).</summary>
+    /// <exception cref="IndexOutOfRangeException">An in-memory text: the index is outside <c>0..n-1</c>.</exception>
+    /// <exception cref="InvalidDataException">A packed text: the index is outside <c>0..n-1</c> (a damaged table sent the read there) or the symbol has no letter.</exception>
+    internal char this[int index]
+    {
+        get
+        {
+            if (_string is not null) return _string[index];
+            if ((ulong)index >= (ulong)_length) ThrowOutside(index);
+            return Letter(_reader!.Symbol(index));
+        }
+    }
+
     /// <summary>The code unit at the 64-bit <paramref name="index"/>.</summary>
     /// <exception cref="IndexOutOfRangeException">An in-memory text: the index is outside <c>0..n-1</c>.</exception>
     /// <exception cref="InvalidDataException">A packed text: the index is outside <c>0..n-1</c> (a damaged table sent the read there) or the symbol has no letter.</exception>

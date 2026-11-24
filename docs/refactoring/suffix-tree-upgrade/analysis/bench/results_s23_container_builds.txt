@@ -1,0 +1,41 @@
+# the production container builder (Bench sesa build, 4 threads, PSI on) of dna_100m, once per builder (the S1 head and the S2.3 head; the sessions of results_s23_abapp_rows.txt ran on containers of the S1 builder)
+## S1 head
+R	sesa	total_s	18.058616716	s	dna_100m SesaBuilder.Build, inside the call
+R	sesa	file_size	1325019393	bytes	dna_100m LCP U8, 0 overflow pairs
+R	sesa	rssanon_peak_mb	256.602112	MB	dna_100m verdict Within
+R	sesa	rssanon_ph0_mb	12.10368	MB	dna_100m
+R	sesa	rssanon_ph1_mb	56.991744	MB	dna_100m
+R	sesa	rssanon_ph23_mb	105.947136	MB	dna_100m
+R	sesa	rssanon_ph45_mb	256.643072	MB	dna_100m
+R	sesa	rssanon_ph6_mb	142.348288	MB	dna_100m
+R	sesa	rssanon_seal_mb	142.393344	MB	dna_100m
+## S2.3 head
+R	sesa	total_s	18.826542971	s	dna_100m SesaBuilder.Build, inside the call
+R	sesa	file_size	1325019393	bytes	dna_100m LCP U8, 0 overflow pairs
+R	sesa	rssanon_peak_mb	254.73024	MB	dna_100m verdict Within
+R	sesa	rssanon_ph0_mb	11.976704	MB	dna_100m
+R	sesa	rssanon_ph1_mb	56.885248	MB	dna_100m
+R	sesa	rssanon_ph23_mb	104.378368	MB	dna_100m
+R	sesa	rssanon_ph45_mb	254.799872	MB	dna_100m
+R	sesa	rssanon_ph6_mb	144.77312	MB	dna_100m
+R	sesa	rssanon_seal_mb	144.81408	MB	dna_100m
+## dna_10m container row of run_1b9_gate.sh container (S1 head, then S2.3 head)
+R	sesa	total_s	2.133901343	s	dna_10m SesaBuilder.Build, inside the call
+R	sesa	file_size	132515457	bytes	dna_10m LCP U8, 0 overflow pairs
+R	sesa	rssanon_peak_mb	99.815424	MB	dna_10m verdict Within
+R	sesa	rssanon_ph0_mb	10.489856	MB	dna_10m
+R	sesa	rssanon_ph1_mb	18.526208	MB	dna_10m
+R	sesa	rssanon_ph23_mb	71.667712	MB	dna_10m
+R	sesa	rssanon_ph45_mb	99.753984	MB	dna_10m
+R	sesa	rssanon_ph6_mb	52.801536	MB	dna_10m
+R	sesa	rssanon_seal_mb	52.834304	MB	dna_10m
+---
+R	sesa	total_s	2.052994096	s	dna_10m SesaBuilder.Build, inside the call
+R	sesa	file_size	132515457	bytes	dna_10m LCP U8, 0 overflow pairs
+R	sesa	rssanon_peak_mb	99.815424	MB	dna_10m verdict Within
+R	sesa	rssanon_ph0_mb	10.498048	MB	dna_10m
+R	sesa	rssanon_ph1_mb	18.5344	MB	dna_10m
+R	sesa	rssanon_ph23_mb	72.228864	MB	dna_10m
+R	sesa	rssanon_ph45_mb	99.987456	MB	dna_10m
+R	sesa	rssanon_ph6_mb	52.867072	MB	dna_10m
+R	sesa	rssanon_seal_mb	52.908032	MB	dna_10m
