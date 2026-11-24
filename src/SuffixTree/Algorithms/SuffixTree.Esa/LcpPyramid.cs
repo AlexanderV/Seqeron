@@ -4,8 +4,8 @@ namespace SuffixTree.Esa;
 
 /// <summary>
 /// The range-minimum / previous-smaller / next-smaller helper over the LCP array (ADR-001 section 5, work package 1b.4; the production counterpart of the prototype
-/// <c>LcpRangeHelper</c> of 1b.4a): a pyramid of block minima (fanout F, a power of two; level k holds the minimum of F^k consecutive entries) answers <see cref="Min"/>,
-/// <see cref="PrevLess"/> and <see cref="NextLess"/> in O(F x levels) sequential reads, with about 4 / (F - 1) bytes per entry (0.13 at F = 32). The levels are one pinned
+/// <c>LcpRangeHelper</c> of 1b.4a): a pyramid of block minima (fanout F, a power of two; level k holds the minimum of F^k consecutive entries) answers <see cref="Min(int, int)"/>,
+/// <see cref="PrevLess(int, int)"/> and <see cref="NextLess(int, int)"/> in O(F x levels) sequential reads, with about 4 / (F - 1) bytes per entry (0.13 at F = 32). The levels are one pinned
 /// <c>int</c> array; the LCP entries themselves are NOT copied: they are read through a pointer to the base array of the <see cref="CompactLcp"/> (U8, U16 or U32), pinned for the life of
 /// this object. An escaped entry (U8: 255, U16: 65,535, whose true value is in the overflow list) is resolved only when a comparison needs it: <c>value &lt; bound</c> is decided by the
 /// escape alone while <c>bound &lt;= escape</c>, which is every comparison of a suffix-link search at depth up to 255 (the common case); deeper nodes pay one binary search per escaped entry
@@ -235,6 +235,22 @@ internal sealed unsafe class LcpPyramid : IDisposable
                 break;
         }
     }
+
+#pragma warning disable S2325 // stubs of the tests-first step
+    /// <summary>The true LCP value at a 64-bit rank.</summary>
+    internal long ValueAt(long rank) => throw new NotImplementedException();
+
+    /// <summary>The suffix-link kernel at 64-bit ranks.</summary>
+    internal void Borders(long a, long b, long t, out long left, out long right, out long leftValue, out long rightValue) => throw new NotImplementedException();
+
+    /// <summary>Minimum of <c>LCP[lo..hi]</c> at 64-bit ranks.</summary>
+    internal long Min(long lo, long hi) => throw new NotImplementedException();
+
+    /// <summary>The largest <c>j &lt;= pos</c> with <c>LCP[j] &lt; bound</c>, or -1.</summary>
+    internal long PrevLess(long pos, long bound) => throw new NotImplementedException();
+
+    /// <summary>The smallest <c>j &gt;= pos</c> with <c>LCP[j] &lt; bound</c>, or the length.</summary>
+    internal long NextLess(long pos, long bound) => throw new NotImplementedException();
 
     /// <summary>Releases the pins; idempotent. The pyramid must not be used afterwards.</summary>
     public void Dispose()

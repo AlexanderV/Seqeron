@@ -13,6 +13,9 @@ internal enum LcpKind : byte
 
     /// <summary>Four bytes per entry, no overflow list.</summary>
     U32,
+
+    /// <summary>Eight bytes per entry, no overflow list (LCP codec 4: a text above 2^32 with a repeat longer than 2^32 - 2); read by the wide forms only.</summary>
+    U64,
 }
 
 /// <summary>
@@ -77,6 +80,19 @@ internal sealed unsafe class CompactLcp
         if (kind == LcpKind.U32 && pairCount != 0) throw new InvalidDataException("an LCP array of 32 bits per entry has no overflow list");
         return new CompactLcp(kind, length, baseArray, pairs, pairCount, isChecked);
     }
+
+    // ---- work package S2.3, the long members (STUBS of the tests-first step)
+
+    /// <summary>The LCP array of a container (or of any memory) at any width: <paramref name="posWidth"/> is the stored width of the overflow pairs (4 or 5), the base array has the width of <paramref name="kind"/>.</summary>
+    internal static CompactLcp FromMappedWide(LcpKind kind, long length, byte* baseArray, byte* pairs, long pairCount, int posWidth, bool isChecked) => throw new NotImplementedException();
+
+    /// <summary>The LCP array over readers: <paramref name="baseEntries"/> has <c>n + 1</c> elements of the width of <paramref name="kind"/>, <paramref name="pairs"/> <c>2 x pairCount</c> (rank, value, rank, value, ...).</summary>
+    internal static CompactLcp FromReaders<TBase, TPairs>(LcpKind kind, TBase baseEntries, TPairs pairs, bool isChecked)
+        where TBase : struct, IPosReader
+        where TPairs : struct, IPosReader => throw new NotImplementedException();
+
+    /// <summary>The LCP value at a 64-bit rank.</summary>
+    internal long this[long rank] => throw new NotImplementedException();
 
     /// <summary>True when the array is read in place from a container.</summary>
     internal bool IsMapped { get; }

@@ -120,6 +120,13 @@ internal sealed class ChildTable
         _ => Tagged.NextLIndex(k, rb),
     };
 
+#pragma warning disable S2325 // stubs of the tests-first step
+    /// <summary>See <see cref="IChildTable.FirstLIndex"/> at 64-bit ranks.</summary>
+    internal long FirstLIndex(long lb, long rb, bool lastChild) => throw new NotImplementedException();
+
+    /// <summary>See <see cref="IChildTable.NextLIndex"/> at 64-bit ranks.</summary>
+    internal long NextLIndex(long k, long rb) => throw new NotImplementedException();
+
     /// <summary>
     /// Builds the child table of the given layout by one scan over the LCP array and returns the header statistics of the same scan.
     /// </summary>

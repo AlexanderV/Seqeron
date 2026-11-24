@@ -175,7 +175,7 @@ internal readonly struct TaggedChild : IChildTable, IIntervalSink
 /// The child table of a SESA container read in place (work package 1b.7f; the tagged codec: 1b.9a): CHILD codec 1 is the layout of <see cref="PackedChild"/> (one 4-byte entry per rank, the kind of a stored field told apart by comparing
 /// LCP values), codec 2 is the layout of <see cref="TaggedChild"/> (the kind in bits 30-31, no LCP read), over the mapped section instead of an array. The entries are untrusted. With <c>isChecked</c> (the default access mode) a read of a
 /// cell outside the section is an <see cref="InvalidDataException"/>; a value that a read returns is only ever used as a rank, and the readers that follow it (<see cref="CompactLcp"/>, the suffix array view) reject a rank outside
-/// their arrays; the walks that call <see cref="NextLIndex"/> check that the l-indices increase and stay inside the interval, which bounds them. The pattern descent has a loop of its own for each codec (<see cref="MappedSearch"/>);
+/// their arrays; the walks that call <see cref="NextLIndex(int, int)"/> check that the l-indices increase and stay inside the interval, which bounds them. The pattern descent has a loop of its own for each codec (<see cref="MappedSearch"/>);
 /// this struct serves the navigator, the traversal and the contract members.
 /// </summary>
 internal readonly unsafe struct MappedChild : IChildTable
@@ -236,4 +236,48 @@ internal readonly unsafe struct MappedChild : IChildTable
     }
 
     private void ThrowOutside(int cell) => throw new InvalidDataException($"the child table is read at cell {cell}, but it has {_count} cells: the file is damaged");
+
+#pragma warning disable S2325 // stubs of the tests-first step
+    // ---- work package S2.3, the long members (STUBS of the tests-first step)
+
+    /// <summary>The cells of any stored width (4 or 5 bytes; tagged only at 4).</summary>
+    internal static unsafe MappedChild FromMappedWide(byte* cells, long count, int posWidth, CompactLcp lcp, bool isChecked, bool tagged) => throw new NotImplementedException();
+
+    /// <summary>The first l-index of the interval <c>[lb..rb]</c> at 64-bit ranks.</summary>
+    internal long FirstLIndex(long lb, long rb, bool lastChild) => throw new NotImplementedException();
+
+    /// <summary>The l-index after <paramref name="k"/> at 64-bit ranks, or -1.</summary>
+    internal long NextLIndex(long k, long rb) => throw new NotImplementedException();
+}
+
+/// <summary>
+/// The child cells over a position reader (ADR-005 section 3.3, work package S2.3): the generic form of <see cref="MappedChild"/> with 64-bit ranks. <c>tagged</c> (CHILD codec 2: the kind of a field in bits 30-31) exists only over a 4-byte
+/// reader; the packed cells (codec 1) over any.
+/// </summary>
+#pragma warning disable S4487, IDE0052 // stubs of the tests-first step
+internal readonly struct ChildCells<TPos>
+    where TPos : struct, IPosReader
+{
+    private readonly TPos _reader;
+    private readonly CompactLcp _lcp;
+    private readonly bool _tagged;
+
+    internal ChildCells(TPos reader, CompactLcp lcp, bool tagged)
+    {
+        _reader = reader;
+        _lcp = lcp;
+        _tagged = tagged;
+    }
+
+    /// <summary>Number of cells (<c>n + 1</c>).</summary>
+    internal long Length => _reader.Count;
+
+    /// <summary>True for CHILD codec 2.</summary>
+    internal bool IsTagged => _tagged;
+
+    /// <summary>The first l-index of the interval <c>[lb..rb]</c>.</summary>
+    internal long FirstLIndex(long lb, long rb, bool lastChild) => throw new NotImplementedException();
+
+    /// <summary>The l-index after <paramref name="k"/> in the interval that ends at <paramref name="rb"/>, or -1.</summary>
+    internal long NextLIndex(long k, long rb) => throw new NotImplementedException();
 }

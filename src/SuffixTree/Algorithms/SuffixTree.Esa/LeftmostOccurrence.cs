@@ -21,7 +21,7 @@ internal static class LeftmostOccurrence
     internal static int[] Compute(SaView sa, CompactLcp lcp)
     {
         ArgumentNullException.ThrowIfNull(lcp);
-        int n = sa.Length - 1;
+        int n = IntBridge.Length(sa.Length, "the suffix array") - 1;
         if (lcp.Length != n + 1) throw new ArgumentException("the LCP array and the suffix array differ in length", nameof(lcp));
         var occurrence = new int[n + 1];
         if (n == 0) return occurrence;

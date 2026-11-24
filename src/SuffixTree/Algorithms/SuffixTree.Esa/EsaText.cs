@@ -50,6 +50,22 @@ internal sealed class EsaText
         }
     }
 
+#pragma warning disable S2325 // stubs of the tests-first step
+    /// <summary>The text of a packed section of any length (work package S2.3).</summary>
+    internal static EsaText FromPacked(MappedTextReader reader, char[] alphabet, long length) => throw new NotImplementedException();
+
+    /// <summary>The code unit at a 64-bit position.</summary>
+    internal char this[long index] => throw new NotImplementedException();
+
+    /// <summary>The code units <c>[start, start + length)</c> as a new string (the 64-bit start).</summary>
+    internal string Substring(long start, int length) => throw new NotImplementedException();
+
+    /// <summary>The code units from the 64-bit position <paramref name="start"/> to the end as a new string.</summary>
+    internal string Substring(long start) => throw new NotImplementedException();
+
+    /// <summary>Copies <c>destination.Length</c> code units that start at the 64-bit position <paramref name="start"/>.</summary>
+    internal void CopyTo(long start, Span<char> destination) => throw new NotImplementedException();
+
     /// <summary>The reader of the dense symbols of a packed text.</summary>
     internal MappedTextReader Reader => _reader ?? throw new InvalidOperationException("the text is a string");
 

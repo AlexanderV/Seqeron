@@ -55,7 +55,7 @@ public unsafe class SesaReaderGapTests
             Assert.That(dest, Is.EqualTo(new[] { 12, 13, 14 }));
             Assert.That(() => section.CopyTo(3, new int[3]), Throws.TypeOf<InvalidDataException>(), "a bulk read that ends one past the section");
             Assert.That(() => section.CopyTo(-1, new int[2]), Throws.TypeOf<InvalidDataException>(), "a bulk read that starts below the section");
-            Assert.That(() => section.CopyTo(6, []), Throws.TypeOf<InvalidDataException>());
+            Assert.That(() => section.CopyTo(6, Array.Empty<int>()), Throws.TypeOf<InvalidDataException>());
             Assert.That(() => section.ToArray(0, 6), Throws.TypeOf<InvalidDataException>());
 
             var trusted = new SaView(p, 5, isChecked: false);

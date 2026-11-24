@@ -74,7 +74,7 @@ internal sealed unsafe class EsaNavigationPack : IDisposable
         try
         {
             pyramid = LcpPyramid.Build(index.Lcp, fanout);
-            int count = sa.Length;
+            int count = IntBridge.Length(sa.Length, "the suffix array of the container");
             isa = PinnedArray<int>.Allocate(count, zero: false, "isa");
             Buf<int> isaBuf = isa.Buf;
             isaBuf.Fill(-1, count);
