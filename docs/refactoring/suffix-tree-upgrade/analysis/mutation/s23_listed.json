@@ -283,16 +283,16 @@
   "id": "s23_S08",
   "desc": "SaView[int]: the bound is rank > count",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs",
-  "old": "if ((_flags & Checked) != 0 && (ulong)rank >= (ulong)_count) ThrowOutside(rank);\n            if ((_flags & Bridged) != 0) return IntBridge.Value(",
-  "new": "if ((_flags & Checked) != 0 && (ulong)rank > (ulong)_count) ThrowOutside(rank);\n            if ((_flags & Bridged) != 0) return IntBridge.Value(",
+  "old": "if ((_flags & Checked) != 0 && (ulong)rank >= (ulong)_count) ThrowOutside(rank);\n            if ((_flags & Bridged) != 0) return BridgedRead(",
+  "new": "if ((_flags & Checked) != 0 && (ulong)rank > (ulong)_count) ThrowOutside(rank);\n            if ((_flags & Bridged) != 0) return BridgedRead(",
   "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.SaViewTests)"
  },
  {
   "id": "s23_S09",
-  "desc": "SaView[int]: a 5-byte entry is narrowed without the check",
+  "desc": "SaView[int]: a bridged entry is narrowed without the check",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs",
-  "old": "return IntBridge.Value(ReadUnchecked(rank), \"a suffix array entry\");\n            return _pointer[rank];",
-  "new": "return (int)ReadUnchecked(rank);\n            return _pointer[rank];",
+  "old": "private int BridgedRead(int rank) => IntBridge.Value(ReadUnchecked(rank), \"a suffix array entry\");",
+  "new": "private int BridgedRead(int rank) => (int)ReadUnchecked(rank);",
   "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.SaViewTests)"
  },
  {
@@ -451,8 +451,8 @@
   "id": "s23_S29",
   "desc": "SaView.this[int]: the bridge is tested for the 5-byte flag only",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs",
-  "old": "if ((_flags & Bridged) != 0) return IntBridge.Value(ReadUnchecked(rank), \"a suffix array entry\");",
-  "new": "if ((_flags & FiveBytes) != 0) return IntBridge.Value(ReadUnchecked(rank), \"a suffix array entry\");",
+  "old": "if ((_flags & Bridged) != 0) return BridgedRead(rank);",
+  "new": "if ((_flags & FiveBytes) != 0) return BridgedRead(rank);",
   "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.SaViewTests)"
  },
  {
@@ -475,8 +475,8 @@
   "id": "s23_S32",
   "desc": "SaView.ReadUnchecked: the 4-byte index is narrowed",
   "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/SaView.cs",
-  "old": ": (uint)_pointer[rank];\n    }\n\n    private ulong Load40",
-  "new": ": (uint)_pointer[(int)rank];\n    }\n\n    private ulong Load40",
+  "old": ": (uint)_pointer[rank];\n    }\n\n    /// <summary>The 32-bit read of a bridged section",
+  "new": ": (uint)_pointer[(int)rank];\n    }\n\n    /// <summary>The 32-bit read of a bridged section",
   "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Views.SaViewTests)"
  },
  {
