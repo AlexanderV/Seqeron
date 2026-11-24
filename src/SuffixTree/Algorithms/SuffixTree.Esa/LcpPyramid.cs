@@ -217,7 +217,7 @@ internal sealed unsafe class LcpPyramid : IDisposable
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     internal int NextLess(int pos, int bound)
     {
-        if (_wideLcp is not null) return IntBridge.Length(NextLess((long)pos, bound), "a rank of the LCP array (NextLess)");
+        if (_wideLcp is not null) return NextLessBridged(pos, bound);
         if (pos >= _length) return _length;
         ArgumentOutOfRangeException.ThrowIfNegative(pos);
         return _kind switch
@@ -228,11 +228,28 @@ internal sealed unsafe class LcpPyramid : IDisposable
         };
     }
 
-    /// <summary>The 32-bit answer of the wide form: the rank is at most <c>pos</c> (an <see cref="int"/>) or -1, which means that there is none.</summary>
+    // the 32-bit answers of the wide form, out of line (the 32-bit members are the code of S1 for every other form)
+
+    /// <summary>The rank is at most <c>pos</c> (an <see cref="int"/>) or -1, which means that there is none.</summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
     private int PrevLessBridged(int pos, int bound)
     {
         long found = PrevLess((long)pos, bound);
         return found < 0 ? -1 : IntBridge.Value(found, "a rank");
+    }
+
+    /// <summary>The rank is the length of the array when there is none, which is a size that the 32-bit engine may not hold.</summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private int NextLessBridged(int pos, int bound) => IntBridge.Length(NextLess((long)pos, bound), "a rank of the LCP array (NextLess)");
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void BordersBridged(int a, int b, int t, out int left, out int right, out int leftValue, out int rightValue)
+    {
+        BordersWide(a, b, t, out long l, out long r, out long lv, out long rv);
+        left = l < 0 ? -1 : IntBridge.Value(l, "a rank");
+        right = IntBridge.Length(r, "a rank of the LCP array (Borders)");
+        leftValue = lv < 0 ? -1 : IntBridge.Value(lv, "an LCP value");
+        rightValue = rv < 0 ? -1 : IntBridge.Value(rv, "an LCP value");
     }
 
     /// <summary>Previous smaller value (strict): the largest <c>j &lt; p</c> with <c>LCP[j] &lt; LCP[p]</c>, or -1.</summary>
@@ -254,11 +271,7 @@ internal sealed unsafe class LcpPyramid : IDisposable
     {
         if (_wideLcp is not null)
         {
-            BordersWide(a, b, t, out long l, out long r, out long lv, out long rv);
-            left = l < 0 ? -1 : IntBridge.Value(l, "a rank");
-            right = IntBridge.Length(r, "a rank of the LCP array (Borders)");
-            leftValue = lv < 0 ? -1 : IntBridge.Value(lv, "an LCP value");
-            rightValue = rv < 0 ? -1 : IntBridge.Value(rv, "an LCP value");
+            BordersBridged(a, b, t, out left, out right, out leftValue, out rightValue);
             return;
         }
         if ((uint)a >= (uint)_length || b < a || b >= _length) throw new ArgumentOutOfRangeException(nameof(a));

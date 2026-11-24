@@ -86,7 +86,7 @@ internal readonly unsafe struct SaView
         {
             if (_array is not null) return _array[rank];
             if ((_flags & Checked) != 0 && (ulong)rank >= (ulong)_count) ThrowOutside(rank);
-            if ((_flags & Bridged) != 0) return IntBridge.Value(ReadUnchecked(rank), "a suffix array entry");
+            if ((_flags & Bridged) != 0) return BridgedRead(rank);
             return _pointer[rank];
         }
     }
@@ -165,6 +165,10 @@ internal readonly unsafe struct SaView
         if (_array is not null) return (uint)_array[rank];
         return (_flags & FiveBytes) != 0 ? (long)Load40(rank) : (uint)_pointer[rank];
     }
+
+    /// <summary>The 32-bit read of a bridged section (out of line, so that the indexer that the navigator inlines stays the code of S1).</summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private int BridgedRead(int rank) => IntBridge.Value(ReadUnchecked(rank), "a suffix array entry");
 
     private ulong Load40(long rank) => Unsafe.ReadUnaligned<ulong>((byte*)_pointer + (5 * rank)) & PosReader.Mask40;
 
