@@ -28,10 +28,11 @@ public class Crc32CCombineTests
         foreach (long n in new long[] { 127, 128, 129, 255, 256, 257, 1023, 1024, 1025, 4095, 4096, 4097, 65_535, 65_536, 65_537, 1_000_003, 1L << 20, (1L << 24) + 5 }) yield return n;
     }
 
-    [TestCaseSource(nameof(SmallLengths))]
+    public static IEnumerable<long> ShortLengths() => SmallLengths().Where(n => n <= 1_100_000);
+
+    [TestCaseSource(nameof(ShortLengths))]
     public void OfZeros_IsTheDefinitionOfTheCrc(long length)
     {
-        if (length > 1_100_000) Assert.Ignore("the bit-by-bit definition is for the short lengths; the longer ones are compared with the product below");
         Assert.That(Crc32CCombine.OfZeros(length), Is.EqualTo(SesaOracle.Crc32cBitwise(new byte[length])));
     }
 

@@ -339,6 +339,45 @@ ADR-003 is not edited; this is the amendment text it would receive (the status l
 (2) `RMQ` and `DOCMAP` writers; (3) CHILD codec 3 if O3; (4) `POS_WIDTH` 5 is **not written by the builder** (O2); it is written by the test-only re-encoder `Sesa5Encoder` (section 3.7) and by the future 40-bit builder.
 **Verifier levels**: `Header` and `Sections` as in 3.6; `Structure` linear (O12) with `POS_WIDTH` 4 and 5; the check that a 1.0-shaped container carries minor 0 and a 1.1 one carries a feature that needs it. **Migration test plan**: golden v6 and SESA 1.0 files open in every build of the family; a 1.1 file with `POS_WIDTH` 5 is refused by a build of the 1.0 reader (kept as a test project reference to the S1 tag / a frozen copy of the 1.0 header reader); 4 -> 5 re-encoding round trip (every query equal); minor-1 without a feature is refused as damage.
 
+### 6.1 Byte layout of the POS_WIDTH 5 sections (S2.1)
+
+Section 6 gives the widths of the 5-byte sections, not their bytes. This subsection is the byte layout, written by work package S2.1 (2026-11-24) so that S2.7 implements the reader and the writer from it and nothing is invented there; its executable form is the test-only
+re-encoder `Sesa5Encoder` (4 -> 5 bytes, `tests/SuffixTree/SuffixTree.Esa.Tests/Large/Sesa5Encoder.cs`) and the independent decoder `Sesa5Image` next to it, which parses the bytes by the rules below and nothing else. Paths are repo-relative. Nothing in sections 0-14 is changed by it.
+
+**The entry (Pos40).** A position `v` in `[0, 2^40)` is stored in 5 bytes, little endian: byte `j` of entry `i` (the file offset of the section plus `5 i + j`) is `(v >> 8 j) & 0xFF`, `j = 0 .. 4`. **Decode** (the rule that ADR-005 section 2 measured as `w5`): one unaligned 8-byte little-endian load at the offset
+of the entry and a mask, `v = Load64(section + 5 i) & 0xFF_FFFF_FFFF`; the three upper bytes of the load belong to the next entry (or to the padding) and are discarded. An entry is not naturally aligned (the load is unaligned: free on x86-64 and arm64). **Encode**: the five bytes; a writer that stores eight bytes
+per entry must store the entries in ascending order, so that each store is overwritten by the next, and must leave the padding zero.
+
+**The padding.** Every section whose `ELEM_WIDTH` is 5 or 10 (the position sections and `LCP_OVERFLOW`) ends with exactly **3 zero bytes that belong to the payload**: `LENGTH = ELEM_WIDTH x COUNT + 3`, `COUNT` unchanged. The load at the last entry (offset `5 (COUNT - 1)`) then ends at `5 COUNT + 3 = LENGTH`, so a reader may load eight
+bytes at any entry; for a pair of `LCP_OVERFLOW` the value field is the second load, at the pair offset plus 5, and the last pair ends at `10 COUNT + 3` the same way. `CRC32C` covers the padding; the alignment rule of ADR-003 (64 bytes, 4096 from `LENGTH` of 1 MiB) takes `LENGTH` **with** the padding. The Header
+level checks `LENGTH = ELEM_WIDTH x COUNT + 3` and that the three bytes are zero (O(1)); the empty text (`COUNT` = 1) has `LENGTH` 8.
+
+**Header.** `POS_WIDTH` (offset 72) = 5; `VERSION_MINOR` (offset 10) = **1** (a container that needs a 1.1 feature is written as 1.1, section 6) and `HEADER_CRC32C` covers the version word; `FILE_SIZE` is the end of the last section; `TEXT_LEN < 2^40`; a writer chooses 4 for `n <= 2^32 - 4` and 5 above. Width 5 with minor 0 is damage.
+The section table (64-byte entries), `COUNT`, `PARAM0` and `PARAM1` are unchanged; the table of a container is in file order.
+
+| kind | section | at POS_WIDTH 5 |
+|---|---|---|
+| 1 | `TEXT` | unchanged (codec 4, `b` bits per symbol, its own 64 zero bytes of padding): it holds no position |
+| 2 | `ALPHABET` | unchanged (`uint16` letters) |
+| 3 | `SA` | `COUNT = n + 1`, `ELEM_WIDTH` 5, codec 1, `Pos40` entries, `LENGTH = 5 (n + 1) + 3`; `SA[0] = n` |
+| 4 | `LCP` | **unchanged**: codec 1 (`U8`, escape 255), 2 (`U16`, escape 65535), 3 (`U32`, values up to `2^32 - 2`, no escape), 4 (`U64`, 8-byte little-endian entries, no escape, `PARAM0` = 0, no overflow section), `ELEM_WIDTH` 1 / 2 / 4 / 8, `COUNT = n + 1`, no padding (a width that is a power of two is loaded with its own width). A writer uses the rule of width 4 for codecs 1 - 3 and codec 4 when `LRS_DEPTH > 2^32 - 2` (section 6) |
+| 5 | `LCP_OVERFLOW` | pairs `(rank, value)` sorted by rank, **both fields `Pos40`**: `ELEM_WIDTH` 10, `COUNT` = the number of pairs = `LCP.PARAM0`, codec 1, `REQUIRED`, `LENGTH = 10 COUNT + 3`; the rank is read at the pair offset, the value at the pair offset + 5 |
+| 6 | `CHILD` | **codec 1 (packed) only**: `ELEM_WIDTH` 5, `COUNT = n + 1`, `Pos40` cells with the meaning of codec 1 at width 4 (0 = empty; the next l-index of the rank when it is not rank + 1, else the up field of the non-last child that ends at the rank, else the down field of the last child that starts there; the kind of a field is told by comparing LCP values), `LENGTH = 5 (n + 1) + 3` |
+| 7 | `BUCKET` | `PARAM0` = k, `PARAM1` = the number of dense symbol codes, `COUNT = sigma^k + 1` first ranks (the last is `n + 1`), `ELEM_WIDTH` 5, `Pos40`, `LENGTH = 5 COUNT + 3` (`COUNT` is a 64-bit number and may exceed 2^31) |
+| 8 | `ISA` | `COUNT = n + 1`, `ELEM_WIDTH` 5, codec 1, `Pos40`, `LENGTH = 5 (n + 1) + 3`; `ISA[SA[i]] = i`, `ISA[n] = 0` |
+| 9, 14, 15 | `RMQ`, `DOCMAP`, `CHILD_ESC` | every position field of their layouts (section 6) is a `Pos40` by the same rule (a pair is 10 bytes, the section has the 3 bytes of padding); S2.1 writes none of them |
+| 11 | `BUILD_INFO` | unchanged in kind; its informative lines say `format=SESA 1.1` and `child=layout A, packed` |
+| 12 | `PSI` | `COUNT = n + 1`, `ELEM_WIDTH` 5, codec 1, `Pos40`, `LENGTH = 5 (n + 1) + 3`, `PARAM0` = the primary row (`SA[PARAM0] = 0`) as at width 4 |
+| 13 | `COUNTS` | unchanged (`uint64` symbol counts, 8 bytes: they are counts, not positions) |
+
+**The tagged CHILD codec (2) does not exist at width 5; the encoder converts it to packed.** A tagged cell holds a rank in 30 bits (`TaggedChild.MaxLength = 2^30 - 1`, F8), so a tagged table is possible only for `n <= 2^30 - 1`, and width 5 is written only above `2^32 - 4` symbols (O1, O2): at width 5 the tagged codec could
+only appear in a container that the re-encoder makes from a small text, never in one that a builder makes. Giving it a 5-byte cell (kind in bits 38 - 39, a 38-bit rank) would be code for a case that does not occur and one more instantiation of the matrix of R2 (`Pos40` x tagged); the measurement does not ask for it: `w5` with tagged cells
+and `w5` with packed cells cost the same on the count descent (`v3` 1.102 / 1.125 / 1.263 and `v4` 1.102 / 1.123 / 1.265 of `v1`, section 2.4). So **the reader and the writer of S2.7 know one CHILD cell at width 5, the packed one**, and a reader that meets codec 2 in a width-5 container refuses it as damage at the Header level.
+The conversion (`Sesa5Encoder`) is cell by cell: kind 0 (empty) -> 0; kind 1 (next) with value `k + 1` -> 0 (a packed table leaves that cell empty); every other non-empty cell -> its value (bits 0 - 29) with the kind dropped; it is checked against the packed table that the in-memory index builds. Codec 3 (the 2-byte delta cell, O3) is independent of `POS_WIDTH`.
+
+**Placement.** The encoder lays the sections out in the file order of its input, each at the first offset at or after the end of the previous payload that the alignment rule allows, with the header page unchanged except `FILE_SIZE`, `POS_WIDTH`, `VERSION_MINOR`, the table and the CRC; such a container is valid but not byte-identical to one that the builder of S2.7 will place (that builder keeps the plan of `SesaLayout`, with
+the reserve for `BUILD_INFO`, and the lengths above: no byte-identity between the two is claimed). **Refusal by a 1.0 reader** (the S1 head): `SesaHeaderReader.cs:96-97` after the header CRC and `FILE_SIZE` have passed: `InvalidDataException("POS_WIDTH is 5: 4 or 8")`; a test pins the message (`Sesa5EncoderTests`) until S2.7 replaces it by the golden refusal of the frozen 1.0 reader.
+
 ## 7. Build from FASTA or a stream; the public builder (item f)
 
 ### 7.1 Today
