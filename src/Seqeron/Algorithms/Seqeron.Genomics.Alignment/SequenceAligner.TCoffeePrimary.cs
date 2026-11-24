@@ -51,6 +51,19 @@ public sealed class TCoffeeAbortedException : InvalidOperationException
     /// <summary>What the program reports; empty for the SIM script overflow.</summary>
     public string Reason { get; } = string.Empty;
 
+    /// <summary>
+    /// The line t_coffee 13.41 prints (to the standard error, also with <c>-no_warning</c>) when its library holds no entry (t_coffee.c L4999-5010): no space before <c>[FATAL]</c>. The user's run of the 15 stopped
+    /// <c>dali_pair</c> sets (handoff/A2-12b-s5-stderr) printed exactly this line in all 15, including the three sets (18, 29, 38) whose pair jobs had not all run in the earlier runs.
+    /// </summary>
+    public const string NoMethodMessage = "You have not provided any method or enough Sequences[FATAL]";
+
+    /// <summary>The block t_coffee 13.41 writes to the standard error when it stops for lack of a library entry, byte for byte as the 15 recorded stops show it.</summary>
+    /// <param name="commandLine">The command line the program echoes after the hints (with its trailing blank, as printed).</param>
+    public static string NoMethodStandardError(string commandLine) =>
+        "******************ERROR*****************************************\n\n" + NoMethodMessage + "\n" +
+        "If you have used the '-in' Flag, ADD the methods you wish to use:\n\t-in <your sequences> Mlalign_id_pair Mfast_pair\n\n" +
+        "And make sure you provide at least TWO sequences\n" + commandLine + "\n*****************************************************************\n";
+
     /// <summary>The exit status of the program.</summary>
     public int ExitStatus { get; } = 1;
 

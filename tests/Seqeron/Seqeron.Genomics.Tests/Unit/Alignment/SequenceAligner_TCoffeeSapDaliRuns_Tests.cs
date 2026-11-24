@@ -80,7 +80,7 @@ public class SequenceAligner_TCoffeeSapDaliRuns_Tests
 
     /// <summary>
     /// 5 x 130 sets (runs 1, 3, 4, 5, 6): every alignment t_coffee wrote equals the port fed with the SAP files of that run; every stop (exit status 1) is the port's <see cref="TCoffeeAbortedException"/>, and t_coffee's standard error of a stop is
-    /// the one message "You have not provided any method or enough Sequences [FATAL]" (t_coffee.c L5005: the library has no entry; the warning "SAP failed to align" of util_dp_drivers.c L2146 is suppressed by -no_warning).
+    /// the one message "You have not provided any method or enough Sequences[FATAL]" (t_coffee.c L5005: the library has no entry; the warning "SAP failed to align" of util_dp_drivers.c L2146 is suppressed by -no_warning).
     /// </summary>
     [Test]
     public void RealSap_EveryRowOfEveryRunEqualsThePortFedWithItsOwnSapOutput()
@@ -396,7 +396,7 @@ public class SequenceAligner_TCoffeeSapDaliRuns_Tests
                 stops++;
                 Assert.That(r.Rows, Is.EqualTo("FAIL:1"), Describe(r));
                 if (message is null) failures.Add($"{Describe(r)}: t_coffee stopped with status 1, the port aligned to {got}");
-                else Assert.That(message, Does.Contain("You have not provided any method or enough Sequences"), Describe(r));    // the empty library (t_coffee.c L5005); t_coffee's own text of this run was not recorded
+                else Assert.That(message, Does.Contain(TCoffeeAbortedException.NoMethodMessage), Describe(r));    // the empty library (t_coffee.c L5005); the text t_coffee printed in each of the 15 stops is locked by the s4g test below
                 continue;
             }
 
@@ -407,6 +407,46 @@ public class SequenceAligner_TCoffeeSapDaliRuns_Tests
         Assert.That(failures, Is.Empty, $"{failures.Count} of 60 sets differ; first: {failures.FirstOrDefault()}");
         Assert.That((alignments, stops, calls, withQuery), Is.EqualTo((45, 15, 272, 0)));
         TestContext.Out.WriteLine($"s4f: 60 sets: {alignments} alignments equal byte for byte, {stops} stops (exit status 1) reproduced, {calls} DaliLite calls, {withQuery} with Query / Sbjct on the standard output");
+    }
+
+    /// <summary>
+    /// Run 11 (A2-12b-s5-stderr, section s4g): the 15 stopped <c>dali_pair</c> sets of run 10 re-run with t_coffee's standard error recorded. All 15 print the same block: the banner of asterisks with <c>ERROR</c>, "You have not provided any method or enough Sequences[FATAL]"
+    /// (no space before <c>[FATAL]</c>), the hint about the <c>-in</c> flag, the echoed command line - including the sets 18, 29 and 38 whose message earlier runs only allowed to be derived from the source (t_coffee.c L5005). The port, fed with the DaliLite output of the same set
+    /// in run 10, stops with the same message, and <see cref="TCoffeeAbortedException.NoMethodStandardError"/> renders the recorded block byte for byte.
+    /// </summary>
+    [Test]
+    public void DaliPair_FifteenStops_StandardErrorOfTheProgramEqualsTheMessageOfThePort()
+    {
+        var stopped = Section("s4g").ToList();
+        Assert.That(stopped.Select(r => r.Index), Is.EqualTo(new[] { 5, 8, 10, 15, 16, 17, 18, 20, 21, 23, 24, 25, 29, 32, 38 }));
+        var run10 = Section("s4f").ToList();
+        foreach (var r in stopped)
+        {
+            Assert.That(r.Run, Is.EqualTo("11"));
+            Assert.That(r.Rows, Is.EqualTo("FAIL:1"), Describe(r));
+            var twin = run10[r.Index];
+            Assert.That((r.Flags, string.Join("|", r.Seqs), twin.Rows), Is.EqualTo((twin.Flags, string.Join("|", twin.Seqs), "FAIL:1")), "the same set as in run 10");
+            Assert.That(r.Extra.GetProperty("stop").GetString(),
+                Is.EqualTo(TCoffeeAbortedException.NoMethodStandardError("t_coffee -seq <p> -template_file <p> -n_core 1 -no_warning -outfile <p> -output fasta_aln -method dali_pair ")), Describe(r));
+            Assert.That(r.Err, Does.Contain(TCoffeeAbortedException.NoMethodMessage), Describe(r));
+
+            var ex = Assert.Throws<TCoffeeAbortedException>(() => Run(twin, Options(twin, TCoffeePairMethod.DaliPair, DaliOutputs(twin))), Describe(r));
+            Assert.That(ex!.ExitStatus, Is.EqualTo(1));
+            Assert.That(ex.Reason, Does.StartWith(TCoffeeAbortedException.NoMethodMessage), Describe(r));
+        }
+
+        TestContext.Out.WriteLine("s4g: 15 stopped dali_pair sets (including 18, 29, 38): the recorded standard error equals NoMethodStandardError and the port stops with the same message");
+    }
+
+    /// <summary>What DaliLite 3.3 wrote to its standard output for each usable pair of a set (run 10), keyed like the pair jobs of the program.</summary>
+    private static Dictionary<(int, int), string> DaliOutputs(Row r)
+    {
+        var dali = DaliCalls(r);
+        var pairs = UsablePairList(r);
+        var outputs = new Dictionary<(int, int), string>();
+        for (int k = 0; k < dali.Count; k++)
+            outputs[pairs[k]] = dali[k].Out;
+        return outputs;
     }
 
     /// <summary>

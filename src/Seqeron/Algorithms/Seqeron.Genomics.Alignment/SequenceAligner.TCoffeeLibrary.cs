@@ -752,7 +752,7 @@ public static partial class SequenceAligner
         var cl = TcBuildChecked(seqs, options.Methods, options.LalignTopAlignments, kind, options.Matrix, options.MethodParameters, templates, structure, blast);
         // CL->S->nseq > 1 with an empty library: "You have not provided any method or enough Sequences [FATAL]" (t_coffee.c L4999-5010)
         if (cl.EntryCount == 0)
-            throw new TCoffeeAbortedException("You have not provided any method or enough Sequences [FATAL] (no library entry: a method without suitable sequences produced no pair)");
+            throw new TCoffeeAbortedException(TCoffeeAbortedException.NoMethodMessage + " (no library entry: a method without suitable sequences produced no pair)");
         var index = TcIndex.FromConstraintList(cl, seqs.Select(s => s.Length).ToArray());
 
         float[]? explicitWeights = null;

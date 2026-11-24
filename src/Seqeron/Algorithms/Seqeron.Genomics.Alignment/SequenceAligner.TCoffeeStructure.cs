@@ -130,7 +130,7 @@ public static partial class SequenceAligner
         // structures has no results file ended with exit status 1 and no alignment ("You have not provided any method or enough Sequences[FATAL]", the only line t_coffee printed with -no_warning): 76 of 76 stopped sets of 520
         // (runs 1, 3, 4, 5 of handoff/A2-12b; the 444 other sets ran through): the program stops where SAP left nothing
         if (sapResults is null || TCoffeeSapAlignedResidues(sapResults) is not var (resS2, resS1))
-            throw new TCoffeeAbortedException($"You have not provided any method or enough Sequences [FATAL] (SAP 1.1.3 left no result for the pair of structures {x} / {y}: \"SAP failed to align\" is a warning that -no_warning hides, the library of the method ends empty and t_coffee.c L5005 stops with exit status 1)");
+            throw new TCoffeeAbortedException($"{TCoffeeAbortedException.NoMethodMessage} (SAP 1.1.3 left no result for the pair of structures {x} / {y}: \"SAP failed to align\" is a warning that -no_warning hides, the library of the method ends empty and t_coffee.c L5005 stops with exit status 1)");
         if (resS1.Length == 0) return entries;                                                                // tot = 0: no library file
         // the library file names sequence s2 with the first string and s1 with the second; fix_seq_seq maps both compact strings to the sequences
         // read_seq_in_n_list types the two strings of the library file (get_sequence_type): PROTEIN selects blosum62mt in fix_seq_seq, anything else idmat

@@ -109,7 +109,7 @@ public static partial class SequenceAligner
         var ungapped = rows.Select(r => r.Replace("-", string.Empty, StringComparison.Ordinal)).ToArray();
         RequireProgramMembers(ungapped, "t_coffee", nameof(rows));
         if (k == 1)
-            throw new TCoffeeAbortedException("You have not provided any method or enough Sequences [FATAL]");
+            throw new TCoffeeAbortedException(TCoffeeAbortedException.NoMethodMessage);
         for (int c = 0; c < len; c++)
         {
             if (rows.All(r => r[c] == '-'))
@@ -127,7 +127,7 @@ public static partial class SequenceAligner
         var kind = TcKindOf(seqs, options.Protein);
         var cl = TcBuildChecked(seqs, options.Methods, options.LalignTopAlignments, kind, options.Matrix, options.MethodParameters);
         if (cl.EntryCount == 0)
-            throw new TCoffeeAbortedException("You have not provided any method or enough Sequences [FATAL] (no library entry: a method without suitable sequences produced no pair)");
+            throw new TCoffeeAbortedException(TCoffeeAbortedException.NoMethodMessage + " (no library entry: a method without suitable sequences produced no pair)");
         var index = TcIndex.FromConstraintList(cl, seqs.Select(s => s.Length).ToArray());
         if (options.FilterLib > 0)
             index.Filter(options.FilterLib);

@@ -7,7 +7,9 @@ into the test data tests/.../TestData/Alignment/tcoffee_sap_dali_runs_oracle.tsv
 B09 WP71 (F322): run 10 (A2-12b-s5) = section s4f: the real t_coffee 13.41 with the real DaliLite 3.3 on the FULL-BACKBONE structures (60 sets, 272 logged `DaliLite -pairwise pdb1.pdb pdb2.pdb` calls, all return code 0). One row per set, extra =
   {"pdb": [...], "calls": [{"args", "rc", "cwd" (the temporary directory of the call without its random number), "out" (the standard output of DaliLite = what the glue's `>tmp1` holds), "err", "saved" (the files DaliLite removed and the directory listing / remaining files, as logged by the wrapper)}]}
   with the calls in the order of their start (the pair jobs of t_coffee: the usable pairs x < y in lexicographic order, one worker). The standard error of t_coffee was not recorded in this run (TC_STDERR unset).
-Usage: python3 -I convert_tcoffee_sap_dali_returned.py OUT.tsv.gz RUN1_DIR RUN3_DIR RUN4_DIR RUN5_DIR RUN6_DIR [RUN10_DIR]    (each = the unzipped archive directory that holds out/)"""
+B09 WP76 (F351): run 11 (A2-12b-s5-stderr) = section s4g: the 15 sets that stopped in run 10, re-run with TC_STDERR=1. One row per stopped set; idx = the index of the same set (same sequences and flags) in section s4f of run 10; extra = {"pdb": [...], "stop": the block t_coffee wrote at the stop
+  (from the line of asterisks with ERROR to the closing line, the temporary paths replaced by <p>), "err": the normalised key lines}. The 15 blocks are identical.
+Usage: python3 -I convert_tcoffee_sap_dali_returned.py OUT.tsv.gz RUN1_DIR RUN3_DIR RUN4_DIR RUN5_DIR RUN6_DIR [RUN10_DIR [RUN11_DIR]]    (each = the unzipped archive directory that holds out/)"""
 import csv, gzip, json, re, sys
 
 csv.field_size_limit(10 ** 9)
@@ -66,17 +68,27 @@ def calls_full(extra):
 
 
 def main(outfile, *dirs):
-    runs = ['1', '3', '4', '5', '6', '10']
+    runs = ['1', '3', '4', '5', '6', '10', '11']
     lines = []
+    run10_rows = load(f'{dirs[5]}/out/s4/tcoffee_external_oracle.tsv') if len(dirs) > 6 else []
     for run, d in zip(runs, dirs):
-        for section in (('s4f',) if run == '10' else ('s1', 's2', 's3', 's4')):
+        for section in (('s4f',) if run == '10' else ('s4g',) if run == '11' else ('s1', 's2', 's3', 's4')):
             try:
-                rows = load(f'{d}/out/{"s4" if section == "s4f" else section}/tcoffee_external_oracle.tsv')
+                rows = load(f'{d}/out/{"s4" if section in ("s4f", "s4g") else section}/tcoffee_external_oracle.tsv')
             except FileNotFoundError:
                 continue
             for i, r in enumerate(rows):
                 e = json.loads(r['extra'])
                 x = {'pdb': e['pdb']}
+                if section == 's4g':
+                    twins = [k for k, q in enumerate(run10_rows) if q['seqs'] == r['seqs'] and q['flags'] == r['flags'] and q['rows'].startswith('FAIL:')]
+                    assert len(twins) == 1 and r['rows'] == run10_rows[twins[0]]['rows'], 'the stopped set of run 11 must be one stopped set of run 10'
+                    text = e['stderr']
+                    start = text.index('******************ERROR')
+                    x['stop'] = re.sub(r'/tmp/\S+', '<p>', text[start:])
+                    x['err'] = err_lines(text)
+                    lines.append('\t'.join([run, section, str(twins[0]), r['flags'], r['seqs'], r['rows'], json.dumps(x, separators=(',', ':'))]))
+                    continue
                 if section == 's1':
                     x['sap'] = e.get('sap', {})
                 x['err'] = err_lines(e.get('stderr', ''))
@@ -88,7 +100,7 @@ def main(outfile, *dirs):
                 if section == 's4':
                     x['calls'] = calls(e)
                 lines.append('\t'.join([run, section, str(i), r['flags'], r['seqs'], r['rows'], json.dumps(x, separators=(',', ':'))]))
-    prov = ['# Seqeron review B09 WP68 / WP71: runs 1, 3, 4, 5, 6 and 10 (section s4f) of the Docker package A2-12b (Ubuntu 24.04 linux/amd64 on the user\'s machine; t_coffee 13.41.0.28bdc39, SAP 1.1.3 sha256 d77350dd..., DaliLite v5 / v3.3) with the same sets (seeds of generate_tcoffee_external_oracle.py).',
+    prov = ['# Seqeron review B09 WP68 / WP71: runs 1, 3, 4, 5, 6, 10 (section s4f) and 11 (section s4g) of the Docker package A2-12b (Ubuntu 24.04 linux/amd64 on the user\'s machine; t_coffee 13.41.0.28bdc39, SAP 1.1.3 sha256 d77350dd..., DaliLite v5 / v3.3) with the same sets (seeds of generate_tcoffee_external_oracle.py).',
             '# columns: run section idx flags seqs rows extra   (see scripts/alignment/convert_tcoffee_sap_dali_returned.py)']
     data = ('\n'.join(prov) + '\n' + '\n'.join(lines) + '\n').encode()
     with open(outfile, 'wb') as raw, gzip.GzipFile(fileobj=raw, mode='wb', compresslevel=9, mtime=0, filename='') as f:
