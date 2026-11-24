@@ -26,8 +26,8 @@ RUN mkdir -p /opt/src && cd /opt/src \
  && sha256sum mafft-src.tgz | tee /opt/mafft-src.sha256 \
  && tar xzf mafft-src.tgz
 RUN cd /opt/src/mafft-7.505-without-extensions/core \
- && ( make ENABLE_MULTITHREAD= PREFIX=/usr/local BINDIR=/usr/local/bin LIBDIR=/usr/local/libexec/mafft > /opt/mafft.build.log 2>&1 ; echo "make exit $?" >> /opt/mafft.build.log \
-   ; make ENABLE_MULTITHREAD= PREFIX=/usr/local BINDIR=/usr/local/bin LIBDIR=/usr/local/libexec/mafft install >> /opt/mafft.build.log 2>&1 ; echo "make install exit $?" >> /opt/mafft.build.log ) \
+ && ( make PREFIX=/usr/local BINDIR=/usr/local/bin LIBDIR=/usr/local/libexec/mafft > /opt/mafft.build.log 2>&1 ; echo "make exit $?" >> /opt/mafft.build.log \
+   ; make PREFIX=/usr/local BINDIR=/usr/local/bin LIBDIR=/usr/local/libexec/mafft install >> /opt/mafft.build.log 2>&1 ; echo "make install exit $?" >> /opt/mafft.build.log ) \
  ; tail -8 /opt/mafft.build.log
 COPY --from=gobuild /out/ /opt/gobuild/
 RUN mkdir -p /usr/local/libexec/mafft \
