@@ -179,7 +179,8 @@ public unsafe class TextViewTests
         Assert.That(index.CopyTo((1L << 31) - 3, block), Is.EqualTo(8));
         Assert.That(index.CopyTo(n - 3, block), Is.EqualTo(3));
         Assert.That(index.CopyTo(n, block), Is.EqualTo(0));
-        Assert.That(() => index.CopyTo(n + 1, block), Throws.TypeOf<ArgumentOutOfRangeException>());
+        Assert.That(() => index.CopyTo(n + 1, block), Throws.TypeOf<ArgumentOutOfRangeException>().With.Property("ParamName").EqualTo("start"));
+        Assert.That(() => index.CopyTo(-1, block), Throws.TypeOf<ArgumentOutOfRangeException>().With.Property("ParamName").EqualTo("start"));
 
         ITextSource source = text.AsTextSource();
         Assert.That(() => source.Length, Throws.TypeOf<NotSupportedException>().With.Message.Contains("IIndexText"));

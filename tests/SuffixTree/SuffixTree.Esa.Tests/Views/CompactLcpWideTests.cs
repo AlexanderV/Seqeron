@@ -109,6 +109,18 @@ public unsafe class CompactLcpWideTests
             nint q = (nint)b;
             Assert.That(() => CompactLcp.FromMappedWide(LcpKind.U32, 4, (byte*)q, (byte*)q, 1, 4, true), Throws.TypeOf<InvalidDataException>());
             Assert.That(() => CompactLcp.FromMappedWide(LcpKind.U64, 4, (byte*)q, (byte*)q, 1, 5, true), Throws.TypeOf<InvalidDataException>());
+            // the readers form refuses the list as well, whoever calls it (the container form refuses it first)
+            Assert.That(() => CompactLcp.FromReaders(LcpKind.U32, new Pos32<TrustedAccess>((byte*)q, 4), new Pos32<TrustedAccess>((byte*)q, 2), true), Throws.TypeOf<InvalidDataException>());
+            Assert.That(() => CompactLcp.FromReaders(LcpKind.U64, new Pos64<TrustedAccess>((byte*)q, 4), new Pos32<TrustedAccess>((byte*)q, 2), true), Throws.TypeOf<InvalidDataException>());
+            Assert.That(() => CompactLcp.FromReaders(LcpKind.U64, new Pos64<TrustedAccess>((byte*)q, 4), new Pos40<TrustedAccess>((byte*)q, 2), false), Throws.TypeOf<InvalidDataException>());
+            Assert.That(() => CompactLcp.FromReaders(LcpKind.U64, new Pos64<TrustedAccess>((byte*)q, 4), new Pos32<TrustedAccess>((byte*)q, 0), true), Throws.Nothing);
+            // a pair count that no list has is damage whatever its size (the check precedes the arithmetic on the count)
+            Assert.That(() => CompactLcp.FromMappedWide(LcpKind.U64, 4, (byte*)q, (byte*)q, long.MaxValue, 4, true), Throws.TypeOf<InvalidDataException>());
+            Assert.That(() => CompactLcp.FromMappedWide(LcpKind.U32, 4, (byte*)q, (byte*)q, long.MaxValue, 5, true), Throws.TypeOf<InvalidDataException>());
+            Assert.That(() => CompactLcp.FromMappedWide(LcpKind.U8, 0, (byte*)q, null, 0, 4, true), Throws.TypeOf<ArgumentOutOfRangeException>().With.Property("ParamName").EqualTo("length"));
+            foreach (int width in new[] { 0, 2, 8 }) Assert.That(() => CompactLcp.FromMappedWide(LcpKind.U8, 4, (byte*)q, null, 0, width, true), Throws.TypeOf<ArgumentOutOfRangeException>(), $"a pair field of {width} bytes");
+            // the 32-bit mapped form reads no U64 array
+            Assert.That(() => CompactLcp.FromMapped(LcpKind.U64, 4, (byte*)q, null, 0, true), Throws.TypeOf<ArgumentOutOfRangeException>().With.Property("ParamName").EqualTo("kind"));
             Assert.That(() => CompactLcp.FromMappedWide(LcpKind.U8, 0, (byte*)q, null, 0, 4, true), Throws.TypeOf<ArgumentOutOfRangeException>());
             Assert.That(() => CompactLcp.FromMappedWide(LcpKind.U8, 4, (byte*)q, null, -1, 4, true), Throws.TypeOf<ArgumentOutOfRangeException>());
             Assert.That(() => CompactLcp.FromMappedWide(LcpKind.U8, 4, (byte*)q, null, 0, 6, true), Throws.TypeOf<ArgumentOutOfRangeException>());
@@ -221,7 +233,9 @@ public unsafe class CompactLcpWideTests
         Assert.That(Enum.GetValues<LcpKind>(), Is.EqualTo(new[] { LcpKind.U8, LcpKind.U16, LcpKind.U32, LcpKind.U64 }));
         Assert.That(CompactLcp.SelectKind(1000, 0, 0), Is.EqualTo(LcpKind.U8));
         Assert.That(CompactLcp.SelectKind(1000, 900, 900), Is.EqualTo(LcpKind.U32));
-        Assert.That(() => CompactLcp.FromDense([0, 0, 1], LcpKind.U64), Throws.TypeOf<ArgumentOutOfRangeException>().Or.TypeOf<NotSupportedException>());
+        Assert.That(() => CompactLcp.FromDense([0, 0, 1], LcpKind.U64), Throws.TypeOf<ArgumentOutOfRangeException>().With.Property("ParamName").EqualTo("kind"));
+        Assert.That(() => CompactLcp.FromDense(Array.Empty<int>(), LcpKind.U64), Throws.TypeOf<ArgumentOutOfRangeException>().With.Property("ParamName").EqualTo("kind"));
+        Assert.That(() => CompactLcp.FromDense([-1], LcpKind.U64), Throws.TypeOf<ArgumentOutOfRangeException>().With.Property("ParamName").EqualTo("kind"));
     }
     [Test]
     public void AValueEqualToTheTextLength_IsTheLargestThatCheckedModeAccepts([Values("U32", "U64")] string kindName)
@@ -246,6 +260,59 @@ public unsafe class CompactLcpWideTests
         Assert.That(() => lcp[2L], Throws.TypeOf<InvalidDataException>());
         Assert.That(() => lcp[3L], Throws.TypeOf<InvalidDataException>());
         Assert.That(lcp[4L], Is.EqualTo(5), "an ordinary value after the damaged ones is still read");
+    }
+
+    /// <summary>An overflow list of 2^31 + 2 pairs that is no memory: every field is 0 but the rank of the last pair, 7 (the binary search for rank 7 ends at an index above int.MaxValue).</summary>
+    private readonly struct HugeList : IPosReader
+    {
+        internal const long Pairs = (1L << 31) + 2;
+
+        public static int ElementBytes => 4;
+
+        public long Count => 2 * Pairs;
+
+        public ulong Get(long index) => index == 2 * (Pairs - 1) ? 7UL : 0UL;
+    }
+
+    [Test]
+    public void AnOverflowListOfMoreThan2To31Pairs_IsNotSupported_ByTheMembersThatNeedAnInteger_AndTheLongMembersReadIt()
+    {
+        var bytes = new byte[16];
+        Array.Fill(bytes, byte.MaxValue); // U8: every entry is the escape
+        fixed (byte* b = bytes)
+        {
+            nint q = (nint)b;
+            CompactLcp lcp = CompactLcp.FromReaders(LcpKind.U8, new Pos8<TrustedAccess>((byte*)q, 16), new HugeList(), isChecked: false);
+            Assert.That(lcp.OverflowCount, Is.EqualTo(HugeList.Pairs));
+            Assert.That(lcp[7L], Is.EqualTo(0), "the pair of rank 7 is the last one, at an index above the integers: the long members read it");
+            Assert.That(() => lcp[7], Throws.TypeOf<NotSupportedException>().With.Message.Contains("index of the overflow list"));
+            Assert.That(() => lcp.OverflowRanks, Throws.TypeOf<NotSupportedException>().With.Message.Contains("overflow list"));
+            Assert.That(() => lcp.OverflowValues, Throws.TypeOf<NotSupportedException>().With.Message.Contains("overflow list"));
+        }
+    }
+
+    [Test]
+    public void ARankOfTheOverflowListAboveTheIntegers_IsInvalidData_ForTheMembersThatNeedAnInteger([Values(true, false)] bool isChecked)
+    {
+        using var pairs = new GuardedImage(ViewImage.Encode(new[] { (1UL << 31) + 5, 3UL }, 4, 0), flush: true);
+        using var entries = new GuardedImage(new byte[8], flush: true);
+        CompactLcp lcp = CompactLcp.FromMappedWide(LcpKind.U8, 8, entries.Data, pairs.Data, 1, 4, isChecked);
+        Assert.That(() => lcp.OverflowRanks, Throws.TypeOf<InvalidDataException>());
+        Assert.That(() => lcp.OverflowValues, Throws.TypeOf<InvalidDataException>());
+    }
+
+    [Test]
+    public void AValueOfTheOverflowListAboveTheIntegers_IsInvalidData_ForTheIntegerIndexer_AndTheLongIndexerReadsIt([Values(4, 5)] int width)
+    {
+        using var pairs = new GuardedImage(ViewImage.Encode(new[] { 5UL, (1UL << 31) + 7 }, width, width == 5 ? 3 : 0), flush: true);
+        var bytes = new byte[8];
+        bytes[5] = byte.MaxValue; // the escape of U8 at rank 5
+        using var entries = new GuardedImage(bytes, flush: true);
+        CompactLcp lcp = CompactLcp.FromMappedWide(LcpKind.U8, 8, entries.Data, pairs.Data, 1, width, isChecked: true);
+        Assert.That(lcp[5L], Is.EqualTo((1L << 31) + 7));
+        Assert.That(() => lcp[5], Throws.TypeOf<InvalidDataException>().With.Message.Contains("2147483655"));
+        Assert.That(() => lcp.OverflowValues, Throws.TypeOf<InvalidDataException>().With.Message.Contains("2147483655"));
+        Assert.That(() => lcp.OverflowRanks, Throws.TypeOf<InvalidDataException>().With.Message.Contains("2147483655"), "the two arrays are built together");
     }
 
     [Test]

@@ -185,6 +185,19 @@ public unsafe class SaViewTests
     }
 
     [Test]
+    public void NonGeneric_ACopyOfANegativeCount_IsRefused_OnEveryForm([Values(4, 5)] int width)
+    {
+        using ViewImage image = ViewImage.Of("banana", width, LcpKind.U8);
+        SaView view = SaView.FromMapped(image.SaPointer, image.Count, width, isChecked: true);
+        Assert.That(() => view.ToArray(0, -1), Throws.TypeOf<ArgumentOutOfRangeException>());
+        Assert.That(() => view.ToLongArray(0, -1), Throws.TypeOf<ArgumentOutOfRangeException>());
+        Assert.That(() => new SaView(image.Case.Sa).ToArray(0, -1), Throws.TypeOf<ArgumentOutOfRangeException>());
+        Assert.That(() => new SaView(image.Case.Sa).ToLongArray(0, -1), Throws.TypeOf<ArgumentOutOfRangeException>());
+        Assert.That(view.ToArray(1, 0), Is.Empty);
+        Assert.That(view.ToLongArray(image.Count, 0), Is.Empty);
+    }
+
+    [Test]
     public void NonGeneric_APointerOfAFiveByteSection_IsNotAnIntegerPointer()
     {
         using ViewImage image = ViewImage.Of("banana", 5, LcpKind.U8);

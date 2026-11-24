@@ -179,7 +179,7 @@ internal readonly struct TaggedChild : IChildTable, IIntervalSink
 /// (<c>POS_WIDTH</c> 5, ADR-005 section 6.1: a tagged table does not exist at width 5). The entries are untrusted. With <c>isChecked</c> (the default access mode) a read of a
 /// cell outside the section is an <see cref="InvalidDataException"/>; a value that a read returns is only ever used as a rank, and the readers that follow it (<see cref="CompactLcp"/>, the suffix array view) reject a rank outside
 /// their arrays; the walks that call <see cref="NextLIndex(int, int)"/> check that the l-indices increase and stay inside the interval, which bounds them. The pattern descent has a loop of its own for each codec (<see cref="MappedSearch"/>);
-/// this struct serves the navigator, the traversal and the contract members. The <see cref="int"/> members are what the 32-bit engine of S1 reads (unchanged on a 4-byte section, the checked bridge on a 5-byte one); the <see cref="long"/> members are
+/// this struct serves the navigator, the traversal and the contract members. The <see cref="int"/> members are what the 32-bit engine of S1 reads (unchanged on a 4-byte section of at most int.MaxValue cells, the checked bridge on a 5-byte one and on a larger one); the <see cref="long"/> members are
 /// the 64-bit reads over <see cref="ChildCells{TPos}"/>.
 /// </summary>
 internal readonly unsafe struct MappedChild : IChildTable
@@ -194,6 +194,9 @@ internal readonly unsafe struct MappedChild : IChildTable
     private readonly bool _checked;
     private readonly bool _tagged;
     private readonly bool _five;
+
+    /// <summary>The cells that the 32-bit members read through the checked bridge: 5-byte cells, and 4-byte cells of a table of more than <see cref="int.MaxValue"/> cells (a cell may be a rank above <see cref="int.MaxValue"/>).</summary>
+    private readonly bool _bridged;
 
     /// <summary>A table of 4-byte cells (the form of S1).</summary>
     internal MappedChild(int* cld, long count, CompactLcp lcp, bool isChecked, bool tagged = false)
@@ -210,6 +213,7 @@ internal readonly unsafe struct MappedChild : IChildTable
         _checked = isChecked;
         _tagged = tagged;
         _five = five;
+        _bridged = five || count > int.MaxValue;
     }
 
     /// <summary>A table of <paramref name="count"/> cells of <paramref name="posWidth"/> (4 or 5) bytes at <paramref name="cells"/>; a 5-byte table has the 3 bytes of padding of its section and is packed.</summary>
@@ -238,7 +242,7 @@ internal readonly unsafe struct MappedChild : IChildTable
 
     public int FirstLIndex(int lb, int rb, bool lastChild)
     {
-        if (_five) return IntBridge.Value(FirstLIndex((long)lb, rb, lastChild), "a first l-index");
+        if (_bridged) return IntBridge.Value(FirstLIndex((long)lb, rb, lastChild), "a first l-index");
         int at = lastChild ? lb : rb;
         if (_checked && (ulong)at >= (ulong)_count) ThrowOutside(at);
         int cell = _cld[at];
@@ -247,7 +251,7 @@ internal readonly unsafe struct MappedChild : IChildTable
 
     public int NextLIndex(int k, int rb)
     {
-        if (_five)
+        if (_bridged)
         {
             long next = NextLIndex((long)k, rb);
             return next < 0 ? -1 : IntBridge.Value(next, "an l-index");

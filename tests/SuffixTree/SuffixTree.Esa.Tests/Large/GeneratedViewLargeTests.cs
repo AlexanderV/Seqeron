@@ -336,6 +336,106 @@ public unsafe class GeneratedViewLargeTests : LargeFixtureBase
         Assert.That(source[2], Is.EqualTo('a'));
     }
 
+    // ---------------------------------------------------------------------------------------------- the 32-bit members over sections of more than 2^31 entries (the checked bridges)
+
+    [Test]
+    public void TheSuffixArrayView_OfMoreThan2To31FourByteEntries_CopiesAtAStartAbove2To31_AndTheIntegerReadsAreTheBridge()
+    {
+        long count = TwoTo31 + 100;
+        long guard = TwoTo33; // address space in front of the section: where a start narrowed to int would read
+        using var section = new VirtualSection(guard + (4 * count));
+        byte* sa = section.Data + guard;
+        long start = TwoTo31 + 5;
+        long narrowed = guard + (4 * (long)(int)start); // the byte that the pointer of a copy reaches if the start is narrowed
+        section.Open(guard, 4096);
+        section.Open(guard + (4 * start), 64);
+        section.Open(narrowed, 64);
+        var words = (uint*)sa;
+        words[50] = (uint)(TwoTo31 + 9);
+        words[51] = 12;
+        for (int i = 0; i < 4; i++)
+        {
+            words[start + i] = (uint)(7 + i);
+            ((uint*)(section.Data + narrowed))[i] = 0xEEEE_0000u + (uint)i;
+        }
+        foreach (bool isChecked in new[] { true, false })
+        {
+            SaView view = SaView.FromMapped(sa, count, 4, isChecked);
+            Assert.That(view.Length, Is.EqualTo(count));
+            var ints = new int[4];
+            var longs = new long[4];
+            view.CopyTo(start, ints);
+            view.CopyTo(start, longs);
+            Assert.That(ints, Is.EqualTo(new[] { 7, 8, 9, 10 }));
+            Assert.That(longs, Is.EqualTo(new long[] { 7, 8, 9, 10 }));
+            Assert.That(view[start], Is.EqualTo(7));
+            // an entry above int.MaxValue is a position of a text that the 32-bit engine cannot hold: the long members read it, the 32-bit members refuse it
+            Assert.That(view[50L], Is.EqualTo(TwoTo31 + 9));
+            Assert.That(() => view[50], Throws.TypeOf<InvalidDataException>().With.Message.Contains((TwoTo31 + 9).ToString()));
+            Assert.That(() => view.CopyTo(50L, new int[1]), Throws.TypeOf<InvalidDataException>());
+            Assert.That(() => view.ToArray(49, 3), Throws.TypeOf<InvalidDataException>());
+            Assert.That(view[51], Is.EqualTo(12));
+            Assert.That(view.ToArray(51, 1), Is.EqualTo(new[] { 12 }));
+            Assert.That(view.ToLongArray(49, 3), Is.EqualTo(new long[] { 0, TwoTo31 + 9, 12 }));
+        }
+    }
+
+    [Test]
+    public void TheChildTable_OfMoreThan2To31Cells_TheIntegerMembersAreTheBridge_OverFourAndFiveByteCells([Values(4, 5)] int width)
+    {
+        long count = TwoTo31 + 11;
+        long target = TwoTo31 + 7;
+        using var lcpSection = new VirtualSection(count);
+        lcpSection.Open(0, 4096);
+        lcpSection.Open(target, 64);
+        lcpSection.Data[100] = 3;     // LCP[100] = 3, LCP[101] = 0: the next l-index of 100 is the one that the cell says
+        lcpSection.Data[target] = 3;  // LCP[target] = 3: the walk accepts it
+        CompactLcp lcp = CompactLcp.FromMappedWide(LcpKind.U8, count, lcpSection.Data, null, 0, width, isChecked: true);
+        using var cells = new VirtualSection((width * count) + 3);
+        cells.Open(0, 4096);
+        // cell 100 is the rank above int.MaxValue, cell 3 as well, cell 4 a small one
+        for (int i = 0; i < width; i++)
+        {
+            cells.Data[(width * 100L) + i] = (byte)(target >> (8 * i));
+            cells.Data[(width * 3L) + i] = (byte)(target >> (8 * i));
+        }
+        cells.Data[width * 4L] = 17;
+        MappedChild child = MappedChild.FromMappedWide(cells.Data, count, width, lcp, isChecked: true, tagged: false);
+        Assert.That(child.Length, Is.EqualTo(count));
+        Assert.That(child.NextLIndex(100L, TwoTo33), Is.EqualTo(target));
+        Assert.That(child.FirstLIndex(3L, 3L, true), Is.EqualTo(target));
+        Assert.That(() => child.NextLIndex(100, int.MaxValue), Throws.TypeOf<InvalidDataException>().With.Message.Contains(target.ToString()));
+        Assert.That(() => child.FirstLIndex(3, 3, true), Throws.TypeOf<InvalidDataException>().With.Message.Contains(target.ToString()));
+        Assert.That(child.FirstLIndex(4, 4, true), Is.EqualTo(17));
+        Assert.That(child.FirstLIndex(4L, 4L, true), Is.EqualTo(17));
+    }
+
+    [Test]
+    public void ThePyramid_OverMoreThan2To31Entries_FindsThePreviousSmallerThroughABlockThatStartsAbove2To31()
+    {
+        // an answer in an earlier block that starts at 2^31 or above: the start of the block is a position, so it is computed in long
+        long n = TwoTo31 + 300;
+        var f = new PowerOfA(n);
+        CompactLcp lcp = CompactLcp.FromReaders(LcpKind.U32, new PosGen<W4>(f, GenSection.Synthetic), new PosGen<W4>(f, GenSection.LcpPairsOfPowerOfA, long.MaxValue), isChecked: false);
+        using LcpPyramid pyramid = LcpPyramid.Build(lcp, 32);
+        int throughALevel = 0;
+        foreach (long bound in new long[] { 1, 2, 3 })
+        {
+            for (long r = TwoTo31 + 32; r <= n; r++)
+            {
+                long prev = r;
+                while (prev >= 0 && (long)(PosGen<W4>.Hash(prev) % 50) >= bound) prev--;
+                Assert.That(pyramid.PrevLess(r, bound), Is.EqualTo(prev), $"PrevLess({r}, {bound})");
+                if (prev >= TwoTo31 && (prev >> 5) != (r >> 5)) throughALevel++;
+            }
+        }
+        Assert.That(throughALevel, Is.GreaterThan(50), "the queries that the test is about: the answer lies in an earlier block that starts at 2^31 or above");
+        // the 32-bit members: the answer 'no entry' of NextLess is the length of the array, which is no int: a size that the 32-bit engine cannot hold, not a damaged file
+        Assert.That(() => pyramid.NextLess(5, 0), Throws.TypeOf<NotSupportedException>().With.Message.Contains("NextLess"));
+        Assert.That(() => pyramid.Borders(5, 6, 0, out _, out _, out _, out _), Throws.TypeOf<NotSupportedException>().With.Message.Contains("Borders"));
+        Assert.That(pyramid.PrevLess(5, 0), Is.EqualTo(-1));
+    }
+
     // ---------------------------------------------------------------------------------------------- the sparse shells: pointers over a mapping
 
     private static readonly long[] EndRanks = [0, 1, 2, 17, 255, 256, 1000, 4094, 4095];

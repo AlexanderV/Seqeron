@@ -7,13 +7,19 @@ namespace SuffixTree.Esa;
 /// (<c>POS_WIDTH</c> 4) or of 5 bytes (<c>POS_WIDTH</c> 5, ADR-005 section 6.1) inside a mapped SESA container (an index opened from a file). A struct, so that it costs the caller one reference, one pointer and a count. The container's entries
 /// are untrusted: in <see cref="EsaAccessMode.Checked"/> mode (the default) an index outside <c>0..n</c> is an <see cref="InvalidDataException"/> and never a read outside the section; a value that a read returns can still be garbage (it is a position or a
 /// rank that the caller validates against its own bounds). Every number of the long members is 64-bit (<see cref="Length"/>, <c>this[long]</c>, <see cref="At"/>, the copies); the <see cref="int"/> members are what the 32-bit engine of S1 reads until
-/// S2.4 and S2.5 and are unchanged on an array and on a 4-byte section (the hot path); on a 5-byte section they are the checked bridge (a position above <see cref="int.MaxValue"/> is an <see cref="InvalidDataException"/>). The generic form over a
+/// S2.4 and S2.5 and are unchanged on an array and on a 4-byte section of at most <see cref="int.MaxValue"/> entries (the hot path: the same test of the flags tells the bridged forms apart); on a 5-byte section and on a 4-byte section of more entries they are the checked bridge (a position above <see cref="int.MaxValue"/> is an <see cref="InvalidDataException"/>, never a wrapped number). The generic form over a
 /// position reader is <see cref="SaView{TPos}"/>; this one is the non-generic holder that a container reader hands out (a switch on the form on every long member, none on the 32-bit read of an array or a 4-byte section).
 /// </summary>
 internal readonly unsafe struct SaView
 {
     private const byte Checked = 1;
     private const byte FiveBytes = 2;
+
+    /// <summary>A 4-byte section of more than <see cref="int.MaxValue"/> entries: an entry may be a position above <see cref="int.MaxValue"/> (a text of 2^31 symbols and more), which the 32-bit read must refuse, not wrap.</summary>
+    private const byte FourBytesWide = 4;
+
+    /// <summary>The sections whose 32-bit read is the checked bridge (the same test of the flags as the one that told the 5-byte section from the 4-byte one).</summary>
+    private const byte Bridged = FiveBytes | FourBytesWide;
 
     private readonly int[]? _array;
     private readonly int* _pointer;
@@ -37,7 +43,15 @@ internal readonly unsafe struct SaView
         _array = null;
         _pointer = pointer;
         _count = count;
-        _flags = isChecked ? Checked : (byte)0;
+        _flags = FlagsOf(isChecked, 4, count);
+    }
+
+    private static byte FlagsOf(bool isChecked, int posWidth, long count)
+    {
+        int flags = isChecked ? Checked : 0;
+        if (posWidth == 5) flags |= FiveBytes;
+        else if (count > int.MaxValue) flags |= FourBytesWide;
+        return (byte)flags;
     }
 
     private SaView(int* pointer, long count, byte flags)
@@ -54,8 +68,7 @@ internal readonly unsafe struct SaView
     {
         if (posWidth is not (4 or 5)) throw new ArgumentOutOfRangeException(nameof(posWidth), posWidth, "the stored width of a position is 4 or 5 bytes");
         ArgumentOutOfRangeException.ThrowIfNegative(count);
-        byte flags = (byte)((isChecked ? Checked : 0) | (posWidth == 5 ? FiveBytes : 0));
-        return new SaView((int*)section, count, flags);
+        return new SaView((int*)section, count, FlagsOf(isChecked, posWidth, count));
     }
 
     /// <summary>Number of entries (<c>n + 1</c>).</summary>
@@ -73,7 +86,7 @@ internal readonly unsafe struct SaView
         {
             if (_array is not null) return _array[rank];
             if ((_flags & Checked) != 0 && (ulong)rank >= (ulong)_count) ThrowOutside(rank);
-            if ((_flags & FiveBytes) != 0) return IntBridge.Value((long)Load40(rank), "a suffix array entry");
+            if ((_flags & Bridged) != 0) return IntBridge.Value(ReadUnchecked(rank), "a suffix array entry");
             return _pointer[rank];
         }
     }
@@ -105,10 +118,10 @@ internal readonly unsafe struct SaView
     {
         if (start < 0 || destination.Length > _count - start) ThrowOutside(start);
         if (_array is not null) _array.AsSpan((int)start, destination.Length).CopyTo(destination);
-        else if ((_flags & FiveBytes) == 0) new ReadOnlySpan<int>(_pointer + start, destination.Length).CopyTo(destination);
+        else if ((_flags & Bridged) == 0) new ReadOnlySpan<int>(_pointer + start, destination.Length).CopyTo(destination);
         else
         {
-            for (int i = 0; i < destination.Length; i++) destination[i] = IntBridge.Value((long)Load40(start + i), "a suffix array entry");
+            for (int i = 0; i < destination.Length; i++) destination[i] = IntBridge.Value(ReadUnchecked(start + i), "a suffix array entry");
         }
     }
 

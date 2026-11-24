@@ -202,7 +202,7 @@ internal sealed unsafe class LcpPyramid : IDisposable
     internal int PrevLess(int pos, int bound)
     {
         if (pos < 0) return -1;
-        if (_wideLcp is not null) return IntBridge.Value(PrevLess((long)pos, bound), "a rank");
+        if (_wideLcp is not null) return PrevLessBridged(pos, bound);
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(pos, _length);
         return _kind switch
         {
@@ -217,7 +217,7 @@ internal sealed unsafe class LcpPyramid : IDisposable
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     internal int NextLess(int pos, int bound)
     {
-        if (_wideLcp is not null) return IntBridge.Value(NextLess((long)pos, bound), "a rank");
+        if (_wideLcp is not null) return IntBridge.Length(NextLess((long)pos, bound), "a rank of the LCP array (NextLess)");
         if (pos >= _length) return _length;
         ArgumentOutOfRangeException.ThrowIfNegative(pos);
         return _kind switch
@@ -226,6 +226,13 @@ internal sealed unsafe class LcpPyramid : IDisposable
             LcpKind.U16 => NextLessCore(_reader16, pos, bound),
             _ => NextLessCore(_reader32, pos, bound),
         };
+    }
+
+    /// <summary>The 32-bit answer of the wide form: the rank is at most <c>pos</c> (an <see cref="int"/>) or -1, which means that there is none.</summary>
+    private int PrevLessBridged(int pos, int bound)
+    {
+        long found = PrevLess((long)pos, bound);
+        return found < 0 ? -1 : IntBridge.Value(found, "a rank");
     }
 
     /// <summary>Previous smaller value (strict): the largest <c>j &lt; p</c> with <c>LCP[j] &lt; LCP[p]</c>, or -1.</summary>
@@ -248,8 +255,8 @@ internal sealed unsafe class LcpPyramid : IDisposable
         if (_wideLcp is not null)
         {
             BordersWide(a, b, t, out long l, out long r, out long lv, out long rv);
-            left = IntBridge.Value(l, "a rank");
-            right = IntBridge.Value(r, "a rank");
+            left = l < 0 ? -1 : IntBridge.Value(l, "a rank");
+            right = IntBridge.Length(r, "a rank of the LCP array (Borders)");
             leftValue = lv < 0 ? -1 : IntBridge.Value(lv, "an LCP value");
             rightValue = rv < 0 ? -1 : IntBridge.Value(rv, "an LCP value");
             return;

@@ -1,5 +1,6 @@
 using SuffixTree.Esa.Tests.External;
 using SuffixTree.Esa.Tests.Fuzz;
+using SuffixTree.Esa.Tests.Large;
 
 namespace SuffixTree.Esa.Tests.Views;
 
@@ -70,6 +71,45 @@ public unsafe class LcpPyramidWideTests
         Assert.That(() => pyramid.Min(-1L, 3), Throws.TypeOf<ArgumentOutOfRangeException>());
         Assert.That(() => pyramid.PrevLess(v.Length, 3), Throws.TypeOf<ArgumentOutOfRangeException>());
         Assert.That(() => pyramid.NextLess(-1, 3), Throws.TypeOf<ArgumentOutOfRangeException>());
+
+        // the borders of a range: the previous and the next entry below the bound, and their values (-1 for no entry)
+        foreach (long a in new long[] { 0, 1, 2, 17, 500, v.Length - 1 })
+        {
+            foreach (long len in new long[] { 1, 5, 40 })
+            {
+                long b = Math.Min(v.Length - 1, a + len - 1);
+                foreach (long t in new long[] { 0, 1, 3, 7, 20, 300, 1L << 33 })
+                {
+                    pyramid.Borders(a, b, t, out long left, out long right, out long leftValue, out long rightValue);
+                    long expectedLeft = BrutePrev(v, a, t), expectedRight = BruteNext(v, b + 1, t);
+                    Assert.That((left, right), Is.EqualTo((expectedLeft, expectedRight)), $"{context} Borders({a}, {b}, {t})");
+                    Assert.That(leftValue, Is.EqualTo(expectedLeft >= 0 ? v[expectedLeft] : -1), $"{context} Borders({a}, {b}, {t}) left value");
+                    Assert.That(rightValue, Is.EqualTo(expectedRight < v.Length ? v[expectedRight] : -1), $"{context} Borders({a}, {b}, {t}) right value");
+                }
+            }
+        }
+        // the 32-bit members are the same queries, and -1 (no entry) is an answer, not a damaged number
+        foreach (int bound in new[] { 0, 1, 3, 7, 20, 300, 70_000 })
+        {
+            for (int p = 0; p < v.Length; p += 29)
+            {
+                Assert.That(pyramid.PrevLess(p, bound), Is.EqualTo((int)BrutePrev(v, p, bound)), $"{context} int PrevLess({p}, {bound})");
+                Assert.That(pyramid.NextLess(p, bound), Is.EqualTo((int)BruteNext(v, p, bound)), $"{context} int NextLess({p}, {bound})");
+            }
+            foreach (int a in new[] { 0, 3, 100, v.Length - 1 })
+            {
+                int b = Math.Min(v.Length - 1, a + 6);
+                pyramid.Borders(a, b, bound, out int l, out int r, out int lv, out int rv);
+                int el = (int)BrutePrev(v, a, bound), er = (int)BruteNext(v, b + 1, bound);
+                Assert.That((l, r), Is.EqualTo((el, er)), $"{context} int Borders({a}, {b}, {bound})");
+                Assert.That(lv, Is.EqualTo(el >= 0 ? (int)v[el] : -1));
+                Assert.That(rv, Is.EqualTo(er < v.Length ? (int)v[er] : -1));
+            }
+        }
+        Assert.That(pyramid.PrevLess(0, 0), Is.EqualTo(-1), "no entry below 0");
+        Assert.That(() => pyramid.Borders(5L, 4L, 3L, out _, out _, out _, out _), Throws.TypeOf<ArgumentOutOfRangeException>());
+        Assert.That(() => pyramid.Borders(5L, v.Length, 3L, out _, out _, out _, out _), Throws.TypeOf<ArgumentOutOfRangeException>());
+        Assert.That(() => pyramid.Borders(v.Length, v.Length, 3L, out _, out _, out _, out _), Throws.TypeOf<ArgumentOutOfRangeException>());
     }
 
     [Test]
@@ -156,5 +196,69 @@ public unsafe class LcpPyramidWideTests
         using var b = new GuardedImage(baseBytes, flush: true);
         // the base array has the escape at rank 60 and the list is empty: the file is damaged
         Assert.That(() => LcpPyramid.Build(CompactLcp.FromMappedWide(LcpKind.U8, v.Length, b.Data, null, 0, 5, true), 4), Throws.TypeOf<InvalidDataException>());
+    }
+
+    [Test]
+    public void ALoneMinimum_IsFoundAtEveryPositionOfTheBlocks_ByEveryQuery([Values(2, 4, 8)] int fanout, [Values(4, 5)] int width)
+    {
+        // one entry of 1 among entries of 100, the 1 at every position in turn: a range holds it or it does not, whatever the block borders, so a partial block that is read one entry short or one entry late, a level that
+        // is entered at the wrong block, shows as the wrong minimum. Every range, every position, both directions.
+        const int n = 70;
+        for (int p = 0; p < n; p++)
+        {
+            long[] v = [.. Enumerable.Range(0, n).Select(i => i == p ? 1L : 100L)];
+            (byte[] baseBytes, _) = ViewImage.EncodeLcp(v, LcpKind.U8);
+            using var b = new GuardedImage(baseBytes, flush: true);
+            using LcpPyramid pyramid = LcpPyramid.Build(CompactLcp.FromMappedWide(LcpKind.U8, n, b.Data, null, 0, width, isChecked: true), fanout);
+            for (long lo = 0; lo < n; lo++)
+            {
+                for (long hi = lo; hi < n; hi++)
+                {
+                    long expected = lo <= p && p <= hi ? 1 : 100;
+                    long actual = pyramid.Min(lo, hi);
+                    if (actual != expected) Assert.Fail($"Min({lo}, {hi}) with the minimum at {p}, fanout {fanout}: {actual}, expected {expected}");
+                }
+                long prev = pyramid.PrevLess(lo, 50);
+                if (prev != (lo >= p ? p : -1)) Assert.Fail($"PrevLess({lo}, 50) with the minimum at {p}, fanout {fanout}: {prev}");
+                long next = pyramid.NextLess(lo, 50);
+                if (next != (lo <= p ? p : n)) Assert.Fail($"NextLess({lo}, 50) with the minimum at {p}, fanout {fanout}: {next}");
+            }
+        }
+    }
+
+    [Test]
+    public void TheManagedPyramid_RefusesARankThatIsNoInt_WithTheMessageOfThePyramid()
+    {
+        using LcpPyramid pyramid = LcpPyramid.Build(CompactLcp.FromDense([0, 0, 1, 2, 0, 3, 1, 1]), 4);
+        Assert.That(() => pyramid.ValueAt(int.MaxValue + 1L), Throws.TypeOf<ArgumentOutOfRangeException>().With.Message.Contains("a rank outside the LCP array"));
+        Assert.That(() => pyramid.ValueAt(-1L), Throws.TypeOf<ArgumentOutOfRangeException>().With.Message.Contains("a rank outside the LCP array"));
+        Assert.That(() => pyramid.Min(int.MaxValue + 1L, 5), Throws.TypeOf<ArgumentOutOfRangeException>().With.Message.Contains("a rank outside the LCP array"));
+        Assert.That(() => pyramid.Min(0L, 8L), Throws.TypeOf<ArgumentOutOfRangeException>().With.Property("ParamName").EqualTo("hi"), "the right end at the length");
+        Assert.That(pyramid.ValueAt(5L), Is.EqualTo(3));
+        Assert.That(pyramid.Min(2L, 5L), Is.EqualTo(0));
+        Assert.That(pyramid.Min(0L, 7L), Is.EqualTo(0));
+    }
+
+    [Test]
+    public void ABlockMinimumOfExactlyIntMaxValue_FitsTheLevels()
+    {
+        long[] v = [.. Enumerable.Repeat((long)int.MaxValue, 200)];
+        (byte[] baseBytes, _) = ViewImage.EncodeLcp(v, LcpKind.U64);
+        using var b = new GuardedImage(baseBytes, flush: true);
+        using LcpPyramid pyramid = LcpPyramid.Build(CompactLcp.FromMappedWide(LcpKind.U64, v.Length, b.Data, null, 0, 4, isChecked: false), 4);
+        Assert.That(pyramid.Min(0, 199), Is.EqualTo(int.MaxValue));
+        Assert.That(pyramid.Min(3, 150), Is.EqualTo(int.MaxValue));
+        Assert.That(pyramid.PrevLess(199L, int.MaxValue), Is.EqualTo(-1));
+        Assert.That(pyramid.PrevLess(199, int.MaxValue), Is.EqualTo(-1), "no entry is an answer, not a damaged number");
+        Assert.That(pyramid.NextLess(0L, (long)int.MaxValue + 1), Is.EqualTo(0));
+    }
+
+    [Test]
+    public void ALengthWhoseBlockMinimaDoNotFitTheLevels_IsNotSupported_BeforeAnythingIsRead()
+    {
+        // 2^32 + 10 entries in blocks of 2: more than 2^31 block minima at the first level; the check precedes the allocation and the scan (the generator holds no memory, a scan would not end)
+        var f = new PowerOfA((1L << 32) + 10);
+        CompactLcp lcp = CompactLcp.FromReaders(LcpKind.U32, new PosGen<W4>(f, GenSection.Synthetic), new PosGen<W4>(f, GenSection.LcpPairsOfPowerOfA, long.MaxValue), isChecked: false);
+        Assert.That(() => LcpPyramid.Build(lcp, 2), Throws.TypeOf<NotSupportedException>().With.Message.Contains("block minima"));
     }
 }

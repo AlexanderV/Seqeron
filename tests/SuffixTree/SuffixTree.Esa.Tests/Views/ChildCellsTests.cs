@@ -125,6 +125,7 @@ public unsafe class ChildCellsTests
         CompactLcp lcp = LcpOf(image);
         Assert.That(() => MappedChild.FromMappedWide(image.ChildPointer, image.Count, 5, lcp, isChecked, tagged: true), Throws.TypeOf<ArgumentException>());
         Assert.That(() => MappedChild.FromMappedWide(image.ChildPointer, image.Count, 3, lcp, isChecked, tagged: false), Throws.TypeOf<ArgumentOutOfRangeException>());
+        foreach (int width in new[] { 0, 6, 8 }) Assert.That(() => MappedChild.FromMappedWide(image.ChildPointer, image.Count, width, lcp, isChecked, tagged: false), Throws.TypeOf<ArgumentOutOfRangeException>(), $"a cell of {width} bytes");
         Assert.That(() => MappedChild.FromMappedWide(image.ChildPointer, -1, 4, lcp, isChecked, tagged: false), Throws.TypeOf<ArgumentOutOfRangeException>());
         Assert.That(() => MappedChild.FromMappedWide(image.ChildPointer, image.Count, 4, null!, isChecked, tagged: false), Throws.TypeOf<ArgumentNullException>());
         using var four = ViewImage.Of("banana", 4, LcpKind.U8);
@@ -217,6 +218,12 @@ public unsafe class ChildCellsTests
             }
             Assert.That(() => table.FirstLIndex(1L << 33, 0, true), Throws.TypeOf<ArgumentOutOfRangeException>());
             Assert.That(() => table.NextLIndex(0, 1L << 33), Throws.TypeOf<ArgumentOutOfRangeException>());
+            // the first rank that is no int is the one that is refused with the message of the table, not the one that a wrapped number would give
+            Assert.That(() => table.FirstLIndex(int.MaxValue + 1L, 0, true), Throws.TypeOf<ArgumentOutOfRangeException>().With.Message.Contains("32-bit ranks"));
+            Assert.That(() => table.FirstLIndex(0, int.MaxValue + 1L, true), Throws.TypeOf<ArgumentOutOfRangeException>().With.Message.Contains("32-bit ranks"));
+            Assert.That(() => table.NextLIndex(int.MaxValue + 1L, 0), Throws.TypeOf<ArgumentOutOfRangeException>().With.Message.Contains("32-bit ranks"));
+            Assert.That(() => table.NextLIndex(0, int.MaxValue + 1L), Throws.TypeOf<ArgumentOutOfRangeException>().With.Message.Contains("32-bit ranks"));
+            Assert.That(() => table.FirstLIndex(-1L, 0, true), Throws.TypeOf<ArgumentOutOfRangeException>().With.Message.Contains("32-bit ranks"));
         }
     }
 }
