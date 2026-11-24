@@ -343,7 +343,10 @@ def main(path):
     vtext = run_text(vectors)
     gen = vtext.find("gen_inputs.py")
     check(gen >= 0 and gen < vtext.find("dotnet test"), "vectors: gen_inputs.py does not run before the tests")
-    check((vectors.get("env") or {}).get("SEQERON_BENCH_DIR"), "vectors: SEQERON_BENCH_DIR is not set")
+    check("SEQERON_BENCH_DIR=$RUNNER_TEMP/bench" in vtext and "GITHUB_ENV" in vtext, "vectors: SEQERON_BENCH_DIR is not set (through GITHUB_ENV: the runner context is not available in a job-level env)")
+    check(vtext.find("SEQERON_BENCH_DIR=") < gen, "vectors: SEQERON_BENCH_DIR is set after the generator")
+    check(not any("runner." in str(j.get("env", "")) for j in jobs.values()) and "runner." not in str(doc.get("env", "")),
+          "a job-level or workflow-level env uses the runner context (not available there)")
 
     # the `if:` of every job, evaluated
     for label, context, expected in scenarios():

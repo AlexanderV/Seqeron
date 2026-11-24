@@ -258,14 +258,15 @@ jobs:
       (github.event_name == 'workflow_dispatch' && contains(fromJSON('["vectors","nightly","all"]'), inputs.set))
     runs-on: ubuntu-latest
     timeout-minutes: 45        # 1 min of tests + 1.5 min of compile + the generator on 4 vCPU
-    env:
-      SEQERON_BENCH_DIR: ${{ runner.temp }}/bench
     steps:
       - uses: actions/checkout@v4
       - name: Setup .NET 10 SDK
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
+      - name: Directory of the benchmark inputs
+        # not a job-level env: the runner context is not available there
+        run: echo "SEQERON_BENCH_DIR=$RUNNER_TEMP/bench" >> "$GITHUB_ENV"
       - name: Generate the benchmark inputs (Python 3 standard library only)
         # deterministic: the test checks every input against analysis/bench/MANIFEST.sha256 and FAILS on a wrong or missing file
         run: python3 docs/refactoring/suffix-tree-upgrade/analysis/bench/gen/gen_inputs.py "$SEQERON_BENCH_DIR"
