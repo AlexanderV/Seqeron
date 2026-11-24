@@ -67,6 +67,8 @@ public static partial class SequenceAligner
                         case 'D': g.Dorp = 'd'; break;
                         case 'P': g.Dorp = 'p'; break;
                         case 'L': g.Alg = 'L'; break;
+                        case 'Y': g.Alg = 'Y'; break;
+                        case 'I': g.Nadd = CAtoi(Next()); rest = true; break;
                         case 'N': g.Alg = 'N'; break;
                         case 'A': g.Alg = 'A'; break;
                         case 'Z': g.UseNaiveScore = true; break;

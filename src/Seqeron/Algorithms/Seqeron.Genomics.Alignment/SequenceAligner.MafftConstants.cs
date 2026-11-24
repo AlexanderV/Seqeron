@@ -161,7 +161,8 @@ public static partial class SequenceAligner
                         case 'P': g.Dorp = 'p'; break;
                         case 'L': g.LegacyGapCost = 1; break;
                         case 'e': g.FftScore = 0; break;
-                        case 'x': CAtof(Next()); rest = true; break;
+                        case 'x': g.MaxAnchorSeparation = CAtof(Next()); rest = true; break;
+                        case 'l': g.UseExternalAnchors = true; break;
                         case 'q': g.SparsePickup = CAtoi(Next()); rest = true; break;
                         case 'X': g.TreeMethod = 'X'; g.SueffGlobal = CAtof(Next()); rest = true; break;
                         case 'E': g.NGuideTree = CAtoi(Next()); rest = true; break;

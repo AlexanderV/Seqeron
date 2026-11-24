@@ -520,8 +520,8 @@ public static partial class SequenceAligner
                     }
                 }
                 _nadd = nadd;
-                if (_fragment != 0)
-                    NeedPort("--addfragments / --addfull / --addlong / --addtotop (the program addsingle)");
+                if (_fragment != 0 && _distance is not ("ktuples" or "ktuplesmulti" or "multi" or "hybrid" or "local"))
+                    NeedPort("--addfragments / --addfull / --addlong / --addtotop with --lastpair / --lastmultipair (needs the program lastal)");
             }
             else if (_add2ndhalfarg != " ")
             {

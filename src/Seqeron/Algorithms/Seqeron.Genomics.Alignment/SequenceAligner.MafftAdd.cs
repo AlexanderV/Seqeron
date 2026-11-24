@@ -515,7 +515,7 @@ public static partial class SequenceAligner
         internal readonly record struct GapPos(int Pos, int Len);
 
         /// <summary><c>deletenewinsertions_whole</c>: the columns in which only added sequences have residues are removed (<c>--keeplength</c>); returns the deleted runs of every added sequence.</summary>
-        private static List<GapPos>[] DeleteNewInsertions(int on, int an, string[] oseq, string[] aseq)
+        private static List<GapPos>[] DeleteNewInsertions(int on, int an, string[] oseq, string[] aseq, bool equalsAreGaps = false)
         {
             int len = oseq[0].Length;
             var eq = new bool[len + 1]; // eqseq[len] = 0
@@ -523,7 +523,7 @@ public static partial class SequenceAligner
             {
                 int j;
                 for (j = 0; j < on; j++)
-                    if (oseq[j][i] != '-')
+                    if (oseq[j][i] != '-' && !(equalsAreGaps && oseq[j][i] == '='))
                         break;
                 eq[i] = j == on;
             }
@@ -533,11 +533,12 @@ public static partial class SequenceAligner
                 deleted[j] = new List<GapPos>();
                 int q = 0;
                 string a = aseq[j];
+                bool IsLetter(char c) => c != '-' && !(equalsAreGaps && c == '=');
                 for (int i = 0; i < len; i++)
                 {
                     char tmpc = a[i];
                     int qstart = q;
-                    while (tmpc != '-' && eq[i])
+                    while (IsLetter(tmpc) && eq[i])
                     {
                         i++;
                         q++;
@@ -545,7 +546,7 @@ public static partial class SequenceAligner
                     }
                     if (qstart != q)
                         deleted[j].Add(new GapPos(qstart, q - qstart));
-                    if (tmpc != '-')
+                    if (IsLetter(tmpc))
                         q++;
                 }
             }

@@ -84,6 +84,8 @@ public static partial class SequenceAligner
 
             Report(StackSizeText(njob));
             MafftSubalignments? merge = G.Subalignment ? ReadSubalignmentsTable(njob) : null;
+            if (G.UseExternalAnchors)
+                PrepareExternalAnchors(njob, seq);
             G.Constants(seq);
             Report("Gap Penalty = " + MafftGlobals.F((double)G.Ppenalty / 1000, 5, 2, true) + ", " + MafftGlobals.F((double)G.PpenaltyEx / 1000, 5, 2, true) + ", " + MafftGlobals.F((double)G.Poffset / 1000, 5, 2, true) + "\n");
             if (CheckAlphabet(seq) is { } unknownLetter)
@@ -747,7 +749,7 @@ public static partial class SequenceAligner
         }
 
         /// <summary><c>fixed_musclesupg_double_realloc_nobk_halfmtx_memsave</c>: the UPGMA (mixed linkage, <c>-X</c>) of the half matrix <paramref name="eff"/> (MUSCLE's nearest-neighbour bookkeeping); step k joins the two closest groups.</summary>
-        private void MuscleSupg(int nseq, double[][] eff, int[][] topol0, int[][] topol1, double[][] len, Treedep[] dep, bool fullMembership = false, IReadOnlyList<string>? treeNames = null)
+        private void MuscleSupg(int nseq, double[][] eff, int[][] topol0, int[][] topol1, double[][] len, Treedep[] dep, bool fullMembership = false, IReadOnlyList<string>? treeNames = null, bool progress = true)
         {
             string[]? tree = null;
             double[]? density = null;
@@ -792,11 +794,12 @@ public static partial class SequenceAligner
                 hist[i] = -1;
                 nmemar[i] = 1;
             }
-            Report("\n");
+            if (progress)
+                Report("\n");
             int im = -1, jm = -1;
             for (int k = 0; k < nseq - 1; k++)
             {
-                if (k % 10 == 0)
+                if (progress && k % 10 == 0)
                     Report("\r" + MafftGlobals.D5(k) + " / " + nseq);
                 double minscore = 999.9;
                 for (int a = 0; next[a] != -1; a = next[a])
@@ -893,7 +896,8 @@ public static partial class SequenceAligner
             }
             if (tree != null)
             {
-                var file = new StringBuilder(tree[im]);
+                // a single sequence: im is -1 and the program prints the pointer in front of its array of trees, which is NULL ("(null)" of glibc)
+                var file = new StringBuilder(im < 0 ? "(null)" : tree[im]);
                 file.Append(";\n");
                 if (G.TreeOut == 2)
                 {
@@ -1061,7 +1065,25 @@ public static partial class SequenceAligner
         /// <summary><c>counteff_simple_double_nostatic_memsave</c>: the weight of every sequence from the branch lengths of the tree (every branch is shared equally among the sequences below it), +0.001, normalised.</summary>
         private void CountEffSimple(int nseq, GuideTree tree, double[] node)
         {
-            var len = tree.Len;
+            var memhist = new int[nseq - 1][];
+            CountEffCore(nseq, tree.Len, node, i =>
+            {
+                int[] m0 = tree.Dep[i].Child0 == -1 ? new[] { tree.Topol0[i] } : memhist[tree.Dep[i].Child0];
+                int[] m1 = tree.Dep[i].Child1 == -1 ? new[] { tree.Topol1[i] } : memhist[tree.Dep[i].Child1];
+                var all = new int[m0.Length + m1.Length];
+                m0.CopyTo(all, 0);
+                m1.CopyTo(all, m0.Length);
+                memhist[i] = all;
+                return (m0, m1);
+            });
+        }
+
+        /// <summary><c>counteff_simple_double_nostatic</c> (the groups of every step are given in full, <c>addsingle</c>): the same weights as <see cref="CountEffSimple(int, GuideTree, double[])"/>.</summary>
+        private void CountEffSimple(int nseq, int[][] groups0, int[][] groups1, double[][] len, double[] node) =>
+            CountEffCore(nseq, len, node, i => (groups0[i], groups1[i]));
+
+        private void CountEffCore(int nseq, double[][] len, double[] node, Func<int, (int[] Group0, int[] Group1)> groups)
+        {
             for (int i = 0; i < nseq; i++)
             {
                 if (len[i][0] < 0.0)
@@ -1077,7 +1099,6 @@ public static partial class SequenceAligner
             }
             var rootnode = new double[nseq];
             var eff = new double[nseq];
-            var memhist = new int[nseq - 1][];
             for (int i = 0; i < nseq; i++)
             {
                 rootnode[i] = 0.0;
@@ -1085,12 +1106,7 @@ public static partial class SequenceAligner
             }
             for (int i = 0; i < nseq - 1; i++)
             {
-                int[] m0 = tree.Dep[i].Child0 == -1 ? new[] { tree.Topol0[i] } : memhist[tree.Dep[i].Child0];
-                int[] m1 = tree.Dep[i].Child1 == -1 ? new[] { tree.Topol1[i] } : memhist[tree.Dep[i].Child1];
-                var all = new int[m0.Length + m1.Length];
-                m0.CopyTo(all, 0);
-                m1.CopyTo(all, m0.Length);
-                memhist[i] = all;
+                var (m0, m1) = groups(i);
                 foreach (int s1 in m0)
                 {
                     rootnode[s1] += len[i][0] * eff[s1];
@@ -1257,7 +1273,12 @@ public static partial class SequenceAligner
                     G.Common.FreeIp();
                 }
                 bool ffttry = _nlen[m1] > clus1 && _nlen[m2] > clus2;
-                if (G.ForceFft || (G.UseFft && ffttry))
+                if (G.UseExternalAnchors)
+                {
+                    var pairanch = PickPairAnch(clus1, clus2, localmem0, localmem1, mseq1, mseq2);
+                    FalignGivenAnchors(pairanch, dynamicmtx, mseq1, mseq2, effarr1, effarr2, clus1, clus2, alloclen);
+                }
+                else if (G.ForceFft || (G.UseFft && ffttry))
                 {
                     if (l < 500 || l % 100 == 0)
                         Report(" f\b\b");
@@ -1355,10 +1376,20 @@ public static partial class SequenceAligner
 
         /// <summary>The end of a step of <c>treebase</c> (<c>disttbfast.c</c>, <c>tbfast.c</c>): with <c>--add</c> the columns that only gaps of the old group had are restored and the new columns are put into the other old sequences
         /// (<c>mergeoralign</c> '2'); then the rows of both groups go back into the alignment.</summary>
-        private void MergeAfterAlignment(string[] aseq, int njob, MafftAddState? add, char mergeOrAlign, int[]? gapmap, int len1, int len1nocommongap, int clus1, int clus2, string[] mseq1, string[] mseq2, int[] localmem0, int[] localmem1, int alloclen)
+        private void MergeAfterAlignment(string[] aseq, int njob, MafftAddState? add, char mergeOrAlign, int[]? gapmap, int len1, int len1nocommongap, int clus1, int clus2, string[] mseq1, string[] mseq2, int[] localmem0, int[] localmem1, int alloclen,
+            bool addSingle = false, int len2 = 0, int len2nocommongap = 0)
         {
-            if (mergeOrAlign == '1')
+            if (mergeOrAlign == '1' && !addSingle)
                 throw new MafftProgramFailureException(Log + "Check source!!!\n");
+            if (mergeOrAlign == '1')
+            {
+                // addsingle.c: the mirror image of the branch '2' (the first group is the one that was added, the second one the old alignment whose common gaps were taken out)
+                (mseq1, mseq2) = (mseq2, mseq1);
+                (localmem0, localmem1) = (localmem1, localmem0);
+                (clus1, clus2) = (clus2, clus1);
+                (len1, len1nocommongap) = (len2, len2nocommongap);
+                mergeOrAlign = '2';
+            }
             if (mergeOrAlign == '2')
             {
                 // restore the columns that only gaps of the old group had, put the new columns into the other old sequences
@@ -1368,7 +1399,7 @@ public static partial class SequenceAligner
                     aseq[localmem0[k]] = mseq1[k];
                 for (int k = 0; k < clus2; k++)
                     aseq[localmem1[k]] = mseq2[k];
-                bool smoothing = G.Smoothing != 0;
+                bool smoothing = !addSingle && G.Smoothing != 0;
                 gapmap = smoothing ? RestoreCommonGapsSmoothly(njob, njob - (clus1 + clus2), aseq, localmem0, localmem1, gapmap, '-') : RestoreCommonGaps(njob, njob - (clus1 + clus2), aseq, localmem0, localmem1, gapmap, '-');
                 for (int k = 0; k < clus1; k++)
                     mseq1[k] = aseq[localmem0[k]];
@@ -1383,8 +1414,12 @@ public static partial class SequenceAligner
                     mseq1[k] = aseq[localmem0[k]];
                 for (int k = 0; k < clus2; k++)
                     mseq2[k] = aseq[localmem1[k]];
-                Eq2DashMatome(mseq1, clus1);
-                Eq2DashMatome(mseq2, clus2);
+                if (!addSingle)
+                {
+                    // disttbfast / tbfast resolve the new columns ('=') at the end of the step; addsingle keeps them: the old sequences show where the added sequence made new columns
+                    Eq2DashMatome(mseq1, clus1);
+                    Eq2DashMatome(mseq2, clus2);
+                }
                 foreach (int m in localmem1)
                     add.AlreadyAligned[m] = true;
             }
@@ -1594,7 +1629,12 @@ public static partial class SequenceAligner
                     G.Common.FreeIp();
                 }
                 bool ffttry = _nlen[m1] > clus1 && _nlen[m2] > clus2;
-                if (G.ForceFft || (G.UseFft && ffttry))
+                if (G.UseExternalAnchors)
+                {
+                    var pairanch = PickPairAnch(clus1, clus2, localmem0, localmem1, mseq1, mseq2);
+                    FalignGivenAnchors(pairanch, dynamicmtx, mseq1, mseq2, effarr1, effarr2, clus1, clus2, alloclen);
+                }
+                else if (G.ForceFft || (G.UseFft && ffttry))
                 {
                     if (l < 500 || l % 100 == 0)
                         Report(" f\b\b");
@@ -1733,7 +1773,7 @@ public static partial class SequenceAligner
         // -------------------------------------------------------------------- Galign11.c
 
         /// <summary><c>G__align11</c>: the alignment of two single sequences (Gotoh with the penalties of the program, free end gaps when <paramref name="headgp"/> / <paramref name="tailgp"/> are 0); in place.</summary>
-        internal double G__align11(double[][] dynamicmtx, string[] seq1, string[] seq2, int alloclen, int headgp, int tailgp, bool noalign = false)
+        internal double G__align11(double[][] dynamicmtx, string[] seq1, string[] seq2, int alloclen, int headgp, int tailgp, bool noalign = false, MafftCodonDp? codon = null)
         {
             string s1 = seq1[0], s2 = seq2[0];
             int lgth1 = s1.Length, lgth2 = s2.Length;
@@ -1785,10 +1825,28 @@ public static partial class SequenceAligner
                 ijp = G.Common.IpFor(_gCap.Orlgth1, _gCap.Orlgth2);
             }
             double[] currentw = w1, previousw = w2;
+            int[]? codonId1 = null, codonId2 = null;
+            if (codon?.Matrix != null)
+            {
+                // G__align11psg: the id of the codon that ends at every position (the first two positions have none)
+                codonId1 = new int[lgth1 + 1];
+                codonId2 = new int[lgth2 + 1];
+                for (int i = 0; i < 3 && i < lgth1; i++)
+                    codonId1[i] = -1;
+                for (int i = 0; i < 3 && i < lgth2; i++)
+                    codonId2[i] = -1;
+                for (int i = 3; i < lgth1; i++)
+                    codonId1[i] = MafftCodon.Id(s1, i - 2);
+                for (int i = 3; i < lgth2; i++)
+                    codonId2[i] = MafftCodon.Id(s2, i - 2);
+            }
+
             for (int j = 0; j < lgth1; j++)
                 initverticalw[j] = amino[s2[0]][s1[j]];
             for (int j = 0; j < lgth2; j++)
                 currentw[j] = amino[s1[0]][s2[j]];
+            if (codon?.Matrix != null && codon.GStart[codon.Offset] == 0.5 && codon.GEnd[codon.Offset] > 0.5)
+                AddCodonMatch(codon.Matrix, currentw, codonId1![0], codonId2!, lgth2);
             if (headgp == 1)
             {
                 for (int i = 1; i < lgth1 + 1; i++)
@@ -1828,33 +1886,37 @@ public static partial class SequenceAligner
                 double[] aminoRow = amino[i < lgth1 ? s1[i] : '\0']; // the terminating NUL of the sequence scores 0
                 for (int j = 0; j < lgth2; j++)
                     currentw[j] = aminoRow[s2[j]];
+                if (codon?.Matrix != null && codon.GStart[codon.Offset + i] == 0.5 && codon.GEnd[codon.Offset + i] > 0.5)
+                    AddCodonMatch(codon.Matrix, currentw, codonId1![i], codonId2!, lgth2);
                 currentw[0] = initverticalw[i];
                 mi = previousw[0];
                 mpi = 0;
                 double fpenaltyExI = i < lgth1 ? fpenaltyEx : 0.0;
                 var ijpRow = ijp[i];
+                double penaltyEnd = codon != null ? fpenalty * codon.GEnd[codon.Offset + i] : fpenalty;
+                double penaltyStart = codon != null ? fpenalty * codon.GStart[codon.Offset + i - 1] : fpenalty;
                 for (int j = 1; j < lastj; j++)
                 {
                     wm = previousw[j - 1];
                     ijpRow[j] = 0;
                     double g;
-                    if ((g = mi + fpenalty) > wm)
+                    if ((g = mi + penaltyEnd) > wm)
                     {
                         wm = g;
                         ijpRow[j] = -(j - mpi);
                     }
-                    if ((g = previousw[j - 1]) >= mi)
+                    if ((g = codon != null ? previousw[j - 1] + penaltyStart : previousw[j - 1]) >= mi)
                     {
                         mi = g;
                         mpi = j - 1;
                     }
                     mi += fpenaltyExI;
-                    if ((g = m[j] + fpenalty) > wm)
+                    if ((g = m[j] + penaltyEnd) > wm)
                     {
                         wm = g;
                         ijpRow[j] = +(i - mp[j]);
                     }
-                    if ((g = previousw[j - 1]) >= m[j])
+                    if ((g = codon != null ? previousw[j - 1] + penaltyStart : previousw[j - 1]) >= m[j])
                     {
                         m[j] = g;
                         mp[j] = i - 1;
@@ -1885,6 +1947,19 @@ public static partial class SequenceAligner
             seq1[0] = a;
             seq2[0] = b;
             return wm;
+        }
+
+        /// <summary><c>match_calc_mtx_codon</c>: the score of the codon pair (scaled by 600) is added to the match score of the position of the first sequence against every position of the second.</summary>
+        private static void AddCodonMatch(double[][] codonmtx, double[] match, int codonid1, int[] codonSeq2, int lgth2)
+        {
+            for (int j = 0; j < lgth2; j++)
+            {
+                int codonid2 = codonSeq2[j];
+                double codonmatch = 0.0;
+                if (codonid1 > -1 && codonid2 > -1)
+                    codonmatch = codonmtx[codonid1][codonid2] * 600.0;
+                match[j] += codonmatch;
+            }
         }
 
         private static (string, string, double) Atracking11(char gap, double[] lasthorizontalw, double[] lastverticalw, string seq1, string seq2, int[][] ijp, int tailgp, WarpState? warp = null)

@@ -43,6 +43,14 @@ public static partial class SequenceAligner
                 Names = names,
                 OldGenafParameters = _oldgenafparam,
                 AddCount = _nadd,
+                Fragment = _fragment,
+                ExternalAnchors = _anchoropt.Trim() == "-l" && _files.TryGetValue(_anchorfile, out var anchorText) ? anchorText : null,
+                MaxAnchorSeparation = _maxanchorseparation,
+                AdjustDirection = _adjustdirection,
+                NaivePairScore = _usenaivepairscore.Trim() == "-Z",
+                FragmentPairs = _distance switch { "ktuplesmulti" => MafftFragmentPairs.KmerMultiPair, "multi" => MafftFragmentPairs.MultiPair, "hybrid" => MafftFragmentPairs.HybridPair, "local" => MafftFragmentPairs.LocalPair, _ => MafftFragmentPairs.KmerPair },
+                CodonPositions = _codonposfile != "/dev/null" && _files.TryGetValue(_codonposfile, out var codonPosText) ? codonPosText : null,
+                CodonScores = _codonscorefile != "/dev/null" && _files.TryGetValue(_codonscorefile, out var codonScoreText) ? codonScoreText : null,
                 MergeTable = _mergetable != "/dev/null" && _files.TryGetValue(_mergetable, out var mergeText) ? MafftScript.NormalizeScriptFile(mergeText) : null,
                 AddProfile = _addarg0.Trim() == "-I",
                 KeepLength = _add2ndhalfarg.Contains("-Y", StringComparison.Ordinal),
@@ -71,7 +79,7 @@ public static partial class SequenceAligner
                 ThreadsProgressive = _numthreadstb,
                 MemoryMode = _memopt.Trim() == "-M -B" ? MafftMemoryMode.MemSave : _memopt.Trim() == "-N" ? MafftMemoryMode.NoMemSave : MafftMemoryMode.Default,
                 PartTree = _distance != "parttree" ? MafftPartTree.None : _partdist == "fasta" ? MafftPartTree.Fasta : _partdist == "localalign" ? MafftPartTree.DynamicProgramming : MafftPartTree.KmerDistance,
-                PairLibrary = _distance switch { "global" => MafftPairLibrary.Global, "local" => MafftPairLibrary.Local, "localgenaf" => MafftPairLibrary.Genaf, "fasta" => _sw ? MafftPairLibrary.FastaSmithWaterman : MafftPairLibrary.Fasta, _ => MafftPairLibrary.None },
+                PairLibrary = _fragment != 0 ? MafftPairLibrary.None : _distance switch { "global" => MafftPairLibrary.Global, "local" => MafftPairLibrary.Local, "localgenaf" => MafftPairLibrary.Genaf, "fasta" => _sw ? MafftPairLibrary.FastaSmithWaterman : MafftPairLibrary.Fasta, _ => MafftPairLibrary.None },
                 WeightI = Num(_weighti),
                 GlobalPairOpen = Num(_pggop),
                 GlobalPairOffset = Num(_pgaof),
@@ -304,8 +312,7 @@ public static partial class SequenceAligner
                 return 1;
             }
             bool seedRun = _seed != "x" || _seedtable != "x";
-            bool engine = _fragment == 0 && !_newdash && _adjustdirection == 0 && _anchoropt.Length == 0
-                && _distance is "ktuples" or "global" or "local" or "localgenaf" or "parttree" or "fasta";
+            bool engine = (_fragment == 0 ? _distance is "ktuples" or "global" or "local" or "localgenaf" or "parttree" or "fasta" : _distance is "ktuples" or "ktuplesmulti" or "multi" or "hybrid" or "local") && !_newdash;
             if (_nadd > 0 && _distance == "parttree")
                 throw new NotSupportedException("--add with --parttree: the script refuses it (Impossible).");
             if (!engine || cycletbfast > 1 && _distance != "parttree" && !seedRun)

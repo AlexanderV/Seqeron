@@ -52,6 +52,21 @@ public enum MafftPairLibrary
     FastaSmithWaterman = 5,
 }
 
+/// <summary>How the distances between the new and the old sequences are made when fragments are added (<c>--addfragments</c> and the other options of the program <c>addsingle</c>; <c>--6merpair</c> ... <c>--hybridpair</c>).</summary>
+public enum MafftFragmentPairs
+{
+    /// <summary><c>--6merpair</c> / <c>--10merpair</c> (<c>addsingle -W n</c>): the k-mer distances of the program itself.</summary>
+    KmerPair = 0,
+    /// <summary><c>--6mermultipair</c> / <c>--10mermultipair</c> (<c>addsingle -d -W n</c>): as <see cref="KmerPair"/>, the old sequences are also compared by the score of their alignment.</summary>
+    KmerMultiPair = 1,
+    /// <summary>No pair option, or <c>--multipair</c>: <c>dndpre -M 2</c> (old sequences) and <c>pairlocalalign -Y</c> (old against new) write the distance files.</summary>
+    MultiPair = 2,
+    /// <summary><c>--hybridpair</c>: <c>pairlocalalign -Y</c>, <c>disttbfast -E 1 -T -y</c>.</summary>
+    HybridPair = 3,
+    /// <summary><c>--localpair</c> with fragments: <c>pairlocalalign</c> of every pair (the local alignments are kept in <c>hat3</c>).</summary>
+    LocalPair = 4,
+}
+
 /// <summary>The tree-splitting methods of MAFFT for very many sequences (<c>splittbfast</c>): the sequences are classified by their distance to a few representatives, recursively.</summary>
 public enum MafftPartTree
 {
@@ -274,6 +289,32 @@ public sealed record MafftOptions
 
     /// <summary><c>--memsave</c> (<c>-M -B</c>) / <c>--nomemsave</c> (<c>-N</c>): the memory-saving dynamic program / never.</summary>
     public MafftMemoryMode MemoryMode { get; init; }
+
+    /// <summary>
+    /// <c>--addfragments</c> (1), <c>--addfull</c> (-1), <c>--addlong</c> (-2), <c>--addtotop</c> (-3): the last <see cref="AddCount"/> sequences are added one by one by the program <c>addsingle</c> (0 = <c>--add</c> / <c>--addprofile</c> / no addition).
+    /// </summary>
+    public int Fragment { get; init; }
+
+    /// <summary>How the distances for <see cref="Fragment"/> are made.</summary>
+    public MafftFragmentPairs FragmentPairs { get; init; }
+
+    /// <summary><c>--adjustdirection</c> (1) / <c>--adjustdirectionaccurately</c> (2): <c>makedirectionlist</c> decides for every (new) nucleotide sequence whether it is closer to the others reverse complemented, <c>setdirection</c> reverse complements it and puts _R_ in front of its title.</summary>
+    public int AdjustDirection { get; init; }
+
+    /// <summary><c>--anchors file</c>: the text of the file (one anchor per line: "i j starti endi startj endj score", counted from 1); the script gives <c>disttbfast -l</c>.</summary>
+    public string? ExternalAnchors { get; init; }
+
+    /// <summary><c>--skipanchorsremoterthan n</c> (<c>disttbfast -x n</c>): an anchor farther than n columns from the nearest stronger one is given up (default 1000).</summary>
+    public int MaxAnchorSeparation { get; init; } = 1000;
+
+    /// <summary><c>-Z</c> of <c>dndpre</c> / <c>pairlocalalign</c> (<c>$usenaivepairscore</c> of the script, <c>--addlong</c>): the distances come from the score of the alignment counted without gap penalties.</summary>
+    public bool NaivePairScore { get; init; }
+
+    /// <summary><c>--codonpos file</c>: the text of the file (one codon position per column of the reference sequence); the script gives <c>addsingle -R</c>.</summary>
+    public string? CodonPositions { get; init; }
+
+    /// <summary><c>--codonscore file</c>: the text of the file (the scores of the codon pairs); the script gives <c>addsingle -S</c>.</summary>
+    public string? CodonScores { get; init; }
 
     /// <summary><c>--add</c> / <c>--addprofile</c> (<c>disttbfast -K -I n</c> / <c>-I n</c>): the last <see cref="AddCount"/> of the sequences are added to the alignment that the others form (they are aligned; the new ones are not).</summary>
     public int AddCount { get; init; }
@@ -573,6 +614,9 @@ public static partial class SequenceAligner
             var programNames = header.Select((h, i) => "=" + TitlePrefix(i) + h).ToArray();
             if (o.PartTree != MafftPartTree.None)
                 return AlignPartTree(list.Count, originals, replaced, nuc, o, log, epilogue, programNames);
+            string?[]? directionNames = null;
+            if (o.AdjustDirection > 0)
+                (replaced, programNames, originals, directionNames) = AdjustDirections(o, replaced, programNames, originals, header, log);
             MafftRun.Result result;
             string guideTreeText = MafftScript.GuideTreeFile(o);
             string outputPrefix = "";
@@ -644,11 +688,66 @@ public static partial class SequenceAligner
                 treeFile = trun.TreeFile ?? treeFile;
                 distFile = trun.DistFile;
             }
+            else if (o.Fragment != 0)
+            {
+                // --addfragments / --addfull / --addlong / --addtotop: the programs of the chain write the files, the program addsingle adds the new sequences one by one
+                MafftRun.AddSingleFiles? files = null;
+                if (o.CodonPositions != null || o.CodonScores != null)
+                {
+                    string? codonPos = o.CodonPositions == null ? null : MafftScript.NormalizeScriptFile(o.CodonPositions);
+                    string? codonScore = o.CodonScores == null ? null : MafftScript.NormalizeScriptFile(o.CodonScores);
+                    files = new MafftRun.AddSingleFiles(CodonPos: codonPos, CodonScore: codonScore);
+                }
+                if (o.FragmentPairs is MafftFragmentPairs.MultiPair or MafftFragmentPairs.HybridPair or MafftFragmentPairs.LocalPair)
+                {
+                    string? hat2i = null;
+                    if (o.FragmentPairs == MafftFragmentPairs.MultiPair)
+                    {
+                        var dg = MafftGlobals.ParseDndpre(MafftScript.DndpreFragmentArguments(o));
+                        var drun = new MafftRun(dg);
+                        GuardRun(drun, log, () => drun.Dndpre(replaced, programNames));
+                        log.Append(drun.Log);
+                        hat2i = drun.DistFile;
+                    }
+
+                    var pg = MafftGlobals.ParsePairlocalalign(MafftScript.PairlocalalignFragmentArguments(o));
+                    if (pg.Dorp == '\0')
+                        pg.Dorp = nuc ? 'd' : 'p';
+                    var prun = new MafftRun(pg);
+                    var pairs = GuardRun(prun, log, () => prun.PairlocalalignProgram(replaced, programNames));
+                    log.Append(prun.Log);
+                    string hat2 = pairs.Hat2;
+                    if (o.FragmentPairs == MafftFragmentPairs.HybridPair)
+                    {
+                        var hg = MafftGlobals.Parse(MafftScript.HybridDisttbfastArguments(o));
+                        if (hg.Dorp == '\0')
+                            hg.Dorp = nuc ? 'd' : 'p';
+                        var hrun = new MafftRun(hg) { GuideTreeText = guideTreeText, DistFileRewrittenLater = true };
+                        GuardRun(hrun, log, () => hrun.Disttbfast(replaced, programNames));
+                        log.Append(hrun.Log);
+                        hat2 = hrun.DistFile ?? hat2;
+                    }
+
+                    files = o.FragmentPairs == MafftFragmentPairs.MultiPair
+                        ? (files ?? new MafftRun.AddSingleFiles()) with { Hat2I = hat2i, Hat2N = hat2, Hat3 = pairs.Hat3 }
+                        : (files ?? new MafftRun.AddSingleFiles()) with { Hat2 = hat2, Hat3 = pairs.Hat3 };
+                }
+
+                var ag = MafftGlobals.ParseAddsingle(MafftScript.AddsingleArguments(o));
+                if (ag.Dorp == '\0')
+                    ag.Dorp = nuc ? 'd' : 'p';
+                var arun = new MafftRun(ag) { GuideTreeText = guideTreeText };
+                result = GuardRun(arun, log, () => arun.AddSingle(replaced, programNames, files));
+                log.Append(arun.Log);
+                treeFile = arun.TreeFile;
+                distFile = arun.DistFile;
+            }
             else
             {
                 var g = MafftGlobals.Parse(MafftScript.DisttbfastArguments(o, list.Count));
                 if (g.Dorp == '\0')
                     g.Dorp = nuc ? 'd' : 'p';
+                g.ExternalAnchorsText = o.ExternalAnchors == null ? null : MafftScript.NormalizeScriptFile(o.ExternalAnchors);
                 var run = new MafftRun(g) { GuideTreeText = guideTreeText, DistFileRewrittenLater = MafftScript.Iterations(o) > 0 };
                 result = GuardRun(run, log, () => run.Disttbfast(replaced, programNames));
                 guideTreeText = run.GuideTreeText;
@@ -701,6 +800,9 @@ public static partial class SequenceAligner
             var deletedRuns = result.Deleted;
             string? mapFile = result.DeleteMap;
             var changedNames = new string?[list.Count];
+            if (directionNames != null)
+                for (int k = 0; k < directionNames.Length; k++)
+                    changedNames[k] = directionNames[k];
             if (result.NewNames != null)
                 for (int k = 0; k < result.NewNames.Length; k++)
                     changedNames[list.Count - result.NewNames.Length + k] = result.NewNames[k];
@@ -771,6 +873,53 @@ public static partial class SequenceAligner
                 MapFile = mapFile,
                 ChangedNames = changedNames.Any(x => x != null) ? changedNames : null,
             };
+        }
+
+        /// <summary>
+        /// The block of the script for <c>--adjustdirection</c> (<c>--adjustdirectionaccurately</c>): <c>makedirectionlist -F -C n -m -I nadd -i infile -t 0.00 -r 5000 -o a [-d] &gt; _direction</c> (its exit status is not looked at), then <c>setdirection [-H 0] -d _direction -i infile</c>
+        /// (the sequences and the titles that the programs read) and, with <c>--anysymbol</c>, <c>setdirection ... -i orig -r</c> (the sequences that <c>restoreu</c> puts back; their titles stay).
+        /// </summary>
+        private static (string[] Replaced, string[] ProgramNames, string[] Originals, string?[] Renamed) AdjustDirections(MafftOptions o, string[] replaced, string[] programNames, string[] originals, IReadOnlyList<string> header, System.Text.StringBuilder log)
+        {
+            var dargs = new List<string> { "-F", "-C", (o.Threads < 0 ? Environment.ProcessorCount : o.Threads).ToString(System.Globalization.CultureInfo.InvariantCulture), "-m", "-I", o.AddCount.ToString(System.Globalization.CultureInfo.InvariantCulture), "-i", "infile", "-t", "0.00" };
+            dargs.AddRange(o.AdjustDirection == 1 ? new[] { "-r", "5000", "-o", "a" } : new[] { "-r", "100", "-o", "a", "-d" });
+            var dg = MafftGlobals.ParseMakedirectionlist(dargs);
+            var drun = new MafftRun(dg);
+            string[] lines;
+            try
+            {
+                lines = drun.MakeDirectionList(replaced, programNames).Lines;
+                log.Append(drun.Log);
+            }
+            catch (MafftProgramFailureException e)
+            {
+                // the program stops: the file _direction is empty
+                log.Append(drun.Log).Append(e.Text);
+                lines = Array.Empty<string>();
+            }
+
+            bool merge = o.MergeTable != null;
+            var srun = new MafftRun(new MafftGlobals { Subalignment = merge });
+            (string[] rows, string[] names) = GuardRun(srun, log, () => srun.SetDirectionProgram(replaced, programNames, lines, false, merge));
+            log.Append(srun.Log);
+            if (o.AnySymbol)
+            {
+                var origNames = header.Select(h => "=" + h).ToArray();
+                var orun = new MafftRun(new MafftGlobals { Subalignment = merge });
+                (originals, _) = GuardRun(orun, log, () => orun.SetDirectionProgram(originals, origNames, lines, true, merge));
+                log.Append(orun.Log);
+            }
+
+            var renamed = new string?[names.Length];
+            for (int i = 0; i < names.Length; i++)
+            {
+                string cut = names[i].Length > MafftProgramIo.NameLimit + 1 ? names[i][..(MafftProgramIo.NameLimit + 1)] : names[i];
+                names[i] = cut;
+                if (!ReferenceEquals(cut, programNames[i]) && cut != programNames[i])
+                    renamed[i] = cut;
+            }
+
+            return (rows, names, originals, renamed);
         }
 
         /// <summary>

@@ -562,6 +562,200 @@ public static partial class SequenceAligner
             return sb.ToString();
         }
 
+        /// <summary><c>$aof</c> of the script (<c>-h</c>): the offset (<c>--op</c> and <c>--ep</c> of the script write its negative).</summary>
+        private static string OffsetText(MafftOptions o) => o.Offset == 0.0 ? "0" : AwkPrint(0.0 + 0.0 + MafftGlobals.CAtof(AwkPrint(-1.0 * o.Offset)));
+
+        /// <summary>
+        /// The arguments that <c>mafft</c> (7.505) passes to <c>addsingle</c> for <c>--addfragments</c>, <c>--addfull</c>, <c>--addlong</c> and <c>--addtotop</c>:
+        /// <c>$codonposopt $codonscoreopt -Q 100 $legacygapopt [-d] [-W n] -O $outnum $addsinglearg $addarg $add2ndhalfarg -C $numthreads $memopt $weightopt $treeinopt $treeoutopt $distoutopt $seqtype $model -f -gop -h $aof $param_fft $localparam $algopt $treealg</c>.
+        /// </summary>
+        internal static List<string> AddsingleArguments(MafftOptions o)
+        {
+            var args = new List<string>();
+            if (o.CodonPositions != null)
+                args.Add("-R");
+            if (o.CodonScores != null)
+                args.Add("-S");
+            args.Add("-Q");
+            args.Add("100");
+            if (o.LegacyGapPenalty)
+                args.Add("-L");
+            if (o.FragmentPairs is MafftFragmentPairs.KmerMultiPair or MafftFragmentPairs.MultiPair)
+                args.Add("-d");
+            if (o.FragmentPairs is MafftFragmentPairs.KmerPair or MafftFragmentPairs.KmerMultiPair)
+            {
+                args.Add("-W");
+                args.Add(o.TupleSize.ToString(CultureInfo.InvariantCulture));
+            }
+
+            args.Add("-O");
+            if (o.OutNumber)
+                args.Add("-n");
+            if (o.Fragment is -1 or -2)
+                args.Add("-V");
+            else if (o.Fragment == -3)
+                args.Add("-x");
+            args.AddRange(new[] { "-K", "-I", o.AddCount.ToString(CultureInfo.InvariantCulture) });
+            if (o.Fragment == 1)
+            {
+                args.Add("-g");
+                args.Add("-0.01");
+            }
+
+            if (o.Smoothing || o.Fragment == -2)
+                args.Add("-p");
+            if (o.KeepLength && o.MapOut == 0)
+                args.Add("-Y");
+            if (o.MapOut == 1)
+            {
+                args.Add("-Z");
+                args.Add("-Y");
+            }
+            else if (o.MapOut == 2)
+            {
+                args.Add("-z");
+                args.Add("-Y");
+            }
+
+            int threads = o.Threads < 0 ? Environment.ProcessorCount : o.Threads;
+            args.Add("-C");
+            args.Add(threads.ToString(CultureInfo.InvariantCulture));
+            args.AddRange(MemoryArguments(o));
+            if (o.Unweight)
+                args.Add("-u");
+            if (o.GuideTree != MafftGuideTree.Default)
+                args.Add("-U");
+            args.AddRange(TreeOutArguments(o, o.Retree));
+            if (o.SequenceType == MafftSequenceType.Nucleotide)
+                args.Add("-D");
+            else if (o.SequenceType == MafftSequenceType.Amino)
+                args.Add("-P");
+            args.AddRange(ModelArguments(o));
+            args.Add("-f");
+            args.Add("-" + Text(o.GapOpen));
+            args.Add("-h");
+            args.Add(OffsetText(o));
+            if (o.ForceFft)
+                args.Add("-G");
+            else if (o.Fft)
+                args.Add("-F");
+            if (o.FragmentPairs is MafftFragmentPairs.MultiPair or MafftFragmentPairs.HybridPair or MafftFragmentPairs.LocalPair)
+            {
+                args.Add("-l");
+                args.Add(Text(o.WeightI));
+            }
+
+            args.Add("-X");
+            args.Add(o.TreeMixing is { } mix ? Text(mix) : "0.1");
+            return args;
+        }
+
+        /// <summary><c>$addarg</c> of the script for the fragments: <c>-K -I n</c> and, for <c>--addfragments</c>, <c>-g -0.01</c>.</summary>
+        private static IEnumerable<string> FragmentAddArguments(MafftOptions o)
+        {
+            yield return "-K";
+            yield return "-I";
+            yield return o.AddCount.ToString(CultureInfo.InvariantCulture);
+            if (o.Fragment == 1)
+            {
+                yield return "-g";
+                yield return "-0.01";
+            }
+        }
+
+        /// <summary><c>dndpre $model -M 2 $addarg -C $numthreads $seqtype $model -g $lexp -f $lgop -h $laof $usenaivepairscore</c> (the distances of the old sequences of <c>--multipair</c> / the default of the fragments).</summary>
+        internal static List<string> DndpreFragmentArguments(MafftOptions o)
+        {
+            var args = new List<string>();
+            args.AddRange(ModelArguments(o));
+            args.AddRange(new[] { "-M", "2" });
+            args.AddRange(FragmentAddArguments(o));
+            args.Add("-C");
+            args.Add((o.Threads < 0 ? Environment.ProcessorCount : o.Threads).ToString(CultureInfo.InvariantCulture));
+            if (o.SequenceType == MafftSequenceType.Nucleotide)
+                args.Add("-D");
+            else if (o.SequenceType == MafftSequenceType.Amino)
+                args.Add("-P");
+            args.AddRange(ModelArguments(o));
+            args.AddRange(new[] { "-g", Text(o.LocalPairExtension), "-f", Text(o.LocalPairOpen), "-h", Text(o.LocalPairOffset) });
+            if (o.NaivePairScore)
+                args.Add("-Z");
+            return args;
+        }
+
+        /// <summary><c>pairlocalalign [-l weighti] $addarg -C $numthreads $seqtype $model -g $lexp -f $lgop -Q $spfactor -h $laof (-Y | -L) [$usenaivepairscore]</c> (<c>-Y</c> for the multi and hybrid chains, <c>-L</c> for <c>--localpair</c>).</summary>
+        internal static List<string> PairlocalalignFragmentArguments(MafftOptions o)
+        {
+            var args = new List<string>();
+            if (o.FragmentPairs is MafftFragmentPairs.MultiPair or MafftFragmentPairs.LocalPair)
+            {
+                args.Add("-l");
+                args.Add(Text(o.WeightI));
+            }
+
+            args.AddRange(FragmentAddArguments(o));
+            args.Add("-C");
+            args.Add((o.Threads < 0 ? Environment.ProcessorCount : o.Threads).ToString(CultureInfo.InvariantCulture));
+            if (o.SequenceType == MafftSequenceType.Nucleotide)
+                args.Add("-D");
+            else if (o.SequenceType == MafftSequenceType.Amino)
+                args.Add("-P");
+            args.AddRange(ModelArguments(o));
+            args.AddRange(new[] { "-g", Text(o.LocalPairExtension), "-f", Text(o.LocalPairOpen), "-Q", Text(o.ShiftPenalty), "-h", Text(o.LocalPairOffset) });
+            args.Add(o.FragmentPairs == MafftFragmentPairs.LocalPair ? "-L" : "-Y");
+            if (o.NaivePairScore && o.FragmentPairs != MafftFragmentPairs.HybridPair)
+                args.Add("-Z");
+            return args;
+        }
+
+        /// <summary><c>disttbfast -E 1 -s $unalignlevel $legacygapopt -W $tuplesize $termgapopt $outnum $addarg $add2ndhalfarg -C n-m $memopt $weightopt $treeinopt $treeoutopt -T -y $seqtype $model -f -gop -Q $spfactor -h $aof $param_fft $algopt $treealg</c> (<c>--hybridpair</c>: the 6-mer distances of all sequences, no alignment).</summary>
+        internal static List<string> HybridDisttbfastArguments(MafftOptions o)
+        {
+            string gop = Text(o.GapOpen);
+            var args = new List<string> { "-E", "1", "-s", Text(o.UnalignLevel) };
+            if (o.LegacyGapPenalty)
+                args.Add("-L");
+            args.Add("-W");
+            args.Add(o.TupleSize.ToString(CultureInfo.InvariantCulture));
+            if (!o.TerminalGapPenalty)
+                args.Add("-O");
+            if (o.OutNumber)
+                args.Add("-n");
+            args.AddRange(FragmentAddArguments(o));
+            if (o.Smoothing || o.Fragment == -2)
+                args.Add("-p");
+            if (o.KeepLength && o.MapOut == 0)
+                args.Add("-Y");
+            if (o.MapOut == 1)
+                args.AddRange(new[] { "-Z", "-Y" });
+            else if (o.MapOut == 2)
+                args.AddRange(new[] { "-z", "-Y" });
+            int threads = o.Threads < 0 ? Environment.ProcessorCount : o.Threads;
+            int threadsTb = o.ThreadsProgressive ?? (threads < 16 ? threads : 16);
+            args.Add("-C");
+            args.Add(threads.ToString(CultureInfo.InvariantCulture) + "-" + threadsTb.ToString(CultureInfo.InvariantCulture));
+            args.AddRange(MemoryArguments(o));
+            if (o.Unweight)
+                args.Add("-u");
+            if (o.GuideTree != MafftGuideTree.Default)
+                args.Add("-U");
+            args.AddRange(TreeOutArguments(o, o.Retree));
+            args.AddRange(new[] { "-T", "-y" });
+            if (o.SequenceType == MafftSequenceType.Nucleotide)
+                args.Add("-D");
+            else if (o.SequenceType == MafftSequenceType.Amino)
+                args.Add("-P");
+            args.AddRange(ModelArguments(o));
+            args.AddRange(new[] { "-f", "-" + gop, "-Q", Text(o.ShiftPenalty), "-h", OffsetText(o) });
+            if (o.ForceFft)
+                args.Add("-G");
+            else if (o.Fft)
+                args.Add("-F");
+            args.Add("-X");
+            args.Add(o.TreeMixing is { } mix ? Text(mix) : "0.1");
+            return args;
+        }
+
         /// <summary>The text of a number as the user wrote it on the command line (the script passes it on unchanged).</summary>
         internal static string Text(double v) => v.ToString("R", CultureInfo.InvariantCulture);
 
@@ -641,9 +835,7 @@ public static partial class SequenceAligner
                 cycledisttbfast = 1; // a seed: the other passes are made by tbfast -J
             string gop = Text(o.GapOpen);
             string gopdist = o.GapOpenDistance is { } gd ? Text(gd) : gop;
-            string aof = AwkPrint(0.0 + 0.0 + MafftGlobals.CAtof(AwkPrint(-1.0 * o.Offset)));
-            if (o.Offset == 0.0)
-                aof = "0";
+            string aof = OffsetText(o);
             string gexp = AwkPrint(-1.0 * o.GapExtension);
             var args = new List<string>
             {
@@ -693,8 +885,10 @@ public static partial class SequenceAligner
             args.Add(o.TreeMixing is { } mix ? Text(mix) : "0.1");
             if (o.ScoreOut)
                 args.AddRange(new[] { "-S", "-B" });
+            if (o.ExternalAnchors != null)
+                args.Add("-l");
             args.Add("-x");
-            args.Add("1000");
+            args.Add(o.MaxAnchorSeparation.ToString(CultureInfo.InvariantCulture));
             if (o.OneIteration)
                 args.Add("-r");
             return args;

@@ -455,6 +455,8 @@ public static partial class SequenceAligner
             for (int j = 0; j < clus2; j++)
                 tmpseq2[j] = seq2[j];
 
+            if ((G.CodonPos || G.CodonScore) && !_codonReady)
+                InitCodon(seq1[0]);
             bool kobetsu = G.Kobetsubunkatsu != 0;
             int[] kouho = _fKouho;
             if (!kobetsu)
@@ -697,10 +699,15 @@ public static partial class SequenceAligner
                 {
                     if (clus1 == 1 && clus2 == 1)
                     {
-                        totalscore += G__align11(dyn, tmpres1, tmpres2, alloclen, headgp, tailgp);
+                        if (G.CodonPos || G.CodonScore)
+                            totalscore += G__align11(dyn, tmpres1, tmpres2, alloclen, headgp, tailgp, false, new MafftCodonDp(_codonMatrix, _codonGStart!, _codonGEnd!, cut1[i]));
+                        else
+                            totalscore += G__align11(dyn, tmpres1, tmpres2, alloclen, headgp, tailgp);
                     }
                     else
                     {
+                        if (G.CodonPos)
+                            throw new MafftProgramFailureException("\n\ncodonpos will be soon supported for a reference MSA. For now, use a single sequence as reference.\n\n\n");
                         totalscore += AAlign(dyn, G.Penalty, G.PenaltyEx, tmpres1, tmpres2, eff1, eff2, clus1, clus2, alloclen,
                             new string(sgap1), new string(sgap2), new string(egap1), new string(egap2), headgp, tailgp, null, -1, -1, -1, 0.0, 0.0);
                     }

@@ -39,7 +39,7 @@ public static partial class SequenceAligner
                 {
                     switch (a[ci])
                     {
-                        case 'Z': break;
+                        case 'Z': g.UseNaiveScore = true; break;
                         case 't': break;
                         case 'D': g.Dorp = 'd'; break;
                         case 'a': g.Fmodel = 1; break;
@@ -150,15 +150,18 @@ public static partial class SequenceAligner
         internal double[][] Dndpre(string[] rows, IReadOnlyList<string>? names = null)
         {
             var g2 = G;
-            int njob = rows.Length;
+            int njobAll = rows.Length;
+            if (g2.Nadd > 0 && njobAll < 2)
+                throw new MafftProgramFailureException("At least 2 sequences should be input!\nOnly " + njobAll.ToString(CultureInfo.InvariantCulture) + " sequence found.\n");
+            if (g2.Dorp == '\0')
+                g2.Dorp = GuessNucleotideFromRows(rows) ? 'd' : 'p';
+            int njob = njobAll - g2.Nadd; // the new sequences are ignored
             var seq = new string[njob];
             for (int i = 0; i < njob; i++)
                 seq[i] = rows[i];
             for (int i = 1; i < njob; i++)
                 if (seq[i].Length != seq[0].Length)
                     throw new MafftProgramFailureException("Not aligned!\n");
-            if (g2.Dorp == '\0')
-                g2.Dorp = GuessNucleotideFromRows(rows) ? 'd' : 'p';
             if (g2.Dorp == 'd')
                 for (int i = 0; i < njob; i++)
                     seq[i] = seq[i].ToLowerInvariant();
@@ -179,7 +182,16 @@ public static partial class SequenceAligner
             for (int i = 0; i < ilim; i++)
             {
                 double ssi = selfscore[i];
-                Log.Append((i + 1).ToString(CultureInfo.InvariantCulture).PadLeft(4) + "/" + njob.ToString(CultureInfo.InvariantCulture).PadLeft(4) + "\r");
+                if (g2.Nthread > 0)
+                {
+                    // the threads take the pairs in turn (the first one does the rows, every other one that arrives after the last pair prints the progress of the last row once more)
+                    if (njob == 1)
+                        break;
+                }
+                else
+                {
+                    Log.Append((i + 1).ToString(CultureInfo.InvariantCulture).PadLeft(4) + "/" + njob.ToString(CultureInfo.InvariantCulture).PadLeft(4) + "\r");
+                }
                 for (int j = i + 1; j < njob; j++)
                 {
                     double ssj = selfscore[j];
@@ -188,7 +200,7 @@ public static partial class SequenceAligner
                     if (bunbo == 0.0)
                         mtxv = g2.MaxDist;
                     else
-                        mtxv = g2.MaxDist * (1.0 - helper.NaivePairScoreFast(seq[i], seq[j], skip[i], skip[j], g2.Penalty) / bunbo);
+                        mtxv = g2.MaxDist * (1.0 - helper.NaivePairScoreFast(seq[i], seq[j], skip[i], skip[j], g2.UseNaiveScore ? 0 : g2.Penalty) / bunbo);
                     if (mtxv < 0.0)
                     {
                         Log.Append("WARNING: negative distance, mtxv = " + mtxv.ToString("F6", CultureInfo.InvariantCulture) + "\n");
@@ -201,7 +213,13 @@ public static partial class SequenceAligner
                     }
                     mtx[i][j] = mtxv;
                 }
+
+                if (g2.Nthread > 0)
+                    Log.Append(D4(i + 1) + "/" + D4(njob) + " (thread " + D4(0) + "), dndpre\r");
             }
+
+            for (int t = 1; t < g2.Nthread && njob > 1; t++)
+                Log.Append(D4(njob - 1) + "/" + D4(njob) + " (thread " + D4(t) + "), dndpre\r");
             Log.Append("dndpre (" + g2.KindName + ") Version 7.505\nalg=X, model=" + g2.ModelName + ", amax=" + g2.SpecificityConsideration.ToString("F1", CultureInfo.InvariantCulture) + "\n"
                 + g2.Nthread.ToString(CultureInfo.InvariantCulture) + " thread(s)\n\n");
             // WriteHat2_pointer writes every value as "%#6.3f" (six characters), readhat2_pointer reads six characters back with atof
@@ -219,7 +237,7 @@ public static partial class SequenceAligner
                 for (int j = i; j < njob; j++)
                     half[i][j - i] = mtx[i][j];
             }
-            DistFile = WriteHat2(half, names ?? DefaultNames(njob));
+            DistFile = WriteHat2(half, names?.Take(njob).ToArray() ?? DefaultNames(njob));
             return hat2;
         }
 

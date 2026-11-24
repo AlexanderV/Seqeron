@@ -10,6 +10,8 @@ Groups (>= 200 sets each, scale with MC_SCALE):
   frag-hybrid     --hybridpair (pairlocalalign -Y, disttbfast -E 1 -T -y, addsingle)
   frag-local      --localpair with fragments (pairlocalalign, addsingle with hat3)
   frag-codon      --codonpos with --6merpair --addfragments (DNA of codons); --codonscore with a score file; the script's stops for the other pair options
+  frag-treein     --treein tree.txt (the guide tree of the old sequences: the program loadtop, lengths of -1 are recomputed) with every pair option
+  frag-opt        every pair option with one or two further options of the script (--compactmapout, --smoothing, --op / --ep, --kimura, --jtt, --tm, --bl, --retree, --thread, --mixedlinkage, --lop / --lep / --lexp, --weighti, --phylipout, --maxiterate ...)
 Input: the file in.fa is an alignment made by the installed mafft from a family, new.fa holds fragments (pieces of family members with mutations, 8 - 70 residues), long members or the full-length members.
 Usage: python3 scripts/alignment/generate_mafft_wp75_oracle.py [group ...]   env MC_SCALE (default 1), MC_OUT (JSONL path), MC_TSV (TSV, gzip when it ends in .gz), MC_THREADS
 """
@@ -109,6 +111,41 @@ def case(rng, group, k, pairopts, kinds=FRAG_KINDS, extras=EXTRAS, **kw):
     return ('%s-%04d' % (group, k), group, args, aln, files)
 
 
+OPT_EXTRAS = [['--compactmapout', '--keeplength'], ['--smoothing'], ['--leavegappyregion'], ['--op', '1.2', '--ep', '0.2'], ['--kimura', '1'], ['--jtt', '100'], ['--tm', '100'], ['--bl', '45'], ['--retree', '2'], ['--thread', '-1'],
+              ['--mapout', '--keeplength', '--anysymbol'], ['--keeplength', '--outnum'], ['--mixedlinkage', '0.5'], ['--averagelinkage'], ['--minimumlinkage'], ['--phylipout'], ['--clustalout', '--reorder'], ['--noscore'], ['--lop', '-1.5'],
+              ['--lep', '0.2'], ['--lexp', '-0.05'], ['--weighti', '1.5'], ['--nuc', '--thread', '3'], ['--inputorder'], ['--treeout', '--reorder'], ['--memsave'], ['--parttree'], ['--maxiterate', '3'], ['--maxambiguous', '0.2'], ['--fft'],
+              ['--nofft', '--thread', '2'], ['--6merpair', '--thread', '2', '--keeplength']]
+ALL_PAIRS = [['--6merpair'], ['--10merpair'], ['--6mermultipair'], ['--10mermultipair'], ['--multipair'], [], ['--hybridpair'], ['--localpair']]
+
+
+def treein_case(rng, k):
+    """--treein: a rooted bifurcated tree of the old sequences (one line per node: two representatives, two branch lengths; -1 = recompute)."""
+    kind = rng.choice(FRAG_KINDS)
+    aln, new = make_case(rng, kind)
+    n = aln.count('>')
+    reps = list(range(1, n + 1))
+    lines = []
+    while len(reps) > 1:
+        i, j = sorted(rng.sample(reps, 2))
+        l1 = '%.5f' % (rng.random() * 0.3 + 0.01)
+        l2 = '%.5f' % (rng.random() * 0.3 + 0.01) if rng.random() < 0.7 else '-1.0'
+        lines.append('%d %d %s %s' % (i, j, l1, l2))
+        reps.remove(j)
+    args = [kind, 'new.fa', '--treein', 'tree.txt'] + list(rng.choice(ALL_PAIRS)) + (list(rng.choice(OPT_EXTRAS)) if rng.random() < 0.3 else [])
+    files = {'new.fa': L.fasta(new, ['f%d' % i for i in range(len(new))]), 'tree.txt': '\n'.join(lines) + '\n'}
+    return ('frag-treein-%04d' % k, 'frag-treein', args, aln, files)
+
+
+def opt_case(rng, k):
+    kind = rng.choice(FRAG_KINDS)
+    aln, new = make_case(rng, kind)
+    ex = list(rng.choice(OPT_EXTRAS)) if rng.random() < 0.95 else []
+    if rng.random() < 0.3:
+        ex += list(rng.choice(OPT_EXTRAS))
+    args = [kind, 'new.fa'] + list(rng.choice(ALL_PAIRS)) + ex
+    return ('frag-opt-%04d' % k, 'frag-opt', args, aln, {'new.fa': L.fasta(new, ['f%d' % i for i in range(len(new))])})
+
+
 def build(rng, want):
     out = []
 
@@ -132,6 +169,12 @@ def build(rng, want):
                 args[i + 1:i + 1] = ['codonpos.txt', rng.choice(['--multipair', '--localpair', '--hybridpair'])]
                 c = (c[0], c[1], args, c[3], c[4])
             out.append(c)
+    if not want or 'frag-treein' in want:
+        for k in range(int(210 * SCALE)):
+            out.append(treein_case(rng, k))
+    if not want or 'frag-opt' in want:
+        for k in range(int(210 * SCALE)):
+            out.append(opt_case(rng, k))
     return out
 
 

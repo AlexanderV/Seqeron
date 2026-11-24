@@ -414,7 +414,6 @@ public static partial class SequenceAligner
                             Err("Cannot open " + _codonposfile + "\n\n");
                             Exit(0);
                         }
-                        NeedPort("--codonpos");
                         break;
                     case "--codonscore":
                         Shift();
@@ -424,7 +423,6 @@ public static partial class SequenceAligner
                             Err("Cannot open " + _codonscorefile + "\n\n");
                             Exit(0);
                         }
-                        NeedPort("--codonscore");
                         break;
                     case "--noscore": _scorecalcopt = " -Z "; break;
                     case "--6mermultipair": _distance = "ktuplesmulti"; _tuplesize = 6; _pairspecified = true; break;
@@ -498,7 +496,6 @@ public static partial class SequenceAligner
                             Err("Cannot open " + _anchorfile + "\n\n");
                             Exit(0);
                         }
-                        NeedPort("--anchors");
                         break;
                     case "--thread":
                         Shift();
