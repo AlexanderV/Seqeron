@@ -239,3 +239,5 @@ These affect reported span/filtering only, not which start sites are detected; e
 ## 2026-11 audit round 2 (A2-40, B09 F86): cancellation
 
 `FindOpenReadingFrames(DnaSequence | string, minLength, options, CancellationToken)` and `OrfScanner.FindRegions(..., cancellationToken)` poll every 65 536 codons and between ORFs; same tests as GENOMIC-COMMON-001.
+
+R14-19 (F361, WP78): `GenomicAnalyzer_LazyResults_Tests` (the nested-ORF input ATG x 8000 + TAA allocates < 40 MB; the strings equal the substrings of the strand; equality / hash of the lazy records equal the eager ones).

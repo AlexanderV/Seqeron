@@ -244,3 +244,5 @@
 ## Audit R14-17 (B09 F298): MCP gaps
 
 MCP `FindLongestCommonRegionMultiTests` (Rosalind LCSM GATTACA / TAGACCA / ATACA = AC, CA, TA with first occurrences; minSupport 2; N runs; no common string; validation), SuffixTree.Mcp.Core `FindLongestRepeatCommonRegionOptionsTests` (N / lower case, strands ReverseComplement / Both, k-mismatch LCS, both-strand longest repeat with reversePositions, cancellation, IUPAC similarity): expected values from an independent brute force.
+
+R14-19 (F361, WP78): `GenomicAnalyzer_LazyResults_Tests` (`CommonRegionSequences_AreTheQuerySubstrings_AndEqualTheEagerRecords`).

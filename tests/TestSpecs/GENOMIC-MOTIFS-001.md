@@ -236,3 +236,5 @@
 ## Audit R14-3 (B09 F290): no suffix-tree build for one query
 
 `GenomicAnalyzer_FindMotifIndex_Tests`: `FindMotif` / `MotifFinder.FindExactMotif` equal a brute-force scan (ascending, overlapping, case-insensitive; empty / longer / IUPAC-literal motifs) with and without a built tree; one query does not build the tree (`HasSuffixTree` stays false) and allocates < 30 MB on 1 Mbp (the tree: about 170 MB per Mbp); `ReleaseSuffixTree` frees a built tree and the next read rebuilds it.
+
+R14-18 (F360, WP78): `ApproximateMatcher_PackedHamming_Tests` (the bit-parallel scan equals the character loop on 4 100 random cases; boundary lengths; cancellation).

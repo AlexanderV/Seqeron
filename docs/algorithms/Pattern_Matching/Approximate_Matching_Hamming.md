@@ -149,3 +149,7 @@ Expected Hamming distance: `7`.
 4. Navarro, G. (2001). "A guided tour to approximate string matching." *ACM Computing Surveys*, 33(1): 31-88.
 5. Gusfield, D. (1997). *Algorithms on Strings, Trees and Sequences.* Cambridge University Press.
 6. Nicolae, M. & Rajasekaran, S. (2015). "On string matching with mismatches." *Algorithms*, 8(2): 248-270.
+
+### 5a. Bit-parallel scan (B09 WP78, F360)
+
+`FindWithMismatches` scans the windows of a pattern of up to 32 bases in a 64-bit word, two bits per base: window XOR pattern, popcount of the non-zero pairs; a symbol other than A/C/G/T in the sequence is a mismatch (a second rolling word of flags). IUPAC patterns of up to 16 positions use one-hot nibbles and a shared-bit test; longer or other patterns keep the character loop. The result is the same (windows, counts, positions, order); 2 Mbp x 100 scans with 2 mismatches: 4.6 s -> 1.3 s, IUPAC 8.2 s -> 0.95 s. Property tests against the character loop: `ApproximateMatcher_PackedHamming_Tests`.

@@ -262,3 +262,5 @@ From `ApproximateMatcherTests.cs`:
 | Include real-world genomics tests? | Keep existing | Good integration examples |
 
 ---
+
+R14-18 (F360, WP78): `ApproximateMatcher_PackedHamming_Tests` (see GENOMIC-MOTIFS-001).

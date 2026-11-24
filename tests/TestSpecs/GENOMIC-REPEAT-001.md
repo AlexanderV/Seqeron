@@ -253,3 +253,5 @@ Assumption register: assumption 1 (tie-break unspecified) is **retired** — the
 ## Audit R14-17 (B09 F298): find_repeat_pairs
 
 MCP `FindRepeatPairsTests`: `repeat-match -n 3` of ACGTTTACGAAAT = the direct pair (0, 6, 3) and three reverse pairs of lengths 4, 3, 3; N ends a copy; validation (minLength >= 2, strands).
+
+R14-19 (F361, WP78): `GenomicAnalyzer_LazyResults_Tests` (`RepeatSequences_AreTheLabelPrefixes_AndEqualTheEagerRecords`).

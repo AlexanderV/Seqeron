@@ -83,3 +83,5 @@ Fuzz oracle (`GenomicTandemFuzzTests.Oracle`) replayed the old greedy scan → r
 - **Audit A4-4 (F156):** option boundaries measured on the programs: `OptionBoundaries_Oracle_Tests.Etandem_ThresholdIntMinValue_...` (12 etandem rows); the programs accept almost every value the audit listed (only k <= 0 / k > 28 rejected; etandem -threshold int.MinValue is a SIGFPE of the program, not "0 hits").
 
 - **Audit r5 / r6 (A5-7, A5-8, A6-2, A6-4, A6-10; F172, F176, F177, F179, F183):** `etandem` ignores `-sbegin` / `-send` and numbers a `-sreverse` sequence on the reverse strand, `equicktandem` uses the range (180 oracle rows each); the gff / excel reports of both programs (120 runs per program and format equal; the header is written even without a repeat); the qualifier text resolves like the ACD library; the MCP report mode runs the search once (`EmbossReportSingleSearchTests`).
+
+- **R14-18 (F360, WP78):** `FindTandemRepeatsEtandem` reuses the tables of dead candidates: 2 Mbp, n = 4 ... 8: 3.3 GB -> 15 MB allocated; the 1 600-sequence etandem 6.6.0 oracle tests unchanged.

@@ -234,3 +234,7 @@ The first is the Wikipedia worked example: unit `ATTCG` (period 5), copy number 
 3. Kolpakov, R., Kucherov, G. 1999. Finding maximal repetitions in a word in linear time. *Proc. 40th IEEE FOCS*, 596–604.
 4. Bannai, H., I, T., Inenaga, S., Nakashima, Y., Takeda, M., Tsuruta, K. 2017. The "Runs" Theorem. *SIAM J. Comput.* 46(5):1501–1514. https://arxiv.org/abs/1406.0263 (opened 2026-11-18: Definition 1, Lemmas 3, 6, 7, 8, §3, §4.1–4.2)
 5. Thiel, T., Michalek, W., Varshney, R.K., Graner, A. 2003. Exploiting EST databases for the development and characterization of gene-derived SSR-markers in barley. *Theor. Appl. Genet.* 106:411–422; `misa.pl` (mirror https://raw.githubusercontent.com/cfljam/SSR_marker_design/master/misa.pl, opened 2026-11-18: line 110 "reject false type motifs [e.g. (TT)6 or (ACAC)5]").
+
+### etandem allocation (B09 WP78, F360)
+
+`FindTandemRepeatsEtandem` reuses the tables of the candidates that die without being reported (a stack per unit size, `EtandemCons.Reset`) instead of allocating three arrays per base and unit size: 2 Mbp, n = 4 ... 8: 3.3 GB -> 15 MB allocated, 2.4 s -> 2.0 s; the reported repeats are those of the program (1 600 sequences against etandem 6.6.0, unchanged tests).

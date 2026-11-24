@@ -280,3 +280,7 @@ searched in all six frames, yields the four distinct protein candidates
 5. NCBI C++ Toolkit, `src/algo/sequence/orf.cpp` and `include/algo/sequence/orf.hpp` (`COrf::FindOrfs`, `FindForwardOrfs`, `s_FindOrfs`) — the ORF engine of NCBI ORFfinder. https://github.com/ncbi/ncbi-cxx-toolkit-public (opened 2026-11-18)
 6. EMBOSS 6.6.0 `getorf` (`-find 3`, `-minsize`, `-table`). http://emboss.open-bio.org/rel/rel6/apps/getorf.html
 7. NCBI ORFfinder 0.4.3 standalone program (`ORFfinder.gz`, `USAGE.txt`, `CHANGELOG.txt`), https://ftp.ncbi.nlm.nih.gov/genomes/TOOLS/ORFfinder/ — run in Docker (linux/amd64, Debian 12) over the hand-off package `docs/Validation/review-2026-09/handoff/A1-18-orffinder/`; output archive `returned/A1-18-orffinder-out.zip` (1750 runs, 2026-11-18).
+
+### Lazy sequence (B09 WP78, F361)
+
+`OrfInfo.Sequence` is cut out of the scanned strand on first access (`SequenceMemory` is the view without a copy; `Length`, `CodonCount`, `Position` need no string). The nested-ORF input ATG x 8000 + TAA with `minLength` 3 (8 000 ORFs, 96 036 000 characters) is enumerated in 32 ms / 0.7 MB instead of 120 ms / 183.7 MB; `RepeatInfo.Sequence` (`FindRepeats`) and `CommonRegion.Sequence` (`FindCommonRegions`) are lazy in the same way. Values and equality are those of the eager records.

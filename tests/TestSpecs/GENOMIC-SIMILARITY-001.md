@@ -244,3 +244,4 @@ validate (null, k >= 1) and return `KmerAnalyzer.JaccardSimilarity(a.Sequence, b
 | M-A6-6 | `MashCommands_Oracle_Tests.FilesWithoutARecordOfKSymbols_AreRefused_...` | the program's refusal of a file whose records are all shorter than k (80 rows) |
 | M-A5-10b2 | `MashAlphabet_Oracle_Tests` (sketch files / dist + triangle / screen: 900 runs), `MashTaxScreen_Oracle_Tests` (300), MCP `MashToolsTests` | the alphabet options `-a -z -Z` (protein sketches, six-frame screen of amino-acid queries) and `mash taxscreen` against the installed mash 2.3: all equal (docs/algorithms/Alignment/Mash_Commands.md, B09 F214 / F215) |
 
+R14-18 (F360, WP78): `KmerAnalyzer_PackedSets_Tests` (packed k-mer sets equal the string sets: 800 random Jaccard / Mash cases, containment, canonical reverse complement).

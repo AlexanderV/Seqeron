@@ -99,3 +99,5 @@ LRS values (ATCGATCGA, AAAAAAAAAA, ATATATA, ACGT) all match. ✓
 - **Audit r3 (A3-13, F139):** `FindPalindromes` vs EMBOSS `palindrome -gaplimit 0` compared on 330 sequences: per-centre longest = EMBOSS hit set; nested palindromes are extra (documented).
 
 - **Audit R14-4b (F292):** `FindRepeats` / `FindMaximalRepeats` (string and both-strand variants too) refuse an output larger than `RepeatOutputLimits` (default 512 MB) with the typed `RepeatOutputLimitException` before anything is materialised; MCP `find_repeats` `maxOutputMegabytes`; poly-A 20 000 refused instead of 30 s / 1.92 GB.
+
+- **R14-19 (F361, WP78):** `RepeatInfo.Sequence` is cut out of the suffix-tree text on first access (`SequenceMemory`); no O(depth^2) prefix strings in `FindRepeats`; `GenomicAnalyzer_LazyResults_Tests`.

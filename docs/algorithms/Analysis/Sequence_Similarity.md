@@ -208,3 +208,7 @@ double pct = GenomicAnalyzer.CalculateSimilarity(a, b, kmerSize: 3); // 80.0
 1. Jaccard, Paul. 1901. Étude comparative de la distribution florale dans une portion des Alpes et des Jura. Bulletin de la Société vaudoise des sciences naturelles 37(142):547–579. https://en.wikipedia.org/wiki/Jaccard_index
 2. Ondov BD, Treangen TJ, Melsted P, Mallonee AB, Bergman NH, Koren S, Phillippy AM. 2016. Mash: fast genome and metagenome distance estimation using MinHash. Genome Biology 17:132. https://doi.org/10.1186/s13059-016-0997-x
 3. Mash documentation — Distance Estimation. marbl/Mash. https://github.com/marbl/Mash/blob/master/doc/sphinx/distances.rst
+
+### Packed k-mer sets (B09 WP78, F360)
+
+For k <= 32 the distinct k-mer sets of `KmerAnalyzer.JaccardSimilarity` / `MashDistance` / `ContainmentIndex` are sorted arrays of 2-bit codes (canonical = the smaller of the code and the code of the reverse complement; the 2-bit order is the ordinal order of the strings) and the intersection is a merge; literal counting of a sequence with a symbol other than A/C/G/T and k > 32 use the string sets. `CalculateSimilarity` of two 2 Mbp sequences, k = 21: 2.1 s / 619 MB -> 0.7 s / 31 MB (canonical 4.8 s / 971 MB -> 0.6 s / 31 MB); the numbers are the same (`KmerAnalyzer_PackedSets_Tests`).

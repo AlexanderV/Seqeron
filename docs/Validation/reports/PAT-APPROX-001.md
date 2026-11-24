@@ -107,3 +107,5 @@ None.
   enforced; cross-check values reproduce against the code.
 - **State: CLEAN.** No defects. Hamming tests: 38 passed, 0 failed. No code changes required (full
   suite not re-run since no source was touched).
+
+- **R14-18 (F360, WP78, "B09 for B04"):** `ApproximateMatcher.FindWithMismatches` scans a pattern of up to 32 bases (IUPAC: 16) as one 64-bit word (XOR + popcount); same windows, counts, positions and order (`ApproximateMatcher_PackedHamming_Tests`); 2 Mbp x 100 scans, 2 mismatches: 4.6 s -> 1.3 s.

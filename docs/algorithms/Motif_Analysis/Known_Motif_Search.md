@@ -265,3 +265,7 @@ Result: positions {0, 1, 2}, three overlapping occurrences [1].
 2. Cock, P.J.A. et al. Biopython `Bio.Seq` module — `search` and `count_overlap` (master, accessed 2026-06-13): https://raw.githubusercontent.com/biopython/biopython/master/Bio/Seq.py
 3. Wikipedia contributors. "Restriction site" (accessed 2026-06-13). EcoRI recognizes GAATTC: https://en.wikipedia.org/wiki/Restriction_site
 4. EMBOSS 6.6.0 `fuzznuc` (Rice, Longden & Bleasby 2000, Trends Genet 16:276; Debian `emboss` package, run locally with `-pmismatch 0 -complement Y -rformat gff`): IUPAC patterns, both strands, overlapping hits, forward-strand coordinates for '-' hits.
+
+### Speed of the mismatch-tolerant route (B09 WP78, F360)
+
+The scan of `FindKnownMotifHits` with mismatches is the bit-parallel Hamming scan of `ApproximateMatcher` (2-bit XOR + popcount, IUPAC nibbles), and an exact A/C/G/T motif on a `DnaSequence` takes the same scan with 0 mismatches (KMP for other motifs): 50 motifs x 10 bp, 2 Mbp, both strands: mm = 2 4.6 s -> 1.3 s, mm = 1 3.0 s -> 0.64 s, mm = 0 1.4 s -> 0.67 s, IUPAC mm = 2 8.2 s -> 0.95 s; the results are unchanged (the EMBOSS `fuzznuc` oracle tests and the property tests of the scan).

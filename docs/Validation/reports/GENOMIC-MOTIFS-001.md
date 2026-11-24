@@ -191,3 +191,5 @@ No code or test change was required this session.
 
 
 - **Audit R14-3 (F290):** `FindMotif` / `FindExactMotif` do not build the suffix tree for a one-off query (`DnaSequence.HasSuffixTree`, `ReleaseSuffixTree`; 2 Mbp 4.37 s / 542 MB -> 66 ms); the tree route stays for a sequence whose tree is already built.
+
+- **R14-18 (F360, WP78):** the mismatch-tolerant `FindKnownMotifHits` runs on the bit-parallel Hamming scan of `ApproximateMatcher` (2 Mbp, 50 motifs x 10 bp, both strands: mm = 2 4.6 s -> 1.3 s, IUPAC mm = 2 8.2 s -> 0.95 s), an exact A/C/G/T motif on a `DnaSequence` too; results identical (`ApproximateMatcher_PackedHamming_Tests`).
