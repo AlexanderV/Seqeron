@@ -31,6 +31,21 @@ public static partial class SequenceAligner
         /// <summary>The stack size that <c>setstacksize</c> reports (the limit of the process: 8192 kb by default; the message is the only place where it shows).</summary>
         internal int StackSizeKb = 8192;
 
+        /// <summary>
+        /// <c>setstacksize( 200 * njob )</c> (io.c): the limit of the process is raised when it is smaller than 200 bytes per sequence, and the message then shows both sizes ("8192 kb->19531 kb", truncated to kb).
+        /// </summary>
+        private string StackSizeText(int njob)
+        {
+            long wanted = 200L * njob;
+            string current = StackSizeKb.ToString(CultureInfo.InvariantCulture);
+            return (long)StackSizeKb * 1024 < wanted
+                ? "stacksize: " + current + " kb->" + (wanted / 1024).ToString(CultureInfo.InvariantCulture) + " kb\n"
+                : "stacksize: " + current + " kb\n";
+        }
+
+        /// <summary>The file <c>hat2</c> is written again by a later program of the script (<c>dndpre</c> of the iterative methods): a guide tree without distances then still leaves the file that <c>cp</c> copies.</summary>
+        internal bool DistFileRewrittenLater { get; init; }
+
         private int _njob;
         private int _nlenmax;
         private int[] _nlen = Array.Empty<int>();
@@ -64,7 +79,7 @@ public static partial class SequenceAligner
                 for (int i = 0; i < njob; i++)
                     seq[i] = seq[i].ToLowerInvariant();
 
-            Report("stacksize: " + StackSizeKb.ToString(CultureInfo.InvariantCulture) + " kb\n");
+            Report(StackSizeText(njob));
             G.Constants(seq);
             Report("Gap Penalty = " + MafftGlobals.F((double)G.Ppenalty / 1000, 5, 2, true) + ", " + MafftGlobals.F((double)G.PpenaltyEx / 1000, 5, 2, true) + ", " + MafftGlobals.F((double)G.Poffset / 1000, 5, 2, true) + "\n");
             if (CheckAlphabet(seq) is { } unknownLetter)
@@ -74,11 +89,108 @@ public static partial class SequenceAligner
                 throw new ArgumentException("tuplesize must be 6 for aa sequence");
             if (G.Dorp == 'd' && G.TupleSize != 6 && G.TupleSize != 10)
                 throw new ArgumentException("tuplesize must be 6 or 10 for dna sequence");
-            if (G.TreeIn != 0)
-                throw new NotSupportedException("--treein of MAFFT is not available in this port.");
-
-            double[][] mtx = SixmerDistanceMatrix(seq);
             int nguidetree = G.NGuideTree;
+            int randomseed = 0;
+            char treein = '\0';
+            if (G.TreeIn != 0)
+            {
+                var (kind, seed, npickx, limitram) = CheckGuideTreeFile();
+                randomseed = seed;
+                _maxDistMtxSize = limitram;
+                treein = kind;
+                if (treein == 't')
+                {
+                    VarPairScore(njob, npickx, seq, randomseed, out _);
+                    throw new MafftProgramFailureException("", 1);
+                }
+                if (treein == 'c')
+                {
+                    _compactTree = 1;
+                    treein = '\0';
+                }
+                else if (treein == 'Y')
+                {
+                    _compactTree = 4;
+                    treein = '\0';
+                }
+                else if (treein is 'S' or 'C')
+                {
+                    _compactTree = 2;
+                    treein = '\0';
+                }
+                else if (treein == 'a')
+                {
+                    if (njob > 200000)
+                    {
+                        Report("Chain?\n");
+                        treein = 's';
+                        nguidetree = 1;
+                    }
+                    else if (njob < 100 || VarPairScoreChoice(njob, npickx, seq, randomseed) == 't')
+                    {
+                        Report("Tree!\n");
+                        treein = '\0';
+                        nguidetree = 2;
+                    }
+                    else
+                    {
+                        Report("Chain!\n");
+                        treein = 's';
+                        nguidetree = 1;
+                    }
+                }
+                else if (treein != '\0')
+                {
+                    nguidetree = 1;
+                }
+            }
+            if (_compactTree == 1 && _maxDistMtxSize > (double)njob * (njob - 1) * sizeof(double) / 2)
+            {
+                Report("Use conventional tree.\n");
+                _compactTree = 0;
+            }
+            if (G.DistOut != 0 && treein != '\0' && !DistFileRewrittenLater)
+                throw new NotSupportedException("--distout with --pileup / --randomchain / --treein: the program writes no distance matrix and the message of the script's cp names a random temporary directory (cp: cannot stat '/tmp/mafft.XXXXXXXXXX/hat2').");
+            if (G.DistOut != 0 && _compactTree != 0)
+                throw new NotSupportedException("--distout with --large / --memsavetree / --stepadd / --youngestlinkage: the program writes the distance matrix that it does not hold and stops with a segmentation fault whose message names a process id.");
+            double[][]? mtx = null;
+            int[][]? pointt = null;
+            int[]? mindistfrom = null;
+            double[]? mindist = null;
+            int[]? compactSelfscore = null;
+            if (treein == '\0')
+            {
+                if (_compactTree != 0)
+                {
+                    pointt = PrepareKmerTables(seq);
+                    Report("Compact tree, step 1\n");
+                    mindistfrom = new int[njob];
+                    mindist = new double[njob];
+                    compactSelfscore = new int[njob];
+                    PreparePartMtx(njob);
+                    var memo = new int[_tsize];
+                    for (int i = 0; i < njob; i++)
+                    {
+                        var table1 = new int[_tsize];
+                        foreach (int point in pointt[i])
+                            table1[point]++;
+                        compactSelfscore[i] = CommonSextet(table1, pointt[i], memo);
+                    }
+                    for (int i = 0; i < njob; i++)
+                    {
+                        mindist[i] = 999.9;
+                        mindistfrom[i] = -1;
+                    }
+                    CompactDistancesKmer(njob, pointt, compactSelfscore, mindist, mindistfrom);
+                    for (int i = 0; i < njob; i++)
+                        mindist[i] -= PreferenceVal(i, mindistfrom[i], njob);
+                    Report("\ndone.\n");
+                }
+                else
+                {
+                    mtx = SixmerDistanceMatrix(seq);
+                }
+            }
             int[] order = new int[njob];
             string[]? bseq = null;
             string? originalGaps = null;
@@ -101,34 +213,80 @@ public static partial class SequenceAligner
                 for (int i = 0; i < njob; i++)
                     len[i] = new double[2];
                 var dep = new Treedep[njob];
-                if (G.DistOut != 0)
+                bool treeOut = G.TreeOut != 0;
+                if (treein != '\0')
                 {
-                    DistFile = WriteHat2(mtx, names ?? DefaultNames(njob));
-                    if (G.TreeOut == 0 && G.NoAlign != 0)
-                        return NoAlignResult(seq, njob);
-                }
-                if (G.TreeOut != 0)
-                {
-                    Report("Constructing a UPGMA tree (treeout, efffree=" + (calcpairdists ? 0 : 1) + ") ... ");
-                    MuscleSupg(njob, mtx, topol0, topol1, len, dep, false, names ?? DefaultNames(njob));
+                    calcpairdists = false;
+                    if (treein == 'l')
+                    {
+                        LoadTree(njob, topol0, topol1, len, dep, treeOut, names ?? DefaultNames(njob));
+                    }
+                    else if (treein is 's' or 'p')
+                    {
+                        CreateChain(njob, topol0, topol1, len, dep, treeOut, treein == 's', randomseed, names ?? DefaultNames(njob));
+                        G.NthreadPair = G.Nthread = 0;
+                        G.Weight = 0;
+                        G.Tbrweight = 0;
+                        G.NthreadTb = 0;
+                    }
+                    else
+                    {
+                        throw new MafftProgramFailureException("Error. treein = " + (int)treein + " or " + treein + "\n");
+                    }
                 }
                 else
                 {
-                    Report("Constructing a UPGMA tree (efffree=" + (calcpairdists ? 0 : 1) + ") ... ");
-                    MuscleSupg(njob, mtx, topol0, topol1, len, dep);
+                    if (G.DistOut != 0)
+                    {
+                        DistFile = WriteHat2(mtx!, names ?? DefaultNames(njob));
+                        if (G.TreeOut == 0 && G.NoAlign != 0)
+                            return NoAlignResult(seq, njob);
+                    }
+                    if (_compactTree != 0)
+                    {
+                        Report("Constructing a tree ... ");
+                        if (_compactTree == 4)
+                            CompactTreeSelectable(njob, mindistfrom!, mindist!, iguidetree == 0 ? pointt : null, compactSelfscore!, iguidetree == 0 ? null : bseq, topol0, topol1, len, dep, treeOut, names ?? DefaultNames(njob), 0);
+                        else
+                            CompactTreeGivenDist(njob, mindist!, mindistfrom!, topol0, topol1, len, dep, treeOut, names ?? DefaultNames(njob));
+                        mindistfrom = null;
+                        mindist = null;
+                        pointt = null;
+                    }
+                    else if (treeOut)
+                    {
+                        Report("Constructing a UPGMA tree (treeout, efffree=" + (calcpairdists ? 0 : 1) + ") ... ");
+                        MuscleSupg(njob, mtx!, topol0, topol1, len, dep, false, names ?? DefaultNames(njob));
+                    }
+                    else
+                    {
+                        Report("Constructing a UPGMA tree (efffree=" + (calcpairdists ? 0 : 1) + ") ... ");
+                        MuscleSupg(njob, mtx!, topol0, topol1, len, dep);
+                    }
                 }
                 Report("\ndone.\n\n");
                 if (G.SparsePickup != 0 && iguidetree == nguidetree - 1)
                 {
                     Report("Sparsepickup! \n");
-                    var picked = Pickup(njob, seq, topol0, topol1, names ?? DefaultNames(njob));
+                    var picked = Pickup(njob, seq, topol0, topol1, names ?? DefaultNames(njob), treein != '\0');
                     Report("done. \n");
                     Report("disttbfast (" + (G.Dorp == 'd' ? "nuc" : "aa") + ") Version 7.505\nalg=" + G.Alg + ", model=" + G.ModelName + ", amax=" + G.SpecificityConsideration.ToString("F1", CultureInfo.InvariantCulture) + "\n"
                         + G.Nthread.ToString(CultureInfo.InvariantCulture) + " thread(s)\n\n");
                     return picked;
                 }
                 var tree = new GuideTree(topol0, topol1, dep, len);
-                int[] lm = tree.Order(njob - 2, 2);
+                int[] lm;
+                if (treein is 's' or 'p')
+                {
+                    lm = new int[njob];
+                    lm[0] = tree.Topol0[0];
+                    for (int i = 1; i < njob; i++)
+                        lm[i] = tree.Topol1[i - 1];
+                }
+                else
+                {
+                    lm = tree.Order(njob - 2, 2);
+                }
                 Array.Copy(lm, order, njob);
                 if ((G.TreeOut != 0 || G.DistOut != 0) && G.NoAlign != 0)
                     return NoAlignResult(seq, njob);
@@ -170,11 +328,28 @@ public static partial class SequenceAligner
                 lastTree = tree;
                 lastEff = eff;
                 lastAlloclen = alloclen;
-                if (calcpairdists)
+                if (calcpairdists && _compactTree == 0)
                 {
                     Report("Making a distance matrix from msa.. \n");
                     mtx = MsaDistanceMatrix(njob, selfscore, bseq);
                     Report("\ndone.\n\n");
+                }
+                else if (calcpairdists)
+                {
+                    Report("Making a compact tree from msa, step 1.. \n");
+                    mindistfrom = new int[njob];
+                    mindist = new double[njob];
+                    PreparePartMtx(njob);
+                    for (int i = 0; i < njob; i++)
+                    {
+                        mindist[i] = 999.9;
+                        mindistfrom[i] = -1;
+                    }
+                    CompactDistancesMsa(njob, bseq, selfscore, mindist, mindistfrom);
+                    for (int i = 0; i < njob; i++)
+                        mindist[i] -= PreferenceVal(i, mindistfrom[i], njob);
+                    Report("\n");
+                    compactSelfscore = selfscore;
                 }
             }
             if (G.OneIteration)
@@ -257,6 +432,58 @@ public static partial class SequenceAligner
         private double[][] SixmerDistanceMatrix(string[] seq)
         {
             int njob = _njob;
+            var pointt = PrepareKmerTables(seq);
+            int tsize = _tsize;
+            var mtx = new double[njob][];
+            for (int i = 0; i < njob; i++)
+                mtx[i] = new double[njob - i];
+            var memo = new int[tsize];
+            for (int i = 0; i < njob; i++)
+            {
+                var table1 = new int[tsize];
+                if (i % 100 == 0)
+                    Report("\r" + MafftGlobals.D5(i + 1) + " / " + njob);
+                foreach (int point in pointt[i])
+                    table1[point]++;
+                for (int j = i; j < njob; j++)
+                    mtx[i][j - i] = CommonSextet(table1, pointt[j], memo);
+            }
+            Report("\ndone.\n\n");
+            int ien = njob - 1;
+            double lenfaca = _lenfaca, lenfacb = _lenfacb, lenfacc = _lenfacc, lenfacd = _lenfacd;
+            for (int i = 0; i < ien; i++)
+            {
+                for (int j = i + 1; j < njob; j++)
+                {
+                    double longer, shorter;
+                    if (_nogaplen[i] > _nogaplen[j])
+                    {
+                        longer = _nogaplen[i];
+                        shorter = _nogaplen[j];
+                    }
+                    else
+                    {
+                        longer = _nogaplen[j];
+                        shorter = _nogaplen[i];
+                    }
+                    double lenfac = 1.0 / (shorter / longer * lenfacd + lenfacb / (longer + lenfacc) + lenfaca);
+                    double bunbo = Math.Min(mtx[i][0], mtx[j][0]);
+                    if (bunbo == 0.0)
+                        mtx[i][j - i] = 2.0;
+                    else
+                        mtx[i][j - i] = (1.0 - mtx[i][j - i] / bunbo) * lenfac * 2.0;
+                }
+            }
+            return mtx;
+        }
+
+        private int _tsize;
+        private double _lenfaca, _lenfacb, _lenfacc, _lenfacd;
+
+        /// <summary>The first half of the distance stage of <c>disttbfast</c>: "Making a distance matrix ..", the k-mer code tables <c>pointt</c> of every sequence (the lengths without gaps go to <c>nogaplen</c>), the count of the ambiguous letters, and the length factors of the distance.</summary>
+        private int[][] PrepareKmerTables(string[] seq)
+        {
+            int njob = _njob;
             bool dna = G.Dorp == 'd';
             int tuple = G.TupleSize;
             int baseN = dna ? 4 : 6;
@@ -312,46 +539,9 @@ public static partial class SequenceAligner
             }
             if (_nunknown != 0)
                 Report("\nThere are " + _nunknown + " ambiguous characters.\n");
-            var mtx = new double[njob][];
-            for (int i = 0; i < njob; i++)
-                mtx[i] = new double[njob - i];
-            var memo = new int[tsize];
-            for (int i = 0; i < njob; i++)
-            {
-                var table1 = new int[tsize];
-                if (i % 100 == 0)
-                    Report("\r" + (i + 1).ToString(CultureInfo.InvariantCulture).PadLeft(5) + " / " + njob);
-                foreach (int point in pointt[i])
-                    table1[point]++;
-                for (int j = i; j < njob; j++)
-                    mtx[i][j - i] = CommonSextet(table1, pointt[j], memo);
-            }
-            Report("\ndone.\n\n");
-            int ien = njob - 1;
-            for (int i = 0; i < ien; i++)
-            {
-                for (int j = i + 1; j < njob; j++)
-                {
-                    double longer, shorter;
-                    if (_nogaplen[i] > _nogaplen[j])
-                    {
-                        longer = _nogaplen[i];
-                        shorter = _nogaplen[j];
-                    }
-                    else
-                    {
-                        longer = _nogaplen[j];
-                        shorter = _nogaplen[i];
-                    }
-                    double lenfac = 1.0 / (shorter / longer * lenfacd + lenfacb / (longer + lenfacc) + lenfaca);
-                    double bunbo = Math.Min(mtx[i][0], mtx[j][0]);
-                    if (bunbo == 0.0)
-                        mtx[i][j - i] = 2.0;
-                    else
-                        mtx[i][j - i] = (1.0 - mtx[i][j - i] / bunbo) * lenfac * 2.0;
-                }
-            }
-            return mtx;
+            _tsize = tsize;
+            _lenfaca = lenfaca; _lenfacb = lenfacb; _lenfacc = lenfacc; _lenfacd = lenfacd;
+            return pointt;
         }
 
         /// <summary><c>commonsextet_p</c>: the number of 6-mers (10-mers) that two sequences share, a k-mer counted as often as it occurs in both.</summary>
@@ -494,7 +684,7 @@ public static partial class SequenceAligner
             for (int i = 0; i < nlim; i++)
             {
                 if (i % 100 == 0)
-                    Report("\r" + i.ToString(CultureInfo.InvariantCulture).PadLeft(5) + " / " + njob);
+                    Report("\r" + MafftGlobals.D5(i) + " / " + njob);
                 double ssi = selfscore[i];
                 for (int j = i + 1; j < njob; j++)
                 {
@@ -626,7 +816,7 @@ public static partial class SequenceAligner
             for (int k = 0; k < nseq - 1; k++)
             {
                 if (k % 10 == 0)
-                    Report("\r" + k.ToString(CultureInfo.InvariantCulture).PadLeft(5) + " / " + nseq);
+                    Report("\r" + MafftGlobals.D5(k) + " / " + nseq);
                 double minscore = 999.9;
                 for (int a = 0; next[a] != -1; a = next[a])
                 {
@@ -943,8 +1133,9 @@ public static partial class SequenceAligner
         // -------------------------------------------------------------------- treebase
 
         /// <summary><c>treebase</c> (<c>disttbfast.c</c>, all groups aligned: <c>mergeoralign[l] == 'a'</c>): joins the groups in the order of the guide tree.</summary>
-        private void TreeBase(string[] aseq, GuideTree tree, double[] effarr, ref int alloclen, MafftLocalHom[][]? localhom = null, bool tbfast = false, MafftAddState? add = null)
+        private void TreeBase(string[] aseq, GuideTree tree, double[] effarr, ref int alloclen, MafftLocalHom[][]? localhom = null, bool tbfast = false, MafftAddState? add = null, NodePairData? nodePair = null)
         {
+            bool constraint = localhom != null || nodePair != null && G.Constraint == 2;
             int njob = _njob;
             // tbfast without constraints (--weighti 0): the FFT is tried again for a group only when the last FFT alignment of its first member had segments (fftlog)
             int[]? fftlog = tbfast ? Enumerable.Repeat(1, njob).ToArray() : null;
@@ -971,11 +1162,9 @@ public static partial class SequenceAligner
                     continue; // both groups are old sequences that are aligned already
                 // tbfast makes the matrix of every step with makedynamicmtx (disttbfast only when --amax > 0): the matrix is shifted by the (negative) offset of the distance of the step from the tips, which is
                 // zero for ordinary distances and not for the negative distances that a pair library can give
-                double[][] dynamicmtx = localhom != null || tbfast ? MakeDynamicMtx(G.NDisConsweightMulti, tree.Dep[l].DistFromTip) : G.NDisConsweightMulti;
+                double[][] dynamicmtx = constraint || localhom != null || tbfast ? MakeDynamicMtx(G.NDisConsweightMulti, tree.Dep[l].DistFromTip) : G.NDisConsweightMulti;
                 int len1 = aseq[m1].Length;
                 int len2 = aseq[m2].Length;
-                if (localhom == null && G.NeverMemSave == 0 && G.Alg != 'M' && (len1 > 30000 || len2 > 30000))
-                    throw new NotSupportedException("MAFFT switches to its memory-saving mode (MSalignmm) for groups longer than 30 000 columns; that mode is not available in this port.");
                 if (alloclen < len1 + len2)
                 {
                     Report("\nReallocating..");
@@ -986,7 +1175,7 @@ public static partial class SequenceAligner
                 var mseq2 = new string[clus2];
                 var effarr1 = new double[clus1];
                 var effarr2 = new double[clus2];
-                double minimumWeight = localhom != null || tbfast ? G.MinimumWeight : 0.0;
+                double minimumWeight = constraint || tbfast ? G.MinimumWeight : 0.0;
                 double orieff1 = FastConjunction(localmem0, aseq, mseq1, effarr1, effarr, minimumWeight);
                 double orieff2 = FastConjunction(localmem1, aseq, mseq2, effarr2, effarr, minimumWeight);
                 int len1nocommongap = len1;
@@ -1004,12 +1193,12 @@ public static partial class SequenceAligner
                     CommonGapPickN(clus1, mseq1);
                     len1nocommongap = mseq1[0].Length;
                 }
-                if (localhom != null)
+                if (constraint)
                 {
                     // tbfast, constraint == 2: the importance of the blocks of the pairwise alignments enters the match scores of A__align
                     if (l < 1000 || l % 100 == 0)
-                        Report("\rSTEP " + (l + 1).ToString(CultureInfo.InvariantCulture).PadLeft(5) + " /" + (njob - 1) + " ");
-                    var shrink = ShrinkLocalHom(localmem0, localmem1, localhom);
+                        Report("\rSTEP " + MafftGlobals.D5(l + 1) + " /" + (njob - 1) + " ");
+                    var shrink = nodePair != null ? NodeShrink(nodePair, l, clus1, clus2) : ShrinkLocalHom(localmem0, localmem1, localhom!);
                     var imp = FillImp(clus1, clus2, mseq1[0].Length, mseq2[0].Length, mseq1, mseq2, effarr1, effarr2, shrink, localmem0, localmem1);
                     AAlign(dynamicmtx, G.Penalty, G.PenaltyEx, mseq1, mseq2, effarr1, effarr2, clus1, clus2, alloclen, null, null, null, null, G.Outgap, G.Outgap,
                         cpmxhist, child0, child1, l, orieff1, orieff2, imp);
@@ -1023,7 +1212,7 @@ public static partial class SequenceAligner
                 if (tbfast)
                 {
                     if (l < 1000 || l % 100 == 0)
-                        Report("\rSTEP " + (l + 1).ToString(CultureInfo.InvariantCulture).PadLeft(5) + " /" + (njob - 1) + " ");
+                        Report("\rSTEP " + MafftGlobals.D5(l + 1) + " /" + (njob - 1) + " ");
                     bool tryFft = fftlog![m1] != 0 && fftlog[m2] != 0 && _nlen[m1] > clus1 && _nlen[m2] > clus2 && clus1 < 1000 && clus2 < 1000;
                     if (G.ForceFft || (G.UseFft && tryFft))
                     {
@@ -1048,13 +1237,27 @@ public static partial class SequenceAligner
                     continue;
                 }
                 if (l < 500 || l % 100 == 0)
-                    Report("\rSTEP " + (l + 1).ToString(CultureInfo.InvariantCulture).PadLeft(5) + " / " + (njob - 1) + " ");
+                    Report("\rSTEP " + MafftGlobals.D5(l + 1) + " / " + (njob - 1) + " ");
+                if (G.NeverMemSave == 0 && G.Alg != 'M' && (len1 > 30000 || len2 > 30000))
+                {
+                    Report("\nlen1=" + len1.ToString(CultureInfo.InvariantCulture) + ", len2=" + len2.ToString(CultureInfo.InvariantCulture) + ", Switching to the memsave mode\n");
+                    G.Alg = 'M';
+                }
                 bool ffttry = _nlen[m1] > clus1 && _nlen[m2] > clus2;
                 if (G.ForceFft || (G.UseFft && ffttry))
                 {
                     if (l < 500 || l % 100 == 0)
                         Report(" f\b\b");
-                    Falign(dynamicmtx, mseq1, mseq2, effarr1, effarr2, clus1, clus2, alloclen);
+                    if (G.Alg == 'M')
+                    {
+                        if (l < 500 || l % 100 == 0)
+                            Report("m");
+                        Falign(dynamicmtx, mseq1, mseq2, effarr1, effarr2, clus1, clus2, alloclen, memsave: true);
+                    }
+                    else
+                    {
+                        Falign(dynamicmtx, mseq1, mseq2, effarr1, effarr2, clus1, clus2, alloclen);
+                    }
                 }
                 else
                 {
@@ -1062,6 +1265,13 @@ public static partial class SequenceAligner
                         Report(" d\b\b");
                     switch (G.Alg)
                     {
+                        case 'M':
+                            if (l < 500 || l % 100 == 0)
+                                Report("m");
+                            if ((l < 500 || l % 100 == 0) && ((child1 != -1 && cpmxhist[child1] != null) || (child0 != -1 && cpmxhist[child0] != null)))
+                                Report(" h");
+                            MsAlign(dynamicmtx, mseq1, mseq2, effarr1, effarr2, clus1, clus2, alloclen, null, null, null, null, G.Outgap, G.Outgap, cpmxhist, child0, child1, l, orieff1, orieff2);
+                            break;
                         case 'A':
                             if (clus1 == 1 && clus2 == 1)
                             {
@@ -1210,9 +1420,10 @@ public static partial class SequenceAligner
         /// <c>pickup</c> (<c>disttbfast -q n</c>, <c>--sparsepickup n</c>): the longest sequence of each side of the last steps of the guide tree (the root and its descendants until <paramref name="seq"/> n steps are used) are written, the others go to the file
         /// <c>notused</c>; nothing is aligned.
         /// </summary>
-        private Result Pickup(int n, string[] seq, int[][] topol0, int[][] topol1, IReadOnlyList<string> names)
+        private Result Pickup(int n, string[] seq, int[][] topol0, int[][] topol1, IReadOnlyList<string> names, bool zeroLengths = false)
         {
-            var nogaplen = seq.Select(x => x.Replace("-", "", StringComparison.Ordinal).Length).ToArray();
+            // with a guide tree that is not computed from the distances the program has not measured the sequences: nogaplen is all zero
+            var nogaplen = seq.Select(x => zeroLengths ? 0 : x.Replace("-", "", StringComparison.Ordinal).Length).ToArray();
             var longest = new int[n - 1, 2];
             for (int i = 0; i < n - 1; i++)
             {
@@ -1296,23 +1507,41 @@ public static partial class SequenceAligner
                 CommonGapPick(mseq2);
                 CommonGapPick(mseq1);
                 if (l < 500 || l % 100 == 0)
-                    Report("\rIteration " + (ll + 1).ToString(CultureInfo.InvariantCulture).PadLeft(5) + " / " + (njob * IterativeCycle).ToString(CultureInfo.InvariantCulture) + " ");
+                    Report("\rIteration " + MafftGlobals.D5(ll + 1) + " / " + (njob * IterativeCycle).ToString(CultureInfo.InvariantCulture) + " ");
                 if (G.NeverMemSave == 0 && G.Alg != 'M' && (len1 > 30000 || len2 > 30000))
-                    throw new NotSupportedException("MAFFT switches to its memory-saving mode (MSalignmm) for groups longer than 30 000 columns; that mode is not available in this port.");
+                {
+                    Report("\nlen1=" + len1.ToString(CultureInfo.InvariantCulture) + ", len2=" + len2.ToString(CultureInfo.InvariantCulture) + ", Switching to the memsave mode\n");
+                    G.Alg = 'M';
+                }
                 bool ffttry = _nlen[m1] > clus1 && _nlen[m2] > clus2;
                 if (G.ForceFft || (G.UseFft && ffttry))
                 {
                     if (l < 500 || l % 100 == 0)
                         Report(" f\b\b");
-                    Falign(dynamicmtx, mseq1, mseq2, effarr1, effarr2, clus1, clus2, alloclen);
+                    if (G.Alg == 'M')
+                    {
+                        if (l < 500 || l % 100 == 0)
+                            Report("m");
+                        Falign(dynamicmtx, mseq1, mseq2, effarr1, effarr2, clus1, clus2, alloclen, memsave: true);
+                    }
+                    else
+                    {
+                        Falign(dynamicmtx, mseq1, mseq2, effarr1, effarr2, clus1, clus2, alloclen);
+                    }
                 }
                 else
                 {
                     if (l < 500 || l % 100 == 0)
                         Report(" d\b\b");
-                    if (G.Alg != 'A')
+                    if (G.Alg == 'M')
+                    {
+                        if (l < 500 || l % 100 == 0)
+                            Report("m");
+                        MsAlign(dynamicmtx, mseq1, mseq2, effarr1, effarr2, clus1, clus2, alloclen, null, null, null, null, G.Outgap, G.Outgap, null, -1, -1, 0, orieff1, orieff2);
+                    }
+                    else if (G.Alg != 'A')
                         throw new NotSupportedException("Only the default algorithm (A) of MAFFT is available in this port.");
-                    if (clus1 == 1 && clus2 == 1)
+                    else if (clus1 == 1 && clus2 == 1)
                         G__align11(dynamicmtx, mseq1, mseq2, alloclen, G.Outgap, G.Outgap);
                     else
                         AAlign(dynamicmtx, G.Penalty, G.PenaltyEx, mseq1, mseq2, effarr1, effarr2, clus1, clus2, alloclen, null, null, null, null, G.Outgap, G.Outgap, null, -1, -1, 0, orieff1, orieff2);

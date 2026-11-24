@@ -408,8 +408,9 @@ public static partial class SequenceAligner
             char saved = G.NewGapChar;
             G.NewGapChar = '-';
             if (G.Alg == 'M')
-                throw new NotSupportedException("MAFFT's memory-saving alignment (alg M) is not available in this port.");
-            AAlign(G.NDisConsweightMulti, G.Penalty, G.PenaltyEx, aln0, aln2, effarr0, effarr2, n0, n2, alloclen, null, null, null, null, 1, 1, null, -1, -1, 0, 0.0, 0.0);
+                MsAlign(G.NDisConsweightMulti, aln0, aln2, effarr0, effarr2, n0, n2, alloclen, null, null, null, null, 1, 1, null, -1, -1, 0, 0.0, 0.0);
+            else
+                AAlign(G.NDisConsweightMulti, G.Penalty, G.PenaltyEx, aln0, aln2, effarr0, effarr2, n0, n2, alloclen, null, null, null, null, 1, 1, null, -1, -1, 0, 0.0, 0.0);
             G.NewGapChar = saved;
             int nl = aln0[0].Length;
             for (int i = 0; i < n1; i++)

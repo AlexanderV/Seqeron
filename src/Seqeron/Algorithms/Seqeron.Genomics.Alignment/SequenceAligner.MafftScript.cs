@@ -152,6 +152,8 @@ public static partial class SequenceAligner
             args.Add(Iterations(o).ToString(CultureInfo.InvariantCulture));
             if (o.Unweight)
                 args.Add("-u");
+            if (o.GuideTree != MafftGuideTree.Default)
+                args.Add("-U");
             args.Add("-X");
             args.Add(o.TreeMixing is { } mix ? Text(mix) : "0.1");
             args.Add("-p");
@@ -423,7 +425,10 @@ public static partial class SequenceAligner
                         : new[] { "-g", "0.0", "-f", Text(o.LocalPairOpen), "-Q", "100.0", "-h", AwkPrint(0.0 + 0.0 + 0.0), "-O", Text(o.GenafOpen), "-E", Text(o.GenafExtension), "-N", "-Z" });
                     break;
             }
-            var tb = new List<string> { "-+", Iterations(o).ToString(CultureInfo.InvariantCulture), "-W", Text(o.MinimumWeight), "-V", "-" + gopdist, "-s", "0.0" };
+            var tb = new List<string>();
+            if (o.GuideTree is not (MafftGuideTree.MemSaveTree or MafftGuideTree.StepAdd))
+                tb.AddRange(new[] { "-+", Iterations(o).ToString(CultureInfo.InvariantCulture) });
+            tb.AddRange(new[] { "-W", Text(o.MinimumWeight), "-V", "-" + gopdist, "-s", "0.0" });
             if (o.LegacyGapPenalty)
                 tb.Add("-L");
             if (o.PairLibrary != MafftPairLibrary.Global && !o.TerminalGapPenalty)
@@ -434,6 +439,8 @@ public static partial class SequenceAligner
             tb.Add((o.ThreadsProgressive ?? threadsTb).ToString(CultureInfo.InvariantCulture));
             if (o.Unweight)
                 tb.Add("-u");
+            if (o.GuideTree != MafftGuideTree.Default)
+                tb.Add("-U");
             tb.AddRange(TreeOutArguments(o, o.Retree));
             if (o.SequenceType == MafftSequenceType.Nucleotide)
                 tb.Add("-D");
@@ -449,6 +456,51 @@ public static partial class SequenceAligner
             if (o.ScoreOut)
                 tb.AddRange(new[] { "-S", "-B" });
             return (pair, tb);
+        }
+
+        /// <summary><c>$lhlimit -u ... $localparam -C n $seqtype $model -g -f -Q -h -A|-L|-N $usenaivepairscore $focusarg $treeinopt $treeoutopt -i infile</c>: the command of <c>nodepair</c> (the arguments of the pair stage of <c>tbfast</c> with the tree options).</summary>
+        internal static List<string> NodepairArguments(MafftOptions o)
+        {
+            var (pair, _) = TbfastArguments(o, 0);
+            var args = new List<string>();
+            if (o.LhLimit != int.MaxValue)
+            {
+                args.Add("-q");
+                args.Add(o.LhLimit.ToString(CultureInfo.InvariantCulture));
+            }
+            args.AddRange(pair);
+            if (o.GuideTreeText != null)
+                args.Add("-U");
+            args.AddRange(TreeOutArguments(o, o.Retree));
+            args.Add("-i");
+            args.Add("infile");
+            return args;
+        }
+
+        /// <summary>The file <c>_guidetree</c> that the script writes for the method of <see cref="MafftOptions.GuideTree"/> (<c>--memsavetreex</c> with the script's initial RAM usage of 20GB).</summary>
+        internal static string GuideTreeFile(MafftOptions o) => o.GuideTree switch
+        {
+            MafftGuideTree.Pileup => "pileup\n",
+            MafftGuideTree.RandomChain => "shuffle " + o.RandomSeed.ToString(CultureInfo.InvariantCulture) + "\n",
+            MafftGuideTree.MemSaveTree => "very compact\n",
+            MafftGuideTree.MemSaveTreeX => "compact  20GB\n",
+            MafftGuideTree.StepAdd => "stepadd\n",
+            MafftGuideTree.YoungestLinkage => "youngestlinkage\n",
+            MafftGuideTree.UserTree => NormalizeScriptFile(o.GuideTreeText ?? ""),
+            _ => "",
+        };
+
+        /// <summary><c>cat file | tr "\r" "\n" | grep -v "^$"</c>: carriage returns are line ends and empty lines are dropped.</summary>
+        internal static string NormalizeScriptFile(string text)
+        {
+            var sb = new System.Text.StringBuilder();
+            foreach (string line in text.Replace('\r', '\n').Split('\n'))
+            {
+                if (line.Length == 0)
+                    continue;
+                sb.Append(line).Append('\n');
+            }
+            return sb.ToString();
         }
 
         /// <summary>The text of a number as the user wrote it on the command line (the script passes it on unchanged).</summary>
@@ -535,6 +587,8 @@ public static partial class SequenceAligner
             args.AddRange(MemoryArguments(o));
             if (o.Unweight)
                 args.Add("-u");
+            if (o.GuideTree != MafftGuideTree.Default)
+                args.Add("-U");
             args.AddRange(TreeOutArguments(o, o.Retree));
             if (o.SequenceType == MafftSequenceType.Nucleotide)
                 args.Add("-D");

@@ -115,6 +115,7 @@ public static partial class SequenceAligner
                         case '@': g.Alg = 'd'; break;
                         case 'F': g.UseFft = true; break;
                         case 'u': g.Weight = 0; break;
+                        case 'U': g.TreeIn = 1; break;
                         case 'J': g.UTree = 0; break;
                         case 'Z': g.ScoreCheck = 0; break;
                         case 'Y': g.ScoreCheck = 2; break;
@@ -600,7 +601,9 @@ public static partial class SequenceAligner
             var len = new double[njob][];
             for (int i = 0; i < njob; i++)
                 len[i] = new double[2];
-            if (G.TreeMethod is 'X' or 'E' or 'q')
+            if (G.TreeIn != 0)
+                VeryFastSupgLoadTree(njob, eff, topol0, topol1, len, names ?? DefaultNames(njob));
+            else if (G.TreeMethod is 'X' or 'E' or 'q')
                 MuscleSupg(njob, eff, topol0, topol1, len, new Treedep[njob], fullMembership: true, treeNames: names ?? DefaultNames(njob));
             else
                 throw new InvalidOperationException("Incorrect treemethod.");

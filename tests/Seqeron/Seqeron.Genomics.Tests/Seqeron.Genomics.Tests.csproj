@@ -353,6 +353,11 @@
     <!-- ALIGN-MULTI-001 (audit A2-19c stage 4, B09 WP70, F315 ff.): the command line of the script mafft 7.505 (options, messages, output formats, files; installed Debian mafft 7.505-1),
          scripts/alignment/generate_mafft_command_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\mafft_command_oracle.tsv.gz" />
+    <!-- ALIGN-MULTI-001 (audit A2-19c-s4c, B09 F326 ff.): the guide trees treein / pileup / randomchain / large / memsavetree / stepadd / youngestlinkage (compacttree, loadtree, createchain, nodepair), the memory-saving alignment
+         (MSalignmm, Falign_udpari_long) and auto for 20 000 sequences: installed mafft, scripts/alignment/generate_mafft_compacttree_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\mafft_compacttree_oracle.tsv.gz" />
+    <EmbeddedResource Include="TestData\Alignment\mafft_memsave_oracle.tsv.gz" />
+    <EmbeddedResource Include="TestData\Alignment\mafft_auto20k_oracle.tsv.gz" />
     <!-- ALIGN-MULTI-001 (audit A2-27, B09 F120): EMBOSS 6.6.0 -aformat output formats (needle / water) and the sequence-set formats (seqret), byte for byte;
          scripts/alignment/generate_emboss_aformat_oracle.py, scripts/alignment/generate_emboss_seqout_oracle.py (faked run dates: scripts/alignment/faketime.c). -->
     <EmbeddedResource Include="TestData\Alignment\emboss_aformat_oracle.tsv.gz" />

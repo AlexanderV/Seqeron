@@ -43,6 +43,38 @@ public class MafftCommandTests
     }
 
     [Test]
+    public void MafftCommand_GuideTreeOptions_AreAccepted_AndEqualMultipleAlignMafft()
+    {
+        // B09 WP72 (F326 ff.): --pileup / --randomchain / --large / --stepadd / --youngestlinkage / --treein / --memsave / --skipiterate / --core are ported; the tool multiple_align_mafft has the same parameters
+        string[] seqs = ["MKVLAAGIVGLLLA", "MKVLAGIVGLLA", "MKVIAAGLVGLLLA", "MKVLAAGIVGLLLG"];
+        string fasta = string.Concat(seqs.Select((x, i) => ">s" + i + "\n" + x + "\n"));
+        var files = new Dictionary<string, string> { ["in.fa"] = fasta };
+        Assert.Multiple(() =>
+        {
+            foreach (var (tree, option) in new[] { ("pileup", "--pileup"), ("randomchain", "--randomchain"), ("large", "--large"), ("stepadd", "--stepadd"), ("youngestlinkage", "--youngestlinkage") })
+            {
+                var viaCommand = AlignmentTools.MafftCommand(["--quiet", option, "in.fa"], files);
+                var viaTool = AlignmentTools.MultipleAlignMafft(seqs, guideTree: tree, anySymbol: false, quiet: true, retree: tree is "pileup" or "randomchain" ? 1 : 2);
+                var rows = viaCommand.Stdout.Split('>', StringSplitOptions.RemoveEmptyEntries).Select(x => string.Concat(x.Split('\n').Skip(1))).ToArray();
+                Assert.That(viaCommand.ExitCode, Is.Zero, option);
+                Assert.That(viaTool.AlignedSequences, Is.EqualTo(rows), option);
+            }
+            var tl = AlignmentTools.MultipleAlignMafft(seqs, guideTree: "treein", guideTreeText: "1 2 0.1 0.2\n1 3 0.1 0.3\n1 4 0.2 0.1\n", anySymbol: false, quiet: true);
+            Assert.That(tl.AlignedSequences, Has.Length.EqualTo(4));
+            var ms = AlignmentTools.MultipleAlignMafft(seqs, memoryMode: "memsave", anySymbol: false, quiet: true);
+            var msCommand = AlignmentTools.MafftCommand(["--quiet", "--memsave", "in.fa"], files);
+            Assert.That(ms.AlignedSequences, Is.EqualTo(msCommand.Stdout.Split('>', StringSplitOptions.RemoveEmptyEntries).Select(x => string.Concat(x.Split('\n').Skip(1))).ToArray()));
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignMafft(seqs, guideTree: "bogus"));
+            Assert.Throws<ArgumentException>(() => AlignmentTools.MultipleAlignMafft(seqs, memoryMode: "bogus"));
+            var skip = AlignmentTools.MafftCommand(["--quiet", "--maxiterate", "2", "--skipiterate", "0.1", "in.fa"], files);
+            Assert.That(skip.ExitCode, Is.Zero);
+            var core = AlignmentTools.MafftCommand(["--core", "--maxiterate", "2", "--corewin", "5", "in.fa"], files);
+            Assert.That(core.Stderr, Does.Contain("Loading 'hat2' ... done."));
+            Assert.That(core.Stdout, Does.StartWith(">=s0\n"));
+        });
+    }
+
+    [Test]
     public void MafftCommand_RefusalsOfTheScript_AreTheScriptsOwnMessages()
     {
         var unknown = AlignmentTools.MafftCommand(["--bogus", "in.fa"], Files());

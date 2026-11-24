@@ -79,7 +79,6 @@ public static partial class SequenceAligner
                     if (_fragment == 0 && _mergetable == "/dev/null")
                     {
                         _treeext = "memsavetree";
-                        NeedPort("--auto for 20 000 or more sequences (--large)");
                     }
                 }
                 else if (nseqCl < 200000)
@@ -88,7 +87,6 @@ public static partial class SequenceAligner
                     if (_fragment == 0 && _mergetable == "/dev/null")
                     {
                         _treeext = "memsavetree";
-                        NeedPort("--auto for 20 000 or more sequences (--large)");
                     }
                 }
                 else if (nlenCl < 3000)

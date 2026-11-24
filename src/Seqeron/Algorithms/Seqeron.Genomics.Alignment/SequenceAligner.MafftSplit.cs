@@ -503,10 +503,17 @@ public static partial class SequenceAligner
             for (int k = 0; k < clus2; k++)
                 eff2[k] /= clus2;
             if (G.NeverMemSave == 0 && G.Alg != 'M' && (len1 > 10000 || len2 > 10000))
-                throw new NotSupportedException("MAFFT switches to its memory-saving mode (MSalignmm) for groups longer than 10 000 columns; that mode is not available in this port.");
+            {
+                Report("\nlen1=" + len1.ToString(CultureInfo.InvariantCulture) + ", len2=" + len2.ToString(CultureInfo.InvariantCulture) + ", Switching to the memsave mode\n");
+                G.Alg = 'M';
+            }
             Report("\bd");
             switch (G.Alg)
             {
+                case 'M':
+                    Report("\bm");
+                    MsAlign(G.NDisConsweightMulti, mseq1, mseq2, eff1, eff2, clus1, clus2, _spAlloclen, null, null, null, null, G.Outgap, G.Outgap, null, -1, -1, 0, 0.0, 0.0);
+                    break;
                 case 'A':
                     if (clus1 == 1 && clus2 == 1)
                         G__align11(G.NDisConsweightMulti, mseq1, mseq2, _spAlloclen, G.Outgap, G.Outgap);
@@ -524,16 +531,18 @@ public static partial class SequenceAligner
         }
 
         /// <summary><c>G__align11_noalign( n_disLN, -1200, -60, ... )</c>: the score of the global alignment of two sequences with the penalties of <c>splittbfast</c>, without the alignment.</summary>
-        private double G__align11NoalignLN(string s1, string s2)
+        private double G__align11NoalignLN(string s1, string s2) => G__align11NoalignWith(G.NDisLN, -1200.0, -60.0, s1, s2);
+
+        /// <summary><c>G__align11_noalign( mtx, fpenalty, fpenaltyEx, ... )</c> with the matrix and the two penalties given (<c>splittbfast</c>: <c>n_disLN</c>; the test of <c>--treein</c> with 'auto' / 'test': <c>n_dis_consweight_multi</c>).</summary>
+        private double G__align11NoalignWith(double[][] mtx, double fpenalty, double fpenaltyEx, string s1, string s2)
         {
-            const double fpenalty = -1200.0, fpenaltyEx = -60.0;
             int lgth1 = s1.Length, lgth2 = s2.Length;
             var amino = new double[256][];
             for (int i = 0; i < 256; i++)
                 amino[i] = new double[256];
             for (int i = 0; i < G.Nalphabets; i++)
                 for (int j = 0; j < G.Nalphabets; j++)
-                    amino[G.Amino[i]][G.Amino[j]] = G.NDisLN[i][j];
+                    amino[G.Amino[i]][G.Amino[j]] = mtx[i][j];
             var m = new double[lgth2 + 2];
             var w1 = new double[lgth2 + 2];
             var w2 = new double[lgth2 + 2];

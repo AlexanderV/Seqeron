@@ -605,10 +605,9 @@ public static partial class SequenceAligner
                             Err("Cannot open " + _treeinfile + "\n\n");
                             Exit(0);
                         }
-                        NeedPort("--treein");
                         break;
-                    case "--pileup": _treeext = "pileup"; NeedPort("--pileup"); break;
-                    case "--randomchain": _treeext = "randomchain"; NeedPort("--randomchain"); break;
+                    case "--pileup": _treeext = "pileup"; break;
+                    case "--randomchain": _treeext = "randomchain"; break;
                     case "--topin":
                         Shift();
                         Err("The --topin option has been disabled.\nThere was a bug in version < 6.530.\nThis bug has not yet been fixed.\n");
@@ -616,10 +615,10 @@ public static partial class SequenceAligner
                         break;
                     case "--mpi": _mpi = true; break;
                     case "--large":
-                    case "--memsavetree": _treeext = "memsavetree"; NeedPort(o); break;
-                    case "--memsavetreex": _treeext = "memsavetreex"; NeedPort(o); break;
-                    case "--stepadd": _treeext = "stepadd"; NeedPort(o); break;
-                    case "--youngestlinkage": _treeext = "youngestlinkage"; NeedPort(o); break;
+                    case "--memsavetree": _treeext = "memsavetree"; break;
+                    case "--memsavetreex": _treeext = "memsavetreex"; break;
+                    case "--stepadd": _treeext = "stepadd"; break;
+                    case "--youngestlinkage": _treeext = "youngestlinkage"; break;
                     case "--kappa":
                         Shift();
                         _kappa = " -k " + Cur + " ";

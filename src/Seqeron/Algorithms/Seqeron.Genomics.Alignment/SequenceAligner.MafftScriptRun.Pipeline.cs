@@ -31,6 +31,9 @@ public static partial class SequenceAligner
                 Threads = _numthreads,
                 ThreadsIterate = _numthreadsit,
                 MaxIterate = _iterate,
+                GuideTree = GuideTreeMethod(),
+                GuideTreeText = (GuideTreeMethod() == MafftGuideTree.UserTree || (GuideTreeMethod() is MafftGuideTree.MemSaveTree or MafftGuideTree.StepAdd && _treein)) && _files.TryGetValue(_treeinfile, out var treeText) ? treeText : null,
+                LhLimit = _lhlimit.Trim().Length == 0 ? int.MaxValue : MafftGlobals.CAtoi(_lhlimit.Trim().Split(' ')[1]),
                 Reorder = _distance == "parttree" ? _partorderopt.Trim().Length == 0 : _outorder == "aligned",
                 PartSize = _partsize,
                 GroupSize = _groupsize,
@@ -70,6 +73,27 @@ public static partial class SequenceAligner
                 GenafExtension = Num(_LEXP),
             };
             return ApplyModel(o);
+        }
+
+        /// <summary>The method that the script lets <c>-U</c> read: <c>--pileup</c> / <c>--randomchain</c> / <c>--large</c> ... write their name to <c>_guidetree</c> (only with the 6-mer distances), <c>--treein</c> gives the tree of the user.</summary>
+        private MafftGuideTree GuideTreeMethod()
+        {
+            if (_treeext is "memsavetree" or "stepadd" && _distance is "global" or "local" or "localgenaf")
+                return _treeext == "stepadd" ? MafftGuideTree.StepAdd : MafftGuideTree.MemSaveTree;
+            if (_treeext != "none" && _distance == "ktuples")
+            {
+                return _treeext switch
+                {
+                    "randomchain" => MafftGuideTree.RandomChain,
+                    "pileup" => MafftGuideTree.Pileup,
+                    "memsavetree" => MafftGuideTree.MemSaveTree,
+                    "memsavetreex" => MafftGuideTree.MemSaveTreeX,
+                    "stepadd" => MafftGuideTree.StepAdd,
+                    "youngestlinkage" => MafftGuideTree.YoungestLinkage,
+                    _ => MafftGuideTree.Default,
+                };
+            }
+            return _treein ? MafftGuideTree.UserTree : MafftGuideTree.Default;
         }
 
         /// <summary>The last of <c>-Z</c> (1) / <c>-z</c> (2) in the options that the script passes on for the added sequences.</summary>
@@ -173,8 +197,8 @@ public static partial class SequenceAligner
             _ = nseq;
             _ = nadd;
             _ = localparam;
-            if (memsavetree)
-                throw new NotSupportedException("--large / --memsavetree / --stepadd / --youngestlinkage are not ported.");
+
+
             if (_distance == "blast" || _newdash)
                 return PairProgramMissing(MafftProgramIo.Records(infile));
             if (_distance == "ktuplesmulti" && _fragment == 0)
@@ -269,7 +293,7 @@ public static partial class SequenceAligner
             else if (_outputformat == "phylip")
                 pre = MafftProgramIo.Phylip(outNames, rows, _namelength);
             else
-                pre = MafftProgramIo.Fasta(outNames, rows);
+                pre = (_outorder == "aligned" ? "" : res.OutputPrefix) + MafftProgramIo.Fasta(outNames, rows);
             if (_outputfile == "")
                 _stdout.Append(pre);
             else

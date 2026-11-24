@@ -22,8 +22,21 @@ public static partial class SequenceAligner
 
         internal void Report(string s) => Log.Append(s);
 
+        /// <summary><c>% 5d</c> of C: a blank for the sign, at least five characters.</summary>
+        internal static string D5(int n) => (" " + n.ToString(CultureInfo.InvariantCulture)).PadLeft(5);
+
         internal static string F(double v, int width, int dec, bool plus = false)
         {
+            if (double.IsNaN(v) || double.IsInfinity(v))
+            {
+                // glibc printf: "nan" / "-nan" (the sign bit of the value), "inf" / "-inf"
+                bool negative = BitConverter.DoubleToInt64Bits(v) < 0;
+                string word = double.IsNaN(v) ? "nan" : "inf";
+                string sign = negative ? "-" : "";
+                if (!negative && plus)
+                    sign = "+";
+                return (sign + word).PadLeft(width);
+            }
             string r = v.ToString("F" + dec.ToString(CultureInfo.InvariantCulture), CultureInfo.InvariantCulture);
             if (plus && !r.StartsWith('-'))
                 r = "+" + r;

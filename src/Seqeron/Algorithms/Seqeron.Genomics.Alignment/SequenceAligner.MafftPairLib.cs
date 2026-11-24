@@ -126,6 +126,7 @@ public static partial class SequenceAligner
                         case 'F': g.UseFft = true; break;
                         case 'G': g.ForceFft = true; g.UseFft = true; break;
                         case 'u': g.Tbrweight = 0; g.Weight = 0; break;
+                        case 'U': g.TreeIn = 1; break;
                         case 'v': g.Tbrweight = 3; break;
                         case 'W': g.MinimumWeight = CAtof(Next()); rest = true; break;
                         case ':': g.NWildcard = 1; break;
@@ -213,7 +214,7 @@ public static partial class SequenceAligner
             for (int i = 0; i < njob - 1; i++)
             {
                 AlignmentCancellation.ThrowIfRequested();
-                Report((i).ToString(CultureInfo.InvariantCulture).PadLeft(5) + " / " + njob + "\r");
+                Report(MafftGlobals.D5(i) + " / " + njob + "\r");
                 for (int j = i + 1; j < njob; j++)
                 {
                     if (bseq[i].Length == 0 || bseq[j].Length == 0)
@@ -727,7 +728,8 @@ public static partial class SequenceAligner
                 if (c2 != '-')
                     pos2++;
             }
-            if (al1[n - 1] != '-' && al2[n - 1] != '-')
+            // for an empty alignment the program reads the byte before its buffer (the high byte of the malloc size field, 0): not a gap
+            if (n == 0 || (al1[n - 1] != '-' && al2[n - 1] != '-'))
             {
                 if (!first)
                 {
@@ -1080,7 +1082,7 @@ public static partial class SequenceAligner
         /// <c>tbfast _ (pair library arguments) _ -+ n ...</c> (<c>main</c> of <c>tbfast.c</c> with <c>pairlocalalign</c> called inside): the pairwise alignments of all pairs give the guide tree (UPGMA of their distances) and the
         /// constraints (the importance of the aligned blocks) of the progressive alignment of the groups (<c>A__align</c> with <c>constraint</c> 2).
         /// </summary>
-        internal Result Tbfast(IReadOnlyList<string> seq0, MafftGlobals pairG, IReadOnlyList<string>? names = null)
+        internal Result Tbfast(IReadOnlyList<string> seq0, MafftGlobals pairG, IReadOnlyList<string>? names = null, NodePairData? nodePair = null)
         {
             int njob = seq0.Count;
             _njob = njob;
@@ -1095,85 +1097,138 @@ public static partial class SequenceAligner
                 _nlen[i] = seq[i].Length;
             _nogaplen = new int[njob];
             var fileNames = names ?? DefaultNames(njob);
-            Report("treein = 0\ncompacttree = 0\n");
-            Report("stacksize: " + StackSizeKb.ToString(CultureInfo.InvariantCulture) + " kb\n");
-
-            if (G.Constraint != 2 && G.Constraint != 0)
-                throw new NotSupportedException("The progressive method of tbfast without a pair library is not available in this port.");
-            pairG.Dorp = G.Dorp;
-            var pairRun = new MafftRun(pairG) { _njob = njob, _nlenmax = _nlenmax };
-            (double[][] iscore, MafftLocalHom[][] localhom) pairResult;
-            try
+            char treein = '\0';
+            if (G.TreeIn != 0)
             {
-                pairResult = pairRun.PairLocalAlign(seq);
-            }
-            catch (MafftProgramFailureException)
-            {
-                Report(pairRun.Log.ToString());
-                throw;
-            }
-            var (iscore, localhom) = pairResult;
-            Report(pairRun.Log.ToString());
-            Report("outputhat23=" + G.OutputHat23.ToString(CultureInfo.InvariantCulture) + "\n");
-            if (G.Constraint == 2)
-            {
-                for (int i = 0; i < njob; i++)
+                treein = CheckGuideTreeFile().Kind;
+                if (treein == 'C')
                 {
-                    for (int j = 0; j < njob - i; j++)
-                    {
-                        for (var t = localhom[i][j]; t != null; t = t.Next)
-                        {
-                            if (t.Opt == -1.0)
-                                continue;
-                            t.Opt = t.Opt / 5.8 * 600;
-                        }
-                    }
+                    _compactTree = 2;
+                    treein = '\0';
+                    G.UseFft = false;
                 }
-                Report("Loading 'hat3.seed' ... ");
-                Report("\ndone.\n");
-                if (G.OutputHat23 != 0)
+                else if (treein == 'n')
                 {
-                    // the files hat3 and hat2 that dvtditr reads: the values go through their text
-                    Report("Writing hat3 for iterative refinement\n");
-                    Hat3Table = RoundTripHat3(localhom, njob);
-                    Hat2Table = RoundTripHat2(iscore, njob);
-                    DistFile = WriteHat2(iscore, fileNames);
-                }
-                else if (G.DistOut != 0)
-                {
-                    DistFile = WriteHat2(iscore, fileNames);
+                    if (nodePair == null)
+                        throw UndefinedBehaviour("the guide tree file says nodepair: the program reads the directory hat3dir that nodepair writes, and it does not exist (segmentation fault, process id in the message)");
+                    _compactTree = 3;
+                    treein = '\0';
+                    G.UseFft = false;
                 }
             }
-            else
-            {
-                // constraint == 0 (--weighti 0, --retree 0): no blocks are kept; the pair stage only gives the distances
-                Report("blosum " + G.Nblosum.ToString(CultureInfo.InvariantCulture) + " / kimura 200\nscoremtx=" + G.Scoremtx.ToString(CultureInfo.InvariantCulture) + "\nfastathreshold=" + G.FastaThreshold.ToString("F6", CultureInfo.InvariantCulture) + "\n");
-                if (G.DistOut != 0 || G.OutputHat23 != 0)
-                {
-                    Report("\nwriting hat2 (1)\n");
-                    DistFile = WriteHat2(iscore, fileNames);
-                    if (G.OutputHat23 != 0)
-                        Hat2Table = RoundTripHat2(iscore, njob);
-                }
-                localhom = null!;
-            }
-            G.Constants(seq);
-            Report("Gap Penalty = " + MafftGlobals.F((double)G.Ppenalty / 1000, 5, 2, true) + ", " + MafftGlobals.F((double)G.PpenaltyEx / 1000, 5, 2, true) + ", " + MafftGlobals.F((double)G.Poffset / 1000, 5, 2, true) + "\n");
-            if (G.DistOut != 0 && G.TreeOut == 0 && G.NoAlign != 0)
-                return NoAlignResult(seq, njob, "tbfast");
-            Report("tbutree = 1, compacttree = 0\n");
+            Report("treein = " + ((int)treein).ToString(CultureInfo.InvariantCulture) + "\ncompacttree = " + _compactTree.ToString(CultureInfo.InvariantCulture) + "\n");
+            Report(StackSizeText(njob));
             var topol0 = new int[njob][];
             var topol1 = new int[njob][];
             var len = new double[njob][];
             for (int i = 0; i < njob; i++)
                 len[i] = new double[2];
             var dep = new Treedep[njob];
-            Report("Constructing a UPGMA tree ... ");
-            if (G.TreeOut != 0)
-                MuscleSupg(njob, iscore, topol0, topol1, len, dep, false, fileNames);
+            if (treein != '\0')
+            {
+                LoadTree(njob, topol0, topol1, len, dep, G.TreeOut != 0, names ?? DefaultNames(njob));
+                Report("\ndone.\n\n");
+            }
+
+            MafftLocalHom[][] localhom = null!;
+            double[][] iscore = null!;
+            if (_compactTree == 3)
+            {
+                // the pair library is the blocks that nodepair wrote for every node, the guide tree is nodepair's
+                Report("Checking 'hat3.seed' ... ");
+                if (G.Constraint != 2 && G.Constraint != 0)
+                    throw new NotSupportedException("The progressive method of tbfast without a pair library is not available in this port.");
+            }
             else
-                MuscleSupg(njob, iscore, topol0, topol1, len, dep);
-            Report("\ndone.\n\n");
+            {
+                if (G.Constraint != 2 && G.Constraint != 0)
+                    throw new NotSupportedException("The progressive method of tbfast without a pair library is not available in this port.");
+                pairG.Dorp = G.Dorp;
+                var pairRun = new MafftRun(pairG) { _njob = njob, _nlenmax = _nlenmax };
+                (double[][] Iscore, MafftLocalHom[][] LocalHom) pairResult;
+                try
+                {
+                    pairResult = pairRun.PairLocalAlign(seq);
+                }
+                catch (MafftProgramFailureException)
+                {
+                    Report(pairRun.Log.ToString());
+                    throw;
+                }
+                (iscore, localhom) = (pairResult.Iscore, pairResult.LocalHom);
+                Report(pairRun.Log.ToString());
+                Report("outputhat23=" + G.OutputHat23.ToString(CultureInfo.InvariantCulture) + "\n");
+                if (G.Constraint == 2)
+                {
+                    for (int i = 0; i < njob; i++)
+                    {
+                        for (int j = 0; j < njob - i; j++)
+                        {
+                            for (var t = localhom[i][j]; t != null; t = t.Next)
+                            {
+                                if (t.Opt == -1.0)
+                                    continue;
+                                t.Opt = t.Opt / 5.8 * 600;
+                            }
+                        }
+                    }
+                    Report("Loading 'hat3.seed' ... ");
+                    Report("\ndone.\n");
+                    if (G.OutputHat23 != 0)
+                    {
+                        // the files hat3 and hat2 that dvtditr reads: the values go through their text
+                        Report("Writing hat3 for iterative refinement\n");
+                        Hat3Table = RoundTripHat3(localhom, njob);
+                        Hat2Table = RoundTripHat2(iscore, njob);
+                        DistFile = WriteHat2(iscore, fileNames);
+                    }
+                    else if (G.DistOut != 0)
+                    {
+                        DistFile = WriteHat2(iscore, fileNames);
+                    }
+                }
+                else
+                {
+                    // constraint == 0 (--weighti 0, --retree 0): no blocks are kept; the pair stage only gives the distances
+                    Report("blosum " + G.Nblosum.ToString(CultureInfo.InvariantCulture) + " / kimura 200\nscoremtx=" + G.Scoremtx.ToString(CultureInfo.InvariantCulture) + "\nfastathreshold=" + G.FastaThreshold.ToString("F6", CultureInfo.InvariantCulture) + "\n");
+                    if (G.DistOut != 0 || G.OutputHat23 != 0)
+                    {
+                        Report("\nwriting hat2 (1)\n");
+                        DistFile = WriteHat2(iscore, fileNames);
+                        if (G.OutputHat23 != 0)
+                            Hat2Table = RoundTripHat2(iscore, njob);
+                    }
+                    localhom = null!;
+                }
+            }
+            G.Constants(seq);
+            Report("Gap Penalty = " + MafftGlobals.F((double)G.Ppenalty / 1000, 5, 2, true) + ", " + MafftGlobals.F((double)G.PpenaltyEx / 1000, 5, 2, true) + ", " + MafftGlobals.F((double)G.Poffset / 1000, 5, 2, true) + "\n");
+            if (G.DistOut != 0 && G.TreeOut == 0 && G.NoAlign != 0)
+                return NoAlignResult(seq, njob, "tbfast");
+            if (_compactTree == 3)
+            {
+                // treein_bin: the tree that nodepair wrote
+                Report("tbutree = 1, compacttree = 3\n");
+                for (int i = 0; i < njob - 1; i++)
+                {
+                    topol0[i] = nodePair!.Topol0[i];
+                    topol1[i] = nodePair.Topol1[i];
+                    len[i][0] = nodePair.Len[i][0];
+                    len[i][1] = nodePair.Len[i][1];
+                    dep[i] = nodePair.Dep[i];
+                }
+                Report("\ndone.\n\n");
+            }
+            else if (treein == '\0')
+            {
+                Report("tbutree = 1, compacttree = " + _compactTree.ToString(CultureInfo.InvariantCulture) + "\n");
+                Report("Constructing a UPGMA tree ... ");
+                if (G.TreeOut != 0)
+                    MuscleSupg(njob, iscore, topol0, topol1, len, dep, false, fileNames);
+                else
+                    MuscleSupg(njob, iscore, topol0, topol1, len, dep);
+                Report("\ndone.\n\n");
+            }
             var tree = new GuideTree(topol0, topol1, dep, len);
             int[] order = tree.Order(njob - 2, 2);
             if (G.TreeOut != 0 && G.NoAlign != 0)
@@ -1194,7 +1249,7 @@ public static partial class SequenceAligner
                 bseq[i] = seq[i].Replace("-", "");
             int alloclen = _nlenmax * 2 + 1;
             Report("Progressive alignment ... \n");
-            TreeBase(bseq, tree, eff, ref alloclen, localhom, tbfast: G.Constraint == 0);
+            TreeBase(bseq, tree, eff, ref alloclen, localhom, tbfast: G.Constraint == 0, nodePair: _compactTree == 3 ? nodePair : null);
             Report("\ndone.\n");
             if (G.SpScoreOut != 0)
                 ReportSumOfPairs(bseq);

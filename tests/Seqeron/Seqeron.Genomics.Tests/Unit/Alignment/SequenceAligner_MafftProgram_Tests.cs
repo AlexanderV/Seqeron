@@ -25,9 +25,11 @@ public class SequenceAligner_MafftProgram_Tests
         return doc.RootElement.EnumerateObject().ToDictionary(p => p.Name, p => p.Value.GetString()!);
     }
 
-    internal static List<Case> Load()
+    internal static List<Case> Load() => Load("mafft_command_oracle.tsv");
+
+    internal static List<Case> Load(string file)
     {
-        using var stream = TestDataResource.Open("Seqeron.Genomics.Tests.TestData.Alignment.mafft_command_oracle.tsv") ?? throw new InvalidOperationException("oracle resource missing");
+        using var stream = TestDataResource.Open("Seqeron.Genomics.Tests.TestData.Alignment." + file) ?? throw new InvalidOperationException("oracle resource missing: " + file);
         using var reader = new StreamReader(stream, Encoding.UTF8);
         var list = new List<Case>();
         string? line;
@@ -74,6 +76,36 @@ public class SequenceAligner_MafftProgram_Tests
         });
     }
 
+    /// <summary>Runs one case of an oracle and compares return code, standard output, the files and the standard error (by SHA-256; the text where the oracle holds it) with the installed program: null when equal.</summary>
+    internal static string? Verify(Case c)
+    {
+        MafftProgramResult r;
+        try
+        {
+            r = RunCase(c);
+        }
+        catch (Exception e)
+        {
+            return c.Id + " (" + string.Join(' ', c.Args) + "): " + e.GetType().Name + " " + e.Message;
+        }
+        string what = c.Id + " (" + string.Join(' ', c.Args) + ")";
+        if (r.ExitCode != c.Rc)
+            return what + ": return code " + r.ExitCode + " != " + c.Rc;
+        if (r.Stdout != c.Out)
+            return what + ": standard output differs";
+        if (!r.Files.OrderBy(k => k.Key, StringComparer.Ordinal).SequenceEqual(c.OutFiles.OrderBy(k => k.Key, StringComparer.Ordinal)))
+            return what + ": files differ (" + string.Join(',', r.Files.Keys) + " vs " + string.Join(',', c.OutFiles.Keys) + ")";
+        if (c.ErrSha != "-")
+        {
+            string sha = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(r.Stderr))).ToLowerInvariant();
+            if (sha != c.ErrSha)
+                return what + ": standard error differs";
+            if (c.Err.Length > 0 && c.Err != r.Stderr)
+                return what + ": standard error text differs although the hash is equal";
+        }
+        return null;
+    }
+
     [TestCaseSource(nameof(Groups))]
     public void ReturnCodeOutputFilesAndStandardError_EqualMafft(string group)
     {
@@ -82,31 +114,8 @@ public class SequenceAligner_MafftProgram_Tests
         foreach (var c in Oracle.Value.Where(x => x.Group == group))
         {
             n++;
-            MafftProgramResult r;
-            try
-            {
-                r = RunCase(c);
-            }
-            catch (Exception e)
-            {
-                failures.Add(c.Id + " (" + string.Join(' ', c.Args) + "): " + e.GetType().Name + " " + e.Message);
-                continue;
-            }
-            string what = c.Id + " (" + string.Join(' ', c.Args) + ")";
-            if (r.ExitCode != c.Rc)
-                failures.Add(what + ": return code " + r.ExitCode + " != " + c.Rc);
-            else if (r.Stdout != c.Out)
-                failures.Add(what + ": standard output differs");
-            else if (!r.Files.OrderBy(k => k.Key, StringComparer.Ordinal).SequenceEqual(c.OutFiles.OrderBy(k => k.Key, StringComparer.Ordinal)))
-                failures.Add(what + ": files differ (" + string.Join(',', r.Files.Keys) + " vs " + string.Join(',', c.OutFiles.Keys) + ")");
-            else if (c.ErrSha != "-")
-            {
-                string sha = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(r.Stderr))).ToLowerInvariant();
-                if (sha != c.ErrSha)
-                    failures.Add(what + ": standard error differs");
-                else if (c.Err.Length > 0 && c.Err != r.Stderr)
-                    failures.Add(what + ": standard error text differs although the hash is equal");
-            }
+            if (Verify(c) is { } failure)
+                failures.Add(failure);
         }
         Assert.That(n, Is.GreaterThan(0));
         Assert.That(failures, Is.Empty, string.Join("\n", failures.Take(5)));

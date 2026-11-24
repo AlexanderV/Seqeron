@@ -1,3 +1,4 @@
+using System.Globalization;
 namespace Seqeron.Genomics.Alignment;
 
 public static partial class SequenceAligner
@@ -427,7 +428,8 @@ public static partial class SequenceAligner
         private int _fCrossscoresize;
         private double[][] _fCrossscore = Array.Empty<double[]>();
         private readonly int[] _fCut1 = new int[MaxSeg], _fCut2 = new int[MaxSeg];
-        private readonly int[] _fKouho = new int[NKouho];
+        private readonly int[] _fKouho = new int[NKouhoLong];
+        private const int NKouhoLong = 500;
 
         /// <summary><c>*fftlog</c> after the last <see cref="Falign"/>: the number of segments of the alignment minus 2 (-1 for a single stretch).</summary>
         internal int FftlogResult;
@@ -436,8 +438,9 @@ public static partial class SequenceAligner
         /// <c>Falign</c> of <c>Falign.c</c>: the alignment of two groups of aligned sequences by the fast Fourier transform (Katoh et al. 2002): the correlation of the polarity / volume (amino acids) or
         /// of the letter 'a' (nucleotides) of the two groups gives the 20 best shifts, the windows with a high score are the anchors, the chain of anchors cuts the problem into segments, which are
         /// aligned by <c>G__align11</c> (two single sequences) or <see cref="AAlign"/>. The rows of the groups are replaced by the aligned rows.
+        /// With <paramref name="memsave"/> it is <c>Falign_udpari_long</c> (alg M): 500 shifts, the segments are aligned by <see cref="MsAlign"/>, the progress text "DP n / m" is written.
         /// </summary>
-        internal double Falign(double[][] dyn, string[] seq1, string[] seq2, double[] eff1, double[] eff2, int clus1, int clus2, int alloclen)
+        internal double Falign(double[][] dyn, string[] seq1, string[] seq2, double[] eff1, double[] eff2, int clus1, int clus2, int alloclen, bool memsave = false)
         {
             int len1 = seq1[0].Length, len2 = seq2[0].Length;
             int nlentmp = Math.Max(len1, len2);
@@ -461,10 +464,12 @@ public static partial class SequenceAligner
                 var vec2R = new double[nlen + 1];
                 var vec2I = new double[nlen + 1];
                 bool scoreVec = G.FftScore != 0 && G.Scoremtx != -1;
+                // Falign_udpari_long (alg M) codes a nucleotide as a complex number (seq_vec_4: a = +1, t = -1, g = +i, c = -i); Falign uses the indicator of a (seq_vec_3, one vector)
+                bool complexNucleotides = memsave && G.Scoremtx == -1;
                 for (int i = 0; i < clus1; i++)
-                    SeqVec(vec1R, vec1I, eff1[i], tmpseq1[i], scoreVec);
+                    SeqVec(vec1R, vec1I, eff1[i], tmpseq1[i], scoreVec, complexNucleotides);
                 for (int i = 0; i < clus2; i++)
-                    SeqVec(vec2R, vec2I, eff2[i], tmpseq2[i], scoreVec);
+                    SeqVec(vec2R, vec2I, eff2[i], tmpseq2[i], scoreVec, complexNucleotides);
                 Fft(nlen, vec2R, vec2I);
                 Fft(nlen, vec1R, vec1I);
                 var nR = new double[nlen];
@@ -483,14 +488,14 @@ public static partial class SequenceAligner
                     soukan[m] = nR[nlen2 - m];
                 for (int m = nlen2 + 1; m < nlen; m++)
                     soukan[m] = nR[nlen + nlen2 - m];
-                GetKouho(kouho, NKouho, soukan, nlen);
+                GetKouho(kouho, memsave ? NKouhoLong : NKouho, soukan, nlen);
 
             }
 
             int count = 0;
             var tmpptr1Off = 0;
             var tmpptr2Off = 0;
-            int maxk = NKouho;
+            int maxk = memsave ? NKouhoLong : NKouho;
             if (kobetsu)
             {
                 maxk = 1;
@@ -514,7 +519,7 @@ public static partial class SequenceAligner
                 int tmpint = AlignableRegion(clus1, clus2, seq1, tmpptr1Off, seq2, tmpptr2Off, eff1, eff2, _fSegment, count);
                 if (count + tmpint > MaxSeg - 3)
                     throw new InvalidOperationException("TOO MANY SEGMENTS.");
-                if (tmpint == 0)
+                if (tmpint == 0 && !memsave)
                     break;
                 while (tmpint-- > 0)
                 {
@@ -572,6 +577,32 @@ public static partial class SequenceAligner
                 cut1[count + 1] = len1;
                 cut2[count + 1] = len2;
                 count += 2;
+            }
+            else if (count >= 5000)
+            {
+                // Falign_udpari_long: many anchors, the upper-level DP is skipped
+                Report("\nMany anchors were found. The upper-level DP is skipped.\n\n");
+                cut1[0] = 0;
+                cut2[0] = 0;
+                int count0 = 0;
+                for (int i = 0; i < count; i++)
+                {
+                    if (sorted1[i].Center > cut1[count0] && sorted1[i].Pair!.Center > cut2[count0])
+                    {
+                        count0++;
+                        cut1[count0] = sorted1[i].Center;
+                        cut2[count0] = sorted1[i].Pair!.Center;
+                    }
+                    else if (i != 0 && sorted1[i].Score > sorted1[i - 1].Score
+                        && sorted1[i].Center > cut1[count0 - 1] && sorted1[i].Pair!.Center > cut2[count0 - 1])
+                    {
+                        cut1[count0] = sorted1[i].Center;
+                        cut2[count0] = sorted1[i].Pair!.Center;
+                    }
+                }
+                cut1[count0 + 1] = len1;
+                cut2[count0 + 1] = len2;
+                count = count0 + 2;
             }
             else
             {
@@ -651,12 +682,18 @@ public static partial class SequenceAligner
                     tmpres1[j] = seq1[j].Substring(cut1[i], cut1[i + 1] - cut1[i]);
                 for (int j = 0; j < clus2; j++)
                     tmpres2[j] = seq2[j].Substring(cut2[i], cut2[i + 1] - cut2[i]);
+                if (memsave)
+                    Report("DP " + (i + 1).ToString(CultureInfo.InvariantCulture).PadLeft(5, '0') + " / " + (count - 1).ToString(CultureInfo.InvariantCulture).PadLeft(5, '0') + " \b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b");
                 if (kobetsu && G.FftKeika != 0)
                 {
                     CommonGapPick(tmpres1);
                     CommonGapPick(tmpres2);
                 }
-                if (G.Alg == 'A')
+                if (memsave || G.Alg == 'M')
+                {
+                    totalscore += MsAlign(dyn, tmpres1, tmpres2, eff1, eff2, clus1, clus2, alloclen, new string(sgap1), new string(sgap2), new string(egap1), new string(egap2), headgp, tailgp, null, -1, -1, -1, 0.0, 0.0);
+                }
+                else if (G.Alg == 'A')
                 {
                     if (clus1 == 1 && clus2 == 1)
                     {
@@ -705,9 +742,24 @@ public static partial class SequenceAligner
         }
 
         /// <summary><c>seq_vec_5</c> / <c>seq_vec_3</c>: adds the weighted physico-chemical value (polarity, volume) of every residue (amino acids) or the indicator of the letter 'a' (nucleotides) to the vectors.</summary>
-        private void SeqVec(double[] resR, double[] resI, double incr, string seq, bool scoreVec)
+        private void SeqVec(double[] resR, double[] resI, double incr, string seq, bool scoreVec, bool complexNucleotides)
         {
-            if (scoreVec)
+            if (complexNucleotides)
+            {
+                for (int i = 0; i < seq.Length; i++)
+                {
+                    char c = seq[i];
+                    if (c == 'a')
+                        resR[i] += incr;
+                    else if (c == 't')
+                        resR[i] -= incr;
+                    else if (c == 'g')
+                        resI[i] += incr;
+                    else if (c == 'c')
+                        resI[i] -= incr;
+                }
+            }
+            else if (scoreVec)
             {
                 for (int i = 0; i < seq.Length; i++)
                 {

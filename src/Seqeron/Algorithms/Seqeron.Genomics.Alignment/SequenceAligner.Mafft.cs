@@ -62,6 +62,30 @@ public enum MafftPartTree
 }
 
 /// <summary>
+/// The guide tree of the progressive stage when it is not the UPGMA tree of the full distance matrix (<c>mafft --treein</c>, <c>--pileup</c>, <c>--randomchain</c>, <c>--large</c> / <c>--memsavetree</c>, <c>--memsavetreex</c>, <c>--stepadd</c>, <c>--youngestlinkage</c>): the script writes the method to the file <c>_guidetree</c>,
+/// the program <c>disttbfast</c> (or <c>tbfast</c> with a pair library) reads it with <c>-U</c>.
+/// </summary>
+public enum MafftGuideTree
+{
+    /// <summary>The UPGMA tree of the full matrix of distances (the default).</summary>
+    Default = 0,
+    /// <summary><c>--treein file</c>: the tree of <see cref="MafftOptions.GuideTreeText"/> (one node per line: two sequence numbers and two branch lengths, the output of <c>newick2mafft.rb</c>).</summary>
+    UserTree = 1,
+    /// <summary><c>--pileup</c>: a chain, the sequences are added in the order of the input (6-mer distance methods only).</summary>
+    Pileup = 2,
+    /// <summary><c>--randomchain</c>: a chain in a random order (<c>rand()</c> of glibc seeded with <see cref="MafftOptions.RandomSeed"/>).</summary>
+    RandomChain = 3,
+    /// <summary><c>--large</c> / <c>--memsavetree</c>: every sequence is added above its nearest earlier sequence (<c>compacttree</c>; no distance matrix in memory).</summary>
+    MemSaveTree = 4,
+    /// <summary><c>--memsavetreex</c>: <c>compacttree</c> with a limit of RAM for the matrix (the script's 20GB: the UPGMA of the full matrix as long as it fits).</summary>
+    MemSaveTreeX = 5,
+    /// <summary><c>--stepadd</c>: the same tree as <see cref="MemSaveTree"/> (the message differs).</summary>
+    StepAdd = 6,
+    /// <summary><c>--youngestlinkage</c>: the UPGMA over the nearest neighbours only.</summary>
+    YoungestLinkage = 7,
+}
+
+/// <summary>
 /// Options of the MAFFT 7.505 command <c>mafft [--anysymbol] [--nuc | --amino] [--op x] [--ep y] [--bl n | --jtt n | --tm n] [--retree n] [--fft | --nofft] [--6merpair | --10merpair] ... input</c>: the plain progressive
 /// methods (FFT-NS-1, FFT-NS-2, NW-NS-1, NW-NS-2) for any number of sequences. The options that need the later stages of the port (<c>--maxiterate</c>, <c>--localpair</c>, <c>--globalpair</c>,
 /// <c>--genafpair</c>) are not options of this record.
@@ -169,7 +193,7 @@ public sealed record MafftOptions
     /// <summary>
     /// <c>--auto</c>: the script chooses the strategy from the number of sequences and the longest sequence (without gaps): fewer than 100 sequences of fewer than 3 000 letters = L-INS-i (<c>--localpair --maxiterate 1000</c>); fewer than 200 of fewer than 1 000 =
     /// L-INS-2 iterations (<c>--localpair --maxiterate 2</c>); fewer than 500 of fewer than 10 000 = FFT-NS-i with 2 iterations and two trees; fewer than 20 000 = FFT-NS-2. The pair library, the iterations and the number of trees of the options are then replaced;
-    /// larger inputs (the memory-saving tree, <c>--parttree</c>) are refused.
+    /// 20 000 to 199 999 sequences use the memory-saving tree (<c>--large</c>, <see cref="MafftGuideTree.MemSaveTree"/>), 200 000 or more <c>--dpparttree</c> (shorter than 3 000 letters) or <c>--parttree</c>.
     /// </summary>
     public bool Auto { get; init; }
 
@@ -182,6 +206,15 @@ public sealed record MafftOptions
 
     /// <summary><c>--groupsize n</c>: groups of <c>n</c> or more sequences are not aligned as a whole (with <see cref="PartTree"/>; the alignment is then not complete, the rows have different lengths; default -1 = everything is aligned; 1 = only the order of the sequences and the tree).</summary>
     public int GroupSize { get; init; } = -1;
+
+    /// <summary><c>--treein</c> / <c>--pileup</c> / <c>--randomchain</c> / <c>--large</c> ...: the method that builds the guide tree (default: the UPGMA tree of the matrix of distances).</summary>
+    public MafftGuideTree GuideTree { get; init; }
+
+    /// <summary>The tree of <c>--treein file</c> (<see cref="MafftGuideTree.UserTree"/>): the lines of the file.</summary>
+    public string? GuideTreeText { get; init; }
+
+    /// <summary><c>--lhlimit n</c> (with <see cref="MafftGuideTree.MemSaveTree"/> / <see cref="MafftGuideTree.StepAdd"/> and a pair library: <c>nodepair</c>): only the <c>n</c> longest sequences (shuffled within each half) get local homologies with the others; default: all.</summary>
+    public int LhLimit { get; init; } = int.MaxValue;
 
     /// <summary><c>--treeout</c>: the guide tree is returned in <see cref="MafftRunResult.TreeFile"/> (the file <c>input.tree</c> of the program).</summary>
     public bool TreeOut { get; init; }
@@ -281,6 +314,9 @@ public sealed record MafftRunResult(MultipleAlignmentResult Alignment, string St
 
     /// <summary>The distance matrix file of <see cref="MafftOptions.DistOut"/> (<c>input.hat2</c>), or null.</summary>
     public string? DistanceFile { get; init; }
+
+    /// <summary>The text that <c>disttbfast</c> writes to standard output before the alignment (the scores of the test of the guide tree file <c>auto</c>, <c>varpairscore</c>): it stays in front of the FASTA output, the other formats do not show it.</summary>
+    public string OutputPrefix { get; init; } = "";
 
     /// <summary>With <see cref="MafftOptions.GroupSize"/> 2 or more the program writes <c>Group-n</c> / <c>Group-para</c> in front of the name of every sequence: that label per row of the output; otherwise null.</summary>
     public string[]? GroupLabels { get; init; }
@@ -444,21 +480,45 @@ public static partial class SequenceAligner
             if (o.PartTree != MafftPartTree.None)
                 return AlignPartTree(list.Count, originals, replaced, nuc, o, log, epilogue, programNames);
             MafftRun.Result result;
+            string guideTreeText = MafftScript.GuideTreeFile(o);
+            string outputPrefix = "";
             string? treeFile = null, distFile = null;
             double[][]? pairHat2 = null;
             MafftLocalHom[][]? pairHat3 = null;
             if (o.PairLibrary != MafftPairLibrary.None)
             {
                 var (pairArgs, tbArgs) = MafftScript.TbfastArguments(o, list.Count);
+                NodePairData? nodePair = null;
+                string tbGuideTree = MafftScript.GuideTreeFile(o);
+                if (o.GuideTree is MafftGuideTree.MemSaveTree or MafftGuideTree.StepAdd)
+                {
+                    // --large / --memsavetree / --stepadd with a pair library: nodepair builds the tree and the pairwise alignments of every node, tbfast -U reads them
+                    MafftGlobals ng;
+                    try
+                    {
+                        ng = MafftGlobals.ParseNodepair(MafftScript.NodepairArguments(o));
+                    }
+                    catch (MafftProgramFailureException e)
+                    {
+                        throw new MafftProgramFailureException(log.ToString() + e.Text, e.ExitCode);
+                    }
+                    if (ng.Dorp == '\0')
+                        ng.Dorp = nuc ? 'd' : 'p';
+                    var nrun = new MafftRun(ng) { GuideTreeText = o.GuideTreeText != null ? MafftScript.NormalizeScriptFile(o.GuideTreeText) : "" };
+                    nodePair = GuardRun(nrun, log, () => nrun.NodePair(replaced, programNames));
+                    log.Append(nrun.Log);
+                    tbGuideTree = "nodepair\n";
+                    treeFile = nodePair.TreeFile;
+                }
                 var tg = MafftGlobals.ParseTbfast(tbArgs);
                 if (tg.Dorp == '\0')
                     tg.Dorp = nuc ? 'd' : 'p';
-                var trun = new MafftRun(tg);
-                result = GuardRun(trun, log, () => trun.Tbfast(replaced, MafftGlobals.ParsePairlocalalign(pairArgs), programNames));
+                var trun = new MafftRun(tg) { GuideTreeText = tbGuideTree };
+                result = GuardRun(trun, log, () => trun.Tbfast(replaced, MafftGlobals.ParsePairlocalalign(pairArgs), programNames, nodePair));
                 log.Append(trun.Log);
                 pairHat2 = trun.Hat2Table;
                 pairHat3 = trun.Hat3Table;
-                treeFile = trun.TreeFile;
+                treeFile = trun.TreeFile ?? treeFile;
                 distFile = trun.DistFile;
             }
             else
@@ -466,8 +526,10 @@ public static partial class SequenceAligner
                 var g = MafftGlobals.Parse(MafftScript.DisttbfastArguments(o, list.Count));
                 if (g.Dorp == '\0')
                     g.Dorp = nuc ? 'd' : 'p';
-                var run = new MafftRun(g);
+                var run = new MafftRun(g) { GuideTreeText = guideTreeText, DistFileRewrittenLater = MafftScript.Iterations(o) > 0 };
                 result = GuardRun(run, log, () => run.Disttbfast(replaced, programNames));
+                guideTreeText = run.GuideTreeText;
+                outputPrefix = run.StdoutPrefix;
                 treeFile = run.TreeFile;
                 distFile = run.DistFile;
                 log.Append(run.Log);
@@ -507,7 +569,7 @@ public static partial class SequenceAligner
                     log.Append(run2.Log);
                     distFile = run2.DistFile; // dndpre rewrites the file hat2
                 }
-                var run3 = new MafftRun(MafftGlobals.ParseDvtditr(MafftScript.DvtditrArguments(o)));
+                var run3 = new MafftRun(MafftGlobals.ParseDvtditr(MafftScript.DvtditrArguments(o))) { GuideTreeText = guideTreeText };
                 result = GuardRun(run3, log, () => run3.Dvtditr(result.Rows, hat2, pairHat3, activeNames));
                 log.Append(run3.Log);
                 treeFile = run3.TreeFile; // dvtditr writes the file infile.tree (fixed_musclesupg_double_treeout) whatever the options say
@@ -526,6 +588,7 @@ public static partial class SequenceAligner
             return new MafftRunResult(ToResult(rows, nuc), stderr)
             {
                 InputIndex = inputIndex,
+                OutputPrefix = outputPrefix,
                 TreeFile = o.TreeOut || o.NodeOut ? treeFile : null,
                 DistanceFile = o.DistOut ? distFile : null,
                 NotUsedFile = notUsed,
@@ -585,11 +648,17 @@ public static partial class SequenceAligner
                 return o with { Auto = false, PartTree = MafftPartTree.None, PairLibrary = MafftPairLibrary.None, MaxIterate = 2, Retree = 2 };
             if (nseq < 20000)
                 return o with { Auto = false, PartTree = MafftPartTree.None, PairLibrary = MafftPairLibrary.None, MaxIterate = 0, Retree = 2 };
-            throw new NotSupportedException("--auto for 20 000 or more sequences (the memory-saving tree, --parttree) is not available in this port.");
+            if (nseq < 100000)
+                return o with { Auto = false, PartTree = MafftPartTree.None, PairLibrary = MafftPairLibrary.None, MaxIterate = 0, Retree = 2, GuideTree = MafftGuideTree.MemSaveTree };
+            if (nseq < 200000)
+                return o with { Auto = false, PartTree = MafftPartTree.None, PairLibrary = MafftPairLibrary.None, MaxIterate = 0, Retree = 1, GuideTree = MafftGuideTree.MemSaveTree };
+            return o with { Auto = false, PairLibrary = MafftPairLibrary.None, MaxIterate = 0, Retree = 1, PartTree = nlen < 3000 ? MafftPartTree.DynamicProgramming : MafftPartTree.KmerDistance };
         }
 
         internal static MultipleAlignmentResult ToResult(string[] rows, bool nucleotide)
         {
+            if (rows.Length == 0)
+                return MultipleAlignmentResult.Empty;
             if (rows.Select(r => r.Length).Distinct().Count() > 1)
                 return new MultipleAlignmentResult(rows, "", 0); // --groupsize: the groups are not aligned with each other
             var aligned = rows.ToList();

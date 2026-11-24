@@ -174,6 +174,138 @@ public static partial class SequenceAligner
 
         // -------------------------------------------------------------------- A__align
 
+        /// <summary>The arrays that <see cref="PrepareProfiles"/> fills (A__align: the static arrays of the program; MSalignmm: fresh arrays of every call).</summary>
+        private sealed class ProfileWork
+        {
+            internal double[][] Cpmx1 = null!, Cpmx2 = null!;
+            internal double[] Gapfreq1 = null!, Gapfreq2 = null!, Ogcp1o = null!, Ogcp2o = null!, Fgcp1o = null!, Fgcp2o = null!;
+        }
+
+        /// <summary>The profiles of the two groups (the part that <c>A__align</c> and <c>MSalignmm</c> have in common): letter frequencies, gap frequencies, opening / closing gap counts, from the history of <c>treebase</c> when a child is kept there.</summary>
+        private sealed record ProfileSet(double[][] Cpmx1, double[][] Cpmx2, double[] Gapfreq1, double[] Gapfreq2, double[] Ogcp1o, double[] Ogcp2o, double[] Fgcp1o, double[] Fgcp2o, double Head1, double Head2, bool History1, bool History2);
+
+        private ProfileSet PrepareProfiles(ProfileWork w, string[] seq1, string[] seq2, double[] eff1, double[] eff2, int icyc, int jcyc, int lgth1, int lgth2, string? sgap1, string? sgap2, string? egap1, string? egap2,
+            double[][][]? hist, int child0, int child1)
+        {
+            int na = G.Nalphabets;
+            double[][] cpmx1pt, cpmx2pt;
+            double[] gapfreq1pt, gapfreq2pt, ogcp1opt, ogcp2opt, fgcp1opt, fgcp2opt;
+            double headgapfreq1, headgapfreq2;
+            bool history1 = false, history2 = false;
+            double[][]? cpmx1hist = null, cpmx2hist = null;
+
+            if (hist != null && G.SpecificityConsideration == 0.0)
+            {
+                if (sgap1 != null)
+                    throw new InvalidOperationException("The combination of sgap1 and cpmxhit is not supported. See Salignmm.c");
+                if (child0 >= 0 && hist[child0] != null)
+                {
+                    cpmx1hist = hist[child0];
+                    history1 = true;
+                    cpmx1pt = cpmx1hist!;
+                    gapfreq1pt = cpmx1hist![na];
+                    ogcp1opt = cpmx1hist[na + 1];
+                    fgcp1opt = cpmx1hist[na + 2];
+                }
+                else
+                {
+                    cpmx1pt = w.Cpmx1;
+                    CpmxCalcNew(seq1, cpmx1pt, eff1, lgth1, icyc);
+                    gapfreq1pt = w.Gapfreq1;
+                    GapCountF(gapfreq1pt, seq1, icyc, eff1, lgth1);
+                    for (int i = 0; i < lgth1; i++)
+                        gapfreq1pt[i] = 1.0 - gapfreq1pt[i];
+                    ogcp1opt = w.Ogcp1o;
+                    fgcp1opt = w.Fgcp1o;
+                    StOpeningGapCount(ogcp1opt, icyc, seq1, eff1, lgth1);
+                    StFinalGapCount(fgcp1opt, icyc, seq1, eff1, lgth1);
+                }
+                if (child1 >= 0 && hist[child1] != null)
+                {
+                    cpmx2hist = hist[child1];
+                    history2 = true;
+                    cpmx2pt = cpmx2hist!;
+                    gapfreq2pt = cpmx2hist![na];
+                    ogcp2opt = cpmx2hist[na + 1];
+                    fgcp2opt = cpmx2hist[na + 2];
+                }
+                else
+                {
+                    cpmx2pt = w.Cpmx2;
+                    CpmxCalcNew(seq2, cpmx2pt, eff2, lgth2, jcyc);
+                    gapfreq2pt = w.Gapfreq2;
+                    GapCountF(gapfreq2pt, seq2, jcyc, eff2, lgth2);
+                    for (int i = 0; i < lgth2; i++)
+                        gapfreq2pt[i] = 1.0 - gapfreq2pt[i];
+                    ogcp2opt = w.Ogcp2o;
+                    fgcp2opt = w.Fgcp2o;
+                    StOpeningGapCount(ogcp2opt, jcyc, seq2, eff2, lgth2);
+                    StFinalGapCount(fgcp2opt, jcyc, seq2, eff2, lgth2);
+                }
+                headgapfreq1 = 1.0;
+                headgapfreq2 = 1.0;
+                gapfreq1pt[lgth1] = 1.0;
+                gapfreq2pt[lgth2] = 1.0;
+            }
+            else
+            {
+                cpmx1pt = w.Cpmx1;
+                cpmx2pt = w.Cpmx2;
+                gapfreq1pt = w.Gapfreq1;
+                gapfreq2pt = w.Gapfreq2;
+                ogcp1opt = w.Ogcp1o;
+                ogcp2opt = w.Ogcp2o;
+                fgcp1opt = w.Fgcp1o;
+                fgcp2opt = w.Fgcp2o;
+                CpmxCalcNew(seq1, cpmx1pt, eff1, lgth1, icyc);
+                CpmxCalcNew(seq2, cpmx2pt, eff2, lgth2, jcyc);
+                if (sgap1 != null)
+                {
+                    NewOpeningGapCount(ogcp1opt, icyc, seq1, eff1, lgth1, sgap1);
+                    NewFinalGapCount(fgcp1opt, icyc, seq1, eff1, lgth1);
+                    NewOpeningGapCount(ogcp2opt, jcyc, seq2, eff2, lgth2, sgap2!);
+                    NewFinalGapCount(fgcp2opt, jcyc, seq2, eff2, lgth2);
+                    headgapfreq1 = OutGapCount(icyc, sgap1, eff1);
+                    headgapfreq2 = OutGapCount(jcyc, sgap2!, eff2);
+                    gapfreq1pt[lgth1] = OutGapCount(icyc, egap1!, eff1);
+                    gapfreq2pt[lgth2] = OutGapCount(jcyc, egap2!, eff2);
+                }
+                else
+                {
+                    StOpeningGapCount(ogcp1opt, icyc, seq1, eff1, lgth1);
+                    StFinalGapCount(fgcp1opt, icyc, seq1, eff1, lgth1);
+                    StOpeningGapCount(ogcp2opt, jcyc, seq2, eff2, lgth2);
+                    StFinalGapCount(fgcp2opt, jcyc, seq2, eff2, lgth2);
+                    headgapfreq1 = 0.0;
+                    headgapfreq2 = 0.0;
+                    gapfreq1pt[lgth1] = 0.0;
+                    gapfreq2pt[lgth2] = 0.0;
+                }
+                if (G.LegacyGapCost == 0)
+                {
+                    GapCountF(gapfreq1pt, seq1, icyc, eff1, lgth1);
+                    GapCountF(gapfreq2pt, seq2, jcyc, eff2, lgth2);
+                    for (int i = 0; i < lgth1 + 1; i++)
+                        gapfreq1pt[i] = 1.0 - gapfreq1pt[i];
+                    for (int i = 0; i < lgth2 + 1; i++)
+                        gapfreq2pt[i] = 1.0 - gapfreq2pt[i];
+                    headgapfreq1 = 1.0 - headgapfreq1;
+                    headgapfreq2 = 1.0 - headgapfreq2;
+                }
+                else
+                {
+                    for (int i = 0; i < lgth1 + 1; i++)
+                        gapfreq1pt[i] = 1.0;
+                    for (int i = 0; i < lgth2 + 1; i++)
+                        gapfreq2pt[i] = 1.0;
+                    headgapfreq1 = 1.0;
+                    headgapfreq2 = 1.0;
+                }
+            }
+
+            return new ProfileSet(cpmx1pt, cpmx2pt, gapfreq1pt, gapfreq2pt, ogcp1opt, ogcp2opt, fgcp1opt, fgcp2opt, headgapfreq1, headgapfreq2, history1, history2);
+        }
+
         /// <summary>
         /// <c>A__align</c> of <c>Salignmm.c</c>: the dynamic program that aligns two groups of aligned sequences with the gap penalties scaled by the gap frequencies of the columns
         /// (<c>legacygapcost == 0</c>) of the groups. <paramref name="seq1"/> / <paramref name="seq2"/> hold the rows of the groups and receive the aligned rows (in place, as the program does).
@@ -244,120 +376,12 @@ public static partial class SequenceAligner
                 intwork[i] = new int[na + 1];
             }
 
-            double[][] cpmx1pt, cpmx2pt;
-            double[] gapfreq1pt, gapfreq2pt, ogcp1opt, ogcp2opt, fgcp1opt, fgcp2opt;
-            double headgapfreq1, headgapfreq2;
-            bool history1 = false, history2 = false;
-            double[][]? cpmx1hist = null, cpmx2hist = null;
-
-            if (hist != null && G.SpecificityConsideration == 0.0)
-            {
-                if (sgap1 != null)
-                    throw new InvalidOperationException("The combination of sgap1 and cpmxhit is not supported. See Salignmm.c");
-                if (child0 >= 0 && hist[child0] != null)
-                {
-                    cpmx1hist = hist[child0];
-                    history1 = true;
-                    cpmx1pt = cpmx1hist!;
-                    gapfreq1pt = cpmx1hist![na];
-                    ogcp1opt = cpmx1hist[na + 1];
-                    fgcp1opt = cpmx1hist[na + 2];
-                }
-                else
-                {
-                    cpmx1pt = _aCpmx1;
-                    CpmxCalcNew(seq1, cpmx1pt, eff1, lgth1, icyc);
-                    gapfreq1pt = _aGapfreq1;
-                    GapCountF(gapfreq1pt, seq1, icyc, eff1, lgth1);
-                    for (int i = 0; i < lgth1; i++)
-                        gapfreq1pt[i] = 1.0 - gapfreq1pt[i];
-                    ogcp1opt = _aOgcp1o;
-                    fgcp1opt = _aFgcp1o;
-                    StOpeningGapCount(ogcp1opt, icyc, seq1, eff1, lgth1);
-                    StFinalGapCount(fgcp1opt, icyc, seq1, eff1, lgth1);
-                }
-                if (child1 >= 0 && hist[child1] != null)
-                {
-                    cpmx2hist = hist[child1];
-                    history2 = true;
-                    cpmx2pt = cpmx2hist!;
-                    gapfreq2pt = cpmx2hist![na];
-                    ogcp2opt = cpmx2hist[na + 1];
-                    fgcp2opt = cpmx2hist[na + 2];
-                }
-                else
-                {
-                    cpmx2pt = _aCpmx2;
-                    CpmxCalcNew(seq2, cpmx2pt, eff2, lgth2, jcyc);
-                    gapfreq2pt = _aGapfreq2;
-                    GapCountF(gapfreq2pt, seq2, jcyc, eff2, lgth2);
-                    for (int i = 0; i < lgth2; i++)
-                        gapfreq2pt[i] = 1.0 - gapfreq2pt[i];
-                    ogcp2opt = _aOgcp2o;
-                    fgcp2opt = _aFgcp2o;
-                    StOpeningGapCount(ogcp2opt, jcyc, seq2, eff2, lgth2);
-                    StFinalGapCount(fgcp2opt, jcyc, seq2, eff2, lgth2);
-                }
-                headgapfreq1 = 1.0;
-                headgapfreq2 = 1.0;
-                gapfreq1pt[lgth1] = 1.0;
-                gapfreq2pt[lgth2] = 1.0;
-            }
-            else
-            {
-                cpmx1pt = _aCpmx1;
-                cpmx2pt = _aCpmx2;
-                gapfreq1pt = _aGapfreq1;
-                gapfreq2pt = _aGapfreq2;
-                ogcp1opt = _aOgcp1o;
-                ogcp2opt = _aOgcp2o;
-                fgcp1opt = _aFgcp1o;
-                fgcp2opt = _aFgcp2o;
-                CpmxCalcNew(seq1, cpmx1pt, eff1, lgth1, icyc);
-                CpmxCalcNew(seq2, cpmx2pt, eff2, lgth2, jcyc);
-                if (sgap1 != null)
-                {
-                    NewOpeningGapCount(ogcp1opt, icyc, seq1, eff1, lgth1, sgap1);
-                    NewFinalGapCount(fgcp1opt, icyc, seq1, eff1, lgth1);
-                    NewOpeningGapCount(ogcp2opt, jcyc, seq2, eff2, lgth2, sgap2!);
-                    NewFinalGapCount(fgcp2opt, jcyc, seq2, eff2, lgth2);
-                    headgapfreq1 = OutGapCount(icyc, sgap1, eff1);
-                    headgapfreq2 = OutGapCount(jcyc, sgap2!, eff2);
-                    gapfreq1pt[lgth1] = OutGapCount(icyc, egap1!, eff1);
-                    gapfreq2pt[lgth2] = OutGapCount(jcyc, egap2!, eff2);
-                }
-                else
-                {
-                    StOpeningGapCount(ogcp1opt, icyc, seq1, eff1, lgth1);
-                    StFinalGapCount(fgcp1opt, icyc, seq1, eff1, lgth1);
-                    StOpeningGapCount(ogcp2opt, jcyc, seq2, eff2, lgth2);
-                    StFinalGapCount(fgcp2opt, jcyc, seq2, eff2, lgth2);
-                    headgapfreq1 = 0.0;
-                    headgapfreq2 = 0.0;
-                    gapfreq1pt[lgth1] = 0.0;
-                    gapfreq2pt[lgth2] = 0.0;
-                }
-                if (G.LegacyGapCost == 0)
-                {
-                    GapCountF(gapfreq1pt, seq1, icyc, eff1, lgth1);
-                    GapCountF(gapfreq2pt, seq2, jcyc, eff2, lgth2);
-                    for (int i = 0; i < lgth1 + 1; i++)
-                        gapfreq1pt[i] = 1.0 - gapfreq1pt[i];
-                    for (int i = 0; i < lgth2 + 1; i++)
-                        gapfreq2pt[i] = 1.0 - gapfreq2pt[i];
-                    headgapfreq1 = 1.0 - headgapfreq1;
-                    headgapfreq2 = 1.0 - headgapfreq2;
-                }
-                else
-                {
-                    for (int i = 0; i < lgth1 + 1; i++)
-                        gapfreq1pt[i] = 1.0;
-                    for (int i = 0; i < lgth2 + 1; i++)
-                        gapfreq2pt[i] = 1.0;
-                    headgapfreq1 = 1.0;
-                    headgapfreq2 = 1.0;
-                }
-            }
+            var work = new ProfileWork { Cpmx1 = _aCpmx1, Cpmx2 = _aCpmx2, Gapfreq1 = _aGapfreq1, Gapfreq2 = _aGapfreq2, Ogcp1o = _aOgcp1o, Ogcp2o = _aOgcp2o, Fgcp1o = _aFgcp1o, Fgcp2o = _aFgcp2o };
+            var prof = PrepareProfiles(work, seq1, seq2, eff1, eff2, icyc, jcyc, lgth1, lgth2, sgap1, sgap2, egap1, egap2, hist, child0, child1);
+            double[][] cpmx1pt = prof.Cpmx1, cpmx2pt = prof.Cpmx2;
+            double[] gapfreq1pt = prof.Gapfreq1, gapfreq2pt = prof.Gapfreq2, ogcp1opt = prof.Ogcp1o, ogcp2opt = prof.Ogcp2o, fgcp1opt = prof.Fgcp1o, fgcp2opt = prof.Fgcp2o;
+            double headgapfreq1 = prof.Head1, headgapfreq2 = prof.Head2;
+            bool history1 = prof.History1, history2 = prof.History2;
 
             double[] ogcp1 = _aOgcp1, ogcp2 = _aOgcp2, fgcp1 = _aFgcp1, fgcp2 = _aFgcp2;
             for (int i = 0; i < lgth1; i++)
