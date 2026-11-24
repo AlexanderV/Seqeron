@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors><EnableNETAnalyzers>false</EnableNETAnalyzers><RunAnalyzers>false</RunAnalyzers>
+    <ServerGarbageCollector>false</ServerGarbageCollector><Tree Condition="'$(Tree)'==''">$(MSBuildThisFileDirectory)../../..</Tree>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="$(Tree)/src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/Seqeron.Genomics.Analysis.csproj" />
+    <ProjectReference Include="$(Tree)/src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/Seqeron.Genomics.Alignment.csproj" />
+  </ItemGroup>
+</Project>

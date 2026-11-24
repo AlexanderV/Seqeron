@@ -711,14 +711,25 @@ public static partial class SequenceAligner
             var sparse = new PcSparse?[n, n];
             if (!viterbi)
             {
-                for (int a = 0; a < n - 1; a++)
+                if (_o.Verbose)
                 {
-                    for (int b = a + 1; b < n; b++)
+                    for (int a = 0; a < n - 1; a++)
                     {
-                        Verbose("Computing posterior matrix: (" + Pos(seqs, a) + " vs. (" + Pos(seqs, b) + " -- ");
-                        sparse[a, b] = new PcSparse(seqs[a].Len, seqs[b].Len, Posterior(model, seqs[a], seqs[b], out _, out _));
-                        Verbose("done.\n");
+                        for (int b = a + 1; b < n; b++)
+                        {
+                            Verbose("Computing posterior matrix: (" + Pos(seqs, a) + " vs. (" + Pos(seqs, b) + " -- ");
+                            sparse[a, b] = new PcSparse(seqs[a].Len, seqs[b].Len, Posterior(model, seqs[a], seqs[b], out _, out _));
+                            Verbose("done.\n");
+                        }
                     }
+                }
+                else
+                {
+                    var pairs = new List<(int A, int B)>();
+                    for (int a = 0; a < n - 1; a++)
+                        for (int b = a + 1; b < n; b++)
+                            pairs.Add((a, b));
+                    ParallelFor(0, pairs.Count, index => sparse[pairs[index].A, pairs[index].B] = new PcSparse(seqs[pairs[index].A].Len, seqs[pairs[index].B].Len, Posterior(model, seqs[pairs[index].A], seqs[pairs[index].B], out _, out _)));
                 }
 
                 for (int r = 0; r < _o.ConsistencyReps; r++)
@@ -1023,18 +1034,35 @@ public static partial class SequenceAligner
             int n = seqs.Count;
             var distances = new float[n, n];
             var sparse = new PcSparse?[n, n];
-            for (int a = 0; a < n - 1; a++)
+            void PosteriorOfPair(int a, int b)
             {
-                for (int b = a + 1; b < n; b++)
+                float[] posterior = Posterior(model, seqs[a], seqs[b], out _, out _);
+                sparse[a, b] = new PcSparse(seqs[a].Len, seqs[b].Len, posterior);
+                var al = ComputeAlignment(seqs[a].Len, seqs[b].Len, posterior);
+                float distance = al.Total / Math.Min(seqs[a].Len, seqs[b].Len);
+                distances[a, b] = distances[b, a] = distance;
+                Verbose(CFormatG10(distance) + "\n");
+            }
+
+            if (_o.Verbose)
+            {
+                for (int a = 0; a < n - 1; a++)
                 {
-                    Verbose("Computing posterior matrix: (" + Pos(seqs, a) + " vs. (" + Pos(seqs, b) + " -- ");
-                    float[] posterior = Posterior(model, seqs[a], seqs[b], out _, out _);
-                    sparse[a, b] = new PcSparse(seqs[a].Len, seqs[b].Len, posterior);
-                    var al = ComputeAlignment(seqs[a].Len, seqs[b].Len, posterior);
-                    float distance = al.Total / Math.Min(seqs[a].Len, seqs[b].Len);
-                    distances[a, b] = distances[b, a] = distance;
-                    Verbose(CFormatG10(distance) + "\n");
+                    for (int b = a + 1; b < n; b++)
+                    {
+                        Verbose("Computing posterior matrix: (" + Pos(seqs, a) + " vs. (" + Pos(seqs, b) + " -- ");
+                        PosteriorOfPair(a, b);
+                    }
                 }
+            }
+            else
+            {
+                // B09 WP78 (R14-16): the pairs are independent (the model is read-only, every cell of the result matrices is written by one pair), so the pair HMMs run in parallel; the log of the verbose run keeps its sequential order
+                var pairs = new List<(int A, int B)>();
+                for (int a = 0; a < n - 1; a++)
+                    for (int b = a + 1; b < n; b++)
+                        pairs.Add((a, b));
+                ParallelFor(0, pairs.Count, index => PosteriorOfPair(pairs[index].A, pairs[index].B));
             }
 
             for (int r = 0; r < _o.ConsistencyReps; r++)

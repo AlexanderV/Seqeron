@@ -970,6 +970,15 @@ public sealed record MsaOptions
     /// <summary>Pairwise distance used for the guide tree of the progressive family (default <see cref="MsaDistanceMode.Linear"/>).</summary>
     public MsaDistanceMode Distance { get; init; } = MsaDistanceMode.Linear;
 
+    /// <summary>
+    /// <see cref="MsaDistanceMode.Linear"/> only: the work limit of the all-pairs distance stage (B09 WP78, R14-16). The stage aligns every pair of sequences (len1 · len2 cells per pair, O(k² L²) in all); when the sum of
+    /// len1 · len2 over all pairs is above this many cells the distance of a pair is the k-tuple estimate instead (the share of the k-mers of the shorter sequence that the longer one has, MUSCLE's k-mer
+    /// similarity, converted to the identity scale: d = 1 − F<sup>1/k</sup>; k = 8 for nucleotides, 4 for a protein matrix), which costs O(len1 + len2) per pair and gives the same ranking of the pairs on
+    /// related sequences. Pairs with a sequence shorter than 2k keep the alignment distance. Default 400 million cells (about 1.3 s of the alignment stage; see docs/algorithms/Alignment/Multiple_Sequence_Alignment.md for
+    /// the measurement); 0 or less = never (always the alignments, the historical behaviour for any size). Below the limit the distances are exactly those of the alignments.
+    /// </summary>
+    public long FastDistanceCells { get; init; } = 400_000_000;
+
     /// <summary>Gap model (default <see cref="MsaGapModel.Linear"/>).</summary>
     public MsaGapModel GapModel { get; init; } = MsaGapModel.Linear;
 

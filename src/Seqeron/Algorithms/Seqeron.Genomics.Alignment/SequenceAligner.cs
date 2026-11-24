@@ -2895,7 +2895,7 @@ public static partial class SequenceAligner
         int k = rawSeqs.Length;
 
         // Step 1: pairwise alignments -> distance matrix (ClustalW: 1 - identities / min(len1, len2)).
-        var distance = ComputeGuideDistances(rawSeqs, effectiveScoring, options.Distance, gapModel, options.GuideTree, options.QuickPairwise, options.ClustalWProtein);
+        var distance = ComputeGuideDistances(rawSeqs, effectiveScoring, options.Distance, gapModel, options.GuideTree, options.QuickPairwise, options.ClustalWProtein, options.FastDistanceCells);
 
         // Step 2: guide tree (UPGMA by default, neighbour-joining on request).
         ProgressiveGuideNode root = BuildProgressiveGuideTree(k, distance, options.GuideTree);
@@ -2935,7 +2935,10 @@ public static partial class SequenceAligner
         if (a.Length == 0 || b.Length == 0)
             return 1.0; // no shared residues possible
 
-        var pa = gapModel == MsaGapModel.Affine ? AffineAlignCore(a, b, scoring, AlignmentType.Global) : GlobalAlignCore(a, b, scoring);
+        if (gapModel != MsaGapModel.Affine)
+            return 1.0 - (double)LinearIdentityCount(a, b, scoring) / Math.Min(a.Length, b.Length); // the identities of the traceback path without a matrix, B09 WP78
+
+        var pa = AffineAlignCore(a, b, scoring, AlignmentType.Global);
 
         int identical = 0;
         for (int i = 0; i < pa.AlignedSequence1.Length; i++)
@@ -2955,7 +2958,7 @@ public static partial class SequenceAligner
     /// (<see cref="ClustalWPairwiseAlign(string, string, double, double)"/>, independent of <paramref name="scoring"/>);
     /// <see cref="MsaDistanceMode.ClustalWQuick"/> = ClustalW's fast k-tuple stage (<see cref="ClustalWQuickPairwiseAlign(string, string, ClustalWQuickOptions?, int?)"/>).
     /// </summary>
-    private static double[,] ComputeGuideDistances(string[] rawSeqs, PairScoring scoring, MsaDistanceMode mode, MsaGapModel gapModel, MsaGuideTree guideTree = MsaGuideTree.Upgma, ClustalWQuickOptions? quickOptions = null, ClustalWProteinPairwiseOptions? proteinOptions = null)
+    private static double[,] ComputeGuideDistances(string[] rawSeqs, PairScoring scoring, MsaDistanceMode mode, MsaGapModel gapModel, MsaGuideTree guideTree = MsaGuideTree.Upgma, ClustalWQuickOptions? quickOptions = null, ClustalWProteinPairwiseOptions? proteinOptions = null, long fastDistanceCells = long.MaxValue)
     {
         if (!Enum.IsDefined(mode))
             throw new ArgumentOutOfRangeException(nameof(mode), mode, "Unknown guide-tree distance mode.");
@@ -2971,12 +2974,21 @@ public static partial class SequenceAligner
 
         int k = rawSeqs.Length;
         var distance = new double[k, k];
+
+        // B09 WP78 (R14-16): above the cell limit of MsaOptions.FastDistanceCells the Linear distance of a pair is the k-tuple estimate (the guide tree needs a ranking of the pairs, not their optimal alignments)
+        ulong[]?[]? tupleCodes = null;
+        int tupleLength = scoring.Protein ? KTupleProteinLength : KTupleDnaLength;
+        if (mode == MsaDistanceMode.Linear && fastDistanceCells != long.MaxValue && UseKTupleDistances(rawSeqs, fastDistanceCells))
+            tupleCodes = rawSeqs.Select(s => KTupleCodes(s, tupleLength)).ToArray();
+
         for (int i = 0; i < k; i++)
         {
             for (int j = i + 1; j < k; j++)
             {
                 double d;
-                if (mode == MsaDistanceMode.ClustalWQuick)
+                if (tupleCodes?[i] is { } codesI && tupleCodes[j] is { } codesJ)
+                    d = KTupleDistance(codesI, codesJ, rawSeqs[i].Length, rawSeqs[j].Length, tupleLength);
+                else if (mode == MsaDistanceMode.ClustalWQuick)
                     d = protein
                         ? ClustalWQuickPairwiseAlign(rawSeqs[i], rawSeqs[j], ClustalWSequenceType.Protein, quick, longest).Distance
                         : ClustalWQuickPairwiseDistance(rawSeqs[i], rawSeqs[j], quick, longest);
@@ -3061,21 +3073,53 @@ public static partial class SequenceAligner
         int n = p2.Width;
         RequireProfileMatrixFits(m, n);
 
+        // The column scores from the compositions of the columns (ProfileColumnTable: the same doubles as the row-by-row sums of ProfileColumnScore / ProfileColumnVsGap).
+        var symbolIndex = new Dictionary<char, int>();
+        foreach (var profile in new[] { p1, p2 })
+            foreach (var row in profile.Rows)
+                foreach (char c in row)
+                    if (c != '-' && !symbolIndex.ContainsKey(c))
+                        symbolIndex[c] = symbolIndex.Count;
+        var symbols = new char[symbolIndex.Count];
+        foreach (var (symbol, index) in symbolIndex)
+            symbols[index] = symbol;
+        var substitution = new int[symbols.Length][];
+        for (int x = 0; x < symbols.Length; x++)
+        {
+            substitution[x] = new int[symbols.Length];
+            for (int y = 0; y < symbols.Length; y++)
+                substitution[x][y] = scoring.Sub(symbols[x], symbols[y]);
+        }
+
+        var t1 = new ProfileColumnTable(p1, symbolIndex);
+        var t2 = new ProfileColumnTable(p2, symbolIndex);
+        t1.Project(substitution);
+        t2.Project(substitution);
+        int gapExtend = scoring.GapExtend;
+        int rows1 = p1.Rows.Count;
+        int rows2 = p2.Rows.Count;
+        var upCost = new double[m + 1];
+        var leftCost = new double[n + 1];
+        for (int i = 1; i <= m; i++)
+            upCost[i] = ProfileColumnVsGapFast(t1, i - 1, rows2, gapExtend);
+        for (int j = 1; j <= n; j++)
+            leftCost[j] = ProfileColumnVsGapFast(t2, j - 1, rows1, gapExtend);
+
         // F(i,j): best score aligning first i columns of p1 with first j columns of p2.
         var f = new double[m + 1, n + 1];
         for (int i = 1; i <= m; i++)
-            f[i, 0] = f[i - 1, 0] + ProfileColumnVsGap(p1, i - 1, p2.Rows.Count, scoring);
+            f[i, 0] = f[i - 1, 0] + upCost[i];
         for (int j = 1; j <= n; j++)
-            f[0, j] = f[0, j - 1] + ProfileColumnVsGap(p2, j - 1, p1.Rows.Count, scoring);
+            f[0, j] = f[0, j - 1] + leftCost[j];
 
         for (int i = 1; i <= m; i++)
         {
             AlignmentCancellation.ThrowIfRequested();
             for (int j = 1; j <= n; j++)
             {
-                double diag = f[i - 1, j - 1] + ProfileColumnScore(p1, i - 1, p2, j - 1, scoring);
-                double up = f[i - 1, j] + ProfileColumnVsGap(p1, i - 1, p2.Rows.Count, scoring);
-                double left = f[i, j - 1] + ProfileColumnVsGap(p2, j - 1, p1.Rows.Count, scoring);
+                double diag = f[i - 1, j - 1] + ProfileColumnScoreFast(t1, i - 1, t2, j - 1, gapExtend);
+                double up = f[i - 1, j] + upCost[i];
+                double left = f[i, j - 1] + leftCost[j];
                 f[i, j] = Math.Max(diag, Math.Max(up, left));
             }
         }
@@ -3088,7 +3132,7 @@ public static partial class SequenceAligner
         {
             if (ii > 0 && jj > 0)
             {
-                double diag = f[ii - 1, jj - 1] + ProfileColumnScore(p1, ii - 1, p2, jj - 1, scoring);
+                double diag = f[ii - 1, jj - 1] + ProfileColumnScoreFast(t1, ii - 1, t2, jj - 1, gapExtend);
                 if (AreClose(f[ii, jj], diag))
                 {
                     cols1.Add(ii - 1);
@@ -3100,7 +3144,7 @@ public static partial class SequenceAligner
 
             if (ii > 0)
             {
-                double up = f[ii - 1, jj] + ProfileColumnVsGap(p1, ii - 1, p2.Rows.Count, scoring);
+                double up = f[ii - 1, jj] + upCost[ii];
                 if (jj == 0 || AreClose(f[ii, jj], up))
                 {
                     cols1.Add(ii - 1);
@@ -3140,48 +3184,6 @@ public static partial class SequenceAligner
                 sb.Append(col < 0 ? '-' : row[col]);
             dest.Rows.Add(sb.ToString());
         }
-    }
-
-    /// <summary>Profile-profile column score: average match/mismatch/gap over all cross pairs.</summary>
-    private static double ProfileColumnScore(Profile p1, int col1, Profile p2, int col2, PairScoring scoring)
-    {
-        double total = 0;
-        int pairs = p1.Rows.Count * p2.Rows.Count;
-        for (int r1 = 0; r1 < p1.Rows.Count; r1++)
-        {
-            char a = p1.Rows[r1][col1];
-            for (int r2 = 0; r2 < p2.Rows.Count; r2++)
-            {
-                char b = p2.Rows[r2][col2];
-                if (a == '-' && b == '-')
-                    total += 0; // gap-gap neutral
-                else if (a == '-' || b == '-')
-                    total += scoring.GapExtend;
-                else
-                    total += scoring.Sub(a, b);
-            }
-        }
-        return total / pairs;
-    }
-
-    /// <summary>
-    /// Score for aligning one profile column against an all-gap column of the other profile of
-    /// <paramref name="otherRowCount"/> rows: average gap penalty over all cross pairs.
-    /// Residue-vs-gap costs GapExtend; gap-vs-gap is neutral.
-    /// </summary>
-    private static double ProfileColumnVsGap(Profile p, int col, int otherRowCount, PairScoring scoring)
-    {
-        double total = 0;
-        int pairs = p.Rows.Count * otherRowCount;
-        for (int r = 0; r < p.Rows.Count; r++)
-        {
-            char a = p.Rows[r][col];
-            // The other side is a gap for all otherRowCount rows.
-            if (a != '-')
-                total += scoring.GapExtend * otherRowCount;
-            // a == '-' : gap-gap, neutral.
-        }
-        return total / pairs;
     }
 
     private const double ProfileScoreEpsilon = 1e-9;
@@ -3344,7 +3346,7 @@ public static partial class SequenceAligner
         int k = rawSeqs.Length;
 
         // Step 1: progressive seed (same pipeline as MultipleAlignProgressive) + retain guide tree.
-        var distance = ComputeGuideDistances(rawSeqs, effectiveScoring, options.Distance, gapModel, options.GuideTree, options.QuickPairwise, options.ClustalWProtein);
+        var distance = ComputeGuideDistances(rawSeqs, effectiveScoring, options.Distance, gapModel, options.GuideTree, options.QuickPairwise, options.ClustalWProtein, options.FastDistanceCells);
 
         ProgressiveGuideNode root = BuildProgressiveGuideTree(k, distance, options.GuideTree);
         Profile current = AlignProfileSubtree(root, rawSeqs, effectiveScoring, gapModel);
@@ -3701,7 +3703,7 @@ public static partial class SequenceAligner
         var library = new ExtendedLibrary(primaryLibrary, seqWeights);
 
         // Step 3a: guide tree (UPGMA by default, neighbour-joining on request) over the ClustalW distances (1 - identities / min(len1, len2)), reusing the progressive pipeline.
-        var distance = ComputeGuideDistances(rawSeqs, effectiveScoring, options.Distance, gapModel, options.GuideTree, options.QuickPairwise, options.ClustalWProtein);
+        var distance = ComputeGuideDistances(rawSeqs, effectiveScoring, options.Distance, gapModel, options.GuideTree, options.QuickPairwise, options.ClustalWProtein, options.FastDistanceCells);
         ProgressiveGuideNode root = BuildProgressiveGuideTree(k, distance, options.GuideTree);
 
         if (options.ConsistencyEngine == MsaConsistencyEngine.TCoffeeLinked)
@@ -3790,6 +3792,73 @@ public static partial class SequenceAligner
         }
 
         public double Primary(ResiduePairKey key) => _primary.GetValueOrDefault(key);
+
+        /// <summary>
+        /// The column-versus-column scores of two consistency profiles as one matrix: cell (i, j) = Σ over all cross pairs of residues of <see cref="Extended"/>, i.e. exactly what <c>ColumnLibraryScore</c> adds up cell by
+        /// cell, but computed from the support: a pair has a non-zero extended weight only when it is in the primary library or both residues have a common partner in a third sequence, so the candidates of a residue
+        /// are its partners and the partners of its partners (B09 WP78, R14-16: no dictionary probe for each of the m · n · rows<sub>1</sub> · rows<sub>2</sub> pairs). The weights are integers (percent identities), so the sum is exact in any
+        /// order. Null with sequence weights (T-Coffee <c>-seq_weight</c> multiplies by floats: the order of the additions would matter), then the cell-by-cell score is used.
+        /// </summary>
+        public double[,]? ColumnScoreMatrix(ConsistencyProfile p1, ConsistencyProfile p2)
+        {
+            if (_seqWeights is not null)
+                return null;
+            int m = p1.Width, n = p2.Width;
+            var score = new double[m, n];
+            var columnOf = new Dictionary<int, int[]>();
+            for (int r2 = 0; r2 < p2.Rows.Count; r2++)
+            {
+                var map = p2.PositionMaps[r2];
+                int size = 0;
+                foreach (int pos in map)
+                    size = Math.Max(size, pos + 1);
+                var inverse = new int[size];
+                Array.Fill(inverse, -1);
+                for (int col = 0; col < map.Length; col++)
+                {
+                    if (map[col] >= 0)
+                        inverse[map[col]] = col;
+                }
+
+                columnOf[p2.SequenceIndices[r2]] = inverse;
+            }
+
+            var candidates = new HashSet<(int Seq, int Pos)>();
+            for (int r1 = 0; r1 < p1.Rows.Count; r1++)
+            {
+                int seqA = p1.SequenceIndices[r1];
+                var map = p1.PositionMaps[r1];
+                for (int col1 = 0; col1 < map.Length; col1++)
+                {
+                    int posA = map[col1];
+                    if (posA < 0 || !_neighbours.TryGetValue((seqA, posA), out var partners))
+                        continue;
+                    candidates.Clear();
+                    foreach (var partner in partners.Keys)
+                    {
+                        if (columnOf.ContainsKey(partner.Seq))
+                            candidates.Add(partner);
+                        if (partner.Seq == seqA || !_neighbours.TryGetValue(partner, out var second))
+                            continue;
+                        foreach (var q in second.Keys)
+                        {
+                            if (q.Seq != seqA && q.Seq != partner.Seq && columnOf.ContainsKey(q.Seq))
+                                candidates.Add(q);
+                        }
+                    }
+
+                    foreach (var (seqB, posB) in candidates)
+                    {
+                        int[] inverse = columnOf[seqB];
+                        if (posB >= inverse.Length || inverse[posB] < 0)
+                            continue;
+                        score[col1, inverse[posB]] += Extended(MakeKey(seqA, posA, seqB, posB));
+                    }
+                }
+            }
+
+            return score;
+        }
 
         /// <summary>
         /// Extended weight of (Si.p, Sj.q) = direct primary weight + Σ over every residue Sk.r of a
@@ -4004,13 +4073,14 @@ public static partial class SequenceAligner
         var f = new double[m + 1, n + 1];
         // First row/column: aligning a column against a gap scores 0 (zero gap penalty).
         // (f[i,0] = f[0,j] = 0 for all i,j.)
+        var columnScores = library.ColumnScoreMatrix(p1, p2); // null: the cell-by-cell score (sequence weights)
 
         for (int i = 1; i <= m; i++)
         {
             AlignmentCancellation.ThrowIfRequested();
             for (int j = 1; j <= n; j++)
             {
-                double diag = f[i - 1, j - 1] + ColumnLibraryScore(p1, i - 1, p2, j - 1, library);
+                double diag = f[i - 1, j - 1] + (columnScores is null ? ColumnLibraryScore(p1, i - 1, p2, j - 1, library) : columnScores[i - 1, j - 1]);
                 double up = f[i - 1, j];     // gap in p2: 0
                 double left = f[i, j - 1];   // gap in p1: 0
                 f[i, j] = Math.Max(diag, Math.Max(up, left));
@@ -4024,7 +4094,7 @@ public static partial class SequenceAligner
         {
             if (ii > 0 && jj > 0)
             {
-                double diag = f[ii - 1, jj - 1] + ColumnLibraryScore(p1, ii - 1, p2, jj - 1, library);
+                double diag = f[ii - 1, jj - 1] + (columnScores is null ? ColumnLibraryScore(p1, ii - 1, p2, jj - 1, library) : columnScores[ii - 1, jj - 1]);
                 if (AreClose(f[ii, jj], diag))
                 {
                     cols1.Add(ii - 1);

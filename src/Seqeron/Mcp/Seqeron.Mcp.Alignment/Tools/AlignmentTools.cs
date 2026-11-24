@@ -569,6 +569,11 @@ public partial class AlignmentTools
         "natural affine gap costs (Altschul 1989: each pair of rows is projected out of the alignment, gap-gap columns skipped, every gap run of the projection pays gapOpen once). " +
         "For two sequences the affine result is an optimal pairwise alignment; for three or more sequences every method is a heuristic.";
 
+    private const string FastDistanceCellsDescription =
+        "Work limit of the all-pairs distance stage when distance='linear': when the sum of length1 x length2 over all pairs of sequences is above this many dynamic-programming cells the distance of a pair is the k-tuple estimate " +
+        "(MUSCLE's k-mer similarity as identity, d = 1 - F^(1/k), k = 8 for nucleotides, 4 for amino acids; O(length1 + length2) per pair) instead of one global alignment per pair; 0 or less = always the alignments. Default 400000000 " +
+        "(the alignments cost about 7.6 ns per cell: 3 s at the limit); pairs with a sequence shorter than 2k keep the alignment distance.";
+
     private const string DistanceModeDescription =
         "Guide-tree distance: 'linear' (default) = 1 - identities / min(length) of the repository's global alignment under the given scores (linear NW, or Gotoh when gapModel='affine'); " +
         "'clustalw' = the same formula on ClustalW 2.1's own pairwise stage (affine local Smith-Waterman-Gotoh alignment with its IUB matrix x100 and gap penalties 15 / 6.66, " +
@@ -682,9 +687,10 @@ public partial class AlignmentTools
         [Description(PwGapExtendDescription)] double? pwGapExtend = null,
         [Description(FormatParamDescription)] string? format = null,
         [Description(NamesParamDescription)] string[]? names = null,
+        [Description(FastDistanceCellsDescription)] long? fastDistanceCells = null,
         CancellationToken cancellationToken = default)
     {
-        return FormatMultiple(MultipleAlignProgressiveCore(sequences, match, mismatch, gapOpen, gapExtend, distance, gapModel, guideTree, ktuple, window, topDiagonals, pairGap, type, matrix, pwMatrix, pwGapOpen, pwGapExtend, cancellationToken), format, names);
+        return FormatMultiple(MultipleAlignProgressiveCore(sequences, match, mismatch, gapOpen, gapExtend, distance, gapModel, guideTree, ktuple, window, topDiagonals, pairGap, type, matrix, pwMatrix, pwGapOpen, pwGapExtend, fastDistanceCells, cancellationToken), format, names);
     }
 
     private static MultipleAlignmentResultDto MultipleAlignProgressiveCore(
@@ -705,12 +711,13 @@ public partial class AlignmentTools
         [Description(PwMatrixDescription)] string? pwMatrix = null,
         [Description(PwGapOpenDescription)] double? pwGapOpen = null,
         [Description(PwGapExtendDescription)] double? pwGapExtend = null,
+        [Description(FastDistanceCellsDescription)] long? fastDistanceCells = null,
         CancellationToken cancellationToken = default)
     {
         using var cancelScope = global::Seqeron.Genomics.Alignment.SequenceAligner.BeginCancellationScope(cancellationToken);
         return RunMsa(sequences, match, mismatch, gapOpen, gapExtend, type, matrix,
-            (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignProgressive(seqs, scoring, ParseMsaOptions(distance, gapModel, guideTree, ktuple, window, topDiagonals, pairGap, null, pwMatrix, pwGapOpen, pwGapExtend)),
-            (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignProgressive(seqs, scoring, ParseMsaOptions(distance, gapModel, guideTree, ktuple, window, topDiagonals, pairGap, null, pwMatrix, pwGapOpen, pwGapExtend)));
+            (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignProgressive(seqs, scoring, ParseMsaOptions(distance, gapModel, guideTree, ktuple, window, topDiagonals, pairGap, null, pwMatrix, pwGapOpen, pwGapExtend, fastDistanceCells: fastDistanceCells)),
+            (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignProgressive(seqs, scoring, ParseMsaOptions(distance, gapModel, guideTree, ktuple, window, topDiagonals, pairGap, null, pwMatrix, pwGapOpen, pwGapExtend, fastDistanceCells: fastDistanceCells)));
     }
 
     [McpServerTool(Name = "multiple_align_iterative", Title = "MSA — Progressive + Iterative Refinement (MUSCLE-style)", ReadOnly = true)]
@@ -736,9 +743,10 @@ public partial class AlignmentTools
         [Description(PwGapExtendDescription)] double? pwGapExtend = null,
         [Description(FormatParamDescription)] string? format = null,
         [Description(NamesParamDescription)] string[]? names = null,
+        [Description(FastDistanceCellsDescription)] long? fastDistanceCells = null,
         CancellationToken cancellationToken = default)
     {
-        return FormatMultiple(MultipleAlignIterativeCore(sequences, match, mismatch, gapOpen, gapExtend, maxIterations, distance, gapModel, guideTree, ktuple, window, topDiagonals, pairGap, type, matrix, pwMatrix, pwGapOpen, pwGapExtend, cancellationToken), format, names);
+        return FormatMultiple(MultipleAlignIterativeCore(sequences, match, mismatch, gapOpen, gapExtend, maxIterations, distance, gapModel, guideTree, ktuple, window, topDiagonals, pairGap, type, matrix, pwMatrix, pwGapOpen, pwGapExtend, fastDistanceCells, cancellationToken), format, names);
     }
 
     private static MultipleAlignmentResultDto MultipleAlignIterativeCore(
@@ -760,13 +768,14 @@ public partial class AlignmentTools
         [Description(PwMatrixDescription)] string? pwMatrix = null,
         [Description(PwGapOpenDescription)] double? pwGapOpen = null,
         [Description(PwGapExtendDescription)] double? pwGapExtend = null,
+        [Description(FastDistanceCellsDescription)] long? fastDistanceCells = null,
         CancellationToken cancellationToken = default)
     {
         using var cancelScope = global::Seqeron.Genomics.Alignment.SequenceAligner.BeginCancellationScope(cancellationToken);
         if (maxIterations < 1)
             throw new ArgumentOutOfRangeException(nameof(maxIterations), "maxIterations must be >= 1.");
 
-        var options = ParseMsaOptions(distance, gapModel, guideTree, ktuple, window, topDiagonals, pairGap, null, pwMatrix, pwGapOpen, pwGapExtend);
+        var options = ParseMsaOptions(distance, gapModel, guideTree, ktuple, window, topDiagonals, pairGap, null, pwMatrix, pwGapOpen, pwGapExtend, fastDistanceCells: fastDistanceCells);
         return RunMsa(sequences, match, mismatch, gapOpen, gapExtend, type, matrix,
             (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignIterative(seqs, scoring, options, maxIterations),
             (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignIterative(seqs, scoring, options, maxIterations));
@@ -843,9 +852,10 @@ public partial class AlignmentTools
         [Description("Sequence redundancy weights (T-Coffee -seq_weight): 'none' (default) or 'tcoffee' (compute_t_coffee_weight: w = 2 / (1 + sum (10 x identity)^3) rescaled to mean 1; an extended library weight is multiplied by the smaller of the two sequence weights).")] string sequenceWeights = "none",
         [Description(FormatParamDescription)] string? format = null,
         [Description(NamesParamDescription)] string[]? names = null,
+        [Description(FastDistanceCellsDescription)] long? fastDistanceCells = null,
         CancellationToken cancellationToken = default)
     {
-        return FormatMultiple(MultipleAlignConsistencyCore(sequences, match, mismatch, gapOpen, gapExtend, distance, gapModel, guideTree, ktuple, window, topDiagonals, pairGap, consistencyEngine, type, matrix, pwMatrix, pwGapOpen, pwGapExtend, primaryLocalAlignments, sequenceWeights, cancellationToken), format, names);
+        return FormatMultiple(MultipleAlignConsistencyCore(sequences, match, mismatch, gapOpen, gapExtend, distance, gapModel, guideTree, ktuple, window, topDiagonals, pairGap, consistencyEngine, type, matrix, pwMatrix, pwGapOpen, pwGapExtend, primaryLocalAlignments, sequenceWeights, fastDistanceCells, cancellationToken), format, names);
     }
 
     private static MultipleAlignmentResultDto MultipleAlignConsistencyCore(
@@ -869,6 +879,7 @@ public partial class AlignmentTools
         [Description(PwGapExtendDescription)] double? pwGapExtend = null,
         [Description("T-Coffee Lalign library: the number of non-intersecting (Waterman-Eggert) local alignments per sequence pair that enter the primary library, each weighted by its own percent identity (lalign_id_pair, -lalign_n_top; default 1 = the single best Smith-Waterman alignment of the published formula). Paper engine and TCoffeeLinked engine.")] int primaryLocalAlignments = 1,
         [Description("Sequence redundancy weights (T-Coffee -seq_weight): 'none' (default) or 'tcoffee' (compute_t_coffee_weight: w = 2 / (1 + sum (10 x identity)^3) rescaled to mean 1; an extended library weight is multiplied by the smaller of the two sequence weights).")] string sequenceWeights = "none",
+        [Description(FastDistanceCellsDescription)] long? fastDistanceCells = null,
         CancellationToken cancellationToken = default)
     {
         var weightMode = (sequenceWeights ?? "none").Trim().ToLowerInvariant() switch
@@ -879,8 +890,8 @@ public partial class AlignmentTools
         };
         using var cancelScope = global::Seqeron.Genomics.Alignment.SequenceAligner.BeginCancellationScope(cancellationToken);
         return RunMsa(sequences, match, mismatch, gapOpen, gapExtend, type, matrix,
-            (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignConsistency(seqs, scoring, ParseMsaOptions(distance, gapModel, guideTree, ktuple, window, topDiagonals, pairGap, consistencyEngine, pwMatrix, pwGapOpen, pwGapExtend) with { PrimaryLocalAlignments = primaryLocalAlignments, SequenceWeights = weightMode }),
-            (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignConsistency(seqs, scoring, ParseMsaOptions(distance, gapModel, guideTree, ktuple, window, topDiagonals, pairGap, consistencyEngine, pwMatrix, pwGapOpen, pwGapExtend) with { PrimaryLocalAlignments = primaryLocalAlignments, SequenceWeights = weightMode }));
+            (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignConsistency(seqs, scoring, ParseMsaOptions(distance, gapModel, guideTree, ktuple, window, topDiagonals, pairGap, consistencyEngine, pwMatrix, pwGapOpen, pwGapExtend, fastDistanceCells: fastDistanceCells) with { PrimaryLocalAlignments = primaryLocalAlignments, SequenceWeights = weightMode }),
+            (seqs, scoring) => global::Seqeron.Genomics.Alignment.SequenceAligner.MultipleAlignConsistency(seqs, scoring, ParseMsaOptions(distance, gapModel, guideTree, ktuple, window, topDiagonals, pairGap, consistencyEngine, pwMatrix, pwGapOpen, pwGapExtend, fastDistanceCells: fastDistanceCells) with { PrimaryLocalAlignments = primaryLocalAlignments, SequenceWeights = weightMode }));
     }
 
     [McpServerTool(Name = "multiple_align_clustalw", Title = "MSA — ClustalW 2.1 Multiple Alignment (exact port)", ReadOnly = true)]
@@ -1458,8 +1469,9 @@ public partial class AlignmentTools
     private static global::Seqeron.Genomics.Infrastructure.MsaOptions ParseMsaOptions(
         string? distance, string? gapModel, string? guideTree = null,
         int? ktuple = null, int? window = null, int? topDiagonals = null, int? pairGap = null, string? consistencyEngine = null,
-        string? pwMatrix = null, double? pwGapOpen = null, double? pwGapExtend = null) => new()
+        string? pwMatrix = null, double? pwGapOpen = null, double? pwGapExtend = null, long? fastDistanceCells = null) => new()
     {
+        FastDistanceCells = fastDistanceCells ?? new global::Seqeron.Genomics.Infrastructure.MsaOptions().FastDistanceCells,
         ClustalWProtein = new global::Seqeron.Genomics.Infrastructure.ClustalWProteinPairwiseOptions
         {
             Matrix = (pwMatrix ?? "gonnet").Trim().ToLowerInvariant() switch

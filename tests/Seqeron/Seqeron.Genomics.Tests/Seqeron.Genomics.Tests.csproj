@@ -388,6 +388,8 @@
     <EmbeddedResource Include="TestData\Alignment\mafft_wp77_oracle.tsv.gz" />
     <!-- ALIGN-MULTI-001 (audit R14 / A2-19c-hybrid, B09 WP78, F359): mafft hybridpair without a fragment option (pairlocalalign Y, disttbfast T y, tbfast): installed mafft, scripts/alignment/generate_mafft_wp78_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\mafft_wp78_oracle.tsv.gz" />
+    <!-- ALIGN-MULTI-001 (B09 WP78, R14-16, F362): alignments of the guide-tree multiple aligners written by the code before the exact speed-ups (commit 12059b65a), scripts/benchmarks/wp78 (golden write). -->
+    <EmbeddedResource Include="TestData\Alignment\msa_baseline_wp78.tsv.gz" />
     <!-- ALIGN-MULTI-001 (audit A2-27, B09 F120): EMBOSS 6.6.0 -aformat output formats (needle / water) and the sequence-set formats (seqret), byte for byte;
          scripts/alignment/generate_emboss_aformat_oracle.py, scripts/alignment/generate_emboss_seqout_oracle.py (faked run dates: scripts/alignment/faketime.c). -->
     <EmbeddedResource Include="TestData\Alignment\emboss_aformat_oracle.tsv.gz" />

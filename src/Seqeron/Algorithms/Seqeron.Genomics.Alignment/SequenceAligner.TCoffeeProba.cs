@@ -339,19 +339,35 @@ public static partial class SequenceAligner
         return (totalForward + totalBackward) / 2;
     }
 
+    private static float[] FlattenTrans(float[,] table, out int stride)
+    {
+        int rows = table.GetLength(0), cols = table.GetLength(1);
+        stride = cols;
+        var flat = new float[rows * cols];
+        for (int r = 0; r < rows; r++)
+            for (int c = 0; c < cols; c++)
+                flat[r * cols + c] = table[r, c];
+        return flat;
+    }
+
+    private static float[] FlattenIns(float[,] table, out int stride) => FlattenTrans(table, out stride);
+
     private static float[] TcProbaForward(int I, int J, int nmt, int nis, TcProbaModel m, float[] matchProb, float[][,] insProb)
     {
         int l = checked((int)(((long)I + 1) * (J + 1) * nmt));
         var forward = new float[l];
         Array.Fill(forward, TcLogZero);
-        var transProb = m.TransProb;
         var init = m.InitialDistribution;
+        // B09 WP78 (R14-16): flat copies of the two-dimensional tables, so the inner loop has no multi-dimensional index arithmetic; the float operations are the same, in the same order
+        var tp = FlattenTrans(m.TransProb, out int tpStride);
+        var ins0 = FlattenIns(insProb[0], out int ins0Stride);
+        var ins1 = FlattenIns(insProb[1], out int ins1Stride);
 
         forward[0 + nmt * (1 * (J + 1) + 1)] = init[0] + matchProb[J + 2];
         for (int k = 0; k < nis; k++)
         {
-            forward[2 * k + 1 + nmt * (1 * (J + 1) + 0)] = init[2 * k + 1] + insProb[0][k, 1];
-            forward[2 * k + 2 + nmt * (0 * (J + 1) + 1)] = init[2 * k + 2] + insProb[1][k, 1];
+            forward[2 * k + 1 + nmt * (1 * (J + 1) + 0)] = init[2 * k + 1] + ins0[k * ins0Stride + 1];
+            forward[2 * k + 2 + nmt * (0 * (J + 1) + 1)] = init[2 * k + 2] + ins1[k * ins1Stride + 1];
         }
 
         int ij = 0, i1j = -J - 1, ij1 = -1, i1j1 = -J - 2;
@@ -368,19 +384,19 @@ public static partial class SequenceAligner
                 {
                     if (i > 0 && j > 0)
                     {
-                        forward[0 + ij] = forward[0 + i1j1] + transProb[0, 0];
+                        forward[0 + ij] = forward[0 + i1j1] + tp[0];
                         for (int k = 1; k < nmt; k++)
-                            TcLogPlusEquals(ref forward[0 + ij], forward[k + i1j1] + transProb[k, 0]);
+                            TcLogPlusEquals(ref forward[0 + ij], forward[k + i1j1] + tp[k * tpStride]);
                         forward[0 + ij] += matchProb[mIdx];
                     }
 
                     if (i > 0)
                         for (int k = 0; k < nis; k++)
-                            forward[2 * k + 1 + ij] = insProb[0][k, i] + TcLogAdd(forward[0 + i1j] + transProb[0, 2 * k + 1], forward[2 * k + 1 + i1j] + transProb[2 * k + 1, 2 * k + 1]);
+                            forward[2 * k + 1 + ij] = ins0[k * ins0Stride + i] + TcLogAdd(forward[0 + i1j] + tp[2 * k + 1], forward[2 * k + 1 + i1j] + tp[(2 * k + 1) * tpStride + 2 * k + 1]);
 
                     if (j > 0)
                         for (int k = 0; k < nis; k++)
-                            forward[2 * k + 2 + ij] = insProb[1][k, j] + TcLogAdd(forward[0 + ij1] + transProb[0, 2 * k + 2], forward[2 * k + 2 + ij1] + transProb[2 * k + 2, 2 * k + 2]);
+                            forward[2 * k + 2 + ij] = ins1[k * ins1Stride + j] + TcLogAdd(forward[0 + ij1] + tp[2 * k + 2], forward[2 * k + 2 + ij1] + tp[(2 * k + 2) * tpStride + 2 * k + 2]);
                 }
 
                 ij += nmt;
@@ -397,8 +413,10 @@ public static partial class SequenceAligner
         int l = checked((int)(((long)I + 1) * (J + 1) * nmt));
         var backward = new float[l];
         Array.Fill(backward, TcLogZero);
-        var transProb = m.TransProb;
         var init = m.InitialDistribution;
+        var tp = FlattenTrans(m.TransProb, out int tpStride);
+        var ins0 = FlattenIns(insProb[0], out int ins0Stride);
+        var ins1 = FlattenIns(insProb[1], out int ins1Stride);
 
         for (int k = 0; k < nmt; k++)
             backward[nmt * ((I + 1) * (J + 1) - 1) + k] = init[k];
@@ -423,21 +441,21 @@ public static partial class SequenceAligner
                     int mm = ((i + 1) * (J + 1)) + j + 1;
                     float probXY = backward[0 + i1j1] + matchProb[mm];
                     for (int k = 0; k < nmt; k++)
-                        TcLogPlusEquals(ref backward[k + ij], probXY + transProb[k, 0]);
+                        TcLogPlusEquals(ref backward[k + ij], probXY + tp[k * tpStride]);
                 }
 
                 if (i < I)
                     for (int k = 0; k < nis; k++)
                     {
-                        TcLogPlusEquals(ref backward[0 + ij], backward[2 * k + 1 + i1j] + insProb[0][k, i + 1] + transProb[0, 2 * k + 1]);
-                        TcLogPlusEquals(ref backward[2 * k + 1 + ij], backward[2 * k + 1 + i1j] + insProb[0][k, i + 1] + transProb[2 * k + 1, 2 * k + 1]);
+                        TcLogPlusEquals(ref backward[0 + ij], backward[2 * k + 1 + i1j] + ins0[k * ins0Stride + i + 1] + tp[2 * k + 1]);
+                        TcLogPlusEquals(ref backward[2 * k + 1 + ij], backward[2 * k + 1 + i1j] + ins0[k * ins0Stride + i + 1] + tp[(2 * k + 1) * tpStride + 2 * k + 1]);
                     }
 
                 if (j < J)
                     for (int k = 0; k < nis; k++)
                     {
-                        TcLogPlusEquals(ref backward[0 + ij], backward[2 * k + 2 + ij1] + insProb[1][k, j + 1] + transProb[0, 2 * k + 2]);
-                        TcLogPlusEquals(ref backward[2 * k + 2 + ij], backward[2 * k + 2 + ij1] + insProb[1][k, j + 1] + transProb[2 * k + 2, 2 * k + 2]);
+                        TcLogPlusEquals(ref backward[0 + ij], backward[2 * k + 2 + ij1] + ins1[k * ins1Stride + j + 1] + tp[2 * k + 2]);
+                        TcLogPlusEquals(ref backward[2 * k + 2 + ij], backward[2 * k + 2 + ij1] + ins1[k * ins1Stride + j + 1] + tp[(2 * k + 2) * tpStride + 2 * k + 2]);
                     }
 
                 ij -= nmt;

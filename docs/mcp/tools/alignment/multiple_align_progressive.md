@@ -43,6 +43,7 @@ Guide-tree progressive MSA (Feng & Doolittle 1987 / Clustal-style): the ClustalW
 | `pwGapExtend` | number | No | type='protein' with distance='clustalw': ClustalW -PWGAPEXT (default 0.1). |
 | `format` | string | No | Optional output format; the alignment written in that format is returned in the result field 'formatted'. Biopython Bio.Align names: fasta, a2m, clustal, phylip, nexus, stockholm (byte for byte as Bio.Align.write; 'emboss:' + name selects the EMBOSS writer of the same name). EMBOSS -aformat names: pair, simple, srspair, srs, markx0, markx1, markx2, markx3, markx10, match, score, sam, tcoffee (two rows) and msf, mega, meganon, nexusnon, paup, paupnon, phylipnon, selex, treecon (any number of rows; EMBOSS prints the run date: now, UTC). Omit for no formatted text. |
 | `names` | array of string | No | Optional names of the rows for the formatted output (default seq1, seq2, ...). |
+| `fastDistanceCells` | integer | No | Work limit of the all-pairs distance stage when distance='linear': when the sum of length1 x length2 over all pairs of sequences is above this many dynamic-programming cells the distance of a pair is the k-tuple estimate (MUSCLE's k-mer similarity as identity, d = 1 - F^(1/k), k = 8 for nucleotides, 4 for amino acids; O(length1 + length2) per pair) instead of one global alignment per pair; 0 or less = always the alignments. Default 400000000 (the alignments cost about 7.6 ns per cell: 3 s at the limit); pairs with a sequence shorter than 2k keep the alignment distance. |
 
 ## Output Schema
 
