@@ -392,7 +392,7 @@ public class MappedSearchTests
                     {
                         string pattern = string.Concat(Enumerable.Repeat("ab", (len / 2) + 1))[..len] + "b";
                         byte[] dense = Dense(file.TextView.Alphabet, pattern);
-                        bool found = search.TryMatch(dense, out _, out _);
+                        bool found = search.TryMatch(dense, out int _, out int _);
                         Assert.That(found, Is.EqualTo(text.Contains(pattern, StringComparison.Ordinal)), $"{codec} {mode} flush {flush} '{pattern}'");
                     }
                 }

@@ -8,21 +8,23 @@ internal sealed partial class EsaSuffixIndex
     public long SuffixAt(long rank)
     {
         CheckRank(rank, nameof(rank));
-        return _index.Sa[(int)rank];
+        return _index.Sa[rank];
     }
 
     /// <summary><c>ISA[position]</c> from the navigation pack (built on first use).</summary>
+    /// <exception cref="NotSupportedException">The text has more than 2^31 - 2 symbols: the inverse suffix array of the navigation pack is 32-bit until S2.5.</exception>
     public long RankOf(long position)
     {
         CheckRank(position, nameof(position));
-        return _index.Navigation.Isa((int)position);
+        EsaNavigationPack pack = _index.Navigation;
+        return pack.Isa(IntBridge.Length(position, "EsaSuffixIndex.RankOf (the inverse suffix array of the navigation pack is 32-bit until S2.5)"));
     }
 
     /// <summary><c>LCP[rank]</c> from the compact LCP array (no pack needed).</summary>
     public long LcpAt(long rank)
     {
         CheckRank(rank, nameof(rank));
-        return _index.Lcp[(int)rank];
+        return _index.Lcp[rank];
     }
 
     /// <summary>The range minimum <c>min LCP[min + 1 .. max]</c> on the LCP pyramid of the navigation pack; equal ranks give the length of the suffix.</summary>
@@ -30,8 +32,8 @@ internal sealed partial class EsaSuffixIndex
     {
         CheckRank(rankA, nameof(rankA));
         CheckRank(rankB, nameof(rankB));
-        if (rankA == rankB) return _n - _index.Sa[(int)rankA];
-        return _index.Navigation.Pyramid.Min((int)Math.Min(rankA, rankB) + 1, (int)Math.Max(rankA, rankB));
+        if (rankA == rankB) return _n - _index.Sa[rankA];
+        return _index.Navigation.Pyramid.Min(Math.Min(rankA, rankB) + 1, Math.Max(rankA, rankB));
     }
 
     /// <summary>
@@ -45,14 +47,13 @@ internal sealed partial class EsaSuffixIndex
         if (_n == 0) return Root;
         if (rankA == rankB)
         {
-            int rank = (int)rankA;
-            long depth = _n - _index.Sa[rank] + 1;
-            return new IndexLocus(rank, rank, depth, depth);
+            long depth = _n - _index.Sa[rankA] + 1;
+            return new IndexLocus(rankA, rankA, depth, depth);
         }
-        int lo = (int)Math.Min(rankA, rankB);
-        int hi = (int)Math.Max(rankA, rankB);
+        long lo = Math.Min(rankA, rankB);
+        long hi = Math.Max(rankA, rankB);
         LcpPyramid pyramid = _index.Navigation.Pyramid;
-        int value = pyramid.Min(lo + 1, hi);
+        long value = pyramid.Min(lo + 1, hi);
         if (value == 0) return Root;
         return new IndexLocus(pyramid.PrevLess(lo, value), pyramid.NextLess(hi + 1, value) - 1, value, value);
     }

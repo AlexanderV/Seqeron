@@ -17,7 +17,8 @@ internal sealed partial class EsaIndex
     private readonly SaView _sa;
     private readonly SesaFile? _file;
     private readonly MappedSearch? _mappedSearch;
-    private readonly int _length;
+    private readonly long _length;
+    private readonly bool _mapped;
 
     /// <summary>
     /// The child-table layout that <see cref="Build"/> uses by default for a text of <paramref name="n"/> symbols (decided by prototype P3, Log of PROGRESS-S1.md): the tagged
@@ -32,6 +33,7 @@ internal sealed partial class EsaIndex
         _prepared = prepared;
         _sa = new SaView(sa);
         _length = text.Length;
+        _mapped = false;
         TextView = EsaText.FromString(text);
         Lcp = lcp;
         Child = child;
@@ -39,22 +41,26 @@ internal sealed partial class EsaIndex
     }
 
     private EsaIndex(SesaFile file, EsaText text, SaView sa, CompactLcp lcp, ChildTable child, EsaStatistics statistics)
+        : this(file, text, sa, lcp, child, statistics, new MappedSearch(file))
+    {
+    }
+
+    private EsaIndex(SesaFile? file, EsaText text, SaView sa, CompactLcp lcp, ChildTable child, EsaStatistics statistics, MappedSearch search)
     {
         _file = file;
         _sa = sa;
-        _length = IntBridge.Length(text.Length, "the text of the container (the 32-bit engine of S1: bridge removed by S2.4)");
+        _length = text.Length;
+        _mapped = true;
         TextView = text;
         Lcp = lcp;
         Child = child;
         Statistics = statistics;
-        // the 32-bit descent exists for a container whose views it can read (fewer than 2^31 - 1 symbols, POS_WIDTH 4, an LCP array of 8, 16 or 32 bits); for any other the constructor says so with NotSupportedException instead of leaving a null that
-        // the first search would meet (S2.4 replaces the descent and lifts the limit)
-        _mappedSearch = new MappedSearch(file);
+        _mappedSearch = search;
     }
 
     /// <summary>
-    /// The index that reads the sections of an opened container in place (work package 1b.7f): nothing is copied, the arrays stay in the mapping, which <paramref name="file"/> owns (disposing the index does not dispose it; the
-    /// facade does).
+    /// The index that reads a container in place (work package 1b.7f): nothing is copied, the arrays stay in the mapping, which <paramref name="file"/> owns (disposing the index does not dispose it; the facade does). A text of any
+    /// length is served: the 32-bit descent of S1 for the narrow views (fewer than 2^31 - 1 symbols, 4-byte entries), the long descent (<see cref="WideSearcher"/>) for every other container (work package S2.4).
     /// </summary>
     internal static EsaIndex FromFile(SesaFile file)
     {
@@ -62,11 +68,24 @@ internal sealed partial class EsaIndex
         return new EsaIndex(file, file.TextView, file.Sa, file.Lcp, file.Child, file.Statistics);
     }
 
-    /// <summary>The container this index reads in place, or null for an index that was built in memory.</summary>
+    /// <summary>
+    /// The index over views that a test made, with no container (the sections in memory at any stored width, or readers that compute them; <see cref="IsMapped"/> is true: the views are untrusted): <paramref name="search"/> is
+    /// the long descent over the same sections.
+    /// </summary>
+    internal static EsaIndex FromViews(EsaText text, SaView sa, CompactLcp lcp, ChildTable child, EsaStatistics statistics, MappedSearch search)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        ArgumentNullException.ThrowIfNull(lcp);
+        ArgumentNullException.ThrowIfNull(child);
+        ArgumentNullException.ThrowIfNull(search);
+        return new EsaIndex(null, text, sa, lcp, child, statistics, search);
+    }
+
+    /// <summary>The container this index reads in place, or null for an index that was built in memory (or made over views).</summary>
     internal SesaFile? File => _file;
 
-    /// <summary>True when the index reads a mapped container (the managed arrays do not exist then).</summary>
-    internal bool IsMapped => _file is not null;
+    /// <summary>True when the index reads mapped sections (a container or views of a test): the managed arrays do not exist then.</summary>
+    internal bool IsMapped => _mapped;
 
     /// <summary>The indexed text (the string given to <see cref="Build"/>); an index that reads a container has no string.</summary>
     /// <exception cref="NotSupportedException">The index reads a container: use <see cref="TextView"/>.</exception>
@@ -76,7 +95,11 @@ internal sealed partial class EsaIndex
     internal EsaText TextView { get; }
 
     /// <summary>Number of symbols n.</summary>
-    internal int Length => _length;
+    internal long TextLength => _length;
+
+    /// <summary>Number of symbols n as an <see cref="int"/> (the 32-bit engine: the navigator and the navigation pack).</summary>
+    /// <exception cref="NotSupportedException">The text has more than <see cref="int.MaxValue"/> symbols: use <see cref="TextLength"/>.</exception>
+    internal int Length => IntBridge.Length(_length, "EsaIndex.Length (the 64-bit member is TextLength)");
 
     /// <summary>The text after the order-preserving dense remap.</summary>
     /// <exception cref="NotSupportedException">The index reads a container: the packed section is the dense text.</exception>

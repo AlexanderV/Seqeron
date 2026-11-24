@@ -13,9 +13,9 @@ internal sealed class EsaTreeShim(EsaIndex index) : ISuffixTree
 
     public int NodeCount => checked((int)index.Statistics.NodeCount);
 
-    public int LeafCount => index.Statistics.LeafCount;
+    public int LeafCount => IntBridge.Length(index.Statistics.LeafCount, "LeafCount");
 
-    public int MaxDepth => index.Statistics.MaxDepth;
+    public int MaxDepth => IntBridge.Length(index.Statistics.MaxDepth, "MaxDepth");
 
     public bool IsEmpty => index.Length == 0;
 

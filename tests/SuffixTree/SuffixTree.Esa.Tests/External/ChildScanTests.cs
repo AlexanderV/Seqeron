@@ -265,7 +265,7 @@ public class ChildScanTests
     private static void Check(LcpChildCase c, ChildCodec codec, ChildScanResult r, uint[] child, string label)
     {
         Assert.That(child, Is.EqualTo(c.Child(codec)), $"{label}: CHILD ({codec})");
-        Assert.That((r.NodeCount, r.InternalCount, (int)r.LrsDepth, (int)r.LrsRank, r.MaxLcp, r.N), Is.EqualTo((c.Statistics.NodeCount, (long)c.Statistics.InternalCount, c.Statistics.LrsDepth, c.Statistics.LrsRank, (long)c.MaxLcp, (long)c.N)), $"{label}: statistics");
+        Assert.That((r.NodeCount, r.InternalCount, r.LrsDepth, r.LrsRank, r.MaxLcp, r.N), Is.EqualTo((c.Statistics.NodeCount, c.Statistics.InternalCount, c.Statistics.LrsDepth, c.Statistics.LrsRank, (long)c.MaxLcp, (long)c.N)), $"{label}: statistics");
     }
 
     [Test]
@@ -547,7 +547,7 @@ public class ChildScanTests
         {
             LcpChildCase c = LcpChildCase.Of(text);
             (ChildScanResult r, _) = Run(c, ChildCodec.Packed, 2, 3);
-            Assert.That(((int)r.LrsDepth, (int)r.LrsRank), Is.EqualTo((c.Statistics.LrsDepth, c.Statistics.LrsRank)), text);
+            Assert.That((r.LrsDepth, r.LrsRank), Is.EqualTo((c.Statistics.LrsDepth, c.Statistics.LrsRank)), text);
         }
     }
 

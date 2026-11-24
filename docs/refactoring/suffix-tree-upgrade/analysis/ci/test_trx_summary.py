@@ -85,11 +85,12 @@ class Summary(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertIn("no usable test result file", out)
 
-    def test_the_committed_expected_list_names_the_eight_red_tests(self):
-        # nine at the end of S2.2; S2.3 turned Width4_TheViewsOfAnOpenedContainerExist_NoNullAtAnySize green and removed its row (S2.4 removes two, S2.7 four, S2.8 the last two)
+    def test_the_committed_expected_list_names_the_six_red_tests(self):
+        # nine at the end of S2.2; S2.3 turned Width4_TheViewsOfAnOpenedContainerExist_NoNullAtAnySize green and removed its row; S2.4 turned Width4_TheStatisticsOfTheHeaderAreNotNarrowedToInt and
+        # Width4_TheDescentOverTheContainerAnswersContains_AtTheEndsOfTheText green and removed their rows (S2.7 removes four, S2.8 the last two)
         expected = trx_summary.read_expected(os.path.join(HERE, "large_expected_red.txt"))
-        self.assertEqual(len(expected), 8)
-        self.assertEqual(sorted(set(expected.values())), ["S2.4", "S2.7", "S2.8"])
+        self.assertEqual(len(expected), 6)
+        self.assertEqual(sorted(set(expected.values())), ["S2.7", "S2.8"])
         self.assertTrue(all(k.startswith(LARGE + ".") for k in expected))
 
 

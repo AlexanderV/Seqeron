@@ -44,7 +44,7 @@ public sealed partial class EsaSuffixTree : ISuffixTree, ISuffixTreeNavigation, 
     internal EsaSuffixTree(EsaIndex index, EsaStatistics? statistics = null)
     {
         ArgumentNullException.ThrowIfNull(index);
-        EnsureTextLength(index.Length);
+        EnsureTextLength(index.TextLength);
         _index = index;
         _statistics = statistics ?? index.Statistics;
         _text = index.TextView.AsTextSource();
@@ -205,7 +205,7 @@ public sealed partial class EsaSuffixTree : ISuffixTree, ISuffixTreeNavigation, 
         get
         {
             using ReadScope scope = Enter();
-            return _statistics.LeafCount;
+            return IntBridge.Length(_statistics.LeafCount, "EsaSuffixTree.LeafCount (the 64-bit member is ISuffixIndex.TextLength)");
         }
     }
 
@@ -215,7 +215,7 @@ public sealed partial class EsaSuffixTree : ISuffixTree, ISuffixTreeNavigation, 
         get
         {
             using ReadScope scope = Enter();
-            return _statistics.MaxDepth;
+            return IntBridge.Length(_statistics.MaxDepth, "EsaSuffixTree.MaxDepth (the 64-bit member is ISuffixIndex.TextLength)");
         }
     }
 

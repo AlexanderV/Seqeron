@@ -3,8 +3,6 @@
 # and marks the ones that are not in this list as UNEXPECTED, and the ones in this list that are green as to be removed. Each of S2.3-S2.8 removes the rows it turns
 # green; S2.8, the last, removes the file's rows and the `continue-on-error: true` of the job (the comment in suffix-tree-deep.yml names S2.8 as well).
 # Columns (TAB): the test as the .trx names it (Namespace.Class.Method); the package that makes it pass.
-SuffixTree.Esa.Tests.Large.LargeRedTests.Width4_TheStatisticsOfTheHeaderAreNotNarrowedToInt	S2.4
-SuffixTree.Esa.Tests.Large.LargeRedTests.Width4_TheDescentOverTheContainerAnswersContains_AtTheEndsOfTheText	S2.4
 SuffixTree.Esa.Tests.Large.LargeRedTests.Width4_TheStructureLevelIsNotRefusedForTheLengthOfTheText_ItFindsTheDamageOfTheShell	S2.8
 SuffixTree.Esa.Tests.Large.LargeRedTests.Width5_TheHeaderLevelOpens_InUnderFiveSecondsAndUnder100MbOfAnonymousMemory	S2.7
 SuffixTree.Esa.Tests.Large.LargeRedTests.Width5_TheSectionsLevelOpens_AndTheChecksumPassOver78GbOfHolesIsFast	S2.7

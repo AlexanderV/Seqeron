@@ -109,7 +109,7 @@ public class EsaSearchTests
             Assert.That(esa.Contains(p), Is.False, p);
             Assert.That(esa.CountOccurrences(p), Is.EqualTo(0), p);
             Assert.That(esa.FindAllOccurrences(p), Is.Empty, p);
-            Assert.That(esa.TryMatch(p, out _, out _), Is.False, p);
+            Assert.That(esa.TryMatch(p, out int _, out int _), Is.False, p);
         }
     }
 
@@ -205,7 +205,7 @@ public class EsaSearchTests
         for (int r = lo; r <= hi; r++) Assert.That(text.AsSpan(esa.SuffixArray[r]).StartsWith("ana"), Is.True);
         Assert.That(esa.TryMatch("a", out lo, out hi), Is.True);
         Assert.That(hi - lo + 1, Is.EqualTo(3));
-        Assert.That(() => esa.TryMatch("", out _, out _), Throws.TypeOf<ArgumentException>());
+        Assert.That(() => esa.TryMatch("", out int _, out int _), Throws.TypeOf<ArgumentException>());
     }
 
     [Test]

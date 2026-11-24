@@ -33,6 +33,7 @@ internal sealed unsafe class SesaFile : IDisposable
     private readonly CompactLcp _lcp;
     private readonly ChildTable _child;
     private readonly SaView _sa;
+    private readonly bool _narrow;
     private int _disposed;
     private SesaOpenReport _report;
 
@@ -56,6 +57,7 @@ internal sealed unsafe class SesaFile : IDisposable
         byte* pairs = parsed.Overflow is { } o ? data + o.Offset : null;
         bool tagged = parsed.Child.Codec == SesaFormat.ChildCodecTagged;
         bool narrow = n < int.MaxValue && posWidth == 4 && parsed.LcpKind != LcpKind.U64;
+        _narrow = narrow;
         if (narrow)
         {
             _lcp = CompactLcp.FromMapped(parsed.LcpKind, (int)(n + 1), data + parsed.Lcp.Offset, (uint*)pairs, (int)parsed.Lcp.Param0, isChecked);
@@ -187,15 +189,25 @@ internal sealed unsafe class SesaFile : IDisposable
     /// <summary>The child table (layout A; codec 1 packed, codec 2 tagged).</summary>
     internal ChildTable Child => _child;
 
-    /// <summary>The header statistics in the form of the in-memory index (LRS_RANK is 0 when there is no repeat).</summary>
+    /// <summary>
+    /// True when the 32-bit views that the descent of S1 reads exist (fewer than 2^31 - 1 symbols, 4-byte entries, an LCP array of 8, 16 or 32 bits): <see cref="MappedSearch"/> then runs its 32-bit loop, else the long descent
+    /// (<see cref="WideSearcher"/>). The same condition made the 32-bit forms of <see cref="Lcp"/> and <see cref="Child"/>.
+    /// </summary>
+    internal bool IsNarrow => _narrow;
+
+    /// <summary>The sections that the long descent reads (<see cref="WideSearcher.Create"/>), as pointers into the mapping.</summary>
+    internal WideSections WideSections() =>
+        new(IsChecked, _parsed.Header.PosWidth, _parsed.LcpKind, _parsed.Child.Codec == SesaFormat.ChildCodecTagged, _data + _parsed.Sa.Offset, _data + _parsed.Child.Offset, _data + _parsed.Lcp.Offset, _lcp, _data + _parsed.Text.Offset, _parsed.Bits, _parsed.Header.TextLength);
+
+    /// <summary>The header statistics in the form of the in-memory index (LRS_RANK is 0 when there is no repeat); every number is 64-bit, as the header has them.</summary>
     internal EsaStatistics Statistics
     {
         get
         {
             SesaHeader h = _parsed.Header;
-            int n = IntBridge.Length(h.TextLength, "the length of the text (EsaStatistics is 32-bit until S2.4)");
+            long n = h.TextLength;
             if (n == 0) return new EsaStatistics(0, 1, 0, 0, 0, 0, 0, 0);
-            return new EsaStatistics(n, h.NodeCount, IntBridge.Value(h.NodeCount - 1 - (n + 1L), "the number of internal nodes"), n, n, IntBridge.Value(h.LrsDepth, "LRS_DEPTH"), h.LrsDepth == 0 ? 0 : IntBridge.Value(h.LrsRank, "LRS_RANK"), 0);
+            return new EsaStatistics(n, h.NodeCount, h.NodeCount - 1 - (n + 1), n, n, h.LrsDepth, h.LrsDepth == 0 ? 0 : h.LrsRank, 0);
         }
     }
 

@@ -33,7 +33,8 @@ public class WideEngineSparseLargeTests : LargeFixtureBase
         SparseSpec spec = SparseSpec.For(f);
         SparseLayout layout = SparseContainer.Plan(spec);
         var patches = new List<SparsePatch>(SparseContainer.EndPatches(f, layout, 4096));
-        if (window >= 0) patches.AddRange(SparseContainer.WindowPatches(f, layout, Math.Max(0, window - 40), Math.Min(n, window + 40)));
+        // a window that the real ends (the first and the last 4096 ranks) already cover needs no patch of its own (patches must not overlap)
+        if (window >= 0 && window - 40 >= 4096 && window + 40 <= n - 4096) patches.AddRange(SparseContainer.WindowPatches(f, layout, window - 40, window + 40));
         return WriteContainer("wide", spec, patches);
     }
 
@@ -58,13 +59,13 @@ public class WideEngineSparseLargeTests : LargeFixtureBase
         ClosedFormText f = new PowerOfA(n);
         using SesaFile file = SesaFile.Open(Shell(n), At(access));
         EsaStatistics st = file.Statistics;
-        Assert.That((long)st.Length, Is.EqualTo(n));
+        Assert.That(st.Length, Is.EqualTo(n));
         Assert.That(st.NodeCount, Is.EqualTo(f.NodeCount));
-        Assert.That((long)st.InternalCount, Is.EqualTo(f.InternalCount));
-        Assert.That((long)st.LeafCount, Is.EqualTo(n));
-        Assert.That((long)st.MaxDepth, Is.EqualTo(n));
-        Assert.That((long)st.LrsDepth, Is.EqualTo(n - 1), "LRS_DEPTH of a^n");
-        Assert.That((long)st.LrsRank, Is.EqualTo(f.LrsRank));
+        Assert.That(st.InternalCount, Is.EqualTo(f.InternalCount));
+        Assert.That(st.LeafCount, Is.EqualTo(n));
+        Assert.That(st.MaxDepth, Is.EqualTo(n));
+        Assert.That(st.LrsDepth, Is.EqualTo(n - 1), "LRS_DEPTH of a^n");
+        Assert.That(st.LrsRank, Is.EqualTo(f.LrsRank));
     }
 
     [TestCaseSource(nameof(Cases))]
@@ -124,6 +125,73 @@ public class WideEngineSparseLargeTests : LargeFixtureBase
         Assert.That(idx.TryChild(a4, 'a', out IndexLocus child), Is.True);
         Assert.That(child, Is.EqualTo(new IndexLocus(5, n, 5, 5)));
         Assert.That(idx.TryChild(a4, 'b', out _), Is.False);
+    }
+
+    private sealed class CountingVisitor : IWideTreeVisitor
+    {
+        internal int Events { get; private set; }
+
+        public void VisitNode(long startIndex, long endIndex, long leafCount, long childCount, long depth) => Events++;
+
+        public void EnterBranch(int key) => Events++;
+
+        public void ExitBranch() => Events++;
+    }
+
+    [TestCaseSource(nameof(Cases))]
+    public void TheSearchSideOfTheIndex_CountsAndRanksAt64Bits_AndTheThirtyTwoBitShapesRefuseByName(long n, EsaAccessMode access)
+    {
+        using SesaFile file = SesaFile.Open(Shell(n), At(access));
+        EsaIndex index = EsaIndex.FromFile(file);
+        Assert.That(index.LongCount("aaaa"), Is.EqualTo(n - 3));
+        Assert.That(index.LongCount(A(3000)), Is.EqualTo(n - 2999));
+        Assert.That(index.LongCount("b"), Is.EqualTo(0));
+        Assert.That(index.LongCount(string.Empty), Is.EqualTo(n));
+        Assert.That(index.TryMatch("aaaa".AsSpan(), out long lo, out long hi), Is.True);
+        Assert.That((lo, hi), Is.EqualTo((4L, n)));
+        Assert.That(index.TryMatch("ab".AsSpan(), out lo, out hi), Is.False);
+        Assert.That((lo, hi), Is.EqualTo((0L, -1L)));
+        if (n > int.MaxValue)
+        {
+            NotSupportedException e = Assert.Throws<NotSupportedException>(() => index.CountOccurrences("aaaa"))!;
+            Assert.That(e.Message, Does.Contain("LongCount"));
+            Assert.Throws<NotSupportedException>(() => index.TryMatch("aaaa".AsSpan(), out int _, out int _));
+            Assert.Throws<NotSupportedException>(() => index.CountOccurrences(string.Empty));
+            Assert.That(index.CountOccurrences("b"), Is.EqualTo(0), "an absent pattern has no count to narrow");
+            Assert.That(index.TryMatch("b".AsSpan(), out int l32, out int h32), Is.False);
+            Assert.That((l32, h32), Is.EqualTo((0, -1)));
+        }
+        else
+        {
+            Assert.That((long)index.CountOccurrences("aaaa"), Is.EqualTo(n - 3));
+        }
+    }
+
+    [TestCaseSource(nameof(Cases))]
+    public void TheLongestRepeat_IsReportedAt64Bits_AndTheStringOfAnOverlongRepeatRefusesByName(long n, EsaAccessMode access)
+    {
+        using SesaFile file = SesaFile.Open(Shell(n), At(access));
+        EsaIndex index = EsaIndex.FromFile(file);
+        Assert.That(index.LrsLength, Is.EqualTo(n - 1), "a^n: the longest repeat is a^(n - 1)");
+        Assert.That(index.LrsPosition, Is.EqualTo(1), "SA[n - 1] = 1: the rank of the header is n - 1");
+        if (n - 1 > int.MaxValue)
+        {
+            NotSupportedException e = Assert.Throws<NotSupportedException>(() => index.LongestRepeatedSubstring())!;
+            Assert.That(e.Message, Does.Contain("LrsLength"));
+            Assert.Throws<NotSupportedException>(() => index.LongestRepeatedSubstringMemory());
+        }
+    }
+
+    [TestCaseSource(nameof(Cases))]
+    public void TheTraversalOfATextWhoseTableOfOccurrencesCannotExist_IsRefusedByName_BeforeTheFirstEvent(long n, EsaAccessMode access)
+    {
+        using SesaFile file = SesaFile.Open(Shell(n), At(access));
+        EsaIndex index = EsaIndex.FromFile(file);
+        var visitor = new CountingVisitor();
+        NotSupportedException e = Assert.Throws<NotSupportedException>(() => index.Traverse(visitor))!;
+        Assert.That(e.Message, Does.Contain("traversal"));
+        Assert.That(visitor.Events, Is.Zero, "the refusal comes before any event");
+        if (n > int.MaxValue) Assert.Throws<NotSupportedException>(() => index.GetAllSuffixes());
     }
 
     /// <summary>The page of <c>Locate</c> that straddles the rank 2^31 (and the pages at the ends): the positions are <c>n - rank</c>, the first of the page is at a rank below 2^31 and the last above it.</summary>

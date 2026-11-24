@@ -49,19 +49,36 @@ internal sealed partial class EsaIndex
     /// Whether <paramref name="pattern"/> is a substring of the text. The empty pattern is a substring of every text, the empty one included
     /// (<c>PersistentSuffixTree.Search.cs:10,18</c>).
     /// </summary>
-    internal bool Contains(ReadOnlySpan<char> pattern) => pattern.IsEmpty || TryMatch(pattern, out _, out _);
+    internal bool Contains(ReadOnlySpan<char> pattern) => pattern.IsEmpty || TryMatch(pattern, out long _, out long _);
 
     /// <summary>The number of occurrences of <paramref name="pattern"/>; the empty pattern counts n (<c>PersistentSuffixTree.Search.cs:35-36</c>).</summary>
+    /// <exception cref="NotSupportedException">The count does not fit an <see cref="int"/>: <see cref="LongCount(ReadOnlySpan{char})"/> is the 64-bit member.</exception>
     internal int CountOccurrences(ReadOnlySpan<char> pattern)
     {
         if (pattern.IsEmpty) return Length;
         return TryMatch(pattern, out int lo, out int hi) ? hi - lo + 1 : 0;
     }
 
+    /// <summary>The number of occurrences of <paramref name="pattern"/> at 64 bits; the empty pattern counts n.</summary>
+    internal long LongCount(ReadOnlySpan<char> pattern)
+    {
+        if (pattern.IsEmpty) return _length;
+        return TryMatch(pattern, out long lo, out long hi) ? hi - lo + 1 : 0;
+    }
+
+    /// <summary>The 64-bit count (see the span overload).</summary>
+    /// <exception cref="ArgumentNullException"><paramref name="pattern"/> is null.</exception>
+    internal long LongCount(string pattern)
+    {
+        SuffixTreeSearchContracts.EnsureNotNull(pattern, nameof(pattern));
+        return LongCount(pattern.AsSpan());
+    }
+
     /// <summary>
     /// All start positions of <paramref name="pattern"/> in suffix-array order (not ascending, allowed by the contract); the empty pattern returns
     /// <c>[0 .. n-1]</c> (<c>PersistentSuffixTree.Search.cs:58-60</c>).
     /// </summary>
+    /// <exception cref="NotSupportedException">The list does not fit an array of <see cref="int"/> positions: <see cref="Locate(long, long, long, Span{long})"/> pages through it.</exception>
     internal IReadOnlyList<int> FindAllOccurrences(ReadOnlySpan<char> pattern)
     {
         if (pattern.IsEmpty)
@@ -75,32 +92,39 @@ internal sealed partial class EsaIndex
     }
 
     /// <summary>
-    /// Lazy locate of the ranks <c>[lo..hi]</c>: writes up to <paramref name="positions"/>.Length start positions after skipping <paramref name="skip"/> of them in
-    /// suffix-array order and returns the number written. The interval must be a valid rank interval of non-empty suffixes (<c>1 &lt;= lo &lt;= hi &lt;= n</c>), as returned by
-    /// <see cref="TryMatch"/>.
+    /// The page of the ranks <c>[lo..hi]</c> that starts <paramref name="skip"/> suffixes in and holds at most <paramref name="capacity"/> of them: the first rank of the page and how many it has (0 when <paramref name="skip"/> is
+    /// beyond the interval). The interval must be a valid rank interval of the text of <paramref name="length"/> symbols (<c>0 &lt;= lo &lt;= hi &lt;= n</c>; the callers use <c>1 &lt;= lo</c>: rank 0 is the empty suffix).
     /// </summary>
-    internal int Locate(int lo, int hi, long skip, Span<int> positions)
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="skip"/> is negative, or the interval is not a rank interval of the text.</exception>
+    internal static int PageOf(long length, long lo, long hi, long skip, int capacity, out long start)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(skip);
-        if ((uint)lo > (uint)hi || hi > Length) throw new ArgumentOutOfRangeException(nameof(lo), "not a rank interval of this index");
-        long available = (long)hi - lo + 1 - skip;
+        if ((ulong)lo > (ulong)hi || hi > length) throw new ArgumentOutOfRangeException(nameof(lo), "not a rank interval of this index");
+        start = lo;
+        long available = hi - lo + 1 - skip;
         if (available <= 0) return 0;
-        int count = (int)Math.Min(available, positions.Length);
-        Sa.CopyTo((int)(lo + skip), positions[..count]);
+        start = lo + skip;
+        return available < capacity ? (int)available : capacity; // (int): below the capacity, which is an int
+    }
+
+    /// <summary>
+    /// Lazy locate of the ranks <c>[lo..hi]</c>: writes up to <paramref name="positions"/>.Length start positions after skipping <paramref name="skip"/> of them in
+    /// suffix-array order and returns the number written. The interval must be a valid rank interval of non-empty suffixes (<c>1 &lt;= lo &lt;= hi &lt;= n</c>), as returned by
+    /// <see cref="TryMatch(ReadOnlySpan{char}, out long, out long)"/>.
+    /// </summary>
+    /// <exception cref="InvalidDataException">A position of the page is not a 32-bit number (a text above 2^31 symbols: use the 64-bit overload).</exception>
+    internal int Locate(long lo, long hi, long skip, Span<int> positions)
+    {
+        int count = PageOf(_length, lo, hi, skip, positions.Length, out long start);
+        if (count > 0) Sa.CopyTo(start, positions[..count]);
         return count;
     }
 
-    /// <summary>The same for 64-bit positions (the index contract).</summary>
-    internal int Locate(int lo, int hi, long skip, Span<long> positions)
+    /// <summary>The same for 64-bit positions (the index contract): the page may start above rank 2^31 and hold positions above 2^31.</summary>
+    internal int Locate(long lo, long hi, long skip, Span<long> positions)
     {
-        ArgumentOutOfRangeException.ThrowIfNegative(skip);
-        if ((uint)lo > (uint)hi || hi > Length) throw new ArgumentOutOfRangeException(nameof(lo), "not a rank interval of this index");
-        long available = (long)hi - lo + 1 - skip;
-        if (available <= 0) return 0;
-        int count = (int)Math.Min(available, positions.Length);
-        int start = (int)(lo + skip);
-        SaView sa = Sa;
-        for (int i = 0; i < count; i++) positions[i] = sa[start + i];
+        int count = PageOf(_length, lo, hi, skip, positions.Length, out long start);
+        if (count > 0) Sa.CopyTo(start, positions[..count]);
         return count;
     }
 
@@ -108,16 +132,34 @@ internal sealed partial class EsaIndex
     /// Finds the suffix-array interval of the NON-EMPTY <paramref name="pattern"/>: the ranks <c>[lo..hi]</c> of the suffixes that start with it (never rank 0).
     /// False when the pattern does not occur.
     /// </summary>
+    /// <exception cref="NotSupportedException">A rank is above <see cref="int.MaxValue"/> (a text of 2^31 symbols and more): the overload with 64-bit ranks answers it.</exception>
     internal bool TryMatch(ReadOnlySpan<char> pattern, out int lo, out int hi)
     {
         lo = 0;
         hi = -1;
         if (pattern.IsEmpty) throw new ArgumentException("the empty pattern has no rank interval; handle it before calling", nameof(pattern));
-        if (Length == 0) return false;
+        if (_length == 0) return false;
         if (IsMapped) return MatchMapped(pattern, out lo, out hi);
         return Prepared.Width == SymbolWidth.Byte
             ? Match<byte>(Prepared.Bytes, pattern, out lo, out hi)
             : Match<ushort>(Prepared.UShorts, pattern, out lo, out hi);
+    }
+
+    /// <summary>
+    /// <see cref="TryMatch(ReadOnlySpan{char}, out int, out int)"/> at 64-bit ranks: the ranks of the suffixes that start with the NON-EMPTY <paramref name="pattern"/> (never rank 0), over any index: the managed arrays and the
+    /// narrow views answer with the numbers of the 32-bit descent, widened; the other containers with the long descent.
+    /// </summary>
+    internal bool TryMatch(ReadOnlySpan<char> pattern, out long lo, out long hi)
+    {
+        lo = 0;
+        hi = -1;
+        if (pattern.IsEmpty) throw new ArgumentException("the empty pattern has no rank interval; handle it before calling", nameof(pattern));
+        if (_length == 0) return false;
+        if (IsMapped) return MatchMapped(pattern, out lo, out hi);
+        bool found = TryMatch(pattern, out int l, out int h);
+        lo = l;
+        hi = h;
+        return found;
     }
 
     private bool Match<TSym>(ReadOnlySpan<TSym> text, ReadOnlySpan<char> pattern, out int lo, out int hi)
@@ -234,6 +276,30 @@ internal sealed partial class EsaIndex
         return _mappedSearch!.TryMatch(pat, out lo, out hi);
     }
 
+    /// <summary><see cref="MatchMapped(ReadOnlySpan{char}, out int, out int)"/> at 64-bit ranks.</summary>
+    private bool MatchMapped(ReadOnlySpan<char> pattern, out long lo, out long hi)
+    {
+        lo = 0;
+        hi = -1;
+        int[] map = SymbolOf;
+        Span<byte> pat = pattern.Length <= StackPatternLimit ? stackalloc byte[pattern.Length] : new byte[pattern.Length];
+        if (!Dense(map, pattern, pat)) return false;
+        return _mappedSearch!.TryMatch(pat, out lo, out hi);
+    }
+
+    /// <summary>The pattern as dense symbols; false when a code unit is not in the alphabet of the text.</summary>
+    private static bool Dense(int[] map, ReadOnlySpan<char> pattern, Span<byte> dense)
+    {
+        for (int i = 0; i < pattern.Length; i++)
+        {
+            char c = pattern[i];
+            int s = c < map.Length ? map[c] : -1;
+            if (s < 0) return false;
+            dense[i] = (byte)s;
+        }
+        return true;
+    }
+
     /// <summary>
     /// The readable reference of <see cref="MappedSearch"/> (work package 1b.9a replaced it on the hot path): <see cref="Descend{TChild, TSym}"/> over the sections of a container through the typed views (<see cref="SaView"/>, <see cref="CompactLcp"/>,
     /// <see cref="MappedChild"/>, <see cref="MappedTextReader"/>). The tests compare the two on valid and on damaged files. The same walk, with the reads of an untrusted file: the suffix array is a <see cref="SaView"/>, the text is the packed reader (a symbol at or beyond the
@@ -242,7 +308,7 @@ internal sealed partial class EsaIndex
     /// </summary>
     internal static bool DescendMapped(MappedChild child, SaView sa, CompactLcp lcp, MappedTextReader text, ReadOnlySpan<byte> pat, bool isChecked, out int lo, out int hi)
     {
-        int n = (int)text.Length;
+        int n = IntBridge.Length(text.Length, "EsaIndex.DescendMapped (the 32-bit reference; use DescendMappedWide)");
         int m = pat.Length;
         int lb = 0, rb = n, ell = 0, c = 0;
         bool isLast = true;
@@ -308,12 +374,83 @@ internal sealed partial class EsaIndex
         return true;
     }
 
+    /// <summary>
+    /// The readable reference of the long descent (<see cref="WideSearch"/>): <see cref="DescendMapped"/> at 64-bit ranks, positions and lengths, over the long members of the typed views (<see cref="SaView"/>, <see cref="CompactLcp"/>,
+    /// <see cref="MappedChild"/>, <see cref="MappedTextReader"/>), with the same checks in Checked mode. It reads any stored width and any LCP kind; the tests compare it with the long descent and with the 32-bit descent on valid and damaged files.
+    /// </summary>
+    internal static bool DescendMappedWide(MappedChild child, SaView sa, CompactLcp lcp, MappedTextReader text, ReadOnlySpan<byte> pat, bool isChecked, out long lo, out long hi)
+    {
+        long n = text.Length;
+        long m = pat.Length;
+        long lb = 0, rb = n, ell = 0, c = 0;
+        bool isLast = true;
+        Span<byte> edge = stackalloc byte[EdgeChunk];
+        while (c < m)
+        {
+            int symbol = pat[checked((int)c)]; // c < m = pat.Length
+            long a = lb;
+            long boundary = child.FirstLIndex(lb, rb, isLast);
+            if (isChecked && boundary >= 0 && (boundary <= a || boundary > rb)) ThrowDamagedChildTable();
+            long b;
+            while (true)
+            {
+                b = boundary >= 0 ? boundary - 1 : rb;
+                long p = sa[a] + ell;
+                int key = (ulong)p < (ulong)n ? (int)text.Symbol(p) : -1;
+                if (key == symbol) break;
+                if (key > symbol || boundary < 0)
+                {
+                    lo = 0;
+                    hi = -1;
+                    return false;
+                }
+                a = boundary;
+                boundary = child.NextLIndex(boundary, rb);
+                if (isChecked && boundary >= 0 && (boundary <= a || boundary > rb)) ThrowDamagedChildTable();
+            }
+
+            bool childIsLast = boundary < 0;
+            if (a == b)
+            {
+                long start = sa[a] + c;
+                if ((ulong)start > (ulong)n || m - c > n - start || !EdgeEquals(text, start, pat[checked((int)c)..], edge))
+                {
+                    lo = 0;
+                    hi = -1;
+                    return false;
+                }
+                lo = a;
+                hi = a;
+                return true;
+            }
+
+            long childEll = lcp[child.FirstLIndex(a, b, childIsLast)];
+            if (isChecked && (childEll <= ell || childEll > n)) ThrowDamagedChildTable();
+            long limit = Math.Min(childEll, m);
+            long from = sa[a] + c;
+            if (limit > c + 1 && ((ulong)from >= (ulong)n || !EdgeEquals(text, from + 1, pat.Slice(checked((int)(c + 1)), checked((int)(limit - c - 1))), edge)))
+            {
+                lo = 0;
+                hi = -1;
+                return false;
+            }
+            c = limit;
+            lb = a;
+            rb = b;
+            ell = childEll;
+            isLast = childIsLast;
+        }
+        lo = lb;
+        hi = rb;
+        return true;
+    }
+
     private const int EdgeChunk = 256;
 
     /// <summary>Whether the symbols of the text from <paramref name="start"/> equal <paramref name="expected"/> (the caller checked that they lie inside the text), compared in chunks through the packed reader.</summary>
-    private static bool EdgeEquals(MappedTextReader text, int start, ReadOnlySpan<byte> expected, Span<byte> buffer)
+    private static bool EdgeEquals(MappedTextReader text, long start, ReadOnlySpan<byte> expected, Span<byte> buffer)
     {
-        if ((uint)start > (uint)text.Length || expected.Length > text.Length - start) return false;
+        if ((ulong)start > (ulong)text.Length || expected.Length > text.Length - start) return false;
         for (int done = 0; done < expected.Length; done += buffer.Length)
         {
             int take = Math.Min(buffer.Length, expected.Length - done);

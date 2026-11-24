@@ -1,28 +1,75 @@
 namespace SuffixTree.Esa;
 
+/// <summary>
+/// The visitor of <see cref="EsaIndex.Traverse{TVisitor}"/> at 64 bits (work package S2.4): the events of <see cref="ISuffixTreeVisitor"/> whose numbers (the position of an edge, the leaf count, the child count, the depth) are <see cref="long"/>,
+/// because a text above 2^31 symbols has nodes whose depth and leaf count are above <see cref="int.MaxValue"/>. The root of a text of n symbols reports <c>n + 1</c> leaves.
+/// </summary>
+internal interface IWideTreeVisitor
+{
+    /// <summary>Called when entering a node (<c>endIndex</c> is -1 for a leaf: boundless).</summary>
+    void VisitNode(long startIndex, long endIndex, long leafCount, long childCount, long depth);
+
+    /// <summary>Called before visiting a child branch (<paramref name="key"/>: the code unit that the edge starts with, -1 for the terminator).</summary>
+    void EnterBranch(int key);
+
+    /// <summary>Called after visiting a child branch.</summary>
+    void ExitBranch();
+}
+
+/// <summary>
+/// An <see cref="ISuffixTreeVisitor"/> seen as an <see cref="IWideTreeVisitor"/>: every number that the 32-bit surface carries goes through <see cref="IntBridge.Length"/>, so that a node that the 32-bit visitor cannot be told about
+/// (a depth or a leaf count above <see cref="int.MaxValue"/>) is a <see cref="NotSupportedException"/> that names the member and the 64-bit visitor, never a wrapped number.
+/// </summary>
+internal readonly struct NarrowingVisitor(ISuffixTreeVisitor inner) : IWideTreeVisitor
+{
+    private const string Member = "EsaIndex.Traverse (the 32-bit visitor; the 64-bit one is IWideTreeVisitor)";
+
+    /// <inheritdoc />
+    public void VisitNode(long startIndex, long endIndex, long leafCount, long childCount, long depth) =>
+        inner.VisitNode(IntBridge.Length(startIndex, Member), endIndex < 0 ? -1 : IntBridge.Length(endIndex, Member), IntBridge.Length(leafCount, Member), IntBridge.Length(childCount, Member), IntBridge.Length(depth, Member));
+
+    /// <inheritdoc />
+    public void EnterBranch(int key) => inner.EnterBranch(key);
+
+    /// <inheritdoc />
+    public void ExitBranch() => inner.ExitBranch();
+}
+
 internal sealed partial class EsaIndex
 {
     /// <summary>One open internal node of the iterative walk: the next child starts at <c>A</c>, the one after it at <c>NextBoundary</c> (-1: the next child is the last).</summary>
     private struct TraverseFrame
     {
-        internal int A;
-        internal int NextBoundary;
-        internal int Rb;
-        internal int Ell;
+        internal long A;
+        internal long NextBoundary;
+        internal long Rb;
+        internal long Ell;
     }
 
     /// <summary>
-    /// Walks the lcp-interval tree top-down in suffix-array order and emits the events of the Ukkonen tree
-    /// (<c>SuffixTree.Diagnostics.cs</c>, <c>Traverse</c>): <c>VisitNode(start, end, leafCount, childCount, parentDepth)</c> for the root, then for every child in ascending
-    /// key order (the terminator, key -1, first) <c>EnterBranch(key)</c>, the child's node and subtree, <c>ExitBranch()</c>. Positions: a leaf has <c>start = SA[i] + parentDepth</c>
-    /// and <c>end = -1</c> (boundless); an internal node has <c>start = occ + parentDepth</c> and <c>end = occ + depth</c> with <c>occ = min SA[lb..rb]</c> (hypothesis H-OCC,
-    /// <see cref="LeftmostOccurrence"/>); the root is <c>(0, 0, n + 1, children, 0)</c>, and the empty text has the single event <c>(0, 0, 0, 0, 0)</c>. The walk is iterative
-    /// (a^n is a chain of n internal nodes) and needs a transient 4 bytes per rank for the occurrences plus one frame per open node.
+    /// Walks the lcp-interval tree top-down in suffix-array order and emits the events of the Ukkonen tree to a 32-bit visitor
+    /// (<c>SuffixTree.Diagnostics.cs</c>, <c>Traverse</c>); see <see cref="Traverse{TVisitor}"/> for the walk, which is the same at 64 bits.
     /// </summary>
+    /// <exception cref="NotSupportedException">A number of an event does not fit the 32-bit visitor, or the text is too long for the transient table of the walk.</exception>
     internal void Traverse(ISuffixTreeVisitor visitor)
     {
         ArgumentNullException.ThrowIfNull(visitor);
-        int n = Length;
+        Traverse(new NarrowingVisitor(visitor));
+    }
+
+    /// <summary>
+    /// Walks the lcp-interval tree top-down in suffix-array order and emits the events of the Ukkonen tree (<c>SuffixTree.Diagnostics.cs</c>, <c>Traverse</c>): <c>VisitNode(start, end, leafCount, childCount, parentDepth)</c> for the root,
+    /// then for every child in ascending key order (the terminator, key -1, first) <c>EnterBranch(key)</c>, the child's node and subtree, <c>ExitBranch()</c>. Positions: a leaf has <c>start = SA[i] + parentDepth</c>
+    /// and <c>end = -1</c> (boundless); an internal node has <c>start = occ + parentDepth</c> and <c>end = occ + depth</c> with <c>occ = min SA[lb..rb]</c> (hypothesis H-OCC,
+    /// <see cref="LeftmostOccurrence"/>); the root is <c>(0, 0, n + 1, children, 0)</c>, and the empty text has the single event <c>(0, 0, 0, 0, 0)</c>. The walk is iterative
+    /// (a^n is a chain of n internal nodes) and needs a transient 4 bytes per rank for the occurrences plus one frame per open node. Every number is 64-bit; the table of the occurrences is a managed array, so a text of more than
+    /// <see cref="Array.MaxLength"/> - 1 symbols is refused before the first event.
+    /// </summary>
+    /// <exception cref="NotSupportedException">The text is too long for the transient table of the occurrences (<see cref="LeftmostOccurrence.Compute(SaView, CompactLcp)"/>).</exception>
+    internal void Traverse<TVisitor>(TVisitor visitor)
+        where TVisitor : IWideTreeVisitor
+    {
+        long n = _length;
         if (n == 0)
         {
             visitor.VisitNode(0, 0, 0, 0, 0);
@@ -34,7 +81,7 @@ internal sealed partial class EsaIndex
         bool mapped = IsMapped;
         int[] occurrence = LeftmostOccurrence.Compute(sa, Lcp);
         ulong[]? seen = mapped ? new ulong[(n >> 6) + 1] : null; // one bit per text position: the leaves of a suffix array that is a permutation are distinct (a repeated one would make a visitor that links leaves by position go round in a circle)
-        int firstOfRoot = Child.FirstLIndex(0, n, true);
+        long firstOfRoot = Child.FirstLIndex(0, n, true);
         if (mapped) CheckFirst(firstOfRoot, 0, n);
         visitor.VisitNode(0, 0, n + 1, CountChildren(firstOfRoot, n), 0);
 
@@ -51,14 +98,14 @@ internal sealed partial class EsaIndex
             }
 
             bool lastChild = f.NextBoundary < 0;
-            int a = f.A;
-            int b = lastChild ? f.Rb : f.NextBoundary - 1;
-            int next = lastChild ? -1 : Child.NextLIndex(f.NextBoundary, f.Rb);
+            long a = f.A;
+            long b = lastChild ? f.Rb : f.NextBoundary - 1;
+            long next = lastChild ? -1 : Child.NextLIndex(f.NextBoundary, f.Rb);
             if (mapped && (b < a || b > f.Rb || (next >= 0 && (next <= f.NextBoundary || next > f.Rb)))) throw DamagedChildTable();
             frames[top] = new TraverseFrame { A = b + 1, NextBoundary = next, Rb = f.Rb, Ell = f.Ell };
 
-            int p = sa[a] + f.Ell;
-            visitor.EnterBranch((uint)p < (uint)n ? text[p] : -1);
+            long p = sa[a] + f.Ell;
+            visitor.EnterBranch((ulong)p < (ulong)n ? text[p] : -1);
             if (a == b)
             {
                 if (seen is not null) MarkLeaf(seen, sa[a], n);
@@ -67,24 +114,24 @@ internal sealed partial class EsaIndex
                 continue;
             }
 
-            int first = Child.FirstLIndex(a, b, lastChild);
+            long first = Child.FirstLIndex(a, b, lastChild);
             if (mapped) CheckFirst(first, a, b);
-            int ell = Lcp[first];
+            long ell = Lcp[first];
             if (mapped && (ell <= f.Ell || ell > n)) throw DamagedChildTable();
-            int occ = occurrence[first];
+            long occ = occurrence[first];
             visitor.VisitNode(occ + f.Ell, occ + ell, b - a + 1, CountChildren(first, b), f.Ell);
             frames.Add(new TraverseFrame { A = a, NextBoundary = first, Rb = b, Ell = ell });
         }
     }
 
     /// <summary>Number of children of an internal interval ending at <paramref name="rb"/> whose first l-index is <paramref name="first"/>: the l-indices plus the first child.</summary>
-    private int CountChildren(int first, int rb)
+    private long CountChildren(long first, long rb)
     {
-        int count = 1;
-        for (int k = first; k >= 0;)
+        long count = 1;
+        for (long k = first; k >= 0;)
         {
             count++;
-            int next = Child.NextLIndex(k, rb);
+            long next = Child.NextLIndex(k, rb);
             if (IsMapped && next >= 0 && (next <= k || next > rb)) throw DamagedChildTable();
             k = next;
         }
@@ -92,16 +139,16 @@ internal sealed partial class EsaIndex
     }
 
     /// <summary>The first l-index of an interval that spans <c>[lb..rb]</c> must lie in <c>(lb, rb]</c>.</summary>
-    private static void CheckFirst(int first, int lb, int rb)
+    private static void CheckFirst(long first, long lb, long rb)
     {
         if (first <= lb || first > rb) throw DamagedChildTable();
     }
 
     /// <summary>Records the text position of a leaf; a position outside the text, or one that was reported before, means that the suffix array of the file is not a permutation.</summary>
-    private static void MarkLeaf(ulong[] seen, int position, int n)
+    private static void MarkLeaf(ulong[] seen, long position, long n)
     {
-        if ((uint)position > (uint)n) throw new InvalidDataException("the suffix array holds a position outside the text: the file is damaged");
-        ulong bit = 1UL << (position & 63);
+        if ((ulong)position > (ulong)n) throw new InvalidDataException("the suffix array holds a position outside the text: the file is damaged");
+        ulong bit = 1UL << (int)(position & 63); // (int): the shift count, masked to 0..63
         ref ulong word = ref seen[position >> 6];
         if ((word & bit) != 0) throw new InvalidDataException("the suffix array names a text position twice: the file is damaged");
         word |= bit;

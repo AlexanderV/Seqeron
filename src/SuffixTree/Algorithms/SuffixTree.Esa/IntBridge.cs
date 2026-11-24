@@ -3,10 +3,11 @@ using System.Runtime.CompilerServices;
 namespace SuffixTree.Esa;
 
 /// <summary>
-/// The checked bridges from the 64-bit views of work package S2.3 to the 32-bit engine that stays until S2.4 and S2.5 (<see cref="MappedSearch"/>, <c>EsaIndex.*</c>, <see cref="LcpIntervalScan"/>, <c>EsaNavigator</c>, <c>EsaNavigationPack</c>): where the
-/// engine needs an <see cref="int"/> from a <see cref="long"/>, the conversion is one of these two and never an unchecked cast. A length or a count that the 32-bit engine cannot hold is a <see cref="NotSupportedException"/> that names the
-/// member (the facade says the same for the contract: use the long member), a value that was read from a file and does not fit is an <see cref="InvalidDataException"/> (the file is damaged for an engine whose text fits the integers). Every use
-/// of this class is a place that S2.4 / S2.5 removes; the list is in the log of PROGRESS-S2.md.
+/// The checked bridges from the 64-bit views and the 64-bit search engine of stage S2 to the places that still read 32-bit numbers: where such a place needs an <see cref="int"/> from a <see cref="long"/>, the conversion is one of these two and
+/// never an unchecked cast. A length or a count that the 32-bit place cannot hold is a <see cref="NotSupportedException"/> that names the member (and the 64-bit one to use), a value that was read from a file and does not fit is an
+/// <see cref="InvalidDataException"/> (the file is damaged for an engine whose text fits the integers). Work package S2.4 removed the bridges of the search side (the descent, <c>EsaStatistics</c>, <c>LeftmostOccurrence</c>, the constructor of
+/// <see cref="MappedSearch"/>: they are 64-bit now); what stays is the 32-bit surface that the public members keep until S2.6 (<c>EsaIndex.Length</c>, <c>CountOccurrences</c>, <c>Traverse(ISuffixTreeVisitor)</c>, the facade) and the navigation
+/// side that S2.5 replaces (<c>EsaNavigator</c>, <c>EsaNavigationPack</c>, the 32-bit members of <c>SaView</c>, <c>MappedChild</c> and <c>LcpPyramid</c>); the list is in the log of PROGRESS-S2.md.
 /// </summary>
 internal static class IntBridge
 {

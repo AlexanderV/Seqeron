@@ -82,7 +82,7 @@ public class EsaIndexTests
             if (st.LrsDepth > 0)
             {
                 // the rank is the left boundary of an lcp-interval of that depth: the suffix at that rank starts with the repeat
-                int count = BruteForce.Occurrences(s, s.Substring(index.SuffixArray[st.LrsRank], st.LrsDepth)).Count;
+                int count = BruteForce.Occurrences(s, s.Substring(index.SuffixArray[(int)st.LrsRank], (int)st.LrsDepth)).Count;
                 Assert.That(count, Is.GreaterThanOrEqualTo(2), $"'{s}'");
             }
         }

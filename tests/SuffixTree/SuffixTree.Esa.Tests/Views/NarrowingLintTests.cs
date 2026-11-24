@@ -10,10 +10,30 @@ public class NarrowingLintTests
     /// <summary>The casts that stay and why each cannot wrap (key: <see cref="NarrowingLint.Cast.Key"/>). A new entry needs a reason in the log of the package.</summary>
     private static readonly Dictionary<string, string> AllowList = new(StringComparer.Ordinal)
     {
+        ["MappedSearch.cs|(int)file.TextReader.Length"] = "the constructor of the 32-bit loop: reached only for SesaFile.IsNarrow, a text of fewer than 2^31 - 1 symbols (the long descent serves every other container)",
+        ["MappedSearch.cs|(int)_lcp.Length"] = "the same branch: the LCP array has n + 1 entries, which fit an int for a narrow container",
+        ["MappedSearch.cs|(int)((((long)pattern.Length * _bits) + 63) / 64)"] = "the line of S1: the 64-bit words of the packed pattern, at most 8 bits per symbol of an int-length span",
+        ["MappedSearch.cs|(int)(((w << (int)(bit & 7)) & 0xFFFF) >> (16 - bits))"] = "Symbol (S1): a 16-bit window shifted into a symbol of at most 8 bits",
+        ["MappedSearch.cs|(int)(bit & 7)"] = "Symbol (S1): a shift count, masked to 0..7",
+        ["EsaIndex.Search.cs|(int)available"] = "PageOf: taken only when available is below the capacity, which is an int",
+        ["EsaIndex.Search.cs|(uint)p"] = "DescendMapped, the 32-bit readable reference of the 32-bit loop (S1): ranks and positions are ints there, tested as unsigned numbers; the long reference is DescendMappedWide",
+        ["EsaIndex.Search.cs|(uint)n"] = "DescendMapped, the 32-bit reference: the unsigned bound of an int position",
+        ["EsaIndex.Search.cs|(uint)start"] = "DescendMapped, the 32-bit reference: an int position tested as an unsigned number",
+        ["EsaIndex.Search.cs|(uint)from"] = "DescendMapped, the 32-bit reference: an int position tested as an unsigned number",
+        ["EsaIndex.Search.cs|(int)text.Symbol(p)"] = "a dense symbol of at most 8 bits read from the packed text (in both references)",
+        ["EsaIndex.Analysis.cs|(int)n"] = "CountDistinctSubstringsByLength: taken only when n is below maxLength, which is an int",
+        ["EsaIndex.Analysis.cs|(int)value"] = "CountDistinctSubstringsByLength: taken only when the value is below m, which is an int",
+        ["EsaIndex.Traverse.cs|(int)(position & 63)"] = "MarkLeaf: the shift count of a bit of the position, masked to 0..63",
+        ["ChildTable.cs|(int)rank"] = "ChildTable.Rank: taken only when (ulong)rank <= int.MaxValue on the same line (a managed table has 32-bit ranks)",
+        ["External/Sesa/SesaFile.cs|(int)(n + 1)"] = "the narrow branch of the constructor (S2.3): n < int.MaxValue is the condition of the branch",
+        ["External/Sesa/SesaFile.cs|(int)parsed.Lcp.Param0"] = "the narrow branch: the number of overflow pairs is at most n + 1 (the header reader checks it), which fits an int",
+        ["External/Sesa/SesaFile.cs|(int)section.Length"] = "Payload: after the test that refuses a section of more than int.MaxValue bytes (a span cannot hold one)",
+        ["IntBridge.cs|(int)length"] = "IntBridge.Length: the checked narrowing itself, after the test of the line above",
+        ["IntBridge.cs|(int)value"] = "IntBridge.Value: the checked narrowing itself, after the test of the line above",
     };
 
-    /// <summary>The number of entries that the log of the package says (the list does not grow without a reason).</summary>
-    private const int AllowListSize = 0;
+    /// <summary>The number of entries that the log of the package says (the list does not grow without a reason in the log).</summary>
+    private const int AllowListSize = 20;
 
     private static List<NarrowingLint.Cast> Scan()
     {
@@ -66,7 +86,7 @@ public class NarrowingLintTests
     public void EveryCastToIntOrUint_InTheFilesOfTheSearchSide_IsOnTheAllowList()
     {
         List<string> unlisted = [.. Scan().Where(c => !AllowList.ContainsKey(c.Key)).Select(c => $"{c.File}:{c.Line} ({c.Type}){c.Operand}")];
-        Assert.That(unlisted, Is.Empty, "a cast that can wrap a 64-bit number: remove it (use the long, or IntBridge, or checked(...)) or put it on the allow-list with the reason why it cannot wrap");
+        Assert.That(unlisted, Is.Empty, "a cast that can wrap a 64-bit number: remove it (use the long, or IntBridge, or checked(...)) or put it on the allow-list with the reason why it cannot wrap:\n" + string.Join("\n", unlisted));
     }
 
     [Test]

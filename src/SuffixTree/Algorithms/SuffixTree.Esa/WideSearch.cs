@@ -128,7 +128,6 @@ internal readonly struct WideCells<TAccess, TPos, TLcp>(TPos cells, TLcp lcpBase
 /// than the text, a rank that came from a section is validated before it is used as an index, and a text position that came from the suffix array is clamped to the text. The text is compared symbol by symbol (the 32-bit loop compares
 /// 64-bit windows: a text of more than 2^31 - 2 symbols is not the hot path of S1 and the packed compare is not worth a second packed-pattern buffer here).
 /// </summary>
-#pragma warning disable IDE0060, S2326 // the stub of the commit of the tests: the loop is written in the next commit
 internal static class WideSearch
 {
     /// <summary>
@@ -149,12 +148,74 @@ internal static class WideSearch
         where TText : struct, IWideText
         where TPat : struct, IWidePattern, allows ref struct
     {
-        // the commit of the tests (S2.4, step b): the loop is written in the next commit; every test of the long descent is red until then
-        throw new NotImplementedException("the long descent (work package S2.4)");
+        long m = pat.Length;
+        long lb = 0, rb = n, ell = 0, c = 0;
+        bool isLast = true;
+        while (c < m)
+        {
+            int symbol = pat[c];
+            long a = lb;
+            long boundary = cells.First(lb, rb, isLast);
+            if (TAccess.IsChecked && boundary >= 0 && (boundary <= a || boundary > rb)) MappedSearch.ThrowDamaged();
+            long b;
+            while (true)
+            {
+                b = boundary >= 0 ? boundary - 1 : rb;
+                long p = (long)sa.Get(a) + ell;
+                int key = (ulong)p < (ulong)n ? text.Symbol(p) : -1;
+                if (key == symbol) break;
+                if (key > symbol || boundary < 0)
+                {
+                    lo = 0;
+                    hi = -1;
+                    return false;
+                }
+                a = boundary;
+                boundary = cells.Next(a, rb);
+                if (TAccess.IsChecked && boundary >= 0 && (boundary <= a || boundary > rb)) MappedSearch.ThrowDamaged();
+            }
+
+            bool childIsLast = boundary < 0;
+            if (a == b)
+            {
+                // a leaf: the rest of the pattern must be a prefix of the rest of the suffix
+                long start = (long)sa.Get(a) + c;
+                if ((ulong)start > (ulong)n || m - c > n - start || !Equal(text, start, pat, c, m - c))
+                {
+                    lo = 0;
+                    hi = -1;
+                    return false;
+                }
+                lo = a;
+                hi = a;
+                return true;
+            }
+
+            long first = cells.First(a, b, childIsLast);
+            if (TAccess.IsChecked && (ulong)first > (ulong)n) MappedSearch.ThrowDamaged();
+            long childEll = cells.Depth(first);
+            if (TAccess.IsChecked && (childEll <= ell || childEll > n)) MappedSearch.ThrowDamaged();
+            long limit = Math.Min(childEll, m);
+            long from = (long)sa.Get(a) + c;
+            if (limit > c + 1 && ((ulong)from >= (ulong)n || limit - c - 1 > n - (from + 1) || !Equal(text, from + 1, pat, c + 1, limit - c - 1)))
+            {
+                lo = 0;
+                hi = -1;
+                return false;
+            }
+            c = limit;
+            lb = a;
+            rb = b;
+            ell = childEll;
+            isLast = childIsLast;
+        }
+        lo = lb;
+        hi = rb;
+        return true;
     }
 
     /// <summary>Whether the text symbols <c>[start, start + length)</c> (inside the text) equal the pattern symbols <c>[from, from + length)</c>.</summary>
-    internal static bool Equal<TText, TPat>(in TText text, long start, in TPat pat, long from, long length)
+    private static bool Equal<TText, TPat>(in TText text, long start, in TPat pat, long from, long length)
         where TText : struct, IWideText
         where TPat : struct, IWidePattern, allows ref struct
     {
@@ -165,8 +226,6 @@ internal static class WideSearch
         return true;
     }
 }
-
-#pragma warning restore IDE0060, S2326
 
 /// <summary>The sections of a container (or of the memory of a test) that the long descent needs, as pointers and counts.</summary>
 internal readonly unsafe struct WideSections

@@ -18,47 +18,7 @@ public unsafe class WideDescentTests
     private static readonly EsaAccessMode[] Modes = [EsaAccessMode.Checked, EsaAccessMode.Trusted];
 
     /// <summary>The layouts of the matrix: the stored width, the kind of the LCP array, and the CHILD codec (the tagged one exists over 4 bytes only). 12 rows.</summary>
-    internal static readonly (int Width, LcpKind Kind, bool Tagged)[] Layouts =
-    [
-        (4, LcpKind.U8, false), (4, LcpKind.U8, true), (4, LcpKind.U16, false), (4, LcpKind.U16, true),
-        (4, LcpKind.U32, false), (4, LcpKind.U32, true), (4, LcpKind.U64, false), (4, LcpKind.U64, true),
-        (5, LcpKind.U8, false), (5, LcpKind.U16, false), (5, LcpKind.U32, false), (5, LcpKind.U64, false),
-    ];
-
-    /// <summary>The sections of a text at one layout, in memory that ends against an inaccessible page.</summary>
-    private sealed class Image : IDisposable
-    {
-        private readonly ViewImage _views;
-        private readonly GuardedImage _text;
-        private readonly LcpChildCase _case;
-        private readonly int _width;
-        private readonly LcpKind _kind;
-        private readonly bool _tagged;
-
-        internal Image(LcpChildCase c, int width, LcpKind kind, bool tagged)
-        {
-            _case = c;
-            _width = width;
-            _kind = kind;
-            _tagged = tagged;
-            _views = ViewImage.Of(c, width, kind, tagged);
-            byte[] packed = new byte[PackedTextFormat.TotalBytes(c.N, c.Bits)];
-            PackedTextFormat.PackInto(c.Symbols, c.Bits, packed);
-            _text = new GuardedImage(packed, flush: true);
-        }
-
-        internal WideSections Sections(bool isChecked)
-        {
-            CompactLcp lcp = CompactLcp.FromMappedWide(_kind, _case.N + 1, _views.LcpBasePointer, _views.PairsPointer, _views.Pairs.Count, _width, isChecked);
-            return new WideSections(isChecked, _width, _kind, _tagged, _views.SaPointer, _views.ChildPointer, _views.LcpBasePointer, lcp, _text.Data, _case.Bits, _case.N);
-        }
-
-        public void Dispose()
-        {
-            _views.Dispose();
-            _text.Dispose();
-        }
-    }
+    internal static readonly (int Width, LcpKind Kind, bool Tagged)[] Layouts = WideImage.Layouts;
 
     private static byte[] Dense(char[] alphabet, string pattern)
     {
@@ -104,7 +64,7 @@ public unsafe class WideDescentTests
         string[] list = [.. patterns];
         foreach ((int width, LcpKind kind, bool tagged) in Layouts)
         {
-            using var image = new Image(c, width, kind, tagged);
+            using var image = new WideImage(c, width, kind, tagged);
             foreach (EsaAccessMode mode in Modes)
             {
                 WideSearcher searcher = WideSearcher.Create(image.Sections(mode == EsaAccessMode.Checked));
@@ -190,6 +150,26 @@ public unsafe class WideDescentTests
         }
     }
 
+    [Test]
+    public void ThePatternOfASpan_IsBoundedByItsSymbols()
+    {
+        var pattern = new SpanPattern([3, 1, 2]);
+        Assert.That(pattern.Length, Is.EqualTo(3));
+        Assert.That((pattern[0], pattern[1], pattern[2]), Is.EqualTo((3, 1, 2)));
+        foreach (long outside in new long[] { 3, 4, -1, long.MaxValue })
+        {
+            try
+            {
+                _ = pattern[outside];
+                Assert.Fail($"the symbol {outside} of a pattern of 3 symbols was read");
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                // the refusal
+            }
+        }
+    }
+
     // ---------------------------------------------------------------- the instantiations
 
     [Test]
@@ -199,7 +179,7 @@ public unsafe class WideDescentTests
         var seen = new HashSet<string>();
         foreach ((int width, LcpKind kind, bool tagged) in Layouts)
         {
-            using var image = new Image(c, width, kind, tagged);
+            using var image = new WideImage(c, width, kind, tagged);
             foreach (bool isChecked in new[] { true, false })
             {
                 Type searcher = WideSearcher.Create(image.Sections(isChecked)).GetType();
@@ -219,7 +199,7 @@ public unsafe class WideDescentTests
     public void TheSwitchOfTheMatrix_RefusesAWidthThatIsNot4Or5_AndATaggedTableOver5ByteCells()
     {
         LcpChildCase c = LcpChildCase.Of("banana");
-        using var image = new Image(c, 4, LcpKind.U32, tagged: false);
+        using var image = new WideImage(c, 4, LcpKind.U32, tagged: false);
         WideSections ok = image.Sections(true);
         WideSections bad6 = new(true, 6, ok.LcpKind, false, ok.Sa, ok.Child, ok.LcpBase, ok.Lcp, ok.Text, ok.Bits, ok.N);
         Assert.That(() => WideSearcher.Create(bad6), Throws.TypeOf<ArgumentOutOfRangeException>());
@@ -331,7 +311,15 @@ public unsafe class WideDescentTests
                     byte[] dense = Dense(file.TextView.Alphabet, pattern);
                     string expected = Outcome(() => (EsaIndex.DescendMapped(file.Child.Mapped, file.Sa, file.Lcp, file.TextReader, dense, true, out int lo, out int hi), lo, hi));
                     string actual = Outcome(() => (wide.TryMatch(dense, out long lo, out long hi), lo, hi));
-                    Assert.That(actual, Is.EqualTo(expected), $"{codec} cell {cell} = {value}, pattern '{pattern}'");
+                    if (value < 0 && !tagged)
+                    {
+                        // a packed cell above 2^31 is a negative number to the 32-bit descent (it reads "no boundary" and goes on); to the long descent it is a rank that no text of this size has: damage, refused. Stricter, never different otherwise.
+                        Assert.That(actual, Is.EqualTo(expected).Or.EqualTo("InvalidDataException"), $"{codec} cell {cell} = {value}, pattern '{pattern}'");
+                    }
+                    else
+                    {
+                        Assert.That(actual, Is.EqualTo(expected), $"{codec} cell {cell} = {value}, pattern '{pattern}'");
+                    }
                     if (actual == "InvalidDataException") refused++;
                 }
             }

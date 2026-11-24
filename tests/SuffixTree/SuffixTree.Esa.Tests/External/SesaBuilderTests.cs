@@ -176,7 +176,7 @@ public sealed class SesaBuilderTests
         Assert.That(r.ArenaPeakBytes, Is.GreaterThan(0));
         Assert.That(r.Sa.Ph23ArenaPeakBytes, Is.GreaterThan(0));
         Assert.That(r.Lcp.ArenaPeakBytes, Is.GreaterThan(0));
-        Assert.That((r.NodeCount, r.InternalCount, r.LrsDepth, r.LrsRank, r.MaxLcp), Is.EqualTo((o.Case.Statistics.NodeCount, (long)o.Case.Statistics.InternalCount, (long)o.Case.Statistics.LrsDepth, (long)o.Case.Statistics.LrsRank, (long)o.Case.MaxLcp)));
+        Assert.That((r.NodeCount, r.InternalCount, r.LrsDepth, r.LrsRank, r.MaxLcp), Is.EqualTo((o.Case.Statistics.NodeCount, o.Case.Statistics.InternalCount, o.Case.Statistics.LrsDepth, o.Case.Statistics.LrsRank, (long)o.Case.MaxLcp)));
         Assert.That(r.PrimaryRow, Is.EqualTo(SesaRun.PrimaryRow(o.Case.Sa)));
         Assert.That(r.Psi!.PsiBytesWritten, Is.EqualTo(4L * 5001));
         Assert.That(r.Bwt!.PrimaryRow, Is.EqualTo(r.PrimaryRow));

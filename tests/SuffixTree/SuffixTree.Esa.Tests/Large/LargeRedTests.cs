@@ -86,8 +86,8 @@ public class LargeRedTests : LargeFixtureBase
     {
         string path = Shell(TwoTo31 + 10);
         using SesaFile file = SesaFile.Open(path, At(EsaValidationLevel.Header));
-        Assert.That((long)file.Statistics.Length, Is.EqualTo(TwoTo31 + 10), "SesaFile.Statistics: (int)h.TextLength wraps to a negative number");
-        Assert.That((long)file.Statistics.LrsDepth, Is.EqualTo(TwoTo31 + 9), "LRS_DEPTH of a^n is n - 1");
+        Assert.That(file.Statistics.Length, Is.EqualTo(TwoTo31 + 10), "SesaFile.Statistics: (int)h.TextLength wraps to a negative number");
+        Assert.That(file.Statistics.LrsDepth, Is.EqualTo(TwoTo31 + 9), "LRS_DEPTH of a^n is n - 1");
     }
 
     [Test]

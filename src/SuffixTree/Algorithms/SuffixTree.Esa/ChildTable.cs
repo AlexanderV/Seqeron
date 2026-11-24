@@ -4,9 +4,10 @@ namespace SuffixTree.Esa;
 /// Header statistics of an ESA, produced by the child-table scan (formulas of ADR-001 section 4): <c>NodeCount = 1 + InternalCount + (Length + 1)</c> for
 /// <c>Length &gt; 0</c> (root, internal nodes with value &gt; 0, one leaf per suffix including the empty one) and 1 for the empty text, exactly as the Ukkonen tree
 /// reports; <c>LeafCount = MaxDepth = Length</c>. <c>LrsDepth</c> and <c>LrsRank</c> describe the deepest internal node (the longest repeated substring is
-/// <c>text[SA[LrsRank] .. +LrsDepth)</c>; on ties the interval that closes first). <c>StackPeak</c> is the peak height of the scan stack.
+/// <c>text[SA[LrsRank] .. +LrsDepth)</c>; on ties the interval that closes first). <c>StackPeak</c> is the peak height of the scan stack. Every number is 64-bit (work package S2.4): a text above 2^31 symbols has a depth, a count and a rank above <see cref="int.MaxValue"/>
+/// (the header of a container carries them as 64-bit numbers).
 /// </summary>
-internal readonly record struct EsaStatistics(int Length, long NodeCount, int InternalCount, int LeafCount, int MaxDepth, int LrsDepth, int LrsRank, int StackPeak);
+internal readonly record struct EsaStatistics(long Length, long NodeCount, long InternalCount, long LeafCount, long MaxDepth, long LrsDepth, long LrsRank, long StackPeak);
 
 /// <summary>Counts the intervals and finds the deepest one while the scan runs.</summary>
 internal struct StatisticsSink : IIntervalSink

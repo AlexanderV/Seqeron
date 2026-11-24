@@ -143,27 +143,70 @@ internal sealed unsafe class MappedSearch
     private readonly CompactLcp _lcp;
     private readonly int _variant;
 
-    /// <summary>The search over the sections of an opened container.</summary>
+    /// <summary>The long descent of a container that the 32-bit loop cannot read (a text of 2^31 - 1 symbols or more, 5-byte entries, an LCP array of 64 bits per entry), or null when the 32-bit loop serves the container.</summary>
+    private readonly WideSearcher? _wide;
+
+    /// <summary>The variant of a container that the long descent serves: the 32-bit loop has twelve (access mode x LCP width x CHILD codec), numbered 0 to 11.</summary>
+    private const int WideVariant = 12;
+
+    /// <summary>
+    /// The search over the sections of an opened container: the 32-bit loop of S1 when the views are the narrow ones (<see cref="SesaFile.IsNarrow"/>: fewer than 2^31 - 1 symbols, 4-byte entries, an LCP array of 8, 16 or 32 bits),
+    /// selected once here; the long descent (<see cref="WideSearcher"/>) for every other container.
+    /// </summary>
     /// <param name="file">The container; it must outlive this object (the facade owns both).</param>
     internal MappedSearch(SesaFile file)
     {
         ArgumentNullException.ThrowIfNull(file);
+        _bits = file.TextReader.Bits;
+        _lcp = file.Lcp;
+        if (!file.IsNarrow)
+        {
+            _wide = WideSearcher.Create(file.WideSections());
+            _variant = WideVariant;
+            return;
+        }
         _sa = file.Sa.Pointer;
         _child = file.Child.Mapped.Pointer;
         _text = file.TextReader.Pointer;
-        _bits = file.TextReader.Bits;
-        _n = IntBridge.Length(file.TextReader.Length, "the text of the container (bridge of S2.3, removed by S2.4)");
-        _lcp = file.Lcp;
-        _lcpLength = IntBridge.Length(_lcp.Length, "the LCP array of the container (bridge of S2.3, removed by S2.4)");
-        if (_lcp.IsWide) throw new NotSupportedException("the pattern descent reads an LCP array of 8, 16 or 32 bits per entry at POS_WIDTH 4 in this build; the 64-bit engine of stage S2 (S2.4) reads the others");
+        _n = (int)file.TextReader.Length; // IsNarrow: fewer than 2^31 - 1 symbols
+        _lcpLength = (int)_lcp.Length; // n + 1
         int kind = _lcp.Kind switch { LcpKind.U8 => 0, LcpKind.U16 => 1, _ => 2 };
         _variant = (file.IsChecked ? 0 : 6) + (2 * kind) + (file.Child.Mapped.IsTagged ? 1 : 0);
+    }
+
+    /// <summary>The search over views that a test made (sections in memory at any stored width): always the long descent.</summary>
+    internal MappedSearch(WideSearcher wide, CompactLcp lcp, int bits)
+    {
+        ArgumentNullException.ThrowIfNull(wide);
+        ArgumentNullException.ThrowIfNull(lcp);
+        _wide = wide;
+        _lcp = lcp;
+        _bits = bits;
+        _variant = WideVariant;
+    }
+
+    /// <summary>True when the long descent serves this container (the 32-bit loop does not).</summary>
+    internal bool IsWide => _wide is not null;
+
+    /// <summary>
+    /// The suffix-array interval <c>[lo..hi]</c> of the NON-EMPTY <paramref name="pattern"/> of dense symbols (each below the alphabet size of the text) at 64-bit ranks; false when it does not occur. A container that the 32-bit loop
+    /// serves answers with the numbers of that loop, widened.
+    /// </summary>
+    /// <exception cref="InvalidDataException">Checked mode: a table of the file is inconsistent.</exception>
+    internal bool TryMatch(ReadOnlySpan<byte> pattern, out long lo, out long hi)
+    {
+        if (_wide is not null) return _wide.TryMatch(pattern, out lo, out hi);
+        bool found = TryMatch(pattern, out int l, out int h);
+        lo = l;
+        hi = h;
+        return found;
     }
 
     /// <summary>
     /// The suffix-array interval <c>[lo..hi]</c> of the NON-EMPTY <paramref name="pattern"/> of dense symbols (each below the alphabet size of the text); false when it does not occur.
     /// </summary>
     /// <exception cref="InvalidDataException">Checked mode: a table of the file is inconsistent.</exception>
+    /// <exception cref="NotSupportedException">The container has ranks above <see cref="int.MaxValue"/>: the long overload answers it.</exception>
     internal bool TryMatch(ReadOnlySpan<byte> pattern, out int lo, out int hi)
     {
         int words = (int)((((long)pattern.Length * _bits) + 63) / 64) + 2;
@@ -181,8 +224,24 @@ internal sealed unsafe class MappedSearch
             case 8: { var lcp = new Lcp16Reader((ushort*)_lcp.MappedBase, _lcp); return Run<TrustedAccess, Lcp16Reader, PackedCells<TrustedAccess, Lcp16Reader>>(new PackedCells<TrustedAccess, Lcp16Reader>(_child, lcp, _n), lcp, pattern, packed, out lo, out hi); }
             case 9: { var lcp = new Lcp16Reader((ushort*)_lcp.MappedBase, _lcp); return Run<TrustedAccess, Lcp16Reader, TaggedCells>(new TaggedCells((uint*)_child), lcp, pattern, packed, out lo, out hi); }
             case 10: { var lcp = new Lcp32Reader<TrustedAccess>((int*)_lcp.MappedBase, _lcpLength); return Run<TrustedAccess, Lcp32Reader<TrustedAccess>, PackedCells<TrustedAccess, Lcp32Reader<TrustedAccess>>>(new PackedCells<TrustedAccess, Lcp32Reader<TrustedAccess>>(_child, lcp, _n), lcp, pattern, packed, out lo, out hi); }
-            default: { var lcp = new Lcp32Reader<TrustedAccess>((int*)_lcp.MappedBase, _lcpLength); return Run<TrustedAccess, Lcp32Reader<TrustedAccess>, TaggedCells>(new TaggedCells((uint*)_child), lcp, pattern, packed, out lo, out hi); }
+            case 11: { var lcp = new Lcp32Reader<TrustedAccess>((int*)_lcp.MappedBase, _lcpLength); return Run<TrustedAccess, Lcp32Reader<TrustedAccess>, TaggedCells>(new TaggedCells((uint*)_child), lcp, pattern, packed, out lo, out hi); }
+            default: return TryMatchWide(pattern, out lo, out hi);
         }
+    }
+
+    /// <summary>The 32-bit shape of the answer of the long descent: a rank above <see cref="int.MaxValue"/> is a limit of this member, not damage.</summary>
+    private bool TryMatchWide(ReadOnlySpan<byte> pattern, out int lo, out int hi)
+    {
+        bool found = _wide!.TryMatch(pattern, out long l, out long h);
+        if (!found)
+        {
+            lo = 0;
+            hi = -1;
+            return false;
+        }
+        lo = IntBridge.Length(l, "EsaIndex.TryMatch, CountOccurrences or FindAllOccurrences (the 64-bit members are TryMatch with long ranks, LongCount and Locate)");
+        hi = IntBridge.Length(h, "EsaIndex.TryMatch, CountOccurrences or FindAllOccurrences (the 64-bit members are TryMatch with long ranks, LongCount and Locate)");
+        return true;
     }
 
     // No AggressiveOptimization (work package 1b.9g): that attribute compiles the loop once, fully optimised and without a profile, and takes it out of tiered compilation and dynamic PGO. The

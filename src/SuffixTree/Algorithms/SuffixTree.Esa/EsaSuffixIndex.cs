@@ -21,7 +21,7 @@ internal sealed partial class EsaSuffixIndex : ISuffixTreeNavigation, ISuffixArr
     private const string ExtendLeftCost = "O(width of the locus interval): reads SA, the text and ISA over the interval, then one range minimum; " + PackCost;
 
     private readonly EsaIndex _index;
-    private readonly int _n;
+    private readonly long _n;
     private readonly IIndexText _text;
 
     /// <summary>The contract view of <paramref name="index"/> (shared, not copied).</summary>
@@ -30,15 +30,9 @@ internal sealed partial class EsaSuffixIndex : ISuffixTreeNavigation, ISuffixArr
     {
         ArgumentNullException.ThrowIfNull(index);
         _index = index;
-        _n = index.Length;
+        _n = index.TextLength;
         _text = index.TextView.AsIndexText();
-        ChildTable child = index.Child;
-        _mapped = child.Mapped;
-        _isMapped = child.IsMapped;
-        _kind = child.Kind;
-        _tagged = child.Tagged;
-        _packed = child.Packed;
-        _reference3 = child.Reference3;
+        _isMapped = index.IsMapped;
     }
 
     /// <summary>Builds the index of <paramref name="text"/> (SA-IS, LCP, child table) and wraps it.</summary>
@@ -89,7 +83,7 @@ internal sealed partial class EsaSuffixIndex : ISuffixTreeNavigation, ISuffixArr
     /// <inheritdoc />
     public bool TryExtendRight(in IndexLocus locus, int symbol, out IndexLocus result)
     {
-        if ((uint)symbol > char.MaxValue)
+        if (symbol is < 0 or > char.MaxValue)
         {
             Resolve(locus, nameof(locus));
             result = default;
@@ -108,19 +102,19 @@ internal sealed partial class EsaSuffixIndex : ISuffixTreeNavigation, ISuffixArr
         IndexLocus at = locus; // a copy: result may be the same variable as locus (the contract), and result is written before the locus is read again
         Resolve(at, nameof(locus));
         result = default;
-        if ((uint)symbol > char.MaxValue) return false;
+        if (symbol is < 0 or > char.MaxValue) return false;
         if (at.Length == 0) return TryExtendRight(at, symbol, out result); // the empty string: a symbol on the left is a symbol on the right
-        EsaNavigationPack pack = _index.Navigation;
+        EsaNavigationPack pack = _index.Navigation; // the pack is 32-bit until S2.5: it refuses a text above 2^31 - 2 symbols by name
         SaView sa = _index.Sa;
         EsaText text = _index.TextView;
-        int low = int.MaxValue, high = -1;
-        for (int rank = (int)at.Lo, last = (int)at.Hi; rank <= last; rank++)
+        long low = long.MaxValue, high = -1;
+        for (long rank = at.Lo; rank <= at.Hi; rank++)
         {
             // the suffixes that start with symbol + locus string are the predecessors of the occurrences that are preceded by the symbol: a contiguous rank interval
-            int position = sa[rank];
+            long position = sa[rank];
             if (position > 0 && text[position - 1] == symbol)
             {
-                int target = pack.Isa(position - 1);
+                long target = pack.Isa(IntBridge.Length(position - 1, "EsaSuffixIndex.TryExtendLeft (the inverse suffix array of the navigation pack is 32-bit until S2.5)"));
                 if (target < low) low = target;
                 if (target > high) high = target;
             }
@@ -136,9 +130,9 @@ internal sealed partial class EsaSuffixIndex : ISuffixTreeNavigation, ISuffixArr
     {
         ArgumentOutOfRangeException.ThrowIfNegative(skip);
         CheckLocus(locus, nameof(locus));
-        int from = (int)Math.Max(locus.Lo, 1);
+        long from = Math.Max(locus.Lo, 1);
         if (from > locus.Hi) return 0;
-        return _index.Locate(from, (int)locus.Hi, skip, positions);
+        return _index.Locate(from, locus.Hi, skip, positions);
     }
 
     /// <summary>
@@ -147,7 +141,7 @@ internal sealed partial class EsaSuffixIndex : ISuffixTreeNavigation, ISuffixArr
     /// </summary>
     private bool Extend(in IndexLocus locus, ReadOnlySpan<char> pattern, out IndexLocus result)
     {
-        EsaNode node = Resolve(locus, nameof(locus));
+        EsaNode64 node = Resolve(locus, nameof(locus));
         long length = locus.Length;
         result = default;
         EsaText text = _index.TextView;
@@ -155,12 +149,12 @@ internal sealed partial class EsaSuffixIndex : ISuffixTreeNavigation, ISuffixArr
         {
             if (length < node.Depth)
             {
-                uint at = (uint)node.Pos + (uint)length;
-                if (at >= (uint)_n || text[(int)at] != symbol) return false;
+                long at = node.Pos + length;
+                if ((ulong)at >= (ulong)_n || text[at] != symbol) return false;
             }
             else
             {
-                if (!FindChild(node, symbol, out EsaNode next)) return false;
+                if (!FindChild(node, symbol, out EsaNode64 next)) return false;
                 node = next;
             }
             length++;
@@ -189,42 +183,42 @@ internal sealed partial class EsaSuffixIndex : ISuffixTreeNavigation, ISuffixArr
     /// that node (a leaf has the depth of its suffix plus the terminator; an inner interval has its first l-index in the child table with the value <c>Aux</c> and smaller LCP values at both ends) and that
     /// the matched length lies on the edge above it.
     /// </summary>
-    private EsaNode Resolve(in IndexLocus locus, string parameterName)
+    private EsaNode64 Resolve(in IndexLocus locus, string parameterName)
     {
         CheckLocus(locus, parameterName);
-        int depth = (int)locus.Aux;
-        if (depth == 0) return new EsaNode(0, _n, 0, 0, _n, true);
-        int lb = (int)locus.Lo;
-        int rb = (int)locus.Hi;
+        long depth = locus.Aux;
+        if (depth == 0) return new EsaNode64(0, _n, 0, 0, _n, true);
+        long lb = locus.Lo;
+        long rb = locus.Hi;
         CompactLcp lcp = _index.Lcp;
-        int left = lcp[lb];
-        int right = rb < _n ? lcp[rb + 1] : -1;
-        int parentDepth = Math.Max(left, right);
+        long left = lcp[lb];
+        long right = rb < _n ? lcp[rb + 1] : -1;
+        long parentDepth = Math.Max(left, right);
         bool lastChild = left > right;
-        int pos = _index.Sa[lb];
+        long pos = _index.Sa[lb];
         bool valid = parentDepth < locus.Length;
         if (valid)
         {
             if (lb == rb) valid = depth == _n - pos + 1;
             else
             {
-                int first = _index.Child.FirstLIndex(lb, rb, lastChild);
+                long first = _index.Child.FirstLIndex(lb, rb, lastChild);
                 valid = first > lb && first <= rb && lcp[first] == depth;
             }
         }
         if (!valid) throw new ArgumentException($"{locus} is not a locus of this index (no node of depth {depth} spans ranks {lb}..{rb})", parameterName);
-        return new EsaNode(lb, rb, depth, parentDepth, pos, lastChild);
+        return new EsaNode64(lb, rb, depth, parentDepth, pos, lastChild);
     }
 
     /// <summary><see cref="Resolve"/> for the operations that take an explicit node.</summary>
-    private EsaNode ResolveNode(in IndexLocus node, string parameterName)
+    private EsaNode64 ResolveNode(in IndexLocus node, string parameterName)
     {
-        EsaNode resolved = Resolve(node, parameterName);
+        EsaNode64 resolved = Resolve(node, parameterName);
         if (node.Length != node.Aux) throw new ArgumentException($"{node} is a point inside an edge, not an explicit node", parameterName);
         return resolved;
     }
 
-    private static IndexLocus ToLocus(in EsaNode node) => new(node.Lb, node.Rb, node.Depth, node.Depth);
+    private static IndexLocus ToLocus(in EsaNode64 node) => new(node.Lb, node.Rb, node.Depth, node.Depth);
 
     private void CheckRank(long rank, string parameterName)
     {

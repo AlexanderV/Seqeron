@@ -4,11 +4,6 @@ namespace SuffixTree.Esa;
 
 internal sealed partial class EsaSuffixIndex
 {
-    private readonly ChildLayoutKind _kind;
-    private readonly TaggedChild _tagged;
-    private readonly PackedChild _packed;
-    private readonly Reference3Child _reference3;
-    private readonly MappedChild _mapped;
     private readonly bool _isMapped;
 
     /// <inheritdoc />
@@ -24,18 +19,18 @@ internal sealed partial class EsaSuffixIndex
     /// </summary>
     public bool TryParent(in IndexLocus locus, out IndexLocus parent)
     {
-        EsaNode node = Resolve(locus, nameof(locus)); // the locus is copied into the handle before parent is written: parent may be the same variable as locus
+        EsaNode64 node = Resolve(locus, nameof(locus)); // the locus is copied into the handle before parent is written: parent may be the same variable as locus
         parent = default;
         if (node.Depth == 0) return false;
-        int parentDepth = node.ParentDepth;
+        long parentDepth = node.ParentDepth;
         if (parentDepth == 0)
         {
             parent = Root;
             return true;
         }
         LcpPyramid pyramid = _index.Navigation.Pyramid;
-        int left = pyramid.PrevLess(node.Lb, parentDepth);
-        int right = pyramid.NextLess(node.Rb + 1, parentDepth);
+        long left = pyramid.PrevLess(node.Lb, parentDepth);
+        long right = pyramid.NextLess(node.Rb + 1, parentDepth);
         parent = new IndexLocus(left, right - 1, parentDepth, parentDepth);
         return true;
     }
@@ -43,9 +38,9 @@ internal sealed partial class EsaSuffixIndex
     /// <inheritdoc />
     public bool TryChild(in IndexLocus node, int firstSymbol, out IndexLocus child)
     {
-        EsaNode resolved = ResolveNode(node, nameof(node)); // copied before child is written: child may be the same variable as node
+        EsaNode64 resolved = ResolveNode(node, nameof(node)); // copied before child is written: child may be the same variable as node
         child = default;
-        if (!FindChild(resolved, firstSymbol, out EsaNode found)) return false;
+        if (!FindChild(resolved, firstSymbol, out EsaNode64 found)) return false;
         child = ToLocus(found);
         return true;
     }
@@ -53,21 +48,11 @@ internal sealed partial class EsaSuffixIndex
     /// <inheritdoc />
     public int GetChildren(in IndexLocus node, Span<IndexLocus> children)
     {
-        EsaNode resolved = ResolveNode(node, nameof(node)); // copied before the first child is written: children may hold the variable that holds node
+        EsaNode64 resolved = ResolveNode(node, nameof(node)); // copied before the first child is written: children may hold the variable that holds node
         if (resolved.IsLeaf) return 0;
-        int count = _isMapped ? WalkChildren(_mapped, resolved, default, false) : _kind switch
-        {
-            ChildLayoutKind.Tagged => WalkChildren(_tagged, resolved, default, false),
-            ChildLayoutKind.Packed => WalkChildren(_packed, resolved, default, false),
-            _ => WalkChildren(_reference3, resolved, default, false),
-        };
+        int count = WalkChildren(resolved, default, false);
         if (count > children.Length) return count;
-        _ = _isMapped ? WalkChildren(_mapped, resolved, children, true) : _kind switch
-        {
-            ChildLayoutKind.Tagged => WalkChildren(_tagged, resolved, children, true),
-            ChildLayoutKind.Packed => WalkChildren(_packed, resolved, children, true),
-            _ => WalkChildren(_reference3, resolved, children, true),
-        };
+        _ = WalkChildren(resolved, children, true);
         return count;
     }
 
@@ -76,10 +61,11 @@ internal sealed partial class EsaSuffixIndex
     /// </summary>
     public bool TrySuffixLink(in IndexLocus node, out IndexLocus link)
     {
-        EsaNode resolved = ResolveNode(node, nameof(node)); // copied before link is written: link may be the same variable as node
+        EsaNode64 resolved = ResolveNode(node, nameof(node)); // copied before link is written: link may be the same variable as node
         link = default;
         if (resolved.Depth == 0 || resolved.IsLeaf) return false;
-        link = ToLocus(_index.Navigation.SuffixLink(resolved));
+        EsaNavigationPack pack = _index.Navigation; // the pack is 32-bit until S2.5: it refuses a text above 2^31 - 2 symbols by name
+        link = ToLocus(EsaNode64.Of(pack.SuffixLink(resolved.ToNode("EsaSuffixIndex.TrySuffixLink (the suffix-link kernel of the navigation pack is 32-bit until S2.5)"))));
         return true;
     }
 
@@ -89,53 +75,42 @@ internal sealed partial class EsaSuffixIndex
     /// </summary>
     public int EdgeSymbol(in IndexLocus node, long offset)
     {
-        EsaNode resolved = ResolveNode(node, nameof(node));
+        EsaNode64 resolved = ResolveNode(node, nameof(node));
         ArgumentOutOfRangeException.ThrowIfNegative(offset);
         if (offset >= _n) return -1;
-        long index = (long)resolved.Pos + resolved.ParentDepth + offset;
-        return index < _n ? _index.TextView[(int)index] : -1;
+        long index = resolved.Pos + resolved.ParentDepth + offset;
+        return index < _n ? _index.TextView[index] : -1;
     }
 
     /// <summary>The child of <paramref name="node"/> whose edge starts with <paramref name="key"/> (-1: the terminator).</summary>
-    private bool FindChild(in EsaNode node, int key, out EsaNode child)
+    private bool FindChild(in EsaNode64 node, int key, out EsaNode64 child)
     {
         if (node.IsLeaf)
         {
-            child = EsaNode.Null;
+            child = EsaNode64.Null;
             return false;
         }
-        if (_isMapped) return FindChildCore(_mapped, node, key, out child);
-        return _kind switch
-        {
-            ChildLayoutKind.Tagged => FindChildCore(_tagged, node, key, out child),
-            ChildLayoutKind.Packed => FindChildCore(_packed, node, key, out child),
-            _ => FindChildCore(_reference3, node, key, out child),
-        };
-    }
-
-    private bool FindChildCore<TChild>(TChild table, in EsaNode node, int key, out EsaNode child)
-        where TChild : struct, IChildTable
-    {
         SaView sa = _index.Sa;
         EsaText text = _index.TextView;
-        int rb = node.Rb;
-        int a = node.Lb;
-        int boundary = table.FirstLIndex(node.Lb, rb, node.LastChild);
+        ChildTable table = _index.Child;
+        long rb = node.Rb;
+        long a = node.Lb;
+        long boundary = table.FirstLIndex(node.Lb, rb, node.LastChild);
         CheckBoundary(boundary, a, rb);
         while (true)
         {
-            int saA = sa[a];
-            uint at = (uint)saA + (uint)node.Depth;
-            int symbol = at < (uint)_n ? text[(int)at] : -1;
+            long saA = sa[a];
+            long at = saA + node.Depth;
+            int symbol = (ulong)at < (ulong)_n ? text[at] : -1;
             if (symbol == key)
             {
-                int b = boundary >= 0 ? boundary - 1 : rb;
-                child = MakeChild(table, a, b, saA, node.Depth, boundary < 0);
+                long b = boundary >= 0 ? boundary - 1 : rb;
+                child = MakeChild(a, b, saA, node.Depth, boundary < 0);
                 return true;
             }
             if (symbol > key || boundary < 0)
             {
-                child = EsaNode.Null;
+                child = EsaNode64.Null;
                 return false;
             }
             a = boundary;
@@ -145,21 +120,21 @@ internal sealed partial class EsaSuffixIndex
     }
 
     /// <summary>Walks the children of <paramref name="node"/> in key order; counts them, and writes them when <paramref name="write"/> is set (the caller has checked that they fit).</summary>
-    private int WalkChildren<TChild>(TChild table, in EsaNode node, Span<IndexLocus> destination, bool write)
-        where TChild : struct, IChildTable
+    private int WalkChildren(in EsaNode64 node, Span<IndexLocus> destination, bool write)
     {
         SaView sa = _index.Sa;
-        int rb = node.Rb;
-        int a = node.Lb;
+        ChildTable table = _index.Child;
+        long rb = node.Rb;
+        long a = node.Lb;
         int count = 0;
-        int boundary = table.FirstLIndex(node.Lb, rb, node.LastChild);
+        long boundary = table.FirstLIndex(node.Lb, rb, node.LastChild);
         CheckBoundary(boundary, a, rb);
         while (true)
         {
             if (write)
             {
-                int b = boundary >= 0 ? boundary - 1 : rb;
-                destination[count] = ToLocus(MakeChild(table, a, b, sa[a], node.Depth, boundary < 0));
+                long b = boundary >= 0 ? boundary - 1 : rb;
+                destination[count] = ToLocus(MakeChild(a, b, sa[a], node.Depth, boundary < 0));
             }
             count++;
             if (boundary < 0) return count;
@@ -170,22 +145,21 @@ internal sealed partial class EsaSuffixIndex
     }
 
     /// <summary>The child <c>[a..b]</c> whose first suffix starts at <paramref name="saA"/>: a leaf (depth = rest of the suffix + the terminator) or an interval whose value is the LCP at its first l-index.</summary>
-    private EsaNode MakeChild<TChild>(TChild table, int a, int b, int saA, int parentDepth, bool childIsLast)
-        where TChild : struct, IChildTable
+    private EsaNode64 MakeChild(long a, long b, long saA, long parentDepth, bool childIsLast)
     {
         if (a == b)
         {
             if (_isMapped && _n - saA + 1 <= parentDepth) ThrowCorruptChildTable();
-            return new EsaNode(a, a, _n - saA + 1, parentDepth, saA, childIsLast);
+            return new EsaNode64(a, a, _n - saA + 1, parentDepth, saA, childIsLast);
         }
-        int first = table.FirstLIndex(a, b, childIsLast);
+        long first = _index.Child.FirstLIndex(a, b, childIsLast);
         if (first <= a || first > b) ThrowCorruptChildTable();
-        int depth = _index.Lcp[first];
+        long depth = _index.Lcp[first];
         if (_isMapped && depth <= parentDepth) ThrowCorruptChildTable();
-        return new EsaNode(a, b, depth, parentDepth, saA, childIsLast);
+        return new EsaNode64(a, b, depth, parentDepth, saA, childIsLast);
     }
 
-    private void CheckBoundary(int boundary, int previous, int rb)
+    private void CheckBoundary(long boundary, long previous, long rb)
     {
         if (boundary >= 0 && (boundary <= previous || boundary > rb)) ThrowCorruptChildTable();
     }

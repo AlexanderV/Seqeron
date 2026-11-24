@@ -295,6 +295,9 @@ internal sealed unsafe class CompactLcp
     /// <summary>A forward cursor starting at the first overflow entry.</summary>
     internal Cursor CreateCursor() => new(this);
 
+    /// <summary>A forward cursor at 64-bit ranks and values (work package S2.4): the cursor of the 32-bit form for an array of at most <see cref="int.MaxValue"/> entries, the random read of the store for the wide form.</summary>
+    internal LongCursor CreateLongCursor() => new(this);
+
     /// <summary>All entries as a dense array (tests, diagnostics).</summary>
     internal int[] ToArray()
     {
@@ -413,6 +416,35 @@ internal sealed unsafe class CompactLcp
                 int v = ((int*)_mappedBase)[rank];
                 if (_mappedChecked && (uint)v > (ulong)Length) throw Corrupt($"the LCP value {(uint)v} at rank {rank} is larger than the text");
                 return v;
+        }
+    }
+
+    /// <summary>
+    /// <see cref="Cursor"/> at 64-bit ranks and values: the sequential pass of the analysis over an LCP array of any size and kind (a value above <see cref="int.MaxValue"/> exists in a text of more than 2^31 symbols). An array of
+    /// the 32-bit forms (a managed array, a narrow mapped one: at most <see cref="int.MaxValue"/> entries) is read by the moving index of <see cref="Cursor"/>, widened; the wide form by the random read of its store (a binary search
+    /// of the overflow list for an escaped entry).
+    /// </summary>
+    internal struct LongCursor
+    {
+        private Cursor _narrow;
+        private readonly CompactLcp _owner;
+        private readonly bool _wide;
+
+        internal LongCursor(CompactLcp owner)
+        {
+            _owner = owner;
+            _wide = owner.IsWide || owner.Length > int.MaxValue;
+            _narrow = new Cursor(owner);
+        }
+
+        /// <summary>The LCP value at <paramref name="rank"/> (amortised O(1) for non-decreasing ranks over the 32-bit forms).</summary>
+        /// <exception cref="InvalidDataException">The rank is outside the array (a mapped form), an escape has no pair, or a value is damaged.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">The rank is outside the array (a managed form).</exception>
+        internal long Get(long rank)
+        {
+            if (_wide) return _owner[rank];
+            if ((ulong)rank >= (ulong)_owner.Length) _owner.ThrowRankOutside(rank);
+            return _narrow.Get((int)rank); // (int): inside the array, which has at most int.MaxValue entries here
         }
     }
 
