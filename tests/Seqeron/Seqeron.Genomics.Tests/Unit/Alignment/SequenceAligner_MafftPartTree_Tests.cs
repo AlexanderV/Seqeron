@@ -137,9 +137,9 @@ public class SequenceAligner_MafftPartTree_Tests
             Assert.That(SequenceAligner.RunMafft(seqs, o).StandardError, Does.Contain("Strategy:\n FFT-NS-PartTree-2 (Not tested.)\n ?\n"));
             Assert.That(SequenceAligner.RunMafft(seqs, o with { PartTree = MafftPartTree.DynamicProgramming }).StandardError, Does.Contain("FFT-NS-DPPartTree-1"));
             Assert.That(SequenceAligner.RunMafft(seqs, o with { Retree = 3, Fft = false }).StandardError, Does.Contain("NW-NS-PartTree-3"));
-            Assert.Throws<ArgumentException>(() => SequenceAligner.RunMafft(seqs, o with { MaxIterate = 1 }), "dvtditr cannot read the missing distance matrix");
-            Assert.Throws<ArgumentException>(() => SequenceAligner.RunMafft(seqs, o with { DistOut = true }));
-            Assert.Throws<ArgumentException>(() => SequenceAligner.RunMafft([.. seqs, "ACDE"], o), "sequences of fewer than 6 letters");
+            Assert.Catch<ArgumentException>(() => SequenceAligner.RunMafft(seqs, o with { MaxIterate = 1 }), "dvtditr cannot read the missing distance matrix");
+            Assert.Catch<ArgumentException>(() => SequenceAligner.RunMafft(seqs, o with { DistOut = true }));
+            Assert.Catch<ArgumentException>(() => SequenceAligner.RunMafft([.. seqs, "ACDE"], o), "sequences of fewer than 6 letters");
             Assert.That(SequenceAligner.RunMafft(seqs, o with { TreeOut = true }).TreeFile, Is.Not.Null);
             Assert.That(SequenceAligner.RunMafft(seqs, o).TreeFile, Is.Null);
         });

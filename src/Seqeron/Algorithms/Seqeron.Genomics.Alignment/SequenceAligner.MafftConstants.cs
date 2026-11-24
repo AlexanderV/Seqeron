@@ -43,6 +43,9 @@ public static partial class SequenceAligner
         internal int Outgap = 1;
         internal int Scoremtx = 1;
         internal int TreeIn, TreeOut, DistOut, NoAlign;
+        internal int SparsePickup;
+        /// <summary><c>*newgapstr</c>: the letter the alignment routines write for a gap they insert ('=' while sequences are added to an alignment, '-' otherwise).</summary>
+        internal char NewGapChar = '-';
         internal int Tbrweight = 3;
         internal char TreeMethod = 'X';
         internal double SueffGlobal = 0.1;
@@ -127,6 +130,11 @@ public static partial class SequenceAligner
                         case 's': g.SpecificityConsideration = CAtof(Next()); rest = true; break;
                         case 'a': g.Fmodel = 1; break;
                         case 'K': g.AddProfile = false; break;
+                        case 'I': g.Nadd = CAtoi(Next()); g.Report("nadd = " + g.Nadd.ToString(CultureInfo.InvariantCulture) + "\n"); rest = true; break;
+                        case 'Y': g.KeepLength = 1; break;
+                        case 'z': g.MapOut = 2; break;
+                        case 'Z': g.MapOut = 1; break;
+                        case 'p': g.Smoothing = 1; break;
                         case 'y': g.DistOut = 1; break;
                         case 't': g.TreeOut = 1; break;
                         case '^': g.TreeOut = 2; break;
@@ -137,7 +145,7 @@ public static partial class SequenceAligner
                         case 'L': g.LegacyGapCost = 1; break;
                         case 'e': g.FftScore = 0; break;
                         case 'x': CAtof(Next()); rest = true; break;
-                        case 'q': CAtoi(Next()); rest = true; break;
+                        case 'q': g.SparsePickup = CAtoi(Next()); rest = true; break;
                         case 'X': g.TreeMethod = 'X'; g.SueffGlobal = CAtof(Next()); rest = true; break;
                         case 'E': g.NGuideTree = CAtoi(Next()); rest = true; break;
                         case 'A': g.Alg = 'A'; break;

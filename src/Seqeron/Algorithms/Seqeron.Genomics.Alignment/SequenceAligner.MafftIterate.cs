@@ -107,7 +107,7 @@ public static partial class SequenceAligner
                         case 'N': g.NeverMemSave = 1; break;
                         case 'D': g.Dorp = 'd'; break;
                         case 'P': g.Dorp = 'p'; break;
-                        case 'l': g.FastaThreshold = CAtof(Next()); g.Constraint = 2; rest = true; break;
+                        case 'l': g.Bunkatsu = 0; g.FastaThreshold = CAtof(Next()); g.Constraint = 2; rest = true; break;
                         case 'T': g.Kobetsubunkatsu = 0; break;
                         case 'B': g.Bunkatsu = 0; break;
                         case 'A': g.Alg = 'A'; break;
@@ -145,7 +145,7 @@ public static partial class SequenceAligner
         /// <c>dndpre -M 2</c> (<c>dndpre.c</c>): the distance of every pair of rows of the alignment <paramref name="rows"/> (<c>2 (1 - score / min(self scores))</c> with the gap penalty <c>penalty</c> of the default scoring,
         /// at most 9.9) written to the file <c>hat2</c>, which <c>dvtditr</c> reads: the values come back with three decimals. Returns the distances as <c>dvtditr</c> reads them (upper triangle, i &lt; j).
         /// </summary>
-        internal double[][] Dndpre(string[] rows)
+        internal double[][] Dndpre(string[] rows, IReadOnlyList<string>? names = null)
         {
             var g2 = G;
             int njob = rows.Length;
@@ -154,17 +154,15 @@ public static partial class SequenceAligner
                 seq[i] = rows[i];
             for (int i = 1; i < njob; i++)
                 if (seq[i].Length != seq[0].Length)
-                    throw new ArgumentException("Not aligned!");
+                    throw new MafftProgramFailureException("Not aligned!\n");
             if (g2.Dorp == '\0')
                 g2.Dorp = GuessNucleotideFromRows(rows) ? 'd' : 'p';
             if (g2.Dorp == 'd')
                 for (int i = 0; i < njob; i++)
                     seq[i] = seq[i].ToLowerInvariant();
             g2.Constants(seq);
-            for (int i = 0; i < njob; i++)
-                for (int k = 0; k < seq[i].Length; k++)
-                    if (g2.AminoN[seq[i][k]] == -1)
-                        throw new ArgumentException($"Illegal character {seq[i][k]}");
+            if (new MafftRun(g2).CheckAlphabet(seq) is { } unknownLetter)
+                throw unknownLetter;
             var helper = new MafftRun(g2);
             var selfscore = new double[njob];
             for (int i = 0; i < njob; i++)
@@ -211,6 +209,15 @@ public static partial class SequenceAligner
             for (int i = 0; i < njob - 1; i++)
                 for (int j = i + 1; j < njob; j++)
                     hat2[i][j] = MafftGlobals.CAtof(mtx[i][j].ToString("F3", CultureInfo.InvariantCulture).PadLeft(6));
+            // the file hat2 itself (WriteHat2_pointer): what --distout copies when the iterative refinement ran
+            var half = new double[njob][];
+            for (int i = 0; i < njob; i++)
+            {
+                half[i] = new double[njob - i];
+                for (int j = i; j < njob; j++)
+                    half[i][j - i] = mtx[i][j];
+            }
+            DistFile = WriteHat2(half, names ?? DefaultNames(njob));
             return hat2;
         }
 
@@ -413,7 +420,7 @@ public static partial class SequenceAligner
                         FastConjunction(memlist0, aseq, mseq1, effarr1, effarr, G.MinimumWeight);
                         FastConjunction(memlist1, aseq, mseq2, effarr2, effarr, G.MinimumWeight);
                         int clus1 = memlist0.Length, clus2 = memlist1.Length;
-                        double mscore = G.ScoreCheck != 0 ? IntergroupScore(mseq1, mseq2, effarr1, effarr2, clus1, clus2, length) : 0.0;
+                        double mscore = IntergroupScore(mseq1, mseq2, effarr1, effarr2, clus1, clus2, length); // computed with -Z too ("Oscilation check no tame hitsuyou"): -Z only skips the score of the new alignment (tscore = mscore + 1)
                         double impmatchdouble = 0.0;
                         if (localhom != null)
                         {
@@ -558,7 +565,7 @@ public static partial class SequenceAligner
         /// <c>dvtditr</c> (<c>dvtditr.c</c>): the iterative refinement of the alignment <paramref name="rows"/> (the output of <c>disttbfast</c>): the guide tree is the UPGMA of the distances <paramref name="hat2"/> of <c>dndpre</c>, the alignment is cut
         /// into segments at the windows with a high column score (<see cref="SearchAnchors"/>; <c>--bunkatsunashi</c> = <c>-B</c> keeps one), and every segment is refined by <see cref="TreeDependentIteration"/>.
         /// </summary>
-        internal Result Dvtditr(string[] rows, double[][] hat2, MafftLocalHom[][]? localhom = null)
+        internal Result Dvtditr(string[] rows, double[][] hat2, MafftLocalHom[][]? localhom = null, IReadOnlyList<string>? names = null)
         {
             int njob = rows.Length;
             for (int i = 1; i < njob; i++)
@@ -573,10 +580,8 @@ public static partial class SequenceAligner
             if (localhom != null)
                 Report("Loading 'hat3' ... done.\n");
             G.Constants(seqG);
-            for (int i = 0; i < njob; i++)
-                for (int k = 0; k < seqG[i].Length; k++)
-                    if (G.AminoN[seqG[i][k]] == -1)
-                        throw new ArgumentException($"Illegal character {seqG[i][k]}");
+            if (CheckAlphabet(seqG) is { } unknownLetter)
+                throw unknownLetter;
             if (njob == 2)
             {
                 G.Weight = 0;
@@ -596,7 +601,7 @@ public static partial class SequenceAligner
             for (int i = 0; i < njob; i++)
                 len[i] = new double[2];
             if (G.TreeMethod is 'X' or 'E' or 'q')
-                MuscleSupg(njob, eff, topol0, topol1, len, new Treedep[njob], fullMembership: true);
+                MuscleSupg(njob, eff, topol0, topol1, len, new Treedep[njob], fullMembership: true, treeNames: names ?? DefaultNames(njob));
             else
                 throw new InvalidOperationException("Incorrect treemethod.");
             var order = new int[njob];
@@ -640,6 +645,8 @@ public static partial class SequenceAligner
                     resG[i].Append(bseq[i]);
             }
             Report("done\n");
+            if (G.SpScoreOut != 0)
+                ReportSumOfPairs(resG.Select(b => b.ToString()).ToArray());
             Report("dvtditr (" + (G.Dorp == 'd' ? "nuc" : "aa") + ") Version 7.505\nalg=" + G.Alg + ", model=" + G.ModelName + ", amax=" + G.SpecificityConsideration.ToString("F1", CultureInfo.InvariantCulture) + "\n"
                 + G.Nthread.ToString(CultureInfo.InvariantCulture) + " thread(s)\n\n");
             return new Result(resG.Select(b => b.ToString()).ToArray(), order);

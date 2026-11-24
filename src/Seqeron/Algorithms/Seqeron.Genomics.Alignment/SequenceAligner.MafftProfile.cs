@@ -192,13 +192,13 @@ public static partial class SequenceAligner
             if (lgth1 == 0)
             {
                 for (int i = 0; i < icyc; i++)
-                    seq1[i] = new string('-', lgth2);
+                    seq1[i] = new string(G.NewGapChar, lgth2);
                 return 0.0;
             }
             if (lgth2 == 0)
             {
                 for (int i = 0; i < jcyc; i++)
-                    seq2[i] = new string('-', lgth1);
+                    seq2[i] = new string(G.NewGapChar, lgth1);
                 return 0.0;
             }
             if (G.TryWarp)
@@ -469,7 +469,7 @@ public static partial class SequenceAligner
                 lastverticalw[i] = currentw[lgth2 - 1];
             }
 
-            var (gt1, gt2, mseq1, mseq2, wmo) = Atracking(currentw, lastverticalw, fpenalty, fpenaltyEx, seq1, seq2, ijp, icyc, jcyc, tailgp, imp != null);
+            var (gt1, gt2, mseq1, mseq2, wmo) = Atracking(G.NewGapChar, currentw, lastverticalw, fpenalty, fpenaltyEx, seq1, seq2, ijp, icyc, jcyc, tailgp, imp != null);
             if (tailgp == 0 && imp == null)
                 wm = wmo;
 
@@ -517,7 +517,7 @@ public static partial class SequenceAligner
         }
 
         /// <summary><c>Atracking</c> of <c>Salignmm.c</c> (no shift): the trace back, the gap tables of the two groups ('o' = a column of the group, '-' = a new gap) and the aligned rows.</summary>
-        private static (string Gt1, string Gt2, string[] Mseq1, string[] Mseq2, double Wm) Atracking(double[] lasthorizontalw, double[] lastverticalw, double fpenalty, double fpenaltyEx,
+        private static (string Gt1, string Gt2, string[] Mseq1, string[] Mseq2, double Wm) Atracking(char gap, double[] lasthorizontalw, double[] lastverticalw, double fpenalty, double fpenaltyEx,
             string[] seq1, string[] seq2, int[][] ijp, int icyc, int jcyc, int tailgp, bool localhom = false)
         {
             int lgth1 = seq1[0].Length, lgth2 = seq2[0].Length;
@@ -628,19 +628,19 @@ public static partial class SequenceAligner
             bool ngap1 = gaptable1.Contains('-');
             bool ngap2 = gaptable2.Contains('-');
             for (int i = 0; i < icyc; i++)
-                mseq1[i] = ngap1 ? GapIreru(seq1[i], gaptable1) : seq1[i][..Math.Min(gaptable1.Length, seq1[i].Length)];
+                mseq1[i] = ngap1 ? GapIreru(seq1[i], gaptable1, gap) : seq1[i][..Math.Min(gaptable1.Length, seq1[i].Length)];
             for (int j = 0; j < jcyc; j++)
-                mseq2[j] = ngap2 ? GapIreru(seq2[j], gaptable2) : seq2[j][..Math.Min(gaptable2.Length, seq2[j].Length)];
+                mseq2[j] = ngap2 ? GapIreru(seq2[j], gaptable2, gap) : seq2[j][..Math.Min(gaptable2.Length, seq2[j].Length)];
             return (gaptable1, gaptable2, mseq1, mseq2, wm);
         }
 
         /// <summary><c>gapireru</c>: the residues of <paramref name="ori"/> in the columns marked 'o' of the gap table, a gap in the others.</summary>
-        internal static string GapIreru(string ori, string gt)
+        internal static string GapIreru(string ori, string gt, char gap = '-')
         {
             var sb = new System.Text.StringBuilder(gt.Length);
             int k = 0;
             foreach (char g in gt)
-                sb.Append(g == '-' ? '-' : ori[k++]);
+                sb.Append(g == '-' ? gap : ori[k++]);
             return sb.ToString();
         }
 

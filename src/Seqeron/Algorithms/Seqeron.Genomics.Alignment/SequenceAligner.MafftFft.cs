@@ -429,6 +429,9 @@ public static partial class SequenceAligner
         private readonly int[] _fCut1 = new int[MaxSeg], _fCut2 = new int[MaxSeg];
         private readonly int[] _fKouho = new int[NKouho];
 
+        /// <summary><c>*fftlog</c> after the last <see cref="Falign"/>: the number of segments of the alignment minus 2 (-1 for a single stretch).</summary>
+        internal int FftlogResult;
+
         /// <summary>
         /// <c>Falign</c> of <c>Falign.c</c>: the alignment of two groups of aligned sequences by the fast Fourier transform (Katoh et al. 2002): the correlation of the polarity / volume (amino acids) or
         /// of the letter 'a' (nucleotides) of the two groups gives the 20 best shifts, the windows with a high score are the anchors, the chain of anchors cuts the problem into segments, which are
@@ -608,8 +611,10 @@ public static partial class SequenceAligner
                 result2[j] = new System.Text.StringBuilder();
             int totallen = 0;
             double totalscore = 0.0;
+            FftlogResult = -1; // *fftlog = -1 and one more per segment: tbfast keeps it per sequence and tries the FFT again only for groups whose last FFT alignment had segments
             for (int i = 0; i < count - 1; i++)
             {
+                FftlogResult++;
                 int headgp = i == 0 ? G.Outgap : 1;
                 int tailgp = i == count - 2 ? G.Outgap : 1;
                 var sgap1 = new char[clus1];

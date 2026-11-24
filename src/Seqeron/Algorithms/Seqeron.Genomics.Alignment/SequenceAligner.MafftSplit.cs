@@ -109,7 +109,7 @@ public static partial class SequenceAligner
         /// alignment of the previous pass of <c>-Z</c>), the guide tree of the representatives (UPGMA) is followed recursively and the groups are aligned in the order of the tree.
         /// <paramref name="input"/> are the sequences as the file <c>infile</c> / <c>pre</c> holds them (aligned for <c>-Z</c>).
         /// </summary>
-        internal SplitResult Splittbfast(IReadOnlyList<string> input)
+        internal SplitResult Splittbfast(IReadOnlyList<string> input, IReadOnlyList<string>? names = null)
         {
             int njob = input.Count;
             _spNjob = njob;
@@ -198,7 +198,7 @@ public static partial class SequenceAligner
                 _spNlen[i] = tmpseq.Length;
                 _spSeq[i] = tmpseq;
                 if (_spNlen[i] < 6)
-                    throw new ArgumentException($"Seq {i + 1}, too short, {_spNlen[i]} characters");
+                    throw new MafftProgramFailureException("Seq " + (i + 1).ToString(CultureInfo.InvariantCulture) + ", too short, " + _spNlen[i].ToString(CultureInfo.InvariantCulture) + " characters\nname = " + (names?[i] ?? "=seq" + (i + 1).ToString(CultureInfo.InvariantCulture)) + "\nseq = " + _spSeq[i] + "\n");
                 var grp = new List<int>(tmpseq.Length);
                 foreach (char c in tmpseq)
                 {
@@ -209,7 +209,7 @@ public static partial class SequenceAligner
                         nunknown++;
                 }
                 if (grp.Count < 6)
-                    throw new ArgumentException($"Seq {i + 1}, too short.");
+                    throw new MafftProgramFailureException("Seq " + (i + 1).ToString(CultureInfo.InvariantCulture) + ", too short.\nname = " + (names?[i] ?? "=seq" + (i + 1).ToString(CultureInfo.InvariantCulture)) + "\nseq = " + _spSeq[i] + "\n");
                 var core = MakePointTable(grp.ToArray(), grp.Count, 6, mult, limit);
                 var pointt = new int[_spNlen[i] + 1];
                 Array.Copy(core, pointt, core.Length);
@@ -220,12 +220,8 @@ public static partial class SequenceAligner
                 Report("\nThere are " + nunknown.ToString(CultureInfo.InvariantCulture) + " ambiguous characters\n");
             // WriteOptions( trap_g ): only the gap penalty line goes to the standard error
             Report("Gap Penalty = " + MafftGlobals.F((double)G.Ppenalty / 1000, 5, 2, true) + ", " + MafftGlobals.F((double)G.PpenaltyEx / 1000, 5, 2, true) + ", " + MafftGlobals.F((double)G.Poffset / 1000, 5, 2, true) + "\n");
-            foreach (var s in _spSeq)
-            {
-                foreach (char ch in s)
-                    if (G.AminoN[ch] == -1)
-                        throw new ArgumentException($"Alphabet '{ch}' is unknown (MAFFT stops: try --anysymbol).");
-            }
+            if (CheckAlphabet(_spSeq, "Illeagal") is { } unknownLetter)
+                throw unknownLetter;
             for (int i = 0; i < njob; i++)
             {
                 scores[i].NumInSeq = i;

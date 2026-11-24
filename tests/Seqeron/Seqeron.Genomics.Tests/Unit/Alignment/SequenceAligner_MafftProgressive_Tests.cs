@@ -244,10 +244,10 @@ public class SequenceAligner_MafftProgressive_Tests
         {
             Assert.That(SequenceAligner.MultipleAlignMafft(three).AlignedSequences, Has.Length.EqualTo(3));
             Assert.That(SequenceAligner.MultipleAlignMafft(three, new MafftOptions { Retree = 0 }).AlignedSequences, Is.EqualTo(three), "--retree 0: the guide tree only, the sequences are not aligned (F313)");
-            Assert.Throws<NotSupportedException>(() => SequenceAligner.MultipleAlignMafft(three, new MafftOptions { Retree = 0, PairLibrary = MafftPairLibrary.Local }), "tbfast writes the tree: registered");
-            Assert.Throws<ArgumentException>(() => SequenceAligner.MultipleAlignMafft(three, new MafftOptions { TupleSize = 10, SequenceType = MafftSequenceType.Amino }), "tuplesize must be 6 for aa sequence");
-            Assert.Throws<ArgumentException>(() => SequenceAligner.MultipleAlignMafft([.. three, "ACG-"], new MafftOptions { Blosum = 63 }));
-            Assert.Throws<ArgumentException>(() => SequenceAligner.MultipleAlignMafft([.. three, "---"]), "no residues");
+            Assert.That(SequenceAligner.MultipleAlignMafft(three, new MafftOptions { Retree = 0, PairLibrary = MafftPairLibrary.Local }).AlignedSequences, Is.EqualTo(three), "--retree 0 with a pair library: tbfast -T writes the tree only (F316)");
+            Assert.Catch<ArgumentException>(() => SequenceAligner.MultipleAlignMafft(three, new MafftOptions { TupleSize = 10, SequenceType = MafftSequenceType.Amino }), "tuplesize must be 6 for aa sequence");
+            Assert.Catch<ArgumentException>(() => SequenceAligner.MultipleAlignMafft([.. three, "ACG-"], new MafftOptions { Blosum = 63 }));
+            Assert.That(SequenceAligner.MultipleAlignMafft([.. three, "---"]).AlignedSequences, Has.Length.EqualTo(4), "a sequence without residues stays all gaps (F319: the program accepts it)");
             Assert.Throws<OperationCanceledException>(() => SequenceAligner.MultipleAlignMafft(three, new MafftOptions { CancellationToken = new CancellationToken(true) }));
             Assert.That(SequenceAligner.RunMafft(three, new MafftOptions { Quiet = true }).StandardError, Is.Empty);
             Assert.That(SequenceAligner.RunMafft(three).StandardError, Does.Contain("Strategy:\n FFT-NS-2 (Fast but rough)\n Progressive method (guide trees were built 2 times.)\n"));

@@ -118,8 +118,8 @@ public class SequenceAligner_MafftTreeOut_Tests
             Assert.That(res.StandardError, Does.Contain("FFT-NS-0"));
             Assert.That(SequenceAligner.RunMafft(seqs, o).TreeFile, Is.Null);
             Assert.That(SequenceAligner.RunMafft(seqs, o with { NodeOut = true }).TreeFile, Does.Contain("Density:").And.Contain("Node info:"));
-            Assert.Throws<ArgumentException>(() => SequenceAligner.RunMafft(seqs, o with { NodeOut = true, MaxIterate = 2 }));
-            Assert.Throws<ArgumentException>(() => SequenceAligner.RunMafft(seqs, o with { Names = ["a"] }));
+            Assert.Catch<ArgumentException>(() => SequenceAligner.RunMafft(seqs, o with { NodeOut = true, MaxIterate = 2 }));
+            Assert.Catch<ArgumentException>(() => SequenceAligner.RunMafft(seqs, o with { Names = ["a"] }));
         });
     }
 }

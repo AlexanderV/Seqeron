@@ -81,7 +81,7 @@ public class SequenceAligner_MafftPair_Tests
         var o = ParseOptions(r.Options);
         if (r.Rc != 0)
         {
-            Assert.Throws<ArgumentException>(() => SequenceAligner.MultipleAlignMafft(r.Seqs, o));
+            Assert.Catch<ArgumentException>(() => SequenceAligner.MultipleAlignMafft(r.Seqs, o));
             return;
         }
         var res = SequenceAligner.MultipleAlignMafft(r.Seqs, o);

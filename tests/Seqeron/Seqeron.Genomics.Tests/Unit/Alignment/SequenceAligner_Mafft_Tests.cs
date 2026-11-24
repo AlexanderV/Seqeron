@@ -118,11 +118,11 @@ public class SequenceAligner_Mafft_Tests
             Assert.That(SequenceAligner.MultipleAlignMafft([]).AlignedSequences, Is.Empty);
             Assert.That(SequenceAligner.MultipleAlignMafft(["ACGT"]).AlignedSequences, Is.EqualTo(new[] { "ACGT" }), "A3-4: one sequence is written back (mafft 7.505 'Only 1 sequence found' is a warning)");
             Assert.That(SequenceAligner.MultipleAlignMafft(["ACGTACGT", "ACGAACGT", "ACGGACGT"]).AlignedSequences, Has.Length.EqualTo(3), "three sequences: the progressive stage (A2-19b, SequenceAligner_MafftProgressive_Tests)");
-            Assert.Throws<ArgumentException>(() => SequenceAligner.MultipleAlignMafft(["ACGT", "---"]), "no residues");
-            Assert.Throws<ArgumentException>(() => SequenceAligner.MultipleAlignMafft(["ACGT", "AC=GT"]), "'=' stops the program with --anysymbol");
-            Assert.Throws<ArgumentException>(() => SequenceAligner.MultipleAlignMafft(["ACGT", "ACGé"]));
-            Assert.Throws<ArgumentException>(() => SequenceAligner.MultipleAlignMafft(["ACGT", "ACGA"], new MafftOptions { Blosum = 63 }));
-            Assert.Throws<ArgumentException>(() => SequenceAligner.MultipleAlignMafft(["ACGT", "ACGA"], new MafftOptions { GapOpen = double.NaN }));
+            Assert.That(SequenceAligner.MultipleAlignMafft(["ACGT", "---"]).AlignedSequences, Is.EqualTo(new[] { "ACGT", "----" }).IgnoreCase, "a sequence without residues stays all gaps (F319: the program accepts it)");
+            Assert.Catch<ArgumentException>(() => SequenceAligner.MultipleAlignMafft(["ACGT", "AC=GT"]), "'=' stops the program with --anysymbol");
+            Assert.That(SequenceAligner.MultipleAlignMafft(["ACGT", "ACGé"]).AlignedSequences, Has.Length.EqualTo(2), "a byte above 127 is a letter outside the alphabet the program skips (F319)");
+            Assert.Catch<ArgumentException>(() => SequenceAligner.MultipleAlignMafft(["ACGT", "ACGA"], new MafftOptions { Blosum = 63 }));
+            Assert.Catch<ArgumentException>(() => SequenceAligner.MultipleAlignMafft(["ACGT", "ACGA"], new MafftOptions { GapOpen = double.NaN }));
             Assert.Throws<ArgumentNullException>(() => SequenceAligner.MultipleAlignMafft(null!));
             Assert.Throws<OperationCanceledException>(() => SequenceAligner.MultipleAlignMafft(["ACGT", "ACGA"], new MafftOptions { CancellationToken = new CancellationToken(true) }));
         });

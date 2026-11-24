@@ -77,8 +77,8 @@ public class SequenceAligner_MafftPairLibrary_Tests
         var o = new MafftOptions { AnySymbol = false, PairLibrary = MafftPairLibrary.Global };
         Assert.Multiple(() =>
         {
-            Assert.Throws<NotSupportedException>(() => SequenceAligner.MultipleAlignMafft(three, o with { WeightI = 0.0 }), "--weighti 0: no constraints");
-            Assert.Throws<ArgumentException>(() => SequenceAligner.MultipleAlignMafft([.. three, "MK*U+"], o), "letters outside the alphabet stop the plain command");
+            Assert.That(SequenceAligner.MultipleAlignMafft(three, o with { WeightI = 0.0 }).AlignedSequences, Has.Length.EqualTo(3), "--weighti 0: the pair library without constraints (F317)");
+            Assert.Catch<ArgumentException>(() => SequenceAligner.MultipleAlignMafft([.. three, "MK*U+"], o), "letters outside the alphabet stop the plain command");
             Assert.Throws<OperationCanceledException>(() => SequenceAligner.MultipleAlignMafft(three, o with { CancellationToken = new CancellationToken(true) }));
             Assert.That(SequenceAligner.RunMafft(three, o with { Quiet = true }).StandardError, Is.Empty);
         });

@@ -24,6 +24,17 @@ public enum MafftScoringModel
     Tm = 2,
 }
 
+/// <summary>The memory option of the script: the default, <c>--memsave</c> (<c>-M -B</c>: the memory-saving dynamic program of the programs) or <c>--nomemsave</c> (<c>-N</c>).</summary>
+public enum MafftMemoryMode
+{
+    /// <summary>No option.</summary>
+    Default = 0,
+    /// <summary><c>--memsave</c>.</summary>
+    MemSave = 1,
+    /// <summary><c>--nomemsave</c>.</summary>
+    NoMemSave = 2,
+}
+
 /// <summary>The pairwise alignment information that the progressive alignment incorporates (<c>--globalpair</c> G-INS, <c>--localpair</c> L-INS, <c>--genafpair</c> E-INS); <see cref="None"/> = the 6-mer distances of FFT-NS.</summary>
 public enum MafftPairLibrary
 {
@@ -133,7 +144,7 @@ public sealed record MafftOptions
     /// <summary><c>--globalpair</c> / <c>--localpair</c> / <c>--genafpair</c>: every pair of sequences is aligned first (all against all) and the blocks of these alignments constrain the progressive alignment (G-INS-1, L-INS-1, E-INS-1; with <see cref="MaxIterate"/> the refinement of G-INS-i, L-INS-i, E-INS-i).</summary>
     public MafftPairLibrary PairLibrary { get; init; }
 
-    /// <summary><c>--weighti x</c>: the weight of the pair library against the substitution scores (default 2.7). 0 switches the constraints off, which this port does not support.</summary>
+    /// <summary><c>--weighti x</c>: the weight of the pair library against the substitution scores (default 2.7). 0 switches the constraints off (<c>tbfast -c 0</c>, F317).</summary>
     public double WeightI { get; init; } = 2.7;
 
     /// <summary><c>--gop x</c> / <c>--gep x</c> / <c>--gexp x</c>: gap opening penalty, offset and gap extension of the global pair alignments (as the script passes them, the opening and extension are negative; defaults -2.00, 0.10, -0.10).</summary>
@@ -184,6 +195,60 @@ public sealed record MafftOptions
     /// <summary>The names of the sequences (the lines after '&gt;'): they appear in the files <see cref="MafftRunResult.TreeFile"/> and <see cref="MafftRunResult.DistanceFile"/> (<c>--treeout</c>, <c>--nodeout</c>, <c>--distout</c>); default <c>seq1</c>, <c>seq2</c> ...</summary>
     public IReadOnlyList<string>? Names { get; init; }
 
+    /// <summary><c>--minimumweight x</c>: the smallest weight of a sequence in the progressive and iterative steps (<c>-W</c>; default 0.00001).</summary>
+    public double MinimumWeight { get; init; } = 0.00001;
+
+    /// <summary><c>--skipiterate x</c> (<c>dvtditr -E</c>): a group is not refined when ... (the program's "fix" threshold; default 0.0).</summary>
+    public double FixThreshold { get; init; }
+
+    /// <summary><c>--randomseed n</c> (<c>dvtditr -t</c>; default 0).</summary>
+    public int RandomSeed { get; init; }
+
+    /// <summary><c>--bunkatsunashi</c> (<c>dvtditr -B</c>): the alignment is not divided at anchors before the iterative refinement.</summary>
+    public bool NoSegmentation { get; init; }
+
+    /// <summary><c>--oneiteration</c> (<c>disttbfast -r</c>).</summary>
+    public bool OneIteration { get; init; }
+
+    /// <summary><c>--noscore</c> (<c>dvtditr -Z</c>): no score is calculated during the iterative refinement.</summary>
+    public bool NoScore { get; init; }
+
+    /// <summary><c>--bestfirst</c> / <c>--adhoc0</c> / <c>--adhoc1</c> / <c>--adhoc2</c> (<c>dvtditr -p</c>): BESTFIRST, BAATARI0, BAATARI1 or BAATARI2 (default); they differ only with several threads in the refinement.</summary>
+    public string ParallelizationStrategy { get; init; } = "BAATARI2";
+
+    /// <summary><c>--scoreout</c> (<c>-S -B</c>): the program reports the score of the alignment.</summary>
+    public bool ScoreOut { get; init; }
+
+    /// <summary><c>--outnum</c> (<c>-n</c>): the sequences are numbered in the files the programs exchange.</summary>
+    public bool OutNumber { get; init; }
+
+    /// <summary><c>--sparsepickup n</c> (<c>disttbfast -q</c>).</summary>
+    public int SparsePickup { get; init; }
+
+    /// <summary><c>--threadtb n</c>: the number of threads of the progressive step (default: the script's rule).</summary>
+    public int? ThreadsProgressive { get; init; }
+
+    /// <summary><c>--memsave</c> (<c>-M -B</c>) / <c>--nomemsave</c> (<c>-N</c>): the memory-saving dynamic program / never.</summary>
+    public MafftMemoryMode MemoryMode { get; init; }
+
+    /// <summary><c>--add</c> / <c>--addprofile</c> (<c>disttbfast -K -I n</c> / <c>-I n</c>): the last <see cref="AddCount"/> of the sequences are added to the alignment that the others form (they are aligned; the new ones are not).</summary>
+    public int AddCount { get; init; }
+
+    /// <summary><c>--keeplength</c> (<c>-Y</c>): the length of the alignment of the original sequences is kept: the residues of the added sequences that fall into new columns are deleted.</summary>
+    public bool KeepLength { get; init; }
+
+    /// <summary><c>--mapout</c> (1) / <c>--compactmapout</c> (2): the file that lists the deleted residues (<see cref="MafftRunResult.MapFile"/>).</summary>
+    public int MapOut { get; init; }
+
+    /// <summary><c>--smoothing</c> (<c>-p</c>).</summary>
+    public bool Smoothing { get; init; }
+
+    /// <summary><c>--addprofile</c>: the added sequences are an alignment themselves (<c>-I n</c> without <c>-K</c>).</summary>
+    public bool AddProfile { get; init; }
+
+    /// <summary>The names are the complete titles the programs hold after <c>replaceu</c> and <c>--outnum</c> (the script layer computes them).</summary>
+    internal bool NamesAreProgramTitles { get; init; }
+
     /// <summary><c>--oldgenafpair</c>: the parameters of E-INS-i before version 7.243 (the offset and the extension of the pair stage as given, the alignment score of the pair).</summary>
     public bool OldGenafParameters { get; init; }
 
@@ -201,6 +266,15 @@ public sealed record MafftRunResult(MultipleAlignmentResult Alignment, string St
 {
     /// <summary>The index in the input of every row of the output (the identity unless <c>--reorder</c> or a tree-splitting method changed the order).</summary>
     public int[] InputIndex { get; init; } = Array.Empty<int>();
+
+    /// <summary>The file <c>_deletemap</c> of <see cref="MafftOptions.MapOut"/> (<c>name.map</c>), or null.</summary>
+    public string? MapFile { get; init; }
+
+    /// <summary>With <c>--compactmapout</c> the program titles of the added sequences are changed ("Nins:...|title"): the new title of every row of the output, null where it is unchanged.</summary>
+    public string?[]? ChangedNames { get; init; }
+
+    /// <summary>The file <c>notused</c> of <see cref="MafftOptions.SparsePickup"/> (the sequences that were not picked up), or null.</summary>
+    public string? NotUsedFile { get; init; }
 
     /// <summary>The guide tree file of <see cref="MafftOptions.TreeOut"/> / <see cref="MafftOptions.NodeOut"/> (<c>input.tree</c>), or null.</summary>
     public string? TreeFile { get; init; }
@@ -300,6 +374,16 @@ public static partial class SequenceAligner
             return (double)atgc / total > 0.75; // NaN (no letters) is false: amino acids
         }
 
+        /// <summary>The residues of a sequence as <c>countlen</c> and the plain mode of the programs read it (letters, '.', '-', '*' as '-').</summary>
+        internal static string PlainResidues(string raw) => LoadResidues(raw, false);
+
+        /// <summary>The residues as <c>replaceu</c> (<paramref name="anySymbol"/>) or the plain programs read them.</summary>
+        internal static string PlainOrAnyResidues(string raw, bool anySymbol) => LoadResidues(raw, anySymbol);
+
+        /// <summary>The standard error of <c>replaceu</c> (<c>--anysymbol</c>): the input file and "n x longest - shortest d|p".</summary>
+        internal static string ReplaceuLog(IReadOnlyList<string> originals, bool nucleotide) =>
+            "inputfile = orig\n" + originals.Count + " x " + originals.Max(x => x.Length) + " - " + originals.Min(x => x.Length) + " " + (nucleotide ? 'd' : 'p') + "\n";
+
         private static bool IsAsciiLetter(char c) => (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
 
         /// <summary>replaceu.c: letters outside the usual alphabet are replaced (X for amino acids, n for nucleotides), the rest is upper- / lower-cased.</summary>
@@ -310,8 +394,8 @@ public static partial class SequenceAligner
             var sb = new System.Text.StringBuilder(s.Length);
             foreach (char ch in s)
             {
-                if (ch >= 128)
-                    throw new ArgumentException("MAFFT works on ASCII letters; the sequence contains a character above U+007F.", nameof(s));
+                if (ch >= 256)
+                    throw new ArgumentException("MAFFT works on bytes; the sequence contains a character above U+00FF.", nameof(s));
                 if (nucleotide)
                     sb.Append(usualN.Contains(ch) ? char.ToLowerInvariant(ch) : 'n');
                 else
@@ -330,38 +414,35 @@ public static partial class SequenceAligner
         }
 
         /// <summary>Three or more sequences: <c>replaceu</c>, <c>disttbfast</c> (<see cref="MafftRun.Disttbfast"/>), <c>restoreu</c>.</summary>
-        internal static MafftRunResult AlignMany(IReadOnlyList<string> list, MafftOptions o)
+        internal static MafftRunResult AlignMany(IReadOnlyList<string> list, MafftOptions o, bool epilogue = true)
         {
             if (o.Blosum is not (30 or 45 or 50 or 62 or 80 or 90 or 100 or 0))
                 throw new ArgumentException($"--bl must be 30, 45, 50, 62, 80, 90, 100 or 0, got {o.Blosum}.", nameof(o));
             if (!double.IsFinite(o.GapOpen) || !double.IsFinite(o.Offset) || !double.IsFinite(o.GapExtension))
                 throw new ArgumentException("--op, --ep and --exp must be finite.", nameof(o));
-            bool anyOut = o.TreeOut || o.NodeOut || o.DistOut;
             if (o.NodeOut && o.MaxIterate > 0 && o.Retree != 0)
                 throw new ArgumentException("The --nodeout option supports only the progressive method (--maxiterate 0) for now (MAFFT stops).");
-            if (o.PartTree == MafftPartTree.None && !o.Auto && (o.PairLibrary != MafftPairLibrary.None || (o.MaxIterate > 0 && o.Retree != 0)) && (anyOut || o.Retree == 0))
-                throw new NotSupportedException("--retree 0 / --treeout / --nodeout / --distout with a pair library (--globalpair, --localpair, --genafpair) or with --maxiterate (tbfast / dvtditr write the tree and the distances) are not available in this port.");
-            if (o.Auto && (anyOut || o.Retree == 0))
-                throw new NotSupportedException("--auto with --treeout / --nodeout / --distout is not available in this port.");
-            if (o.PairLibrary != MafftPairLibrary.None && !(o.WeightI >= 0.0001))
-                throw new NotSupportedException("--weighti 0 (the pair library without constraints) of MAFFT is not available in this port.");
+            if (o.Retree == 0 && o.PairLibrary != MafftPairLibrary.None)
+                o = o with { WeightI = 0.0, MaxIterate = 0 }; // the script: with --retree 0 "weighti" is 0.0 and no iteration runs
             var originals = list.Select(x => LoadResidues(x, o.AnySymbol)).ToArray();
-            foreach (var s in originals)
-                if (NoGaps(s).Length == 0)
-                    throw new ArgumentException("A sequence without residues cannot be aligned.", nameof(list));
             if (o.Auto)
                 o = ApplyAuto(o, list.Count, originals.Max(x => NoGaps(x).Length));
             bool nuc1 = GuessNucleotide(originals, o);
             var log = new System.Text.StringBuilder();
             if (o.AnySymbol)
-                log.Append("inputfile = orig\n").Append(originals.Length).Append(" x ").Append(originals.Max(x => x.Length)).Append(" - ").Append(originals.Min(x => x.Length)).Append(' ').Append(nuc1 ? 'd' : 'p').Append('\n');
+                log.Append(ReplaceuLog(originals, nuc1));
             string[] replaced = o.AnySymbol
                 ? originals.Select(s => ReplaceUnusual(s, nuc1)).ToArray()
                 : originals.Select(s => nuc1 ? s.ToLowerInvariant() : s.ToUpperInvariant()).ToArray();
             bool nuc = GuessNucleotide(replaced, o);
             replaced = nuc ? replaced.Select(s => s.ToLowerInvariant()).ToArray() : replaced.Select(s => s.ToUpperInvariant()).ToArray();
+            var header = o.Names ?? Enumerable.Range(0, list.Count).Select(i => "seq" + (i + 1).ToString(System.Globalization.CultureInfo.InvariantCulture)).ToArray();
+            if (header.Count != list.Count)
+                throw new ArgumentException("Names must have one entry per sequence.", nameof(o));
+            string TitlePrefix(int i) => o.AnySymbol && !o.NamesAreProgramTitles ? "_os_" + i.ToString(System.Globalization.CultureInfo.InvariantCulture) + "_oe_" : "";
+            var programNames = header.Select((h, i) => "=" + TitlePrefix(i) + h).ToArray();
             if (o.PartTree != MafftPartTree.None)
-                return AlignPartTree(list.Count, originals, replaced, nuc, o, log);
+                return AlignPartTree(list.Count, originals, replaced, nuc, o, log, epilogue, programNames);
             MafftRun.Result result;
             string? treeFile = null, distFile = null;
             double[][]? pairHat2 = null;
@@ -373,10 +454,12 @@ public static partial class SequenceAligner
                 if (tg.Dorp == '\0')
                     tg.Dorp = nuc ? 'd' : 'p';
                 var trun = new MafftRun(tg);
-                result = trun.Tbfast(replaced, MafftGlobals.ParsePairlocalalign(pairArgs));
+                result = GuardRun(trun, log, () => trun.Tbfast(replaced, MafftGlobals.ParsePairlocalalign(pairArgs), programNames));
                 log.Append(trun.Log);
                 pairHat2 = trun.Hat2Table;
                 pairHat3 = trun.Hat3Table;
+                treeFile = trun.TreeFile;
+                distFile = trun.DistFile;
             }
             else
             {
@@ -384,15 +467,28 @@ public static partial class SequenceAligner
                 if (g.Dorp == '\0')
                     g.Dorp = nuc ? 'd' : 'p';
                 var run = new MafftRun(g);
-                var header = o.Names ?? Enumerable.Range(0, list.Count).Select(i => "seq" + (i + 1).ToString(System.Globalization.CultureInfo.InvariantCulture)).ToArray();
-                if (header.Count != list.Count)
-                    throw new ArgumentException("Names must have one entry per sequence.", nameof(o));
-                var programNames = header.Select((h, i) => "=" + (o.AnySymbol ? "_os_" + i.ToString(System.Globalization.CultureInfo.InvariantCulture) + "_oe_" : "") + h).ToArray();
-                result = run.Disttbfast(replaced, programNames);
+                result = GuardRun(run, log, () => run.Disttbfast(replaced, programNames));
                 treeFile = run.TreeFile;
                 distFile = run.DistFile;
                 log.Append(run.Log);
             }
+            if (result.Rows.Length == 0 && list.Count > 0)
+            {
+                // the program stopped after its message (the original sequences of --add are not aligned)
+                string quit = "";
+                if (!o.Quiet)
+                    quit = epilogue ? log + MafftScript.Epilogue(o, list.Count) : log.ToString();
+                return new MafftRunResult(MultipleAlignmentResult.Empty, quit) { InputIndex = Array.Empty<int>() };
+            }
+            int[]? picked = result.Picked;
+            string? notUsed = result.NotUsed;
+            var deletedRuns = result.Deleted;
+            string? mapFile = result.DeleteMap;
+            var changedNames = new string?[list.Count];
+            if (result.NewNames != null)
+                for (int k = 0; k < result.NewNames.Length; k++)
+                    changedNames[list.Count - result.NewNames.Length + k] = result.NewNames[k];
+            string[] activeNames = picked == null ? programNames : picked.Select(i => programNames[i]).ToArray();
             if (MafftScript.Iterations(o) > 0)
             {
                 int threads = o.Threads < 0 ? Environment.ProcessorCount : o.Threads;
@@ -407,32 +503,41 @@ public static partial class SequenceAligner
                 else
                 {
                     var run2 = new MafftRun(MafftGlobals.ParseDndpre(MafftScript.DndpreArguments(o)));
-                    hat2 = run2.Dndpre(result.Rows);
+                    hat2 = GuardRun(run2, log, () => run2.Dndpre(result.Rows, activeNames));
                     log.Append(run2.Log);
+                    distFile = run2.DistFile; // dndpre rewrites the file hat2
                 }
                 var run3 = new MafftRun(MafftGlobals.ParseDvtditr(MafftScript.DvtditrArguments(o)));
-                result = run3.Dvtditr(result.Rows, hat2, pairHat3);
+                result = GuardRun(run3, log, () => run3.Dvtditr(result.Rows, hat2, pairHat3, activeNames));
                 log.Append(run3.Log);
+                treeFile = run3.TreeFile; // dvtditr writes the file infile.tree (fixed_musclesupg_double_treeout) whatever the options say
             }
             string[] rows = o.AnySymbol
-                ? result.Rows.Select((r, i) => Restore(originals[i], r)).ToArray()
+                ? result.Rows.Select((r, i) => Restore(DeleteRuns(originals[picked?[i] ?? i], deletedRuns, i), r)).ToArray()
                 : result.Rows;
+            if (picked != null && o.Reorder)
+                throw new NotSupportedException("--sparsepickup with --reorder: the program stops before it writes the file 'order'.");
             if (o.Reorder)
                 rows = result.Order.Select(i => rows[i]).ToArray();
-            string stderr = o.Quiet ? "" : log.ToString() + MafftScript.Epilogue(o, list.Count);
-            int[] inputIndex = o.Reorder ? result.Order.ToArray() : Enumerable.Range(0, rows.Length).ToArray();
+            string stderr = "";
+            if (!o.Quiet)
+                stderr = epilogue ? log + MafftScript.Epilogue(o, list.Count) : log.ToString();
+            int[] inputIndex = picked ?? (o.Reorder ? result.Order.ToArray() : Enumerable.Range(0, rows.Length).ToArray());
             return new MafftRunResult(ToResult(rows, nuc), stderr)
             {
                 InputIndex = inputIndex,
                 TreeFile = o.TreeOut || o.NodeOut ? treeFile : null,
                 DistanceFile = o.DistOut ? distFile : null,
+                NotUsedFile = notUsed,
+                MapFile = mapFile,
+                ChangedNames = changedNames.Any(x => x != null) ? changedNames : null,
             };
         }
 
         /// <summary>
         /// <c>mafft --parttree | --dpparttree | --fastaparttree</c>: <c>splittbfast</c> once, and <c>-Z</c> passes (the distances of the alignment of the previous pass) as the script runs them (<c>cycle</c> passes in all).
         /// </summary>
-        private static MafftRunResult AlignPartTree(int nseq, string[] originals, string[] replaced, bool nuc, MafftOptions o, System.Text.StringBuilder log)
+        private static MafftRunResult AlignPartTree(int nseq, string[] originals, string[] replaced, bool nuc, MafftOptions o, System.Text.StringBuilder log, bool epilogue, string[] partNames)
         {
             if (o.MaxIterate > 0)
                 throw new ArgumentException("--parttree / --dpparttree / --fastaparttree cannot be combined with --maxiterate (MAFFT: 'Impossible' for more than 1 iteration; with 1 iteration dvtditr stops, no distance matrix 'hat2' exists).");
@@ -448,7 +553,7 @@ public static partial class SequenceAligner
             {
                 var g = MafftGlobals.ParseSplittbfast(MafftScript.SplittbfastArguments(o, nseq, pass > 0, cycle, groupsize));
                 var run = new MafftRun(g);
-                var res = run.Splittbfast(rows);
+                var res = GuardRun(run, log, () => run.Splittbfast(rows, partNames));
                 log.Append(run.Log);
                 rows = res.Rows;
                 index = res.Order.Select(i => index[i]).ToArray();
@@ -457,7 +562,9 @@ public static partial class SequenceAligner
             }
             if (o.AnySymbol)
                 rows = rows.Select((r, k) => Restore(originals[index[k]], r)).ToArray();
-            string stderr = o.Quiet ? "" : log.ToString() + MafftScript.Epilogue(o, nseq);
+            string stderr = "";
+            if (!o.Quiet)
+                stderr = epilogue ? log + MafftScript.Epilogue(o, nseq) : log.ToString();
             bool labelled = groupsize > 1 && groupsize <= nseq;
             return new MafftRunResult(ToResult(rows, nuc), stderr)
             {
@@ -510,8 +617,8 @@ public static partial class SequenceAligner
             var sb = new System.Text.StringBuilder(s.Length);
             foreach (char ch in s)
             {
-                if (ch >= 128)
-                    throw new ArgumentException("MAFFT works on ASCII letters; the sequence contains a character above U+007F.", nameof(s));
+                if (ch >= 256)
+                    throw new ArgumentException("MAFFT works on bytes; the sequence contains a character above U+00FF.", nameof(s));
                 if (anySymbol)
                 {
                     if (ch is '=' or '<' or '>')
@@ -532,6 +639,19 @@ public static partial class SequenceAligner
         }
 
         internal static bool IsNucleotide(IReadOnlyList<string> seqs, MafftOptions o) => GuessNucleotide(seqs.Select(x => LoadResidues(x, o.AnySymbol)).ToList(), o);
+
+        /// <summary><c>restoreu -Y</c>: the residues that <c>--keeplength</c> deleted are taken out of the original letters (positions count the residues, '-' excluded).</summary>
+        private static string DeleteRuns(string original, List<(int Row, int Pos, int Len)>? runs, int row)
+        {
+            if (runs == null || !runs.Any(r => r.Row == row))
+                return original;
+            var letters = NoGaps(original).ToCharArray();
+            var gone = new bool[letters.Length];
+            foreach (var r in runs.Where(r => r.Row == row))
+                for (int k = 0; k < r.Len; k++)
+                    gone[r.Pos + k] = true;
+            return new string(letters.Where((_, i) => !gone[i]).ToArray());
+        }
 
         private static string NoGaps(string s) => s.Replace("-", "", StringComparison.Ordinal);
 

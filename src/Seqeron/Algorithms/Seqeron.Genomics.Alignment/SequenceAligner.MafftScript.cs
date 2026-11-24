@@ -79,7 +79,13 @@ public static partial class SequenceAligner
         }
 
         /// <summary>The number of refinement iterations that the script passes to <c>dvtditr</c> (<c>--maxiterate</c>, at most 16).</summary>
-        internal static int Iterations(MafftOptions o) => o.Retree == 0 ? 0 : Math.Min(o.MaxIterate, 16);
+        internal static int Iterations(MafftOptions o)
+        {
+            if (o.Retree == 0)
+                return 0;
+            int limit = o.ParallelizationStrategy is "BESTFIRST" or "BAATARI0" ? 254 : 16;
+            return Math.Min(o.MaxIterate, limit);
+        }
 
         /// <summary><c>dndpre $seqtype $model -M 2 -C $numthreads</c>.</summary>
         internal static List<string> DndpreArguments(MafftOptions o)
@@ -108,14 +114,22 @@ public static partial class SequenceAligner
                 aof = "0.000"; // E-INS: the offset is 0 whatever --ep says
             int threads = o.Threads < 0 ? Environment.ProcessorCount : o.Threads;
             int threadsIt = o.ThreadsIterate ?? (threads < 8 ? threads : 8);
-            var args = new List<string> { "-W", "0.00001", "-E", "0.0", "-s", "0.0" };
+            var args = new List<string> { "-W", Text(o.MinimumWeight) };
+            if (o.NoSegmentation)
+                args.Add("-B");
+            args.AddRange(new[] { "-E", Text(o.FixThreshold), "-s", "0.0" });
             if (o.LegacyGapPenalty)
                 args.Add("-L");
+            if (o.OutNumber)
+                args.Add("-n");
             args.Add("-C");
             args.Add(threadsIt.ToString(CultureInfo.InvariantCulture));
             args.Add("-t");
-            args.Add("0");
+            args.Add(o.RandomSeed.ToString(CultureInfo.InvariantCulture));
             args.Add("-F");
+            args.AddRange(MemoryArguments(o));
+            if (o.NoScore)
+                args.Add("-Z");
             if (o.PairLibrary != MafftPairLibrary.None)
             {
                 args.Add("-l");
@@ -141,11 +155,21 @@ public static partial class SequenceAligner
             args.Add("-X");
             args.Add(o.TreeMixing is { } mix ? Text(mix) : "0.1");
             args.Add("-p");
-            args.Add("BAATARI2");
+            args.Add(o.ParallelizationStrategy);
+            if (o.ScoreOut)
+                args.AddRange(new[] { "-S", "-B" });
             args.Add("-K");
             args.Add(nadd.ToString(CultureInfo.InvariantCulture));
             return args;
         }
+
+        /// <summary><c>$memopt</c>: <c>--memsave</c> = <c>-M -B</c>, <c>--nomemsave</c> = <c>-N</c>.</summary>
+        internal static IEnumerable<string> MemoryArguments(MafftOptions o) => o.MemoryMode switch
+        {
+            MafftMemoryMode.MemSave => new[] { "-M", "-B" },
+            MafftMemoryMode.NoMemSave => new[] { "-N" },
+            _ => Array.Empty<string>(),
+        };
 
         /// <summary>The number of passes of <c>splittbfast</c> (<c>cycle</c>) and the group size the script gives it, after the rules of <c>mafft.tmpl</c> for <c>--retree 0</c> (with <c>--treeout</c>: no alignment, <c>-s 1</c>), two sequences, at most 3 passes, <c>--dpparttree</c> / <c>--fastaparttree</c> / <c>--groupsize</c> (one pass).</summary>
         internal static (int Cycle, int GroupSize) PartTreeCycle(MafftOptions o, int nseq)
@@ -196,7 +220,121 @@ public static partial class SequenceAligner
             return args;
         }
 
-        /// <summary>The name of the strategy and its description that the script prints at the end of the run (<c>strategy</c>, <c>explanation</c>, <c>performance</c> of <c>mafft.tmpl</c>).</summary>
+        /// <summary>
+        /// The name of the strategy and its description that the script prints at the end of the run (<c>strategy</c>, <c>explanation</c>, <c>performance</c> of <c>mafft.tmpl</c>), from the variables of the script.
+        /// </summary>
+        internal static string StrategyName(string treeext, string distance, bool sw, bool fft, string weighti, bool memsavetree, int iterate, string partdist, int fragment, int cycle, out string explanation, out string performance)
+        {
+            string strategy;
+            if (treeext == "pileup")
+                strategy = "Pileup-";
+            else if (treeext == "randomchain")
+                strategy = "Randomchain-";
+            else if (distance == "fasta" && !sw)
+                strategy = "F-";
+            else if (distance == "fasta" && sw)
+                strategy = "H-";
+            else if (distance == "blast")
+                strategy = "B-";
+            else if (distance is "global" or "distonly")
+                strategy = "G-";
+            else if (distance == "local")
+                strategy = "L-";
+            else if (distance == "last")
+                strategy = "Last-";
+            else if (distance == "hybrid")
+                strategy = "Hybrid-";
+            else if (distance == "multi")
+                strategy = "Multi-";
+            else if (distance == "lastmulti")
+                strategy = "LastMulti-";
+            else if (distance == "localgenaf")
+                strategy = "E-";
+            else if (distance == "globalgenaf")
+                strategy = "K-";
+            else if (fft)
+                strategy = "FFT-";
+            else
+                strategy = "NW-";
+            if (memsavetree)
+                strategy += "large-";
+            if (MafftGlobals.CAtof(weighti) > 0.0)
+                strategy += "I";
+            strategy += "NS-";
+            string c = cycle.ToString(CultureInfo.InvariantCulture);
+            if (iterate > 0)
+                strategy += "i";
+            else if (distance == "parttree")
+                strategy += PartTreeName(partdist) + c;
+            else if (fragment == 1)
+                strategy += "fragment";
+            else if (fragment == -1)
+                strategy += "full";
+            else if (fragment == -2)
+                strategy += "long";
+            else if (fragment == -3)
+                strategy += "top";
+            else
+                strategy += c;
+            string it = iterate.ToString(CultureInfo.InvariantCulture);
+            explanation = "?";
+            performance = "Not tested.";
+            switch (strategy)
+            {
+                case "F-INS-i":
+                    explanation = "Iterative refinement method (<" + it + ") with LOCAL pairwise alignment information";
+                    performance = "Most accurate, but very slow";
+                    break;
+                case "L-INS-i":
+                    explanation = "Iterative refinement method (<" + it + ") with LOCAL pairwise alignment information";
+                    performance = "Probably most accurate, very slow";
+                    break;
+                case "E-INS-i":
+                    explanation = "Iterative refinement method (<" + it + ") with LOCAL pairwise alignment with generalized affine gap costs (Altschul 1998)";
+                    performance = "Suitable for sequences with long unalignable regions, very slow";
+                    break;
+                case "G-INS-i":
+                    explanation = "Iterative refinement method (<" + it + ") with GLOBAL pairwise alignment information";
+                    performance = "Suitable for sequences of similar lengths, very slow";
+                    break;
+                case "X-INS-i":
+                    explanation = "RNA secondary structure information is taken into account.";
+                    performance = "For short RNA sequences only, extremely slow";
+                    break;
+                case "F-INS-1":
+                case "L-INS-1":
+                    explanation = "Progressive method incorporating LOCAL pairwise alignment information";
+                    break;
+                case "G-INS-1":
+                    explanation = "Progressive method incorporating GLOBAL pairwise alignment information";
+                    break;
+                case "FFT-NS-i":
+                case "NW-NS-i":
+                    explanation = "Iterative refinement method (max. " + it + " iterations)";
+                    performance = iterate > 2 ? "Accurate but slow" : "Standard";
+                    break;
+                case "FFT-NS-2":
+                case "NW-NS-2":
+                    explanation = "Progressive method (guide trees were built " + c + " times.)";
+                    performance = "Fast but rough";
+                    break;
+                case "FFT-NS-1":
+                case "NW-NS-1":
+                    explanation = "Progressive method (rough guide tree was used.)";
+                    performance = "Very fast but very rough";
+                    break;
+            }
+            return strategy;
+        }
+
+        private static string PartTreeName(string partdist)
+        {
+            if (partdist == "fasta")
+                return "FastaPartTree-";
+            return partdist == "localalign" ? "DPPartTree-" : "PartTree-";
+        }
+
+        /// <summary>The name of the strategy and its description for the library options (<see cref="MafftOptions"/>).</summary>
         internal static (string Strategy, string Explanation, string Performance) Strategy(MafftOptions o, int nseq)
         {
             int cycle = o.Retree;
@@ -204,61 +342,14 @@ public static partial class SequenceAligner
                 cycle = 1;
             if (cycle > 3)
                 cycle = 3;
+            string distance = o.PartTree != MafftPartTree.None ? "parttree" : o.PairLibrary switch { MafftPairLibrary.Global => "global", MafftPairLibrary.Local => "local", MafftPairLibrary.Genaf => "localgenaf", _ => "ktuples" };
+            string partdist = o.PartTree switch { MafftPartTree.Fasta => "fasta", MafftPartTree.DynamicProgramming => "localalign", _ => "ktuples" };
             if (o.PartTree != MafftPartTree.None)
-            {
                 cycle = PartTreeCycle(o, nseq).Cycle;
-                string kind = o.PartTree switch { MafftPartTree.Fasta => "FastaPartTree-", MafftPartTree.DynamicProgramming => "DPPartTree-", _ => "PartTree-" };
-                return ((o.Fft ? "FFT-" : "NW-") + "NS-" + kind + cycle.ToString(CultureInfo.InvariantCulture), "?", "Not tested.");
-            }
-            int iterate = Iterations(o);
-            string prefix = o.PairLibrary switch { MafftPairLibrary.Global => "G-", MafftPairLibrary.Local => "L-", MafftPairLibrary.Genaf => "E-", _ => o.Fft ? "FFT-" : "NW-" };
-            if (o.PairLibrary != MafftPairLibrary.None)
-            {
+            else if (o.PairLibrary != MafftPairLibrary.None)
                 cycle = 1; // the script sets the number of tree builds to 1 when a pair library is used
-                if (o.WeightI > 0.0)
-                    prefix += "I";
-            }
-            string strategy = prefix + "NS-" + (iterate > 0 ? "i" : cycle.ToString(CultureInfo.InvariantCulture));
-            string explanation = "?";
-            string performance = "Not tested.";
-            if (strategy == "G-INS-i")
-            {
-                explanation = "Iterative refinement method (<" + iterate.ToString(CultureInfo.InvariantCulture) + ") with GLOBAL pairwise alignment information";
-                performance = "Suitable for sequences of similar lengths, very slow";
-            }
-            else if (strategy == "L-INS-i")
-            {
-                explanation = "Iterative refinement method (<" + iterate.ToString(CultureInfo.InvariantCulture) + ") with LOCAL pairwise alignment information";
-                performance = "Probably most accurate, very slow";
-            }
-            else if (strategy == "E-INS-i")
-            {
-                explanation = "Iterative refinement method (<" + iterate.ToString(CultureInfo.InvariantCulture) + ") with LOCAL pairwise alignment with generalized affine gap costs (Altschul 1998)";
-                performance = "Suitable for sequences with long unalignable regions, very slow";
-            }
-            else if (strategy == "L-INS-1")
-            {
-                explanation = "Progressive method incorporating LOCAL pairwise alignment information";
-            }
-            else if (strategy == "G-INS-1")
-            {
-                explanation = "Progressive method incorporating GLOBAL pairwise alignment information";
-            }
-            else if (strategy is "FFT-NS-i" or "NW-NS-i")
-            {
-                explanation = "Iterative refinement method (max. " + iterate.ToString(CultureInfo.InvariantCulture) + " iterations)";
-                performance = iterate > 2 ? "Accurate but slow" : "Standard";
-            }
-            else if (strategy is "FFT-NS-2" or "NW-NS-2")
-            {
-                explanation = "Progressive method (guide trees were built " + cycle.ToString(CultureInfo.InvariantCulture) + " times.)";
-                performance = "Fast but rough";
-            }
-            else if (strategy is "FFT-NS-1" or "NW-NS-1")
-            {
-                explanation = "Progressive method (rough guide tree was used.)";
-                performance = "Very fast but very rough";
-            }
+            string weighti = o.PairLibrary != MafftPairLibrary.None ? Text(o.WeightI) : "0.0";
+            string strategy = StrategyName("none", distance, false, o.Fft, weighti, false, Iterations(o), partdist, 0, cycle, out string explanation, out string performance);
             return (strategy, explanation, performance);
         }
 
@@ -266,21 +357,30 @@ public static partial class SequenceAligner
         internal static string Epilogue(MafftOptions o, int nseq)
         {
             var (strategy, explanation, performance) = Strategy(o, nseq);
-            return "\nStrategy:\n " + strategy + " (" + performance + ")\n " + explanation + "\n\n"
-                + "If unsure which option to use, try 'mafft --auto input > output'.\n"
-                + "For more information, see 'mafft --help', 'mafft --man' and the mafft page.\n\n"
-                + "The default gap scoring scheme has been changed in version 7.110 (2013 Oct).\n"
-                + "It tends to insert more gaps into gap-rich regions than previous versions.\n"
-                + "To disable this change, add the --leavegappyregion option.\n"
-                + GenafNote(o)
-                + "\n";
+            string before = o.PartTree == MafftPartTree.Fasta ? FastaNote : "";
+            return EpilogueText(strategy, explanation, performance, before, GenafNote(o));
         }
 
-        private static string GenafNote(MafftOptions o)
+        internal const string FastaNote = "Pairwise alignments were computed by FASTA\n(Pearson & Lipman, 1988, PNAS 85:2444-2448)\n";
+
+        /// <summary>The closing text of the script: <c>echo ''</c>, the lines about the pairwise programs (<paramref name="before"/>), the strategy, the notes and the E-INS-i note (<paramref name="genafNote"/>, with its leading blank line).</summary>
+        internal static string EpilogueText(string strategy, string explanation, string performance, string before, string genafNote) =>
+            "\n" + before + "Strategy:\n " + strategy + " (" + performance + ")\n " + explanation + "\n\n"
+            + "If unsure which option to use, try 'mafft --auto input > output'.\n"
+            + "For more information, see 'mafft --help', 'mafft --man' and the mafft page.\n\n"
+            + "The default gap scoring scheme has been changed in version 7.110 (2013 Oct).\n"
+            + "It tends to insert more gaps into gap-rich regions than previous versions.\n"
+            + "To disable this change, add the --leavegappyregion option.\n"
+            + genafNote
+            + "\n";
+
+        private static string GenafNote(MafftOptions o) => GenafNoteText(o.PairLibrary == MafftPairLibrary.Genaf, o.OldGenafParameters);
+
+        internal static string GenafNoteText(bool genaf, bool old)
         {
-            if (o.PairLibrary != MafftPairLibrary.Genaf)
+            if (!genaf)
                 return "";
-            return o.OldGenafParameters
+            return old
                 ? "\nObsolete parameters used for this calculation.\nAlso try the new parameters for E-INS-i, by not specifying --oldgenafpair.\n"
                 : "\nParameters for the E-INS-i option have been changed in version 7.243 (2015 Jun).\nTo switch to the old parameters, use --oldgenafpair, instead of --genafpair.\n";
         }
@@ -323,15 +423,18 @@ public static partial class SequenceAligner
                         : new[] { "-g", "0.0", "-f", Text(o.LocalPairOpen), "-Q", "100.0", "-h", AwkPrint(0.0 + 0.0 + 0.0), "-O", Text(o.GenafOpen), "-E", Text(o.GenafExtension), "-N", "-Z" });
                     break;
             }
-            var tb = new List<string> { "-+", Iterations(o).ToString(CultureInfo.InvariantCulture), "-W", "0.00001", "-V", "-" + gopdist, "-s", "0.0" };
+            var tb = new List<string> { "-+", Iterations(o).ToString(CultureInfo.InvariantCulture), "-W", Text(o.MinimumWeight), "-V", "-" + gopdist, "-s", "0.0" };
             if (o.LegacyGapPenalty)
                 tb.Add("-L");
             if (o.PairLibrary != MafftPairLibrary.Global && !o.TerminalGapPenalty)
                 tb.Add("-O");
+            if (o.OutNumber)
+                tb.Add("-n");
             tb.Add("-C");
-            tb.Add(threadsTb.ToString(CultureInfo.InvariantCulture));
+            tb.Add((o.ThreadsProgressive ?? threadsTb).ToString(CultureInfo.InvariantCulture));
             if (o.Unweight)
                 tb.Add("-u");
+            tb.AddRange(TreeOutArguments(o, o.Retree));
             if (o.SequenceType == MafftSequenceType.Nucleotide)
                 tb.Add("-D");
             else if (o.SequenceType == MafftSequenceType.Amino)
@@ -343,6 +446,8 @@ public static partial class SequenceAligner
             else if (o.Fft)
                 tb.Add("-F");
             tb.AddRange(new[] { "-l", weighti, "-X", o.TreeMixing is { } mix ? Text(mix) : "0.1" });
+            if (o.ScoreOut)
+                tb.AddRange(new[] { "-S", "-B" });
             return (pair, tb);
         }
 
@@ -395,7 +500,7 @@ public static partial class SequenceAligner
             string gexp = AwkPrint(-1.0 * o.GapExtension);
             var args = new List<string>
             {
-                "-q", "0",
+                "-q", o.SparsePickup.ToString(CultureInfo.InvariantCulture),
                 "-E", cycledisttbfast.ToString(CultureInfo.InvariantCulture),
                 "-V", "-" + gopdist,
                 "-s", "0.0",
@@ -407,9 +512,27 @@ public static partial class SequenceAligner
             if (!o.TerminalGapPenalty)
                 args.Add("-O");
             int threads = o.Threads < 0 ? Environment.ProcessorCount : o.Threads;
-            int threadsTb = threads < 16 ? threads : 16;
+            int threadsTb = o.ThreadsProgressive ?? (threads < 16 ? threads : 16);
+            if (o.OutNumber)
+                args.Add("-n");
+            if (o.AddCount > 0)
+            {
+                if (!o.AddProfile)
+                    args.Add("-K");
+                args.Add("-I");
+                args.Add(o.AddCount.ToString(CultureInfo.InvariantCulture));
+                if (o.Smoothing)
+                    args.Add("-p");
+                if (o.KeepLength && o.MapOut == 0)
+                    args.Add("-Y");
+                if (o.MapOut == 1)
+                    args.AddRange(new[] { "-Z", "-Y" });
+                else if (o.MapOut == 2)
+                    args.AddRange(new[] { "-z", "-Y" });
+            }
             args.Add("-C");
             args.Add(threads.ToString(CultureInfo.InvariantCulture) + "-" + threadsTb.ToString(CultureInfo.InvariantCulture));
+            args.AddRange(MemoryArguments(o));
             if (o.Unweight)
                 args.Add("-u");
             args.AddRange(TreeOutArguments(o, o.Retree));
@@ -432,8 +555,12 @@ public static partial class SequenceAligner
                 args.Add("-F");
             args.Add("-X");
             args.Add(o.TreeMixing is { } mix ? Text(mix) : "0.1");
+            if (o.ScoreOut)
+                args.AddRange(new[] { "-S", "-B" });
             args.Add("-x");
             args.Add("1000");
+            if (o.OneIteration)
+                args.Add("-r");
             return args;
         }
     }

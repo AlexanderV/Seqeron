@@ -109,6 +109,11 @@ public static partial class SequenceAligner
                         case 'C': g.NthreadPair = g.Nthread = CAtoi(Next()); rest = true; break;
                         case 's': g.SpecificityConsideration = CAtof(Next()); rest = true; break;
                         case 'a': g.Fmodel = 1; break;
+                        case 'y': g.DistOut = 1; break;
+                        case 'S': g.SpScoreOut = 1; break;
+                        case 't': g.TreeOut = 1; break;
+                        case '^': g.TreeOut = 2; break;
+                        case 'T': g.NoAlign = 1; break;
                         case 'D': g.Dorp = 'd'; break;
                         case 'P': g.Dorp = 'p'; break;
                         case 'L': g.LegacyGapCost = 1; break;
@@ -160,14 +165,8 @@ public static partial class SequenceAligner
             var bseq = new string[njob];
             var dseq = new string[njob];
             var thereisx = new int[njob];
-            for (int i = 0; i < njob; i++)
-            {
-                for (int k = 0; k < seq[i].Length; k++)
-                {
-                    if (G.AminoN[seq[i][k]] == -1)
-                        throw new ArgumentException($"Illegal character {seq[i][k]}");
-                }
-            }
+            if (CheckAlphabet(seq) is { } unknownLetter)
+                throw unknownLetter;
             for (int i = 0; i < njob; i++)
             {
                 bseq[i] = seq[i].Replace("-", "");
@@ -330,10 +329,12 @@ public static partial class SequenceAligner
             var mp = new int[lgth2 + 2];
             var initverticalw = new double[lgth1 + 2];
             double[] currentw = w1, previousw = w2;
+            // an empty sequence reads the terminating NUL of the C string (its row of the matrix is zero)
+            char s1First = lgth1 > 0 ? s1[0] : '\0', s2First = lgth2 > 0 ? s2[0] : '\0';
             for (int j = 0; j < lgth1; j++)
-                initverticalw[j] = amino[s2[0]][s1[j]];
+                initverticalw[j] = amino[s2First][s1[j]];
             for (int j = 0; j < lgth2; j++)
-                currentw[j] = amino[s1[0]][s2[j]];
+                currentw[j] = amino[s1First][s2[j]];
             for (int j = 1; j < lgth2 + 1; ++j)
             {
                 m[j] = currentw[j - 1];
@@ -398,7 +399,15 @@ public static partial class SequenceAligner
                 }
             }
             if (!withAlignment)
-                return maxwm < localthr ? 0.0 : maxwm;
+            {
+                // L__align11_noalign
+                if (maxwm < localthr)
+                {
+                    Report("maxwm <- 0.0 \n");
+                    return 0.0;
+                }
+                return maxwm;
+            }
             if (ijp![endali][endalj] == localstop)
             {
                 seq1[0] = "";
@@ -505,9 +514,9 @@ public static partial class SequenceAligner
             var initverticalw = new double[lgth1 + 2];
             double[] currentw = w1, previousw = w2;
             for (int j = 0; j < lgth1; j++)
-                initverticalw[j] = amino[s2[0]][s1[j]];
+                initverticalw[j] = amino[lgth2 > 0 ? s2[0] : '\0'][s1[j]];
             for (int j = 0; j < lgth2; j++)
-                currentw[j] = amino[s1[0]][s2[j]];
+                currentw[j] = amino[lgth1 > 0 ? s1[0] : '\0'][s2[j]];
             for (int j = 1; j < lgth2 + 1; ++j)
             {
                 m[j] = currentw[j - 1];
@@ -1071,7 +1080,7 @@ public static partial class SequenceAligner
         /// <c>tbfast _ (pair library arguments) _ -+ n ...</c> (<c>main</c> of <c>tbfast.c</c> with <c>pairlocalalign</c> called inside): the pairwise alignments of all pairs give the guide tree (UPGMA of their distances) and the
         /// constraints (the importance of the aligned blocks) of the progressive alignment of the groups (<c>A__align</c> with <c>constraint</c> 2).
         /// </summary>
-        internal Result Tbfast(IReadOnlyList<string> seq0, MafftGlobals pairG)
+        internal Result Tbfast(IReadOnlyList<string> seq0, MafftGlobals pairG, IReadOnlyList<string>? names = null)
         {
             int njob = seq0.Count;
             _njob = njob;
@@ -1085,39 +1094,73 @@ public static partial class SequenceAligner
             for (int i = 0; i < njob; i++)
                 _nlen[i] = seq[i].Length;
             _nogaplen = new int[njob];
+            var fileNames = names ?? DefaultNames(njob);
             Report("treein = 0\ncompacttree = 0\n");
             Report("stacksize: " + StackSizeKb.ToString(CultureInfo.InvariantCulture) + " kb\n");
 
-            if (G.Constraint != 2)
+            if (G.Constraint != 2 && G.Constraint != 0)
                 throw new NotSupportedException("The progressive method of tbfast without a pair library is not available in this port.");
             pairG.Dorp = G.Dorp;
             var pairRun = new MafftRun(pairG) { _njob = njob, _nlenmax = _nlenmax };
-            var (iscore, localhom) = pairRun.PairLocalAlign(seq);
+            (double[][] iscore, MafftLocalHom[][] localhom) pairResult;
+            try
+            {
+                pairResult = pairRun.PairLocalAlign(seq);
+            }
+            catch (MafftProgramFailureException)
+            {
+                Report(pairRun.Log.ToString());
+                throw;
+            }
+            var (iscore, localhom) = pairResult;
             Report(pairRun.Log.ToString());
             Report("outputhat23=" + G.OutputHat23.ToString(CultureInfo.InvariantCulture) + "\n");
-            for (int i = 0; i < njob; i++)
+            if (G.Constraint == 2)
             {
-                for (int j = 0; j < njob - i; j++)
+                for (int i = 0; i < njob; i++)
                 {
-                    for (var t = localhom[i][j]; t != null; t = t.Next)
+                    for (int j = 0; j < njob - i; j++)
                     {
-                        if (t.Opt == -1.0)
-                            continue;
-                        t.Opt = t.Opt / 5.8 * 600;
+                        for (var t = localhom[i][j]; t != null; t = t.Next)
+                        {
+                            if (t.Opt == -1.0)
+                                continue;
+                            t.Opt = t.Opt / 5.8 * 600;
+                        }
                     }
                 }
+                Report("Loading 'hat3.seed' ... ");
+                Report("\ndone.\n");
+                if (G.OutputHat23 != 0)
+                {
+                    // the files hat3 and hat2 that dvtditr reads: the values go through their text
+                    Report("Writing hat3 for iterative refinement\n");
+                    Hat3Table = RoundTripHat3(localhom, njob);
+                    Hat2Table = RoundTripHat2(iscore, njob);
+                    DistFile = WriteHat2(iscore, fileNames);
+                }
+                else if (G.DistOut != 0)
+                {
+                    DistFile = WriteHat2(iscore, fileNames);
+                }
             }
-            Report("Loading 'hat3.seed' ... ");
-            Report("\ndone.\n");
-            if (G.OutputHat23 != 0)
+            else
             {
-                // the files hat3 and hat2 that dvtditr reads: the values go through their text
-                Report("Writing hat3 for iterative refinement\n");
-                Hat3Table = RoundTripHat3(localhom, njob);
-                Hat2Table = RoundTripHat2(iscore, njob);
+                // constraint == 0 (--weighti 0, --retree 0): no blocks are kept; the pair stage only gives the distances
+                Report("blosum " + G.Nblosum.ToString(CultureInfo.InvariantCulture) + " / kimura 200\nscoremtx=" + G.Scoremtx.ToString(CultureInfo.InvariantCulture) + "\nfastathreshold=" + G.FastaThreshold.ToString("F6", CultureInfo.InvariantCulture) + "\n");
+                if (G.DistOut != 0 || G.OutputHat23 != 0)
+                {
+                    Report("\nwriting hat2 (1)\n");
+                    DistFile = WriteHat2(iscore, fileNames);
+                    if (G.OutputHat23 != 0)
+                        Hat2Table = RoundTripHat2(iscore, njob);
+                }
+                localhom = null!;
             }
             G.Constants(seq);
             Report("Gap Penalty = " + MafftGlobals.F((double)G.Ppenalty / 1000, 5, 2, true) + ", " + MafftGlobals.F((double)G.PpenaltyEx / 1000, 5, 2, true) + ", " + MafftGlobals.F((double)G.Poffset / 1000, 5, 2, true) + "\n");
+            if (G.DistOut != 0 && G.TreeOut == 0 && G.NoAlign != 0)
+                return NoAlignResult(seq, njob, "tbfast");
             Report("tbutree = 1, compacttree = 0\n");
             var topol0 = new int[njob][];
             var topol1 = new int[njob][];
@@ -1126,10 +1169,15 @@ public static partial class SequenceAligner
                 len[i] = new double[2];
             var dep = new Treedep[njob];
             Report("Constructing a UPGMA tree ... ");
-            MuscleSupg(njob, iscore, topol0, topol1, len, dep);
+            if (G.TreeOut != 0)
+                MuscleSupg(njob, iscore, topol0, topol1, len, dep, false, fileNames);
+            else
+                MuscleSupg(njob, iscore, topol0, topol1, len, dep);
             Report("\ndone.\n\n");
             var tree = new GuideTree(topol0, topol1, dep, len);
             int[] order = tree.Order(njob - 2, 2);
+            if (G.TreeOut != 0 && G.NoAlign != 0)
+                return NoAlignResult(seq, njob, "tbfast");
             double[] eff = new double[njob];
             if (G.Tbrweight != 0)
             {
@@ -1146,8 +1194,10 @@ public static partial class SequenceAligner
                 bseq[i] = seq[i].Replace("-", "");
             int alloclen = _nlenmax * 2 + 1;
             Report("Progressive alignment ... \n");
-            TreeBase(bseq, tree, eff, ref alloclen, localhom);
+            TreeBase(bseq, tree, eff, ref alloclen, localhom, tbfast: G.Constraint == 0);
             Report("\ndone.\n");
+            if (G.SpScoreOut != 0)
+                ReportSumOfPairs(bseq);
             Report("tbfast (" + (G.Dorp == 'd' ? "nuc" : "aa") + ") Version 7.505\nalg=" + G.Alg + ", model=" + G.ModelName + ", amax=" + G.SpecificityConsideration.ToString("F1", CultureInfo.InvariantCulture) + "\n"
                 + Math.Max(G.Nthread, 1).ToString(CultureInfo.InvariantCulture) + " thread(s)\n\n");
             return new Result(bseq, order);
