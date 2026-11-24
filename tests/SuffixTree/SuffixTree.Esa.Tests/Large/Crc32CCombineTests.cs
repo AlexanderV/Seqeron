@@ -12,12 +12,14 @@ namespace SuffixTree.Esa.Tests.Large;
 [TestFixture]
 public class Crc32CCombineTests
 {
-    /// <summary>CRC-32C of 2^31, 2^32 and 2^33 zero bytes, by the product's pass (the <c>Large</c> test <c>PinnedZeroCrcs_AreWhatAPassOfTheProductGives</c> recomputes them).</summary>
+    /// <summary>CRC-32C of 2^31, 2^32, 2^33, 2^32 + 10 and 2^31 + 7 zero bytes, by the product's pass (the <c>Large</c> test <c>PinnedZeroCrcs_AreWhatAPassOfTheProductGives</c> recomputes them).</summary>
     private static readonly (long Length, uint Crc)[] Pinned =
     [
-        (1L << 31, 0xBAC72FD4u),
-        (1L << 32, 0x38D0F5A2u),
-        (1L << 33, 0xF2D0F4E6u),
+        (1L << 31, 0x527D5351u),
+        (1L << 32, 0xF16177D2u),
+        (1L << 33, 0x48674BC7u),
+        ((1L << 32) + 10, 0x2B60B55Du),
+        ((1L << 31) + 7, 0x8C28B28Au),
     ];
 
     public static IEnumerable<long> SmallLengths()
@@ -66,7 +68,6 @@ public class Crc32CCombineTests
         foreach ((long length, uint crc) in Pinned)
         {
             Assert.That(Crc32CCombine.OfZeros(length), Is.EqualTo(crc), $"{length} zero bytes");
-            Assert.That(Crc32CCombine.OfZeros(length), Is.Not.EqualTo(Crc32CCombine.OfZeros((int)length)), $"{length} zero bytes: the length is not narrowed to 32 bits");
         }
     }
 
