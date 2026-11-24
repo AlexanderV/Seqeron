@@ -11,7 +11,17 @@ public class SpanLintTests
     /// The accounted-for sites: file, call, length expression, and why the length cannot exceed <c>int.MaxValue</c> (or why a longer one is refused). A site is identified by its text, not by its line, so an edit elsewhere in the file does
     /// not disturb the list; a second site with the same text is the same entry (the count says how many).
     /// </summary>
-    internal static readonly (string File, string Call, string Length, int Count, string Reason)[] AllowList = [];
+    internal static readonly (string File, string Call, string Length, int Count, string Reason)[] AllowList =
+    [
+        ("External/Sesa/SesaFile.cs", "new ReadOnlySpan<byte>", "(int)section.Length", 1,
+            "SesaFile.Payload: the line above refuses a section of more than int.MaxValue bytes with NotSupportedException (a caller reads such a section in blocks through Data), so the cast cannot wrap"),
+        ("External/Sesa/SesaVerifier.cs", "new ReadOnlySpan<byte>", "(int)take", 1,
+            "the CRC pass of the Sections level: take is at most the piece, which is clamped to SesaVerifierTuning.DefaultCrcPieceBytes (16 MiB) a few lines above; a section of any length is a loop of pieces"),
+        ("External/Sesa/SesaVerifier.cs", "new ReadOnlySpan<int>", "(int)Math.Min(piece, count - done)", 1,
+            "CountNonZero of the structure pass: piece is the constant 2^28, so a span has at most 2^28 entries; a section of any length is a loop of pieces"),
+        ("External/Sesa/SesaVerifier.cs", "new ReadOnlySpan<byte>", "(int)Math.Min(ZeroScanBlock, length - done)", 1,
+            "IsZero (the gaps between sections): ZeroScanBlock is the constant 2^24, so a span has at most 16 MiB; a gap of any length is a loop of blocks"),
+    ];
 
     private static string Src(string code) => "class C { void M() { " + code + " } }";
 

@@ -41,7 +41,7 @@ public class LcpPyramidTests
         using LcpPyramid pyramid = LcpPyramid.Build(compact, fanout);
         LcpRangeHelper? proto = prototype ? new LcpRangeHelper(compact, fanout) : null;
         string ctx = $"{context} {kind} F{fanout} [{(v.Length <= 12 ? string.Join(",", v) : v.Length + " entries")}]";
-        if (pyramid.Length != v.Length) Fail(ctx, "Length", pyramid.Length, v.Length);
+        if (pyramid.Length != v.Length) Fail(ctx, "Length", (int)pyramid.Length, v.Length);
         if (pyramid.Fanout != fanout) Fail(ctx, "Fanout", pyramid.Fanout, fanout);
         var bounds = new SortedSet<int> { 0, 1, 2, int.MaxValue };
         foreach (int x in v.Distinct())
@@ -138,7 +138,7 @@ public class LcpPyramidTests
     public void EscapeBoundaryValues_AllKindsHoldAnyValue()
     {
         foreach (int[] v in AllArrays([0, 3, 255, 65535, 100000], 4))
-            foreach (LcpKind kind in Enum.GetValues<LcpKind>())
+            foreach (LcpKind kind in Enum.GetValues<LcpKind>().Where(k => k != LcpKind.U64)) // U64 (LCP codec 4) has no managed form
                 CheckAll(v, kind, 2, true, "mixed");
     }
 
@@ -189,7 +189,7 @@ public class LcpPyramidTests
         var v = new int[Length];
         for (int i = 0; i < Length; i++) v[i] = 30 + rng.NextInt(1000);
         foreach (int i in new[] { 5, 777, 12_345, 31_999, 39_999 }) v[i] = rng.NextInt(30);
-        foreach (LcpKind kind in Enum.GetValues<LcpKind>())
+        foreach (LcpKind kind in Enum.GetValues<LcpKind>().Where(k => k != LcpKind.U64)) // U64 (LCP codec 4) has no managed form
         {
             using LcpPyramid pyramid = LcpPyramid.Build(CompactLcp.FromDense(v, kind));
             Assert.That(pyramid.Fanout, Is.EqualTo(32));

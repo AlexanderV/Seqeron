@@ -42,7 +42,7 @@ internal sealed partial class EsaIndex
     {
         _file = file;
         _sa = sa;
-        _length = text.Length;
+        _length = IntBridge.Length(text.Length, "the text of the container (the 32-bit engine of S1: bridge removed by S2.4)");
         TextView = text;
         Lcp = lcp;
         Child = child;

@@ -99,7 +99,7 @@ public class LcpChildBuilderTests
             LcpChildRun.Outcome o = LcpChildRun.Run(dir, c, LcpChildRun.Options(dir.Sub("scratch"), new LcpChildTuning { LcpChunk = 5000, BlockEntries = 256, ChildWindowBytes = 4096 }, 2, ChildCodec.Packed, c.Sigma));
             LcpChildRun.Compare(c, o, ChildCodec.Packed, name);
             if (name == "u8 + overflow") Assert.That(o.Result.Lcp.OverflowCount, Is.GreaterThan(0).And.LessThan(2000));
-            if (name == "u16 + overflow") Assert.That((o.Result.Lcp.Kind, o.Result.Lcp.OverflowCount), Is.EqualTo((LcpKind.U16, (long)c.Lcp.OverflowCount)));
+            if (name == "u16 + overflow") Assert.That((o.Result.Lcp.Kind, o.Result.Lcp.OverflowCount), Is.EqualTo((LcpKind.U16, c.Lcp.OverflowCount)));
             if (name == "u32") Assert.That(new FileInfo(o.Files.Overflow).Length, Is.Zero);
         }
         Assert.That(kinds, Is.EquivalentTo(new[] { LcpKind.U8, LcpKind.U16, LcpKind.U32 }));

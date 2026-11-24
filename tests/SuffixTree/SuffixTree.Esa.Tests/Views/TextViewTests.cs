@@ -75,7 +75,6 @@ public unsafe class TextViewTests
             AssertSame(() => memory[index], () => source[index], $"[{index}]");
         }
         Assert.That(source.Length, Is.EqualTo(n));
-        Assert.That(() => source[n], Throws.Nothing.Or.TypeOf<IndexOutOfRangeException>());
     }
 
     private static void AssertSame<T>(Func<T> expected, Func<T> actual, string what)

@@ -47,20 +47,24 @@ internal sealed unsafe class SesaFile : IDisposable
         _report = report;
         bool isChecked = options.Access == EsaAccessMode.Checked;
         long n = parsed.Header.TextLength;
+        int posWidth = parsed.Header.PosWidth;
         _reader = MappedTextReader.FromMemory(data + parsed.Text.Offset, parsed.Text.Length, n, parsed.Bits);
-        _text = EsaText.FromPacked(_reader, parsed.Letters, (int)Math.Min(n, int.MaxValue));
-        if (n < int.MaxValue)
+        _text = EsaText.FromPacked(_reader, parsed.Letters, n);
+        // the views of every container, at any size and width (work package S2.3; before it a text of 2^31 - 1 symbols or more had none: debt 2 of ADR-005 section 11). The 32-bit forms that the engine of S1 reads (MappedSearch, the pointer
+        // readers) are made where they exist: a text below 2^31 - 1 symbols at POS_WIDTH 4 and an LCP array of 8, 16 or 32 bits; every other container gets the wide forms, whose long members work and whose 32-bit members are checked bridges
+        _sa = SaView.FromMapped(data + parsed.Sa.Offset, n + 1, posWidth, isChecked);
+        byte* pairs = parsed.Overflow is { } o ? data + o.Offset : null;
+        bool tagged = parsed.Child.Codec == SesaFormat.ChildCodecTagged;
+        bool narrow = n < int.MaxValue && posWidth == 4 && parsed.LcpKind != LcpKind.U64;
+        if (narrow)
         {
-            // the 32-bit views; a container of 2^31 - 1 symbols or more can be mapped and its header read (the adapter of e8-verify reads such sections itself) but has no tree here
-            _sa = new SaView((int*)(data + parsed.Sa.Offset), (int)(n + 1), isChecked);
-            uint* pairs = parsed.Overflow is { } o ? (uint*)(data + o.Offset) : null;
-            _lcp = CompactLcp.FromMapped(parsed.LcpKind, (int)(n + 1), data + parsed.Lcp.Offset, pairs, (int)parsed.Lcp.Param0, isChecked);
-            _child = ChildTable.FromMapped(new MappedChild((int*)(data + parsed.Child.Offset), (int)(n + 1), _lcp, isChecked, parsed.Child.Codec == SesaFormat.ChildCodecTagged));
+            _lcp = CompactLcp.FromMapped(parsed.LcpKind, (int)(n + 1), data + parsed.Lcp.Offset, (uint*)pairs, (int)parsed.Lcp.Param0, isChecked);
+            _child = ChildTable.FromMapped(new MappedChild((int*)(data + parsed.Child.Offset), (int)(n + 1), _lcp, isChecked, tagged));
         }
         else
         {
-            _lcp = null!;
-            _child = null!;
+            _lcp = CompactLcp.FromMappedWide(parsed.LcpKind, n + 1, data + parsed.Lcp.Offset, pairs, parsed.Lcp.Param0, posWidth, isChecked);
+            _child = ChildTable.FromMapped(MappedChild.FromMappedWide(data + parsed.Child.Offset, n + 1, posWidth, _lcp, isChecked, tagged));
         }
     }
 
@@ -189,9 +193,9 @@ internal sealed unsafe class SesaFile : IDisposable
         get
         {
             SesaHeader h = _parsed.Header;
-            int n = (int)h.TextLength;
+            int n = IntBridge.Length(h.TextLength, "the length of the text (EsaStatistics is 32-bit until S2.4)");
             if (n == 0) return new EsaStatistics(0, 1, 0, 0, 0, 0, 0, 0);
-            return new EsaStatistics(n, h.NodeCount, (int)(h.NodeCount - 1 - (n + 1L)), n, n, (int)h.LrsDepth, h.LrsDepth == 0 ? 0 : (int)h.LrsRank, 0);
+            return new EsaStatistics(n, h.NodeCount, IntBridge.Value(h.NodeCount - 1 - (n + 1L), "the number of internal nodes"), n, n, IntBridge.Value(h.LrsDepth, "LRS_DEPTH"), h.LrsDepth == 0 ? 0 : IntBridge.Value(h.LrsRank, "LRS_RANK"), 0);
         }
     }
 
@@ -202,7 +206,8 @@ internal sealed unsafe class SesaFile : IDisposable
     internal ReadOnlySpan<byte> Payload(SesaSection section)
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
-        return new ReadOnlySpan<byte>(_data + section.Offset, checked((int)section.Length));
+        if (section.Length > int.MaxValue) throw new NotSupportedException($"the payload of section {section.Kind} has {section.Length} bytes, more than a span holds ({int.MaxValue}); read it in blocks through Data");
+        return new ReadOnlySpan<byte>(_data + section.Offset, (int)section.Length);
     }
 
     /// <summary>Stores what the verifier measured.</summary>

@@ -109,7 +109,8 @@ public unsafe class GeneratedViewLargeTests : LargeFixtureBase
             if (expected > int.MaxValue)
             {
                 above++;
-                Assert.That(() => lcp[(int)Math.Min(r, int.MaxValue)], Throws.Nothing.Or.TypeOf<InvalidDataException>());
+                // the 32-bit indexer at a rank that it can address says that the value is no int, it does not wrap it
+                if (r <= int.MaxValue) Assert.That(() => lcp[(int)r], Throws.TypeOf<InvalidDataException>(), $"{f} rank {r}");
             }
         }
         Assert.That(above, Is.GreaterThan(0), "the test must read values above int.MaxValue");
@@ -149,7 +150,7 @@ public unsafe class GeneratedViewLargeTests : LargeFixtureBase
         var ranks = new List<long>(Ranks(n)) { escape - 1, escape, escape + 1, escape + 2, escape + 3 };
         foreach (long r in ranks) Assert.That(lcp[r], Is.EqualTo(f.Lcp(r)), $"a^{n} rank {r} escape {escape}");
         Assert.That(lcp[n], Is.EqualTo(n - 1));
-        Assert.That(lcp[TwoTo32], Is.EqualTo(TwoTo32 - 1));
+        if (n > TwoTo32) Assert.That(lcp[TwoTo32], Is.EqualTo(TwoTo32 - 1));
     }
 
     // ---------------------------------------------------------------------------------------------- the child cells and a descent over them
@@ -280,7 +281,7 @@ public unsafe class GeneratedViewLargeTests : LargeFixtureBase
                 Assert.That(pyramid.NextLess(r, bound), Is.EqualTo(next), $"NextLess({r}, {bound})");
             }
         }
-        long lo = TwoTo31 - 3000, hi = TwoTo31 + 3000;
+        long lo = TwoTo31 - 3000, hi = TwoTo31 + 10;
         long min = long.MaxValue;
         for (long j = lo; j <= hi; j++) min = Math.Min(min, (long)(PosGen<W4>.Hash(j) % 50));
         Assert.That(pyramid.Min(lo, hi), Is.EqualTo(min));
@@ -291,10 +292,10 @@ public unsafe class GeneratedViewLargeTests : LargeFixtureBase
     [Test]
     public void ThePyramid_RefusesAnLcpValueThatTheThirtyTwoBitLevelsCannotHold_AtHugeSize()
     {
-        // a^n at 2^31 + 10: the block minima near the end are above int.MaxValue: the bridge says so instead of wrapping
-        var f = new PowerOfA(TwoTo31 + 10);
+        // a^n at 2^31 + 70: the last block (ranks 2^31 + 64 and up) has the minimum 2^31 + 63, above int.MaxValue: the bridge says so instead of wrapping
+        var f = new PowerOfA(TwoTo31 + 70);
         CompactLcp lcp = CompactLcp.FromReaders(LcpKind.U64, new PosGen<W8>(f, GenSection.LcpBase), new PosGen<W5>(f, GenSection.LcpPairsOfPowerOfA, long.MaxValue), isChecked: false);
-        Assert.That(() => LcpPyramid.Build(lcp, 32), Throws.TypeOf<NotSupportedException>().With.Message.Contains("int"));
+        Assert.That(() => LcpPyramid.Build(lcp, 32), Throws.TypeOf<NotSupportedException>().With.Message.Contains("32-bit"));
     }
 
     [TestCase(TwoTo31 + 10)]
@@ -364,7 +365,6 @@ public unsafe class GeneratedViewLargeTests : LargeFixtureBase
         Assert.That(() => file.Child.Mapped.FirstLIndex(n + 1, 0, true), Throws.TypeOf<InvalidDataException>());
         Assert.That(() => file.TextView[n], Throws.TypeOf<InvalidDataException>());
         // the int surface says what it cannot hold, it does not read a null
-        Assert.That(() => file.Sa[(int)(n - 1 - (1L << 32))], Throws.Nothing.Or.TypeOf<InvalidDataException>());
         Assert.That(() => EsaIndex.FromFile(file), Throws.TypeOf<NotSupportedException>().With.Message.Contains("32-bit"), "the 32-bit engine refuses the text with the exception that names its limit (S2.4 lifts it); it does not meet a null");
     }
 
@@ -423,7 +423,7 @@ public unsafe class GeneratedViewLargeTests : LargeFixtureBase
         Assert.That(lcp[n], Is.EqualTo(n - 1), "a depth above 2^32");
         Assert.That(sa.ToLongArray(n - 10, 11), Is.EqualTo(Enumerable.Range(0, 11).Select(i => f.SuffixAt(n - 10 + i))));
         Assert.That(() => sa.At(n + 1), Throws.TypeOf<InvalidDataException>());
-        Assert.That(sa[TwoTo32 + 5], Is.EqualTo(0), "a hole of the shell reads as zero");
+        Assert.That(sa[TwoTo31], Is.EqualTo(0), "a hole of the shell reads as zero");
         if (isChecked)
         {
             Assert.That(() => sa[n + 1], Throws.TypeOf<InvalidDataException>());

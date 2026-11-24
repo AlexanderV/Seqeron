@@ -3,105 +3,173 @@ using System.Runtime.CompilerServices;
 namespace SuffixTree.Esa;
 
 /// <summary>
-/// Read access to the suffix array of an <see cref="EsaIndex"/>, whichever way it is stored (work package 1b.7f): a managed <c>int[]</c> (an index built in memory) or <c>n + 1</c> little-endian 32-bit entries inside a mapped
-/// SESA container (an index opened from a file). A struct, so that it costs the caller one reference, one pointer and a count. The container's entries are untrusted: in <see cref="EsaAccessMode.Checked"/> mode (the default) an index outside
-/// <c>0..n</c> is an <see cref="InvalidDataException"/> and never a read outside the section; a value that a read returns can still be garbage (it is a position or a rank that the caller validates against its own bounds).
+/// Read access to the suffix array of an <see cref="EsaIndex"/>, whichever way it is stored (work package 1b.7f, widened by S2.3): a managed <c>int[]</c> (an index built in memory) or <c>n + 1</c> little-endian entries of 4 bytes
+/// (<c>POS_WIDTH</c> 4) or of 5 bytes (<c>POS_WIDTH</c> 5, ADR-005 section 6.1) inside a mapped SESA container (an index opened from a file). A struct, so that it costs the caller one reference, one pointer and a count. The container's entries
+/// are untrusted: in <see cref="EsaAccessMode.Checked"/> mode (the default) an index outside <c>0..n</c> is an <see cref="InvalidDataException"/> and never a read outside the section; a value that a read returns can still be garbage (it is a position or a
+/// rank that the caller validates against its own bounds). Every number of the long members is 64-bit (<see cref="Length"/>, <c>this[long]</c>, <see cref="At"/>, the copies); the <see cref="int"/> members are what the 32-bit engine of S1 reads until
+/// S2.4 and S2.5 and are unchanged on an array and on a 4-byte section (the hot path); on a 5-byte section they are the checked bridge (a position above <see cref="int.MaxValue"/> is an <see cref="InvalidDataException"/>). The generic form over a
+/// position reader is <see cref="SaView{TPos}"/>; this one is the non-generic holder that a container reader hands out (a switch on the form on every long member, none on the 32-bit read of an array or a 4-byte section).
 /// </summary>
 internal readonly unsafe struct SaView
 {
+    private const byte Checked = 1;
+    private const byte FiveBytes = 2;
+
     private readonly int[]? _array;
     private readonly int* _pointer;
     private readonly long _count;
-    private readonly bool _checked;
+    private readonly byte _flags;
 
     /// <summary>A view of an array.</summary>
     internal SaView(int[] array)
     {
+        ArgumentNullException.ThrowIfNull(array);
         _array = array;
         _pointer = null;
         _count = array.Length;
-        _checked = true;
+        _flags = Checked;
     }
 
-    /// <summary>A view of <paramref name="count"/> entries at <paramref name="pointer"/> (the caller keeps the memory alive and unchanged).</summary>
+    /// <summary>A view of <paramref name="count"/> 4-byte entries at <paramref name="pointer"/> (the caller keeps the memory alive and unchanged).</summary>
     internal SaView(int* pointer, long count, bool isChecked)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(count);
+        _array = null;
+        _pointer = pointer;
+        _count = count;
+        _flags = isChecked ? Checked : (byte)0;
+    }
+
+    private SaView(int* pointer, long count, byte flags)
     {
         _array = null;
         _pointer = pointer;
         _count = count;
-        _checked = isChecked;
+        _flags = flags;
+    }
+
+    /// <summary>A view of <paramref name="count"/> entries of <paramref name="posWidth"/> (4 or 5) bytes at <paramref name="section"/> (the caller keeps the memory alive and unchanged; a 5-byte section has its 3 bytes of padding).</summary>
+    /// <exception cref="ArgumentOutOfRangeException">The width is not 4 or 5, or the count is negative.</exception>
+    internal static SaView FromMapped(byte* section, long count, int posWidth, bool isChecked)
+    {
+        if (posWidth is not (4 or 5)) throw new ArgumentOutOfRangeException(nameof(posWidth), posWidth, "the stored width of a position is 4 or 5 bytes");
+        ArgumentOutOfRangeException.ThrowIfNegative(count);
+        byte flags = (byte)((isChecked ? Checked : 0) | (posWidth == 5 ? FiveBytes : 0));
+        return new SaView((int*)section, count, flags);
     }
 
     /// <summary>Number of entries (<c>n + 1</c>).</summary>
     internal long Length => _count;
 
-    /// <summary>The entry at <paramref name="rank"/>.</summary>
-    /// <exception cref="InvalidDataException">The rank is outside the section (a damaged table sent the read there); checked mode only for a file.</exception>
+    /// <summary>The stored width in bytes: 4 for an array and a 4-byte section, 5 for a 5-byte section.</summary>
+    internal int StoredWidth => (_flags & FiveBytes) != 0 ? 5 : 4;
+
+    /// <summary>The entry at <paramref name="rank"/> (the 32-bit engine's read).</summary>
+    /// <exception cref="InvalidDataException">The rank is outside the section (a damaged table sent the read there; checked mode only for a file), or the entry of a 5-byte section is not a 32-bit number.</exception>
     internal int this[int rank]
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         get
         {
             if (_array is not null) return _array[rank];
-            if (_checked && (uint)rank >= (uint)_count) ThrowOutside(rank);
+            if ((_flags & Checked) != 0 && (ulong)rank >= (ulong)_count) ThrowOutside(rank);
+            if ((_flags & FiveBytes) != 0) return IntBridge.Value((long)Load40(rank), "a suffix array entry");
             return _pointer[rank];
         }
     }
 
-    /// <summary>The same read for a 64-bit rank (the contract's).</summary>
-    internal int At(long rank)
+    /// <summary>The entry at a 64-bit rank: the checks of the access mode, the stored width of the view.</summary>
+    /// <exception cref="InvalidDataException">The rank is outside the section (checked mode only for a file).</exception>
+    internal long this[long rank]
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get
+        {
+            if (_array is not null) return (uint)_array[rank];
+            if ((_flags & Checked) != 0 && (ulong)rank >= (ulong)_count) ThrowOutside(rank);
+            return (_flags & FiveBytes) != 0 ? (long)Load40(rank) : (uint)_pointer[rank];
+        }
+    }
+
+    /// <summary>The same read, always bounded in both modes (the contract's).</summary>
+    /// <exception cref="InvalidDataException">The rank is outside <c>0..n</c>.</exception>
+    internal long At(long rank)
     {
         if ((ulong)rank >= (ulong)_count) ThrowOutside(rank);
-        return this[(int)rank];
+        return this[rank];
     }
 
     /// <summary>Copies <c>destination.Length</c> entries that start at <paramref name="start"/>; the range is always checked (it is a bulk read).</summary>
+    /// <exception cref="InvalidDataException">The range is outside the section, or an entry of a 5-byte section is not a 32-bit number.</exception>
     internal void CopyTo(long start, Span<int> destination)
     {
         if (start < 0 || destination.Length > _count - start) ThrowOutside(start);
         if (_array is not null) _array.AsSpan((int)start, destination.Length).CopyTo(destination);
-        else new ReadOnlySpan<int>(_pointer + start, destination.Length).CopyTo(destination);
+        else if ((_flags & FiveBytes) == 0) new ReadOnlySpan<int>(_pointer + start, destination.Length).CopyTo(destination);
+        else
+        {
+            for (int i = 0; i < destination.Length; i++) destination[i] = IntBridge.Value((long)Load40(start + i), "a suffix array entry");
+        }
+    }
+
+    /// <summary>Copies <c>destination.Length</c> entries that start at the 64-bit rank <paramref name="start"/>; the range is always checked.</summary>
+    /// <exception cref="InvalidDataException">The range is outside the section.</exception>
+    internal void CopyTo(long start, Span<long> destination)
+    {
+        if (start < 0 || destination.Length > _count - start) ThrowOutside(start);
+        for (int i = 0; i < destination.Length; i++) destination[i] = ReadUnchecked(start + i);
     }
 
     /// <summary>The entries <c>[start, start + count)</c> as a new array.</summary>
     internal int[] ToArray(long start, int count)
     {
+        ArgumentOutOfRangeException.ThrowIfNegative(count);
         var result = new int[count];
         CopyTo(start, result);
         return result;
     }
 
-#pragma warning disable S2325 // stubs of the tests-first step
-    // ---- work package S2.3, the long members (STUBS of the tests-first step)
-
-    /// <summary>A view of <paramref name="count"/> entries of <paramref name="posWidth"/> (4 or 5) bytes at <paramref name="section"/>.</summary>
-    internal static SaView FromMapped(byte* section, long count, int posWidth, bool isChecked) => throw new NotImplementedException();
-
-    /// <summary>The entry at a 64-bit rank (the stored width of the view; the checks of the access mode).</summary>
-    internal long this[long rank] => throw new NotImplementedException();
-
-    /// <summary>The stored width in bytes: 4 for an array and a 32-bit section, 5 for a 40-bit section.</summary>
-    internal int StoredWidth => throw new NotImplementedException();
-
-    /// <summary>Copies <c>destination.Length</c> entries that start at the 64-bit rank <paramref name="start"/>.</summary>
-    internal void CopyTo(long start, Span<long> destination) => throw new NotImplementedException();
-
     /// <summary>The entries <c>[start, start + count)</c> as a new array of 64-bit positions.</summary>
-    internal long[] ToLongArray(long start, int count) => throw new NotImplementedException();
+    internal long[] ToLongArray(long start, int count)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(count);
+        var result = new long[count];
+        CopyTo(start, result);
+        return result;
+    }
 
-    /// <summary>The pointer to the first entry (null for an array); the navigation pack reads through it.</summary>
-    internal int* Pointer => _pointer;
+    /// <summary>
+    /// The pointer to the first entry (null for an array); the navigation pack and <see cref="MappedSearch"/> read through it.
+    /// </summary>
+    /// <exception cref="NotSupportedException">The section has 5-byte entries: no pointer to 32-bit entries exists (the 32-bit engine does not read it).</exception>
+    internal int* Pointer => (_flags & FiveBytes) == 0 ? _pointer : throw new NotSupportedException("the suffix array has 5-byte entries (POS_WIDTH 5): there is no pointer to 32-bit entries; use the 64-bit members");
 
     /// <summary>The wrapped array, or null for a mapped section.</summary>
     internal int[]? Array => _array;
 
+    private long ReadUnchecked(long rank)
+    {
+        if (_array is not null) return (uint)_array[rank];
+        return (_flags & FiveBytes) != 0 ? (long)Load40(rank) : (uint)_pointer[rank];
+    }
+
+    private ulong Load40(long rank) => Unsafe.ReadUnaligned<ulong>((byte*)_pointer + (5 * rank)) & PosReader.Mask40;
+
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private void ThrowOutside(long index) => throw new InvalidDataException($"the suffix array is read at rank {index}, but the section has {_count} entries: the file is damaged");
+    private void ThrowOutside(long index) => SaViewErrors.Outside(index, _count);
+}
+
+/// <summary>The failure that every suffix-array view shares.</summary>
+internal static class SaViewErrors
+{
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    internal static void Outside(long index, long count) =>
+        throw new InvalidDataException($"the suffix array is read at rank {index}, but the section has {count} entries: the file is damaged");
 }
 
 /// <summary>
 /// The suffix array over a position reader (ADR-005 section 3.3, work package S2.3): the generic form of <see cref="SaView"/> whose every number is 64-bit. The stored width is the type argument (<see cref="Pos32{TAccess}"/>,
-/// <see cref="Pos40{TAccess}"/>, <see cref="PosInt"/>, a closed form in the tests), so that a loop over the view is specialised for the width.
+/// <see cref="Pos40{TAccess}"/>, <see cref="PosInt"/>, a closed form in the tests), so that a loop over the view is specialised for the width and the access mode and the read costs the load, the decode and, in Checked mode, one comparison.
 /// </summary>
 internal readonly struct SaView<TPos>
     where TPos : struct, IPosReader
@@ -116,18 +184,48 @@ internal readonly struct SaView<TPos>
     /// <summary>The reader.</summary>
     internal TPos Reader => _reader;
 
-    /// <summary>The entry at <paramref name="rank"/>.</summary>
-    internal long this[long rank] => throw new NotImplementedException();
+    /// <summary>The entry at <paramref name="rank"/> (the checks are the reader's: Checked mode bounds it).</summary>
+    internal long this[long rank]
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get => (long)_reader.Get(rank);
+    }
 
     /// <summary>The same read, always bounded (the contract's).</summary>
-    internal long At(long rank) => throw new NotImplementedException();
+    /// <exception cref="InvalidDataException">The rank is outside <c>0..n</c>.</exception>
+    internal long At(long rank)
+    {
+        if ((ulong)rank >= (ulong)_reader.Count) SaViewErrors.Outside(rank, _reader.Count);
+        return (long)_reader.Get(rank);
+    }
 
-    /// <summary>Copies <c>destination.Length</c> entries that start at <paramref name="start"/>.</summary>
-    internal void CopyTo(long start, Span<long> destination) => throw new NotImplementedException();
+    /// <summary>Copies <c>destination.Length</c> entries that start at <paramref name="start"/>; the range is always checked.</summary>
+    /// <exception cref="InvalidDataException">The range is outside the section.</exception>
+    internal void CopyTo(long start, Span<long> destination)
+    {
+        CheckRange(start, destination.Length);
+        for (int i = 0; i < destination.Length; i++) destination[i] = (long)_reader.Get(start + i);
+    }
 
-    /// <summary>Copies <c>destination.Length</c> entries that start at <paramref name="start"/> as 32-bit positions.</summary>
-    internal void CopyTo(long start, Span<int> destination) => throw new NotImplementedException();
+    /// <summary>Copies <c>destination.Length</c> entries that start at <paramref name="start"/> as 32-bit positions (the bridge: a position that is not a 32-bit number is damage, not a wrapped number).</summary>
+    /// <exception cref="InvalidDataException">The range is outside the section, or an entry does not fit.</exception>
+    internal void CopyTo(long start, Span<int> destination)
+    {
+        CheckRange(start, destination.Length);
+        for (int i = 0; i < destination.Length; i++) destination[i] = IntBridge.Value((long)_reader.Get(start + i), "a suffix array entry");
+    }
 
     /// <summary>The entries <c>[start, start + count)</c> as a new array.</summary>
-    internal long[] ToArray(long start, int count) => throw new NotImplementedException();
+    internal long[] ToArray(long start, int count)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(count);
+        var result = new long[count];
+        CopyTo(start, result);
+        return result;
+    }
+
+    private void CheckRange(long start, int length)
+    {
+        if (start < 0 || length > _reader.Count - start) SaViewErrors.Outside(start, _reader.Count);
+    }
 }

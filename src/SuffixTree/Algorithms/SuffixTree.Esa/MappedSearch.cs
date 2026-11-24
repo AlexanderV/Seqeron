@@ -139,6 +139,7 @@ internal sealed unsafe class MappedSearch
     private readonly byte* _text;
     private readonly int _bits;
     private readonly int _n;
+    private readonly int _lcpLength;
     private readonly CompactLcp _lcp;
     private readonly int _variant;
 
@@ -151,8 +152,10 @@ internal sealed unsafe class MappedSearch
         _child = file.Child.Mapped.Pointer;
         _text = file.TextReader.Pointer;
         _bits = file.TextReader.Bits;
-        _n = (int)file.TextReader.Length;
+        _n = IntBridge.Length(file.TextReader.Length, "the text of the container (bridge of S2.3, removed by S2.4)");
         _lcp = file.Lcp;
+        _lcpLength = IntBridge.Length(_lcp.Length, "the LCP array of the container (bridge of S2.3, removed by S2.4)");
+        if (_lcp.IsWide) throw new NotSupportedException("the pattern descent reads an LCP array of 8, 16 or 32 bits per entry at POS_WIDTH 4 in this build; the 64-bit engine of stage S2 (S2.4) reads the others");
         int kind = _lcp.Kind switch { LcpKind.U8 => 0, LcpKind.U16 => 1, _ => 2 };
         _variant = (file.IsChecked ? 0 : 6) + (2 * kind) + (file.Child.Mapped.IsTagged ? 1 : 0);
     }
@@ -171,14 +174,14 @@ internal sealed unsafe class MappedSearch
             case 1: { var lcp = new Lcp8Reader(_lcp.MappedBase, _lcp); return Run<CheckedAccess, Lcp8Reader, TaggedCells>(new TaggedCells((uint*)_child), lcp, pattern, packed, out lo, out hi); }
             case 2: { var lcp = new Lcp16Reader((ushort*)_lcp.MappedBase, _lcp); return Run<CheckedAccess, Lcp16Reader, PackedCells<CheckedAccess, Lcp16Reader>>(new PackedCells<CheckedAccess, Lcp16Reader>(_child, lcp, _n), lcp, pattern, packed, out lo, out hi); }
             case 3: { var lcp = new Lcp16Reader((ushort*)_lcp.MappedBase, _lcp); return Run<CheckedAccess, Lcp16Reader, TaggedCells>(new TaggedCells((uint*)_child), lcp, pattern, packed, out lo, out hi); }
-            case 4: { var lcp = new Lcp32Reader<CheckedAccess>((int*)_lcp.MappedBase, _lcp.Length); return Run<CheckedAccess, Lcp32Reader<CheckedAccess>, PackedCells<CheckedAccess, Lcp32Reader<CheckedAccess>>>(new PackedCells<CheckedAccess, Lcp32Reader<CheckedAccess>>(_child, lcp, _n), lcp, pattern, packed, out lo, out hi); }
-            case 5: { var lcp = new Lcp32Reader<CheckedAccess>((int*)_lcp.MappedBase, _lcp.Length); return Run<CheckedAccess, Lcp32Reader<CheckedAccess>, TaggedCells>(new TaggedCells((uint*)_child), lcp, pattern, packed, out lo, out hi); }
+            case 4: { var lcp = new Lcp32Reader<CheckedAccess>((int*)_lcp.MappedBase, _lcpLength); return Run<CheckedAccess, Lcp32Reader<CheckedAccess>, PackedCells<CheckedAccess, Lcp32Reader<CheckedAccess>>>(new PackedCells<CheckedAccess, Lcp32Reader<CheckedAccess>>(_child, lcp, _n), lcp, pattern, packed, out lo, out hi); }
+            case 5: { var lcp = new Lcp32Reader<CheckedAccess>((int*)_lcp.MappedBase, _lcpLength); return Run<CheckedAccess, Lcp32Reader<CheckedAccess>, TaggedCells>(new TaggedCells((uint*)_child), lcp, pattern, packed, out lo, out hi); }
             case 6: { var lcp = new Lcp8Reader(_lcp.MappedBase, _lcp); return Run<TrustedAccess, Lcp8Reader, PackedCells<TrustedAccess, Lcp8Reader>>(new PackedCells<TrustedAccess, Lcp8Reader>(_child, lcp, _n), lcp, pattern, packed, out lo, out hi); }
             case 7: { var lcp = new Lcp8Reader(_lcp.MappedBase, _lcp); return Run<TrustedAccess, Lcp8Reader, TaggedCells>(new TaggedCells((uint*)_child), lcp, pattern, packed, out lo, out hi); }
             case 8: { var lcp = new Lcp16Reader((ushort*)_lcp.MappedBase, _lcp); return Run<TrustedAccess, Lcp16Reader, PackedCells<TrustedAccess, Lcp16Reader>>(new PackedCells<TrustedAccess, Lcp16Reader>(_child, lcp, _n), lcp, pattern, packed, out lo, out hi); }
             case 9: { var lcp = new Lcp16Reader((ushort*)_lcp.MappedBase, _lcp); return Run<TrustedAccess, Lcp16Reader, TaggedCells>(new TaggedCells((uint*)_child), lcp, pattern, packed, out lo, out hi); }
-            case 10: { var lcp = new Lcp32Reader<TrustedAccess>((int*)_lcp.MappedBase, _lcp.Length); return Run<TrustedAccess, Lcp32Reader<TrustedAccess>, PackedCells<TrustedAccess, Lcp32Reader<TrustedAccess>>>(new PackedCells<TrustedAccess, Lcp32Reader<TrustedAccess>>(_child, lcp, _n), lcp, pattern, packed, out lo, out hi); }
-            default: { var lcp = new Lcp32Reader<TrustedAccess>((int*)_lcp.MappedBase, _lcp.Length); return Run<TrustedAccess, Lcp32Reader<TrustedAccess>, TaggedCells>(new TaggedCells((uint*)_child), lcp, pattern, packed, out lo, out hi); }
+            case 10: { var lcp = new Lcp32Reader<TrustedAccess>((int*)_lcp.MappedBase, _lcpLength); return Run<TrustedAccess, Lcp32Reader<TrustedAccess>, PackedCells<TrustedAccess, Lcp32Reader<TrustedAccess>>>(new PackedCells<TrustedAccess, Lcp32Reader<TrustedAccess>>(_child, lcp, _n), lcp, pattern, packed, out lo, out hi); }
+            default: { var lcp = new Lcp32Reader<TrustedAccess>((int*)_lcp.MappedBase, _lcpLength); return Run<TrustedAccess, Lcp32Reader<TrustedAccess>, TaggedCells>(new TaggedCells((uint*)_child), lcp, pattern, packed, out lo, out hi); }
         }
     }
 

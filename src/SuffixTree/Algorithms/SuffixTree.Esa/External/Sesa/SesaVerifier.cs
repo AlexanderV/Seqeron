@@ -69,11 +69,22 @@ internal static unsafe class SesaVerifier
         long end = SesaFormat.PageBytes;
         foreach (SesaSection s in file.Sections.OrderBy(x => x.Offset).ThenBy(x => x.Length))
         {
-            if (s.Offset > end && new ReadOnlySpan<byte>(file.Data + end, checked((int)(s.Offset - end))).IndexOfAnyExcept((byte)0) >= 0)
+            if (s.Offset > end && !IsZero(file.Data + end, s.Offset - end))
                 throw new InvalidDataException($"the bytes between offset {end} and the section {Name(s.Kind)} at {s.Offset} are not zero: the file is damaged");
             end = Math.Max(end, s.Offset + s.Length);
         }
         file.SetReport(file.Report with { SectionsSeconds = Seconds(t0), SectionBytesChecksummed = bytes, HardwareCrc = hardware });
+    }
+
+    /// <summary>The bytes of the section table's gaps must be zero; the gap is scanned in blocks, so that a gap of any length (a damaged table can name one above 2^31 bytes) is a scan and never a narrowed span (risk R8).</summary>
+    private static bool IsZero(byte* data, long length)
+    {
+        const long ZeroScanBlock = 1L << 24;
+        for (long done = 0; done < length; done += ZeroScanBlock)
+        {
+            if (new ReadOnlySpan<byte>(data + done, (int)Math.Min(ZeroScanBlock, length - done)).IndexOfAnyExcept((byte)0) >= 0) return false;
+        }
+        return true;
     }
 
     private static uint Checksum(byte* data, long length, bool hardware)

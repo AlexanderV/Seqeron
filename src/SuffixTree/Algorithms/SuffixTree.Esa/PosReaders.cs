@@ -138,11 +138,11 @@ internal readonly unsafe struct Pos40<TAccess> : IPosReader
 
     public long Count => _count;
 
-    // STUB of the tests-first step: the mask keeps 32 bits and Checked mode checks the lower bound only
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public ulong Get(long index)
     {
-        if (TAccess.IsChecked && index < 0) PosReader.ThrowOutside(index, _count);
-        return Unsafe.ReadUnaligned<ulong>(_p + (5 * index)) & 0xFFFF_FFFFUL;
+        if (TAccess.IsChecked && (ulong)index >= (ulong)_count) PosReader.ThrowOutside(index, _count);
+        return Unsafe.ReadUnaligned<ulong>(_p + (5 * index)) & PosReader.Mask40;
     }
 }
 
@@ -187,5 +187,6 @@ internal readonly struct PosInt : IPosReader
 
     public long Count => _values.Length;
 
-    public ulong Get(long index) => (ulong)_values[index];
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public ulong Get(long index) => (uint)_values[index];
 }

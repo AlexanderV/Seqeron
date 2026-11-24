@@ -136,7 +136,7 @@ public unsafe class LcpPyramidWideTests
         (byte[] baseBytes, _) = ViewImage.EncodeLcp(v, LcpKind.U64);
         using var b = new GuardedImage(baseBytes, flush: true);
         CompactLcp all = CompactLcp.FromMappedWide(LcpKind.U64, v.Length, b.Data, null, 0, 5, isChecked: false);
-        Assert.That(() => LcpPyramid.Build(all, 4), Throws.TypeOf<NotSupportedException>().With.Message.Contains("int"));
+        Assert.That(() => LcpPyramid.Build(all, 4), Throws.TypeOf<NotSupportedException>().With.Message.Contains("32-bit"));
         // one huge entry per block among small ones: the minima are small, the huge value is read through the base reader
         long[] w = [.. Enumerable.Range(0, 200).Select(i => i % 4 == 3 ? (1L << 33) + i : i % 5)];
         (byte[] baseW, _) = ViewImage.EncodeLcp(w, LcpKind.U64);

@@ -294,7 +294,7 @@ public sealed class SesaSectionTests
         int n = c.N;
         Assert.That(r.Result.Lcp.Kind, Is.EqualTo(c.Lcp.Kind), $"{label}: width");
         Assert.That(bytes.AsSpan((int)r.LcpOffset, LcpChildRun.Width(c.Lcp.Kind) * (n + 1)).SequenceEqual(c.LcpBaseBytes()), Is.True, $"{label}: LCP");
-        Assert.That(bytes.AsSpan((int)r.OverflowOffset, 8 * c.Lcp.OverflowCount).SequenceEqual(c.OverflowBytes()), Is.True, $"{label}: overflow");
+        Assert.That(bytes.AsSpan((int)r.OverflowOffset, (int)(8 * c.Lcp.OverflowCount)).SequenceEqual(c.OverflowBytes()), Is.True, $"{label}: overflow");
         Assert.That(MemoryMarshal.Cast<byte, uint>(bytes.AsSpan((int)r.ChildOffset, 4 * (n + 1))).ToArray(), Is.EqualTo(c.Packed), $"{label}: CHILD");
         Assert.That((r.Result.Scan.NodeCount, r.Result.Scan.InternalCount, (int)r.Result.Scan.LrsDepth, (int)r.Result.Scan.LrsRank, r.Result.Scan.MaxLcp), Is.EqualTo((c.Statistics.NodeCount, (long)c.Statistics.InternalCount, c.Statistics.LrsDepth, c.Statistics.LrsRank, (long)c.MaxLcp)), $"{label}: statistics");
         Assert.That(r.Requests, Has.Count.EqualTo(1), $"{label}: the placer is asked once");

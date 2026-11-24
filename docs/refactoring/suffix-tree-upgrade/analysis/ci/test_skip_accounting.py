@@ -302,7 +302,7 @@ class TheList(Base):
         self.assertEqual(len([r for r in ignore if r.in_builds == "default"]), 19, "the 19 that need the checked accessor")
         self.assertEqual(len([r for r in ignore if r.in_builds == "host"]), 9, "the tests that mount a tmpfs")
         self.assertEqual(len([r for r in rows if r.kind == "explicit"]), 4)
-        self.assertEqual(len([r for r in rows if r.kind == "explicit-class"]), 40)
+        self.assertEqual(len([r for r in rows if r.kind == "explicit-class"]), 41, "40 at the end of S2.2, plus the fixture GeneratedViewLargeTests of S2.3")
 
 
 class TheTrx(Base):

@@ -26,7 +26,7 @@ internal sealed class LcpRangeHelper
         _lcp = lcp;
         _fanout = fanout;
         _logFanout = int.TrailingZeroCount(fanout);
-        _length = lcp.Length;
+        _length = IntBridge.Length(lcp.Length, "the LCP array of the prototype helper");
 
         var levels = new List<int[]>();
         var cursor = lcp.CreateCursor();

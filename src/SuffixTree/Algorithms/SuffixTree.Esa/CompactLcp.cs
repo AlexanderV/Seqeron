@@ -44,8 +44,12 @@ internal sealed unsafe class CompactLcp
     private int[]? _mappedRanks;
     private int[]? _mappedValues;
 
+    // the wide form (work package S2.3): any stored width, the U64 kind, any length; every read goes through the store, the fields of the forms above are unused
+    private readonly LcpStore? _store;
+
     private CompactLcp(LcpKind kind, int length, byte[]? u8, ushort[]? u16, int[]? u32, int[] overflowRank, int[] overflowValue)
     {
+        if (kind == LcpKind.U64) throw new ArgumentOutOfRangeException(nameof(kind), kind, "the managed form has no U64 kind (LCP codec 4 is read from a container)");
         Kind = kind;
         Length = length;
         _u8 = u8;
@@ -77,25 +81,72 @@ internal sealed unsafe class CompactLcp
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(length, 1);
         ArgumentOutOfRangeException.ThrowIfNegative(pairCount);
+        if (kind == LcpKind.U64) throw new ArgumentOutOfRangeException(nameof(kind), kind, "the 32-bit form reads no U64 array: use FromMappedWide");
         if (kind == LcpKind.U32 && pairCount != 0) throw new InvalidDataException("an LCP array of 32 bits per entry has no overflow list");
         return new CompactLcp(kind, length, baseArray, pairs, pairCount, isChecked);
     }
 
-    // ---- work package S2.3, the long members (STUBS of the tests-first step)
+    private CompactLcp(LcpStore store)
+    {
+        Kind = store.Kind;
+        Length = store.Length;
+        _overflowRank = [];
+        _overflowValue = [];
+        _store = store;
+        IsMapped = true;
+    }
 
-    /// <summary>The LCP array of a container (or of any memory) at any width: <paramref name="posWidth"/> is the stored width of the overflow pairs (4 or 5), the base array has the width of <paramref name="kind"/>.</summary>
-    internal static CompactLcp FromMappedWide(LcpKind kind, long length, byte* baseArray, byte* pairs, long pairCount, int posWidth, bool isChecked) => throw new NotImplementedException();
+    /// <summary>
+    /// The LCP array of a container (or of any memory) at any stored width and size (work package S2.3): <paramref name="baseArray"/> holds <paramref name="length"/> entries of the width of <paramref name="kind"/> (1, 2, 4 or 8 bytes),
+    /// <paramref name="pairs"/> the <paramref name="pairCount"/> pairs <c>(rank, value)</c> of the overflow list, each field <paramref name="posWidth"/> (4 or 5) bytes, so a pair is <c>2 x POS_WIDTH</c> bytes (8 or 10) and a list of 5-byte fields
+    /// ends with the 3 bytes of padding that belong to its section. The memory belongs to the container and must outlive this object. The entries are untrusted, as in <see cref="FromMapped"/>.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">The length is below 1, the pair count is negative or the width is not 4 or 5.</exception>
+    /// <exception cref="InvalidDataException">An array of 32 or 64 bits per entry has no overflow list.</exception>
+    internal static CompactLcp FromMappedWide(LcpKind kind, long length, byte* baseArray, byte* pairs, long pairCount, int posWidth, bool isChecked)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(length, 1);
+        ArgumentOutOfRangeException.ThrowIfNegative(pairCount);
+        if (posWidth is not (4 or 5)) throw new ArgumentOutOfRangeException(nameof(posWidth), posWidth, "the stored width of a position is 4 or 5 bytes");
+        if (kind is LcpKind.U32 or LcpKind.U64 && pairCount != 0) throw new InvalidDataException("an LCP array of 32 or 64 bits per entry has no overflow list");
+        long fields = 2 * pairCount;
+        return kind switch
+        {
+            LcpKind.U8 => WideOf(kind, new Pos8<TrustedAccess>(baseArray, length), posWidth, pairs, fields, isChecked),
+            LcpKind.U16 => WideOf(kind, new Pos16<TrustedAccess>(baseArray, length), posWidth, pairs, fields, isChecked),
+            LcpKind.U32 => WideOf(kind, new Pos32<TrustedAccess>(baseArray, length), posWidth, pairs, fields, isChecked),
+            _ => WideOf(kind, new Pos64<TrustedAccess>(baseArray, length), posWidth, pairs, fields, isChecked),
+        };
+    }
 
-    /// <summary>The LCP array over readers: <paramref name="baseEntries"/> has <c>n + 1</c> elements of the width of <paramref name="kind"/>, <paramref name="pairs"/> <c>2 x pairCount</c> (rank, value, rank, value, ...).</summary>
+    private static CompactLcp WideOf<TBase>(LcpKind kind, TBase baseEntries, int posWidth, byte* pairs, long fields, bool isChecked)
+        where TBase : struct, IPosReader =>
+        posWidth == 5
+            ? FromReaders(kind, baseEntries, new Pos40<TrustedAccess>(pairs, fields), isChecked)
+            : FromReaders(kind, baseEntries, new Pos32<TrustedAccess>(pairs, fields), isChecked);
+
+    /// <summary>
+    /// The LCP array over readers (work package S2.3; the generator-backed tests run it at n above 2^31): <paramref name="baseEntries"/> has <c>n + 1</c> elements of the width of <paramref name="kind"/>, <paramref name="pairs"/> has
+    /// <c>2 x pairCount</c> elements (rank, value, rank, value, ...). A rank outside the array is an <see cref="InvalidDataException"/> in both modes; with <paramref name="isChecked"/> every 32- and 64-bit value is also checked against the text.
+    /// </summary>
+    /// <exception cref="ArgumentException">The reader's element width is not the width of the kind, or the list has an odd number of elements.</exception>
+    /// <exception cref="InvalidDataException">An array of 32 or 64 bits per entry has no overflow list.</exception>
     internal static CompactLcp FromReaders<TBase, TPairs>(LcpKind kind, TBase baseEntries, TPairs pairs, bool isChecked)
         where TBase : struct, IPosReader
-        where TPairs : struct, IPosReader => throw new NotImplementedException();
+        where TPairs : struct, IPosReader
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(baseEntries.Count, 1);
+        if (TBase.ElementBytes != LcpStore.WidthOf(kind)) throw new ArgumentException($"the base array of {kind} has {LcpStore.WidthOf(kind)} bytes per entry, the reader has {TBase.ElementBytes}", nameof(baseEntries));
+        if ((pairs.Count & 1) != 0) throw new ArgumentException("the overflow list has pairs: an even number of elements", nameof(pairs));
+        if (kind is LcpKind.U32 or LcpKind.U64 && pairs.Count != 0) throw new InvalidDataException("an LCP array of 32 or 64 bits per entry has no overflow list");
+        return new CompactLcp(new LcpStore<TBase, TPairs>(kind, baseEntries, pairs, isChecked));
+    }
 
-    /// <summary>The LCP value at a 64-bit rank.</summary>
-    internal long this[long rank] => throw new NotImplementedException();
-
-    /// <summary>True when the array is read in place from a container.</summary>
+    /// <summary>True when the array is read in place from a container (or through readers).</summary>
     internal bool IsMapped { get; }
+
+    /// <summary>True when the array is the wide form: read through a store, at any width, size and kind.</summary>
+    internal bool IsWide => _store is not null;
 
     /// <summary>The mapped base array (null for a managed one).</summary>
     internal byte* MappedBase => _mappedBase;
@@ -104,13 +155,30 @@ internal sealed unsafe class CompactLcp
     internal LcpKind Kind { get; }
 
     /// <summary>Number of entries, <c>n + 1</c>.</summary>
-    internal int Length { get; }
+    internal long Length { get; }
 
-    /// <summary>Number of escaped entries (always 0 for U32).</summary>
-    internal int OverflowCount => IsMapped ? _mappedPairCount : _overflowRank.Length;
+    /// <summary>Number of escaped entries (always 0 for U32 and U64).</summary>
+    internal long OverflowCount
+    {
+        get
+        {
+            if (_store is not null) return _store.PairCount;
+            return IsMapped ? _mappedPairCount : _overflowRank.Length;
+        }
+    }
 
-    /// <summary>Bytes of the base array plus 8 bytes per overflow entry.</summary>
-    internal long PayloadBytes => ((long)Length * Kind switch { LcpKind.U8 => 1, LcpKind.U16 => 2, _ => 4 }) + (8L * OverflowCount);
+    /// <summary>The overflow count as the 32-bit engine reads it (the wide form can hold more than <see cref="int.MaxValue"/> pairs).</summary>
+    private int OverflowCountInt
+    {
+        get
+        {
+            if (_store is not null) return IntBridge.Length(_store.PairCount, "the overflow list of the LCP array");
+            return IsMapped ? _mappedPairCount : _overflowRank.Length;
+        }
+    }
+
+    /// <summary>Bytes of the base array plus one pair per overflow entry (8 bytes, or <c>2 x POS_WIDTH</c> of the wide form).</summary>
+    internal long PayloadBytes => (Length * LcpStore.WidthOf(Kind)) + ((_store is null ? 8L : 2L * _store.PosWidth) * OverflowCount);
 
     /// <summary>The corruption of a mapped file is an <see cref="InvalidDataException"/>, that of a managed table the <see cref="InvalidOperationException"/> it always was.</summary>
     private Exception Corrupt(string message) => IsMapped ? new InvalidDataException(message + ": the file is damaged") : new InvalidOperationException(message);
@@ -143,6 +211,19 @@ internal sealed unsafe class CompactLcp
         }
     }
 
+    /// <summary>The LCP value at a 64-bit rank (any kind, any stored width; the wide form reads values above <see cref="int.MaxValue"/>).</summary>
+    /// <exception cref="InvalidDataException">The rank is outside the array (a mapped form), an escape has no pair, or a value is damaged.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">The rank is outside the array (a managed form).</exception>
+    internal long this[long rank]
+    {
+        get
+        {
+            if (_store is not null) return _store.Value(rank);
+            if ((ulong)rank >= (ulong)Length) ThrowRankOutside(rank);
+            return this[(int)rank];
+        }
+    }
+
     /// <summary>The value of an escaped entry (the slow arm of the indexer, out of line so that the arm that most reads take stays small enough to be inlined into the pattern descent).</summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
     private int EscapedValue(int rank)
@@ -156,6 +237,11 @@ internal sealed unsafe class CompactLcp
     private int FindOverflow(int rank)
     {
         if (!IsMapped) return Array.BinarySearch(_overflowRank, rank);
+        if (_store is not null)
+        {
+            long found = _store.Find(rank);
+            return found < 0 ? -1 : IntBridge.Length(found, "an index of the overflow list of the LCP array");
+        }
         int lo = 0, hi = _mappedPairCount - 1;
         while (lo <= hi)
         {
@@ -168,9 +254,17 @@ internal sealed unsafe class CompactLcp
         return -1;
     }
 
-    private int OverflowRankAt(int index) => IsMapped ? MappedWord(2 * (long)index) : _overflowRank[index];
+    private int OverflowRankAt(int index)
+    {
+        if (_store is not null) return IntBridge.Value(_store.PairRank(index), "a rank of the overflow list of the LCP array");
+        return IsMapped ? MappedWord(2 * (long)index) : _overflowRank[index];
+    }
 
-    private int OverflowValueAt(int index) => IsMapped ? MappedWord((2 * (long)index) + 1) : _overflowValue[index];
+    private int OverflowValueAt(int index)
+    {
+        if (_store is not null) return IntBridge.Value(_store.PairValue(index), "a value of the overflow list of the LCP array");
+        return IsMapped ? MappedWord((2 * (long)index) + 1) : _overflowValue[index];
+    }
 
     /// <summary>A word of the mapped overflow list as a non-negative <see cref="int"/> (a word above <c>int.MaxValue</c> cannot be a rank or an LCP value).</summary>
     private int MappedWord(long word)
@@ -185,8 +279,8 @@ internal sealed unsafe class CompactLcp
     {
         if (_mappedRanks is null || _mappedValues is null)
         {
-            var ranks = new int[_mappedPairCount];
-            var values = new int[_mappedPairCount];
+            var ranks = new int[OverflowCountInt];
+            var values = new int[ranks.Length];
             for (int i = 0; i < ranks.Length; i++)
             {
                 ranks[i] = OverflowRankAt(i);
@@ -204,7 +298,7 @@ internal sealed unsafe class CompactLcp
     /// <summary>All entries as a dense array (tests, diagnostics).</summary>
     internal int[] ToArray()
     {
-        var result = new int[Length];
+        var result = new int[IntBridge.Length(Length, "the LCP array (ToArray)")];
         var cursor = CreateCursor();
         for (int i = 0; i < result.Length; i++) result[i] = cursor.Get(i);
         return result;
@@ -245,6 +339,7 @@ internal sealed unsafe class CompactLcp
     /// <summary>Stores a dense LCP array (n + 1 entries) in a given representation.</summary>
     internal static CompactLcp FromDense(ReadOnlySpan<int> lcp, LcpKind kind)
     {
+        if (kind == LcpKind.U64) throw new ArgumentOutOfRangeException(nameof(kind), kind, "the managed form has no U64 kind (LCP codec 4 is read from a container)");
         if (lcp.IsEmpty) throw new ArgumentException("an LCP array has n + 1 >= 1 entries", nameof(lcp));
         int escape = kind switch { LcpKind.U8 => U8Escape, LcpKind.U16 => U16Escape, _ => int.MaxValue };
         int escapes = 0;
@@ -288,7 +383,7 @@ internal sealed unsafe class CompactLcp
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private void ThrowRankOutside(int rank)
+    private void ThrowRankOutside(long rank)
     {
         if (IsMapped) throw new InvalidDataException($"the LCP array is read at rank {rank}, but it has {Length} entries: the file is damaged");
         throw new ArgumentOutOfRangeException(nameof(rank));
@@ -296,8 +391,8 @@ internal sealed unsafe class CompactLcp
 
     private int BaseValue(int rank)
     {
-        if ((uint)rank >= (uint)Length) ThrowRankOutside(rank);
-        if (IsMapped) return MappedValue(rank);
+        if ((ulong)rank >= (ulong)Length) ThrowRankOutside(rank);
+        if (IsMapped) return _store is null ? MappedValue(rank) : IntBridge.Value(_store.BaseEntry(rank), "an LCP value");
         return Kind switch
         {
             LcpKind.U8 => _u8![rank],
@@ -316,7 +411,7 @@ internal sealed unsafe class CompactLcp
                 return ((ushort*)_mappedBase)[rank];
             default:
                 int v = ((int*)_mappedBase)[rank];
-                if (_mappedChecked && (uint)v > (uint)Length) throw Corrupt($"the LCP value {(uint)v} at rank {rank} is larger than the text");
+                if (_mappedChecked && (uint)v > (ulong)Length) throw Corrupt($"the LCP value {(uint)v} at rank {rank} is larger than the text");
                 return v;
         }
     }
@@ -342,7 +437,7 @@ internal sealed unsafe class CompactLcp
             int b = _owner.BaseValue(rank);
             if (b != _owner.EscapeValue) return b;
 
-            int count = _owner.OverflowCount;
+            int count = _owner.OverflowCountInt;
             if (_next > 0 && _owner.OverflowRankAt(_next - 1) >= rank)
             {
                 _next = _owner.FindOverflow(rank);
@@ -372,6 +467,7 @@ internal sealed unsafe class CompactLcp
 
         internal Builder(LcpKind kind, int length, int overflowCount)
         {
+            if (kind == LcpKind.U64) throw new ArgumentOutOfRangeException(nameof(kind), kind, "the managed form has no U64 kind (LCP codec 4 is read from a container)");
             ArgumentOutOfRangeException.ThrowIfLessThan(length, 1);
             ArgumentOutOfRangeException.ThrowIfNegative(overflowCount);
             if (kind == LcpKind.U32 && overflowCount != 0)

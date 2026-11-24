@@ -195,7 +195,7 @@ public class LcpRangeHelperTests
         {
             var h = new LcpRangeHelper(lcp, fanout);
             long expected = 0;
-            int size = lcp.Length;
+            int size = (int)lcp.Length;
             int levels = 0;
             while (size > 1)
             {

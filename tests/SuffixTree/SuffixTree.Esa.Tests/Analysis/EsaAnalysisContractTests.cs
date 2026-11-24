@@ -48,7 +48,7 @@ public class EsaAnalysisContractTests
         foreach (string text in new[] { "banana", "mississippi", "abcabcxyzxyz", new string('a', 300), StringFamilies.Fibonacci(700), StringFamilies.RandomDna(400, 3) + StringFamilies.RandomDna(400, 3) })
         {
             EsaIndex reference = EsaIndex.Build(text);
-            foreach (LcpKind kind in Enum.GetValues<LcpKind>())
+            foreach (LcpKind kind in Enum.GetValues<LcpKind>().Where(k => k != LcpKind.U64)) // U64 (LCP codec 4) has no managed form
                 AssertSameAnswers(reference, WithLcpKind(reference, kind), $"{kind} n {text.Length}");
         }
     }
@@ -60,7 +60,7 @@ public class EsaAnalysisContractTests
         const int n = 70_000;
         EsaIndex reference = EsaIndex.Build(new string('a', n));
         Assert.That(reference.Lcp.Kind, Is.Not.EqualTo(LcpKind.U8).Or.Property("OverflowCount").GreaterThan(0));
-        foreach (LcpKind kind in Enum.GetValues<LcpKind>())
+        foreach (LcpKind kind in Enum.GetValues<LcpKind>().Where(k => k != LcpKind.U64)) // U64 (LCP codec 4) has no managed form
         {
             EsaIndex index = WithLcpKind(reference, kind);
             Assert.That(index.CountDistinctSubstrings(), Is.EqualTo(n), kind.ToString());

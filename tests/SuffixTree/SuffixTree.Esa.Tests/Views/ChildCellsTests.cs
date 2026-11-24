@@ -146,8 +146,8 @@ public unsafe class ChildCellsTests
         cells[k] = bad;
         using var guarded = new GuardedImage(ViewImage.Encode(cells, width, width == 5 ? 3 : 0), flush: true);
         MappedChild mapped = MappedChild.FromMappedWide(guarded.Data, image.Count, width, lcp, isChecked: true, tagged: false);
-        Assert.That(mapped.FirstLIndex(k, 0, true), Is.EqualTo((long)bad), "a first l-index is returned as it is: the caller validates it");
-        Assert.That(() => mapped.NextLIndex(k, image.Count - 1), Throws.TypeOf<InvalidDataException>());
+        Assert.That(mapped.FirstLIndex((long)k, 0, true), Is.EqualTo((long)bad), "a first l-index is returned as it is: the caller validates it");
+        Assert.That(() => mapped.NextLIndex((long)k, image.Count - 1), Throws.TypeOf<InvalidDataException>());
     }
 
     [Test]

@@ -120,12 +120,13 @@ internal sealed class ChildTable
         _ => Tagged.NextLIndex(k, rb),
     };
 
-#pragma warning disable S2325 // stubs of the tests-first step
-    /// <summary>See <see cref="IChildTable.FirstLIndex"/> at 64-bit ranks.</summary>
-    internal long FirstLIndex(long lb, long rb, bool lastChild) => throw new NotImplementedException();
+    /// <summary>See <see cref="IChildTable.FirstLIndex"/> at 64-bit ranks (an index built in memory has 32-bit ranks: a rank above <see cref="int.MaxValue"/> is an <see cref="ArgumentOutOfRangeException"/>).</summary>
+    internal long FirstLIndex(long lb, long rb, bool lastChild) => IsMapped ? Mapped.FirstLIndex(lb, rb, lastChild) : FirstLIndex(Rank(lb, nameof(lb)), Rank(rb, nameof(rb)), lastChild);
 
     /// <summary>See <see cref="IChildTable.NextLIndex"/> at 64-bit ranks.</summary>
-    internal long NextLIndex(long k, long rb) => throw new NotImplementedException();
+    internal long NextLIndex(long k, long rb) => IsMapped ? Mapped.NextLIndex(k, rb) : NextLIndex(Rank(k, nameof(k)), Rank(rb, nameof(rb)));
+
+    private static int Rank(long rank, string name) => (ulong)rank <= int.MaxValue ? (int)rank : throw new ArgumentOutOfRangeException(name, rank, "a table built in memory has 32-bit ranks");
 
     /// <summary>
     /// Builds the child table of the given layout by one scan over the LCP array and returns the header statistics of the same scan.

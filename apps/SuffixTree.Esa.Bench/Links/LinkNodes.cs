@@ -33,7 +33,7 @@ internal sealed class LinkNodeSet
     internal static LinkNodeSet Enumerate(CompactLcp lcp)
     {
         ArgumentNullException.ThrowIfNull(lcp);
-        int n = lcp.Length - 1;
+        int n = IntBridge.Length(lcp.Length, "the LCP array of the prototype scan") - 1;
         int capacity = Math.Max(16, Math.Min(n + 1, 1 << 16));
         int[] eLb = new int[capacity], eRb = new int[capacity], eEll = new int[capacity], eParentPush = new int[capacity];
         int[] emissionOfPush = new int[capacity];
