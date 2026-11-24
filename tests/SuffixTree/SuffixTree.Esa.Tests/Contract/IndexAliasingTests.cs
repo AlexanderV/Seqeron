@@ -9,6 +9,8 @@ public static class AliasEngines
 {
     /// <summary>Every engine that answers the navigation members with enhanced-suffix-array loci: the in-memory index with its three child-table layouts, the facade with two of them, and the container reader at both access modes (the Ukkonen adapter of the oracle has no navigation; the property test covers its extension members).</summary>
     public static IEnumerable<IndexEngineFactory> Navigation { get; } = IndexEngineFactories.All.Where(f => f.Name != "ukkonen-adapter").ToArray();
+    /// <summary>The same engines as fixtures at every container width (S2.1): the width-5 container engines are explicit, category <c>Width5</c>.</summary>
+    public static IEnumerable<TestFixtureData> NavigationWithWidths() => IndexEngineFactories.WithWidths().Where(d => d.Arguments[0] is IndexEngineFactory { Name: not "ukkonen-adapter" });
 }
 
 /// <summary>
@@ -18,7 +20,7 @@ public static class AliasEngines
 /// variables and the answer of the definitional oracle are the same, and so is the failing answer (false, the default locus) and the exception of a locus that is not an explicit node. <c>GetChildren</c> writes its children into the
 /// array that holds the node, <c>Locate</c> writes its positions over the bytes of the locus. Parameterised over the engines that have the navigation members.
 /// </summary>
-[TestFixtureSource(typeof(AliasEngines), nameof(AliasEngines.Navigation))]
+[TestFixtureSource(typeof(AliasEngines), nameof(AliasEngines.NavigationWithWidths))]
 public class IndexAliasingTests(IndexEngineFactory factory)
 {
     private static readonly string[] Texts = ["abracadabra", "mississippi", "aaaaaaa"];

@@ -7,7 +7,7 @@ namespace SuffixTree.Esa.Tests.Contract;
 /// Engine conformance suite of the index contract (ADR-001 section 6, work package 1b.0): every rule of the contract that an
 /// <see cref="ISuffixIndex"/> must obey, checked against definitions and brute force. Parameterised over <see cref="IndexEngineFactories.All"/>.
 /// </summary>
-[TestFixtureSource(typeof(IndexEngineFactories), nameof(IndexEngineFactories.All))]
+[TestFixtureSource(typeof(IndexEngineFactories), nameof(IndexEngineFactories.WithWidths))]
 public class IndexConformanceTests(IndexEngineFactory factory)
 {
     private static readonly string[] AllSmallTexts =

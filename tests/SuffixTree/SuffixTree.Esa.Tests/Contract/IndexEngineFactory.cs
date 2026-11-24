@@ -1,4 +1,5 @@
 using SuffixTree.Esa.Tests.External;
+using SuffixTree.Esa.Tests.Large;
 using SuffixTree.Indexing;
 
 namespace SuffixTree.Esa.Tests.Contract;
@@ -37,4 +38,32 @@ public static class IndexEngineFactories
         new IndexEngineFactory("esa-file", text => SesaTestFile.FileTree(text), SesaTestFile.IsByteText),
         new IndexEngineFactory("esa-file-trusted", text => SesaTestFile.FileTree(text, psi: false, access: EsaAccessMode.Trusted, level: EsaValidationLevel.Structure), SesaTestFile.IsByteText),
     ];
+
+    /// <summary>
+    /// The widths of the stored positions that the container engines are run at (work package S2.1, ADR-005 section 3.7 layer 3): 4 bytes (the container of S1, the default set) and 5 bytes (the same container
+    /// re-encoded by <see cref="Sesa5Encoder"/>, category <c>Width5</c>, explicit: expected red against the S1 head, whose reader refuses <c>POS_WIDTH</c> 5, until S2.7 turns them into the default set).
+    /// </summary>
+    public static IReadOnlyList<int> ContainerWidths { get; } = [4, 5];
+
+    /// <summary>The container engines of <see cref="All"/> again at every width of <see cref="ContainerWidths"/> but 4 (the names end in <c>-w5</c>).</summary>
+    public static IEnumerable<IndexEngineFactory> WideContainers { get; } = ContainerWidths.Where(w => w != 4).SelectMany(w => new[]
+    {
+        new IndexEngineFactory($"esa-file-w{w}", text => SesaTestFile.FileTree(text, width: w), SesaTestFile.IsByteText),
+        new IndexEngineFactory($"esa-file-trusted-w{w}", text => SesaTestFile.FileTree(text, psi: false, access: EsaAccessMode.Trusted, level: EsaValidationLevel.Structure, width: w), SesaTestFile.IsByteText),
+    }).ToArray();
+
+    /// <summary>
+    /// The fixtures of the conformance suites: every engine of <see cref="All"/> as before (the same names, the same tests, the default set) and every wide container engine, explicit and in category <c>Width5</c>
+    /// (<c>dotnet test ... --filter Category=Width5</c>).
+    /// </summary>
+    public static IEnumerable<TestFixtureData> WithWidths()
+    {
+        foreach (IndexEngineFactory factory in All) yield return new TestFixtureData(factory).SetArgDisplayNames(factory.Name);
+        foreach (IndexEngineFactory factory in WideContainers)
+        {
+            TestFixtureData data = new TestFixtureData(factory).SetArgDisplayNames(factory.Name).Explicit("POS_WIDTH 5 container (Sesa5Encoder); red against the S1 reader until S2.7; run with --filter Category=Width5");
+            data.Properties.Add("Category", "Width5");
+            yield return data;
+        }
+    }
 }

@@ -68,7 +68,7 @@ internal sealed class WalkOracle
 /// is checked against the oracle on its count. The walk is driven by the aliased results. "The end of the text" is reached by the walks that follow a suffix to its leaf (a pattern that ends at the terminator, <c>TryChild(node, -1)</c>, the
 /// leaf of the empty suffix) and by the symbols that are not code units; a locus that is not an explicit node is given to the members that need one, and both forms must refuse it. The seeds are fixed.
 /// </summary>
-[TestFixtureSource(typeof(IndexEngineFactories), nameof(IndexEngineFactories.All))]
+[TestFixtureSource(typeof(IndexEngineFactories), nameof(IndexEngineFactories.WithWidths))]
 public class IndexAliasingPropertyTests(IndexEngineFactory factory)
 {
     private const int WalksPerText = 40;

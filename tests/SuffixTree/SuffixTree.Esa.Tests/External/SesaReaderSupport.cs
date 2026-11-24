@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using SuffixTree.Esa.External;
+using SuffixTree.Esa.Tests.Large;
 
 namespace SuffixTree.Esa.Tests.External;
 
@@ -117,10 +118,11 @@ internal static class SesaTestFile
     }
 
     /// <summary>The tree of a text through the file: written, opened (mapped), and the path removed at once (a mapping outlives the name on Linux), so that thousands of trees leave nothing behind.</summary>
-    internal static EsaSuffixTree FileTree(string text, bool psi = true, EsaAccessMode access = EsaAccessMode.Checked, EsaValidationLevel level = EsaValidationLevel.Header, ChildCodec codec = ChildCodec.Packed)
+    internal static EsaSuffixTree FileTree(string text, bool psi = true, EsaAccessMode access = EsaAccessMode.Checked, EsaValidationLevel level = EsaValidationLevel.Header, ChildCodec codec = ChildCodec.Packed, int width = 4)
     {
         string path = Path.Combine(Path.GetTempPath(), "esa-rd-" + Guid.NewGuid().ToString("N") + ".sesa");
-        File.WriteAllBytes(path, Image(LcpChildCase.Of(text), psi, codec: codec));
+        byte[] image = Image(LcpChildCase.Of(text), psi, codec: codec);
+        File.WriteAllBytes(path, width == 5 ? Sesa5Encoder.Encode(image) : width == 4 ? image : throw new ArgumentOutOfRangeException(nameof(width), width, "the container widths are 4 and 5 (IndexEngineFactories.ContainerWidths)"));
         try
         {
             return Open(path, level, access);
