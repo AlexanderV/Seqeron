@@ -130,6 +130,7 @@ public static partial class SequenceAligner
             args.AddRange(new[] { "-E", Text(o.FixThreshold), "-s", "0.0" });
             if (o.LegacyGapPenalty)
                 args.Add("-L");
+            args.AddRange(MergeArguments(o));
             if (o.OutNumber)
                 args.Add("-n");
             args.Add("-C");
@@ -446,6 +447,7 @@ public static partial class SequenceAligner
             if (o.OutNumber)
                 tb.Add("-n");
             tb.AddRange(AddArguments(o));
+            tb.AddRange(MergeArguments(o));
             tb.Add("-C");
             tb.Add((o.ThreadsProgressive ?? threadsTb).ToString(CultureInfo.InvariantCulture));
             if (o.Unweight)
@@ -543,6 +545,15 @@ public static partial class SequenceAligner
             return args;
         }
 
+        /// <summary><c>$mergearg</c> of the script: <c>-H 0</c> with <c>--merge</c> (the script sets it before the number of seed sequences is known).</summary>
+        private static IEnumerable<string> MergeArguments(MafftOptions o)
+        {
+            if (o.MergeTable == null)
+                yield break;
+            yield return "-H";
+            yield return "0";
+        }
+
         /// <summary><c>$addarg $add2ndhalfarg</c> of the script: <c>-K -I n</c> (<c>--add</c>) or <c>-I n</c> (<c>--addprofile</c>), <c>-p</c> (<c>--smoothing</c>), <c>-Y</c> (<c>--keeplength</c>), <c>-Z -Y</c> (<c>--mapout</c>), <c>-z -Y</c> (<c>--compactmapout</c>).</summary>
         private static IEnumerable<string> AddArguments(MafftOptions o)
         {
@@ -604,6 +615,7 @@ public static partial class SequenceAligner
             if (o.OutNumber)
                 args.Add("-n");
             args.AddRange(AddArguments(o));
+            args.AddRange(MergeArguments(o));
             args.Add("-C");
             args.Add(threads.ToString(CultureInfo.InvariantCulture) + "-" + threadsTb.ToString(CultureInfo.InvariantCulture));
             args.AddRange(MemoryArguments(o));

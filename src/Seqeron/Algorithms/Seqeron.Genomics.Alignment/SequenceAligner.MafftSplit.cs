@@ -414,7 +414,7 @@ public static partial class SequenceAligner
             Report("----------------------------------------------------------------------------\n");
             if (doalign == 'f')
                 Report("rm -f /tmp/data-<pid>*  /tmp/query-<pid> /tmp/fasta-<pid>\n");
-            Report("splittbfast (" + (G.Dorp == 'd' ? "nuc" : "aa") + ") Version 7.505\nalg=" + G.Alg + ", model=" + G.ModelName + ", amax=" + G.SpecificityConsideration.ToString("F1", CultureInfo.InvariantCulture) + "\n"
+            Report("splittbfast (" + G.KindName + ") Version 7.505\nalg=" + G.Alg + ", model=" + G.ModelName + ", amax=" + G.SpecificityConsideration.ToString("F1", CultureInfo.InvariantCulture) + "\n"
                 + G.Nthread.ToString(CultureInfo.InvariantCulture) + " thread(s)\n\n");
             return new SplitResult(rows, order, treeFile, outLabels);
 

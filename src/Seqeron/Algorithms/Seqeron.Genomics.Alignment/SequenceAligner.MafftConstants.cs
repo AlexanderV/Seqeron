@@ -92,7 +92,7 @@ public static partial class SequenceAligner
         internal int PenaltyOp, PenaltyExOp;
         internal int[] AminoN = new int[256];
         internal int[] AminoGrp = new int[256];
-        internal char[] Amino = new char[26];
+        internal char[] Amino = new char[256];
         internal int[][] NDis = null!;
         internal double[][] NDisConsweightMulti = null!;
         internal int[][] NDisFft = null!;
@@ -143,6 +143,7 @@ public static partial class SequenceAligner
                         case 's': g.SpecificityConsideration = CAtof(Next()); rest = true; break;
                         case 'a': g.Fmodel = 1; break;
                         case 'K': g.AddProfile = false; break;
+                        case 'H': g.Subalignment = true; g.SubalignmentOffset = CAtoi(Next()); rest = true; break;
                         case 'I': g.Nadd = CAtoi(Next()); g.Report("nadd = " + g.Nadd.ToString(CultureInfo.InvariantCulture) + "\n"); rest = true; break;
                         case 'Y': g.KeepLength = 1; break;
                         case 'z': g.MapOut = 2; break;
@@ -340,9 +341,15 @@ public static partial class SequenceAligner
                 ModelName = (Nblosum == -1 ? "User-defined" : "BLOSUM" + Nblosum.ToString(CultureInfo.InvariantCulture)) + ", " + F(-(double)Ppenalty / 1000, 4, 2) + ", " + F(-(double)Poffset / 1000, 4, 2, true) + ", " + F(-(double)PpenaltyEx / 1000, 4, 2, true) + ", "
                     + (TryWarp ? F(-(double)PenaltyShift / 600, 4, 2) : "noshift");
             }
+            else if (Dorp == 'p' && Scoremtx == 1 && Nblosum == -2)
+            {
+                // the extended alphabet of the text mode
+                charsize = 0x100;
+                nDis = ExtendedMatrix(seq, out _);
+            }
             else if (Dorp == 'p' && Scoremtx == 1)
             {
-                throw new NotSupportedException("The text mode of MAFFT (--text / --textmatrix: an alphabet of 256 characters) is not available in this port.");
+                throw new NotSupportedException("A BLOSUM number below -2 (the scoring matrix of the program is then read as a user-defined BLOSUM) is not available in this port.");
             }
             else if (Dorp == 'p' && Scoremtx == 2)
             {
@@ -384,11 +391,12 @@ public static partial class SequenceAligner
                     + (TryWarp ? F(-(double)PenaltyShift / 600, 4, 2) : "noshift");
             }
             _ = charsize;
-            NDis = new int[26][];
-            for (int i = 0; i < 26; i++)
+            int alphabets = Nalphabets;
+            NDis = new int[alphabets][];
+            for (int i = 0; i < alphabets; i++)
             {
-                NDis[i] = new int[26];
-                for (int j = 0; j < 26; j++)
+                NDis[i] = new int[alphabets];
+                for (int j = 0; j < alphabets; j++)
                     NDis[i][j] = nDis[i, j];
             }
             AminoDis = new int[256][];
@@ -398,12 +406,12 @@ public static partial class SequenceAligner
                 AminoDis[i] = new int[256];
                 AminoDisConsweightMulti[i] = new double[256];
             }
-            NDisConsweightMulti = new double[26][];
-            NDisFft = new int[26][];
-            for (int i = 0; i < 26; i++)
+            NDisConsweightMulti = new double[alphabets][];
+            NDisFft = new int[alphabets][];
+            for (int i = 0; i < alphabets; i++)
             {
-                NDisConsweightMulti[i] = new double[26];
-                NDisFft[i] = new int[26];
+                NDisConsweightMulti[i] = new double[alphabets];
+                NDisFft[i] = new int[alphabets];
             }
             for (int i = 0; i < Nalphabets; i++)
             {
@@ -426,9 +434,9 @@ public static partial class SequenceAligner
                     for (int j = 0; j < 20; j++)
                         NDisFft[i][j] = NDis[i][j] + Offset - OffsetFft;
             }
-            NDisLN = new double[26][];
-            for (int i = 0; i < 26; i++)
-                NDisLN[i] = new double[26];
+            NDisLN = new double[alphabets][];
+            for (int i = 0; i < alphabets; i++)
+                NDisLN[i] = new double[alphabets];
             {
                 int offsetLN = (int)(1 * 600.0 / 1000.0 * 100 + 0.5);
                 int lim = Dorp == 'd' ? 10 : 20;

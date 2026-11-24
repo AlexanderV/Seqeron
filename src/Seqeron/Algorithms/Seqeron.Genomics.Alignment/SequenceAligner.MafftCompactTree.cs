@@ -104,6 +104,48 @@ public static partial class SequenceAligner
                 return true;
             }
 
+            /// <summary>True when only white space is left (the situation in which <c>sscanf</c> returns EOF if it has not converted anything yet).</summary>
+            internal bool AtEnd
+            {
+                get
+                {
+                    SkipSpace();
+                    return !More;
+                }
+            }
+
+            /// <summary><c>%x</c> into an <c>unsigned int</c>: <c>strtoul</c> with base 16 (optional sign, optional 0x); the value is truncated to 32 bits; false when no hexadecimal number follows.</summary>
+            internal bool Hex(out uint value)
+            {
+                value = 0;
+                SkipSpace();
+                bool neg = false;
+                if (More && Peek is '+' or '-')
+                {
+                    neg = Peek == '-';
+                    _pos++;
+                }
+                if (More && Peek == '0' && _pos + 2 < _s.Length + 0 && (_s[_pos + 1] is 'x' or 'X') && Uri.IsHexDigit(_s[_pos + 2]))
+                    _pos += 2;
+                int digits = 0;
+                System.Numerics.BigInteger v = 0;
+                while (More && Uri.IsHexDigit(Peek))
+                {
+                    v = v * 16 + Convert.ToInt32(Peek.ToString(), 16);
+                    digits++;
+                    _pos++;
+                }
+                if (digits == 0)
+                    return false;
+                if (v > ulong.MaxValue)
+                    v = ulong.MaxValue;
+                ulong u = (ulong)v;
+                if (neg)
+                    u = unchecked(0UL - u);
+                value = unchecked((uint)u);
+                return true;
+            }
+
             /// <summary><c>%lf</c>: false when no number follows.</summary>
             internal bool Double(out double value)
             {

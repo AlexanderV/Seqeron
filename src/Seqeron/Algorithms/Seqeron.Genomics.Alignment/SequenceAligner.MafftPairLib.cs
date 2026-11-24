@@ -124,6 +124,7 @@ public static partial class SequenceAligner
                         case 'N': g.NeverMemSave = 1; break;
                         case 'B': break;
                         case 'K': g.AddProfile = false; break;
+                        case 'H': g.Subalignment = true; g.SubalignmentOffset = CAtoi(Next()); rest = true; break;
                         case 'I': g.Nadd = CAtoi(Next()); rest = true; break;
                         case 'Y': g.KeepLength = 1; break;
                         case 'z': g.MapOut = 2; break;
@@ -295,7 +296,7 @@ public static partial class SequenceAligner
                     iscore[i][j - i] = pscore;
                 }
             }
-            Report("tbfast-pair (" + (G.Dorp == 'd' ? "nuc" : "aa") + ") Version 7.505\nalg=" + G.Alg + ", model=" + G.ModelName + ", amax=" + G.SpecificityConsideration.ToString("F1", CultureInfo.InvariantCulture) + "\n"
+            Report("tbfast-pair (" + G.KindName + ") Version 7.505\nalg=" + G.Alg + ", model=" + G.ModelName + ", amax=" + G.SpecificityConsideration.ToString("F1", CultureInfo.InvariantCulture) + "\n"
                 + G.Nthread.ToString(CultureInfo.InvariantCulture) + " thread(s)\n\n");
             return (iscore, localhom);
         }
@@ -1131,6 +1132,7 @@ public static partial class SequenceAligner
             }
             Report("treein = " + ((int)treein).ToString(CultureInfo.InvariantCulture) + "\ncompacttree = " + _compactTree.ToString(CultureInfo.InvariantCulture) + "\n");
             Report(StackSizeText(njob));
+            MafftSubalignments? merge = G.Subalignment ? ReadSubalignmentsTable(njob) : null;
             var topol0 = new int[njob][];
             var topol1 = new int[njob][];
             var len = new double[njob][];
@@ -1219,7 +1221,15 @@ public static partial class SequenceAligner
             Report("Gap Penalty = " + MafftGlobals.F((double)G.Ppenalty / 1000, 5, 2, true) + ", " + MafftGlobals.F((double)G.PpenaltyEx / 1000, 5, 2, true) + ", " + MafftGlobals.F((double)G.Poffset / 1000, 5, 2, true) + "\n");
             if (G.DistOut != 0 && G.TreeOut == 0 && G.NoAlign != 0)
                 return NoAlignResult(seq, njob, "tbfast");
-            if (_compactTree == 3)
+            if (merge != null && treein == '\0')
+            {
+                // --merge: the UPGMA tree in which every subalignment is a group (the branch of the program that precedes compacttree == 3)
+                Report("tbutree = 1, compacttree = " + _compactTree.ToString(CultureInfo.InvariantCulture) + "\n");
+                Report("Constructing a UPGMA tree ... ");
+                ConstrainedSupg(njob, iscore, topol0, topol1, len, dep, merge, fileNames);
+                Report("\ndone.\n\n");
+            }
+            else if (_compactTree == 3)
             {
                 // treein_bin: the tree that nodepair wrote
                 Report("tbutree = 1, compacttree = 3\n");
@@ -1274,6 +1284,10 @@ public static partial class SequenceAligner
             {
                 addState = PrepareAdd(njob, G.Nadd, seq, bseq, tree, fileNames, tbfastMessages: true);
             }
+            else if (merge != null)
+            {
+                addState = PrepareMerge(njob, seq, bseq, topol0, topol1, merge, fileNames, tbfastMessages: true);
+            }
             else
             {
                 for (int i = 0; i < njob; i++)
@@ -1286,7 +1300,7 @@ public static partial class SequenceAligner
             var (deletedRuns, deleteMap, newNames, ndeleted) = KeepLength(njob, seq, bseq, originalGaps, addbk, fileNames);
             if (G.SpScoreOut != 0)
                 ReportSumOfPairs(bseq);
-            Report("tbfast (" + (G.Dorp == 'd' ? "nuc" : "aa") + ") Version 7.505\nalg=" + G.Alg + ", model=" + G.ModelName + ", amax=" + G.SpecificityConsideration.ToString("F1", CultureInfo.InvariantCulture) + "\n"
+            Report("tbfast (" + G.KindName + ") Version 7.505\nalg=" + G.Alg + ", model=" + G.ModelName + ", amax=" + G.SpecificityConsideration.ToString("F1", CultureInfo.InvariantCulture) + "\n"
                 + Math.Max(G.Nthread, 1).ToString(CultureInfo.InvariantCulture) + " thread(s)\n\n");
             if (ndeleted > 0)
             {

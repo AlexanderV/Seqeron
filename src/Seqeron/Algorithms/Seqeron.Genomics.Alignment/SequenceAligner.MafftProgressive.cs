@@ -26,6 +26,9 @@ public static partial class SequenceAligner
 
             /// <summary>--compactmapout: the program names of the added sequences after "Nins:...|" was put in front (null entries: unchanged).</summary>
             internal string?[]? NewNames { get; init; }
+
+            /// <summary>--merge: the file <c>GuideTree</c> that <c>system( "cp infile.tree GuideTree" )</c> left in the directory of the run when a subalignment is no group of the guide tree (the script copies it to the current directory).</summary>
+            internal string? GuideTreeCopy { get; init; }
         }
 
         /// <summary>The stack size that <c>setstacksize</c> reports (the limit of the process: 8192 kb by default; the message is the only place where it shows).</summary>
@@ -80,6 +83,7 @@ public static partial class SequenceAligner
                     seq[i] = seq[i].ToLowerInvariant();
 
             Report(StackSizeText(njob));
+            MafftSubalignments? merge = G.Subalignment ? ReadSubalignmentsTable(njob) : null;
             G.Constants(seq);
             Report("Gap Penalty = " + MafftGlobals.F((double)G.Ppenalty / 1000, 5, 2, true) + ", " + MafftGlobals.F((double)G.PpenaltyEx / 1000, 5, 2, true) + ", " + MafftGlobals.F((double)G.Poffset / 1000, 5, 2, true) + "\n");
             if (CheckAlphabet(seq) is { } unknownLetter)
@@ -242,7 +246,12 @@ public static partial class SequenceAligner
                         if (G.TreeOut == 0 && G.NoAlign != 0)
                             return NoAlignResult(seq, njob);
                     }
-                    if (_compactTree != 0)
+                    if (merge != null)
+                    {
+                        Report("Constructing a UPGMA tree ... ");
+                        ConstrainedSupg(njob, mtx!, topol0, topol1, len, dep, merge, names ?? DefaultNames(njob));
+                    }
+                    else if (_compactTree != 0)
                     {
                         Report("Constructing a tree ... ");
                         if (_compactTree == 4)
@@ -270,7 +279,7 @@ public static partial class SequenceAligner
                     Report("Sparsepickup! \n");
                     var picked = Pickup(njob, seq, topol0, topol1, names ?? DefaultNames(njob), treein != '\0');
                     Report("done. \n");
-                    Report("disttbfast (" + (G.Dorp == 'd' ? "nuc" : "aa") + ") Version 7.505\nalg=" + G.Alg + ", model=" + G.ModelName + ", amax=" + G.SpecificityConsideration.ToString("F1", CultureInfo.InvariantCulture) + "\n"
+                    Report("disttbfast (" + G.KindName + ") Version 7.505\nalg=" + G.Alg + ", model=" + G.ModelName + ", amax=" + G.SpecificityConsideration.ToString("F1", CultureInfo.InvariantCulture) + "\n"
                         + G.Nthread.ToString(CultureInfo.InvariantCulture) + " thread(s)\n\n");
                     return picked;
                 }
@@ -308,6 +317,12 @@ public static partial class SequenceAligner
                     addState = PrepareAdd(njob, G.Nadd, seq, bseq, tree, names ?? DefaultNames(njob));
                     if (addState == null)
                         return new Result(Array.Empty<string>(), Array.Empty<int>()) { Picked = Array.Empty<int>() };
+                }
+                else if (merge != null)
+                {
+                    addState = PrepareMerge(njob, seq, bseq, topol0, topol1, merge, names ?? DefaultNames(njob), tbfastMessages: false);
+                    if (addState == null)
+                        return new Result(Array.Empty<string>(), Array.Empty<int>()) { Picked = Array.Empty<int>(), GuideTreeCopy = GuideTreeCopy };
                 }
                 else
                 {
@@ -354,13 +369,15 @@ public static partial class SequenceAligner
             }
             if (G.OneIteration)
             {
+                if (G.TextMode)
+                    throw new NotSupportedException("--text with --oneiteration: dooneiteration of the program stops with a segmentation fault (a stack overflow: valgrind 'Invalid write of size 8', the message of the script names a process id) on every text input.");
                 Report("Iterative refinement (one vs others)\n");
                 DoOneIteration(bseq!, lastTree!, lastEff!, ref lastAlloclen);
             }
             var (deletedRuns, deleteMap, newNames, ndeleted) = KeepLength(njob, seq, bseq!, originalGaps, addbk, names);
             if (G.SpScoreOut != 0)
                 ReportSumOfPairs(bseq!);
-            Report("disttbfast (" + (G.Dorp == 'd' ? "nuc" : "aa") + ") Version 7.505\nalg=" + G.Alg + ", model=" + G.ModelName + ", amax=" + G.SpecificityConsideration.ToString("F1", CultureInfo.InvariantCulture) + "\n"
+            Report("disttbfast (" + G.KindName + ") Version 7.505\nalg=" + G.Alg + ", model=" + G.ModelName + ", amax=" + G.SpecificityConsideration.ToString("F1", CultureInfo.InvariantCulture) + "\n"
                 + G.Nthread.ToString(CultureInfo.InvariantCulture) + " thread(s)\n\n");
             if (ndeleted > 0)
             {
@@ -989,7 +1006,7 @@ public static partial class SequenceAligner
         private Result NoAlignResult(string[] seq, int njob, string program = "disttbfast")
         {
             Report("\n");
-            Report(program + " (" + (G.Dorp == 'd' ? "nuc" : "aa") + ") Version 7.505\nalg=" + G.Alg + ", model=" + G.ModelName + ", amax=" + G.SpecificityConsideration.ToString("F1", CultureInfo.InvariantCulture) + "\n"
+            Report(program + " (" + G.KindName + ") Version 7.505\nalg=" + G.Alg + ", model=" + G.ModelName + ", amax=" + G.SpecificityConsideration.ToString("F1", CultureInfo.InvariantCulture) + "\n"
                 + G.Nthread.ToString(CultureInfo.InvariantCulture) + " thread(s)\n\n");
             return new Result((string[])seq.Clone(), Enumerable.Range(0, njob).ToArray());
         }

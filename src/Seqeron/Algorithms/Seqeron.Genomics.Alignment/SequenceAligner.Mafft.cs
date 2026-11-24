@@ -294,6 +294,18 @@ public sealed record MafftOptions
     /// </summary>
     public string? AaMatrix { get; init; }
 
+    /// <summary>
+    /// <c>--text</c> (the script writes <c>-P -b -2 -a</c>, no <c>--fft</c> and reads the output with <c>f2cl -E</c>): the sequences are texts: every byte except gap, blank and line end is a letter of an alphabet of 256 characters (the case counts),
+    /// the matrix scores +1 for a match and -1 for a mismatch (<see cref="AaMatrix"/>, <c>--textmatrix</c>: the lines "0x41 0x42 3.5" of the file <c>_aamtx</c> replace entries), and the frequencies are those of the data.
+    /// </summary>
+    public bool TextMode { get; init; }
+
+    /// <summary>
+    /// <c>--merge table</c> (the script writes <c>-H 0</c> for every program and copies the file to <c>_subalignmentstable</c>): the text of that file, one line per subalignment with the numbers (1-based, in the input order) of its sequences,
+    /// a negative number to keep the columns that only gaps have; <c>#</c> starts a comment. The sequences of one subalignment must be an alignment; the programs keep their columns and the subalignment is a group of the guide tree.
+    /// </summary>
+    public string? MergeTable { get; init; }
+
     /// <summary><c>--core</c>: only the core of the alignment is written (<c>setcore</c>; it needs the file hat2 of the run: the iterative methods, the pair libraries with <c>--maxiterate</c> or <c>--distout</c>).</summary>
     public bool CoreOut { get; init; }
 
@@ -341,6 +353,9 @@ public sealed record MafftRunResult(MultipleAlignmentResult Alignment, string St
 
     /// <summary>The text that <c>disttbfast</c> writes to standard output before the alignment (the scores of the test of the guide tree file <c>auto</c>, <c>varpairscore</c>): it stays in front of the FASTA output, the other formats do not show it.</summary>
     public string OutputPrefix { get; init; } = "";
+
+    /// <summary>--merge: the file <c>GuideTree</c> that the script copies to the current directory when disttbfast stopped because a subalignment is no group of the guide tree.</summary>
+    internal string? GuideTreeCopy { get; init; }
 
     /// <summary>With <see cref="MafftOptions.GroupSize"/> 2 or more the program writes <c>Group-n</c> / <c>Group-para</c> in front of the name of every sequence: that label per row of the output; otherwise null.</summary>
     public string[]? GroupLabels { get; init; }
@@ -477,12 +492,19 @@ public static partial class SequenceAligner
         internal static MafftRunResult AlignMany(IReadOnlyList<string> list, MafftOptions o, bool epilogue = true)
         {
             using var aaMatrix = MafftGlobals.UseAaMatrix(o.AaMatrix);
+            using var mergeTable = MafftGlobals.UseSubalignmentsTable(o.MergeTable);
             return AlignManyCore(list, o, epilogue);
         }
 
         private static MafftRunResult AlignManyCore(IReadOnlyList<string> list, MafftOptions o, bool epilogue)
         {
-            if (o.Blosum is not (30 or 45 or 50 or 62 or 80 or 90 or 100 or 0) && !(o.Blosum == -1 && o.AaMatrix != null))
+            if (o.TextMode)
+            {
+                if (o.AnySymbol)
+                    throw new ArgumentException("--text and --anysymbol cannot be combined (MAFFT: 'The combination of --text and ( --anysymbol or --preservecase ) is impossible.').", nameof(o));
+                o = o with { ScoringModel = MafftScoringModel.Blosum, Blosum = -2, SequenceType = MafftSequenceType.Amino, FrequencyModel = true };
+            }
+            if (o.Blosum is not (30 or 45 or 50 or 62 or 80 or 90 or 100 or 0) && !(o.Blosum == -1 && o.AaMatrix != null) && !(o.Blosum == -2 && o.TextMode))
                 throw new ArgumentException($"--bl must be 30, 45, 50, 62, 80, 90, 100 or 0, got {o.Blosum}.", nameof(o));
             if (!double.IsFinite(o.GapOpen) || !double.IsFinite(o.Offset) || !double.IsFinite(o.GapExtension))
                 throw new ArgumentException("--op, --ep and --exp must be finite.", nameof(o));
@@ -490,18 +512,36 @@ public static partial class SequenceAligner
                 throw new ArgumentException("The --nodeout option supports only the progressive method (--maxiterate 0) for now (MAFFT stops).");
             if (o.Retree == 0 && o.PairLibrary != MafftPairLibrary.None)
                 o = o with { WeightI = 0.0, MaxIterate = 0 }; // the script: with --retree 0 "weighti" is 0.0 and no iteration runs
-            var originals = list.Select(x => LoadResidues(x, o.AnySymbol)).ToArray();
+            string[] originals;
+            if (o.TextMode)
+            {
+                try
+                {
+                    originals = list.Select(MafftRun.TextResidues).ToArray();
+                }
+                catch (MafftProgramFailureException e)
+                {
+                    throw new MafftProgramFailureException(TextReadPrefix(o, list.Count) + e.Text, e.ExitCode);
+                }
+            }
+            else
+            {
+                originals = list.Select(x => LoadResidues(x, o.AnySymbol)).ToArray();
+            }
             if (o.Auto)
                 o = ApplyAuto(o, list.Count, originals.Max(x => NoGaps(x).Length));
             bool nuc1 = GuessNucleotide(originals, o);
             var log = new System.Text.StringBuilder();
             if (o.AnySymbol)
                 log.Append(ReplaceuLog(originals, nuc1));
-            string[] replaced = o.AnySymbol
-                ? originals.Select(s => ReplaceUnusual(s, nuc1)).ToArray()
-                : originals.Select(s => nuc1 ? s.ToLowerInvariant() : s.ToUpperInvariant()).ToArray();
+            string[] replaced = originals;
+            if (!o.TextMode)
+                replaced = o.AnySymbol
+                    ? originals.Select(s => ReplaceUnusual(s, nuc1)).ToArray()
+                    : originals.Select(s => nuc1 ? s.ToLowerInvariant() : s.ToUpperInvariant()).ToArray();
             bool nuc = GuessNucleotide(replaced, o);
-            replaced = nuc ? replaced.Select(s => s.ToLowerInvariant()).ToArray() : replaced.Select(s => s.ToUpperInvariant()).ToArray();
+            if (!o.TextMode)
+                replaced = nuc ? replaced.Select(s => s.ToLowerInvariant()).ToArray() : replaced.Select(s => s.ToUpperInvariant()).ToArray();
             var header = o.Names ?? Enumerable.Range(0, list.Count).Select(i => "seq" + (i + 1).ToString(System.Globalization.CultureInfo.InvariantCulture)).ToArray();
             if (header.Count != list.Count)
                 throw new ArgumentException("Names must have one entry per sequence.", nameof(o));
@@ -567,10 +607,15 @@ public static partial class SequenceAligner
             if (result.Rows.Length == 0 && list.Count > 0)
             {
                 // the program stopped after its message (the original sequences of --add are not aligned)
+                if (MafftScript.Iterations(o) > 0 && o.PairLibrary == MafftPairLibrary.None)
+                {
+                    // the script goes on after the stop of disttbfast (exit status 0, empty file pre): dndpre stops on it
+                    throw new MafftProgramFailureException(log + "At least 2 sequences should be input!\nOnly 0 sequence found.\n");
+                }
                 string quit = "";
                 if (!o.Quiet)
                     quit = epilogue ? log + MafftScript.Epilogue(o, list.Count) : log.ToString();
-                return new MafftRunResult(MultipleAlignmentResult.Empty, quit) { InputIndex = Array.Empty<int>() };
+                return new MafftRunResult(MultipleAlignmentResult.Empty, quit) { InputIndex = Array.Empty<int>(), GuideTreeCopy = result.GuideTreeCopy, TreeFile = o.TreeOut || o.NodeOut ? treeFile : null, DistanceFile = o.DistOut ? distFile : null };
             }
             int[]? picked = result.Picked;
             string? notUsed = result.NotUsed;
@@ -702,6 +747,15 @@ public static partial class SequenceAligner
                 TreeFile = o.TreeOut || o.NodeOut ? tree : null,
                 GroupLabels = labelled ? labels : null,
             };
+        }
+
+        /// <summary>The standard error that the first program of the script has written when it stops while it reads a text (<c>--text</c>): the lines of its <c>arguments()</c> (and, for <c>tbfast</c>, the two lines before the input is read).</summary>
+        private static string TextReadPrefix(MafftOptions o, int nseq)
+        {
+            if (o.PairLibrary == MafftPairLibrary.None)
+                return MafftGlobals.Parse(MafftScript.DisttbfastArguments(o, nseq)).Log.ToString();
+            var (_, tb) = MafftScript.TbfastArguments(o, nseq);
+            return MafftGlobals.ParseTbfast(tb).Log + "treein = " + (o.GuideTree != MafftGuideTree.Default ? "1" : "0") + "\ncompacttree = 0\n";
         }
 
         /// <summary>The rule of <c>--auto</c> in <c>mafft.tmpl</c> (<c>nlen</c> and <c>nseq</c> of <c>countlen</c>).</summary>

@@ -42,6 +42,22 @@ public static partial class SequenceAligner
 
     internal sealed partial class MafftRun
     {
+        /// <summary><c>onlyAlpha_lower</c> / <c>onlyAlpha_upper</c> and <c>kake2hiku</c> of <c>io.c</c>: only the ASCII letters, '-', '*' and '.' stay (the letters in lower / upper case), a star becomes a gap; every other byte (the text mode writes them) is dropped.</summary>
+        private static string OnlyAlpha(string s, bool lower)
+        {
+            var sb = new StringBuilder(s.Length);
+            foreach (char c in s)
+            {
+                if (c is >= 'a' and <= 'z' or >= 'A' and <= 'Z')
+                    sb.Append(lower ? char.ToLowerInvariant(c) : char.ToUpperInvariant(c));
+                else if (c is '-' or '*')
+                    sb.Append('-');
+                else if (c == '.')
+                    sb.Append('.');
+            }
+            return sb.ToString();
+        }
+
         /// <summary>
         /// <c>setcore</c> (<c>setcore.c</c>): reads the alignment <c>pre</c>, the distances of the file <c>hat2</c> (null: there is none, "Make hat2." and the program stops with an empty output), builds the UPGMA tree
         /// (<c>supg</c>), weights the sequences (<c>counteff_simple</c>), and writes the columns between the first and the last window whose average weighted gap content is below the threshold, with <c>corewin</c> gap columns
@@ -55,7 +71,7 @@ public static partial class SequenceAligner
                 Report("At least 2 sequences should be input!\nOnly " + njob.ToString(CultureInfo.InvariantCulture) + " sequence found.\n");
                 return (Array.Empty<string>(), Array.Empty<string>());
             }
-            int nlenmax = rows.Max(r => r.Length);
+            int nlenmax;
             if (G.FftWinSize < 0)
                 throw new NotSupportedException("--corewin with a negative window: the program writes outside its arrays.");
             var seq = (string[])rows.Clone();
@@ -63,7 +79,8 @@ public static partial class SequenceAligner
                 G.Dorp = GuessNucleotideFromRows(rows) ? 'd' : 'p';
             // load1SeqWithoutName_realloc: onlyAlpha_lower for a nucleotide alignment, onlyAlpha_upper otherwise (the rows are read again as the guessed alphabet says)
             for (int i = 0; i < njob; i++)
-                seq[i] = G.Dorp == 'd' ? seq[i].ToLowerInvariant() : seq[i].ToUpperInvariant();
+                seq[i] = OnlyAlpha(seq[i], G.Dorp == 'd');
+            nlenmax = seq.Max(r => r.Length); // getnumlen: the longest sequence after the filter
             G.Constants(seq);
             Report("Gap Penalty = " + MafftGlobals.F((double)G.Ppenalty / 1000, 5, 2, true) + ", " + MafftGlobals.F((double)G.PpenaltyEx / 1000, 5, 2, true) + ", " + MafftGlobals.F((double)G.Poffset / 1000, 5, 2, true) + "\n");
             if (CheckAlphabet(seq, "Illeagal") is { } unknownLetter)
@@ -164,7 +181,9 @@ public static partial class SequenceAligner
                         }
                     }
                 }
-                outRows[i] = new string(o);
+                string written = new(o);
+                int nul = written.IndexOf('\0');
+                outRows[i] = nul < 0 ? written : written[..nul]; // the program writes the row as a C string: it ends at the first NUL (rows of unequal length after the filter of the text mode)
             }
             return (outRows, names.ToArray());
         }

@@ -80,6 +80,7 @@ public static partial class SequenceAligner
                     char c = a[ci];
                     switch (c)
                     {
+                        case 'H': g.Subalignment = true; g.SubalignmentOffset = CAtoi(Next()); rest = true; break;
                         case 'K': g.Nadd = CAtoi(Next()); g.Report("nadd = " + g.Niter.ToString(CultureInfo.InvariantCulture) + "\n"); rest = true; break;
                         case 'I': g.Niter = CAtoi(Next()); g.Report("niter = " + g.Niter.ToString(CultureInfo.InvariantCulture) + "\n"); rest = true; break;
                         case 'f': g.Ppenalty = (int)(CAtof(Next()) * 1000 - 0.5); rest = true; break;
@@ -201,7 +202,7 @@ public static partial class SequenceAligner
                     mtx[i][j] = mtxv;
                 }
             }
-            Log.Append("dndpre (" + (g2.Dorp == 'd' ? "nuc" : "aa") + ") Version 7.505\nalg=X, model=" + g2.ModelName + ", amax=" + g2.SpecificityConsideration.ToString("F1", CultureInfo.InvariantCulture) + "\n"
+            Log.Append("dndpre (" + g2.KindName + ") Version 7.505\nalg=X, model=" + g2.ModelName + ", amax=" + g2.SpecificityConsideration.ToString("F1", CultureInfo.InvariantCulture) + "\n"
                 + g2.Nthread.ToString(CultureInfo.InvariantCulture) + " thread(s)\n\n");
             // WriteHat2_pointer writes every value as "%#6.3f" (six characters), readhat2_pointer reads six characters back with atof
             var hat2 = new double[njob][];
@@ -569,6 +570,7 @@ public static partial class SequenceAligner
         internal Result Dvtditr(string[] rows, double[][] hat2, MafftLocalHom[][]? localhom = null, IReadOnlyList<string>? names = null)
         {
             int njob = rows.Length;
+            MafftSubalignments? merge = G.Subalignment ? ReadSubalignmentsTable(njob) : null;
             for (int i = 1; i < njob; i++)
                 if (rows[i].Length != rows[0].Length)
                     throw new ArgumentException("Input pre-aligned data");
@@ -603,12 +605,14 @@ public static partial class SequenceAligner
                 len[i] = new double[2];
             if (G.TreeIn != 0)
                 VeryFastSupgLoadTree(njob, eff, topol0, topol1, len, names ?? DefaultNames(njob));
+            else if (merge != null)
+                ConstrainedSupg(njob, eff, topol0, topol1, len, new Treedep[njob], merge, names ?? DefaultNames(njob));
             else if (G.TreeMethod is 'X' or 'E' or 'q')
                 MuscleSupg(njob, eff, topol0, topol1, len, new Treedep[njob], fullMembership: true, treeNames: names ?? DefaultNames(njob));
             else
                 throw new InvalidOperationException("Incorrect treemethod.");
-            List<int[]>? subtable = null;
-            if (G.AutoSubalignment > 0.0)
+            List<int[]>? subtable = merge?.Groups;
+            if (G.AutoSubalignment > 0.0 && merge == null)
             {
                 // --skipiterate x (dvtditr -E x): the groups of the tree whose branches (summed from a tip) pass x are subalignments that the refinement does not change inside
                 subtable = new List<int[]>();
@@ -616,7 +620,7 @@ public static partial class SequenceAligner
                 {
                     Report("################################################################################################ \n#\n# WARNING: Iterative refinment was not done because you gave a large --fix value ("
                         + MafftGlobals.F(G.AutoSubalignment, 6, 3) + ").\n#\n################################################################################################ \n");
-                    Report("dvtditr (" + (G.Dorp == 'd' ? "nuc" : "aa") + ") Version 7.505\nalg=" + G.Alg + ", model=" + G.ModelName + ", amax=" + G.SpecificityConsideration.ToString("F1", CultureInfo.InvariantCulture) + "\n"
+                    Report("dvtditr (" + G.KindName + ") Version 7.505\nalg=" + G.Alg + ", model=" + G.ModelName + ", amax=" + G.SpecificityConsideration.ToString("F1", CultureInfo.InvariantCulture) + "\n"
                         + G.Nthread.ToString(CultureInfo.InvariantCulture) + " thread(s)\n\n");
                     // the program leaves the file 'order' of the previous program and writes the alignment as it was (without the common gaps)
                     return new Result(seqG, Array.Empty<int>());
@@ -645,7 +649,7 @@ public static partial class SequenceAligner
             for (int i = 0; i < njob; i++)
                 skipthisbranch[i] = new int[2];
             if (subtable != null)
-                CheckSubalignments(njob, topol, subtable, skipthisbranch);
+                CheckSubalignments(njob, topol, subtable, skipthisbranch, merge != null);
             if (G.Nadd > 0)
             {
                 // --add with --maxiterate (dvtditr -K n): the branches that cut the original alignment (the first njob - n sequences) are not refined
@@ -679,7 +683,7 @@ public static partial class SequenceAligner
             Report("done\n");
             if (G.SpScoreOut != 0)
                 ReportSumOfPairs(resG.Select(b => b.ToString()).ToArray());
-            Report("dvtditr (" + (G.Dorp == 'd' ? "nuc" : "aa") + ") Version 7.505\nalg=" + G.Alg + ", model=" + G.ModelName + ", amax=" + G.SpecificityConsideration.ToString("F1", CultureInfo.InvariantCulture) + "\n"
+            Report("dvtditr (" + G.KindName + ") Version 7.505\nalg=" + G.Alg + ", model=" + G.ModelName + ", amax=" + G.SpecificityConsideration.ToString("F1", CultureInfo.InvariantCulture) + "\n"
                 + G.Nthread.ToString(CultureInfo.InvariantCulture) + " thread(s)\n\n");
             return new Result(resG.Select(b => b.ToString()).ToArray(), order);
         }
@@ -713,7 +717,7 @@ public static partial class SequenceAligner
         }
 
         /// <summary>The check of dvtditr for every subalignment: the branches that lie inside it are skipped by the refinement, and it must be a group of the tree.</summary>
-        private void CheckSubalignments(int njob, int[][][] topol, List<int[]> subtable, int[][] skipthisbranch)
+        private void CheckSubalignments(int njob, int[][][] topol, List<int[]> subtable, int[][] skipthisbranch, bool fromFile = false)
         {
             for (int i = 0; i < subtable.Count; i++)
             {
@@ -731,7 +735,17 @@ public static partial class SequenceAligner
                 for (int j = 0; j < njob - 1 && !found; j++)
                     found = SameMember(topol[j][0], subtable[i]) || SameMember(topol[j][1], subtable[i]);
                 if (!found)
-                    throw new InvalidOperationException("A subalignment made from the guide tree is a group of the tree.");
+                {
+                    if (!fromFile)
+                        throw new InvalidOperationException("A subalignment made from the guide tree is a group of the tree.");
+                    Report(TreeFile != null ? "" : "cp: cannot stat 'infile.tree': No such file or directory\n");
+                    int off = G.SubalignmentOffset;
+                    string note = off == 0 ? "" : "#\n# You specified seed alignment(s) consisting of " + off.ToString(CultureInfo.InvariantCulture) + " sequences.\n# In this case, the rule of numbering is:\n#   The aligned seed sequences are numbered as 1 .. "
+                        + off.ToString(CultureInfo.InvariantCulture) + "\n#   The input sequences to be aligned are numbered as " + (off + 1).ToString(CultureInfo.InvariantCulture) + " .. " + (off + njob).ToString(CultureInfo.InvariantCulture) + "\n";
+                    throw new MafftProgramFailureException("\n###############################################################################\n# ERROR!\n# Subalignment " + (i + 1).ToString(CultureInfo.InvariantCulture)
+                        + " does not seem to form a monophyletic cluster\n# in the guide tree ('GuideTree' in this directory) internally computed.\n# If you really want to use this subalignment, pelase give a tree with --treein \n# http://mafft.cbrc.jp/alignment/software/treein.html\n"
+                        + "# http://mafft.cbrc.jp/alignment/software/merge.html\n" + note + "############################################################################### \n\n");
+                }
                 Report(" -> OK\n");
             }
         }

@@ -363,6 +363,12 @@
     <!-- ALIGN-MULTI-001 (audit A2-19c-s4c / s5, B09 F334 ff.): a guide tree with NaN / infinite lengths (commonIP), core + anysymbol with a forced alphabet, add / addprofile with a pair library (tbfast -I) and with nodepair, smoothing:
          installed mafft, scripts/alignment/generate_mafft_wp73_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\mafft_wp73_oracle.tsv.gz" />
+    <!-- ALIGN-MULTI-001 (audit A2-19c-s5, B09 F340 ff.): mafft merge option (subalignments, the constrained UPGMA tree) with the progressive, pair-library, iterative and treein strategies and its refusals: installed mafft,
+         scripts/alignment/generate_mafft_wp74_oracle.py merge merge-pair merge-iter merge-err merge-tree. -->
+    <EmbeddedResource Include="TestData\Alignment\mafft_wp74_merge_oracle.tsv.gz" />
+    <!-- ALIGN-MULTI-001 (audit A2-19c-s5, B09 F341 ff.): mafft text and textmatrix options (the 256-letter alphabet, extendedmtx, overridematrix, f2cl -E) with the progressive, pair-library, iterative methods and its refusals: installed mafft,
+         scripts/alignment/generate_mafft_wp74_oracle.py text text-format text-pair text-iter text-matrix text-err. -->
+    <EmbeddedResource Include="TestData\Alignment\mafft_wp74_text_oracle.tsv.gz" />
     <!-- ALIGN-MULTI-001 (audit A2-27, B09 F120): EMBOSS 6.6.0 -aformat output formats (needle / water) and the sequence-set formats (seqret), byte for byte;
          scripts/alignment/generate_emboss_aformat_oracle.py, scripts/alignment/generate_emboss_seqout_oracle.py (faked run dates: scripts/alignment/faketime.c). -->
     <EmbeddedResource Include="TestData\Alignment\emboss_aformat_oracle.tsv.gz" />

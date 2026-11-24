@@ -43,6 +43,7 @@ public static partial class SequenceAligner
                 Names = names,
                 OldGenafParameters = _oldgenafparam,
                 AddCount = _nadd,
+                MergeTable = _mergetable != "/dev/null" && _files.TryGetValue(_mergetable, out var mergeText) ? MafftScript.NormalizeScriptFile(mergeText) : null,
                 AddProfile = _addarg0.Trim() == "-I",
                 KeepLength = _add2ndhalfarg.Contains("-Y", StringComparison.Ordinal),
                 MapOut = MapOutMode(),
@@ -50,7 +51,9 @@ public static partial class SequenceAligner
                 NamesAreProgramTitles = true,
                 MinimumWeight = Num(_minimumweight),
                 FixThreshold = Num(_fixthreshold),
-                AaMatrix = _sbstmodel.Contains("-b -1", StringComparison.Ordinal) ? (_files.TryGetValue(_scorematrix, out var aaText) ? MafftProgramIo.DropEmptyLines(MafftProgramIo.CarriageReturnsToNewlines(aaText)) : "") : null,
+                AaMatrix = _sbstmodel.Contains("-b -1", StringComparison.Ordinal) ? (_files.TryGetValue(_scorematrix, out var aaText) ? MafftProgramIo.DropEmptyLines(MafftProgramIo.CarriageReturnsToNewlines(aaText)) : "")
+                    : _sbstmodel.Contains("-b -2", StringComparison.Ordinal) ? (_files.TryGetValue(_scorematrix, out var textMatrix) ? MafftProgramIo.DropEmptyLines(MafftProgramIo.CarriageReturnsToNewlines(textMatrix)) : "") : null,
+                TextMode = _f2clext == "-E",
                 CoreOut = _coreout,
                 CoreExtend = _coreext.Trim() == "-c",
                 CoreThreshold = _corethr,
@@ -140,7 +143,7 @@ public static partial class SequenceAligner
             var k = _kappa.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             if (k.Length >= 2)
                 o = o with { Kappa = MafftGlobals.CAtoi(k[1]) };
-            return o with { FrequencyModel = _fmodel.Contains("-a", StringComparison.Ordinal), WildcardN = _nmodel.Contains("-:", StringComparison.Ordinal) };
+            return o with { FrequencyModel = _fmodel.Contains("-a", StringComparison.Ordinal) || w.Contains("-a"), WildcardN = _nmodel.Contains("-:", StringComparison.Ordinal) };
         }
 
         /// <summary>The title of sequence <paramref name="i"/> in the files of the programs.</summary>
@@ -204,6 +207,15 @@ public static partial class SequenceAligner
             _ = localparam;
 
 
+            if (_mergetable != "/dev/null" && _nadd > 0)
+            {
+                // mafft.tmpl: --merge with --add / --addprofile, after the run of replaceu
+                var orig = MafftProgramIo.Records(infile).Select(r => MafftEngine.PlainOrAnyResidues(r.Raw, _anysymbol)).ToList();
+                if (_anysymbol)
+                    Prog(MafftEngine.ReplaceuLog(orig, MafftEngine.GuessNucleotide(orig, new MafftOptions { SequenceType = _seqtype == "-D" ? MafftSequenceType.Nucleotide : _seqtype == "-P" ? MafftSequenceType.Amino : MafftSequenceType.Auto })));
+                Err("Impossible\n");
+                return 1;
+            }
             if (_distance == "blast" || _newdash)
                 return PairProgramMissing(MafftProgramIo.Records(infile));
             if (_distance == "ktuplesmulti" && _fragment == 0)
@@ -215,7 +227,7 @@ public static partial class SequenceAligner
                 Err("Impossible\n");
                 return 1;
             }
-            bool engine = _fragment == 0 && _seed == "x" && _seedtable == "x" && !_newdash && _mergetable == "/dev/null" && _adjustdirection == 0 && _anchoropt.Length == 0
+            bool engine = _fragment == 0 && _seed == "x" && _seedtable == "x" && !_newdash && _adjustdirection == 0 && _anchoropt.Length == 0
                 && _distance is "ktuples" or "global" or "local" or "localgenaf" or "parttree";
             if (_nadd > 0 && _distance == "parttree")
                 throw new NotSupportedException("--add with --parttree: the script refuses it (Impossible).");
@@ -271,7 +283,7 @@ public static partial class SequenceAligner
             Prog(progress);
             if (res.TerminalText.Length > 0)
                 Err(res.TerminalText); // the standard error of setcore is not redirected to the progress file
-            if (_anysymbol && res.NotUsedFile != null && res.InputIndex.Length != recs.Count)
+            if (_anysymbol && !_coreout && (res.NotUsedFile != null || res.InputIndex.Length == 0) && res.InputIndex.Length != recs.Count)
             {
                 // restoreu: the alignment file holds the picked sequences only
                 Err("ERROR!!\nIn input file,\nnjob = " + recs.Count.ToString(CultureInfo.InvariantCulture) + "\nbut in alignment file,\nnjob = " + res.InputIndex.Length.ToString(CultureInfo.InvariantCulture) + "\n");
@@ -299,7 +311,7 @@ public static partial class SequenceAligner
 
             bool nuc = MafftEngine.GuessNucleotide(rows.Select(r => r.Replace("-", "", StringComparison.Ordinal)).ToList(), new MafftOptions());
             if (_outputformat == "clustal")
-                pre = MafftProgramIo.Clustal(strategy, outNames, rows, _namelength, nuc);
+                pre = MafftProgramIo.Clustal(strategy, outNames, rows, _namelength, nuc, _f2clext == "-E");
             else if (_outputformat == "phylip")
                 pre = MafftProgramIo.Phylip(outNames, rows, _namelength);
             else if (coreRaw)
@@ -314,6 +326,8 @@ public static partial class SequenceAligner
                 _outFiles[_mapoutfile == "/dev/null" ? _addfile + ".map" : _mapoutfile] = res.MapFile;
             if (_npickup != 0 && res.NotUsedFile != null)
                 _outFiles[_infilename + ".notused"] = res.NotUsedFile;
+            if (!string.IsNullOrEmpty(res.GuideTreeCopy))
+                _outFiles["GuideTree"] = res.GuideTreeCopy;
             if (_treeout && res.TreeFile != null)
                 _outFiles[_infilename + ".tree"] = res.TreeFile;
             if (_distout && res.DistanceFile != null)

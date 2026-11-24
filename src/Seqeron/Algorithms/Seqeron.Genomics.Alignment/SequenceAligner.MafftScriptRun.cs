@@ -590,11 +590,9 @@ public static partial class SequenceAligner
                             Err("Cannot open " + _scorematrix + "\n\n");
                             Exit(0);
                         }
-                        NeedPort("--textmatrix");
                         break;
                     case "--text":
                         _f2clext = "-E"; _seqtype = "-P"; _fft = false; _sbstmodel = " -b -2 -a ";
-                        NeedPort("--text");
                         break;
                     case "--treein":
                         Shift();

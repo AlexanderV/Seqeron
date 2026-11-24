@@ -170,10 +170,10 @@ internal static class MafftProgramIo
     }
 
     /// <summary><c>f2cl</c> with <c>-c strategy</c> (Clustal format): the sequences are padded with blanks to the longest, the marks of <c>setmark_clustal</c> are computed from the letters.</summary>
-    internal static string Clustal(string? comment, IReadOnlyList<string> names, IReadOnlyList<string> rows, int namelen, bool nucleotide)
+    internal static string Clustal(string? comment, IReadOnlyList<string> names, IReadOnlyList<string> rows, int namelen, bool nucleotide, bool extendedAlphabet = false)
     {
         var (seq, maxlen) = Pad(rows);
-        string mark = SetMarkClustal(maxlen, seq, nucleotide);
+        string mark = extendedAlphabet ? SetMarkClustalExtended(maxlen, seq) : SetMarkClustal(maxlen, seq, nucleotide);
         if (namelen == -1)
             namelen = 15;
         var sb = new StringBuilder();
@@ -284,6 +284,22 @@ internal static class MafftProgramIo
             }
             if (AllIn(weaker, seq, i))
                 mark[i] = '.';
+        }
+        return new string(mark);
+    }
+
+    /// <summary><c>setmark_clustal</c> with <c>extendedalphabet</c> (<c>f2cl -E</c>, the text mode): '*' for a column of identical letters (case-sensitive; no gap and no blank in the column), nothing else.</summary>
+    private static string SetMarkClustalExtended(int nlen, string[] seq)
+    {
+        var mark = new char[nlen];
+        for (int i = 0; i < nlen; i++)
+        {
+            mark[i] = ' ';
+            if (seq.Any(r => r[i] is '-' or ' '))
+                continue;
+            char first = seq[0][i];
+            if (seq.All(r => r[i] == first))
+                mark[i] = '*';
         }
         return new string(mark);
     }
