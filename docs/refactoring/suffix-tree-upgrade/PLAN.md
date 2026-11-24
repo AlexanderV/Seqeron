@@ -18,7 +18,7 @@ the stages, the projection, the gates and the estimates below are unchanged. The
 Not delivered or not measured: a public entry that builds a container (the builder is `internal`), arm64, macOS, Windows and 3x10^9 symbols (the owner's run is pending).
 
 The Seqeron column of the matrix was re-scored on 2026-11-23 (1b.11, `analysis/review/1b11_rescore.md`): property mean **2.20** (rank 4 of 13; 1.80 and rank 9 on 2026-11-03; 2.28 as first re-scored, lowered after the review of 1b.10: C14 3 -> 2, C15 2 -> 1), function coverage **72.8 %** (**56.8 %** on the tree layer; 55.6 % and 39.5 % before); the review of 1b.10 found one blocker in the navigation members (R01), fixed in work package 1b.12 on 2026-11-23 (`08c904cd`; `analysis/review/1b10_review.md` section 9).
-**S2-S8 are approved by the owner (S2 on 2026-11-24, S3-S8 the same day; S7 included).** Order: S2 first, then S3, S4, S5, S6, S8, S7 (section 3). Record: `PROGRESS-S1.md`, "Owner decisions 2026-11-19", item (5); the work packages of S2 are in `PROGRESS-S2.md`.
+**S2-S8 are approved by the owner (S2 on 2026-11-24, S3-S8 the same day; S7 included).** Order: S2 first, then S3, S4, S5, S6, S8, S7 (section 3). Record: `PROGRESS-S1.md`, "Owner decisions 2026-11-19", item (5); the work packages of S2 are in `PROGRESS-S2.md`. **S2-0 (2026-11-24) is done and verified:** design, measurement and plan in `adr/ADR-005-genome-scale.md`, `PROGRESS-S2.md` and `analysis/s2`; recommended list 16 packages, 81.5 h of implementer, 26 h of verification, about 18 M tokens (the old range of 35-55 h counted the five items of the S2 text only; ADR-005 section 9 says what else was found); the decisions O1-O13 are listed at the top of ADR-005 and their recommended defaults apply until the owner says otherwise.
 
 Evidence: [COMPETITOR_MATRIX.md](COMPETITOR_MATRIX.md) (13 tools x 24 properties and x 81 functions, sourced per cell),
 [BENCHMARK.md](BENCHMARK.md) (measurements on one machine), `analysis/` (data, scripts, hand-off package).
@@ -50,7 +50,7 @@ Cost is relative effort, not calendar time: S = 1, M = 3, L = 8. `dep` = needs t
 |---|---|---|---|---|
 | S0 | Safety, honest baseline, perf harness | 1 | - | none by design (removes defects, makes later claims measurable) |
 | S1 | Enhanced-suffix-array (ESA) backend behind `ISuffixTree` | 8 | - | C8 2->3, C10 1->2, C11 1->2, C12 2->3; about 20 functions (SA/LCP/child table, navigation, handles, lazy locate) |
-| S2 | Genome scale | 3 | S1 | C13 1->3 (needs external run), C19 2->3; 2-bit DNA, integer alphabet, file/stream build |
+| S2 | Genome scale | 3 | S1 | C13 1->3 (needs external run), C19 2->3, C14 2->3 and C15 1->2 (the public builder), F03 1->2; 64-bit reader and API, 2-bit text, integer alphabet (memory), container 1.1, FASTA / stream build, public builder, hand-off |
 | S3 | Both strands, matching statistics, seeds, collections, batch | 3 | S1 | C5 2->3, C6 2->3, C7 1->3; ms[], SMEM, chaining, document mapping, batch queries |
 | S4 | Approximate and degenerate search on the index | 3 | S1 | C2 1->3, C3 1->3; mismatch, edit, IUPAC, N, bidirectional via reversed-text index |
 | S5 | Parallel construction | 3 | S1 | C15 0->2, C10 2->3 |
@@ -103,8 +103,9 @@ Risk: managed SA-IS is typically 2-4x slower than libsais; the gate allows 10x. 
 ### S2 - Genome scale (cost 3)
 
 Scope: 64-bit position type on the ESA API (add `long` overloads, keep `int` API; breaking-change decision for the owner, recommended: additive), 2-bit packed DNA text and sigma=4 fast path,
-integer alphabet, format v7 (v6 stays readable), build from FASTA/stream into a memory-mapped 2-bit text without a managed string.
-Gate here (15 GB RAM, 4 vCPU): 100 Mbp builds in <= 60 s and <= 12 B/char; 500 Mbp builds and answers queries correctly (checksums against Go/libsais SA on the same input).
+integer alphabet, container SESA 1.1 (a minor version; v6 and SESA 1.0 stay readable), build from FASTA/stream into a memory-mapped 2-bit text without a managed string.
+Gate here (15 GB RAM, 4 vCPU): 100 Mbp builds in <= 60 s and <= 12 B/char **on the Core profile** (ADR-005 O4); 500 Mbp builds and answers queries correctly (checksums against Go/libsais SA on the same input).
+**Finding of S2-0:** the container already holds the 2-bit text (TEXT codec 4) and the builder reaches 4.29 Gbp with 4-byte entries, so the human genome (3.1 Gbp) needs no 40-bit entry; 5-byte entries are for the reader and the format above 2^32 - 4 (ADR-005 section 2).
 **Hand-off package required:** C13 level 3 means documented working at >= 3 Gbp (human genome), needs >= 64 GB RAM or a semi-external build; per the campaign rule this becomes a
 package with scripts and expected checksums for another machine, result returned to this repository.
 
@@ -151,7 +152,7 @@ Gate: `dotnet pack` output installs and runs the sample; CI job runs the differe
 
 ## 3. Recommended order and decision points
 
-S0 -> S1 -> **go/no-go on the S1 gate** -> S3 -> S4 -> S5 -> S2 -> S6 -> S8 -> decide S7 with the then-current numbers.
+S0 -> S1 -> **go/no-go on the S1 gate** -> S2 -> S3 -> S4 -> S5 -> S6 -> S8 -> decide S7 with the then-current numbers (the order of the owner's approval of 2026-11-24; the earlier order, with S2 after S5, is superseded).
 
 - If the S1 gate fails (build or memory off by more than 2x), stop and revisit: the projection assumes S1 succeeds.
 - S7 is last because it is the most expensive (8) and the only stage the core result needs only for the +0.4 margin (see below).
@@ -185,7 +186,7 @@ So "on average better than all" holds with the core set (+0.32 and +41 pp); the 
 
 ## 6. Hand-off items (cannot be verified on the current 4-vCPU / 15 GB machine)
 
-1. S2: >= 3 Gbp build/query (C13 level 3).
+1. S2: >= 3 Gbp build/query (C13 level 3), and the 64-bit reader, `Structure` and queries at 3x10^9.
 2. S5: >= 8 thread speed-up evidence (C15 level 3).
 3. libsais64 / libdivsufsort at 1 Gbp, sdsl `cst_sct3` at >= 20 Mbp, BWA `-a is`, ropebwt3 / r-index / grlBWT on a repeat-rich multi-genome input (`analysis/bench/HANDOFF.md` section 3).
 4. Out-of-core (index larger than RAM) run of the persistent tree.
@@ -194,6 +195,8 @@ Scripts: `analysis/bench/handoff_package.tar.gz`; results must not be merged int
 ## 7. Decisions needed from the owner
 
 **Update 2026-11-24:** the owner approved S2 and then S3-S8 (S7 included; "S2 схвалюю", "і s3-s8 апруваю"). The defaults of the 2026-11-19 paragraph below apply (additive `long` overloads, hand-off runs as packages for the owner's machine, S7 in scope); the width of stored positions is decided by measurement at the start of S2. The statement "S2-S8 are not approved" below is the state of 2026-11-19.
+
+**Update 2026-11-24 (S2-0):** the width of stored positions is decided by the measurement of ADR-005 section 2: 4 bytes to 2^32 - 4, 5 bytes above, no hybrid; the other open points are the decisions O1-O13 at the top of ADR-005, each with a recommended default that applies until the owner says otherwise.
 
 **Update 2026-11-19:** the owner approved S0 and S1 (S1b: yes on 2026-11-09) and asked to continue through the end of S1b without stopping; **before S2 the approval is manual again (the owner's correction of the same day): S2-S8 are not approved.** PROGRESS-S1.md 'Owner decisions 2026-11-19' lists recommended defaults for items 2-4 below (additive `long` overloads, hand-off runs as a package for the owner's Mac, S7 in scope); they apply when S2 is approved. The status line at the top of this file is the state of 2026-11-03.
 
