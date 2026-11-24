@@ -1,0 +1,24 @@
+#!/bin/bash
+# Logging wrapper for the programs lastdb / lastal that mafft 7.505 calls (the script of the package puts a copy of this file under the names lastdb and lastal in the directory that mafft reads them from).
+# It records, for every call: the arguments, the working directory, the input files that mafft wrote (_db*, _q*, _scoringmatrixforlast), the standard output and standard error and the return code of the real program, then repeats
+# the output on its own standard output / error and returns the return code unchanged. The real programs are in $LAST_REAL_DIR (default /opt/last/bin).
+prog=$(basename "$0")
+real="${LAST_REAL_DIR:-/opt/last/bin}/$prog"
+d="${LASTLOG:-/tmp/lastlog}"
+mkdir -p "$d"
+n="$(date +%s%N)-$$-$RANDOM"
+printf '%s\n' "$@" > "$d/$n-$prog.args"
+pwd > "$d/$n-$prog.cwd"
+for f in _q* _db* _scoringmatrixforlast; do
+  [ -f "$f" ] || continue
+  case "$f" in
+    *.prj|*.suf|*.bck|*.des|*.sds|*.ssp|*.tis|*.lcp|*.bwt|*.ois|*.cdf) ;;        # files that lastdb made
+    *) cp "$f" "$d/$n-$prog.in.$f" ;;
+  esac
+done
+"$real" "$@" > "$d/$n-$prog.stdout" 2> "$d/$n-$prog.stderr"
+rc=$?
+echo "$rc" > "$d/$n-$prog.rc"
+cat "$d/$n-$prog.stdout"
+cat "$d/$n-$prog.stderr" >&2
+exit $rc
