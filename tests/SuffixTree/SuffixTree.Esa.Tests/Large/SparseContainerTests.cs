@@ -208,7 +208,7 @@ public class SparseContainerTests
         Assert.That(SparseSpec.WidthFor(SparseSpec.MaxContainer4 + 1), Is.EqualTo(5));
         Assert.That(SparseSpec.WidthFor(0), Is.EqualTo(4));
         // the LCP codec follows the largest value
-        Assert.That(new[] { 0L, 254, 255, 65_534, 65_535, uint.MaxValue, uint.MaxValue + 1L }.Select(SparseSpec.LcpCodecFor), Is.EqualTo(new[] { 1, 1, 2, 2, 3, 3, 4 }));
+        Assert.That(new[] { 0L, 254, 255, 65_534, 65_535, uint.MaxValue - 1L, uint.MaxValue, uint.MaxValue + 1L }.Select(SparseSpec.LcpCodecFor), Is.EqualTo(new[] { 1, 1, 2, 2, 3, 3, 4, 4 }));
     }
 
     [Test]

@@ -17,6 +17,7 @@ public abstract class LargeFixtureBase
     private readonly List<string> _files = [];
     private Stopwatch _clock = new();
     private RssSampler? _sampler;
+    private long _startKb;
 
     /// <summary>The directory of the sparse files.</summary>
     protected static string Directory => LargeDisk.Directory;
@@ -39,6 +40,7 @@ public abstract class LargeFixtureBase
     public void StartTheClock()
     {
         _files.Clear();
+        _startKb = ReadRssAnonKb();
         _sampler = new RssSampler();
         _clock = Stopwatch.StartNew();
     }
@@ -70,6 +72,9 @@ public abstract class LargeFixtureBase
         TestContext.Out.WriteLine(line);
         TestContext.Progress.WriteLine(line);
     }
+
+    /// <summary>RssAnon at the start of the test and its peak so far (MB), sampled every 20 ms: what the test added to the anonymous memory of the process.</summary>
+    internal (double StartMb, double PeakMb) RssAnonSoFar() => (_startKb / 1024.0, Math.Max(_sampler?.PeakKb ?? 0, ReadRssAnonKb()) / 1024.0);
 
     /// <summary>A path for a sparse file; the file is deleted in the tear-down.</summary>
     protected string NewPath(string stem)
@@ -103,6 +108,8 @@ public abstract class LargeFixtureBase
             _thread = new Thread(Run) { IsBackground = true, Name = "rss-sampler" };
             _thread.Start();
         }
+
+        internal long PeakKb => Interlocked.Read(ref _peakKb);
 
         internal double Stop()
         {

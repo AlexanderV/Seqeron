@@ -65,8 +65,8 @@ internal sealed record SparseSpec
     /// <summary>4 bytes up to 2^32 - 4 symbols, 5 above (ADR-005 section 6).</summary>
     internal static int WidthFor(long n) => n <= MaxContainer4 ? 4 : 5;
 
-    /// <summary>The narrowest LCP codec that holds the value without an escape (U8 up to 254, U16 up to 65,534, U32 up to 2^32 - 1, else U64).</summary>
-    internal static int LcpCodecFor(long maxLcp) => maxLcp <= 254 ? 1 : maxLcp <= 65_534 ? 2 : maxLcp <= uint.MaxValue ? 3 : 4;
+    /// <summary>The narrowest LCP codec that holds the value without an escape (U8 up to 254, U16 up to 65,534, U32 up to 2^32 - 2, else U64: ADR-005 section 6, "a repeat longer than 2^32 - 2").</summary>
+    internal static int LcpCodecFor(long maxLcp) => maxLcp <= 254 ? 1 : maxLcp <= 65_534 ? 2 : maxLcp <= uint.MaxValue - 1L ? 3 : 4;
 
     /// <summary>Bytes of one LCP entry of a codec.</summary>
     internal static int LcpBytes(int codec) => codec switch { 1 => 1, 2 => 2, 3 => 4, 4 => 8, _ => throw new ArgumentOutOfRangeException(nameof(codec), codec, "LCP codec 1..4") };
