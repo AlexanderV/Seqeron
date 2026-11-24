@@ -17,8 +17,8 @@ the stages, the projection, the gates and the estimates below are unchanged. The
 
 Not delivered or not measured: a public entry that builds a container (the builder is `internal`), arm64, macOS, Windows and 3x10^9 symbols (the owner's run is pending).
 
-The Seqeron column of the matrix was re-scored on 2026-11-23 (1b.11, `analysis/review/1b11_rescore.md`): property mean **2.20** (rank 4 of 13; 1.80 and rank 9 on 2026-11-03; 2.28 as first re-scored, lowered after the review of 1b.10: C14 3 -> 2, C15 2 -> 1), function coverage **72.8 %** (**56.8 %** on the tree layer; 55.6 % and 39.5 % before); the review of 1b.10 found one blocker in the navigation members (R01), the subject of work package 1b.12 (`analysis/review/1b10_review.md`).
-**S2-S8 are not approved and wait for the owner.**
+The Seqeron column of the matrix was re-scored on 2026-11-23 (1b.11, `analysis/review/1b11_rescore.md`): property mean **2.20** (rank 4 of 13; 1.80 and rank 9 on 2026-11-03; 2.28 as first re-scored, lowered after the review of 1b.10: C14 3 -> 2, C15 2 -> 1), function coverage **72.8 %** (**56.8 %** on the tree layer; 55.6 % and 39.5 % before); the review of 1b.10 found one blocker in the navigation members (R01), fixed in work package 1b.12 on 2026-11-23 (`08c904cd`; `analysis/review/1b10_review.md` section 9).
+**S2-S8 are approved by the owner (S2 on 2026-11-24, S3-S8 the same day; S7 included).** Order: S2 first, then S3, S4, S5, S6, S8, S7 (section 3). Record: `PROGRESS-S1.md`, "Owner decisions 2026-11-19", item (5); the work packages of S2 are in `PROGRESS-S2.md`.
 
 Evidence: [COMPETITOR_MATRIX.md](COMPETITOR_MATRIX.md) (13 tools x 24 properties and x 81 functions, sourced per cell),
 [BENCHMARK.md](BENCHMARK.md) (measurements on one machine), `analysis/` (data, scripts, hand-off package).
@@ -192,6 +192,8 @@ So "on average better than all" holds with the core set (+0.32 and +41 pp); the 
 Scripts: `analysis/bench/handoff_package.tar.gz`; results must not be merged into `bench.tsv` without a different host tag.
 
 ## 7. Decisions needed from the owner
+
+**Update 2026-11-24:** the owner approved S2 and then S3-S8 (S7 included; "S2 схвалюю", "і s3-s8 апруваю"). The defaults of the 2026-11-19 paragraph below apply (additive `long` overloads, hand-off runs as packages for the owner's machine, S7 in scope); the width of stored positions is decided by measurement at the start of S2. The statement "S2-S8 are not approved" below is the state of 2026-11-19.
 
 **Update 2026-11-19:** the owner approved S0 and S1 (S1b: yes on 2026-11-09) and asked to continue through the end of S1b without stopping; **before S2 the approval is manual again (the owner's correction of the same day): S2-S8 are not approved.** PROGRESS-S1.md 'Owner decisions 2026-11-19' lists recommended defaults for items 2-4 below (additive `long` overloads, hand-off runs as a package for the owner's Mac, S7 in scope); they apply when S2 is approved. The status line at the top of this file is the state of 2026-11-03.
 
