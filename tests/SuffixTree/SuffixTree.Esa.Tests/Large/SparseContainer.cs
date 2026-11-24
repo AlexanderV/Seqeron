@@ -308,6 +308,9 @@ internal static class SparseContainer
         return patches;
     }
 
+    /// <summary>The entries of SA, CHILD, LCP (and PSI) of the ranks <paramref name="from"/> to <paramref name="to"/>: a window in the middle of a shell (a page of <c>Locate</c> that straddles 2^31 reads real values).</summary>
+    internal static IReadOnlyList<SparsePatch> WindowPatches(ClosedFormText f, SparseLayout layout, long from, long to) => [.. Entries(f, layout, from, to)];
+
     /// <summary>Every entry and every symbol (a small text only: the data are real bytes in the file).</summary>
     internal static IReadOnlyList<SparsePatch> AllPatches(ClosedFormText f, SparseLayout layout)
     {
