@@ -155,6 +155,20 @@ class AnUnlistedSkip(Base):
         results.append((C + "Contract.ConformanceTests(esa-file)", "NoNavigation2", "NotExecuted", "x"))
         self.assertEqual(len(self.failures_of(self.account(text, results), "UNLISTED SKIP")), 2)
 
+    def test_a_name_that_only_starts_like_a_listed_one_is_unlisted(self):
+        text, results = run_rows()
+        # a listed ignore row `OnlyChecked1` / `OnlyChecked2(7)`; a listed explicit fixture `...FuzzTests` (written without arguments)
+        text += "\t".join(["explicit-class", C + "Fuzz.SomeFuzzTests", "both", "r", "n"]) + "\n"
+        results.append((C + "Fuzz.SomeFuzzTests", "T", "NotExecuted", "OneTimeSetUp: heavy"))
+        results.append((C + "External.BoundsTests", "OnlyChecked10", "NotExecuted", "x"))
+        results.append((C + "External.BoundsTests", "OnlyChecked2(70)", "NotExecuted", "x"))
+        results.append((C + "Fuzz.SomeFuzzTestsExtra", "T", "NotExecuted", "x"))
+        failures = self.failures_of(self.account(text, results), "UNLISTED SKIP")
+        self.assertEqual(len(failures), 3, failures)
+        self.assertTrue(any("OnlyChecked10" in f for f in failures))
+        self.assertTrue(any("OnlyChecked2(70)" in f for f in failures))
+        self.assertTrue(any("SomeFuzzTestsExtra" in f for f in failures))
+
     def test_the_same_name_in_another_class_is_unlisted(self):
         text, results = run_rows()
         results.append((C + "Other.BoundsTests", "OnlyChecked1", "NotExecuted", "x"))

@@ -1,0 +1,321 @@
+name: suffix-tree-deep
+
+# The deep CI of the suffix-tree library (work package S2.2, review finding R04; docs/refactoring/suffix-tree-upgrade/PROGRESS-S2.md,
+# section "Test strategy"). dotnet.yml runs `dotnet test Seqeron.sln -c Release`: the default sets only. What it does NOT run, and this file does:
+#
+#   checked    the checked build (`-p:EsaBounds=true`, ESA_EXPECT_BOUNDS=true): the 19 bounds / memory-violation / mapped-file-list tests that
+#              call Assert.Ignore in a Release build, and every other test again over the bounds-checked accessor. This is the ONLY job that
+#              runs on a pull request or a push to master (about 15 minutes on a 4-vCPU machine).
+#   exhaustive Category=Exhaustive (82 tests: every string of a small alphabet up to a length, SA / LCP / tree / traverse stream).
+#   fuzz       Category=Fuzz (39 tests, among them the 60-second default budget of the full differential fuzz).
+#   harness    the full differential fuzz with a budget of 600 s and a ROTATING master seed (the UTC date, or the `seed` input of a manual run).
+#              The seed is the first line of the job summary: a failure is reproduced by hand with the command printed next to it.
+#   vectors    Category=Vectors (632 libsais vector sets); the inputs are generated first by gen_inputs.py (Python 3 standard library only:
+#              no pip, no network) and checked by the test against analysis/bench/MANIFEST.sha256.
+#   large      Category=Large (explicit tests of texts above 2^31 symbols on sparse files, S2.1), weekly.
+#
+# Already in the default CI (dotnet.yml runs the whole solution): the default set of SuffixTree.Esa.Tests, SuffixTree.Persistent.Tests and
+# SuffixTree.EmProto.Tests. They are NOT repeated here.
+#
+# Triggers (the owner's CI minutes: nothing here starts on a push to a feature branch):
+#   pull_request / push to master, only for a change under src/SuffixTree/**, tests/SuffixTree/** or this file: the `checked` job alone.
+#   schedule: nightly (checked, exhaustive, fuzz, harness, vectors, in parallel on one runner each) and weekly (large).
+#   workflow_dispatch: the `set` input selects the job set (and `seed` pins the master seed of the harness).
+# GitHub runs a scheduled workflow only from the DEFAULT branch, and offers workflow_dispatch only for a workflow file on it: so nothing in
+# this file runs, and nothing is scheduled, before the owner merges it into the default branch (merging is the only step that switches it on).
+#
+# Hygiene: read-only token, no secret, no network step except `dotnet restore` and setup-dotnet. The timeouts are about 2.5 times the times
+# measured on a 4-vCPU machine (analysis/review/1b10_review.md R04), because a hosted runner may have 2 vCPU.
+# analysis/ci/check_deep_workflow.py reads this file and checks the triggers, the paths, the `if:` of every job and the timeouts.
+
+on:
+  pull_request:
+    paths:
+      - 'src/SuffixTree/**'
+      - 'tests/SuffixTree/**'
+      - '.github/workflows/suffix-tree-deep.yml'
+  push:
+    branches: [master]
+    paths:
+      - 'src/SuffixTree/**'
+      - 'tests/SuffixTree/**'
+      - '.github/workflows/suffix-tree-deep.yml'
+  schedule:
+    - cron: '17 1 * * *'   # nightly (UTC): checked, exhaustive, fuzz, harness, vectors
+    - cron: '43 2 * * 6'   # weekly, Saturday (UTC): large
+  workflow_dispatch:
+    inputs:
+      set:
+        description: 'Which jobs to run (nightly = checked, exhaustive, fuzz, harness, vectors; all = nightly + large)'
+        type: choice
+        default: nightly
+        options:
+          - nightly
+          - all
+          - checked
+          - exhaustive
+          - fuzz
+          - harness
+          - vectors
+          - large
+      seed:
+        description: 'Master seed of the harness (digits only; empty = the UTC date YYYYMMDD)'
+        type: string
+        default: ''
+        required: false
+
+permissions:
+  contents: read
+
+# A new push to a pull request cancels the superseded run; a scheduled or manual run has a group of its own (never cancelled by another).
+concurrency:
+  group: suffix-tree-deep-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || format('run-{0}', github.run_id) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CI: true
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  ESA_TESTS: tests/SuffixTree/SuffixTree.Esa.Tests/SuffixTree.Esa.Tests.csproj
+  CI_SCRIPTS: docs/refactoring/suffix-tree-upgrade/analysis/ci
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  checked:
+    name: checked build (ESA_BOUNDS)
+    if: >-
+      github.event_name == 'pull_request' ||
+      github.event_name == 'push' ||
+      (github.event_name == 'schedule' && github.event.schedule == '17 1 * * *') ||
+      (github.event_name == 'workflow_dispatch' && contains(fromJSON('["checked","nightly","all"]'), inputs.set))
+    runs-on: ubuntu-latest
+    timeout-minutes: 75        # 13.5 min of tests + 1.5 min of compile on 4 vCPU
+    env:
+      # the guard: SuffixTree.Esa.Tests.Safety.BufAndArenaTests.BuildMode_IsReported_AndMatchesTheExpectedMode fails when this is 'true'
+      # and the assembly was not compiled with ESA_BOUNDS (a run that silently fell back to the bare-pointer accessor cannot pass as checked)
+      ESA_EXPECT_BOUNDS: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup .NET 10 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Self-test of the CI scripts (Python standard library only, a second)
+        run: python3 -m unittest discover -s "$CI_SCRIPTS" -p "test_*.py"
+      - name: Restore
+        run: dotnet restore "$ESA_TESTS"
+      - name: Build (Release, checked accessor)
+        run: dotnet build "$ESA_TESTS" -c Release --no-restore -p:EsaBounds=true
+      - name: Test (checked build)
+        run: dotnet test "$ESA_TESTS" -c Release --no-build --logger "trx;LogFileName=checked.trx" --results-directory "$RUNNER_TEMP/trx"
+      - name: Skip accounting (checked mode)
+        # the skipped tests of THIS run must be exactly the rows of skips.tsv that are skipped in the checked build; a new skip, or one of the
+        # 19 checked-build tests that is skipped here, fails the job
+        if: ${{ !cancelled() }}
+        run: python3 "$CI_SCRIPTS/skip_accounting.py" --mode checked --list tests/SuffixTree/SuffixTree.Esa.Tests/skips.tsv --trx "$RUNNER_TEMP/trx/checked.trx" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Summary
+        if: ${{ !cancelled() }}
+        run: python3 "$CI_SCRIPTS/trx_summary.py" --title "Checked build (-p:EsaBounds=true, ESA_EXPECT_BOUNDS=true)" "$RUNNER_TEMP/trx/checked.trx" >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload test results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: trx-checked
+          path: ${{ runner.temp }}/trx/*.trx
+          if-no-files-found: ignore
+
+  exhaustive:
+    name: Exhaustive
+    if: >-
+      (github.event_name == 'schedule' && github.event.schedule == '17 1 * * *') ||
+      (github.event_name == 'workflow_dispatch' && contains(fromJSON('["exhaustive","nightly","all"]'), inputs.set))
+    runs-on: ubuntu-latest
+    timeout-minutes: 90        # 17 min of tests + 1.5 min of compile on 4 vCPU
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup .NET 10 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Restore
+        run: dotnet restore "$ESA_TESTS"
+      - name: Build (Release)
+        run: dotnet build "$ESA_TESTS" -c Release --no-restore
+      - name: Test (Category=Exhaustive)
+        run: dotnet test "$ESA_TESTS" -c Release --no-build --filter "Category=Exhaustive" --logger "trx;LogFileName=exhaustive.trx" --results-directory "$RUNNER_TEMP/trx"
+      - name: Summary
+        if: ${{ !cancelled() }}
+        run: python3 "$CI_SCRIPTS/trx_summary.py" --title "Exhaustive (Category=Exhaustive)" "$RUNNER_TEMP/trx/exhaustive.trx" >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload test results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: trx-exhaustive
+          path: ${{ runner.temp }}/trx/*.trx
+          if-no-files-found: ignore
+
+  fuzz:
+    name: Fuzz
+    if: >-
+      (github.event_name == 'schedule' && github.event.schedule == '17 1 * * *') ||
+      (github.event_name == 'workflow_dispatch' && contains(fromJSON('["fuzz","nightly","all"]'), inputs.set))
+    runs-on: ubuntu-latest
+    timeout-minutes: 90        # 14.8 min of tests + 1.5 min of compile on 4 vCPU
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup .NET 10 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Restore
+        run: dotnet restore "$ESA_TESTS"
+      - name: Build (Release)
+        run: dotnet build "$ESA_TESTS" -c Release --no-restore
+      - name: Test (Category=Fuzz)
+        run: dotnet test "$ESA_TESTS" -c Release --no-build --filter "Category=Fuzz" --logger "trx;LogFileName=fuzz.trx" --results-directory "$RUNNER_TEMP/trx"
+      - name: Summary
+        if: ${{ !cancelled() }}
+        run: python3 "$CI_SCRIPTS/trx_summary.py" --title "Fuzz (Category=Fuzz)" "$RUNNER_TEMP/trx/fuzz.trx" >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload test results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: trx-fuzz
+          path: ${{ runner.temp }}/trx/*.trx
+          if-no-files-found: ignore
+
+  harness:
+    name: Harness (600 s, rotating seed)
+    if: >-
+      (github.event_name == 'schedule' && github.event.schedule == '17 1 * * *') ||
+      (github.event_name == 'workflow_dispatch' && contains(fromJSON('["harness","nightly","all"]'), inputs.set))
+    runs-on: ubuntu-latest
+    timeout-minutes: 90        # 12-15 min on 4 vCPU (the xl lane may overrun its share by minutes) + 1.5 min of compile; the per-case watchdog is 900 s
+    env:
+      SEED_INPUT: ${{ inputs.seed }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup .NET 10 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Master seed (printed first, so that the summary of a failed night names it)
+        id: seed
+        run: |
+          SEED=$(date -u +%Y%m%d)
+          if [[ "$SEED_INPUT" =~ ^[0-9]{1,18}$ ]]; then SEED="$SEED_INPUT"; fi
+          echo "seed=$SEED" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Harness: master seed $SEED"
+            echo
+            echo "Budget 600 s, workers per lane = the cores of the runner. To reproduce a failure by hand (Release, an otherwise idle machine, about 12-15 minutes):"
+            echo
+            echo '```'
+            echo "ESA_FUZZ_SEED=$SEED ESA_FUZZ_BUDGET_S=600 ESA_FUZZ_HANG_S=900 dotnet test $ESA_TESTS -c Release --filter \"FullyQualifiedName~FullDifferentialFuzzTests\""
+            echo '```'
+            echo
+            echo "Every failure prints \`family seed n op\` and a minimised case (look in the log of the test step and in the artifact)."
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "master seed $SEED"
+      - name: Restore
+        run: dotnet restore "$ESA_TESTS"
+      - name: Build (Release)
+        run: dotnet build "$ESA_TESTS" -c Release --no-restore
+      - name: Test (FullDifferentialFuzzTests, budget 600 s)
+        env:
+          ESA_FUZZ_SEED: ${{ steps.seed.outputs.seed }}
+          ESA_FUZZ_BUDGET_S: '600'
+          ESA_FUZZ_HANG_S: '900'
+          ESA_FUZZ_REPORT: ${{ runner.temp }}/fuzz/report.txt
+          ESA_FUZZ_JOURNAL: ${{ runner.temp }}/fuzz/journal
+        run: |
+          mkdir -p "$RUNNER_TEMP/fuzz"
+          dotnet test "$ESA_TESTS" -c Release --no-build --filter "FullyQualifiedName~FullDifferentialFuzzTests" --logger "trx;LogFileName=harness.trx" --results-directory "$RUNNER_TEMP/trx"
+      - name: Summary
+        if: ${{ !cancelled() }}
+        run: |
+          python3 "$CI_SCRIPTS/trx_summary.py" --title "Harness (seed ${{ steps.seed.outputs.seed }}, 600 s)" "$RUNNER_TEMP/trx/harness.trx" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f "$RUNNER_TEMP/fuzz/report.txt" ]; then
+            { echo; echo '```'; head -c 6000 "$RUNNER_TEMP/fuzz/report.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload test results and the report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: trx-harness
+          path: |
+            ${{ runner.temp }}/trx/*.trx
+            ${{ runner.temp }}/fuzz/report.txt*
+          if-no-files-found: ignore
+
+  vectors:
+    name: Vectors (libsais)
+    if: >-
+      (github.event_name == 'schedule' && github.event.schedule == '17 1 * * *') ||
+      (github.event_name == 'workflow_dispatch' && contains(fromJSON('["vectors","nightly","all"]'), inputs.set))
+    runs-on: ubuntu-latest
+    timeout-minutes: 45        # 1 min of tests + 1.5 min of compile + the generator on 4 vCPU
+    env:
+      SEQERON_BENCH_DIR: ${{ runner.temp }}/bench
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup .NET 10 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Generate the benchmark inputs (Python 3 standard library only)
+        # deterministic: the test checks every input against analysis/bench/MANIFEST.sha256 and FAILS on a wrong or missing file
+        run: python3 docs/refactoring/suffix-tree-upgrade/analysis/bench/gen/gen_inputs.py "$SEQERON_BENCH_DIR"
+      - name: Restore
+        run: dotnet restore "$ESA_TESTS"
+      - name: Build (Release)
+        run: dotnet build "$ESA_TESTS" -c Release --no-restore
+      - name: Test (Category=Vectors)
+        run: dotnet test "$ESA_TESTS" -c Release --no-build --filter "Category=Vectors" --logger "trx;LogFileName=vectors.trx" --results-directory "$RUNNER_TEMP/trx"
+      - name: Summary
+        if: ${{ !cancelled() }}
+        run: python3 "$CI_SCRIPTS/trx_summary.py" --title "Vectors (Category=Vectors)" "$RUNNER_TEMP/trx/vectors.trx" >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload test results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: trx-vectors
+          path: ${{ runner.temp }}/trx/*.trx
+          if-no-files-found: ignore
+
+  large:
+    name: Large (texts above 2^31, weekly)
+    if: >-
+      (github.event_name == 'schedule' && github.event.schedule == '43 2 * * 6') ||
+      (github.event_name == 'workflow_dispatch' && contains(fromJSON('["large","all"]'), inputs.set))
+    runs-on: ubuntu-latest
+    # 9 of the Large tests are RED BY DESIGN until the packages S2.3-S2.8 make the library handle a text above 2^31 symbols (analysis/ci/large_expected_red.txt
+    # names each one and the package that turns it green): the job must not turn the workflow red for them. THIS LINE IS REMOVED BY S2.8, the last of
+    # those packages, when the list is empty. Until then the job summary lists every red test and marks one that is NOT in the expected list.
+    continue-on-error: true
+    timeout-minutes: 60        # about 30 s of tests + 1.5 min of compile on 4 vCPU; sparse files of up to 78 GB nominal, at most 64 MiB of real disk
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup .NET 10 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Restore
+        run: dotnet restore "$ESA_TESTS"
+      - name: Build (Release)
+        run: dotnet build "$ESA_TESTS" -c Release --no-restore
+      - name: Test (Category=Large)
+        run: dotnet test "$ESA_TESTS" -c Release --no-build --filter "Category=Large" --logger "trx;LogFileName=large.trx" --results-directory "$RUNNER_TEMP/trx"
+      - name: Summary (the red tests of the list and any other)
+        if: ${{ !cancelled() }}
+        run: python3 "$CI_SCRIPTS/trx_summary.py" --title "Large (Category=Large; red by design until S2.3-S2.8)" --expected-red "$CI_SCRIPTS/large_expected_red.txt" --grep LARGE-REPORT "$RUNNER_TEMP/trx/large.trx" >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload test results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: trx-large
+          path: ${{ runner.temp }}/trx/*.trx
+          if-no-files-found: ignore
