@@ -16,10 +16,12 @@ public class BufAndArenaTests
     public void BuildMode_IsReported_AndMatchesTheExpectedMode()
     {
         TestContext.Out.WriteLine($"ESA_BOUNDS (checked accessor): {EsaBuild.BoundsChecked}");
-        // the checked run sets ESA_EXPECT_BOUNDS=true so that a run that silently fell back to the Release accessor cannot pass as "checked"
-        string? expected = Environment.GetEnvironmentVariable("ESA_EXPECT_BOUNDS");
-        if (expected is null) Assert.Pass("no expectation set");
-        Assert.That(EsaBuild.BoundsChecked, Is.EqualTo(bool.Parse(expected!)));
+        // THE GUARD (S2.2, review R04). The checked run (the deep workflow, tests/SuffixTree/SuffixTree.Esa.Tests/skips.tsv) sets ESA_EXPECT_BOUNDS=true so that a run that
+        // silently fell back to the Release accessor cannot pass as "checked": in it the 19 tests that call Assert.Ignore unless EsaBuild.BoundsChecked would all
+        // skip, and a skipped test is green. Not set is honest in both builds (the default CI; a developer's -p:EsaBounds=true run). The rule and its table:
+        // BuildExpectation, BuildExpectationTests.
+        string? verdict = BuildExpectation.VerdictOfTheEnvironment();
+        if (verdict is not null) Assert.Fail(verdict);
     }
 
     [Test]
