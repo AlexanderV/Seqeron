@@ -67,7 +67,7 @@ WORKFLOW = [
     ("W01", "  pull_request:\n    paths:\n      - 'src/SuffixTree/**'\n      - 'tests/SuffixTree/**'\n      - '.github/workflows/suffix-tree-deep.yml'\n  push:", "  pull_request:\n  push:", "pull_request without paths"),
     ("W02", "  push:\n    branches: [master]\n    paths:\n      - 'src/SuffixTree/**'\n      - 'tests/SuffixTree/**'\n      - '.github/workflows/suffix-tree-deep.yml'\n  schedule:", "  push:\n    branches: [master]\n  schedule:", "push without paths"),
     ("W03", "    branches: [master]\n", "", "push on every branch (the owner's CI minutes)"),
-    ("W04", "    branches: [master]\n", "    branches: [master, 'claude/**']\n", "push also on the claude branches"),
+    ("W04", "    branches: [master]\n", "    branches: [master, 'feature/**']\n", "push also on the feature branches"),
     ("W05", "  exhaustive:\n    name: Exhaustive\n    if: >-\n      (github.event_name == 'schedule' && github.event.schedule == '17 1 * * *') ||\n      (github.event_name == 'workflow_dispatch' && contains(fromJSON('[\"exhaustive\",\"nightly\",\"all\"]'), inputs.set))\n",
      "  exhaustive:\n    name: Exhaustive\n", "the if: of the exhaustive job dropped (it would run on a pull request)"),
     ("W06", "      github.event_name == 'pull_request' ||\n      github.event_name == 'push' ||\n", "      github.event_name == 'push' ||\n", "the checked job does not run on a pull request"),

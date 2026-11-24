@@ -28,7 +28,7 @@ A24	killed	an unknown mode is accepted by the command line	1 failing: FAIL: test
 W01	killed	pull_request without paths	1 check(s): pull_request.paths is None, expected ['src/SuffixTree/**', 'tests/SuffixTree/**', '.github/workflows/suf
 W02	killed	push without paths	1 check(s): push.paths is None, expected ['src/SuffixTree/**', 'tests/SuffixTree/**', '.github/workflows/suffix-tree
 W03	killed	push on every branch (the owner's CI minutes)	1 check(s): push.branches is None: the push trigger must name master and nothing else (the owner's CI minutes)
-W04	killed	push also on the claude branches	1 check(s): push.branches is ['master', 'claude/**']: the push trigger must name master and nothing else (the owner'
+W04	killed	push also on the feature branches	1 check(s): push.branches is ['master', 'feature/**']: the push trigger must name master and nothing else (the owner
 W05	killed	the if: of the exhaustive job dropped (it would run on a pull request)	16 check(s): scenario pull_request: jobs ['checked', 'exhaustive'] would run, expected ['checked']
 W06	killed	the checked job does not run on a pull request	1 check(s): scenario pull_request: jobs [] would run, expected ['checked']
 W07	killed	the large job has no weekly clause	3 check(s): scenario schedule weekly: jobs [] would run, expected ['large']
