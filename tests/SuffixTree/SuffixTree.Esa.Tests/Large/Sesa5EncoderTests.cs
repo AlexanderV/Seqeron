@@ -158,6 +158,10 @@ public class Sesa5EncoderTests
         Assert.Throws<InvalidDataException>(() => Sesa5Encoder.Encode(new byte[8192]), "no magic");
         byte[] twice = Sesa5Encoder.Encode(good);
         Assert.Throws<InvalidDataException>(() => Sesa5Encoder.Encode(twice), "a container of width 5 is not re-encoded");
+        byte[] widthFive = (byte[])good.Clone();
+        widthFive[72] = 5;
+        SesaTestFile.ResealHeader(widthFive);
+        Assert.That(Assert.Throws<InvalidDataException>(() => Sesa5Encoder.Encode(widthFive))!.Message, Does.Contain("POS_WIDTH"), "a version 1.0 container that says POS_WIDTH 5 is refused for its width");
         byte[] badCrc = (byte[])good.Clone();
         badCrc[124] ^= 1;
         Assert.Throws<InvalidDataException>(() => Sesa5Encoder.Encode(badCrc), "the header CRC");

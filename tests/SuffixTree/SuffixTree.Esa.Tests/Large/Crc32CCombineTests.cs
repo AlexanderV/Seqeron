@@ -150,6 +150,22 @@ public class Crc32CCombineTests
     }
 
     [Test]
+    public void OfSparse_AtTheEdgesOfTheSection_HasHeadsGapsAndTailsOfZeroOneAndTwoBytes()
+    {
+        byte[] patch = [7, 8, 9];
+        foreach (int head in new[] { 0, 1, 2 })
+            foreach (int gap in new[] { 0, 1, 2 })
+                foreach (int tail in new[] { 0, 1, 2 })
+                {
+                    int length = head + (2 * patch.Length) + gap + tail;
+                    var section = new byte[length];
+                    patch.CopyTo(section, head);
+                    patch.CopyTo(section, head + patch.Length + gap);
+                    Assert.That(Crc32CCombine.OfSparse(length, [(head, patch), (head + patch.Length + gap, patch)]), Is.EqualTo(Crc32C.Compute(section)), $"head {head}, gap {gap}, tail {tail}");
+                }
+    }
+
+    [Test]
     public void OfSparse_AtTheSizeOfTheLargeSections_IsTheCrcOfTheZerosAroundThePatches()
     {
         // a patch of 5 bytes at the offset 2^32 + 1 of a section of 2^33 + 3 bytes: the same as the combine of its three pieces

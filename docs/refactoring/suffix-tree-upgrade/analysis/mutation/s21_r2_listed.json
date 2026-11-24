@@ -1,0 +1,18 @@
+[
+ {
+  "id": "s21_C09",
+  "desc": "CRC: a tail of one zero byte is not combined",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/Crc32CCombine.cs",
+  "old": "if (length > at) crc = Combine(crc, OfZeros(length - at), length - at);",
+  "new": "if (length > at + 1) crc = Combine(crc, OfZeros(length - at), length - at);",
+  "filter": "(FullyQualifiedName~Large.Crc32CCombineTests)"
+ },
+ {
+  "id": "s21_E18",
+  "desc": "encoder: a container of width 5 is re-encoded",
+  "file": "tests/SuffixTree/SuffixTree.Esa.Tests/Large/Sesa5Encoder.cs",
+  "old": "if (o.PosWidth != 4) throw",
+  "new": "if (o.PosWidth != 4 && false) throw",
+  "filter": "(FullyQualifiedName~Large.Sesa5EncoderTests)"
+ }
+]
