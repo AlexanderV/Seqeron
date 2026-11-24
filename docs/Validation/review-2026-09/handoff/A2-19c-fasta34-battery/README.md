@@ -1,4 +1,5 @@
-**STATUS: RUN NEEDED (not run yet).** Commands (Docker Desktop; Apple Silicon runs the image as linux/amd64, emulated: allow 20 - 60 minutes):
+**STATUS: RETURNED (2026-11-24, returned/A2-19c-fasta34-battery-out.zip, 9.2 MB: 360 raw `fasta34` outputs (20 probes + 340 calls) in battery/, 200 sets of `mafft --fastaparttree` without --quiet in results.tsv + sets/*.stderr.gz; fasta34 sha256 7491909b...). NO FURTHER RUN NEEDED. Integration = B09 WP71 (compare `MafftFasta34` score by score, embed the sets).**
+
 
 ```
 git pull
