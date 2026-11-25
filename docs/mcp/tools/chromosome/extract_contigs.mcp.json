@@ -6,12 +6,13 @@
   "stability": "stable",
   "methodId": "GenomeAssemblyAnalyzer.ExtractContigs",
   "docRef": "Seqeron.Genomics.Chromosome/GenomeAssemblyAnalyzer.cs#L473",
-  "description": "Extract contigs (gap-free runs) from scaffolds with a minimum length filter.",
+  "description": "Extract contigs from scaffolds (QUAST broken scaffolds: split_by_ns + --min-contig): cut at N-runs of length >= minGapLength (default 10; 1 cuts at every N), shorter N-runs stay inside contigs; keep contigs of length >= minContigLength.",
   "inputSchema": {
     "type": "object",
     "properties": {
       "scaffolds": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string" }, "sequence": { "type": "string" } }, "required": ["id", "sequence"] } },
-      "minContigLength": { "type": "integer", "default": 200, "exclusiveMinimum": 0 }
+      "minContigLength": { "type": "integer", "default": 200, "exclusiveMinimum": 0 },
+      "minGapLength": { "type": "integer", "default": 10, "exclusiveMinimum": 0, "description": "Minimum N-run length that splits contigs." }
     },
     "required": ["scaffolds"]
   },
@@ -24,9 +25,11 @@
   },
   "errors": [
     { "code": 1001, "message": "Scaffolds cannot be null" },
-    { "code": 1002, "message": "Minimum contig length must be positive" }
+    { "code": 1002, "message": "Minimum contig length must be positive" },
+    { "code": 1003, "message": "Minimum gap length must be positive" }
   ],
   "examples": [
-    { "name": "Two contigs split by an N-run", "input": { "scaffolds": [ { "id": "s", "sequence": "AAA…(300)NNN…(20)CCC…(250)" } ], "minContigLength": 200 }, "output": { "items": [ { "id": "s_contig1", "sequence": "…(300)" }, { "id": "s_contig2", "sequence": "…(250)" } ] } }
+    { "name": "Two contigs split by an N-run", "input": { "scaffolds": [ { "id": "s", "sequence": "AAA…(300)NNN…(20)CCC…(250)" } ], "minContigLength": 200 }, "output": { "items": [ { "id": "s_contig1", "sequence": "…(300)" }, { "id": "s_contig2", "sequence": "…(250)" } ] } },
+    { "name": "Short N-run stays inside the contig", "input": { "scaffolds": [ { "id": "s", "sequence": "AAA…(300)NNN…(9)CCC…(300)" } ], "minContigLength": 200 }, "output": { "items": [ { "id": "s_contig1", "sequence": "…(609)" } ] } }
   ]
 }

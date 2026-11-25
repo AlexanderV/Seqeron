@@ -48,11 +48,12 @@ public class GenomeAssemblyAnalyzer_MutationKillers4_Tests
     public void ExtractContigs_LengthBoundaryIsInclusive()
     {
         // A 3-bp contig is kept at minContigLength 3 (inclusive '>=') but dropped at 4.
-        Assert.That(ExtractContigs(new[] { ("s", "AAAN") }, minContigLength: 3).Single(),
+        // minGapLength 1: the single N is a gap (QUAST split_by_ns with Ns_break_threshold = 1).
+        Assert.That(ExtractContigs(new[] { ("s", "AAAN") }, minContigLength: 3, minGapLength: 1).Single(),
             Is.EqualTo(("s_contig1", "AAA")));
-        Assert.That(ExtractContigs(new[] { ("s", "AAAN") }, minContigLength: 4).ToList(), Is.Empty);
+        Assert.That(ExtractContigs(new[] { ("s", "AAAN") }, minContigLength: 4, minGapLength: 1).ToList(), Is.Empty);
         // Trailing contig after a gap also honours the inclusive bound.
-        Assert.That(ExtractContigs(new[] { ("s", "NAAA") }, minContigLength: 3).Single(),
+        Assert.That(ExtractContigs(new[] { ("s", "NAAA") }, minContigLength: 3, minGapLength: 1).Single(),
             Is.EqualTo(("s_contig1", "AAA")));
     }
 

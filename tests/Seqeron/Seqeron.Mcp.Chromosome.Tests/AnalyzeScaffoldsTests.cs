@@ -7,7 +7,8 @@ namespace Seqeron.Mcp.Chromosome.Tests;
 /// <summary>
 /// Tests for the <c>analyze_scaffolds</c> MCP tool.
 /// Expected values derive from GenomeAssemblyAnalyzer.AnalyzeScaffolds: contigs are gap-free runs
-/// named "{id}_contig{n}" over inclusive [start, end]; an N-run of length >= minGapLength becomes a
+/// named "{id}_contig{n}" over inclusive [start, end], split only at N-runs of length >= minGapLength
+/// (QUAST split_by_ns); such an N-run of length >= minGapLength becomes a
 /// gap classified by length (10 -> "Medium", per ClassifyGap).
 /// </summary>
 [TestFixture]
@@ -66,7 +67,8 @@ public class AnalyzeScaffoldsTests
     [Test]
     public void AnalyzeScaffolds_ShortGapBelowThreshold_NotSplit()
     {
-        // A 5-N run with minGapLength=10 is not recorded as a gap; the whole scaffold is one contig.
+        // A 5-N run with minGapLength=10 is not a gap (QUAST split_by_ns, NCBI >= 10 Ns): the whole
+        // scaffold is one contig and contigLength + gapLength = totalLength.
         var scaffolds = new List<NamedSequence> { new("s", "AAAAANNNNNTTTTT") };
 
         var result = ChromosomeTools.AnalyzeScaffolds(scaffolds, minGapLength: 10);
@@ -76,6 +78,9 @@ public class AnalyzeScaffoldsTests
         {
             Assert.That(s.Gaps, Is.Empty);
             Assert.That(s.GapLength, Is.EqualTo(0));
+            Assert.That(s.Contigs, Has.Count.EqualTo(1));
+            Assert.That((s.Contigs[0].Start, s.Contigs[0].End), Is.EqualTo((0, 14)));
+            Assert.That(s.ContigLength, Is.EqualTo(15));
         });
     }
 }

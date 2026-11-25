@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "GenomeAssemblyAnalyzer.AnalyzeScaffolds",
   "docRef": "Seqeron.Genomics.Chromosome/GenomeAssemblyAnalyzer.cs#L415",
-  "description": "Decompose scaffolds into contigs and gaps (N-runs); returns per-scaffold contig list, gap list, and length totals.",
+  "description": "Decompose scaffolds into contigs and gaps (QUAST split_by_ns): cut at N-runs of length >= minGapLength (default 10, NCBI/QUAST); shorter N-runs stay inside contigs, so contigLength + gapLength = totalLength. Returns per-scaffold contig list, gap list, and length totals.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -24,7 +24,7 @@
       },
       "minGapLength": {
         "type": "integer",
-        "description": "Minimum N-run length to record as a gap.",
+        "description": "Minimum N-run length that is a gap and splits contigs.",
         "default": 10,
         "exclusiveMinimum": 0
       }
@@ -88,9 +88,9 @@
       }
     },
     {
-      "name": "Short N-run below threshold is not a gap",
+      "name": "Short N-run below threshold stays inside the contig",
       "input": { "scaffolds": [ { "id": "s", "sequence": "AAAAANNNNNTTTTT" } ], "minGapLength": 10 },
-      "output": { "items": [ { "scaffoldId": "s", "gaps": [], "gapLength": 0 } ] }
+      "output": { "items": [ { "scaffoldId": "s", "contigs": [ { "contigId": "s_contig1", "start": 0, "end": 14 } ], "gaps": [], "totalLength": 15, "contigLength": 15, "gapLength": 0 } ] }
     }
   ]
 }

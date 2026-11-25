@@ -14,8 +14,8 @@ Summarize a list of gaps.
 
 ## Description
 
-Reports the gap count, mean/median/max gap length and per-type counts. The median is the element at
-index `count/2` after ascending sort (upper-median for even counts). An empty list returns all zeros.
+Reports the gap count, mean/median/max gap length and per-type counts. The median is the sample
+median (`numpy.median`: mean of the two central values for an even count). An empty list returns all zeros.
 
 ## Core Documentation Reference
 
@@ -33,7 +33,7 @@ index `count/2` after ascending sort (upper-median for even counts). An empty li
 |-------|------|-------------|
 | `count` | integer | Number of gaps. |
 | `meanLength` | number | Mean gap length. |
-| `medianLength` | number | Median gap length. |
+| `medianLength` | number | Sample median gap length. |
 | `maxLength` | integer | Maximum gap length. |
 | `typeCounts` | object | Map of gap type → count. |
 
@@ -45,7 +45,7 @@ index `count/2` after ascending sort (upper-median for even counts). An empty li
 
 ## Example
 
-Gaps of length 5 (`Short`) and 100 (`Long`) → `count 2, mean 52.5, median 100, max 100`.
+Gaps of length 5 (`Short`) and 100 (`Long`) → `count 2, mean 52.5, median 52.5, max 100`.
 
 ## References
 

@@ -35,7 +35,7 @@ Let the contig lengths be `L₁ ≥ L₂ ≥ … ≥ Lₙ` (sorted descending) a
 | INV-03 | Nx is non-increasing and Lx non-decreasing in x; hence N90 ≤ N50 and L90 ≥ L50 | Larger x extends the prefix [2] |
 | INV-04 | auN = Σ Lᵢ² / T | Formula in §2.2 [4][3] |
 | INV-05 | The threshold boundary is inclusive: cumulative reaching exactly (x/100)·T selects that contig | "at least 50%" [1]; QUAST `s <= limit` [3] |
-| INV-06 | `FindGaps` yields one entry per maximal run of `N`/`n` with 0-based inclusive `[Start,End]` and `Length = End − Start + 1` | Implementation contract |
+| INV-06 | `FindGaps` yields one entry per maximal run of `N`/`n` with 0-based inclusive `[Start,End]` and `Length = End − Start + 1` | seqtk `gap`; see ASSEMBLY-GAPS-001 (gap summary, scaffold → contigs at ≥ 10 N, QUAST `split_by_ns`) |
 
 ### 2.5 Comparison with Related Methods
 

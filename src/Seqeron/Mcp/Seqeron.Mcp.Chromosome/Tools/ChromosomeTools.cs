@@ -302,7 +302,7 @@ public class ChromosomeTools
     }
 
     [McpServerTool(Name = "find_gaps", Title = "Assembly — Find gaps (N runs)", ReadOnly = true)]
-    [Description("Find gaps (N-runs) in assembled sequences; returns position, length and length-class type.")]
+    [Description("Find gaps (maximal N/n runs) in assembled sequences; returns 0-based start, inclusive end, length and a length class (Short <10, Medium <100, Long <1000, else Scaffold; not an AGP gap type). Default minGapLength 1 reports every N-run; 10 is the NCBI assembly-gap convention.")]
     public static GapsResult FindGaps(
         [Description("Assembled sequences (id, sequence).")] IReadOnlyList<NamedSequence> sequences,
         [Description("Minimum gap length (default 1).")] int minGapLength = 1)
@@ -316,7 +316,7 @@ public class ChromosomeTools
     }
 
     [McpServerTool(Name = "gap_distribution", Title = "Assembly — Gap distribution", ReadOnly = true)]
-    [Description("Summarize a list of gaps: count, mean/median/max length, and counts by gap-length type.")]
+    [Description("Summarize a list of gaps: count, mean, sample median (mean of the two central values for an even count), max length, and counts by gap-length type.")]
     public static GapDistributionResult GapDistribution(
         [Description("Gaps (typically from find_gaps).")] IReadOnlyList<SourceGa.GapInfo> gaps)
     {
@@ -328,10 +328,10 @@ public class ChromosomeTools
     }
 
     [McpServerTool(Name = "analyze_scaffolds", Title = "Assembly — Scaffold structure", ReadOnly = true)]
-    [Description("Decompose scaffolds into contigs and gaps; returns per-scaffold contig list, gap list, and length totals.")]
+    [Description("Decompose scaffolds into contigs and gaps (QUAST split_by_ns): the scaffold is cut at N-runs of length >= minGapLength (default 10, NCBI/QUAST); shorter N-runs stay inside contigs, so contigLength + gapLength = totalLength. Returns per-scaffold contig list, gap list, and length totals.")]
     public static ScaffoldStructuresResult AnalyzeScaffolds(
         [Description("Scaffolds (id, sequence).")] IReadOnlyList<NamedSequence> scaffolds,
-        [Description("Minimum gap length to split contigs (default 10).")] int minGapLength = 10)
+        [Description("Minimum N-run length that splits contigs (default 10).")] int minGapLength = SourceGa.DefaultScaffoldGapMinLength)
     {
         if (scaffolds is null)
             throw new ArgumentException("Scaffolds cannot be null", nameof(scaffolds));
@@ -350,17 +350,20 @@ public class ChromosomeTools
     }
 
     [McpServerTool(Name = "extract_contigs", Title = "Assembly — Extract contigs", ReadOnly = true)]
-    [Description("Extract contigs (gap-free runs) from scaffolds with a minimum length filter.")]
+    [Description("Extract contigs from scaffolds (QUAST broken scaffolds: split_by_ns + --min-contig): cut at N-runs of length >= minGapLength (default 10; 1 cuts at every N), shorter N-runs stay inside contigs; keep contigs of length >= minContigLength.")]
     public static NamedSequencesResult ExtractContigs(
         [Description("Scaffolds (id, sequence).")] IReadOnlyList<NamedSequence> scaffolds,
-        [Description("Minimum contig length (default 200).")] int minContigLength = 200)
+        [Description("Minimum contig length (default 200).")] int minContigLength = 200,
+        [Description("Minimum N-run length that splits contigs (default 10).")] int minGapLength = SourceGa.DefaultScaffoldGapMinLength)
     {
         if (scaffolds is null)
             throw new ArgumentException("Scaffolds cannot be null", nameof(scaffolds));
         if (minContigLength <= 0)
             throw new ArgumentException("Minimum contig length must be positive", nameof(minContigLength));
+        if (minGapLength <= 0)
+            throw new ArgumentException("Minimum gap length must be positive", nameof(minGapLength));
 
-        return new(SourceGa.ExtractContigs(scaffolds.Select(s => (s.Id, s.Sequence)), minContigLength)
+        return new(SourceGa.ExtractContigs(scaffolds.Select(s => (s.Id, s.Sequence)), minContigLength, minGapLength)
             .Select(c => new NamedSequence(c.Id, c.Sequence))
             .ToList());
     }

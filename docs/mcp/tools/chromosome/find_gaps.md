@@ -14,9 +14,13 @@ Find gaps (N-runs) in assembled sequences.
 
 ## Description
 
-Scans each sequence for maximal runs of `N`/`n`. A run of length ≥ `minGapLength` is reported as a
-gap with inclusive `[start, end]`, its length, and a length class (`< 10` Short, `< 100` Medium,
-`< 1000` Long, else Scaffold).
+Scans each sequence for maximal runs of `N`/`n` (`seqtk gap`). A run of length ≥ `minGapLength` is
+reported as a gap with 0-based `start`, **inclusive** `end` (`length = end − start + 1`; AGP v2.1
+1-based = `[start+1, end+1]`, BED = `[start, end+1)`), its length, and a Seqeron length class
+(`< 10` Short, `< 100` Medium, `< 1000` Long, else Scaffold) — not an AGP column-7b gap type, which
+records linkage evidence a sequence does not carry. Only `N`/`n` is a gap symbol; IUPAC codes are
+bases. The default 1 reports every N-run (the gaps counted by `assembly_statistics`); NCBI counts
+runs of ≥ 10 N as assembly gaps, so pass `minGapLength = 10` for that convention.
 
 ## Core Documentation Reference
 
@@ -47,6 +51,8 @@ gap with inclusive `[start, end]`, its length, and a length class (`< 10` Short,
 `"AAANNNNNGGG"` → one gap `[3, 7]`, length 5, type `Short`.
 
 ## References
+
+- QUAST `qutils.split_by_ns`, seqtk `stk_gap`, NCBI Gapped Format for Genome Submissions, AGP v2.1 — see `docs/Evidence/ASSEMBLY-GAPS-001-Evidence.md`.
 
 - [GenomeAssemblyAnalyzer.FindGaps](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Chromosome/GenomeAssemblyAnalyzer.cs#L341)
 - [gap_distribution](gap_distribution.md)
