@@ -5,8 +5,8 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceAssembler.Scaffold",
-  "docRef": "Seqeron.Genomics.Alignment/SequenceAssembler.cs#L679",
-  "description": "Join contigs into scaffolds using paired-end link records, inserting a run of gapCharacter (length = gapSize; unknown/non-positive -> 100) between linked contigs.",
+  "docRef": "Seqeron.Genomics.Alignment/SequenceAssembler.cs#L1121",
+  "description": "Order and orient contigs into scaffolds from paired-end links with the greedy path-merging rule (Huson, Reinert & Myers 2002): links in descending weight, a link used only if both contig ends it joins are free and it closes no cycle. Positive gapSize -> that many gapCharacter; negative gapSize -> the -gapSize overlap is collapsed when its bases agree (N matches anything), else (and for 0) the AGP unknown gap of 100.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -16,7 +16,7 @@
       },
       "links": {
         "type": "array",
-        "description": "Paired-end links between contigs, each an object {contig1, contig2, gapSize}."
+        "description": "Links {contig1, contig2, gapSize, contig1Reversed?, contig2Reversed?, weight?}: contig2 follows contig1 (each reverse-complemented when its flag is set) after gapSize characters (negative = overlap); weight >= 1 (default 1)."
       },
       "gapCharacter": {
         "type": "string",
@@ -86,6 +86,36 @@
         "scaffolds": [
           "AAA",
           "GGG"
+        ]
+      }
+    },
+    {
+      "name": "Orientation, weight and overlap",
+      "input": {
+        "contigs": [
+          "AAAA",
+          "CCCC",
+          "GGTT"
+        ],
+        "links": [
+          {
+            "contig1": 0,
+            "contig2": 1,
+            "gapSize": 2
+          },
+          {
+            "contig1": 0,
+            "contig2": 2,
+            "gapSize": 3,
+            "contig2Reversed": true,
+            "weight": 4
+          }
+        ]
+      },
+      "output": {
+        "scaffolds": [
+          "AAAANNNAACC",
+          "CCCC"
         ]
       }
     }

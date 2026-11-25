@@ -524,20 +524,20 @@ public class AlignmentTools
     }
 
     [McpServerTool(Name = "scaffold_contigs", Title = "Assembly — Scaffold by Paired Links", ReadOnly = true)]
-    [Description("Builds scaffolds by joining contigs using paired-end link records, inserting gapCharacter between linked contigs to span the indicated gap size.")]
+    [Description("Orders and orients contigs into scaffolds from paired-end links with the greedy path-merging rule (Huson, Reinert & Myers 2002): links in descending weight; a link is used only if both contig ends it joins are still free and it does not close a cycle. Each link says contig2 follows contig1 (each optionally reverse-complemented) after gapSize characters: a positive gap emits that many gapCharacter; a negative gap collapses the overlap when the -gapSize bases agree (N matches anything), otherwise — and for a zero gap — the AGP unknown gap of 100 is emitted. Unlinked contigs are singleton scaffolds; scaffolds are listed by their lowest contig index.")]
     public static ScaffoldsResult ScaffoldContigs(
         [Description("Contig sequences.")] string[] contigs,
-        [Description("Paired-end links between contigs (by index).")] ContigLinkInput[] links,
+        [Description("Links {contig1, contig2, gapSize, contig1Reversed?, contig2Reversed?, weight?} (indices into contigs; weight ≥ 1, default 1).")] ContigLinkInput[] links,
         [Description("Single-character gap filler (e.g. \"N\").")] string gapCharacter = "N")
     {
         if (string.IsNullOrEmpty(gapCharacter) || gapCharacter.Length != 1)
             throw new ArgumentException("gapCharacter must be exactly one character.", nameof(gapCharacter));
 
-        var srcLinks = new List<(int contig1, int contig2, int gapSize)>(links?.Length ?? 0);
+        var srcLinks = new List<global::Seqeron.Genomics.Alignment.SequenceAssembler.ScaffoldLink>(links?.Length ?? 0);
         if (links != null)
         {
             foreach (var l in links)
-                srcLinks.Add((l.Contig1, l.Contig2, l.GapSize));
+                srcLinks.Add(new(l.Contig1, l.Contig2, l.GapSize, l.Contig1Reversed, l.Contig2Reversed, l.Weight));
         }
 
         var scaffolds = global::Seqeron.Genomics.Alignment.SequenceAssembler.Scaffold(

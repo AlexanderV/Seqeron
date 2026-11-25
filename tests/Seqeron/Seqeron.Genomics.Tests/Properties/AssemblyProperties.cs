@@ -672,9 +672,11 @@ public class AssemblyProperties
         }).ToArbitrary();
 
     /// <summary>
-    /// INV-1 (P): Every contig is placed exactly once. Since contigs contain no gap character,
-    /// stripping gap characters from all scaffolds and summing lengths recovers the total contig
-    /// length — no contig is lost or duplicated.
+    /// INV-1 (P): Every contig is placed exactly once. Contigs contain no gap character, so the
+    /// non-gap characters of all scaffolds equal the total contig length minus the collapsed
+    /// overlaps; an overlap is collapsed only for a negative estimate d, by −d bases (Jackman et al.
+    /// 2017; ABySS MergeContigs), so total − Σ(−d over negative links) ≤ stripped ≤ total; every
+    /// contig still occurs verbatim (forward links, agreeing overlap) in some scaffold.
     /// </summary>
     [FsCheck.NUnit.Property]
     public Property Scaffold_PlacesEachContigExactlyOnce()
@@ -685,8 +687,10 @@ public class AssemblyProperties
             var scaffolds = SequenceAssembler.Scaffold(contigs, links);
             long stripped = scaffolds.Sum(s => s.Count(ch => ch != 'N'));
             long total = contigs.Sum(c => (long)c.Length);
-            return (stripped == total)
-                .Label($"contig content {stripped} ≠ total {total} (contig lost or duplicated)");
+            long maxCollapsed = links.Where(l => l.Item3 < 0).Sum(l => -(long)l.Item3);
+            bool verbatim = contigs.All(c => scaffolds.Any(s => s.Contains(c)));
+            return (stripped <= total && stripped >= total - maxCollapsed && verbatim)
+                .Label($"contig content {stripped} vs total {total} (collapse ≤ {maxCollapsed}); verbatim={verbatim}");
         });
     }
 

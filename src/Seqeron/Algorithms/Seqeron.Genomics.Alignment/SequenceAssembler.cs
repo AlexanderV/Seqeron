@@ -1018,40 +1018,49 @@ public static class SequenceAssembler
     };
 
     /// <summary>
-    /// Default gap length, in characters, used when a paired-end link reports a non-positive
-    /// (zero, negative, or unknown) gap estimate. Negative estimates indicate the contigs should
-    /// overlap, but resolving that overlap is out of scope here, so a placeholder gap is emitted
-    /// instead. 100 is the GenBank/EMBL/DDBJ standard length for a gap of unknown size
-    /// (NCBI AGP Specification v2.1, §"Gaps": "use ... 100 as the gap size, since 100 is the
-    /// GenBank/EMBL/DDBJ standard for gaps of unknown size"; gap lengths must be positive).
+    /// Gap length, in characters, emitted when a link's distance estimate does not give a
+    /// representable positive gap: a zero estimate, or a negative estimate (= expected overlap)
+    /// whose overlap is not found in the sequences. 100 is the GenBank/EMBL/DDBJ standard length
+    /// for a gap of unknown size (NCBI AGP Specification v2.1, §"Gaps": "For negative gaps, or gaps
+    /// of unknown size, use U as the component_type and 100 as the gap size"; "Negative gaps and
+    /// gap lines with zero length are not valid").
     /// </summary>
     private const int UnknownGapLength = 100;
 
     /// <summary>
-    /// Joins ordered contigs into scaffolds using paired-end link information. Following the
-    /// scaffold construction of Jackman et al. (ABySS 2.0, Genome Research 2017), the contigs
-    /// along a link path are concatenated, "interspersed with gaps represented by a run of the
-    /// character <c>N</c>, whose length corresponds to the estimate of the distance between those
-    /// two contigs". Each link <c>(contig1, contig2, gapSize)</c> places <paramref name="contigs"/>
-    /// [contig2] immediately after [contig1] with a gap of <c>gapSize</c> copies of
-    /// <paramref name="gapCharacter"/> between them.
+    /// A scaffolding link (a mate-edge of the contig-mate-pair graph, Huson, Reinert &amp; Myers 2002):
+    /// in the scaffold, <see cref="Contig1"/> read in its own orientation (reverse complement when
+    /// <see cref="Contig1Reversed"/>) is followed, after <see cref="GapSize"/> characters, by
+    /// <see cref="Contig2"/> read in its orientation (reverse complement when
+    /// <see cref="Contig2Reversed"/>) — the ABySS distance-estimate notation <c>A+ B-,d</c>, and the
+    /// AGP <c>+</c>/<c>-</c> component orientation. The same link read from the other strand is
+    /// <c>Contig2(¬o2) → Contig1(¬o1)</c>, so a link joins one end of each contig.
     /// </summary>
-    /// <remarks>
-    /// Gap length: a positive <c>gapSize</c> emits exactly that many gap characters (Jackman et al.
-    /// 2017). A non-positive estimate (<c>gapSize ≤ 0</c>) is treated as a gap of unknown size: a
-    /// negative estimate indicates the contigs should overlap (Sahlin et al. 2012, "Improved gap
-    /// size estimation for scaffolding algorithms"; Jackman et al. 2017: "It is possible that the
-    /// distance estimate is negative, indicating that the two contigs should in fact overlap"), but
-    /// overlap resolution is out of scope here, so the GenBank/EMBL/DDBJ standard unknown-gap length
-    /// of <see cref="UnknownGapLength"/> characters is emitted (NCBI AGP Specification v2.1).
-    /// Each contig is placed into at most one scaffold; a link to an already-placed contig is
-    /// skipped (a contig cannot appear twice). Contigs not reached by any followed link start their
-    /// own single-contig scaffold, in ascending index order.
-    /// </remarks>
+    /// <param name="Contig1">Index of the left contig.</param>
+    /// <param name="Contig2">Index of the right contig.</param>
+    /// <param name="GapSize">Estimated distance between the two contigs; negative = expected overlap of −GapSize bases.</param>
+    /// <param name="Contig1Reversed">The left contig is placed reverse-complemented (<c>-</c>).</param>
+    /// <param name="Contig2Reversed">The right contig is placed reverse-complemented (<c>-</c>).</param>
+    /// <param name="Weight">Link support (number of mate pairs bundled into this edge, Huson et al. 2002 §2.2); at least 1.</param>
+    public readonly record struct ScaffoldLink(
+        int Contig1,
+        int Contig2,
+        int GapSize,
+        bool Contig1Reversed = false,
+        bool Contig2Reversed = false,
+        int Weight = 1);
+
+    /// <summary>
+    /// Joins contigs into scaffolds from forward-strand paired-end links
+    /// <c>(contig1, contig2, gapSize)</c> = "contig2 follows contig1 after gapSize characters".
+    /// Each tuple is a <see cref="ScaffoldLink"/> with both contigs forward and weight 1; see
+    /// <see cref="Scaffold(IReadOnlyList{string}, IReadOnlyList{ScaffoldLink}, char)"/> for the
+    /// greedy rule, gap/overlap handling and output order.
+    /// </summary>
     /// <param name="contigs">The contigs to scaffold, indexed by position; links reference these indices.</param>
-    /// <param name="links">Paired-end links: each <c>(contig1, contig2, gapSize)</c> orders contig2 after contig1 with the given gap estimate (in characters). Indices out of range are ignored.</param>
+    /// <param name="links">Links <c>(contig1, contig2, gapSize)</c>; out-of-range and self links are ignored.</param>
     /// <param name="gapCharacter">The character used to fill gaps between contigs (default <c>'N'</c>).</param>
-    /// <returns>The assembled scaffolds, one string per scaffold.</returns>
+    /// <returns>The scaffolds, one string per scaffold, ordered by their lowest contig index.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="contigs"/> or <paramref name="links"/> is null.</exception>
     public static IReadOnlyList<string> Scaffold(
         IReadOnlyList<string> contigs,
@@ -1061,63 +1070,230 @@ public static class SequenceAssembler
         ArgumentNullException.ThrowIfNull(contigs);
         ArgumentNullException.ThrowIfNull(links);
 
-        if (contigs.Count == 0) return Array.Empty<string>();
+        var oriented = new ScaffoldLink[links.Count];
+        for (int i = 0; i < links.Count; i++)
+            oriented[i] = new ScaffoldLink(links[i].contig1, links[i].contig2, links[i].gapSize);
+        return Scaffold(contigs, oriented, gapCharacter);
+    }
 
-        // Index the first usable forward link out of each contig (links to in-range, distinct
-        // contigs), preserving input order so the first declared link wins on ties.
-        var linkMap = new Dictionary<int, List<(int contig1, int contig2, int gapSize)>>();
-        foreach (var link in links)
+    /// <summary>
+    /// Orders and orients contigs into scaffolds with the greedy path-merging rule of Huson, Reinert
+    /// &amp; Myers (2002, J. ACM 49:603, Algorithm 5.1; the Bambus "most links first" greedy, Pop et al.
+    /// 2004), then spells each scaffold as the oriented contigs "interspersed with gaps represented by
+    /// a run of the character N, whose length corresponds to the estimate of the distance"
+    /// (Jackman et al. 2017, ABySS 2.0).
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Graph and greedy selection.</b> Each contig has two end nodes (5′, 3′); a link joins the
+    /// exit end of <c>Contig1</c> (3′ if forward, 5′ if reversed) to the entry end of <c>Contig2</c>
+    /// (5′ if forward, 3′ if reversed). Links are taken in descending <see cref="ScaffoldLink.Weight"/>
+    /// (ties: input order). A link is selected iff neither end node already carries a selected link
+    /// (every node is adjacent to at most two selected edges: its contig edge and one link) and the
+    /// two contigs lie on different selected paths (a link inside one path would close a cycle).
+    /// Rejected links are the conflicts: a second successor/predecessor at an end (branching), or a
+    /// cycle-closing link. Huson et al. would additionally try to interleave ("zipper") two paths
+    /// when the link hits a path interior, which needs per-link standard deviations to judge
+    /// happiness; links here carry none, so such a link is not used.</para>
+    /// <para><b>Orientation.</b> Each selected path is spelled from one terminal contig, every contig in
+    /// the orientation the links imply (reverse complement via the canonical Core helper). Of the two
+    /// readings (a path and its reverse complement) the one with more contigs forward is reported
+    /// (SSPACE reverses a scaffold that is wholly reverse-complemented); on a tie, the one with the
+    /// lowest-index contig forward. Forward-only links therefore spell forward scaffolds.</para>
+    /// <para><b>Gaps.</b> A positive estimate <c>d</c> emits <c>d</c> gap characters (Jackman et al.
+    /// 2017). A negative estimate means the contigs overlap by <c>−d</c> bases (Huson et al. 2002
+    /// §2.1; Jackman et al. 2017): as in ABySS <c>MergeContigs</c>, if the last <c>−d</c> bases placed
+    /// (since the previous gap) and the first <c>−d</c> bases of the next contig agree — equal
+    /// ignoring case, or one of them <c>N</c> — the overlap is collapsed with
+    /// <see cref="MergeContigs(string, string, int, bool)"/> (an <c>N</c> takes the other base).
+    /// Otherwise (no such overlap, overlap longer than a contig, or a zero estimate) the gap is of
+    /// unknown size and <see cref="UnknownGapLength"/> (100) gap characters are emitted (NCBI AGP
+    /// v2.1). ABySS falls back to a gapped overlap alignment and IUPAC-subset consensus before
+    /// giving up; those are not attempted here.</para>
+    /// <para><b>Output.</b> Every contig is placed in exactly one scaffold; contigs without a selected
+    /// link are singleton scaffolds. Scaffolds are listed by their lowest contig index.</para>
+    /// </remarks>
+    /// <param name="contigs">The contigs to scaffold, indexed by position; links reference these indices.</param>
+    /// <param name="links">Oriented, weighted links; out-of-range and self links are ignored.</param>
+    /// <param name="gapCharacter">The character used to fill gaps between contigs (default <c>'N'</c>).</param>
+    /// <returns>The scaffolds, one string per scaffold, ordered by their lowest contig index.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="contigs"/> or <paramref name="links"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A link has <see cref="ScaffoldLink.Weight"/> &lt; 1.</exception>
+    public static IReadOnlyList<string> Scaffold(
+        IReadOnlyList<string> contigs,
+        IReadOnlyList<ScaffoldLink> links,
+        char gapCharacter = 'N')
+    {
+        ArgumentNullException.ThrowIfNull(contigs);
+        ArgumentNullException.ThrowIfNull(links);
+        for (int i = 0; i < links.Count; i++)
         {
-            if (link.contig1 < 0 || link.contig1 >= contigs.Count) continue;
-            if (link.contig2 < 0 || link.contig2 >= contigs.Count) continue;
-            if (link.contig2 == link.contig1) continue;
-
-            if (!linkMap.TryGetValue(link.contig1, out var bucket))
-            {
-                bucket = new List<(int, int, int)>();
-                linkMap[link.contig1] = bucket;
-            }
-            bucket.Add(link);
+            if (links[i].Weight < 1)
+                throw new ArgumentOutOfRangeException(nameof(links), links[i].Weight,
+                    $"Link {i} has weight {links[i].Weight}; a link is supported by at least one mate pair.");
         }
 
-        var scaffolds = new List<string>();
-        var used = new HashSet<int>();
+        int n = contigs.Count;
+        if (n == 0) return Array.Empty<string>();
 
-        for (int i = 0; i < contigs.Count; i++)
+        // End node e = 2·contig + (0 = 5′/left, 1 = 3′/right). partner[e] = joined end node or −1.
+        var partner = new int[2 * n];
+        var joinGap = new int[2 * n];
+        Array.Fill(partner, -1);
+        var parent = new int[n];
+        for (int i = 0; i < n; i++) parent[i] = i;
+
+        int Find(int x)
         {
-            if (used.Contains(i)) continue;
+            while (parent[x] != x) x = parent[x] = parent[parent[x]];
+            return x;
+        }
 
-            var sb = new StringBuilder(contigs[i]);
-            used.Add(i);
+        // Huson et al. Algorithm 5.1: mate-edges in descending weight; stable on input order.
+        var order = Enumerable.Range(0, links.Count)
+            .OrderByDescending(i => links[i].Weight)
+            .ThenBy(i => i);
+        foreach (int li in order)
+        {
+            var link = links[li];
+            if ((uint)link.Contig1 >= (uint)n || (uint)link.Contig2 >= (uint)n || link.Contig1 == link.Contig2)
+                continue;
 
-            // Follow the link path from the current contig, appending each unplaced successor
-            // separated by a run of gap characters (Jackman et al. 2017 scaffold construction).
-            int current = i;
-            while (linkMap.TryGetValue(current, out var nextLinks))
-            {
-                int nextIndex = -1;
-                int gapSize = 0;
-                foreach (var link in nextLinks)
-                {
-                    if (used.Contains(link.contig2)) continue;
-                    nextIndex = link.contig2;
-                    gapSize = link.gapSize;
-                    break;
-                }
+            int exit = 2 * link.Contig1 + (link.Contig1Reversed ? 0 : 1);
+            int entry = 2 * link.Contig2 + (link.Contig2Reversed ? 1 : 0);
+            if (partner[exit] >= 0 || partner[entry] >= 0) continue;   // end already joined (branch)
+            int r1 = Find(link.Contig1), r2 = Find(link.Contig2);
+            if (r1 == r2) continue;                                      // same path (cycle)
 
-                if (nextIndex < 0) break;
+            partner[exit] = entry;
+            partner[entry] = exit;
+            joinGap[exit] = joinGap[entry] = link.GapSize;
+            parent[r1] = r2;
+        }
 
-                int gapLength = gapSize > 0 ? gapSize : UnknownGapLength;
-                sb.Append(gapCharacter, gapLength);
-                sb.Append(contigs[nextIndex]);
-                used.Add(nextIndex);
-                current = nextIndex;
-            }
+        var placed = new bool[n];
+        var scaffolds = new List<string>();
+        for (int lowest = 0; lowest < n; lowest++)
+        {
+            if (placed[lowest]) continue;
 
-            scaffolds.Add(sb.ToString());
+            // Walk to one terminal of lowest's path, then read the path from there.
+            var path = ReadScaffoldPath(TerminalOf(lowest, partner), partner);
+            int forward = path.Count(p => !p.Reversed);
+            bool flip = 2 * forward < path.Count
+                || (2 * forward == path.Count && path.First(p => p.Contig == lowest).Reversed);
+            if (flip) path = ReverseScaffoldPath(path);
+
+            foreach (var p in path) placed[p.Contig] = true;
+            scaffolds.Add(SpellScaffold(path, contigs, joinGap, gapCharacter));
         }
 
         return scaffolds;
+    }
+
+    private readonly record struct PlacedContig(int Contig, bool Reversed, int EntryEnd);
+
+    /// <summary>Follows the path from <paramref name="contig"/> to a contig with a free end.</summary>
+    private static int TerminalOf(int contig, int[] partner)
+    {
+        int current = contig;
+        int outEnd = 2 * contig;                       // leave through the 5′ end first
+        while (partner[outEnd] >= 0)
+        {
+            int entered = partner[outEnd];
+            current = entered / 2;
+            outEnd = entered ^ 1;                      // the other end of the contig just entered
+            if (current == contig) break;              // defensive: paths are acyclic by construction
+        }
+
+        return current;
+    }
+
+    /// <summary>Reads a path from a terminal contig, oriented so its free end comes first.</summary>
+    private static List<PlacedContig> ReadScaffoldPath(int terminal, int[] partner)
+    {
+        var path = new List<PlacedContig>();
+        int entryEnd = partner[2 * terminal] < 0 ? 2 * terminal : 2 * terminal + 1;
+        while (true)
+        {
+            int contig = entryEnd / 2;
+            path.Add(new PlacedContig(contig, Reversed: (entryEnd & 1) == 1, entryEnd));
+            int exitEnd = entryEnd ^ 1;
+            if (partner[exitEnd] < 0) break;
+            entryEnd = partner[exitEnd];
+        }
+
+        return path;
+    }
+
+    /// <summary>The same path read from the other strand: order reversed, every orientation flipped.</summary>
+    private static List<PlacedContig> ReverseScaffoldPath(List<PlacedContig> path)
+    {
+        var reversed = new List<PlacedContig>(path.Count);
+        for (int i = path.Count - 1; i >= 0; i--)
+            reversed.Add(new PlacedContig(path[i].Contig, !path[i].Reversed, path[i].EntryEnd ^ 1));
+        return reversed;
+    }
+
+    /// <summary>
+    /// Spells a path: positive gap → that many gap characters; negative gap with an agreeing overlap
+    /// → collapsed (ABySS MergeContigs); otherwise the AGP unknown-size gap of 100.
+    /// </summary>
+    private static string SpellScaffold(
+        List<PlacedContig> path, IReadOnlyList<string> contigs, int[] joinGap, char gapCharacter)
+    {
+        var sb = new StringBuilder();
+        int sinceGap = 0;                              // bases placed after the last gap run
+        for (int i = 0; i < path.Count; i++)
+        {
+            string seq = contigs[path[i].Contig] ?? string.Empty;
+            if (path[i].Reversed) seq = ReverseComplement(seq);
+
+            if (i == 0)
+            {
+                sb.Append(seq);
+                sinceGap = seq.Length;
+                continue;
+            }
+
+            int gap = joinGap[path[i].EntryEnd];
+            if (gap > 0)
+            {
+                sb.Append(gapCharacter, gap);
+                sb.Append(seq);
+                sinceGap = seq.Length;
+            }
+            else if (gap < 0 && -(long)gap <= Math.Min(sinceGap, seq.Length)
+                     && OverlapAgrees(sb, seq, -gap))
+            {
+                int overlap = -gap;
+                string tail = sb.ToString(sb.Length - overlap, overlap);
+                sb.Length -= overlap;
+                sb.Append(MergeContigs(tail, seq, overlap, resolveOverlapConflicts: true));
+                sinceGap += seq.Length - overlap;
+            }
+            else
+            {
+                sb.Append(gapCharacter, UnknownGapLength);
+                sb.Append(seq);
+                sinceGap = seq.Length;
+            }
+        }
+
+        return sb.ToString();
+    }
+
+    /// <summary>ABySS createConsensus agreement: equal ignoring case, or either base is N.</summary>
+    private static bool OverlapAgrees(StringBuilder placed, string next, int overlap)
+    {
+        int start = placed.Length - overlap;
+        for (int i = 0; i < overlap; i++)
+        {
+            char a = char.ToUpperInvariant(placed[start + i]);
+            char b = char.ToUpperInvariant(next[i]);
+            if (a != b && a != 'N' && b != 'N') return false;
+        }
+
+        return true;
     }
 
     /// <summary>
