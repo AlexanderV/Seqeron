@@ -5,7 +5,7 @@
 **Algorithm:** Relative Synonymous Codon Usage (RSCU)
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-13
+**Last Updated:** 2026-11-25
 
 ---
 
@@ -15,11 +15,13 @@
 
 | # | Source | Authority Rank | DOI or URL | Accessed |
 |---|--------|---------------|------------|----------|
-| 1 | Sharp & Li (1986), Nucleic Acids Research 14(19):7737–7749 | 1 | https://doi.org/10.1093/nar/14.19.7737 | 2026-06-13 |
+| 1 | Sharp, Tuohy & Mosurski (1986), Nucleic Acids Research 14(13):5125–5143 (RSCU definition; Sharp & Li 1986 NAR 14(19):7737 applies it) | 1 | https://doi.org/10.1093/nar/14.13.5125 | 2026-11-25 |
 | 2 | PMC2528880 — synonymous codon usage of begomoviruses | 1 | https://pmc.ncbi.nlm.nih.gov/articles/PMC2528880/ | 2026-06-13 |
 | 3 | LIRMM "RSCU RS" methods page (Rivals et al.) | 3 | https://www.lirmm.fr/~rivals/rscu/ | 2026-06-13 |
 | 4 | CodonU `internal_comp.py` `rscu` (reference impl) | 3 | https://github.com/SouradiptoC/CodonU/blob/master/CodonU/analyzer/internal_comp.py | 2026-06-13 |
 | 5 | NCBI Genetic Codes — Standard (transl_table=1) | 2 | https://www.ncbi.nlm.nih.gov/Taxonomy/Utils/wprintgc.cgi | 2026-06-13 |
+| 6 | CodonW 1.4.4 `codon_us.c` (`rscu_usage_out`, `ident_codon`; U read as T, genetic-code dependent, absent family 0.000) | 3 | archive.ubuntu.com `codonw_1.4.4.orig.tar.gz` | 2026-11-25 |
+| 7 | Biopython 1.88 `Bio.SeqUtils.CodonAdaptationIndex` (pooled counts, `forward_table` families) | 3 | installed package | 2026-11-25 |
 
 ### 1.2 Key Evidence Points
 
@@ -51,7 +53,7 @@
 |--------|-------|------|-------|
 | `GetCodonUsage(IEnumerable<string> codingSequences)` | GenomeAnnotator | Canonical | RSCU over Standard code; deep evidence-based testing |
 | `GetCodonUsage(IEnumerable<string> codingSequences, GeneticCode code)` | GenomeAnnotator | Delegate | Overload that lets caller pass a non-standard table; smoke only |
-| `GetCodonUsage(string dnaSequence)` | GenomeAnnotator | Internal | Pre-existing raw codon-count method; unchanged, not in scope for RSCU |
+| `GetCodonUsage(string dnaSequence)` | GenomeAnnotator | Delegate | Raw in-frame codon counts → canonical `Translator.CountCodons` (DNA/RNA, U read as T, ambiguous triplets skipped, frame kept); null → `ArgumentNullException` |
 
 ---
 
@@ -94,6 +96,18 @@
 |----|-----------|-------------|------------------|-------|
 | C1 | Null input | `GetCodonUsage((IEnumerable<string>)null!)` | throws ArgumentNullException | edge completeness |
 | C2 | Empty input | empty list (or all empty strings) | empty dictionary | edge completeness |
+
+### 4.4 Review 2026-09 (B11 F18) additions
+
+| ID | Test Case | Expected Outcome | Evidence |
+|----|-----------|------------------|----------|
+| R1 | RNA CDS `CUUCUUCUGUUA` | identical to M1 (CTT 3.0, CTG 1.5, TTA 1.5) | CodonW `ident_codon` (Source 6) |
+| R2 | `["AUGGCUGCAGCC","gcgNNNgcaUAA","GCTG"]`, table 11 | GCT 4/3, GCA 4/3, GCC 2/3, GCG 2/3, ATG 1, no TAA, 61 keys | Python CodonW port (exact fractions) |
+| R3 | `AGAAGGTAAATAATGTGATGG`, table 2 | ATA/ATG/TGA/TGG 1.0; AGA/AGG/TAA/TAG absent; 60 keys | CodonW `-code 1` output (Source 6) |
+| R4 | delegation | equals `CodonUsageAnalyzer.CalculateRscu(pooled counts, code)` without the '*' family | CODON-RSCU-001 |
+| R5 | `GetCodonUsage("AUGAAA")`; `"ATGNNNAAARTT"`; null | {ATG 1, AAA 1}; {ATG 1, AAA 1}; `ArgumentNullException` | Source 6; EMBOSS `ajCodSetTripletsS` |
+
+Oracle: 3,000 random pooled cases × all 27 NCBI tables (186,332 values) bit-identical to the Python CodonW port; Biopython `CodonAdaptationIndex` w 18,480/18,480 (Evidence).
 
 ---
 
@@ -177,11 +191,11 @@
 | # | Assumption | Used In |
 |---|-----------|---------|
 | 1 | Default genetic code = Standard (NCBI table 1) when none supplied (API default; overload accepts a `GeneticCode`) | default overload |
-| 2 | Whole-family zero count ⇒ RSCU 0.0 for each member (avoids /0; CAI 0.5 pseudocount NOT applied — CAI-only convention) | zero-family handling |
+| 2 | Whole-family zero count ⇒ RSCU 0.0 for each member (CodonW `rscu_usage_out` prints 0.000; CAI 0.5 pseudocount NOT applied — CAI-only convention) | zero-family handling |
 
 ---
 
 ## 7. Open Questions / Decisions
 
-1. Decision: keep the legacy `GetCodonUsage(string)` raw-count method unchanged for backward compatibility (used by MCP tools); add RSCU as a new overload taking the coding-sequence collection named in the Registry.
+1. Decision: keep the `GetCodonUsage(string)` raw-count method (used by MCP `codon_usage`); since review 2026-09 it delegates to `Translator.CountCodons` (RNA counted, U read as T).
 2. Decision: do not apply the CAI 0.5 pseudocount — it belongs to CAI (Sharp & Li 1987), not to plain RSCU (Source 4 distinguishes them).

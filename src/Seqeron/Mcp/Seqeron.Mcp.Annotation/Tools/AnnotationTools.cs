@@ -242,9 +242,9 @@ public class AnnotationTools
 
     /// <summary>Count codon occurrences in-frame.</summary>
     [McpServerTool(Name = "codon_usage", Title = "Annotation — Codon Usage", ReadOnly = true)]
-    [Description("Count codon occurrences (in-frame, 5'→3') for a coding sequence.")]
+    [Description("Count codon occurrences (in-frame from position 0, non-overlapping, 5'→3') for a coding sequence. DNA or RNA, case-insensitive: U is read as T and keys are upper-case DNA codons; a triplet with any other symbol (N, IUPAC code, gap) is skipped without shifting the frame; a partial trailing codon is ignored (CodonW / EMBOSS cusp convention).")]
     public static CodonUsageResult CodonUsage(
-        [Description("Coding DNA sequence (length should be a multiple of 3)")] string dnaSequence)
+        [Description("Coding DNA or RNA sequence (length should be a multiple of 3)")] string dnaSequence)
     {
         if (string.IsNullOrEmpty(dnaSequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(dnaSequence));

@@ -32,6 +32,9 @@
     <!-- MIRNA-TARGET-001 (PCT): reuse the validated PhyloNode tree + Newick parser for the
          Friedman 2009 branch-length-score (Bls) computation. -->
     <ProjectReference Include="..\Seqeron.Genomics.Phylogenetics\Seqeron.Genomics.Phylogenetics.csproj" />
+    <!-- ANNOT-CODONUSAGE-001: RSCU delegates to the canonical CodonUsageAnalyzer.CalculateRscu
+         (CODON-RSCU-001). Acyclic: MolTools references only Infrastructure, Core and Analysis. -->
+    <ProjectReference Include="..\Seqeron.Genomics.MolTools\Seqeron.Genomics.MolTools.csproj" />
   </ItemGroup>
 
   <ItemGroup>

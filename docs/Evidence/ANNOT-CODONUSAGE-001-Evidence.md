@@ -145,6 +145,45 @@ CDS = `ATGATG` → RSCU(ATG) = 1·2 / 2 = 1.0 (always 1.0 for n_i = 1).
 
 ---
 
+## Reference-implementation evidence (review 2026-09, B11)
+
+**Primary citation corrected.** RSCU (observed / expected under uniform synonymous usage, `n_i·x_ij/Σ_j x_ij`) was
+introduced by Sharp, Tuohy & Mosurski (1986) *Codon usage in yeast: cluster analysis clearly differentiates highly and
+lowly expressed genes*, Nucleic Acids Res. 14(13):5125-5143, doi:10.1093/nar/14.13.5125 (as cited by CodonW and in
+[CODON-RSCU-001-Evidence](CODON-RSCU-001-Evidence.md)); Sharp & Li (1986) NAR 14(19):7737 is an application of it.
+
+**Sources opened:**
+- CodonW 1.4.4 (Peden 1999), `codonw_1.4.4.orig.tar.gz` from archive.ubuntu.com, read (not built — building was refused
+  by the sandbox): `codon_us.c` `rscu_usage_out` prints `ncod[x]/naa[aa]·ds[x]` (= n·x/Σx) or `0.000` when the family is
+  absent; `ident_codon` maps T/t/U/u to one base, any other symbol → codon index 0 (not counted, frame kept); a partial
+  trailing codon is not counted. CodonW `-totals` pools all genes.
+- CodonU 1.1.2 wheel (PyPI), read: `internal_comp.rscu` pools codons over the reference list and reports
+  `unambiguous_dna_by_id[t].forward_table` codons only (no stops), with a 0.5 pseudocount for absent codons
+  (CAI convention — not used here). Running the package was refused by the sandbox; its formula is reproduced by the
+  oracle below.
+- Biopython 1.88 (installed): `Bio.SeqUtils.CodonAdaptationIndex(sequences, table)` pools counts, groups by
+  `forward_table`, w = x / max-family x (0.5 for absent codons; a codon that is both in `forward_table` and
+  `stop_codons` — TGA in tables 27/28 — is overwritten by the stop family).
+
+**Numerical cross-check (2026-11-25):**
+- Independent Python port of the CodonW definitions (U→T, ACGT triplets, frame 0, pooled, exact `Fraction`
+  `n·x/Σx`, 0 for an absent family, families = Biopython `forward_table` of every NCBI table) vs
+  `GetCodonUsage(IEnumerable<string>, GeneticCode)`: 3,000 cases (0–6 sequences of 0–400 nt over ACGT / ACGU /
+  lower-case / N / IUPAC+gap alphabets, all 27 NCBI tables, 600 skewed low-complexity cases with absent families) =
+  186,332 RSCU values, 0 mismatches, max |Δ| = 0 (bit-identical); key sets identical (sense codons = `forward_table`).
+  Counts `GetCodonUsage(string)`: 1,000 cases, 23,927 counts, 0 mismatches.
+- Biopython `CodonAdaptationIndex` (all 27 tables, 300 pooled sets of 1–4 random ACGT genes of 400–1,200 codons):
+  RSCU / max-family RSCU vs Biopython w = 18,480 values, 0 mismatches, max |Δ| = 2.2e-16 (139 values skipped by
+  design: families containing an unobserved codon, where Biopython applies 0.5, and the table 27/28 TGA overwrite).
+- Pre-fix code on the same 4,000 cases: 2,059/3,000 RSCU cases (66,230 values) and 551/1,000 count cases differ —
+  every difference is a U-containing triplet that was skipped (e.g. `GetCodonUsage("AUGAAA")` → {AAA: 1}).
+- Equality with the canonical `CodonUsageAnalyzer.CalculateRscu(counts, code)` (CODON-RSCU-001, itself locked to the
+  CodonW binary, 79,360 values) minus the '*' family holds by construction (delegation).
+- CodonW `-code 1` (NCBI table 2) output for `AGAAGGTAAATAATGTGATGG` (CODON-RSCU-001 Evidence): ATA/ATG 1.000,
+  TGA/TGG 1.000; AGA/AGG/TAA form the stop family → excluded here.
+
+---
+
 ## References
 
 1. Sharp P.M., Li W.-H. (1986). Codon usage in regulatory genes in Escherichia coli does not reflect selection for 'rare' codons. Nucleic Acids Research 14(19):7737–7749. https://doi.org/10.1093/nar/14.19.7737
@@ -158,3 +197,4 @@ CDS = `ATGATG` → RSCU(ATG) = 1·2 / 2 = 1.0 (always 1.0 for n_i = 1).
 ## Change History
 
 - **2026-06-13**: Initial documentation.
+- **2026-11-25** (review 2026-09, B11 F18): RNA input (U read as T), canonical delegation, CodonW / Biopython oracle, primary citation corrected.

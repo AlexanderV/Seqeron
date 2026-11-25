@@ -5,12 +5,12 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "GenomeAnnotator.GetCodonUsage",
-  "docRef": "Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L1101",
-  "description": "Count codon occurrences (in-frame, 5'->3') for a coding sequence.",
+  "docRef": "Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L1863",
+  "description": "Count codon occurrences (in-frame from position 0, non-overlapping, 5'->3') for a coding sequence. DNA or RNA, case-insensitive: U is read as T and keys are upper-case DNA codons; a triplet with any other symbol (N, IUPAC code, gap) is skipped without shifting the frame; a partial trailing codon is ignored (CodonW / EMBOSS cusp convention).",
   "inputSchema": {
     "type": "object",
     "properties": {
-      "dnaSequence": { "type": "string", "description": "Coding DNA sequence (length should be a multiple of 3)", "minLength": 1 }
+      "dnaSequence": { "type": "string", "description": "Coding DNA or RNA sequence (length should be a multiple of 3)", "minLength": 1 }
     },
     "required": ["dnaSequence"]
   },
@@ -34,6 +34,11 @@
       "name": "Partial trailing codon ignored",
       "input": { "dnaSequence": "ATGAT" },
       "output": { "usage": { "ATG": 1 } }
+    },
+    {
+      "name": "RNA input, ambiguous triplet skipped",
+      "input": { "dnaSequence": "AUGNNNAAA" },
+      "output": { "usage": { "ATG": 1, "AAA": 1 } }
     }
   ]
 }

@@ -4,9 +4,9 @@
 |-------|-------|
 | Algorithm Group | Annotation |
 | Test Unit ID | ANNOT-CODONUSAGE-001 |
-| Related Projects | Seqeron.Genomics.Annotation, Seqeron.Genomics.Core |
+| Related Projects | Seqeron.Genomics.Annotation, Seqeron.Genomics.Core, Seqeron.Genomics.MolTools |
 | Implementation Status | Production |
-| Last Reviewed | 2026-06-13 |
+| Last Reviewed | 2026-11-25 |
 
 ## 1. Overview
 
@@ -20,7 +20,7 @@ The standard genetic code is degenerate: 61 sense codons encode 20 amino acids, 
 
 ### 2.2 Core Model
 
-For an amino acid *i* with `n_i` synonymous codons, let `x_{i,j}` be the observed count of its *j*-th codon. The RSCU of that codon is [3] (originating with Sharp & Li 1986 [1]):
+For an amino acid *i* with `n_i` synonymous codons, let `x_{i,j}` be the observed count of its *j*-th codon. The RSCU of that codon is the observed count divided by the count expected under uniform synonymous usage [1][3]:
 
 ```
 RSCU_{i,j} = (n_i · x_{i,j}) / Σ_j x_{i,j}
@@ -44,7 +44,7 @@ where the denominator sums the observed counts over all `n_i` synonymous codons 
 
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
-| `codingSequences` | `IEnumerable<string>` | required | Coding (CDS) DNA sequences | Read in frame from index 0 in steps of 3; partial trailing codon ignored; only A/C/G/T codons counted; case-insensitive |
+| `codingSequences` | `IEnumerable<string>` | required | Coding (CDS) DNA or RNA sequences | Read in frame from index 0 in steps of 3; partial trailing codon ignored; case-insensitive; U read as T (CodonW `ident_codon` [6]); a triplet with any other symbol is skipped without shifting the frame |
 | `code` | `GeneticCode` | `GeneticCode.Standard` (table 1) | Genetic code defining synonymous families | non-null |
 
 ### 3.2 Output / Return Value
@@ -55,15 +55,15 @@ where the denominator sums the observed counts over all `n_i` synonymous codons 
 
 ### 3.3 Preconditions and Validation
 
-Null `codingSequences` or null `code` throw `ArgumentNullException`. Null/empty individual sequences are skipped. Input is uppercased (case-insensitive). Codons are read 0-based in non-overlapping triplets; a partial trailing codon (length not a multiple of 3) is ignored. The genetic-code table is RNA-keyed (U); DNA codons (T) are reconciled internally (T↔U). Stop codons are excluded. An entirely unobserved synonymous family yields RSCU 0.0 for each of its codons (no division by zero; the CAI 0.5 pseudocount is not applied — see 5.4).
+Null `codingSequences` or null `code` throw `ArgumentNullException`. Null/empty individual sequences are skipped. Input is case-insensitive DNA or RNA (U read as T); output keys are upper-case DNA. Codons are read 0-based in non-overlapping triplets; a partial trailing codon (length not a multiple of 3) is ignored; a triplet with N/IUPAC/gap is skipped without shifting the frame. Stop codons are excluded. An entirely unobserved synonymous family yields RSCU 0.0 for each of its codons (no division by zero; the CAI 0.5 pseudocount is not applied — see 5.4).
 
 ## 4. Algorithm
 
 ### 4.1 High-Level Steps
 
-1. Pool codon counts: for each coding sequence, step through in-frame triplets and tally A/C/G/T codons across all sequences [4].
-2. Build synonymous families: group the genetic code's sense codons by the amino acid they encode (stop codons excluded) [5].
-3. For each family compute the family total Σ_j x_{i,j} and set RSCU_{i,j} = n_i·x_{i,j}/Σ for each member (0.0 if the family total is 0) [3].
+1. Pool codon counts: for each coding sequence, count its in-frame codons with the canonical `Translator.CountCodons` and add them across all sequences [4][6].
+2. Compute RSCU with the canonical `CodonUsageAnalyzer.CalculateRscu(counts, code)` (CODON-RSCU-001): families = amino-acid groups of `code.CodonTable` (context-dependent stops of tables 27/28/31 in their amino-acid family), RSCU_{i,j} = n_i·x_{i,j}/Σ, 0.0 for an absent family [3][6].
+3. Drop the termination family ('*'): the output covers the sense codons only [4][5].
 
 ### 4.3 Complexity
 
@@ -79,17 +79,17 @@ Null `codingSequences` or null `code` throw `ArgumentNullException`. Null/empty 
 
 - `GenomeAnnotator.GetCodonUsage(IEnumerable<string>)`: RSCU over the Standard genetic code (NCBI table 1).
 - `GenomeAnnotator.GetCodonUsage(IEnumerable<string>, GeneticCode)`: RSCU over a caller-supplied genetic code.
-- `GenomeAnnotator.GetCodonUsage(string)`: pre-existing raw codon-count method (not RSCU); retained unchanged for backward compatibility.
+- `GenomeAnnotator.GetCodonUsage(string)`: raw in-frame codon counts (not RSCU); delegates to `Translator.CountCodons` (DNA/RNA, U read as T); null → `ArgumentNullException`.
 
 ### 5.2 Current Behavior
 
-Counts are pooled across the input collection before computing RSCU (transcriptome-wide RSCU), matching the reference implementation [4]. The genetic-code table from `Seqeron.Genomics.Core.GeneticCode` is RNA-keyed; each codon key is converted U→T so DNA inputs map correctly. No substring search is performed (this is a single linear in-frame scan), so the repository suffix tree is **not** applicable here.
+Counts are pooled across the input collection before computing RSCU (transcriptome-wide RSCU, CodonW `-totals`), matching the reference implementations [4][6]. No local codon splitter or RSCU loop remains: counting is `Translator.CountCodons` (Core) and the ratio is `CodonUsageAnalyzer.CalculateRscu` (MolTools); the result is that map without the stop family. Oracle (review 2026-09): 186,332 values over all 27 NCBI tables bit-identical to an independent CodonW port; Biopython `CodonAdaptationIndex` weights reproduced (Evidence). No substring search is performed (this is a single linear in-frame scan), so the repository suffix tree is **not** applicable here.
 
 ### 5.3 Conformance to Theory / Spec
 
 **Implemented (verbatim from the cited theory/spec):**
 
-- The RSCU formula RSCU = n_i·x/Σx exactly as stated [3] (Sharp & Li 1986 [1]).
+- The RSCU formula RSCU = n_i·x/Σx exactly as stated [1][3]; CodonW conventions (U = T, absent family 0) [6].
 - Sense-codon-only families with stop codons excluded [4][5].
 - Pooling of counts over the whole reference set [4].
 
@@ -105,7 +105,8 @@ Counts are pooled across the input collection before computing RSCU (transcripto
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
-| 1 | Empty synonymous family → RSCU 0.0 for each member | Assumption | Only affects amino acids with no observed codon; avoids division by zero | accepted | Base RSCU is undefined when Σ=0; reporting 0.0 (no preferred codon) keeps output total. CAI 0.5 pseudocount deliberately not used [4]. |
+| 1 | Empty synonymous family → RSCU 0.0 for each member | CodonW convention | Only affects amino acids with no observed codon; avoids division by zero | accepted | CodonW `rscu_usage_out` prints 0.000 [6]. CAI 0.5 pseudocount deliberately not used [4]; pseudocount RSCU is `CodonUsageAnalyzer.CalculateRscu(…, pseudocount)`. |
+| 3 | Stop family excluded | Convention | output = sense codons | accepted | CodonU / Biopython `forward_table` [4]; CodonW also prints the stop family — available from `CodonUsageAnalyzer.CalculateRscu` |
 | 2 | Default genetic code = Standard (table 1) | Assumption | API default; non-standard codes available via overload | accepted | Overload accepts a `GeneticCode` [5] |
 
 ## 6. Edge Cases and Limitations
@@ -123,7 +124,7 @@ Counts are pooled across the input collection before computing RSCU (transcripto
 
 ### 6.2 Limitations
 
-RSCU is computed only over A/C/G/T codons; codons containing ambiguity codes (N, IUPAC) are not counted. The metric describes within-family bias only and says nothing about absolute expression or amino-acid composition. For codon-adaptation scoring with pseudocounts, use a dedicated CAI implementation rather than this RSCU output.
+RSCU is computed only over unambiguous codons (A/C/G/T, U read as T); codons containing ambiguity codes (N, IUPAC) are not counted (CodonW, EMBOSS cusp). The metric describes within-family bias only and says nothing about absolute expression or amino-acid composition. For codon-adaptation scoring with pseudocounts, use a dedicated CAI implementation rather than this RSCU output.
 
 ## 7. Examples and Related Material
 
@@ -150,10 +151,11 @@ var rscu = GenomeAnnotator.GetCodonUsage(new[] { "CTTCTTCTGTTA" });
 
 ## 8. References
 
-1. Sharp P.M., Li W.-H. 1986. Codon usage in regulatory genes in Escherichia coli does not reflect selection for 'rare' codons. Nucleic Acids Research 14(19):7737–7749. https://doi.org/10.1093/nar/14.19.7737
+1. Sharp P.M., Tuohy T.M.F., Mosurski K.R. 1986. Codon usage in yeast: cluster analysis clearly differentiates highly and lowly expressed genes. Nucleic Acids Research 14(13):5125–5143. https://doi.org/10.1093/nar/14.13.5125 (applied in Sharp & Li 1986, NAR 14(19):7737–7749)
 2. Analysis of synonymous codon usage and evolution of begomoviruses. PMC2528880. https://pmc.ncbi.nlm.nih.gov/articles/PMC2528880/
 3. Rivals E. et al. RSCU RS: Measuring the bias in codon usage. LIRMM, Université de Montpellier. https://www.lirmm.fr/~rivals/rscu/
 4. SouradiptoC. CodonU, `CodonU/analyzer/internal_comp.py`, function `rscu`. https://github.com/SouradiptoC/CodonU/blob/master/CodonU/analyzer/internal_comp.py
 5. NCBI. The Genetic Codes — Standard Code (transl_table=1). https://www.ncbi.nlm.nih.gov/Taxonomy/Utils/wprintgc.cgi
+6. Peden J.F. 1999. CodonW 1.4.4, `codon_us.c` (`rscu_usage_out`, `ident_codon`).
 
 - Related algorithm: [Relative_Synonymous_Codon_Usage.md](../Codon/Relative_Synonymous_Codon_Usage.md) (CODON-RSCU-001 — canonical RSCU doc; this page covers the Annotation-side `GenomeAnnotator` computation of the same concept).

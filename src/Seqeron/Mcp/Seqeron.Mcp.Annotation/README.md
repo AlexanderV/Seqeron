@@ -39,7 +39,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `cluster_genes_by_expression` | Cluster genes by similarity of their expression profiles using a k-means-like procedure on Pearson correlation. |
 | `cluster_split_reads` | Cluster split reads into breakpoint candidates. |
 | `coding_potential` | Score the coding potential of a DNA sequence using the CPAT hexamer usage-bias log-likelihood (Wang et al. |
-| `codon_usage` | Count codon occurrences (in-frame, 5'→3') for a coding sequence. |
+| `codon_usage` | Count codon occurrences (in-frame, 5'→3') for a coding DNA or RNA sequence (U read as T, ambiguous triplets skipped). |
 | `compare_seed_regions` | Compare seed regions of two miRNAs and report Hamming-style match counts and seed-family identity. |
 | `cpat_coding_probability` | CPAT (Wang et al. 2013): ORF candidates scored by transcript length, ORF length, Fickett TESTCODE and hexamer score; logistic coding probability. |
 | `cpg_observed_expected` | Compute CpG observed/expected ratio for a sequence. |

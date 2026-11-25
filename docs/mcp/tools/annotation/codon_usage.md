@@ -14,20 +14,21 @@ Count codon occurrences (in-frame, 5'→3') for a coding sequence.
 
 ## Description
 
-Counts codon occurrences in a coding DNA sequence. The sequence is read in frame from position 0 in
-non-overlapping 3-nt windows; only codons over the alphabet A/C/G/T are counted, input is
-uppercased, and any partial trailing codon is ignored. Returns a map from each observed codon to its
-occurrence count.
+Counts codon occurrences in a coding DNA or RNA sequence. The sequence is read in frame from position 0 in
+non-overlapping 3-nt windows (canonical `Translator.CountCodons`). Input is case-insensitive and U is read
+as T (CodonW `ident_codon`), so keys are upper-case DNA codons; a triplet containing any other symbol
+(N, IUPAC ambiguity code, gap) is skipped without shifting the frame (EMBOSS `ajCodSetTripletsS`), and a
+partial trailing codon is ignored. Returns a map from each observed codon to its occurrence count.
 
 ## Core Documentation Reference
 
-- Source: [GenomeAnnotator.cs#L1101](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L1101)
+- Source: [GenomeAnnotator.cs#L1863](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L1863)
 
 ## Input Schema
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `dnaSequence` | string | Yes | Coding DNA sequence (length should be a multiple of 3) |
+| `dnaSequence` | string | Yes | Coding DNA or RNA sequence (length should be a multiple of 3) |
 
 ## Output Schema
 
@@ -59,6 +60,15 @@ occurrence count.
 **Response:**
 ```json
 { "usage": { "ATG": 1 } }
+```
+
+### Example 3: RNA input, ambiguous triplet skipped
+
+`AUGNNNAAA` → `AUG` is read as `ATG`, `NNN` is skipped, the frame is kept.
+
+**Response:**
+```json
+{ "usage": { "ATG": 1, "AAA": 1 } }
 ```
 
 ## Performance

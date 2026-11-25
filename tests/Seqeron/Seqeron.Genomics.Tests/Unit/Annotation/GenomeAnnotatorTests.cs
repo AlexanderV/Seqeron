@@ -106,5 +106,29 @@ public class GenomeAnnotatorTests
         Assert.That(usage["ATG"], Is.EqualTo(3));
     }
 
+    // B11 F18 / B03 A35: RNA codons are counted (CodonW ident_codon: U read as T); old code returned {AAA: 1}.
+    [Test]
+    public void GetCodonUsage_RnaInput_UReadAsT()
+    {
+        var usage = GenomeAnnotator.GetCodonUsage("AUGAAA");
+
+        Assert.That(usage, Is.EquivalentTo(new Dictionary<string, int> { ["ATG"] = 1, ["AAA"] = 1 }));
+    }
+
+    // Ambiguous triplet skipped without shifting the frame (EMBOSS ajCodSetTripletsS).
+    [Test]
+    public void GetCodonUsage_AmbiguousTriplet_SkippedFrameKept()
+    {
+        var usage = GenomeAnnotator.GetCodonUsage("ATGNNNAAARTT");
+
+        Assert.That(usage, Is.EquivalentTo(new Dictionary<string, int> { ["ATG"] = 1, ["AAA"] = 1 }));
+    }
+
+    [Test]
+    public void GetCodonUsage_NullSequence_ThrowsArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => GenomeAnnotator.GetCodonUsage((string)null!));
+    }
+
     #endregion
 }

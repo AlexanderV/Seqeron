@@ -1851,28 +1851,23 @@ public static class GenomeAnnotator
             : UnknownClass;
 
     /// <summary>
-    /// Calculates codon usage statistics for a sequence.
+    /// Counts the complete, unambiguous in-frame codons of a coding sequence (frame 0, non-overlapping
+    /// triplets). Delegates to the canonical counter <see cref="Translator.CountCodons(string?, int)"/>:
+    /// case-insensitive DNA or RNA (U read as T, CodonW <c>ident_codon</c>), keys in upper-case DNA
+    /// spelling, triplets containing any other symbol (N, IUPAC codes, gaps) skipped without shifting the
+    /// frame, a trailing partial triplet ignored (EMBOSS <c>ajCodSetTripletsS</c>).
     /// </summary>
+    /// <param name="dnaSequence">Coding DNA or RNA sequence.</param>
+    /// <returns>Codon (upper-case DNA) → occurrence count; codons that do not occur are absent.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="dnaSequence"/> is null.</exception>
     public static IReadOnlyDictionary<string, int> GetCodonUsage(string dnaSequence)
     {
-        var usage = new Dictionary<string, int>();
-        string seq = dnaSequence.ToUpperInvariant();
-
-        for (int i = 0; i <= seq.Length - 3; i += 3)
-        {
-            string codon = seq.Substring(i, 3);
-            if (codon.All(c => "ACGT".Contains(c)))
-            {
-                usage[codon] = usage.GetValueOrDefault(codon, 0) + 1;
-            }
-        }
-
-        return usage;
+        ArgumentNullException.ThrowIfNull(dnaSequence);
+        return Translator.CountCodons(dnaSequence);
     }
 
-    // RSCU is defined only over sense codons; codons encoding this character in the
-    // genetic-code table are stop codons and are excluded (CodonU uses forward_table,
-    // i.e. sense codons only — SouradiptoC/CodonU internal_comp.py `rscu`).
+    // RSCU is reported over sense codons only; the termination family ('*' in the genetic-code
+    // table) is dropped (CodonU `rscu` iterates Biopython forward_table; codonbias ignore_stop=True).
     private const char StopCodonSymbol = '*';
 
     // A codon is exactly three nucleotides.
@@ -1880,21 +1875,23 @@ public static class GenomeAnnotator
 
     /// <summary>
     /// Computes the Relative Synonymous Codon Usage (RSCU) over a set of coding
-    /// (DNA) sequences using the Standard genetic code (NCBI translation table 1).
+    /// sequences using the Standard genetic code (NCBI translation table 1).
     /// </summary>
     /// <remarks>
-    /// RSCU for codon <c>j</c> of amino acid <c>i</c> is
-    /// <c>RSCU = n_i · x_(i,j) / Σ_j x_(i,j)</c>, where <c>n_i</c> is the number of
-    /// synonymous codons for amino acid <c>i</c> and <c>x_(i,j)</c> is the observed
-    /// count of codon <c>j</c> (Sharp &amp; Li 1986, NAR 14(19):7737–7749). An RSCU of
+    /// RSCU for codon <c>j</c> of amino acid <c>i</c> is the observed count divided by the count
+    /// expected under uniform synonymous usage, <c>RSCU = x_(i,j) / ((1/n_i) Σ_j x_(i,j)) = n_i · x_(i,j) / Σ_j x_(i,j)</c>,
+    /// where <c>n_i</c> is the number of synonymous codons for amino acid <c>i</c> (Sharp, Tuohy &amp;
+    /// Mosurski 1986, Nucleic Acids Res. 14(13):5125–5143; CodonW <c>rscu_usage_out</c>). An RSCU of
     /// 1.0 indicates no codon bias; values above 1 indicate a preferred codon.
-    /// Codon counts are pooled across all input sequences before the RSCU is computed.
-    /// Stop codons are excluded; an unobserved synonymous family yields RSCU 0.0 for
-    /// each of its codons (the CAI 0.5 pseudocount is intentionally not applied).
+    /// Codon counts are pooled across all input sequences before the RSCU is computed (CodonW
+    /// <c>-totals</c>, CodonU <c>rscu</c>). Stop codons are excluded; an unobserved synonymous family
+    /// yields RSCU 0.0 for each of its codons (CodonW prints 0.000; the CAI 0.5 pseudocount is not applied).
+    /// Computed by the canonical <c>CodonUsageAnalyzer.CalculateRscu(counts, code)</c> (MolTools).
     /// </remarks>
-    /// <param name="codingSequences">The coding (CDS) DNA sequences. Read in frame
-    /// from position 0 in steps of three; a partial trailing codon is ignored. Only
-    /// codons over the alphabet A/C/G/T are counted.</param>
+    /// <param name="codingSequences">The coding (CDS) sequences, DNA or RNA, case-insensitive. Each is read
+    /// in frame from position 0 in steps of three as by <see cref="GetCodonUsage(string)"/> (U read as T,
+    /// triplets with other symbols skipped without shifting the frame, partial trailing codon ignored);
+    /// null or empty elements are skipped.</param>
     /// <returns>A dictionary from each sense codon (uppercase DNA) to its RSCU value.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="codingSequences"/> is null.</exception>
     public static IReadOnlyDictionary<string, double> GetCodonUsage(IEnumerable<string> codingSequences)
@@ -1902,14 +1899,20 @@ public static class GenomeAnnotator
 
     /// <summary>
     /// Computes the Relative Synonymous Codon Usage (RSCU) over a set of coding
-    /// (DNA) sequences using the supplied genetic code.
+    /// sequences using the supplied genetic code ("RSCU values are genetic code dependent", CodonW).
     /// </summary>
-    /// <param name="codingSequences">The coding (CDS) DNA sequences (see the
-    /// Standard-code overload for framing and alphabet rules).</param>
+    /// <remarks>
+    /// Synonymous families are the amino-acid groups of <see cref="GeneticCode.CodonTable"/>; codons that
+    /// are context-dependent stops in NCBI tables 27/28/31 belong to the amino acid they encode
+    /// (Biopython <c>forward_table</c>). See <see cref="GetCodonUsage(IEnumerable{string})"/>.
+    /// </remarks>
+    /// <param name="codingSequences">The coding (CDS) sequences (see the Standard-code overload for
+    /// framing and alphabet rules).</param>
     /// <param name="code">The genetic code defining synonymous codon families.</param>
     /// <returns>A dictionary from each sense codon (uppercase DNA) to its RSCU value.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="codingSequences"/> or
     /// <paramref name="code"/> is null.</exception>
+    /// <exception cref="OverflowException">The pooled count of one codon exceeds <see cref="int.MaxValue"/>.</exception>
     public static IReadOnlyDictionary<string, double> GetCodonUsage(
         IEnumerable<string> codingSequences,
         GeneticCode code)
@@ -1917,53 +1920,21 @@ public static class GenomeAnnotator
         ArgumentNullException.ThrowIfNull(codingSequences);
         ArgumentNullException.ThrowIfNull(code);
 
-        // Pool observed counts across all coding sequences (CodonU pools the whole
-        // reference set before computing RSCU).
-        var counts = new Dictionary<string, long>();
+        // Pool observed counts across all coding sequences (canonical Core codon counter).
+        var counts = new Dictionary<string, int>();
         foreach (string sequence in codingSequences)
         {
-            if (string.IsNullOrEmpty(sequence)) continue;
-            string seq = sequence.ToUpperInvariant();
-            for (int i = 0; i <= seq.Length - CodonLength; i += CodonLength)
-            {
-                string codon = seq.Substring(i, CodonLength);
-                if (codon.All(c => "ACGT".Contains(c)))
-                {
-                    counts[codon] = counts.GetValueOrDefault(codon, 0) + 1;
-                }
-            }
+            foreach (var (codon, count) in Translator.CountCodons(sequence))
+                counts[codon] = checked(counts.GetValueOrDefault(codon) + count);
         }
 
-        // Group sense codons by the amino acid they encode (the synonymous families).
-        // GeneticCode.CodonTable is keyed by RNA codons, so convert DNA T -> U.
-        var familyByAminoAcid = new Dictionary<char, List<string>>();
-        foreach (KeyValuePair<string, char> entry in code.CodonTable)
+        // Canonical RSCU (n·x/Σx over the code's synonymous families, 0 for an absent family),
+        // restricted to the sense codons.
+        var rscu = Seqeron.Genomics.MolTools.CodonUsageAnalyzer.CalculateRscu(counts, code);
+        foreach (var (codonRna, aminoAcid) in code.CodonTable)
         {
-            if (entry.Value == StopCodonSymbol) continue; // sense codons only
-            string dnaCodon = entry.Key.Replace('U', 'T');
-            if (!familyByAminoAcid.TryGetValue(entry.Value, out List<string>? family))
-            {
-                family = new List<string>();
-                familyByAminoAcid[entry.Value] = family;
-            }
-            family.Add(dnaCodon);
-        }
-
-        var rscu = new Dictionary<string, double>();
-        foreach (List<string> family in familyByAminoAcid.Values)
-        {
-            int nI = family.Count; // number of synonymous codons for this amino acid
-            long familyTotal = 0;
-            foreach (string codon in family)
-                familyTotal += counts.GetValueOrDefault(codon, 0);
-
-            foreach (string codon in family)
-            {
-                long x = counts.GetValueOrDefault(codon, 0);
-                // RSCU = n_i * x / Σ(synonymous counts); an unobserved family (total 0)
-                // yields 0.0 for every member (no preferred codon).
-                rscu[codon] = familyTotal == 0 ? 0.0 : (double)nI * x / familyTotal;
-            }
+            if (aminoAcid == StopCodonSymbol)
+                rscu.Remove(codonRna.Replace('U', 'T'));
         }
 
         return rscu;

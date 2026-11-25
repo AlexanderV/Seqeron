@@ -1,9 +1,10 @@
 // ANNOT-CODONUSAGE-001 — Relative Synonymous Codon Usage (RSCU)
 // Evidence: docs/Evidence/ANNOT-CODONUSAGE-001-Evidence.md
 // TestSpec: tests/TestSpecs/ANNOT-CODONUSAGE-001.md
-// Source: Sharp PM, Li W-H (1986). Nucleic Acids Res 14(19):7737-7749. https://doi.org/10.1093/nar/14.19.7737
-//         Formula (verbatim): RSCU = n_i * x_ij / Σ_j x_ij — https://www.lirmm.fr/~rivals/rscu/
-//         Reference impl: SouradiptoC/CodonU internal_comp.py `rscu` (sense codons only, pooled counts).
+// Source: Sharp PM, Tuohy TMF, Mosurski KR (1986). Nucleic Acids Res 14(13):5125-5143. https://doi.org/10.1093/nar/14.13.5125
+//         Formula: RSCU = x_ij / ((1/n_i) Σ_j x_ij) = n_i * x_ij / Σ_j x_ij — https://www.lirmm.fr/~rivals/rscu/
+//         Reference impls: CodonW 1.4.4 codon_us.c `rscu_usage_out` / `ident_codon` (U read as T, genetic-code
+//         dependent families, absent family 0.000); CodonU internal_comp.py `rscu` (sense codons only, pooled counts).
 
 namespace Seqeron.Genomics.Tests.Unit.Annotation;
 
@@ -197,6 +198,80 @@ public class GenomeAnnotator_GetCodonUsage_Tests
             Assert.That(explicitResult["CTG"], Is.EqualTo(defaultResult["CTG"]).Within(1e-10),
                 "Explicit Standard-code overload delegates to the same computation.");
         });
+    }
+
+    #endregion
+
+    #region Review 2026-09 (B11 F18) — RNA input, ambiguous triplets, genetic code
+
+    // F18 — RNA CDS: CodonW ident_codon reads U as T, so the RNA spelling of M1 gives the M1 values.
+    // Old code skipped every U-containing triplet ⇒ the Leu family was unobserved (all 0).
+    [Test]
+    public void GetCodonUsage_RnaCodingSequence_UReadAsT_MatchesDnaWorkedExample()
+    {
+        var rscu = GenomeAnnotator.GetCodonUsage(new[] { "CUUCUUCUGUUA" });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rscu["CTT"], Is.EqualTo(3.0).Within(1e-12));
+            Assert.That(rscu["CTG"], Is.EqualTo(1.5).Within(1e-12));
+            Assert.That(rscu["TTA"], Is.EqualTo(1.5).Within(1e-12));
+            Assert.That(rscu["TTG"], Is.EqualTo(0.0));
+            Assert.That(rscu.Keys, Has.None.Contains("U"), "keys are upper-case DNA spelling");
+        });
+    }
+
+    // F18 — mixed DNA/RNA, lower case, an NNN triplet (skipped without shifting the frame), a stop, a
+    // partial trailing codon; table 11. Oracle (independent Python CodonW port, exact fractions):
+    // pooled Ala GCT 2, GCA 2, GCC 1, GCG 1 (Σ 6, n 4) ⇒ 4/3, 4/3, 2/3, 2/3; Met ATG 1 ⇒ 1; TAA absent.
+    [Test]
+    public void GetCodonUsage_MixedDnaRnaAmbiguousPooled_MatchesCodonWOracle()
+    {
+        var rscu = GenomeAnnotator.GetCodonUsage(
+            new[] { "AUGGCUGCAGCC", "gcgNNNgcaUAA", "GCTG" }, GeneticCode.GetByTableNumber(11));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rscu["GCT"], Is.EqualTo(4.0 / 3.0).Within(1e-15));
+            Assert.That(rscu["GCA"], Is.EqualTo(4.0 / 3.0).Within(1e-15));
+            Assert.That(rscu["GCC"], Is.EqualTo(2.0 / 3.0).Within(1e-15));
+            Assert.That(rscu["GCG"], Is.EqualTo(2.0 / 3.0).Within(1e-15));
+            Assert.That(rscu["ATG"], Is.EqualTo(1.0));
+            Assert.That(rscu.ContainsKey("TAA"), Is.False);
+            Assert.That(rscu, Has.Count.EqualTo(61));
+        });
+    }
+
+    // Genetic-code dependence (CodonW -code 1 = NCBI table 2, vertebrate mitochondrial), CodonW 1.4.4 output for
+    // AGAAGGTAAATAATGTGATGG: ATA/ATG 1.000 (Met, n 2), TGA/TGG 1.000 (Trp, n 2); AGA/AGG/TAA are stops (excluded).
+    [Test]
+    public void GetCodonUsage_VertebrateMitochondrialCode_MatchesCodonWAndExcludesItsStops()
+    {
+        var rscu = GenomeAnnotator.GetCodonUsage(new[] { "AGAAGGTAAATAATGTGATGG" }, GeneticCode.GetByTableNumber(2));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rscu["ATA"], Is.EqualTo(1.0));
+            Assert.That(rscu["ATG"], Is.EqualTo(1.0));
+            Assert.That(rscu["TGA"], Is.EqualTo(1.0));
+            Assert.That(rscu["TGG"], Is.EqualTo(1.0));
+            Assert.That(rscu.Keys, Has.None.AnyOf("AGA", "AGG", "TAA", "TAG"));
+            Assert.That(rscu, Has.Count.EqualTo(60), "table 2 has 60 sense codons");
+        });
+    }
+
+    // Delegation: equals the canonical CodonUsageAnalyzer.CalculateRscu over the pooled counts minus the stop family.
+    [Test]
+    public void GetCodonUsage_EqualsCanonicalCalculateRscuWithoutStopFamily()
+    {
+        string[] cds = { "ATGGCTGCTAAACTGCTGCTTTAA", "auggcaaagcuguga" };
+        var code = GeneticCode.GetByTableNumber(4);
+        var pooled = Seqeron.Genomics.MolTools.CodonUsageAnalyzer.CountCodons(string.Concat(cds[0], cds[1].ToUpperInvariant()));
+        var expected = Seqeron.Genomics.MolTools.CodonUsageAnalyzer.CalculateRscu(pooled, code)
+            .Where(kv => code.CodonTable[kv.Key.Replace('T', 'U')] != '*')
+            .ToDictionary(kv => kv.Key, kv => kv.Value);
+
+        Assert.That(GenomeAnnotator.GetCodonUsage(cds, code), Is.EquivalentTo(expected));
     }
 
     #endregion
