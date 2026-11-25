@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "assign_targetscan_utr_bin",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MiRnaAnalyzer.AssignTargetScanUtrBin",
+  "docRef": "Seqeron.Genomics.Annotation/MiRnaAnalyzer.TargetScanConservation.cs#L459",
+  "description": "TargetScan 7.0 3'UTR conservation bin 1-10 from a multi-species alignment (targetscan_70_BL_bins.pl).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "alignedUtrs": {
+        "type": "object",
+        "description": "Species identifier → aligned 3'UTR ('-' gaps)"
+      },
+      "referenceSpecies": {
+        "type": "string",
+        "description": "Reference species, default `9606`; must be a leaf of the tree"
+      },
+      "newick": {
+        "type": "string",
+        "description": "Optional Newick tree; default bundled generic tree"
+      }
+    },
+    "required": [
+      "alignedUtrs"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "bin": {
+        "type": "integer",
+        "description": "Bin 1-10"
+      },
+      "medianBranchLength": {
+        "type": "number",
+        "description": "Median per-position branch length (null when the reference row has no nucleotide)"
+      },
+      "binThresholds": {
+        "type": "array",
+        "items": {
+          "type": "number"
+        },
+        "description": "The 10 bin lower bounds (0, 1.21207417, …, 5.78196252)"
+      }
+    },
+    "required": [
+      "bin",
+      "medianBranchLength",
+      "binThresholds"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "alignedUtrs cannot be null or empty"
+    },
+    {
+      "code": 1001,
+      "message": "referenceSpecies cannot be null or empty"
+    },
+    {
+      "code": 1001,
+      "message": "The alignment has no row for the reference species"
+    },
+    {
+      "code": 1001,
+      "message": "Invalid Newick tree"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Example 1",
+      "input": {
+        "alignedUtrs": {
+          "9606": "ACGUACGUAC-GUACGUACGU",
+          "9598": "NCG-ACNUA--GNAC-UANGU",
+          "9544": "NCGUNCGUNC-GNACGNACGN",
+          "10090": "NCGUA-GUAC-GUAC-UACGN",
+          "10116": "ncguacnuac-gnacguangu",
+          "9913": "NCGUACG-AC-GUANGUACGU",
+          "9615": "NCGUACGUNC-GUACGNACGU",
+          "9031": "NCGUACGUA--GUACGUANGU",
+          "8364": "NCGUACGUAC-GUACGUACGN",
+          "7897": "NCGUACGUAC--",
+          "99999": "NCGUACGUAC-GNACGUACGU"
+        }
+      },
+      "output": {
+        "bin": 3,
+        "medianBranchLength": 2.55195311,
+        "binThresholds": "[10 values]"
+      }
+    }
+  ]
+}

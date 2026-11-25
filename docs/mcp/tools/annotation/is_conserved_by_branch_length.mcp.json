@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "is_conserved_by_branch_length",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MiRnaAnalyzer.IsConservedByBranchLength",
+  "docRef": "Seqeron.Genomics.Annotation/MiRnaAnalyzer.cs#L2450",
+  "description": "TargetScan 'Conserved' call: Bls ≥ the site-type threshold (human or mouse tree).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "branchLengthScore": {
+        "type": "number",
+        "description": "Bls ≥ 0"
+      },
+      "siteType": {
+        "type": "string",
+        "description": "Seed8mer, Seed7merM8, Seed7merA1, Seed6mer, Offset6mer"
+      },
+      "thresholds": {
+        "type": "string",
+        "description": "TargetScanHuman7 (default) or TargetScanMouse7"
+      }
+    },
+    "required": [
+      "branchLengthScore",
+      "siteType"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "conserved": {
+        "type": "boolean",
+        "description": "Conserved call"
+      },
+      "threshold": {
+        "type": "number",
+        "description": "Threshold applied"
+      }
+    },
+    "required": [
+      "conserved",
+      "threshold"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Unknown siteType"
+    },
+    {
+      "code": 1001,
+      "message": "Unknown thresholds"
+    },
+    {
+      "code": 1001,
+      "message": "Branch-length score must be a finite value ≥ 0"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Example 1",
+      "input": {
+        "branchLengthScore": 1.8,
+        "siteType": "Seed8mer"
+      },
+      "output": {
+        "conserved": true,
+        "threshold": 1.8
+      }
+    }
+  ]
+}
