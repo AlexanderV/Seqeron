@@ -52,6 +52,12 @@ internal sealed record SesaBuildOptions
     /// <summary>Write the optional PSI section (kind 12, <c>REQUIRED</c> clear). The cost is one more pass over the suffix array and the text, a scratch BWT of 1 B/char and 4 B/char in the file.</summary>
     internal bool IncludePsi { get; init; } = true;
 
+    /// <summary>
+    /// Write the optional RMQ section (kind 9, <c>REQUIRED</c> clear; work package S2.5): the LCP pyramid of the navigation pack (fanout 32, 0.13 bytes per character), so that a reader serves <c>Parent</c>, <c>SuffixLink</c>, <c>Lcp</c> and <c>Lca</c>
+    /// without building it. The cost is one sequential pass over the LCP section after PH5. Off by default, and a container built without it is byte for byte the container of S1; not combined with <see cref="Resume"/>.
+    /// </summary>
+    internal bool IncludeRmq { get; init; }
+
     /// <summary>X of the difference cover (nominal; a Singer period nearby is used unless <see cref="ExactPeriod"/>: 993 for the default 1024).</summary>
     internal int Period { get; init; } = 1024;
 
@@ -358,7 +364,8 @@ internal static class SesaBuilder
         Hook(SesaHooks.Scanned);
         options.BetweenPasses?.Invoke();
         ChildCodec childCodec = ChildCodecFor(n, options.ChildCodec);
-        SesaPlan plan = SesaLayout.Plan(info, options.IncludePsi);
+        if (options.IncludeRmq && options.Resume) throw new ArgumentException("the RMQ section is not written by a resumable build (the stage records know nothing of it)", nameof(options));
+        SesaPlan plan = SesaLayout.Plan(info, options.IncludePsi, options.IncludeRmq);
         SesaResumeRun? run = options.Resume ? SesaResumeRun.Load(options, tmp, scratch, info, plan, childCodec, counters) : null;
         bool resumed = run?.Accepted == true;
         long need = plan.ReservedLength + (ScratchBytesPerChar * n);
@@ -513,6 +520,13 @@ internal static class SesaBuilder
                     rssPh6 = ph6.Stop();
                     primaryRow = bwt.PrimaryRow;
                 }
+            }
+
+            // ---- the RMQ section (optional, S2.5): the pyramid of the LCP section, one sequential pass over it, into its section
+            if (placed.RmqLength > 0)
+            {
+                uint[] levels = RmqWriter.Build(tmp, placed.Kind, plan.LcpOffset, n + 1, placed.OverflowOffset, placed.OverflowCount, counters);
+                WriteSection(container, placed.RmqOffset, levels, options.TextWindowBytes, counters);
             }
 
             // ---- PH7: BUILD_INFO, the checksums, the header page, the atomic publication
@@ -772,6 +786,7 @@ internal static class SesaBuilder
         list.Add((SesaFormat.KindBuildInfo, plan.BuildInfoOffset, infoLength));
         list.Add((SesaFormat.KindLcp, plan.LcpOffset, tail.LcpLength));
         if (tail.OverflowCount > 0) list.Add((SesaFormat.KindLcpOverflow, tail.OverflowOffset, tail.OverflowLength));
+        if (tail.RmqLength > 0) list.Add((SesaFormat.KindRmq, tail.RmqOffset, tail.RmqLength));
         return [.. list];
     }
 
@@ -795,6 +810,7 @@ internal static class SesaBuilder
                 SesaFormat.KindBuildInfo => new SesaSection(kind, optional, offset, length, buildInfo.Count(c => c == '\n'), 0, 1, 0, 0, crcs[i]),
                 SesaFormat.KindLcp => new SesaSection(kind, required, offset, length, rows, tail.LcpWidth, tail.Kind switch { LcpKind.U8 => 1, LcpKind.U16 => 2, _ => 3 }, tail.OverflowCount, 0, crcs[i]),
                 SesaFormat.KindLcpOverflow => new SesaSection(kind, required, offset, length, tail.OverflowCount, 8, 1, 0, 0, crcs[i]),
+                SesaFormat.KindRmq => new SesaSection(kind, optional, offset, length, length / 4, 4, 1, SesaFormat.RmqFanout, 0, crcs[i]),
                 _ => throw new InvalidOperationException($"unknown section kind {kind}"),
             };
         }

@@ -15,6 +15,9 @@ internal sealed record SesaPlan
 
     internal bool Psi { get; init; }
 
+    /// <summary>Whether the RMQ section is written (the pyramid of the navigation pack, placed behind the LCP sections; work package S2.5).</summary>
+    internal bool Rmq { get; init; }
+
     internal long TextOffset { get; init; }
 
     internal long TextLength { get; init; }
@@ -67,6 +70,11 @@ internal sealed record SesaTail
 
     internal long OverflowLength { get; init; }
 
+    /// <summary>0 when there is no RMQ section.</summary>
+    internal long RmqOffset { get; init; }
+
+    internal long RmqLength { get; init; }
+
     /// <summary>The length of the file: the end of the last section.</summary>
     internal long FinalLength { get; init; }
 }
@@ -78,7 +86,7 @@ internal static class SesaLayout
     internal const int BuildInfoCapacity = 4096;
 
     /// <summary>The plan for a text described by <paramref name="info"/>, with or without the PSI section.</summary>
-    internal static SesaPlan Plan(PackedTextInfo info, bool psi)
+    internal static SesaPlan Plan(PackedTextInfo info, bool psi, bool rmq = false)
     {
         ArgumentNullException.ThrowIfNull(info);
         long n = info.N;
@@ -107,6 +115,7 @@ internal static class SesaLayout
             Bits = info.Bits,
             Sigma = info.Sigma,
             Psi = psi,
+            Rmq = rmq,
             TextOffset = textOffset,
             TextLength = textLength,
             AlphabetOffset = alphabetOffset,
@@ -137,6 +146,10 @@ internal static class SesaLayout
         long end = plan.LcpOffset + lcpLength;
         long overflowLength = 8 * overflowCount;
         long overflowOffset = overflowCount > 0 ? SesaFormat.AlignedOffset(end, overflowLength) : 0;
+        long final = overflowCount > 0 ? overflowOffset + overflowLength : end;
+        long rmqLength = plan.Rmq ? RmqWriter.LengthFor(plan.N + 1) : 0; // none for the empty text: its LCP array has one entry
+        long rmqOffset = rmqLength > 0 ? SesaFormat.AlignedOffset(final, rmqLength) : 0;
+        if (rmqLength > 0) final = rmqOffset + rmqLength;
         return new SesaTail
         {
             Kind = kind,
@@ -145,7 +158,9 @@ internal static class SesaLayout
             OverflowCount = overflowCount,
             OverflowOffset = overflowOffset,
             OverflowLength = overflowLength,
-            FinalLength = overflowCount > 0 ? overflowOffset + overflowLength : end,
+            RmqOffset = rmqOffset,
+            RmqLength = rmqLength,
+            FinalLength = final,
         };
     }
 }
