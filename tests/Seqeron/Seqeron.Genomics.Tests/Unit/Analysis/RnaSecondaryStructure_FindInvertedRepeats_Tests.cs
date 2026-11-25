@@ -12,11 +12,9 @@ namespace Seqeron.Genomics.Tests.Unit.Analysis;
 public class RnaSecondaryStructure_FindInvertedRepeats_Tests
 {
     private static List<(int Start1, int End1, int Start2, int End2, int Length)> Find(
-        string seq, int minLength = 4, int minSpacing = 3, int maxSpacing = 100) =>
-        FindInvertedRepeats(seq, minLength, minSpacing, maxSpacing).ToList();
-
-    // Strict Watson-Crick / IUPAC complement used by the implementation (A<->U, C<->G).
-    private static char Comp(char c) => Seqeron.Genomics.Core.SequenceExtensions.GetRnaComplementBase(c);
+        string seq, int minLength = 4, int minSpacing = 3, int maxSpacing = 100, int maxMismatches = 0,
+        bool allowWobble = true) =>
+        FindInvertedRepeats(seq, minLength, minSpacing, maxSpacing, maxMismatches, allowWobble).ToList();
 
     #region FindInvertedRepeats
 
@@ -80,7 +78,7 @@ public class RnaSecondaryStructure_FindInvertedRepeats_Tests
                 Assert.That(e2 - s2 + 1, Is.EqualTo(len), "right arm length equals reported Length (INV-02)");
                 Assert.That(s1 <= e1 && e1 < s2 && s2 <= e2, Is.True, "arms disjoint, left precedes right (INV-05)");
                 for (int k = 0; k < len; k++)
-                    Assert.That(Comp(seq[s2 + len - 1 - k]), Is.EqualTo(seq[s1 + k]),
+                    Assert.That(CanPair(seq[s1 + k], seq[s2 + len - 1 - k]), Is.True,
                         $"position {s1 + k} must pair antiparallel with {s2 + len - 1 - k} (INV-01)");
             });
         }
@@ -186,9 +184,160 @@ public class RnaSecondaryStructure_FindInvertedRepeats_Tests
                     Assert.That(loop, Is.InRange(3, 100), $"[{seq}] loop within [minSpacing,maxSpacing] (INV-03)");
                     Assert.That(s1 <= e1 && e1 < s2 && s2 <= e2, Is.True, $"[{seq}] arm ordering (INV-05)");
                     for (int k = 0; k < len; k++)
-                        Assert.That(Comp(seq[s2 + len - 1 - k]), Is.EqualTo(seq[s1 + k]),
-                            $"[{seq}] antiparallel reverse-complement pairing at k={k} (INV-01)");
+                        Assert.That(CanPair(seq[s1 + k], seq[s2 + len - 1 - k]), Is.True,
+                            $"[{seq}] antiparallel pairing at k={k} (INV-01)");
                 });
+            }
+        }
+    }
+
+    #endregion
+
+    #region Review 2026-09 (B12 F22): delegation to the canonical RepeatFinder engine, RNA pairing rule, oracle
+
+    // Independent brute force of the stem model: S = every exact stem (L, R, len) whose pairs all pair, with
+    // len >= minArm and loop in [minLoop, maxLoop]; a stem is reported iff no other member of S contains it in
+    // BOTH arms (EMBOSS palindrome nesting filter). Written without reference to the implementation.
+    private static List<(int, int, int, int, int)> BruteForce(
+        string seq, int minArm, int minLoop, int maxLoop, bool wobble)
+    {
+        string s = seq.ToUpperInvariant().Replace('T', 'U');
+        int n = s.Length;
+        bool Pair(char a, char b) => (a, b) is ('A', 'U') or ('U', 'A') or ('G', 'C') or ('C', 'G')
+            || (wobble && (a, b) is ('G', 'U') or ('U', 'G'));
+        var all = new HashSet<(int L, int R, int Len)>();
+        for (int l = 0; l < n; l++)
+            for (int e = l + 1; e < n; e++)
+                for (int len = 1; e - len + 1 - (l + len) >= 0; len++)
+                {
+                    int r = e - len + 1;
+                    int loop = r - (l + len);
+                    if (!Pair(s[l + len - 1], s[r])) break; // stems anchored at outer pair (l, e) grow inward
+                    if (len >= minArm && loop >= minLoop && loop <= maxLoop) all.Add((l, r, len));
+                }
+        return all
+            .Where(a => !all.Any(b => b != a && b.L <= a.L && a.L + a.Len <= b.L + b.Len
+                                      && b.R <= a.R && a.R + a.Len <= b.R + b.Len))
+            .OrderBy(a => a.L).ThenBy(a => a.R)
+            .Select(a => (a.L, a.L + a.Len - 1, a.R, a.R + a.Len - 1, a.Len))
+            .ToList();
+    }
+
+    // Completeness / no false positives / no duplicates / ordering vs the brute force, many seeds, all alphabets
+    // (U/T/lower case/N/IUPAC), both pairing rules, minLength 1..4. Python oracle cross-check of the same 12 000
+    // cases: 0 mismatches (Evidence §RNA-INVERT-001 F22).
+    [Test]
+    public void FindInvertedRepeats_RandomStrings_EqualBruteForceOracle(
+        [Values(0, 1)] int wobbleFlag, [Values(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)] int seed)
+    {
+        string[] alphabets = { "ACGU", "ACGT", "ACGUN", "acguNR", "ACG", "GU", "ACGTUacgtu" };
+        var rng = new Random(seed * 7919 + wobbleFlag);
+        for (int iter = 0; iter < 300; iter++)
+        {
+            string a = alphabets[rng.Next(alphabets.Length)];
+            string seq = new string(Enumerable.Range(0, rng.Next(0, 36)).Select(_ => a[rng.Next(a.Length)]).ToArray());
+            int minArm = rng.Next(1, 5), minLoop = new[] { 0, 1, 3 }[rng.Next(3)], maxLoop = new[] { 3, 5, 100 }[rng.Next(3)];
+            if (maxLoop < minLoop) continue;
+            var got = Find(seq, minArm, minLoop, maxLoop, 0, wobbleFlag == 1);
+            var expected = BruteForce(seq, minArm, minLoop, maxLoop, wobbleFlag == 1);
+            Assert.That(got, Is.EqualTo(expected),
+                $"seq={seq} minArm={minArm} loop=[{minLoop},{maxLoop}] wobble={wobbleFlag}");
+        }
+    }
+
+    // G-U wobble (ViennaRNA CanPair) is a stem pair by default; allowWobble:false restricts to A-U / G-C.
+    // GGGGAAAAUUUU: G-U x4 across a 4-nt loop (and the one-shifted diagonal (1..4)/(8..11)).
+    [Test]
+    public void FindInvertedRepeats_WobbleStem_ReportedOnlyWithWobble()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(Find("GGGGAAAAUUUU"), Is.EqualTo(new[] { (0, 3, 8, 11, 4), (1, 4, 8, 11, 4) }));
+            Assert.That(Find("GGGGAAAATTTT"), Is.EqualTo(new[] { (0, 3, 8, 11, 4), (1, 4, 8, 11, 4) }), "T is read as U");
+            Assert.That(Find("ggggaaaauuuu"), Is.EqualTo(new[] { (0, 3, 8, 11, 4), (1, 4, 8, 11, 4) }), "case-insensitive");
+            Assert.That(Find("GGGGAAAAUUUU", allowWobble: false), Is.Empty, "Watson-Crick only: G-U does not pair");
+        });
+    }
+
+    // Alternative pairings are not suppressed (no unsourced greedy "non-overlapping" selection): the two stems
+    // GGGG/CCCC (0-3,7-10) and CCCC/GGGG (7-10,14-17) share the CCCC block; the former greedy rule kept only one.
+    [Test]
+    public void FindInvertedRepeats_StemsSharingBases_AreBothReported()
+    {
+        Assert.That(Find("GGGGAAACCCCAAAGGGG"), Is.EqualTo(new[] { (0, 3, 7, 10, 4), (7, 10, 14, 17, 4) }));
+    }
+
+    // Ambiguity codes never pair (ViennaRNA CanPair); the former strict-IUPAC complement paired N-N, S-S, W-W.
+    [Test]
+    public void FindInvertedRepeats_AmbiguityCodes_NeverPair()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(Find("NNNNAAANNNN"), Is.Empty);
+            Assert.That(Find("SSSSAAASSSS"), Is.Empty);
+            Assert.That(Find("WWWWGGGWWWW"), Is.Empty);
+            Assert.That(Find("GGNNAAAAAANNCC", minLength: 2), Is.EqualTo(new[] { (0, 1, 12, 13, 2) }),
+                "N·N never extends the GG/CC stem inward");
+        });
+    }
+
+    // maxMismatches = k: IUPACpal k-mismatch / EMBOSS palindrome -nummismatches (interior mismatches only).
+    // GGAGG AAA CCUCC with one interior mismatch: arms GGAGG vs revcomp(CCACC) -> A-A mismatch in the middle.
+    [Test]
+    public void FindInvertedRepeats_MaxMismatches_AllowsInteriorMismatchOnly()
+    {
+        // arms GGAGG / CCACC: pair (A,A) at the stem centre mismatches
+        Assert.Multiple(() =>
+        {
+            Assert.That(Find("GGAGGAAACCACC", minLength: 5), Is.Empty, "k = 0: the central A-A mismatch breaks the stem");
+            Assert.That(Find("GGAGGAAACCACC", minLength: 5, maxMismatches: 1), Is.EqualTo(new[] { (0, 4, 8, 12, 5) }));
+            Assert.Throws<ArgumentOutOfRangeException>(() => FindInvertedRepeats("GGCC", maxMismatches: -1));
+        });
+    }
+
+    // With k > 0 every reported stem still has pairing outer and inner pairs, <= k interior mismatches, equal arms.
+    [Test]
+    public void FindInvertedRepeats_MismatchResults_SatisfyStemInvariants()
+    {
+        var rng = new Random(20260925);
+        for (int iter = 0; iter < 400; iter++)
+        {
+            string seq = new string(Enumerable.Range(0, rng.Next(10, 40)).Select(_ => "ACGU"[rng.Next(4)]).ToArray());
+            int k = rng.Next(1, 3);
+            var res = Find(seq, 4, 3, 30, k);
+            Assert.That(res, Is.Ordered.Ascending.Using<(int, int, int, int, int)>((x, y) =>
+                x.Item1 != y.Item1 ? x.Item1.CompareTo(y.Item1) : x.Item3.CompareTo(y.Item3)));
+            Assert.That(res.Distinct().Count(), Is.EqualTo(res.Count), "no duplicates");
+            foreach (var (s1, e1, s2, e2, len) in res)
+            {
+                int mism = 0;
+                for (int j = 0; j < len; j++)
+                    if (!CanPair(seq[s1 + j], seq[e2 - j])) mism++;
+                Assert.That(mism, Is.LessThanOrEqualTo(k), seq);
+                Assert.That(CanPair(seq[s1], seq[e2]) && CanPair(seq[e1], seq[s2]), Is.True, "mismatches only interior");
+                Assert.That(len, Is.GreaterThanOrEqualTo(4));
+                Assert.That(s2 - e1 - 1, Is.InRange(3, 30));
+            }
+        }
+    }
+
+    // Canonical-engine equivalence: for ACGT input the RNA wrapper reports exactly RepeatFinder's stems (WC mode),
+    // so there is one implementation of the stem model (DUP_MAP RNA entry).
+    [Test]
+    public void FindInvertedRepeats_EqualsRepeatFinderCanonicalEngine()
+    {
+        var rng = new Random(77);
+        for (int iter = 0; iter < 300; iter++)
+        {
+            string seq = new string(Enumerable.Range(0, rng.Next(8, 60)).Select(_ => "ACGT"[rng.Next(4)]).ToArray());
+            int k = rng.Next(0, 2);
+            foreach (bool wobble in new[] { false, true })
+            {
+                var rna = Find(seq, 4, 3, 50, k, wobble);
+                var dna = Seqeron.Genomics.Analysis.RepeatFinder.FindInvertedRepeats(seq, 4, 50, 3, k, int.MaxValue, wobble)
+                    .Select(r => (r.LeftArmStart, r.LeftArmStart + r.ArmLength - 1, r.RightArmStart,
+                                  r.RightArmStart + r.ArmLength - 1, r.ArmLength)).ToList();
+                Assert.That(rna, Is.EqualTo(dna), seq);
             }
         }
     }

@@ -3,9 +3,9 @@
 **Test Unit ID:** RNA-INVERT-001
 **Area:** RnaStructure
 **Algorithm:** RNA Inverted Repeats (potential stem regions)
-**Status:** ☐ In Progress
+**Status:** ☑ Done
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-14
+**Last Updated:** 2026-09-25 (B12 review F22)
 
 ---
 
@@ -18,6 +18,8 @@
 | 1 | Alamro et al. 2021, IUPACpal (BMC Bioinformatics) | 1 | https://doi.org/10.1186/s12859-021-03983-2 (full text https://pmc.ncbi.nlm.nih.gov/articles/PMC7866733/) | 2026-06-14 |
 | 2 | Ussery, Wassenaar & Borini 2008 (via Wikipedia "Inverted repeat") | 4 | https://en.wikipedia.org/wiki/Inverted_repeat | 2026-06-14 |
 | 3 | EMBOSS einverted manual (Rice et al. 2000) | 3 | https://emboss.bioinformatics.nl/cgi-bin/emboss/help/einverted | 2026-06-14 |
+| 4 | EMBOSS palindrome (Rice et al. 2000; maximal stems, `-nummismatches`, nesting filter) via REP-INV-001 | 3 | https://emboss.sourceforge.net/apps/release/6.6/emboss/apps/palindrome.html | 2026-09-25 |
+| 5 | ViennaRNA `pair[][]` / `CanPair` (A·U, G·C, G·U; N never pairs) via RNA-PAIR-001 | 2 | https://github.com/ViennaRNA/ViennaRNA | 2026-09 |
 
 ### 1.2 Key Evidence Points
 
@@ -35,7 +37,7 @@
 ### 1.4 Known Failure Modes / Pitfalls
 
 1. Parallel-direct repeats (left arm == right arm read 5'→3') are NOT inverted repeats — the right arm must be the *reverse* complement. — IUPACpal / Wikipedia ("reverse complement").
-2. Treating G-U wobble as complementary would over-report; this repository uses strict Watson-Crick + IUPAC complement only. — `GetRnaComplementBase`.
+2. (Review 2026-09) The RNA stem pairing is ViennaRNA's: A·U, G·C **and G·U wobble**; ambiguity codes never pair. The earlier "strict Watson-Crick + IUPAC complement" (N pairing N, S pairing S, no G·U) and the greedy "longest-first non-overlapping" selection had no source and were removed.
 
 ---
 
@@ -43,7 +45,7 @@
 
 | Method | Class | Type | Notes |
 |--------|-------|------|-------|
-| `FindInvertedRepeats(string sequence, int minLength = 4, int minSpacing = 3, int maxSpacing = 100)` | RnaSecondaryStructure | **Canonical** | Returns `(int Start1, int End1, int Start2, int End2, int Length)` tuples: left arm `[Start1..End1]`, right arm `[Start2..End2]`, arm `Length`. |
+| `FindInvertedRepeats(string sequence, int minLength = 4, int minSpacing = 3, int maxSpacing = 100, int maxMismatches = 0, bool allowWobble = true)` | RnaSecondaryStructure | **Canonical (RNA entry)** | Returns `(int Start1, int End1, int Start2, int End2, int Length)` tuples (0-based inclusive; ordered by Start1, Start2): left arm `[Start1..End1]`, right arm `[Start2..End2]`, arm `Length`. Delegates the search to `RepeatFinder` (REP-INV-001: maximal stems, nesting filter, k mismatches); only the pairing rule (`CanPair`, T≡U) is RNA-specific. |
 
 ---
 
@@ -51,7 +53,7 @@
 
 | ID | Invariant | Verifiable | Evidence |
 |----|-----------|------------|----------|
-| INV-1 | For every reported repeat, the right arm equals the reverse complement of the left arm under strict Watson-Crick/IUPAC: for k in [0,Length), `complement(seq[Start2+Length-1-k]) == seq[Start1+k]`. | Yes | IUPACpal WGW̄ᴿ; `GetRnaComplementBase` |
+| INV-1 | (maxMismatches = 0) every antiparallel position pairs: for k in [0,Length), `CanPair(seq[Start1+k], seq[End2-k])` (A·U/T, G·C, G·U when `allowWobble`). With k > 0 at most k interior mismatches, outer and inner pairs pair. | Yes | IUPACpal WGW̄ᴿ; ViennaRNA CanPair |
 | INV-2 | `End1 - Start1 + 1 == Length` and `End2 - Start2 + 1 == Length`; both arms have equal length. | Yes | IUPACpal (W and W̄ᴿ same length) |
 | INV-3 | The loop length `Start2 - End1 - 1` lies in `[minSpacing, maxSpacing]`. | Yes | IUPACpal max gap; einverted loop |
 | INV-4 | `Length >= minLength`; arms shorter than minLength are not reported. | Yes | IUPACpal minimum length |
@@ -87,6 +89,12 @@
 |----|-----------|-------------|------------------|-------|
 | C1 | Maximal-arm extension | `GGGGCAAAGCCCC` (5-nt perfect arm) | arm Length 5, not truncated to 4 | einverted maximal local alignment |
 | C2 | Property: invariants on random-ish input | for several fixed sequences, every reported repeat satisfies INV-1..INV-5 | all hold | O(n²) invariant property test |
+| C3 | Brute-force oracle | 10 seeds × 2 pairing modes × 300 random strings (ACGU/ACGT/N/IUPAC/lower case, minLength 1–4, loops 0–100) | result == independent enumeration (all maximal stems, no extras, no duplicates, ordered) | Python cross-check: 12 000 cases, 0 mismatches |
+| C4 | G·U wobble | `GGGGAAAAUUUU` | `(0,3,8,11,4)`, `(1,4,8,11,4)`; empty with `allowWobble:false`; T/lower case same | ViennaRNA CanPair |
+| C5 | Alternative stems sharing bases | `GGGGAAACCCCAAAGGGG` | `(0,3,7,10,4)` and `(7,10,14,17,4)` both reported | maximal-stem rule (no greedy non-overlap) |
+| C6 | Ambiguity codes | `NNNNAAANNNN`, `SSSS…`, `WWWW…` | empty | ViennaRNA CanPair |
+| C7 | k mismatches | `GGAGGAAACCACC` minLength 5 | empty at k = 0, `(0,4,8,12,5)` at k = 1 | IUPACpal k-mismatch; palindrome `-nummismatches` |
+| C8 | Canonical-engine equality | random ACGT strings | == `RepeatFinder.FindInvertedRepeats` | no duplicated engine |
 
 ---
 
@@ -122,7 +130,7 @@
 
 | File | Role | Test Count |
 |------|------|------------|
-| `RnaSecondaryStructure_FindInvertedRepeats_Tests.cs` | Canonical | 12 |
+| `Unit/Analysis/RnaSecondaryStructure_FindInvertedRepeats_Tests.cs` | Canonical | 12 + 28 (C3 = 20 oracle cases, C4–C8) |
 
 ### 5.5 Phase 7 Work Queue
 
@@ -169,12 +177,13 @@
 
 | # | Assumption | Used In |
 |---|-----------|---------|
-| 1 | Perfect (k=0), ungapped arms only (strict WC/IUPAC complement); scored mismatch/gap variant out of scope | M1–M5, C1 |
+| 1 | Ungapped arms (k interior mismatches optional); gapped/scored einverted variant = `RepeatFinder.FindInvertedRepeatsScored` (not duplicated here) | M1–M5, C1 |
 | 2 | minSpacing/maxSpacing bound the loop length |G| | M1, M2, S2, S3 |
-| 3 | Maximal arm + non-overlapping greedy reporting | M1, C1 |
+| 3 | Maximal arm; stems contained in both arms of another stem are dropped (EMBOSS palindrome); overlapping alternative stems are all reported | M1, C1, C5 |
 
 ---
 
 ## 7. Open Questions / Decisions
 
 1. Decision: the existing implementation's right-arm offset bug (`j = i + minLength + spacing`) is corrected to extend from the matched arm length; behavior now conforms to the WGW̄ᴿ definition. No remaining open questions.
+2. (2026-09 review) Decision: one implementation of the stem model — `RepeatFinder` (REP-INV-001); the RNA entry only fixes the pairing rule. Default `allowWobble = true` (ViennaRNA stems include G·U); `false` gives A·U/G·C only.

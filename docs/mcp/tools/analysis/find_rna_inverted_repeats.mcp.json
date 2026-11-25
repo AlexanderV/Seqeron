@@ -6,14 +6,16 @@
   "stability": "stable",
   "methodId": "RnaSecondaryStructure.FindInvertedRepeats",
   "docRef": "Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L2193",
-  "description": "Find antiparallel complementary regions (potential RNA hairpin stems): a left arm whose reverse complement matches a right arm across a loop. Distinct from the DNA find_inverted_repeats.",
+  "description": "Find maximal antiparallel stems (potential RNA hairpin stems; A-U, G-C and G-U wobble by default, optional interior mismatches) across a loop. Same stem engine as the DNA find_inverted_repeats.",
   "inputSchema": {
     "type": "object",
     "properties": {
       "sequence": { "type": "string", "description": "RNA sequence", "minLength": 1 },
       "minLength": { "type": "integer", "description": "Minimum arm length (default 4)", "default": 4 },
       "minSpacing": { "type": "integer", "description": "Minimum spacing between arms (default 3)", "default": 3 },
-      "maxSpacing": { "type": "integer", "description": "Maximum spacing between arms (default 100)", "default": 100 }
+      "maxSpacing": { "type": "integer", "description": "Maximum spacing between arms (default 100)", "default": 100 },
+      "maxMismatches": { "type": "integer", "description": "Maximum interior mismatches per stem (default 0)", "default": 0 },
+      "allowWobble": { "type": "boolean", "description": "Count G-U wobble pairs (default true)", "default": true }
     },
     "required": ["sequence"]
   },

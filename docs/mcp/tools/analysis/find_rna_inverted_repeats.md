@@ -14,14 +14,17 @@ Antiparallel complementary regions (RNA hairpin stems).
 
 ## Description
 
-Finds **antiparallel complementary regions** — a left arm whose reverse complement
-matches a right arm across a loop of `minSpacing..maxSpacing` nt. These are potential
-RNA hairpin stems. Each result reports the two arm spans and the arm length. This is
-distinct from the DNA `find_inverted_repeats` (RNA complement rules, arm/loop semantics).
+Finds the **maximal antiparallel stems** — a left arm that pairs with a right arm across a loop of
+`minSpacing..maxSpacing` nt. These are potential RNA hairpin stems. Pairs are A·U (A·T), G·C and, by default,
+G·U wobble (ViennaRNA `CanPair`; `T` is read as `U`, ambiguity codes never pair). A stem is dropped only when it
+lies inside another stem in both arms; alternative stems that share bases are all reported. Coordinates are
+0-based inclusive; results are ordered by `start1`, then `start2`. The search is the same engine as the DNA
+`find_inverted_repeats` (EMBOSS `palindrome` stems); only the pairing rule differs. Gapped/scored (einverted)
+repeats: `find_inverted_repeats_scored`.
 
 ## Core Documentation Reference
 
-- Source: [RnaSecondaryStructure.cs#L2193](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L2193)
+- Source: [RnaSecondaryStructure.cs](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs) (`FindInvertedRepeats`), delegating to `RepeatFinder` ([Inverted_Repeats.md](../../../algorithms/RnaStructure/Inverted_Repeats.md))
 
 ## Input Schema
 
@@ -31,6 +34,8 @@ distinct from the DNA `find_inverted_repeats` (RNA complement rules, arm/loop se
 | `minLength` | integer | No | Minimum arm length (default 4) |
 | `minSpacing` | integer | No | Minimum spacing between arms (default 3) |
 | `maxSpacing` | integer | No | Maximum spacing between arms (default 100) |
+| `maxMismatches` | integer | No | Maximum interior mismatches per stem (default 0; IUPACpal k / palindrome `-nummismatches`) |
+| `allowWobble` | boolean | No | Count G·U as a pair (default true); false = A·U / G·C only |
 
 ## Output Schema
 

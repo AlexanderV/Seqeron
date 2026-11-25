@@ -2484,110 +2484,57 @@ public static class RnaSecondaryStructure
     private const int DefaultMaxLoopLength = 100;
 
     /// <summary>
-    /// Finds inverted repeats (potential RNA stem regions): a left arm <c>W</c> followed by a
-    /// loop and then a right arm equal to the <b>reverse complement</b> of <c>W</c>, i.e. the
-    /// pattern <c>W G W̄ᴿ</c> with a perfect (zero-mismatch) antiparallel stem. The two arms form
-    /// the stem of a potential hairpin and the intervening region is the loop.
+    /// Finds inverted repeats (potential RNA stem regions): a left arm <c>W</c>, a loop <c>G</c> and a right arm that
+    /// pairs antiparallel with <c>W</c> (<c>W G W̄ᴿ</c>). The model, the maximality rule and the search engine are the
+    /// canonical ones of <see cref="RepeatFinder.FindInvertedRepeats(string, int, int, int, int, int, bool)"/>
+    /// (EMBOSS <c>palindrome</c> stems); only the pairing rule is RNA-specific.
     /// </summary>
-    /// <param name="sequence">Nucleotide sequence (DNA or RNA; case-insensitive).</param>
-    /// <param name="minLength">Minimum arm length; arms shorter than this are not reported (default 4).</param>
-    /// <param name="minSpacing">Minimum loop length between the two arms (default 3).</param>
-    /// <param name="maxSpacing">Maximum loop length between the two arms (default 100).</param>
+    /// <param name="sequence">Nucleotide sequence (DNA or RNA; case-insensitive; T is read as U).</param>
+    /// <param name="minLength">Minimum arm length in base pairs (default 4; values &lt; 1 yield no results).</param>
+    /// <param name="minSpacing">Minimum loop length (default 3; negative yields no results).</param>
+    /// <param name="maxSpacing">Maximum loop length (default 100; &lt; <paramref name="minSpacing"/> yields no results).</param>
+    /// <param name="maxMismatches">
+    /// Maximum number of non-pairing positions inside a stem (default 0 = perfect stems; must be ≥ 0). EMBOSS
+    /// <c>palindrome -nummismatches</c> / IUPACpal "k mismatches" semantics: mismatches are interior only (never at an end
+    /// of the stem). Gapped (bulge) alignments are not reported here: use
+    /// <see cref="RepeatFinder.FindInvertedRepeatsScored(string, int, int, int, int, int)"/> (EMBOSS <c>einverted</c>).
+    /// </param>
+    /// <param name="allowWobble">
+    /// When true (default) a pair is any pair of <see cref="CanPair(char, char)"/> — A·U, G·C and G·U wobble (ViennaRNA
+    /// <c>pair[][]</c>); when false only Watson–Crick A·U (A·T) and G·C pairs are stems. Ambiguity codes (N, R, Y, …) and
+    /// any other character never pair in either mode.
+    /// </param>
     /// <returns>
-    /// Maximal, non-overlapping inverted repeats as tuples: left arm <c>[Start1..End1]</c>,
-    /// right arm <c>[Start2..End2]</c> (both 0-based inclusive), and the common arm <c>Length</c>.
-    /// For every reported repeat and every k in [0,Length), the antiparallel pairing
-    /// <c>complement(seq[Start2+Length-1-k]) == seq[Start1+k]</c> holds (strict Watson-Crick/IUPAC).
+    /// The maximal stems (a stem is dropped only when it lies inside another stem in both arms), as tuples: left arm
+    /// <c>[Start1..End1]</c>, right arm <c>[Start2..End2]</c> (0-based inclusive) and the common arm <c>Length</c>;
+    /// ordered by <c>Start1</c>, then <c>Start2</c>. Different stems may share positions (alternative pairings are
+    /// not suppressed). With <c>maxMismatches = 0</c> every pair is <c>CanPair(seq[Start1+k], seq[End2-k])</c>.
     /// </returns>
     /// <remarks>
-    /// Sources: an inverted repeat is "a single stranded sequence ... followed downstream by its
-    /// reverse complement", formally <c>WGW̄ᴿ</c> with |G| >= 0 (Alamro et al. 2021, IUPACpal,
-    /// https://doi.org/10.1186/s12859-021-03983-2; Ussery et al. 2008 via Wikipedia). This is the
-    /// k = 0 (perfect) case; the scored mismatch/gap variant (EMBOSS einverted) is out of scope.
-    /// Search reuse: the repository SuffixTree was evaluated and not used — matching here is
-    /// antiparallel reverse-complement extension over a bounded loop window, not exact substring
-    /// occurrence enumeration, which is the established approach (EMBOSS einverted uses local DP).
+    /// Sources: inverted repeat = <c>WGW̄ᴿ</c> (Alamro et al. 2021, IUPACpal, doi:10.1186/s12859-021-03983-2; Ussery et al.
+    /// 2008); maximal stems and nesting filter = EMBOSS <c>palindrome</c> (Rice et al. 2000); RNA pairing =
+    /// ViennaRNA <c>pair[][]</c> as in <see cref="CanPair(char, char)"/>. No separate implementation: the search is
+    /// delegated to <c>RepeatFinder</c> (DUP_MAP RNA entry; the former unsourced greedy "longest first, non-overlapping"
+    /// selection and the strict-IUPAC self-pairing of N/R/Y… are removed).
     /// </remarks>
     public static IEnumerable<(int Start1, int End1, int Start2, int End2, int Length)> FindInvertedRepeats(
         string sequence,
         int minLength = DefaultMinArmLength,
         int minSpacing = DefaultMinLoopLength,
-        int maxSpacing = DefaultMaxLoopLength)
+        int maxSpacing = DefaultMaxLoopLength,
+        int maxMismatches = 0,
+        bool allowWobble = true)
     {
+        ArgumentOutOfRangeException.ThrowIfNegative(maxMismatches);
         if (string.IsNullOrEmpty(sequence) || minLength < 1 || minSpacing < 0 || maxSpacing < minSpacing)
-            yield break;
+            return Array.Empty<(int, int, int, int, int)>();
 
-        string upper = sequence.ToUpperInvariant();
-        int n = upper.Length;
-        // Smallest sequence that can hold two arms of minLength plus the minimum loop.
-        if (n < 2 * minLength + minSpacing)
-            yield break;
-
-        // Scan loop boundaries: p = last index of the left arm, q = first index of the right arm,
-        // with loop length (q - p - 1) in [minSpacing, maxSpacing]. The innermost base pair is
-        // (seq[p], seq[q]); the stem extends OUTWARD: seq[p-k] pairs antiparallel with seq[q+k].
-        // This realizes the W G W̄ᴿ pattern where the right arm is the reverse complement of the left.
-        // Collect the best (maximal) stem per loop boundary, then report non-overlapping repeats
-        // preferring the longest stems first (einverted-style maximal local alignment).
-        var candidates = new List<(int Start1, int End1, int Start2, int End2, int Length)>();
-        for (int p = 0; p < n; p++)
-        {
-            int firstQ = p + 1 + minSpacing;
-            int lastQ = Math.Min(p + 1 + maxSpacing, n - 1);
-            int bestLen = 0;
-            int bestRightEnd = -1;
-            for (int q = firstQ; q <= lastQ; q++)
-            {
-                // Extend the stem outward while complementary; arms may not cross into the loop
-                // (left stays >= 0, right stays <= n-1, and they may not overlap each other).
-                int maxExtend = Math.Min(p + 1, n - q);
-                int len = 0;
-                while (len < maxExtend &&
-                       GetComplement(upper[q + len]) == upper[p - len])
-                {
-                    len++;
-                }
-
-                if (len < minLength)
-                    continue;
-
-                // Prefer the longest arm; on ties prefer the smaller loop (q closer to p).
-                if (len > bestLen)
-                {
-                    bestLen = len;
-                    bestRightEnd = q + len - 1;
-                }
-            }
-
-            if (bestLen >= minLength)
-                candidates.Add((p - bestLen + 1, p, bestRightEnd - bestLen + 1, bestRightEnd, bestLen));
-        }
-
-        // Greedy non-overlapping selection: longest stems first; ties broken by left position then loop.
-        candidates.Sort((a, b) =>
-        {
-            int c = b.Length.CompareTo(a.Length);
-            if (c != 0) return c;
-            c = a.Start1.CompareTo(b.Start1);
-            if (c != 0) return c;
-            return a.Start2.CompareTo(b.Start2);
-        });
-
-        var occupied = new bool[n];
-        foreach (var cand in candidates)
-        {
-            bool overlaps = false;
-            for (int idx = cand.Start1; idx <= cand.End1 && !overlaps; idx++)
-                if (occupied[idx]) overlaps = true;
-            for (int idx = cand.Start2; idx <= cand.End2 && !overlaps; idx++)
-                if (occupied[idx]) overlaps = true;
-            if (overlaps)
-                continue;
-
-            for (int idx = cand.Start1; idx <= cand.End1; idx++) occupied[idx] = true;
-            for (int idx = cand.Start2; idx <= cand.End2; idx++) occupied[idx] = true;
-            yield return cand;
-        }
+        // T is read as U (CanPair); the shared engine pairs ACGT, so U is folded onto T (positions unchanged).
+        string seq = sequence.ToUpperInvariant().Replace('U', 'T');
+        return RepeatFinder.FindMaximalStemsUpper(seq, minLength, maxSpacing, minSpacing, maxMismatches, allowWobble)
+            .Select(r => (r.LeftArmStart, r.LeftArmStart + r.ArmLength - 1,
+                          r.RightArmStart, r.RightArmStart + r.ArmLength - 1, r.ArmLength))
+            .ToList();
     }
 
     // McCaskill partition function — physical constants.

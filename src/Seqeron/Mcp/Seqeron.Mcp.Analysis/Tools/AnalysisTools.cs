@@ -3333,18 +3333,20 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "find_rna_inverted_repeats", Title = "RNA — Find Inverted Repeats", ReadOnly = true)]
-    [Description("Finds antiparallel complementary regions (potential RNA hairpin stems). Distinct from DNA find_inverted_repeats.")]
+    [Description("Finds maximal antiparallel complementary regions (potential RNA hairpin stems; A·U, G·C and G·U wobble by default, optional interior mismatches). Same stem model as DNA find_inverted_repeats (shared engine); coordinates 0-based inclusive.")]
     public static FindRnaInvertedRepeatsResult FindRnaInvertedRepeats(
         [Description("RNA sequence.")] string sequence,
         [Description("Minimum arm length (default 4).")] int minLength = 4,
         [Description("Minimum spacing between arms (default 3).")] int minSpacing = 3,
-        [Description("Maximum spacing between arms (default 100).")] int maxSpacing = 100)
+        [Description("Maximum spacing between arms (default 100).")] int maxSpacing = 100,
+        [Description("Maximum interior mismatches per stem (default 0 = perfect stems).")] int maxMismatches = 0,
+        [Description("Count G·U wobble pairs as stem pairs (default true); false = Watson-Crick A·U/G·C only.")] bool allowWobble = true)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
         var items = RnaSecondaryStructure
-            .FindInvertedRepeats(sequence, minLength, minSpacing, maxSpacing)
+            .FindInvertedRepeats(sequence, minLength, minSpacing, maxSpacing, maxMismatches, allowWobble)
             .Select(t => new FindRnaInvertedRepeatsItem(t.Start1, t.End1, t.Start2, t.End2, t.Length))
             .ToArray();
         return new FindRnaInvertedRepeatsResult(items);

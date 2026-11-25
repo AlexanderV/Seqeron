@@ -452,7 +452,8 @@ public class RnaStructureMetamorphicTests
     [Description("SYM: each reported inverted repeat has a right arm equal to the reverse complement of its left arm.")]
     public void InvertedRepeats_RightArm_IsReverseComplementOfLeft()
     {
-        var repeats = RnaSecondaryStructure.FindInvertedRepeats(InvertedRepeatSeq, minLength: 4, minSpacing: 3, maxSpacing: 8).ToList();
+        // Watson-Crick mode: the arms are exact reverse complements (with G·U wobble they only CanPair).
+        var repeats = RnaSecondaryStructure.FindInvertedRepeats(InvertedRepeatSeq, minLength: 4, minSpacing: 3, maxSpacing: 8, allowWobble: false).ToList();
         repeats.Should().NotBeEmpty(because: "the sequence contains complementary stem arms");
 
         foreach (var r in repeats)
@@ -472,11 +473,28 @@ public class RnaStructureMetamorphicTests
     [Description("INV: reverse-complementing the whole sequence maps each inverted repeat to an inverted repeat, so the number of reported repeats is unchanged.")]
     public void InvertedRepeats_ReverseComplement_PreservesCount()
     {
-        int original = RnaSecondaryStructure.FindInvertedRepeats(InvertedRepeatSeq, minLength: 4, minSpacing: 3, maxSpacing: 8).Count();
-        int reversed = RnaSecondaryStructure.FindInvertedRepeats(RnaRevComp(InvertedRepeatSeq), minLength: 4, minSpacing: 3, maxSpacing: 8).Count();
+        // Watson-Crick mode only: complementing a G·U pair gives C·A, which does not pair.
+        int original = RnaSecondaryStructure.FindInvertedRepeats(InvertedRepeatSeq, minLength: 4, minSpacing: 3, maxSpacing: 8, allowWobble: false).Count();
+        int reversed = RnaSecondaryStructure.FindInvertedRepeats(RnaRevComp(InvertedRepeatSeq), minLength: 4, minSpacing: 3, maxSpacing: 8, allowWobble: false).Count();
 
         original.Should().BeGreaterThan(0, because: "the sequence has at least one stem-loop");
         reversed.Should().Be(original, because: "an inverted repeat stays an inverted repeat under whole-sequence reverse complement");
+    }
+
+    [Test]
+    [Description("INV (wobble): reversing the sequence (no complement) preserves the pair set incl. G·U, so the number of stems is unchanged and each maps to a stem with swapped arms.")]
+    public void InvertedRepeats_Reversal_PreservesStems_WithWobble()
+    {
+        string rev = new(InvertedRepeatSeq.Reverse().ToArray());
+        string seq = "GGGGAAAAUUUU" + "AAAAA" + "GGCUAAAAGGCC";
+        string rseq = new(seq.Reverse().ToArray());
+        var a = RnaSecondaryStructure.FindInvertedRepeats(seq, 4, 3, 8).ToList();
+        var b = RnaSecondaryStructure.FindInvertedRepeats(rseq, 4, 3, 8).ToList();
+        a.Should().NotBeEmpty();
+        b.Select(r => (seq.Length - 1 - r.End2, seq.Length - 1 - r.Start2, seq.Length - 1 - r.End1, seq.Length - 1 - r.Start1, r.Length))
+            .OrderBy(r => r.Item1).ThenBy(r => r.Item3).Should().Equal(a);
+        RnaSecondaryStructure.FindInvertedRepeats(rev, 4, 3, 8).Count()
+            .Should().Be(RnaSecondaryStructure.FindInvertedRepeats(InvertedRepeatSeq, 4, 3, 8).Count());
     }
 
     #endregion

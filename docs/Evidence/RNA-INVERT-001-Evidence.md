@@ -2,7 +2,7 @@
 
 **Test Unit ID:** RNA-INVERT-001
 **Algorithm:** RNA Inverted Repeats (potential stem regions)
-**Date Collected:** 2026-06-14
+**Date Collected:** 2026-06-14 (revised 2026-09-25)
 
 ---
 
@@ -93,13 +93,23 @@ Adapted to RNA with a concrete 6-nt loop (`AAAAAA`): `UUACGAAAAAACGUAA` (length 
 
 ---
 
-## Assumptions
+## Assumptions (revised 2026-09, B12 F22)
 
-1. **ASSUMPTION: Perfect (zero-mismatch), ungapped arms only.** The repository's `GetComplement`/`GetRnaComplementBase` is strict Watson-Crick + IUPAC (no internal gaps in the arm, no mismatches). The implementation therefore reports the perfect-IR case k = 0 of the IUPACpal model (WGW̄ᴿ with δH = 0). EMBOSS einverted additionally scores mismatches/gaps; that scored/DP variant is out of scope and noted as Not Implemented. The k = 0 case is itself a documented special case (Hamming distance 0) in the IUPACpal model, so this is a scope restriction, not an invented behavior.
-2. **ASSUMPTION: Loop bounds via minSpacing/maxSpacing.** The public parameters `minSpacing`/`maxSpacing` bound |G| (loop length). This matches IUPACpal's "maximum gap size" and the einverted loop concept; defaults (minSpacing 3, maxSpacing 100) are repository API conventions (3-nt minimal hairpin loop) and do not affect the formal correctness of a reported IR.
-3. **ASSUMPTION: Maximal arm + non-overlapping greedy reporting.** For each accepted left start the longest perfect antiparallel arm is reported, and reported repeats do not overlap. This mirrors einverted's maximal-local-alignment reporting and avoids reporting every sub-arm; it does not change which positions are valid complementary pairs.
+1. **Pairing rule = ViennaRNA `CanPair`** (A·U, G·C, G·U wobble; `T` read as `U`; N/IUPAC never pair) — Varani & McClain 2000 / Crick 1966 for G·U; RNA-PAIR-001 evidence. `allowWobble:false` restricts to A·U, G·C. *Superseded:* the 2026-06 "strict Watson-Crick + IUPAC complement" rule (it paired N·N, S·S, W·W and any non-IUPAC character with itself and had no G·U) — unsourced, removed.
+2. **Maximal stems with EMBOSS `palindrome` nesting filter** (see REP-INV-001 Evidence): a stem is dropped only when contained in both arms of another stem. *Superseded:* "maximal arm + non-overlapping greedy reporting" — the EMBOSS/IUPACpal papers report every maximal stem; the greedy longest-first rule had no source and lost valid stems (e.g. `GGGGAAACCCCAAAGGGG`, `UUUUAAAAAAAA`).
+3. **Mismatches optional** (`maxMismatches`): IUPACpal "k mismatches" (δH ≤ k) with EMBOSS `palindrome -nummismatches` end-trimming (interior mismatches only). *Superseded:* "perfect stems only".
+4. **Gapped / scored (einverted, Gotoh-style DP; match +3, mismatch −4, gap −12, threshold 50)** is not re-implemented here: `RepeatFinder.FindInvertedRepeatsScored` (REP-INV-001) is the single implementation (no duplication).
+5. **Loop bounds** `minSpacing/maxSpacing` = IUPACpal gap bounds; defaults 3/100 are repository conventions.
 
 ---
+
+## Review 2026-09 (B12 F22) — numerical confirmation
+
+- **Independent oracle:** Python brute force (every exact stem `(L,R,len)` whose pairs all pair, filtered by arm/loop window; reported = not contained in both arms of another stem) vs `RnaSecondaryStructure.FindInvertedRepeats` through a console harness: **8 seeds × 1 500 cases = 12 000 cases, 0 mismatches** (alphabets ACGU, ACGT, ACGUN, acguNR, ACG, GU, ACGTUacgtu; length 0–40; minLength 1–4; minSpacing 0/1/3; maxSpacing 3/5/100; both pairing modes; 6 000 non-empty results). The same brute force is re-implemented in the unit tests (C# oracle, 20 seeded cases × 300 strings).
+- **Canonical engine:** wrapper == `RepeatFinder.FindInvertedRepeats` on 600 random ACGT strings × (k 0/1) × (wobble on/off), 0 differences.
+- **Proof-by-example of the old rule's defects (old = greedy longest-first non-overlap):** `GGGGAAACCCCAAAGGGG` old `{(0,3,7,10,4)}` → new `{(0,3,7,10,4),(7,10,14,17,4)}`; `GGGGAAAAUUUU` old `{}` → new (wobble) `{(0,3,8,11,4),(1,4,8,11,4)}`; `NNNNAAANNNN` old `{(0,3,7,10,4)}` (N·N) → new `{}`.
+- **k mismatches:** `GGAGGAAACCACC`, minLength 5: k = 0 → `{}`, k = 1 → `{(0,4,8,12,5)}` (central A·A mismatch).
+- Source of the tool semantics re-opened this review: EMBOSS einverted/palindrome manuals (via REP-INV-001 Evidence), IUPACpal (PMC7866733).
 
 ## Recommendations for Test Coverage
 
@@ -124,3 +134,4 @@ Adapted to RNA with a concrete 6-nt loop (`AAAAAA`): `UUACGAAAAAACGUAA` (length 
 ## Change History
 
 - **2026-06-14**: Initial documentation.
+- **2026-09-25**: B12 review F22 — stem model delegated to `RepeatFinder`; ViennaRNA pairing (G·U, no N pairing); greedy non-overlap removed; `maxMismatches`, `allowWobble`; oracle cross-check.

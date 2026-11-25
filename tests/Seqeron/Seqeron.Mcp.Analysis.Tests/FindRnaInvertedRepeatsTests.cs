@@ -40,4 +40,16 @@ public class FindRnaInvertedRepeatsTests
         var none = AnalysisTools.FindRnaInvertedRepeats("AAAAAAAAAA", 4, 3).Items;
         Assert.That(none, Is.Empty);
     }
+
+    // Review 2026-09 (RNA-INVERT-001 F22): G·U wobble (ViennaRNA CanPair) is a stem pair by default; k mismatches.
+    [Test]
+    public void FindRnaInvertedRepeats_WobbleAndMismatchOptions()
+    {
+        var wobble = AnalysisTools.FindRnaInvertedRepeats("GGGGAAAAUUUU").Items;
+        Assert.That(wobble.Select(i => (i.Start1, i.End1, i.Start2, i.End2, i.Length)),
+            Is.EqualTo(new[] { (0, 3, 8, 11, 4), (1, 4, 8, 11, 4) }));
+        Assert.That(AnalysisTools.FindRnaInvertedRepeats("GGGGAAAAUUUU", allowWobble: false).Items, Is.Empty);
+        Assert.That(AnalysisTools.FindRnaInvertedRepeats("GGAGGAAACCACC", 5).Items, Is.Empty);
+        Assert.That(AnalysisTools.FindRnaInvertedRepeats("GGAGGAAACCACC", 5, maxMismatches: 1).Items.Single().Length, Is.EqualTo(5));
+    }
 }
