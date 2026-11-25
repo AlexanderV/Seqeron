@@ -60,6 +60,30 @@
 
 ---
 
+### EMBOSS 6.6.0 palindrome / IUPACpal (opened 2026-11-25, B11 review)
+
+- `palindrome.acd` (local `/usr/share/EMBOSS/acd/palindrome.acd`): `minpallen` default 10, minimum 1; `maxpallen` default 100; `gaplimit` default 100, minimum 0. Binary run locally as the inverted-repeat oracle (`-nummismatches 0 -overlap Y`).
+- IUPACpal README (raw.githubusercontent.com/steven31415/IUPACpal, master): `-m` min_len 10, `-M` max_len 100, `-g` max_gap 100, `-x` mismatches 0.
+- EMBOSS palindrome pairs N with N (its complement of N is N); `RepeatFinder` follows EMBOSS einverted (ACGT only), so the N-containing cases were checked against an independent brute-force maximal-stem oracle instead.
+
+### Maximal repetitions (Kolpakov & Kucherov 1999) — tandem convention
+
+- Exact tandem repeat of period p = maximal run `S[a..e)` with `S[x] = S[x+p]`; reported at its left end with ⌊(e−a)/p⌋ complete copies and a primitive ACGT unit (MISA `([acgt]{p})\1{k-1,}`, pytrf). Implemented canonically by `RepeatFinder.FindMicrosatellites` (B04). pytrf 1.5.0 (PyPI) `GTRFinder` was run but scans greedily across periods (a run consumed at one period hides an overlapping run of another), so it is not the per-period oracle; an independent Python maximal-run implementation was used.
+
+## Oracle cross-check (B11 review, 2026-11-25)
+
+Harness: C# console calling `GenomeAnnotator` vs Python oracles (scratch, not committed).
+
+| Check | Cases | Elements | Differences |
+|---|---|---|---|
+| Tandem runs vs independent maximal-run oracle (p 1..60, ACGT primitive, complete copies, span ≥ m) | 1,860 (3 × 600 random/planted incl. N and lowercase, + 60 × 300–1,200 bp with 40–75 bp units) | 6,677 | 0 |
+| Inverted stems vs EMBOSS palindrome `-minpallen max(m,2) -maxpallen max(100,·) -gaplimit 100 -nummismatches 0 -overlap Y` (ACGT-only cases) | 1,671 | 106,801 | 0 |
+| Inverted stems vs brute-force maximal-stem oracle (the 3 × 600 random cases of length ≤ 200 bp, incl. N) | ≤ 1,800 | 98,864 | 0 |
+| `ClassifyRepeat` exact (both strands) vs Python | 3 × 1,000 queries | 136 library hits | 0 |
+| `ClassifyRepeat` SW-Gotoh vs Biopython 1.88 `PairwiseAligner(local)` (schemes (1,−2,−4,−3)/15, (2,−3,−5,−2)/25, (1,−1,0,−2)/12) | 3 × 1,000 | 926 library hits | 0 |
+
+Old code on the 400-case seed-7 set: tandem 2,187 reported vs 1,446 maximal runs (122 cases differ: rotations, runs of N); inverted 56,759 vs 26,374 EMBOSS stems (sub-stems, N·N pairs, 100-bp truncations, loop cap 50).
+
 ## Documented Corner Cases and Failure Modes
 
 ### From Wikipedia — Tandem repeat
@@ -116,7 +140,7 @@
 
 ## Assumptions
 
-1. **ASSUMPTION: `ClassifyRepeat` library matching is exact-substring containment, not Smith-Waterman homology.** RepeatMasker uses Smith-Waterman-Gotoh against Repbase. A full local-alignment + curated Repbase library is out of scope for one unit; the implemented `ClassifyRepeat(sequence, repeatDb)` screens the query for occurrences of known library elements (a library element exactly contained within the query) and assigns the class of the longest such match, falling back to motif-size simple-repeat classification when no library entry matches. Matching is one-directional (element ⊆ query) so a trivially short query is not forced into a class merely because a longer consensus happens to contain its letters. The repeat-class vocabulary (SINE/LINE/LTR/DNA/Satellite/Simple_repeat/Unknown) is source-backed; only the *matching* relaxation (exact substring vs. scored alignment) is assumed. This is documented as a Framework/Simplified limitation, not an invented constant.
+1. **(Superseded 2026-11-25: exact overload now screens both strands; scored Smith-Waterman-Gotoh overload added, B11 F16/F17.) ASSUMPTION: `ClassifyRepeat` library matching is exact-substring containment, not Smith-Waterman homology.** RepeatMasker uses Smith-Waterman-Gotoh against Repbase. A full local-alignment + curated Repbase library is out of scope for one unit; the implemented `ClassifyRepeat(sequence, repeatDb)` screens the query for occurrences of known library elements (a library element exactly contained within the query) and assigns the class of the longest such match, falling back to motif-size simple-repeat classification when no library entry matches. Matching is one-directional (element ⊆ query) so a trivially short query is not forced into a class merely because a longer consensus happens to contain its letters. The repeat-class vocabulary (SINE/LINE/LTR/DNA/Satellite/Simple_repeat/Unknown) is source-backed; only the *matching* relaxation (exact substring vs. scored alignment) is assumed. This is documented as a Framework/Simplified limitation, not an invented constant.
 
 ---
 
@@ -148,3 +172,4 @@
 ## Change History
 
 - **2026-06-13**: Initial documentation.
+- **2026-11-25**: B11 review — EMBOSS palindrome / IUPACpal defaults, maximal-run convention, oracle numbers (F14–F17).

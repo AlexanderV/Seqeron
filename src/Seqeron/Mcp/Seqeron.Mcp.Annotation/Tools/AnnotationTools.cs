@@ -224,10 +224,10 @@ public class AnnotationTools
 
     /// <summary>Find tandem and inverted repeats.</summary>
     [McpServerTool(Name = "find_repetitive_elements", Title = "Annotation — Find Repetitive Elements", ReadOnly = true)]
-    [Description("Find tandem and inverted repeats in a DNA sequence.")]
+    [Description("Find exact tandem repeats (maximal runs of a primitive ACGT unit of 1-60 bp, complete copies) and exact inverted repeats (maximal stems, EMBOSS palindrome model: arm >= max(minRepeatLength, 2) and <= 100, loop 0-100) in a DNA sequence.")]
     public static FindRepetitiveElementsResult FindRepetitiveElements(
         [Description("DNA sequence to scan")] string dnaSequence,
-        [Description("Minimum repeat length (nt)")] int minRepeatLength = 10,
+        [Description("Minimum tandem-repeat span and minimum inverted-repeat arm length (nt)")] int minRepeatLength = 10,
         [Description("Minimum number of tandem copies")] int minCopies = 2)
     {
         if (string.IsNullOrEmpty(dnaSequence))

@@ -72,7 +72,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `find_orfs` | Find all open reading frames (ORFs) in a DNA sequence across forward and reverse strands. |
 | `find_pre_mirna_hairpins` | Identify pre-miRNA hairpin candidates with stem/loop layout and Turner 2004 nearest-neighbor free energy. |
 | `find_promoter_motifs` | Find -10 (Pribnow/TATA) and -35 box bacterial promoter motifs. |
-| `find_repetitive_elements` | Find tandem and inverted repeats in a DNA sequence. |
+| `find_repetitive_elements` | Find exact tandem repeats (maximal runs, primitive ACGT unit 1-60 bp) and maximal exact inverted repeats (EMBOSS palindrome model) via RepeatFinder. |
 | `find_retained_intron_candidates` | Find short, moderately-scored intron candidates likely to be retained in some transcripts. |
 | `find_ribosome_binding_sites` | Locate Shine–Dalgarno (ribosome binding site) motifs upstream of ORFs. |
 | `find_similar_mirnas` | Find miRNAs in a database whose seed region is within `maxMismatches` Hamming distance of a query miRNA. |

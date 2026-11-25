@@ -1632,27 +1632,50 @@ public static class GenomeAnnotator
     // Duitama et al. 2014, Nucleic Acids Res 42(9):5728-5741). 60 bp covers both.
     private const int MaxTandemUnitLength = 60;
 
-    // Inverted-repeat arm upper bound (each arm of the WGW^R stem). Bounded for
-    // tractability of the O(n^2) scan; arms beyond this are not reported.
+    // Inverted-repeat arm upper bound: EMBOSS palindrome -maxpallen default (palindrome.acd) and
+    // IUPACpal -M max_len default (Hampson et al. 2021, README) are both 100. Semantics are those of
+    // EMBOSS -maxpallen: a longer stem is not reported and is not split into shorter pieces.
     private const int MaxInvertedArmLength = 100;
 
-    // Default maximum gap (loop/spacer length |G|) between inverted-repeat arms.
-    // The IUPACpal definition allows |G| >= 0 (Hampson et al. 2021); the cited
-    // hairpin/stem-loop literature uses loops up to ~50 nt, matching the repo's
-    // RepeatFinder default loop bound.
-    private const int DefaultMaxInvertedGap = 50;
+    // Maximum gap (loop/spacer |G|) between inverted-repeat arms: EMBOSS palindrome -gaplimit default
+    // (palindrome.acd) and IUPACpal -g max_gap default (README) are both 100; |G| >= 0 (WGW^R, Hampson 2021).
+    private const int DefaultMaxInvertedGap = 100;
+
+    // Shortest stem RepeatFinder.FindInvertedRepeats accepts (minArmLength >= 2).
+    private const int MinInvertedArmLength = 2;
 
     /// <summary>
-    /// Finds repetitive elements in a DNA sequence: tandem repeats (head-to-tail
-    /// consecutive copies of a primitive motif) and inverted repeats (a sequence
-    /// followed downstream by its reverse complement, form WGW^R).
+    /// Finds repetitive elements in a DNA sequence: exact tandem repeats (head-to-tail
+    /// consecutive copies of a primitive motif) and exact inverted repeats (a sequence
+    /// followed downstream by its reverse complement, form WGW̄ᴿ).
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Tandem repeats</b> are the maximal perfect runs of every period p = 1..60 (Kolpakov &amp; Kucherov 1999;
+    /// the MISA / pytrf convention) computed by the canonical
+    /// <see cref="Seqeron.Genomics.Analysis.RepeatFinder.FindMicrosatellites(string,int,int,int)"/>: each run is
+    /// reported once, at its left end, with its primitive A/C/G/T unit and its complete copies only
+    /// (<c>end − start = copies·p</c>, copies ≥ <paramref name="minCopies"/>, span ≥ <paramref name="minRepeatLength"/>);
+    /// rotations of a run, non-primitive units and runs of N are not reported. Runs of different periods may overlap.
+    /// </para>
+    /// <para>
+    /// <b>Inverted repeats</b> are the maximal exact stems of
+    /// <see cref="Seqeron.Genomics.Analysis.RepeatFinder.FindInvertedRepeats(string,int,int,int,int,int,bool)"/>
+    /// with arm ≥ max(<paramref name="minRepeatLength"/>, 2), arm ≤ max(100, that minimum), loop 0..100 — the result
+    /// set of EMBOSS <c>palindrome -minpallen m -maxpallen 100 -gaplimit 100 -nummismatches 0 -overlap Y</c>
+    /// (the EMBOSS and IUPACpal default limits). Only A/C/G/T pair (A·T, C·G); sub-stems inside a longer stem are not
+    /// reported. For inverted repeats <paramref name="minRepeatLength"/> is the minimum <b>arm</b> length.
+    /// </para>
+    /// <para>Tandem repeats come first (by period, then start), then inverted repeats (by left-arm start, then
+    /// right-arm start).</para>
+    /// </remarks>
     /// <param name="dnaSequence">DNA sequence to scan (case-insensitive).</param>
-    /// <param name="minRepeatLength">Minimum total span (bp) of a reported element.</param>
+    /// <param name="minRepeatLength">Minimum total span (bp) of a tandem repeat and minimum arm length of an inverted repeat.</param>
     /// <param name="minCopies">Minimum number of adjacent copies for a tandem repeat (>= 2).</param>
     /// <returns>
     /// Tuples of (start, end, type, sequence) where start is 0-based inclusive,
-    /// end is exclusive, and type is "tandem_repeat" or "inverted_repeat".
+    /// end is exclusive, and type is "tandem_repeat" or "inverted_repeat". The inverted-repeat sequence is
+    /// <c>leftArm + rightArm</c> (loop 0) or <c>leftArm[loop]rightArm</c>.
     /// </returns>
     /// <exception cref="ArgumentNullException">dnaSequence is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException">minRepeatLength &lt; 1 or minCopies &lt; 2.</exception>
@@ -1662,7 +1685,7 @@ public static class GenomeAnnotator
         int minCopies = 2)
     {
         ArgumentNullException.ThrowIfNull(dnaSequence);
-        // A tandem repeat requires "two or more" adjacent copies (Wikipedia: Tandem repeat).
+        // A tandem repeat requires "two or more" adjacent copies (Benson 1999).
         ArgumentOutOfRangeException.ThrowIfLessThan(minCopies, 2);
         ArgumentOutOfRangeException.ThrowIfLessThan(minRepeatLength, 1);
 
@@ -1679,133 +1702,38 @@ public static class GenomeAnnotator
 
         string sequence = dnaSequence.ToUpperInvariant();
 
-        foreach (var repeat in FindTandemRepeats(sequence, minRepeatLength, minCopies))
-            yield return repeat;
-
-        foreach (var repeat in FindInvertedRepeats(sequence, minRepeatLength, DefaultMaxInvertedGap))
-            yield return repeat;
-    }
-
-    private static IEnumerable<(int start, int end, string type, string sequence)> FindTandemRepeats(
-        string sequence,
-        int minLength,
-        int minCopies)
-    {
-        // Span de-duplication: a single maximal tandem array can be discovered from
-        // several start/unit-length combinations (e.g. AAAAAA via unit "A" or "AA").
-        // We report each maximal array once, using its primitive (shortest) period.
-        var reported = new HashSet<(int Start, int End)>();
-
-        for (int unitLen = 1; unitLen <= sequence.Length / minCopies && unitLen <= MaxTandemUnitLength; unitLen++)
+        foreach (var run in Seqeron.Genomics.Analysis.RepeatFinder.FindMicrosatellites(
+                     sequence, 1, MaxTandemUnitLength, minCopies))
         {
-            int lastStart = sequence.Length - unitLen * minCopies;
-            for (int start = 0; start <= lastStart; start++)
-            {
-                string unit = sequence.Substring(start, unitLen);
-
-                // Only consider primitive units: a unit that is itself a tandem array
-                // of a shorter period (e.g. "AA" = "A"x2) double-counts. Skip it so the
-                // primitive period is the one reported (Wikipedia: non-primitive corner case).
-                if (!IsPrimitive(unit))
-                    continue;
-
-                int copies = 1;
-                int pos = start + unitLen;
-                while (pos + unitLen <= sequence.Length &&
-                       string.CompareOrdinal(sequence, pos, sequence, start, unitLen) == 0)
-                {
-                    copies++;
-                    pos += unitLen;
-                }
-
-                if (copies < minCopies)
-                    continue;
-
-                int end = start + unitLen * copies;
-                if (end - start < minLength)
-                    continue;
-
-                // Only report a left-maximal array: if the previous unit-length block
-                // equals the unit, this array was already counted from an earlier start.
-                if (start - unitLen >= 0 &&
-                    string.CompareOrdinal(sequence, start - unitLen, sequence, start, unitLen) == 0)
-                    continue;
-
-                if (reported.Add((start, end)))
-                {
-                    string repeatSeq = sequence.Substring(start, end - start);
-                    yield return (start, end, "tandem_repeat", repeatSeq);
-                }
-            }
+            if (run.TotalLength < minRepeatLength)
+                continue;
+            yield return (run.Position, run.Position + run.TotalLength, "tandem_repeat",
+                sequence.Substring(run.Position, run.TotalLength));
         }
-    }
 
-    /// <summary>
-    /// Returns true if <paramref name="unit"/> is primitive (not itself a tandem
-    /// repeat of a shorter period). "ATAT" is not primitive ("AT"x2); "AT" is.
-    /// </summary>
-    private static bool IsPrimitive(string unit)
-    {
-        int n = unit.Length;
-        for (int period = 1; period <= n / 2; period++)
+        int minArm = Math.Max(minRepeatLength, MinInvertedArmLength);
+        foreach (var stem in Seqeron.Genomics.Analysis.RepeatFinder.FindInvertedRepeats(
+                     sequence, minArm, DefaultMaxInvertedGap, minLoopLength: 0,
+                     maxArmLength: Math.Max(MaxInvertedArmLength, minArm)))
         {
-            if (n % period != 0) continue;
-            bool isRepeat = true;
-            for (int i = period; i < n; i++)
-            {
-                if (unit[i] != unit[i % period]) { isRepeat = false; break; }
-            }
-            if (isRepeat) return false;
-        }
-        return true;
-    }
-
-    private static IEnumerable<(int start, int end, string type, string sequence)> FindInvertedRepeats(
-        string sequence,
-        int minArmLength,
-        int maxGap)
-    {
-        // Inverted repeat = left arm W followed by gap G (|G|>=0) then right arm W^R
-        // (reverse complement of W). Per Hampson et al. (2021): form WGW^R.
-        var reported = new HashSet<(int Start, int End)>();
-
-        for (int i = 0; i + minArmLength * 2 <= sequence.Length; i++)
-        {
-            int maxLen = Math.Min(MaxInvertedArmLength, (sequence.Length - i) / 2);
-            for (int len = minArmLength; len <= maxLen; len++)
-            {
-                string arm1 = sequence.Substring(i, len);
-                string arm1RevComp = DnaSequence.GetReverseComplementString(arm1);
-
-                // Right arm must start after the left arm plus a gap of 0..maxGap.
-                int firstRight = i + len;
-                int lastRight = Math.Min(sequence.Length - len, firstRight + maxGap);
-                for (int j = firstRight; j <= lastRight; j++)
-                {
-                    if (string.CompareOrdinal(sequence, j, arm1RevComp, 0, len) != 0)
-                        continue;
-
-                    int end = j + len;
-                    if (!reported.Add((i, end)))
-                        continue;
-
-                    string gap = sequence.Substring(firstRight, j - firstRight);
-                    string arm2 = sequence.Substring(j, len);
-                    string composite = gap.Length == 0 ? arm1 + arm2 : arm1 + "[" + gap + "]" + arm2;
-                    yield return (i, end, "inverted_repeat", composite);
-                }
-            }
+            string composite = stem.LoopLength == 0
+                ? stem.LeftArm + stem.RightArm
+                : stem.LeftArm + "[" + stem.Loop + "]" + stem.RightArm;
+            yield return (stem.LeftArmStart, stem.RightArmStart + stem.ArmLength, "inverted_repeat", composite);
         }
     }
 
     /// <summary>
     /// Classifies a repeat sequence against a repeat-element library, mirroring the
     /// RepeatMasker convention of screening the query for occurrences of known
-    /// library elements and assigning the class of the best (longest) match. Matching
-    /// here is exact substring containment of a library element within the query
-    /// (the query is a region harbouring the known repeat); when no library entry
-    /// matches, the query falls back to a simple-repeat class by primitive motif
-    /// size (STR 1-6 bp) or "Unknown".
+    /// library elements on <b>both strands</b> (RepeatMasker reports matches in "+" or
+    /// "C" = complement orientation) and assigning the class of the best (longest) match.
+    /// Matching is exact containment of a library element, or of its reverse complement,
+    /// within the query; for scored (Smith-Waterman-Gotoh) homology use
+    /// <see cref="ClassifyRepeat(string, IReadOnlyDictionary{string, string}, ScoringMatrix, int)"/>.
+    /// When no library entry matches, the query falls back to "Simple_repeat" when it is a
+    /// perfect tandem repeat (≥ 2 complete copies, whole query) of a primitive A/C/G/T motif
+    /// of 1-6 bp, else "Unknown".
     /// </summary>
     /// <param name="sequence">Repeat sequence to classify (case-insensitive).</param>
     /// <param name="repeatDb">
@@ -1824,60 +1752,103 @@ public static class GenomeAnnotator
 
         string query = sequence.ToUpperInvariant();
 
-        // Best library match: prefer the longest known element that occurs within the
-        // query — approximates RepeatMasker's model of screening a query sequence for
-        // occurrences of known repeat elements and reporting the best match. Matching
-        // is one-directional (element ⊆ query): a query that merely is a *substring of*
-        // a longer consensus is not a meaningful match (e.g. a single base "A" must not
-        // be classified as a SINE just because an Alu consensus happens to contain an A).
+        // Best library match: the longest known element that occurs within the query on either
+        // strand. Matching is one-directional (element ⊆ query): a query that merely is a
+        // *substring of* a longer consensus is not an occurrence of that element.
         string? bestClass = null;
         int bestLen = -1;
         foreach (var entry in repeatDb)
         {
             string element = entry.Key.ToUpperInvariant();
-            if (element.Length == 0) continue;
-            bool matches = query.Contains(element, StringComparison.Ordinal);
-            if (matches && element.Length > bestLen)
+            if (element.Length == 0 || element.Length <= bestLen) continue;
+            if (query.Contains(element, StringComparison.Ordinal) ||
+                query.Contains(DnaSequence.GetReverseComplementString(element), StringComparison.Ordinal))
             {
                 bestLen = element.Length;
                 bestClass = entry.Value;
             }
         }
 
-        if (bestClass is not null)
-            return bestClass;
+        return bestClass ?? SimpleRepeatOrUnknown(query);
+    }
 
-        // No library match: if the query is a tandem repeat of a short primitive
-        // motif (1-6 bp), it is a simple repeat (microsatellite); otherwise Unknown.
-        return IsSimpleRepeat(query) ? SimpleRepeatClass : UnknownClass;
+    /// <summary>
+    /// Classifies a repeat sequence by scored homology to a repeat-element library — the RepeatMasker /
+    /// cross_match model: Smith-Waterman-Gotoh local alignment of the query against every library element on
+    /// both strands ("+" and "C"), keeping the best-scoring match whose score reaches
+    /// <paramref name="minScore"/> (RepeatMasker <c>-cutoff</c>). Alignment is the canonical
+    /// <see cref="Seqeron.Genomics.Alignment.SequenceAligner.LocalAlignAffine(string, string, ScoringMatrix?)"/>
+    /// (gap of length k scores <c>GapOpen + k·GapExtend</c>). Ties on score go to the longer element, then to the
+    /// first in enumeration order. Without a match the fallback is the same as
+    /// <see cref="ClassifyRepeat(string, IReadOnlyDictionary{string, string})"/> (Simple_repeat / Unknown).
+    /// </summary>
+    /// <remarks>
+    /// RepeatMasker's own nucleotide matrices (GC-dependent, transition/transversion-specific) and its
+    /// complexity-adjusted score are not reproduced: <see cref="ScoringMatrix"/> is a match/mismatch scheme, and the
+    /// scoring scheme and cutoff are the caller's choice (no default is implied).
+    /// </remarks>
+    /// <param name="sequence">Repeat sequence to classify (case-insensitive).</param>
+    /// <param name="repeatDb">Library: element sequence → class label.</param>
+    /// <param name="scoring">Match / mismatch / affine gap scores.</param>
+    /// <param name="minScore">Minimum local-alignment score for a library match (≥ 1).</param>
+    /// <returns>The class label of the best-scoring library entry, or a fallback class.</returns>
+    /// <exception cref="ArgumentNullException">sequence, repeatDb or scoring is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">minScore &lt; 1.</exception>
+    public static string ClassifyRepeat(
+        string sequence,
+        IReadOnlyDictionary<string, string> repeatDb,
+        ScoringMatrix scoring,
+        int minScore)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        ArgumentNullException.ThrowIfNull(repeatDb);
+        ArgumentNullException.ThrowIfNull(scoring);
+        ArgumentOutOfRangeException.ThrowIfLessThan(minScore, 1);
+
+        if (sequence.Length == 0)
+            return SimpleRepeatClass;
+
+        string query = sequence.ToUpperInvariant();
+
+        string? bestClass = null;
+        int bestScore = minScore - 1;
+        int bestLen = -1;
+        foreach (var entry in repeatDb)
+        {
+            string element = entry.Key.ToUpperInvariant();
+            if (element.Length == 0) continue;
+            int score = Math.Max(
+                Seqeron.Genomics.Alignment.SequenceAligner.LocalAlignAffine(query, element, scoring).Score,
+                Seqeron.Genomics.Alignment.SequenceAligner.LocalAlignAffine(
+                    query, DnaSequence.GetReverseComplementString(element), scoring).Score);
+            if (score > bestScore || (score == bestScore && bestClass is not null && element.Length > bestLen))
+            {
+                bestScore = score;
+                bestLen = element.Length;
+                bestClass = entry.Value;
+            }
+        }
+
+        return bestClass ?? SimpleRepeatOrUnknown(query);
     }
 
     // RepeatMasker output class labels (Smit/Hubley/Green; Repbase Update).
     private const string SimpleRepeatClass = "Simple_repeat";
     private const string UnknownClass = "Unknown";
 
-    // STR/microsatellite motifs are 1-6 bp (Wikipedia: Tandem repeat).
+    // STR/microsatellite motifs are 1-6 bp (Tóth et al. 2000).
     private const int MaxSimpleRepeatMotif = 6;
 
     /// <summary>
-    /// True if <paramref name="query"/> is a perfect tandem repeat of a primitive
-    /// motif of length 1-6 bp (a microsatellite / simple repeat).
+    /// "Simple_repeat" when the whole (upper-case) query is one perfect run of ≥ 2 complete copies of a primitive
+    /// A/C/G/T motif of 1-6 bp (canonical <see cref="Seqeron.Genomics.Analysis.RepeatFinder.FindMicrosatellites(string,int,int,int)"/>),
+    /// else "Unknown".
     /// </summary>
-    private static bool IsSimpleRepeat(string query)
-    {
-        int n = query.Length;
-        for (int period = 1; period <= MaxSimpleRepeatMotif && period <= n / 2; period++)
-        {
-            if (n % period != 0) continue;
-            bool isRepeat = true;
-            for (int i = period; i < n; i++)
-            {
-                if (query[i] != query[i % period]) { isRepeat = false; break; }
-            }
-            if (isRepeat) return true;
-        }
-        return false;
-    }
+    private static string SimpleRepeatOrUnknown(string query) =>
+        Seqeron.Genomics.Analysis.RepeatFinder.FindMicrosatellites(query, 1, MaxSimpleRepeatMotif, 2)
+            .Any(run => run.Position == 0 && run.TotalLength == query.Length)
+            ? SimpleRepeatClass
+            : UnknownClass;
 
     /// <summary>
     /// Calculates codon usage statistics for a sequence.
