@@ -1302,6 +1302,58 @@ public class MiRnaAnalyzer_PreMiRna_Tests
         });
     }
 
+    // DD2b — apical Drosha ruler (Zeng, Yi & Cullen 2005, EMBO J 24:138: ~22 bp from the loop/stem junction),
+    // an opt-in alternative to the 11-bp basal ruler (Han 2006). On the five RNAfold-folded pri-miRNAs the
+    // 5p cut is the 5' base of the 22nd pair counted from the pair closing the terminal loop; offsets vs the
+    // miRBase 5p start (= the basal-ruler cut of DD1): mir-21 +3, let-7a-1 +6, mir-16-1 +1, mir-155 +3,
+    // mir-30a +3 nt (independent Python walk of the same dot-bracket, scratch a10.py). The apical ruler lands
+    // 1-6 pairs apical of the annotated Dicer-substrate end for every one of them, i.e. the basal ruler is the
+    // better predictor here; the apical ruler is offered because the two publications disagree.
+    [TestCase(0, 40, 93, 3)]
+    [TestCase(1, 42, 100, 6)]
+    [TestCase(2, 44, 106, 1)]
+    [TestCase(3, 36, 90, 3)]
+    [TestCase(4, 28, 84, 3)]
+    public void PredictDroshaDicerCleavage_ApicalRuler_PlacesCut22PairsFromApicalJunction(
+        int row, int cut5, int cut3, int offsetVsMirBase)
+    {
+        var r = RealPriMiRnas[row];
+        string pri = (string)r[2], fold = (string)r[3];
+        int junction = (int)r[4], m5s = (int)r[5];
+        var cut = MiRnaAnalyzer.PredictDroshaDicerCleavage(
+            pri, junction, fold, DicerCountingRule.FivePrimeCounting, DroshaCountingRule.ApicalJunction)!.Value;
+        Assert.Multiple(() =>
+        {
+            Assert.That(cut.DroshaCut5Prime, Is.EqualTo(cut5));
+            Assert.That(cut.DroshaCut3Prime, Is.EqualTo(cut3));
+            Assert.That(cut.DroshaCut5Prime - m5s, Is.EqualTo(offsetVsMirBase));
+            Assert.That(cut.DroshaRule, Is.EqualTo(DroshaCountingRule.ApicalJunction));
+            // exactly 22 pairs between the apical junction pair and the cut (inclusive of the cut pair)
+            var pairs = RnaSecondaryStructure.ParseDotBracket(fold).ToDictionary(x => x.Item1, x => x.Item2);
+            Assert.That(pairs[cut.ApicalJunction], Is.GreaterThan(cut.ApicalJunction));
+            Assert.That(fold.Substring(cut.ApicalJunction + 1, pairs[cut.ApicalJunction] - cut.ApicalJunction - 1),
+                Does.Not.Contain("("), "apical junction pair closes a hairpin loop");
+            Assert.That(fold.Substring(cut.DroshaCut5Prime, cut.ApicalJunction - cut.DroshaCut5Prime + 1).Count(c => c == '('), Is.EqualTo(22));
+            // the basal rule on the same input keeps its cut and reports the same apical junction
+            var basal = MiRnaAnalyzer.PredictDroshaDicerCleavage(pri, junction, fold)!.Value;
+            Assert.That(basal.DroshaCut5Prime, Is.EqualTo(m5s));
+            Assert.That(basal.DroshaRule, Is.EqualTo(DroshaCountingRule.BasalJunction));
+            Assert.That(basal.ApicalJunction, Is.EqualTo(cut.ApicalJunction));
+        });
+    }
+
+    // The apical rule needs a 22-pair stem and a defined rule value.
+    [Test]
+    public void PredictDroshaDicerCleavage_ApicalRuler_ShortStemNullAndBadEnumThrows()
+    {
+        string stem = new string('G', 15) + "AAAAAAAA" + new string('C', 15); // 15 bp
+        Assert.That(MiRnaAnalyzer.PredictDroshaDicerCleavage(stem, 0, new string('(', 15) + "........" + new string(')', 15),
+            DicerCountingRule.FivePrimeCounting, DroshaCountingRule.ApicalJunction), Is.Null);
+        var r = RealPriMiRnas[4];
+        Assert.Throws<ArgumentOutOfRangeException>(() => MiRnaAnalyzer.PredictDroshaDicerCleavage(
+            (string)r[2], (int)r[4], (string)r[3], DicerCountingRule.FivePrimeCounting, (DroshaCountingRule)9));
+    }
+
     // DD2 — 3' counting (Park 2011): the 3p product is 22 nt from the Drosha 3' end; the 5p end is the
     // partner of the 3p start + 2. Offsets vs miRBase (5p end | 3p start): mir-21 −1 | 0; let-7a-1 0 | −1;
     // mir-16-1 −1 | +1; mir-30a +2 | 0; mir-155 0 | 0.

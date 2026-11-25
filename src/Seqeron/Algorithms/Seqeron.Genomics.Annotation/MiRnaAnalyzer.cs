@@ -2944,6 +2944,26 @@ public static partial class MiRnaAnalyzer
     }
 
     /// <summary>
+    /// Which end of the pri-miRNA stem Drosha measures its cut from.
+    /// </summary>
+    public enum DroshaCountingRule
+    {
+        /// <summary>
+        /// Basal ruler (Han et al. 2006, Cell 125:887): ~11 bp from the basal stem-ssRNA junction. Default.
+        /// </summary>
+        BasalJunction = 0,
+
+        /// <summary>
+        /// Apical ruler (Zeng, Yi &amp; Cullen 2005, EMBO J 24:138): Drosha cleaves ~22 bp (two helical turns)
+        /// from the junction of the terminal loop and the adjacent stem, measured along the stem.
+        /// Counted in base pairs from the pair that closes the terminal loop (the apical junction), crossing
+        /// interior loops/bulges; the stem is walked from the apical end, so the result does not depend on
+        /// where the caller's basal anchor lies (it only identifies the stem).
+        /// </summary>
+        ApicalJunction = 1,
+    }
+
+    /// <summary>
     /// Predicted Drosha (basal) and Dicer (apical) cleavage coordinates of a folded pri-miRNA hairpin
     /// and the resulting 5p and 3p products. All coordinates are 0-based indices into
     /// <see cref="Sequence"/>; spans are inclusive.
@@ -2995,6 +3015,12 @@ public static partial class MiRnaAnalyzer
         /// <summary>The Dicer counting rule that placed the apical cut.</summary>
         public DicerCountingRule DicerRule { get; init; }
 
+        /// <summary>The Drosha counting rule that placed the basal cut.</summary>
+        public DroshaCountingRule DroshaRule { get; init; }
+
+        /// <summary>0-based index of the 5'-arm base of the apical junction pair (the innermost pair closing the terminal loop of the stem).</summary>
+        public int ApicalJunction { get; init; }
+
         /// <summary>True iff U and G sit at positions −14 and −13 upstream of the 5p Drosha cut (basal UG motif, Auyeung et al. 2013).</summary>
         public bool HasBasalUgMotif { get; init; }
     }
@@ -3005,6 +3031,12 @@ public static partial class MiRnaAnalyzer
     // stem-ssRNA junction." Counted in base pairs of the stem — Auyeung et al. (2013) Cell 152:844: "an
     // 11 bp basal stem was preferred" for all four selected pri-miRNAs; bulged nucleotides do not count.
     private const int DroshaCutBpFromBasalJunction = 11;
+
+    // Drosha apical "ruler": Zeng Y, Yi R, Cullen BR (2005), EMBO J 24:138-148 (PMC544904): "From the junction of
+    // the loop and the adjacent stem, Drosha then cleaves approximately two helical RNA turns" (~22 bp, "if
+    // allowance is made for distortions"). The pre-miRNA stem keeps these 22 pairs: its 5' base is pair 22
+    // counted from the apical junction pair (the same edge convention as the 11 pairs removed at the base).
+    private const int DroshaCutBpFromApicalJunction = 22;
 
     // Dicer counting "ruler": ~22 nt from the 5' end (5' counting rule) — Park JE et al. (2011),
     // Nature 475:201-205, doi:10.1038/nature10198 — or from the 3' end (3' counting rule).
@@ -3065,7 +3097,19 @@ public static partial class MiRnaAnalyzer
     /// <exception cref="ArgumentException"><paramref name="dotBracket"/> has a different length than
     /// <paramref name="sequence"/> or is not balanced.</exception>
     public static DroshaDicerCleavage? PredictDroshaDicerCleavage(
-        string sequence, int basalJunction, string? dotBracket, DicerCountingRule dicerRule = DicerCountingRule.FivePrimeCounting)
+        string sequence, int basalJunction, string? dotBracket, DicerCountingRule dicerRule = DicerCountingRule.FivePrimeCounting) =>
+        PredictDroshaDicerCleavage(sequence, basalJunction, dotBracket, dicerRule, DroshaCountingRule.BasalJunction);
+
+    /// <summary>
+    /// As <see cref="PredictDroshaDicerCleavage(string, int, string?, DicerCountingRule)"/>, with the Drosha ruler
+    /// selectable: <see cref="DroshaCountingRule.BasalJunction"/> (~11 bp from the basal junction, Han 2006) or
+    /// <see cref="DroshaCountingRule.ApicalJunction"/> (~22 bp from the apical junction, Zeng 2005). With the
+    /// apical rule <paramref name="basalJunction"/> only has to be a 5'-arm base of a pair of the stem (it
+    /// selects the stem; the apical junction is the last pair of the unbranched stem above it), and the
+    /// stem needs at least 22 pairs.
+    /// </summary>
+    public static DroshaDicerCleavage? PredictDroshaDicerCleavage(
+        string sequence, int basalJunction, string? dotBracket, DicerCountingRule dicerRule, DroshaCountingRule droshaRule)
     {
         if (string.IsNullOrEmpty(sequence))
             return null;
@@ -3083,9 +3127,23 @@ public static partial class MiRnaAnalyzer
         if (partner[basalJunction] <= basalJunction)
             return null;
         var stem5 = WalkUnbranchedStem(partner, basalJunction);
-        if (stem5.Count <= DroshaCutBpFromBasalJunction)
-            return null;
-        int droshaCut5Prime = stem5[DroshaCutBpFromBasalJunction];
+        int droshaCut5Prime;
+        if (droshaRule == DroshaCountingRule.BasalJunction)
+        {
+            if (stem5.Count <= DroshaCutBpFromBasalJunction)
+                return null;
+            droshaCut5Prime = stem5[DroshaCutBpFromBasalJunction];
+        }
+        else if (droshaRule == DroshaCountingRule.ApicalJunction)
+        {
+            if (stem5.Count < DroshaCutBpFromApicalJunction)
+                return null;
+            droshaCut5Prime = stem5[stem5.Count - DroshaCutBpFromApicalJunction];
+        }
+        else
+        {
+            throw new ArgumentOutOfRangeException(nameof(droshaRule), droshaRule, "Unknown Drosha counting rule.");
+        }
         int droshaCut3Prime = partner[droshaCut5Prime] + RNaseIII3PrimeOverhang;
         if (droshaCut3Prime >= n)
             return null;
@@ -3135,6 +3193,8 @@ public static partial class MiRnaAnalyzer
         {
             Structure = structure,
             DicerRule = dicerRule,
+            DroshaRule = droshaRule,
+            ApicalJunction = stem5[^1],
             HasBasalUgMotif = basalUg,
         };
     }

@@ -23,7 +23,8 @@
 | 4 | Lee et al. (2003) / Han 2006 | RNase III leaves a 2-nt 3' overhang. |
 | 5 | miRDeep2 `find_star` (rajewsky-lab/mirdeep2 `src/miRDeep2_core_algorithm.pl`, opened) | Star from mature: start = bp(end − 2 − off) − off, end = bp(start + off) + off + 2. |
 | 6 | Gu et al. (2012), *Cell* 151:900 (PMC3499986) | Loop counting = precision condition (cut 2 nt from a loop/bulge), not a placement rule. |
-| 7 | miRBase hairpins MI0000077, MI0000060, MI0000070, MI0000088, MI0000681 + UCSC hg38 flanks + ViennaRNA 2.8 RNA.fold | Real pri-miRNA oracle (see §4). |
+| 7 | Zeng, Yi & Cullen (2005), *EMBO J* 24:138 (PMC544904, opened) | "From the junction of the loop and the adjacent stem, Drosha then cleaves approximately two helical RNA turns" (~22 bp along the stem, "allowance for distortions"): the opt-in `DroshaCountingRule.ApicalJunction` ruler (test DD2b). |
+| 8 | miRBase hairpins MI0000077, MI0000060, MI0000070, MI0000088, MI0000681 + UCSC hg38 flanks + ViennaRNA 2.8 RNA.fold | Real pri-miRNA oracle (see §4). |
 
 ## 2. Canonical Method(s)
 
@@ -31,12 +32,13 @@
 `PredictDroshaDicerCleavage(string sequence, int basalJunction, string? dotBracket, DicerCountingRule dicerRule = FivePrimeCounting)` → `DroshaDicerCleavage?`
 
 - **Source:** `src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/MiRnaAnalyzer.cs`
-- **Tests:** `Unit/Annotation/MiRnaAnalyzer_PreMiRna_Tests.cs` (DD1–DD14), `MiRnaAnalyzer_StructureCleavageKernels_Tests.cs`, `MiRnaAnalyzer_ContextScoreAssembly_Tests.cs` (CNNC bound), heavy tier `Fuzzing/MiRnaCleavageFuzzTests.cs`, `Properties/MiRnaProperties.cs`, `Metamorphic/MiRnaMetamorphicTests.cs`, `Algebraic/MiRnaAlgebraicTests.cs`, `Combinatorial/MiRnaCombinatorialTests.cs`.
+- **Tests:** `Unit/Annotation/MiRnaAnalyzer_PreMiRna_Tests.cs` (DD1–DD14, DD2b), `MiRnaAnalyzer_StructureCleavageKernels_Tests.cs`, `MiRnaAnalyzer_ContextScoreAssembly_Tests.cs` (CNNC bound), heavy tier `Fuzzing/MiRnaCleavageFuzzTests.cs`, `Properties/MiRnaProperties.cs`, `Metamorphic/MiRnaMetamorphicTests.cs`, `Algebraic/MiRnaAlgebraicTests.cs`, `Combinatorial/MiRnaCombinatorialTests.cs`.
 
 ## 3. Contract / Invariants
 
 - Input normalised (upper, T→U); structure = caller dot-bracket (must be balanced and same length, else `ArgumentException`) or `RnaSecondaryStructure.CalculateMfeStructure`.
 - `basalJunction` must be the 5' base of a pair; the unbranched stem from it is walked pair by pair (interior loops and bulges crossed, a multiloop ends it).
+- `DroshaCountingRule.ApicalJunction` (opt-in 5-argument overload): `DroshaCut5'` = 5' base of the 22nd pair counted from the apical junction pair (innermost pair of the unbranched stem); needs ≥ 22 pairs. Apical UGU/GUG stays unflagged (BLOCKED, no reproducible window: see B13.md WP-8).
 - `DroshaCut5' = 5' base of pair 12` (11 bp below it); `DroshaCut3' = partner(DroshaCut5') + 2`.
 - 5' counting: 5p = [DroshaCut5', +21]; 3p = [find_star start, DroshaCut3']. 3' counting: 3p = [DroshaCut3' − 21, DroshaCut3']; 5p end = partner(3p start + off) + off + 2.
 - `MatureEnd < StarStart` (opposite arms). `HasBasalUgMotif`: U at DroshaCut5' − 14, G at − 13. `HasCnncMotif`: C..C starting at DroshaCut3' + 16..18.
