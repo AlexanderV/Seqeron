@@ -1421,7 +1421,7 @@ public class AnnotationTools
 
     /// <summary>TargetScan 5.0 / Grimson 2007 context score of a seed site.</summary>
     [McpServerTool(Name = "score_target_site_grimson", Title = "miRNA — Score Target Site (Grimson 2007)", ReadOnly = true)]
-    [Description("TargetScan 5.0 / Grimson et al. (2007, Mol Cell 27:91) context score of an 8mer, 7mer-m8 or 7mer-A1 site in a 3'UTR (index 0 = first nt after the stop codon): site type + 3' pairing + local AU + position contributions in log2 fold-change units (negative = repressed). siteStart/siteEnd are 0-based inclusive (an 8mer includes its A1). contextScore is null when the 1-based site start is < 15 (TargetScan 'too_close'); scored=false for site types without coefficients (Seed6mer, Offset6mer, Supplementary, Centered).")]
+    [Description("TargetScan 5.0 / Grimson et al. (2007, Mol Cell 27:91) context score of an 8mer, 7mer-m8 or 7mer-A1 site in a 3'UTR (index 0 = first nt after the stop codon): site type + 3' pairing + local AU + position contributions in log2 fold-change units (negative = repressed). siteStart/siteEnd are 0-based inclusive (an 8mer includes its A1). contextScore is null when the 1-based site start is < 15 (TargetScan 'too_close'); scored=false for site types without coefficients (Seed6mer, Offset6mer, Centered).")]
     public static ScoreTargetSiteGrimsonResult ScoreTargetSiteGrimson(
         [Description("3'UTR / mRNA nucleotide sequence (DNA T→U is applied internally)")] string mRnaSequence,
         [Description("miRNA nucleotide sequence")] string miRnaSequence,
@@ -1712,8 +1712,7 @@ public class AnnotationTools
     [McpServerTool(Name = "generate_seed_variants", Title = "miRNA — Generate Seed Variants", ReadOnly = true)]
     [Description("Enumerate single-nucleotide variants of a seed sequence (the original plus all single-position substitutions over A/C/G/U).")]
     public static GenerateSeedVariantsResult GenerateSeedVariants(
-        [Description("Seed nucleotide sequence")] string seedSequence,
-        [Description("Ignored; accepted for compatibility (the result does not depend on it)")] bool includeWobble = true)
+        [Description("Seed nucleotide sequence")] string seedSequence)
     {
         if (string.IsNullOrEmpty(seedSequence))
             throw new ArgumentException("Seed sequence cannot be null or empty", nameof(seedSequence));

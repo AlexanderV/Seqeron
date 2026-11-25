@@ -13,12 +13,12 @@ Tests: `tests/Seqeron/Seqeron.Genomics.Tests/MiRnaAnalyzer_PreMiRna_Tests.cs` (D
 
 ## Stage A — Description
 
-### Sources opened (this session)
+### Sources consulted (this session; "opened" = full text read, otherwise stated)
 
 | # | Source | What it confirms |
 |---|--------|------------------|
 | 1 | **Han et al. (2006)**, *Cell* 125:887–901, "Molecular basis for the recognition of primary microRNAs by the Drosha–DGCR8 complex" (PubMed 16751099; cell.com S0092-8674(06)00516-2) | The Drosha cleavage site "is determined mainly by the distance (~11 bp) from the stem–ssRNA junction." DGCR8 anchors the basal ssRNA and directs Drosha cleavage ~11 bp (≈ one helical turn) up the stem (base-anchor model, pri-miR-16). |
-| 2 | **Park et al. (2011)**, *Nature* 475:201–205, "Dicer recognizes the 5′ end of RNA for efficient and accurate processing" (PubMed 21753850; nature.com/articles/nature10198) | Human Dicer anchors the 5′ end, with "the cleavage site determined mainly by the distance (~22 nucleotides) from the 5′ end (5′ counting rule)." This fixes the mature length. |
+| 2 | **Park et al. (2011)**, *Nature* 475:201–205, "Dicer recognizes the 5′ end of RNA for efficient and accurate processing" (PubMed 21753850; nature.com/articles/nature10198) — **abstract / search snippet only, full text not opened** | Human Dicer anchors the 5′ end, with "the cleavage site determined mainly by the distance (~22 nucleotides) from the 5′ end (5′ counting rule)." This fixes the mature length. |
 | 3 | **Auyeung et al. (2013)**, *Cell* 152:844–858, "The Menu of Features that Define Primary MicroRNAs…" | The CNNC primary-sequence element acts ~17 nt (within a 16–18 nt window) downstream (3′) of the Drosha basal cut; SRSF3 binds it and recruits DROSHA to the basal junction. Optional licensing/confidence signal. |
 | 4 | **Lee et al. (2003)** / Han 2006 | RNase III cleavage (Drosha, Dicer) leaves a **2-nt 3′ overhang**. |
 | 5 | **miRBase** hsa-mir-21 hairpin **MI0000077** (mirbase.org/hairpin/MI0000077) | Precursor (72 nt), `ugucggg`**UAGCUUAUCAGACUGAUGUUGA**`cuguugaaucucaugg`**CAACACCAGUCGAUGGGCUGU**`cugaca`. 5p mature **hsa-miR-21-5p (MIMAT0000076)** = `UAGCUUAUCAGACUGAUGUUGA` at 1-based 8–29 (0-based 7–28, 22 nt). 3p **hsa-miR-21-3p (MIMAT0004494)** = `CAACACCAGUCGAUGGGCUGU` at 1-based 46–66 (0-based 45–65, 21 nt). |
@@ -100,7 +100,7 @@ Single public overload; no `*Fast`/instance variant. N/A.
 
 ## Verdict & follow-ups
 
-- **Stage A: ✅ PASS** — measuring rules and constants confirmed verbatim against Han 2006, Park 2011, Auyeung 2013, Lee 2003; 5p mature reproduces miRBase hsa-miR-21-5p exactly by hand-trace.
+- **Stage A: ✅ PASS** — measuring rules and constants confirmed against Han 2006, Auyeung 2013 (PDF), Lee 2003 and, for Park 2011, its abstract / search snippet only (the full text was not opened); 5p mature reproduces miRBase hsa-miR-21-5p exactly by hand-trace.
 - **Stage B: 🟡 PASS-WITH-NOTES** — the 5p mature / Drosha–Dicer cut prediction is correct and independently verified; the 3p (miRNA\*) span is a deliberately simplified linear-geometry approximation (no folding) that does not reproduce the real 3′-arm 3p — a documented model boundary alongside the out-of-scope miRDeep2 classifier. Doc-comment overstatement and one code-echo test were fully fixed this session.
 - **State: ✅ CLEAN** — no algorithm defect; the two issues found (doc overstatement, code-echo test) were fully fixed, edge-case coverage added (DD11–DD14), and the FULL unfiltered `dotnet test Seqeron.sln -c Debug` is green (Genomics 18775 passed, Failed: 0; 0 build warnings on changed files).
 - Logged: FINDINGS_REGISTER A-MIRNA-CLEAVAGE-001-1.

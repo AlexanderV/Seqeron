@@ -14,7 +14,7 @@ TargetScan 5.0 / Grimson et al. (2007) context score of an 8mer, 7mer-m8 or 7mer
 
 ## Description
 
-Faithful port of the TargetScan 5.0 context score (Grimson et al. 2007, Mol Cell 27:91; `targetscan_50_context_scores.pl`): site type (−0.310 / −0.161 / −0.099 for 8mer / 7mer-m8 / 7mer-A1) + 3′ pairing + local AU + position contributions, in log2 fold-change units (negative = repressed). `mRnaSequence` is the 3′UTR (index 0 = first nt after the stop codon); `siteStart`/`siteEnd` are 0-based inclusive (an 8mer includes its A1). `contextScore` is null when the 1-based site start is < 15 (TargetScan `too_close`; the contributions are still returned). `scored = false` for `Seed6mer`, `Offset6mer`, `Supplementary` and `Centered` (no TargetScan 5.0 coefficients). `find_mirna_target_sites` reports `max(0, −contextScore)` as its `score`.
+Faithful port of the TargetScan 5.0 context score (Grimson et al. 2007, Mol Cell 27:91; `targetscan_50_context_scores.pl`): site type (−0.310 / −0.161 / −0.099 for 8mer / 7mer-m8 / 7mer-A1) + 3′ pairing + local AU + position contributions, in log2 fold-change units (negative = repressed). `mRnaSequence` is the 3′UTR (index 0 = first nt after the stop codon); `siteStart`/`siteEnd` are 0-based inclusive (an 8mer includes its A1). `contextScore` is null when the 1-based site start is < 15 (TargetScan `too_close`; the contributions are still returned). `scored = false` for `Seed6mer`, `Offset6mer` and `Centered` (no TargetScan 5.0 coefficients). `find_mirna_target_sites` reports `max(0, −contextScore)` as its `score`.
 
 ## Core Documentation Reference
 

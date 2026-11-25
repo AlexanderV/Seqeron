@@ -42,17 +42,10 @@ public class GenerateSeedVariantsTests
     }
 
     [Test]
-    public void GenerateSeedVariants_IncludeWobble_IsIgnored_AndDescribedAsSuch()
+    public void GenerateSeedVariants_HasNoIncludeWobbleParameter()
     {
-        // WP-11 / A14: the parameter stays (no MCP parameter is removed) but never changes the result.
-        Assert.That(AnnotationTools.GenerateSeedVariants("GAGGUAG", includeWobble: false).Variants,
-            Is.EqualTo(AnnotationTools.GenerateSeedVariants("GAGGUAG", includeWobble: true).Variants));
-
+        // WP-R2-5 / R2-A3: the no-op parameter was removed (no source defines wobble semantics for seed variants).
         var method = typeof(AnnotationTools).GetMethod(nameof(AnnotationTools.GenerateSeedVariants))!;
-        var parameter = method.GetParameters().Single(p => p.Name == "includeWobble");
-        var description = ((System.ComponentModel.DescriptionAttribute)parameter
-            .GetCustomAttributes(typeof(System.ComponentModel.DescriptionAttribute), false).Single()).Description;
-        Assert.That(description, Does.Contain("Ignored").And.Contain("compatibility"));
-        Assert.That(description, Does.Not.Contain("future").IgnoreCase);
+        Assert.That(method.GetParameters().Select(p => p.Name), Is.EqualTo(new[] { "seedSequence" }));
     }
 }

@@ -118,7 +118,7 @@ public class MiRnaAnalyzer_GrimsonContext_Tests
     public void UnsupportedTypesAndBadInput_ReturnNull()
     {
         const string utr = "GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGCUACCUGGGGGGGGGGGGGGGGGGGGGGGGGG";
-        foreach (var t in new[] { TargetSiteType.Seed6mer, TargetSiteType.Offset6mer, TargetSiteType.Supplementary, TargetSiteType.Centered })
+        foreach (var t in new[] { TargetSiteType.Seed6mer, TargetSiteType.Offset6mer, TargetSiteType.Centered })
             Assert.That(ScoreTargetSiteGrimson(utr, Let7a.Sequence, 40, 45, t), Is.Null, t.ToString());
         Assert.That(ScoreTargetSiteGrimson("", Let7a.Sequence, 0, 1, TargetSiteType.Seed8mer), Is.Null);
         Assert.That(ScoreTargetSiteGrimson(utr, Let7a.Sequence, 40, 500, TargetSiteType.Seed8mer), Is.Null);
@@ -258,11 +258,11 @@ public class MiRnaAnalyzer_GrimsonContext_Tests
     }
 
     [Test]
-    public void FindTargetSites_NeverEmits_SupplementaryOrCentered()
+    public void FindTargetSites_NeverEmits_Centered()
     {
         string utr = new string('A', 40) + Rc(Let7a.Sequence.Substring(3, 12)) + new string('A', 40) + "CUACCUCA" + new string('A', 40);
         Assert.That(FindTargetSites(utr, Let7a, double.NegativeInfinity)
-            .Any(s => s.Type is TargetSiteType.Supplementary or TargetSiteType.Centered), Is.False);
+            .Any(s => s.Type == TargetSiteType.Centered), Is.False);
     }
 
     // ── A17: offset-6mer suppression independent of minScore ───────────────────────────────────────────

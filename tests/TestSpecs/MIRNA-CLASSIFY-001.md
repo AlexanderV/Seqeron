@@ -59,6 +59,7 @@ R: probability ∈ [0,1]; D: deterministic; threshold split positive/negative
 | TS3 | default folder = `CalculateMfeStructure`; all 5 miRBase precursors called real | internal consistency |
 | TS4 | `TripletSvmDecisionValue` at 3 vectors outside the training data (1e-12) | libsvm `svm_predict_values` |
 | TS5 | DNA/lower case normalised; non-ACGU dropped; < min arm pairs empty; guards | package step 1/2 semantics |
+| TS6b | `ComputeTripletFeatures` (named row; same test as TS6 plus the two-arm-pair `null` case) | definition in `3_step_triplet_coding_for_queries.pl`; a structure with two arm pairs returns null (package skips) |
 | TS6 | hand-computed triplet coding of `GGGGAAAACCCC`/`((((....))))` | definition in `3_step_triplet_coding_for_queries.pl` |
 
 Not committed: 300 random ViennaRNA 2.8 folds × min arm 22/12/6 (981 coded candidates) compared with the Perl scripts + libsvm: 0 differences (decision values < 1e-6, spans, sequences, structures, labels).

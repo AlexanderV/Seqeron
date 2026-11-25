@@ -40,7 +40,7 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///        (the Min_dist edge: nearest-end distance 0 ⇒ log10 floored to 0, never log10(0) = −∞).
 ///        — docs/checklists/03_FUZZING.md §Description (code BE).
 ///   • MC = Malformed Content — a non-canonical / out-of-contract site type (Offset6mer,
-///        Supplementary, Centered) ⇒ the documented ArgumentException, not a wrong score;
+///        Centered) ⇒ the documented ArgumentException, not a wrong score;
 ///        a "no seed match" UTR carrying no real site is scored only via a manufactured site
 ///        and must still produce a finite, defined score (the scorer trusts the supplied
 ///        site type and never re-discovers the seed). — §Description (code MC).
@@ -50,7 +50,7 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 /// ───────────────────────────────────────────────────────────────────────────
 /// ScoreTargetSiteContextPlusPlus(mRnaSequence, miRna, site, inputs) → ContextPlusPlusScore.
 ///   • The site MUST be one of the four canonical seed-match types {Seed8mer, Seed7merM8,
-///     Seed7merA1, Seed6mer}; any other type (Offset6mer / Supplementary / Centered) throws
+///     Seed7merA1, Seed6mer}; any other type (Offset6mer / Centered) throws
 ///     ArgumentException (§5.1 / source ~770). This is the documented validation outcome.
 ///   • ContextScorePartial = Intercept + Local_AU + sRNA1 + sRNA8 + Site8 + SA + 3P_score
 ///       + Min_dist + Len_3UTR + Off6m + SPS + TA + Len_ORF + ORF8m + PCT.
@@ -323,7 +323,7 @@ public class MiRnaContextFuzzTests
 
     /// <summary>
     /// MC — the documented validation exception. context++ is defined only for the four canonical
-    /// seed-match types; any other site type (Offset6mer, Supplementary, Centered) must throw
+    /// seed-match types; any other site type (Offset6mer, Centered) must throw
     /// ArgumentException naming the `site` argument (source ~770) — a defined refusal, NOT a wrong
     /// score, NaN, or crash. We sweep all three out-of-contract types.
     /// </summary>
@@ -335,7 +335,6 @@ public class MiRnaContextFuzzTests
         foreach (var bad in new[]
                  {
                      TargetSiteType.Offset6mer,
-                     TargetSiteType.Supplementary,
                      TargetSiteType.Centered,
                  })
         {

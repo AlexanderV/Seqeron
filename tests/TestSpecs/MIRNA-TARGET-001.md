@@ -315,6 +315,7 @@ These are intentional engineering simplifications that do not deviate from the b
 | G-002 | `KitRow_NearUtrStart_ClipsInsteadOfNegativeSubstr` | the one row with UTR start 21 (perl negative-substr defect, printed AU -0.095): independent python derivation -0.147 |
 | G-003 | `WorkedExample_8merPolyG_HandDerived`, `AnalyzeTargetContext_*` | hand derivation from the TargetScan 5.0 constants |
 | G-004 | `FindTargetSites_Score_IsNegatedContextScore_ClampedAtZero_UnscoredTypesZero`, `_MinScore_FiltersOnPredictedRepression` | Score = max(0, -ContextScore); 6mer / offset 6mer / too_close: 0 and ContextScore null |
+| G-001b | `ScoreTargetSiteGrimson` (public API, named row; MCP `score_target_site_grimson`) | covered by G-001..G-003 (`KitRows_*`, `KitRows_SiteTypeContributions_Are_Minus0310_0161_0099`, `SiteWithin15NtOfStopCodon_TooClose_*`, `UnsupportedTypesAndBadInput_ReturnNull` for Seed6mer / Offset6mer / Centered); R2-A4: `TargetSiteType.Supplementary` removed from the enum (never emitted; Grimson 2007 3' pairing is an additive term, not a site class) |
 | G-005 | `FindCenteredSites_*` | Shin 2010 definition (>= 11 contiguous WC pairs at miRNA nt 4-14 / 5-15 / 4-15, seed nt 2-7 not all paired): hand constructions; no reference implementation exists |
 | G-006 | `OffsetSixmerSuppression_DoesNotDependOnMinScore` | structural: every 6mer-core site claims its positions whether or not emitted |
 | P-001 | `MiRnaProperties.FindTargetSites_Score_MatchesDocFormula` | independent oracle for site type + AU + position, 3' pairing from the public record |

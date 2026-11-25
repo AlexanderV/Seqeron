@@ -41,7 +41,7 @@ no fitted score (0). Only sites at or above `minScore` are returned.
 | `sites[].end` | integer | 0-based site end |
 | `sites[].targetSequence` | string | mRNA subsequence at the site |
 | `sites[].miRnaName` | string | Query miRNA name |
-| `sites[].type` | string | Seed8mer / Seed7merM8 / Seed7merA1 / Seed6mer / Offset6mer / Supplementary / Centered |
+| `sites[].type` | string | Seed8mer / Seed7merM8 / Seed7merA1 / Seed6mer / Offset6mer / Centered |
 | `sites[].seedMatchLength` | integer | Length of the seed match |
 | `sites[].score` | number | Site score |
 | `sites[].freeEnergy` | number | Predicted duplex free energy |

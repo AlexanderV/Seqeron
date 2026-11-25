@@ -77,7 +77,7 @@
 > (3p) coordinates, and the 2-nt overhangs. **Cross-checked** against miRBase hsa-miR-21-5p
 > (MIMAT0000076): with an 11-nt lower stem prepended so the +11 ruler lands at the annotated 5p start,
 > the predicted mature equals `UAGCUUAUCAGACUGAUGUUGA` exactly (DD4). Defaults and existing methods are
-> unchanged. New tests DD1–DD10 in `MiRnaAnalyzer_PreMiRna_Tests.cs`. **Honest residual (data-blocked):**
+> unchanged. New tests DD1–DD10 in `MiRnaAnalyzer_PreMiRna_Tests.cs`. **Residual at that time (superseded by F42 Triplet-SVM / ClassifyPreMiRna; MiPred open, WP-R2-1):**
 > a competitive **trained** natural-vs-background precursor classifier (miRDeep2-style fitted
 > probabilistic model) — requires a trained model and labelled data. Status remains ☐ (registry
 > unchanged; not previously ☑).

@@ -25,7 +25,7 @@ default of `MiRnaAnalyzer.FindPreMiRnaHairpins` (`minMfei` = Zhang 2006 MFEI thr
 **Cost and the screen option.** The default folds every window (≈ 20 ms per 55–120-nt window, parallelised over
 window starts), so scanning a long sequence is slow — keep the default for a locus of a few hundred nucleotides.
 For long inputs set `useConsecutiveScreen = true`: the fast consecutive-pairing screen (window ends must pair
-uninterrupted — Watson–Crick or G·U — for ≥ 18 bp with a 3–25 nt apical loop; no bulges, so e.g. hsa-mir-21 is
+uninterrupted — Watson–Crick or G·U — for ≥ 18 bp with a 3–25 nt apical loop — operational screen parameters, not a published criterion; no bulges, so e.g. hsa-mir-21 is
 missed; blunt mature/star labels = first/last `matureLength` nt of the window; Structure/ΔG° from the canonical
 stem-loop model; `minMfei` ignored). `useConsecutiveScreen`/`minMfei` are additive optional parameters: existing
 calls are unchanged.

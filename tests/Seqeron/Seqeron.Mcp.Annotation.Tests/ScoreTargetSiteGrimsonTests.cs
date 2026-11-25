@@ -62,7 +62,6 @@ public class ScoreTargetSiteGrimsonTests
 
     [TestCase("Seed6mer")]
     [TestCase("Offset6mer")]
-    [TestCase("Supplementary")]
     [TestCase("Centered")]
     public void ScoreTargetSiteGrimson_TypesWithoutCoefficients_NotScored(string type)
     {

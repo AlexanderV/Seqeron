@@ -32,7 +32,7 @@ $$
 \{A\!-\!U,\; U\!-\!A,\; G\!-\!C,\; C\!-\!G,\; G\!-\!U,\; U\!-\!G\}
 $$
 
-The acceptance criteria of the opt-in screen (`useConsecutiveScreen: true`) are:
+The acceptance criteria of the opt-in screen (`useConsecutiveScreen: true`) are **operational screen parameters, not a published criterion** (Krol et al. 2004 states no 18-bp threshold; the 18 bp is a conservative subset of the Ambros 2003 ≥ 16 bp criterion that the default MFE mode applies; the 3-nt lower loop bound is the NNDB minimum, the 25-nt upper bound is the MFE-mode loop limit):
 
 - stem length $\ge 18$ bp,
 - loop length $= n - 2 \times \text{stem length}$ with $3 \le \text{loop length} \le 25$,
@@ -250,11 +250,11 @@ By default (F40) every window is folded with the canonical MFE engine and accept
   threshold 0.5 = minimum-error cutoff under the training prior (1 : 4).
   70/30 split. **No GPL miRDeep2 code or weights are used** (its published method was consulted only).
 
-**Intentionally simplified:**
+**Intentionally simplified (opt-in `useConsecutiveScreen: true` screen only; the default is the MFE fold, F40, with the star from the 2-nt-overhang rule of `find_star`):**
 
-- Stem discovery requires uninterrupted end-pairing from the candidate ends inward; **consequence:** biologically valid precursors with internal bulges, asymmetric loops, or local mismatches are frequently missed.
-- Mature and star sequences are extracted symmetrically from fixed arm positions; **consequence:** arm switching, offset mature products, and heterogeneous isomiR processing are not represented.
-- Candidate discovery is exhaustive over fixed windows rather than full secondary-structure optimization; **consequence:** overlapping windows can generate multiple related candidates and the search remains purely heuristic.
+- The screen requires uninterrupted end-pairing from the candidate ends inward; **consequence:** precursors with internal bulges, asymmetric loops, or local mismatches are missed (the default MFE mode tolerates them).
+- The screen extracts mature and star symmetrically from fixed arm positions (blunt labels); **consequence:** arm switching, offset mature products and isomiR heterogeneity are not represented in screen mode.
+- The screen is exhaustive over fixed windows without secondary-structure optimisation, and its 18-bp / 3–25-nt thresholds are operational screen parameters, not a published criterion; **consequence:** overlapping windows can give related candidates.
 
 **Not implemented:**
 

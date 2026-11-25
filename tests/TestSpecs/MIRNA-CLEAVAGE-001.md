@@ -19,7 +19,7 @@
 |---|--------|----------|
 | 1 | Han et al. (2006), *Cell* 125:887 | Drosha cleaves ~11 bp from the basal stem–ssRNA junction. |
 | 2 | Auyeung et al. (2013), *Cell* 152:844 (PDF opened) | "an 11 bp basal stem was preferred"; positions numbered from the Drosha sites (− upstream of the 5p cut, + downstream of the 3p cut); basal U at −14 / G at −13; CNNC enriched at +16..+18; cleavage sites inferred from RNAfold (hairpin ± 20 nt) with a 2-nt 3' overhang. Apical UGU/GUG only as loop enrichment (no positional rule). |
-| 3 | Park et al. (2011), *Nature* 475:201 | 5' counting (~22 nt from the 5' end); Dicer also anchors the 3' end (3' counting). |
+| 3 | Park et al. (2011), *Nature* 475:201 (abstract / search snippet only, not opened) | 5' counting (~22 nt from the 5' end); Dicer also anchors the 3' end (3' counting). |
 | 4 | Lee et al. (2003) / Han 2006 | RNase III leaves a 2-nt 3' overhang. |
 | 5 | miRDeep2 `find_star` (rajewsky-lab/mirdeep2 `src/miRDeep2_core_algorithm.pl`, opened) | Star from mature: start = bp(end − 2 − off) − off, end = bp(start + off) + off + 2. |
 | 6 | Gu et al. (2012), *Cell* 151:900 (PMC3499986) | Loop counting = precision condition (cut 2 nt from a loop/bulge), not a placement rule. |

@@ -850,7 +850,7 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
 
         Assert.Throws<ArgumentException>(
             () => ScoreTargetSiteContextPlusPlus("AAAAAAAAAA", Let7a, offsetSite),
-            "Offset6mer / Supplementary / Centered have no fitted context++ model");
+            "Offset6mer / Centered have no fitted context++ model");
     }
 
     #endregion
