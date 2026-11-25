@@ -309,7 +309,7 @@ internal sealed partial class EsaIndex
     /// </summary>
     internal static bool DescendMapped(MappedChild child, SaView sa, CompactLcp lcp, MappedTextReader text, ReadOnlySpan<byte> pat, bool isChecked, out int lo, out int hi)
     {
-        int n = IntBridge.Length(text.Length, "EsaIndex.DescendMapped (the 32-bit reference; use DescendMappedWide)");
+        int n = IntBridge.Length(text.Length, "EsaIndex.DescendMapped (the 32-bit reference of the tests; the long descent is WideSearch)");
         int m = pat.Length;
         int lb = 0, rb = n, ell = 0, c = 0;
         bool isLast = true;
@@ -359,77 +359,6 @@ internal sealed partial class EsaIndex
             int limit = Math.Min(childEll, m);
             int from = sa[a] + c;
             if (limit > c + 1 && ((uint)from >= (uint)n || !EdgeEquals(text, from + 1, pat.Slice(c + 1, limit - c - 1), edge)))
-            {
-                lo = 0;
-                hi = -1;
-                return false;
-            }
-            c = limit;
-            lb = a;
-            rb = b;
-            ell = childEll;
-            isLast = childIsLast;
-        }
-        lo = lb;
-        hi = rb;
-        return true;
-    }
-
-    /// <summary>
-    /// The readable reference of the long descent (<see cref="WideSearch"/>): <see cref="DescendMapped"/> at 64-bit ranks, positions and lengths, over the long members of the typed views (<see cref="SaView"/>, <see cref="CompactLcp"/>,
-    /// <see cref="MappedChild"/>, <see cref="MappedTextReader"/>), with the same checks in Checked mode. It reads any stored width and any LCP kind; the tests compare it with the long descent and with the 32-bit descent on valid and damaged files.
-    /// </summary>
-    internal static bool DescendMappedWide(MappedChild child, SaView sa, CompactLcp lcp, MappedTextReader text, ReadOnlySpan<byte> pat, bool isChecked, out long lo, out long hi)
-    {
-        long n = text.Length;
-        long m = pat.Length;
-        long lb = 0, rb = n, ell = 0, c = 0;
-        bool isLast = true;
-        Span<byte> edge = stackalloc byte[EdgeChunk];
-        while (c < m)
-        {
-            int symbol = pat[checked((int)c)]; // c < m = pat.Length
-            long a = lb;
-            long boundary = child.FirstLIndex(lb, rb, isLast);
-            if (isChecked && boundary >= 0 && (boundary <= a || boundary > rb)) ThrowDamagedChildTable();
-            long b;
-            while (true)
-            {
-                b = boundary >= 0 ? boundary - 1 : rb;
-                long p = sa[a] + ell;
-                int key = (ulong)p < (ulong)n ? (int)text.Symbol(p) : -1;
-                if (key == symbol) break;
-                if (key > symbol || boundary < 0)
-                {
-                    lo = 0;
-                    hi = -1;
-                    return false;
-                }
-                a = boundary;
-                boundary = child.NextLIndex(boundary, rb);
-                if (isChecked && boundary >= 0 && (boundary <= a || boundary > rb)) ThrowDamagedChildTable();
-            }
-
-            bool childIsLast = boundary < 0;
-            if (a == b)
-            {
-                long start = sa[a] + c;
-                if ((ulong)start > (ulong)n || m - c > n - start || !EdgeEquals(text, start, pat[checked((int)c)..], edge))
-                {
-                    lo = 0;
-                    hi = -1;
-                    return false;
-                }
-                lo = a;
-                hi = a;
-                return true;
-            }
-
-            long childEll = lcp[child.FirstLIndex(a, b, childIsLast)];
-            if (isChecked && (childEll <= ell || childEll > n)) ThrowDamagedChildTable();
-            long limit = Math.Min(childEll, m);
-            long from = sa[a] + c;
-            if (limit > c + 1 && ((ulong)from >= (ulong)n || !EdgeEquals(text, from + 1, pat.Slice(checked((int)(c + 1)), checked((int)(limit - c - 1))), edge)))
             {
                 lo = 0;
                 hi = -1;

@@ -85,9 +85,13 @@ internal sealed partial class EsaIndex
         Int128 total = length * (length + 1) / 2;
         CompactLcp.LongCursor cursor = lcp.CreateLongCursor();
         for (long rank = 1; rank <= n; rank++) total -= cursor.Get(rank);
-        if (total > long.MaxValue) throw new NotSupportedException($"the number of distinct substrings is {total}, more than 64 bits hold");
-        return (long)total;
+        return ToCount(total);
     }
+
+    /// <summary>The number of distinct substrings as 64 bits: a text of more than about 2^32 symbols with few repeats has more of them than 64 bits hold.</summary>
+    /// <exception cref="NotSupportedException">The number does not fit 64 bits.</exception>
+    internal static long ToCount(Int128 total) =>
+        total > long.MaxValue ? throw new NotSupportedException($"the number of distinct substrings is {total}, more than 64 bits hold") : (long)total;
 
     /// <summary>
     /// Element <c>i</c> (<c>1 &lt;= i &lt;= min(maxLength, n)</c>) is the number of distinct substrings of length <c>i</c>, element 0 is 1 (the empty substring; also for the empty

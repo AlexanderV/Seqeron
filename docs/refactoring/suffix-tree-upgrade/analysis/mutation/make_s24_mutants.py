@@ -10,15 +10,16 @@ ROOT = sys.argv[1]
 OUT = sys.argv[2]
 S = 'src/SuffixTree/Algorithms/SuffixTree.Esa/'
 T = 'FullyQualifiedName~SuffixTree.Esa.Tests.'
-F_WIDE = '(' + T + 'Search.WideDescentTests)'
-F_INDEX = '(' + T + 'Search.WideIndexTests|' + T + 'Search.EsaSearchTests|' + T + 'Search.MappedSearchTests)'
+F_WIDE = '(' + T + 'Search.WideDescentTests|' + T + 'Search.WideDamageSweepTests)'
+F_INDEX = '(' + T + 'Search.WideIndexTests|' + T + 'Search.WideMembersTests|' + T + 'Search.EsaSearchTests|' + T + 'Search.MappedSearchTests)'
 F_ANALYSIS = '(' + T + 'Search.WideIndexTests|' + T + 'Analysis.|' + T + 'Tree.EsaIndexTests)'
 F_TRAVERSE = '(' + T + 'Search.WideIndexTests|' + T + 'Tree.EsaTraverseTests|' + T + 'External.SesaTraverseDamageTests)'
 F_CONTRACT = '(' + T + 'Search.WideIndexTests|' + T + 'Contract.)'
 F_SCAN = '(' + T + 'Tree.LcpIntervalScanTests|' + T + 'Tree.LeftmostOccurrenceTests|' + T + 'Search.WideIndexTests|' + T + 'Large.WideScanSelfTests)'
 F_LCP = '(' + T + 'Views.CompactLcpWideTests|' + T + 'Search.WideIndexTests|' + T + 'Large.WideScanSelfTests)'
-F_SESA = '(' + T + 'External.SesaReader|' + T + 'Large.WideEngineSelfTests)'
-F_NODE = '(' + T + 'Search.WideIndexTests)'
+F_SESA = '(' + T + 'Search.WideDamageSweepTests|' + T + 'External.SesaReader|' + T + 'Large.WideEngineSelfTests)'
+F_MEMBERS = '(' + T + 'Search.WideMembersTests)'
+F_NODE = '(' + T + 'Search.WideIndexTests|' + T + 'Search.WideMembersTests)'
 M = []
 
 
@@ -140,9 +141,6 @@ m('S22', 'TryMatch (long): the empty text has a match', SR, 'if (_length == 0) r
 m('S23', 'TryMatch (long): the mapped test is inverted', SR, 'if (IsMapped) return MatchMapped(pattern, out lo, out hi);\n        bool found', 'if (!IsMapped) return MatchMapped(pattern, out lo, out hi);\n        bool found', F_INDEX)
 m('S24', 'TryMatch (long): the interval of the in-memory index ends at its left bound', SR, 'bool found = TryMatch(pattern, out int l, out int h);\n        lo = l;\n        hi = h;\n        return found;\n    }\n\n    private bool Match<TSym>', 'bool found = TryMatch(pattern, out int l, out int h);\n        lo = l;\n        hi = l;\n        return found;\n    }\n\n    private bool Match<TSym>', F_INDEX)
 m('S25', 'Dense: a letter just above the alphabet maps to a symbol', SR, 'int s = c < map.Length ? map[c] : -1;\n            if (s < 0) return false;\n            dense[i] = (byte)s;', 'int s = c <= map.Length ? map[c] : -1;\n            if (s < 0) return false;\n            dense[i] = (byte)s;', F_INDEX)
-m('S26', 'the long reference compares one symbol late at a leaf', SR, 'long start = sa[a] + c;\n                if ((ulong)start > (ulong)n || m - c > n - start || !EdgeEquals(text, start, pat[checked((int)c)..], edge))', 'long start = sa[a] + c;\n                if ((ulong)start > (ulong)n || m - c > n - start || !EdgeEquals(text, start + 1, pat[checked((int)c)..], edge))', F_INDEX)
-m('S27', 'the long reference clamps the text at n inclusive', SR, 'int key = (ulong)p < (ulong)n ? (int)text.Symbol(p) : -1;\n                if (key == symbol) break;\n                if (key > symbol || boundary < 0)\n                {\n                    lo = 0;\n                    hi = -1;\n                    return false;\n                }\n                a = boundary;\n                boundary = child.NextLIndex(boundary, rb);\n                if (isChecked && boundary >= 0 && (boundary <= a || boundary > rb)) ThrowDamagedChildTable();\n            }\n\n            bool childIsLast = boundary < 0;\n            if (a == b)\n            {\n                long start', 'int key = (ulong)p <= (ulong)n ? (int)text.Symbol(p) : -1;\n                if (key == symbol) break;\n                if (key > symbol || boundary < 0)\n                {\n                    lo = 0;\n                    hi = -1;\n                    return false;\n                }\n                a = boundary;\n                boundary = child.NextLIndex(boundary, rb);\n                if (isChecked && boundary >= 0 && (boundary <= a || boundary > rb)) ThrowDamagedChildTable();\n            }\n\n            bool childIsLast = boundary < 0;\n            if (a == b)\n            {\n                long start', F_INDEX)
-m('S28', 'the long reference takes the larger limit', SR, 'long limit = Math.Min(childEll, m);\n            long from = sa[a] + c;', 'long limit = Math.Max(childEll, m);\n            long from = sa[a] + c;', F_INDEX)
 
 AN = 'EsaIndex.Analysis.cs'
 m('A01', 'LrsPosition: no repeat gives position 0', AN, 'internal long LrsPosition => Statistics.LrsDepth == 0 ? -1 : Sa[Statistics.LrsRank];', 'internal long LrsPosition => Statistics.LrsDepth == 0 ? 0 : Sa[Statistics.LrsRank];', F_ANALYSIS)
@@ -158,7 +156,7 @@ m('A10', 'the distinct substrings: n (n + 1) / 2 is n n / 2', AN, 'Int128 total 
 m('A11', 'the distinct substrings: the LCP values are added', AN, 'for (long rank = 1; rank <= n; rank++) total -= cursor.Get(rank);', 'for (long rank = 1; rank <= n; rank++) total += cursor.Get(rank);', F_ANALYSIS)
 m('A12', 'the distinct substrings: the last rank is not read', AN, 'for (long rank = 1; rank <= n; rank++) total -= cursor.Get(rank);', 'for (long rank = 1; rank < n; rank++) total -= cursor.Get(rank);', F_ANALYSIS)
 m('A13', 'the distinct substrings: the sum is taken in 64 bits (a^n above 3 x 10^9 wraps)', AN, 'Int128 length = n;\n        Int128 total = length * (length + 1) / 2;', 'long length = n;\n        Int128 total = length * (length + 1) / 2;', F_ANALYSIS, stage3='(' + T + 'Large.WideEngineLargeTests)')
-m('A14', 'the distinct substrings: the 64-bit result is not checked', AN, 'if (total > long.MaxValue) throw new NotSupportedException($"the number of distinct substrings is {total}, more than 64 bits hold");\n        return (long)total;', 'return (long)total;', F_ANALYSIS)
+m('A14', 'the distinct substrings: the 64-bit result is not checked', AN, 'total > long.MaxValue ? throw new NotSupportedException($"the number of distinct substrings is {total}, more than 64 bits hold") : (long)total;', '(long)total;', F_MEMBERS)
 m('A15', 'the histogram: the suffix count n - i + 1 loses its one', AN, 'counts[i] = n - i + 1 - atLeast;', 'counts[i] = n - i - atLeast;', F_ANALYSIS)
 m('A16', 'the histogram: the length 1 is not counted', AN, 'for (int i = m; i >= 1; i--)', 'for (int i = m; i > 1; i--)', F_ANALYSIS)
 m('A17', 'the histogram: the empty substring is not counted', AN, 'counts[0] = 1;', 'counts[0] = 0;', F_ANALYSIS)

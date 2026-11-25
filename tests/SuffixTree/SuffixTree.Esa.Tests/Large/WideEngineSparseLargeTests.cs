@@ -226,6 +226,7 @@ public class WideEngineSparseLargeTests : LargeFixtureBase
     public void TheIndexOverTheContainer_AtTheBoundary_RefusesTheInt32SurfaceByName_OrServesIt(long n)
     {
         using SesaFile file = SesaFile.Open(Shell(n), At(EsaAccessMode.Checked));
+        Assert.That(file.IsNarrow, Is.EqualTo(n < int.MaxValue), "the 32-bit loop of S1 serves a text of fewer than 2^31 - 1 symbols and no other");
         EsaIndex index = EsaIndex.FromFile(file);
         Assert.That(new EsaSuffixIndex(index).TextLength, Is.EqualTo(n));
         if (n > int.MaxValue)
