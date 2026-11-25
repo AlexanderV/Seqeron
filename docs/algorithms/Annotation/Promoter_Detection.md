@@ -5,41 +5,53 @@
 | Algorithm Group | Annotation |
 | Test Unit ID | ANNOT-PROM-001 |
 | Related Projects | Seqeron.Genomics |
-| Implementation Status | Simplified |
-| Last Reviewed | 2026-04-30 |
+| Implementation Status | Complete (consensus definition; delegates to MotifFinder) |
+| Last Reviewed | 2026-11-25 (review-2026-09 B11, F7) |
 
 ## 1. Overview
 
-Promoter detection in this repository is a bacterial motif-search helper, not a full transcription-start-site predictor. `GenomeAnnotator.FindPromoterMotifs(...)` scans DNA for exact `-35` and `-10` consensus substrings and a small set of derived prefix/suffix variants, then assigns a literature-based score to each matched motif. The method is deterministic and inexpensive, but it does not pair `-35` and `-10` elements into complete promoter models and does not tolerate mismatches outside the hard-coded motif library. It should therefore be read as motif annotation rather than full promoter prediction.
+`GenomeAnnotator.FindPromoterMotifs(...)` reports the −35 and −10 boxes of bacterial σ70 promoters. It does not
+re-implement promoter search: it takes every forward-strand −35/−10 pair from the canonical
+`MotifFinder.FindSigma70Promoters` (MOTIF-REGULATORY-001) and returns each box of those pairs once, as
+`(position, type, sequence, score)` tuples. A box with no partner at a valid spacer is not a promoter and is not
+reported. For the pairs themselves (strand, spacer, both mismatch counts) call `MotifFinder.FindSigma70Promoters`;
+for a published quantitative promoter score (free energy, transcription rate) call
+`MotifFinder.PredictSigma70Promoters` (Promoter Calculator v1.0, La Fleur, Hossain & Salis 2022).
 
 ## 2. Scientific / Formal Basis
 
 ### 2.1 Domain Context
 
-Bacterial promoters commonly contain two short sequence elements upstream of the transcription start site: a `-35` element and a `-10` element (Pribnow box). The current document identifies their consensus sequences as `TTGACA` for the `-35` box and `TATAAT` for the `-10` box, and it notes the classical spacing guideline of about `17` base pairs between them. The same source material also notes that natural promoters often match only `3` to `4` of the `6` consensus positions and that complete conservation is not the only determinant of promoter strength. The `-10` element is AT-rich, which is consistent with its role in local strand separation during transcription initiation.
+E. coli σ70 promoters carry two hexamers upstream of the transcription start site: the −35 element (consensus
+`TTGACA`) and the −10 element / Pribnow box (consensus `TATAAT`). Harley & Reynolds (1987, 263 promoters) found
+all bases of both hexamers highly conserved and an inter-region spacer of 17 ± 1 bp in 92 % of promoters
+(Hawley & McClure 1983 compiled the earlier 112-promoter reference set). Natural promoters rarely match the full
+consensus, so a promoter is recognised as a −35/−10 pair, each box within a few mismatches of its consensus,
+separated by a spacer of 15–21 bp.
 
 ### 2.2 Core Model
 
-The score basis used by the repository comes from the E. coli position-specific nucleotide occurrence frequencies documented in the current source and references:
+For a sequence `S` (0-based), a σ70 pair is (i, j) with
 
-- `-35` box `TTGACA`: `T(0.69)`, `T(0.79)`, `G(0.61)`, `A(0.56)`, `C(0.54)`, `A(0.54)`
-- `-10` box `TATAAT`: `T(0.77)`, `A(0.76)`, `T(0.60)`, `A(0.61)`, `A(0.56)`, `T(0.82)`
+- `d35 = Hamming(S[i, i+6), TTGACA) ≤ maxMismatches35`,
+- `j = i + 6 + s`, `minSpacer ≤ s ≤ maxSpacer`,
+- `d10 = Hamming(S[j, j+6), TATAAT) ≤ maxMismatches10`.
 
-For a matched consecutive substring of one consensus element, the score is computed as:
+`FindPromoterMotifs` reports `(i, "-35 box", S[i,i+6), 1 − d35/6)` and `(j, "-10 box", S[j,j+6), 1 − d10/6)` for
+every pair, deduplicated, ordered by position then −35 before −10. Defaults (single-argument overload) are those of
+`FindSigma70Promoters`: ≤ 2 mismatches per box, spacer 15–21, forward strand.
 
-$$
-score = \frac{\sum p_i\text{ for matched consensus positions}}{\sum p_i\text{ for all six consensus positions}}
-$$
-
-where the denominator is the total weight of the full six-position consensus for the corresponding box.
+The score is the fraction of the six consensus positions the box matches. It measures consensus identity only;
+it is not a promoter-strength estimate (use `PredictSigma70Promoters` for that).
 
 ### 2.4 Properties and Invariants
 
 | ID | Invariant | Holds because |
 |----|-----------|---------------|
-| INV-01 | Every reported score lies in `[0, 1]` | Each score is a normalized fraction of a full-consensus weight |
-| INV-02 | A full `TTGACA` or `TATAAT` match has score `1.0` | All six consensus positions are present in the numerator |
-| INV-03 | Every reported motif belongs to the repository's fixed `-35` or `-10` variant library | The scan compares the sequence only against those hard-coded motif strings |
+| INV-01 | `score = 1 − d/6`, `d ≤` the box's mismatch limit | Computed from the Hamming distance `FindSigma70Promoters` reports |
+| INV-02 | A full `TTGACA` / `TATAAT` box scores `1.0` | `d = 0` |
+| INV-03 | Every −35 box has a −10 box 15–21 bp downstream (and vice versa) | Only boxes of pairs are reported |
+| INV-04 | `0 ≤ position ≤ length − 6` and `S[position, position+6) = sequence` | Boxes are hexamers of the input |
 
 ## 3. Contract
 
@@ -47,112 +59,75 @@ where the denominator is the total weight of the full six-position consensus for
 
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
-| `dnaSequence` | `string` | required | DNA sequence scanned for promoter motifs | Empty input yields no hits; the implementation does not add an explicit null guard before uppercasing |
+| `dnaSequence` | `string` | required | DNA sequence | A/C/G/T, case-insensitive; not null |
+| `maxMismatches35` | `int` | 2 | Max mismatches of the −35 box to TTGACA | 0 … 6 |
+| `maxMismatches10` | `int` | 2 | Max mismatches of the −10 box to TATAAT | 0 … 6 |
+| `minSpacer` | `int` | 15 | Minimum spacer (bp) | ≥ 0 |
+| `maxSpacer` | `int` | 21 | Maximum spacer (bp) | ≥ `minSpacer` |
 
 ### 3.2 Output / Return Value
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `position` | `int` | 0-based start index of the matched motif |
-| `type` | `string` | Either `-35 box` or `-10 box` |
-| `sequence` | `string` | Exact motif string that matched the input |
-| `score` | `double` | Hard-coded probability-derived score for the matched motif |
+| `position` | `int` | 0-based start of the hexamer |
+| `type` | `string` | `-35 box` or `-10 box` |
+| `sequence` | `string` | The hexamer (uppercase) |
+| `score` | `double` | `1 − mismatches/6` |
 
 ### 3.3 Preconditions and Validation
 
-`FindPromoterMotifs(...)` uppercases the input sequence before scanning, so lowercase and mixed-case DNA are accepted. An empty string yields no matches because the substring loops never execute. The method does not validate the alphabet beyond exact substring comparison, and it does not add an explicit null guard before calling `ToUpperInvariant()`. Matching is exact: bases outside the hard-coded motif library, spacing relationships between motifs, and mismatch-tolerant alternatives are not considered.
+Null → `ArgumentNullException`. A non-ACGT character → `ArgumentException` (input is wrapped in `DnaSequence`).
+Mismatch limit outside 0 … 6, negative `minSpacer` or `minSpacer > maxSpacer` → `ArgumentOutOfRangeException`
+(from `FindSigma70Promoters`). Empty or shorter than 6 + `minSpacer` + 6 → empty result. Validation is eager.
 
 ## 4. Algorithm
 
-### 4.1 High-Level Steps
+1. Wrap the input in `DnaSequence` (validates, uppercases).
+2. Call `MotifFinder.FindSigma70Promoters(sequence, maxMismatches35, maxMismatches10, minSpacer, maxSpacer)`.
+3. For each pair add its −35 and −10 boxes, with score `1 − d/6`, to a sorted set (dedup, order).
+4. Return the set as a list.
 
-1. Convert the input DNA sequence to uppercase.
-2. Scan the sequence for each supported `-35` motif variant and emit every exact hit with the corresponding hard-coded score.
-3. Scan the sequence for each supported `-10` motif variant and emit every exact hit with the corresponding hard-coded score.
-4. Return the union of all emitted motif hits, allowing overlapping and adjacent matches.
-
-### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
-
-| Motif Class | Variant | Score |
-|-------------|---------|-------|
-| `-35 box` | `TTGACA` | `1.000` |
-| `-35 box` | `TTGAC` | `0.855` |
-| `-35 box` | `TGACA` | `0.815` |
-| `-35 box` | `TTGA` | `0.710` |
-| `-10 box` | `TATAAT` | `1.000` |
-| `-10 box` | `TATAA` | `0.801` |
-| `-10 box` | `ATAAT` | `0.813` |
-| `-10 box` | `TATA` | `0.665` |
-
-### 4.3 Complexity
-
-| Operation | Time | Space | Notes |
-|-----------|------|-------|-------|
-| `FindPromoterMotifs(...)` | `O(n × v)` | `O(1)` plus output | `n` = sequence length, `v` = 8 hard-coded motif variants; motif lengths are bounded by `4` to `6` |
+| Operation | Time | Space |
+|-----------|------|-------|
+| `FindPromoterMotifs` | `O(n · (maxSpacer − minSpacer + 1))` | `O(boxes)` |
 
 ## 5. Implementation Notes
 
 ### 5.1 Location and Entry Points
 
-**Implementation location:** [GenomeAnnotator.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/GenomeAnnotator.cs)
+[GenomeAnnotator.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/GenomeAnnotator.cs):
+`FindPromoterMotifs(string)` and `FindPromoterMotifs(string, int, int, int, int)`.
+Canonical pairing: [MotifFinder.Sigma70Promoters.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.Sigma70Promoters.cs).
+MCP: `find_promoter_motifs` (Annotation server) delegates to the single-argument overload.
 
-- `GenomeAnnotator.FindPromoterMotifs(string)`: Scans for exact `-35` and `-10` motif variants and emits scored hits.
+### 5.2 Conformance to Theory / Spec
 
-### 5.2 Current Behavior
+Implemented: Harley & Reynolds (1987) consensus pairing — TTGACA / TATAAT, spacer 15–21 bp (17 optimal),
+mismatch-tolerant boxes. Not part of this method: strand (forward only; the tuple has no strand field — use
+`FindSigma70Promoters(bothStrands: true)`), UP element / extended −10 / discriminator terms and promoter strength
+(use `PredictSigma70Promoters`).
 
-Repository-specific behavior confirmed by source and tests:
+### 5.3 History
 
-- The method scans `-35` motifs and `-10` motifs independently across the entire sequence.
-- A single full consensus occurrence can produce multiple overlapping hits because the full motif, prefix-5, suffix-5, and prefix-4 variants are all reported separately when present.
-- Returned positions are 0-based indexes into the original sequence.
-- No spacing check is applied between `-35` and `-10` elements, so the method does not attempt to assemble complete promoter pairs.
-- All score constants are hard-coded in source and match the values exercised by `ANNOT-PROM-001`.
-
-### 5.3 Conformance to Theory / Spec
-
-**Implemented (verbatim from the cited theory/spec):**
-
-- Recognition of the bacterial `-35` consensus `TTGACA` and the `-10` consensus `TATAAT`.
-- Probability-derived weighting of supported motif variants using the E. coli occurrence frequencies documented in the current source and references.
-
-**Intentionally simplified:**
-
-- Only exact substring matches to the supported motif library are considered; **consequence:** naturally occurring motifs with other mismatch patterns are not reported.
-- `-35` and `-10` motifs are scanned independently; **consequence:** the method can report individual boxes without establishing a biologically plausible promoter pair.
-- Short 4- and 5-base variants are emitted directly; **consequence:** sensitivity increases, but the result set can contain more partial-motif hits than a stricter full-consensus search.
-
-**Not implemented:**
-
-- Validation of the canonical `17`-bp spacing between `-35` and `-10` elements; **users should rely on:** downstream filtering or custom post-processing.
-- PWM-, HMM-, or sigma-factor-specific promoter models; **users should rely on:** no current alternative in this repository.
-
-### 5.4 Deviations and Assumptions
-
-| # | Item | Type | Impact | Status | Notes |
-|---|------|------|--------|--------|-------|
-| 1 | The hard-coded `-10` score table follows the values cited in the repository's `Promoter (genetics)` source/comments rather than alternate summary values from the `Pribnow box` page | Assumption | Score constants are internally consistent across code and tests but may differ from another published summary table | accepted | `ANNOT-PROM-001` explicitly standardizes on the repository's chosen table |
+Before review-2026-09 (B11 F7) the method reported unpaired exact −35/−10 hexamer prefixes and suffixes
+(`TTGAC`, `TGACA`, `TTGA`, `TATAA`, `ATAAT`, `TATA`) scored by a sum of per-position consensus percentages
+(T69 T79 G61 A56 C54 A54 / T77 A76 T60 A61 A56 T82, from an uncited Wikipedia table). Neither the variant library
+nor the score formula had a source, and the method did not apply the −35/−10 pairing that defines a σ70 promoter.
 
 ## 6. Edge Cases and Limitations
 
-### 6.1 Edge Cases
-
-| Case | Expected Behavior | Rationale |
-|------|-------------------|-----------|
-| Empty sequence | Returns no motifs | The scan loops have no valid start positions |
-| Null input | Not explicitly handled before uppercasing | The method dereferences `dnaSequence` immediately |
-| Lowercase or mixed-case DNA | Handled identically to uppercase DNA | The input is uppercased before scanning |
-| No supported motifs present | Returns an empty collection | Matching is exact against the fixed motif library |
-| Overlapping or adjacent motifs | All supported hits are reported | Each motif variant is scanned independently |
-| Full consensus occurrence | Also yields matching shorter variants at the corresponding offsets | Prefix/suffix substrings are part of the emitted motif library |
-
-### 6.2 Limitations
-
-This helper identifies motif occurrences, not complete promoters. It does not validate `-35` / `-10` spacing, does not tolerate arbitrary mismatches, and does not estimate transcriptional strength beyond the fixed variant scores. The current design is also specific to the bacterial motifs documented here and does not cover broader promoter architectures.
+| Case | Behaviour |
+|------|-----------|
+| Empty / shorter than 27 nt (defaults) | Empty |
+| Isolated −35 or −10 consensus | Empty (no pair) |
+| Box paired with several partners | Reported once |
+| Promoter on the reverse strand | Not reported (forward strand only) |
+| Lowercase input | Same as uppercase |
+| `N` or other non-ACGT | `ArgumentException` |
 
 ## 8. References
 
-1. Wikipedia contributors. Promoter (genetics). https://en.wikipedia.org/wiki/Promoter_(genetics)
-2. Wikipedia contributors. Pribnow box. https://en.wikipedia.org/wiki/Pribnow_box
-3. Wikipedia contributors. TATA box. https://en.wikipedia.org/wiki/TATA_box
-4. Pribnow D. Nucleotide sequence of an RNA polymerase binding site at an early T7 promoter. Proceedings of the National Academy of Sciences. 1975;72(3):784-788.
-5. Harley CB, Reynolds RP. Analysis of E. coli promoter sequences. Nucleic Acids Research. 1987;15(5):2343-2361.
+1. Harley CB, Reynolds RP. Analysis of E. coli promoter sequences. Nucleic Acids Res. 1987;15(5):2343-2361. doi:10.1093/nar/15.5.2343
+2. Hawley DK, McClure WR. Compilation and analysis of Escherichia coli promoter DNA sequences. Nucleic Acids Res. 1983;11(8):2237-2255. doi:10.1093/nar/11.8.2237
+3. Pribnow D. Nucleotide sequence of an RNA polymerase binding site at an early T7 promoter. PNAS. 1975;72(3):784-788.
+4. La Fleur TL, Hossain A, Salis HM. Automated model-predictive design of synthetic promoters to control transcriptional profiles in bacteria. Nat Commun. 2022;13:5159 (via `PredictSigma70Promoters`).

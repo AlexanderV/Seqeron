@@ -1,53 +1,50 @@
 using NUnit.Framework;
+using Seqeron.Genomics.Annotation;
 using Seqeron.Mcp.Annotation.Tools;
 
 namespace Seqeron.Mcp.Annotation.Tests;
 
+/// <summary>find_promoter_motifs — delegation to GenomeAnnotator.FindPromoterMotifs (σ70 pairs, Harley &amp; Reynolds 1987).</summary>
 [TestFixture]
 public class FindPromoterMotifsTests
 {
+    private const string Consensus = "GG" + "TTGACA" + "CCCCCCCCCCCCCCCCC" + "TATAAT" + "GG";
+
     [Test]
     public void FindPromoterMotifs_Schema_ValidatesCorrectly()
     {
-        Assert.DoesNotThrow(() => AnnotationTools.FindPromoterMotifs("GGGGGTTGACAGGGGG"));
+        Assert.DoesNotThrow(() => AnnotationTools.FindPromoterMotifs(Consensus));
         Assert.Throws<ArgumentException>(() => AnnotationTools.FindPromoterMotifs(""));
         Assert.Throws<ArgumentException>(() => AnnotationTools.FindPromoterMotifs(null!));
     }
 
     [Test]
-    public void FindPromoterMotifs_FullMinus35Consensus_ReturnsCorrectHit()
+    public void FindPromoterMotifs_ConsensusPromoter_ReturnsBothBoxes()
     {
-        // Mirrors GenomeAnnotator_PromoterMotif_Tests.FindPromoterMotifs_FullMinus35Consensus_ReturnsCorrectHit.
-        var result = AnnotationTools.FindPromoterMotifs("GGGGGTTGACAGGGGG");
+        var result = AnnotationTools.FindPromoterMotifs(Consensus);
 
-        var minus35 = result.Motifs.Where(m => m.Type == "-35 box").ToList();
-        Assert.That(minus35, Has.Count.EqualTo(4)); // TTGACA, TTGAC, TGACA, TTGA
-
-        var full = minus35.Single(h => h.Sequence == "TTGACA");
-        Assert.Multiple(() =>
+        Assert.That(result.Motifs.Select(m => (m.Position, m.Type, m.Sequence, m.Score)), Is.EqualTo(new[]
         {
-            Assert.That(full.Position, Is.EqualTo(5));
-            Assert.That(full.Type, Is.EqualTo("-35 box"));
-            Assert.That(full.Score, Is.EqualTo(1.0).Within(0.001));
-        });
+            (2, "-35 box", "TTGACA", 1.0),
+            (25, "-10 box", "TATAAT", 1.0),
+        }));
     }
 
     [Test]
-    public void FindPromoterMotifs_FullMinus10Consensus_ReturnsCorrectHit()
+    public void FindPromoterMotifs_UnpairedBox_ReturnsEmpty()
     {
-        // Mirrors FindPromoterMotifs_FullMinus10Consensus_ReturnsCorrectHit (TATAAT after 5 C's).
-        var result = AnnotationTools.FindPromoterMotifs("CCCCCTATAATCCCCC");
+        Assert.That(AnnotationTools.FindPromoterMotifs("GGGGGTTGACAGGGGG").Motifs, Is.Empty);
+        Assert.That(AnnotationTools.FindPromoterMotifs("CCCCCTATAATCCCCC").Motifs, Is.Empty);
+    }
 
-        var minus10 = result.Motifs.Where(m => m.Type == "-10 box").ToList();
-        Assert.That(minus10, Has.Count.EqualTo(4)); // TATAAT, TATAA, ATAAT, TATA
-
-        var full = minus10.Single(h => h.Sequence == "TATAAT");
-        Assert.Multiple(() =>
-        {
-            Assert.That(full.Position, Is.EqualTo(5));
-            Assert.That(full.Type, Is.EqualTo("-10 box"));
-            Assert.That(full.Score, Is.EqualTo(1.0).Within(0.001));
-        });
+    [Test]
+    public void FindPromoterMotifs_DelegatesToGenomeAnnotator()
+    {
+        const string seq = "CCGATATTTTAAAAGTTTTTTTAAAGACTAACTATAAATTTGACATTATG";
+        var expected = GenomeAnnotator.FindPromoterMotifs(seq).ToList();
+        var actual = AnnotationTools.FindPromoterMotifs(seq).Motifs.Select(m => (m.Position, m.Type, m.Sequence, m.Score)).ToList();
+        Assert.That(actual, Is.EqualTo(expected));
+        Assert.That(actual, Has.Count.EqualTo(6));
     }
 
     [Test]

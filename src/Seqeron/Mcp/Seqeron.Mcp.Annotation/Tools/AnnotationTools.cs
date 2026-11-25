@@ -115,9 +115,9 @@ public class AnnotationTools
         return new ToGff3Result(lines);
     }
 
-    /// <summary>Find -10 and -35 bacterial promoter motifs.</summary>
+    /// <summary>Find the -35 / -10 boxes of bacterial sigma70 promoters (delegates to GenomeAnnotator.FindPromoterMotifs → MotifFinder.FindSigma70Promoters).</summary>
     [McpServerTool(Name = "find_promoter_motifs", Title = "Annotation — Find Promoter Motifs", ReadOnly = true)]
-    [Description("Find -10 (Pribnow/TATA) and -35 box bacterial promoter motifs.")]
+    [Description("Find the -35 and -10 (Pribnow) boxes of bacterial sigma70 promoters: every forward-strand pair of a -35 hexamer within 2 mismatches of TTGACA and a -10 hexamer within 2 mismatches of TATAAT separated by a 15-21 bp spacer (Harley & Reynolds 1987); each box reported once, score = 1 - mismatches/6. For pairs/strand/spacer use find_sigma70_promoters; for a free-energy promoter score use predict_sigma70_promoters.")]
     public static FindPromoterMotifsResult FindPromoterMotifs(
         [Description("DNA sequence to scan")] string dnaSequence)
     {

@@ -1,373 +1,236 @@
+using Seqeron.Genomics.Analysis;
+
 namespace Seqeron.Genomics.Tests.Unit.Annotation;
 
 /// <summary>
-/// Tests for GenomeAnnotator.FindPromoterMotifs - bacterial promoter motif detection.
+/// Tests for GenomeAnnotator.FindPromoterMotifs — bacterial σ70 promoter boxes.
 /// Test Unit: ANNOT-PROM-001
 ///
-/// References:
-/// - Wikipedia: Promoter (genetics) - bacterial promoter structure
-/// - Wikipedia: Pribnow box - -10 element consensus TATAAT
-/// - Pribnow (1975) PNAS 72(3):784-788
-/// - Harley & Reynolds (1987) NAR 15(5):2343-2361
+/// Definition (Harley &amp; Reynolds 1987, NAR 15:2343; Hawley &amp; McClure 1983, NAR 11:2237): a σ70 promoter is a
+/// −35 hexamer (consensus TTGACA) followed after a 15–21 bp spacer (17 ± 1 bp in 92 %) by a −10 hexamer (consensus
+/// TATAAT). FindPromoterMotifs delegates the pairing to the canonical MotifFinder.FindSigma70Promoters and reports the
+/// boxes of every pair once; score = 1 − d/6 (d = Hamming distance of the box to its consensus).
+/// Oracle: independent Python brute force of that definition (400 random cases, 1,131 boxes, 0 mismatches —
+/// docs/Evidence/ANNOT-PROM-001-Evidence.md).
 /// </summary>
 [TestFixture]
 public class GenomeAnnotator_PromoterMotif_Tests
 {
-    #region Consensus Motif Detection
+    private static readonly string C17 = new('C', 17);
 
-    /// <summary>
-    /// M01: Full -35 box consensus (TTGACA) should be detected with score 1.0.
-    /// Evidence: Wikipedia states -35 box consensus is TTGACA (6 bp).
-    /// Also verifies that sub-variants (TTGAC, TGACA, TTGA) are found at same position.
-    /// </summary>
+    // E. coli lac operon control region with the lacUV5 −10 (TATAAT): −35 TTTACA at 68, 18-bp spacer, −10 at 92
+    // (same published fixture as MotifFinder_Sigma70Promoters_Tests).
+    private const string LacUv5 =
+        "TCAGCATTCGAGCTTACGGAGCGCAACGCAATTAATGTGAGTTAGCTCACTCATTAGGCACCCCAGGCTTTACACTTTATGCTTCCGGCTCGTATAATGTGTGGAATTGTGAGCGGATAACAATTTCACACAGGAAACAGCT";
+
+    private static List<(int position, string type, string sequence, double score)> Find(string s) =>
+        GenomeAnnotator.FindPromoterMotifs(s).ToList();
+
+    #region Consensus promoter
+
+    /// <summary>M01: consensus −35 + 17-bp spacer + consensus −10 → exactly the two boxes, score 1.0.</summary>
     [Test]
-    public void FindPromoterMotifs_FullMinus35Consensus_ReturnsCorrectHit()
+    public void FindPromoterMotifs_ConsensusPromoter_ReportsBothBoxes()
     {
-        // Arrange - place TTGACA at known position (after 5 G's)
-        const string sequence = "GGGGGTTGACAGGGGG";
-        const int expectedPosition = 5;
+        var motifs = Find("GG" + "TTGACA" + C17 + "TATAAT" + "GG");
 
-        // Act
-        var motifs = GenomeAnnotator.FindPromoterMotifs(sequence).ToList();
-
-        // Assert - TTGACA contains sub-variants: TTGAC@5, TGACA@6, TTGA@5
-        var minus35Hits = motifs.Where(m => m.type == "-35 box").ToList();
-        Assert.That(minus35Hits.Count, Is.EqualTo(4), "TTGACA yields 4 -35 box hits: TTGACA, TTGAC, TGACA, TTGA");
-
-        var fullHit = minus35Hits.Single(h => h.sequence == "TTGACA");
-        Assert.Multiple(() =>
+        Assert.That(motifs, Is.EqualTo(new[]
         {
-            Assert.That(fullHit.position, Is.EqualTo(expectedPosition), "Position should be 0-based index");
-            Assert.That(fullHit.type, Is.EqualTo("-35 box"));
-            Assert.That(fullHit.score, Is.EqualTo(1.0).Within(0.001), "Full 6 bp match should have score 1.0");
-        });
+            (2, "-35 box", "TTGACA", 1.0),
+            (25, "-10 box", "TATAAT", 1.0),
+        }));
     }
 
-    /// <summary>
-    /// M02: Full -10 box consensus (TATAAT) should be detected with score 1.0.
-    /// Evidence: Wikipedia/Pribnow box consensus is TATAAT (6 bp).
-    /// Also verifies that sub-variants (TATAA, ATAAT, TATA) are found.
-    /// </summary>
-    [Test]
-    public void FindPromoterMotifs_FullMinus10Consensus_ReturnsCorrectHit()
+    /// <summary>M02/M03: an isolated −35 or −10 consensus with no partner box is not a promoter (H&amp;R pairing).</summary>
+    [TestCase("GGGGGTTGACAGGGGG")]
+    [TestCase("CCCCCTATAATCCCCC")]
+    [TestCase("TTGACATATAAT")]
+    public void FindPromoterMotifs_UnpairedBox_NotReported(string sequence)
     {
-        // Arrange - place TATAAT at known position (after 5 C's)
-        const string sequence = "CCCCCTATAAT CCCCC";
-        const int expectedPosition = 5;
-
-        // Act
-        var motifs = GenomeAnnotator.FindPromoterMotifs(sequence).ToList();
-
-        // Assert - TATAAT contains sub-variants: TATAA@5, ATAAT@6, TATA@5
-        var minus10Hits = motifs.Where(m => m.type == "-10 box").ToList();
-        Assert.That(minus10Hits.Count, Is.EqualTo(4), "TATAAT yields 4 -10 box hits: TATAAT, TATAA, ATAAT, TATA");
-
-        var fullHit = minus10Hits.Single(h => h.sequence == "TATAAT");
-        Assert.Multiple(() =>
-        {
-            Assert.That(fullHit.position, Is.EqualTo(expectedPosition), "Position should be 0-based index");
-            Assert.That(fullHit.type, Is.EqualTo("-10 box"));
-            Assert.That(fullHit.score, Is.EqualTo(1.0).Within(0.001), "Full 6 bp match should have score 1.0");
-        });
-    }
-
-    /// <summary>
-    /// M09: Sequence containing both -35 and -10 boxes should return hits for both types.
-    /// Evidence: Both elements are part of bacterial promoter architecture.
-    /// Verifies exact hit counts: 4 per motif type (full + 3 sub-variants).
-    /// </summary>
-    [Test]
-    public void FindPromoterMotifs_BothMotifTypes_ReturnsBothTypes()
-    {
-        // Arrange - TTGACA and TATAAT separated by neutral G's (no spurious motifs)
-        const string sequence = "GGGGGTTGACAGGGGGGGGGGGGGGGGGTATAAT GGGGG";
-
-        // Act
-        var motifs = GenomeAnnotator.FindPromoterMotifs(sequence).ToList();
-
-        // Assert
-        var minus35Hits = motifs.Where(m => m.type == "-35 box").ToList();
-        var minus10Hits = motifs.Where(m => m.type == "-10 box").ToList();
-        Assert.Multiple(() =>
-        {
-            Assert.That(minus35Hits.Count, Is.EqualTo(4), "-35: TTGACA + TTGAC + TGACA + TTGA");
-            Assert.That(minus10Hits.Count, Is.EqualTo(4), "-10: TATAAT + TATAA + ATAAT + TATA");
-            Assert.That(minus35Hits.Single(m => m.sequence == "TTGACA").score, Is.EqualTo(1.0).Within(0.001));
-            Assert.That(minus10Hits.Single(m => m.sequence == "TATAAT").score, Is.EqualTo(1.0).Within(0.001));
-        });
+        Assert.That(Find(sequence), Is.Empty);
     }
 
     #endregion
 
-    #region Partial Motif Detection
+    #region Spacer
 
-    /// <summary>
-    /// M03: Partial -35 box (5 bp) should return score less than 1.0.
-    /// Score = sum of matched position probabilities / total.
-    /// TTGAC (positions 1–5): (0.69+0.79+0.61+0.56+0.54) / 3.73 ≈ 0.855.
-    /// Source: Wikipedia "Promoter (genetics)" nucleotide occurrence probabilities.
-    /// </summary>
+    /// <summary>M04: spacer bounds 15–21 bp (Harley &amp; Reynolds 1987).</summary>
+    [TestCase(14, false)]
+    [TestCase(15, true)]
+    [TestCase(17, true)]
+    [TestCase(21, true)]
+    [TestCase(22, false)]
+    public void FindPromoterMotifs_SpacerBounds(int spacer, bool expected)
+    {
+        var motifs = Find("TTGACA" + new string('C', spacer) + "TATAAT");
+
+        if (expected)
+            Assert.That(motifs, Is.EqualTo(new[]
+            {
+                (0, "-35 box", "TTGACA", 1.0),
+                (6 + spacer, "-10 box", "TATAAT", 1.0),
+            }));
+        else
+            Assert.That(motifs, Is.Empty);
+    }
+
+    /// <summary>M05: overload exposes the spacer range.</summary>
     [Test]
-    public void FindPromoterMotifs_PartialMinus35_ReturnsLowerScore()
+    public void FindPromoterMotifs_CustomSpacerRange()
     {
-        // Arrange - TTGAC is a 5 bp partial match (positions 1–5 of consensus)
-        const string sequence = "GGGGGTTGACGGGGG";
-
-        // Act
-        var motifs = GenomeAnnotator.FindPromoterMotifs(sequence).ToList();
-
-        // Assert
-        var partialHit = motifs.FirstOrDefault(m => m.type == "-35 box" && m.sequence == "TTGAC");
-        Assert.That(partialHit, Is.Not.EqualTo(default((int, string, string, double))), "Should find partial -35 box TTGAC");
-        Assert.That(partialHit.score, Is.LessThan(1.0), "5 bp match should have score < 1.0");
-        Assert.That(partialHit.score, Is.EqualTo(0.855).Within(0.001), "Score = (69+79+61+56+54)/373");
-    }
-
-    /// <summary>
-    /// M04: Partial -10 box (5 bp) should return score less than 1.0.
-    /// Score = sum of matched position probabilities / total.
-    /// TATAA (positions 1–5): (0.77+0.76+0.60+0.61+0.56) / 4.12 ≈ 0.801.
-    /// Source: Wikipedia "Promoter (genetics)" nucleotide occurrence probabilities.
-    /// </summary>
-    [Test]
-    public void FindPromoterMotifs_PartialMinus10_ReturnsLowerScore()
-    {
-        // Arrange - TATAA is a 5 bp partial match (positions 1–5 of consensus)
-        const string sequence = "CCCCCTATAA CCCCC";
-
-        // Act
-        var motifs = GenomeAnnotator.FindPromoterMotifs(sequence).ToList();
-
-        // Assert
-        var partialHit = motifs.FirstOrDefault(m => m.type == "-10 box" && m.sequence == "TATAA");
-        Assert.That(partialHit, Is.Not.EqualTo(default((int, string, string, double))), "Should find partial -10 box TATAA");
-        Assert.That(partialHit.score, Is.LessThan(1.0), "5 bp match should have score < 1.0");
-        Assert.That(partialHit.score, Is.EqualTo(0.801).Within(0.001), "Score = (77+76+60+61+56)/412");
-    }
-
-    /// <summary>
-    /// S03: All -35 box variants detected with probability-weighted scores.
-    /// Variants are consensus substrings: full(6bp), prefix-5bp, suffix-5bp, prefix-4bp.
-    /// Scores from Wikipedia "Promoter (genetics)" / Harley &amp; Reynolds (1987).
-    /// -35 box: T(69%) T(79%) G(61%) A(56%) C(54%) A(54%), total weight 3.73.
-    /// </summary>
-    [TestCase("TTGACA", 1.000)]
-    [TestCase("TTGAC", 0.855)]
-    [TestCase("TGACA", 0.815)]
-    [TestCase("TTGA", 0.710)]
-    public void FindPromoterMotifs_AllMinus35Variants_Detected(string variant, double expectedScore)
-    {
-        // Arrange
-        string sequence = "CCCCC" + variant + "CCCCC";
-
-        // Act
-        var motifs = GenomeAnnotator.FindPromoterMotifs(sequence).ToList();
-
-        // Assert
-        var hit = motifs.FirstOrDefault(m => m.type == "-35 box" && m.sequence == variant);
-        Assert.That(hit, Is.Not.EqualTo(default((int, string, string, double))), $"Should find -35 variant {variant}");
-        Assert.That(hit.score, Is.EqualTo(expectedScore).Within(0.001));
-    }
-
-    /// <summary>
-    /// S04: All -10 box variants detected with probability-weighted scores.
-    /// Variants are consensus substrings: full(6bp), prefix-5bp, suffix-5bp, prefix-4bp.
-    /// Scores from Wikipedia "Promoter (genetics)" / Harley &amp; Reynolds (1987).
-    /// -10 box: T(77%) A(76%) T(60%) A(61%) A(56%) T(82%), total weight 4.12.
-    /// </summary>
-    [TestCase("TATAAT", 1.000)]
-    [TestCase("TATAA", 0.801)]
-    [TestCase("ATAAT", 0.813)]
-    [TestCase("TATA", 0.665)]
-    public void FindPromoterMotifs_AllMinus10Variants_Detected(string variant, double expectedScore)
-    {
-        // Arrange
-        string sequence = "CCCCC" + variant + "CCCCC";
-
-        // Act
-        var motifs = GenomeAnnotator.FindPromoterMotifs(sequence).ToList();
-
-        // Assert
-        var hit = motifs.FirstOrDefault(m => m.type == "-10 box" && m.sequence == variant);
-        Assert.That(hit, Is.Not.EqualTo(default((int, string, string, double))), $"Should find -10 variant {variant}");
-        Assert.That(hit.score, Is.EqualTo(expectedScore).Within(0.001));
+        string seq = "TTGACA" + new string('C', 22) + "TATAAT";
+        Assert.That(GenomeAnnotator.FindPromoterMotifs(seq, 0, 0, 15, 22).Select(m => m.position), Is.EqualTo(new[] { 0, 28 }));
+        Assert.That(GenomeAnnotator.FindPromoterMotifs("GG" + "TTGACA" + C17 + "TATAAT", 0, 0, 15, 16), Is.Empty);
     }
 
     #endregion
 
-    #region Edge Cases
+    #region Mismatches and score
 
-    /// <summary>
-    /// M05: Sequence without any promoter motifs should return empty collection.
-    /// Using only C nucleotides to avoid any motif matches.
-    /// </summary>
+    /// <summary>M06: score = 1 − d/6 per box (1 mismatch → 5/6).</summary>
     [Test]
-    public void FindPromoterMotifs_NoMotifs_ReturnsEmpty()
+    public void FindPromoterMotifs_OneMismatchPerBox_ScoreFiveSixths()
     {
-        // Arrange
-        const string sequence = "CCCCCCCCCCCCCCCCCCCC";
+        var motifs = Find("GG" + "TTTACA" + C17 + "TATGAT" + "GG");
 
-        // Act
-        var motifs = GenomeAnnotator.FindPromoterMotifs(sequence).ToList();
-
-        // Assert
-        Assert.That(motifs, Is.Empty, "Sequence without T/A should have no promoter motifs");
-    }
-
-    /// <summary>
-    /// M06: Empty sequence should return empty collection without error.
-    /// </summary>
-    [Test]
-    public void FindPromoterMotifs_EmptySequence_ReturnsEmpty()
-    {
-        // Act
-        var motifs = GenomeAnnotator.FindPromoterMotifs(string.Empty).ToList();
-
-        // Assert
-        Assert.That(motifs, Is.Empty);
-    }
-
-    /// <summary>
-    /// M07: Mixed case input should be handled correctly (case-insensitive).
-    /// Implementation uses ToUpperInvariant() internally.
-    /// Verifies same results as uppercase input.
-    /// </summary>
-    [Test]
-    public void FindPromoterMotifs_MixedCase_HandlesCorrectly()
-    {
-        // Arrange - lowercase -35 box at position 5
-        const string sequence = "gggggttgacaggggg";
-
-        // Act
-        var motifs = GenomeAnnotator.FindPromoterMotifs(sequence).ToList();
-
-        // Assert - must produce identical results to uppercase input
-        var fullHit = motifs.Single(m => m.sequence == "TTGACA");
-        Assert.Multiple(() =>
+        Assert.That(motifs, Is.EqualTo(new[]
         {
-            Assert.That(fullHit.position, Is.EqualTo(5));
-            Assert.That(fullHit.type, Is.EqualTo("-35 box"));
-            Assert.That(fullHit.score, Is.EqualTo(1.0).Within(0.001));
-        });
+            (2, "-35 box", "TTTACA", 5.0 / 6),
+            (25, "-10 box", "TATGAT", 5.0 / 6),
+        }));
     }
 
-    /// <summary>
-    /// M08: Multiple occurrences of the same motif type should all be reported.
-    /// </summary>
+    /// <summary>M07: default limit ≤ 2 mismatches per box; the overload raises it.</summary>
     [Test]
-    public void FindPromoterMotifs_MultipleMotifsOfSameType_ReturnsAll()
+    public void FindPromoterMotifs_MismatchLimit()
     {
-        // Arrange - two TTGACA motifs
-        const string sequence = "TTGACACCCCCTTGACA";
+        string seq = "GG" + "TGGCCA" + C17 + "TATAAT" + "GG"; // TGGCCA: 2 mismatches; GTGGCC at 1: 3 mismatches
 
-        // Act
-        var motifs = GenomeAnnotator.FindPromoterMotifs(sequence).ToList();
+        Assert.That(Find(seq), Is.EqualTo(new[]
+        {
+            (2, "-35 box", "TGGCCA", 4.0 / 6),
+            (25, "-10 box", "TATAAT", 1.0),
+        }));
+        Assert.That(GenomeAnnotator.FindPromoterMotifs(seq, 3, 0, 15, 21).ToList(), Is.EqualTo(new[]
+        {
+            (1, "-35 box", "GTGGCC", 3.0 / 6),
+            (2, "-35 box", "TGGCCA", 4.0 / 6),
+            (25, "-10 box", "TATAAT", 1.0),
+        }));
+    }
 
-        // Assert
-        var fullMinus35Hits = motifs.Where(m => m.type == "-35 box" && m.sequence == "TTGACA").ToList();
-        Assert.That(fullMinus35Hits.Count, Is.EqualTo(2), "Should find both full -35 box occurrences");
-        Assert.That(fullMinus35Hits[0].position, Is.EqualTo(0), "First occurrence at position 0");
-        Assert.That(fullMinus35Hits[1].position, Is.EqualTo(11), "Second occurrence at position 11");
+    /// <summary>M08: a box paired with several partners is reported once; output ordered by position.</summary>
+    [Test]
+    public void FindPromoterMotifs_SharedBox_ReportedOnce()
+    {
+        string seq = "TTGACA" + new string('C', 15) + "TATAAT" + "TATAAT"; // −10 at spacer 15 and 21
+
+        Assert.That(GenomeAnnotator.FindPromoterMotifs(seq, 0, 0, 15, 21).ToList(), Is.EqualTo(new[]
+        {
+            (0, "-35 box", "TTGACA", 1.0),
+            (21, "-10 box", "TATAAT", 1.0),
+            (27, "-10 box", "TATAAT", 1.0),
+        }));
+        Assert.That(Find(seq), Is.EqualTo(new[]
+        {
+            (0, "-35 box", "TTGACA", 1.0),
+            (21, "-10 box", "TATAAT", 1.0),
+            (24, "-10 box", "AATTAT", 4.0 / 6),
+            (27, "-10 box", "TATAAT", 1.0),
+        }));
     }
 
     #endregion
 
-    #region Score Validation
+    #region Published / oracle examples
 
-    /// <summary>
-    /// S02: Score reflects position-specific probability weights from literature.
-    /// -35 box: T(69%) T(79%) G(61%) A(56%) C(54%) A(54%), total 3.73.
-    /// Score = sum(matched position probabilities) / 3.73.
-    /// Source: Wikipedia "Promoter (genetics)" / Harley &amp; Reynolds (1987).
-    /// Verifies monotonic score ordering: 4bp &lt; 5bp &lt; 6bp.
-    /// </summary>
+    /// <summary>M09: lacUV5 — −35 TTTACA at 68, 18-bp spacer, −10 TATAAT at 92 (published lac control region).</summary>
     [Test]
-    public void FindPromoterMotifs_Score_ReflectsPositionProbabilityWeights()
+    public void FindPromoterMotifs_LacUv5_PublishedBoxes()
     {
-        // Arrange - full consensus contains all variants; test via S03 parametric data
-        const string sequence = "GGGGGTTGACAGGGGG";
-
-        // Act
-        var motifs = GenomeAnnotator.FindPromoterMotifs(sequence).ToList();
-
-        // Assert - all variants from decomposition of TTGACA
-        var ttgaca = motifs.Single(m => m.sequence == "TTGACA");
-        var ttgac = motifs.Single(m => m.sequence == "TTGAC");
-        var tgaca = motifs.Single(m => m.sequence == "TGACA");
-        var ttga = motifs.Single(m => m.sequence == "TTGA");
-
-        Assert.Multiple(() =>
+        Assert.That(GenomeAnnotator.FindPromoterMotifs(LacUv5, 1, 0, 15, 21).ToList(), Is.EqualTo(new[]
         {
-            // Exact scores from probability weights
-            Assert.That(ttgaca.score, Is.EqualTo(1.000).Within(0.001), "Full consensus");
-            Assert.That(ttgac.score, Is.EqualTo(0.855).Within(0.001), "Prefix-5bp");
-            Assert.That(tgaca.score, Is.EqualTo(0.815).Within(0.001), "Suffix-5bp");
-            Assert.That(ttga.score, Is.EqualTo(0.710).Within(0.001), "Prefix-4bp");
+            (68, "-35 box", "TTTACA", 5.0 / 6),
+            (92, "-10 box", "TATAAT", 1.0),
+        }));
+        // Defaults (≤ 2 mismatches) — Python oracle.
+        Assert.That(Find(LacUv5), Is.EqualTo(new[]
+        {
+            (54, "-35 box", "TAGGCA", 4.0 / 6),
+            (68, "-35 box", "TTTACA", 5.0 / 6),
+            (77, "-10 box", "TATGCT", 4.0 / 6),
+            (92, "-10 box", "TATAAT", 1.0),
+        }));
+    }
 
-            // Monotonic ordering: 4bp < 5bp < 6bp
-            Assert.That(ttga.score, Is.LessThan(tgaca.score), "4bp < suffix-5bp");
-            Assert.That(tgaca.score, Is.LessThan(ttgac.score), "suffix-5bp < prefix-5bp");
-            Assert.That(ttgac.score, Is.LessThan(ttgaca.score), "5bp < 6bp");
-        });
+    /// <summary>M10: random AT-rich sequence, defaults — exact box set from the independent Python oracle.</summary>
+    [Test]
+    public void FindPromoterMotifs_RandomSequence_MatchesPythonOracle()
+    {
+        Assert.That(Find("CCGATATTTTAAAAGTTTTTTTAAAGACTAACTATAAATTTGACATTATG"), Is.EqualTo(new[]
+        {
+            (7, "-35 box", "TTTAAA", 4.0 / 6),
+            (8, "-35 box", "TTAAAA", 4.0 / 6),
+            (19, "-35 box", "TTTAAA", 4.0 / 6),
+            (32, "-10 box", "TATAAA", 5.0 / 6),
+            (34, "-10 box", "TAAATT", 4.0 / 6),
+            (43, "-10 box", "CATTAT", 4.0 / 6),
+        }));
+    }
+
+    /// <summary>M11: delegation — the boxes are exactly those of MotifFinder.FindSigma70Promoters' pairs.</summary>
+    [Test]
+    public void FindPromoterMotifs_EqualsBoxesOfFindSigma70Promoters()
+    {
+        var rng = new Random(11);
+        for (int k = 0; k < 50; k++)
+        {
+            string seq = new(Enumerable.Range(0, 120).Select(_ => "AATTCG"[rng.Next(6)]).ToArray());
+            var expected = MotifFinder.FindSigma70Promoters(new DnaSequence(seq))
+                .SelectMany(c => new[] { (c.Minus35Start, "-35 box", c.Minus35), (c.Minus10Start, "-10 box", c.Minus10) })
+                .Distinct().OrderBy(b => b.Item1).ThenBy(b => b.Item2 == "-35 box" ? 0 : 1).ToList();
+            var actual = Find(seq).Select(m => (m.position, m.type, m.sequence)).ToList();
+            Assert.That(actual, Is.EqualTo(expected), seq);
+        }
     }
 
     #endregion
 
-    #region Adjacent and Overlapping Motifs
+    #region Edge cases
 
-    /// <summary>
-    /// S01: Overlapping motifs at the same position should all be reported.
-    /// TATAAT at position 0 contains: TATAAT(0), TATAA(0), ATAAT(1), TATA(0).
-    /// </summary>
+    /// <summary>M12: forward strand only — a reverse-strand promoter is not reported.</summary>
     [Test]
-    public void FindPromoterMotifs_OverlappingMotifs_ReportsAllVariants()
+    public void FindPromoterMotifs_ReverseStrandPromoter_NotReported()
     {
-        // Arrange - bare TATAAT, no padding (to verify exact decomposition)
-        const string sequence = "TATAAT";
-
-        // Act
-        var motifs = GenomeAnnotator.FindPromoterMotifs(sequence).ToList();
-
-        // Assert - exact variant decomposition
-        Assert.That(motifs.Count, Is.EqualTo(4), "TATAAT yields 4 hits: TATAAT, TATAA, ATAAT, TATA");
-        Assert.Multiple(() =>
-        {
-            Assert.That(motifs.Single(m => m.sequence == "TATAAT").position, Is.EqualTo(0));
-            Assert.That(motifs.Single(m => m.sequence == "TATAA").position, Is.EqualTo(0));
-            Assert.That(motifs.Single(m => m.sequence == "ATAAT").position, Is.EqualTo(1));
-            Assert.That(motifs.Single(m => m.sequence == "TATA").position, Is.EqualTo(0));
-        });
+        string plus = "TTGACA" + C17 + "TATAAT";
+        Assert.That(Find("AA" + DnaSequence.GetReverseComplementString(plus) + "AA"), Is.Empty);
     }
 
-    #endregion
-
-    #region Real-World Sequence (Could Test)
-
-    /// <summary>
-    /// C01: Test with a realistic promoter-like sequence.
-    /// Verifies exact positions and scores for consensus sequences embedded in context.
-    /// Using consensus TTGACA and TATAAT with ~17 bp spacing (per Wikipedia optimal).
-    /// </summary>
+    /// <summary>M13: case-insensitive.</summary>
     [Test]
-    public void FindPromoterMotifs_RealisticPromoterSequence_FindsMotifs()
+    public void FindPromoterMotifs_LowerCase_SameAsUpperCase()
     {
-        // Arrange - consensus sequences at known positions with 18 bp spacing
-        // AAAA(0-3) TTGACA(4-9) CCCCCCCCCCCCCCCCCC(10-27) TATAAT(28-33) _AAA(34-37)
-        const string sequence = "AAAATTGACACCCCCCCCCCCCCCCCCCTATAAT AAA";
+        string seq = "GG" + "TTTACA" + C17 + "TATGAT" + "GG";
+        Assert.That(Find(seq.ToLowerInvariant()), Is.EqualTo(Find(seq)));
+    }
 
-        // Act
-        var motifs = GenomeAnnotator.FindPromoterMotifs(sequence).ToList();
+    /// <summary>M14: empty / too-short input → empty.</summary>
+    [TestCase("")]
+    [TestCase("TATA")]
+    [TestCase("TTGACATATAA")]
+    public void FindPromoterMotifs_EmptyOrShort_ReturnsEmpty(string sequence)
+    {
+        Assert.That(Find(sequence), Is.Empty);
+    }
 
-        // Assert
-        var minus35Full = motifs.Single(m => m.sequence == "TTGACA");
-        var minus10Full = motifs.Single(m => m.sequence == "TATAAT");
-        Assert.Multiple(() =>
-        {
-            Assert.That(minus35Full.position, Is.EqualTo(4));
-            Assert.That(minus35Full.score, Is.EqualTo(1.0).Within(0.001));
-            Assert.That(minus10Full.position, Is.EqualTo(28));
-            Assert.That(minus10Full.score, Is.EqualTo(1.0).Within(0.001));
-        });
+    /// <summary>M15: null → ArgumentNullException; non-ACGT → ArgumentException; invalid limits → ArgumentOutOfRangeException.</summary>
+    [Test]
+    public void FindPromoterMotifs_InvalidInput_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => GenomeAnnotator.FindPromoterMotifs(null!));
+        Assert.Throws<ArgumentException>(() => GenomeAnnotator.FindPromoterMotifs("TTGACANNN"));
+        Assert.Throws<ArgumentOutOfRangeException>(() => GenomeAnnotator.FindPromoterMotifs("ACGT", 7, 2, 15, 21));
+        Assert.Throws<ArgumentOutOfRangeException>(() => GenomeAnnotator.FindPromoterMotifs("ACGT", 2, 2, 21, 15));
     }
 
     #endregion

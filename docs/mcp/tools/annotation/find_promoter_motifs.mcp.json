@@ -5,14 +5,20 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "GenomeAnnotator.FindPromoterMotifs",
-  "docRef": "Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L685",
-  "description": "Find -10 (Pribnow/TATA) and -35 box bacterial promoter motifs.",
+  "docRef": "Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L794",
+  "description": "Find the -35 and -10 (Pribnow) boxes of bacterial sigma70 promoters: every forward-strand pair of a -35 hexamer within 2 mismatches of TTGACA and a -10 hexamer within 2 mismatches of TATAAT separated by a 15-21 bp spacer (Harley & Reynolds 1987); each box reported once, score = 1 - mismatches/6. For pairs/strand/spacer use find_sigma70_promoters; for a free-energy promoter score use predict_sigma70_promoters.",
   "inputSchema": {
     "type": "object",
     "properties": {
-      "dnaSequence": { "type": "string", "description": "DNA sequence to scan", "minLength": 1 }
+      "dnaSequence": {
+        "type": "string",
+        "description": "DNA sequence to scan",
+        "minLength": 1
+      }
     },
-    "required": ["dnaSequence"]
+    "required": [
+      "dnaSequence"
+    ]
   },
   "outputSchema": {
     "type": "object",
@@ -22,30 +28,73 @@
         "items": {
           "type": "object",
           "properties": {
-            "position": { "type": "integer", "description": "0-based start of the motif" },
-            "type": { "type": "string", "description": "'-35 box' or '-10 box'" },
-            "sequence": { "type": "string", "description": "Matched motif" },
-            "score": { "type": "number", "description": "Probability-weighted match score (1.0 for full consensus)" }
+            "position": {
+              "type": "integer",
+              "description": "0-based start of the hexamer"
+            },
+            "type": {
+              "type": "string",
+              "description": "'-35 box' or '-10 box'"
+            },
+            "sequence": {
+              "type": "string",
+              "description": "Box hexamer"
+            },
+            "score": {
+              "type": "number",
+              "description": "1 - mismatches/6 to the consensus (TTGACA / TATAAT); 1.0 for the full consensus"
+            }
           },
-          "required": ["position", "type", "sequence", "score"]
+          "required": [
+            "position",
+            "type",
+            "sequence",
+            "score"
+          ]
         }
       }
     },
-    "required": ["motifs"]
+    "required": [
+      "motifs"
+    ]
   },
   "errors": [
-    { "code": 1001, "message": "Sequence cannot be null or empty" }
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    }
   ],
   "examples": [
     {
-      "name": "Full -35 box consensus TTGACA",
-      "input": { "dnaSequence": "GGGGGTTGACAGGGGG" },
-      "output": { "motifs": [ { "position": 5, "type": "-35 box", "sequence": "TTGACA", "score": 1.0 } ] }
+      "name": "Consensus sigma70 promoter (TTGACA, 17-bp spacer, TATAAT)",
+      "input": {
+        "dnaSequence": "GGTTGACACCCCCCCCCCCCCCCCCTATAATGG"
+      },
+      "output": {
+        "motifs": [
+          {
+            "position": 2,
+            "type": "-35 box",
+            "sequence": "TTGACA",
+            "score": 1.0
+          },
+          {
+            "position": 25,
+            "type": "-10 box",
+            "sequence": "TATAAT",
+            "score": 1.0
+          }
+        ]
+      }
     },
     {
-      "name": "Full -10 box consensus TATAAT",
-      "input": { "dnaSequence": "CCCCCTATAATCCCCC" },
-      "output": { "motifs": [ { "position": 5, "type": "-10 box", "sequence": "TATAAT", "score": 1.0 } ] }
+      "name": "Unpaired -35 box is not a promoter",
+      "input": {
+        "dnaSequence": "GGGGGTTGACAGGGGG"
+      },
+      "output": {
+        "motifs": []
+      }
     }
   ]
 }
