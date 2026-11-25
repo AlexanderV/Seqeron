@@ -38,4 +38,20 @@ public class FindStemLoopsTests
             Assert.That(sl.DotBracketNotation, Is.EqualTo("(((....)))"));
         });
     }
+
+    // RNA-STEMLOOP-001 (B12): opt-in stems with bulges. GGGACAGGAAACUGCCC: ViennaRNA 2.7.2 RNA.fold MFE
+    // (NNDB-precision parameters) = (((.(((....)))))) −7.23 kcal/mol; perfect-stem mode finds only (((....))).
+    [Test]
+    public void FindStemLoops_MaxInternalLoopSize_DelegatesToUnbranchedStems()
+    {
+        var perfect = AnalysisTools.FindStemLoops("GGGACAGGAAACUGCCC", 3, 4, 4).Items;
+        var bulged = AnalysisTools.FindStemLoops("GGGACAGGAAACUGCCC", 3, 4, 4, true, 1).Items;
+        Assert.Multiple(() =>
+        {
+            Assert.That(perfect.Single().DotBracketNotation, Is.EqualTo("(((....)))"));
+            Assert.That(bulged.Single().DotBracketNotation, Is.EqualTo("(((.(((....))))))"));
+            Assert.That(bulged.Single().TotalFreeEnergy, Is.EqualTo(-7.23).Within(0.005));
+        });
+        Assert.Throws<ArgumentOutOfRangeException>(() => AnalysisTools.FindStemLoops("GGGAAAACCC", 3, 4, 4, true, -1));
+    }
 }

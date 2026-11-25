@@ -389,15 +389,56 @@ public static class RnaSecondaryStructure
     #region Stem-Loop Finding
 
     /// <summary>
-    /// Finds all potential stem-loop structures in an RNA sequence.
-    /// Case-insensitive; DNA T is read as U (reported bases and loop sequences use U).
+    /// Enumerates hairpin stem-loops: for every hairpin loop [loopStart, loopEnd] of
+    /// <paramref name="minLoopSize"/>..<paramref name="maxLoopSize"/> nucleotides closed by a canonical pair,
+    /// the stem that closes it (see <paramref name="maxInternalLoopSize"/>). Overlapping candidates are all
+    /// returned, ordered by loop start, then loop size. Case-insensitive; DNA T is read as U (reported bases
+    /// and loop sequences use U); any other character never pairs (ViennaRNA default pair set).
     /// </summary>
+    /// <remarks>
+    /// <para><b>Perfect stems</b> (<paramref name="maxInternalLoopSize"/> = 0, the default): the stem is one
+    /// helix — consecutively stacked canonical pairs (NNDB "helix") — grown outward from the loop-closing
+    /// pair while the next outer pair can form; candidates whose helix is shorter than
+    /// <paramref name="minStemLength"/> are dropped.</para>
+    /// <para><b>Stems with bulges and internal loops</b> (<paramref name="maxInternalLoopSize"/> &gt; 0): the
+    /// stem is the minimum-free-energy <i>unbranched</i> chain of pairs closing the hairpin loop, i.e. the
+    /// Zuker–Stiegler (1981) V(i,j) recursion restricted to degree-2 loops — stacks, bulges and internal loops
+    /// with at most <paramref name="maxInternalLoopSize"/> unpaired nucleotides (ViennaRNA MAXLOOP semantics,
+    /// default 30 there) — scored with the same Turner 2004 loop functions as the MFE folder, over every outer
+    /// closing pair; the optimum is then dropped if it has fewer than <paramref name="minStemLength"/> pairs.</para>
+    /// <para><see cref="StemLoop.TotalFreeEnergy"/> is the free energy of the stem-loop as an isolated
+    /// structure (its own sub-sequence <c>[Start..End]</c> and <see cref="StemLoop.DotBracketNotation"/>), the
+    /// counterpart of ViennaRNA <c>eval_structure</c> on that sub-sequence: stacks, bulge/internal loops,
+    /// hairpin loop and the terminal AU/GU penalties of both helix ends (no dangles: the motif has no
+    /// neighbours). For a perfect stem it equals <see cref="Stem.FreeEnergy"/>
+    /// (<see cref="CalculateStemEnergy"/>, NNDB helix incl. both AU/GU ends) + <see cref="CalculateHairpinLoopEnergy"/>,
+    /// except for the four A-U-closed special hexaloops, whose measured loop value already contains the
+    /// closure penalty (ViennaRNA <c>vrna_E_hairpin</c> returns <c>Hexaloop_E</c>). For a stem with
+    /// bulges/internal loops <see cref="Stem.FreeEnergy"/> = total − hairpin-loop term.</para>
+    /// </remarks>
+    /// <param name="rnaSequence">RNA/DNA sequence; null or empty yields nothing.</param>
+    /// <param name="minStemLength">Minimum number of base pairs in a reported stem (default 3).</param>
+    /// <param name="minLoopSize">Minimum hairpin-loop size; values below 3 are raised to 3 (NNDB: hairpin loops
+    /// with fewer than 3 nucleotides are prohibited).</param>
+    /// <param name="maxLoopSize">Maximum hairpin-loop size (default 10).</param>
+    /// <param name="allowWobble">Whether G·U pairs may be part of a stem (default true).</param>
+    /// <param name="maxInternalLoopSize">0 (default) = perfect stems only; &gt; 0 = stems may contain bulges and
+    /// internal loops with up to this many unpaired nucleotides each (n1 + n2).</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxInternalLoopSize"/> is negative.</exception>
     public static IEnumerable<StemLoop> FindStemLoops(
         string rnaSequence,
         int minStemLength = 3,
         int minLoopSize = 3,
         int maxLoopSize = 10,
-        bool allowWobble = true)
+        bool allowWobble = true,
+        int maxInternalLoopSize = 0)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(maxInternalLoopSize);
+        return FindStemLoopsIterator(rnaSequence, minStemLength, minLoopSize, maxLoopSize, allowWobble, maxInternalLoopSize);
+    }
+
+    private static IEnumerable<StemLoop> FindStemLoopsIterator(
+        string rnaSequence, int minStemLength, int minLoopSize, int maxLoopSize, bool allowWobble, int maxInternalLoopSize)
     {
         // NNDB Turner 2004: "The nearest neighbor rules prohibit hairpin loops
         // with fewer than 3 nucleotides."
@@ -412,6 +453,10 @@ public static class RnaSecondaryStructure
         // A/C/G/U-keyed, so T-containing pairs must be scored as their U equivalents.
         string upper = rnaSequence.ToUpperInvariant().Replace('T', 'U');
 
+        int[]? chainPredecessor = maxInternalLoopSize > 0
+            ? FillUnbranchedStemDp(upper, minLoopSize, allowWobble, maxInternalLoopSize)
+            : null;
+
         // Scan for potential hairpin loops
         for (int loopStart = minStemLength; loopStart <= upper.Length - minStemLength - minLoopSize; loopStart++)
         {
@@ -419,8 +464,9 @@ public static class RnaSecondaryStructure
             {
                 int loopEnd = loopStart + loopSize - 1;
 
-                // Try to extend stem on both sides
-                var stemLoop = TryBuildStemLoop(upper, loopStart, loopEnd, minStemLength, allowWobble);
+                var stemLoop = chainPredecessor == null
+                    ? TryBuildStemLoop(upper, loopStart, loopEnd, minStemLength, allowWobble)
+                    : TryBuildUnbranchedStemLoop(upper, chainPredecessor, loopStart, loopEnd, minStemLength, allowWobble);
                 if (stemLoop != null)
                 {
                     yield return stemLoop.Value;
@@ -429,50 +475,135 @@ public static class RnaSecondaryStructure
         }
     }
 
+    private static bool IsStemPair(string seq, int i, int j, bool allowWobble)
+    {
+        byte t = PairType(seq[i], seq[j]);
+        return t == 1 || (t == 2 && allowWobble);
+    }
+
     private static StemLoop? TryBuildStemLoop(string sequence, int loopStart, int loopEnd, int minStemLength, bool allowWobble)
     {
         var basePairs = new List<BasePair>();
-        int stemLength = 0;
 
         int left = loopStart - 1;
         int right = loopEnd + 1;
 
-        // Extend stem
-        while (left >= 0 && right < sequence.Length)
+        // Extend the helix outward while the next pair can form.
+        while (left >= 0 && right < sequence.Length && IsStemPair(sequence, left, right, allowWobble))
         {
-            var pairType = GetBasePairType(sequence[left], sequence[right]);
-
-            if (pairType == null)
-                break;
-
-            if (pairType == BasePairType.Wobble && !allowWobble)
-                break;
-
-            basePairs.Add(new BasePair(left, right, sequence[left], sequence[right], pairType.Value));
-            stemLength++;
+            basePairs.Add(new BasePair(left, right, sequence[left], sequence[right],
+                GetBasePairType(sequence[left], sequence[right])!.Value));
             left--;
             right++;
         }
 
-        if (stemLength < minStemLength)
+        if (basePairs.Count < minStemLength)
             return null;
 
-        // Build result
-        int stemStart = left + 1;
+        basePairs.Reverse(); // Order from 5' to 3'
+        return BuildStemLoop(sequence, basePairs, loopStart, loopEnd, perfectHelix: true);
+    }
+
+    /// <summary>
+    /// Outside DP for unbranched stems: G(k,l) = min{ AU/GU end penalty of (k,l) as the outermost pair,
+    /// min over enclosing (i,j) with n1 + n2 ≤ maxInternal of G(i,j) + InteriorTerm(i,j,k,l),
+    /// G(k−3,l+3) + GGUC/CUGG 3-stack }. The optimal stem closing a hairpin at (p,q) is the argmin chain
+    /// of G(p,q) (the hairpin term is fixed by (p,q)). Returns the predecessor of each pair state:
+    /// −1 = outermost pair, ≥ 0 = enclosing pair index i·n + j, ≤ −2 = GGUC step from index −2 − value;
+    /// int.MinValue = pair not allowed.
+    /// </summary>
+    private static int[] FillUnbranchedStemDp(string seq, int minLoopSize, bool allowWobble, int maxInternal)
+    {
+        int n = seq.Length;
+        var g = new double[n * n];
+        var pred = new int[n * n];
+        Array.Fill(pred, int.MinValue);
+        const double tieEps = 1e-9;
+
+        for (int span = n - 1; span > minLoopSize; span--)
+        {
+            for (int k = 0; k + span < n; k++)
+            {
+                int l = k + span;
+                if (!IsStemPair(seq, k, l, allowWobble)) continue;
+
+                double best = IsAUorGU(seq[k], seq[l]) ? TerminalAU_GU_Penalty : 0.0;
+                int arg = -1;
+                for (int i = k - 1; i >= 0 && k - i - 1 <= maxInternal; i--)
+                {
+                    int n1 = k - i - 1;
+                    for (int j = l + 1; j < n && n1 + j - l - 1 <= maxInternal; j++)
+                    {
+                        int o = i * n + j;
+                        if (pred[o] == int.MinValue) continue;
+                        double e = g[o] + InteriorTerm(seq, i, j, k, l);
+                        if (e < best - tieEps) { best = e; arg = o; }
+                    }
+                }
+
+                if (k >= 3 && l + 3 < n && pred[(k - 3) * n + l + 3] != int.MinValue && allowWobble &&
+                    IsSpecialGgucCuggStack(seq, k - 3, l + 3))
+                {
+                    int o = (k - 3) * n + l + 3;
+                    double e = g[o] + SpecialGGUC_CUGG_3Stack;
+                    if (e < best - tieEps) { best = e; arg = -2 - o; }
+                }
+
+                g[k * n + l] = best;
+                pred[k * n + l] = arg;
+            }
+        }
+        return pred;
+    }
+
+    private static StemLoop? TryBuildUnbranchedStemLoop(
+        string sequence, int[] pred, int loopStart, int loopEnd, int minStemLength, bool allowWobble)
+    {
+        int n = sequence.Length;
+        int p = loopStart - 1, q = loopEnd + 1;
+        if (p < 0 || q >= n || !IsStemPair(sequence, p, q, allowWobble) || pred[p * n + q] == int.MinValue)
+            return null;
+
+        // Trace the optimal chain outward (inner → outer).
+        var chain = new List<(int I, int J)> { (p, q) };
+        int cur = p * n + q;
+        bool perfectHelix = true;
+        while (pred[cur] != -1)
+        {
+            int v = pred[cur];
+            int ci = cur / n, cj = cur % n;
+            if (v <= -2)
+            {
+                chain.Add((ci - 1, cj + 1));
+                chain.Add((ci - 2, cj + 2));
+                chain.Add((ci - 3, cj + 3));
+                cur = -2 - v;
+            }
+            else
+            {
+                if (v / n != ci - 1 || v % n != cj + 1) perfectHelix = false;
+                chain.Add((v / n, v % n));
+                cur = v;
+            }
+        }
+
+        if (chain.Count < minStemLength)
+            return null;
+
+        chain.Reverse(); // Order from 5' to 3'
+        var basePairs = chain
+            .Select(c => new BasePair(c.I, c.J, sequence[c.I], sequence[c.J], GetBasePairType(sequence[c.I], sequence[c.J])!.Value))
+            .ToList();
+        return BuildStemLoop(sequence, basePairs, loopStart, loopEnd, perfectHelix);
+    }
+
+    // Builds the result record; basePairs are ordered outer (5') → inner (closing pair of the loop).
+    private static StemLoop BuildStemLoop(string sequence, List<BasePair> basePairs, int loopStart, int loopEnd, bool perfectHelix)
+    {
+        int stemStart = basePairs[0].Position1;
+        int stemEnd = basePairs[0].Position2;
         int stemEnd5 = loopStart - 1;
         int stemStart3 = loopEnd + 1;
-        int stemEnd = right - 1;
-
-        basePairs.Reverse(); // Order from 5' to 3'
-
-        var stem = new Stem(
-            Start5Prime: stemStart,
-            End5Prime: stemEnd5,
-            Start3Prime: stemStart3,
-            End3Prime: stemEnd,
-            Length: stemLength,
-            BasePairs: basePairs,
-            FreeEnergy: CalculateStemEnergy(sequence, basePairs));
 
         string loopSeq = sequence.Substring(loopStart, loopEnd - loopStart + 1);
         var loop = new Loop(
@@ -482,12 +613,33 @@ public static class RnaSecondaryStructure
             Size: loopSeq.Length,
             Sequence: loopSeq);
 
-        double loopEnergy = CalculateHairpinLoopEnergy(
-            loopSeq, sequence[stemEnd5], sequence[stemStart3],
-            IsSpecialGUClosure(sequence, basePairs));
-        double totalEnergy = stem.FreeEnergy + loopEnergy;
-
         string dotBracket = GenerateDotBracket(sequence.Length, basePairs, stemStart, stemEnd);
+
+        // Energy of the isolated motif (ViennaRNA eval_structure counterpart, shared loop functions).
+        double totalEnergy = EvaluateStructureEnergy(sequence.Substring(stemStart, stemEnd - stemStart + 1), dotBracket);
+
+        double stemEnergy;
+        if (perfectHelix)
+        {
+            stemEnergy = CalculateStemEnergy(sequence, basePairs);
+        }
+        else
+        {
+            // Special GU closure in the isolated motif: G·U closing pair preceded by two Gs inside the motif.
+            bool specialGU = sequence[stemEnd5] == 'G' && sequence[stemStart3] == 'U' &&
+                             stemEnd5 - 2 >= stemStart && sequence[stemEnd5 - 1] == 'G' && sequence[stemEnd5 - 2] == 'G';
+            stemEnergy = Math.Round(totalEnergy -
+                CalculateHairpinLoopEnergy(loopSeq, sequence[stemEnd5], sequence[stemStart3], specialGU), 2);
+        }
+
+        var stem = new Stem(
+            Start5Prime: stemStart,
+            End5Prime: stemEnd5,
+            Start3Prime: stemStart3,
+            End3Prime: stemEnd,
+            Length: basePairs.Count,
+            BasePairs: basePairs,
+            FreeEnergy: stemEnergy);
 
         return new StemLoop(
             Start: stemStart,
@@ -503,13 +655,26 @@ public static class RnaSecondaryStructure
     #region Energy Calculations
 
     /// <summary>
-    /// Calculates the free energy of a stem region using Turner 2004 nearest-neighbor
-    /// stacking parameters from NNDB, including terminal AU/GU penalties.
+    /// Calculates the free energy of a helix (consecutively stacked pairs (i,j), (i+1,j−1), …, listed 5' → 3',
+    /// i.e. outermost first) with the Turner 2004 nearest-neighbour model (NNDB "Watson-Crick-Franklin helix"):
+    /// the sum of the stacking terms (special 5'GGUC/3'CUGG three-stack −4.12 kcal/mol, NNDB GU note b) plus
+    /// the terminal AU/GU penalty (+0.45) for each helix end closed by A·U or G·U. Bases are read
+    /// case-insensitively with DNA T as U (as <see cref="CanPair"/>); the AU/GU class is taken from the bases,
+    /// not from <see cref="BasePair.Type"/>. A stack with an unknown pair contributes 0. The
+    /// <paramref name="sequence"/> argument is not read (the bases come from the pairs).
     /// </summary>
     public static double CalculateStemEnergy(string sequence, IReadOnlyList<BasePair> basePairs)
     {
         if (basePairs.Count == 0)
             return 0;
+
+        var b5 = new char[basePairs.Count];
+        var b3 = new char[basePairs.Count];
+        for (int k = 0; k < basePairs.Count; k++)
+        {
+            b5[k] = NormalizeBase(basePairs[k].Base1);
+            b3[k] = NormalizeBase(basePairs[k].Base2);
+        }
 
         double energy = 0;
 
@@ -523,20 +688,17 @@ public static class RnaSecondaryStructure
             // When 4 consecutive pairs are G-C, G-U, U-G, C-G, replace
             // 3 individual stacking terms with -4.12 total.
             if (i + 3 < basePairs.Count &&
-                basePairs[i].Base1 == 'G' && basePairs[i].Base2 == 'C' &&
-                basePairs[i + 1].Base1 == 'G' && basePairs[i + 1].Base2 == 'U' &&
-                basePairs[i + 2].Base1 == 'U' && basePairs[i + 2].Base2 == 'G' &&
-                basePairs[i + 3].Base1 == 'C' && basePairs[i + 3].Base2 == 'G')
+                b5[i] == 'G' && b3[i] == 'C' &&
+                b5[i + 1] == 'G' && b3[i + 1] == 'U' &&
+                b5[i + 2] == 'U' && b3[i + 2] == 'G' &&
+                b5[i + 3] == 'C' && b3[i + 3] == 'G')
             {
                 energy += SpecialGGUC_CUGG_3Stack;
                 i += 2; // Skip next 2 iterations (3 stacks consumed)
                 continue;
             }
 
-            var pair1 = basePairs[i];
-            var pair2 = basePairs[i + 1];
-
-            string stack = $"{pair1.Base1}{pair2.Base1}/{pair1.Base2}{pair2.Base2}";
+            string stack = $"{b5[i]}{b5[i + 1]}/{b3[i]}{b3[i + 1]}";
             if (StackingEnergies.TryGetValue(stack, out double stackEnergy))
                 energy += stackEnergy;
             // Unknown stacking pairs contribute 0 (no data available)
@@ -545,35 +707,12 @@ public static class RnaSecondaryStructure
 
         // Terminal AU/GU penalty: +0.45 per helix end that terminates with AU/UA or GU/UG
         // Source: NNDB — "Per AU end" (wc-parameters.html), "Per GU end" (gu-parameters.html)
-        if (IsTerminalAUorGU(basePairs[0]))
+        if (IsAUorGU(b5[0], b3[0]))
             energy += TerminalAU_GU_Penalty;
-        if (IsTerminalAUorGU(basePairs[^1]))
+        if (IsAUorGU(b5[^1], b3[^1]))
             energy += TerminalAU_GU_Penalty;
 
         return Math.Round(energy, 2);
-    }
-
-    private static bool IsTerminalAUorGU(BasePair pair)
-    {
-        return pair.Type == BasePairType.Wobble ||
-               (pair.Base1 == 'A' && pair.Base2 == 'U') ||
-               (pair.Base1 == 'U' && pair.Base2 == 'A');
-    }
-
-    /// <summary>
-    /// Detects whether the innermost (closing) pair qualifies for the special GU closure bonus.
-    /// Requires: closing pair is G-U (not U-G) AND the two preceding stem pairs have G on the 5' side.
-    /// </summary>
-    private static bool IsSpecialGUClosure(string sequence, IReadOnlyList<BasePair> basePairs)
-    {
-        if (basePairs.Count < 3)
-            return false;
-
-        var closing = basePairs[^1];
-        if (closing.Base1 != 'G' || closing.Base2 != 'U')
-            return false;
-
-        return basePairs[^2].Base1 == 'G' && basePairs[^3].Base1 == 'G';
     }
 
     /// <summary>
@@ -608,10 +747,11 @@ public static class RnaSecondaryStructure
         string loopSequence, char closingBase5, char closingBase3,
         bool specialGUClosure = false)
     {
-        string loopUpper = loopSequence.ToUpperInvariant();
+        // Case-insensitive; DNA T is the same base as U (ViennaRNA vrna_nucleotide_encode).
+        string loopUpper = loopSequence.ToUpperInvariant().Replace('T', 'U');
         int size = loopUpper.Length;
-        char c5 = char.ToUpperInvariant(closingBase5);
-        char c3 = char.ToUpperInvariant(closingBase3);
+        char c5 = NormalizeBase(closingBase5);
+        char c3 = NormalizeBase(closingBase3);
 
         // Check for special hairpin loop (NNDB experimental total energy).
         // Key = closing5' + loop + closing3'.
@@ -645,26 +785,8 @@ public static class RnaSecondaryStructure
         // For loops ≥4nt: terminal mismatch stacking + sequence-dependent bonuses + penalties
         if (size >= 4)
         {
-            char firstMismatch = loopUpper[0];
-            char lastMismatch = loopUpper[^1];
-
-            // Terminal mismatch stacking energy (96-entry table from NNDB)
-            string tmKey = $"{c5}{firstMismatch}{lastMismatch}{c3}";
-            if (TerminalMismatchEnergies.TryGetValue(tmKey, out double tmEnergy))
-                energy += tmEnergy;
-
-            // UU or GA first mismatch bonus — additive on top of terminal mismatch
-            if ((firstMismatch == 'U' && lastMismatch == 'U') ||
-                (firstMismatch == 'G' && lastMismatch == 'A'))
-            {
-                energy += UU_GA_MismatchBonus;
-            }
-
-            // GG first mismatch bonus — additive on top of terminal mismatch
-            if (firstMismatch == 'G' && lastMismatch == 'G')
-            {
-                energy += GG_MismatchBonus;
-            }
+            // Terminal mismatch + UU/GA and GG first-mismatch bonuses (an unknown mismatch base: see below).
+            energy += HairpinFirstMismatchTerm(c5, loopUpper[0], loopUpper[^1], c3);
 
             // Special GU closure: -2.2 when closing pair is G-U preceded by two Gs
             if (specialGUClosure && c5 == 'G' && c3 == 'U')
@@ -683,6 +805,37 @@ public static class RnaSecondaryStructure
         }
 
         return Math.Round(energy, 2);
+    }
+
+    /// <summary>
+    /// Sequence-dependent first-mismatch part of a hairpin loop of ≥ 4 nt: terminal mismatch (NNDB tstackh)
+    /// + UU/GA first-mismatch bonus (not AG) + GG first-mismatch bonus. A mismatch base other than A/C/G/U
+    /// (N, IUPAC codes, gaps) is ViennaRNA's unknown base 'N' (<c>vrna_nucleotide_encode</c> → 0), whose
+    /// Turner 2004 hairpin-mismatch entries (<c>params/default.c</c> <c>mismatchH37[type][0][·]</c> /
+    /// <c>[·][0]</c>) are the maximum — the least stabilising value — over the four bases; the same maximum
+    /// is taken here over every A/C/G/U substitution of the unknown base(s).
+    /// </summary>
+    private static double HairpinFirstMismatchTerm(char c5, char x, char y, char c3)
+    {
+        static bool Known(char b) => b is 'A' or 'C' or 'G' or 'U';
+        static double Term(char c5, char x, char y, char c3)
+        {
+            double e = TerminalMismatchEnergies.TryGetValue($"{c5}{x}{y}{c3}", out double tm) ? tm : 0.0;
+            if ((x == 'U' && y == 'U') || (x == 'G' && y == 'A')) e += UU_GA_MismatchBonus;
+            if (x == 'G' && y == 'G') e += GG_MismatchBonus;
+            return e;
+        }
+
+        if (Known(x) && Known(y))
+            return Term(c5, x, y, c3);
+
+        string xs = Known(x) ? x.ToString() : "ACGU";
+        string ys = Known(y) ? y.ToString() : "ACGU";
+        double max = double.NegativeInfinity;
+        foreach (char a in xs)
+            foreach (char b in ys)
+                max = Math.Max(max, Term(c5, a, b, c3));
+        return max;
     }
 
     /// <summary>
@@ -808,11 +961,7 @@ public static class RnaSecondaryStructure
         return u == 'T' ? 'U' : u;
     }
 
-    private static bool IsAUorGU(char b5, char b3)
-    {
-        return (b5 == 'A' && b3 == 'U') || (b5 == 'U' && b3 == 'A') ||
-               (b5 == 'G' && b3 == 'U') || (b5 == 'U' && b3 == 'G');
-    }
+    private static bool IsAUorGU(char b5, char b3) => Turner2004Parameters.IsTerminalPenaltyPair(b5, b3);
 
     /// <summary>
     /// Calculates the free energy of a bulge loop using Turner 2004 parameters.

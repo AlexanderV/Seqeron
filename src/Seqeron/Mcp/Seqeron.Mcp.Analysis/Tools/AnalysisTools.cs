@@ -3041,19 +3041,20 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "find_stem_loops", Title = "RNA — Find Stem-Loops", ReadOnly = true)]
-    [Description("Enumerates hairpin stem-loop candidates with stem, loop, and Turner 2004 free energy.")]
+    [Description("Enumerates hairpin stem-loop candidates (one per hairpin loop) with stem, loop, and Turner 2004 free energy of the isolated stem-loop (ViennaRNA eval_structure counterpart). DNA T is read as U; non-ACGU symbols never pair.")]
     public static FindStemLoopsResult FindStemLoops(
         [Description("RNA sequence.")] string rnaSequence,
         [Description("Minimum stem length (default 3).")] int minStemLength = 3,
         [Description("Minimum loop size (default 3).")] int minLoopSize = 3,
         [Description("Maximum loop size (default 10).")] int maxLoopSize = 10,
-        [Description("Allow G-U wobble pairs in the stem (default true).")] bool allowWobble = true)
+        [Description("Allow G-U wobble pairs in the stem (default true).")] bool allowWobble = true,
+        [Description("0 (default) = perfect stems only; > 0 = the stem is the minimum-free-energy unbranched chain and may contain bulges/internal loops of up to this many unpaired nucleotides.")] int maxInternalLoopSize = 0)
     {
         if (string.IsNullOrEmpty(rnaSequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(rnaSequence));
 
         var items = RnaSecondaryStructure
-            .FindStemLoops(rnaSequence, minStemLength, minLoopSize, maxLoopSize, allowWobble)
+            .FindStemLoops(rnaSequence, minStemLength, minLoopSize, maxLoopSize, allowWobble, maxInternalLoopSize)
             .Select(ToItem)
             .ToArray();
         return new FindStemLoopsResult(items);
