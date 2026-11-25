@@ -264,7 +264,7 @@ Sources actually opened this session:
 - ViennaRNA 2.x (`import RNA`): `fold_compound.pf()` with `hc_add_up` over the site ⇒ Z_c/Z, dangles 0 and 2.
 
 Defects & reference numbers:
-1. **Duplex register** (FindTargetSites/CreateTargetSite): window was `mrna[Start .. Start+L−1]` (downstream), so miRNA nt 1 was aligned to the last base of that window. let-7a vs `GGGGGCUACCUCAGGGGG`: old window `CUACCUCAGGGGG`, seed reported unpaired; fixed window `GGGGGCUACCUCA`, alignment `||||||||:   :` (nt 1–8 paired), Score 0.97 (1.0 − 3×0.01), FreeEnergy −17.96.
+1. **Duplex register** (FindTargetSites/CreateTargetSite): window was `mrna[Start .. Start+L−1]` (downstream), so miRNA nt 1 was aligned to the last base of that window. let-7a vs `GGGGGCUACCUCAGGGGG`: old window `CUACCUCAGGGGG`, seed reported unpaired; fixed window `GGGGGCUACCUCA`, alignment `||||||||:   :` (nt 1–8 paired), Score 0.97 (1.0 − 3×0.01), FreeEnergy −17.96 (stacking-only sum at the time; since MIRNA-PAIR-001 F11 the full Turner 2004 duplex energy: −11.67, ViennaRNA 2.8 eval_structure −11.4).
 2. **AnalyzeTargetContext**: +0.3 bonus for mid-sequence sites (inverse of Grimson), unweighted AU count including the site, 15 %-of-length start threshold. Fixed to TargetScan weighted local AU, 15-nt stop-codon rule, end-proximity positional term (weights declared unfitted).
 3. **CalculateSiteAccessibility**: Watson-Crick pair-density heuristic returned 0 for every test sequence (incl. sites ViennaRNA puts at 97–99 % unpaired). Now McCaskill Z_open/Z via `RnaSecondaryStructure.CalculateRegionUnpairedProbability` (W = 80 local context):
 

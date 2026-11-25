@@ -2,5 +2,6 @@
   MiRnaSequence: UAGCUUAUCAGACUGAUGUUGA,
   TargetSequence: UCAACAUCAGUCUGAUAAGCUA,
   AlignmentString: ||||||||||||||||||||||,
-  Matches: 22
+  Matches: 22,
+  FreeEnergy: -35.79
 }

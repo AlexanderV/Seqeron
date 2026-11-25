@@ -51,7 +51,9 @@ public class MiRnaSnapshotTests
             duplex.AlignmentString,
             duplex.Matches,
             duplex.Mismatches,
-            duplex.GUWobbles
+            duplex.GUWobbles,
+            // Turner 2004 (NNDB) duplex ΔG°37; ViennaRNA 2.8 eval_structure of the same structure = −35.70.
+            duplex.FreeEnergy
         });
     }
 }

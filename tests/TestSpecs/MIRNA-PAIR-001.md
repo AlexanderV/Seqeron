@@ -5,7 +5,7 @@
 **Algorithm:** MiRNA-Target Pairing Analysis (miRNA–mRNA duplex base pairing)
 **Status:** ☐ In Progress
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-13
+**Last Updated:** 2026-11-25
 
 ---
 
@@ -20,7 +20,9 @@
 | 3 | Transcriptome-Wide Non-Canonical Interactions (PMC4870184) | 1 | https://pmc.ncbi.nlm.nih.gov/articles/PMC4870184/ | 2026-06-13 |
 | 4 | Crick (1966) wobble — via Wikipedia "Wobble base pair" | 4 | https://en.wikipedia.org/wiki/Wobble_base_pair | 2026-06-13 |
 | 5 | Lewis et al. (2005) Cell — Conserved seed pairing | 1 | https://pubmed.ncbi.nlm.nih.gov/15652477/ | 2026-06-13 |
-| 6 | NNDB Turner 2004 parameters | 1/3 | https://rna.urmc.rochester.edu/NNDB/turner04/index.html | 2026-06-13 |
+| 6 | NNDB Turner 2004 parameters (helix, dangling-end, terminal-mismatch, exterior-loop pages; dangle table) | 1/3 | https://rna.urmc.rochester.edu/NNDB/rna_2004/ | 2026-11-25 |
+| 7 | ViennaRNA 2.8.0 (`eval_structure`, `duplexfold`) — Lorenz et al. 2011 | reference impl. | https://www.tbi.univie.ac.at/RNA/ | 2026-11-25 |
+| 8 | Biopython 1.88 `Bio.Seq.reverse_complement_rna` | reference impl. | https://biopython.org/docs/latest/api/Bio.Seq.html | 2026-11-25 |
 
 ### 1.2 Key Evidence Points
 
@@ -28,7 +30,8 @@
 2. The only standard RNA wobble pair is G-U; it is distinguished from Watson-Crick — Crick (1966) via Wikipedia; PMC4870184 "solid lines indicate Watson-Crick base pairing" (vs G:U wobble).
 3. The miRNA seed is nucleotides 2–8 and pairs antiparallel/Watson-Crick complementary to the mRNA 3′UTR — Bartel (2009); PMC4870184 "(position 2-8)".
 4. Target sites are the reverse complement of the miRNA seed — Lewis et al. (2005) "conserved complementarity to the seed (nucleotides 2-7)".
-5. RNA duplex free energy = sum of nearest-neighbor stacking energies (all negative at 37 °C for paired stacks) + initiation/terminal penalties — NNDB Turner 2004 / Xia et al. (1998).
+5. RNA duplex free energy = intermolecular initiation 4.09 (+ symmetry 0.43 for identical strands) + Σ stacks + loops + AU/GU end penalties 0.45 + dangling ends / terminal mismatches — NNDB Turner 2004 (worked examples −7.94, −6.04); ViennaRNA `eval_structure` evaluates the same model.
+6. The MFE intermolecular duplex (bulges / internal loops) is the ViennaRNA `RNAduplex` recursion (Lorenz et al. 2011).
 
 ### 1.3 Documented Corner Cases
 
@@ -47,10 +50,11 @@
 
 | Method | Class | Type | Notes |
 |--------|-------|------|-------|
-| `AlignMiRnaToTarget(miRna, target)` | MiRnaAnalyzer | Canonical | Antiparallel duplex base-pairing alignment; counts matches/mismatches/wobbles, builds alignment string, estimates ΔG. |
-| `GetReverseComplement(sequence)` | MiRnaAnalyzer | Canonical | RNA reverse complement (T→U), used to derive seed-match targets. |
+| `AlignMiRnaToTarget(miRna, target)` | MiRnaAnalyzer | Canonical | Antiparallel duplex base-pairing alignment; counts matches/mismatches/wobbles, builds alignment string, Turner 2004 duplex ΔG. |
+| `GetReverseComplement(sequence)` | MiRnaAnalyzer | Canonical | RNA reverse complement via canonical GetRnaComplementBase (IUPAC), used to derive seed-match targets. |
 | `CanPair(base1, base2)` | MiRnaAnalyzer | Canonical | Watson-Crick + G:U wobble pairing predicate. |
 | `IsWobblePair(base1, base2)` | MiRnaAnalyzer | Canonical | G:U wobble predicate. |
+| `FoldMiRnaDuplex(miRna, target, maxLoopSize)` | MiRnaAnalyzer | Canonical | MFE intermolecular duplex (ViennaRNA RNAduplex model), Turner 2004. |
 
 ---
 
@@ -61,9 +65,10 @@
 | INV-1 | `CanPair` true ⇔ {A-U, U-A, G-C, C-G, G-U, U-G}; false otherwise | Yes | Agarwal et al. (A-U,C-G); Crick (1966) (G-U) |
 | INV-2 | `IsWobblePair` true ⇔ {G-U, U-G}; Watson-Crick pairs are NOT wobble | Yes | PMC4870184; Crick (1966) |
 | INV-3 | Every G:U/U:G counted by `IsWobblePair` is also pairable by `CanPair` (wobbles ⊆ pairs) | Yes | Crick (1966); CanPair definition |
-| INV-4 | `GetReverseComplement` reverses and complements (A↔U, G↔C, T→A); length preserved; idempotent under double application for RNA | Yes | A-U/G-C rules (Agarwal); Lewis (2005) |
+| INV-4 | `GetReverseComplement` reverses and complements (A↔U, G↔C, T→A, IUPAC codes complemented, other symbols passed through); length preserved; involution for RNA | Yes | A-U/G-C rules (Agarwal); Lewis (2005); Biopython reverse_complement_rna |
 | INV-5 | In `AlignMiRnaToTarget`, Matches + Mismatches + GUWobbles = min(len(miRNA), len(target)); no gaps | Yes | Implementation contract (ungapped duplex over overlap) |
-| INV-6 | A fully Watson-Crick-paired duplex has FreeEnergy ≤ 0 (stabilising); an all-mismatch duplex has FreeEnergy not stabilising (≥ 0 from stacking sum) | Yes | NNDB Turner 2004 (negative stacking energies) |
+| INV-6 | FreeEnergy = NNDB Turner 2004 energy of the reported duplex; no pair ⇒ 0 (a short A·U duplex is positive: AAAA·UUUU +2.20) | Yes | NNDB Turner 2004; ViennaRNA eval_structure |
+| INV-7 | FoldMiRnaDuplex energy ≤ AlignMiRnaToTarget energy (non-identical strands, loops ≤ 30) | Yes | RNAduplex minimises over all intermolecular structures |
 
 ---
 
@@ -82,6 +87,7 @@
 | M7 | GetReverseComplement simple | `GAGGUAG` (let-7a seed) | `CUACCUC` | Lewis (2005) reverse-complement seed; A-U/G-C |
 | M8 | GetReverseComplement DNA | `ACGT` | `ACGU` (RC of ACGT, T→U) | A-U/G-C, T→U |
 | M9 | GetReverseComplement empty | `""` | `""` | defensive contract |
+| M8b | GetReverseComplement IUPAC | `ACGR`, `NNRYKMBDHVSW`, `acgu-X` | `YCGU`, `WSBDHVKMRYNN`, `X-ACGU` | Biopython 1.88 reverse_complement_rna |
 | M10 | AlignMiRnaToTarget perfect WC | `AAAA`/`UUUU` | Matches=4, Mismatches=0, GUWobbles=0, alignment `\|\|\|\|` | Watson-Crick A-U |
 | M11 | AlignMiRnaToTarget wobble | `GGGG`/`UUUU` | Matches=0, GUWobbles=4, Mismatches=0, alignment `::::` | Crick (1966); G:U ≠ WC |
 | M12 | AlignMiRnaToTarget all-mismatch | `AAAA`/`AAAA` | Matches=0, GUWobbles=0, Mismatches=4 | A pairs only U |
@@ -93,8 +99,19 @@
 
 | ID | Test Case | Description | Expected Outcome | Notes |
 |----|-----------|-------------|------------------|-------|
-| S1 | Free energy sign (paired) | fully WC duplex `GCGCGCGC`/RC | FreeEnergy ≤ 0 | INV-6; Turner negative stacking |
-| S2 | Free energy sign (mismatch) | `AAAA`/`AAAA` | FreeEnergy ≥ 0 (not stabilising) | INV-6 |
+| S1 | Free energy (paired, self-complementary) | `GCGCGCGC`/RC | −16.24 (4.09 + 0.43 + 4×(−3.42) + 3×(−2.36)); Vienna −16.7 | INV-6; NNDB |
+| S2 | Free energy (no pair) | `AAAA`/`AAAA` | 0 | INV-6 |
+| E1 | NNDB self-complementary example | `AGCGCU`/`AGCGCU` | −7.94 | NNDB helix page |
+| E2 | NNDB non-self-complementary example | `GCACG`/`CGUGC` | −6.04 | NNDB helix page |
+| E3 | 3′ dangling end | `GCACGC`/`CGUGC` | −6.44 (−6.04 − 0.4); Vienna −6.4 | NNDB dangle page |
+| E4 | Terminal mismatch | `AGCGCUG`/`AAGCGCU` | −9.47 (−7.94 − 0.43 − 1.1); Vienna −9.4 | NNDB terminal-mismatch page |
+| E5 | Short A·U duplex | `AAAA`/`UUUU`; `AAAAAA`/`UUUU` | +2.20; +1.40 (3′ dangle A −0.8); Vienna +2.4, +1.6 | NNDB |
+| E6 | ViennaRNA eval cross-check | 9 fixtures (perfect let-7a/miR-21, site window 3×3 loop, 1×1, 4×4, 5×5/7×7 loops, G·U) | exact NNDB value; Vienna within 0.35 | ViennaRNA 2.8.0 |
+| F1 | Fold perfect complement | let-7a / RC | 22-bp helix, −35.90 = AlignMiRnaToTarget | RNAduplex |
+| F2 | Fold bulged site | let-7a vs site + extra A (2 positions), 1×2 loop | Vienna duplexfold pairs; −32.10/−32.10/−28.00 (Vienna −31.8/−31.8/−28.2); ungapped −10.81/−7.13/−11.34 | RNAduplex |
+| F3 | Fold Vienna cross-check | 5 generated fixtures | Vienna structure + span; energy within 0.35 | ViennaRNA 2.8.0 |
+| F4 | Fold ≤ ungapped | 4 fixtures | INV-7 | RNAduplex |
+| F5 | Fold bounds | maxLoopSize 0 / null / empty / no pair / −1 | helix only / null / null / null / throws | contract |
 | S3 | DNA input normalised | `AAAA`/`TTTT` | Matches=4 (T→U) | T↔U normalisation |
 | S4 | Unequal lengths | `AAAAAA`/`UUUU` (overlap 4) | alignment length = 4 | INV-5 |
 
@@ -203,8 +220,12 @@
 | M13 | ✅ | AlignMiRnaToTarget_EmptyMiRna_ReturnsEmptyDuplex |
 | M14 | ✅ | AlignMiRnaToTarget_EmptyTarget_ReturnsEmptyDuplex |
 | M15 | ✅ | AlignMiRnaToTarget_CountInvariant_SumEqualsOverlapLength |
-| S1 | ✅ | AlignMiRnaToTarget_FullyPairedDuplex_FreeEnergyNonPositive |
-| S2 | ✅ | AlignMiRnaToTarget_AllMismatchDuplex_FreeEnergyNonNegative |
+| S1 | ✅ | AlignMiRnaToTarget_FullyPairedDuplex_FreeEnergyIsNndbSum |
+| S2 | ✅ | AlignMiRnaToTarget_AllMismatchDuplex_FreeEnergyZero |
+| M8b | ✅ | GetReverseComplement_IupacAndUnknown_MatchesBiopython |
+| E1–E5 | ✅ | AlignMiRnaToTarget_NndbSelfComplementaryExample_Minus7_94, _NndbNonSelfComplementaryExample_Minus6_04, _ThreePrimeDanglingEnd_NndbValue, _TerminalMismatch_NndbValue, _ShortAuDuplex_PositiveNndbEnergy |
+| E6 | ✅ | AlignMiRnaToTarget_FreeEnergy_MatchesViennaEval (9 cases) |
+| F1–F5 | ✅ | FoldMiRnaDuplex_PerfectComplement_FullHelixSameEnergyAsAlignment, _BulgedSite_RecoversHelixLikeVienna (3), _MatchesViennaDuplexfold (5), _NeverAboveUngappedDuplex (4), _LoopBoundAndDegenerateInputs |
 | S3 | ✅ | AlignMiRnaToTarget_DnaInput_NormalisedAndMatched |
 | S4 | ✅ | AlignMiRnaToTarget_UnequalLengths_AlignsOverOverlap |
 | C1 | ✅ | GetReverseComplement_DoubleApplication_RestoresRna |
@@ -214,14 +235,10 @@
 
 ## 6. Assumption Register
 
-**Total assumptions:** 1
-
-| # | Assumption | Used In |
-|---|-----------|---------|
-| 1 | Turner 2004 stacking numeric values not re-retrieved this session (NNDB 404 to fetcher); free-energy tests assert sign only, not magnitude | S1, S2, INV-6 |
+**Total assumptions:** 0 (former assumption 1 — sign-only free-energy tests — retired 2026-11-25: NNDB pages opened, values locked).
 
 ---
 
 ## 7. Open Questions / Decisions
 
-1. The `FreeEnergy` magnitude is "Intentionally simplified" — refactored to sum the already-cited NNDB Turner 2004 nearest-neighbor stacking table (removing the previously invented −2.0/−1.0/−0.5/+0.5 per-position constants). Only its sign is validated, because exact per-stack kcal/mol values could not be independently re-opened this session.
+1. Resolved 2026-11-25 (B13 F11): `FreeEnergy` is the full NNDB Turner 2004 duplex energy (no longer a stacking-only, sign-validated estimate), cross-checked against ViennaRNA 2.8.0; the gapped MFE duplex is `FoldMiRnaDuplex` (F12).

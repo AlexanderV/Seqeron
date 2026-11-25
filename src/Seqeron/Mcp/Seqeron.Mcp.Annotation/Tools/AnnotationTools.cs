@@ -1085,9 +1085,9 @@ public class AnnotationTools
         return new FindMiRnaTargetSitesResult(sites);
     }
 
-    /// <summary>Reverse-complement of an RNA sequence (A↔U, G↔C, unknowns → N).</summary>
+    /// <summary>RNA reverse complement (Biopython reverse_complement_rna; IUPAC codes complemented).</summary>
     [McpServerTool(Name = "rna_reverse_complement", Title = "miRNA — RNA Reverse Complement", ReadOnly = true)]
-    [Description("Reverse-complement of an RNA sequence (A↔U, G↔C, unknown bases → N).")]
+    [Description("RNA reverse complement, as Biopython reverse_complement_rna: A↔U, G↔C, DNA T→A; IUPAC ambiguity codes are complemented (R↔Y, K↔M, B↔V, D↔H; S, W, N unchanged). Case-insensitive, upper-case output for recognized codes; other characters (gaps etc.) pass through.")]
     public static RnaReverseComplementResult RnaReverseComplement(
         [Description("RNA (or DNA) nucleotide sequence")] string rnaSequence)
     {
@@ -1129,7 +1129,7 @@ public class AnnotationTools
 
     /// <summary>Align a miRNA against a target sequence and compute duplex statistics.</summary>
     [McpServerTool(Name = "align_mirna_to_target", Title = "miRNA — Align To Target", ReadOnly = true)]
-    [Description("Align a miRNA against a target sequence and compute duplex statistics (matches, mismatches, G-U wobbles, gaps, free energy).")]
+    [Description("Align a miRNA antiparallel (ungapped) against a target sequence and compute duplex statistics: matches, mismatches, G-U wobbles, gaps (always 0) and the Turner 2004 nearest-neighbor duplex free energy (kcal/mol, 37 °C) of the reported duplex — intermolecular initiation, stacks, internal loops, terminal AU/GU, dangling ends / terminal mismatches.")]
     public static AlignMiRnaToTargetResult AlignMiRnaToTarget(
         [Description("miRNA nucleotide sequence")] string miRnaSequence,
         [Description("Target nucleotide sequence")] string targetSequence)
@@ -1190,9 +1190,9 @@ public class AnnotationTools
             ctx.AuContent, ctx.NearStart, ctx.NearEnd, ctx.ContextScore);
     }
 
-    /// <summary>Estimate site accessibility from local secondary-structure density.</summary>
+    /// <summary>Site accessibility = McCaskill probability that the site is unpaired (Turner 2004).</summary>
     [McpServerTool(Name = "site_accessibility", Title = "miRNA — Site Accessibility", ReadOnly = true)]
-    [Description("Estimate miRNA target site accessibility from local secondary-structure density (lower structure ⇒ higher accessibility).")]
+    [Description("miRNA target site accessibility: McCaskill partition-function probability that the whole site is unpaired (Turner 2004 parameters), folding a window of max(80, site length) nt centred on the site (RNAplfold -W 80 context). Range 0–1; higher ⇒ more accessible.")]
     public static SiteAccessibilityResult SiteAccessibility(
         [Description("mRNA nucleotide sequence")] string mRnaSequence,
         [Description("0-based inclusive site start")] int siteStart,

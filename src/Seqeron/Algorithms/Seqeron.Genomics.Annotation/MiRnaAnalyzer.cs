@@ -75,6 +75,31 @@ public static class MiRnaAnalyzer
         double FreeEnergy);
 
     /// <summary>
+    /// Minimum-free-energy miRNA–target duplex (ViennaRNA <c>RNAduplex</c> model): intermolecular base
+    /// pairs only, with stacks, bulges and internal loops between them.
+    /// </summary>
+    /// <param name="MiRnaSequence">Normalised miRNA (upper case, T→U).</param>
+    /// <param name="TargetSequence">Normalised target (upper case, T→U).</param>
+    /// <param name="MiRnaStart">0-based first miRNA position of the duplex (outermost pair).</param>
+    /// <param name="MiRnaEnd">0-based last miRNA position of the duplex (innermost pair).</param>
+    /// <param name="TargetStart">0-based first target position of the duplex (pairs <paramref name="MiRnaEnd"/>).</param>
+    /// <param name="TargetEnd">0-based last target position of the duplex (pairs <paramref name="MiRnaStart"/>).</param>
+    /// <param name="Structure">RNAduplex notation: miRNA[MiRnaStart..MiRnaEnd] as '('/'.', then '&amp;', then
+    /// target[TargetStart..TargetEnd] as ')'/'.'.</param>
+    /// <param name="BasePairs">(miRNA index, target index) pairs, 0-based, outermost first.</param>
+    /// <param name="FreeEnergy">Turner 2004 ΔG°37 of the duplex (kcal/mol).</param>
+    public readonly record struct MiRnaDuplexStructure(
+        string MiRnaSequence,
+        string TargetSequence,
+        int MiRnaStart,
+        int MiRnaEnd,
+        int TargetStart,
+        int TargetEnd,
+        string Structure,
+        IReadOnlyList<(int MiRnaIndex, int TargetIndex)> BasePairs,
+        double FreeEnergy);
+
+    /// <summary>
     /// Result of comparing two miRNA seed regions.
     /// </summary>
     public readonly record struct SeedComparison(
@@ -330,74 +355,55 @@ public static class MiRnaAnalyzer
     #region Sequence Utilities
 
     /// <summary>
-    /// Gets the reverse complement of an RNA sequence.
+    /// Gets the RNA reverse complement of a sequence (Biopython <c>reverse_complement_rna</c>):
+    /// the sequence is reversed and each base is complemented by the canonical
+    /// <see cref="SequenceExtensions.GetRnaComplementBase(char)"/> — A↔U, G↔C, DNA T→A, IUPAC ambiguity
+    /// codes complemented (R↔Y, K↔M, B↔V, D↔H; S, W, N unchanged), case-insensitive with upper-case
+    /// output for recognised codes; any other character (gap, '*', …) passes through unchanged.
+    /// Null or empty input yields "".
     /// </summary>
     public static string GetReverseComplement(string rnaSequence)
     {
         if (string.IsNullOrEmpty(rnaSequence))
             return "";
 
-        var sb = new StringBuilder(rnaSequence.Length);
-
-        for (int i = rnaSequence.Length - 1; i >= 0; i--)
+        return string.Create(rnaSequence.Length, rnaSequence, static (dest, src) =>
         {
-            char c = char.ToUpperInvariant(rnaSequence[i]);
-            char complement = c switch
-            {
-                'A' => 'U',
-                'U' => 'A',
-                'T' => 'A',
-                'G' => 'C',
-                'C' => 'G',
-                _ => 'N'
-            };
-            sb.Append(complement);
-        }
-
-        return sb.ToString();
+            for (int i = 0; i < src.Length; i++)
+                dest[i] = SequenceExtensions.GetRnaComplementBase(src[src.Length - 1 - i]);
+        });
     }
 
     /// <summary>
-    /// Checks if two bases can pair (Watson-Crick or G-U wobble).
-    /// Inputs are case-insensitive and DNA T is treated as RNA U.
+    /// Checks if two bases can pair (Watson-Crick A·U / G·C or the G·U wobble).
+    /// Inputs are case-insensitive and DNA T is treated as RNA U. Delegates to the canonical
+    /// <see cref="RnaSecondaryStructure.CanPair(char, char)"/>.
     /// </summary>
-    public static bool CanPair(char base1, char base2)
-    {
-        char b1 = NormalizeBase(base1);
-        char b2 = NormalizeBase(base2);
-
-        return (b1 == 'A' && b2 == 'U') || (b1 == 'U' && b2 == 'A') ||
-               (b1 == 'G' && b2 == 'C') || (b1 == 'C' && b2 == 'G') ||
-               (b1 == 'G' && b2 == 'U') || (b1 == 'U' && b2 == 'G');
-    }
+    public static bool CanPair(char base1, char base2) => RnaSecondaryStructure.CanPair(base1, base2);
 
     /// <summary>
-    /// Checks if a pair is a G-U wobble.
-    /// Inputs are case-insensitive and DNA T is treated as RNA U.
+    /// Checks if a pair is a G·U wobble.
+    /// Inputs are case-insensitive and DNA T is treated as RNA U. Delegates to the canonical
+    /// <see cref="RnaSecondaryStructure.GetBasePairType(char, char)"/>.
     /// </summary>
-    public static bool IsWobblePair(char base1, char base2)
-    {
-        char b1 = NormalizeBase(base1);
-        char b2 = NormalizeBase(base2);
-
-        return (b1 == 'G' && b2 == 'U') || (b1 == 'U' && b2 == 'G');
-    }
-
-    /// <summary>
-    /// Normalizes a nucleotide to the uppercase RNA alphabet (DNA T → RNA U).
-    /// </summary>
-    private static char NormalizeBase(char b)
-    {
-        char u = char.ToUpperInvariant(b);
-        return u == 'T' ? 'U' : u;
-    }
+    public static bool IsWobblePair(char base1, char base2) =>
+        RnaSecondaryStructure.GetBasePairType(base1, base2) == RnaSecondaryStructure.BasePairType.Wobble;
 
     #endregion
 
     #region Alignment and Scoring
 
     /// <summary>
-    /// Aligns a miRNA to a target sequence.
+    /// Aligns a miRNA to a target sequence as an ungapped antiparallel duplex: miRNA position i
+    /// (5'→3') faces target[target.Length − 1 − i], over min(len) positions. Each position is a
+    /// Watson-Crick match ('|'), a G·U wobble (':') or a mismatch (' '); inputs are case-insensitive
+    /// and DNA T is read as U. <see cref="MiRnaDuplex.FreeEnergy"/> is the Turner 2004
+    /// nearest-neighbour ΔG°37 (kcal/mol) of that duplex with every Watson-Crick / G·U position
+    /// paired (intermolecular initiation, stacks, internal loops, terminal AU/GU, exterior dangling
+    /// ends / terminal mismatches; + the 0.43 symmetry term when both strands are identical), as ViennaRNA
+    /// <c>eval_structure</c> evaluates the same <c>miRNA&amp;target</c> structure (Vienna rounds the
+    /// parameters to 0.1 kcal/mol and omits the symmetry term); 0 when nothing pairs. Null/empty input
+    /// ⇒ empty duplex.
     /// </summary>
     public static MiRnaDuplex AlignMiRnaToTarget(string miRnaSequence, string targetSequence)
     {
@@ -457,39 +463,323 @@ public static class MiRnaAnalyzer
             FreeEnergy: freeEnergy);
     }
 
+    // NNDB Turner 2004 intermolecular initiation, ΔG°37 = 4.09 kcal/mol, applied once for bimolecular
+    // duplex formation (rna.urmc.rochester.edu/NNDB/rna_2004/rna_2004_watson_crick_helices.html §1.1;
+    // Xia et al. 1998). ViennaRNA 2.x rna_turner2004.par rounds it to 4.10 (DuplexInit37 = 410).
+    private const double DuplexIntermolecularInitiation = 4.09;
+
+    // NNDB Turner 2004 symmetry correction, ΔG°37 = +0.43 kcal/mol, for a duplex of two identical
+    // (self-complementary) strands — same NNDB page, worked example "Self complementary duplex".
+    private const double DuplexSymmetryCorrection = 0.43;
+
     /// <summary>
-    /// Estimates the miRNA:target duplex folding free energy (kcal/mol, 37 °C) by summing
-    /// Turner 2004 nearest-neighbor stacking energies over consecutive Watson-Crick / G:U
-    /// paired positions of the antiparallel duplex. Simplified: only stacking terms are
-    /// summed (no loop, bulge, or coaxial terms); see algorithm doc §5.3. All stacking
-    /// values are the NNDB Turner 2004 set in <see cref="StackingEnergies"/>.
+    /// Turner 2004 nearest-neighbour free energy (kcal/mol, 37 °C) of the reported ungapped duplex:
+    /// every in-register Watson-Crick / G·U position of <paramref name="alignment"/> is a base pair
+    /// (miRNA i · target[L−1−i]), evaluated by <see cref="EvaluateDuplexEnergy"/>.
     /// </summary>
     private static double CalculateDuplexEnergy(string mirna, string target, char[] alignment)
     {
-        double energy = 0;
+        var pairs = new List<(int MiRnaIndex, int TargetIndex)>(alignment.Length);
+        for (int i = 0; i < alignment.Length; i++)
+            if (alignment[i] == '|' || alignment[i] == ':')
+                pairs.Add((i, target.Length - 1 - i));
+        return EvaluateDuplexEnergy(mirna, target, pairs);
+    }
 
-        for (int i = 0; i < alignment.Length - 1; i++)
+    /// <summary>
+    /// Turner 2004 nearest-neighbour ΔG°37 (kcal/mol) of an intermolecular miRNA·target duplex given by
+    /// its base pairs (miRNA index ascending, target index descending; normalised upper-case RNA), as
+    /// ViennaRNA <c>eval_structure</c> evaluates the same <c>miRNA&amp;target</c> structure:
+    /// ΔG = intermolecular initiation (4.09) [+ symmetry 0.43 for a symmetric duplex of two identical
+    /// strands] + Σ helix stacks (incl. the GGUC/CUGG special stack) + Σ bulge / internal loops between
+    /// helices + terminal AU/GU penalty on each exterior helix end + exterior-loop stacking at each of the
+    /// two duplex ends (terminal mismatch when the end is extended on both strands, otherwise the single
+    /// 5′/3′ dangling end) — NNDB Turner 2004 helix, bulge, internal-loop, dangling-end and
+    /// terminal-mismatch pages. Every term comes from the canonical <see cref="RnaSecondaryStructure"/>
+    /// Turner 2004 kernels. No pair ⇒ no duplex ⇒ 0. Non-ACGU neighbours (e.g. the 'N' padding past an
+    /// mRNA end) are treated as absent.
+    /// </summary>
+    private static double EvaluateDuplexEnergy(string mirna, string target, IReadOnlyList<(int MiRnaIndex, int TargetIndex)> pairs)
+    {
+        if (pairs.Count == 0)
+            return 0.0;
+
+        // Concatenated complex s = miRNA + target; target index t sits at s[lm + t].
+        string s = mirna + target;
+        int lm = mirna.Length;
+
+        double energy = DuplexIntermolecularInitiation + SymmetryTerm(mirna, target, pairs);
+
+        // Helices = maximal runs of stacked pairs (miRNA +1, target −1), joined by bulge / internal loops.
+        int runStart = 0;
+        for (int k = 1; k <= pairs.Count; k++)
         {
-            bool pairedI = alignment[i] == '|' || alignment[i] == ':';
-            bool pairedNext = alignment[i + 1] == '|' || alignment[i + 1] == ':';
-
-            if (!pairedI || !pairedNext)
+            if (k < pairs.Count && pairs[k].MiRnaIndex == pairs[k - 1].MiRnaIndex + 1
+                && pairs[k].TargetIndex == pairs[k - 1].TargetIndex - 1)
                 continue;
 
-            // Antiparallel nearest-neighbor stack for miRNA positions i, i+1:
-            // key = 5'-[m_i][m_{i+1}]-3' / 3'-[t_i][t_{i+1}]-5', where t_i = target[Len-1-i].
-            char mi = mirna[i];
-            char mn = mirna[i + 1];
-            char ti = target[target.Length - 1 - i];
-            char tn = target[target.Length - 1 - (i + 1)];
+            var helix = new List<RnaSecondaryStructure.BasePair>(k - runStart);
+            for (int r = runStart; r < k; r++)
+                helix.Add(DuplexBasePair(s, lm, pairs[r]));
 
-            string key = $"{mi}{mn}/{ti}{tn}";
-            if (StackingEnergies.TryGetValue(key, out double stackE))
-                energy += stackE;
+            // Stacks + GGUC special + terminal AU/GU on both helix ends (canonical). The AU/GU end
+            // penalty belongs only to helix ends facing the exterior loop; an end closing a bulge
+            // (n > 1) or internal loop is charged by that loop's model, and a 1-nt bulge continues the
+            // helix (NNDB), so the penalty is removed for loop-facing ends.
+            energy += RnaSecondaryStructure.CalculateStemEnergy(s, helix);
+            if (runStart > 0 && Turner2004Parameters.IsTerminalPenaltyPair(helix[0].Base1, helix[0].Base2))
+                energy -= Turner2004Parameters.TerminalAuGuPenalty;
+            if (k < pairs.Count && Turner2004Parameters.IsTerminalPenaltyPair(helix[^1].Base1, helix[^1].Base2))
+                energy -= Turner2004Parameters.TerminalAuGuPenalty;
+
+            if (k < pairs.Count)
+                energy += DuplexLoopEnergy(s, lm, pairs[k - 1], pairs[k]);
+
+            runStart = k;
         }
 
-        return energy;
+        var (m0, t0) = pairs[0];
+        var (ml, tl) = pairs[^1];
+        energy += OuterEndStacking(mirna, target, m0, t0) + InnerEndStacking(mirna, target, ml, tl);
+
+        return Math.Round(energy, 2);
     }
+
+    private static RnaSecondaryStructure.BasePair DuplexBasePair(string s, int lm, (int MiRnaIndex, int TargetIndex) p)
+    {
+        char b1 = s[p.MiRnaIndex], b2 = s[lm + p.TargetIndex];
+        return new RnaSecondaryStructure.BasePair(p.MiRnaIndex, lm + p.TargetIndex, b1, b2,
+            RnaSecondaryStructure.GetBasePairType(b1, b2)!.Value);
+    }
+
+    // NNDB symmetry term: only a duplex of two identical strands whose pair set maps onto itself under
+    // strand exchange (miRNA a · target b ⇔ miRNA b · target a) is self-complementary.
+    private static double SymmetryTerm(string mirna, string target, IReadOnlyList<(int MiRnaIndex, int TargetIndex)> pairs)
+    {
+        if (!string.Equals(mirna, target, StringComparison.Ordinal))
+            return 0.0;
+        var set = new HashSet<(int, int)>(pairs);
+        foreach (var (a, b) in pairs)
+            if (!set.Contains((b, a)))
+                return 0.0;
+        return DuplexSymmetryCorrection;
+    }
+
+    // Loop closed by the outer pair (miRNA k · target l) and the inner pair (miRNA i · target j),
+    // k < i, l > j: stack, bulge or internal loop, scored by the canonical Turner 2004 kernels.
+    private static double DuplexLoopEnergy(string s, int lm, (int MiRnaIndex, int TargetIndex) outer, (int MiRnaIndex, int TargetIndex) inner)
+    {
+        int k = outer.MiRnaIndex, ko = lm + outer.TargetIndex;
+        int i = inner.MiRnaIndex, io = lm + inner.TargetIndex;
+        int n1 = i - k - 1, n2 = ko - io - 1;
+
+        if (n1 == 0 && n2 == 0)
+            return Turner2004Parameters.StackingEnergies.TryGetValue($"{s[k]}{s[i]}/{s[ko]}{s[io]}", out double st) ? st : 0.0;
+
+        if (n1 == 0 || n2 == 0)
+        {
+            int size = n1 + n2;
+            char bulged = n1 > 0 ? s[k + 1] : s[ko - 1];
+            // NNDB bulge degeneracy for a 1-nt bulge: identical neighbours on the bulged strand give
+            // equivalent states (same counting as the canonical RnaSecondaryStructure MFE recursion).
+            int states = 1;
+            if (size == 1)
+            {
+                if (n1 == 1)
+                {
+                    if (s[k] == s[k + 1]) states++;
+                    if (s[i] == s[k + 1]) states++;
+                }
+                else
+                {
+                    if (s[ko] == s[ko - 1]) states++;
+                    if (s[io] == s[ko - 1]) states++;
+                }
+            }
+            return RnaSecondaryStructure.CalculateBulgeLoopEnergy(size, bulged, s[k], s[ko], s[i], s[io], states);
+        }
+
+        return RnaSecondaryStructure.CalculateInternalLoopEnergy(
+            n1, n2, s[k], s[ko], s[i], s[io], s[k + 1], s[ko - 1], s[i - 1], s[io + 1]);
+    }
+
+    private static bool IsRnaNucleotide(char c) => c is 'A' or 'C' or 'G' or 'U';
+
+    // Exterior stacking on the duplex end holding the miRNA 5' side: pair (miRNA m · target t), seen
+    // from the loop as (target t, miRNA m); 3' neighbour of the target base = target[t+1], 5' neighbour
+    // of the miRNA base = miRNA[m−1].
+    private static double OuterEndStacking(string mirna, string target, int m, int t) =>
+        ExteriorEndStacking(target[t], mirna[m],
+            m > 0 && IsRnaNucleotide(mirna[m - 1]) ? mirna[m - 1] : null,
+            t + 1 < target.Length && IsRnaNucleotide(target[t + 1]) ? target[t + 1] : null);
+
+    // Exterior stacking on the duplex end holding the strand break: pair (miRNA m · target t);
+    // 3' neighbour of the miRNA base = miRNA[m+1], 5' neighbour of the target base = target[t−1].
+    private static double InnerEndStacking(string mirna, string target, int m, int t) =>
+        ExteriorEndStacking(mirna[m], target[t],
+            t > 0 && IsRnaNucleotide(target[t - 1]) ? target[t - 1] : null,
+            m + 1 < mirna.Length && IsRnaNucleotide(mirna[m + 1]) ? mirna[m + 1] : null);
+
+    // Exterior-loop stacking on a helix end whose pair, read 5'→3' from the loop side, is (x, y):
+    // x is the paired base whose 3' neighbour is <paramref name="threePrime"/>, y the base whose 5'
+    // neighbour is <paramref name="fivePrime"/>; plus the terminal AU/GU penalty of the end pair.
+    // NNDB Turner 2004 dangling-end page: "if a helix end is extended on both the 5' and 3' strands,
+    // then a terminal mismatch exists (not the sum of 5' and 3' dangling ends)"; otherwise the single
+    // dangling end applies.
+    private static double ExteriorEndStacking(char x, char y, char? fivePrime, char? threePrime)
+    {
+        // NNDB dangle tables are keyed (top base, dangling base, bottom base) with the top base 5'→3':
+        // a 3' dangle sits 3' of the top base x, a 5' dangle sits 5' of the bottom base y.
+        if (fivePrime is char f && threePrime is char t)
+            return RnaSecondaryStructure.GetTerminalMismatchEnergy(x, y, t, f);
+        if (threePrime is char t3)
+            return RnaSecondaryStructure.GetDanglingEndEnergy(x, y, t3, is3Prime: true);
+        if (fivePrime is char f5)
+            return RnaSecondaryStructure.GetDanglingEndEnergy(x, y, f5, is3Prime: false);
+        return 0.0;
+    }
+
+    /// <summary>
+    /// Minimum-free-energy intermolecular duplex of a miRNA and a target (the ViennaRNA
+    /// <c>RNAduplex</c> / <c>duplexfold</c> model; Lorenz et al. 2011): only miRNA·target pairs are
+    /// allowed (no intramolecular structure), and consecutive pairs are joined by stacks, bulges or
+    /// internal loops of at most <paramref name="maxLoopSize"/> unpaired nt in total. Recursion
+    /// (Vienna <c>duplexfold</c>): C(i,j) = init + exterior(i,j) or min over the next-outer pair (k,l) of
+    /// C(k,l) + loop(k,l;i,j); the duplex energy is min C(i,j) + exterior on the inner end. All loop,
+    /// stacking, dangling-end / terminal-mismatch and AU/GU terms are the NNDB Turner 2004 values from the
+    /// canonical <see cref="RnaSecondaryStructure"/> kernels (incl. the GGUC/CUGG special stack and the
+    /// 1-nt bulge degeneracy, which ViennaRNA omits); the reported energy is that of the returned
+    /// structure (see <see cref="AlignMiRnaToTarget"/> for the ungapped fixed-register duplex).
+    /// </summary>
+    /// <param name="miRnaSequence">miRNA 5'→3' (RNA or DNA; case-insensitive; T read as U).</param>
+    /// <param name="targetSequence">Target 5'→3' (RNA or DNA; case-insensitive; T read as U).</param>
+    /// <param name="maxLoopSize">Largest bulge / internal loop (total unpaired nt); default 30 = ViennaRNA MAXLOOP.</param>
+    /// <returns>The MFE duplex, or null when the inputs are null/empty or no base pair is possible.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxLoopSize"/> is negative.</exception>
+    public static MiRnaDuplexStructure? FoldMiRnaDuplex(string miRnaSequence, string targetSequence, int maxLoopSize = 30)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(maxLoopSize);
+        if (string.IsNullOrEmpty(miRnaSequence) || string.IsNullOrEmpty(targetSequence))
+            return null;
+
+        string m = miRnaSequence.ToUpperInvariant().Replace('T', 'U');
+        string t = targetSequence.ToUpperInvariant().Replace('T', 'U');
+        int n1 = m.Length, n2 = t.Length;
+        string s = m + t;
+
+        var c = new double[n1, n2];
+        var pred = new int[n1, n2];          // k·n2 + l of the next-outer pair; −1 = outermost pair
+        var predGguc = new bool[n1, n2];     // predecessor reached through the GGUC/CUGG 3-stack
+        double emin = double.PositiveInfinity;
+        int iMin = -1, jMin = -1;
+
+        for (int i = 0; i < n1; i++)
+        {
+            for (int j = n2 - 1; j >= 0; j--)
+            {
+                c[i, j] = double.PositiveInfinity;
+                if (!RnaSecondaryStructure.CanPair(m[i], t[j]))
+                    continue;
+
+                double best = DuplexIntermolecularInitiation + OuterEndStacking(m, t, i, j) + AuGuEnd(m[i], t[j]);
+                int bestPred = -1;
+                bool bestGguc = false;
+
+                for (int k = i - 1; k >= 0 && i - k - 1 <= maxLoopSize; k--)
+                {
+                    for (int l = j + 1; l < n2; l++)
+                    {
+                        if ((i - k - 1) + (l - j - 1) > maxLoopSize)
+                            break;
+                        if (double.IsPositiveInfinity(c[k, l]))
+                            continue;
+                        double e = c[k, l] + DuplexLoopEnergy(s, n1, (k, l), (i, j));
+                        if (e < best)
+                        {
+                            best = e;
+                            bestPred = k * n2 + l;
+                            bestGguc = false;
+                        }
+                    }
+                }
+
+                // NNDB GU note: 5'GGUC/3'CUGG replaces its three stacks by −4.12 (canonical stem kernel).
+                if (i >= 3 && j + 3 < n2 && !double.IsPositiveInfinity(c[i - 3, j + 3])
+                    && string.CompareOrdinal(m, i - 3, "GGUC", 0, 4) == 0
+                    && string.CompareOrdinal(t, j, "GGUC", 0, 4) == 0)
+                {
+                    var four = new List<RnaSecondaryStructure.BasePair>(4);
+                    for (int r = 3; r >= 0; r--)
+                        four.Add(DuplexBasePair(s, n1, (i - r, j + r)));
+                    double e = c[i - 3, j + 3] + RnaSecondaryStructure.CalculateStemEnergy(s, four);
+                    if (e < best)
+                    {
+                        best = e;
+                        bestPred = (i - 3) * n2 + (j + 3);
+                        bestGguc = true;
+                    }
+                }
+
+                c[i, j] = best;
+                pred[i, j] = bestPred;
+                predGguc[i, j] = bestGguc;
+
+                double total = best + InnerEndStacking(m, t, i, j) + AuGuEnd(m[i], t[j]);
+                if (total < emin)
+                {
+                    emin = total;
+                    iMin = i;
+                    jMin = j;
+                }
+            }
+        }
+
+        if (iMin < 0)
+            return null;
+
+        // Backtrack from the innermost pair to the outermost one.
+        var pairs = new List<(int MiRnaIndex, int TargetIndex)>();
+        int ci = iMin, cj = jMin;
+        while (true)
+        {
+            pairs.Add((ci, cj));
+            int p = pred[ci, cj];
+            if (p < 0)
+                break;
+            int pk = p / n2, pl = p % n2;
+            if (predGguc[ci, cj])
+            {
+                pairs.Add((ci - 1, cj + 1));
+                pairs.Add((ci - 2, cj + 2));
+            }
+            ci = pk;
+            cj = pl;
+        }
+        pairs.Reverse();
+
+        int mStart = pairs[0].MiRnaIndex, mEnd = pairs[^1].MiRnaIndex;
+        int tStart = pairs[^1].TargetIndex, tEnd = pairs[0].TargetIndex;
+        var sb = new StringBuilder(mEnd - mStart + tEnd - tStart + 3);
+        var mPaired = new HashSet<int>(pairs.Select(q => q.MiRnaIndex));
+        var tPaired = new HashSet<int>(pairs.Select(q => q.TargetIndex));
+        for (int x = mStart; x <= mEnd; x++) sb.Append(mPaired.Contains(x) ? '(' : '.');
+        sb.Append('&');
+        for (int x = tStart; x <= tEnd; x++) sb.Append(tPaired.Contains(x) ? ')' : '.');
+
+        return new MiRnaDuplexStructure(
+            MiRnaSequence: m,
+            TargetSequence: t,
+            MiRnaStart: mStart,
+            MiRnaEnd: mEnd,
+            TargetStart: tStart,
+            TargetEnd: tEnd,
+            Structure: sb.ToString(),
+            BasePairs: pairs,
+            FreeEnergy: EvaluateDuplexEnergy(m, t, pairs));
+    }
+
+    private static double AuGuEnd(char b1, char b2) =>
+        Turner2004Parameters.IsTerminalPenaltyPair(b1, b2) ? Turner2004Parameters.TerminalAuGuPenalty : 0.0;
 
     private static double CalculateTargetScore(TargetSiteType type, MiRnaDuplex duplex)
     {
@@ -1531,7 +1821,7 @@ public static class MiRnaAnalyzer
         if (mrna.Length == 0 || mirna.Length < 8) return 0.0;
 
         string seedRegion = mirna.Substring(1, 7);          // miRNA nt 2-8
-        string revComp = ReverseComplementRna(seedRegion);  // 7 nt
+        string revComp = GetReverseComplement(seedRegion);  // 7 nt (canonical RNA reverse complement)
         string pattern = revComp.Substring(0, 6);           // first 6 nt
 
         int count = 0;
@@ -1549,18 +1839,6 @@ public static class MiRnaAnalyzer
             _ => CtxOff6mCoeff6mer
         };
         return coeff * count; // used raw (no scaling)
-    }
-
-    // reverse_complement over RNA (A↔U, G↔C); mirrors the perl reverse_complement after T→U.
-    private static string ReverseComplementRna(string seq)
-    {
-        var c = new char[seq.Length];
-        for (int i = 0; i < seq.Length; i++)
-        {
-            char b = seq[seq.Length - 1 - i];
-            c[i] = b switch { 'A' => 'U', 'U' => 'A', 'T' => 'A', 'G' => 'C', 'C' => 'G', _ => b };
-        }
-        return new string(c);
     }
 
     // ── SPS / TA / Len_ORF / ORF8m (caller-supplied) ─────────────────────────────────────────
@@ -1735,14 +2013,9 @@ public static class MiRnaAnalyzer
 
     #region Pre-miRNA Energy Parameters
 
-    // Turner 2004 nearest-neighbor stacking table (kcal/mol at 37°C), used by the miRNA–target duplex
-    // energy (CalculateDuplexEnergy). Shared with RnaSecondaryStructure through the authoritative single
-    // source Seqeron.Genomics.Core.Turner2004Parameters; the local name is a thin alias. Pre-miRNA hairpin
-    // energies are NOT computed here: they are delegated to the canonical RnaSecondaryStructure loop model
-    // (see AnalyzeHairpin).
-    private static readonly IReadOnlyDictionary<string, double> StackingEnergies =
-        Turner2004Parameters.StackingEnergies;
-
+    // Turner 2004 parameters live in the single source Seqeron.Genomics.Core.Turner2004Parameters. Neither the
+    // miRNA–target duplex energy (CalculateDuplexEnergy) nor the pre-miRNA hairpin energy (AnalyzeHairpin) is
+    // computed here: both are delegated to the canonical RnaSecondaryStructure Turner 2004 kernels.
     internal static bool IsTerminalPenaltyPair(char b1, char b2) =>
         Turner2004Parameters.IsTerminalPenaltyPair(b1, b2);
 
