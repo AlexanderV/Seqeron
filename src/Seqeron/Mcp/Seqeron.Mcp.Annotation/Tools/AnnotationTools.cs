@@ -1269,6 +1269,117 @@ public class AnnotationTools
         return new FindPreMiRnaHairpinsResult(hairpins);
     }
 
+    /// <summary>Minimum-free-energy miRNA·target duplex (RNAduplex model, Turner 2004).</summary>
+    [McpServerTool(Name = "fold_mirna_duplex", Title = "miRNA — Fold miRNA·Target Duplex", ReadOnly = true)]
+    [Description("Minimum-free-energy miRNA·target duplex (RNAduplex / duplexfold model): one contiguous duplex with internal loops and bulges up to maxLoopSize per side, scored with Turner 2004 nearest-neighbor parameters (kcal/mol, 37 °C). Returns the dot-bracket in RNAduplex notation (miRNA '(' then '&', then target ')'), the 0-based miRNA/target spans, the base pairs (miRNA index, target index; 0-based, 5'→3') and the free energy. found=false when no base pair is possible. DNA T is read as U.")]
+    public static FoldMiRnaDuplexResult FoldMiRnaDuplex(
+        [Description("miRNA nucleotide sequence")] string miRnaSequence,
+        [Description("Target nucleotide sequence")] string targetSequence,
+        [Description("Maximum unpaired nucleotides per side of an internal loop / bulge (default 30, as RNAduplex)")] int maxLoopSize = 30)
+    {
+        if (string.IsNullOrEmpty(miRnaSequence))
+            throw new ArgumentException("miRNA sequence cannot be null or empty", nameof(miRnaSequence));
+        if (string.IsNullOrEmpty(targetSequence))
+            throw new ArgumentException("Target sequence cannot be null or empty", nameof(targetSequence));
+        if (maxLoopSize < 0)
+            throw new ArgumentOutOfRangeException(nameof(maxLoopSize), "maxLoopSize must be >= 0");
+
+        var d = MiRnaAnalyzer.FoldMiRnaDuplex(miRnaSequence, targetSequence, maxLoopSize);
+        if (d is null)
+            return new FoldMiRnaDuplexResult(false, null);
+
+        var v = d.Value;
+        return new FoldMiRnaDuplexResult(true, new MiRnaDuplexStructureDto(
+            v.MiRnaSequence, v.TargetSequence, v.MiRnaStart, v.MiRnaEnd, v.TargetStart, v.TargetEnd, v.Structure,
+            v.BasePairs.Select(p => new DuplexBasePairDto(p.MiRnaIndex, p.TargetIndex)).ToList(),
+            v.FreeEnergy));
+    }
+
+    /// <summary>Predict Drosha and Dicer cleavage sites and the 5p/3p products of a pri-miRNA hairpin.</summary>
+    [McpServerTool(Name = "predict_drosha_dicer_cleavage", Title = "miRNA — Predict Drosha/Dicer Cleavage", ReadOnly = true)]
+    [Description("Predict Drosha (basal) and Dicer (apical) cleavage sites of a pri-miRNA hairpin by the published measuring rules applied to its stem (base pairs counted up the unbranched stem from basalJunction; coordinates 0-based, spans inclusive; 2-nt 3' overhang). droshaRule: BasalJunction (default; ~11 bp from the basal junction, Han 2006) or ApicalJunction (~22 bp from the loop-stem junction, Zeng 2005). dicerRule: FivePrimeCounting (default; 22-nt 5p product, Park 2011) or ThreePrimeCounting (22-nt 3p product). Also reports the Auyeung 2013 CNNC and basal UG motifs. dotBracket (optional) is the stem structure to measure on; default = canonical Turner 2004 MFE fold. predicted=false when the junction is not a 5'-arm stem base or the stem is too short.")]
+    public static PredictDroshaDicerCleavageResult PredictDroshaDicerCleavage(
+        [Description("pri-miRNA nucleotide sequence (RNA or DNA)")] string sequence,
+        [Description("0-based index of the 5'-arm base of the basal junction pair (first base pair of the stem)")] int basalJunction,
+        [Description("Optional dot-bracket structure (balanced, same length as the sequence); default = MFE fold")] string? dotBracket = null,
+        [Description("Dicer counting rule: FivePrimeCounting (default) or ThreePrimeCounting")] string dicerRule = "FivePrimeCounting",
+        [Description("Drosha counting rule: BasalJunction (default) or ApicalJunction")] string droshaRule = "BasalJunction")
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+        if (basalJunction < 0 || basalJunction >= sequence.Length)
+            throw new ArgumentOutOfRangeException(nameof(basalJunction),
+                $"basalJunction {basalJunction} is out of range for sequence of length {sequence.Length}");
+        if (!TryParseEnum<MiRnaAnalyzer.DicerCountingRule>(dicerRule, out var dicer))
+            throw new ArgumentException(
+                $"Unknown dicerRule '{dicerRule}'. Valid values: {string.Join(", ", Enum.GetNames<MiRnaAnalyzer.DicerCountingRule>())}", nameof(dicerRule));
+        if (!TryParseEnum<MiRnaAnalyzer.DroshaCountingRule>(droshaRule, out var drosha))
+            throw new ArgumentException(
+                $"Unknown droshaRule '{droshaRule}'. Valid values: {string.Join(", ", Enum.GetNames<MiRnaAnalyzer.DroshaCountingRule>())}", nameof(droshaRule));
+
+        var c = MiRnaAnalyzer.PredictDroshaDicerCleavage(sequence, basalJunction, dotBracket, dicer, drosha);
+        if (c is null)
+            return new PredictDroshaDicerCleavageResult(false, null);
+
+        var v = c.Value;
+        return new PredictDroshaDicerCleavageResult(true, new DroshaDicerCleavageDto(
+            v.BasalJunction, v.ApicalJunction, v.DroshaCut5Prime, v.DroshaCut3Prime,
+            v.MatureStart, v.MatureEnd, v.StarStart, v.StarEnd, v.MatureSequence, v.StarSequence,
+            v.Sequence, v.Structure, v.ThreePrimeOverhang, v.HasCnncMotif, v.HasBasalUgMotif,
+            v.DicerRule.ToString(), v.DroshaRule.ToString()));
+    }
+
+    /// <summary>Find centered miRNA target sites (Shin et al. 2010).</summary>
+    [McpServerTool(Name = "find_centered_sites", Title = "miRNA — Find Centered Sites", ReadOnly = true)]
+    [Description("Find centered miRNA target sites (Shin et al. 2010, Mol Cell 38:789): sites without perfect seed pairing (miRNA nt 2-7 not all Watson-Crick) that pair the miRNA centre with >= 11 contiguous Watson-Crick pairs (nt 4-14, 5-15 or 4-15; G:U wobble does not count). Start/End (0-based inclusive) span the paired run (11 or 12 nt = seedMatchLength). TargetScan has no coefficients for centered sites, so score is 0. The 3'-compensatory-pairing exclusion is not tested.")]
+    public static FindCenteredSitesResult FindCenteredSites(
+        [Description("mRNA nucleotide sequence (DNA T→U is applied internally)")] string mRnaSequence,
+        [Description("Query miRNA (>= 15 nt)")] MiRnaDto miRna)
+    {
+        if (string.IsNullOrEmpty(mRnaSequence))
+            throw new ArgumentException("mRNA sequence cannot be null or empty", nameof(mRnaSequence));
+        if (miRna is null || string.IsNullOrEmpty(miRna.Sequence))
+            throw new ArgumentException("miRNA cannot be null or empty", nameof(miRna));
+
+        var sites = MiRnaAnalyzer.FindCenteredSites(mRnaSequence, FromDto(miRna)).Select(ToDto).ToList();
+        return new FindCenteredSitesResult(sites);
+    }
+
+    /// <summary>TargetScan 5.0 / Grimson 2007 context score of a seed site.</summary>
+    [McpServerTool(Name = "score_target_site_grimson", Title = "miRNA — Score Target Site (Grimson 2007)", ReadOnly = true)]
+    [Description("TargetScan 5.0 / Grimson et al. (2007, Mol Cell 27:91) context score of an 8mer, 7mer-m8 or 7mer-A1 site in a 3'UTR (index 0 = first nt after the stop codon): site type + 3' pairing + local AU + position contributions in log2 fold-change units (negative = repressed). siteStart/siteEnd are 0-based inclusive (an 8mer includes its A1). contextScore is null when the 1-based site start is < 15 (TargetScan 'too_close'); scored=false for site types without coefficients (Seed6mer, Offset6mer, Supplementary, Centered).")]
+    public static ScoreTargetSiteGrimsonResult ScoreTargetSiteGrimson(
+        [Description("3'UTR / mRNA nucleotide sequence (DNA T→U is applied internally)")] string mRnaSequence,
+        [Description("miRNA nucleotide sequence")] string miRnaSequence,
+        [Description("0-based inclusive site start")] int siteStart,
+        [Description("0-based inclusive site end")] int siteEnd,
+        [Description("Site type: Seed8mer, Seed7merM8 or Seed7merA1 (others are not scored)")] string siteType)
+    {
+        if (string.IsNullOrEmpty(mRnaSequence))
+            throw new ArgumentException("mRNA sequence cannot be null or empty", nameof(mRnaSequence));
+        if (string.IsNullOrEmpty(miRnaSequence))
+            throw new ArgumentException("miRNA sequence cannot be null or empty", nameof(miRnaSequence));
+        if (siteStart < 0 || siteEnd >= mRnaSequence.Length || siteStart > siteEnd)
+            throw new ArgumentOutOfRangeException(nameof(siteStart),
+                $"Site indices [{siteStart}, {siteEnd}] are out of range for sequence of length {mRnaSequence.Length}");
+        if (!TryParseEnum<MiRnaAnalyzer.TargetSiteType>(siteType, out var type))
+            throw new ArgumentException(
+                $"Unknown siteType '{siteType}'. Valid values: {string.Join(", ", Enum.GetNames<MiRnaAnalyzer.TargetSiteType>())}", nameof(siteType));
+
+        var g = MiRnaAnalyzer.ScoreTargetSiteGrimson(mRnaSequence, miRnaSequence, siteStart, siteEnd, type);
+        if (g is null)
+            return new ScoreTargetSiteGrimsonResult(false, null);
+
+        var v = g.Value;
+        return new ScoreTargetSiteGrimsonResult(true, new GrimsonContextScoreDto(
+            v.Type.ToString(), v.SiteTypeContribution, v.ThreePrimePairingContribution, v.LocalAuContribution,
+            v.PositionContribution, v.ThreePrimePairingScore, v.LocalAuFraction, v.ContextScore));
+    }
+
+    // Enum.TryParse accepts numeric strings and undefined values; accept defined names only (case-insensitive).
+    private static bool TryParseEnum<T>(string? value, out T result) where T : struct, Enum =>
+        Enum.TryParse(value, ignoreCase: true, out result) && Enum.IsDefined(result) && !int.TryParse(value, out _);
+
     /// <summary>Compute AU content and positional context score around a target site.</summary>
     [McpServerTool(Name = "analyze_target_context", Title = "miRNA — Analyze Target Context", ReadOnly = true)]
     [Description("Compute the local AU content and the UTR-context part of the TargetScan 5.0 / Grimson 2007 context score (local-AU + position contributions of a 7mer-m8 site, log2 units, negative = repressed; 0 when the site starts within the first 15 nt) around a miRNA target site within a 3'UTR.")]

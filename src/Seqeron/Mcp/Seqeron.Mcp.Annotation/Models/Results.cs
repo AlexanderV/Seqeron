@@ -497,6 +497,64 @@ public record AlignMiRnaToTargetResult(
 /// <summary>Result of find_pre_mirna_hairpins.</summary>
 public record FindPreMiRnaHairpinsResult(IReadOnlyList<PreMiRnaHairpinDto> Hairpins);
 
+/// <summary>Base pair of a miRNA·target duplex (0-based indices, miRNA 5'→3' and target 5'→3').</summary>
+public record DuplexBasePairDto(int MiRnaIndex, int TargetIndex);
+
+/// <summary>Result of fold_mirna_duplex. <c>Found</c> is false (and <c>Duplex</c> null) when no base pair is possible.</summary>
+public record FoldMiRnaDuplexResult(bool Found, MiRnaDuplexStructureDto? Duplex);
+
+/// <summary>Minimum-free-energy miRNA·target duplex (RNAduplex model, Turner 2004).</summary>
+public record MiRnaDuplexStructureDto(
+    string MiRnaSequence,
+    string TargetSequence,
+    int MiRnaStart,
+    int MiRnaEnd,
+    int TargetStart,
+    int TargetEnd,
+    string Structure,
+    IReadOnlyList<DuplexBasePairDto> BasePairs,
+    double FreeEnergy);
+
+/// <summary>Result of predict_drosha_dicer_cleavage. <c>Predicted</c> is false (and <c>Cleavage</c> null) when the stem or junction does not allow a prediction.</summary>
+public record PredictDroshaDicerCleavageResult(bool Predicted, DroshaDicerCleavageDto? Cleavage);
+
+/// <summary>Predicted Drosha/Dicer cut coordinates (0-based, inclusive spans) and 5p/3p products.</summary>
+public record DroshaDicerCleavageDto(
+    int BasalJunction,
+    int ApicalJunction,
+    int DroshaCut5Prime,
+    int DroshaCut3Prime,
+    int MatureStart,
+    int MatureEnd,
+    int StarStart,
+    int StarEnd,
+    string MatureSequence,
+    string StarSequence,
+    string Sequence,
+    string Structure,
+    int ThreePrimeOverhang,
+    bool HasCnncMotif,
+    bool HasBasalUgMotif,
+    string DicerRule,
+    string DroshaRule);
+
+/// <summary>Result of find_centered_sites.</summary>
+public record FindCenteredSitesResult(IReadOnlyList<TargetSiteDto> Sites);
+
+/// <summary>TargetScan 5.0 / Grimson 2007 context score with its contributions (log2 units).</summary>
+public record GrimsonContextScoreDto(
+    string Type,
+    double SiteTypeContribution,
+    double ThreePrimePairingContribution,
+    double LocalAuContribution,
+    double PositionContribution,
+    double ThreePrimePairingScore,
+    double LocalAuFraction,
+    double? ContextScore);
+
+/// <summary>Result of score_target_site_grimson. <c>Scored</c> is false (and <c>Score</c> null) for site types TargetScan 5.0 has no coefficients for.</summary>
+public record ScoreTargetSiteGrimsonResult(bool Scored, GrimsonContextScoreDto? Score);
+
 /// <summary>Result of analyze_target_context.</summary>
 public record AnalyzeTargetContextResult(
     double AuContent,
