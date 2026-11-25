@@ -911,28 +911,34 @@ public static class SpliceSitePredictor
     }
 
     /// <summary>
-    /// Calculates MaxEntScan-like score for splice sites.
+    /// Calculates a splice-site score for a motif of the given type.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Donor:</b> the Yeo &amp; Burge (2004) MaxEntScan <c>score5ss</c> maximum-entropy score in bits,
+    /// computed by <see cref="ScoreDonorMaxEnt"/> (the motif must be the 9-nt window: 3 exonic + 6
+    /// intronic nt, GT at 1-based positions 4-5; e.g. <c>CAGGTAAGT</c> → 10.86, as printed by
+    /// MaxEntScan <c>score5.pl</c>).
+    /// </para>
+    /// <para>
+    /// <b>Acceptor:</b> sum of <c>log2(w + 0.01)</c> over the acceptor PWM columns (legacy heuristic).
+    /// Any other <paramref name="type"/> returns 0; an empty motif returns 0.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ArgumentException">Donor motif not exactly 9 nt, or containing a non-A/C/G/T(/U)
+    /// character (MaxEntScan cannot score it).</exception>
     public static double CalculateMaxEntScore(string motif, SpliceSiteType type)
     {
         if (string.IsNullOrEmpty(motif))
             return 0;
 
+        // Donor: the real MaxEntScan score5 model (Yeo & Burge 2004; score5.pl / me2x5).
+        if (type == SpliceSiteType.Donor)
+            return ScoreDonorMaxEnt(motif);
+
         string upper = motif.ToUpperInvariant().Replace('T', 'U');
 
-        if (type == SpliceSiteType.Donor)
-        {
-            // Score 9-mer around GT
-            double score = 0;
-            for (int i = 0; i < upper.Length && i < 9; i++)
-            {
-                int offset = i - 3;
-                if (DonorPwm.TryGetValue(offset, out var weights) && weights.TryGetValue(upper[i], out double w))
-                    score += Math.Log2(w + 0.01);
-            }
-            return score;
-        }
-        else if (type == SpliceSiteType.Acceptor)
+        if (type == SpliceSiteType.Acceptor)
         {
             double score = 0;
             for (int i = 0; i < upper.Length; i++)
@@ -1189,12 +1195,12 @@ public static class SpliceSitePredictor
         return Math.Log2(consScore * restScore);
     }
 
-    private static char NormalizeNucleotide(char c) => c switch
+    private static char NormalizeNucleotide(char c, string model = "score3") => c switch
     {
         'A' or 'C' or 'G' or 'T' => c,
         'U' => 'T',
         _ => throw new ArgumentException(
-            $"MaxEntScan score3 requires an A/C/G/T(/U) sequence; found '{c}'.")
+            $"MaxEntScan {model} requires an A/C/G/T(/U) sequence; found '{c}'.")
     };
 
     #endregion
@@ -1329,8 +1335,8 @@ public static class SpliceSitePredictor
         string upper = window.ToUpperInvariant();
 
         // --- Consensus GT dinucleotide term: P_cons(G)*P_cons(T) / (P_bgd(G)*P_bgd(T)) ---
-        char gt1 = NormalizeNucleotide(upper[MaxEntDonorGtStart]);
-        char gt2 = NormalizeNucleotide(upper[MaxEntDonorGtStart + 1]);
+        char gt1 = NormalizeNucleotide(upper[MaxEntDonorGtStart], "score5");
+        char gt2 = NormalizeNucleotide(upper[MaxEntDonorGtStart + 1], "score5");
 
         double consScore =
             MaxEntDonorConsensusGt1[gt1] * MaxEntDonorConsensusGt2[gt2] /
@@ -1340,13 +1346,15 @@ public static class SpliceSitePredictor
         // rest = window[0..3) + window[5..9)  -> 3 + 4 = 7 nt; normalise U->T for the key.
         Span<char> rest = stackalloc char[MaxEntDonorWindowLength - 2];
         for (int i = 0; i < MaxEntDonorGtStart; i++)
-            rest[i] = NormalizeNucleotide(upper[i]);
+            rest[i] = NormalizeNucleotide(upper[i], "score5");
         for (int i = MaxEntDonorGtStart + 2; i < MaxEntDonorWindowLength; i++)
-            rest[i - 2] = NormalizeNucleotide(upper[i]);
+            rest[i - 2] = NormalizeNucleotide(upper[i], "score5");
 
         double restScore = MaxEntScore5Table[new string(rest)];
 
-        return Math.Log2(consScore * restScore);
+        // score5.pl / maxentpy compute log2 as ln(x)/ln(2); use the same expression so the
+        // result is the reference double (Math.Log2 differs by up to ~1e-14 on some inputs).
+        return Math.Log(consScore * restScore) / Math.Log(2.0);
     }
 
     #endregion

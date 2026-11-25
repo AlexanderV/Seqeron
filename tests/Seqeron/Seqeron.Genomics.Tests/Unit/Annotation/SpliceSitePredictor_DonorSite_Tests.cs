@@ -601,5 +601,36 @@ public class SpliceSitePredictor_DonorSite_Tests
         });
     }
 
+    // ME10 — reference sweep (SPLICE-MAXENT5-001, B11 F19). Expected values are maxentpy score5
+    // (kepbod/maxentpy maxent.py + score5_matrix.txt) full-precision outputs; the CPAN port of
+    // score5.pl (Bio-RNA-SpliceSites-Scoring-MaxEntScan 0.05, me2x5 + splice5sequences) prints the
+    // same 2-decimal values. The C# score equals maxentpy bit-for-bit on all 4^9 = 262144 ACGT 9-mers.
+    // Includes non-GT dinucleotides (GC, AT, CC, ...), which MaxEntScan scores rather than rejects.
+    [TestCase("CAGGTAAGT", 10.858313101356437, 10.86)]
+    [TestCase("GGGGTAAGT", 9.652449523571205, 9.65)]
+    [TestCase("CACGTAAGT", 10.155128271120882, 10.16)]
+    [TestCase("AAAGTAAAA", 1.1774343078815603, 1.18)]
+    [TestCase("CAGGCAAGT", 3.104161570996358, 3.10)]
+    [TestCase("CAGATAAGT", 2.676285865160975, 2.68)]
+    [TestCase("AACATCTGG", -12.126838926748352, -12.13)]
+    [TestCase("GGACCATGG", -15.483798810300666, -15.48)]
+    [TestCase("TGCTTAATG", -9.751934925348701, -9.75)]
+    [TestCase("CTTCCGGAG", -31.261128275661, -31.26)]
+    [TestCase("ACAGTGTTT", -8.544635130848441, -8.54)]
+    [TestCase("TAGTACTCT", -20.020155712973068, -20.02)]
+    [TestCase("CCTATTCCC", -30.870167664881997, -30.87)]
+    [TestCase("TTCCGGCGT", -12.089519108744033, -12.09)]
+    [TestCase("AAAAAAAAA", -15.188009382392348, -15.19)]
+    public void ScoreDonorMaxEnt_ReferenceSweep_MatchesMaxEntScan(string window, double maxentpy, double score5Pl)
+    {
+        double score = ScoreDonorMaxEnt(window);
+        Assert.Multiple(() =>
+        {
+            Assert.That(score, Is.EqualTo(maxentpy).Within(1e-12), "maxentpy score5 (full precision)");
+            Assert.That(System.Math.Round(score, 2, System.MidpointRounding.AwayFromZero), Is.EqualTo(score5Pl),
+                "score5.pl prints %.2f");
+        });
+    }
+
     #endregion
 }

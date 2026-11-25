@@ -260,25 +260,21 @@ public class SpliceSitePredictorMutationTests
     #region CalculateMaxEntScore — log-odds, donor vs acceptor branch
 
     [Test]
-    public void CalculateMaxEntScore_DonorConsensus_ExactLogOddsSum()
+    public void CalculateMaxEntScore_DonorConsensus_IsMaxEntScanScore5()
     {
-        // Each of the 9 donor columns matches ⇒ score = 9 * log2(1 + 0.01).
+        // Donor branch delegates to MaxEntScan score5: CAGGTAAGT -> 10.858313101356437 (maxentpy; score5.pl 10.86).
         const string motif = "CAGGUAAGU";
-        double expected = 9 * Math.Log2(1.0 + 0.01);
         Assert.That(CalculateMaxEntScore(motif, SpliceSiteType.Donor),
-            Is.EqualTo(expected).Within(Tol));
+            Is.EqualTo(10.858313101356437).Within(1e-12));
     }
 
     [Test]
-    public void CalculateMaxEntScore_DonorOffConsensus_DiffersFromConsensus()
+    public void CalculateMaxEntScore_DonorOffConsensus_ExactScore5()
     {
-        // A non-consensus base contributes log2(0 + 0.01) ≪ log2(1.01): pins the +0.01 term.
-        const string consensus = "CAGGUAAGU";
-        const string broken = "CACGUAAGU"; // -1 column G→C (mismatch)
-        double good = CalculateMaxEntScore(consensus, SpliceSiteType.Donor);
-        double bad = CalculateMaxEntScore(broken, SpliceSiteType.Donor);
-        double delta = Math.Log2(1.01) - Math.Log2(0.01); // one column flips 1→0
-        Assert.That(good - bad, Is.EqualTo(delta).Within(1e-6));
+        // -1 column G->C: maxentpy score5('CACGTAAGT') = 10.155128271120882 (score5.pl 10.16).
+        const string broken = "CACGUAAGU";
+        Assert.That(CalculateMaxEntScore(broken, SpliceSiteType.Donor),
+            Is.EqualTo(10.155128271120882).Within(1e-12));
     }
 
     [Test]

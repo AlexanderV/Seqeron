@@ -4,7 +4,7 @@
 **Area:** Splicing
 **Algorithm:** MaxEntScan score5 (5' Donor)
 **Status:** ☑ Complete — independently validated 2026-06-25 (Stage A ✅ / Stage B ✅ / CLEAN)
-**Last Updated:** 2026-06-25
+**Last Updated:** 2026-11-25
 
 > **Validated.** Independently re-validated against Yeo & Burge (2004) and the MIT-licensed maxentpy `score5`
 > reference port (see `docs/Validation/reports/SPLICE-MAXENT5-001.md`). `score5` was reimplemented in Python over
@@ -22,19 +22,25 @@
 
 ## 2. Canonical Method(s)
 
-`ScoreDonorMaxEnt` (MaxEntScan score5)
+`ScoreDonorMaxEnt` (MaxEntScan score5); `CalculateMaxEntScore(motif, SpliceSiteType.Donor)` (MCP `maxent_score`)
+delegates to it (B11 F19, 2026-11-25).
 
 - **Source file:** `SpliceSitePredictor.cs`
 - **Test fixture:** `tests/Seqeron/Seqeron.Genomics.Tests/SpliceSitePredictor_DonorSite_Tests.cs`
 
 ## 3. Contract / Invariants
 
-R: score finite; D: deterministic; requires 9-nt donor window
+R: score finite; D: deterministic; requires 9-nt donor window over A/C/G/T(/U), any case (else ArgumentException);
+non-GT dinucleotides are scored, not rejected; result = ln(P)/ln(2) exactly as score5.pl / maxentpy.
 
 ## 4. Cross-check / Differential Oracle
 
 - **Reference:** MaxEntScan score5.pl
 - **Comparison:** exact score
+- **B11 review 2026-11-25:** all 4^9 = 262 144 ACGT 9-mers — bit-identical to maxentpy `score5`; identical at
+  2 dp to score5.pl (CPAN port with original me2x5/splice5sequences). Locked by
+  `ScoreDonorMaxEnt_ReferenceSweep_MatchesMaxEntScan` (15 cases, incl. GC/AT/CC donors) and
+  `CalculateMaxEntScore_Donor*` tests (unit, mutation, MCP `MaxentScoreTests`).
 
 ## 5. Validation Checklist (restored ☑ — 2026-06-25)
 

@@ -91,12 +91,23 @@ public class SpliceSitePredictorTests
     #region MaxEntScore Tests
 
     [Test]
-    public void CalculateMaxEntScore_DonorSite_ReturnsScore()
+    public void CalculateMaxEntScore_DonorSite_ReturnsMaxEntScanScore5()
     {
+        // Donor branch = MaxEntScan score5 (Yeo & Burge 2004): score5.pl / maxentpy give 10.86 for CAGGTAAGT.
         string donorMotif = "CAGGUAAGU";
         double score = CalculateMaxEntScore(donorMotif, SpliceSiteType.Donor);
 
-        Assert.That(score, Is.Not.EqualTo(0));
+        Assert.That(score, Is.EqualTo(10.858313101356437).Within(1e-12));
+        Assert.That(score, Is.EqualTo(ScoreDonorMaxEnt(donorMotif)));
+    }
+
+    [Test]
+    public void CalculateMaxEntScore_DonorWrongLengthOrAlphabet_Throws()
+    {
+        // MaxEntScan score5 is defined only on the 9-nt window over A/C/G/T (maxentpy: "Wrong length of fa!").
+        Assert.Throws<ArgumentException>(() => CalculateMaxEntScore("CAGGUAAG", SpliceSiteType.Donor));
+        Assert.Throws<ArgumentException>(() => CalculateMaxEntScore("CAGGUAAGUA", SpliceSiteType.Donor));
+        Assert.Throws<ArgumentException>(() => CalculateMaxEntScore("CAGGNAAGU", SpliceSiteType.Donor));
     }
 
     [Test]
@@ -123,7 +134,9 @@ public class SpliceSitePredictorTests
         double strongScore = CalculateMaxEntScore(strongDonor, SpliceSiteType.Donor);
         double weakScore = CalculateMaxEntScore(weakDonor, SpliceSiteType.Donor);
 
-        Assert.That(strongScore, Is.GreaterThanOrEqualTo(weakScore));
+        // maxentpy score5: CAGGTAAGT 10.86, AAAGTAAAA 1.18.
+        Assert.That(weakScore, Is.EqualTo(1.1774343078815603).Within(1e-12));
+        Assert.That(strongScore, Is.GreaterThan(weakScore));
     }
 
     #endregion

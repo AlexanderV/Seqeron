@@ -111,6 +111,7 @@ The donor scoring tables are implemented directly in `SpliceSitePredictor`.
 - `SpliceSitePredictor.ScoreDonorSite(string, int)` (private helper)
 - `SpliceSitePredictor.ScoreU12DonorSite(string, int)` (private helper)
 - `SpliceSitePredictor.ScoreDonorMaxEnt(string)` (opt-in Yeo & Burge 2004 MaxEntScan `score5ss` maximum-entropy 5' donor score, in bits; embedded probability table)
+- `SpliceSitePredictor.CalculateMaxEntScore(string, SpliceSiteType.Donor)` (MCP `maxent_score`) delegates to `ScoreDonorMaxEnt` (9-nt window required)
 
 ### 5.2 Current Behavior
 
@@ -122,7 +123,7 @@ Canonical `GU` and optional `GC` donors are both emitted with `Type = Donor`; th
 
 - Canonical donor detection is anchored on `GU` and the extended donor consensus around the exon-intron junction.[1][2]
 - Optional support exists for `GC` donors and U12-style donor recognition.[2]
-- The opt-in `ScoreDonorMaxEnt` implements the Yeo & Burge (2004) **MaxEntScan `score5ss`** maximum-entropy 5' donor model on a 9-nt window (3 exon + 6 intron, conserved `GT` at 0-based positions 3–4): `log2(P_maxent/P_background)`, removing the `GT` (scored by a consensus/background model) and looking up the maximum-entropy probability of the 7 remaining positions (`window[0:3] + window[5:9]`) directly in a single embedded table. Unlike score3, score5 is single-matrix (no overlapping sub-windows). The factorisation and table are the MIT-licensed maxentpy port; the canonical documented example `ScoreDonorMaxEnt("cagGTAAGT")` reproduces `10.86` bits exactly (provenance + licence: `Data/maxent_score5.LICENSE.md`).[4]
+- The opt-in `ScoreDonorMaxEnt` implements the Yeo & Burge (2004) **MaxEntScan `score5ss`** maximum-entropy 5' donor model on a 9-nt window (3 exon + 6 intron, conserved `GT` at 0-based positions 3–4): `log2(P_maxent/P_background)`, removing the `GT` (scored by a consensus/background model) and looking up the maximum-entropy probability of the 7 remaining positions (`window[0:3] + window[5:9]`) directly in a single embedded table. Unlike score3, score5 is single-matrix (no overlapping sub-windows). The factorisation and table are the MIT-licensed maxentpy port; the canonical documented example `ScoreDonorMaxEnt("cagGTAAGT")` reproduces `10.86` bits exactly (provenance + licence: `Data/maxent_score5.LICENSE.md`). Bit-identical to maxentpy `score5` on all 4^9 ACGT 9-mers and identical at 2 dp to score5.pl (log2 computed as ln/ln2, as the references do).[4]
 
 **Intentionally simplified:**
 

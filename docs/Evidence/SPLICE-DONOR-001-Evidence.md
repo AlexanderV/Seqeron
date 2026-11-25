@@ -170,6 +170,28 @@ probability table were fetched VERBATIM from the MIT-licensed maxentpy port (kep
 The 10.86 value is the canonical example from the MaxEntScan website / maxentpy README; it is the
 primary cross-check for the score5 factorisation + embedded table (`ScoreDonorMaxEnt`).
 
+**Exhaustive oracle cross-check (B11 review, 2026-11-25; SPLICE-MAXENT5-001).** Opened this session:
+`raw.githubusercontent.com/kepbod/maxentpy/master/maxentpy/maxent.py` + `.../data/score5_matrix.txt`
+(byte-identical to the embedded `Data/maxent_score5.txt`), and the CPAN port of the original score5.pl
+`Bio-RNA-SpliceSites-Scoring-MaxEntScan-0.05` (cpan.metacpan.org; `MaxEntScan.pm::score5`, `me2x5.pm`,
+`splice5sequences.pm` — the original me2x5 + splice5sequences tables), run under Perl 5.38. (`pip install
+maxentpy` has no PyPI distribution; the maxent.py source was run directly.) All 4^9 = 262 144 ACGT
+9-mers scored by C# `ScoreDonorMaxEnt`:
+
+| reference | 2-dp (as score5.pl prints) | full precision |
+|-----------|----------------------------|----------------|
+| maxentpy `score5` | 262 144 / 262 144 identical | 262 144 / 262 144 bit-identical (after F20; before: max abs Δ 7.1e-15, Math.Log2 vs ln/ln2) |
+| score5.pl (CPAN port, me2x5) | 262 144 / 262 144 identical | max abs Δ 7.1e-15 (Perl `log/log(2)` + its 15.7507349436393 GT short-circuit constant) |
+
+Worked examples (score5.pl printed / maxentpy): `cagGTAAGT` 10.86 / 10.858313101356437; `gagGTAAGT` 11.08 /
+11.078494497844932; `taaATAAGT` -0.12 / -0.11679094142083021. Non-GT donors are scored, not rejected
+(`CAGGCAAGT` 3.10, `CAGATAAGT` 2.68). Edge cases vs reference: lower/upper case folded (score5.pl `uc`,
+maxentpy `.upper()`); wrong length → maxentpy `sys.exit('Wrong length of fa!')`, CPAN port
+`invalid_length`, C# `ArgumentException`; N / non-ACGT → maxentpy `KeyError`, CPAN port `invalid_alphabet`,
+original score5.pl undefined-hash `log(0)` error, C# `ArgumentException`; U accepted as T (C# extension).
+`CalculateMaxEntScore(motif, Donor)` (MCP `maxent_score`) previously returned a 9-column PWM
+log-weight sum (`CAGGUAAGU` → 0.1292 = 9·log2(1.01)), now delegates to `ScoreDonorMaxEnt` (F19).
+
 ---
 
 ## Assumptions

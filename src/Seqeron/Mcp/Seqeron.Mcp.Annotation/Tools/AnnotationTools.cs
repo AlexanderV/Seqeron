@@ -1486,11 +1486,11 @@ public class AnnotationTools
         return new FindRetainedIntronCandidatesResult(introns);
     }
 
-    /// <summary>Compute a MaxEntScan-like log-likelihood score for a splice motif.</summary>
+    /// <summary>Score a splice motif: Donor = MaxEntScan score5 (Yeo &amp; Burge 2004); Acceptor = PWM log-weight sum.</summary>
     [McpServerTool(Name = "maxent_score", Title = "Splice — MaxEnt Score", ReadOnly = true)]
-    [Description("Compute a MaxEntScan-like log-likelihood score for a donor or acceptor motif.")]
+    [Description("Score a splice motif. Donor: MaxEntScan score5 (Yeo & Burge 2004) in bits on the 9-nt window (3 exon + 6 intron nt, GT at positions 4-5), e.g. CAGGTAAGT = 10.86. Acceptor: sum of log2(PWM weight + 0.01).")]
     public static MaxEntScoreResult MaxentScore(
-        [Description("Splice-site motif sequence (RNA or DNA)")] string motif,
+        [Description("Splice-site motif sequence (RNA or DNA); for Donor exactly 9 nt of A/C/G/T(/U)")] string motif,
         [Description("Splice-site type: \"Donor\" or \"Acceptor\"")] string type)
     {
         if (string.IsNullOrEmpty(motif))

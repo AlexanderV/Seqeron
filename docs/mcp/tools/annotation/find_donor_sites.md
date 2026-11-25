@@ -73,4 +73,4 @@ U12 AT/AU donor motifs.
 
 - [find_acceptor_sites](find_acceptor_sites.md) — 3' acceptor sites
 - [predict_introns](predict_introns.md) — pair donors and acceptors into introns
-- [maxent_score](maxent_score.md) — MaxEntScan-like motif score
+- [maxent_score](maxent_score.md) — MaxEntScan score5 donor score (bits)
