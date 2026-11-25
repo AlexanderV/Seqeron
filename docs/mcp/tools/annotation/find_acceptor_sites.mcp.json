@@ -5,16 +5,54 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SpliceSitePredictor.FindAcceptorSites",
-  "docRef": "Seqeron.Genomics.Annotation/SpliceSitePredictor.cs#L264",
-  "description": "Find candidate 3' (acceptor) splice sites (canonical AG, optional U12 AC).",
+  "docRef": "Seqeron.Genomics.Annotation/SpliceSitePredictor.cs#L579",
+  "description": "Find candidate 3' (acceptor) splice sites: AG scored with the Shapiro & Senapathy (1987) 3' ss score over positions -14..+1 (pyrimidine region best 8 of 10 + CAGG; published 0-100 score / 100) or with MaxEntScan score3 (bits, 23-nt window -20..+3); optional U12-type acceptors (AC or AG terminus scored by the U12 branch site UUCCUUAAC 8-21 nt upstream). Position = index of the G of AG (last intron nt).",
   "inputSchema": {
     "type": "object",
     "properties": {
-      "sequence": { "type": "string", "description": "RNA/DNA sequence to scan", "minLength": 1 },
-      "minScore": { "type": "number", "description": "Minimum PWM score [0,1]", "default": 0.5 },
-      "includeNonCanonical": { "type": "boolean", "description": "Include U12 AC acceptor motifs", "default": false }
+      "sequence": {
+        "type": "string",
+        "description": "RNA/DNA sequence to scan",
+        "minLength": 1
+      },
+      "minScore": {
+        "type": "number",
+        "description": "Minimum score: [0,1] for shapiro-senapathy (and U12 branch-site match fraction), bits for maxent",
+        "default": 0.5
+      },
+      "includeNonCanonical": {
+        "type": "boolean",
+        "description": "Also report U12-type acceptors (AC or AG terminus with a UUCCUUAAC branch site 8-21 nt upstream)",
+        "default": false
+      },
+      "model": {
+        "type": "string",
+        "enum": [
+          "shapiro-senapathy",
+          "maxent"
+        ],
+        "description": "Scoring model for AG acceptors",
+        "default": "shapiro-senapathy"
+      },
+      "category": {
+        "type": "string",
+        "enum": [
+          "primate",
+          "total",
+          "rodent",
+          "othermammal",
+          "othervertebrate",
+          "invertebrate",
+          "plant",
+          "viral"
+        ],
+        "description": "Shapiro & Senapathy (1987) Table 1 subtable",
+        "default": "primate"
+      }
     },
-    "required": ["sequence"]
+    "required": [
+      "sequence"
+    ]
   },
   "outputSchema": {
     "type": "object",
@@ -24,31 +62,98 @@
         "items": {
           "type": "object",
           "properties": {
-            "position": { "type": "integer", "description": "0-based index of the G of the AG dinucleotide" },
-            "type": { "type": "string", "description": "Acceptor" },
-            "motif": { "type": "string" },
-            "score": { "type": "number", "description": "PWM match score [0,1]" },
-            "confidence": { "type": "number" }
+            "position": {
+              "type": "integer",
+              "description": "0-based index of the G of the AG dinucleotide"
+            },
+            "type": {
+              "type": "string",
+              "description": "Acceptor or U12Acceptor"
+            },
+            "motif": {
+              "type": "string",
+              "description": "-20..+3 context (RNA alphabet)"
+            },
+            "score": {
+              "type": "number",
+              "description": "S&S score [0,1], MaxEntScan bits, or U12 branch-site match fraction"
+            },
+            "confidence": {
+              "type": "number"
+            }
           },
-          "required": ["position", "type", "motif", "score", "confidence"]
+          "required": [
+            "position",
+            "type",
+            "motif",
+            "score",
+            "confidence"
+          ]
         }
       }
     },
-    "required": ["sites"]
+    "required": [
+      "sites"
+    ]
   },
   "errors": [
-    { "code": 1001, "message": "Sequence cannot be null or empty" }
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1002,
+      "message": "Unknown model '...'; expected 'shapiro-senapathy' or 'maxent'."
+    },
+    {
+      "code": 1003,
+      "message": "Unknown category '...'; expected primate, total, rodent, othermammal, othervertebrate, invertebrate, plant or viral."
+    }
   ],
   "examples": [
     {
-      "name": "Strong PPT + CAG consensus",
-      "input": { "sequence": "UUUUUUUUUUUUUUUUCAGGG", "minScore": 0.1 },
-      "output": { "sites": [ { "position": 18, "type": "Acceptor", "score": 0.8393 } ] }
+      "name": "Published primate 3' ss (S&S 1987 Table 5, 95.8)",
+      "input": {
+        "sequence": "TTATTCTACTCCAGG"
+      },
+      "output": {
+        "sites": [
+          {
+            "position": 13,
+            "type": "Acceptor",
+            "motif": "UUAUUCUACUCCAGG",
+            "score": 0.9578125,
+            "confidence": 0.915625
+          }
+        ]
+      }
+    },
+    {
+      "name": "MaxEntScan score3 model",
+      "input": {
+        "sequence": "TTCCAAACGAACTTTTGTAGGGA",
+        "minScore": 0.0,
+        "model": "maxent"
+      },
+      "output": {
+        "sites": [
+          {
+            "position": 19,
+            "type": "Acceptor",
+            "score": 2.8867730651152104
+          }
+        ]
+      }
     },
     {
       "name": "No AG dinucleotide",
-      "input": { "sequence": "CCCCCCCCCCCCCCCCCCCC", "minScore": 0.1 },
-      "output": { "sites": [] }
+      "input": {
+        "sequence": "CCCCCCCCCCCCCCCCCCCC",
+        "minScore": 0.1
+      },
+      "output": {
+        "sites": []
+      }
     }
   ]
 }

@@ -5,7 +5,7 @@
 **Algorithm:** Pseudoknot Detection (crossing base pairs)
 **Status:** ☐ In Progress
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-14
+**Last Updated:** 2026-11-25
 
 ---
 
@@ -44,6 +44,9 @@
 | Method | Class | Type | Notes |
 |--------|-------|------|-------|
 | `DetectPseudoknots(IReadOnlyList<BasePair>)` | RnaSecondaryStructure | Canonical | Returns one `Pseudoknot` per crossing pair-of-pairs. |
+| `AssignPseudoknotOrders(IReadOnlyList<BasePair>)` | RnaSecondaryStructure | Canonical (orders) | biotite/Smit iterated maximum nested subset; ties → 5'-most opening kept. MCP `pseudoknot_orders`. |
+| `ToDotBracket(int, IEnumerable<(int,int)>)` | RnaSecondaryStructure | Canonical (renderer) | = ViennaRNA `vrna_db_from_ptable`; used by every structure-returning method. |
+| `ToDotBracketByPseudoknotOrder(int, IReadOnlyList<BasePair>)` | RnaSecondaryStructure | Variant | Antczak DBL families by order. |
 
 ---
 
@@ -56,6 +59,8 @@
 | INV-3 | Disjoint pairs (j<k) produce no pseudoknot. | Yes | overlap requirement |
 | INV-4 | Fewer than two base pairs → empty result. | Yes | derived from crossing definition |
 | INV-5 | Detection is deterministic and order-independent over the same pair set. | Yes | pure combinatorial scan |
+| INV-6 | Pairs of equal pseudoknot order never cross; order 0 is a maximum nested subset. | Yes | biotite / Smit (2008) |
+| INV-7 | `ParseDotBracket(ToDotBracket(P))` = P (and the same for the order rendering). | Yes | ViennaRNA ptable ↔ db |
 
 ---
 
@@ -80,6 +85,17 @@
 | S3 | Mixed set | nested+crossing+disjoint together | only the crossing relations reported | INV-1..3 |
 | S4 | Order independence | shuffle input order | identical detected set | INV-5 |
 | S5 | Multi-crossing reporting | `([{)]}` pairs (0,3)+(1,4)+(2,5) all mutually cross | exactly 3 pseudoknots, one per pairwise crossing {(0,3,1,4),(0,3,2,5),(1,4,2,5)} | Antczak (2018) crossing condition applied pairwise; documented separate-reporting contract (Assumption 2) |
+
+### 4.2a B12 review additions (2026-11-25)
+
+| ID | Test Case | Expected Outcome | Evidence |
+|----|-----------|------------------|----------|
+| O1 | `ToDotBracket` fixtures (H-type, 3-way, biotite example, kissing hairpins, 4 families, closing-first storage, no pairs) | `([)]`, `([{)]}`, `(([))]`, `((..[[.)).((]].....)).`, `([[{).].(<}.])>`, `(.[[[.).]]].`, `.....`; parse round-trips | `RNA.db_from_ptable` |
+| O2 | 30 vs 31 mutually crossing pairs | 30 families used; 31 throws (ViennaRNA drops) | `vrna_db_from_ptable` limit |
+| O3 | invalid input to renderer / orders | self pair, negative, ≥ length, shared position, duplicate → `ArgumentException`; null → `ArgumentNullException` | pair-table contract |
+| O4 | orders fixtures | biotite example `[0,0,1]` / `(([))]`; H-type `[0,1]`; 3-way `[0,1,2]`; kissing `[0,0,1,1,0,0]`; larger 3' helix `[1,0,0,0]` / `[.(((.].)))`; 4-layer case `[0,1,1,2,0,3]` | biotite docstring; exhaustive brute force |
+| O5 | 300 seeded random sets | every layer nested; order-0 size = brute-force maximum; DBL parses back | INV-6, INV-7 |
+| O6 | MCP `pseudoknot_orders` | biotite example + larger 3' helix | as O4/O1 |
 
 ### 4.3 COULD Tests (Nice to have)
 
@@ -163,10 +179,10 @@
 | # | Assumption | Used In |
 |---|-----------|---------|
 | 1 | Fewer than two pairs → empty result (derived from crossing definition). | INV-4, S1, S2 |
-| 2 | Each crossing pair-of-pairs reported as one Pseudoknot (DBL order grouping Not Implemented). | M1, M5, output shape |
+| 2 | Each crossing pair-of-pairs reported as one Pseudoknot (layer grouping = `AssignPseudoknotOrders`). | M1, M5, output shape |
 
 ---
 
 ## 7. Open Questions / Decisions
 
-1. Higher-order pseudoknot grouping / DBL order assignment (Antczak 2018) is intentionally out of scope for this unit; documented as Not Implemented.
+1. ~~Higher-order grouping / DBL order assignment out of scope~~ — implemented 2026-11-25 (B12): `AssignPseudoknotOrders` (biotite/Smit) + `ToDotBracketByPseudoknotOrder`; renderer `ToDotBracket` = ViennaRNA `vrna_db_from_ptable`. The order count is an upper bound on Antczak's minimum (exact minimum = circle-graph colouring, NP-complete; Evidence B12 section).

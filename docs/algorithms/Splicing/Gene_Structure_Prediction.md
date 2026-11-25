@@ -30,10 +30,10 @@ The repository model is:
 
 1. Predict donor and acceptor sites.
 2. Pair donors and acceptors whose distance satisfies intron-length constraints.
-3. Add a branch-point contribution when one is found upstream of the acceptor.
+3. Add the Gao et al. (2008) `yUnAy` branch-point term (canonical `FindAcceptorBranchPoint`; 0 when none is found).
 4. Keep introns whose combined score meets the requested threshold.
 5. Select a non-overlapping subset greedily by descending intron score.
-6. Derive exons from the gaps between selected introns.
+6. Reject an intron that would leave an exon (between introns or at either end) shorter than `minExonLength`; derive exons from the gaps between selected introns, so exons + introns tile the sequence.
 7. Build the spliced sequence by removing intron intervals from the normalized sequence.
 
 ### 2.3 Modeling Assumptions
@@ -104,11 +104,12 @@ The current intron-pairing and classification rules are:
 |------|---------------------|
 | Intron length | `acceptor.Position - donor.Position + 1` |
 | Candidate acceptance | Length in range and combined score `>= minScore` |
-| Combined score with branch point | `(donor + acceptor + branch) / 3` |
-| Combined score without branch point | `(donor + acceptor) / 2` |
-| U12 intron type | Any donor or acceptor marked as U12 makes the intron `U12` |
-| `GcAg` intron type | Determined from `GC` donor motif in donor context |
-| `U2` intron type | Determined from `GU`/`GT` donor motif in donor context |
+| U2 / GC-AG score | `(donor + acceptor + branch) / 3`, branch term 0 when no branch point (fixed term set: a branch point can only raise the score) |
+| U12 score | `(U12 donor + U12 branch-site acceptor) / 2` |
+| U12 intron type | Only when BOTH the U12 donor (/RUAUCCUY) and the U12 acceptor (UUCCUUAAC branch site 8-21 nt upstream) score >= max(`minScore`, 0.75) with AU-AC or GU-AG termini; takes precedence over U2 for the same coordinates (overload `PredictIntrons(..., u12MinSiteScore)`) |
+| `GcAg` intron type | `GC` donor + `AG` acceptor |
+| `U2` intron type | `GU` donor + `AG` acceptor |
+| Coordinates | 0-based inclusive; `Start` = first intron nt (donor G/A), `End` = last intron nt (acceptor G/C) |
 
 ### 4.3 Complexity
 
@@ -131,7 +132,9 @@ The current intron-pairing and classification rules are:
 
 ### 5.2 Current Behavior
 
-`PredictGeneStructure` always uses a fixed `maxIntronLength` of `100000` when it delegates to `PredictIntrons`. Candidate introns are sorted by descending score and selected greedily using a position-level overlap check. Exons shorter than `minExonLength` are omitted from the `Exons` list. `GenerateSplicedSequence` removes selected introns directly from the sequence without applying the exon-length filter, so the spliced sequence is defined by intron removal rather than by concatenating only the retained exon records.
+`PredictGeneStructure` always uses a fixed `maxIntronLength` of `100000`. Candidate introns are selected greedily by descending score (ties: lower start); an intron is rejected when it overlaps a selected one or would leave an exon shorter than `minExonLength` (>= 1) between introns or at either sequence end. Exons are never dropped, so exons + introns tile the sequence and the spliced sequence is the input with exactly the selected introns removed. Exon phase = cumulative preceding exon length mod 3 (Ensembl start phase).
+
+`DetectAlternativeSplicing` reports SUPPA/rMATS events relative to the selected (reference) introns: `ExonSkipping` (SE), `Alt5SS` (A5SS), `Alt3SS` (A3SS), `MutuallyExclusiveExons` (MXE); `IsWithinCodingRegion` walks upstream in-frame to an AUG without crossing a stop codon.
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -150,13 +153,14 @@ The current intron-pairing and classification rules are:
 **Not implemented:**
 
 - HMM or generalized-HMM gene finders such as GenScan/Augustus-style dynamic programming; **users should rely on:** no current alternative.
-- Coordinate reconciliation between `SplicedSequence` and only the exon records that pass `minExonLength`; **users should rely on:** caller-side interpretation when short exon-like gaps are possible.
+- Transcript-evidence based intron retention (RI): `FindRetainedIntronCandidates` is a feature heuristic (short, weaker sites; Braunschweig 2014) only.
 
 ### 5.4 Deviations and Assumptions
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
-| 1 | When no branch point is found, the combined intron score is `(donor + acceptor) / 2` rather than using a fixed fallback branch score. | Behavior | Intron scores remain data-driven and avoid the older magic-constant behavior documented in the test spec history. | accepted | Confirmed in [SpliceSitePredictor.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/SpliceSitePredictor.cs). |
+| 1 | The intron score has no published form; a fixed term set (branch term 0 when absent) is used. | Behavior | A branch point can only raise the score. | accepted | B11 F33. |
+| 2 | The U12 site-score cut-off 0.75 and the 500 nt / 0.8 retained-intron cut-offs are heuristics. | Behavior | Tunable (`u12MinSiteScore` overload). | accepted | No published cut-off for fraction-of-consensus scores. |
 
 ## 6. Edge Cases and Limitations
 
@@ -172,7 +176,7 @@ The current intron-pairing and classification rules are:
 
 ### 6.2 Limitations
 
-This implementation is a splice-site-driven heuristic structure predictor. It does not use a full gene-finding model, does not optimize globally over transcript structures, and can omit short exons from the `Exons` list even though the same sequence remains in the spliced output after intron removal.
+This implementation is a splice-site-driven heuristic structure predictor. It does not use a full gene-finding model, does not optimize globally over transcript structures, and, being splice-motif only, ranks many false GT-AG pairs: on Ensembl HBB / TP53 / CFTR (exons 2-5) all 15 annotated introns are among the candidates (typed U2) but the greedy selection recovers none of them (see the Evidence file).
 
 ## 7. Examples and Related Material
 

@@ -5,15 +5,17 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "GenomeAssemblyAnalyzer.FindRepetitiveRegions",
-  "docRef": "Seqeron.Genomics.Chromosome/GenomeAssemblyAnalyzer.cs#L674",
-  "description": "Identify repetitive regions across assembled sequences using k-mer copy-number frequency.",
+  "docRef": "Seqeron.Genomics.Chromosome/GenomeAssemblyAnalyzer.cs#L1214",
+  "description": "Identify repetitive regions with the NCBI WindowMasker k-mer-count model (window score = mean unit count over pooled, both-strand counts; non-ACGT windows skipped).",
   "inputSchema": {
     "type": "object",
     "properties": {
       "sequences": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string" }, "sequence": { "type": "string" } }, "required": ["id", "sequence"] } },
       "kmerSize": { "type": "integer", "default": 15, "exclusiveMinimum": 0 },
       "minCopies": { "type": "integer", "default": 3, "exclusiveMinimum": 0 },
-      "windowSize": { "type": "integer", "default": 100, "exclusiveMinimum": 0 }
+      "windowSize": { "type": "integer", "default": 100, "exclusiveMinimum": 0, "description": "Window length in bases; must be >= kmerSize." },
+      "bothStrands": { "type": "boolean", "default": true },
+      "extendCopies": { "type": "integer", "minimum": 1, "description": "T_extend, at most minCopies; default = minCopies." }
     },
     "required": ["sequences"]
   },
@@ -31,6 +33,6 @@
     { "code": 1004, "message": "Window size must be positive" }
   ],
   "examples": [
-    { "name": "Periodic 8-mer sequence", "input": { "sequences": [ { "id": "s", "sequence": "ACGTACGT…(×100)" } ], "kmerSize": 8, "minCopies": 3, "windowSize": 50 }, "output": { "items": [ { "sequenceId": "s", "start": 0, "end": 789, "copies": 199 } ] } }
+    { "name": "Periodic 8-mer sequence", "input": { "sequences": [ { "id": "s", "sequence": "ACGTACGT…(×100)" } ], "kmerSize": 8, "minCopies": 3, "windowSize": 50 }, "output": { "items": [ { "sequenceId": "s", "start": 0, "end": 799, "copies": 398 } ] } }
   ]
 }

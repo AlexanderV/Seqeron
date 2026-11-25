@@ -23,13 +23,15 @@ public class GenomeAssemblyAnalyzer_MutationKillers4_Tests
     [Test]
     public void CompareAssemblies_PartialOverlap_ExactFractions()
     {
-        // a1 4-mers {ACGT,CGTA,GTAC,TACG}; a2 4-mers {ACGT,CGTA,GTAA,TAAA,AAAA}; shared = 2.
+        // canonical 4-mers: a1 {ACGT, CGTA (=TACG), GTAC}; a2 {ACGT, CGTA, GTAA (=TTAC), TAAA (=TTTA), AAAA};
+        // shared = 2, union = 6 ⇒ J = 1/3 ⇒ Mash D = −ln(0.5)/4 (Ondov 2016 eq. 4).
         var a1 = new[] { ("s", "ACGTACGT") };
         var a2 = new[] { ("s", "ACGTAAAA") };
         var cmp = CompareAssemblies(a1, a2, kmerSize: 4);
-        Assert.That(cmp.AlignedFraction1, Is.EqualTo(2.0 / 4).Within(Tol)); // 0.5
-        Assert.That(cmp.AlignedFraction2, Is.EqualTo(2.0 / 5).Within(Tol)); // 0.4
-        Assert.That(cmp.SequenceIdentity, Is.EqualTo((0.5 + 0.4) / 2).Within(Tol)); // 0.45
+        Assert.That(cmp.Containment1, Is.EqualTo(2.0 / 3).Within(Tol));
+        Assert.That(cmp.Containment2, Is.EqualTo(2.0 / 5).Within(Tol));
+        Assert.That(cmp.JaccardIndex, Is.EqualTo(1.0 / 3).Within(Tol));
+        Assert.That(cmp.MashDistance, Is.EqualTo(Math.Log(2) / 4).Within(Tol));
     }
 
     [Test]
@@ -60,36 +62,40 @@ public class GenomeAssemblyAnalyzer_MutationKillers4_Tests
     [Test]
     public void EstimateCompletenessFromKmers_AllSingletons_AndExpectedCoverage()
     {
-        // No non-singleton k-mers ⇒ (0, 1.0, 0).
+        // A one-line histogram has no valley (Merqury filt = 0): nothing is an error k-mer, the peak is
+        // count 1 ⇒ error 0, size 2/1 = 2; no assembly ⇒ completeness NaN (oracle; B10 F44–F46).
         var allSingleton = EstimateCompletenessFromKmers(new[] { ("A", 1), ("B", 1) });
-        Assert.That(allSingleton.Completeness, Is.EqualTo(0.0).Within(Tol));
-        Assert.That(allSingleton.ErrorRate, Is.EqualTo(1.0).Within(Tol));
-        Assert.That(allSingleton.EstimatedGenomeSize, Is.EqualTo(0L));
+        Assert.That(allSingleton.Completeness, Is.NaN);
+        Assert.That(allSingleton.ErrorRate, Is.EqualTo(0.0).Within(Tol));
+        Assert.That(allSingleton.EstimatedGenomeSize, Is.EqualTo(2L));
 
-        // expectedCoverage overrides the computed peak: size = total 11 / 2 = 5.
+        // expectedCoverage overrides the computed peak: size = round(11 / 2) = round(5.5) = 6 (R round, half-even).
         var forced = EstimateCompletenessFromKmers(
             new[] { ("AAA", 4), ("CCC", 4), ("GGG", 2), ("TTT", 1) }, expectedCoverage: 2);
-        Assert.That(forced.EstimatedGenomeSize, Is.EqualTo(5L));
+        Assert.That(forced.EstimatedGenomeSize, Is.EqualTo(6L));
     }
 
     [Test]
-    public void FindTandemRepeats_ImperfectCopy_ExactPurity()
+    public void FindTandemRepeats_SingleSubstitution_ExactTrfPurity()
     {
-        // AAAAA·AAAAA·AAAAC (then a trailing G so length 16 > minUnit·minCopies = 15): the 3rd
-        // copy matches 4/5 = 80% ⇒ counted; matches = 5 + 4 = 9.
-        // purity = (unitLen + matches)/(copies·unitLen) = (5 + 9)/15 = 14/15.
-        var r = FindTandemRepeats(new[] { ("s", "AAAAAAAAAAAAAACG") }, minUnitLength: 5, minCopies: 3).First();
-        Assert.That(r.Unit, Is.EqualTo("AAAAA"));
-        Assert.That(r.Copies, Is.EqualTo(3));
-        Assert.That(r.Purity, Is.EqualTo(14.0 / 15.0).Within(Tol));
+        // (ACGTT)×20 with one T→A substitution in the 11th copy and 100 bp: TRF (match 2, mismatch −7)
+        // aligns the whole array, 20 copies, one mismatch touching two adjacent-copy comparisons of 95:
+        // purity 93/95; score 2·99 − 7 = 191.
+        string unit = "ACGTT";
+        string seq = string.Concat(Enumerable.Repeat(unit, 10)) + "ACGTA" + string.Concat(Enumerable.Repeat(unit, 9));
+        var r = FindTandemRepeats(new[] { ("s", seq) }, minUnitLength: 5, minCopies: 3).First();
+        Assert.That(r.Unit, Is.EqualTo("ACGTT"));
+        Assert.That(r.Copies, Is.EqualTo(20.0).Within(Tol));
+        Assert.That(r.Purity, Is.EqualTo(93.0 / 95.0).Within(Tol));
     }
 
     [Test]
     public void FindSuspiciousRegions_PolyA_ExactLowComplexityScore()
     {
-        // 600-bp poly(A): a 500-bp window has linguistic complexity 1/256, giving the peak
-        // low-complexity score 1 − (1/256)/0.3.
+        // 600-bp poly(A): a 500-bp window has canonical linguistic complexity (Troyanskaya 2002, m = 10, a = 4)
+        // ΣV_i / Σmin(4^i, 501−i) = 10 / (4+16+64+256+496+495+494+493+492+491) = 10/3301,
+        // giving the peak low-complexity score 1 − (10/3301)/0.3.
         var r = FindSuspiciousRegions(new[] { ("s", new string('A', 600)) }).Single();
-        Assert.That(r.Score, Is.EqualTo(1.0 - (1.0 / 256.0) / 0.3).Within(1e-9));
+        Assert.That(r.Score, Is.EqualTo(1.0 - (10.0 / 3301.0) / 0.3).Within(1e-9));
     }
 }

@@ -5,30 +5,201 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "GenomeAssemblyAnalyzer.EstimateCompletenessFromKmers",
-  "docRef": "Seqeron.Genomics.Chromosome/GenomeAssemblyAnalyzer.cs#L628",
-  "description": "Estimate genome completeness, error rate and genome size from a k-mer count spectrum.",
+  "docRef": "Seqeron.Genomics.Chromosome/GenomeAssemblyAnalyzer.cs#L1033",
+  "description": "From a read k-mer count spectrum: Merqury solid threshold, GenomeScope read error rate 1-(1-E/T)^(1/k) and genome size (T-E)/peak; with an assembly also Merqury k-mer completeness and QV.",
   "inputSchema": {
     "type": "object",
     "properties": {
-      "kmerSpectrum": { "type": "array", "items": { "type": "object", "properties": { "kmer": { "type": "string" }, "count": { "type": "integer" } }, "required": ["kmer", "count"] } },
-      "expectedCoverage": { "type": "integer", "default": 0, "minimum": 0, "description": "0 = auto-detect peak." }
+      "kmerSpectrum": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "kmer": {
+              "type": "string"
+            },
+            "count": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "kmer",
+            "count"
+          ]
+        },
+        "description": "Read k-mer counts: each k-mer once, all of length k, count >= 1; canonical (meryl / jellyfish -C) when an assembly is given and canonical = true."
+      },
+      "expectedCoverage": {
+        "type": "integer",
+        "default": 0,
+        "minimum": 0,
+        "description": "Homozygous peak coverage; 0 = histogram mode above the solid threshold."
+      },
+      "assembly": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "sequence": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "sequence"
+          ]
+        },
+        "description": "Optional assembly for Merqury completeness and QV."
+      },
+      "canonical": {
+        "type": "boolean",
+        "default": true,
+        "description": "Count assembly k-mers canonically (meryl default)."
+      }
     },
-    "required": ["kmerSpectrum"]
+    "required": [
+      "kmerSpectrum"
+    ]
   },
   "outputSchema": {
     "type": "object",
     "properties": {
-      "completeness": { "type": "number" },
-      "errorRate": { "type": "number" },
-      "estimatedGenomeSize": { "type": "integer" }
+      "completeness": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "Merqury k-mer completeness |asm ∩ solid| / |solid| (fraction); null without assembly"
+      },
+      "errorRate": {
+        "type": "number",
+        "description": "GenomeScope read error rate 1 - (1 - E/T)^(1/k)"
+      },
+      "estimatedGenomeSize": {
+        "type": "integer",
+        "description": "round((T - E) / peak)"
+      },
+      "k": {
+        "type": "integer",
+        "description": "k-mer length"
+      },
+      "solidThreshold": {
+        "type": "integer",
+        "description": "Merqury filt (first histogram valley); solid = count > filt"
+      },
+      "peakCoverage": {
+        "type": "integer",
+        "description": "peak used for the size"
+      },
+      "totalKmers": {
+        "type": "integer",
+        "description": "T = sum of counts"
+      },
+      "errorKmers": {
+        "type": "integer",
+        "description": "E = sum of counts <= filt"
+      },
+      "solidKmers": {
+        "type": "integer",
+        "description": "distinct k-mers with count > filt"
+      },
+      "assemblySolidKmers": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "description": "distinct assembly k-mers that are solid"
+      },
+      "assemblyKmers": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "description": "Merqury TOTAL (assembly k-mer instances)"
+      },
+      "assemblyOnlyKmers": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "description": "Merqury ASM_ONLY (instances absent from reads)"
+      },
+      "assemblyErrorRate": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "Merqury E = 1 - (1 - ASM_ONLY/TOTAL)^(1/k)"
+      },
+      "qualityValue": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "Merqury QV = -10 log10(E); null when unbounded (ASM_ONLY = 0) or without assembly k-mers"
+      }
     },
-    "required": ["completeness", "errorRate", "estimatedGenomeSize"]
+    "required": [
+      "completeness",
+      "errorRate",
+      "estimatedGenomeSize",
+      "k",
+      "solidThreshold",
+      "peakCoverage",
+      "totalKmers",
+      "errorKmers",
+      "solidKmers"
+    ]
   },
   "errors": [
-    { "code": 1001, "message": "K-mer spectrum cannot be null" },
-    { "code": 1002, "message": "Expected coverage cannot be negative" }
+    {
+      "code": 1001,
+      "message": "K-mer spectrum cannot be null"
+    },
+    {
+      "code": 1002,
+      "message": "Expected coverage cannot be negative"
+    },
+    {
+      "code": 1003,
+      "message": "Invalid spectrum (empty, duplicate k-mer, mixed lengths, count < 1, or non-canonical / non-ACGT k-mer with an assembly)"
+    }
   ],
   "examples": [
-    { "name": "Clean spectrum", "input": { "kmerSpectrum": "[100 distinct k-mers, count 30]", "expectedCoverage": 30 }, "output": { "completeness": 1.0, "errorRate": 0.0, "estimatedGenomeSize": 100 } }
+    {
+      "name": "Valley spectrum with assembly",
+      "input": {
+        "kmerSpectrum": "[20 canonical 3-mers, histogram 1:5, 2:2, 3:1, 4:3, 5:6, 6:3]",
+        "assembly": [
+          {
+            "id": "a",
+            "sequence": "ACGTTGCAAC"
+          },
+          {
+            "id": "b",
+            "sequence": "GGNNCATTAC"
+          }
+        ]
+      },
+      "output": {
+        "completeness": 0.16666666666666666,
+        "errorRate": 0.05896397111897156,
+        "estimatedGenomeSize": 12,
+        "k": 3,
+        "solidThreshold": 3,
+        "peakCoverage": 5,
+        "totalKmers": 72,
+        "errorKmers": 12,
+        "solidKmers": 12,
+        "assemblySolidKmers": 2,
+        "assemblyKmers": 12,
+        "assemblyOnlyKmers": 4,
+        "assemblyErrorRate": 0.1264195352637011,
+        "qualityValue": 8.981858105339732
+      }
+    }
   ]
 }

@@ -60,12 +60,12 @@ Reference defect, not reproduced: when the FIRST species of the list is not in t
 
 ## Boundaries (documented, not limitations)
 
-- Caller supplies the bin tree and the species-with-site list. The b0..b3 row defaults to the bundled TargetScan 7.0 table (WP-2, F32); a
-  caller row overrides it.
-- The species-with-site list comes from TargetScan's multi-species site grouping (`targetscan_70.pl` on a UTR alignment); the library has no
-  implementation of that step (see B13.md, MIRNA-PCT-001 notes).
+- `PctConservation` still takes a caller tree + species-with-site list; since WP-3 (F35/F36) both can instead be derived from a multi-species
+  UTR alignment (`FindTargetScanSiteGroups`, `AssignTargetScanUtrBin`, `GetTargetScanBinTree`, `ScoreTargetScanConservation`). The b0..b3 row
+  defaults to the bundled TargetScan 7.0 table (WP-2, F32); a caller row overrides it.
 - `PhylogeneticAnalyzer.ParseNewick` rejects the kit's multi-line tree files (whitespace in front of a `(`: `"(A:1, (B:2,C:3):1);"` throws
-  `FormatException`, Biopython 1.88 reads 3 leaves); strip whitespace first (cross-batch request to B16).
+  `FormatException`, Biopython 1.88 reads 3 leaves); the bundled trees are single-line, so the library does not depend on it (cross-batch
+  request to B16 stands for caller-supplied files).
 
 ## Bundled parameter tables (B13 WP-2, F32, 2026-11-25)
 
@@ -84,3 +84,29 @@ Reference defect, not reproduced: when the FIRST species of the list is not in t
 - Oracle: with the bundled table, the new unit test `KitSample_AllRows_BranchLengthAndPct_WithBundledParameters_EqualTargetScan` reproduces all
   213 Bls, all 161 PCT (28 of them non-zero, i.e. dependent on the row values) and the 52 "NA" rows of the shipped
   `targetscan_70_output.BL_PCT.txt` (exact double equality).
+
+## Species with the site, UTR bin and trees from an alignment (B13 WP-3, F35/F36, 2026-11-25)
+
+- Sources opened: `targetscan_70.zip` (www.targetscan.org/vert_70/vert_70_data_download/, SHA-256 6e23c72a…d749): `targetscan_70.pl` 7.0,
+  `README_70.txt`, `UTR_Sequences_sample.txt`, `miR_Family_info_sample.txt`, `targetscan_70_output.txt`; mirror
+  raw.githubusercontent.com/nsoranzo/targetscan/main/targetscan_70.pl (same logic; the official copy has an unused `%pairToDistance`, an
+  unused `%GROUP_TYPES_LIST_2_GROUP_TYPE` lookup and splits the same-start/same-end test into equivalent branches); BL/PCT kit
+  `targetscan_70_BL_bins.pl`, `UTRs_median_BLs_bins.txt`, `PCT_parameters/Tree.bin_01..10.txt`, `Tree.generic.txt`; Statistics::Lite 3.62
+  `median` (apt `libstatistics-lite-perl`).
+- Reference run: perl 5.38.2 — both `targetscan_70.pl` copies reproduce `targetscan_70_output.txt` byte for byte from the sample;
+  `targetscan_70_BL_bins.pl` reproduces `UTRs_median_BLs_bins.txt` byte for byte; `targetscan_70_BL_PCT.pl` the BL/PCT output (F19–F22).
+- F35 (`targetscan_70.pl` port): `FindTargetScanSiteGroups` — T→U, 14-letter 5' mask, gap-tolerant 8mer / 7mer-m8 / 7mer-A1 / 6mer at every
+  start, subset removal, MSA + ungapped coordinates, all-vs-all grouping in ordinal key order with REQUIRED_OVERLAP 2 and the script's
+  non-merging `groupThisPair`, group type, group species and per-type species lists (`makeListNonRedundant` order), ORF_overlap with the script's
+  one-column-right window (copied: it defines the ORF_overlap column and PCT "NA"; constructed perl run: lower-case first letter ⇒ 0,
+  lower-case letter right after the site ⇒ 1).
+- F36 (`targetscan_70_BL_bins.pl` + end to end): `AssignTargetScanUtrBin` (reference-anchored per-column connecting-subtree length on the generic
+  tree, unrounded — shared private `ConnectingSubtreeLength` with `ComputeBranchLengthScore`; median via `StatisticsHelper.Median`; active
+  `@BL_thresholds`); the 10 bin trees + generic tree bundled as single-line Newick in the generated `MiRnaAnalyzer.TargetScanTrees.cs` (SHA-256 per
+  file); `ScoreTargetScanConservation` = groups → bin → Bls (bin tree, type list) → PCT (bundled row; NA for no family / ORF overlap) → Conserved.
+- Oracle (tests `MiRnaAnalyzer_TargetScanAlignment_Tests`, kit files verbatim in the generated `MiRnaTargetScanAlignmentKitData.cs`): 213/213 rows of
+  `targetscan_70_output.txt` verbatim; 6/6 bins with the median text (`%.15g`) equal; end to end 213 Bls, 161 PCT (28 non-zero), 52 NA, 0 conserved
+  equal to `targetscan_70_output.BL_PCT.txt`; constructed perl runs: 12-row mask/gap/subset/ORF-window case, non-merged groups, an 11-row bin case
+  (2.55195311, bin 3).
+- Not copied (no effect on valid input; documented in the XML docs): species id "0" read as missing; the bins script reusing the previous gene's
+  reference row when a gene has none (error here); the hash-order tie between 7mer-m8 and 7mer-A1 that exists only for seed UUUUUUU (7mer-m8 kept).

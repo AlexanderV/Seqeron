@@ -3292,6 +3292,20 @@ public class AnalysisTools
         return new DetectPseudoknotsResult(items);
     }
 
+    [McpServerTool(Name = "pseudoknot_orders", Title = "RNA — Pseudoknot Orders / Dot-Bracket-Letter", ReadOnly = true)]
+    [Description("Pseudoknot order of every base pair (0 = nested layer; biotite/Smit et al. 2008 iterated maximum nested subset, Antczak et al. 2018 orders) with the dot-bracket-letter string by order (() [] {} <> Aa …) and the ViennaRNA vrna_db_from_ptable rendering. Rejects self-pairs, out-of-range positions and a position used by two pairs.")]
+    public static PseudoknotOrdersResult PseudoknotOrders(
+        [Description("Base pairs (0-based positions, either orientation).")] BasePairItem[] basePairs,
+        [Description("Structure length (number of positions); every position must be < length.")] int length)
+    {
+        var bps = (basePairs ?? Array.Empty<BasePairItem>()).Select(FromItem).ToArray();
+        var orders = RnaSecondaryStructure.AssignPseudoknotOrders(bps).ToArray();
+        return new PseudoknotOrdersResult(
+            orders,
+            RnaSecondaryStructure.ToDotBracketByPseudoknotOrder(length, bps),
+            RnaSecondaryStructure.ToDotBracket(length, bps.Select(b => (b.Position1, b.Position2))));
+    }
+
     [McpServerTool(Name = "parse_dot_bracket", Title = "RNA — Parse Dot-Bracket", ReadOnly = true)]
     [Description("Parses dot-bracket notation into a list of base-pair coordinates. Supports ()/[]/{}/<> bracket families.")]
     public static ParseDotBracketResult ParseDotBracket(
@@ -3319,18 +3333,20 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "find_rna_inverted_repeats", Title = "RNA — Find Inverted Repeats", ReadOnly = true)]
-    [Description("Finds antiparallel complementary regions (potential RNA hairpin stems). Distinct from DNA find_inverted_repeats.")]
+    [Description("Finds maximal antiparallel complementary regions (potential RNA hairpin stems; A·U, G·C and G·U wobble by default, optional interior mismatches). Same stem model as DNA find_inverted_repeats (shared engine); coordinates 0-based inclusive.")]
     public static FindRnaInvertedRepeatsResult FindRnaInvertedRepeats(
         [Description("RNA sequence.")] string sequence,
         [Description("Minimum arm length (default 4).")] int minLength = 4,
         [Description("Minimum spacing between arms (default 3).")] int minSpacing = 3,
-        [Description("Maximum spacing between arms (default 100).")] int maxSpacing = 100)
+        [Description("Maximum spacing between arms (default 100).")] int maxSpacing = 100,
+        [Description("Maximum interior mismatches per stem (default 0 = perfect stems).")] int maxMismatches = 0,
+        [Description("Count G·U wobble pairs as stem pairs (default true); false = Watson-Crick A·U/G·C only.")] bool allowWobble = true)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
         var items = RnaSecondaryStructure
-            .FindInvertedRepeats(sequence, minLength, minSpacing, maxSpacing)
+            .FindInvertedRepeats(sequence, minLength, minSpacing, maxSpacing, maxMismatches, allowWobble)
             .Select(t => new FindRnaInvertedRepeatsItem(t.Start1, t.End1, t.Start2, t.End2, t.Length))
             .ToArray();
         return new FindRnaInvertedRepeatsResult(items);

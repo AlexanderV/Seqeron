@@ -4,7 +4,7 @@
 **Area:** MiRNA
 **Algorithm:** TargetScan PCT (Branch-Length Conservation)
 **Status:** ☑ Complete — re-validated 2026-11-25 (B13 review: Stage A PASS-WITH-NOTES / Stage B FAIL→FIXED, F19–F22)
-**Last Updated:** 2026-11-25 (WP-2: bundled PCT parameters)
+**Last Updated:** 2026-11-25 (WP-2: bundled PCT parameters; WP-3: species with the site, bin and trees from a UTR alignment)
 
 > **Re-validated (B13, 2026-11-25).** TargetScan 7.0 `targetscan_70_BL_PCT.pl` was run (perl 5.38.2 + BioPerl) on
 > the official BL/PCT kit (`targetscan_70_BL_PCT.zip`, targetscan.org vert_70); it reproduces the shipped
@@ -19,6 +19,14 @@
 > `MiRnaAnalyzer.TargetScanPctParameters.cs` (generated; SHA-256 of each source in the header) and are the default
 > when no caller row is given. With the bundled table the unit test reproduces all 213 Bls, all 161 PCT and the 52
 > "NA" rows of the kit output.
+>
+> **PCT evidence from a multi-species UTR alignment (B13 WP-3, F35/F36, 2026-11-25).** `FindTargetScanSiteGroups`
+> ports `targetscan_70.pl` 7.0 (site finding + cross-species grouping), `AssignTargetScanUtrBin` ports
+> `targetscan_70_BL_bins.pl`, the 10 bin trees + generic tree are bundled as single-line Newick
+> (`MiRnaAnalyzer.TargetScanTrees.cs`), and `ScoreTargetScanConservation` chains alignment → groups → bin → Bls →
+> PCT → Conserved. From the raw kit alignment the library reproduces `targetscan_70_output.txt` (213 rows verbatim),
+> `UTRs_median_BLs_bins.txt` (6 genes) and every Bls / PCT / Conserved of `targetscan_70_output.BL_PCT.txt`. The
+> caller-supplied path (`PctConservation`) is unchanged.
 
 ---
 
@@ -39,10 +47,16 @@
 - `MiRnaAnalyzer.TryGetTargetScanPctParameters(string seedRegion, TargetSiteType, out PctSigmoidParameters)` /
   `IsTargetScanPctSeedFamily(string seedRegion)` — bundled TargetScan 7.0 rows (`MiRnaAnalyzer.TargetScanPctParameters.cs`)
 - wired into `ScoreTargetSiteContextPlusPlus` via `ContextPlusPlusInputs.Conservation`
+- `MiRnaAnalyzer.FindTargetScanSiteGroups(string seedOrMature, IReadOnlyDictionary<string,string> alignedUtrs, IReadOnlyCollection<string>? speciesWithMiRna)` — `targetscan_70.pl` sites + groups (`TargetScanSiteGroup`, `TargetScanAlignedSite`)
+- `MiRnaAnalyzer.AssignTargetScanUtrBin(alignedUtrs, referenceSpecies = "9606", tree = null)` — `targetscan_70_BL_bins.pl`; `TargetScanUtrBinThresholds`
+- `MiRnaAnalyzer.GetTargetScanBinTree(int)` / `GetTargetScanBinTreeNewick(int)` / `GetTargetScanGenericTree()` / `TargetScanGenericTreeNewick` — bundled trees (`MiRnaAnalyzer.TargetScanTrees.cs`)
+- `MiRnaAnalyzer.ScoreTargetScanConservation(seedOrMature, alignedUtrs, speciesWithMiRna, referenceSpecies, utrBin, thresholds)` — end to end (`MiRnaAnalyzer.TargetScanConservation.cs`)
 - **Source file:** `src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/MiRnaAnalyzer.cs`
 - **Test fixtures:** `Unit/Annotation/MiRnaAnalyzer_PctTargetScanParity_Tests.cs` (TargetScan parity; kit rows and
   bin trees in the generated `Unit/Annotation/MiRnaPctTargetScanKitData.cs`),
-  `Unit/Annotation/MiRnaAnalyzer_TargetPrediction_Tests.cs` (region CTX-PCT), `Fuzzing/MiRnaPctFuzzTests.cs`
+  `Unit/Annotation/MiRnaAnalyzer_TargetPrediction_Tests.cs` (region CTX-PCT), `Fuzzing/MiRnaPctFuzzTests.cs`,
+  `Unit/Annotation/MiRnaAnalyzer_TargetScanAlignment_Tests.cs` (alignment pipeline; kit files verbatim in the generated
+  `Unit/Annotation/MiRnaTargetScanAlignmentKitData.cs`)
 
 ## 3. Contract / Invariants
 
@@ -58,6 +72,21 @@
   also accepted), ordinal; rows for 8mer / 7mer-m8 / 7mer-1a only (6mer and other types ⇒ not found); 111 families.
   No caller row ⇒ bundled row for the miRNA's seed; seed outside the table ⇒ PCT "NA" (`PctIsNa`, contribution 0,
   not omitted); a caller row overrides the table.
+- Sites (`targetscan_70.pl`): T/t→U; first 14 A/C/G/T/U letters (any case) → N; 8mer = revcomp(seed)+A, 7mer-m8 =
+  revcomp(seed), 7mer-A1 = its last 6 + A, 6mer = its last 6; '-' allowed between consecutive letters; every start;
+  only the species in which the family is annotated (null = all). 8mer drops the 7mer-m8/7mer-A1/6mer it contains,
+  7mer the 6mer. MSA start/end 1-based columns; UTR start = non-gap characters in columns 1..start; UTR end = start +
+  length − 1. ORF_overlap = lower case in columns start+1 … end+1 (the script's off-by-one window, copied).
+- Groups: all-vs-all over ordinal "species::start::end", different species; same start/end, ≥ 2-column overlap or
+  nesting; a pair joins an existing group of either site, existing groups never merged; singletons numbered last.
+  Group type = distinct type names in id order (7mer-1a, 7mer-m8, 8mer-1a, 6mer) joined by "+"; per-type species =
+  sites of that type or a longer type containing it; lists unique, perl-numeric order.
+- Bin (`targetscan_70_BL_bins.pl`): reference (9606) non-gap columns; unrounded connecting-subtree length on
+  Tree.generic of the species whose character equals the reference's (case-insensitive); median; bin = largest k with
+  median > threshold[k−1]; no reference nucleotide ⇒ NaN / bin 1; reference row missing or not a tree leaf ⇒
+  `ArgumentException`.
+- End to end: Bls on Tree.bin_NN of the site type's species list; PCT "NA" (null) when the seed has no PCT row or
+  the site overlaps the ORF; else `getPCT`; Conserved per thresholds.
 
 ## 4. Cross-check / Differential Oracle
 
@@ -75,9 +104,17 @@
 | PCT-TAB-02 | key: GAGGTAG / gaggtag found; 6 / 8 nt, family name, 6mer, offset-6mer not found; miR-601…609 seeds have no PCT | perl `s/T/U/gi` + hash lookup |
 | PCT-CTX-TAB | let-7a 7mer-m8, kit species "9031 9606 9615 10090 10116", bin-1 tree, no caller row | Bls 1.6379, PCT 0.0058 (kit), contribution −0.048×0.0058/0.364; caller row (0,1,1,0) ⇒ 0.8372 |
 | PCT-CTX-NA | miR-601 (GGUCUAG) 7mer-m8, no caller row | PCT NA ⇒ 0, contribution 0, not omitted |
+| PCT-ALN-KIT | kit `UTR_Sequences_sample.txt` × `miR_Family_info_sample.txt` (6 genes × 14 families, perl `sort keys` order) | all 213 rows of `targetscan_70_output.txt` verbatim (group numbers 1…121 continued over genes/families) |
+| PCT-ALN-BIN | kit alignment, generic tree | `UTRs_median_BLs_bins.txt`: CDC2L6 0.64763119 1, FNDC3A 1.48570309 2, LIN28B 1.12468545 1, LPHN1 0.64763119 1, NLRP1 0 1, ZNF197 0.28661355 1 (`%.15g` text equal) |
+| PCT-ALN-E2E | raw kit alignment → `ScoreTargetScanConservation` | every row of `targetscan_70_output.BL_PCT.txt`: UTR coords, group, Bls 213/213, PCT 161/161 (28 non-zero), 52 NA, Conserved 0 |
+| PCT-ALN-01 | constructed 9606/10090 alignment (masked lower-case/t/N/gap prefix, gapped 8mer, lower-case first letter vs letter after the site, final `tUACCUCA`) | 12 perl rows verbatim (ORF_overlap 0 / 1 by the shifted window; unpaired sites groups 6, 7) |
+| PCT-ALN-02 | species 1–5, gapped 8mer of 5 overlapping two existing groups | perl: groups {1,2,5} and {3,4} (not merged) |
+| PCT-ALN-03 | constructed 11-row alignment (lower case, short row, N, gaps, 99999 not in tree) | perl bins: 2.55195311, bin 3 |
+| PCT-ALN-04 | FNDC3A miR-1 8mer group, per-type lists → `ComputeBranchLengthScore(GetTargetScanBinTree(2), …)` | equals the end-to-end Bls; 8mer list 9606 9615 10090 10116, 7mer-m8 list adds 9031 |
 
 ## 5. Validation Checklist
 
 - [x] Stage A: formula, Bls definition, `getPCT` rules, rounding, thresholds and parameter-column order re-read in the perl and the kit.
 - [x] Stage B: perl run on the kit sample and on constructed inputs; library equal on every number above.
+- [x] WP-3: `targetscan_70.pl` (official 7.0 and mirror both reproduce the kit output) and `targetscan_70_BL_bins.pl` (+ Statistics::Lite) re-run; library equal on PCT-ALN rows.
 - [x] Targeted tier green (MiRna; the 4 MIRNA-PAIR duplex failures pre-date this unit — see B13.md), Mcp.Annotation green; heavy-tier PCT classes re-locked and green.

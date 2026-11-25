@@ -5,8 +5,9 @@ using Seqeron.Mcp.Chromosome.Tools;
 namespace Seqeron.Mcp.Chromosome.Tests;
 
 /// <summary>
-/// Tests for <c>find_tandem_repeats</c>. GenomeAssemblyAnalyzer.FindTandemRepeats reports tandem arrays
-/// with unit, copy number and purity. A pure "CAG" x 30 array is one repeat of unit "CAG", 30 copies.
+/// Tests for <c>find_tandem_repeats</c>. GenomeAssemblyAnalyzer.FindTandemRepeats runs Tandem Repeats Finder
+/// (Benson 1999) and reports consensus unit, copy number and purity (match fraction between adjacent copies).
+/// A pure "CAG" x 30 array is one repeat of unit "CAG", 30 copies.
 /// </summary>
 [TestFixture]
 public class FindTandemRepeatsTests
@@ -22,6 +23,7 @@ public class FindTandemRepeatsTests
         Assert.Throws<ArgumentException>(() => ChromosomeTools.FindTandemRepeats(seqs, minUnitLength: 0));
         Assert.Throws<ArgumentException>(() => ChromosomeTools.FindTandemRepeats(seqs, minUnitLength: 5, maxUnitLength: 2));
         Assert.Throws<ArgumentException>(() => ChromosomeTools.FindTandemRepeats(seqs, minCopies: 0));
+        Assert.Throws<ArgumentException>(() => ChromosomeTools.FindTandemRepeats(seqs, minScore: 0));
     }
 
     [Test]
@@ -41,5 +43,24 @@ public class FindTandemRepeatsTests
             Assert.That(r.End, Is.EqualTo(89));
             Assert.That(r.Purity, Is.EqualTo(1.0).Within(1e-9));
         });
+    }
+
+    [Test]
+    public void FindTandemRepeats_SubstitutedArray_ReportsTrfFractionalPurityAndMinScore()
+    {
+        // (ATG)x7 · ATC · (ATG)x7: TRF score 81, 40 of 42 adjacent-copy columns match.
+        string seq = Rep("ATG", 7) + "ATC" + Rep("ATG", 7);
+        var seqs = new List<NamedSequence> { new("s", seq) };
+
+        var r = ChromosomeTools.FindTandemRepeats(seqs, 2, 50, 3).Items.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That((r.Start, r.End, r.Unit), Is.EqualTo((0, 44, "ATG")));
+            Assert.That(r.Copies, Is.EqualTo(15.0).Within(1e-9));
+            Assert.That(r.Purity, Is.EqualTo(40.0 / 42.0).Within(1e-9));
+        });
+
+        // Minscore above the alignment score (81) rejects it.
+        Assert.That(ChromosomeTools.FindTandemRepeats(seqs, 2, 50, 3, minScore: 82).Items, Is.Empty);
     }
 }

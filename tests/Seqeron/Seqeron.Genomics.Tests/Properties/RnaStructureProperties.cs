@@ -558,7 +558,7 @@ public class RnaStructureProperties
     /// <summary>
     /// INV-1 (P + R): every reported inverted repeat has valid, non-overlapping arm coordinates of
     /// equal length with a loop in [minSpacing, maxSpacing], and its two arms are antiparallel
-    /// reverse complements (GetComplement(seq[Start2+m]) == seq[End1−m]). A sequence built to contain
+    /// reverse complements (CanPair(seq[Start2+m], seq[End1−m]), incl. G·U). A sequence built to contain
     /// a perfect stem yields at least one such repeat (non-vacuous).
     /// </summary>
     [FsCheck.NUnit.Property]
@@ -576,7 +576,7 @@ public class RnaStructureProperties
                 && r.Length >= 4
                 && (r.Start2 - r.End1 - 1) >= 3 && (r.Start2 - r.End1 - 1) <= 100
                 && Enumerable.Range(0, r.Length)
-                    .All(m => RnaSecondaryStructure.GetComplement(seq[r.Start2 + m]) == seq[r.End1 - m]));
+                    .All(m => RnaSecondaryStructure.CanPair(seq[r.Start2 + m], seq[r.End1 - m])));
             return allValid.Label("a reported repeat had invalid coordinates or non-complementary arms");
         });
     }
@@ -609,7 +609,7 @@ public class RnaStructureProperties
         {
             Assert.That(r.Length, Is.GreaterThanOrEqualTo(4));
             for (int m = 0; m < r.Length; m++)
-                Assert.That(RnaSecondaryStructure.GetComplement(seq[r.Start2 + m]), Is.EqualTo(seq[r.End1 - m]),
+                Assert.That(RnaSecondaryStructure.CanPair(seq[r.Start2 + m], seq[r.End1 - m]), Is.True,
                     $"arm position {m} not reverse-complementary");
         });
     }

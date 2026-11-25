@@ -39,17 +39,18 @@ public class GenomeAssemblyAnalyzer_MutationKillers2_Tests
     [Test]
     public void EstimateCompletenessFromKmers_PeakErrorAndSize()
     {
-        // Spectrum: AAA×4, CCC×4, GGG×2, TTT×1.
-        // Non-singleton mode → peak coverage 4; singleton ratio 1/4 = error 0.25;
-        // total k-mers 11 / peak 4 = size 2; solid (≥peak/2=2) = 3 of (4−1) distinct ⇒ completeness 1.
+        // Spectrum: AAA×4, CCC×4, GGG×2, TTT×1 ⇒ histogram 1:1, 2:1, 4:2. Slopes 0 then +1: the zero slope
+        // never gives d·prevD < 0, so Merqury's kmerHistToPloidyDepth finds no valley (filt = 0): no error
+        // k-mers ⇒ GenomeScope error 0; peak = mode 4; size = round(11/4) = 3 (oracle; B10 F44–F46).
+        // Without an assembly there is no Merqury completeness (NaN).
         var (completeness, errorRate, size) = EstimateCompletenessFromKmers(new[]
         {
             ("AAA", 4), ("CCC", 4), ("GGG", 2), ("TTT", 1),
         });
 
-        Assert.That(completeness, Is.EqualTo(1.0).Within(Tol));
-        Assert.That(errorRate, Is.EqualTo(0.25).Within(Tol));
-        Assert.That(size, Is.EqualTo(2L));
+        Assert.That(completeness, Is.NaN);
+        Assert.That(errorRate, Is.EqualTo(0.0).Within(Tol));
+        Assert.That(size, Is.EqualTo(3L));
     }
 
     #endregion
@@ -59,13 +60,14 @@ public class GenomeAssemblyAnalyzer_MutationKillers2_Tests
     [Test]
     public void FindTandemRepeats_PerfectDinucleotideRepeat()
     {
-        // (AT)×4 = 8 bp, perfect ⇒ purity 1.0.
-        var r = FindTandemRepeats(new[] { ("s", "ATATATAT") }).Single();
+        // (AT)×30 = 60 bp, perfect ⇒ TRF score 2·60 = 120 ≥ 50, 30 copies, purity 1.0
+        // (an 8-bp (AT)×4 scores 16 < Minscore 50 and is not a TRF repeat).
+        var r = FindTandemRepeats(new[] { ("s", string.Concat(Enumerable.Repeat("AT", 30))) }).Single();
         Assert.That(r.SequenceId, Is.EqualTo("s"));
         Assert.That(r.Start, Is.EqualTo(0));
-        Assert.That(r.End, Is.EqualTo(7));
+        Assert.That(r.End, Is.EqualTo(59));
         Assert.That(r.Unit, Is.EqualTo("AT"));
-        Assert.That(r.Copies, Is.EqualTo(4));
+        Assert.That(r.Copies, Is.EqualTo(30.0).Within(Tol));
         Assert.That(r.Purity, Is.EqualTo(1.0).Within(Tol));
     }
 
@@ -77,14 +79,15 @@ public class GenomeAssemblyAnalyzer_MutationKillers2_Tests
     public void CalculateLocalQuality_ExactWindowMetrics()
     {
         // "ACGTACGT": one window (len 8 < default 1000). GC = 4/8 = 0.5; N = 0;
-        // linguistic complexity = distinct 4-mers (4) / min(validKmers 5, 4^4) = 4/5 = 0.8.
+        // canonical linguistic complexity (Troyanskaya 2002; m = min(10, 8) = 8, a = 4):
+        // ΣV_i = 4+4+4+4+4+3+2+1 = 26, Σmin(4^i, 8−i+1) = 4+7+6+5+4+3+2+1 = 32 ⇒ 26/32.
         var q = CalculateLocalQuality(new[] { ("s", "ACGTACGT") }).Single();
         Assert.That(q.SequenceId, Is.EqualTo("s"));
         Assert.That(q.Position, Is.EqualTo(0));
         Assert.That(q.WindowSize, Is.EqualTo(8));
         Assert.That(q.GcContent, Is.EqualTo(0.5).Within(Tol));
         Assert.That(q.NCount, Is.EqualTo(0));
-        Assert.That(q.Complexity, Is.EqualTo(0.8).Within(Tol));
+        Assert.That(q.Complexity, Is.EqualTo(26.0 / 32.0).Within(Tol));
     }
 
     #endregion
@@ -97,7 +100,9 @@ public class GenomeAssemblyAnalyzer_MutationKillers2_Tests
         // One marker is present (its sequence is a substring of the assembly) and one is absent.
         string present = new string('A', 40) + new string('C', 40); // 80-bp marker, 80-bp kmers
         string assembly = present;                                    // identical ⇒ full coverage
-        string absent = new string('G', 80);                          // shares no k-mers
+        // Absent on both strands: (GT)40 and its reverse complement (AC)40 share no 28-mer with A40C40.
+        // (G80 would not do: its reverse complement C80 shares C40 ⇒ Fragmented on the '-' strand.)
+        string absent = string.Concat(Enumerable.Repeat("GT", 40));
 
         var r = AssessCompleteness(
             new[] { ("scaf", assembly) },

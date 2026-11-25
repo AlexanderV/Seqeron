@@ -66,16 +66,22 @@ public class MiRnaCombinatorialTests
         sites.Should().Contain(s => s.Type == expectedType, "the planted canonical site is classified correctly");
         var found = sites.First(s => s.Type == expectedType);
 
+        bool fitted = seedType != SeedType.Site6mer;   // TargetScan 5.0 (Grimson 2007) has no 6mer coefficients
         if (scoring == MiRnaScoring.SeedMatch)
         {
-            found.Score.Should().BeGreaterThan(0, "a canonical seed match scores positively");
+            if (fitted)
+                found.Score.Should().BeGreaterThan(0, "an 8mer / 7mer-m8 in an AU-rich 3'UTR is predicted repressed (negative context score)");
+            else
+                found.Score.Should().Be(0, "a 6mer has no fitted TargetScan 5.0 score");
             found.SeedMatchLength.Should().Be(expectedLen);
         }
         else
         {
-            var ctx = MiRnaAnalyzer.AnalyzeTargetContext(utr, found.Start, found.End);
+            var ctx = MiRnaAnalyzer.AnalyzeTargetContext(utr, found.Start, found.End, siteType: expectedType);
             ctx.AuContent.Should().BeInRange(0.0, 1.0);
-            ctx.ContextScore.Should().BeInRange(0.0, 1.0);
+            // UTR-context part of the Grimson (2007) score (local AU + position), log2 units: negative = repressed.
+            if (fitted) ctx.ContextScore.Should().BeInRange(-1.0, 0.0);
+            else ctx.ContextScore.Should().Be(0.0);
         }
     }
 
@@ -144,7 +150,7 @@ public class MiRnaCombinatorialTests
         int innerLen = 2 * stem + loop;
         string seq = new string('U', 10) + hairpin + new string('U', 10);
 
-        var found = MiRnaAnalyzer.FindPreMiRnaHairpins(seq, minH, maxH, matureLength: 22).ToList();
+        var found = MiRnaAnalyzer.FindPreMiRnaHairpins(seq, minH, maxH, matureLength: 22, useConsecutiveScreen: true).ToList();
 
         bool expected = stem >= 18 && loop is >= 3 and <= 25 && innerLen >= minH && innerLen <= maxH;
         found.Any(p => p.Sequence == hairpin)
@@ -168,7 +174,7 @@ public class MiRnaCombinatorialTests
         bool Found(int stem, int loop, int minH = 40)
         {
             string hp = new string('G', stem) + new string('A', loop) + new string('C', stem);
-            return MiRnaAnalyzer.FindPreMiRnaHairpins(new string('U', 10) + hp + new string('U', 10), minH, 200, 22)
+            return MiRnaAnalyzer.FindPreMiRnaHairpins(new string('U', 10) + hp + new string('U', 10), minH, 200, 22, useConsecutiveScreen: true)
                 .Any(p => p.Sequence == hp);
         }
 

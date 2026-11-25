@@ -10,6 +10,7 @@ Run with `python3 -I <file>`.
 | `emboss_merger_port.py` | ASSEMBLY-MERGE-001 | EMBOSS `merger.c` overlap conflict rule |
 | `gaps_oracle.py` | ASSEMBLY-GAPS-001 | QUAST `qutils.split_by_ns` (verbatim) + `--min-contig` filter; seqtk `stk_gap`; numpy median |
 | `musket_oracle.py` | ASSEMBLY-CORRECT-001 | Musket 1.1 `ParaCorrect` stages 1–3 (defects (a)/(b) corrected, see Evidence) |
+| `completeness_oracle.py` | ASSEMBLY-COMPLETE-001 | Merqury `kmerHistToPloidyDepth` (filt), `spectra-cn.sh` completeness, `qv.sh` QV; GenomeScope 1.0 `uniroot` error rate + `total_len`; BUSCO `hmmer.py` percentages/notation; compleasm v0.2.6 pass filter + `record_1st_gene_label`; Biopython 1.88 local alignment |
 
 The DBG (Rosalind BA3M) and consensus (Biopython 1.85 `dumb_consensus`) oracles are embedded in their Evidence files;
 the STATS oracle is QUAST `quast_libs/N50.py`, imported unchanged; the TRIM oracle is pip `cutadapt==5.2`

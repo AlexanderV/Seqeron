@@ -258,6 +258,7 @@ namespace Seqeron.Mcp.Analysis;
 [JsonSerializable(typeof(MinimumFreeEnergyResult))]
 [JsonSerializable(typeof(PredictRnaStructureResult))]
 [JsonSerializable(typeof(DetectPseudoknotsResult))]
+[JsonSerializable(typeof(PseudoknotOrdersResult))]
 [JsonSerializable(typeof(ParseDotBracketResult))]
 [JsonSerializable(typeof(ValidateDotBracketResult))]
 [JsonSerializable(typeof(FindRnaInvertedRepeatsItem))]

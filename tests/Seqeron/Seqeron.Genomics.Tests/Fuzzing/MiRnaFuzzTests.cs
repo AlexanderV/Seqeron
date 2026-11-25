@@ -641,7 +641,7 @@ public class MiRnaFuzzTests
         var let7a = CreateMiRna("let-7a", Let7aSequence);
         let7a.SeedSequence.Should().Be(Let7aSeed, "the positive probe starts from the canonical let-7a seed");
 
-        var sites = FindTargetSites(Let7aTarget8mer, let7a).ToList(); // default minScore 0.5
+        var sites = FindTargetSites(Let7aTarget8mer, let7a).ToList(); // default minScore 0.0
         sites.Should().NotBeEmpty("the 3'UTR carries a real complementary 8mer seed site");
 
         var eightMer = sites.Should().ContainSingle(s => s.Type == TargetSiteType.Seed8mer,
@@ -657,8 +657,9 @@ public class MiRnaFuzzTests
         eightMer.End.Should().Be(coreIdx + 6, "the 8mer ends at the A1 base opposite miRNA position 1 (INV-03)");
         eightMer.SeedMatchLength.Should().Be(8, "an 8mer site matches 8 seed positions (INV-02)");
         eightMer.MiRnaName.Should().Be("let-7a", "the site carries the supplied miRNA name");
-        eightMer.Score.Should().BeInRange(0.5, 1.0,
-            "the 8mer base score (1.0) clears the default minScore and stays clamped to [0,1] (INV-01)");
+        eightMer.ContextScore.Should().BeNull("1-based start 6 < 15: TargetScan reports too_close (no context score)");
+        eightMer.Score.Should().BeInRange(0.0, 1.0, "Score = max(0, −TargetScan 5.0 context score) stays in [0,1] (INV-01)");
+        eightMer.Score.Should().BeApproximately(Math.Max(0.0, -(eightMer.ContextScore ?? 0.0)), 1e-12);
         Let7aTarget8mer.Substring(eightMer.Start, eightMer.End - eightMer.Start + 1)
             .Should().Contain(sixmerCoreRC, "the reported span really carries the seed's 6mer-core RC");
 
@@ -742,22 +743,22 @@ public class MiRnaFuzzTests
         foreach (int len in new[] { 0, 1, 2, 10, 30, 53, 54 }) // all < default minHairpinLength (55)
         {
             string tooShort = new string('A', len);
-            var act = () => FindPreMiRnaHairpins(tooShort).ToList();
+            var act = () => FindPreMiRnaHairpins(tooShort, useConsecutiveScreen: true).ToList();
             var hits = act.Should().NotThrow(
                 $"a {len}-nt input is shorter than the 55-nt hairpin floor — the guard prevents any window overflow")
                 .Subject;
             hits.Should().BeEmpty($"a {len}-nt input cannot contain a 55-120 nt precursor (§3.3, §6.1)");
         }
 
-        FindPreMiRnaHairpins("").Should().BeEmpty("an empty sequence yields no precursor (§6.1)");
+        FindPreMiRnaHairpins("", useConsecutiveScreen: true).Should().BeEmpty("an empty sequence yields no precursor (§6.1)");
 
-        var actNull = () => FindPreMiRnaHairpins(null!).ToList();
+        var actNull = () => FindPreMiRnaHairpins(null!, useConsecutiveScreen: true).ToList();
         actNull.Should().NotThrow("a null sequence is treated as empty, not an error (§6.1)")
                .Subject.Should().BeEmpty("a null sequence yields no precursor (§6.1)");
 
         // Even a candidate of EXACTLY the right length but below the stem/loop thresholds is
         // rejected — too-short here also means too-short a stem. A 55-nt non-pairing run yields none.
-        FindPreMiRnaHairpins(new string('A', 55)).Should().BeEmpty(
+        FindPreMiRnaHairpins(new string('A', 55), useConsecutiveScreen: true).Should().BeEmpty(
             "a 55-nt homopolymer reaches the window floor but has no stem → no precursor");
     }
 
@@ -778,7 +779,7 @@ public class MiRnaFuzzTests
     {
         // Hand-built: every mirrored pair is A-vs-C (A:C never pairs) → stem stops at 0.
         string noStem = new string('A', 40) + new string('C', 40); // 80 nt, ends A…C never pair
-        var act0 = () => FindPreMiRnaHairpins(noStem).ToList();
+        var act0 = () => FindPreMiRnaHairpins(noStem, useConsecutiveScreen: true).ToList();
         act0.Should().NotThrow("a sequence with no complementary ends must not crash the scan")
             .Subject.Should().BeEmpty("no uninterrupted stem → no precursor (§4, §6.1)");
 
@@ -788,7 +789,7 @@ public class MiRnaFuzzTests
             foreach (int len in new[] { 60, 90, 120 })
             {
                 string raw = RandomRna(len, seed);
-                var act = () => FindPreMiRnaHairpins(raw).ToList();
+                var act = () => FindPreMiRnaHairpins(raw, useConsecutiveScreen: true).ToList();
                 var hits = act.Should().NotThrow(
                     $"a random {len}-nt sequence must not crash the precursor scan (seed {seed})").Subject;
 
@@ -820,7 +821,7 @@ public class MiRnaFuzzTests
             foreach (int len in new[] { 55, 60, 80, 120, 150 })
             {
                 string homo = new string(b, len);
-                var act = () => FindPreMiRnaHairpins(homo).ToList();
+                var act = () => FindPreMiRnaHairpins(homo, useConsecutiveScreen: true).ToList();
                 act.Should().NotThrow(
                     $"a {len}-nt all-'{b}' homopolymer must not crash the scan")
                     .Subject.Should().BeEmpty(
@@ -849,8 +850,8 @@ public class MiRnaFuzzTests
         string rnaHairpin = BuildHairpin(rnaStem, 16);  // 56 nt, stem 20, loop 16 → accepted
         string dnaHairpin = rnaHairpin.Replace('U', 'T').ToLowerInvariant(); // DNA + lowercase junk
 
-        var rnaHits = FindPreMiRnaHairpins(rnaHairpin).ToList();
-        var dnaHits = FindPreMiRnaHairpins(dnaHairpin).ToList();
+        var rnaHits = FindPreMiRnaHairpins(rnaHairpin, useConsecutiveScreen: true).ToList();
+        var dnaHits = FindPreMiRnaHairpins(dnaHairpin, useConsecutiveScreen: true).ToList();
         rnaHits.Should().NotBeEmpty("a perfect synthetic RNA hairpin is accepted as a precursor");
         dnaHits.Should().NotBeEmpty("the same hairpin spelled with DNA 'T' folds identically (T→U, §6.1)");
         dnaHits.Should().HaveCount(rnaHits.Count,
@@ -858,13 +859,13 @@ public class MiRnaFuzzTests
 
         // (b) Arbitrary junk content: digits, punctuation, whitespace, 'N' — never pairs, never crashes.
         string junk = new string('N', 30) + "12!! \t@#$%^&*()" + new string('N', 30); // ≥55 nt, non-pairing
-        var actJunk = () => FindPreMiRnaHairpins(junk).ToList();
+        var actJunk = () => FindPreMiRnaHairpins(junk, useConsecutiveScreen: true).ToList();
         var junkHits = actJunk.Should().NotThrow("garbage content must not crash the precursor scan").Subject;
         junkHits.Should().BeEmpty("non-canonical characters never pair → no stem → no precursor");
 
         // (c) A valid hairpin with junk flanking context is still found and well-formed.
         string flanked = "12!!##" + rnaHairpin + "$$%%NN";
-        var flankedHits = FindPreMiRnaHairpins(flanked).ToList();
+        var flankedHits = FindPreMiRnaHairpins(flanked, useConsecutiveScreen: true).ToList();
         flankedHits.Should().NotBeEmpty("a valid hairpin embedded in junk flanks is still detected");
         foreach (var p in flankedHits)
             AssertPreMiRnaShape(p, flanked.Length);
@@ -892,7 +893,7 @@ public class MiRnaFuzzTests
         string hairpin = BuildHairpin(stem5, loopLen); // 20 + 16 + 20 = 56 nt
         hairpin.Length.Should().Be(56, "the constructed hairpin sits inside the 55-120 nt precursor window");
 
-        var sites = FindPreMiRnaHairpins(hairpin).ToList();
+        var sites = FindPreMiRnaHairpins(hairpin, useConsecutiveScreen: true).ToList();
         sites.Should().NotBeEmpty("a perfect synthetic hairpin is accepted as a precursor (§6.1)");
 
         // Every reported candidate satisfies the full precursor contract.

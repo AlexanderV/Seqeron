@@ -23,7 +23,7 @@
       "auContent": { "type": "number", "description": "Fraction of A/U bases in the context window (0-1)" },
       "nearStart": { "type": "boolean", "description": "True if the site starts within the first 15% of the transcript" },
       "nearEnd": { "type": "boolean", "description": "True if the site ends within the last 15% of the transcript" },
-      "contextScore": { "type": "number", "description": "Favourability score in [0,1]: 0.5*auContent + 0.3 mid-transcript bonus, capped at 1" }
+      "contextScore": { "type": "number", "description": "Local-AU + position contribution of the TargetScan 5.0 (Grimson 2007) context score, log2 units, negative = repressed; 0 when nearStart" }
     },
     "required": ["auContent", "nearStart", "nearEnd", "contextScore"]
   },
@@ -34,13 +34,13 @@
   "examples": [
     {
       "name": "AU-rich mid-transcript site",
-      "input": { "mRnaSequence": "AAAAAAAAAAAAAAAAAAAA", "targetStart": 8, "targetEnd": 11, "contextWindow": 30 },
-      "output": { "auContent": 1.0, "nearStart": false, "nearEnd": false, "contextScore": 0.8 }
+      "input": { "mRnaSequence": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "targetStart": 40, "targetEnd": 50, "contextWindow": 30 },
+      "output": { "auContent": 1.0, "nearStart": false, "nearEnd": false, "contextScore": -0.264 }
     },
     {
       "name": "GC-rich mid-transcript site",
-      "input": { "mRnaSequence": "GCGCGCGCGCGCGCGCGCGC", "targetStart": 8, "targetEnd": 11, "contextWindow": 30 },
-      "output": { "auContent": 0.0, "nearStart": false, "nearEnd": false, "contextScore": 0.3 }
+      "input": { "mRnaSequence": "GCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGC", "targetStart": 40, "targetEnd": 50, "contextWindow": 30 },
+      "output": { "auContent": 0.0, "nearStart": false, "nearEnd": false, "contextScore": 0.236 }
     }
   ]
 }

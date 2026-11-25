@@ -30,6 +30,8 @@ public class FindSyntenicBlocksAssembliesTests
         Assert.Throws<ArgumentException>(() => ChromosomeTools.FindSyntenicBlocksAssemblies(a, null!));
         Assert.Throws<ArgumentException>(() => ChromosomeTools.FindSyntenicBlocksAssemblies(a, a, minBlockSize: 0));
         Assert.Throws<ArgumentException>(() => ChromosomeTools.FindSyntenicBlocksAssemblies(a, a, kmerSize: 0));
+        Assert.Throws<ArgumentException>(() => ChromosomeTools.FindSyntenicBlocksAssemblies(a, a, maxGap: -1));
+        Assert.Throws<ArgumentException>(() => ChromosomeTools.FindSyntenicBlocksAssemblies(a, a, diagonalDifference: -1));
     }
 
     [Test]
@@ -45,7 +47,30 @@ public class FindSyntenicBlocksAssembliesTests
             Assert.That(b.Seq1, Is.EqualTo("s1"));
             Assert.That(b.Seq2, Is.EqualTo("s1"));
             Assert.That(b.Start1, Is.EqualTo(0));
+            Assert.That(b.End1, Is.EqualTo(4999));
+            Assert.That(b.Start2, Is.EqualTo(0));
+            Assert.That(b.End2, Is.EqualTo(4999));
             Assert.That(b.IsInverted, Is.False);
         });
+    }
+
+    [Test]
+    public void FindSyntenicBlocksAssemblies_InvertedSegment_IsFlaggedAndOptionsForwarded()
+    {
+        // query = A + RC(B) + C with 150-bp random segments (oracle compare_oracle.py: [0,149] +, [150,299] −, [300,449] +).
+        const string a = "CTGTTTCTGTCCATTAGGTGCAGGTATAGGACACCTCACTTCTCCATCGTTTTGATTGCGTGAATCTCTGGGGAAGTTTTCTGGTTACGTGCTGGCGGATACACCCGCCCGGGCCTGAAAACGTTGTGACATTCCATTATCGGACTATCT";
+        const string b = "TAACCTGAACGATGAGCACTAGGTATCGTGCTTCGATATTGCCGTATGGAGGGGGTGGGGCTCGGCATAGATACAAAGAACCTGAGCCGATAACCTATTCTTAGCCTCCACGGTAGTCCTGTCCCTTTGGGCGAACTACTGGGCGCTAAT";
+        const string c = "TACACTTCCGATGAACATAAGCAAAGGCCAGTGAGAGCCCCGACCCTGGGATATCGCCTAAAGATGGAGTAGGGGTAAACTTGGAAGGACGTCGGTCCTCGGACTCTGTGTGGTGATAAAGCGGGGTGCGTGCTCCGTGTCACGTTGCCG";
+        string rcB = new string(b.Reverse().Select(ch => ch switch { 'A' => 'T', 'C' => 'G', 'G' => 'C', _ => 'A' }).ToArray());
+        var asm1 = new List<NamedSequence> { new("r", a + b + c) };
+        var asm2 = new List<NamedSequence> { new("q", a + rcB + c) };
+        var items = ChromosomeTools.FindSyntenicBlocksAssemblies(asm1, asm2, 65, 20).Items;
+        Assert.That(items.Select(i => (i.Start1, i.End1, i.Start2, i.End2, i.IsInverted)), Is.EqualTo(new[]
+        {
+            (0, 149, 0, 149, false), (150, 299, 150, 299, true), (300, 449, 300, 449, false),
+        }));
+        // diagonal/gap options are forwarded: --mum gives the same blocks for unique sequences
+        var both = ChromosomeTools.FindSyntenicBlocksAssemblies(asm1, asm2, 65, 20, uniqueInBoth: true).Items;
+        Assert.That(both, Has.Count.EqualTo(3));
     }
 }

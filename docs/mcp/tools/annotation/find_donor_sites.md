@@ -30,7 +30,7 @@ Scans a sequence for 5' splice donor sites at every GU/GT dinucleotide (GC too w
 
 ## Core Documentation Reference
 
-- Source: [SpliceSitePredictor.cs#L348](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/SpliceSitePredictor.cs#L348)
+- Source: [SpliceSitePredictor.cs#L445](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/SpliceSitePredictor.cs#L348)
 
 ## Input Schema
 

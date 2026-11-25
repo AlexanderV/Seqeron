@@ -5,22 +5,23 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "GenomeAssemblyAnalyzer.FindTandemRepeats",
-  "docRef": "Seqeron.Genomics.Chromosome/GenomeAssemblyAnalyzer.cs#L753",
-  "description": "Identify tandem repeats; returns repeat unit, copy number and purity per occurrence.",
+  "docRef": "Seqeron.Genomics.Chromosome/GenomeAssemblyAnalyzer.cs#L1367",
+  "description": "Find approximate tandem repeats with Tandem Repeats Finder (Benson 1999; match 2, mismatch 7, indel 7, PM 80, PI 10): consensus unit, copy number and fraction of matches between adjacent copies per repeat.",
   "inputSchema": {
     "type": "object",
     "properties": {
       "sequences": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string" }, "sequence": { "type": "string" } }, "required": ["id", "sequence"] } },
       "minUnitLength": { "type": "integer", "default": 2, "exclusiveMinimum": 0 },
       "maxUnitLength": { "type": "integer", "default": 50, "description": "Must be >= minUnitLength." },
-      "minCopies": { "type": "integer", "default": 3, "exclusiveMinimum": 0 }
+      "minCopies": { "type": "integer", "default": 3, "exclusiveMinimum": 0 },
+      "minScore": { "type": "integer", "default": 50, "exclusiveMinimum": 0, "description": "TRF Minscore." }
     },
     "required": ["sequences"]
   },
   "outputSchema": {
     "type": "object",
     "properties": {
-      "items": { "type": "array", "items": { "type": "object", "properties": { "sequenceId": { "type": "string" }, "start": { "type": "integer" }, "end": { "type": "integer" }, "unit": { "type": "string" }, "copies": { "type": "integer" }, "purity": { "type": "number" } }, "required": ["sequenceId", "start", "end", "unit", "copies", "purity"] } }
+      "items": { "type": "array", "items": { "type": "object", "properties": { "sequenceId": { "type": "string" }, "start": { "type": "integer" }, "end": { "type": "integer" }, "unit": { "type": "string" }, "copies": { "type": "number" }, "purity": { "type": "number" } }, "required": ["sequenceId", "start", "end", "unit", "copies", "purity"] } }
     },
     "required": ["items"]
   },
@@ -28,7 +29,8 @@
     { "code": 1001, "message": "Sequences cannot be null" },
     { "code": 1002, "message": "Minimum unit length must be positive" },
     { "code": 1003, "message": "Maximum unit length must be >= minimum unit length" },
-    { "code": 1004, "message": "Minimum copies must be positive" }
+    { "code": 1004, "message": "Minimum copies must be positive" },
+    { "code": 1005, "message": "Minimum score must be positive" }
   ],
   "examples": [
     { "name": "CAG triplet array", "input": { "sequences": [ { "id": "s", "sequence": "CAGCAG…(×30)" } ], "minUnitLength": 2, "maxUnitLength": 50, "minCopies": 3 }, "output": { "items": [ { "sequenceId": "s", "start": 0, "end": 89, "unit": "CAG", "copies": 30, "purity": 1.0 } ] } }

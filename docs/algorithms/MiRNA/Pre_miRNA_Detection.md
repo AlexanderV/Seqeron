@@ -5,8 +5,8 @@
 | Algorithm Group | MiRNA |
 | Test Unit ID | MIRNA-PRECURSOR-001 |
 | Related Projects | Seqeron.Genomics.Annotation |
-| Implementation Status | Simplified (default heuristic) + Production (opt-in MFE fold + opt-in trained classifier) |
-| Last Reviewed | 2026-11-25 (B13 review: F8–F10) |
+| Implementation Status | Production (default MFE fold, F40) + opt-in consecutive-pairing screen + opt-in trained classifier |
+| Last Reviewed | 2026-11-25 (B13 review: F8–F10, F40) |
 
 ## 1. Overview
 
@@ -32,7 +32,7 @@ $$
 \{A\!-\!U,\; U\!-\!A,\; G\!-\!C,\; C\!-\!G,\; G\!-\!U,\; U\!-\!G\}
 $$
 
-The current acceptance criteria are:
+The acceptance criteria of the opt-in screen (`useConsecutiveScreen: true`) are:
 
 - stem length $\ge 18$ bp,
 - loop length $= n - 2 \times \text{stem length}$ with $3 \le \text{loop length} \le 25$,
@@ -53,9 +53,10 @@ applied to both helix ends, including the pair closing the loop (NNDB 2004 hairp
 perfect hairpin this structure is the MFE structure and the energy equals
 `RnaSecondaryStructure.CalculateMinimumFreeEnergy`.
 
-#### 2.2.1 Opt-in MFE-structure-based assessment (default unchanged)
+#### 2.2.1 MFE-structure-based detection (the default since F40)
 
-`AssessHairpinByMfe` / `FindPreMiRnaHairpinsByMfe` replace the consecutive-pairing scan with the
+`FindPreMiRnaHairpins` (default, `useConsecutiveScreen = false`) is `FindPreMiRnaHairpinsByMfe` with each accepted
+window mapped onto the `PreMiRna` record (below); `AssessHairpinByMfe` / `FindPreMiRnaHairpinsByMfe` replace the consecutive-pairing scan with the
 **real** minimum-free-energy secondary structure produced by the validated Zuker–Stiegler folder
 (`RnaSecondaryStructure.CalculateMfeStructure`, RNA-STRUCT-001, Turner 2004 NN model) [3][6]. The
 candidate is folded once; its hairpin features are read from the ACTUAL MFE dot-bracket:
@@ -77,6 +78,21 @@ path detects natural miRBase precursors (e.g. hsa-mir-21, hsa-let-7a-1) that the
 heuristic rejects. $\Delta G^\circ$ is taken from the engine's `CalculateMinimumFreeEnergy`
 verbatim; MFEI uses $|\Delta G^\circ|$ so the published "MFEI > 0.85" threshold applies to the
 folder's negative $\Delta G^\circ$.
+
+**Mapping onto `PreMiRna` (default mode).** `Structure` / `FreeEnergy` are the canonical MFE dot-bracket and
+$\Delta G^\circ$ of the window. A window carries no basal-junction knowledge, so the Drosha ruler of
+`PredictDroshaDicerCleavage` cannot be applied; the window is read as the Drosha product (the pre-miRNA):
+the **mature** (5p) product starts at the 5′ base of the outermost pair of the MFE stem and is
+`matureLength` (22) nt long (Dicer 5′ counting, Park et al. 2011), capped at the 5′ arm; the **star** is the
+opposite-arm product of the Dicer 2-nt-3′-overhang rule — the same miRDeep2 `find_star` code as
+`PredictDroshaDicerCleavage` (Friedländer et al. 2008): start = partner(mature end − 2 − off) − off, end =
+partner(mature start) + 2, clipped to the window. These are arm-dominant stem ends, not an annotated
+guide/passenger call; for processing-accurate coordinates of a known pri-miRNA use `PredictDroshaDicerCleavage`
+with the junction. Oracle (ViennaRNA 2.8 `RNA.fold`, 5 miRBase pri-miRNA hairpins, all 554 accepted windows):
+identical dot-bracket in every window, |ΔG° − Vienna| ≤ 0.53 kcal/mol (best windows: mir-21 −35.17/−34.70,
+let-7a-1 −34.31/−34.20, mir-16-1 −37.05/−37.00, mir-155 −29.76/−29.50, mir-30a −37.37/−37.20).
+**Cost:** every window is folded (≈ 20 ms for 55–120 nt, O(#windows · W³)); the scan is parallelised over window
+starts with deterministic ordered output. `useConsecutiveScreen: true` restores the fast screen.
 
 #### 2.2.2 Opt-in Drosha/Dicer cleavage-site prediction (default unchanged)
 
@@ -114,9 +130,9 @@ for mir-16-1 and mir-30a, the two of these five that Auyeung et al. name as CNNC
 
 | ID | Assumption | Consequence if Violated |
 |----|------------|--------------------------|
-| ASM-01 | Candidate stems are approximated by uninterrupted end-to-end pairing with no internal bulges or mismatches. | Natural pre-miRNAs with internal loops or asymmetric bulges can be missed even if they are biologically valid. |
-| ASM-02 | The reported energy is the full Turner 2004 energy of the reported (consecutive-stem) structure, not the MFE of the window. | For windows whose MFE fold differs (bulges, internal loops), the energy is that of the consecutive stem; use the opt-in MFE path for the optimal fold. |
-| ASM-03 | The mature product is extracted from the 5' arm and the star sequence from the mirrored 3' arm. | Valid precursors whose dominant mature product comes from the opposite arm are represented asymmetrically. |
+| ASM-01 | (Screen mode only, `useConsecutiveScreen: true`.) Candidate stems are approximated by uninterrupted end-to-end pairing with no internal bulges or mismatches. The default mode does not make this assumption (MFE fold, F40). | Natural pre-miRNAs with internal loops or asymmetric bulges (e.g. hsa-mir-21, hsa-let-7a-1) are missed by the screen. |
+| ASM-02 | (Screen mode.) The reported energy is the full Turner 2004 energy of the reported (consecutive-stem) structure, not the MFE of the window; the default mode reports the MFE. | For windows whose MFE fold differs (bulges, internal loops), the energy is that of the consecutive stem; use the opt-in MFE path for the optimal fold. |
+| ASM-03 | The mature product is extracted from the 5' arm (default mode: from the outermost pair, 22 nt, star by the 2-nt-overhang find_star rule; screen mode: first/last `matureLength` nt of the window, blunt). | Valid precursors whose dominant mature product comes from the opposite arm are represented asymmetrically. |
 
 ### 2.4 Properties and Invariants
 
@@ -191,8 +207,8 @@ The pairing test accepts both Watson-Crick and G:U wobble pairs, but the uninter
 
 **Implementation location:** [MiRnaAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/MiRnaAnalyzer.cs)
 
-- `MiRnaAnalyzer.FindPreMiRnaHairpins(string, int, int, int)`: Public precursor scan over all candidate windows (default consecutive-pairing heuristic).
-- `MiRnaAnalyzer.AnalyzeHairpin(string, int)`: Private validator that checks stem continuity, loop size, arm extraction, and structure generation.
+- `MiRnaAnalyzer.FindPreMiRnaHairpins(string, int, int, int, bool useConsecutiveScreen = false, double minMfei = 0.85)`: Public precursor scan over all candidate windows (default MFE fold via `FindPreMiRnaHairpinsByMfe` + `ToPreMiRna`; `useConsecutiveScreen: true` = consecutive-pairing screen).
+- `MiRnaAnalyzer.AnalyzeHairpin(string, int)`: Private validator of the screen mode that checks stem continuity, loop size, arm extraction, and structure generation.
 - `MiRnaAnalyzer.FindPreMiRnaHairpinsByMfe(string, int, int, double, int)`: Opt-in precursor scan that folds each candidate window with the RNA-STRUCT-001 MFE engine.
 - `MiRnaAnalyzer.AssessHairpinByMfe(string, double, int)`: Opt-in single-candidate assessment from the real MFE structure (single hairpin + stem≥16 + loop 3–25 + MFEI≥0.85).
 - `MiRnaAnalyzer.CalculateMfeIndex(double, int, double)`: MFEI = AMFE/(G+C)%, AMFE = 100·|ΔG°|/length (Zhang 2006).
@@ -205,7 +221,7 @@ The pairing test accepts both Watson-Crick and G:U wobble pairs, but the uninter
 
 ### 5.2 Current Behavior
 
-The implementation searches candidates exhaustively rather than folding the full transcript once. Stem detection is based on uninterrupted end-to-end pairing, so the counter stops at the first mirrored mismatch and does not resume across bulges or internal loops; it is not truncated otherwise (the former unsourced `min(n/2 − 5, 35)` cap, which forced every reported loop to ≥ 10 nt and rejected perfect stems > 35 bp, was removed in B13 F9). `MatureSequence` is always taken from the 5' arm beginning at the candidate start, and `StarSequence` is the mirrored 3' arm segment it base-pairs with (a blunt duplex label, not Dicer's 2-nt 3'-overhang product — see `PredictDroshaDicerCleavage` for processing coordinates). Structure and energy come from the canonical `RnaSecondaryStructure` stem-loop (B13 F8; previously an inline stacking + initiation + mismatch sum without special loops or first-mismatch bonuses).
+By default (F40) every window is folded with the canonical MFE engine and accepted by the Ambros/Bartel/Zhang criteria (§2.2.1). In `useConsecutiveScreen: true` mode the implementation searches candidates exhaustively rather than folding. Stem detection is based on uninterrupted end-to-end pairing, so the counter stops at the first mirrored mismatch and does not resume across bulges or internal loops; it is not truncated otherwise (the former unsourced `min(n/2 − 5, 35)` cap, which forced every reported loop to ≥ 10 nt and rejected perfect stems > 35 bp, was removed in B13 F9). `MatureSequence` is always taken from the 5' arm beginning at the candidate start, and `StarSequence` is the mirrored 3' arm segment it base-pairs with (a blunt duplex label, not Dicer's 2-nt 3'-overhang product — see `PredictDroshaDicerCleavage` for processing coordinates). Structure and energy come from the canonical `RnaSecondaryStructure` stem-loop (B13 F8; previously an inline stacking + initiation + mismatch sum without special loops or first-mismatch bonuses).
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -255,7 +271,7 @@ The implementation searches candidates exhaustively rather than folding the full
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
 | 1 | Mature-strand extraction is fixed to the 5' arm. | Assumption | Precursors whose dominant mature product derives from the opposite arm are represented asymmetrically. | accepted | See ASM-03. |
-| 2 | Uninterrupted stem pairing is stricter than natural pre-miRNA structure. | Deviation | Real miRBase precursors with bulges or internal mismatches can be rejected. | accepted | See ASM-01. |
+| 2 | Uninterrupted stem pairing (screen mode only) is stricter than natural pre-miRNA structure. | Deviation | Real miRBase precursors with bulges are rejected by the screen; the default MFE mode detects them. | resolved by default (F40) | See ASM-01. |
 
 ## 6. Edge Cases and Limitations
 
@@ -272,10 +288,10 @@ The implementation searches candidates exhaustively rather than folding the full
 
 ### 6.2 Limitations
 
-The **default** `FindPreMiRnaHairpins` is deliberately stricter than natural pre-miRNA folding: it
+The opt-in screen mode of `FindPreMiRnaHairpins` (`useConsecutiveScreen: true`; the default before F40) is deliberately stricter than natural pre-miRNA folding: it
 does not tolerate internal bulges, asymmetric loops, pseudoknots, or arm ambiguity, and therefore
 can miss bona fide miRBase precursors that do not exhibit uninterrupted end-to-end pairing. The
-**opt-in** `FindPreMiRnaHairpinsByMfe` / `AssessHairpinByMfe` remove that bulge-intolerance by
+**default** MFE mode (`FindPreMiRnaHairpinsByMfe` / `AssessHairpinByMfe`) removes that bulge-intolerance by
 folding each candidate with the validated Zuker–Stiegler MFE engine and reading the hairpin from the
 real MFE structure (detecting e.g. hsa-mir-21 and hsa-let-7a-1). The opt-in
 `PredictDroshaDicerCleavage` adds Drosha/Dicer cleavage-site (mature/star excision-coordinate)

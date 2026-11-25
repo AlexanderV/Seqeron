@@ -82,14 +82,15 @@ public class MiRnaAnalyzerTests
     }
 
     [Test]
-    public void AnalyzeTargetContext_EndPosition_ScoresAboveMiddle()
+    public void AnalyzeTargetContext_EndPosition_MoreRepressedThanMiddle()
     {
-        // Grimson et al. (2007): sites away from the centre of the UTR are more effective.
+        // Grimson et al. (2007): sites away from the centre of the UTR are more effective, i.e. a more negative
+        // (TargetScan 5.0 position contribution −0.033 mid-UTR vs −0.037 four nt from the end).
         string mrna = new string('A', 100);
         var contextMiddle = AnalyzeTargetContext(mrna, 40, 50);
         var contextEnd = AnalyzeTargetContext(mrna, 90, 95);
 
-        Assert.That(contextEnd.ContextScore, Is.GreaterThan(contextMiddle.ContextScore));
+        Assert.That(contextEnd.ContextScore, Is.LessThan(contextMiddle.ContextScore));
     }
 
     [Test]

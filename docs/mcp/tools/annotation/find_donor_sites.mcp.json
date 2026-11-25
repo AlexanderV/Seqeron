@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SpliceSitePredictor.FindDonorSites",
-  "docRef": "Seqeron.Genomics.Annotation/SpliceSitePredictor.cs#L348",
+  "docRef": "Seqeron.Genomics.Annotation/SpliceSitePredictor.cs#L445",
   "description": "Find candidate 5' (donor) splice sites: GT/GU (optional GC) scored with the Shapiro & Senapathy (1987) 5' ss score over -2..+6 (score/100) or MaxEntScan score5 (bits); optional U12-type /RTATCCTY donors.",
   "inputSchema": {
     "type": "object",

@@ -9,7 +9,9 @@
 // -6.720 for 7mer-1a/6mer, TA 3.393). RNAplfold -L 40 -W 80 -u 20 was run as ViennaRNA 2.8.0
 // RNA.pfl_fold_up(seq, 20, 80, 40) written in _lunp format; the l=14 values the perl reads (rows 38, 89,
 // 131) are passed here as PlfoldUnpairedProbability. The perl output columns (each contribution
-// printed with 3 decimals, then the context++ score) are locked below.
+// printed with 3 decimals, then the context++ score) are locked below. B13 F33/F34 (WP-4/5): the same rows with
+// no caller TA/SPS (bundled table) and with only an ORF sequence (targetscan_count_8mers.pl → 1500 nt, 1 8mer);
+// whole-kit checks against TargetScan7_context_scores.zip (targetscan_70_context_scores_output.txt, ORF files).
 
 using static Seqeron.Genomics.Annotation.MiRnaAnalyzer;
 
@@ -193,5 +195,220 @@ public class MiRnaAnalyzer_ContextPlusPlusTargetScanParity_Tests
         // A 7mer-m8 starting at n-8 has row (n-8)+1+7 = n: the same window [n-14 .. n-1].
         double pAtLastRow = MiRnaAnalyzer.SaContribution(utr, n - 8, s.Type, out _);
         Assert.That(sa, Is.EqualTo(pAtLastRow).Within(1e-12));
+    }
+
+    // ── B13 F33: TA / SPS from the bundled TargetScan TA_SPS_by_seed_region.txt ─────────────────────
+
+    // Every row of the kit's own output (TargetScan7_context_scores.zip, targetscan_70_context_scores_output.txt,
+    // 675 rows → 158 distinct (miRNA, site type, TA, SPS)): the bundled table + the Agarwal scaling give the
+    // printed TA and SPS contributions.
+    [Test]
+    public void KitOutput_AllRows_TaAndSpsContributions_FromBundledTable_EqualTargetScan()
+    {
+        Assert.That(MiRnaContextTargetScanKitData.TaSpsRows, Has.Length.EqualTo(158));
+        Assert.Multiple(() =>
+        {
+            foreach (var (mature, type, perlTa, perlSps) in MiRnaContextTargetScanKitData.TaSpsRows)
+            {
+                string seed = mature.Substring(1, 7);
+                Assert.That(TryGetTargetScanTaSps(seed, type, out double ta, out double sps), Is.True, seed);
+                Assert.That(MiRnaAnalyzer.RoundPerl3(MiRnaAnalyzer.TaContribution(ta, type)), Is.EqualTo(perlTa).Within(1e-12),
+                    $"TA {mature} {type}");
+                Assert.That(MiRnaAnalyzer.RoundPerl3(MiRnaAnalyzer.SpsContribution(sps, type)), Is.EqualTo(perlSps).Within(1e-12),
+                    $"SPS {mature} {type}");
+            }
+        });
+    }
+
+    // Rows copied by hand from TA_SPS_by_seed_region.txt (seed, SPS 8mer/7mer-m8, SPS 7mer-1a/6mer, TA): first,
+    // last and three inner rows, so the base-4 indexing and the column order are both checked.
+    [TestCase("AAAAAAA", -0.590, 0.340, 4.371)]
+    [TestCase("AAAAAAU", -0.760, 0.340, 4.301)]
+    [TestCase("ACGUACG", -8.230, -5.870, 2.362)]
+    [TestCase("CCCCCCC", -15.470, -12.210, 3.298)]
+    [TestCase("GAGGUAG", -9.250, -6.720, 3.393)]
+    [TestCase("UGUGCUU", -7.900, -6.970, 3.523)]
+    [TestCase("UUUUUUU", -0.590, 0.340, 4.075)]
+    public void BundledTaSpsTable_SpotRows_EqualSourceFile(string seed, double sps1, double sps2, double ta)
+    {
+        Assert.Multiple(() =>
+        {
+            foreach (var (type, sps) in new[] { (TargetSiteType.Seed8mer, sps1), (TargetSiteType.Seed7merM8, sps1),
+                         (TargetSiteType.Seed7merA1, sps2), (TargetSiteType.Seed6mer, sps2) })
+            {
+                Assert.That(TryGetTargetScanTaSps(seed, type, out double gotTa, out double gotSps), Is.True);
+                Assert.That(gotTa, Is.EqualTo(ta), $"TA {type}");
+                Assert.That(gotSps, Is.EqualTo(sps), $"SPS {type}");
+            }
+        });
+    }
+
+    [Test]
+    public void TargetScanTaSpsLookup_KeyNormalisation_AndMisses()
+    {
+        Assert.That(TargetScanTaSpsSeedRegionCount, Is.EqualTo(16384));
+        Assert.That(TryGetTargetScanTaSps("gaggtag", TargetSiteType.Seed8mer, out double ta, out double sps), Is.True,
+            "T read as U, lower case upper-cased");
+        Assert.That((ta, sps), Is.EqualTo((3.393, -9.25)));
+        Assert.That(TryGetTargetScanTaSps("GAGGNAG", TargetSiteType.Seed8mer, out _, out _), Is.False, "N has no row");
+        Assert.That(TryGetTargetScanTaSps("GAGGUA", TargetSiteType.Seed8mer, out _, out _), Is.False, "6 nt");
+        Assert.That(TryGetTargetScanTaSps("GAGGUAG", TargetSiteType.Offset6mer, out _, out _), Is.False,
+            "no SPS column for a non-canonical type");
+        Assert.Throws<ArgumentNullException>(() => TryGetTargetScanTaSps(null!, TargetSiteType.Seed8mer, out _, out _));
+    }
+
+    // The worked example without any caller TA / SPS: the TA and SPS columns and the context++ score equal the perl
+    // run (which always reads the table), i.e. the PerlRows above with Sps/Ta left null.
+    [TestCaseSource(nameof(PerlRows))]
+    public void ScoreTargetSiteContextPlusPlus_NoCallerTaSps_BundledRow_ReproducesTargetScanPerlOutput(
+        TargetSiteType type, int utrStart1, double plfold, double[] perlColumns, double perlScore)
+    {
+        var c = ScoreTargetSiteContextPlusPlus(Utr, Let7a, Site(type),
+            new ContextPlusPlusInputs(OrfLength: 1500, Orf8mCount: 1, PlfoldUnpairedProbability: plfold));
+        Assert.Multiple(() =>
+        {
+            Assert.That(MiRnaAnalyzer.RoundPerl3(c.TaContribution), Is.EqualTo(perlColumns[12]).Within(1e-12), "TA");
+            Assert.That(MiRnaAnalyzer.RoundPerl3(c.SpsContribution), Is.EqualTo(perlColumns[13]).Within(1e-12), "SPS");
+            Assert.That(c.ContextScore, Is.EqualTo(perlScore).Within(1e-12), "context++ score column");
+            Assert.That(c.OmittedFeatures, Has.None.StartsWith("SPS").And.None.StartsWith("TA_3UTR"));
+        });
+    }
+
+    // A caller value still overrides the table, per feature: TA 4.4 (8mer) → 0.222 × (4.4 − 3.113)/(3.865 − 3.113),
+    // while SPS keeps the bundled row.
+    [Test]
+    public void ScoreTargetSiteContextPlusPlus_CallerTa_OverridesBundledRow_SpsStaysBundled()
+    {
+        var site = Site(TargetSiteType.Seed8mer);
+        var bundled = ScoreTargetSiteContextPlusPlus(Utr, Let7a, site);
+        var withTa = ScoreTargetSiteContextPlusPlus(Utr, Let7a, site, new ContextPlusPlusInputs(Ta: 4.4));
+        Assert.Multiple(() =>
+        {
+            Assert.That(withTa.TaContribution, Is.EqualTo(0.222 * (4.4 - 3.113) / (3.865 - 3.113)).Within(1e-12));
+            Assert.That(withTa.SpsContribution, Is.EqualTo(bundled.SpsContribution));
+            Assert.That(bundled.SpsContribution, Is.EqualTo(0.210 * (-9.25 + 11.13) / (-5.52 + 11.13)).Within(1e-12));
+        });
+    }
+
+    // ── B13 F34: Len_ORF / ORF8m from an ORF sequence, as targetscan_count_8mers.pl ──────────────────
+
+    // The kit's ORF rows (aligned, with gaps, lower case): our length and 8mer counts equal the kit's
+    // ORF_Sequences_sample.lengths.txt and ORF_8mer_counts_sample.txt (the script's output, reproduced by
+    // re-running it) for all 14 family seeds of miR_Family_info_sample.txt.
+    [Test]
+    public void KitOrfs_LengthAndEightmerCounts_EqualTargetScanCountScript()
+    {
+        Assert.Multiple(() =>
+        {
+            foreach (var (gene, species, orf, length, counts) in MiRnaContextTargetScanKitData.Orfs)
+            {
+                Assert.That(MiRnaAnalyzer.TargetScanOrfLength(orf), Is.EqualTo(length), $"{gene} {species} length");
+                foreach (var (seed, count) in counts)
+                    Assert.That(CountTargetScanOrf8merSites(orf, seed), Is.EqualTo(count), $"{gene} {species} {seed}");
+            }
+        });
+    }
+
+    // Every kit output row of those genes: Len_ORF and ORF8m contributions from the ORF sequence equal the
+    // printed columns (91 distinct rows; non-zero ORF8m for miR-1 / miR-10 / miR-604 families).
+    [Test]
+    public void KitOutput_OrfRows_LenOrfAndOrf8mContributions_FromOrfSequence_EqualTargetScan()
+    {
+        var orfs = MiRnaContextTargetScanKitData.Orfs.ToDictionary(o => (o.Gene, o.Species), o => o.Orf);
+        Assert.That(MiRnaContextTargetScanKitData.OrfRows, Has.Length.EqualTo(91));
+        Assert.That(MiRnaContextTargetScanKitData.OrfRows.Count(r => r.Orf8m != 0), Is.GreaterThanOrEqualTo(4));
+        Assert.Multiple(() =>
+        {
+            foreach (var (gene, species, mature, type, perlLenOrf, perlOrf8m) in MiRnaContextTargetScanKitData.OrfRows)
+            {
+                string orf = orfs[(gene, species)];
+                double lenOrf = MiRnaAnalyzer.LenOrfContribution(MiRnaAnalyzer.TargetScanOrfLength(orf), type);
+                double orf8m = MiRnaAnalyzer.Orf8mContribution(CountTargetScanOrf8merSites(orf, mature.Substring(1, 7)), type);
+                Assert.That(MiRnaAnalyzer.RoundPerl3(lenOrf), Is.EqualTo(perlLenOrf).Within(1e-12), $"Len_ORF {gene} {species} {mature} {type}");
+                Assert.That(MiRnaAnalyzer.RoundPerl3(orf8m), Is.EqualTo(perlOrf8m).Within(1e-12), $"ORF8m {gene} {species} {mature} {type}");
+            }
+        });
+    }
+
+    // Synthetic ORF for the worked example (gaps, lower case, DNA alphabet, one 8mer CUACCUCA and one 7mer
+    // CUACCUCG that must not count). targetscan_count_8mers.pl on it: length 1500, let-7 count 1 — the inputs of
+    // the perl run above — and targetscan_70_context_scores.pl on those files prints the same rows. So with only
+    // the ORF sequence + RNAplfold value supplied (no TA / SPS / ORF numbers) every column equals the perl.
+    private static readonly string WorkedExampleOrf =
+        "ATG" + string.Concat(Enumerable.Repeat("GCTGCA", 200)) + "--ctacctca.." + "CUACCUCG"
+        + string.Concat(Enumerable.Repeat("GGCAAT", 46)) + "GCTAA";
+
+    [TestCaseSource(nameof(PerlRows))]
+    public void ScoreTargetSiteContextPlusPlus_OrfSequenceOnly_ReproducesTargetScanPerlOutput(
+        TargetSiteType type, int utrStart1, double plfold, double[] perlColumns, double perlScore)
+    {
+        var c = ScoreTargetSiteContextPlusPlus(Utr, Let7a, Site(type),
+            new ContextPlusPlusInputs(OrfSequence: WorkedExampleOrf, PlfoldUnpairedProbability: plfold));
+        double[] ours =
+        {
+            c.Intercept, c.ThreePrimePairingContribution, c.LocalAuContribution, c.MinDistContribution,
+            c.SRna1Contribution, c.SRna8Contribution, c.Site8Contribution, c.Len3UtrContribution,
+            c.SaContribution, c.LenOrfContribution, c.Orf8mContribution, c.Off6mContribution,
+            c.TaContribution, c.SpsContribution
+        };
+        Assert.Multiple(() =>
+        {
+            Assert.That(MiRnaAnalyzer.TargetScanOrfLength(WorkedExampleOrf), Is.EqualTo(1500), "count script length");
+            Assert.That(CountTargetScanOrf8merSites(WorkedExampleOrf, "GAGGUAG"), Is.EqualTo(1), "count script 8mers");
+            for (int k = 0; k < ours.Length; k++)
+                Assert.That(MiRnaAnalyzer.RoundPerl3(ours[k]), Is.EqualTo(perlColumns[k]).Within(1e-12), $"column {k}");
+            Assert.That(c.ContextScore, Is.EqualTo(perlScore).Within(1e-12), "context++ score column");
+            Assert.That(c.OmittedFeatures, Is.EquivalentTo(new[] { c.OmittedFeatures.Single(f => f.StartsWith("PCT")) }),
+                "only PCT (no conservation input) is residual");
+        });
+    }
+
+    // A second ORF (lower case, 3 let-7 8mers incl. mixed case / T and gap-split context, length 2535 after gap
+    // removal): count script → 2535 / 3; perl context++ run on those files: ORF length, ORF 8mer and score columns.
+    private static readonly string SecondOrf =
+        "atg" + string.Concat(Enumerable.Repeat("gcugca", 300)) + "cuaccuca" + new string('-', 10)
+        + string.Concat(Enumerable.Repeat("ggcaat", 50)) + "CTACctcA" + "ccc.CUACCUCA.gg"
+        + string.Concat(Enumerable.Repeat("ACGT", 100)) + "taa";
+
+    [TestCase(TargetSiteType.Seed8mer, 0.009772092, 0.131, -0.354, -0.929)]
+    [TestCase(TargetSiteType.Seed6mer, 0.008715454, 0.019, -0.180, -0.231)]
+    [TestCase(TargetSiteType.Seed7merA1, 0.0005159016, 0.042, -0.174, -0.358)]
+    public void ScoreTargetSiteContextPlusPlus_SecondOrf_EqualsCountScriptThenPerl(
+        TargetSiteType type, double plfold, double perlLenOrf, double perlOrf8m, double perlScore)
+    {
+        var c = ScoreTargetSiteContextPlusPlus(Utr, Let7a, Site(type),
+            new ContextPlusPlusInputs(OrfSequence: SecondOrf, PlfoldUnpairedProbability: plfold));
+        Assert.Multiple(() =>
+        {
+            Assert.That(MiRnaAnalyzer.TargetScanOrfLength(SecondOrf), Is.EqualTo(2535));
+            Assert.That(CountTargetScanOrf8merSites(SecondOrf, "GAGGUAG"), Is.EqualTo(3));
+            Assert.That(MiRnaAnalyzer.RoundPerl3(c.LenOrfContribution), Is.EqualTo(perlLenOrf).Within(1e-12));
+            Assert.That(MiRnaAnalyzer.RoundPerl3(c.Orf8mContribution), Is.EqualTo(perlOrf8m).Within(1e-12));
+            Assert.That(c.ContextScore, Is.EqualTo(perlScore).Within(1e-12));
+        });
+    }
+
+    // `while ($sequence =~ /$siteToFind/gi)` is non-overlapping: seed AAAAAAU → site AUUUUUUA; in
+    // GG AUUUUUUAUUUUUUA cc auuuuuua ATTTTTTAG the script prints 3 (an overlapping scan would give 4).
+    [Test]
+    public void CountTargetScanOrf8merSites_NonOverlappingCaseInsensitive_LikeCountScript()
+    {
+        Assert.That(CountTargetScanOrf8merSites("GGAUUUUUUAUUUUUUAccauuuuuuaATTTTTTAG", "AAAAAAU"), Is.EqualTo(3));
+        Assert.That(MiRnaAnalyzer.TargetScanOrfLength("GGAUUUUUUAUUUUUUAccauuuuuuaATTTTTTAG"), Is.EqualTo(36));
+        Assert.Throws<ArgumentException>(() => CountTargetScanOrf8merSites("ACGU", "GAGGUA"));
+    }
+
+    // Caller numbers win over the ORF sequence (per feature).
+    [Test]
+    public void ScoreTargetSiteContextPlusPlus_CallerOrfNumbers_OverrideOrfSequence()
+    {
+        var site = Site(TargetSiteType.Seed8mer);
+        var c = ScoreTargetSiteContextPlusPlus(Utr, Let7a, site,
+            new ContextPlusPlusInputs(OrfLength: 1500, OrfSequence: SecondOrf));
+        Assert.Multiple(() =>
+        {
+            Assert.That(c.LenOrfContribution, Is.EqualTo(MiRnaAnalyzer.LenOrfContribution(1500, TargetSiteType.Seed8mer)));
+            Assert.That(c.Orf8mContribution, Is.EqualTo(-0.118 * 3).Within(1e-12), "count from the sequence");
+        });
     }
 }

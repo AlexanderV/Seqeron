@@ -4,8 +4,9 @@ namespace Seqeron.Genomics.Tests.Unit.Annotation;
 
 /// <summary>
 /// Canonical test file for SPLICE-ACCEPTOR-001: Acceptor Site Detection.
-/// Tests <see cref="SpliceSitePredictor.FindAcceptorSites"/> and the internal
-/// ScoreAcceptorSite / ScoreU12AcceptorSite scoring functions.
+/// Tests <see cref="SpliceSitePredictor.FindAcceptorSites(string, double, bool)"/> (Shapiro &amp;
+/// Senapathy 1987 3' ss score, MaxEntScan mode, U12 branch-site acceptors) and the branch-point
+/// detectors.
 ///
 /// Evidence sources:
 ///   - Shapiro &amp; Senapathy (1987) Nucleic Acids Res 15(17):7155–7174
@@ -19,28 +20,160 @@ namespace Seqeron.Genomics.Tests.Unit.Annotation;
 [TestFixture]
 public class SpliceSitePredictor_AcceptorSite_Tests
 {
-    #region M1: Canonical AG Detected — Shapiro & Senapathy (1987)
+    #region M1: Canonical AG — Shapiro & Senapathy (1987) 3' ss score
 
     [Test]
     public void FindAcceptorSites_CanonicalAG_WithStrongPPT_FindsAcceptorSite()
     {
-        // Consensus: (Y)nNCAG|G — strong PPT (continuous U) followed by CAG
-        // U×16 + C(16) + A(17) + G(18) + G(19) + G(20) = 21 nt
-        // AG at index 17–18, splice site at 19
+        // U×16 + CAG|GG: AG at index 17–18. S&S window -14..+1 = indices 5..19: ten U at -14..-5
+        // (best 8 of 10 = the 8 highest primate U percentages, = h1, since row -8 has C 43 > U 42),
+        // -4 = U (unscored), C A G | G = the row maxima 74+100+100+49 = h2 → score exactly 1.0.
         string sequence = "UUUUUUUUUUUUUUUUCAGGG";
 
         var sites = FindAcceptorSites(sequence, minScore: 0.1).ToList();
 
         Assert.Multiple(() =>
         {
-            Assert.That(sites, Has.Count.EqualTo(1),
-                "Exactly one AG dinucleotide in scannable range");
-            Assert.That(sites[0].Type, Is.EqualTo(SpliceSiteType.Acceptor),
-                "Canonical AG site must have Type = Acceptor");
-            Assert.That(sites[0].Position, Is.EqualTo(18),
-                "Position = A_index + 1 = 17 + 1 = 18 (G of AG)");
-            Assert.That(sites[0].Score, Is.EqualTo(0.8393).Within(0.001),
-                "Strong PPT + perfect CAG|G consensus → high score (~0.84) — Shapiro & Senapathy (1987)");
+            Assert.That(sites, Has.Count.EqualTo(1), "Exactly one AG");
+            Assert.That(sites[0].Type, Is.EqualTo(SpliceSiteType.Acceptor));
+            Assert.That(sites[0].Position, Is.EqualTo(18), "Position = A_index + 1 = 18 (G of AG)");
+            Assert.That(sites[0].Score, Is.EqualTo(1.0), "t1 = h1 and t2 = h2 → S&S score 100/100");
+            Assert.That(sites[0].Confidence, Is.EqualTo(1.0));
+            Assert.That(sites[0].Motif, Is.EqualTo("UUUUUUUUUUUUUUUUCAGGG"),
+                "Motif = -20..+3 context, truncated at the sequence start (16 + 5 nt)");
+        });
+    }
+
+    // Shapiro & Senapathy (1987) Table 5: published 3' ss scores of real introns (0-100), each
+    // scored with its GENBANK category subtable of Table 1. Sequence = intron -14..-1 / exon +1.
+    // 40 of the 41 published values are reproduced at 1 dp (rabbit MHC intron 3, 86.9 vs 86.8,
+    // differs by table rounding and is listed separately below).
+    [TestCase("CTCCTCGCTCCCAGG", ShapiroSenapathyCategory.Primate, 91.4)]
+    [TestCase("CGGGGGCGGGCCAGG", ShapiroSenapathyCategory.Primate, 61.7)]
+    [TestCase("CTCTTTCCCGTCAGA", ShapiroSenapathyCategory.Primate, 91.0)]
+    [TestCase("CCCCCTTTTCCCAGA", ShapiroSenapathyCategory.Primate, 87.6)]
+    [TestCase("TTTTCTTCCCACAGA", ShapiroSenapathyCategory.Primate, 93.8)]
+    [TestCase("TTATTCTACTCCAGG", ShapiroSenapathyCategory.Primate, 95.8)]
+    [TestCase("TATTCCCTTCCCAGG", ShapiroSenapathyCategory.Rodent, 94.3)]
+    [TestCase("TTCGTCCTCCCCAGG", ShapiroSenapathyCategory.Rodent, 92.4)]
+    [TestCase("GTCTCAATACCTAGG", ShapiroSenapathyCategory.Rodent, 72.5)]
+    [TestCase("TCTTGTCCCCACAGG", ShapiroSenapathyCategory.Rodent, 95.9)]
+    [TestCase("CTGTATCCCTGCAGC", ShapiroSenapathyCategory.Rodent, 87.6)]
+    [TestCase("ACCTTTCTCTGCAGG", ShapiroSenapathyCategory.Rodent, 95.6)]
+    [TestCase("CCTGTCGCCCGCAGG", ShapiroSenapathyCategory.OtherMammal, 87.3)]
+    [TestCase("CGGGGCGGGGCCAGG", ShapiroSenapathyCategory.OtherMammal, 59.6)]
+    [TestCase("CCTTCCCTTCTCAGA", ShapiroSenapathyCategory.OtherMammal, 86.2)]
+    [TestCase("TTTTCTTCTCACAGA", ShapiroSenapathyCategory.OtherMammal, 92.7)]
+    [TestCase("TTTGTTCACCCCAGG", ShapiroSenapathyCategory.OtherMammal, 96.0)]
+    [TestCase("GGCTCTGCCTCCAGG", ShapiroSenapathyCategory.OtherVertebrate, 84.9)]
+    [TestCase("TCCTGCTCTTGCAGC", ShapiroSenapathyCategory.OtherVertebrate, 86.7)]
+    [TestCase("TCCCTTCTCCTCAGG", ShapiroSenapathyCategory.OtherVertebrate, 88.0)]
+    [TestCase("TGTACCTCCTGTAGT", ShapiroSenapathyCategory.OtherVertebrate, 75.8)]
+    [TestCase("CTGTTTTGGTGCAGG", ShapiroSenapathyCategory.OtherVertebrate, 91.0)]
+    [TestCase("GATTTCCTTGATAGG", ShapiroSenapathyCategory.OtherVertebrate, 82.5)]
+    [TestCase("TATTGTAATTTCAGG", ShapiroSenapathyCategory.Invertebrate, 90.0)]
+    [TestCase("GGTTTTCAATGTAGT", ShapiroSenapathyCategory.Invertebrate, 70.6)]
+    [TestCase("GTTTCCTATTTCAGA", ShapiroSenapathyCategory.Invertebrate, 94.5)]
+    [TestCase("TATAAATTTTGCAGA", ShapiroSenapathyCategory.Invertebrate, 92.9)]
+    [TestCase("TTCTTATTTTTCAGC", ShapiroSenapathyCategory.Invertebrate, 93.7)]
+    [TestCase("TGTGAATCTTTCAGG", ShapiroSenapathyCategory.Invertebrate, 91.3)]
+    [TestCase("TTCATGGTTTTCAGG", ShapiroSenapathyCategory.Invertebrate, 90.8)]
+    [TestCase("CTTATTAATTTCAGG", ShapiroSenapathyCategory.Invertebrate, 91.5)]
+    [TestCase("CTGGACCCGTGCAGC", ShapiroSenapathyCategory.Plant, 61.9)]
+    [TestCase("CTTATCTGTCTCAGG", ShapiroSenapathyCategory.Plant, 82.8)]
+    [TestCase("CTTGATTTTGCCAGT", ShapiroSenapathyCategory.Plant, 79.1)]
+    [TestCase("CTTTCTCTGTTTAGG", ShapiroSenapathyCategory.Plant, 84.8)]
+    [TestCase("TGCGCATGGTTAAGG", ShapiroSenapathyCategory.Plant, 66.5)]
+    [TestCase("GTCCCATTTTTCAGC", ShapiroSenapathyCategory.Plant, 78.3)]
+    [TestCase("CCTTTATGGTCTAGG", ShapiroSenapathyCategory.Plant, 79.9)]
+    [TestCase("CCCTCGTGATCCAGG", ShapiroSenapathyCategory.Plant, 74.7)]
+    [TestCase("GCAATTCTGCACAGG", ShapiroSenapathyCategory.Plant, 70.9)]
+    public void FindAcceptorSites_ShapiroSenapathy_ReproducesPublishedTable5Scores(
+        string site, ShapiroSenapathyCategory category, double published)
+    {
+        var sites = FindAcceptorSites(site, 0.0, false, AcceptorScoringModel.ShapiroSenapathy, category)
+            .Where(s => s.Position == 13).ToList();
+
+        Assert.That(sites, Has.Count.EqualTo(1));
+        Assert.That(Math.Round(sites[0].Score * 100, 1, MidpointRounding.AwayFromZero), Is.EqualTo(published),
+            $"S&S (1987) Table 5 published 3' ss score for {site} ({category})");
+    }
+
+    [Test]
+    public void FindAcceptorSites_ShapiroSenapathy_Table5RoundingOutlier_ExactFraction()
+    {
+        // Rabbit MHC intron 3 (other mammal), published 86.9. Table 1 (rounded percentages) gives
+        // t1 = 381, l1 = 27, h1 = 442; t2 = 79+100+100+13 = 292, l2 = 6, h2 = 330:
+        // ((381-27)/415 + (292-6)/324)/2 = 0.86786… (86.8): a 0.1 table-rounding difference.
+        var site = FindAcceptorSites("AATCTTTCCCTCAGA", 0.0, false,
+            AcceptorScoringModel.ShapiroSenapathy, ShapiroSenapathyCategory.OtherMammal).Single();
+
+        Assert.That(site.Score, Is.EqualTo((354.0 / 415 + 286.0 / 324) / 2).Within(1e-15));
+    }
+
+    [Test]
+    public void FindAcceptorSites_ShapiroSenapathy_AgInPyrimidineRegion_Eliminated()
+    {
+        // S&S (1987) Methods: "any sequence containing an AG in those 10 locations [is]
+        // eliminated from consideration". AG at -9/-8 (indices 8-9) → no site; AA instead → site.
+        Assert.Multiple(() =>
+        {
+            Assert.That(FindAcceptorSites("UUUUUUUUAGUUUUUUCAGGG", 0.0).ToList(), Is.Empty);
+            Assert.That(FindAcceptorSites("UUUUUUUUAAUUUUUUCAGGG", 0.0).Single().Score,
+                Is.EqualTo(0.978125).Within(1e-15));
+        });
+    }
+
+    [Test]
+    public void FindAcceptorSites_ShapiroSenapathy_TwoPurinesScoreAsWellAsNone()
+    {
+        // S&S (1987) Methods: the best 8 of the 10 pyrimidine locations are used, "thus a pyrimidine
+        // sequence containing two purines can score as well as one containing no purines". Purines
+        // at -8/-7 (primate U 42, 42 — the two lowest U rows) leave t1 unchanged → 1.0.
+        var site = FindAcceptorSites("UUUUUUUUUUUAAUUUCAGGG", 0.0).Single();
+
+        Assert.That(site.Score, Is.EqualTo(1.0));
+    }
+
+    [Test]
+    public void FindAcceptorSites_MaxEntScanModel_DelegatesToScore3()
+    {
+        // MaxEntScan score3 window -20..+3 = the whole 23-nt input (reference 2.89).
+        var site = FindAcceptorSites("TTCCAAACGAACTTTTGTAGGGA", -100.0, false,
+            AcceptorScoringModel.MaxEntScan).Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(site.Position, Is.EqualTo(19));
+            Assert.That(site.Score, Is.EqualTo(ScoreAcceptorMaxEnt("TTCCAAACGAACTTTTGTAGGGA")));
+            Assert.That(site.Score, Is.EqualTo(2.8867730651152104));
+            Assert.That(site.Confidence, Is.EqualTo(1.0 / (1.0 + Math.Pow(2.0, -site.Score))));
+        });
+    }
+
+    [Test]
+    public void FindAcceptorSites_MaxEntScanModel_PartialWindowSkipped_MinScoreInBits()
+    {
+        // 22 nt: no full 23-nt window → no site; threshold in bits filters the 2.89 site.
+        Assert.Multiple(() =>
+        {
+            Assert.That(FindAcceptorSites("TCCAAACGAACTTTTGTAGGGA", -100.0, false,
+                AcceptorScoringModel.MaxEntScan).ToList(), Is.Empty);
+            Assert.That(FindAcceptorSites("TTCCAAACGAACTTTTGTAGGGA", 3.0, false,
+                AcceptorScoringModel.MaxEntScan).ToList(), Is.Empty);
+        });
+    }
+
+    [Test]
+    public void FindAcceptorSites_UnknownModelOrCategory_Throws()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                FindAcceptorSites("UUUUUUUUUUUUUUUUCAGGG", 0.5, false, (AcceptorScoringModel)7));
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                FindAcceptorSites("UUUUUUUUUUUUUUUUCAGGG", 0.5, false,
+                    AcceptorScoringModel.ShapiroSenapathy, (ShapiroSenapathyCategory)42));
         });
     }
 
@@ -81,53 +214,42 @@ public class SpliceSitePredictor_AcceptorSite_Tests
 
     #endregion
 
-    #region M4: Short Sequence Returns Empty — Guard: Length < 20
+    #region M4: Window Shorter Than -14..+1 Returns Empty — full-window scoring
 
     [Test]
     public void FindAcceptorSites_ShortSequence_ReturnsEmpty()
     {
-        // 19 chars — below the 20-char minimum
-        string sequence = "UUUUUUUUUUUUUUUCAGG";
-
-        var sites = FindAcceptorSites(sequence, minScore: 0.1).ToList();
-
-        Assert.That(sites, Is.Empty,
-            "Sequence shorter than 20 nt should return empty — insufficient PPT context");
+        // 14 nt: the AG has only 11 upstream nt, the S&S window needs -14..+1 (15 nt).
+        // 15 nt: exactly the window → scored (1.0).
+        Assert.Multiple(() =>
+        {
+            Assert.That(FindAcceptorSites("UUUUUUUUUUCAGG", minScore: 0.0).ToList(), Is.Empty,
+                "Window -14..+1 runs off the sequence → no site");
+            Assert.That(FindAcceptorSites("UUUUUUUUUUUCAGG", minScore: 0.0).Single().Position, Is.EqualTo(13),
+                "Exactly the 15-nt window → scored");
+            Assert.That(FindAcceptorSites("UUUUUUUUUUUUUUUUCAG", minScore: 0.0).ToList(), Is.Empty,
+                "No exon nucleotide +1 → no site");
+        });
     }
 
     #endregion
 
-    #region M5: Strong PPT > Weak PPT Score — Burge et al. (1999)
+    #region M5: Strong PPT > purine region — Shapiro & Senapathy (1987)
 
     [Test]
     public void FindAcceptorSites_StrongPPT_ScoresHigherThanWeakContext()
     {
-        // Strong PPT: continuous pyrimidines before CAG
-        string strongPpt = "UUUUUUUUUUUUUUUUCAGGG";
-
-        // Weak context: purines interrupt the PPT region, but still has AG at scannable position
-        // AAG×5 + AACAGGG = 22 chars, AG at index 18–19
-        string weakContext = "AAGAAGAAGAAGAAGAACAGGG";
-
-        var strongSites = FindAcceptorSites(strongPpt, minScore: 0.0).ToList();
-        var weakSites = FindAcceptorSites(weakContext, minScore: 0.0).ToList();
+        // Pyrimidine region all U (1.0) vs all A: t1 = best 8 primate A percentages
+        // 10+10+9+9+9+7+7+7 = 68; l1 = 8 lowest row minima = 57; h1 = 377; CAGG part maximal →
+        // ((68-57)/(377-57) + 1)/2 = 0.5171875.
+        var strong = FindAcceptorSites("UUUUUUUUUUUUUUUUCAGGG", minScore: 0.0).Single();
+        var weak = FindAcceptorSites("AAAAAAAAAAAAAAAACAGGG", minScore: 0.0).Single();
 
         Assert.Multiple(() =>
         {
-            Assert.That(strongSites, Is.Not.Empty,
-                "Strong PPT must produce at least one site — continuous pyrimidines are optimal");
-            Assert.That(weakSites.Where(s => s.Type == SpliceSiteType.Acceptor).ToList(), Is.Not.Empty,
-                "Weak context still has a canonical AG — must produce at least one Acceptor site");
-
-            double strongScore = strongSites.Max(s => s.Score);
-            double weakScore = weakSites.Where(s => s.Type == SpliceSiteType.Acceptor).Max(s => s.Score);
-
-            Assert.That(strongScore, Is.GreaterThan(weakScore),
-                "Strong PPT (continuous pyrimidines) should score higher than purine-interrupted context — Burge et al. (1999)");
-            Assert.That(strongScore, Is.GreaterThan(0.7),
-                "Perfect PPT + CAG|G consensus should produce high score (>0.7)");
-            Assert.That(weakScore, Is.LessThan(0.7),
-                "Purine-interrupted PPT with correct CAG consensus should produce moderate score (<0.7)");
+            Assert.That(strong.Score, Is.EqualTo(1.0));
+            Assert.That(weak.Score, Is.EqualTo(0.5171875).Within(1e-15));
+            Assert.That(strong.Score, Is.GreaterThan(weak.Score));
         });
     }
 
@@ -233,50 +355,87 @@ public class SpliceSitePredictor_AcceptorSite_Tests
     [Test]
     public void FindAcceptorSites_MultipleAGSites_FindsAll()
     {
-        // Two AG dinucleotides: AG at index 17–18 and AG at index 21–22
-        // U×16 + C(16) + A(17) + G(18) + C(19) + U(20) + A(21) + G(22) + G(23) + G(24) = 25 nt
-        string sequence = "UUUUUUUUUUUUUUUUCAGCUAGGG";
+        // Two strong acceptors 18 nt apart: AG at 17 and 35; both windows are AG-free → both 1.0.
+        string twoSites = "UUUUUUUUUUUUUUUUCAGGUUUUUUUUUUUUUUCAGG";
+        // AG at 21 has the AG at 17-18 inside its -14..-5 region → eliminated (S&S 1987).
+        string shadowed = "UUUUUUUUUUUUUUUUCAGCUAGGG";
 
-        var sites = FindAcceptorSites(sequence, minScore: 0.0).ToList();
+        var sites = FindAcceptorSites(twoSites, minScore: 0.0).ToList();
+        var shadow = FindAcceptorSites(shadowed, minScore: 0.0).ToList();
 
         Assert.Multiple(() =>
         {
-            Assert.That(sites.Count, Is.EqualTo(2),
-                "Exactly two AG dinucleotides in scannable range");
-            Assert.That(sites[0].Position, Is.EqualTo(18),
-                "First AG at index 17 → position 18");
-            Assert.That(sites[1].Position, Is.EqualTo(22),
-                "Second AG at index 21 → position 22");
-            Assert.That(sites[0].Score, Is.GreaterThan(sites[1].Score),
-                "First AG has stronger PPT context upstream → higher score");
+            Assert.That(sites.Select(s => s.Position), Is.EqualTo(new[] { 18, 36 }));
+            Assert.That(sites.Select(s => s.Score), Is.EqualTo(new[] { 1.0, 1.0 }));
+            Assert.That(shadow.Select(s => s.Position), Is.EqualTo(new[] { 18 }),
+                "Second AG eliminated: AG inside its pyrimidine region");
+            Assert.That(shadow[0].Score, Is.EqualTo(0.9423076923076923).Within(1e-15),
+                "+1 = C (13) instead of G (49): t2 = 287, l2 = 11, h2 = 323 → (1 + 276/312)/2");
         });
     }
 
     #endregion
 
-    #region S1: U12 AC Detected — Patel & Steitz (2003), Hall & Padgett (1994)
+    #region S1: U12 acceptor — U12 branch site UUCCUUAAC (Brock et al. 2008; Levine & Durbin 2001)
 
     [Test]
     public void FindAcceptorSites_U12AcceptorYCCAC_DetectedWhenNonCanonicalEnabled()
     {
-        // U12-type 3' splice site consensus: YCCAC (Hall & Padgett 1994, Jackson 1991)
-        // U×14 (PPT) + C(14) + C(15) + A(16) + C(17) + G(18) + G(19) + G(20) = 21 nt
-        // YCCAC pattern: Y=U(13), C=C(14), C=C(15), A=A(16), C=C(17)
-        // AC dinucleotide at index 16–17
-        string sequence = "UUUUUUUUUUUUUUCCACGGG";
+        // Consensus U12 branch site UUCCUUAAC, branch A (second A) at index 8; AT-AC terminus with
+        // the terminal C at index 16 → branch-to-acceptor distance 8 (window 8-21) → 9/9 = 1.0.
+        string sequence = "GUUCCUUAACGGGGGACGGG";
 
-        var sites = FindAcceptorSites(sequence, minScore: 0.1, includeNonCanonical: true).ToList();
-        var u12Sites = sites.Where(s => s.Type == SpliceSiteType.U12Acceptor).ToList();
+        var u12Sites = FindAcceptorSites(sequence, minScore: 0.1, includeNonCanonical: true)
+            .Where(s => s.Type == SpliceSiteType.U12Acceptor).ToList();
 
         Assert.Multiple(() =>
         {
-            Assert.That(u12Sites, Has.Count.EqualTo(1),
-                "Exactly one U12 YCCAC acceptor — Hall & Padgett (1994)");
-            Assert.That(u12Sites[0].Position, Is.EqualTo(17),
-                "Position = AC_A_index + 1 = 16 + 1 = 17");
-            Assert.That(u12Sites[0].Score, Is.EqualTo(1.0).Within(0.001),
-                "Perfect YCCAC consensus + strong PPT → maximum U12 score (3.5/3.5)");
+            Assert.That(u12Sites, Has.Count.EqualTo(1));
+            Assert.That(u12Sites[0].Position, Is.EqualTo(16), "Position = index of the terminal C of AC");
+            Assert.That(u12Sites[0].Score, Is.EqualTo(1.0));
         });
+    }
+
+    [TestCase(4, 0.4444444444444444)]  // distance 7 → consensus out of window
+    [TestCase(5, 1.0)]                 // distance 8 (window start)
+    [TestCase(18, 1.0)]                // distance 21 (window end)
+    [TestCase(19, 0.4444444444444444)] // distance 22 → out of window
+    public void FindAcceptorSites_U12_BranchSiteDistanceWindow_8To21(int spacer, double expected)
+    {
+        string sequence = "G" + "UUCCUUAAC" + new string('G', spacer) + "AC" + "GGG";
+        int last = 1 + 9 + spacer + 1;
+
+        var site = FindAcceptorSites(sequence, 0.0, true)
+            .Single(s => s.Type == SpliceSiteType.U12Acceptor && s.Position == last);
+
+        Assert.That(site.Score, Is.EqualTo(expected).Within(1e-15));
+    }
+
+    [Test]
+    public void FindAcceptorSites_U12_GtAgTerminus_ReportedAsBothU2AndU12Candidates()
+    {
+        // GT-AG U12 introns end in AG (Dietrich et al. 1997): the AG is scored by S&S as a U2
+        // acceptor and by the branch site as a U12 candidate.
+        var sites = FindAcceptorSites("GUUCCUUAACGGGGGGGGGGAGGGG", 0.0, true).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sites.Select(s => (s.Position, s.Type)), Is.EqualTo(new[]
+            {
+                (21, SpliceSiteType.Acceptor), (21, SpliceSiteType.U12Acceptor)
+            }));
+            Assert.That(sites[1].Score, Is.EqualTo(1.0));
+        });
+    }
+
+    [Test]
+    public void FindAcceptorSites_U12_PartialBranchSite_ExactFraction()
+    {
+        // UUCCAUAAC: one mismatch (-3 relative to branch A) → 8/9.
+        var site = FindAcceptorSites("GUUCCAUAACGGGGGGGGGGACGGG", 0.0, true)
+            .Single(s => s.Type == SpliceSiteType.U12Acceptor && s.Position == 21);
+
+        Assert.That(site.Score, Is.EqualTo(8.0 / 9).Within(1e-15));
     }
 
     #endregion
@@ -355,89 +514,66 @@ public class SpliceSitePredictor_AcceptorSite_Tests
 
     #endregion
 
-    #region C1: AG Before Position 15 Not Detected — Scan Start
+    #region C1: AG without a full -14..+1 window not detected
 
     [Test]
     public void FindAcceptorSites_AGBeforeScanStart_NotDetected()
     {
-        // AG at position 5 (too early), no AG in scannable range
+        // AG at index 5: the S&S window would start at -7 → not scored.
         string sequence = "UUUUUAGUUUUUUUUUUUUUU";
 
         var sites = FindAcceptorSites(sequence, minScore: 0.0).ToList();
 
         Assert.That(sites, Is.Empty,
-            "AG at position < 15 should not be detected — scan starts at i=15 to ensure PPT context");
+            "AG with fewer than 12 upstream nt has no -14..+1 window → not scored");
     }
 
     #endregion
 
-    #region C2: PPT Pyrimidine Count Helper Verification
+    #region C2: Pyrimidine region best 8 of 10 — Shapiro & Senapathy (1987)
 
     [Test]
     public void FindAcceptorSites_PPTContribution_VerifiedByHelper()
     {
-        // Strong PPT: 12 pyrimidines out of 12 in PPT window
-        string strongPpt = "UUUUUUUUUUUUUUUUCAGGG";
+        // Independent recomputation of the S&S formula from the primate Table 1 rows for
+        // UUUUUUUUAAUUUUUUCAGGG (AG at 17; -14..-5 = UUUAAUUUUU): t1 = best 8 of
+        // {45,45,51,7,10,44,42,42,48,46} = 363; l1 = 8 lowest of the row minima
+        // {9,9,7,7,7,10,7,8,6,6} = 57; h1 = 8 highest of the row maxima
+        // {45,45,51,51,47,44,43,42,48,46} = 377; CAGG part maximal (t2 = h2).
+        int[] minima = { 9, 9, 7, 7, 7, 10, 7, 8, 6, 6 };
+        int[] maxima = { 45, 45, 51, 51, 47, 44, 43, 42, 48, 46 };
+        int[] observed = { 45, 45, 51, 7, 10, 44, 42, 42, 48, 46 };
+        int t1 = observed.OrderByDescending(v => v).Take(8).Sum();
+        int l1 = minima.OrderBy(v => v).Take(8).Sum();
+        int h1 = maxima.OrderByDescending(v => v).Take(8).Sum();
+        double expected = ((double)(t1 - l1) / (h1 - l1) + 1.0) / 2;
 
-        var sites = FindAcceptorSites(strongPpt, minScore: 0.0).ToList();
+        var site = FindAcceptorSites("UUUUUUUUAAUUUUUUCAGGG", minScore: 0.0).Single();
 
-        Assert.That(sites, Is.Not.Empty, "Should find at least one site");
-
-        // Verify PPT contribution independently
-        // PPT window: positions [i-15, i-3) where i is the AG position
-        // For AG at position 16 (the A), PPT window is [1, 13)
-        double expectedPptFraction = ComputePptFraction(strongPpt.ToUpperInvariant().Replace('T', 'U'), 16 - 1);
-
-        Assert.That(expectedPptFraction, Is.GreaterThan(0.8),
-            "Strong PPT should have high pyrimidine fraction — independent verification");
-    }
-
-    /// <summary>
-    /// Independent PPT scoring helper — counts pyrimidine fraction in
-    /// the 12-nt window [position-15, position-3) relative to the A of AG.
-    /// This reproduces the PPT component of ScoreAcceptorSite from first principles.
-    /// </summary>
-    private static double ComputePptFraction(string sequence, int agPosition)
-    {
-        int pptCount = 0;
-        int total = 0;
-
-        for (int i = agPosition - 15; i < agPosition - 3; i++)
+        Assert.Multiple(() =>
         {
-            if (i >= 0 && i < sequence.Length)
-            {
-                total++;
-                if (sequence[i] == 'C' || sequence[i] == 'U')
-                    pptCount++;
-            }
-        }
-
-        return total > 0 ? (double)pptCount / total : 0;
+            Assert.That((t1, l1, h1), Is.EqualTo((363, 57, 377)));
+            Assert.That(site.Score, Is.EqualTo(expected).Within(1e-15));
+            Assert.That(site.Score, Is.EqualTo(0.978125).Within(1e-15));
+        });
     }
 
     #endregion
 
-    #region C3: Non-ACGT Characters Tolerated — Robustness
+    #region C3: Non-ACGT characters — full-window scoring
 
     [Test]
     public void FindAcceptorSites_NonACGTCharacters_ToleratedAndAGStillFound()
     {
-        // N's occupy the PPT/context window but the canonical AG remains. Non-ACGT bases
-        // simply match no PWM entry / no pyrimidine (they contribute nothing), so the call
-        // must not throw and must still locate the AG.
-        // N×16 + C(16) + A(17) + G(18) + G(19) + G(20) = 21 nt; AG at index 17–18.
-        string sequence = "NNNNNNNNNNNNNNNNCAGGG";
-
-        var sites = FindAcceptorSites(sequence, minScore: 0.0).ToList();
-
+        // A percentage table has no N row: an N inside -14..+1 → candidate not scored; N outside
+        // the window (indices 0-4 for the AG at 17) does not affect the score. No throw.
         Assert.Multiple(() =>
         {
-            Assert.That(sites, Has.Count.EqualTo(1),
-                "Non-ACGT context must not suppress the canonical AG (no throw, AG still found)");
-            Assert.That(sites[0].Position, Is.EqualTo(18),
-                "AG at index 17 → Position 18, unaffected by surrounding non-ACGT bases");
-            Assert.That(sites[0].Score, Is.InRange(0.0, 1.0),
-                "Score with non-ACGT context stays within the normalized [0, 1] range");
+            Assert.That(FindAcceptorSites("NNNNNNNNNNNNNNNNCAGGG", 0.0).ToList(), Is.Empty);
+            Assert.That(FindAcceptorSites("UUUUUNUUUUUUUUUUCAGGG", 0.0).ToList(), Is.Empty);
+            var site = FindAcceptorSites("NNNNNUUUUUUUUUUUCAGGG", 0.0).Single();
+            Assert.That(site.Position, Is.EqualTo(18));
+            Assert.That(site.Score, Is.EqualTo(1.0));
         });
     }
 
@@ -652,6 +788,67 @@ public class SpliceSitePredictor_AcceptorSite_Tests
             Assert.That(bpDna.Score, Is.EqualTo(bpRna.Score).Within(1e-10), "Same score (T↔U normalization)");
             Assert.That(bpDna.Motif, Is.EqualTo(bpRna.Motif), "Motif reported in RNA alphabet for both");
         });
+    }
+
+    #endregion
+
+    #region FBP: FindBranchPoints — human yUnAy (Gao 2008) / yeast UACUAAC
+
+    [Test]
+    public void FindBranchPoints_HumanYUnAy_DefaultModel_PositionIsBranchA()
+    {
+        // Gao et al. (2008) yUnAy: CUAAC at 7..11 (branch A index 10) = perfect → 1.0; UUCAG
+        // (A at 23): y,U,n,A + G@+1 → (0.790+0.746+0.923)/3.210.
+        const string seq = "GGGGGUACUAACGGGGGUUUUUCAGG";
+        var sites = FindBranchPoints(seq, minScore: 0.75).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sites.Select(s => (s.Position, s.Motif)), Is.EqualTo(new[] { (10, "CUAAC"), (23, "UUCAG") }));
+            Assert.That(sites[0].Score, Is.EqualTo(1.0));
+            Assert.That(sites[1].Score, Is.EqualTo((0.790 + 0.746 + 0.923) / 3.210).Within(1e-15));
+            Assert.That(sites.All(s => s.Type == SpliceSiteType.Branch), Is.True);
+        });
+    }
+
+    [Test]
+    public void FindBranchPoints_YeastModel_UACUAAC_MatchFraction()
+    {
+        // S. cerevisiae UACUAAC (branch A = 6th nt): exact match → 7/7 at A index 10; UACUGAC → 6/7.
+        var perfect = FindBranchPoints("GGGGGUACUAACGGGG", 0, -1, 0.9, BranchPointModel.YeastUACUAAC).Single();
+        var oneOff = FindBranchPoints("GGGGGUACUGACGGGG", 0, -1, 0.8, BranchPointModel.YeastUACUAAC).Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That((perfect.Position, perfect.Motif, perfect.Score), Is.EqualTo((10, "UACUAAC", 1.0)));
+            Assert.That(oneOff.Position, Is.EqualTo(10));
+            Assert.That(oneOff.Score, Is.EqualTo(6.0 / 7).Within(1e-15));
+        });
+    }
+
+    [Test]
+    public void FindBranchPoints_NonAcguInMotif_Skipped_UnknownModelThrows()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(FindBranchPoints("CUNAC", minScore: 0.0).ToList(), Is.Empty,
+                "a placement with N is not scored");
+            Assert.That(FindBranchPoints("CUUAC", minScore: 0.0).Single().Score, Is.EqualTo(1.0));
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                FindBranchPoints("CUUAC", 0, -1, 0.5, (BranchPointModel)9));
+        });
+    }
+
+    [Test]
+    public void FindAcceptorBranchPoint_NonAcguInMotif_PlacementSkipped()
+    {
+        // Same as BP1 but the yUnAy at distance 25 contains an N → that placement is not scored;
+        // the best remaining placement in 18..40 is reported instead (or none at 0.8).
+        string sequence = "UU" + "CNUAC" + new string('U', 22) + "AG" + "GGG";
+
+        var bp = FindAcceptorBranchPoint(sequence, acceptorAgPosition: 30, minScore: 0.8);
+
+        Assert.That(bp.Found, Is.False);
     }
 
     #endregion

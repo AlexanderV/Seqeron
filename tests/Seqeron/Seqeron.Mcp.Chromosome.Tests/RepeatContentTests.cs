@@ -5,8 +5,8 @@ using SourceGa = Seqeron.Genomics.Chromosome.GenomeAssemblyAnalyzer;
 namespace Seqeron.Mcp.Chromosome.Tests;
 
 /// <summary>
-/// Tests for <c>repeat_content</c>. GenomeAssemblyAnalyzer.CalculateRepeatContent sums inclusive
-/// (End - Start + 1) lengths, computes total*100/genomeLength, and groups lengths by RepeatClass.
+/// Tests for <c>repeat_content</c>. GenomeAssemblyAnalyzer.CalculateRepeatContent counts every base once
+/// (RepeatMasker "bases masked"), computes total*100/genomeLength, and groups lengths by RepeatClass.
 /// </summary>
 [TestFixture]
 public class RepeatContentTests
@@ -30,6 +30,21 @@ public class RepeatContentTests
         // LINE 0..99 (100 bp), SINE 100..149 (50 bp); genome 1000 -> 150 total, 15%.
         var repeats = new List<SourceGa.RepeatAnnotation> { R(0, 99, "LINE"), R(100, 149, "SINE") };
         var rc = ChromosomeTools.RepeatContent(repeats, 1000);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rc.TotalRepeatLength, Is.EqualTo(150));
+            Assert.That(rc.RepeatPercentage, Is.EqualTo(15.0).Within(1e-9));
+            Assert.That(rc.RepeatClassLengths["LINE"], Is.EqualTo(100));
+            Assert.That(rc.RepeatClassLengths["SINE"], Is.EqualTo(50));
+        });
+    }
+
+    [Test]
+    public void RepeatContent_OverlappingAnnotations_CountEachBaseOnce()
+    {
+        // LINE 0..99, SINE 50..149: the 50-bp overlap is counted once (150 bases, 15 %).
+        var rc = ChromosomeTools.RepeatContent(new List<SourceGa.RepeatAnnotation> { R(0, 99, "LINE"), R(50, 149, "SINE") }, 1000);
 
         Assert.Multiple(() =>
         {

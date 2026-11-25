@@ -73,7 +73,9 @@ public static class RnaSecondaryStructure
         string DotBracketNotation);
 
     /// <summary>
-    /// Represents a pseudoknot structure.
+    /// One crossing (pseudoknotted) pair-of-pairs reported by <see cref="DetectPseudoknots"/>: the pairs
+    /// (Start1, End1) and (Start2, End2), normalised to open &lt; close, with Start1 &lt; Start2 &lt; End1 &lt; End2.
+    /// Grouping into pseudoknot layers: <see cref="AssignPseudoknotOrders"/>.
     /// </summary>
     public readonly record struct Pseudoknot(
         int Start1, int End1,
@@ -2037,6 +2039,11 @@ public static class RnaSecondaryStructure
     /// Crossing condition per Antczak et al. (2018) Bioinformatics 34(8):1304–1312 and
     /// biotite.structure.pseudoknots: a pseudoknot is a non-nested ("crossing") arrangement
     /// of base pairs. Endpoints are normalized to (open &lt; close) before the comparison.
+    /// This is the pairwise conflict relation (a helix of a pairs crossing a helix of b pairs gives a·b
+    /// results); the layer decomposition is <see cref="AssignPseudoknotOrders"/> and the bracket rendering
+    /// <see cref="ToDotBracket"/>. Positions are not validated and the scan never throws: pairs that share an
+    /// endpoint (not a valid secondary structure) never satisfy the strict inequalities. O(p²) for p pairs,
+    /// which is also the worst-case output size.
     /// </remarks>
     /// <param name="basePairs">The base pairs to scan. A <c>null</c> set yields no pseudoknots.</param>
     /// <returns>One <see cref="Pseudoknot"/> per crossing pair-of-pairs, in deterministic input order.</returns>
@@ -2085,47 +2092,258 @@ public static class RnaSecondaryStructure
     #region Dot-Bracket Notation
 
     // Window variant used by stem-loop detection: renders only [start, end] (inclusive) of the
-    // structure, positions re-based to the window start. Delegates to the canonical builder.
+    // structure, positions re-based to the window start (pairs lying outside the window are dropped).
     private static string GenerateDotBracket(int length, IReadOnlyList<BasePair> basePairs, int start, int end)
-        => BuildDotBracket(end - start + 1,
-            basePairs.Select(bp => (bp.Position1 - start, bp.Position2 - start)));
+        => ToDotBracket(end - start + 1,
+            basePairs.Where(bp => Math.Min(bp.Position1, bp.Position2) >= start && Math.Max(bp.Position1, bp.Position2) <= end)
+                     .Select(bp => (bp.Position1 - start, bp.Position2 - start)));
 
     private static string GenerateFullDotBracket(int length, IReadOnlyList<BasePair> basePairs)
-        => BuildDotBracket(length, basePairs.Select(bp => (bp.Position1, bp.Position2)));
+        => ToDotBracket(length, basePairs.Select(bp => (bp.Position1, bp.Position2)));
 
-    // Tuple overload used by the MFE traceback (pseudoknot-free → single bracket family).
+    // Tuple overload used by the MFE traceback and the pseudoknot predictors.
     private static string GenerateFullDotBracket(int length, IReadOnlyList<(int Position1, int Position2)> basePairs)
-        => BuildDotBracket(length, basePairs);
+        => ToDotBracket(length, basePairs);
+
+    // Bracket families in the order ViennaRNA 2.7.2 vrna_db_from_ptable (structures/structure_dotbracket.c)
+    // hands them out: "([{<" then the ASCII letters A..Z / a..z — 30 families, the same set ParseDotBracket reads.
+    // Antczak et al. (2018) DBL notation uses the same sequence for pseudoknot orders 0, 1, 2, ….
+    private const string BracketFamilyOpen = "([{<ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    private const string BracketFamilyClose = ")]}>abcdefghijklmnopqrstuvwxyz";
 
     /// <summary>
-    /// Canonical dot-bracket renderer (the inverse of <see cref="ParseDotBracket"/>, cf. ViennaRNA
-    /// <c>vrna_db_from_ptable</c>): every position starts as <c>'.'</c>; each pair (i, j) is written
-    /// as <c>'('</c> at min(i, j) and <c>')'</c> at max(i, j). Pairs listed in
-    /// <paramref name="secondFamily"/> (in either orientation) use the independent <c>[]</c> family
-    /// so crossing (pseudoknotted) helices stay unambiguous. Positions outside
-    /// <c>[0, length)</c> are skipped (window rendering).
+    /// Renders a base-pair set (pseudoknots allowed) as dot-bracket(-letter) notation, assigning bracket
+    /// families exactly as ViennaRNA 2.7.2 <c>vrna_db_from_ptable</c>: repeated 5'→3' passes; in each pass a
+    /// pair receives the current family when it nests inside the pairs already opened in that pass, otherwise
+    /// it is deferred to the next pass; families are used in the order <c>() [] {} &lt;&gt; Aa … Zz</c>.
+    /// The result is the inverse of <see cref="ParseDotBracket"/>: parsing it returns the same pair set.
     /// </summary>
-    private static string BuildDotBracket(
-        int length,
-        IEnumerable<(int Position1, int Position2)> basePairs,
-        HashSet<(int, int)>? secondFamily = null)
+    /// <param name="length">Length of the structure (number of positions).</param>
+    /// <param name="basePairs">Base pairs as 0-based position tuples, in any order and either orientation.</param>
+    /// <returns>A string of <paramref name="length"/> characters.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="length"/> is negative.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="basePairs"/> is null.</exception>
+    /// <exception cref="ArgumentException">
+    /// A pair has equal ends or an end outside <c>[0, length)</c>; a position occurs in more than one pair (not a
+    /// secondary structure: ViennaRNA's pair table cannot hold it); or more than 30 families would be needed
+    /// (ViennaRNA logs a warning and silently drops the remaining pairs; here the input is rejected so the
+    /// rendering is never lossy).
+    /// </exception>
+    public static string ToDotBracket(int length, IEnumerable<(int Position1, int Position2)> basePairs)
     {
+        ArgumentOutOfRangeException.ThrowIfNegative(length);
+        ArgumentNullException.ThrowIfNull(basePairs);
+
+        int[] partner = BuildPartnerTable(length, basePairs, nameof(basePairs));
         var notation = new char[length];
         Array.Fill(notation, '.');
 
-        foreach (var (p1, p2) in basePairs)
+        // vrna_db_from_ptable: one stack of closing positions per pass; a pair that would cross the
+        // innermost open pair of this pass is deferred ("recheck") to the next bracket family.
+        var stack = new Stack<int>();
+        int family = 0;
+        bool recheck = true;
+        while (recheck)
         {
-            int left = Math.Min(p1, p2);
-            int right = Math.Max(p1, p2);
-            bool knot = secondFamily != null
-                && (secondFamily.Contains((p1, p2)) || secondFamily.Contains((left, right)));
-            if (left >= 0 && left < length)
-                notation[left] = knot ? '[' : '(';
-            if (right >= 0 && right < length)
-                notation[right] = knot ? ']' : ')';
+            recheck = false;
+            for (int i = 0; i < length; i++)
+            {
+                int p = partner[i];
+                if (p > i)
+                {
+                    if (stack.Count > 0 && p > stack.Peek())
+                    {
+                        recheck = true;
+                        continue;
+                    }
+                    if (family >= BracketFamilyOpen.Length)
+                        throw new ArgumentException(
+                            $"The structure needs more than {BracketFamilyOpen.Length} bracket families (ViennaRNA's limit).",
+                            nameof(basePairs));
+                    stack.Push(p);
+                    notation[i] = BracketFamilyOpen[family];
+                    notation[p] = BracketFamilyClose[family];
+                }
+                else if (p >= 0 && stack.Count > 0 && i == stack.Peek())
+                {
+                    partner[i] = partner[p] = -1; // rendered: remove from the pair table
+                    stack.Pop();
+                }
+            }
+            stack.Clear();
+            family++;
         }
 
         return new string(notation);
+    }
+
+    /// <summary>
+    /// Assigns a pseudoknot order to every base pair: order 0 = a maximum-cardinality nested (pseudoknot-free)
+    /// subset of the pairs; the removed pairs are processed again to get order 1, and so on until every pair has
+    /// an order. This is the procedure of biotite <c>structure.pseudoknots</c> (Smit et al. 2008 optimal
+    /// pseudoknot removal applied iteratively to the removed pairs), with the pseudoknot order notion of
+    /// Antczak et al. (2018): pairs of equal order never cross.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Each layer is an exact maximum nested subset (Nussinov-type interval DP restricted to the given pairs,
+    /// O(m²) time and memory for m = 2 × remaining pairs; ViennaRNA <c>vrna_pt_pk_remove</c> keeps a subset of the
+    /// same size). When several maximum subsets exist (biotite returns all of them) the one that keeps the pair
+    /// opening furthest 5' is chosen at the first difference (lexicographically greatest by opening position),
+    /// so an H-type knot <c>([)]</c> of two equal stems keeps the 5' stem at order 0.
+    /// </para>
+    /// <para>
+    /// The number of layers is an upper bound on Antczak's minimum decomposition count: that minimum is the
+    /// chromatic number of the crossing (circle) graph, whose computation is NP-complete (Garey, Johnson, Miller
+    /// &amp; Papadimitriou 1980), and maximising the order-0 layer can cost one extra layer
+    /// (e.g. pairs (0,4),(1,12),(2,6),(3,10),(8,13),(9,14): 4 layers here, 3 colours suffice).
+    /// </para>
+    /// </remarks>
+    /// <param name="basePairs">Base pairs (either orientation, any order).</param>
+    /// <returns>The order of each input pair, index-aligned with <paramref name="basePairs"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="basePairs"/> is null.</exception>
+    /// <exception cref="ArgumentException">A pair has equal or negative ends, or a position occurs in more than one pair.</exception>
+    public static IReadOnlyList<int> AssignPseudoknotOrders(IReadOnlyList<BasePair> basePairs)
+    {
+        ArgumentNullException.ThrowIfNull(basePairs);
+        var tuples = new (int, int)[basePairs.Count];
+        int maxPos = -1;
+        for (int t = 0; t < basePairs.Count; t++)
+        {
+            tuples[t] = (basePairs[t].Position1, basePairs[t].Position2);
+            maxPos = Math.Max(maxPos, Math.Max(basePairs[t].Position1, basePairs[t].Position2));
+        }
+        BuildPartnerTable(maxPos + 1, tuples, nameof(basePairs)); // validation only
+
+        var orders = new int[basePairs.Count];
+        var remaining = Enumerable.Range(0, basePairs.Count).ToList();
+        int order = 0;
+        while (remaining.Count > 0)
+        {
+            var keep = MaximumNestedSubset(remaining.Select(t => tuples[t]).ToList());
+            var next = new List<int>();
+            for (int r = 0; r < remaining.Count; r++)
+            {
+                if (keep[r]) orders[remaining[r]] = order;
+                else next.Add(remaining[r]);
+            }
+            remaining = next;
+            order++;
+        }
+        return orders;
+    }
+
+    /// <summary>
+    /// Renders a base-pair set in Antczak et al. (2018) dot-bracket-letter notation: each pair uses the bracket
+    /// family of its <see cref="AssignPseudoknotOrders"/> order (0 <c>()</c>, 1 <c>[]</c>, 2 <c>{}</c>,
+    /// 3 <c>&lt;&gt;</c>, 4… <c>Aa</c>, <c>Bb</c>, …).
+    /// </summary>
+    /// <exception cref="ArgumentException">As <see cref="ToDotBracket"/>, or more than 30 orders are needed.</exception>
+    public static string ToDotBracketByPseudoknotOrder(int length, IReadOnlyList<BasePair> basePairs)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(length);
+        ArgumentNullException.ThrowIfNull(basePairs);
+        BuildPartnerTable(length, basePairs.Select(bp => (bp.Position1, bp.Position2)), nameof(basePairs));
+        var orders = AssignPseudoknotOrders(basePairs);
+        var notation = new char[length];
+        Array.Fill(notation, '.');
+        for (int t = 0; t < basePairs.Count; t++)
+        {
+            if (orders[t] >= BracketFamilyOpen.Length)
+                throw new ArgumentException(
+                    $"The structure needs more than {BracketFamilyOpen.Length} pseudoknot orders.", nameof(basePairs));
+            int i = Math.Min(basePairs[t].Position1, basePairs[t].Position2);
+            int j = Math.Max(basePairs[t].Position1, basePairs[t].Position2);
+            notation[i] = BracketFamilyOpen[orders[t]];
+            notation[j] = BracketFamilyClose[orders[t]];
+        }
+        return new string(notation);
+    }
+
+    // Pair table of a secondary structure (partner[i] = j, −1 = unpaired). Rejects pairs that cannot be a
+    // secondary structure: equal ends, ends outside [0, length), or a position used by two pairs.
+    private static int[] BuildPartnerTable(int length, IEnumerable<(int Position1, int Position2)> basePairs, string paramName)
+    {
+        var partner = new int[length];
+        Array.Fill(partner, -1);
+        foreach (var (p1, p2) in basePairs)
+        {
+            if (p1 == p2)
+                throw new ArgumentException($"Base pair ({p1},{p2}) pairs a position with itself.", paramName);
+            if (p1 < 0 || p2 < 0 || p1 >= length || p2 >= length)
+                throw new ArgumentException($"Base pair ({p1},{p2}) lies outside [0, {length}).", paramName);
+            if (partner[p1] != -1 || partner[p2] != -1)
+                throw new ArgumentException(
+                    $"Base pair ({p1},{p2}) reuses a position that is already paired; a secondary structure pairs each base at most once.",
+                    paramName);
+            partner[p1] = p2;
+            partner[p2] = p1;
+        }
+        return partner;
+    }
+
+    // Maximum-cardinality nested subset of a valid pair set (no shared positions). Interval DP over the sorted
+    // endpoints (Smit et al. 2008 / Nussinov recursion restricted to the given pairs):
+    //   N(a,b) = max( N(a+1,b), 1 + N(a+1,c−1) + N(c+1,b) )  where c is the partner of a, a < c ≤ b.
+    // Traceback prefers keeping the pair at a on ties (lexicographically greatest subset by opening position).
+    // Returns keep flags index-aligned with pairs.
+    private static bool[] MaximumNestedSubset(IReadOnlyList<(int Position1, int Position2)> pairs)
+    {
+        int p = pairs.Count;
+        var keep = new bool[p];
+        if (p == 0) return keep;
+
+        int m = 2 * p;
+        var ends = new (int Pos, int Pair)[m];
+        for (int t = 0; t < p; t++)
+        {
+            ends[2 * t] = (pairs[t].Position1, t);
+            ends[2 * t + 1] = (pairs[t].Position2, t);
+        }
+        Array.Sort(ends, (x, y) => x.Pos.CompareTo(y.Pos));
+        var mate = new int[m];  // endpoint index of the partner
+        var first = new int[p];
+        Array.Fill(first, -1);
+        for (int e = 0; e < m; e++)
+        {
+            int t = ends[e].Pair;
+            if (first[t] < 0) first[t] = e;
+            else { mate[e] = first[t]; mate[first[t]] = e; }
+        }
+
+        // n[a, b] for 0 ≤ a ≤ b < m, row-major; empty intervals (b < a) read as 0.
+        var n = new int[m * m];
+        int N(int a, int b) => b < a ? 0 : n[a * m + b];
+        for (int a = m - 1; a >= 0; a--)
+        {
+            int c = mate[a];
+            for (int b = a; b < m; b++)
+            {
+                int best = N(a + 1, b);
+                if (c > a && c <= b)
+                    best = Math.Max(best, 1 + N(a + 1, c - 1) + N(c + 1, b));
+                n[a * m + b] = best;
+            }
+        }
+
+        var work = new Stack<(int A, int B)>();
+        work.Push((0, m - 1));
+        while (work.Count > 0)
+        {
+            var (a, b) = work.Pop();
+            while (a <= b)
+            {
+                int c = mate[a];
+                if (c > a && c <= b && 1 + N(a + 1, c - 1) + N(c + 1, b) == N(a, b))
+                {
+                    keep[ends[a].Pair] = true;
+                    work.Push((c + 1, b));
+                    b = c - 1;
+                }
+                a++;
+            }
+        }
+        return keep;
     }
 
     // Dot-bracket / extended WUSS bracket pairs. Each opening symbol pairs ONLY with
@@ -2266,110 +2484,57 @@ public static class RnaSecondaryStructure
     private const int DefaultMaxLoopLength = 100;
 
     /// <summary>
-    /// Finds inverted repeats (potential RNA stem regions): a left arm <c>W</c> followed by a
-    /// loop and then a right arm equal to the <b>reverse complement</b> of <c>W</c>, i.e. the
-    /// pattern <c>W G W̄ᴿ</c> with a perfect (zero-mismatch) antiparallel stem. The two arms form
-    /// the stem of a potential hairpin and the intervening region is the loop.
+    /// Finds inverted repeats (potential RNA stem regions): a left arm <c>W</c>, a loop <c>G</c> and a right arm that
+    /// pairs antiparallel with <c>W</c> (<c>W G W̄ᴿ</c>). The model, the maximality rule and the search engine are the
+    /// canonical ones of <see cref="RepeatFinder.FindInvertedRepeats(string, int, int, int, int, int, bool)"/>
+    /// (EMBOSS <c>palindrome</c> stems); only the pairing rule is RNA-specific.
     /// </summary>
-    /// <param name="sequence">Nucleotide sequence (DNA or RNA; case-insensitive).</param>
-    /// <param name="minLength">Minimum arm length; arms shorter than this are not reported (default 4).</param>
-    /// <param name="minSpacing">Minimum loop length between the two arms (default 3).</param>
-    /// <param name="maxSpacing">Maximum loop length between the two arms (default 100).</param>
+    /// <param name="sequence">Nucleotide sequence (DNA or RNA; case-insensitive; T is read as U).</param>
+    /// <param name="minLength">Minimum arm length in base pairs (default 4; values &lt; 1 yield no results).</param>
+    /// <param name="minSpacing">Minimum loop length (default 3; negative yields no results).</param>
+    /// <param name="maxSpacing">Maximum loop length (default 100; &lt; <paramref name="minSpacing"/> yields no results).</param>
+    /// <param name="maxMismatches">
+    /// Maximum number of non-pairing positions inside a stem (default 0 = perfect stems; must be ≥ 0). EMBOSS
+    /// <c>palindrome -nummismatches</c> / IUPACpal "k mismatches" semantics: mismatches are interior only (never at an end
+    /// of the stem). Gapped (bulge) alignments are not reported here: use
+    /// <see cref="RepeatFinder.FindInvertedRepeatsScored(string, int, int, int, int, int)"/> (EMBOSS <c>einverted</c>).
+    /// </param>
+    /// <param name="allowWobble">
+    /// When true (default) a pair is any pair of <see cref="CanPair(char, char)"/> — A·U, G·C and G·U wobble (ViennaRNA
+    /// <c>pair[][]</c>); when false only Watson–Crick A·U (A·T) and G·C pairs are stems. Ambiguity codes (N, R, Y, …) and
+    /// any other character never pair in either mode.
+    /// </param>
     /// <returns>
-    /// Maximal, non-overlapping inverted repeats as tuples: left arm <c>[Start1..End1]</c>,
-    /// right arm <c>[Start2..End2]</c> (both 0-based inclusive), and the common arm <c>Length</c>.
-    /// For every reported repeat and every k in [0,Length), the antiparallel pairing
-    /// <c>complement(seq[Start2+Length-1-k]) == seq[Start1+k]</c> holds (strict Watson-Crick/IUPAC).
+    /// The maximal stems (a stem is dropped only when it lies inside another stem in both arms), as tuples: left arm
+    /// <c>[Start1..End1]</c>, right arm <c>[Start2..End2]</c> (0-based inclusive) and the common arm <c>Length</c>;
+    /// ordered by <c>Start1</c>, then <c>Start2</c>. Different stems may share positions (alternative pairings are
+    /// not suppressed). With <c>maxMismatches = 0</c> every pair is <c>CanPair(seq[Start1+k], seq[End2-k])</c>.
     /// </returns>
     /// <remarks>
-    /// Sources: an inverted repeat is "a single stranded sequence ... followed downstream by its
-    /// reverse complement", formally <c>WGW̄ᴿ</c> with |G| >= 0 (Alamro et al. 2021, IUPACpal,
-    /// https://doi.org/10.1186/s12859-021-03983-2; Ussery et al. 2008 via Wikipedia). This is the
-    /// k = 0 (perfect) case; the scored mismatch/gap variant (EMBOSS einverted) is out of scope.
-    /// Search reuse: the repository SuffixTree was evaluated and not used — matching here is
-    /// antiparallel reverse-complement extension over a bounded loop window, not exact substring
-    /// occurrence enumeration, which is the established approach (EMBOSS einverted uses local DP).
+    /// Sources: inverted repeat = <c>WGW̄ᴿ</c> (Alamro et al. 2021, IUPACpal, doi:10.1186/s12859-021-03983-2; Ussery et al.
+    /// 2008); maximal stems and nesting filter = EMBOSS <c>palindrome</c> (Rice et al. 2000); RNA pairing =
+    /// ViennaRNA <c>pair[][]</c> as in <see cref="CanPair(char, char)"/>. No separate implementation: the search is
+    /// delegated to <c>RepeatFinder</c> (DUP_MAP RNA entry; the former unsourced greedy "longest first, non-overlapping"
+    /// selection and the strict-IUPAC self-pairing of N/R/Y… are removed).
     /// </remarks>
     public static IEnumerable<(int Start1, int End1, int Start2, int End2, int Length)> FindInvertedRepeats(
         string sequence,
         int minLength = DefaultMinArmLength,
         int minSpacing = DefaultMinLoopLength,
-        int maxSpacing = DefaultMaxLoopLength)
+        int maxSpacing = DefaultMaxLoopLength,
+        int maxMismatches = 0,
+        bool allowWobble = true)
     {
+        ArgumentOutOfRangeException.ThrowIfNegative(maxMismatches);
         if (string.IsNullOrEmpty(sequence) || minLength < 1 || minSpacing < 0 || maxSpacing < minSpacing)
-            yield break;
+            return Array.Empty<(int, int, int, int, int)>();
 
-        string upper = sequence.ToUpperInvariant();
-        int n = upper.Length;
-        // Smallest sequence that can hold two arms of minLength plus the minimum loop.
-        if (n < 2 * minLength + minSpacing)
-            yield break;
-
-        // Scan loop boundaries: p = last index of the left arm, q = first index of the right arm,
-        // with loop length (q - p - 1) in [minSpacing, maxSpacing]. The innermost base pair is
-        // (seq[p], seq[q]); the stem extends OUTWARD: seq[p-k] pairs antiparallel with seq[q+k].
-        // This realizes the W G W̄ᴿ pattern where the right arm is the reverse complement of the left.
-        // Collect the best (maximal) stem per loop boundary, then report non-overlapping repeats
-        // preferring the longest stems first (einverted-style maximal local alignment).
-        var candidates = new List<(int Start1, int End1, int Start2, int End2, int Length)>();
-        for (int p = 0; p < n; p++)
-        {
-            int firstQ = p + 1 + minSpacing;
-            int lastQ = Math.Min(p + 1 + maxSpacing, n - 1);
-            int bestLen = 0;
-            int bestRightEnd = -1;
-            for (int q = firstQ; q <= lastQ; q++)
-            {
-                // Extend the stem outward while complementary; arms may not cross into the loop
-                // (left stays >= 0, right stays <= n-1, and they may not overlap each other).
-                int maxExtend = Math.Min(p + 1, n - q);
-                int len = 0;
-                while (len < maxExtend &&
-                       GetComplement(upper[q + len]) == upper[p - len])
-                {
-                    len++;
-                }
-
-                if (len < minLength)
-                    continue;
-
-                // Prefer the longest arm; on ties prefer the smaller loop (q closer to p).
-                if (len > bestLen)
-                {
-                    bestLen = len;
-                    bestRightEnd = q + len - 1;
-                }
-            }
-
-            if (bestLen >= minLength)
-                candidates.Add((p - bestLen + 1, p, bestRightEnd - bestLen + 1, bestRightEnd, bestLen));
-        }
-
-        // Greedy non-overlapping selection: longest stems first; ties broken by left position then loop.
-        candidates.Sort((a, b) =>
-        {
-            int c = b.Length.CompareTo(a.Length);
-            if (c != 0) return c;
-            c = a.Start1.CompareTo(b.Start1);
-            if (c != 0) return c;
-            return a.Start2.CompareTo(b.Start2);
-        });
-
-        var occupied = new bool[n];
-        foreach (var cand in candidates)
-        {
-            bool overlaps = false;
-            for (int idx = cand.Start1; idx <= cand.End1 && !overlaps; idx++)
-                if (occupied[idx]) overlaps = true;
-            for (int idx = cand.Start2; idx <= cand.End2 && !overlaps; idx++)
-                if (occupied[idx]) overlaps = true;
-            if (overlaps)
-                continue;
-
-            for (int idx = cand.Start1; idx <= cand.End1; idx++) occupied[idx] = true;
-            for (int idx = cand.Start2; idx <= cand.End2; idx++) occupied[idx] = true;
-            yield return cand;
-        }
+        // T is read as U (CanPair); the shared engine pairs ACGT, so U is folded onto T (positions unchanged).
+        string seq = sequence.ToUpperInvariant().Replace('U', 'T');
+        return RepeatFinder.FindMaximalStemsUpper(seq, minLength, maxSpacing, minSpacing, maxMismatches, allowWobble)
+            .Select(r => (r.LeftArmStart, r.LeftArmStart + r.ArmLength - 1,
+                          r.RightArmStart, r.RightArmStart + r.ArmLength - 1, r.ArmLength))
+            .ToList();
     }
 
     // McCaskill partition function — physical constants.
@@ -3086,7 +3251,7 @@ public static class RnaSecondaryStructure
         }
 
         bestPairs.Sort((a, b) => a.Item1.CompareTo(b.Item1));
-        string dotBracket = GeneratePseudoknotDotBracket(n, bestPairs, bestStem2);
+        string dotBracket = ToDotBracket(n, bestPairs); // ViennaRNA vrna_db_from_ptable families: stem 1 "()", crossing stem "[]"
 
         return new PseudoknotStructure(seq, dotBracket, bestPairs, Math.Round(bestEnergy, 2), HasPseudoknot: true);
     }
@@ -3176,15 +3341,6 @@ public static class RnaSecondaryStructure
         return subMfe.FreeEnergy + Pseudoknot_UnpairedLoopPenalty * unpaired;
     }
 
-    // Renders a two-layer dot-bracket for the pseudoknotted structure. Every base pair in
-    // <paramref name="stem2Pairs"/> (the crossing helix b·b') is annotated with the [] family;
-    // all other pairs (stem 1 a·a' and any loop-internal helices, which are mutually nested and
-    // do not cross stem 1) use the () family. Per ViennaRNA / WUSS two-layer notation, the two
-    // independent bracket families annotate the crossing helices of a pseudoknot.
-    private static string GeneratePseudoknotDotBracket(
-        int length, IReadOnlyList<(int Position1, int Position2)> basePairs,
-        HashSet<(int, int)> stem2Pairs)
-        => BuildDotBracket(length, basePairs, stem2Pairs);
 
     #endregion
 
@@ -3265,9 +3421,7 @@ public static class RnaSecondaryStructure
 
         pairs.Sort((a, b) => a.Item1.CompareTo(b.Item1));
         bool hasPk = knotPairs.Count > 0;
-        string dotBracket = hasPk
-            ? GeneratePseudoknotDotBracket(n, pairs, knotPairs)
-            : GenerateFullDotBracket(n, pairs);
+        string dotBracket = ToDotBracket(n, pairs); // ViennaRNA vrna_db_from_ptable bracket families
 
         return new PseudoknotStructure(seq, dotBracket, pairs, Math.Round(energy, 2), HasPseudoknot: hasPk);
     }

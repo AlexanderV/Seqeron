@@ -5,69 +5,65 @@
 | Algorithm Group | Splicing |
 | Test Unit ID | SPLICE-ACCEPTOR-001 |
 | Related Projects | N/A |
-| Implementation Status | Simplified |
-| Last Reviewed | 2026-06-24 |
+| Implementation Status | Complete (Shapiro & Senapathy 1987 3' ss score; MaxEntScan mode; yUnAy / UACUAAC branch points) |
+| Last Reviewed | 2026-11-25 |
 
 ## 1. Overview
 
-Acceptor splice-site detection identifies candidate 3' splice sites at the ends of introns. In this repository, `SpliceSitePredictor.FindAcceptorSites` scans a normalized RNA sequence for canonical `AG` acceptors and, when requested, U12-style `AC` acceptors. Canonical scoring combines a polypyrimidine-tract contribution with a sparse position-weight matrix, while U12 acceptors are scored against a `YCCAC`-style consensus plus upstream pyrimidine content. Candidates meeting the configured threshold are returned as `SpliceSite` records.[1][2]
+Acceptor splice-site detection identifies candidate 3' splice sites at the ends of introns. `SpliceSitePredictor.FindAcceptorSites` scans a sequence for `AG` acceptors and scores them with the Shapiro & Senapathy (1987) 3' splice-site score (default; Table 1 percentages, primate subtable) or the Yeo & Burge (2004) MaxEntScan `score3` (opt-in). With `includeNonCanonical`, U12-type acceptors (`AC` or `AG` terminus) are scored by their branch site. Candidates meeting `minScore` are returned as `SpliceSite` records.[1][3]
 
-An opt-in, additive companion — `SpliceSitePredictor.FindAcceptorBranchPoint` — performs explicit **branch-point detection** for a given acceptor `AG`: it scans the 18–40 nt window upstream of the `AG` for the human `yUnAy` branch-point consensus (positions `-3..+1`, branch adenosine at position `0`) and reports the branch-point position, distance from the `AG`, the `yUnAy` motif, a conservation-weighted score in `[0, 1]`, and the polypyrimidine-tract fraction between the branch point and the `AG`.[9][10] This is additive: the default `FindAcceptorSites` scoring is unchanged and the acceptor score itself still carries no branch-point term.
+Branch points are detected by `FindBranchPoints` (scan; human `yUnAy` by default, yeast `UACUAAC` optional) and `FindAcceptorBranchPoint` (best `yUnAy` 18–40 nt upstream of a given `AG`, with the polypyrimidine-tract fraction).[9][10][11]
 
 ## 2. Scientific / Formal Basis
 
 ### 2.1 Domain Context
 
-The original document describes the 3' splice-site consensus as `(Y)nNCAG|G`, with an almost invariant terminal `AG` dinucleotide preceded by a polypyrimidine tract (PPT).[1][2]
-
-| Feature | Repository description |
-|---------|------------------------|
-| Canonical acceptor | `AG` |
-| Upstream context | PPT enriched in `C` and `U` |
-| Key conserved positions | `-3` favors `C`, `-2` is `A`, `-1` is `G`, position `0` often favors `G` |
-| U12-type acceptor | Optional `AC` with `YCCAC`-style upstream context |
+The 3' splice-site consensus is `(Y)nNCAG|G`: an almost invariant terminal `AG` preceded by a pyrimidine-rich region (polypyrimidine tract, PPT) and followed by the first exon nucleotide.[1][2] U12-type introns have no PPT and are recognised through a highly conserved branch site close to the 3' end.[12][13][14]
 
 ### 2.2 Core Model
 
-Canonical acceptor scoring combines two components:
-
-1. PPT contribution: count pyrimidines in positions `[position - 15, position - 3)`, divide by `12`, and scale by `2`.
-2. Sparse PWM contribution: add log-like weights from the repository's `AcceptorPwm` at offsets `-15`, `-10`, `-5`, `-4`, `-3`, `-2`, `-1`, and `0` relative to the splice site.
-
-The combined value is normalized with:
+**Shapiro & Senapathy (1987) 3' ss score (default).** Table 1 gives the percentage of each nucleotide at 3' ss positions −14..+1 for seven GENBANK categories and their total. Methods (p. 7158): "to the left of the NCAGG consensus, the best 8 of 10 locations were used … Thus a pyrimidine sequence containing two purines can score as well as one containing no purines … any sequence containing an AG in those 10 locations [is] eliminated from consideration":
 
 ```text
-(score / (count + 1) + 2) / 4
+score = 100 · ((t1 − l1)/(h1 − l1) + (t2 − l2)/(h2 − l2)) / 2
+t1 = sum of the best 8 of the 10 observed percentages at −14..−5
+l1 = sum of the lowest 8 of the 10 per-position minima;  h1 = highest 8 of the 10 per-position maxima
+t2 = sum of the observed percentages at −3, −2, −1, +1 (C A G | G)
+l2 / h2 = sums of the per-position minima / maxima there
 ```
 
-U12 acceptors are scored by matching `C` at `-1` and `-2`, a pyrimidine at `-3`, and an upstream PPT fraction, then normalizing by the maximum score of `3.5`.
+Position −4 (`N`) is not scored. The library reports `score / 100`. All eight subtables are transcribed (`ShapiroSenapathyAcceptorTables`); the formula reproduces the paper's published 3' ss scores of real introns (Table 5) at 1 dp for 40 of 41 sites (the remaining one differs by 0.1, table rounding).
 
-**Branch-point detection (opt-in).** The human branch-point consensus is `yUnAy` at motif positions `-3..+1`, with the branch adenosine at position `0`.[9] Each candidate adenosine in the 18–40 nt window upstream of the `AG` is scored as a conservation-weighted match fraction over the four informative positions:
+**MaxEntScan (opt-in).** The Yeo & Burge (2004) `score3ss` of the 23-nt window −20..+3 (`ScoreAcceptorMaxEnt`, bit-identical to maxentpy), in bits.[3]
+
+**U12-type acceptors (opt-in).** Fraction of the 9 positions matching the U12 branch-site consensus `UUCCUUAAC` (branch adenosine = second `A`; Brock, Dietrich & Padgett 2008), maximised over placements whose branch `A` lies 8–21 nt upstream of the last intron nucleotide (the branch-site-to-acceptor window of the Levine & Durbin 2001 human genome U12 scan; optimum 11–13 nt, Turunen et al. 2013). Terminus `AC` (AT-AC) or `AG` (GT-AG U12).[12][13][14]
+
+**Branch points.** Human `yUnAy` (positions −3..+1, branch `A` at 0), scored as a conservation-weighted match fraction with the Gao et al. (2008) Table 4 frequencies (`y@−3` 0.470+0.320 = 0.790, `U@−2` 0.746, `A@0` 0.923, `y@+1` 0.331+0.420 = 0.751; `−1` uninformative):
 
 ```text
-score = ( w₋₃·[−3 ∈ {C,U}] + w₋₂·[−2 = U] + w₀·[0 = A] + w₊₁·[+1 ∈ {C,U}] ) / (w₋₃ + w₋₂ + w₀ + w₊₁)
+score = ( 0.790·[−3 ∈ {C,U}] + 0.746·[−2 = U] + 0.923·[0 = A] + 0.751·[+1 ∈ {C,U}] ) / 3.210
 ```
 
-where the weights are the Gao et al. (2008) lariat-RT-PCR conservation frequencies `w₋₃ = 0.790` (pyrimidine at −3), `w₋₂ = 0.746` (U at −2), `w₀ = 0.923` (branch A at 0), `w₊₁ = 0.751` (pyrimidine at +1); position `-1` is `n` (uninformative). A perfect `yUnAy` scores `1.0`. The best-scoring candidate in the window (default `minScore = 0.5`) is reported, together with the pyrimidine fraction of the tract between the branch point and the `AG` (the 4–24 nt downstream window).[9]
+Yeast `UACUAAC` (strictly conserved in *S. cerevisiae*, branch `A` = sixth nucleotide; Langford & Gallwitz 1983, Gao et al. 2008) is scored as the fraction of matching positions. `FindAcceptorBranchPoint` searches the 18–40 nt window upstream of the `AG` (`DistanceFromAg = index(G of AG) − index(branch A)`; Gao: 83 % of branch points at −34..−21 from the 3' end, Mercer et al. 2015) and reports the pyrimidine fraction of the PPT +4..+24 downstream of the branch point (Gao et al. 2008).[9][10]
 
 ### 2.3 Modeling Assumptions
 
 | ID | Assumption | Consequence if Violated |
 |----|------------|--------------------------|
-| ASM-01 | A 15-base upstream PPT window captures enough local acceptor context. | Real acceptors with weaker or differently positioned upstream context can be underscored. |
-| ASM-02 | The sparse acceptor PWM is sufficient for candidate prioritization. | Fine-grained sequence preferences outside the represented offsets are ignored. |
+| ASM-01 | The S&S table for the organism's GENBANK category applies (primate default). | Scores for other taxa should use their subtable (`category`). |
+| ASM-02 | U12-type acceptors are scored by branch-site consensus match only. | No trained U12-vs-U2 classifier (see §6.2). |
 
 ### 2.4 Properties and Invariants
 
 | ID | Invariant | Holds because |
 |----|-----------|---------------|
-| INV-01 | Returned `Score` values are in `[0, 1]`. | Both canonical and U12 scorers clamp the normalized result. |
-| INV-02 | Returned `Confidence` values are in `[0, 1]`. | Confidence is computed through a clamped linear interpolation. |
-| INV-03 | Canonical `AG` sites use `Type = Acceptor`; optional `AC` sites use `Type = U12Acceptor`. | The public method assigns those enum values explicitly. |
-| INV-04 | Returned `Position` for a canonical acceptor is `i + 1`, the index of the `G` in `AG`. | The method yields `Position: i + 1`. |
-| INV-05 | Branch-point `Score` is in `[0, 1]`; a perfect `yUnAy` scores `1.0`. | `matched / maxScore` with `maxScore` = sum of the four conservation weights. |
-| INV-06 | A branch point is reported only when located 18–40 nt (inclusive) upstream of the `AG`. | The search window is `[BranchPointMinDistanceFromAg, BranchPointMaxDistanceFromAg]`. |
-| INV-07 | Branch-point detection is additive: `FindAcceptorSites` output is unchanged. | The branch-point logic is a separate method/record; the acceptor score path is untouched. |
+| INV-01 | S&S and U12 `Score` ∈ [0, 1] (MaxEnt in bits). | Each half of the S&S score is a (t − l)/(h − l) fraction; U12 = matches/9. |
+| INV-02 | `Confidence` ∈ [0, 1]. | clamp((s − 0.5)/0.5) or 2^s/(1+2^s). |
+| INV-03 | `AG` sites → `Acceptor`; U12 candidates → `U12Acceptor`. | Assigned explicitly. |
+| INV-04 | `Position` = index of the last intron nucleotide (`G` of `AG`, terminal `C`/`G` for U12). | `Position = i + 1`. |
+| INV-05 | Branch-point `Score` ∈ [0, 1]; perfect `yUnAy` = 1.0. | Weighted fraction. |
+| INV-06 | `FindAcceptorBranchPoint` reports only branch points 18–40 nt upstream of the `AG`. | Search window. |
+| INV-07 | No site is scored from a partial window or a non-ACGTU character. | Full-window rule. |
 
 ## 3. Contract
 
@@ -75,49 +71,46 @@ where the weights are the Gao et al. (2008) lariat-RT-PCR conservation frequenci
 
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
-| `sequence` | `string` | required | DNA or RNA sequence to scan. | Empty, `null`, or length `< 20` yields no results. |
-| `minScore` | `double` | `0.5` | Minimum normalized score required to emit a site. | Applied after canonical or U12 scoring. |
-| `includeNonCanonical` | `bool` | `false` | Whether to include U12-style `AC` acceptors. | Canonical `AG` scanning is always active. |
+| `sequence` | `string` | required | DNA or RNA sequence (case-insensitive; T = U). | Empty / `null` → no sites. |
+| `minScore` | `double` | `0.5` | Minimum score to emit a site. | [0,1] for S&S / U12, bits for MaxEnt. |
+| `includeNonCanonical` | `bool` | `false` | Also report U12-type acceptors (S&S model only). | |
+| `model` | `AcceptorScoringModel` | `ShapiroSenapathy` | Overload `FindAcceptorSites(seq, minScore, nc, model, category)`. | |
+| `category` | `ShapiroSenapathyCategory` | `Primate` | S&S Table 1 subtable. | Ignored by MaxEnt. |
+
+`FindBranchPoints(seq, searchStart, searchEnd, minScore[, BranchPointModel])`: motif starts in [`searchStart`, `searchEnd`] (inclusive, −1 = to end) are scored.
 
 ### 3.2 Output / Return Value
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `Position` | `int` | For canonical `AG`, the index of the `G` in the dinucleotide; for `AC`, the index of the `C`. |
-| `Type` | `SpliceSiteType` | `Acceptor` or `U12Acceptor`. |
-| `Motif` | `string` | Local context extracted around the first base of the candidate dinucleotide via `GetMotifContext(sequence, position - 1, 15, 2)`; `Position` itself reports the terminal intronic base. |
-| `Score` | `double` | Normalized acceptor score. |
-| `Confidence` | `double` | Clamped confidence derived from the score. |
+| `Position` | `int` | Index of the last intron nucleotide (acceptor) / branch `A` position (branch point). |
+| `Type` | `SpliceSiteType` | `Acceptor`, `U12Acceptor` or `Branch`. |
+| `Motif` | `string` | Acceptor: −20..+3 context (RNA alphabet, truncated at the ends); branch: the scored motif. |
+| `Score` | `double` | S&S score/100, MaxEnt bits, U12 match fraction, or branch-point score. |
+| `Confidence` | `double` | clamp((s − 0.5)/0.5) or 2^s/(1+2^s) (MaxEnt). |
 
 ### 3.3 Preconditions and Validation
 
-The method uppercases the sequence and converts `T` to `U`. Canonical scanning begins at index `15` so that the upstream PPT window is available. Canonical `AG` and optional `AC` candidates are scored independently, and sites are emitted only when their normalized score meets `minScore`.[8]
+A candidate is scored only when its whole window (S&S −14..+1, MaxEnt −20..+3, U12 branch site, branch motif) lies inside the sequence and is A/C/G/T/U; an `AG` inside the S&S pyrimidine region −14..−5 eliminates the candidate (S&S 1987). Unknown enum values throw `ArgumentOutOfRangeException`.
 
 ## 4. Algorithm
 
 ### 4.1 High-Level Steps
 
-1. Return no results for `null`, empty, or too-short input.
-2. Normalize the sequence to uppercase RNA notation.
-3. Starting at index `15`, scan for canonical `AG` candidates and, optionally, `AC` candidates.
-4. For `AG`, compute PPT contribution and sparse-PWM contribution, then normalize the combined score.
-5. For `AC`, compute the U12 `YCCAC`-style score plus upstream PPT fraction, then normalize.
-6. Emit a `SpliceSite` when the candidate score is at least `minScore`.
+1. Upper-case, T → U.
+2. For every `AG` (A at `i`): score the S&S window `i−12..i+2` (or the MaxEnt window `i−18..i+4`); emit `Acceptor` at `i+1` when `score ≥ minScore`.
+3. With `includeNonCanonical` (S&S): for every `AC` or `AG`, score the U12 branch site over distances 8–21; emit `U12Acceptor`.
 
-### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
+### 4.2 Decision Rules
 
-The current scoring rules are:
-
-| Candidate class | Recognition rule | Scoring rule |
-|-----------------|------------------|--------------|
-| Canonical acceptor | `AG` at positions `i`, `i+1` | PPT contribution + sparse `AcceptorPwm`, normalized to `[0, 1]` |
-| U12 acceptor | `AC` at positions `i`, `i+1` when non-canonical enabled | `YCCAC` component + PPT fraction, normalized by `3.5` |
+| Candidate class | Recognition | Scoring |
+|-----------------|-------------|---------|
+| U2 acceptor | `AG` | S&S 3' ss score (or MaxEnt score3) |
+| U12 acceptor | `AC` / `AG` (non-canonical) | best `UUCCUUAAC` match fraction, branch A 8–21 nt upstream |
 
 ### 4.3 Complexity
 
-| Operation | Time | Space | Notes |
-|-----------|------|-------|-------|
-| `FindAcceptorSites` | `O(n)` | `O(1)` auxiliary | Single scan over the normalized sequence. |
+`O(n)` for all scanners (constant-size windows).
 
 ## 5. Implementation Notes
 
@@ -125,75 +118,66 @@ The current scoring rules are:
 
 **Implementation location:** [SpliceSitePredictor.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/SpliceSitePredictor.cs)
 
-- `SpliceSitePredictor.FindAcceptorSites(string, double, bool)`
-- `SpliceSitePredictor.FindAcceptorBranchPoint(string, int, double)` (opt-in branch-point detection; returns `BranchPointResult`)
-- `SpliceSitePredictor.ScoreAcceptorMaxEnt(string)` (opt-in Yeo & Burge 2004 MaxEntScan `score3ss` maximum-entropy 3' acceptor score, in bits; embedded probability tables)
-- `SpliceSitePredictor.CalculateMaxEntScore(string, SpliceSiteType.Acceptor)` (MCP `maxent_score`) delegates to `ScoreAcceptorMaxEnt` (23-nt window required)
-- `SpliceSitePredictor.ScoreAcceptorSite(string, int)` (private helper)
-- `SpliceSitePredictor.ScoreU12AcceptorSite(string, int)` (private helper)
-- `SpliceSitePredictor.ScoreBranchPointConsensus(string, int)` (private helper)
+- `FindAcceptorSites(string, double, bool)` (S&S primate) and `FindAcceptorSites(string, double, bool, AcceptorScoringModel, ShapiroSenapathyCategory)`
+- `FindBranchPoints(string, int, int, double)` (human `yUnAy`) and `FindBranchPoints(string, int, int, double, BranchPointModel)`
+- `FindAcceptorBranchPoint(string, int, double)` → `BranchPointResult`
+- `ScoreAcceptorMaxEnt(string)`; `CalculateMaxEntScore(string, Acceptor)` (MCP `maxent_score`)
+- private: `ScoreAcceptorSiteShapiroSenapathy`, `ScoreAcceptorSiteMaxEnt`, `ScoreU12AcceptorSite`, `ScoreBranchPointConsensus`, `ComputeBranchPointPptFraction`
+- MCP: `find_acceptor_sites` (`model`, `category`), `find_branch_points` (`model` human/yeast)
 
 ### 5.2 Current Behavior
 
-Canonical acceptor scoring uses a separate PPT component and applies the `AcceptorPwm` with offsets relative to the splice site, implemented as `position + 2 + offset` inside `ScoreAcceptorSite`. `FindAcceptorSites` reports the index of the terminal intronic nucleotide (`G` in `AG`) rather than the first exonic nucleotide. U12 acceptors are returned only when `includeNonCanonical` is enabled and are scored against `YCCAC`-style upstream context plus PPT quality.[8]
+Real human acceptors (Ensembl canonical transcripts of HBB, HBA1, TP53, CFTR; 40 acceptors) score primate S&S 0.717–0.992 (mean 0.88; one eliminated by an upstream AG), MaxEnt 3.21–13.37 bits; a `yUnAy` ≥ 0.5 is found 18–40 nt upstream of all 40.
 
 ### 5.3 Conformance to Theory / Spec
 
-**Implemented (verbatim from the cited theory/spec):**
-
-- Canonical acceptor recognition is based on the `AG` terminus and upstream PPT-rich context of `(Y)nNCAG|G`.[1][2]
-- Optional U12-style acceptor handling is based on `AC` and `YCCAC`-style context.[4][5][6]
-- Explicit branch-point detection uses the human `yUnAy` consensus (positions `-3..+1`, branch A at `0`), the per-position conservation weights, the 18–40 nt upstream window, and the 4–24 nt PPT span — all taken from Gao et al. (2008), corroborated by Mercer et al. (2015).[9][10]
-- The opt-in `ScoreAcceptorMaxEnt` implements the Yeo & Burge (2004) **MaxEntScan `score3ss`** maximum-entropy 3' acceptor model on a 23-nt window (20 intron + 3 exon, conserved `AG` at 0-based positions 18–19): `log2(P_maxent/P_background)`, removing the `AG` (scored by a consensus/background model) and factorising the 21 remaining positions over nine overlapping sub-sequences (five multiplied, four divided) using embedded precomputed probability tables. The factorisation and tables are the MIT-licensed maxentpy port; the canonical documented example `ScoreAcceptorMaxEnt("ttccaaacgaacttttgtAGgga")` reproduces `2.89` bits exactly (provenance + licence: `Data/maxent_score3.LICENSE.md`). Bit-identical to maxentpy `score3` on 200,025 test windows (100,000 random + 100,000 AG 23-mers + all 16 dinucleotides) and identical at 2 dp to score3.pl (CPAN port, original me2x3acc1-9 tables; log2 computed as ln/ln2, as the references do).[3]
-
-**Intentionally simplified:**
-
-- The canonical scorer uses a sparse eight-position PWM and a separate PPT term rather than a full statistical acceptor model; **consequence:** scoring is interpretable and fast, but less expressive than richer trained predictors.
-- U12 acceptor scoring uses a short consensus and PPT fraction only; **consequence:** minor-spliceosome candidates are heuristic approximations.
-
-**Not implemented:**
-
-- Automatic disambiguation between cryptic and functional `AG` sites beyond local scoring; **users should rely on:** caller-side thresholding and downstream intron pairing.
+- S&S 3' ss score: Table 1 + Methods verbatim; Table 5 reproduced 40/41 at 1 dp.
+- MaxEnt: bit-identical to maxentpy `score3`.
+- Independent Python oracle (all fields, all overloads/models) vs C# on 8,104 inputs (random/IUPAC/case/U/N + 4 real genes): 0 mismatches (Evidence Dataset 6).
 
 ### 5.4 Deviations and Assumptions
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
-| 1 | The acceptor PWM is intentionally sparse, covering eight positions rather than a full continuous window. | Design choice | Reduces model complexity while preserving the strongest documented positions. | accepted | Confirmed in [SpliceSitePredictor.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/SpliceSitePredictor.cs). |
+| 1 | "AG in those 10 locations" read as both bases inside −14..−5. | Interpretation | An AG straddling −5/−4 is not eliminated. | accepted | Table 5 sites contain none. |
+| 2 | U12 acceptor = branch-site consensus fraction. | Scope | No trained U12 PWM. | declared | §6.2. |
 
 ## 6. Edge Cases and Limitations
 
 ### 6.1 Edge Cases
 
-| Case | Expected Behavior | Rationale |
-|------|-------------------|-----------|
-| Empty or `null` input | Returns no acceptor sites. | Guard clause. |
-| Sequence shorter than 20 nt | Returns no acceptor sites. | The method requires upstream context. |
-| DNA input | Same behavior as RNA input after normalization. | `T` is converted to `U`. |
-| Lowercase input | Same behavior as uppercase input. | The sequence is uppercased before scanning. |
-| Higher `minScore` | Returns a subset of lower-threshold results. | Filtering uses `score >= minScore`. |
+| Case | Expected Behavior |
+|------|-------------------|
+| Empty / `null` input | No sites. |
+| `AG` with < 12 upstream nt or no exon nt | No S&S site (window incomplete). |
+| `N` inside the scored window | Candidate not scored. |
+| `AG` inside −14..−5 | Candidate eliminated (S&S 1987). |
+| DNA / lower case | Same as RNA / upper case. |
 
 ### 6.2 Limitations
 
-The default `FindAcceptorSites` scorer in this repository is a local motif-and-PPT scorer and does not decide exon or intron structure by itself. As opt-in companions it offers explicit branch-point detection (`FindAcceptorBranchPoint`) and the Yeo & Burge (2004) MaxEntScan `score3ss` maximum-entropy 3' acceptor score (`ScoreAcceptorMaxEnt`, on a 23-nt window, embedded MIT-licensed tables — see §5.3). The corresponding 5' **donor** MaxEntScan `score5ss` model is `ScoreDonorMaxEnt` (see Donor_Site_Detection). The branch-point window and weights are human/mammalian (Gao 2008); other species may have different branch-point statistics.
+U12-type acceptors are scored by the `UUCCUUAAC` branch-site consensus match fraction within the 8–21 nt window, not by a trained U12 PWM log-odds classifier (Sharp & Burge 1997; Levine & Durbin 2001 used 48-intron weight matrices; intronIC matrices are GPL-3, not bundleable). The branch-point weights and windows are human (Gao 2008); use the yeast model for *S. cerevisiae*.
 
 ## 7. Examples and Related Material
 
-### 7.3 Related Tests, Evidence, or Documents
-
-- Tests: [SpliceSitePredictor_AcceptorSite_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Annotation/SpliceSitePredictor_AcceptorSite_Tests.cs) — covers `INV-01`–`INV-07` (acceptor scoring + branch-point detection)
+- Tests: [SpliceSitePredictor_AcceptorSite_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Annotation/SpliceSitePredictor_AcceptorSite_Tests.cs)
 - Test specification: [SPLICE-ACCEPTOR-001.md](../../../tests/TestSpecs/SPLICE-ACCEPTOR-001.md)
-- Related algorithms: [Donor_Site_Detection.md](Donor_Site_Detection.md), [Gene_Structure_Prediction.md](Gene_Structure_Prediction.md)
+- Evidence: [SPLICE-ACCEPTOR-001-Evidence.md](../../Evidence/SPLICE-ACCEPTOR-001-Evidence.md)
+- Related: [Donor_Site_Detection.md](Donor_Site_Detection.md), [Gene_Structure_Prediction.md](Gene_Structure_Prediction.md)
 
 ## 8. References
 
-1. Shapiro MB, Senapathy P. 1987. RNA splice junctions of different classes of eukaryotes. Nucleic Acids Research. N/A
-2. Burge CB, Tuschl T, Sharp PA. 1999. The RNA World. N/A
-3. Yeo G, Burge CB. 2004. Maximum entropy modeling of short sequence motifs with applications to RNA splicing signals. Journal of Computational Biology 11(2–3):377–394.
-4. Patel AA, Steitz JA. 2003. Nature Reviews Molecular Cell Biology. N/A
-5. Hall SL, Padgett RA. 1994. Journal of Molecular Biology. N/A
-6. Jackson IJ. 1991. Nucleic Acids Research. N/A
-7. Dietrich RC, Incorvaia R, Padgett RA. 1997. Molecular Cell. N/A
+1. Shapiro MB, Senapathy P. 1987. RNA splice junctions of different classes of eukaryotes: sequence statistics and functional implications in gene expression. Nucleic Acids Res 15(17):7155–7174 (Table 1, Methods p. 7158, Table 5).
+2. Burge CB, Tuschl T, Sharp PA. 1999. Splicing of precursors to mRNAs by the spliceosomes. The RNA World, 2nd ed. CSHL Press.
+3. Yeo G, Burge CB. 2004. Maximum entropy modeling of short sequence motifs with applications to RNA splicing signals. J Comput Biol 11(2–3):377–394.
+4. Patel AA, Steitz JA. 2003. Nat Rev Mol Cell Biol 4:960–970.
+5. Hall SL, Padgett RA. 1994. J Mol Biol 239:357–365.
+6. Jackson IJ. 1991. Nucleic Acids Res 19:3795–3798.
+7. Dietrich RC, Incorvaia R, Padgett RA. 1997. Mol Cell 1:151–160.
 8. Test specification: [SPLICE-ACCEPTOR-001.md](../../../tests/TestSpecs/SPLICE-ACCEPTOR-001.md)
-9. Gao K, Masuda A, Matsuura T, Ohno K. 2008. Human branch point consensus sequence is yUnAy. Nucleic Acids Research 36(7):2257–2267. DOI 10.1093/nar/gkn073. https://pmc.ncbi.nlm.nih.gov/articles/PMC2367711/
-10. Mercer TR, Clark MB, Andersen SB, et al. 2015. Genome-wide discovery of human splicing branchpoints. Genome Research 25(2):290–303. DOI 10.1101/gr.182899.114.
+9. Gao K, Masuda A, Matsuura T, Ohno K. 2008. Human branch point consensus sequence is yUnAy. Nucleic Acids Res 36(7):2257–2267 (Table 4).
+10. Mercer TR et al. 2015. Genome-wide discovery of human splicing branchpoints. Genome Res 25(2):290–303.
+11. Langford CJ, Gallwitz D. 1983. Evidence for an intron-contained sequence required for the splicing of yeast RNA polymerase II transcripts. Cell 33:519–527.
+12. Brock JE, Dietrich RC, Padgett RA. 2008. Mutational analysis of the U12-dependent branch site consensus sequence. RNA 14:2430–2439.
+13. Levine A, Durbin R. 2001. A computational scan for U12-dependent introns in the human genome sequence. Nucleic Acids Res 29:4006–4013.
+14. Turunen JJ, Niemelä EH, Verma B, Frilander MJ. 2013. The significant other: splicing by the minor spliceosome. WIREs RNA 4:61–76.

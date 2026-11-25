@@ -5,39 +5,193 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "GenomeAssemblyAnalyzer.AssessCompleteness",
-  "docRef": "Seqeron.Genomics.Chromosome/GenomeAssemblyAnalyzer.cs#L520",
-  "description": "Assess assembly completeness by aligning marker genes (BUSCO-like, k-mer based); reports complete/single/duplicated/fragmented/missing.",
+  "docRef": "Seqeron.Genomics.Chromosome/GenomeAssemblyAnalyzer.cs#L727",
+  "description": "Assess assembly completeness with nucleotide marker genes (BUSCO-like): both-strand seeded local alignment (28-bp megablast seed, BLAST blastn scoring), compleasm classification into complete single-copy / duplicated / fragmented / missing; BUSCO percentages over n and C:S:D:F:M notation.",
   "inputSchema": {
     "type": "object",
     "properties": {
-      "assembly": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string" }, "sequence": { "type": "string" } }, "required": ["id", "sequence"] } },
-      "markerGenes": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string" }, "sequence": { "type": "string" } }, "required": ["id", "sequence"] } },
-      "identityThreshold": { "type": "number", "default": 0.9, "minimum": 0, "maximum": 1 },
-      "coverageThreshold": { "type": "number", "default": 0.9, "minimum": 0, "maximum": 1 }
+      "assembly": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "sequence": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "sequence"
+          ]
+        }
+      },
+      "markerGenes": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "sequence": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "sequence"
+          ]
+        }
+      },
+      "identityThreshold": {
+        "type": "number",
+        "default": 0.9,
+        "minimum": 0,
+        "maximum": 1,
+        "description": "compleasm min_identity: a hit with identity >= this is valid."
+      },
+      "coverageThreshold": {
+        "type": "number",
+        "default": 0.9,
+        "minimum": 0,
+        "maximum": 1,
+        "description": "compleasm min_complete: a valid hit whose aligned marker fraction >= this is complete."
+      },
+      "minLengthFraction": {
+        "type": "number",
+        "default": 0.6,
+        "minimum": 0,
+        "maximum": 1,
+        "description": "compleasm min_length_percent: a hit with aligned fraction >= this is valid regardless of identity."
+      }
     },
-    "required": ["assembly", "markerGenes"]
+    "required": [
+      "assembly",
+      "markerGenes"
+    ]
   },
   "outputSchema": {
     "type": "object",
     "properties": {
-      "totalGenes": { "type": "integer" },
-      "complete": { "type": "integer" },
-      "completeSingleCopy": { "type": "integer" },
-      "completeDuplicated": { "type": "integer" },
-      "fragmented": { "type": "integer" },
-      "missing": { "type": "integer" },
-      "completenessPercent": { "type": "number" },
-      "duplicationPercent": { "type": "number" }
+      "totalGenes": {
+        "type": "integer"
+      },
+      "complete": {
+        "type": "integer"
+      },
+      "completeSingleCopy": {
+        "type": "integer"
+      },
+      "completeDuplicated": {
+        "type": "integer"
+      },
+      "fragmented": {
+        "type": "integer"
+      },
+      "missing": {
+        "type": "integer"
+      },
+      "completenessPercent": {
+        "type": "number",
+        "description": "C% = (S + D) / n * 100"
+      },
+      "duplicationPercent": {
+        "type": "number",
+        "description": "BUSCO D% = D / n * 100"
+      },
+      "singleCopyPercent": {
+        "type": "number",
+        "description": "S / n * 100"
+      },
+      "fragmentedPercent": {
+        "type": "number",
+        "description": "F / n * 100"
+      },
+      "missingPercent": {
+        "type": "number",
+        "description": "M / n * 100"
+      },
+      "buscoNotation": {
+        "type": "string",
+        "description": "BUSCO one-line summary C:x%[S:x%,D:x%],F:x%,M:x%,n:N (round to 1 decimal)"
+      }
     },
-    "required": ["totalGenes", "complete", "completeSingleCopy", "completeDuplicated", "fragmented", "missing", "completenessPercent", "duplicationPercent"]
+    "required": [
+      "totalGenes",
+      "complete",
+      "completeSingleCopy",
+      "completeDuplicated",
+      "fragmented",
+      "missing",
+      "completenessPercent",
+      "duplicationPercent",
+      "singleCopyPercent",
+      "fragmentedPercent",
+      "missingPercent",
+      "buscoNotation"
+    ]
   },
   "errors": [
-    { "code": 1001, "message": "Assembly cannot be null" },
-    { "code": 1002, "message": "Marker genes cannot be null" },
-    { "code": 1003, "message": "Identity threshold must be in [0, 1]" },
-    { "code": 1004, "message": "Coverage threshold must be in [0, 1]" }
+    {
+      "code": 1001,
+      "message": "Assembly cannot be null"
+    },
+    {
+      "code": 1002,
+      "message": "Marker genes cannot be null"
+    },
+    {
+      "code": 1003,
+      "message": "Identity threshold must be in [0, 1]"
+    },
+    {
+      "code": 1004,
+      "message": "Coverage threshold must be in [0, 1]"
+    },
+    {
+      "code": 1005,
+      "message": "Minimum length fraction must be in [0, 1]"
+    }
   ],
   "examples": [
-    { "name": "Single marker present", "input": { "assembly": [ { "id": "scaf", "sequence": "…marker…" } ], "markerGenes": [ { "id": "m1", "sequence": "…" } ] }, "output": { "totalGenes": 1, "complete": 1, "completeSingleCopy": 1, "missing": 0, "completenessPercent": 100.0 } }
+    {
+      "name": "Duplicated and missing",
+      "input": {
+        "assembly": [
+          {
+            "id": "s1",
+            "sequence": "A40C40"
+          },
+          {
+            "id": "s2",
+            "sequence": "A40C40"
+          }
+        ],
+        "markerGenes": [
+          {
+            "id": "m1",
+            "sequence": "A40C40"
+          },
+          {
+            "id": "m2",
+            "sequence": "(GT)40"
+          }
+        ]
+      },
+      "output": {
+        "totalGenes": 2,
+        "complete": 1,
+        "completeSingleCopy": 0,
+        "completeDuplicated": 1,
+        "fragmented": 0,
+        "missing": 1,
+        "completenessPercent": 50.0,
+        "duplicationPercent": 50.0,
+        "buscoNotation": "C:50.0%[S:0.0%,D:50.0%],F:0.0%,M:50.0%,n:2"
+      }
+    }
   ]
 }

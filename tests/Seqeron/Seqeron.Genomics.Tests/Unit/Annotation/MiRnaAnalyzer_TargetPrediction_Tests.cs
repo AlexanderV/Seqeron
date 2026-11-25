@@ -34,16 +34,21 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
         // 8mer: full seedRC (CUACCUC) + trailing A → CUACCUCA
         // Evidence: Bartel (2009) — 8mer = positions 2-8 match + A opposite position 1
         // Layout on mRNA (5'→3'): [seedRC] [A] where seedRC = RC of miRNA pos 2-8
-        string mrna = "GGGGG" + Let7aSeedRC + "A" + "GGGGG";
+        // 40 nt flanks keep the site beyond TargetScan's 15-nt stop-codon guard (a closer site has no score).
+        string mrna = new string('A', 40) + Let7aSeedRC + "A" + new string('A', 40);
 
-        var sites = FindTargetSites(mrna, Let7a, minScore: 0.1).ToList();
+        var sites = FindTargetSites(mrna, Let7a, minScore: 0.0).ToList();
 
         Assert.Multiple(() =>
         {
             Assert.That(sites, Has.Count.EqualTo(1));
             Assert.That(sites[0].Type, Is.EqualTo(TargetSiteType.Seed8mer));
             Assert.That(sites[0].SeedMatchLength, Is.EqualTo(8));
-            Assert.That(sites[0].Score, Is.GreaterThanOrEqualTo(0.9));
+            // Score = −(TargetScan 5.0 context score) = 0.310 − AU − position − 3' pairing; the A/U-rich context
+            // makes this 8mer strongly predicted (> 0.5 log2 units); the signed score is exposed as ContextScore.
+            Assert.That(sites[0].ContextScore, Is.Not.Null);
+            Assert.That(sites[0].Score, Is.EqualTo(-sites[0].ContextScore!.Value).Within(1e-12));
+            Assert.That(sites[0].Score, Is.GreaterThan(0.5));
         });
     }
 
@@ -58,7 +63,7 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
         // Evidence: Bartel (2009) — 7mer-m8 = positions 2-8 match, no A at pos 1
         string mrna = "GGGGG" + Let7aSeedRC + "G" + "GGGGG";
 
-        var sites = FindTargetSites(mrna, Let7a, minScore: 0.1).ToList();
+        var sites = FindTargetSites(mrna, Let7a, minScore: 0.0).ToList();
 
         Assert.Multiple(() =>
         {
@@ -81,7 +86,7 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
         string sixmerCore = Let7aSeedRC[1..]; // UACCUC (RC of miRNA positions 2-7)
         string mrna = "GGGGG" + sixmerCore + "A" + "GGGGG";
 
-        var sites = FindTargetSites(mrna, Let7a, minScore: 0.1).ToList();
+        var sites = FindTargetSites(mrna, Let7a, minScore: 0.0).ToList();
 
         Assert.Multiple(() =>
         {
@@ -103,7 +108,7 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
         string sixmerCore = Let7aSeedRC[1..]; // UACCUC (RC of miRNA positions 2-7)
         string mrna = "GGGGG" + sixmerCore + "G" + "GGGGG";
 
-        var sites = FindTargetSites(mrna, Let7a, minScore: 0.01).ToList();
+        var sites = FindTargetSites(mrna, Let7a, minScore: 0.0).ToList();
 
         Assert.Multiple(() =>
         {
@@ -120,25 +125,25 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
     [Test]
     public void FindTargetSites_ScoreMonotonicity_8mer_GT_7merM8_GT_7merA1_GT_6mer()
     {
-        // Evidence: Grimson (2007) — efficacy hierarchy: 8mer > 7mer-m8 > 7mer-A1 > 6mer
-        // Grimson weights: 8mer=0.310, 7mer-m8=0.161, 7mer-A1=0.099
+        // Evidence: Grimson (2007) — efficacy hierarchy 8mer > 7mer-m8 > 7mer-A1 (site-type contributions
+        // -0.310 / -0.161 / -0.099, TargetScan 5.0) > 6mer (no fitted effect: Score 0).
+        // Identical 40-nt A flanks (AU-rich context, beyond the 15-nt guard): TargetScan 5.0 scores (hand-checked
+        // against the printed terms, e.g. 8mer −0.310 −0.275 (AU) −0.063 (position) + 0.0028 (3' pairing) = −0.6452).
         string sixmerCore = Let7aSeedRC[1..]; // UACCUC (RC of positions 2-7)
+        string flank = new string('A', 40);
 
-        string mrna8mer = "GGGGG" + Let7aSeedRC + "A" + "GGGGG";
-        string mrna7merM8 = "GGGGG" + Let7aSeedRC + "G" + "GGGGG";
-        string mrna7merA1 = "GGGGG" + sixmerCore + "A" + "GGGGG";
-        string mrna6mer = "GGGGG" + sixmerCore + "G" + "GGGGG";
-
-        double score8mer = FindTargetSites(mrna8mer, Let7a, 0.01).First().Score;
-        double score7merM8 = FindTargetSites(mrna7merM8, Let7a, 0.01).First().Score;
-        double score7merA1 = FindTargetSites(mrna7merA1, Let7a, 0.01).First().Score;
-        double score6mer = FindTargetSites(mrna6mer, Let7a, 0.01).First().Score;
+        double score8mer = FindTargetSites(flank + Let7aSeedRC + "A" + flank, Let7a, 0.0).First().Score;
+        double score7merM8 = FindTargetSites(flank + Let7aSeedRC + "G" + flank, Let7a, 0.0).First().Score;
+        double score7merA1 = FindTargetSites(flank + sixmerCore + "A" + flank, Let7a, 0.0).First().Score;
+        double score6mer = FindTargetSites(flank + sixmerCore + "G" + flank, Let7a, 0.0).First().Score;
 
         Assert.Multiple(() =>
         {
+            Assert.That(score8mer, Is.EqualTo(0.6452).Within(1e-9));
             Assert.That(score8mer, Is.GreaterThan(score7merM8), "8mer > 7mer-m8");
             Assert.That(score7merM8, Is.GreaterThan(score7merA1), "7mer-m8 > 7mer-A1");
             Assert.That(score7merA1, Is.GreaterThan(score6mer), "7mer-A1 > 6mer");
+            Assert.That(score6mer, Is.EqualTo(0.0), "no TargetScan 5.0 coefficients for a 6mer");
         });
     }
 
@@ -168,7 +173,7 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
     {
         // All G's — no seed RC present
         string mrna = new string('G', 30);
-        Assert.That(FindTargetSites(mrna, Let7a, 0.1).ToList(), Is.Empty);
+        Assert.That(FindTargetSites(mrna, Let7a, 0.0).ToList(), Is.Empty);
     }
 
     #endregion
@@ -183,7 +188,7 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
         string site = Let7aSeedRC + "G"; // 7mer-m8 site (full seedRC + non-A)
         string mrna = "GGG" + site + "GGG" + site + "GGG" + site + "GGG";
 
-        var sites = FindTargetSites(mrna, Let7a, minScore: 0.01).ToList();
+        var sites = FindTargetSites(mrna, Let7a, minScore: 0.0).ToList();
 
         Assert.Multiple(() =>
         {
@@ -220,17 +225,17 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
     [Test]
     public void FindTargetSites_HighMinScore_FiltersLowScoringSites()
     {
-        // 6mer (Grimson base score ~0.15) should be filtered with high threshold
+        // A 6mer has no TargetScan 5.0 coefficients (Score 0): kept at minScore 0, filtered by any positive threshold.
         string sixmerCore = Let7aSeedRC[1..]; // UACCUC (RC of positions 2-7)
         string mrna = "GGGGG" + sixmerCore + "G" + "GGGGG";
 
-        var withLowThreshold = FindTargetSites(mrna, Let7a, minScore: 0.01).ToList();
-        var withHighThreshold = FindTargetSites(mrna, Let7a, minScore: 0.99).ToList();
+        var withLowThreshold = FindTargetSites(mrna, Let7a, minScore: 0.0).ToList();
+        var withHighThreshold = FindTargetSites(mrna, Let7a, minScore: 0.01).ToList();
 
         Assert.Multiple(() =>
         {
             Assert.That(withLowThreshold, Is.Not.Empty, "Low threshold should find 6mer");
-            Assert.That(withHighThreshold, Is.Empty, "High threshold should filter 6mer");
+            Assert.That(withHighThreshold, Is.Empty, "A positive threshold should filter the unscored 6mer");
         });
     }
 
@@ -336,7 +341,7 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
     {
         string mrna = "GGGGG" + Let7aSeedRC + "A" + "GGGGG";
 
-        var sites = FindTargetSites(mrna, Let7a, minScore: 0.1).ToList();
+        var sites = FindTargetSites(mrna, Let7a, minScore: 0.0).ToList();
 
         Assert.Multiple(() =>
         {
@@ -356,8 +361,8 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
         string mrnaRna = "GGGGG" + Let7aSeedRC + "A" + "GGGGG";
         string mrnaDna = mrnaRna.Replace('U', 'T');
 
-        var sitesRna = FindTargetSites(mrnaRna, Let7a, minScore: 0.1).ToList();
-        var sitesDna = FindTargetSites(mrnaDna, Let7a, minScore: 0.1).ToList();
+        var sitesRna = FindTargetSites(mrnaRna, Let7a, minScore: 0.0).ToList();
+        var sitesDna = FindTargetSites(mrnaDna, Let7a, minScore: 0.0).ToList();
 
         Assert.Multiple(() =>
         {
@@ -379,7 +384,7 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
         string offset6 = Let7aSeedRC[..6]; // CUACCU (RC of miRNA positions 3-8)
         string mrna = "GGGGG" + offset6 + "G" + "GGGGG";
 
-        var sites = FindTargetSites(mrna, Let7a, minScore: 0.01).ToList();
+        var sites = FindTargetSites(mrna, Let7a, minScore: 0.0).ToList();
 
         Assert.Multiple(() =>
         {
@@ -398,7 +403,7 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
     {
         string mrna = "GGGGG" + Let7aSeedRC + "A" + "GGGGG";
 
-        var sites = FindTargetSites(mrna, Let7a, minScore: 0.1).ToList();
+        var sites = FindTargetSites(mrna, Let7a, minScore: 0.0).ToList();
 
         Assert.Multiple(() =>
         {
@@ -429,7 +434,7 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
         // mRNA contains CUACCUCA at positions 14-21 = 8mer site for let-7a
         string mrna = "AUGGCUAAAGCUUUCUACCUCAGCUUAACCC";
 
-        var sites = FindTargetSites(mrna, Let7a, minScore: 0.1).ToList();
+        var sites = FindTargetSites(mrna, Let7a, minScore: 0.0).ToList();
 
         Assert.Multiple(() =>
         {
@@ -444,7 +449,7 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
         // hsa-miR-21 seed RC = AUAAGCU; 8mer = AUAAGCUA
         string mrna = "GGGGG" + MiR21SeedRC + "A" + "GGGGG";
 
-        var sites = FindTargetSites(mrna, MiR21, minScore: 0.1).ToList();
+        var sites = FindTargetSites(mrna, MiR21, minScore: 0.0).ToList();
 
         Assert.Multiple(() =>
         {
@@ -469,11 +474,11 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
         // Verified independently against the FindTargetSites geometry (Lewis 2005 antiparallel RC).
         string core = Let7aSeedRC[1..]; // UACCUC
 
-        var s8mer = FindTargetSites("GGGGG" + Let7aSeedRC + "A" + "GGGGG", Let7a, 0.01).Single();
-        var s7m8 = FindTargetSites("GGGGG" + Let7aSeedRC + "G" + "GGGGG", Let7a, 0.01).Single();
-        var s7a1 = FindTargetSites("GGGGG" + core + "A" + "GGGGG", Let7a, 0.01).Single();
-        var s6mer = FindTargetSites("GGGGG" + core + "G" + "GGGGG", Let7a, 0.01).Single();
-        var sOff6 = FindTargetSites("GGGGG" + Let7aSeedRC[..6] + "G" + "GGGGG", Let7a, 0.01).Single();
+        var s8mer = FindTargetSites("GGGGG" + Let7aSeedRC + "A" + "GGGGG", Let7a, 0.0).Single();
+        var s7m8 = FindTargetSites("GGGGG" + Let7aSeedRC + "G" + "GGGGG", Let7a, 0.0).Single();
+        var s7a1 = FindTargetSites("GGGGG" + core + "A" + "GGGGG", Let7a, 0.0).Single();
+        var s6mer = FindTargetSites("GGGGG" + core + "G" + "GGGGG", Let7a, 0.0).Single();
+        var sOff6 = FindTargetSites("GGGGG" + Let7aSeedRC[..6] + "G" + "GGGGG", Let7a, 0.0).Single();
 
         Assert.Multiple(() =>
         {
@@ -626,7 +631,10 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
         //   Len_3UTR : log10(18)=1.255272505103 ; scaled=(…-2.392)/(3.637-2.392) ; coeff=0.310 ⇒ -0.2830405810586145
         //   Off6m    : pattern "CUACCU" (first 6 of revcomp of seed GAGGUAG) occurs 1× ; coeff(8mer)=-0.020 ⇒ -0.020
         //   Intercept(8mer)=-0.589 ; Local_AU=-0.254×((0-0.308)/(0.814-0.308))=+0.154608695652174 ; sRNA8G(8mer)=+0.015
-        //   ⇒ CS_partial = -0.7561913315126536
+        //   TA/SPS (B13 F33, bundled TA_SPS_by_seed_region.txt row GAGGUAG: SPS -9.250 (8mer/7mer-m8), -6.720, TA 3.393):
+        //   TA_3UTR = 0.222×((3.393-3.113)/(3.865-3.113)) = +0.08265957446808503
+        //   SPS     = 0.210×((-9.250+11.13)/(-5.52+11.13)) = +0.07037433155080215
+        //   ⇒ CS_partial = -0.7561913315126536 + TA + SPS = -0.6031574254937664
         string mrna = "GGGGG" + Let7aSeedRC + "A" + "GGGGG";
         var site = FindTargetSites(mrna, Let7a, minScore: 0.0).Single();
 
@@ -649,7 +657,11 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
                 "Len_3UTR = 0.310×((log10(18)-2.392)/(3.637-2.392))");
             Assert.That(ctx.Off6mContribution, Is.EqualTo(-0.020).Within(1e-9),
                 "Off6m = -0.020×1 (one offset-6mer 'CUACCU' in the UTR)");
-            Assert.That(ctx.ContextScorePartial, Is.EqualTo(-0.7561913315126536).Within(1e-9),
+            Assert.That(ctx.TaContribution, Is.EqualTo(0.08265957446808503).Within(1e-12),
+                "TA_3UTR from the bundled TargetScan row GAGGUAG (TA 3.393)");
+            Assert.That(ctx.SpsContribution, Is.EqualTo(0.07037433155080215).Within(1e-12),
+                "SPS from the bundled TargetScan row GAGGUAG (8mer column -9.250)");
+            Assert.That(ctx.ContextScorePartial, Is.EqualTo(-0.6031574254937664).Within(1e-9),
                 "8mer partial context++ = sum of realised contributions");
         });
     }
@@ -666,7 +678,9 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
         //   Intercept(7mer-m8)       = -0.224
         //   Local_AU = -0.177 × ((0 - 0.277)/(0.782 - 0.277)) = +0.097087128712871
         //   sRNA8G(7mer-m8)          = -0.008  ;  sRNA1=0, Site8=0 (7mer-m8)
-        //   ⇒ CS_partial            = -0.134912871287129
+        //   ⇒ CS_partial            = -0.134912871287129 (+ 3P, Min_dist, Len_3UTR, Off6m below)
+        //   TA_3UTR = 0.139×((3.393-3.067)/(3.887-3.067)) = +0.05526097560975605 ;
+        //   SPS = 0.135×((-9.250+11.13)/(-5.49+11.13)) = +0.04500000000000002 (bundled row GAGGUAG, B13 F33)
         string mrna = "GGGGG" + Let7aSeedRC + "GGGG";
         var site = FindTargetSites(mrna, Let7a, minScore: 0.0).Single();
 
@@ -688,8 +702,10 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
             Assert.That(ctx.Len3UtrContribution, Is.EqualTo(-0.15385698397262643).Within(1e-9),
                 "Len_3UTR(7mer-m8) = 0.154×((log10(16)-2.409)/(3.615-2.409))");
             Assert.That(ctx.Off6mContribution, Is.EqualTo(-0.011).Within(1e-9), "Off6m = -0.011×1");
-            Assert.That(ctx.ContextScorePartial, Is.EqualTo(-0.3087858306402126).Within(1e-9),
-                "7mer-m8 partial context++");
+            Assert.That(ctx.TaContribution, Is.EqualTo(0.05526097560975605).Within(1e-12), "TA_3UTR (bundled row)");
+            Assert.That(ctx.SpsContribution, Is.EqualTo(0.04500000000000002).Within(1e-12), "SPS (bundled row, 7mer-m8 column)");
+            Assert.That(ctx.ContextScorePartial, Is.EqualTo(-0.3087858306402126 + 0.05526097560975605 + 0.04500000000000002).Within(1e-9),
+                "7mer-m8 partial context++ (-0.2085248550304565)");
         });
     }
 
@@ -706,7 +722,9 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
         //   Local_AU = -0.075 × ((0 - 0.342)/(0.801 - 0.342)) = +0.055882352941176
         //   sRNA8G(7mer-A1)          = -0.017
         //   Site8G(7mer-A1)          = +0.015  ;  sRNA1=0 (nt1=U)
-        //   ⇒ CS_partial            = -0.141117647058824
+        //   ⇒ CS_partial            = -0.141117647058824 (+ 3P, Min_dist, Len_3UTR below)
+        //   TA_3UTR = 0.117×((3.393-3.145)/(3.887-3.145)) = +0.039105121293800504 ;
+        //   SPS = 0.095×((-6.720+8.41)/(-3.33+8.41)) = +0.03160433070866142 (bundled row GAGGUAG, 7mer-1a column, B13 F33)
         string mrna = "GGGGG" + "UACCUC" + "A" + "GGGG";
         var site = FindTargetSites(mrna, Let7a, minScore: 0.0).Single();
 
@@ -730,8 +748,10 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
                 "Len_3UTR(7mer-A1) = 0.129×((log10(16)-2.413)/(3.630-2.413))");
             Assert.That(ctx.Off6mContribution, Is.EqualTo(0.0).Within(1e-9),
                 "no 'CUACCU' offset-6mer in this UTR ⇒ Off6m=0");
-            Assert.That(ctx.ContextScorePartial, Is.EqualTo(-0.2673816755691017).Within(1e-9),
-                "7mer-A1 partial context++");
+            Assert.That(ctx.TaContribution, Is.EqualTo(0.039105121293800504).Within(1e-12), "TA_3UTR (bundled row)");
+            Assert.That(ctx.SpsContribution, Is.EqualTo(0.03160433070866142).Within(1e-12), "SPS (bundled row, 7mer-1a column)");
+            Assert.That(ctx.ContextScorePartial, Is.EqualTo(-0.2673816755691017 + 0.039105121293800504 + 0.03160433070866142).Within(1e-9),
+                "7mer-A1 partial context++ (-0.19667222356663977)");
         });
     }
 
@@ -775,10 +795,16 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
             Assert.That(ctx.Len3UtrContribution, Is.EqualTo(-0.04447703767941017).Within(1e-9),
                 "Len_3UTR(6mer) = 0.045×((log10(16)-2.405)/(3.620-2.405))");
             Assert.That(ctx.Off6mContribution, Is.EqualTo(0.0).Within(1e-9), "no miR-21 offset-6mer in this UTR");
-            // -0.079 + Local_AU + 0.015 + 0.0096 - 0.017194033053347654 - 0.04447703767941017 (+ SA 0: window does not fit)
+            // Bundled TA_SPS_by_seed_region.txt row AGCUUAU (miR-21 nt 2-8; B13 F33): SPS 6mer column -4.850, TA 3.303.
+            // TA_3UTR = 0.058×((3.303-3.113)/(3.887-3.113)) = 0.01423772609819121;
+            // SPS = 0.035×((-4.850+8.57)/(-3.33+8.57)) = 0.024847328244274814.
+            Assert.That(ctx.TaContribution, Is.EqualTo(0.01423772609819121).Within(1e-12), "TA_3UTR (bundled row AGCUUAU)");
+            Assert.That(ctx.SpsContribution, Is.EqualTo(0.024847328244274814).Within(1e-12), "SPS (bundled row AGCUUAU, 6mer column)");
+            // -0.079 + Local_AU + 0.015 + 0.0096 - 0.017194033053347654 - 0.04447703767941017 + TA + SPS (+ SA 0: window does not fit)
             Assert.That(ctx.ContextScorePartial,
                 Is.EqualTo(-0.079 - 0.040 * (0.357 - 0.295) / (0.772 - 0.295) + 0.015 + 0.0096
-                    - 0.017194033053347654 - 0.04447703767941017).Within(1e-9),
+                    - 0.017194033053347654 - 0.04447703767941017
+                    + 0.01423772609819121 + 0.024847328244274814).Within(1e-9),
                 "6mer partial context++");
             Assert.That(ctx.ContextScore, Is.Null, "1-based utrStart 6 < 15 ⇒ TargetScan 'too_close' (no score)");
         });
@@ -835,9 +861,10 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
     public void ScoreTargetSiteContextPlusPlus_NoOptionalInputs_ReportsResidualFeatures()
     {
         // With no caller-supplied inputs on this SHORT layout, the residual is: SA (the 14-nt
-        // accessibility window does not fit — windowStart0 = Start+7-13 = -1 < 0), PCT (always
-        // blocked), and SPS, TA_3UTR, Len_ORF, ORF8m (data-blocked unless supplied). 3P_score,
-        // Min_dist, Len_3UTR and Off6m are now COMPUTED, so they must NOT appear as omitted.
+        // accessibility window does not fit — windowStart0 = Start+7-13 = -1 < 0), PCT (needs an
+        // alignment + tree), and Len_ORF, ORF8m (need the ORF). SPS and TA_3UTR come from the bundled
+        // TargetScan table (B13 F33) and 3P_score, Min_dist, Len_3UTR and Off6m are computed, so they
+        // must NOT appear as omitted.
         string mrna = "GGGGG" + Let7aSeedRC + "A" + "GGGGG";
         var site = FindTargetSites(mrna, Let7a, minScore: 0.0).Single();
 
@@ -849,8 +876,8 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
                 "SA residual here because the 14-nt window does not fit this short UTR");
             Assert.That(ctx.SaContribution, Is.EqualTo(0.0), "out-of-fit SA contributes 0");
             Assert.That(ctx.OmittedFeatures, Has.Some.Contains("PCT"), "PCT stays residual (needs alignment)");
-            Assert.That(ctx.OmittedFeatures, Has.Some.Contains("SPS"), "SPS omitted unless supplied");
-            Assert.That(ctx.OmittedFeatures, Has.Some.Contains("TA_3UTR"), "TA omitted unless supplied");
+            Assert.That(ctx.OmittedFeatures, Has.None.Contains("SPS"), "SPS from the bundled TargetScan table");
+            Assert.That(ctx.OmittedFeatures, Has.None.Contains("TA_3UTR"), "TA from the bundled TargetScan table");
             Assert.That(ctx.OmittedFeatures, Has.Some.Contains("Len_ORF"), "Len_ORF omitted unless supplied");
             Assert.That(ctx.OmittedFeatures, Has.Some.Contains("ORF8m"), "ORF8m omitted unless supplied");
             Assert.That(ctx.OmittedFeatures, Has.None.Contains("3P_score"),
@@ -1495,8 +1522,9 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
             Assert.That(site.TargetSequence, Is.EqualTo("GGGGGCUACCUCA"));
             // nt1 U:A, nt2–8 Watson–Crick, nt9 U:G wobble, nt10–12 A/G/G vs G unpaired, nt13 U:G.
             Assert.That(site.Alignment, Is.EqualTo("||||||||:   :"));
-            // Score = 1.0 (8mer) − 3 mismatches × 0.01.
-            Assert.That(site.Score, Is.EqualTo(0.97).Within(1e-12));
+            // Start 5 (1-based 6) < 15: TargetScan "too_close" — no context score, Score 0.
+            Assert.That(site.ContextScore, Is.Null);
+            Assert.That(site.Score, Is.EqualTo(0.0));
         });
     }
 

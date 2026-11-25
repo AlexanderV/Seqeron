@@ -20,9 +20,14 @@ pseudoknot — exactly when `i < k < j < l`. Nested pairs (`i < k < l < j`) and 
 (`j < k`) are not pseudoknots. Each crossing pair-of-pairs is reported once. Each input base
 pair carries a `type` of `WatsonCrick`, `Wobble`, or `NonCanonical`.
 
+This is the pairwise crossing (conflict) relation: a helix of *a* pairs crossing a helix of *b* pairs
+yields *a·b* items. Positions are not validated (the scan never throws; pairs sharing an endpoint never
+satisfy the strict inequalities). To group the pairs into pseudoknot layers (orders) and render
+dot-bracket-letter notation, use [pseudoknot_orders](pseudoknot_orders.md).
+
 ## Core Documentation Reference
 
-- Source: [RnaSecondaryStructure.cs#L1934](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L1934)
+- Source: [RnaSecondaryStructure.cs#L2043](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L2043)
 
 ## Input Schema
 
@@ -61,3 +66,4 @@ pair carries a `type` of `WatsonCrick`, `Wobble`, or `NonCanonical`.
 
 - [predict_rna_structure](predict_rna_structure.md)
 - [parse_dot_bracket](parse_dot_bracket.md)
+- [pseudoknot_orders](pseudoknot_orders.md)

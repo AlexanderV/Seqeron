@@ -281,18 +281,20 @@ public class SplicingFuzzTests
         site.Confidence.Should().BeInRange(0.0, 1.0, "INV-02: confidence is clamped to [0, 1]");
 
         // Position = i + 1 is the terminal intronic base; (Position-1, Position) is the dinucleotide.
-        site.Position.Should().BeInRange(16, normalized.Length - 1,
-            "Position = i+1 with i ≥ 15, and the G/C member must be inside the sequence");
-
+        // S&S needs -14..+1 (i ≥ 12, +1 in bounds); U12 needs the 9-nt branch site 8..21 nt upstream.
         char first = normalized[site.Position - 1];  // A of AG / A of AC
-        char second = normalized[site.Position];      // G of AG / C of AC
+        char second = normalized[site.Position];      // G of AG / C or G of the U12 terminus
         if (site.Type == SpliceSiteType.U12Acceptor)
         {
-            (first == 'A' && second == 'C').Should().BeTrue(
-                $"a U12 acceptor must sit on an AC dinucleotide, found '{first}{second}' ending at {site.Position}");
+            site.Position.Should().BeInRange(15, normalized.Length - 1,
+                "a U12 branch site (9 nt, branch A ≥ 8 nt upstream) must fit before the terminus");
+            (first == 'A' && (second == 'C' || second == 'G')).Should().BeTrue(
+                $"a U12 acceptor must sit on an AC or AG terminus, found '{first}{second}' ending at {site.Position}");
         }
         else
         {
+            site.Position.Should().BeInRange(13, normalized.Length - 2,
+                "the S&S window -14..+1 must lie inside the sequence");
             site.Type.Should().Be(SpliceSiteType.Acceptor, "canonical acceptors carry Type = Acceptor (INV-03)");
             (first == 'A' && second == 'G').Should().BeTrue(
                 $"a reported acceptor must have its AG dinucleotide at the splice position, found '{first}{second}' ending at {site.Position} (INV-04)");
@@ -655,17 +657,18 @@ public class SplicingFuzzTests
     [Test]
     public void FindAcceptorSites_SequenceShorterThanWindow_NoCrashNoIndexOutOfRange()
     {
-        // (a) Every length 0..19 — including ones that contain an AG — yields nothing, never throws.
+        // (a) No full Shapiro & Senapathy -14..+1 window (and no room for a U12 branch site) —
+        //     including sequences that contain an AG — yields nothing, never throws.
         foreach (string tooShort in new[]
                  {
-                     "", "A", "AG", "CAGG", "UUUUUUUUUUUUUUUUUUU",   // 0,1,2,4,19 — last is 19-nt poly-U
-                     "UUUUUUUUUUUUUUUCAGG",                          // 19 nt and DOES contain an AG
+                     "", "A", "AG", "CAGG", "UUUUUUUUUUUUUU",        // 0,1,2,4,14 — last is 14-nt poly-U
+                     "UUUUUUUUUUCAGG",                               // 14 nt and DOES contain an AG
                  })
         {
             var act = () => FindAcceptorSites(tooShort, minScore: 0.0, includeNonCanonical: true).ToList();
             act.Should().NotThrow($"a sub-window sequence ('{tooShort}', len {tooShort.Length}) must not crash")
                .Subject.Should().BeEmpty(
-                   $"length {tooShort.Length} < 20 is below the acceptor window guard — no site, no IndexOutOfRange");
+                   $"length {tooShort.Length} < 15 has no -14..+1 window — no site, no IndexOutOfRange");
         }
 
         // (b) A canonical AG flush against the 3' edge: dinucleotide at (Length-2, Length-1),
@@ -983,15 +986,11 @@ public class SplicingFuzzTests
         var act = () => PredictGeneStructure(seq, minExonLength: 50, minIntronLength: 60, minScore: 0.2);
         var structure = act.Should().NotThrow("an all-intronic sequence must not crash").Subject;
 
-        // The single GT-AG intron is selected; it spans the interior of the sequence.
-        structure.Introns.Should().ContainSingle("the strong GU…AG pair selects exactly one intron");
-        var intron = structure.Introns[0];
-        intron.Start.Should().Be(flank.Length, "the intron starts at the GU donor just after the 5' flank");
-        intron.End.Should().Be(seq.Length - flank.Length - 1, "the intron ends at the G of the AG just before the 3' flank");
-
-        // Both 2-nt flanks are below minExonLength=50 → no exons survive → empty spliced product.
-        structure.Exons.Should().BeEmpty("both sub-threshold flanks are dropped → no exons");
-        structure.SplicedSequence.Should().BeEmpty("with every flank dropped the spliced product is empty");
+        // The intron would leave two 2-nt exons (< minExonLength=50), so it is rejected: the
+        // exons/introns must tile the sequence, hence a single exon covering all 87 nt remains.
+        structure.Introns.Should().BeEmpty("an intron leaving sub-threshold flanking exons is not selected");
+        structure.Exons.Should().ContainSingle().Which.Type.Should().Be(ExonType.Single);
+        structure.SplicedSequence.Should().Be(seq.ToUpperInvariant().Replace('T', 'U'));
 
         AssertWellFormedStructure(structure, seq);
     }

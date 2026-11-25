@@ -136,20 +136,20 @@ public class GenomeAssemblyAnalyzerTests
     [Test]
     public void EstimateCompletenessFromKmers_ValidSpectrum_ReturnsEstimates()
     {
-        var spectrum = new List<(string, int)>();
-
-        // Simulate k-mer spectrum with peak at coverage 30
-        for (int i = 0; i < 100; i++)
-            spectrum.Add(($"KMER{i}", 1)); // Singletons (errors)
-
-        for (int i = 0; i < 1000; i++)
-            spectrum.Add(($"SOLID{i}", 30)); // Peak coverage
+        // 100 singleton 6-mers (errors) + 1000 6-mers at coverage 30. Histogram 1:100, 30:1000 rises
+        // after its first line ⇒ Merqury filt = 30 − 1 = 29; E = 100, T = 30100;
+        // GenomeScope error = 1 − (1 − 100/30100)^(1/6) = 5.544779023926e-4; size = 30000/30 = 1000 (oracle).
+        var kmers = Enumerable.Range(0, 1100)
+            .Select(i => new string(Enumerable.Range(0, 6).Select(j => "ACGT"[(i >> (2 * (5 - j))) & 3]).ToArray()))
+            .ToList();
+        var spectrum = kmers.Select((k, i) => (k, i < 100 ? 1 : 30)).ToList();
 
         var (completeness, errorRate, genomeSize) =
             GenomeAssemblyAnalyzer.EstimateCompletenessFromKmers(spectrum);
 
-        Assert.That(errorRate, Is.LessThan(0.5));
-        Assert.That(genomeSize, Is.GreaterThan(0));
+        Assert.That(errorRate, Is.EqualTo(0.0005544779023926213).Within(1e-15));
+        Assert.That(genomeSize, Is.EqualTo(1000L));
+        Assert.That(completeness, Is.NaN);
     }
 
     #endregion
@@ -229,7 +229,7 @@ public class GenomeAssemblyAnalyzerTests
     #region Assembly Comparison Tests
 
     [Test]
-    public void CompareAssemblies_IdenticalAssemblies_HighIdentity()
+    public void CompareAssemblies_IdenticalAssemblies_JaccardOneMashZero()
     {
         var assembly = new List<(string, string)>
         {
@@ -239,12 +239,13 @@ public class GenomeAssemblyAnalyzerTests
         var comparison = GenomeAssemblyAnalyzer.CompareAssemblies(
             assembly, assembly, "asm1", "asm2");
 
-        Assert.That(comparison.SequenceIdentity, Is.EqualTo(1.0).Within(0.01));
-        Assert.That(comparison.AlignedFraction1, Is.EqualTo(1.0).Within(0.01));
+        Assert.That(comparison.JaccardIndex, Is.EqualTo(1.0));
+        Assert.That(comparison.Containment1, Is.EqualTo(1.0));
+        Assert.That(comparison.MashDistance, Is.EqualTo(0.0));
     }
 
     [Test]
-    public void CompareAssemblies_DifferentAssemblies_LowIdentity()
+    public void CompareAssemblies_DisjointAssemblies_JaccardZeroMashOne()
     {
         var assembly1 = new List<(string, string)>
         {
@@ -258,7 +259,9 @@ public class GenomeAssemblyAnalyzerTests
 
         var comparison = GenomeAssemblyAnalyzer.CompareAssemblies(assembly1, assembly2);
 
-        Assert.That(comparison.AlignedFraction1, Is.LessThan(0.5));
+        Assert.That(comparison.Containment1, Is.EqualTo(0.0));
+        Assert.That(comparison.JaccardIndex, Is.EqualTo(0.0));
+        Assert.That(comparison.MashDistance, Is.EqualTo(1.0));
     }
 
     [Test]
@@ -279,8 +282,9 @@ public class GenomeAssemblyAnalyzerTests
         var blocks = GenomeAssemblyAnalyzer.FindSyntenicBlocks(
             assembly1, assembly2, minBlockSize: 100).ToList();
 
-        // Algorithm may find blocks depending on k-mer spacing
-        Assert.That(blocks, Is.Not.Null);
+        // The identical 1600-bp string occurs once in each assembly, so it is one MUM (even though it is
+        // (ACGTGCTA)x200, no shorter prefix is needed): one block over the whole sequence.
+        Assert.That(blocks, Is.EqualTo(new[] { ("chr1", 0, 1599, "chrA", 0, 1599, false) }));
     }
 
     #endregion

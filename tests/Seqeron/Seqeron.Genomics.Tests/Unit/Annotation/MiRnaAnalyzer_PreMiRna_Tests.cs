@@ -12,6 +12,12 @@ public class MiRnaAnalyzer_PreMiRna_Tests
 {
     #region Test Data
 
+    // Most tests of this file lock the CONSECUTIVE-PAIRING SCREEN (the pre-WP-7 default). The default of
+    // FindPreMiRnaHairpins is now MFE-fold based; the screen is selected with useConsecutiveScreen: true.
+    private static IEnumerable<PreMiRna> Screen(
+        string sequence, int minHairpinLength = 55, int maxHairpinLength = 120, int matureLength = 22) =>
+        FindPreMiRnaHairpins(sequence, minHairpinLength, maxHairpinLength, matureLength, useConsecutiveScreen: true);
+
     // ── Biologically plausible mixed-base hairpins ─────────────────────────
     // All test hairpins use mixed nucleotide composition (AUGC), matching
     // the diversity found in real pre-miRNAs. Mono-nucleotide sequences
@@ -91,7 +97,7 @@ public class MiRnaAnalyzer_PreMiRna_Tests
     [Test]
     public void FindPreMiRnaHairpins_NullInput_ReturnsEmpty()
     {
-        var results = FindPreMiRnaHairpins(null!).ToList();
+        var results = Screen(null!).ToList();
 
         Assert.That(results, Is.Empty,
             "Null input must return empty enumerable, not throw");
@@ -104,7 +110,7 @@ public class MiRnaAnalyzer_PreMiRna_Tests
     [Test]
     public void FindPreMiRnaHairpins_EmptyInput_ReturnsEmpty()
     {
-        var results = FindPreMiRnaHairpins("").ToList();
+        var results = Screen("").ToList();
 
         Assert.That(results, Is.Empty,
             "Empty string must return empty enumerable");
@@ -118,7 +124,7 @@ public class MiRnaAnalyzer_PreMiRna_Tests
     public void FindPreMiRnaHairpins_ShortSequence_ReturnsEmpty()
     {
         // 47 nt hairpin is below default minHairpinLength=55
-        var results = FindPreMiRnaHairpins(ShortHairpin47, minHairpinLength: 55).ToList();
+        var results = Screen(ShortHairpin47, minHairpinLength: 55).ToList();
 
         Assert.That(results, Is.Empty,
             "Sequence shorter than minHairpinLength (55) must return empty — " +
@@ -133,7 +139,7 @@ public class MiRnaAnalyzer_PreMiRna_Tests
     public void FindPreMiRnaHairpins_ValidHairpin_DetectsCandidate()
     {
         // 57 nt hairpin: 25 bp G-C stem + 7 nt loop
-        var results = FindPreMiRnaHairpins(ValidHairpin57, minHairpinLength: 55).ToList();
+        var results = Screen(ValidHairpin57, minHairpinLength: 55).ToList();
 
         Assert.That(results, Has.Count.GreaterThanOrEqualTo(1),
             "A 57 nt sequence with 25 bp perfect stem and 7 nt loop must be detected — " +
@@ -151,7 +157,7 @@ public class MiRnaAnalyzer_PreMiRna_Tests
         // - i=0, len=57 → stem=27, loop 3 (full hairpin) → accepted
         // - i=1, len=55 → stem=26, loop 3 (sub-window, same register) → accepted
         // Other windows rejected (pairing breaks at position 0/1).
-        var results = FindPreMiRnaHairpins(ValidHairpin57, minHairpinLength: 55).ToList();
+        var results = Screen(ValidHairpin57, minHairpinLength: 55).ToList();
 
         Assert.That(results, Has.Count.EqualTo(2),
             "57 nt input with min=55 must yield exactly 2 candidates: " +
@@ -191,7 +197,7 @@ public class MiRnaAnalyzer_PreMiRna_Tests
         // Hand-derived: first 22 chars of ValidHairpin57
         const string expectedMature = "GCAUAGCUAGCUAGCUAGCUAG";
 
-        var results = FindPreMiRnaHairpins(ValidHairpin57, minHairpinLength: 55).ToList();
+        var results = Screen(ValidHairpin57, minHairpinLength: 55).ToList();
 
         Assert.That(results, Is.Not.Empty, "Prerequisite: must detect hairpin");
 
@@ -218,7 +224,7 @@ public class MiRnaAnalyzer_PreMiRna_Tests
         // Hand-derived from 3' stem of ValidHairpin57
         const string expectedStar = "CUAGCUAGCUAGCUAGCUAUGC";
 
-        var results = FindPreMiRnaHairpins(ValidHairpin57, minHairpinLength: 55).ToList();
+        var results = Screen(ValidHairpin57, minHairpinLength: 55).ToList();
 
         Assert.That(results, Is.Not.Empty, "Prerequisite: must detect hairpin");
 
@@ -249,7 +255,7 @@ public class MiRnaAnalyzer_PreMiRna_Tests
         const string expectedStructure =
             "(((((((((((((((((((((((((((...)))))))))))))))))))))))))))";
 
-        var results = FindPreMiRnaHairpins(ValidHairpin57, minHairpinLength: 55).ToList();
+        var results = Screen(ValidHairpin57, minHairpinLength: 55).ToList();
 
         Assert.That(results, Is.Not.Empty, "Prerequisite: must detect hairpin");
 
@@ -272,7 +278,7 @@ public class MiRnaAnalyzer_PreMiRna_Tests
     [Test]
     public void FindPreMiRnaHairpins_Structure_BalancedParentheses()
     {
-        var results = FindPreMiRnaHairpins(ValidHairpin57, minHairpinLength: 55).ToList();
+        var results = Screen(ValidHairpin57, minHairpinLength: 55).ToList();
 
         Assert.That(results, Is.Not.Empty, "Prerequisite: must detect hairpin");
 
@@ -311,7 +317,7 @@ public class MiRnaAnalyzer_PreMiRna_Tests
         // ViennaRNA 2.8 eval_structure: -48.40 (its tables are rounded to 0.1 kcal, TerminalAU 0.50).
         const double expectedEnergy = -48.48;
 
-        var results = FindPreMiRnaHairpins(ValidHairpin57, minHairpinLength: 55).ToList();
+        var results = Screen(ValidHairpin57, minHairpinLength: 55).ToList();
 
         Assert.That(results, Is.Not.Empty, "Prerequisite: must detect hairpin");
 
@@ -351,8 +357,8 @@ public class MiRnaAnalyzer_PreMiRna_Tests
             "AUGCAUGCAUGCAUG" +           // 15 nt loop
             "AGCUAGCUAGCUAGCUAUGC";       // 20 nt 3' stem (reverse complement)
 
-        var resultsLong = FindPreMiRnaHairpins(ValidHairpin57, minHairpinLength: 55).ToList();
-        var resultsShort = FindPreMiRnaHairpins(stem20Hairpin55, minHairpinLength: 55).ToList();
+        var resultsLong = Screen(ValidHairpin57, minHairpinLength: 55).ToList();
+        var resultsShort = Screen(stem20Hairpin55, minHairpinLength: 55).ToList();
 
         Assert.That(resultsLong, Is.Not.Empty, "27 bp stem hairpin (57 nt) must be detected");
         Assert.That(resultsShort, Is.Not.Empty, "20 bp stem hairpin (55 nt) must be detected");
@@ -378,7 +384,7 @@ public class MiRnaAnalyzer_PreMiRna_Tests
     {
         // 15 bp stem + 25 nt loop = 55 nt total
         // Rejection must come from stemLength (15) < 18, not from length filter
-        var results = FindPreMiRnaHairpins(ShortStemHairpin55, minHairpinLength: 55).ToList();
+        var results = Screen(ShortStemHairpin55, minHairpinLength: 55).ToList();
 
         Assert.That(results, Is.Empty,
             "Sequence with only 15 bp stem must be rejected — " +
@@ -401,7 +407,7 @@ public class MiRnaAnalyzer_PreMiRna_Tests
             "GCAUAGCUAGCUAGCUAG" +             // 18 nt 5' stem (mixed)
             "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" + // 30 nt loop (A-A never pairs)
             "CUAGCUAGCUAGCUAUGC";              // 18 nt 3' stem (reverse complement)
-        var results = FindPreMiRnaHairpins(largeLoop, minHairpinLength: 55).ToList();
+        var results = Screen(largeLoop, minHairpinLength: 55).ToList();
 
         Assert.That(results, Is.Empty,
             "Candidate with 30 nt loop must be rejected — " +
@@ -416,7 +422,7 @@ public class MiRnaAnalyzer_PreMiRna_Tests
     public void FindPreMiRnaHairpins_DnaInput_ConvertsToRna()
     {
         // DNA input: G's + T's (loop) + C's
-        var results = FindPreMiRnaHairpins(DnaHairpin57, minHairpinLength: 55).ToList();
+        var results = Screen(DnaHairpin57, minHairpinLength: 55).ToList();
 
         Assert.That(results, Is.Not.Empty,
             "DNA input with T must be handled (T→U conversion)");
@@ -435,7 +441,7 @@ public class MiRnaAnalyzer_PreMiRna_Tests
     {
         // 25 G's + 7 A's loop + 25 U's = 57 nt
         // G-U wobble pairs should be accepted by CanPair
-        var results = FindPreMiRnaHairpins(WobbleHairpin57, minHairpinLength: 55).ToList();
+        var results = Screen(WobbleHairpin57, minHairpinLength: 55).ToList();
 
         Assert.That(results, Has.Count.GreaterThanOrEqualTo(1),
             "G-U wobble pairs must be accepted as valid base pairs in stem — " +
@@ -452,7 +458,7 @@ public class MiRnaAnalyzer_PreMiRna_Tests
         const int min = 55;
         const int max = 120;
 
-        var results = FindPreMiRnaHairpins(LargeHairpin110, minHairpinLength: min, maxHairpinLength: max).ToList();
+        var results = Screen(LargeHairpin110, minHairpinLength: min, maxHairpinLength: max).ToList();
 
         foreach (var pre in results)
         {
@@ -472,7 +478,7 @@ public class MiRnaAnalyzer_PreMiRna_Tests
         const int max = 120;
         const int matureLen = 22;
 
-        var results = FindPreMiRnaHairpins(ValidHairpin57, min, max, matureLen).ToList();
+        var results = Screen(ValidHairpin57, min, max, matureLen).ToList();
 
         Assert.That(results, Is.Not.Empty, "Prerequisite: must detect hairpin");
 
@@ -532,7 +538,7 @@ public class MiRnaAnalyzer_PreMiRna_Tests
     public void FindPreMiRnaHairpins_LongSequence_FindsMultipleCandidates()
     {
         // Two hairpins separated by 20 A's spacer
-        var results = FindPreMiRnaHairpins(TwoHairpinSequence, minHairpinLength: 55).ToList();
+        var results = Screen(TwoHairpinSequence, minHairpinLength: 55).ToList();
 
         Assert.That(results, Has.Count.GreaterThanOrEqualTo(2),
             "Sequence with two distinct hairpin regions should yield ≥ 2 candidates — " +
@@ -547,7 +553,7 @@ public class MiRnaAnalyzer_PreMiRna_Tests
     public void FindPreMiRnaHairpins_MaxHairpinLength_EnforcedAsUpperBound()
     {
         // 110 nt hairpin with max=80 should only return sub-windows ≤ 80
-        var results = FindPreMiRnaHairpins(LargeHairpin110, minHairpinLength: 55, maxHairpinLength: 80).ToList();
+        var results = Screen(LargeHairpin110, minHairpinLength: 55, maxHairpinLength: 80).ToList();
 
         foreach (var pre in results)
         {
@@ -566,8 +572,8 @@ public class MiRnaAnalyzer_PreMiRna_Tests
         // ValidHairpin57 is exactly 57 nt.
         // With minHairpinLength=57, windows of 57 nt are scanned → detected
         // With minHairpinLength=58, 57 nt input is too short → empty
-        var resultsAt57 = FindPreMiRnaHairpins(ValidHairpin57, minHairpinLength: 57).ToList();
-        var resultsAt58 = FindPreMiRnaHairpins(ValidHairpin57, minHairpinLength: 58).ToList();
+        var resultsAt57 = Screen(ValidHairpin57, minHairpinLength: 57).ToList();
+        var resultsAt58 = Screen(ValidHairpin57, minHairpinLength: 58).ToList();
 
         Assert.Multiple(() =>
         {
@@ -585,7 +591,7 @@ public class MiRnaAnalyzer_PreMiRna_Tests
     [Test]
     public void FindPreMiRnaHairpins_NoComplementarity_ReturnsEmpty()
     {
-        var results = FindPreMiRnaHairpins(NoComplementarity, minHairpinLength: 55).ToList();
+        var results = Screen(NoComplementarity, minHairpinLength: 55).ToList();
 
         Assert.That(results, Is.Empty,
             "All-purine (AG) sequence has no self-complementarity → no stem → no hairpin");
@@ -593,34 +599,71 @@ public class MiRnaAnalyzer_PreMiRna_Tests
 
     #endregion
 
-    #region Known Limitation: Real miRBase pre-miRNAs — consecutive-pairing model
+    #region Real miRBase pre-miRNAs — screen limitation and MFE default (WP-7 / F40)
 
+    // The consecutive-pairing SCREEN (useConsecutiveScreen: true) still cannot see bulged pre-miRNAs.
     [Test]
-    public void FindPreMiRnaHairpins_RealMiRBase_HsaMir21_NotDetected_KnownLimitation()
+    public void Screen_RealMiRBase_HsaMir21_NotDetected_KnownLimitation()
     {
-        // hsa-mir-21 (MI0000077, miRBase v22) — 72 nt
-        // Real pre-miRNA with internal mismatches and bulges.
-        // Consecutive-pairing model gets only 8 pairs from ends (< 18 required).
-        // This is a known limitation of the simplified consecutive-pairing model.
-        var results = FindPreMiRnaHairpins(HsaMir21_MI0000077, minHairpinLength: 55).ToList();
-
-        Assert.That(results, Is.Empty,
-            "Known limitation: hsa-mir-21 (MI0000077) is a real pre-miRNA from miRBase " +
-            "but is not detected because the consecutive-pairing model " +
-            "cannot handle internal mismatches and bulges");
+        // hsa-mir-21 (MI0000077, miRBase v22) — 72 nt; consecutive pairing from the ends gives only 8 pairs (< 18).
+        Assert.That(Screen(HsaMir21_MI0000077, minHairpinLength: 55), Is.Empty);
     }
 
     [Test]
-    public void FindPreMiRnaHairpins_RealMiRBase_HsaLet7a1_NotDetected_KnownLimitation()
+    public void Screen_RealMiRBase_HsaLet7a1_NotDetected_KnownLimitation()
     {
-        // hsa-let-7a-1 (MI0000060, miRBase v22) — 80 nt
-        // Real pre-miRNA; consecutive pairing from ends yields only 5 pairs.
-        var results = FindPreMiRnaHairpins(HsaLet7a1_MI0000060, minHairpinLength: 55).ToList();
+        // hsa-let-7a-1 (MI0000060) — 80 nt; consecutive pairing from the ends yields only 5 pairs.
+        Assert.That(Screen(HsaLet7a1_MI0000060, minHairpinLength: 55), Is.Empty);
+    }
 
-        Assert.That(results, Is.Empty,
-            "Known limitation: hsa-let-7a-1 (MI0000060) is a real pre-miRNA from miRBase " +
-            "but is not detected because the consecutive-pairing model " +
-            "cannot handle internal mismatches and bulges");
+    // F40 — the DEFAULT is the MFE fold. Oracle: ViennaRNA 2.8 RNA.fold of the same window — identical
+    // dot-bracket; ΔG° engine vs Vienna: hsa-mir-21 [1,71] −35.17 / −34.70, hsa-let-7a-1 [0,79] −34.31 / −34.20
+    // (all accepted windows of the 5 pri-miRNA hairpins have the Vienna structure, |ΔG − Vienna| ≤ 0.53).
+    [Test]
+    public void FindPreMiRnaHairpins_Default_DetectsBulgedMiRBasePreMiRnas_WithViennaStructure()
+    {
+        var mir21 = FindPreMiRnaHairpins(HsaMir21_MI0000077).Single(p => p.Start == 1 && p.End == 71);
+        var let7 = FindPreMiRnaHairpins(HsaLet7a1_MI0000060).Single(p => p.Start == 0 && p.End == 79);
+        Assert.Multiple(() =>
+        {
+            Assert.That(mir21.Structure, Is.EqualTo("(((((((((((((((.(((((.(((((.((((.((...))))))))))).)))))))))))))))))))).")); // RNA.fold
+            Assert.That(let7.Structure, Is.EqualTo("(((((.(((((((((((((((((((((.....(((...((((....)))).)))))))))))))))))))))))))))))")); // RNA.fold
+            Assert.That(mir21.FreeEnergy, Is.EqualTo(-34.70).Within(0.5), "ViennaRNA 2.8 RNA.fold −34.70");
+            Assert.That(let7.FreeEnergy, Is.EqualTo(-34.20).Within(0.15), "ViennaRNA 2.8 RNA.fold −34.20");
+            Assert.That(mir21.FreeEnergy, Is.EqualTo(
+                Seqeron.Genomics.Analysis.RnaSecondaryStructure.CalculateMinimumFreeEnergy(mir21.Sequence)).Within(1e-9));
+        });
+    }
+
+    // F40 — star = Dicer 2-nt 3' overhang partner (miRDeep2 find_star), not the blunt partner: the star ends
+    // 2 nt beyond the partner of the mature start (clipped to the window end), and its start is
+    // partner(mature end − 2 − off) − off. hsa-mir-21 window [1,71]: mature starts at the outermost pair.
+    [Test]
+    public void FindPreMiRnaHairpins_Default_MatureStar_FollowFindStarOverhangRule()
+    {
+        var mir21 = FindPreMiRnaHairpins(HsaMir21_MI0000077).Single(p => p.Start == 1 && p.End == 71);
+        Assert.Multiple(() =>
+        {
+            Assert.That(mir21.MatureSequence, Is.EqualTo("GUCGGGUAGCUUAUCAGACUGA"), "22 nt from the 5' base of the outermost pair");
+            Assert.That(mir21.StarSequence, Is.EqualTo("AGUCGAUGGGCUGUCUGACA"),
+                "find_star: ends at partner(mature start)+2 clipped to the window; starts at partner(end−2−off)−off");
+            Assert.That(mir21.StarSequence, Is.Not.EqualTo(mir21.Sequence.Substring(mir21.Sequence.Length - 22)),
+                "not the blunt last-22-nt partner of the screen");
+        });
+        // An internal window with 3' overhang inside the window: the star carries the 2-nt overhang.
+        var mir155 = FindPreMiRnaHairpins("AUAUA" + "CUGUUAAUGCUAAUCGUGAUAGGGGUUUUUGCCUCCAACUGACUCCUACAUAUUAGCAUUAACAG" + "AUAUAUA")
+            .First(p => p.Start == 5 && p.End == 69);
+        Assert.That(mir155.MatureSequence, Is.EqualTo("CUGUUAAUGCUAAUCGUGAUAG"));
+    }
+
+    // Both modes fill the same record; the screen keeps the blunt labels.
+    [Test]
+    public void FindPreMiRnaHairpins_ScreenOption_KeepsBluntLabelsAndConsecutiveStem()
+    {
+        var screen = FindPreMiRnaHairpins(ValidHairpin57, 55, 120, 22, useConsecutiveScreen: true)
+            .Single(p => p.Start == 0 && p.End == 56);
+        Assert.That(screen.StarSequence, Is.EqualTo(ValidHairpin57.Substring(57 - 22)), "blunt partner (no overhang)");
+        Assert.That(screen.MatureSequence, Is.EqualTo(ValidHairpin57.Substring(0, 22)));
     }
 
     #endregion
@@ -635,8 +678,8 @@ public class MiRnaAnalyzer_PreMiRna_Tests
                            "gAaAuUu" +
                            "uAgCuAgCuAgCuAgCuAgCuAuGc";
 
-        var upperResults = FindPreMiRnaHairpins(ValidHairpin57, minHairpinLength: 55).ToList();
-        var mixedResults = FindPreMiRnaHairpins(mixedCase, minHairpinLength: 55).ToList();
+        var upperResults = Screen(ValidHairpin57, minHairpinLength: 55).ToList();
+        var mixedResults = Screen(mixedCase, minHairpinLength: 55).ToList();
 
         Assert.That(mixedResults, Has.Count.EqualTo(upperResults.Count),
             "Mixed-case input must produce same number of candidates as uppercase");
@@ -669,7 +712,7 @@ public class MiRnaAnalyzer_PreMiRna_Tests
         const string expectedMature18 = "GCAUAGCUAGCUAGCUAG";
         const string expectedStar18 = "CUAGCUAGCUAGCUAUGC";
 
-        var results = FindPreMiRnaHairpins(ValidHairpin57, minHairpinLength: 55,
+        var results = Screen(ValidHairpin57, minHairpinLength: 55,
             matureLength: customMatureLength).ToList();
 
         Assert.That(results, Is.Not.Empty, "Prerequisite: must detect hairpin");
@@ -708,7 +751,7 @@ public class MiRnaAnalyzer_PreMiRna_Tests
     [Test]
     public void FindPreMiRnaHairpins_SpecialTetraloop_UsesCanonicalHairpinLoopModel()
     {
-        var full = FindPreMiRnaHairpins(UucgTetraloopHairpin44, minHairpinLength: 40)
+        var full = Screen(UucgTetraloopHairpin44, minHairpinLength: 40)
             .Single(p => p.Start == 0 && p.End == 43);
 
         Assert.Multiple(() =>
@@ -734,7 +777,7 @@ public class MiRnaAnalyzer_PreMiRna_Tests
     [Test]
     public void FindPreMiRnaHairpins_GaFirstMismatch_BonusApplied()
     {
-        var full = FindPreMiRnaHairpins(GaFirstMismatchHairpin57).Single(p => p.Start == 0 && p.End == 56);
+        var full = Screen(GaFirstMismatchHairpin57).Single(p => p.Start == 0 && p.End == 56);
 
         Assert.Multiple(() =>
         {
@@ -756,7 +799,7 @@ public class MiRnaAnalyzer_PreMiRna_Tests
     public void FindPreMiRnaHairpins_PerfectHairpin_StructureAndEnergyEqualCanonicalMfe(
         string hairpin, int minLength, double nndbEnergy, int stem)
     {
-        var full = FindPreMiRnaHairpins(hairpin, minHairpinLength: minLength)
+        var full = Screen(hairpin, minHairpinLength: minLength)
             .Single(p => p.Start == 0 && p.End == hairpin.Length - 1);
         var mfe = Seqeron.Genomics.Analysis.RnaSecondaryStructure.CalculateMfeStructure(hairpin);
 
@@ -776,7 +819,7 @@ public class MiRnaAnalyzer_PreMiRna_Tests
     [Test]
     public void FindPreMiRnaHairpins_LongPerfectStem_NotTruncated()
     {
-        var full = FindPreMiRnaHairpins(LargeHairpin110).Single(p => p.Start == 0 && p.End == 109);
+        var full = Screen(LargeHairpin110).Single(p => p.Start == 0 && p.End == 109);
 
         Assert.That(full.Structure, Is.EqualTo(new string('(', 50) + new string('.', 10) + new string(')', 50)));
     }
@@ -785,7 +828,7 @@ public class MiRnaAnalyzer_PreMiRna_Tests
     [Test]
     public void FindPreMiRnaHairpins_MinHairpinLengthBelow55_Honoured()
     {
-        var hits = FindPreMiRnaHairpins(ShortHairpin47, minHairpinLength: 40).ToList();
+        var hits = Screen(ShortHairpin47, minHairpinLength: 40).ToList();
 
         Assert.That(hits.Select(h => (h.Start, h.End)),
             Is.EqualTo(new[] { (0, 46), (1, 45), (2, 44), (3, 43) }),
@@ -800,11 +843,14 @@ public class MiRnaAnalyzer_PreMiRna_Tests
     {
         Assert.Multiple(() =>
         {
+            Assert.Throws<ArgumentOutOfRangeException>(() => Screen(ValidHairpin57, matureLength: 0));
+            Assert.Throws<ArgumentOutOfRangeException>(() => Screen(ValidHairpin57, minHairpinLength: 0));
+            Assert.Throws<ArgumentOutOfRangeException>(() => Screen(ValidHairpin57, minHairpinLength: -5));
+            // default (MFE) mode validates eagerly as well
             Assert.Throws<ArgumentOutOfRangeException>(() => FindPreMiRnaHairpins(ValidHairpin57, matureLength: 0));
             Assert.Throws<ArgumentOutOfRangeException>(() => FindPreMiRnaHairpins(ValidHairpin57, minHairpinLength: 0));
-            Assert.Throws<ArgumentOutOfRangeException>(() => FindPreMiRnaHairpins(ValidHairpin57, minHairpinLength: -5));
             Assert.Throws<ArgumentOutOfRangeException>(() => FindPreMiRnaHairpinsByMfe(ValidHairpin57, minHairpinLength: 0));
-            Assert.That(FindPreMiRnaHairpins(ValidHairpin57, minHairpinLength: 60, maxHairpinLength: 55), Is.Empty,
+            Assert.That(Screen(ValidHairpin57, minHairpinLength: 60, maxHairpinLength: 55), Is.Empty,
                 "max < min is an empty scan (documented), not an error");
         });
     }
@@ -953,13 +999,14 @@ public class MiRnaAnalyzer_PreMiRna_Tests
     [Test]
     public void HeuristicRejects_ButMfeFoldDetects_SameRealPreMiRna()
     {
-        var heuristic = FindPreMiRnaHairpins(HsaMir21_MI0000077, minHairpinLength: 55).ToList();
+        var heuristic = Screen(HsaMir21_MI0000077, minHairpinLength: 55).ToList();
         var mfe = AssessHairpinByMfe(HsaMir21_MI0000077);
+        Assert.That(FindPreMiRnaHairpins(HsaMir21_MI0000077), Is.Not.Empty, "the default is the MFE scan since F40");
 
         Assert.Multiple(() =>
         {
             Assert.That(heuristic, Is.Empty,
-                "Default consecutive-pairing heuristic rejects hsa-mir-21 (documented limitation).");
+                "The consecutive-pairing screen (useConsecutiveScreen: true) rejects hsa-mir-21 (documented limitation).");
             Assert.That(mfe, Is.Not.Null,
                 "Opt-in MFE-fold method detects hsa-mir-21 — the limitation this fix removes.");
         });
@@ -1253,6 +1300,58 @@ public class MiRnaAnalyzer_PreMiRna_Tests
             Assert.That(cut.Structure, Is.EqualTo(fold));
             Assert.That(cut.DicerRule, Is.EqualTo(DicerCountingRule.FivePrimeCounting));
         });
+    }
+
+    // DD2b — apical Drosha ruler (Zeng, Yi & Cullen 2005, EMBO J 24:138: ~22 bp from the loop/stem junction),
+    // an opt-in alternative to the 11-bp basal ruler (Han 2006). On the five RNAfold-folded pri-miRNAs the
+    // 5p cut is the 5' base of the 22nd pair counted from the pair closing the terminal loop; offsets vs the
+    // miRBase 5p start (= the basal-ruler cut of DD1): mir-21 +3, let-7a-1 +6, mir-16-1 +1, mir-155 +3,
+    // mir-30a +3 nt (independent Python walk of the same dot-bracket, scratch a10.py). The apical ruler lands
+    // 1-6 pairs apical of the annotated Dicer-substrate end for every one of them, i.e. the basal ruler is the
+    // better predictor here; the apical ruler is offered because the two publications disagree.
+    [TestCase(0, 40, 93, 3)]
+    [TestCase(1, 42, 100, 6)]
+    [TestCase(2, 44, 106, 1)]
+    [TestCase(3, 36, 90, 3)]
+    [TestCase(4, 28, 84, 3)]
+    public void PredictDroshaDicerCleavage_ApicalRuler_PlacesCut22PairsFromApicalJunction(
+        int row, int cut5, int cut3, int offsetVsMirBase)
+    {
+        var r = RealPriMiRnas[row];
+        string pri = (string)r[2], fold = (string)r[3];
+        int junction = (int)r[4], m5s = (int)r[5];
+        var cut = MiRnaAnalyzer.PredictDroshaDicerCleavage(
+            pri, junction, fold, DicerCountingRule.FivePrimeCounting, DroshaCountingRule.ApicalJunction)!.Value;
+        Assert.Multiple(() =>
+        {
+            Assert.That(cut.DroshaCut5Prime, Is.EqualTo(cut5));
+            Assert.That(cut.DroshaCut3Prime, Is.EqualTo(cut3));
+            Assert.That(cut.DroshaCut5Prime - m5s, Is.EqualTo(offsetVsMirBase));
+            Assert.That(cut.DroshaRule, Is.EqualTo(DroshaCountingRule.ApicalJunction));
+            // exactly 22 pairs between the apical junction pair and the cut (inclusive of the cut pair)
+            var pairs = RnaSecondaryStructure.ParseDotBracket(fold).ToDictionary(x => x.Item1, x => x.Item2);
+            Assert.That(pairs[cut.ApicalJunction], Is.GreaterThan(cut.ApicalJunction));
+            Assert.That(fold.Substring(cut.ApicalJunction + 1, pairs[cut.ApicalJunction] - cut.ApicalJunction - 1),
+                Does.Not.Contain("("), "apical junction pair closes a hairpin loop");
+            Assert.That(fold.Substring(cut.DroshaCut5Prime, cut.ApicalJunction - cut.DroshaCut5Prime + 1).Count(c => c == '('), Is.EqualTo(22));
+            // the basal rule on the same input keeps its cut and reports the same apical junction
+            var basal = MiRnaAnalyzer.PredictDroshaDicerCleavage(pri, junction, fold)!.Value;
+            Assert.That(basal.DroshaCut5Prime, Is.EqualTo(m5s));
+            Assert.That(basal.DroshaRule, Is.EqualTo(DroshaCountingRule.BasalJunction));
+            Assert.That(basal.ApicalJunction, Is.EqualTo(cut.ApicalJunction));
+        });
+    }
+
+    // The apical rule needs a 22-pair stem and a defined rule value.
+    [Test]
+    public void PredictDroshaDicerCleavage_ApicalRuler_ShortStemNullAndBadEnumThrows()
+    {
+        string stem = new string('G', 15) + "AAAAAAAA" + new string('C', 15); // 15 bp
+        Assert.That(MiRnaAnalyzer.PredictDroshaDicerCleavage(stem, 0, new string('(', 15) + "........" + new string(')', 15),
+            DicerCountingRule.FivePrimeCounting, DroshaCountingRule.ApicalJunction), Is.Null);
+        var r = RealPriMiRnas[4];
+        Assert.Throws<ArgumentOutOfRangeException>(() => MiRnaAnalyzer.PredictDroshaDicerCleavage(
+            (string)r[2], (int)r[4], (string)r[3], DicerCountingRule.FivePrimeCounting, (DroshaCountingRule)9));
     }
 
     // DD2 — 3' counting (Park 2011): the 3p product is 22 nt from the Drosha 3' end; the 5p end is the

@@ -26,15 +26,18 @@ public class GenomeAssemblyAnalyzer_MutationKillers3_Tests
     public void CompareAssemblies_IdenticalAndDisjoint()
     {
         var a = new[] { ("s", "ACGTACGTACGT") };
-        // Identical ⇒ every k-mer shared ⇒ aligned fractions and identity all 1.0.
+        // Identical ⇒ canonical 4-mers {ACGT, CGTA (= TACG), GTAC} all shared ⇒ J = 1, Mash D = 0.
         var same = CompareAssemblies(a, a, kmerSize: 4);
-        Assert.That(same.AlignedFraction1, Is.EqualTo(1.0).Within(Tol));
-        Assert.That(same.AlignedFraction2, Is.EqualTo(1.0).Within(Tol));
-        Assert.That(same.SequenceIdentity, Is.EqualTo(1.0).Within(Tol));
+        Assert.That(same.SharedKmers, Is.EqualTo(3));
+        Assert.That(same.Containment1, Is.EqualTo(1.0).Within(Tol));
+        Assert.That(same.Containment2, Is.EqualTo(1.0).Within(Tol));
+        Assert.That(same.JaccardIndex, Is.EqualTo(1.0).Within(Tol));
+        Assert.That(same.MashDistance, Is.EqualTo(0.0).Within(Tol));
 
-        // Disjoint alphabets ⇒ no shared k-mers ⇒ identity 0.
+        // Disjoint k-mer sets ⇒ J = 0 ⇒ Mash D = 1 (Mash CommandDistance rule).
         var disjoint = CompareAssemblies(a, new[] { ("s", "GGGGGGGGGGGG") }, kmerSize: 4);
-        Assert.That(disjoint.SequenceIdentity, Is.EqualTo(0.0).Within(Tol));
+        Assert.That(disjoint.JaccardIndex, Is.EqualTo(0.0).Within(Tol));
+        Assert.That(disjoint.MashDistance, Is.EqualTo(1.0).Within(Tol));
     }
 
     #endregion
@@ -44,8 +47,8 @@ public class GenomeAssemblyAnalyzer_MutationKillers3_Tests
     [Test]
     public void FindSyntenicBlocks_CollinearBlockBetweenIdenticalSequences()
     {
-        // Two identical 100-bp sequences with unique 21-mers: anchors at positions 0,21,42,63
-        // cluster into a single collinear (non-inverted) block spanning [0, 63] on both.
+        // Two identical 100-bp sequences: the whole sequence is one MUM (length 100 ≥ 21), so one
+        // collinear (non-inverted) block spans [0, 99] on both (nucmer anchors, inclusive coordinates).
         string seq = RandomDna(100, 7);
         var blocks = FindSyntenicBlocks(
             new[] { ("s1", seq) }, new[] { ("s2", seq) }, minBlockSize: 50, kmerSize: 21).ToList();
@@ -54,10 +57,10 @@ public class GenomeAssemblyAnalyzer_MutationKillers3_Tests
         var b = blocks[0];
         Assert.That(b.Seq1, Is.EqualTo("s1"));
         Assert.That(b.Start1, Is.EqualTo(0));
-        Assert.That(b.End1, Is.EqualTo(63));   // last anchor at i = 63 (step 21)
+        Assert.That(b.End1, Is.EqualTo(99));
         Assert.That(b.Seq2, Is.EqualTo("s2"));
         Assert.That(b.Start2, Is.EqualTo(0));
-        Assert.That(b.End2, Is.EqualTo(63));
+        Assert.That(b.End2, Is.EqualTo(99));
         Assert.That(b.IsInverted, Is.False);
     }
 
@@ -101,15 +104,18 @@ public class GenomeAssemblyAnalyzer_MutationKillers3_Tests
     #region FindTandemRepeats imperfect
 
     [Test]
-    public void FindTandemRepeats_ImperfectCopyStillCountedAt80Percent()
+    public void FindTandemRepeats_SubstitutedCopy_IsAlignedByTrf()
     {
-        // (ATG)×3 then a 4th copy "ATC" (2/3 = 66% < 80% ⇒ not extended): exactly 3 copies.
-        var r = FindTandemRepeats(new[] { ("s", "ATGATGATGATC") }, minUnitLength: 3, minCopies: 3).First();
+        // (ATG)×7 · ATC · (ATG)×7 (one substitution G→C in copy 8): TRF aligns all 15 copies
+        // (score 2·44 − 7 = 81) and counts 40 matching of 42 adjacent-copy column pairs (the substituted column
+        // is compared with both neighbours) ⇒ purity 40/42.
+        string seq = string.Concat(Enumerable.Repeat("ATG", 7)) + "ATC" + string.Concat(Enumerable.Repeat("ATG", 7));
+        var r = FindTandemRepeats(new[] { ("s", seq) }, minUnitLength: 3, minCopies: 3).First();
         Assert.That(r.Unit, Is.EqualTo("ATG"));
-        Assert.That(r.Copies, Is.EqualTo(3));
+        Assert.That(r.Copies, Is.EqualTo(15.0).Within(Tol));
         Assert.That(r.Start, Is.EqualTo(0));
-        Assert.That(r.End, Is.EqualTo(8)); // 3 copies × 3 = 9 bp ⇒ [0,8]
-        Assert.That(r.Purity, Is.EqualTo(1.0).Within(Tol)); // the 3 counted copies are perfect
+        Assert.That(r.End, Is.EqualTo(44)); // 15 copies × 3 = 45 bp ⇒ [0,44]
+        Assert.That(r.Purity, Is.EqualTo(40.0 / 42.0).Within(Tol));
     }
 
     #endregion

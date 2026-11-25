@@ -71,8 +71,23 @@ public static class GenomeAssemblyAnalyzer
         char Strand);
 
     /// <summary>
-    /// BUSCO-like completeness result.
+    /// BUSCO-like completeness result: the BUSCO classes Complete (= Single-copy + Duplicated),
+    /// Fragmented and Missing over n = <see cref="TotalGenes"/> markers.
     /// </summary>
+    /// <remarks>
+    /// Every percentage is relative to n, as BUSCO <c>hmmer.py</c> <c>_get_busco_percentages</c>
+    /// (<c>d_percent = multi_copy / total_buscos · 100</c>) and compleasm summary; percentages are not
+    /// rounded (BUSCO rounds to one decimal only in <see cref="BuscoNotation"/>).
+    /// </remarks>
+    /// <param name="TotalGenes">n, the number of markers.</param>
+    /// <param name="Complete">C = S + D.</param>
+    /// <param name="CompleteSingleCopy">S.</param>
+    /// <param name="CompleteDuplicated">D.</param>
+    /// <param name="Fragmented">F.</param>
+    /// <param name="Missing">M = n − C − F.</param>
+    /// <param name="CompletenessPercent">C% = C / n · 100.</param>
+    /// <param name="DuplicationPercent">BUSCO D% = D / n · 100 (before B10 F43 it was D / C · 100).
+    /// <see cref="BuscoNotation"/> recomputes C% and D% from the counts.</param>
     public readonly record struct CompletenessResult(
         int TotalGenes,
         int Complete,
@@ -81,7 +96,103 @@ public static class GenomeAssemblyAnalyzer
         int Fragmented,
         int Missing,
         double CompletenessPercent,
-        double DuplicationPercent);
+        double DuplicationPercent)
+    {
+        /// <summary>BUSCO S% = S / n · 100 (0 when n = 0).</summary>
+        public double SingleCopyPercent => Percent(CompleteSingleCopy);
+
+        /// <summary>BUSCO F% = F / n · 100 (0 when n = 0).</summary>
+        public double FragmentedPercent => Percent(Fragmented);
+
+        /// <summary>BUSCO M% = M / n · 100 (0 when n = 0).</summary>
+        public double MissingPercent => Percent(Missing);
+
+        /// <summary>
+        /// BUSCO one-line summary <c>C:x%[S:x%,D:x%],F:x%,M:x%,n:N</c> (BUSCO <c>hmmer.py</c>
+        /// <c>record_results</c>; each percentage <c>round(·, 1)</c>, i.e. half-to-even at one decimal,
+        /// printed in Python's shortest form, e.g. <c>100.0</c>, <c>33.3</c>).
+        /// </summary>
+        public string BuscoNotation => string.Create(System.Globalization.CultureInfo.InvariantCulture,
+            $"C:{Round1(Percent(Complete))}%[S:{Round1(SingleCopyPercent)}%,D:{Round1(Percent(CompleteDuplicated))}%],F:{Round1(FragmentedPercent)}%,M:{Round1(MissingPercent)}%,n:{TotalGenes}");
+
+        // BUSCO evaluates (count / total_buscos) * 100 in this order; (count * 100) / n can differ in the
+        // last bit (199/2000: 9.950000000000001 vs 9.95 → rounds to 10.0 vs 9.9).
+        private double Percent(int count) => TotalGenes > 0 ? count / (double)TotalGenes * 100 : 0;
+
+        // Python round(x, 1) rounds the exact binary value half-to-even (e.g. round(0.05, 1) = 0.1
+        // because the double 0.05 is slightly above 0.05). The exact decimal expansion (.NET Core 3+
+        // formats doubles exactly) is rounded in decimal arithmetic to reproduce that.
+        private static string Round1(double percent)
+        {
+            var invariant = System.Globalization.CultureInfo.InvariantCulture;
+            decimal exact = decimal.Parse(percent.ToString("F25", invariant), invariant);
+            return Math.Round(exact, 1, MidpointRounding.ToEven).ToString("0.0", invariant);
+        }
+    }
+
+    /// <summary>
+    /// One local alignment of a marker gene to an assembly sequence (see
+    /// <see cref="FindMarkerHits(string, IEnumerable{ValueTuple{string, string}})"/>).
+    /// </summary>
+    /// <param name="SequenceId">Assembly sequence (contig/scaffold) id.</param>
+    /// <param name="Strand">'+' when the marker aligns as given, '-' when its reverse complement aligns.</param>
+    /// <param name="Start">0-based inclusive start of the aligned region on the assembly sequence (forward strand).</param>
+    /// <param name="End">0-based inclusive end of the aligned region on the assembly sequence.</param>
+    /// <param name="MarkerStart">0-based inclusive start of the aligned part, in the marker's own (forward) coordinates.</param>
+    /// <param name="MarkerEnd">0-based inclusive end of the aligned part, in marker coordinates.</param>
+    /// <param name="Identity">Identical columns / alignment columns (gap columns included; BLAST / EMBOSS identity), in [0, 1].</param>
+    /// <param name="Coverage">Aligned marker span / marker length = (MarkerEnd − MarkerStart + 1) / length
+    /// (compleasm <c>Protein_mapped_rate = (Protein_End − Protein_Start) / Protein_length</c>), in (0, 1].</param>
+    public readonly record struct MarkerHit(
+        string SequenceId,
+        char Strand,
+        int Start,
+        int End,
+        int MarkerStart,
+        int MarkerEnd,
+        double Identity,
+        double Coverage);
+
+    /// <summary>
+    /// k-mer spectrum evaluation of a read set (error rate, genome size) and, when an assembly is
+    /// given, Merqury k-mer completeness and consensus quality (QV).
+    /// See <see cref="EstimateCompletenessFromKmers(IEnumerable{ValueTuple{string, int}}, IEnumerable{ValueTuple{string, string}}?, int, bool)"/>.
+    /// </summary>
+    /// <param name="K">k-mer length (length of every spectrum k-mer).</param>
+    /// <param name="SolidThreshold">Merqury <c>filt</c>: the first local minimum of the histogram
+    /// (<c>kmerHistToPloidyDepth</c> <c>effectiveMinDepth</c>); solid k-mers have count &gt; filt, 0 when the
+    /// histogram has no local minimum.</param>
+    /// <param name="PeakCoverage">Coverage used for the genome size: the histogram mode above
+    /// <see cref="SolidThreshold"/> (smallest such count on ties), or the caller's expected coverage.</param>
+    /// <param name="TotalKmers">Σ count over the spectrum (k-mer instances).</param>
+    /// <param name="ErrorKmers">Σ count of the k-mers with count ≤ <see cref="SolidThreshold"/>.</param>
+    /// <param name="ErrorRate">Per-base read error rate 1 − (1 − ErrorKmers/TotalKmers)^(1/k) (GenomeScope
+    /// <c>uniroot</c> of Σ_{i=1..k} C(k,i)·x^i·(1−x)^(k−i)·total = error, whose closed form this is).</param>
+    /// <param name="EstimatedGenomeSize">(TotalKmers − ErrorKmers) / PeakCoverage, rounded half-to-even
+    /// (GenomeScope <c>total_len</c> with the observed peak; R <c>round</c>).</param>
+    /// <param name="SolidKmers">Distinct spectrum k-mers with count &gt; filt (Merqury <c>read.gt$filt.meryl</c>).</param>
+    /// <param name="AssemblySolidKmers">Distinct assembly k-mers that are solid read k-mers (Merqury <c>meryl intersect</c>).</param>
+    /// <param name="Completeness">Merqury k-mer completeness AssemblySolidKmers / SolidKmers as a fraction
+    /// (Merqury prints ×100); NaN when no assembly was given.</param>
+    /// <param name="AssemblyKmers">Σ count of assembly k-mers (Merqury TOTAL, <c>meryl statistics</c> "present").</param>
+    /// <param name="AssemblyOnlyKmers">Σ count of assembly k-mers absent from the read spectrum (Merqury ASM_ONLY).</param>
+    /// <param name="AssemblyErrorRate">Merqury E = 1 − (1 − ASM_ONLY/TOTAL)^(1/k); NaN without assembly k-mers.</param>
+    /// <param name="QualityValue">Merqury QV = −10·log10(E); +∞ when E = 0, NaN without assembly k-mers.</param>
+    public readonly record struct KmerCompletenessEstimate(
+        int K,
+        int SolidThreshold,
+        int PeakCoverage,
+        long TotalKmers,
+        long ErrorKmers,
+        double ErrorRate,
+        long EstimatedGenomeSize,
+        long SolidKmers,
+        long AssemblySolidKmers,
+        double Completeness,
+        long AssemblyKmers,
+        long AssemblyOnlyKmers,
+        double AssemblyErrorRate,
+        double QualityValue);
 
     /// <summary>
     /// Scaffold gap structure.
@@ -95,17 +206,29 @@ public static class GenomeAssemblyAnalyzer
         int GapLength);
 
     /// <summary>
-    /// Assembly comparison result.
+    /// K-mer comparison of two assemblies (Mash / sourmash model, strand-collapsed exact k-mer sets).
     /// </summary>
+    /// <param name="Assembly1Name">Label of assembly 1.</param>
+    /// <param name="Assembly2Name">Label of assembly 2.</param>
+    /// <param name="KmerSize">k used for both sets.</param>
+    /// <param name="DistinctKmers1">|K1|: distinct canonical k-mers of assembly 1 (all contigs pooled).</param>
+    /// <param name="DistinctKmers2">|K2|: distinct canonical k-mers of assembly 2.</param>
+    /// <param name="SharedKmers">|K1 ∩ K2|.</param>
+    /// <param name="Containment1">|K1 ∩ K2| / |K1| — fraction of assembly 1's k-mers present in assembly 2 (0 when K1 is empty).</param>
+    /// <param name="Containment2">|K1 ∩ K2| / |K2|.</param>
+    /// <param name="JaccardIndex">|K1 ∩ K2| / |K1 ∪ K2| (0 when both sets are empty).</param>
+    /// <param name="MashDistance">D = −(1/k)·ln(2J/(1+J)) (Ondov et al. 2016) with Mash's boundary rules (J = 1 → 0, J = 0 → 1).</param>
     public readonly record struct AssemblyComparison(
         string Assembly1Name,
         string Assembly2Name,
-        double AlignedFraction1,
-        double AlignedFraction2,
-        int Breakpoints,
-        int Inversions,
-        int Translocations,
-        double SequenceIdentity);
+        int KmerSize,
+        int DistinctKmers1,
+        int DistinctKmers2,
+        int SharedKmers,
+        double Containment1,
+        double Containment2,
+        double JaccardIndex,
+        double MashDistance);
 
     #endregion
 
@@ -572,105 +695,210 @@ public static class GenomeAssemblyAnalyzer
     #region Completeness Assessment
 
     /// <summary>
-    /// Assesses assembly completeness using marker genes (BUSCO-like).
+    /// Seed word length of the marker search: BLAST+ <c>megablast</c> (the default <c>blastn</c> task)
+    /// <c>word_size</c> 28. A marker shorter than this is seeded by its whole length (exact occurrence).
     /// </summary>
+    public const int MarkerSeedWordSize = 28;
+
+    /// <summary>
+    /// compleasm <c>--min_length_percent</c> default (0.6): a hit is valid when its aligned fraction of the
+    /// marker reaches this value OR its identity reaches the identity threshold.
+    /// </summary>
+    public const double DefaultMarkerMinLengthFraction = 0.6;
+
+    /// <summary>
+    /// Assesses assembly completeness with marker genes (BUSCO-like): every marker is classified as
+    /// Complete single-copy, Complete duplicated, Fragmented or Missing.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Hit search</b> (<see cref="FindMarkerHits(string, IEnumerable{ValueTuple{string, string}})"/>):
+    /// each marker and its reverse complement are seeded with exact ACGT words of
+    /// <see cref="MarkerSeedWordSize"/> and every seed cluster is extended by Smith-Waterman-Gotoh local
+    /// alignment with the BLAST+ blastn scoring (<see cref="SequenceAligner.BlastDna"/>). A hit reports
+    /// identity (identical / alignment columns) and coverage (aligned marker span / marker length).</para>
+    /// <para><b>Classification</b> = compleasm <c>record_1st_gene_label</c> (Huang &amp; Li 2023, length-rate
+    /// mode, v0.2.6): valid hits are those with coverage ≥ <paramref name="minLengthFraction"/> OR identity
+    /// ≥ <paramref name="identityThreshold"/> (compleasm <c>pass_tids</c> filter); no valid hit → Missing;
+    /// complete hits have coverage ≥ <paramref name="coverageThreshold"/> (<c>min_complete</c>, default 0.9);
+    /// none → Fragmented; one → Single; several → Duplicated when they lie on different sequences or form
+    /// more than one cluster of overlapping regions on one sequence (<c>get_region_clusters</c>), else Single.</para>
+    /// <para><b>Percentages</b> are BUSCO's: every class over n (<see cref="CompletenessResult"/>).</para>
+    /// <para><b>Not BUSCO itself:</b> BUSCO/compleasm search lineage protein HMM profiles (HMMER, with
+    /// lineage score and length cut-offs) through gene predictors or miniprot; this method aligns the caller's
+    /// nucleotide marker sequences directly, so frameshifts/introns are not modelled and no profile score
+    /// cut-off exists (the 28-bp exact seed is the significance filter).</para>
+    /// </remarks>
+    /// <param name="assembly">Assembly sequences (id, sequence); case-insensitive.</param>
+    /// <param name="markerGenes">Marker genes (id, nucleotide sequence); each entry is one marker.</param>
+    /// <param name="identityThreshold">compleasm <c>min_identity</c> analogue in [0, 1] (default 0.9; compleasm's protein default is 0.4).</param>
+    /// <param name="coverageThreshold">compleasm <c>min_complete</c> in [0, 1] (default 0.9).</param>
+    /// <param name="minLengthFraction">compleasm <c>min_length_percent</c> in [0, 1] (default 0.6).</param>
+    /// <exception cref="ArgumentNullException"><paramref name="assembly"/> or <paramref name="markerGenes"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A threshold is outside [0, 1] or NaN.</exception>
+    /// <exception cref="ArgumentException">A sequence is null or a marker is empty.</exception>
     public static CompletenessResult AssessCompleteness(
         IEnumerable<(string Id, string Sequence)> assembly,
         IEnumerable<(string GeneId, string Sequence)> markerGenes,
         double identityThreshold = 0.9,
-        double coverageThreshold = 0.9)
+        double coverageThreshold = 0.9,
+        double minLengthFraction = DefaultMarkerMinLengthFraction)
     {
-        var assemblySeqs = assembly.ToList();
-        var markers = markerGenes.ToList();
+        ArgumentNullException.ThrowIfNull(assembly);
+        ArgumentNullException.ThrowIfNull(markerGenes);
+        ValidateFraction(identityThreshold, nameof(identityThreshold));
+        ValidateFraction(coverageThreshold, nameof(coverageThreshold));
+        ValidateFraction(minLengthFraction, nameof(minLengthFraction));
+
+        var assemblySeqs = MaterializeAssembly(assembly, nameof(assembly));
+        var markers = markerGenes
+            .Select(g => RequireMarker(g.GeneId, g.Sequence, nameof(markerGenes)))
+            .ToList();
 
         if (markers.Count == 0)
             return new CompletenessResult(0, 0, 0, 0, 0, 0, 0, 0);
 
-        int complete = 0;
-        int singleCopy = 0;
-        int duplicated = 0;
-        int fragmented = 0;
-        int missing = 0;
-
-        foreach (var (_, geneSeq) in markers)
+        int singleCopy = 0, duplicated = 0, fragmented = 0, missing = 0;
+        foreach (string marker in markers)
         {
-            var hits = FindMarkerHits(geneSeq, assemblySeqs, identityThreshold, coverageThreshold);
-
-            if (hits.Count == 0)
+            var hits = FindMarkerHitsCore(marker, assemblySeqs);
+            switch (ClassifyMarker(hits, identityThreshold, coverageThreshold, minLengthFraction))
             {
-                missing++;
-            }
-            else if (hits.Any(h => h.Coverage >= coverageThreshold))
-            {
-                complete++;
-                var completeHits = hits.Count(h => h.Coverage >= coverageThreshold);
-                if (completeHits == 1)
-                    singleCopy++;
-                else
-                    duplicated++;
-            }
-            else
-            {
-                fragmented++;
+                case MarkerClass.Single: singleCopy++; break;
+                case MarkerClass.Duplicated: duplicated++; break;
+                case MarkerClass.Fragmented: fragmented++; break;
+                default: missing++; break;
             }
         }
 
-        double completeness = markers.Count > 0 ? complete * 100.0 / markers.Count : 0;
-        double duplication = complete > 0 ? duplicated * 100.0 / complete : 0;
-
+        int n = markers.Count;
+        int complete = singleCopy + duplicated;
         return new CompletenessResult(
-            markers.Count,
+            n,
             complete,
             singleCopy,
             duplicated,
             fragmented,
             missing,
-            completeness,
-            duplication);
+            complete / (double)n * 100,
+            duplicated / (double)n * 100);
     }
 
     /// <summary>
-    /// Finds marker gene hits in assembly.
+    /// Finds the local alignments of one marker gene to the assembly, on both strands.
     /// </summary>
-    private static List<(string SeqId, double Identity, double Coverage)> FindMarkerHits(
-        string markerSeq,
-        List<(string Id, string Sequence)> assembly,
-        double identityThreshold,
-        double coverageThreshold)
+    /// <remarks>
+    /// Seeds: every ACGT-only word of length w = min(<see cref="MarkerSeedWordSize"/>, marker length) shared
+    /// by the marker (or its reverse complement) and a sequence gives a diagonal d = sequence position −
+    /// marker position. Sorted diagonals are split where consecutive values differ by more than half the
+    /// marker length (two non-overlapping copies differ by at least the marker length), and each cluster
+    /// [d_min, d_max] is aligned against the window [d_min − w, d_max + length + w) of the sequence with
+    /// <see cref="SequenceAligner.LocalAlignAffine(string, string, ScoringMatrix?)"/> and
+    /// <see cref="SequenceAligner.BlastDna"/> (+2/−3, gap 5 + 2·k). Identical hits from overlapping windows
+    /// are reported once. Coordinates are 0-based inclusive; reverse-strand hits keep forward-strand
+    /// sequence coordinates and forward marker coordinates.
+    /// </remarks>
+    /// <param name="markerSequence">Marker nucleotide sequence (non-empty; case-insensitive).</param>
+    /// <param name="assembly">Assembly sequences (id, sequence).</param>
+    /// <returns>Hits ordered by strand ('+' first), input sequence order, then start.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="markerSequence"/> or <paramref name="assembly"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="markerSequence"/> is empty or a sequence is null.</exception>
+    public static IReadOnlyList<MarkerHit> FindMarkerHits(
+        string markerSequence,
+        IEnumerable<(string Id, string Sequence)> assembly)
     {
-        var hits = new List<(string, double, double)>();
+        ArgumentNullException.ThrowIfNull(markerSequence);
+        ArgumentNullException.ThrowIfNull(assembly);
+        string marker = RequireMarker("marker", markerSequence, nameof(markerSequence));
+        return FindMarkerHitsCore(marker, MaterializeAssembly(assembly, nameof(assembly)));
+    }
 
-        // Simplified k-mer based search
-        int kmerSize = Math.Min(31, markerSeq.Length / 3);
-        if (kmerSize < 11) kmerSize = 11;
+    private enum MarkerClass { Missing, Fragmented, Single, Duplicated }
 
-        var markerKmers = new HashSet<string>();
-        for (int i = 0; i <= markerSeq.Length - kmerSize; i++)
+    /// <summary>compleasm v0.2.6 <c>pass_tids</c> filter + <c>record_1st_gene_label(by_length=False)</c>.</summary>
+    private static MarkerClass ClassifyMarker(
+        List<MarkerHit> hits, double minIdentity, double minComplete, double minLengthFraction)
+    {
+        var valid = hits.Where(h => h.Coverage >= minLengthFraction || h.Identity >= minIdentity).ToList();
+        if (valid.Count == 0)
+            return MarkerClass.Missing;
+
+        var complete = valid.Where(h => h.Coverage >= minComplete).ToList();
+        if (complete.Count == 0)
+            return MarkerClass.Fragmented;
+        if (complete.Count == 1)
+            return MarkerClass.Single;
+        if (complete.Select(h => h.SequenceId).Distinct(StringComparer.Ordinal).Count() > 1)
+            return MarkerClass.Duplicated;
+
+        // get_region_clusters on PAF half-open (start, stop): overlap when last.start <= start <= last.stop.
+        int clusters = 0;
+        long clusterStop = long.MinValue;
+        foreach (var hit in complete.OrderBy(h => h.Start))
         {
-            markerKmers.Add(markerSeq.Substring(i, kmerSize).ToUpperInvariant());
-        }
-
-        foreach (var (seqId, sequence) in assembly)
-        {
-            int matchingKmers = 0;
-            var seqUpper = sequence.ToUpperInvariant();
-
-            for (int i = 0; i <= seqUpper.Length - kmerSize; i++)
+            long stop = hit.End + 1L;
+            if (clusters > 0 && hit.Start <= clusterStop)
             {
-                if (markerKmers.Contains(seqUpper.Substring(i, kmerSize)))
-                    matchingKmers++;
+                clusterStop = Math.Max(clusterStop, stop);
             }
-
-            double coverage = markerKmers.Count > 0 ?
-                matchingKmers / (double)markerKmers.Count : 0;
-
-            if (coverage >= coverageThreshold * 0.5) // Relaxed for fragmented
+            else
             {
-                // Estimate identity from k-mer matches
-                double identity = Math.Min(1.0, coverage * 1.1);
-                if (identity >= identityThreshold * 0.8)
+                clusters++;
+                clusterStop = stop;
+            }
+        }
+        return clusters == 1 ? MarkerClass.Single : MarkerClass.Duplicated;
+    }
+
+    private static List<MarkerHit> FindMarkerHitsCore(string marker, List<(string Id, string Sequence)> assembly)
+    {
+        int length = marker.Length;
+        int word = Math.Min(MarkerSeedWordSize, length);
+        var hits = new List<MarkerHit>();
+
+        foreach (char strand in "+-")
+        {
+            string query = strand == '+' ? marker : DnaSequence.GetReverseComplementString(marker);
+            var seedIndex = BuildSeedIndex(query, word);
+            if (seedIndex.Count == 0)
+                continue;
+
+            foreach (var (id, sequence) in assembly)
+            {
+                var diagonals = CollectSeedDiagonals(sequence, word, seedIndex);
+                if (diagonals.Count == 0)
+                    continue;
+                diagonals.Sort();
+
+                var seen = new HashSet<(int, int, int, int)>();
+                int clusterStart = 0;
+                for (int i = 1; i <= diagonals.Count; i++)
                 {
-                    hits.Add((seqId, identity, coverage));
+                    if (i < diagonals.Count && diagonals[i] - diagonals[i - 1] <= length / 2)
+                        continue;
+
+                    int windowStart = Math.Max(0, diagonals[clusterStart] - word);
+                    int windowEnd = (int)Math.Min(sequence.Length, (long)diagonals[i - 1] + length + word);
+                    clusterStart = i;
+                    if (windowEnd <= windowStart)
+                        continue;
+
+                    var alignment = SequenceAligner.LocalAlignAffine(
+                        query, sequence.Substring(windowStart, windowEnd - windowStart), SequenceAligner.BlastDna);
+                    if (alignment.Score <= 0)
+                        continue;
+
+                    int queryStart = alignment.StartPosition1;
+                    int queryEnd = alignment.EndPosition1;
+                    int start = windowStart + alignment.StartPosition2;
+                    int end = windowStart + alignment.EndPosition2;
+                    if (!seen.Add((queryStart, queryEnd, start, end)))
+                        continue;
+
+                    double identity = SequenceAligner.CalculateStatistics(alignment, SequenceAligner.BlastDna).Identity / 100.0;
+                    int markerStart = strand == '+' ? queryStart : length - 1 - queryEnd;
+                    int markerEnd = strand == '+' ? queryEnd : length - 1 - queryStart;
+                    hits.Add(new MarkerHit(id, strand, start, end, markerStart, markerEnd, identity,
+                        (queryEnd - queryStart + 1) / (double)length));
                 }
             }
         }
@@ -678,47 +906,283 @@ public static class GenomeAssemblyAnalyzer
         return hits;
     }
 
+    /// <summary>2-bit code of an upper-case base (A=0, C=1, G=2, T=3), −1 for anything else.</summary>
+    private static int BaseCode(char c) => c switch
+    {
+        'A' => 0,
+        'C' => 1,
+        'G' => 2,
+        'T' => 3,
+        _ => -1,
+    };
+
     /// <summary>
-    /// Estimates genome completeness by k-mer spectrum analysis.
+    /// Enumerates (position, 2-bit word) for every ACGT-only window of length <paramref name="word"/>
+    /// (≤ 31) of an upper-case sequence; a non-ACGT base restarts the window (Jellyfish/BLAST seeding rule).
+    /// This is a positional seed scan, not k-mer counting, so it does not route through KmerAnalyzer.
     /// </summary>
+    private static IEnumerable<(int Position, ulong Word)> EnumerateSeedWords(string sequence, int word)
+    {
+        ulong mask = word == 32 ? ulong.MaxValue : (1UL << (2 * word)) - 1;
+        ulong code = 0;
+        int filled = 0;
+        for (int i = 0; i < sequence.Length; i++)
+        {
+            int b = BaseCode(sequence[i]);
+            if (b < 0)
+            {
+                filled = 0;
+                code = 0;
+                continue;
+            }
+            code = ((code << 2) | (uint)b) & mask;
+            if (++filled >= word)
+                yield return (i - word + 1, code);
+        }
+    }
+
+    private static Dictionary<ulong, List<int>> BuildSeedIndex(string query, int word)
+    {
+        var index = new Dictionary<ulong, List<int>>();
+        foreach (var (position, code) in EnumerateSeedWords(query, word))
+        {
+            if (!index.TryGetValue(code, out var positions))
+                index[code] = positions = new List<int>();
+            positions.Add(position);
+        }
+        return index;
+    }
+
+    private static List<int> CollectSeedDiagonals(string sequence, int word, Dictionary<ulong, List<int>> seedIndex)
+    {
+        var diagonals = new List<int>();
+        foreach (var (position, code) in EnumerateSeedWords(sequence, word))
+        {
+            if (seedIndex.TryGetValue(code, out var queryPositions))
+            {
+                foreach (int q in queryPositions)
+                    diagonals.Add(position - q);
+            }
+        }
+        return diagonals;
+    }
+
+    private static List<(string Id, string Sequence)> MaterializeAssembly(
+        IEnumerable<(string Id, string Sequence)> assembly, string paramName)
+        => assembly.Select(s => (s.Id, RequireSequence(s, paramName).ToUpperInvariant())).ToList();
+
+    private static string RequireMarker(string id, string? sequence, string paramName)
+    {
+        if (sequence is null)
+            throw new ArgumentException($"Marker '{id}' sequence is null.", paramName);
+        if (sequence.Length == 0)
+            throw new ArgumentException($"Marker '{id}' sequence is empty.", paramName);
+        return sequence.ToUpperInvariant();
+    }
+
+    private static void ValidateFraction(double value, string paramName)
+    {
+        if (!(value >= 0 && value <= 1))
+            throw new ArgumentOutOfRangeException(paramName, value, "The threshold must lie in [0, 1].");
+    }
+
+    /// <summary>
+    /// Estimates read error rate, genome size and (spectrum only) k-mer statistics from a read k-mer count
+    /// spectrum. Without an assembly there is no k-mer completeness: <c>Completeness</c> is NaN.
+    /// </summary>
+    /// <remarks>
+    /// Equivalent to <see cref="EstimateCompletenessFromKmers(IEnumerable{ValueTuple{string, int}}, IEnumerable{ValueTuple{string, string}}?, int, bool)"/>
+    /// with no assembly; see there for the definitions (Merqury solid threshold, GenomeScope error rate,
+    /// k-mer genome size).
+    /// </remarks>
+    /// <param name="kmerSpectrum">Read k-mer counts (each k-mer once, all of the same length k, count ≥ 1).</param>
+    /// <param name="expectedCoverage">Peak coverage to use; 0 detects the histogram peak.</param>
     public static (double Completeness, double ErrorRate, long EstimatedGenomeSize)
         EstimateCompletenessFromKmers(
             IEnumerable<(string Kmer, int Count)> kmerSpectrum,
             int expectedCoverage = 0)
     {
-        var spectrum = kmerSpectrum.ToList();
+        var estimate = EstimateCompletenessFromKmers(kmerSpectrum, null, expectedCoverage, canonical: true);
+        return (estimate.Completeness, estimate.ErrorRate, estimate.EstimatedGenomeSize);
+    }
 
+    /// <summary>
+    /// k-mer evaluation of a read spectrum and (optionally) an assembly: read error rate, genome size,
+    /// Merqury k-mer completeness and Merqury QV.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Histogram</b>: h(c) = number of distinct spectrum k-mers with count c, listed for the counts
+    /// present in ascending order (<c>meryl histogram</c>).</para>
+    /// <para><b>Solid threshold</b> (Merqury <c>build/filt.sh</c> → <c>kmerHistToPloidyDepth.jar</c>
+    /// <c>effectiveMinDepth</c>): walking the histogram lines with slope d = h_i − h_{i−1} (the first line's
+    /// slope is h_0 − Double.MAX_VALUE), the first line where the slope turns from negative to positive gives
+    /// filt = c_i − 1; filt = 0 when no such line exists. Solid k-mers have count &gt; filt.</para>
+    /// <para><b>Read error rate</b>: E = Σ_{c ≤ filt} c·h(c), T = Σ c·h(c); error = 1 − (1 − E/T)^(1/k)
+    /// (GenomeScope 1.0 <c>error_rate</c> root of Σ_{i=1..k} C(k,i)x^i(1−x)^(k−i)·T = E; Vurture et al. 2017).</para>
+    /// <para><b>Genome size</b>: round((T − E) / peak) (GenomeScope <c>total_len = (total_kmers −
+    /// total_error_kmers)/(2·kcov)</c>; the homozygous peak 2·kcov is taken as the observed histogram mode
+    /// above filt, or <paramref name="expectedCoverage"/>). The GenomeScope negative-binomial mixture fit
+    /// (heterozygosity, duplication) is not performed: for a heterozygous genome whose highest peak is the
+    /// heterozygous one, pass the homozygous coverage as <paramref name="expectedCoverage"/>.</para>
+    /// <para><b>Assembly</b> (Merqury <c>eval/spectra-cn.sh</c>, Rhie et al. 2020): the assembly k-mers are
+    /// counted per sequence by <see cref="KmerAnalyzer.CountKmers(string, int, KmerCountingOptions, CancellationToken, IProgress{double}?)"/>
+    /// (ACGT-only windows; canonical when <paramref name="canonical"/>, as meryl). Completeness =
+    /// |distinct assembly k-mers ∩ solid read k-mers| / |solid read k-mers|; QV = −10·log10(1 − (1 −
+    /// ASM_ONLY/TOTAL)^(1/k)), where TOTAL counts all assembly k-mer instances and ASM_ONLY those absent
+    /// from the read spectrum (all read k-mers, not only solid ones, as <c>meryl difference asm reads</c>).</para>
+    /// </remarks>
+    /// <param name="readKmerSpectrum">Read k-mer counts: each k-mer once, all of length k, count ≥ 1. With
+    /// <paramref name="canonical"/> and an assembly the k-mers must be ACGT and canonical (min of k-mer and
+    /// reverse complement, as <c>meryl</c> / <c>jellyfish -C</c> output).</param>
+    /// <param name="assembly">Assembly sequences, or null for a spectrum-only estimate.</param>
+    /// <param name="expectedCoverage">Peak coverage to use; 0 detects the histogram peak.</param>
+    /// <param name="canonical">Count assembly k-mers canonically (meryl default).</param>
+    /// <exception cref="ArgumentNullException"><paramref name="readKmerSpectrum"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="expectedCoverage"/> is negative.</exception>
+    /// <exception cref="ArgumentException">The spectrum is empty, has a null/empty or duplicate k-mer, mixed
+    /// k-mer lengths or a count &lt; 1; with an assembly and <paramref name="canonical"/>, a k-mer is not ACGT or
+    /// not canonical; an assembly sequence is null.</exception>
+    public static KmerCompletenessEstimate EstimateCompletenessFromKmers(
+        IEnumerable<(string Kmer, int Count)> readKmerSpectrum,
+        IEnumerable<(string Id, string Sequence)>? assembly,
+        int expectedCoverage = 0,
+        bool canonical = true)
+    {
+        ArgumentNullException.ThrowIfNull(readKmerSpectrum);
+        if (expectedCoverage < 0)
+            throw new ArgumentOutOfRangeException(nameof(expectedCoverage), expectedCoverage,
+                "Expected coverage cannot be negative (0 = detect the peak).");
+
+        var spectrum = new Dictionary<string, int>(StringComparer.Ordinal);
+        int k = -1;
+        foreach (var (kmer, count) in readKmerSpectrum)
+        {
+            if (string.IsNullOrEmpty(kmer))
+                throw new ArgumentException("A spectrum k-mer is null or empty.", nameof(readKmerSpectrum));
+            if (k < 0)
+                k = kmer.Length;
+            else if (kmer.Length != k)
+                throw new ArgumentException(
+                    $"All spectrum k-mers must have the same length (found {k} and {kmer.Length}).", nameof(readKmerSpectrum));
+            if (count < 1)
+                throw new ArgumentException($"K-mer '{kmer}' has count {count}; counts must be ≥ 1.", nameof(readKmerSpectrum));
+            if (!spectrum.TryAdd(kmer.ToUpperInvariant(), count))
+                throw new ArgumentException($"K-mer '{kmer}' is listed more than once.", nameof(readKmerSpectrum));
+        }
         if (spectrum.Count == 0)
-            return (0, 0, 0);
+            throw new ArgumentException("The k-mer spectrum is empty.", nameof(readKmerSpectrum));
 
-        // Find coverage peak (mode)
-        var countDistribution = spectrum
-            .Where(k => k.Count > 1) // Exclude singletons (likely errors)
-            .GroupBy(k => k.Count)
-            .Select(g => (Count: g.Key, Frequency: g.Count()))
-            .OrderByDescending(g => g.Frequency)
-            .ToList();
+        var histogram = new SortedDictionary<int, long>();
+        foreach (int count in spectrum.Values)
+            histogram[count] = histogram.TryGetValue(count, out long h) ? h + 1 : 1;
 
-        if (countDistribution.Count == 0)
-            return (0, 1.0, 0);
+        int filt = MerqurySolidThreshold(histogram);
+        long total = 0, errorKmers = 0, solidKmers = 0;
+        int peak = 0;
+        long peakHeight = 0;
+        foreach (var (count, distinct) in histogram)
+        {
+            total += count * distinct;
+            if (count <= filt)
+            {
+                errorKmers += count * distinct;
+                continue;
+            }
+            solidKmers += distinct;
+            if (distinct > peakHeight)
+            {
+                peakHeight = distinct;
+                peak = count;
+            }
+        }
+        if (expectedCoverage > 0)
+            peak = expectedCoverage;
 
-        int peakCoverage = expectedCoverage > 0 ?
-            expectedCoverage :
-            countDistribution[0].Count;
+        double errorRate = KmerErrorRate(errorKmers, total, k);
+        long genomeSize = (long)Math.Round((total - errorKmers) / (double)peak, MidpointRounding.ToEven);
 
-        // Calculate error rate from singleton ratio
-        int singletons = spectrum.Count(k => k.Count == 1);
-        double errorRate = singletons / (double)spectrum.Count;
+        if (assembly is null)
+            return new KmerCompletenessEstimate(k, filt, peak, total, errorKmers, errorRate, genomeSize,
+                solidKmers, 0, double.NaN, 0, 0, double.NaN, double.NaN);
 
-        // Estimate genome size
-        long totalKmers = spectrum.Sum(k => (long)k.Count);
-        long estimatedSize = peakCoverage > 0 ? totalKmers / peakCoverage : 0;
+        if (canonical)
+        {
+            foreach (string kmer in spectrum.Keys)
+            {
+                if (kmer.Any(c => BaseCode(c) < 0))
+                    throw new ArgumentException(
+                        $"K-mer '{kmer}' is not ACGT; canonical evaluation needs meryl-style ACGT k-mers.", nameof(readKmerSpectrum));
+                if (string.CompareOrdinal(DnaSequence.GetReverseComplementString(kmer), kmer) < 0)
+                    throw new ArgumentException(
+                        $"K-mer '{kmer}' is not canonical; pass a canonical spectrum (meryl / jellyfish -C) or canonical = false.",
+                        nameof(readKmerSpectrum));
+            }
+        }
 
-        // Estimate completeness
-        int solidKmers = spectrum.Count(k => k.Count >= peakCoverage / 2);
-        double completeness = solidKmers / (double)Math.Max(1, spectrum.Count - singletons);
+        var options = new KmerCountingOptions(Canonical: canonical, AcgtOnly: true);
+        var assemblyKmers = new Dictionary<string, long>(StringComparer.Ordinal);
+        foreach (var entry in assembly)
+        {
+            string sequence = RequireSequence(entry, nameof(assembly));
+            if (sequence.Length < k)
+                continue;
+            foreach (var (kmer, count) in KmerAnalyzer.CountKmers(sequence, k, options))
+                assemblyKmers[kmer] = assemblyKmers.TryGetValue(kmer, out long c) ? c + count : count;
+        }
 
-        return (completeness, errorRate, estimatedSize);
+        long assemblyTotal = 0, assemblyOnly = 0, assemblySolid = 0;
+        foreach (var (kmer, count) in assemblyKmers)
+        {
+            assemblyTotal += count;
+            if (!spectrum.TryGetValue(kmer, out int readCount))
+                assemblyOnly += count;
+            else if (readCount > filt)
+                assemblySolid++;
+        }
+
+        double completeness = assemblySolid / (double)solidKmers;
+        double assemblyErrorRate = assemblyTotal == 0 ? double.NaN : KmerErrorRate(assemblyOnly, assemblyTotal, k);
+        double qv = double.IsNaN(assemblyErrorRate) ? double.NaN : -10.0 * Math.Log10(assemblyErrorRate);
+
+        return new KmerCompletenessEstimate(k, filt, peak, total, errorKmers, errorRate, genomeSize,
+            solidKmers, assemblySolid, completeness, assemblyTotal, assemblyOnly, assemblyErrorRate, qv);
+    }
+
+    /// <summary>
+    /// Per-base error rate from the fraction of erroneous k-mers: 1 − (1 − errorKmers/totalKmers)^(1/k)
+    /// (Merqury <c>qv.sh</c> ERROR; closed form of GenomeScope's <c>uniroot</c>).
+    /// </summary>
+    private static double KmerErrorRate(long errorKmers, long totalKmers, int k)
+        => 1.0 - Math.Pow(1.0 - errorKmers / (double)totalKmers, 1.0 / k);
+
+    /// <summary>
+    /// Merqury solid-k-mer threshold: <c>kmerHistToPloidyDepth</c> <c>effectiveMinDepth</c> (the value
+    /// <c>filt.sh</c> reads from line 2 of the ploidy table), transcribed from HistToPloidyDepth.java
+    /// <c>getPloidyDepthTable</c>: first histogram line whose slope d turns positive after a negative
+    /// previous slope (d·prevD &lt; 0 and d &gt; prevD) gives depth − 1.
+    /// </summary>
+    private static int MerqurySolidThreshold(SortedDictionary<int, long> histogram)
+    {
+        bool first = true;
+        double prevCount = double.MaxValue;
+        double prevD = 0;
+        foreach (var (depth, distinct) in histogram)
+        {
+            double count = distinct;
+            if (first)
+            {
+                prevD = count - prevCount;
+                prevCount = count;
+                first = false;
+                continue;
+            }
+            double d = count - prevCount;
+            if (d * prevD < 0 && d > prevD)
+                return depth - 1;
+            prevCount = count;
+            prevD = d;
+        }
+        return 0;
     }
 
     #endregion
@@ -726,169 +1190,290 @@ public static class GenomeAssemblyAnalyzer
     #region Repeat Analysis
 
     /// <summary>
-    /// Identifies repetitive sequences using k-mer frequency.
+    /// Identifies repetitive regions with the k-mer-count masking model of NCBI WindowMasker
+    /// (Morgulis et al. 2006, Bioinformatics 22:134; NCBI C++ Toolkit <c>src/algo/winmask</c>:
+    /// <c>seq_masker.cpp</c> <c>CSeqMasker::DoMask</c>, <c>seq_masker_window.cpp</c>,
+    /// <c>seq_masker_score_mean.cpp</c>, <c>win_mask_gen_counts.cpp</c>).
     /// </summary>
+    /// <remarks>
+    /// <para><b>Counting.</b> Every k-mer (unit) of all input sequences is counted over the whole input
+    /// ("genome"). A window containing a non-ACGT symbol contributes no unit (WindowMasker <c>ambig</c> reset;
+    /// <see cref="KmerAnalyzer.CountKmers(string,int,KmerCountingOptions,System.Threading.CancellationToken,System.IProgress{double}?)"/>
+    /// with <c>AcgtOnly</c>, the Jellyfish window rule). With <paramref name="bothStrands"/> (default, as
+    /// WindowMasker) a unit and its reverse complement share one count: count(u) = F(u) + F(rc(u)), which is
+    /// WindowMasker's canonical counting (a self-complementary unit counts its forward occurrences twice, as
+    /// <c>win_mask_gen_counts.cpp</c> increments both <c>unit</c> and <c>runit</c> when they are equal).</para>
+    /// <para><b>Scoring.</b> A window of <paramref name="windowSize"/> bases (step 1; only all-ACGT windows) has
+    /// W − k + 1 units; its score is the integer mean of their counts (<c>CSeqMaskerScoreMean</c>: <c>sum / num</c>).</para>
+    /// <para><b>Masking</b> (the first pass of <c>DoMask</c>, copied branch by branch): a window with score ≥
+    /// <paramref name="minCopies"/> (T_threshold) starts or extends the masked interval; a window with score below
+    /// <paramref name="extendCopies"/> (T_extend) closes it unless it begins inside the interval; windows scoring in
+    /// [T_extend, T_threshold) keep an open interval connected without enlarging it. Intervals are 0-based,
+    /// inclusive, [Start, End] = first base of the first triggering window … last base of the last one.
+    /// <c>Copies</c> is the largest unit count inside the interval.</para>
+    /// <para>Deviations from WindowMasker, declared: T_threshold / T_extend are given as counts (WindowMasker derives
+    /// them from percentiles of the genome-wide unit-count distribution); the optional merge pass, discontiguous
+    /// units and the count-database score cut-offs (T_low, T_high) are not implemented.</para>
+    /// </remarks>
+    /// <param name="sequences">Named sequences (case-insensitive); counting is pooled over all of them.</param>
+    /// <param name="kmerSize">Unit size k (≥ 1; default 15).</param>
+    /// <param name="minCopies">T_threshold: window score that triggers masking (≥ 1; default 3).</param>
+    /// <param name="windowSize">Window length in bases (≥ k; default 100).</param>
+    /// <param name="bothStrands">Count units on both strands (WindowMasker default).</param>
+    /// <param name="extendCopies">T_extend (1..minCopies); null = <paramref name="minCopies"/>.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="sequences"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A size or threshold is out of range.</exception>
     public static IEnumerable<(string SequenceId, int Start, int End, int Copies)> FindRepetitiveRegions(
         IEnumerable<(string Id, string Sequence)> sequences,
         int kmerSize = 15,
         int minCopies = 3,
-        int windowSize = 100)
+        int windowSize = 100,
+        bool bothStrands = true,
+        int? extendCopies = null)
     {
-        // Build k-mer frequency table
-        var kmerCounts = new Dictionary<string, int>();
+        ArgumentNullException.ThrowIfNull(sequences);
+        ArgumentOutOfRangeException.ThrowIfLessThan(kmerSize, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(minCopies, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(windowSize, kmerSize);
+        int textend = extendCopies ?? minCopies;
+        ArgumentOutOfRangeException.ThrowIfLessThan(textend, 1);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(textend, minCopies);
 
+        return FindRepetitiveRegionsCore(
+            sequences.Select(s => (s.Id, Sequence: (s.Sequence ?? string.Empty).ToUpperInvariant())).ToList(),
+            kmerSize, minCopies, windowSize, bothStrands, textend);
+    }
+
+    private static IEnumerable<(string SequenceId, int Start, int End, int Copies)> FindRepetitiveRegionsCore(
+        List<(string Id, string Sequence)> sequences,
+        int k, int cutoff, int windowSize, bool bothStrands, int textend)
+    {
+        var forward = new Dictionary<string, int>();
+        var acgt = new KmerCountingOptions(AcgtOnly: true);
         foreach (var (_, sequence) in sequences)
         {
-            var upper = sequence.ToUpperInvariant();
-            for (int i = 0; i <= upper.Length - kmerSize; i++)
-            {
-                string kmer = upper.Substring(i, kmerSize);
-                if (!kmer.Contains('N'))
-                {
-                    kmerCounts[kmer] = kmerCounts.GetValueOrDefault(kmer) + 1;
-                }
-            }
+            foreach (var (kmer, n) in KmerAnalyzer.CountKmers(sequence, k, acgt))
+                forward[kmer] = forward.GetValueOrDefault(kmer) + n;
         }
 
-        // Find regions with high k-mer frequency
-        foreach (var (id, sequence) in sequences)
+        int UnitCount(string kmer)
         {
-            var upper = sequence.ToUpperInvariant();
-            int regionStart = -1;
-            int maxCopies = 0;
+            int c = forward.GetValueOrDefault(kmer);
+            return bothStrands ? c + forward.GetValueOrDefault(DnaSequence.GetReverseComplementString(kmer)) : c;
+        }
 
-            for (int i = 0; i <= upper.Length - kmerSize; i += windowSize / 10)
+        int numUnits = windowSize - k + 1;
+        foreach (var (id, seq) in sequences)
+        {
+            int n = seq.Length;
+            if (n < windowSize) continue;
+
+            // unit[j] = count of the k-mer starting at j (-1 when it contains a non-ACGT symbol).
+            var unit = new int[n - k + 1];
+            for (int j = 0; j < unit.Length; j++)
             {
-                // Check window
-                int windowEnd = Math.Min(i + windowSize, upper.Length);
-                int highCopyKmers = 0;
-                int localMaxCopies = 0;
+                var span = seq.AsSpan(j, k);
+                unit[j] = IsAcgt(span) ? UnitCount(seq.Substring(j, k)) : -1;
+            }
 
-                for (int j = i; j <= windowEnd - kmerSize; j++)
+            // Prefix sums of the counts and of the invalid-unit flags give each window's mean in O(1).
+            var sum = new long[unit.Length + 1];
+            var bad = new int[unit.Length + 1];
+            for (int j = 0; j < unit.Length; j++)
+            {
+                sum[j + 1] = sum[j] + Math.Max(unit[j], 0);
+                bad[j + 1] = bad[j] + (unit[j] < 0 ? 1 : 0);
+            }
+
+            int start = 0, end = 0, cend = 0;
+            for (int s = 0; s + windowSize <= n; s++)
+            {
+                // A window is usable only if all of its units are valid (all W bases are A/C/G/T).
+                if (bad[s + numUnits] - bad[s] != 0) continue;
+
+                int e = s + windowSize - 1;
+                long score = (sum[s + numUnits] - sum[s]) / numUnits;
+
+                if (score < textend)
                 {
-                    string kmer = upper.Substring(j, kmerSize);
-                    if (!kmer.Contains('N') && kmerCounts.TryGetValue(kmer, out int count) && count >= minCopies)
+                    if (end > start && s > cend)
                     {
-                        highCopyKmers++;
-                        localMaxCopies = Math.Max(localMaxCopies, count);
+                        yield return (id, start, end, MaxUnit(unit, start, end, k));
+                        start = end = cend = 0;
                     }
                 }
-
-                bool isRepetitive = highCopyKmers > windowSize / (kmerSize * 2);
-
-                if (isRepetitive && regionStart < 0)
+                else if (score < cutoff)
                 {
-                    regionStart = i;
-                    maxCopies = localMaxCopies;
+                    if (end > start)
+                    {
+                        if (s > cend + 1)
+                        {
+                            yield return (id, start, end, MaxUnit(unit, start, end, k));
+                            start = end = cend = 0;
+                        }
+                        else
+                        {
+                            cend = e;
+                        }
+                    }
                 }
-                else if (!isRepetitive && regionStart >= 0)
+                else
                 {
-                    yield return (id, regionStart, i - 1, maxCopies);
-                    regionStart = -1;
-                    maxCopies = 0;
-                }
-                else if (isRepetitive)
-                {
-                    maxCopies = Math.Max(maxCopies, localMaxCopies);
+                    if (end > start)
+                    {
+                        if (s > cend + 1)
+                        {
+                            yield return (id, start, end, MaxUnit(unit, start, end, k));
+                            start = s;
+                        }
+                    }
+                    else
+                    {
+                        start = s;
+                    }
+
+                    cend = end = e;
                 }
             }
 
-            if (regionStart >= 0)
-            {
-                yield return (id, regionStart, upper.Length - 1, maxCopies);
-            }
+            if (end > start)
+                yield return (id, start, end, MaxUnit(unit, start, end, k));
         }
     }
 
+    private static bool IsAcgt(ReadOnlySpan<char> span)
+    {
+        foreach (char c in span)
+        {
+            if (c is not ('A' or 'C' or 'G' or 'T')) return false;
+        }
+
+        return true;
+    }
+
+    private static int MaxUnit(int[] unit, int start, int end, int k)
+    {
+        int max = 0;
+        for (int j = start; j <= end - k + 1; j++)
+            max = Math.Max(max, unit[j]);
+        return max;
+    }
+
     /// <summary>
-    /// Identifies tandem repeats.
+    /// Finds approximate (interrupted) tandem repeats with the Tandem Repeats Finder model
+    /// (Benson 1999, Nucleic Acids Res 27:573): delegates to
+    /// <see cref="RepeatFinder.FindApproximateTandemRepeats(string,TandemRepeatsFinderParameters,int)"/> with TRF's
+    /// recommended parameters (Match 2, Mismatch 7, Delta 7, PM 80, PI 10).
     /// </summary>
-    public static IEnumerable<(string SequenceId, int Start, int End, string Unit, int Copies, double Purity)>
+    /// <remarks>
+    /// <c>Unit</c> is TRF's consensus pattern; <c>Copies</c> TRF's copy number (aligned consensus columns /
+    /// consensus size; fractional); <c>Purity</c> is TRF's "percent matches between adjacent copies" as a fraction
+    /// (0–1); <c>Start</c>/<c>End</c> are 0-based inclusive. A repeat is reported when its alignment score is
+    /// ≥ <paramref name="minScore"/> (TRF Minscore, 50 recommended), its period lies in
+    /// [<paramref name="minUnitLength"/>, <paramref name="maxUnitLength"/>] (TRF MaxPeriod ≤ 2000) and its copy number is
+    /// ≥ <paramref name="minCopies"/>. Non-ACGT symbols never match.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="sequences"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A bound is out of range (period 1..2000, copies and score ≥ 1).</exception>
+    public static IEnumerable<(string SequenceId, int Start, int End, string Unit, double Copies, double Purity)>
         FindTandemRepeats(
             IEnumerable<(string Id, string Sequence)> sequences,
             int minUnitLength = 2,
             int maxUnitLength = 50,
-            int minCopies = 3)
+            int minCopies = 3,
+            int minScore = RepeatFinder.DefaultApproximateMinScore)
+    {
+        ArgumentNullException.ThrowIfNull(sequences);
+        ArgumentOutOfRangeException.ThrowIfLessThan(minUnitLength, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxUnitLength, minUnitLength);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(maxUnitLength, RepeatFinder.MaxApproximatePeriod);
+        ArgumentOutOfRangeException.ThrowIfLessThan(minCopies, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(minScore, 1);
+
+        var parameters = new TandemRepeatsFinderParameters { MaxPeriod = maxUnitLength, MinScore = minScore };
+        return FindTandemRepeatsCore(sequences.ToList(), parameters, minUnitLength, minCopies);
+    }
+
+    private static IEnumerable<(string SequenceId, int Start, int End, string Unit, double Copies, double Purity)>
+        FindTandemRepeatsCore(
+            List<(string Id, string Sequence)> sequences,
+            TandemRepeatsFinderParameters parameters,
+            int minUnitLength,
+            int minCopies)
     {
         foreach (var (id, sequence) in sequences)
         {
-            var upper = sequence.ToUpperInvariant();
-
-            // `i` normally steps by 1 but jumps past a called repeat (below); a while loop makes that
-            // in-body skip explicit where a for loop would flag S127.
-            int i = 0;
-            while (i < upper.Length - minUnitLength * minCopies)
+            foreach (var r in RepeatFinder.FindApproximateTandemRepeats(sequence, parameters, minUnitLength))
             {
-                for (int unitLen = minUnitLength; unitLen <= maxUnitLength && i + unitLen * minCopies <= upper.Length; unitLen++)
-                {
-                    string unit = upper.Substring(i, unitLen);
-                    if (unit.Contains('N')) continue;
-
-                    // Count copies
-                    int copies = 1;
-                    int matches = 0;
-                    int pos = i + unitLen;
-
-                    while (pos + unitLen <= upper.Length)
-                    {
-                        int unitMatches = 0;
-                        for (int j = 0; j < unitLen; j++)
-                        {
-                            if (upper[pos + j] == unit[j])
-                                unitMatches++;
-                        }
-
-                        if (unitMatches >= unitLen * 0.8) // 80% match
-                        {
-                            copies++;
-                            matches += unitMatches;
-                            pos += unitLen;
-                        }
-                        else
-                        {
-                            break;
-                        }
-                    }
-
-                    if (copies >= minCopies)
-                    {
-                        int totalLength = copies * unitLen;
-                        double purity = (unitLen + matches) / (double)(totalLength);
-
-                        yield return (id, i, i + totalLength - 1, unit, copies, purity);
-
-                        // Skip past this repeat
-                        i += totalLength - 1;
-                        break;
-                    }
-                }
-
-                i++;
+                if (r.CopyNumber < minCopies) continue;
+                yield return (id, r.Start, r.Start + r.SpanLength - 1, r.Consensus, r.CopyNumber, r.PercentMatches / 100.0);
             }
         }
     }
 
     /// <summary>
-    /// Calculates repeat content statistics.
+    /// Calculates repeat content as RepeatMasker's <c>ProcessRepeats</c> table does: every base is counted once
+    /// ("Define length of coverage based on possibly overlapping fragments"), so overlapping annotations on the
+    /// same sequence are not double counted and the class lengths sum to the total masked length.
     /// </summary>
+    /// <remarks>
+    /// Annotations are swept per sequence in (Start, input order); an annotation is credited with the bases beyond
+    /// the furthest end seen so far, to its own <c>RepeatClass</c> (a fully contained annotation adds nothing).
+    /// <c>RepeatPercentage</c> = masked bases / <paramref name="genomeLength"/> · 100 (RepeatMasker
+    /// "bases masked: n bp (p %)"). Coordinates are 0-based inclusive. An empty annotation list or a genome length of
+    /// 0 yields all zeros.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="repeats"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="genomeLength"/> &lt; 0, or the masked bases exceed it.</exception>
+    /// <exception cref="ArgumentException">An annotation has Start &lt; 0 or End &lt; Start.</exception>
     public static (long TotalRepeatLength, double RepeatPercentage, IReadOnlyDictionary<string, long> RepeatClassLengths)
         CalculateRepeatContent(
             IEnumerable<RepeatAnnotation> repeats,
             long genomeLength)
     {
+        ArgumentNullException.ThrowIfNull(repeats);
+        ArgumentOutOfRangeException.ThrowIfLessThan(genomeLength, 0);
         var repeatList = repeats.ToList();
+        foreach (var r in repeatList)
+        {
+            if (r.Start < 0 || r.End < r.Start)
+                throw new ArgumentException(
+                    $"Invalid repeat annotation interval [{r.Start}, {r.End}] on '{r.SequenceId}'.", nameof(repeats));
+        }
 
         if (repeatList.Count == 0 || genomeLength == 0)
             return (0, 0, new Dictionary<string, long>());
 
-        long totalLength = repeatList.Sum(r => (long)(r.End - r.Start + 1));
-        double percentage = totalLength * 100.0 / genomeLength;
+        long total = 0;
+        var classLengths = new Dictionary<string, long>();
+        foreach (var perSequence in repeatList
+                     .Select((r, i) => (r, i))
+                     .GroupBy(x => x.r.SequenceId))
+        {
+            int furthestEnd = -1;
+            foreach (var (r, _) in perSequence.OrderBy(x => x.r.Start).ThenBy(x => x.i))
+            {
+                int from = Math.Max(r.Start, furthestEnd + 1);
+                long added = r.End >= from ? r.End - from + 1 : 0;
+                if (added > 0)
+                {
+                    total += added;
+                    classLengths[r.RepeatClass] = classLengths.GetValueOrDefault(r.RepeatClass) + added;
+                }
 
-        var classLengths = repeatList
-            .GroupBy(r => r.RepeatClass)
-            .ToDictionary(g => g.Key, g => g.Sum(r => (long)(r.End - r.Start + 1)));
+                furthestEnd = Math.Max(furthestEnd, r.End);
+            }
+        }
 
-        return (totalLength, percentage, classLengths);
+        // Zero-length contributions still list their class (every annotated class appears, as before).
+        foreach (var r in repeatList)
+            classLengths.TryAdd(r.RepeatClass, 0);
+
+        if (total > genomeLength)
+            throw new ArgumentOutOfRangeException(nameof(genomeLength),
+                $"The annotations cover {total} bp, more than the genome length {genomeLength}.");
+
+        return (total, total * 100.0 / genomeLength, classLengths);
     }
 
     #endregion
@@ -896,8 +1481,25 @@ public static class GenomeAssemblyAnalyzer
     #region Assembly Comparison
 
     /// <summary>
-    /// Compares two assemblies using k-mer content.
+    /// Compares two assemblies by their exact, strand-collapsed k-mer sets (Mash / sourmash model).
     /// </summary>
+    /// <remarks>
+    /// All contigs of an assembly are pooled into one set (a multi-FASTA is one genome for <c>mash sketch</c>);
+    /// k-mers never span two contigs. K-mers are canonical, min(w, RC(w)), and any window containing a non-ACGT
+    /// symbol is skipped — Mash <c>Sketch.cpp</c> <c>addMinHashes</c> rule, applied through
+    /// <see cref="KmerAnalyzer.DistinctKmers(string, int, KmerCountingOptions)"/> (<c>Canonical = true</c>).
+    /// <list type="bullet">
+    /// <item>Jaccard J = |K1 ∩ K2| / |K1 ∪ K2| (Ondov et al. 2016, Genome Biol 17:132, eq. 1);</item>
+    /// <item>Mash distance D = −(1/k)·ln(2J/(1+J)) (eq. 4) via <see cref="KmerAnalyzer.MashDistanceFromJaccard"/>;
+    /// identical sets (also both empty) → 0, no shared k-mer → 1 (Mash <c>CommandDistance.cpp</c>);</item>
+    /// <item>containment C(Ki, Kj) = |K1 ∩ K2| / |Ki| (Koslicki &amp; Zabeti 2019; sourmash <c>--containment</c>).</item>
+    /// </list>
+    /// This is a whole-assembly alignment-free similarity, not an alignment: it reports no aligned bases,
+    /// identity percentage or breakpoints (those need nucmer/dnadiff alignments — see <see cref="FindSyntenicBlocks"/>
+    /// for the MUM-cluster blocks).
+    /// </remarks>
+    /// <exception cref="ArgumentNullException">An assembly is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="kmerSize"/> is not positive.</exception>
     public static AssemblyComparison CompareAssemblies(
         IEnumerable<(string Id, string Sequence)> assembly1,
         IEnumerable<(string Id, string Sequence)> assembly2,
@@ -905,176 +1507,409 @@ public static class GenomeAssemblyAnalyzer
         string name2 = "Assembly2",
         int kmerSize = 21)
     {
-        var kmers1 = ExtractKmers(assembly1, kmerSize);
-        var kmers2 = ExtractKmers(assembly2, kmerSize);
+        ArgumentNullException.ThrowIfNull(assembly1);
+        ArgumentNullException.ThrowIfNull(assembly2);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(kmerSize);
 
-        int shared = kmers1.Keys.Count(k => kmers2.ContainsKey(k));
+        var kmers1 = PooledCanonicalKmers(assembly1, kmerSize);
+        var kmers2 = PooledCanonicalKmers(assembly2, kmerSize);
 
-        double aligned1 = kmers1.Count > 0 ? shared / (double)kmers1.Count : 0;
-        double aligned2 = kmers2.Count > 0 ? shared / (double)kmers2.Count : 0;
+        var (small, large) = kmers1.Count <= kmers2.Count ? (kmers1, kmers2) : (kmers2, kmers1);
+        int shared = small.Count(large.Contains);
+        int union = kmers1.Count + kmers2.Count - shared;
 
-        // Estimate identity from shared k-mers
-        double identity = (aligned1 + aligned2) / 2;
+        double jaccard = union == 0 ? 0.0 : (double)shared / union;
+        // Mash CommandDistance: shared == union (identical sets, incl. both empty) → 0.
+        double mash = shared == union ? 0.0 : KmerAnalyzer.MashDistanceFromJaccard(jaccard, kmerSize);
 
         return new AssemblyComparison(
-            name1, name2,
-            aligned1, aligned2,
-            0, 0, 0, identity);
+            name1, name2, kmerSize,
+            kmers1.Count, kmers2.Count, shared,
+            kmers1.Count > 0 ? (double)shared / kmers1.Count : 0.0,
+            kmers2.Count > 0 ? (double)shared / kmers2.Count : 0.0,
+            jaccard, mash);
     }
 
-    /// <summary>
-    /// Extracts k-mers from assembly.
-    /// </summary>
-    private static Dictionary<string, int> ExtractKmers(
-        IEnumerable<(string Id, string Sequence)> sequences,
-        int kmerSize)
+    /// <summary>Distinct canonical ACGT-only k-mers of every contig, pooled (canonical counter, no private loop).</summary>
+    private static HashSet<string> PooledCanonicalKmers(IEnumerable<(string Id, string Sequence)> sequences, int k)
     {
-        var kmers = new Dictionary<string, int>();
-
+        var options = new KmerCountingOptions(Canonical: true, AcgtOnly: true);
+        var pooled = new HashSet<string>(StringComparer.Ordinal);
         foreach (var (_, sequence) in sequences)
-        {
-            var upper = sequence.ToUpperInvariant();
-            for (int i = 0; i <= upper.Length - kmerSize; i++)
-            {
-                string kmer = upper.Substring(i, kmerSize);
-                if (!kmer.Contains('N'))
-                {
-                    kmers[kmer] = kmers.GetValueOrDefault(kmer) + 1;
-                }
-            }
-        }
-
-        return kmers;
+            pooled.UnionWith(KmerAnalyzer.DistinctKmers(sequence ?? string.Empty, k, options));
+        return pooled;
     }
 
+    /// <summary>nucmer defaults (MUMmer 3/4 usage text): <c>-g</c> maxgap.</summary>
+    private const int NucmerMaxGap = 90;
+
+    /// <summary>nucmer default <c>--diagfactor</c> (<c>-d</c>): clustering diagonal-difference separation factor.</summary>
+    private const double NucmerDiagonalFactor = 0.12;
+
+    /// <summary>nucmer default <c>--diagdiff</c> (<c>-D</c>): fixed diagonal difference allowed between adjacent matches.</summary>
+    private const int NucmerDiagonalDifference = 5;
+
     /// <summary>
-    /// Finds syntenic blocks between assemblies.
+    /// Finds syntenic (collinear) blocks between two assemblies as MUMmer's <c>nucmer</c> does before
+    /// extension: maximal unique matches (MUMs) are anchors, and anchors are clustered by the <c>mgaps</c>
+    /// algorithm (Delcher et al. 2002, NAR 30:2478, <i>Fast algorithms for large-scale genome alignment and
+    /// comparison</i>; Marçais et al. 2018, PLoS Comput Biol 14:e1005944).
     /// </summary>
+    /// <remarks>
+    /// <para>Assembly 1 is the reference, assembly 2 the query (as <c>nucmer ref query</c>). For every pair
+    /// (reference sequence, query sequence) and both query strands the MUMs of length ≥ <paramref name="kmerSize"/>
+    /// are found with the library suffix tree (<c>FindMaximalUniqueMatches</c>; nucmer default
+    /// <c>--mumreference</c> = unique in the reference, <paramref name="uniqueInBoth"/> = <c>--mum</c>); symbols
+    /// other than A, C, G, T never match (case-insensitive). Anchors are then clustered with the <c>mgaps</c>
+    /// routine of MUMmer 4 (<c>src/tigr/mgaps.cc</c>, <c>include/mummer/mgaps.hh</c>): repeat-internal anchors are
+    /// filtered (<c>Filter_Matches</c>), anchors whose gap to the previous one is at most
+    /// <paramref name="maxGap"/> and whose diagonals differ by at most max(<paramref name="diagonalDifference"/>,
+    /// <paramref name="diagonalFactor"/>·gap) are linked (union-find), and from each linked component the
+    /// highest-scoring colinear chain is extracted repeatedly (<c>Process_Cluster</c>: score = Σ length −
+    /// overlap − diagonal drift). A chain whose total anchor length is at least <paramref name="minBlockSize"/>
+    /// (nucmer <c>-c</c>) is reported.</para>
+    /// <para>Coordinates are 0-based inclusive on the forward strand of each sequence; blocks are ordered by
+    /// reference sequence (input order), Start1, then Start2. <c>IsInverted</c> is true when the block matches the
+    /// reverse-complement strand of the query. Unlike nucmer no match extension (Smith–Waterman between anchors)
+    /// is done: a block spans first anchor start to last anchor end.</para>
+    /// </remarks>
+    /// <param name="assembly1">Reference sequences.</param>
+    /// <param name="assembly2">Query sequences.</param>
+    /// <param name="minBlockSize">Minimum summed anchor length of a block (nucmer <c>-c</c>; mgaps <c>-l</c>).</param>
+    /// <param name="kmerSize">Minimum MUM length (nucmer <c>-l</c> minmatch; default 21 as before, nucmer 20).</param>
+    /// <param name="maxGap">Maximum query gap between linked anchors (nucmer <c>-g</c>, 90).</param>
+    /// <param name="diagonalFactor">Diagonal separation factor (nucmer <c>-d</c>, 0.12).</param>
+    /// <param name="diagonalDifference">Fixed diagonal difference (nucmer <c>-D</c>, 5).</param>
+    /// <param name="uniqueInBoth">MUMs unique in both sequences (<c>--mum</c>) instead of the reference only.</param>
     public static IEnumerable<(string Seq1, int Start1, int End1, string Seq2, int Start2, int End2, bool IsInverted)>
         FindSyntenicBlocks(
             IEnumerable<(string Id, string Sequence)> assembly1,
             IEnumerable<(string Id, string Sequence)> assembly2,
             int minBlockSize = 1000,
-            int kmerSize = 21)
+            int kmerSize = 21,
+            int maxGap = NucmerMaxGap,
+            double diagonalFactor = NucmerDiagonalFactor,
+            int diagonalDifference = NucmerDiagonalDifference,
+            bool uniqueInBoth = false)
     {
-        var asm1 = assembly1.ToList();
-        var asm2 = assembly2.ToList();
+        ArgumentNullException.ThrowIfNull(assembly1);
+        ArgumentNullException.ThrowIfNull(assembly2);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(minBlockSize);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(kmerSize);
+        ArgumentOutOfRangeException.ThrowIfNegative(maxGap);
+        ArgumentOutOfRangeException.ThrowIfNegative(diagonalDifference);
+        if (!(diagonalFactor >= 0))
+            throw new ArgumentOutOfRangeException(nameof(diagonalFactor), diagonalFactor, "Must be non-negative.");
 
-        // Build k-mer index for assembly2
-        var kmerIndex = new Dictionary<string, List<(string SeqId, int Position)>>();
+        var uniqueness = uniqueInBoth ? global::SuffixTree.MumUniqueness.Both : global::SuffixTree.MumUniqueness.Reference;
+        var queries = assembly2.Select(q => (q.Id, Forward: NormalizeForMatching(q.Sequence, '$'))).ToList();
+        return FindSyntenicBlocksCore(assembly1, queries, minBlockSize, kmerSize, maxGap, diagonalFactor,
+            diagonalDifference, uniqueness);
+    }
 
-        foreach (var (seqId, sequence) in asm2)
+    private static IEnumerable<(string Seq1, int Start1, int End1, string Seq2, int Start2, int End2, bool IsInverted)>
+        FindSyntenicBlocksCore(
+            IEnumerable<(string Id, string Sequence)> assembly1,
+            List<(string Id, string Forward)> queries,
+            int minBlockSize, int minMatch, int maxGap, double diagonalFactor, int diagonalDifference,
+            global::SuffixTree.MumUniqueness uniqueness)
+    {
+        var clusterer = new MgapsClusterer(diagonalDifference, maxGap, minBlockSize, diagonalFactor);
+
+        // Reverse complement of the (already normalised ACGT/'$') query; '$' passes through the complement.
+        var reverse = queries.Select(q => string.Create(q.Forward.Length, q.Forward, static (span, f) =>
         {
-            var upper = sequence.ToUpperInvariant();
-            for (int i = 0; i <= upper.Length - kmerSize; i++)
-            {
-                string kmer = upper.Substring(i, kmerSize);
-                if (!kmer.Contains('N'))
-                {
-                    if (!kmerIndex.ContainsKey(kmer))
-                        kmerIndex[kmer] = new List<(string, int)>();
-                    kmerIndex[kmer].Add((seqId, i));
-                }
-            }
-        }
+            f.AsSpan().TryGetReverseComplement(span);
+        })).ToList();
 
-        // Find matching regions
-        foreach (var (seq1Id, seq1) in asm1)
+        foreach (var (refId, refSeq) in assembly1)
         {
-            var upper1 = seq1.ToUpperInvariant();
-            var anchors = new List<(int Pos1, string Seq2, int Pos2)>();
+            string reference = NormalizeForMatching(refSeq, '#');
+            if (reference.Length < minMatch)
+                continue;
 
-            for (int i = 0; i <= upper1.Length - kmerSize; i += kmerSize)
+            var tree = global::SuffixTree.SuffixTree.Build(reference);
+            var found = new List<(int Start1, int End1, int Q, int Start2, int End2, bool Inverted)>();
+
+            for (int q = 0; q < queries.Count; q++)
             {
-                string kmer = upper1.Substring(i, kmerSize);
-                if (!kmer.Contains('N') && kmerIndex.TryGetValue(kmer, out var hits))
+                int n = queries[q].Forward.Length;
+                for (int strand = 0; strand < 2; strand++)
                 {
-                    foreach (var (seq2Id, pos2) in hits)
+                    string query = strand == 0 ? queries[q].Forward : reverse[q];
+                    var mums = tree.FindMaximalUniqueMatches(query, minMatch, uniqueness);
+                    if (mums.Count == 0)
+                        continue;
+
+                    foreach (var chain in clusterer.Cluster(mums.Select(m => (m.PositionInText, m.PositionInQuery, m.Length)).ToList()))
                     {
-                        anchors.Add((i, seq2Id, pos2));
+                        int s1 = chain.Min(m => m.Start1), e1 = chain.Max(m => m.Start1 + m.Len) - 1;
+                        int s2 = chain.Min(m => m.Start2), e2 = chain.Max(m => m.Start2 + m.Len) - 1;
+                        // Reverse strand: positions are on RC(query); map back to the forward strand.
+                        if (strand == 1)
+                            (s2, e2) = (n - 1 - e2, n - 1 - s2);
+                        found.Add((s1, e1, q, s2, e2, strand == 1));
                     }
                 }
             }
 
-            // Cluster anchors into blocks
-            var blocks = ClusterAnchors(anchors, minBlockSize);
-
-            foreach (var block in blocks)
-            {
-                yield return (seq1Id, block.Start1, block.End1,
-                             block.Seq2, block.Start2, block.End2, block.IsInverted);
-            }
+            foreach (var b in found.OrderBy(f => f.Start1).ThenBy(f => f.Start2).ThenBy(f => f.Q).ThenBy(f => f.Inverted))
+                yield return (refId, b.Start1, b.End1, queries[b.Q].Id, b.Start2, b.End2, b.Inverted);
         }
     }
 
-    /// <summary>
-    /// Clusters k-mer anchors into syntenic blocks.
-    /// </summary>
-    private static List<(int Start1, int End1, string Seq2, int Start2, int End2, bool IsInverted)>
-        ClusterAnchors(
-            List<(int Pos1, string Seq2, int Pos2)> anchors,
-            int minBlockSize)
+    /// <summary>Upper-cases and replaces every non-ACGT symbol by <paramref name="mismatchSymbol"/> (never matched; distinct per side).</summary>
+    private static string NormalizeForMatching(string? sequence, char mismatchSymbol)
     {
-        var result = new List<(int, int, string, int, int, bool)>();
-
-        if (anchors.Count == 0)
-            return result;
-
-        // Group by target sequence
-        var bySeq2 = anchors.GroupBy(a => a.Seq2);
-
-        foreach (var group in bySeq2)
+        if (string.IsNullOrEmpty(sequence))
+            return string.Empty;
+        return string.Create(sequence.Length, (sequence, mismatchSymbol), static (span, state) =>
         {
-            var sorted = group.OrderBy(a => a.Pos1).ToList();
-
-            int blockStart1 = sorted[0].Pos1;
-            int blockStart2 = sorted[0].Pos2;
-            int lastPos1 = sorted[0].Pos1;
-            int lastPos2 = sorted[0].Pos2;
-            bool? isInverted = null;
-
-            for (int i = 1; i < sorted.Count; i++)
+            for (int i = 0; i < span.Length; i++)
             {
-                int gap1 = sorted[i].Pos1 - lastPos1;
-                int gap2 = sorted[i].Pos2 - lastPos2;
+                char c = char.ToUpperInvariant(state.sequence[i]);
+                span[i] = c is 'A' or 'C' or 'G' or 'T' ? c : state.mismatchSymbol;
+            }
+        });
+    }
 
-                bool currentInverted = gap2 < 0;
+    /// <summary>
+    /// Literal port of MUMmer 4 <c>mgaps</c> (<c>ClusterMatches::Cluster_each</c>, <c>Filter_Matches</c>,
+    /// <c>Process_Cluster</c>; <c>Use_Extents</c> = false, as <c>mgaps</c> without <c>-C</c>).
+    /// Start1 = reference position, Start2 = query position.
+    /// </summary>
+    private sealed class MgapsClusterer
+    {
+        internal sealed class Match
+        {
+            public long Start1, Start2, Len;
+            public long Score, From, Adj;
+            public int ClusterId;
+            public bool Good = true, Tentative;
+        }
 
-                if (isInverted == null)
-                    isInverted = currentInverted;
+        private readonly int _fixedSeparation;
+        private readonly long _maxSeparation;
+        private readonly long _minOutputScore;
+        private readonly double _separationFactor;
 
-                // Check if continuous
-                if (gap1 > minBlockSize || Math.Abs(gap2) > minBlockSize || currentInverted != isInverted)
+        public MgapsClusterer(int fixedSeparation, long maxSeparation, long minOutputScore, double separationFactor)
+        {
+            _fixedSeparation = fixedSeparation;
+            _maxSeparation = maxSeparation;
+            _minOutputScore = minOutputScore;
+            _separationFactor = separationFactor;
+        }
+
+        /// <summary>Clusters (ref, query, length) matches; returns the chains (each ordered as mgaps prints it).</summary>
+        public List<List<(int Start1, int Start2, int Len)>> Cluster(List<(int Ref, int Query, int Length)> matches)
+        {
+            var result = new List<List<(int, int, int)>>();
+            int n = matches.Count;
+            if (n == 0)
+                return result;
+
+            // 1-based, as the C++ (index 0 unused).
+            var a = new Match[n + 1];
+            for (int i = 0; i < n; i++)
+                a[i + 1] = new Match { Start1 = matches[i].Ref, Start2 = matches[i].Query, Len = matches[i].Length };
+
+            var uf = new int[n + 1];
+            Array.Fill(uf, -1);
+
+            Array.Sort(a, 1, n, Comparer<Match>.Create(ByStart2));
+            n = FilterMatches(a, n);
+
+            for (int i = 1; i < n; i++)
+            {
+                long iEnd = a[i].Start2 + a[i].Len;
+                long iDiag = a[i].Start2 - a[i].Start1;
+                for (int j = i + 1; j <= n; j++)
                 {
-                    // End current block
-                    if (lastPos1 - blockStart1 >= minBlockSize)
-                    {
-                        result.Add((blockStart1, lastPos1, group.Key,
-                                   Math.Min(blockStart2, lastPos2),
-                                   Math.Max(blockStart2, lastPos2),
-                                   isInverted ?? false));
-                    }
-
-                    blockStart1 = sorted[i].Pos1;
-                    blockStart2 = sorted[i].Pos2;
-                    isInverted = null;
+                    long sep = a[j].Start2 - iEnd;
+                    if (sep > _maxSeparation)
+                        break;
+                    long diagDiff = Math.Abs(a[j].Start2 - a[j].Start1 - iDiag);
+                    if (diagDiff <= Math.Max(_fixedSeparation, (long)(_separationFactor * sep)))
+                        Union(uf, Find(uf, i), Find(uf, j));
                 }
-
-                lastPos1 = sorted[i].Pos1;
-                lastPos2 = sorted[i].Pos2;
             }
 
-            // Handle last block
-            if (lastPos1 - blockStart1 >= minBlockSize)
+            for (int i = 1; i <= n; i++)
             {
-                result.Add((blockStart1, lastPos1, group.Key,
-                           Math.Min(blockStart2, lastPos2),
-                           Math.Max(blockStart2, lastPos2),
-                           isInverted ?? false));
+                a[i].ClusterId = Find(uf, i);
+                a[i].Good = false;
+            }
+
+            Array.Sort(a, 1, n, Comparer<Match>.Create((x, y) =>
+                x.ClusterId != y.ClusterId ? x.ClusterId.CompareTo(y.ClusterId) : ByStart2(x, y)));
+
+            for (int i = 1; i <= n;)
+            {
+                int j = i + 1;
+                while (j <= n && a[i].ClusterId == a[j].ClusterId)
+                    j++;
+                ProcessCluster(new List<Match>(new ArraySegment<Match>(a, i, j - i)), result);
+                i = j;
+            }
+
+            return result;
+        }
+
+        private static int ByStart2(Match x, Match y)
+            => x.Start2 != y.Start2 ? x.Start2.CompareTo(y.Start2) : x.Start1.CompareTo(y.Start1);
+
+        private static int Find(int[] uf, int a)
+        {
+            if (uf[a] < 0)
+                return a;
+            int i = a;
+            while (uf[i] > 0)
+                i = uf[i];
+            for (int j = a, k; uf[j] != i; j = k)
+            {
+                k = uf[j];
+                uf[j] = i;
+            }
+            return i;
+        }
+
+        private static void Union(int[] uf, int a, int b)
+        {
+            if (a == b)
+                return;
+            if (uf[a] < uf[b])
+            {
+                uf[a] += uf[b];
+                uf[b] = a;
+            }
+            else
+            {
+                uf[b] += uf[a];
+                uf[a] = b;
             }
         }
 
-        return result;
+        /// <summary><c>Filter_Matches</c>: drops repeat-internal matches, merges overlapping same-diagonal matches; returns the new count.</summary>
+        private static int FilterMatches(Match[] a, int n)
+        {
+            // a[1..n]; the C++ works on A+1 with 0-based indices.
+            for (int i = 1; i < n; i++)
+            {
+                if (!a[i].Good)
+                    continue;
+                long iDiag = a[i].Start2 - a[i].Start1;
+                long iEnd = a[i].Start2 + a[i].Len;
+
+                for (int j = i + 1; j <= n && a[j].Start2 <= iEnd; j++)
+                {
+                    if (!a[j].Good)
+                        continue;
+                    long jDiag = a[j].Start2 - a[j].Start1;
+                    if (iDiag == jDiag)
+                    {
+                        long jExtent = a[j].Len + a[j].Start2 - a[i].Start2;
+                        if (jExtent > a[i].Len)
+                        {
+                            a[i].Len = jExtent;
+                            iEnd = a[i].Start2 + jExtent;
+                        }
+                        a[j].Good = false;
+                    }
+                    else if (a[i].Start1 == a[j].Start1)
+                    {
+                        long olap = a[i].Start2 + a[i].Len - a[j].Start2;
+                        if (ResolveTie(a[i], a[j], olap))
+                            break;
+                    }
+                    else if (a[i].Start2 == a[j].Start2)
+                    {
+                        long olap = a[i].Start1 + a[i].Len - a[j].Start1;
+                        if (ResolveTie(a[i], a[j], olap))
+                            break;
+                    }
+                }
+            }
+
+            int w = 1;
+            for (int i = 1; i <= n; i++)
+                if (a[i].Good)
+                    a[w++] = a[i];
+            return w - 1;
+        }
+
+        /// <summary>The shared body of the two repeat-resolution branches; true = <c>break</c> out of the j loop.</summary>
+        private static bool ResolveTie(Match i, Match j, long olap)
+        {
+            if (i.Len < j.Len)
+            {
+                if (olap >= i.Len / 2)
+                {
+                    i.Good = false;
+                    return true;
+                }
+            }
+            else if (j.Len < i.Len)
+            {
+                if (olap >= j.Len / 2)
+                    j.Good = false;
+            }
+            else if (olap >= i.Len / 2)
+            {
+                j.Tentative = true;
+                if (i.Tentative)
+                {
+                    i.Good = false;
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary><c>Process_Cluster</c>: repeatedly extract the best chain of the (sorted) component.</summary>
+        private void ProcessCluster(List<Match> a, List<List<(int, int, int)>> output)
+        {
+            while (a.Count > 0)
+            {
+                int n = a.Count;
+                for (int i = 0; i < n; i++)
+                {
+                    a[i].Score = a[i].Len;
+                    a[i].Adj = 0;
+                    a[i].From = -1;
+                    for (int j = 0; j < i; j++)
+                    {
+                        long olap1 = a[j].Start1 + a[j].Len - a[i].Start1;
+                        long olap2 = a[j].Start2 + a[j].Len - a[i].Start2;
+                        long olap = Math.Max(Math.Max(0, olap1), olap2);
+                        long pen = olap + Math.Abs(a[i].Start2 - a[i].Start1 - (a[j].Start2 - a[j].Start1));
+                        if (a[j].Score + a[i].Len - pen > a[i].Score)
+                        {
+                            a[i].From = j;
+                            a[i].Score = a[j].Score + a[i].Len - pen;
+                            a[i].Adj = olap;
+                        }
+                    }
+                }
+
+                int best = 0;
+                for (int i = 1; i < n; i++)
+                    if (a[i].Score > a[best].Score)
+                        best = i;
+
+                long total = 0;
+                for (int i = best; i >= 0; i = (int)a[i].From)
+                {
+                    a[i].Good = true;
+                    total += a[i].Len;
+                }
+
+                if (total >= _minOutputScore)
+                    output.Add(a.Where(m => m.Good).Select(m => ((int)m.Start1, (int)m.Start2, (int)m.Len)).ToList());
+
+                a = a.Where(m => !m.Good).ToList();
+            }
+        }
     }
 
     #endregion
@@ -1100,42 +1935,11 @@ public static class GenomeAssemblyAnalyzer
 
                 int nCount = window.Count(c => c == 'N');
                 double gcContent = window.CalculateGcFractionFast();
-                double complexity = CalculateLinguisticComplexity(window);
+                double complexity = SequenceComplexity.CalculateLinguisticComplexity(window);
 
                 yield return (id, i, end - i, gcContent, nCount, complexity);
             }
         }
-    }
-
-    /// <summary>
-    /// Calculates linguistic complexity (ratio of distinct k-mers to possible k-mers).
-    /// </summary>
-    private static double CalculateLinguisticComplexity(string sequence, int kmerSize = 4)
-    {
-        if (sequence.Length < kmerSize)
-            return 0;
-
-        var kmers = new HashSet<string>();
-        int validKmers = 0;
-
-        for (int i = 0; i <= sequence.Length - kmerSize; i++)
-        {
-            string kmer = sequence.Substring(i, kmerSize);
-            if (!kmer.Contains('N'))
-            {
-                kmers.Add(kmer);
-                validKmers++;
-            }
-        }
-
-        if (validKmers == 0)
-            return 0;
-
-        // Maximum possible k-mers for DNA
-        int maxKmers = (int)Math.Pow(4, kmerSize);
-        int possibleKmers = Math.Min(validKmers, maxKmers);
-
-        return kmers.Count / (double)possibleKmers;
     }
 
     /// <summary>

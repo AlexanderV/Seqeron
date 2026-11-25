@@ -369,52 +369,78 @@ public class ChromosomeTools
     }
 
     [McpServerTool(Name = "assess_completeness", Title = "Assembly — BUSCO-like completeness", ReadOnly = true)]
-    [Description("Assess assembly completeness by aligning marker genes (BUSCO-like, k-mer based); reports complete/single/duplicated/fragmented/missing.")]
+    [Description("Assess assembly completeness with nucleotide marker genes (BUSCO-like): both-strand seeded local alignment (28-bp megablast seed, BLAST blastn scoring), compleasm classification into complete single-copy / duplicated / fragmented / missing; BUSCO percentages over n and C:S:D:F:M notation.")]
     public static SourceGa.CompletenessResult AssessCompleteness(
         [Description("Assembled sequences (id, sequence).")] IReadOnlyList<NamedSequence> assembly,
-        [Description("Marker genes (geneId, sequence).")] IReadOnlyList<NamedSequence> markerGenes,
-        [Description("Identity threshold (default 0.9).")] double identityThreshold = 0.9,
-        [Description("Coverage threshold (default 0.9).")] double coverageThreshold = 0.9)
+        [Description("Marker genes (geneId, nucleotide sequence).")] IReadOnlyList<NamedSequence> markerGenes,
+        [Description("Identity threshold in [0, 1] (compleasm min_identity; default 0.9).")] double identityThreshold = 0.9,
+        [Description("Aligned-fraction threshold for a complete hit in [0, 1] (compleasm min_complete; default 0.9).")] double coverageThreshold = 0.9,
+        [Description("Aligned fraction that makes a hit valid regardless of identity, in [0, 1] (compleasm min_length_percent; default 0.6).")] double minLengthFraction = SourceGa.DefaultMarkerMinLengthFraction)
     {
         if (assembly is null)
             throw new ArgumentException("Assembly cannot be null", nameof(assembly));
         if (markerGenes is null)
             throw new ArgumentException("Marker genes cannot be null", nameof(markerGenes));
-        if (identityThreshold is < 0 or > 1)
+        if (identityThreshold is < 0 or > 1 || double.IsNaN(identityThreshold))
             throw new ArgumentException("Identity threshold must be in [0, 1]", nameof(identityThreshold));
-        if (coverageThreshold is < 0 or > 1)
+        if (coverageThreshold is < 0 or > 1 || double.IsNaN(coverageThreshold))
             throw new ArgumentException("Coverage threshold must be in [0, 1]", nameof(coverageThreshold));
+        if (minLengthFraction is < 0 or > 1 || double.IsNaN(minLengthFraction))
+            throw new ArgumentException("Minimum length fraction must be in [0, 1]", nameof(minLengthFraction));
 
         return SourceGa.AssessCompleteness(
             assembly.Select(s => (s.Id, s.Sequence)),
             markerGenes.Select(s => (s.Id, s.Sequence)),
             identityThreshold,
-            coverageThreshold);
+            coverageThreshold,
+            minLengthFraction);
     }
 
-    [McpServerTool(Name = "estimate_completeness_from_kmers", Title = "Assembly — Completeness from k-mer spectrum", ReadOnly = true)]
-    [Description("Estimate genome completeness, error rate and genome size from a k-mer count spectrum.")]
+    [McpServerTool(Name = "estimate_completeness_from_kmers", Title = "Assembly — k-mer completeness, QV, error rate, genome size", ReadOnly = true)]
+    [Description("From a read k-mer count spectrum: Merqury solid threshold, GenomeScope read error rate 1-(1-E/T)^(1/k) and genome size (T-E)/peak; with an assembly also Merqury k-mer completeness and QV.")]
     public static KmerCompletenessResult EstimateCompletenessFromKmers(
-        [Description("K-mer spectrum (kmer, count).")] IReadOnlyList<KmerCount> kmerSpectrum,
-        [Description("Expected coverage (0 = auto-detect peak).")] int expectedCoverage = 0)
+        [Description("Read k-mer spectrum (kmer, count): each k-mer once, one length k, count >= 1; canonical when an assembly is given and canonical = true.")] IReadOnlyList<KmerCount> kmerSpectrum,
+        [Description("Expected (homozygous peak) coverage; 0 = detect the histogram peak above the solid threshold.")] int expectedCoverage = 0,
+        [Description("Optional assembly sequences (id, sequence) for Merqury completeness and QV.")] IReadOnlyList<NamedSequence>? assembly = null,
+        [Description("Count assembly k-mers canonically, as meryl (default true).")] bool canonical = true)
     {
         if (kmerSpectrum is null)
             throw new ArgumentException("K-mer spectrum cannot be null", nameof(kmerSpectrum));
         if (expectedCoverage < 0)
             throw new ArgumentException("Expected coverage cannot be negative", nameof(expectedCoverage));
 
-        var (completeness, errorRate, size) =
-            SourceGa.EstimateCompletenessFromKmers(kmerSpectrum.Select(k => (k.Kmer, k.Count)), expectedCoverage);
-        return new KmerCompletenessResult(completeness, errorRate, size);
+        var e = SourceGa.EstimateCompletenessFromKmers(
+            kmerSpectrum.Select(k => (k.Kmer, k.Count)),
+            assembly?.Select(s => (s.Id, s.Sequence)),
+            expectedCoverage,
+            canonical);
+        static double? Finite(double x) => double.IsFinite(x) ? x : null;
+        return new KmerCompletenessResult(
+            Finite(e.Completeness),
+            e.ErrorRate,
+            e.EstimatedGenomeSize,
+            e.K,
+            e.SolidThreshold,
+            e.PeakCoverage,
+            e.TotalKmers,
+            e.ErrorKmers,
+            e.SolidKmers,
+            assembly is null ? null : e.AssemblySolidKmers,
+            assembly is null ? null : e.AssemblyKmers,
+            assembly is null ? null : e.AssemblyOnlyKmers,
+            Finite(e.AssemblyErrorRate),
+            Finite(e.QualityValue));
     }
 
     [McpServerTool(Name = "find_repetitive_regions", Title = "Assembly — Find repetitive regions", ReadOnly = true)]
-    [Description("Identify repetitive regions across assembled sequences using k-mer copy-number frequency.")]
+    [Description("Identify repetitive regions with the NCBI WindowMasker k-mer-count model: window score = mean count of the window's k-mers (pooled over all sequences, both strands by default; windows with non-ACGT bases are skipped); score >= minCopies triggers masking, score < extendCopies closes a region.")]
     public static RepetitiveRegionsResult FindRepetitiveRegions(
         [Description("Sequences (id, sequence).")] IReadOnlyList<NamedSequence> sequences,
         [Description("K-mer size (default 15).")] int kmerSize = 15,
         [Description("Minimum k-mer copies (default 3).")] int minCopies = 3,
-        [Description("Window size (default 100).")] int windowSize = 100)
+        [Description("Window size in bases (default 100, >= kmerSize).")] int windowSize = 100,
+        [Description("Count k-mers on both strands (WindowMasker default true).")] bool bothStrands = true,
+        [Description("T_extend: window score below which a region closes (1..minCopies; default = minCopies).")] int? extendCopies = null)
     {
         if (sequences is null)
             throw new ArgumentException("Sequences cannot be null", nameof(sequences));
@@ -426,18 +452,19 @@ public class ChromosomeTools
             throw new ArgumentException("Window size must be positive", nameof(windowSize));
 
         return new(SourceGa.FindRepetitiveRegions(
-                sequences.Select(s => (s.Id, s.Sequence)), kmerSize, minCopies, windowSize)
+                sequences.Select(s => (s.Id, s.Sequence)), kmerSize, minCopies, windowSize, bothStrands, extendCopies)
             .Select(r => new RepetitiveRegion(r.SequenceId, r.Start, r.End, r.Copies))
             .ToList());
     }
 
     [McpServerTool(Name = "find_tandem_repeats", Title = "Assembly — Find tandem repeats", ReadOnly = true)]
-    [Description("Identify tandem repeats; returns repeat unit, copy number and purity per occurrence.")]
+    [Description("Find approximate tandem repeats with Tandem Repeats Finder (Benson 1999; match 2, mismatch 7, indel 7, PM 80, PI 10): TRF consensus pattern, copy number and fraction of matches between adjacent copies per repeat.")]
     public static TandemRepeatsResult FindTandemRepeats(
         [Description("Sequences (id, sequence).")] IReadOnlyList<NamedSequence> sequences,
         [Description("Minimum unit length (default 2).")] int minUnitLength = 2,
         [Description("Maximum unit length (default 50).")] int maxUnitLength = 50,
-        [Description("Minimum copies (default 3).")] int minCopies = 3)
+        [Description("Minimum copy number (default 3).")] int minCopies = 3,
+        [Description("TRF minimum alignment score (default 50).")] int minScore = 50)
     {
         if (sequences is null)
             throw new ArgumentException("Sequences cannot be null", nameof(sequences));
@@ -447,15 +474,17 @@ public class ChromosomeTools
             throw new ArgumentException("Maximum unit length must be >= minimum unit length", nameof(maxUnitLength));
         if (minCopies <= 0)
             throw new ArgumentException("Minimum copies must be positive", nameof(minCopies));
+        if (minScore <= 0)
+            throw new ArgumentException("Minimum score must be positive", nameof(minScore));
 
         return new(SourceGa.FindTandemRepeats(
-                sequences.Select(s => (s.Id, s.Sequence)), minUnitLength, maxUnitLength, minCopies)
+                sequences.Select(s => (s.Id, s.Sequence)), minUnitLength, maxUnitLength, minCopies, minScore)
             .Select(r => new TandemRepeat(r.SequenceId, r.Start, r.End, r.Unit, r.Copies, r.Purity))
             .ToList());
     }
 
     [McpServerTool(Name = "repeat_content", Title = "Assembly — Repeat content from annotations", ReadOnly = true)]
-    [Description("Compute total repeat length, repeat percentage and per-class lengths from repeat annotations.")]
+    [Description("Compute RepeatMasker-style repeat content from annotations: bases covered (each base counted once, overlaps not double counted), percentage of the genome and per-class lengths.")]
     public static RepeatContentResult RepeatContent(
         [Description("Repeat annotations.")] IReadOnlyList<SourceGa.RepeatAnnotation> repeats,
         [Description("Genome length in bp.")] long genomeLength)
@@ -470,7 +499,7 @@ public class ChromosomeTools
     }
 
     [McpServerTool(Name = "compare_assemblies", Title = "Assembly — Compare two assemblies", ReadOnly = true)]
-    [Description("Compare two assemblies by shared k-mer content; reports aligned fractions and an identity proxy.")]
+    [Description("Compare two assemblies by exact canonical k-mer sets (Mash model): shared/distinct k-mers, containment of each in the other, Jaccard index and Mash distance D = -ln(2J/(1+J))/k. Alignment-free: no aligned bases or breakpoints.")]
     public static SourceGa.AssemblyComparison CompareAssemblies(
         [Description("Assembly 1 sequences.")] IReadOnlyList<NamedSequence> assembly1,
         [Description("Assembly 2 sequences.")] IReadOnlyList<NamedSequence> assembly2,
@@ -492,12 +521,16 @@ public class ChromosomeTools
     }
 
     [McpServerTool(Name = "find_syntenic_blocks_assemblies", Title = "Assembly — Syntenic blocks (k-mer based)", ReadOnly = true)]
-    [Description("Find syntenic blocks between two assemblies via k-mer anchor clustering; flags inverted blocks.")]
+    [Description("Find syntenic blocks between two assemblies as nucmer does: maximal unique matches (MUMs, assembly 1 = reference) clustered by the MUMmer mgaps algorithm on both strands; flags inverted blocks. Coordinates 0-based inclusive.")]
     public static SyntenicBlocksResult FindSyntenicBlocksAssemblies(
         [Description("Assembly 1 sequences.")] IReadOnlyList<NamedSequence> assembly1,
         [Description("Assembly 2 sequences.")] IReadOnlyList<NamedSequence> assembly2,
-        [Description("Minimum block size (default 1000).")] int minBlockSize = 1000,
-        [Description("K-mer size (default 21).")] int kmerSize = 21)
+        [Description("Minimum summed anchor length of a block (nucmer -c; default 1000).")] int minBlockSize = 1000,
+        [Description("Minimum MUM length (nucmer -l; default 21).")] int kmerSize = 21,
+        [Description("Maximum gap between clustered anchors (nucmer -g; default 90).")] int maxGap = 90,
+        [Description("Diagonal separation factor (nucmer -d; default 0.12).")] double diagonalFactor = 0.12,
+        [Description("Fixed diagonal difference between clustered anchors (nucmer -D; default 5).")] int diagonalDifference = 5,
+        [Description("MUMs unique in both assemblies (nucmer --mum) instead of the reference only (--mumreference, default).")] bool uniqueInBoth = false)
     {
         if (assembly1 is null)
             throw new ArgumentException("Assembly 1 cannot be null", nameof(assembly1));
@@ -507,11 +540,17 @@ public class ChromosomeTools
             throw new ArgumentException("Minimum block size must be positive", nameof(minBlockSize));
         if (kmerSize <= 0)
             throw new ArgumentException("K-mer size must be positive", nameof(kmerSize));
+        if (maxGap < 0)
+            throw new ArgumentException("Maximum gap must be non-negative", nameof(maxGap));
+        if (diagonalDifference < 0)
+            throw new ArgumentException("Diagonal difference must be non-negative", nameof(diagonalDifference));
+        if (!(diagonalFactor >= 0))
+            throw new ArgumentException("Diagonal factor must be non-negative", nameof(diagonalFactor));
 
         return new(SourceGa.FindSyntenicBlocks(
                 assembly1.Select(s => (s.Id, s.Sequence)),
                 assembly2.Select(s => (s.Id, s.Sequence)),
-                minBlockSize, kmerSize)
+                minBlockSize, kmerSize, maxGap, diagonalFactor, diagonalDifference, uniqueInBoth)
             .Select(b => new SyntenicBlockItem(b.Seq1, b.Start1, b.End1, b.Seq2, b.Start2, b.End2, b.IsInverted))
             .ToList());
     }

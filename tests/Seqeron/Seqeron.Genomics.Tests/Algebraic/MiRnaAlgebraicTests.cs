@@ -52,8 +52,10 @@ public class MiRnaAlgebraicTests
     [Test]
     public void Context_Identity_ReferenceWindowReproducesPerlScore()
     {
-        // Hand-derived 8mer partial context++ score reproduced verbatim from the perl reference.
-        ScoreLet7a8mer().ContextScorePartial.Should().BeApproximately(-0.7561913315126536, 1e-9);
+        // Hand-derived 8mer partial context++ score reproduced verbatim from the perl reference:
+        // -0.7561913315126536 + TA_3UTR 0.08265957446808503 + SPS 0.07037433155080215 (bundled
+        // TargetScan TA_SPS_by_seed_region.txt row GAGGUAG, B13 F33; see MiRnaAnalyzer_TargetPrediction_Tests CTX-001).
+        ScoreLet7a8mer().ContextScorePartial.Should().BeApproximately(-0.6031574254937664, 1e-9);
     }
 
     [Test]

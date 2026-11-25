@@ -127,7 +127,7 @@ public class SplicingMetamorphicTests
     {
         // AG anchored at indices 16/17 (reported Position 17). 15-nt tract precedes it.
         const string strongPpt = "UCUCUCUCUCUCUCU"; // pyrimidine-rich
-        const string weakPpt = "AGAGAGAGAGAGAGA";   // purine-rich (no C/U)
+        const string weakPpt = "AAAAAAAAAAAAAAA";   // purine-rich (no C/U; no AG — S&S 1987 eliminates AG in -14..-5)
 
         double best   = AcceptorScoreAt(strongPpt + "CAGG" + "AAAA", 17); // strong PPT + consensus C at −3
         double midC   = AcceptorScoreAt(strongPpt + "AAGG" + "AAAA", 17); // strong PPT, −3 broken (A)
@@ -142,7 +142,7 @@ public class SplicingMetamorphicTests
     #region SPLICE-ACCEPTOR-001 INV — far-upstream edits don't change the score
 
     [Test]
-    [Description("INV: the acceptor score uses only positions i−15..i+2, so editing bases before i−15 (far upstream) leaves the acceptor's score unchanged.")]
+    [Description("INV: the Shapiro & Senapathy acceptor score uses only positions −14..+1 (i−12..i+2), so editing bases before i−15 (far upstream) leaves the acceptor's score unchanged.")]
     public void FindAcceptorSites_FarUpstreamEdits_DoNotChangeScore()
     {
         // 10-nt pad, then a 15-nt tract and CAGG. AG at indices 26/27 (Position 27);

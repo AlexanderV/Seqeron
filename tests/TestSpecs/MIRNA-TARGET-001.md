@@ -110,13 +110,13 @@
 
 **Source (retrieved verbatim this session):** `Agarwal_2015_parameters.txt` (fitted coefficients) and `targetscan_70_context_scores.pl` (feature computation/scaling: `getAgarwalContribution`, `getLocalAU_contribution`, `get_sRNA1_8_contributions`, `getSite8_contribution`, `get3primePairingContribution` + `extractSubseqForAlignment`/`modifySubseqForAlignment`, `getMinDist_weighted_contribution`, `get_len3UTR_weighted_contribution`, `getOffset6merSites`/`getOffset6mer_weighted_contribution`), TargetScan distribution; peer-reviewed model Agarwal V et al. (2015) eLife 4:e05005, doi:10.7554/eLife.05005. Each expected value is hand-derived from the retrieved coefficients × feature values (3P_score raw values cross-checked against the reference perl); a wrong coefficient/formula fails the test.
 
-- **CTX-001 (MUST):** 8mer, let-7a, all-G flanks (len 18) → `ContextScorePartial == -0.7561913315126536` with per-feature: Intercept=-0.589, Local_AU=+0.154608695652174, sRNA8G(8mer)=+0.015, 3P_score=+0.016 (raw 0), Min_dist=-0.049759446106213065, Len_3UTR=-0.2830405810586145, Off6m=-0.020 (one 'CUACCU'). Exact, `Within(1e-9)`.
+- **CTX-001 (MUST):** 8mer, let-7a, all-G flanks (len 18) → `ContextScorePartial == -0.6031574254937664` (B13 F33: −0.7561913315126536 + bundled TA 0.08265957446808503 + SPS 0.07037433155080215) with per-feature: Intercept=-0.589, Local_AU=+0.154608695652174, sRNA8G(8mer)=+0.015, 3P_score=+0.016 (raw 0), Min_dist=-0.049759446106213065, Len_3UTR=-0.2830405810586145, Off6m=-0.020 (one 'CUACCU'). Exact, `Within(1e-9)`.
 - **CTX-002 (MUST):** 7mer-m8, let-7a (len 16) → `ContextScorePartial == -0.3087858306402126`; 3P_score=+0.022, Min_dist=-0.031015975380457392, Len_3UTR=-0.15385698397262643, Off6m=-0.011.
 - **CTX-003 (MUST):** 7mer-A1, let-7a, Site8 'G' (len 16) → `ContextScorePartial == -0.2673816755691017`; 3P_score=+0.024, Min_dist=-0.022124733327545488, Len_3UTR=-0.12813929518273268, Off6m=0.
 - **CTX-004 (MUST):** 6mer, miR-21, mixed flanks (len 16), Site8 'C' → `ContextScorePartial == -0.12128221179295548`; 3P_score=+0.0096, Min_dist=-0.017194033053347654, Len_3UTR=-0.04447703767941017, Off6m=0.
 - **CTX-005 (MUST):** sRNA1 non-U branch — synthetic miRNA nt1=G, nt8=G, 8mer → `SRna1Contribution == 0.060` and `SRna8Contribution == 0.015`.
 - **CTX-006 (MUST):** non-seed-match site type (Offset6mer) → throws `ArgumentException`.
-- **CTX-007 (MUST):** no optional inputs on a SHORT layout (the 14-nt SA window does not fit: `windowStart0 = Start+7-13 < 0`) → `OmittedFeatures` contains `SA` (off-end), `PCT`, `SPS, TA_3UTR, Len_ORF, ORF8m`, and does NOT contain `3P_score, Min_dist, Len_3UTR, Off6m`; `SaContribution == 0`.
+- **CTX-007 (MUST):** no optional inputs on a SHORT layout (the 14-nt SA window does not fit: `windowStart0 = Start+7-13 < 0`) → `OmittedFeatures` contains `SA` (off-end), `PCT`, `Len_ORF, ORF8m`, and does NOT contain `SPS, TA_3UTR` (bundled TargetScan table, B13 F33), `3P_score, Min_dist, Len_3UTR, Off6m`; `SaContribution == 0`.
 - **CTX-008 (MUST):** 8mer with real 3' supplementary pairing (raw 3P=6, perl-verified) → `ThreePrimePairingContribution == -0.080` (= -0.040×((6-1)/2.5)).
 - **CTX-009 (MUST):** 3P raw scores across site types reproduce the perl reference: 7mer-m8 raw 4.5 → contribution -0.040×((4.5-1)/2.5); 7mer-A1 raw 6 → -0.060×((6-1)/2.5).
 - **CTX-010 (MUST):** UTR with two 'CUACCU' offset-6mers → `Off6mContribution == -0.040` (raw count 2 × -0.020).
@@ -166,7 +166,7 @@
 
 | ID | Test | Evidence |
 |----|------|----------|
-| REG-001 | `FindTargetSites_8mer_DuplexRegisteredOnSeed` — TargetSequence `GGGGGCUACCUCA`, Alignment `||||||||:   :`, Score 0.97 | Bartel 2009 Fig 1; TargetScan `extractSubseqForAlignment` (utrStart−16..utrEnd) |
+| REG-001 | `FindTargetSites_8mer_DuplexRegisteredOnSeed` — TargetSequence `GGGGGCUACCUCA`, Alignment `||||||||:   :`, Score 0 / ContextScore null (start 6 < 15, TargetScan `too_close`; WP-6, was 0.97 from the unfitted weights) | Bartel 2009 Fig 1; TargetScan `extractSubseqForAlignment` (utrStart−16..utrEnd) |
 | REG-002 | `FindTargetSites_7merM8_Nt1Unpaired_SeedPaired` | same |
 | REG-003 | `FindTargetSites_6merFlushWithMrnaEnd_Nt1PaddedUnpaired` | same |
 | REG-004 | `FindTargetSites_OffsetSixmer_Nt3To8Paired` | same |
@@ -212,13 +212,13 @@ Property/metamorphic oracles (`MiRnaProperties.ExtendedWindow`, `BuildClean8mer`
 | S-001 | FindTargetSites_Offset6merSite_Detected | ✅ Covered | Exact type + seedMatchLength |
 | S-002 | FindTargetSites_FoundSite_AllFieldsPopulated | ✅ Covered | All 8 fields verified |
 | S-003 | FindTargetSites_Let7a_RealTargetSequence + MiR21_8merTarget | ✅ Covered | Exact type + count for both |
-| CTX-001 | ScoreTargetSiteContextPlusPlus_8merLet7a_GcFlanks_MatchesHandDerivedScore | ✅ Covered | Exact partial CS -0.7561913315126536, Within(1e-9); full per-feature breakdown (incl. 3P/Min_dist/Len_3UTR/Off6m) asserted |
+| CTX-001 | ScoreTargetSiteContextPlusPlus_8merLet7a_GcFlanks_MatchesHandDerivedScore | ✅ Covered | Exact partial CS -0.6031574254937664 (incl. bundled TA/SPS, B13 F33), Within(1e-9); full per-feature breakdown (incl. 3P/Min_dist/Len_3UTR/Off6m) asserted |
 | CTX-002 | ScoreTargetSiteContextPlusPlus_7merM8Let7a_MatchesHandDerivedScore | ✅ Covered | Exact partial CS -0.3087858306402126 + new features |
 | CTX-003 | ScoreTargetSiteContextPlusPlus_7merA1Let7a_Site8G_MatchesHandDerivedScore | ✅ Covered | Exact partial CS -0.2673816755691017; Site8 path + new features |
 | CTX-004 | ScoreTargetSiteContextPlusPlus_6merMiR21_MixedFlanks_MatchesHandDerivedScore | ✅ Covered | Exact partial CS -0.12128221179295548; non-zero local-AU + new features |
 | CTX-005 | ScoreTargetSiteContextPlusPlus_SRna1G_8mer_AddsSRna1GCoefficient | ✅ Covered | sRNA1 non-U branch: sRNA1G=0.060, sRNA8G=0.015 |
 | CTX-006 | ScoreTargetSiteContextPlusPlus_NonSeedSiteType_Throws | ✅ Covered | ArgumentException for Offset6mer |
-| CTX-007 | ScoreTargetSiteContextPlusPlus_NoOptionalInputs_ReportsResidualFeatures | ✅ Covered | Short layout: SA off-end (SA=0) + PCT/SPS/TA/Len_ORF/ORF8m residual; 3P/Min_dist/Len_3UTR/Off6m NOT residual |
+| CTX-007 | ScoreTargetSiteContextPlusPlus_NoOptionalInputs_ReportsResidualFeatures | ✅ Covered | Short layout: SA off-end (SA=0) + PCT/Len_ORF/ORF8m residual; SPS/TA (bundled, F33), 3P/Min_dist/Len_3UTR/Off6m NOT residual |
 | CTX-008 | ScoreTargetSiteContextPlusPlus_3PrimeSupplementaryPairing_8mer_MatchesScaledRawScore | ✅ Covered | 3P raw 6 (perl-verified) → -0.080 |
 | CTX-009 | ScoreTargetSiteContextPlusPlus_3PrimeRawScore_PerlReference | ✅ Covered | 3P raw 4.5 (7m8) and 6 (7A1) → scaled contributions |
 | CTX-010 | ScoreTargetSiteContextPlusPlus_TwoOffset6mers_CountedRaw | ✅ Covered | Off6m raw count 2 → -0.040 |
@@ -293,7 +293,7 @@ These are intentional engineering simplifications that do not deviate from the b
 |---|------|---------------|--------------------------|--------|
 | 1 | Energy calculation | Resolved (MIRNA-PAIR-001 F11, 2026-11-25): TargetSite.FreeEnergy is the full NNDB Turner 2004 energy of the fixed-register duplex (ViennaRNA eval cross-checked) | Turner & Mathews (2010) | Does not affect site type classification or Score |
 | 2 | Alignment | Positional (parallel index) alignment vs true antiparallel structural alignment | Bartel (2009) | Duplex display is schematic; does not affect seed match detection |
-| 3 | Default context scoring | Default `Score` = minimal context adjustment vs full TargetScan context++ model. An **opt-in** `ScoreTargetSiteContextPlusPlus` provides the source-fitted context++ with every miRNA+3'UTR-derivable feature (Intercept, Local_AU, sRNA1/8, Site8, **3P_score, Min_dist, Len_3UTR, Off6m**) plus the data-blocked features (`SPS, TA_3UTR, Len_ORF, ORF8m`) when supplied via `ContextPlusPlusInputs`, all with verbatim Agarwal_2015_parameters.txt coefficients and `targetscan_70_context_scores.pl` formulas. | Grimson (2007), Agarwal (2015) eLife 4:e05005 | Default `Score` unchanged; opt-in CS is a **partial** context++ — `SA` is now **computed** from the Turner-2004 McCaskill partition function (`RnaSecondaryStructure.CalculateRegionUnpairedProbability`; omitted only when the 14-nt window does not fit), so the residual is `PCT` (multi-species conservation) plus `SPS/TA_3UTR/Len_ORF/ORF8m` unless supplied; all reported in `OmittedFeatures`. |
+| 3 | Default context scoring | Default `Score` = minimal context adjustment vs full TargetScan context++ model. An **opt-in** `ScoreTargetSiteContextPlusPlus` provides the source-fitted context++ with every miRNA+3'UTR-derivable feature (Intercept, Local_AU, sRNA1/8, Site8, **3P_score, Min_dist, Len_3UTR, Off6m**) plus `SPS, TA_3UTR` (bundled TargetScan table, B13 F33) and `Len_ORF, ORF8m` (from `OrfSequence`, F34) or caller values via `ContextPlusPlusInputs`, all with verbatim Agarwal_2015_parameters.txt coefficients and `targetscan_70_context_scores.pl` formulas. | Grimson (2007), Agarwal (2015) eLife 4:e05005 | Default `Score` unchanged; opt-in CS is a **partial** context++ — `SA` is now **computed** from the Turner-2004 McCaskill partition function (`RnaSecondaryStructure.CalculateRegionUnpairedProbability`; omitted only when the 14-nt window does not fit), so the residual is `PCT` (multi-species conservation) plus `Len_ORF/ORF8m` without an ORF; all reported in `OmittedFeatures`. |
 | 4 | Score normalization | Base scores normalized to [0,1] from Grimson (2007) absolute weights | Grimson (2007) | Proportional ratios preserved exactly |
 
 ### Previously Fixed Issues (audit trail)
@@ -303,6 +303,18 @@ These are intentional engineering simplifications that do not deviate from the b
 | 6mer and offset 6mer patterns were swapped | `seedRC[0:6]` used for 6mer instead of `seedRC[1:7]` | Corrected: 6mer core = seedRC[1:7] (pos 2-7), offset = seedRC[0:6] (pos 3-8) | Bartel (2009), TargetScan 8.0 |
 | 7mer-A1 checked preceding A instead of trailing A | `mrna[pos-1] == 'A'` instead of downstream check | Corrected: A opposite position 1 is downstream on mRNA at `mrna[i+6]` | Bartel (2009) |
 | 7mer-A1 used wrong seed substring | Used offset pattern (pos 3-8) instead of 6mer core (pos 2-7) | Corrected: uses 6mer core seedRC[1:7] | Bartel (2009) |
-| Scoring weights were arbitrary | 1.0/0.9/0.85/0.7/0.6 with no source | Corrected: 1.0/0.52/0.32/0.15/0.10 proportional to Grimson (2007) | Grimson (2007) |
+| Scoring weights were arbitrary | 1.0/0.9/0.85/0.7/0.6 with no source | Superseded (WP-6, 2026-11-25): the 1.0/0.52/0.32/0.15/0.10 weights were unfitted; `Score` is now the fitted TargetScan 5.0 / Grimson (2007) context score | Grimson (2007); `targetscan_50_context_scores.pl` |
 | Guard condition too restrictive | `pos + 8 > mrna.Length` rejected valid 6mer sites | Corrected: scan uses `i <= mrna.Length - 6` | N/A (logic error) |
 | Tests fitted to buggy code | mRNA constructions matched wrong patterns | All tests rewritten with correct biological patterns | Bartel (2009) |
+
+## WP-6 addendum (2026-11-25): Grimson 2007 / TargetScan 5.0 context score
+
+| ID | Test | Oracle |
+|----|------|--------|
+| G-001 | `MiRnaAnalyzer_GrimsonContext_Tests.KitRows_AllContributionsAndContextScore_EqualTargetScan50` | all 400 kit rows (UTR start >= 32) of `targetscan_50_context_scores.pl` re-run on its sample files: 3' pairing, local AU, position, context score to 1e-9 |
+| G-002 | `KitRow_NearUtrStart_ClipsInsteadOfNegativeSubstr` | the one row with UTR start 21 (perl negative-substr defect, printed AU -0.095): independent python derivation -0.147 |
+| G-003 | `WorkedExample_8merPolyG_HandDerived`, `AnalyzeTargetContext_*` | hand derivation from the TargetScan 5.0 constants |
+| G-004 | `FindTargetSites_Score_IsNegatedContextScore_ClampedAtZero_UnscoredTypesZero`, `_MinScore_FiltersOnPredictedRepression` | Score = max(0, -ContextScore); 6mer / offset 6mer / too_close: 0 and ContextScore null |
+| G-005 | `FindCenteredSites_*` | Shin 2010 definition (>= 11 contiguous WC pairs at miRNA nt 4-14 / 5-15 / 4-15, seed nt 2-7 not all paired): hand constructions; no reference implementation exists |
+| G-006 | `OffsetSixmerSuppression_DoesNotDependOnMinScore` | structural: every 6mer-core site claims its positions whether or not emitted |
+| P-001 | `MiRnaProperties.FindTargetSites_Score_MatchesDocFormula` | independent oracle for site type + AU + position, 3' pairing from the public record |

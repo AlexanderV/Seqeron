@@ -115,8 +115,8 @@ public class RnaInvertedRepeatFuzzTests
     /// Asserts ONE reported inverted repeat is well-formed against the whole documented contract
     /// (Inverted_Repeats.md §2.4 INV-01..05): in-bounds disjoint arms (INV-05), equal arm lengths
     /// matching Length (INV-02), Length ≥ minLength (INV-04), loop length within [minSpacing,
-    /// maxSpacing] (INV-03), and EVERY position pairing antiparallel under the strict complement
-    /// with NO G-U wobble (INV-01 / ASM-01).
+    /// maxSpacing] (INV-03), and EVERY position pairing antiparallel under CanPair
+    /// (A·U, G·C, G·U wobble; review 2026-09, RNA-INVERT-001 F22).
     /// </summary>
     private static void AssertWellFormedRepeat(
         string seq,
@@ -150,8 +150,8 @@ public class RnaInvertedRepeatFuzzTests
         {
             char left = seq[r.Start1 + k];
             char right = seq[r.Start2 + r.Length - 1 - k];
-            GetComplement(right).Should().Be(left,
-                $"position k={k} must pair antiparallel under the strict complement (INV-01/ASM-01); " +
+            CanPair(left, right).Should().BeTrue(
+                $"position k={k} must pair antiparallel under ViennaRNA CanPair (INV-01); " +
                 $"left='{left}' right='{right}'");
         }
     }
@@ -242,22 +242,14 @@ public class RnaInvertedRepeatFuzzTests
 
             var irs = FindInvertedRepeats(seq).ToList();
 
-            // A planted perfect stem GUARANTEES at least one inverted repeat exists; the detector
-            // must report a non-empty set. (We do NOT pin the planted arm's exact coordinates: the
-            // detector reports MAXIMAL, NON-OVERLAPPING stems longest-first, so a longer coincidental
-            // stem elsewhere may legitimately crowd out the planted one — INV greedy selection, §4.)
+            // A planted perfect stem GUARANTEES a maximal stem containing it in BOTH arms exists
+            // (maximal stems are only dropped when contained in another stem), so the planted stem is
+            // covered by some reported repeat (it may be longer, never absent).
             irs.Should().NotBeEmpty($"a planted stem of {armLen} nt + {loopLen}-nt loop must be detected: {seq}");
             AssertAllWellFormed(seq, irs);
-
-            // Every reported right arm must be the exact reverse complement of its left arm —
-            // re-verified independently of the detector's internal pairing loop.
-            foreach (var r in irs)
-            {
-                string detectedLeft = seq.Substring(r.Start1, r.Length);
-                string detectedRight = seq.Substring(r.Start2, r.Length);
-                detectedRight.Should().Be(ReverseComplement(detectedLeft),
-                    $"the reported right arm must be the exact reverse complement of the left arm in '{seq}'");
-            }
+            int pl = 0, pr = armLen + loopLen;
+            irs.Should().Contain(r => r.Start1 <= pl && pl + armLen - 1 <= r.End1 && r.Start2 <= pr && pr + armLen - 1 <= r.End2,
+                $"the planted stem must be contained in a reported maximal stem: {seq}");
         }
     }
 
@@ -294,20 +286,16 @@ public class RnaInvertedRepeatFuzzTests
         AssertAllWellFormed(seq, irs);
     }
 
-    // G-U wobble is NOT accepted (ASM-01): rev-comp(GGGG)=CCCC, NOT UUUU. A GGGG…UUUU layout has
-    // no strict Watson-Crick stem, so no inverted repeat is reported there.
+    // G-U wobble IS a stem pair by default (ViennaRNA CanPair; review 2026-09) and not with allowWobble:false.
     [Test]
-    public void NoComplementarity_GuWobble_NotAccepted()
+    public void GuWobble_AcceptedByDefault_RejectedWhenDisabled()
     {
-        // If wobble were (wrongly) allowed, GGGG/UUUU would pair. Strict complement forbids it.
         const string seq = "GGGGAAAUUUU";
-        var irs = FindInvertedRepeats(seq).ToList();
-
-        irs.Should().NotContain(r =>
+        FindInvertedRepeats(seq).ToList().Should().Contain(r =>
                 seq.Substring(r.Start1, r.Length).All(c => c == 'G') &&
                 seq.Substring(r.Start2, r.Length).All(c => c == 'U'),
-            "G-U wobble is not a Watson-Crick complement (ASM-01) — GGGG/UUUU must not pair");
-        AssertAllWellFormed(seq, irs);
+            "G-U wobble pairs GGGG with UUUU");
+        FindInvertedRepeats(seq, allowWobble: false).ToList().Should().BeEmpty("Watson-Crick only: GGGG/UUUU does not pair");
     }
 
     // Fuzz: random sequences never produce a malformed or false repeat. Whatever is reported must

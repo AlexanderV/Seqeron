@@ -47,7 +47,11 @@ used **raw** (not scaled). Scaled values are **not** clamped to [0,1].
 - *Off6m* — count of `first-6-of-revcomp(seed nt2-8)` occurrences in the 3′UTR, used raw.
 - *SPS / TA_3UTR / Len_ORF / ORF8m* — require a seed-stability table / transcriptome / the ORF,
   i.e. data the library cannot derive from the miRNA+3′UTR alone. Caller-supplied (documented
-  boundary), each computed FAITHFULLY (verbatim coeff × scaling) when supplied.
+  boundary), each computed FAITHFULLY (verbatim coeff × scaling) when supplied. **Update 2026-11-25
+  (B13 WP-4/5, F33/F34):** TA/SPS now default to the bundled TargetScan `TA_SPS_by_seed_region.txt`
+  (the table `targetscan_70_context_scores.pl` itself reads); Len_ORF/ORF8m are derived from an ORF
+  sequence (`ContextPlusPlusInputs.OrfSequence`) as `targetscan_count_8mers.pl` does. See the section
+  at the end.
 - *PCT* — Friedman 2009 branch-length score (Bls) of the minimal subtree connecting the conserved
   species → PCT via `calculatePCTthisBL` `pct = b0 + b1/(1 + e^((0−b2)·BL + b3))` (truncate at 0),
   then min-max scaled by the Agarwal PCT coefficient. The per-family b0..b3 are in TargetScan's
@@ -68,7 +72,8 @@ Site8A/C/G (7mer-A1 & 6mer only), SPS, sRNA1A/C/G, sRNA8A/C/G, TA_3UTR. Column o
   Min_dist (min 5) = 0.118×((log10 5 −1.415)/(3.113−1.415)) = **−0.049759446106213065**;
   Len_3UTR (len 18) = 0.310×((log10 18 −2.392)/(3.637−2.392)) = **−0.2830405810586145**;
   3P raw 0 = −0.040×((0−1)/2.5) = **+0.016**; Off6m 1× = **−0.020**; sRNA8G(8mer) = **+0.015**;
-  intercept −0.589 ⇒ partial = **−0.7561913315126536**.
+  intercept −0.589 ⇒ partial = **−0.7561913315126536** (since F33 + bundled TA 0.08265957446808503 and
+  SPS 0.07037433155080215 ⇒ −0.6031574254937664).
 - 6mer (miR-21 fixture) downstream-only A/U: fraction = **0.357142857142857**, Local_AU = **−0.005211141060198**.
 - Supplied inputs (8mer): SPS(−8) = **0.11716577540106952**, TA(3.5) = **0.11424734042553189**,
   Len_ORF(1000) = **0.04503626943005184**, ORF8m(2) raw = **−0.236**.
@@ -196,3 +201,41 @@ the only differences are the two reference defects below (Off6m −0.080 vs −0
 Coefficients re-checked against `Agarwal_2015_parameters.txt` (all 22 rows equal). Unchanged and
 confirmed by the run: intercept, 3P_score (5/5 sites), Min_dist, Len_3UTR, sRNA1/8, Site8 (7mer-A1),
 TA, SPS, Len_ORF, ORF8m.
+
+## Re-review 2026-11-25, WP-4/5 (B13 F33, F34): TA/SPS bundled, ORF features from the ORF sequence
+
+**Sources opened.** Official kit `TargetScan7_context_scores.zip` (www.targetscan.org/vert_70/vert_70_data_download/,
+linked from the vert_70 data-download page; SHA-256 bc79560d…118e): `TA_SPS_by_seed_region.txt` (identical to the
+nsoranzo mirror, SHA-256 d39a045c…8620, 16 384 rows = every 7-mer over ACGU in A<C<G<U order),
+`targetscan_count_8mers.pl` (also on nsoranzo main), `targetscan_70_context_scores.pl` 7.02 (adds only `uc()` of the
+mature miRNA vs the mirror), `README_CONTEXT_SCORES_70.txt`, ORF sample files and the sample output
+`targetscan_70_context_scores_output.txt` (675 rows).
+
+**How TargetScan keys them.** `read_TA_SPS`: column 1 = seed region, `$garcia{3|2}{seed}{SPS}` = column 2 (8mer,
+7mer-m8), `$garcia{1|4}{seed}{SPS}` = column 3 (7mer-1a, 6mer), `$garcia{seed}{TA}` = column 4; `readTargets` looks
+them up with `substr($matureMiRNA, 1, 7)` and uses 0 when the row is missing. `targetscan_count_8mers.pl`: per ORF
+row, gaps `-` and `.` removed, T→U, length = `length $sequence`; site = `reverse_complement(seed) . "A"`, counted with
+`while ($sequence =~ /$site/gi)` (case-insensitive, non-overlapping, sense strand); the context script uses log10 of
+the length (0 for 0) and the raw count (0 when absent).
+
+**Fix.** Generated `MiRnaAnalyzer.TargetScanTaSps.cs` (script `gen_ta_sps_table.py`: three column strings of the
+exact decimal text, parsed once; header with URL, rows, SHA-256, citations). `TryGetTargetScanTaSps` (+
+`TargetScanTaSpsSeedRegionCount`) and `ScoreTargetSiteContextPlusPlus` use it when `Sps`/`Ta` are null (caller value
+overrides per feature). New `ContextPlusPlusInputs.OrfSequence` (additive, last positional parameter) and public
+`CountTargetScanOrf8merSites`; `OrfLength`/`Orf8mCount` still override. Off6m and ORF8m share one non-overlapping
+counter. `ComputeTa3Utr` unchanged (Garcia's from-scratch TA).
+
+**Oracle.** (1) Kit output, all 675 rows (158 distinct miRNA × site type): TA and SPS contributions from the bundled
+table equal the printed columns. (2) Kit ORF rows (FNDC3A 9031, LPHN1 9606/10090/9031, CDC2L6 9606; aligned, gapped,
+lower case): lengths and 8mer counts equal the shipped `*.lengths.txt` / `ORF_8mer_counts_sample.txt` (re-running the
+count script reproduces both files byte-for-byte) for all 14 family seeds; the Len_ORF / ORF8m columns of all 91
+distinct output rows of those genes are reproduced. (3) Worked example (181-nt UTR): count script on a synthetic gapped
+ORF → 1500 nt / 1 8mer; the perl context run on those files prints the same rows as before; the library with only
+`OrfSequence` + the RNAplfold value (no TA/SPS/ORF numbers) reproduces all 14 columns and −0.742 / −0.118 / −0.257.
+A second ORF (2535 nt, 3 8mers) → perl Len_ORF/ORF8m 0.131/−0.354, 0.019/−0.180, 0.042/−0.174, scores −0.929,
+−0.231, −0.358: equal. Non-overlap: AUUUUUUA in `…AUUUUUUAUUUUUUA…auuuuuua…ATTTTTTAG` → 3 (script) = library.
+
+**Remaining caller inputs.** Only the PCT alignment evidence (bin tree + species with the site) and, for TargetScan's
+exact SA, the RNAplfold value (span-limited partition function blocked in the canonical RNA code, see F17). With an
+ORF sequence, the RNAplfold value and a conservation input, `OmittedFeatures` is empty.
+

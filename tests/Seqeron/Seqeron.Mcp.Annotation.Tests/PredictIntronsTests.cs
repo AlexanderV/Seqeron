@@ -35,10 +35,12 @@ public class PredictIntronsTests
         Assert.Multiple(() =>
         {
             Assert.That(result.Introns.All(i => i.Length >= 60), Is.True);
-            // GU-donor introns from a U2-type donor site (a GU can also be a U12-type /GUAUCCUY
-            // candidate — GT-AG U12 introns, Dietrich et al. 1997 — whose pairs are typed U12).
+            // GU-donor introns from a U2-type donor and U2-type acceptor (a GU can also be a U12-type
+            // /GUAUCCUY candidate and an AG a U12 branch-site acceptor candidate — GT-AG U12 introns,
+            // Dietrich et al. 1997 — whose pairs are typed U12).
             var guIntrons = result.Introns
-                .Where(i => i.Sequence.StartsWith("GU") && i.DonorSite.Type == "Donor").ToList();
+                .Where(i => i.Sequence.StartsWith("GU") && i.DonorSite.Type == "Donor" &&
+                            i.AcceptorSite.Type == "Acceptor").ToList();
             Assert.That(guIntrons, Is.Not.Empty);
             Assert.That(guIntrons.All(i => i.Type == "U2"), Is.True);
             Assert.That(guIntrons.All(i => i.Sequence.EndsWith("AG")), Is.True);

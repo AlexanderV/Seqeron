@@ -3746,6 +3746,17 @@ public static class RepeatFinder
             sequence.ToUpperInvariant(), minArmLength, maxLoopLength, minLoopLength, maxMismatches, maxArmLength, allowWobble);
     }
 
+    /// <summary>
+    /// Maximal-stem engine shared with <c>RnaSecondaryStructure.FindInvertedRepeats</c> (RNA-INVERT-001): same model as
+    /// <see cref="FindInvertedRepeats(string, int, int, int, int, int, bool)"/> on an already upper-cased sequence, but a
+    /// single base pair (<paramref name="minArmLength"/> = 1) is admitted. Parameters must already be valid.
+    /// </summary>
+    internal static List<InvertedRepeatResult> FindMaximalStemsUpper(
+        string upperSequence, int minArmLength, int maxLoopLength, int minLoopLength,
+        int maxMismatches, bool allowWobble) =>
+        FindInvertedRepeatsDispatch(
+            upperSequence, minArmLength, maxLoopLength, minLoopLength, maxMismatches, int.MaxValue, allowWobble);
+
     private static void ValidateInvertedRepeatParameters(
         int minArmLength, int maxLoopLength, int minLoopLength, int maxMismatches, int maxArmLength)
     {

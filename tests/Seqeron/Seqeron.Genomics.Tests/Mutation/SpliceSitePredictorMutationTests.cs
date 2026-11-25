@@ -15,7 +15,8 @@ namespace Seqeron.Genomics.Tests.Mutation;
 ///  - Donor MAG|GURAGU consensus, acceptor (Y)nNCAG|G, branch YNYURAC: Shapiro &amp;
 ///    Senapathy (1987) NAR 15:7155; Mount (1982) NAR 10:459; Burge et al. (1999).
 ///  - MaxEntScan log-odds scoring: Yeo &amp; Burge (2004) J Comput Biol 11:377.
-///  - U12 minor-spliceosome AU…AC consensus: Hall &amp; Padgett (1994); Jackson (1991).
+///  - U12 donor /RUAUCCUY (Sharp &amp; Burge 1997); U12 branch site UUCCUUAAC (Brock et al.
+///    2008), 8-21 nt from the acceptor (Levine &amp; Durbin 2001).
 /// </summary>
 [TestFixture]
 public class SpliceSitePredictorMutationTests
@@ -50,65 +51,44 @@ public class SpliceSitePredictorMutationTests
         return (double)(t - lo) / (hi - lo);
     }
 
-    // Acceptor PWM rows [A,C,G,U], offsets relative to the splice site (= position+2).
-    private static readonly Dictionary<int, double[]> AcceptorPwm = new()
+    // Acceptor: Shapiro & Senapathy (1987) Table 1 primate 3' ss percentages [A,C,G,U] for
+    // positions -14..-1, +1 (transcribed independently). Methods p. 7158:
+    // score = ((t1-l1)/(h1-l1) + (t2-l2)/(h2-l2))/2, t1 = best 8 of the 10 percentages at -14..-5,
+    // l1/h1 = 8 lowest row minima / 8 highest row maxima there; t2/l2/h2 over -3,-2,-1,+1.
+    private static readonly int[][] AcceptorPrimate =
     {
-        { -15, new[] { 0.10, 0.30, 0.10, 0.50 } },
-        { -10, new[] { 0.10, 0.30, 0.10, 0.50 } },
-        { -5,  new[] { 0.10, 0.40, 0.10, 0.40 } },
-        { -4,  new[] { 0.05, 0.40, 0.05, 0.50 } },
-        { -3,  new[] { 0.05, 0.70, 0.05, 0.20 } },
-        { -2,  new[] { 1.00, 0.00, 0.00, 0.00 } },
-        { -1,  new[] { 0.00, 0.00, 1.00, 0.00 } },
-        { 0,   new[] { 0.20, 0.15, 0.50, 0.15 } },
+        new[] { 9, 31, 15, 45 }, new[] { 9, 33, 13, 45 }, new[] { 7, 31, 11, 51 }, new[] { 7, 35, 7, 51 },
+        new[] { 10, 35, 7, 47 }, new[] { 10, 35, 11, 44 }, new[] { 7, 43, 7, 42 }, new[] { 9, 41, 8, 42 },
+        new[] { 6, 39, 6, 48 }, new[] { 6, 40, 8, 46 }, new[] { 23, 29, 23, 24 }, new[] { 3, 74, 1, 22 },
+        new[] { 100, 0, 0, 0 }, new[] { 0, 0, 100, 0 }, new[] { 28, 13, 49, 10 }
     };
 
-    private static double ExpectedAcceptorScore(string seq, int position)
+    // agA = index of the A of AG (-2); window agA-12 .. agA+2.
+    private static double ExpectedAcceptorScore(string seq, int agA)
     {
-        double score = 0; int count = 0;
-        int ppt = 0;
-        for (int i = position - 15; i < position - 3; i++)
-            if (i >= 0 && i < seq.Length && (seq[i] == 'C' || seq[i] == 'U')) ppt++;
-        score += ppt / 12.0 * 2;
-        foreach (var kv in AcceptorPwm)
+        int w = agA - 12;
+        var obs = Enumerable.Range(0, 10).Select(k => AcceptorPrimate[k][BaseIdx(seq[w + k])]);
+        int t1 = obs.OrderByDescending(v => v).Take(8).Sum();
+        int l1 = Enumerable.Range(0, 10).Select(k => AcceptorPrimate[k].Min()).OrderBy(v => v).Take(8).Sum();
+        int h1 = Enumerable.Range(0, 10).Select(k => AcceptorPrimate[k].Max()).OrderByDescending(v => v).Take(8).Sum();
+        int t2 = 0, l2 = 0, h2 = 0;
+        for (int k = 11; k < 15; k++)
         {
-            int pos = position + 2 + kv.Key;
-            if (pos >= 0 && pos < seq.Length)
-            {
-                int bi = BaseIdx(seq[pos]);
-                if (bi >= 0) { score += Math.Log2(kv.Value[bi] / 0.25 + 0.01); count++; }
-            }
+            t2 += AcceptorPrimate[k][BaseIdx(seq[w + k])];
+            l2 += AcceptorPrimate[k].Min();
+            h2 += AcceptorPrimate[k].Max();
         }
-        double normalized = (score / (count + 1) + 2) / 4;
-        return Math.Max(0, Math.Min(1, normalized));
+        return ((double)(t1 - l1) / (h1 - l1) + (double)(t2 - l2) / (h2 - l2)) / 2;
     }
 
-    // Branch point PWM rows [A,C,G,U], offsets 0..6 (YNYURAC).
-    private static readonly Dictionary<int, double[]> BranchPwm = new()
+    // Branch point: Gao et al. (2008) yUnAy, conservation-weighted (Table 4: y@-3 .470+.320,
+    // U@-2 .746, A@0 .923, y@+1 .331+.420); a = index of the branch A.
+    private static double ExpectedBranchScore(string seq, int a)
     {
-        { 0, new[] { 0.10, 0.40, 0.10, 0.40 } },
-        { 1, new[] { 0.25, 0.25, 0.25, 0.25 } },
-        { 2, new[] { 0.10, 0.40, 0.10, 0.40 } },
-        { 3, new[] { 0.05, 0.05, 0.05, 0.85 } },
-        { 4, new[] { 0.60, 0.05, 0.30, 0.05 } },
-        { 5, new[] { 0.95, 0.02, 0.02, 0.01 } },
-        { 6, new[] { 0.10, 0.60, 0.10, 0.20 } },
-    };
-
-    private static double ExpectedBranchScore(string seq, int position)
-    {
-        double score = 0; int count = 0;
-        foreach (var kv in BranchPwm)
-        {
-            int pos = position + kv.Key;
-            if (pos >= 0 && pos < seq.Length)
-            {
-                int bi = BaseIdx(seq[pos]);
-                if (bi >= 0) { score += Math.Log2(kv.Value[bi] / 0.25 + 0.01); count++; }
-            }
-        }
-        double normalized = (score / count + 2) / 4;
-        return Math.Max(0, Math.Min(1, normalized));
+        static bool Y(char c) => c == 'C' || c == 'U';
+        double m = (Y(seq[a - 3]) ? 0.790 : 0) + (seq[a - 2] == 'U' ? 0.746 : 0) +
+                   (seq[a] == 'A' ? 0.923 : 0) + (Y(seq[a + 1]) ? 0.751 : 0);
+        return m / (0.790 + 0.746 + 0.923 + 0.751);
     }
 
     #endregion
@@ -140,19 +120,18 @@ public class SpliceSitePredictorMutationTests
 
     #endregion
 
-    #region Acceptor scoring — exact PWM value + ppt tract + boundary
+    #region Acceptor scoring — exact S&S value + boundary
 
-    // 24-nt acceptor: polypyrimidine tract …CAG|G with AG at index 17 (≥ FindAcceptorSites' 20-nt min).
+    // CU-alternating pyrimidine region …CAG|G with AG at index 17.
     private const string AcceptorSeq = "CUCUCUCUCUCUCUCUCAGGAAAA";
     private const int AcceptorAgIndex = 17;
 
     [Test]
     public void FindAcceptorSites_ScoreMatchesIndependentPwmOracle()
     {
-        // Acceptor scores via log-odds PWM + ppt term; assert against the oracle exactly.
         string rna = Rna(AcceptorSeq);
         var sites = FindAcceptorSites(AcceptorSeq, minScore: 0.0).ToList();
-        Assert.That(sites, Is.Not.Empty);
+        Assert.That(sites.Select(s => s.Position), Is.EqualTo(new[] { 18 }));
 
         foreach (var s in sites)
         {
@@ -176,33 +155,30 @@ public class SpliceSitePredictorMutationTests
 
     #endregion
 
-    #region Branch point scoring — exact PWM value + boundary
+    #region Branch point scoring — exact yUnAy value + boundary
 
     [Test]
     public void FindBranchPoints_ScoreMatchesIndependentPwmOracle()
     {
-        // YNYURAC-like heptamer; assert branch scores against the log-odds oracle exactly.
         const string seq = "UUUUAACGGGG";
         string rna = Rna(seq);
         var sites = FindBranchPoints(seq, minScore: 0.0).ToList();
-        Assert.That(sites, Is.Not.Empty);
+        Assert.That(sites.Select(s => s.Position), Is.EqualTo(Enumerable.Range(3, 7)));
 
         foreach (var s in sites)
-        {
-            int start = s.Position - 5;            // FindBranchPoints reports Position = i+5
-            Assert.That(s.Score, Is.EqualTo(ExpectedBranchScore(rna, start)).Within(Tol),
-                $"branch score mismatch at start {start}");
-        }
+            Assert.That(s.Score, Is.EqualTo(ExpectedBranchScore(rna, s.Position)).Within(Tol),
+                $"branch score mismatch at A index {s.Position}");
     }
 
     [Test]
     public void FindBranchPoints_BranchAtSequenceStart_CountsAllInBoundsColumns()
     {
-        // Heptamer at i=0 exercises the pos>=0 lower bound (offset 0 ⇒ pos 0).
-        const string seq = "UACUAACUGCA";
-        string rna = Rna(seq);
-        var first = FindBranchPoints(seq, minScore: 0.0).First(s => s.Position == 5); // i=0 ⇒ Position 5
-        Assert.That(first.Score, Is.EqualTo(ExpectedBranchScore(rna, 0)).Within(Tol));
+        // Motif at i=0 ⇒ branch A at index 3 (CUAAC… → y U n? : C,U,A,A,C → -3 C, -2 U, 0 A, +1 C).
+        const string seq = "CUAACUGCA";
+        var first = FindBranchPoints(seq, minScore: 0.0).First();
+        Assert.That(first.Position, Is.EqualTo(3));
+        Assert.That(first.Score, Is.EqualTo(1.0).Within(Tol));
+        Assert.That(first.Score, Is.EqualTo(ExpectedBranchScore(Rna(seq), 3)).Within(Tol));
     }
 
     #endregion
@@ -232,29 +208,27 @@ public class SpliceSitePredictorMutationTests
 
     #endregion
 
-    #region U12 minor-spliceosome acceptor — YCCAC + ppt (score/3.5)
+    #region U12 minor-spliceosome acceptor — branch site UUCCUUAAC (matches/9)
 
     [Test]
     public void FindAcceptorSites_U12_MaxConsensus_ScoreIsExactlyOne()
     {
-        // C at -1, C at -2, Y at -3, fully pyrimidine ppt ⇒ (1+1+0.5+1)/3.5 = 1.0.
-        // 15 C's then AC then padding: AC at index 15, upstream all C, length ≥ 20.
-        const string seq = "CCCCCCCCCCCCCCCACCCC";   // len 20
+        // Branch A (index 8) 8 nt upstream of the terminal C (index 16) ⇒ 9/9.
+        const string seq = "GUUCCUUAACGGGGGACGGG";
         var site = FindAcceptorSites(seq, minScore: 0.5, includeNonCanonical: true)
             .Single(s => s.Type == SpliceSiteType.U12Acceptor);
         Assert.That(site.Score, Is.EqualTo(1.0).Within(Tol));
+        Assert.That(site.Position, Is.EqualTo(16));
     }
 
     [Test]
     public void FindAcceptorSites_U12_PartialConsensus_ScoreIsExactFraction()
     {
-        // pos-3 = A (not pyrimidine ⇒ no +0.5); ppt half pyrimidine (6/12).
-        // [0..5]=C, [6..12]=A, [13]=C(-2), [14]=C(-1), [15]=A,[16]=C, pad [17..19]=C.
-        // ppt loop i=0..11 ⇒ 6 C + 6 A ⇒ 6/12. score = 1(-1=C)+1(-2=C)+0(-3=A)+0.5(ppt) = 2.5 ⇒ 2.5/3.5.
-        const string seq = "CCCCCCAAAAAAACCACCCC";   // len 20
+        // UUCCUUAAC → UUCGUUAAC (one mismatch) ⇒ 8/9; no other placement matches better.
+        const string seq = "GUUCGUUAACGGGGGACGGG";
         var site = FindAcceptorSites(seq, minScore: 0.0, includeNonCanonical: true)
             .Single(s => s.Type == SpliceSiteType.U12Acceptor);
-        Assert.That(site.Score, Is.EqualTo(2.5 / 3.5).Within(Tol));
+        Assert.That(site.Score, Is.EqualTo(8.0 / 9.0).Within(Tol));
     }
 
     #endregion
@@ -383,9 +357,10 @@ public class SpliceSitePredictorMutationTests
         // Combined score is the mean of the contributing site scores: pins the averaging formula.
         foreach (var i in introns)
         {
-            double withBranch = i.BranchPoint.HasValue
-                ? (i.DonorSite.Score + i.AcceptorSite.Score + i.BranchPoint.Value.Score) / 3
-                : (i.DonorSite.Score + i.AcceptorSite.Score) / 2;
+            // U2 / GC-AG: fixed three terms (branch-point term 0 when none); U12: two terms.
+            double withBranch = i.Type == IntronType.U12
+                ? (i.DonorSite.Score + i.AcceptorSite.Score) / 2
+                : (i.DonorSite.Score + i.AcceptorSite.Score + (i.BranchPoint?.Score ?? 0)) / 3;
             Assert.That(i.Score, Is.EqualTo(withBranch).Within(Tol));
         }
     }
@@ -437,7 +412,7 @@ public class SpliceSitePredictorMutationTests
     public void FindAcceptorSites_U12_ScoreEqualToMinScore_IsIncluded()
     {
         // U12 acceptor max consensus score 1.0; minScore == 1.0 ⇒ '>=' keeps, '>' drops.
-        const string seq = "CCCCCCCCCCCCCCCACCCC";
+        const string seq = "GUUCCUUAACGGGGGACGGG";
         var sites = FindAcceptorSites(seq, minScore: 1.0, includeNonCanonical: true)
             .Where(s => s.Type == SpliceSiteType.U12Acceptor).ToList();
         Assert.That(sites, Has.Count.EqualTo(1));
@@ -448,7 +423,7 @@ public class SpliceSitePredictorMutationTests
     {
         const string seq = "UUUUAACGGGG";
         string rna = Rna(seq);
-        double exact = ExpectedBranchScore(rna, 0); // i=0 ⇒ Position 5
+        double exact = ExpectedBranchScore(rna, 5); // A at index 5: UUAAC = perfect yUnAy ⇒ 1.0
         var sites = FindBranchPoints(seq, minScore: exact).ToList();
         Assert.That(sites.Any(s => s.Position == 5), Is.True); // kills score>minScore boundary
     }
@@ -456,10 +431,10 @@ public class SpliceSitePredictorMutationTests
     [Test]
     public void FindBranchPoints_LastScannablePosition_IsIncluded()
     {
-        // end = length-7 = 4. Branch heptamer at i=4 (Position 9) must be scanned (inclusive '<=').
+        // end = length-5 = 6. yUnAy motif at i=6 (branch A at 9) must be scanned (inclusive '<=').
         const string seq = "GGGGUACUAAC"; // len 11
         var sites = FindBranchPoints(seq, minScore: 0.0).ToList();
-        Assert.That(sites.Any(s => s.Position == 9), Is.True); // kills i<end (would stop before i=4)
+        Assert.That(sites.Max(s => s.Position), Is.EqualTo(9)); // kills i<end (would stop before i=6)
     }
 
     [Test]
@@ -475,42 +450,38 @@ public class SpliceSitePredictorMutationTests
 
     #endregion
 
-    #region U12 acceptor — per-position consensus contributions
-
-    // Each variant isolates one YCCAC column so a 'position+k' mutant (reading the wrong side
-    // of the AC) diverges from the documented 'position-k' rule. All use AC at index 15.
+    #region U12 acceptor — branch-site distance window bounds (8..21 nt)
 
     [Test]
     public void FindAcceptorSites_U12_MinusOnePositionDrivesFirstC()
     {
-        // pos-1 = A (no +1); pos-2 = C (+1); pos-3 = C (+0.5); ppt full (+1) ⇒ 2.5/3.5.
-        // A 'position+1' mutant reads the C of AC ⇒ +1 ⇒ 1.0.
-        const string seq = "CCCCCCCCCCCCCCAACCCC"; // [14]=A,[15]=A,[16]=C
+        // Distance 8 (window minimum): the consensus placement is scored ⇒ 1.0; a '>' / 'd+1'
+        // mutant on the lower bound would miss it.
+        const string seq = "GUUCCUUAACGGGGGACGGG";
         var site = FindAcceptorSites(seq, minScore: 0.0, includeNonCanonical: true)
             .Single(s => s.Type == SpliceSiteType.U12Acceptor);
-        Assert.That(site.Score, Is.EqualTo(2.5 / 3.5).Within(Tol));
+        Assert.That(site.Score, Is.EqualTo(1.0).Within(Tol));
     }
 
     [Test]
     public void FindAcceptorSites_U12_MinusTwoPositionDrivesSecondC()
     {
-        // pos-2 = A (no +1); pos-1 = C (+1); pos-3 = C (+0.5); ppt full (+1) ⇒ 2.5/3.5.
-        // A 'position+2' mutant reads the padding C ⇒ +1 ⇒ 1.0.
-        const string seq = "CCCCCCCCCCCCCACACCCC"; // [13]=A,[14]=C,[15]=A,[16]=C
+        // Distance 21 (window maximum) ⇒ 1.0; '<' on the upper bound would miss it.
+        string seq = "G" + "UUCCUUAAC" + new string('G', 18) + "AC" + "GGG";
         var site = FindAcceptorSites(seq, minScore: 0.0, includeNonCanonical: true)
             .Single(s => s.Type == SpliceSiteType.U12Acceptor);
-        Assert.That(site.Score, Is.EqualTo(2.5 / 3.5).Within(Tol));
+        Assert.That(site.Score, Is.EqualTo(1.0).Within(Tol));
     }
 
     [Test]
     public void FindAcceptorSites_U12_MinusThreePositionDrivesPyrimidine()
     {
-        // pos-3 = A (no +0.5); pos-1,pos-2 = C (+1 each); ppt full (+1) ⇒ 3.0/3.5.
-        // A 'position+3' mutant reads the padding C (a pyrimidine) ⇒ +0.5 ⇒ 1.0.
-        const string seq = "CCCCCCCCCCCCACCACCCC"; // [12]=A,[13]=C,[14]=C,[15]=A,[16]=C
+        // Distance 22 is outside the window: best in-window placement matches 4/9 (GGGGGGGAC vs
+        // UUCCUUAAC: A@6, A@7, C@8 … ) ⇒ 4/9.
+        string seq = "G" + "UUCCUUAAC" + new string('G', 19) + "AC" + "GGG";
         var site = FindAcceptorSites(seq, minScore: 0.0, includeNonCanonical: true)
             .Single(s => s.Type == SpliceSiteType.U12Acceptor);
-        Assert.That(site.Score, Is.EqualTo(3.0 / 3.5).Within(Tol));
+        Assert.That(site.Score, Is.EqualTo(4.0 / 9.0).Within(Tol));
     }
 
     #endregion
@@ -558,18 +529,19 @@ public class SpliceSitePredictorMutationTests
         Assert.That(events, Does.Contain("ExonSkipping"));
     }
 
-    // A donor must see MORE THAN ONE downstream acceptor (>60 nt away) to flag exon skipping.
-    // One strong donor + N strong acceptors, > 60 nt apart, lets us pin the strict '> 1' count.
+    // SE (SUPPA/rMATS): reference introns (d1,a2),(d2,a3) and the spanning candidate (d1,a3).
     private const string StrongDonor = "CAGGUAAGU";
     private const string StrongAcceptor = "UUUUUUUUUUUUUUUCAGG";
 
     [Test]
-    public void DetectAlternativeSplicing_TwoDownstreamAcceptors_FlagsExonSkipping()
+    public void DetectAlternativeSplicing_TwoIntronsAndSpanningCandidate_FlagsExonSkipping()
     {
-        // validAcceptors == 2 > 1 ⇒ ExonSkipping. A 'validAcceptors < 1' mutant would suppress it.
-        string seq = StrongDonor + new string('A', 60) + StrongAcceptor + "AAAAA" + StrongAcceptor;
-        var events = DetectAlternativeSplicing(seq, minScore: 0.3).Select(e => e.Type).ToList();
-        Assert.That(events, Does.Contain("ExonSkipping"));
+        string seq = new string('C', 40) + StrongDonor + new string('A', 60) + StrongAcceptor +
+                     new string('C', 50) + StrongDonor + new string('A', 60) + StrongAcceptor + new string('C', 40);
+        var events = DetectAlternativeSplicing(seq, minScore: 0.3).ToList();
+        Assert.That(events.Select(e => e.Type), Does.Contain("ExonSkipping"));
+        Assert.That(events.Where(e => e.Type == "ExonSkipping").Select(e => e.Position),
+            Does.Contain(43));
     }
 
     [Test]
@@ -589,12 +561,12 @@ public class SpliceSitePredictorMutationTests
     [Test]
     public void FindBranchPoints_SearchEndZero_ScansOnlyFirstPosition()
     {
-        // searchEnd == 0 ⇒ end = min(0, len-7) = 0 ⇒ exactly one scanned position (i = 0).
-        // A 'searchEnd <= 0' mutant would treat 0 as "unbounded" and scan to len-7.
-        const string seq = "UACUAACGGGG"; // len 11 ⇒ unbounded end would be 4
+        // searchEnd == 0 ⇒ end = min(0, len-5) = 0 ⇒ exactly one scanned motif start (i = 0).
+        // A 'searchEnd <= 0' mutant would treat 0 as "unbounded" and scan to len-5.
+        const string seq = "UACUAACGGGG"; // len 11 ⇒ unbounded end would be 6
         var sites = FindBranchPoints(seq, searchStart: 0, searchEnd: 0, minScore: 0.0).ToList();
         Assert.That(sites, Has.Count.EqualTo(1));
-        Assert.That(sites[0].Position, Is.EqualTo(5)); // i=0 ⇒ Position 5
+        Assert.That(sites[0].Position, Is.EqualTo(3)); // i=0 ⇒ branch A position 3 (yUnAy)
     }
 
     #endregion

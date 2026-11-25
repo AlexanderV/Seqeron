@@ -24,6 +24,13 @@ public static partial class MiRnaAnalyzer
     /// <summary>
     /// Represents a predicted miRNA target site.
     /// </summary>
+    /// <remarks>
+    /// <see cref="Score"/> is the predicted repression: <c>max(0, −ContextScore)</c> where
+    /// <see cref="ContextScore"/> is the TargetScan 5.0 context score of Grimson et al. (2007)
+    /// (see <see cref="MiRnaAnalyzer.ScoreTargetSiteGrimson(string, string, int, int, TargetSiteType)"/>);
+    /// 0 for sites TargetScan 5.0 has no coefficients for (6mer, offset 6mer, centered) and for sites too
+    /// close to the stop codon. <see cref="ContextScore"/> is <c>null</c> in those cases.
+    /// </remarks>
     public readonly record struct TargetSite(
         int Start,
         int End,
@@ -33,7 +40,11 @@ public static partial class MiRnaAnalyzer
         int SeedMatchLength,
         double Score,
         double FreeEnergy,
-        string Alignment);
+        string Alignment)
+    {
+        /// <summary>The TargetScan 5.0 / Grimson (2007) context score as printed (log2 units; negative = repressed); <c>null</c> when undefined.</summary>
+        public double? ContextScore { get; init; }
+    }
 
     /// <summary>
     /// Types of miRNA target sites.
@@ -45,8 +56,15 @@ public static partial class MiRnaAnalyzer
         Seed7merA1,    // 7mer-A1: positions 2-7 + A at position 1
         Seed6mer,      // 6mer: positions 2-7
         Offset6mer,    // offset 6mer: positions 3-8
-        Supplementary, // 3' supplementary pairing
-        Centered       // centered site (positions 4-15)
+        /// <summary>
+        /// Never emitted. 3'-supplementary pairing is not a site class: Grimson et al. (2007) treat it as an
+        /// additive term (the 3' pairing score) of a seed site — see
+        /// <see cref="MiRnaAnalyzer.ScoreTargetSiteGrimson(string, string, int, int, TargetSiteType)"/>.
+        /// Kept for backward compatibility of the public enum.
+        /// </summary>
+        Supplementary,
+        /// <summary>Centered site (Shin et al. 2010): ≥ 11 contiguous Watson–Crick pairs at miRNA nt 4–15; emitted by <see cref="MiRnaAnalyzer.FindCenteredSites"/>, not by <see cref="MiRnaAnalyzer.FindTargetSites"/>.</summary>
+        Centered
     }
 
     /// <summary>
@@ -195,17 +213,19 @@ public static partial class MiRnaAnalyzer
     /// Each site's duplex (<see cref="TargetSite.TargetSequence"/>, <see cref="TargetSite.Alignment"/>,
     /// <see cref="TargetSite.FreeEnergy"/>) is the full miRNA aligned antiparallel in the seed-match
     /// register, extending UPSTREAM of the site (see <c>CreateTargetSite</c>).
-    /// <see cref="TargetSite.Score"/> is a heuristic ranking: site-type base proportional to the
-    /// Grimson (2007) efficacies (8mer 1.0, 7mer-m8 0.52, 7mer-A1 0.32; 6mer 0.15 and offset 6mer
-    /// 0.10 not fitted), +0.05 if &gt; 10 Watson-Crick pairs, −0.01 per unpaired position, clamped to
-    /// [0,1]. It is not a fitted repression model — use <see cref="ScoreTargetSiteContextPlusPlus"/>
-    /// for TargetScan context++. With the default <paramref name="minScore"/> 0.5 typically only
-    /// 8mer sites are returned; pass a lower threshold to obtain every canonical site.
+    /// <see cref="TargetSite.Score"/> is the predicted repression <c>max(0, −context score)</c> of the
+    /// fitted TargetScan 5.0 model (Grimson et al. 2007: site type + 3' pairing + local AU + position;
+    /// <see cref="ScoreTargetSiteGrimson(string, string, int, int, TargetSiteType)"/>); the signed
+    /// score is <see cref="TargetSite.ContextScore"/>. 6mer and offset-6mer sites have no TargetScan 5.0
+    /// coefficients and score 0, as do sites starting within the first 15 nt of the 3'UTR. For TargetScan
+    /// context++ use <see cref="ScoreTargetSiteContextPlusPlus"/>. With the default
+    /// <paramref name="minScore"/> 0 every site is returned; the offset-6mer suppression (an offset 6mer
+    /// overlapping a 6mer-core site is dropped) does not depend on <paramref name="minScore"/>.
     /// </remarks>
     public static IEnumerable<TargetSite> FindTargetSites(
         string mRnaSequence,
         MiRna miRna,
-        double minScore = 0.5)
+        double minScore = 0.0)
     {
         if (string.IsNullOrEmpty(mRnaSequence) || string.IsNullOrEmpty(miRna.Sequence))
             yield break;
@@ -276,13 +296,14 @@ public static partial class MiRnaAnalyzer
             }
 
             // The mRNA base opposite miRNA nt 1 is the one just 3' of the 6mer core (i + 6).
+            // Suppression of overlapping offset 6mers must not depend on the score threshold:
+            // every 6mer-core site claims its positions whether or not it is emitted.
+            for (int j = siteStart; j < siteStart + siteLength; j++)
+                coveredPositions.Add(j);
+
             var site = CreateTargetSite(mrna, siteStart, siteLength, i + 6, mirna, miRna.Name, type, seedMatchLen);
             if (site.Score >= minScore)
-            {
-                for (int j = siteStart; j < siteStart + siteLength; j++)
-                    coveredPositions.Add(j);
                 yield return site;
-            }
         }
 
         // Pass 2: Find offset 6mer matches (positions 3-8) not overlapping higher-priority sites
@@ -336,7 +357,8 @@ public static partial class MiRnaAnalyzer
         string duplexTarget = missing3Prime > 0 ? targetSeq + new string('N', missing3Prime) : targetSeq;
 
         var duplex = AlignMiRnaToTarget(mirna, duplexTarget);
-        double score = CalculateTargetScore(type, duplex);
+        double? context = ScoreTargetSiteGrimson(mrna, mirna, pos, pos + length - 1, type)?.ContextScore;
+        double score = context is double c ? Math.Max(0.0, -c) : 0.0;
 
         return new TargetSite(
             Start: pos,
@@ -347,7 +369,10 @@ public static partial class MiRnaAnalyzer
             SeedMatchLength: seedMatchLength,
             Score: score,
             FreeEnergy: duplex.FreeEnergy,
-            Alignment: duplex.AlignmentString);
+            Alignment: duplex.AlignmentString)
+        {
+            ContextScore = context
+        };
     }
 
     #endregion
@@ -787,35 +812,6 @@ public static partial class MiRnaAnalyzer
     private static double AuGuEnd(char b1, char b2) =>
         Turner2004Parameters.IsTerminalPenaltyPair(b1, b2) ? Turner2004Parameters.TerminalAuGuPenalty : 0.0;
 
-    private static double CalculateTargetScore(TargetSiteType type, MiRnaDuplex duplex)
-    {
-        // Base scores proportional to Grimson et al. (2007) site-type efficacy weights:
-        // 8mer=0.310, 7mer-m8=0.161, 7mer-A1=0.099; normalized to [0,1] with 8mer=1.0
-        // 6mer and offset 6mer estimated from Agarwal et al. (2015).
-        double baseScore = type switch
-        {
-            TargetSiteType.Seed8mer => 1.0,
-            TargetSiteType.Seed7merM8 => 0.52,
-            TargetSiteType.Seed7merA1 => 0.32,
-            TargetSiteType.Seed6mer => 0.15,
-            TargetSiteType.Offset6mer => 0.10,
-            TargetSiteType.Supplementary => 0.05,
-            TargetSiteType.Centered => 0.03,
-            _ => 0.01
-        };
-
-        // Bonus for 3' supplementary pairing (extra matches beyond seed)
-        if (duplex.Matches > 10)
-        {
-            baseScore += 0.05;
-        }
-
-        // Penalty for mismatches in alignment
-        baseScore -= duplex.Mismatches * 0.01;
-
-        return Math.Max(0, Math.Min(1, baseScore));
-    }
-
     #endregion
 
     #region TargetScan context++ scoring (Agarwal et al. 2015) — opt-in
@@ -824,11 +820,11 @@ public static partial class MiRnaAnalyzer
     /// Breakdown of the locally-computable TargetScan context++ score (Agarwal et al. 2015)
     /// for a single seed-matched target site. The context++ score is the SUM of per-feature
     /// contributions of a multiple-linear-regression model fit SEPARATELY per site type
-    /// (8mer / 7mer-m8 / 7mer-A1 / 6mer). Only the features computable from the miRNA and the
-    /// local 3'UTR sequence are realised here; full-transcript features are reported as
-    /// <see cref="OmittedFeatures"/>. The <see cref="ContextScorePartial"/> is therefore a
-    /// PARTIAL context++ score (an upper bound, since most omitted feature coefficients are
-    /// negative), not the published headline CS. See algorithm doc §5.3.
+    /// (8mer / 7mer-m8 / 7mer-A1 / 6mer). Features computable from the miRNA and the 3'UTR, plus
+    /// TA_3UTR / SPS (bundled TargetScan 7.0 seed-region table), are always realised; Len_ORF / ORF8m
+    /// need the ORF, PCT a conservation input, and an exact SA the RNAplfold value. Features without
+    /// data are reported as <see cref="OmittedFeatures"/>; <see cref="ContextScorePartial"/> is then a
+    /// PARTIAL context++ score, not the published headline CS. See algorithm doc §5.3.
     /// </summary>
     /// <param name="SiteType">The seed-match site type (must be one of the four canonical types).</param>
     /// <param name="Intercept">Site-type intercept term (raw coefficient; Agarwal_2015_parameters.txt).</param>
@@ -841,10 +837,10 @@ public static partial class MiRnaAnalyzer
     /// <param name="MinDistContribution">coeff(Min_dist) × scaled(log10 distance to nearest 3'UTR end). Computed from the 3'UTR.</param>
     /// <param name="Len3UtrContribution">coeff(Len_3UTR) × scaled(log10 3'UTR length). Computed from the 3'UTR.</param>
     /// <param name="Off6mContribution">coeff(Off6m) × offset-6mer count in the 3'UTR (used raw). Computed from miRNA + 3'UTR.</param>
-    /// <param name="SpsContribution">coeff(SPS) × scaled(caller-supplied SPS). 0 (and listed as omitted) unless an SPS value is supplied.</param>
-    /// <param name="TaContribution">coeff(TA_3UTR) × scaled(caller-supplied TA). 0 (and listed as omitted) unless a TA value is supplied.</param>
-    /// <param name="LenOrfContribution">coeff(Len_ORF) × scaled(log10 caller-supplied ORF length). 0 (and listed as omitted) unless an ORF length is supplied.</param>
-    /// <param name="Orf8mContribution">coeff(ORF8m) × caller-supplied ORF-8mer count (used raw). 0 (and listed as omitted) unless an ORF-8mer count is supplied.</param>
+    /// <param name="SpsContribution">coeff(SPS) × scaled(SPS). SPS is <see cref="ContextPlusPlusInputs.Sps"/> when supplied, otherwise the bundled TargetScan 7.0 value for the miRNA's seed region (nt 2–8) and site type (<see cref="TryGetTargetScanTaSps"/>). 0 (and listed as omitted) only when neither exists (seed region not 7 nt over ACGU).</param>
+    /// <param name="TaContribution">coeff(TA_3UTR) × scaled(TA). TA is <see cref="ContextPlusPlusInputs.Ta"/> when supplied, otherwise the bundled TargetScan 7.0 value for the seed region (<see cref="TryGetTargetScanTaSps"/>). 0 (and listed as omitted) only when neither exists.</param>
+    /// <param name="LenOrfContribution">coeff(Len_ORF) × scaled(log10 ORF length). The length is <see cref="ContextPlusPlusInputs.OrfLength"/>, or the length of <see cref="ContextPlusPlusInputs.OrfSequence"/> without gaps. 0 (and listed as omitted) when neither is supplied.</param>
+    /// <param name="Orf8mContribution">coeff(ORF8m) × ORF-8mer count (used raw). The count is <see cref="ContextPlusPlusInputs.Orf8mCount"/>, or the TargetScan count in <see cref="ContextPlusPlusInputs.OrfSequence"/>. 0 (and listed as omitted) when neither is supplied.</param>
     /// <param name="PctContribution">coeff(PCT) × scaled(PCT value). PCT is computed from the Friedman et al. (2009) branch-length score (Bls) via the published sigmoid; 0 (and listed as omitted) unless a <see cref="ContextPlusPlusInputs.Conservation"/> input is supplied.</param>
     /// <param name="BranchLengthScore">The Friedman et al. (2009) branch-length score (Bls, 4 decimals as TargetScan reports it) computed from the supplied conservation tree, or 0 when no conservation input was supplied.</param>
     /// <param name="Pct">The probability of conserved targeting (PCT) computed from <paramref name="BranchLengthScore"/> as TargetScan's <c>getPCT</c> does (sigmoid, 4 decimals, truncated at 0; 0 when Bls = 0 or for a 6mer site), or 0 when no conservation input was supplied.</param>
@@ -895,25 +891,28 @@ public static partial class MiRnaAnalyzer
     }
 
     /// <summary>
-    /// Optional, caller-supplied context++ feature inputs that the library cannot derive from the
-    /// miRNA and 3'UTR sequence alone, but whose contribution is computed FAITHFULLY (verbatim
-    /// Agarwal et al. 2015 coefficient × scaling) when the caller provides the value.
-    /// All are <c>null</c> by default; a null input means the feature stays an honest residual
-    /// (reported in <see cref="ContextPlusPlusScore.OmittedFeatures"/>) and contributes 0.
+    /// Optional context++ feature inputs that the library cannot derive from the miRNA and the
+    /// 3'UTR sequence alone. Each contribution is computed with the verbatim Agarwal et al. (2015)
+    /// coefficient and scaling. All are <c>null</c> by default. SPS and TA then come from the bundled
+    /// TargetScan 7.0 seed-region table (as <c>targetscan_70_context_scores.pl</c> reads them); the
+    /// other null inputs leave their feature as an honest residual (reported in
+    /// <see cref="ContextPlusPlusScore.OmittedFeatures"/>, contribution 0).
     /// </summary>
-    /// <param name="Sps">Predicted seed-pairing stability (Garcia et al. 2011 table value, kcal/mol; min-max scaled per site type). Data-blocked: requires the Garcia seed-region table.</param>
-    /// <param name="Ta">Target-site abundance (transcriptome-wide log10 site count; min-max scaled). Data-blocked: requires a transcriptome.</param>
-    /// <param name="OrfLength">ORF (CDS) length in nucleotides (log10-transformed, then min-max scaled). Requires the transcript's ORF.</param>
-    /// <param name="Orf8mCount">Count of cognate 8mer sites in the ORF (used raw, no scaling). Requires the transcript's ORF.</param>
+    /// <param name="Sps">Predicted seed-pairing stability (kcal/mol; min-max scaled per site type). Overrides the bundled TargetScan 7.0 value (<c>TA_SPS_by_seed_region.txt</c>, Garcia et al. 2011 Supp. Data 5; see <see cref="TryGetTargetScanTaSps"/>). <c>null</c> ⇒ the bundled value for the miRNA's seed region (nt 2–8) and site type.</param>
+    /// <param name="Ta">Target-site abundance (log10 site count; min-max scaled). Overrides the bundled TargetScan 7.0 value (see <see cref="TryGetTargetScanTaSps"/>; <see cref="ComputeTa3Utr"/> computes it from your own 3'UTR set). <c>null</c> ⇒ the bundled value for the seed region.</param>
+    /// <param name="OrfLength">ORF (CDS) length in nucleotides (log10-transformed, then min-max scaled). Overrides the length derived from <paramref name="OrfSequence"/>.</param>
+    /// <param name="Orf8mCount">Count of cognate 8mer sites in the ORF (used raw, no scaling). Overrides the count derived from <paramref name="OrfSequence"/>.</param>
     /// <param name="PlfoldUnpairedProbability">Optional exact RNAplfold accessibility value for the site — the number TargetScan reads in <c>getSA_contribution</c>: row <c>utrStart + 7</c> (7mer-A1: <c>utrStart + 6</c>; 1-based seed-match start), column <c>l=14</c> of the <c>_lunp</c> file written by <c>RNAplfold -L 40 -W 80 -u 20</c> on the whole 3'UTR. When supplied (&gt; 0) it replaces the library's own SA estimate, so SA equals TargetScan's. <c>null</c> ⇒ the library estimates it (one 80-nt McCaskill window, no 40-nt span limit, no window averaging — an approximation of RNAplfold, see the algorithm doc).</param>
     /// <param name="Conservation">Multi-species conservation input (a phylogenetic tree + the set of species in which the site is conserved; the per-site-type PCT sigmoid parameters default to the bundled TargetScan 7.0 tables). When supplied, the library computes the Friedman et al. (2009) branch-length score (Bls) and the resulting PCT value, then applies the bundled Agarwal et al. (2015) PCT coefficient. <c>null</c> ⇒ PCT stays an honest residual.</param>
+    /// <param name="OrfSequence">The transcript's ORF (CDS) sequence (RNA or DNA, any case; aligned rows with <c>-</c>/<c>.</c> gaps are accepted). Len_ORF and ORF8m are then derived as TargetScan's <c>targetscan_count_8mers.pl</c> does: gaps removed, length = remaining characters; ORF8m = number of non-overlapping, case-insensitive occurrences of reverse_complement(seed region nt 2–8) + "A" (the 8mer site) on the given strand (see <see cref="CountTargetScanOrf8merSites"/>). <see cref="OrfLength"/> / <see cref="Orf8mCount"/>, when supplied, take precedence. <c>null</c> ⇒ both features stay residual unless supplied directly.</param>
     public readonly record struct ContextPlusPlusInputs(
         double? Sps = null,
         double? Ta = null,
         double? OrfLength = null,
         int? Orf8mCount = null,
         PctConservation? Conservation = null,
-        double? PlfoldUnpairedProbability = null);
+        double? PlfoldUnpairedProbability = null,
+        string? OrfSequence = null);
 
     // ── PCT (probability of conserved targeting) — Friedman et al. (2009) Genome Res 19:92 ──
     // Bls definition (Methods, retrieved verbatim this session): "The conservation of a given
@@ -1033,28 +1032,28 @@ public static partial class MiRnaAnalyzer
     // Off6m row (offset-6mer count): coeff only — used raw (NOT in the min-max regex of getAgarwalContribution).
     private const double CtxOff6mCoeff8mer = -0.020, CtxOff6mCoeff7merM8 = -0.011, CtxOff6mCoeff7merA1 = -0.020, CtxOff6mCoeff6mer = -0.010;
 
-    // SPS row (seed-pairing stability; caller-supplied): coeff, then min/max for min-max scaling.
+    // SPS row (seed-pairing stability; bundled TargetScan table value or caller value): coeff, then min/max for min-max scaling.
     private const double CtxSpsCoeff8mer = 0.210, CtxSpsCoeff7merM8 = 0.135, CtxSpsCoeff7merA1 = 0.095, CtxSpsCoeff6mer = 0.035;
     private const double CtxSpsMin8mer = -11.13, CtxSpsMax8mer = -5.52;
     private const double CtxSpsMin7merM8 = -11.13, CtxSpsMax7merM8 = -5.49;
     private const double CtxSpsMin7merA1 = -8.41, CtxSpsMax7merA1 = -3.33;
     private const double CtxSpsMin6mer = -8.57, CtxSpsMax6mer = -3.33;
 
-    // TA_3UTR row (target-site abundance; caller-supplied): coeff, then min/max for min-max scaling.
+    // TA_3UTR row (target-site abundance; bundled TargetScan table value or caller value): coeff, then min/max for min-max scaling.
     private const double CtxTaCoeff8mer = 0.222, CtxTaCoeff7merM8 = 0.139, CtxTaCoeff7merA1 = 0.117, CtxTaCoeff6mer = 0.058;
     private const double CtxTaMin8mer = 3.113, CtxTaMax8mer = 3.865;
     private const double CtxTaMin7merM8 = 3.067, CtxTaMax7merM8 = 3.887;
     private const double CtxTaMin7merA1 = 3.145, CtxTaMax7merA1 = 3.887;
     private const double CtxTaMin6mer = 3.113, CtxTaMax6mer = 3.887;
 
-    // Len_ORF row (ORF length; caller-supplied): coeff, then min/max for min-max scaling of log10(ORF length).
+    // Len_ORF row (ORF length; from OrfSequence or caller value): coeff, then min/max for min-max scaling of log10(ORF length).
     private const double CtxLenOrfCoeff8mer = 0.205, CtxLenOrfCoeff7merM8 = 0.100, CtxLenOrfCoeff7merA1 = 0.063, CtxLenOrfCoeff6mer = 0.029;
     private const double CtxLenOrfMin8mer = 2.788, CtxLenOrfMax8mer = 3.753;
     private const double CtxLenOrfMin7merM8 = 2.773, CtxLenOrfMax7merM8 = 3.729;
     private const double CtxLenOrfMin7merA1 = 2.773, CtxLenOrfMax7merA1 = 3.730;
     private const double CtxLenOrfMin6mer = 2.775, CtxLenOrfMax6mer = 3.731;
 
-    // ORF8m row (ORF 8mer count; caller-supplied): coeff only — used raw (NOT min-max scaled).
+    // ORF8m row (ORF 8mer count; from OrfSequence or caller value): coeff only — used raw (NOT min-max scaled).
     private const double CtxOrf8mCoeff8mer = -0.118, CtxOrf8mCoeff7merM8 = -0.044, CtxOrf8mCoeff7merA1 = -0.058, CtxOrf8mCoeff6mer = -0.060;
 
     // PCT row (probability of conserved targeting; Friedman et al. 2009): coeff, then min/max for
@@ -1112,11 +1111,15 @@ public static partial class MiRnaAnalyzer
     /// RNAplfold (no 40-nt span limit, no averaging over windows).
     /// </para>
     /// <para>
-    /// Computed only from caller-supplied data (<paramref name="inputs"/>): SPS, TA_3UTR (see
-    /// <see cref="ComputeTa3Utr"/>), Len_ORF, ORF8m, and PCT (from a tree + the species with the
-    /// site: Friedman et al. 2009 branch-length score, then the TargetScan sigmoid with the bundled
-    /// TargetScan 7.0 per-seed-family row, see <see cref="TryGetTargetScanPctParameters"/>, or a
-    /// caller-supplied row). A feature that is not supplied contributes 0 and is listed in
+    /// SPS and TA_3UTR come from the bundled TargetScan 7.0 table for the miRNA's seed region
+    /// (<see cref="TryGetTargetScanTaSps"/>, as <c>targetscan_70_context_scores.pl</c> reads
+    /// <c>TA_SPS_by_seed_region.txt</c>) unless the caller supplies them (<paramref name="inputs"/>;
+    /// <see cref="ComputeTa3Utr"/> computes TA from a 3'UTR set). Len_ORF and ORF8m come from
+    /// <see cref="ContextPlusPlusInputs.OrfSequence"/> (as <c>targetscan_count_8mers.pl</c>) or from
+    /// caller numbers. PCT needs a tree + the species with the site (Friedman et al. 2009
+    /// branch-length score, then the TargetScan sigmoid with the bundled TargetScan 7.0
+    /// per-seed-family row, see <see cref="TryGetTargetScanPctParameters"/>, or a caller-supplied
+    /// row). A feature without data contributes 0 and is listed in
     /// <see cref="ContextPlusPlusScore.OmittedFeatures"/>; the sum is then a partial score.
     /// </para>
     /// <para>
@@ -1128,7 +1131,7 @@ public static partial class MiRnaAnalyzer
     /// <param name="mRnaSequence">The mRNA / 3'UTR sequence the site was found in (RNA or DNA; T→U; case-insensitive). Treated as the 3'UTR for the length / Min_dist / Off6m features.</param>
     /// <param name="miRna">The miRNA (its <c>Sequence</c> supplies nt1, nt8, the seed and the 3' supplementary region).</param>
     /// <param name="site">A target site whose <c>Type</c> is one of the four canonical seed-match types.</param>
-    /// <param name="inputs">Optional caller-supplied feature values (SPS / TA / ORF length / ORF-8mer count) that cannot be derived from sequence alone.</param>
+    /// <param name="inputs">Optional feature inputs: ORF sequence or ORF length / ORF-8mer count, conservation (PCT), RNAplfold value (SA), and SPS / TA overrides of the bundled table.</param>
     /// <returns>The per-feature context++ contribution breakdown and their partial sum.</returns>
     /// <exception cref="ArgumentException">Thrown when <paramref name="site"/> is not one of the four canonical seed-match site types (8mer / 7mer-m8 / 7mer-A1 / 6mer).</exception>
     public static ContextPlusPlusScore ScoreTargetSiteContextPlusPlus(
@@ -1172,10 +1175,26 @@ public static partial class MiRnaAnalyzer
         double len3Utr = Len3UtrContribution(mrna, type);
         double off6m = Off6mContribution(mrna, mirna, type);
 
-        double sps = inputs.Sps is double spsRaw ? SpsContribution(spsRaw, type) : 0.0;
-        double ta = inputs.Ta is double taRaw ? TaContribution(taRaw, type) : 0.0;
-        double lenOrf = inputs.OrfLength is double orfLen ? LenOrfContribution(orfLen, type) : 0.0;
-        double orf8m = inputs.Orf8mCount is int orf8mCount ? Orf8mContribution(orf8mCount, type) : 0.0;
+        // readTargets: $seedRegion = substr($matureMiRNA, 1, 7) keys TA_SPS_by_seed_region.txt; TA and
+        // SPS are used only when the row exists ("Set these NAs to 0"). A caller value overrides.
+        string seedRegion = mirna.Length >= 8 ? mirna.Substring(1, 7) : "";
+        bool haveTaSps = TryGetTargetScanTaSps(seedRegion, type, out double tableTa, out double tableSps);
+        double? spsValue = inputs.Sps ?? (haveTaSps ? tableSps : null);
+        double? taValue = inputs.Ta ?? (haveTaSps ? tableTa : null);
+
+        // getORFlength_contribution / getORF8mer_contribution read the files written by
+        // targetscan_count_8mers.pl from the ORF sequence; caller numbers override.
+        double? orfLengthValue = inputs.OrfLength
+            ?? (inputs.OrfSequence is string orfForLength ? TargetScanOrfLength(orfForLength) : null);
+        int? orf8mValue = inputs.Orf8mCount
+            ?? (inputs.OrfSequence is string orfForCount && seedRegion.Length == 7
+                ? CountTargetScanOrf8merSites(orfForCount, seedRegion)
+                : null);
+
+        double sps = spsValue is double spsRaw ? SpsContribution(spsRaw, type) : 0.0;
+        double ta = taValue is double taRaw ? TaContribution(taRaw, type) : 0.0;
+        double lenOrf = orfLengthValue is double orfLen ? LenOrfContribution(orfLen, type) : 0.0;
+        double orf8m = orf8mValue is int orf8mCount ? Orf8mContribution(orf8mCount, type) : 0.0;
 
         double bls = 0.0, pct = 0.0, pctContribution = 0.0;
         bool pctDefined = false, pctIsNa = false;
@@ -1190,7 +1209,6 @@ public static partial class MiRnaAnalyzer
                 // Caller row overrides; otherwise the bundled TargetScan row for the seed (nt 2–8).
                 // getPCT: a family without PCT parameters ($thisMiRNAhasPCT false) gets "NA", which
                 // context++ scores as contribution 0 — TargetScan's own full score for that site.
-                string seedRegion = mirna.Length >= 8 ? mirna.Substring(1, 7) : "";
                 if (conservation.SigmoidParameters is PctSigmoidParameters callerRow)
                 {
                     // getPCT: 6mer ⇒ "0.0"; the BL_PCT output's 4-dp PCT is what context++ reads.
@@ -1214,7 +1232,8 @@ public static partial class MiRnaAnalyzer
             + threeP + minDist + len3Utr + off6m
             + sps + ta + lenOrf + orf8m + pctContribution;
 
-        var omittedFeatures = BuildOmittedFeatures(inputs, saIncluded, pctDefined);
+        var omittedFeatures = BuildOmittedFeatures(inputs, saIncluded, pctDefined,
+            spsValue.HasValue, taValue.HasValue, orfLengthValue.HasValue, orf8mValue.HasValue);
 
         // When any context++ feature is omitted (TA/SPS/PCT/ORF not supplied), the score is partial,
         // not the full Agarwal (2015) context++ score. Strict mode throws rather than returning it.
@@ -1425,10 +1444,12 @@ public static partial class MiRnaAnalyzer
     /// context++ features that remain residual for a given call. SA is omitted when the 14-nt
     /// RNAplfold window has no row at this site (too close to the 5' end) or its unpaired probability
     /// is 0 (perl: contribution 0). PCT is omitted unless a conservation input is supplied, or when
-    /// its branch-length score is negative / not finite (TargetScan "NA"); SPS, TA,
-    /// ORF length and ORF-8mer count are omitted only when the caller did not supply them.
+    /// its branch-length score is negative / not finite (TargetScan "NA"). SPS and TA are omitted only
+    /// when neither the caller nor the bundled table gives a value (seed region not 7 nt over ACGU);
+    /// ORF length and ORF-8mer count when neither a number nor an ORF sequence is supplied.
     /// </summary>
-    private static IReadOnlyList<string> BuildOmittedFeatures(ContextPlusPlusInputs inputs, bool saIncluded, bool pctDefined)
+    private static IReadOnlyList<string> BuildOmittedFeatures(ContextPlusPlusInputs inputs, bool saIncluded, bool pctDefined,
+        bool haveSps, bool haveTa, bool haveOrfLength, bool haveOrf8m)
     {
         var omitted = new List<string>();
         if (!saIncluded)
@@ -1437,10 +1458,10 @@ public static partial class MiRnaAnalyzer
             omitted.Add("PCT (probability of conserved targeting — requires a multi-species alignment + tree)");
         else if (!pctDefined)
             omitted.Add("PCT (probability of conserved targeting — NA: the branch-length score is negative or not finite)");
-        if (inputs.Sps is null) omitted.Add("SPS (predicted seed-pairing stability — requires Garcia et al. 2011 seed-region table)");
-        if (inputs.Ta is null) omitted.Add("TA_3UTR (target-site abundance — requires a transcriptome)");
-        if (inputs.OrfLength is null) omitted.Add("Len_ORF (ORF length — requires the transcript ORF)");
-        if (inputs.Orf8mCount is null) omitted.Add("ORF8m (ORF 8mer count — requires the transcript ORF)");
+        if (!haveSps) omitted.Add("SPS (predicted seed-pairing stability — seed region nt 2-8 is not in the TargetScan table; supply Sps)");
+        if (!haveTa) omitted.Add("TA_3UTR (target-site abundance — seed region nt 2-8 is not in the TargetScan table; supply Ta)");
+        if (!haveOrfLength) omitted.Add("Len_ORF (ORF length — requires the transcript ORF: supply OrfSequence or OrfLength)");
+        if (!haveOrf8m) omitted.Add("ORF8m (ORF 8mer count — requires the transcript ORF: supply OrfSequence or Orf8mCount)");
         return omitted;
     }
 
@@ -1963,19 +1984,7 @@ public static partial class MiRnaAnalyzer
         // perl `while ($utr =~ /$siteToFind/gi)`: a /g match resumes after the previous match, so
         // occurrences are counted NON-overlapping (only differs for self-overlapping patterns such as
         // ACACAC or AAAAAA).
-        int count = 0;
-        for (int i = 0; i + 6 <= mrna.Length;)
-        {
-            if (string.CompareOrdinal(mrna, i, pattern, 0, 6) == 0)
-            {
-                count++;
-                i += 6;
-            }
-            else
-            {
-                i++;
-            }
-        }
+        int count = CountNonOverlapping(mrna, pattern);
 
         double coeff = type switch
         {
@@ -1987,7 +1996,79 @@ public static partial class MiRnaAnalyzer
         return coeff * count; // used raw (no scaling)
     }
 
-    // ── SPS / TA / Len_ORF / ORF8m (caller-supplied) ─────────────────────────────────────────
+    // Number of non-overlapping occurrences of `pattern` in `text` (ordinal), scanning left to right
+    // and resuming after each match — what a perl `while ($text =~ /$pattern/g)` loop counts.
+    private static int CountNonOverlapping(string text, string pattern)
+    {
+        int count = 0;
+        for (int i = 0; i + pattern.Length <= text.Length;)
+        {
+            if (string.CompareOrdinal(text, i, pattern, 0, pattern.Length) == 0)
+            {
+                count++;
+                i += pattern.Length;
+            }
+            else
+            {
+                i++;
+            }
+        }
+        return count;
+    }
+
+    // ── Len_ORF / ORF8m from an ORF sequence — TargetScan 7.0 targetscan_count_8mers.pl ──────
+    // (TargetScan7_context_scores.zip, www.targetscan.org/vert_70/vert_70_data_download/, opened
+    // 2026-11-25; README_CONTEXT_SCORES_70: "The ORF sequences can be aligned (with gaps) or not, but the
+    // alignment is ignored; gaps are removed.") Per ORF row: `$sequence =~ s/-//g; s/\.//g; s/T/U/g;
+    // s/t/u/g`; length = `length $sequence`; per family `$siteToFind = reverse_complement(seed region) .
+    // "A"` (the 8mer: match to miRNA nt 2-8 + A opposite nt 1) and `while ($sequence =~ /$siteToFind/gi)
+    // { $numThisSite++ }` — case-insensitive, non-overlapping, on the given (sense) strand only.
+    // targetscan_70_context_scores.pl then uses log10(length) for Len_ORF (0 when the length is 0) and
+    // the raw count for ORF8m (0 when the family has no row).
+
+    // targetscan_count_8mers.pl: length of the ORF row after removing '-' and '.' gap characters.
+    internal static int TargetScanOrfLength(string orfSequence)
+    {
+        ArgumentNullException.ThrowIfNull(orfSequence);
+        int length = 0;
+        foreach (char c in orfSequence)
+            if (c is not ('-' or '.'))
+                length++;
+        return length;
+    }
+
+    /// <summary>
+    /// Counts the 8mer sites of a miRNA seed region in an ORF (CDS) sequence exactly as TargetScan 7.0's
+    /// <c>targetscan_count_8mers.pl</c> does for the context++ feature ORF8m (Agarwal et al. 2015):
+    /// gap characters (<c>-</c>, <c>.</c>) are removed, T is read as U, and the site
+    /// reverse_complement(seed region) + "A" is counted case-insensitively and non-overlapping
+    /// (perl <c>/g</c> match), on the given strand only.
+    /// </summary>
+    /// <param name="orfSequence">The ORF sequence (RNA or DNA, any case, gaps allowed).</param>
+    /// <param name="seedRegion">The 7-nt seed region (miRNA nt 2–8), RNA or DNA alphabet.</param>
+    /// <returns>The number of 8mer sites (≥ 0).</returns>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="seedRegion"/> is not 7 nt long.</exception>
+    public static int CountTargetScanOrf8merSites(string orfSequence, string seedRegion)
+    {
+        ArgumentNullException.ThrowIfNull(orfSequence);
+        ArgumentNullException.ThrowIfNull(seedRegion);
+        if (seedRegion.Length != 7)
+            throw new ArgumentException("The seed region (miRNA nt 2-8) must be 7 nt long.", nameof(seedRegion));
+
+        string site = GetReverseComplement(seedRegion.ToUpperInvariant().Replace('T', 'U')) + "A";
+        var orf = new System.Text.StringBuilder(orfSequence.Length);
+        foreach (char c in orfSequence)
+        {
+            if (c is '-' or '.')
+                continue;
+            char u = char.ToUpperInvariant(c);
+            orf.Append(u == 'T' ? 'U' : u);
+        }
+        return CountNonOverlapping(orf.ToString(), site);
+    }
+
+    // ── SPS / TA / Len_ORF / ORF8m contributions ─────────────────────────────────────────────
     internal static double SpsContribution(double sps, TargetSiteType type)
     {
         (double coeff, double min, double max) = type switch
@@ -2079,6 +2160,14 @@ public static partial class MiRnaAnalyzer
         ArgumentNullException.ThrowIfNull(tree);
         ArgumentNullException.ThrowIfNull(speciesWithSite);
 
+        return RoundPerl(ConnectingSubtreeLength(tree, speciesWithSite), "F4");
+    }
+
+    // Total branch length of the minimal subtree connecting the given leaves (unrounded; species that
+    // are not leaves are ignored; fewer than two leaves ⇒ 0). Shared by ComputeBranchLengthScore and
+    // the per-column branch lengths of AssignTargetScanUtrBin (targetscan_70_BL_bins.pl).
+    private static double ConnectingSubtreeLength(PhylogeneticAnalyzer.PhyloNode tree, IEnumerable<string> speciesWithSite)
+    {
         var present = new HashSet<string>(StringComparer.Ordinal);
         foreach (string species in speciesWithSite)
             if (species is not null)
@@ -2094,7 +2183,7 @@ public static partial class MiRnaAnalyzer
         // on a connecting path iff its lower side holds ≥ 1 and < found species-with-site.
         total = 0.0;
         CountAndSumConnectingEdges(tree, present, ref total, totalPresent: found);
-        return RoundPerl(total, "F4");
+        return total;
     }
 
     // Post-order walk returning the number of species-with-site leaves in the subtree of
@@ -2240,6 +2329,101 @@ public static partial class MiRnaAnalyzer
         seedRegion.ToUpperInvariant().Replace('T', 'U');
 
     /// <summary>
+    /// Looks up the bundled TargetScan 7.0 TA_3UTR and SPS values for a seed region and site type, as
+    /// <c>targetscan_70_context_scores.pl</c> reads them from <c>TA_SPS_by_seed_region.txt</c>
+    /// ("TA and SPS values (from Garcia et al., Supp Data 5)"; <c>read_TA_SPS</c>, <c>readTargets</c>).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The file has one row for each of the 16 384 seed regions (miRNA nt 2–8, all 7-mers over ACGU):
+    /// column 2 = SPS of 8mer and 7mer-m8 sites, column 3 = SPS of 7mer-A1 and 6mer sites
+    /// (<c>$garcia{3|2}</c> / <c>$garcia{1|4}</c>), column 4 = TA (log10 site abundance, one value per
+    /// seed). <c>readTargets</c> keys it with <c>substr($matureMiRNA, 1, 7)</c> (upper-cased since
+    /// TargetScan 7.02). Here T is read as U and lower case is upper-cased; any other symbol (e.g. N)
+    /// or a length other than 7 has no row (TargetScan then uses contribution 0).
+    /// </para>
+    /// <para>
+    /// Values are the file's decimal text verbatim (<c>MiRnaAnalyzer.TargetScanTaSps.cs</c>, SHA-256 in
+    /// its header; Garcia et al. 2011 Nat Struct Mol Biol 18:1139, Agarwal et al. 2015 eLife 4:e05005 —
+    /// cite TargetScan when used). <see cref="ComputeTa3Utr"/> computes TA from your own 3'UTR set
+    /// instead (Garcia's definition).
+    /// </para>
+    /// </remarks>
+    /// <param name="seedRegion">The 7-nt seed region (miRNA nt 2–8), RNA or DNA alphabet.</param>
+    /// <param name="siteType">8mer, 7mer-m8, 7mer-A1 or 6mer (selects the SPS column).</param>
+    /// <param name="ta">TA_3UTR for the seed region when found; 0 otherwise.</param>
+    /// <param name="sps">SPS (kcal/mol) for the seed region and site type when found; 0 otherwise.</param>
+    /// <returns><c>true</c> when the table has a row for the seed region and the site type is one of the four canonical types.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="seedRegion"/> is null.</exception>
+    public static bool TryGetTargetScanTaSps(string seedRegion, TargetSiteType siteType, out double ta, out double sps)
+    {
+        ArgumentNullException.ThrowIfNull(seedRegion);
+        ta = 0.0;
+        sps = 0.0;
+        int index = TargetScanSeedRegionIndex(seedRegion);
+        if (index < 0)
+            return false;
+        var table = TargetScanTaSpsTable.Value;
+        switch (siteType)
+        {
+            case TargetSiteType.Seed8mer:
+            case TargetSiteType.Seed7merM8:
+                sps = table.Sps8merAnd7merM8[index];
+                break;
+            case TargetSiteType.Seed7merA1:
+            case TargetSiteType.Seed6mer:
+                sps = table.Sps7merA1And6mer[index];
+                break;
+            default:
+                return false;
+        }
+        ta = table.Ta[index];
+        return true;
+    }
+
+    // Row index in TA_SPS_by_seed_region.txt = base-4 number of the seed region (A=0, C=1, G=2, U=3;
+    // nt 2 most significant): the file lists all 4^7 seeds in A<C<G<U order (checked by the generator).
+    // -1 when the seed is not 7 nt over ACGU (T read as U, case-insensitive).
+    private static int TargetScanSeedRegionIndex(string seedRegion)
+    {
+        if (seedRegion.Length != 7)
+            return -1;
+        int index = 0;
+        foreach (char c in seedRegion)
+        {
+            int digit = char.ToUpperInvariant(c) switch
+            {
+                'A' => 0,
+                'C' => 1,
+                'G' => 2,
+                'U' or 'T' => 3,
+                _ => -1
+            };
+            if (digit < 0)
+                return -1;
+            index = index * 4 + digit;
+        }
+        return index;
+    }
+
+    // Parsed once on first use from the generated column texts (exact decimal text → double).
+    private static readonly Lazy<(double[] Sps8merAnd7merM8, double[] Sps7merA1And6mer, double[] Ta)> TargetScanTaSpsTable =
+        new(() => (ParseTargetScanColumn(TargetScanSps8merAnd7merM8Text),
+                   ParseTargetScanColumn(TargetScanSps7merA1And6merText),
+                   ParseTargetScanColumn(TargetScanTaText)));
+
+    private static double[] ParseTargetScanColumn(string text)
+    {
+        string[] fields = text.Split(' ');
+        if (fields.Length != TargetScanTaSpsSeedRegionCount)
+            throw new InvalidOperationException("Bundled TargetScan TA/SPS column has the wrong row count.");
+        var values = new double[fields.Length];
+        for (int i = 0; i < fields.Length; i++)
+            values[i] = double.Parse(fields[i], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture);
+        return values;
+    }
+
+    /// <summary>
     /// Site-type-specific branch-length thresholds above which TargetScan calls a site conserved
     /// (<c>targetscan_70_BL_PCT.pl</c>, <c>%siteTypeToConsThreshold</c>, "If the BL is &gt;= these
     /// thresholds, it's conserved (for TS7 trees)"). They belong to the TargetScan 7 trees; 6mer
@@ -2320,26 +2504,45 @@ public static partial class MiRnaAnalyzer
     private const int HeuristicMaxTerminalLoop = 25;
 
     /// <summary>
-    /// Finds potential pre-miRNA hairpin structures in a sequence with the consecutive-pairing screen:
-    /// every window of length [<paramref name="minHairpinLength"/>, <paramref name="maxHairpinLength"/>]
-    /// is accepted when its two ends pair UNINTERRUPTEDLY inward (Watson–Crick or G·U) for ≥ 18 bp and the
-    /// remaining apical loop is 3–25 nt. The stem is extended as far as the mirrored bases pair (leaving
-    /// at least the 3-nt minimum hairpin loop), so the reported structure is the full consecutive stem.
-    /// For bulge/internal-loop tolerant detection use <see cref="FindPreMiRnaHairpinsByMfe"/>.
+    /// Finds potential pre-miRNA hairpins. DEFAULT (<paramref name="useConsecutiveScreen"/> = <c>false</c>):
+    /// every window of length [<paramref name="minHairpinLength"/>, <paramref name="maxHairpinLength"/>] is
+    /// folded with the canonical Zuker–Stiegler MFE engine and accepted by the published criteria of
+    /// <see cref="AssessHairpinByMfe"/> (single hairpin, ≥ 16 bp — Ambros 2003, loop 3–25 nt — Bartel 2004,
+    /// MFEI ≥ <paramref name="minMfei"/> — Zhang 2006), i.e. exactly the windows of
+    /// <see cref="FindPreMiRnaHairpinsByMfe"/>. Bulges and internal loops in the stem are therefore tolerated
+    /// (e.g. hsa-mir-21 is detected). With <paramref name="useConsecutiveScreen"/> = <c>true</c> the previous
+    /// consecutive-pairing screen is used instead: the window's two ends must pair UNINTERRUPTEDLY inward
+    /// (Watson–Crick or G·U) for ≥ 18 bp with a 3–25 nt apical loop (the stem is extended as far as the
+    /// mirrored bases pair), and the labels are blunt (see below).
     /// </summary>
+    /// <remarks>
+    /// <para>COST: the default folds every window — O(#windows · W³), ≈ 20 ms per 55–120-nt window on a
+    /// desktop core — and the scan is parallelised over window starts (results keep the sequential order).
+    /// Use <paramref name="useConsecutiveScreen"/> = <c>true</c> for long sequences when a fast screen is enough.</para>
+    /// <para>Mature/star in the default mode: the window is read as a Drosha product (pre-miRNA), so the 5p
+    /// product starts at the 5′ base of the outermost base pair of the MFE stem and is
+    /// <paramref name="matureLength"/> nt long (Dicer 5′ counting, Park et al. 2011 — the rule of
+    /// <see cref="PredictDroshaDicerCleavage(string, int, string?, DicerCountingRule)"/>; capped at the 5′ arm).
+    /// The star is the opposite-arm product of the Dicer 2-nt-3′-overhang rule (miRDeep2 <c>find_star</c>,
+    /// Friedländer et al. 2008; the same code as <c>PredictDroshaDicerCleavage</c>): it starts at
+    /// partner(mature end − 2 − off) − off and ends at partner(mature start) + 2 (clipped to the window).
+    /// A window carries no basal-junction knowledge, so no Drosha ruler is applied: mature/star are the
+    /// arm-dominant ends of the stem, not an annotated guide/passenger assignment.</para>
+    /// </remarks>
     /// <param name="sequence">RNA or DNA sequence (case-insensitive; T read as U). Null/empty ⇒ no candidates.</param>
     /// <param name="minHairpinLength">Minimum window length (default 55 nt; must be ≥ 1).</param>
     /// <param name="maxHairpinLength">Maximum window length (default 120 nt; a value below
     /// <paramref name="minHairpinLength"/> yields no candidates).</param>
-    /// <param name="matureLength">Length of the 5'-arm "mature" and mirrored 3'-arm "star" labels
-    /// (default 22 nt; must be ≥ 1; capped at the stem length).</param>
+    /// <param name="matureLength">Length of the 5p product (default 22 nt; must be ≥ 1; capped at the arm).</param>
+    /// <param name="useConsecutiveScreen"><c>true</c> = previous consecutive-pairing screen (fast, no bulges);
+    /// <c>false</c> (default) = MFE-fold based detection.</param>
+    /// <param name="minMfei">MFEI threshold of the default mode (Zhang 2006, 0.85); ignored by the screen.</param>
     /// <returns>
-    /// Candidates whose <c>Structure</c> and <c>FreeEnergy</c> come from the canonical
-    /// <see cref="RnaSecondaryStructure.FindStemLoops"/> stem-loop of the window: dot-bracket from the
-    /// canonical renderer and ΔG° = Turner 2004 stacking + AU/GU helix-end penalties
-    /// (<see cref="RnaSecondaryStructure.CalculateStemEnergy"/>) + full hairpin-loop model
-    /// (<see cref="RnaSecondaryStructure.CalculateHairpinLoopEnergy"/>: special tri/tetra/hexaloops,
-    /// terminal mismatch, UU/GA and GG first-mismatch bonuses, special GU closure, all-C penalty).
+    /// Default mode: <c>Structure</c>/<c>FreeEnergy</c> = canonical MFE dot-bracket/ΔG° of the window.
+    /// Screen mode: <c>Structure</c>/<c>FreeEnergy</c> from the canonical
+    /// <see cref="RnaSecondaryStructure.FindStemLoops"/> stem-loop (Turner 2004 stacks + AU/GU end penalties +
+    /// full hairpin-loop model), mature = first <paramref name="matureLength"/> nt of the window and star = the
+    /// last (blunt base-paired partner; no 2-nt overhang).
     /// </returns>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="minHairpinLength"/> or
     /// <paramref name="matureLength"/> is &lt; 1.</exception>
@@ -2347,11 +2550,44 @@ public static partial class MiRnaAnalyzer
         string sequence,
         int minHairpinLength = 55,
         int maxHairpinLength = 120,
-        int matureLength = 22)
+        int matureLength = 22,
+        bool useConsecutiveScreen = false,
+        double minMfei = DefaultMinMfei)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(minHairpinLength, 1);
         ArgumentOutOfRangeException.ThrowIfLessThan(matureLength, 1);
-        return FindPreMiRnaHairpinsIterator(sequence, minHairpinLength, maxHairpinLength, matureLength);
+        return useConsecutiveScreen
+            ? FindPreMiRnaHairpinsIterator(sequence, minHairpinLength, maxHairpinLength, matureLength)
+            : FindPreMiRnaHairpinsByMfe(sequence, minHairpinLength, maxHairpinLength, minMfei)
+                .Select(h => ToPreMiRna(h, matureLength));
+    }
+
+    /// <summary>
+    /// Maps an MFE-assessed window onto <see cref="PreMiRna"/>: Structure/FreeEnergy of the fold, mature = 5p
+    /// product from the 5′ base of the outermost pair (Dicer 5′ counting), star by miRDeep2 find_star
+    /// (2-nt 3′ overhang) — the helpers of <see cref="PredictDroshaDicerCleavage(string, int, string?, DicerCountingRule)"/>.
+    /// </summary>
+    private static PreMiRna ToPreMiRna(PreMiRnaMfe h, int matureLength)
+    {
+        string db = h.DotBracket;
+        int n = db.Length;
+        int[] partner = BuildPairTable(db);
+        int matureStart = db.IndexOf('(');                    // outermost pair (single hairpin ⇒ first '(')
+        int lastOpen = h.TerminalLoopStart - 1;               // 5' arm ends at the last '('
+        int matureEnd = Math.Min(matureStart + matureLength - 1, lastOpen);
+        int starEnd = Math.Min(partner[matureStart] + RNaseIII3PrimeOverhang, n - 1);
+        if (!TryFindOppositeArmStart(partner, matureStart, matureEnd, out int starStart))
+            starStart = partner[matureEnd];                   // unreachable for ≥ 16 bp stems; blunt partner
+        starStart = Math.Clamp(starStart, matureEnd + 1, starEnd);
+
+        return new PreMiRna(
+            Start: h.Start,
+            End: h.End,
+            Sequence: h.Sequence,
+            MatureSequence: h.Sequence.Substring(matureStart, matureEnd - matureStart + 1),
+            StarSequence: h.Sequence.Substring(starStart, starEnd - starStart + 1),
+            Structure: db,
+            FreeEnergy: h.FreeEnergy);
     }
 
     private static IEnumerable<PreMiRna> FindPreMiRnaHairpinsIterator(
@@ -2494,8 +2730,9 @@ public static partial class MiRnaAnalyzer
     /// Finds pre-miRNA hairpins by folding each candidate window with the validated Zuker–Stiegler
     /// MFE engine (<see cref="Seqeron.Genomics.Analysis.RnaSecondaryStructure.CalculateMfeStructure"/>,
     /// RNA-STRUCT-001) and deriving the hairpin features (single terminal loop, paired-stem count,
-    /// ΔG°, AMFE, MFEI) from the ACTUAL MFE dot-bracket structure — an opt-in alternative to the
-    /// consecutive-pairing heuristic <see cref="FindPreMiRnaHairpins"/> (which remains the default).
+    /// ΔG°, AMFE, MFEI) from the ACTUAL MFE dot-bracket structure. This is the scan behind the default of
+    /// <see cref="FindPreMiRnaHairpins"/> (which maps its windows onto <see cref="PreMiRna"/> with mature/star
+    /// labels); the consecutive-pairing screen is its opt-in alternative (useConsecutiveScreen = true).
     /// </summary>
     /// <remarks>
     /// Acceptance criteria (all from primary sources):
@@ -2533,29 +2770,40 @@ public static partial class MiRnaAnalyzer
 
         string upper = sequence.ToUpperInvariant().Replace('T', 'U');
 
-        for (int i = 0; i <= upper.Length - minHairpinLength; i++)
+        // Window starts are independent folds: scan them in parallel, emit in the sequential (start, length) order.
+        var perStart = Enumerable.Range(0, upper.Length - minHairpinLength + 1)
+            .AsParallel().AsOrdered()
+            .Select(i => ScanMfeWindowsAt(upper, i, minHairpinLength, maxHairpinLength, minMfei, minLoopSize));
+        foreach (var windows in perStart)
+            foreach (var w in windows)
+                yield return w;
+    }
+
+    private static List<PreMiRnaMfe> ScanMfeWindowsAt(
+        string upper, int i, int minHairpinLength, int maxHairpinLength, double minMfei, int minLoopSize)
+    {
+        var found = new List<PreMiRnaMfe>();
+        for (int len = minHairpinLength; len <= Math.Min(maxHairpinLength, upper.Length - i); len++)
         {
-            for (int len = minHairpinLength; len <= Math.Min(maxHairpinLength, upper.Length - i); len++)
+            string candidate = upper.Substring(i, len);
+            var assessed = AssessHairpinByMfe(candidate, minMfei, minLoopSize);
+            if (assessed != null)
             {
-                string candidate = upper.Substring(i, len);
-                var assessed = AssessHairpinByMfe(candidate, minMfei, minLoopSize);
-                if (assessed != null)
-                {
-                    var a = assessed.Value;
-                    yield return new PreMiRnaMfe(
-                        Start: i,
-                        End: i + len - 1,
-                        Sequence: candidate,
-                        DotBracket: a.DotBracket,
-                        StemBasePairs: a.StemBasePairs,
-                        TerminalLoopStart: a.TerminalLoopStart,
-                        TerminalLoopSize: a.TerminalLoopSize,
-                        FreeEnergy: a.FreeEnergy,
-                        Amfe: a.Amfe,
-                        Mfei: a.Mfei);
-                }
+                var a = assessed.Value;
+                found.Add(new PreMiRnaMfe(
+                    Start: i,
+                    End: i + len - 1,
+                    Sequence: candidate,
+                    DotBracket: a.DotBracket,
+                    StemBasePairs: a.StemBasePairs,
+                    TerminalLoopStart: a.TerminalLoopStart,
+                    TerminalLoopSize: a.TerminalLoopSize,
+                    FreeEnergy: a.FreeEnergy,
+                    Amfe: a.Amfe,
+                    Mfei: a.Mfei));
             }
         }
+        return found;
     }
 
     /// <summary>
@@ -2696,6 +2944,26 @@ public static partial class MiRnaAnalyzer
     }
 
     /// <summary>
+    /// Which end of the pri-miRNA stem Drosha measures its cut from.
+    /// </summary>
+    public enum DroshaCountingRule
+    {
+        /// <summary>
+        /// Basal ruler (Han et al. 2006, Cell 125:887): ~11 bp from the basal stem-ssRNA junction. Default.
+        /// </summary>
+        BasalJunction = 0,
+
+        /// <summary>
+        /// Apical ruler (Zeng, Yi &amp; Cullen 2005, EMBO J 24:138): Drosha cleaves ~22 bp (two helical turns)
+        /// from the junction of the terminal loop and the adjacent stem, measured along the stem.
+        /// Counted in base pairs from the pair that closes the terminal loop (the apical junction), crossing
+        /// interior loops/bulges; the stem is walked from the apical end, so the result does not depend on
+        /// where the caller's basal anchor lies (it only identifies the stem).
+        /// </summary>
+        ApicalJunction = 1,
+    }
+
+    /// <summary>
     /// Predicted Drosha (basal) and Dicer (apical) cleavage coordinates of a folded pri-miRNA hairpin
     /// and the resulting 5p and 3p products. All coordinates are 0-based indices into
     /// <see cref="Sequence"/>; spans are inclusive.
@@ -2747,6 +3015,12 @@ public static partial class MiRnaAnalyzer
         /// <summary>The Dicer counting rule that placed the apical cut.</summary>
         public DicerCountingRule DicerRule { get; init; }
 
+        /// <summary>The Drosha counting rule that placed the basal cut.</summary>
+        public DroshaCountingRule DroshaRule { get; init; }
+
+        /// <summary>0-based index of the 5'-arm base of the apical junction pair (the innermost pair closing the terminal loop of the stem).</summary>
+        public int ApicalJunction { get; init; }
+
         /// <summary>True iff U and G sit at positions −14 and −13 upstream of the 5p Drosha cut (basal UG motif, Auyeung et al. 2013).</summary>
         public bool HasBasalUgMotif { get; init; }
     }
@@ -2757,6 +3031,12 @@ public static partial class MiRnaAnalyzer
     // stem-ssRNA junction." Counted in base pairs of the stem — Auyeung et al. (2013) Cell 152:844: "an
     // 11 bp basal stem was preferred" for all four selected pri-miRNAs; bulged nucleotides do not count.
     private const int DroshaCutBpFromBasalJunction = 11;
+
+    // Drosha apical "ruler": Zeng Y, Yi R, Cullen BR (2005), EMBO J 24:138-148 (PMC544904): "From the junction of
+    // the loop and the adjacent stem, Drosha then cleaves approximately two helical RNA turns" (~22 bp, "if
+    // allowance is made for distortions"). The pre-miRNA stem keeps these 22 pairs: its 5' base is pair 22
+    // counted from the apical junction pair (the same edge convention as the 11 pairs removed at the base).
+    private const int DroshaCutBpFromApicalJunction = 22;
 
     // Dicer counting "ruler": ~22 nt from the 5' end (5' counting rule) — Park JE et al. (2011),
     // Nature 475:201-205, doi:10.1038/nature10198 — or from the 3' end (3' counting rule).
@@ -2817,7 +3097,19 @@ public static partial class MiRnaAnalyzer
     /// <exception cref="ArgumentException"><paramref name="dotBracket"/> has a different length than
     /// <paramref name="sequence"/> or is not balanced.</exception>
     public static DroshaDicerCleavage? PredictDroshaDicerCleavage(
-        string sequence, int basalJunction, string? dotBracket, DicerCountingRule dicerRule = DicerCountingRule.FivePrimeCounting)
+        string sequence, int basalJunction, string? dotBracket, DicerCountingRule dicerRule = DicerCountingRule.FivePrimeCounting) =>
+        PredictDroshaDicerCleavage(sequence, basalJunction, dotBracket, dicerRule, DroshaCountingRule.BasalJunction);
+
+    /// <summary>
+    /// As <see cref="PredictDroshaDicerCleavage(string, int, string?, DicerCountingRule)"/>, with the Drosha ruler
+    /// selectable: <see cref="DroshaCountingRule.BasalJunction"/> (~11 bp from the basal junction, Han 2006) or
+    /// <see cref="DroshaCountingRule.ApicalJunction"/> (~22 bp from the apical junction, Zeng 2005). With the
+    /// apical rule <paramref name="basalJunction"/> only has to be a 5'-arm base of a pair of the stem (it
+    /// selects the stem; the apical junction is the last pair of the unbranched stem above it), and the
+    /// stem needs at least 22 pairs.
+    /// </summary>
+    public static DroshaDicerCleavage? PredictDroshaDicerCleavage(
+        string sequence, int basalJunction, string? dotBracket, DicerCountingRule dicerRule, DroshaCountingRule droshaRule)
     {
         if (string.IsNullOrEmpty(sequence))
             return null;
@@ -2835,9 +3127,23 @@ public static partial class MiRnaAnalyzer
         if (partner[basalJunction] <= basalJunction)
             return null;
         var stem5 = WalkUnbranchedStem(partner, basalJunction);
-        if (stem5.Count <= DroshaCutBpFromBasalJunction)
-            return null;
-        int droshaCut5Prime = stem5[DroshaCutBpFromBasalJunction];
+        int droshaCut5Prime;
+        if (droshaRule == DroshaCountingRule.BasalJunction)
+        {
+            if (stem5.Count <= DroshaCutBpFromBasalJunction)
+                return null;
+            droshaCut5Prime = stem5[DroshaCutBpFromBasalJunction];
+        }
+        else if (droshaRule == DroshaCountingRule.ApicalJunction)
+        {
+            if (stem5.Count < DroshaCutBpFromApicalJunction)
+                return null;
+            droshaCut5Prime = stem5[stem5.Count - DroshaCutBpFromApicalJunction];
+        }
+        else
+        {
+            throw new ArgumentOutOfRangeException(nameof(droshaRule), droshaRule, "Unknown Drosha counting rule.");
+        }
         int droshaCut3Prime = partner[droshaCut5Prime] + RNaseIII3PrimeOverhang;
         if (droshaCut3Prime >= n)
             return null;
@@ -2887,6 +3193,8 @@ public static partial class MiRnaAnalyzer
         {
             Structure = structure,
             DicerRule = dicerRule,
+            DroshaRule = droshaRule,
+            ApicalJunction = stem5[^1],
             HasBasalUgMotif = basalUg,
         };
     }
@@ -3560,59 +3868,58 @@ public static partial class MiRnaAnalyzer
     /// <summary>
     /// Annotates the 3'UTR context of a target site with the site-context determinants of
     /// Grimson et al. (2007, Mol Cell 27:91): AU-rich flanks, placement ≥ 15 nt downstream of the
-    /// stop codon, and placement away from the centre of the UTR (near either end).
+    /// stop codon, and placement near the ends of the UTR.
     /// <paramref name="mRnaSequence"/> is interpreted as the 3'UTR (index 0 = first nt after the stop codon).
     /// </summary>
     /// <remarks>
     /// <list type="bullet">
-    /// <item><b>AuContent</b> — position-weighted local A/U fraction of up to
-    /// <paramref name="contextWindow"/> nt (TargetScan: 30) on each side of the site, the site
-    /// itself excluded, weight 1/d for the nucleotide d positions from the site edge. This is the
-    /// raw local-AU value of TargetScan <c>getLocalAU_contribution</c> with the offset-1 weighting
-    /// on both flanks (the perl's 7mer-m8 convention, used because a bare coordinate range carries
-    /// no site type). 0 when the site has no flanking nucleotide.</item>
+    /// <item><b>AuContent</b> — TargetScan 5.0 position-weighted local A/U fraction of up to
+    /// <paramref name="contextWindow"/> nt (TargetScan: 30) on each side of the site, the site itself
+    /// excluded; weights are those of <paramref name="siteType"/> (see
+    /// <see cref="ScoreTargetSiteGrimson(string, string, int, int, TargetSiteType)"/>). 0 when the site has no
+    /// flanking nucleotide or <paramref name="siteType"/> has no TargetScan 5.0 weights.</item>
     /// <item><b>NearStart</b> — the site starts within the first 15 nt of the 3'UTR (1-based start
     /// &lt; 15, TargetScan <c>$MIN_DIST_TO_CDS</c>); such sites are cleared by the translating
     /// ribosome and are not effective (Grimson 2007).</item>
     /// <item><b>NearEnd</b> — descriptive flag: the site ends in the 3'-terminal 15% of the sequence.</item>
-    /// <item><b>ContextScore</b> ∈ [0,1] — 0 when <b>NearStart</b>; otherwise
-    /// 0.5·AuContent + 0.5·EndProximity, where EndProximity = 1 − min(d5′, d3′)/((d5′ + d3′)/2)
-    /// (1 at either UTR end, 0 at the centre; d5′/d3′ = nt between the site and the 5′/3′ end),
-    /// following Grimson's finding that efficacy falls toward the middle of the UTR with equal
-    /// effects from both ends. The directions of both terms are sourced; the equal 0.5/0.5
-    /// weighting is NOT a fitted model — for the regression-fitted score use
-    /// <see cref="ScoreTargetSiteContextPlusPlus"/> (Agarwal 2015 Local_AU / Min_dist terms).</item>
+    /// <item><b>ContextScore</b> (log2 fold-change units, negative = repressed) — the UTR-context part of
+    /// the TargetScan 5.0 context score: <c>local-AU contribution + position contribution</c>, i.e.
+    /// round3(slope_AU·AuContent + intercept_AU) + round3(slope_pos·min(distance to the nearest UTR end, 1500)
+    /// + intercept_pos) with the Grimson 2007 regression constants of <paramref name="siteType"/>. The
+    /// site-type and 3'-pairing terms need the miRNA; the complete score is
+    /// <see cref="ScoreTargetSiteGrimson(string, string, int, int, TargetSiteType)"/>. 0 when
+    /// <b>NearStart</b> or when <paramref name="siteType"/> is not 8mer / 7mer-m8 / 7mer-A1.</item>
     /// </list>
     /// Empty input or an out-of-range site ([start, end] not within the sequence, or start &gt; end)
-    /// yields all zeros / false.
+    /// yields all zeros / false. The coordinates are those of <see cref="TargetSite"/> (an 8mer includes its A1).
     /// </remarks>
     public static (double AuContent, bool NearStart, bool NearEnd, double ContextScore) AnalyzeTargetContext(
         string mRnaSequence,
         int targetStart,
         int targetEnd,
-        int contextWindow = 30)
+        int contextWindow = 30,
+        TargetSiteType siteType = TargetSiteType.Seed7merM8)
     {
         if (string.IsNullOrEmpty(mRnaSequence) || targetStart < 0 || targetEnd >= mRnaSequence.Length || targetStart > targetEnd)
             return (0, false, false, 0);
 
-        string mrna = mRnaSequence.ToUpperInvariant().Replace('T', 'U');
+        string mrna = NormalizeSeed(mRnaSequence);
         int n = mrna.Length;
+        int perlType = GrimsonPerlType(siteType);
 
-        double auContent = LocalAuFraction(mrna, targetStart, targetEnd, Math.Max(0, contextWindow), 1, 1) ?? 0.0;
+        double auContent = perlType == 0
+            ? 0.0
+            : GrimsonLocalAuFraction(mrna, targetStart, targetEnd, perlType, Math.Max(0, contextWindow));
 
         bool nearStart = targetStart + 1 < MinDistToCds;
         bool nearEnd = targetEnd > n * 0.85;
 
-        if (nearStart)
-            return (auContent, true, nearEnd, 0.0);
+        if (nearStart || perlType == 0)
+            return (auContent, nearStart, nearEnd, 0.0);
 
-        int d5 = targetStart;
-        int d3 = n - 1 - targetEnd;
-        double centreDistance = (d5 + d3) / 2.0;
-        double endProximity = centreDistance > 0 ? 1.0 - Math.Min(d5, d3) / centreDistance : 1.0;
-
-        double contextScore = 0.5 * auContent + 0.5 * endProximity;
-        return (auContent, false, nearEnd, Math.Clamp(contextScore, 0.0, 1.0));
+        double au = RoundPerl3(auContent * GrimsonAuSlope[perlType] + GrimsonAuIntercept[perlType]);
+        double position = GrimsonPositionContribution(n, targetStart, targetEnd, perlType);
+        return (auContent, false, nearEnd, au + position);
     }
 
     /// <summary>

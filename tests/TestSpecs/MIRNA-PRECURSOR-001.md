@@ -66,7 +66,7 @@
 
 ### 1.4 Known Failure Modes / Pitfalls
 
-1. **Simplified consecutive-pairing model** misses real pre-miRNAs with internal bulges — implementation limitation (documented in algorithm doc).
+1. **Simplified consecutive-pairing model (screen mode, `useConsecutiveScreen: true`)** misses real pre-miRNAs with internal bulges; the DEFAULT (F40) folds each window (MFE) and detects them. Cost: ≈ 20 ms per window.
 2. **Overlapping candidates** — scanning may yield multiple overlapping hairpins from same region.
 
 ---
@@ -75,7 +75,7 @@
 
 | Method | Class | Type | Notes |
 |--------|-------|------|-------|
-| `FindPreMiRnaHairpins(sequence, minHairpinLength, maxHairpinLength, matureLength)` | MiRnaAnalyzer | Canonical | Public API for pre-miRNA detection (default consecutive-pairing heuristic) |
+| `FindPreMiRnaHairpins(sequence, minHairpinLength, maxHairpinLength, matureLength, useConsecutiveScreen=false, minMfei=0.85)` | MiRnaAnalyzer | Canonical | Public API for pre-miRNA detection: default = MFE fold per window (F40; mature/star by Dicer 2-nt-overhang find_star); `useConsecutiveScreen: true` = consecutive-pairing screen |
 | `AnalyzeHairpin(sequence, matureLength)` | MiRnaAnalyzer | Internal | Private helper, tested indirectly |
 | `AssessHairpinByMfe(candidate, minMfei, minLoopSize)` | MiRnaAnalyzer | Canonical | Opt-in: assess one candidate from its real MFE structure (RNA-STRUCT-001) |
 | `FindPreMiRnaHairpinsByMfe(sequence, minHairpinLength, maxHairpinLength, minMfei, minLoopSize)` | MiRnaAnalyzer | Canonical | Opt-in: window scan that folds each candidate with the MFE engine |
@@ -136,8 +136,11 @@
 | M15 | GU_WobblePairs_InStem | G-U pairs count as valid stem pairs | Hairpin accepted | Krol (2004) |
 | M16 | SequenceLength_InRange | All returned PreMiRnas have length within [min, max] | INV-1 verified | Scanning window definition |
 | M17 | Invariants_AllHold | All invariants verified on results | INV-1 through INV-10 | Multiple sources |
-| M18 | RealMiRBase_HsaMir21_NotDetected | hsa-mir-21 (MI0000077, 72 nt) — real pre-miRNA not detected by the **heuristic** | Empty (heuristic limitation) | miRBase v22 |
-| M19 | RealMiRBase_HsaLet7a1_NotDetected | hsa-let-7a-1 (MI0000060, 80 nt) — real pre-miRNA not detected by the **heuristic** | Empty (heuristic limitation) | miRBase v22 |
+| M18 | Screen_RealMiRBase_HsaMir21_NotDetected_KnownLimitation | hsa-mir-21 (MI0000077, 72 nt) with `useConsecutiveScreen: true` | Empty (screen limitation) | miRBase v22 |
+| M19 | Screen_RealMiRBase_HsaLet7a1_NotDetected_KnownLimitation | hsa-let-7a-1 (MI0000060, 80 nt) with `useConsecutiveScreen: true` | Empty (screen limitation) | miRBase v22 |
+| F40a | FindPreMiRnaHairpins_Default_DetectsBulgedMiRBasePreMiRnas_WithViennaStructure | default mode on hsa-mir-21 [1,71] / let-7a-1 [0,79] | Vienna dot-bracket exactly; ΔG° −35.17 (Vienna −34.70, ±0.5) / −34.31 (−34.20, ±0.15) = `CalculateMinimumFreeEnergy` | ViennaRNA 2.8 `RNA.fold` |
+| F40b | FindPreMiRnaHairpins_Default_MatureStar_FollowFindStarOverhangRule | mir-21 [1,71] | mature `GUCGGGUAGCUUAUCAGACUGA` (22 nt from outermost pair); star `AGUCGAUGGGCUGUCUGACA` (find_star, end = partner+2 clipped) ≠ blunt last 22 nt | miRDeep2 find_star; Park 2011 |
+| F40c | FindPreMiRnaHairpins_ScreenOption_KeepsBluntLabelsAndConsecutiveStem | `ValidHairpin57`, screen mode | blunt star = last 22 nt | previous behaviour kept |
 | MF1 | AssessHairpinByMfe_PerfectHairpin | `ValidHairpin57` folded by the engine: single hairpin, ΔG°=−48.48, 27 bp, loop 3, AMFE=85.052632, MFEI=1.939200; ΔG° equals `CalculateMinimumFreeEnergy` | Accepted, exact values | RNA-STRUCT-001 engine; Zhang (2006) |
 | MF2 | AssessHairpinByMfe_HsaMir21_Detected | hsa-mir-21 folded: single hairpin, ΔG°=−35.13, 32 bp, loop 3, MFEI=1.003714 | **Accepted** (MFE fold detects it) | miRBase v22; RNA-STRUCT-001 |
 | MF3 | AssessHairpinByMfe_HsaLet7a1_Detected | hsa-let-7a-1 (80 nt) folded: single hairpin, ΔG°=−34.31, 32 bp, loop 4, MFEI=1.009118 | **Accepted** (MFE fold detects it) | miRBase v22; RNA-STRUCT-001 |
@@ -268,7 +271,7 @@
 
 | # | Limitation | Impact | Tests |
 |---|-----------|--------|-------|
-| 1 | **Default heuristic** uses consecutive stem pairing from ends (extended up to the 3-nt minimum loop; energy/structure from the canonical RnaSecondaryStructure stem-loop since B13 F8/F9); no tolerance for internal mismatches or bulges. Real pre-miRNAs (e.g., hsa-mir-21) have asymmetric internal loops that offset pairing alignment. | Real miRBase pre-miRNAs are not detected by the **default** model. | M18, M19 |
+| 1 | **Screen mode (`useConsecutiveScreen: true`; the default before F40)** uses consecutive stem pairing from ends (extended up to the 3-nt minimum loop; energy/structure from the canonical RnaSecondaryStructure stem-loop since B13 F8/F9); no tolerance for internal mismatches or bulges. Real pre-miRNAs (e.g., hsa-mir-21) have asymmetric internal loops that offset pairing alignment. | Real miRBase pre-miRNAs are not detected by the **default** model. | M18, M19 |
 | 2 | **Resolved (opt-in):** `AssessHairpinByMfe` / `FindPreMiRnaHairpinsByMfe` fold the candidate with the validated Zuker–Stiegler MFE engine (RNA-STRUCT-001) and read the hairpin from the real MFE structure, detecting natural miRBase precursors. | hsa-mir-21 / hsa-let-7a-1 now detected via the MFE path. | MF2, MF3, MF4 |
 | 3 | **Resolved (opt-in):** `PredictDroshaDicerCleavage` predicts the Drosha cut (~11 bp from the basal junction, Han 2006), the Dicer cut / mature length (~22 nt, 5' counting rule, Park 2011), the mature (5p) and star (3p) coordinates, the 2-nt 3' overhang, and an optional CNNC confidence flag (Auyeung 2013). Cross-checked against miRBase hsa-miR-21-5p. | Cleavage coordinates now predictable from the published rules. | DD1–DD10 |
 | 4 | **Resolved (opt-in):** `ClassifyPreMiRna` is a bundled **trained** logistic-regression natural-vs-background classifier over published structure/sequence features (MFE, AMFE, MFEI, GC, %paired), trained from public-domain miRBase positives vs Altschul-Erickson di-shuffled negatives (Bonnet 2004); held-out accuracy = AUC = 1.0 on the fixed-seed 70/30 split. NO GPL miRDeep2 code was used. | Structure/sequence-feature precursor scoring now ships out of the box. | CL1–CL12 |
@@ -278,7 +281,7 @@
 
 ## 7. Open Questions / Decisions
 
-None. Behaviour is testable via the public APIs `FindPreMiRnaHairpins` (default heuristic),
+None. Behaviour is testable via the public APIs `FindPreMiRnaHairpins` (default MFE fold; `useConsecutiveScreen: true` = screen),
 `FindPreMiRnaHairpinsByMfe` / `AssessHairpinByMfe` / `CalculateMfeIndex` (opt-in MFE-fold path), and
 `ExtractPreMiRnaFeatures` / `ClassifyPreMiRna` / `ScorePreMiRnaFeatures` / `DinucleotideShuffle`
 (opt-in trained classifier path).
