@@ -1095,10 +1095,18 @@ public class MiRnaAnalyzer_PreMiRna_Tests
         {
             Assert.That(mfei, Is.EqualTo(1.939200).Within(1e-6),
                 "MFEI = (100·|ΔG°|/length)/(G+C)% — Zhang (2006).");
-            Assert.That(CalculateMfeIndex(-48.48, 0, 43.0), Is.EqualTo(0.0),
-                "Zero length ⇒ MFEI 0 (guard).");
-            Assert.That(CalculateMfeIndex(-48.48, 57, 0.0), Is.EqualTo(0.0),
-                "Zero GC% ⇒ MFEI 0 (guard, no division by zero).");
+            // R3-A9: public inputs are validated (doc: "length must be > 0"; Zhang 2006 MFEI = (MFE/length×100)/GC%
+            // is undefined for length ≤ 0 or GC% = 0 and meaningless for non-finite ΔG° or GC% outside [0,100]).
+            Assert.Throws<ArgumentOutOfRangeException>(() => CalculateMfeIndex(-48.48, 0, 43.0), "length 0");
+            Assert.Throws<ArgumentOutOfRangeException>(() => CalculateMfeIndex(-48.48, -5, 43.0), "negative length");
+            Assert.Throws<ArgumentOutOfRangeException>(() => CalculateMfeIndex(-48.48, 57, 0.0), "GC% 0 (division by zero)");
+            Assert.Throws<ArgumentOutOfRangeException>(() => CalculateMfeIndex(-48.48, 57, double.NaN), "GC% NaN");
+            Assert.Throws<ArgumentOutOfRangeException>(() => CalculateMfeIndex(-48.48, 57, 100.01), "GC% > 100");
+            Assert.Throws<ArgumentOutOfRangeException>(() => CalculateMfeIndex(-48.48, 57, -1.0), "GC% < 0");
+            Assert.Throws<ArgumentOutOfRangeException>(() => CalculateMfeIndex(double.NaN, 57, 43.0), "ΔG° NaN");
+            Assert.Throws<ArgumentOutOfRangeException>(() => CalculateMfeIndex(double.NegativeInfinity, 57, 43.0), "ΔG° -∞");
+            // The folder-derived path keeps the documented GC = 0 value (MFEI 0): an all-A/U hairpin is never accepted.
+            Assert.That(ExtractPreMiRnaFeatures(new string('A', 20) + "UUU" + new string('U', 20))!.Value.Mfei, Is.EqualTo(0.0));
         });
     }
 

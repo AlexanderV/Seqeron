@@ -1395,6 +1395,163 @@ public class AnnotationTools
         return new ComputeMiPredFeaturesResult(MiRnaAnalyzer.ComputeMiPredFeatures(sequence, dotBracket, freeEnergy, pValue));
     }
 
+    private const int MaxAssessCandidateLength = 1000;
+    private const int MaxShuffleCount = 1000;
+    private const int MaxShuffleSequenceLength = 10000;
+
+    private static PreMiRnaMfeDto ToDto(MiRnaAnalyzer.PreMiRnaMfe h) =>
+        new(h.Start, h.End, h.Sequence, h.DotBracket, h.StemBasePairs, h.TerminalLoopStart, h.TerminalLoopSize, h.FreeEnergy, h.Amfe, h.Mfei);
+
+    /// <summary>Assess one candidate hairpin from its real MFE structure.</summary>
+    [McpServerTool(Name = "assess_hairpin_by_mfe", Title = "miRNA — Assess Hairpin By MFE", ReadOnly = true)]
+    [Description("Assess ONE candidate sequence as a pre-miRNA hairpin from its real MFE fold (canonical Zuker-Stiegler / Turner 2004 engine): the MFE structure must be a single hairpin (no branching) with >= 16 base pairs (Ambros 2003), a 3-25 nt apical loop (Bartel 2004) and MFEI >= minMfei (Zhang 2006, default 0.85; MFEI = AMFE/(G+C)%, AMFE = 100*|dG|/length). Returns the dot-bracket, stem base-pair count, terminal-loop start/size, free energy (kcal/mol), AMFE and MFEI (span = whole candidate, 0-based). found=false (hairpin null) when the candidate is rejected by any criterion. One MFE fold; candidate length capped at 1000 nt.")]
+    public static AssessHairpinByMfeResult AssessHairpinByMfe(
+        [Description("Candidate nucleotide sequence (RNA or DNA; T read as U; case-insensitive; max 1000 nt)")] string candidate,
+        [Description("Minimum MFEI to accept (Zhang 2006: 0.85)")] double minMfei = 0.85,
+        [Description("Minimum hairpin loop size of the folder (NNDB minimum 3)")] int minLoopSize = 3)
+    {
+        if (string.IsNullOrEmpty(candidate))
+            throw new ArgumentException("Candidate cannot be null or empty", nameof(candidate));
+        if (candidate.Length > MaxAssessCandidateLength)
+            throw new ArgumentOutOfRangeException(nameof(candidate), $"candidate must be at most {MaxAssessCandidateLength} nt");
+        if (!double.IsFinite(minMfei) || minMfei < 0)
+            throw new ArgumentOutOfRangeException(nameof(minMfei), "minMfei must be a finite value >= 0");
+        if (minLoopSize < 0)
+            throw new ArgumentOutOfRangeException(nameof(minLoopSize), "minLoopSize must be >= 0");
+
+        return MiRnaAnalyzer.AssessHairpinByMfe(candidate, minMfei, minLoopSize) is { } h
+            ? new AssessHairpinByMfeResult(true, ToDto(h))
+            : new AssessHairpinByMfeResult(false, null);
+    }
+
+    /// <summary>Scan a sequence for pre-miRNA hairpins, reporting the full MFE-derived features per window.</summary>
+    [McpServerTool(Name = "find_pre_mirna_hairpins_by_mfe", Title = "miRNA — Find Pre-miRNA Hairpins (MFE features)", ReadOnly = true)]
+    [Description("Window scan (minHairpinLength..maxHairpinLength) that folds every window with the canonical MFE engine (Turner 2004) and returns the accepted hairpins WITH their MFE-derived features — dot-bracket, stem base pairs, terminal-loop start/size, free energy, AMFE and MFEI (Zhang 2006) — which find_pre_mirna_hairpins (mature/star labels, free energy only) does not report. Acceptance as assess_hairpin_by_mfe: single hairpin, >= 16 bp (Ambros 2003), 3-25 nt loop (Bartel 2004), MFEI >= minMfei (default 0.85). Spans are 0-based inclusive in the input (overlapping windows of the same locus are all reported). COST: one MFE fold per window (~20 ms per 55-120 nt window, parallelised over window starts) — keep the input to a few hundred nt.")]
+    public static FindPreMiRnaHairpinsByMfeResult FindPreMiRnaHairpinsByMfe(
+        [Description("Nucleotide sequence to scan (RNA or DNA; T read as U)")] string sequence,
+        [Description("Minimum window length (nt)")] int minHairpinLength = 55,
+        [Description("Maximum window length (nt)")] int maxHairpinLength = 120,
+        [Description("Minimum MFEI to accept (Zhang 2006: 0.85)")] double minMfei = 0.85,
+        [Description("Minimum hairpin loop size of the folder (NNDB minimum 3)")] int minLoopSize = 3)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+        if (minHairpinLength < 1)
+            throw new ArgumentOutOfRangeException(nameof(minHairpinLength), "minHairpinLength must be >= 1");
+        if (maxHairpinLength < minHairpinLength)
+            throw new ArgumentOutOfRangeException(nameof(maxHairpinLength), "maxHairpinLength must be >= minHairpinLength");
+        if (!double.IsFinite(minMfei) || minMfei < 0)
+            throw new ArgumentOutOfRangeException(nameof(minMfei), "minMfei must be a finite value >= 0");
+        if (minLoopSize < 0)
+            throw new ArgumentOutOfRangeException(nameof(minLoopSize), "minLoopSize must be >= 0");
+
+        var hairpins = MiRnaAnalyzer
+            .FindPreMiRnaHairpinsByMfe(sequence, minHairpinLength, maxHairpinLength, minMfei, minLoopSize)
+            .Select(ToDto)
+            .ToList();
+        return new FindPreMiRnaHairpinsByMfeResult(hairpins);
+    }
+
+    /// <summary>Minimal folding free energy index (Zhang et al. 2006).</summary>
+    [McpServerTool(Name = "calculate_mfe_index", Title = "miRNA — MFE Index (MFEI)", ReadOnly = true)]
+    [Description("Minimal folding free energy index of Zhang, Pan, Cobb & Zhou (2006, Cell Mol Life Sci 63:246-254): MFEI = AMFE / (G+C)%, AMFE = 100*|MFE| / length (the MFE magnitude is used so the published 'MFEI >= 0.85 for pre-miRNAs' criterion applies to the negative dG of the folder). Pure arithmetic from a supplied free energy, length and GC percentage (no folding). length must be > 0, freeEnergy finite, gcPercent in (0, 100] (the index is undefined without G/C).")]
+    public static CalculateMfeIndexResult CalculateMfeIndex(
+        [Description("Free energy of the MFE structure (kcal/mol, typically negative; finite)")] double freeEnergy,
+        [Description("Sequence length in nucleotides (> 0)")] int length,
+        [Description("G+C content as a percentage in (0, 100]")] double gcPercent)
+    {
+        if (length <= 0)
+            throw new ArgumentOutOfRangeException(nameof(length), "length must be > 0");
+        if (!double.IsFinite(freeEnergy))
+            throw new ArgumentOutOfRangeException(nameof(freeEnergy), "freeEnergy must be finite");
+        if (double.IsNaN(gcPercent) || gcPercent <= 0 || gcPercent > 100)
+            throw new ArgumentOutOfRangeException(nameof(gcPercent), "gcPercent must be in (0, 100]");
+
+        return new CalculateMfeIndexResult(MiRnaAnalyzer.CalculateMfeIndex(freeEnergy, length, gcPercent));
+    }
+
+    /// <summary>Seeded dinucleotide-preserving shuffles (Altschul-Erickson / uShuffle).</summary>
+    [McpServerTool(Name = "dinucleotide_shuffle", Title = "Sequence — Dinucleotide Shuffle", ReadOnly = true)]
+    [Description("Dinucleotide-composition-preserving random shuffles of a sequence: each shuffle is a uniformly random sequence with the SAME first and last nucleotide and EXACT dinucleotide (doublet) counts — random Eulerian trail of the doublet multigraph, Altschul & Erickson 1985 (Mol Biol Evol 2:526), with the last-exit arborescence drawn by Wilson's loop-erased random walk exactly as uShuffle (Jiang, Anderson, Gillespie & Mayne 2008, BMC Bioinformatics 9:192; ushuffle.c shuffle2) — the negative-set convention of randfold (Bonnet 2004), Triplet-SVM (Xue 2005) and microPred. Input case is normalised to upper, T read as U (output in RNA alphabet). `count` shuffles are drawn in order from ONE System.Random(seed): deterministic, the same sequence + seed + count always return the same list. Sequences shorter than 3 nt are returned unchanged. count capped at 1000, sequence at 10000 nt.")]
+    public static DinucleotideShuffleResult DinucleotideShuffle(
+        [Description("Nucleotide sequence (RNA or DNA; T read as U; max 10000 nt)")] string sequence,
+        [Description("Seed of the System.Random driving the shuffles (default 42)")] int seed = 42,
+        [Description("Number of shuffles to return (1..1000, default 1)")] int count = 1)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+        if (sequence.Length > MaxShuffleSequenceLength)
+            throw new ArgumentOutOfRangeException(nameof(sequence), $"sequence must be at most {MaxShuffleSequenceLength} nt");
+        if (count < 1 || count > MaxShuffleCount)
+            throw new ArgumentOutOfRangeException(nameof(count), $"count must be in [1, {MaxShuffleCount}]");
+
+        var rng = new Random(seed);
+        var shuffles = new List<string>(count);
+        for (int i = 0; i < count; i++)
+            shuffles.Add(MiRnaAnalyzer.DinucleotideShuffle(sequence, rng));
+        return new DinucleotideShuffleResult(shuffles, seed, count);
+    }
+
+    /// <summary>Evaluate the in-repo pre-miRNA logistic model on supplied features.</summary>
+    [McpServerTool(Name = "score_pre_mirna_features", Title = "miRNA — Score Pre-miRNA Features", ReadOnly = true)]
+    [Description("Evaluate the bundled IN-REPO ridge-logistic pre-miRNA model (the model behind classify_pre_mirna; not a published classifier) on feature values you supply, returning P(natural) in [0,1]. The model uses exactly five features: freeEnergy (kcal/mol), amfe (100*|dG|/length), mfei (Zhang 2006), gcContent (fraction 0..1) and pairedFraction (2*bp/length, 0..1) — classify_pre_mirna returns these (its `features`), so score_pre_mirna_features(classify.features) equals classify.naturalProbability; a separate extract tool is therefore not provided. Pure arithmetic, no folding.")]
+    public static ScorePreMiRnaFeaturesResult ScorePreMiRnaFeatures(
+        [Description("MFE free energy (kcal/mol; finite)")] double freeEnergy,
+        [Description("Adjusted MFE = 100*|dG|/length (finite, >= 0)")] double amfe,
+        [Description("MFEI = AMFE/(G+C)% (finite, >= 0)")] double mfei,
+        [Description("G+C content as a fraction in [0, 1]")] double gcContent,
+        [Description("Fraction of nucleotides paired, 2*bp/length, in [0, 1]")] double pairedFraction)
+    {
+        if (!double.IsFinite(freeEnergy))
+            throw new ArgumentOutOfRangeException(nameof(freeEnergy), "freeEnergy must be finite");
+        if (!double.IsFinite(amfe) || amfe < 0)
+            throw new ArgumentOutOfRangeException(nameof(amfe), "amfe must be a finite value >= 0");
+        if (!double.IsFinite(mfei) || mfei < 0)
+            throw new ArgumentOutOfRangeException(nameof(mfei), "mfei must be a finite value >= 0");
+        if (!double.IsFinite(gcContent) || gcContent < 0 || gcContent > 1)
+            throw new ArgumentOutOfRangeException(nameof(gcContent), "gcContent must be in [0, 1]");
+        if (!double.IsFinite(pairedFraction) || pairedFraction < 0 || pairedFraction > 1)
+            throw new ArgumentOutOfRangeException(nameof(pairedFraction), "pairedFraction must be in [0, 1]");
+
+        // StemBasePairs / LoopSize / Length are not model inputs (PreMiRnaModelInputs uses the five above only).
+        var f = new MiRnaAnalyzer.PreMiRnaFeatures(freeEnergy, amfe, mfei, gcContent, pairedFraction, 0, 0, 0);
+        return new ScorePreMiRnaFeaturesResult(MiRnaAnalyzer.ScorePreMiRnaFeatures(f));
+    }
+
+    /// <summary>The 32 Triplet-SVM triplet-element features of a single stem-loop.</summary>
+    [McpServerTool(Name = "compute_triplet_features", Title = "miRNA — Triplet-SVM Features", ReadOnly = true)]
+    [Description("The 32 triplet-element features of a single stem-loop (Xue et al. 2005, BMC Bioinformatics 6:310; package step 3, reverse_flag = 0, method = 1): for every nucleotide of the 5' arm and of the 3' arm (loop and flanking unpaired ends excluded) the centre nucleotide (A=0, G=1, C=2, U=3) and the paired(1)/unpaired(0) state of its two arm neighbours give index = nucleotide*8 + bits; counts are normalised to sum 1. Pure counting, no folding. The structure must be '.()' notation of the same length as the sequence. found=false (features null) when the structure is not exactly one arm pair, the lengths differ, or the sequence has non-ACGU characters. Feed the result to triplet_svm_decision_value.")]
+    public static ComputeTripletFeaturesResult ComputeTripletFeatures(
+        [Description("Stem-loop nucleotide sequence (RNA or DNA, A/C/G/T/U only)")] string sequence,
+        [Description("Secondary structure in '.()' notation, same length as the sequence")] string dotBracket)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+        if (string.IsNullOrEmpty(dotBracket))
+            throw new ArgumentException("dotBracket cannot be null or empty", nameof(dotBracket));
+
+        return MiRnaAnalyzer.ComputeTripletFeatures(sequence, dotBracket) is { } f
+            ? new ComputeTripletFeaturesResult(true, f)
+            : new ComputeTripletFeaturesResult(false, null);
+    }
+
+    /// <summary>libsvm decision value of the Triplet-SVM model for a 32-element feature vector.</summary>
+    [McpServerTool(Name = "triplet_svm_decision_value", Title = "miRNA — Triplet-SVM Decision Value", ReadOnly = true)]
+    [Description("libsvm decision value of the authors' own trained Triplet-SVM model (Xue et al. 2005) for a 32-element triplet-feature vector (compute_triplet_features): sum_i coef_i*exp(-gamma*||x - sv_i||^2) - rho with the RBF kernel gamma = 16 and rho = 2.74269; positive = real pre-miRNA (isPreMiRna). Identical to svm_predict_values of the package model (checked to 1e-12). Pure arithmetic, no folding.")]
+    public static TripletSvmDecisionValueResult TripletSvmDecisionValue(
+        [Description("The 32 triplet-element frequencies (finite numbers)")] double[] features)
+    {
+        if (features is null || features.Length == 0)
+            throw new ArgumentException("Features cannot be null or empty", nameof(features));
+        if (features.Length != MiRnaAnalyzer.TripletSvmFeatureCount)
+            throw new ArgumentException($"Expected {MiRnaAnalyzer.TripletSvmFeatureCount} features.", nameof(features));
+        if (features.Any(v => !double.IsFinite(v)))
+            throw new ArgumentOutOfRangeException(nameof(features), "features must be finite");
+
+        double dv = MiRnaAnalyzer.TripletSvmDecisionValue(features);
+        return new TripletSvmDecisionValueResult(dv, dv > 0);
+    }
+
     /// <summary>Minimum-free-energy miRNA·target duplex (RNAduplex model, Turner 2004).</summary>
     [McpServerTool(Name = "fold_mirna_duplex", Title = "miRNA — Fold miRNA·Target Duplex", ReadOnly = true)]
     [Description("Minimum-free-energy miRNA·target duplex (RNAduplex / duplexfold model): one contiguous duplex with internal loops and bulges up to maxLoopSize per side, scored with Turner 2004 nearest-neighbor parameters (kcal/mol, 37 °C). Returns the dot-bracket in RNAduplex notation (miRNA '(' then '&', then target ')'), the 0-based miRNA/target spans, the base pairs (miRNA index, target index; 0-based, 5'→3') and the free energy. found=false when no base pair is possible. DNA T is read as U.")]

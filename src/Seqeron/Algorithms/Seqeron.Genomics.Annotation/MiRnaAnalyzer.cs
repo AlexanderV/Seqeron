@@ -2712,15 +2712,31 @@ public static partial class MiRnaAnalyzer
 
     /// <summary>
     /// Computes the minimal folding free energy index (MFEI) of Zhang et al. (2006),
-    /// Cell Mol Life Sci 63:246-254: MFEI = AMFE / (G+C)% where AMFE = 100·|MFE| / length.
+    /// Cell Mol Life Sci 63:246-254: MFEI = AMFE / (G+C)% where AMFE = 100·|MFE| / length
+    /// (i.e. (MFE/length×100)/GC%).
     /// MFE is taken as a magnitude (|ΔG°|) so that the published "MFEI > 0.85" criterion applies
     /// directly to the negative ΔG° returned by the Turner-2004 folder.
     /// </summary>
-    /// <param name="freeEnergy">ΔG° (kcal/mol), as returned by the folder (typically negative).</param>
+    /// <param name="freeEnergy">ΔG° (kcal/mol), as returned by the folder (typically negative); must be finite.</param>
     /// <param name="length">Sequence length in nucleotides (must be &gt; 0).</param>
-    /// <param name="gcPercent">G+C content as a percentage in (0,100].</param>
-    /// <returns>MFEI (dimensionless). Returns 0 when length or GC% is non-positive.</returns>
+    /// <param name="gcPercent">G+C content as a percentage in (0,100]; 0 is rejected because the index is
+    /// undefined (division by zero) for a sequence without G or C.</param>
+    /// <returns>MFEI (dimensionless, ≥ 0).</returns>
+    /// <exception cref="ArgumentOutOfRangeException">length ≤ 0, non-finite free energy, or gcPercent NaN / ≤ 0 / &gt; 100.</exception>
     public static double CalculateMfeIndex(double freeEnergy, int length, double gcPercent)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(length, 0);
+        if (!double.IsFinite(freeEnergy))
+            throw new ArgumentOutOfRangeException(nameof(freeEnergy), freeEnergy, "Free energy must be finite.");
+        if (double.IsNaN(gcPercent) || gcPercent <= 0 || gcPercent > 100)
+            throw new ArgumentOutOfRangeException(nameof(gcPercent), gcPercent, "GC percent must be in (0, 100].");
+        return MfeIndexOrZero(freeEnergy, length, gcPercent);
+    }
+
+    // Internal path for the folder-derived features: a sequence without G/C (GC% = 0) has no defined
+    // MFEI; the pre-miRNA features report 0 for it (never accepted, never NaN/∞), as documented in
+    // PreMiRnaFeatures / AssessHairpinByMfe.
+    private static double MfeIndexOrZero(double freeEnergy, int length, double gcPercent)
     {
         if (length <= 0 || gcPercent <= 0) return 0.0;
         double amfe = AmfePer100Nt * Math.Abs(freeEnergy) / length;
@@ -2842,7 +2858,7 @@ public static partial class MiRnaAnalyzer
 
         double gcPercent = mfe.Sequence.CalculateGcContentFast(); // canonical percent (Biopython gc_fraction 'remove' x 100)
         double amfe = AmfePer100Nt * Math.Abs(mfe.FreeEnergy) / n;
-        double mfei = CalculateMfeIndex(mfe.FreeEnergy, n, gcPercent);
+        double mfei = MfeIndexOrZero(mfe.FreeEnergy, n, gcPercent);
         if (mfei < minMfei)
             return null;
 
@@ -3577,7 +3593,7 @@ public static partial class MiRnaAnalyzer
         double pairedFraction = n > 0 ? (2.0 * bp) / n : 0.0; // each pair occupies two bases
         double gcFraction = seq.CalculateGcFractionFast();
         double amfe = AmfePer100Nt * Math.Abs(mfe.FreeEnergy) / n;
-        double mfei = CalculateMfeIndex(mfe.FreeEnergy, n, seq.CalculateGcContentFast());
+        double mfei = MfeIndexOrZero(mfe.FreeEnergy, n, seq.CalculateGcContentFast());
         int loopSize = LargestEnclosedLoop(mfe.DotBracket);
 
         return new PreMiRnaFeatures(

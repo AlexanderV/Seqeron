@@ -528,6 +528,32 @@ public record ClassifyPreMiRnaMiPredResult(
 /// <summary>Result of compute_mipred_features: the 34 features V1..V34.</summary>
 public record ComputeMiPredFeaturesResult(IReadOnlyList<double> Features);
 
+/// <summary>Hairpin assessed from its real MFE structure (Ambros 2003 / Bartel 2004 / Zhang 2006); 0-based inclusive span in the scanned sequence.</summary>
+public record PreMiRnaMfeDto(
+    int Start, int End, string Sequence, string DotBracket, int StemBasePairs,
+    int TerminalLoopStart, int TerminalLoopSize, double FreeEnergy, double Amfe, double Mfei);
+
+/// <summary>Result of assess_hairpin_by_mfe. <c>Found</c> is false (<c>Hairpin</c> null) when the candidate is rejected.</summary>
+public record AssessHairpinByMfeResult(bool Found, PreMiRnaMfeDto? Hairpin);
+
+/// <summary>Result of find_pre_mirna_hairpins_by_mfe.</summary>
+public record FindPreMiRnaHairpinsByMfeResult(IReadOnlyList<PreMiRnaMfeDto> Hairpins);
+
+/// <summary>Result of calculate_mfe_index.</summary>
+public record CalculateMfeIndexResult(double Mfei);
+
+/// <summary>Result of dinucleotide_shuffle: <c>Count</c> shuffles drawn in order from one System.Random(<c>Seed</c>).</summary>
+public record DinucleotideShuffleResult(IReadOnlyList<string> Shuffles, int Seed, int Count);
+
+/// <summary>Result of score_pre_mirna_features.</summary>
+public record ScorePreMiRnaFeaturesResult(double NaturalProbability);
+
+/// <summary>Result of compute_triplet_features. <c>Found</c> is false (<c>Features</c> null) when the structure is not a single arm pair or the sequence has non-ACGU characters.</summary>
+public record ComputeTripletFeaturesResult(bool Found, IReadOnlyList<double>? Features);
+
+/// <summary>Result of triplet_svm_decision_value.</summary>
+public record TripletSvmDecisionValueResult(double DecisionValue, bool IsPreMiRna);
+
 /// <summary>Base pair of a miRNA·target duplex (0-based indices, miRNA 5'→3' and target 5'→3').</summary>
 public record DuplexBasePairDto(int MiRnaIndex, int TargetIndex);
 

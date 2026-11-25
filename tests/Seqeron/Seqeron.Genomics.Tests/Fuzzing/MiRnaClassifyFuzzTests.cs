@@ -267,17 +267,18 @@ public class MiRnaClassifyFuzzTests
     [CancelAfter(60_000)]
     public void Classify_ExtremeGc_NoNaNMfei_FiniteProbability()
     {
-        // Direct unit pin on the MFEI helper: GC% = 0 ⇒ guarded to 0, never 0/0 = NaN.
-        double mfeiGcZero = CalculateMfeIndex(-10.0, 60, 0.0);
-        double.IsNaN(mfeiGcZero).Should().BeFalse("MFEI(GC%=0) must be the guarded 0, not 0/0 = NaN (INV-CL-3)");
-        mfeiGcZero.Should().Be(0.0, "the (G+C)%=0 denominator edge is guarded to 0, not a division");
+        // Direct pin on the public MFEI helper (R3-A9): GC% = 0 is undefined (÷0) ⇒ rejected, never 0/0 = NaN;
+        // the folder-derived feature path reports the guarded 0 (asserted end-to-end below).
+        var gcZero = () => CalculateMfeIndex(-10.0, 60, 0.0);
+        gcZero.Should().Throw<ArgumentOutOfRangeException>("MFEI(GC%=0) is undefined, not a silent 0 / NaN (INV-CL-3)");
         // GC% = 100 is the opposite extreme — a normal finite division.
         double mfeiGcFull = CalculateMfeIndex(-30.0, 60, 100.0);
         double.IsNaN(mfeiGcFull).Should().BeFalse("MFEI(GC%=100) is a finite division (INV-CL-3)");
         mfeiGcFull.Should().BeApproximately((100.0 * 30.0 / 60.0) / 100.0, 1e-12,
             "MFEI = (100·|ΔG°|/length)/(G+C)% — hand-traced at GC% = 100");
-        // Length = 0 edge is also guarded (no DivByZero on the AMFE 100·|ΔG°|/length term).
-        CalculateMfeIndex(-5.0, 0, 50.0).Should().Be(0.0, "length 0 is guarded to MFEI 0, not /0");
+        // Length = 0 edge is rejected (no DivByZero on the AMFE 100·|ΔG°|/length term).
+        var len0 = () => CalculateMfeIndex(-5.0, 0, 50.0);
+        len0.Should().Throw<ArgumentOutOfRangeException>("length 0 is invalid input, not a silent MFEI 0");
 
         // End-to-end: GC-extreme homopolymers through the full classifier.
         foreach (char b in new[] { 'A', 'U', 'G', 'C' })
