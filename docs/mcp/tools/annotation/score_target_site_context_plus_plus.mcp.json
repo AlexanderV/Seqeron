@@ -1,0 +1,229 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "score_target_site_context_plus_plus",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MiRnaAnalyzer.ScoreTargetSiteContextPlusPlus",
+  "docRef": "Seqeron.Genomics.Annotation/MiRnaAnalyzer.cs#L1137",
+  "description": "TargetScan 7 context++ score (Agarwal et al. 2015) of an 8mer, 7mer-m8, 7mer-A1 or 6mer site with every feature contribution.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "mRnaSequence": {
+        "type": "string",
+        "description": "3′UTR nucleotide sequence (T→U applied internally)",
+        "minLength": 1
+      },
+      "miRnaSequence": {
+        "type": "string",
+        "description": "miRNA nucleotide sequence (≥ 8 nt)",
+        "minLength": 8
+      },
+      "siteStart": {
+        "type": "integer",
+        "description": "0-based inclusive site start"
+      },
+      "siteEnd": {
+        "type": "integer",
+        "description": "0-based inclusive site end (span 8 for Seed8mer, 7 for Seed7merM8/Seed7merA1, 6 for Seed6mer)"
+      },
+      "siteType": {
+        "type": "string",
+        "description": "Seed8mer, Seed7merM8, Seed7merA1 or Seed6mer",
+        "enum": [
+          "Seed8mer",
+          "Seed7merM8",
+          "Seed7merA1",
+          "Seed6mer"
+        ]
+      },
+      "miRnaName": {
+        "type": "string",
+        "description": "Optional miRNA name (label only)"
+      },
+      "sps": {
+        "type": "number",
+        "description": "Optional seed-pairing stability SPS (kcal/mol); overrides the bundled TargetScan value"
+      },
+      "ta": {
+        "type": "number",
+        "description": "Optional target-site abundance TA (log10 site count; see compute_ta_3utr); overrides the bundled value"
+      },
+      "orfLength": {
+        "type": "number",
+        "description": "Optional ORF length in nt (> 0); overrides the length derived from orfSequence"
+      },
+      "orf8mCount": {
+        "type": "integer",
+        "description": "Optional count of cognate 8mer sites in the ORF (≥ 0); overrides the count derived from orfSequence"
+      },
+      "orfSequence": {
+        "type": "string",
+        "description": "Optional ORF sequence (RNA/DNA, any case, '-'/'.' gaps accepted)"
+      },
+      "plfoldUnpairedProbability": {
+        "type": "number",
+        "description": "Optional exact RNAplfold unpaired probability in [0, 1] of the site's 14-nt window; 0/omitted ⇒ library estimate"
+      },
+      "conservation": {
+        "type": "object",
+        "description": "Optional multi-species conservation: `newick` OR `targetScanBin` (1–10), `speciesWithSite` (leaf names), optional `sigmoidParameters` {b0,b1,b2,b3}"
+      }
+    },
+    "required": [
+      "mRnaSequence",
+      "miRnaSequence",
+      "siteStart",
+      "siteEnd",
+      "siteType"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "score": {
+        "type": "object",
+        "properties": {
+          "siteType": {
+            "type": "string"
+          },
+          "intercept": {
+            "type": "number"
+          },
+          "localAuContribution": {
+            "type": "number"
+          },
+          "sRna1Contribution": {
+            "type": "number"
+          },
+          "sRna8Contribution": {
+            "type": "number"
+          },
+          "site8Contribution": {
+            "type": "number"
+          },
+          "saContribution": {
+            "type": "number"
+          },
+          "threePrimePairingContribution": {
+            "type": "number"
+          },
+          "minDistContribution": {
+            "type": "number"
+          },
+          "len3UtrContribution": {
+            "type": "number"
+          },
+          "off6mContribution": {
+            "type": "number"
+          },
+          "spsContribution": {
+            "type": "number"
+          },
+          "taContribution": {
+            "type": "number"
+          },
+          "lenOrfContribution": {
+            "type": "number"
+          },
+          "orf8mContribution": {
+            "type": "number"
+          },
+          "pctContribution": {
+            "type": "number"
+          },
+          "branchLengthScore": {
+            "type": "number"
+          },
+          "pct": {
+            "type": "number"
+          },
+          "pctIsNa": {
+            "type": "boolean"
+          },
+          "contextScorePartial": {
+            "type": "number"
+          },
+          "contextScore": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "omittedFeatures": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "required": [
+      "score"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "mRNA sequence cannot be null or empty"
+    },
+    {
+      "code": 1001,
+      "message": "miRNA sequence must have at least 8 nt (seed region nt 2-8)"
+    },
+    {
+      "code": 1001,
+      "message": "Site indices [s, e] are out of range for sequence of length L"
+    },
+    {
+      "code": 1001,
+      "message": "Unknown or unsupported siteType (valid values listed)"
+    },
+    {
+      "code": 1001,
+      "message": "A <type> site spans N nt; got [s, e]"
+    },
+    {
+      "code": 1001,
+      "message": "orfLength / orf8mCount / plfoldUnpairedProbability / sps / ta out of range"
+    },
+    {
+      "code": 1001,
+      "message": "conservation requires exactly one of newick or targetScanBin"
+    },
+    {
+      "code": 1001,
+      "message": "Invalid Newick tree"
+    },
+    {
+      "code": 1001,
+      "message": "SeqeronLimitationException MIRNA-TARGET-001 (partial score outside Permissive mode)"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Worked example, 8mer (TargetScan 7.0 perl run)",
+      "input": {
+        "mRnaSequence": "GCUAAAGACAAUUACAUAACAUACACGUCACUACCUCAGCACGAAACUUGUUGGCCCAGUGUGAAUCGCUUAAGGGUUGCGUACCUCGAAGUAAGUGUGAUGCAUACGCCUUUACUUGCUGUGGUACCUCAUCCACCCCAUCGGACUGGCAUUUUUAUUACACUCAGAAACAGAACUCGGG",
+        "miRnaSequence": "UGAGGUAGUAGGUUGUAUAGUU",
+        "siteStart": 30,
+        "siteEnd": 37,
+        "siteType": "Seed8mer",
+        "sps": -9.25,
+        "ta": 3.393,
+        "orfLength": 1500,
+        "orf8mCount": 1,
+        "plfoldUnpairedProbability": 0.009772092
+      },
+      "output": {
+        "score": {
+          "siteType": "Seed8mer",
+          "intercept": -0.589,
+          "contextScore": -0.742
+        }
+      }
+    }
+  ]
+}

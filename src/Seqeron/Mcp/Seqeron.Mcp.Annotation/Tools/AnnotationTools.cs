@@ -1376,6 +1376,189 @@ public class AnnotationTools
             v.PositionContribution, v.ThreePrimePairingScore, v.LocalAuFraction, v.ContextScore));
     }
 
+    /// <summary>TargetScan 7 context++ score (Agarwal et al. 2015) of a canonical seed site.</summary>
+    [McpServerTool(Name = "score_target_site_context_plus_plus", Title = "miRNA — Score Target Site (context++)", ReadOnly = true)]
+    [Description("TargetScan 7 context++ score (Agarwal et al. 2015, eLife 4:e05005; port of targetscan_70_context_scores.pl) of an 8mer, 7mer-m8, 7mer-A1 or 6mer site in a 3'UTR (siteStart/siteEnd 0-based inclusive; lengths 8/7/7/6). Returns every feature contribution (intercept, local AU, sRNA1/8, Site8, SA, 3P, Min_dist, Len_3UTR, Off6m, SPS, TA, Len_ORF, ORF8m, PCT), the unrounded partial sum and contextScore as TargetScan reports it (3-decimal contributions, per-site-type ceiling; null when the site starts within 14 nt of the CDS). SPS and TA default to the bundled TargetScan 7.0 seed-region table. All optional inputs are sparse; a feature without data contributes 0 and is listed in omittedFeatures. orfSequence derives Len_ORF and ORF8m as targetscan_count_8mers.pl does (orfLength/orf8mCount override it); plfoldUnpairedProbability is the exact RNAplfold -L 40 -W 80 -u 20 value (row utrStart+7, column 14) and replaces the library's single-window SA estimate; a score with any omitted feature is a guarded limitation (MIRNA-TARGET-001) and throws outside Permissive mode unless every optional feature is supplied; conservation (a Newick tree or a TargetScan bin tree 1-10, plus the species with the site, optional PCT sigmoid row) gives the Friedman 2009 branch length and PCT.")]
+    public static ScoreTargetSiteContextPlusPlusResult ScoreTargetSiteContextPlusPlus(
+        [Description("3'UTR nucleotide sequence (DNA T→U is applied internally)")] string mRnaSequence,
+        [Description("miRNA nucleotide sequence (>= 8 nt)")] string miRnaSequence,
+        [Description("0-based inclusive site start")] int siteStart,
+        [Description("0-based inclusive site end (span length 8 for Seed8mer, 7 for Seed7merM8/Seed7merA1, 6 for Seed6mer)")] int siteEnd,
+        [Description("Site type: Seed8mer, Seed7merM8, Seed7merA1 or Seed6mer")] string siteType,
+        [Description("Optional miRNA name (label only)")] string? miRnaName = null,
+        [Description("Optional seed-pairing stability SPS (kcal/mol); overrides the bundled TargetScan value")] double? sps = null,
+        [Description("Optional target-site abundance TA (log10 site count; see compute_ta_3utr); overrides the bundled TargetScan value")] double? ta = null,
+        [Description("Optional ORF (CDS) length in nt (> 0); overrides the length derived from orfSequence")] double? orfLength = null,
+        [Description("Optional count of cognate 8mer sites in the ORF (>= 0); overrides the count derived from orfSequence")] int? orf8mCount = null,
+        [Description("Optional ORF sequence (RNA/DNA, any case, '-'/'.' gaps accepted); Len_ORF and ORF8m are derived as targetscan_count_8mers.pl does")] string? orfSequence = null,
+        [Description("Optional exact RNAplfold unpaired probability (0-1) of the site's 14-nt accessibility window; 0 or omitted ⇒ library estimate")] double? plfoldUnpairedProbability = null,
+        [Description("Optional multi-species conservation input: newick OR targetScanBin (1-10), plus speciesWithSite, optional sigmoidParameters {b0,b1,b2,b3}")] ContextConservationInputDto? conservation = null)
+    {
+        if (string.IsNullOrEmpty(mRnaSequence))
+            throw new ArgumentException("mRNA sequence cannot be null or empty", nameof(mRnaSequence));
+        if (string.IsNullOrEmpty(miRnaSequence) || miRnaSequence.Length < 8)
+            throw new ArgumentException("miRNA sequence must have at least 8 nt (seed region nt 2-8)", nameof(miRnaSequence));
+        if (siteStart < 0 || siteEnd >= mRnaSequence.Length || siteStart > siteEnd)
+            throw new ArgumentOutOfRangeException(nameof(siteStart),
+                $"Site indices [{siteStart}, {siteEnd}] are out of range for sequence of length {mRnaSequence.Length}");
+        if (!TryParseEnum<MiRnaAnalyzer.TargetSiteType>(siteType, out var type)
+            || type is not (MiRnaAnalyzer.TargetSiteType.Seed8mer or MiRnaAnalyzer.TargetSiteType.Seed7merM8
+                or MiRnaAnalyzer.TargetSiteType.Seed7merA1 or MiRnaAnalyzer.TargetSiteType.Seed6mer))
+            throw new ArgumentException(
+                $"Unknown or unsupported siteType '{siteType}'. Valid values: Seed8mer, Seed7merM8, Seed7merA1, Seed6mer", nameof(siteType));
+        int length = type switch
+        {
+            MiRnaAnalyzer.TargetSiteType.Seed8mer => 8,
+            MiRnaAnalyzer.TargetSiteType.Seed6mer => 6,
+            _ => 7
+        };
+        if (siteEnd - siteStart + 1 != length)
+            throw new ArgumentException($"A {type} site spans {length} nt; got [{siteStart}, {siteEnd}]", nameof(siteEnd));
+        if (sps is { } s && !double.IsFinite(s))
+            throw new ArgumentOutOfRangeException(nameof(sps), "sps must be finite");
+        if (ta is { } a && !double.IsFinite(a))
+            throw new ArgumentOutOfRangeException(nameof(ta), "ta must be finite");
+        if (orfLength is { } ol && (!double.IsFinite(ol) || ol <= 0))
+            throw new ArgumentOutOfRangeException(nameof(orfLength), "orfLength must be a finite value > 0");
+        if (orf8mCount is < 0)
+            throw new ArgumentOutOfRangeException(nameof(orf8mCount), "orf8mCount must be >= 0");
+        if (plfoldUnpairedProbability is { } pf && (!double.IsFinite(pf) || pf < 0 || pf > 1))
+            throw new ArgumentOutOfRangeException(nameof(plfoldUnpairedProbability), "plfoldUnpairedProbability must be in [0, 1]");
+
+        MiRnaAnalyzer.PctConservation? pct = null;
+        if (conservation is not null)
+        {
+            bool hasNewick = !string.IsNullOrWhiteSpace(conservation.Newick);
+            if (hasNewick == conservation.TargetScanBin.HasValue)
+                throw new ArgumentException("conservation requires exactly one of newick or targetScanBin", nameof(conservation));
+            if (conservation.TargetScanBin is < 1 or > 10)
+                throw new ArgumentOutOfRangeException(nameof(conservation), "targetScanBin must be 1-10");
+            if (conservation.SpeciesWithSite is null || conservation.SpeciesWithSite.Count == 0)
+                throw new ArgumentException("conservation.speciesWithSite cannot be null or empty", nameof(conservation));
+            Genomics.Phylogenetics.PhylogeneticAnalyzer.PhyloNode tree;
+            try
+            {
+                tree = hasNewick
+                    ? Genomics.Phylogenetics.PhylogeneticAnalyzer.ParseNewick(conservation.Newick!)
+                    : MiRnaAnalyzer.GetTargetScanBinTree(conservation.TargetScanBin!.Value);
+            }
+            catch (FormatException ex)
+            {
+                throw new ArgumentException($"Invalid Newick tree: {ex.Message}", nameof(conservation), ex);
+            }
+            MiRnaAnalyzer.PctSigmoidParameters? sig = conservation.SigmoidParameters is { } q
+                ? new MiRnaAnalyzer.PctSigmoidParameters(q.B0, q.B1, q.B2, q.B3)
+                : null;
+            pct = new MiRnaAnalyzer.PctConservation(tree, conservation.SpeciesWithSite.ToList(), sig);
+        }
+
+        var miRna = MiRnaAnalyzer.CreateMiRna(miRnaName ?? "miRNA", miRnaSequence);
+        var site = new MiRnaAnalyzer.TargetSite(siteStart, siteEnd,
+            mRnaSequence.Substring(siteStart, length).ToUpperInvariant().Replace('T', 'U'),
+            miRna.Name, type, length, 0.0, 0.0, "");
+        var inputs = new MiRnaAnalyzer.ContextPlusPlusInputs(
+            Sps: sps, Ta: ta, OrfLength: orfLength, Orf8mCount: orf8mCount, Conservation: pct,
+            PlfoldUnpairedProbability: plfoldUnpairedProbability, OrfSequence: orfSequence);
+
+        var c = MiRnaAnalyzer.ScoreTargetSiteContextPlusPlus(mRnaSequence, miRna, site, inputs);
+        return new ScoreTargetSiteContextPlusPlusResult(new ContextPlusPlusScoreDto(
+            c.SiteType.ToString(), c.Intercept, c.LocalAuContribution, c.SRna1Contribution, c.SRna8Contribution,
+            c.Site8Contribution, c.SaContribution, c.ThreePrimePairingContribution, c.MinDistContribution,
+            c.Len3UtrContribution, c.Off6mContribution, c.SpsContribution, c.TaContribution, c.LenOrfContribution,
+            c.Orf8mContribution, c.PctContribution, c.BranchLengthScore, c.Pct, c.PctIsNa, c.ContextScorePartial,
+            c.ContextScore, c.OmittedFeatures.ToList()));
+    }
+
+    /// <summary>TA_3UTR (target-site abundance) of a miRNA seed over a set of 3'UTRs.</summary>
+    [McpServerTool(Name = "compute_ta_3utr", Title = "miRNA — Compute TA_3UTR", ReadOnly = true)]
+    [Description("TargetScan context++ feature TA_3UTR (Garcia et al. 2011; Agarwal et al. 2015): TA = log10(N), N = total number of non-overlapping canonical 8mer + 7mer-m8 + 7mer-A1 sites of the miRNA seed (nt 2-8) across the supplied 3'UTRs (bare 6mers and offset 6mers are not counted; scan is left-to-right greedy). Returns siteCount (N) and ta (0 when N = 0). Feed ta into score_target_site_context_plus_plus.")]
+    public static ComputeTa3UtrResult ComputeTa3Utr(
+        [Description("miRNA nucleotide sequence (>= 8 nt; seed = nt 2-8)")] string miRnaSequence,
+        [Description("3'UTR sequences (RNA or DNA, any case) that define the transcriptome")] IReadOnlyList<string> threePrimeUtrs)
+    {
+        if (string.IsNullOrEmpty(miRnaSequence) || miRnaSequence.Length < 8)
+            throw new ArgumentException("miRNA sequence must have at least 8 nt (seed region nt 2-8)", nameof(miRnaSequence));
+        if (threePrimeUtrs is null)
+            throw new ArgumentException("threePrimeUtrs cannot be null", nameof(threePrimeUtrs));
+
+        var miRna = MiRnaAnalyzer.CreateMiRna("miRNA", miRnaSequence);
+        long n = MiRnaAnalyzer.CountSeedSites3Utr(miRna, threePrimeUtrs);
+        double ta = MiRnaAnalyzer.ComputeTa3Utr(miRna, threePrimeUtrs);
+        return new ComputeTa3UtrResult(n, ta, threePrimeUtrs.Count);
+    }
+
+    /// <summary>Find and group seed-match sites across a multi-species 3'UTR alignment (TargetScan 7.0).</summary>
+    [McpServerTool(Name = "find_targetscan_site_groups", Title = "miRNA — Find TargetScan Site Groups", ReadOnly = true)]
+    [Description("Port of targetscan_70.pl: finds 8mer / 7mer-m8 / 7mer-A1 / 6mer seed-match sites of a miRNA family in every species of a multi-species 3'UTR alignment (alignedUtrs: species identifier → aligned UTR with '-' gaps; lower-case letters flag ORF overlap; the first 14 nt of each UTR are masked as TargetScan does) and groups sites that overlap across species. Coordinates are 1-based (msaStart/msaEnd alignment columns, utrStart/utrEnd ungapped UTR). Each group lists its sites, group type (e.g. '7mer-1a+8mer-1a'), species, and the species per site type that the branch-length/PCT step uses. speciesWithMiRna restricts the searched species (TargetScan 7: those annotated for the family); omit to search all.")]
+    public static FindTargetScanSiteGroupsResult FindTargetScanSiteGroups(
+        [Description("7-nt seed region (miRNA nt 2-8) or a mature miRNA of >= 8 nt")] string miRnaSeedOrMature,
+        [Description("Species identifier → aligned 3'UTR (gaps '-'; lower case = ORF overlap)")] Dictionary<string, string> alignedUtrs,
+        [Description("Optional species in which the miRNA family is annotated (only these are searched); default all")] IReadOnlyList<string>? speciesWithMiRna = null)
+    {
+        ValidateTargetScanInputs(miRnaSeedOrMature, alignedUtrs);
+        var groups = MiRnaAnalyzer.FindTargetScanSiteGroups(miRnaSeedOrMature, alignedUtrs, speciesWithMiRna);
+        return new FindTargetScanSiteGroupsResult(groups.Select(ToDto).ToList());
+    }
+
+    /// <summary>TargetScan 7.0 branch length, PCT and conservation call per site of a multi-species 3'UTR alignment.</summary>
+    [McpServerTool(Name = "score_targetscan_conservation", Title = "miRNA — Score TargetScan Conservation", ReadOnly = true)]
+    [Description("End-to-end TargetScan 7.0 conservation of a miRNA family's sites in a multi-species 3'UTR alignment: site groups (targetscan_70.pl) → UTR bin 1-10 from the median per-position branch length (targetscan_70_BL_bins.pl) → per-site branch length on the bin tree, PCT with the bundled TargetScan 7.0 sigmoid rows and the 'Conserved' call (targetscan_70_BL_PCT.pl). pct is null for TargetScan's 'NA' (seed not one of the 111 PCT families, or ORF-overlapping site). utrBin overrides the computed bin (medianBranchLength is then null); referenceSpecies defaults to 9606; thresholds is TargetScanHuman7 (default) or TargetScanMouse7.")]
+    public static ScoreTargetScanConservationResult ScoreTargetScanConservation(
+        [Description("7-nt seed region (miRNA nt 2-8) or a mature miRNA of >= 8 nt")] string miRnaSeedOrMature,
+        [Description("Species identifier → aligned 3'UTR (gaps '-'; lower case = ORF overlap)")] Dictionary<string, string> alignedUtrs,
+        [Description("Optional species in which the miRNA family is annotated (only these are searched); default all")] IReadOnlyList<string>? speciesWithMiRna = null,
+        [Description("Reference species for the UTR bin (default 9606)")] string referenceSpecies = "9606",
+        [Description("Optional TargetScan bin (1-10) to use instead of the computed one")] int? utrBin = null,
+        [Description("Conservation thresholds: TargetScanHuman7 (default) or TargetScanMouse7")] string thresholds = "TargetScanHuman7")
+    {
+        ValidateTargetScanInputs(miRnaSeedOrMature, alignedUtrs);
+        if (string.IsNullOrEmpty(referenceSpecies))
+            throw new ArgumentException("referenceSpecies cannot be null or empty", nameof(referenceSpecies));
+        if (utrBin is < 1 or > 10)
+            throw new ArgumentOutOfRangeException(nameof(utrBin), "utrBin must be 1-10");
+        MiRnaAnalyzer.BranchLengthConservationThresholds th;
+        if (string.Equals(thresholds, "TargetScanHuman7", StringComparison.OrdinalIgnoreCase))
+            th = MiRnaAnalyzer.BranchLengthConservationThresholds.TargetScanHuman7;
+        else if (string.Equals(thresholds, "TargetScanMouse7", StringComparison.OrdinalIgnoreCase))
+            th = MiRnaAnalyzer.BranchLengthConservationThresholds.TargetScanMouse7;
+        else
+            throw new ArgumentException($"Unknown thresholds '{thresholds}'. Valid values: TargetScanHuman7, TargetScanMouse7", nameof(thresholds));
+
+        var r = MiRnaAnalyzer.ScoreTargetScanConservation(
+            miRnaSeedOrMature, alignedUtrs, speciesWithMiRna, referenceSpecies, utrBin, th);
+        return new ScoreTargetScanConservationResult(
+            r.UtrBin.Bin,
+            double.IsNaN(r.UtrBin.MedianBranchLength) ? null : r.UtrBin.MedianBranchLength,
+            r.Groups.Select(ToDto).ToList(),
+            r.Sites.Select(s => new TargetScanSiteConservationDto(
+                ToDto(s.Site), s.GroupNumber, s.SpeciesWithSite.ToList(), s.BranchLength, s.Pct, s.Conserved)).ToList());
+    }
+
+    private static void ValidateTargetScanInputs(string miRnaSeedOrMature, Dictionary<string, string> alignedUtrs)
+    {
+        if (string.IsNullOrEmpty(miRnaSeedOrMature) || miRnaSeedOrMature.Length < 7)
+            throw new ArgumentException("Expected the 7-nt seed region or a mature miRNA of >= 8 nt", nameof(miRnaSeedOrMature));
+        if (alignedUtrs is null || alignedUtrs.Count == 0)
+            throw new ArgumentException("alignedUtrs cannot be null or empty", nameof(alignedUtrs));
+        foreach (var (species, utr) in alignedUtrs)
+        {
+            if (string.IsNullOrEmpty(species))
+                throw new ArgumentException("A species key is empty", nameof(alignedUtrs));
+            if (utr is null)
+                throw new ArgumentException($"The aligned UTR of species '{species}' is null", nameof(alignedUtrs));
+        }
+    }
+
+    private static TargetScanAlignedSiteDto ToDto(MiRnaAnalyzer.TargetScanAlignedSite s) =>
+        new(s.Species, s.MsaStart, s.MsaEnd, s.UtrStart, s.UtrEnd, s.SiteType.ToString(), s.OrfOverlap);
+
+    private static TargetScanSiteGroupDto ToDto(MiRnaAnalyzer.TargetScanSiteGroup g) =>
+        new(g.GroupNumber, g.GroupType, g.SiteTypes.Select(t => t.ToString()).ToList(), g.Species.ToList(),
+            g.Sites.Select(ToDto).ToList(),
+            Enum.GetValues<MiRnaAnalyzer.TargetSiteType>()
+                .Select(t => new TargetScanSiteTypeSpeciesDto(t.ToString(), g.GetSpeciesWithSiteType(t).ToList()))
+                .Where(x => x.Species.Count > 0).ToList());
+
     // Enum.TryParse accepts numeric strings and undefined values; accept defined names only (case-insensitive).
     private static bool TryParseEnum<T>(string? value, out T result) where T : struct, Enum =>
         Enum.TryParse(value, ignoreCase: true, out result) && Enum.IsDefined(result) && !int.TryParse(value, out _);

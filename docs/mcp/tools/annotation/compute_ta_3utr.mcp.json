@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "compute_ta_3utr",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MiRnaAnalyzer.ComputeTa3Utr",
+  "docRef": "Seqeron.Genomics.Annotation/MiRnaAnalyzer.cs#L1358",
+  "description": "TA_3UTR (target-site abundance) of a miRNA seed over a set of 3′UTRs: site count N and log10(N).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "miRnaSequence": {
+        "type": "string",
+        "description": "miRNA nucleotide sequence (≥ 8 nt; seed = nt 2–8)",
+        "minLength": 8
+      },
+      "threePrimeUtrs": {
+        "type": "array",
+        "description": "3′UTR sequences (RNA or DNA, any case) that define the transcriptome",
+        "items": {
+          "type": "string"
+        }
+      }
+    },
+    "required": [
+      "miRnaSequence",
+      "threePrimeUtrs"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "siteCount": {
+        "type": "integer"
+      },
+      "ta": {
+        "type": "number"
+      },
+      "utrCount": {
+        "type": "integer"
+      }
+    },
+    "required": [
+      "siteCount",
+      "ta",
+      "utrCount"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "miRNA sequence must have at least 8 nt (seed region nt 2-8)"
+    },
+    {
+      "code": 1001,
+      "message": "threePrimeUtrs cannot be null"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Four sites over four UTRs",
+      "input": {
+        "miRnaSequence": "UGAGGUAGUAGGUUGUAUAGUU",
+        "threePrimeUtrs": [
+          "GGGCUACCUCAGGG",
+          "GGGCUACCUCGGGGGUACCUCAGG",
+          "GGGUACCUCGGG",
+          "gggctacctcaggg"
+        ]
+      },
+      "output": {
+        "siteCount": 4,
+        "ta": 0.6020599913279624,
+        "utrCount": 4
+      }
+    }
+  ]
+}

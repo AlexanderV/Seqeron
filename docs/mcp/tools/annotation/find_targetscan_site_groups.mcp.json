@@ -1,0 +1,167 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_targetscan_site_groups",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MiRnaAnalyzer.FindTargetScanSiteGroups",
+  "docRef": "Seqeron.Genomics.Annotation/MiRnaAnalyzer.TargetScanConservation.cs#L140",
+  "description": "TargetScan 7.0 seed-match sites of a miRNA family in a multi-species 3′UTR alignment, grouped across species.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "miRnaSeedOrMature": {
+        "type": "string",
+        "description": "7-nt seed region (miRNA nt 2–8) or a mature miRNA of ≥ 8 nt",
+        "minLength": 7
+      },
+      "alignedUtrs": {
+        "type": "object",
+        "description": "Species identifier → aligned 3′UTR (gaps '-'; lower case = ORF overlap)",
+        "additionalProperties": {
+          "type": "string"
+        }
+      },
+      "speciesWithMiRna": {
+        "type": "array",
+        "description": "Species in which the miRNA family is annotated (only these are searched); default all",
+        "items": {
+          "type": "string"
+        }
+      }
+    },
+    "required": [
+      "miRnaSeedOrMature",
+      "alignedUtrs"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "groups": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "groupNumber": {
+              "type": "integer"
+            },
+            "groupType": {
+              "type": "string"
+            },
+            "siteTypes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "species": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "sites": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "species": {
+                    "type": "string"
+                  },
+                  "msaStart": {
+                    "type": "integer"
+                  },
+                  "msaEnd": {
+                    "type": "integer"
+                  },
+                  "utrStart": {
+                    "type": "integer"
+                  },
+                  "utrEnd": {
+                    "type": "integer"
+                  },
+                  "siteType": {
+                    "type": "string"
+                  },
+                  "orfOverlap": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            },
+            "speciesBySiteType": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "siteType": {
+                    "type": "string"
+                  },
+                  "species": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "required": [
+      "groups"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Expected the 7-nt seed region or a mature miRNA of >= 8 nt"
+    },
+    {
+      "code": 1001,
+      "message": "Seed region contains a character other than A/C/G/U/T"
+    },
+    {
+      "code": 1001,
+      "message": "alignedUtrs cannot be null or empty"
+    },
+    {
+      "code": 1001,
+      "message": "A species key is empty"
+    },
+    {
+      "code": 1001,
+      "message": "The aligned UTR of species 'X' is null"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Kit gene LIN28B, let-7/98 (5 species)",
+      "input": {
+        "miRnaSeedOrMature": "GAGGUAG",
+        "alignedUtrs": {
+          "9606": "<aligned UTR of the kit sample>",
+          "10090": "<…>"
+        },
+        "speciesWithMiRna": [
+          "10090",
+          "10116",
+          "9031",
+          "9606",
+          "9615"
+        ]
+      },
+      "output": {
+        "groups": [
+          {
+            "groupNumber": 2,
+            "groupType": "7mer-m8+8mer-1a"
+          }
+        ]
+      }
+    }
+  ]
+}

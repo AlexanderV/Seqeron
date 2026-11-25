@@ -555,6 +555,88 @@ public record GrimsonContextScoreDto(
 /// <summary>Result of score_target_site_grimson. <c>Scored</c> is false (and <c>Score</c> null) for site types TargetScan 5.0 has no coefficients for.</summary>
 public record ScoreTargetSiteGrimsonResult(bool Scored, GrimsonContextScoreDto? Score);
 
+/// <summary>Optional multi-species conservation input of score_target_site_context_plus_plus (tree + species with the site; PCT sigmoid row optional).</summary>
+public record ContextConservationInputDto(
+    string? Newick,
+    int? TargetScanBin,
+    IReadOnlyList<string> SpeciesWithSite,
+    PctSigmoidParametersDto? SigmoidParameters);
+
+/// <summary>PCT sigmoid parameters PCT(Bls) = b0 + b1 / (1 + exp(-b2*Bls + b3)).</summary>
+public record PctSigmoidParametersDto(double B0, double B1, double B2, double B3);
+
+/// <summary>TargetScan 7 context++ (Agarwal 2015) per-feature contributions of one site.</summary>
+public record ContextPlusPlusScoreDto(
+    string SiteType,
+    double Intercept,
+    double LocalAuContribution,
+    double SRna1Contribution,
+    double SRna8Contribution,
+    double Site8Contribution,
+    double SaContribution,
+    double ThreePrimePairingContribution,
+    double MinDistContribution,
+    double Len3UtrContribution,
+    double Off6mContribution,
+    double SpsContribution,
+    double TaContribution,
+    double LenOrfContribution,
+    double Orf8mContribution,
+    double PctContribution,
+    double BranchLengthScore,
+    double Pct,
+    bool PctIsNa,
+    double ContextScorePartial,
+    double? ContextScore,
+    IReadOnlyList<string> OmittedFeatures);
+
+/// <summary>Result of score_target_site_context_plus_plus.</summary>
+public record ScoreTargetSiteContextPlusPlusResult(ContextPlusPlusScoreDto Score);
+
+/// <summary>Result of compute_ta_3utr: the site count N and TA_3UTR = log10(N) (0 when N = 0).</summary>
+public record ComputeTa3UtrResult(long SiteCount, double Ta, int UtrCount);
+
+/// <summary>One seed-match site of a TargetScan 3'UTR alignment (1-based coordinates, as targetscan_70.pl).</summary>
+public record TargetScanAlignedSiteDto(
+    string Species,
+    int MsaStart,
+    int MsaEnd,
+    int UtrStart,
+    int UtrEnd,
+    string SiteType,
+    bool OrfOverlap);
+
+/// <summary>Species of a site group that have a given site type (or a type containing it).</summary>
+public record TargetScanSiteTypeSpeciesDto(string SiteType, IReadOnlyList<string> Species);
+
+/// <summary>A TargetScan site group: overlapping seed-match sites across species.</summary>
+public record TargetScanSiteGroupDto(
+    int GroupNumber,
+    string GroupType,
+    IReadOnlyList<string> SiteTypes,
+    IReadOnlyList<string> Species,
+    IReadOnlyList<TargetScanAlignedSiteDto> Sites,
+    IReadOnlyList<TargetScanSiteTypeSpeciesDto> SpeciesBySiteType);
+
+/// <summary>Result of find_targetscan_site_groups.</summary>
+public record FindTargetScanSiteGroupsResult(IReadOnlyList<TargetScanSiteGroupDto> Groups);
+
+/// <summary>One site with TargetScan branch length, PCT (null = NA) and conservation call.</summary>
+public record TargetScanSiteConservationDto(
+    TargetScanAlignedSiteDto Site,
+    int GroupNumber,
+    IReadOnlyList<string> SpeciesWithSite,
+    double BranchLength,
+    double? Pct,
+    bool Conserved);
+
+/// <summary>Result of score_targetscan_conservation. <c>MedianBranchLength</c> is null when the bin was supplied by the caller.</summary>
+public record ScoreTargetScanConservationResult(
+    int UtrBin,
+    double? MedianBranchLength,
+    IReadOnlyList<TargetScanSiteGroupDto> Groups,
+    IReadOnlyList<TargetScanSiteConservationDto> Sites);
+
 /// <summary>Result of analyze_target_context.</summary>
 public record AnalyzeTargetContextResult(
     double AuContent,
