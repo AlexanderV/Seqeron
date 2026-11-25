@@ -24,6 +24,13 @@ public static partial class MiRnaAnalyzer
     /// <summary>
     /// Represents a predicted miRNA target site.
     /// </summary>
+    /// <remarks>
+    /// <see cref="Score"/> is the predicted repression: <c>max(0, −ContextScore)</c> where
+    /// <see cref="ContextScore"/> is the TargetScan 5.0 context score of Grimson et al. (2007)
+    /// (see <see cref="MiRnaAnalyzer.ScoreTargetSiteGrimson(string, string, int, int, TargetSiteType)"/>);
+    /// 0 for sites TargetScan 5.0 has no coefficients for (6mer, offset 6mer, centered) and for sites too
+    /// close to the stop codon. <see cref="ContextScore"/> is <c>null</c> in those cases.
+    /// </remarks>
     public readonly record struct TargetSite(
         int Start,
         int End,
@@ -33,7 +40,11 @@ public static partial class MiRnaAnalyzer
         int SeedMatchLength,
         double Score,
         double FreeEnergy,
-        string Alignment);
+        string Alignment)
+    {
+        /// <summary>The TargetScan 5.0 / Grimson (2007) context score as printed (log2 units; negative = repressed); <c>null</c> when undefined.</summary>
+        public double? ContextScore { get; init; }
+    }
 
     /// <summary>
     /// Types of miRNA target sites.
@@ -45,8 +56,15 @@ public static partial class MiRnaAnalyzer
         Seed7merA1,    // 7mer-A1: positions 2-7 + A at position 1
         Seed6mer,      // 6mer: positions 2-7
         Offset6mer,    // offset 6mer: positions 3-8
-        Supplementary, // 3' supplementary pairing
-        Centered       // centered site (positions 4-15)
+        /// <summary>
+        /// Never emitted. 3'-supplementary pairing is not a site class: Grimson et al. (2007) treat it as an
+        /// additive term (the 3' pairing score) of a seed site — see
+        /// <see cref="MiRnaAnalyzer.ScoreTargetSiteGrimson(string, string, int, int, TargetSiteType)"/>.
+        /// Kept for backward compatibility of the public enum.
+        /// </summary>
+        Supplementary,
+        /// <summary>Centered site (Shin et al. 2010): ≥ 11 contiguous Watson–Crick pairs at miRNA nt 4–15; emitted by <see cref="MiRnaAnalyzer.FindCenteredSites"/>, not by <see cref="MiRnaAnalyzer.FindTargetSites"/>.</summary>
+        Centered
     }
 
     /// <summary>
@@ -195,17 +213,19 @@ public static partial class MiRnaAnalyzer
     /// Each site's duplex (<see cref="TargetSite.TargetSequence"/>, <see cref="TargetSite.Alignment"/>,
     /// <see cref="TargetSite.FreeEnergy"/>) is the full miRNA aligned antiparallel in the seed-match
     /// register, extending UPSTREAM of the site (see <c>CreateTargetSite</c>).
-    /// <see cref="TargetSite.Score"/> is a heuristic ranking: site-type base proportional to the
-    /// Grimson (2007) efficacies (8mer 1.0, 7mer-m8 0.52, 7mer-A1 0.32; 6mer 0.15 and offset 6mer
-    /// 0.10 not fitted), +0.05 if &gt; 10 Watson-Crick pairs, −0.01 per unpaired position, clamped to
-    /// [0,1]. It is not a fitted repression model — use <see cref="ScoreTargetSiteContextPlusPlus"/>
-    /// for TargetScan context++. With the default <paramref name="minScore"/> 0.5 typically only
-    /// 8mer sites are returned; pass a lower threshold to obtain every canonical site.
+    /// <see cref="TargetSite.Score"/> is the predicted repression <c>max(0, −context score)</c> of the
+    /// fitted TargetScan 5.0 model (Grimson et al. 2007: site type + 3' pairing + local AU + position;
+    /// <see cref="ScoreTargetSiteGrimson(string, string, int, int, TargetSiteType)"/>); the signed
+    /// score is <see cref="TargetSite.ContextScore"/>. 6mer and offset-6mer sites have no TargetScan 5.0
+    /// coefficients and score 0, as do sites starting within the first 15 nt of the 3'UTR. For TargetScan
+    /// context++ use <see cref="ScoreTargetSiteContextPlusPlus"/>. With the default
+    /// <paramref name="minScore"/> 0 every site is returned; the offset-6mer suppression (an offset 6mer
+    /// overlapping a 6mer-core site is dropped) does not depend on <paramref name="minScore"/>.
     /// </remarks>
     public static IEnumerable<TargetSite> FindTargetSites(
         string mRnaSequence,
         MiRna miRna,
-        double minScore = 0.5)
+        double minScore = 0.0)
     {
         if (string.IsNullOrEmpty(mRnaSequence) || string.IsNullOrEmpty(miRna.Sequence))
             yield break;
@@ -276,13 +296,14 @@ public static partial class MiRnaAnalyzer
             }
 
             // The mRNA base opposite miRNA nt 1 is the one just 3' of the 6mer core (i + 6).
+            // Suppression of overlapping offset 6mers must not depend on the score threshold:
+            // every 6mer-core site claims its positions whether or not it is emitted.
+            for (int j = siteStart; j < siteStart + siteLength; j++)
+                coveredPositions.Add(j);
+
             var site = CreateTargetSite(mrna, siteStart, siteLength, i + 6, mirna, miRna.Name, type, seedMatchLen);
             if (site.Score >= minScore)
-            {
-                for (int j = siteStart; j < siteStart + siteLength; j++)
-                    coveredPositions.Add(j);
                 yield return site;
-            }
         }
 
         // Pass 2: Find offset 6mer matches (positions 3-8) not overlapping higher-priority sites
@@ -336,7 +357,8 @@ public static partial class MiRnaAnalyzer
         string duplexTarget = missing3Prime > 0 ? targetSeq + new string('N', missing3Prime) : targetSeq;
 
         var duplex = AlignMiRnaToTarget(mirna, duplexTarget);
-        double score = CalculateTargetScore(type, duplex);
+        double? context = ScoreTargetSiteGrimson(mrna, mirna, pos, pos + length - 1, type)?.ContextScore;
+        double score = context is double c ? Math.Max(0.0, -c) : 0.0;
 
         return new TargetSite(
             Start: pos,
@@ -347,7 +369,10 @@ public static partial class MiRnaAnalyzer
             SeedMatchLength: seedMatchLength,
             Score: score,
             FreeEnergy: duplex.FreeEnergy,
-            Alignment: duplex.AlignmentString);
+            Alignment: duplex.AlignmentString)
+        {
+            ContextScore = context
+        };
     }
 
     #endregion
@@ -786,35 +811,6 @@ public static partial class MiRnaAnalyzer
 
     private static double AuGuEnd(char b1, char b2) =>
         Turner2004Parameters.IsTerminalPenaltyPair(b1, b2) ? Turner2004Parameters.TerminalAuGuPenalty : 0.0;
-
-    private static double CalculateTargetScore(TargetSiteType type, MiRnaDuplex duplex)
-    {
-        // Base scores proportional to Grimson et al. (2007) site-type efficacy weights:
-        // 8mer=0.310, 7mer-m8=0.161, 7mer-A1=0.099; normalized to [0,1] with 8mer=1.0
-        // 6mer and offset 6mer estimated from Agarwal et al. (2015).
-        double baseScore = type switch
-        {
-            TargetSiteType.Seed8mer => 1.0,
-            TargetSiteType.Seed7merM8 => 0.52,
-            TargetSiteType.Seed7merA1 => 0.32,
-            TargetSiteType.Seed6mer => 0.15,
-            TargetSiteType.Offset6mer => 0.10,
-            TargetSiteType.Supplementary => 0.05,
-            TargetSiteType.Centered => 0.03,
-            _ => 0.01
-        };
-
-        // Bonus for 3' supplementary pairing (extra matches beyond seed)
-        if (duplex.Matches > 10)
-        {
-            baseScore += 0.05;
-        }
-
-        // Penalty for mismatches in alignment
-        baseScore -= duplex.Mismatches * 0.01;
-
-        return Math.Max(0, Math.Min(1, baseScore));
-    }
 
     #endregion
 
@@ -3748,59 +3744,58 @@ public static partial class MiRnaAnalyzer
     /// <summary>
     /// Annotates the 3'UTR context of a target site with the site-context determinants of
     /// Grimson et al. (2007, Mol Cell 27:91): AU-rich flanks, placement ≥ 15 nt downstream of the
-    /// stop codon, and placement away from the centre of the UTR (near either end).
+    /// stop codon, and placement near the ends of the UTR.
     /// <paramref name="mRnaSequence"/> is interpreted as the 3'UTR (index 0 = first nt after the stop codon).
     /// </summary>
     /// <remarks>
     /// <list type="bullet">
-    /// <item><b>AuContent</b> — position-weighted local A/U fraction of up to
-    /// <paramref name="contextWindow"/> nt (TargetScan: 30) on each side of the site, the site
-    /// itself excluded, weight 1/d for the nucleotide d positions from the site edge. This is the
-    /// raw local-AU value of TargetScan <c>getLocalAU_contribution</c> with the offset-1 weighting
-    /// on both flanks (the perl's 7mer-m8 convention, used because a bare coordinate range carries
-    /// no site type). 0 when the site has no flanking nucleotide.</item>
+    /// <item><b>AuContent</b> — TargetScan 5.0 position-weighted local A/U fraction of up to
+    /// <paramref name="contextWindow"/> nt (TargetScan: 30) on each side of the site, the site itself
+    /// excluded; weights are those of <paramref name="siteType"/> (see
+    /// <see cref="ScoreTargetSiteGrimson(string, string, int, int, TargetSiteType)"/>). 0 when the site has no
+    /// flanking nucleotide or <paramref name="siteType"/> has no TargetScan 5.0 weights.</item>
     /// <item><b>NearStart</b> — the site starts within the first 15 nt of the 3'UTR (1-based start
     /// &lt; 15, TargetScan <c>$MIN_DIST_TO_CDS</c>); such sites are cleared by the translating
     /// ribosome and are not effective (Grimson 2007).</item>
     /// <item><b>NearEnd</b> — descriptive flag: the site ends in the 3'-terminal 15% of the sequence.</item>
-    /// <item><b>ContextScore</b> ∈ [0,1] — 0 when <b>NearStart</b>; otherwise
-    /// 0.5·AuContent + 0.5·EndProximity, where EndProximity = 1 − min(d5′, d3′)/((d5′ + d3′)/2)
-    /// (1 at either UTR end, 0 at the centre; d5′/d3′ = nt between the site and the 5′/3′ end),
-    /// following Grimson's finding that efficacy falls toward the middle of the UTR with equal
-    /// effects from both ends. The directions of both terms are sourced; the equal 0.5/0.5
-    /// weighting is NOT a fitted model — for the regression-fitted score use
-    /// <see cref="ScoreTargetSiteContextPlusPlus"/> (Agarwal 2015 Local_AU / Min_dist terms).</item>
+    /// <item><b>ContextScore</b> (log2 fold-change units, negative = repressed) — the UTR-context part of
+    /// the TargetScan 5.0 context score: <c>local-AU contribution + position contribution</c>, i.e.
+    /// round3(slope_AU·AuContent + intercept_AU) + round3(slope_pos·min(distance to the nearest UTR end, 1500)
+    /// + intercept_pos) with the Grimson 2007 regression constants of <paramref name="siteType"/>. The
+    /// site-type and 3'-pairing terms need the miRNA; the complete score is
+    /// <see cref="ScoreTargetSiteGrimson(string, string, int, int, TargetSiteType)"/>. 0 when
+    /// <b>NearStart</b> or when <paramref name="siteType"/> is not 8mer / 7mer-m8 / 7mer-A1.</item>
     /// </list>
     /// Empty input or an out-of-range site ([start, end] not within the sequence, or start &gt; end)
-    /// yields all zeros / false.
+    /// yields all zeros / false. The coordinates are those of <see cref="TargetSite"/> (an 8mer includes its A1).
     /// </remarks>
     public static (double AuContent, bool NearStart, bool NearEnd, double ContextScore) AnalyzeTargetContext(
         string mRnaSequence,
         int targetStart,
         int targetEnd,
-        int contextWindow = 30)
+        int contextWindow = 30,
+        TargetSiteType siteType = TargetSiteType.Seed7merM8)
     {
         if (string.IsNullOrEmpty(mRnaSequence) || targetStart < 0 || targetEnd >= mRnaSequence.Length || targetStart > targetEnd)
             return (0, false, false, 0);
 
-        string mrna = mRnaSequence.ToUpperInvariant().Replace('T', 'U');
+        string mrna = NormalizeSeed(mRnaSequence);
         int n = mrna.Length;
+        int perlType = GrimsonPerlType(siteType);
 
-        double auContent = LocalAuFraction(mrna, targetStart, targetEnd, Math.Max(0, contextWindow), 1, 1) ?? 0.0;
+        double auContent = perlType == 0
+            ? 0.0
+            : GrimsonLocalAuFraction(mrna, targetStart, targetEnd, perlType, Math.Max(0, contextWindow));
 
         bool nearStart = targetStart + 1 < MinDistToCds;
         bool nearEnd = targetEnd > n * 0.85;
 
-        if (nearStart)
-            return (auContent, true, nearEnd, 0.0);
+        if (nearStart || perlType == 0)
+            return (auContent, nearStart, nearEnd, 0.0);
 
-        int d5 = targetStart;
-        int d3 = n - 1 - targetEnd;
-        double centreDistance = (d5 + d3) / 2.0;
-        double endProximity = centreDistance > 0 ? 1.0 - Math.Min(d5, d3) / centreDistance : 1.0;
-
-        double contextScore = 0.5 * auContent + 0.5 * endProximity;
-        return (auContent, false, nearEnd, Math.Clamp(contextScore, 0.0, 1.0));
+        double au = RoundPerl3(auContent * GrimsonAuSlope[perlType] + GrimsonAuIntercept[perlType]);
+        double position = GrimsonPositionContribution(n, targetStart, targetEnd, perlType);
+        return (auContent, false, nearEnd, au + position);
     }
 
     /// <summary>

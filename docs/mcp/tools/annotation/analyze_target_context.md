@@ -14,11 +14,13 @@ Compute AU content and positional context score around a miRNA target site.
 
 ## Description
 
-Analyses the local context of a miRNA target site within an mRNA. It measures the AU content of
-a flanking window (AU-rich context favours miRNA targeting), flags whether the site lies near the
-transcript start (first 15%) or end (last 15%), and returns a composite context favourability
-score in `[0,1]`: `0.5 × auContent`, plus a `0.3` bonus when the site is neither near-start nor
-near-end, capped at `1`.
+Analyses the local context of a miRNA target site within a 3'UTR (the `mRnaSequence`). It returns the
+TargetScan 5.0 position-weighted local A/U fraction of the flanking window (Grimson et al. 2007; 30 nt each
+side, site excluded, 7mer-m8 weights), flags whether the site starts within the first 15 nt (1-based start < 15,
+`too_close`) or ends in the last 15% of the sequence, and returns the UTR-context part of the fitted context score:
+`round3(-0.5 x auContent + 0.269) + round3(0.000091 x min(d5, d3, 1500) - 0.037)` in log2 units (negative =
+repressed; 0 when near the start). The site-type and 3' pairing terms need the miRNA (library
+`ScoreTargetSiteGrimson`).
 
 ## Core Documentation Reference
 
@@ -38,9 +40,9 @@ near-end, capped at `1`.
 | Field | Type | Description |
 |-------|------|-------------|
 | `auContent` | number | Fraction of A/U bases in the context window (0-1) |
-| `nearStart` | boolean | Site starts within the first 15% of the transcript |
+| `nearStart` | boolean | Site starts within the first 15 nt of the 3'UTR (1-based start < 15) |
 | `nearEnd` | boolean | Site ends within the last 15% of the transcript |
-| `contextScore` | number | Favourability score in [0,1] |
+| `contextScore` | number | Local-AU + position contribution of the TargetScan 5.0 context score (log2 units, negative = repressed); 0 when `nearStart` |
 
 ## Errors
 
@@ -54,26 +56,26 @@ near-end, capped at `1`.
 ### Example 1: AU-rich mid-transcript site
 
 **User Prompt:**
-> Analyse the target context at positions 8–11 of a 20-nt poly-A mRNA.
+> Analyse the target context at positions 40–50 of a 100-nt poly-A mRNA.
 
 **Expected Tool Call:**
 ```json
 {
   "tool": "analyze_target_context",
-  "arguments": { "mRnaSequence": "AAAAAAAAAAAAAAAAAAAA", "targetStart": 8, "targetEnd": 11, "contextWindow": 30 }
+  "arguments": { "mRnaSequence": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "targetStart": 40, "targetEnd": 50, "contextWindow": 30 }
 }
 ```
 
 **Response:**
 ```json
-{ "auContent": 1.0, "nearStart": false, "nearEnd": false, "contextScore": 0.8 }
+{ "auContent": 1.0, "nearStart": false, "nearEnd": false, "contextScore": -0.264 }
 ```
 
 ### Example 2: GC-rich mid-transcript site
 
 **Response:**
 ```json
-{ "auContent": 0.0, "nearStart": false, "nearEnd": false, "contextScore": 0.3 }
+{ "auContent": 0.0, "nearStart": false, "nearEnd": false, "contextScore": 0.236 }
 ```
 
 ## Performance

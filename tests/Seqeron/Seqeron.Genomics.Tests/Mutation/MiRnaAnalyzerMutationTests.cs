@@ -25,22 +25,25 @@ public class MiRnaAnalyzerMutationTests
     #region AnalyzeTargetContext — Grimson (2007) site context
 
     // Model (MiRnaAnalyzer.AnalyzeTargetContext XML doc; Grimson et al. 2007 Mol Cell 27:91;
-    // TargetScan targetscan_70_context_scores.pl getLocalAU_contribution / $MIN_DIST_TO_CDS = 15):
-    //   AuContent  = Σ_{A/U flank nt} 1/d ÷ Σ_{flank nt} 1/d, d = distance from the site edge
-    //                (up to W = 30 nt each side, site excluded)
+    // TargetScan 5.0 targetscan_50_context_scores.pl getLocalAUcontribution / getPositionContribution /
+    // $MIN_DIST_TO_CDS = 15), default site type 7mer-m8 (type 2):
+    //   AuContent  = Σ_{A/U flank nt} w ÷ Σ_{flank nt} w, up to 30 nt each side, site excluded; upstream
+    //                w = 1/(i+1) (i = 0 at the nt next to the site), downstream w = 1/2 for i = 0 and 1/(i+1) after
     //   NearStart  = 1-based start < 15 (ribosome-occluded, TargetScan "too_close")
     //   NearEnd    = end > len*0.85 (descriptive)
-    //   ContextScore = NearStart ? 0 : 0.5*AuContent + 0.5*(1 − min(d5,d3)/((d5+d3)/2))
+    //   ContextScore = NearStart ? 0 : round3(-0.5·AuContent + 0.269) + round3(0.000091·min(d5, d3, 1500) − 0.037)
+    //                  (d5 = utrStart − 1, d3 = len − utrEnd; negative = repressed)
 
     private static readonly string PolyA100 = new string('A', 100);
 
     [Test]
-    public void AnalyzeTargetContext_MiddleSite_ScoresLowerThanEndSite()
+    public void AnalyzeTargetContext_MiddleSite_LessRepressedThanEndSite()
     {
-        // Grimson 2007: sites in the middle of the UTR are the LEAST effective; sites near the
-        // ends are more effective. (40,50): d5=40, d3=49 ⇒ EndProximity = 1 − 40/44.5.
+        // Grimson 2007: sites in the middle of the UTR are the LEAST effective; sites near the ends are more
+        // effective. (40,50): d5 = 40, d3 = 100−51 = 49 ⇒ position round3(40·0.000091 − 0.037) = −0.033;
+        // poly-A ⇒ AuContent 1 ⇒ AU round3(−0.5 + 0.269) = −0.231; context −0.264.
         var mid = AnalyzeTargetContext(PolyA100, 40, 50);
-        // (90,95): d5=90, d3=4 ⇒ EndProximity = 1 − 4/47.
+        // (90,95): d5 = 90, d3 = 100−96 = 4 ⇒ position round3(4·0.000091 − 0.037) = −0.037; context −0.268.
         var end = AnalyzeTargetContext(PolyA100, 90, 95);
 
         Assert.Multiple(() =>
@@ -48,10 +51,10 @@ public class MiRnaAnalyzerMutationTests
             Assert.That(mid.AuContent, Is.EqualTo(1.0).Within(Tol));
             Assert.That(mid.NearStart, Is.False);
             Assert.That(mid.NearEnd, Is.False);
-            Assert.That(mid.ContextScore, Is.EqualTo(0.5 + 0.5 * (1 - 40 / 44.5)).Within(Tol)); // 0.5505617977528090
+            Assert.That(mid.ContextScore, Is.EqualTo(-0.231 - 0.033).Within(Tol));
             Assert.That(end.NearEnd, Is.True);
-            Assert.That(end.ContextScore, Is.EqualTo(0.5 + 0.5 * (1 - 4.0 / 47.0)).Within(Tol)); // 0.9574468085106382
-            Assert.That(end.ContextScore, Is.GreaterThan(mid.ContextScore));
+            Assert.That(end.ContextScore, Is.EqualTo(-0.231 - 0.037).Within(Tol));
+            Assert.That(end.ContextScore, Is.LessThan(mid.ContextScore), "more negative = stronger repression near the UTR end");
         });
     }
 
@@ -72,7 +75,8 @@ public class MiRnaAnalyzerMutationTests
         Assert.That(AnalyzeTargetContext(PolyA100, 13, 20).NearStart, Is.True);
         var ok = AnalyzeTargetContext(PolyA100, 14, 20);
         Assert.That(ok.NearStart, Is.False);
-        Assert.That(ok.ContextScore, Is.GreaterThan(0.0));
+        // utrStart 15: d5 = 14, d3 = 100−21 = 79 ⇒ position round3(14·0.000091 − 0.037) = −0.036; AU −0.231.
+        Assert.That(ok.ContextScore, Is.EqualTo(-0.231 - 0.036).Within(Tol));
     }
 
     [Test]
@@ -90,21 +94,21 @@ public class MiRnaAnalyzerMutationTests
         var ctx = AnalyzeTargetContext(polyGc, 40, 50);
 
         Assert.That(ctx.AuContent, Is.EqualTo(0.0).Within(Tol));
-        Assert.That(ctx.ContextScore, Is.EqualTo(0.5 * (1 - 40 / 44.5)).Within(Tol)); // 0.050561797752809
+        // AuContent 0 ⇒ AU round3(0.269) = 0.269; position (40, d3 = 49) = −0.033 ⇒ 0.236.
+        Assert.That(ctx.ContextScore, Is.EqualTo(0.269 - 0.033).Within(Tol));
     }
 
     [Test]
     public void AnalyzeTargetContext_AuContent_IsInverseDistanceWeighted_SiteExcluded()
     {
-        // TargetScan getLocalAU_contribution: weight 1/(i+1) for the i-th flank nt outward.
+        // TargetScan 5.0 getLocalAUcontribution, 7mer-m8: upstream weight 1/(i+1); downstream 1/2 for i = 0 and 1/(i+1) after.
         // Site [10..15] = CCCCCC; upstream (outward) G, A×9; downstream G, U×9.
-        // Each flank: Σ weights = H10, A/U weight = H10 − 1 ⇒ fraction = (H10 − 1)/H10
-        // = 0.6585828478525945 (an unweighted count would give 18/20 = 0.9; counting the
-        // site itself, as the old code did, gives even less).
+        // up: Σ = H10, A/U = H10 − 1; down: Σ = 1/2 + (H10 − 1), A/U = H10 − 1
+        // ⇒ fraction = 2(H10 − 1)/(2·H10 − 1/2) (an unweighted count would give 18/20 = 0.9).
         string mrna = "AAAAAAAAAG" + "CCCCCC" + "GUUUUUUUUU";
         double h10 = Enumerable.Range(1, 10).Sum(k => 1.0 / k);
         var ctx = AnalyzeTargetContext(mrna, 10, 15);
-        Assert.That(ctx.AuContent, Is.EqualTo((h10 - 1) / h10).Within(Tol));
+        Assert.That(ctx.AuContent, Is.EqualTo(2 * (h10 - 1) / (2 * h10 - 0.5)).Within(Tol));
 
         // contextWindow = 1 ⇒ only the adjacent G on each side ⇒ 0.
         Assert.That(AnalyzeTargetContext(mrna, 10, 15, contextWindow: 1).AuContent, Is.EqualTo(0.0).Within(Tol));

@@ -1151,11 +1151,11 @@ public class AnnotationTools
 
     /// <summary>Find miRNA target sites in an mRNA (8mer/7mer-m8/7mer-A1/6mer/offset-6mer).</summary>
     [McpServerTool(Name = "find_mirna_target_sites", Title = "miRNA — Find Target Sites", ReadOnly = true)]
-    [Description("Find miRNA target sites in an mRNA (8mer / 7mer-m8 / 7mer-A1 / 6mer / offset-6mer per Bartel 2009 and TargetScan).")]
+    [Description("Find miRNA target sites in an mRNA treated as the 3'UTR (8mer / 7mer-m8 / 7mer-A1 / 6mer / offset-6mer per Bartel 2009 and TargetScan). Score = max(0, -context score) of the fitted TargetScan 5.0 model (Grimson 2007: site type + 3' pairing + local AU + position); 6mer, offset-6mer and sites starting within the first 15 nt score 0.")]
     public static FindMiRnaTargetSitesResult FindMiRnaTargetSites(
         [Description("mRNA nucleotide sequence (DNA T→U is applied internally)")] string mRnaSequence,
         [Description("Query miRNA")] MiRnaDto miRna,
-        [Description("Minimum site score to report")] double minScore = 0.5)
+        [Description("Minimum site score to report (default 0 = every site)")] double minScore = 0.0)
     {
         if (string.IsNullOrEmpty(mRnaSequence))
             throw new ArgumentException("mRNA sequence cannot be null or empty", nameof(mRnaSequence));
@@ -1256,7 +1256,7 @@ public class AnnotationTools
 
     /// <summary>Compute AU content and positional context score around a target site.</summary>
     [McpServerTool(Name = "analyze_target_context", Title = "miRNA — Analyze Target Context", ReadOnly = true)]
-    [Description("Compute AU content and positional context score around a miRNA target site within an mRNA.")]
+    [Description("Compute the local AU content and the UTR-context part of the TargetScan 5.0 / Grimson 2007 context score (local-AU + position contributions of a 7mer-m8 site, log2 units, negative = repressed; 0 when the site starts within the first 15 nt) around a miRNA target site within a 3'UTR.")]
     public static AnalyzeTargetContextResult AnalyzeTargetContext(
         [Description("mRNA nucleotide sequence")] string mRnaSequence,
         [Description("0-based inclusive start of the target site")] int targetStart,

@@ -135,7 +135,7 @@ public class MiRnaAnalyzer_StructureCleavageKernels_Tests
         var miRna = CreateMiRna("test-mir", "AACGUACGUAGCUAGCUAGCUA");
         string seedRC = GetReverseComplement(miRna.SeedSequence);
         string mrna = "AAAA" + seedRC; // length 11; core at i = 5 = 11-6
-        var sites = FindTargetSites(mrna, miRna, minScore: 0.1).ToList(); // boundary test, not score filter
+        var sites = FindTargetSites(mrna, miRna, minScore: 0.0).ToList(); // boundary test, not score filter
         Assert.That(sites.Any(s => s.Type == TargetSiteType.Seed7merM8 && s.Start == 4),
             $"expected a boundary 7mer-m8 at start 4; got [{string.Join(", ", sites.Select(s => $"{s.Type}@{s.Start}"))}]");
     }

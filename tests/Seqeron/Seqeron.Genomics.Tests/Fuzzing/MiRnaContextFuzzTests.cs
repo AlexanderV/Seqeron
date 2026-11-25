@@ -194,7 +194,7 @@ public class MiRnaContextFuzzTests
         let7a.SeedSequence.Should().Be("GAGGUAG", "the pin starts from the canonical let-7a seed (nt1=U, nt8=G)");
 
         // Sanity: the real finder discovers exactly this 8mer at the documented span.
-        var found = FindTargetSites(WorkedExampleUtr, let7a, minScore: 0.1).ToList();
+        var found = FindTargetSites(WorkedExampleUtr, let7a, minScore: 0.0).ToList();
         var site = found.Should().ContainSingle(s => s.Type == TargetSiteType.Seed8mer).Subject;
         site.Start.Should().Be(WorkedExampleStart, "the worked-example 8mer occupies [5..12] (§7.1)");
         site.End.Should().Be(WorkedExampleEnd);

@@ -166,7 +166,7 @@
 
 | ID | Test | Evidence |
 |----|------|----------|
-| REG-001 | `FindTargetSites_8mer_DuplexRegisteredOnSeed` — TargetSequence `GGGGGCUACCUCA`, Alignment `||||||||:   :`, Score 0.97 | Bartel 2009 Fig 1; TargetScan `extractSubseqForAlignment` (utrStart−16..utrEnd) |
+| REG-001 | `FindTargetSites_8mer_DuplexRegisteredOnSeed` — TargetSequence `GGGGGCUACCUCA`, Alignment `||||||||:   :`, Score 0 / ContextScore null (start 6 < 15, TargetScan `too_close`; WP-6, was 0.97 from the unfitted weights) | Bartel 2009 Fig 1; TargetScan `extractSubseqForAlignment` (utrStart−16..utrEnd) |
 | REG-002 | `FindTargetSites_7merM8_Nt1Unpaired_SeedPaired` | same |
 | REG-003 | `FindTargetSites_6merFlushWithMrnaEnd_Nt1PaddedUnpaired` | same |
 | REG-004 | `FindTargetSites_OffsetSixmer_Nt3To8Paired` | same |
@@ -303,6 +303,18 @@ These are intentional engineering simplifications that do not deviate from the b
 | 6mer and offset 6mer patterns were swapped | `seedRC[0:6]` used for 6mer instead of `seedRC[1:7]` | Corrected: 6mer core = seedRC[1:7] (pos 2-7), offset = seedRC[0:6] (pos 3-8) | Bartel (2009), TargetScan 8.0 |
 | 7mer-A1 checked preceding A instead of trailing A | `mrna[pos-1] == 'A'` instead of downstream check | Corrected: A opposite position 1 is downstream on mRNA at `mrna[i+6]` | Bartel (2009) |
 | 7mer-A1 used wrong seed substring | Used offset pattern (pos 3-8) instead of 6mer core (pos 2-7) | Corrected: uses 6mer core seedRC[1:7] | Bartel (2009) |
-| Scoring weights were arbitrary | 1.0/0.9/0.85/0.7/0.6 with no source | Corrected: 1.0/0.52/0.32/0.15/0.10 proportional to Grimson (2007) | Grimson (2007) |
+| Scoring weights were arbitrary | 1.0/0.9/0.85/0.7/0.6 with no source | Superseded (WP-6, 2026-11-25): the 1.0/0.52/0.32/0.15/0.10 weights were unfitted; `Score` is now the fitted TargetScan 5.0 / Grimson (2007) context score | Grimson (2007); `targetscan_50_context_scores.pl` |
 | Guard condition too restrictive | `pos + 8 > mrna.Length` rejected valid 6mer sites | Corrected: scan uses `i <= mrna.Length - 6` | N/A (logic error) |
 | Tests fitted to buggy code | mRNA constructions matched wrong patterns | All tests rewritten with correct biological patterns | Bartel (2009) |
+
+## WP-6 addendum (2026-11-25): Grimson 2007 / TargetScan 5.0 context score
+
+| ID | Test | Oracle |
+|----|------|--------|
+| G-001 | `MiRnaAnalyzer_GrimsonContext_Tests.KitRows_AllContributionsAndContextScore_EqualTargetScan50` | all 400 kit rows (UTR start >= 32) of `targetscan_50_context_scores.pl` re-run on its sample files: 3' pairing, local AU, position, context score to 1e-9 |
+| G-002 | `KitRow_NearUtrStart_ClipsInsteadOfNegativeSubstr` | the one row with UTR start 21 (perl negative-substr defect, printed AU -0.095): independent python derivation -0.147 |
+| G-003 | `WorkedExample_8merPolyG_HandDerived`, `AnalyzeTargetContext_*` | hand derivation from the TargetScan 5.0 constants |
+| G-004 | `FindTargetSites_Score_IsNegatedContextScore_ClampedAtZero_UnscoredTypesZero`, `_MinScore_FiltersOnPredictedRepression` | Score = max(0, -ContextScore); 6mer / offset 6mer / too_close: 0 and ContextScore null |
+| G-005 | `FindCenteredSites_*` | Shin 2010 definition (>= 11 contiguous WC pairs at miRNA nt 4-14 / 5-15 / 4-15, seed nt 2-7 not all paired): hand constructions; no reference implementation exists |
+| G-006 | `OffsetSixmerSuppression_DoesNotDependOnMinScore` | structural: every 6mer-core site claims its positions whether or not emitted |
+| P-001 | `MiRnaProperties.FindTargetSites_Score_MatchesDocFormula` | independent oracle for site type + AU + position, 3' pairing from the public record |

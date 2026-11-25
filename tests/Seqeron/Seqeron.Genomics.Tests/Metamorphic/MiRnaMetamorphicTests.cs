@@ -133,9 +133,12 @@ public class MiRnaMetamorphicTests
         string sixmerCore = seedRc.Substring(1, 6);
 
         // Same seed core, increasing completeness: 6mer (core only), 7mer-m8 (+pos8), 8mer (+A1).
-        string mrna6 = "GG" + sixmerCore + "GG";
-        string mrna7 = "GGGG" + seedRc + "GGGG";
-        string mrna8 = "GGGG" + seedRc + "A" + "GGGG";
+        // 40-nt A flanks: beyond TargetScan's 15-nt stop-codon guard and AU-rich, so the fitted score
+        // (Grimson 2007 / TargetScan 5.0) is defined; the 6mer has no fitted coefficient (score 0).
+        string flank = new string('A', 40);
+        string mrna6 = flank + sixmerCore + "G" + flank;
+        string mrna7 = flank + seedRc + "G" + flank;
+        string mrna8 = flank + seedRc + "A" + flank;
 
         double score6 = MiRnaAnalyzer.FindTargetSites(mrna6, mirna, minScore: 0.0).Max(s => s.Score);
         double score7 = MiRnaAnalyzer.FindTargetSites(mrna7, mirna, minScore: 0.0).Max(s => s.Score);
@@ -157,8 +160,9 @@ public class MiRnaMetamorphicTests
         string seedRc = MiRnaAnalyzer.GetReverseComplement(mirna.SeedSequence);
         string sixmerCore = seedRc.Substring(1, 6);
 
-        // A strong 8mer near the start and a weak isolated 6mer downstream.
-        string mrna = "GGGG" + seedRc + "A" + "GGGGGGGGGG" + sixmerCore + "GG";
+        // A strong 8mer (AU-rich 40-nt upstream flank, past the 15-nt guard) and a weak isolated 6mer downstream
+        // (the 6mer has no fitted score: 0).
+        string mrna = new string('A', 40) + seedRc + "A" + "GGGGGGGGGG" + sixmerCore + "GG";
 
         var lenient = SiteKeys(MiRnaAnalyzer.FindTargetSites(mrna, mirna, minScore: 0.0));
         var stringent = SiteKeys(MiRnaAnalyzer.FindTargetSites(mrna, mirna, minScore: 0.3));
@@ -166,7 +170,7 @@ public class MiRnaMetamorphicTests
         stringent.IsSubsetOf(lenient).Should().BeTrue(
             because: "raising minScore can only remove sites, never add them");
         lenient.Count.Should().BeGreaterThan(stringent.Count,
-            because: "the 6mer (base efficacy 0.15 < 0.3) is dropped at the stricter threshold while the 8mer survives");
+            because: "the unscored 6mer (Score 0 < 0.3) is dropped at the stricter threshold while the fitted 8mer survives");
     }
 
     #endregion

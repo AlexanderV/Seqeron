@@ -275,3 +275,8 @@ Defects & reference numbers:
 | GGGGGCUACCUCAGGGGG | 5..12 | 1.872e-3 | 1.28e-4 | 1.282e-4 (3.225e-4 before B12 F4/F7) | 0 |
 | GGGAAACCCAAAGGGUUUCCCAAGCUACCUCAAA | 23..30 | 0.993777 | 0.976954 | 0.975759 (0.972098) | 0 |
 | AUGCUACCUCAAAAAAAAAAAAAAAAA | 3..10 | 0.993008 | 0.970119 | 0.967387 (0.963046) | 0 |
+
+## WP-6 update (2026-11-25): fitted Grimson (2007) context score
+
+`TargetSite.Score` / `AnalyzeTargetContext.ContextScore` no longer use the unfitted 1.0/0.52/0.32/0.15/0.10 weights and the 0.5/0.5 combination. Source: Grimson et al. 2007 Mol Cell 27:91 (WebSearch snippets: 3' pairing score = 1 point per contiguous pair at miRNA nt 13-16, 1/2 point elsewhere, -1/2 per nt offset beyond 2) and the TargetScan 5.0 code `targetscan_50_context_scores.pl` (kit `targetscan_50_context_scores.zip`, `www.targetscan.org/vert_50/vert_50_data_download/`, SHA-256 72e95029e7ea547d436619c778256327ceae1d2cb6c8c9ce7c644d5be8990c6c; terms as the other TargetScan kits): constants site type -0.310 / -0.161 / -0.099; local AU slope/intercept -0.64/0.365, -0.5/0.269, -0.42/0.236; position 0.000172/-0.07, 0.000091/-0.037, 0.000072/-0.032 (distance capped 1500); 3' pairing -0.0041/0.011, -0.031/0.067, -0.0211/0.046. The TargetScan 5.3 / 6.0 / 6.1 scripts were also read: 5.3 corrected the 5.0 AU defects (8mer coordinates incl. A1, short upstream window clipped); 6.x replaced the coefficients by Garcia 2011 and, in its own header, calls the 6mer values "probably wrong". Centered sites: Shin et al. 2010 Mol Cell 38:789 (abstract / reprint wording via WebSearch; the full text was not opened): lack perfect seed pairing and 3'-compensatory pairing, 11-12 contiguous WC pairs to the miRNA centre (nt 4-14 / 5-15 / 4-15 in the reprint wording).
+

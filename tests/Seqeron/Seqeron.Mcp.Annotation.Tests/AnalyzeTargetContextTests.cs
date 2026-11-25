@@ -21,25 +21,25 @@ public class AnalyzeTargetContextTests
     [Test]
     public void AnalyzeTargetContext_Binding_InvokesSuccessfully()
     {
-        // Grimson (2007) / TargetScan context (MiRnaAnalyzer.AnalyzeTargetContext):
+        // Grimson (2007) / TargetScan 5.0 (MiRnaAnalyzer.AnalyzeTargetContext, 7mer-m8 coefficients):
         // 40-nt poly(A), site 20..23: weighted local AU = 1.0; NearStart = (21 < 15) false;
-        // NearEnd = 23 > 34 false; d5 = 20, d3 = 16 ⇒ EndProximity = 1 − 16/18;
-        // ContextScore = 0.5·1.0 + 0.5·(1 − 16/18).
+        // NearEnd = 23 > 34 false; d5 = 20, d3 = 40 − 24 = 16;
+        // ContextScore = round3(−0.5·1 + 0.269) + round3(0.000091·16 − 0.037) = −0.231 − 0.036.
         var au = AnnotationTools.AnalyzeTargetContext(new string('A', 40), 20, 23, 30);
         Assert.Multiple(() =>
         {
             Assert.That(au.AuContent, Is.EqualTo(1.0).Within(1e-9));
             Assert.That(au.NearStart, Is.False);
             Assert.That(au.NearEnd, Is.False);
-            Assert.That(au.ContextScore, Is.EqualTo(0.5 + 0.5 * (1 - 16.0 / 18.0)).Within(1e-9));
+            Assert.That(au.ContextScore, Is.EqualTo(-0.231 - 0.036).Within(1e-9));
         });
 
-        // No A/U ⇒ AuContent = 0; only the positional term remains.
+        // No A/U ⇒ AuContent = 0 ⇒ AU term round3(0.269) = +0.269; position term −0.036.
         var gc = AnnotationTools.AnalyzeTargetContext(string.Concat(Enumerable.Repeat("GC", 20)), 20, 23, 30);
         Assert.Multiple(() =>
         {
             Assert.That(gc.AuContent, Is.EqualTo(0.0).Within(1e-9));
-            Assert.That(gc.ContextScore, Is.EqualTo(0.5 * (1 - 16.0 / 18.0)).Within(1e-9));
+            Assert.That(gc.ContextScore, Is.EqualTo(0.269 - 0.036).Within(1e-9));
         });
 
         // Site within the first 15 nt of the 3'UTR (TargetScan MIN_DIST_TO_CDS): nearStart, score 0.

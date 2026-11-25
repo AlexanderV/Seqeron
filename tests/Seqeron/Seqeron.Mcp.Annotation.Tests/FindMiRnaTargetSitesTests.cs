@@ -25,7 +25,9 @@ public class FindMiRnaTargetSitesTests
     public void FindMiRnaTargetSites_8merSite_DetectedAndScoredHighest()
     {
         // 8mer: full seedRC + trailing A (Bartel 2009). Single highest-scoring site.
-        string mrna = "GGGGG" + Let7aSeedRC + "A" + "GGGGG";
+        // 40-nt A flanks keep the site beyond TargetScan's 15-nt guard; TargetScan 5.0 context score
+        // −0.310 (8mer) −0.275 (AU) −0.063 (position) + 0.0028 (3' pairing) = −0.6452 ⇒ Score 0.6452.
+        string mrna = new string('A', 40) + Let7aSeedRC + "A" + new string('A', 40);
         var result = AnnotationTools.FindMiRnaTargetSites(mrna, Let7a(), minScore: 0.1);
 
         Assert.That(result.Sites, Has.Count.EqualTo(1));
@@ -33,7 +35,7 @@ public class FindMiRnaTargetSitesTests
         {
             Assert.That(result.Sites[0].Type, Is.EqualTo("Seed8mer"));
             Assert.That(result.Sites[0].SeedMatchLength, Is.EqualTo(8));
-            Assert.That(result.Sites[0].Score, Is.GreaterThanOrEqualTo(0.9));
+            Assert.That(result.Sites[0].Score, Is.EqualTo(0.6452).Within(1e-9));
         });
     }
 
@@ -42,7 +44,7 @@ public class FindMiRnaTargetSitesTests
     {
         // 7mer-m8: full seedRC, no trailing A (trailing G).
         string mrna = "GGGGG" + Let7aSeedRC + "G" + "GGGGG";
-        var result = AnnotationTools.FindMiRnaTargetSites(mrna, Let7a(), minScore: 0.1);
+        var result = AnnotationTools.FindMiRnaTargetSites(mrna, Let7a());   // default minScore 0 = every site
 
         Assert.That(result.Sites, Has.Count.EqualTo(1));
         Assert.Multiple(() =>

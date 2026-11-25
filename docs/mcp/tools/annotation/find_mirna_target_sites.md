@@ -16,9 +16,10 @@ Find miRNA target sites in an mRNA sequence.
 
 Scans an mRNA (DNA T→U applied internally) for canonical miRNA target sites keyed on the seed reverse
 complement, classifying each into the Bartel (2009) / TargetScan site hierarchy — **8mer**, **7mer-m8**,
-**7mer-A1**, **6mer**, or **offset-6mer** — and scoring each by site type and pairing. Only sites at or
-above `minScore` are returned. 8mer sites (full seed match plus an A opposite miRNA position 1) score
-highest.
+**7mer-A1**, **6mer**, or **offset-6mer** — and scoring each with the fitted TargetScan 5.0 context score
+(Grimson et al. 2007: site type + 3' pairing + local AU + position; `score = max(0, -context score)`, log2
+units). The mRNA is treated as the 3'UTR; 6mer, offset-6mer and sites starting within the first 15 nt have
+no fitted score (0). Only sites at or above `minScore` are returned.
 
 ## Core Documentation Reference
 
@@ -30,7 +31,7 @@ highest.
 |-----------|------|----------|-------------|
 | `mRnaSequence` | string | Yes | mRNA nucleotide sequence |
 | `miRna` | object | Yes | Query miRNA record |
-| `minScore` | number | No | Minimum site score to report (default 0.5) |
+| `minScore` | number | No | Minimum site score to report (default 0 = every site) |
 
 ## Output Schema
 

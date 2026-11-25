@@ -61,7 +61,7 @@ using biological positions in the underlying miRNA [1][2]. Site classes follow t
 |------|------|---------|-------------|-------------|
 | `mRnaSequence` | `string` | required | RNA or DNA sequence to scan for seed-complement sites. | `null` or empty input yields no results; `T` is normalized to `U`. |
 | `miRna` | `MiRna` | required | miRNA record containing the normalized sequence and seed. | Empty stored sequence yields no results. |
-| `minScore` | `double` | `0.5` | Minimum heuristic score required for a site to be emitted. | Not explicitly validated or clamped before filtering. |
+| `minScore` | `double` | `0.0` | Minimum predicted repression (`Score`) for a site to be emitted; the default returns every site. | Not validated; negative values admit every site. |
 
 ### 3.2 Output / Return Value
 
@@ -73,7 +73,7 @@ using biological positions in the underlying miRNA [1][2]. Site classes follow t
 | `MiRnaName` | `string` | Name copied from the supplied `MiRna` record. |
 | `Type` | `TargetSiteType` | Site class: `Seed8mer`, `Seed7merM8`, `Seed7merA1`, `Seed6mer`, or `Offset6mer` in current emitted results. |
 | `SeedMatchLength` | `int` | Nominal number of matched seed positions used for the site class. |
-| `Score` | `double` | Heuristic site score in `[0, 1]`. |
+| `Score` | `double` | Predicted repression `max(0, −ContextScore)` in log2 units (TargetScan 5.0 / Grimson 2007 context score; 0 for 6mer, offset 6mer and sites starting within the first 15 nt). The signed score is `TargetSite.ContextScore` (`double?`, `null` when undefined). |
 | `FreeEnergy` | `double` | Turner 2004 nearest-neighbour ΔG°37 of the ungapped duplex (`AlignMiRnaToTarget`, MIRNA-PAIR-001: initiation, stacks, internal loops, AU/GU ends, dangling ends / terminal mismatches). |
 | `Alignment` | `string` | Per-miRNA-position string (index 0 = nt 1) using `|` for Watson-Crick matches, `:` for G:U wobble pairs, and space for mismatches / no partner. Seed positions of a canonical site are always `|`. |
 
@@ -88,7 +88,7 @@ using biological positions in the underlying miRNA [1][2]. Site classes follow t
 1. Normalize the mRNA input to uppercase RNA and read the normalized miRNA sequence from the supplied `MiRna` record.
 2. Compute the reverse complement of the miRNA seed, then derive the canonical 6mer core and the offset-6mer pattern.
 3. Pass 1: scan the mRNA for exact 6mer-core matches and upgrade each hit to 8mer, 7mer-m8, 7mer-A1, or 6mer depending on the upstream position-8 base and downstream `A1` base.
-4. For each pass-1 hit, build a full duplex alignment, compute its heuristic score, and retain the site if `Score >= minScore`, marking its covered coordinates.
+4. For each pass-1 hit, build a full duplex alignment (`TargetSequence` / `Alignment` / `FreeEnergy`), compute the Grimson (2007) / TargetScan 5.0 context score (`ScoreTargetSiteGrimson`: site type + 3' pairing + local AU + position), and retain the site if `Score >= minScore`. Every pass-1 hit marks its coordinates as covered whether or not it is retained, so the offset-6mer suppression does not depend on `minScore`.
 5. Pass 2: scan for offset-6mer matches, skipping sites that overlap already retained pass-1 sites or that would become a full seed match at the same location.
 6. Emit retained `TargetSite` records in scan order.
 
@@ -156,24 +156,24 @@ The **`TA_3UTR`** (transcriptome-wide target-site abundance) feature is now comp
 
 **Intentionally simplified:**
 
-- The default `Score` is a heuristic normalization of site class, mismatch burden, and extra pairing rather than a fitted repression model; **consequence:** `Score` ranks hits within this implementation but is not a calibrated repression probability. (The opt-in `ScoreTargetSiteContextPlusPlus` provides the source-fitted context++ alternative.)
+- `Score` is the fitted TargetScan 5.0 context score of Grimson et al. (2007), negated and floored at 0 (`max(0, −ContextScore)`): site-type contribution −0.310 (8mer) / −0.161 (7mer-m8) / −0.099 (7mer-A1) + 3' pairing (slope × 3P score + intercept) + local AU (slope × position-weighted A/U fraction of 2 × 30 nt, 3-dp rounded) + position (slope × min(distance to nearest 3'UTR end, 1500), 3-dp rounded), with the constants of `targetscan_50_context_scores.pl` ("Regression info from Grimson et al., 2007 supp data"). **Oracle:** the script was re-run on its kit sample (`targetscan_50_context_scores.zip`, `vert_50` data-download page; 26 aligned UTRs, 76 mature miRNAs): all 400 rows with UTR start ≥ 32 are reproduced to 1e-9 for the 3' pairing, local AU, position contributions and the context score. **Consequences:** the 6mer and offset 6mer have no TargetScan 5.0 coefficients (Score 0, `ContextScore` `null`); the sequence passed in is treated as the 3'UTR (sites with 1-based start < 15 are `too_close`, no score); the 3' pairing alignment is the context++ port (shared). The opt-in `ScoreTargetSiteContextPlusPlus` provides the newer Agarwal (2015) context++ score. TargetScan 5.0 passes a negative `substr` offset for sites within 31 nt of the UTR start (the single kit row at start 21 differs); TargetScan fixed that in 5.3 by clipping, and so does this port.
 - (Opt-in context++) **SA** without a supplied RNAplfold value is an approximation (one 80-nt McCaskill window, no 40-nt span limit, no window averaging; see above). **Consequence:** SA and the score can differ from TargetScan; supply `PlfoldUnpairedProbability` to reproduce it. Blocked on a span-limited partition function in `RnaSecondaryStructure` (request to the RNA-structure owner).
 - (Opt-in context++) The PCT **sigmoid parameters** `b0..b3` (TargetScan 7.0 kit, 111 seed families × 3 site types; caller rows override) and the ten per-UTR-bin **trees** + generic tree are bundled; the **species with the site** and the **UTR bin** are derived from a multi-species 3'UTR alignment (`FindTargetScanSiteGroups`, `AssignTargetScanUtrBin`, end-to-end `ScoreTargetScanConservation`; B13 F35/F36) or still accepted from the caller (`PctConservation`). **TA_3UTR / SPS** come from the bundled TargetScan table (or caller values; `ComputeTa3Utr` computes TA from your own 3'UTR set); **Len_ORF / ORF8m** need the transcript's ORF (`OrfSequence`, or the two numbers). The only context++ inputs the library cannot derive or bundle are the multi-species alignment itself and the exact RNAplfold SA value. **Consequence:** without an alignment (and without an ORF), `ContextScorePartial` is a partial context++ score, reported alongside the explicit `OmittedFeatures` list of whatever remains residual for that call.
 - Duplex free energy is the Turner 2004 energy of the fixed-register ungapped duplex (MIRNA-PAIR-001); **consequence:** a site whose 3′ pairing needs a bulge is scored in the seed register only — use `FoldMiRnaDuplex` for the MFE gapped duplex.
 - Context and accessibility are exposed only as separate helper methods; **consequence:** the main finder does not integrate AU context, conservation, or accessibility into site discovery or ranking.
   - `CalculateSiteAccessibility` = P(site entirely unpaired) = Z_open/Z from the Turner-2004 McCaskill partition function, delegated to the canonical `RnaSecondaryStructure.CalculateRegionUnpairedProbability` over an RNAplfold-style local context of W = max(80, site length) nt centred on the site (same helper as the context++ SA feature). RNAplfold's L = 40 span limit and averaging over all W-windows are not applied. Cross-check vs ViennaRNA 2.x (Z_c/Z, hard-constrained unpaired site): 0.9758 vs 0.9770 (dangles 2) / 0.9938 (dangles 0); 0.9674 vs 0.9701 / 0.9930; helix-locked site 1.28e-4 vs 1.28e-4 / 1.9e-3 (canonical d2 dangles + McCaskill grammar, B12 RNA-STRUCT-001 F4/F7; before: 0.9721, 0.9630, 3.2e-4). (Replaced 2026-09-28 a Watson-Crick pair-density heuristic that returned 0 for all three.)
-  - `AnalyzeTargetContext` implements Grimson et al. (2007) context determinants [3]: `AuContent` = TargetScan `getLocalAU_contribution` inverse-distance-weighted A/U fraction of ≤ `contextWindow` (30) nt per flank, site excluded (offset-1 weights both sides, as a bare coordinate range has no site type); `NearStart` = 1-based start < 15 (TargetScan `$MIN_DIST_TO_CDS`, ribosome-occluded); `NearEnd` = end > 0.85·length (descriptive); `ContextScore` = 0 when `NearStart`, else 0.5·AuContent + 0.5·(1 − min(d5′,d3′)/((d5′+d3′)/2)) — both term directions are sourced (AU-rich flanks and sites near either UTR end are more effective), the equal weighting is **not** fitted; use `ScoreTargetSiteContextPlusPlus` (Local_AU, Min_dist) for the regression-fitted score. (Fixed 2026-09-28: the previous score gave a +0.3 bonus to sites in the *middle* of the sequence — the opposite of Grimson's finding — used an unweighted AU count that included the site itself, and a 15%-of-length start threshold instead of 15 nt.)
+  - `AnalyzeTargetContext` implements Grimson et al. (2007) context determinants [3]: `AuContent` = TargetScan 5.0 `getLocalAUcontribution` weighted A/U fraction of ≤ `contextWindow` (30) nt per flank, site excluded, with the weights of the `siteType` argument (default 7mer-m8: upstream 1/(i+1), downstream ½ for i = 0 then 1/(i+1)); `NearStart` = 1-based start < 15 (`$MIN_DIST_TO_CDS`); `NearEnd` = end > 0.85·length (descriptive); `ContextScore` = 0 when `NearStart` or when `siteType` has no TargetScan 5.0 coefficients, else the UTR-context part of the Grimson score, round3(slope_AU·AuContent + intercept_AU) + round3(slope_pos·min(d5′,d3′,1500) + intercept_pos) in log2 units (negative = repressed). The site-type and 3' pairing terms need the miRNA: `ScoreTargetSiteGrimson`. (Re-based 2026-11-25 on the TargetScan 5.0 coefficients; the earlier 0.5·AU + 0.5·end-proximity combination was an unfitted heuristic.)
 
 **Not implemented:**
 
-- Discovery of centered sites, supplementary-only sites, and bulged seed sites; **users should rely on:** `AnalyzeTargetContext` and `CalculateSiteAccessibility` only for separate annotations, or use an external miRNA target-prediction tool for broader site classes.
+- Bulged / mismatched seed sites and 3'-compensatory sites; **users should rely on:** an external miRNA target-prediction tool for broader site classes. 3'-supplementary pairing is not a site class: Grimson et al. (2007) score it as the 3' pairing term of a seed site (`ScoreTargetSiteGrimson(...).ThreePrimePairingScore`).
 - The full context++ headline score needs inputs that are not in a single 3'UTR: the transcript ORF (`OrfSequence`), the multi-species 3'UTR alignment for PCT (from which `FindTargetScanSiteGroups` / `ScoreTargetScanConservation` derive the species with the site and the bin tree) and, for TargetScan's exact SA, the RNAplfold value. TA_3UTR, SPS and the PCT sigmoid parameters are bundled. **Users should rely on:** supplying these via `ContextPlusPlusInputs`, the official TargetScan distribution, or treating `ContextScorePartial` as a partial score.
 
 ### 5.4 Deviations and Assumptions
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
-| 1 | `TargetSiteType.Centered` and `TargetSiteType.Supplementary` exist in the enum but are not emitted by `FindTargetSites`. | Deviation | The public type system advertises more site classes than the current finder can actually discover. | accepted | Discovery remains limited to canonical seed-driven classes and offset 6mers. |
+| 1 | `TargetSiteType.Supplementary` is never emitted by any method (3'-supplementary pairing is the 3' pairing term of a seed site, Grimson 2007, not a site class); `TargetSiteType.Centered` is emitted only by `FindCenteredSites` (Shin et al. 2010), never by `FindTargetSites`. | Deviation | The public enum keeps both members for backward compatibility. | accepted | `Supplementary` documented as never emitted; centered sites: ≥ 11 contiguous Watson–Crick pairs at miRNA nt 4–14 / 5–15 / 4–15, nt 2–7 not all paired, G:U not counted (abstract + reprint wording; no reference implementation, the oracle is the hand construction in the tests); the "lacks 3'-compensatory pairing" criterion is not tested. |
 
 ## 6. Edge Cases and Limitations
 
@@ -185,12 +185,12 @@ The **`TA_3UTR`** (transcriptome-wide target-site abundance) feature is now comp
 | Empty `miRna.Sequence` | Returns no sites. | The finder exits before seed matching if the miRNA sequence is empty. |
 | Seed shorter than 7 nt | Returns no sites. | Canonical seed reverse-complement matching requires the 7-mer seed. |
 | DNA target sequence | `T` is treated as `U`. | mRNA input is normalized with `Replace('T', 'U')`. |
-| `minScore > 1.0` | Returns no sites. | All heuristic scores are clamped to `[0, 1]` before comparison. |
-| `minScore < 0.0` | All candidate sites that survive class-specific filtering are emitted. | Scores are compared directly against the caller-supplied threshold. |
+| `minScore` above the largest context score | Returns no sites. | `Score = max(0, −ContextScore)` has no fixed ceiling; ≈ 0.65 for a strong 8mer in an AU-rich 3'UTR. |
+| `minScore ≤ 0` | Every candidate site is emitted. | Scores are compared directly (`Score ≥ minScore`). |
 
 ### 6.2 Limitations
 
-The finder reports only exact canonical seed-complement sites and offset-6mer sites. It does not model bulges, gaps, centered sites, supplementary-only pairing, evolutionary conservation, transcript isoforms, or experimentally fitted repression models. Its heuristic `FreeEnergy` and `Score` are implementation-level ranking aids rather than biophysical or transcriptome-scale confidence measures.
+The finder reports only exact canonical seed-complement sites and offset-6mer sites. It does not model bulges, gaps, supplementary-only or 3'-compensatory sites, evolutionary conservation, transcript isoforms, or the 6mer / offset-6mer effect (no TargetScan 5.0 coefficients). `FreeEnergy` is an implementation-level ranking aid, not a biophysical confidence measure; `Score` is the Grimson (2007) fitted model.
 
 ## 7. Examples and Related Material
 
@@ -204,7 +204,7 @@ using Seqeron.Genomics.Annotation;
 var let7a = MiRnaAnalyzer.CreateMiRna("let-7a", "UGAGGUAGUAGGUUGUAUAGUU");
 string mrna = "GGGGGCUACCUCAGGGGG";
 
-var sites = MiRnaAnalyzer.FindTargetSites(mrna, let7a, minScore: 0.1).ToList();
+var sites = MiRnaAnalyzer.FindTargetSites(mrna, let7a, minScore: 0.0).ToList();
 
 // sites[0].Type == TargetSiteType.Seed8mer
 // sites[0].SeedMatchLength == 8
@@ -245,6 +245,10 @@ var withPct = MiRnaAnalyzer.ScoreTargetSiteContextPlusPlus(
 ```
 
 **Numerical walk-through (8mer, let-7a, all-G flanks):** with `mRNA = GGGGG + CUACCUCA + GGGGG` (length 18), the 8mer occupies `Start=5,End=12`; both 30 nt flanks are all-G so the local-AU fraction is 0. The realised contributions are: `Intercept(8mer)=-0.589`; `Local_AU = -0.254 × ((0 − 0.308)/(0.814 − 0.308)) = +0.154608695652174`; `sRNA8G(8mer)=+0.015` (nt1=U ⇒ sRNA1 unscored; Site8 undefined for 8mer); `3P_score`: raw=0 ⇒ `-0.040 × ((0 − 1)/(3.5 − 1)) = +0.016`; `Min_dist`: nearest end = min(5, 18−13) = 5 ⇒ `0.118 × ((log10 5 − 1.415)/(3.113 − 1.415)) = -0.049759446106213065`; `Len_3UTR`: `0.310 × ((log10 18 − 2.392)/(3.637 − 2.392)) = -0.2830405810586145`; `Off6m`: pattern `CUACCU` occurs once ⇒ `-0.020 × 1 = -0.020`. These sum to -0.7561913315126536; the bundled TargetScan row of seed GAGGUAG (TA 3.393, 8mer SPS −9.250) adds `TA_3UTR = 0.222 × ((3.393 − 3.113)/(3.865 − 3.113)) = +0.08265957446808503` and `SPS = 0.210 × ((−9.250 + 11.13)/(−5.52 + 11.13)) = +0.07037433155080215`, so `ContextScorePartial` = **-0.6031574254937664** (SA omitted because the 14-nt window does not fit; no ORF ⇒ Len_ORF/ORF8m omitted; no conservation ⇒ PCT omitted). `ContextScore` is `null`: the site starts at nt 6, inside TargetScan's 15-nt `too_close` zone. All numbers are the verbatim Agarwal_2015_parameters.txt coefficients.
+
+**Numerical walk-through (Grimson 2007 / TargetScan 5.0 `Score`, 8mer, let-7a, A flanks):** `mRNA = A×40 + CUACCUC + A + A×40` (length 88); the 8mer occupies `Start=40,End=47`. Site type −0.310; local AU: all flank nt are A/U ⇒ fraction 1 ⇒ round3(−0.64 × 1 + 0.365) = −0.275; position: 5.0 coordinates `utrStart=41`, `utrEnd=47` (the A1 lies outside) ⇒ distance min(40, 88−47=41) = 40 ⇒ round3(0.000172 × 40 − 0.07) = −0.063; 3' pairing raw score 2 ⇒ 0.011 − 0.0041 × 2 = +0.0028. Context score −0.6452, `Score` 0.6452. The same construction with a 7mer-m8 (`…CUACCUC + G + A×40`) gives −0.387, a 7mer-A1 −0.3082, a 6mer has no score.
+
+**Oracle run (TargetScan 5.0):** `perl targetscan_50_context_scores.pl miR_for_context_scores.txt UTR_Sequences_sample.txt targetscan_50_output.txt out.txt` (kit SHA-256 72e95029…90c6, perl 5.38) gives 401 rows; the library equals 400 of them to 1e-9 (3' pairing, local AU, position, context score). The 401st (FNDC3A 9615 cfa-miR-101, 7mer-A1 at 21) hits perl's negative-`substr` defect (printed AU −0.095) and is clipped here (−0.147, independent derivation in the tests). The shipped output file differs from the re-run only in 65 7mer-m8 rows at the 1500-nt position cap (0.0995 prints 0.099 there, 0.100 on x86-64).
 
 ### 7.3 Related Tests, Evidence, or Documents
 

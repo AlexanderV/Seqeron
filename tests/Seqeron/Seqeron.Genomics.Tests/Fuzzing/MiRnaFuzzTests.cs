@@ -641,7 +641,7 @@ public class MiRnaFuzzTests
         var let7a = CreateMiRna("let-7a", Let7aSequence);
         let7a.SeedSequence.Should().Be(Let7aSeed, "the positive probe starts from the canonical let-7a seed");
 
-        var sites = FindTargetSites(Let7aTarget8mer, let7a).ToList(); // default minScore 0.5
+        var sites = FindTargetSites(Let7aTarget8mer, let7a).ToList(); // default minScore 0.0
         sites.Should().NotBeEmpty("the 3'UTR carries a real complementary 8mer seed site");
 
         var eightMer = sites.Should().ContainSingle(s => s.Type == TargetSiteType.Seed8mer,
@@ -657,8 +657,9 @@ public class MiRnaFuzzTests
         eightMer.End.Should().Be(coreIdx + 6, "the 8mer ends at the A1 base opposite miRNA position 1 (INV-03)");
         eightMer.SeedMatchLength.Should().Be(8, "an 8mer site matches 8 seed positions (INV-02)");
         eightMer.MiRnaName.Should().Be("let-7a", "the site carries the supplied miRNA name");
-        eightMer.Score.Should().BeInRange(0.5, 1.0,
-            "the 8mer base score (1.0) clears the default minScore and stays clamped to [0,1] (INV-01)");
+        eightMer.ContextScore.Should().BeNull("1-based start 6 < 15: TargetScan reports too_close (no context score)");
+        eightMer.Score.Should().BeInRange(0.0, 1.0, "Score = max(0, −TargetScan 5.0 context score) stays in [0,1] (INV-01)");
+        eightMer.Score.Should().BeApproximately(Math.Max(0.0, -(eightMer.ContextScore ?? 0.0)), 1e-12);
         Let7aTarget8mer.Substring(eightMer.Start, eightMer.End - eightMer.Start + 1)
             .Should().Contain(sixmerCoreRC, "the reported span really carries the seed's 6mer-core RC");
 
