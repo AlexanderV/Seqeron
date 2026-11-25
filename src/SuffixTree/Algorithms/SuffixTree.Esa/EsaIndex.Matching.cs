@@ -45,6 +45,11 @@ internal sealed partial class EsaIndex
     internal IReadOnlyList<(string Substring, IReadOnlyList<int> PositionsInText, IReadOnlyList<int> PositionsInOther)> FindAllDistinctLongestCommonSubstrings(string other)
     {
         ArgumentNullException.ThrowIfNull(other);
+        if (!IsNarrow)
+        {
+            EsaNavigatorWide wide = CreateWideNavigator();
+            return SuffixTreeAlgorithms.FindAllDistinctLongestCommonSubstrings<EsaNode, EsaNavigatorWide>(ref wide, other);
+        }
         EsaNavigator nav = CreateNavigator();
         return SuffixTreeAlgorithms.FindAllDistinctLongestCommonSubstrings<EsaNode, EsaNavigator>(ref nav, other);
     }
@@ -54,6 +59,11 @@ internal sealed partial class EsaIndex
     internal IReadOnlyList<(int PositionInText, int PositionInQuery, int Length)> FindExactMatchAnchors(string query, int minLength)
     {
         ArgumentNullException.ThrowIfNull(query);
+        if (!IsNarrow)
+        {
+            EsaNavigatorWide wide = CreateWideNavigator();
+            return SuffixTreeAlgorithms.FindExactMatchAnchors<EsaNode, EsaNavigatorWide>(ref wide, query, minLength);
+        }
         EsaNavigator nav = CreateNavigator();
         return SuffixTreeAlgorithms.FindExactMatchAnchors<EsaNode, EsaNavigator>(ref nav, query, minLength);
     }
@@ -65,6 +75,11 @@ internal sealed partial class EsaIndex
     {
         ArgumentNullException.ThrowIfNull(query);
         ArgumentOutOfRangeException.ThrowIfLessThan(minLength, 1);
+        if (!IsNarrow)
+        {
+            EsaNavigatorWide wide = CreateWideNavigator();
+            return SuffixTreeAlgorithms.FindMaximalExactMatches<EsaNode, EsaNavigatorWide>(ref wide, query, minLength);
+        }
         EsaNavigator nav = CreateNavigator();
         return SuffixTreeAlgorithms.FindMaximalExactMatches<EsaNode, EsaNavigator>(ref nav, query, minLength);
     }
@@ -78,6 +93,11 @@ internal sealed partial class EsaIndex
         ArgumentOutOfRangeException.ThrowIfLessThan(minLength, 1);
         if (uniqueness is not (MumUniqueness.Both or MumUniqueness.Reference))
             throw new ArgumentOutOfRangeException(nameof(uniqueness), uniqueness, "Undefined MumUniqueness value.");
+        if (!IsNarrow)
+        {
+            EsaNavigatorWide wide = CreateWideNavigator();
+            return SuffixTreeAlgorithms.FindMaximalUniqueMatches<EsaNode, EsaNavigatorWide>(ref wide, query, minLength, uniqueness);
+        }
         EsaNavigator nav = CreateNavigator();
         return SuffixTreeAlgorithms.FindMaximalUniqueMatches<EsaNode, EsaNavigator>(ref nav, query, minLength, uniqueness);
     }
@@ -85,6 +105,11 @@ internal sealed partial class EsaIndex
     private (string Substring, List<int> PositionsInText, List<int> PositionsInOther) FindAllLcsInternal(string other, bool firstOnly)
     {
         ArgumentNullException.ThrowIfNull(other);
+        if (!IsNarrow)
+        {
+            EsaNavigatorWide wide = CreateWideNavigator();
+            return SuffixTreeAlgorithms.FindAllLcs<EsaNode, EsaNavigatorWide>(ref wide, other, firstOnly);
+        }
         EsaNavigator nav = CreateNavigator();
         return SuffixTreeAlgorithms.FindAllLcs<EsaNode, EsaNavigator>(ref nav, other, firstOnly);
     }

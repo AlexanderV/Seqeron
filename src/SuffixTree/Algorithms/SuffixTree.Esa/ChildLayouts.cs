@@ -233,6 +233,9 @@ internal readonly unsafe struct MappedChild : IChildTable
     /// <summary>True for CHILD codec 2 (the kind of a field in bits 30-31).</summary>
     internal bool IsTagged => _tagged;
 
+    /// <summary>True when the cells are 5 bytes, or a table of more than <see cref="int.MaxValue"/> cells: the 32-bit members read them through the checked bridge and the 32-bit navigator does not serve this table.</summary>
+    internal bool IsBridged => _bridged;
+
     /// <summary>The first cell (the pattern descent of <see cref="MappedSearch"/> reads the section through the pointer).</summary>
     /// <exception cref="NotSupportedException">The cells are 5 bytes: there is no pointer to 32-bit cells.</exception>
     internal int* Pointer => _five ? throw new NotSupportedException("the child table has 5-byte cells (POS_WIDTH 5): there is no pointer to 32-bit cells; use the 64-bit members") : _cld;

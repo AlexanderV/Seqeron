@@ -216,14 +216,16 @@ public class ContainerPackTests
     }
 
     [Test]
-    public void ARmqPyramidWhoseLevelsAreAllZero_IsRefusedAsDamage_WhenALinkNeedsTheBlockOfAMinimumAboveZero()
+    public void ARmqPyramidWhoseLevelsAreAllZero_IsRefusedAsDamage_WhenALinkNeedsTheBlockOfAMinimumAboveZero([ValueSource(nameof(Modes))] EsaAccessMode access)
     {
-        const string text = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        // u^60: the 60 suffixes of one rotation are adjacent and share long prefixes, so a block of the LCP array holds only large values, and a pyramid that says "there is an entry of 0 here" leads the walk into a block that has none
+        string u = StringFamilies.RandomDna(12, 77);
+        string text = string.Concat(Enumerable.Repeat(u, 60));
         using var dir = new TempDir();
         byte[] image = SesaTestFile.Image(LcpChildCase.Of(text), psi: true, rmq: true);
         OracleSection rmq = SesaTestFile.Section(image, SesaFormat.KindRmq);
-        image.AsSpan((int)rmq.Offset, (int)rmq.Length).Clear(); // every block minimum says "there is an entry below any bound"
-        (SesaFile file, EsaIndex index) = Open(dir, image, EsaAccessMode.Checked);
+        image.AsSpan((int)rmq.Offset, (int)rmq.Length).Clear();
+        (SesaFile file, EsaIndex index) = Open(dir, image, access);
         using (file)
         {
             var w = new EsaSuffixIndex(index);

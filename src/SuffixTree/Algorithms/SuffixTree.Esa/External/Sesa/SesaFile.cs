@@ -211,6 +211,33 @@ internal sealed unsafe class SesaFile : IDisposable
         }
     }
 
+    /// <summary>
+    /// The sections that the navigation pack reads in place (work package S2.5): PSI (kind 12, checked by the header reader) and the RMQ pyramid (kind 9, which the header reader does not look at: an optional kind it does not implement is
+    /// ignored, a container without it is accepted as before). The RMQ entry is checked here, when the pack is built: its <c>COUNT</c> must be the number of entries of the levels of the LCP array at its fanout, <c>ELEM_WIDTH</c> the
+    /// <c>POS_WIDTH</c>, the codec 1, <c>PARAM0</c> a power of two from 2 to 1024, <c>PARAM1</c> 0 and <c>LENGTH</c> the entries (and the 3 bytes of padding at width 5); a section that is not so is damage, in both access modes. The CRC is
+    /// the <c>Sections</c> level's; the values of the levels are not checked by the verifier (a wrong level is seen by the first walk that it misleads, as a wrong LCP value is).
+    /// </summary>
+    /// <exception cref="InvalidDataException">The RMQ entry does not describe the pyramid of this container.</exception>
+    internal NavSections NavigationSections()
+    {
+        long n = _parsed.Header.TextLength;
+        int posWidth = _parsed.Header.PosWidth;
+        SaView? psi = _parsed.Psi is { } p ? SaView.FromMapped(_data + p.Offset, n + 1, posWidth, IsChecked) : null;
+        SesaSection? rmq = null;
+        foreach (SesaSection s in _parsed.Sections)
+        {
+            if (s.Kind == SesaFormat.KindRmq) rmq = s;
+        }
+        if (rmq is null) return new NavSections(psi, null, SesaFormat.RmqFanout);
+        long fanout = rmq.Param0;
+        if (fanout < 2 || fanout > 1024 || (fanout & (fanout - 1)) != 0) throw new InvalidDataException($"the RMQ section has the fanout {fanout}: a power of two from 2 to 1024 is expected: the file is damaged");
+        long expected = n == 0 ? 0 : RmqWriter.CountFor(n + 1, checked((int)fanout));
+        long padding = posWidth == 5 ? PosReader.Padding40 : 0;
+        if (rmq.Count != expected || rmq.ElemWidth != posWidth || rmq.Codec != 1 || rmq.Param1 != 0 || rmq.Length != (expected * posWidth) + padding)
+            throw new InvalidDataException($"the RMQ entry has COUNT {rmq.Count}, ELEM_WIDTH {rmq.ElemWidth}, codec {rmq.Codec}, PARAM1 {rmq.Param1} and LENGTH {rmq.Length}; the pyramid of {n + 1} LCP entries at fanout {fanout} has {expected} entries of {posWidth} bytes: the file is damaged");
+        return new NavSections(psi, expected == 0 ? null : SaView.FromMapped(_data + rmq.Offset, expected, posWidth, IsChecked), checked((int)fanout));
+    }
+
     /// <summary>The pointer to the PSI section, or null when the container has none.</summary>
     internal uint* PsiPointer => _parsed.Psi is { } s ? (uint*)(_data + s.Offset) : null;
 

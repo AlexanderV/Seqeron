@@ -12,12 +12,11 @@ internal sealed partial class EsaSuffixIndex
     }
 
     /// <summary><c>ISA[position]</c> from the navigation pack (built on first use).</summary>
-    /// <exception cref="NotSupportedException">The text has more than 2^31 - 2 symbols: the inverse suffix array of the navigation pack is 32-bit until S2.5.</exception>
+    /// <exception cref="NotSupportedException">A container of more than <see cref="EsaNavigationPack.PackHeapLimit"/> symbols: it has no ISA section and the heap does not hold ISA at that size (the message names the limit).</exception>
     public long RankOf(long position)
     {
         CheckRank(position, nameof(position));
-        EsaNavigationPack pack = _index.Navigation;
-        return pack.Isa(IntBridge.Length(position, "EsaSuffixIndex.RankOf (the inverse suffix array of the navigation pack is 32-bit until S2.5)"));
+        return _nav.Pack.Isa(position, "EsaSuffixIndex.RankOf");
     }
 
     /// <summary><c>LCP[rank]</c> from the compact LCP array (no pack needed).</summary>
@@ -32,8 +31,7 @@ internal sealed partial class EsaSuffixIndex
     {
         CheckRank(rankA, nameof(rankA));
         CheckRank(rankB, nameof(rankB));
-        if (rankA == rankB) return _n - _index.Sa[rankA];
-        return _index.Navigation.Pyramid.Min(Math.Min(rankA, rankB) + 1, Math.Max(rankA, rankB));
+        return _nav.Lcp(rankA, rankB);
     }
 
     /// <summary>
@@ -44,17 +42,7 @@ internal sealed partial class EsaSuffixIndex
     {
         CheckRank(rankA, nameof(rankA));
         CheckRank(rankB, nameof(rankB));
-        if (_n == 0) return Root;
-        if (rankA == rankB)
-        {
-            long depth = _n - _index.Sa[rankA] + 1;
-            return new IndexLocus(rankA, rankA, depth, depth);
-        }
-        long lo = Math.Min(rankA, rankB);
-        long hi = Math.Max(rankA, rankB);
-        LcpPyramid pyramid = _index.Navigation.Pyramid;
-        long value = pyramid.Min(lo + 1, hi);
-        if (value == 0) return Root;
-        return new IndexLocus(pyramid.PrevLess(lo, value), pyramid.NextLess(hi + 1, value) - 1, value, value);
+        (long lb, long rb, long depth) = _nav.Lca(rankA, rankB);
+        return new IndexLocus(lb, rb, depth, depth);
     }
 }

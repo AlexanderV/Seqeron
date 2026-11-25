@@ -27,28 +27,11 @@ public class WideMembersTests
     }
 
     [Test]
-    public void EsaNode64_RoundTripsTheThirtyTwoBitNode_WithEveryFieldAndTheLastChildFlag([Values(false, true)] bool lastChild)
+    public void EsaNode64_WidensTheThirtyTwoBitNode_WithEveryFieldAndTheLastChildFlag([Values(false, true)] bool lastChild)
     {
         var node = new EsaNode(3, 9, 7, 2, 40, lastChild);
         EsaNode64 wide = EsaNode64.Of(node);
         Assert.That((wide.Lb, wide.Rb, wide.Depth, wide.ParentDepth, wide.Pos, wide.LastChild), Is.EqualTo((3L, 9L, 7L, 2L, 40L, lastChild)));
-        Assert.That(wide.ToNode("the test"), Is.EqualTo(node));
-    }
-
-    [Test]
-    public void EsaNode64_ToNode_RefusesEveryFieldAboveTheIntegers_NamingTheMember()
-    {
-        const long big = (long)int.MaxValue + 1;
-        EsaNode64[] nodes =
-        [
-            new(big, big, 1, 0, 0, true), new(0, big, 1, 0, 0, true), new(0, 1, big, 0, 0, true), new(0, 1, 1, big, 0, true), new(0, 1, 1, 0, big, true),
-        ];
-        foreach (EsaNode64 node in nodes)
-        {
-            NotSupportedException e = Assert.Throws<NotSupportedException>(() => node.ToNode("EsaNode64Test"))!;
-            Assert.That(e.Message, Does.Contain("EsaNode64Test"));
-        }
-        Assert.That(new EsaNode64(int.MaxValue, int.MaxValue, int.MaxValue, int.MaxValue, int.MaxValue, true).ToNode("x").Pos, Is.EqualTo(int.MaxValue), "int.MaxValue itself fits");
     }
 
     [TestCase("banana")]

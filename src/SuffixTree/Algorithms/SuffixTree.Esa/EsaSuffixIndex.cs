@@ -17,12 +17,14 @@ namespace SuffixTree.Esa;
 /// </summary>
 internal sealed partial class EsaSuffixIndex : ISuffixTreeNavigation, ISuffixArrayAccess
 {
-    private const string PackCost = "builds ISA and the LCP pyramid on first use, O(n), 4.13 B/char, about 0.1 s at 10 Mbp";
-    private const string ExtendLeftCost = "O(width of the locus interval): reads SA, the text and ISA over the interval, then one range minimum; " + PackCost;
+    private const string PackCost = "builds the LCP pyramid on first use (O(n), 0.13 B/char, none when the container has the RMQ section) and, for an index in memory or a container without PSI, ISA (4 B/char); about 0.1 s at 10 Mbp";
+    private const string ExtendLeftCost = "O(width of the locus interval): reads SA, the text and ISA over the interval, then one range minimum; needs ISA (4 B/char), so for a container it is available up to " + PackHeapLimitText + " symbols; " + PackCost;
+    private const string PackHeapLimitText = "268435456";
 
     private readonly EsaIndex _index;
     private readonly long _n;
     private readonly IIndexText _text;
+    private readonly EsaNavigator64 _nav;
 
     /// <summary>The contract view of <paramref name="index"/> (shared, not copied).</summary>
     /// <exception cref="ArgumentNullException"><paramref name="index"/> is null.</exception>
@@ -33,6 +35,7 @@ internal sealed partial class EsaSuffixIndex : ISuffixTreeNavigation, ISuffixArr
         _n = index.TextLength;
         _text = index.TextView.AsIndexText();
         _isMapped = index.IsMapped;
+        _nav = new EsaNavigator64(index);
     }
 
     /// <summary>Builds the index of <paramref name="text"/> (SA-IS, LCP, child table) and wraps it.</summary>
@@ -60,8 +63,10 @@ internal sealed partial class EsaSuffixIndex : ISuffixTreeNavigation, ISuffixArr
     {
         IndexOperation.Count or IndexOperation.ExtendRight or IndexOperation.LazyLocate or IndexOperation.TextAccess
             or IndexOperation.Child or IndexOperation.StringDepth or IndexOperation.SuffixArrayAccess or IndexOperation.LcpAccess => IndexSupport.Native,
-        IndexOperation.ExtendLeft => IndexSupport.Degraded,
-        IndexOperation.Parent or IndexOperation.SuffixLink or IndexOperation.InverseSuffixArrayAccess or IndexOperation.Lcp or IndexOperation.Lca => _index.SuffixLinkSupport,
+        IndexOperation.ExtendLeft => NeedsIsa ? IndexSupport.Unsupported : IndexSupport.Degraded,
+        IndexOperation.InverseSuffixArrayAccess => NeedsIsa ? IndexSupport.Unsupported : _index.SuffixLinkSupport,
+        IndexOperation.SuffixLink => LinkNeedsIsa ? IndexSupport.Unsupported : _index.SuffixLinkSupport,
+        IndexOperation.Parent or IndexOperation.Lcp or IndexOperation.Lca => _index.SuffixLinkSupport,
         _ => throw new ArgumentOutOfRangeException(nameof(operation), operation, "not an IndexOperation"),
     };
 
@@ -69,9 +74,19 @@ internal sealed partial class EsaSuffixIndex : ISuffixTreeNavigation, ISuffixArr
     public string? SupportNote(IndexOperation operation)
     {
         IndexSupport support = Support(operation);
+        if (support == IndexSupport.Unsupported) return operation == IndexOperation.SuffixLink ? SuffixLinkUnsupportedNote : IsaUnsupportedNote;
         if (operation == IndexOperation.ExtendLeft) return ExtendLeftCost;
         return support == IndexSupport.Degraded ? PackCost : null;
     }
+
+    /// <summary>ISA is needed by <c>RankOf</c> and <c>ExtendLeft</c>; a container has no ISA section and holds ISA on the heap only up to <see cref="EsaNavigationPack.PackHeapLimit"/> symbols.</summary>
+    private bool NeedsIsa => _isMapped && _n > EsaNavigationPack.PackHeapLimit;
+
+    /// <summary>The suffix link needs ISA only when there is no PSI section to read the endpoints from.</summary>
+    private bool LinkNeedsIsa => NeedsIsa && _index.NavigationSections().Psi is null;
+
+    private const string IsaUnsupportedNote = "needs the inverse suffix array: a container of more than PackHeapLimit = " + PackHeapLimitText + " symbols has no ISA section (this version of the format writes none) and the heap holds ISA only below the limit; use Lcp, Lca, Parent and the suffix link, which need only PSI and the RMQ section";
+    private const string SuffixLinkUnsupportedNote = "needs the PSI section (the builder writes it by default) or the inverse suffix array, which the heap holds only for a text of at most PackHeapLimit = " + PackHeapLimitText + " symbols; this container has no PSI";
 
     /// <inheritdoc />
     public long Count(in IndexLocus locus)
@@ -104,7 +119,7 @@ internal sealed partial class EsaSuffixIndex : ISuffixTreeNavigation, ISuffixArr
         result = default;
         if (symbol is < 0 or > char.MaxValue) return false;
         if (at.Length == 0) return TryExtendRight(at, symbol, out result); // the empty string: a symbol on the left is a symbol on the right
-        EsaNavigationPack pack = _index.Navigation; // the pack is 32-bit until S2.5: it refuses a text above 2^31 - 2 symbols by name
+        EsaNavigationPack pack = _nav.Pack;
         SaView sa = _index.Sa;
         EsaText text = _index.TextView;
         long low = long.MaxValue, high = -1;
@@ -114,13 +129,13 @@ internal sealed partial class EsaSuffixIndex : ISuffixTreeNavigation, ISuffixArr
             long position = sa[rank];
             if (position > 0 && text[position - 1] == symbol)
             {
-                long target = pack.Isa(IntBridge.Length(position - 1, "EsaSuffixIndex.TryExtendLeft (the inverse suffix array of the navigation pack is 32-bit until S2.5)"));
+                long target = pack.Isa(position - 1, "EsaSuffixIndex.TryExtendLeft");
                 if (target < low) low = target;
                 if (target > high) high = target;
             }
         }
         if (high < 0) return false;
-        long aux = low == high ? _n - sa[low] + 1 : pack.Pyramid.Min(low + 1, high);
+        long aux = low == high ? _n - sa[low] + 1 : pack.Ranges.Min(low + 1, high);
         result = new IndexLocus(low, high, at.Length + 1, aux);
         return true;
     }
@@ -154,7 +169,7 @@ internal sealed partial class EsaSuffixIndex : ISuffixTreeNavigation, ISuffixArr
             }
             else
             {
-                if (!FindChild(node, symbol, out EsaNode64 next)) return false;
+                if (!_nav.TryChild(node, symbol, out EsaNode64 next)) return false;
                 node = next;
             }
             length++;

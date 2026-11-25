@@ -11,8 +11,11 @@ namespace SuffixTree.Esa;
 /// escape alone while <c>bound &lt;= escape</c>, which is every comparison of a suffix-link search at depth up to 255 (the common case); deeper nodes pay one binary search per escaped entry
 /// they look at. Every loop runs inside a block or a level group, so a search reads at most F x (levels + 1) entries; an inconsistent pyramid ends in an
 /// <see cref="InvalidOperationException"/>, never in a read outside the arrays. Immutable after <see cref="Build"/>; safe for concurrent readers.
+/// <para>Work package S2.5: this is the 32-bit form, for the LCP arrays that the 32-bit navigator reads (an array in memory, a container of fewer than 2^31 - 1 symbols at <c>POS_WIDTH</c> 4 with an LCP array of 8, 16 or 32 bits): the code
+/// of S1, with no test of a wide form at the head of a member and no bridge. Its levels are either built in memory (<see cref="Build"/>) or the entries of the persisted RMQ section, read where they lie (<see cref="FromLevels"/>). Every other
+/// LCP array has <see cref="WideLcpPyramid"/>; <see cref="Create"/> picks the form. The 64-bit members (<see cref="ILcpRanges"/>) are the 32-bit cores behind a range check: a rank above <see cref="int.MaxValue"/> is out of range here.</para>
 /// </summary>
-internal sealed unsafe class LcpPyramid : IDisposable
+internal sealed unsafe class LcpPyramid : ILcpRanges
 {
     /// <summary>The fanout used by the navigation pack (0.13 bytes per entry; measured speed does not depend on it in 8-64, Log 1b.4a).</summary>
     internal const int DefaultFanout = 32;
@@ -24,15 +27,13 @@ internal sealed unsafe class LcpPyramid : IDisposable
     private readonly LcpKind _kind;
     private readonly bool _mapped;
     private readonly int _length;
-    private readonly long _longLength;
-    private readonly CompactLcp? _wideLcp;
     private readonly int _fanout;
     private readonly int _logFanout;
     private readonly int _levelCount;
     private readonly PinnedArray<byte>? _pinned8;
     private readonly PinnedArray<ushort>? _pinned16;
     private readonly PinnedArray<int>? _pinned32;
-    private readonly PinnedArray<int> _levelData;
+    private readonly PinnedArray<int>? _levelData;
     private readonly Buf<int> _levels;
     private readonly Reader8 _reader8;
     private readonly Reader16 _reader16;
@@ -48,51 +49,43 @@ internal sealed unsafe class LcpPyramid : IDisposable
     }
 #pragma warning restore S3459, S1144
 
-    private LcpPyramid(CompactLcp lcp, int fanout)
+    private LcpPyramid(CompactLcp lcp, int fanout, Buf<int> persisted, long persistedCount, bool inPlace)
     {
+        if (lcp.IsWide) throw new ArgumentException("the LCP array is of the wide form (a text of 2^31 - 1 symbols or more, 5-byte positions, a 64-bit LCP array): its pyramid is a WideLcpPyramid (LcpPyramid.Create picks the form)", nameof(lcp));
         _kind = lcp.Kind;
         _mapped = lcp.IsMapped;
-        _longLength = lcp.Length;
-        _length = (int)Math.Min(lcp.Length, int.MaxValue); // what the 32-bit cores compare with; a wide pyramid of more entries never runs them
+        _length = checked((int)lcp.Length); // an array that is not wide has at most int.MaxValue entries
         _fanout = fanout;
         _logFanout = int.TrailingZeroCount(fanout);
 
-        // level sizes: ceil(length / F), ceil(that / F), ... down to one block; none for a single entry. The levels are one array of 32-bit minima: a text whose levels do not fit it is refused (a bridge of S2.3, removed by S2.5)
+        // level sizes: ceil(length / F), ceil(that / F), ... down to one block; none for a single entry
         long total = 0;
         int levels = 0;
-        if (_longLength > 1)
+        if (_length > 1)
         {
-            long size = _longLength;
+            long size = _length;
             do
             {
                 size = (size + fanout - 1) / fanout;
                 if (levels == MaxLevels) throw new InvalidOperationException("more pyramid levels than the table holds");
-                if (total + size > int.MaxValue) throw new NotSupportedException($"the pyramid of an LCP array of {_longLength} entries has more than {int.MaxValue} 32-bit block minima: the 64-bit navigation of stage S2 (S2.5) holds it");
-                _offset[levels] = (int)total;
-                _count[levels] = (int)size;
+                _offset[levels] = checked((int)total);
+                _count[levels] = checked((int)size);
                 total += size;
                 levels++;
             }
             while (size > 1);
         }
         _levelCount = levels;
-        _levelData = PinnedArray<int>.Allocate((int)total, zero: false, "lcp-pyramid");
-        _levels = _levelData.Buf;
-
-        if (lcp.IsWide)
+        if (inPlace)
         {
-            // an LCP array of any width, kind and size is read through its store; a block minimum above int.MaxValue cannot be a 32-bit level
-            _wideLcp = lcp;
-            try
-            {
-                FillWide(lcp);
-            }
-            catch
-            {
-                _levelData.Dispose();
-                throw;
-            }
-            return;
+            // the levels are the entries of the RMQ section; the LCP array is still read through the readers below
+            if (persistedCount != total) throw new InvalidDataException($"the RMQ section has {persistedCount} entries, the pyramid of {_length} LCP entries at fanout {fanout} has {total}: the file is damaged");
+            _levels = persisted;
+        }
+        else
+        {
+            _levelData = PinnedArray<int>.Allocate(checked((int)total), zero: false, "lcp-pyramid");
+            _levels = _levelData.Buf;
         }
 
         if (lcp.IsMapped)
@@ -104,21 +97,21 @@ internal sealed unsafe class LcpPyramid : IDisposable
                 {
                     case LcpKind.U8:
                         _reader8 = new Reader8(new Buf<byte>(lcp.MappedBase, _length, "lcp-u8"), lcp.OverflowRanks, lcp.OverflowValues);
-                        Fill(_reader8);
+                        if (!inPlace) Fill(_reader8);
                         break;
                     case LcpKind.U16:
                         _reader16 = new Reader16(new Buf<ushort>((ushort*)lcp.MappedBase, _length, "lcp-u16"), lcp.OverflowRanks, lcp.OverflowValues);
-                        Fill(_reader16);
+                        if (!inPlace) Fill(_reader16);
                         break;
                     default:
                         _reader32 = new Reader32(new Buf<int>((int*)lcp.MappedBase, _length, "lcp-u32"));
-                        Fill(_reader32);
+                        if (!inPlace) Fill(_reader32);
                         break;
                 }
             }
             catch (InvalidOperationException e)
             {
-                _levelData.Dispose();
+                _levelData?.Dispose();
                 throw new InvalidDataException(e.Message + ": the file is damaged", e);
             }
             return;
@@ -147,32 +140,60 @@ internal sealed unsafe class LcpPyramid : IDisposable
     /// <summary>Builds the pyramid over <paramref name="lcp"/> (n + 1 entries); the base array is pinned until <see cref="Dispose"/>.</summary>
     /// <exception cref="ArgumentNullException"><paramref name="lcp"/> is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException">The fanout is not a power of two of at least 2.</exception>
+    /// <exception cref="ArgumentException">The LCP array is of the wide form (<see cref="WideLcpPyramid"/> serves it).</exception>
     internal static LcpPyramid Build(CompactLcp lcp, int fanout = DefaultFanout)
     {
         ArgumentNullException.ThrowIfNull(lcp);
+        CheckFanout(fanout);
+        return new LcpPyramid(lcp, fanout, default, 0, inPlace: false);
+    }
+
+    /// <summary>
+    /// The pyramid of a mapped <paramref name="lcp"/> whose levels are the <paramref name="count"/> 4-byte entries of the RMQ section at <paramref name="levels"/> (level 0 first; the caller keeps the mapping alive): nothing is built or
+    /// copied, so the pyramid costs no heap and no pass over the LCP array. The entries are untrusted: they are read as numbers and compared, never used as an index, and a walk that they send into a block without an entry below the bound
+    /// ends in <see cref="InvalidDataException"/>.
+    /// </summary>
+    /// <exception cref="InvalidDataException">The number of entries is not the number of the levels of this array at this fanout.</exception>
+    internal static LcpPyramid FromLevels(CompactLcp lcp, int fanout, int* levels, long count)
+    {
+        ArgumentNullException.ThrowIfNull(lcp);
+        CheckFanout(fanout);
+        if (!lcp.IsMapped) throw new ArgumentException("the persisted levels belong to the LCP array of a container", nameof(lcp));
+        return new LcpPyramid(lcp, fanout, new Buf<int>(levels, checked((int)Math.Min(count, int.MaxValue)), "rmq"), count, inPlace: true);
+    }
+
+    /// <summary>The pyramid of any LCP array: the 32-bit form where the 32-bit navigator can read the array, else the wide one; the levels are <paramref name="persisted"/> when it is given (the RMQ section), else built in memory.</summary>
+    internal static ILcpRanges Create(CompactLcp lcp, int fanout = DefaultFanout, PosSource? persisted = null)
+    {
+        ArgumentNullException.ThrowIfNull(lcp);
+        CheckFanout(fanout);
+        if (lcp.IsWide) return persisted is null ? WideLcpPyramid.Build(lcp, fanout) : WideLcpPyramid.FromLevels(lcp, fanout, persisted);
+        return Build(lcp, fanout);
+    }
+
+    internal static void CheckFanout(int fanout)
+    {
         if (fanout < 2 || (fanout & (fanout - 1)) != 0)
             throw new ArgumentOutOfRangeException(nameof(fanout), fanout, "the fanout must be a power of two of at least 2");
-        return new LcpPyramid(lcp, fanout);
     }
 
     /// <summary>Number of LCP entries (n + 1).</summary>
-    internal long Length => _longLength;
+    public long Length => _length;
 
     /// <summary>The fanout F.</summary>
-    internal int Fanout => _fanout;
+    public int Fanout => _fanout;
 
     /// <summary>Number of pyramid levels above the LCP array.</summary>
     internal int Levels => _levelCount;
 
-    /// <summary>Bytes of the level arrays (the LCP array is not counted).</summary>
-    internal long LevelBytes => 4L * _levelData.Length;
+    /// <summary>Bytes of the level arrays that live in memory (the LCP array is not counted; 0 when the levels are the RMQ section of a container).</summary>
+    public long LevelBytes => _levelData is null ? 0 : 4L * _levelData.Length;
 
     /// <summary>The true LCP value at <paramref name="rank"/> (an escaped entry is resolved).</summary>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="rank"/> is outside <c>0..Length-1</c>.</exception>
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     internal int ValueAt(int rank)
     {
-        if (_wideLcp is not null) return IntBridge.Value(ValueAtWide(rank), "an LCP value");
         if ((uint)rank >= (uint)_length) throw new ArgumentOutOfRangeException(nameof(rank));
         return _kind switch
         {
@@ -186,7 +207,6 @@ internal sealed unsafe class LcpPyramid : IDisposable
     /// <exception cref="ArgumentOutOfRangeException">The range is not inside <c>0..Length-1</c>.</exception>
     internal int Min(int lo, int hi)
     {
-        if (_wideLcp is not null) return IntBridge.Value(Min((long)lo, hi), "an LCP value");
         if ((uint)lo > (uint)hi || hi >= _length) throw new ArgumentOutOfRangeException(nameof(lo), $"[{lo}, {hi}] is not a range of {_length} entries");
         return _kind switch
         {
@@ -202,7 +222,6 @@ internal sealed unsafe class LcpPyramid : IDisposable
     internal int PrevLess(int pos, int bound)
     {
         if (pos < 0) return -1;
-        if (_wideLcp is not null) return PrevLessBridged(pos, bound);
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(pos, _length);
         return _kind switch
         {
@@ -217,7 +236,6 @@ internal sealed unsafe class LcpPyramid : IDisposable
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     internal int NextLess(int pos, int bound)
     {
-        if (_wideLcp is not null) return NextLessBridged(pos, bound);
         if (pos >= _length) return _length;
         ArgumentOutOfRangeException.ThrowIfNegative(pos);
         return _kind switch
@@ -226,30 +244,6 @@ internal sealed unsafe class LcpPyramid : IDisposable
             LcpKind.U16 => NextLessCore(_reader16, pos, bound),
             _ => NextLessCore(_reader32, pos, bound),
         };
-    }
-
-    // the 32-bit answers of the wide form, out of line (the 32-bit members are the code of S1 for every other form)
-
-    /// <summary>The rank is at most <c>pos</c> (an <see cref="int"/>) or -1, which means that there is none.</summary>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private int PrevLessBridged(int pos, int bound)
-    {
-        long found = PrevLess((long)pos, bound);
-        return found < 0 ? -1 : IntBridge.Value(found, "a rank");
-    }
-
-    /// <summary>The rank is the length of the array when there is none, which is a size that the 32-bit engine may not hold.</summary>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private int NextLessBridged(int pos, int bound) => IntBridge.Length(NextLess((long)pos, bound), "a rank of the LCP array (NextLess)");
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private void BordersBridged(int a, int b, int t, out int left, out int right, out int leftValue, out int rightValue)
-    {
-        BordersWide(a, b, t, out long l, out long r, out long lv, out long rv);
-        left = l < 0 ? -1 : IntBridge.Value(l, "a rank");
-        right = IntBridge.Length(r, "a rank of the LCP array (Borders)");
-        leftValue = lv < 0 ? -1 : IntBridge.Value(lv, "an LCP value");
-        rightValue = rv < 0 ? -1 : IntBridge.Value(rv, "an LCP value");
     }
 
     /// <summary>Previous smaller value (strict): the largest <c>j &lt; p</c> with <c>LCP[j] &lt; LCP[p]</c>, or -1.</summary>
@@ -269,11 +263,6 @@ internal sealed unsafe class LcpPyramid : IDisposable
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     internal void Borders(int a, int b, int t, out int left, out int right, out int leftValue, out int rightValue)
     {
-        if (_wideLcp is not null)
-        {
-            BordersBridged(a, b, t, out left, out right, out leftValue, out rightValue);
-            return;
-        }
         if ((uint)a >= (uint)_length || b < a || b >= _length) throw new ArgumentOutOfRangeException(nameof(a));
         switch (_kind)
         {
@@ -289,42 +278,37 @@ internal sealed unsafe class LcpPyramid : IDisposable
         }
     }
 
-    // ---- the 64-bit members (work package S2.3): the same queries at 64-bit ranks and bounds. A pyramid of an LCP array that the 32-bit cores can address answers them through those cores (a rank above int.MaxValue is out of range);
-    // a pyramid of a wide LCP array (any width, kind and size: CompactLcp.IsWide) runs the cores below, which read the base entries through the store of the array and the block minima from the 32-bit levels.
+    // ---- the 64-bit members (ILcpRanges): the same queries at 64-bit ranks and bounds, behind a range check. The 32-bit cores address an array of fewer than 2^31 entries, so a rank above int.MaxValue is out of range here;
+    // the values of such an array are below 2^31, so a bound outside the integers decides every comparison the way its clamped value does.
 
     /// <summary>The true LCP value at a 64-bit rank.</summary>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="rank"/> is outside <c>0..Length-1</c>.</exception>
-    internal long ValueAt(long rank) => _wideLcp is not null ? ValueAtWide(rank) : ValueAt(Rank(rank, nameof(rank)));
+    public long ValueAt(long rank) => ValueAt(Rank(rank, nameof(rank)));
 
     /// <summary>Minimum of <c>LCP[lo..hi]</c> (inclusive) at 64-bit ranks.</summary>
     /// <exception cref="ArgumentOutOfRangeException">The range is not inside <c>0..Length-1</c>.</exception>
-    internal long Min(long lo, long hi)
+    public long Min(long lo, long hi)
     {
-        if (_wideLcp is null)
-        {
-            if ((ulong)hi >= (ulong)_longLength) throw new ArgumentOutOfRangeException(nameof(hi), $"[{lo}, {hi}] is not a range of {_longLength} entries");
-            return Min(Rank(lo, nameof(lo)), (int)hi);
-        }
-        if ((ulong)lo > (ulong)hi || hi >= _longLength) throw new ArgumentOutOfRangeException(nameof(lo), $"[{lo}, {hi}] is not a range of {_longLength} entries");
-        return MinWide(lo, hi);
+        if ((ulong)hi >= (ulong)_length) throw new ArgumentOutOfRangeException(nameof(hi), $"[{lo}, {hi}] is not a range of {_length} entries");
+        return Min(Rank(lo, nameof(lo)), Rank(hi, nameof(hi)));
     }
 
     /// <summary>The largest <c>j &lt;= pos</c> with <c>LCP[j] &lt; bound</c>, or -1 (also for a negative <paramref name="pos"/>), at 64-bit ranks and bounds.</summary>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="pos"/> is at or beyond <see cref="Length"/>.</exception>
-    internal long PrevLess(long pos, long bound)
+    public long PrevLess(long pos, long bound)
     {
         if (pos < 0) return -1;
-        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(pos, _longLength);
-        return _wideLcp is not null ? PrevLessWide(pos, bound) : PrevLess((int)pos, Bound(bound));
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(pos, _length);
+        return PrevLess(Rank(pos, nameof(pos)), Bound(bound));
     }
 
     /// <summary>The smallest <c>j &gt;= pos</c> with <c>LCP[j] &lt; bound</c>, or <see cref="Length"/> (also for a <paramref name="pos"/> at or beyond it), at 64-bit ranks and bounds.</summary>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="pos"/> is negative.</exception>
-    internal long NextLess(long pos, long bound)
+    public long NextLess(long pos, long bound)
     {
-        if (pos >= _longLength) return _longLength;
+        if (pos >= _length) return _length;
         ArgumentOutOfRangeException.ThrowIfNegative(pos);
-        return _wideLcp is not null ? NextLessWide(pos, bound) : NextLess((int)pos, Bound(bound));
+        return NextLess(Rank(pos, nameof(pos)), Bound(bound));
     }
 
     /// <summary>Previous smaller value (strict) at 64-bit ranks.</summary>
@@ -334,15 +318,10 @@ internal sealed unsafe class LcpPyramid : IDisposable
     internal long NextSmaller(long p) => NextLess(p + 1, ValueAt(p));
 
     /// <summary>The suffix-link kernel at 64-bit ranks and values (see the 32-bit overload).</summary>
-    internal void Borders(long a, long b, long t, out long left, out long right, out long leftValue, out long rightValue)
+    public void Borders(long a, long b, long t, out long left, out long right, out long leftValue, out long rightValue)
     {
-        if (_wideLcp is not null)
-        {
-            BordersWide(a, b, t, out left, out right, out leftValue, out rightValue);
-            return;
-        }
-        if ((ulong)a >= (ulong)_longLength || b < a || b >= _longLength) throw new ArgumentOutOfRangeException(nameof(a));
-        Borders((int)a, (int)b, Bound(t), out int l, out int r, out int lv, out int rv);
+        if ((ulong)a >= (ulong)_length || b < a || b >= _length) throw new ArgumentOutOfRangeException(nameof(a));
+        Borders(Rank(a, nameof(a)), Rank(b, nameof(b)), Bound(t), out int l, out int r, out int lv, out int rv);
         left = l;
         right = r;
         leftValue = lv;
@@ -355,27 +334,13 @@ internal sealed unsafe class LcpPyramid : IDisposable
     /// <summary>A bound as an <see cref="int"/>: the values of an array that the 32-bit cores address are below 2^31, so a bound outside the integers decides every comparison the way its clamped value does.</summary>
     private static int Bound(long bound) => (int)Math.Clamp(bound, int.MinValue, int.MaxValue);
 
-    private long ValueAtWide(long rank)
+    /// <summary>Releases the pins; idempotent. The pyramid must not be used afterwards.</summary>
+    public void Dispose()
     {
-        if ((ulong)rank >= (ulong)_longLength) throw new ArgumentOutOfRangeException(nameof(rank));
-        return _wideLcp![rank];
-    }
-
-    /// <summary>The levels of a wide pyramid: the minimum of every block, read through the store; a minimum above <c>int.MaxValue</c> does not fit a 32-bit level.</summary>
-    private void FillWide(CompactLcp lcp)
-    {
-        if (_levelCount == 0) return;
-        long f = _fanout;
-        for (int b = 0, blocks = _count[0]; b < blocks; b++)
-        {
-            long start = b * f;
-            long end = Math.Min(_longLength, start + f);
-            long min = long.MaxValue;
-            for (long j = start; j < end; j++) min = Math.Min(min, lcp[j]);
-            if (min > int.MaxValue) throw new NotSupportedException($"the LCP array has a block whose minimum is {min}, more than a 32-bit level of the pyramid holds: the 64-bit navigation of stage S2 (S2.5) holds it");
-            _levels[b] = (int)min;
-        }
-        FillUpperLevels();
+        _pinned8?.Dispose();
+        _pinned16?.Dispose();
+        _pinned32?.Dispose();
+        _levelData?.Dispose();
     }
 
     private void FillUpperLevels()
@@ -393,143 +358,6 @@ internal sealed unsafe class LcpPyramid : IDisposable
                 _levels[here + b] = min;
             }
         }
-    }
-
-    private void BordersWide(long a, long b, long t, out long left, out long right, out long leftValue, out long rightValue)
-    {
-        if ((ulong)a >= (ulong)_longLength || b < a || b >= _longLength) throw new ArgumentOutOfRangeException(nameof(a));
-        CompactLcp lcp = _wideLcp!;
-        left = PrevLessWide(a, t);
-        right = NextLessWide(b + 1, t);
-        leftValue = left >= 0 ? lcp[left] : -1;
-        rightValue = right < _longLength ? lcp[right] : -1;
-    }
-
-    private long MinWide(long lo, long hi)
-    {
-        CompactLcp lcp = _wideLcp!;
-        int f = _fanout;
-        long min = long.MaxValue;
-        long loBlock = lo >> _logFanout, hiBlock = hi >> _logFanout;
-        if (loBlock == hiBlock)
-        {
-            for (long j = lo; j <= hi; j++) min = Math.Min(min, lcp[j]);
-            return min;
-        }
-
-        // the partial blocks at both ends are read from the LCP array itself
-        for (long j = lo, end = lo | (long)(f - 1); j <= end; j++) min = Math.Min(min, lcp[j]);
-        for (long j = hi & ~(long)(f - 1); j <= hi; j++) min = Math.Min(min, lcp[j]);
-
-        // the whole blocks in between, level by level: both ends contribute their partial group, then the range moves one level up (block indices are below the level sizes, which are 32-bit numbers)
-        int l = (int)(loBlock + 1), r = (int)(hiBlock - 1);
-        int k = 1;
-        while (l <= r)
-        {
-            int off = _offset[k - 1];
-            if ((l >> _logFanout) == (r >> _logFanout))
-            {
-                for (int b = l; b <= r; b++) min = Math.Min(min, _levels[off + b]);
-                break;
-            }
-            for (int b = l, end = l | (f - 1); b <= end; b++) min = Math.Min(min, _levels[off + b]);
-            for (int b = r & ~(f - 1); b <= r; b++) min = Math.Min(min, _levels[off + b]);
-            l = (l >> _logFanout) + 1;
-            r = (r >> _logFanout) - 1;
-            k++;
-        }
-        return min;
-    }
-
-    private long PrevLessWide(long pos, long bound)
-    {
-        if (pos < 0) return -1;
-        CompactLcp lcp = _wideLcp!;
-        int f = _fanout;
-        for (long j = pos, start = pos & ~(long)(f - 1); j >= start; j--)
-            if (lcp[j] < bound) return j;
-
-        int idx = (int)(pos >> _logFanout);
-        for (int k = 1; k <= _levelCount; k++)
-        {
-            int off = _offset[k - 1];
-            for (int b = idx - 1, start = idx & ~(f - 1); b >= start; b--)
-                if (_levels[off + b] < bound) return RightmostBelowWide(k, b, bound);
-            idx >>= _logFanout;
-        }
-        return -1;
-    }
-
-    private long NextLessWide(long pos, long bound)
-    {
-        if (pos >= _longLength) return _longLength;
-        CompactLcp lcp = _wideLcp!;
-        int f = _fanout;
-        for (long j = pos, end = Math.Min(pos | (long)(f - 1), _longLength - 1); j <= end; j++)
-            if (lcp[j] < bound) return j;
-
-        int idx = (int)(pos >> _logFanout);
-        for (int k = 1; k <= _levelCount; k++)
-        {
-            int off = _offset[k - 1];
-            for (int b = idx + 1, end = Math.Min(idx | (f - 1), _count[k - 1] - 1); b <= end; b++)
-                if (_levels[off + b] < bound) return LeftmostBelowWide(k, b, bound);
-            idx >>= _logFanout;
-        }
-        return _longLength;
-    }
-
-    private long RightmostBelowWide(int k, int b, long bound)
-    {
-        CompactLcp lcp = _wideLcp!;
-        int f = _fanout;
-        while (k > 1)
-        {
-            k--;
-            int off = _offset[k - 1];
-            int lowest = b * f;
-            int c = Math.Min(lowest + f - 1, _count[k - 1] - 1);
-            while (_levels[off + c] >= bound)
-            {
-                if (--c < lowest) throw Inconsistent();
-            }
-            b = c;
-        }
-        long first = (long)b * f;
-        for (long position = Math.Min(first + f - 1, _longLength - 1); position >= first; position--)
-            if (lcp[position] < bound) return position;
-        throw Inconsistent();
-    }
-
-    private long LeftmostBelowWide(int k, int b, long bound)
-    {
-        CompactLcp lcp = _wideLcp!;
-        int f = _fanout;
-        while (k > 1)
-        {
-            k--;
-            int off = _offset[k - 1];
-            int c = b * f;
-            int last = Math.Min(c + f - 1, _count[k - 1] - 1);
-            while (_levels[off + c] >= bound)
-            {
-                if (++c > last) throw Inconsistent();
-            }
-            b = c;
-        }
-        long end = Math.Min(((long)b * f) + f - 1, _longLength - 1);
-        for (long position = (long)b * f; position <= end; position++)
-            if (lcp[position] < bound) return position;
-        throw Inconsistent();
-    }
-
-    /// <summary>Releases the pins; idempotent. The pyramid must not be used afterwards.</summary>
-    public void Dispose()
-    {
-        _pinned8?.Dispose();
-        _pinned16?.Dispose();
-        _pinned32?.Dispose();
-        _levelData.Dispose();
     }
 
     private void Fill<TR>(TR reader)

@@ -47,7 +47,7 @@ internal static class RmqWriter
         uint escape = kind switch { LcpKind.U8 => byte.MaxValue, LcpKind.U16 => ushort.MaxValue, _ => uint.MaxValue };
         long blocks = (rows + fanout - 1) / fanout;
         using var file = new CountedFile(path, FileMode.Open, FileAccess.Read, counters);
-        int entries = (int)Math.Min(rows, (long)ReadBlockEntries / fanout * fanout);
+        int entries = checked((int)Math.Min(rows, (long)ReadBlockEntries / fanout * fanout));
         var buffer = new byte[checked(entries * width)];
         var pairs = new OverflowCursor(file, overflowOffset, kind == LcpKind.U32 ? 0 : overflowCount);
 
@@ -55,7 +55,7 @@ internal static class RmqWriter
         uint min = uint.MaxValue;
         for (long first = 0; first < rows; first += entries)
         {
-            int take = (int)Math.Min(entries, rows - first);
+            int take = checked((int)Math.Min(entries, rows - first));
             file.ReadExactAt(buffer.AsSpan(0, take * width), lcpOffset + (first * width));
             for (int i = 0; i < take; i++)
             {
@@ -134,7 +134,7 @@ internal static class RmqWriter
 
         private void Refill()
         {
-            int take = (int)Math.Min(PairsPerBlock, _count - _loaded);
+            int take = checked((int)Math.Min(PairsPerBlock, _count - _loaded));
             if (take <= 0) return;
             _file.ReadExactAt(_block.AsSpan(0, 8 * take), _offset + (8 * _loaded));
             _loaded += take;

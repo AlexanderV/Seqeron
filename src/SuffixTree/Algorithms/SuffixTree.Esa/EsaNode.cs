@@ -27,7 +27,7 @@ internal readonly record struct EsaNode(int Lb, int Rb, int Depth, int ParentDep
 
 /// <summary>
 /// <see cref="EsaNode"/> at 64 bits (work package S2.4): the handle of a node that <see cref="EsaSuffixIndex"/> keeps while it answers the long contract. A rank, a depth and a position are <see cref="long"/> because a text above 2^31 symbols
-/// has nodes whose depth and interval are above <see cref="int.MaxValue"/> (<c>a^n</c>: a chain of n - 1 nodes). The fields mean what those of <see cref="EsaNode"/> mean; the navigator of S2.5 will use this form.
+/// has nodes whose depth and interval are above <see cref="int.MaxValue"/> (<c>a^n</c>: a chain of n - 1 nodes). The fields mean what those of <see cref="EsaNode"/> mean; the long navigator (<see cref="EsaNavigator64"/>) and the long kernel of the pack use this form; the 32-bit <see cref="EsaNode"/> stays the handle of the generic algorithms of <c>SuffixTree.Core</c>, which are 32-bit.
 /// </summary>
 internal readonly record struct EsaNode64(long Lb, long Rb, long Depth, long ParentDepth, long Pos, bool LastChild)
 {
@@ -45,9 +45,6 @@ internal readonly record struct EsaNode64(long Lb, long Rb, long Depth, long Par
 
     /// <summary>Number of ranks in the interval (the leaf count; the root counts the empty suffix too).</summary>
     internal long RankCount => Rb - Lb + 1;
-
-    /// <summary>The node as the 32-bit navigator reads it (until S2.5): a number that does not fit is a <see cref="NotSupportedException"/> that names <paramref name="member"/>.</summary>
-    internal EsaNode ToNode(string member) => new(IntBridge.Length(Lb, member), IntBridge.Length(Rb, member), IntBridge.Length(Depth, member), IntBridge.Length(ParentDepth, member), IntBridge.Length(Pos, member), LastChild);
 
     /// <summary>The node of the 32-bit navigator at 64 bits.</summary>
     internal static EsaNode64 Of(in EsaNode node) => new(node.Lb, node.Rb, node.Depth, node.ParentDepth, node.Pos, node.LastChild);

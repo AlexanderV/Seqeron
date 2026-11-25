@@ -305,44 +305,20 @@ public class WideIndexTests
     }
 
     [Test]
-    public void TheContractIndex_NavigationOperations_OverTheWideSectionsOf4Bytes_EqualTheMemoryIndex_AndOver5Bytes_AreRefusedByNameUntilS25()
+    public void TheContractIndex_NavigationOperations_OverEveryLayout_EqualTheMemoryIndex()
     {
-        // the operations that need the navigation pack (ISA, the LCP pyramid) read the sections through the 32-bit members and the bridges until S2.5: exact over the wide forms of 4-byte entries at this size, a named refusal over 5-byte entries (the pack wants a pointer to 32-bit entries)
+        // work package S2.5: the navigation pack reads the views at any width (until S2.4 the 5-byte layouts were refused by name here: the 32-bit pack could not read them); the full comparison is Navigation.WideNavigationTests
         string text = "mississippimississippi";
         ForEachLayout(text, (label, memory, wide) =>
         {
             var m = new EsaSuffixIndex(memory);
             var w = new EsaSuffixIndex(wide);
-            if (label.StartsWith("width 5", StringComparison.Ordinal))
-            {
-                Assert.That(() => w.RankOf(3), Throws.TypeOf<NotSupportedException>().With.Message.Contains("5-byte"), label);
-                return;
-            }
+            Navigation.WideNavigationTests.CompareAll(label, m, w, text);
             foreach (string p in new[] { "i", "ss", "issi", "ppi", "mississippi", "s", "p" })
             {
                 m.TryExtendRight(m.Root, p.AsSpan(), out IndexLocus el);
                 w.TryExtendRight(w.Root, p.AsSpan(), out IndexLocus al);
-                Assert.That(w.TryParent(al, out IndexLocus ap), Is.EqualTo(m.TryParent(el, out IndexLocus ep)), $"{label} TryParent '{p}'");
-                Assert.That(ap, Is.EqualTo(ep), $"{label} parent of '{p}'");
-                if (m.IsExplicitNode(el))
-                {
-                    Assert.That(w.TrySuffixLink(al, out IndexLocus al2), Is.EqualTo(m.TrySuffixLink(el, out IndexLocus el2)), $"{label} TrySuffixLink '{p}'");
-                    Assert.That(al2, Is.EqualTo(el2), $"{label} link of '{p}'");
-                }
-                foreach (int symbol in new[] { 'i', 's', 'm', 'p' })
-                {
-                    Assert.That(w.TryExtendLeft(al, symbol, out IndexLocus alx), Is.EqualTo(m.TryExtendLeft(el, symbol, out IndexLocus elx)), $"{label} TryExtendLeft '{p}' {symbol}");
-                    Assert.That(alx, Is.EqualTo(elx), $"{label} extend left '{p}' {symbol}");
-                }
-            }
-            for (long a = 0; a <= text.Length; a += 3)
-            {
-                Assert.That(w.RankOf(a), Is.EqualTo(m.RankOf(a)), $"{label} ISA[{a}]");
-                for (long b = 0; b <= text.Length; b += 5)
-                {
-                    Assert.That(w.Lcp(a, b), Is.EqualTo(m.Lcp(a, b)), $"{label} Lcp({a}, {b})");
-                    Assert.That(w.Lca(a, b), Is.EqualTo(m.Lca(a, b)), $"{label} Lca({a}, {b})");
-                }
+                Assert.That(al, Is.EqualTo(el), $"{label} locus of '{p}'");
             }
         });
     }

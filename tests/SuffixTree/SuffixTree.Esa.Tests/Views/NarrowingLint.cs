@@ -153,6 +153,7 @@ internal static partial class NarrowingLint
         "LeftmostOccurrence.cs", "LcpIntervalScan.cs", "ChildTable.cs", "EsaSuffixIndex.cs", "EsaSuffixIndex.Arrays.cs", "EsaSuffixIndex.Tree.cs", "External/Sesa/SesaFile.cs", "IntBridge.cs",
         // the navigation side (S2.5): the navigator and its handles, the pack, the pyramid, the views that they read
         "EsaNavigator.cs", "EsaNavigationPack.cs", "EsaNode.cs", "LcpPyramid.cs", "SaView.cs", "CompactLcp.cs", "ChildLayouts.cs", "EsaText.cs", "EsaSuffixTree.cs", "PosReaders.cs",
+        "EsaNavigator64.cs", "EsaNavigatorWide.cs", "WideLcpPyramid.cs", "PosSource.cs", "External/Sesa/RmqWriter.cs",
     ];
 
     // ------------------------------------------------------------------------------------ the 32-bit loop of MappedSearch

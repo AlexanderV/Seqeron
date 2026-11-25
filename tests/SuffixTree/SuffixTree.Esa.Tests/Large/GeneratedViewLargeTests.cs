@@ -265,7 +265,7 @@ public unsafe class GeneratedViewLargeTests : LargeFixtureBase
         // the structure of an LCP array is what the pyramid sees: a hash of the rank below 50 (a text's LCP at this size would hold a value above int.MaxValue, which the 32-bit levels refuse: see the bridge)
         var f = new PowerOfA(TwoTo31 + 10);
         CompactLcp lcp = CompactLcp.FromReaders(LcpKind.U32, new PosGen<W4>(f, GenSection.Synthetic), new PosGen<W4>(f, GenSection.LcpPairsOfPowerOfA, long.MaxValue), isChecked: false);
-        using LcpPyramid pyramid = LcpPyramid.Build(lcp, 32);
+        using ILcpRanges pyramid = LcpPyramid.Create(lcp, 32);
         Assert.That(pyramid.Length, Is.EqualTo(TwoTo31 + 11));
         foreach (long r in new long[] { 0, 1, 31, 32, TwoTo31 - 1, TwoTo31, TwoTo31 + 1, TwoTo31 + 10, 1L << 30, 3L << 29 })
         {
@@ -290,12 +290,16 @@ public unsafe class GeneratedViewLargeTests : LargeFixtureBase
     }
 
     [Test]
-    public void ThePyramid_RefusesAnLcpValueThatTheThirtyTwoBitLevelsCannotHold_AtHugeSize()
+    public void ThePyramid_HoldsAnLcpValueAboveInt32_InItsLongLevels_AtHugeSize()
     {
-        // a^n at 2^31 + 70: the last block (ranks 2^31 + 64 and up) has the minimum 2^31 + 63, above int.MaxValue: the bridge says so instead of wrapping
+        // a^n at 2^31 + 70: the last block (ranks 2^31 + 64 and up) has the minimum 2^31 + 63, above int.MaxValue: the 32-bit levels of S2.3 refused it by name, the 64-bit levels of S2.5 hold it
         var f = new PowerOfA(TwoTo31 + 70);
         CompactLcp lcp = CompactLcp.FromReaders(LcpKind.U64, new PosGen<W8>(f, GenSection.LcpBase), new PosGen<W5>(f, GenSection.LcpPairsOfPowerOfA, long.MaxValue), isChecked: false);
-        Assert.That(() => LcpPyramid.Build(lcp, 32), Throws.TypeOf<NotSupportedException>().With.Message.Contains("32-bit"));
+        using ILcpRanges pyramid = LcpPyramid.Create(lcp, 32);
+        Assert.That(pyramid.Min(TwoTo31 + 64, TwoTo31 + 70), Is.EqualTo(TwoTo31 + 63));
+        Assert.That(pyramid.Min(0, TwoTo31 + 70), Is.EqualTo(0));
+        Assert.That(pyramid.PrevLess(TwoTo31 + 70, TwoTo31 + 10), Is.EqualTo(TwoTo31 + 10), "a^n: LCP[r] = r - 1 is below r - 1 + 1 at r");
+        Assert.That(pyramid.NextLess(TwoTo31 + 64, TwoTo31 + 64), Is.EqualTo(TwoTo31 + 64), "LCP[r] = r - 1 is below r");
     }
 
     [TestCase(TwoTo31 + 10)]
@@ -417,7 +421,7 @@ public unsafe class GeneratedViewLargeTests : LargeFixtureBase
         long n = TwoTo31 + 300;
         var f = new PowerOfA(n);
         CompactLcp lcp = CompactLcp.FromReaders(LcpKind.U32, new PosGen<W4>(f, GenSection.Synthetic), new PosGen<W4>(f, GenSection.LcpPairsOfPowerOfA, long.MaxValue), isChecked: false);
-        using LcpPyramid pyramid = LcpPyramid.Build(lcp, 32);
+        using ILcpRanges pyramid = LcpPyramid.Create(lcp, 32);
         int throughALevel = 0;
         foreach (long bound in new long[] { 1, 2, 3 })
         {

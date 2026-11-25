@@ -19,6 +19,7 @@ internal sealed partial class EsaIndex
     private readonly MappedSearch? _mappedSearch;
     private readonly long _length;
     private readonly bool _mapped;
+    private readonly NavSections? _viewNavigation;
 
     /// <summary>
     /// The child-table layout that <see cref="Build"/> uses by default for a text of <paramref name="n"/> symbols (decided by prototype P3, Log of PROGRESS-S1.md): the tagged
@@ -45,8 +46,9 @@ internal sealed partial class EsaIndex
     {
     }
 
-    private EsaIndex(SesaFile? file, EsaText text, SaView sa, CompactLcp lcp, ChildTable child, EsaStatistics statistics, MappedSearch search)
+    private EsaIndex(SesaFile? file, EsaText text, SaView sa, CompactLcp lcp, ChildTable child, EsaStatistics statistics, MappedSearch search, NavSections? navigation = null)
     {
+        _viewNavigation = navigation;
         _file = file;
         _sa = sa;
         _length = text.Length;
@@ -72,13 +74,13 @@ internal sealed partial class EsaIndex
     /// The index over views that a test made, with no container (the sections in memory at any stored width, or readers that compute them; <see cref="IsMapped"/> is true: the views are untrusted): <paramref name="search"/> is
     /// the long descent over the same sections.
     /// </summary>
-    internal static EsaIndex FromViews(EsaText text, SaView sa, CompactLcp lcp, ChildTable child, EsaStatistics statistics, MappedSearch search)
+    internal static EsaIndex FromViews(EsaText text, SaView sa, CompactLcp lcp, ChildTable child, EsaStatistics statistics, MappedSearch search, NavSections? navigation = null)
     {
         ArgumentNullException.ThrowIfNull(text);
         ArgumentNullException.ThrowIfNull(lcp);
         ArgumentNullException.ThrowIfNull(child);
         ArgumentNullException.ThrowIfNull(search);
-        return new EsaIndex(null, text, sa, lcp, child, statistics, search);
+        return new EsaIndex(null, text, sa, lcp, child, statistics, search, navigation);
     }
 
     /// <summary>The container this index reads in place, or null for an index that was built in memory (or made over views).</summary>
@@ -86,6 +88,16 @@ internal sealed partial class EsaIndex
 
     /// <summary>True when the index reads mapped sections (a container or views of a test): the managed arrays do not exist then.</summary>
     internal bool IsMapped => _mapped;
+
+    /// <summary>
+    /// True when the 32-bit navigator of S1 serves this index (work package S2.5): an index built in memory, a container of fewer than 2^31 - 1 symbols at <c>POS_WIDTH</c> 4 with an LCP array of 8, 16 or 32 bits
+    /// (<see cref="SesaFile.IsNarrow"/>), views of a test that have the same forms. Every other index is served by the long navigator (<see cref="EsaNavigator64"/>) and the wide pyramid.
+    /// </summary>
+    internal bool IsNarrow => !_mapped || (_file?.IsNarrow ?? (!Lcp.IsWide && _sa.StoredWidth == 4 && _sa.Length <= int.MaxValue && !Child.Mapped.IsBridged));
+
+    /// <summary>The sections that the navigation pack reads where they lie (PSI, the persisted RMQ pyramid); none for an index built in memory.</summary>
+    /// <exception cref="InvalidDataException">The RMQ entry of the container does not describe the pyramid of its LCP array.</exception>
+    internal NavSections NavigationSections() => _file?.NavigationSections() ?? _viewNavigation ?? NavSections.None;
 
     /// <summary>The indexed text (the string given to <see cref="Build"/>); an index that reads a container has no string.</summary>
     /// <exception cref="NotSupportedException">The index reads a container: use <see cref="TextView"/>.</exception>

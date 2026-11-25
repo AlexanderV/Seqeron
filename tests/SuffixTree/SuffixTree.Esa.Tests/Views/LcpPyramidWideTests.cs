@@ -38,7 +38,7 @@ public unsafe class LcpPyramidWideTests
         return v.Length;
     }
 
-    private static void CheckAll(LcpPyramid pyramid, long[] v, string context)
+    private static void CheckAll(ILcpRanges pyramid, long[] v, string context)
     {
         Assert.That(pyramid.Length, Is.EqualTo(v.Length), context);
         long[] bounds = [0, 1, 2, 3, 7, 20, 254, 255, 256, 300, 65_534, 65_535, 65_536, 70_000, 1L << 31, 1L << 33];
@@ -99,11 +99,11 @@ public unsafe class LcpPyramidWideTests
             foreach (int a in new[] { 0, 3, 100, v.Length - 1 })
             {
                 int b = Math.Min(v.Length - 1, a + 6);
-                pyramid.Borders(a, b, bound, out int l, out int r, out int lv, out int rv);
-                int el = (int)BrutePrev(v, a, bound), er = (int)BruteNext(v, b + 1, bound);
-                Assert.That((l, r), Is.EqualTo((el, er)), $"{context} int Borders({a}, {b}, {bound})");
-                Assert.That(lv, Is.EqualTo(el >= 0 ? (int)v[el] : -1));
-                Assert.That(rv, Is.EqualTo(er < v.Length ? (int)v[er] : -1));
+                pyramid.Borders(a, b, bound, out long l, out long r, out long lv, out long rv);
+                long el = BrutePrev(v, a, bound), er = BruteNext(v, b + 1, bound);
+                Assert.That((l, r), Is.EqualTo((el, er)), $"{context} Borders({a}, {b}, {bound})");
+                Assert.That(lv, Is.EqualTo(el >= 0 ? v[el] : -1));
+                Assert.That(rv, Is.EqualTo(er < v.Length ? v[er] : -1));
             }
         }
         Assert.That(pyramid.PrevLess(0, 0), Is.EqualTo(-1), "no entry below 0");
@@ -123,7 +123,8 @@ public unsafe class LcpPyramidWideTests
         using var b = new GuardedImage(baseBytes, flush: true);
         using var p = new GuardedImage(pairBytes, flush: true);
         CompactLcp lcp = CompactLcp.FromMappedWide(kind, v.Length, b.Data, pairs.Count == 0 ? null : p.Data, pairs.Count, width, isChecked);
-        using LcpPyramid pyramid = LcpPyramid.Build(lcp, 32);
+        using ILcpRanges pyramid = LcpPyramid.Create(lcp, 32);
+        Assert.That(pyramid, Is.TypeOf<WideLcpPyramid>(), "the LCP array is of the wide form");
         CheckAll(pyramid, v, $"{kind} w{width} checked={isChecked}");
     }
 
@@ -169,22 +170,27 @@ public unsafe class LcpPyramidWideTests
     }
 
     [Test]
-    public void ABlockMinimumThatThe32BitLevelsCannotHold_IsNotSupported_AndAHugeValueThatIsNoMinimumIsFine()
+    public void ABlockMinimumAboveInt32_FitsTheLongLevels_AndAHugeValueThatIsNoMinimumIsFine()
     {
-        // U64: every value above int.MaxValue: the minimum of the first block is 2^31 + 5: the levels are int
+        // S2.5: the levels are 64-bit. U64: every value above int.MaxValue: the minimum of the first block is 2^31 + 5 (the 32-bit levels of S2.3 refused it by name)
         long[] v = [.. Enumerable.Range(0, 200).Select(i => i < 2 ? 0L : (1L << 31) + 5 + i)];
         (byte[] baseBytes, _) = ViewImage.EncodeLcp(v, LcpKind.U64);
         using var b = new GuardedImage(baseBytes, flush: true);
         CompactLcp all = CompactLcp.FromMappedWide(LcpKind.U64, v.Length, b.Data, null, 0, 5, isChecked: false);
-        Assert.That(() => LcpPyramid.Build(all, 4), Throws.TypeOf<NotSupportedException>().With.Message.Contains("32-bit"));
+        using ILcpRanges high = LcpPyramid.Create(all, 4);
+        Assert.That(high.Min(2, 199), Is.EqualTo((1L << 31) + 5 + 2));
+        Assert.That(high.Min(0, 199), Is.EqualTo(0));
+        Assert.That(high.Min(5, 150), Is.EqualTo((1L << 31) + 5 + 5));
+        Assert.That(high.PrevLess(199, (1L << 31) + 100), Is.EqualTo(94), "the largest rank whose value is below 2^31 + 100");
+        Assert.That(high.NextLess(2, (1L << 31) + 100), Is.EqualTo(2));
+        Assert.That(high.NextLess(95, (1L << 31) + 100), Is.EqualTo(200), "no value below the bound from there on");
         // one huge entry per block among small ones: the minima are small, the huge value is read through the base reader
         long[] w = [.. Enumerable.Range(0, 200).Select(i => i % 4 == 3 ? (1L << 33) + i : i % 5)];
         (byte[] baseW, _) = ViewImage.EncodeLcp(w, LcpKind.U64);
         using var bw = new GuardedImage(baseW, flush: true);
         CompactLcp some = CompactLcp.FromMappedWide(LcpKind.U64, w.Length, bw.Data, null, 0, 5, isChecked: false);
-        using LcpPyramid pyramid = LcpPyramid.Build(some, 4);
+        using ILcpRanges pyramid = LcpPyramid.Create(some, 4);
         Assert.That(pyramid.ValueAt(3L), Is.EqualTo((1L << 33) + 3));
-        Assert.That(() => pyramid.ValueAt(3), Throws.TypeOf<InvalidDataException>(), "the int member says that the value is no int");
         Assert.That(pyramid.Min(0, 199), Is.EqualTo(0));
     }
 
@@ -195,7 +201,7 @@ public unsafe class LcpPyramidWideTests
         // by name (a limit of 4 x 10^9 instead of 2 x 10^9 would let the count wrap to a negative int and fail later and elsewhere). The check is on sizes: nothing is allocated and no value is read, so the test is instant.
         var f = new PowerOfA(1L << 33);
         CompactLcp lcp = CompactLcp.FromReaders(LcpKind.U64, new PosGen<W8>(f, GenSection.LcpBase), new PosGen<W5>(f, GenSection.LcpPairsOfPowerOfA, long.MaxValue), isChecked: false);
-        Assert.That(() => LcpPyramid.Build(lcp, 4), Throws.TypeOf<NotSupportedException>().With.Message.Contains("block minima"));
+        Assert.That(() => LcpPyramid.Create(lcp, 4), Throws.TypeOf<NotSupportedException>().With.Message.Contains("block minima").And.Message.Contains("RMQ"));
     }
 
     [Test]
@@ -205,7 +211,7 @@ public unsafe class LcpPyramidWideTests
         (byte[] baseBytes, _) = ViewImage.EncodeLcp(v, LcpKind.U8);
         using var b = new GuardedImage(baseBytes, flush: true);
         // the base array has the escape at rank 60 and the list is empty: the file is damaged
-        Assert.That(() => LcpPyramid.Build(CompactLcp.FromMappedWide(LcpKind.U8, v.Length, b.Data, null, 0, 5, true), 4), Throws.TypeOf<InvalidDataException>());
+        Assert.That(() => LcpPyramid.Create(CompactLcp.FromMappedWide(LcpKind.U8, v.Length, b.Data, null, 0, 5, true), 4), Throws.TypeOf<InvalidDataException>());
     }
 
     [Test]
@@ -219,7 +225,7 @@ public unsafe class LcpPyramidWideTests
             long[] v = [.. Enumerable.Range(0, n).Select(i => i == p ? 1L : 100L)];
             (byte[] baseBytes, _) = ViewImage.EncodeLcp(v, LcpKind.U8);
             using var b = new GuardedImage(baseBytes, flush: true);
-            using LcpPyramid pyramid = LcpPyramid.Build(CompactLcp.FromMappedWide(LcpKind.U8, n, b.Data, null, 0, width, isChecked: true), fanout);
+            using ILcpRanges pyramid = LcpPyramid.Create(CompactLcp.FromMappedWide(LcpKind.U8, n, b.Data, null, 0, width, isChecked: true), fanout);
             for (long lo = 0; lo < n; lo++)
             {
                 for (long hi = lo; hi < n; hi++)
@@ -255,7 +261,7 @@ public unsafe class LcpPyramidWideTests
         long[] v = [.. Enumerable.Repeat((long)int.MaxValue, 200)];
         (byte[] baseBytes, _) = ViewImage.EncodeLcp(v, LcpKind.U64);
         using var b = new GuardedImage(baseBytes, flush: true);
-        using LcpPyramid pyramid = LcpPyramid.Build(CompactLcp.FromMappedWide(LcpKind.U64, v.Length, b.Data, null, 0, 4, isChecked: false), 4);
+        using ILcpRanges pyramid = LcpPyramid.Create(CompactLcp.FromMappedWide(LcpKind.U64, v.Length, b.Data, null, 0, 4, isChecked: false), 4);
         Assert.That(pyramid.Min(0, 199), Is.EqualTo(int.MaxValue));
         Assert.That(pyramid.Min(3, 150), Is.EqualTo(int.MaxValue));
         Assert.That(pyramid.PrevLess(199L, int.MaxValue), Is.EqualTo(-1));
@@ -269,6 +275,6 @@ public unsafe class LcpPyramidWideTests
         // 2^32 + 10 entries in blocks of 2: more than 2^31 block minima at the first level; the check precedes the allocation and the scan (the generator holds no memory, a scan would not end)
         var f = new PowerOfA((1L << 32) + 10);
         CompactLcp lcp = CompactLcp.FromReaders(LcpKind.U32, new PosGen<W4>(f, GenSection.Synthetic), new PosGen<W4>(f, GenSection.LcpPairsOfPowerOfA, long.MaxValue), isChecked: false);
-        Assert.That(() => LcpPyramid.Build(lcp, 2), Throws.TypeOf<NotSupportedException>().With.Message.Contains("block minima"));
+        Assert.That(() => LcpPyramid.Create(lcp, 2), Throws.TypeOf<NotSupportedException>().With.Message.Contains("block minima"));
     }
 }

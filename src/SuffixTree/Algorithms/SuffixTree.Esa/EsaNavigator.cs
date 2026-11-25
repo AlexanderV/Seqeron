@@ -30,6 +30,7 @@ internal readonly struct EsaNavigator : ISuffixTreeNavigator<EsaNode>
     {
         ArgumentNullException.ThrowIfNull(index);
         _pack = index.Navigation;
+        _pack.EnsureLinkable();
         _text = index.TextView;
         _source = index.TextView.AsTextSource();
         _n = index.Length;

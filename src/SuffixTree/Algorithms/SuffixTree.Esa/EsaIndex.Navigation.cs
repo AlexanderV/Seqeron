@@ -23,8 +23,17 @@ internal sealed partial class EsaIndex
     /// <summary><see cref="IndexSupport.Degraded"/> until the pack exists (the first suffix-link user pays O(n)), <see cref="IndexSupport.Native"/> afterwards.</summary>
     internal IndexSupport SuffixLinkSupport => NavigationBuilt ? IndexSupport.Native : IndexSupport.Degraded;
 
-    /// <summary>A navigator over this index (builds the pack if it does not exist yet).</summary>
-    internal EsaNavigator CreateNavigator() => new(this);
+    /// <summary>A navigator over this index (builds the navigation pack if it does not exist yet): the 32-bit navigator of S1, for the indexes that it serves (<see cref="IsNarrow"/>).</summary>
+    /// <exception cref="NotSupportedException">The index is not served by the 32-bit navigator (<see cref="CreateWideNavigator"/> is), or it cannot link (a container without PSI of more than <see cref="EsaNavigationPack.PackHeapLimit"/> symbols).</exception>
+    internal EsaNavigator CreateNavigator()
+    {
+        if (!IsNarrow) throw new NotSupportedException("the 32-bit navigator serves an index in memory and a container of fewer than 2^31 - 1 symbols with 4-byte entries; this index is read through the 64-bit navigator (EsaNavigator64, EsaNavigatorWide)");
+        return new EsaNavigator(this);
+    }
+
+    /// <summary>The navigator of the generic algorithms over any index, through the 64-bit navigator (the 32-bit numbers of its contract are narrowed at its one place).</summary>
+    /// <exception cref="NotSupportedException">The text has more than <see cref="int.MaxValue"/> symbols, or the container cannot link.</exception>
+    internal EsaNavigatorWide CreateWideNavigator() => new(this);
 
     private EsaNavigationPack BuildNavigation()
     {

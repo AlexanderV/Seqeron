@@ -106,7 +106,7 @@ public class GeneratedViewSelfTests
     {
         var f = new PowerOfA(2_000);
         CompactLcp lcp = CompactLcp.FromReaders(LcpKind.U32, new PosGen<W4>(f, GenSection.Synthetic), new PosGen<W4>(f, GenSection.LcpPairsOfPowerOfA, long.MaxValue), isChecked: false);
-        using LcpPyramid pyramid = LcpPyramid.Build(lcp, 8);
+        using ILcpRanges pyramid = LcpPyramid.Create(lcp, 8);
         for (long r = 0; r <= 2_000; r += 13)
         {
             Assert.That(pyramid.ValueAt(r), Is.EqualTo((long)(PosGen<W4>.Hash(r) % 50)));
