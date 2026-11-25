@@ -33,3 +33,7 @@
 2026-11-25T13:00:16Z	gate2b-end	libsais_dna_10m_build_s	0.3252	0.3181	0.3710	0.991	ok
 2026-11-25T13:01:39Z	gate3-start	libsais_dna_10m_build_s	0.3393	0.3307	0.3667	1.034	ok
 2026-11-25T13:29:41Z	gate3-end	libsais_dna_10m_build_s	0.3373	0.3123	0.3424	1.028	ok
+2026-11-25T15:36:06Z	final4-start	libsais_dna_10m_build_s	0.3350	0.3291	0.3510	1.021	ok
+2026-11-25T15:53:19Z	final4-end	libsais_dna_10m_build_s	0.3394	0.3143	0.3586	1.035	ok
+2026-11-25T15:55:37Z	alt-start	libsais_dna_10m_build_s	0.3358	0.3295	0.3455	1.024	ok
+2026-11-25T16:07:20Z	alt-end	libsais_dna_10m_build_s	0.3456	0.3107	0.3617	1.054	ok

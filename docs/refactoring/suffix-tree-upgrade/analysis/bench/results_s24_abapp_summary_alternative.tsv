@@ -1,0 +1,13 @@
+mode	input	kind	threads	operation	processes	pooled_median	p25	p75	min	max	verdict
+ab	dna_10m	file	1	count_present	5	0.9339	0.8975	0.9468	0.8873	0.9698	BELOW 0.97
+ab	dna_10m	file	1	count_absent	5	0.9104	0.9067	0.9426	0.9006	0.9655	BELOW 0.97
+ab	dna_10m	file	1	locate	5	1.0138	0.9872	1.0270	0.9623	1.0315	ok
+ab	dna_10m	fileT	1	count_present	5	0.9551	0.9417	0.9641	0.9271	1.0281	BELOW 0.97
+ab	dna_10m	fileT	1	count_absent	5	0.9677	0.9584	0.9706	0.9440	0.9810	BELOW 0.97
+ab	dna_10m	fileT	1	locate	5	1.0335	1.0038	1.0390	0.9776	1.1160	ok
+ab	prot_1m	fileT	1	count_present	5	0.9989	0.9738	1.0077	0.9421	1.0083	ok
+ab	prot_1m	fileT	1	count_absent	5	0.9460	0.9452	0.9529	0.8933	0.9734	BELOW 0.97
+ab	prot_1m	fileT	1	locate	5	0.9227	0.9192	0.9286	0.9165	0.9637	BELOW 0.97
+ab	rep_10m	file	4	count_present	5	0.9790	0.9738	0.9946	0.9642	0.9988	ok
+ab	rep_10m	file	4	count_absent	5	0.9876	0.9790	0.9928	0.9728	1.0007	ok
+ab	rep_10m	file	4	locate	5	0.9898	0.9490	1.0188	0.9019	1.0215	ok
