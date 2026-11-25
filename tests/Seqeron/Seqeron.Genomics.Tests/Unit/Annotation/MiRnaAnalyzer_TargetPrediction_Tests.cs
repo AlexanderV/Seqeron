@@ -1074,9 +1074,9 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
         });
     }
 
-    // CTX-PCT-003 — PCT(Bls) = B0 + B1/(1 + e^(−B2·Bls + B3)), truncated at 0
-    // (targetscan_70_BL_PCT.pl, calculatePCTthisBL). Hand-derived with the simple parameters
-    // (B0=0, B1=1, B2=1, B3=0):  PCT(3.0) = 1/(1+e^-3) = 0.952574126822433.
+    // CTX-PCT-003 — PCT(Bls) = B0 + B1/(1 + e^(−B2·Bls + B3)), sprintf("%.4f"), truncated at 0
+    // (targetscan_70_BL_PCT.pl, calculatePCTthisBL). Simple parameters (B0=0, B1=1, B2=1, B3=0):
+    // 1/(1+e^-3) = 0.952574… ⇒ 0.9526 (perl 5.38 run of targetscan_70_BL_PCT.pl prints 0.9526).
     [Test]
     public void PctFromBranchLength_SimpleSigmoid_MatchesHandDerivedValue()
     {
@@ -1084,18 +1084,18 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
 
         double pct = PctFromBranchLength(3.0, p);
 
-        Assert.That(pct, Is.EqualTo(0.952574126822433).Within(1e-12),
-            "PCT(3.0) = 0 + 1/(1+e^(−1·3+0)) per the published logistic relationship");
+        Assert.That(pct, Is.EqualTo(0.9526).Within(1e-12),
+            "PCT(3.0) = 0 + 1/(1+e^(−1·3+0)) rounded to 4 dp as calculatePCTthisBL prints it");
     }
 
     // CTX-PCT-004 — negative PCT values are truncated to 0 (perl: if ($pct < 0) { $pct = "0.0"; }).
     [Test]
     public void PctFromBranchLength_NegativeRaw_TruncatedToZero()
     {
-        // B0=-0.5, B1=0.3, B3=5 with Bls=0 ⇒ raw = -0.5 + 0.3/(1+e^5) ≈ -0.498 < 0 ⇒ 0.
+        // B0=-0.5, B1=0.3, B3=5 with Bls=1 ⇒ raw = -0.5 + 0.3/(1+e^4) ≈ -0.4945 < 0 ⇒ 0.
         var p = new PctSigmoidParameters(B0: -0.5, B1: 0.3, B2: 1.0, B3: 5.0);
 
-        double pct = PctFromBranchLength(0.0, p);
+        double pct = PctFromBranchLength(1.0, p);
 
         Assert.That(pct, Is.EqualTo(0.0),
             "a negative logistic output is truncated to 0 as in the TargetScan reference");
@@ -1103,9 +1103,10 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
 
     // CTX-PCT-005 — the PCT contribution = coeff(PCT) × (PCT − min)/(max − min) enters context++
     // and PCT leaves OmittedFeatures when a Conservation input is supplied. For an 8mer with the
-    // worked tree and {A,B} (Bls=3.0), sigmoid (0,1,1,0): PCT=0.952574126822433.
+    // worked tree and {A,B} (Bls=3.0), sigmoid (0,1,1,0): PCT=0.9526 (4 dp, as the BL_PCT perl prints
+    // and the context++ perl reads it).
     //   8mer PCT row (Agarwal_2015_parameters.txt): coeff -0.103, min 0, max 0.816.
-    //   contribution = -0.103 × (0.952574126822433 / 0.816) = -0.120239136106263.
+    //   contribution = -0.103 × (0.9526 / 0.816) = -0.12024240196078431.
     [Test]
     public void ScoreTargetSiteContextPlusPlus_ConservationSupplied_8mer_PctEntersScoreAndDropsResidual()
     {
@@ -1125,9 +1126,9 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
         {
             Assert.That(ctx.BranchLengthScore, Is.EqualTo(3.0).Within(1e-9),
                 "Bls({A,B}) on the worked tree = 3.0");
-            Assert.That(ctx.Pct, Is.EqualTo(0.952574126822433).Within(1e-12),
-                "PCT = 1/(1+e^-3) from the supplied sigmoid");
-            Assert.That(ctx.PctContribution, Is.EqualTo(-0.120239136106263).Within(1e-9),
+            Assert.That(ctx.Pct, Is.EqualTo(0.9526).Within(1e-12),
+                "PCT = 1/(1+e^-3) from the supplied sigmoid, 4 dp");
+            Assert.That(ctx.PctContribution, Is.EqualTo(-0.12024240196078431).Within(1e-12),
                 "PCT contribution = -0.103 × (PCT/0.816) with the verbatim 8mer PCT parameters");
             Assert.That(ctx.OmittedFeatures, Has.None.Contains("PCT"),
                 "supplied conservation ⇒ PCT no longer an honest residual");
@@ -1143,8 +1144,8 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
 
     // CTX-PCT-006 — per-site-type PCT parameters: a 7mer-m8 site with {A,C} (Bls=7.0) and the same
     // sigmoid uses the 7mer-m8 PCT row (coeff -0.048, min 0, max 0.364):
-    //   PCT(7.0) = 1/(1+e^-7) = 0.999088948805599
-    //   contribution = -0.048 × (0.999088948805599 / 0.364) = -0.131747993249090.
+    //   PCT(7.0) = 1/(1+e^-7) = 0.99909 ⇒ 0.9991 (perl run: 7.0000 / 0.9991)
+    //   contribution = -0.048 × (0.9991 / 0.364) = -0.13174945054945056.
     [Test]
     public void ScoreTargetSiteContextPlusPlus_Conservation_7merM8_UsesSiteTypePctParameters()
     {
@@ -1165,20 +1166,18 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
         Assert.Multiple(() =>
         {
             Assert.That(ctx.BranchLengthScore, Is.EqualTo(7.0).Within(1e-9), "Bls({A,C}) = 7.0");
-            Assert.That(ctx.Pct, Is.EqualTo(0.999088948805599).Within(1e-12), "PCT = 1/(1+e^-7)");
-            Assert.That(ctx.PctContribution, Is.EqualTo(-0.131747993249090).Within(1e-9),
+            Assert.That(ctx.Pct, Is.EqualTo(0.9991).Within(1e-12), "PCT = 1/(1+e^-7), 4 dp");
+            Assert.That(ctx.PctContribution, Is.EqualTo(-0.13174945054945056).Within(1e-12),
                 "7mer-m8 PCT contribution uses coeff -0.048, max 0.364");
         });
     }
 
     // CTX-PCT-007 — per-site-type PCT parameters for the remaining two site types (7mer-A1, 6mer).
-    // Same worked tree + {A,B} (Bls=3.0) + sigmoid (0,1,1,0) ⇒ PCT = 1/(1+e^-3) = 0.952574126822433.
+    // Same worked tree + {A,B} (Bls=3.0) + sigmoid (0,1,1,0) ⇒ PCT = 1/(1+e^-3) ⇒ 0.9526.
     //   7mer-A1 PCT row (Agarwal_2015_parameters.txt): coeff -0.048, min 0, max 0.449
-    //     contribution = -0.048 × (0.952574126822433 / 0.449) = -0.10183420509460311
-    //   6mer PCT row:                                  coeff  0.005, min 0, max 0.193
-    //     contribution =  0.005 × (0.952574126822433 / 0.193) =  0.024678086187109673
-    // These lock the 7mer-A1 and 6mer branches of PctContribution's site-type switch, which the
-    // 8mer/7mer-m8 cases above do not exercise.
+    //     contribution = -0.048 × (0.9526 / 0.449) = -0.1018369710467706
+    //   6mer: getPCT returns "0.0" for a 6mer (perl run: 6mer, BL 3.0000, PCT 0.0), so the 6mer PCT
+    //     row (coeff 0.005, min 0, max 0.193) scales 0 ⇒ contribution 0.
     [Test]
     public void ScoreTargetSiteContextPlusPlus_Conservation_7merA1_UsesSiteTypePctParameters()
     {
@@ -1194,14 +1193,14 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
         Assert.Multiple(() =>
         {
             Assert.That(ctx.BranchLengthScore, Is.EqualTo(3.0).Within(1e-9), "Bls({A,B}) = 3.0");
-            Assert.That(ctx.Pct, Is.EqualTo(0.952574126822433).Within(1e-12), "PCT = 1/(1+e^-3)");
-            Assert.That(ctx.PctContribution, Is.EqualTo(-0.10183420509460311).Within(1e-9),
+            Assert.That(ctx.Pct, Is.EqualTo(0.9526).Within(1e-12), "PCT = 1/(1+e^-3), 4 dp");
+            Assert.That(ctx.PctContribution, Is.EqualTo(-0.1018369710467706).Within(1e-12),
                 "7mer-A1 PCT contribution uses coeff -0.048, max 0.449");
         });
     }
 
     [Test]
-    public void ScoreTargetSiteContextPlusPlus_Conservation_6mer_UsesSiteTypePctParameters()
+    public void ScoreTargetSiteContextPlusPlus_Conservation_6mer_PctIsZeroAsInGetPct()
     {
         // miR-21 6mer core = UAAGCU (seedRC AUAAGCU[1..]); non-A flank, no upstream seedRC[0].
         string mrna = "GGGGC" + "UAAGCU" + "UGAGG";
@@ -1215,9 +1214,11 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
         Assert.Multiple(() =>
         {
             Assert.That(ctx.BranchLengthScore, Is.EqualTo(3.0).Within(1e-9), "Bls({A,B}) = 3.0");
-            Assert.That(ctx.Pct, Is.EqualTo(0.952574126822433).Within(1e-12), "PCT = 1/(1+e^-3)");
-            Assert.That(ctx.PctContribution, Is.EqualTo(0.024678086187109673).Within(1e-9),
-                "6mer PCT contribution uses coeff 0.005, max 0.193");
+            Assert.That(ctx.Pct, Is.EqualTo(0.0), "getPCT: 6mer ⇒ \"0.0\" whatever the sigmoid");
+            Assert.That(ctx.PctContribution, Is.EqualTo(0.0),
+                "6mer PCT contribution = 0.005 × (0 − 0)/0.193 = 0");
+            Assert.That(ctx.OmittedFeatures, Has.None.Contains("PCT"),
+                "conservation was supplied; PCT 0 is the TargetScan value, not a residual");
         });
     }
 
@@ -1229,6 +1230,8 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
     {
         var p = new PctSigmoidParameters(B0: 0.0, B1: 1.0, B2: 1.0, B3: 0.0);
 
+        // perl run (two-leaf trees): 0 → 0.0, 0.5 → 0.6225, 1 → 0.7311, 2 → 0.8808, 3 → 0.9526,
+        // 5 → 0.9933, 8 → 0.9997.
         double[] bls = { 0.0, 0.5, 1.0, 2.0, 3.0, 5.0, 8.0 };
         double[] pcts = bls.Select(b => PctFromBranchLength(b, p)).ToArray();
 
@@ -1237,39 +1240,38 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
             for (int i = 1; i < pcts.Length; i++)
                 Assert.That(pcts[i], Is.GreaterThan(pcts[i - 1]),
                     $"PCT(Bls={bls[i]}) must exceed PCT(Bls={bls[i - 1]}) for a B2>0 logistic");
-            // PCT(0) for (0,1,1,0) = 1/(1+e^0) = 0.5 exactly (the logistic floor at Bls=0, not truncated).
-            Assert.That(pcts[0], Is.EqualTo(0.5).Within(1e-12), "logistic floor PCT(Bls=0) = 0.5");
+            Assert.That(pcts, Is.EqualTo(new[] { 0.0, 0.6225, 0.7311, 0.8808, 0.9526, 0.9933, 0.9997 })
+                .Within(1e-12), "targetscan_70_BL_PCT.pl values (Bls 0 ⇒ getPCT \"0.0\")");
         });
     }
 
-    // CTX-PCT-009 — Bls=0 logistic floor with a non-trivial (untruncated) sigmoid: at Bls=0 the
-    // logistic reduces to B0 + B1/(1 + e^B3). With (B0=0.1, B1=0.8, B3=4.0) this is a small POSITIVE
-    // value (≈0.1144), i.e. it is the floor of the curve and is NOT truncated to 0.
+    // CTX-PCT-009 — Bls = 0 ⇒ PCT 0 (getPCT: elsif ($branchLength == 0) { $pct = "0.0"; }), even
+    // when the curve's value at 0 is positive: (0.1, 0.8, 2, 4) gives 0.1 + 0.8/(1+e^4) = 0.1144 at
+    // Bls 0, but the perl run prints PCT 0.0 for that family on a single-species site.
     [Test]
-    public void PctFromBranchLength_ZeroBls_ReturnsUntruncatedLogisticFloor()
+    public void PctFromBranchLength_ZeroBls_IsZeroAsInGetPct()
     {
         var p = new PctSigmoidParameters(B0: 0.1, B1: 0.8, B2: 2.0, B3: 4.0);
 
         double pct = PctFromBranchLength(0.0, p);
 
-        // 0.1 + 0.8/(1+e^4) = 0.11438896796967325 (> 0, so the truncation branch does not fire).
-        Assert.That(pct, Is.EqualTo(0.11438896796967325).Within(1e-12),
-            "PCT(Bls=0) = B0 + B1/(1+e^B3), the untruncated logistic floor");
+        Assert.That(pct, Is.EqualTo(0.0), "getPCT returns \"0.0\" for Bls = 0 without the sigmoid");
     }
 
     // CTX-PCT-010 — Cross-check against a REAL published parameter row (not a synthetic sigmoid):
     // the 8mer PCT_parameters.txt row for miRNA family "UCCCUUU" (miR-30 family), retrieved verbatim
     // from targetscan_70 PCT_parameters/8mer_PCT_parameters.txt this session:
     //   b0=-1.15890235160174  b1=1.61944269599563  b2=11.8180287443514  b3=36.260388031391
-    // Hand-computed PCT(Bls) = b0 + b1/(1+e^(−b2·Bls+b3)), truncated at 0:
+    // PCT(Bls) = b0 + b1/(1+e^(−b2·Bls+b3)), 4 dp, truncated at 0 (perl run of
+    // targetscan_70_BL_PCT.pl with this row: BL 3.0000 ⇒ 0.0, 4.0000 ⇒ 0.4605, 5.0000 ⇒ 0.4605):
     //   Bls=3.0 ⇒ raw < 0 ⇒ 0.0 (steep curve: this family needs high conservation before PCT rises)
-    //   Bls=4.0 ⇒ 0.460513612719198
-    //   Bls=5.0 ⇒ 0.46054034419686185
+    //   Bls=4.0 ⇒ 0.460513… ⇒ 0.4605
+    //   Bls=5.0 ⇒ 0.460540… ⇒ 0.4605
     // (independent Python reference: -1.15890235160174 + 1.61944269599563/(1+e^(-11.8180287443514·Bls+36.260388031391))).
     [Test]
     [TestCase(3.0, 0.0)]
-    [TestCase(4.0, 0.460513612719198)]
-    [TestCase(5.0, 0.46054034419686185)]
+    [TestCase(4.0, 0.4605)]
+    [TestCase(5.0, 0.4605)]
     public void PctFromBranchLength_PublishedMir30Family8mer_MatchesReferenceImplementation(
         double bls, double expectedPct)
     {

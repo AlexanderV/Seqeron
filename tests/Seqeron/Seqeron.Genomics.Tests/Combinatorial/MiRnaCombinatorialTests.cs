@@ -294,13 +294,13 @@ public class MiRnaCombinatorialTests
     //
     // Sources: Friedman et al. (2009) Genome Res 19:92; TargetScan targetscan_70_BL_PCT.pl.
     //
-    // Model: PCT(Bls) = B0 + B1/(1 + e^(−B2·Bls + B3)), truncated at 0 — the published logistic mapping
+    // Model: PCT(Bls) = B0 + B1/(1 + e^(−B2·Bls + B3)), 4 dp, truncated at 0 — the published logistic mapping
     //   from branch length to probability of conserved targeting, parameterised per seed type.
     //
     // Dimensions: seedType(3) × branchLength(3). Grid 3×3 = 9 (exhaustive).
     //
     // The combinatorial point: each (seedType parameter set × branch length) cell reproduces the closed
-    // form exactly, stays within [0, B0+B1], and PCT rises monotonically with branch length (B2 > 0).
+    // form to 4 dp, stays within [0, B0+B1], and PCT rises monotonically with branch length (B2 > 0).
     // ═══════════════════════════════════════════════════════════════════════
 
     private static MiRnaAnalyzer.PctSigmoidParameters PctParamsFor(int seedIdx) => seedIdx switch
@@ -319,7 +319,8 @@ public class MiRnaCombinatorialTests
         double pct = MiRnaAnalyzer.PctFromBranchLength(branchLength, p);
 
         double expected = Math.Max(0.0, p.B0 + p.B1 / (1.0 + Math.Exp(-p.B2 * branchLength + p.B3)));
-        pct.Should().BeApproximately(expected, 1e-12, "PCT = B0 + B1/(1 + e^(−B2·Bls + B3)), truncated at 0");
+        // calculatePCTthisBL prints sprintf("%.4f") (B13 MIRNA-PCT-001 F20, perl 5.38 run).
+        pct.Should().BeApproximately(expected, 0.5e-4 + 1e-12, "PCT = B0 + B1/(1 + e^(−B2·Bls + B3)), 4 dp, truncated at 0");
         pct.Should().BeInRange(0.0, p.B0 + p.B1, "PCT lies within the logistic's range");
 
         if (branchLength > 0.5)

@@ -402,9 +402,18 @@ public class MiRnaAnalyzer_AlignMiRnaToTarget_Tests
 
     // E6 — Cross-check against ViennaRNA 2.8.0: fold_compound(miRNA + "&" + target).eval_structure(s), where
     // s pairs every in-register Watson-Crick/G·U position of the reported alignment (dangles = 2).
-    // Residual = Vienna's 0.1-rounded parameters (stacks, init 4.10, terminal AU 0.50); max |Δ| 0.31 over
-    // 51 fixtures without 2×2 internal loops (scratch cross-check, MIRNA-PAIR-001 Evidence §Duplex energy).
+    // Residual = Vienna's 0.1-rounded parameters (stacks, init 4.10, terminal AU 0.50); max |Δ| 0.46 over
+    // 51 fixtures (0.43 of it = NNDB symmetry term on GCGCGCGC·GCGCGCGC, which eval_structure omits), 0.45 on
+    // fixtures with 2×2 loops (was 2.2 before the canonical kernel gained the NNDB int11/int21/int22 tables and
+    // vrna_E_internal rules — B12 RNA-STRUCT-001 F3; MIRNA-PAIR-001 Evidence §Duplex energy).
     // Exact Seqeron values (NNDB parameters) are locked; Vienna is asserted within 0.35 kcal/mol.
+    // Loop terms of the two generic-loop fixtures (NNDB internal_loop_dg.txt: initiation(8) 2.3, (10) 2.5,
+    // (14) 2.9; AU/GU closure 0.7 per pair; first mismatch GA −1.0, other mismatches 0; each value equals
+    // ViennaRNA eval_int_loop):
+    //   4×4: C·G/U·A 2.3 + 0.7 = 3.0;  G·U/G·U 2.3 + 2×0.7 + GA −1.0 = 2.7 (2.9 before B12: inner-pair
+    //        mismatch read as AG −0.8)  ⇒ total 2.55 → 2.35 (Vienna 2.4).
+    //   5×5/7×7: 7×7 A·U/C·G 2.9 + 0.7 + GA −1.0 = 2.6 (was 2.8, same mismatch orientation fix);
+    //        5×5 G·C/U·G 2.5 + 0.7 = 3.2  ⇒ total 3.00 → 2.80 (Vienna 2.9).
     [TestCase("UGAGGUAGUAGGUUGUAUAGUU", "AACUAUACAACCUACUACCUCA", -35.90, -35.6, TestName = "Vienna_Let7a_PerfectComplement")]
     [TestCase("UGAGGUAGUAGGUUGUAUAGUU", "GGGGGCUACCUCA", -11.67, -11.4, TestName = "Vienna_Let7a_SiteWindow_3x3Loop")]
     [TestCase("UGAGGUAGUAGGUUGUAUAGUU", "CCAACUAUACAGCCUACUACCUCA", -36.09, -35.9, TestName = "Vienna_Let7a_GuAndOverhang")]
@@ -412,8 +421,8 @@ public class MiRnaAnalyzer_AlignMiRnaToTarget_Tests
     [TestCase("AUGCGAUCC", "GCGGAUGGCAU", -10.50, -10.5, TestName = "Vienna_1x1Loop")]
     [TestCase("UAUCUAUAUAAGCAGGGGA", "UCCCCUGCUAGUAUAGAUA", -26.91, -27.0, TestName = "Vienna_1x1Loop_GU")]
     [TestCase("GUGUGAAUCG", "CGAUUCAUAC", -11.71, -11.8, TestName = "Vienna_GuInHelix")]
-    [TestCase("CGCAGUAUGCCAAGACU", "GUCGUCCUUGGCCUACUGCGCA", 2.55, 2.4, TestName = "Vienna_4x4Loop")]
-    [TestCase("AGUAUGUCCAACGGCGAGCUUUA", "UGCUAAAGCUCGCCGUUGGACAUACUGUG", 3.00, 2.9, TestName = "Vienna_5x5And7x7Loops")]
+    [TestCase("CGCAGUAUGCCAAGACU", "GUCGUCCUUGGCCUACUGCGCA", 2.35, 2.4, TestName = "Vienna_4x4Loop")]
+    [TestCase("AGUAUGUCCAACGGCGAGCUUUA", "UGCUAAAGCUCGCCGUUGGACAUACUGUG", 2.80, 2.9, TestName = "Vienna_5x5And7x7Loops")]
     public void AlignMiRnaToTarget_FreeEnergy_MatchesViennaEval(string mirna, string target, double nndb, double vienna)
     {
         var duplex = AlignMiRnaToTarget(mirna, target);
@@ -451,11 +460,16 @@ public class MiRnaAnalyzer_AlignMiRnaToTarget_Tests
     }
 
     // F2 — Bulged target: an extra A in the let-7a site. The ungapped register loses the 3' half
-    // (AlignMiRnaToTarget −10.81), the duplex fold recovers it with a 1-nt bulge.
+    // (AlignMiRnaToTarget −11.11), the duplex fold recovers it with a 1-nt bulge.
+    // Ungapped A12 register: loops 2×2 (int22 5′GGUU/3′CACA → +0.5; generic formula before B12 gave +0.8),
+    // 5×5 (2.5 + 2×0.7 + GA −1.0 = 2.9), 1×1 (int11 1.9) ⇒ −11.11 (was −10.81); Vienna eval_structure −11.0.
+    // 1×2 loop fixture: NNDB turner_2004_int21_dg.txt table 5'GXU/3'CYAA, X = G, Y = A → 1.9 (generic formula
+    // before B12 gave 2.4) ⇒ −28.50 (was −28.00); Vienna duplexfold −28.2 (same pairs; int21 also 1.9 —
+    // residual = 0.1-rounded stacks/init/AU).
     // ViennaRNA 2.8 RNA.duplexfold("UGAGGUAGUAGGUUGUAUAGUU", <target>) = same pairs, −31.8 (no NNDB bulge degeneracy term).
-    [TestCase("AACUAUACAACACUACUACCUCA", "((((((((((((((((((((((&))))))))))).)))))))))))", -32.10, -31.8, -10.81, TestName = "Fold_OneNtBulge_A12")]
+    [TestCase("AACUAUACAACACUACUACCUCA", "((((((((((((((((((((((&))))))))))).)))))))))))", -32.10, -31.8, -11.11, TestName = "Fold_OneNtBulge_A12")]
     [TestCase("AACUAUACAACCAUACUACCUCA", "((((((((((((((((((((((&)))))))))))).))))))))))", -32.10, -31.8, -7.13, TestName = "Fold_OneNtBulge_A13")]
-    [TestCase("AACUAUACAAAACUACUACCUCA", "(((((((((((.((((((((((&))))))))))..)))))))))))", -28.00, -28.2, -11.34, TestName = "Fold_1x2InternalLoop")]
+    [TestCase("AACUAUACAAAACUACUACCUCA", "(((((((((((.((((((((((&))))))))))..)))))))))))", -28.50, -28.2, -11.34, TestName = "Fold_1x2InternalLoop")]
     public void FoldMiRnaDuplex_BulgedSite_RecoversHelixLikeVienna(string target, string structure, double nndb, double vienna, double ungapped)
     {
         const string let7a = "UGAGGUAGUAGGUUGUAUAGUU";

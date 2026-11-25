@@ -108,7 +108,7 @@
 | E5 | Short A·U duplex | `AAAA`/`UUUU`; `AAAAAA`/`UUUU` | +2.20; +1.40 (3′ dangle A −0.8); Vienna +2.4, +1.6 | NNDB |
 | E6 | ViennaRNA eval cross-check | 9 fixtures (perfect let-7a/miR-21, site window 3×3 loop, 1×1, 4×4, 5×5/7×7 loops, G·U) | exact NNDB value; Vienna within 0.35 | ViennaRNA 2.8.0 |
 | F1 | Fold perfect complement | let-7a / RC | 22-bp helix, −35.90 = AlignMiRnaToTarget | RNAduplex |
-| F2 | Fold bulged site | let-7a vs site + extra A (2 positions), 1×2 loop | Vienna duplexfold pairs; −32.10/−32.10/−28.00 (Vienna −31.8/−31.8/−28.2); ungapped −10.81/−7.13/−11.34 | RNAduplex |
+| F2 | Fold bulged site | let-7a vs site + extra A (2 positions), 1×2 loop | Vienna duplexfold pairs; −32.10/−32.10/−28.50 (Vienna −31.8/−31.8/−28.2; int21 1.9 per NNDB); ungapped −11.11/−7.13/−11.34 | RNAduplex |
 | F3 | Fold Vienna cross-check | 5 generated fixtures | Vienna structure + span; energy within 0.35 | ViennaRNA 2.8.0 |
 | F4 | Fold ≤ ungapped | 4 fixtures | INV-7 | RNAduplex |
 | F5 | Fold bounds | maxLoopSize 0 / null / empty / no pair / −1 | helix only / null / null / null / throws | contract |

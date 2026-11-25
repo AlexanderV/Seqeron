@@ -75,17 +75,19 @@ public class MiRnaAlgebraicTests
     {
         var p = new MiRnaAnalyzer.PctSigmoidParameters(B0: 0.0, B1: 1.0, B2: 1.0, B3: 0.0);
         double pct = MiRnaAnalyzer.PctFromBranchLength(3.0, p);
-        // 1/(1+e^-3) = 0.9525741268224334.
-        pct.Should().BeApproximately(1.0 / (1.0 + System.Math.Exp(-3.0)), 1e-12);
-        pct.Should().BeApproximately(0.952574126822433, 1e-12);
+        // 1/(1+e^-3) = 0.9525741268224334, printed with sprintf("%.4f") by calculatePCTthisBL
+        // (perl 5.38 run of targetscan_70_BL_PCT.pl: BL 3.0000 ⇒ 0.9526).
+        pct.Should().BeApproximately(1.0 / (1.0 + System.Math.Exp(-3.0)), 0.5e-4);
+        pct.Should().Be(0.9526);
     }
 
     [Test]
     public void Pct_Identity_NegativeValueTruncatedToZero()
     {
-        // targetscan_70_BL_PCT.pl: if ($pct < 0) { $pct = 0 }.
+        // targetscan_70_BL_PCT.pl: if ($pct < 0) { $pct = 0 }. (BL > 0, so the sigmoid is evaluated;
+        // BL = 0 is 0 by getPCT's own rule.)
         var p = new MiRnaAnalyzer.PctSigmoidParameters(B0: -0.5, B1: 0.3, B2: 1.0, B3: 5.0);
-        MiRnaAnalyzer.PctFromBranchLength(0.0, p).Should().Be(0.0);
+        MiRnaAnalyzer.PctFromBranchLength(1.0, p).Should().Be(0.0);
     }
 
     [Test]

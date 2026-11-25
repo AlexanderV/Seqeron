@@ -120,7 +120,7 @@ Indexing is 0-based. Inputs are uppercased and `T`→`U` normalised (RNA alphabe
 
 ### 5.2 Current Behavior
 
-The aligner is ungapped and antiparallel over the overlap region (the shorter of the two sequences). `EvaluateDuplexEnergy` scores the paired positions with the full Turner 2004 duplex model through the canonical `RnaSecondaryStructure` kernels (§2.2, §4.1). Cross-check against ViennaRNA 2.8.0 `eval_structure` on 51 fixtures: max |Δ| 0.31 kcal/mol where no 2×2 internal loop occurs (Vienna's 0.1-kcal rounding); with 2×2 loops up to 2.2 kcal/mol because the canonical internal-loop kernel has no int22 table (RNA-STRUCT-001 residual, B12). `FoldMiRnaDuplex` vs `RNA.duplexfold`: identical base-pair set on 48/50 fixtures (the other two are near-degenerate alternatives within 0.3 kcal/mol); energies differ by the rounding residual, and by up to 1.4 kcal/mol where NNDB's 1-nt-bulge special-C bonus and degeneracy term apply (ViennaRNA omits both). This is a substring/positional scan, not a search: there is no occurrence enumeration of a pattern within a larger text, so the repository suffix tree is **not** applicable here (suffix-tree reuse evaluated; N/A — single positional alignment, not exact-match search).
+The aligner is ungapped and antiparallel over the overlap region (the shorter of the two sequences). `EvaluateDuplexEnergy` scores the paired positions with the full Turner 2004 duplex model through the canonical `RnaSecondaryStructure` kernels (§2.2, §4.1). Cross-check against ViennaRNA 2.8.0 `eval_structure` on 51 fixtures: max |Δ| 0.46 kcal/mol (Vienna's 0.1-kcal rounding, plus the NNDB symmetry term 0.43 that `eval_structure` omits for identical strands); the canonical internal-loop kernel uses the NNDB int11/int21/int22 tables and the ViennaRNA `vrna_E_internal` rules (B12 RNA-STRUCT-001 F3), so 1×1/1×2/2×2 loops match exactly (before that fix, 2×2 loops deviated by up to 2.2). `FoldMiRnaDuplex` vs `RNA.duplexfold`: identical base-pair set on 49/50 fixtures (the other is a near-degenerate alternative within 0.2 kcal/mol); energies differ by the rounding residual, and by up to 1.4 kcal/mol where NNDB's 1-nt-bulge special-C bonus and degeneracy term apply (ViennaRNA omits both). This is a substring/positional scan, not a search: there is no occurrence enumeration of a pattern within a larger text, so the repository suffix tree is **not** applicable here (suffix-tree reuse evaluated; N/A — single positional alignment, not exact-match search).
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -143,8 +143,8 @@ The aligner is ungapped and antiparallel over the overlap region (the shorter of
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
-| 1 | 2×2 internal loops scored by the generic internal-loop formula (no int22 table in the canonical kernel) | Deviation (shared kernel) | up to 2.2 kcal/mol vs ViennaRNA on duplexes with 2×2 loops | open in B12 (RNA-STRUCT-001) | fixed centrally when the canonical kernel gains int22/int21 |
-| 2 | Exterior dangling ends in the canonical MFE recursion use the swapped NNDB key | Deviation (shared kernel, not used here) | MFE only; this unit passes the keys in NNDB orientation (confirmed vs Vienna) | reported to B12 | see B13 report F13 |
+| 1 | 2×2 / 1×2 internal loops scored by the generic internal-loop formula (no int22/int21 table in the canonical kernel) | Deviation (shared kernel) | was up to 2.2 kcal/mol vs ViennaRNA on duplexes with 2×2 loops | **resolved** by B12 RNA-STRUCT-001 F3 (commit 0409ca9) | tests re-locked to the NNDB table values (MIRNA-PAIR-001 Evidence) |
+| 2 | Exterior dangling ends in the canonical MFE recursion use the swapped NNDB key | Deviation (shared kernel, not used here) | MFE only; this unit passes the keys in NNDB orientation (confirmed vs Vienna) | **resolved** by B12 RNA-STRUCT-001 F4 (d2 exterior stems) | repro `CGCGAAAGCGA` −4.18 → −3.58 (`RNA.fold` −3.60), `ACGCGAAAGCG` −2.68 → −2.98 (−3.00) |
 
 ## 6. Edge Cases and Limitations
 
@@ -180,7 +180,7 @@ var duplex = MiRnaAnalyzer.AlignMiRnaToTarget("AAAA", "UUUU");
 
 `GGGG` vs `UUUU`: each miRNA G (i) pairs antiparallel with target U → G:U wobble at all 4 positions → AlignmentString `::::`, GUWobbles 4, Matches 0, Mismatches 0. `GetReverseComplement("GAGGUAG")` = `CUACCUC` (let-7a-5p seed reverse complement).
 
-NNDB worked example (self-complementary duplex): `AlignMiRnaToTarget("AGCGCU", "AGCGCU")` → 4.09 + 2×0.45 + 0.43 − 2.08 − 3.42 − 2.36 − 3.42 − 2.08 = −7.94 kcal/mol. let-7a against its site with one extra A (`AACUAUACAACACUACUACCUCA`): `AlignMiRnaToTarget` −10.81 (register lost), `FoldMiRnaDuplex` −32.10 with a 1-nt bulge (ViennaRNA `duplexfold` same pairs, −31.8).
+NNDB worked example (self-complementary duplex): `AlignMiRnaToTarget("AGCGCU", "AGCGCU")` → 4.09 + 2×0.45 + 0.43 − 2.08 − 3.42 − 2.36 − 3.42 − 2.08 = −7.94 kcal/mol. let-7a against its site with one extra A (`AACUAUACAACACUACUACCUCA`): `AlignMiRnaToTarget` −11.11 (register lost), `FoldMiRnaDuplex` −32.10 with a 1-nt bulge (ViennaRNA `duplexfold` same pairs, −31.8).
 
 ### 7.3 Related Tests, Evidence, or Documents
 
