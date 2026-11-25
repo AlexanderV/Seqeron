@@ -824,11 +824,11 @@ public static partial class MiRnaAnalyzer
     /// Breakdown of the locally-computable TargetScan context++ score (Agarwal et al. 2015)
     /// for a single seed-matched target site. The context++ score is the SUM of per-feature
     /// contributions of a multiple-linear-regression model fit SEPARATELY per site type
-    /// (8mer / 7mer-m8 / 7mer-A1 / 6mer). Only the features computable from the miRNA and the
-    /// local 3'UTR sequence are realised here; full-transcript features are reported as
-    /// <see cref="OmittedFeatures"/>. The <see cref="ContextScorePartial"/> is therefore a
-    /// PARTIAL context++ score (an upper bound, since most omitted feature coefficients are
-    /// negative), not the published headline CS. See algorithm doc §5.3.
+    /// (8mer / 7mer-m8 / 7mer-A1 / 6mer). Features computable from the miRNA and the 3'UTR, plus
+    /// TA_3UTR / SPS (bundled TargetScan 7.0 seed-region table), are always realised; Len_ORF / ORF8m
+    /// need the ORF, PCT a conservation input, and an exact SA the RNAplfold value. Features without
+    /// data are reported as <see cref="OmittedFeatures"/>; <see cref="ContextScorePartial"/> is then a
+    /// PARTIAL context++ score, not the published headline CS. See algorithm doc §5.3.
     /// </summary>
     /// <param name="SiteType">The seed-match site type (must be one of the four canonical types).</param>
     /// <param name="Intercept">Site-type intercept term (raw coefficient; Agarwal_2015_parameters.txt).</param>
@@ -841,10 +841,10 @@ public static partial class MiRnaAnalyzer
     /// <param name="MinDistContribution">coeff(Min_dist) × scaled(log10 distance to nearest 3'UTR end). Computed from the 3'UTR.</param>
     /// <param name="Len3UtrContribution">coeff(Len_3UTR) × scaled(log10 3'UTR length). Computed from the 3'UTR.</param>
     /// <param name="Off6mContribution">coeff(Off6m) × offset-6mer count in the 3'UTR (used raw). Computed from miRNA + 3'UTR.</param>
-    /// <param name="SpsContribution">coeff(SPS) × scaled(caller-supplied SPS). 0 (and listed as omitted) unless an SPS value is supplied.</param>
-    /// <param name="TaContribution">coeff(TA_3UTR) × scaled(caller-supplied TA). 0 (and listed as omitted) unless a TA value is supplied.</param>
-    /// <param name="LenOrfContribution">coeff(Len_ORF) × scaled(log10 caller-supplied ORF length). 0 (and listed as omitted) unless an ORF length is supplied.</param>
-    /// <param name="Orf8mContribution">coeff(ORF8m) × caller-supplied ORF-8mer count (used raw). 0 (and listed as omitted) unless an ORF-8mer count is supplied.</param>
+    /// <param name="SpsContribution">coeff(SPS) × scaled(SPS). SPS is <see cref="ContextPlusPlusInputs.Sps"/> when supplied, otherwise the bundled TargetScan 7.0 value for the miRNA's seed region (nt 2–8) and site type (<see cref="TryGetTargetScanTaSps"/>). 0 (and listed as omitted) only when neither exists (seed region not 7 nt over ACGU).</param>
+    /// <param name="TaContribution">coeff(TA_3UTR) × scaled(TA). TA is <see cref="ContextPlusPlusInputs.Ta"/> when supplied, otherwise the bundled TargetScan 7.0 value for the seed region (<see cref="TryGetTargetScanTaSps"/>). 0 (and listed as omitted) only when neither exists.</param>
+    /// <param name="LenOrfContribution">coeff(Len_ORF) × scaled(log10 ORF length). The length is <see cref="ContextPlusPlusInputs.OrfLength"/>, or the length of <see cref="ContextPlusPlusInputs.OrfSequence"/> without gaps. 0 (and listed as omitted) when neither is supplied.</param>
+    /// <param name="Orf8mContribution">coeff(ORF8m) × ORF-8mer count (used raw). The count is <see cref="ContextPlusPlusInputs.Orf8mCount"/>, or the TargetScan count in <see cref="ContextPlusPlusInputs.OrfSequence"/>. 0 (and listed as omitted) when neither is supplied.</param>
     /// <param name="PctContribution">coeff(PCT) × scaled(PCT value). PCT is computed from the Friedman et al. (2009) branch-length score (Bls) via the published sigmoid; 0 (and listed as omitted) unless a <see cref="ContextPlusPlusInputs.Conservation"/> input is supplied.</param>
     /// <param name="BranchLengthScore">The Friedman et al. (2009) branch-length score (Bls, 4 decimals as TargetScan reports it) computed from the supplied conservation tree, or 0 when no conservation input was supplied.</param>
     /// <param name="Pct">The probability of conserved targeting (PCT) computed from <paramref name="BranchLengthScore"/> as TargetScan's <c>getPCT</c> does (sigmoid, 4 decimals, truncated at 0; 0 when Bls = 0 or for a 6mer site), or 0 when no conservation input was supplied.</param>
@@ -895,25 +895,28 @@ public static partial class MiRnaAnalyzer
     }
 
     /// <summary>
-    /// Optional, caller-supplied context++ feature inputs that the library cannot derive from the
-    /// miRNA and 3'UTR sequence alone, but whose contribution is computed FAITHFULLY (verbatim
-    /// Agarwal et al. 2015 coefficient × scaling) when the caller provides the value.
-    /// All are <c>null</c> by default; a null input means the feature stays an honest residual
-    /// (reported in <see cref="ContextPlusPlusScore.OmittedFeatures"/>) and contributes 0.
+    /// Optional context++ feature inputs that the library cannot derive from the miRNA and the
+    /// 3'UTR sequence alone. Each contribution is computed with the verbatim Agarwal et al. (2015)
+    /// coefficient and scaling. All are <c>null</c> by default. SPS and TA then come from the bundled
+    /// TargetScan 7.0 seed-region table (as <c>targetscan_70_context_scores.pl</c> reads them); the
+    /// other null inputs leave their feature as an honest residual (reported in
+    /// <see cref="ContextPlusPlusScore.OmittedFeatures"/>, contribution 0).
     /// </summary>
-    /// <param name="Sps">Predicted seed-pairing stability (Garcia et al. 2011 table value, kcal/mol; min-max scaled per site type). Data-blocked: requires the Garcia seed-region table.</param>
-    /// <param name="Ta">Target-site abundance (transcriptome-wide log10 site count; min-max scaled). Data-blocked: requires a transcriptome.</param>
-    /// <param name="OrfLength">ORF (CDS) length in nucleotides (log10-transformed, then min-max scaled). Requires the transcript's ORF.</param>
-    /// <param name="Orf8mCount">Count of cognate 8mer sites in the ORF (used raw, no scaling). Requires the transcript's ORF.</param>
+    /// <param name="Sps">Predicted seed-pairing stability (kcal/mol; min-max scaled per site type). Overrides the bundled TargetScan 7.0 value (<c>TA_SPS_by_seed_region.txt</c>, Garcia et al. 2011 Supp. Data 5; see <see cref="TryGetTargetScanTaSps"/>). <c>null</c> ⇒ the bundled value for the miRNA's seed region (nt 2–8) and site type.</param>
+    /// <param name="Ta">Target-site abundance (log10 site count; min-max scaled). Overrides the bundled TargetScan 7.0 value (see <see cref="TryGetTargetScanTaSps"/>; <see cref="ComputeTa3Utr"/> computes it from your own 3'UTR set). <c>null</c> ⇒ the bundled value for the seed region.</param>
+    /// <param name="OrfLength">ORF (CDS) length in nucleotides (log10-transformed, then min-max scaled). Overrides the length derived from <paramref name="OrfSequence"/>.</param>
+    /// <param name="Orf8mCount">Count of cognate 8mer sites in the ORF (used raw, no scaling). Overrides the count derived from <paramref name="OrfSequence"/>.</param>
     /// <param name="PlfoldUnpairedProbability">Optional exact RNAplfold accessibility value for the site — the number TargetScan reads in <c>getSA_contribution</c>: row <c>utrStart + 7</c> (7mer-A1: <c>utrStart + 6</c>; 1-based seed-match start), column <c>l=14</c> of the <c>_lunp</c> file written by <c>RNAplfold -L 40 -W 80 -u 20</c> on the whole 3'UTR. When supplied (&gt; 0) it replaces the library's own SA estimate, so SA equals TargetScan's. <c>null</c> ⇒ the library estimates it (one 80-nt McCaskill window, no 40-nt span limit, no window averaging — an approximation of RNAplfold, see the algorithm doc).</param>
     /// <param name="Conservation">Multi-species conservation input (a phylogenetic tree + the set of species in which the site is conserved; the per-site-type PCT sigmoid parameters default to the bundled TargetScan 7.0 tables). When supplied, the library computes the Friedman et al. (2009) branch-length score (Bls) and the resulting PCT value, then applies the bundled Agarwal et al. (2015) PCT coefficient. <c>null</c> ⇒ PCT stays an honest residual.</param>
+    /// <param name="OrfSequence">The transcript's ORF (CDS) sequence (RNA or DNA, any case; aligned rows with <c>-</c>/<c>.</c> gaps are accepted). Len_ORF and ORF8m are then derived as TargetScan's <c>targetscan_count_8mers.pl</c> does: gaps removed, length = remaining characters; ORF8m = number of non-overlapping, case-insensitive occurrences of reverse_complement(seed region nt 2–8) + "A" (the 8mer site) on the given strand (see <see cref="CountTargetScanOrf8merSites"/>). <see cref="OrfLength"/> / <see cref="Orf8mCount"/>, when supplied, take precedence. <c>null</c> ⇒ both features stay residual unless supplied directly.</param>
     public readonly record struct ContextPlusPlusInputs(
         double? Sps = null,
         double? Ta = null,
         double? OrfLength = null,
         int? Orf8mCount = null,
         PctConservation? Conservation = null,
-        double? PlfoldUnpairedProbability = null);
+        double? PlfoldUnpairedProbability = null,
+        string? OrfSequence = null);
 
     // ── PCT (probability of conserved targeting) — Friedman et al. (2009) Genome Res 19:92 ──
     // Bls definition (Methods, retrieved verbatim this session): "The conservation of a given
@@ -1033,28 +1036,28 @@ public static partial class MiRnaAnalyzer
     // Off6m row (offset-6mer count): coeff only — used raw (NOT in the min-max regex of getAgarwalContribution).
     private const double CtxOff6mCoeff8mer = -0.020, CtxOff6mCoeff7merM8 = -0.011, CtxOff6mCoeff7merA1 = -0.020, CtxOff6mCoeff6mer = -0.010;
 
-    // SPS row (seed-pairing stability; caller-supplied): coeff, then min/max for min-max scaling.
+    // SPS row (seed-pairing stability; bundled TargetScan table value or caller value): coeff, then min/max for min-max scaling.
     private const double CtxSpsCoeff8mer = 0.210, CtxSpsCoeff7merM8 = 0.135, CtxSpsCoeff7merA1 = 0.095, CtxSpsCoeff6mer = 0.035;
     private const double CtxSpsMin8mer = -11.13, CtxSpsMax8mer = -5.52;
     private const double CtxSpsMin7merM8 = -11.13, CtxSpsMax7merM8 = -5.49;
     private const double CtxSpsMin7merA1 = -8.41, CtxSpsMax7merA1 = -3.33;
     private const double CtxSpsMin6mer = -8.57, CtxSpsMax6mer = -3.33;
 
-    // TA_3UTR row (target-site abundance; caller-supplied): coeff, then min/max for min-max scaling.
+    // TA_3UTR row (target-site abundance; bundled TargetScan table value or caller value): coeff, then min/max for min-max scaling.
     private const double CtxTaCoeff8mer = 0.222, CtxTaCoeff7merM8 = 0.139, CtxTaCoeff7merA1 = 0.117, CtxTaCoeff6mer = 0.058;
     private const double CtxTaMin8mer = 3.113, CtxTaMax8mer = 3.865;
     private const double CtxTaMin7merM8 = 3.067, CtxTaMax7merM8 = 3.887;
     private const double CtxTaMin7merA1 = 3.145, CtxTaMax7merA1 = 3.887;
     private const double CtxTaMin6mer = 3.113, CtxTaMax6mer = 3.887;
 
-    // Len_ORF row (ORF length; caller-supplied): coeff, then min/max for min-max scaling of log10(ORF length).
+    // Len_ORF row (ORF length; from OrfSequence or caller value): coeff, then min/max for min-max scaling of log10(ORF length).
     private const double CtxLenOrfCoeff8mer = 0.205, CtxLenOrfCoeff7merM8 = 0.100, CtxLenOrfCoeff7merA1 = 0.063, CtxLenOrfCoeff6mer = 0.029;
     private const double CtxLenOrfMin8mer = 2.788, CtxLenOrfMax8mer = 3.753;
     private const double CtxLenOrfMin7merM8 = 2.773, CtxLenOrfMax7merM8 = 3.729;
     private const double CtxLenOrfMin7merA1 = 2.773, CtxLenOrfMax7merA1 = 3.730;
     private const double CtxLenOrfMin6mer = 2.775, CtxLenOrfMax6mer = 3.731;
 
-    // ORF8m row (ORF 8mer count; caller-supplied): coeff only — used raw (NOT min-max scaled).
+    // ORF8m row (ORF 8mer count; from OrfSequence or caller value): coeff only — used raw (NOT min-max scaled).
     private const double CtxOrf8mCoeff8mer = -0.118, CtxOrf8mCoeff7merM8 = -0.044, CtxOrf8mCoeff7merA1 = -0.058, CtxOrf8mCoeff6mer = -0.060;
 
     // PCT row (probability of conserved targeting; Friedman et al. 2009): coeff, then min/max for
@@ -1112,11 +1115,15 @@ public static partial class MiRnaAnalyzer
     /// RNAplfold (no 40-nt span limit, no averaging over windows).
     /// </para>
     /// <para>
-    /// Computed only from caller-supplied data (<paramref name="inputs"/>): SPS, TA_3UTR (see
-    /// <see cref="ComputeTa3Utr"/>), Len_ORF, ORF8m, and PCT (from a tree + the species with the
-    /// site: Friedman et al. 2009 branch-length score, then the TargetScan sigmoid with the bundled
-    /// TargetScan 7.0 per-seed-family row, see <see cref="TryGetTargetScanPctParameters"/>, or a
-    /// caller-supplied row). A feature that is not supplied contributes 0 and is listed in
+    /// SPS and TA_3UTR come from the bundled TargetScan 7.0 table for the miRNA's seed region
+    /// (<see cref="TryGetTargetScanTaSps"/>, as <c>targetscan_70_context_scores.pl</c> reads
+    /// <c>TA_SPS_by_seed_region.txt</c>) unless the caller supplies them (<paramref name="inputs"/>;
+    /// <see cref="ComputeTa3Utr"/> computes TA from a 3'UTR set). Len_ORF and ORF8m come from
+    /// <see cref="ContextPlusPlusInputs.OrfSequence"/> (as <c>targetscan_count_8mers.pl</c>) or from
+    /// caller numbers. PCT needs a tree + the species with the site (Friedman et al. 2009
+    /// branch-length score, then the TargetScan sigmoid with the bundled TargetScan 7.0
+    /// per-seed-family row, see <see cref="TryGetTargetScanPctParameters"/>, or a caller-supplied
+    /// row). A feature without data contributes 0 and is listed in
     /// <see cref="ContextPlusPlusScore.OmittedFeatures"/>; the sum is then a partial score.
     /// </para>
     /// <para>
@@ -1128,7 +1135,7 @@ public static partial class MiRnaAnalyzer
     /// <param name="mRnaSequence">The mRNA / 3'UTR sequence the site was found in (RNA or DNA; T→U; case-insensitive). Treated as the 3'UTR for the length / Min_dist / Off6m features.</param>
     /// <param name="miRna">The miRNA (its <c>Sequence</c> supplies nt1, nt8, the seed and the 3' supplementary region).</param>
     /// <param name="site">A target site whose <c>Type</c> is one of the four canonical seed-match types.</param>
-    /// <param name="inputs">Optional caller-supplied feature values (SPS / TA / ORF length / ORF-8mer count) that cannot be derived from sequence alone.</param>
+    /// <param name="inputs">Optional feature inputs: ORF sequence or ORF length / ORF-8mer count, conservation (PCT), RNAplfold value (SA), and SPS / TA overrides of the bundled table.</param>
     /// <returns>The per-feature context++ contribution breakdown and their partial sum.</returns>
     /// <exception cref="ArgumentException">Thrown when <paramref name="site"/> is not one of the four canonical seed-match site types (8mer / 7mer-m8 / 7mer-A1 / 6mer).</exception>
     public static ContextPlusPlusScore ScoreTargetSiteContextPlusPlus(
@@ -1172,10 +1179,26 @@ public static partial class MiRnaAnalyzer
         double len3Utr = Len3UtrContribution(mrna, type);
         double off6m = Off6mContribution(mrna, mirna, type);
 
-        double sps = inputs.Sps is double spsRaw ? SpsContribution(spsRaw, type) : 0.0;
-        double ta = inputs.Ta is double taRaw ? TaContribution(taRaw, type) : 0.0;
-        double lenOrf = inputs.OrfLength is double orfLen ? LenOrfContribution(orfLen, type) : 0.0;
-        double orf8m = inputs.Orf8mCount is int orf8mCount ? Orf8mContribution(orf8mCount, type) : 0.0;
+        // readTargets: $seedRegion = substr($matureMiRNA, 1, 7) keys TA_SPS_by_seed_region.txt; TA and
+        // SPS are used only when the row exists ("Set these NAs to 0"). A caller value overrides.
+        string seedRegion = mirna.Length >= 8 ? mirna.Substring(1, 7) : "";
+        bool haveTaSps = TryGetTargetScanTaSps(seedRegion, type, out double tableTa, out double tableSps);
+        double? spsValue = inputs.Sps ?? (haveTaSps ? tableSps : null);
+        double? taValue = inputs.Ta ?? (haveTaSps ? tableTa : null);
+
+        // getORFlength_contribution / getORF8mer_contribution read the files written by
+        // targetscan_count_8mers.pl from the ORF sequence; caller numbers override.
+        double? orfLengthValue = inputs.OrfLength
+            ?? (inputs.OrfSequence is string orfForLength ? TargetScanOrfLength(orfForLength) : null);
+        int? orf8mValue = inputs.Orf8mCount
+            ?? (inputs.OrfSequence is string orfForCount && seedRegion.Length == 7
+                ? CountTargetScanOrf8merSites(orfForCount, seedRegion)
+                : null);
+
+        double sps = spsValue is double spsRaw ? SpsContribution(spsRaw, type) : 0.0;
+        double ta = taValue is double taRaw ? TaContribution(taRaw, type) : 0.0;
+        double lenOrf = orfLengthValue is double orfLen ? LenOrfContribution(orfLen, type) : 0.0;
+        double orf8m = orf8mValue is int orf8mCount ? Orf8mContribution(orf8mCount, type) : 0.0;
 
         double bls = 0.0, pct = 0.0, pctContribution = 0.0;
         bool pctDefined = false, pctIsNa = false;
@@ -1190,7 +1213,6 @@ public static partial class MiRnaAnalyzer
                 // Caller row overrides; otherwise the bundled TargetScan row for the seed (nt 2–8).
                 // getPCT: a family without PCT parameters ($thisMiRNAhasPCT false) gets "NA", which
                 // context++ scores as contribution 0 — TargetScan's own full score for that site.
-                string seedRegion = mirna.Length >= 8 ? mirna.Substring(1, 7) : "";
                 if (conservation.SigmoidParameters is PctSigmoidParameters callerRow)
                 {
                     // getPCT: 6mer ⇒ "0.0"; the BL_PCT output's 4-dp PCT is what context++ reads.
@@ -1214,7 +1236,8 @@ public static partial class MiRnaAnalyzer
             + threeP + minDist + len3Utr + off6m
             + sps + ta + lenOrf + orf8m + pctContribution;
 
-        var omittedFeatures = BuildOmittedFeatures(inputs, saIncluded, pctDefined);
+        var omittedFeatures = BuildOmittedFeatures(inputs, saIncluded, pctDefined,
+            spsValue.HasValue, taValue.HasValue, orfLengthValue.HasValue, orf8mValue.HasValue);
 
         // When any context++ feature is omitted (TA/SPS/PCT/ORF not supplied), the score is partial,
         // not the full Agarwal (2015) context++ score. Strict mode throws rather than returning it.
@@ -1425,10 +1448,12 @@ public static partial class MiRnaAnalyzer
     /// context++ features that remain residual for a given call. SA is omitted when the 14-nt
     /// RNAplfold window has no row at this site (too close to the 5' end) or its unpaired probability
     /// is 0 (perl: contribution 0). PCT is omitted unless a conservation input is supplied, or when
-    /// its branch-length score is negative / not finite (TargetScan "NA"); SPS, TA,
-    /// ORF length and ORF-8mer count are omitted only when the caller did not supply them.
+    /// its branch-length score is negative / not finite (TargetScan "NA"). SPS and TA are omitted only
+    /// when neither the caller nor the bundled table gives a value (seed region not 7 nt over ACGU);
+    /// ORF length and ORF-8mer count when neither a number nor an ORF sequence is supplied.
     /// </summary>
-    private static IReadOnlyList<string> BuildOmittedFeatures(ContextPlusPlusInputs inputs, bool saIncluded, bool pctDefined)
+    private static IReadOnlyList<string> BuildOmittedFeatures(ContextPlusPlusInputs inputs, bool saIncluded, bool pctDefined,
+        bool haveSps, bool haveTa, bool haveOrfLength, bool haveOrf8m)
     {
         var omitted = new List<string>();
         if (!saIncluded)
@@ -1437,10 +1462,10 @@ public static partial class MiRnaAnalyzer
             omitted.Add("PCT (probability of conserved targeting — requires a multi-species alignment + tree)");
         else if (!pctDefined)
             omitted.Add("PCT (probability of conserved targeting — NA: the branch-length score is negative or not finite)");
-        if (inputs.Sps is null) omitted.Add("SPS (predicted seed-pairing stability — requires Garcia et al. 2011 seed-region table)");
-        if (inputs.Ta is null) omitted.Add("TA_3UTR (target-site abundance — requires a transcriptome)");
-        if (inputs.OrfLength is null) omitted.Add("Len_ORF (ORF length — requires the transcript ORF)");
-        if (inputs.Orf8mCount is null) omitted.Add("ORF8m (ORF 8mer count — requires the transcript ORF)");
+        if (!haveSps) omitted.Add("SPS (predicted seed-pairing stability — seed region nt 2-8 is not in the TargetScan table; supply Sps)");
+        if (!haveTa) omitted.Add("TA_3UTR (target-site abundance — seed region nt 2-8 is not in the TargetScan table; supply Ta)");
+        if (!haveOrfLength) omitted.Add("Len_ORF (ORF length — requires the transcript ORF: supply OrfSequence or OrfLength)");
+        if (!haveOrf8m) omitted.Add("ORF8m (ORF 8mer count — requires the transcript ORF: supply OrfSequence or Orf8mCount)");
         return omitted;
     }
 
@@ -1963,19 +1988,7 @@ public static partial class MiRnaAnalyzer
         // perl `while ($utr =~ /$siteToFind/gi)`: a /g match resumes after the previous match, so
         // occurrences are counted NON-overlapping (only differs for self-overlapping patterns such as
         // ACACAC or AAAAAA).
-        int count = 0;
-        for (int i = 0; i + 6 <= mrna.Length;)
-        {
-            if (string.CompareOrdinal(mrna, i, pattern, 0, 6) == 0)
-            {
-                count++;
-                i += 6;
-            }
-            else
-            {
-                i++;
-            }
-        }
+        int count = CountNonOverlapping(mrna, pattern);
 
         double coeff = type switch
         {
@@ -1987,7 +2000,79 @@ public static partial class MiRnaAnalyzer
         return coeff * count; // used raw (no scaling)
     }
 
-    // ── SPS / TA / Len_ORF / ORF8m (caller-supplied) ─────────────────────────────────────────
+    // Number of non-overlapping occurrences of `pattern` in `text` (ordinal), scanning left to right
+    // and resuming after each match — what a perl `while ($text =~ /$pattern/g)` loop counts.
+    private static int CountNonOverlapping(string text, string pattern)
+    {
+        int count = 0;
+        for (int i = 0; i + pattern.Length <= text.Length;)
+        {
+            if (string.CompareOrdinal(text, i, pattern, 0, pattern.Length) == 0)
+            {
+                count++;
+                i += pattern.Length;
+            }
+            else
+            {
+                i++;
+            }
+        }
+        return count;
+    }
+
+    // ── Len_ORF / ORF8m from an ORF sequence — TargetScan 7.0 targetscan_count_8mers.pl ──────
+    // (TargetScan7_context_scores.zip, www.targetscan.org/vert_70/vert_70_data_download/, opened
+    // 2026-11-25; README_CONTEXT_SCORES_70: "The ORF sequences can be aligned (with gaps) or not, but the
+    // alignment is ignored; gaps are removed.") Per ORF row: `$sequence =~ s/-//g; s/\.//g; s/T/U/g;
+    // s/t/u/g`; length = `length $sequence`; per family `$siteToFind = reverse_complement(seed region) .
+    // "A"` (the 8mer: match to miRNA nt 2-8 + A opposite nt 1) and `while ($sequence =~ /$siteToFind/gi)
+    // { $numThisSite++ }` — case-insensitive, non-overlapping, on the given (sense) strand only.
+    // targetscan_70_context_scores.pl then uses log10(length) for Len_ORF (0 when the length is 0) and
+    // the raw count for ORF8m (0 when the family has no row).
+
+    // targetscan_count_8mers.pl: length of the ORF row after removing '-' and '.' gap characters.
+    internal static int TargetScanOrfLength(string orfSequence)
+    {
+        ArgumentNullException.ThrowIfNull(orfSequence);
+        int length = 0;
+        foreach (char c in orfSequence)
+            if (c is not ('-' or '.'))
+                length++;
+        return length;
+    }
+
+    /// <summary>
+    /// Counts the 8mer sites of a miRNA seed region in an ORF (CDS) sequence exactly as TargetScan 7.0's
+    /// <c>targetscan_count_8mers.pl</c> does for the context++ feature ORF8m (Agarwal et al. 2015):
+    /// gap characters (<c>-</c>, <c>.</c>) are removed, T is read as U, and the site
+    /// reverse_complement(seed region) + "A" is counted case-insensitively and non-overlapping
+    /// (perl <c>/g</c> match), on the given strand only.
+    /// </summary>
+    /// <param name="orfSequence">The ORF sequence (RNA or DNA, any case, gaps allowed).</param>
+    /// <param name="seedRegion">The 7-nt seed region (miRNA nt 2–8), RNA or DNA alphabet.</param>
+    /// <returns>The number of 8mer sites (≥ 0).</returns>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="seedRegion"/> is not 7 nt long.</exception>
+    public static int CountTargetScanOrf8merSites(string orfSequence, string seedRegion)
+    {
+        ArgumentNullException.ThrowIfNull(orfSequence);
+        ArgumentNullException.ThrowIfNull(seedRegion);
+        if (seedRegion.Length != 7)
+            throw new ArgumentException("The seed region (miRNA nt 2-8) must be 7 nt long.", nameof(seedRegion));
+
+        string site = GetReverseComplement(seedRegion.ToUpperInvariant().Replace('T', 'U')) + "A";
+        var orf = new System.Text.StringBuilder(orfSequence.Length);
+        foreach (char c in orfSequence)
+        {
+            if (c is '-' or '.')
+                continue;
+            char u = char.ToUpperInvariant(c);
+            orf.Append(u == 'T' ? 'U' : u);
+        }
+        return CountNonOverlapping(orf.ToString(), site);
+    }
+
+    // ── SPS / TA / Len_ORF / ORF8m contributions ─────────────────────────────────────────────
     internal static double SpsContribution(double sps, TargetSiteType type)
     {
         (double coeff, double min, double max) = type switch
@@ -2238,6 +2323,101 @@ public static partial class MiRnaAnalyzer
     // readMiRNAs: $mirSeedRegion =~ s/T/U/gi (upper-casing added, see TryGetTargetScanPctParameters).
     private static string TargetScanPctKey(string seedRegion) =>
         seedRegion.ToUpperInvariant().Replace('T', 'U');
+
+    /// <summary>
+    /// Looks up the bundled TargetScan 7.0 TA_3UTR and SPS values for a seed region and site type, as
+    /// <c>targetscan_70_context_scores.pl</c> reads them from <c>TA_SPS_by_seed_region.txt</c>
+    /// ("TA and SPS values (from Garcia et al., Supp Data 5)"; <c>read_TA_SPS</c>, <c>readTargets</c>).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The file has one row for each of the 16 384 seed regions (miRNA nt 2–8, all 7-mers over ACGU):
+    /// column 2 = SPS of 8mer and 7mer-m8 sites, column 3 = SPS of 7mer-A1 and 6mer sites
+    /// (<c>$garcia{3|2}</c> / <c>$garcia{1|4}</c>), column 4 = TA (log10 site abundance, one value per
+    /// seed). <c>readTargets</c> keys it with <c>substr($matureMiRNA, 1, 7)</c> (upper-cased since
+    /// TargetScan 7.02). Here T is read as U and lower case is upper-cased; any other symbol (e.g. N)
+    /// or a length other than 7 has no row (TargetScan then uses contribution 0).
+    /// </para>
+    /// <para>
+    /// Values are the file's decimal text verbatim (<c>MiRnaAnalyzer.TargetScanTaSps.cs</c>, SHA-256 in
+    /// its header; Garcia et al. 2011 Nat Struct Mol Biol 18:1139, Agarwal et al. 2015 eLife 4:e05005 —
+    /// cite TargetScan when used). <see cref="ComputeTa3Utr"/> computes TA from your own 3'UTR set
+    /// instead (Garcia's definition).
+    /// </para>
+    /// </remarks>
+    /// <param name="seedRegion">The 7-nt seed region (miRNA nt 2–8), RNA or DNA alphabet.</param>
+    /// <param name="siteType">8mer, 7mer-m8, 7mer-A1 or 6mer (selects the SPS column).</param>
+    /// <param name="ta">TA_3UTR for the seed region when found; 0 otherwise.</param>
+    /// <param name="sps">SPS (kcal/mol) for the seed region and site type when found; 0 otherwise.</param>
+    /// <returns><c>true</c> when the table has a row for the seed region and the site type is one of the four canonical types.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="seedRegion"/> is null.</exception>
+    public static bool TryGetTargetScanTaSps(string seedRegion, TargetSiteType siteType, out double ta, out double sps)
+    {
+        ArgumentNullException.ThrowIfNull(seedRegion);
+        ta = 0.0;
+        sps = 0.0;
+        int index = TargetScanSeedRegionIndex(seedRegion);
+        if (index < 0)
+            return false;
+        var table = TargetScanTaSpsTable.Value;
+        switch (siteType)
+        {
+            case TargetSiteType.Seed8mer:
+            case TargetSiteType.Seed7merM8:
+                sps = table.Sps8merAnd7merM8[index];
+                break;
+            case TargetSiteType.Seed7merA1:
+            case TargetSiteType.Seed6mer:
+                sps = table.Sps7merA1And6mer[index];
+                break;
+            default:
+                return false;
+        }
+        ta = table.Ta[index];
+        return true;
+    }
+
+    // Row index in TA_SPS_by_seed_region.txt = base-4 number of the seed region (A=0, C=1, G=2, U=3;
+    // nt 2 most significant): the file lists all 4^7 seeds in A<C<G<U order (checked by the generator).
+    // -1 when the seed is not 7 nt over ACGU (T read as U, case-insensitive).
+    private static int TargetScanSeedRegionIndex(string seedRegion)
+    {
+        if (seedRegion.Length != 7)
+            return -1;
+        int index = 0;
+        foreach (char c in seedRegion)
+        {
+            int digit = char.ToUpperInvariant(c) switch
+            {
+                'A' => 0,
+                'C' => 1,
+                'G' => 2,
+                'U' or 'T' => 3,
+                _ => -1
+            };
+            if (digit < 0)
+                return -1;
+            index = index * 4 + digit;
+        }
+        return index;
+    }
+
+    // Parsed once on first use from the generated column texts (exact decimal text → double).
+    private static readonly Lazy<(double[] Sps8merAnd7merM8, double[] Sps7merA1And6mer, double[] Ta)> TargetScanTaSpsTable =
+        new(() => (ParseTargetScanColumn(TargetScanSps8merAnd7merM8Text),
+                   ParseTargetScanColumn(TargetScanSps7merA1And6merText),
+                   ParseTargetScanColumn(TargetScanTaText)));
+
+    private static double[] ParseTargetScanColumn(string text)
+    {
+        string[] fields = text.Split(' ');
+        if (fields.Length != TargetScanTaSpsSeedRegionCount)
+            throw new InvalidOperationException("Bundled TargetScan TA/SPS column has the wrong row count.");
+        var values = new double[fields.Length];
+        for (int i = 0; i < fields.Length; i++)
+            values[i] = double.Parse(fields[i], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture);
+        return values;
+    }
 
     /// <summary>
     /// Site-type-specific branch-length thresholds above which TargetScan calls a site conserved

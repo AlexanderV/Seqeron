@@ -57,9 +57,10 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///     Each feature is `coeff × (min-max scaled raw)` (or raw, for the Off6m/ORF8m counts and
 ///     the nucleotide-identity indicators), with the VERBATIM Agarwal_2015_parameters.txt
 ///     coefficients per site type [6].
-///   • Optional features (SPS, TA, Len_ORF, ORF8m, PCT) default to 0 when the caller does NOT
-///     supply them, and each missing one is named in OmittedFeatures (source BuildOmittedFeatures,
-///     ~991). SA is omitted (contributes 0) when its 14-nt window does not fit the local UTR.
+///   • SPS and TA default to the bundled TargetScan 7.0 TA_SPS_by_seed_region.txt row of the seed
+///     (B13 F33; a caller value overrides). Len_ORF / ORF8m (no ORF sequence or numbers) and PCT (no
+///     conservation input) default to 0 and are named in OmittedFeatures (BuildOmittedFeatures).
+///     SA is omitted (contributes 0) when its 14-nt window does not fit the local UTR.
 ///   • More-negative context++ ⇒ stronger predicted repression. The site-type intercepts are
 ///     calibrated 8mer (−0.589) ≪ 7mer-m8 (−0.224) < 7mer-A1 (−0.195) < 6mer (−0.079) [6]:
 ///     in an otherwise feature-free context an 8mer scores more negative than a 6mer.
@@ -81,7 +82,8 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///   Len_3UTR: 0.310 × ((log10 18 − 2.392)/(3.637 − 2.392))         = -0.2830405810586145
 ///   Off6m: pattern CUACCU occurs once ⇒ -0.020 × 1                 = -0.020
 ///   SA: window [−1..12] does not fit (windowStart0 = −1 &lt; 0) ⇒ omitted, 0.
-///   Sum = ContextScorePartial = -0.7561913315126536.
+///   Sum of these = -0.7561913315126536; with the bundled TA_3UTR (+0.08265957446808503) and SPS
+///   (+0.07037433155080215) of seed GAGGUAG (B13 F33) ContextScorePartial = -0.6031574254937664.
 /// The test asserts EACH contribution field individually AND the partial sum, so a wrong
 /// coefficient, a missing log10, a divide-by-(max−min) slip, or a feature dropped/double-counted
 /// is caught — a test that passes against a wrong implementation is rejected.
@@ -105,7 +107,7 @@ public class MiRnaContextFuzzTests
     private const string WorkedExampleUtr = "GGGGGCUACCUCAGGGGG";
     private const int WorkedExampleStart = 5;   // 8mer occupies [5..12]
     private const int WorkedExampleEnd = 12;
-    private const double WorkedExamplePartial = -0.7561913315126536;
+    private const double WorkedExamplePartial = -0.6031574254937664;
     private const double Tol = 1e-12;
 
     /// <summary>Deterministic RNG — seed fixed locally so generated fuzz inputs are reproducible.</summary>
@@ -218,23 +220,24 @@ public class MiRnaContextFuzzTests
             "Len_3UTR = 0.310 × ((log10 18 − 2.392)/(3.637 − 2.392))");
         s.Off6mContribution.Should().BeApproximately(-0.020, Tol, "Off6m: pattern CUACCU occurs once ⇒ -0.020 × 1");
 
-        // Optional, caller-only features default to 0 and stay residual.
-        s.SpsContribution.Should().Be(0.0, "SPS not supplied ⇒ 0");
-        s.TaContribution.Should().Be(0.0, "TA not supplied ⇒ 0");
+        // SPS / TA: bundled TargetScan row GAGGUAG (SPS -9.250, TA 3.393; B13 F33).
+        s.SpsContribution.Should().BeApproximately(0.07037433155080215, Tol, "SPS = 0.210 × ((−9.250 + 11.13)/(−5.52 + 11.13))");
+        s.TaContribution.Should().BeApproximately(0.08265957446808503, Tol, "TA = 0.222 × ((3.393 − 3.113)/(3.865 − 3.113))");
+        // Features without data default to 0 and stay residual.
         s.LenOrfContribution.Should().Be(0.0, "Len_ORF not supplied ⇒ 0");
         s.Orf8mContribution.Should().Be(0.0, "ORF8m not supplied ⇒ 0");
         s.PctContribution.Should().Be(0.0, "no Conservation input ⇒ PCT residual ⇒ 0");
 
         // The published partial sum.
         s.ContextScorePartial.Should().BeApproximately(WorkedExamplePartial, Tol,
-            "the partial context++ score equals the documented §7.1 sum -0.7561913315126536");
+            "the partial context++ score equals the documented §7.1 sum -0.6031574254937664");
     }
 
     /// <summary>
     /// The omitted-feature contract (BuildOmittedFeatures, source ~991): for the worked-example call
-    /// (no optional inputs) PCT, SPS, TA_3UTR, Len_ORF and ORF8m are ALL residual and named in
-    /// OmittedFeatures, while the realised features (Local_AU, 3P, Min_dist, Len_3UTR, Off6m) are
-    /// folded in. SA is also omitted here (its window does not fit). Missing optional features
+    /// (no optional inputs) PCT, Len_ORF and ORF8m are residual and named in OmittedFeatures, while
+    /// the realised features (Local_AU, 3P, Min_dist, Len_3UTR, Off6m, and SPS / TA from the bundled
+    /// TargetScan table) are folded in. SA is also omitted here (its window does not fit). Missing optional features
     /// default to a 0 CONTRIBUTION — asserted in the pin above — never to a guessed value.
     /// </summary>
     [Test]
@@ -248,17 +251,16 @@ public class MiRnaContextFuzzTests
         s.OmittedFeatures.Should().NotBeNull();
         // Each data-/parameter-blocked feature is honestly reported as omitted.
         s.OmittedFeatures.Should().Contain(f => f.StartsWith("PCT"), "no conservation ⇒ PCT omitted");
-        s.OmittedFeatures.Should().Contain(f => f.StartsWith("SPS"), "no SPS supplied ⇒ omitted");
-        s.OmittedFeatures.Should().Contain(f => f.StartsWith("TA_3UTR"), "no TA supplied ⇒ omitted");
+        s.OmittedFeatures.Should().NotContain(f => f.StartsWith("SPS"), "SPS from the bundled TargetScan table");
+        s.OmittedFeatures.Should().NotContain(f => f.StartsWith("TA_3UTR"), "TA from the bundled TargetScan table");
         s.OmittedFeatures.Should().Contain(f => f.StartsWith("Len_ORF"), "no ORF length ⇒ omitted");
         s.OmittedFeatures.Should().Contain(f => f.StartsWith("ORF8m"), "no ORF-8mer count ⇒ omitted");
     }
 
     /// <summary>
-    /// Missing-optional-feature DEFAULT vs SUPPLIED: supplying an optional feature must add EXACTLY
-    /// its documented `coeff × scaled(raw)` to the partial score and remove it from OmittedFeatures;
-    /// omitting it must contribute exactly 0. We supply TA = log10(N) for an 8mer and assert the
-    /// delta equals the hand-derived TA contribution 0.222 × ((TA − 3.113)/(3.865 − 3.113)).
+    /// DEFAULT vs SUPPLIED: a supplied TA must replace EXACTLY the bundled TA term (TargetScan row
+    /// GAGGUAG, TA 3.393) by its documented `coeff × scaled(raw)` and change nothing else. We supply
+    /// TA = log10(N) for an 8mer and assert the delta equals 0.222 × ((TA − 3.393)/(3.865 − 3.113)).
     /// </summary>
     [Test]
     public void ScoreContextPlusPlus_SuppliedOptionalFeature_AddsExactlyItsDocumentedContribution()
@@ -267,7 +269,8 @@ public class MiRnaContextFuzzTests
         var site = Site(TargetSiteType.Seed8mer, WorkedExampleStart, WorkedExampleEnd, 8);
 
         var baseline = ScoreTargetSiteContextPlusPlus(WorkedExampleUtr, let7a, site);
-        baseline.TaContribution.Should().Be(0.0, "TA omitted ⇒ 0 contribution (the documented default)");
+        baseline.TaContribution.Should().BeApproximately(0.222 * ((3.393 - 3.113) / (3.865 - 3.113)), Tol,
+            "no TA supplied ⇒ the bundled TargetScan value 3.393 for seed GAGGUAG (B13 F33)");
 
         const double ta = 3.5; // an in-range log10(site-count) value
         var withTa = ScoreTargetSiteContextPlusPlus(
@@ -282,8 +285,8 @@ public class MiRnaContextFuzzTests
 
         // The ONLY change to the partial score is the TA term (every other feature is unchanged).
         (withTa.ContextScorePartial - baseline.ContextScorePartial)
-            .Should().BeApproximately(expectedTa, Tol,
-            "supplying TA shifts the partial score by exactly its contribution, nothing else");
+            .Should().BeApproximately(expectedTa - baseline.TaContribution, Tol,
+            "supplying TA replaces the bundled TA term, nothing else");
         AssertAllFinite(withTa);
     }
 

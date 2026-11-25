@@ -83,6 +83,7 @@ TA_3UTR is now computable from a caller-supplied 3′UTR set. The remaining cont
 - **Stage A: PASS** — `TA_3UTR = log10(N)`, N = non-overlapping 8mer+7mer-m8+7mer-A1 sites, log10 scale, Agarwal min-max scaling — all confirmed verbatim against Garcia (2011) Online Methods (PMC3190056), Agarwal (2015) Table 1, and the TargetScan 7.0 reference perl.
 - **Stage B: PASS** — the code realises the formula; the one divergence from the literal "non-overlapping" requirement (over-counting on periodic cores) was found and **completely fixed** (greedy non-overlapping scan + corrected comments + lock test CTX-TA-009); all existing fixtures unchanged; full suite green.
 - **End-state: ✅ CLEAN** — defect found and fully fixed in-session; the residual (PCT params / SPS / Len_ORF / ORF8m caller-supplied; no bundled transcriptome) is an honest, declared boundary.
+- **Update 2026-11-25 (B13 F32–F34):** PCT b0..b3 (F32) and TA/SPS (F33, `TA_SPS_by_seed_region.txt`) are now bundled from the TargetScan 7.0 kits and used by default; Len_ORF / ORF8m are derived from `ContextPlusPlusInputs.OrfSequence` as `targetscan_count_8mers.pl` (F34). Remaining caller inputs: the transcript ORF, the PCT alignment evidence (tree + species with the site) and the exact RNAplfold SA value. See `reports/MIRNA-CONTEXT-001.md`.
 - Defect logged in FINDINGS_REGISTER.md.
 
 

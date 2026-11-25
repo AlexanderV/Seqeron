@@ -626,7 +626,10 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
         //   Len_3UTR : log10(18)=1.255272505103 ; scaled=(…-2.392)/(3.637-2.392) ; coeff=0.310 ⇒ -0.2830405810586145
         //   Off6m    : pattern "CUACCU" (first 6 of revcomp of seed GAGGUAG) occurs 1× ; coeff(8mer)=-0.020 ⇒ -0.020
         //   Intercept(8mer)=-0.589 ; Local_AU=-0.254×((0-0.308)/(0.814-0.308))=+0.154608695652174 ; sRNA8G(8mer)=+0.015
-        //   ⇒ CS_partial = -0.7561913315126536
+        //   TA/SPS (B13 F33, bundled TA_SPS_by_seed_region.txt row GAGGUAG: SPS -9.250 (8mer/7mer-m8), -6.720, TA 3.393):
+        //   TA_3UTR = 0.222×((3.393-3.113)/(3.865-3.113)) = +0.08265957446808503
+        //   SPS     = 0.210×((-9.250+11.13)/(-5.52+11.13)) = +0.07037433155080215
+        //   ⇒ CS_partial = -0.7561913315126536 + TA + SPS = -0.6031574254937664
         string mrna = "GGGGG" + Let7aSeedRC + "A" + "GGGGG";
         var site = FindTargetSites(mrna, Let7a, minScore: 0.0).Single();
 
@@ -649,7 +652,11 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
                 "Len_3UTR = 0.310×((log10(18)-2.392)/(3.637-2.392))");
             Assert.That(ctx.Off6mContribution, Is.EqualTo(-0.020).Within(1e-9),
                 "Off6m = -0.020×1 (one offset-6mer 'CUACCU' in the UTR)");
-            Assert.That(ctx.ContextScorePartial, Is.EqualTo(-0.7561913315126536).Within(1e-9),
+            Assert.That(ctx.TaContribution, Is.EqualTo(0.08265957446808503).Within(1e-12),
+                "TA_3UTR from the bundled TargetScan row GAGGUAG (TA 3.393)");
+            Assert.That(ctx.SpsContribution, Is.EqualTo(0.07037433155080215).Within(1e-12),
+                "SPS from the bundled TargetScan row GAGGUAG (8mer column -9.250)");
+            Assert.That(ctx.ContextScorePartial, Is.EqualTo(-0.6031574254937664).Within(1e-9),
                 "8mer partial context++ = sum of realised contributions");
         });
     }
@@ -666,7 +673,9 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
         //   Intercept(7mer-m8)       = -0.224
         //   Local_AU = -0.177 × ((0 - 0.277)/(0.782 - 0.277)) = +0.097087128712871
         //   sRNA8G(7mer-m8)          = -0.008  ;  sRNA1=0, Site8=0 (7mer-m8)
-        //   ⇒ CS_partial            = -0.134912871287129
+        //   ⇒ CS_partial            = -0.134912871287129 (+ 3P, Min_dist, Len_3UTR, Off6m below)
+        //   TA_3UTR = 0.139×((3.393-3.067)/(3.887-3.067)) = +0.05526097560975605 ;
+        //   SPS = 0.135×((-9.250+11.13)/(-5.49+11.13)) = +0.04500000000000002 (bundled row GAGGUAG, B13 F33)
         string mrna = "GGGGG" + Let7aSeedRC + "GGGG";
         var site = FindTargetSites(mrna, Let7a, minScore: 0.0).Single();
 
@@ -688,8 +697,10 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
             Assert.That(ctx.Len3UtrContribution, Is.EqualTo(-0.15385698397262643).Within(1e-9),
                 "Len_3UTR(7mer-m8) = 0.154×((log10(16)-2.409)/(3.615-2.409))");
             Assert.That(ctx.Off6mContribution, Is.EqualTo(-0.011).Within(1e-9), "Off6m = -0.011×1");
-            Assert.That(ctx.ContextScorePartial, Is.EqualTo(-0.3087858306402126).Within(1e-9),
-                "7mer-m8 partial context++");
+            Assert.That(ctx.TaContribution, Is.EqualTo(0.05526097560975605).Within(1e-12), "TA_3UTR (bundled row)");
+            Assert.That(ctx.SpsContribution, Is.EqualTo(0.04500000000000002).Within(1e-12), "SPS (bundled row, 7mer-m8 column)");
+            Assert.That(ctx.ContextScorePartial, Is.EqualTo(-0.3087858306402126 + 0.05526097560975605 + 0.04500000000000002).Within(1e-9),
+                "7mer-m8 partial context++ (-0.2085248550304565)");
         });
     }
 
@@ -706,7 +717,9 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
         //   Local_AU = -0.075 × ((0 - 0.342)/(0.801 - 0.342)) = +0.055882352941176
         //   sRNA8G(7mer-A1)          = -0.017
         //   Site8G(7mer-A1)          = +0.015  ;  sRNA1=0 (nt1=U)
-        //   ⇒ CS_partial            = -0.141117647058824
+        //   ⇒ CS_partial            = -0.141117647058824 (+ 3P, Min_dist, Len_3UTR below)
+        //   TA_3UTR = 0.117×((3.393-3.145)/(3.887-3.145)) = +0.039105121293800504 ;
+        //   SPS = 0.095×((-6.720+8.41)/(-3.33+8.41)) = +0.03160433070866142 (bundled row GAGGUAG, 7mer-1a column, B13 F33)
         string mrna = "GGGGG" + "UACCUC" + "A" + "GGGG";
         var site = FindTargetSites(mrna, Let7a, minScore: 0.0).Single();
 
@@ -730,8 +743,10 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
                 "Len_3UTR(7mer-A1) = 0.129×((log10(16)-2.413)/(3.630-2.413))");
             Assert.That(ctx.Off6mContribution, Is.EqualTo(0.0).Within(1e-9),
                 "no 'CUACCU' offset-6mer in this UTR ⇒ Off6m=0");
-            Assert.That(ctx.ContextScorePartial, Is.EqualTo(-0.2673816755691017).Within(1e-9),
-                "7mer-A1 partial context++");
+            Assert.That(ctx.TaContribution, Is.EqualTo(0.039105121293800504).Within(1e-12), "TA_3UTR (bundled row)");
+            Assert.That(ctx.SpsContribution, Is.EqualTo(0.03160433070866142).Within(1e-12), "SPS (bundled row, 7mer-1a column)");
+            Assert.That(ctx.ContextScorePartial, Is.EqualTo(-0.2673816755691017 + 0.039105121293800504 + 0.03160433070866142).Within(1e-9),
+                "7mer-A1 partial context++ (-0.19667222356663977)");
         });
     }
 
@@ -775,10 +790,16 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
             Assert.That(ctx.Len3UtrContribution, Is.EqualTo(-0.04447703767941017).Within(1e-9),
                 "Len_3UTR(6mer) = 0.045×((log10(16)-2.405)/(3.620-2.405))");
             Assert.That(ctx.Off6mContribution, Is.EqualTo(0.0).Within(1e-9), "no miR-21 offset-6mer in this UTR");
-            // -0.079 + Local_AU + 0.015 + 0.0096 - 0.017194033053347654 - 0.04447703767941017 (+ SA 0: window does not fit)
+            // Bundled TA_SPS_by_seed_region.txt row AGCUUAU (miR-21 nt 2-8; B13 F33): SPS 6mer column -4.850, TA 3.303.
+            // TA_3UTR = 0.058×((3.303-3.113)/(3.887-3.113)) = 0.01423772609819121;
+            // SPS = 0.035×((-4.850+8.57)/(-3.33+8.57)) = 0.024847328244274814.
+            Assert.That(ctx.TaContribution, Is.EqualTo(0.01423772609819121).Within(1e-12), "TA_3UTR (bundled row AGCUUAU)");
+            Assert.That(ctx.SpsContribution, Is.EqualTo(0.024847328244274814).Within(1e-12), "SPS (bundled row AGCUUAU, 6mer column)");
+            // -0.079 + Local_AU + 0.015 + 0.0096 - 0.017194033053347654 - 0.04447703767941017 + TA + SPS (+ SA 0: window does not fit)
             Assert.That(ctx.ContextScorePartial,
                 Is.EqualTo(-0.079 - 0.040 * (0.357 - 0.295) / (0.772 - 0.295) + 0.015 + 0.0096
-                    - 0.017194033053347654 - 0.04447703767941017).Within(1e-9),
+                    - 0.017194033053347654 - 0.04447703767941017
+                    + 0.01423772609819121 + 0.024847328244274814).Within(1e-9),
                 "6mer partial context++");
             Assert.That(ctx.ContextScore, Is.Null, "1-based utrStart 6 < 15 ⇒ TargetScan 'too_close' (no score)");
         });
@@ -835,9 +856,10 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
     public void ScoreTargetSiteContextPlusPlus_NoOptionalInputs_ReportsResidualFeatures()
     {
         // With no caller-supplied inputs on this SHORT layout, the residual is: SA (the 14-nt
-        // accessibility window does not fit — windowStart0 = Start+7-13 = -1 < 0), PCT (always
-        // blocked), and SPS, TA_3UTR, Len_ORF, ORF8m (data-blocked unless supplied). 3P_score,
-        // Min_dist, Len_3UTR and Off6m are now COMPUTED, so they must NOT appear as omitted.
+        // accessibility window does not fit — windowStart0 = Start+7-13 = -1 < 0), PCT (needs an
+        // alignment + tree), and Len_ORF, ORF8m (need the ORF). SPS and TA_3UTR come from the bundled
+        // TargetScan table (B13 F33) and 3P_score, Min_dist, Len_3UTR and Off6m are computed, so they
+        // must NOT appear as omitted.
         string mrna = "GGGGG" + Let7aSeedRC + "A" + "GGGGG";
         var site = FindTargetSites(mrna, Let7a, minScore: 0.0).Single();
 
@@ -849,8 +871,8 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
                 "SA residual here because the 14-nt window does not fit this short UTR");
             Assert.That(ctx.SaContribution, Is.EqualTo(0.0), "out-of-fit SA contributes 0");
             Assert.That(ctx.OmittedFeatures, Has.Some.Contains("PCT"), "PCT stays residual (needs alignment)");
-            Assert.That(ctx.OmittedFeatures, Has.Some.Contains("SPS"), "SPS omitted unless supplied");
-            Assert.That(ctx.OmittedFeatures, Has.Some.Contains("TA_3UTR"), "TA omitted unless supplied");
+            Assert.That(ctx.OmittedFeatures, Has.None.Contains("SPS"), "SPS from the bundled TargetScan table");
+            Assert.That(ctx.OmittedFeatures, Has.None.Contains("TA_3UTR"), "TA from the bundled TargetScan table");
             Assert.That(ctx.OmittedFeatures, Has.Some.Contains("Len_ORF"), "Len_ORF omitted unless supplied");
             Assert.That(ctx.OmittedFeatures, Has.Some.Contains("ORF8m"), "ORF8m omitted unless supplied");
             Assert.That(ctx.OmittedFeatures, Has.None.Contains("3P_score"),
