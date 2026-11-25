@@ -153,14 +153,14 @@ The current intron-pairing and classification rules are:
 **Not implemented:**
 
 - HMM or generalized-HMM gene finders such as GenScan/Augustus-style dynamic programming; **users should rely on:** no current alternative.
-- Transcript-evidence based intron retention (RI): `FindRetainedIntronCandidates` is a feature heuristic (short, weaker sites; Braunschweig 2014) only.
+- Transcript-evidence based intron retention (RI, defined by intron-body read coverage, PIR; Braunschweig 2014): not derivable from sequence. `FindRetainedIntronCandidates(sequence, RetainedIntronCriteria, minScore)` reports predicted introns that satisfy sequence-level criteria: reading-frame compatibility (length multiple of 3 and no stop codon in some phase of the surrounding frame, `GeneticCode.Standard`; Jacob & Smith 2017) by default, plus optional `MaxIntronLength`, `MaxIntronScore` (weak sites), `MinGcFraction` (Braunschweig 2014: retained introns are shorter, more C/G-rich, with weaker 5'/3' splice sites; AUC 0.79). The paper gives directions only, so these three cut-offs have no default (off unless set).
 
 ### 5.4 Deviations and Assumptions
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
 | 1 | The intron score has no published form; a fixed term set (branch term 0 when absent) is used. | Behavior | A branch point can only raise the score. | accepted | B11 F33. |
-| 2 | The U12 site-score cut-off 0.75 and the 500 nt / 0.8 retained-intron cut-offs are heuristics. | Behavior | Tunable (`u12MinSiteScore` overload). | accepted | No published cut-off for fraction-of-consensus scores. |
+| 2 | The U12 site-score cut-off 0.75 is a heuristic (the former 500 nt / 0.8 retained-intron cut-offs were removed, B11 F43). | Behavior | Tunable (`u12MinSiteScore` overload). | accepted | No published cut-off for fraction-of-consensus scores. |
 
 ## 6. Edge Cases and Limitations
 

@@ -1894,18 +1894,29 @@ public class AnnotationTools
         return new DetectAlternativeSplicingResult(events);
     }
 
-    /// <summary>Find short, moderately-scored retained-intron candidates.</summary>
+    /// <summary>Find retained-intron candidates by sequence-level features (open reading frame; optional length/weak-site/GC filters).</summary>
     [McpServerTool(Name = "find_retained_intron_candidates", Title = "Splice — Find Retained Intron Candidates", ReadOnly = true)]
-    [Description("Heuristic: short (< 500 nt), weaker-site (score < 0.8) predicted introns, the features of mammalian retained introns (Braunschweig 2014); retention itself needs transcript evidence.")]
+    [Description("Predicted introns that keep the reading frame open (length multiple of 3, no in-frame stop in some phase; Jacob & Smith 2017). Optional filters for the Braunschweig 2014 features (shorter, weaker splice sites, higher GC) have no published cut-offs, so they are off unless set. Retention itself needs transcript evidence.")]
     public static FindRetainedIntronCandidatesResult FindRetainedIntronCandidates(
         [Description("RNA/DNA sequence to analyze")] string sequence,
-        [Description("Minimum combined score for an intron candidate")] double minScore = 0.5)
+        [Description("Minimum combined score for an intron candidate")] double minScore = 0.5,
+        [Description("Optional maximum intron length (nt); omitted = no limit")] int? maxIntronLength = null,
+        [Description("Optional: keep only introns with combined score below this value (weak sites)")] double? maxIntronScore = null,
+        [Description("Optional minimum G+C fraction (0-1) of the intron")] double? minGcFraction = null,
+        [Description("Require an open reading frame (no in-frame stop in some phase)")] bool requireOpenReadingFrame = true,
+        [Description("Require intron length divisible by 3")] bool requireLengthMultipleOf3 = true)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
+        var criteria = new SpliceSitePredictor.RetainedIntronCriteria(
+            MaxIntronLength: maxIntronLength,
+            MaxIntronScore: maxIntronScore,
+            MinGcFraction: minGcFraction,
+            RequireOpenReadingFrame: requireOpenReadingFrame,
+            RequireLengthMultipleOf3: requireLengthMultipleOf3);
         var introns = SpliceSitePredictor
-            .FindRetainedIntronCandidates(sequence, minScore)
+            .FindRetainedIntronCandidates(sequence, criteria, minScore)
             .Select(ToDto)
             .ToList();
         return new FindRetainedIntronCandidatesResult(introns);

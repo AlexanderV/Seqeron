@@ -311,19 +311,51 @@ public class SpliceSitePredictorMutationTests
 
     #endregion
 
-    #region FindRetainedIntronCandidates — Length<500 AND Score<0.8 filter
+    #region FindRetainedIntronCandidates — sourced criteria (Braunschweig 2014 / Jacob & Smith 2017)
 
     [Test]
-    public void FindRetainedIntronCandidates_AreShortAndModerateScored()
+    public void FindRetainedIntronCandidates_DefaultCriteria_AreFrameCompatible()
     {
-        // Every reported candidate must satisfy BOTH Length < 500 and Score < 0.8
-        // (the '&&'→'||' and the boundary mutants would admit long or high-score introns).
+        // Default = open reading frame in some phase AND length multiple of 3 (no unpublished numeric cut-off).
         string seq = BuildTwoIntronGene();
+        var all = PredictIntrons(seq, 60, 100000, 0.3).ToList();
         var candidates = FindRetainedIntronCandidates(seq, minScore: 0.3).ToList();
 
-        Assert.That(candidates, Is.Not.Empty);
-        Assert.That(candidates.All(i => i.Length < 500), Is.True);
-        Assert.That(candidates.All(i => i.Score < 0.8), Is.True);
+        Assert.That(candidates.All(i => i.Length % 3 == 0), Is.True);
+        Assert.That(candidates.Count, Is.LessThanOrEqualTo(all.Count));
+        Assert.That(candidates.All(i => all.Contains(i)), Is.True);
+    }
+
+    [Test]
+    public void FindRetainedIntronCandidates_NumericFilters_OnlyApplyWhenSet()
+    {
+        string seq = BuildTwoIntronGene();
+        var open = new RetainedIntronCriteria(RequireOpenReadingFrame: false, RequireLengthMultipleOf3: false);
+        var all = FindRetainedIntronCandidates(seq, open, 0.3).ToList();
+        Assert.That(all, Is.Not.Empty);
+        Assert.That(all.Select(i => (i.Start, i.End)),
+            Is.EquivalentTo(PredictIntrons(seq, 60, 100000, 0.3).Select(i => (i.Start, i.End))));
+
+        var weak = FindRetainedIntronCandidates(seq, open with { MaxIntronScore = 0.0 }, 0.3);
+        Assert.That(weak, Is.Empty);
+        var longOnly = FindRetainedIntronCandidates(seq, open with { MaxIntronLength = 10 }, 0.3);
+        Assert.That(longOnly, Is.Empty);
+        var gcHigh = FindRetainedIntronCandidates(seq, open with { MinGcFraction = 0.99 }, 0.3);
+        Assert.That(gcHigh, Is.Empty);
+    }
+
+    [Test]
+    public void FindRetainedIntronCandidates_InFrameStop_Rejected()
+    {
+        // Exon (24 nt, no stops in any frame) + intron with an in-frame UAA in every phase + exon.
+        string exon = "GCCGCCGCCGCCGCCGCCGCCGCC";
+        string stopRich = string.Concat(Enumerable.Repeat("AUAA", 6)); // UAA recurs every 4 nt: stop in each of the 3 frames
+        string intron = "GUAAGU" + new string('A', 20) + stopRich + new string('U', 14) + "CAG";
+        string seq = exon + intron + exon;
+        var crit = new RetainedIntronCriteria(RequireOpenReadingFrame: true, RequireLengthMultipleOf3: false);
+        Assert.That(FindRetainedIntronCandidates(seq, crit, 0.2), Is.Empty);
+        Assert.That(FindRetainedIntronCandidates(seq,
+            crit with { RequireOpenReadingFrame = false }, 0.2), Is.Not.Empty);
     }
 
     #endregion

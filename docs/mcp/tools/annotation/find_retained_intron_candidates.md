@@ -1,6 +1,6 @@
 # find_retained_intron_candidates
 
-Find short, moderately-scored intron candidates likely to be retained.
+Find retained-intron candidates by sequence-level features (open reading frame; optional length / weak-site / GC filters).
 
 ## Overview
 
@@ -14,9 +14,11 @@ Find short, moderately-scored intron candidates likely to be retained.
 
 ## Description
 
-Predicts introns (with length bounds 60–500 nt) and returns those that are short (`Length < 500`) and have
-only moderate splice scores (`Score < 0.8`). Such weak, short introns are the most likely to be retained in
-some transcripts (intron retention).
+Predicts introns (length 60 and up) and returns those compatible with retention by sequence features:
+length a multiple of 3 and no stop codon in some phase of the surrounding frame (the ORF stays open;
+Jacob & Smith 2017). Braunschweig et al. 2014 report retained introns are shorter, more G+C-rich and have
+weaker splice sites but give no numeric cut-offs, so `maxIntronLength`, `maxIntronScore` and `minGcFraction`
+are optional filters, off by default. Retention itself needs transcript (read-coverage) evidence.
 
 ## Core Documentation Reference
 
@@ -28,12 +30,17 @@ some transcripts (intron retention).
 |-----------|------|----------|-------------|
 | `sequence` | string | Yes | RNA/DNA sequence to analyze |
 | `minScore` | number | No | Minimum combined intron score (default 0.5) |
+| `maxIntronLength` | integer | No | Maximum intron length (nt); omitted = 100000 |
+| `maxIntronScore` | number | No | Keep only introns with combined score below this (weak sites); omitted = off |
+| `minGcFraction` | number | No | Minimum G+C fraction (0-1); omitted = off |
+| `requireOpenReadingFrame` | boolean | No | No in-frame stop in some phase (default true) |
+| `requireLengthMultipleOf3` | boolean | No | Length divisible by 3 (default true) |
 
 ## Output Schema
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `introns` | array | Introns with `Length < 500` and `Score < 0.8` |
+| `introns` | array | Introns satisfying the criteria |
 
 ## Errors
 
@@ -43,9 +50,9 @@ some transcripts (intron retention).
 
 ## Examples
 
-### Example 1: Short moderate-score intron
+### Example 1: Frame-compatible intron
 
-A two-exon sequence with an ~83 nt GT-AG intron scoring below 0.8 is returned as a candidate.
+A two-exon sequence with an intron of length divisible by 3 and no in-frame stop is returned (set `requireOpenReadingFrame` / `requireLengthMultipleOf3` to false to return every predicted intron).
 
 ### Example 2: No introns present
 
