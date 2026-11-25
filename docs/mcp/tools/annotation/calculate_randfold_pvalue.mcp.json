@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "calculate_randfold_pvalue",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MiRnaAnalyzer.CalculateRandfoldPValue",
+  "docRef": "Seqeron.Genomics.Annotation/MiRnaAnalyzer.cs#L3707",
+  "description": "randfold randomisation test (Bonnet et al. 2004): P-value of the MFE of a sequence against dinucleotide-shuffled sequences, deterministic for a fixed seed.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "Candidate nucleotide sequence (RNA or DNA; T read as U)"
+      },
+      "iterations": {
+        "type": "integer",
+        "description": "Number of dinucleotide shuffles N (randfold default 999; 0 gives P = 1; max 10000)",
+        "default": 999
+      },
+      "seed": {
+        "type": "integer",
+        "description": "Seed of the System.Random driving the shuffles (default 42)",
+        "default": 42
+      },
+      "minLoopSize": {
+        "type": "integer",
+        "description": "Minimum hairpin loop size of the folder (NNDB minimum 3)",
+        "default": 3
+      }
+    },
+    "required": [
+      "sequence"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "found": {
+        "type": "boolean",
+        "description": "False for an empty sequence"
+      },
+      "freeEnergy": {
+        "type": "number",
+        "description": "ΔG° of the input's MFE fold (kcal/mol)"
+      },
+      "pValue": {
+        "type": "number",
+        "description": "(1 + #lower-or-equal shuffles)/(N + 1)"
+      },
+      "iterations": {
+        "type": "integer",
+        "description": "Shuffles folded"
+      },
+      "lowerOrEqualCount": {
+        "type": "integer",
+        "description": "Shuffles with ΔG° ≤ the input's"
+      },
+      "seed": {
+        "type": "integer",
+        "description": "Seed used"
+      }
+    },
+    "required": [
+      "found",
+      "freeEnergy",
+      "pValue",
+      "iterations",
+      "lowerOrEqualCount",
+      "seed"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1001,
+      "message": "iterations must be in [0, 10000]"
+    },
+    {
+      "code": 1001,
+      "message": "minLoopSize must be >= 0"
+    }
+  ],
+  "examples": [
+    {
+      "name": "hsa-mir-21, 99 shuffles, seed 7",
+      "input": {
+        "sequence": "UGUCGGGUAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGUCUGACA",
+        "iterations": 99,
+        "seed": 7
+      },
+      "output": {
+        "found": true,
+        "freeEnergy": -35.13,
+        "pValue": 0.01,
+        "iterations": 99,
+        "lowerOrEqualCount": 0,
+        "seed": 7
+      }
+    }
+  ]
+}

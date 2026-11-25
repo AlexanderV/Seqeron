@@ -20,13 +20,19 @@ Folds every window in `[minHairpinLength, maxHairpinLength]` with the canonical 
 tolerated (hsa-mir-21 and hsa-let-7a-1 are detected). Each candidate reports its span, the dot-bracket and ΔG°
 of the MFE fold, and the mature (5p, `matureLength` nt from the outermost pair of the stem) and star
 (opposite-arm product with the Dicer 2-nt 3′ overhang, miRDeep2 `find_star`) sequences. The tool is the
-default of `MiRnaAnalyzer.FindPreMiRnaHairpins`; the previous consecutive-pairing screen is available in the C# API
-as `useConsecutiveScreen: true` (not exposed here). Cost: every window is folded (≈ 20 ms per 55–120-nt window,
-parallelised over window starts) — prefer scanning a locus of a few hundred nucleotides.
+default of `MiRnaAnalyzer.FindPreMiRnaHairpins` (`minMfei` = Zhang 2006 MFEI threshold, default 0.85).
+
+**Cost and the screen option.** The default folds every window (≈ 20 ms per 55–120-nt window, parallelised over
+window starts), so scanning a long sequence is slow — keep the default for a locus of a few hundred nucleotides.
+For long inputs set `useConsecutiveScreen = true`: the fast consecutive-pairing screen (window ends must pair
+uninterrupted — Watson–Crick or G·U — for ≥ 18 bp with a 3–25 nt apical loop; no bulges, so e.g. hsa-mir-21 is
+missed; blunt mature/star labels = first/last `matureLength` nt of the window; Structure/ΔG° from the canonical
+stem-loop model; `minMfei` ignored). `useConsecutiveScreen`/`minMfei` are additive optional parameters: existing
+calls are unchanged.
 
 ## Core Documentation Reference
 
-- Source: [MiRnaAnalyzer.cs#L1744](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/MiRnaAnalyzer.cs#L1744)
+- Source: [MiRnaAnalyzer.cs#L2549](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/MiRnaAnalyzer.cs#L2549)
 
 ## Input Schema
 
@@ -36,6 +42,8 @@ parallelised over window starts) — prefer scanning a locus of a few hundred nu
 | `minHairpinLength` | integer | No | Minimum hairpin length in nt (default 55) |
 | `maxHairpinLength` | integer | No | Maximum hairpin length in nt (default 120) |
 | `matureLength` | integer | No | Mature miRNA length in nt (default 22) |
+| `useConsecutiveScreen` | boolean | No | `false` (default) = MFE-fold detection; `true` = fast consecutive-pairing screen for long inputs |
+| `minMfei` | number | No | MFEI threshold of the default mode (default 0.85, ≥ 0); ignored by the screen |
 
 ## Output Schema
 
@@ -54,6 +62,7 @@ parallelised over window starts) — prefer scanning a locus of a few hundred nu
 | Code | Message |
 |------|---------|
 | 1001 | Sequence cannot be null or empty |
+| 1001 | minMfei must be a finite value >= 0 |
 
 ## Examples
 
@@ -79,7 +88,7 @@ A 47 nt hairpin is rejected against a 55 nt minimum:
 
 ## Performance
 
-- **Time Complexity:** O(n · L · L³) for sequence length n and window length L (one MFE fold per window; the consecutive-pairing screen of the C# API is O(n · L²))
+- **Time Complexity:** O(n · L · L³) for sequence length n and window length L (one MFE fold per window; with `useConsecutiveScreen = true` O(n · L²))
 - **Space Complexity:** O(L²)
 
 ## See Also

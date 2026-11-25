@@ -1252,21 +1252,95 @@ public class AnnotationTools
 
     /// <summary>Identify pre-miRNA hairpin candidates.</summary>
     [McpServerTool(Name = "find_pre_mirna_hairpins", Title = "miRNA — Find Pre-miRNA Hairpins", ReadOnly = true)]
-    [Description("Identify pre-miRNA hairpin candidates with stem/loop layout and Turner 2004 nearest-neighbor free energy.")]
+    [Description("Identify pre-miRNA hairpin candidates. DEFAULT (useConsecutiveScreen=false): every window of length minHairpinLength..maxHairpinLength is folded with the canonical Zuker-Stiegler MFE engine (Turner 2004) and accepted when the MFE structure is a single hairpin with >= 16 bp (Ambros 2003), a 3-25 nt apical loop (Bartel 2004) and MFEI >= minMfei (Zhang 2006, default 0.85); bulges/internal loops are tolerated. Reports span, MFE dot-bracket, free energy (kcal/mol), mature (5p, matureLength nt) and star (Dicer 2-nt 3' overhang) sequences. COST: one MFE fold per window, ~20 ms per 55-120 nt window (parallelised over window starts) — for long inputs (more than a few hundred nt) set useConsecutiveScreen=true: the fast consecutive-pairing screen (ends must pair uninterrupted for >= 18 bp with a 3-25 nt loop, no bulges; blunt mature/star labels; minMfei ignored).")]
     public static FindPreMiRnaHairpinsResult FindPreMiRnaHairpins(
         [Description("Nucleotide sequence to scan")] string sequence,
         [Description("Minimum hairpin length (nt)")] int minHairpinLength = 55,
         [Description("Maximum hairpin length (nt)")] int maxHairpinLength = 120,
-        [Description("Mature miRNA length (nt)")] int matureLength = 22)
+        [Description("Mature miRNA length (nt)")] int matureLength = 22,
+        [Description("false (default) = MFE-fold based detection (accurate, ~20 ms per window); true = fast consecutive-pairing screen for long inputs (no bulges)")] bool useConsecutiveScreen = false,
+        [Description("MFEI threshold of the default mode (Zhang 2006: 0.85); ignored when useConsecutiveScreen=true")] double minMfei = 0.85)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+        if (!double.IsFinite(minMfei) || minMfei < 0)
+            throw new ArgumentOutOfRangeException(nameof(minMfei), "minMfei must be a finite value >= 0");
 
         var hairpins = MiRnaAnalyzer
-            .FindPreMiRnaHairpins(sequence, minHairpinLength, maxHairpinLength, matureLength)
+            .FindPreMiRnaHairpins(sequence, minHairpinLength, maxHairpinLength, matureLength, useConsecutiveScreen, minMfei)
             .Select(ToDto)
             .ToList();
         return new FindPreMiRnaHairpinsResult(hairpins);
+    }
+
+    /// <summary>randfold randomisation test (Bonnet et al. 2004) with a seeded dinucleotide shuffle.</summary>
+    [McpServerTool(Name = "calculate_randfold_pvalue", Title = "miRNA — Randfold P-value", ReadOnly = true)]
+    [Description("randfold randomisation test (Bonnet, Wuyts, Rouze & Van de Peer 2004, Bioinformatics 20:2911; dinucleotide mode randfold -d): the input is MFE-folded (canonical Turner 2004 engine), `iterations` Altschul-Erickson dinucleotide shuffles are folded, and P = (1 + #{shuffle dG <= input dG}) / (iterations + 1) (|diff| <= 1e-7 counts as equal, as randfold.c). Pre-miRNAs give small P. DETERMINISTIC: the shuffles are drawn from System.Random(seed), so the same sequence + iterations + seed always return the same P-value (default seed 42); the P-value is a Monte-Carlo estimate, vary the seed to see its spread. Cost: iterations + 1 MFE folds (iterations capped at 10000). found=false for an empty sequence.")]
+    public static CalculateRandfoldPValueResult CalculateRandfoldPValue(
+        [Description("Candidate nucleotide sequence (RNA or DNA; T read as U)")] string sequence,
+        [Description("Number of dinucleotide shuffles N (randfold default 999; 0 gives P = 1; max 10000)")] int iterations = 999,
+        [Description("Seed of the System.Random that drives the shuffles (default 42); fixed seed = reproducible P")] int seed = 42,
+        [Description("Minimum hairpin loop size of the folder (NNDB minimum 3)")] int minLoopSize = 3)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+        if (iterations < 0 || iterations > MaxRandfoldIterations)
+            throw new ArgumentOutOfRangeException(nameof(iterations), $"iterations must be in [0, {MaxRandfoldIterations}]");
+        if (minLoopSize < 0)
+            throw new ArgumentOutOfRangeException(nameof(minLoopSize), "minLoopSize must be >= 0");
+
+        var r = MiRnaAnalyzer.CalculateRandfoldPValue(sequence, iterations, new Random(seed), minLoopSize);
+        return r is { } v
+            ? new CalculateRandfoldPValueResult(true, v.FreeEnergy, v.PValue, v.Iterations, v.LowerOrEqualCount, seed)
+            : new CalculateRandfoldPValueResult(false, 0, 1, iterations, 0, seed);
+    }
+
+    private const int MaxRandfoldIterations = 10000;
+
+    /// <summary>In-repo logistic pre-miRNA classifier (natural vs shuffled background).</summary>
+    [McpServerTool(Name = "classify_pre_mirna", Title = "miRNA — Classify Pre-miRNA (in-repo logistic model)", ReadOnly = true)]
+    [Description("Classify a candidate hairpin as natural pre-miRNA vs dinucleotide-shuffled background with the bundled IN-REPO ridge-logistic model over MFE / AMFE / MFEI / GC / paired-fraction features (Bonnet 2004 shuffle convention, Zhang 2006 MFEI). This is an in-repo model (13 miRBase positives, 52 shuffles, 5 features), NOT a published classifier — use classify_pre_mirna_triplet_svm for the published Triplet-SVM (Xue 2005). Returns the extracted features, P(natural) and the call at `threshold`. found=false for an empty sequence.")]
+    public static ClassifyPreMiRnaResult ClassifyPreMiRna(
+        [Description("Candidate nucleotide sequence (RNA or DNA; T read as U)")] string sequence,
+        [Description("Decision threshold on P(natural), default 0.5")] double threshold = 0.5,
+        [Description("Minimum hairpin loop size of the folder (NNDB minimum 3)")] int minLoopSize = 3)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+        if (!double.IsFinite(threshold) || threshold < 0 || threshold > 1)
+            throw new ArgumentOutOfRangeException(nameof(threshold), "threshold must be in [0, 1]");
+        if (minLoopSize < 0)
+            throw new ArgumentOutOfRangeException(nameof(minLoopSize), "minLoopSize must be >= 0");
+
+        var c = MiRnaAnalyzer.ClassifyPreMiRna(sequence, threshold, minLoopSize);
+        if (c is not { } v)
+            return new ClassifyPreMiRnaResult(false, null, 0, false);
+        var f = v.Features;
+        return new ClassifyPreMiRnaResult(true,
+            new PreMiRnaFeaturesDto(f.FreeEnergy, f.Amfe, f.Mfei, f.GcContent, f.PairedFraction, f.StemBasePairs, f.LoopSize, f.Length, f.BasePairingPropensity),
+            v.NaturalProbability, v.IsNatural);
+    }
+
+    /// <summary>Published Triplet-SVM pre-miRNA classifier (Xue et al. 2005).</summary>
+    [McpServerTool(Name = "classify_pre_mirna_triplet_svm", Title = "miRNA — Classify Pre-miRNA (Triplet-SVM)", ReadOnly = true)]
+    [Description("Published Triplet-SVM pre-miRNA classifier (Xue, Li, He, Liu, Li & Zhang 2005, BMC Bioinformatics 6:310) with the authors' own trained libsvm RBF model: retrieves the stem-loops with >= minBasePairs paired bases per arm (2_get_stemloop.pl), codes each single stem-loop as 32 triplet-element frequencies and returns the libsvm decision value (> 0 = real pre-miRNA). The structure is the canonical MFE fold of this library unless dotBracket ('.()' notation, same length) is supplied (the package used RNAfold). Returns one candidate per retrieved single-arm-pair stem-loop (1-based start/end); found=false (empty candidates) when none is retrieved — e.g. no stem-loop with >= minBasePairs pairs per arm (default 22), a non-ACGU query, or a multi-branch structure.")]
+    public static ClassifyPreMiRnaTripletSvmResult ClassifyPreMiRnaTripletSvm(
+        [Description("Query nucleotide sequence (RNA or DNA; T read as U)")] string sequence,
+        [Description("Optional structure in '.()' notation (same length as sequence); folded with the canonical MFE engine when omitted")] string? dotBracket = null,
+        [Description("Minimum paired bases per arm of a retrieved stem-loop (>= 1; default 22, the package example)")] int minBasePairs = MiRnaAnalyzer.TripletSvmDefaultMinBasePairs,
+        [Description("Minimum hairpin loop size of the fold (>= 0; only used when folding; values below the NNDB minimum 3 are raised to 3)")] int minLoopSize = 3)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+        if (minBasePairs < 1)
+            throw new ArgumentOutOfRangeException(nameof(minBasePairs), "minBasePairs must be >= 1");
+        if (minLoopSize < 0)
+            throw new ArgumentOutOfRangeException(nameof(minLoopSize), "minLoopSize must be >= 0");
+
+        var results = MiRnaAnalyzer.ClassifyPreMiRnaTripletSvm(sequence, dotBracket, minBasePairs, minLoopSize)
+            .Select(r => new TripletSvmCandidateDto(r.Start, r.End, r.Sequence, r.DotBracket, r.Features, r.DecisionValue, r.IsPreMiRna))
+            .ToList();
+        return new ClassifyPreMiRnaTripletSvmResult(results.Count > 0, results);
     }
 
     /// <summary>Minimum-free-energy miRNA·target duplex (RNAduplex model, Turner 2004).</summary>

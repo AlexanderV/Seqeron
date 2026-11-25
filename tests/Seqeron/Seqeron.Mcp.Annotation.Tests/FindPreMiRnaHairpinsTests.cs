@@ -58,4 +58,26 @@ public class FindPreMiRnaHairpinsTests
         var result = AnnotationTools.FindPreMiRnaHairpins(ShortHairpin47, minHairpinLength: 55);
         Assert.That(result.Hairpins, Is.Empty);
     }
+
+    [Test]
+    public void FindPreMiRnaHairpins_ConsecutiveScreen_Option_MatchesLibraryScreen()
+    {
+        // useConsecutiveScreen=true delegates to the fast screen (no MFE fold); parity with the library.
+        var tool = AnnotationTools.FindPreMiRnaHairpins(ValidHairpin57, 55, 120, 22, useConsecutiveScreen: true).Hairpins;
+        var lib = Seqeron.Genomics.Annotation.MiRnaAnalyzer
+            .FindPreMiRnaHairpins(ValidHairpin57, 55, 120, 22, useConsecutiveScreen: true).ToList();
+        Assert.That(tool, Has.Count.EqualTo(lib.Count));
+        Assert.That(tool.Select(h => (h.Start, h.End)), Is.EqualTo(lib.Select(h => (h.Start, h.End))));
+        // blunt labels: mature = first 22 nt of the window
+        Assert.That(tool[0].MatureSequence, Is.EqualTo(tool[0].Sequence[..22]));
+    }
+
+    [Test]
+    public void FindPreMiRnaHairpins_MinMfei_FiltersAndIsValidated()
+    {
+        Assert.That(AnnotationTools.FindPreMiRnaHairpins(ValidHairpin57, minMfei: 1000).Hairpins, Is.Empty);
+        Assert.That(AnnotationTools.FindPreMiRnaHairpins(ValidHairpin57, minMfei: 0).Hairpins, Has.Count.EqualTo(6));
+        Assert.Throws<ArgumentOutOfRangeException>(() => AnnotationTools.FindPreMiRnaHairpins(ValidHairpin57, minMfei: -1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => AnnotationTools.FindPreMiRnaHairpins(ValidHairpin57, minMfei: double.NaN));
+    }
 }

@@ -497,6 +497,24 @@ public record AlignMiRnaToTargetResult(
 /// <summary>Result of find_pre_mirna_hairpins.</summary>
 public record FindPreMiRnaHairpinsResult(IReadOnlyList<PreMiRnaHairpinDto> Hairpins);
 
+/// <summary>Result of calculate_randfold_pvalue. <c>Found</c> is false (P = 1) for an empty sequence.</summary>
+public record CalculateRandfoldPValueResult(bool Found, double FreeEnergy, double PValue, int Iterations, int LowerOrEqualCount, int Seed);
+
+/// <summary>Features fed to the in-repo pre-miRNA logistic model.</summary>
+public record PreMiRnaFeaturesDto(
+    double FreeEnergy, double Amfe, double Mfei, double GcContent, double PairedFraction,
+    int StemBasePairs, int LoopSize, int Length, double BasePairingPropensity);
+
+/// <summary>Result of classify_pre_mirna. <c>Found</c> is false (<c>Features</c> null) for an empty sequence.</summary>
+public record ClassifyPreMiRnaResult(bool Found, PreMiRnaFeaturesDto? Features, double NaturalProbability, bool IsNatural);
+
+/// <summary>One stem-loop scored by the Triplet-SVM model (1-based start/end in the query).</summary>
+public record TripletSvmCandidateDto(
+    int Start, int End, string Sequence, string DotBracket, IReadOnlyList<double> Features, double DecisionValue, bool IsPreMiRna);
+
+/// <summary>Result of classify_pre_mirna_triplet_svm. <c>Found</c> is false when no stem-loop was retrieved.</summary>
+public record ClassifyPreMiRnaTripletSvmResult(bool Found, IReadOnlyList<TripletSvmCandidateDto> Candidates);
+
 /// <summary>Base pair of a miRNA·target duplex (0-based indices, miRNA 5'→3' and target 5'→3').</summary>
 public record DuplexBasePairDto(int MiRnaIndex, int TargetIndex);
 

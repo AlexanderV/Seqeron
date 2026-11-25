@@ -50,8 +50,12 @@ public static partial class MiRnaAnalyzer
     /// <param name="sequence">Query (RNA or DNA; T read as U). A query with other characters is dropped like the package's step 1 (empty result).</param>
     /// <param name="dotBracket">Optional structure in <c>.()</c> notation (same length); folded with the canonical MFE engine when null.</param>
     /// <param name="minBasePairs">Minimum paired bases per arm of a retrieved stem-loop (default 22).</param>
-    /// <param name="minLoopSize">Minimum hairpin loop size of the fold (only used when folding).</param>
+    /// <param name="minLoopSize">Minimum hairpin loop size of the fold (only used when folding; values below the NNDB
+    /// minimum of 3 are raised to 3 by the folder; must be non-negative).</param>
     /// <returns>One result per retrieved stem-loop that has a single arm pair (the package codes only those); empty otherwise.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="minBasePairs"/> is &lt; 1 (a stem arm needs at
+    /// least one paired base; 0 or a negative value would admit every unpaired piece as a "stem-loop") or
+    /// <paramref name="minLoopSize"/> is negative.</exception>
     public static IReadOnlyList<TripletSvmResult> ClassifyPreMiRnaTripletSvm(
         string sequence,
         string? dotBracket = null,
@@ -59,6 +63,8 @@ public static partial class MiRnaAnalyzer
         int minLoopSize = 3)
     {
         ArgumentNullException.ThrowIfNull(sequence);
+        ArgumentOutOfRangeException.ThrowIfLessThan(minBasePairs, 1);
+        ArgumentOutOfRangeException.ThrowIfNegative(minLoopSize);
         var results = new List<TripletSvmResult>();
         string? seq = NormaliseTripletQuery(sequence);
         if (seq is null || seq.Length == 0)

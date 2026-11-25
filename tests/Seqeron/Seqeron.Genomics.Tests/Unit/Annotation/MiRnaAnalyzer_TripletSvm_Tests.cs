@@ -110,6 +110,29 @@ public class MiRnaAnalyzer_TripletSvm_Tests
         Assert.Throws<ArgumentException>(() => TripletSvmDecisionValue(new double[5]));
     }
 
+    // TS5b — argument validation (WP-R2-2c, exposed by the MCP wrapper): a stem arm needs >= 1 paired base, so
+    // minBasePairs < 1 is rejected (with 0 the package's `< min` test would admit every unpaired piece); a negative
+    // minLoopSize is meaningless (0..2 are raised to the NNDB minimum 3 by the folder, as documented).
+    [TestCase(0)]
+    [TestCase(-1)]
+    [TestCase(int.MinValue)]
+    public void TS5b_MinBasePairs_BelowOne_Throws(int minBasePairs)
+    {
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(
+            () => ClassifyPreMiRnaTripletSvm("GGGGAAAACCCC", "((((....))))", minBasePairs));
+        Assert.That(ex!.ParamName, Is.EqualTo("minBasePairs"));
+        Assert.That(ClassifyPreMiRnaTripletSvm("GGGGAAAACCCC", "((((....))))", 1), Has.Count.EqualTo(1));
+    }
+
+    [Test]
+    public void TS5c_MinLoopSize_Negative_Throws_ZeroToTwoAccepted()
+    {
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(
+            () => ClassifyPreMiRnaTripletSvm("GGGGAAAACCCC", null, 4, -1));
+        Assert.That(ex!.ParamName, Is.EqualTo("minLoopSize"));
+        Assert.DoesNotThrow(() => ClassifyPreMiRnaTripletSvm("GGGGAAAACCCC", null, 4, 0));
+    }
+
     // TS6 — hand-computed triplet coding: stem GGGG/CCCC, loop AAAA: left arm "((((" → G at i=0 ".((" = 011 (3), inner "(((" = 7, last "((." = 110 (6);
     // right arm "))))" likewise for C. Index = nt(A0,G1,C2,U3)·8 + bits; 8 nt → each count/8.
     [Test]
