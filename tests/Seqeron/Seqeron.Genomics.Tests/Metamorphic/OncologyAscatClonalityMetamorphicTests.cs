@@ -13,8 +13,6 @@ namespace Seqeron.Genomics.Tests.Metamorphic;
 /// <item>ONCO-PLOIDY-001 (facets-suite <c>get_sample_genome</c>): the WGD fraction uses lengths and per-chromosome
 /// spans only, so translating a chromosome's coordinates, relabelling "7" ↔ "chr7", or adding non-autosomal segments
 /// does not change the call.</item>
-/// <item>ONCO-CCF-001 (Ckmeans.1d.dp): the optimum is computed on the sorted values, so permuting the input gives the
-/// same centroids and the same (value, cluster) pairs.</item>
 /// <item>ONCO-PHYLO-001 (LICHeE): the search depends on cluster order and CCFs, not on the id values, so a bijective
 /// relabelling of ids maps the tree edge-for-edge; swapping the two sample columns preserves feasibility, the valid-tree
 /// count and the error score.</item>
@@ -189,29 +187,6 @@ public class OncologyAscatClonalityMetamorphicTests
 
         doubled.Should().BeGreaterThan(0);
         notDoubled.Should().BeGreaterThan(0);
-    }
-
-    [Test]
-    [Description("INV (Ckmeans.1d.dp works on sorted data): permuting the CCFs gives identical centroids and identical (value, cluster) pairs.")]
-    public void ClusterCcfValues_InputPermutation_IsInvariant()
-    {
-        for (int seed = 0; seed < 300; seed++)
-        {
-            var rng = new Random(seed);
-            int n = rng.Next(1, 40);
-            double[] values = Enumerable.Range(0, n).Select(_ => rng.Next(0, 60) / 50.0 * 0.8).ToArray();
-            int k = rng.Next(1, n + 1);
-            double[] permuted = values.OrderBy(_ => rng.Next()).ToArray();
-
-            var a = OncologyAnalyzer.ClusterCcfValues(values, k);
-            var b = OncologyAnalyzer.ClusterCcfValues(permuted, k);
-
-            b.Centroids.Should().Equal(a.Centroids, "seed {0}", seed);
-            b.ClonalClusterIndex.Should().Be(a.ClonalClusterIndex, "seed {0}", seed);
-            var pairsA = values.Select((v, i) => (v, a.Assignments[i])).OrderBy(p => p.v).ThenBy(p => p.Item2);
-            var pairsB = permuted.Select((v, i) => (v, b.Assignments[i])).OrderBy(p => p.v).ThenBy(p => p.Item2);
-            pairsB.Should().Equal(pairsA, "each value keeps its cluster (seed {0})", seed);
-        }
     }
 
     private static OncologyAnalyzer.CcfCluster[] RandomClusters(Random rng, int samples)

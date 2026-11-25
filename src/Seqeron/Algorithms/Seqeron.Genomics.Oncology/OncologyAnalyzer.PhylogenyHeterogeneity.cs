@@ -2122,7 +2122,7 @@ public static partial class OncologyAnalyzer
 
     /// <summary>
     /// Counts the number of distinct clones/subclones in a tumour as the number of non-empty CCF clusters produced
-    /// by <see cref="ClusterCcfValues"/> (ONCO-CCF-001). Each cluster centroid is a clonal population; the count is
+    /// by the optimal one-dimensional k-means of the cancer cell fractions (ONCO-CCF-001). Each cluster centroid is a clonal population; the count is
     /// the tumour's clonal richness. Source: Mroz et al. (2015) treat genetic heterogeneity as the number/spread of
     /// subpopulations; Martinez et al. (2017), <i>Sci Rep</i> 7:3248 (PMC5468233) define richness as "the number of
     /// clones present" when computing Shannon-based ITH scores.
@@ -2163,7 +2163,7 @@ public static partial class OncologyAnalyzer
     /// cancer cell fractions, returning four standard ITH metrics: the MATH score over the VAFs (Mroz &amp; Rocco
     /// 2013), the Shannon diversity index H = −Σ pᵢ·ln(pᵢ) over the clone fractions (Shannon 1948), the number of
     /// subclones (CCF clusters), and the fraction of subclonal mutations (CCF ≤ 0.95 — Landau et al. 2013: clonal if CCF &gt; 0.95, "subclonal otherwise"). CCF
-    /// values are clustered with <see cref="ClusterCcfValues"/> (ONCO-CCF-001) into <paramref name="clusterCount"/>
+    /// values are clustered with the optimal one-dimensional k-means of the cancer cell fractions (ONCO-CCF-001) into <paramref name="clusterCount"/>
     /// clones; the clone fractions pᵢ are the proportions of mutations assigned to each cluster.
     /// </summary>
     /// <param name="variantAlleleFractions">Per-mutation VAFs in [0, 1] (used for the MATH score).</param>
@@ -2197,7 +2197,7 @@ public static partial class OncologyAnalyzer
         double math = CalculateITH(variantAlleleFractions);
 
         // Cluster CCF values into clones (ONCO-CCF-001); validates ccfValues and clusterCount.
-        CcfClustering clustering = ClusterCcfValues(ccfValues, clusterCount);
+        CcfClustering clustering = ClusterCcfValuesOptimal(ccfValues, clusterCount);
         int subcloneCount = InferSubclones(clustering);
 
         // Clone fractions pᵢ = proportion of mutations in each occupied cluster; Shannon H = −Σ pᵢ·ln pᵢ

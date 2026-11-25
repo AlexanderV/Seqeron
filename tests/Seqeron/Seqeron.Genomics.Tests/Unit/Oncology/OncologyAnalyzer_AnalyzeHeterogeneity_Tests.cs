@@ -122,8 +122,7 @@ public class OncologyAnalyzer_AnalyzeHeterogeneity_Tests
     [Test]
     public void InferSubclones_ThreeSeparatedClusters_ReturnsThree()
     {
-        OncologyAnalyzer.CcfClustering clustering =
-            OncologyAnalyzer.ClusterCcfValues(new[] { 0.20, 0.50, 0.90 }, 3);
+        var clustering = new OncologyAnalyzer.CcfClustering(new[] { 0.20, 0.50, 0.90 }, new[] { 0, 1, 2 }, 2);
 
         int count = OncologyAnalyzer.InferSubclones(clustering);
 
@@ -135,8 +134,7 @@ public class OncologyAnalyzer_AnalyzeHeterogeneity_Tests
     [Test]
     public void InferSubclones_SingleCluster_ReturnsOne()
     {
-        OncologyAnalyzer.CcfClustering clustering =
-            OncologyAnalyzer.ClusterCcfValues(new[] { 0.20, 0.22, 0.24 }, 1);
+        var clustering = new OncologyAnalyzer.CcfClustering(new[] { 0.22 }, new[] { 0, 0, 0 }, 0);
 
         int count = OncologyAnalyzer.InferSubclones(clustering);
 

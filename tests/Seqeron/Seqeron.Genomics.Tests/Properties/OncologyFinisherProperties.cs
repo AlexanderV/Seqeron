@@ -7,9 +7,6 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// FIN-B24 heavy tier — property-based tests for the behaviour added by the B24 finisher (F44–F64). Oracles are
 /// independent restatements of the reference definitions (never routed through production helpers):
 /// <list type="bullet">
-/// <item>Ckmeans.1d.dp (F46/F47): the returned partition attains the optimal within-cluster sum of squares (an
-/// independent O(k·n²) dynamic program over the sorted values), and the BIC-selected k lies in the adjusted bounds and
-/// equals the fixed-k clustering for that k; constant input gives one cluster.</item>
 /// <item>LICHeE cluster summaries (F42/F43): with zero SDs and robust clusters the per-cluster margins collapse to ε,
 /// i.e. the result equals <see cref="OncologyAnalyzer.ReconstructPhylogeny"/>; a bijective id relabelling maps the tree.</item>
 /// <item>maftools <c>math.score</c> filters (F56): raising the VAF cutoff can only drop VAFs, so once a sample is skipped
@@ -25,100 +22,6 @@ namespace Seqeron.Genomics.Tests.Properties;
 [Category("Oncology")]
 public class OncologyFinisherProperties
 {
-    // -------------------------------------------------------------------------
-    // Ckmeans.1d.dp: optimum (SMAWK fill, F46) and BIC k (F47)
-    // -------------------------------------------------------------------------
-
-    private static Arbitrary<(double[] Values, int K, int Seed)> CcfArbitrary() =>
-        (from n in Gen.Choose(1, 40)
-         from raw in Gen.Choose(0, 1000).ArrayOf(n)
-         from k in Gen.Choose(1, Math.Max(1, Math.Min(6, n)))
-         from seed in Gen.Choose(0, int.MaxValue)
-         select (raw.Select(v => v / 1000.0).ToArray(), k, seed)).ToArbitrary();
-
-    private static double OptimalWcss(double[] values, int k)
-    {
-        double[] x = values.OrderBy(v => v).ToArray();
-        int n = x.Length;
-        double Cost(int i, int j) // inclusive [i, j]
-        {
-            double mean = 0;
-            for (int t = i; t <= j; t++) mean += x[t];
-            mean /= j - i + 1;
-            double s = 0;
-            for (int t = i; t <= j; t++) s += (x[t] - mean) * (x[t] - mean);
-            return s;
-        }
-
-        var d = new double[k + 1, n + 1];
-        for (int j = 1; j <= n; j++) d[0, j] = double.PositiveInfinity;
-        for (int c = 1; c <= k; c++)
-        {
-            for (int j = 0; j <= n; j++)
-            {
-                if (j < c) { d[c, j] = j == 0 ? 0 : double.PositiveInfinity; continue; }
-                double best = double.PositiveInfinity;
-                for (int i = c; i <= j; i++) // last cluster = x[i-1 .. j-1]
-                {
-                    best = Math.Min(best, d[c - 1, i - 1] + Cost(i - 1, j - 1));
-                }
-
-                d[c, j] = best;
-            }
-        }
-
-        return d[k, n];
-    }
-
-    private static double Wcss(double[] values, OncologyAnalyzer.CcfClustering c) =>
-        values.Select((v, i) => (v - c.Centroids[c.Assignments[i]]) * (v - c.Centroids[c.Assignments[i]])).Sum();
-
-    /// <summary>
-    /// F46 (SMAWK row fill): the returned clustering attains the brute-force optimal WCSS for k* = min(k, #distinct)
-    /// clusters (only the choice among equal-WCSS optima may differ from the quadratic fill), centroids are ascending
-    /// cluster means and the clonal index is the last centroid.
-    /// </summary>
-    [FsCheck.NUnit.Property]
-    public Property ClusterCcfValues_AttainsBruteForceOptimalWcss()
-    {
-        return Prop.ForAll(CcfArbitrary(), t =>
-        {
-            var c = OncologyAnalyzer.ClusterCcfValues(t.Values, t.K);
-            int kEff = Math.Min(t.K, t.Values.Distinct().Count());
-            double wcss = Wcss(t.Values, c);
-            double optimum = OptimalWcss(t.Values, kEff);
-            bool means = Enumerable.Range(0, c.Centroids.Count).All(j =>
-                Math.Abs(c.Centroids[j] - t.Values.Where((_, i) => c.Assignments[i] == j).Average()) <= 1e-12);
-            bool ascending = c.Centroids.Zip(c.Centroids.Skip(1), (a, b) => a < b).All(ok => ok);
-            return (c.Centroids.Count == kEff && Math.Abs(wcss - optimum) <= 1e-9 * (1 + optimum) && means && ascending
-                    && c.ClonalClusterIndex == c.Centroids.Count - 1)
-                .Label($"k*={kEff}, centroids={c.Centroids.Count}, wcss={wcss}, optimum={optimum}");
-        });
-    }
-
-    /// <summary>
-    /// F47 (Ckmeans.1d.dp <c>select_levels</c> BIC): the selected k lies in [min(k_min, d), min(k_max, d)] (d = #distinct,
-    /// R's bound adjustment) and the clustering is the fixed-k clustering for that k; all-equal input gives one cluster.
-    /// </summary>
-    [FsCheck.NUnit.Property]
-    public Property ClusterCcfValues_BicSelection_WithinBounds_EqualsFixedK()
-    {
-        return Prop.ForAll(CcfArbitrary(), t =>
-        {
-            int kMin = Math.Max(1, t.K - 1), kMax = t.K + 2;
-            int distinct = t.Values.Distinct().Count();
-            var auto = OncologyAnalyzer.ClusterCcfValues(t.Values, kMin, kMax);
-            int k = auto.Centroids.Count;
-            int lo = distinct < kMin ? distinct : kMin, hi = Math.Min(kMax, distinct);
-            var fixedK = OncologyAnalyzer.ClusterCcfValues(t.Values, k);
-            var constant = OncologyAnalyzer.ClusterCcfValues(Enumerable.Repeat(t.Values[0], t.Values.Length).ToArray(), kMin, kMax);
-            return (k >= lo && k <= hi && auto.Assignments.SequenceEqual(fixedK.Assignments)
-                    && auto.Centroids.Zip(fixedK.Centroids, (a, b) => Math.Abs(a - b) <= 1e-12).All(ok => ok)
-                    && constant.Centroids.Count == 1)
-                .Label($"k={k} ∉ [{lo}, {hi}] or differs from fixed-k");
-        });
-    }
-
     // -------------------------------------------------------------------------
     // LICHeE cluster summaries (F42, F43)
     // -------------------------------------------------------------------------
