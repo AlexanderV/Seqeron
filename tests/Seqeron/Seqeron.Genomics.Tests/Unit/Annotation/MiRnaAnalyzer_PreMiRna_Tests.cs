@@ -916,11 +916,13 @@ public class MiRnaAnalyzer_PreMiRna_Tests
     [Test]
     public void AssessHairpinByMfe_RealMiRBase_HsaLet7a1_DetectedByMfeFold()
     {
-        // Folded by the engine: single hairpin, apical loop 4 nt, 32 stem base pairs,
-        // ΔG° = −34.31 kcal/mol. GC% = 34/80 = 42.5; AMFE = 100·34.31/80 = 42.887500;
+        // Folded by the engine: single hairpin, apical loop 4 nt, 33 stem base pairs,
+        // ΔG° = −34.31 kcal/mol. The structure is identical to ViennaRNA 2.7.2 RNA.fold (d2) —
+        // (((((.(((((((((((((((((((((.....(((...((((....)))).))))))))))))))))))))))))))))) —
+        // and its energy with the NNDB-precision Turner 2004 parameters is −34.31 (RNA-STRUCT-001 Evidence). GC% = 34/80 = 42.5; AMFE = 100·34.31/80 = 42.887500;
         // MFEI = 42.887500/42.5 = 1.009118.
         const double expectedDg = -34.31;
-        const int expectedStemBp = 32;
+        const int expectedStemBp = 33;
         const int expectedLoopSize = 4;
         const double expectedMfei = 1.009118;
 
@@ -938,7 +940,7 @@ public class MiRnaAnalyzer_PreMiRna_Tests
             Assert.That(a.FreeEnergy, Is.EqualTo(engineDg).Within(1e-9),
                 "MFE-fold ΔG° must agree with CalculateMinimumFreeEnergy.");
             Assert.That(a.StemBasePairs, Is.EqualTo(expectedStemBp),
-                "Stem base pairs counted from the real MFE structure = 32.");
+                "Stem base pairs counted from the real MFE structure = 33.");
             Assert.That(a.TerminalLoopSize, Is.EqualTo(expectedLoopSize),
                 "Single terminal loop = 4 nt.");
             Assert.That(a.Mfei, Is.EqualTo(expectedMfei).Within(1e-6),
@@ -982,8 +984,10 @@ public class MiRnaAnalyzer_PreMiRna_Tests
     public void AssessHairpinByMfe_MultibranchStructure_RejectedDespiteStrongEnergy()
     {
         // 120-nt 5S-rRNA-like sequence folds (engine) to a multibranch structure
-        // (a ')' followed later by '(') with ΔG° = −47.04 kcal/mol — MORE negative than the
-        // accepted ValidHairpin57 (−48.48 is comparable), yet it is NOT a single hairpin.
+        // (a ')' followed later by '(') with ΔG° = −50.57 kcal/mol — comparable to the
+        // accepted ValidHairpin57 (−48.48), yet it is NOT a single hairpin. −50.57 = ViennaRNA 2.7.2
+        // eval_structure (d2, NNDB-precision Turner 2004 parameters) of the engine's structure; RNA.fold's own
+        // optimum (−50.79) closes a CCC hairpin that the NNDB all-C loop penalty (+1.5) excludes here.
         const string fiveSLike =
             "UGCCUGGCGGCCGUAGCGCGGUGGUCCCACCUGACCCCAUGCCGAACUCAGAAGUGAAACG" +
             "CCGUAGCGCCGAUGGUAGUGUGGGGUCUCCCCAUGCGAGAGUAGGGAACUGCCAGGCAU";
@@ -993,8 +997,8 @@ public class MiRnaAnalyzer_PreMiRna_Tests
 
         Assert.Multiple(() =>
         {
-            Assert.That(mfe.FreeEnergy, Is.EqualTo(-47.04).Within(1e-9),
-                "Engine ΔG° for the 5S-like sequence is −47.04 kcal/mol (a strong fold).");
+            Assert.That(mfe.FreeEnergy, Is.EqualTo(-50.57).Within(1e-9),
+                "Engine ΔG° for the 5S-like sequence is −50.57 kcal/mol (a strong fold).");
             Assert.That(assessed, Is.Null,
                 "Rejected because the MFE structure is multibranched, not a single dominant hairpin — " +
                 "acceptance is structural, not energy-only.");

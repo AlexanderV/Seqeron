@@ -380,12 +380,12 @@ public class CodonOptimizer_WindowedGcContent_Tests
         {
             Assert.That(CodonOptimizer.EvaluateGcContent(balanced.OptimizedSequence, 0.40, 0.60, window: 20).Score,
                 Is.EqualTo(0).Within(1e-12), "the GC pass reaches 0 on this gene");
-            // dnachisel on this output: -0.0 (pre-F63 output: -12.6).
+            // dnachisel 3.2.16 on this output: -0.0 (pre-F63 output: -12.6); output re-locked by B12 (RNA-STRUCT-001 energy fixes).
             Assert.That(CodonOptimizer.EvaluateGcContent(turner.OptimizedSequence, 0.40, 0.60, window: 20).Score,
                 Is.EqualTo(0).Within(1e-12), "F63: the structure pass must not break the GC windows");
             Assert.That(turner.OptimizedSequence, Is.EqualTo(
-                "AUGCCAGGAAUUUUCCAUCGCAAGGACUUCUUCUUCAAACCUGGCUAUGACUUGAACCUCUCACAAGAAGGUCGUGCG" +
-                "GAAUACUUCGGACCACUUCUGCCAAAAAUCAACCAGGACCAGAUUCCCCAGUAUUGUCUCCCCGUCACCUAA"),
+                "AUGCCAGGAAUUUUUCACCGCAAGGACUUCUUCUUCAAACCUGGCUAUGAUCUCAACCUGUCACAAGAAGGACGUGCU" +
+                "GAAUACUUUGGCCCCCUUCUGCCAAAAAUCAACCAGGACCAGAUUCCCCAAUAUUGCUUGCCCGUGACCUAA"),
                 "deterministic Turner-scored MinimizeSecondary output under a GC window");
             Assert.That(turner.ProteinSequence, Is.EqualTo(balanced.ProteinSequence), "protein preserved");
             Assert.That(CodonOptimizer.EvaluateGcContent(pairCount.OptimizedSequence, 0.40, 0.60, window: 20).Score,

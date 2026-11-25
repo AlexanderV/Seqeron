@@ -121,8 +121,11 @@ not fit throws `ArgumentOutOfRangeException`; a window in a too-short sequence r
 ### 4.2 Decision Rules, Scoring, Reference Tables
 
 The energy contributions are the Turner-2004 NNDB tables already used by the MFE folder
-(stacking, hairpin/internal/bulge initiation and mismatches, dangles, terminal-AU, multibranch
-`a/b/c`). [5] Each is converted to a Boltzmann factor `exp(−ΔG/RT)`. The **SA** feature
+(stacking, hairpin/internal/bulge initiation and mismatches, int11/int21/int22, d2 terminal
+mismatches/dangles, terminal-AU, linear multibranch `a/b/c` = 9.3/0/−0.9). [5] The inside recursion
+is unambiguous (single-branch matrix WM1 as in ViennaRNA's fM1; each structure counted once); with
+NNDB-precision parameters the ensemble free energy equals ViennaRNA 2.7.2 `fc.pf()` (d2) to
+≤ 0.003 kcal/mol (gas-constant convention) — RNA-STRUCT-001 Evidence, Validation 2026-11. Each is converted to a Boltzmann factor `exp(−ΔG/RT)`. The **SA** feature
 (`MiRnaAnalyzer`) reads, for a seed-matched site, the accessibility of the 14-nt window ending 7
 nt 3' of the seed-match start (7mer-A1 decrements the start by 1), `log10`-transforms it, and
 min-max scales by the verbatim Agarwal-2015 SA coefficients. RNAplfold reference parameters:

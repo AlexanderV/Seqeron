@@ -130,8 +130,8 @@ public class RnaSecondaryStructure_PredictStructurePseudoknotRecursive_Tests
         {
             Assert.That(single.HasPseudoknot, Is.False,
                 "The single-knot method recovers a pseudoknot-free fold (it cannot place two knots).");
-            Assert.That(single.FreeEnergy, Is.EqualTo(-27.14).Within(1e-2),
-                "Single-knot method ΔG equals the plain MFE (-27.14).");
+            Assert.That(single.FreeEnergy, Is.EqualTo(-27.89).Within(1e-2),
+                "Single-knot method ΔG equals the plain MFE (-27.89 = ViennaRNA 2.7.2 RNA.fold, d2, NNDB-precision Turner 2004 parameters).");
             Assert.That(recursive.FreeEnergy, Is.LessThan(single.FreeEnergy - 1e-9),
                 "The recursive two-knot structure is strictly more stable than the single-knot result.");
             Assert.That(recursive.FreeEnergy, Is.LessThanOrEqualTo(mfe.FreeEnergy + 1e-9),

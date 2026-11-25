@@ -117,6 +117,21 @@ Testing RNA secondary structure prediction algorithms including the Nussinov/Zuk
 | MS-012 | `PredictStructureMfe` shape | dot-bracket + energy match `CalculateMfeStructure`; no pseudoknots |
 | MS-013 | Property: random sequences (seed 20260622) | always energy-consistent, valid, canonical |
 
+#### ViennaRNA parity — Turner 2004 interior loops + d2 loop model (Evidence §12; `RnaSecondaryStructure_ViennaParity_Tests.cs`)
+
+All expected values are ViennaRNA 2.7.2 outputs (md.dangles = 2) with the NNDB-precision Turner 2004 parameter file (Evidence §12.2).
+
+| Test ID | Description | Expected |
+|---------|-------------|----------|
+| VP-001 | `CalculateInternalLoopEnergy` int21 (both orientations), int22, int11 + 'N', 1×4, 2×3, generic 4×4/5×3 | = `eval_int_loop` (14 cases, e.g. 2×2 CG/GC GG·AA = −0.30, 2×3 AU/GC = 2.10) |
+| VP-002 | Same 1×2 loop read from either helix | identical energy |
+| VP-003 | n1=n2=0 → stack; one side empty → bulge; negative size | −3.26; 3.2; `ArgumentOutOfRangeException` |
+| VP-004 | Exterior d2: 5' dangle, 3' dangle, terminal mismatch on GGGAAACCC | −1.32 / −2.82 / −2.62 (bare −1.12) |
+| VP-005 | MFE + structure + structure re-evaluation, 10 random sequences (seed 20261125) | = RNA.fold energy and dot-bracket; within 0.35 of the default (rounded) file |
+| VP-006 | MFE = energy of its own structure (`EvaluateStructureEnergy`), 40 random sequences | equal to 1e-9 |
+| VP-007 | Turner partition function ensemble energy, 2 sequences | = `fc.pf()` within 0.005 (gas constant 1.987 vs 1.98717) |
+| VP-008 | NNDB special-C bulge needs an adjacent paired C | 1.45 vs 0.55 |
+
 ### 2.2 Should Tests (Recommended)
 
 #### Energy Calculations
@@ -249,13 +264,16 @@ All coverage actions completed:
 | D1 | n=1 bulge missing −RT·ln(states) degeneracy term | 🔧 FIXED | `CalculateBulgeLoopEnergy_SingleNucleotide_DegeneracyTerm` |
 | D2 | Dangling ends (d2) not in multiloop WM decomposition | 🔧 FIXED | Verified via existing MFE integration tests |
 | D5 | No Zuker traceback for optimal structure | 🔧 FIXED (2026-06-23) | `CalculateMfeStructure` / `PredictStructureMfe` add the DP traceback; energy == scalar MFE. Tests: `RnaSecondaryStructure_MfeStructure_Tests` (MS-001…MS-013). |
+| D3 | int21 (1×2) lookup table missing | 🔧 FIXED (2026-11) | Generated `Turner2004InteriorLoopTables` (ViennaRNA 2.7.2 / NNDB-identical). Tests: VP-001/VP-002. |
+| D4 | int22 (2×2) lookup table missing | 🔧 FIXED (2026-11) | Same. Tests: VP-001, `CalculateInternalLoopEnergy_Symmetric_MatchesNNDB` (+0.8). |
+| D7 | Generic loops: no Ninio cap, 2×3 R/Y read from the mismatch instead of the closing pair, mismatch of the inner pair read from outside the loop | 🔧 FIXED (2026-11) | `vrna_E_internal` semantics. Tests: VP-001, `CalculateInternalLoopEnergy_BothAUClosure_DoublesPenalty` (1.6). |
+| D8 | Exterior/multiloop dangles read with the pair reversed; exterior used d5+d3 instead of the terminal mismatch; multiloop could close with one branch; efn2 a/c without its asymmetry term | 🔧 FIXED (2026-11) | d2 model, a/b/c = 9.3/0/−0.9, ≥2 branches. Tests: VP-004, VP-005, VP-007. |
+| D9 | Special hairpin loops (A-U-closed hexaloops) got an extra +0.45; special-C bulge accepted a C on the opposite strand | 🔧 FIXED (2026-11) | Tests: VP-005 panel, VP-008. |
 
 ### 7.2 Open
 
 | # | Deviation | Status | Impact |
 |---|-----------|--------|--------|
-| D3 | int21 (1×2) lookup table missing | ⛔ BLOCKED | Uses generic model; NNDB table too large (2,304 entries) for inline |
-| D4 | int22 (2×2) lookup table missing | ⛔ BLOCKED | Uses generic model; NNDB table too large (36,864 entries) for inline |
 | D6 | Pseudoknotted optima not predicted | BY-DESIGN | The O(n³) Zuker recurrences are pseudoknot-free by construction; a different algorithm class is required. |
 
 ---
@@ -268,7 +286,7 @@ All coverage actions completed:
 | Minimum loop size = 3 | Biological steric constraint (Wikipedia, NNDB) |
 | Allow wobble by default | G-U pairs valid in RNA; 20 GU stacking entries from NNDB |
 | Greedy non-overlapping stem-loop selection | Standard approach for simple prediction |
-| Nussinov-style weighted pair DP for MFE | Efficient O(n³) approximation; full Zuker requires loop decomposition |
+| Zuker DP with Turner 2004 loop decomposition and ViennaRNA d2 dangles | Matches the reference implementation RNAfold 2.7.2 (default `-d2`); NNDB-precision parameter values kept (2-decimal stacks, AU 0.45) and the NNDB-only terms (special GU closure, all-C loops, GGUC/CUGG 3-stack, n=1 bulge degeneracy / special C) retained |
 | Special hairpin loops as total replacements | Matches NNDB approach: experimental data supersedes model calculation |
 
 ---

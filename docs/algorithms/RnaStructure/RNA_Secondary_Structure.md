@@ -28,7 +28,8 @@ RNA secondary structure is governed primarily by Watson-Crick and wobble base pa
 **MFE-optimal path (`CalculateMfeStructure`).** The Zuker–Stiegler recurrences fill three matrices [2] (taught with explicit equations in MIT 6.047 Lecture 08, Fig. 13 — the F/C/M/M¹ decomposition [6]):
 
 - `V(i,j)` — minimum energy of `[i..j]` given `i·j` paired: the minimum over a hairpin, a stack `V(i+1,j-1)`, an interior/bulge loop `V(i',j')`, and a multiloop `WM(i+1,j-1)`.
-- `WM(i,j)` — energy of a multiloop region (helix start with optional dangles, an unpaired end, or a split).
+- `WM(i,j)` — energy of a multiloop region with ≥ 1 branch (a branch `V(i,j)` + its d2 stem term, an unpaired end, or a split); a multiloop closed by `(i,j)` needs ≥ 2 branches: `Mclose(i,j) + min_k WM(i+1,k) + WM(k+1,j−1)`.
+- Interior loops use the Turner 2004 int11/int21/int22 tables and 1×n / 2×3 / generic mismatch rules exactly as ViennaRNA 2.7.2 `vrna_E_internal`; exterior and multiloop stems use the d2 dangle model (terminal mismatch when both neighbours exist). With NNDB-precision parameters the MFE and structure equal ViennaRNA `RNA.fold` (RNA-STRUCT-001 Evidence, Validation 2026-11).
 - `W(j)` — overall MFE of the prefix `[0..j]`: `j` unpaired, or a helix `V(k,j)` with `W(k-1)` before it.
 
 The **traceback** re-derives, at each cell, which recurrence option attained the stored optimum and recurses into the corresponding sub-problem(s), recording a base pair whenever a `V(i,j)` cell is entered. Because it mirrors the fill exactly, the reconstructed structure's energy equals `W(0,n-1)` — the scalar MFE.

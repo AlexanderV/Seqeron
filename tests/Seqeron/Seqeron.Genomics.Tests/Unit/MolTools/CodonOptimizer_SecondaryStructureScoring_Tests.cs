@@ -66,19 +66,22 @@ public class CodonOptimizer_SecondaryStructureScoring_Tests
     [Test]
     [Description("A1-6 lock 1: the Turner-2004 window energies used for scoring are the canonical "
         + "engine's values and agree with ViennaRNA 2.7.2 RNAfold (dangles=2) on six 45-nt windows "
-        + "of the two test genes, within the deviation documented for the engine (missing NNDB "
-        + "int21/int22 lookup tables, RNA-STRUCT-001 Evidence D3/D4).")]
+        + "of the two test genes: exactly when ViennaRNA is run with the NNDB-precision Turner 2004 "
+        + "parameters the engine uses (2-decimal stacks, terminal AU 0.45; RNA-STRUCT-001 Evidence), "
+        + "and within 0.24 kcal/mol of the rounded default parameter file.")]
     public void TurnerWindowEnergies_MatchViennaRnaRnafold()
     {
-        // ours (CalculateMinimumFreeEnergy) vs ViennaRNA 2.7.2 md.dangles = 2, kcal/mol:
+        // ours (CalculateMinimumFreeEnergy) = ViennaRNA 2.7.2 RNA.fold, md.dangles = 2, with the
+        // NNDB-precision Turner 2004 parameter file (RNA-STRUCT-001 Evidence) — identical values;
+        // ViennaRnaDefault = RNA.fold with the default (0.1-kcal-rounded) parameter file. kcal/mol:
         (string Window, double Ours, double ViennaRna)[] windows =
         {
-            (GeneA.Substring(0, 45), -25.82, -25.80),
-            (GeneA.Substring(3, 45), -29.34, -29.00),
-            (GeneA.Substring(6, 45), -25.82, -26.50),
-            (GeneB.Substring(0, 45),  -9.22,  -9.20),
-            (GeneB.Substring(3, 45), -13.44, -14.00),
-            (GeneB.Substring(6, 45), -13.82, -14.00),
+            (GeneA.Substring(0, 45), -25.92, -25.80),
+            (GeneA.Substring(3, 45), -29.14, -29.00),
+            (GeneA.Substring(6, 45), -26.26, -26.50),
+            (GeneB.Substring(0, 45),  -9.12,  -9.20),
+            (GeneB.Substring(3, 45), -13.91, -14.00),
+            (GeneB.Substring(6, 45), -13.91, -14.00),
         };
 
         Assert.Multiple(() =>
@@ -88,9 +91,9 @@ public class CodonOptimizer_SecondaryStructureScoring_Tests
                 double mfe = RnaSecondaryStructure.CalculateMinimumFreeEnergy(window);
                 Assert.That(mfe, Is.EqualTo(ours).Within(1e-9),
                     $"locked Turner 2004 MFE of window {window}");
-                Assert.That(mfe, Is.EqualTo(viennaRna).Within(1.0),
-                    $"ViennaRNA 2.7.2 RNAfold (dangles=2) gives {viennaRna:F2} kcal/mol for {window}; "
-                    + "max observed deviation over these windows is 0.68 kcal/mol");
+                Assert.That(mfe, Is.EqualTo(viennaRna).Within(0.25),
+                    $"ViennaRNA 2.7.2 RNAfold (dangles=2, default parameter file) gives {viennaRna:F2} kcal/mol "
+                    + $"for {window}; max observed deviation over these windows is 0.24 kcal/mol (parameter rounding)");
             }
         });
     }
@@ -110,16 +113,16 @@ public class CodonOptimizer_SecondaryStructureScoring_Tests
         Assert.Multiple(() =>
         {
             Assert.That(optimized, Is.EqualTo(
-                "AUGGGAGGAGGAGGAGGAGGAGGAGGAGGAGGAGGGGGAGGAGGAGGAAAGAAGAAGAAGAAA" +
-                "GCCGCCGCAGCCGCAGCAGCAGCCGCAGCAGCAGCAGCCGCAGCCUAA"),
+                "AUGGGAGGAGGAGGAGGAGGAGGAGGAGGAGGAGGGGGGGGGGGGGGAAAGAAGAAGAAGAAA" +
+                "GCAGCAGCAGCAGCAGCAGCAGCCGCAGCAGCAGCAGCAGCAGCCUAA"),
                 "deterministic Turner-mode output");
             Assert.That(Translate(optimized), Is.EqualTo(GeneAProtein), "protein preserved");
-            // Summed window MFE −477.92 → −144.26 kcal/mol; worst window −37.34 → −16.04.
-            Assert.That(SumWindowMfe(optimized), Is.EqualTo(-144.26).Within(0.01));
-            Assert.That(SumWindowMfe(GeneA), Is.EqualTo(-477.92).Within(0.01));
+            // Summed window MFE −480.34 → −116.70 kcal/mol; worst window −37.34 → −15.24.
+            Assert.That(SumWindowMfe(optimized), Is.EqualTo(-116.70).Within(0.01));
+            Assert.That(SumWindowMfe(GeneA), Is.EqualTo(-480.34).Within(0.01));
             Assert.That(SumWindowMfe(optimized), Is.GreaterThanOrEqualTo(SumWindowMfe(GeneA)),
                 "the summed window MFE must not get worse");
-            Assert.That(MinWindowMfe(optimized), Is.EqualTo(-16.04).Within(0.01));
+            Assert.That(MinWindowMfe(optimized), Is.EqualTo(-15.24).Within(0.01));
             Assert.That(MinWindowMfe(GeneA), Is.EqualTo(-37.34).Within(0.01));
             Assert.That(MinWindowMfe(optimized), Is.GreaterThanOrEqualTo(MinWindowMfe(GeneA)),
                 "the most stable window must not get worse");
@@ -137,16 +140,16 @@ public class CodonOptimizer_SecondaryStructureScoring_Tests
         Assert.Multiple(() =>
         {
             Assert.That(optimized, Is.EqualTo(
-                "AUGAAGCUGGCAGAUCUUGCUCAACUUGCAUUUCGUGAAGACCUUCGGCAAGCUUUAGAUCGU" +
-                "UUCAUGGCACAAUUAGAUAAAGCAUUAGCAGAAUAA"),
+                "AUGAAGUUAGCCGACUUAGCACAAUUAGCAUUUCGGGAAGACCUUCGGCAGGCAUUAGAUCGG" +
+                "UUCAUGGCCCAAUUAGACAAAGCGCUCGCGGAAUAA"),
                 "deterministic Turner-mode output");
             Assert.That(Translate(optimized), Is.EqualTo(GeneBProtein), "protein preserved");
-            // Summed window MFE −252.88 → −96.45 kcal/mol; worst window −17.00 → −7.18.
-            Assert.That(SumWindowMfe(optimized), Is.EqualTo(-96.45).Within(0.01));
-            Assert.That(SumWindowMfe(GeneB), Is.EqualTo(-252.88).Within(0.01));
+            // Summed window MFE −251.33 → −106.11 kcal/mol; worst window −16.70 → −8.62.
+            Assert.That(SumWindowMfe(optimized), Is.EqualTo(-106.11).Within(0.01));
+            Assert.That(SumWindowMfe(GeneB), Is.EqualTo(-251.33).Within(0.01));
             Assert.That(SumWindowMfe(optimized), Is.GreaterThanOrEqualTo(SumWindowMfe(GeneB)));
-            Assert.That(MinWindowMfe(optimized), Is.EqualTo(-7.18).Within(0.01));
-            Assert.That(MinWindowMfe(GeneB), Is.EqualTo(-17.00).Within(0.01));
+            Assert.That(MinWindowMfe(optimized), Is.EqualTo(-8.62).Within(0.01));
+            Assert.That(MinWindowMfe(GeneB), Is.EqualTo(-16.70).Within(0.01));
             Assert.That(MinWindowMfe(optimized), Is.GreaterThanOrEqualTo(MinWindowMfe(GeneB)));
         });
     }
@@ -273,7 +276,7 @@ public class CodonOptimizer_SecondaryStructureScoring_Tests
     [Test]
     [Description("A1-8: MinimizeSecondary can be scored with the Turner 2004 energy model through "
         + "the optional secondaryScoring parameter; on gene B that lowers the folding propensity "
-        + "of the balanced sequence substantially (summed window MFE −329.72 → −99.86 kcal/mol).")]
+        + "of the balanced sequence substantially (summed window MFE −327.63 → −95.48 kcal/mol).")]
     public void OptimizeSequence_MinimizeSecondary_Turner2004Mfe_OptIn()
     {
         var balanced = CodonOptimizer.OptimizeSequence(
@@ -285,17 +288,17 @@ public class CodonOptimizer_SecondaryStructureScoring_Tests
         Assert.Multiple(() =>
         {
             Assert.That(turner.OptimizedSequence, Is.EqualTo(
-                "AUGAAACUUGCCGACUUAGCUCAAUUAGCAUUUCGUGAAGAUUUGCGUCAAGCACUCGAUCGU" +
-                "UUUAUGGCACAAUUGGACAAGGCUCUGGCAGAAUAA"),
+                "AUGAAAUUAGCCGACUUAGCACAAUUAGCAUUUCGUGAAGACUUACGGCAGGCAUUAGAUCGU" +
+                "UUCAUGGCCCAAUUAGAUAAAGCACUCGCAGAAUAA"),
                 "deterministic Turner-scored MinimizeSecondary output");
             Assert.That(turner.ProteinSequence, Is.EqualTo(GeneBProtein));
             // F63: the Turner-scored structure pass keeps the GC band of the strategy satisfied
-            // (dnachisel EnforceGCContent(0.40, 0.60).evaluate of this output = -0.0; GC 0.424242).
+            // (dnachisel EnforceGCContent(0.40, 0.60).evaluate of this output = -0.0; GC 0.404040 — re-locked by B12 after the RNA-STRUCT-001 energy fixes).
             Assert.That(CodonOptimizer.EvaluateGcContent(turner.OptimizedSequence, 0.40, 0.60).Score,
                 Is.EqualTo(0).Within(1e-12));
             Assert.That(Translate(turner.OptimizedSequence), Is.EqualTo(GeneBProtein));
-            Assert.That(SumWindowMfe(balanced.OptimizedSequence), Is.EqualTo(-329.72).Within(0.01));
-            Assert.That(SumWindowMfe(turner.OptimizedSequence), Is.EqualTo(-99.86).Within(0.01));
+            Assert.That(SumWindowMfe(balanced.OptimizedSequence), Is.EqualTo(-327.63).Within(0.01));
+            Assert.That(SumWindowMfe(turner.OptimizedSequence), Is.EqualTo(-95.48).Within(0.01));
             Assert.That(SumWindowMfe(turner.OptimizedSequence),
                 Is.GreaterThan(SumWindowMfe(balanced.OptimizedSequence)),
                 "the Turner-scored pass must leave the sequence less structured than the balanced one");

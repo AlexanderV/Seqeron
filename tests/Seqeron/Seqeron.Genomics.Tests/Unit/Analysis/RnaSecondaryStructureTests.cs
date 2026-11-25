@@ -1036,21 +1036,18 @@ public class RnaSecondaryStructureTests
     }
 
     /// <summary>
-    /// Validates internal loop energy calculation against NNDB Turner 2004.
-    /// ΔG° = initiation(n₁+n₂) + |n₁−n₂|·0.6 + mismatch + AU/GU_closure(0.7)
-    /// Source: rna.urmc.rochester.edu/NNDB/turner04/internal-parameters.html
+    /// A 2×2 internal loop is a Turner 2004 lookup (int22), not the generic model.
+    /// Source: NNDB turner_2004_int22_dg.txt block 5'GX1Y1G3'/3'CX2Y2C5', X1=Y1=X2=Y2=G → +0.8;
+    /// ViennaRNA 2.7.2 eval_int_loop on GGGGAAAAACGGC (1,13,4,10) = 80 dcal/mol.
     /// </summary>
     [Test]
     public void CalculateInternalLoopEnergy_Symmetric_MatchesNNDB()
     {
-        // 2×2 symmetric internal loop (total size 4), GC closing both sides
-        // init(4)=1.1, asymmetry=0, no AU/GU closure, GG mismatch: -1.2 each side
         double energy = CalculateInternalLoopEnergy(
             2, 2, 'G', 'C', 'G', 'C', 'G', 'G', 'G', 'G');
 
-        double expected = 1.1 + 0.0 + (-1.2) + (-1.2); // = -1.3
-        Assert.That(energy, Is.EqualTo(Math.Round(expected, 2)).Within(0.01),
-            "Symmetric 2×2 internal loop with GG mismatches should match NNDB");
+        Assert.That(energy, Is.EqualTo(0.8).Within(1e-9),
+            "2×2 GG/GG loop between G-C pairs is the NNDB int22 entry (+0.8), not init + 2×GG bonus");
     }
 
     [Test]
@@ -1066,17 +1063,22 @@ public class RnaSecondaryStructureTests
             "Asymmetric internal loop should include asymmetry penalty and AU closure");
     }
 
+    /// <summary>
+    /// 3×3 generic loop between two A-U pairs: init(6) 2.0 + mismatch(AU; 5'G·3'A: GA −1.0 + AU closure 0.7)
+    /// + mismatch(UA read from inside; 5'A·3'G: AG −0.8 + AU closure 0.7) = 1.6.
+    /// Each closing pair's first mismatch is read from inside the loop (ViennaRNA vrna_E_internal:
+    /// mismatchI[type][s(i+1)][s(j−1)] + mismatchI[type2][s(q+1)][s(p−1)]).
+    /// Source: NNDB turner_2004_internal_loop_dg.txt; ViennaRNA 2.7.2 eval_int_loop on
+    /// AGAGAAAAAAUAAAU (1,15,5,11) = 160 dcal/mol.
+    /// </summary>
     [Test]
     public void CalculateInternalLoopEnergy_BothAUClosure_DoublesPenalty()
     {
-        // 3×3 symmetric, both sides AU closing
-        // init(6)=2.0, asymmetry=0, AU closure both sides=+1.4, GA mismatch each side=-1.0
         double energy = CalculateInternalLoopEnergy(
             3, 3, 'A', 'U', 'A', 'U', 'G', 'A', 'G', 'A');
 
-        double expected = 2.0 + 0.0 + 0.7 + 0.7 + (-1.0) + (-1.0); // = 1.4
-        Assert.That(energy, Is.EqualTo(Math.Round(expected, 2)).Within(0.01),
-            "Both AU closures should each add +0.7 penalty");
+        Assert.That(energy, Is.EqualTo(1.6).Within(1e-9),
+            "Both AU closures add +0.7; the inner pair sees the mismatch A·G (−0.8), the outer G·A (−1.0)");
     }
 
     /// <summary>

@@ -89,7 +89,7 @@ The public energy helpers uppercase sequence characters internally where needed.
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
-The implementation embeds Turner 2004 / NNDB tables for stacking, hairpin initiation, terminal mismatches, dangling ends, selected internal-loop classes, bulges, and multibranch parameters. It includes explicit handling for special hairpin loops, all-`C` penalties, terminal AU/GU penalties, and the documented `GGUC/CUGG` three-stack context. Internal-loop support is exact for 1x1 loops and then falls back to generic mismatch-based models for larger classes such as 2x3 and other wider internal loops; the source and test specifications explicitly note that dedicated int21 and int22 tables are not implemented. The MFE routine uses pooled `W`, `V`, and `WM` arrays, and its multibranch term currently sets the free-base cost to `0.0` as a simplification.
+The implementation embeds Turner 2004 / NNDB tables for stacking, hairpin initiation, terminal mismatches, dangling ends, selected internal-loop classes, bulges, and multibranch parameters. It includes explicit handling for special hairpin loops, all-`C` penalties, terminal AU/GU penalties, and the documented `GGUC/CUGG` three-stack context. Internal loops use the full Turner 2004 1×1 / 1×2 / 2×2 lookup tables and the 1×n / 2×3 / generic first-mismatch rules with the Ninio asymmetry cap of 3.0 kcal/mol (ViennaRNA 2.7.2 `vrna_E_internal`). The MFE routine uses pooled `W`, `V`, and `WM` arrays, the d2 dangle model for exterior and multiloop stems, and the linear multiloop parameters a = 9.3, b = 0, c = −0.9 (ViennaRNA 2.7.2 Turner 2004 set).
 
 ### 4.3 Complexity
 
@@ -124,7 +124,7 @@ The repository currently uses Turner 2004 tables sourced from NNDB and rounds re
 **Intentionally simplified:**
 
 - The multibranch-loop free-base term is fixed to `0.0` in the current MFE routine; **consequence:** multibranch energetics are less detailed than a full Turner implementation.
-- Internal-loop coverage is partial: 1x1 loops use dedicated tables, while larger classes fall back to generic mismatch-based models; **consequence:** the implementation does not fully reproduce Turner/NNDB int21 and int22 parameterization.
+- Internal loops follow ViennaRNA 2.7.2 `vrna_E_internal` with the Turner 2004 int11/int21/int22 tables (generated `Turner2004InteriorLoopTables`, NNDB-identical) and the NNDB 1×n / 2×3 / generic mismatch values; ViennaRNA's default parameter file differs from NNDB in 26 of those mismatch entries (GG/UU, 2×3 RG·YA on AU/GU) — the NNDB values are used (RNA-STRUCT-001 Evidence).
 
 **Not implemented:**
 

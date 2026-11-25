@@ -30,9 +30,9 @@ Following Zuker & Stiegler (1981) [1], for subsequence indices `i < j` two dynam
 
 - **W(j) / F** — minimum free energy of the unconstrained prefix/exterior segment, allowing the last base to be unpaired or to close a helix:
 
-  `W(j) = min{ W(j−1), min_{0≤i≤j} [ W(i−1) + C(i,j) + end_penalty(i,j) + dangle(i,j) ] }`
+  `W(j) = min{ W(j−1), min_{0≤i≤j} [ W(i−1) + C(i,j) + Ext(i,j) ] }` where `Ext` is the d2 exterior-stem term of ViennaRNA 2.7.2 (`vrna_E_exterior_stem`, `md.dangles = 2`): terminal AU/GU penalty + terminal mismatch of `s[i−1]`, `s[j+1]` (a single 5'/3' dangle at the sequence ends), read with the helix end seen from the loop.
 
-- **WM / M, M1** — multibranch-loop fragment matrices accumulating ≥1 (M) and exactly-1 (M1) branch contributions [4].
+- **WM / M, M1** — multibranch-loop fragment matrices accumulating ≥1 (M) and exactly-1 (M1) branch contributions [4]. A multiloop closed by (i,j) is `Mclose(i,j) + min_k WM(i+1,k) + WM(k+1,j−1)` (≥ 2 inner branches); each branch adds `Mstem` = c + AU/GU + terminal mismatch (d2).
 
 The minimum hairpin loop is 3 nucleotides (`j − i − 1 ≥ 3`) [1][2]. Loop energies come from Turner 2004: nearest-neighbor stacking, hairpin/bulge/interior initiation tables, terminal AU/GU end penalties (+0.45), terminal-mismatch and first-mismatch bonuses, and special tri/tetra/hexaloop totals [2]. For a unimolecular fold the bimolecular helix-initiation constant is **not** applied [2, NNDB hairpin-example-1].
 
@@ -43,7 +43,7 @@ The minimum hairpin loop is 3 nucleotides (`j − i − 1 ≥ 3`) [1][2]. Loop e
 | ASM-01 | Nearest-neighbor independence: a loop's energy depends only on its closing pair(s) and adjacent bases. | Non-local stabilization (tertiary contacts) is unmodeled; predicted ΔG° deviates from experiment. |
 | ASM-02 | Fixed conditions: 37 °C, 1 M NaCl (Turner 2004 parameter conditions). | Different temperature/ionic strength shift all loop energies. |
 | ASM-03 | Pseudoknot-free: only non-crossing pairs are scored. | Pseudoknotted folds are outside the optimization. |
-| ASM-04 | Affine multiloop model with per-unpaired cost = 0 (offset 9.25, per-helix −0.63 from Turner 2004; unpaired coefficient simplified to 0). | Multiloop optima may shift relative to the full affine model; single-hairpin/stack/interior optima are unaffected. |
+| ASM-04 | Linear DP multiloop model a = 9.3, b = 0 (per unpaired), c = −0.9 (per branch incl. the closing pair) — ViennaRNA 2.7.2 `default.c` ML_closing37/ML_intern37/ML_BASE37 (Turner 2004 set); the NNDB efn2 form (9.25 + 0.91·asymmetry − 0.63·helices + strain) has a non-decomposable asymmetry term and is kept for `CalculateMultibranchLoopEnergy` only. | Multiloop energies follow the RNAfold/RNAstructure DP approximation, not efn2's asymmetry/coaxial-stacking refinement. |
 
 ### 2.4 Properties and Invariants
 
@@ -88,12 +88,12 @@ The minimum hairpin loop is 3 nucleotides (`j − i − 1 ≥ 3`) [1][2]. Loop e
 
 1. Validate/normalize input; short-circuit empty/too-short sequences to 0.
 2. Fill `C(i,j)` and `WM(i,j)` by increasing span: evaluate hairpin, stacking, interior/bulge (bounded by MAXLOOP = 30), and multibranch options.
-3. Accumulate the exterior optimum `W(j)` allowing unpaired bases, helix closure with AU/GU end penalties and dangling ends.
+3. Accumulate the exterior optimum `W(j)` allowing unpaired bases, helix closure with AU/GU end penalties and d2 terminal mismatches / dangles.
 4. Return `W(n−1)` rounded to 2 decimals. `PredictStructure` instead greedily selects non-overlapping stem-loops by energy and emits base pairs + dot-bracket.
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
-Turner 2004 parameter tables (kcal/mol, 37 °C) embedded in `RnaSecondaryStructure.cs` and sourced from NNDB [2]: nearest-neighbor stacking (WC + G-U), hairpin/bulge/interior loop initiation, terminal AU/GU end penalty (+0.45), terminal-mismatch stacking, first-mismatch bonuses (UU/GA −0.9, GG −0.8, special G-U closure −2.2), special tri/tetra/hexaloop totals, 1×1 interior loop table, dangling ends, and affine multibranch parameters (a = 9.25, c = −0.63). Internal/bulge loops are bounded by MAXLOOP = 30. A flat `double[]` buffer from `ArrayPool` backs the `n×n` matrices (O(n²) space).
+Turner 2004 parameter tables (kcal/mol, 37 °C) embedded in `RnaSecondaryStructure.cs` and sourced from NNDB [2]: nearest-neighbor stacking (WC + G-U), hairpin/bulge/interior loop initiation, terminal AU/GU end penalty (+0.45), terminal-mismatch stacking, first-mismatch bonuses (UU/GA −0.9, GG −0.8, special G-U closure −2.2), special tri/tetra/hexaloop totals (total loop energies, no extra closure penalty), the Turner 2004 1×1 / 1×2 / 2×2 interior-loop tables and 1×n / 2×3 / generic first-mismatch tables (generated file `Seqeron.Genomics.Core/Turner2004InteriorLoopTables.cs`; ViennaRNA 2.7.2 `vrna_E_internal` semantics, NNDB-verified), Ninio asymmetry min(3.0, 0.6·|n1−n2|), dangling ends, and the linear multibranch parameters (a = 9.3, c = −0.9). Internal/bulge loops are bounded by MAXLOOP = 30. A flat `double[]` buffer from `ArrayPool` backs the `n×n` matrices (O(n²) space).
 
 ### 4.3 Complexity
 
