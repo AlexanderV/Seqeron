@@ -2,9 +2,9 @@
 
 - **Validated:** 2026-06-25   **Area:** MiRNA
 - **Canonical method(s):** `MiRnaAnalyzer.ScoreTargetSiteContextPlusPlus` (+ SA wiring via the McCaskill partition function; PCT via Friedman 2009 Bls + sigmoid)
-- **Stage A verdict:** ✅ PASS
-- **Stage B verdict:** ✅ PASS
-- **State:** ✅ CLEAN
+- **Stage A verdict:** ✅ PASS (2026-06-25) → 🟡 PASS-WITH-NOTES (B13 re-review 2026-11-25)
+- **Stage B verdict:** ✅ PASS (2026-06-25) → FAIL→FIXED (B13 re-review 2026-11-25, F15–F18; see the last section)
+- **State:** ✅ CLEAN (SA estimate without a supplied RNAplfold value documented as an approximation)
 
 ## Authoritative sources opened THIS session
 
@@ -144,3 +144,50 @@ the parameter file.
 - Full unfiltered `dotnet test Seqeron.sln -c Debug` green: Seqeron.Genomics.Tests 18762 passed /
   0 failed (all other projects pass; the empty Annotation.Tests project reports "no test available").
 - No defect logged.
+
+## Re-review 2026-11-25 (review campaign B13, F15–F18)
+
+The 2026-06-25 pass compared formulas by reading the perl. This pass RAN it.
+
+**Reference run.** `targetscan_70.pl` and `targetscan_70_context_scores.pl` (nsoranzo/targetscan main,
+opened 2026-11-25) with perl 5.38.2. RNAplfold is not installed; a stub `RNAplfold` wrote the `_lunp`
+file from ViennaRNA 2.8.0 `RNA.pfl_fold_up(seq, 20, 80, 40)` (end-indexed, checked: `up[i][l]` is the
+stretch ending at i). Inputs: let-7a (`UGAGGUAGUAGGUUGUAUAGUU`), ORF length 1500, ORF 8mer count 1, AIR
+100 over the whole UTR, PCT NA; TA/SPS from `TA_SPS_by_seed_region.txt` row GAGGUAG (−9.250 / −6.720 /
+3.393). Two UTRs: a 295-nt one (8mer 41, 6mer 85, 7mer-m8 122, 7mer-A1 176, 8mer 268; 4 × CUACCU) and a
+181-nt one (8mer 31, 6mer 82, 7mer-A1 125; 1 × CUACCU).
+
+**Result.** With the RNAplfold value supplied (`ContextPlusPlusInputs.PlfoldUnpairedProbability`), every
+printed contribution and the score of the 181-nt UTR equal the perl (8mer −0.742, 6mer −0.118, 7mer-A1
+−0.257); `MiRnaAnalyzer_ContextPlusPlusTargetScanParity_Tests` locks all 14 columns. On the 295-nt UTR
+the only differences are the two reference defects below (Off6m −0.080 vs −0.020; 6mer Site8 0.012 vs
+0.015); with Off6m fixed in a copy of the perl (2 lines) the four non-6mer scores agree exactly
+(−0.559, −0.355, −0.293, −0.675).
+
+**Findings.**
+- **F15** — no TargetScan score. The perl rounds every contribution to 3 decimals, rounds the sum,
+  caps it at `$maxContextScore` (8mer −0.03, 7mer-m8 −0.02, 7mer-A1 −0.01, 6mer 0) and prints
+  `too_close` for `utrStart < 15`. The library returned only the unrounded, uncapped sum. Fix: additive
+  `ContextPlusPlusScore.ContextScore` (`double?`). Example: 7mer-A1 125 unrounded −0.2580, TargetScan −0.257.
+- **F16** — Local_AU fraction not rounded. `getLocalAU_contribution` applies `sprintf("%.3f")` to the
+  fraction before scaling. Fixed (up to 2.5e-4 per site); two tests re-locked by hand derivation.
+- **F17** — SA. (a) The estimate (one 80-nt McCaskill window, no span limit) is not RNAplfold
+  (`-L 40 -W 80` averages every 80-nt window holding the region, 40-nt span). log10 p, estimate vs
+  RNAplfold: 8mer 31 −0.86 vs −2.01, 6mer 85 −6.04 vs −4.19, 7mer-m8 122 −1.42 vs −2.34, 8mer 268 −0.67
+  vs −3.19. A window average with span 40 reproduces RNAplfold to ≤ 0.07 log10 (ViennaRNA), but the
+  canonical partition function has no span limit (RNA-STRUCT request); the canonical partition function
+  also differs from ViennaRNA on 80-nt windows by factors up to 30. Fix: opt-in
+  `PlfoldUnpairedProbability` (exact TargetScan SA); estimate documented as an approximation. (b) A zero
+  probability now contributes 0 (perl `! $plfold`). (c) A site within 7 nt of the 3' end reads the last
+  `_lunp` row (`grep -A7 | tail -1`) instead of being omitted.
+- **F18** — Off6m counted overlapping occurrences; the perl `/g` regex counts non-overlapping ones
+  (`ACACACACACAC` → 2, not 4). Fixed. Reference defect, not reproduced: the public perl matches against
+  `$utr_seq{$transcriptID}` (a hash reference) and stores the list in scalar context, so its Off6m is 1
+  for every site.
+- Reference defect, not reproduced (no finding): Site8 for 6mer sites reads `substr($subseq, 14, 1)` of a
+  22-nt subsequence padded with two N's, i.e. the base two positions 5' of the one opposite miRNA nt 8;
+  the library reads the base Agarwal 2015 defines.
+
+Coefficients re-checked against `Agarwal_2015_parameters.txt` (all 22 rows equal). Unchanged and
+confirmed by the run: intercept, 3P_score (5/5 sites), Min_dist, Len_3UTR, sRNA1/8, Site8 (7mer-A1),
+TA, SPS, Len_ORF, ORF8m.

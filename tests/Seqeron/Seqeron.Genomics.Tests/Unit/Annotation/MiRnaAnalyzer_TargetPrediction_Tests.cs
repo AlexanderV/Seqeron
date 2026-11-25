@@ -745,10 +745,11 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
         // miR-21 seedRC AUAAGCU, 6mer core = UAAGCU. nt1=U (sRNA1=0), nt8=U (sRNA8=0).
         // Layout: GGGGC + UAAGCU + UGAGG → site Start=5,End=10; Site8 base = mrna[4]='C'.
         // Local-AU (6mer weights: up 1/(i+2), down 1/(i+1)): only downstream U(i0),A(i2) are A/U
-        //   fraction = (1 + 1/3) / (Σ up + Σ down) = 0.357142857142857
+        //   fraction = (1 + 1/3) / (Σ up + Σ down) = 0.357142857142857 → perl sprintf("%.3f") = 0.357
         // CS_partial = Intercept(6mer) + Local_AU + Site8C(6mer)
         //   Intercept(6mer)          = -0.079
-        //   Local_AU = -0.040 × ((0.357142857142857 - 0.295)/(0.772 - 0.295)) = -0.005211141060198
+        //   Local_AU = -0.040 × ((0.357 - 0.295)/(0.772 - 0.295)) = -0.005199161425577 (B13 F16;
+        //   unrounded fraction gave -0.005211141060198)
         //   Site8C(6mer)             = +0.015  ;  sRNA1=0, sRNA8=0
         //   ⇒ CS_partial            = -0.069211141060198
         string mrna = "GGGGC" + "UAAGCU" + "UGAGG";
@@ -760,8 +761,8 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
         {
             Assert.That(site.Type, Is.EqualTo(TargetSiteType.Seed6mer), "fixture must be a 6mer");
             Assert.That(ctx.Intercept, Is.EqualTo(-0.079).Within(1e-9), "6mer intercept");
-            Assert.That(ctx.LocalAuContribution, Is.EqualTo(-0.005211141060198).Within(1e-9),
-                "Local_AU with downstream A/U fraction 0.357142857142857, scaled ×(-0.040)");
+            Assert.That(ctx.LocalAuContribution, Is.EqualTo(-0.040 * (0.357 - 0.295) / (0.772 - 0.295)).Within(1e-12),
+                "Local_AU with downstream A/U fraction 0.357142857142857 → 0.357 (3 dp), scaled ×(-0.040)");
             Assert.That(ctx.SRna1Contribution, Is.EqualTo(0.0).Within(1e-9), "nt1=U");
             Assert.That(ctx.SRna8Contribution, Is.EqualTo(0.0).Within(1e-9), "nt8=U ⇒ sRNA8 not scored");
             Assert.That(ctx.Site8Contribution, Is.EqualTo(0.015).Within(1e-9),
@@ -774,8 +775,12 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
             Assert.That(ctx.Len3UtrContribution, Is.EqualTo(-0.04447703767941017).Within(1e-9),
                 "Len_3UTR(6mer) = 0.045×((log10(16)-2.405)/(3.620-2.405))");
             Assert.That(ctx.Off6mContribution, Is.EqualTo(0.0).Within(1e-9), "no miR-21 offset-6mer in this UTR");
-            Assert.That(ctx.ContextScorePartial, Is.EqualTo(-0.12128221179295548).Within(1e-9),
+            // -0.079 + Local_AU + 0.015 + 0.0096 - 0.017194033053347654 - 0.04447703767941017 (+ SA 0: window does not fit)
+            Assert.That(ctx.ContextScorePartial,
+                Is.EqualTo(-0.079 - 0.040 * (0.357 - 0.295) / (0.772 - 0.295) + 0.015 + 0.0096
+                    - 0.017194033053347654 - 0.04447703767941017).Within(1e-9),
                 "6mer partial context++");
+            Assert.That(ctx.ContextScore, Is.Null, "1-based utrStart 6 < 15 ⇒ TargetScan 'too_close' (no score)");
         });
     }
 

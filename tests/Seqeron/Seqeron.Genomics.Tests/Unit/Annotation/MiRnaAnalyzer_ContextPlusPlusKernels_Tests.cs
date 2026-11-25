@@ -77,8 +77,11 @@ public class MiRnaAnalyzer_ContextPlusPlusKernels_Tests
         // Offset-6mer pattern = first 6 nt of revcomp(miRNA nt2-8). For miRNA "NAAAAAAAA..." the seed
         // region (nt2-8) = "AAAAAAA" → revcomp = "UUUUUUU" → pattern = "UUUUUU". Count its occurrences.
         var mirna = "CAAAAAAAAUUUUUUUUUUUU"; // nt2-8 = "AAAAAAA"
-        string mrna = "UUUUUUUU";             // contains "UUUUUU" at offsets 0,1,2 → 3 occurrences
-        int expectedCount = 3;
+        // "UUUUUU" occurs at offsets 0,1,2, but getOffset6merSites counts `while ($utr =~ /UUUUUU/gi)`:
+        // a /g match resumes after the previous one, so only ONE non-overlapping occurrence (B13 F18;
+        // perl -e '$n++ while "UUUUUUUU" =~ /UUUUUU/gi' → 1).
+        string mrna = "UUUUUUUU";
+        int expectedCount = 1;
         Assert.That(MiRnaAnalyzer.Off6mContribution(mrna, mirna, M8),
             Is.EqualTo(-0.020 * expectedCount).Within(Tol));
     }
@@ -115,9 +118,10 @@ public class MiRnaAnalyzer_ContextPlusPlusKernels_Tests
     public void LocalAuContribution_8mer_PositionalWeighting()
     {
         // 8mer upstream weight = 1/(i+1). Site [2..9]; mrna[0..1] = "GA": upstream i=0→idx1='A'(w=1,AU),
-        // i=1→idx0='G'(w=0.5,not AU). No downstream (site ends at last index). fraction = 1/1.5.
+        // i=1→idx0='G'(w=0.5,not AU). No downstream (site ends at last index). fraction = 1/1.5,
+        // rounded to 3 dp as getLocalAU_contribution does (sprintf "%.3f") → 0.667 (B13 F16).
         string mrna = "GA" + new string('C', 8); // site occupies [2..9]
-        double fraction = 1.0 / 1.5;
+        double fraction = 0.667;
         Assert.That(MiRnaAnalyzer.LocalAuContribution(mrna, 2, 9, M8),
             Is.EqualTo(Scaled(fraction, -0.254, 0.308, 0.814)).Within(Tol));
     }
