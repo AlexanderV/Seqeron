@@ -508,27 +508,19 @@ public class SpliceSitePredictor_GeneStructure_Tests
     }
 
     [Test]
-    public void PredictGeneStructure_DroppedSubThresholdRegion_SplicedEqualsReportedExons()
+    public void PredictGeneStructure_ShortInnerExon_IntronRejected_ExonsTileSequence()
     {
-        // 2×83-nt introns, 40-nt mid region, minExonLength=50 → the 40-nt mid region is dropped.
+        // 2x83-nt introns, 40-nt mid region, minExonLength=50: both introns together would leave a
+        // 40-nt exon, so only one of them can be selected (no exon is ever dropped) and the exons plus
+        // the intron tile the whole sequence.
         var structure = PredictGeneStructure(
             TwoIntronSequence, minExonLength: 50, minIntronLength: 60, minScore: 0.2);
 
-        Assert.That(structure.Introns, Has.Count.EqualTo(2),
-            "Prerequisite: two GT-AG introns must be selected");
-
-        // The sub-threshold mid region must be dropped from the exon list (≤ 2 exons),
-        // and the spliced product must contain exactly the reported exons — never the
-        // dropped mid region.
+        Assert.That(structure.Introns, Has.Count.EqualTo(1));
+        Assert.That(structure.Exons.Min(e => e.Length), Is.GreaterThanOrEqualTo(50));
         AssertSplicedConsistency(structure);
-
-        // Concretely: only the two 50-nt flank exons are reported; the 40-nt mid region is gone.
-        Assert.That(structure.Exons, Has.Count.EqualTo(2),
-            "Sub-threshold 40-nt mid region must be dropped, leaving the two 50-nt flank exons");
-        Assert.That(structure.SplicedSequence, Is.EqualTo(FlankExon50 + FlankExon50),
-            "Spliced product must be the two reported flank exons, excluding the dropped mid region");
-        Assert.That(structure.SplicedSequence, Does.Not.Contain(MidRegion40),
-            "Dropped sub-threshold region must NOT appear in the spliced sequence");
+        Assert.That(structure.Exons.Sum(e => e.Length) + structure.Introns.Sum(i => i.Length),
+            Is.EqualTo(TwoIntronSequence.Length));
     }
 
     [Test]
@@ -554,21 +546,16 @@ public class SpliceSitePredictor_GeneStructure_Tests
     }
 
     [Test]
-    public void PredictGeneStructure_BothFlanksSubThreshold_SplicedEqualsReportedExons()
+    public void PredictGeneStructure_AllExonsSubThreshold_NoIntronsSingleExon()
     {
-        // Variant: minExonLength=60 drops BOTH the 50-nt flanks AND the 40-nt mid region.
+        // minExonLength=60 > the 50-nt flanks: no intron can be selected, the whole input is one exon.
         var structure = PredictGeneStructure(
             TwoIntronSequence, minExonLength: 60, minIntronLength: 60, minScore: 0.2);
 
-        Assert.That(structure.Introns, Has.Count.EqualTo(2),
-            "Prerequisite: two GT-AG introns must be selected");
-        Assert.That(structure.Exons, Is.Empty,
-            "All inter-/flanking regions (50,40,50) are sub-threshold → no exons reported");
-
-        // Even with zero exons the spliced product must equal concat(reported exons) == "".
-        AssertSplicedConsistency(structure);
-        Assert.That(structure.SplicedSequence, Is.Empty,
-            "When every region is dropped, the spliced product is empty (concat of no exons)");
+        Assert.That(structure.Introns, Is.Empty);
+        Assert.That(structure.Exons, Has.Count.EqualTo(1));
+        Assert.That(structure.Exons[0].Type, Is.EqualTo(ExonType.Single));
+        Assert.That(structure.SplicedSequence, Is.EqualTo(TwoIntronSequence));
     }
 
     #endregion

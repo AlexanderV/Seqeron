@@ -221,8 +221,26 @@ No residual assumptions. All former assumptions have been resolved:
 8. Alberts B et al. (2002). Molecular Biology of the Cell, 4th ed. Garland Science.
 9. Padgett RA et al. (1986). Splicing of messenger RNA precursors. Annu Rev Biochem 55:1119-1150.
 
+
+## B11 Review (2026-11) — sources opened and oracle numbers
+
+Sources actually consulted: Ensembl REST (rest.ensembl.org, GRCh38; canonical transcripts ENST00000335295 HBB,
+ENST00000269305 TP53, ENST00000003084 CFTR exons 2-5, neutral User-Agent), the SUPPA/rMATS event definitions
+(Wang 2008; Shen 2014; Alamancos 2015 - from the published definitions, not re-fetched), Braunschweig 2014 (retained
+intron features), Gao 2008 / Levine & Durbin 2001 / Dietrich 1997 (already in the donor/acceptor evidence).
+
+- Independent Python oracle (pairing, types, Gao branch point, scores, ordering, greedy selection with exon tiling,
+  phase, SE/A5SS/A3SS/MXE events, IsWithinCodingRegion for every position x frame): 0 mismatches on 1,400 random
+  sequences (120-1,200 nt, GC 0.4-0.6, planted introns; ~540,000 candidate introns, ~3,300 selected, ~150,000 events,
+  ~110,000 coding positions). Donor/acceptor site lists are the canonical (separately validated) methods' output.
+- Ensembl recall (minIntron 30, minExon 30): HBB 2/2, TP53 10/10, CFTR exons 2-5 3/3 annotated introns are among the
+  PredictIntrons candidates (exact coordinates, all typed U2; true-intron score rank 2-4,500 of 3,011 / 602,245 /
+  1,293,492 candidates); the greedy PredictGeneStructure selection recovers 0/15 (it picks high-scoring false pairs):
+  splice-motif only, see the wiki gotcha.
+
 ---
 
 ## Change History
 
 - **2026-02-12**: Initial documentation.
+- **2026-11**: B11 review (F32-F38): typed U12 requires both U12 sites, canonical branch point, fixed-term score, exon tiling, SUPPA/rMATS events, ORF-based IsWithinCodingRegion.

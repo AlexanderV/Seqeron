@@ -1460,7 +1460,7 @@ public class AnnotationTools
 
     /// <summary>Predict introns by pairing donor/acceptor sites.</summary>
     [McpServerTool(Name = "predict_introns", Title = "Splice — Predict Introns", ReadOnly = true)]
-    [Description("Predict introns by pairing donor and acceptor splice sites and locating branch points.")]
+    [Description("Predict introns (0-based inclusive coordinates) by pairing donor and acceptor splice sites (GT-AG / GC-AG = U2, AT-AC or GT-AG with U12 donor + UUCCUUAAC branch site = U12) and locating Gao 2008 yUnAy branch points; score = mean(donor, acceptor, branch point) for U2.")]
     public static PredictIntronsResult PredictIntrons(
         [Description("RNA/DNA sequence to analyze")] string sequence,
         [Description("Minimum intron length (nt)")] int minIntronLength = 60,
@@ -1479,7 +1479,7 @@ public class AnnotationTools
 
     /// <summary>Predict exon/intron gene structure.</summary>
     [McpServerTool(Name = "predict_gene_structure", Title = "Splice — Predict Gene Structure", ReadOnly = true)]
-    [Description("Predict exon/intron gene structure with greedy non-overlapping intron selection.")]
+    [Description("Predict exon/intron gene structure (splice-motif model, not coding-aware): greedy non-overlapping intron selection by score; exons >= minExonLength, exons + introns tile the sequence.")]
     public static PredictGeneStructureResult PredictGeneStructure(
         [Description("RNA/DNA sequence to analyze")] string sequence,
         [Description("Minimum exon length (nt)")] int minExonLength = 30,
@@ -1497,7 +1497,7 @@ public class AnnotationTools
 
     /// <summary>Detect candidate alternative splicing patterns.</summary>
     [McpServerTool(Name = "detect_alternative_splicing", Title = "Splice — Detect Alternative Splicing", ReadOnly = true)]
-    [Description("Detect candidate alternative splicing patterns (exon skipping, alternative 5'/3' splice sites).")]
+    [Description("Detect candidate alternative splicing events relative to the predicted gene structure with SUPPA/rMATS definitions: ExonSkipping (SE), Alt5SS (A5SS), Alt3SS (A3SS), MutuallyExclusiveExons (MXE).")]
     public static DetectAlternativeSplicingResult DetectAlternativeSplicing(
         [Description("RNA/DNA sequence to analyze")] string sequence,
         [Description("Minimum splice-site score for events to be considered")] double minScore = 0.4)
@@ -1514,7 +1514,7 @@ public class AnnotationTools
 
     /// <summary>Find short, moderately-scored retained-intron candidates.</summary>
     [McpServerTool(Name = "find_retained_intron_candidates", Title = "Splice — Find Retained Intron Candidates", ReadOnly = true)]
-    [Description("Find short, moderately-scored intron candidates likely to be retained in some transcripts.")]
+    [Description("Heuristic: short (< 500 nt), weaker-site (score < 0.8) predicted introns, the features of mammalian retained introns (Braunschweig 2014); retention itself needs transcript evidence.")]
     public static FindRetainedIntronCandidatesResult FindRetainedIntronCandidates(
         [Description("RNA/DNA sequence to analyze")] string sequence,
         [Description("Minimum combined score for an intron candidate")] double minScore = 0.5)
@@ -1551,11 +1551,11 @@ public class AnnotationTools
 
     /// <summary>Heuristic check whether a position lies in a coding region.</summary>
     [McpServerTool(Name = "is_within_coding_region", Title = "Splice — Is Within Coding Region", ReadOnly = true)]
-    [Description("Heuristic check whether a sequence position lies in a coding region downstream of an in-frame start codon.")]
+    [Description("Whether a position lies in an open reading frame opened by an upstream AUG with no in-frame stop before the position's codon (stop codon itself included).")]
     public static IsWithinCodingRegionResult IsWithinCodingRegion(
         [Description("DNA/RNA sequence")] string sequence,
         [Description("Zero-based position to test")] int position,
-        [Description("Reading frame (0, 1, or 2) relative to the upstream start codon")] int frame = 0)
+        [Description("Position of the queried nucleotide inside its codon (0, 1 or 2)")] int frame = 0)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));

@@ -6,8 +6,11 @@ namespace Seqeron.Mcp.Annotation.Tests;
 [TestFixture]
 public class DetectAlternativeSplicingTests
 {
-    // Two perfect GU donors (CAGGUAAGU) within the same 50-nt group -> Alt5SS event.
-    private const string TwoDonors = "CAGGUAAGUCAGGUAAGU";
+    // Two GU-AG introns (CAGGUAAGU + 60 A + PPT + CAGG) separated by a 50-nt exon: the spanning candidate
+    // intron makes the middle exon an SE (ExonSkipping) event (SUPPA / rMATS definition).
+    private const string Unit = "CAGGUAAGU" + "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" + "UUUUUUUUUUUUUUUCAGG";
+    private const string TwoDonors = "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC" + Unit +
+        "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC" + Unit + "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC";
 
     [Test]
     public void DetectAlternativeSplicing_Schema_ValidatesCorrectly()
@@ -20,14 +23,12 @@ public class DetectAlternativeSplicingTests
     [Test]
     public void DetectAlternativeSplicing_Binding_InvokesSuccessfully()
     {
-        // SpliceSitePredictor.DetectAlternativeSplicing: >1 donor in a 50-nt window -> Alt5SS event,
-        // reported at the first donor's position (the GU of the first CAGGUAAGU is at index 3).
-        var result = AnnotationTools.DetectAlternativeSplicing(TwoDonors, minScore: 0.2);
+        // ExonSkipping is reported at the donor (GU) of the first flanking intron (index 40 + 3).
+        var result = AnnotationTools.DetectAlternativeSplicing(TwoDonors, minScore: 0.3);
 
-        Assert.That(result.Events, Is.Not.Empty);
-        var alt5 = result.Events.Where(e => e.Type == "Alt5SS").ToList();
-        Assert.That(alt5, Is.Not.Empty);
-        Assert.That(alt5[0].Position, Is.EqualTo(3));
+        var se = result.Events.Where(e => e.Type == "ExonSkipping").ToList();
+        Assert.That(se, Is.Not.Empty);
+        Assert.That(se.Select(e => e.Position), Does.Contain(43));
     }
 
     [Test]
@@ -35,8 +36,8 @@ public class DetectAlternativeSplicingTests
     {
         // The underlying algorithm returns empty for empty input; the wrapper guards empty first.
         Assert.Throws<ArgumentException>(() => AnnotationTools.DetectAlternativeSplicing(""));
-        // A sequence with a single donor and no grouping yields no Alt5SS.
+        // A sequence without a candidate intron yields no event.
         var single = AnnotationTools.DetectAlternativeSplicing("CAGGUAAGU", minScore: 0.2);
-        Assert.That(single.Events.Any(e => e.Type == "Alt5SS"), Is.False);
+        Assert.That(single.Events, Is.Empty);
     }
 }

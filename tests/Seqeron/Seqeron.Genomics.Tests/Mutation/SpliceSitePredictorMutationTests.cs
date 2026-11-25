@@ -357,9 +357,10 @@ public class SpliceSitePredictorMutationTests
         // Combined score is the mean of the contributing site scores: pins the averaging formula.
         foreach (var i in introns)
         {
-            double withBranch = i.BranchPoint.HasValue
-                ? (i.DonorSite.Score + i.AcceptorSite.Score + i.BranchPoint.Value.Score) / 3
-                : (i.DonorSite.Score + i.AcceptorSite.Score) / 2;
+            // U2 / GC-AG: fixed three terms (branch-point term 0 when none); U12: two terms.
+            double withBranch = i.Type == IntronType.U12
+                ? (i.DonorSite.Score + i.AcceptorSite.Score) / 2
+                : (i.DonorSite.Score + i.AcceptorSite.Score + (i.BranchPoint?.Score ?? 0)) / 3;
             Assert.That(i.Score, Is.EqualTo(withBranch).Within(Tol));
         }
     }
@@ -528,18 +529,19 @@ public class SpliceSitePredictorMutationTests
         Assert.That(events, Does.Contain("ExonSkipping"));
     }
 
-    // A donor must see MORE THAN ONE downstream acceptor (>60 nt away) to flag exon skipping.
-    // One strong donor + N strong acceptors, > 60 nt apart, lets us pin the strict '> 1' count.
+    // SE (SUPPA/rMATS): reference introns (d1,a2),(d2,a3) and the spanning candidate (d1,a3).
     private const string StrongDonor = "CAGGUAAGU";
     private const string StrongAcceptor = "UUUUUUUUUUUUUUUCAGG";
 
     [Test]
-    public void DetectAlternativeSplicing_TwoDownstreamAcceptors_FlagsExonSkipping()
+    public void DetectAlternativeSplicing_TwoIntronsAndSpanningCandidate_FlagsExonSkipping()
     {
-        // validAcceptors == 2 > 1 ⇒ ExonSkipping. A 'validAcceptors < 1' mutant would suppress it.
-        string seq = StrongDonor + new string('A', 60) + StrongAcceptor + "AAAAA" + StrongAcceptor;
-        var events = DetectAlternativeSplicing(seq, minScore: 0.3).Select(e => e.Type).ToList();
-        Assert.That(events, Does.Contain("ExonSkipping"));
+        string seq = new string('C', 40) + StrongDonor + new string('A', 60) + StrongAcceptor +
+                     new string('C', 50) + StrongDonor + new string('A', 60) + StrongAcceptor + new string('C', 40);
+        var events = DetectAlternativeSplicing(seq, minScore: 0.3).ToList();
+        Assert.That(events.Select(e => e.Type), Does.Contain("ExonSkipping"));
+        Assert.That(events.Where(e => e.Type == "ExonSkipping").Select(e => e.Position),
+            Does.Contain(43));
     }
 
     [Test]

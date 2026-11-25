@@ -986,15 +986,11 @@ public class SplicingFuzzTests
         var act = () => PredictGeneStructure(seq, minExonLength: 50, minIntronLength: 60, minScore: 0.2);
         var structure = act.Should().NotThrow("an all-intronic sequence must not crash").Subject;
 
-        // The single GT-AG intron is selected; it spans the interior of the sequence.
-        structure.Introns.Should().ContainSingle("the strong GU…AG pair selects exactly one intron");
-        var intron = structure.Introns[0];
-        intron.Start.Should().Be(flank.Length, "the intron starts at the GU donor just after the 5' flank");
-        intron.End.Should().Be(seq.Length - flank.Length - 1, "the intron ends at the G of the AG just before the 3' flank");
-
-        // Both 2-nt flanks are below minExonLength=50 → no exons survive → empty spliced product.
-        structure.Exons.Should().BeEmpty("both sub-threshold flanks are dropped → no exons");
-        structure.SplicedSequence.Should().BeEmpty("with every flank dropped the spliced product is empty");
+        // The intron would leave two 2-nt exons (< minExonLength=50), so it is rejected: the
+        // exons/introns must tile the sequence, hence a single exon covering all 87 nt remains.
+        structure.Introns.Should().BeEmpty("an intron leaving sub-threshold flanking exons is not selected");
+        structure.Exons.Should().ContainSingle().Which.Type.Should().Be(ExonType.Single);
+        structure.SplicedSequence.Should().Be(seq.ToUpperInvariant().Replace('T', 'U'));
 
         AssertWellFormedStructure(structure, seq);
     }

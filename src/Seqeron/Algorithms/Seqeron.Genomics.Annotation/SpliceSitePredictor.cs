@@ -1096,79 +1096,218 @@ public static class SpliceSitePredictor
 
     #region Intron Prediction
 
+    // Default threshold of the U12 site scores (fraction of consensus positions matched) above which a
+    // GU..AG / AU..AC pair is typed U12 rather than U2. U12-type introns are ~0.5% of introns (Burge,
+    // Tuschl & Sharp 1999) and are recognised by BOTH the /RTATCCTY 5' splice site and the UUCCUUAAC
+    // branch site (Sharp & Burge 1997; Dietrich, Incorvaia & Padgett 1997). A fraction-of-consensus
+    // score has no published decision cut-off (Levine & Durbin 2001 use trained PWMs), so 0.75 (6 of 8
+    // 5'ss positions, 7 of 9 branch-site positions) is a tunable default (see the overload).
+    private const double DefaultU12MinSiteScore = 0.75;
+
+    // Smallest possible intron: GU + AG with no overlap.
+    private const int MinPossibleIntronLength = 4;
+
     /// <summary>
     /// Predicts introns by pairing donor and acceptor sites.
     /// </summary>
+    /// <remarks>
+    /// Equivalent to <see cref="PredictIntrons(string, int, int, double, double)"/> with the default U12
+    /// site-score threshold of 0.75.
+    /// </remarks>
     public static IEnumerable<Intron> PredictIntrons(
         string sequence,
         int minIntronLength = 60,
         int maxIntronLength = 100000,
-        double minScore = 0.5)
+        double minScore = 0.5) =>
+        PredictIntrons(sequence, minIntronLength, maxIntronLength, minScore, DefaultU12MinSiteScore);
+
+    /// <summary>
+    /// Predicts introns by pairing donor (5') and acceptor (3') splice sites.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Coordinates.</b> 0-based, inclusive on both ends, in the input sequence (T = U):
+    /// <see cref="Intron.Start"/> is the first intron nucleotide (the G/A of the donor dinucleotide, +1),
+    /// <see cref="Intron.End"/> the last (the G/C of the acceptor AG/AC), <c>Length = End - Start + 1</c>,
+    /// <c>Sequence</c> = the intron (RNA alphabet). One intron is reported per (Start, End) pair, ordered
+    /// by Start then End.
+    /// </para>
+    /// <para>
+    /// <b>Pairing rule.</b> Every donor site is paired with every downstream acceptor site whose
+    /// intron length lies in [<paramref name="minIntronLength"/>, <paramref name="maxIntronLength"/>]
+    /// (and is at least 4 nt, GU + AG). The GT-AG rule (Breathnach &amp; Chambon 1981): U2-type introns
+    /// pair a <c>GU</c> donor (<see cref="IntronType.U2"/>) or a <c>GC</c> donor
+    /// (<see cref="IntronType.GcAg"/>) with an <c>AG</c> acceptor (Burge, Tuschl &amp; Sharp 1999).
+    /// An intron is typed <see cref="IntronType.U12"/> only when BOTH the U12 donor
+    /// (<see cref="SpliceSiteType.U12Donor"/>, /RUAUCCUY) and the U12 acceptor
+    /// (<see cref="SpliceSiteType.U12Acceptor"/>, UUCCUUAAC branch site 8-21 nt upstream of the 3' ss)
+    /// score at least <paramref name="u12MinSiteScore"/> (and at least <paramref name="minScore"/>) with
+    /// a compatible terminus (AU-AC or GU-AG; Dietrich et al. 1997); a U12 call takes precedence over
+    /// U2 for the same Start/End, otherwise the pair is U2 / GC-AG.
+    /// </para>
+    /// <para>
+    /// <b>Score</b> (a fixed term set per type, no published combined score exists): U2 and GC-AG
+    /// introns: <c>(donor + acceptor + branchPoint) / 3</c> with the branch-point term the
+    /// <see cref="FindAcceptorBranchPoint"/> (Gao et al. 2008 <c>yUnAy</c>) score of the best branch
+    /// point inside the intron, 0 when none is found, so a branch point can only raise the score;
+    /// U12 introns: <c>(U12 donor + U12 acceptor) / 2</c> (the U12 acceptor score is the branch-site
+    /// score), <see cref="Intron.BranchPoint"/> null. Only introns with score at least
+    /// <paramref name="minScore"/> are returned.
+    /// </para>
+    /// </remarks>
+    /// <param name="u12MinSiteScore">Minimum U12 donor and U12 branch-site score (0-1) for a U12 call.</param>
+    public static IEnumerable<Intron> PredictIntrons(
+        string sequence,
+        int minIntronLength,
+        int maxIntronLength,
+        double minScore,
+        double u12MinSiteScore)
     {
         if (string.IsNullOrEmpty(sequence))
-            yield break;
+            return Enumerable.Empty<Intron>();
 
-        string upper = sequence.ToUpperInvariant().Replace('T', 'U');
-
-        var donors = FindDonorSites(upper, minScore * 0.8, true).ToList();
-        var acceptors = FindAcceptorSites(upper, minScore * 0.8, true).ToList();
-
-        foreach (var donor in donors)
-        {
-            foreach (var acceptor in acceptors)
-            {
-                int intronLength = acceptor.Position - donor.Position + 1;
-                if (intronLength < minIntronLength || intronLength > maxIntronLength)
-                    continue;
-
-                // Determine intron type
-                var type = DetermineIntronType(donor, acceptor);
-
-                // Find branch point
-                int searchStart = Math.Max(0, acceptor.Position - 50);
-                int searchEnd = acceptor.Position - 18;
-                var branchPoints = FindBranchPoints(upper, searchStart, searchEnd, 0.4).ToList();
-                var bestBranch = branchPoints.OrderByDescending(b => b.Score).FirstOrDefault();
-
-                double combinedScore = bestBranch.Score > 0
-                    ? (donor.Score + acceptor.Score + bestBranch.Score) / 3
-                    : (donor.Score + acceptor.Score) / 2;
-
-                if (combinedScore >= minScore)
-                {
-                    yield return new Intron(
-                        Start: donor.Position,
-                        End: acceptor.Position,
-                        Length: intronLength,
-                        DonorSite: donor,
-                        AcceptorSite: acceptor,
-                        BranchPoint: bestBranch.Score > 0 ? bestBranch : null,
-                        Sequence: upper.Substring(donor.Position, intronLength),
-                        Type: type,
-                        Score: combinedScore);
-                }
-            }
-        }
+        var scan = ScanIntrons(sequence.ToUpperInvariant().Replace('T', 'U'),
+            minIntronLength, maxIntronLength, minScore, u12MinSiteScore);
+        return scan.Candidates.Select(scan.Materialize);
     }
 
-    private static IntronType DetermineIntronType(SpliceSite donor, SpliceSite acceptor)
-    {
-        if (donor.Type == SpliceSiteType.U12Donor || acceptor.Type == SpliceSiteType.U12Acceptor)
-            return IntronType.U12;
+    // Compact candidate (no sequence / site objects) so that gene-scale inputs with millions of
+    // donor-acceptor pairs stay in memory; Materialize builds the public Intron lazily.
+    private readonly record struct IntronCandidate(
+        int Start, int End, IntronType Type, double Score, int BranchPosition, double BranchScore);
 
-        string donorMotif = donor.Motif.ToUpperInvariant();
-        // Motif = GetMotifContext(seq, pos, 3, 6): donor dinucleotide at offset min(3, pos)
-        int offset = Math.Min(3, donor.Position);
-        if (donorMotif.Length >= offset + 2)
+    private sealed class IntronScan(
+        string upper,
+        Dictionary<int, SpliceSite> donors,
+        Dictionary<int, SpliceSite> acceptors,
+        List<IntronCandidate> candidates)
+    {
+        public string Upper { get; } = upper;
+        public List<IntronCandidate> Candidates { get; } = candidates;
+
+        public Intron Materialize(IntronCandidate c)
         {
-            string dinuc = donorMotif.Substring(offset, 2);
-            if (dinuc == "GC")
-                return IntronType.GcAg;
-            if (dinuc == "GU" || dinuc == "GT")
-                return IntronType.U2;
+            SpliceSite? branch = null;
+            if (c.BranchPosition >= 0)
+            {
+                branch = new SpliceSite(
+                    c.BranchPosition, SpliceSiteType.Branch, Upper.Substring(c.BranchPosition - 3, 5),
+                    c.BranchScore, CalculateConfidence(c.BranchScore, 0.5, 1.0));
+            }
+
+            int length = c.End - c.Start + 1;
+            return new Intron(c.Start, c.End, length, donors[Key(c.Start, c.Type)], acceptors[Key(c.End, c.Type)],
+                branch, Upper.Substring(c.Start, length), c.Type, c.Score);
         }
 
-        return IntronType.Unknown;
+        // U12 and U2/GC-AG sites at one position are stored under distinct keys.
+        public static int Key(int position, IntronType type) => type == IntronType.U12 ? -1 - position : position;
+    }
+
+    private static IntronScan ScanIntrons(
+        string upper, int minIntronLength, int maxIntronLength, double minScore, double u12MinSiteScore)
+    {
+        // The combined score is a mean of at most three terms in [0, 1]; a site can only take part in an
+        // intron reaching minScore if its own score is at least 3 * minScore - 2 (the other two at 1).
+        double siteFloor = Math.Max(0.0, 3.0 * minScore - 2.0);
+        double u12Floor = Math.Max(minScore, u12MinSiteScore);
+
+        var donorSites = new Dictionary<int, SpliceSite>();
+        var acceptorSites = new Dictionary<int, SpliceSite>();
+        var donorU2 = new List<int>();
+        var donorU12 = new List<int>();
+        foreach (var d in FindDonorSites(upper, 0.0, true))
+        {
+            if (d.Type == SpliceSiteType.Donor && d.Score >= siteFloor)
+            {
+                donorSites[IntronScan.Key(d.Position, IntronType.U2)] = d;
+                donorU2.Add(d.Position);
+            }
+            else if (d.Type == SpliceSiteType.U12Donor && d.Score >= u12Floor)
+            {
+                donorSites[IntronScan.Key(d.Position, IntronType.U12)] = d;
+                donorU12.Add(d.Position);
+            }
+        }
+
+        var acceptorU2 = new List<int>();
+        var acceptorU12 = new List<int>();
+        foreach (var a in FindAcceptorSites(upper, 0.0, true))
+        {
+            if (a.Type == SpliceSiteType.Acceptor && a.Score >= siteFloor)
+            {
+                acceptorSites[IntronScan.Key(a.Position, IntronType.U2)] = a;
+                acceptorU2.Add(a.Position);
+            }
+            else if (a.Type == SpliceSiteType.U12Acceptor && a.Score >= u12Floor)
+            {
+                acceptorSites[IntronScan.Key(a.Position, IntronType.U12)] = a;
+                acceptorU12.Add(a.Position);
+            }
+        }
+
+        var candidates = new List<IntronCandidate>();
+        var u12Done = new HashSet<long>();
+
+        // U12 first: takes precedence over U2 for the same (Start, End).
+        foreach (int dPos in donorU12)
+        {
+            foreach (int aPos in AcceptorsInRange(acceptorU12, dPos, minIntronLength, maxIntronLength))
+            {
+                bool compatible = (upper[dPos] == 'A' && upper[aPos] == 'C') ||
+                                  (upper[dPos] == 'G' && upper[aPos] == 'G');
+                if (!compatible)
+                    continue;
+                double score = (donorSites[IntronScan.Key(dPos, IntronType.U12)].Score +
+                                acceptorSites[IntronScan.Key(aPos, IntronType.U12)].Score) / 2;
+                if (score < minScore)
+                    continue;
+                candidates.Add(new IntronCandidate(dPos, aPos, IntronType.U12, score, -1, 0));
+                u12Done.Add(((long)dPos << 32) | (uint)aPos);
+            }
+        }
+
+        foreach (int dPos in donorU2)
+        {
+            foreach (int aPos in AcceptorsInRange(acceptorU2, dPos, minIntronLength, maxIntronLength))
+            {
+                if (u12Done.Contains(((long)dPos << 32) | (uint)aPos))
+                    continue;
+
+                var (bpPos, bpScore) = FindIntronBranchPoint(upper, dPos + 2, aPos);
+                double score = (donorSites[IntronScan.Key(dPos, IntronType.U2)].Score +
+                                acceptorSites[IntronScan.Key(aPos, IntronType.U2)].Score + bpScore) / 3;
+                if (score < minScore)
+                    continue;
+                var type = upper[dPos + 1] == 'C' ? IntronType.GcAg : IntronType.U2;
+                candidates.Add(new IntronCandidate(dPos, aPos, type, score, bpPos, bpScore));
+            }
+        }
+
+        candidates.Sort((x, y) => x.Start != y.Start ? x.Start.CompareTo(y.Start) : x.End.CompareTo(y.End));
+        return new IntronScan(upper, donorSites, acceptorSites, candidates);
+    }
+
+    // Acceptor positions (sorted ascending) giving an intron of the allowed length for the donor.
+    private static IEnumerable<int> AcceptorsInRange(List<int> sortedAcceptors, int donor, int minLength, int maxLength)
+    {
+        int lowest = donor + Math.Max(MinPossibleIntronLength, minLength) - 1;
+        int highest = (int)Math.Min((long)donor + maxLength - 1, int.MaxValue);
+        int idx = sortedAcceptors.BinarySearch(lowest);
+        if (idx < 0) idx = ~idx;
+        for (; idx < sortedAcceptors.Count && sortedAcceptors[idx] <= highest; idx++)
+            yield return sortedAcceptors[idx];
+    }
+
+    // Best yUnAy branch point (Gao et al. 2008, canonical FindAcceptorBranchPoint) inside the intron body
+    // [bodyStart, acceptorEnd]. Only the last 45 nt before the AG can hold a candidate (window 18-40 nt
+    // + motif), so only that tail is passed. Returns (-1, 0) when none is found.
+    private static (int Position, double Score) FindIntronBranchPoint(string upper, int bodyStart, int acceptorEnd)
+    {
+        int tailStart = Math.Max(bodyStart, acceptorEnd - 44);
+        string tail = upper.Substring(tailStart, acceptorEnd - tailStart + 1);
+        var bp = FindAcceptorBranchPoint(tail, tail.Length - 1);
+        return bp.Found ? (tailStart + bp.BranchPointPosition, bp.Score) : (-1, 0);
     }
 
     #endregion
@@ -1178,6 +1317,23 @@ public static class SpliceSitePredictor
     /// <summary>
     /// Predicts exon/intron structure of a gene.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Splice-motif model (not coding-aware): introns come from <see cref="PredictIntrons(string, int, int, double)"/>
+    /// (maximum intron length 100 000), are selected greedily by descending score (ties: lower Start)
+    /// and must not overlap; an intron is also rejected when it would leave an exon (between two
+    /// selected introns or at either end of the sequence) shorter than <paramref name="minExonLength"/>
+    /// (at least 1), so the exons and introns always tile the whole sequence and the spliced sequence is
+    /// the input with exactly the selected introns removed (Gilbert 1978).
+    /// </para>
+    /// <para>
+    /// Coordinates are 0-based inclusive (<see cref="Exon.Start"/>..<see cref="Exon.End"/>).
+    /// <see cref="Exon.Phase"/> is the Ensembl-style start phase: the cumulative length of the preceding
+    /// exons modulo 3 (0 for the first exon, i.e. the sequence is assumed to start at the first coding
+    /// nucleotide). <see cref="GeneStructure.OverallScore"/> is the mean of the selected introns'
+    /// scores, 0 when there is none.
+    /// </para>
+    /// </remarks>
     public static GeneStructure PredictGeneStructure(
         string sequence,
         int minExonLength = 30,
@@ -1195,22 +1351,10 @@ public static class SpliceSitePredictor
 
         string upper = sequence.ToUpperInvariant().Replace('T', 'U');
 
-        // Get all introns
-        var introns = PredictIntrons(upper, minIntronLength, 100000, minScore)
-            .OrderByDescending(i => i.Score)
-            .ToList();
-
-        // Select non-overlapping introns greedily
-        var selectedIntrons = SelectNonOverlappingIntrons(introns);
-
-        // Derive exons from intron positions
-        var exons = DeriveExons(upper, selectedIntrons, minExonLength);
-
-        // Generate spliced sequence from the SAME exon set that DeriveExons reports,
-        // so that splicedSequence == concat(reportedExons) by construction and the
-        // coverage invariants stay internally consistent (INV-3 / INV-4). Sub-threshold
-        // inter-intron regions filtered by minExonLength are excluded from BOTH the exon
-        // list AND the spliced product, preserving the documented filtering semantics.
+        var scan = ScanIntrons(upper, minIntronLength, 100000, minScore, DefaultU12MinSiteScore);
+        var selectedIntrons = SelectNonOverlappingIntrons(scan.Candidates, upper.Length, Math.Max(1, minExonLength))
+            .Select(scan.Materialize).ToList();
+        var exons = DeriveExons(upper, selectedIntrons);
         string splicedSequence = GenerateSplicedSequence(exons);
 
         double overallScore = selectedIntrons.Count > 0
@@ -1224,100 +1368,62 @@ public static class SpliceSitePredictor
             OverallScore: overallScore);
     }
 
-    private static List<Intron> SelectNonOverlappingIntrons(List<Intron> introns)
+    // Greedy selection by descending score (stable: ties keep the Start/End order of the candidates).
+    private static List<IntronCandidate> SelectNonOverlappingIntrons(
+        List<IntronCandidate> candidates, int sequenceLength, int minExonLength)
     {
-        var selected = new List<Intron>();
-        var used = new HashSet<int>();
+        var selected = new List<IntronCandidate>();
 
-        foreach (var intron in introns)
+        foreach (var intron in candidates.OrderByDescending(i => i.Score))
         {
-            bool overlaps = false;
-            for (int pos = intron.Start; pos <= intron.End; pos++)
+            // Flanking exons: at least minExonLength before the first and after the last intron.
+            bool ok = intron.Start >= minExonLength && sequenceLength - 1 - intron.End >= minExonLength;
+            foreach (var s in selected)
             {
-                if (used.Contains(pos))
-                {
-                    overlaps = true;
-                    break;
-                }
+                if (!ok) break;
+                if (s.End < intron.Start)
+                    ok = intron.Start - s.End - 1 >= minExonLength;
+                else if (intron.End < s.Start)
+                    ok = s.Start - intron.End - 1 >= minExonLength;
+                else
+                    ok = false; // overlap
             }
 
-            if (!overlaps)
-            {
+            if (ok)
                 selected.Add(intron);
-                for (int pos = intron.Start; pos <= intron.End; pos++)
-                    used.Add(pos);
-            }
         }
 
         return selected.OrderBy(i => i.Start).ToList();
     }
 
-    private static List<Exon> DeriveExons(string sequence, List<Intron> introns, int minExonLength)
+    private static List<Exon> DeriveExons(string sequence, List<Intron> introns)
     {
         var exons = new List<Exon>();
-
-        if (introns.Count == 0)
-        {
-            // Single exon gene
-            exons.Add(new Exon(
-                Start: 0,
-                End: sequence.Length - 1,
-                Length: sequence.Length,
-                Type: ExonType.Single,
-                Phase: 0,
-                Sequence: sequence));
-            return exons;
-        }
-
         int currentPos = 0;
+        int cumulative = 0;
 
-        for (int i = 0; i < introns.Count; i++)
+        for (int i = 0; i <= introns.Count; i++)
         {
-            var intron = introns[i];
-            int exonEnd = intron.Start - 1;
+            int exonEnd = i < introns.Count ? introns[i].Start - 1 : sequence.Length - 1;
+            int length = exonEnd - currentPos + 1;
+            ExonType type = ExonType.Internal;
+            if (introns.Count == 0) type = ExonType.Single;
+            else if (i == 0) type = ExonType.Initial;
+            else if (i == introns.Count) type = ExonType.Terminal;
 
-            if (exonEnd - currentPos + 1 >= minExonLength)
-            {
-                var exonType = i == 0 ? ExonType.Initial : ExonType.Internal;
-                exons.Add(new Exon(
-                    Start: currentPos,
-                    End: exonEnd,
-                    Length: exonEnd - currentPos + 1,
-                    Type: exonType,
-                    Phase: CalculatePhase(exons),
-                    Sequence: sequence.Substring(currentPos, exonEnd - currentPos + 1)));
-            }
-
-            currentPos = intron.End + 1;
-        }
-
-        // Terminal exon
-        if (sequence.Length - currentPos >= minExonLength)
-        {
-            exons.Add(new Exon(
-                Start: currentPos,
-                End: sequence.Length - 1,
-                Length: sequence.Length - currentPos,
-                Type: ExonType.Terminal,
-                Phase: CalculatePhase(exons),
-                Sequence: sequence.Substring(currentPos)));
+            exons.Add(new Exon(currentPos, exonEnd, length, type, cumulative % 3,
+                sequence.Substring(currentPos, length)));
+            cumulative += length;
+            if (i < introns.Count)
+                currentPos = introns[i].End + 1;
         }
 
         return exons;
     }
 
-    private static int CalculatePhase(List<Exon> previousExons)
-    {
-        int totalLength = previousExons.Sum(e => e.Length);
-        return totalLength % 3;
-    }
-
     /// <summary>
-    /// Builds the spliced (mature mRNA) sequence by concatenating the exon
-    /// sequences exactly as reported by <see cref="DeriveExons"/>. Using the same
-    /// exon set guarantees splicedSequence == concat(reportedExons) (INV-4) and
-    /// keeps coverage internally consistent with the reported exons (INV-3),
-    /// including sub-threshold inter-intron regions that DeriveExons drops.
+    /// Builds the spliced (mature mRNA) sequence by concatenating the exon sequences, i.e. the input
+    /// with exactly the selected introns removed.
     /// </summary>
     private static string GenerateSplicedSequence(List<Exon> exons)
     {
@@ -1336,60 +1442,133 @@ public static class SpliceSitePredictor
     #region Alternative Splicing
 
     /// <summary>
-    /// Detects potential alternative splicing patterns.
+    /// Detects candidate alternative splicing events from the candidate introns of a sequence.
     /// </summary>
+    /// <remarks>
+    /// Equivalent to <see cref="DetectAlternativeSplicing(string, double, int, int, int)"/> with minimum
+    /// intron length 60, maximum 100 000 and minimum exon length 30 (see there for the event definitions).
+    /// </remarks>
     public static IEnumerable<(string Type, int Position, string Description)> DetectAlternativeSplicing(
         string sequence,
-        double minScore = 0.4)
+        double minScore = 0.4) =>
+        DetectAlternativeSplicing(sequence, minScore, 60, 100000, 30);
+
+    /// <summary>
+    /// Detects candidate alternative splicing events of a sequence relative to its reference gene
+    /// structure, with the event definitions of SUPPA / rMATS (Wang et al. 2008 Nature 456:470;
+    /// Shen et al. 2014 PNAS 111:E5593; Alamancos et al. 2015 RNA 21:1521).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Reference isoform R = the introns selected by <see cref="PredictGeneStructure"/> logic (greedy,
+    /// non-overlapping, exons of at least <paramref name="minExonLength"/> nt) from the candidate
+    /// introns C = <see cref="PredictIntrons(string, int, int, double)"/> (combined score at least
+    /// <paramref name="minScore"/>, length within the given bounds). An event is an alternative isoform
+    /// built from C that differs from R in exactly one local feature. All positions are 0-based;
+    /// introns are inclusive [donor G/A .. acceptor G/C], exons the inclusive stretches between introns.
+    /// Events are sorted by Position, then Type:
+    /// <list type="bullet">
+    /// <item><c>ExonSkipping</c> (SE): for two consecutive reference introns (d1,a2),(d2,a3), the intron
+    /// (d1,a3) is in C (skipping exon [a2+1,d2-1]); or, for a reference intron (d1,a3), introns
+    /// (d1,a2),(d2,a3) are in C with an included exon [a2+1,d2-1] of at least
+    /// <paramref name="minExonLength"/> nt. Position = d1.</item>
+    /// <item><c>Alt5SS</c> (A5SS): a reference intron (d,a) and C contains (d',a) with d' different.
+    /// Position = the smallest donor of the group.</item>
+    /// <item><c>Alt3SS</c> (A3SS): a reference intron (d,a) and C contains (d,a') with a' different.
+    /// Position = d.</item>
+    /// <item><c>MutuallyExclusiveExons</c> (MXE): for two consecutive reference introns (d1,a2),(d2,a4),
+    /// C contains (d1,a3) and (d3,a4) (a3 different from a2) whose exon [a3+1,d3-1] (at least
+    /// <paramref name="minExonLength"/> nt) does not overlap the reference exon [a2+1,d2-1]: either
+    /// the first or the second exon is included, never both. Position = d1.</item>
+    /// </list>
+    /// Intron retention (RI) is a property of a transcript pair and is reported by
+    /// <see cref="FindRetainedIntronCandidates(string, double)"/>.
+    /// </remarks>
+    public static IEnumerable<(string Type, int Position, string Description)> DetectAlternativeSplicing(
+        string sequence,
+        double minScore,
+        int minIntronLength,
+        int maxIntronLength,
+        int minExonLength)
     {
         if (string.IsNullOrEmpty(sequence))
-            yield break;
+            return Enumerable.Empty<(string, int, string)>();
 
-        var donors = FindDonorSites(sequence, minScore).ToList();
-        var acceptors = FindAcceptorSites(sequence, minScore).ToList();
+        string upper = sequence.ToUpperInvariant().Replace('T', 'U');
+        int minExon = Math.Max(1, minExonLength);
+        var scan = ScanIntrons(upper, minIntronLength, maxIntronLength, minScore, DefaultU12MinSiteScore);
+        var candidates = scan.Candidates;
+        var reference = SelectNonOverlappingIntrons(candidates, upper.Length, minExon);
 
-        // Exon skipping: multiple introns with shared boundaries
-        for (int i = 0; i < donors.Count; i++)
+        var byDonor = candidates.GroupBy(i => i.Start).ToDictionary(g => g.Key, g => g.OrderBy(i => i.End).ToList());
+        var byAcceptor = candidates.GroupBy(i => i.End).ToDictionary(g => g.Key, g => g.OrderBy(i => i.Start).ToList());
+        var events = new List<(string Type, int Position, string Description)>();
+
+        foreach (var r in reference)
         {
-            int validAcceptors = acceptors.Count(a => a.Position > donors[i].Position + 60);
-            if (validAcceptors > 1)
-            {
-                yield return ("ExonSkipping", donors[i].Position,
-                    $"Potential exon skipping from donor at {donors[i].Position}");
-            }
+            // A5SS / A3SS: alternative donors for the reference acceptor, alternative acceptors for its donor.
+            var donors = byAcceptor[r.End].Select(i => i.Start).Distinct().OrderBy(p => p).ToList();
+            if (donors.Count > 1)
+                events.Add(("Alt5SS", donors[0],
+                    $"Alternative 5' splice sites at positions {string.Join(", ", donors)} share acceptor {r.End}"));
+            var acceptors = byDonor[r.Start].Select(i => i.End).Distinct().OrderBy(p => p).ToList();
+            if (acceptors.Count > 1)
+                events.Add(("Alt3SS", r.Start,
+                    $"Alternative 3' splice sites at positions {string.Join(", ", acceptors)} share donor {r.Start}"));
+
+            // SE (inclusion alternative): R skips an exon that two candidate introns include.
+            foreach (var i1 in byDonor[r.Start])
+                foreach (var i2 in byAcceptor[r.End])
+                    if (i1.End < i2.Start && i2.Start - i1.End - 1 >= minExon)
+                        events.Add(("ExonSkipping", r.Start,
+                            $"Exon [{i1.End + 1}..{i2.Start - 1}] skipped by intron {r.Start}..{r.End}; " +
+                            $"included via introns {i1.Start}..{i1.End} and {i2.Start}..{i2.End}"));
         }
 
-        // Alternative 5' splice sites (multiple donors before same acceptor)
-        var donorGroups = donors.GroupBy(d => d.Position / 50).Where(g => g.Count() > 1);
-        foreach (var group in donorGroups)
+        for (int k = 0; k + 1 < reference.Count; k++)
         {
-            yield return ("Alt5SS", group.First().Position,
-                $"Alternative 5' splice sites at positions {string.Join(", ", group.Select(d => d.Position))}");
+            var i1 = reference[k];
+            var i2 = reference[k + 1];
+
+            // SE (skipping alternative): a candidate intron spans the reference exon between i1 and i2.
+            if (byDonor[i1.Start].Any(i => i.End == i2.End))
+                events.Add(("ExonSkipping", i1.Start,
+                    $"Exon [{i1.End + 1}..{i2.Start - 1}] skipped by intron {i1.Start}..{i2.End}; " +
+                    $"included via introns {i1.Start}..{i1.End} and {i2.Start}..{i2.End}"));
+
+            // MXE: an alternative exon (a3,d3) between d1 and a4 that does not overlap the reference exon.
+            foreach (var j in byDonor[i1.Start])
+                foreach (var l in byAcceptor[i2.End])
+                {
+                    if (j.End == i1.End || l.Start <= j.End || l.Start - j.End - 1 < minExon)
+                        continue;
+                    bool disjoint = l.Start - 1 < i1.End + 1 || i2.Start - 1 < j.End + 1;
+                    if (disjoint)
+                        events.Add(("MutuallyExclusiveExons", i1.Start,
+                            $"Exons [{i1.End + 1}..{i2.Start - 1}] and [{j.End + 1}..{l.Start - 1}] are mutually " +
+                            $"exclusive between donor {i1.Start} and acceptor {i2.End}"));
+                }
         }
 
-        // Alternative 3' splice sites (multiple acceptors after same donor)
-        var acceptorGroups = acceptors.GroupBy(a => a.Position / 50).Where(g => g.Count() > 1);
-        foreach (var group in acceptorGroups)
-        {
-            yield return ("Alt3SS", group.First().Position,
-                $"Alternative 3' splice sites at positions {string.Join(", ", group.Select(a => a.Position))}");
-        }
+        return events.OrderBy(e => e.Position).ThenBy(e => e.Type, StringComparer.Ordinal)
+            .ThenBy(e => e.Description, StringComparer.Ordinal).ToList();
     }
 
     /// <summary>
     /// Finds retained intron candidates (introns that might be retained in some transcripts).
     /// </summary>
+    /// <remarks>
+    /// Retention (rMATS / SUPPA RI: the intron and both flanking exons form one exon in a transcript)
+    /// is a transcript-level property that genomic sequence alone cannot establish. The candidates are
+    /// the predicted introns shorter than 500 nt with combined score below 0.8: retained introns of
+    /// mammals are short and have weaker splice sites (Braunschweig et al. 2014 Genome Res 24:1774).
+    /// The 500 nt / 0.8 cut-offs are heuristics, not published thresholds.
+    /// </remarks>
     public static IEnumerable<Intron> FindRetainedIntronCandidates(
         string sequence,
         double minScore = 0.5)
     {
-        var introns = PredictIntrons(sequence, 60, 500, minScore).ToList();
-
-        // Short introns with moderate scores are candidates for retention
-        foreach (var intron in introns.Where(i => i.Length < 500 && i.Score < 0.8))
-        {
-            yield return intron;
-        }
+        return PredictIntrons(sequence, 60, 499, minScore).Where(i => i.Score < 0.8);
     }
 
     #endregion
@@ -1447,24 +1626,37 @@ public static class SpliceSitePredictor
     }
 
     /// <summary>
-    /// Checks if a sequence position is within a coding region (simple heuristic).
+    /// Checks whether a sequence position lies in an open reading frame that starts at an upstream AUG.
     /// </summary>
+    /// <remarks>
+    /// <paramref name="frame"/> is the position of the queried nucleotide inside its codon (0 = first
+    /// base): the codon containing <paramref name="position"/> starts at <c>position - frame</c>. The
+    /// position is coding when walking upstream from that codon in steps of 3 (no upstream window limit)
+    /// an <c>AUG</c> is met before any in-frame stop codon (stop codons per
+    /// <see cref="GeneticCode.Standard"/>); the codon containing the position may itself be the AUG or
+    /// the terminating stop codon (the CDS includes both, GFF3 / INSDC convention). Not coding-potential
+    /// aware beyond that (no Kozak / hexamer evidence). T = U, case-insensitive; an out-of-range
+    /// position or an empty sequence returns false.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="frame"/> is not 0, 1 or 2.</exception>
     public static bool IsWithinCodingRegion(string sequence, int position, int frame = 0)
     {
-        if (position < 0 || position >= sequence.Length)
+        if (frame < 0 || frame > 2)
+            throw new ArgumentOutOfRangeException(nameof(frame), frame, "Frame must be 0, 1 or 2.");
+        if (string.IsNullOrEmpty(sequence) || position < 0 || position >= sequence.Length)
             return false;
 
         string upper = sequence.ToUpperInvariant().Replace('T', 'U');
 
-        // Look for start codon upstream
-        int searchStart = Math.Max(0, position - 300);
-        for (int i = searchStart; i <= position - 3; i++)
+        for (int k = position - frame; k >= 0; k -= 3)
         {
-            if (upper.Substring(i, 3) == "AUG")
-            {
-                // Check if position is in frame
-                return (position - i) % 3 == frame;
-            }
+            if (k + 3 > upper.Length)
+                continue; // incomplete trailing codon of the queried position
+            string codon = upper.Substring(k, 3);
+            if (codon == "AUG")
+                return true;
+            if (k < position - frame && Seqeron.Genomics.Core.GeneticCode.Standard.IsStopCodon(codon))
+                return false;
         }
 
         return false;

@@ -69,7 +69,7 @@
 |----|-----------|------------|----------|
 | INV-1 | Introns start at donor position, end at acceptor position | Yes | S2 |
 | INV-2 | Selected introns do not overlap | Yes | Algorithm design |
-| INV-3 | Exon positions + intron positions cover entire sequence | Yes | Definition |
+| INV-3 | Exon positions + intron positions tile the entire sequence (no exon is dropped; an intron leaving an exon < minExonLength is rejected) | Yes | Definition |
 | INV-4 | Spliced sequence = concatenation of exon sequences | Yes | S1 |
 | INV-5 | Spliced sequence length = total sequence length - total intron length | Yes | S1 |
 | INV-6 | Exon phase = (sum of preceding exon lengths) mod 3 | Yes | S8 |
@@ -175,3 +175,11 @@ All former assumptions have been resolved:
 ## 7. Open Questions / Decisions
 
 None — all behaviors confirmed by evidence. No residual assumptions.
+
+## 6. B11 review additions (2026-11)
+
+- U12 typing needs U12 donor AND U12 branch-site acceptor (>= 0.75, AU-AC / GU-AG); otherwise U2 / GC-AG.
+- Score: U2/GC-AG = (donor + acceptor + Gao branch term)/3 (0 if none); U12 = (donor + acceptor)/2.
+- DetectAlternativeSplicing: SE / A5SS / A3SS / MXE relative to the reference introns (SUPPA/rMATS).
+- IsWithinCodingRegion: upstream in-frame AUG with no stop before the codon (stop included); frame in 0..2.
+- Tests: SpliceSitePredictor_PredictionReview_Tests (HBB Ensembl fixture, U12 typing, branch point, coding region).
