@@ -149,3 +149,26 @@ Failed: 0 (Genomics 18771 passed), 0 warnings. No defects logged.
 
 **Documented boundaries (acceptable):** small public-domain training set (13 positives); miRDeep2 read-stacking
 signal is out of scope by design (no GPL code used).
+
+---
+
+## B13 review (2026-11-25) — Stage A PASS-WITH-NOTES, Stage B FAIL → FIXED (F23–F26)
+
+Sources opened: `randfold.c` and squid 1.9g `shuffle.c` (`StrDPShuffle`) from github.com/eb00/randfold (master);
+uShuffle 1.1.2 source (`ushuffle.c`, PyPI sdist), compiled with a replaying `randfunc`; secondary descriptions of
+miPred dP (Ng & Mishra 2007; Schultes 1999: dP = |bp|/L ∈ [0, 0.5]); ESL §4.4.1 (Newton–Raphson/IRLS).
+Oracles: scikit-learn 1.9.1 / scipy 1.18.1 (fit), ViennaRNA 2.8.0 `RNA.fold` (randfold MFEs), uShuffle (shuffle).
+
+- **F23 `DinucleotideShuffle`:** the Altschul–Erickson rejection step was capped at 1000 draws and then returned the
+  INPUT unshuffled. Repro `A×500 G A×500 C` (999 valid shuffles): 69/200 seeds returned the input. Now Wilson's
+  arborescence as in uShuffle: 2000/2000 scripted-draw cases identical to `ushuffle.c`; χ² uniform over the 612 / 540
+  valid sequences of two test strings (p 0.66 / 0.62); repro 5/2000 (expected 2).
+- **F24 model provenance:** the trainer was a never-committed scratch file; its 20 000-epoch gradient ascent was an
+  unconverged approximation of the penalised MLE, and B12's folder change moved 61/65 training MFEs. The old
+  constants were re-derived bit-exactly (numpy, pre-B12 tree) to prove the reconstruction; the trainer is now in the
+  repo (Newton–Raphson), the constants were regenerated and equal scikit-learn to 4e-12; a test re-derives them.
+  Held-out: accuracy 0.90, AUC 0.984375 (was 1.0/1.0 on the old shuffles and folder).
+- **F25 feature definitions:** PairedFraction = 2·|bp|/L is twice the published dP; dP added as
+  `PreMiRnaFeatures.BasePairingPropensity`; docs no longer attribute raw MFE to Bonnet 2004 nor %paired to Xue 2005;
+  threshold doc corrected (training prior 1 : 4, not balanced).
+- **F26 Bonnet 2004 randfold test** was missing: `CalculateRandfoldPValue` (randfold.c counting, ε 1e-7) added.

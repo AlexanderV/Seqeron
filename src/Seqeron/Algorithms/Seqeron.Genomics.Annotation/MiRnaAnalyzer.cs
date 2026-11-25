@@ -2754,16 +2754,19 @@ public static class MiRnaAnalyzer
     /// composition. These are the inputs to the trained natural-vs-background logistic-regression
     /// classifier (<see cref="ClassifyPreMiRna"/>). Each feature is published:
     /// <list type="bullet">
-    /// <item><b>MFE</b> — minimum free energy ΔG° (kcal/mol), the discriminative thermodynamic signal
-    /// of Bonnet et al. (2004), Bioinformatics 20(17):2911-2917.</item>
+    /// <item><b>MFE</b> — minimum free energy ΔG° (kcal/mol) of the MFE fold (miPred "dG" family,
+    /// Ng &amp; Mishra 2007, Bioinformatics 23(11):1321-1330). Bonnet et al. (2004) compare this MFE
+    /// with the MFEs of dinucleotide shuffles; that randomisation test is
+    /// <see cref="CalculateRandfoldPValue"/> (not a model input).</item>
     /// <item><b>AMFE / MFEI</b> — adjusted MFE = 100·|ΔG°|/length and MFEI = AMFE/(G+C)% of Zhang et
-    /// al. (2006), Cell Mol Life Sci 63:246-254.</item>
-    /// <item><b>PairedFraction</b> — fraction of bases that are paired in the MFE structure (the
-    /// base-pairing-propensity / %paired structural feature family of microPred, Batuwita &amp;
-    /// Palade (2009), Bioinformatics 25(8):989-995).</item>
-    /// <item><b>GcContent, StemBasePairs, LoopSize</b> — composition and stem/loop geometry, the
-    /// sequence/structure features of microPred (Batuwita &amp; Palade 2009) and Xue et al. (2005),
-    /// BMC Bioinformatics 6:310.</item>
+    /// al. (2006), Cell Mol Life Sci 63:246-254 (taken as magnitudes, so MFEI ≥ 0).</item>
+    /// <item><b>PairedFraction</b> — fraction of NUCLEOTIDES paired in the MFE structure,
+    /// 2·|bp|/L ∈ [0,1]; this is twice the normalised base-pairing propensity dP = |bp|/L ∈ [0,0.5] of
+    /// Schultes et al. (1999) used by miPred (Ng &amp; Mishra 2007) and microPred (Batuwita &amp;
+    /// Palade 2009), which is exposed as <see cref="PreMiRnaFeatures.BasePairingPropensity"/>.</item>
+    /// <item><b>GcContent</b> — (G+C)/(A+C+G+U) of the canonical
+    /// <see cref="SequenceExtensions.CalculateGcFractionFast"/>; <b>StemBasePairs</b> — |bp| of the MFE
+    /// structure (all pairs, not only the terminal stem); <b>LoopSize</b> — longest enclosed unpaired run.</item>
     /// </list>
     /// </summary>
     /// <param name="FreeEnergy">ΔG° of the MFE structure (kcal/mol; negative for a stable hairpin).</param>
@@ -2782,7 +2785,15 @@ public static class MiRnaAnalyzer
         double PairedFraction,
         int StemBasePairs,
         int LoopSize,
-        int Length);
+        int Length)
+    {
+        /// <summary>
+        /// Normalised base-pairing propensity dP = |bp|/L ∈ [0, 0.5] (Schultes et al. 1999; miPred,
+        /// Ng &amp; Mishra 2007): base pairs of the MFE structure per nucleotide. Equals
+        /// <see cref="PairedFraction"/>/2. 0 for an empty record.
+        /// </summary>
+        public double BasePairingPropensity => Length > 0 ? (double)StemBasePairs / Length : 0.0;
+    }
 
     /// <summary>
     /// Result of the trained natural-vs-background pre-miRNA classifier
@@ -2798,35 +2809,243 @@ public static class MiRnaAnalyzer
         double NaturalProbability,
         bool IsNatural);
 
-    // ── Trained logistic-regression coefficients ──────────────────────────────────────────
-    // Model: logistic regression P(natural) = sigmoid(b0 + Σ b_j · z_j), where z_j is the j-th
-    // feature standardised by the training-set mean/std (textbook logistic regression fit by
-    // batch gradient ascent on the log-likelihood — Hastie, Tibshirani & Friedman, "The Elements
-    // of Statistical Learning" 2nd ed. §4.4.1, doi:10.1007/978-0-387-84858-7).
+    // ── Trained logistic-regression model ─────────────────────────────────────────────────
+    // Model: P(natural) = sigmoid(b0 + Σ b_j · z_j), z_j = (x_j − mean_j)/std_j standardised by the
+    // TRAINING-set mean and population (ddof 0) standard deviation. Fit: ridge-penalised maximum
+    // likelihood, maximising (1/n)·Σ[y log p + (1−y) log(1−p)] − (λ/2)·Σ_j b_j² (λ = 1e-3, intercept
+    // not penalised), solved by Newton–Raphson / IRLS — Hastie, Tibshirani & Friedman, "The Elements
+    // of Statistical Learning" 2nd ed. §4.4.1 (eqs. 4.21–4.28) with the quadratic penalty of §4.4.4 /
+    // §18.3; equivalent to scikit-learn LogisticRegression(C = 1/(λ·n_train)). The whole run is in
+    // this file and is re-executed by the unit tests (TrainPreMiRnaClassifier must reproduce the
+    // bundled constants), so the model is reproducible from the repository alone.
     //
-    // TRAINING DATA (public domain): positives = 13 real human pre-miRNA hairpin precursors from
-    // miRBase (https://mirbase.org, Public Domain Dedication — https://mirbase.org/download/CURRENT/LICENSE/);
-    // negatives = dinucleotide-preserving shuffles of the positives (Altschul & Erickson 1985
-    // Eulerian-walk shuffle; the standard pre-miRNA-classifier background convention of Bonnet
-    // et al. 2004 / Xue et al. 2005 / Batuwita & Palade 2009). 4 shuffles per positive → 52
-    // negatives; 65 examples total. Fixed RNG seed 20060101 and a fixed deterministic train/test
-    // split (first 70% by example index = train, last 30% = held-out test) make the fit and the
-    // held-out metric fully reproducible. NO GPL miRDeep2 code was used; only the published method.
-    // Coefficients regenerated by the offline trainer ScratchPreMiRnaTrainer (see Evidence doc §Training).
-    //
-    // Feature order: [FreeEnergy, Amfe, Mfei, GcContent, PairedFraction]. (StemBasePairs / LoopSize /
-    // Length are extracted and reported but not model inputs — they are collinear with MFE/PairedFraction
-    // and length-confounded; the five thermodynamic/composition/pairing features are the model.)
-    private const double PreMiRnaLogRegBias = -4.340788257901692;
+    // TRAINING DATA (public domain): positives = the 13 human miRBase hairpin precursors in
+    // PreMiRnaTrainingPositives (https://mirbase.org, Public Domain Dedication); negatives =
+    // DinucleotideShuffle of each positive (Altschul & Erickson 1985 / uShuffle; the background
+    // convention of Bonnet et al. 2004 / Xue et al. 2005 / Batuwita & Palade 2009), 4 per positive,
+    // drawn from one Random(20060101) in the fixed order positive, its 4 shuffles, next positive …
+    // → 65 examples. Split: first ⌊0.7·65⌋ = 45 examples by index = training set, last 20 = held-out.
+    // Features: [FreeEnergy, Amfe, Mfei, GcContent, PairedFraction] of ExtractPreMiRnaFeatures, i.e.
+    // of the canonical RNA-STRUCT-001 MFE folder AS IT IS NOW. A change of the folder or of the
+    // shuffle changes the training features; the reproduction test then fails and the constants
+    // below must be regenerated with TrainPreMiRnaClassifier (they are its "R" round-trip output).
+    // StemBasePairs / LoopSize / Length are reported but not model inputs.
+    private const double PreMiRnaLogRegBias = -4.278229873244336;
     private static readonly double[] PreMiRnaLogRegWeights =
-        { -0.6299061497891402, 2.4689410267337104, 2.5770103435217253, -0.3315361036977469, 2.42751798356881 };
+        { -0.9994063824017212, 3.3045163837473233, 3.636520432606299, -0.8781055255888673, -0.260634668873017 };
     private static readonly double[] PreMiRnaFeatureMean =
-        { -22.988666666666667, 29.297338207740115, 0.6157639504286563, 0.477134229110014, 0.6153156920227864 };
+        { -22.93488888888889, 29.25596144559518, 0.6119707188599345, 0.477134229110014, 0.6329947414221273 };
     private static readonly double[] PreMiRnaFeatureStd =
-        { 8.373410721510746, 10.37385177977526, 0.2084972456212268, 0.061249038538481466, 0.10661272255434924 };
+        { 8.568968205027105, 10.686847007183342, 0.20989563586718338, 0.061249038538481494, 0.10670275339810077 };
 
-    // Decision threshold: 0.5 is the natural Bayes cutoff for a balanced two-class logistic model
-    // (Hastie, Tibshirani & Friedman §4.4). Exposed as the default of ClassifyPreMiRna.
+    /// <summary>
+    /// The 13 human pre-miRNA hairpin precursors (miRBase, public domain) used as the positive class
+    /// of the bundled classifier, in training order: hsa-mir-21, hsa-let-7a-1, hsa-let-7b,
+    /// hsa-mir-106a, hsa-mir-31, hsa-let-7f-2, hsa-mir-16-1, hsa-mir-24-1, hsa-mir-93, hsa-mir-96,
+    /// hsa-mir-98, hsa-mir-147a, hsa-mir-199a-2.
+    /// </summary>
+    internal static readonly string[] PreMiRnaTrainingPositives =
+    {
+        "UGUCGGGUAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGUCUGACA",
+        "UGGGAUGAGGUAGUAGGUUGUAUAGUUUUAGGGUCACACCCACCACUGGGAGAUAACUAUACAAUCUACUGUCUUUCCUA",
+        "CGGGGUGAGGUAGUAGGUUGUGUGGUUUCAGGGCAGUGAUGUUGCCCCUCGGAAGAUAACUAUACAACCUACUGCCUUCCCUG",
+        "CCUUGGCCAUGUAAAAGUGCUUACAGUGCAGGUAGCUUUUUGAGAUCUACUGCAAUGUAAGCACUUCUUACAUUACCAUGG",
+        "GGAGAGGAGGCAAGAUGCUGGCAUAGCUGUUGAACUGGGAACCUGCUAUGCCAACAUAUUGCCAUCUUUCC",
+        "UGUGGGAUGAGGUAGUAGAUUGUAUAGUUUUAGGGUCAUACCCCAUCUUGGAGAUAACUAUACAGUCUACUGUCUUUCCCACG",
+        "GUCAGCAGUGCCUUAGCAGCACGUAAAUAUUGGCGUUAAGAUUCUAAAAUUAUCUCCAGUAUUAACUGUGCUGCUGAAGUAAGGUUGAC",
+        "CUCCGGUGCCUACUGAGCUGAUAUCAGUUCUCAUUUUACACACUGGCUCAGUUCAGCAGGAACAGGAG",
+        "CUGGGGGCUCCAAAGUGCUGUUCGUGCAGGUAGUGUGAUUACCCAACCUACUGCUGAGCUAGCACUUCCCGAGCCCCCGG",
+        "UGGCCGAUUUUGGCACUAGCACAUUUUUGCUUGUGUCUCUCCGCUCUGAGCAAUCAUGUGCAGUGCCAAUAUGGGAAA",
+        "AGGAUUCUGCUCAUGCCAGGGUGAGGUAGUAAGUUGUAUUGUUGUGGGGUAGGGAUAUUAGGCCCCAAUUAGAAGAUAACUAUACAACUUACUACUUUCCCUGGUGUGUGGCAUAUUCA",
+        "AAUCUAAAGACAACAUUUCUGCACACACACCAGACUAUGGAAGCCAGUGUGUGGAAAUGCUUCUGCUAGAUU",
+        "AGGAAGCUUCUGGAGAUCCUGCUCCGUCGCCCCAGUGUUCAGACUACCUGUUCAGGACAAUGCCGUUGUACAGUAGUCUGCACAUUGGUUAGACUGGGCAAGGGAGAGCA",
+    };
+
+    internal const int PreMiRnaTrainingSeed = 20060101;
+    internal const int PreMiRnaShufflesPerPositive = 4;
+    internal const double PreMiRnaTrainingFraction = 0.70;
+    internal const double PreMiRnaRidgeLambda = 1e-3;
+
+    /// <summary>A fitted standardised logistic-regression model (bias, weights, training mean/std).</summary>
+    internal sealed record PreMiRnaLogisticModel(double Bias, double[] Weights, double[] Mean, double[] Std);
+
+    /// <summary>The five model inputs of a feature vector, in model order.</summary>
+    internal static double[] PreMiRnaModelInputs(PreMiRnaFeatures f) =>
+        new[] { f.FreeEnergy, f.Amfe, f.Mfei, f.GcContent, f.PairedFraction };
+
+    /// <summary>
+    /// Rebuilds the documented training/held-out data set: each positive of
+    /// <see cref="PreMiRnaTrainingPositives"/> (label 1) followed by its
+    /// <see cref="PreMiRnaShufflesPerPositive"/> dinucleotide shuffles (label 0), all shuffles drawn
+    /// from one <c>Random(PreMiRnaTrainingSeed)</c>. Returns the model inputs, labels and sequences.
+    /// </summary>
+    internal static (double[][] X, int[] Y, string[] Sequences) BuildPreMiRnaTrainingSet()
+    {
+        var rng = new Random(PreMiRnaTrainingSeed);
+        var x = new List<double[]>();
+        var y = new List<int>();
+        var seqs = new List<string>();
+        void Add(string s, int label)
+        {
+            x.Add(PreMiRnaModelInputs(ExtractPreMiRnaFeatures(s)!.Value));
+            y.Add(label);
+            seqs.Add(s);
+        }
+        foreach (string pos in PreMiRnaTrainingPositives)
+        {
+            Add(pos, 1);
+            for (int k = 0; k < PreMiRnaShufflesPerPositive; k++)
+                Add(DinucleotideShuffle(pos, rng), 0);
+        }
+        return (x.ToArray(), y.ToArray(), seqs.ToArray());
+    }
+
+    /// <summary>Number of leading examples of the data set that form the training split (⌊0.7·n⌋).</summary>
+    internal static int PreMiRnaTrainingCount(int n) => (int)Math.Floor(n * PreMiRnaTrainingFraction);
+
+    /// <summary>
+    /// Re-runs the documented training of the bundled classifier: builds the data set, standardises
+    /// the training split by its mean and population standard deviation, and fits the ridge-penalised
+    /// logistic regression by Newton–Raphson (<see cref="FitRidgeLogisticRegression"/>).
+    /// </summary>
+    internal static PreMiRnaLogisticModel TrainPreMiRnaClassifier()
+    {
+        var (x, y, _) = BuildPreMiRnaTrainingSet();
+        int nTrain = PreMiRnaTrainingCount(x.Length);
+        int d = x[0].Length;
+        var mean = new double[d];
+        var std = new double[d];
+        for (int j = 0; j < d; j++)
+        {
+            var col = new double[nTrain];
+            for (int i = 0; i < nTrain; i++) col[i] = x[i][j];
+            mean[j] = col.Average();
+            std[j] = Math.Sqrt(StatisticsHelper.PopulationVariance(col));
+        }
+
+        var z = new double[nTrain][];
+        for (int i = 0; i < nTrain; i++)
+        {
+            z[i] = new double[d];
+            for (int j = 0; j < d; j++)
+                z[i][j] = std[j] == 0 ? 0.0 : (x[i][j] - mean[j]) / std[j];
+        }
+
+        var (bias, weights) = FitRidgeLogisticRegression(z, y.Take(nTrain).ToArray(), PreMiRnaRidgeLambda);
+        return new PreMiRnaLogisticModel(bias, weights, mean, std);
+    }
+
+    /// <summary>
+    /// Ridge-penalised logistic regression, maximising
+    /// ℓ(b0, b) = (1/n)·Σ_i [y_i log p_i + (1−y_i) log(1−p_i)] − (λ/2)·‖b‖² (intercept not penalised),
+    /// by Newton–Raphson / iteratively reweighted least squares (ESL §4.4.1) with step halving when a
+    /// full step does not increase ℓ (ESL: "step size halving will guarantee convergence"). Stops when
+    /// the largest parameter change is below 1e-13 (or after 200 iterations).
+    /// </summary>
+    internal static (double Bias, double[] Weights) FitRidgeLogisticRegression(double[][] x, int[] y, double lambda)
+    {
+        int n = x.Length, d = x[0].Length, m = d + 1;
+        var theta = new double[m]; // theta[0] = bias
+
+        double Objective(double[] t)
+        {
+            double ll = 0;
+            for (int i = 0; i < n; i++)
+            {
+                double eta = t[0];
+                for (int j = 0; j < d; j++) eta += t[j + 1] * x[i][j];
+                ll -= y[i] == 1 ? Softplus(-eta) : Softplus(eta); // log p or log(1−p)
+            }
+            double pen = 0;
+            for (int j = 1; j < m; j++) pen += t[j] * t[j];
+            return ll / n - 0.5 * lambda * pen;
+        }
+
+        double current = Objective(theta);
+        for (int iter = 0; iter < 200; iter++)
+        {
+            var grad = new double[m];
+            var info = new double[m, m]; // negative Hessian
+            for (int i = 0; i < n; i++)
+            {
+                double eta = theta[0];
+                for (int j = 0; j < d; j++) eta += theta[j + 1] * x[i][j];
+                double p = Sigmoid(eta), w = p * (1 - p), r = y[i] - p;
+                for (int a = 0; a < m; a++)
+                {
+                    double xa = a == 0 ? 1.0 : x[i][a - 1];
+                    grad[a] += r * xa / n;
+                    for (int b = 0; b < m; b++)
+                        info[a, b] += w * xa * (b == 0 ? 1.0 : x[i][b - 1]) / n;
+                }
+            }
+            for (int j = 1; j < m; j++)
+            {
+                grad[j] -= lambda * theta[j];
+                info[j, j] += lambda;
+            }
+
+            double[] step = SolveSymmetricPositiveDefinite(info, grad);
+            double scale = 1.0;
+            double[] trial = new double[m];
+            double next = double.NegativeInfinity;
+            for (int h = 0; h < 50; h++)
+            {
+                for (int a = 0; a < m; a++) trial[a] = theta[a] + scale * step[a];
+                next = Objective(trial);
+                if (next >= current) break;
+                scale *= 0.5;
+            }
+
+            double change = 0;
+            for (int a = 0; a < m; a++) change = Math.Max(change, Math.Abs(trial[a] - theta[a]));
+            if (next < current) break; // no ascent possible: at the optimum to machine precision
+            Array.Copy(trial, theta, m);
+            current = next;
+            if (change < 1e-13) break;
+        }
+
+        return (theta[0], theta.Skip(1).ToArray());
+    }
+
+    /// <summary>log(1 + e^x) without overflow.</summary>
+    private static double Softplus(double x) => x > 0 ? x + Math.Log(1 + Math.Exp(-x)) : Math.Log(1 + Math.Exp(x));
+
+    /// <summary>Solves A·x = b for a symmetric positive-definite A by Cholesky decomposition.</summary>
+    private static double[] SolveSymmetricPositiveDefinite(double[,] a, double[] b)
+    {
+        int m = b.Length;
+        var l = new double[m, m];
+        for (int i = 0; i < m; i++)
+        {
+            for (int j = 0; j <= i; j++)
+            {
+                double sum = a[i, j];
+                for (int k = 0; k < j; k++) sum -= l[i, k] * l[j, k];
+                l[i, j] = i == j ? Math.Sqrt(sum) : sum / l[j, j];
+            }
+        }
+        var yv = new double[m];
+        for (int i = 0; i < m; i++)
+        {
+            double sum = b[i];
+            for (int k = 0; k < i; k++) sum -= l[i, k] * yv[k];
+            yv[i] = sum / l[i, i];
+        }
+        var xv = new double[m];
+        for (int i = m - 1; i >= 0; i--)
+        {
+            double sum = yv[i];
+            for (int k = i + 1; k < m; k++) sum -= l[k, i] * xv[k];
+            xv[i] = sum / l[i, i];
+        }
+        return xv;
+    }
+
+    // Decision threshold: 0.5 is the Bayes (minimum-error) cutoff of the fitted posterior under 0-1
+    // loss (Hastie, Tibshirani & Friedman §2.4/§4.4). The posterior is calibrated to the training
+    // class proportions (13 positives : 52 shuffles = 1 : 4), so 0.5 is the minimum-error cutoff for
+    // that prior; callers with another prior or cost ratio should pass their own threshold.
     private const double DefaultNaturalThreshold = 0.5;
 
     /// <summary>
@@ -2898,14 +3117,7 @@ public static class MiRnaAnalyzer
     /// </summary>
     public static double ScorePreMiRnaFeatures(PreMiRnaFeatures features)
     {
-        double[] raw =
-        {
-            features.FreeEnergy,
-            features.Amfe,
-            features.Mfei,
-            features.GcContent,
-            features.PairedFraction
-        };
+        double[] raw = PreMiRnaModelInputs(features);
 
         double z = PreMiRnaLogRegBias;
         for (int j = 0; j < raw.Length; j++)
@@ -2916,6 +3128,52 @@ public static class MiRnaAnalyzer
         }
 
         return Sigmoid(z);
+    }
+
+    /// <summary>
+    /// Result of the randfold randomisation test (<see cref="CalculateRandfoldPValue"/>).
+    /// </summary>
+    /// <param name="FreeEnergy">ΔG° of the input's MFE fold (kcal/mol).</param>
+    /// <param name="PValue">randfold probability (1 + #shuffles with ΔG° ≤ input ΔG°)/(N + 1).</param>
+    /// <param name="Iterations">Number N of dinucleotide shuffles folded.</param>
+    /// <param name="LowerOrEqualCount">Shuffles whose ΔG° is lower than or equal (|Δ| ≤ 1e-7) to the input's.</param>
+    public readonly record struct RandfoldResult(double FreeEnergy, double PValue, int Iterations, int LowerOrEqualCount);
+
+    /// <summary>
+    /// The randfold randomisation test of Bonnet, Wuyts, Rouzé &amp; Van de Peer (2004),
+    /// Bioinformatics 20(17):2911-2917, dinucleotide mode (<c>randfold -d</c>): the input is folded,
+    /// <paramref name="iterations"/> dinucleotide shuffles (<see cref="DinucleotideShuffle"/>) are folded,
+    /// and P = (1 + #{shuffle ΔG° ≤ input ΔG°}) / (N + 1), with |Δ| ≤ 1e-7 counted as equal — exactly the
+    /// counting of <c>randfold.c</c> (<c>ct_eq = 1</c>; <c>proba = (ct_eq + ct_less)/(rand_num + 1)</c>).
+    /// Folding uses the canonical Turner-2004 MFE engine (RNA-STRUCT-001) where randfold links ViennaRNA's
+    /// <c>fold()</c>. Pre-miRNAs give small P (lower MFE than their shuffles).
+    /// </summary>
+    /// <param name="sequence">Candidate sequence (RNA or DNA; T read as U; case-insensitive).</param>
+    /// <param name="iterations">Number of shuffles N (randfold's third argument, e.g. 999); 0 gives P = 1.</param>
+    /// <param name="random">RNG for the shuffles (fixed seed ⇒ reproducible).</param>
+    /// <param name="minLoopSize">Minimum hairpin loop size passed to the folder (NNDB minimum 3).</param>
+    /// <returns>The test result, or <c>null</c> for null/empty input.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="random"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="iterations"/> is negative.</exception>
+    public static RandfoldResult? CalculateRandfoldPValue(string sequence, int iterations, Random random, int minLoopSize = 3)
+    {
+        ArgumentNullException.ThrowIfNull(random);
+        ArgumentOutOfRangeException.ThrowIfNegative(iterations);
+        if (string.IsNullOrEmpty(sequence))
+            return null;
+
+        const double Epsilon = 0.0000001; // randfold.c: epsilon for comparing doubles
+        double mfe = RnaSecondaryStructure.CalculateMfeStructure(sequence, minLoopSize).FreeEnergy;
+        int lowerOrEqual = 0;
+        for (int i = 0; i < iterations; i++)
+        {
+            double shuffled = RnaSecondaryStructure
+                .CalculateMfeStructure(DinucleotideShuffle(sequence, random), minLoopSize).FreeEnergy;
+            if (Math.Abs(shuffled - mfe) <= Epsilon || shuffled < mfe)
+                lowerOrEqual++;
+        }
+
+        return new RandfoldResult(mfe, (1.0 + lowerOrEqual) / (iterations + 1), iterations, lowerOrEqual);
     }
 
     /// <summary>Logistic (sigmoid) link 1/(1+e^-z) — Hastie, Tibshirani &amp; Friedman §4.4.1.</summary>
@@ -2943,17 +3201,25 @@ public static class MiRnaAnalyzer
     }
 
     /// <summary>
-    /// Generates a dinucleotide-composition-preserving shuffle of <paramref name="sequence"/> using
-    /// the Altschul &amp; Erickson (1985) Eulerian-walk algorithm: a random Eulerian trail through the
-    /// directed multigraph whose edges are the input's adjacent-nucleotide pairs reproduces a sequence
-    /// with the SAME first nucleotide, last nucleotide, and exact dinucleotide (doublet) counts. This
-    /// is the standard pre-miRNA-classifier background convention (Bonnet et al. 2004; Xue et al. 2005;
-    /// Batuwita &amp; Palade 2009): a length/composition-matched negative that preserves local
-    /// composition so that discrimination must come from STRUCTURE, not base content.
+    /// Generates a dinucleotide-composition-preserving shuffle of <paramref name="sequence"/>: a
+    /// uniformly random sequence among all sequences with the SAME first nucleotide, last nucleotide
+    /// and exact dinucleotide (doublet) counts. Algorithm of Altschul &amp; Erickson (1985), Mol Biol
+    /// Evol 2:526-538 (random Eulerian trail of the doublet multigraph: random "last-exit" edge per
+    /// vertex forming an arborescence into the last vertex, the other edges of each vertex in random
+    /// order, then the walk from the first vertex), with the last-exit arborescence drawn by Wilson's
+    /// loop-erased random walk as in uShuffle (Jiang, Anderson, Gillespie &amp; Mayne 2008, BMC
+    /// Bioinformatics 9:192; <c>ushuffle.c shuffle2</c>; Kandel et al. 1996). Wilson's walk samples the
+    /// same distribution as Altschul–Erickson's rejection step (squid <c>StrDPShuffle</c>, used by
+    /// randfold) but needs no retry, so every input yields a properly random shuffle.
+    /// The random draws are consumed in exactly <c>ushuffle.c</c>'s order (vertices in order of
+    /// first occurrence; <c>Next(n)</c> where uShuffle uses <c>random() % n</c>), so a recorded draw
+    /// transcript reproduces uShuffle's output character for character. This is the pre-miRNA
+    /// background convention of Bonnet et al. (2004) (randfold <c>-d</c>), Xue et al. (2005) and
+    /// Batuwita &amp; Palade (2009).
     /// </summary>
-    /// <param name="sequence">Input nucleotide sequence (upper/lowercase; characters preserved as-is except case is normalised to upper, T→U).</param>
+    /// <param name="sequence">Input nucleotide sequence (case is normalised to upper, T→U; any other symbol is kept as a vertex of its own).</param>
     /// <param name="random">RNG (supply a fixed seed for reproducibility).</param>
-    /// <returns>A shuffled sequence with identical dinucleotide counts; the input unchanged for length &lt; 2.</returns>
+    /// <returns>A shuffled sequence with identical dinucleotide counts; the input (normalised) for length &lt; 3.</returns>
     public static string DinucleotideShuffle(string sequence, Random random)
     {
         ArgumentNullException.ThrowIfNull(random);
@@ -2961,110 +3227,84 @@ public static class MiRnaAnalyzer
 
         string s = sequence.ToUpperInvariant().Replace('T', 'U');
         int n = s.Length;
-        if (n < 2) return s;
+        if (n < 3) return s; // uShuffle: k >= l is an exact copy; length 2 has a single doublet
 
-        char first = s[0];
-        char last = s[n - 1];
-
-        // Build the edge multiset: for each adjacent pair s[i]s[i+1], an edge s[i] -> s[i+1].
-        var outEdges = new Dictionary<char, List<char>>();
-        for (int i = 0; i < n - 1; i++)
+        // Vertices = distinct symbols in order of first occurrence (uShuffle hash insertion order);
+        // out-edge lists in sequence order. The root is the vertex of the last symbol.
+        var vertexOf = new Dictionary<char, int>();
+        var symbols = new List<char>();
+        var vertexSeq = new int[n];
+        for (int i = 0; i < n; i++)
         {
-            if (!outEdges.TryGetValue(s[i], out var list))
+            if (!vertexOf.TryGetValue(s[i], out int v))
             {
-                list = new List<char>();
-                outEdges[s[i]] = list;
+                v = symbols.Count;
+                vertexOf[s[i]] = v;
+                symbols.Add(s[i]);
             }
-            list.Add(s[i + 1]);
+            vertexSeq[i] = v;
         }
 
-        var vertices = new List<char>(outEdges.Keys);
+        int nv = symbols.Count;
+        var edges = new List<int>[nv];
+        for (int v = 0; v < nv; v++) edges[v] = new List<int>();
+        for (int i = 0; i < n - 1; i++) edges[vertexSeq[i]].Add(vertexSeq[i + 1]);
+        int root = vertexSeq[n - 1];
 
-        // Altschul-Erickson: repeatedly (a) pick, for every vertex except `last`, one random outgoing
-        // edge to form a "last-edge" arborescence rooted at `last`; the chosen last-edges must NOT
-        // form a cycle (every vertex must reach `last`). (b) Shuffle the remaining edges. (c) Walk an
-        // Eulerian trail from `first`, always taking the chosen last-edge of a vertex LAST. Retry the
-        // arborescence draw until it is acyclic (a connected Eulerian multigraph guarantees success).
-        for (int attempt = 0; attempt < 1000; attempt++)
+        // Wilson's algorithm: random arborescence of last-exit edges into the root.
+        var inTree = new bool[nv];
+        var next = new int[nv];
+        inTree[root] = true;
+        for (int i = 0; i < nv; i++)
         {
-            var lastEdge = new Dictionary<char, char>();
-            bool ok = true;
-            foreach (char v in vertices)
+            int u = i;
+            while (!inTree[u])
             {
-                if (v == last) continue;
-                var list = outEdges[v];
-                if (list.Count == 0) { ok = false; break; }
-                lastEdge[v] = list[random.Next(list.Count)];
+                next[u] = random.Next(edges[u].Count);
+                u = edges[u][next[u]];
             }
-            if (!ok) { if (vertices.Count == 1) break; else continue; }
-
-            // Verify the chosen last-edges form a tree into `last` (no cycle that avoids `last`).
-            if (!LastEdgesReachRoot(lastEdge, last, vertices))
-                continue;
-
-            // Build a per-vertex ordering of outgoing edges: random order, but the chosen last-edge
-            // placed at the END so the Eulerian walk uses it last.
-            var ordered = new Dictionary<char, List<char>>();
-            foreach (char v in vertices)
+            u = i;
+            while (!inTree[u])
             {
-                var src = new List<char>(outEdges[v]);
-                FisherYatesShuffle(src, random);
-                if (lastEdge.TryGetValue(v, out char le))
-                {
-                    int idx = src.IndexOf(le);
-                    if (idx >= 0) { src.RemoveAt(idx); src.Add(le); }
-                }
-                ordered[v] = src;
+                inTree[u] = true;
+                u = edges[u][next[u]];
             }
-
-            // Walk the Eulerian trail from `first`, consuming each vertex's edges in `ordered` order.
-            var pos = new Dictionary<char, int>();
-            foreach (char v in vertices) pos[v] = 0;
-            var sb = new StringBuilder(n);
-            sb.Append(first);
-            char cur = first;
-            for (int step = 0; step < n - 1; step++)
-            {
-                if (!ordered.TryGetValue(cur, out var list) || pos[cur] >= list.Count)
-                {
-                    ok = false;
-                    break;
-                }
-                char nxt = list[pos[cur]++];
-                sb.Append(nxt);
-                cur = nxt;
-            }
-            if (ok && sb.Length == n)
-                return sb.ToString();
         }
 
-        // Fallback (extremely rare / degenerate composition): return the original (still composition-matched).
-        return s;
+        // Each non-root vertex: move its last-exit edge to the end, permute the others; root: permute all.
+        for (int v = 0; v < nv; v++)
+        {
+            var list = edges[v];
+            if (v != root)
+            {
+                int last = list.Count - 1;
+                (list[last], list[next[v]]) = (list[next[v]], list[last]);
+                FisherYatesShuffle(list, list.Count - 1, random);
+            }
+            else
+            {
+                FisherYatesShuffle(list, list.Count, random);
+            }
+        }
+
+        // Walk the Eulerian trail from the first vertex.
+        var pos = new int[nv];
+        var sb = new StringBuilder(n);
+        int cur = vertexSeq[0];
+        sb.Append(symbols[cur]);
+        while (pos[cur] < edges[cur].Count)
+        {
+            cur = edges[cur][pos[cur]++];
+            sb.Append(symbols[cur]);
+        }
+        return sb.ToString();
     }
 
-    // True iff, following the single chosen last-edge from every non-root vertex, every vertex
-    // reaches `root` (i.e. the last-edges form an arborescence into root with no avoidant cycle).
-    private static bool LastEdgesReachRoot(Dictionary<char, char> lastEdge, char root, List<char> vertices)
+    // Fisher–Yates on the first `count` items, Durstenfeld order (i = count-1 … 1, j = Next(i+1)),
+    // identical to uShuffle's permutei.
+    private static void FisherYatesShuffle<T>(IList<T> list, int count, Random random)
     {
-        foreach (char v in vertices)
-        {
-            if (v == root) continue;
-            char cur = v;
-            int guard = 0;
-            var seen = new HashSet<char>();
-            while (cur != root)
-            {
-                if (!seen.Add(cur)) return false;           // cycle not through root
-                if (!lastEdge.TryGetValue(cur, out cur)) return false; // dead end
-                if (++guard > vertices.Count + 1) return false;
-            }
-        }
-        return true;
-    }
-
-    private static void FisherYatesShuffle<T>(IList<T> list, Random random)
-    {
-        for (int i = list.Count - 1; i > 0; i--)
+        for (int i = count - 1; i > 0; i--)
         {
             int j = random.Next(i + 1);
             (list[i], list[j]) = (list[j], list[i]);

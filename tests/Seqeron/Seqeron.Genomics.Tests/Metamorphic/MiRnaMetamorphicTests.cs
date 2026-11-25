@@ -544,7 +544,7 @@ public class MiRnaMetamorphicTests
     {
         // A realistic feature vector; only the MFEI varies. (Last three fields are unused by the model.)
         MiRnaAnalyzer.PreMiRnaFeatures WithMfei(double mfei) =>
-            new(FreeEnergy: -30.0, Amfe: 45.0, Mfei: mfei, GcContent: 50.0, PairedFraction: 0.70,
+            new(FreeEnergy: -30.0, Amfe: 45.0, Mfei: mfei, GcContent: 0.50, PairedFraction: 0.70,
                 StemBasePairs: 22, LoopSize: 10, Length: 72);
 
         double previous = double.NegativeInfinity;

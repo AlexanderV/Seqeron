@@ -1474,7 +1474,7 @@ public class MiRnaAnalyzer_PreMiRna_Tests
 
     #endregion
 
-    #region Trained natural-vs-background classifier (CL1–CL12)
+    #region Trained natural-vs-background classifier (CL1–CL20)
 
     // ── Real human pre-miRNA precursors from miRBase (public domain) ───────────────────────
     // Retrieved verbatim from mirbase.org/hairpin/<MI>. Same 13 positives + fixed seed used by
@@ -1526,6 +1526,8 @@ public class MiRnaAnalyzer_PreMiRna_Tests
                 "%paired = 2·bp/length = 2·32/72 from the MFE structure.");
             Assert.That(f.Value.StemBasePairs, Is.EqualTo(32),
                 "Base-pair count of the MFE structure.");
+            Assert.That(f.Value.BasePairingPropensity, Is.EqualTo(32.0 / 72.0).Within(1e-15),
+                "dP = |bp|/L (Schultes 1999; miPred, Ng & Mishra 2007) = PairedFraction/2.");
             Assert.That(f.Value.Length, Is.EqualTo(72),
                 "hsa-mir-21 precursor length (miRBase MI0000077).");
         });
@@ -1643,6 +1645,8 @@ public class MiRnaAnalyzer_PreMiRna_Tests
         var rng = new Random(TrainSeed);
         var examples = new List<(double prob, int label)>();
 
+        Assert.That(MiRBasePositives, Is.EqualTo(PreMiRnaTrainingPositives),
+            "The test's miRBase strings are the bundled training positives.");
         // Fixed order: each positive, then its K shuffles (identical to the training run).
         foreach (string pos in MiRBasePositives)
         {
@@ -1667,10 +1671,13 @@ public class MiRnaAnalyzer_PreMiRna_Tests
             Assert.That(test.Count, Is.EqualTo(n - nTrain), "Held-out split is the last 30%.");
             Assert.That(test.Any(t => t.label == 1) && test.Any(t => t.label == 0), Is.True,
                 "Held-out split contains both classes (interleaved order guarantees it).");
-            Assert.That(accuracy, Is.GreaterThanOrEqualTo(0.90),
-                "Held-out accuracy exceeds the Bonnet-2004 separability expectation.");
-            Assert.That(auc, Is.GreaterThanOrEqualTo(0.90),
-                "Held-out AUC exceeds 0.90 (real pre-miRNAs well-separated from di-shuffled controls).");
+            // scikit-learn 1.9.1 LogisticRegression(C = 1/(1e-3·45)) on the same 65 feature rows: held-out
+            // accuracy 0.9 (hsa-mir-98 P = 0.4978; one shuffle of hsa-mir-147a P = 0.5001) and
+            // roc_auc_score 0.984375 (63 of 64 positive/negative pairs ordered).
+            Assert.That(accuracy, Is.EqualTo(0.90).Within(1e-12),
+                "Held-out accuracy of the re-derived model (18/20).");
+            Assert.That(auc, Is.EqualTo(63.0 / 64.0).Within(1e-12),
+                "Held-out AUC = 0.984375 (scikit-learn roc_auc_score on the same scores).");
         });
     }
 
@@ -1765,6 +1772,173 @@ public class MiRnaAnalyzer_PreMiRna_Tests
         });
     }
 
+    // CL15 — the bundled model is reproducible from the repository: re-running the documented training
+    // (BuildPreMiRnaTrainingSet → standardise → ridge logistic regression by Newton–Raphson) yields the
+    // bundled constants. Reference: scikit-learn 1.9.1 LogisticRegression(C = 1/(λ·45), solver
+    // newton-cg, tol 1e-14) on the same 45 standardised rows: b0 −4.278229873240855, b = [−0.9994063824008977,
+    // 3.304516383745917, 3.63652043260533, −0.8781055255902053, −0.26063466887427356]; numpy mean/std(ddof 0)
+    // identical to the printed digits. (Pre-fix: the constants were a 20 000-epoch gradient-ascent fit on
+    // features of the pre-B12 folder; 61 of the 65 MFEs have since changed.)
+    [Test]
+    public void TrainPreMiRnaClassifier_ReproducesBundledModel_AndScikitLearn()
+    {
+        var m = TrainPreMiRnaClassifier();
+        double[] skW = { -0.9994063824008977, 3.304516383745917, 3.63652043260533, -0.8781055255902053, -0.26063466887427356 };
+        Assert.Multiple(() =>
+        {
+            Assert.That(m.Bias, Is.EqualTo(LrBias).Within(1e-12), "bias = bundled constant");
+            Assert.That(m.Weights, Is.EqualTo(LrW).Within(1e-12), "weights = bundled constants");
+            Assert.That(m.Mean, Is.EqualTo(LrMean).Within(1e-12), "training mean = bundled constants");
+            Assert.That(m.Std, Is.EqualTo(LrStd).Within(1e-12), "training population std = bundled constants");
+            Assert.That(m.Bias, Is.EqualTo(-4.278229873240855).Within(1e-8), "bias = scikit-learn");
+            Assert.That(m.Weights, Is.EqualTo(skW).Within(1e-8), "weights = scikit-learn");
+        });
+    }
+
+    // CL16 — the fitter returns the maximum-likelihood estimate. Hand-solvable case: x = −1 with y = {0,0,1} and
+    // x = +1 with y = {1,1,0}. The model is saturated, so the MLE reproduces the group frequencies:
+    // σ(b0 − b) = 1/3 and σ(b0 + b) = 2/3 ⇒ b0 = 0, b = ln 2 (λ = 0). With λ > 0 the score equation
+    // mean((y − p)·x) = λ·b holds at the returned b.
+    [Test]
+    public void FitRidgeLogisticRegression_SaturatedCase_EqualsMle()
+    {
+        var x = new[] { new[] { -1.0 }, new[] { -1.0 }, new[] { -1.0 }, new[] { 1.0 }, new[] { 1.0 }, new[] { 1.0 } };
+        var y = new[] { 0, 0, 1, 1, 1, 0 };
+        var (b0, w) = FitRidgeLogisticRegression(x, y, 0.0);
+        var (rb0, rw) = FitRidgeLogisticRegression(x, y, 0.1);
+        double score = 0;
+        for (int i = 0; i < x.Length; i++) score += (y[i] - 1.0 / (1.0 + Math.Exp(-(rb0 + rw[0] * x[i][0])))) * x[i][0];
+        Assert.Multiple(() =>
+        {
+            Assert.That(b0, Is.EqualTo(0.0).Within(1e-12), "symmetric data ⇒ zero intercept");
+            Assert.That(w[0], Is.EqualTo(Math.Log(2.0)).Within(1e-12), "MLE slope = ln 2");
+            Assert.That(score / x.Length, Is.EqualTo(0.1 * rw[0]).Within(1e-12), "ridge score equation");
+            Assert.That(rw[0], Is.LessThan(w[0]), "the penalty shrinks the slope");
+        });
+    }
+
+    // CL17 — DinucleotideShuffle consumes random draws exactly as uShuffle 1.1.2 (ushuffle.c shuffle2: Wilson
+    // arborescence, swap the last-exit edge to the end, permutei, walk). Expected strings: ushuffle.c
+    // compiled with set_randfunc() replaying the listed draws (each transcript fully consumed).
+    [TestCase("AAUAAGAUAGUCA", new[] { 2, 0, 1, 3, 1, 2, 2, 0, 1 }, "AUAAGAAUAGUCA")]
+    [TestCase("acgtacgtnnACGTTTGCAAAGGGCCCNNNNacgt",
+        new[] { 1, 1, 6, 0, 5, 3, 7, 1, 4, 0, 0, 1, 0, 3, 3, 1, 0, 6, 4, 2, 2, 0, 1, 2, 4, 3, 2, 0, 1, 2, 1, 2, 0, 0, 3, 0, 0 },
+        "ACAGGUUACGUGCGCCGGUNAAACCNNNNNACGUU")]
+    [TestCase("UGUCGGGUAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGUCUGACA",
+        new[] { 12, 13, 15, 8, 2, 7, 0, 14, 6, 12, 11, 12, 6, 11, 10, 0, 5, 7, 5, 4, 2, 2, 0, 1, 13, 16, 7, 14, 14, 11, 7, 3, 5,
+                1, 8, 3, 5, 2, 4, 2, 2, 0, 5, 7, 4, 0, 7, 7, 4, 3, 4, 0, 0, 2, 1, 0, 9, 0, 8, 3, 8, 1, 6, 4, 1, 2, 1, 1, 1 },
+        "UUCAGUGUCUAUACACUUCAGCAUCUGAUGCGGAAUGUCCUGACGGACUUGUGCAUCUGGGACAAGUGGUGA")]
+    public void DinucleotideShuffle_ScriptedDraws_EqualUShuffle(string input, int[] draws, string expected)
+    {
+        var rng = new ScriptedRandom(draws);
+        Assert.Multiple(() =>
+        {
+            Assert.That(DinucleotideShuffle(input, rng), Is.EqualTo(expected), "uShuffle output for the same draws");
+            Assert.That(rng.Remaining, Is.EqualTo(0), "same number of draws as uShuffle");
+        });
+    }
+
+    // CL18 — no silent identity fallback. "A"×500 + "G" + "A"×500 + "C" has 999 valid shuffles (A^i G A^j C,
+    // i + j = 1000, i, j ≥ 1). The former rejection loop needed A's last-exit edge to be the single A→C edge
+    // (p = 1/1000 per draw) and returned the INPUT after 1000 failed draws: 69 of 200 seeds gave the input back.
+    // Uniform sampling returns it with p = 1/999.
+    [Test]
+    public void DinucleotideShuffle_LowAcceptanceGraph_NotReturnedUnshuffled()
+    {
+        string s = new string('A', 500) + "G" + new string('A', 500) + "C";
+        int unchanged = 0;
+        var distinct = new HashSet<string>();
+        for (int seed = 0; seed < 200; seed++)
+        {
+            string t = DinucleotideShuffle(s, new Random(seed));
+            Assert.That(DinucleotideCounts(t), Is.EqualTo(DinucleotideCounts(s)));
+            distinct.Add(t);
+            if (t == s) unchanged++;
+        }
+        Assert.Multiple(() =>
+        {
+            Assert.That(unchanged, Is.LessThanOrEqualTo(3), "P(input) = 1/999 per draw (expected 0.2 of 200)");
+            Assert.That(distinct.Count, Is.GreaterThan(170), "≈ 200 distinct draws out of 999");
+        });
+    }
+
+    // CL19 — uniformity (Altschul & Erickson 1985: every sequence with the same doublet counts and ends is
+    // equally likely). "ACGUGUCAGGAUCC" has exactly 612 such sequences (Python Eulerian-trail enumeration);
+    // 200 000 draws (seed 42) hit all 612 and χ² = 596.49 < χ²(0.999; 611) = 724.75 (scipy).
+    [Test]
+    public void DinucleotideShuffle_IsUniformOverValidSequences()
+    {
+        const string s = "ACGUGUCAGGAUCC";
+        const int draws = 200_000;
+        var counts = new Dictionary<string, int>();
+        var rng = new Random(42);
+        var reference = DinucleotideCounts(s);
+        for (int i = 0; i < draws; i++)
+        {
+            string t = DinucleotideShuffle(s, rng);
+            counts[t] = counts.GetValueOrDefault(t) + 1;
+        }
+        Assert.That(counts.Keys.All(k => k[0] == s[0] && k[^1] == s[^1]
+            && DinucleotideCounts(k).OrderBy(kv => kv.Key).SequenceEqual(reference.OrderBy(kv => kv.Key))), Is.True,
+            "every output preserves ends and doublet counts");
+        double expected = (double)draws / 612;
+        double chi2 = counts.Values.Sum(c => (c - expected) * (c - expected) / expected);
+        Assert.Multiple(() =>
+        {
+            Assert.That(counts.Count, Is.EqualTo(612), "all 612 valid sequences are reachable");
+            Assert.That(chi2, Is.LessThan(724.7478), "χ² below the 0.1 % critical value (df 611)");
+        });
+    }
+
+    // CL20 — randfold (Bonnet et al. 2004; randfold.c dinucleotide mode): P = (1 + #{ΔG°shuffle ≤ ΔG°})/(N + 1).
+    // Reference: the same 199 shuffles (Random(11)) folded by the canonical engine and counted by a Python
+    // transcription of randfold.c's rule: 20 ⇒ 21/200 = 0.105. ViennaRNA 2.8 RNA.fold on the same shuffles:
+    // ΔG° −14.40 (engine −14.45), 22 ⇒ 0.115 (engine-parameter residual of RNA-STRUCT-001).
+    // hsa-mir-21 with 99 shuffles (Random(7)): no shuffle folds as low ⇒ 1/100 (Vienna: also 0 of 99).
+    [Test]
+    public void CalculateRandfoldPValue_CountsAsRandfold()
+    {
+        var r = CalculateRandfoldPValue(
+            "GAUCAGUCAUGACUAGCUAGAUUGACAAGCUUACGAUCAGGACUUAGCAUCGUAGCAUGACUAG", 199, new Random(11))!.Value;
+        var mir21 = CalculateRandfoldPValue(HsaMir21, 99, new Random(7))!.Value;
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.LowerOrEqualCount, Is.EqualTo(20));
+            Assert.That(r.PValue, Is.EqualTo(21.0 / 200.0).Within(1e-15));
+            Assert.That(r.FreeEnergy, Is.EqualTo(-14.45).Within(1e-9));
+            Assert.That(r.Iterations, Is.EqualTo(199));
+            Assert.That(mir21.PValue, Is.EqualTo(0.01).Within(1e-15), "pre-miRNA: lower MFE than all shuffles");
+            Assert.That(mir21.FreeEnergy, Is.EqualTo(-35.13).Within(1e-9));
+        });
+    }
+
+    [Test]
+    public void CalculateRandfoldPValue_Guards()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(CalculateRandfoldPValue(HsaMir21, 0, new Random(1))!.Value.PValue, Is.EqualTo(1.0),
+                "randfold with 0 randomisations: (ct_eq = 1)/(0 + 1) = 1");
+            Assert.That(CalculateRandfoldPValue("", 10, new Random(1)), Is.Null);
+            Assert.That(CalculateRandfoldPValue(null!, 10, new Random(1)), Is.Null);
+            Assert.Throws<ArgumentOutOfRangeException>(() => CalculateRandfoldPValue(HsaMir21, -1, new Random(1)));
+            Assert.Throws<ArgumentNullException>(() => CalculateRandfoldPValue(HsaMir21, 10, null!));
+        });
+    }
+
+    private sealed class ScriptedRandom : Random
+    {
+        private readonly Queue<int> _draws;
+        public ScriptedRandom(IEnumerable<int> draws) => _draws = new Queue<int>(draws);
+        public int Remaining => _draws.Count;
+        public override int Next(int maxValue)
+        {
+            int v = _draws.Dequeue();
+            if (v < 0 || v >= maxValue) throw new InvalidOperationException($"scripted draw {v} not in [0,{maxValue})");
+            return v;
+        }
+    }
+
     private static Dictionary<string, int> DinucleotideCounts(string s)
     {
         var d = new Dictionary<string, int>();
@@ -1825,17 +1999,17 @@ public class MiRnaAnalyzer_PreMiRna_Tests
 
     #region ScorePreMiRnaFeatures / ClassifyPreMiRna — exact logistic-model killers (MIRNA-CLASSIFY-001)
 
-    // Published trained logistic-regression coefficients (MiRnaAnalyzer source §"Trained logistic-regression
-    // coefficients"): P(natural) = sigmoid(b0 + Σ b_j·(x_j − mean_j)/std_j) over the 5 model features
+    // Bundled logistic-regression model (MiRnaAnalyzer §"Trained logistic-regression model"; re-derived by
+    // TrainPreMiRnaClassifier and by scikit-learn 1.9.1, see CL15): P(natural) = sigmoid(b0 + Σ b_j·(x_j − mean_j)/std_j) over the 5 model features
     // [FreeEnergy, Amfe, Mfei, GcContent, PairedFraction]. Re-stated here as an INDEPENDENT oracle so the
     // production standardisation / weighting / bias / sigmoid are pinned exactly (not characterised).
-    private const double LrBias = -4.340788257901692;
+    private const double LrBias = -4.278229873244336;
     private static readonly double[] LrW =
-        { -0.6299061497891402, 2.4689410267337104, 2.5770103435217253, -0.3315361036977469, 2.42751798356881 };
+        { -0.9994063824017212, 3.3045163837473233, 3.636520432606299, -0.8781055255888673, -0.260634668873017 };
     private static readonly double[] LrMean =
-        { -22.988666666666667, 29.297338207740115, 0.6157639504286563, 0.477134229110014, 0.6153156920227864 };
+        { -22.93488888888889, 29.25596144559518, 0.6119707188599345, 0.477134229110014, 0.6329947414221273 };
     private static readonly double[] LrStd =
-        { 8.373410721510746, 10.37385177977526, 0.2084972456212268, 0.061249038538481466, 0.10661272255434924 };
+        { 8.568968205027105, 10.686847007183342, 0.20989563586718338, 0.061249038538481494, 0.10670275339810077 };
 
     private static PreMiRnaFeatures FeaturesFromModelInputs(double fe, double amfe, double mfei, double gc, double paired)
         => new(FreeEnergy: fe, Amfe: amfe, Mfei: mfei, GcContent: gc, PairedFraction: paired,

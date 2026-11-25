@@ -186,10 +186,11 @@ The pairing test accepts both Watson-Crick and G:U wobble pairs, but the uninter
 - `MiRnaAnalyzer.AssessHairpinByMfe(string, double, int)`: Opt-in single-candidate assessment from the real MFE structure (single hairpin + stem≥16 + loop 3–25 + MFEI≥0.85).
 - `MiRnaAnalyzer.CalculateMfeIndex(double, int, double)`: MFEI = AMFE/(G+C)%, AMFE = 100·|ΔG°|/length (Zhang 2006).
 - `MiRnaAnalyzer.PredictDroshaDicerCleavage(string, int)`: Opt-in cleavage-site prediction — Drosha cut (~11 bp from the basal junction), Dicer cut / 22-nt mature length, mature (5p) + star (3p) spans, 2-nt 3' overhang, optional CNNC flag (Han 2006 / Park 2011 / Auyeung 2013).
-- `MiRnaAnalyzer.ExtractPreMiRnaFeatures(string, int)`: Opt-in extraction of the published structure/sequence features (MFE, AMFE, MFEI, GC, %paired, stem bp, loop, length) from the real MFE structure (RNA-STRUCT-001).
+- `MiRnaAnalyzer.ExtractPreMiRnaFeatures(string, int)`: Opt-in extraction of the published structure/sequence features (MFE, AMFE, MFEI, GC, %paired = 2·dP, dP = |bp|/L [16], stem bp, loop, length) from the real MFE structure (RNA-STRUCT-001).
 - `MiRnaAnalyzer.ClassifyPreMiRna(string, double, int)`: Opt-in **trained** logistic-regression natural-vs-background classifier; returns the features, P(natural), and the boolean call.
 - `MiRnaAnalyzer.ScorePreMiRnaFeatures(PreMiRnaFeatures)`: Opt-in evaluation of the bundled trained model on a feature vector.
-- `MiRnaAnalyzer.DinucleotideShuffle(string, Random)`: Altschul-Erickson (1985) dinucleotide-preserving shuffle — the background-set generator (Bonnet 2004 convention).
+- `MiRnaAnalyzer.DinucleotideShuffle(string, Random)`: Altschul-Erickson (1985) dinucleotide-preserving shuffle (uniform over all sequences with the same doublet counts and ends), last-exit arborescence drawn by Wilson's walk as in uShuffle (Jiang et al. 2008) [15]; draw-for-draw identical to `ushuffle.c` — the background-set generator (Bonnet 2004 / randfold `-d` convention).
+- `MiRnaAnalyzer.CalculateRandfoldPValue(string, int, Random, int)`: Opt-in randfold test (Bonnet 2004 [6]; `randfold.c` counting): P = (1 + #{shuffle ΔG° ≤ ΔG°})/(N + 1) over N dinucleotide shuffles.
 
 ### 5.2 Current Behavior
 
@@ -211,10 +212,13 @@ The implementation searches candidates exhaustively rather than folding the full
   the RNase III 2-nt 3' overhang [9][11], and the Auyeung (2013) CNNC confidence motif [12].
 - **Opt-in:** a **trained** structure/sequence-feature natural-vs-background classifier
   (`ClassifyPreMiRna`). Logistic regression [13] over published features — MFE [6], AMFE/MFEI [7],
-  GC%, and %paired (base-pairing propensity) [8] — fit by batch gradient ascent on the log-likelihood,
-  with bundled coefficients. Positives: public-domain miRBase precursors [5]; negatives:
-  Altschul-Erickson (1985) dinucleotide-preserving shuffles [14] of the positives — the standard
-  pre-miRNA-classifier background convention [6][8]. Held-out accuracy = AUC = 1.0 on a fixed-seed
+  GC%, and %paired (= 2·dP, base-pairing propensity [16]) — ridge-penalised maximum likelihood (λ = 1e-3)
+  solved by Newton–Raphson/IRLS [13] (= scikit-learn `LogisticRegression(C = 1/(λ·45))`), with bundled
+  coefficients that the internal `TrainPreMiRnaClassifier` re-derives from the repository (a unit test
+  checks it). Positives: 13 public-domain miRBase precursors [5]; negatives: 4 Altschul-Erickson
+  dinucleotide shuffles [14][15] per positive (Random(20060101)) — the standard pre-miRNA-classifier
+  background convention [6][8]. Held-out (last 20 of 65): accuracy 0.90, AUC 0.984375. Default
+  threshold 0.5 = minimum-error cutoff under the training prior (1 : 4).
   70/30 split. **No GPL miRDeep2 code or weights are used** (its published method was consulted only).
 
 **Intentionally simplified:**
@@ -342,5 +346,7 @@ var bg = MiRnaAnalyzer.ClassifyPreMiRna(
 10. Park JE, Heo I, Tian Y, Simanshu DK, Chang H, Jee D, Patel DJ, Kim VN. 2011. Dicer recognizes the 5' end of RNA for efficient and accurate processing. Nature. 475(7355):201-205. doi:10.1038/nature10198. ("the cleavage site determined mainly by the distance (∼22 nucleotides) from the 5' end (5' counting rule).")
 11. Lee Y, Ahn C, Han J, Choi H, Kim J, Yim J, Lee J, Provost P, Rådmark O, Kim S, Kim VN. 2003. The nuclear RNase III Drosha initiates microRNA processing. Nature. 425(6956):415-419. doi:10.1038/nature01957. (RNase III staggered cleavage leaves a 2-nt 3' overhang.)
 12. Auyeung VC, Ulitsky I, McGeary SE, Bartel DP. 2013. Beyond secondary structure: primary-sequence determinants license pri-miRNA hairpins for processing. Cell. 152(4):844-858. doi:10.1016/j.cell.2013.01.031. (Basal UG, apical UGU(G), and CNNC motifs; CNNC positioned 16-18 nt from the Drosha cut.)
-13. Hastie T, Tibshirani R, Friedman J. 2009. The Elements of Statistical Learning, 2nd ed., §4.4.1 (logistic regression; sigmoid link; log-likelihood maximised by gradient ascent). doi:10.1007/978-0-387-84858-7. Also: Batuwita R, Palade V. 2009. microPred: effective classification of pre-miRNAs for human miRNA gene prediction. Bioinformatics. 25(8):989-995. doi:10.1093/bioinformatics/btp107 (MFE/MFEI + base-pair-composition / %paired structural feature family) and Xue C, Li F, He T, Liu GP, Li Y, Zhang X. 2005. Classification of real and pseudo microRNA precursors using local structure-sequence features and support vector machine. BMC Bioinformatics. 6:310. doi:10.1186/1471-2105-6-310.
+13. Hastie T, Tibshirani R, Friedman J. 2009. The Elements of Statistical Learning, 2nd ed., §4.4.1 (logistic regression; sigmoid link; log-likelihood maximised by Newton–Raphson / IRLS, eqs. 4.21–4.28). doi:10.1007/978-0-387-84858-7. Also: Batuwita R, Palade V. 2009. microPred: effective classification of pre-miRNAs for human miRNA gene prediction. Bioinformatics. 25(8):989-995. doi:10.1093/bioinformatics/btp107 (MFE/MFEI + base-pair-composition / %paired structural feature family) and Xue C, Li F, He T, Liu GP, Li Y, Zhang X. 2005. Classification of real and pseudo microRNA precursors using local structure-sequence features and support vector machine. BMC Bioinformatics. 6:310. doi:10.1186/1471-2105-6-310.
 14. Altschul SF, Erickson BW. 1985. Significance of nucleotide sequence alignments: a method for random sequence permutation that preserves dinucleotide and codon usage. Molecular Biology and Evolution. 2(6):526-538. (Eulerian-walk dinucleotide-preserving shuffle; implemented as the background-set generator. See also Jiang M, et al. 2008. uShuffle. BMC Bioinformatics. 9:192. doi:10.1186/1471-2105-9-192.)
+15. Jiang M, Anderson J, Gillespie J, Mayne M. 2008. uShuffle: a useful tool for shuffling biological sequences while preserving the k-let counts. BMC Bioinformatics. 9:192. (source `ushuffle.c` 1.1.2, `shuffle2`: Wilson random arborescence.)
+16. Ng KLS, Mishra SK. 2007. De novo SVM classification of precursor microRNAs from genomic pseudo hairpins using global and intrinsic folding measures. Bioinformatics. 23(11):1321-1330. (dP = |bp|/L, Schultes et al. 1999.)
