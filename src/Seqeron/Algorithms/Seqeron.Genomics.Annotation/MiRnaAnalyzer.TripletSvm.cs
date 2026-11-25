@@ -66,7 +66,7 @@ public static partial class MiRnaAnalyzer
         ArgumentOutOfRangeException.ThrowIfLessThan(minBasePairs, 1);
         ArgumentOutOfRangeException.ThrowIfNegative(minLoopSize);
         var results = new List<TripletSvmResult>();
-        string? seq = NormaliseTripletQuery(sequence);
+        string? seq = ToAcguRna(sequence, dropOthers: false);
         if (seq is null || seq.Length == 0)
             return results;
 
@@ -108,7 +108,7 @@ public static partial class MiRnaAnalyzer
     {
         ArgumentNullException.ThrowIfNull(sequence);
         ArgumentNullException.ThrowIfNull(dotBracket);
-        string? seq = NormaliseTripletQuery(sequence);
+        string? seq = ToAcguRna(sequence, dropOthers: false);
         if (seq is null || seq.Length != dotBracket.Length)
             return null;
 
@@ -117,7 +117,7 @@ public static partial class MiRnaAnalyzer
         int pairs = (pieces.Count + 1) / 2;
         int same = 0;
         for (int i = 0; i < pieces.Count; i += 2)
-            if (CountChar(pieces[i], '(') == CountChar(i + 1 < pieces.Count ? pieces[i + 1] : "", ')'))
+            if (pieces[i].AsSpan().Count('(') == (i + 1 < pieces.Count ? pieces[i + 1] : "").AsSpan().Count(')'))
                 same++;
         if (same != pairs || same != 1 || pieces.Count != 2)
             return null;
@@ -190,8 +190,8 @@ public static partial class MiRnaAnalyzer
         var right = new List<int>();
         for (int i = 0; i < pieces.Count; i += 2)
         {
-            left.Add(CountChar(pieces[i], '('));
-            right.Add(CountChar(i + 1 < pieces.Count ? pieces[i + 1] : "", ')'));
+            left.Add(pieces[i].AsSpan().Count('('));
+            right.Add((i + 1 < pieces.Count ? pieces[i + 1] : "").AsSpan().Count(')'));
         }
 
         var ret = new List<string>();
@@ -253,20 +253,6 @@ public static partial class MiRnaAnalyzer
 
     // ── helpers shared by the ports ───────────────────────────────────────────────────────────
 
-    private static string? NormaliseTripletQuery(string sequence)
-    {
-        var sb = new StringBuilder(sequence.Length);
-        foreach (char c in sequence)
-        {
-            char u = char.ToUpperInvariant(c);
-            if (u == 'T') u = 'U';
-            if (u != 'A' && u != 'C' && u != 'G' && u != 'U')
-                return null;
-            sb.Append(u);
-        }
-        return sb.ToString();
-    }
-
     /// <summary><c>divide_structure</c>: split at every change between '(' and ')' groups (dots stay with the preceding piece).</summary>
     private static List<string> DivideTripletStructure(string symbol)
     {
@@ -303,13 +289,6 @@ public static partial class MiRnaAnalyzer
     {
         if (pos < 0 || pos > s.Length) return "";
         return s.Substring(pos, Math.Min(len, s.Length - pos));
-    }
-
-    private static int CountChar(string s, char c)
-    {
-        int n = 0;
-        foreach (char x in s) if (x == c) n++;
-        return n;
     }
 
     private static void CountTriplets(string armSeq, string arm, double[] table)

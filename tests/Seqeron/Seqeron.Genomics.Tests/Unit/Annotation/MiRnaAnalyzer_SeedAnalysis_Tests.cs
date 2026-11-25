@@ -503,12 +503,12 @@ public class MiRnaAnalyzer_SeedAnalysis_Tests
     }
 
     [Test]
-    public void CalculateGcContent_DelegatesToCanonicalGcFraction()
+    public void CalculateGcFraction_DelegatesToCanonicalGcFraction()
     {
         // let-7a UGAGGUAGUAGGUUGUAUAGUU: G+C = 8 of 22 nt; Biopython gc_fraction = 0.36363636...
-        Assert.That(CalculateGcContent(Let7a_Sequence), Is.EqualTo(8.0 / 22).Within(1e-12));
-        Assert.That(CalculateGcContent(Let7a_Sequence), Is.EqualTo(Let7a_Sequence.CalculateGcFractionFast()));
-        Assert.That(CalculateGcContent("GCNN"), Is.EqualTo(1.0)); // N excluded from denominator (Biopython "remove")
+        Assert.That(CalculateGcFraction(Let7a_Sequence), Is.EqualTo(8.0 / 22).Within(1e-12));
+        Assert.That(CalculateGcFraction(Let7a_Sequence), Is.EqualTo(Let7a_Sequence.CalculateGcFractionFast()));
+        Assert.That(CalculateGcFraction("GCNN"), Is.EqualTo(1.0)); // N excluded from denominator (Biopython "remove")
     }
 
     #endregion

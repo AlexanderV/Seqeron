@@ -182,8 +182,7 @@ public static partial class MiRnaAnalyzer
         ArgumentNullException.ThrowIfNull(miRnaSeedOrMature);
         if (miRnaSeedOrMature.Length < 7)
             throw new ArgumentException("Expected the 7-nt seed region or a mature miRNA of ≥ 8 nt.", nameof(miRnaSeedOrMature));
-        string seed = (miRnaSeedOrMature.Length == 7 ? miRnaSeedOrMature : miRnaSeedOrMature.Substring(1, 7))
-            .ToUpperInvariant().Replace('T', 'U');
+        string seed = SequenceCase.ToUpperRna(miRnaSeedOrMature.Length == 7 ? miRnaSeedOrMature : miRnaSeedOrMature.Substring(1, 7));
         foreach (char c in seed)
             if (c is not ('A' or 'C' or 'G' or 'U'))
                 throw new ArgumentException($"Seed region '{seed}' contains a character other than A/C/G/U/T.", nameof(miRnaSeedOrMature));
@@ -469,7 +468,7 @@ public static partial class MiRnaAnalyzer
         if (reference is null)
             throw new ArgumentNullException(nameof(alignedUtrs), "The reference species' aligned UTR is null.");
         tree ??= TargetScanGenericTree.Value;
-        if (!EnumerateLeafNames(tree).Contains(referenceSpecies))
+        if (!PhylogeneticAnalyzer.GetLeaves(tree).Any(leaf => leaf.Name == referenceSpecies))
             throw new ArgumentException($"The reference species '{referenceSpecies}' is not a leaf of the tree.", nameof(referenceSpecies));
 
         var rows = new List<(string Species, string Seq)>(alignedUtrs.Count);
@@ -503,18 +502,6 @@ public static partial class MiRnaAnalyzer
             if (median > TargetScanUtrBinThresholdValues[k])
                 bin = k + 1;
         return new TargetScanUtrBin(median, bin);
-    }
-
-    private static IEnumerable<string> EnumerateLeafNames(PhylogeneticAnalyzer.PhyloNode node)
-    {
-        var stack = new Stack<PhylogeneticAnalyzer.PhyloNode>();
-        stack.Push(node);
-        while (stack.Count > 0)
-        {
-            var n = stack.Pop();
-            if (n.IsLeaf) yield return n.Name;
-            foreach (var c in n.Children) stack.Push(c);
-        }
     }
 
     // ── Bundled trees ──────────────────────────────────────────────────────────────────────
