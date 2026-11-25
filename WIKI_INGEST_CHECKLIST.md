@@ -817,10 +817,10 @@ Progress: 1181 / 1181
 - [x] docs/mcp/tools/analysis/find_direct_repeats.md
 - [x] docs/mcp/tools/analysis/find_exact_motif.md
 - [x] docs/mcp/tools/analysis/find_inverted_repeats.md
-- [x] docs/mcp/tools/analysis/find_known_motifs.md
+- [x] docs/mcp/tools/embossmotifs/find_known_motifs.md
 - [x] docs/mcp/tools/analysis/find_low_complexity_regions.md
 - [x] docs/mcp/tools/analysis/find_microsatellites.md
-- [x] docs/mcp/tools/analysis/find_motif.md
+- [x] docs/mcp/tools/embossmotifs/find_motif.md
 - [x] docs/mcp/tools/analysis/find_motif_by_pattern.md
 - [x] docs/mcp/tools/analysis/find_motif_by_prosite.md
 - [x] docs/mcp/tools/analysis/find_open_reading_frames.md

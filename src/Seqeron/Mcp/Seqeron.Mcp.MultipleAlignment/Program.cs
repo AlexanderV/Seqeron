@@ -4,6 +4,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Seqeron.Mcp.MultipleAlignment.Tools;
 
+Seqeron.Mcp.EmbossSequenceFormats.Tools.EmbossSequenceFormatsTools.InstallAlignmentFormats();
+
 var builder = Host.CreateApplicationBuilder(args);
 
 builder.Services

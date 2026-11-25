@@ -2,7 +2,7 @@
 
 MCP server — **K-mer, motif, repeat, complexity, RNA-structure and comparative-genomics analysis.**
 
-Exposes **237 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+Exposes **160 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
 MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test, with a
 per-tool doc under [`docs/mcp/tools/analysis/`](../../../../docs/mcp/tools/analysis). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
@@ -15,11 +15,10 @@ dotnet run --project Seqeron.Mcp.Analysis
 
 Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run","--project","Seqeron.Mcp.Analysis"]`). New to MCP? The [hub guide](../../../../docs/mcp/README.md) lists all 11 servers and how to wire them up.
 
-## Tools (132)
+## Tools (160)
 
 | Tool | Description |
 |------|-------------|
-| `alignment_distance_matrix` | Pairwise distance matrix of a multiple alignment as EMBOSS 6.6.0 distmat: matches = columns where both rows carry the same non-gap symbol, g = column… |
 | `alphabet_pwm_score_pvalue` | Exact p-value of a score / exact score threshold of a p-value for a PWM over any alphabet (protein, RNA, …) built from aligned instances — the TFM-Pvalue engine of pwm_score_pvalue with K rows… |
 | `alphabet_pwm_score_thresholds` | Score thresholds (FPR / FNR / balanced / patser) of an any-alphabet PWM from its discretised score distribution — Biopython pssm.distribution… |
 | `analyze_gc_content` | Comprehensive GC report: overall GC content, GC/AT skew, content/skew variances, and windowed GC profiles (`fraction=true` for [0,1]; `ambiguity=remove\|ignore\|weighted` for Biopython `gc_fraction` IUPAC handling). |
@@ -33,7 +32,6 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `codon_frequencies` | Codon usage frequencies in the specified reading frame (0..2). |
 | `compare_genomes` | End-to-end comparative pipeline: RBH orthologs + synteny + rearrangements + summary stats. |
 | `compression_ratio` | Estimate sequence repetitiveness as the normalized Lempel-Ziv complexity c/(n/log_b(n)). |
-| `consambig` | EMBOSS consambig: per-column union of the residue codes written as one IUPAC / amino-acid letter (lower case at gaps); 1 400 random alignments equal consambig 6.6.0 (B09 A3-13d). |
 | `count_kmers` | Counts every k-mer (substring of length k) occurrence in a sequence; optional `canonical` (jellyfish -C) and `acgtOnly` modes. |
 | `count_kmers_both_strands` | k-mer counts on the forward strand combined with counts on the reverse-complement strand (kPAL balance); optional `acgtOnly` (kPAL: N/IUPAC accepted, non-ACGT windows skipped). |
 | `create_alphabet_pwm` | Build a log-odds position weight matrix over an arbitrary alphabet (protein, RNA, gapped DNA, …) from aligned instances — Biopython motifs.create(instances, alphabet).counts.normalize(pseudocounts).log_odds(background)… |
@@ -64,7 +62,6 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `find_exact_motif` | Exact-match motif positions in a DNA sequence via suffix tree. |
 | `find_inverted_repeats` | Sequences whose two arms are reverse-complement of each other (hairpin candidates). |
 | `find_inverted_repeats_scored` | Finds inverted repeats with EMBOSS einverted (Durbin & Thierry-Mieg 1993; EMBOSS 6.6.0): a local alignment of the sequence against its reve… |
-| `find_known_motifs` | Search for a user-provided set of motifs simultaneously (exact by default; optional IUPAC codes, reverse strand and a mismatch budget). Only motifs with at least one hit are returned; positions ascending, 0-based, forward-strand window starts. mismatches = k > 0 allows up to k substituted positions per window (Hamming distance, EMBOSS fuzznuc -pmismatch; no gaps) and adds matchMismatches / reverseMismatches (the distance of each reported hit, parallel to the position arrays). IUPAC sequences accepted (B09 A2-35). |
 | `mash_bounds` | Mash error-bounds table (`mash bounds`): error of the Mash / screen distance for sketch sizes 100 - 1 000 000 and distances 0.05 - 0.4. |
 | `mash_dist` | Mash distances of query files to reference files (`mash dist`: -t, -v, -d, -i, -n). |
 | `mash_triangle` | Mash lower-triangular distance matrix or edge list (`mash triangle`: -E, -v, -d, -i, -n). |
@@ -72,71 +69,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `mash_taxscreen` | Mash taxscreen: Kraken-style taxonomic report (LCA of the references that share a hash, clade / taxon counts) of a pool of sequences, with names.dmp / nodes.dmp. |
 | `mash_sketch` | Mash sketch file (`mash sketch -o x.msh`: Cap'n Proto `MinHash.capnp`, byte for byte; genomes and read sets, -k -s -S -n -i -r -m -c -g -I -C -l): `msh:` + base64, accepted by the other Mash tools. |
 | `mash_info` | `mash info` of a sketch file: header and table, -H, -t, -c (count histogram), -d (JSON). |
-| `diffseq` | EMBOSS diffseq: the regions of difference between two nearly identical sequences (word matches), the 7-tag report in every -rformat and the GFF3 feature files. |
-| `wordmatch` | EMBOSS wordmatch: exact matches of a pattern set against large sequences (Rabin-Karp), alignments, statistics log and GFF3 feature files. |
-| `featcopy` | EMBOSS featcopy: every feature table of a file in any input format (embl, genbank, refseq, genpept, refseqp, gff2, gff3, swiss, pir, dasgff) written as gff3 / gff2 / embl / genbank / debug, with the library's messages. |
-| `featmerge` | EMBOSS featmerge: the first feature table of two feature files (any input format) merged and written as gff3 / gff2 / bed / embl / genbank / refseqp / pir / swiss / dasgff / draw / debug, with the library's messages. |
-| `descseq` | EMBOSS descseq: the name and / or description of the first sequence of a file replaced or appended to, written as FASTA; 1 000 runs equal descseq 6.6.0. |
-| `union` | EMBOSS union: the sequences of a file joined into one (with the overlaps of consecutive sequences found and counted), written in any of 14 sequence formats; 200 runs equal union 6.6.0. |
-| `seqretsplit` | EMBOSS seqretsplit: every sequence of a file written to a file of its own (duplicate names renamed), in any of 14 sequence formats; 200 runs equal seqretsplit 6.6.0. |
-| `entret` | EMBOSS entret: the text of the entries of a sequence file (any input format of seqret, a query, a range, a list file or a database) as the readers store it; equals entret 6.6.0 on 756 runs. |
-| `getorf` | EMBOSS getorf: finds and extracts the open reading frames (orfs) of nucleotide sequences; equals getorf 6.6.0 on 800 runs. |
-| `revseq` | EMBOSS revseq: reverses and complements nucleotide sequences; equals revseq 6.6.0 on 320 runs. |
-| `transeq` | EMBOSS transeq: translates nucleotide sequences to protein in the chosen frames; equals transeq 6.6.0 on 320 runs. |
-| `extractseq` | EMBOSS extractseq: extracts regions of a sequence; equals extractseq 6.6.0 on 320 runs. |
-| `cutseq` | EMBOSS cutseq: removes a section from a sequence; equals cutseq 6.6.0 on 320 runs. |
-| `degapseq` | EMBOSS degapseq: removes the gap characters from sequences; equals degapseq 6.6.0 on 320 runs. |
-| `trimseq` | EMBOSS trimseq: trims the ambiguity characters and gaps from the ends of sequences; equals trimseq 6.6.0 on 320 runs. |
-| `skipseq` | EMBOSS skipseq: reads and writes sequences, skipping the first n; equals skipseq 6.6.0 on 320 runs. |
-| `nthseq` | EMBOSS nthseq: writes the n-th sequence of a file; equals nthseq 6.6.0 on 320 runs. |
-| `notseq` | EMBOSS notseq: writes the sequences that are not on a list; equals notseq 6.6.0 on 320 runs. |
-| `pasteseq` | EMBOSS pasteseq: inserts one sequence into another; equals pasteseq 6.6.0 on 320 runs. |
-| `trimest` | EMBOSS trimest: removes the poly-a tails of est sequences; equals trimest 6.6.0 on 320 runs. |
-| `newseq` | EMBOSS newseq: makes a sequence from a name, a description, a type and the residues; equals newseq 6.6.0 on 320 runs. |
-| `yank` | EMBOSS yank: writes the usa (the universal sequence address) of a sequence; equals yank 6.6.0 on 320 runs. |
-| `seqcount` | EMBOSS seqcount: counts the sequences of a file; equals seqcount 6.6.0 on 320 runs. |
-| `shuffleseq` | EMBOSS shuffleseq: shuffles sequences keeping their composition; equals shuffleseq 6.6.0 on 300 runs. |
-| `msbar` | EMBOSS msbar: mutates sequences with point, codon and block mutations; equals msbar 6.6.0 on 300 runs. |
-| `nthseqset` | EMBOSS nthseqset: writes the n-th set of sequences of an input of several sets; equals nthseqset 6.6.0 on 300 runs. |
-| `listor` | EMBOSS listor: writes a list file of the logical or / and / xor / not of two sets of sequences; equals listor 6.6.0 on 300 runs. |
-| `infoseq` | EMBOSS infoseq: displays basic information about sequences; equals infoseq 6.6.0 on 300 runs. |
-| `wordcount` | EMBOSS wordcount: counts the words of a given size in sequences; equals wordcount 6.6.0 on 300 runs. |
-| `seqxref` | EMBOSS seqxref: reports the database cross-references of sequence entries; equals seqxref 6.6.0 on 300 runs. |
-| `showorf` | EMBOSS showorf: displays a nucleotide sequence and its translations in pretty format; equals showorf 6.6.0 on 300 runs. |
-| `tcode` | EMBOSS tcode: identifies protein-coding regions of a nucleotide sequence with the fickett testcode statistic; equals tcode 6.6.0 on 300 runs. |
-| `checktrans` | EMBOSS checktrans: reports the stop codons and the open reading frames of a protein translation; equals checktrans 6.6.0 on 300 runs. |
-| `marscan` | EMBOSS marscan: finds matrix/scaffold recognition (mrs) signatures in dna sequences; equals marscan 6.6.0 on 300 runs. |
-| `patmatmotifs` | EMBOSS patmatmotifs: scans a protein sequence with the patterns of the prosite database; equals patmatmotifs 6.6.0 on 300 runs. |
-| `patmatdb` | EMBOSS patmatdb: searches protein sequences with a prosite sequence motif; equals patmatdb 6.6.0 on 300 runs. |
-| `prosextract` | EMBOSS prosextract: builds the prosite motif database for patmatmotifs from prosite.dat and prosite.doc; equals prosextract 6.6.0 on 300 runs. |
-| `drfinddata` | EMBOSS drfinddata: finds the data resources of the DRCAT catalogue by the EDAM data term of their output; equals drfinddata 6.6.0 on 233 runs. |
-| `dbtell` | EMBOSS dbtell: the definition of a database of the standard EMBOSS configuration; equals dbtell 6.6.0 on 302 runs. |
-| `showdb` | EMBOSS showdb: the table of the databases of the standard EMBOSS configuration; equals showdb 6.6.0 on 301 runs. |
-| `plotcon` | EMBOSS plotcon: plots the similarity of a multiple alignment along its length (matrix score of every pair of residues, windowed); equals plotcon 6.6.0 on 400 + 1 500 runs. |
-| `plotorf` | EMBOSS plotorf: plots the potential open reading frames of a nucleotide sequence; equals plotorf 6.6.0 on 300 runs. |
-| `wordfinder` | EMBOSS wordfinder: matches large sequences against one or more other sequences by their words; equals wordfinder 6.6.0 on 300 runs. |
-| `prettyseq` | EMBOSS prettyseq: writes a nucleotide sequence and its translation; equals prettyseq 6.6.0 on 300 runs. |
-| `makenucseq` | EMBOSS makenucseq: creates random nucleotide sequences; equals makenucseq 6.6.0 on 300 runs. |
-| `makeprotseq` | EMBOSS makeprotseq: creates random protein sequences; equals makeprotseq 6.6.0 on 300 runs. |
-| `splitter` | EMBOSS splitter: splits sequences into smaller sequences; equals splitter 6.6.0 on 320 runs. |
-| `maskseq` | EMBOSS maskseq: masks regions of a sequence with a character or lower case; equals maskseq 6.6.0 on 320 runs. |
-| `maskambignuc` | EMBOSS maskambignuc: masks all ambiguity nucleotide codes with n; equals maskambignuc 6.6.0 on 320 runs. |
-| `maskambigprot` | EMBOSS maskambigprot: masks all ambiguity amino acid codes with x; equals maskambigprot 6.6.0 on 320 runs. |
-| `trimspace` | EMBOSS trimspace: cleans up whitespace in a text file; equals trimspace 6.6.0 on 320 runs. |
-| `nospace` | EMBOSS nospace: removes whitespace from a text file; equals nospace 6.6.0 on 320 runs. |
-| `notab` | EMBOSS notab: replaces the tabs of a text file with blanks; equals notab 6.6.0 on 320 runs. |
-| `noreturn` | EMBOSS noreturn: changes the line ends of a text file; equals noreturn 6.6.0 on 320 runs. |
-| `extractfeat` | EMBOSS extractfeat: the features of a sequence file (filters on source, type, sense, score, tag, value; before / after, join, names and descriptions) as sequences in FASTA or another output format; equals extractfeat 6.6.0 on 1 000 runs. |
-| `coderet` | EMBOSS coderet: the CDS, mRNA, translation (the /translation tag) and non-coding regions of a nucleotide sequence file with feature tables, the log of the counts; equals coderet 6.6.0 on 1 000 runs. |
-| `showfeat` | EMBOSS showfeat: the features of a sequence file as lines of ASCII graphics (filters, sort, join, collapse, strand / source / position / type / tags, annotation ranges, HTML); equals showfeat 6.6.0 on 1 000 runs. |
-| `featreport` | EMBOSS featreport: the feature table of a feature file reported for a sequence (gff default; every report format, joins and tags for the feature formats); equals featreport 6.6.0 on 1 000 runs. |
-| `twofeat` | EMBOSS twofeat: pairs of an A and a B feature (source, type, sense, score, tag, value) of a sequence file in a required overlap / distance / sense, reported (table default); equals twofeat 6.6.0 on 1 000 runs. |
-| `maskfeat` | EMBOSS maskfeat: the regions of the features of the wanted types (wildcards, lists; default repeat*) masked with a character (N / X) or lower case in the sequences of a file with features, written as FASTA; 1 200 runs equal maskfeat 6.6.0. |
-| `seqret` | EMBOSS seqret: the sequences of a file read by the sequence readers of the EMBOSS library (fasta, gcg, embl, swiss with its DE description, nbrf, genbank, refseqp, genpept, codata, strider, ig, staden, fastq, sam, gff2, gff3, raw ...) written as FASTA with their features (gff3, embl, genbank ...), with the library's messages. |
-| `feattext` | EMBOSS feattext: the original text of the entries of a feature file (EMBL / GenBank and GFF3 readers), with the library's messages. |
 | `mash_paste` | `mash paste`: one sketch file of several (first file's parameters; incompatible files skipped, larger sketches reduced). |
-| `emboss_report_file` | The whole report file of fuzznuc / fuzzpro / fuzztran / etandem / equicktandem in every -rformat (simple embl genbank gff gff3 pir swiss dasgff debug listfile dbmotif draw restrict excel feattable motif nametable regions seqtable srs summary table tagseq), with -raccshow -rdesshow -rscoreshow -rstrandshow -rusashow -rmaxall -rmaxseq, several sequences per file, -sbegin / -send / -sreverse and the -origfile of the tandem programs. |
-| `megamerger` | EMBOSS megamerger: merge two large overlapping DNA sequences by minimal non-overlapping word-match anchors (merged sequence + report); 600 random pairs equal megamerger 6.6.0 (B09 A3-13b). |
 | `nucmer_clusters` | MUMmer nucmer anchor clustering (`mummer -mum|-mumreference|-maxmatch | mgaps`: unique / maximal matches joined by diagonal difference and separation, cut into maximum-score chains); 700 related pairs equal the installed nucmer 3.23 pipeline (B09 A3-9a). |
 | `nucmer` | MUMmer 3.23 nucmer: the whole pipeline (anchors, mgaps clusters, postnuc banded Smith-Waterman extension), the .delta file byte for byte (434 runs, all option families). |
 | `delta_filter` | MUMmer 3.23 delta-filter: keeps the alignments of a delta file that survive -i -l -u -q -r -g -m -1 (rand() seeded with 1, as the program). |
@@ -160,22 +93,16 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `delta2maf` | MUMmer delta2maf: nucmer alignments as MAF (a score / s lines), byte for byte. |
 | `nucmer2xfig` | MUMmer nucmer2xfig: xfig plot of a show-coords -c -l file, byte for byte. |
 | `combine_mums` | MUMmer combineMUMs: extension and alignment of the mgaps clusters (-D -e -n -N -q -r -S -t -v -x -W), byte for byte. |
-| `est2genome` | EMBOSS 6.6.0 est2genome: the spliced alignment of ESTs to a genomic sequence (exons, GT/AG and CT/AC introns, both strands, linear-space recursion; 330 runs equal). |
-| `seqmatchall` | EMBOSS seqmatchall: every maximal exact word match (>= `wordSize`) of every pair of a sequence set, nucleotide or protein, including the program's N / X word-table scan; verified against seqmatchall 6.6.0 on 330 sets (B09 A3-13). |
 | `find_longdust_regions` | Finds low-complexity regions with **longdust** (Li & Li 2025; port of lh3/longdust 1.4-r97 ld_dust1/ld_dust2, MIT) — the k-mer generalisati… |
 | `find_longest_common_region_mismatches` | Longest common substring with at most k mismatches (k-mismatch LCS) of two DNA sequences, optionally against the reverse complement (B09 A2-30). |
 | `find_low_complexity_intervals` | Returns the **SDUST** low-complexity intervals (Morgulis et al. 2006; symmetric DUST) as 0-based half-open [start, end) pairs in ascending… |
 | `find_low_complexity_regions` | Entropy-thresholded contiguous low-complexity DNA regions. |
 | `find_microsatellites` | Short Tandem Repeats (STRs): 1-6 bp motif units repeated consecutively. |
-| `find_motif` | All exact occurrences of a motif (case-insensitive, overlapping, ascending 0-based positions, forward strand) in a DNA sequence. IUPAC sequences accepted (non-A/C/G/T never matches) (B09 A2-35). |
 | `find_motif_by_pattern` | Find all (overlapping) regex pattern matches in a protein sequence. |
 | `find_motif_by_prosite` | Convert a PROSITE pattern to regex internally, then scan a protein sequence. |
 | `find_open_reading_frames` | ORFs in all 6 frames (3 forward + 3 reverse-complement) from a start codon (default ATG) to the first in-frame stop of the chosen genetic code (default Standard TAA/TAG/TGA); nested ORFs, optional alternative starts / partial ORFs / NCBI ORFfinder 0.4.3 options measured on the binary (`ignoreNested` -n, `regionStart/End` -b/-e, `strand`, `orfFinderMinLength` -ml, tables 27/28/31) and length convention; coordinates in the scanned strand and on the input; IUPAC input (N runs) accepted — an ambiguous codon is a stop only when every concrete codon is, never a start. |
 | `find_orthologs` | Best-hit ortholog pairs between two genomes by k-mer similarity (one-directional). |
 | `find_palindromes` | Sequences identical to their reverse complement (restriction-site candidates); only A/C/G/T pair, windows with N / IUPAC codes are never reported. |
-| `find_pattern_hits` | EMBOSS fuzznuc pattern language: IUPAC letters, classes `[ACG]`, exclusions `{AG}`, repeats `N(3)`, ranges `A(2,4)`, anchors `<` `>`; `maxMismatches` (-pmismatch), `bothStrands` (-complement), one pattern or a pattern file; verified against fuzznuc 6.6.0 on 3300 random patterns (B09 A2-32). |
-| `fuzzpro` | EMBOSS fuzzpro: exact protein pattern search (letters, `x`, `[ILV]`, `{P}`, `x(3)`, `x(2,4)`, `<` / `>`; B / Z / J ambiguity letters); verified against fuzzpro 6.6.0 on 900 random patterns (B09 A3-12). |
-| `fuzztran` | EMBOSS fuzztran: protein pattern search after translation (`frame` 1 2 3 -1 -2 -3 F R 6, EMBOSS `table`; transeq frame conventions); forward-strand location (and the program's own coordinates for the forward frames); verified against fuzztran 6.6.0 on 760 random cases (B09 A3-12). |
 | `find_promoter_elements_by_matrix` | Scan a DNA sequence with the Bucher (1990) promoter weight matrices from JASPAR POLII (TATA box POL012.1, cap/Inr POL002.1, CCAAT box POL00… |
 | `find_protein_domains` | Detect common protein domains with EXACT PROSITE patterns: zinc finger C2H2 (PS00028), WD-repeats (PS00678), kinase ATP-binding / Walker… |
 | `find_protein_low_complexity_regions` | Low-complexity regions in a protein via the SEG algorithm (Wootton & Federhen 1993): sliding-window Shannon entropy in bits/residue, two-… |
@@ -192,7 +119,6 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `find_supermaximal_repeats` | Finds **supermaximal repeats** (Gusfield 1997 §7.12.1; Vmatch -supermax): maximal repeats that never occur as a substring of another maxima… |
 | `find_syntenic_blocks` | Collinear runs of orthologous genes between two genomes. |
 | `find_tandem_repeats` | Exact tandem repeats (e.g., ATGATGATG): maximal runs of a primitive unit (minUnitLength..maxUnitLength) repeated >= minRepetitions times; IUPAC input accepted (units must be A/C/G/T only); approximate repeats: `find_approximate_tandem_repeats`. `canonicalRotation` reports the least rotation of each unit (B09 A2-34). |
-| `find_tandem_repeats_emboss` | EMBOSS etandem / equicktandem ports (diagonal-score models: running consensus score / shifted-diagonal score), `program`, `minRepeat`, `maxRepeat`, `threshold`, `mismatch`, `uniform`; verified against EMBOSS 6.6.0 on 1700 + 1300 sequences (B09 A3-8). |
 | `flush_coaxial_stacking` | Coaxial stacking energy for two RNA helices with no intervening unpaired bases. |
 | `gc_content_profile` | GC content in sliding windows along the sequence (`fraction=true` for [0,1]; `ambiguityMode=remove\|ignore\|weighted` for Biopython gc_fraction; `includePartialWindow`). |
 | `gc_skew` | Whole-sequence GC skew = (G - C) / (G + C). |
@@ -201,7 +127,6 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `generate_consensus` | IUPAC consensus sequence from aligned equal-length DNA sequences: bases above the per-position inclusion threshold (default >25%) form the NC-IUB symbol; if none passes, the tied most frequent bases. |
 | `generate_dot_plot` | Coordinates of matching k-mers between two sequences for dot-plot visualization. |
 | `generate_dumb_consensus` | Majority-threshold consensus with Biopython SummaryInfo.dumb_consensus semantics: per column the most frequent non-gap residue is emitted i… |
-| `generate_emboss_consensus` | Scoring-matrix plurality consensus of an alignment, identical to EMBOSS 6.6.0 'cons' (EDNAFULL for nucleotides, EBLOSUM62 for proteins; N/X where no residue reaches the plurality; residueType 'auto', padRaggedRows)… |
 | `hairpin_loop_energy` | Free energy of an RNA hairpin loop (Turner 2004 with special tri/tetra/hexaloops, terminal mismatch, all-C and special-GU adjustments). |
 | `hydrophobicity_profile` | Sliding-window Kyte-Doolittle hydropathy (ProtScale / Biopython protein_scale): optional `edgeWeight`, `convention` (Standard\|Biopython), `strict`, `normalizeScale`, `scale`, `weightModel` (Linear\|Exponential). |
 | `internal_loop_energy` | Free energy of a generic RNA internal loop (Turner 2004; |
@@ -221,7 +146,6 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `mismatch_coaxial_stacking` | Mismatch-mediated coaxial stacking energy: terminal mismatch + base + WC/GU bonus. |
 | `most_frequent_kmers` | Returns all k-mers tied for the maximum occurrence count; optional `canonical` (jellyfish count -C) / `acgtOnly`. |
 | `multibranch_loop_energy` | Free energy of an RNA multibranch loop (Turner 2004 affine model: offset + asymmetry + helix term + stacking + strain). |
-| `multiple_alignment_statistics` | Statistics of a gapped multiple alignment: per-sequence comparison with a reference row or the EMBOSS cons consensus (EMBOSS infoalign: seqLength, al… |
 | `alignment_summary_info` | Bio.Align.AlignInfo.SummaryInfo of Biopython 1.79: consensus, replacement dictionary, PSSM, information content; equal to the Biopython test values. |
 | `msa_conservation` | Capra and Singh (2007) column conservation: Jensen-Shannon divergence (default), Shannon entropy, property / relative entropy, sum of pairs; window, gap penalty, Henikoff weights. |
 | `oligo_analysis` | RSAT oligo-analysis over-representation of the k-mers of one DNA sequence (or a set with extraSequences): occurrences, expected frequency under a background model (equipr… |
@@ -245,7 +169,6 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `scan_with_pwm` | Scan a DNA sequence with a 4×L Position Weight Matrix; |
 | `scan_with_pwm_both_strands` | Scan both strands of a DNA sequence with a 4×L PWM (rows A,C,G,T), as Biopython pssm.search(both=True): minus strand scored with the revers… |
 | `shared_motifs_significance` | RSAT oligo-analysis matching-sequence statistics: k-mers (or reverse-complement pairs) present in at least minSequences of the input DNA se… |
-| `showalign` | EMBOSS showalign: pretty text display of an alignment against the consensus or a reference row (-show A/I/N/S/D, -order, -similarcase, -refseq, width / margin / numbers / ruler / uppercase ranges, -html / -highlight); 600 + 300 random cases equal showalign 6.6.0 (B09 A3-13c). |
 | `spaced_word_distance` | Multiple-pattern spaced-word distance (Leimeister et al. 2014): mean over equal-weight patterns of the per-pattern word-vector distance (euclidean, jensen_shannon, euclidean_counts, …), or `ev` = spaced -d EV evolutionary distance (Morgenstern et al. 2015). Optional `acgtOnly` (spaced's reader and N-word rule; non-letters deleted) and `bothStrands` (spaced default reverse-complement mode). |
 | `standardize_repeat_motif` | Standardizes a repeat unit two ways. canonicalClass — the MISA repeat-type class "considering sequence complementary" (misa.pl .statistics,… |
 | `stem_energy` | Free energy of an RNA stem (Turner 2004 nearest-neighbor stacking + AU/GU terminal penalties). |

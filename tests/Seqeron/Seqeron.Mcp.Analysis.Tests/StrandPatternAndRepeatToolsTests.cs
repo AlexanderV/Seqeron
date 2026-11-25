@@ -63,39 +63,6 @@ public class StrandPatternAndRepeatToolsTests
     }
 
     [Test]
-    public void FindPatternHits_SequenceAmbiguity_ReadsAmbiguityCodesAsFuzznucDoes()
-    {
-        // fuzznuc 6.6.0 on ARGRYN: pattern R -> bases 1-4 (+) and 5 (-); the default reading matches only the plain A and G (A3-12a, F146)
-        var r = AnalysisTools.FindPatternHits("ARGRYN", "R", bothStrands: true, sequenceAmbiguity: true);
-        Assert.That(r.Hits.Select(h => (h.Position, h.Strand)), Is.EquivalentTo(new[] { (0, "forward"), (1, "forward"), (2, "forward"), (3, "forward"), (4, "reverse") }));
-        var plain = AnalysisTools.FindPatternHits("ARGRYN", "R");
-        Assert.That(plain.Hits.Select(h => h.Position), Is.EqualTo(new[] { 0, 2 }));
-    }
-
-    [Test]
-    public void FindPatternHits_FuzznucPatterns()
-    {
-        // fuzznuc -pattern "A(1,3)C" on AAAACAAAAT -> 1-based 4..5, 3..5, 2..5
-        var r = AnalysisTools.FindPatternHits("AAAACAAAAT", "A(1,3)C");
-        Assert.That(r.Hits.Select(h => (h.Position, h.Length, h.Strand, h.Mismatches)), Is.EquivalentTo(new[] { (3, 2, "forward", 0), (2, 3, "forward", 0), (1, 4, "forward", 0) }));
-        Assert.That(r.Patterns["pattern1"], Is.EqualTo("A(1,3)C"));
-        // fuzznuc -complement Y: "<ACG" on AAACGT -> '-' 4..6
-        var anchored = AnalysisTools.FindPatternHits("AAACGT", "<ACG", bothStrands: true);
-        Assert.That(anchored.Hits.Select(h => (h.Position, h.Length, h.Strand)), Is.EqualTo(new[] { (3, 3, "reverse") }));
-        // several named patterns from a pattern file
-        var many = AnalysisTools.FindPatternHits("ACGTACGTTTGAACC", patternFile: ">p1\nACGT\n>p2\nTTGA\n");
-        Assert.That(many.Hits.Select(h => (h.Pattern, h.Position)), Is.EquivalentTo(new[] { ("p1", 0), ("p1", 4), ("p2", 8) }));
-        Assert.That(many.Patterns.Keys, Is.EqualTo(new[] { "p1", "p2" }));
-        // mismatches, N in the sequence is a mismatch
-        Assert.That(AnalysisTools.FindPatternHits("ACNTAAAT", "ACNT", maxMismatches: 1).Hits.Select(h => h.Position), Is.EquivalentTo(new[] { 0, 4 }));
-        Assert.Throws<ArgumentException>(() => AnalysisTools.FindPatternHits("ACGT"));
-        Assert.Throws<ArgumentException>(() => AnalysisTools.FindPatternHits("ACGT", "AC", "AC"));
-        Assert.Throws<ArgumentException>(() => AnalysisTools.FindPatternHits("ACGT", "A(2,1)"));
-        Assert.Throws<ArgumentOutOfRangeException>(() => AnalysisTools.FindPatternHits("ACGT", "AC", maxMismatches: -1));
-        Assert.Throws<ArgumentException>(() => AnalysisTools.FindPatternHits("", "AC"));
-    }
-
-    [Test]
     public void FindCommonRegions_ModesAndStrands()
     {
         // the library test (MUMmer mummer -maxmatch / -mum -b): MEMs of the reference ACGGATCCGTTTTACGATCCGTAAGT against GGATCCGAAAACGGATCCGTTTT
@@ -124,14 +91,5 @@ public class StrandPatternAndRepeatToolsTests
         Assert.That(AnalysisTools.FindLongestCommonRegionMismatches("TTTACGGTTCATTT", "GGGTGAACCGTAGG", 0, "ReverseComplement").IsReverseComplement, Is.True);
         Assert.Throws<ArgumentOutOfRangeException>(() => AnalysisTools.FindLongestCommonRegionMismatches("ACGT", "ACGT", -1));
         Assert.Throws<ArgumentException>(() => AnalysisTools.FindLongestCommonRegionMismatches("", "ACGT", 0));
-    }
-
-    [Test]
-    public void FindMotif_And_KnownMotifs_AcceptIupacSequences()
-    {
-        Assert.That(AnalysisTools.FindMotif("ACANACAGA", "AGA").Positions, Is.EqualTo(new[] { 6 }));
-        Assert.That(AnalysisTools.FindMotif("ACANAC", "ANA").Positions, Is.Empty);
-        Assert.That(AnalysisTools.FindKnownMotifs("ACNACGACG", new[] { "ACG" }).Matches["ACG"], Is.EqualTo(new[] { 3, 6 }));
-        Assert.Throws<ArgumentException>(() => AnalysisTools.FindMotif("ACGU", "A"));
     }
 }

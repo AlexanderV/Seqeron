@@ -1,10 +1,11 @@
+using Seqeron.Genomics.Analysis;
 using NUnit.Framework;
 using Seqeron.Mcp.Analysis.Tools;
 
 namespace Seqeron.Mcp.Analysis.Tests;
 
 /// <summary>
-/// generate_dumb_consensus — delegation to <c>MotifFinder.GenerateDumbConsensus</c>.
+/// generate_dumb_consensus — delegation to <c>EmbossConsensus.GenerateDumbConsensus</c>.
 /// Expected values: Biopython 1.85 dumb_consensus outputs locked in MotifFinder_AlignmentConsensus_Tests.
 /// </summary>
 [TestFixture]
@@ -37,6 +38,6 @@ public class GenerateDumbConsensusTests
     {
         var rows = new[] { "ACGT", "AT-T", "CT-T", "GT-T" };
         Assert.That(AnalysisTools.GenerateDumbConsensus(rows).Consensus,
-            Is.EqualTo(global::Seqeron.Genomics.Analysis.MotifFinder.GenerateDumbConsensus(rows)));
+            Is.EqualTo(MotifFinder.GenerateDumbConsensus(rows)));
     }
 }

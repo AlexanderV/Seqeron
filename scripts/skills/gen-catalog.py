@@ -71,10 +71,16 @@ EXPECTED_COUNTS = {
     "core": 18,
     "sequence": 35,
     "parsers": 41,
-    "alignment": 67,
+    "alignment": 59,
     "multiplealignment": 25,
     "alignmentconsensus": 1,
-    "analysis": 237,
+    "embossfeaturetools": 9,
+    "embossmotifs": 12,
+    "embossopenreadingframes": 4,
+    "embosspairwisealignment": 16,
+    "embossrepeats": 3,
+    "embosssequenceformats": 42,
+    "analysis": 160,
     "annotation": 97,
     "chromosome": 32,
     "metagenomics": 19,
@@ -82,7 +88,7 @@ EXPECTED_COUNTS = {
     "phylogenetics": 13,
     "population": 18,
 }
-EXPECTED_TOTAL = 662
+EXPECTED_TOTAL = 663
 
 BEGIN_MARK = "<!-- BEGIN generated: do not edit by hand -->"
 END_MARK = "<!-- END generated -->"

@@ -2,7 +2,7 @@
 
 MCP server — **Pairwise and multiple sequence alignment, overlap/assembly and approximate matching.**
 
-Exposes **67 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+Exposes **59 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
 MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test, with a
 per-tool doc under [`docs/mcp/tools/alignment/`](../../../../docs/mcp/tools/alignment). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
@@ -15,7 +15,7 @@ dotnet run --project Seqeron.Mcp.Alignment
 
 Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run","--project","Seqeron.Mcp.Alignment"]`). New to MCP? The [hub guide](../../../../docs/mcp/README.md) lists all 11 servers and how to wire them up.
 
-## Tools (67)
+## Tools (59)
 
 | Tool | Description |
 |------|-------------|
@@ -27,7 +27,6 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `compute_consensus` | Builds a consensus sequence from a list of pre-aligned reads (same length, '-' / 'N' ignored) by majority vote per column. |
 | `damerau_alignment` | Optimal transposition-aware edit script turning sequence1 into sequence2 (Lowrance & Wagner 1975 trace). |
 | `damerau_levenshtein_distance` | Edit distance with adjacent transpositions. |
-| `dotmatcher` | EMBOSS dotmatcher: windowed substitution-matrix dot plot segments of two sequences (window, threshold, matrix); 600 DNA / protein pairs equal dotmatcher 6.6.0 (B09 A2-28d). |
 | `edit_alignment` | Optimal global unit-cost (Levenshtein) alignment of query against target in edlib's convention: operations '=' match, 'X' mismatch, 'I' que… |
 | `error_correct_reads` | Corrects single-base errors in reads using k-mer frequency: any k-mer occurring fewer than minKmerFrequency times is corrected by substit… |
 | `find_all_overlaps` | Computes all suffix-of-i / prefix-of-j overlaps between read pairs above minOverlap length and minIdentity ratio. |
@@ -66,13 +65,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `write_big_alignment` | bigBed / bigMaf / bigPsl writers of Biopython `Bio.Align` (base64 bytes): BED3 - BED12 and custom autoSQL fields, the MAF block of every alignment, the 13 PSL fields; equal to Biopython 1.88 on 775 committed files (the compressed blocks of Biopython's zlib fed back) |
 | `parse_big_alignment` | bigBed / bigMaf / bigPsl readers of Biopython `Bio.Align` (base64 bytes): alignments, chromosomes and the autoSQL declaration; equal to Biopython 1.88 on 1 710 committed files |
 | `multiple_align_mafft` | MAFFT 7.505 ported from the program for ANY number of sequences: the progressive strategies FFT-NS-2 (default), FFT-NS-1 (`retree` 1), NW-NS-2 / NW-NS-1 (`fft` false): 6-mer / 10-mer distance, UPGMA guide tree, group-group `A__align`, FFT anchors (`Falign`), second tree from the first alignment; `auto` (--auto), `pairLibrary` (`global` / `local` / `genaf` = --globalpair / --localpair / --genafpair: G-INS-1 / L-INS-1 / E-INS-1, with `maxIterate` > 0 G-INS-i / L-INS-i / E-INS-i, with `weightI`, `globalPair*`, `localPair*`, `genafOpen`),  `maxIterate` (--maxiterate: FFT-NS-i, `dndpre` + `dvtditr` tree-dependent refinement; `threadsIterate` 0 with threads),  `sequenceType`, `gapOpen` (--op), `offset` (--ep), `gapExtension` (--exp), `gapOpenDistance`, `blosum` (--bl), `scoringModel` jtt / tm + `pam`, `kappa`, `frequencyModel`, `wildcardN`, `tupleSize`, `treeMixing` (--averagelinkage / --minimumlinkage / --mixedlinkage), `legacyGapPenalty`, `terminalGapPenalty`, `unweight`, `reorder`, `anySymbol`, `quiet`; the result carries the program's standard error; rows and standard error equal the installed program on 6 530 committed sets (28 strategies, at least 210 each) and 884 / 884 pairs; the iterative, pair-library, parttree, add / merge strategies are registered stages of the port; T-Coffee's `mafft_pair` uses it. |
-| `stretcher_align` | EMBOSS 6.6 stretcher (Myers-Miller linear-space global alignment, integer scores, `matrix`, `gapOpen`, `gapExtend`); rows and score identical to the installed program on 689 / 689 committed pairs. |
-| `needle_align` | EMBOSS 6.6 needle (Needleman-Wunsch-Gotoh in the program's single-precision arithmetic; `matrix`, `gapOpen`, `gapExtend`, `endWeight` / `endOpen` / `endExtend`); rows and printed score identical to the installed program on 887 / 887 committed pairs. |
-| `water_align` | EMBOSS 6.6 water (Smith-Waterman-Gotoh as the program reports it: ties, start coordinates, single-precision score); identical to the installed program on 860 / 860 committed pairs. |
-| `needleall_align` | EMBOSS 6.6 needleall: every sequence of one set against every sequence of another, each pair as `needle` aligns it (`minScore`, `brief`). |
-| `supermatcher_align` | EMBOSS 6.6 supermatcher: Rabin-Karp word seeds + banded Smith-Waterman local alignment of large sequences. |
 | `ksw2_extend` | The ksw2 / minimap2 extension-alignment functions (`extz`, `extz2`, `extd`, `extd2`): band, Z-drop, end bonus, CIGAR. |
-| `write_alignment` | Writes an alignment in an EMBOSS 6.6.0 `-aformat` format (pair, simple, srspair, srs, markx0-3 / 10, match, score, sam, tcoffee, fasta, a2m, msf, clustal, mega, meganon, nexus, paup, nexusnon, paupnon, phylip, phylipnon, selex, treecon) byte for byte (3 303 needle / water / stretcher files and 1 309 seqret files verified). |
 | `write_coordinate_alignment` | Writes pairwise alignments (block coordinates as JSON) as BED / PSL / chain text, byte for byte as Biopython 1.88 `Bio.Align.write` (`bedN`, PSL header / mask / wildcard). |
 | `parse_coordinate_alignment` | Reads BED / PSL / PSLX / chain text as Biopython 1.88 `Bio.Align.parse` does and returns the alignments as JSON (sequences, block coordinates, score / matches / thick / chain id attributes). |
 | `dual_affine_align` | ksw2 / minimap2-style two-piece affine gaps (`gapOpen1/2`, `gapExtend1/2`), global or local, optional band; 1 600 oracle cases (Biopython callable gap score + independent WSB). |
@@ -82,7 +75,6 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `scaffold_contigs` | Builds scaffolds by joining contigs using paired-end link records, inserting gapCharacter between linked contigs to span the indicated ga… |
 | `semi_global_align` | Semi-global (fitting) pairwise alignment with free end gaps in sequence2. Linear gap model: every gap position scores gapExtend; gapOpen is… |
 | `semi_global_align_affine` | Semi-global (fitting) pairwise alignment with affine gap costs: sequence1 is aligned end to end inside sequence2 (free leading/trailing seq… |
-| `merger` | EMBOSS merger: merge two overlapping nucleotide sequences (embAlignPathCalc free-end global alignment, column rule with the windowed quality score, conflict list); `gapOpen`, `gapExtend`, `matrix`; verified against merger 6.6.0 on 450 read pairs (B09 A3-13). |
 | `align_gap_profile` | Pairwise alignment with Biopython's twelve per-direction / per-end gap scores (`{open,extend}_{internal,left,right}_{insertion,deletion}_score` and every aggregate; `gapScores` name -> value, `endGaps` free flags, `mode` global / semi_global / local, linear or affine, scalar or matrix with fractional gaps); on the existing cores; equal to Biopython 1.88 on 998 / 1000 rows (the other two are a documented Biopython linear-NW corner) (B09 A3-10). |
 | `sequence_identity` | Computes percent-identity (fraction in [0,1]) between two equal-length sequences via case-insensitive position-by-position comparison. |
 | `sum_of_pairs_score` | Sum-of-pairs score of a multiple alignment: linear or affine (Altschul 1989) gaps, simple scores or an EMBOSS substitution matrix. |

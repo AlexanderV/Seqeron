@@ -81,16 +81,4 @@ public class AlignInfoToolsTests
             Assert.Throws<ArgumentException>(() => AnalysisTools.MsaConservationScores(sequences, "nope"));
         });
     }
-
-    [Test]
-    public void MultipleAlignmentStatistics_ColumnsCarryTheShannonEntropyAndTheInformationContent()
-    {
-        var s = AnalysisTools.MultipleAlignmentStatistics(["AAC-", "AAG-", "AAC-", "ACC-"]);
-        Assert.Multiple(() =>
-        {
-            Assert.That(s.Columns[0].ShannonEntropy, Is.EqualTo(0.0));
-            Assert.That(s.Columns[1].ShannonEntropy, Is.EqualTo(0.8112781244591328).Within(1e-15), "A x3, C x1: -(0.75 log2 0.75 + 0.25 log2 0.25)");
-            Assert.That(s.Columns[0].InformationContent, Is.EqualTo(2.0).Within(1e-15), "a conserved nucleotide column against 0.25: log2(4) bits");
-        });
-    }
 }

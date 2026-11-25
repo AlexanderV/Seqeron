@@ -1,0 +1,124 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "toolName": "seqmatchall",
+ "serverName": "Analysis",
+ "version": "1.0.0",
+ "stability": "stable",
+ "methodId": "GenomicAnalyzer.SeqMatchAll",
+ "docRef": "Seqeron.Genomics.Emboss.Repeats/EmbossRepeatPrograms.WordMatches.cs",
+ "description": "EMBOSS 6.6.0 seqmatchall: the all-against-all comparison of a set of sequences by exact word matches. For every pair i < j with length(i) > wordSize and length(j) >= wordSize every maximal exact match of at least wordSize symbols is reported (forward strand only; overlapping matches and repeated positions are all listed). Nucleotide or protein sequences (any letters, compared literally and case-insensitively); the program's word table leaves out words around its unknown symbol (N for a nucleotide sequence, X otherwise) with a scan that can keep a word that holds an N after a skipped one - reproduced exactly. Positions are 0-based (the program prints 1-based starts). Matches are listed per pair, by position (the program lists them in hash order: compare as sets). Verified against seqmatchall 6.6.0 on 330 random sets (2-5 sequences, nucleotide / N / lower case / protein, word sizes 2-12, 700+ pairs); on A/C/G/T input it equals find_common_regions mode MaximalExactMatches (MUMmer -maxmatch). Input sequences are read as EMBOSS reads them (A4-3, one shared reader): only letters and '*' are kept; gap characters (- . ~ ?), '#', '+', '_', digits, blanks and every other character are dropped first, and positions, lengths and scores count the cleaned sequence (e.g. needle of AC-GTTAGC.TT* and ACGTTAGCTT: score 58, length 11, as the program). More than 4 194 304 maximal word matches are refused with an ArgumentException (SequenceAligner.WordMatchMaxMatches).",
+ "inputSchema": {
+  "type": "object",
+  "properties": {
+   "sequences": {
+    "type": "array",
+    "description": "The sequences (at least one; nucleotide or protein letters).",
+    "items": {
+     "type": "string"
+    }
+   },
+   "wordSize": {
+    "type": "integer",
+    "description": "Word size (seqmatchall -wordsize, default 4, >= 1).",
+    "default": 4
+   },
+   "sequenceQualifiers": {
+    "type": "string",
+    "description": "EMBOSS sequence-input qualifiers as on the command line: -sbegin 3 -send -2 -sreverse -slower -supper -scircular -snucleotide -sprotein (begin / end 1-based, negative = from the end; -sreverse reverse-complements a nucleotide sequence, the range then refers to the original). Measured on EMBOSS 6.6.0 per program: seqmatchall ignores -sbegin / -send; -sreverse (taken by the whole set when its first sequence is nucleotide) only labels the sequences reversed: the words are matched on the sequences as given and numbered from the end. The result then lists the program's start / end positions (reversed: start > end) in 'reportedMatches'. The text is resolved exactly as the EMBOSS program resolves it on its command line after the sequence arguments (ACD, 6.6.0): -sbegin1 3, -sbegin1=3, -nosreverse1, -sreverse1 N, any case, -/--/ prefix, and every UNIQUE abbreviation (-sbeg1, -sre2; uniqueness is decided among all qualifiers of the program, an ambiguous or unknown one is refused). The number is the sequence (1, and 2 for the second sequence of a two-sequence program; 1 for a program with one sequence). An unnumbered qualifier belongs to the LAST sequence given (-sbegin 3 is -sbegin2 3 in a two-sequence program) until a qualifier of another sequence ends that tie; after that it applies to all sequences. -sformat selects the file format of the text; -ufo -fformat -fopenfile name the feature file of a program that takes the features of its sequences (diffseq: the files are given by the tool); -sask -squick -sdbname -sid -iquery are accepted without effect (residue strings have no file); any other qualifier or a stray word is refused."
+   }
+  },
+  "required": [
+   "sequences"
+  ]
+ },
+ "outputSchema": {
+  "type": "object",
+  "properties": {
+   "matches": {
+    "type": "array",
+    "items": {
+     "type": "object",
+     "properties": {
+      "sequence1": {
+       "type": "integer"
+      },
+      "sequence2": {
+       "type": "integer"
+      },
+      "position1": {
+       "type": "integer"
+      },
+      "position2": {
+       "type": "integer"
+      },
+      "length": {
+       "type": "integer"
+      }
+     },
+     "required": [
+      "sequence1",
+      "sequence2",
+      "position1",
+      "position2",
+      "length"
+     ]
+    }
+   }
+  },
+  "required": [
+   "matches"
+  ]
+ },
+ "errors": [
+  {
+   "code": 1001,
+   "message": "At least one sequence is required"
+  },
+  {
+   "code": 1001,
+   "message": "Sequences cannot be null or empty"
+  },
+  {
+   "code": 1002,
+   "message": "wordSize must be at least 1 (seqmatchall -wordsize)."
+  }
+ ],
+ "examples": [
+  {
+   "name": "Three sequences",
+   "input": {
+    "sequences": [
+     "ACGTACGTAC",
+     "GGACGTACGTACTT",
+     "TTTT"
+    ],
+    "wordSize": 6
+   },
+   "output": {
+    "matches": [
+     {
+      "sequence1": 0,
+      "sequence2": 1,
+      "position1": 0,
+      "position2": 2,
+      "length": 10
+     },
+     {
+      "sequence1": 0,
+      "sequence2": 1,
+      "position1": 0,
+      "position2": 6,
+      "length": 6
+     },
+     {
+      "sequence1": 0,
+      "sequence2": 1,
+      "position1": 4,
+      "position2": 2,
+      "length": 6
+     }
+    ]
+   }
+  }
+ ]
+}

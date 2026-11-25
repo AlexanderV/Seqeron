@@ -15,8 +15,6 @@ public record ShowTilingToolResult(string Text, string? ContigList, string? Unus
 /// <summary>Result of <c>dnadiff</c>: the files of the program (the lines of the report that perl's hash order shuffles are in a fixed order).</summary>
 public record DnadiffToolResult(string Report, string Delta, string Delta1, string DeltaM, string Coords1, string CoordsM, string Snps, string ReferenceDiff, string QueryDiff, string? UnalignedReference, string? UnalignedQuery);
 
-/// <summary>Result of <c>est2genome</c>: the <c>-outfile</c> text and what the program writes to standard error.</summary>
-public record Est2genomeToolResult(string Text, string Messages);
 
 /// <summary>Result of <c>promer</c>: the text of the <c>.delta</c> file (or of the <c>.cluster</c> file with <c>delta = false</c>), the optional coords file, what the programs write to standard error and the temporary files of the script (<c>.aaref</c>, <c>.aaqry</c>, <c>.mgaps</c>), which the script deletes.</summary>
 public record PromerToolResult(string? Delta, string? Cluster, string Messages, string? Coords, string AminoReference, string AminoQuery, string Mgaps);

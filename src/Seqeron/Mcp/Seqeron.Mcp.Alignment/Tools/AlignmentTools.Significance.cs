@@ -7,12 +7,12 @@ namespace Seqeron.Mcp.Alignment.Tools;
 
 public partial class AlignmentTools
 {
-    private const string SignificanceParamDescription = "true: add the BLAST+ statistics of the score (bitScore, eValue, pValue and the Karlin-Altschul parameters) to the result. Protein matrices of the NCBI tables (BLOSUM45 / 50 / 62 / 90, PAM30 / 70 / 250 with the gap costs the tables list, e.g. BLOSUM62 existence 11 extension 1 = gapOpen -11, gapExtend -1) get Spouge's finite-size E-value exactly as blastp -comp_based_stats 0; match / mismatch with the blastn reward / penalty pairs and gap costs of the tables (e.g. 2 / -3 with gapOpen -5, gapExtend -2) the length-adjusted Karlin-Altschul E-value as blastn -task blastn. Costs outside the tables are refused (default false).";
-    private const string DbLengthParamDescription = "With significance: the length of the database the subject (sequence2) belongs to, for the E-value (default: the length of sequence2, a pairwise comparison, as blastp / blastn -subject).";
+    public const string SignificanceParamDescription = "true: add the BLAST+ statistics of the score (bitScore, eValue, pValue and the Karlin-Altschul parameters) to the result. Protein matrices of the NCBI tables (BLOSUM45 / 50 / 62 / 90, PAM30 / 70 / 250 with the gap costs the tables list, e.g. BLOSUM62 existence 11 extension 1 = gapOpen -11, gapExtend -1) get Spouge's finite-size E-value exactly as blastp -comp_based_stats 0; match / mismatch with the blastn reward / penalty pairs and gap costs of the tables (e.g. 2 / -3 with gapOpen -5, gapExtend -2) the length-adjusted Karlin-Altschul E-value as blastn -task blastn. Costs outside the tables are refused (default false).";
+    public const string DbLengthParamDescription = "With significance: the length of the database the subject (sequence2) belongs to, for the E-value (default: the length of sequence2, a pairwise comparison, as blastp / blastn -subject).";
     private const string DbSequencesParamDescription = "With significance on nucleotides: the number of sequences of the database (default 1).";
 
     /// <summary>Adds the BLAST+ significance of the score of <paramref name="d"/> (a local alignment) when <paramref name="significance"/> is true.</summary>
-    private static AlignmentResultDto WithSignificance(AlignmentResultDto d, bool significance, string? matrix, int match, int mismatch, double gapOpen, double gapExtend, int length1, int length2, long? dbLength, long dbSequences)
+    public static AlignmentResultDto WithSignificance(AlignmentResultDto d, bool significance, string? matrix, int match, int mismatch, double gapOpen, double gapExtend, int length1, int length2, long? dbLength, long dbSequences)
     {
         if (!significance)
             return d;

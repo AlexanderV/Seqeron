@@ -17,7 +17,7 @@ public static partial class GenomicAnalyzer
     private const int FirstSeparator = 0x100;
     private const int LastSeparator = 0xD7FF;
 
-    private static bool[] BuildLetterMask(string alphabet)
+    public static bool[] BuildLetterMask(string alphabet)
     {
         ArgumentNullException.ThrowIfNull(alphabet);
         var letters = new bool[128];
@@ -71,7 +71,7 @@ public static partial class GenomicAnalyzer
         return sb.ToString();
     }
 
-    private static global::SuffixTree.SuffixTree BuildMaskedTree(string sequence, bool[] letters)
+    public static global::SuffixTree.SuffixTree BuildMaskedTree(string sequence, bool[] letters)
     {
         int next = FirstSeparator;
         return global::SuffixTree.SuffixTree.Build(MaskText(sequence, letters, ref next));

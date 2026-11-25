@@ -192,4 +192,12 @@ public static partial class SequenceAligner
     }
 
     private static int Add(int value, int delta) => value <= DualNegative / 2 ? DualNegative : value + delta;
+
+    private static string Reverse(StringBuilder sb)
+    {
+        var a = new char[sb.Length];
+        for (int i = 0; i < a.Length; i++)
+            a[i] = sb[a.Length - 1 - i];
+        return new string(a);
+    }
 }

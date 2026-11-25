@@ -75,6 +75,12 @@ SERVER_PROJECT: Dict[str, str] = {
     # separately licensed servers (GPL / LGPL ports): docs/Validation/review-2026-09/LICENSES.md
     "MultipleAlignment": "src/Seqeron/Mcp/Seqeron.Mcp.MultipleAlignment",
     "AlignmentConsensus": "src/Seqeron/Mcp/Seqeron.Mcp.AlignmentConsensus",
+    "EmbossSequenceFormats": "src/Seqeron/Mcp/Seqeron.Mcp.EmbossSequenceFormats",
+    "EmbossFeatureTools": "src/Seqeron/Mcp/Seqeron.Mcp.EmbossFeatureTools",
+    "EmbossRepeats": "src/Seqeron/Mcp/Seqeron.Mcp.EmbossRepeats",
+    "EmbossPairwiseAlignment": "src/Seqeron/Mcp/Seqeron.Mcp.EmbossPairwiseAlignment",
+    "EmbossMotifs": "src/Seqeron/Mcp/Seqeron.Mcp.EmbossMotifs",
+    "EmbossOpenReadingFrames": "src/Seqeron/Mcp/Seqeron.Mcp.EmbossOpenReadingFrames",
 }
 
 PROTOCOL_VERSION = "2024-11-05"

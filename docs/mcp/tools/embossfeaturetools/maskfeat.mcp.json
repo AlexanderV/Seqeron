@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "maskfeat",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "EmbossMaskfeatPrograms.Maskfeat",
+  "docRef": "Seqeron.Genomics.Emboss.FeatureTools/EmbossMaskfeatPrograms.cs",
+  "description": "EMBOSS 6.6.0 maskfeat: the regions of the features of the wanted types are masked in the sequences of a file (any input format of seqret that carries features: embl, genbank, refseq, refseqp, swiss, nbrf, gff2, gff3; the feature types are those of the vocabulary, wildcards * and ? allowed, several types separated by blanks, commas, semicolons or bars; the default repeat* masks repeat_region and repeat_unit): the residues become the mask character (default N for nucleotide and X for protein sequences) or lower case (toLower, or a blank or no mask character), and the sequences are returned in FASTA (the sequence type of the program is any: every character that is no letter and no * is dropped). Equals the installed program on 1 200 runs (every input format with features, damaged files, the runs on which the program refuses an input or dies by a fault). A5-8c3g, B09 F249.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "The text of the sequence file with features (see the formats above), or a sequence as letters (nothing to mask)."
+      },
+      "sequenceFormat": {
+        "type": "string",
+        "description": "The input format (-sformat); default: the program finds the format."
+      },
+      "type": {
+        "type": "string",
+        "description": "The feature types to mask (-type): names separated by blanks, commas, semicolons or bars; * and ? wildcards; default repeat*.",
+        "default": "repeat*"
+      },
+      "toLower": {
+        "type": "boolean",
+        "description": "Make the masked regions lower case (-tolower).",
+        "default": false
+      },
+      "maskChar": {
+        "type": "string",
+        "description": "The mask character (-maskchar, one character; none or a blank = lower case); default N (nucleotide) / X (protein)."
+      },
+      "qualifiers": {
+        "type": "string",
+        "description": "Sequence input qualifiers as typed after the sequence on the command line: -sbegin1 -send1 -sreverse1, -slower1 -supper1 -snucleotide1 -sprotein1 -scircular1, -sformat1 F, -sid1 name, -sdbname1 db, -squick1, -iquery1 query, -ioffset1 bytes."
+      },
+      "files": {
+        "type": "object",
+        "description": "More files by name (file name -> text) that sequence may name with a 'format::' prefix."
+      },
+      "sequenceValue": {
+        "type": "string",
+        "description": "The USA of the sequence input (-sequence) as the program reads it, instead of the file the text is put in: [format::]file[begin:end:r] (file = the name of an entry of files; the text of sequence is the file 'sequence.dat'), file:id / file:field:query / file{a|b} (id, acc, sv, gi, des, key, org; wildcards * and ?), @list / list::list (a list file of files; # comments; every entry has its own range and format), asis::SEQUENCE; the range qualifiers -sbegin1 -send1 -sreverse1 of qualifiers are applied to the sequences and to their features."
+      }
+    },
+    "required": [
+      "sequence"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "sequenceText": {
+        "type": "string",
+        "description": "The text of the sequence output file (FASTA)."
+      },
+      "sequences": {
+        "type": "integer",
+        "description": "The number of sequences written."
+      },
+      "messages": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "What the library printed on its error stream (Warning: ..., Error: ...), in order."
+      }
+    },
+    "required": [
+      "sequenceText",
+      "sequences",
+      "messages"
+    ]
+  },
+  "errors": [
+    {
+      "code": "InvalidParams",
+      "message": "Invalid arguments (an empty sequence, a mask character of more than one character, a text no sequence reader reads, an input of an alignment or binary format this port does not read, an input on which the reference program dies by a fault)."
+    }
+  ],
+  "examples": [
+    {
+      "name": "The default type masks the repeats",
+      "input": {
+        "sequence": "ID   SEQA; SV 1; linear; genomic DNA; STD; UNC; 20 BP.\nXX\nFH   Key             Location/Qualifiers\nFH\nFT   repeat_region   3..9\nFT   gene            12..18\nXX\nSQ   Sequence 20 BP; 0 A; 0 C; 0 G; 0 T; 0 other;\n     aacgtacgta cgtacgtacg                                                20\n//\n",
+        "sequenceFormat": "embl"
+      },
+      "output": {
+        "sequenceText": ">SEQA SEQA.1\naaNNNNNNNacgtacgtacg\n",
+        "sequences": 1,
+        "messages": []
+      }
+    }
+  ]
+}

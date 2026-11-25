@@ -21,4 +21,9 @@
     <ProjectReference Include="..\Seqeron.Mcp.Tests.Contracts\Seqeron.Mcp.Tests.Contracts.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\Seqeron\Mcp\Seqeron.Mcp.EmbossPairwiseAlignment\Seqeron.Mcp.EmbossPairwiseAlignment.csproj" />
+    <Using Include="Seqeron.Mcp.EmbossPairwiseAlignment.Tools" />
+  </ItemGroup>
+
 </Project>

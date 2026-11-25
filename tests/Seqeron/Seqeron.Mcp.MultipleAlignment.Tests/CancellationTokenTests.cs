@@ -31,10 +31,10 @@ public class CancellationTokenTests
     {
         Assert.Multiple(() =>
         {
-            Assert.Catch<OperationCanceledException>(() => AlignmentTools.StretcherAlign(A, B, cancellationToken: Cancelled), "stretcher_align");
+            Assert.Catch<OperationCanceledException>(() => EmbossPairwiseAlignmentTools.StretcherAlign(A, B, cancellationToken: Cancelled), "stretcher_align");
             Assert.Catch<OperationCanceledException>(() => AlignmentTools.DualAffineAlign(A, B, cancellationToken: Cancelled), "dual_affine_align");
-            Assert.Catch<OperationCanceledException>(() => AlignmentTools.SupermatcherAlign([A], [A], cancellationToken: Cancelled), "supermatcher_align");
-            Assert.Catch<OperationCanceledException>(() => AlignmentTools.NeedleallAlign([A], [B], cancellationToken: Cancelled), "needleall_align");
+            Assert.Catch<OperationCanceledException>(() => EmbossPairwiseAlignmentTools.SupermatcherAlign([A], [A], cancellationToken: Cancelled), "supermatcher_align");
+            Assert.Catch<OperationCanceledException>(() => EmbossPairwiseAlignmentTools.NeedleallAlign([A], [B], cancellationToken: Cancelled), "needleall_align");
             Assert.Catch<OperationCanceledException>(() => AlignmentTools.Ksw2Extend(A, B, cancellationToken: Cancelled), "ksw2_extend");
             Assert.Catch<OperationCanceledException>(() => AlignmentTools.Ksw2Extend(A, B, variant: "extz", cancellationToken: Cancelled), "ksw2_extend extz");
             Assert.Catch<OperationCanceledException>(() => MultipleAlignmentTools.TCoffeeSlowPairAlign(A, B, cancellationToken: Cancelled), "tcoffee_slow_pair_align");

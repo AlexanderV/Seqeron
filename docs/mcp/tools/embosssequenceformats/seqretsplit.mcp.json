@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "seqretsplit",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "EmbossSeqretPrograms.Seqretsplit",
+  "docRef": "Seqeron.Genomics.Emboss.SequenceFormats/EmbossSeqretPrograms.cs",
+  "description": "EMBOSS 6.6.0 seqretsplit: the sequences of a file (any input format of seqret) are written each to a file of its own, name.extension in lower case (the extension is the output format as typed, or outputExtension; outputDirectory is the directory), in FASTA or in the output format of outputFormat (the formats of the union tool). A sequence whose name an earlier sequence used (in any case) gets the name name.002, name.003 ... and the library warns 'Duplicate name ... changed to ...'. With outputSingle false the sequences go to one file (sequenceText), as seqret writes them. Equals the installed program on 200 runs (duplicate names in any case, the reader inputs, damaged files, every output format, directories and extensions). A5-8c3h, B09 F254.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "The text of the sequence file (any input format of seqret), or a sequence as letters."
+      },
+      "sequenceFormat": {
+        "type": "string",
+        "description": "The input format (-sformat); default: the program finds the format."
+      },
+      "firstOnly": {
+        "type": "boolean",
+        "description": "Read one sequence and stop (-firstonly).",
+        "default": false
+      },
+      "outputFormat": {
+        "type": "string",
+        "description": "The sequence output format (-osformat); default fasta.",
+        "default": "fasta"
+      },
+      "outputSingle": {
+        "type": "boolean",
+        "description": "Write every sequence to a file of its own (-ossingle2; the default of the program).",
+        "default": true
+      },
+      "outputDirectory": {
+        "type": "string",
+        "description": "The directory of the files (-osdirectory2)."
+      },
+      "outputExtension": {
+        "type": "string",
+        "description": "The extension of the files (-osextension2); default: the output format as typed."
+      },
+      "qualifiers": {
+        "type": "string",
+        "description": "Sequence input qualifiers as typed after the sequence on the command line: -sbegin1 -send1 -sreverse1, -slower1 -supper1 -snucleotide1 -sprotein1 -scircular1, -sformat1 F, -sid1 name, -sdbname1 db, -squick1, -iquery1 query, -ioffset1 bytes."
+      },
+      "files": {
+        "type": "object",
+        "description": "More files by name (file name -> text) that sequence may name with a 'format::' prefix."
+      },
+      "sequenceValue": {
+        "type": "string",
+        "description": "The USA of the sequence input (-sequence) as the program reads it, instead of the file the text is put in: [format::]file[begin:end:r] (file = the name of an entry of files; the text of sequence is the file 'sequence.dat'), file:id / file:field:query / file{a|b} (id, acc, sv, gi, des, key, org; wildcards * and ?), @list / list::list (a list file of files; # comments; every entry has its own range and format), asis::SEQUENCE; the range qualifiers -sbegin1 -send1 -sreverse1 of qualifiers are applied to the sequences and to their features."
+      },
+      "definitions": {
+        "type": "string",
+        "description": "The text of an EMBOSS configuration file (.embossrc) that defines databases for sequenceValue: DBNAME name [ type: N format: fasta method: direct directory: \"dir\" filename: \"*.fa\" ], SET name value; the data files are in files."
+      }
+    },
+    "required": [
+      "sequence"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "sequenceText": {
+        "type": "string",
+        "description": "The text of the sequence output file (empty when every sequence has a file of its own)."
+      },
+      "singleFiles": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "string"
+        },
+        "description": "The file of every sequence by path (directory/name.extension)."
+      },
+      "sequences": {
+        "type": "integer",
+        "description": "The number of sequences written."
+      },
+      "messages": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "What the library printed on its error stream (Warning: ..., Error: ...), in order."
+      }
+    },
+    "required": [
+      "sequenceText",
+      "singleFiles",
+      "sequences",
+      "messages"
+    ]
+  },
+  "errors": [
+    {
+      "code": "InvalidParams",
+      "message": "Invalid arguments (an empty sequence, a text no sequence reader reads, an input of a binary format this port does not read, an output format this port does not write)."
+    }
+  ],
+  "examples": [
+    {
+      "name": "Split a file with a repeated name",
+      "input": {
+        "sequence": ">a\nACGT\n>A\nGG\n>b\nTT\n"
+      },
+      "output": {
+        "sequenceText": "",
+        "singleFiles": {
+          "a.fasta": ">a\nACGT\n",
+          "a.002.fasta": ">A.002\nGG\n",
+          "b.fasta": ">b\nTT\n"
+        },
+        "sequences": 3,
+        "messages": [
+          "Warning: Duplicate name 'A' changed to 'A.002'"
+        ]
+      }
+    }
+  ]
+}

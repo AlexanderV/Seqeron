@@ -273,10 +273,10 @@ var wrapped = Translator.FindOrfs("CCCTAAGGGATGAAA", OrfFindMode.TranslationStar
 ### 7.3 Related Tests, Evidence, or Documents
 
 - Tests: [Translator_SixFrames_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Core/Translator_SixFrames_Tests.cs) — covers `INV-01`..`INV-06`
-- Tests: [Translator_GetOrfModes_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Core/Translator_GetOrfModes_Tests.cs) — getorf `-find` 0–6 against the EMBOSS 6.6.0 binary oracle `TestData/Getorf/getorf_find_modes.tsv`
-- Tests: [Translator_IupacCircular_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Core/Translator_IupacCircular_Tests.cs) — IUPAC string overloads (Biopython six frames; getorf ambiguity rules) and `-circular`, oracle `TestData/Getorf/getorf_iupac_circular.tsv`
-- Tests: [Translator_SixFrameConvention_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Core/Translator_SixFrameConvention_Tests.cs) — EMBOSS transeq conventions against the transeq 6.6.0 binary oracle `TestData/Transeq/transeq_six_frames.tsv`
-- Tests: [Translator_TranseqOptions_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Core/Translator_TranseqOptions_Tests.cs) — transeq `-regions`/`-methionine`/`-trim`/`-clean` against the transeq 6.6.0 binary oracle `TestData/Transeq/transeq_options.tsv`
+- Tests: [Translator_GetOrfModes_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Emboss.OpenReadingFrames.Tests/Unit/Core/Translator_GetOrfModes_Tests.cs) — getorf `-find` 0–6 against the EMBOSS 6.6.0 binary oracle `TestData/Getorf/getorf_find_modes.tsv`
+- Tests: [Translator_IupacCircular_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Emboss.OpenReadingFrames.Tests/Unit/Core/Translator_IupacCircular_Tests.cs) — IUPAC string overloads (Biopython six frames; getorf ambiguity rules) and `-circular`, oracle `TestData/Getorf/getorf_iupac_circular.tsv`
+- Tests: [Translator_SixFrameConvention_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Emboss.SequenceFormats.Tests/Unit/Core/Translator_SixFrameConvention_Tests.cs) — EMBOSS transeq conventions against the transeq 6.6.0 binary oracle `TestData/Transeq/transeq_six_frames.tsv`
+- Tests: [Translator_TranseqOptions_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Emboss.SequenceFormats.Tests/Unit/Core/Translator_TranseqOptions_Tests.cs) — transeq `-regions`/`-methionine`/`-trim`/`-clean` against the transeq 6.6.0 binary oracle `TestData/Transeq/transeq_options.tsv`
 - Evidence: [TRANS-SIXFRAME-001-Evidence.md](../../../docs/Evidence/TRANS-SIXFRAME-001-Evidence.md)
 
 ## 8. References

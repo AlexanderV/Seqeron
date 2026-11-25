@@ -20,46 +20,6 @@ public class AlignmentConsensusMetamorphicTests
             .Select(_ => alphabet[rng.Next(alphabet.Length)]).ToArray())).ToArray();
 
     [Test]
-    public void Emboss_CaseGapAndWeightScaling_Invariant()
-    {
-        var rng = new Random(6601);
-        for (int trial = 0; trial < 200; trial++)
-        {
-            bool protein = trial % 2 == 1;
-            var type = protein ? ConsensusResidueType.Protein : ConsensusResidueType.Nucleotide;
-            var rows = RandomRows(rng, rng.Next(2, 9), rng.Next(1, 30), protein ? "ACDEFGHIKLMNPQRSTVWY-" : "ACGTN-");
-            float[] weights = rows.Select(_ => new[] { 0.25f, 0.5f, 1f, 1.5f, 2f }[rng.Next(5)]).ToArray();
-            float total = weights.Sum();
-            float plurality = MathF.Round(total * (float)rng.NextDouble() * 4) / 4, setcase = MathF.Round(total * (float)rng.NextDouble() * 4) / 4;
-            int identity = rng.Next(0, 3);
-
-            string baseline = MotifFinder.GenerateEmbossConsensus(rows, type, plurality, identity, setcase, weights);
-            Assert.That(MotifFinder.GenerateEmbossConsensus(rows.Select(r => r.ToLowerInvariant()), type, plurality, identity, setcase, weights),
-                Is.EqualTo(baseline), "case");
-            Assert.That(MotifFinder.GenerateEmbossConsensus(rows.Select((r, i) => r.Replace('-', i % 2 == 0 ? '.' : '~')), type, plurality, identity, setcase, weights),
-                Is.EqualTo(baseline), "gaps");
-            Assert.That(MotifFinder.GenerateEmbossConsensus(rows, type, 2 * plurality, identity, 2 * setcase, weights.Select(w => 2 * w).ToArray()),
-                Is.EqualTo(baseline), "scale");
-        }
-    }
-
-    [Test]
-    public void Emboss_DuplicatedRows_EqualDoubleWeight()
-    {
-        var rng = new Random(6602);
-        for (int trial = 0; trial < 200; trial++)
-        {
-            var rows = RandomRows(rng, rng.Next(2, 7), rng.Next(1, 25), "ACGT");
-            float plurality = rng.Next(0, 2 * rows.Length + 1), setcase = rng.Next(0, 2 * rows.Length + 1);
-            string weighted = MotifFinder.GenerateEmbossConsensus(rows, plurality: plurality, setcase: setcase,
-                weights: rows.Select(_ => 2f).ToArray());
-            // Interleave duplicates so every row keeps its relative order (the highest-score tie-break is positional).
-            string duplicated = MotifFinder.GenerateEmbossConsensus(rows.SelectMany(r => new[] { r, r }), plurality: plurality, setcase: setcase);
-            Assert.That(duplicated, Is.EqualTo(weighted), string.Join(",", rows));
-        }
-    }
-
-    [Test]
     public void Dumb_RowPermutationInvariant_AndThresholdMonotone()
     {
         var rng = new Random(6603);

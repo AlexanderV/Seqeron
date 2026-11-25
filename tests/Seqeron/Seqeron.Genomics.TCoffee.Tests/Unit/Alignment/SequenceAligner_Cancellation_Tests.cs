@@ -189,62 +189,6 @@ public class SequenceAligner_Cancellation_Tests
         AssertCancelsPromptly(ct => GenomicAnalyzer.FindCommonRegions(big, other, 3, ct).Count(), "FindCommonRegions", nth: 1);
     }
 
-    // ------------------------------------------------------------------ A3-5: the pairwise programs, ksw2, T-Coffee DPs, MUSCLE refinement, anchors, distmat (B09 F133)
-
-    [Test]
-    public void PreCancelled_A3_5_EveryPortedProgram_Throws()
-    {
-        const string a = "ACGTACGTTAGCACGTAGCTAGCTAGGATC", b = "ACGTCGTTAGCACGTAGCTTAGCTAGGATC";
-        var one = new[] { new EmbossSequence("a", a) };
-        var q = Ksw2Aligner.EncodeNucleotides(a);
-        var t = Ksw2Aligner.EncodeNucleotides(b);
-        var mat = Ksw2Aligner.SimpleMatrix(5, 2, 4, 1);
-        Assert.Multiple(() =>
-        {
-            Assert.Catch<OperationCanceledException>(() => SequenceAligner.WithCancellation(Cancelled, () => SequenceAligner.NeedleAlign(a, b)));
-            Assert.Catch<OperationCanceledException>(() => SequenceAligner.WithCancellation(Cancelled, () => SequenceAligner.WaterAlign(a, b)));
-            Assert.Catch<OperationCanceledException>(() => SequenceAligner.WithCancellation(Cancelled, () => SequenceAligner.StretcherAlign(a, b)));
-            Assert.Catch<OperationCanceledException>(() => SequenceAligner.WithCancellation(Cancelled, () => SequenceAligner.Supermatcher(one, one)));
-            Assert.Catch<OperationCanceledException>(() => SequenceAligner.WithCancellation(Cancelled, () => SequenceAligner.NeedleAll(one, one)));
-            Assert.Catch<OperationCanceledException>(() => SequenceAligner.WithCancellation(Cancelled, () => Ksw2Aligner.ExtendZ(q, t, 5, mat, 4, 2, -1, -1)));
-            Assert.Catch<OperationCanceledException>(() => SequenceAligner.WithCancellation(Cancelled, () => Ksw2Aligner.ExtendD(q, t, 5, mat, 4, 2, 24, 1, -1, -1)));
-            Assert.Catch<OperationCanceledException>(() => SequenceAligner.WithCancellation(Cancelled, () => Ksw2Aligner.ExtendZ2(q, t, 5, mat, 4, 2, -1, -1, 0)));
-            Assert.Catch<OperationCanceledException>(() => SequenceAligner.WithCancellation(Cancelled, () => Ksw2Aligner.ExtendD2(q, t, 5, mat, 4, 2, 24, 1, -1, -1, 0)));
-            Assert.Catch<OperationCanceledException>(() => SequenceAligner.WithCancellation(Cancelled, () => SequenceAligner.GlobalAlignDualAffine(a, b, DualAffineScoring.Minimap2)));
-            Assert.Catch<OperationCanceledException>(() => SequenceAligner.WithCancellation(Cancelled, () => Seqeron.Genomics.TCoffee.TCoffeeAligner.TCoffeeSlowPairAlign(a, b)));
-            Assert.Catch<OperationCanceledException>(() => SequenceAligner.WithCancellation(Cancelled, () => MultipleAlignmentStatistics.CalculateDistanceMatrix(new[] { "ACGT", "ACGA", "ACCA" }, new MsaDistanceOptions())));
-        });
-    }
-
-    [Test]
-    public void CancelledWhileRunning_Needle_Water_StopPromptly()
-    {
-        string a = Random(600, 51), b = Random(600, 52);
-        AssertCancelsPromptly(ct => SequenceAligner.WithCancellation(ct, () => SequenceAligner.NeedleAlign(a, b)), pollInside: "NeedleCore");
-        AssertCancelsPromptly(ct => SequenceAligner.WithCancellation(ct, () => SequenceAligner.WaterAlign(a, b)), pollInside: "WaterCore");
-    }
-
-    [Test]
-    public void CancelledWhileRunning_Stretcher_StopsPromptly()
-    {
-        string a = Random(3000, 53), b = Random(3000, 54);
-        AssertCancelsPromptly(ct => SequenceAligner.WithCancellation(ct, () => SequenceAligner.StretcherAlign(a, b)), pollInside: "StretcherEngine");
-    }
-
-    [Test]
-    public void CancelledWhileRunning_Supermatcher_StopsPromptly()
-    {
-        var seq = new[] { new EmbossSequence("a", Random(3000, 55)) };
-        AssertCancelsPromptly(ct => SequenceAligner.WithCancellation(ct, () => SequenceAligner.Supermatcher(seq, seq, width: 600)), pollInside: "SwPathCalcFast");
-    }
-
-    [Test]
-    public void CancelledWhileRunning_NeedleAll_StopsPromptly()
-    {
-        var set = Enumerable.Range(0, 60).Select(i => new EmbossSequence("s" + i, Random(600, 200 + i))).ToArray();
-        AssertCancelsPromptly(ct => SequenceAligner.WithCancellation(ct, () => SequenceAligner.NeedleAll(set, set)), pollInside: "NeedleAll");
-    }
-
     [Test]
     public void CancelledWhileRunning_Ksw2AndDualAffine_StopPromptly()
     {
@@ -294,44 +238,6 @@ public class SequenceAligner_Cancellation_Tests
     }
 
     [Test]
-    public void CancelledWhileRunning_DistanceMatrix_StopsPromptly()
-    {
-        var rows = Enumerable.Range(0, 40).Select(i => Random(800, 400 + i)).ToArray();
-        AssertCancelsPromptly(ct => SequenceAligner.WithCancellation(ct, () => MultipleAlignmentStatistics.CalculateDistanceMatrix(rows, new MsaDistanceOptions())), pollInside: "CalcMatch");
-    }
-
-    // ------------------------------------------------------------------ A4-1: the ports added in WP36 - WP38 poll the ambient token (one test per class: cancelled while running, the poll named)
-
-    [Test]
-    public void PreCancelled_A4_1_EveryPortAddedInWp36ToWp38_Throws()
-    {
-        string a = Random(300, 71), b = Random(300, 72);
-        var anchors = new[] { new MinimapAnchor(0, false, 100, 100, 15), new MinimapAnchor(0, false, 120, 120, 15) };
-        var matches = new (long, long, long)[] { (1, 1, 20), (31, 31, 20) };
-        Assert.Multiple(() =>
-        {
-            Assert.Catch<OperationCanceledException>(() => DotMatcher.Compute(a, b, cancellationToken: Cancelled));
-            Assert.Catch<OperationCanceledException>(() => Minimap2Chaining.Chain(anchors, cancellationToken: Cancelled));
-            Assert.Catch<OperationCanceledException>(() => Minimap2Chaining.CollectAnchors([a], b, cancellationToken: Cancelled));
-            Assert.Catch<OperationCanceledException>(() => Minimap2Chaining.MapChains([a], b, cancellationToken: Cancelled));
-            Assert.Catch<OperationCanceledException>(() => NucmerClusters.Cluster(matches, cancellationToken: Cancelled));
-            Assert.Catch<OperationCanceledException>(() => SequenceAligner.Merger(a, b, cancellationToken: Cancelled));
-            Assert.Catch<OperationCanceledException>(() => SequenceAligner.WithCancellation(Cancelled, () => SequenceAligner.LocalAlignAffineTopN(a, b, new ScoringMatrix(5, -4, -10, -4), 3, 0, TopNTieOrder.Sim)));
-            Assert.Catch<OperationCanceledException>(() => GenomicAnalyzer.FindTranslatedPatternHits(a, "L-x-S", "F", 0, Cancelled));
-            Assert.Catch<OperationCanceledException>(() => MultipleAlignmentDisplay.ShowAlign(["a", "b"], [a, b], new ShowAlignOptions { CancellationToken = Cancelled }));
-            Assert.Catch<OperationCanceledException>(() => MotifFinder.GenerateEmbossAmbiguousConsensus([a, b], cancellationToken: Cancelled));
-            Assert.Catch<OperationCanceledException>(() => GenomicAnalyzer.FindNucmerClusters(a, b, 8, cancellationToken: Cancelled));
-        });
-    }
-
-    [Test]
-    public void CancelledWhileRunning_DotMatcher_StopsPromptly()
-    {
-        string a = Random(3000, 73), b = Random(3000, 74);
-        AssertCancelsPromptly(ct => DotMatcher.Compute(a, b, cancellationToken: ct), pollInside: "Diagonal");
-    }
-
-    [Test]
     public void CancelledWhileRunning_Minimap2Chain_StopsPromptly()
     {
         // 100 000 anchors on one diagonal, 20 apart: about 250 predecessors inside the 5 000-base gap limit for every anchor
@@ -354,57 +260,5 @@ public class SequenceAligner_Cancellation_Tests
         // 3 000 collinear matches in ONE cluster: the program's own O(c^2) chain dynamic program (300 000 of them did not return in two minutes)
         var matches = Enumerable.Range(0, 3_000).Select(i => ((long)(1 + 30 * i), (long)(1 + 30 * i), 20L)).ToList();
         AssertCancelsPromptly(ct => NucmerClusters.Cluster(matches, cancellationToken: ct), pollInside: "ProcessCluster");
-    }
-
-    [Test]
-    public void CancelledWhileRunning_Merger_StopsPromptly()
-    {
-        string a = Random(600, 77), b = Random(600, 78);
-        AssertCancelsPromptly(ct => SequenceAligner.Merger(a, b, cancellationToken: ct), pollInside: "MergerPathCalc");
-    }
-
-    [Test]
-    public void CancelledWhileRunning_TopNSim_StopsPromptly()
-    {
-        string a = Random(600, 79), b = Random(600, 80);
-        AssertCancelsPromptly(ct => SequenceAligner.WithCancellation(ct, () => SequenceAligner.LocalAlignAffineTopN(a, b, new ScoringMatrix(5, -4, -10, -4), 40, 0, TopNTieOrder.Sim)), pollInside: "SimMatcher");
-    }
-
-    [Test]
-    public void CancelledWhileRunning_MegaMergeMinimalMatchSet_StopsPromptly()
-    {
-        // 3 000 matches that all survive (the same diagonal, 100 apart): every kept match is compared with every later one
-        var list = Enumerable.Range(0, 3_000).Select(i => new GenomicAnalyzer.MegaMatch(100 * i, 100 * i, 30)).ToList();
-        AssertCancelsPromptly(ct => { GenomicAnalyzer.MinimalMatchSet(list, 20, ct); return list; }, pollInside: "MinimalMatchSet");
-    }
-
-    [Test]
-    public void CancelledWhileRunning_FuzztranTranslatedPatternHits_StopsPromptly()
-    {
-        string nt = Random(600_000, 81);
-        AssertCancelsPromptly(ct => GenomicAnalyzer.FindTranslatedPatternHits(nt, "L-x-S", "F", 0, ct), pollInside: "FindTranslatedPatternHits");
-    }
-
-    [Test]
-    public void CancelledWhileRunning_FuzzproProteinPatternHits_StopsPromptly_InsideThePositionLoop()
-    {
-        string protein = Random(300_000, 86, "ACDEFGHIKLMNPQRSTVWY");
-        AssertCancelsPromptly(ct => GenomicAnalyzer.FindProteinPatternHits(protein, "L-x-S", ct), pollInside: "ProteinPatternHitsCore");
-    }
-
-    [Test]
-    public void CancelledWhileRunning_ShowAlign_StopsPromptly()
-    {
-        // the consensus of 150 000 columns is computed first (its own poll), then 150 000 one-column blocks are written (the poll of Output)
-        string row1 = Random(150_000, 82), row2 = Random(150_000, 83);
-        AssertCancelsPromptly(ct => MultipleAlignmentDisplay.ShowAlign(["a", "b"], [row1, row2], new ShowAlignOptions { Width = 1, CancellationToken = ct }), pollInside: "Output");
-        AssertCancelsPromptly(ct => MultipleAlignmentDisplay.ShowAlign(["a", "b"], [row1, row2], new ShowAlignOptions { Width = 1, CancellationToken = ct }), pollInside: "EmbossConsensusCore");
-    }
-
-    [Test]
-    public void CancelledWhileRunning_Consambig_StopsPromptly()
-    {
-        var rows = Enumerable.Range(0, 20).Select(i => Random(40_000, 90 + i)).ToList();
-        AssertCancelsPromptly(ct => MotifFinder.GenerateEmbossAmbiguousConsensus(rows, cancellationToken: ct), pollInside: "GenerateEmbossAmbiguousConsensus");
     }
 }

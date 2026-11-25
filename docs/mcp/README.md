@@ -25,20 +25,26 @@ guessing a number. Same math as the C# API; the tool call is just a different fr
 - **Auditable** — each answer comes with the exact tools called, in order (see the worked workflows).
 
 > **New here?** If you use Claude Code or Copilot, you usually don't touch MCP directly — the
-> [Agent Skills](../../.claude/skills) attach the right server *on demand* and keep the 662 tool
+> [Agent Skills](../../.claude/skills) attach the right server *on demand* and keep the 663 tool
 > schemas out of the model's context. This guide is for wiring the servers into any MCP client
 > yourself, or understanding what runs underneath.
 
 ## The servers
 
 Tools are split into focused, per-domain servers so you attach only what a task needs — a smaller
-tool surface loads faster and is easier for the model to reason about. **662 tools across 13 servers:**
+tool surface loads faster and is easier for the model to reason about. **663 tools across 19 servers:**
 
 | Server | What it's for | Tools |
 |--------|---------------|------:|
 | [`Seqeron.Mcp.Sequence`](../../src/Seqeron/Mcp/Seqeron.Mcp.Sequence) | DNA/RNA/Protein models, composition, complexity, k-mers, Tm | 35 |
 | [`Seqeron.Mcp.Parsers`](../../src/Seqeron/Mcp/Seqeron.Mcp.Parsers) | FASTA/FASTQ/GenBank/GFF/VCF/BED/EMBL parsing & utilities | 41 |
-| [`Seqeron.Mcp.Alignment`](../../src/Seqeron/Mcp/Seqeron.Mcp.Alignment) | Pairwise & multiple sequence alignment | 67 |
+| [`Seqeron.Mcp.Alignment`](../../src/Seqeron/Mcp/Seqeron.Mcp.Alignment) | Pairwise & multiple sequence alignment | 59 |
+| [`Seqeron.Mcp.EmbossOpenReadingFrames`](../../src/Seqeron/Mcp/Seqeron.Mcp.EmbossOpenReadingFrames) | EMBOSS open reading frame programs (getorf, plotorf, tcode, checktrans) - separately licensed (GPL-2.0-or-later) | 4 |
+| [`Seqeron.Mcp.EmbossMotifs`](../../src/Seqeron/Mcp/Seqeron.Mcp.EmbossMotifs) | EMBOSS pattern and motif programs (fuzzpro, fuzztran, patmatmotifs, patmatdb, prosextract, marscan, consambig) - separately licensed (GPL-2.0-or-later) | 12 |
+| [`Seqeron.Mcp.EmbossPairwiseAlignment`](../../src/Seqeron/Mcp/Seqeron.Mcp.EmbossPairwiseAlignment) | EMBOSS pairwise alignment programs (needle, water, stretcher, matcher, supermatcher, merger, est2genome, diffseq, ...) - separately licensed (GPL-2.0-or-later) | 16 |
+| [`Seqeron.Mcp.EmbossRepeats`](../../src/Seqeron/Mcp/Seqeron.Mcp.EmbossRepeats) | EMBOSS word-match and tandem-repeat programs (wordmatch, seqmatchall, etandem, equicktandem) - separately licensed (GPL-2.0-or-later) | 3 |
+| [`Seqeron.Mcp.EmbossFeatureTools`](../../src/Seqeron/Mcp/Seqeron.Mcp.EmbossFeatureTools) | EMBOSS feature programs (showfeat, extractfeat, twofeat, featcopy, ...) - separately licensed (GPL-2.0-or-later) | 9 |
+| [`Seqeron.Mcp.EmbossSequenceFormats`](../../src/Seqeron/Mcp/Seqeron.Mcp.EmbossSequenceFormats) | EMBOSS sequence, format-conversion and sequence-database programs (seqret, union, revseq, transeq, infoseq, ...) - separately licensed (GPL-2.0-or-later) | 42 |
 | [`Seqeron.Mcp.AlignmentConsensus`](../../src/Seqeron/Mcp/Seqeron.Mcp.AlignmentConsensus) | Alignment consensus (DECIPHER ConsensusSequence port) - separately licensed (GPL-3.0-only) | 1 |
 | [`Seqeron.Mcp.MultipleAlignment`](../../src/Seqeron/Mcp/Seqeron.Mcp.MultipleAlignment) | Multiple sequence alignment programs (Kalign, POA, ClustalW, T-Coffee, ProbCons) - separately licensed (GPL / LGPL) | 25 |
 | [`Seqeron.Mcp.Analysis`](../../src/Seqeron/Mcp/Seqeron.Mcp.Analysis) | K-mer, motif, repeat, complexity, comparative & structural genomics | 127 |
@@ -161,7 +167,7 @@ tm_diff_c = 4.1
 
 ## Tool catalog & schemas
 
-Every one of the 662 tools ships a per-tool doc (`{tool}.md`) and machine-readable schema
+Every one of the 663 tools ships a per-tool doc (`{tool}.md`) and machine-readable schema
 (`{tool}.mcp.json`) under [`tools/<server>/`](tools), and each server's own `README.md` lists its
 full tool table.
 

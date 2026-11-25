@@ -48,7 +48,6 @@ public class B02FinisherProperties
 
     private static string Dna(string s) => SequenceCase.ToUpperDna(s);
 
-    #region F31 / WP24–25 — ASCII-only case folding (SequenceCase)
 
     /// <summary>SequenceCase: the char, string and span forms agree; only a–z change (by −32); length is preserved.</summary>
     [FsCheck.NUnit.Property(MaxTest = 300)]
@@ -125,9 +124,7 @@ public class B02FinisherProperties
             && ProteinPhysicochemistry.IsoelectricPoint(t.Item2) == ProteinPhysicochemistry.IsoelectricPoint(t.core));
     }
 
-    #endregion
 
-    #region F32 — Sec / Pyl
 
     /// <summary>F32: U/O are valid residues; MW is additive over concatenation (minus one water per new bond).</summary>
     [FsCheck.NUnit.Property(MaxTest = 300)]
@@ -162,9 +159,7 @@ public class B02FinisherProperties
         });
     }
 
-    #endregion
 
-    #region F33 — nucleotide X
 
     /// <summary>
     /// F33: with allowNucleotideX an X-codon translates exactly as the same codon with X → N, or throws —
@@ -219,9 +214,7 @@ public class B02FinisherProperties
         });
     }
 
-    #endregion
 
-    #region F36 / F50 / F51 / F57 — ENC
 
     private static int SenseCodons(GeneticCode code) => code.CodonTable.Count(kv => kv.Value != '*');
 
@@ -294,9 +287,7 @@ public class B02FinisherProperties
         });
     }
 
-    #endregion
 
-    #region F37 — CodonW GC convention
 
     /// <summary>
     /// F37: the CodonW convention drops the code's stop codons from GC1–3 only; counts, RSCU, ENC and GC3s are
@@ -346,9 +337,7 @@ public class B02FinisherProperties
         });
     }
 
-    #endregion
 
-    #region F52 / F59 — RSCU pseudocount and cubar sub-families
 
     private static IEnumerable<IGrouping<string, string>> Groups(GeneticCode code, RscuFamilyLevel level) =>
         code.CodonTable.GroupBy(
@@ -404,9 +393,7 @@ public class B02FinisherProperties
         });
     }
 
-    #endregion
 
-    #region F61 — Fop / CBI
 
     private static Gen<CodonWOptimalCodonSet> OptimalSetGen() => Gen.Elements(CodonWOptimalCodonSets.All.ToArray());
 
@@ -453,9 +440,7 @@ public class B02FinisherProperties
         });
     }
 
-    #endregion
 
-    #region F44 / F45 — getorf modes
 
     private static string Strand(string upper, int frame) =>
         frame > 0 ? upper : DnaSequence.GetReverseComplementString(upper);
@@ -463,215 +448,11 @@ public class B02FinisherProperties
     private static Gen<(GeneticCode Code, string S)> OrfInput(string alphabet, int maxLen) =>
         from code in OrfCodeGen() from s in StringGen(alphabet, 0, maxLen) select (code, s);
 
-    /// <summary>
-    /// F44: with -minsize 0 the getorf -find 0 records of each frame tile that frame's complete codons
-    /// stop-to-stop: contiguous, from the frame offset to the last complete codon; each protein has one residue
-    /// per non-stop codon, no '*', and a terminated record ends on a codon the code reads as '*'.
-    /// </summary>
-    [FsCheck.NUnit.Property(MaxTest = 200)]
-    public Property GetOrfMode0_PartitionsFramesStopToStop()
-    {
-        return Prop.ForAll(OrfInput("ACGTACGTACGTN", 90).ToArbitrary(), t =>
-        {
-            string upper = Dna(t.S);
-            int len = upper.Length;
-            var records = Translator.FindOrfs(t.S, OrfFindMode.TranslationStopToStop, t.Code, minSize: 0).ToList();
-            foreach (int frame in new[] { 1, 2, 3, -1, -2, -3 })
-            {
-                string strand = Strand(upper, frame);
-                int offset = Math.Abs(frame) - 1;
-                var inFrame = records.Where(r => r.Frame == frame).ToList();
-                int codons = Math.Max(0, (len - offset) / 3);
-                if (codons == 0)
-                {
-                    if (inFrame.Count != 0) return false;
-                    continue;
-                }
-                int expectedStart = offset;
-                foreach (var r in inFrame)
-                {
-                    if (r.StartPosition != expectedStart || (r.EndPosition - r.StartPosition + 1) % 3 != 0) return false;
-                    int n = (r.EndPosition - r.StartPosition + 1) / 3;
-                    if (r.Sequence.Length != n - (r.IsTerminated ? 1 : 0) || r.Sequence.Contains('*')) return false;
-                    string last = strand.Substring(r.EndPosition - 2, 3);
-                    if (r.IsTerminated != (t.Code.Translate(last) == '*')) return false;
-                    expectedStart = r.EndPosition + 1;
-                }
-                // Covered up to the last complete codon (a frame ending on a STOP leaves no trailing record).
-                if (expectedStart != offset + 3 * codons) return false;
-            }
-            return true;
-        });
-    }
 
-    /// <summary>F44: mode 2 nucleotides are the scanned strand's bases of the record without the STOP; modes 0 and 2 give the same regions.</summary>
-    [FsCheck.NUnit.Property(MaxTest = 200)]
-    public Property GetOrfMode2_SequenceIsStrandSubstring()
-    {
-        return Prop.ForAll(OrfInput("ACGTACGTN", 90).ToArbitrary(), t =>
-        {
-            string upper = Dna(t.S);
-            var nuc = Translator.FindOrfs(t.S, OrfFindMode.NucleotidesStopToStop, t.Code, minSize: 0).ToList();
-            var prot = Translator.FindOrfs(t.S, OrfFindMode.TranslationStopToStop, t.Code, minSize: 0).ToList();
-            bool sameRegions = nuc.Select(r => (r.StartPosition, r.EndPosition, r.Frame, r.IsTerminated))
-                .SequenceEqual(prot.Select(r => (r.StartPosition, r.EndPosition, r.Frame, r.IsTerminated)));
-            return sameRegions && nuc.All(r =>
-            {
-                int length = r.EndPosition - r.StartPosition + 1 - (r.IsTerminated ? 3 : 0);
-                return r.Sequence == Strand(upper, r.Frame).Substring(r.StartPosition, length);
-            });
-        });
-    }
-
-    /// <summary>
-    /// F44: flank windows (modes 4–6) lie inside the sequence, are 3 + 2·flanking long, are centred on the
-    /// codon, hold the strand's bases, and the flanked codon is a START (mode 4) or a STOP (modes 5, 6).
-    /// </summary>
-    [FsCheck.NUnit.Property(MaxTest = 200)]
-    public Property GetOrfFlankWindows_WithinBounds()
-    {
-        var gen =
-            from input in OrfInput("ACGTACGTACGTN", 120)
-            from mode in Gen.Elements(OrfFindMode.FlankingStart, OrfFindMode.FlankingInitialStop, OrfFindMode.FlankingEndingStop)
-            from flanking in Gen.Choose(0, 12)
-            select (input.Code, input.S, mode, flanking);
-        return Prop.ForAll(gen.ToArbitrary(), t =>
-        {
-            string upper = Dna(t.S);
-            return Translator.FindOrfs(t.S, t.mode, t.Code, minSize: 0, flanking: t.flanking).All(r =>
-            {
-                string strand = Strand(upper, r.Frame);
-                string codon = strand.Substring(r.CodonPosition, 3);
-                bool codonKind = t.mode == OrfFindMode.FlankingStart
-                    ? t.Code.IsStartCodon(codon)
-                    : t.Code.Translate(codon) == '*';
-                return r.StartPosition >= 0 && r.EndPosition < upper.Length
-                    && r.EndPosition - r.StartPosition + 1 == 3 + 2 * t.flanking
-                    && r.CodonPosition == r.StartPosition + t.flanking
-                    && r.Sequence == strand.Substring(r.StartPosition, 3 + 2 * t.flanking)
-                    && codonKind;
-            });
-        });
-    }
-
-    /// <summary>
-    /// F44/F56: getorf -find 1 equals the legacy START→STOP overload (minSize = 3·minLength), and the two
-    /// ToGetOrfRange helpers agree record by record.
-    /// </summary>
-    [FsCheck.NUnit.Property(MaxTest = 200)]
-    public Property GetOrfMode1_EqualsLegacy_AndRangesAgree()
-    {
-        var gen = from input in OrfInput("ACGTACGTACGTATGATG", 120) from minLength in Gen.Choose(0, 6) select (input.Code, input.S, minLength);
-        return Prop.ForAll(gen.ToArbitrary(), t =>
-        {
-            int len = t.S.Length;
-            var legacy = Translator.FindOrfs(t.S, t.Code, t.minLength)
-                .Select(o => (o.StartPosition, o.EndPosition, o.Frame, Seq: o.Protein.Sequence,
-                    Range: len > 0 ? o.ToGetOrfRange(len) : default))
-                .Order().ToList();
-            var getorf = Translator.FindOrfs(t.S, OrfFindMode.TranslationStartToStop, t.Code, minSize: 3 * t.minLength)
-                .Select(o => (o.StartPosition, o.EndPosition, o.Frame, Seq: o.Sequence,
-                    Range: len > 0 ? o.ToGetOrfRange(len) : default))
-                .Order().ToList();
-            return legacy.SequenceEqual(getorf);
-        });
-    }
-
-    /// <summary>
-    /// F46: -circular keeps every linear terminated START→STOP ORF, and every linear terminated STOP→STOP ORF
-    /// that does not start the frame (the leading region is not an ORF on a circle).
-    /// </summary>
-    [FsCheck.NUnit.Property(MaxTest = 200)]
-    public Property Circular_PreservesLinearOrfsNotCrossingOrigin()
-    {
-        var gen = from input in OrfInput("ACGTACGTATG", 90)
-                  from mode in Gen.Elements(OrfFindMode.TranslationStartToStop, OrfFindMode.TranslationStopToStop,
-                      OrfFindMode.NucleotidesStartToStop, OrfFindMode.NucleotidesStopToStop)
-                  select (input.Code, input.S, mode);
-        return Prop.ForAll(gen.ToArbitrary(), t =>
-        {
-            var circular = Translator.FindOrfs(t.S, t.mode, t.Code, minSize: 0, circular: true).ToHashSet();
-            bool stopToStop = t.mode is OrfFindMode.TranslationStopToStop or OrfFindMode.NucleotidesStopToStop;
-            return Translator.FindOrfs(t.S, t.mode, t.Code, minSize: 0)
-                .Where(r => r.IsTerminated && (!stopToStop || r.StartPosition >= 3))
-                .All(circular.Contains);
-        });
-    }
-
-    #endregion
-
-    #region F53 / F58 — transeq conventions and post-processing
 
     private static readonly int[] FrameKeys = { 1, 2, 3, -1, -2, -3 };
 
-    /// <summary>
-    /// F53: on A/C/G/T, every frame of the transeq -alternative convention is the Biopython frame plus the
-    /// dangling-base residue (none for 0 dangling bases, X for one, the b1 b2 N codon for two); forward frames
-    /// are identical in both EMBOSS conventions.
-    /// </summary>
-    [FsCheck.NUnit.Property(MaxTest = 300)]
-    public Property TranseqAlternative_IsBiopythonPlusDangle()
-    {
-        var gen = from code in CodeGen() from s in StringGen(Acgt, 1, 50) select (code, s);
-        return Prop.ForAll(gen.ToArbitrary(), t =>
-        {
-            var bio = Translator.TranslateSixFrames(t.s, t.code, SixFrameConvention.Biopython);
-            var alt = Translator.TranslateSixFrames(t.s, t.code, SixFrameConvention.EmbossTranseqAlternative);
-            var locked = Translator.TranslateSixFrames(t.s, t.code, SixFrameConvention.EmbossTranseq);
-            string rc = DnaSequence.GetReverseComplementString(t.s);
-            return FrameKeys.All(k =>
-            {
-                string strand = k > 0 ? t.s : rc;
-                int offset = Math.Abs(k) - 1;
-                int dangle = Math.Max(0, strand.Length - offset) % 3;
-                string extra = dangle switch
-                {
-                    0 => "",
-                    1 => "X",
-                    _ => t.code.Translate(string.Concat(strand.AsSpan(strand.Length - 2), "N")).ToString(),
-                };
-                return alt[k].Sequence == bio[k].Sequence + extra
-                    && (k < 0 || locked[k].Sequence == alt[k].Sequence);
-            });
-        });
-    }
 
-    /// <summary>
-    /// F58: TranseqOptions.Default equals the plain convention overload; -trim removes exactly the trailing
-    /// X/* run; -clean (after trim) turns every '*' into 'X'; both are idempotent on their own output.
-    /// </summary>
-    [FsCheck.NUnit.Property(MaxTest = 300)]
-    public Property TranseqTrimClean_ExactAndIdempotent()
-    {
-        var gen =
-            from code in CodeGen()
-            from s in StringGen("ACGTACGTACGTN", 1, 50)
-            from convention in Gen.Elements(SixFrameConvention.EmbossTranseq, SixFrameConvention.EmbossTranseqAlternative)
-            select (code, s, convention);
-        return Prop.ForAll(gen.ToArbitrary(), t =>
-        {
-            var plain = Translator.TranslateSixFrames(t.s, t.code, t.convention);
-            var dflt = Translator.TranslateSixFrames(t.s, t.code, t.convention, TranseqOptions.Default);
-            var trim = Translator.TranslateSixFrames(t.s, t.code, t.convention, new TranseqOptions { Trim = true });
-            var clean = Translator.TranslateSixFrames(t.s, t.code, t.convention, new TranseqOptions { Clean = true });
-            var both = Translator.TranslateSixFrames(t.s, t.code, t.convention, new TranseqOptions { Trim = true, Clean = true });
-            return FrameKeys.All(k =>
-            {
-                string p = plain[k].Sequence;
-                string trimmed = p.TrimEnd('X', '*');
-                return dflt[k].Sequence == p
-                    && trim[k].Sequence == trimmed
-                    && clean[k].Sequence == p.Replace('*', 'X')
-                    && both[k].Sequence == trimmed.Replace('*', 'X')
-                    && trimmed.TrimEnd('X', '*') == trimmed
-                    && both[k].Sequence.Replace('*', 'X') == both[k].Sequence;
-            });
-        });
-    }
-
-    #endregion
-
-    #region GetByTableNumberOrThrow
 
     /// <summary>GetByTableNumberOrThrow succeeds exactly for SupportedTableNumbers and returns the GetByTableNumber instance.</summary>
     [FsCheck.NUnit.Property(MaxTest = 200)]
@@ -692,7 +473,6 @@ public class B02FinisherProperties
         });
     }
 
-    #endregion
 
     private static bool Throws<T>(Action action) where T : Exception
     {

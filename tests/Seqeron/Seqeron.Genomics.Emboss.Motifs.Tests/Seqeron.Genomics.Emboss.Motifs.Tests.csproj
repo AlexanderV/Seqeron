@@ -1,0 +1,93 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Tests (and oracle data) of the copyleft assembly Seqeron.Genomics.Emboss.Motifs. The tests ship under the licence of that assembly (see its LICENSE). -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <!-- same root namespace as Seqeron.Genomics.Tests: the embedded resource names (Seqeron.Genomics.Tests.TestData.*) and the test namespaces stay unchanged -->
+    <RootNamespace>Seqeron.Genomics.Tests</RootNamespace>
+    <AssemblyName>Seqeron.Genomics.Emboss.Motifs.Tests</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="NUnit" />
+    <PackageReference Include="NUnit.Analyzers" />
+    <PackageReference Include="NUnit3TestAdapter" />
+    <PackageReference Include="FluentAssertions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Seqeron.Genomics.Tests\TestDataResource.cs" Link="TestDataResource.cs" />
+    <Compile Include="..\Seqeron.Genomics.Tests\_LimitationPolicyTestBootstrap.cs" Link="_LimitationPolicyTestBootstrap.cs" />
+    <Compile Include="..\Seqeron.Genomics.Tests\Helpers\OracleEscapes.cs" Link="Helpers\OracleEscapes.cs" />
+    <Compile Include="..\Seqeron.Genomics.Tests\Unit\Alignment\PollCancellation.cs" Link="Unit\Alignment\PollCancellation.cs" />
+    <Compile Include="..\Seqeron.Genomics.Emboss.SequenceFormats.Tests\Unit\Alignment\EmbossReferenceDp.cs" Link="Unit\Alignment\EmbossReferenceDp.cs" />
+    <Compile Include="..\Seqeron.Genomics.Emboss.SequenceFormats.Tests\Unit\Alignment\EmbossSeqOptsProducer.cs" Link="Unit\Alignment\EmbossSeqOptsProducer.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="NUnit.Framework" />
+    <Using Include="Seqeron.Genomics.Core" />
+    <Using Include="Seqeron.Genomics.Infrastructure" />
+    <Using Include="Seqeron.Genomics.IO" />
+    <Using Include="Seqeron.Genomics.Alignment" />
+    <Using Include="Seqeron.Genomics.Analysis" />
+    <Using Include="Seqeron.Genomics.Emboss.SequenceFormats" />
+    <Using Include="Seqeron.Genomics.Emboss.FeatureTools" />
+    <Using Include="Seqeron.Genomics.Emboss.Repeats" />
+    <Using Include="Seqeron.Genomics.Emboss.PairwiseAlignment" />
+    <Using Include="Seqeron.Genomics.Emboss.Motifs" />
+    <Using Include="Seqeron.Genomics.Emboss.OpenReadingFrames" />
+    <Using Include="FluentAssertions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- B09 WP67 (F306): PCRE 7 (libepcre of EMBOSS 6.6.0) compile errors and matches of the expressions the PROSITE conversion can write; scripts/alignment/generate_emboss_pcre_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\emboss_pcre_oracle.tsv.gz" />
+    <!-- B09 WP67 (F306): patmatmotifs 6.6.0 on the real PROSITE release 2026_04 (85 runs of the user-run Docker package handoff/WP62-patmatmotifs-prosite); scripts/alignment/convert_patmatmotifs_prosite_returned.py. -->
+    <EmbeddedResource Include="TestData\Alignment\emboss_prosite_returned_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_prosite_release_data.json.gz" />
+    <EmbeddedResource Include="TestData\Alignment\fuzznuc_dup_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\fuzznuc_optional_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_ncbi_pattern_oracle.jsonl.gz" />
+    <!-- GENOMIC-MOTIFS-001 (B09 A2-32): the fuzznuc pattern language (classes, exclusions, repeats, ranges, anchors, mismatches, both strands): EMBOSS fuzznuc 6.6.0 == independent
+         Python reference on 3300 random syntax-tree rows; scripts/analysis/generate_fuzznuc_pattern_oracle.py. -->
+    <EmbeddedResource Include="TestData\Analysis\fuzznuc_pattern_oracle.tsv" />
+    <!-- GENOMIC-MOTIFS-001 (audit A3-12a, B09 F146): fuzznuc 6.6.0 with IUPAC ambiguity codes (and U, X) in the SEQUENCE == independent Python reference of the measured rules (1350 rows);
+         scripts/analysis/generate_fuzznuc_iupac_sequence_oracle.py. -->
+    <EmbeddedResource Include="TestData\Analysis\fuzznuc_iupac_sequence_oracle.tsv" />
+    <!-- MOTIF-CONS-001 (audit A3-13d, B09 F147): EMBOSS consambig 6.6.0 ambiguity-code consensus of random nucleotide / protein alignments (1400 rows);
+         scripts/analysis/generate_consambig_oracle.py. -->
+    <EmbeddedResource Include="TestData\Analysis\consambig_oracle.tsv" />
+    <!-- MOTIF-CONS-001 (audit A4-9): 300 consambig rows with -sbegin / -send (ignored by the program); scripts/analysis/generate_consambig_range_oracle.py. -->
+    <EmbeddedResource Include="TestData\Analysis\consambig_range_oracle.tsv" />
+    <!-- GENOMIC-MOTIFS-001 (B09 A3-12): EMBOSS fuzzpro (900 random patterns) and fuzztran (760 DNA / pattern / frame / table cases) 6.6.0;
+         scripts/analysis/generate_fuzzpro_oracle.py, generate_fuzztran_oracle.py. -->
+    <EmbeddedResource Include="TestData\Analysis\fuzzpro_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Analysis\fuzztran_oracle.tsv" />
+    <!-- A5-8c2 (F195): fuzzpro / fuzztran with -pmismatch (scripts/analysis/generate_fuzzpro_mismatch_oracle.py). -->
+    <EmbeddedResource Include="TestData\Analysis\fuzzpro_mismatch_oracle.tsv" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics\Seqeron.Genomics.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Infrastructure\Seqeron.Genomics.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Core\Seqeron.Genomics.Core.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.IO\Seqeron.Genomics.IO.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Alignment\Seqeron.Genomics.Alignment.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Analysis\Seqeron.Genomics.Analysis.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Emboss.SequenceFormats\Seqeron.Genomics.Emboss.SequenceFormats.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Emboss.FeatureTools\Seqeron.Genomics.Emboss.FeatureTools.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Emboss.Repeats\Seqeron.Genomics.Emboss.Repeats.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Emboss.PairwiseAlignment\Seqeron.Genomics.Emboss.PairwiseAlignment.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Emboss.Motifs\Seqeron.Genomics.Emboss.Motifs.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Emboss.OpenReadingFrames\Seqeron.Genomics.Emboss.OpenReadingFrames.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.TCoffee\Seqeron.Genomics.TCoffee.csproj" />
+  </ItemGroup>
+
+</Project>

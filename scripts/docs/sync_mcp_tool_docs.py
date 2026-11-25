@@ -33,9 +33,9 @@ B09_CLASSES = ('EmbossReportPrograms.', 'SequenceAligner.', 'GenomicAnalyzer.', 
 
 
 # lowercase docs directory -> assembly suffix (Seqeron.Mcp.<Name>); the copyleft servers (B09 WP79) are listed here too
-SERVER_NAMES = {'alignment': 'Alignment', 'analysis': 'Analysis', 'multiplealignment': 'MultipleAlignment', 'alignmentconsensus': 'AlignmentConsensus', 'emboss': 'Emboss'}
+SERVER_NAMES = {'alignment': 'Alignment', 'analysis': 'Analysis', 'multiplealignment': 'MultipleAlignment', 'alignmentconsensus': 'AlignmentConsensus', 'embossfeaturetools': 'EmbossFeatureTools', 'embossmotifs': 'EmbossMotifs', 'embossopenreadingframes': 'EmbossOpenReadingFrames', 'embosspairwisealignment': 'EmbossPairwiseAlignment', 'embossrepeats': 'EmbossRepeats', 'embosssequenceformats': 'EmbossSequenceFormats'}
 # servers whose every tool is owned by B09 (the Analysis server is shared with other batches)
-OWNED_SERVERS = ('alignment', 'multiplealignment', 'alignmentconsensus', 'emboss')
+OWNED_SERVERS = ('alignment', 'multiplealignment', 'alignmentconsensus', 'embossfeaturetools', 'embossmotifs', 'embossopenreadingframes', 'embosspairwisealignment', 'embossrepeats', 'embosssequenceformats')
 
 
 def run_dump(servers):
@@ -177,12 +177,12 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--check', action='store_true')
     ap.add_argument('--dump', help='metadata dump (JSON) written earlier')
-    ap.add_argument('--server', action='append', help='alignment | analysis | multiplealignment | emboss (default: all four)')
+    ap.add_argument('--server', action='append', help='alignment | analysis | multiplealignment | alignmentconsensus | the six emboss* servers (default: all)')
     ap.add_argument('--tool', action='append')
     ap.add_argument('--all-owned', action='store_true', help='(default) every Alignment tool + the Analysis tools of the B09 classes')
     ap.add_argument('--all', action='store_true', help='every tool of the selected servers, whatever its owner')
     a = ap.parse_args()
-    servers = a.server or ['alignment', 'analysis', 'multiplealignment', 'alignmentconsensus', 'emboss']
+    servers = a.server or ['alignment', 'analysis', 'multiplealignment', 'alignmentconsensus', 'embossfeaturetools', 'embossmotifs', 'embossopenreadingframes', 'embosspairwisealignment', 'embossrepeats', 'embosssequenceformats']
     tools = json.load(open(a.dump, encoding='utf-8')) if a.dump else run_dump([SERVER_NAMES[s] for s in servers])
     changed, stale = 0, []
     for tool in sorted(tools, key=lambda t: (t['server'], t['name'])):

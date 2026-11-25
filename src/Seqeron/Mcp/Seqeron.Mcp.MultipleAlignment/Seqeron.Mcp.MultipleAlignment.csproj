@@ -37,6 +37,7 @@
     <ProjectReference Include="..\..\Algorithms\Seqeron.Genomics.ClustalW\Seqeron.Genomics.ClustalW.csproj" />
     <ProjectReference Include="..\..\Algorithms\Seqeron.Genomics.TCoffee\Seqeron.Genomics.TCoffee.csproj" />
     <ProjectReference Include="..\Seqeron.Mcp.Alignment\Seqeron.Mcp.Alignment.csproj" />
+    <ProjectReference Include="..\Seqeron.Mcp.EmbossSequenceFormats\Seqeron.Mcp.EmbossSequenceFormats.csproj" />
   </ItemGroup>
 
 </Project>

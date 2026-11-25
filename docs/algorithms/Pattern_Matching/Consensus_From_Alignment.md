@@ -92,7 +92,7 @@ Alphabet/order table: `{'A','C','G','T'}` — also the tie-break order [4]. No s
 **Implementation location:** [MotifFinder.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.cs)
 
 - `MotifFinder.CreateConsensusFromAlignment(IEnumerable<string>)`: column-wise most-frequent consensus with alphabetical tie-break.
-- `MotifFinder.GenerateEmbossConsensus(IEnumerable<string>, ConsensusResidueType = Nucleotide, float? plurality = null, int identity = 0, float? setcase = null, IReadOnlyList<float>? weights = null)` ([MotifFinder.AlignmentConsensus.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.AlignmentConsensus.cs)): EMBOSS 6.6.0 `cons` [3][6].
+- `MotifFinder.GenerateEmbossConsensus(IEnumerable<string>, ConsensusResidueType = Nucleotide, float? plurality = null, int identity = 0, float? setcase = null, IReadOnlyList<float>? weights = null)` ([MotifFinder.AlignmentConsensus.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Emboss.SequenceFormats/EmbossConsensus.AlignmentConsensus.cs)): EMBOSS 6.6.0 `cons` [3][6].
 - `MotifFinder.GenerateEmbossConsensus(IEnumerable<string>, bool padRaggedRows, ConsensusResidueType = Nucleotide, …)` (F28): the same with EMBOSS sequence-set padding — `padRaggedRows = true` appends `-` to rows shorter than the longest (`ajSeqsetFill`, applied by ACD to every `aligned: "Y"` input of `cons`); `ConsensusResidueType.Auto` (either overload) types the set like `cons` without `-snucleotide`/`-sprotein`.
 - `MotifFinder.GenerateDumbConsensus(IEnumerable<string>, double threshold = 0.7, char ambiguous = 'X', bool requireMultiple = false)`: Biopython `SummaryInfo.dumb_consensus` [7].
 

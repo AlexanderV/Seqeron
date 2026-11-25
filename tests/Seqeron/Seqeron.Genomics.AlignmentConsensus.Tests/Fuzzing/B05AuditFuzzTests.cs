@@ -54,9 +54,9 @@ public class B05AuditFuzzTests
             });
             Documented(() =>
             {
-                string c = MotifFinder.GenerateEmbossConsensus(rows, true, ConsensusResidueType.Auto, rng.Next(3) == 0 ? null : rng.Next(-1, 5));
+                string c = EmbossConsensus.GenerateEmbossConsensus(rows, true, ConsensusResidueType.Auto, rng.Next(3) == 0 ? null : rng.Next(-1, 5));
                 // the rows are read as EMBOSS reads an alignment row (A4-3): digits, blanks and other characters are dropped before the padding
-                Assert.That(c.Length, Is.EqualTo(rows.Length == 0 ? 0 : rows.Max(r => Seqeron.Genomics.Infrastructure.EmbossSequenceReader.CleanGapped(r).Length)));
+                Assert.That(c.Length, Is.EqualTo(rows.Length == 0 ? 0 : rows.Max(r => EmbossSequenceReader.CleanGapped(r).Length)));
             });
         }
     }}

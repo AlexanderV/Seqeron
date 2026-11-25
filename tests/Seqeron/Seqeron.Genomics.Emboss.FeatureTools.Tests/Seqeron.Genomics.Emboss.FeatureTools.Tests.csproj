@@ -1,0 +1,73 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Tests (and oracle data) of the copyleft assembly Seqeron.Genomics.Emboss.FeatureTools. The tests ship under the licence of that assembly (see its LICENSE). -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <!-- same root namespace as Seqeron.Genomics.Tests: the embedded resource names (Seqeron.Genomics.Tests.TestData.*) and the test namespaces stay unchanged -->
+    <RootNamespace>Seqeron.Genomics.Tests</RootNamespace>
+    <AssemblyName>Seqeron.Genomics.Emboss.FeatureTools.Tests</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="NUnit" />
+    <PackageReference Include="NUnit.Analyzers" />
+    <PackageReference Include="NUnit3TestAdapter" />
+    <PackageReference Include="FluentAssertions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Seqeron.Genomics.Tests\TestDataResource.cs" Link="TestDataResource.cs" />
+    <Compile Include="..\Seqeron.Genomics.Tests\_LimitationPolicyTestBootstrap.cs" Link="_LimitationPolicyTestBootstrap.cs" />
+    <Compile Include="..\Seqeron.Genomics.Tests\Helpers\OracleEscapes.cs" Link="Helpers\OracleEscapes.cs" />
+    <Compile Include="..\Seqeron.Genomics.Tests\Unit\Alignment\PollCancellation.cs" Link="Unit\Alignment\PollCancellation.cs" />
+    <Compile Include="..\Seqeron.Genomics.Emboss.SequenceFormats.Tests\Unit\Alignment\EmbossReferenceDp.cs" Link="Unit\Alignment\EmbossReferenceDp.cs" />
+    <Compile Include="..\Seqeron.Genomics.Emboss.SequenceFormats.Tests\Unit\Alignment\EmbossSeqOptsProducer.cs" Link="Unit\Alignment\EmbossSeqOptsProducer.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="NUnit.Framework" />
+    <Using Include="Seqeron.Genomics.Core" />
+    <Using Include="Seqeron.Genomics.Infrastructure" />
+    <Using Include="Seqeron.Genomics.IO" />
+    <Using Include="Seqeron.Genomics.Alignment" />
+    <Using Include="Seqeron.Genomics.Analysis" />
+    <Using Include="Seqeron.Genomics.Emboss.SequenceFormats" />
+    <Using Include="Seqeron.Genomics.Emboss.FeatureTools" />
+    <Using Include="Seqeron.Genomics.Emboss.Repeats" />
+    <Using Include="Seqeron.Genomics.Emboss.PairwiseAlignment" />
+    <Using Include="Seqeron.Genomics.Emboss.Motifs" />
+    <Using Include="Seqeron.Genomics.Emboss.OpenReadingFrames" />
+    <Using Include="FluentAssertions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="TestData\Alignment\extractfeat_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\coderet_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\showfeat_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\featreport_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\twofeat_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\maskfeat_oracle.jsonl.gz" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics\Seqeron.Genomics.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Infrastructure\Seqeron.Genomics.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Core\Seqeron.Genomics.Core.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.IO\Seqeron.Genomics.IO.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Alignment\Seqeron.Genomics.Alignment.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Analysis\Seqeron.Genomics.Analysis.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Emboss.SequenceFormats\Seqeron.Genomics.Emboss.SequenceFormats.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Emboss.FeatureTools\Seqeron.Genomics.Emboss.FeatureTools.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Emboss.Repeats\Seqeron.Genomics.Emboss.Repeats.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Emboss.PairwiseAlignment\Seqeron.Genomics.Emboss.PairwiseAlignment.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Emboss.Motifs\Seqeron.Genomics.Emboss.Motifs.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Emboss.OpenReadingFrames\Seqeron.Genomics.Emboss.OpenReadingFrames.csproj" />
+  </ItemGroup>
+
+</Project>

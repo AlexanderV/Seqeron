@@ -15,7 +15,7 @@ using Seqeron.Mcp.MultipleAlignment.Tools;
 namespace Seqeron.Mcp.MultipleAlignment.Tests;
 
 /// <summary>supermatcher_align / needleall_align / ksw2_extend and the `format` parameter of the pairwise and multiple-alignment tools (audit A2-27b / A2-28c / A2-29b, B09 F124 - F126). The tools delegate to
-/// SequenceAligner.Supermatcher / NeedleAll, Ksw2Aligner and AlignmentFormats / EmbossAlignmentWriter; the oracle comparisons live in the library tests.</summary>
+/// EmbossPairwisePrograms.Supermatcher / NeedleAll, Ksw2Aligner and AlignmentFormats / EmbossAlignmentWriter; the oracle comparisons live in the library tests.</summary>
 [TestFixture]
 public class EmbossProgramToolTests
 {

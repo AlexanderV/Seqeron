@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """A6-2 (B09 F177): the qualifier universe of the ported EMBOSS 6.6.0 programs, read from `<program> -help -verbose`, as the C# table
-src/Seqeron/Algorithms/Seqeron.Genomics.Infrastructure/EmbossAcdProfiles.g.cs.
+src/Seqeron/Algorithms/Seqeron.Genomics.Emboss.SequenceFormats/EmbossAcdProfiles.g.cs.
 
 The ACD command-line resolver (ajacd.c acdArgsParse / acdIsQual / acdFindQualDetail / acdFindQualAssoc / acdFindQualMaster) matches a qualifier against EVERY qualifier of the program (parameters,
 standard / additional / advanced qualifiers, the associated qualifiers of each parameter with their number, the general qualifiers): an abbreviation is only valid when it is unique among all of them
 (`-se` is ambiguous between `-send` and `-sequence` in fuzznuc, not in needle). So the port needs the whole list of each program, not only the sequence qualifiers.
 Line format of the table:  P name pnum type  (a parameter)  |  Q name type  (a standard / additional / advanced qualifier)  |  A master name pnum type  (an associated qualifier of `master`, pnum 0 = unnumbered)  |  G name type  (a general qualifier).
-Usage: python3 scripts/alignment/generate_emboss_acd_profiles.py > src/Seqeron/Algorithms/Seqeron.Genomics.Infrastructure/EmbossAcdProfiles.g.cs   (needs the EMBOSS 6.6.0 programs on PATH)
+Usage: python3 scripts/alignment/generate_emboss_acd_profiles.py > src/Seqeron/Algorithms/Seqeron.Genomics.Emboss.SequenceFormats/EmbossAcdProfiles.g.cs   (needs the EMBOSS 6.6.0 programs on PATH)
 """
 import re, subprocess, sys
 

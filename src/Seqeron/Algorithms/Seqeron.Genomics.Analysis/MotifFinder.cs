@@ -399,7 +399,7 @@ public static partial class MotifFinder
 
     /// <summary>Materialises the rows of an alignment, rejecting a null element (checked while enumerating).</summary>
     /// <exception cref="ArgumentException">Null element.</exception>
-    private static List<string> MaterializeRows(IEnumerable<string> sequences, string paramName)
+    public static List<string> MaterializeRows(IEnumerable<string> sequences, string paramName)
     {
         var rows = new List<string>();
         foreach (var s in sequences)

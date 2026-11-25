@@ -36,6 +36,7 @@
     <Using Include="Seqeron.Genomics.Alignment" />
     <Using Include="Seqeron.Genomics.Analysis" />
     <Using Include="Seqeron.Genomics.AlignmentConsensus" />
+    <Using Include="Seqeron.Genomics.Emboss.SequenceFormats" />
     <Using Include="FluentAssertions" />
   </ItemGroup>
 
@@ -51,6 +52,7 @@
     <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Alignment\Seqeron.Genomics.Alignment.csproj" />
     <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Analysis\Seqeron.Genomics.Analysis.csproj" />
     <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.AlignmentConsensus\Seqeron.Genomics.AlignmentConsensus.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Emboss.SequenceFormats\Seqeron.Genomics.Emboss.SequenceFormats.csproj" />
   </ItemGroup>
 
 </Project>

@@ -79,7 +79,7 @@ public sealed class Pssm
 /// </summary>
 public sealed class SummaryInfo
 {
-    private const char Gap = '-';
+    public const char Gap = '-';
 
     /// <summary>Creates the summary of an alignment.</summary>
     public SummaryInfo(MultipleSeqAlignment alignment)

@@ -232,7 +232,7 @@ namespace Seqeron.Genomics.Core
         }
 
         // ASCII-only case folding (TRANS-PROT-001): 'ſ' (U+017F) must not become the IUPAC code 'S'.
-        private static string Normalize(string codon) => Infrastructure.SequenceCase.ToUpperRna(codon);
+        public static string Normalize(string codon) => Infrastructure.SequenceCase.ToUpperRna(codon);
 
         private static bool IsIupacCodon(string codon)
         {

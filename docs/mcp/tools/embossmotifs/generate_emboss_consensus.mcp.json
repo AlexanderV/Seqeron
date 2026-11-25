@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "generate_emboss_consensus",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MotifFinder.GenerateEmbossConsensus",
+  "docRef": "Seqeron.Genomics.Emboss.SequenceFormats/EmbossConsensus.AlignmentConsensus.cs#L152",
+  "description": "Scoring-matrix plurality consensus of an alignment, identical to EMBOSS 6.6.0 'cons' (EDNAFULL for nucleotides, EBLOSUM62 for proteins; N/X where no residue reaches the plurality; lower case at or below setcase). Gaps '-', '.', '~' allowed. residueType 'auto' decides the type from the first sequence like cons; padRaggedRows pads shorter rows with trailing gaps like cons (ajSeqsetFill). Rows are read as EMBOSS reads an alignment (A4-3): letters and '*' are kept, '.' '~' '-' are gaps, '?' '#' '+' are the unknown residue, every other character (digits, blanks, '_', punctuation) is dropped, and rows that become unequal are padded with trailing gaps.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequences": {
+        "type": "array",
+        "description": "At least two aligned sequences (DNA or protein); equal length unless padRaggedRows.",
+        "items": {
+          "type": "string"
+        },
+        "minItems": 2
+      },
+      "residueType": {
+        "type": "string",
+        "description": "Residue type: 'nucleotide' (default, EDNAFULL, no-consensus N), 'protein' (EBLOSUM62, no-consensus X) or 'auto' (decided from the first sequence as the cons program does).",
+        "enum": [
+          "nucleotide",
+          "protein",
+          "auto"
+        ],
+        "default": "nucleotide"
+      },
+      "plurality": {
+        "type": "number",
+        "description": "Minimum positive-match weight for a consensus residue (cons -plurality); default half the total sequence weight."
+      },
+      "identity": {
+        "type": "integer",
+        "description": "Required number of identical residues at a position (cons -identity, default 0 = off).",
+        "minimum": 0,
+        "default": 0
+      },
+      "setcase": {
+        "type": "number",
+        "description": "Positive-match weight at or below which the residue is written in lower case (cons -setcase); default half the total sequence weight."
+      },
+      "weights": {
+        "type": "array",
+        "description": "Optional per-sequence weights (one per sequence, finite, >= 0; default 1.0 each).",
+        "items": {
+          "type": "number"
+        }
+      },
+      "padRaggedRows": {
+        "type": "boolean",
+        "description": "Pad rows shorter than the longest with trailing '-' gaps (cons ajSeqsetFill) instead of rejecting unequal lengths (default false).",
+        "default": false
+      }
+    },
+    "required": [
+      "sequences"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "consensus": {
+        "type": "string",
+        "description": "Consensus sequence, one symbol per alignment column"
+      }
+    },
+    "required": [
+      "consensus"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "At least two sequences are required"
+    },
+    {
+      "code": 1002,
+      "message": "residueType must be 'nucleotide', 'protein' or 'auto'"
+    }
+  ],
+  "examples": [
+    {
+      "name": "cons -snucleotide",
+      "input": {
+        "sequences": [
+          "ACGTAC-T",
+          "ACGTTCAT",
+          "AGGTAC-T",
+          "tCGAAG-T"
+        ]
+      },
+      "output": {
+        "consensus": "ACGTACnT"
+      }
+    },
+    {
+      "name": "cons -sprotein -plurality 1.0 -setcase 3.0",
+      "input": {
+        "sequences": [
+          "MKVLAAGIVG",
+          "MKVLSAGIVA",
+          "MRVLAAG-VG",
+          "MKILTAGLVG"
+        ],
+        "residueType": "protein",
+        "plurality": 1.0,
+        "setcase": 3.0
+      },
+      "output": {
+        "consensus": "MKVLaAGiVg"
+      }
+    },
+    {
+      "name": "cons without a type flag, ragged rows",
+      "input": {
+        "sequences": [
+          "ACGTAC",
+          "ACG",
+          "AC"
+        ],
+        "residueType": "auto",
+        "padRaggedRows": true
+      },
+      "output": {
+        "consensus": "ACGnnn"
+      }
+    }
+  ]
+}

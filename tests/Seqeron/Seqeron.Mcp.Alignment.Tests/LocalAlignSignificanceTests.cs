@@ -62,16 +62,6 @@ public class LocalAlignSignificanceTests
     }
 
     [Test]
-    public void WaterAlign_Protein_IntegerGapCosts_UseExistenceMinusExtension()
-    {
-        // EMBOSS gapopen 12 / gapextend 1 = BLAST existence 11 extension 1 (a gap of length k costs 12 + (k - 1)): the same row of the BLOSUM62 table
-        var r = AlignmentTools.WaterAlign(ProteinQuery, ProteinSubject, matrix: "EBLOSUM62", gapOpen: 12, gapExtend: 1, significance: true);
-        Assert.That(r.Significance, Is.Not.Null);
-        Assert.That((r.Significance!.Lambda, r.Significance.K), Is.EqualTo((0.267, 0.041)));
-        Assert.That(r.Significance.Method, Is.EqualTo("SpougeFiniteSizeCorrection"));
-    }
-
-    [Test]
     public void SignificanceOutsideTheTables_IsRefused()
     {
         Assert.Throws<ArgumentException>(() => AlignmentTools.LocalAlignAffine(ProteinQuery, ProteinSubject, gapOpen: -7, gapExtend: -1, matrix: "BLOSUM62", significance: true));

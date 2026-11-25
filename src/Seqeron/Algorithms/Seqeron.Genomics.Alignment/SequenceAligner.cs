@@ -250,7 +250,7 @@ public readonly struct PairScoring
     /// <see cref="Create(MatrixScoring, string, string, GapScoreProfile?)"/>; with <paramref name="allowPositiveGapOpen"/> a POSITIVE gap-open score is legal: the SIM program of EMBOSS <c>matcher</c> charges a gap of length k
     /// <c>q + r·k</c> with q = gapopen − gapextend, which is negative whenever <c>-gapopen</c> is below <c>-gapextend</c> (audit A6-3: <c>matcher -gapopen 2 -gapextend 4</c> is a legal run).
     /// </summary>
-    internal static PairScoring Create(MatrixScoring scoring, string a, string b, GapScoreProfile? profile, bool allowPositiveGapOpen)
+    public static PairScoring Create(MatrixScoring scoring, string a, string b, GapScoreProfile? profile, bool allowPositiveGapOpen)
     {
         var matrix = scoring.Matrix ?? throw new ArgumentException("MatrixScoring.Matrix must not be null.", nameof(scoring));
         ValidateResidues(matrix, a, "sequence1");
@@ -1190,7 +1190,7 @@ public static partial class SequenceAligner
     /// <summary>
     /// One cell of the linear-gap local recurrence H(i,j) = max(0, H(i-1,j-1) + s, H(i-1,j) + d, H(i,j-1) + d).
     /// With <paramref name="forbidden"/> the aligned pair (a_i, b_j) may not be used (Waterman-Eggert declumping,
-    /// <see cref="LocalAlignTopN(string, string, ScoringMatrix?, int, int, TopNTieOrder)"/>): the diagonal move is dropped, the gap moves stay.
+    /// <see cref="LocalAlignTopN(string, string, ScoringMatrix?, int, int)"/>): the diagonal move is dropped, the gap moves stay.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static int LocalLinearCell(int[,] score, int i, int j, int sub, int gap, bool forbidden) =>
@@ -1871,11 +1871,11 @@ public static partial class SequenceAligner
     //   '|' = identical column, ':' = similar column (positive substitution score, not identical),
     //   '.' = aligned but neither identical nor similar (mismatch), ' ' = column with a gap or an identical
     //   pair whose own score is not positive (X/X in BLOSUM62, N/N in EDNAFULL).
-    private const char IdentityMark = '|';
-    private const char SimilarityMark = ':';
+    public const char IdentityMark = '|';
+    public const char SimilarityMark = ':';
     private const char MismatchMark = '.';
-    private const char GapMark = ' ';
-    private const char GapChar = '-';
+    public const char GapMark = ' ';
+    public const char GapChar = '-';
 
     /// <summary>
     /// Calculates alignment statistics (identity, similarity, gaps, gap openings) from a pairwise
@@ -1956,7 +1956,7 @@ public static partial class SequenceAligner
     // the first row) is marked '.' / ' ' even when M(x,y) > 0 (an EMBOSS display quirk, reproduced verbatim:
     // needle: R/A -> '.', A/R -> ':', yet both count as similar in the header). A symbol outside the matrix
     // alphabet contributes 0 (EMBOSS "Bad character", code 0).
-    private static Func<char, char, (bool Similar, char Mark)> MatrixClassifier(SubstitutionMatrix matrix) =>
+    public static Func<char, char, (bool Similar, char Mark)> MatrixClassifier(SubstitutionMatrix matrix) =>
         (a, b) =>
         {
             bool self1 = matrix.IsPositive(a, a);
@@ -2062,25 +2062,6 @@ public static partial class SequenceAligner
     {
         ArgumentNullException.ThrowIfNull(matrix);
         return FormatAlignmentCore(alignment, lineWidth, MatrixClassifier(matrix));
-    }
-
-    /// <summary>The EMBOSS <c>alignSim</c> pair markup of two aligned rows (<c>|</c> identity, <c>:</c> similar, <c>.</c> mismatch, blank), the line the EMBOSS <c>pair</c> / <c>simple</c> / <c>srspair</c> formats print between the rows.</summary>
-    internal static string EmbossColumnMarks(string row1, string row2, SubstitutionMatrix matrix)
-    {
-        var classify = MatrixClassifier(matrix);
-        var sb = new StringBuilder(row1.Length);
-        for (int i = 0; i < row1.Length; i++)
-        {
-            char c1 = row1[i];
-            char c2 = row2[i];
-            char mark = c1 == GapChar || c2 == GapChar ? GapMark : classify(char.ToUpperInvariant(c1), char.ToUpperInvariant(c2)).Mark;
-            // the line is made from the consensus character (alignConsStats: the upper case residue of the first row, lower case when only similar): a column whose residue is no letter ('*' of a stop) has none, so it is marked as a gap
-            if ((mark == IdentityMark || mark == SimilarityMark) && !char.IsAsciiLetter(c1))
-                mark = GapMark;
-            sb.Append(mark);
-        }
-
-        return sb.ToString();
     }
 
     private static string FormatAlignmentCore(

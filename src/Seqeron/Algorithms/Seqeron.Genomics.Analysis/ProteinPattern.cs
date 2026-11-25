@@ -51,7 +51,7 @@ public sealed class ProteinPattern
     public IReadOnlyList<ProteinPatternElement> Elements => _elements;
 
     /// <summary>True when an element is written as a range <c>(n,m)</c>.</summary>
-    internal bool HasRange => _elements.Any(e => e.IsRange);
+    public bool HasRange => _elements.Any(e => e.IsRange);
 
     /// <summary>Parses a pattern.</summary>
     /// <param name="pattern">The pattern text.</param>
@@ -247,7 +247,7 @@ public sealed class ProteinPattern
     private static uint Bit(char upperLetter) => 1u << (upperLetter - 'A');
 
     /// <summary>Bit of a residue in an element set: bit 0..25 for the letters A..Z, bit 31 for every other character (a stop <c>*</c>, a gap).</summary>
-    internal static uint ResidueBit(char residue)
+    public static uint ResidueBit(char residue)
     {
         char u = char.ToUpperInvariant(residue);
         return u is >= 'A' and <= 'Z' ? Bit(u) : 1u << 31;
@@ -255,7 +255,7 @@ public sealed class ProteinPattern
 
     /// <summary>Every fixed-length sequence of element sets the pattern stands for (one per choice of the repeat counts, duplicates removed); empty sequences are omitted.</summary>
     /// <exception cref="ArgumentException">The repeat ranges allow more than <see cref="MaxCombinations"/> combinations.</exception>
-    internal IReadOnlyList<uint[]> Expand()
+    public IReadOnlyList<uint[]> Expand()
     {
         double combinations = 1;
         foreach (var e in _elements)
@@ -294,7 +294,7 @@ public sealed class ProteinPattern
     /// </summary>
     /// <param name="includeEmpty">Also the unrolling in which every element chose zero repeats (the empty hit of a pattern whose elements are all optional, A5-8c3b F217).</param>
     /// <exception cref="ArgumentException">The repeat ranges allow more than <see cref="MaxCombinations"/> combinations.</exception>
-    internal IReadOnlyList<ProteinPatternPath> ExpandPaths(bool includeEmpty = false)
+    public IReadOnlyList<ProteinPatternPath> ExpandPaths(bool includeEmpty = false)
     {
         double combinations = 1;
         foreach (var e in _elements)
@@ -337,7 +337,7 @@ public sealed class ProteinPattern
     /// <c>[DN]</c>, <c>[EQ]</c>, <c>[IL]</c>): <c>embPatCompileII</c> then stops with a fatal error when the allowed mismatches reach the real pattern length (repeats counted as expanded).
     /// </summary>
     /// <param name="realLength">The real pattern length the program compares with.</param>
-    internal bool UsesTarhioUkkonenBleasby(out int realLength)
+    public bool UsesTarhioUkkonenBleasby(out int realLength)
     {
         realLength = 0;
         if (HasRange)
@@ -350,7 +350,7 @@ public sealed class ProteinPattern
     }
 
     /// <summary>The pattern as <c>embPatTUBInit</c> reads it (<c>patProteinTranslate</c> + <c>patExpandRepeat</c>): letters, <c>?</c> for x, <c>[..]</c> classes, <c>{..}</c> exclusions, every repeat written out; the real length m.</summary>
-    internal string TubText(out int realLength)
+    public string TubText(out int realLength)
     {
         var sb = new StringBuilder();
         realLength = 0;
@@ -443,4 +443,4 @@ public readonly record struct ProteinPatternElement(uint Set, int MinRepeat, int
 }
 
 /// <summary>One unrolling of a <see cref="ProteinPattern"/> (<c>ExpandPaths</c>): the residue set at each position, the positions that are extra repeats of a range and whether the last element chose zero repeats.</summary>
-internal sealed record ProteinPatternPath(uint[] Sets, int[] ExtraPositions, bool EndsWithEmptyElement);
+public sealed record ProteinPatternPath(uint[] Sets, int[] ExtraPositions, bool EndsWithEmptyElement);

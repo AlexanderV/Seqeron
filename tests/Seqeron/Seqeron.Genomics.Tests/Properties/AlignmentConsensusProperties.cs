@@ -60,30 +60,6 @@ public class AlignmentConsensusProperties
     }
 
     [Test]
-    public void C3_Emboss_SymbolsComeFromColumnOrNoConsensus()
-    {
-        var rng = new Random(5503);
-        for (int trial = 0; trial < 300; trial++)
-        {
-            bool protein = trial % 2 == 1;
-            string alphabet = protein ? "ACDEFGHIKLMNPQRSTVWYX-" : "ACGTRYN-";
-            var rows = RandomRows(rng, rng.Next(2, 10), rng.Next(0, 25), alphabet);
-            var type = protein ? ConsensusResidueType.Protein : ConsensusResidueType.Nucleotide;
-            char nocon = protein ? 'X' : 'N';
-            string cons = MotifFinder.GenerateEmbossConsensus(rows, type, plurality: (float)rng.Next(0, 6), identity: rng.Next(0, 3));
-            Assert.That(cons.Length, Is.EqualTo(rows[0].Length));
-            for (int k = 0; k < cons.Length; k++)
-            {
-                char u = char.ToUpperInvariant(cons[k]);
-                Assert.That(u == nocon || rows.Any(r => char.ToUpperInvariant(r[k]) == u), Is.True, $"col {k} '{cons[k]}'");
-            }
-
-            string upper = MotifFinder.GenerateEmbossConsensus(rows, type, plurality: 0f, setcase: -1f);
-            Assert.That(upper, Is.EqualTo(upper.ToUpperInvariant()));
-        }
-    }
-
-    [Test]
     public void C4_Dumb_MajorityOrAmbiguous()
     {
         var rng = new Random(5504);

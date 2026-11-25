@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""B09 WP62 (F281): generates the MCP tools of the EMBOSS programs of work package 62 on the Analysis server (shuffleseq msbar makenucseq makeprotseq nthseqset listor infoseq wordcount seqxref; the programs of
+"""HISTORIC (B09 WP80): the tools this script generated now live in the EMBOSS MCP servers by area (Seqeron.Mcp.Emboss*; copyleft, docs/Validation/review-2026-09/LICENSES.md) and the tool files are maintained by hand; the paths and class names below are those of WP61-WP67.
+B09 WP62 (F281): generates the MCP tools of the EMBOSS programs of work package 62 on the Analysis server (shuffleseq msbar makenucseq makeprotseq nthseqset listor infoseq wordcount seqxref; the programs of
 later parts of the package are added to TOOLS): src/Seqeron/Mcp/Seqeron.Mcp.Analysis/Tools/AnalysisTools.EmbossSequencePrograms2.cs (every tool builds the command line of the program and calls EmbossProgramRunner.Run), the spec
 (scripts/docs/emboss_wp62_tool_spec.json) the document generators read, and the tests of the tools (the expected text is what the installed program writes for the example, run under the fixed clock of the example).
 Usage (repository root): python3 scripts/docs/gen_emboss_wp62_tools.py ; python3 scripts/docs/gen_mummer_est_tool_docs.py scripts/docs/emboss_wp62_tool_spec.json ;
@@ -276,7 +277,7 @@ def gen_tests():
     out.append('        Assert.That(f!.Message, Does.Contain("Sequence smaller than inserted part"));')
     out.append('    }')
     out.append('}')
-    open('tests/Seqeron/Seqeron.Mcp.Analysis.Tests/EmbossProgramTools2Tests.cs', 'w').write('\n'.join(out) + '\n')
+    open('tests/Seqeron/Seqeron.Mcp.EmbossSequenceFormats.Tests/EmbossProgramTools2Tests.cs', 'w').write('\n'.join(out) + '\n')
 
 
 if __name__ == '__main__':

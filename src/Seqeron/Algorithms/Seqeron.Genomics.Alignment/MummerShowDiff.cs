@@ -206,7 +206,7 @@ public static class MummerShowDiff
             sb.Append(seq).Append("\tA\t").Append(L(s)).Append('\t').Append(L(e)).Append("\tSEQ\t").Append(L(s)).Append('\t').Append(L(e)).Append('\t').Append(L(e - s + 1)).Append('\t').Append(seqp).Append('\t').Append(seqn).Append('\n');
     }
 
-    private static void Gap(StringBuilder sb, bool amos, string seq, long s, long e, long gap1, long gap2)
+    public static void Gap(StringBuilder sb, bool amos, string seq, long s, long e, long gap1, long gap2)
     {
         if (!amos)
             sb.Append(seq).Append("\tGAP\t").Append(L(s)).Append('\t').Append(L(e)).Append('\t').Append(L(gap1)).Append('\t').Append(L(gap2)).Append('\t').Append(L(gap1 - gap2)).Append('\n');

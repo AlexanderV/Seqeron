@@ -149,5 +149,5 @@ public sealed partial class CodonSubstitutionMatrix
     public decimal GetValue(string codon1, string codon2) =>
         TryGetValue(codon1, codon2, out decimal v) ? v : throw new ArgumentException($"Codon pair '{codon1}','{codon2}' is not in matrix {Name}.");
 
-    private static string Normalize(string codon) => codon.ToUpperInvariant().Replace('U', 'T');
+    public static string Normalize(string codon) => codon.ToUpperInvariant().Replace('U', 'T');
 }

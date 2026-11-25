@@ -15,7 +15,6 @@ namespace Seqeron.Genomics.Tests.Unit.Analysis;
 [TestFixture]
 public class MotifFinder_AlignmentConsensus_Tests
 {
-    #region EMBOSS cons — reference-locked
 
     private static readonly TestCaseData[] EmbossCases =
     {
@@ -131,85 +130,7 @@ public class MotifFinder_AlignmentConsensus_Tests
         new TestCaseData(new[] { "RTEP-DA-N-Q-PZ-DR-PGHPICC--W", "-LE-KHCZL-GFX-NK-P-GYZ-I-YZ-", "APNDKAG--EI--MITQ-CMSYWF-YPF", "F--IK-WV--GHR-RCD-FD--F--GIV", "SQAQF--XGWQSPW--MV-LC--A-TKE", "--HXR-SPACKLK--CP-YC-QM--XIM", "PQSQWAKTV-S--MGBH-NFHL-XZTPW", "TS-WNRG-G--RH--IDMGRAAWF-EHE", "-XMYLWYSQ--T-B--RCYV--T-APY-" }, ConsensusResidueType.Protein, 9.0f, 4, 10.0f, null, "XXXXXXXXXXXXXXXXXXXXXXXXXXXX").SetName("Emboss_109").SetDescription("cons -sequence a.fa -sprotein -plurality 9 -identity 4 -setcase 10"),
     };
 
-    [TestCaseSource(nameof(EmbossCases))]
-    public void GenerateEmbossConsensus_MatchesEmbossConsBinary(
-        string[] rows, ConsensusResidueType type, float? plurality, int identity, float? setcase, float[]? weights, string expected)
-    {
-        string actual = MotifFinder.GenerateEmbossConsensus(rows, type, plurality, identity, setcase, weights);
-        Assert.That(actual, Is.EqualTo(expected));
-    }
 
-    // Hand-derived from embcons.c: column A,A,A,T (weights 1, plurality = setcase = 2):
-    // score(A) = 5+5-4 = 6 > score(T) = -12; positive matches of A = 3 >= 2 and > 2 -> 'A'.
-    // Column G,G,G,G -> 'G'. Column -,A,-,- : all scores 0; the gap incumbent (row 0) is displaced
-    // by the equal-scoring A (row 1); positive matches 1 < 2 -> 'N', 1 <= 2 -> 'n'.
-    [Test]
-    public void GenerateEmbossConsensus_HandDerivedColumns()
-    {
-        Assert.That(MotifFinder.GenerateEmbossConsensus(new[] { "AG-", "AGA", "AG-", "TG-" }), Is.EqualTo("AGn"));
-    }
-
-    [Test]
-    public void GenerateEmbossConsensus_PluralityZero_GapIncumbentDisplaced()
-    {
-        // cons -plurality 0: the gap row 0 is displaced by A (row 1); matches 1 <= setcase 1.5 -> 'a'.
-        Assert.That(MotifFinder.GenerateEmbossConsensus(new[] { "-", "A", "-" }, plurality: 0f), Is.EqualTo("a"));
-    }
-
-    [Test]
-    public void GenerateEmbossConsensus_IdentityOverridesCase_UpperCaseNoConsensus()
-    {
-        // cons -identity 4 on the classic alignment -> NNGNNNNT (EMBOSS binary).
-        var rows = new[] { "ACGTAC-T", "ACGTTCAT", "AGGTAC-T", "tCGAAG-T" };
-        Assert.That(MotifFinder.GenerateEmbossConsensus(rows, identity: 4), Is.EqualTo("NNGNNNNT"));
-    }
-
-    [Test]
-    public void GenerateEmbossConsensus_Protein_NoConsensusIsX_EvenWhenFirstRowLooksNucleic()
-    {
-        // EMBOSS cons picks 'N' vs 'X' from the composition of the FIRST sequence (ajSeqsetIsNuc) even
-        // with -sprotein, so for this protein alignment the binary prints "nnnnnnn". The residue type is
-        // explicit here, so the documented protein no-consensus symbol 'x' is used (deliberate deviation).
-        var rows = new[] { "NCMCCVW", "HSQAKQW", "QRMHYED", "HLHSRHE", "RNRELNR", "QMMFQDR",
-                           "TDISCTT", "PSHPALR", "HSLCWKK", "IAPDDFK", "CPLNWAP", "CKRRQFI" };
-        Assert.That(MotifFinder.GenerateEmbossConsensus(rows, ConsensusResidueType.Protein, plurality: 12f),
-            Is.EqualTo("xxxxxxx"));
-    }
-
-    [Test]
-    public void GenerateEmbossConsensus_InputNormalisation_MatchesEmbossReader()
-    {
-        // '.' and '~' are gaps, lower case is upper-cased, X/? read as N for nucleotides (EMBOSS binary: AC-Tna).
-        Assert.That(MotifFinder.GenerateEmbossConsensus(new[] { "AC.TX~", "AC.TX~", "ac-t?A" }, plurality: 0f),
-            Is.EqualTo("AC-Tna"));
-    }
-
-    [Test]
-    public void GenerateEmbossConsensus_Guards()
-    {
-        Assert.Throws<ArgumentNullException>(() => MotifFinder.GenerateEmbossConsensus(null!));
-        Assert.Throws<ArgumentException>(() => MotifFinder.GenerateEmbossConsensus(new[] { "ACGT" }));
-        Assert.Throws<ArgumentException>(() => MotifFinder.GenerateEmbossConsensus(new[] { "ACGT", "ACG" }));
-        Assert.Throws<ArgumentException>(() => MotifFinder.GenerateEmbossConsensus(new[] { "ACGT", null! }));
-        Assert.Throws<ArgumentException>(() => MotifFinder.GenerateEmbossConsensus(new[] { "AC1T", "ACGT" }));
-        Assert.Throws<ArgumentException>(() => MotifFinder.GenerateEmbossConsensus(new[] { "ACGT", "ACGT" }, weights: new[] { 1f }));
-        Assert.Throws<ArgumentOutOfRangeException>(() => MotifFinder.GenerateEmbossConsensus(new[] { "ACGT", "ACGT" }, weights: new[] { 1f, -1f }));
-        Assert.Throws<ArgumentOutOfRangeException>(() => MotifFinder.GenerateEmbossConsensus(new[] { "ACGT", "ACGT" }, weights: new[] { 1f, float.NaN }));
-        Assert.Throws<ArgumentOutOfRangeException>(() => MotifFinder.GenerateEmbossConsensus(new[] { "ACGT", "ACGT" }, identity: -1));
-        Assert.Throws<ArgumentOutOfRangeException>(() => MotifFinder.GenerateEmbossConsensus(new[] { "ACGT", "ACGT" }, plurality: float.NaN));
-        Assert.Throws<ArgumentOutOfRangeException>(() => MotifFinder.GenerateEmbossConsensus(new[] { "ACGT", "ACGT" }, setcase: float.NaN));
-        Assert.Throws<ArgumentOutOfRangeException>(() => MotifFinder.GenerateEmbossConsensus(new[] { "ACGT", "ACGT" }, (ConsensusResidueType)7));
-    }
-
-    [Test]
-    public void GenerateEmbossConsensus_ZeroLengthAlignment_ReturnsEmpty()
-    {
-        Assert.That(MotifFinder.GenerateEmbossConsensus(new[] { "", "" }), Is.EqualTo(""));
-    }
-
-    #endregion
-
-    #region Biopython dumb_consensus — reference-locked
 
     private static readonly TestCaseData[] DumbCases =
     {
@@ -276,9 +197,7 @@ public class MotifFinder_AlignmentConsensus_Tests
         Assert.Throws<ArgumentOutOfRangeException>(() => MotifFinder.GenerateDumbConsensus(new[] { "A" }, double.NaN));
     }
 
-    #endregion
 
-    #region GenerateConsensus(sequences, inclusionThreshold)
 
     private static readonly TestCaseData[] ThresholdCases =
     {
@@ -339,5 +258,4 @@ public class MotifFinder_AlignmentConsensus_Tests
         Assert.Throws<ArgumentException>(() => MotifFinder.GenerateConsensus(new[] { "A", "AC" }, 0.25));
     }
 
-    #endregion
 }

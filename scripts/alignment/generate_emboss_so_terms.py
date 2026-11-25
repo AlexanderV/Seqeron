@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A5-8c3e (B09 F241): the terms of the Sequence Ontology file of EMBOSS 6.6.0 (data/OBO/so.obo) as C# data (src/Seqeron/Algorithms/Seqeron.Genomics.Infrastructure/EmbossSoTerms.g.cs): id, name and the obsolete flag of every [Term].
+"""A5-8c3e (B09 F241): the terms of the Sequence Ontology file of EMBOSS 6.6.0 (data/OBO/so.obo) as C# data (src/Seqeron/Algorithms/Seqeron.Genomics.Emboss.SequenceFormats/EmbossSoTerms.g.cs): id, name and the obsolete flag of every [Term].
 The EMBL / GenBank feature writers look the type of a feature up there (ajOboinQryS) when the EMBL vocabulary has no key for it and write `/note="*Type SO:id name"` (an obsolete term gives no note).
 Usage: python3 scripts/alignment/generate_emboss_so_terms.py OUT.g.cs      (needs the EMBOSS 6.6.0 data files in /usr/share/EMBOSS/data)
 """

@@ -16,7 +16,7 @@ public partial class AlignmentTools
     public const string NamesParamDescription = "Optional names of the rows for the formatted output (default seq1, seq2, ...).";
 
     // the Biopython Bio.Align writers (AlignmentFormats) for rows; a2m gets all-match states, nexus the molecule type guessed from the residues
-    private static string WriteBiopythonFormat(AlignmentFileFormat bio, string[] rows, string[]? names, string[]? descriptions)
+    public static string WriteBiopythonFormat(AlignmentFileFormat bio, string[] rows, string[]? names, string[]? descriptions)
     {
         var records = new List<BioAlignmentRecord>();
         string all = string.Concat(rows).ToUpperInvariant();
@@ -50,6 +50,15 @@ public partial class AlignmentTools
         return AlignmentFormats.Write([new BioAlignment { Records = records, ColumnAnnotations = column }], bio);
     }
 
+    /// <summary>
+    /// Writer of the alignment formats this server does not know itself (the EMBOSS alignment formats pair, markx10, msf, ...): the EMBOSS servers install it at start-up
+    /// (<c>EmbossSequenceFormatsTools.InstallAlignmentFormats</c>); without it the tools of this server write the Biopython formats only.
+    /// </summary>
+    public delegate string? ExternalAlignmentFormatWriter(string format, string[] rows, string[]? names, double score, int[]? offsets, int[]? offends, string program);
+
+    /// <summary>The installed <see cref="ExternalAlignmentFormatWriter"/> (null = the Biopython formats only).</summary>
+    public static ExternalAlignmentFormatWriter? ExternalFormatWriter { get; set; }
+
     public static string? FormatRowsForOutput(string? format, string[] rows, string[]? names, double score, int[]? offsets = null, int[]? offends = null, string program = "needle")
     {
         if (string.IsNullOrWhiteSpace(format))
@@ -65,10 +74,29 @@ public partial class AlignmentTools
         if (!forceEmboss && AlignmentFormats.TryParseFormat(f, out var bio))
             return WriteBiopythonFormat(bio, rows, names, null);
 
-        return WriteAlignment(rows, f, names, null, offsets, offends, score, program: program).Text;
+        string? external = ExternalFormatWriter?.Invoke(f, rows, names, score, offsets, offends, program);
+        if (external is not null)
+            return external;
+        throw new ArgumentException($"Unknown alignment format '{format}' (the EMBOSS alignment formats are written by the EMBOSS servers).", nameof(format));
     }
 
-    private static AlignmentResultDto FormatPair(AlignmentResultDto d, string? format, int length1, int length2, string[]? names, string? program = null, string? sequence1 = null, string? sequence2 = null, bool queryFirst = false, bool trimEndGaps = false)
+    // residues of the sequence before / after the aligned row: the start of the row clamped to what the row leaves of the sequence
+    private static (int Offset, int Offend) RowFlanks(string row, int start, int length)
+    {
+        int consumed = 0;
+        foreach (char c in row)
+        {
+            if (c is not ('-' or '.' or '~' or '?' or ' '))
+                consumed++;
+        }
+
+        if (consumed >= length)
+            return (0, 0);
+        int offset = Math.Clamp(start, 0, length - consumed);
+        return (offset, length - offset - consumed);
+    }
+
+    public static AlignmentResultDto FormatPair(AlignmentResultDto d, string? format, int length1, int length2, string[]? names, string? program = null, string? sequence1 = null, string? sequence2 = null, bool queryFirst = false, bool trimEndGaps = false)
     {
         if (string.IsNullOrWhiteSpace(format))
             return d;
@@ -80,9 +108,9 @@ public partial class AlignmentTools
         if (f.StartsWith("bio:", StringComparison.OrdinalIgnoreCase))
             format = coordinate;
         double score = d.ExactScore != 0 ? d.ExactScore : d.Score;
-        // R14-1: the residues before / after each row come from the rows (EmbossAlignedSequence.Flanks), not from the end coordinates
-        var (offset1, offend1) = EmbossAlignedSequence.Flanks(d.AlignedSequence1, d.StartPosition1, length1);
-        var (offset2, offend2) = EmbossAlignedSequence.Flanks(d.AlignedSequence2, d.StartPosition2, length2);
+        // the residues before / after each row come from the rows, not from the end coordinates
+        var (offset1, offend1) = RowFlanks(d.AlignedSequence1, d.StartPosition1, length1);
+        var (offset2, offend2) = RowFlanks(d.AlignedSequence2, d.StartPosition2, length2);
         int[] offsets = [offset1, offset2];
         int[] offends = [offend1, offend2];
         // the program whose report layout the alignment has: a local alignment is a water report (its SAM line is a local one, -aglobal N), every other one a needle report

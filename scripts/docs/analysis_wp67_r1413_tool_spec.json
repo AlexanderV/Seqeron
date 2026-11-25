@@ -4,7 +4,7 @@
   "summary": "EMBOSS 6.6.0 plotcon: the similarity of a multiple alignment along its length (the data of the plot, -graph data).",
   "methodId": "EmbossProgramRunner.Run",
   "sourceFile": "EmbossSequencePrograms.Plotcon.cs",
-  "sourcePath": "Seqeron.Genomics.Analysis/EmbossSequencePrograms.Plotcon.cs",
+  "sourcePath": "Seqeron.Genomics.Emboss.PairwiseAlignment/EmbossPairwisePrograms.Plotcon.cs",
   "algorithmDoc": "Alignment/Multiple_Sequence_Alignment.md",
   "oracleScript": "generate_emboss_prog_wp63_oracle.py",
   "file": "AnalysisTools.Plotcon.cs",

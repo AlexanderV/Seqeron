@@ -28,7 +28,7 @@ public sealed record AlignmentBridgeOptions
 /// </summary>
 public static class AlignmentResultCoordinates
 {
-    private const char Gap = '-';
+    public const char Gap = '-';
 
     /// <summary>The column walk of a result: runs of aligned pairs (<c>M</c>), insertions (<c>I</c>, query only) and deletions (<c>D</c>, target only) with the positions they start at.</summary>
     private sealed class Walk
@@ -46,6 +46,22 @@ public static class AlignmentResultCoordinates
         public required long TrimmedQueryEnd { get; init; }
     }
 
+    // the residues of the sequence that precede the aligned part: the start of the row, clamped to what the alignment leaves of the sequence
+    private static (int Offset, int Offend) LeadingFlank(string row, int start, int length)
+    {
+        int consumed = 0;
+        foreach (char c in row)
+        {
+            if (c is not ('-' or '.' or '~' or '?' or ' '))
+                consumed++;
+        }
+
+        if (consumed >= length)
+            return (0, 0);
+        int offset = Math.Clamp(start, 0, length - consumed);
+        return (offset, length - offset - consumed);
+    }
+
     private static Walk Analyse(AlignmentResult r, long length1, long length2, AlignmentBridgeOptions? options)
     {
         ArgumentNullException.ThrowIfNull(r);
@@ -54,8 +70,8 @@ public static class AlignmentResultCoordinates
         if (length1 < 0 || length2 < 0)
             throw new ArgumentOutOfRangeException(nameof(length1), "A sequence length is not negative.");
         options ??= new AlignmentBridgeOptions();
-        var (off1, _) = EmbossAlignedSequence.Flanks(r.AlignedSequence1, r.StartPosition1, (int)length1);
-        var (off2, _) = EmbossAlignedSequence.Flanks(r.AlignedSequence2, r.StartPosition2, (int)length2);
+        var (off1, _) = LeadingFlank(r.AlignedSequence1, r.StartPosition1, (int)length1);
+        var (off2, _) = LeadingFlank(r.AlignedSequence2, r.StartPosition2, (int)length2);
         bool swap = options.FirstIsQuery;
         string tRow = swap ? r.AlignedSequence2 : r.AlignedSequence1;
         string qRow = swap ? r.AlignedSequence1 : r.AlignedSequence2;

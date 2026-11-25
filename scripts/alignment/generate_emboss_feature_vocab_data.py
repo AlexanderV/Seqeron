@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A5-8c3e (B09 F241): the ten feature vocabularies of EMBOSS 6.6.0 as C# data (src/Seqeron/Algorithms/Seqeron.Genomics.Infrastructure/EmbossFeatureVocabData.g.cs).
+"""A5-8c3e (B09 F241): the ten feature vocabularies of EMBOSS 6.6.0 as C# data (src/Seqeron/Algorithms/Seqeron.Genomics.Emboss.SequenceFormats/EmbossFeatureVocabData.g.cs).
 The data files `Etags.<v>` and `Efeatures.<v>` (v = embl emboss gff2 gff2protein gff3 gff3protein pir protein refseqp swiss) are embedded verbatim; the loader of `ajfeat.c` (`featVocabReadTags` / `featVocabReadTypes`,
 ported in EmbossFeatureVocab.cs) builds the tables from them at run time, so every `#include` / `#includeonly` and every `name = id` line is applied by the ported code.
 Usage: python3 scripts/alignment/generate_emboss_feature_vocab_data.py OUT.g.cs      (needs the EMBOSS 6.6.0 data files in /usr/share/EMBOSS/data)

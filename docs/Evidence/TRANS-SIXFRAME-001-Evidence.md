@@ -110,7 +110,7 @@ Worked example `GGGATGAAACCCTAAGGG`, `-minsize 9 -flanking 2 -table 1`:
 - `-find 3`: `[4 - 12] ATGAAACCC`. `-find 4`: `[2 - 8] Around codon at 4. GGATGAA`. `-find 5`: `[3 - 9] Around codon at 5. GATGAAA`, `[16 - 10] (REVERSE SENSE) Around codon at 5. CTTAGGG`. `-find 6`: `[11 - 17] Around codon at 13. CCTAAGG`.
 - `TAATAA -find 0 -minsize 0 -reverse N`: `[1 - 0]` (empty), `[2 - 4] N`, `[3 - 5] I`, `[4 - 3]` (empty).
 
-Bulk comparison (C# `FindOrfs(dna, OrfFindMode, …)` mapped by `OrfFeature.ToGetOrfRange` vs the binary): 2 500 random sequences × 290 runs, 0 mismatching (sequence, run) pairs over 3 474 722 reference records; 25 084 records excluded as the documented one-codon open-ORF divergence (modes 1/3/4). Locked subset: `tests/Seqeron/Seqeron.Genomics.Tests/TestData/Getorf/getorf_find_modes.tsv`.
+Bulk comparison (C# `FindOrfs(dna, OrfFindMode, …)` mapped by `OrfFeature.ToGetOrfRange` vs the binary): 2 500 random sequences × 290 runs, 0 mismatching (sequence, run) pairs over 3 474 722 reference records; 25 084 records excluded as the documented one-codon open-ORF divergence (modes 1/3/4). Locked subset: `tests/Seqeron/Seqeron.Genomics.Emboss.OpenReadingFrames.Tests/TestData/Getorf/getorf_find_modes.tsv`.
 
 ### EMBOSS — ambiguous codons and `-circular` (ajtranslate.c, getorf.c; opened 2026-10-14, FIN-B02 WP12)
 
@@ -139,7 +139,7 @@ Bulk comparison (C# string overload vs the binary; 1 000 random sequences per su
 | IUPAC, `-circular Y` | 344 889 | 93 000 | 83 790 | 6 516 | 2 694 | 0 |
 | A/C/G/T, `-circular Y` | 447 526 | 93 000 | 93 000 | 0 | 0 | 0 |
 
-In the circular suites the full-length records of STOP-free frames are compared with getorf's literal block (frame-3 `>= maxsize`, protein in mode 2), which is where this API diverges by design. Locked subset: `tests/Seqeron/Seqeron.Genomics.Tests/TestData/Getorf/getorf_iupac_circular.tsv` (24 sequences × 86 runs, 6 143 records; sequences free of the inconsistent codons of item 3 and of STOP-free circular frames).
+In the circular suites the full-length records of STOP-free frames are compared with getorf's literal block (frame-3 `>= maxsize`, protein in mode 2), which is where this API diverges by design. Locked subset: `tests/Seqeron/Seqeron.Genomics.Emboss.OpenReadingFrames.Tests/TestData/Getorf/getorf_iupac_circular.tsv` (24 sequences × 86 runs, 6 143 records; sequences free of the inconsistent codons of item 3 and of STOP-free circular frames).
 
 ### Biopython 1.88 — six frames of IUPAC strings (2026-10-14, FIN-B02 WP12)
 
@@ -155,7 +155,7 @@ Sources read: `emboss/transeq.c`, `emboss/acd/transeq.acd`, `ajax/core/ajtransla
 4. **`-trim`** strips trailing X/`*`; **`-clean`** replaces `*` by X (both default N, post-processing only). Stops are printed `*`.
 5. **Ambiguity:** transeq's `trnComplete` table (item 3 of the getorf section above) never emits B/Z/J and differs from the all-expansions rule on 28 / 15 / 28 of the 3 375 IUPAC codons for tables 1 / 2 / 11 (e.g. table 1 `RAY` → X vs B, `ATS` → I vs X, `ATW` → X vs I, `TRA` → X vs `*`, `TRR` → `*` vs X).
 6. **Worked example** (`transeq -frame 6`, `ATGAAACCCGGGTT`): 1 `MKPGX`, 2 `*NPGX`, 3 `ETRV`, −1 `PGFH`, −2 `TRVSX`, −3 `NPGFX`; with `-alternative Y`: −1 `NPGFX`, −2 `TRVSX`, −3 `PGFH`. `A`: `X`, ``, ``, ``, `X`, `X` (default) / `X`, ``, ``, `X`, ``, `` (alternative).
-7. **Binary comparison:** `Translator.TranslateSixFrames(string, code, SixFrameConvention.EmbossTranseq | EmbossTranseqAlternative)` vs `transeq -frame 6 -table T -alternative N|Y` for 2 000 random A/C/G/T sequences (1–150 nt; 200 of 1–8 nt; 1/7 lower case, 1/11 with U; seed 20261014) × tables 1/2/11 × N/Y: 72 000 frames, **0 mismatches**. 600 random IUPAC sequences (1–120 nt, ~45 % ambiguity codes) × the same 6 runs: 21 600 frames, every residue of both tools equals its own per-codon table applied to the modelled codon list (forward, alternative-reverse and phase-locked-reverse codons plus dangling `b1 b2 N`), 5 442 residues differ, all at codons of item 5. Locked: `tests/Seqeron/Seqeron.Genomics.Tests/TestData/Transeq/transeq_six_frames.tsv` (80 A/C/G/T(U) sequences × tables 1/2/11 × N/Y = 480 rows).
+7. **Binary comparison:** `Translator.TranslateSixFrames(string, code, SixFrameConvention.EmbossTranseq | EmbossTranseqAlternative)` vs `transeq -frame 6 -table T -alternative N|Y` for 2 000 random A/C/G/T sequences (1–150 nt; 200 of 1–8 nt; 1/7 lower case, 1/11 with U; seed 20261014) × tables 1/2/11 × N/Y: 72 000 frames, **0 mismatches**. 600 random IUPAC sequences (1–120 nt, ~45 % ambiguity codes) × the same 6 runs: 21 600 frames, every residue of both tools equals its own per-codon table applied to the modelled codon list (forward, alternative-reverse and phase-locked-reverse codons plus dangling `b1 b2 N`), 5 442 residues differ, all at codons of item 5. Locked: `tests/Seqeron/Seqeron.Genomics.Emboss.SequenceFormats.Tests/TestData/Transeq/transeq_six_frames.tsv` (80 A/C/G/T(U) sequences × tables 1/2/11 × N/Y = 480 rows).
 
 ### EMBOSS 6.6.0 transeq — `-regions`, `-methionine`, `-trim`, `-clean` (2026-10-14, FIN-B02 WP21, audit A3-3)
 

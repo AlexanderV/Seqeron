@@ -103,16 +103,16 @@ public class ConsensusAuditMetamorphicTests
             int identity = rng.Next(0, 3);
 
             var dna = RandomRows(rng, rng.Next(2, 8), length, "ACGTN-");
-            Assert.That(MotifFinder.GenerateEmbossConsensus(dna, ConsensusResidueType.Auto, plurality, identity),
-                Is.EqualTo(MotifFinder.GenerateEmbossConsensus(dna, ConsensusResidueType.Nucleotide, plurality, identity)),
+            Assert.That(EmbossConsensus.GenerateEmbossConsensus(dna, ConsensusResidueType.Auto, plurality, identity),
+                Is.EqualTo(EmbossConsensus.GenerateEmbossConsensus(dna, ConsensusResidueType.Nucleotide, plurality, identity)),
                 "dna " + string.Join(",", dna));
 
             var prot = RandomRows(rng, rng.Next(2, 8), length, protein);
             var first = prot[0].ToCharArray();
             first[rng.Next(length)] = proteinOnly[rng.Next(proteinOnly.Length)];
             prot[0] = new string(first);
-            Assert.That(MotifFinder.GenerateEmbossConsensus(prot, ConsensusResidueType.Auto, plurality, identity),
-                Is.EqualTo(MotifFinder.GenerateEmbossConsensus(prot, ConsensusResidueType.Protein, plurality, identity)),
+            Assert.That(EmbossConsensus.GenerateEmbossConsensus(prot, ConsensusResidueType.Auto, plurality, identity),
+                Is.EqualTo(EmbossConsensus.GenerateEmbossConsensus(prot, ConsensusResidueType.Protein, plurality, identity)),
                 "protein " + string.Join(",", prot));
         }
     }
@@ -129,16 +129,16 @@ public class ConsensusAuditMetamorphicTests
             float? plurality = rng.Next(3) == 0 ? null : rng.Next(0, 6);
 
             var rect = RandomRows(rng, rng.Next(2, 8), rng.Next(1, 25), alphabet);
-            Assert.That(MotifFinder.GenerateEmbossConsensus(rect, true, type, plurality),
-                Is.EqualTo(MotifFinder.GenerateEmbossConsensus(rect, type, plurality)), "rect");
+            Assert.That(EmbossConsensus.GenerateEmbossConsensus(rect, true, type, plurality),
+                Is.EqualTo(EmbossConsensus.GenerateEmbossConsensus(rect, type, plurality)), "rect");
 
             var ragged = Enumerable.Range(0, rng.Next(2, 8)).Select(_ => RandomRow(rng, rng.Next(1, 25), alphabet)).ToArray();
             int max = ragged.Max(r => r.Length);
             var padded = ragged.Select(r => r.PadRight(max, '-')).ToArray();
-            Assert.That(MotifFinder.GenerateEmbossConsensus(ragged, true, type, plurality),
-                Is.EqualTo(MotifFinder.GenerateEmbossConsensus(padded, type, plurality)), "ragged " + string.Join(",", ragged));
+            Assert.That(EmbossConsensus.GenerateEmbossConsensus(ragged, true, type, plurality),
+                Is.EqualTo(EmbossConsensus.GenerateEmbossConsensus(padded, type, plurality)), "ragged " + string.Join(",", ragged));
             if (ragged.Any(r => r.Length != max))
-                Assert.That(() => MotifFinder.GenerateEmbossConsensus(ragged, type, plurality), NUnit.Framework.Throws.InstanceOf<ArgumentException>());
+                Assert.That(() => EmbossConsensus.GenerateEmbossConsensus(ragged, type, plurality), NUnit.Framework.Throws.InstanceOf<ArgumentException>());
         }
     }
 }

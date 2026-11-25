@@ -1,0 +1,67 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Seqeron.Mcp.EmbossFeatureTools.Tests</RootNamespace>
+    <AssemblyName>Seqeron.Mcp.EmbossFeatureTools.Tests</AssemblyName>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NUnit" />
+    <PackageReference Include="NUnit3TestAdapter" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\Seqeron\Mcp\Seqeron.Mcp.EmbossFeatureTools\Seqeron.Mcp.EmbossFeatureTools.csproj" />
+    <ProjectReference Include="..\Seqeron.Mcp.Tests.Contracts\Seqeron.Mcp.Tests.Contracts.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Seqeron.Mcp.EmbossSequenceFormats.Tools" />
+    <Using Include="Seqeron.Mcp.EmbossRepeats.Tools" />
+    <Using Include="Seqeron.Mcp.EmbossPairwiseAlignment.Tools" />
+    <Using Include="Seqeron.Mcp.EmbossMotifs.Tools" />
+    <Using Include="Seqeron.Mcp.EmbossOpenReadingFrames.Tools" />
+    <Using Include="Seqeron.Mcp.EmbossFeatureTools.Tools" />
+    <Using Include="Seqeron.Mcp.Alignment.Tools" />
+    <Using Include="Seqeron.Mcp.Analysis.Tools" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\Seqeron\Mcp\Seqeron.Mcp.EmbossSequenceFormats\Seqeron.Mcp.EmbossSequenceFormats.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Mcp\Seqeron.Mcp.EmbossRepeats\Seqeron.Mcp.EmbossRepeats.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Mcp\Seqeron.Mcp.EmbossPairwiseAlignment\Seqeron.Mcp.EmbossPairwiseAlignment.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Mcp\Seqeron.Mcp.EmbossMotifs\Seqeron.Mcp.EmbossMotifs.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Mcp\Seqeron.Mcp.EmbossOpenReadingFrames\Seqeron.Mcp.EmbossOpenReadingFrames.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Mcp\Seqeron.Mcp.Alignment\Seqeron.Mcp.Alignment.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Mcp\Seqeron.Mcp.Analysis\Seqeron.Mcp.Analysis.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Seqeron.Genomics.Emboss.SequenceFormats" />
+    <Using Include="Seqeron.Genomics.Emboss.FeatureTools" />
+    <Using Include="Seqeron.Genomics.Emboss.Repeats" />
+    <Using Include="Seqeron.Genomics.Emboss.PairwiseAlignment" />
+    <Using Include="Seqeron.Genomics.Emboss.Motifs" />
+    <Using Include="Seqeron.Genomics.Emboss.OpenReadingFrames" />
+    <Using Include="Seqeron.Genomics.Core" />
+    <Using Include="Seqeron.Genomics.Infrastructure" />
+    <Using Include="Seqeron.Genomics.Alignment" />
+    <Using Include="Seqeron.Genomics.Analysis" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Emboss.SequenceFormats\Seqeron.Genomics.Emboss.SequenceFormats.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Emboss.FeatureTools\Seqeron.Genomics.Emboss.FeatureTools.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Emboss.Repeats\Seqeron.Genomics.Emboss.Repeats.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Emboss.PairwiseAlignment\Seqeron.Genomics.Emboss.PairwiseAlignment.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Emboss.Motifs\Seqeron.Genomics.Emboss.Motifs.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Emboss.OpenReadingFrames\Seqeron.Genomics.Emboss.OpenReadingFrames.csproj" />
+  </ItemGroup>
+
+</Project>

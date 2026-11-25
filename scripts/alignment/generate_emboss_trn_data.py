@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """B09 WP61: the genetic code files EGC.* of EMBOSS 6.6.0 (emboss-data 6.6.0: share/EMBOSS/data) embedded as the C# table
-src/Seqeron/Algorithms/Seqeron.Genomics.Infrastructure/EmbossTrnData.g.cs (the comment lines are dropped, as ajtrn.c's trnNoComment does; EGC.index is kept whole).
+src/Seqeron/Algorithms/Seqeron.Genomics.Emboss.SequenceFormats/EmbossTrnData.g.cs (the comment lines are dropped, as ajtrn.c's trnNoComment does; EGC.index is kept whole).
 Usage: python3 scripts/alignment/generate_emboss_trn_data.py [/usr/share/EMBOSS/data] > src/.../EmbossTrnData.g.cs"""
 import os, re, sys
 

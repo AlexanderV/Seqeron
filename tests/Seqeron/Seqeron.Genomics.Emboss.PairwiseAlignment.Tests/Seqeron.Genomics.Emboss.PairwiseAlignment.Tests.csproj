@@ -1,0 +1,118 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Tests (and oracle data) of the copyleft assembly Seqeron.Genomics.Emboss.PairwiseAlignment. The tests ship under the licence of that assembly (see its LICENSE). -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <!-- same root namespace as Seqeron.Genomics.Tests: the embedded resource names (Seqeron.Genomics.Tests.TestData.*) and the test namespaces stay unchanged -->
+    <RootNamespace>Seqeron.Genomics.Tests</RootNamespace>
+    <AssemblyName>Seqeron.Genomics.Emboss.PairwiseAlignment.Tests</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="NUnit" />
+    <PackageReference Include="NUnit.Analyzers" />
+    <PackageReference Include="NUnit3TestAdapter" />
+    <PackageReference Include="FluentAssertions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Seqeron.Genomics.Tests\TestDataResource.cs" Link="TestDataResource.cs" />
+    <Compile Include="..\Seqeron.Genomics.Tests\_LimitationPolicyTestBootstrap.cs" Link="_LimitationPolicyTestBootstrap.cs" />
+    <Compile Include="..\Seqeron.Genomics.Tests\Helpers\OracleEscapes.cs" Link="Helpers\OracleEscapes.cs" />
+    <Compile Include="..\Seqeron.Genomics.Tests\Unit\Alignment\PollCancellation.cs" Link="Unit\Alignment\PollCancellation.cs" />
+    <Compile Include="..\Seqeron.Genomics.Emboss.SequenceFormats.Tests\Unit\Alignment\EmbossReferenceDp.cs" Link="Unit\Alignment\EmbossReferenceDp.cs" />
+    <Compile Include="..\Seqeron.Genomics.Emboss.SequenceFormats.Tests\Unit\Alignment\EmbossSeqOptsProducer.cs" Link="Unit\Alignment\EmbossSeqOptsProducer.cs" />
+    <Compile Include="..\Seqeron.Genomics.Tests\Unit\Alignment\MummerShowOracleRunner.cs" Link="Unit\Alignment\MummerShowOracleRunner.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="NUnit.Framework" />
+    <Using Include="Seqeron.Genomics.Core" />
+    <Using Include="Seqeron.Genomics.Infrastructure" />
+    <Using Include="Seqeron.Genomics.IO" />
+    <Using Include="Seqeron.Genomics.Alignment" />
+    <Using Include="Seqeron.Genomics.Analysis" />
+    <Using Include="Seqeron.Genomics.Emboss.SequenceFormats" />
+    <Using Include="Seqeron.Genomics.Emboss.FeatureTools" />
+    <Using Include="Seqeron.Genomics.Emboss.Repeats" />
+    <Using Include="Seqeron.Genomics.Emboss.PairwiseAlignment" />
+    <Using Include="Seqeron.Genomics.Emboss.Motifs" />
+    <Using Include="Seqeron.Genomics.Emboss.OpenReadingFrames" />
+    <Using Include="FluentAssertions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="..\Seqeron.Genomics.Tests\TestData\Alignment\topn_oracle.tsv" Link="TestData\Alignment\topn_oracle.tsv" />
+    <!-- ALIGN-LOCAL-001 (audit A2-28d, B09 F145): EMBOSS matcher 6.6.0 (Huang-Miller SIM) alignment lists in the program's own tie order; scripts/alignment/generate_matcher_sim_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\matcher_sim_oracle.tsv" />
+    <!-- ALIGN-LOCAL-001 (audit A2-28d, B09 F152): EMBOSS dotmatcher 6.6.0 plot segments of 600 DNA / protein pairs (graph data); scripts/alignment/generate_dotmatcher_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\dotmatcher_oracle.tsv" />
+    <!-- ALIGN-LOCAL-001 (audit A4-9): 720 edge rows of dotmatcher (lower case, ambiguity codes, *, gap characters, default matrix, window >= length); scripts/alignment/generate_dotmatcher_edge_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\dotmatcher_edge_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Alignment\distmat_file_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\diffseq_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\est2genome_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\diffseq_qualifiers_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\diffseq_features_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\diffseq_ufo_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\diffseq_special_tags_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\diffseq_featout_oracle.jsonl.gz" />
+    <!-- A4-3 (B09 F153): the EMBOSS programs 6.6.0 on plain sequences that contain gap characters and other non-letters (the reader drops them); scripts/alignment/generate_emboss_gap_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\emboss_gap_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Alignment\supermatcher_wordlen_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Alignment\matcher_gap_oracle.tsv" />
+    <!-- ALIGN-STATS-001 (audit A2-15, B09 F90): EMBOSS 6.6.0 distmat, every correction and option (1 100 sets); scripts/alignment/generate_distmat_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\distmat_oracle.tsv" />
+    <!-- ALIGN-MULTI-001 (audit A2-27, B09 F120): EMBOSS 6.6.0 -aformat output formats (needle / water) and the sequence-set formats (seqret), byte for byte;
+         scripts/alignment/generate_emboss_aformat_oracle.py, scripts/alignment/generate_emboss_seqout_oracle.py (faked run dates: scripts/alignment/faketime.c). -->
+    <EmbeddedResource Include="TestData\Alignment\emboss_aformat_oracle.tsv.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_seqout_oracle.tsv.gz" />
+    <!-- ALIGN-GLOBAL-001 (audit A2-28, B09 F122): EMBOSS 6.6.0 needle with -endweight / -endopen / -endextend; scripts/alignment/generate_needle_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\needle_oracle.tsv" />
+    <!-- ALIGN-LOCAL-001 / ALIGN-GLOBAL-001 (audit A2-28c, B09 F124): EMBOSS supermatcher and needleall whole output files; scripts/alignment/generate_emboss_multi_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\emboss_multi_oracle.tsv.gz" />
+    <!-- ALIGN-STATS-001 (audit A3-13c, B09 F148): EMBOSS showalign 6.6.0 text output of random alignments with random options (600 cases, JSON lines);
+         scripts/analysis/generate_showalign_oracle.py. -->
+    <EmbeddedResource Include="TestData\Analysis\showalign_oracle.jsonl" />
+    <!-- ALIGN-STATS-001 (audit A4-9): 400 showalign rows with -sbegin / -send; scripts/analysis/generate_showalign_range_oracle.py. -->
+    <EmbeddedResource Include="TestData\Analysis\showalign_range_oracle.jsonl" />
+    <EmbeddedResource Include="TestData\Analysis\showalign_html_oracle.jsonl" />
+    <!-- GENOMIC-COMMON-001 (audit A3-13b, B09 F149): EMBOSS megamerger 6.6.0 merged sequence + report of 600 related / unrelated DNA pairs (JSON lines);
+         scripts/analysis/generate_megamerger_oracle.py. -->
+    <EmbeddedResource Include="TestData\Analysis\megamerger_oracle.jsonl" />
+    <!-- GENOMIC-COMMON-001 (audit A4-9): 480 edge rows of megamerger (lower-case-only sequences, N runs longer than the word, sequences shorter than the word / identical / nested);
+         scripts/analysis/generate_megamerger_edge_oracle.py. -->
+    <EmbeddedResource Include="TestData\Analysis\megamerger_edge_oracle.jsonl" />
+    <EmbeddedResource Include="TestData\Alignment\merger_oracle.tsv" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="..\Seqeron.Genomics.Tests\TestData\Alignment\biopython_matrices_oracle.tsv.gz" Link="TestData\Alignment\biopython_matrices_oracle.tsv.gz" />
+    <EmbeddedResource Include="..\Seqeron.Genomics.Tests\TestData\Alignment\msa_stats_oracle.tsv" Link="TestData\Alignment\msa_stats_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Alignment\stretcher_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Alignment\water_oracle.tsv" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics\Seqeron.Genomics.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Infrastructure\Seqeron.Genomics.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Core\Seqeron.Genomics.Core.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.IO\Seqeron.Genomics.IO.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Alignment\Seqeron.Genomics.Alignment.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Analysis\Seqeron.Genomics.Analysis.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Emboss.SequenceFormats\Seqeron.Genomics.Emboss.SequenceFormats.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Emboss.FeatureTools\Seqeron.Genomics.Emboss.FeatureTools.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Emboss.Repeats\Seqeron.Genomics.Emboss.Repeats.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Emboss.PairwiseAlignment\Seqeron.Genomics.Emboss.PairwiseAlignment.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Emboss.Motifs\Seqeron.Genomics.Emboss.Motifs.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Emboss.OpenReadingFrames\Seqeron.Genomics.Emboss.OpenReadingFrames.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.TCoffee\Seqeron.Genomics.TCoffee.csproj" />
+  </ItemGroup>
+
+</Project>

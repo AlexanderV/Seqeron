@@ -39,14 +39,6 @@ public class CoordinateFormatsOfPairwiseToolsTests
     }
 
     [Test]
-    public void LocalAlign_EmbossSamIsStillTheEmbossRecord()
-    {
-        string text = AlignmentTools.LocalAlign(A, B, format: "emboss:sam", names: Names).Formatted!;
-        Assert.That(text, Does.Contain("@HD").Or.Contain("b\t0\ta\t3\t255\t4M\t"));
-        Assert.That(text, Is.Not.EqualTo(Local("sam")));
-    }
-
-    [Test]
     public void SemiGlobalAlign_SequenceTwoIsTheReference_AndTheEndGapsStayOrTrim()
     {
         string[] names = ["q", "ref"];

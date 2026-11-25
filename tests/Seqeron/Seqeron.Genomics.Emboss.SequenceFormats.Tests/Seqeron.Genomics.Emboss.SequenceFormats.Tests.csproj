@@ -1,0 +1,187 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Tests (and oracle data) of the copyleft assembly Seqeron.Genomics.Emboss.SequenceFormats. The tests ship under the licence of that assembly (see its LICENSE). -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <!-- same root namespace as Seqeron.Genomics.Tests: the embedded resource names (Seqeron.Genomics.Tests.TestData.*) and the test namespaces stay unchanged -->
+    <RootNamespace>Seqeron.Genomics.Tests</RootNamespace>
+    <AssemblyName>Seqeron.Genomics.Emboss.SequenceFormats.Tests</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="NUnit" />
+    <PackageReference Include="NUnit.Analyzers" />
+    <PackageReference Include="NUnit3TestAdapter" />
+    <PackageReference Include="FluentAssertions" />
+    <PackageReference Include="FsCheck" />
+    <PackageReference Include="FsCheck.NUnit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Seqeron.Genomics.Tests\TestDataResource.cs" Link="TestDataResource.cs" />
+    <Compile Include="..\Seqeron.Genomics.Tests\_LimitationPolicyTestBootstrap.cs" Link="_LimitationPolicyTestBootstrap.cs" />
+    <Compile Include="..\Seqeron.Genomics.Tests\Helpers\OracleEscapes.cs" Link="Helpers\OracleEscapes.cs" />
+    <Compile Include="..\Seqeron.Genomics.Tests\Unit\Alignment\PollCancellation.cs" Link="Unit\Alignment\PollCancellation.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="NUnit.Framework" />
+    <Using Include="Seqeron.Genomics.Core" />
+    <Using Include="Seqeron.Genomics.Infrastructure" />
+    <Using Include="Seqeron.Genomics.IO" />
+    <Using Include="Seqeron.Genomics.Alignment" />
+    <Using Include="Seqeron.Genomics.Analysis" />
+    <Using Include="Seqeron.Genomics.Emboss.SequenceFormats" />
+    <Using Include="Seqeron.Genomics.Emboss.FeatureTools" />
+    <Using Include="Seqeron.Genomics.Emboss.Repeats" />
+    <Using Include="Seqeron.Genomics.Emboss.PairwiseAlignment" />
+    <Using Include="Seqeron.Genomics.Emboss.Motifs" />
+    <Using Include="Seqeron.Genomics.Emboss.OpenReadingFrames" />
+    <Using Include="FluentAssertions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- B09 WP67 (F309): USAs of the data resource catalogue (DRCAT) through seqret / entret; scripts/alignment/generate_emboss_drcat_usa_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\emboss_drcat_usa_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_drcat_returned_rows.jsonl.gz" />
+    <!-- A5-8 (B09 F176): the gff / excel feature reports of fuzznuc, fuzzpro, fuzztran, etandem, equicktandem; scripts/alignment/generate_emboss_report_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\emboss_report_oracle.tsv" />
+    <!-- A5-8b (B09 F184): every -rformat / report option of the five programs and the distmat file; scripts/alignment/generate_emboss_report_formats_oracle.py, generate_distmat_file_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\emboss_report_formats_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_feature_vocab_oracle.tsv.gz" />
+    <EmbeddedResource Include="TestData\Alignment\featread_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\featread_ufo_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\featwrite_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\featwrite2_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\featmerge_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\feattext_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\seqout_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\dbindex_emblcd_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\dbindex_emboss_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\usa_db_config_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\usa_db_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\usa_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\entret_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\union_feature_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\descseq_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\featlist_oracle.jsonl.gz" />
+    <!-- A5-7 (B09 F172): the sequence-input qualifiers (-sbegin -send -sreverse -slower -supper -scircular -snucleotide -sprotein) on the 16 EMBOSS programs 6.6.0; scripts/alignment/generate_emboss_seqopts_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\emboss_seqopts_oracle.tsv.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_acd_args_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_seqopts_text_oracle.tsv" />
+    <!-- EMBOSS alignment formats of three or more rows (B09 A2-27d, F233): runs of the installed aligncopy; scripts/alignment/generate_emboss_multirow_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\emboss_multirow_oracle.tsv.gz" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="..\Seqeron.Genomics.Tests\TestData\Alignment\msa_stats_oracle.tsv" Link="TestData\Alignment\msa_stats_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_prog_checktrans_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_prog_cutseq_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_prog_dbtell_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_prog_degapseq_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_prog_drfinddata_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_prog_extractseq_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_prog_getorf_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_prog_infoseq_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_prog_listor_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_prog_makenucseq_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_prog_makeprotseq_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_prog_marscan_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_prog_maskambignuc_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_prog_maskambigprot_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_prog_maskseq_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_prog_msbar_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_prog_newseq_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_prog_noreturn_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_prog_nospace_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_prog_notab_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_prog_notseq_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_prog_nthseq_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_prog_nthseqset_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_prog_pasteseq_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_prog_patmatdb_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_prog_patmatmotifs_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_prog_plotcon_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_prog_plotorf_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_prog_prettyseq_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_prog_prosextract_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_prog_revseq_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_prog_seqcount_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_prog_seqxref_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_prog_showdb_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_prog_showorf_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_prog_shuffleseq_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_prog_skipseq_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_prog_splitter_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_prog_tcode_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_prog_transeq_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_prog_trimest_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_prog_trimseq_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_prog_trimspace_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_prog_wordcount_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_prog_wordfinder_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\emboss_prog_yank_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\seqmerge_oracle_seqretsplit.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\seqmerge_oracle_union.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\seqout_oracle_asn1.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\seqout_oracle_bam.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\seqout_oracle_das.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\seqout_oracle_debug.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\seqout_oracle_dir.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\seqout_oracle_entry_embl.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\seqout_oracle_entry_genbank.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\seqout_oracle_entry_swiss.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\seqout_oracle_experiment.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\seqout_oracle_fastq.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\seqout_oracle_fastq_illumina.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\seqout_oracle_fastq_sanger.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\seqout_oracle_fastq_solexa.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\seqout_oracle_features.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\seqout_oracle_features_experiment.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\seqout_oracle_ncbi.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\seqout_oracle_nibble.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\seqout_oracle_osdbname.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\seqout_oracle_sam.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\seqout_oracle_scf.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\seqout_oracle_set_gff2.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\seqout_oracle_set_hennig86.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\seqout_oracle_set_jackknifer.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\seqout_oracle_set_msf.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\seqout_oracle_set_nexus.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\seqout_oracle_set_selex.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\seqret_oracle.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\seqret_oracle_experiment.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\seqret_oracle_hennig86.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\seqret_oracle_jackknifer.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\seqret_oracle_mega.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\seqret_oracle_nexus.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\seqret_oracle_pdb.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\seqret_oracle_phylip.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\seqret_oracle_selex.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Alignment\seqret_oracle_stockholm.jsonl.gz" />
+    <EmbeddedResource Include="TestData\Transeq\transeq_options.tsv" />
+    <EmbeddedResource Include="TestData\Transeq\transeq_six_frames.tsv" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics\Seqeron.Genomics.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Infrastructure\Seqeron.Genomics.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Core\Seqeron.Genomics.Core.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.IO\Seqeron.Genomics.IO.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Alignment\Seqeron.Genomics.Alignment.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Analysis\Seqeron.Genomics.Analysis.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Emboss.SequenceFormats\Seqeron.Genomics.Emboss.SequenceFormats.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Emboss.FeatureTools\Seqeron.Genomics.Emboss.FeatureTools.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Emboss.Repeats\Seqeron.Genomics.Emboss.Repeats.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Emboss.PairwiseAlignment\Seqeron.Genomics.Emboss.PairwiseAlignment.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Emboss.Motifs\Seqeron.Genomics.Emboss.Motifs.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Emboss.OpenReadingFrames\Seqeron.Genomics.Emboss.OpenReadingFrames.csproj" />
+  </ItemGroup>
+
+</Project>

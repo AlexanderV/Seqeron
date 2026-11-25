@@ -1,0 +1,610 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// This file is part of Seqeron.Mcp.EmbossSequenceFormats, licensed under the terms stated in LICENSE (this directory).
+using System.ComponentModel;
+using System.Text;
+using ModelContextProtocol.Server;
+using Seqeron.Mcp.Analysis.Tools;
+using static Seqeron.Mcp.Analysis.Tools.AnalysisTools;
+
+namespace Seqeron.Mcp.EmbossSequenceFormats.Tools;
+
+public partial class EmbossSequenceFormatsTools
+{
+    [McpServerTool(Name = "revseq", Title = "Genome — EMBOSS revseq (reverse and complement sequences)", ReadOnly = true)]
+    [Description("EMBOSS 6.6.0 revseq: every sequence is reverse-complemented (or only reversed, or only complemented); with both and tag the description starts with 'Reversed:'. Equals the installed program on 320 runs (every input format of seqret, ranges, the output formats, the messages of the library; byte for byte). B09 WP61, F280.")]
+    public static EmbossProgramToolResult Revseq(
+        [Description("The text of the sequence file (any input format of seqret), or a sequence as letters.")] string sequence,
+        [Description("Reverse the sequence (-reverse, default true; false = -noreverse).")] bool reverse = true,
+        [Description("Complement the sequence (-complement, default true).")] bool complement = true,
+        [Description("Put 'Reversed:' in front of the description of a reverse-complemented sequence (-tag, default true).")] bool tag = true,
+        [Description("The input format (-sformat1); default: the program finds the format.")] string? sequenceFormat = null,
+        [Description("Sequence input qualifiers as typed after the sequence on the command line: -sbegin1 -send1 -sreverse1, -slower1 -supper1 -snucleotide1 -sprotein1 -scircular1, -sid1 name, -sdbname1 db, -squick1, -iquery1 query, -ioffset1 bytes.")] string? qualifiers = null,
+        [Description("The sequence output format (-osformat): fasta (default), embl, genbank, gcg, nbrf, ig, raw, msf, clustal, phylip, nexus, ... every format of seqret.")] string outputFormat = "fasta",
+        CancellationToken cancellationToken = default,
+        [Description("More files by name (file name -> text) that the program may read (a file named by a USA, @file).")] IReadOnlyDictionary<string, string>? files = null,
+        [Description("The USA of the sequence input (-sequence) as the program reads it, instead of the text: [format::]file[begin:end:r], file:id, @list, asis::SEQUENCE.")] string? sequenceValue = null)
+    {
+        if (string.IsNullOrWhiteSpace(sequence))
+            throw new ArgumentException("The sequence cannot be empty", nameof(sequence));
+        cancellationToken.ThrowIfCancellationRequested();
+        var all = new Dictionary<string, string>(files ?? new Dictionary<string, string>());
+        var args = new List<string>();
+        all["sequence.dat"] = sequence;
+        args.Add("-sequence");
+        args.Add(SequenceSpec(sequenceValue, sequence, "sequence.dat"));
+        if (!string.IsNullOrWhiteSpace(sequenceFormat))
+            args.AddRange(["-sformat1", sequenceFormat]);
+        AddQualifierTokens(args, qualifiers);
+        if (!reverse)
+            args.Add("-noreverse");
+        if (!complement)
+            args.Add("-nocomplement");
+        if (!tag)
+            args.Add("-notag");
+        return RunEmbossSequenceProgram("revseq", args, all, outputFormat, nameof(sequence));
+    }
+    [McpServerTool(Name = "transeq", Title = "Genome — EMBOSS transeq (translate nucleotide sequences)", ReadOnly = true)]
+    [Description("EMBOSS 6.6.0 transeq: the frames 1 2 3 -1 -2 -3 (F = forward three, R = reverse three, 6 = all; a comma list), the genetic code, regions (translated joined together), trim of trailing X and *, clean (stops to X), the alternative definition of the reverse frames, and the first START codon as M for regions; the translation is the ajtrn.c model (EmbossTrn: ambiguity codes resolved as the EMBOSS genetic code tables do). Equals the installed program on 320 runs (every input format of seqret, ranges, the output formats, the messages of the library; byte for byte). B09 WP61, F280.")]
+    public static EmbossProgramToolResult Transeq(
+        [Description("The text of the sequence file (any input format of seqret), or a sequence as letters.")] string sequence,
+        [Description("The frames (-frame): 1 2 3 F -1 -2 -3 R 6, separated by commas; default 1.")] string? frame = null,
+        [Description("The genetic code (-table): 0 .. 6, 9 .. 16, 21 .. 23.")] string? table = null,
+        [Description("The regions to translate (-regions): '4-57,78-94'; default the whole sequence.")] string? regions = null,
+        [Description("Remove the 'X' and '*' at the end of the translation (-trim).")] bool trim = false,
+        [Description("Change the '*' of the STOP codons to 'X' (-clean).")] bool clean = false,
+        [Description("Frame -1 starts in the last codon (-alternative).")] bool alternative = false,
+        [Description("A START codon at the beginning of a region translation is an M (-methionine, default true).")] bool methionine = true,
+        [Description("The input format (-sformat1); default: the program finds the format.")] string? sequenceFormat = null,
+        [Description("Sequence input qualifiers as typed after the sequence on the command line: -sbegin1 -send1 -sreverse1, -slower1 -supper1 -snucleotide1 -sprotein1 -scircular1, -sid1 name, -sdbname1 db, -squick1, -iquery1 query, -ioffset1 bytes.")] string? qualifiers = null,
+        [Description("The sequence output format (-osformat): fasta (default), embl, genbank, gcg, nbrf, ig, raw, msf, clustal, phylip, nexus, ... every format of seqret.")] string outputFormat = "fasta",
+        CancellationToken cancellationToken = default,
+        [Description("More files by name (file name -> text) that the program may read (a file named by a USA, @file).")] IReadOnlyDictionary<string, string>? files = null,
+        [Description("The USA of the sequence input (-sequence) as the program reads it, instead of the text: [format::]file[begin:end:r], file:id, @list, asis::SEQUENCE.")] string? sequenceValue = null)
+    {
+        if (string.IsNullOrWhiteSpace(sequence))
+            throw new ArgumentException("The sequence cannot be empty", nameof(sequence));
+        cancellationToken.ThrowIfCancellationRequested();
+        var all = new Dictionary<string, string>(files ?? new Dictionary<string, string>());
+        var args = new List<string>();
+        all["sequence.dat"] = sequence;
+        args.Add("-sequence");
+        args.Add(SequenceSpec(sequenceValue, sequence, "sequence.dat"));
+        if (!string.IsNullOrWhiteSpace(sequenceFormat))
+            args.AddRange(["-sformat1", sequenceFormat]);
+        AddQualifierTokens(args, qualifiers);
+        if (!string.IsNullOrEmpty(frame))
+            args.AddRange(["-frame", frame]);
+        if (!string.IsNullOrEmpty(table))
+            args.AddRange(["-table", table]);
+        if (!string.IsNullOrEmpty(regions))
+            args.AddRange(["-regions", regions]);
+        if (trim)
+            args.Add("-trim");
+        if (clean)
+            args.Add("-clean");
+        if (alternative)
+            args.Add("-alternative");
+        if (!methionine)
+            args.Add("-nomethionine");
+        return RunEmbossSequenceProgram("transeq", args, all, outputFormat, nameof(sequence));
+    }
+    [McpServerTool(Name = "extractseq", Title = "Genome — EMBOSS extractseq (extract regions of a sequence)", ReadOnly = true)]
+    [Description("EMBOSS 6.6.0 extractseq: the regions (default the whole range of the sequence) are joined into one sequence, or with separate written one sequence per region named name_start_end. Equals the installed program on 320 runs (every input format of seqret, ranges, the output formats, the messages of the library; byte for byte). B09 WP61, F280.")]
+    public static EmbossProgramToolResult Extractseq(
+        [Description("The text of the sequence file (the first sequence is used), or a sequence as letters.")] string sequence,
+        [Description("The regions (-regions): '4-57,78-94', '1:45 67=99'; default the range of the sequence.")] string? regions = null,
+        [Description("Write every region as a separate sequence (-separate).")] bool separate = false,
+        [Description("The input format (-sformat1); default: the program finds the format.")] string? sequenceFormat = null,
+        [Description("Sequence input qualifiers as typed after the sequence on the command line: -sbegin1 -send1 -sreverse1, -slower1 -supper1 -snucleotide1 -sprotein1 -scircular1, -sid1 name, -sdbname1 db, -squick1, -iquery1 query, -ioffset1 bytes.")] string? qualifiers = null,
+        [Description("The sequence output format (-osformat): fasta (default), embl, genbank, gcg, nbrf, ig, raw, msf, clustal, phylip, nexus, ... every format of seqret.")] string outputFormat = "fasta",
+        CancellationToken cancellationToken = default,
+        [Description("More files by name (file name -> text) that the program may read (a file named by a USA, @file).")] IReadOnlyDictionary<string, string>? files = null,
+        [Description("The USA of the sequence input (-sequence) as the program reads it, instead of the text: [format::]file[begin:end:r], file:id, @list, asis::SEQUENCE.")] string? sequenceValue = null)
+    {
+        if (string.IsNullOrWhiteSpace(sequence))
+            throw new ArgumentException("The sequence cannot be empty", nameof(sequence));
+        cancellationToken.ThrowIfCancellationRequested();
+        var all = new Dictionary<string, string>(files ?? new Dictionary<string, string>());
+        var args = new List<string>();
+        all["sequence.dat"] = sequence;
+        args.Add("-sequence");
+        args.Add(SequenceSpec(sequenceValue, sequence, "sequence.dat"));
+        if (!string.IsNullOrWhiteSpace(sequenceFormat))
+            args.AddRange(["-sformat1", sequenceFormat]);
+        AddQualifierTokens(args, qualifiers);
+        if (!string.IsNullOrEmpty(regions))
+            args.AddRange(["-regions", regions]);
+        if (separate)
+            args.Add("-separate");
+        return RunEmbossSequenceProgram("extractseq", args, all, outputFormat, nameof(sequence));
+    }
+    [McpServerTool(Name = "cutseq", Title = "Genome — EMBOSS cutseq (remove a section from a sequence)", ReadOnly = true)]
+    [Description("EMBOSS 6.6.0 cutseq: the residues from 'from' to 'to' are removed (default: from the first to the last residue, so the whole sequence goes; a value outside the limits is reset to the limit with the warning of the library). Equals the installed program on 320 runs (every input format of seqret, ranges, the output formats, the messages of the library; byte for byte). B09 WP61, F280.")]
+    public static EmbossProgramToolResult Cutseq(
+        [Description("The text of the sequence file (the first sequence is used), or a sequence as letters.")] string sequence,
+        [Description("The first residue to remove (-from).")] int? @from = null,
+        [Description("The last residue to remove (-to).")] int? @to = null,
+        [Description("The input format (-sformat1); default: the program finds the format.")] string? sequenceFormat = null,
+        [Description("Sequence input qualifiers as typed after the sequence on the command line: -sbegin1 -send1 -sreverse1, -slower1 -supper1 -snucleotide1 -sprotein1 -scircular1, -sid1 name, -sdbname1 db, -squick1, -iquery1 query, -ioffset1 bytes.")] string? qualifiers = null,
+        [Description("The sequence output format (-osformat): fasta (default), embl, genbank, gcg, nbrf, ig, raw, msf, clustal, phylip, nexus, ... every format of seqret.")] string outputFormat = "fasta",
+        CancellationToken cancellationToken = default,
+        [Description("More files by name (file name -> text) that the program may read (a file named by a USA, @file).")] IReadOnlyDictionary<string, string>? files = null,
+        [Description("The USA of the sequence input (-sequence) as the program reads it, instead of the text: [format::]file[begin:end:r], file:id, @list, asis::SEQUENCE.")] string? sequenceValue = null)
+    {
+        if (string.IsNullOrWhiteSpace(sequence))
+            throw new ArgumentException("The sequence cannot be empty", nameof(sequence));
+        cancellationToken.ThrowIfCancellationRequested();
+        var all = new Dictionary<string, string>(files ?? new Dictionary<string, string>());
+        var args = new List<string>();
+        all["sequence.dat"] = sequence;
+        args.Add("-sequence");
+        args.Add(SequenceSpec(sequenceValue, sequence, "sequence.dat"));
+        if (!string.IsNullOrWhiteSpace(sequenceFormat))
+            args.AddRange(["-sformat1", sequenceFormat]);
+        AddQualifierTokens(args, qualifiers);
+        if (@from.HasValue)
+            args.AddRange(["-from", @from.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)]);
+        if (@to.HasValue)
+            args.AddRange(["-to", @to.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)]);
+        return RunEmbossSequenceProgram("cutseq", args, all, outputFormat, nameof(sequence));
+    }
+    [McpServerTool(Name = "degapseq", Title = "Genome — EMBOSS degapseq (remove gap characters)", ReadOnly = true)]
+    [Description("EMBOSS 6.6.0 degapseq: every character that is no letter and no star (the gaps '-', '.', '~' and blanks) is removed. Equals the installed program on 320 runs (every input format of seqret, ranges, the output formats, the messages of the library; byte for byte). B09 WP61, F280.")]
+    public static EmbossProgramToolResult Degapseq(
+        [Description("The text of the sequence file (any input format of seqret), or a sequence as letters.")] string sequence,
+        [Description("The input format (-sformat1); default: the program finds the format.")] string? sequenceFormat = null,
+        [Description("Sequence input qualifiers as typed after the sequence on the command line: -sbegin1 -send1 -sreverse1, -slower1 -supper1 -snucleotide1 -sprotein1 -scircular1, -sid1 name, -sdbname1 db, -squick1, -iquery1 query, -ioffset1 bytes.")] string? qualifiers = null,
+        [Description("The sequence output format (-osformat): fasta (default), embl, genbank, gcg, nbrf, ig, raw, msf, clustal, phylip, nexus, ... every format of seqret.")] string outputFormat = "fasta",
+        CancellationToken cancellationToken = default,
+        [Description("More files by name (file name -> text) that the program may read (a file named by a USA, @file).")] IReadOnlyDictionary<string, string>? files = null,
+        [Description("The USA of the sequence input (-sequence) as the program reads it, instead of the text: [format::]file[begin:end:r], file:id, @list, asis::SEQUENCE.")] string? sequenceValue = null)
+    {
+        if (string.IsNullOrWhiteSpace(sequence))
+            throw new ArgumentException("The sequence cannot be empty", nameof(sequence));
+        cancellationToken.ThrowIfCancellationRequested();
+        var all = new Dictionary<string, string>(files ?? new Dictionary<string, string>());
+        var args = new List<string>();
+        all["sequence.dat"] = sequence;
+        args.Add("-sequence");
+        args.Add(SequenceSpec(sequenceValue, sequence, "sequence.dat"));
+        if (!string.IsNullOrWhiteSpace(sequenceFormat))
+            args.AddRange(["-sformat1", sequenceFormat]);
+        AddQualifierTokens(args, qualifiers);
+        return RunEmbossSequenceProgram("degapseq", args, all, outputFormat, nameof(sequence));
+    }
+    [McpServerTool(Name = "trimseq", Title = "Genome — EMBOSS trimseq (trim ambiguous ends)", ReadOnly = true)]
+    [Description("EMBOSS 6.6.0 trimseq: a window moves in from each end; the sequence is cut where the share of bad characters (ambiguity codes, with strict also B and Z or N, X; gaps always) in the window falls below percent. Equals the installed program on 320 runs (every input format of seqret, ranges, the output formats, the messages of the library; byte for byte). B09 WP61, F280.")]
+    public static EmbossProgramToolResult Trimseq(
+        [Description("The text of the sequence file (any input format of seqret), or a sequence as letters.")] string sequence,
+        [Description("The window size (-window, default 1; not longer than the first sequence).")] int? window = null,
+        [Description("The percentage of bad characters that makes a window to be trimmed (-percent, default 100).")] float? percent = null,
+        [Description("Trim the ambiguity codes too (-strict).")] bool strict = false,
+        [Description("Protein: an asterisk is a good character (-star).")] bool star = false,
+        [Description("Trim the start (-left, default true).")] bool left = true,
+        [Description("Trim the end (-right, default true).")] bool right = true,
+        [Description("The input format (-sformat1); default: the program finds the format.")] string? sequenceFormat = null,
+        [Description("Sequence input qualifiers as typed after the sequence on the command line: -sbegin1 -send1 -sreverse1, -slower1 -supper1 -snucleotide1 -sprotein1 -scircular1, -sid1 name, -sdbname1 db, -squick1, -iquery1 query, -ioffset1 bytes.")] string? qualifiers = null,
+        [Description("The sequence output format (-osformat): fasta (default), embl, genbank, gcg, nbrf, ig, raw, msf, clustal, phylip, nexus, ... every format of seqret.")] string outputFormat = "fasta",
+        CancellationToken cancellationToken = default,
+        [Description("More files by name (file name -> text) that the program may read (a file named by a USA, @file).")] IReadOnlyDictionary<string, string>? files = null,
+        [Description("The USA of the sequence input (-sequence) as the program reads it, instead of the text: [format::]file[begin:end:r], file:id, @list, asis::SEQUENCE.")] string? sequenceValue = null)
+    {
+        if (string.IsNullOrWhiteSpace(sequence))
+            throw new ArgumentException("The sequence cannot be empty", nameof(sequence));
+        cancellationToken.ThrowIfCancellationRequested();
+        var all = new Dictionary<string, string>(files ?? new Dictionary<string, string>());
+        var args = new List<string>();
+        all["sequence.dat"] = sequence;
+        args.Add("-sequence");
+        args.Add(SequenceSpec(sequenceValue, sequence, "sequence.dat"));
+        if (!string.IsNullOrWhiteSpace(sequenceFormat))
+            args.AddRange(["-sformat1", sequenceFormat]);
+        AddQualifierTokens(args, qualifiers);
+        if (window.HasValue)
+            args.AddRange(["-window", window.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)]);
+        if (percent.HasValue)
+            args.AddRange(["-percent", percent.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)]);
+        if (strict)
+            args.Add("-strict");
+        if (star)
+            args.Add("-star");
+        if (!left)
+            args.Add("-noleft");
+        if (!right)
+            args.Add("-noright");
+        return RunEmbossSequenceProgram("trimseq", args, all, outputFormat, nameof(sequence));
+    }
+    [McpServerTool(Name = "skipseq", Title = "Genome — EMBOSS skipseq (skip the first sequences)", ReadOnly = true)]
+    [Description("EMBOSS 6.6.0 skipseq: the first 'skip' sequences are left out. Equals the installed program on 320 runs (every input format of seqret, ranges, the output formats, the messages of the library; byte for byte). B09 WP61, F280.")]
+    public static EmbossProgramToolResult Skipseq(
+        [Description("The text of the sequence file (any input format of seqret), or a sequence as letters.")] string sequence,
+        [Description("The number of sequences to skip (-skip, default 0).")] int? skip = null,
+        [Description("The input format (-sformat1); default: the program finds the format.")] string? sequenceFormat = null,
+        [Description("Sequence input qualifiers as typed after the sequence on the command line: -sbegin1 -send1 -sreverse1, -slower1 -supper1 -snucleotide1 -sprotein1 -scircular1, -sid1 name, -sdbname1 db, -squick1, -iquery1 query, -ioffset1 bytes.")] string? qualifiers = null,
+        [Description("The sequence output format (-osformat): fasta (default), embl, genbank, gcg, nbrf, ig, raw, msf, clustal, phylip, nexus, ... every format of seqret.")] string outputFormat = "fasta",
+        CancellationToken cancellationToken = default,
+        [Description("More files by name (file name -> text) that the program may read (a file named by a USA, @file).")] IReadOnlyDictionary<string, string>? files = null,
+        [Description("The USA of the sequence input (-sequence) as the program reads it, instead of the text: [format::]file[begin:end:r], file:id, @list, asis::SEQUENCE.")] string? sequenceValue = null)
+    {
+        if (string.IsNullOrWhiteSpace(sequence))
+            throw new ArgumentException("The sequence cannot be empty", nameof(sequence));
+        cancellationToken.ThrowIfCancellationRequested();
+        var all = new Dictionary<string, string>(files ?? new Dictionary<string, string>());
+        var args = new List<string>();
+        all["sequence.dat"] = sequence;
+        args.Add("-sequence");
+        args.Add(SequenceSpec(sequenceValue, sequence, "sequence.dat"));
+        if (!string.IsNullOrWhiteSpace(sequenceFormat))
+            args.AddRange(["-sformat1", sequenceFormat]);
+        AddQualifierTokens(args, qualifiers);
+        if (skip.HasValue)
+            args.AddRange(["-skip", skip.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)]);
+        return RunEmbossSequenceProgram("skipseq", args, all, outputFormat, nameof(sequence));
+    }
+    [McpServerTool(Name = "nthseq", Title = "Genome — EMBOSS nthseq (write one sequence)", ReadOnly = true)]
+    [Description("EMBOSS 6.6.0 nthseq: the sequence with the number 'number'; with fewer sequences the library reports 'No such sequence - only N sequences were input.'. Equals the installed program on 320 runs (every input format of seqret, ranges, the output formats, the messages of the library; byte for byte). B09 WP61, F280.")]
+    public static EmbossProgramToolResult Nthseq(
+        [Description("The text of the sequence file (any input format of seqret), or a sequence as letters.")] string sequence,
+        [Description("The number of the sequence (-number, default 1).")] int? number = null,
+        [Description("The input format (-sformat1); default: the program finds the format.")] string? sequenceFormat = null,
+        [Description("Sequence input qualifiers as typed after the sequence on the command line: -sbegin1 -send1 -sreverse1, -slower1 -supper1 -snucleotide1 -sprotein1 -scircular1, -sid1 name, -sdbname1 db, -squick1, -iquery1 query, -ioffset1 bytes.")] string? qualifiers = null,
+        [Description("The sequence output format (-osformat): fasta (default), embl, genbank, gcg, nbrf, ig, raw, msf, clustal, phylip, nexus, ... every format of seqret.")] string outputFormat = "fasta",
+        CancellationToken cancellationToken = default,
+        [Description("More files by name (file name -> text) that the program may read (a file named by a USA, @file).")] IReadOnlyDictionary<string, string>? files = null,
+        [Description("The USA of the sequence input (-sequence) as the program reads it, instead of the text: [format::]file[begin:end:r], file:id, @list, asis::SEQUENCE.")] string? sequenceValue = null)
+    {
+        if (string.IsNullOrWhiteSpace(sequence))
+            throw new ArgumentException("The sequence cannot be empty", nameof(sequence));
+        cancellationToken.ThrowIfCancellationRequested();
+        var all = new Dictionary<string, string>(files ?? new Dictionary<string, string>());
+        var args = new List<string>();
+        all["sequence.dat"] = sequence;
+        args.Add("-sequence");
+        args.Add(SequenceSpec(sequenceValue, sequence, "sequence.dat"));
+        if (!string.IsNullOrWhiteSpace(sequenceFormat))
+            args.AddRange(["-sformat1", sequenceFormat]);
+        AddQualifierTokens(args, qualifiers);
+        if (number.HasValue)
+            args.AddRange(["-number", number.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)]);
+        return RunEmbossSequenceProgram("nthseq", args, all, outputFormat, nameof(sequence));
+    }
+    [McpServerTool(Name = "notseq", Title = "Genome — EMBOSS notseq (exclude sequences)", ReadOnly = true)]
+    [Description("EMBOSS 6.6.0 notseq: the sequences whose name or accession matches one of the patterns of exclude (wildcards * and ?, separated by commas or semicolons; '@file' reads the patterns from a file of the files dictionary) go to junkOutputFile (default: dropped), the others are the output. Equals the installed program on 320 runs (every input format of seqret, ranges, the output formats, the messages of the library; byte for byte). B09 WP61, F280.")]
+    public static EmbossProgramToolResult Notseq(
+        [Description("The text of the sequence file (any input format of seqret), or a sequence as letters.")] string sequence,
+        [Description("The patterns of the names or accessions to exclude (-exclude), or @file.")] string? exclude = null,
+        [Description("The input format (-sformat1); default: the program finds the format.")] string? sequenceFormat = null,
+        [Description("Sequence input qualifiers as typed after the sequence on the command line: -sbegin1 -send1 -sreverse1, -slower1 -supper1 -snucleotide1 -sprotein1 -scircular1, -sid1 name, -sdbname1 db, -squick1, -iquery1 query, -ioffset1 bytes.")] string? qualifiers = null,
+        [Description("The sequence output format (-osformat): fasta (default), embl, genbank, gcg, nbrf, ig, raw, msf, clustal, phylip, nexus, ... every format of seqret.")] string outputFormat = "fasta",
+        CancellationToken cancellationToken = default,
+        [Description("More files by name (file name -> text) that the program may read (a file named by a USA, @file).")] IReadOnlyDictionary<string, string>? files = null,
+        [Description("The USA of the sequence input (-sequence) as the program reads it, instead of the text: [format::]file[begin:end:r], file:id, @list, asis::SEQUENCE.")] string? sequenceValue = null)
+    {
+        if (string.IsNullOrWhiteSpace(sequence))
+            throw new ArgumentException("The sequence cannot be empty", nameof(sequence));
+        cancellationToken.ThrowIfCancellationRequested();
+        var all = new Dictionary<string, string>(files ?? new Dictionary<string, string>());
+        var args = new List<string>();
+        all["sequence.dat"] = sequence;
+        args.Add("-sequence");
+        args.Add(SequenceSpec(sequenceValue, sequence, "sequence.dat"));
+        if (!string.IsNullOrWhiteSpace(sequenceFormat))
+            args.AddRange(["-sformat1", sequenceFormat]);
+        AddQualifierTokens(args, qualifiers);
+        if (!string.IsNullOrEmpty(exclude))
+            args.AddRange(["-exclude", exclude]);
+        args.AddRange(["-junkoutseq", "junk.out"]);
+        return RunEmbossSequenceProgram("notseq", args, all, outputFormat, nameof(sequence));
+    }
+    [McpServerTool(Name = "pasteseq", Title = "Genome — EMBOSS pasteseq (insert a sequence into another)", ReadOnly = true)]
+    [Description("EMBOSS 6.6.0 pasteseq: the insert sequence is put into the sequence after position pos (0 = at the start; default the end). Equals the installed program on 320 runs (every input format of seqret, ranges, the output formats, the messages of the library; byte for byte). B09 WP61, F280.")]
+    public static EmbossProgramToolResult Pasteseq(
+        [Description("The text of the sequence file (the first sequence is used), or a sequence as letters.")] string sequence,
+        [Description("The sequence to insert (the same kind).")] string insertSequence = "",
+        [Description("The position after which to insert (-pos, 0 .. length; default the end).")] int? pos = null,
+        [Description("The input format (-sformat1); default: the program finds the format.")] string? sequenceFormat = null,
+        [Description("Sequence input qualifiers as typed after the sequence on the command line: -sbegin1 -send1 -sreverse1, -slower1 -supper1 -snucleotide1 -sprotein1 -scircular1, -sid1 name, -sdbname1 db, -squick1, -iquery1 query, -ioffset1 bytes.")] string? qualifiers = null,
+        [Description("The sequence output format (-osformat): fasta (default), embl, genbank, gcg, nbrf, ig, raw, msf, clustal, phylip, nexus, ... every format of seqret.")] string outputFormat = "fasta",
+        CancellationToken cancellationToken = default,
+        [Description("More files by name (file name -> text) that the program may read (a file named by a USA, @file).")] IReadOnlyDictionary<string, string>? files = null,
+        [Description("The USA of the sequence input (-sequence) as the program reads it, instead of the text: [format::]file[begin:end:r], file:id, @list, asis::SEQUENCE.")] string? sequenceValue = null)
+    {
+        if (string.IsNullOrWhiteSpace(sequence))
+            throw new ArgumentException("The sequence cannot be empty", nameof(sequence));
+        cancellationToken.ThrowIfCancellationRequested();
+        var all = new Dictionary<string, string>(files ?? new Dictionary<string, string>());
+        var args = new List<string>();
+        all["asequence.dat"] = sequence;
+        args.Add("-asequence");
+        args.Add(SequenceSpec(sequenceValue, sequence, "asequence.dat"));
+        all["bsequence.dat"] = insertSequence;
+        args.Add("-bsequence");
+        args.Add(SequenceSpec(null, insertSequence, "bsequence.dat"));
+        if (!string.IsNullOrWhiteSpace(sequenceFormat))
+            args.AddRange(["-sformat1", sequenceFormat]);
+        AddQualifierTokens(args, qualifiers);
+        if (pos.HasValue)
+            args.AddRange(["-pos", pos.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)]);
+        return RunEmbossSequenceProgram("pasteseq", args, all, outputFormat, nameof(sequence));
+    }
+    [McpServerTool(Name = "trimest", Title = "Genome — EMBOSS trimest (trim poly-A tails of ESTs)", ReadOnly = true)]
+    [Description("EMBOSS 6.6.0 trimest: the longer of the 3' poly-A tail and the 5' poly-T head (with mismatches allowed; N is ignored) is removed from every sequence, or written in lower case with tolower; a removed poly-T head makes the sequence reverse-complemented unless reverse is false; the description tells what was done. Equals the installed program on 320 runs (every input format of seqret, ranges, the output formats, the messages of the library; byte for byte). B09 WP61, F280.")]
+    public static EmbossProgramToolResult Trimest(
+        [Description("The text of the sequence file (any input format of seqret), or a sequence as letters.")] string sequence,
+        [Description("The minimum length of a tail (-minlength, default 4).")] int? minLength = null,
+        [Description("The number of contiguous mismatches allowed in a tail (-mismatches, default 1).")] int? mismatches = null,
+        [Description("Reverse-complement a sequence whose poly-T head was removed (-reverse, default true).")] bool reverse = true,
+        [Description("Change the tail to lower case instead of removing it (-tolower).")] bool toLower = false,
+        [Description("Also look for a 5' poly-T head (-fiveprime, default true).")] bool fivePrime = true,
+        [Description("The input format (-sformat1); default: the program finds the format.")] string? sequenceFormat = null,
+        [Description("Sequence input qualifiers as typed after the sequence on the command line: -sbegin1 -send1 -sreverse1, -slower1 -supper1 -snucleotide1 -sprotein1 -scircular1, -sid1 name, -sdbname1 db, -squick1, -iquery1 query, -ioffset1 bytes.")] string? qualifiers = null,
+        [Description("The sequence output format (-osformat): fasta (default), embl, genbank, gcg, nbrf, ig, raw, msf, clustal, phylip, nexus, ... every format of seqret.")] string outputFormat = "fasta",
+        CancellationToken cancellationToken = default,
+        [Description("More files by name (file name -> text) that the program may read (a file named by a USA, @file).")] IReadOnlyDictionary<string, string>? files = null,
+        [Description("The USA of the sequence input (-sequence) as the program reads it, instead of the text: [format::]file[begin:end:r], file:id, @list, asis::SEQUENCE.")] string? sequenceValue = null)
+    {
+        if (string.IsNullOrWhiteSpace(sequence))
+            throw new ArgumentException("The sequence cannot be empty", nameof(sequence));
+        cancellationToken.ThrowIfCancellationRequested();
+        var all = new Dictionary<string, string>(files ?? new Dictionary<string, string>());
+        var args = new List<string>();
+        all["sequence.dat"] = sequence;
+        args.Add("-sequence");
+        args.Add(SequenceSpec(sequenceValue, sequence, "sequence.dat"));
+        if (!string.IsNullOrWhiteSpace(sequenceFormat))
+            args.AddRange(["-sformat1", sequenceFormat]);
+        AddQualifierTokens(args, qualifiers);
+        if (minLength.HasValue)
+            args.AddRange(["-minlength", minLength.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)]);
+        if (mismatches.HasValue)
+            args.AddRange(["-mismatches", mismatches.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)]);
+        if (!reverse)
+            args.Add("-noreverse");
+        if (toLower)
+            args.Add("-tolower");
+        if (!fivePrime)
+            args.Add("-nofiveprime");
+        return RunEmbossSequenceProgram("trimest", args, all, outputFormat, nameof(sequence));
+    }
+    [McpServerTool(Name = "newseq", Title = "Genome — EMBOSS newseq (type in a short sequence)", ReadOnly = true)]
+    [Description("EMBOSS 6.6.0 newseq: the sequence is written in the chosen format with the gaps and the ambiguity codes of its type (nucleic: gapnucleotide; protein: gapprotein) as the output sequence check leaves them. Equals the installed program on 320 runs (every input format of seqret, ranges, the output formats, the messages of the library; byte for byte). B09 WP61, F280.")]
+    public static EmbossProgramToolResult Newseq(
+        [Description("The name of the sequence (-name).")] string name,
+        [Description("The description of the sequence (-description).")] string description = "",
+        [Description("N nucleic or P protein (-type).")] string @type = "N",
+        [Description("The residues (-sequence).")] string residues = "",
+        [Description("The sequence output format (-osformat): fasta (default), embl, genbank, gcg, nbrf, ig, raw, msf, clustal, phylip, nexus, ... every format of seqret.")] string outputFormat = "fasta",
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var all = new Dictionary<string, string>();
+        var args = new List<string>();
+        args.AddRange(["-name", name]);
+        args.AddRange(["-description", description]);
+        args.AddRange(["-type", @type]);
+        args.AddRange(["-sequence", residues]);
+        return RunEmbossSequenceProgram("newseq", args, all, outputFormat, nameof(name));
+    }
+    [McpServerTool(Name = "yank", Title = "Genome — EMBOSS yank (the USA of a sequence)", ReadOnly = true)]
+    [Description("EMBOSS 6.6.0 yank: the text is the USA of the first sequence as the library makes it: format::file:name with the range [begin:end] or [end:begin:r]. Equals the installed program on 320 runs (every input format of seqret, ranges, the output formats, the messages of the library; byte for byte). B09 WP61, F280.")]
+    public static EmbossProgramToolResult Yank(
+        [Description("The text of the sequence file (the first sequence is used), or a sequence as letters.")] string sequence,
+        [Description("The input format (-sformat1); default: the program finds the format.")] string? sequenceFormat = null,
+        [Description("Sequence input qualifiers as typed after the sequence on the command line: -sbegin1 -send1 -sreverse1, -slower1 -supper1 -snucleotide1 -sprotein1 -scircular1, -sid1 name, -sdbname1 db, -squick1, -iquery1 query, -ioffset1 bytes.")] string? qualifiers = null,
+        CancellationToken cancellationToken = default,
+        [Description("More files by name (file name -> text) that the program may read (a file named by a USA, @file).")] IReadOnlyDictionary<string, string>? files = null,
+        [Description("The USA of the sequence input (-sequence) as the program reads it, instead of the text: [format::]file[begin:end:r], file:id, @list, asis::SEQUENCE.")] string? sequenceValue = null)
+    {
+        if (string.IsNullOrWhiteSpace(sequence))
+            throw new ArgumentException("The sequence cannot be empty", nameof(sequence));
+        cancellationToken.ThrowIfCancellationRequested();
+        var all = new Dictionary<string, string>(files ?? new Dictionary<string, string>());
+        var args = new List<string>();
+        all["sequence.dat"] = sequence;
+        args.Add("-sequence");
+        args.Add(SequenceSpec(sequenceValue, sequence, "sequence.dat"));
+        if (!string.IsNullOrWhiteSpace(sequenceFormat))
+            args.AddRange(["-sformat1", sequenceFormat]);
+        AddQualifierTokens(args, qualifiers);
+        return RunEmbossOutfileProgram("yank", args, all, nameof(sequence));
+    }
+    [McpServerTool(Name = "seqcount", Title = "Genome — EMBOSS seqcount (count the sequences)", ReadOnly = true)]
+    [Description("EMBOSS 6.6.0 seqcount: the number of sequences the file holds (with the range qualifiers, the sequences read). Equals the installed program on 320 runs (every input format of seqret, ranges, the output formats, the messages of the library; byte for byte). B09 WP61, F280.")]
+    public static EmbossProgramToolResult Seqcount(
+        [Description("The text of the sequence file (any input format of seqret), or a sequence as letters.")] string sequence,
+        [Description("The input format (-sformat1); default: the program finds the format.")] string? sequenceFormat = null,
+        [Description("Sequence input qualifiers as typed after the sequence on the command line: -sbegin1 -send1 -sreverse1, -slower1 -supper1 -snucleotide1 -sprotein1 -scircular1, -sid1 name, -sdbname1 db, -squick1, -iquery1 query, -ioffset1 bytes.")] string? qualifiers = null,
+        CancellationToken cancellationToken = default,
+        [Description("More files by name (file name -> text) that the program may read (a file named by a USA, @file).")] IReadOnlyDictionary<string, string>? files = null,
+        [Description("The USA of the sequence input (-sequence) as the program reads it, instead of the text: [format::]file[begin:end:r], file:id, @list, asis::SEQUENCE.")] string? sequenceValue = null)
+    {
+        if (string.IsNullOrWhiteSpace(sequence))
+            throw new ArgumentException("The sequence cannot be empty", nameof(sequence));
+        cancellationToken.ThrowIfCancellationRequested();
+        var all = new Dictionary<string, string>(files ?? new Dictionary<string, string>());
+        var args = new List<string>();
+        all["sequence.dat"] = sequence;
+        args.Add("-sequence");
+        args.Add(SequenceSpec(sequenceValue, sequence, "sequence.dat"));
+        if (!string.IsNullOrWhiteSpace(sequenceFormat))
+            args.AddRange(["-sformat1", sequenceFormat]);
+        AddQualifierTokens(args, qualifiers);
+        return RunEmbossOutfileProgram("seqcount", args, all, nameof(sequence));
+    }
+    [McpServerTool(Name = "splitter", Title = "Genome — EMBOSS splitter (split sequences into pieces)", ReadOnly = true)]
+    [Description("EMBOSS 6.6.0 splitter: the pieces of size residues (overlapping by overlap; addOverlap puts the overlap on top of the size) are named name_begin-end and keep the description; the features of the pieces (-feature) are not written. Equals the installed program on 320 runs (every input format of seqret, ranges, the output formats, the messages of the library; byte for byte). B09 WP61, F280.")]
+    public static EmbossProgramToolResult Splitter(
+        [Description("The text of the sequence file (any input format of seqret), or a sequence as letters.")] string sequence,
+        [Description("The size of the pieces (-size, default 10000).")] int? size = null,
+        [Description("The overlap of the pieces (-overlap, default 0; at most size - 1).")] int? overlap = null,
+        [Description("The overlap is added to the pieces (-addoverlap).")] bool addOverlap = false,
+        [Description("The input format (-sformat1); default: the program finds the format.")] string? sequenceFormat = null,
+        [Description("Sequence input qualifiers as typed after the sequence on the command line: -sbegin1 -send1 -sreverse1, -slower1 -supper1 -snucleotide1 -sprotein1 -scircular1, -sid1 name, -sdbname1 db, -squick1, -iquery1 query, -ioffset1 bytes.")] string? qualifiers = null,
+        [Description("The sequence output format (-osformat): fasta (default), embl, genbank, gcg, nbrf, ig, raw, msf, clustal, phylip, nexus, ... every format of seqret.")] string outputFormat = "fasta",
+        CancellationToken cancellationToken = default,
+        [Description("More files by name (file name -> text) that the program may read (a file named by a USA, @file).")] IReadOnlyDictionary<string, string>? files = null,
+        [Description("The USA of the sequence input (-sequence) as the program reads it, instead of the text: [format::]file[begin:end:r], file:id, @list, asis::SEQUENCE.")] string? sequenceValue = null)
+    {
+        if (string.IsNullOrWhiteSpace(sequence))
+            throw new ArgumentException("The sequence cannot be empty", nameof(sequence));
+        cancellationToken.ThrowIfCancellationRequested();
+        var all = new Dictionary<string, string>(files ?? new Dictionary<string, string>());
+        var args = new List<string>();
+        all["sequence.dat"] = sequence;
+        args.Add("-sequence");
+        args.Add(SequenceSpec(sequenceValue, sequence, "sequence.dat"));
+        if (!string.IsNullOrWhiteSpace(sequenceFormat))
+            args.AddRange(["-sformat1", sequenceFormat]);
+        AddQualifierTokens(args, qualifiers);
+        if (size.HasValue)
+            args.AddRange(["-size", size.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)]);
+        if (overlap.HasValue)
+            args.AddRange(["-overlap", overlap.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)]);
+        if (addOverlap)
+            args.Add("-addoverlap");
+        return RunEmbossSequenceProgram("splitter", args, all, outputFormat, nameof(sequence));
+    }
+    [McpServerTool(Name = "maskseq", Title = "Genome — EMBOSS maskseq (mask regions of a sequence)", ReadOnly = true)]
+    [Description("EMBOSS 6.6.0 maskseq: the regions (-regions '4-57,78-94') are replaced by the mask character (N, X for protein) or written in lower case with toLower. Equals the installed program on 320 runs (every input format of seqret, ranges, the output formats, the messages of the library; byte for byte). B09 WP61, F280.")]
+    public static EmbossProgramToolResult Maskseq(
+        [Description("The text of the sequence file (the first sequence is used), or a sequence as letters.")] string sequence,
+        [Description("The regions to mask (-regions).")] string? regions = null,
+        [Description("Write the regions in lower case instead of masking them (-tolower).")] bool toLower = false,
+        [Description("The mask character (-maskchar, one character).")] string? maskChar = null,
+        [Description("The input format (-sformat1); default: the program finds the format.")] string? sequenceFormat = null,
+        [Description("Sequence input qualifiers as typed after the sequence on the command line: -sbegin1 -send1 -sreverse1, -slower1 -supper1 -snucleotide1 -sprotein1 -scircular1, -sid1 name, -sdbname1 db, -squick1, -iquery1 query, -ioffset1 bytes.")] string? qualifiers = null,
+        [Description("The sequence output format (-osformat): fasta (default), embl, genbank, gcg, nbrf, ig, raw, msf, clustal, phylip, nexus, ... every format of seqret.")] string outputFormat = "fasta",
+        CancellationToken cancellationToken = default,
+        [Description("More files by name (file name -> text) that the program may read (a file named by a USA, @file).")] IReadOnlyDictionary<string, string>? files = null,
+        [Description("The USA of the sequence input (-sequence) as the program reads it, instead of the text: [format::]file[begin:end:r], file:id, @list, asis::SEQUENCE.")] string? sequenceValue = null)
+    {
+        if (string.IsNullOrWhiteSpace(sequence))
+            throw new ArgumentException("The sequence cannot be empty", nameof(sequence));
+        cancellationToken.ThrowIfCancellationRequested();
+        var all = new Dictionary<string, string>(files ?? new Dictionary<string, string>());
+        var args = new List<string>();
+        all["sequence.dat"] = sequence;
+        args.Add("-sequence");
+        args.Add(SequenceSpec(sequenceValue, sequence, "sequence.dat"));
+        if (!string.IsNullOrWhiteSpace(sequenceFormat))
+            args.AddRange(["-sformat1", sequenceFormat]);
+        AddQualifierTokens(args, qualifiers);
+        if (!string.IsNullOrEmpty(regions))
+            args.AddRange(["-regions", regions]);
+        if (toLower)
+            args.Add("-tolower");
+        if (!string.IsNullOrEmpty(maskChar))
+            args.AddRange(["-maskchar", maskChar]);
+        return RunEmbossSequenceProgram("maskseq", args, all, outputFormat, nameof(sequence));
+    }
+    [McpServerTool(Name = "maskambignuc", Title = "Genome — EMBOSS maskambignuc (mask ambiguous nucleotides)", ReadOnly = true)]
+    [Description("EMBOSS 6.6.0 maskambignuc: the input type gapnucleotidesimple turns every nucleotide ambiguity code into N (gaps are kept). Equals the installed program on 320 runs (every input format of seqret, ranges, the output formats, the messages of the library; byte for byte). B09 WP61, F280.")]
+    public static EmbossProgramToolResult Maskambignuc(
+        [Description("The text of the sequence file (any input format of seqret), or a sequence as letters.")] string sequence,
+        [Description("The input format (-sformat1); default: the program finds the format.")] string? sequenceFormat = null,
+        [Description("Sequence input qualifiers as typed after the sequence on the command line: -sbegin1 -send1 -sreverse1, -slower1 -supper1 -snucleotide1 -sprotein1 -scircular1, -sid1 name, -sdbname1 db, -squick1, -iquery1 query, -ioffset1 bytes.")] string? qualifiers = null,
+        [Description("The sequence output format (-osformat): fasta (default), embl, genbank, gcg, nbrf, ig, raw, msf, clustal, phylip, nexus, ... every format of seqret.")] string outputFormat = "fasta",
+        CancellationToken cancellationToken = default,
+        [Description("More files by name (file name -> text) that the program may read (a file named by a USA, @file).")] IReadOnlyDictionary<string, string>? files = null,
+        [Description("The USA of the sequence input (-sequence) as the program reads it, instead of the text: [format::]file[begin:end:r], file:id, @list, asis::SEQUENCE.")] string? sequenceValue = null)
+    {
+        if (string.IsNullOrWhiteSpace(sequence))
+            throw new ArgumentException("The sequence cannot be empty", nameof(sequence));
+        cancellationToken.ThrowIfCancellationRequested();
+        var all = new Dictionary<string, string>(files ?? new Dictionary<string, string>());
+        var args = new List<string>();
+        all["sequence.dat"] = sequence;
+        args.Add("-sequence");
+        args.Add(SequenceSpec(sequenceValue, sequence, "sequence.dat"));
+        if (!string.IsNullOrWhiteSpace(sequenceFormat))
+            args.AddRange(["-sformat1", sequenceFormat]);
+        AddQualifierTokens(args, qualifiers);
+        return RunEmbossSequenceProgram("maskambignuc", args, all, outputFormat, nameof(sequence));
+    }
+    [McpServerTool(Name = "maskambigprot", Title = "Genome — EMBOSS maskambigprot (mask ambiguous amino acids)", ReadOnly = true)]
+    [Description("EMBOSS 6.6.0 maskambigprot: the input type gapproteinsimple turns B, Z, U, J, O and * into X (gaps are kept). Equals the installed program on 320 runs (every input format of seqret, ranges, the output formats, the messages of the library; byte for byte). B09 WP61, F280.")]
+    public static EmbossProgramToolResult Maskambigprot(
+        [Description("The text of the sequence file (any input format of seqret), or a sequence as letters.")] string sequence,
+        [Description("The input format (-sformat1); default: the program finds the format.")] string? sequenceFormat = null,
+        [Description("Sequence input qualifiers as typed after the sequence on the command line: -sbegin1 -send1 -sreverse1, -slower1 -supper1 -snucleotide1 -sprotein1 -scircular1, -sid1 name, -sdbname1 db, -squick1, -iquery1 query, -ioffset1 bytes.")] string? qualifiers = null,
+        [Description("The sequence output format (-osformat): fasta (default), embl, genbank, gcg, nbrf, ig, raw, msf, clustal, phylip, nexus, ... every format of seqret.")] string outputFormat = "fasta",
+        CancellationToken cancellationToken = default,
+        [Description("More files by name (file name -> text) that the program may read (a file named by a USA, @file).")] IReadOnlyDictionary<string, string>? files = null,
+        [Description("The USA of the sequence input (-sequence) as the program reads it, instead of the text: [format::]file[begin:end:r], file:id, @list, asis::SEQUENCE.")] string? sequenceValue = null)
+    {
+        if (string.IsNullOrWhiteSpace(sequence))
+            throw new ArgumentException("The sequence cannot be empty", nameof(sequence));
+        cancellationToken.ThrowIfCancellationRequested();
+        var all = new Dictionary<string, string>(files ?? new Dictionary<string, string>());
+        var args = new List<string>();
+        all["sequence.dat"] = sequence;
+        args.Add("-sequence");
+        args.Add(SequenceSpec(sequenceValue, sequence, "sequence.dat"));
+        if (!string.IsNullOrWhiteSpace(sequenceFormat))
+            args.AddRange(["-sformat1", sequenceFormat]);
+        AddQualifierTokens(args, qualifiers);
+        return RunEmbossSequenceProgram("maskambigprot", args, all, outputFormat, nameof(sequence));
+    }
+    [McpServerTool(Name = "trimspace", Title = "Genome — EMBOSS trimspace (remove extra whitespace)", ReadOnly = true)]
+    [Description("EMBOSS 6.6.0 trimspace: every line loses its leading and trailing white space and every run of blanks becomes one (tabs and carriage returns are blanks). Equals the installed program on 320 runs (every input format of seqret, ranges, the output formats, the messages of the library; byte for byte). B09 WP61, F280.")]
+    public static EmbossProgramToolResult Trimspace(
+        [Description("The text of the file to process.")] string text,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            throw new ArgumentException("The sequence cannot be empty", nameof(text));
+        cancellationToken.ThrowIfCancellationRequested();
+        var all = new Dictionary<string, string>();
+        all["in.txt"] = text;
+        var args = new List<string> { "-infile", "in.txt" };
+        return RunEmbossOutfileProgram("trimspace", args, all, nameof(text));
+    }
+    [McpServerTool(Name = "nospace", Title = "Genome — EMBOSS nospace (remove whitespace)", ReadOnly = true)]
+    [Description("EMBOSS 6.6.0 nospace: menu all removes all white space, end the trailing white space, excess the leading and trailing white space and the extra blanks (a unique abbreviation of the menu value is accepted). Equals the installed program on 320 runs (every input format of seqret, ranges, the output formats, the messages of the library; byte for byte). B09 WP61, F280.")]
+    public static EmbossProgramToolResult Nospace(
+        [Description("The text of the file to process.")] string text,
+        [Description("all, end or excess (-menu, default all).")] string? menu = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            throw new ArgumentException("The sequence cannot be empty", nameof(text));
+        cancellationToken.ThrowIfCancellationRequested();
+        var all = new Dictionary<string, string>();
+        all["in.txt"] = text;
+        var args = new List<string> { "-infile", "in.txt" };
+        if (!string.IsNullOrEmpty(menu))
+            args.AddRange(["-menu", menu]);
+        return RunEmbossOutfileProgram("nospace", args, all, nameof(text));
+    }
+    [McpServerTool(Name = "notab", Title = "Genome — EMBOSS notab (replace tabs by blanks)", ReadOnly = true)]
+    [Description("EMBOSS 6.6.0 notab: every tab becomes the blanks up to the next multiple of eight columns. Equals the installed program on 320 runs (every input format of seqret, ranges, the output formats, the messages of the library; byte for byte). B09 WP61, F280.")]
+    public static EmbossProgramToolResult Notab(
+        [Description("The text of the file to process.")] string text,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            throw new ArgumentException("The sequence cannot be empty", nameof(text));
+        cancellationToken.ThrowIfCancellationRequested();
+        var all = new Dictionary<string, string>();
+        all["in.txt"] = text;
+        var args = new List<string> { "-infile", "in.txt" };
+        return RunEmbossOutfileProgram("notab", args, all, nameof(text));
+    }
+    [McpServerTool(Name = "noreturn", Title = "Genome — EMBOSS noreturn (change the line ends)", ReadOnly = true)]
+    [Description("EMBOSS 6.6.0 noreturn: the line ends become those of the system (unix LF, pc CRLF, mac CR); a carriage return inside a line is a line end unless the output is mac. Equals the installed program on 320 runs (every input format of seqret, ranges, the output formats, the messages of the library; byte for byte). B09 WP61, F280.")]
+    public static EmbossProgramToolResult Noreturn(
+        [Description("The text of the file to process.")] string text,
+        [Description("unix, pc or mac (-system, default unix).")] string? system = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            throw new ArgumentException("The sequence cannot be empty", nameof(text));
+        cancellationToken.ThrowIfCancellationRequested();
+        var all = new Dictionary<string, string>();
+        all["in.txt"] = text;
+        var args = new List<string> { "-infile", "in.txt" };
+        if (!string.IsNullOrEmpty(system))
+            args.AddRange(["-system", system]);
+        return RunEmbossOutfileProgram("noreturn", args, all, nameof(text));
+    }
+}

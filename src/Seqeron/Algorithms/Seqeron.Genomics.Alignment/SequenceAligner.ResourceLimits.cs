@@ -37,7 +37,7 @@ public static partial class SequenceAligner
     /// <summary><c>GenomicAnalyzer.MegaMerge</c> / <c>GenomicAnalyzer.SeqMatchAll</c>: maximal word matches of one sequence pair that are listed (12 bytes in the engine's list, 20 more in the result): 2^22 = 4 194 304. The programs keep every match in memory and have no such limit.</summary>
     public const long WordMatchMaxMatches = 1L << 22;
 
-    /// <summary><see cref="LocalAlignTopN(string, string, ScoringMatrix?, int, int, TopNTieOrder)"/> and the affine overloads with <see cref="TopNTieOrder.Sim"/> (EMBOSS matcher): the K-vertex list holds at most this many candidate start points (a vertex is about 56 bytes): 2^22 = 4 194 304. A larger <c>maxAlignments</c> is allocated lazily, so <c>int.MaxValue</c> asks for "every alignment" exactly as the Waterman-Eggert order accepts it; the program calls <c>calloc(K)</c> up front and dies for such a K.</summary>
+    /// <summary>The K-vertex list of the Huang-Miller SIM local aligner (the T-Coffee <c>lalign_id_pair</c> port and EMBOSS <c>matcher</c>): the K-vertex list holds at most this many candidate start points (a vertex is about 56 bytes): 2^22 = 4 194 304. A larger <c>maxAlignments</c> is allocated lazily, so <c>int.MaxValue</c> asks for "every alignment" exactly as the Waterman-Eggert order accepts it; the program calls <c>calloc(K)</c> up front and dies for such a K.</summary>
     public const long TopNSimMaxVertices = 1L << 22;
 
     /// <summary>
@@ -53,7 +53,7 @@ public static partial class SequenceAligner
     }
 
     /// <summary>A needle / water / supermatcher / needleall penalty: a finite number inside the program's range (NaN passes a plain <c>x &lt; min || x &gt; max</c> test).</summary>
-    internal static void RequireEmbossRange(double value, double min, double max, string parameter, string option, string program)
+    public static void RequireEmbossRange(double value, double min, double max, string parameter, string option, string program)
     {
         if (!(value >= min && value <= max))
             throw new ArgumentOutOfRangeException(parameter, value, $"{option} is a finite number between {min:0.0} and {max:0.0} in EMBOSS {program}.");
@@ -64,7 +64,7 @@ public static partial class SequenceAligner
     /// beyond the 32-bit range is saturated, and a value below the option's minimum is RESET to the minimum with the warning <c>integer value out of range -1 less than (reset to) 0</c> (the run goes on).
     /// </summary>
     /// <exception cref="ArgumentException"><paramref name="value"/> is not an integer the program accepts (NaN, infinite, fractional, beyond 64 bits).</exception>
-    internal static int EmbossInteger(double value, int minimum, string parameter, string option, System.Text.StringBuilder warnings)
+    public static int EmbossInteger(double value, int minimum, string parameter, string option, System.Text.StringBuilder warnings)
     {
         if (!double.IsFinite(value) || value != Math.Floor(value) || Math.Abs(value) >= 9.2233720368547758E+18)
             throw new ArgumentException($"Invalid integer value '{value.ToString("R", System.Globalization.CultureInfo.InvariantCulture)}' for {option}: an integer is required.", parameter);
@@ -76,7 +76,7 @@ public static partial class SequenceAligner
     }
 
     /// <summary>Integer-range contract of the stretcher (32-bit <c>int</c> program): the score of any path, <c>max(|substitution|, gapOpen + gapExtend) x (len1 + len2 + 2)</c>, must stay below 2^28 (as <see cref="PairScoring.EnsureRange"/>).</summary>
-    internal static void RequireStretcherRange(SubstitutionMatrix matrix, long gapOpen, long gapExtend, long length1, long length2)
+    public static void RequireStretcherRange(SubstitutionMatrix matrix, long gapOpen, long gapExtend, long length1, long length2)
     {
         long maxAbs = Math.Max(matrix.MaxAbsScore, gapOpen + gapExtend);
         if (maxAbs * (length1 + length2 + 2) >= 1L << 28)

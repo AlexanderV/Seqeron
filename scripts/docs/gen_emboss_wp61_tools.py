@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""B09 WP61 (F280): generates the MCP tools of the EMBOSS sequence programs of work package 61 on the Analysis server
+"""HISTORIC (B09 WP80): the tools this script generated now live in the EMBOSS MCP servers by area (Seqeron.Mcp.Emboss*; copyleft, docs/Validation/review-2026-09/LICENSES.md) and the tool files are maintained by hand; the paths and class names below are those of WP61-WP67.
+B09 WP61 (F280): generates the MCP tools of the EMBOSS sequence programs of work package 61 on the Analysis server
 (src/Seqeron/Mcp/Seqeron.Mcp.Analysis/Tools/AnalysisTools.EmbossSequencePrograms.cs: every tool builds the command line of the program from its typed parameters and calls EmbossProgramRunner.Run) and the spec
 (scripts/docs/emboss_wp61_tool_spec.json) the document generators read (gen_mummer_est_tool_docs.py, register_mcp_tools.py).
 Usage (repository root): python3 scripts/docs/gen_emboss_wp61_tools.py ; python3 scripts/docs/gen_mummer_est_tool_docs.py scripts/docs/emboss_wp61_tool_spec.json ;
@@ -350,7 +351,7 @@ def gen_tests():
     out.append('        Assert.That(AnalysisTools.Nthseq(">a\\nAC\\n", number: 2).Messages, Does.Contain("Error: No such sequence - only 1 sequences were input."));')
     out.append('    }')
     out.append('}')
-    open('tests/Seqeron/Seqeron.Mcp.Analysis.Tests/EmbossSequenceProgramToolsTests.cs', 'w').write('\n'.join(out) + '\n')
+    open('tests/Seqeron/Seqeron.Mcp.EmbossSequenceFormats.Tests/EmbossSequenceProgramToolsTests.cs', 'w').write('\n'.join(out) + '\n')
 
 
 if __name__ == '__main__':

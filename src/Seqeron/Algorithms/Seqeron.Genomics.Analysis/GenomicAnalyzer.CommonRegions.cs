@@ -8,10 +8,10 @@ public static partial class GenomicAnalyzer
 {
     // A non-matching symbol of a query. It is outside every text's separator pool (0x100..0xD7FF) and outside A-Z, so it equals
     // nothing in the tree and no match can contain it.
-    private const char QueryBreak = '';
+    public const char QueryBreak = '';
 
     // Upper-case query with every symbol outside A/C/G/T replaced by QueryBreak.
-    private static string QueryText(string upper)
+    public static string QueryText(string upper)
     {
         var chars = upper.ToCharArray();
         for (int i = 0; i < chars.Length; i++)

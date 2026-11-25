@@ -639,11 +639,11 @@ public static partial class GenomicAnalyzer
     }
 
     // Mismatch-tolerant route: one canonical ApproximateMatcher Hamming scan per (motif, strand).
-    private static Dictionary<string, IReadOnlyList<KnownMotifHit>> FindKnownMotifHitsApproximate(
+    public static Dictionary<string, IReadOnlyList<KnownMotifHit>> FindKnownMotifHitsApproximate(
         DnaSequence sequence, IEnumerable<string> motifs, bool bothStrands, bool allowIupac, int maxMismatches, CancellationToken cancellationToken)
         => FindKnownMotifHitsApproximate(sequence.Sequence, motifs, bothStrands, allowIupac, maxMismatches, cancellationToken);
 
-    private static Dictionary<string, IReadOnlyList<KnownMotifHit>> FindKnownMotifHitsApproximate(
+    public static Dictionary<string, IReadOnlyList<KnownMotifHit>> FindKnownMotifHitsApproximate(
         string text, IEnumerable<string> motifs, bool bothStrands, bool allowIupac, int maxMismatches, CancellationToken cancellationToken)
     {
         var result = new Dictionary<string, IReadOnlyList<KnownMotifHit>>();
@@ -680,12 +680,12 @@ public static partial class GenomicAnalyzer
         return keys;
     }
 
-    private static Dictionary<string, (List<int> Forward, List<int> Reverse)> SearchKnownMotifs(
+    public static Dictionary<string, (List<int> Forward, List<int> Reverse)> SearchKnownMotifs(
         DnaSequence sequence, IEnumerable<string> motifs, bool bothStrands, bool allowIupac, CancellationToken cancellationToken = default)
         => SearchKnownMotifs(sequence.Sequence, sequence, motifs, bothStrands, allowIupac, cancellationToken);
 
     // `indexed` is the sequence whose cached suffix tree serves the many-motif route; null for a plain string (linear scans only).
-    private static Dictionary<string, (List<int> Forward, List<int> Reverse)> SearchKnownMotifs(
+    public static Dictionary<string, (List<int> Forward, List<int> Reverse)> SearchKnownMotifs(
         string text, DnaSequence? indexed, IEnumerable<string> motifs, bool bothStrands, bool allowIupac, CancellationToken cancellationToken = default)
     {
         // The empty string is not a motif (an exact search for "" would match every position).
@@ -752,13 +752,13 @@ public static partial class GenomicAnalyzer
         return true;
     }
 
-    private static List<KnownMotifHit> MergeStrandHits(List<int> forward, List<int> reverse)
+    public static List<KnownMotifHit> MergeStrandHits(List<int> forward, List<int> reverse)
         => MergeStrandHits(
             forward.ConvertAll(p => new KnownMotifHit(p, IsReverseStrand: false)),
             reverse.ConvertAll(p => new KnownMotifHit(p, IsReverseStrand: true)));
 
     // Both lists ascending by position; a forward hit precedes a reverse hit at the same position.
-    private static List<KnownMotifHit> MergeStrandHits(List<KnownMotifHit> forward, List<KnownMotifHit> reverse)
+    public static List<KnownMotifHit> MergeStrandHits(List<KnownMotifHit> forward, List<KnownMotifHit> reverse)
     {
         var merged = new List<KnownMotifHit>(forward.Count + reverse.Count);
         int f = 0, r = 0;

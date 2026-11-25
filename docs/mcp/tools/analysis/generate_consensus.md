@@ -29,7 +29,7 @@ rule, bit-identical at 0.25). This 25% default is not a published rule — see
 
 ## Core Documentation Reference
 
-- Source: [MotifFinder.cs#L441](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.cs#L441); threshold overload: [MotifFinder.AlignmentConsensus.cs#L532](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.AlignmentConsensus.cs#L532)
+- Source: [MotifFinder.cs#L441](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.cs#L441); threshold overload: [MotifFinder.AlignmentConsensus.cs#L532](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Emboss.SequenceFormats/EmbossConsensus.AlignmentConsensus.cs#L532)
 
 ## Input Schema
 

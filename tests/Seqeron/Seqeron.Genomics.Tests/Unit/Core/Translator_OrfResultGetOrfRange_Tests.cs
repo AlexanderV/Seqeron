@@ -56,35 +56,6 @@ public class Translator_OrfResultGetOrfRange_Tests
         }).SetName("OrfResult_ToGetOrfRange_S2_MatchesGetorf");
     }
 
-    [TestCaseSource(nameof(GetorfOutputs))]
-    public void ToGetOrfRange_LegacyFindOrfs_MatchesGetorfHeaders(string sequence, (int Start, int End, string Protein)[] expected)
-    {
-        var orfs = Translator.FindOrfs(new DnaSequence(sequence), minLength: 3).ToList();
-
-        var actual = orfs.Select(o =>
-        {
-            var (s, e) = o.ToGetOrfRange(sequence.Length);
-            return (s, e, o.Protein.Sequence);
-        });
-
-        // The legacy overload yields per frame (forward then reverse), getorf in closing order.
-        Assert.That(actual, Is.EquivalentTo(expected));
-    }
-
-    [Test]
-    public void ToGetOrfRange_EqualsOrfFeatureMapping_ForTheSameOrfs()
-    {
-        foreach (var sequence in new[] { S0, S1, S2 })
-        {
-            var legacy = Translator.FindOrfs(new DnaSequence(sequence), minLength: 3)
-                .Select(o => (o.ToGetOrfRange(sequence.Length), o.IsTerminated, o.Protein.Sequence));
-            var modes = Translator.FindOrfs(new DnaSequence(sequence), OrfFindMode.TranslationStartToStop, minSize: 9)
-                .Select(o => (o.ToGetOrfRange(sequence.Length), o.IsTerminated, o.Sequence));
-
-            Assert.That(legacy, Is.EquivalentTo(modes), sequence);
-        }
-    }
-
     [Test]
     public void IsTerminated_DistinguishesStopTerminatedAndOpenOrfs()
     {
@@ -99,14 +70,5 @@ public class Translator_OrfResultGetOrfRange_Tests
             Assert.That((terminated.StartPosition, terminated.EndPosition, terminated.IsTerminated), Is.EqualTo((10, 54, true)));
             Assert.That((open.StartPosition, open.EndPosition, open.IsTerminated), Is.EqualTo((89, 118, false)));
         });
-    }
-
-    [TestCase(0)]
-    [TestCase(-5)]
-    public void ToGetOrfRange_NonPositiveLength_Throws(int length)
-    {
-        var orf = Translator.FindOrfs(new DnaSequence(S1), minLength: 3).First();
-
-        Assert.Throws<ArgumentOutOfRangeException>(() => orf.ToGetOrfRange(length));
     }
 }

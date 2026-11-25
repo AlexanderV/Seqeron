@@ -997,116 +997,98 @@ public static partial class SequenceAligner
         return SemiGlobalAlignAffineLinearSpace(sequence1, sequence2, scoring, endGaps, maxFullMatrixCells);
     }
 
-    /// <summary><see cref="NeedleAlign(string, string, SubstitutionMatrix?, double, double, bool, double, double)"/> that observes <paramref name="cancellationToken"/> (audit R14-15): the dynamic programs poll it at their row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result.</summary>
-    /// <inheritdoc cref="NeedleAlign(string, string, SubstitutionMatrix?, double, double, bool, double, double)"/>
-    /// <param name="cancellationToken">The token to observe; <c>CancellationToken.None</c> = never cancelled (the ambient scope of an outer call still applies).</param>
-    public static AlignmentResult NeedleAlign(string sequence1, string sequence2, SubstitutionMatrix? matrix, double gapOpen, double gapExtend, bool endWeight, double endOpen, double endExtend, CancellationToken cancellationToken)
-    {
-        using var cancelScope = AlignmentCancellation.Enter(cancellationToken);
-        return NeedleAlign(sequence1, sequence2, matrix, gapOpen, gapExtend, endWeight, endOpen, endExtend);
-    }
-
-    /// <summary><see cref="StretcherAlign(string, string, SubstitutionMatrix?, int?, int?)"/> that observes <paramref name="cancellationToken"/> (audit R14-15): the dynamic programs poll it at their row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result.</summary>
-    /// <inheritdoc cref="StretcherAlign(string, string, SubstitutionMatrix?, int?, int?)"/>
-    /// <param name="cancellationToken">The token to observe; <c>CancellationToken.None</c> = never cancelled (the ambient scope of an outer call still applies).</param>
-    public static AlignmentResult StretcherAlign(string sequence1, string sequence2, SubstitutionMatrix? matrix, int? gapOpen, int? gapExtend, CancellationToken cancellationToken)
-    {
-        using var cancelScope = AlignmentCancellation.Enter(cancellationToken);
-        return StretcherAlign(sequence1, sequence2, matrix, gapOpen, gapExtend);
-    }
-
-    /// <summary><see cref="LocalAlignTopN(DnaSequence, DnaSequence, ScoringMatrix?, int, int, TopNTieOrder)"/> that observes <paramref name="cancellationToken"/> (audit R14-15): the dynamic programs poll it at their row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result.</summary>
-    /// <inheritdoc cref="LocalAlignTopN(DnaSequence, DnaSequence, ScoringMatrix?, int, int, TopNTieOrder)"/>
+    /// <summary><see cref="LocalAlignTopN(DnaSequence, DnaSequence, ScoringMatrix?, int, int)"/> that observes <paramref name="cancellationToken"/> (audit R14-15): the dynamic programs poll it at their row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result.</summary>
+    /// <inheritdoc cref="LocalAlignTopN(DnaSequence, DnaSequence, ScoringMatrix?, int, int)"/>
     /// <param name="cancellationToken">The token to observe; <c>CancellationToken.None</c> = never cancelled (the ambient scope of an outer call still applies).</param>
     [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
-    public static IReadOnlyList<AlignmentResult> LocalAlignTopN(DnaSequence sequence1, DnaSequence sequence2, ScoringMatrix? scoring, int maxAlignments, int minScore, TopNTieOrder tieOrder, CancellationToken cancellationToken)
+    public static IReadOnlyList<AlignmentResult> LocalAlignTopN(DnaSequence sequence1, DnaSequence sequence2, ScoringMatrix? scoring, int maxAlignments, int minScore, CancellationToken cancellationToken)
     {
         using var cancelScope = AlignmentCancellation.Enter(cancellationToken);
-        return LocalAlignTopN(sequence1, sequence2, scoring, maxAlignments, minScore, tieOrder);
+        return LocalAlignTopN(sequence1, sequence2, scoring, maxAlignments, minScore);
     }
 
-    /// <summary><see cref="LocalAlignTopN(string, string, ScoringMatrix?, int, int, TopNTieOrder)"/> that observes <paramref name="cancellationToken"/> (audit R14-15): the dynamic programs poll it at their row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result.</summary>
-    /// <inheritdoc cref="LocalAlignTopN(string, string, ScoringMatrix?, int, int, TopNTieOrder)"/>
+    /// <summary><see cref="LocalAlignTopN(string, string, ScoringMatrix?, int, int)"/> that observes <paramref name="cancellationToken"/> (audit R14-15): the dynamic programs poll it at their row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result.</summary>
+    /// <inheritdoc cref="LocalAlignTopN(string, string, ScoringMatrix?, int, int)"/>
     /// <param name="cancellationToken">The token to observe; <c>CancellationToken.None</c> = never cancelled (the ambient scope of an outer call still applies).</param>
     [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
-    public static IReadOnlyList<AlignmentResult> LocalAlignTopN(string sequence1, string sequence2, ScoringMatrix? scoring, int maxAlignments, int minScore, TopNTieOrder tieOrder, CancellationToken cancellationToken)
+    public static IReadOnlyList<AlignmentResult> LocalAlignTopN(string sequence1, string sequence2, ScoringMatrix? scoring, int maxAlignments, int minScore, CancellationToken cancellationToken)
     {
         using var cancelScope = AlignmentCancellation.Enter(cancellationToken);
-        return LocalAlignTopN(sequence1, sequence2, scoring, maxAlignments, minScore, tieOrder);
+        return LocalAlignTopN(sequence1, sequence2, scoring, maxAlignments, minScore);
     }
 
-    /// <summary><see cref="LocalAlignAffineTopN(DnaSequence, DnaSequence, ScoringMatrix?, int, int, TopNTieOrder)"/> that observes <paramref name="cancellationToken"/> (audit R14-15): the dynamic programs poll it at their row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result.</summary>
-    /// <inheritdoc cref="LocalAlignAffineTopN(DnaSequence, DnaSequence, ScoringMatrix?, int, int, TopNTieOrder)"/>
+    /// <summary><see cref="LocalAlignAffineTopN(DnaSequence, DnaSequence, ScoringMatrix?, int, int)"/> that observes <paramref name="cancellationToken"/> (audit R14-15): the dynamic programs poll it at their row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result.</summary>
+    /// <inheritdoc cref="LocalAlignAffineTopN(DnaSequence, DnaSequence, ScoringMatrix?, int, int)"/>
     /// <param name="cancellationToken">The token to observe; <c>CancellationToken.None</c> = never cancelled (the ambient scope of an outer call still applies).</param>
     [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
-    public static IReadOnlyList<AlignmentResult> LocalAlignAffineTopN(DnaSequence sequence1, DnaSequence sequence2, ScoringMatrix? scoring, int maxAlignments, int minScore, TopNTieOrder tieOrder, CancellationToken cancellationToken)
+    public static IReadOnlyList<AlignmentResult> LocalAlignAffineTopN(DnaSequence sequence1, DnaSequence sequence2, ScoringMatrix? scoring, int maxAlignments, int minScore, CancellationToken cancellationToken)
     {
         using var cancelScope = AlignmentCancellation.Enter(cancellationToken);
-        return LocalAlignAffineTopN(sequence1, sequence2, scoring, maxAlignments, minScore, tieOrder);
+        return LocalAlignAffineTopN(sequence1, sequence2, scoring, maxAlignments, minScore);
     }
 
-    /// <summary><see cref="LocalAlignAffineTopN(string, string, ScoringMatrix?, int, int, TopNTieOrder)"/> that observes <paramref name="cancellationToken"/> (audit R14-15): the dynamic programs poll it at their row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result.</summary>
-    /// <inheritdoc cref="LocalAlignAffineTopN(string, string, ScoringMatrix?, int, int, TopNTieOrder)"/>
+    /// <summary><see cref="LocalAlignAffineTopN(string, string, ScoringMatrix?, int, int)"/> that observes <paramref name="cancellationToken"/> (audit R14-15): the dynamic programs poll it at their row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result.</summary>
+    /// <inheritdoc cref="LocalAlignAffineTopN(string, string, ScoringMatrix?, int, int)"/>
     /// <param name="cancellationToken">The token to observe; <c>CancellationToken.None</c> = never cancelled (the ambient scope of an outer call still applies).</param>
     [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
-    public static IReadOnlyList<AlignmentResult> LocalAlignAffineTopN(string sequence1, string sequence2, ScoringMatrix? scoring, int maxAlignments, int minScore, TopNTieOrder tieOrder, CancellationToken cancellationToken)
+    public static IReadOnlyList<AlignmentResult> LocalAlignAffineTopN(string sequence1, string sequence2, ScoringMatrix? scoring, int maxAlignments, int minScore, CancellationToken cancellationToken)
     {
         using var cancelScope = AlignmentCancellation.Enter(cancellationToken);
-        return LocalAlignAffineTopN(sequence1, sequence2, scoring, maxAlignments, minScore, tieOrder);
+        return LocalAlignAffineTopN(sequence1, sequence2, scoring, maxAlignments, minScore);
     }
 
-    /// <summary><see cref="LocalAlignTopN(string, string, MatrixScoring, int, double, TopNTieOrder)"/> that observes <paramref name="cancellationToken"/> (audit R14-15): the dynamic programs poll it at their row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result.</summary>
-    /// <inheritdoc cref="LocalAlignTopN(string, string, MatrixScoring, int, double, TopNTieOrder)"/>
+    /// <summary><see cref="LocalAlignTopN(string, string, MatrixScoring, int, double)"/> that observes <paramref name="cancellationToken"/> (audit R14-15): the dynamic programs poll it at their row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result.</summary>
+    /// <inheritdoc cref="LocalAlignTopN(string, string, MatrixScoring, int, double)"/>
     /// <param name="cancellationToken">The token to observe; <c>CancellationToken.None</c> = never cancelled (the ambient scope of an outer call still applies).</param>
-    public static IReadOnlyList<AlignmentResult> LocalAlignTopN(string sequence1, string sequence2, MatrixScoring scoring, int maxAlignments, double minScore, TopNTieOrder tieOrder, CancellationToken cancellationToken)
+    public static IReadOnlyList<AlignmentResult> LocalAlignTopN(string sequence1, string sequence2, MatrixScoring scoring, int maxAlignments, double minScore, CancellationToken cancellationToken)
     {
         using var cancelScope = AlignmentCancellation.Enter(cancellationToken);
-        return LocalAlignTopN(sequence1, sequence2, scoring, maxAlignments, minScore, tieOrder);
+        return LocalAlignTopN(sequence1, sequence2, scoring, maxAlignments, minScore);
     }
 
-    /// <summary><see cref="LocalAlignTopN(ProteinSequence, ProteinSequence, MatrixScoring, int, double, TopNTieOrder)"/> that observes <paramref name="cancellationToken"/> (audit R14-15): the dynamic programs poll it at their row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result.</summary>
-    /// <inheritdoc cref="LocalAlignTopN(ProteinSequence, ProteinSequence, MatrixScoring, int, double, TopNTieOrder)"/>
+    /// <summary><see cref="LocalAlignTopN(ProteinSequence, ProteinSequence, MatrixScoring, int, double)"/> that observes <paramref name="cancellationToken"/> (audit R14-15): the dynamic programs poll it at their row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result.</summary>
+    /// <inheritdoc cref="LocalAlignTopN(ProteinSequence, ProteinSequence, MatrixScoring, int, double)"/>
     /// <param name="cancellationToken">The token to observe; <c>CancellationToken.None</c> = never cancelled (the ambient scope of an outer call still applies).</param>
-    public static IReadOnlyList<AlignmentResult> LocalAlignTopN(ProteinSequence sequence1, ProteinSequence sequence2, MatrixScoring scoring, int maxAlignments, double minScore, TopNTieOrder tieOrder, CancellationToken cancellationToken)
+    public static IReadOnlyList<AlignmentResult> LocalAlignTopN(ProteinSequence sequence1, ProteinSequence sequence2, MatrixScoring scoring, int maxAlignments, double minScore, CancellationToken cancellationToken)
     {
         using var cancelScope = AlignmentCancellation.Enter(cancellationToken);
-        return LocalAlignTopN(sequence1, sequence2, scoring, maxAlignments, minScore, tieOrder);
+        return LocalAlignTopN(sequence1, sequence2, scoring, maxAlignments, minScore);
     }
 
-    /// <summary><see cref="LocalAlignTopN(DnaSequence, DnaSequence, MatrixScoring, int, double, TopNTieOrder)"/> that observes <paramref name="cancellationToken"/> (audit R14-15): the dynamic programs poll it at their row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result.</summary>
-    /// <inheritdoc cref="LocalAlignTopN(DnaSequence, DnaSequence, MatrixScoring, int, double, TopNTieOrder)"/>
+    /// <summary><see cref="LocalAlignTopN(DnaSequence, DnaSequence, MatrixScoring, int, double)"/> that observes <paramref name="cancellationToken"/> (audit R14-15): the dynamic programs poll it at their row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result.</summary>
+    /// <inheritdoc cref="LocalAlignTopN(DnaSequence, DnaSequence, MatrixScoring, int, double)"/>
     /// <param name="cancellationToken">The token to observe; <c>CancellationToken.None</c> = never cancelled (the ambient scope of an outer call still applies).</param>
-    public static IReadOnlyList<AlignmentResult> LocalAlignTopN(DnaSequence sequence1, DnaSequence sequence2, MatrixScoring scoring, int maxAlignments, double minScore, TopNTieOrder tieOrder, CancellationToken cancellationToken)
+    public static IReadOnlyList<AlignmentResult> LocalAlignTopN(DnaSequence sequence1, DnaSequence sequence2, MatrixScoring scoring, int maxAlignments, double minScore, CancellationToken cancellationToken)
     {
         using var cancelScope = AlignmentCancellation.Enter(cancellationToken);
-        return LocalAlignTopN(sequence1, sequence2, scoring, maxAlignments, minScore, tieOrder);
+        return LocalAlignTopN(sequence1, sequence2, scoring, maxAlignments, minScore);
     }
 
-    /// <summary><see cref="LocalAlignAffineTopN(string, string, MatrixScoring, int, double, TopNTieOrder)"/> that observes <paramref name="cancellationToken"/> (audit R14-15): the dynamic programs poll it at their row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result.</summary>
-    /// <inheritdoc cref="LocalAlignAffineTopN(string, string, MatrixScoring, int, double, TopNTieOrder)"/>
+    /// <summary><see cref="LocalAlignAffineTopN(string, string, MatrixScoring, int, double)"/> that observes <paramref name="cancellationToken"/> (audit R14-15): the dynamic programs poll it at their row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result.</summary>
+    /// <inheritdoc cref="LocalAlignAffineTopN(string, string, MatrixScoring, int, double)"/>
     /// <param name="cancellationToken">The token to observe; <c>CancellationToken.None</c> = never cancelled (the ambient scope of an outer call still applies).</param>
-    public static IReadOnlyList<AlignmentResult> LocalAlignAffineTopN(string sequence1, string sequence2, MatrixScoring scoring, int maxAlignments, double minScore, TopNTieOrder tieOrder, CancellationToken cancellationToken)
+    public static IReadOnlyList<AlignmentResult> LocalAlignAffineTopN(string sequence1, string sequence2, MatrixScoring scoring, int maxAlignments, double minScore, CancellationToken cancellationToken)
     {
         using var cancelScope = AlignmentCancellation.Enter(cancellationToken);
-        return LocalAlignAffineTopN(sequence1, sequence2, scoring, maxAlignments, minScore, tieOrder);
+        return LocalAlignAffineTopN(sequence1, sequence2, scoring, maxAlignments, minScore);
     }
 
-    /// <summary><see cref="LocalAlignAffineTopN(ProteinSequence, ProteinSequence, MatrixScoring, int, double, TopNTieOrder)"/> that observes <paramref name="cancellationToken"/> (audit R14-15): the dynamic programs poll it at their row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result.</summary>
-    /// <inheritdoc cref="LocalAlignAffineTopN(ProteinSequence, ProteinSequence, MatrixScoring, int, double, TopNTieOrder)"/>
+    /// <summary><see cref="LocalAlignAffineTopN(ProteinSequence, ProteinSequence, MatrixScoring, int, double)"/> that observes <paramref name="cancellationToken"/> (audit R14-15): the dynamic programs poll it at their row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result.</summary>
+    /// <inheritdoc cref="LocalAlignAffineTopN(ProteinSequence, ProteinSequence, MatrixScoring, int, double)"/>
     /// <param name="cancellationToken">The token to observe; <c>CancellationToken.None</c> = never cancelled (the ambient scope of an outer call still applies).</param>
-    public static IReadOnlyList<AlignmentResult> LocalAlignAffineTopN(ProteinSequence sequence1, ProteinSequence sequence2, MatrixScoring scoring, int maxAlignments, double minScore, TopNTieOrder tieOrder, CancellationToken cancellationToken)
+    public static IReadOnlyList<AlignmentResult> LocalAlignAffineTopN(ProteinSequence sequence1, ProteinSequence sequence2, MatrixScoring scoring, int maxAlignments, double minScore, CancellationToken cancellationToken)
     {
         using var cancelScope = AlignmentCancellation.Enter(cancellationToken);
-        return LocalAlignAffineTopN(sequence1, sequence2, scoring, maxAlignments, minScore, tieOrder);
+        return LocalAlignAffineTopN(sequence1, sequence2, scoring, maxAlignments, minScore);
     }
 
-    /// <summary><see cref="LocalAlignAffineTopN(DnaSequence, DnaSequence, MatrixScoring, int, double, TopNTieOrder)"/> that observes <paramref name="cancellationToken"/> (audit R14-15): the dynamic programs poll it at their row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result.</summary>
-    /// <inheritdoc cref="LocalAlignAffineTopN(DnaSequence, DnaSequence, MatrixScoring, int, double, TopNTieOrder)"/>
+    /// <summary><see cref="LocalAlignAffineTopN(DnaSequence, DnaSequence, MatrixScoring, int, double)"/> that observes <paramref name="cancellationToken"/> (audit R14-15): the dynamic programs poll it at their row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result.</summary>
+    /// <inheritdoc cref="LocalAlignAffineTopN(DnaSequence, DnaSequence, MatrixScoring, int, double)"/>
     /// <param name="cancellationToken">The token to observe; <c>CancellationToken.None</c> = never cancelled (the ambient scope of an outer call still applies).</param>
-    public static IReadOnlyList<AlignmentResult> LocalAlignAffineTopN(DnaSequence sequence1, DnaSequence sequence2, MatrixScoring scoring, int maxAlignments, double minScore, TopNTieOrder tieOrder, CancellationToken cancellationToken)
+    public static IReadOnlyList<AlignmentResult> LocalAlignAffineTopN(DnaSequence sequence1, DnaSequence sequence2, MatrixScoring scoring, int maxAlignments, double minScore, CancellationToken cancellationToken)
     {
         using var cancelScope = AlignmentCancellation.Enter(cancellationToken);
-        return LocalAlignAffineTopN(sequence1, sequence2, scoring, maxAlignments, minScore, tieOrder);
+        return LocalAlignAffineTopN(sequence1, sequence2, scoring, maxAlignments, minScore);
     }
 
     /// <summary><see cref="LocalAlignCoOptimal(DnaSequence, DnaSequence, ScoringMatrix?, int)"/> that observes <paramref name="cancellationToken"/> (audit R14-15): the dynamic programs poll it at their row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result.</summary>
@@ -1295,15 +1277,6 @@ public static partial class SequenceAligner
     {
         using var cancelScope = AlignmentCancellation.Enter(cancellationToken);
         return LocalAlignAffineTopNLinearSpace(sequence1, sequence2, scoring, maxAlignments, minScore, maxFullMatrixCells);
-    }
-
-    /// <summary><see cref="WaterAlign(string, string, SubstitutionMatrix?, double, double)"/> that observes <paramref name="cancellationToken"/> (audit R14-15): the dynamic programs poll it at their row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result.</summary>
-    /// <inheritdoc cref="WaterAlign(string, string, SubstitutionMatrix?, double, double)"/>
-    /// <param name="cancellationToken">The token to observe; <c>CancellationToken.None</c> = never cancelled (the ambient scope of an outer call still applies).</param>
-    public static AlignmentResult WaterAlign(string sequence1, string sequence2, SubstitutionMatrix? matrix, double gapOpen, double gapExtend, CancellationToken cancellationToken)
-    {
-        using var cancelScope = AlignmentCancellation.Enter(cancellationToken);
-        return WaterAlign(sequence1, sequence2, matrix, gapOpen, gapExtend);
     }
 
     /// <summary><see cref="GlobalAlignAffine(DnaSequence, DnaSequence, ScoringMatrix?)"/> that observes <paramref name="cancellationToken"/> (audit R14-15): the dynamic programs poll it at their row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result.</summary>

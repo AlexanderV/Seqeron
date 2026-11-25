@@ -127,33 +127,4 @@ public class OptionBoundaries_Oracle_Tests
         Assert.That(rows, Is.EqualTo(17));
         Assert.That(nonFinite, Is.EqualTo(3), "NaN / infinite / beyond-64-bit products become LONG_MIN (no fraction added), exactly as mgaps computes them");
     }
-
-    [Test]
-    public void Etandem_ThresholdIntMinValue_DiesLikeTheProgram_WhenARepeatQualifies_AndBelowIsExact()
-    {
-        int crash = 0, ok = 0, emptyAtMin = 0;
-        foreach (var row in Oracle.Value.RootElement.GetProperty("etandem").EnumerateArray())
-        {
-            string sequence = row.GetProperty("sequence").GetString()!;
-            int min = row.GetProperty("minRepeat").GetInt32(), max = row.GetProperty("maxRepeat").GetInt32(), threshold = row.GetProperty("threshold").GetInt32();
-            if (row.GetProperty("rc").GetInt32() != 0)
-            {
-                // etandem 6.6.0: "Floating point exception" (SIGFPE, status 136): the report root (best score threshold - 1 = int.MaxValue) is the top entry and its repeat size is 0
-                var ex = Assert.Throws<InvalidOperationException>(() => GenomicAnalyzer.FindTandemRepeatsEtandem(sequence, min, max, threshold), $"{sequence} threshold {threshold}")!;
-                Assert.That(ex.Message, Does.Contain("-2147483648").And.Contain("SIGFPE"));
-                crash++;
-                continue;
-            }
-
-            var hits = GenomicAnalyzer.FindTandemRepeatsEtandem(sequence, min, max, threshold)
-                .Select(h => string.Join(",", h.Score, h.Start, h.End, h.RepeatSize, h.RepeatCount, CFormat.Fixed(h.Identity, 1), h.Consensus));
-            Assert.That(string.Join("|", hits), Is.EqualTo(row.GetProperty("rows").GetString()), $"{sequence} threshold {threshold}");
-            ok++;
-            if (threshold == int.MinValue && !hits.Any()) emptyAtMin++;
-        }
-
-        Assert.That(crash, Is.EqualTo(5));
-        Assert.That(ok, Is.EqualTo(7));
-        Assert.That(emptyAtMin, Is.EqualTo(2), "a sequence without a qualifying repeat prints nothing: no crash");
-    }
 }

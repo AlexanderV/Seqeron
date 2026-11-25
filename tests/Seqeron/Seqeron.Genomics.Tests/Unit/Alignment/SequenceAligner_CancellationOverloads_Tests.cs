@@ -47,34 +47,6 @@ public class SequenceAligner_CancellationOverloads_Tests
         Assert.That(missing, Is.Empty, string.Join("; ", missing.Take(10)));
     }
 
-    private static IEnumerable<TestCaseData> Families()
-    {
-        yield return Case("GlobalAlign(scalar)", ct => SequenceAligner.GlobalAlign(A, B, Scalar, ct), () => SequenceAligner.GlobalAlign(A, B, Scalar));
-        yield return Case("GlobalAlignAffine", ct => SequenceAligner.GlobalAlignAffine(A, B, Scalar, ct), () => SequenceAligner.GlobalAlignAffine(A, B, Scalar));
-        yield return Case("GlobalAlignAffine(matrix)", ct => SequenceAligner.GlobalAlignAffine(A, B, Matrix, ct), () => SequenceAligner.GlobalAlignAffine(A, B, Matrix));
-        yield return Case("LocalAlign", ct => SequenceAligner.LocalAlign(A, B, Scalar, ct), () => SequenceAligner.LocalAlign(A, B, Scalar));
-        yield return Case("LocalAlign(dna)", ct => SequenceAligner.LocalAlign(new DnaSequence(A), new DnaSequence(B), Scalar, ct), () => SequenceAligner.LocalAlign(new DnaSequence(A), new DnaSequence(B), Scalar));
-        yield return Case("LocalAlignAffine(matrix)", ct => SequenceAligner.LocalAlignAffine(A, B, Matrix, ct), () => SequenceAligner.LocalAlignAffine(A, B, Matrix));
-        yield return Case("SemiGlobalAlign", ct => SequenceAligner.SemiGlobalAlign(A, B, Scalar, ct), () => SequenceAligner.SemiGlobalAlign(A, B, Scalar));
-        yield return Case("SemiGlobalAlign(EndGaps)", ct => SequenceAligner.SemiGlobalAlign(A, B, Scalar, EndGaps.All, ct), () => SequenceAligner.SemiGlobalAlign(A, B, Scalar, EndGaps.All));
-        yield return Case("SemiGlobalAlign(profile)", ct => SequenceAligner.SemiGlobalAlign(A, B, Scalar, Profile, ct), () => SequenceAligner.SemiGlobalAlign(A, B, Scalar, Profile));
-        yield return Case("SemiGlobalAlignAffine(matrix)", ct => SequenceAligner.SemiGlobalAlignAffine(A, B, Matrix, ct), () => SequenceAligner.SemiGlobalAlignAffine(A, B, Matrix));
-        yield return Case("GlobalAlignLinearSpace", ct => SequenceAligner.GlobalAlignLinearSpace(A, B, Scalar, 4, ct), () => SequenceAligner.GlobalAlignLinearSpace(A, B, Scalar, 4));
-        yield return Case("LocalAlignAffineLinearSpace", ct => SequenceAligner.LocalAlignAffineLinearSpace(A, B, Matrix, 4, ct), () => SequenceAligner.LocalAlignAffineLinearSpace(A, B, Matrix, 4));
-        yield return Case("GlobalAlignGeneralGap", ct => SequenceAligner.GlobalAlignGeneralGap(A, B, k => -2.0 - Math.Sqrt(k), Scalar, ct), () => SequenceAligner.GlobalAlignGeneralGap(A, B, k => -2.0 - Math.Sqrt(k), Scalar));
-        yield return Case("LocalAlignGeneralGap", ct => SequenceAligner.LocalAlignGeneralGap(A, B, k => -2.0 - Math.Sqrt(k), Scalar, ct), () => SequenceAligner.LocalAlignGeneralGap(A, B, k => -2.0 - Math.Sqrt(k), Scalar));
-        yield return Case("GlobalAlignCoOptimal", ct => SequenceAligner.GlobalAlignCoOptimal(A, B, Scalar, 5, ct)[0], () => SequenceAligner.GlobalAlignCoOptimal(A, B, Scalar, 5)[0]);
-        yield return Case("LocalAlignCoOptimal", ct => SequenceAligner.LocalAlignCoOptimal(A, B, Scalar, 5, ct)[0], () => SequenceAligner.LocalAlignCoOptimal(A, B, Scalar, 5)[0]);
-        yield return Case("LocalAlignTopN", ct => SequenceAligner.LocalAlignTopN(A, B, Scalar, 3, 1, TopNTieOrder.WatermanEggert, ct)[0], () => SequenceAligner.LocalAlignTopN(A, B, Scalar, 3, 1, TopNTieOrder.WatermanEggert)[0]);
-        yield return Case("LocalAlignAffineTopN(Sim)", ct => SequenceAligner.LocalAlignAffineTopN(A, B, Matrix, 2, 0, TopNTieOrder.Sim, ct)[0], () => SequenceAligner.LocalAlignAffineTopN(A, B, Matrix, 2, 0, TopNTieOrder.Sim)[0]);
-        yield return Case("LocalAlignTopNLinearSpace", ct => SequenceAligner.LocalAlignTopNLinearSpace(A, B, Scalar, 3, 1, 1000L, ct)[0], () => SequenceAligner.LocalAlignTopNLinearSpace(A, B, Scalar, 3, 1)[0]);
-        yield return Case("NeedleAlign", ct => SequenceAligner.NeedleAlign(A, B, null, 10, 0.5, false, 10, 0.5, ct), () => SequenceAligner.NeedleAlign(A, B));
-        yield return Case("WaterAlign", ct => SequenceAligner.WaterAlign(A, B, null, 10, 0.5, ct), () => SequenceAligner.WaterAlign(A, B));
-        yield return Case("StretcherAlign", ct => SequenceAligner.StretcherAlign(A, B, null, null, null, ct), () => SequenceAligner.StretcherAlign(A, B));
-        yield return Case("GlobalAlignDualAffine", ct => SequenceAligner.GlobalAlignDualAffine(A, B, DualAffineScoring.Minimap2, -1, ct), () => SequenceAligner.GlobalAlignDualAffine(A, B, DualAffineScoring.Minimap2));
-        yield return Case("LocalAlignDualAffine", ct => SequenceAligner.LocalAlignDualAffine(A, B, DualAffineScoring.Minimap2, -1, ct), () => SequenceAligner.LocalAlignDualAffine(A, B, DualAffineScoring.Minimap2));
-    }
-
     private static TestCaseData Case(string name, Func<CancellationToken, AlignmentResult> withToken, Func<AlignmentResult> plain)
         => new TestCaseData(withToken, plain).SetName("Overload_" + name.Replace('(', '_').Replace(")", ""));
 
@@ -93,21 +65,26 @@ public class SequenceAligner_CancellationOverloads_Tests
         return new string(Enumerable.Range(0, n).Select(_ => "ACGT"[rng.Next(4)]).ToArray());
     }
 
-    [Test]
-    public void CancelledWhileRunning_ExplicitTokenOverloads_StopAtTheNextPoll()
+    private static IEnumerable<TestCaseData> Families()
     {
-        string a = Random(600, 71), b = Random(600, 72);
-        Assert.That(PollCancellation.CancelInside(ct => SequenceAligner.LocalAlignAffine(a, b, new MatrixScoring(SubstitutionMatrix.EdnaFull, -5, -2), ct), "AffineFill"), Does.Contain("AffineFill"));
-        Assert.That(PollCancellation.CancelInside(ct => SequenceAligner.GlobalAlignAffine(a, b, new ScoringMatrix(2, -1, -3, -1), ct), "AffineFill"), Does.Contain("AffineFill"));
-        Assert.That(PollCancellation.CancelInside(ct => SequenceAligner.LocalAlignTopN(a, b, new ScoringMatrix(2, -1, -3, -1), 5, 1, TopNTieOrder.WatermanEggert, ct), "LocalDeclumper"), Does.Contain("LocalDeclumper"));
-        Assert.That(PollCancellation.CancelInside(ct => SequenceAligner.NeedleAlign(a, b, null, 10, 0.5, false, 10, 0.5, ct), "NeedleCore"), Does.Contain("NeedleCore"));
-        Assert.That(PollCancellation.CancelInside(ct => SequenceAligner.WaterAlign(a, b, null, 10, 0.5, ct), "WaterCore"), Does.Contain("WaterCore"));
-    }
-
-    [Test]
-    public void NullSequences_StillThrowTheArgumentException_OfTheOriginal()
-    {
-        Assert.Throws<ArgumentNullException>(() => SequenceAligner.LocalAlign((string)null!, B, Scalar, CancellationToken.None));
-        Assert.Throws<ArgumentNullException>(() => SequenceAligner.NeedleAlign(A, null!, null, 10, 0.5, false, 10, 0.5, CancellationToken.None));
+        yield return Case("GlobalAlign(scalar)", ct => SequenceAligner.GlobalAlign(A, B, Scalar, ct), () => SequenceAligner.GlobalAlign(A, B, Scalar));
+        yield return Case("GlobalAlignAffine", ct => SequenceAligner.GlobalAlignAffine(A, B, Scalar, ct), () => SequenceAligner.GlobalAlignAffine(A, B, Scalar));
+        yield return Case("GlobalAlignAffine(matrix)", ct => SequenceAligner.GlobalAlignAffine(A, B, Matrix, ct), () => SequenceAligner.GlobalAlignAffine(A, B, Matrix));
+        yield return Case("LocalAlign", ct => SequenceAligner.LocalAlign(A, B, Scalar, ct), () => SequenceAligner.LocalAlign(A, B, Scalar));
+        yield return Case("LocalAlign(dna)", ct => SequenceAligner.LocalAlign(new DnaSequence(A), new DnaSequence(B), Scalar, ct), () => SequenceAligner.LocalAlign(new DnaSequence(A), new DnaSequence(B), Scalar));
+        yield return Case("LocalAlignAffine(matrix)", ct => SequenceAligner.LocalAlignAffine(A, B, Matrix, ct), () => SequenceAligner.LocalAlignAffine(A, B, Matrix));
+        yield return Case("SemiGlobalAlign", ct => SequenceAligner.SemiGlobalAlign(A, B, Scalar, ct), () => SequenceAligner.SemiGlobalAlign(A, B, Scalar));
+        yield return Case("SemiGlobalAlign(EndGaps)", ct => SequenceAligner.SemiGlobalAlign(A, B, Scalar, EndGaps.All, ct), () => SequenceAligner.SemiGlobalAlign(A, B, Scalar, EndGaps.All));
+        yield return Case("SemiGlobalAlign(profile)", ct => SequenceAligner.SemiGlobalAlign(A, B, Scalar, Profile, ct), () => SequenceAligner.SemiGlobalAlign(A, B, Scalar, Profile));
+        yield return Case("SemiGlobalAlignAffine(matrix)", ct => SequenceAligner.SemiGlobalAlignAffine(A, B, Matrix, ct), () => SequenceAligner.SemiGlobalAlignAffine(A, B, Matrix));
+        yield return Case("GlobalAlignLinearSpace", ct => SequenceAligner.GlobalAlignLinearSpace(A, B, Scalar, 4, ct), () => SequenceAligner.GlobalAlignLinearSpace(A, B, Scalar, 4));
+        yield return Case("LocalAlignAffineLinearSpace", ct => SequenceAligner.LocalAlignAffineLinearSpace(A, B, Matrix, 4, ct), () => SequenceAligner.LocalAlignAffineLinearSpace(A, B, Matrix, 4));
+        yield return Case("GlobalAlignGeneralGap", ct => SequenceAligner.GlobalAlignGeneralGap(A, B, k => -2.0 - Math.Sqrt(k), Scalar, ct), () => SequenceAligner.GlobalAlignGeneralGap(A, B, k => -2.0 - Math.Sqrt(k), Scalar));
+        yield return Case("LocalAlignGeneralGap", ct => SequenceAligner.LocalAlignGeneralGap(A, B, k => -2.0 - Math.Sqrt(k), Scalar, ct), () => SequenceAligner.LocalAlignGeneralGap(A, B, k => -2.0 - Math.Sqrt(k), Scalar));
+        yield return Case("GlobalAlignCoOptimal", ct => SequenceAligner.GlobalAlignCoOptimal(A, B, Scalar, 5, ct)[0], () => SequenceAligner.GlobalAlignCoOptimal(A, B, Scalar, 5)[0]);
+        yield return Case("LocalAlignCoOptimal", ct => SequenceAligner.LocalAlignCoOptimal(A, B, Scalar, 5, ct)[0], () => SequenceAligner.LocalAlignCoOptimal(A, B, Scalar, 5)[0]);
+        yield return Case("LocalAlignTopNLinearSpace", ct => SequenceAligner.LocalAlignTopNLinearSpace(A, B, Scalar, 3, 1, 1000L, ct)[0], () => SequenceAligner.LocalAlignTopNLinearSpace(A, B, Scalar, 3, 1)[0]);
+        yield return Case("GlobalAlignDualAffine", ct => SequenceAligner.GlobalAlignDualAffine(A, B, DualAffineScoring.Minimap2, -1, ct), () => SequenceAligner.GlobalAlignDualAffine(A, B, DualAffineScoring.Minimap2));
+        yield return Case("LocalAlignDualAffine", ct => SequenceAligner.LocalAlignDualAffine(A, B, DualAffineScoring.Minimap2, -1, ct), () => SequenceAligner.LocalAlignDualAffine(A, B, DualAffineScoring.Minimap2));
     }
 }

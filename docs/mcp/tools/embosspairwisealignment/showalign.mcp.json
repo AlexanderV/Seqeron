@@ -1,0 +1,187 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "toolName": "showalign",
+ "serverName": "Analysis",
+ "version": "1.0.0",
+ "stability": "stable",
+ "methodId": "MultipleAlignmentDisplay.ShowAlign",
+ "docRef": "Seqeron.Genomics.Emboss.PairwiseAlignment/MultipleAlignmentDisplay.cs",
+ "description": "EMBOSS 6.6.0 showalign: the pretty text display of a multiple alignment, identical to the program (600 random alignments with random options equal). Every row except the reference is converted against the reference (the consensus unless refseq names a row or a 1-based number): show N (default) non-identities, I identities, S similarities (matrix score > 0), D dissimilarities, A all; '.' marks suppressed residues; similarCase (default true) encodes similarity in the case (non-identity / similarity / all as in the program); order I (input), A (names), S (decreasing similarity to the reference). Per block of width columns (default 60): the position numbers (every 10th, relative to the reference residues when a row is the reference, with -n / +n flanks), the tick ruler, the reference first when it is a row, the rows, the consensus (consensus = false hides it; bottom = false puts it first when it is the reference). The consensus is the EMBOSS cons algorithm (plurality in percent, setCase, identity in percent, gaps: a gap can be the consensus) on the alignment as given (case kept); a lower-case letter of the input is kept lower case. margin = width of the name column (0 = no names, -1 = longest name + 1); uppercase = 1-based column ranges put in upper case, e.g. '3-10,20-25'. The set type is that of the first row (nucleotide: A/C/G/T/U + IUPAC letters); matrix defaults to EDNAFULL / EBLOSUM62; shorter rows are padded with trailing gaps. html = true wraps the text in <pre> ... </pre> and highlight (EMBOSS range syntax, a colour after each pair) colours the ranges of every sequence and consensus line with <font color=...> (A3-13c2: 300 random texts equal). Rows are read as EMBOSS reads an alignment (A4-3): letters and '*' are kept, '.' '~' '-' are gaps, '?' '#' '+' are the unknown residue, every other character (digits, blanks, '_', punctuation) is dropped, and rows that become unequal are padded with trailing gaps. A display text above 134 217 728 characters (blocks x lines x (margin + width + 1): a huge margin, width 1 over a very long alignment) is refused with an ArgumentException (MultipleAlignmentDisplay.ShowAlignMaxOutputCharacters); a width beyond the alignment shows one block. sbegin / send (A4-9, 400 random ranges equal the program) cut the displayed columns: the consensus is that of the whole alignment and the numbers and ticks keep the positions of the whole alignment.",
+ "inputSchema": {
+  "type": "object",
+  "properties": {
+   "names": {
+    "type": "array",
+    "items": {
+     "type": "string"
+    },
+    "description": "Sequence names (one per row; the first word is used)."
+   },
+   "sequences": {
+    "type": "array",
+    "items": {
+     "type": "string"
+    },
+    "description": "The aligned sequences (DNA or protein; gaps '-', '.', '~'; case is kept)."
+   },
+   "refseq": {
+    "type": "string",
+    "description": "Reference: '0' = the consensus (default), a 1-based row number or a sequence name.",
+    "default": "0"
+   },
+   "show": {
+    "type": "string",
+    "description": "What to show: N non-identities (default), I identities, S similarities, D dissimilarities, A all.",
+    "default": "N"
+   },
+   "order": {
+    "type": "string",
+    "description": "Output order of the rows: I input (default), A alphabetical names, S similarity to the reference.",
+    "default": "I"
+   },
+   "matrix": {
+    "type": "string",
+    "description": "Scoring matrix name (EBLOSUM62, EDNAFULL, EPAM250, ...); default by sequence type."
+   },
+   "similarCase": {
+    "type": "boolean",
+    "description": "Case encodes similarity (default true).",
+    "default": true
+   },
+   "consensus": {
+    "type": "boolean",
+    "description": "Show the consensus line (default true).",
+    "default": true
+   },
+   "bottom": {
+    "type": "boolean",
+    "description": "Consensus at the bottom (default true) instead of the top.",
+    "default": true
+   },
+   "number": {
+    "type": "boolean",
+    "description": "Position number line (default true).",
+    "default": true
+   },
+   "ruler": {
+    "type": "boolean",
+    "description": "Tick ruler line (default true).",
+    "default": true
+   },
+   "width": {
+    "type": "integer",
+    "description": "Columns per block (default 60).",
+    "default": 60
+   },
+   "margin": {
+    "type": "integer",
+    "description": "Name column width: -1 = longest name + 1 (default), 0 = no names.",
+    "default": -1
+   },
+   "uppercase": {
+    "type": "string",
+    "description": "1-based inclusive column ranges to put in upper case, e.g. '3-10,20-25' (EMBOSS range syntax; '@file' = one range per line)."
+   },
+   "plurality": {
+    "type": "number",
+    "description": "Consensus plurality in percent of the total weight (default 50).",
+    "default": 50
+   },
+   "setCase": {
+    "type": "number",
+    "description": "Consensus: weight at or below which the letter is lower case (default half the number of sequences)."
+   },
+   "identity": {
+    "type": "number",
+    "description": "Consensus: percent of identities required at a position (default 0).",
+    "default": 0
+   },
+   "gaps": {
+    "type": "boolean",
+    "description": "A gap character can be the consensus (default true).",
+    "default": true
+   },
+   "sbegin": {
+    "type": "integer",
+    "description": "-sbegin: first column shown, 1-based (0 = the first; negative = counted from the end; beyond the alignment = the last).",
+    "default": 0
+   },
+   "send": {
+    "type": "integer",
+    "description": "-send: last column shown, 1-based (0 = the last; negative = counted from the end; before the first shown column = that column).",
+    "default": 0
+   },
+   "html": {
+    "type": "boolean",
+    "description": "-html (default false): wrap the display in <pre> ... </pre> and colour the highlight ranges with <font color=...> tags.",
+    "default": false
+   },
+   "highlight": {
+    "type": "string",
+    "description": "-highlight: column ranges to colour with html, each followed by an HTML colour (an empty colour is red), e.g. '24-45 blue 56-78 orange'; '@file' = one range per line. Used only with html."
+   }
+  },
+  "required": [
+   "names",
+   "sequences"
+  ]
+ },
+ "outputSchema": {
+  "type": "object",
+  "properties": {
+   "text": {
+    "type": "string",
+    "description": "The display text (blocks of number line, ruler, reference, rows and consensus; lines end in a line feed)."
+   }
+  },
+  "required": [
+   "text"
+  ]
+ },
+ "errors": [
+  {
+   "code": 1001,
+   "message": "Names and sequences are required"
+  },
+  {
+   "code": 1001,
+   "message": "One name per sequence is required"
+  },
+  {
+   "code": 1001,
+   "message": "Invalid uppercase range"
+  },
+  {
+   "code": 1001,
+   "message": "show must be A, I, N, S or D"
+  },
+  {
+   "code": 1001,
+   "message": "order must be I, A or S"
+  },
+  {
+   "code": 1001,
+   "message": "Reference sequence is not a sequence name or a number"
+  }
+ ],
+ "examples": [
+  {
+   "name": "Default display of a three-row nucleotide alignment",
+   "input": {
+    "names": [
+     "s1",
+     "s2",
+     "s3"
+    ],
+    "sequences": [
+     "acgtac-gtaGT",
+     "acgtaccgtaGA",
+     "acctaccgtTGA"
+    ]
+   },
+   "output": {
+    "text": "                  10  \n          ----:----|--\ns1        ......-....T\ns2        ............\ns3        ..C......T..\nConsensus acgtaccgtaGA\n\n"
+   }
+  }
+ ]
+}

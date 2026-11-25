@@ -1,0 +1,186 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "toolName": "find_tandem_repeats_emboss",
+ "serverName": "Analysis",
+ "version": "1.0.0",
+ "stability": "stable",
+ "methodId": "GenomicAnalyzer.FindTandemRepeatsEtandem",
+ "docRef": "Seqeron.Genomics.Emboss.Repeats/EmbossRepeatPrograms.EmbossTandem.cs",
+ "description": "EMBOSS 6.6.0 tandem-repeat programs ported statement by statement (diagonal-score models, not the exact-run finder find_tandem_repeats). program etandem (default): for every unit size minRepeat..maxRepeat a running per-column consensus score (+1 when the new base is the column's most frequent base, -1 otherwise; N counts as a fifth base, or as a plain -1 with mismatch) extends candidates in steps of the unit size; candidates need a best score >= threshold and, unless uniform, a consensus with two different bases; overlapping candidates lose to the highest score (ties: smaller unit). Reports score, size, count, identity = 100 * (score + n * (copies + 1)) / (2 * n * copies) and the lower-case consensus (phased as printed). program equicktandem: the quick pre-screen - the sequence compared with itself shifted by every gap 1..maxRepeat with a +1 / -1 diagonal score; reported stretches are masked for larger gaps; no consensus / identity. Hits are in the program's report order (etandem: highest score first). Non-ACGT symbols count as N (etandem) / one 'other' class (equicktandem). position is 0-based (EMBOSS Start - 1). Verified against etandem and equicktandem 6.6.0 on 1700 + 1300 random and planted sequences. Input sequences are read as EMBOSS reads them (A4-3, one shared reader): only letters and '*' are kept; gap characters (- . ~ ?), '#', '+', '_', digits, blanks and every other character are dropped first, and positions, lengths and scores count the cleaned sequence (e.g. needle of AC-GTTAGC.TT* and ACGTTAGCTT: score 58, length 11, as the program). etandem with threshold = -2147483648 (A4-4): the program wraps threshold - 1 to 2147483647, reports its empty root and dies with SIGFPE (\"Floating point exception\") as soon as one repeat qualifies - refused here with InvalidOperationException; a sequence without a qualifying repeat returns no repeats as the program prints nothing; -2147483647 and above are exact.",
+ "inputSchema": {
+  "type": "object",
+  "properties": {
+   "sequence": {
+    "type": "string",
+    "description": "Nucleotide sequence: A/C/G/T plus IUPAC codes such as N (case-insensitive)."
+   },
+   "program": {
+    "type": "string",
+    "description": "etandem (default) | equicktandem (case-insensitive).",
+    "default": "etandem"
+   },
+   "minRepeat": {
+    "type": "integer",
+    "description": "etandem -minrepeat: smallest unit size (>= 2, default 10 as in the program). Ignored by equicktandem.",
+    "default": 10
+   },
+   "maxRepeat": {
+    "type": "integer",
+    "description": "Largest unit size (-maxrepeat). Default: etandem = minRepeat (as in the program), equicktandem = 600."
+   },
+   "threshold": {
+    "type": "integer",
+    "description": "Minimum score (-threshold, default 20; equicktandem needs >= 1).",
+    "default": 20
+   },
+   "mismatch": {
+    "type": "boolean",
+    "description": "etandem -mismatch: count N as a mismatch instead of a fifth base (default false).",
+    "default": false
+   },
+   "uniform": {
+    "type": "boolean",
+    "description": "etandem -uniform: also report single-base consensus repeats (default false).",
+    "default": false
+   },
+   "sequenceQualifiers": {
+    "type": "string",
+    "description": "EMBOSS sequence-input qualifiers as on the command line: -sbegin 3 -send -2 -sreverse -slower -supper -scircular -snucleotide -sprotein (begin / end 1-based, negative = from the end; -sreverse reverse-complements a nucleotide sequence, the range then refers to the original). Measured on EMBOSS 6.6.0 per program: etandem ignores -sbegin / -send (the whole sequence is searched) and numbers a -sreverse sequence on the reverse strand; equicktandem searches the range and numbers from its first position. The text is resolved exactly as the EMBOSS program resolves it on its command line after the sequence arguments (ACD, 6.6.0): -sbegin1 3, -sbegin1=3, -nosreverse1, -sreverse1 N, any case, -/--/ prefix, and every UNIQUE abbreviation (-sbeg1, -sre2; uniqueness is decided among all qualifiers of the program, an ambiguous or unknown one is refused). The number is the sequence (1, and 2 for the second sequence of a two-sequence program; 1 for a program with one sequence). An unnumbered qualifier belongs to the LAST sequence given (-sbegin 3 is -sbegin2 3 in a two-sequence program) until a qualifier of another sequence ends that tie; after that it applies to all sequences. -sformat selects the file format of the text; -ufo -fformat -fopenfile name the feature file of a program that takes the features of its sequences (diffseq: the files are given by the tool); -sask -squick -sdbname -sid -iquery are accepted without effect (residue strings have no file); any other qualifier or a stray word is refused."
+   },
+   "reportFormat": {
+    "type": "string",
+    "description": "EMBOSS report format (-rformat): any of simple embl genbank gff gff3 pir swiss dasgff debug listfile dbmotif draw restrict excel feattable motif nametable regions seqtable srs summary table tagseq (diffseq needs 7 report tags: refused as the program does; embl / genbank are nucleotide only, pir / swiss protein only), or the report qualifiers as typed after the files, e.g. '-rformat table -raccshow -rdesshow -rscoreshow -rstrandshow -rusashow -rmaxall 5 -rmaxseq 2'. The report FILE of the program (header with the command line, one block per sequence, footer; #Rundate / #!Date is now; sequence name from sequenceName) is returned in the result field report. Omit for no report text."
+   },
+   "sequenceName": {
+    "type": "string",
+    "description": "Sequence name printed in the report (default sequence).",
+    "default": "sequence"
+   }
+  },
+  "required": [
+   "sequence"
+  ]
+ },
+ "outputSchema": {
+  "type": "object",
+  "properties": {
+   "program": {
+    "type": "string"
+   },
+   "repeats": {
+    "type": "array",
+    "items": {
+     "type": "object",
+     "properties": {
+      "position": {
+       "type": "integer"
+      },
+      "length": {
+       "type": "integer"
+      },
+      "score": {
+       "type": "integer"
+      },
+      "repeatSize": {
+       "type": "integer"
+      },
+      "repeatCount": {
+       "type": "integer"
+      },
+      "identity": {
+       "type": "number"
+      },
+      "consensus": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "position",
+      "length",
+      "score",
+      "repeatSize",
+      "repeatCount"
+     ]
+    }
+   }
+  },
+  "required": [
+   "program",
+   "repeats"
+  ]
+ },
+ "errors": [
+  {
+   "code": 1001,
+   "message": "Sequence cannot be null or empty"
+  },
+  {
+   "code": 1001,
+   "message": "Invalid DNA sequence (A/C/G/T and IUPAC codes only)"
+  },
+  {
+   "code": 1001,
+   "message": "program must be etandem or equicktandem"
+  },
+  {
+   "code": 1002,
+   "message": "minRepeat must be 2 or higher / maxRepeat must be at least minRepeat / threshold must be at least 1 (equicktandem)"
+  }
+ ],
+ "examples": [
+  {
+   "name": "etandem",
+   "input": {
+    "sequence": "CAGATTTTCATATTATGCAGAAAATCTACTTCGCCTGATACGAGTCGGTTATCTTCGGATCAGCAGCAGCAGCAGCAGCAGCAGCAGCAGCAGCAGACTGTATAGTCCCACCTGGTGATCCTATGCTTGTGAGTACACGTTAACGTTAACGTTAACGTTAACGTTAacgtNN",
+    "program": "etandem",
+    "minRepeat": 2,
+    "maxRepeat": 8,
+    "threshold": 10
+   },
+   "output": {
+    "program": "etandem",
+    "repeats": [
+     {
+      "position": 60,
+      "length": 36,
+      "score": 33,
+      "repeatSize": 3,
+      "repeatCount": 12,
+      "identity": 100.0,
+      "consensus": "cag"
+     },
+     {
+      "position": 136,
+      "length": 36,
+      "score": 26,
+      "repeatSize": 6,
+      "repeatCount": 6,
+      "identity": 94.4,
+      "consensus": "acgtta"
+     }
+    ]
+   }
+  },
+  {
+   "name": "equicktandem",
+   "input": {
+    "sequence": "ACGACGACGACGACGACGACGACG",
+    "program": "equicktandem",
+    "maxRepeat": 6,
+    "threshold": 10
+   },
+   "output": {
+    "program": "equicktandem",
+    "repeats": [
+     {
+      "position": 0,
+      "length": 24,
+      "score": 21,
+      "repeatSize": 3,
+      "repeatCount": 8
+     }
+    ]
+   }
+  }
+ ]
+}

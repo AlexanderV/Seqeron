@@ -145,18 +145,4 @@ public class SubstitutionMatrix_Biopython_Tests
         Assert.Throws<ArgumentException>(() => SubstitutionMatrix.Parse("AAA CCC\nAAA 1 2\nCCC 3 4\n"), "a codon header");
         Assert.Throws<ArgumentNullException>(() => SubstitutionMatrix.Parse(null!));
     }
-
-    [Test]
-    public void FractionalMatrix_WithTheAligners_AllModesAndTheIntegerOnlyConsumers()
-    {
-        var scoring = new MatrixScoring(SubstitutionMatrix.Get("JOHNSON"), -2.5, -0.5);
-        var global = SequenceAligner.GlobalAlignAffine("ACDEFGHIK", "ACDFGHIKL", scoring);
-        var local = SequenceAligner.LocalAlignAffine("ACDEFGHIK", "ACDFGHIKL", scoring);
-        Assert.That(global.ExactScore, Is.Not.EqualTo(Math.Round(global.ExactScore)), "the score is fractional (two decimals)");
-        Assert.That(local.ExactScore, Is.GreaterThanOrEqualTo(global.ExactScore));
-        var stats = SequenceAligner.CalculateStatistics(global, scoring.Matrix);
-        Assert.That(stats.Matches, Is.GreaterThan(0));
-        // EMBOSS needle reads integer matrices only (its data files are integer): a clear refusal, not a wrong score
-        Assert.Throws<InvalidOperationException>(() => SequenceAligner.NeedleAlign("ACDEFGHIK", "ACDFGHIKL", SubstitutionMatrix.Get("JOHNSON")));
-    }
 }

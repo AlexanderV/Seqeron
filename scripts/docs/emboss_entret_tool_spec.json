@@ -4,7 +4,7 @@
   "summary": "EMBOSS 6.6.0 'entret': the full text of the entries of a sequence file (or of the entries a query selects) exactly as the sequence readers store it.",
   "methodId": "EmbossEntretProgram.Entret",
   "sourceFile": "EmbossEntretProgram.cs",
-  "sourcePath": "Seqeron.Genomics.Analysis/EmbossEntretProgram.cs",
+  "sourcePath": "Seqeron.Genomics.Emboss.SequenceFormats/EmbossEntretProgram.cs",
   "algorithmDoc": "Alignment/Pairwise_Output_Formats_And_EMBOSS_Programs.md",
   "oracleScript": "generate_entret_oracle.py",
   "short": "EMBOSS entret: the text of the entries of a sequence file (any input format of seqret, a query, a range, a list file or a database) as the readers store it; equals entret 6.6.0 on 756 runs.",

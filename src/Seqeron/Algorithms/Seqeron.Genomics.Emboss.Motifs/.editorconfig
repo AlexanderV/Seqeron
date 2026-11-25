@@ -1,0 +1,3 @@
+# Ported C structures (EMBOSS AJAX / NUCLEUS records) keep their public fields: the port mirrors the C structs field by field.
+[*.cs]
+dotnet_diagnostic.S1104.severity = suggestion

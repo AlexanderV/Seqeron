@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""B09 WP67 (F309): the spec (scripts/docs/emboss_wp67_data_tool_spec.json) of the MCP tools drfinddata, dbtell and showdb of the Analysis server (src/Seqeron/Mcp/Seqeron.Mcp.Analysis/Tools/AnalysisTools.EmbossDataPrograms.cs, written by hand):
+"""HISTORIC (B09 WP80): the tools this script generated now live in the EMBOSS MCP servers by area (Seqeron.Mcp.Emboss*; copyleft, docs/Validation/review-2026-09/LICENSES.md) and the tool files are maintained by hand; the paths and class names below are those of WP61-WP67.
+B09 WP67 (F309): the spec (scripts/docs/emboss_wp67_data_tool_spec.json) of the MCP tools drfinddata, dbtell and showdb of the Analysis server (src/Seqeron/Mcp/Seqeron.Mcp.Analysis/Tools/AnalysisTools.EmbossDataPrograms.cs, written by hand):
 the example output of every tool is what the installed EMBOSS 6.6.0 program writes. Usage (repository root): python3 scripts/docs/gen_emboss_wp67_data_tools.py ; python3 scripts/docs/gen_mummer_est_tool_docs.py scripts/docs/emboss_wp67_data_tool_spec.json ;
 python3 scripts/docs/register_mcp_tools.py scripts/docs/emboss_wp67_data_tool_spec.json ; python3 scripts/docs/sync_mcp_tool_docs.py ; python3 scripts/skills/gen-catalog.py"""
 import json, os, re, subprocess, tempfile

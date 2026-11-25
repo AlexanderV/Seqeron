@@ -95,59 +95,6 @@ public class B02FinisherFuzzTests
             Documented(() => _ = GeneticCode.GetByTableNumberOrThrow(n, "genetic_code"), $"table {n}");
     }
 
-    /// <summary>F44–F46, F53, F58: getorf modes / circular / transeq options on IUPAC + garbage input and random options.</summary>
-    [Test]
-    public void SixFrameAndGetOrf_RandomInputsAndOptions_DocumentedOutcomesOnly()
-    {
-        var rng = new Random(Seed + 1);
-        for (int trial = 0; trial < 300; trial++)
-        {
-            string s = rng.Next(4) == 0 ? Garbage(rng, rng.Next(0, 30)) : Nucleotides(rng, rng.Next(0, 60));
-            var code = RandomCode(rng);
-            var mode = (OrfFindMode)rng.Next(-1, 8);
-            int minSize = rng.Next(-2, 40), maxSize = rng.Next(-2, 200), flanking = rng.Next(-2, 15);
-            bool circular = rng.Next(2) == 0, both = rng.Next(2) == 0, met = rng.Next(2) == 0;
-            Documented(() =>
-            {
-                var records = Translator.FindOrfs(s, mode, code, minSize, maxSize, flanking, both, met, circular).ToList();
-                int len = s.Length;
-                foreach (var r in records)
-                {
-                    Assert.That(r.StartPosition, Is.InRange(0, Math.Max(0, len - 1)), $"getorf {trial}: start");
-                    Assert.That(r.EndPosition, Is.GreaterThanOrEqualTo(r.StartPosition - 1), $"getorf {trial}: end");
-                    if (!circular) Assert.That(r.EndPosition, Is.LessThan(len), $"getorf {trial}: linear end");
-                    _ = r.ToGetOrfRange(len);
-                }
-            }, $"getorf {trial} mode {(int)mode} table {code.TableNumber}");
-            Documented(() =>
-            {
-                foreach (var o in Translator.FindOrfs(s, code, rng.Next(-1, 10), both))
-                    _ = o.ToGetOrfRange(s.Length);
-            }, $"legacy orfs {trial}");
-
-            var convention = (SixFrameConvention)rng.Next(-1, 4);
-            Documented(() =>
-            {
-                var frames = Translator.TranslateSixFrames(s, code, convention);
-                Assert.That(frames.Keys, Is.EquivalentTo(new[] { 1, 2, 3, -1, -2, -3 }));
-            }, $"six-frame {trial}");
-
-            var regions = rng.Next(3) == 0
-                ? null
-                : Enumerable.Range(0, rng.Next(0, 3)).Select(_ => (rng.Next(-1, 40), rng.Next(-1, 80))).ToList();
-            var options = new TranseqOptions { Trim = rng.Next(2) == 0, Clean = rng.Next(2) == 0, Methionine = rng.Next(2) == 0, Regions = regions };
-            Documented(() =>
-            {
-                var frames = Translator.TranslateSixFrames(s, code, convention, options);
-                foreach (var p in frames.Values)
-                {
-                    if (options.Clean) Assert.That(p.Sequence, Does.Not.Contain("*"), $"transeq {trial}: clean");
-                    if (options.Trim) Assert.That(p.Sequence.TrimEnd('X', '*'), Is.EqualTo(p.Sequence), $"transeq {trial}: trim");
-                }
-            }, $"transeq {trial}");
-        }
-    }
-
     /// <summary>F36/F37/F50–F52/F57/F59/F61: codon-usage statistics on garbage and random option values.</summary>
     [Test]
     public void CodonUsageSurfaces_RandomInputsAndOptions_DocumentedOutcomesOnly()

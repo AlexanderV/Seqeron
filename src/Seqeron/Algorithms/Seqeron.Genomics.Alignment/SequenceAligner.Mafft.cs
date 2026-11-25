@@ -1116,7 +1116,7 @@ public static partial class SequenceAligner
             return sb.ToString();
         }
 
-        internal static bool IsNucleotide(IReadOnlyList<string> seqs, MafftOptions o) => GuessNucleotide(seqs.Select(x => LoadResidues(x, o.AnySymbol)).ToList(), o);
+        public static bool IsNucleotide(IReadOnlyList<string> seqs, MafftOptions o) => GuessNucleotide(seqs.Select(x => LoadResidues(x, o.AnySymbol)).ToList(), o);
 
         /// <summary><c>restoreu -Y</c>: the residues that <c>--keeplength</c> deleted are taken out of the original letters (positions count the residues, '-' excluded).</summary>
         private static string DeleteRuns(string original, List<(int Row, int Pos, int Len)>? runs, int row)

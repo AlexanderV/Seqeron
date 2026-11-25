@@ -103,7 +103,7 @@ public static partial class SequenceAligner
             }
         }
 
-        private static int Gap(int k, int g, int h) => k <= 0 ? 0 : g + h * k;
+        public static int Gap(int k, int g, int h) => k <= 0 ? 0 : g + h * k;
 
         /// <summary><c>nw_align</c>: the optimum alignment of <c>A[1..M]</c> and <c>B[1..N]</c> in linear space (Myers and Miller); <c>A[i]</c> is <c>a[aoff + i]</c>.</summary>
         private static int NwAlign(int[] a, int aoff, int[] b, int boff, int mm, int nn, int tb, int te, int[][] w, int g, int h, int[] fH, int[] fE, int[] rH, int[] rE, Script sc)

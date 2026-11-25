@@ -8,11 +8,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- B09 WP67 (F309): the data files of the EMBOSS 6.6.0 installation that the data resource catalogue needs (DRCAT.dat, EDAM.obo, emboss.standard) -->
-    <EmbeddedResource Include="Data\*.gz" LogicalName="Seqeron.Genomics.Infrastructure.Data.%(Filename)%(Extension)" />
-  </ItemGroup>
-
-  <ItemGroup>
     <InternalsVisibleTo Include="Seqeron.Genomics.Tests" />
     <InternalsVisibleTo Include="Seqeron.Genomics.Analysis" />
     <InternalsVisibleTo Include="Seqeron.Genomics.Alignment" />
