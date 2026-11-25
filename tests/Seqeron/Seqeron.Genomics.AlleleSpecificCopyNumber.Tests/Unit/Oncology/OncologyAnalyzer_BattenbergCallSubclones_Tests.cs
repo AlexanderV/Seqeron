@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Tests of the Port of ASCAT 3.2.0 and Battenberg 3.0.0; part of Seqeron.Genomics.AlleleSpecificCopyNumber.Tests, licensed under the GNU General Public License, version 3 (only) (see LICENSE in the production project).
 // ONCO-ASCAT-001 — Battenberg callSubclones copy-number driver (B24 F61)
 // Evidence: docs/Evidence/ONCO-ASCAT-001-Evidence.md (§ F61)
 // TestSpec: tests/TestSpecs/ONCO-ASCAT-001.md (§20)
@@ -15,30 +17,12 @@ namespace Seqeron.Genomics.Tests.Unit.Oncology;
 [TestFixture]
 public class OncologyAnalyzer_BattenbergCallSubclones_Tests
 {
-    private static OncologyAnalyzer.BattenbergSubcloneCalls Run(string name)
+    private static AlleleSpecificCopyNumberAnalyzer.BattenbergSubcloneCalls Run(string name)
     {
         Genome g = Genomes[name];
         var (snps, logR) = Generate(g);
-        return OncologyAnalyzer.CallBattenbergSubclones(
+        return AlleleSpecificCopyNumberAnalyzer.CallBattenbergSubclones(
             snps, logR, g.Rho, g.Psit, g.RSeed, maxAllowedState: g.MaxState, bafOption: g.Option);
-    }
-
-    [TestCase("G1")]
-    [TestCase("G2")]
-    [TestCase("G3")]
-    [TestCase("G4")]
-    public void CallBattenbergSubclones_MatchesR(string name)
-    {
-        var result = Run(name);
-        Expectation e = Expected[name];
-        Assert.Multiple(() =>
-        {
-            AssertRows(result.InitialCalls, e.Initial, $"{name} determine_copynumber #1 (_1.txt)");
-            Assert.That(result.Merge.Segments.Select(s => (s.Chromosome, s.Start, s.End)),
-                Is.EqualTo(e.Merged.Select(m => (m.Chr, m.Start, m.End))), $"{name}: merged extents.");
-            AssertRows(result.Calls, e.Final, $"{name} final (determine_copynumber #2 + mask)");
-            Assert.That((result.Mask.MaskedCount, result.Mask.MaskedSize), Is.EqualTo((e.MaskedCount, e.MaskedSize)), $"{name}: masking details.");
-        });
     }
 
     [Test]
@@ -49,8 +33,8 @@ public class OncologyAnalyzer_BattenbergCallSubclones_Tests
         Genome g = Genomes["G1"];
         var (_, logR) = Generate(g);
         var result = Run("G1");
-        var fresh = OncologyAnalyzer.FitSubclonalCopyNumberWithBootstrap(
-            OncologyAnalyzer.BuildBattenbergSegments(result.Merge.SegmentedSnps, logR), g.Rho, g.Psit, g.RSeed);
+        var fresh = AlleleSpecificCopyNumberAnalyzer.FitSubclonalCopyNumberWithBootstrap(
+            AlleleSpecificCopyNumberAnalyzer.BuildBattenbergSegments(result.Merge.SegmentedSnps, logR), g.Rho, g.Psit, g.RSeed);
         int sub = result.Calls.Select((c, i) => (c, i)).First(t => t.c.Fit.IsSubclonal).i;
         Assert.Multiple(() =>
         {
@@ -68,10 +52,29 @@ public class OncologyAnalyzer_BattenbergCallSubclones_Tests
         var (snps, logR) = Generate(Genomes["G2"]);
         Assert.Multiple(() =>
         {
-            Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.CallBattenbergSubclones(null!, logR, 0.85, 3.1, 1));
-            Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.CallBattenbergSubclones(snps, null!, 0.85, 3.1, 1));
-            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.CallBattenbergSubclones(snps, logR, 0.85, 3.1, 1, permutations: 0));
-            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.CallBattenbergSubclones(snps, logR, 1.5, 3.1, 1));
+            Assert.Throws<ArgumentNullException>(() => AlleleSpecificCopyNumberAnalyzer.CallBattenbergSubclones(null!, logR, 0.85, 3.1, 1));
+            Assert.Throws<ArgumentNullException>(() => AlleleSpecificCopyNumberAnalyzer.CallBattenbergSubclones(snps, null!, 0.85, 3.1, 1));
+            Assert.Throws<ArgumentOutOfRangeException>(() => AlleleSpecificCopyNumberAnalyzer.CallBattenbergSubclones(snps, logR, 0.85, 3.1, 1, permutations: 0));
+            Assert.Throws<ArgumentOutOfRangeException>(() => AlleleSpecificCopyNumberAnalyzer.CallBattenbergSubclones(snps, logR, 1.5, 3.1, 1));
+        });
+    }
+
+
+    [TestCase("G1")]
+    [TestCase("G2")]
+    [TestCase("G3")]
+    [TestCase("G4")]
+    public void CallBattenbergSubclones_MatchesR(string name)
+    {
+        var result = Run(name);
+        Expectation e = Expected[name];
+        Assert.Multiple(() =>
+        {
+            AssertRows(result.InitialCalls, e.Initial, $"{name} determine_copynumber #1 (_1.txt)");
+            Assert.That(result.Merge.Segments.Select(s => (s.Chromosome, s.Start, s.End)),
+                Is.EqualTo(e.Merged.Select(m => (m.Chr, m.Start, m.End))), $"{name}: merged extents.");
+            AssertRows(result.Calls, e.Final, $"{name} final (determine_copynumber #2 + mask)");
+            Assert.That((result.Mask.MaskedCount, result.Mask.MaskedSize), Is.EqualTo((e.MaskedCount, e.MaskedSize)), $"{name}: masking details.");
         });
     }
 }

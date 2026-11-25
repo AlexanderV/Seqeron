@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Tests of the Port of ASCAT 3.2.0 and Battenberg 3.0.0; part of Seqeron.Genomics.AlleleSpecificCopyNumber.Tests, licensed under the GNU General Public License, version 3 (only) (see LICENSE in the production project).
 // ONCO-ASCAT-001 — Battenberg determine_copynumber alternative solutions A–F, SDfrac and bootstrap CIs (B24 F41)
 // Evidence: docs/Evidence/ONCO-ASCAT-001-Evidence.md (§ F41)
 // TestSpec: tests/TestSpecs/ONCO-ASCAT-001.md (§15)
@@ -12,6 +14,149 @@ namespace Seqeron.Genomics.Tests.Unit.Oncology;
 [TestFixture]
 public class OncologyAnalyzer_BattenbergBootstrap_Tests
 {
+
+    private static void AssertSolutions(IReadOnlyList<AlleleSpecificCopyNumberAnalyzer.BattenbergSubclonalSolution> actual, double[][] expected, string label)
+    {
+        Assert.That(actual, Has.Count.EqualTo(expected.Length), $"{label}: six solutions A–F.");
+        for (int k = 0; k < expected.Length; k++)
+        {
+            var a = actual[k];
+            var e = expected[k];
+            string s = $"{label} solution {(char)('A' + k)}";
+            int? Cn(double v) => double.IsNaN(v) ? null : (int)v;
+            Assert.That((a.MajorCopyNumber1, a.MinorCopyNumber1, a.MajorCopyNumber2, a.MinorCopyNumber2),
+                Is.EqualTo((Cn(e[0]), Cn(e[1]), Cn(e[3]), Cn(e[4]))), $"{s} nMaj1/nMin1/nMaj2/nMin2.");
+            AssertNum(a.Fraction1, e[2], 1e-12, $"{s} frac1.");
+            AssertNum(a.Fraction2, e[5], 1e-12, $"{s} frac2.");
+            AssertNum(a.FractionSd, e[6], 1e-12, $"{s} SDfrac.");
+            AssertNum(a.FractionBootstrapSd, e[7], 1e-12, $"{s} SDfrac_BS (R resamples reproduced).");
+            AssertNum(a.Fraction1Lower, e[8], 1e-12, $"{s} frac1_0.025.");
+            AssertNum(a.Fraction1Upper, e[9], 1e-12, $"{s} frac1_0.975.");
+        }
+    }
+
+    private static AlleleSpecificCopyNumberAnalyzer.BattenbergSegmentCall Run(string name)
+    {
+        var (rho, psit, logR, bafSeg, snps, seed, perms) = Inputs[name];
+        var seg = new AlleleSpecificCopyNumberAnalyzer.AlleleSpecificSegmentSummary("1", 1000, 1000L * snps.Length, logR, bafSeg, snps.Length);
+        return AlleleSpecificCopyNumberAnalyzer.FitSubclonalCopyNumberWithBootstrap(
+            new[] { new AlleleSpecificCopyNumberAnalyzer.SubclonalSegmentSnpBafs(seg, snps) }, rho, psit, seed, permutations: perms)[0];
+    }
+
+    [TestCase("e1")]
+    [TestCase("e2")]
+    public void FitSubclonalCopyNumberWithBootstrap_MultiSegmentStream_MatchesBattenberg(string name)
+    {
+        bool first = name == "e1";
+        var rows = AlleleSpecificCopyNumberAnalyzer.SegmentPhasedBaf(OncologyAnalyzer_BattenbergPhasedSegmentation_Tests.Track(first ? "t1" : "t2"));
+        var logR = first
+            ? OncologyAnalyzer_BattenbergPhasedSegmentation_Tests.LogRTrack(rows, new[] { 0.0, 0.15, -0.2 }, new[] { 100, 200, 300 })
+            : OncologyAnalyzer_BattenbergPhasedSegmentation_Tests.LogRTrack(rows, new[] { -0.1, 0.3, 0.0, 0.05, 0.2 }, new[] { 500, 900, 1200, 1500, 2000 });
+        if (first)
+        {
+            logR.Add(new AlleleSpecificCopyNumberAnalyzer.LogRProbe("1", 150500, double.PositiveInfinity));
+        }
+
+        var segments = AlleleSpecificCopyNumberAnalyzer.BuildBattenbergSegments(rows, logR);
+        var calls = first
+            ? AlleleSpecificCopyNumberAnalyzer.FitSubclonalCopyNumberWithBootstrap(segments, 0.7, 2.6, seed: 4711)
+            : AlleleSpecificCopyNumberAnalyzer.FitSubclonalCopyNumberWithBootstrap(segments, 0.85, 3.0, seed: 99);
+        var expected = first ? E1 : E2;
+        Assert.That(calls, Has.Count.EqualTo(expected.Length));
+        Assert.Multiple(() =>
+        {
+            for (int k = 0; k < expected.Length; k++)
+            {
+                if (expected[k] is null)
+                {
+                    Assert.That(calls[k].Solutions, Is.Empty, $"segment {k + 1} clonal ⇒ NA solutions.");
+                }
+                else
+                {
+                    AssertSolutions(calls[k].Solutions, expected[k]!, $"{name} segment {k + 1}");
+                }
+            }
+        });
+    }
+
+    // Statistical agreement (seed-independent): R 4.3.3, segment s4, 400 seeds (1..400) of set.seed + determine_copynumber:
+    // mean (sd) SDfrac_A_BS 0.130353 (0.002746), frac1_A_0.025 0.280433 (0.007417), frac1_A_0.975 0.785209 (0.012439).
+    // 100 C# seeds disjoint from R's must agree within 5 Monte-Carlo standard errors of the difference of means.
+    [Test]
+    public void FitSubclonalCopyNumberWithBootstrap_OtherSeeds_AgreeWithRWithinMonteCarloError()
+    {
+        var (rho, psit, logR, bafSeg, snps, _, _) = Inputs["s4"];
+        var seg = new AlleleSpecificCopyNumberAnalyzer.SubclonalSegmentSnpBafs(
+            new AlleleSpecificCopyNumberAnalyzer.AlleleSpecificSegmentSummary("1", 1000, 5000, logR, bafSeg, snps.Length), snps);
+        const int runs = 100;
+        double sd = 0, lo = 0, hi = 0;
+        for (int s = 0; s < runs; s++)
+        {
+            var a = AlleleSpecificCopyNumberAnalyzer.FitSubclonalCopyNumberWithBootstrap(new[] { seg }, rho, psit, seed: 100_001 + s)[0].Solutions[0];
+            sd += a.FractionBootstrapSd / runs;
+            lo += a.Fraction1Lower / runs;
+            hi += a.Fraction1Upper / runs;
+        }
+
+        double Tol(double rSd) => 5 * rSd * Math.Sqrt((1.0 / runs) + (1.0 / 400));
+        Assert.Multiple(() =>
+        {
+            Assert.That(sd, Is.EqualTo(0.130353).Within(Tol(0.002746)), "mean SDfrac_A_BS.");
+            Assert.That(lo, Is.EqualTo(0.280433).Within(Tol(0.007417)), "mean frac1_A_0.025.");
+            Assert.That(hi, Is.EqualTo(0.785209).Within(Tol(0.012439)), "mean frac1_A_0.975.");
+            // The delta-method SDfrac (deterministic) is the same whatever the seed.
+            Assert.That(Run("s4").Solutions[0].FractionSd, Is.EqualTo(0.14517451315980001).Within(1e-12));
+        });
+    }
+
+    [Test]
+    public void FitSubclonalCopyNumberWithBootstrap_SameSeedReproducible_ClonalHasNoSolutions_Guards()
+    {
+        var a = Run("s1");
+        var b = Run("s1");
+        var clonalSeg = new AlleleSpecificCopyNumberAnalyzer.SubclonalSegmentSnpBafs(
+            new AlleleSpecificCopyNumberAnalyzer.AlleleSpecificSegmentSummary("1", 1, 3, 0.222392, 0.647857, 3), new[] { 0.6379, 0.6579, 0.6484 });
+        var clonal = AlleleSpecificCopyNumberAnalyzer.FitSubclonalCopyNumberWithBootstrap(new[] { clonalSeg }, 0.8, 2.5, seed: 1)[0];
+        Assert.Multiple(() =>
+        {
+            Assert.That(a.Solutions.Select(x => x.FractionBootstrapSd), Is.EqualTo(b.Solutions.Select(x => x.FractionBootstrapSd)), "deterministic per seed.");
+            Assert.That(clonal.Fit.IsSubclonal, Is.False);
+            Assert.That(clonal.PValue, Is.EqualTo(1.0), "within maxdist.");
+            Assert.That(clonal.Solutions, Is.Empty, "clonal ⇒ Battenberg NA columns.");
+            Assert.Throws<ArgumentOutOfRangeException>(() => AlleleSpecificCopyNumberAnalyzer.FitSubclonalCopyNumberWithBootstrap(new[] { clonalSeg }, 0.8, 2.5, 1, permutations: 0));
+            Assert.Throws<ArgumentNullException>(() => AlleleSpecificCopyNumberAnalyzer.FitSubclonalCopyNumberWithBootstrap(null!, 0.8, 2.5, 1));
+            Assert.Throws<ArgumentOutOfRangeException>(() => AlleleSpecificCopyNumberAnalyzer.FitSubclonalCopyNumberWithBootstrap(new[] { clonalSeg }, 0.0, 2.5, 1));
+        });
+    }
+
+
+    // s1: (2,0)+(2,1) with x = 0 ⇒ solution F needs nMin = −1 ⇒ NA, moved last. s1n500: 975th order statistic missing ⇒
+    // frac1_0.975 NA; s1n20: both NA. s2: one SNP ⇒ SDfrac NA (sd of one value), bootstrap constant (SD_BS 0, bounds =
+    // τ(SNP BAF) ≠ τ(l)). s3–s5: other genomes/edges; seeds −12345, 2³¹ − 1 and 0 exercise R's unsigned seeding.
+    [TestCase("s1")]
+    [TestCase("s1n500")]
+    [TestCase("s1n20")]
+    [TestCase("s2")]
+    [TestCase("s3")]
+    [TestCase("s4")]
+    [TestCase("s5")]
+    public void FitSubclonalCopyNumberWithBootstrap_MatchesBattenberg(string name)
+    {
+        var call = Run(name);
+        var (pval, ntot, solutions) = Expected[name];
+        Assert.Multiple(() =>
+        {
+            Assert.That(call.PValue, Is.EqualTo(pval).Within(1e-12 * Math.Max(pval, 1e-300)), "pval.");
+            Assert.That(call.TotalCopyNumber, Is.EqualTo(ntot).Within(1e-12), "ntot.");
+            Assert.That(call.Fit.IsSubclonal, Is.True);
+            Assert.That(call.Baf, Is.EqualTo(Inputs[name].BafSeg).Within(1e-15), "BAF column = l.");
+            AssertSolutions(call.Solutions, solutions, name);
+            Assert.That((call.Fit.PrimaryState.MajorCopyNumber, call.Fit.PrimaryState.MinorCopyNumber, call.Fit.PrimaryState.CellFraction),
+                Is.EqualTo((call.Solutions[0].MajorCopyNumber1!.Value, call.Solutions[0].MinorCopyNumber1!.Value, call.Solutions[0].Fraction1)),
+                "Fit = solution A.");
+        });
+    }
+
     private static readonly Dictionary<string, (double Rho, double Psit, double LogR, double BafSeg, double[] Snps, int Seed, int Perms)> Inputs = new()
     {
         ["s1"] = (0.8, 2.5, 0.222392, 0.672857, new[] { 0.6689, 0.6759, 0.6739, 0.6709, 0.6749 }, 7, 1000),
@@ -91,26 +236,6 @@ public class OncologyAnalyzer_BattenbergBootstrap_Tests
         }),
     };
 
-    private static void AssertSolutions(IReadOnlyList<OncologyAnalyzer.BattenbergSubclonalSolution> actual, double[][] expected, string label)
-    {
-        Assert.That(actual, Has.Count.EqualTo(expected.Length), $"{label}: six solutions A–F.");
-        for (int k = 0; k < expected.Length; k++)
-        {
-            var a = actual[k];
-            var e = expected[k];
-            string s = $"{label} solution {(char)('A' + k)}";
-            int? Cn(double v) => double.IsNaN(v) ? null : (int)v;
-            Assert.That((a.MajorCopyNumber1, a.MinorCopyNumber1, a.MajorCopyNumber2, a.MinorCopyNumber2),
-                Is.EqualTo((Cn(e[0]), Cn(e[1]), Cn(e[3]), Cn(e[4]))), $"{s} nMaj1/nMin1/nMaj2/nMin2.");
-            AssertNum(a.Fraction1, e[2], 1e-12, $"{s} frac1.");
-            AssertNum(a.Fraction2, e[5], 1e-12, $"{s} frac2.");
-            AssertNum(a.FractionSd, e[6], 1e-12, $"{s} SDfrac.");
-            AssertNum(a.FractionBootstrapSd, e[7], 1e-12, $"{s} SDfrac_BS (R resamples reproduced).");
-            AssertNum(a.Fraction1Lower, e[8], 1e-12, $"{s} frac1_0.025.");
-            AssertNum(a.Fraction1Upper, e[9], 1e-12, $"{s} frac1_0.975.");
-        }
-    }
-
     private static void AssertNum(double actual, double expected, double tol, string message)
     {
         if (double.IsNaN(expected))
@@ -121,41 +246,6 @@ public class OncologyAnalyzer_BattenbergBootstrap_Tests
         {
             Assert.That(actual, Is.EqualTo(expected).Within(tol), message);
         }
-    }
-
-    private static OncologyAnalyzer.BattenbergSegmentCall Run(string name)
-    {
-        var (rho, psit, logR, bafSeg, snps, seed, perms) = Inputs[name];
-        var seg = new OncologyAnalyzer.AlleleSpecificSegmentSummary("1", 1000, 1000L * snps.Length, logR, bafSeg, snps.Length);
-        return OncologyAnalyzer.FitSubclonalCopyNumberWithBootstrap(
-            new[] { new OncologyAnalyzer.SubclonalSegmentSnpBafs(seg, snps) }, rho, psit, seed, permutations: perms)[0];
-    }
-
-    // s1: (2,0)+(2,1) with x = 0 ⇒ solution F needs nMin = −1 ⇒ NA, moved last. s1n500: 975th order statistic missing ⇒
-    // frac1_0.975 NA; s1n20: both NA. s2: one SNP ⇒ SDfrac NA (sd of one value), bootstrap constant (SD_BS 0, bounds =
-    // τ(SNP BAF) ≠ τ(l)). s3–s5: other genomes/edges; seeds −12345, 2³¹ − 1 and 0 exercise R's unsigned seeding.
-    [TestCase("s1")]
-    [TestCase("s1n500")]
-    [TestCase("s1n20")]
-    [TestCase("s2")]
-    [TestCase("s3")]
-    [TestCase("s4")]
-    [TestCase("s5")]
-    public void FitSubclonalCopyNumberWithBootstrap_MatchesBattenberg(string name)
-    {
-        var call = Run(name);
-        var (pval, ntot, solutions) = Expected[name];
-        Assert.Multiple(() =>
-        {
-            Assert.That(call.PValue, Is.EqualTo(pval).Within(1e-12 * Math.Max(pval, 1e-300)), "pval.");
-            Assert.That(call.TotalCopyNumber, Is.EqualTo(ntot).Within(1e-12), "ntot.");
-            Assert.That(call.Fit.IsSubclonal, Is.True);
-            Assert.That(call.Baf, Is.EqualTo(Inputs[name].BafSeg).Within(1e-15), "BAF column = l.");
-            AssertSolutions(call.Solutions, solutions, name);
-            Assert.That((call.Fit.PrimaryState.MajorCopyNumber, call.Fit.PrimaryState.MinorCopyNumber, call.Fit.PrimaryState.CellFraction),
-                Is.EqualTo((call.Solutions[0].MajorCopyNumber1!.Value, call.Solutions[0].MinorCopyNumber1!.Value, call.Solutions[0].Fraction1)),
-                "Fit = solution A.");
-        });
     }
 
     // Multi-segment end to end (F40 tracks): R set.seed once, then the RNG stream runs through the sub-clonal segments in
@@ -216,90 +306,4 @@ public class OncologyAnalyzer_BattenbergBootstrap_Tests
         },
         null,
     };
-
-    [TestCase("e1")]
-    [TestCase("e2")]
-    public void FitSubclonalCopyNumberWithBootstrap_MultiSegmentStream_MatchesBattenberg(string name)
-    {
-        bool first = name == "e1";
-        var rows = OncologyAnalyzer.SegmentPhasedBaf(OncologyAnalyzer_BattenbergPhasedSegmentation_Tests.Track(first ? "t1" : "t2"));
-        var logR = first
-            ? OncologyAnalyzer_BattenbergPhasedSegmentation_Tests.LogRTrack(rows, new[] { 0.0, 0.15, -0.2 }, new[] { 100, 200, 300 })
-            : OncologyAnalyzer_BattenbergPhasedSegmentation_Tests.LogRTrack(rows, new[] { -0.1, 0.3, 0.0, 0.05, 0.2 }, new[] { 500, 900, 1200, 1500, 2000 });
-        if (first)
-        {
-            logR.Add(new OncologyAnalyzer.LogRProbe("1", 150500, double.PositiveInfinity));
-        }
-
-        var segments = OncologyAnalyzer.BuildBattenbergSegments(rows, logR);
-        var calls = first
-            ? OncologyAnalyzer.FitSubclonalCopyNumberWithBootstrap(segments, 0.7, 2.6, seed: 4711)
-            : OncologyAnalyzer.FitSubclonalCopyNumberWithBootstrap(segments, 0.85, 3.0, seed: 99);
-        var expected = first ? E1 : E2;
-        Assert.That(calls, Has.Count.EqualTo(expected.Length));
-        Assert.Multiple(() =>
-        {
-            for (int k = 0; k < expected.Length; k++)
-            {
-                if (expected[k] is null)
-                {
-                    Assert.That(calls[k].Solutions, Is.Empty, $"segment {k + 1} clonal ⇒ NA solutions.");
-                }
-                else
-                {
-                    AssertSolutions(calls[k].Solutions, expected[k]!, $"{name} segment {k + 1}");
-                }
-            }
-        });
-    }
-
-    // Statistical agreement (seed-independent): R 4.3.3, segment s4, 400 seeds (1..400) of set.seed + determine_copynumber:
-    // mean (sd) SDfrac_A_BS 0.130353 (0.002746), frac1_A_0.025 0.280433 (0.007417), frac1_A_0.975 0.785209 (0.012439).
-    // 100 C# seeds disjoint from R's must agree within 5 Monte-Carlo standard errors of the difference of means.
-    [Test]
-    public void FitSubclonalCopyNumberWithBootstrap_OtherSeeds_AgreeWithRWithinMonteCarloError()
-    {
-        var (rho, psit, logR, bafSeg, snps, _, _) = Inputs["s4"];
-        var seg = new OncologyAnalyzer.SubclonalSegmentSnpBafs(
-            new OncologyAnalyzer.AlleleSpecificSegmentSummary("1", 1000, 5000, logR, bafSeg, snps.Length), snps);
-        const int runs = 100;
-        double sd = 0, lo = 0, hi = 0;
-        for (int s = 0; s < runs; s++)
-        {
-            var a = OncologyAnalyzer.FitSubclonalCopyNumberWithBootstrap(new[] { seg }, rho, psit, seed: 100_001 + s)[0].Solutions[0];
-            sd += a.FractionBootstrapSd / runs;
-            lo += a.Fraction1Lower / runs;
-            hi += a.Fraction1Upper / runs;
-        }
-
-        double Tol(double rSd) => 5 * rSd * Math.Sqrt((1.0 / runs) + (1.0 / 400));
-        Assert.Multiple(() =>
-        {
-            Assert.That(sd, Is.EqualTo(0.130353).Within(Tol(0.002746)), "mean SDfrac_A_BS.");
-            Assert.That(lo, Is.EqualTo(0.280433).Within(Tol(0.007417)), "mean frac1_A_0.025.");
-            Assert.That(hi, Is.EqualTo(0.785209).Within(Tol(0.012439)), "mean frac1_A_0.975.");
-            // The delta-method SDfrac (deterministic) is the same whatever the seed.
-            Assert.That(Run("s4").Solutions[0].FractionSd, Is.EqualTo(0.14517451315980001).Within(1e-12));
-        });
-    }
-
-    [Test]
-    public void FitSubclonalCopyNumberWithBootstrap_SameSeedReproducible_ClonalHasNoSolutions_Guards()
-    {
-        var a = Run("s1");
-        var b = Run("s1");
-        var clonalSeg = new OncologyAnalyzer.SubclonalSegmentSnpBafs(
-            new OncologyAnalyzer.AlleleSpecificSegmentSummary("1", 1, 3, 0.222392, 0.647857, 3), new[] { 0.6379, 0.6579, 0.6484 });
-        var clonal = OncologyAnalyzer.FitSubclonalCopyNumberWithBootstrap(new[] { clonalSeg }, 0.8, 2.5, seed: 1)[0];
-        Assert.Multiple(() =>
-        {
-            Assert.That(a.Solutions.Select(x => x.FractionBootstrapSd), Is.EqualTo(b.Solutions.Select(x => x.FractionBootstrapSd)), "deterministic per seed.");
-            Assert.That(clonal.Fit.IsSubclonal, Is.False);
-            Assert.That(clonal.PValue, Is.EqualTo(1.0), "within maxdist.");
-            Assert.That(clonal.Solutions, Is.Empty, "clonal ⇒ Battenberg NA columns.");
-            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.FitSubclonalCopyNumberWithBootstrap(new[] { clonalSeg }, 0.8, 2.5, 1, permutations: 0));
-            Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.FitSubclonalCopyNumberWithBootstrap(null!, 0.8, 2.5, 1));
-            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.FitSubclonalCopyNumberWithBootstrap(new[] { clonalSeg }, 0.0, 2.5, 1));
-        });
-    }
 }

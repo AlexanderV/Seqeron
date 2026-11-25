@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Copyleft assembly (GPL-3.0-or-later); NOT part of the MIT-licensed Seqeron assemblies.
+       Licence text: LICENSE in this directory; inventory: docs/Validation/review-2026-09/LICENSES.md. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <RootNamespace>Seqeron.Genomics.PurityPeakQc</RootNamespace>
+    <PackageLicenseExpression>GPL-3.0-or-later</PackageLicenseExpression>
+    <Description>Port of CNAqc 1.1.5 peak-based purity QC, BMix 1.0.0 binomial mixtures and R kmeans. Licensed under GPL-3.0-or-later.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Seqeron.Genomics.Infrastructure\Seqeron.Genomics.Infrastructure.csproj" />
+    <ProjectReference Include="..\Seqeron.Genomics.Core\Seqeron.Genomics.Core.csproj" />
+    <ProjectReference Include="..\Seqeron.Genomics.Oncology\Seqeron.Genomics.Oncology.csproj" />
+    <ProjectReference Include="..\Seqeron.Genomics.AlleleSpecificCopyNumber\Seqeron.Genomics.AlleleSpecificCopyNumber.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Seqeron.Genomics.Infrastructure" />
+    <Using Include="Seqeron.Genomics.Oncology" />
+    <Using Include="Seqeron.Genomics.AlleleSpecificCopyNumber" />
+    <Using Include="Seqeron.Genomics.AlleleSpecificCopyNumber.AlleleSpecificCopyNumberAnalyzer" Static="true" />
+    <Using Include="Seqeron.Genomics.Oncology.OncologyAnalyzer" Static="true" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Seqeron.Genomics.PurityPeakQc.Tests" />
+  </ItemGroup>
+
+</Project>

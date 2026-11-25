@@ -2221,4 +2221,18 @@ public static partial class OncologyAnalyzer
 
     #endregion
 
+    /// <summary>
+    /// Unscaled median absolute deviation about <paramref name="center"/>: median(|xᵢ − center|) (canonical
+    /// <see cref="StatisticsHelper.Median"/>), the building block of the maftools MATH score (<see cref="CalculateITH(IReadOnlyList{double})"/>).
+    /// </summary>
+    private static double RawMedianAbsoluteDeviation(double[] x, double center)
+    {
+        var dev = new double[x.Length];
+        for (int i = 0; i < x.Length; i++)
+        {
+            dev[i] = Math.Abs(x[i] - center);
+        }
+
+        return StatisticsHelper.Median(dev);
+    }
 }

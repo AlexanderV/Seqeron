@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Tests of the Port of ASCAT 3.2.0 and Battenberg 3.0.0; part of Seqeron.Genomics.AlleleSpecificCopyNumber.Tests, licensed under the GNU General Public License, version 3 (only) (see LICENSE in the production project).
 // ONCO-ASCAT-001 — shared inputs and R expectations of the Battenberg callSubclones tests (B24 F60/F61).
 // Evidence: docs/Evidence/ONCO-ASCAT-001-Evidence.md (§ F60, § F61); TestSpec: tests/TestSpecs/ONCO-ASCAT-001.md (§19, §20).
 // Source: Wedge-lab/battenberg master (57a8f7e) R/fitcopynumber.R (callSubclones, determine_copynumber, merge_segments,
@@ -16,23 +18,13 @@ namespace Seqeron.Genomics.Tests.Unit.Oncology;
 
 internal static class BattenbergCallSubclonesData
 {
-    internal sealed record Blk(string Chr, int N, long Pos0, long Step, double Baf, double Lr, double Seg, double Bsd, double Lsd, int NaEvery);
 
     internal sealed record Genome(
-        double Seed, double Rho, double Psit, int RSeed, int MaxState, OncologyAnalyzer.BattenbergSegmentBafOption Option, Blk[] Blocks);
-
-    internal sealed record Expectation(
-        int MaskedCount,
-        long MaskedSize,
-        int MaskedBafSegRows,
-        (string Chr, long Start, long End, double[] Row)[] Initial,
-        (string Chr, long Start, long End, double Baf, double LogR, int Maj1, int Min1, double Frac1)[] Merged,
-        (string Chr, long First, long Last, int Count, double BafSeg)[] MergedRuns,
-        (string Chr, long Start, long End, double[] Row)[] Final);
+        double Seed, double Rho, double Psit, int RSeed, int MaxState, AlleleSpecificCopyNumberAnalyzer.BattenbergSegmentBafOption Option, Blk[] Blocks);
 
     internal static readonly Dictionary<string, Genome> Genomes = new()
     {
-        ["G1"] = new Genome(11, 0.7, 2.6, 2024, 5, OncologyAnalyzer.BattenbergSegmentBafOption.Mean, new Blk[]
+        ["G1"] = new Genome(11, 0.7, 2.6, 2024, 5, AlleleSpecificCopyNumberAnalyzer.BattenbergSegmentBafOption.Mean, new Blk[]
         {
             new("1", 80, 10000, 10000, 0.6296, 0.158, 0.63, 0.03, 0.15, 0),
             new("1", 40, 820000, 10000, 0.6296, 0.158, 0.628, 0.03, 0.15, 0),
@@ -45,7 +37,7 @@ internal static class BattenbergCallSubclonesData
             new("2", 50, 5020000, 20000, 0.85, -0.275, 0.86, 0.03, 0.15, 0),
             new("2", 40, 6100000, 20000, 0.8182, 1.1844, 0.8182, 0.03, 0.15, 0),
         }),
-        ["G2"] = new Genome(22, 0.85, 3.1, -77, 250, OncologyAnalyzer.BattenbergSegmentBafOption.MedianUnlessExtreme, new Blk[]
+        ["G2"] = new Genome(22, 0.85, 3.1, -77, 250, AlleleSpecificCopyNumberAnalyzer.BattenbergSegmentBafOption.MedianUnlessExtreme, new Blk[]
         {
             new("10", 30, 5000, 15000, 0.6491, -0.0424, 0.65, 0.03, 0.15, 0),
             new("10", 25, 470000, 15000, 0.6491, -0.0424, 0.645, 0.03, 0.15, 0),
@@ -58,7 +50,7 @@ internal static class BattenbergCallSubclonesData
             new("X", 35, 100000, 30000, 0.925, -0.5534, 0.925, 0.03, 0.15, 0),
             new("X", 35, 1160000, 30000, 0.925, -0.5534, 0.92, 0.03, 0.15, 0),
         }),
-        ["G3"] = new Genome(33, 0.5, 2, 123456, 250, OncologyAnalyzer.BattenbergSegmentBafOption.Median, new Blk[]
+        ["G3"] = new Genome(33, 0.5, 2, 123456, 250, AlleleSpecificCopyNumberAnalyzer.BattenbergSegmentBafOption.Median, new Blk[]
         {
             new("chr3", 60, 2000, 8000, 0.55, 0.17, 0.55, 0.02, 0.15, 0),
             new("chr3", 50, 490000, 8000, 0.55, 0.17, 0.555, 0.02, 0.15, 6),
@@ -70,7 +62,7 @@ internal static class BattenbergCallSubclonesData
             new("chrX", 45, 10000, 9000, 0.62, 0.4, 0.62, 0.02, 0.15, 0),
             new("chrX", 45, 3920000, 9000, 0.62, 0.4, 0.625, 0.02, 0.15, 0),
         }),
-        ["G4"] = new Genome(44, 0.7, 2.6, 99, 250, OncologyAnalyzer.BattenbergSegmentBafOption.MedianUnlessExtreme, new Blk[]
+        ["G4"] = new Genome(44, 0.7, 2.6, 99, 250, AlleleSpecificCopyNumberAnalyzer.BattenbergSegmentBafOption.MedianUnlessExtreme, new Blk[]
         {
             new("MT", 20, 1000, 5000, 0.5, -0.275, 0.5, 0.03, 0.15, 0),
             new("GL000192.1", 15, 1000, 5000, 0.5, -0.275, 0.5, 0.03, 0.15, 0),
@@ -84,6 +76,108 @@ internal static class BattenbergCallSubclonesData
             new("10", 20, 1000, 10000, 0.6296, 0.158, 0.6296, 0.03, 0.15, 0),
         }),
     };
+
+    internal static (List<AlleleSpecificCopyNumberAnalyzer.PhasedBafSegmentedSnp> Snps, List<AlleleSpecificCopyNumberAnalyzer.LogRProbe> LogR) Generate(Genome g)
+    {
+        double x = g.Seed;
+        double Next()
+        {
+            x = (1664525 * x + 1013904223) % 16777216;
+            return x / 16777216;
+        }
+
+        var snps = new List<AlleleSpecificCopyNumberAnalyzer.PhasedBafSegmentedSnp>();
+        var logR = new List<AlleleSpecificCopyNumberAnalyzer.LogRProbe>();
+        foreach (Blk b in g.Blocks)
+        {
+            for (int i = 1; i <= b.N; i++)
+            {
+                long pos = b.Pos0 + i * b.Step;
+                double v = b.Baf + b.Bsd * ((Next() + Next() + Next()) - 1.5) * 2;
+                v = Math.Min(1, Math.Max(0, v));
+                double l = b.Lr + b.Lsd * ((Next() + Next() + Next()) - 1.5) * 2;
+                if (b.NaEvery > 0 && i % b.NaEvery == 0)
+                {
+                    l = double.NaN;
+                }
+
+                snps.Add(new AlleleSpecificCopyNumberAnalyzer.PhasedBafSegmentedSnp(b.Chr, pos, v, v, b.Seg));
+                logR.Add(new AlleleSpecificCopyNumberAnalyzer.LogRProbe(b.Chr, pos, l));
+            }
+        }
+
+        return (snps, logR);
+    }
+
+    /// <summary>A call as Battenberg's 64 numeric columns after chr/startpos/endpos (masked A copy numbers NaN).</summary>
+    internal static double[] Row(AlleleSpecificCopyNumberAnalyzer.BattenbergSegmentCall c)
+    {
+        var r = new List<double> { c.Baf, c.PValue, c.Fit.Segment.MeanLogR, c.TotalCopyNumber };
+        static double N(int? v) => v is null ? double.NaN : v.Value;
+        for (int k = 0; k < 6; k++)
+        {
+            if (c.Solutions.Count > 0)
+            {
+                var s = c.Solutions[k];
+                r.AddRange(new[]
+                {
+                    N(s.MajorCopyNumber1), N(s.MinorCopyNumber1), s.Fraction1, N(s.MajorCopyNumber2), N(s.MinorCopyNumber2),
+                    s.Fraction2, s.FractionSd, s.FractionBootstrapSd, s.Fraction1Lower, s.Fraction1Upper,
+                });
+            }
+            else
+            {
+                var row = Enumerable.Repeat(double.NaN, 10).ToArray();
+                if (k == 0)
+                {
+                    row[0] = c.IsMasked ? double.NaN : c.Fit.PrimaryState.MajorCopyNumber;
+                    row[1] = c.IsMasked ? double.NaN : c.Fit.PrimaryState.MinorCopyNumber;
+                    row[2] = 1.0;
+                }
+
+                r.AddRange(row);
+            }
+        }
+
+        return r.ToArray();
+    }
+
+    internal static void AssertRows(
+        IReadOnlyList<AlleleSpecificCopyNumberAnalyzer.BattenbergSegmentCall> actual, (string Chr, long Start, long End, double[] Row)[] expected, string label)
+    {
+        Assert.That(actual, Has.Count.EqualTo(expected.Length), $"{label}: rows.");
+        for (int i = 0; i < Math.Min(actual.Count, expected.Length); i++)
+        {
+            var s = actual[i].Fit.Segment;
+            Assert.That((s.Chromosome, s.Start, s.End), Is.EqualTo((expected[i].Chr, expected[i].Start, expected[i].End)), $"{label} row {i + 1} extent.");
+            double[] a = Row(actual[i]), e = expected[i].Row;
+            for (int j = 0; j < e.Length; j++)
+            {
+                string m = $"{label} row {i + 1} column {j + 4}";
+                if (double.IsNaN(e[j]))
+                {
+                    Assert.That(a[j], Is.NaN, m + " (R NA)");
+                }
+                else
+                {
+                    // pval (column 5) spans many decades: relative 1e−9 (R pt in long double); all else ≤ 1e−12.
+                    double tol = j == 1 ? Math.Max(1e-12, 1e-9 * Math.Abs(e[j])) : 1e-12 * Math.Max(1.0, Math.Abs(e[j]));
+                    Assert.That(a[j], Is.EqualTo(e[j]).Within(tol), m);
+                }
+            }
+        }
+    }
+
+
+    internal sealed record Expectation(
+        int MaskedCount,
+        long MaskedSize,
+        int MaskedBafSegRows,
+        (string Chr, long Start, long End, double[] Row)[] Initial,
+        (string Chr, long Start, long End, double Baf, double LogR, int Maj1, int Min1, double Frac1)[] Merged,
+        (string Chr, long First, long Last, int Count, double BafSeg)[] MergedRuns,
+        (string Chr, long Start, long End, double[] Row)[] Final);
+
 
     internal static readonly Dictionary<string, Expectation> Expected = new()
     {
@@ -257,94 +351,5 @@ internal static class BattenbergCallSubclonesData
             }),
     };
 
-    internal static (List<OncologyAnalyzer.PhasedBafSegmentedSnp> Snps, List<OncologyAnalyzer.LogRProbe> LogR) Generate(Genome g)
-    {
-        double x = g.Seed;
-        double Next()
-        {
-            x = (1664525 * x + 1013904223) % 16777216;
-            return x / 16777216;
-        }
-
-        var snps = new List<OncologyAnalyzer.PhasedBafSegmentedSnp>();
-        var logR = new List<OncologyAnalyzer.LogRProbe>();
-        foreach (Blk b in g.Blocks)
-        {
-            for (int i = 1; i <= b.N; i++)
-            {
-                long pos = b.Pos0 + i * b.Step;
-                double v = b.Baf + b.Bsd * ((Next() + Next() + Next()) - 1.5) * 2;
-                v = Math.Min(1, Math.Max(0, v));
-                double l = b.Lr + b.Lsd * ((Next() + Next() + Next()) - 1.5) * 2;
-                if (b.NaEvery > 0 && i % b.NaEvery == 0)
-                {
-                    l = double.NaN;
-                }
-
-                snps.Add(new OncologyAnalyzer.PhasedBafSegmentedSnp(b.Chr, pos, v, v, b.Seg));
-                logR.Add(new OncologyAnalyzer.LogRProbe(b.Chr, pos, l));
-            }
-        }
-
-        return (snps, logR);
-    }
-
-    /// <summary>A call as Battenberg's 64 numeric columns after chr/startpos/endpos (masked A copy numbers NaN).</summary>
-    internal static double[] Row(OncologyAnalyzer.BattenbergSegmentCall c)
-    {
-        var r = new List<double> { c.Baf, c.PValue, c.Fit.Segment.MeanLogR, c.TotalCopyNumber };
-        static double N(int? v) => v is null ? double.NaN : v.Value;
-        for (int k = 0; k < 6; k++)
-        {
-            if (c.Solutions.Count > 0)
-            {
-                var s = c.Solutions[k];
-                r.AddRange(new[]
-                {
-                    N(s.MajorCopyNumber1), N(s.MinorCopyNumber1), s.Fraction1, N(s.MajorCopyNumber2), N(s.MinorCopyNumber2),
-                    s.Fraction2, s.FractionSd, s.FractionBootstrapSd, s.Fraction1Lower, s.Fraction1Upper,
-                });
-            }
-            else
-            {
-                var row = Enumerable.Repeat(double.NaN, 10).ToArray();
-                if (k == 0)
-                {
-                    row[0] = c.IsMasked ? double.NaN : c.Fit.PrimaryState.MajorCopyNumber;
-                    row[1] = c.IsMasked ? double.NaN : c.Fit.PrimaryState.MinorCopyNumber;
-                    row[2] = 1.0;
-                }
-
-                r.AddRange(row);
-            }
-        }
-
-        return r.ToArray();
-    }
-
-    internal static void AssertRows(
-        IReadOnlyList<OncologyAnalyzer.BattenbergSegmentCall> actual, (string Chr, long Start, long End, double[] Row)[] expected, string label)
-    {
-        Assert.That(actual, Has.Count.EqualTo(expected.Length), $"{label}: rows.");
-        for (int i = 0; i < Math.Min(actual.Count, expected.Length); i++)
-        {
-            var s = actual[i].Fit.Segment;
-            Assert.That((s.Chromosome, s.Start, s.End), Is.EqualTo((expected[i].Chr, expected[i].Start, expected[i].End)), $"{label} row {i + 1} extent.");
-            double[] a = Row(actual[i]), e = expected[i].Row;
-            for (int j = 0; j < e.Length; j++)
-            {
-                string m = $"{label} row {i + 1} column {j + 4}";
-                if (double.IsNaN(e[j]))
-                {
-                    Assert.That(a[j], Is.NaN, m + " (R NA)");
-                }
-                else
-                {
-                    // pval (column 5) spans many decades: relative 1e−9 (R pt in long double); all else ≤ 1e−12.
-                    double tol = j == 1 ? Math.Max(1e-12, 1e-9 * Math.Abs(e[j])) : 1e-12 * Math.Max(1.0, Math.Abs(e[j]));
-                    Assert.That(a[j], Is.EqualTo(e[j]).Within(tol), m);
-                }
-            }
-        }
-    }
+    internal sealed record Blk(string Chr, int N, long Pos0, long Step, double Baf, double Lr, double Seg, double Bsd, double Lsd, int NaEvery);
 }

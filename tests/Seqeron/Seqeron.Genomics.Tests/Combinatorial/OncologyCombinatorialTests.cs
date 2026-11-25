@@ -3402,28 +3402,6 @@ public class OncologyCombinatorialTests
         return (Math.Log2(denom / d), (rho * nB + (1.0 - rho)) / denom);
     }
 
-    /// <summary>Replicates each integer segment into adjacent loci carrying its planted (logR, BAF), one chromosome
-    /// per segment: with 5 loci (&lt; ASCAT kmin = 6) ascat.aspcf — run by SegmentAlleleSpecific (B24 F35) — emits
-    /// exactly one segment per chromosome (noise-free data has MAD 0 ⇒ no in-chromosome breakpoint).</summary>
-    private static List<OncologyAnalyzer.AlleleSpecificLocus> AscatLoci(
-        IReadOnlyList<(int NA, int NB)> segments, double rho, double psi, int lociPerSegment = 5)
-    {
-        var loci = new List<OncologyAnalyzer.AlleleSpecificLocus>();
-        long pos = 1000;
-        int chromosome = 0;
-        foreach (var (nA, nB) in segments)
-        {
-            (double r, double b) = AscatForward(nA, nB, rho, psi);
-            string chrom = (++chromosome).ToString(System.Globalization.CultureInfo.InvariantCulture);
-            for (int i = 0; i < lociPerSegment; i++)
-            {
-                loci.Add(new OncologyAnalyzer.AlleleSpecificLocus(chrom, pos, r, b));
-                pos += 1000;
-            }
-        }
-        return loci;
-    }
-
     // Integer-CN segment sets whose mean total CN equals each planted ploidy. No two ADJACENT
     // segments are equal (each entry is also its own chromosome, so segmentation emits one run per entry) and each set carries an LOH
     // segment (minor = 0, BAF far from 0.5) which breaks the 2n-vs-4n sunrise symmetry.
@@ -3433,60 +3411,6 @@ public class OncologyCombinatorialTests
         2.5 => new[] { (1, 1), (2, 1), (2, 0), (2, 1) }, // mean (2+3+2+3)/4 = 2.5
         _ => new[] { (2, 1), (3, 0), (2, 1) },           // ploidy 3.0: mean (3+3+3)/3 = 3.0
     };
-
-    /// <summary>
-    /// Pairwise grid over (purity × ploidy): from data synthesised at the planted (ρ,ψ) the joint
-    /// ASCAT grid fit recovers both parameters within one grid step and the exact integer (major,
-    /// minor) copy numbers per segment, with goodness-of-fit ≈ 100%.
-    /// </summary>
-    [Test, Combinatorial]
-    public void AscatFit_RecoversPlantedPurityPloidyAndIntegerCopyNumbers(
-        [Values(0.50, 0.70, 0.90)] double purity,
-        [Values(2.0, 2.5, 3.0)] double ploidy)
-    {
-        var segments = AscatSegmentsForPloidy(ploidy);
-        var loci = AscatLoci(segments, purity, ploidy);
-
-        var summaries = OncologyAnalyzer.SegmentAlleleSpecific(
-            loci, logRChangeThreshold: 0.2, minLociPerSegment: 1);
-
-        OncologyAnalyzer.PurityPloidyFit fit = OncologyAnalyzer.FitPurityPloidy(
-            summaries, purityMin: 0.05, purityMax: 1.0, purityStep: 0.01,
-            ploidyMin: 1.5, ploidyMax: 5.0, ploidyStep: 0.05, gamma: AscatGamma);
-
-        fit.Purity.Should().BeApproximately(purity, 0.01 + 1e-9, "the ρ axis is recovered within one grid step");
-        fit.Ploidy.Should().BeApproximately(ploidy, 0.05 + 1e-9, "the ψ axis is recovered within one grid step");
-        fit.GoodnessOfFit.Should().BeApproximately(100.0, 1e-6, "integer CN are recovered exactly at the truth ⇒ GoF 100%");
-
-        fit.Segments.Should().HaveCount(segments.Length, "one emitted run per planted (adjacent-distinct) segment");
-        for (int i = 0; i < segments.Length; i++)
-        {
-            int major = Math.Max(segments[i].NA, segments[i].NB);
-            int minor = Math.Min(segments[i].NA, segments[i].NB);
-            fit.Segments[i].MajorCopyNumber.Should().Be(major, $"segment {i} recovers the planted major CN {major}");
-            fit.Segments[i].MinorCopyNumber.Should().Be(minor, $"segment {i} recovers the planted minor CN {minor}");
-        }
-    }
-
-    /// <summary>
-    /// Interaction witness: the two axes genuinely move the answer. Holding ploidy fixed, data
-    /// synthesised at purity 0.9 recovers a higher ρ than data synthesised at 0.5; holding purity
-    /// fixed, data synthesised at ψ=3.0 recovers a higher ψ than data at ψ=2.0. A purity/ploidy
-    /// inversion that ignored either axis could not satisfy both.
-    /// </summary>
-    [Test]
-    public void AscatFit_PurityAndPloidyAxes_EachDriveTheFit()
-    {
-        OncologyAnalyzer.PurityPloidyFit FitAt(double rho, double psi)
-        {
-            var loci = AscatLoci(AscatSegmentsForPloidy(psi), rho, psi);
-            var summaries = OncologyAnalyzer.SegmentAlleleSpecific(loci, logRChangeThreshold: 0.2, minLociPerSegment: 1);
-            return OncologyAnalyzer.FitPurityPloidy(summaries, gamma: AscatGamma);
-        }
-
-        FitAt(0.90, 2.0).Purity.Should().BeGreaterThan(FitAt(0.50, 2.0).Purity, "the purity axis drives the recovered ρ");
-        FitAt(0.70, 3.0).Ploidy.Should().BeGreaterThan(FitAt(0.70, 2.0).Ploidy, "the ploidy axis drives the recovered ψ");
-    }
 
     // ═══════════════════════════════════════════════════════════════════════
     // Unit: MHC-NN-001 — MHCflurry pan-allele neural-network IC50 prediction (Oncology)

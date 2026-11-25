@@ -1,0 +1,81 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Tests (and oracle data) of the copyleft assembly Seqeron.Genomics.PurityPeakQc. The tests ship under the licence of that assembly (see its LICENSE). -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <!-- same root namespace as Seqeron.Genomics.Tests: the embedded resource names (Seqeron.Genomics.Tests.TestData.*) and the test namespaces stay unchanged -->
+    <RootNamespace>Seqeron.Genomics.Tests</RootNamespace>
+    <AssemblyName>Seqeron.Genomics.PurityPeakQc.Tests</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="NUnit" />
+    <PackageReference Include="NUnit.Analyzers" />
+    <PackageReference Include="NUnit3TestAdapter" />
+    <PackageReference Include="FluentAssertions" />
+    <PackageReference Include="FsCheck" />
+    <PackageReference Include="FsCheck.NUnit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Seqeron.Genomics.Tests\_LimitationPolicyTestBootstrap.cs" Link="_LimitationPolicyTestBootstrap.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="NUnit.Framework" />
+    <Using Include="Seqeron.Genomics.Core" />
+    <Using Include="Seqeron.Genomics.Infrastructure" />
+    <Using Include="Seqeron.Genomics.Oncology" />
+    <Using Include="Seqeron.Genomics.AlleleSpecificCopyNumber" />
+    <Using Include="Seqeron.Genomics.PurityPeakQc" />
+    <Using Include="Seqeron.Genomics.Oncology.OncologyAnalyzer" Static="true" />
+    <Using Include="Seqeron.Genomics.AlleleSpecificCopyNumber.AlleleSpecificCopyNumberAnalyzer" Static="true" />
+    <Using Include="Seqeron.Genomics.PurityPeakQc.PurityPeakAnalyzer" Static="true" />
+    <Using Include="FluentAssertions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics\Seqeron.Genomics.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Infrastructure\Seqeron.Genomics.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Core\Seqeron.Genomics.Core.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Oncology\Seqeron.Genomics.Oncology.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.AlleleSpecificCopyNumber\Seqeron.Genomics.AlleleSpecificCopyNumber.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.PurityPeakQc\Seqeron.Genomics.PurityPeakQc.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- ONCO-PURITY-001 oracle data: the seeded datasets D1/D3/D4 are shared with the MIT KDE tests (linked from Seqeron.Genomics.Tests), the rest moved here. -->
+    <!-- ONCO-PURITY-001 (FIN-B24 F62): seeded complex-karyotype sets G1–G3 (set.seed 20261020/21/22) and subclonal segment
+         sets S1–S3 (segments + mutations simulated from CNAqc expectations_subclonal peaks), with the CNAqc 1.1.5
+         analyze_peaks_general / analyze_peaks_subclonal R outputs (cnaqc_general_R.txt, cnaqc_subclonal_R.txt);
+         generator: docs/Evidence/ONCO-PURITY-001-Evidence.md "CNAqc analyze_peaks_general / analyze_peaks_subclonal". -->
+    <!-- ONCO-PURITY-001 (FIN-B24 F63): BMix bmixfit grids (R matprod default + internal), CNAqc analyze_peaks_common with
+         BMix and n_bootstrap, analyze_peaks_general / _subclonal with n_bootstrap (set.seed per run); generator:
+         docs/Evidence/ONCO-PURITY-001-Evidence.md "BMix and n_bootstrap". -->
+    <EmbeddedResource Include="TestData\CNAqc\cnaqc_G1.tsv" />
+    <EmbeddedResource Include="TestData\CNAqc\cnaqc_G2.tsv" />
+    <EmbeddedResource Include="TestData\CNAqc\cnaqc_G3.tsv" />
+    <EmbeddedResource Include="TestData\CNAqc\cnaqc_S1_segments.tsv" />
+    <EmbeddedResource Include="TestData\CNAqc\cnaqc_S1_mutations.tsv" />
+    <EmbeddedResource Include="TestData\CNAqc\cnaqc_S2_segments.tsv" />
+    <EmbeddedResource Include="TestData\CNAqc\cnaqc_S2_mutations.tsv" />
+    <EmbeddedResource Include="TestData\CNAqc\cnaqc_S3_segments.tsv" />
+    <EmbeddedResource Include="TestData\CNAqc\cnaqc_S3_mutations.tsv" />
+    <EmbeddedResource Include="TestData\CNAqc\cnaqc_general_R.txt" />
+    <EmbeddedResource Include="TestData\CNAqc\cnaqc_subclonal_R.txt" />
+    <EmbeddedResource Include="TestData\CNAqc\cnaqc_bmix_R.txt" />
+    <EmbeddedResource Include="TestData\CNAqc\cnaqc_common_boot_R.txt" />
+    <EmbeddedResource Include="TestData\CNAqc\cnaqc_general_boot_R.txt" />
+    <EmbeddedResource Include="TestData\CNAqc\cnaqc_subclonal_boot_R.txt" />
+    <EmbeddedResource Include="..\Seqeron.Genomics.Tests\TestData\CNAqc\cnaqc_D1.tsv" LogicalName="Seqeron.Genomics.Tests.TestData.CNAqc.cnaqc_D1.tsv" Link="TestData\CNAqc\cnaqc_D1.tsv" />
+    <EmbeddedResource Include="..\Seqeron.Genomics.Tests\TestData\CNAqc\cnaqc_D3.tsv" LogicalName="Seqeron.Genomics.Tests.TestData.CNAqc.cnaqc_D3.tsv" Link="TestData\CNAqc\cnaqc_D3.tsv" />
+    <EmbeddedResource Include="..\Seqeron.Genomics.Tests\TestData\CNAqc\cnaqc_D4.tsv" LogicalName="Seqeron.Genomics.Tests.TestData.CNAqc.cnaqc_D4.tsv" Link="TestData\CNAqc\cnaqc_D4.tsv" />
+  </ItemGroup>
+
+</Project>

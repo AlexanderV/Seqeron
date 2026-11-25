@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Tests of the Port of ASCAT 3.2.0 and Battenberg 3.0.0; part of Seqeron.Genomics.AlleleSpecificCopyNumber.Tests, licensed under the GNU General Public License, version 3 (only) (see LICENSE in the production project).
 using static Seqeron.Genomics.Oncology.OncologyAnalyzer;
 
 namespace Seqeron.Genomics.Tests.Fuzzing;

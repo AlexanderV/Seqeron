@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Tests of the Port of ASCAT 3.2.0 and Battenberg 3.0.0; part of Seqeron.Genomics.AlleleSpecificCopyNumber.Tests, licensed under the GNU General Public License, version 3 (only) (see LICENSE in the production project).
 // ONCO-ASCAT-001 — Battenberg phased-BAF segmentation (segment.baf.phased) feeding determine_copynumber (B24 F40)
 // Evidence: docs/Evidence/ONCO-ASCAT-001-Evidence.md (§ F40)
 // TestSpec: tests/TestSpecs/ONCO-ASCAT-001.md (§14)
@@ -16,7 +18,7 @@ namespace Seqeron.Genomics.Tests.Unit.Oncology;
 [TestFixture]
 public class OncologyAnalyzer_BattenbergPhasedSegmentation_Tests
 {
-    private static List<OncologyAnalyzer.PhasedBafSnp> Gen(
+    private static List<AlleleSpecificCopyNumberAnalyzer.PhasedBafSnp> Gen(
         string chr, int n, double[] levels, int[] bounds, int block, double seed, double sdv, long pos0, long step,
         int gapAfter = -1, long gap = 0)
     {
@@ -27,7 +29,7 @@ public class OncologyAnalyzer_BattenbergPhasedSegmentation_Tests
             return x / 16777216;
         }
 
-        var result = new List<OncologyAnalyzer.PhasedBafSnp>(n);
+        var result = new List<AlleleSpecificCopyNumberAnalyzer.PhasedBafSnp>(n);
         bool flip = false;
         int seg = 1;
         for (int i = 1; i <= n; i++)
@@ -50,13 +52,13 @@ public class OncologyAnalyzer_BattenbergPhasedSegmentation_Tests
             }
 
             long pos = pos0 + i * step + (gapAfter > 0 && i > gapAfter ? gap : 0);
-            result.Add(new OncologyAnalyzer.PhasedBafSnp(chr, pos, Math.Min(1, Math.Max(0, b))));
+            result.Add(new AlleleSpecificCopyNumberAnalyzer.PhasedBafSnp(chr, pos, Math.Min(1, Math.Max(0, b))));
         }
 
         return result;
     }
 
-    internal static List<OncologyAnalyzer.PhasedBafSnp> Track(string name) => name switch
+    internal static List<AlleleSpecificCopyNumberAnalyzer.PhasedBafSnp> Track(string name) => name switch
     {
         "t1" => Gen("1", 300, new[] { 0.5, 0.72, 0.6 }, new[] { 100, 200, 300 }, 15, 12345, 0.04, 1000, 1000),
         "t2" => Gen("2", 2000, new[] { 0.55, 0.8, 0.5, 0.67 }, new[] { 500, 900, 1500, 2000 }, 40, 777, 0.05, 50000, 1500, 1200, 4_000_000)
@@ -68,7 +70,7 @@ public class OncologyAnalyzer_BattenbergPhasedSegmentation_Tests
     };
 
     private static List<(string Chr, long First, long Last, int Count, double BafSeg)> Runs(
-        IReadOnlyList<OncologyAnalyzer.PhasedBafSegmentedSnp> rows)
+        IReadOnlyList<AlleleSpecificCopyNumberAnalyzer.PhasedBafSegmentedSnp> rows)
     {
         var runs = new List<(string, long, long, int, double)>();
         int from = 0;
@@ -87,7 +89,7 @@ public class OncologyAnalyzer_BattenbergPhasedSegmentation_Tests
     }
 
     private static void AssertRuns(
-        IReadOnlyList<OncologyAnalyzer.PhasedBafSegmentedSnp> rows,
+        IReadOnlyList<AlleleSpecificCopyNumberAnalyzer.PhasedBafSegmentedSnp> rows,
         (string Chr, long First, long Last, int Count, double BafSeg)[] expected,
         double sumPhased, double sumSeg, int n)
     {
@@ -112,7 +114,7 @@ public class OncologyAnalyzer_BattenbergPhasedSegmentation_Tests
     [Test]
     public void SegmentPhasedBaf_Track1_MatchesBattenberg()
     {
-        var rows = OncologyAnalyzer.SegmentPhasedBaf(Track("t1"));
+        var rows = AlleleSpecificCopyNumberAnalyzer.SegmentPhasedBaf(Track("t1"));
         AssertRuns(rows, new[]
         {
             ("1", 2000L, 101000L, 100, 0.49788217067718499),
@@ -123,12 +125,12 @@ public class OncologyAnalyzer_BattenbergPhasedSegmentation_Tests
 
     // t2: chr2 2000 SNPs (fractions 0.12/0.05) with a 4 Mb gap (≥ 3 Mb ⇒ presegment break) + chr3 40 SNPs (< 50 ⇒ mean);
     // calc_seg_baf_option 3 (default) and 1 agree here (no median of 0/1), option 2 keeps the PCF means.
-    [TestCase(OncologyAnalyzer.BattenbergSegmentBafOption.MedianUnlessExtreme, TestName = "Track2_Option3")]
-    [TestCase(OncologyAnalyzer.BattenbergSegmentBafOption.Median, TestName = "Track2_Option1")]
-    public void SegmentPhasedBaf_Track2_MatchesBattenberg(OncologyAnalyzer.BattenbergSegmentBafOption option)
+    [TestCase(AlleleSpecificCopyNumberAnalyzer.BattenbergSegmentBafOption.MedianUnlessExtreme, TestName = "Track2_Option3")]
+    [TestCase(AlleleSpecificCopyNumberAnalyzer.BattenbergSegmentBafOption.Median, TestName = "Track2_Option1")]
+    public void SegmentPhasedBaf_Track2_MatchesBattenberg(AlleleSpecificCopyNumberAnalyzer.BattenbergSegmentBafOption option)
     {
-        var rows = OncologyAnalyzer.SegmentPhasedBaf(
-            Track("t2"), new OncologyAnalyzer.BattenbergPhasedSegmentationOptions { SegmentBafOption = option });
+        var rows = AlleleSpecificCopyNumberAnalyzer.SegmentPhasedBaf(
+            Track("t2"), new AlleleSpecificCopyNumberAnalyzer.BattenbergPhasedSegmentationOptions { SegmentBafOption = option });
         AssertRuns(rows, new[]
         {
             ("2", 51500L, 800000L, 500, 0.54674800336360896),
@@ -143,9 +145,9 @@ public class OncologyAnalyzer_BattenbergPhasedSegmentation_Tests
     [Test]
     public void SegmentPhasedBaf_Track2_MeanOption_MatchesBattenberg()
     {
-        var rows = OncologyAnalyzer.SegmentPhasedBaf(
+        var rows = AlleleSpecificCopyNumberAnalyzer.SegmentPhasedBaf(
             Track("t2"),
-            new OncologyAnalyzer.BattenbergPhasedSegmentationOptions { SegmentBafOption = OncologyAnalyzer.BattenbergSegmentBafOption.Mean });
+            new AlleleSpecificCopyNumberAnalyzer.BattenbergPhasedSegmentationOptions { SegmentBafOption = AlleleSpecificCopyNumberAnalyzer.BattenbergSegmentBafOption.Mean });
         AssertRuns(rows, new[]
         {
             ("2", 51500L, 800000L, 500, 0.54146806168556205),
@@ -161,7 +163,7 @@ public class OncologyAnalyzer_BattenbergPhasedSegmentation_Tests
     [Test]
     public void SegmentPhasedBaf_Track3_PcfSubset_MatchesBattenberg()
     {
-        var rows = OncologyAnalyzer.SegmentPhasedBaf(Track("t3"));
+        var rows = AlleleSpecificCopyNumberAnalyzer.SegmentPhasedBaf(Track("t3"));
         AssertRuns(rows, new[]
         {
             ("4", 10200L, 610000L, 3000, 0.50033228099346105),
@@ -176,14 +178,14 @@ public class OncologyAnalyzer_BattenbergPhasedSegmentation_Tests
     [Test]
     public void SegmentPhasedBaf_Track4_PriorBreakpoints_MatchesBattenberg()
     {
-        var rows = OncologyAnalyzer.SegmentPhasedBaf(Track("t4"), new OncologyAnalyzer.BattenbergPhasedSegmentationOptions
+        var rows = AlleleSpecificCopyNumberAnalyzer.SegmentPhasedBaf(Track("t4"), new AlleleSpecificCopyNumberAnalyzer.BattenbergPhasedSegmentationOptions
         {
             Gamma = 5,
             Kmin = 5,
             PriorBreakpoints = new[]
             {
-                new OncologyAnalyzer.BattenbergPriorBreakpoint("5", 150500),
-                new OncologyAnalyzer.BattenbergPriorBreakpoint("5", 320000),
+                new AlleleSpecificCopyNumberAnalyzer.BattenbergPriorBreakpoint("5", 150500),
+                new AlleleSpecificCopyNumberAnalyzer.BattenbergPriorBreakpoint("5", 320000),
             },
         });
         AssertRuns(rows, new[]
@@ -198,7 +200,7 @@ public class OncologyAnalyzer_BattenbergPhasedSegmentation_Tests
     [Test]
     public void SegmentPhasedBaf_Track4_NoSegmentation_MatchesBattenberg()
     {
-        var rows = OncologyAnalyzer.SegmentPhasedBaf(Track("t4"), new OncologyAnalyzer.BattenbergPhasedSegmentationOptions { NoSegmentation = true });
+        var rows = AlleleSpecificCopyNumberAnalyzer.SegmentPhasedBaf(Track("t4"), new AlleleSpecificCopyNumberAnalyzer.BattenbergPhasedSegmentationOptions { NoSegmentation = true });
         AssertRuns(rows, new[] { ("5", 2000L, 401000L, 400, 0.63947307586669999) }, 270.88505104064944, 255.78923034668, 400);
     }
 
@@ -206,7 +208,7 @@ public class OncologyAnalyzer_BattenbergPhasedSegmentation_Tests
     [Test]
     public void SegmentPhasedBaf_Track5_Noisy_MatchesBattenberg()
     {
-        var rows = OncologyAnalyzer.SegmentPhasedBaf(Track("t5"));
+        var rows = AlleleSpecificCopyNumberAnalyzer.SegmentPhasedBaf(Track("t5"));
         AssertRuns(rows, new[]
         {
             ("6", 301L, 100801L, 336, 0.50309495329856901),
@@ -217,10 +219,10 @@ public class OncologyAnalyzer_BattenbergPhasedSegmentation_Tests
     }
 
     // Battenberg-like logR track: per chromosome-local SNP index i, lv[seg] + ((i mod 7) − 3)·0.01 at every SNP position.
-    internal static List<OncologyAnalyzer.LogRProbe> LogRTrack(
-        IReadOnlyList<OncologyAnalyzer.PhasedBafSegmentedSnp> rows, double[] lv, int[] bounds)
+    internal static List<AlleleSpecificCopyNumberAnalyzer.LogRProbe> LogRTrack(
+        IReadOnlyList<AlleleSpecificCopyNumberAnalyzer.PhasedBafSegmentedSnp> rows, double[] lv, int[] bounds)
     {
-        var probes = new List<OncologyAnalyzer.LogRProbe>();
+        var probes = new List<AlleleSpecificCopyNumberAnalyzer.LogRProbe>();
         foreach (var chr in rows.Select(r => r.Chromosome).Distinct())
         {
             int seg = 1, i = 0;
@@ -232,57 +234,37 @@ public class OncologyAnalyzer_BattenbergPhasedSegmentation_Tests
                     seg++;
                 }
 
-                probes.Add(new OncologyAnalyzer.LogRProbe(chr, r.Position, lv[seg - 1] + ((i % 7) - 3) * 0.01));
+                probes.Add(new AlleleSpecificCopyNumberAnalyzer.LogRProbe(chr, r.Position, lv[seg - 1] + ((i % 7) - 3) * 0.01));
             }
         }
 
         return probes;
     }
 
-    // End to end: segment.baf.phased → determine_copynumber (R: set.seed, determine_copynumber(BAFvals, LogRvals, ρ,
-    // ψ_all, γ = 1, ctrans, ctrans, maxdist 0.01, siglevel 0.05, noperms 1000, cn_upper_limit 1000)). Rows:
-    // (chr, startpos, endpos, LogR, pval, nMaj1_A, nMin1_A, frac1_A, nMaj2_A, nMin2_A, frac2_A); −1 = NA (clonal).
-    private static readonly (string Chr, long Start, long End, double LogR, double PVal, int Maj1, int Min1, double Frac1, int Maj2, int Min2, double Frac2)[] E1 =
-    {
-        ("1", 2000, 101000, -0.00029999999999999997, 1.0, 1, 1, 1.0, -1, -1, double.NaN),
-        ("1", 102000, 201000, 0.15010000000000001119, 6.2072657065460898e-36, 2, 0, 0.47709449087559203, 2, 1, 0.52290550912440803),
-        ("1", 202000, 301000, -0.19950000000000001066, 5.0025818343502595e-13, 1, 1, 0.37649750519839498, 2, 1, 0.62350249480160502),
-    };
-
-    private static readonly (string Chr, long Start, long End, double LogR, double PVal, int Maj1, int Min1, double Frac1, int Maj2, int Min2, double Frac2)[] E2 =
-    {
-        ("2", 51500, 800000, -1.0006000000000000e-01, 9.5844256487078194e-46, 1, 1, 0.75731976285090297, 2, 1, 0.24268023714909701),
-        ("2", 801500, 1400000, 3.0002499999999999e-01, 2.2067308446755200e-101, 3, 0, 0.39163557478371203, 3, 1, 0.60836442521628797),
-        ("2", 1401500, 1850000, -3.3333333333333301e-05, 1.0, 1, 1, 1.0, -1, -1, double.NaN),
-        ("2", 5851500, 6300000, 5.0000000000000003e-02, 1.0, 2, 2, 1.0, -1, -1, double.NaN),
-        ("2", 6301500, 7050000, 2.0005999999999999e-01, 3.2600528882290903e-20, 2, 1, 0.79257756414276204, 3, 1, 0.20742243585723799),
-        ("3", 200, 4100, -1.0000000000000001e-01, 1.0, 1, 1, 1.0, -1, -1, double.NaN),
-    };
-
     [TestCase("e1")]
     [TestCase("e2")]
     public void BuildBattenbergSegments_FeedsSnpTest_MatchesDetermineCopynumber(string name)
     {
-        IReadOnlyList<OncologyAnalyzer.PhasedBafSegmentedSnp> rows;
-        List<OncologyAnalyzer.LogRProbe> logR;
+        IReadOnlyList<AlleleSpecificCopyNumberAnalyzer.PhasedBafSegmentedSnp> rows;
+        List<AlleleSpecificCopyNumberAnalyzer.LogRProbe> logR;
         double rho, psit;
         var expected = name == "e1" ? E1 : E2;
         if (name == "e1")
         {
-            rows = OncologyAnalyzer.SegmentPhasedBaf(Track("t1"));
+            rows = AlleleSpecificCopyNumberAnalyzer.SegmentPhasedBaf(Track("t1"));
             logR = LogRTrack(rows, new[] { 0.0, 0.15, -0.2 }, new[] { 100, 200, 300 });
-            logR.Add(new OncologyAnalyzer.LogRProbe("1", 150500, double.PositiveInfinity)); // excluded (!is.infinite)
+            logR.Add(new AlleleSpecificCopyNumberAnalyzer.LogRProbe("1", 150500, double.PositiveInfinity)); // excluded (!is.infinite)
             (rho, psit) = (0.7, 2.6);
         }
         else
         {
-            rows = OncologyAnalyzer.SegmentPhasedBaf(Track("t2"));
+            rows = AlleleSpecificCopyNumberAnalyzer.SegmentPhasedBaf(Track("t2"));
             logR = LogRTrack(rows, new[] { -0.1, 0.3, 0.0, 0.05, 0.2 }, new[] { 500, 900, 1200, 1500, 2000 });
             (rho, psit) = (0.85, 3.0);
         }
 
-        var segments = OncologyAnalyzer.BuildBattenbergSegments(rows, logR);
-        var fits = OncologyAnalyzer.FitSubclonalCopyNumberWithSnpTest(segments, rho, psit);
+        var segments = AlleleSpecificCopyNumberAnalyzer.BuildBattenbergSegments(rows, logR);
+        var fits = AlleleSpecificCopyNumberAnalyzer.FitSubclonalCopyNumberWithSnpTest(segments, rho, psit);
 
         Assert.That(fits, Has.Count.EqualTo(expected.Length), "determine_copynumber segments (switchpoints).");
         Assert.Multiple(() =>
@@ -315,11 +297,11 @@ public class OncologyAnalyzer_BattenbergPhasedSegmentation_Tests
     [Test]
     public void SegmentPhasedBaf_MissingBafDropped_AndSmallPresegmentUsesMean()
     {
-        var snps = new List<OncologyAnalyzer.PhasedBafSnp>
+        var snps = new List<AlleleSpecificCopyNumberAnalyzer.PhasedBafSnp>
         {
             new("X", 10, 0.2), new("X", 20, double.NaN), new("X", 30, 0.3), new("X", 40, 0.9),
         };
-        var rows = OncologyAnalyzer.SegmentPhasedBaf(snps);
+        var rows = AlleleSpecificCopyNumberAnalyzer.SegmentPhasedBaf(snps);
         // < 50 SNPs: BAFsegm = mean(BAF) = 0.4666… ≤ 0.5 ⇒ BAFphased = 1 − BAF = (0.8, 0.7, 0.1);
         // BAFphseg = mean = 0.5333…, option 3 ⇒ median 0.7 (not 0/1).
         Assert.Multiple(() =>
@@ -333,9 +315,9 @@ public class OncologyAnalyzer_BattenbergPhasedSegmentation_Tests
     [Test]
     public void SegmentPhasedBaf_ExtremeMedian_KeepsMeanUnderOption3()
     {
-        var snps = new[] { new OncologyAnalyzer.PhasedBafSnp("1", 1, 1.0), new("1", 2, 1.0), new("1", 3, 0.7) };
-        var opt3 = OncologyAnalyzer.SegmentPhasedBaf(snps);
-        var opt1 = OncologyAnalyzer.SegmentPhasedBaf(snps, new OncologyAnalyzer.BattenbergPhasedSegmentationOptions { SegmentBafOption = OncologyAnalyzer.BattenbergSegmentBafOption.Median });
+        var snps = new[] { new AlleleSpecificCopyNumberAnalyzer.PhasedBafSnp("1", 1, 1.0), new("1", 2, 1.0), new("1", 3, 0.7) };
+        var opt3 = AlleleSpecificCopyNumberAnalyzer.SegmentPhasedBaf(snps);
+        var opt1 = AlleleSpecificCopyNumberAnalyzer.SegmentPhasedBaf(snps, new AlleleSpecificCopyNumberAnalyzer.BattenbergPhasedSegmentationOptions { SegmentBafOption = AlleleSpecificCopyNumberAnalyzer.BattenbergSegmentBafOption.Median });
         Assert.Multiple(() =>
         {
             Assert.That(opt3.Select(r => r.BafSegment), Is.All.EqualTo(2.7 / 3).Within(1e-15), "median 1 ⇒ mean kept.");
@@ -346,18 +328,18 @@ public class OncologyAnalyzer_BattenbergPhasedSegmentation_Tests
     [Test]
     public void SegmentPhasedBaf_ArgumentGuards()
     {
-        var ok = new[] { new OncologyAnalyzer.PhasedBafSnp("1", 1, 0.5) };
+        var ok = new[] { new AlleleSpecificCopyNumberAnalyzer.PhasedBafSnp("1", 1, 0.5) };
         Assert.Multiple(() =>
         {
-            Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.SegmentPhasedBaf(null!));
-            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.SegmentPhasedBaf(new[] { new OncologyAnalyzer.PhasedBafSnp("1", 1, 1.2) }));
-            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.SegmentPhasedBaf(ok, new OncologyAnalyzer.BattenbergPhasedSegmentationOptions { Kmin = 0 }));
-            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.SegmentPhasedBaf(ok, new OncologyAnalyzer.BattenbergPhasedSegmentationOptions { PhaseKmin = 15 }));
-            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.SegmentPhasedBaf(ok, new OncologyAnalyzer.BattenbergPhasedSegmentationOptions { Gamma = double.NaN }));
-            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.SegmentPhasedBaf(ok, new OncologyAnalyzer.BattenbergPhasedSegmentationOptions { SegmentBafOption = (OncologyAnalyzer.BattenbergSegmentBafOption)4 }));
-            Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.BuildBattenbergSegments(null!, Array.Empty<OncologyAnalyzer.LogRProbe>()));
-            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.BuildBattenbergSegments(
-                new[] { new OncologyAnalyzer.PhasedBafSegmentedSnp("1", 1, 0.5, 0.5, 1.5) }, Array.Empty<OncologyAnalyzer.LogRProbe>()));
+            Assert.Throws<ArgumentNullException>(() => AlleleSpecificCopyNumberAnalyzer.SegmentPhasedBaf(null!));
+            Assert.Throws<ArgumentException>(() => AlleleSpecificCopyNumberAnalyzer.SegmentPhasedBaf(new[] { new AlleleSpecificCopyNumberAnalyzer.PhasedBafSnp("1", 1, 1.2) }));
+            Assert.Throws<ArgumentOutOfRangeException>(() => AlleleSpecificCopyNumberAnalyzer.SegmentPhasedBaf(ok, new AlleleSpecificCopyNumberAnalyzer.BattenbergPhasedSegmentationOptions { Kmin = 0 }));
+            Assert.Throws<ArgumentOutOfRangeException>(() => AlleleSpecificCopyNumberAnalyzer.SegmentPhasedBaf(ok, new AlleleSpecificCopyNumberAnalyzer.BattenbergPhasedSegmentationOptions { PhaseKmin = 15 }));
+            Assert.Throws<ArgumentOutOfRangeException>(() => AlleleSpecificCopyNumberAnalyzer.SegmentPhasedBaf(ok, new AlleleSpecificCopyNumberAnalyzer.BattenbergPhasedSegmentationOptions { Gamma = double.NaN }));
+            Assert.Throws<ArgumentOutOfRangeException>(() => AlleleSpecificCopyNumberAnalyzer.SegmentPhasedBaf(ok, new AlleleSpecificCopyNumberAnalyzer.BattenbergPhasedSegmentationOptions { SegmentBafOption = (AlleleSpecificCopyNumberAnalyzer.BattenbergSegmentBafOption)4 }));
+            Assert.Throws<ArgumentNullException>(() => AlleleSpecificCopyNumberAnalyzer.BuildBattenbergSegments(null!, Array.Empty<AlleleSpecificCopyNumberAnalyzer.LogRProbe>()));
+            Assert.Throws<ArgumentException>(() => AlleleSpecificCopyNumberAnalyzer.BuildBattenbergSegments(
+                new[] { new AlleleSpecificCopyNumberAnalyzer.PhasedBafSegmentedSnp("1", 1, 0.5, 0.5, 1.5) }, Array.Empty<AlleleSpecificCopyNumberAnalyzer.LogRProbe>()));
         });
     }
 
@@ -366,11 +348,11 @@ public class OncologyAnalyzer_BattenbergPhasedSegmentation_Tests
     {
         var rows = new[]
         {
-            new OncologyAnalyzer.PhasedBafSegmentedSnp("1", 100, 0.6, 0.6, 0.65),
-            new OncologyAnalyzer.PhasedBafSegmentedSnp("1", 200, 0.3, 0.7, 0.65),
-            new OncologyAnalyzer.PhasedBafSegmentedSnp("2", 300, 0.7, 0.7, 0.65), // chromosome change ⇒ new segment
+            new AlleleSpecificCopyNumberAnalyzer.PhasedBafSegmentedSnp("1", 100, 0.6, 0.6, 0.65),
+            new AlleleSpecificCopyNumberAnalyzer.PhasedBafSegmentedSnp("1", 200, 0.3, 0.7, 0.65),
+            new AlleleSpecificCopyNumberAnalyzer.PhasedBafSegmentedSnp("2", 300, 0.7, 0.7, 0.65), // chromosome change ⇒ new segment
         };
-        var segs = OncologyAnalyzer.BuildBattenbergSegments(rows, new[] { new OncologyAnalyzer.LogRProbe("1", 150, double.NaN) });
+        var segs = AlleleSpecificCopyNumberAnalyzer.BuildBattenbergSegments(rows, new[] { new AlleleSpecificCopyNumberAnalyzer.LogRProbe("1", 150, double.NaN) });
         Assert.Multiple(() =>
         {
             Assert.That(segs, Has.Count.EqualTo(2));
@@ -379,4 +361,25 @@ public class OncologyAnalyzer_BattenbergPhasedSegmentation_Tests
             Assert.That((segs[0].Segment.Start, segs[0].Segment.End, segs[0].Segment.LocusCount), Is.EqualTo((100L, 200L, 2)));
         });
     }
+
+
+    // End to end: segment.baf.phased → determine_copynumber (R: set.seed, determine_copynumber(BAFvals, LogRvals, ρ,
+    // ψ_all, γ = 1, ctrans, ctrans, maxdist 0.01, siglevel 0.05, noperms 1000, cn_upper_limit 1000)). Rows:
+    // (chr, startpos, endpos, LogR, pval, nMaj1_A, nMin1_A, frac1_A, nMaj2_A, nMin2_A, frac2_A); −1 = NA (clonal).
+    private static readonly (string Chr, long Start, long End, double LogR, double PVal, int Maj1, int Min1, double Frac1, int Maj2, int Min2, double Frac2)[] E1 =
+    {
+        ("1", 2000, 101000, -0.00029999999999999997, 1.0, 1, 1, 1.0, -1, -1, double.NaN),
+        ("1", 102000, 201000, 0.15010000000000001119, 6.2072657065460898e-36, 2, 0, 0.47709449087559203, 2, 1, 0.52290550912440803),
+        ("1", 202000, 301000, -0.19950000000000001066, 5.0025818343502595e-13, 1, 1, 0.37649750519839498, 2, 1, 0.62350249480160502),
+    };
+
+    private static readonly (string Chr, long Start, long End, double LogR, double PVal, int Maj1, int Min1, double Frac1, int Maj2, int Min2, double Frac2)[] E2 =
+    {
+        ("2", 51500, 800000, -1.0006000000000000e-01, 9.5844256487078194e-46, 1, 1, 0.75731976285090297, 2, 1, 0.24268023714909701),
+        ("2", 801500, 1400000, 3.0002499999999999e-01, 2.2067308446755200e-101, 3, 0, 0.39163557478371203, 3, 1, 0.60836442521628797),
+        ("2", 1401500, 1850000, -3.3333333333333301e-05, 1.0, 1, 1, 1.0, -1, -1, double.NaN),
+        ("2", 5851500, 6300000, 5.0000000000000003e-02, 1.0, 2, 2, 1.0, -1, -1, double.NaN),
+        ("2", 6301500, 7050000, 2.0005999999999999e-01, 3.2600528882290903e-20, 2, 1, 0.79257756414276204, 3, 1, 0.20742243585723799),
+        ("3", 200, 4100, -1.0000000000000001e-01, 1.0, 1, 1, 1.0, -1, -1, double.NaN),
+    };
 }

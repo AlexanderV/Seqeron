@@ -17,7 +17,6 @@ public class OncologyAnalyzer_EstimateCcf_Tests
 {
     private const double Tolerance = 1e-10;
 
-    #region EstimateCcf
 
     // M1 — f=0.40, rho=0.80, N_T=2, m=1 -> 0.40·(0.8·2+2·0.2)/(0.8·1) = 0.40·2.0/0.8 = 1.0
     [Test]
@@ -186,26 +185,6 @@ public class OncologyAnalyzer_EstimateCcf_Tests
                 "Multiplicity 0 means no mutated copies; not valid.");
             Assert.Throws<ArgumentException>(() => OncologyAnalyzer.EstimateCcf(0.4, 0.8, 2, 3),
                 "Multiplicity cannot exceed the tumor copy number.");
-        });
-    }
-
-    #endregion
-
-    // B24 review 2026-09 (ONCO-PURITY-001 dedup): EstimateCcf routes through the canonical CNAqc
-    // purity/copy-number correction AdjustVAFForPurity (n_mut = VAF·(ρ·N_T + 2(1−ρ))/ρ, McGranahan 2016),
-    // so RawCcf = n_mut / m exactly. Reference (Python, McGranahan 2016 formula):
-    // VAF 0.3, ρ 0.7, N_T 3, m 2 ⇒ n_mut = 0.3·2.7/0.7 = 1.157142857…, CCF = 0.578571428…
-    [Test]
-    public void EstimateCcf_RawCcf_EqualsCanonicalPurityCorrectionOverMultiplicity()
-    {
-        OncologyAnalyzer.CcfEstimate estimate = OncologyAnalyzer.EstimateCcf(0.3, 0.7, 3, 2);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(estimate.RawCcf, Is.EqualTo(OncologyAnalyzer.AdjustVAFForPurity(0.3, 0.7, 3) / 2));
-            Assert.That(estimate.RawCcf, Is.EqualTo(0.3 * 2.7 / 0.7 / 2.0).Within(1e-12));
-            Assert.That(OncologyAnalyzer.DeriveMultiplicity(0.3, 0.7, 3, 2), Is.EqualTo(1),
-                "n_mut = 1.157… rounds to multiplicity 1 (McGranahan 2016)");
         });
     }
 }

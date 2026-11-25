@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Tests of the Port of ASCAT 3.2.0 and Battenberg 3.0.0; part of Seqeron.Genomics.AlleleSpecificCopyNumber.Tests, licensed under the GNU General Public License, version 3 (only) (see LICENSE in the production project).
 // ONCO-ASCAT-001 — Upstream allele-specific derivation (segmentation, purity/ploidy fit, multiplicity)
 // Evidence: docs/Evidence/ONCO-ASCAT-001-Evidence.md
 // TestSpec: tests/TestSpecs/ONCO-ASCAT-001.md
@@ -17,33 +19,20 @@ namespace Seqeron.Genomics.Tests.Unit.Oncology;
 [TestFixture]
 public class OncologyAnalyzer_AscatDerivation_Tests
 {
-    private const double Gamma = 1.0;
-
-    // ---- Planted-truth forward model (ASCAT inverse) ----
-
-    private static (double LogR, double Baf) Forward(int nA, int nB, double rho, double psi)
-    {
-        int n = nA + nB;
-        double denom = rho * n + 2.0 * (1.0 - rho);
-        double d = rho * psi + 2.0 * (1.0 - rho);
-        double r = Math.Log2(denom / d);
-        double b = (rho * nB + (1.0 - rho)) / denom;
-        return (r, b);
-    }
 
     // Builds per-locus measurements for a list of (chrom, nA, nB) integer segments, each replicated
     // into `lociPerSegment` adjacent loci 1000 bp apart, given the planted rho/psi.
-    private static List<OncologyAnalyzer.AlleleSpecificLocus> SynthesiseLoci(
+    private static List<AlleleSpecificCopyNumberAnalyzer.AlleleSpecificLocus> SynthesiseLoci(
         IReadOnlyList<(string Chrom, int NA, int NB)> segments, double rho, double psi, int lociPerSegment = 5)
     {
-        var loci = new List<OncologyAnalyzer.AlleleSpecificLocus>();
+        var loci = new List<AlleleSpecificCopyNumberAnalyzer.AlleleSpecificLocus>();
         long pos = 1000;
         foreach (var (chrom, nA, nB) in segments)
         {
             (double r, double b) = Forward(nA, nB, rho, psi);
             for (int i = 0; i < lociPerSegment; i++)
             {
-                loci.Add(new OncologyAnalyzer.AlleleSpecificLocus(chrom, pos, r, b));
+                loci.Add(new AlleleSpecificCopyNumberAnalyzer.AlleleSpecificLocus(chrom, pos, r, b));
                 pos += 1000;
             }
         }
@@ -51,32 +40,14 @@ public class OncologyAnalyzer_AscatDerivation_Tests
         return loci;
     }
 
-    // Diploid planted genome (length-weighted mean total CN = 2.2). rho0 = 0.80.
-    private const double PlantedPurity = 0.80;
-    private const double PlantedPloidy = 2.2;
-
-    // Each planted segment sits on its own chromosome (5 loci < ASCAT kmin = 6), so ascat.aspcf — which
-    // SegmentAlleleSpecific runs (F35) — emits exactly one segment per planted segment: a chromosome with fewer than
-    // 6 loci is one segment (S-ASPCF-3), and noise-free data has MAD sd = 0 so no in-chromosome breakpoint is placed
-    // anyway (S-ASPCF-2).
-    private static readonly (string Chrom, int NA, int NB)[] PlantedSegments =
-    {
-        ("1", 1, 1), // balanced diploid, b=0.5
-        ("2", 2, 0), // copy-neutral LOH, b=0.1
-        ("3", 1, 1),
-        ("4", 2, 1), // gain
-        ("5", 1, 1),
-    };
-
-    #region SegmentAlleleSpecific
 
     // M1 (F35) — SegmentAlleleSpecific runs ascat.aspcf with ASCAT's default penalty 70: on the R-locked noisy step
     // track it returns the ascat.aspcf output (same values as M-ASPCF-1), whatever the ignored legacy thresholds.
     [Test]
     public void SegmentAlleleSpecific_NoisyStep_MatchesAscatAspcfDefaultPenalty()
     {
-        IReadOnlyList<OncologyAnalyzer.AlleleSpecificSegmentSummary> segs =
-            OncologyAnalyzer.SegmentAlleleSpecific(AspcfStepTrack(), logRChangeThreshold: 0.5, minLociPerSegment: 1);
+        IReadOnlyList<AlleleSpecificCopyNumberAnalyzer.AlleleSpecificSegmentSummary> segs =
+            AlleleSpecificCopyNumberAnalyzer.SegmentAlleleSpecific(AspcfStepTrack(), logRChangeThreshold: 0.5, minLociPerSegment: 1);
 
         Assert.Multiple(() =>
         {
@@ -87,7 +58,7 @@ public class OncologyAnalyzer_AscatDerivation_Tests
             Assert.That(segs[1].MeanLogR, Is.EqualTo(0.60321000000000002), "ascat.aspcf logR level 2.");
             Assert.That(segs[0].MeanBAF, Is.EqualTo(0.5), "Balanced segment BAF shrunk to exactly 0.5 (ASCAT).");
             Assert.That(segs[1].MeanBAF, Is.EqualTo(0.75129407874999998), "ascat.aspcf BAF level 2 (0.5 + μ).");
-            Assert.That(segs, Is.EqualTo(OncologyAnalyzer.SegmentAlleleSpecificAspcf(AspcfStepTrack(), OncologyAnalyzer.AspcfDefaultPenalty)),
+            Assert.That(segs, Is.EqualTo(AlleleSpecificCopyNumberAnalyzer.SegmentAlleleSpecificAspcf(AspcfStepTrack(), AlleleSpecificCopyNumberAnalyzer.AspcfDefaultPenalty)),
                 "Identical to SegmentAlleleSpecificAspcf at the ASCAT default penalty.");
         });
     }
@@ -97,8 +68,8 @@ public class OncologyAnalyzer_AscatDerivation_Tests
     [Test]
     public void SegmentAlleleSpecific_LegacyThresholds_AreIgnored()
     {
-        var a = OncologyAnalyzer.SegmentAlleleSpecific(AspcfStepTrack(), logRChangeThreshold: 0.05, bafChangeThreshold: 0.01, minLociPerSegment: 1);
-        var b = OncologyAnalyzer.SegmentAlleleSpecific(AspcfStepTrack(), logRChangeThreshold: 10.0, bafChangeThreshold: 5.0, minLociPerSegment: 50);
+        var a = AlleleSpecificCopyNumberAnalyzer.SegmentAlleleSpecific(AspcfStepTrack(), logRChangeThreshold: 0.05, bafChangeThreshold: 0.01, minLociPerSegment: 1);
+        var b = AlleleSpecificCopyNumberAnalyzer.SegmentAlleleSpecific(AspcfStepTrack(), logRChangeThreshold: 10.0, bafChangeThreshold: 5.0, minLociPerSegment: 50);
 
         Assert.That(a, Is.EqualTo(b), "Thresholds / minLociPerSegment do not change the ASPCF result.");
     }
@@ -107,14 +78,14 @@ public class OncologyAnalyzer_AscatDerivation_Tests
     [Test]
     public void SegmentAlleleSpecific_SingleLocusPerChromosome_OneSegmentEach()
     {
-        var loci = new List<OncologyAnalyzer.AlleleSpecificLocus>
+        var loci = new List<AlleleSpecificCopyNumberAnalyzer.AlleleSpecificLocus>
         {
             new("1", 1000, 0.0, 0.5),
             new("2", 1000, 0.0, 0.5),
         };
 
-        IReadOnlyList<OncologyAnalyzer.AlleleSpecificSegmentSummary> segs =
-            OncologyAnalyzer.SegmentAlleleSpecific(loci, logRChangeThreshold: 0.2);
+        IReadOnlyList<AlleleSpecificCopyNumberAnalyzer.AlleleSpecificSegmentSummary> segs =
+            AlleleSpecificCopyNumberAnalyzer.SegmentAlleleSpecific(loci, logRChangeThreshold: 0.2);
 
         Assert.Multiple(() =>
         {
@@ -128,44 +99,42 @@ public class OncologyAnalyzer_AscatDerivation_Tests
     [Test]
     public void SegmentAlleleSpecific_InvalidArguments_Throw()
     {
-        var loci = new List<OncologyAnalyzer.AlleleSpecificLocus> { new("1", 1000, 0.0, 0.5) };
+        var loci = new List<AlleleSpecificCopyNumberAnalyzer.AlleleSpecificLocus> { new("1", 1000, 0.0, 0.5) };
         Assert.Multiple(() =>
         {
             Assert.Throws<ArgumentNullException>(
-                () => OncologyAnalyzer.SegmentAlleleSpecific(null!, 0.2), "Null loci must throw.");
+                () => AlleleSpecificCopyNumberAnalyzer.SegmentAlleleSpecific(null!, 0.2), "Null loci must throw.");
             Assert.Throws<ArgumentOutOfRangeException>(
-                () => OncologyAnalyzer.SegmentAlleleSpecific(loci, 0.0), "Non-positive threshold must throw.");
+                () => AlleleSpecificCopyNumberAnalyzer.SegmentAlleleSpecific(loci, 0.0), "Non-positive threshold must throw.");
             Assert.Throws<ArgumentOutOfRangeException>(
-                () => OncologyAnalyzer.SegmentAlleleSpecific(loci, 0.2, minLociPerSegment: 0), "minLoci < 1 must throw.");
+                () => AlleleSpecificCopyNumberAnalyzer.SegmentAlleleSpecific(loci, 0.2, minLociPerSegment: 0), "minLoci < 1 must throw.");
             // F35: the ASPCF input contract (IsValidAlleleSignal) — finite logR, BAF in [0, 1].
             Assert.Throws<ArgumentException>(
-                () => OncologyAnalyzer.SegmentAlleleSpecific(new[] { new OncologyAnalyzer.AlleleSpecificLocus("1", 1, double.NaN, 0.5) }, 0.2),
+                () => AlleleSpecificCopyNumberAnalyzer.SegmentAlleleSpecific(new[] { new AlleleSpecificCopyNumberAnalyzer.AlleleSpecificLocus("1", 1, double.NaN, 0.5) }, 0.2),
                 "NaN logR must throw.");
             Assert.Throws<ArgumentException>(
-                () => OncologyAnalyzer.SegmentAlleleSpecific(new[] { new OncologyAnalyzer.AlleleSpecificLocus("1", 1, double.PositiveInfinity, 0.5) }, 0.2),
+                () => AlleleSpecificCopyNumberAnalyzer.SegmentAlleleSpecific(new[] { new AlleleSpecificCopyNumberAnalyzer.AlleleSpecificLocus("1", 1, double.PositiveInfinity, 0.5) }, 0.2),
                 "Infinite logR must throw.");
             Assert.Throws<ArgumentException>(
-                () => OncologyAnalyzer.SegmentAlleleSpecific(new[] { new OncologyAnalyzer.AlleleSpecificLocus("1", 1, 0.0, -0.3) }, 0.2),
+                () => AlleleSpecificCopyNumberAnalyzer.SegmentAlleleSpecific(new[] { new AlleleSpecificCopyNumberAnalyzer.AlleleSpecificLocus("1", 1, 0.0, -0.3) }, 0.2),
                 "BAF < 0 must throw.");
             Assert.Throws<ArgumentException>(
-                () => OncologyAnalyzer.SegmentAlleleSpecific(new[] { new OncologyAnalyzer.AlleleSpecificLocus("1", 1, 0.0, 1.5) }, 0.2),
+                () => AlleleSpecificCopyNumberAnalyzer.SegmentAlleleSpecific(new[] { new AlleleSpecificCopyNumberAnalyzer.AlleleSpecificLocus("1", 1, 0.0, 1.5) }, 0.2),
                 "BAF > 1 must throw.");
         });
     }
 
-    #endregion
 
-    #region FitPurityPloidy
 
     // M2/M3/M4 — grid fit recovers rho0=0.80, psi0=2.2, the integer (nA,nB), and GoF ~= 100%.
     [Test]
     public void FitPurityPloidy_PlantedDiploid_RecoversPurityPloidyAndIntegerCopyNumbers()
     {
-        List<OncologyAnalyzer.AlleleSpecificLocus> loci = SynthesiseLoci(PlantedSegments, PlantedPurity, PlantedPloidy);
-        IReadOnlyList<OncologyAnalyzer.AlleleSpecificSegmentSummary> summaries =
-            OncologyAnalyzer.SegmentAlleleSpecific(loci, logRChangeThreshold: 0.2, minLociPerSegment: 1);
+        List<AlleleSpecificCopyNumberAnalyzer.AlleleSpecificLocus> loci = SynthesiseLoci(PlantedSegments, PlantedPurity, PlantedPloidy);
+        IReadOnlyList<AlleleSpecificCopyNumberAnalyzer.AlleleSpecificSegmentSummary> summaries =
+            AlleleSpecificCopyNumberAnalyzer.SegmentAlleleSpecific(loci, logRChangeThreshold: 0.2, minLociPerSegment: 1);
 
-        OncologyAnalyzer.PurityPloidyFit fit = OncologyAnalyzer.FitPurityPloidy(
+        AlleleSpecificCopyNumberAnalyzer.PurityPloidyFit fit = AlleleSpecificCopyNumberAnalyzer.FitPurityPloidy(
             summaries, purityMin: 0.05, purityMax: 1.0, purityStep: 0.01,
             ploidyMin: 1.5, ploidyMax: 5.0, ploidyStep: 0.05, gamma: Gamma);
 
@@ -205,11 +174,11 @@ public class OncologyAnalyzer_AscatDerivation_Tests
             ("4", 2, 1),
         };
         double psi0 = triploid.Average(s => s.NA + s.NB); // 3.0
-        List<OncologyAnalyzer.AlleleSpecificLocus> loci = SynthesiseLoci(triploid, PlantedPurity, psi0);
-        IReadOnlyList<OncologyAnalyzer.AlleleSpecificSegmentSummary> summaries =
-            OncologyAnalyzer.SegmentAlleleSpecific(loci, logRChangeThreshold: 0.2, minLociPerSegment: 1);
+        List<AlleleSpecificCopyNumberAnalyzer.AlleleSpecificLocus> loci = SynthesiseLoci(triploid, PlantedPurity, psi0);
+        IReadOnlyList<AlleleSpecificCopyNumberAnalyzer.AlleleSpecificSegmentSummary> summaries =
+            AlleleSpecificCopyNumberAnalyzer.SegmentAlleleSpecific(loci, logRChangeThreshold: 0.2, minLociPerSegment: 1);
 
-        OncologyAnalyzer.PurityPloidyFit fit = OncologyAnalyzer.FitPurityPloidy(summaries, gamma: Gamma);
+        AlleleSpecificCopyNumberAnalyzer.PurityPloidyFit fit = AlleleSpecificCopyNumberAnalyzer.FitPurityPloidy(summaries, gamma: Gamma);
 
         Assert.Multiple(() =>
         {
@@ -224,12 +193,12 @@ public class OncologyAnalyzer_AscatDerivation_Tests
     [Test]
     public void FitPurityPloidy_GoodnessOfFit_DiscriminatesTrueFromWrong()
     {
-        List<OncologyAnalyzer.AlleleSpecificLocus> loci = SynthesiseLoci(PlantedSegments, PlantedPurity, PlantedPloidy);
-        IReadOnlyList<OncologyAnalyzer.AlleleSpecificSegmentSummary> summaries =
-            OncologyAnalyzer.SegmentAlleleSpecific(loci, logRChangeThreshold: 0.2, minLociPerSegment: 1);
+        List<AlleleSpecificCopyNumberAnalyzer.AlleleSpecificLocus> loci = SynthesiseLoci(PlantedSegments, PlantedPurity, PlantedPloidy);
+        IReadOnlyList<AlleleSpecificCopyNumberAnalyzer.AlleleSpecificSegmentSummary> summaries =
+            AlleleSpecificCopyNumberAnalyzer.SegmentAlleleSpecific(loci, logRChangeThreshold: 0.2, minLociPerSegment: 1);
 
-        OncologyAnalyzer.PurityPloidyFit atTruth = OncologyAnalyzer.EvaluatePurityPloidy(summaries, PlantedPurity, PlantedPloidy);
-        OncologyAnalyzer.PurityPloidyFit atWrong = OncologyAnalyzer.EvaluatePurityPloidy(summaries, 0.30, 1.6);
+        AlleleSpecificCopyNumberAnalyzer.PurityPloidyFit atTruth = AlleleSpecificCopyNumberAnalyzer.EvaluatePurityPloidy(summaries, PlantedPurity, PlantedPloidy);
+        AlleleSpecificCopyNumberAnalyzer.PurityPloidyFit atWrong = AlleleSpecificCopyNumberAnalyzer.EvaluatePurityPloidy(summaries, 0.30, 1.6);
 
         Assert.Multiple(() =>
         {
@@ -246,7 +215,7 @@ public class OncologyAnalyzer_AscatDerivation_Tests
     // probes, segmented BAF = 1 − mirrored BAF); segments from the seg_raw rounding block. Cross-check script:
     // docs/Evidence/ONCO-ASCAT-001-Evidence.md §"ASCAT R cross-check" (150/150 random genomes identical).
 
-    private static OncologyAnalyzer.AlleleSpecificSegmentSummary Summary(string chrom, double r, double b, int n) =>
+    private static AlleleSpecificCopyNumberAnalyzer.AlleleSpecificSegmentSummary Summary(string chrom, double r, double b, int n) =>
         new(chrom, 0, 1000, r, b, n);
 
     // ASCAT R: rho = 1, psi = 2.7, goodnessOfFit = 99.781420571107006, nonaberrant = FALSE, seg 2:1 ×3.
@@ -261,7 +230,7 @@ public class OncologyAnalyzer_AscatDerivation_Tests
             Summary("1", 0.065882791496869667, 0.6385382413628512, 15),
         };
 
-        OncologyAnalyzer.PurityPloidyFit fit = OncologyAnalyzer.FitPurityPloidy(segs);
+        AlleleSpecificCopyNumberAnalyzer.PurityPloidyFit fit = AlleleSpecificCopyNumberAnalyzer.FitPurityPloidy(segs);
 
         Assert.Multiple(() =>
         {
@@ -287,7 +256,7 @@ public class OncologyAnalyzer_AscatDerivation_Tests
             Summary("1", -0.11480994884775791, 0.5, 60),
         };
 
-        OncologyAnalyzer.PurityPloidyFit fit = OncologyAnalyzer.FitPurityPloidy(segs);
+        AlleleSpecificCopyNumberAnalyzer.PurityPloidyFit fit = AlleleSpecificCopyNumberAnalyzer.FitPurityPloidy(segs);
 
         Assert.Multiple(() =>
         {
@@ -320,9 +289,9 @@ public class OncologyAnalyzer_AscatDerivation_Tests
 
         Assert.Multiple(() =>
         {
-            Assert.That(OncologyAnalyzer.TryFitPurityPloidy(withX, out _), Is.False, "ASCAT: rho = NA.");
-            Assert.That(OncologyAnalyzer.TryFitPurityPloidy(autosomal, out _), Is.False, "ASCAT: rho = NA.");
-            Assert.Throws<InvalidOperationException>(() => OncologyAnalyzer.FitPurityPloidy(autosomal),
+            Assert.That(AlleleSpecificCopyNumberAnalyzer.TryFitPurityPloidy(withX, out _), Is.False, "ASCAT: rho = NA.");
+            Assert.That(AlleleSpecificCopyNumberAnalyzer.TryFitPurityPloidy(autosomal, out _), Is.False, "ASCAT: rho = NA.");
+            Assert.Throws<InvalidOperationException>(() => AlleleSpecificCopyNumberAnalyzer.FitPurityPloidy(autosomal),
                 "FitPurityPloidy reports ASCAT's failure as InvalidOperationException.");
         });
     }
@@ -332,20 +301,20 @@ public class OncologyAnalyzer_AscatDerivation_Tests
     [Test]
     public void FitPurityPloidy_SexChromosomeSegment_DoesNotAffectFit()
     {
-        var auto = new List<OncologyAnalyzer.AlleleSpecificSegmentSummary>
+        var auto = new List<AlleleSpecificCopyNumberAnalyzer.AlleleSpecificSegmentSummary>
         {
             Summary("3", -0.44374838250380438, 0.90652646528359304, 6),
             Summary("3", 0.36009080318741721, 0.64110353482264759, 51),
             Summary("1", -0.11480994884775791, 0.5, 60),
         };
-        var withSex = new List<OncologyAnalyzer.AlleleSpecificSegmentSummary>(auto)
+        var withSex = new List<AlleleSpecificCopyNumberAnalyzer.AlleleSpecificSegmentSummary>(auto)
         {
             Summary("chrX", 1.7, 0.97, 500),
             Summary("Y", -2.0, 0.5, 300),
         };
 
-        OncologyAnalyzer.PurityPloidyFit a = OncologyAnalyzer.FitPurityPloidy(auto);
-        OncologyAnalyzer.PurityPloidyFit b = OncologyAnalyzer.FitPurityPloidy(withSex);
+        AlleleSpecificCopyNumberAnalyzer.PurityPloidyFit a = AlleleSpecificCopyNumberAnalyzer.FitPurityPloidy(auto);
+        AlleleSpecificCopyNumberAnalyzer.PurityPloidyFit b = AlleleSpecificCopyNumberAnalyzer.FitPurityPloidy(withSex);
 
         Assert.Multiple(() =>
         {
@@ -353,7 +322,7 @@ public class OncologyAnalyzer_AscatDerivation_Tests
             Assert.That(b.Psi, Is.EqualTo(a.Psi), "ψ unchanged by sex-chromosome segments.");
             Assert.That(b.GoodnessOfFit, Is.EqualTo(a.GoodnessOfFit), "GoF is computed over autosomes only.");
             Assert.That(b.Segments.Count, Is.EqualTo(5), "Every summary is still emitted.");
-            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.FitPurityPloidy(new[] { Summary("X", 0.0, 0.7, 10) }),
+            Assert.Throws<ArgumentException>(() => AlleleSpecificCopyNumberAnalyzer.FitPurityPloidy(new[] { Summary("X", 0.0, 0.7, 10) }),
                 "No autosomal segment ⇒ nothing to fit.");
         });
     }
@@ -364,8 +333,8 @@ public class OncologyAnalyzer_AscatDerivation_Tests
     [Test]
     public void EvaluatePurityPloidy_AscatSegmentRounding_BalancedOddTotalAndNegativeCorrection()
     {
-        var balancedOdd = OncologyAnalyzer.EvaluatePurityPloidy(new[] { Summary("1", Math.Log2(1.5), 0.5, 10) }, 1.0, 2.0);
-        var negative = OncologyAnalyzer.EvaluatePurityPloidy(new[] { Summary("1", 0.0, 0.9, 10) }, 0.5, 2.0);
+        var balancedOdd = AlleleSpecificCopyNumberAnalyzer.EvaluatePurityPloidy(new[] { Summary("1", Math.Log2(1.5), 0.5, 10) }, 1.0, 2.0);
+        var negative = AlleleSpecificCopyNumberAnalyzer.EvaluatePurityPloidy(new[] { Summary("1", 0.0, 0.9, 10) }, 0.5, 2.0);
 
         Assert.Multiple(() =>
         {
@@ -382,13 +351,13 @@ public class OncologyAnalyzer_AscatDerivation_Tests
     {
         Assert.Multiple(() =>
         {
-            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.FitPurityPloidy(new[] { Summary("1", 0.0, 0.7, 0) }),
+            Assert.Throws<ArgumentException>(() => AlleleSpecificCopyNumberAnalyzer.FitPurityPloidy(new[] { Summary("1", 0.0, 0.7, 0) }),
                 "LocusCount 0 ⇒ no probe weight.");
-            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.FitPurityPloidy(new[] { Summary("1", double.NaN, 0.7, 5) }),
+            Assert.Throws<ArgumentException>(() => AlleleSpecificCopyNumberAnalyzer.FitPurityPloidy(new[] { Summary("1", double.NaN, 0.7, 5) }),
                 "NaN logR rejected.");
-            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.FitPurityPloidy(new[] { Summary("1", 0.0, 1.2, 5) }),
+            Assert.Throws<ArgumentException>(() => AlleleSpecificCopyNumberAnalyzer.FitPurityPloidy(new[] { Summary("1", 0.0, 1.2, 5) }),
                 "BAF > 1 rejected.");
-            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.EvaluatePurityPloidy(new[] { Summary("1", 0.0, 0.7, 5) }, 1.2, 2.0),
+            Assert.Throws<ArgumentOutOfRangeException>(() => AlleleSpecificCopyNumberAnalyzer.EvaluatePurityPloidy(new[] { Summary("1", 0.0, 0.7, 5) }, 1.2, 2.0),
                 "Manual purity > 1 rejected.");
         });
     }
@@ -399,13 +368,13 @@ public class OncologyAnalyzer_AscatDerivation_Tests
     {
         var balanced = new (string Chrom, int NA, int NB)[] { ("1", 1, 1), ("2", 2, 2) };
         double psi0 = balanced.Average(s => s.NA + s.NB); // 3.0
-        List<OncologyAnalyzer.AlleleSpecificLocus> loci = SynthesiseLoci(balanced, PlantedPurity, psi0);
-        IReadOnlyList<OncologyAnalyzer.AlleleSpecificSegmentSummary> summaries =
-            OncologyAnalyzer.SegmentAlleleSpecific(loci, logRChangeThreshold: 0.2, minLociPerSegment: 1);
+        List<AlleleSpecificCopyNumberAnalyzer.AlleleSpecificLocus> loci = SynthesiseLoci(balanced, PlantedPurity, psi0);
+        IReadOnlyList<AlleleSpecificCopyNumberAnalyzer.AlleleSpecificSegmentSummary> summaries =
+            AlleleSpecificCopyNumberAnalyzer.SegmentAlleleSpecific(loci, logRChangeThreshold: 0.2, minLociPerSegment: 1);
 
         Assert.That(summaries.All(s => Math.Abs(s.MeanBAF - 0.5) < 1e-9), Is.True,
             "All balanced (1:1, 2:2) segments fold to mean BAF 0.5.");
-        OncologyAnalyzer.PurityPloidyFit fit = OncologyAnalyzer.FitPurityPloidy(summaries, gamma: Gamma);
+        AlleleSpecificCopyNumberAnalyzer.PurityPloidyFit fit = AlleleSpecificCopyNumberAnalyzer.FitPurityPloidy(summaries, gamma: Gamma);
         Assert.That(fit.GoodnessOfFit, Is.LessThanOrEqualTo(100.0 + 1e-9), "GoF percentage never exceeds 100%.");
     }
 
@@ -413,36 +382,34 @@ public class OncologyAnalyzer_AscatDerivation_Tests
     [Test]
     public void FitPurityPloidy_InvalidArguments_Throw()
     {
-        var one = new List<OncologyAnalyzer.AlleleSpecificSegmentSummary>
+        var one = new List<AlleleSpecificCopyNumberAnalyzer.AlleleSpecificSegmentSummary>
         {
             new("1", 1000, 2000, 0.0, 0.5, 5),
         };
         Assert.Multiple(() =>
         {
-            Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.FitPurityPloidy(null!), "Null segments must throw.");
+            Assert.Throws<ArgumentNullException>(() => AlleleSpecificCopyNumberAnalyzer.FitPurityPloidy(null!), "Null segments must throw.");
             Assert.Throws<ArgumentException>(
-                () => OncologyAnalyzer.FitPurityPloidy(new List<OncologyAnalyzer.AlleleSpecificSegmentSummary>()),
+                () => AlleleSpecificCopyNumberAnalyzer.FitPurityPloidy(new List<AlleleSpecificCopyNumberAnalyzer.AlleleSpecificSegmentSummary>()),
                 "Empty segments must throw.");
             Assert.Throws<ArgumentOutOfRangeException>(
-                () => OncologyAnalyzer.FitPurityPloidy(one, purityMin: 0.0), "purityMin <= 0 must throw.");
+                () => AlleleSpecificCopyNumberAnalyzer.FitPurityPloidy(one, purityMin: 0.0), "purityMin <= 0 must throw.");
             Assert.Throws<ArgumentOutOfRangeException>(
-                () => OncologyAnalyzer.FitPurityPloidy(one, purityMin: 0.5, purityMax: 0.4), "purityMax < min must throw.");
+                () => AlleleSpecificCopyNumberAnalyzer.FitPurityPloidy(one, purityMin: 0.5, purityMax: 0.4), "purityMax < min must throw.");
             Assert.Throws<ArgumentOutOfRangeException>(
-                () => OncologyAnalyzer.FitPurityPloidy(one, ploidyMin: 0.0), "ploidyMin <= 0 must throw.");
+                () => AlleleSpecificCopyNumberAnalyzer.FitPurityPloidy(one, ploidyMin: 0.0), "ploidyMin <= 0 must throw.");
             Assert.Throws<ArgumentOutOfRangeException>(
-                () => OncologyAnalyzer.FitPurityPloidy(one, gamma: 0.0), "gamma <= 0 must throw.");
+                () => AlleleSpecificCopyNumberAnalyzer.FitPurityPloidy(one, gamma: 0.0), "gamma <= 0 must throw.");
         });
     }
 
-    #endregion
 
-    #region DeriveMultiplicity
 
     // M5 — VAF=0.40 from m=1 on CN=2 (1+1), rho=0.80: n_mut = 0.40*(0.8*2+2*0.2)/0.8 = 1.0 -> m=1.
     [Test]
     public void DeriveMultiplicity_ClonalDiploidSingleCopy_ReturnsOne()
     {
-        int m = OncologyAnalyzer.DeriveMultiplicity(vaf: 0.40, purity: 0.80, totalCopyNumber: 2, majorCopyNumber: 1);
+        int m = AlleleSpecificCopyNumberAnalyzer.DeriveMultiplicity(vaf: 0.40, purity: 0.80, totalCopyNumber: 2, majorCopyNumber: 1);
         Assert.That(m, Is.EqualTo(1), "n_mut = 0.40·(0.8·2+2·0.2)/0.8 = 1.0, rounds to multiplicity 1.");
     }
 
@@ -451,7 +418,7 @@ public class OncologyAnalyzer_AscatDerivation_Tests
     public void DeriveMultiplicity_ClonalGainTwoCopies_ReturnsTwo()
     {
         double vaf = 2.0 * 0.80 / (3.0 * 0.80 + 2.0 * 0.20); // synth VAF for m=2, CN=3, ccf=1 => 4/7
-        int m = OncologyAnalyzer.DeriveMultiplicity(vaf, purity: 0.80, totalCopyNumber: 3, majorCopyNumber: 2);
+        int m = AlleleSpecificCopyNumberAnalyzer.DeriveMultiplicity(vaf, purity: 0.80, totalCopyNumber: 3, majorCopyNumber: 2);
         Assert.That(m, Is.EqualTo(2), "n_mut = (4/7)·(0.8·3+2·0.2)/0.8 = 2.0, rounds to multiplicity 2.");
     }
 
@@ -459,7 +426,7 @@ public class OncologyAnalyzer_AscatDerivation_Tests
     [Test]
     public void DeriveMultiplicity_AboveMajorCopyNumber_ClampsToMajor()
     {
-        int m = OncologyAnalyzer.DeriveMultiplicity(vaf: 1.0, purity: 1.0, totalCopyNumber: 4, majorCopyNumber: 2);
+        int m = AlleleSpecificCopyNumberAnalyzer.DeriveMultiplicity(vaf: 1.0, purity: 1.0, totalCopyNumber: 4, majorCopyNumber: 2);
         Assert.That(m, Is.EqualTo(2), "n_mut = 1.0·4/1.0 = 4 > major CN 2, clamped to 2.");
     }
 
@@ -467,7 +434,7 @@ public class OncologyAnalyzer_AscatDerivation_Tests
     [Test]
     public void DeriveMultiplicity_RoundsToZero_ClampsToOne()
     {
-        int m = OncologyAnalyzer.DeriveMultiplicity(vaf: 0.0, purity: 0.80, totalCopyNumber: 2, majorCopyNumber: 1);
+        int m = AlleleSpecificCopyNumberAnalyzer.DeriveMultiplicity(vaf: 0.0, purity: 0.80, totalCopyNumber: 2, majorCopyNumber: 1);
         Assert.That(m, Is.EqualTo(1), "n_mut = 0 rounds to 0 but is clamped up to 1.");
     }
 
@@ -486,7 +453,7 @@ public class OncologyAnalyzer_AscatDerivation_Tests
     public void DeriveMultiplicity_ExactHalfTie_RoundsHalfToEven_MatchesFacetsSuite(
         double vaf, double purity, int totalCopyNumber, int majorCopyNumber, int expected)
     {
-        int m = OncologyAnalyzer.DeriveMultiplicity(vaf, purity, totalCopyNumber, majorCopyNumber);
+        int m = AlleleSpecificCopyNumberAnalyzer.DeriveMultiplicity(vaf, purity, totalCopyNumber, majorCopyNumber);
         Assert.That(m, Is.EqualTo(expected),
             "facets-suite expected_mutant_copies: mu < 1 -> 1, then R round() (half-to-even).");
     }
@@ -498,31 +465,29 @@ public class OncologyAnalyzer_AscatDerivation_Tests
         Assert.Multiple(() =>
         {
             Assert.Throws<ArgumentOutOfRangeException>(
-                () => OncologyAnalyzer.DeriveMultiplicity(1.5, 0.8, 2, 1), "VAF > 1 must throw.");
+                () => AlleleSpecificCopyNumberAnalyzer.DeriveMultiplicity(1.5, 0.8, 2, 1), "VAF > 1 must throw.");
             Assert.Throws<ArgumentOutOfRangeException>(
-                () => OncologyAnalyzer.DeriveMultiplicity(0.4, 0.0, 2, 1), "purity <= 0 must throw.");
+                () => AlleleSpecificCopyNumberAnalyzer.DeriveMultiplicity(0.4, 0.0, 2, 1), "purity <= 0 must throw.");
             Assert.Throws<ArgumentOutOfRangeException>(
-                () => OncologyAnalyzer.DeriveMultiplicity(0.4, 0.8, 0, 1), "totalCopyNumber < 1 must throw.");
+                () => AlleleSpecificCopyNumberAnalyzer.DeriveMultiplicity(0.4, 0.8, 0, 1), "totalCopyNumber < 1 must throw.");
             Assert.Throws<ArgumentOutOfRangeException>(
-                () => OncologyAnalyzer.DeriveMultiplicity(0.4, 0.8, 2, 3), "majorCopyNumber > total must throw.");
+                () => AlleleSpecificCopyNumberAnalyzer.DeriveMultiplicity(0.4, 0.8, 2, 3), "majorCopyNumber > total must throw.");
             Assert.Throws<ArgumentOutOfRangeException>(
-                () => OncologyAnalyzer.DeriveMultiplicity(0.4, 0.8, 2, 0), "majorCopyNumber < 1 must throw.");
+                () => AlleleSpecificCopyNumberAnalyzer.DeriveMultiplicity(0.4, 0.8, 2, 0), "majorCopyNumber < 1 must throw.");
         });
     }
 
-    #endregion
 
-    #region End-to-end CCF (M9)
 
     // M9 — fit -> derive CN + multiplicity -> EstimateCcf on a planted clonal mutation yields CCF = 1.0.
     [Test]
     public void EndToEnd_PlantedClonalMutation_CcfEqualsOne()
     {
         // Recover purity and the integer copy-number segments from the planted per-locus signal.
-        List<OncologyAnalyzer.AlleleSpecificLocus> loci = SynthesiseLoci(PlantedSegments, PlantedPurity, PlantedPloidy);
-        IReadOnlyList<OncologyAnalyzer.AlleleSpecificSegmentSummary> summaries =
-            OncologyAnalyzer.SegmentAlleleSpecific(loci, logRChangeThreshold: 0.2, minLociPerSegment: 1);
-        OncologyAnalyzer.PurityPloidyFit fit = OncologyAnalyzer.FitPurityPloidy(summaries, gamma: Gamma);
+        List<AlleleSpecificCopyNumberAnalyzer.AlleleSpecificLocus> loci = SynthesiseLoci(PlantedSegments, PlantedPurity, PlantedPloidy);
+        IReadOnlyList<AlleleSpecificCopyNumberAnalyzer.AlleleSpecificSegmentSummary> summaries =
+            AlleleSpecificCopyNumberAnalyzer.SegmentAlleleSpecific(loci, logRChangeThreshold: 0.2, minLociPerSegment: 1);
+        AlleleSpecificCopyNumberAnalyzer.PurityPloidyFit fit = AlleleSpecificCopyNumberAnalyzer.FitPurityPloidy(summaries, gamma: Gamma);
 
         // Take the balanced diploid segment (1+1, total CN 2). A clonal m=1 mutation there:
         OncologyAnalyzer.AlleleSpecificSegment seg = fit.Segments[0];
@@ -530,7 +495,7 @@ public class OncologyAnalyzer_AscatDerivation_Tests
         // Synthesise the clonal VAF: VAF = m·CCF·rho / (CN·rho + 2(1-rho)) with m=1, CCF=1.
         double vaf = 1.0 * 1.0 * fit.Purity / (total * fit.Purity + 2.0 * (1.0 - fit.Purity));
 
-        int m = OncologyAnalyzer.DeriveMultiplicity(vaf, fit.Purity, total, seg.MajorCopyNumber);
+        int m = AlleleSpecificCopyNumberAnalyzer.DeriveMultiplicity(vaf, fit.Purity, total, seg.MajorCopyNumber);
         OncologyAnalyzer.CcfEstimate ccf = OncologyAnalyzer.EstimateCcf(vaf, fit.Purity, total, m);
 
         Assert.Multiple(() =>
@@ -541,40 +506,36 @@ public class OncologyAnalyzer_AscatDerivation_Tests
         });
     }
 
-    #endregion
 
-    #region SegmentAlleleSpecificAspcf (ASCAT ascat.aspcf / fastAspcf / aspcfpart)
 
     // Deterministic noisy tracks (80 loci on chr1; 4-decimal literals shared with the R cross-check).
     // Expected values are the output of the ORIGINAL ascat.aspcf (VanLoo-lab/ascat master, R 4.3) on the same
     // loci with Germline_BAF = 0.5 (all heterozygous) — see Evidence §"ASCAT R cross-check" (60/60 random
     // genomes, 681 segments identical to ≤ 5e-16).
     private static readonly double[] AspcfLogRNoise = { -0.0453, -0.0731, 0.1381, -0.0817, -0.0632, 0.1167, -0.0624, -0.1293, 0.0513, -0.0016, -0.0042, -0.039, -0.0982, -0.1934, 0.1133, -0.0558, 0.0104, 0.0412, -0.0503, -0.16, -0.2202, 0.1674, -0.0273, -0.1205, 0.0077, -0.0957, -0.0398, -0.0175, -0.0372, -0.0352, 0.0519, 0.0563, 0.0991, -0.12, -0.1088, -0.0052, 0.0256, 0.0508, -0.0206, 0.0331, -0.0893, -0.1283, -0.1238, -0.0852, -0.1075, -0.0466, -0.0233, 0.0351, 0.0796, -0.0397, 0.1226, -0.1288, -0.0112, 0.0451, -0.1349, 0.0402, 0.1099, 0.1532, -0.0676, 0.0155, 0.0646, 0.1728, -0.1561, 0.0349, -0.1101, -0.0692, -0.0067, 0.0384, 0.2818, -0.0153, 0.1269, -0.0723, -0.0398, 0.0733, -0.0551, 0.104, -0.0577, 0.1, 0.0129, 0.0861 };
-    private static readonly double[] AspcfBafNoise = { 0.0551, -0.043, 0.0313, 0.0063, 0.0189, -0.0093, 0.0282, -0.0104, 0.0366, 0.0327, -0.0089, 0.0162, 0.0422, -0.0015, -0.0042, 0.0176, 0.0547, 0.0701, -0.0727, 0.0183, -0.0305, -0.0791, -0.0044, -0.0028, -0.0073, -0.0053, -0.0095, -0.0097, 0.0231, 0.0169, 0.0052, -0.024, -0.0048, -0.0044, -0.0019, -0.0138, 0.0083, -0.0535, -0.0493, 0.0487, -0.0337, -0.0589, 0.0278, -0.044, -0.0299, -0.0028, 0.0535, 0.0257, -0.0473, -0.0817, 0.0147, 0.0468, -0.0068, -0.0375, -0.0206, 0.0489, -0.0407, -0.0614, -0.0107, -0.0145, -0.0128, -0.0009, 0.0529, -0.0075, 0.0448, 0.0199, -0.0101, -0.0299, -0.0394, 0.0183, 0.0099, 0.0669, 0.004, -0.0395, -0.0178, -0.0445, 0.0081, 0.0025, 0.0197, 0.0157 };
-    private static readonly int[] AspcfBafSign = { 1, -1, -1, 1, 1, 1, -1, 1, 1, 1, -1, 1, 1, -1, 1, 1, -1, -1, 1, 1, 1, -1, -1, -1, 1, -1, 1, 1, 1, -1, 1, -1, 1, -1, 1, 1, 1, -1, 1, -1, 1, -1, 1, 1, 1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 1, -1, 1, -1, -1, -1, 1, -1, 1, -1, 1, 1, -1, 1, 1, 1, 1, 1, 1, 1, -1, -1, 1, -1 };
 
     // Dataset 1: logR 0 → 0.6 and BAF balanced → imbalanced (0.5 ± 0.25) at locus 41.
-    internal static List<OncologyAnalyzer.AlleleSpecificLocus> AspcfStepTrack(double logRShift = 0.0)
+    internal static List<AlleleSpecificCopyNumberAnalyzer.AlleleSpecificLocus> AspcfStepTrack(double logRShift = 0.0)
     {
-        var loci = new List<OncologyAnalyzer.AlleleSpecificLocus>();
+        var loci = new List<AlleleSpecificCopyNumberAnalyzer.AlleleSpecificLocus>();
         for (int i = 0; i < 80; i++)
         {
             double r = Math.Round(AspcfLogRNoise[i] + (i >= 40 ? 0.6 : 0.0), 4) + logRShift;
             double b = Math.Round(0.5 + (i >= 40 ? AspcfBafSign[i] * 0.25 : 0.0) + AspcfBafNoise[i], 4);
-            loci.Add(new OncologyAnalyzer.AlleleSpecificLocus("1", (i + 1) * 1000L, r, b));
+            loci.Add(new AlleleSpecificCopyNumberAnalyzer.AlleleSpecificLocus("1", (i + 1) * 1000L, r, b));
         }
 
         return loci;
     }
 
     // Dataset 2: identical logR everywhere; BAF balanced → copy-neutral LOH (0.5 ± 0.47) at locus 41.
-    internal static List<OncologyAnalyzer.AlleleSpecificLocus> AspcfLohTrack()
+    internal static List<AlleleSpecificCopyNumberAnalyzer.AlleleSpecificLocus> AspcfLohTrack()
     {
-        var loci = new List<OncologyAnalyzer.AlleleSpecificLocus>();
+        var loci = new List<AlleleSpecificCopyNumberAnalyzer.AlleleSpecificLocus>();
         for (int i = 0; i < 80; i++)
         {
             double b = i < 40 ? 0.5 + AspcfBafNoise[i] : 0.5 + AspcfBafSign[i] * 0.47 + AspcfBafNoise[i];
-            loci.Add(new OncologyAnalyzer.AlleleSpecificLocus("1", (i + 1) * 1000L, AspcfLogRNoise[i], Math.Round(Math.Clamp(b, 0.0, 1.0), 4)));
+            loci.Add(new AlleleSpecificCopyNumberAnalyzer.AlleleSpecificLocus("1", (i + 1) * 1000L, AspcfLogRNoise[i], Math.Round(Math.Clamp(b, 0.0, 1.0), 4)));
         }
 
         return loci;
@@ -585,7 +546,7 @@ public class OncologyAnalyzer_AscatDerivation_Tests
     [Test]
     public void SegmentAlleleSpecificAspcf_NoisyStep_MatchesAscatAspcf()
     {
-        var segs = OncologyAnalyzer.SegmentAlleleSpecificAspcf(AspcfStepTrack(), penalty: 70.0);
+        var segs = AlleleSpecificCopyNumberAnalyzer.SegmentAlleleSpecificAspcf(AspcfStepTrack(), penalty: 70.0);
 
         Assert.Multiple(() =>
         {
@@ -603,7 +564,7 @@ public class OncologyAnalyzer_AscatDerivation_Tests
     [Test]
     public void SegmentAlleleSpecificAspcf_SameLogRDifferentBaf_SplitsOnBaf()
     {
-        var segs = OncologyAnalyzer.SegmentAlleleSpecificAspcf(AspcfLohTrack(), penalty: 70.0);
+        var segs = AlleleSpecificCopyNumberAnalyzer.SegmentAlleleSpecificAspcf(AspcfLohTrack(), penalty: 70.0);
 
         Assert.Multiple(() =>
         {
@@ -619,8 +580,8 @@ public class OncologyAnalyzer_AscatDerivation_Tests
     [Test]
     public void SegmentAlleleSpecificAspcf_PenaltyControlsSegmentCount()
     {
-        var big = OncologyAnalyzer.SegmentAlleleSpecificAspcf(AspcfStepTrack(), penalty: 1e6);
-        var def = OncologyAnalyzer.SegmentAlleleSpecificAspcf(AspcfStepTrack());
+        var big = AlleleSpecificCopyNumberAnalyzer.SegmentAlleleSpecificAspcf(AspcfStepTrack(), penalty: 1e6);
+        var def = AlleleSpecificCopyNumberAnalyzer.SegmentAlleleSpecificAspcf(AspcfStepTrack());
 
         Assert.Multiple(() =>
         {
@@ -628,7 +589,7 @@ public class OncologyAnalyzer_AscatDerivation_Tests
             Assert.That(big[0].MeanLogR, Is.EqualTo(0.28982249999999998), "ascat.aspcf single-segment logR.");
             Assert.That(big[0].MeanBAF, Is.EqualTo(0.63790578937499998), "ascat.aspcf single-segment BAF.");
             Assert.That(def.Count, Is.EqualTo(2), "The ASCAT default penalty (70) recovers the two levels.");
-            Assert.That(OncologyAnalyzer.AspcfDefaultPenalty, Is.EqualTo(70.0), "ascat.aspcf(..., penalty = 70).");
+            Assert.That(AlleleSpecificCopyNumberAnalyzer.AspcfDefaultPenalty, Is.EqualTo(70.0), "ascat.aspcf(..., penalty = 70).");
         });
     }
 
@@ -638,11 +599,11 @@ public class OncologyAnalyzer_AscatDerivation_Tests
     [Test]
     public void SegmentAlleleSpecificAspcf_NoiseFreeTrack_NoBreakpointAsAscat()
     {
-        var loci = new List<OncologyAnalyzer.AlleleSpecificLocus>();
-        for (int i = 0; i < 10; i++) loci.Add(new OncologyAnalyzer.AlleleSpecificLocus("1", 1000 + i * 1000, 0.0, 0.5));
-        for (int i = 0; i < 10; i++) loci.Add(new OncologyAnalyzer.AlleleSpecificLocus("1", 11000 + i * 1000, 1.0, 0.5));
+        var loci = new List<AlleleSpecificCopyNumberAnalyzer.AlleleSpecificLocus>();
+        for (int i = 0; i < 10; i++) loci.Add(new AlleleSpecificCopyNumberAnalyzer.AlleleSpecificLocus("1", 1000 + i * 1000, 0.0, 0.5));
+        for (int i = 0; i < 10; i++) loci.Add(new AlleleSpecificCopyNumberAnalyzer.AlleleSpecificLocus("1", 11000 + i * 1000, 1.0, 0.5));
 
-        var segs = OncologyAnalyzer.SegmentAlleleSpecificAspcf(loci, penalty: 0.5);
+        var segs = AlleleSpecificCopyNumberAnalyzer.SegmentAlleleSpecificAspcf(loci, penalty: 0.5);
 
         Assert.Multiple(() =>
         {
@@ -659,9 +620,9 @@ public class OncologyAnalyzer_AscatDerivation_Tests
     {
         double[] r = { 0.1, 0.3, -0.2, 0.05, 0.4 };
         double[] b = { 0.8, 0.3, 0.75, 0.28, 0.9 };
-        var loci = Enumerable.Range(0, 5).Select(i => new OncologyAnalyzer.AlleleSpecificLocus("1", (i + 1) * 1000L, r[i], b[i])).ToList();
+        var loci = Enumerable.Range(0, 5).Select(i => new AlleleSpecificCopyNumberAnalyzer.AlleleSpecificLocus("1", (i + 1) * 1000L, r[i], b[i])).ToList();
 
-        var segs = OncologyAnalyzer.SegmentAlleleSpecificAspcf(loci);
+        var segs = AlleleSpecificCopyNumberAnalyzer.SegmentAlleleSpecificAspcf(loci);
 
         Assert.Multiple(() =>
         {
@@ -675,12 +636,12 @@ public class OncologyAnalyzer_AscatDerivation_Tests
     [Test]
     public void SegmentAlleleSpecificAspcf_ChromosomeBoundary_NeverCrossed()
     {
-        var loci = new List<OncologyAnalyzer.AlleleSpecificLocus>();
-        for (int i = 0; i < 5; i++) loci.Add(new OncologyAnalyzer.AlleleSpecificLocus("1", 1000 + i * 1000, 0.0, 0.5));
-        for (int i = 0; i < 5; i++) loci.Add(new OncologyAnalyzer.AlleleSpecificLocus("2", 1000 + i * 1000, 0.0, 0.5));
+        var loci = new List<AlleleSpecificCopyNumberAnalyzer.AlleleSpecificLocus>();
+        for (int i = 0; i < 5; i++) loci.Add(new AlleleSpecificCopyNumberAnalyzer.AlleleSpecificLocus("1", 1000 + i * 1000, 0.0, 0.5));
+        for (int i = 0; i < 5; i++) loci.Add(new AlleleSpecificCopyNumberAnalyzer.AlleleSpecificLocus("2", 1000 + i * 1000, 0.0, 0.5));
 
         // Same flat value across both chromosomes; only the contig change can split them.
-        var segs = OncologyAnalyzer.SegmentAlleleSpecificAspcf(loci, penalty: 100.0);
+        var segs = AlleleSpecificCopyNumberAnalyzer.SegmentAlleleSpecificAspcf(loci, penalty: 100.0);
 
         Assert.Multiple(() =>
         {
@@ -694,25 +655,23 @@ public class OncologyAnalyzer_AscatDerivation_Tests
     [Test]
     public void SegmentAlleleSpecificAspcf_InvalidArguments_Throw()
     {
-        var loci = new List<OncologyAnalyzer.AlleleSpecificLocus> { new("1", 1000, 0.0, 0.5) };
+        var loci = new List<AlleleSpecificCopyNumberAnalyzer.AlleleSpecificLocus> { new("1", 1000, 0.0, 0.5) };
         Assert.Multiple(() =>
         {
             Assert.Throws<ArgumentNullException>(
-                () => OncologyAnalyzer.SegmentAlleleSpecificAspcf(null!), "Null loci must throw.");
+                () => AlleleSpecificCopyNumberAnalyzer.SegmentAlleleSpecificAspcf(null!), "Null loci must throw.");
             Assert.Throws<ArgumentOutOfRangeException>(
-                () => OncologyAnalyzer.SegmentAlleleSpecificAspcf(loci, penalty: 0.0), "Non-positive penalty must throw.");
+                () => AlleleSpecificCopyNumberAnalyzer.SegmentAlleleSpecificAspcf(loci, penalty: 0.0), "Non-positive penalty must throw.");
             Assert.Throws<ArgumentException>(
-                () => OncologyAnalyzer.SegmentAlleleSpecificAspcf(new[] { new OncologyAnalyzer.AlleleSpecificLocus("1", 1, double.NaN, 0.5) }),
+                () => AlleleSpecificCopyNumberAnalyzer.SegmentAlleleSpecificAspcf(new[] { new AlleleSpecificCopyNumberAnalyzer.AlleleSpecificLocus("1", 1, double.NaN, 0.5) }),
                 "NaN logR must throw.");
             Assert.Throws<ArgumentException>(
-                () => OncologyAnalyzer.SegmentAlleleSpecificAspcf(new[] { new OncologyAnalyzer.AlleleSpecificLocus("1", 1, 0.0, 1.5) }),
+                () => AlleleSpecificCopyNumberAnalyzer.SegmentAlleleSpecificAspcf(new[] { new AlleleSpecificCopyNumberAnalyzer.AlleleSpecificLocus("1", 1, 0.0, 1.5) }),
                 "BAF outside [0,1] must throw.");
         });
     }
 
-    #endregion
 
-    #region FitSubclonalCopyNumber (Battenberg determine_copynumber)
 
     // Expected values: Battenberg determine_copynumber (Wedge-lab/battenberg R/fitcopynumber.R + R/orderEdges.R,
     // master) run in R 4.3 on the same segment (constant SNP BAFs ⇒ sd = 0 ⇒ pval = 0, maxdist = 0.01);
@@ -724,9 +683,9 @@ public class OncologyAnalyzer_AscatDerivation_Tests
     [Test]
     public void FitSubclonalCopyNumber_PlantedEdgeMixture_MatchesBattenberg()
     {
-        var seg = new OncologyAnalyzer.AlleleSpecificSegmentSummary("1", 1000, 5000, -0.099535673550914569, 0.55357142857142849, 5);
+        var seg = new AlleleSpecificCopyNumberAnalyzer.AlleleSpecificSegmentSummary("1", 1000, 5000, -0.099535673550914569, 0.55357142857142849, 5);
 
-        var fit = OncologyAnalyzer.FitSubclonalCopyNumber(new[] { seg }, 0.8, 2.5)[0];
+        var fit = AlleleSpecificCopyNumberAnalyzer.FitSubclonalCopyNumber(new[] { seg }, 0.8, 2.5)[0];
 
         Assert.Multiple(() =>
         {
@@ -744,9 +703,9 @@ public class OncologyAnalyzer_AscatDerivation_Tests
     [Test]
     public void FitSubclonalCopyNumber_BothAllelesFractional_UsesNearestEdgeAsBattenberg()
     {
-        var seg = new OncologyAnalyzer.AlleleSpecificSegmentSummary("1", 1000, 5000, 0.0, 0.7, 5);
+        var seg = new AlleleSpecificCopyNumberAnalyzer.AlleleSpecificSegmentSummary("1", 1000, 5000, 0.0, 0.7, 5);
 
-        var fit = OncologyAnalyzer.FitSubclonalCopyNumber(new[] { seg }, 1.0, 2.0)[0];
+        var fit = AlleleSpecificCopyNumberAnalyzer.FitSubclonalCopyNumber(new[] { seg }, 1.0, 2.0)[0];
 
         Assert.Multiple(() =>
         {
@@ -766,9 +725,9 @@ public class OncologyAnalyzer_AscatDerivation_Tests
     [TestCase(0.58496250072115619, 0.72222222222222232, 3, 1)]
     public void FitSubclonalCopyNumber_IntegerSegment_CollapsesToSingleClonalState(double logR, double baf, int major, int minor)
     {
-        var seg = new OncologyAnalyzer.AlleleSpecificSegmentSummary("1", 1000, 5000, logR, baf, 5);
+        var seg = new AlleleSpecificCopyNumberAnalyzer.AlleleSpecificSegmentSummary("1", 1000, 5000, logR, baf, 5);
 
-        var fit = OncologyAnalyzer.FitSubclonalCopyNumber(new[] { seg }, 0.8, 2.5)[0];
+        var fit = AlleleSpecificCopyNumberAnalyzer.FitSubclonalCopyNumber(new[] { seg }, 0.8, 2.5)[0];
 
         Assert.Multiple(() =>
         {
@@ -783,24 +742,22 @@ public class OncologyAnalyzer_AscatDerivation_Tests
     [Test]
     public void FitSubclonalCopyNumber_InvalidArguments_Throw()
     {
-        var seg = new OncologyAnalyzer.AlleleSpecificSegmentSummary("1", 1000, 5000, 0.0, 0.5, 5);
+        var seg = new AlleleSpecificCopyNumberAnalyzer.AlleleSpecificSegmentSummary("1", 1000, 5000, 0.0, 0.5, 5);
         var segs = new[] { seg };
         Assert.Multiple(() =>
         {
             Assert.Throws<ArgumentNullException>(
-                () => OncologyAnalyzer.FitSubclonalCopyNumber(null!, 0.8, 2.0), "Null segments must throw.");
+                () => AlleleSpecificCopyNumberAnalyzer.FitSubclonalCopyNumber(null!, 0.8, 2.0), "Null segments must throw.");
             Assert.Throws<ArgumentOutOfRangeException>(
-                () => OncologyAnalyzer.FitSubclonalCopyNumber(segs, 0.0, 2.0), "purity ≤ 0 must throw.");
+                () => AlleleSpecificCopyNumberAnalyzer.FitSubclonalCopyNumber(segs, 0.0, 2.0), "purity ≤ 0 must throw.");
             Assert.Throws<ArgumentOutOfRangeException>(
-                () => OncologyAnalyzer.FitSubclonalCopyNumber(segs, 0.8, 0.0), "ploidy ≤ 0 must throw.");
+                () => AlleleSpecificCopyNumberAnalyzer.FitSubclonalCopyNumber(segs, 0.8, 0.0), "ploidy ≤ 0 must throw.");
             Assert.Throws<ArgumentOutOfRangeException>(
-                () => OncologyAnalyzer.FitSubclonalCopyNumber(segs, 0.8, 2.0, gamma: 0.0), "gamma ≤ 0 must throw.");
+                () => AlleleSpecificCopyNumberAnalyzer.FitSubclonalCopyNumber(segs, 0.8, 2.0, gamma: 0.0), "gamma ≤ 0 must throw.");
         });
     }
 
-    #endregion
 
-    #region FitSubclonalCopyNumberWithSnpTest (Battenberg per-SNP t-test, B24 F39)
 
     // Expected values: Battenberg determine_copynumber (Wedge-lab/battenberg master R/fitcopynumber.R, sourced verbatim
     // with R/orderEdges.R; R 4.3.3, maxdist 0.01, siglevel 0.05, noperms 1000) on four genomes (ρ/ψ 0.8/2.5, 1/2,
@@ -831,10 +788,10 @@ public class OncologyAnalyzer_AscatDerivation_Tests
         double purity, double psit, double logR, double baf, double[] snps, double pval,
         int major1, int minor1, double frac1, int major2, int minor2, double frac2)
     {
-        var seg = new OncologyAnalyzer.AlleleSpecificSegmentSummary("1", 1000, 1000L * snps.Length, logR, baf, snps.Length);
+        var seg = new AlleleSpecificCopyNumberAnalyzer.AlleleSpecificSegmentSummary("1", 1000, 1000L * snps.Length, logR, baf, snps.Length);
 
-        var r = OncologyAnalyzer.FitSubclonalCopyNumberWithSnpTest(
-            new[] { new OncologyAnalyzer.SubclonalSegmentSnpBafs(seg, snps) }, purity, psit)[0];
+        var r = AlleleSpecificCopyNumberAnalyzer.FitSubclonalCopyNumberWithSnpTest(
+            new[] { new AlleleSpecificCopyNumberAnalyzer.SubclonalSegmentSnpBafs(seg, snps) }, purity, psit)[0];
 
         Assert.Multiple(() =>
         {
@@ -859,12 +816,12 @@ public class OncologyAnalyzer_AscatDerivation_Tests
     [Test]
     public void FitSubclonalCopyNumberWithSnpTest_NoisySnps_ClonalWhereMaxdistOnlyCallsSubclonal()
     {
-        var seg = new OncologyAnalyzer.AlleleSpecificSegmentSummary("1", 1000, 5000, 0.222392, 0.672857, 5);
+        var seg = new AlleleSpecificCopyNumberAnalyzer.AlleleSpecificSegmentSummary("1", 1000, 5000, 0.222392, 0.672857, 5);
         double[] snps = { 0.5529, 0.7629, 0.5729, 0.7829, 0.6929 };
 
-        var maxdistOnly = OncologyAnalyzer.FitSubclonalCopyNumber(new[] { seg }, 0.8, 2.5)[0];
-        var tested = OncologyAnalyzer.FitSubclonalCopyNumberWithSnpTest(
-            new[] { new OncologyAnalyzer.SubclonalSegmentSnpBafs(seg, snps) }, 0.8, 2.5)[0];
+        var maxdistOnly = AlleleSpecificCopyNumberAnalyzer.FitSubclonalCopyNumber(new[] { seg }, 0.8, 2.5)[0];
+        var tested = AlleleSpecificCopyNumberAnalyzer.FitSubclonalCopyNumberWithSnpTest(
+            new[] { new AlleleSpecificCopyNumberAnalyzer.SubclonalSegmentSnpBafs(seg, snps) }, 0.8, 2.5)[0];
 
         Assert.Multiple(() =>
         {
@@ -878,16 +835,16 @@ public class OncologyAnalyzer_AscatDerivation_Tests
     [Test]
     public void FitSubclonalCopyNumberWithSnpTest_SiglevelAndMaxdist_MatchBattenberg()
     {
-        var s28 = new OncologyAnalyzer.SubclonalSegmentSnpBafs(
-            new OncologyAnalyzer.AlleleSpecificSegmentSummary("1", 1000, 5000, -0.057038, 0.780347, 5),
+        var s28 = new AlleleSpecificCopyNumberAnalyzer.SubclonalSegmentSnpBafs(
+            new AlleleSpecificCopyNumberAnalyzer.AlleleSpecificSegmentSummary("1", 1000, 5000, -0.057038, 0.780347, 5),
             new[] { 0.8864, 0.7955, 0.8486, 0.7765, 0.617 });
-        var s45 = new OncologyAnalyzer.SubclonalSegmentSnpBafs(
-            new OncologyAnalyzer.AlleleSpecificSegmentSummary("1", 1000, 3000, 0.222392, 0.647857, 3),
+        var s45 = new AlleleSpecificCopyNumberAnalyzer.SubclonalSegmentSnpBafs(
+            new AlleleSpecificCopyNumberAnalyzer.AlleleSpecificSegmentSummary("1", 1000, 3000, 0.222392, 0.647857, 3),
             new[] { 0.6379, 0.6579, 0.6484 });
 
-        var sig = OncologyAnalyzer.FitSubclonalCopyNumberWithSnpTest(new[] { s28 }, 0.8, 2.5, significanceLevel: 0.1)[0];
-        var md1 = OncologyAnalyzer.FitSubclonalCopyNumberWithSnpTest(new[] { s45 }, 0.8, 2.5, maxBafDistance: 0.001)[0];
-        var md0 = OncologyAnalyzer.FitSubclonalCopyNumberWithSnpTest(new[] { s45 }, 0.8, 2.5, maxBafDistance: 0.0)[0];
+        var sig = AlleleSpecificCopyNumberAnalyzer.FitSubclonalCopyNumberWithSnpTest(new[] { s28 }, 0.8, 2.5, significanceLevel: 0.1)[0];
+        var md1 = AlleleSpecificCopyNumberAnalyzer.FitSubclonalCopyNumberWithSnpTest(new[] { s45 }, 0.8, 2.5, maxBafDistance: 0.001)[0];
+        var md0 = AlleleSpecificCopyNumberAnalyzer.FitSubclonalCopyNumberWithSnpTest(new[] { s45 }, 0.8, 2.5, maxBafDistance: 0.0)[0];
 
         Assert.Multiple(() =>
         {
@@ -906,11 +863,11 @@ public class OncologyAnalyzer_AscatDerivation_Tests
     [Test]
     public void FitSubclonalCopyNumberWithSnpTest_SnpBafsNotMirrored_AsBattenberg()
     {
-        var seg = new OncologyAnalyzer.AlleleSpecificSegmentSummary("1", 1000, 5000, 0.222392, 1 - 0.672857, 5);
+        var seg = new AlleleSpecificCopyNumberAnalyzer.AlleleSpecificSegmentSummary("1", 1000, 5000, 0.222392, 1 - 0.672857, 5);
         double[] snps = { 1 - 0.6689, 1 - 0.6759, 1 - 0.6739, 1 - 0.6709, 1 - 0.6749 };
 
-        var r = OncologyAnalyzer.FitSubclonalCopyNumberWithSnpTest(
-            new[] { new OncologyAnalyzer.SubclonalSegmentSnpBafs(seg, snps) }, 0.8, 2.5)[0];
+        var r = AlleleSpecificCopyNumberAnalyzer.FitSubclonalCopyNumberWithSnpTest(
+            new[] { new AlleleSpecificCopyNumberAnalyzer.SubclonalSegmentSnpBafs(seg, snps) }, 0.8, 2.5)[0];
 
         Assert.Multiple(() =>
         {
@@ -926,13 +883,13 @@ public class OncologyAnalyzer_AscatDerivation_Tests
     {
         var segs = new[]
         {
-            new OncologyAnalyzer.AlleleSpecificSegmentSummary("1", 1000, 5000, -0.099535673550914569, 0.55357142857142849, 5),
-            new OncologyAnalyzer.AlleleSpecificSegmentSummary("1", 6000, 9000, 0.22239242133644802, 0.64285714285714279, 5),
-            new OncologyAnalyzer.AlleleSpecificSegmentSummary("2", 1000, 5000, 0.0, 0.7, 5),
+            new AlleleSpecificCopyNumberAnalyzer.AlleleSpecificSegmentSummary("1", 1000, 5000, -0.099535673550914569, 0.55357142857142849, 5),
+            new AlleleSpecificCopyNumberAnalyzer.AlleleSpecificSegmentSummary("1", 6000, 9000, 0.22239242133644802, 0.64285714285714279, 5),
+            new AlleleSpecificCopyNumberAnalyzer.AlleleSpecificSegmentSummary("2", 1000, 5000, 0.0, 0.7, 5),
         };
-        var old = OncologyAnalyzer.FitSubclonalCopyNumber(segs, 0.8, 2.5);
-        var tested = OncologyAnalyzer.FitSubclonalCopyNumberWithSnpTest(
-            segs.Select((s, i) => new OncologyAnalyzer.SubclonalSegmentSnpBafs(s, i == 2 ? new[] { 0.7 } : new[] { s.MeanBAF, s.MeanBAF })).ToArray(),
+        var old = AlleleSpecificCopyNumberAnalyzer.FitSubclonalCopyNumber(segs, 0.8, 2.5);
+        var tested = AlleleSpecificCopyNumberAnalyzer.FitSubclonalCopyNumberWithSnpTest(
+            segs.Select((s, i) => new AlleleSpecificCopyNumberAnalyzer.SubclonalSegmentSnpBafs(s, i == 2 ? new[] { 0.7 } : new[] { s.MeanBAF, s.MeanBAF })).ToArray(),
             0.8, 2.5);
 
         Assert.That(tested.Select(t => t.Fit), Is.EqualTo(old));
@@ -942,22 +899,54 @@ public class OncologyAnalyzer_AscatDerivation_Tests
     [Test]
     public void FitSubclonalCopyNumberWithSnpTest_InvalidArguments_Throw()
     {
-        var seg = new OncologyAnalyzer.AlleleSpecificSegmentSummary("1", 1000, 5000, 0.0, 0.6, 5);
-        var ok = new[] { new OncologyAnalyzer.SubclonalSegmentSnpBafs(seg, new[] { 0.6, 0.62 }) };
+        var seg = new AlleleSpecificCopyNumberAnalyzer.AlleleSpecificSegmentSummary("1", 1000, 5000, 0.0, 0.6, 5);
+        var ok = new[] { new AlleleSpecificCopyNumberAnalyzer.SubclonalSegmentSnpBafs(seg, new[] { 0.6, 0.62 }) };
         Assert.Multiple(() =>
         {
-            Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.FitSubclonalCopyNumberWithSnpTest(null!, 0.8, 2.0));
-            Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.FitSubclonalCopyNumberWithSnpTest(
-                new[] { new OncologyAnalyzer.SubclonalSegmentSnpBafs(seg, null!) }, 0.8, 2.0));
-            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.FitSubclonalCopyNumberWithSnpTest(
-                new[] { new OncologyAnalyzer.SubclonalSegmentSnpBafs(seg, new[] { 0.6, 1.2 }) }, 0.8, 2.0), "SNP BAF > 1.");
-            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.FitSubclonalCopyNumberWithSnpTest(
-                new[] { new OncologyAnalyzer.SubclonalSegmentSnpBafs(seg, new[] { double.NaN }) }, 0.8, 2.0), "NaN SNP BAF.");
-            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.FitSubclonalCopyNumberWithSnpTest(ok, 0.0, 2.0));
-            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.FitSubclonalCopyNumberWithSnpTest(ok, 0.8, 2.0, significanceLevel: 1.5));
-            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.FitSubclonalCopyNumberWithSnpTest(ok, 0.8, 2.0, maxBafDistance: -0.1));
+            Assert.Throws<ArgumentNullException>(() => AlleleSpecificCopyNumberAnalyzer.FitSubclonalCopyNumberWithSnpTest(null!, 0.8, 2.0));
+            Assert.Throws<ArgumentNullException>(() => AlleleSpecificCopyNumberAnalyzer.FitSubclonalCopyNumberWithSnpTest(
+                new[] { new AlleleSpecificCopyNumberAnalyzer.SubclonalSegmentSnpBafs(seg, null!) }, 0.8, 2.0));
+            Assert.Throws<ArgumentException>(() => AlleleSpecificCopyNumberAnalyzer.FitSubclonalCopyNumberWithSnpTest(
+                new[] { new AlleleSpecificCopyNumberAnalyzer.SubclonalSegmentSnpBafs(seg, new[] { 0.6, 1.2 }) }, 0.8, 2.0), "SNP BAF > 1.");
+            Assert.Throws<ArgumentException>(() => AlleleSpecificCopyNumberAnalyzer.FitSubclonalCopyNumberWithSnpTest(
+                new[] { new AlleleSpecificCopyNumberAnalyzer.SubclonalSegmentSnpBafs(seg, new[] { double.NaN }) }, 0.8, 2.0), "NaN SNP BAF.");
+            Assert.Throws<ArgumentOutOfRangeException>(() => AlleleSpecificCopyNumberAnalyzer.FitSubclonalCopyNumberWithSnpTest(ok, 0.0, 2.0));
+            Assert.Throws<ArgumentOutOfRangeException>(() => AlleleSpecificCopyNumberAnalyzer.FitSubclonalCopyNumberWithSnpTest(ok, 0.8, 2.0, significanceLevel: 1.5));
+            Assert.Throws<ArgumentOutOfRangeException>(() => AlleleSpecificCopyNumberAnalyzer.FitSubclonalCopyNumberWithSnpTest(ok, 0.8, 2.0, maxBafDistance: -0.1));
         });
     }
 
-    #endregion
+    private const double Gamma = 1.0;
+
+    // Diploid planted genome (length-weighted mean total CN = 2.2). rho0 = 0.80.
+    private const double PlantedPurity = 0.80;
+    private const double PlantedPloidy = 2.2;
+    private static readonly double[] AspcfBafNoise = { 0.0551, -0.043, 0.0313, 0.0063, 0.0189, -0.0093, 0.0282, -0.0104, 0.0366, 0.0327, -0.0089, 0.0162, 0.0422, -0.0015, -0.0042, 0.0176, 0.0547, 0.0701, -0.0727, 0.0183, -0.0305, -0.0791, -0.0044, -0.0028, -0.0073, -0.0053, -0.0095, -0.0097, 0.0231, 0.0169, 0.0052, -0.024, -0.0048, -0.0044, -0.0019, -0.0138, 0.0083, -0.0535, -0.0493, 0.0487, -0.0337, -0.0589, 0.0278, -0.044, -0.0299, -0.0028, 0.0535, 0.0257, -0.0473, -0.0817, 0.0147, 0.0468, -0.0068, -0.0375, -0.0206, 0.0489, -0.0407, -0.0614, -0.0107, -0.0145, -0.0128, -0.0009, 0.0529, -0.0075, 0.0448, 0.0199, -0.0101, -0.0299, -0.0394, 0.0183, 0.0099, 0.0669, 0.004, -0.0395, -0.0178, -0.0445, 0.0081, 0.0025, 0.0197, 0.0157 };
+    private static readonly int[] AspcfBafSign = { 1, -1, -1, 1, 1, 1, -1, 1, 1, 1, -1, 1, 1, -1, 1, 1, -1, -1, 1, 1, 1, -1, -1, -1, 1, -1, 1, 1, 1, -1, 1, -1, 1, -1, 1, 1, 1, -1, 1, -1, 1, -1, 1, 1, 1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 1, -1, 1, -1, -1, -1, 1, -1, 1, -1, 1, 1, -1, 1, 1, 1, 1, 1, 1, 1, -1, -1, 1, -1 };
+
+
+    // ---- Planted-truth forward model (ASCAT inverse) ----
+
+    private static (double LogR, double Baf) Forward(int nA, int nB, double rho, double psi)
+    {
+        int n = nA + nB;
+        double denom = rho * n + 2.0 * (1.0 - rho);
+        double d = rho * psi + 2.0 * (1.0 - rho);
+        double r = Math.Log2(denom / d);
+        double b = (rho * nB + (1.0 - rho)) / denom;
+        return (r, b);
+    }
+
+    // Each planted segment sits on its own chromosome (5 loci < ASCAT kmin = 6), so ascat.aspcf — which
+    // SegmentAlleleSpecific runs (F35) — emits exactly one segment per planted segment: a chromosome with fewer than
+    // 6 loci is one segment (S-ASPCF-3), and noise-free data has MAD sd = 0 so no in-chromosome breakpoint is placed
+    // anyway (S-ASPCF-2).
+    private static readonly (string Chrom, int NA, int NB)[] PlantedSegments =
+    {
+        ("1", 1, 1), // balanced diploid, b=0.5
+        ("2", 2, 0), // copy-neutral LOH, b=0.1
+        ("3", 1, 1),
+        ("4", 2, 1), // gain
+        ("5", 1, 1),
+    };
 }

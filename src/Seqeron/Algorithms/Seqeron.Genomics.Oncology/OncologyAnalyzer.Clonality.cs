@@ -732,4 +732,12 @@ public static partial class OncologyAnalyzer
     }
 
     #endregion
+
+    /// <summary>
+    /// Average number of copies of a locus per cell in a tumour sample of purity ρ whose tumour cells carry
+    /// <paramref name="tumorCopies"/> copies and whose normal cells are diploid: <c>2(1 − ρ) + ρ·n</c> (the denominator of the
+    /// Landau expected-VAF model <c>f = ρ·M·c / (2(1 − ρ) + ρ·q)</c>, see <see cref="ClassifyClonality"/>).
+    /// </summary>
+    private static double MixtureCopiesPerCell(double purity, double tumorCopies) =>
+        NormalDiploidCopyNumber * (1.0 - purity) + purity * tumorCopies;
 }

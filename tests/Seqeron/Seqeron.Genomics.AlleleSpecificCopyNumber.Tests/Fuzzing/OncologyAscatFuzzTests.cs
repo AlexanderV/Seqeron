@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Tests of the Port of ASCAT 3.2.0 and Battenberg 3.0.0; part of Seqeron.Genomics.AlleleSpecificCopyNumber.Tests, licensed under the GNU General Public License, version 3 (only) (see LICENSE in the production project).
 using static Seqeron.Genomics.Oncology.OncologyAnalyzer;
 
 namespace Seqeron.Genomics.Tests.Fuzzing;
@@ -6,12 +8,12 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 /// Fuzz tests for the Oncology allele-specific copy-number derivation area — ONCO-ASCAT-001.
 /// The units under test are the ASCAT-style entry points implemented in
 /// src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.cs:
-///   • <see cref="OncologyAnalyzer.SegmentAlleleSpecific(IEnumerable{OncologyAnalyzer.AlleleSpecificLocus},double,double,int)"/>
+///   • <see cref="AlleleSpecificCopyNumberAnalyzer.SegmentAlleleSpecific(IEnumerable{AlleleSpecificCopyNumberAnalyzer.AlleleSpecificLocus},double,double,int)"/>
 ///       — ASCAT ascat.aspcf joint logR/mirrored-BAF segmentation at the default penalty 70 (B24 F35: the former
 ///         unsourced greedy mean-shift heuristic was replaced by a delegation to SegmentAlleleSpecificAspcf);
-///   • <see cref="OncologyAnalyzer.FitPurityPloidy(IReadOnlyList{OncologyAnalyzer.AlleleSpecificSegmentSummary},double,double,double,double,double,double,double)"/>
+///   • <see cref="AlleleSpecificCopyNumberAnalyzer.FitPurityPloidy(IReadOnlyList{AlleleSpecificCopyNumberAnalyzer.AlleleSpecificSegmentSummary},double,double,double,double,double,double,double)"/>
 ///       — the ASCAT grid fit → ρ, ψ, GoF % and the implied integer allele-specific segments;
-///   • <see cref="OncologyAnalyzer.DeriveMultiplicity(double,double,int,int)"/>
+///   • <see cref="AlleleSpecificCopyNumberAnalyzer.DeriveMultiplicity(double,double,int,int)"/>
 ///       — McGranahan rounded/clamped mutation multiplicity.
 ///
 /// ───────────────────────────────────────────────────────────────────────────
@@ -91,7 +93,6 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 [Category("Fuzzing")]
 public sealed class OncologyAscatFuzzTests
 {
-    private const double Tol = 1e-12;
 
     private static AlleleSpecificLocus Locus(string chrom, long pos, double logR, double baf) =>
         new(chrom, pos, logR, baf);
@@ -151,7 +152,6 @@ public sealed class OncologyAscatFuzzTests
         return found;
     }
 
-    #region ONCO-ASCAT-001 — SegmentAlleleSpecific: positive sanity
 
     // ── POSITIVE sanity: a copy-neutral-LOH region splits from a balanced region ──
     // §4.1: BAF-aware segmentation must NOT merge a copy-neutral LOH run with a balanced
@@ -171,9 +171,7 @@ public sealed class OncologyAscatFuzzTests
         segments.Sum(s => s.LocusCount).Should().Be(loci.Count, "every locus is summarised exactly once");
     }
 
-    #endregion
 
-    #region ONCO-ASCAT-001 — BE: empty loci and single locus
 
     // ── BE: empty loci ⇒ ZERO segments, never an IndexOutOfRange on an empty run ──
     // ascat.aspcf segments each contiguous same-chromosome run; with no loci there is no run, so an empty sequence
@@ -288,9 +286,7 @@ public sealed class OncologyAscatFuzzTests
         }
     }
 
-    #endregion
 
-    #region ONCO-ASCAT-001 — BE: FitPurityPloidy all-het / all-hom / extreme logR-BAF
 
     // ── BE: empty / null segments ⇒ documented throws (§3.3) ─────────────────────
     [Test]
@@ -442,9 +438,7 @@ public sealed class OncologyAscatFuzzTests
         fit.Segments[0].Length.Should().Be(1, "a single-position summary is widened to a 1 bp span (§4.2)");
     }
 
-    #endregion
 
-    #region ONCO-ASCAT-001 — BE: DeriveMultiplicity boundary clamp (INV-02)
 
     // ── BE: m ∈ [1, major] over a randomised sweep of boundary VAF/purity/CN ─────
     // INV-02 / §2.2: m = clamp(round(n_mut), 1, major). VAF=0 ⇒ rounds to 0 ⇒ clamped
@@ -494,5 +488,5 @@ public sealed class OncologyAscatFuzzTests
         ((Action)(() => DeriveMultiplicity(0.4, 0.6, 2, 3))).Should().Throw<ArgumentOutOfRangeException>("major > total");
     }
 
-    #endregion
+    private const double Tol = 1e-12;
 }

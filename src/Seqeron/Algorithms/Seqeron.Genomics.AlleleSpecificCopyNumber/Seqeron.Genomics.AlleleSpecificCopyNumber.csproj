@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Copyleft assembly (GPL-3.0-only); NOT part of the MIT-licensed Seqeron assemblies.
+       Licence text: LICENSE in this directory; inventory: docs/Validation/review-2026-09/LICENSES.md. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <RootNamespace>Seqeron.Genomics.AlleleSpecificCopyNumber</RootNamespace>
+    <PackageLicenseExpression>GPL-3.0-only</PackageLicenseExpression>
+    <Description>Port of ASCAT 3.2.0 (allele-specific segmentation, purity / ploidy fit, multiplicity) and Battenberg 3.0.0 (phased-BAF segmentation, subclonal copy-number states, segment merging). Licensed under GPL-3.0-only.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Seqeron.Genomics.Infrastructure\Seqeron.Genomics.Infrastructure.csproj" />
+    <ProjectReference Include="..\Seqeron.Genomics.Core\Seqeron.Genomics.Core.csproj" />
+    <ProjectReference Include="..\Seqeron.Genomics.Oncology\Seqeron.Genomics.Oncology.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Seqeron.Genomics.Infrastructure" />
+    <Using Include="Seqeron.Genomics.Oncology" />
+    <Using Include="Seqeron.Genomics.Oncology.OncologyAnalyzer" Static="true" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Seqeron.Genomics.AlleleSpecificCopyNumber.Tests" />
+  </ItemGroup>
+
+</Project>

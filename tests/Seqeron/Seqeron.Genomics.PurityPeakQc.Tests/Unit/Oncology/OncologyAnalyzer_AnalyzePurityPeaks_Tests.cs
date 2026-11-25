@@ -1,4 +1,6 @@
-// ONCO-PURITY-001 — CNAqc peak-based purity QC (FIN-B24 F34): OncologyAnalyzer.AnalyzePurityPeaks.
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Tests of the Port of CNAqc 1.1.5, BMix 1.0.0 and R kmeans; part of Seqeron.Genomics.PurityPeakQc.Tests, licensed under the GNU General Public License, version 3 or (at your option) any later version (see LICENSE in the production project).
+// ONCO-PURITY-001 — CNAqc peak-based purity QC (FIN-B24 F34): PurityPeakAnalyzer.AnalyzePurityPeaks.
 // Evidence: docs/Evidence/ONCO-PURITY-001-Evidence.md (§ "CNAqc analyze_peaks — peak-based purity QC")
 // TestSpec: tests/TestSpecs/ONCO-PURITY-001.md (§ AnalyzePurityPeaks)
 // Reference: caravagnalab/CNAqc 1.1.5 (commit 4b7cea4a) R/peak_algorithms.R analyze_peaks_common, R/vaf_functions.R,
@@ -13,18 +15,13 @@ namespace Seqeron.Genomics.Tests.Unit.Oncology;
 [TestFixture]
 public class OncologyAnalyzer_AnalyzePurityPeaks_Tests
 {
-    // Expected match row (CNAqc peaks_analysis$matches) and data peak (fits[[k]]$xy_peaks).
-    public sealed record E(int Major, int Minor, int M, double Peak, double DeltaVaf, double X, double Y, int Counts,
-        bool Mixture, double OffsetVaf, double Offset, double Weight, bool Matched, bool KaryotypePass);
 
-    public sealed record P(int Major, int Minor, double X, double Y, int Counts, bool Discarded, bool Mixture);
-
-    private static List<OncologyAnalyzer.PurityPeakMutation> Mutations(string dataset) =>
-        CnaqcTestData.Load(dataset).Select(r => new OncologyAnalyzer.PurityPeakMutation(r.Vaf, r.Major, r.Minor)).ToList();
+    private static List<PurityPeakAnalyzer.PurityPeakMutation> Mutations(string dataset) =>
+        CnaqcTestData.Load(dataset).Select(r => new PurityPeakAnalyzer.PurityPeakMutation(r.Vaf, r.Major, r.Minor)).ToList();
 
     private static IEnumerable<TestCaseData> CnaqcReferenceCases()
     {
-        yield return new TestCaseData("D1", 0.7, new OncologyAnalyzer.PurityPeakOptions {  }, 0.0023756289876209163, true,
+        yield return new TestCaseData("D1", 0.7, new PurityPeakAnalyzer.PurityPeakOptions {  }, 0.0023756289876209163, true,
             new[]
             {
                 new E(1, 0, 1, 0.53846153846153844, 0.059171597633136092, 0.56000000000000005, 8.6300000000000008, 8, false, -0.021538461538461617, -0.017700905274869835, 0.13043478260869565, true, true),
@@ -43,7 +40,7 @@ public class OncologyAnalyzer_AnalyzePurityPeaks_Tests
                 new P(2, 2, 0.2, 3.65, 11, false, false),
                 new P(2, 2, 0.41, 3.44, 7, false, false),
             }).SetName("AnalyzePurityPeaks_CNAqcR_D1_p0.7_new");
-        yield return new TestCaseData("D1", 0.7, new OncologyAnalyzer.PurityPeakOptions { LegacyDensityCoordinates = true }, 0.0023756289876209163, true,
+        yield return new TestCaseData("D1", 0.7, new PurityPeakAnalyzer.PurityPeakOptions { LegacyDensityCoordinates = true }, 0.0023756289876209163, true,
             new[]
             {
                 new E(1, 0, 1, 0.53846153846153844, 0.059171597633136092, 0.56000000000000005, 8.6400000000000006, 8, false, -0.021538461538461617, -0.017700905274869835, 0.13043478260869565, true, true),
@@ -62,7 +59,7 @@ public class OncologyAnalyzer_AnalyzePurityPeaks_Tests
                 new P(2, 2, 0.2, 3.65, 11, false, false),
                 new P(2, 2, 0.41, 3.44, 7, false, false),
             }).SetName("AnalyzePurityPeaks_CNAqcR_D1_p0.7_old");
-        yield return new TestCaseData("D1", 0.5, new OncologyAnalyzer.PurityPeakOptions {  }, -0.29645326597409133, false,
+        yield return new TestCaseData("D1", 0.5, new PurityPeakAnalyzer.PurityPeakOptions {  }, -0.29645326597409133, false,
             new[]
             {
                 new E(1, 0, 1, 0.33333333333333331, 0.044444444444444446, 0.56000000000000005, 8.6300000000000008, 8, false, -0.22666666666666674, -0.1862809555117248, 0.13043478260869565, false, false),
@@ -81,7 +78,7 @@ public class OncologyAnalyzer_AnalyzePurityPeaks_Tests
                 new P(2, 2, 0.2, 3.65, 11, false, false),
                 new P(2, 2, 0.41, 3.44, 7, false, false),
             }).SetName("AnalyzePurityPeaks_CNAqcR_D1_p0.5_new");
-        yield return new TestCaseData("D1", 0.7, new OncologyAnalyzer.PurityPeakOptions { KernelAdjust = 0.5 }, 0.023857243903529196, true,
+        yield return new TestCaseData("D1", 0.7, new PurityPeakAnalyzer.PurityPeakOptions { KernelAdjust = 0.5 }, 0.023857243903529196, true,
             new[]
             {
                 new E(1, 0, 1, 0.53846153846153844, 0.059171597633136092, 0.56000000000000005, 10.779999999999999, 8, false, -0.021538461538461617, -0.017700905274869835, 0.13043478260869565, true, true),
@@ -108,7 +105,7 @@ public class OncologyAnalyzer_AnalyzePurityPeaks_Tests
                 new P(2, 2, 0.19, 4.62, 10, false, false),
                 new P(2, 2, 0.41, 4.23, 7, false, false),
             }).SetName("AnalyzePurityPeaks_CNAqcR_D1_p0.7_new_adjust0.5");
-        yield return new TestCaseData("D1", 0.7, new OncologyAnalyzer.PurityPeakOptions { PurityError = 0.01, VafTolerance = 0.005 }, 0.0023756289876209163, true,
+        yield return new TestCaseData("D1", 0.7, new PurityPeakAnalyzer.PurityPeakOptions { PurityError = 0.01, VafTolerance = 0.005 }, 0.0023756289876209163, true,
             new[]
             {
                 new E(1, 0, 1, 0.53846153846153844, 0.011834319526627219, 0.56000000000000005, 8.6300000000000008, 8, false, -0.021538461538461617, -0.017700905274869835, 0.13043478260869565, false, false),
@@ -127,7 +124,7 @@ public class OncologyAnalyzer_AnalyzePurityPeaks_Tests
                 new P(2, 2, 0.2, 3.65, 11, false, false),
                 new P(2, 2, 0.41, 3.44, 7, false, false),
             }).SetName("AnalyzePurityPeaks_CNAqcR_D1_p0.7_new_purity_error0.01_tol0.005");
-        yield return new TestCaseData("D3", 0.45, new OncologyAnalyzer.PurityPeakOptions {  }, 0.014615384615384629, true,
+        yield return new TestCaseData("D3", 0.45, new PurityPeakAnalyzer.PurityPeakOptions {  }, 0.014615384615384629, true,
             new[]
             {
                 new E(1, 1, 1, 0.22500000000000001, 0.025000000000000001, 0.22, 5.7800000000000002, 45, false, 0.0050000000000000044, 0.010000000000000009, 0.76923076923076927, true, true),
@@ -141,7 +138,7 @@ public class OncologyAnalyzer_AnalyzePurityPeaks_Tests
                 new P(2, 0, 0.21, 1.21, 2, false, false),
                 new P(2, 0, 0.45, 2.85, 9, false, false),
             }).SetName("AnalyzePurityPeaks_CNAqcR_D3_p0.45_new");
-        yield return new TestCaseData("D4", 0.3, new OncologyAnalyzer.PurityPeakOptions {  }, 0.0039996443291489122, true,
+        yield return new TestCaseData("D4", 0.3, new PurityPeakAnalyzer.PurityPeakOptions {  }, 0.0039996443291489122, true,
             new[]
             {
                 new E(1, 0, 1, 0.17647058823529413, 0.034602076124567477, 0.17000000000000001, 8.2899999999999991, 11, false, 0.0064705882352941169, 0.0094537047779883372, 0.42307692307692307, true, true),
@@ -152,7 +149,7 @@ public class OncologyAnalyzer_AnalyzePurityPeaks_Tests
                 new P(1, 0, 0.17, 8.29, 11, false, false),
                 new P(1, 1, 0.15, 8.13, 11, false, false),
             }).SetName("AnalyzePurityPeaks_CNAqcR_D4_p0.3_new");
-        yield return new TestCaseData("D4", 0.3, new OncologyAnalyzer.PurityPeakOptions { MinKaryotypeSize = 0.35 }, 0, true,
+        yield return new TestCaseData("D4", 0.3, new PurityPeakAnalyzer.PurityPeakOptions { MinKaryotypeSize = 0.35 }, 0, true,
             new[]
             {
                 new E(1, 1, 1, 0.14999999999999999, 0.025000000000000001, 0.14999999999999999, 8.1300000000000008, 11, false, 0, 0, 1, true, true),
@@ -161,7 +158,7 @@ public class OncologyAnalyzer_AnalyzePurityPeaks_Tests
             {
                 new P(1, 1, 0.15, 8.13, 11, false, false),
             }).SetName("AnalyzePurityPeaks_CNAqcR_D4_p0.3_new_size0.35");
-        yield return new TestCaseData("D4", 0.3, new OncologyAnalyzer.PurityPeakOptions { MinAbsoluteKaryotypeMutations = 80 }, -0.010660215188956853, true,
+        yield return new TestCaseData("D4", 0.3, new PurityPeakAnalyzer.PurityPeakOptions { MinAbsoluteKaryotypeMutations = 80 }, -0.010660215188956853, true,
             new[]
             {
                 new E(1, 0, 1, 0.17647058823529413, 0.034602076124567477, 0.17000000000000001, 8.2899999999999991, 11, false, 0.0064705882352941169, 0.0094537047779883372, 0.31428571428571428, true, true),
@@ -176,7 +173,7 @@ public class OncologyAnalyzer_AnalyzePurityPeaks_Tests
                 new P(2, 1, 0.15, 4.21, 3, false, false),
                 new P(2, 1, 0.26, 4.14, 4, false, false),
             }).SetName("AnalyzePurityPeaks_CNAqcR_D4_p0.3_new_minabs80");
-        yield return new TestCaseData("D3", 0.45, new OncologyAnalyzer.PurityPeakOptions { MinVaf = 0.12 }, 0.030000000000000027, true,
+        yield return new TestCaseData("D3", 0.45, new PurityPeakAnalyzer.PurityPeakOptions { MinVaf = 0.12 }, 0.030000000000000027, true,
             new[]
             {
                 new E(1, 1, 1, 0.22500000000000001, 0.025000000000000001, 0.20999999999999999, 8.1699999999999999, 40, false, 0.015000000000000013, 0.030000000000000027, 0.71034482758620687, true, true),
@@ -189,7 +186,7 @@ public class OncologyAnalyzer_AnalyzePurityPeaks_Tests
                 new P(2, 0, 0.21, 1.21, 2, false, false),
                 new P(2, 0, 0.45, 2.85, 9, false, false),
             }).SetName("AnalyzePurityPeaks_CNAqcR_D3_p0.45_new_minVAF0.12");
-        yield return new TestCaseData("D3", 0.45, new OncologyAnalyzer.PurityPeakOptions { MatchingStrategy = OncologyAnalyzer.PurityPeakMatchingStrategy.Rightmost }, 0.014615384615384629, true,
+        yield return new TestCaseData("D3", 0.45, new PurityPeakAnalyzer.PurityPeakOptions { MatchingStrategy = PurityPeakAnalyzer.PurityPeakMatchingStrategy.Rightmost }, 0.014615384615384629, true,
             new[]
             {
                 new E(1, 1, 1, 0.22500000000000001, 0.025000000000000001, 0.22, 5.7800000000000002, 45, false, 0.0050000000000000044, 0.010000000000000009, 0.76923076923076927, true, true),
@@ -203,7 +200,7 @@ public class OncologyAnalyzer_AnalyzePurityPeaks_Tests
                 new P(2, 0, 0.21, 1.21, 2, false, false),
                 new P(2, 0, 0.45, 2.85, 9, false, false),
             }).SetName("AnalyzePurityPeaks_CNAqcR_D3_p0.45_new_rightmost");
-        yield return new TestCaseData("D1", 0.7, new OncologyAnalyzer.PurityPeakOptions { MatchingStrategy = OncologyAnalyzer.PurityPeakMatchingStrategy.Rightmost }, 0.0023756289876209163, true,
+        yield return new TestCaseData("D1", 0.7, new PurityPeakAnalyzer.PurityPeakOptions { MatchingStrategy = PurityPeakAnalyzer.PurityPeakMatchingStrategy.Rightmost }, 0.0023756289876209163, true,
             new[]
             {
                 new E(1, 0, 1, 0.53846153846153844, 0.059171597633136092, 0.56000000000000005, 8.6300000000000008, 8, false, -0.021538461538461617, -0.017700905274869835, 0.13043478260869565, true, true),
@@ -222,7 +219,7 @@ public class OncologyAnalyzer_AnalyzePurityPeaks_Tests
                 new P(2, 2, 0.2, 3.65, 11, false, false),
                 new P(2, 2, 0.41, 3.44, 7, false, false),
             }).SetName("AnalyzePurityPeaks_CNAqcR_D1_p0.7_new_rightmost");
-        yield return new TestCaseData("D1", 0.62, new OncologyAnalyzer.PurityPeakOptions {  }, -0.11362481021020236, true,
+        yield return new TestCaseData("D1", 0.62, new PurityPeakAnalyzer.PurityPeakOptions {  }, -0.11362481021020236, true,
             new[]
             {
                 new E(1, 0, 1, 0.44927536231884063, 0.052509976895610176, 0.56000000000000005, 8.6300000000000008, 8, false, -0.11072463768115942, -0.090996579290893664, 0.13043478260869565, false, false),
@@ -241,7 +238,7 @@ public class OncologyAnalyzer_AnalyzePurityPeaks_Tests
                 new P(2, 2, 0.2, 3.65, 11, false, false),
                 new P(2, 2, 0.41, 3.44, 7, false, false),
             }).SetName("AnalyzePurityPeaks_CNAqcR_D1_p0.62_new");
-        yield return new TestCaseData("D1", 0.7, new OncologyAnalyzer.PurityPeakOptions { MixturePeaks = new Dictionary<(int Major, int Minor), IReadOnlyList<double>> { [(1, 0)] = new[] { 0.53894927536231885 }, [(1, 1)] = new[] { 0.35226677286160424 }, [(2, 1)] = new[] { 0.26285730659499063, 0.5165650460721285 }, [(2, 2)] = new[] { 0.41368298792735059, 0.19704338051414069 } } }, 0.0045358591466179345, true,
+        yield return new TestCaseData("D1", 0.7, new PurityPeakAnalyzer.PurityPeakOptions { MixturePeaks = new Dictionary<(int Major, int Minor), IReadOnlyList<double>> { [(1, 0)] = new[] { 0.53894927536231885 }, [(1, 1)] = new[] { 0.35226677286160424 }, [(2, 1)] = new[] { 0.26285730659499063, 0.5165650460721285 }, [(2, 2)] = new[] { 0.41368298792735059, 0.19704338051414069 } } }, 0.0045358591466179345, true,
             new[]
             {
                 new E(1, 0, 1, 0.53846153846153844, 0.059171597633136092, 0.53921175884249484, 7.3772290573174262, 9, true, -0.0007502203809564012, -0.00063331840442059511, 0.13043478260869565, true, true),
@@ -266,7 +263,7 @@ public class OncologyAnalyzer_AnalyzePurityPeaks_Tests
                 new P(2, 2, 0.413224675814937, 3.43618177831048, 7, false, true),
                 new P(2, 2, 0.196509650749174, 3.65123689868539, 11, false, true),
             }).SetName("AnalyzePurityPeaks_CNAqcR_D1_p0.7_new_bmix");
-        yield return new TestCaseData("D3", 0.45, new OncologyAnalyzer.PurityPeakOptions { MixturePeaks = new Dictionary<(int Major, int Minor), IReadOnlyList<double>> { [(1, 1)] = new[] { 0.08283459223334233, 0.22238674826433397 }, [(2, 0)] = new[] { 0.61731564204021494, 0.22663755735414512, 0.44882962304120372 } } }, 0.0037889790909820253, true,
+        yield return new TestCaseData("D3", 0.45, new PurityPeakAnalyzer.PurityPeakOptions { MixturePeaks = new Dictionary<(int Major, int Minor), IReadOnlyList<double>> { [(1, 1)] = new[] { 0.08283459223334233, 0.22238674826433397 }, [(2, 0)] = new[] { 0.61731564204021494, 0.22663755735414512, 0.44882962304120372 } } }, 0.0037889790909820253, true,
             new[]
             {
                 new E(1, 1, 1, 0.22500000000000001, 0.025000000000000001, 0.22216696460248936, 5.7754176545467608, 45, true, 0.002833035397510647, 0.0056660707950212941, 0.76923076923076927, true, true),
@@ -285,7 +282,7 @@ public class OncologyAnalyzer_AnalyzePurityPeaks_Tests
                 new P(2, 0, 0.226233996627908, 1.19160685090327, 3, false, true),
                 new P(2, 0, 0.449614891616092, 2.8461656236106, 9, false, true),
             }).SetName("AnalyzePurityPeaks_CNAqcR_D3_p0.45_new_bmix");
-        yield return new TestCaseData("D3", 0.45, new OncologyAnalyzer.PurityPeakOptions { MixturePeaks = new Dictionary<(int Major, int Minor), IReadOnlyList<double>> { [(1, 1)] = new[] { 0.08283459223334233, 0.22238674826433397 }, [(2, 0)] = new[] { 0.61731564204021494, 0.22663755735414512, 0.44882962304120372 } }, MatchingStrategy = OncologyAnalyzer.PurityPeakMatchingStrategy.Rightmost }, -0.13824761798675933, true,
+        yield return new TestCaseData("D3", 0.45, new PurityPeakAnalyzer.PurityPeakOptions { MixturePeaks = new Dictionary<(int Major, int Minor), IReadOnlyList<double>> { [(1, 1)] = new[] { 0.08283459223334233, 0.22238674826433397 }, [(2, 0)] = new[] { 0.61731564204021494, 0.22663755735414512, 0.44882962304120372 } }, MatchingStrategy = PurityPeakAnalyzer.PurityPeakMatchingStrategy.Rightmost }, -0.13824761798675933, true,
             new[]
             {
                 new E(1, 1, 1, 0.22500000000000001, 0.025000000000000001, 0.22216696460248936, 5.7754176545467608, 45, true, 0.002833035397510647, 0.0056660707950212941, 0.76923076923076927, true, true),
@@ -309,9 +306,9 @@ public class OncologyAnalyzer_AnalyzePurityPeaks_Tests
 
     [TestCaseSource(nameof(CnaqcReferenceCases))]
     public void AnalyzePurityPeaks_MatchesCnaqcR(
-        string dataset, double purity, OncologyAnalyzer.PurityPeakOptions options, double score, bool pass, E[] matches, P[] peaks)
+        string dataset, double purity, PurityPeakAnalyzer.PurityPeakOptions options, double score, bool pass, E[] matches, P[] peaks)
     {
-        OncologyAnalyzer.PurityPeakAnalysis result = OncologyAnalyzer.AnalyzePurityPeaks(Mutations(dataset), purity, options);
+        PurityPeakAnalyzer.PurityPeakAnalysis result = PurityPeakAnalyzer.AnalyzePurityPeaks(Mutations(dataset), purity, options);
 
         Assert.That(result.Pass, Is.EqualTo(pass), "sample QC (weight-majority of karyotype PASS/FAIL)");
         Assert.That(result.Score, Is.EqualTo(score).Within(1e-12), "λ = Σ weight·offset");
@@ -319,7 +316,7 @@ public class OncologyAnalyzer_AnalyzePurityPeaks_Tests
         for (int i = 0; i < matches.Length; i++)
         {
             E e = matches[i];
-            OncologyAnalyzer.PurityPeakMatch a = result.Matches[i];
+            PurityPeakAnalyzer.PurityPeakMatch a = result.Matches[i];
             string at = $"match {i} ({e.Major}:{e.Minor}, m = {e.M})";
             Assert.That((a.MajorCopyNumber, a.MinorCopyNumber, a.Multiplicity), Is.EqualTo((e.Major, e.Minor, e.M)), at);
             Assert.That(a.ExpectedPeak, Is.EqualTo(e.Peak).Within(1e-15), at + " expected peak");
@@ -327,12 +324,12 @@ public class OncologyAnalyzer_AnalyzePurityPeaks_Tests
             Assert.That(a.MatchedPeak.X, Is.EqualTo(e.X).Within(1e-12), at + " x");
             Assert.That(a.MatchedPeak.Y, Is.EqualTo(e.Y).Within(1e-12 * Math.Max(1, e.Y)), at + " y");
             Assert.That(a.MatchedPeak.CountsPerBin, Is.EqualTo(e.Counts), at + " counts_per_bin");
-            Assert.That(a.MatchedPeak.Source == OncologyAnalyzer.PurityPeakSource.Mixture, Is.EqualTo(e.Mixture), at + " from");
+            Assert.That(a.MatchedPeak.Source == PurityPeakAnalyzer.PurityPeakSource.Mixture, Is.EqualTo(e.Mixture), at + " from");
             Assert.That(a.OffsetVaf, Is.EqualTo(e.OffsetVaf).Within(1e-12), at + " offset_VAF");
             Assert.That(a.Offset, Is.EqualTo(e.Offset).Within(1e-11), at + " offset");
             Assert.That(a.Weight, Is.EqualTo(e.Weight).Within(1e-15), at + " weight");
             Assert.That(a.Matched, Is.EqualTo(e.Matched), at + " matched");
-            OncologyAnalyzer.PurityPeakKaryotype k = result.Karyotypes.Single(
+            PurityPeakAnalyzer.PurityPeakKaryotype k = result.Karyotypes.Single(
                 q => q.MajorCopyNumber == e.Major && q.MinorCopyNumber == e.Minor);
             Assert.That(k.Pass, Is.EqualTo(e.KaryotypePass), at + " karyotype QC");
         }
@@ -342,7 +339,7 @@ public class OncologyAnalyzer_AnalyzePurityPeaks_Tests
         for (int i = 0; i < peaks.Length; i++)
         {
             P e = peaks[i];
-            (int major, int minor, OncologyAnalyzer.PurityDataPeak p) = actualPeaks[i];
+            (int major, int minor, PurityPeakAnalyzer.PurityDataPeak p) = actualPeaks[i];
             string at = $"peak {i} ({e.Major}:{e.Minor})";
             Assert.That((major, minor), Is.EqualTo((e.Major, e.Minor)), at);
             // R prints mixture-peak coordinates with 15 significant digits.
@@ -350,7 +347,7 @@ public class OncologyAnalyzer_AnalyzePurityPeaks_Tests
             Assert.That(p.Y, Is.EqualTo(e.Y).Within(1e-12 * Math.Max(1, e.Y)), at + " y");
             Assert.That(p.CountsPerBin, Is.EqualTo(e.Counts), at + " counts");
             Assert.That(p.Discarded, Is.EqualTo(e.Discarded), at + " discarded");
-            Assert.That(p.Source == OncologyAnalyzer.PurityPeakSource.Mixture, Is.EqualTo(e.Mixture), at + " from");
+            Assert.That(p.Source == PurityPeakAnalyzer.PurityPeakSource.Mixture, Is.EqualTo(e.Mixture), at + " from");
         }
     }
 
@@ -359,8 +356,8 @@ public class OncologyAnalyzer_AnalyzePurityPeaks_Tests
     [Test]
     public void AnalyzePurityPeaks_NoKaryotypePassesFilters_ReturnsNotAnalysed()
     {
-        var result = OncologyAnalyzer.AnalyzePurityPeaks(Mutations("D4"), 0.3,
-            new OncologyAnalyzer.PurityPeakOptions { MinAbsoluteKaryotypeMutations = 200 });
+        var result = PurityPeakAnalyzer.AnalyzePurityPeaks(Mutations("D4"), 0.3,
+            new PurityPeakAnalyzer.PurityPeakOptions { MinAbsoluteKaryotypeMutations = 200 });
         Assert.That(result.Pass, Is.Null);
         Assert.That(result.Score, Is.NaN);
         Assert.That(result.Karyotypes, Is.Empty);
@@ -372,8 +369,8 @@ public class OncologyAnalyzer_AnalyzePurityPeaks_Tests
     [Test]
     public void AnalyzePurityPeaks_ScoreIsNotThresholded()
     {
-        var result = OncologyAnalyzer.AnalyzePurityPeaks(Mutations("D1"), 0.62);
-        Assert.That(Math.Abs(result.Score), Is.GreaterThan(OncologyAnalyzer.PurityPeakOptions.Default.PurityError));
+        var result = PurityPeakAnalyzer.AnalyzePurityPeaks(Mutations("D1"), 0.62);
+        Assert.That(Math.Abs(result.Score), Is.GreaterThan(PurityPeakAnalyzer.PurityPeakOptions.Default.PurityError));
         Assert.That(result.Pass, Is.True);
         Assert.That(result.Karyotypes.Single(k => k.MajorCopyNumber == 1 && k.MinorCopyNumber == 0).Pass, Is.False);
     }
@@ -381,7 +378,7 @@ public class OncologyAnalyzer_AnalyzePurityPeaks_Tests
     [Test]
     public void AnalyzePurityPeaks_KaryotypeScoresSumToSampleScore()
     {
-        var result = OncologyAnalyzer.AnalyzePurityPeaks(Mutations("D1"), 0.5);
+        var result = PurityPeakAnalyzer.AnalyzePurityPeaks(Mutations("D1"), 0.5);
         Assert.That(result.Karyotypes.Sum(k => k.Score), Is.EqualTo(result.Score).Within(1e-15));
         Assert.That(result.Karyotypes.Sum(k => k.Weight), Is.EqualTo(1.0).Within(1e-15));
         Assert.That(result.Karyotypes.Select(k => k.MutationCount), Is.EqualTo(new[] { 120, 400, 250, 150 }));
@@ -392,10 +389,10 @@ public class OncologyAnalyzer_AnalyzePurityPeaks_Tests
     [Test]
     public void AnalyzePurityPeaks_MinKaryotypeSize_UsesAllKaryotypesAsDenominator()
     {
-        var keep = OncologyAnalyzer.AnalyzePurityPeaks(Mutations("D1"), 0.7,
-            new OncologyAnalyzer.PurityPeakOptions { MinKaryotypeSize = 120.0 / 980 });
-        var drop = OncologyAnalyzer.AnalyzePurityPeaks(Mutations("D1"), 0.7,
-            new OncologyAnalyzer.PurityPeakOptions { MinKaryotypeSize = 120.0 / 980 + 1e-9 });
+        var keep = PurityPeakAnalyzer.AnalyzePurityPeaks(Mutations("D1"), 0.7,
+            new PurityPeakAnalyzer.PurityPeakOptions { MinKaryotypeSize = 120.0 / 980 });
+        var drop = PurityPeakAnalyzer.AnalyzePurityPeaks(Mutations("D1"), 0.7,
+            new PurityPeakAnalyzer.PurityPeakOptions { MinKaryotypeSize = 120.0 / 980 + 1e-9 });
         Assert.That(keep.Karyotypes.Any(k => k.MajorCopyNumber == 1 && k.MinorCopyNumber == 0), Is.True);
         Assert.That(drop.Karyotypes.Any(k => k.MajorCopyNumber == 1 && k.MinorCopyNumber == 0), Is.False);
     }
@@ -404,22 +401,28 @@ public class OncologyAnalyzer_AnalyzePurityPeaks_Tests
     public void AnalyzePurityPeaks_InvalidArguments_Throw()
     {
         var m = Mutations("D4");
-        Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.AnalyzePurityPeaks(null!, 0.3));
-        Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.AnalyzePurityPeaks(m, 0.0));
-        Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.AnalyzePurityPeaks(m, 1.01));
-        Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.AnalyzePurityPeaks(m, 0.3,
-            new OncologyAnalyzer.PurityPeakOptions { PurityError = 0 }));
-        Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.AnalyzePurityPeaks(m, 0.3,
-            new OncologyAnalyzer.PurityPeakOptions { MinKaryotypeSize = 1 }));
-        Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.AnalyzePurityPeaks(m, 0.3,
-            new OncologyAnalyzer.PurityPeakOptions { KernelAdjust = 0 }));
-        Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.AnalyzePurityPeaks(m, 0.3,
-            new OncologyAnalyzer.PurityPeakOptions { MinAbsoluteKaryotypeMutations = -1 }));
-        Assert.Throws<ArgumentException>(() => OncologyAnalyzer.AnalyzePurityPeaks(m, 0.3,
-            new OncologyAnalyzer.PurityPeakOptions { Karyotypes = new[] { (3, 1) } }));
-        Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.AnalyzePurityPeaks(
-            new[] { new OncologyAnalyzer.PurityPeakMutation(1.2, 1, 1) }, 0.3));
-        Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.AnalyzePurityPeaks(
-            new[] { new OncologyAnalyzer.PurityPeakMutation(0.2, -1, 1) }, 0.3));
+        Assert.Throws<ArgumentNullException>(() => PurityPeakAnalyzer.AnalyzePurityPeaks(null!, 0.3));
+        Assert.Throws<ArgumentOutOfRangeException>(() => PurityPeakAnalyzer.AnalyzePurityPeaks(m, 0.0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => PurityPeakAnalyzer.AnalyzePurityPeaks(m, 1.01));
+        Assert.Throws<ArgumentOutOfRangeException>(() => PurityPeakAnalyzer.AnalyzePurityPeaks(m, 0.3,
+            new PurityPeakAnalyzer.PurityPeakOptions { PurityError = 0 }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => PurityPeakAnalyzer.AnalyzePurityPeaks(m, 0.3,
+            new PurityPeakAnalyzer.PurityPeakOptions { MinKaryotypeSize = 1 }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => PurityPeakAnalyzer.AnalyzePurityPeaks(m, 0.3,
+            new PurityPeakAnalyzer.PurityPeakOptions { KernelAdjust = 0 }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => PurityPeakAnalyzer.AnalyzePurityPeaks(m, 0.3,
+            new PurityPeakAnalyzer.PurityPeakOptions { MinAbsoluteKaryotypeMutations = -1 }));
+        Assert.Throws<ArgumentException>(() => PurityPeakAnalyzer.AnalyzePurityPeaks(m, 0.3,
+            new PurityPeakAnalyzer.PurityPeakOptions { Karyotypes = new[] { (3, 1) } }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => PurityPeakAnalyzer.AnalyzePurityPeaks(
+            new[] { new PurityPeakAnalyzer.PurityPeakMutation(1.2, 1, 1) }, 0.3));
+        Assert.Throws<ArgumentOutOfRangeException>(() => PurityPeakAnalyzer.AnalyzePurityPeaks(
+            new[] { new PurityPeakAnalyzer.PurityPeakMutation(0.2, -1, 1) }, 0.3));
     }
+
+    // Expected match row (CNAqc peaks_analysis$matches) and data peak (fits[[k]]$xy_peaks).
+    public sealed record E(int Major, int Minor, int M, double Peak, double DeltaVaf, double X, double Y, int Counts,
+        bool Mixture, double OffsetVaf, double Offset, double Weight, bool Matched, bool KaryotypePass);
+
+    public sealed record P(int Major, int Minor, double X, double Y, int Counts, bool Discarded, bool Mixture);
 }

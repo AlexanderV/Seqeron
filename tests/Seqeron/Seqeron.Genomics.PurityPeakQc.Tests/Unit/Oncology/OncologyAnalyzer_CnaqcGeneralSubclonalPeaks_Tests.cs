@@ -1,6 +1,8 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Tests of the Port of CNAqc 1.1.5, BMix 1.0.0 and R kmeans; part of Seqeron.Genomics.PurityPeakQc.Tests, licensed under the GNU General Public License, version 3 or (at your option) any later version (see LICENSE in the production project).
 // ONCO-PURITY-001 — CNAqc complex-karyotype and subclonal peak QC (FIN-B24 F62):
-//   OncologyAnalyzer.AnalyzeComplexKaryotypePeaks (CNAqc analyze_peaks_general) and
-//   OncologyAnalyzer.AnalyzeSubclonalPurityPeaks (CNAqc analyze_peaks_subclonal + expectations_subclonal).
+//   PurityPeakAnalyzer.AnalyzeComplexKaryotypePeaks (CNAqc analyze_peaks_general) and
+//   PurityPeakAnalyzer.AnalyzeSubclonalPurityPeaks (CNAqc analyze_peaks_subclonal + expectations_subclonal).
 // Evidence: docs/Evidence/ONCO-PURITY-001-Evidence.md (§ "CNAqc analyze_peaks_general / analyze_peaks_subclonal")
 // TestSpec: tests/TestSpecs/ONCO-PURITY-001.md (§ 5.9)
 // Reference: caravagnalab/CNAqc 1.1.5 (commit 4b7cea4a) R/peak_algorithms.R, R/equations.R, R/analyze_peaks.R run in
@@ -18,28 +20,14 @@ namespace Seqeron.Genomics.Tests.Unit.Oncology;
 [TestFixture]
 public class OncologyAnalyzer_CnaqcGeneralSubclonalPeaks_Tests
 {
-    internal static string F(double v) => v.ToString("G17", CultureInfo.InvariantCulture);
 
-    internal static string B(bool b) => b ? "TRUE" : "FALSE";
+    private static List<PurityPeakAnalyzer.PurityPeakMutation> Mutations(string dataset) =>
+        CnaqcTestData.Load(dataset).Select(r => new PurityPeakAnalyzer.PurityPeakMutation(r.Vaf, r.Major, r.Minor)).ToList();
 
-    private static List<OncologyAnalyzer.PurityPeakMutation> Mutations(string dataset) =>
-        CnaqcTestData.Load(dataset).Select(r => new OncologyAnalyzer.PurityPeakMutation(r.Vaf, r.Major, r.Minor)).ToList();
-
-    // The block of the R reference file that starts with "== <tag>".
-    internal static List<string> ReferenceBlock(string file, string tag)
-    {
-        var lines = CnaqcTestData.Text(file).Split('\n').Select(l => l.TrimEnd('\r')).ToList();
-        int start = lines.FindIndex(l => l == $"== {tag}" || l.StartsWith($"== {tag} ", StringComparison.Ordinal));
-        Assert.That(start, Is.GreaterThanOrEqualTo(0), $"tag {tag} not in {file}");
-        int end = lines.FindIndex(start + 1, l => l.StartsWith("== ", StringComparison.Ordinal));
-        return lines.GetRange(start, (end < 0 ? lines.Count : end) - start).Where(l => l.Length > 0).ToList();
-    }
-
-    #region analyze_peaks_general
 
     private static IEnumerable<TestCaseData> GeneralCases()
     {
-        static TestCaseData C(string tag, string ds, double p, OncologyAnalyzer.PurityPeakOptions o) =>
+        static TestCaseData C(string tag, string ds, double p, PurityPeakAnalyzer.PurityPeakOptions o) =>
             new TestCaseData(tag, ds, p, o).SetName($"AnalyzeComplexKaryotypePeaks_CNAqcR_{tag.Replace(' ', '_')}");
         yield return C("G1 p=0.6", "G1", 0.6, new());
         yield return C("G1 p=0.6 eps=0.01", "G1", 0.6, new() { PurityError = 0.01 });
@@ -54,14 +42,14 @@ public class OncologyAnalyzer_CnaqcGeneralSubclonalPeaks_Tests
     }
 
     [TestCaseSource(nameof(GeneralCases))]
-    public void AnalyzeComplexKaryotypePeaks_MatchesCnaqcR(string tag, string dataset, double purity, OncologyAnalyzer.PurityPeakOptions options)
+    public void AnalyzeComplexKaryotypePeaks_MatchesCnaqcR(string tag, string dataset, double purity, PurityPeakAnalyzer.PurityPeakOptions options)
     {
-        var r = OncologyAnalyzer.AnalyzeComplexKaryotypePeaks(Mutations(dataset), purity, options);
+        var r = PurityPeakAnalyzer.AnalyzeComplexKaryotypePeaks(Mutations(dataset), purity, options);
         Assert.That(FormatGeneral(tag, r), Is.EqualTo(ReferenceBlock("cnaqc_general_R.txt", tag)));
     }
 
     // R dumpG format: analysis order, expected peaks, data peaks (group_split order), summary rows.
-    internal static List<string> FormatGeneral(string tag, OncologyAnalyzer.ComplexKaryotypePeakAnalysis r)
+    internal static List<string> FormatGeneral(string tag, PurityPeakAnalyzer.ComplexKaryotypePeakAnalysis r)
     {
         var actual = new List<string>();
         if (!r.Ran)
@@ -97,7 +85,7 @@ public class OncologyAnalyzer_CnaqcGeneralSubclonalPeaks_Tests
     [Test]
     public void AnalyzeComplexKaryotypePeaks_G1_SummaryAndExpectations()
     {
-        var r = OncologyAnalyzer.AnalyzeComplexKaryotypePeaks(Mutations("G1"), 0.6);
+        var r = PurityPeakAnalyzer.AnalyzeComplexKaryotypePeaks(Mutations("G1"), 0.6);
         Assert.That(r.Ran, Is.True);
         Assert.That(r.Karyotypes.Select(k => (k.MajorCopyNumber, k.MinorCopyNumber)), Is.EqualTo(new[] { (3, 0), (3, 1), (4, 1) }));
         Assert.That(r.Karyotypes.Select(k => k.MatchedProportion), Is.EqualTo(new[] { 1.0, 0.66666666666666663, 0.5 }));
@@ -112,7 +100,7 @@ public class OncologyAnalyzer_CnaqcGeneralSubclonalPeaks_Tests
     [Test]
     public void AnalyzeComplexKaryotypePeaks_SmallEpsilon_FailsKaryotype()
     {
-        var r = OncologyAnalyzer.AnalyzeComplexKaryotypePeaks(Mutations("G1"), 0.6, new() { PurityError = 0.01 });
+        var r = PurityPeakAnalyzer.AnalyzeComplexKaryotypePeaks(Mutations("G1"), 0.6, new() { PurityError = 0.01 });
         var k41 = r.Karyotypes.Single(k => k.MajorCopyNumber == 4 && k.MinorCopyNumber == 1);
         Assert.That(k41.MatchedProportion, Is.EqualTo(0.25));
         Assert.That(k41.Pass, Is.False);
@@ -123,9 +111,9 @@ public class OncologyAnalyzer_CnaqcGeneralSubclonalPeaks_Tests
     [Test]
     public void AnalyzeComplexKaryotypePeaks_GateIsStrict_AnalysisInclusive()
     {
-        var r = OncologyAnalyzer.AnalyzeComplexKaryotypePeaks(Mutations("G3"), 0.85);
+        var r = PurityPeakAnalyzer.AnalyzeComplexKaryotypePeaks(Mutations("G3"), 0.85);
         Assert.That(r.Karyotypes.Any(k => k.MajorCopyNumber == 4 && k.MinorCopyNumber == 0 && k.MutationCount == 100), Is.True);
-        var closed = OncologyAnalyzer.AnalyzeComplexKaryotypePeaks(Mutations("G3"), 0.85, new() { MinAbsoluteKaryotypeMutations = 150 });
+        var closed = PurityPeakAnalyzer.AnalyzeComplexKaryotypePeaks(Mutations("G3"), 0.85, new() { MinAbsoluteKaryotypeMutations = 150 });
         Assert.That(closed.Ran, Is.False);
         Assert.That(closed.Karyotypes, Is.Empty);
     }
@@ -136,29 +124,27 @@ public class OncologyAnalyzer_CnaqcGeneralSubclonalPeaks_Tests
     public void AnalyzeComplexKaryotypePeaks_GateOpenWithoutComplexKaryotype_Throws()
     {
         var simpleOnly = Mutations("D1").Where(m => m.MajorCopyNumber + m.MinorCopyNumber <= 4 && m.MajorCopyNumber <= 2).ToList();
-        Assert.Throws<InvalidOperationException>(() => OncologyAnalyzer.AnalyzeComplexKaryotypePeaks(simpleOnly, 0.7,
+        Assert.Throws<InvalidOperationException>(() => PurityPeakAnalyzer.AnalyzeComplexKaryotypePeaks(simpleOnly, 0.7,
             new() { Karyotypes = new[] { (1, 1) } }));
-        Assert.That(OncologyAnalyzer.AnalyzeComplexKaryotypePeaks(simpleOnly, 0.7).Ran, Is.False);
+        Assert.That(PurityPeakAnalyzer.AnalyzeComplexKaryotypePeaks(simpleOnly, 0.7).Ran, Is.False);
     }
 
     [Test]
     public void AnalyzeComplexKaryotypePeaks_InvalidArguments_Throw()
     {
         var m = Mutations("G1");
-        Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.AnalyzeComplexKaryotypePeaks(null!, 0.6));
-        Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.AnalyzeComplexKaryotypePeaks(m, 0.0));
-        Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.AnalyzeComplexKaryotypePeaks(m, 0.6, new() { PurityError = 1 }));
-        Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.AnalyzeComplexKaryotypePeaks(
-            new[] { new OncologyAnalyzer.PurityPeakMutation(-0.1, 3, 1) }, 0.6));
+        Assert.Throws<ArgumentNullException>(() => PurityPeakAnalyzer.AnalyzeComplexKaryotypePeaks(null!, 0.6));
+        Assert.Throws<ArgumentOutOfRangeException>(() => PurityPeakAnalyzer.AnalyzeComplexKaryotypePeaks(m, 0.0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => PurityPeakAnalyzer.AnalyzeComplexKaryotypePeaks(m, 0.6, new() { PurityError = 1 }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => PurityPeakAnalyzer.AnalyzeComplexKaryotypePeaks(
+            new[] { new PurityPeakAnalyzer.PurityPeakMutation(-0.1, 3, 1) }, 0.6));
     }
 
-    #endregion
 
-    #region analyze_peaks_subclonal
 
     private static IEnumerable<TestCaseData> SubclonalCases()
     {
-        static TestCaseData C(string tag, string ds, double p, OncologyAnalyzer.SubclonalPeakOptions o, int take = int.MaxValue) =>
+        static TestCaseData C(string tag, string ds, double p, PurityPeakAnalyzer.SubclonalPeakOptions o, int take = int.MaxValue) =>
             new TestCaseData(tag, ds, p, o, take).SetName($"AnalyzeSubclonalPurityPeaks_CNAqcR_{tag.Replace(' ', '_')}");
         yield return C("S1 p=0.7 seed=1", "S1", 0.7, new() { Seed = 1 });
         yield return C("S1 p=0.7 seed=99 eps=0.02", "S1", 0.7, new() { Seed = 99, Epsilon = 0.02 });
@@ -171,14 +157,14 @@ public class OncologyAnalyzer_CnaqcGeneralSubclonalPeaks_Tests
     }
 
     [TestCaseSource(nameof(SubclonalCases))]
-    public void AnalyzeSubclonalPurityPeaks_MatchesCnaqcR(string tag, string dataset, double purity, OncologyAnalyzer.SubclonalPeakOptions options, int take)
+    public void AnalyzeSubclonalPurityPeaks_MatchesCnaqcR(string tag, string dataset, double purity, PurityPeakAnalyzer.SubclonalPeakOptions options, int take)
     {
-        var r = OncologyAnalyzer.AnalyzeSubclonalPurityPeaks(CnaqcTestData.Segments(dataset).Take(take), purity, options);
+        var r = PurityPeakAnalyzer.AnalyzeSubclonalPurityPeaks(CnaqcTestData.Segments(dataset).Take(take), purity, options);
         Assert.That(FormatSubclonal(tag, r), Is.EqualTo(ReferenceBlock("cnaqc_subclonal_R.txt", tag)));
     }
 
     // R dumpS format (segment id reduced to the chromosome).
-    internal static List<string> FormatSubclonal(string tag, IReadOnlyList<OncologyAnalyzer.SubclonalSegmentPeakResult> r)
+    internal static List<string> FormatSubclonal(string tag, IReadOnlyList<PurityPeakAnalyzer.SubclonalSegmentPeakResult> r)
     {
         var actual = new List<string>();
         if (r.Count == 0)
@@ -194,7 +180,7 @@ public class OncologyAnalyzer_CnaqcGeneralSubclonalPeaks_Tests
                 return $"{Math.Max(a, b)}:{Math.Min(a, b)}";
             }
 
-            static string M(OncologyAnalyzer.SubclonalEvolutionModel m) => m == OncologyAnalyzer.SubclonalEvolutionModel.Linear ? "linear" : "branching";
+            static string M(PurityPeakAnalyzer.SubclonalEvolutionModel m) => m == PurityPeakAnalyzer.SubclonalEvolutionModel.Linear ? "linear" : "branching";
             actual.Add($"== {tag}");
             foreach (var s in r)
             {
@@ -225,7 +211,7 @@ public class OncologyAnalyzer_CnaqcGeneralSubclonalPeaks_Tests
     [Test]
     public void AnalyzeSubclonalPurityPeaks_S1Chr1_ModelsAndPeaks()
     {
-        var r = OncologyAnalyzer.AnalyzeSubclonalPurityPeaks(CnaqcTestData.Segments("S1"), 0.7, new() { Seed = 1 });
+        var r = PurityPeakAnalyzer.AnalyzeSubclonalPurityPeaks(CnaqcTestData.Segments("S1"), 0.7, new() { Seed = 1 });
         Assert.That(r.Select(s => s.Segment.Chromosome), Is.EqualTo(new[] { "chr1", "chr3", "chr5" })); // chr7: n = 100, not > 100
         var chr1 = r[0];
         Assert.That(chr1.Rankings.Select(m => (m.ModelId, m.MatchedProportion)), Is.EqualTo(new[]
@@ -236,9 +222,9 @@ public class OncologyAnalyzer_CnaqcGeneralSubclonalPeaks_Tests
         }));
         Assert.That(chr1.BestModels.Select(m => m.Model), Is.EqualTo(new[]
         {
-            OncologyAnalyzer.SubclonalEvolutionModel.Linear, OncologyAnalyzer.SubclonalEvolutionModel.Branching,
+            PurityPeakAnalyzer.SubclonalEvolutionModel.Linear, PurityPeakAnalyzer.SubclonalEvolutionModel.Branching,
         }));
-        var branching = chr1.ExpectedPeaks.Where(e => e.Model == OncologyAnalyzer.SubclonalEvolutionModel.Branching).ToList();
+        var branching = chr1.ExpectedPeaks.Where(e => e.Model == PurityPeakAnalyzer.SubclonalEvolutionModel.Branching).ToList();
         Assert.That(branching.Select(e => e.ExpectedPeak), Is.EqualTo(new[]
             { 0.11570247933884296, 0.17355371900826447, 0.28925619834710742, 0.46280991735537186 }));
         Assert.That(branching.Select(e => e.Shared), Is.EqualTo(new[] { false, false, true, true }));
@@ -248,8 +234,8 @@ public class OncologyAnalyzer_CnaqcGeneralSubclonalPeaks_Tests
     [Test]
     public void AnalyzeSubclonalPurityPeaks_Seed_OnlyChangesIdentifiers()
     {
-        var a = OncologyAnalyzer.AnalyzeSubclonalPurityPeaks(CnaqcTestData.Segments("S2"), 0.5, new() { Seed = 2 });
-        var b = OncologyAnalyzer.AnalyzeSubclonalPurityPeaks(CnaqcTestData.Segments("S2"), 0.5, new() { Seed = 12345 });
+        var a = PurityPeakAnalyzer.AnalyzeSubclonalPurityPeaks(CnaqcTestData.Segments("S2"), 0.5, new() { Seed = 2 });
+        var b = PurityPeakAnalyzer.AnalyzeSubclonalPurityPeaks(CnaqcTestData.Segments("S2"), 0.5, new() { Seed = 12345 });
         for (int i = 0; i < a.Count; i++)
         {
             Assert.That(b[i].ExpectedPeaks.Select(e => (e.ModelId, e.ExpectedPeak, e.Matched)),
@@ -265,7 +251,7 @@ public class OncologyAnalyzer_CnaqcGeneralSubclonalPeaks_Tests
     [Test]
     public void AnalyzeSubclonalPurityPeaks_LohStart_UnreachableSegmentHasNoModels()
     {
-        var r = OncologyAnalyzer.AnalyzeSubclonalPurityPeaks(CnaqcTestData.Segments("S3"), 0.8, new() { Seed = 6, StartingState = (1, 0) });
+        var r = PurityPeakAnalyzer.AnalyzeSubclonalPurityPeaks(CnaqcTestData.Segments("S3"), 0.8, new() { Seed = 6, StartingState = (1, 0) });
         Assert.That(r.Select(s => s.ExpectedPeaks.Count > 0), Is.EqualTo(new[] { true, false, false }));
         Assert.That(r[1].Peaks, Is.Not.Empty);
         Assert.That(r[1].BestModels, Is.Empty);
@@ -276,7 +262,7 @@ public class OncologyAnalyzer_CnaqcGeneralSubclonalPeaks_Tests
     public void AnalyzeSubclonalPurityPeaks_UnreachableUnderCap_ThrowsInsteadOfLooping()
     {
         var s2 = CnaqcTestData.Segments("S2"); // chr8 is 1:0 / 2:0
-        Assert.Throws<InvalidOperationException>(() => OncologyAnalyzer.AnalyzeSubclonalPurityPeaks(s2, 0.5, new() { StartingState = (2, 2) }));
+        Assert.Throws<InvalidOperationException>(() => PurityPeakAnalyzer.AnalyzeSubclonalPurityPeaks(s2, 0.5, new() { StartingState = (2, 2) }));
     }
 
     [Test]
@@ -284,14 +270,26 @@ public class OncologyAnalyzer_CnaqcGeneralSubclonalPeaks_Tests
     {
         var s = CnaqcTestData.Segments("S1");
         var seg = s[0];
-        Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.AnalyzeSubclonalPurityPeaks(null!, 0.7));
-        Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.AnalyzeSubclonalPurityPeaks(s, 1.5));
-        Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.AnalyzeSubclonalPurityPeaks(s, 0.7, new() { Epsilon = 0 }));
-        Assert.Throws<ArgumentException>(() => OncologyAnalyzer.AnalyzeSubclonalPurityPeaks(s, 0.7, new() { StartingState = (1, 2) }));
-        Assert.Throws<ArgumentException>(() => OncologyAnalyzer.AnalyzeSubclonalPurityPeaks(new[] { seg with { MajorCopyNumber = 3 } }, 0.7));
-        Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.AnalyzeSubclonalPurityPeaks(new[] { seg with { Ccf = 1.0 } }, 0.7));
-        Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.AnalyzeSubclonalPurityPeaks(new[] { seg with { Vafs = new[] { 1.5 } } }, 0.7));
+        Assert.Throws<ArgumentNullException>(() => PurityPeakAnalyzer.AnalyzeSubclonalPurityPeaks(null!, 0.7));
+        Assert.Throws<ArgumentOutOfRangeException>(() => PurityPeakAnalyzer.AnalyzeSubclonalPurityPeaks(s, 1.5));
+        Assert.Throws<ArgumentOutOfRangeException>(() => PurityPeakAnalyzer.AnalyzeSubclonalPurityPeaks(s, 0.7, new() { Epsilon = 0 }));
+        Assert.Throws<ArgumentException>(() => PurityPeakAnalyzer.AnalyzeSubclonalPurityPeaks(s, 0.7, new() { StartingState = (1, 2) }));
+        Assert.Throws<ArgumentException>(() => PurityPeakAnalyzer.AnalyzeSubclonalPurityPeaks(new[] { seg with { MajorCopyNumber = 3 } }, 0.7));
+        Assert.Throws<ArgumentOutOfRangeException>(() => PurityPeakAnalyzer.AnalyzeSubclonalPurityPeaks(new[] { seg with { Ccf = 1.0 } }, 0.7));
+        Assert.Throws<ArgumentOutOfRangeException>(() => PurityPeakAnalyzer.AnalyzeSubclonalPurityPeaks(new[] { seg with { Vafs = new[] { 1.5 } } }, 0.7));
     }
 
-    #endregion
+    internal static string F(double v) => v.ToString("G17", CultureInfo.InvariantCulture);
+
+    internal static string B(bool b) => b ? "TRUE" : "FALSE";
+
+    // The block of the R reference file that starts with "== <tag>".
+    internal static List<string> ReferenceBlock(string file, string tag)
+    {
+        var lines = CnaqcTestData.Text(file).Split('\n').Select(l => l.TrimEnd('\r')).ToList();
+        int start = lines.FindIndex(l => l == $"== {tag}" || l.StartsWith($"== {tag} ", StringComparison.Ordinal));
+        Assert.That(start, Is.GreaterThanOrEqualTo(0), $"tag {tag} not in {file}");
+        int end = lines.FindIndex(start + 1, l => l.StartsWith("== ", StringComparison.Ordinal));
+        return lines.GetRange(start, (end < 0 ? lines.Count : end) - start).Where(l => l.Length > 0).ToList();
+    }
 }
