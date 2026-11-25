@@ -14,12 +14,14 @@ namespace SuffixTree.Esa.Tests.External;
 internal static class SesaTestFile
 {
     /// <summary>The bytes of the container of the text (a text of code units below 256): the layout of <see cref="SesaLayout"/>, the table in file order, the flags of the builder.</summary>
-    internal static byte[] Image(LcpChildCase c, bool psi = true, bool counts = true, bool buildInfo = true, ChildCodec codec = ChildCodec.Packed)
+    internal static byte[] Image(LcpChildCase c, bool psi = true, bool counts = true, bool buildInfo = true, ChildCodec codec = ChildCodec.Packed, bool rmq = false, int fanout = 32)
     {
         PackedTextInfo info = TextOracle.Info(c.Symbols, c.Bits, c.Sigma);
         SesaPlan plan = SesaLayout.Plan(info, psi);
         SesaTail tail = SesaLayout.PlaceTail(plan, c.Lcp.Kind, c.Lcp.OverflowCount);
-        var file = new byte[tail.FinalLength];
+        byte[] rmqBytes = rmq ? RmqBytes(c.Lcp.ToArray(), fanout) : [];
+        long rmqOffset = rmq ? SesaFormat.AlignedOffset(tail.FinalLength, rmqBytes.Length) : 0;
+        var file = new byte[rmq ? rmqOffset + rmqBytes.Length : tail.FinalLength];
         int[] sa = c.Sa;
         void Put(long offset, ReadOnlySpan<byte> payload) => payload.CopyTo(file.AsSpan((int)offset));
 
@@ -59,6 +61,12 @@ internal static class SesaTestFile
         sections.Add(new SesaSection(SesaFormat.KindLcp, required, plan.LcpOffset, tail.LcpLength, rows, tail.LcpWidth, c.Lcp.Kind switch { LcpKind.U8 => 1, LcpKind.U16 => 2, _ => 3 }, c.Lcp.OverflowCount, 0, Crc32C.Compute(lcpBase)));
         if (c.Lcp.OverflowCount > 0) sections.Add(new SesaSection(SesaFormat.KindLcpOverflow, required, tail.OverflowOffset, tail.OverflowLength, c.Lcp.OverflowCount, 8, 1, 0, 0, Crc32C.Compute(overflow)));
 
+        if (rmq)
+        {
+            Put(rmqOffset, rmqBytes);
+            sections.Add(new SesaSection(SesaFormat.KindRmq, optional, rmqOffset, rmqBytes.Length, rmqBytes.Length / 4, 4, 1, fanout, 0, Crc32C.Compute(rmqBytes)));
+        }
+
         var header = new SesaHeader
         {
             TextLength = c.N,
@@ -74,11 +82,37 @@ internal static class SesaTestFile
         return file;
     }
 
+    /// <summary>
+    /// The levels of the LCP pyramid (ADR-005 sections 3.3 and 6.1: the block minima of <paramref name="fanout"/> consecutive entries, then the minima of those, down to one block; none for a single entry), level 0 first, as little-endian
+    /// 4-byte numbers. Written here from the definition and nothing else, so that it is the oracle of the writer of the product.
+    /// </summary>
+    internal static byte[] RmqBytes(int[] lcp, int fanout)
+    {
+        var levels = new List<uint>();
+        int[] current = lcp;
+        while (current.Length > 1)
+        {
+            int blocks = (current.Length + fanout - 1) / fanout;
+            var next = new int[blocks];
+            for (int b = 0; b < blocks; b++)
+            {
+                int min = int.MaxValue;
+                for (int j = b * fanout; j < Math.Min(current.Length, (b + 1) * fanout); j++) min = Math.Min(min, current[j]);
+                next[b] = min;
+                levels.Add((uint)min);
+            }
+            current = next;
+        }
+        var bytes = new byte[4 * levels.Count];
+        for (int i = 0; i < levels.Count; i++) BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(4 * i), levels[i]);
+        return bytes;
+    }
+
     /// <summary>Writes the container of <paramref name="text"/> and returns its path.</summary>
-    internal static string Write(TempDir dir, string text, string name = "t.sesa", bool psi = true, ChildCodec codec = ChildCodec.Packed)
+    internal static string Write(TempDir dir, string text, string name = "t.sesa", bool psi = true, ChildCodec codec = ChildCodec.Packed, bool rmq = false)
     {
         string path = dir.File(name);
-        File.WriteAllBytes(path, Image(LcpChildCase.Of(text), psi, codec: codec));
+        File.WriteAllBytes(path, Image(LcpChildCase.Of(text), psi, codec: codec, rmq: rmq));
         return path;
     }
 

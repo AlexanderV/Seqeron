@@ -83,6 +83,17 @@ internal static class SesaFormat
 
     /// <summary>CHILD codec 2 (ADR-003 amendment of 2026-11-19): layout A with the kind of a field in bits 30-31 (0 empty, 1 next, 2 up, 3 down) and the rank in bits 0-29; for a text of at most 2^30 - 1 symbols.</summary>
     internal const int ChildCodecTagged = 2;
+
+    /// <summary>
+    /// RMQ (ADR-003 kind 9, redefined by ADR-005 section 3.3 and 6.1): the persisted LCP pyramid of the navigation pack. The levels, level 0 first, one after the other: level 0 holds the minimum of every <see cref="RmqFanout"/>
+    /// consecutive LCP entries, level k + 1 the minima of the blocks of level k, down to a level of one block; none for a text whose LCP array has a single entry. <c>COUNT</c> is the number of numbers of all levels, <c>ELEM_WIDTH</c> is
+    /// <c>POS_WIDTH</c>, <c>PARAM0</c> the fanout, <c>PARAM1</c> 0, codec 1, <c>HAS_CRC</c> set and <c>REQUIRED</c> clear (a reader that does not know it ignores it, a reader that does builds nothing).
+    /// </summary>
+    internal const int KindRmq = 9;
+
+    /// <summary>The fanout of the persisted pyramid (the fanout of the navigation pack: 0.13 bytes per entry).</summary>
+    internal const int RmqFanout = 32;
+
     internal const int KindBuildInfo = 11;
     internal const int KindPsi = 12;
     internal const int KindCounts = 13;

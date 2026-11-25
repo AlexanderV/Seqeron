@@ -146,11 +146,13 @@ internal static partial class NarrowingLint
     /// <summary>The production directory that holds the files of the search side.</summary>
     internal static string EsaDirectory() => Path.Combine(RepositoryRoot(), "src", "SuffixTree", "Algorithms", "SuffixTree.Esa");
 
-    /// <summary>The files of the search side that the lint scans, relative to <see cref="EsaDirectory"/>.</summary>
+    /// <summary>The files of the search side (S2.4) and of the navigation side (S2.5) that the lint scans, relative to <see cref="EsaDirectory"/>.</summary>
     internal static readonly string[] Files =
     [
         "WideSearch.cs", "MappedSearch.cs", "EsaIndex.cs", "EsaIndex.Search.cs", "EsaIndex.Analysis.cs", "EsaIndex.Traverse.cs", "EsaIndex.Matching.cs", "EsaIndex.Navigation.cs",
         "LeftmostOccurrence.cs", "LcpIntervalScan.cs", "ChildTable.cs", "EsaSuffixIndex.cs", "EsaSuffixIndex.Arrays.cs", "EsaSuffixIndex.Tree.cs", "External/Sesa/SesaFile.cs", "IntBridge.cs",
+        // the navigation side (S2.5): the navigator and its handles, the pack, the pyramid, the views that they read
+        "EsaNavigator.cs", "EsaNavigationPack.cs", "EsaNode.cs", "LcpPyramid.cs", "SaView.cs", "CompactLcp.cs", "ChildLayouts.cs", "EsaText.cs", "EsaSuffixTree.cs", "PosReaders.cs",
     ];
 
     // ------------------------------------------------------------------------------------ the 32-bit loop of MappedSearch
