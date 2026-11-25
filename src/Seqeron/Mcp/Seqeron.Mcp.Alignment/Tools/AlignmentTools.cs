@@ -550,14 +550,17 @@ public class AlignmentTools
     }
 
     [McpServerTool(Name = "calculate_coverage", Title = "Assembly — Per-Base Coverage Depth", ReadOnly = true)]
-    [Description("Maps each read to its best-matching position on the reference (≥ minOverlap matching bases) and returns per-base coverage depth as an integer array of length reference.Length.")]
+    [Description("Aligns each read end-to-end without gaps at its minimum-Hamming position on the reference (placed when ≥ minOverlap bases match; one placement per read) and returns per-base coverage depth (samtools depth semantics) as an integer array of length reference.Length. Optional: search the reverse-complement strand too, and skip reads whose best score is reached at more than one locus.")]
     public static CoverageResult CalculateCoverage(
         [Description("Reference sequence.")] string reference,
         [Description("Reads to map onto reference.")] string[] reads,
-        [Description("Minimum matching bases required to map a read.")] int minOverlap = 20)
+        [Description("Minimum matching bases required to map a read (≥ 1).")] int minOverlap = 20,
+        [Description("Also align each read's reverse complement (both strands, as Bowtie 2/BWA do by default). Default false (forward strand only).")] bool includeReverseComplement = false,
+        [Description("Skip multi-mapped reads whose best score is reached at more than one locus (Bowtie 2 MAPQ ≤ 1; samtools depth -Q 2). Default false (counted once at the leftmost locus).")] bool excludeMultiMapped = false)
     {
         var arr = global::Seqeron.Genomics.Alignment.SequenceAssembler.CalculateCoverage(
-            reference ?? string.Empty, reads ?? Array.Empty<string>(), minOverlap);
+            reference ?? string.Empty, reads ?? Array.Empty<string>(), minOverlap,
+            includeReverseComplement, excludeMultiMapped);
         return new CoverageResult(arr);
     }
 

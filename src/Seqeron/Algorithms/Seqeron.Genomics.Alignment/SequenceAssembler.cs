@@ -1296,6 +1296,7 @@ public static class SequenceAssembler
         return true;
     }
 
+
     /// <summary>
     /// Default minimum number of matching characters required to place a read against the
     /// reference. This is a usability default for read placement, not a biological constant;
@@ -1306,69 +1307,129 @@ public static class SequenceAssembler
     private const int DefaultMinOverlap = 20;
 
     /// <summary>
-    /// Calculates per-base sequencing coverage (read depth) along the reference. Each read is
-    /// placed at its best ungapped match position (requiring at least <paramref name="minOverlap"/>
-    /// matching characters); a placed read of length L starting at position p increments the depth
-    /// of every reference position in the half-open interval [p, min(p + L, reference.Length)).
-    /// Per-base depth is the number of reads covering that position (Metagenomics Wiki, "SAMtools:
-    /// get breadth of coverage"; Cook, "Calculate Depth and Breadth of Coverage From a bam File").
+    /// Calculates per-base sequencing coverage (read depth) along the reference, forward strand
+    /// only. Equivalent to
+    /// <see cref="CalculateCoverage(string, IReadOnlyList{string}, int, bool, bool)"/> with
+    /// <c>includeReverseComplement: false, excludeMultiMapped: false</c>.
     /// </summary>
     /// <param name="reference">Reference sequence; depth is reported per position.</param>
     /// <param name="reads">Reads to map against the reference.</param>
-    /// <param name="minOverlap">Minimum matching characters required to place a read.</param>
+    /// <param name="minOverlap">Minimum matching characters required to place a read (≥ 1).</param>
+    /// <returns>Per-base depth array of length <c>reference.Length</c>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="reference"/> or <paramref name="reads"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="reads"/> contains a null element.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="minOverlap"/> is less than 1.</exception>
+    public static int[] CalculateCoverage(string reference, IReadOnlyList<string> reads, int minOverlap = DefaultMinOverlap) =>
+        CalculateCoverage(reference, reads, minOverlap, includeReverseComplement: false, excludeMultiMapped: false);
+
+    /// <summary>
+    /// Calculates per-base sequencing coverage (read depth) along the reference.
+    /// <para>
+    /// <b>Placement.</b> Each read is aligned ungapped and end-to-end (the whole read must lie
+    /// inside the reference, no soft clipping — Bowtie 2's default <c>--end-to-end</c> mode) at
+    /// the window of minimum Hamming distance, found by the canonical
+    /// <see cref="ApproximateMatcher.FindBestMatch(string, string)"/> (case-insensitive, leftmost on
+    /// ties). With <paramref name="includeReverseComplement"/> the reverse complement of the read
+    /// is also aligned (the reverse/Crick strand; Bowtie 2 and BWA search both strands by default,
+    /// <c>--nofw/--norc</c> disable one); on an equal score the forward placement is kept. A read is
+    /// placed only when its best placement has at least <paramref name="minOverlap"/> matching
+    /// characters (length − Hamming distance); a read longer than the reference cannot align.
+    /// Each read is placed at most once (one primary alignment per read, as reported by Bowtie 2
+    /// in its default mode).
+    /// </para>
+    /// <para>
+    /// <b>Depth.</b> A read placed at position p with length L increments every reference
+    /// position in [p, p + L): per-base depth is the number of reads whose aligned span covers
+    /// the position (<c>samtools depth</c>; Metagenomics Wiki, "SAMtools: get breadth of
+    /// coverage"; Cook, "Calculate Depth and Breadth of Coverage From a bam File"). Placements
+    /// are ungapped, so there are no deletions whose counting would depend on <c>samtools depth -J</c>.
+    /// </para>
+    /// <para>
+    /// <b>Multi-mapping reads.</b> By default a read whose best score is reached at several
+    /// loci counts once, at the forward-first, leftmost one (Bowtie 2 / BWA report one of the
+    /// equally good hits, chosen pseudo-randomly). With <paramref name="excludeMultiMapped"/> such
+    /// reads are skipped: Bowtie 2 assigns MAPQ ≤ 1 when the best and second-best alignment scores
+    /// are equal (<c>unique.h</c>, <c>BowtieMapq2</c>), so this reproduces
+    /// <c>samtools depth -Q 2</c>. Loci are distinct reference spans, so a reverse-palindromic read
+    /// matching both strands at the same position is one locus.
+    /// </para>
+    /// </summary>
+    /// <param name="reference">Reference sequence; depth is reported per position.</param>
+    /// <param name="reads">Reads to map against the reference.</param>
+    /// <param name="minOverlap">Minimum matching characters required to place a read (≥ 1).</param>
+    /// <param name="includeReverseComplement">Also align each read's reverse complement (both strands).</param>
+    /// <param name="excludeMultiMapped">Skip reads whose best score is attained at more than one locus.</param>
     /// <returns>
     /// An array of length <c>reference.Length</c> whose i-th element is the number of placed reads
-    /// covering reference position i. Reads that fail to place contribute nothing; portions of a
-    /// read extending past the reference end are clipped and do not contribute.
+    /// covering reference position i. Reads that fail to place contribute nothing.
     /// </returns>
     /// <exception cref="ArgumentNullException"><paramref name="reference"/> or <paramref name="reads"/> is null.</exception>
-    public static int[] CalculateCoverage(string reference, IReadOnlyList<string> reads, int minOverlap = DefaultMinOverlap)
+    /// <exception cref="ArgumentException"><paramref name="reads"/> contains a null element.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="minOverlap"/> is less than 1.</exception>
+    public static int[] CalculateCoverage(
+        string reference,
+        IReadOnlyList<string> reads,
+        int minOverlap,
+        bool includeReverseComplement,
+        bool excludeMultiMapped = false)
     {
         ArgumentNullException.ThrowIfNull(reference);
         ArgumentNullException.ThrowIfNull(reads);
+        if (minOverlap < 1)
+            throw new ArgumentOutOfRangeException(nameof(minOverlap), minOverlap,
+                "At least one matching character is required to place a read.");
 
         var coverage = new int[reference.Length];
 
         foreach (string read in reads)
         {
-            // Place the read at its best ungapped match, then increment the depth of every
-            // reference position the read spans (clipped at the reference end).
-            int pos = FindBestAlignment(reference, read, minOverlap);
-            if (pos >= 0)
-            {
-                for (int i = pos; i < pos + read.Length && i < reference.Length; i++)
-                {
-                    coverage[i]++;
-                }
-            }
+            if (read is null)
+                throw new ArgumentException("Reads must not contain null elements.", nameof(reads));
+
+            int pos = PlaceRead(reference, read, minOverlap, includeReverseComplement, excludeMultiMapped);
+            if (pos < 0) continue;
+            for (int i = pos; i < pos + read.Length; i++)
+                coverage[i]++;
         }
 
         return coverage;
     }
 
-    private static int FindBestAlignment(string reference, string read, int minOverlap)
+    /// <summary>
+    /// Start of the read's primary end-to-end ungapped placement, or -1 when it does not place
+    /// (fewer than <paramref name="minOverlap"/> matches, or multi-mapped and excluded).
+    /// </summary>
+    private static int PlaceRead(
+        string reference, string read, int minOverlap, bool bothStrands, bool excludeMultiMapped)
     {
-        int bestPos = -1;
-        int bestScore = minOverlap - 1;
+        if (ApproximateMatcher.FindBestMatch(reference, read) is not { } forward)
+            return -1; // empty read / reference, or read longer than reference
 
-        for (int pos = 0; pos <= reference.Length - read.Length; pos++)
+        string? reverse = bothStrands ? ReverseComplement(read) : null;
+        var best = forward;
+        if (reverse is not null)
         {
-            int matches = 0;
-            for (int i = 0; i < read.Length; i++)
-            {
-                if (char.ToUpperInvariant(reference[pos + i]) ==
-                    char.ToUpperInvariant(read[i]))
-                    matches++;
-            }
-
-            if (matches > bestScore)
-            {
-                bestScore = matches;
-                bestPos = pos;
-            }
+            var rc = ApproximateMatcher.FindBestMatch(reference, reverse)!.Value;
+            if (rc.Distance < forward.Distance) best = rc; // equal score → keep forward strand
         }
 
-        return bestPos;
+        if (read.Length - best.Distance < minOverlap) return -1;
+
+        if (excludeMultiMapped)
+        {
+            var loci = new HashSet<int>();
+            foreach (var hit in ApproximateMatcher.FindWithMismatches(reference, read, best.Distance))
+                loci.Add(hit.Position);
+            if (reverse is not null)
+            {
+                foreach (var hit in ApproximateMatcher.FindWithMismatches(reference, reverse, best.Distance))
+                    loci.Add(hit.Position);
+            }
+
+            if (loci.Count > 1) return -1;
+        }
+
+        return best.Position;
     }
 
     // Default plurality cut-off for emitting a committed residue. EMBOSS `cons` defines the
