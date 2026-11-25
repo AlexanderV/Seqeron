@@ -2164,6 +2164,14 @@ public static partial class MiRnaAnalyzer
         ArgumentNullException.ThrowIfNull(tree);
         ArgumentNullException.ThrowIfNull(speciesWithSite);
 
+        return RoundPerl(ConnectingSubtreeLength(tree, speciesWithSite), "F4");
+    }
+
+    // Total branch length of the minimal subtree connecting the given leaves (unrounded; species that
+    // are not leaves are ignored; fewer than two leaves ⇒ 0). Shared by ComputeBranchLengthScore and
+    // the per-column branch lengths of AssignTargetScanUtrBin (targetscan_70_BL_bins.pl).
+    private static double ConnectingSubtreeLength(PhylogeneticAnalyzer.PhyloNode tree, IEnumerable<string> speciesWithSite)
+    {
         var present = new HashSet<string>(StringComparer.Ordinal);
         foreach (string species in speciesWithSite)
             if (species is not null)
@@ -2179,7 +2187,7 @@ public static partial class MiRnaAnalyzer
         // on a connecting path iff its lower side holds ≥ 1 and < found species-with-site.
         total = 0.0;
         CountAndSumConnectingEdges(tree, present, ref total, totalPresent: found);
-        return RoundPerl(total, "F4");
+        return total;
     }
 
     // Post-order walk returning the number of species-with-site leaves in the subtree of
